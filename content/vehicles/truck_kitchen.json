@@ -158,5 +158,6 @@
     "engineKW": 55,
     "pushEfficiency": 0.5,
     "note": "Opel Blitz ~3.3 t empty plus load; 75 hp"
-  }
+  },
+  "dash": {"spec": "opel_blitz", "offset": [0, -0.26, 0.7], "note": "VH6b src/vehicle_dash.cpp: the interior content/vehicles/dash/opel_blitz.json, anchored at the driver's eye + offset"}
 }

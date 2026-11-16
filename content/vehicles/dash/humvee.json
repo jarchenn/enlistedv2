@@ -1,0 +1,40 @@
+{
+  "note": "HMMWV (58.png): a tan CARC steel dash with a raised instrument housing (speedometer, tachometer, four small dials, bolted bezel), a red warning-lamp panel, a guarded toggle row with stencils, the rotary light switch, data plates, the transmission and transfer levers to the right, a two-set radio rack and gooseneck map light on the passenger side, worn paint and grime.",
+  "palette": {
+    "carc": {"rgb": [0.42, 0.36, 0.25], "rough": 0.8, "metal": 0.25, "pat": "painted", "tex": true},
+    "carc_dark": {"rgb": [0.16, 0.15, 0.11], "rough": 0.75, "metal": 0.3, "pat": "painted", "tex": true},
+    "worn": {"rgb": [0.32, 0.3, 0.26], "rough": 0.6, "metal": 0.7, "pat": "metal", "tex": true},
+    "od": {"rgb": [0.16, 0.17, 0.11], "rough": 0.7, "metal": 0.4, "pat": "painted", "tex": true},
+    "bezel": {"rgb": [0.04, 0.04, 0.04], "rough": 0.45, "metal": 0.5, "pat": "metal"}
+  },
+  "needle": [0.97, 0.97, 0.95],
+  "items": [
+    {"id": "panel", "type": "box", "at": [0.3, -0.07, 0.03], "size": [0.95, 0.26, 0.06], "mat": "carc"},
+    {"id": "housing", "type": "box", "at": [0.0, 0.03, -0.02], "size": [0.44, 0.21, 0.04], "mat": "carc_dark"},
+    {"id": "hood", "type": "box", "at": [0.0, 0.14, -0.05], "size": [0.46, 0.014, 0.1], "mat": "carc_dark", "rot": [-8, 0, 0]},
+    {"id": "tach", "type": "gauge", "at": [-0.08, 0.05, -0.04], "r": 0.05, "n": 4, "numStep": 1, "read": "rpm", "bezel": "bezel", "redline": 0.15},
+    {"id": "speedo", "type": "gauge", "at": [0.08, 0.05, -0.04], "r": 0.05, "n": 6, "numStep": 1, "read": "speed", "bezel": "bezel"},
+    {"id": "fuel", "type": "gauge", "at": [-0.15, -0.04, -0.04], "r": 0.024, "sweep": 100, "read": "fuel", "bezel": "bezel", "bezelW": 0.006, "bezelD": 0.01},
+    {"id": "temp", "type": "gauge", "at": [-0.05, -0.04, -0.04], "r": 0.024, "sweep": 100, "read": "temp", "bezel": "bezel", "bezelW": 0.006, "bezelD": 0.01},
+    {"id": "oil", "type": "gauge", "at": [0.05, -0.04, -0.04], "r": 0.024, "sweep": 100, "bezel": "bezel", "bezelW": 0.006, "bezelD": 0.01},
+    {"id": "volts", "type": "gauge", "at": [0.15, -0.04, -0.04], "r": 0.024, "sweep": 100, "bezel": "bezel", "bezelW": 0.006, "bezelD": 0.01},
+    {"id": "housing_bolts", "type": "bolts", "at": [-0.205, 0.12, -0.04], "n": 2, "pitch": [0.41, 0], "r": 0.005},
+    {"id": "housing_bolts_low", "type": "bolts", "at": [-0.205, -0.065, -0.04], "n": 2, "pitch": [0.41, 0], "r": 0.005},
+    {"id": "warn", "type": "lamps", "at": [0.26, 0.02, 0.0], "rows": 2, "cols": 4, "pitch": [0.028, 0.03], "plate": "red", "bezel": "bezel"},
+    {"id": "toggles", "type": "toggles", "at": [0.25, -0.08, 0.0], "cols": 6, "pitch": [0.046, 0], "recess": true, "guard": true, "base": "worn"},
+    {"id": "lights", "type": "knobs", "at": [0.27, -0.16, 0.0], "n": 3, "pitch": [0.075, 0], "r": 0.016, "ring": "worn", "sides": 8},
+    {"id": "buttons", "type": "buttons", "at": [0.5, -0.16, 0.0], "cols": 3, "pitch": [0.04, 0], "size": [0.03, 0.022], "glow": [1.6, 1.1, 0.4]},
+    {"id": "plates", "type": "plates", "at": [0.52, 0.03, 0.0], "n": 2, "pitch": [0.075, 0]},
+    {"id": "stencil", "type": "stencil", "at": [0.47, -0.04, 0.0], "n": 7},
+    {"id": "grime", "type": "stencil", "at": [-0.14, -0.185, 0.0], "n": 5, "size": [0.06, 0.012], "mat": "grime"},
+    {"id": "wear", "type": "stencil", "at": [0.62, -0.18, 0.0], "n": 3, "size": [0.04, 0.008], "mat": "worn"},
+    {"id": "panel_bolts", "type": "bolts", "at": [-0.15, -0.19, 0.0], "n": 9, "pitch": [0.112, 0]},
+    {"id": "levers", "type": "lever", "at": [0.42, -0.55, -0.22], "n": 2, "pitch": [0.07, 0], "len": 0.34, "axis": [0, 1, -0.3], "knob": "black", "knob2": "red"},
+    {"id": "rack", "type": "box", "at": [0.82, -0.13, -0.11], "size": [0.34, 0.25, 0.18], "mat": "od"},
+    {"id": "radio", "type": "radio", "at": [0.82, -0.075, -0.205], "n": 2, "size": [0.3, 0.09, 0.02], "mat": "od"},
+    {"id": "rack_bolts", "type": "bolts", "at": [0.67, 0.0, -0.2], "n": 2, "pitch": [0.3, 0], "r": 0.006},
+    {"id": "maplight_stem", "type": "cyl", "at": [0.66, 0.1, -0.06], "r": 0.006, "depth": 0.2, "axis": [-0.4, 1, -0.5], "mat": "black", "sides": 8},
+    {"id": "maplight", "type": "cyl", "at": [0.62, 0.19, -0.12], "r": 0.022, "depth": 0.05, "axis": [-0.3, -0.6, -0.7], "mat": "od", "sides": 10},
+    {"id": "maplight_lens", "type": "glowbox", "at": [0.605, 0.17, -0.142], "size": [0.026, 0.026, 0.002], "glow": [2.2, 0.25, 0.15], "rot": [50, 0, 0]}
+  ]
+}

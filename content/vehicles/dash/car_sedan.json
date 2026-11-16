@@ -1,0 +1,22 @@
+{
+  "note": "BR sedan (mod_sedan, _red, _wrecked, _burned): an older-generation family saloon: grey plastic dash with a silver band, three analogue dials (speedometer, rev counter, fuel / temperature combination) under a deep hood, a two-DIN radio screen, chrome-ringed round vents, body-colour seat inserts.",
+  "base": "civil_core",
+  "palette": {
+    "pad": {"rgb": [0.14, 0.14, 0.145], "rough": 0.85, "pat": "textile", "tex": true},
+    "dash": {"rgb": [0.11, 0.11, 0.115], "rough": 0.85, "pat": "textile"},
+    "silver": {"rgb": [0.45, 0.46, 0.47], "rough": 0.35, "metal": 0.7, "pat": "metal"},
+    "face": {"rgb": [0.02, 0.02, 0.025], "rough": 0.6},
+    "mark": {"rgb": [0.9, 0.9, 0.9], "rough": 0.6, "emi": [0.9, 0.35, 0.15]}
+  },
+  "needle": [1.0, 0.35, 0.1],
+  "remove": ["stitch", "band", "ambient", "cluster", "screen"],
+  "add": [
+    {"id": "band", "type": "box", "at": [0.37, -0.06, 0.003], "size": [1.44, 0.05, 0.004], "mat": "silver"},
+    {"id": "speedo", "type": "gauge", "at": [0.11, 0.055, 0.005], "r": 0.042, "n": 6, "numStep": 4, "read": "speed", "bezel": "silver", "bezelW": 0.005},
+    {"id": "tach", "type": "gauge", "at": [0.0, 0.055, 0.005], "r": 0.042, "n": 7, "numStep": 1, "read": "rpm", "bezel": "silver", "bezelW": 0.005, "redline": 0.2},
+    {"id": "combo_f", "type": "gauge", "at": [-0.11, 0.072, 0.005], "r": 0.02, "sweep": 90, "read": "fuel", "bezel": "silver", "bezelW": 0.004},
+    {"id": "combo_t", "type": "gauge", "at": [-0.11, 0.032, 0.005], "r": 0.02, "sweep": 90, "read": "temp", "bezel": "silver", "bezelW": 0.004},
+    {"id": "screen", "type": "screen", "at": [0.37, -0.16, 0.005], "size": [0.18, 0.09], "ui": "radio", "bezel": "trim", "accent": [2.2, 0.8, 0.2]},
+    {"id": "radio_keys", "type": "buttons", "at": [0.29, -0.225, 0.005], "cols": 5, "pitch": [0.04, 0], "size": [0.03, 0.014], "glow": [2.0, 0.8, 0.25]}
+  ]
+}

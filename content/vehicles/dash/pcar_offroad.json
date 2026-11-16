@@ -1,0 +1,31 @@
+{
+  "note": "Off-road: a chunky, flat, upright dash in rubbery black with orange accents, four square-bezel analogue dials behind the wheel, a pod of three auxiliary dials (inclinometer, oil, volts) on the centre stack, a passenger grab handle, guarded auxiliary-light toggles, the transfer-case (4x4) lever beside the gear lever on the tunnel.",
+  "base": "civil_core",
+  "model": {"note": "the car-pack model's own dash top / rear face and the driver's eye on its seat, [y, z] in the asset frame", "eye": [1.5, -0.3], "dash": [1.38, 0.3]},
+  "palette": {
+    "dash": {"rgb": [0.035, 0.035, 0.035], "rough": 0.9, "pat": "textile", "tex": true},
+    "pad": {"rgb": [0.05, 0.05, 0.05], "rough": 0.9, "pat": "textile", "tex": true},
+    "orange": {"rgb": [0.75, 0.3, 0.05], "rough": 0.4, "metal": 0.2},
+    "bolt": {"rgb": [0.3, 0.3, 0.3], "rough": 0.4, "metal": 0.9, "pat": "metal"},
+    "face": {"rgb": [0.02, 0.02, 0.022], "rough": 0.6},
+    "wheel": {"rgb": [0.035, 0.035, 0.035], "rough": 0.75, "pat": "textile", "tex": true}
+  },
+  "wheel": {"r": 0.19, "rim": 0.034, "spokes": [0, 180, 240, 300], "spokeW": 0.04, "hub": 0.07, "badge": "orange"},
+  "remove": ["stitch", "band", "ambient", "cluster", "screen", "switches", "vent_cl", "vent_cr", "climate_keys"],
+  "add": [
+    {"id": "band", "type": "box", "at": [0.37, -0.06, 0.003], "size": [1.44, 0.05, 0.004], "mat": "orange"},
+    {"id": "speedo", "type": "gauge", "at": [0.08, 0.055, 0.005], "r": 0.04, "n": 4, "numStep": 4, "read": "speed", "square": true, "bezel": "bolt"},
+    {"id": "tach", "type": "gauge", "at": [-0.08, 0.055, 0.005], "r": 0.04, "n": 6, "numStep": 1, "read": "rpm", "square": true, "bezel": "bolt", "redline": 0.2},
+    {"id": "fuel", "type": "gauge", "at": [0.17, 0.045, 0.005], "r": 0.02, "sweep": 90, "read": "fuel", "square": true, "bezel": "bolt", "bezelW": 0.005},
+    {"id": "temp", "type": "gauge", "at": [-0.17, 0.045, 0.005], "r": 0.02, "sweep": 90, "read": "temp", "square": true, "bezel": "bolt", "bezelW": 0.005},
+    {"id": "pod", "type": "box", "at": [0.37, -0.165, -0.01], "size": [0.3, 0.09, 0.03], "mat": "dash"},
+    {"id": "aux1", "type": "gauge", "at": [0.27, -0.165, -0.025], "r": 0.03, "sweep": 120, "bezel": "bolt"},
+    {"id": "aux2", "type": "gauge", "at": [0.37, -0.165, -0.025], "r": 0.03, "sweep": 120, "bezel": "bolt"},
+    {"id": "aux3", "type": "gauge", "at": [0.47, -0.165, -0.025], "r": 0.03, "sweep": 120, "bezel": "bolt"},
+    {"id": "radio", "type": "screen", "at": [0.37, -0.255, 0.005], "size": [0.17, 0.05], "ui": "radio", "bezel": "trim"},
+    {"id": "toggles", "type": "toggles", "at": [0.255, -0.335, -0.115], "cols": 4, "pitch": [0.038, 0], "guard": true, "base": "dash", "bat": "orange"},
+    {"id": "grab", "type": "grab", "at": [0.9, -0.02, 0.001], "len": 0.3, "mat": "dash"},
+    {"id": "dash_bolts", "type": "bolts", "at": [-0.3, -0.12, 0.005], "n": 2, "pitch": [1.34, 0], "mat": "bolt"},
+    {"id": "levers", "type": "lever", "at": [0.33, -0.5, -0.3], "n": 2, "pitch": [0.08, 0], "len": 0.18, "axis": [0, 1, -0.25], "knob": "black", "knob2": "orange", "knobR": 0.02}
+  ]
+}

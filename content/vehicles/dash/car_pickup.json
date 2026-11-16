@@ -1,0 +1,15 @@
+{
+  "note": "BR pickup: the work-truck dash in tan vinyl with a black upper pad, the big analogue dials and rubber knobs of the pickup body, a dash-top clipboard and a two-tone wheel.",
+  "base": "pcar_pickup",
+  "palette": {
+    "dash": {"rgb": [0.42, 0.36, 0.26], "rough": 0.85, "pat": "textile", "tex": true},
+    "pad": {"rgb": [0.05, 0.05, 0.05], "rough": 0.9, "pat": "textile", "tex": true},
+    "paper": {"rgb": [0.85, 0.84, 0.8], "rough": 0.95},
+    "board": {"rgb": [0.35, 0.22, 0.1], "rough": 0.6},
+    "hub": {"rgb": [0.42, 0.36, 0.26], "rough": 0.6}
+  },
+  "add": [
+    {"id": "clipboard", "type": "box", "at": [1.0, 0.017, 0.2], "size": [0.24, 0.006, 0.32], "mat": "board", "rot": [0, 8, 0]},
+    {"id": "paper", "type": "box", "at": [1.0, 0.0215, 0.2], "size": [0.21, 0.003, 0.28], "mat": "paper", "rot": [0, 8, 0]}
+  ]
+}

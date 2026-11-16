@@ -177,6 +177,15 @@ elif mode == 'humvee':
         elif abs(n.x) > 0.95 and min(zs) > 0.88 and max(zs) < 1.29 and min(ys) > -0.75 and max(ys) < 0.76: gone.append(f)   # side windows
     print('HUMVEE glass faces removed', len(gone))
     bmesh.ops.delete(bm, geom=gone, context='FACES_ONLY'); bm.to_mesh(body.data); bm.free()
+    # VH6b: the bonnet's top samples the painted-glass corner of the atlas (pale lilac through the windscreen): plain olive
+    hood = bpy.data.materials.new('hv_hood'); hood.use_nodes = True; hb = hood.node_tree.nodes['Principled BSDF']
+    hb.inputs['Base Color'].default_value = (0.15, 0.17, 0.09, 1); hb.inputs['Roughness'].default_value = 0.85
+    body.data.materials.append(hood); hi = len(body.data.materials) - 1
+    bm = bmesh.new(); bm.from_mesh(body.data); nh = 0
+    for f in bm.faces:
+        c = f.calc_center_median() / K
+        if f.normal.z > 0.6 and c.y < -0.78 and c.z > 0.6: f.material_index = hi; nh += 1
+    bm.to_mesh(body.data); bm.free(); print('HUMVEE bonnet faces repainted', nh)
     inner = bpy.data.materials.new('hv_inner'); inner.use_nodes = True   # the inside of the shell: plain interior paint, not the camo
     inner.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (0.12, 0.13, 0.09, 1); inner.node_tree.nodes['Principled BSDF'].inputs['Roughness'].default_value = 0.9
     body.data.materials.append(inner)
@@ -224,7 +233,7 @@ elif mode == 'humvee':
     for k in range(3): box('hull', (-0.12, -0.30, 0.745 + k * 0.035), (0.12, -0.295, 0.77 + k * 0.035), DARK)   # radio faces
     for x in (0.06, 0.11): cyl('hull', (x, -0.20, 0.80), (0, -0.25, 1), 0.008, 0.16, METAL, 8); cyl('hull', (x, -0.22, 0.88), (0, 0, 1), 0.016, 0.03, BLACK, 10)   # gear and transfer levers
     cyl('hull', (-0.42, -0.56, 0.93), (1, 0, 0), 0.012, 0.36, METAL, 8)                               # passenger grab bar
-    for x in (0.34, 0.44, 0.52): box('hull', (x - 0.03, -0.62, 0.47), (x + 0.03, -0.58, 0.52), METAL)   # pedals
+    for x in (0.34, 0.44, 0.52): box('hull', (x - 0.03, -0.62, 0.47), (x + 0.03, -0.58, 0.52), RUBBER)   # pedals (rubber pads: the bright metal read as white boxes)
     # ---- four bucket seats (base + backrest leaning back), armrests on the doors
     for sx in (1, -1):
         cx = 0.43 * sx

@@ -75,7 +75,7 @@ struct GpuModel {
   vec3 bmin{0}, bmax{0};
   size_t gpuBytes = 0;
   int tris = 0;
-  bool load(const fs::path& dir, std::string& err);
+  bool load(const fs::path& dir, std::string& err, bool turn180 = false);   // turn180: half a turn about y (a bake whose front is -z)
   void destroy();
   int find(const std::string& name) const;
   mat4 animAt(int part, float u) const;   // u in [0,1] over the animation; identity without one

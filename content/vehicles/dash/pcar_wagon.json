@@ -1,0 +1,23 @@
+{
+  "note": "Estate (Scandinavian-style): a clean, horizontal dash in light grey with a blond-wood band running the full width, a portrait touch screen in the centre stack flanked by tall vents, a plain digital cluster with no rings, a crystal-like gear knob, minimal buttons.",
+  "base": "civil_core",
+  "model": {"note": "the car-pack model's own dash top / rear face and the driver's eye on its seat, [y, z] in the asset frame", "dash": [1.1, 0.68], "eye": [1.32, -0.3]},
+  "palette": {
+    "pad": {"rgb": [0.36, 0.36, 0.35], "rough": 0.85, "pat": "textile", "tex": true},
+    "dash": {"rgb": [0.1, 0.1, 0.1], "rough": 0.8, "pat": "textile"},
+    "wood": {"rgb": [0.55, 0.42, 0.28], "rough": 0.5, "pat": "wood", "tex": true},
+    "crystal": {"rgb": [0.6, 0.65, 0.7], "rough": 0.05, "metal": 0.3},
+    "stitch": {"rgb": [0.25, 0.25, 0.25], "rough": 0.9}
+  },
+  "digitGlow": [1.8, 1.8, 1.8],
+  "remove": ["band", "cluster", "screen", "vent_cl", "vent_cr", "switches", "climate", "climate_keys"],
+  "add": [
+    {"id": "band", "type": "box", "at": [0.37, -0.06, 0.003], "size": [1.44, 0.05, 0.004], "mat": "wood"},
+    {"id": "cluster", "type": "digital", "at": [0.0, 0.055, 0.005], "size": [0.32, 0.08], "telltales": 8},
+    {"id": "screen", "type": "screen", "at": [0.37, -0.205, 0.005], "size": [0.15, 0.2], "ui": "map", "bezel": "trim"},
+    {"id": "vent_cl", "type": "ventrect", "at": [0.24, -0.2, 0.005], "size": [0.045, 0.16]},
+    {"id": "vent_cr", "type": "ventrect", "at": [0.5, -0.2, 0.005], "size": [0.045, 0.16]},
+    {"id": "home", "type": "buttons", "at": [0.37, -0.42, -0.115], "cols": 1, "size": [0.03, 0.01], "full": true},
+    {"id": "knob", "type": "cyl", "at": [0.37, -0.468, -0.25], "r": 0.022, "depth": 0.06, "axis": [0, 1, 0], "mat": "crystal", "sides": 8}
+  ]
+}

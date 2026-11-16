@@ -50,7 +50,14 @@ void TankSys::carStaticParts(const TankDef& d, std::vector<int>& out) const {
 void TankSys::drawCar(App& app, const TankRT& t, vec4 tint, const mat4& h) {
   const TankDef& d = *t.def; const GpuModel* gm = d.model.get();
   vehicleDashDraw(app, t, h);   // VH6: the instrument panel seen from the driver's seat
-  if (d.partsAsset) {   // BR7 adopted car: its part-built mesh moves as one (the wheels do not turn)
+  if (d.partsAsset) {   // BR7 adopted car: its part-built mesh (or its supplied model: car-pack copies) moves as one (the wheels do not turn)
+    if (const GpuModel* pm = d.partsAsset->model.get()) {
+      const std::string& id = d.partsAsset->id; int dusty = id.size() > 6 && id.compare(id.size() - 6, 6, "_wreck") == 0 ? 2 : 1;
+      for (size_t k = 0; k < pm->parts.size(); ++k) {
+        if (pm->parts[k].glass) app.R.worldModelsGlass.push_back({pm, (int)k, h, tint, 0.0f, dusty});
+        else app.R.worldModels.push_back({pm, (int)k, h, tint});
+      }
+    }
     app.worldBoxDraws.push_back({&d.partsAsset->opaque, h, tint});   // shortcut: its glass is not drawn while adopted (the box list is opaque)
     return;
   }

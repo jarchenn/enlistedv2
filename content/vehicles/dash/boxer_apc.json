@@ -1,0 +1,26 @@
+{
+  "note": "Boxer 8x8 driver's station: the driver drives head-out, so the station sits just ahead of the hatch at deck level: a green armoured console with two framed multi-function displays (vehicle systems; the driver's vision camera) with softkeys, a digital speed / rpm read-out, guarded master switches, a warning-lamp strip, and three periscope blocks round the hatch for driving closed down.",
+  "palette": {
+    "armour": {"rgb": [0.16, 0.18, 0.13], "rough": 0.75, "metal": 0.4, "pat": "painted", "tex": true},
+    "panel": {"rgb": [0.06, 0.065, 0.06], "rough": 0.6, "metal": 0.2},
+    "steel": {"rgb": [0.2, 0.21, 0.19], "rough": 0.5, "metal": 0.7, "pat": "metal", "tex": true}
+  },
+  "items": [
+    {"id": "console", "type": "box", "at": [0.0, -0.03, 0.035], "size": [0.66, 0.15, 0.07], "mat": "armour"},
+    {"id": "console_top", "type": "box", "at": [0.0, 0.05, 0.02], "size": [0.68, 0.014, 0.11], "mat": "armour"},
+    {"id": "mfd_l", "type": "screen", "at": [-0.17, -0.025, 0.0], "size": [0.16, 0.095], "ui": "camera", "bezel": "panel"},
+    {"id": "mfd_r", "type": "screen", "at": [0.17, -0.025, 0.0], "size": [0.16, 0.095], "ui": "mfd", "bezel": "panel", "accent": [0.3, 2.2, 0.5]},
+    {"id": "keys_l", "type": "buttons", "at": [-0.24, -0.093, 0.0], "cols": 5, "pitch": [0.035, 0], "size": [0.024, 0.012], "glow": [0.4, 2.0, 0.5]},
+    {"id": "keys_r", "type": "buttons", "at": [0.1, -0.093, 0.0], "cols": 5, "pitch": [0.035, 0], "size": [0.024, 0.012], "glow": [0.4, 2.0, 0.5]},
+    {"id": "readout", "type": "digital", "at": [0.0, -0.02, 0.0], "size": [0.13, 0.06], "telltales": 4, "base": [0.02, 0.05, 0.02]},
+    {"id": "warn", "type": "lamps", "at": [-0.06, 0.03, 0.0], "rows": 1, "cols": 5, "pitch": [0.03, 0], "r": 0.006},
+    {"id": "side", "type": "box", "at": [-0.45, -0.06, -0.08], "size": [0.2, 0.13, 0.06], "mat": "armour", "rot": [0, -35, 0]},
+    {"id": "side_face", "type": "box", "at": [-0.45, -0.06, -0.08], "size": [0.17, 0.1, 0.064], "mat": "panel", "rot": [0, -35, 0]},
+    {"id": "master", "type": "toggles", "at": [0.36, 0.0, 0.0], "cols": 2, "pitch": [0.04, 0], "guard": true, "base": "steel", "bat": "red"},
+    {"id": "stencil", "type": "stencil", "at": [-0.3, 0.03, 0.0], "n": 6},
+    {"id": "bolts", "type": "bolts", "at": [-0.31, -0.095, 0.0], "n": 2, "pitch": [0.62, 0]},
+    {"id": "peri_l", "type": "periscope", "at": [-0.3, -0.0, -0.32], "size": [0.17, 0.07, 0.12], "rot": [0, -70, 0]},
+    {"id": "peri_c", "type": "periscope", "at": [0.0, 0.09, 0.1], "size": [0.2, 0.07, 0.12]},
+    {"id": "peri_r", "type": "periscope", "at": [0.3, -0.0, -0.32], "size": [0.17, 0.07, 0.12], "rot": [0, 70, 0]}
+  ]
+}

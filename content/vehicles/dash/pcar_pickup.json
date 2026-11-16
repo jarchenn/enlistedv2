@@ -1,0 +1,30 @@
+{
+  "note": "Pickup (work truck): a tall, chunky grey dash in hard vinyl, big analogue speedometer and tachometer with fuel / temperature, large rubber-gripped climate knobs, a plain radio, a passenger grab handle, a CB radio on the knee panel, a 4x4 lever on the tunnel, rubber mats and a coin tray.",
+  "base": "civil_core",
+  "model": {"note": "the car-pack model's own dash top / rear face and the driver's eye on its seat, [y, z] in the asset frame", "eye": [1.55, 0.3], "dash": [1.42, 1.03]},
+  "palette": {
+    "dash": {"rgb": [0.16, 0.16, 0.16], "rough": 0.9, "pat": "textile", "tex": true},
+    "pad": {"rgb": [0.19, 0.19, 0.185], "rough": 0.9, "pat": "textile", "tex": true},
+    "grip": {"rgb": [0.03, 0.03, 0.03], "rough": 0.95},
+    "face": {"rgb": [0.025, 0.025, 0.028], "rough": 0.6},
+    "wheel": {"rgb": [0.05, 0.05, 0.05], "rough": 0.85}
+  },
+  "wheel": {"r": 0.2, "rim": 0.032, "spokes": [0, 180, 270], "hub": 0.075, "buttons": false},
+  "remove": ["stitch", "band", "ambient", "cluster", "screen", "climate", "switches", "vent_cl", "vent_cr"],
+  "add": [
+    {"id": "band", "type": "box", "at": [0.37, -0.06, 0.003], "size": [1.44, 0.05, 0.004], "mat": "dash"},
+    {"id": "speedo", "type": "gauge", "at": [0.08, 0.055, 0.005], "r": 0.046, "n": 6, "numStep": 4, "read": "speed", "bezel": "chrome", "bezelW": 0.005, "bezelD": 0.012},
+    {"id": "tach", "type": "gauge", "at": [-0.08, 0.055, 0.005], "r": 0.046, "n": 6, "numStep": 1, "read": "rpm", "bezel": "chrome", "bezelW": 0.005, "bezelD": 0.012, "redline": 0.18},
+    {"id": "fuel", "type": "gauge", "at": [0.175, 0.04, 0.005], "r": 0.02, "sweep": 90, "read": "fuel", "bezel": "chrome", "bezelW": 0.003},
+    {"id": "temp", "type": "gauge", "at": [-0.175, 0.04, 0.005], "r": 0.02, "sweep": 90, "read": "temp", "bezel": "chrome", "bezelW": 0.003},
+    {"id": "vent_cl", "type": "ventrect", "at": [0.23, -0.06, 0.001], "size": [0.1, 0.044]},
+    {"id": "vent_cr", "type": "ventrect", "at": [0.51, -0.06, 0.001], "size": [0.1, 0.044]},
+    {"id": "radio", "type": "screen", "at": [0.37, -0.15, 0.005], "size": [0.17, 0.05], "ui": "radio", "bezel": "trim"},
+    {"id": "radio_knobs", "type": "knobs", "at": [0.25, -0.15, 0.005], "n": 2, "pitch": [0.24, 0], "r": 0.012},
+    {"id": "climate", "type": "knobs", "at": [0.26, -0.24, 0.005], "n": 3, "pitch": [0.11, 0], "r": 0.026, "mat": "grip", "sides": 12},
+    {"id": "grab", "type": "grab", "at": [0.95, -0.01, 0.001], "len": 0.32, "mat": "grip"},
+    {"id": "cb", "type": "radio", "at": [0.8, -0.36, -0.12], "size": [0.18, 0.05, 0.05], "mat": "black", "lcd": [2.0, 0.6, 0.1]},
+    {"id": "fourwd", "type": "lever", "at": [0.42, -0.5, -0.32], "n": 1, "len": 0.17, "axis": [0, 1, -0.2], "knob": "grip", "knobR": 0.02},
+    {"id": "tray", "type": "box", "at": [0.37, -0.29, -0.06], "size": [0.2, 0.012, 0.1], "mat": "grip"}
+  ]
+}

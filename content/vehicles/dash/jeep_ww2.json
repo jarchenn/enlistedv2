@@ -1,0 +1,20 @@
+{
+  "note": "The second WW2 jeep (Ford-built pattern): same steel tub, but a darker, more chipped panel, two larger data plates, a guarded blackout-drive switch, a dash-top compass and a rolled canvas top strapped along the windscreen frame.",
+  "base": "jeep_willys",
+  "palette": {
+    "od": {"rgb": [0.19, 0.2, 0.13], "rough": 0.8, "metal": 0.3, "pat": "painted", "tex": true},
+    "od_worn": {"rgb": [0.33, 0.31, 0.24], "rough": 0.7, "metal": 0.6, "pat": "metal", "tex": true},
+    "canvas": {"rgb": [0.27, 0.26, 0.17], "rough": 0.95, "pat": "fabric", "tex": true}
+  },
+  "remove": ["plates", "plate_low", "lamps", "pouch", "pouch_flap", "strap"],
+  "add": [
+    {"id": "plates2", "type": "plates", "at": [0.6, 0.0, 0.0], "n": 2, "pitch": [0.12, 0], "size": [0.1, 0.07]},
+    {"id": "blackout", "type": "toggles", "at": [0.08, 0.03, 0.0], "cols": 2, "pitch": [0.05, 0], "guard": true, "base": "od_worn"},
+    {"id": "lamp", "type": "lamps", "at": [0.27, -0.075, 0.0], "rows": 1, "cols": 1, "r": 0.006, "bezel": "bezel", "color": [0.4, 0.8, 2.6]},
+    {"id": "compass", "type": "cyl", "at": [0.33, 0.115, 0.02], "r": 0.03, "depth": 0.03, "axis": [0, 1, 0], "mat": "bezel"},
+    {"id": "compass_card", "type": "cyl", "at": [0.33, 0.131, 0.02], "r": 0.024, "depth": 0.003, "axis": [0, 1, 0], "mat": "face"},
+    {"id": "canvas_roll", "type": "cyl", "at": [0.33, 0.115, 0.12], "r": 0.04, "depth": 1.2, "axis": [1, 0, 0], "mat": "canvas", "sides": 9},
+    {"id": "roll_strap_a", "type": "box", "at": [0.0, 0.115, 0.12], "size": [0.03, 0.085, 0.085], "mat": "od_worn"},
+    {"id": "roll_strap_b", "type": "box", "at": [0.66, 0.115, 0.12], "size": [0.03, 0.085, 0.085], "mat": "od_worn"}
+  ]
+}

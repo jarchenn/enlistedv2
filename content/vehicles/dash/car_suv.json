@@ -1,0 +1,14 @@
+{
+  "note": "BR SUV: a sporty black-and-red cabin: red stitching and inserts, an analogue rev counter inside the digital cluster's left ring, a carbon-look band, a large screen, the terrain dial and grab handle of the SUV body.",
+  "base": "pcar_suv",
+  "palette": {
+    "pad": {"rgb": [0.04, 0.04, 0.042], "rough": 0.8, "pat": "textile", "tex": true},
+    "dash": {"rgb": [0.05, 0.05, 0.05], "rough": 0.8, "pat": "textile"},
+    "wood": {"rgb": [0.05, 0.05, 0.055], "rough": 0.2, "metal": 0.3, "pat": "fabric", "tex": true},
+    "stitch": {"rgb": [0.75, 0.06, 0.04], "rough": 0.9}
+  },
+  "barGlow": [2.4, 0.2, 0.08],
+  "add": [
+    {"id": "red_strip", "type": "box", "at": [0.37, -0.1, 0.003], "size": [1.44, 0.008, 0.004], "mat": "red"}
+  ]
+}

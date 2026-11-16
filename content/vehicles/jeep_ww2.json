@@ -157,5 +157,6 @@
     "engineKW": 45,
     "pushEfficiency": 0.5,
     "note": "Willys MB ~1,040 kg empty, 60 hp Go Devil engine"
-  }
+  },
+  "dash": {"spec": "jeep_ww2", "offset": [0, -0.42, 0.62], "note": "VH6b src/vehicle_dash.cpp: the interior content/vehicles/dash/jeep_ww2.json, anchored at the driver's eye + offset"}
 }
