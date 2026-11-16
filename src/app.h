@@ -113,6 +113,7 @@ public:
   Audio audio;
   double now = 0;
   float frameDt = 0.016f;
+  bool flashlight = false;   // FX1: the player's headlamp is on ('flashlight' binding, default N; flashlight.cpp)
   bool quit = false;
   std::string notice; double noticeUntil = 0;
   void toast(const std::string& s, double secs = 4.0);

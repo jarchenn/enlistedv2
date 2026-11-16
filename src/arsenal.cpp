@@ -12,6 +12,7 @@
 //  - Returning to Creative (F5) resets the loadout, ammunition and fire modes (the existing session reset).
 #include "app.h"
 #include "mpai.h"
+
 #include "loot.h"   // BR2 Battle Royale loot
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -45,7 +46,7 @@ void App::loadBindings() {
   // UI1: every other action rebindable by name; map / artillery / lean bind now and are read once their features land
   static const std::pair<const char*, const char*> kMore[] = {{"forward", "W"}, {"back", "S"}, {"left", "A"}, {"right", "D"}, {"sprint", "LEFT_SHIFT"},
     {"jump", "SPACE"}, {"interact", "E"}, {"reload", "R"}, {"build", "B"}, {"loadout", "L"}, {"slot1", "1"}, {"slot2", "2"}, {"slot3", "3"}, {"slot4", "4"},
-    {"nextWeapon", "Q"}, {"scoreboard", "TAB"}, {"map", "M"}, {"artillery", "7"}, {"leanLeft", "Q"}, {"leanRight", "E"}};   // MV3: shared with Next weapon / Interact: tap = the action, hold = lean
+    {"nextWeapon", "Q"}, {"scoreboard", "TAB"}, {"map", "M"}, {"artillery", "7"}, {"leanLeft", "Q"}, {"leanRight", "E"}, {"flashlight", "N"}};   // MV3: shared with Next weapon / Interact: tap = the action, hold = lean
   for (auto& [a, d] : kMore) binds.key[a] = get(a, d);
   { extern void settingsApplyKeys(App&); settingsApplyKeys(*this); }   // the user's rebinds from the Settings window
 }

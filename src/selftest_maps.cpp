@@ -82,6 +82,10 @@ std::string fl1Analyse(App& app, const std::string& map, const std::string& view
   char b[600]; std::snprintf(b, sizeof b, "FL1 %s %s: %ld flickering px (%.3f %%), 5 cm move mean dL %.4f;", map.c_str(), view.c_str(), flick, 100.0 * flick / ((double)w * h), moved / ((double)w * h));
   return b + top;
 }
+// FX1 headlamp captures (NMK_FX1=1, Medium): per view the headlamp off, then on; first-person views also crouched and
+// aiming down the sights; frame time with it off and on (1 s each) -> selftest_out/fx1_<map>_<view>_<state>.png
+const bool kFx1 = std::getenv("NMK_FX1") != nullptr;
+int gFxPh = 0; float gFxT = 0; double gFxMs[2] = {0, 0}; int gFxN[2] = {0, 0}; double gFxLast = 0;
 std::vector<Perf> sPerf; int sPresetPass = 0; double sLast = 0; double sLoadS = 0, sMemBefore = 0, sMemAfter = 0;
 json sSum = json::object();
 
@@ -432,7 +436,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
         if (app.mode == Mode::Explore) app.exitExplore();
         app.camPos = v.pos; app.camYaw = v.yaw; app.camPitch = v.pitch;
       }
-      sPerf.push_back({v.name, v.gate}); sLast = 0; gFlPh = 0;
+      sPerf.push_back({v.name, v.gate}); sLast = 0; gFlPh = 0; gFxPh = 0;
       logf("maps view %s at (%.1f %.1f %.1f) yaw %.1f pitch %.1f", v.name.c_str(), v.pos.x, v.pos.y, v.pos.z, v.yaw, v.pitch);
     }
     if (v.explore && app.mode == Mode::Explore) { app.useScripted = true; }
@@ -482,6 +486,27 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       else if (gFlPh == 5 && stageTime > gFlT + 0.1f) { check(true, fl1Analyse(app, map, v.name, base)); if (!v.explore) app.camPos = gFlCam; app.R.holdTime = false; gFlPh = 6; }
       break;
     }
+    if (kFx1 && sPresetPass == 0 && stageTime >= measEnd && gFxPh < 9) {   // FX1 (see above)
+      std::string base = "fx1_" + app.templates[sTpl[sTi]].id + "_" + v.name;
+      double tn = now(); int side = app.flashlight ? 1 : 0;
+      if ((gFxPh == 1 || gFxPh == 3) && stageTime > gFxT + 0.3f && gFxLast > 0) { gFxMs[side] += (tn - gFxLast) * 1000.0; ++gFxN[side]; }
+      gFxLast = tn;
+      auto next = [&](float wait) { if (stageTime < gFxT + wait) return false; gFxT = stageTime; ++gFxPh; return true; };
+      if (gFxPh == 0) { app.flashlight = false; gFxMs[0] = gFxMs[1] = 0; gFxN[0] = gFxN[1] = 0; gFxT = stageTime; gFxPh = 1; }
+      else if (gFxPh == 1) { if (next(1.3f)) shotQueue.push_back(base + "_off"); }
+      else if (gFxPh == 2) { app.flashlight = true; gFxT = stageTime; gFxPh = 3; }
+      else if (gFxPh == 3) { if (next(1.5f)) shotQueue.push_back(base + "_on"); }
+      else if (gFxPh == 4) { if (!v.explore) gFxPh = 8; else { app.scriptedInput.crouch = true; gFxT = stageTime; gFxPh = 5; } }
+      else if (gFxPh == 5) { if (next(1.2f)) shotQueue.push_back(base + "_on_crouch"); }
+      else if (gFxPh == 6) { app.scriptedInput.crouch = false; app.scriptedInput.aim = true; gFxT = stageTime; gFxPh = 7; }
+      else if (gFxPh == 7) { if (next(1.2f)) { shotQueue.push_back(base + "_on_ads"); } }
+      else if (gFxPh == 8) {
+        app.scriptedInput.aim = false; app.flashlight = false; gFxPh = 9;
+        check(true, fmt("FX1 %s %s: frame %.2f ms headlamp off (%d frames), %.2f ms on (%d frames)", app.templates[sTpl[sTi]].id.c_str(), v.name.c_str(),
+                        gFxN[0] ? gFxMs[0] / gFxN[0] : 0.0, gFxN[0], gFxN[1] ? gFxMs[1] / gFxN[1] : 0.0, gFxN[1]));
+      }
+      break;
+    }
     if (stageTime >= measEnd) {
       Perf& p = sPerf.back();
       if (abEnv) { app.R.perf = Renderer::Perf(); if (std::string(abEnv) != "all") app.R.perf.set(abEnv, true); p.frames = p.abN[0]; p.ms = p.abMs[0]; p.gpu = 0; for (int i = 0; i < GP_Count; ++i) { p.pass[i] = p.abPass[0][i]; p.gpu += p.pass[i]; }
@@ -489,7 +514,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       std::string nm = "maps_" + app.templates[sTpl[sTi]].id + "_" + v.name + (sPresetPass == 1 ? "_low" : sPresetPass == 2 ? "_high" : sPresetPass == 3 ? "_night" : "");
       shotQueue.push_back(nm);
       check(p.frames > 10, fmt("%s view %s%s: %.2f ms avg (worst %.1f) over %d frames, %.0f draws, %.1f M tris -> selftest_out/%s.png", v.gate ? "gameplay" : "editor", v.name.c_str(), sPresetPass ? (sPresetPass == 1 ? " at Low" : sPresetPass == 2 ? " at High" : " at Night (Medium)") : "", p.ms, p.worst, p.frames, p.draws, p.tris / 1e6, nm.c_str()));
-      if (v.gate && sPresetPass < 3 && !std::getenv("NMK_MAPS_VIEW") && !kFl1) {   // V2 (docs/settings.md): the same gameplay view again at Low, then High; L2: then Night at Medium
+      if (v.gate && sPresetPass < 3 && !std::getenv("NMK_MAPS_VIEW") && !kFl1 && !kFx1) {   // V2 (docs/settings.md): the same gameplay view again at Low, then High; L2: then Night at Medium
         ++sPresetPass; GfxPreset ps = sPresetPass == 1 ? GfxPreset::Low : sPresetPass == 2 ? GfxPreset::High : GfxPreset::Medium;
         settings().applyPreset(app, ps); app.R.resetTemporal();
         if (sPresetPass == 3) app.R.lt.hour = 0.0f;   // Night (docs/lighting.md)
