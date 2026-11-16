@@ -86,15 +86,30 @@ The AH-64D Apache: vehicle `ah64d_apache` (`content/vehicles/ah64d_apache.json`,
 
   | Key | Action |
   |---|---|
-  | Space / Ctrl | Climb (8 m/s) / descend (6 m/s) |
-  | W / S | Forward (55 m/s) / back (12 m/s) |
-  | A / D | Strafe (15 m/s) |
-  | Mouse | Turns the nose (70°/s) and aims (pitch −60° to +25°) |
+  | W / S | Pitch the nose down / up |
+  | A / D | Bank |
+  | Mouse | Turns the nose (yaw, separate from banking) and aims |
+  | Space / Ctrl | Climb / descend |
   | LMB | Chin gun |
   | R | One rocket per press (R only fires rockets while piloting) |
   | E | Get out, only once landed and slower than 1 m/s |
 
-  With no input it holds a hover: the velocities ease to their targets at 9 m/s². It cannot lift off until the rotor is fully spun up. The camera is a chase camera, pulled in front of walls. The HUD shows altitude, speed, rotor, durability, 30 mm rounds and heat, rockets and which pod fires next. The key hint is shown on entry and at the bottom of the screen.
+  It cannot lift off until the rotor is fully spun up. The HUD shows altitude, speed, rotor, durability, 30 mm rounds and heat, rockets and which pod fires next. The key hint is shown on entry and at the bottom of the screen.
+- **Flight feel:** built to the user's movement spec (the HELICOPTER FLIGHT section). Every number is in `content/settings/helicopter.json`, and every rate is frame-rate independent.
+  - **Attitude:** the airframe eases to the stick's pitch (22° forward, 16° back) or bank (24°) with a 0.35 s time constant, at most 45°/s.
+  - **Thrust follows the tilt:** g × tan(tilt), against linear plus quadratic drag. So speed builds and bleeds with momentum. Full forward tilt settles near 55 m/s, and backward and sideways speeds are capped softly.
+  - **Brake before reverse:** S while moving forward first brakes, then reverses. The capture measured 3 s to stop from about 35 km/h.
+  - **Assisted levelling:** with no directional input the airframe tilts against its own drift (up to 7°) and a light damping applies. It levels and slows but keeps momentum: 67 km/h was still 34 km/h 3 s after letting go. Below 4 m/s a stronger hover damping holds it.
+  - **Yaw:** the nose follows the mouse at up to 75°/s in the hover and 28°/s at speed. The flight path swings toward the nose at 0.35/s, so turns at speed are wide arcs unless the pilot banks and brakes.
+  - **Lift:** Space and Ctrl aim for 8 m/s climb or 6 m/s sink, reached at up to 5 m/s². On release the vertical speed eases to a hold over 0.9 s.
+  - **Hover:** a slow ±0.35° drift (5.5 s period) and nothing to fight.
+  - **Landing:** touchdown compresses the gear on a spring-damper (at most 0.28 m). Above 1 m/s it thuds; above 3.5 m/s a heavier sound plays and the camera jolts in proportion.
+- **Camera:**
+  - A chase camera 17 m behind and 3 m above, along the mouse look, pulled in front of walls.
+  - It follows the airframe's movement exactly; only changes in that movement lag, by 0.12 s, and it trails up to 1.5 m against acceleration.
+  - It banks 35 % of the airframe's bank and has a small rotor vibration.
+  - **Settings > Gameplay > Helicopter camera motion** (0–1) scales the roll, vibration and landing shake. Reduced motion multiplies it by 0.3.
+  - Aiming stays on the mouse look: the crosshair is the camera ray.
 - **Collision:**
   - Ground means terrain or anything solid under the skids, so it can land on a pad or a roof.
   - Every move is checked against the airframe boxes and a 14 m rotor-disc box. It slides along walls and never passes through them.

@@ -100,8 +100,7 @@ struct TankDef {
   std::vector<int> rotorParts, tailRotorParts;   // roles "rotor" (about rig.rotorHub, +y) and "tailrotor" (about rig.tailRotorHub, +x)
   vec3 rotorHub{0}, tailHub{0}; std::vector<vec3> pods;   // rocket pod muzzles (hull space), fired in turn
   TankBox rotorDisc{vec3(0), vec3(0)};           // flight sweep only (buildings), not a projectile collider
-  float hMaxFwd = 55, hMaxBack = 12, hMaxSide = 15, hClimb = 8, hSink = 6, hAccel = 9, hYawRate = 70, spinUp = 4, spinDown = 9, rotorRps = 4.8f, tailRps = 23;
-  float hPitchMin = -60, hPitchMax = 25;
+  float rotorRps = 4.8f, tailRps = 23, hPitchMin = -60, hPitchMax = 25;   // flight feel: content/settings/helicopter.json (heli.cpp)
   std::string gun30Name, gun30Sound;
   float gun30Rpm = 625, gun30Vel = 805, gun30Dmg = 60, gun30R = 2, gun30Heat = 0.0125f, gun30Cool = 0.22f, gun30Resume = 0.35f, gun30Spread = 0.35f;
   float gun30YawMin = -100, gun30YawMax = 100, gun30ElevMin = -60, gun30ElevMax = 11; int gun30Ammo = 1200;
@@ -146,7 +145,9 @@ struct TankRT {
   bool adopted = false;   // BR7: a parked part-built car made drivable for this session (TankSys::adoptCar)
   // VH5 helicopter: velocity, rotor speed 0..1 and blade angles, chin gun heat / ammo, rockets, the fall after a kill
   vec3 vel{0}; float rotor = 0, rotorAng = 0, tailAng = 0, gunHeat = 0, gunCool = 0, rocketCool = 0;
-  bool overheat = false, falling = false, grounded = true, reloadPrev = false;
+  bool overheat = false, falling = false, grounded = true, reloadPrev = false, camInit = false;
+  float susp = 0, suspV = 0, yawV = 0, wobT = 0;   // gear compression (m) and its rate, nose turn rate, hover wobble clock
+  vec3 camEye{0}, accel{0};                       // lagged chase-camera position, smoothed acceleration (camera trail)
   int gunAmmo = 0, rockets = 0, rocketSide = 0, gunShots = 0, rocketsFired = 0;
 };
 

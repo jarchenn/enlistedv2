@@ -134,9 +134,7 @@ void TankSys::loadDefs(App& app) {
       for (auto& x : rg.value("rocketPods", json::array())) d->pods.push_back(jvec3(x));
       if (cl.contains("rotorDisc")) d->rotorDisc = jbox(cl["rotorDisc"]);
       const json fl = j.value("flight", json::object());
-      d->hMaxFwd = fl.value("maxForward", d->hMaxFwd); d->hMaxBack = fl.value("maxBackward", d->hMaxBack); d->hMaxSide = fl.value("maxSideways", d->hMaxSide);
-      d->hClimb = fl.value("climb", d->hClimb); d->hSink = fl.value("sink", d->hSink); d->hAccel = fl.value("accel", d->hAccel); d->hYawRate = fl.value("yawRate", d->hYawRate);
-      d->spinUp = fl.value("spinUp_s", d->spinUp); d->spinDown = fl.value("spinDown_s", d->spinDown); d->rotorRps = fl.value("rotorRps", d->rotorRps); d->tailRps = fl.value("tailRps", d->tailRps);
+      d->rotorRps = fl.value("rotorRps", d->rotorRps); d->tailRps = fl.value("tailRps", d->tailRps);
       if (fl.contains("pitchLimits")) { d->hPitchMin = fl["pitchLimits"][0]; d->hPitchMax = fl["pitchLimits"][1]; }
       const json cg = j.value("chinGun", json::object());
       d->gun30Name = cg.value("name", "Chin gun"); d->gun30Sound = cg.value("sound", "shot_m2hb");

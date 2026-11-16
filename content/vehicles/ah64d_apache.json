@@ -266,22 +266,13 @@
     "note": "fuselage, tail boom, fin, stub wings with the pods, engine nacelles; the rotor disc box only stops flight into buildings (no projectile collision)"
   },
   "flight": {
-    "maxForward": 55,
-    "maxBackward": 12,
-    "maxSideways": 15,
-    "climb": 8,
-    "sink": 6,
-    "accel": 9,
-    "yawRate": 70,
-    "spinUp_s": 4,
-    "spinDown_s": 9,
     "rotorRps": 4.8,
     "tailRps": 23,
     "pitchLimits": [
       -60,
       25
     ],
-    "note": "forgiving arcade flight: velocities chase the stick targets at accel m/s2; no input = hover; the nose follows the mouse yaw"
+    "note": "rotor speeds and the mouse pitch limits; the flight feel (acceleration, drag, stabilisation, lift, landing, camera) is content/settings/helicopter.json"
   },
   "chinGun": {
     "name": "M230 30 mm chain gun",
