@@ -1,0 +1,124 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.3517001271247864,
+  3.8705554008483887,
+  0.1931011974811554
+ ],
+ "bmin": [
+  -0.351700097322464,
+  0.0,
+  -0.1931011974811554
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "street_lamp_01",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_3.jpg",
+   "mr": "mr_2.jpg",
+   "name": "street_lamp_01_glass",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "street_lamp_01_bulb",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.3517001271247864,
+    3.8705554008483887,
+    0.1931011974811554
+   ],
+   "bmin": [
+    -0.351700097322464,
+    0.0,
+    -0.1931011974811554
+   ],
+   "count": 45075,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "street_lamp_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.17362673580646515,
+    3.509547710418701,
+    0.173871248960495
+   ],
+   "bmin": [
+    -0.17362673580646515,
+    3.1376543045043945,
+    -0.17394879460334778
+   ],
+   "count": 504,
+   "first": 45075,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "street_lamp_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.030023464933037758,
+    3.301558494567871,
+    0.02999541163444519
+   ],
+   "bmin": [
+    -0.029966535046696663,
+    3.2271063327789307,
+    -0.029994595795869827
+   ],
+   "count": 336,
+   "first": 45579,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "street_lamp_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_street_lamp_01.glb",
+ "textures": {},
+ "triangles": 15305,
+ "vertices": 9300
+}

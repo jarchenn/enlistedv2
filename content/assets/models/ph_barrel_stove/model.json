@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.2955520749092102,
+  0.8556039333343506,
+  0.2955520749092102
+ ],
+ "bmin": [
+  -0.2955520749092102,
+  0.0,
+  -0.2955520749092102
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "barrel_stove",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.2955520749092102,
+    0.8556039333343506,
+    0.2955520749092102
+   ],
+   "bmin": [
+    -0.2955520749092102,
+    0.0,
+    -0.2955520749092102
+   ],
+   "count": 13824,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "barrel_stove",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_barrel_stove.glb",
+ "textures": {},
+ "triangles": 4608,
+ "vertices": 2872
+}

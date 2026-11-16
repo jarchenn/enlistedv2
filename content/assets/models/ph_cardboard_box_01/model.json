@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.19351179897785187,
+  0.3417995572090149,
+  0.25793522596359253
+ ],
+ "bmin": [
+  -0.19340533018112183,
+  0.0,
+  -0.25793522596359253
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "cardboard_box_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.19351179897785187,
+    0.3417995572090149,
+    0.25793522596359253
+   ],
+   "bmin": [
+    -0.19340533018112183,
+    0.0,
+    -0.25793522596359253
+   ],
+   "count": 25428,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "cardboard_box_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_cardboard_box_01.glb",
+ "textures": {},
+ "triangles": 8476,
+ "vertices": 4512
+}

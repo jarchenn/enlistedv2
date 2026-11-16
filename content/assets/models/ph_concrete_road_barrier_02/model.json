@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.7827047109603882,
+  1.1117172241210938,
+  0.22107098996639252
+ ],
+ "bmin": [
+  -0.7827047109603882,
+  0.0,
+  -0.22107098996639252
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "concrete_road_barrier_02",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.7827047109603882,
+    1.1117172241210938,
+    0.22107098996639252
+   ],
+   "bmin": [
+    -0.7827047109603882,
+    0.0,
+    -0.22107098996639252
+   ],
+   "count": 35730,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "concrete_road_barrier_02",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_concrete_road_barrier_02.glb",
+ "textures": {},
+ "triangles": 11910,
+ "vertices": 6498
+}

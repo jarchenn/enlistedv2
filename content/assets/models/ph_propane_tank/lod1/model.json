@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.16529428958892822,
+  0.5532112121582031,
+  0.16470561921596527
+ ],
+ "bmin": [
+  -0.16529428958892822,
+  0.0,
+  -0.16470561921596527
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "propane_tank",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.16529428958892822,
+    0.5532112121582031,
+    0.16470561921596527
+   ],
+   "bmin": [
+    -0.16529428958892822,
+    0.0,
+    -0.16470561921596527
+   ],
+   "count": 1959,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "propane_tank",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_propane_tank.glb",
+ "textures": {},
+ "triangles": 653,
+ "vertices": 696
+}

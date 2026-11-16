@@ -5,6 +5,7 @@
 // are git-ignored (local only) and the asset falls back to its visible box parts when the bake is missing.
 import { Asset } from "./kit.mjs";
 import { setNav, cover } from "./catalog_atlantic.mjs";
+import fs from "fs";
 
 function modelAsset(id, name, category, desc, model, size, opt = {}) {
   const A = new Asset({ id, version: 1, name, category, description: desc, footprint: [size[0], size[2]], floors: 0, enterable: false, plinthDepth: 0, maxGrade: 5, noAutoPanels: true });
@@ -48,5 +49,10 @@ export function modernModelAssets() {
     modelAsset("mod_traffic_barrel", "Traffic barrier barrel (model)", "Modern: Barriers", "An orange and white plastic traffic drum on a ballast base.",
       { src: "pr1_traffic_barrel.glb", dir: "mod_traffic_barrel", jpgMaps: true, scale: 1, maxTex: 1024, simplify: 0.4, lod1: 0.25, lodDist: 15, credit: "[FREE] traffic barrier barrel by LaSamFish (sketchfab.com/lasamfish), Sketchfab Standard licence (not CC): local only, sketchfab.com/3d-models/free-traffic-barrier-barrel-0e40ea8b59ac44a0ba51732ad462cec8" },
       [0.83, 0.85, 0.83], { cover: [], fallback: true, local: true }),
+    // PR1 Poly Haven props (CC0): tools/props/ph_props.json, written by tools/props/ph_batch.py
+    ...Object.entries(JSON.parse(fs.readFileSync(new URL("./props/ph_props.json", import.meta.url), "utf8"))).map(([id, p]) =>
+      modelAsset(id, p.name + " (model)", p.category, `${p.name}, ${p.size.map((v) => v.toFixed(2)).join(" x ")} m (Poly Haven).`,
+        { src: id + ".glb", dir: id, jpgMaps: true, scale: 1, maxTex: p.maxTex, simplify: 0.5, lod1: 0.25, lodDist: p.lodDist, credit: p.credit },
+        p.size, { colliders: p.colliders.length ? p.colliders : undefined, cover: p.size[1] >= 0.8 && Math.max(p.size[0], p.size[2]) >= 0.6 ? undefined : [] })),
   ];
 }

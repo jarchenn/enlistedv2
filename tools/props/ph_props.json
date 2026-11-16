@@ -1,0 +1,1465 @@
+{
+ "ph_barrel_01": {
+  "ph": "Barrel_01",
+  "name": "Barrel_01",
+  "category": "Modern: Urban",
+  "size": [
+   0.563,
+   0.88,
+   0.563
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.438,
+    -0.0,
+    0.55,
+    0.311,
+    0.55
+   ],
+   [
+    0.0,
+    0.739,
+    -0.0,
+    0.55,
+    0.251,
+    0.55
+   ],
+   [
+    0.0,
+    0.138,
+    -0.0,
+    0.55,
+    0.251,
+    0.55
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Barrel_01 by Jorge Camacho, Poly Haven (polyhaven.com/a/Barrel_01), CC0"
+ },
+ "ph_barrel_02": {
+  "ph": "Barrel_02",
+  "name": "Barrel 02",
+  "category": "Modern: Urban",
+  "size": [
+   0.488,
+   0.88,
+   0.485
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.419,
+    -0.0,
+    0.488,
+    0.402,
+    0.485
+   ],
+   [
+    0.0,
+    0.109,
+    0.0,
+    0.488,
+    0.219,
+    0.485
+   ],
+   [
+    0.0,
+    0.729,
+    -0.0,
+    0.488,
+    0.219,
+    0.485
+   ],
+   [
+    0.0,
+    0.86,
+    -0.0,
+    0.417,
+    0.04,
+    0.414
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Barrel 02 by Jorge Camacho, Poly Haven (polyhaven.com/a/Barrel_02), CC0"
+ },
+ "ph_barrel_03": {
+  "ph": "barrel_03",
+  "name": "Barrel 03",
+  "category": "Modern: Urban",
+  "size": [
+   0.634,
+   0.93,
+   0.639
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.473,
+    -0.0,
+    0.607,
+    0.274,
+    0.612
+   ],
+   [
+    0.0,
+    0.77,
+    0.0,
+    0.607,
+    0.273,
+    0.612
+   ],
+   [
+    0.0,
+    0.177,
+    -0.0,
+    0.607,
+    0.268,
+    0.612
+   ],
+   [
+    0.0,
+    0.0,
+    -0.0,
+    0.619,
+    0.04,
+    0.624
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Barrel 03 by Serhii Khromov, Poly Haven (polyhaven.com/a/barrel_03), CC0"
+ },
+ "ph_barrel_stove": {
+  "ph": "barrel_stove",
+  "name": "Barrel Stove",
+  "category": "Modern: Urban",
+  "size": [
+   0.593,
+   0.856,
+   0.593
+  ],
+  "colliders": [
+   [
+    -0.147,
+    0.703,
+    -0.0,
+    0.298,
+    0.306,
+    0.593
+   ],
+   [
+    0.148,
+    0.703,
+    -0.0,
+    0.297,
+    0.306,
+    0.593
+   ],
+   [
+    -0.145,
+    0.413,
+    -0.005,
+    0.293,
+    0.29,
+    0.579
+   ],
+   [
+    0.146,
+    0.413,
+    -0.005,
+    0.293,
+    0.29,
+    0.579
+   ],
+   [
+    -0.146,
+    0.135,
+    -0.0,
+    0.292,
+    0.27,
+    0.585
+   ],
+   [
+    0.146,
+    0.135,
+    -0.0,
+    0.293,
+    0.269,
+    0.585
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Barrel Stove by MP, Poly Haven (polyhaven.com/a/barrel_stove), CC0"
+ },
+ "ph_cardboard_box_01": {
+  "ph": "cardboard_box_01",
+  "name": "Cardboard Box 01",
+  "category": "Modern: Urban",
+  "size": [
+   0.387,
+   0.342,
+   0.516
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.171,
+    -0.0,
+    0.387,
+    0.342,
+    0.515
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Cardboard Box 01 by Rahul Chaudhary, Poly Haven (polyhaven.com/a/cardboard_box_01), CC0"
+ },
+ "ph_concrete_road_barrier": {
+  "ph": "concrete_road_barrier",
+  "name": "Concrete Road Barrier",
+  "category": "Modern: Urban",
+  "size": [
+   1.545,
+   0.831,
+   0.639
+  ],
+  "colliders": [
+   [
+    0.003,
+    0.412,
+    0.172,
+    1.532,
+    0.791,
+    0.295
+   ],
+   [
+    -0.001,
+    0.412,
+    -0.195,
+    1.538,
+    0.792,
+    0.249
+   ],
+   [
+    0.001,
+    0.02,
+    0.001,
+    1.538,
+    0.04,
+    0.631
+   ],
+   [
+    0.001,
+    0.795,
+    -0.022,
+    1.515,
+    0.04,
+    0.141
+   ],
+   [
+    0.753,
+    0.189,
+    0.009,
+    0.04,
+    0.358,
+    0.591
+   ],
+   [
+    -0.758,
+    0.189,
+    -0.011,
+    0.04,
+    0.35,
+    0.591
+   ],
+   [
+    -0.757,
+    0.56,
+    -0.01,
+    0.04,
+    0.461,
+    0.239
+   ],
+   [
+    0.75,
+    0.57,
+    0.008,
+    0.04,
+    0.458,
+    0.24
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Concrete Road Barrier by Amal Kumar, Poly Haven (polyhaven.com/a/concrete_road_barrier), CC0"
+ },
+ "ph_concrete_road_barrier_02": {
+  "ph": "concrete_road_barrier_02",
+  "name": "Concrete Road Barrier 02",
+  "category": "Modern: Urban",
+  "size": [
+   1.565,
+   1.112,
+   0.442
+  ],
+  "colliders": [
+   [
+    0.004,
+    0.526,
+    -0.0,
+    1.552,
+    1.024,
+    0.442
+   ],
+   [
+    -0.435,
+    1.068,
+    0.069,
+    0.108,
+    0.088,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Concrete Road Barrier 02 by Amal Kumar, Poly Haven (polyhaven.com/a/concrete_road_barrier_02), CC0"
+ },
+ "ph_exterior_aircon_unit": {
+  "ph": "exterior_aircon_unit",
+  "name": "Exterior Aircon Unit",
+  "category": "Modern: Urban",
+  "size": [
+   0.8,
+   0.928,
+   0.374
+  ],
+  "colliders": [
+   [
+    -0.068,
+    0.677,
+    0.018,
+    0.627,
+    0.461,
+    0.159
+   ],
+   [
+    0.152,
+    0.675,
+    0.015,
+    0.435,
+    0.463,
+    0.178
+   ],
+   [
+    -0.007,
+    0.675,
+    0.123,
+    0.754,
+    0.463,
+    0.042
+   ],
+   [
+    -0.007,
+    0.917,
+    0.034,
+    0.754,
+    0.04,
+    0.204
+   ],
+   [
+    -0.007,
+    0.456,
+    0.034,
+    0.752,
+    0.04,
+    0.202
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Exterior Aircon Unit by Monsta3D, Poly Haven (polyhaven.com/a/exterior_aircon_unit), CC0"
+ },
+ "ph_fire_hydrant": {
+  "ph": "fire_hydrant",
+  "name": "Fire Hydrant",
+  "category": "Modern: Urban",
+  "size": [
+   0.275,
+   0.799,
+   0.318
+  ],
+  "colliders": [
+   [
+    -0.045,
+    0.315,
+    -0.032,
+    0.093,
+    0.629,
+    0.192
+   ],
+   [
+    0.054,
+    0.315,
+    -0.032,
+    0.093,
+    0.629,
+    0.192
+   ],
+   [
+    0.004,
+    0.43,
+    0.112,
+    0.251,
+    0.249,
+    0.075
+   ],
+   [
+    0.047,
+    0.679,
+    -0.032,
+    0.105,
+    0.096,
+    0.191
+   ],
+   [
+    -0.039,
+    0.679,
+    -0.032,
+    0.105,
+    0.096,
+    0.191
+   ],
+   [
+    0.004,
+    0.63,
+    -0.032,
+    0.182,
+    0.04,
+    0.183
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Fire Hydrant by Gonçalo Felício, Poly Haven (polyhaven.com/a/fire_hydrant), CC0"
+ },
+ "ph_metal_jerrycan": {
+  "ph": "metal_jerrycan",
+  "name": "Metal Jerrycan",
+  "category": "Modern: Urban",
+  "size": [
+   0.35,
+   0.455,
+   0.172
+  ],
+  "colliders": [
+   [
+    -0.063,
+    0.196,
+    -0.04,
+    0.224,
+    0.392,
+    0.08
+   ],
+   [
+    -0.063,
+    0.196,
+    0.04,
+    0.224,
+    0.392,
+    0.08
+   ],
+   [
+    0.0,
+    0.227,
+    -0.082,
+    0.346,
+    0.45,
+    0.04
+   ],
+   [
+    0.0,
+    0.227,
+    0.082,
+    0.346,
+    0.45,
+    0.04
+   ],
+   [
+    0.112,
+    0.228,
+    -0.04,
+    0.127,
+    0.455,
+    0.08
+   ],
+   [
+    0.112,
+    0.228,
+    0.04,
+    0.127,
+    0.455,
+    0.08
+   ],
+   [
+    0.025,
+    0.413,
+    -0.04,
+    0.175,
+    0.07,
+    0.08
+   ],
+   [
+    0.025,
+    0.413,
+    0.04,
+    0.175,
+    0.07,
+    0.08
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Metal Jerrycan by Sean Buckley, Poly Haven (polyhaven.com/a/metal_jerrycan), CC0"
+ },
+ "ph_metal_trash_can": {
+  "ph": "metal_trash_can",
+  "name": "Metal Trash Can",
+  "category": "Modern: Urban",
+  "size": [
+   0.778,
+   0.906,
+   0.556
+  ],
+  "colliders": [
+   [
+    0.064,
+    0.493,
+    0.0,
+    0.519,
+    0.826,
+    0.519
+   ],
+   [
+    -0.292,
+    0.281,
+    -0.0,
+    0.169,
+    0.529,
+    0.538
+   ],
+   [
+    0.064,
+    0.032,
+    0.0,
+    0.551,
+    0.064,
+    0.551
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Metal Trash Can by GurJas Studios, Poly Haven (polyhaven.com/a/metal_trash_can), CC0"
+ },
+ "ph_old_military_crate": {
+  "ph": "old_military_crate",
+  "name": "Old Military Crate",
+  "category": "Modern: Urban",
+  "size": [
+   0.815,
+   0.301,
+   0.538
+  ],
+  "colliders": [
+   [
+    -0.049,
+    0.154,
+    0.02,
+    0.717,
+    0.209,
+    0.497
+   ],
+   [
+    0.005,
+    0.147,
+    -0.253,
+    0.765,
+    0.202,
+    0.04
+   ],
+   [
+    0.005,
+    0.147,
+    0.172,
+    0.765,
+    0.202,
+    0.04
+   ],
+   [
+    0.005,
+    0.252,
+    -0.04,
+    0.77,
+    0.04,
+    0.143
+   ],
+   [
+    0.005,
+    0.252,
+    0.104,
+    0.77,
+    0.04,
+    0.143
+   ],
+   [
+    0.005,
+    0.047,
+    -0.04,
+    0.77,
+    0.04,
+    0.143
+   ],
+   [
+    0.005,
+    0.047,
+    0.104,
+    0.77,
+    0.04,
+    0.143
+   ],
+   [
+    0.005,
+    0.047,
+    -0.183,
+    0.77,
+    0.04,
+    0.143
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Old Military Crate by Jack Mava, Poly Haven (polyhaven.com/a/old_military_crate), CC0"
+ },
+ "ph_old_tyre": {
+  "ph": "old_tyre",
+  "name": "Old Tyre",
+  "category": "Modern: Urban",
+  "size": [
+   0.6,
+   0.6,
+   0.165
+  ],
+  "colliders": [
+   [
+    -0.15,
+    0.3,
+    0.0,
+    0.3,
+    0.6,
+    0.149
+   ],
+   [
+    0.15,
+    0.3,
+    0.0,
+    0.3,
+    0.6,
+    0.149
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Old Tyre by MP, Poly Haven (polyhaven.com/a/old_tyre), CC0"
+ },
+ "ph_plastic_crate_01": {
+  "ph": "plastic_crate_01",
+  "name": "Plastic Crate 01",
+  "category": "Modern: Urban",
+  "size": [
+   0.298,
+   0.264,
+   0.408
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.007,
+    -0.0,
+    0.282,
+    0.04,
+    0.392
+   ],
+   [
+    0.146,
+    0.133,
+    -0.0,
+    0.04,
+    0.262,
+    0.388
+   ],
+   [
+    -0.146,
+    0.133,
+    -0.0,
+    0.04,
+    0.262,
+    0.388
+   ],
+   [
+    0.0,
+    0.133,
+    0.199,
+    0.285,
+    0.262,
+    0.04
+   ],
+   [
+    0.0,
+    0.133,
+    -0.199,
+    0.285,
+    0.262,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Plastic Crate 01 by PierreB3D, Poly Haven (polyhaven.com/a/plastic_crate_01), CC0"
+ },
+ "ph_portable_generator": {
+  "ph": "portable_generator",
+  "name": "Portable Generator",
+  "category": "Modern: Urban",
+  "size": [
+   0.818,
+   0.577,
+   0.564
+  ],
+  "colliders": [
+   [
+    0.005,
+    0.399,
+    -0.047,
+    0.689,
+    0.078,
+    0.42
+   ],
+   [
+    0.005,
+    0.164,
+    0.262,
+    0.808,
+    0.328,
+    0.041
+   ],
+   [
+    0.005,
+    0.164,
+    -0.262,
+    0.808,
+    0.328,
+    0.041
+   ],
+   [
+    0.005,
+    0.457,
+    0.215,
+    0.678,
+    0.19,
+    0.083
+   ],
+   [
+    0.005,
+    0.536,
+    -0.03,
+    0.63,
+    0.04,
+    0.353
+   ],
+   [
+    -0.226,
+    0.211,
+    0.13,
+    0.118,
+    0.281,
+    0.237
+   ],
+   [
+    0.198,
+    0.227,
+    0.008,
+    0.145,
+    0.236,
+    0.157
+   ],
+   [
+    -0.226,
+    0.258,
+    0.037,
+    0.118,
+    0.189,
+    0.233
+   ],
+   [
+    0.005,
+    0.491,
+    -0.228,
+    0.689,
+    0.097,
+    0.063
+   ],
+   [
+    -0.288,
+    0.212,
+    0.084,
+    0.04,
+    0.282,
+    0.328
+   ],
+   [
+    -0.369,
+    0.439,
+    0.138,
+    0.056,
+    0.225,
+    0.275
+   ],
+   [
+    0.38,
+    0.439,
+    -0.138,
+    0.056,
+    0.225,
+    0.275
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Portable Generator by James Ray Cock, Poly Haven (polyhaven.com/a/portable_generator), CC0"
+ },
+ "ph_propane_tank": {
+  "ph": "propane_tank",
+  "name": "Propane Tank",
+  "category": "Modern: Urban",
+  "size": [
+   0.337,
+   0.554,
+   0.337
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.261,
+    -0.0,
+    0.337,
+    0.399,
+    0.337
+   ],
+   [
+    0.0,
+    0.502,
+    -0.008,
+    0.206,
+    0.103,
+    0.189
+   ],
+   [
+    0.0,
+    0.019,
+    0.0,
+    0.309,
+    0.04,
+    0.309
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Propane Tank by Slinc, Poly Haven (polyhaven.com/a/propane_tank), CC0"
+ },
+ "ph_street_lamp_01": {
+  "ph": "street_lamp_01",
+  "name": "Street Lamp 01",
+  "category": "Modern: Urban",
+  "size": [
+   0.704,
+   3.871,
+   0.386
+  ],
+  "colliders": [
+   [
+    0.0,
+    3.597,
+    -0.0,
+    0.353,
+    0.147,
+    0.353
+   ],
+   [
+    0.0,
+    0.102,
+    -0.0,
+    0.297,
+    0.204,
+    0.297
+   ],
+   [
+    0.0,
+    0.455,
+    -0.0,
+    0.188,
+    0.502,
+    0.188
+   ],
+   [
+    0.0,
+    1.702,
+    -0.0,
+    0.101,
+    1.484,
+    0.101
+   ],
+   [
+    0.0,
+    0.833,
+    -0.0,
+    0.219,
+    0.255,
+    0.219
+   ],
+   [
+    -0.132,
+    3.324,
+    0.0,
+    0.084,
+    0.372,
+    0.336
+   ],
+   [
+    0.132,
+    3.324,
+    0.0,
+    0.084,
+    0.372,
+    0.336
+   ],
+   [
+    0.0,
+    3.324,
+    -0.132,
+    0.336,
+    0.372,
+    0.084
+   ],
+   [
+    0.0,
+    3.324,
+    0.132,
+    0.336,
+    0.372,
+    0.084
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Street Lamp 01 by Josh Dean, Poly Haven (polyhaven.com/a/street_lamp_01), CC0"
+ },
+ "ph_trashbag": {
+  "ph": "trashbag",
+  "name": "Trashbag",
+  "category": "Modern: Urban",
+  "size": [
+   0.528,
+   0.575,
+   0.463
+  ],
+  "colliders": [
+   [
+    -0.104,
+    0.281,
+    0.019,
+    0.32,
+    0.555,
+    0.426
+   ],
+   [
+    0.083,
+    0.278,
+    -0.068,
+    0.322,
+    0.555,
+    0.328
+   ],
+   [
+    0.059,
+    0.278,
+    0.117,
+    0.286,
+    0.555,
+    0.213
+   ],
+   [
+    0.008,
+    0.014,
+    -0.003,
+    0.503,
+    0.04,
+    0.345
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Trashbag by Benny Weimer, Poly Haven (polyhaven.com/a/trashbag), CC0"
+ },
+ "ph_utility_box_01": {
+  "ph": "utility_box_01",
+  "name": "Utility Box 01",
+  "category": "Modern: Urban",
+  "size": [
+   0.52,
+   1.12,
+   0.432
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.605,
+    -0.195,
+    0.499,
+    0.91,
+    0.04
+   ],
+   [
+    0.011,
+    0.605,
+    0.165,
+    0.479,
+    0.908,
+    0.04
+   ],
+   [
+    -0.231,
+    0.61,
+    -0.006,
+    0.04,
+    0.92,
+    0.34
+   ],
+   [
+    0.231,
+    0.61,
+    -0.006,
+    0.04,
+    0.92,
+    0.34
+   ],
+   [
+    0.0,
+    1.069,
+    -0.006,
+    0.518,
+    0.04,
+    0.416
+   ],
+   [
+    0.0,
+    0.0,
+    -0.006,
+    0.441,
+    0.04,
+    0.318
+   ],
+   [
+    0.0,
+    0.075,
+    0.153,
+    0.439,
+    0.149,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Utility Box 01 by James Ray Cock, Poly Haven (polyhaven.com/a/utility_box_01), CC0"
+ },
+ "ph_utility_box_02": {
+  "ph": "utility_box_02",
+  "name": "Utility Box 02",
+  "category": "Modern: Urban",
+  "size": [
+   0.92,
+   1.12,
+   0.432
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.605,
+    -0.195,
+    0.896,
+    0.91,
+    0.04
+   ],
+   [
+    -0.0,
+    0.605,
+    0.164,
+    0.86,
+    0.91,
+    0.04
+   ],
+   [
+    0.0,
+    1.107,
+    -0.006,
+    0.916,
+    0.04,
+    0.417
+   ],
+   [
+    -0.43,
+    0.61,
+    -0.006,
+    0.04,
+    0.92,
+    0.34
+   ],
+   [
+    0.43,
+    0.61,
+    -0.006,
+    0.04,
+    0.92,
+    0.34
+   ],
+   [
+    -0.0,
+    0.0,
+    -0.006,
+    0.838,
+    0.04,
+    0.318
+   ],
+   [
+    -0.0,
+    0.075,
+    0.153,
+    0.836,
+    0.149,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Utility Box 02 by James Ray Cock, Poly Haven (polyhaven.com/a/utility_box_02), CC0"
+ },
+ "ph_water_manhole_cover": {
+  "ph": "water_manhole_cover",
+  "name": "Water Manhole Cover",
+  "category": "Modern: Urban",
+  "size": [
+   0.691,
+   0.068,
+   0.691
+  ],
+  "colliders": [
+   [
+    -0.173,
+    0.033,
+    -0.173,
+    0.345,
+    0.066,
+    0.345
+   ],
+   [
+    -0.173,
+    0.033,
+    0.173,
+    0.345,
+    0.066,
+    0.345
+   ],
+   [
+    0.173,
+    0.033,
+    -0.173,
+    0.345,
+    0.066,
+    0.345
+   ],
+   [
+    0.173,
+    0.033,
+    0.173,
+    0.345,
+    0.066,
+    0.345
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Water Manhole Cover by Raunox, Poly Haven (polyhaven.com/a/water_manhole_cover), CC0"
+ },
+ "ph_wooden_crate_01": {
+  "ph": "wooden_crate_01",
+  "name": "Wooden Crate 01",
+  "category": "Modern: Urban",
+  "size": [
+   0.825,
+   0.35,
+   0.409
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.009,
+    -0.009,
+    0.655,
+    0.04,
+    0.338
+   ],
+   [
+    0.0,
+    0.334,
+    -0.105,
+    0.702,
+    0.04,
+    0.193
+   ],
+   [
+    0.0,
+    0.334,
+    0.088,
+    0.702,
+    0.04,
+    0.193
+   ],
+   [
+    0.0,
+    0.23,
+    -0.179,
+    0.702,
+    0.153,
+    0.04
+   ],
+   [
+    0.0,
+    0.23,
+    0.162,
+    0.702,
+    0.153,
+    0.04
+   ],
+   [
+    0.0,
+    0.078,
+    0.162,
+    0.701,
+    0.152,
+    0.04
+   ],
+   [
+    0.0,
+    0.078,
+    -0.179,
+    0.701,
+    0.152,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Wooden Crate 01 by James Ray Cock, Poly Haven (polyhaven.com/a/wooden_crate_01), CC0"
+ },
+ "ph_wooden_crate_02": {
+  "ph": "wooden_crate_02",
+  "name": "Wooden Crate 02",
+  "category": "Modern: Urban",
+  "size": [
+   0.529,
+   0.464,
+   1.166
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.464,
+    -0.0,
+    0.457,
+    0.04,
+    1.021
+   ],
+   [
+    -0.214,
+    0.223,
+    -0.0,
+    0.04,
+    0.445,
+    1.0
+   ],
+   [
+    0.214,
+    0.223,
+    -0.0,
+    0.04,
+    0.445,
+    1.0
+   ],
+   [
+    0.0,
+    0.025,
+    -0.0,
+    0.463,
+    0.04,
+    0.952
+   ],
+   [
+    0.0,
+    0.223,
+    0.498,
+    0.498,
+    0.443,
+    0.04
+   ],
+   [
+    0.0,
+    0.223,
+    -0.498,
+    0.498,
+    0.443,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Wooden Crate 02 by James Ray Cock, Jurita Burger, Poly Haven (polyhaven.com/a/wooden_crate_02), CC0"
+ },
+ "ph_wooden_military_crate": {
+  "ph": "wooden_military_crate",
+  "name": "Wooden Military Crate",
+  "category": "Modern: Urban",
+  "size": [
+   1.242,
+   0.465,
+   0.52
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.145,
+    0.23,
+    1.202,
+    0.18,
+    0.04
+   ],
+   [
+    0.0,
+    0.145,
+    -0.23,
+    1.202,
+    0.18,
+    0.04
+   ],
+   [
+    0.0,
+    0.326,
+    0.209,
+    1.202,
+    0.18,
+    0.04
+   ],
+   [
+    0.0,
+    0.326,
+    -0.209,
+    1.202,
+    0.18,
+    0.04
+   ],
+   [
+    0.0,
+    0.416,
+    0.153,
+    1.201,
+    0.04,
+    0.152
+   ],
+   [
+    0.0,
+    0.416,
+    0.0,
+    1.201,
+    0.04,
+    0.152
+   ],
+   [
+    0.0,
+    0.438,
+    -0.153,
+    1.201,
+    0.04,
+    0.152
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Wooden Military Crate by Prabhjinder Singh, Poly Haven (polyhaven.com/a/wooden_military_crate), CC0"
+ },
+ "ph_wooden_picnic_table": {
+  "ph": "wooden_picnic_table",
+  "name": "Wooden Picnic Table",
+  "category": "Modern: Urban",
+  "size": [
+   2.241,
+   0.746,
+   3.022
+  ],
+  "colliders": [
+   [
+    -0.95,
+    0.324,
+    -0.001,
+    0.332,
+    0.053,
+    3.02
+   ],
+   [
+    0.951,
+    0.327,
+    0.0,
+    0.332,
+    0.04,
+    3.021
+   ],
+   [
+    -0.0,
+    0.445,
+    0.682,
+    0.053,
+    0.5,
+    1.346
+   ],
+   [
+    -0.0,
+    0.445,
+    -0.701,
+    0.053,
+    0.5,
+    1.346
+   ],
+   [
+    -0.383,
+    0.352,
+    1.33,
+    0.646,
+    0.702,
+    0.055
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Wooden Picnic Table by Ulan Cabanilla, Poly Haven (polyhaven.com/a/wooden_picnic_table), CC0"
+ }
+}
