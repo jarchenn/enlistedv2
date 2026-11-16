@@ -114,6 +114,7 @@ The photo texture sets in `content/textures/` (L4, `docs/textures.md`) come from
 - The curated list of 62 asset ids (57, plus 5 for painted ground) is in `tools/texture_sets.json`.
 - Each set's `meta.json` names its ambientCG asset and source URL (`https://ambientcg.com/a/<id>`).
 - Fetched with `tools/fetch_ambientcg.py` through the official API.
+- NT4: five 2K-JPG zips supplied by the user (Rock022, Rocks011, Bricks061, Gravel015, Ground110; CC0, ambientCG): Rock022, Rocks011 and Ground110 were already in the library (`rock_wall`, `rock_slate_layers`, `ground_rubble`); Gravel015 (`gravel_mixed`) and Bricks061 (`brick_grey_footing`) were added, packed to 1K.
 
 ## Grass plant atlas: Poly Haven (CC0)
 
@@ -181,6 +182,9 @@ Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm ri
 | scar-h_first-person_fps_animated.glb (incoming/mg7) | FN SCAR-H: replaces the MG1 SCAR model (`modern_scar`, MG7; its arms and clips unused: broken hand skin) | supplied by the user | **licence to be confirmed by the user** (none stated) |
 | ak-12animated.glb (incoming/mg7) | AK-12 (`modern_ak12`, MG7) | supplied by the user | **licence to be confirmed by the user** (none stated) |
 | [Generic passenger car pack](https://sketchfab.com/3d-models/generic-passenger-car-pack-20f9af9b8a404d5cb022ac6fe87f21f5) by Comrade1280 (fab.fbx, supplied by the user) | Nine abandoned and wrecked cars (`mod_pcar_*`, NT2): split per car, re-aligned, paint faded and dusted, rust tint and a wheel removed on wrecks, glass made transparent | Comrade1280 | CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), modified |
+| [Gun Targets](https://sketchfab.com/3d-models/gun-targets-eb9fbe283faa41ef8685359a0769d303) by FrodoUndead (gun_targets.glb, supplied by the user) | Range targets and booth (`mod_range_target_single`, `_double`, `_moving`, `mod_range_booth`, NT4): split into four props, re-grounded, scaled | FrodoUndead | CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), modified |
+| [Old Ammo Crate](https://sketchfab.com/3d-models/old-ammo-crate-320d935472354cc79590bc35ade9d855) by Geoffroy.Sainte.Catherine (old_ammo_crate.glb, supplied by the user) | Ammo crate / loot spot (`mod_ammo_crate_old`, NT4): scaled to 1.2 m | Geoffroy.Sainte.Catherine | CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), modified |
+| shooting-target.zip (target_1.fbx; incoming/nt4) | Paper range target (`mod_range_target_paper`, NT4; bake local only, the committed asset draws a generated stand-in) | supplied by the user | **licence to be confirmed by the user** (no author, title or licence in the files) |
 | knife_animated.glb (incoming/mg7) | First-person knife: arms and slash for `knife_bayonet` (MG7) | supplied by the user | **licence to be confirmed by the user** (none stated) |
 | fps-50cal.zip (arms@bmg.fbx; extracted to incoming/fps-50cal) | Barrett M95 .50 BMG (`modern_sniper_50`, MG6) | supplied by the user | **licence to be confirmed by the user** (none stated in the zip) |
 | hardcase_for_weapons.glb | Modern weapons case (`rack_modern`) | FinBass (https://sketchfab.com/FinBass), from the GLB `asset.extras` | CC-BY-NC-4.0 per the GLB `asset.extras` (non-commercial; attribution required): **to be confirmed by the user** |

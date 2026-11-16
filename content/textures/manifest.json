@@ -1384,6 +1384,7 @@
    "ma1": false,
    "batch": "L4",
    "slots": [
+    "footing_rock",
     "paint_rock",
     "stone_field"
    ]
@@ -1435,6 +1436,7 @@
    "ma1": false,
    "batch": "L4",
    "slots": [
+    "ground_rubble_paint",
     "terrain_scree",
     "tun_floor_rubble"
    ]
@@ -5649,6 +5651,7 @@
    "ma1": false,
    "batch": "TX2",
    "slots": [
+    "rock_slab_paint",
     "rock_slate_layers"
    ]
   },
@@ -5806,6 +5809,58 @@
    "batch": "TX2",
    "slots": [
     "forest_litter"
+   ]
+  },
+  {
+   "set": "gravel_mixed",
+   "id": "Gravel015",
+   "url": "https://ambientcg.com/a/Gravel015",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "gravel (NT4, supplied by the user)",
+   "ma1": false,
+   "batch": "NT4",
+   "slots": [
+    "gravel_mixed"
+   ]
+  },
+  {
+   "set": "brick_grey_footing",
+   "id": "Bricks061",
+   "url": "https://ambientcg.com/a/Bricks061",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1.8,
+    1.8
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "brick (NT4, supplied by the user)",
+   "ma1": false,
+   "batch": "NT4",
+   "slots": [
+    "footing_brick"
    ]
   }
  ]

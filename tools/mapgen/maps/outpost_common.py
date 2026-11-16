@@ -21,6 +21,7 @@ from mapgen import (GroundPaint, Grid, Frame, MapBuilder, ScenarioBuilder, stamp
                     smoothstep, lerp, clamp)
 from maps.backrooms import update_usage_doc
 from maps.newtown import cover_catalogue, stamp_road
+from mapgen.catalog import Asset
 
 W, D, MARGIN = 126, 140, 60
 HX, HZ = W / 2, D / 2
@@ -46,6 +47,39 @@ def ruin_place(b, cat, seed):
             aid = aid + "_ruin"
         return _place(aid, *a, **k)
     b.place = place_r
+
+
+def range_layout(b, R, prop, origin, yaw, dists, district, rep):
+    """NT4: a shooting range: the shelter at origin facing local -z (yaw), lanes, targets at the given distances, flags,
+    markers, a sign, ammo crates (loot spots, military)."""
+    from mapgen import local_to_world as L2W
+    ox, oz = origin
+    def at(lx, lz):
+        return L2W((ox, oz), yaw, lx, lz)
+    def tag(e, mil=True):
+        if e is not None:
+            e["extra"] = e.get("extra") or {}
+            e["extra"]["loot"] = {"spot": True, "size": "small", "district": district, **({"military": True} if mil else {})}
+            e["extra"]["br"] = dict(e["extra"]["loot"])
+        return e
+    n = 0
+    tag(prop("mod_range_shelter", ox, oz, yaw, tags={"range", "cover"}))
+    for k, lx in enumerate((-4.5, 0.0, 4.5)):   # lanes: targets per lane at its distance
+        d = dists[k % len(dists)]
+        x, z = at(lx, -2.2 - d)
+        n += prop(("mod_range_target_single", "mod_range_target_double", "mod_range_target_paper")[k], x, z, yaw + R.uniform(-4, 4), tags={"range"}) is not None
+        for m in range(1, int(d // 10) + 1):
+            x, z = at(lx - 2.25, -2.2 - m * 10.0)
+            prop("mod_range_marker", x, z, yaw, tags={"range"})
+    x, z = at(0.0, -2.2 - min(dists) * 0.6)
+    prop("mod_range_target_moving", x, z, yaw + 90.0, tags={"range"})
+    for lx, lz in ((-6.8, 1.2), (6.8, -1.0)):
+        x, z = at(lx, lz); prop("mod_range_flag", x, z, yaw, tags={"range"})
+    x, z = at(-7.5, 3.5); prop("mod_range_sign", x, z, yaw + 180.0, tags={"range"})
+    for lx in (-3.0, 3.6):
+        x, z = at(lx, 3.4); tag(prop("mod_ammo_crate_old", x, z, yaw + R.uniform(-15, 15), tags={"range", "cover"}))
+    x, z = at(5.5, 3.6); prop("mod_range_booth", x, z, yaw + 180.0, tags={"range"})
+    rep["rangeTargets"] = rep.get("rangeTargets", 0) + n
 
 
 def build_variant(ctx, V):
@@ -80,7 +114,7 @@ def build_variant(ctx, V):
         return b.place("line_" + tid, pts[0][0], pts[0][1], 0.0, check=False, cls="none", extra={"line": ln}, tags={"line", tid} | set(tags),
                        y=b.ground(pts[0][0], pts[0][1]))
 
-    def site(aid, x, z, yaw, district, military=False, tags=()):
+    def site(aid, x, z, yaw, district, military=False, tags=(), info_spot=False):
         if aid not in cat:
             rep["missed"][aid] = rep["missed"].get(aid, 0) + 1
             return None
@@ -89,10 +123,12 @@ def build_variant(ctx, V):
             rep["missed"]["%s@%d,%d" % (aid, x, z)] = 1
             return None
         a = cat[e["asset"]]
-        if a.enterable and not aid.startswith(("mod_guard_tower",)):
+        if a.enterable or info_spot:
             loot = {"size": "large" if a.fw * a.fd >= 280 or int(a.raw.get("floors", 1) or 0) >= 3 else "small", "district": district}
             if military:
                 loot["military"] = True
+            if info_spot:
+                loot["spot"] = True   # NT4: loot on the ground round a prop (src/loot.cpp)
             e["extra"]["br"] = dict(loot)
             e["extra"]["loot"] = dict(loot)
         rep["sites"] += 1
@@ -133,8 +169,23 @@ def build_variant(ctx, V):
     for row in V["sites"]:
         aid, x, z, yaw = row
         info = V["site_info"].get((aid, x, z), {})
-        site(aid, x, z, yaw, info.get("d", 1), military=info.get("mil", False), tags=info.get("tags", ()))
+        site(aid, x, z, yaw, info.get("d", 1), military=info.get("mil", False), tags=info.get("tags", ()), info_spot=info.get("spot", False))
     V["dress"](b, R, prop, drop, line, paint, rep)
+    # NT4: an AH-64 parked on each pad (PF1's heli_ah64d_apache; a stub footprint until that asset is in the catalog,
+    # the engine skips an unknown asset id when the map loads)
+    HELI = "heli_ah64d_apache"
+    if HELI not in cat:   # not merged yet (PF1 / vh5): the pads stay empty rather than show a missing-asset box; re-run the generator once it is in
+        rep["missed"][HELI] = len(V.get("helis", []))
+    for pad_id, lz, deck, nose in (V.get("helis", []) if HELI in cat else []):
+        for e in [e for e in b.inst if e["asset"] == pad_id]:
+            px, pz = local_to_world((e["pos"][0], e["pos"][2]), e["yaw"], 0.0, lz)
+            h = b.place(HELI, px, pz, e["yaw"] + nose, check=False, cls="none", y=e["pos"][1] + deck, tags={"heli"})
+            rep["helis"] = rep.get("helis", 0) + (h is not None)
+    RY = rng(V["seed"] + 41)   # NT4: yards round every building, the map's own ground mix
+    for e in [e for e in b.inst if "building" in e["tags"]]:
+        a = cat[e["asset"]]; hx, hz = a.half
+        paint.poly(RY.choice(V["yard_paint"]), circle_poly(e["pos"][0], e["pos"][2], max(hx, hz) + RY.uniform(2.0, 4.5), 16),
+                   weight=RY.uniform(0.45, 0.75), edge=2.5, ragged=3.0, seed=int(RY.random() * 1e6))
 
     # weeds, rubble and litter against every building (the overgrown look), the variant's mix
     for e in [e for e in b.inst if "building" in e["tags"]]:

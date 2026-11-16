@@ -904,6 +904,12 @@ def populate(ctx, grid, pads=None):
                 elif r < 0.85:
                     o = RD.choice((-1, 1)) * RD.uniform(half - 1.2, half + 0.4)
                     nd["groundIvy"] += drop("mod_ivy_patch_ground", px + nx * o, pz + nz * o, RD.uniform(0, 360), dy=0.02, cls="veg") is not None
+                elif r < 0.93:   # NT4: a vegetation island in the carriageway (a crack that became a bed)
+                    a0 = RD.uniform(-1.5, 1.5)
+                    for q in range(RD.randint(4, 9)):
+                        o = a0 + RD.uniform(-1.4, 1.4); a = RD.uniform(-3.0, 3.0)
+                        nd["drifts"] += drop(RD.choice(["nat_tallgrass_patch", "mod_weeds_clump", "nat_nettle_clump", "mod_sapling_paving", "nat_bramble_thicket", "mod_ivy_patch_ground"]),
+                                             px + nx * o + t[0] * a, pz + nz * o + t[1] * a, RD.uniform(0, 360), cls="veg") is not None
                 else:   # a drift of tall grass and weeds banked against the kerb (clumped, not a row)
                     side = RD.choice((-1, 1))
                     for q in range(RD.randint(4, 8)):
@@ -944,6 +950,41 @@ def populate(ctx, grid, pads=None):
                 aid = R.choice(["mod_weeds_clump", "nat_nettle_clump", "nat_tallgrass_patch", "mod_weeds_crack", "mod_rubble_small", "nat_bramble_thicket",
                                 "mod_sapling_paving", "shrub_hazel", "mod_ivy_patch_ground", "nat_bramble_thicket"])
                 nd["weeds"] += drop(aid, wx, wz, R.uniform(0, 360), cls="veg" if not aid.startswith("mod_rubble") else "solid") is not None
+        # NT4: vine curtains on the tall blocks: strands hung from every storey line and the parapet, 30 % of the bays
+        nv = 0
+        for e in [e for e in b.inst if "building" in e["tags"]]:
+            a = cat[e["asset"]]; fl = a_floors(e["asset"])
+            if fl < 3:
+                continue
+            hx, hz = a.half; y0 = e["pos"][1]
+            for (ax, az, nxl, nzl, half) in ((0, -1, 0, -1, hx), (0, 1, 0, 1, hx), (-1, 0, -1, 0, hz), (1, 0, 1, 0, hz)):
+                u = -half + 1.3
+                while u < half - 1.0:
+                    for st in range(1, fl + 1):
+                        if RD.random() < 0.3:
+                            lx = ax * (hx + 0.12) if ax else u
+                            lz = az * (hz + 0.12) if az else u
+                            wx, wz = local_to_world((e["pos"][0], e["pos"][2]), e["yaw"], lx, lz)
+                            nv += b.place(RD.choice(["mod_vines_hanging_long", "mod_vines_hanging_long", "mod_vines_hanging"]), wx, wz, e["yaw"] + RD.uniform(0, 360),
+                                          check=False, cls="none", y=y0 + st * 3.3 - 0.05, tags={"vines"}) is not None
+                    u += RD.uniform(2.2, 3.4)
+        nd["vineCurtains"] = nv
+        # NT4: yards, lots and verges: ragged gravel / rubble / broken-slab ground round the buildings and along the roads
+        RY = rng(SEED + 41)
+        for e in [e for e in b.inst if "building" in e["tags"]]:
+            a = cat[e["asset"]]; hx, hz = a.half
+            for q in range(2):
+                ox, oz = RY.uniform(-hx, hx) * 0.6, RY.uniform(-hz, hz) * 0.6
+                cx, cz = local_to_world((e["pos"][0], e["pos"][2]), e["yaw"], ox, oz)
+                paint.poly(RY.choice(["gravel", "dirt", "pebbles", "dirt", "gravel"]), circle_poly(cx, cz, max(hx, hz) + RY.uniform(2.0, 5.0), 16),
+                           weight=RY.uniform(0.45, 0.75), edge=2.5, ragged=3.0, seed=int(RY.random() * 1e6))
+        for k in ROADS:
+            pts = g[k]; Lr = polyline_length(pts); s_ = RY.uniform(0, 10)
+            while s_ < Lr:
+                (px, pz), t = point_at(pts, s_); side = RY.choice((-1, 1)); o = side * RY.uniform(5.2, 7.5)
+                paint.poly(RY.choice(["gravel", "dirt", "pebbles"]), circle_poly(px - t[1] * o, pz + t[0] * o, RY.uniform(1.8, 3.8), 12),
+                           weight=RY.uniform(0.4, 0.7), edge=1.6, ragged=2.0, seed=int(RY.random() * 1e6))
+                s_ += RY.uniform(9.0, 18.0)
         rep["ruinDressing"] = nd
 
     # ------------------------------------------------------------------ 13. trees everywhere (not on roads, lots or in the square)
@@ -1108,7 +1149,8 @@ def build(ctx):
               builder=b, scenario_json=sj, explore_start=((-14.0, b.ground(-14.0, 16.0), 16.0), look_yaw(14.0, -26.0)), camera=cam,
               bookmarks={str(k): {"position": [c[0], b.ground(*c) + 60.0, c[1] + 70.0], "yaw": 0.0, "pitch": -40} for k, (n, c) in DISTRICTS.items()},
               extra={"groundPaint": b.paint.to_json(), "waterBodies": [lake_body()],
-                     **({"look": {"style": "abandoned", "haze": 4.0, "weather": 0.45, "envFog": 1, "bloom": 1.35, "saturation": 1.12, "tint": [1.04, 1.0, 0.94], "grime": 1.0},
+                     **({"look": {"style": "abandoned", "haze": 4.0, "weather": 0.45, "envFog": 1, "bloom": 1.35, "saturation": 1.12, "tint": [1.04, 1.0, 0.94], "grime": 1.5,
+                                  "paintSets": {"gravel": "gravel_mixed", "dirt": "ground_rubble_paint", "pebbles": "rock_slab_paint"}},
                         "lighting": {"fill": 1.2, "ambient": [0.035, 0.05, 0.045]}} if STYLE == "abandoned" else {})})
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=9, version=VERSION, seed=SEED,
                    description="A modern town for Battle Royale, 350 x 400 m, nine districts: a walled military base on a hill, "

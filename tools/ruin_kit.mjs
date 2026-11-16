@@ -25,7 +25,8 @@ function weatherMat(m, seed) {
     o.albedo = m.albedo.map((v) => v * 0.55 + 0.04); o.roughness = Math.min(1, (m.roughness || 0.1) + 0.35);
     return o;
   }
-  if (/brick/.test(n + tex) || pat === "brick" || pat === "brickwork") t = pick(["brick_worn", "brick_damaged", "brick_worn"]);
+  if (/plinth|footing|foundation|socle/.test(n)) t = pick(["footing_brick", "footing_rock", "footing_brick"]);   // NT4: exposed footing (Bricks061 / Rock022)
+  else if (/brick/.test(n + tex) || pat === "brick" || pat === "brickwork") t = pick(["brick_worn", "brick_damaged", "brick_worn"]);
   else if (/render|plaster|stucco/.test(n + tex) || ["plaster", "limewash", "interior"].includes(pat)) t = pick(["plaster_flaking", "render_stained", "plaster_flaking_b", "render_aged"]);
   else if (/asphalt|tarmac/.test(n + tex)) { t = pick(["asphalt_worn", "asphalt_patched", "asphalt_light"]); o.texture = t; o.albedo = [0.34, 0.33, 0.31]; o.roughness = 0.97; return o; }   // sun-bleached, dusty
   else if (/membrane|roof_mem/.test(n + tex)) t = pick(["asphalt_worn", "asphalt_patched"]);
@@ -72,9 +73,9 @@ export function ruinify(j, opts = {}) {
     if (/^(goods|pack_|stock)/.test(mn) && rnd(seed, i * 7 + 11) < 0.85) return;   // looted: the built-in shelves stand mostly empty
     if (glass && p.t === "b" && p.v !== 0) {
       const r = rnd(seed, i * 7 + 3);
-      if (r < 0.5) {   // gone (a few leave a jagged shard along the bottom of the frame)
+      if (r < 0.62) {   // gone (a few leave a jagged shard along the bottom of the frame)
         if (r < 0.12) { const s = [...p.s]; const thin = s.indexOf(Math.min(...s)); const up = 1; const h = s[up] * 0.18; const c = [...p.c]; c[up] = p.c[up] - s[up] / 2 + h / 2; s[up] = h; keep.push({ ...p, c, s, k: 0 }); }
-        if (p.c[1] < 2.6 && rnd(seed, i * 7 + 5) < 0.35) boards.push(p);
+        if (rnd(seed, i * 7 + 5) < (p.c[1] < 2.6 ? 0.35 : 0.12)) boards.push(p);   // NT4: upper ribbon bays boarded too
         return;
       }
     }
@@ -85,6 +86,7 @@ export function ruinify(j, opts = {}) {
   const boardWin = [];
   for (const [w, it] of (out.interactables || []).entries()) {
     if (it.kind === "door" || it.kind === "gate") continue;
+    it.defaultOpen = true;   // NT4: ruin windows hang open (the navmesh's vault links through them assume an open leaf)
     let gone = false;
     for (const L of it.leaves || []) L.parts = L.parts.filter((p, i) => {
       const gl = typeof p.m === "string" ? out.materials[matIndex(p.m)]?.pattern === "glass" : glassIdx.has(p.m);

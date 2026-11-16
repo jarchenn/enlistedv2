@@ -98,6 +98,39 @@
       "yaw": -131.18592516570965,
       "pitch": 2.0,
       "gameplay": true
+    },
+    {
+      "name": "range_eye",
+      "pos": [
+        5.0,
+        15.07,
+        -53.0
+      ],
+      "yaw": 84.28940686250037,
+      "pitch": 2.0,
+      "gameplay": true
+    },
+    {
+      "name": "tents_eye",
+      "pos": [
+        4.0,
+        14.88,
+        -20.0
+      ],
+      "yaw": -135.0,
+      "pitch": 2.0,
+      "gameplay": true
+    },
+    {
+      "name": "helipad_eye",
+      "pos": [
+        34.0,
+        17.04,
+        19.0
+      ],
+      "yaw": -30.46554491945988,
+      "pitch": 2.0,
+      "gameplay": true
     }
   ]
 }

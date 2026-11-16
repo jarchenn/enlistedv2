@@ -33,6 +33,8 @@ content/vehicles/models/humvee/
 # VH2: the supplied Boxer APC (boxer-apc-hmg.zip) names no author or licence: its bake stays local-only; clones draw
 # the committed part-built fallback (content/vehicles/models/boxer_apc_fallback)
 content/vehicles/models/boxer_apc/
+# NT4: the paper shooting target (shooting-target.zip names no author or licence): its bake stays local-only
+content/assets/models/range_target_paper/
 # VH4: the supplied M4 Sherman (m4-sherman.zip, a Sketchfab source .blend with no author or licence inside) stays
 # local-only; clones draw the committed Firefly mesh (content/vehicles/models/sherman) for sherman_m4
 content/vehicles/models/sherman_m4/

@@ -1,4 +1,5 @@
 #include "render.h"
+#include "ground_paint.h"   // NT4: groundPaintArid
 #include "lighting.h"
 #include "settings.h"
 #include "nature.h"
@@ -455,6 +456,7 @@ void main(){
 static const char* kMainFS = R"GLSL(
 in vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn, vEmi; in vec4 vPar; flat in vec3 vEye;
 uniform vec4 uTint; uniform float uTime; uniform int uWeather;   // 1: world structures get localized weathering
+uniform float uMapArid;   // NT4: look.arid (desert): sand-filled cracks
 uniform float uMapGrime;   // NT3: an abandoned map's grime (look.grime): ruin walls streaked, roads broken up
 uniform float uGlow, uEmissiveK;   // L2 emission: per draw (DrawItem::glow) and global multipliers
 uniform int uCapture;              // L2 probe capture: radiance + front-facing flag, no emission
@@ -1608,20 +1610,22 @@ void main(){
     float upG = smoothstep(0.85, 0.95, nW.y);
     if (upG > 0.0 && (pat == 10 || pat == 11)) {   // roads, pavements, markings: broken up in world space
       vec2 w = vW.xz;
-      alb *= mix(1.0, mix(0.76, 1.14, fbm2(vec3(w*0.07, 3.0))), gk);                 // ~15 m tone variation
+      alb *= mix(1.0, mix(0.66, 1.22, smoothstep(0.25, 0.75, fbm2(vec3(w*0.07, 3.0)))), gk);   // ~15 m tone variation (reads at eye level)
       vec2 cs = vec2(3.7, 5.3); vec2 cell = floor(w/cs), fc = fract(w/cs);
       float ph = hash12(cell*1.31 + 7.0);
       float pch = step(0.8, ph)*step(abs(fc.x - 0.5), 0.36)*step(abs(fc.y - 0.5), 0.41);   // repair patches
       alb = mix(alb, alb*(ph > 0.9 ? 0.7 : 1.16), pch*0.8*gk);
-      float cn = fbm2(vec3(w*0.33, 11.0)), cn2 = fbm2(vec3(w*0.9 + 4.0, 2.0));
-      float crack = 1.0 - smoothstep(0.0, 0.008 + gPix*0.5, abs(cn - 0.5));
-      crack = max(crack, (1.0 - smoothstep(0.0, 0.01 + gPix*0.6, abs(cn2 - 0.5)))*smoothstep(0.45, 0.6, vnoise(vec3(w*0.2, 1.0))));
+      vec2 ww = w + 1.6*vec2(fbm2(vec3(w*0.21, 1.0)), fbm2(vec3(w*0.21, 7.0)));   // NT4: warped, irregular, finer
+      float cn = fbm2(vec3(ww*0.75, 11.0)), cn2 = fbm2(vec3(ww*1.9 + 4.0, 2.0));
+      float cmask = smoothstep(0.52, 0.72, fbm2(vec3(w*0.06, 3.0)));   // cracked in patches, sound asphalt between
+      float crack = (1.0 - smoothstep(0.0, 0.005 + gPix*0.4, abs(cn - 0.5)))*cmask;
+      crack = max(crack, (1.0 - smoothstep(0.0, 0.004 + gPix*0.4, abs(cn2 - 0.5)))*cmask*smoothstep(0.5, 0.65, vnoise(vec3(w*0.2, 1.0))));
       float mossC = (1.0 - smoothstep(0.0, 0.05, abs(cn - 0.5)))*(1.0 - crack);
-      alb = mix(alb, alb*0.5, crack*0.7*gk);
+      alb = mix(alb, uMapArid > 0.5 ? mix(alb, vec3(0.46, 0.41, 0.32), 0.7) : alb*0.45, crack*(uMapArid > 0.5 ? 0.5 : 0.75)*gk);   // sand-filled (subtle) on arid maps
       alb = mix(alb, vec3(0.16, 0.2, 0.08), mossC*0.5*gk);
       float drift = smoothstep(0.55, 0.8, fbm2(vec3(w*0.25, 21.0)));                   // dirt and leaf drifts
       float leaves = smoothstep(0.55, 0.75, vnoise(vec3(w*3.0, 5.0)));
-      alb = mix(alb, mix(vec3(0.24, 0.19, 0.13), vec3(0.33, 0.2, 0.08), leaves), drift*0.55*gk*upG);
+      alb = mix(alb, uMapArid > 0.5 ? vec3(0.6, 0.53, 0.39)*(0.9 + 0.2*leaves) : mix(vec3(0.24, 0.19, 0.13), vec3(0.33, 0.2, 0.08), leaves), drift*(uMapArid > 0.5 ? 0.75 : 0.55)*gk*upG);   // arid: blown sand
       if (pat == 10) alb = mix(alb, vec3(0.3, 0.29, 0.27), smoothstep(0.35, 0.7, vnoise(vec3(w*0.6, 9.0)))*0.75*gk);   // faded, broken markings
       rough = mix(rough, 1.0, drift*0.3*gk);
     }
@@ -4357,6 +4361,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glEnable(GL_CULL_FACE); // all authored solids are closed with outward winding
   setLighting(progMain, v);
   glUniform1i(U(progMain, "uWeather"), thumbMode ? 0 : 1);
+  glUniform1f(U(progMain, "uMapArid"), groundPaintArid() ? 1.0f : 0.0f);
   glUniform1f(U(progMain, "uMapGrime"), std::getenv("NMK_AB_OFF") && std::strstr(std::getenv("NMK_AB_OFF"), "grime") ? 0.0f : lt.mapGrime);   // NT3
   glUniform1i(U(progMain, "uNoWallRelief"), wallRelief ? 0 : 1);
   glUniform1i(U(progMain, "uMatLod"), !thumbMode && perf.matLod ? 1 : 0);
