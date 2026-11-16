@@ -566,6 +566,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       fx.smoke(fxm, aimDir * 2.0f + vec3(0, 0.3f, 0), 0.05f, 0.7f + 0.5f * fx.rnd(), vec4(0.6f, 0.58f, 0.55f, 0.16f), 0.6f, 0.2f); fx.parts.back().fade = 1.6f;   // thin, short-lived, eroded wisp
       audio.play("shot_" + d.id, muzzle, 1.0f);
       if (d.pellets > 1) audio.play("shotgun_pump", eyePos(), 0.8f);   // the pump cycling the next shell (the recording starts 0.3 s in)
+      shotCasing(d, ch.pos, -1);   // SND4
       // recoil per shot = profile x stance (handling.json: crouched 0.85, prone 0.6) x 0.85 in ADS. Mounted keeps the
       // pre-overhaul values: the old posture factor (prone 0.20, crouched 0.70) x the weapon's own bipod factor
       // (recoil.supported; MG 42 prone 0.2 x 0.35 = 0.07), handling.json mounted 0.5 only for a bipod weapon without one.

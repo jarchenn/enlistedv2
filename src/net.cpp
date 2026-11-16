@@ -569,6 +569,7 @@ void netApplyEvent(App& app, const json& ev, bool replay) {
       g.ghosts.push_back({p, glm::normalize(dir) * d.velocity, 0, ev.value("tr", 0)});
       app.fx.flash(p + dir * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
       app.audio.play("shot_" + d.id, p, 1.0f);
+      { int by = ev.value("by", -1); if (by >= 0 && by < (int)g.sold.size()) app.shotCasing(d, g.sold[by].feet, by); }   // SND4
     }
   } else if (t == "gore") {   // W7: one replicated FleshHit; droplets are simulated here from its seed
     if (!replay) { extern void goreNetEvent(App&, const json&); goreNetEvent(app, ev); }

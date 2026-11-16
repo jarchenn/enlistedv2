@@ -21,7 +21,7 @@ void gm2ApplyClassSoldier(App& app, int slot, Soldier& s, const struct ClassDef&
 void gm2Reset(App& app);                                        // a new Explore session: no live packs, no strikes, no grants
 
 // ---- explosion pack: placed on the surface in reach (walls, vehicles, ground), it goes off `fuse` s later through explode()
-struct LivePack { vec3 pos{0}, nrm{0, 1, 0}; float fuse = 10; int def = -1, owner = -1; uint64_t tank = 0; vec3 local{0}, localN{0}; bool visualOnly = false; };
+struct LivePack { vec3 pos{0}, nrm{0, 1, 0}; float fuse = 10; int def = -1, owner = -1; uint64_t tank = 0; vec3 local{0}, localN{0}; bool visualOnly = false; int beat = -1; };   // beat: the last countdown beep sounded (SND4)
 bool gm2PlacePack(App& app, int def, vec3 eye, vec3 dir, int owner, std::string* why = nullptr);   // host / solo: places it; a LAN client: a request
 const std::vector<LivePack>& gm2Packs();
 
