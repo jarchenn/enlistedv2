@@ -1,0 +1,68 @@
+{
+ "id": "tank_panzer_iv",
+ "version": 1,
+ "name": "Panzer IV Ausf. H",
+ "category": "Vehicles",
+ "description": "Drivable tank (Explore: E to enter). Supplied Panzer IV model; 7.5 cm KwK 40 game data. Gunner sight, cupola MG 34, bow MG 34, HE/AP.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  2.94,
+  5.92
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1.2,
+ "noAutoPanels": true,
+ "faction": "Axis",
+ "materials": [
+  {
+   "name": "collider",
+   "albedo": [
+    0.3,
+    0.3,
+    0.3
+   ],
+   "roughness": 0.8,
+   "pattern": "metal"
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.9,
+    0
+   ],
+   "s": [
+    2.9,
+    1.7,
+    5.8
+   ],
+   "m": "collider",
+   "v": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0.04,
+    2.18,
+    -0.24
+   ],
+   "s": [
+    2.0,
+    0.9,
+    2.06
+   ],
+   "m": "collider",
+   "v": 0
+  }
+ ],
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "vehicle": "panzer_iv",
+ "nav": {
+  "effect": "none"
+ }
+}
