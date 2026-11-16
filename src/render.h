@@ -30,7 +30,7 @@ struct TreeDef;
 struct FoliageDraw { const TreeDef* tree; mat4 m; uint8_t* lod = nullptr; uint8_t cur = 2; uint64_t id = 0; bool batched = false; };   // id: a standing tree copy (P2 folbatch); batched: drawn from its cell this frame
 // thinPx > 0: keep sub-pixel geometry (barbed wire) visible - vertices move out along their normals by thinPx pixels'
 // worth of angle at their distance (capped at 3 cm), so a 2 mm strand stays about a pixel wide at range
-struct ModelDraw { const GpuModel* model; int part; mat4 m; vec4 tint{1, 1, 1, 1}; float thinPx = 0; };
+struct ModelDraw { const GpuModel* model; int part; mat4 m; vec4 tint{1, 1, 1, 1}; float thinPx = 0; int glass = 0; };   // glass: 1 dusty, 2 broken (a wreck)
 struct OverlayVert { vec3 p; vec4 c; };
 struct NatPatchDraw { GLuint vbo = 0; int count = 0; vec3 mn{0}, mx{0}; float reach = 1; };   // plant patch (nature.cpp); reach x the grass radius
 
@@ -96,6 +96,7 @@ public:
   std::vector<FoliageDraw> foliage;
   std::vector<NatPatchDraw> natPatches;   // flower / tall-grass patches (nature.cpp), drawn with the grass program
   int natDraws = 0; size_t natTufts = 0;   // last frame
+  std::vector<ModelDraw> worldModelsGlass;   // their glass parts (blended, after the glass pass)
   std::vector<ModelDraw> worldModels;   // imported models in the world (rack displays, the M2HB station)     // tree leaf cards (alpha-tested, wind sway, shadow casting)
   float wind = 1.0f;
   // sky clouds: fbm on a plane at 1500 m scrolling with the wind
