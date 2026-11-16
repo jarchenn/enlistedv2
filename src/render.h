@@ -75,6 +75,7 @@ struct WaterDraw { GLuint vao = 0; int count = 0; mat4 model{1}; vec4 look{0}, t
 
 class Renderer {
 public:
+  bool flashOn = false; float flashExpoFloor = 0;   // FX1 headlamp in this frame's lights (flashlight.cpp); exposure floor while on
   bool init(int w, int h);
   void resize(int w, int h);
   void render(const RenderView& v, const Terrain& t, const std::vector<DrawItem>& opaque,

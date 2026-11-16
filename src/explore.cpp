@@ -383,6 +383,7 @@ void App::updateExplore(float dt) {
     if (kp(win, GLFW_KEY_F3)) showStats = !showStats;
     if (kp(win, GLFW_KEY_F4)) panelDebug = !panelDebug;
     if (kp(win, bk("loadout")) && !pauseMenu) { showLoadout = !showLoadout; syncCursor(); }
+    if (kp(win, bk("flashlight")) && !pauseMenu) flashlight = !flashlight;   // FX1 headlamp
     if (kp(win, GLFW_KEY_V)) scopeIronsMode = !scopeIronsMode;
   }
   // the cursor is captured unless a menu needs it: every look delta below assumes GLFW_CURSOR_DISABLED (a free cursor
@@ -543,7 +544,7 @@ void App::drawExploreUI() {
         }
       }
     }
-    dl->AddText(ImVec2(14, 12), IM_COL32(230, 230, 220, 150), "WASD walk | Shift sprint | Ctrl/C crouch | Space jump (stand up when prone) | E interact | LMB fire | RMB sights | R reload | Q weapon | T switch gun position | Backspace start | F4 damage debug | Esc menu");
+    dl->AddText(ImVec2(14, 12), IM_COL32(230, 230, 220, 150), "WASD walk | Shift sprint | Ctrl/C crouch | Space jump (stand up when prone) | E interact | LMB fire | RMB sights | R reload | Q weapon | N headlamp | T switch gun position | Backspace start | F4 damage debug | Esc menu");
     if (tanks.occupied) tanks.drawUI(*this);
     else { drawCombatUI(); drawWeaponUI(); tanks.drawUI(*this); drawSwimUI(); drawStaminaUI(); }
     if ((showMinimap || mapLarge) && !gm2ArtyMapOpen()) minimapHud(*this, mapLarge);   // GM2

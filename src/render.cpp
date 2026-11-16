@@ -241,6 +241,7 @@ uniform mat4 uViewM;                   // camera view matrix
 uniform sampler2DShadow uLShadow;      // unit 16: light shadow atlas (standard Z)
 uniform vec4 uLShadowTile;             // tile px, atlas w, atlas h
 uniform float uLampUnit;               // irradiance at 1 m of intensity 1 (scene units; the Day sun is 3.3)
+uniform int uCapture;                  // L2 probe capture: radiance + front-facing flag, no emission (FX1: declared here for lightTerm)
 float lightFalloff(float d2, float r){ float x = d2/(r*r); float w = clamp(1.0 - x*x, 0.0, 1.0); return w*w/max(d2, 0.09); }
 float lightShadow(int slot, bool spot, vec3 w, vec3 Ng, vec3 lp, vec3 L){
   vec3 d = w - lp; int face = 0;
@@ -263,12 +264,13 @@ float lightShadow(int slot, bool spot, vec3 w, vec3 Ng, vec3 lp, vec3 L){
 }
 void lightTerm(int i, vec3 w, vec3 N, vec3 Ng, vec3 V, float a, float rough, vec3 F0, inout vec3 dif, inout vec3 spe){
   LLight l = gLights[i];
+  if (l.misc.w > 0.5 && uCapture == 1) return;   // FX1: the player's headlamp never reaches the probe GI
   vec3 dl = l.posR.xyz - w; float d2 = dot(dl, dl);
   if (d2 >= l.posR.w*l.posR.w) return;
   float d = sqrt(d2); vec3 L = dl/max(d, 1e-4);
   float NdL = dot(N, L);
   if (NdL <= 0.0) return;
-  float att = lightFalloff(d2, l.posR.w);
+  float att = lightFalloff(l.misc.w > 0.5 ? max(d2, 1.0) : d2, l.posR.w);   // FX1: the headlamp stops brightening inside 1 m (the gun at ADS, a wall at arm's length: lit, never blown out)
   if (l.dirC.w > -1.0) att *= smoothstep(l.dirC.w, max(l.misc.x, l.dirC.w + 1e-3), dot(-L, l.dirC.xyz));
   if (att <= 0.0) return;
   if (l.misc.y >= 0.0) att *= lightShadow(int(l.misc.y + 0.5), l.misc.z > 0.5, w, Ng, l.posR.xyz, L);
@@ -459,7 +461,6 @@ uniform vec4 uTint; uniform float uTime; uniform int uWeather;   // 1: world str
 uniform float uMapArid;   // NT4: look.arid (desert): sand-filled cracks
 uniform float uMapGrime;   // NT3: an abandoned map's grime (look.grime): ruin walls streaked, roads broken up
 uniform float uGlow, uEmissiveK;   // L2 emission: per draw (DrawItem::glow) and global multipliers
-uniform int uCapture;              // L2 probe capture: radiance + front-facing flag, no emission
 uniform int uNoWallRelief;   // A/B: 1 = rough-wall relief off (Renderer::wallRelief = 0)
 // uMatLayer (GX5 layered materials: 0 off (Low, probe captures), 1 on, 2 High) is declared with the L4 hooks (textures.cpp)
 struct SDec { vec4 a, b, c; };   // GX5 static decals (static_decals.h): centre + type, normal + seed, half size + strength + variant
@@ -3166,6 +3167,7 @@ static const char* kExpoFS = R"GLSL(
 #version 450 core
 uniform sampler2D uHdr, uPrev; uniform float uLod, uDt, uReset;
 uniform float uExpoKey, uExpoMin, uExpoMax;   // L2 time of day: Day 0.24, 0.9 .. 1.45; night opens the range (lighting.cpp)
+uniform float uExpoFloor;   // FX1: while the headlamp is on, the exposure at switch-on (fading): its lit patch does not pump the scene down
 out float oE;
 void main(){
   vec3 avg = textureLod(uHdr, vec2(0.5), uLod).rgb;
@@ -3174,7 +3176,7 @@ void main(){
   float lr = dot(avg, vec3(0.2126,0.7152,0.0722));
   if (isnan(lr) || isinf(lr)) { oE = prev; return; }   // one non-finite pixel poisons the whole mip average
   float l = max(lr, 1e-4);
-  float target = clamp(uExpoKey/l, uExpoMin, uExpoMax);
+  float target = max(clamp(uExpoKey/l, uExpoMin, uExpoMax), uExpoFloor);
   float k = 1.0 - exp(-uDt*(target > prev ? 0.6 : 1.2));
   oE = mix(prev, target, k);
 }
@@ -4624,6 +4626,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1f(U(progExpo, "uLod"), (float)levels); glUniform1f(U(progExpo, "uDt"), v.dt);
   glUniform1f(U(progExpo, "uReset"), expoReset); expoReset = -1;
   lightingExposure(*this, progExpo);   // L2: exposure range of the time of day
+  glUniform1f(U(progExpo, "uExpoFloor"), flashOn ? flashExpoFloor : 0.0f);   // FX1
   glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
   expoIdx ^= 1;
 
