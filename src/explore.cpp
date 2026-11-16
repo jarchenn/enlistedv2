@@ -472,10 +472,12 @@ void App::updateExplore(float dt) {
           leanHeld = !keep && down; K = LeanKey{}; K.held = down; return;
         }
         action = false;   // the plain edge press of the shared key is decided here
+        // MV3b: the lean starts on the press itself; released within tap_s it was a tap (the action; the small lean
+        // already begun springs back), held longer it was a lean
         if (down && !K.held) { K.down = now; K.consumed = promptNow; K.leaning = false; if (promptNow) action = true; }
         if (down && !K.consumed && now - K.down >= leanCfg.tap) K.leaning = true;
         if (!down && K.held && !K.consumed && !K.leaning) action = true;   // a tap
-        leanHeld = down && K.leaning;
+        leanHeld = down && !K.consumed;
         K.held = down;
       };
       bool next = false, inter = false;

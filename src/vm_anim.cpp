@@ -47,6 +47,7 @@ struct St {
   CharInstance inst; AnimPlayer pl; PoseResult pose;
   int lastShot = -1; float lastReload = 0, kick = 0, lastThrow = -1; bool ready = false;   // lastThrow: the melee swing (MG7 knife)
   std::string clipName; mat4 local{1};   // rig -> camera (lowering, sway / bob, ADS); the camera is applied when drawn
+  mat4 restGun{1}; bool haveRest = false;   // WP4c: the gun joint's pose at rest (idle): a shot's fire clip may not rock it
 };
 std::map<const WeaponDef*, St> gSt;
 const WeaponDef* gActive = nullptr;
@@ -162,7 +163,7 @@ void animVmStep(App& app, const WeaponDef& d, WeaponState& s, float dt) {
   st.lastThrow = s.throwT;
   if (s.shotIdx != st.lastShot || swing) {   // automatics restart the fire clip at the cyclic rate
     st.lastShot = s.shotIdx;
-    if (clip("fire") >= 0) play(K_FIRE, "fire", 0.04f, a.fireRate); else st.kick = 1;   // no fire clip (the AR-15 set): a procedural kick
+    if (clip("fire") >= 0) play(K_FIRE, "fire", 0.04f, a.fireRate);   // the bolt / slide / hands; the gun's own swing in it is cancelled below (WP4c)
   } else if (!want.empty() && (want != st.clipName || st.pl.key != K_RELOAD || s.reload > st.lastReload + 1e-4f)) {
     float dur = animVmClipDur(a, want) * a.reloadRate, rate = a.shells ? a.reloadRate : 1.0f;   // dur: the clip's own length
     if (!a.shells && s.reloadKind != 4 && dur > 0 && s.reloadTotal > 0) rate = dur / s.reloadTotal;   // a magazine clip spans the reload exactly
@@ -176,7 +177,12 @@ void animVmStep(App& app, const WeaponDef& d, WeaponState& s, float dt) {
   st.inst.skin(st.pose.skin);
   st.kick = std::max(0.0f, st.kick - dt / 0.12f);
   // ---- rig -> camera: lowering (mantle / swim) * sway & bob * kick * ADS (posed sights onto the view axis)
-  const mat4& D = st.pose.delta[a.gunJoint];
+  // WP4c: while a shot's fire clip plays, the whole rig is corrected so the gun joint holds its rest pose: the clip still
+  // works the bolt / slide and the hands, the gun itself only gets the straight recoil push
+  mat4 hold(1);
+  if (st.pl.key == K_IDLE) { st.restGun = st.pose.delta[a.gunJoint]; st.haveRest = true; }
+  else if (st.pl.key == K_FIRE && st.haveRest && !d.melee.on) hold = st.restGun * glm::inverse(st.pose.delta[a.gunJoint]);
+  const mat4 D = hold * st.pose.delta[a.gunJoint];
   vec3 R = vec3(D * vec4(a.pt[0], 1)), F = vec3(D * vec4(a.pt[1], 1));
   bool scoped = app.vmScoped(d);
   float relief = scoped ? d.scopeRelief : d.eyeRelief;
@@ -195,17 +201,17 @@ void animVmStep(App& app, const WeaponDef& d, WeaponState& s, float dt) {
     proc = glm::translate(mat4(1), app.vm.swayP + app.vm.bob) * glm::translate(mat4(1), piv) *
            glm::mat4_cast(glm::angleAxis(radians(app.vm.swayR.x), vec3(0, 1, 0)) * glm::angleAxis(radians(app.vm.swayR.y), vec3(1, 0, 0))) * glm::translate(mat4(1), -piv);
   }
-  if (st.kick > 0) {   // back 15 mm and up 2 deg about the rear sight, decaying over 0.12 s
-    float k = st.kick * st.kick;
+  if (s.kick > 0 || s.kickP != 0) {   // WP4c: the weapon state's recoil springs (weapons.cpp): straight back along the view / sight line, a tiny rise about the rear sight
+    float rm = app.reducedMotion ? 0.3f : 1.0f, back = std::min(s.kick * glm::mix(1.0f, 0.5f, t), glm::mix(1.0f, 0.35f * relief, t)) * rm;
     vec3 Rv = glm::mix(R, vec3(0, 0, -relief), t);
-    proc = proc * glm::translate(mat4(1), vec3(0, 0, 0.015f * k)) * glm::translate(mat4(1), Rv) * glm::mat4_cast(glm::angleAxis(radians(2.0f * k), vec3(1, 0, 0))) * glm::translate(mat4(1), -Rv);
+    proc = proc * glm::translate(mat4(1), vec3(0, 0, back)) * glm::translate(mat4(1), Rv) * glm::mat4_cast(glm::angleAxis(radians(s.kickP * rm), vec3(1, 0, 0))) * glm::translate(mat4(1), -Rv);
   }
   mat4 low(1);
   if (float lw = std::max(app.mantleLower(), app.swimLower()); lw > 0) {
     float k = lw * lw * (3 - 2 * lw);
     low = glm::translate(mat4(1), vec3(0.05f * k, -0.34f * k, 0.08f * k)) * glm::mat4_cast(glm::angleAxis(radians(-60.0f * k), vec3(1, 0, 0)));
   }
-  st.local = low * proc * glm::translate(mat4(1), a.hipShift * (1 - t)) * ads;
+  st.local = low * proc * glm::translate(mat4(1), a.hipShift * (1 - t)) * ads * hold;
   st.ready = true;
 }
 

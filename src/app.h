@@ -262,7 +262,7 @@ public:
   struct MantleSettings { float minH = 0.4f, maxH = 2.2f, reach = 0.85f, durMin = 0.45f, durMax = 1.3f, landUp = 0.3f, landDown = 0.6f, fenceDrop = 0.4f, minTop = 0.05f, pitchDip = 14.0f, pitchUp = 5.0f, handSpread = 0.24f; } mantleCfg;
   // MV3 lean (explore.cpp): one shared parameter x (-1 left .. +1 right, collision-limited) drives the eye offset and
   // roll (eyePos / viewUp: the weapon and the shot origin follow the camera), the third-person spine bend and LAN
-  struct LeanSettings { float side = 0.26f, radius = 0.85f, roll = 6.5f, in = 0.22f, out = 0.17f, clear = 0.2f, tap = 0.2f, bend = 16; } leanCfg;
+  struct LeanSettings { float side = 0.26f, radius = 0.85f, roll = 6.5f, in = 0.13f, out = 0.11f, clear = 0.2f, tap = 0.2f, bend = 16; } leanCfg;
   struct LeanState { float x = 0, v = 0, limitL = 1, limitR = 1; } lean;
   struct LeanKey { double down = -1; bool held = false, consumed = false, leaning = false; } leanKeys[2];
   vec3 leanOffset() const;                                     // world offset of the eye for lean.x (curved about the waist)
