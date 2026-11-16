@@ -95,6 +95,7 @@ static void initFromInstance(App& app, TankSys& sys, TankRT& t, const Instance& 
   n.mgLoaded = d.mgBelt; n.mgReserve = d.mgReserve;
   n.bowLoaded = d.bowOn ? d.bowBelt : 0; n.bowReserve = d.bowOn ? d.bowReserve : 0;
   if (n.wrecked) { n.hp = 0; n.loaded = SHELL_NONE; n.burnT = 0; }
+  if (d.heli) { n.gunAmmo = d.gun30Ammo; n.rockets = d.rocketCount; n.grounded = true; n.rpm = 0; if (n.wrecked) n.roll = 18; t = n; return; }   // VH5: sits at the instance's height (a raised pad)
   float y, p, r, s; sys.groundPose(app, d, n.pos, n.yaw, y, p, r, s);
   n.pos.y = y; n.pitch = p; n.roll = r;
   t = n;
@@ -143,7 +144,7 @@ void TankSys::updateBody(App& app, TankRT& t, bool force) {
   if (t.body == 0xffffffffu || !t.def) return;
   (void)app;
   const TankDef& d = *t.def;
-  if (!t.adopted && (force || std::fabs(wrap180(t.tYaw - t.shapeYaw)) > 2.0f)) {   // BR7: an adopted car keeps its asset's exact collision
+  if (!t.adopted && (force || t.shapeYaw > 1e8f || (!d.heli && std::fabs(wrap180(t.tYaw - t.shapeYaw)) > 2.0f))) {   // VH5: the chin gun's tYaw moves no collider   // BR7: an adopted car keeps its asset's exact collision
     std::vector<Part> parts;
     for (auto& b : d.hullBoxes) { Part p; p.center = b.c; p.size = b.h * 2.0f; parts.push_back(p); }
     quat ty = glm::angleAxis(radians(t.tYaw), vec3(0, 1, 0));
@@ -177,7 +178,7 @@ bool TankSys::handleInteract(App& app, const ExploreInput& in) {
   if (!in.interact || occupied || !target) return false;
   TankRT* t = get(target);
   if (t && t->wrecked) { app.toast(t->def->name + " is destroyed.", 3); return true; }
-  if (t && !t->def->car && !mpaiMayDriveTanks(app)) { app.toast("Only a Tanker can drive tanks.", 3); return true; }   // GM1 (cars: anyone)
+  if (t && !t->def->car && !t->def->heli && !mpaiMayDriveTanks(app)) { app.toast("Only a Tanker can drive tanks.", 3); return true; }   // VH5: anyone may fly   // GM1 (cars: anyone)
   enter(app, target);
   return true;
 }
@@ -192,6 +193,15 @@ bool TankSys::enter(App& app, uint64_t id) {
   t->station = TS_GUNNER; t->hatchT = 0;
   fireArmed = false; zoom = false; zoomT = 0; aimPrev = true; crouchLatch = true;
   app.build.active = false; app.adsT = 0; app.vault.active = false; app.choiceFor = 0;
+  if (t->def->heli) {   // VH5: the pilot; the chase camera looks along the nose, the rotor spins up
+    vec3 f = yawQuat(t->yaw) * vec3(0, 0, 1);
+    app.eyeYaw = wrapDeg(degrees(std::atan2(-f.x, -f.z))); app.eyePitch = -8;
+    t->vel = vec3(0); t->reloadPrev = true;
+    Physics::setCharacterPos(t->pos + vec3(0, 0.6f, 0));
+    app.audio.play("steel_close", t->pos + vec3(0, 1.5f, 4), 0.4f);
+    app.toast("In " + t->def->name + " - rotor spinning up. Space up | Ctrl down | W/S forward / back | A/D strafe | mouse: nose + aim | LMB 30 mm | R rocket | E get out (landed)", 8);
+    return true;
+  }
   if (t->def->car) {   // VH1: the driver's seat, looking ahead through the windshield
     vec3 f = yawQuat(t->yaw) * vec3(0, 0, 1);
     app.eyeYaw = wrapDeg(degrees(std::atan2(-f.x, -f.z))); app.eyePitch = -9;
@@ -271,6 +281,7 @@ bool TankSys::exitTank(App& app, bool force) {
 void TankSys::stepOne(App& app, TankRT& t, float dt, const ExploreInput* in) {
   const TankDef& d = *t.def;
   t.recoilT += dt;
+  if (t.wrecked && d.heli && t.falling) { stepHeliFall(app, t, dt); effects(app, t, dt); return; }   // VH5: going down
   if (t.wrecked) {
     t.speed = 0; t.yawRate = 0; t.reload = 0;
     for (int* h : {&t.engineLoop, &t.trackLoop, &t.turretLoop}) { app.audio.loopStop(*h); *h = -1; }
@@ -278,6 +289,7 @@ void TankSys::stepOne(App& app, TankRT& t, float dt, const ExploreInput* in) {
     return;
   }
   if (d.car) { stepCar(app, t, dt, in); return; }
+  if (d.heli) { stepHeli(app, t, dt, in); return; }
   bool focused = app.selftest || glfwGetWindowAttrib(app.win, GLFW_FOCUSED);
   t.throttleIn = in ? std::clamp(in->move.y, -1.0f, 1.0f) : 0.0f;
   bool rmbFire = false;
@@ -705,6 +717,7 @@ bool TankSys::camera(const App& app, vec3& eye, vec3& fwd, float& fov) const {
   auto it = tanks.find(occupied);
   if (it == tanks.end() || !it->second.def) return false;
   const TankRT& t = it->second; const TankDef& d = *t.def;
+  if (d.heli) return heliCamera(app, t, eye, fwd, fov);
   if (d.car) {   // VH1: the driver's head (free look, clamped in stepCar) easing to the pintle gunner's when standing at the MG
     mat4 H = hullMatrix(t);
     float u = t.hatchT * t.hatchT * (3 - 2 * t.hatchT);
@@ -757,6 +770,7 @@ TankHitResult TankSys::projectileHit(App& app, const Projectile& p, vec3 pos, ve
   if ((ud >> 60) == 0xF || ud == 0 || (ud & 0xFFFF) != 0) return r;
   if (!tanks.count(ud >> 16)) return r;
   int attack = p.kind == PROJ_BULLET ? TA_SMALL_ARMS : p.kind == PROJ_ROCKET ? TA_LAUNCHER : TA_CANNON;
+  if (p.cannon30) { const TankRT& t = tanks[ud >> 16]; attack = t.def && t.def->car ? TA_LAUNCHER : TA_SMALL_ARMS; }   // VH5: 30 mm HE wrecks cars, scratches armour
   return applyHit(app, ud >> 16, attack, pos, normal, p.v, 0.5f * p.mass * glm::dot(p.v, p.v));
 }
 
@@ -773,13 +787,13 @@ TankHitResult TankSys::applyHit(App& app, uint64_t id, int attack, vec3 pos, vec
   bool counted = attack == TA_CANNON || (attack == TA_LAUNCHER && (r.zone == TZ_SIDE || r.zone == TZ_REAR));
   // VH1: soft-skinned: every launcher hit, bullets wear it down. VH2 armoured car: only heavy bullets (.50) wear it down
   bool heavy = t->def->heavyBulletJ > 0 && bulletJ >= t->def->heavyBulletJ;
-  if (t->def->car) counted = attack != TA_SMALL_ARMS || t->def->smallArmsDmg > 0 || heavy;
+  if (t->def->car || t->def->heli) counted = attack != TA_SMALL_ARMS || t->def->smallArmsDmg > 0 || heavy;
   r.counted = counted;
   r.consumed = attack == TA_SMALL_ARMS || (attack == TA_LAUNCHER && !counted);   // no penetration, no blast
   char b[200];
   if (counted) {
     int dmg = r.zone == TZ_FRONT ? t->def->frontDamage() : t->def->sideDamage();
-    if (t->def->car) dmg = attack == TA_SMALL_ARMS ? (heavy ? t->def->heavyBulletDmg : t->def->smallArmsDmg) : attack == TA_LAUNCHER ? t->def->launcherDmg : t->def->cannonDmg;   // VH1: 100: one shell or rocket wrecks a jeep
+    if (t->def->car || t->def->heli) dmg = attack == TA_SMALL_ARMS ? (heavy ? t->def->heavyBulletDmg : t->def->smallArmsDmg) : attack == TA_LAUNCHER ? t->def->launcherDmg : t->def->cannonDmg;   // VH1: 100: one shell or rocket wrecks a jeep
     t->hp = std::max(0, t->hp - dmg);
     if (r.zone == TZ_FRONT) ++t->hitsFront; else ++t->hitsSide;
     std::snprintf(b, sizeof b, "%s hit, %s %s: durability %d (front hits %d, side/rear hits %d)", an[attack], onTurret ? "turret" : "hull", tankZoneName(r.zone), t->hp, t->hitsFront, t->hitsSide);
@@ -814,6 +828,11 @@ void TankSys::destroy(App& app, TankRT& t, const std::string& why) {
   app.fx.flash(c, 4.0f, 0.25f, vec4(9, 5, 2, 1));
   app.audio.play("explosion", c, 1.0f);
   app.toast(t.def->name + " destroyed (" + why + ")", 5);
+  if (t.def->heli) {   // VH5: power lost: it falls (spinning) and crashes, or burns where it stands
+    if (t.pos.y > heliGround(app, t, t.pos) + 0.5f) { t.falling = true; t.yawRate = 40; }
+    else heliCrash(app, t);
+    return;
+  }
   if (occupied == t.id) { exitTank(app, true); app.toast("Your tank was knocked out - you bailed out.", 5); }
 }
 
@@ -889,6 +908,11 @@ void TankSys::effects(App& app, TankRT& t, float dt) {
         app.fx.smoke(p, back * 0.7f + vel * 0.3f + vec3(0, 0.35f, 0), (0.18f + 0.15f * t.rpm) * (d.car ? 0.6f : 1.0f), d.car ? 1.2f : 2.2f, vec4(0.32f, 0.33f, 0.35f, (0.10f + 0.22f * t.rpm) * (d.car ? 0.5f : 1.0f)), d.car ? 0.8f : 1.5f, 0.35f);
       }
     }
+  }
+  if (d.heli) {   // VH5: downwash and the turbine instead of tracks, damage smoke below half
+    heliEffects(app, t, dt);
+    if (t.hp <= 50) { t.burnT += dt; if (std::fmod(t.burnT, 0.18f) < dt) puff(vec3(H * vec4(d.engine + vec3(0, 0.4f, 0), 1)), 0.45f, 4.5f, 0.15f, 0.45f, 1.8f); }
+    return;
   }
   // dust from the tracks on dry ground when moving (none on wet ground)
   float spd = std::fabs(t.speed);

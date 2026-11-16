@@ -63,6 +63,8 @@ void TankSys::loadDefs(App& app) {
         else if (d->car && p.role == "stowage") d->stowageParts.push_back((int)k);
         else if (d->car && p.role == "pintle") d->pintleParts.push_back((int)k);
         else if (d->car && p.role == "rws") d->rwsParts.push_back((int)k);
+        else if (p.role == "rotor") d->rotorParts.push_back((int)k);          // VH5 helicopter
+        else if (p.role == "tailrotor") d->tailRotorParts.push_back((int)k);
         else if (p.role == "turret") d->turretParts.push_back((int)k);
         else if (p.role == "gun") d->gunParts.push_back((int)k);
         else if (p.role == "hatch") d->hatchParts.push_back((int)k);
@@ -126,6 +128,30 @@ void TankSys::loadDefs(App& app) {
     d->frontSurvive = du.value("frontHitsSurvived", d->frontSurvive); d->sideSurvive = du.value("sideHitsSurvived", d->sideSurvive);
     const json rm = j.value("ramming", json::object());
     d->massKg = rm.value("massKg", d->massKg); d->engineKW = rm.value("engineKW", d->engineKW); d->pushEff = rm.value("pushEfficiency", d->pushEff);
+    d->heli = j.value("heli", false);
+    if (d->heli) {   // VH5 helicopter: flight, rotors, chin gun, rockets; damage as an armoured car
+      d->rotorHub = jv(rg, "rotorHub"); d->tailHub = jv(rg, "tailRotorHub");
+      for (auto& x : rg.value("rocketPods", json::array())) d->pods.push_back(jvec3(x));
+      if (cl.contains("rotorDisc")) d->rotorDisc = jbox(cl["rotorDisc"]);
+      const json fl = j.value("flight", json::object());
+      d->hMaxFwd = fl.value("maxForward", d->hMaxFwd); d->hMaxBack = fl.value("maxBackward", d->hMaxBack); d->hMaxSide = fl.value("maxSideways", d->hMaxSide);
+      d->hClimb = fl.value("climb", d->hClimb); d->hSink = fl.value("sink", d->hSink); d->hAccel = fl.value("accel", d->hAccel); d->hYawRate = fl.value("yawRate", d->hYawRate);
+      d->spinUp = fl.value("spinUp_s", d->spinUp); d->spinDown = fl.value("spinDown_s", d->spinDown); d->rotorRps = fl.value("rotorRps", d->rotorRps); d->tailRps = fl.value("tailRps", d->tailRps);
+      if (fl.contains("pitchLimits")) { d->hPitchMin = fl["pitchLimits"][0]; d->hPitchMax = fl["pitchLimits"][1]; }
+      const json cg = j.value("chinGun", json::object());
+      d->gun30Name = cg.value("name", "Chin gun"); d->gun30Sound = cg.value("sound", "shot_m2hb");
+      d->gun30Rpm = cg.value("rpm", d->gun30Rpm); d->gun30Vel = cg.value("velocity", d->gun30Vel); d->gun30Dmg = cg.value("damage", d->gun30Dmg); d->gun30R = cg.value("blastRadius", d->gun30R);
+      d->gun30Ammo = cg.value("ammo", d->gun30Ammo); d->gun30Heat = cg.value("heatPerShot", d->gun30Heat); d->gun30Cool = cg.value("coolPerSec", d->gun30Cool); d->gun30Resume = cg.value("resumeHeat", d->gun30Resume);
+      d->gun30Spread = cg.value("spreadDeg", d->gun30Spread);
+      if (cg.contains("yaw")) { d->gun30YawMin = cg["yaw"][0]; d->gun30YawMax = cg["yaw"][1]; }
+      if (cg.contains("elevation")) { d->gun30ElevMin = cg["elevation"][0]; d->gun30ElevMax = cg["elevation"][1]; }
+      const json rk = j.value("rockets", json::object());
+      d->rocketCount = rk.value("count", d->rocketCount); d->rocketVel = rk.value("velocity", d->rocketVel); d->rocketDmg = rk.value("damage", d->rocketDmg); d->rocketR = rk.value("radius", d->rocketR);
+      d->rocketCrater = rk.value("crater", d->rocketCrater); d->rocketSplashGun = rk.value("splashGun", d->rocketSplashGun); d->rocketGrav = rk.value("gravScale", d->rocketGrav); d->rocketCooldown = rk.value("cooldown", d->rocketCooldown);
+      d->smallArmsDmg = du.value("smallArmsDamage", 0); d->heavyBulletJ = du.value("heavyBulletJ", 0.0f); d->heavyBulletDmg = du.value("heavyBulletDamage", 0);
+      d->launcherDmg = du.value("launcherDamage", 50); d->cannonDmg = du.value("cannonDamage", 100);
+      logf("vehicle %s: helicopter, rotor parts %zu, tail rotor parts %zu, %zu rocket pods", d->id.c_str(), d->rotorParts.size(), d->tailRotorParts.size(), d->pods.size());
+    }
     if (d->car) {
       d->driverEye = jv(rg, "driverEye", d->hatchEye); if (!rg.contains("hatchEye")) d->hatchEye = d->driverEye;   // VH2: the exits are checked from the driver's head
       d->steerAxis = glm::normalize(jv(rg, "steerAxis", d->steerAxis)); d->windshieldPivot = jv(rg, "windshieldPivot");

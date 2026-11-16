@@ -66,6 +66,7 @@ add_executable(NormandyMapmaker
   src/selftest.cpp src/selftest_br3.cpp src/thirdparty_impl.cpp src/damage.cpp src/ground.cpp src/selftest_damage.cpp src/fx.cpp src/station.cpp src/weapons.cpp src/selftest_pak.cpp src/selftest_weapons.cpp src/capture.cpp src/grass.cpp src/selftest_grass.cpp src/selftest_record.cpp src/recorder.cpp src/model.cpp src/viewmodel.cpp src/fps_arms.cpp src/selftest_fps.cpp src/selftest_env.cpp src/ballistics.cpp src/foliage.cpp src/ivy.cpp src/builder.cpp src/selftest_village.cpp src/arsenal.cpp src/classes.cpp src/deploy.cpp src/selftest_arsenal.cpp src/selftest_move.cpp src/surface.cpp src/selftest_sights.cpp src/wallfield.cpp src/selftest_update.cpp src/simplify.cpp src/selftest_entities.cpp src/equipment.cpp src/paths.cpp
   src/tank.cpp src/tank_import.cpp src/tank_sim.cpp src/tank_ram.cpp src/tank_ui.cpp src/selftest_tanks.cpp src/selftest_vehicles.cpp
   src/interior.cpp src/selftest_interiors.cpp src/hlod.cpp src/static_decals.cpp
+  src/heli.cpp src/capture_heli.cpp
   src/br_models.cpp src/selftest_brmodels.cpp)   # walls, interiors and furniture (docs/interiors.md)
 target_include_directories(NormandyMapmaker PRIVATE src ${stb_SOURCE_DIR} ${miniaudio_SOURCE_DIR})
 target_link_libraries(NormandyMapmaker PRIVATE glad glfw glm::glm imgui Jolt nlohmann_json::nlohmann_json)

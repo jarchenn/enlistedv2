@@ -119,6 +119,7 @@ struct Projectile {
   bool extraPellet = false;     // MG1: a shotgun's 2nd..nth pellet (a LAN client sends one request per shot; the host fires them all)
   std::string ammo;
   float travelled = 0;          // m flown so far (W1 damage falloff: the true range)
+  bool cannon30 = false;        // VH5 helicopter chin gun: an HE round that counts as small arms on tanks, as a launcher on cars
 };
 struct Particle { vec3 p{0}, v{0}; float life = 0, maxLife = 1, size = 0.3f, grow = 0, drag = 0, lift = 0; vec4 col{1}; bool additive = false; float fade = 0;
                   float flame = -1; };   // flame >= 0 (additive): a flame sprite, id 0..255 = its rotation and noise seed; col.x = brightness, the colour follows its age (Fx::build) and the fragment shader erodes it with noise   // fade > 0: alpha x (life left)^fade (firing smoke, content/settings/fx.json)
