@@ -441,3 +441,5 @@ void mainMenuGo(App& app, int item) {
   if (item < 0) { S.page = Main; S.focus = 0; return; }
   S.sel = item; S.focus = 0; activate(app, item);
 }
+
+unsigned menuBackdropTex(bool blurred) { ensureLoaded(); return blurred ? S.bgBlur.tex : S.bg.tex; }

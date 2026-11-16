@@ -9,3 +9,4 @@ void mainMenuFrame(App& app);   // every frame after ImGui::NewFrame while activ
 struct ImDrawList; struct ImVec2;
 void menuGlass(ImDrawList* dl, const ImVec2& mn, const ImVec2& mx, float alpha);
 void mainMenuGo(App& app, int item);   // captures: select left item 0..6 and open it (-1: back to the plain menu)
+unsigned menuBackdropTex(bool blurred);   // the menu backdrop texture (loads it on first use; 0 if missing), for the loading screen

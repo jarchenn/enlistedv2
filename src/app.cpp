@@ -1,5 +1,6 @@
 #include "app.h"
 #include "mainmenu.h"
+#include "loading.h"
 #include "lines.h"   // MOD1: line types that clear grass (grassFootprints)
 #include "hlod.h"
 #include "abilities.h"
@@ -556,6 +557,7 @@ void App::applyTemplate(const std::string& id) {
   ++groundRev;
 }
 bool App::newMap(const TemplateInfo& t, const std::string& name) {
+  LoadingJob lj(*this, t.name, "Generating map", 3, t.thumbnail);   // UI2: terrain, content, furniture
   if (mode == Mode::Explore) exitExplore();
   clearRuntime();
   doc = MapDoc();
@@ -573,6 +575,9 @@ bool App::newMap(const TemplateInfo& t, const std::string& name) {
 }
 bool App::openMap(const fs::path& p) {
   MapDoc d; std::string err;
+  std::string title = p.filename().string(); title = title.substr(0, title.find('.')); for (auto& c : title) if (c == '_') c = ' ';
+  const TemplateInfo* tp = findTemplate(p.filename().string().substr(0, p.filename().string().find('.')));
+  LoadingJob lj(*this, title, "Loading map", 3, tp ? tp->thumbnail : 0);   // UI2: read, build, furnish
   LoadStep lsAll("openMap");
   if (!loadMap(p, d, err)) { toast("Could not open map: " + err, 8); return false; }
   if (mode == Mode::Explore) exitExplore();
@@ -1075,6 +1080,7 @@ int App::run(int argc, char** argv) {
   tanks.loadDefs(*this); tanks.makeThumbnails(*this);
   if (!tankPreviewDir.empty()) { tanks.writePreview(*this, tankPreviewDir); glfwTerminate(); return 0; }
   {
+    LoadingJob boot(*this, "", "Starting", 3);   // UI2: launch shows the loading screen (the first map joins this job)
     const TemplateInfo* t = findTemplate("blank_slate");
     TemplateInfo fb; fb.id = "blank_slate"; fb.name = "Blank Slate";
     newMap(t ? *t : fb, "My Normandy map");
@@ -1108,6 +1114,7 @@ int App::run(int argc, char** argv) {
     platformImGuiNewFrame(); ImGui::NewFrame();
     if (selftest) { selftest->update(*this, frameDt); if (selftest->done) quit = true; }
     mark("update");
+    loadingOverlay(*this);   // UI2: the loading screen fading into the first frames
     mainMenuFrame(*this);   // UI2: the main menu (no-op while closed; it hands back when a match starts)
     if (mainMenuActive()) {}
     else if (mode == Mode::Creative) { updateCreative(frameDt); drawCreativeUI(); }
@@ -1374,8 +1381,8 @@ static std::map<std::string, std::vector<float>> gSecMs;   // section -> ms per 
 static std::vector<float> gFrameMs;
 static double gProfSince = -1;
 void crumbMark(const char* s) { gMarks.push_back({s, glfwGetTime()}); }
-LoadStep::LoadStep(const char* w) : what(w), t0(gCrumbProf ? glfwGetTime() : 0) {}
-LoadStep::~LoadStep() { if (gCrumbProf) logf("[loadprof] %s %.1f ms", what, (glfwGetTime() - t0) * 1000); }
+LoadStep::LoadStep(const char* w) : what(w), t0(gCrumbProf ? glfwGetTime() : 0) { loadingStage(w); }   // UI2: the loading screen's stages
+LoadStep::~LoadStep() { if (gCrumbProf) logf("[loadprof] %s %.1f ms", what, (glfwGetTime() - t0) * 1000); loadingStageDone(); }
 json crumbProfReport(const char* tag) {
   auto stat = [](std::vector<float> v) { double s = 0; for (float x : v) s += x; std::sort(v.begin(), v.end()); return std::pair<double, double>(v.empty() ? 0 : s / v.size(), v.empty() ? 0 : v[std::min(v.size() - 1, (size_t)(0.95 * v.size()))]); };
   json out = json::object();

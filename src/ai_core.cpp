@@ -2,6 +2,7 @@
 // commits, path dispatch, world-change polling for live rebuilds), team knowledge with the sharing delay, threat
 // viewsheds, route claims, metrics and the stuck-event log. See ai_core.h.
 #include "ai_core.h"
+#include "loading.h"
 #include "app.h"
 #include "lines.h"
 #include "nav_geom.h"
@@ -374,6 +375,7 @@ void AiCore::begin(vec3 lo, vec3 hi) {
     glfwPollEvents();
     char t[96]; std::snprintf(t, sizeof t, "Battle Foundry - preparing the AI (navigation %d%%)", (int)(f * 100));
     glfwSetWindowTitle(G.app.win, t);
+    loadingProgress("Charting routes for the AI", f);   // UI2: the loading screen's bar
   };
   nav.build(lo, hi);
   nav.progress = nullptr;
