@@ -128,6 +128,10 @@ bool Game::begin(std::string& err) {
   sold.clear(); sold.resize(match.slots.size());
   auto& arr = archetypes["archetypes"];
   int aiGiven[2][kAiTypeCount] = {}, kindSeen[kAiTypeCount] = {};   // per side / per AI type: types and model variants go round in turn (same on LAN clients)
+  if (const char* at = std::getenv("NMK_AI_TYPES")) {   // SW1 dev: NMK_AI_TYPES=<side 0 type>,<side 1 type> (AiType numbers): every AI of that side that type
+    int t0 = -1, t1 = -1; std::sscanf(at, "%d,%d", &t0, &t1); int ts[2] = {t0, t1};
+    for (int sd = 0; sd < 2; ++sd) if (ts[sd] >= 0 && ts[sd] < kAiTypeCount) { match.rules.aiTypes[sd] = aiBit((AiType)ts[sd]); for (int k = 0; k < kAiTypeCount; ++k) match.rules.aiCount[sd][k] = 0; }
+  }
   for (auto& rs : match.slots) {
     Soldier& s = sold[rs.id];
     s.slot = rs.id; s.inUse = true; s.alive = false; s.faction = rs.faction; s.role = rs.role; s.team = rs.team;
@@ -206,7 +210,7 @@ void Game::end() {
 // ---------------------------------------------------------------- spawning
 void Game::chooseClass(Soldier& s) {
   const auto& C = classDefs();
-  if (C.empty() || s.zombie) { s.cls = -1; return; }
+  if (C.empty() || s.zombie || s.kit >= 2) { s.cls = -1; return; }   // SW1: kit soldiers carry only their blasters (no class kit, no explosion pack)
   auto ok = [&](int k) { return k >= 0 && k < (int)C.size() && match.rules.classAllowed(C[k].id); };
   if (s.localPlayer) { s.cls = app.deployClass; s.clsPick[0] = app.deployPick[0]; s.clsPick[1] = app.deployPick[1]; }
   if ((s.localPlayer || s.human) && ok(s.cls)) return;   // remote humans: set by their deploy request, checked here (host)

@@ -814,4 +814,35 @@ Sources: `incoming/mg12/<name>/` (credits: [MG12](credits.md#modern-guns-mg12)).
 - **Battle Royale ammo** by calibre (`loot.cpp ammoTypeOf`): .357 and .50 AE count as .45 (the .50 pool is the BMG's), 9x18 as 9 mm, 9x39 as 7.62; a pistol for the loot weights is any semi-automatic 9 mm / .45 gun with 16 rounds or fewer, whatever its feed.
 - **Crate:** `357_speedloader6` and `50ae_mag7` in the mixed supply crate.
 - **Operators:** the SMG-9 joins both sides' primary pools (weight 1).
-- **Damage** (`content/ai/damage.json`, DMG1 bands): revolver 62 / 40, Desert Eagle 60 / 38, sawn-off 28 / 5 per pellet, SMG-9 30 / 18; `headCap` (80 / 75) is written for DMG1 and not read yet.
+- **Damage** (`content/ai/damage.json`, DMG1 bands): revolver 62 / 40, Desert Eagle 60 / 38, sawn-off 28 / 5 per pellet, SMG-9 30 / 18; DMG1 classes pistol / shotgun / smg with `headMax` 80 / 75.
+
+### SW1: blasters, blaster troopers and robot commandos
+
+Two AI types, selectable per side in the AI rows: **Blaster troopers** (`AiType::Troopers`, 16) and **Robot commandos** (`AiType::Robots`, 17).
+- **Brain:** the soldier brain (cover, facing, shouldered moving pose, hit zones), on either side.
+- **Bodies and loadouts:** `content/ai/combat.json` `kits`.
+  - Troopers: one of `trooper_a` / `_b` / `_c` in turn, carrying only `blaster_carbine` (weight 7) or `blaster_rifle` (weight 3).
+  - Robots: `robot_commando`, carrying only `blaster_robot`.
+  - No class kit, sidearm, grenades or explosion pack. They drop what they carry.
+- **Robot traits:** 0.85 health, 1.3x pace, 1.4x aim turn. Its hits spark with a metal sound instead of bleeding.
+- **Bodies:** baked by `tools/bake_ai_characters.py kits`, local-only (git-ignored `content/characters/trooper_*.glb`, `robot_*.glb`). Without them the soldier body is used.
+
+**Blasters** (`content/weapons/blaster_*.json`, side `blaster`): in no rack, case or loot table.
+- **Weapon fields:** `"blaster": "blue" | "red"` and `casings` false.
+- **Bolts:** every shot is a bolt (tracer kind 3 or 4) with no gravity and no zero tilt. Each bolt draws a white-hot 1.4 m core in a coloured glow, a short fading trail and a small travelling light.
+- **Muzzle flash:** tinted to the bolt's colour, with a coloured light.
+- **Impact** (`Fx::blasterImpact`): a coloured flash, sparks, scorch smoke and a brief light, with the synthesised `blaster_hit` sound. There is no dust and no ricochet.
+
+| id | Fire | Rounds | Velocity | Damage (DMG1) |
+|---|---|---|---|---|
+| `blaster_carbine` | auto 700 / semi | 50 | 180 m/s | 31 / 22, assault class, auto spread |
+| `blaster_rifle` | semi / auto 320 | 30 | 200 m/s | 44 / 36, battle class, rifle accuracy |
+| `blaster_robot` | auto 600 / semi | 40 | 170 m/s | 29 / 20, assault class, auto spread |
+
+- **Sounds:** synthesised in-house (a pitch sweep with FM wobble, odd harmonics, an attack click and a short spring-like echo): `content/audio/custom/guns/blaster_a|b|c.wav` and `fx/blaster_hit.wav`. The reloads borrow `reload_m4.mp3`, pitched apart.
+- **Committed models:** stand-ins, the static models and sights of the M4, M16 and AK.
+- **Local overrides:** an optional local file `content/weapons/local/<file>.json` (git-ignored) is merged over a weapon's JSON (`merge_patch`): names, model directory, sights, muzzle. The blasters' real models are local-only bakes in `content/weapons/models/blaster_*_local/`.
+- **Dev:**
+  - `NMK_AI_TYPES=<side 0>,<side 1>` makes every AI of a side that AI type.
+  - `--shots-poses` takes `NMK_POSE_POSTS` (`kneel`, `carry`, `moveaim`, `idle`, `fire`; `fire` shoots one round a frame before the picture).
+  - `NMK_POSE_WEAPONS=own:none` keeps the bot's own weapon.

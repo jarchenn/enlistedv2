@@ -183,6 +183,10 @@ bool poseShots(App& app, float dt) {
       logf("[poses] %s spot %s at %.1f %.1f %.1f, facing %.2f %.2f (steepest seen %.2f)", slope ? "sloped" : "flat", found ? "found" : "NOT found (the spawn)", anchor.x, anchor.y, anchor.z, face.x, face.z, steepest);
     }
     logf("[poses] bot %d", bot);
+    for (auto& o : G.sold) if (o.inUse && !o.localPlayer)   // SW1: what each AI spawned as (kit, body, weapons)
+      logf("[poses] slot %d team %d kit %d model %s hp %.0f speed x%.2f sparks %d weapon %s carried %zu frags %d", o.slot, o.team, o.kit,
+           [&] { for (auto& [k, v] : G.modelIdx) if (v == o.model) return k; return std::string("?"); }().c_str(), o.hp, o.kitSpeed, (int)o.kitSparks,
+           o.weapon >= 0 ? app.weaponDefs[o.weapon]->id.c_str() : "-", o.carried.size(), o.frags);
     if (bot < 0) { app.selftest->exitCode = 1; app.selftest->done = true; return true; }
     stage = 2; t = 0; idx = 0; return true;
   }
