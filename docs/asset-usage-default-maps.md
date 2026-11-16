@@ -235,7 +235,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `nat_drygrass_sparse` | Vegetation | not placed: V9 ground cover (sparse dry grass, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | 113 | not used | not used | not used | 143 | not used | not used |
 | `nat_drygrass_tall` | Vegetation | not placed: V9 ground cover (tall dry grass, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 3 | 419 | not used | not used | not used | 1 | not used | not used |
 | `nat_drygrass_tufts` | Vegetation | not placed: V9 ground cover (dry grass tufts, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 12 | 177 | not used | not used | 49 | 187 | not used | not used |
-| `nat_fern_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 59 | 18 | not used | not used | not used | not used | 637 | 45 |
+| `nat_fern_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 59 | 18 | not used | not used | not used | not used | 637 | 47 |
 | `nat_flowers_buttercup` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 21 | 1 | not used | not used | not used | not used | not used | not used |
 | `nat_flowers_clover` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | not used | not used |
 | `nat_flowers_cornflower` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 56 | 7 | not used | not used | not used | not used | not used | not used |
@@ -919,7 +919,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_bld_tower_stone_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_bld_townhouse_row_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_crosswalk_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `mod_ivy_patch_ground` | not used | not used | not used | not used | not used | not used | not used | 86 | not used | not used | 27 |
+| `mod_ivy_patch_ground` | not used | not used | not used | not used | not used | not used | not used | 86 | not used | not used | 24 |
 | `mod_parking_large_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_parking_medium_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_parking_small_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -1083,7 +1083,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `tank_panzer_iv` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `tank_sherman_m4` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_column_l` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
-| `cave_column_m` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 |
+| `cave_column_m` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_fire_altar` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `cave_glow_ember` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 |
 | `cave_lid_l0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 |
@@ -1098,8 +1098,8 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `cave_light_crack` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 |
 | `cave_light_crack_ns` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 |
 | `cave_ribwall_0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 |
-| `cave_ribwall_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 9 |
-| `cave_ribwall_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 |
+| `cave_ribwall_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 |
+| `cave_ribwall_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 |
 | `cave_shelf_0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 15 |
 | `cave_shelf_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 20 |
 | `cave_shelf_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |

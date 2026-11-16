@@ -303,6 +303,21 @@ def build(ctx):
             if t != "rock" and wet <= 0.4:   # the rock pavement shows through the loose cover at its edges
                 paint.dab(i, j, 7, 0.35 * (1.0 - abs(n1 - 0.48) * 4.0) if abs(n1 - 0.48) < 0.25 else 0.0)
 
+    # ---- trickles: narrow, fully wet, winding runs from a wall toward each pool (a glossy thread of water on the floor)
+    for (cx, cz), rx, rz, depth, below in POOLS:
+        for k in range(2):
+            a = R.uniform(0, 6.283)
+            pts, x, z = [], cx + math.cos(a) * rx * 0.8, cz + math.sin(a) * rz * 0.8
+            for s in range(14):
+                pts.append((x, z))
+                a += R.uniform(-0.45, 0.45)
+                nx, nz = x + math.cos(a) * 2.5, z + math.sin(a) * 2.5
+                if not inside(nx, nz, 1.5):
+                    break
+                x, z = nx, nz
+            if len(pts) > 3:
+                b.route("lane", pts, 1.1, wet=1.0, strength=0.9, keepout=False)
+
     # ---- standing water on the floors: wet "routes" (surface mask G: darker damp ground, mirror puddles in the lows)
     for t in TUN:
         b.route("footpath", t.pts[::3], t.width * 0.9, wet=0.75, strength=0.6, keepout=False)
@@ -350,7 +365,7 @@ def build(ctx):
         f = floor_y(x, z)
         u = roof(x, z)
         H = {"m": 12, "l": 20, "xl": 30}[kind]
-        if u is not None and u - f > H - 2.0:
+        if u is not None and u - f > H - 2.0 and clear_spot(x, z, 4.5):
             place("cave_column_" + kind, x, z, y=u - H - 0.8 if u - f < H + 4 else f)
     rim = []
     for k in range(9):   # ribbed walls standing against the cavern's wall, facing in
@@ -359,7 +374,7 @@ def build(ctx):
             x, z = math.sin(a) * r, math.cos(a) * r
             if fd(x, z)[0] > -4.0:
                 break
-        if fd(x, z)[0] > -6.0 and fd(x, z)[3] is C:
+        if fd(x, z)[0] > -6.0 and fd(x, z)[3] is C and all(t.d(x, z) > 4.0 for t in TUN):   # never in a tunnel mouth
             rim.append((x, z))
             place("cave_ribwall_%d" % (2 if k % 3 == 0 else k % 2), x, z, yaw=look_yaw(-x, -z))
     rep["rimWalls"] = len(rim)
@@ -396,7 +411,7 @@ def build(ctx):
         u, f = roof(x, z), floor_y(x, z)
         if u is not None:
             H = 20 if u - f > 19 else 12
-            if u - f > H - 2:
+            if u - f > H - 2 and clear_spot(x, z, 4.5):
                 place("cave_column_%s" % ("l" if H == 20 else "m"), x, z, y=min(f, u - H - 0.8))
         for a0 in (R.uniform(0, 6.28),):
             for r in range(10, 45):
@@ -501,7 +516,7 @@ def build(ctx):
               bookmarks={str(k + 1): {"position": [s.c[0], floor_y(*s.c) + 12.0, s.c[1] + 20.0], "yaw": 0.0, "pitch": -25} for k, s in enumerate([C] + OUT)},
               extra={"groundPaint": paint.to_json(), "waterBodies": water,
                      "lighting": {"hour": 0.0, "fill": 0.2, "exposure": 1.0},
-                     "look": {"fog": False, "weather": 0.0, "envFog": 0, "saturation": 0.92, "tint": [0.94, 0.98, 1.06], "grime": 0.0,
+                     "look": {"fog": False, "cave": True, "weather": 0.0, "envFog": 0, "saturation": 0.92, "tint": [0.94, 0.98, 1.06], "grime": 0.0,
                               "paintSets": {"rock": "paint_rock", "dirt": "ground_rubble_paint", "gravel": "gravel_mixed", "pebbles": "rock_slab_paint"}},
                      "audio": {"bed": "cave.wav", "battlefield": False},
                      "royale": {"indoor": True}})

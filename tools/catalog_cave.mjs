@@ -73,9 +73,9 @@ for (let v = 0; v < 3; v++) {   // ribbed organ wall: tall laminated ribs on a c
     const t = k / (n - 1), a = (t - 0.5) * span, x = Math.sin(a) * R, z = Math.cos(a) * R - R;
     const h = (10 + v * 3) * (0.55 + 0.45 * Math.sin(t * Math.PI)) * (0.85 + rnd() * 0.3), w = 1.1 + rnd() * 0.5;
     const inx = -Math.sin(a), inz = -Math.cos(a);   // toward the arc's centre
-    for (let g = 0; g < 4; g++) {   // four segments, narrowing and leaning further in
-      const f = g / 4, y = h * f * 0.92, lean = 0.35 * h * f * f;
-      P.push(piece("schist", 2200 + v * 120 + k * 5 + g, [r2(w * (1 - f * 0.55)), r2(h * 0.46), r2((1.3 + rnd() * 0.4) * (1 - f * 0.4))],
+    for (let g = 0; g < 3; g++) {   // three long overlapping segments, narrowing and leaning further in
+      const f = g / 3, y = h * f * 0.8, lean = 0.35 * h * f * f;
+      P.push(piece("schist", 2200 + v * 120 + k * 5 + g, [r2(w * (1 - f * 0.5)), r2(h * 0.62), r2((1.3 + rnd() * 0.4) * (1 - f * 0.4))],
         [r2(x + inx * lean), r2(y), r2(z + inz * lean)], Math.round(a * 57.3), [Math.round(-6 - 16 * f), 0], 0.02, 1));
     }
     if (k < n - 1) P.push(piece("schist", 2300 + v * 60 + k, [r2(0.6 + rnd() * 0.3), r2(h * (0.3 + rnd() * 0.2)), 0.9], [r2(Math.sin(a + span / (2 * (n - 1))) * (R + 0.6)), 0, r2(Math.cos(a + span / (2 * (n - 1))) * (R + 0.6) - R)], Math.round(a * 57.3), [0, 0], 0.04, 1));
@@ -97,10 +97,10 @@ for (let v = 0; v < 3; v++) {   // ribbed organ wall: tall laminated ribs on a c
   const P = [], n = 9;
   let y = 0;
   for (let k = 0; k < n; k++) {
-    const s = lerp(4.2, 1.2, k / (n - 1)), h = lerp(3.2, 2.4, k / (n - 1));
+    const s = lerp(3.6, 1.0, k / (n - 1)), h = lerp(4.6, 3.4, k / (n - 1));   // tall, overlapping segments: a column, not a cairn
     P.push(piece("schist", 2710 + k, [r2(s), r2(h), r2(s * 0.85)], [0, r2(y), 0], k * 23, [Math.round((rnd() - 0.5) * 6), Math.round((rnd() - 0.5) * 6)], k === 0 ? 0.15 : 0, 2));
     for (const side of [-1, 1]) if (k < n - 2) P.push(piece("schist", 2740 + k * 2 + (side > 0), [0.7, r2(h * 1.4), r2(s * 0.55)], [r2(side * s * 0.62), r2(y + 0.2), 0], k * 23, [0, side * 14], 0, 1));
-    y += h * 0.78;
+    y += h * 0.55;
   }
   rock("cave_spire_ancient", "Ancient spire", `A ${Math.round(y)} m twisted, segmented rock spire with rib flanges: an unsettling, almost carved-looking formation.`, P, [5, 5]);
 }
@@ -120,11 +120,11 @@ const crackParts = [{ t: "b", c: [0, -0.05, 0], s: [5.5, 0.06, 0.45], r: [0, 18,
   { t: "b", c: [-1.9, -0.06, -0.5], s: [1.8, 0.06, 0.18], r: [0, -12, 0], m: "sky", k: 0 }];   // the crack itself: a cold, bright sliver of sky in the roof
 const skyMat = [{ name: "sky", albedo: [0.5, 0.6, 0.75], roughness: 1, pattern: "plain", metallic: 0, grain: 1, emissive: [2.2, 2.7, 3.4] }];
 lightAsset("cave_light_crack", "Cave light (ceiling crack)", "Cold, faint daylight falling through a crack in the cave roof: a narrow downward spot that casts shadows.",
-  { color: [0.55, 0.68, 0.95], intensity: 2200, radius: 60, dir: [0, -1, 0], cone: [8, 22], shadow: 0, use: "electric" }, crackParts, skyMat);
+  { color: [0.55, 0.68, 0.95], intensity: 2200, radius: 60, dir: [0, -1, 0], cone: [8, 22], shadow: 0, use: "electric", fx: "shaft", fxSize: 30 }, crackParts, skyMat);
 lightAsset("cave_light_crack_ns", "Cave light (ceiling crack, no shadow)", "Cold light through a crack in the cave roof, without a shadow map (cheaper).",
-  { color: [0.55, 0.68, 0.95], intensity: 1700, radius: 55, dir: [0, -1, 0], cone: [5, 19], use: "electric" }, crackParts, skyMat);
+  { color: [0.55, 0.68, 0.95], intensity: 1700, radius: 55, dir: [0, -1, 0], cone: [5, 19], use: "electric", fx: "shaft", fxSize: 26 }, crackParts, skyMat);
 lightAsset("cave_light_cold", "Cave light (cold fill)", "A faint cold glow over water: no fitting, no shadow.",
-  { color: [0.45, 0.6, 0.85], intensity: 9, radius: 18, use: "electric" });
+  { color: [0.45, 0.6, 0.85], intensity: 9, radius: 18, use: "electric", fx: "mist", fxSize: 9 });
 lightAsset("cave_glow_ember", "Ember fissure", "A crack in the floor glowing deep orange: a small, flickering warm accent.",
   { color: [1.0, 0.42, 0.12], intensity: 14, radius: 11, flicker: 0.35, use: "fire" },
   [{ t: "b", c: [0, 0.02, 0], s: [1.6, 0.04, 0.22], r: [0, 25, 0], m: "ember", k: 0 }, { t: "b", c: [0.5, 0.02, 0.3], s: [0.9, 0.04, 0.14], r: [0, -35, 0], m: "ember", k: 0 }],
