@@ -358,6 +358,27 @@ void build(App&) {
       pendingShot = outDir() / ("modes_" + std::to_string(n) + "ai.png");
       return true; });
   // BR2 capture (NMK_MODES_ONLY_BR2): a Solo start switched to Battle Royale, a filled kit, the inventory screen
+  // AI3 capture (NMK_AI3_SHOT): the setup window in TDM with typed per-type counts; the spawn order hands out exactly
+  // those counts, interleaved (aiTypeNext)
+  push("ai3 setup", [](App& a, float t) {
+    if (!std::getenv("NMK_AI3_SHOT")) return true;
+    if (t == 0) {
+      gUi.rules = ScenarioRules{}; gUi.rulesInit = true; gUi.rules.mode = GameMode::TDM;
+      auto& c = gUi.rules.aiCount; c[0][(int)AiType::Soldiers] = 40; c[0][(int)AiType::Golems] = 5; c[1][(int)AiType::Zombies] = 200; c[1][(int)AiType::Abominations] = 1;
+      gUi.showSetup = true; gUi.setupMode = 0;
+      int given[kAiTypeCount] = {}, first[4] = {}; int n0[2] = {}, tot = 0;
+      for (int k = 0; k < 201; ++k) { AiType x = aiTypeNext(c[1], 1, given); if (k < 4) first[k] = (int)x; }
+      n0[0] = given[(int)AiType::Zombies]; n0[1] = given[(int)AiType::Abominations]; for (int k = 0; k < kAiTypeCount; ++k) tot += given[k];
+      chk(n0[0] == 200 && n0[1] == 1 && tot == 201, "AI3: 200 zombies + 1 abomination typed -> %d zombies, %d abominations of %d spawned (first four types %d %d %d %d)", n0[0], n0[1], tot, first[0], first[1], first[2], first[3]);
+      int g2[kAiTypeCount] = {}; for (int k = 0; k < 90; ++k) aiTypeNext(c[0], 1, g2);   // twice the counted AI: proportions kept
+      chk(g2[(int)AiType::Soldiers] == 80 && g2[(int)AiType::Golems] == 10, "AI3: 90 AI from 40 soldiers / 5 golems keep the share: %d / %d", g2[(int)AiType::Soldiers], g2[(int)AiType::Golems]);
+      return false;
+    }
+    if (t < 1.0f) return false;
+    if (t < 1.1f) { a.uiShot = outDir() / "ai3_setup.png"; return false; }
+    chk(gUi.rules.teamPlayers[0] == 46 && gUi.rules.teamPlayers[1] == 201, "AI3: TDM team sizes from the counts: %d (45 AI + you) / %d (201 AI)", gUi.rules.teamPlayers[0], gUi.rules.teamPlayers[1]);
+    gUi.showSetup = false;
+    return true; });
   push("br2 inventory", [](App& a, float t) {
     if (!std::getenv("NMK_MODES_ONLY_BR2")) return true;
     if (t == 0) { chk(startMode(a, GameMode::Solo, 4, 99), "BR2: match starts"); gGame->match.rules.mode = GameMode::BattleRoyale; lootBegin(*gGame); return false; }
@@ -464,6 +485,7 @@ bool modesSelfTest(App& app, float dt) {
     started = true; T = new MpTest("modes"); build(app); cur = 0; st = 0;
     if (std::getenv("NMK_NAV_PREBAKE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "prebake templates" && s.name != "done"; }), seq.end());   // just the bake
     else if (std::getenv("NMK_MODES_ONLY_CACHE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "nav bake cache" && s.name != "done"; }), seq.end());   // just the cache round trip (with NMK_MODES_MAP: on another map)
+    else if (std::getenv("NMK_AI3_SHOT")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ai3 setup" && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_MODES_ONLY_BR2")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "br2 inventory" && s.name != "done"; }), seq.end());   // BR2 inventory capture
     else if (std::getenv("NMK_MODES_ONLY_100")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "100 ai" && s.name != "200 ai" && s.name != "500 ai" && s.name != "1000 ai" && s.name != "done"; }), seq.end());   // just the crowds
   }

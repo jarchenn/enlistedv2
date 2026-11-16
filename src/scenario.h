@@ -34,6 +34,18 @@ inline AiType aiTypeFor(int mask, int k) {
   k %= n; for (int t = 0; t < kAiTypeCount; ++t) if ((mask >> t) & 1 && k-- == 0) return (AiType)t;
   return AiType::Soldiers;
 }
+// AI3: a side's next AI with per-type counts: the type furthest behind its share, so the types come out mixed in
+// proportion (40 / 5 / 200 / 1 interleave, and more AI than counted keep the proportions). `given` counts what this side
+// has handed out so far. No counts (rules before AI3): the ticked types in turn, as aiTypeFor.
+inline AiType aiTypeNext(const int* count, int mask, int* given) {
+  int sum = 0, n = 0; for (int t = 0; t < kAiTypeCount; ++t) { sum += std::max(0, count[t]); n += given[t]; }
+  AiType a = aiTypeFor(mask, n);
+  if (sum > 0) {
+    double bd = -1e18;
+    for (int t = 0; t < kAiTypeCount; ++t) if (count[t] > 0) { double d = (double)count[t] * (n + 1) / sum - given[t]; if (d > bd) { bd = d; a = (AiType)t; } }
+  }
+  ++given[(int)a]; return a;
+}
 
 constexpr int kScenarioVersion = 2;
 constexpr int kMinObjectives = 1, kMaxObjectives = 10;
@@ -108,6 +120,10 @@ struct ScenarioRules {
   int teamPlayers[2] = {8, 8};    // TDM: combatants per team (humans + AI)
   int heavyTrollPct[2] = {35, 35};   // EN3: the troll share of the old AI type Heavies; unused since Brutes / Spiders are their own types (kept in the rules JSON)
   int aiTypes[2] = {1, 1};        // per team, the ticked AI types (aiBit mask; Assault: [Defender], [Attacker]); Solo uses [0]
+  // AI3: per team, how many AI of each type (the setup window's typed counts; the team / player totals above are
+  // derived from them plus the humans). All 0: the pre-AI3 rules, aiTypes taken in turn (aiTypeNext)
+  int aiCount[2][kAiTypeCount] = {};
+  int aiSum(int t) const { int s = 0; for (int k = 0; k < kAiTypeCount; ++k) s += aiCount[t][k]; return s; }
   int humanTeam = 0;              // TDM: the host's team (LAN joiners balance the teams)
   Faction teamFaction[2] = {Faction::Allies, Faction::Axis};  // TDM / Solo uniforms
   float respawnDelay = 4.0f;      // Solo / TDM: s from death to respawn

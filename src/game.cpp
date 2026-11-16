@@ -120,13 +120,13 @@ bool Game::begin(std::string& err) {
   // soldiers per roster slot
   sold.clear(); sold.resize(match.slots.size());
   auto& arr = archetypes["archetypes"];
-  int aiSeen[2] = {0, 0}, kindSeen[kAiTypeCount] = {};   // per side / per AI type: types and model variants go round in turn (same on LAN clients)
+  int aiGiven[2][kAiTypeCount] = {}, kindSeen[kAiTypeCount] = {};   // per side / per AI type: types and model variants go round in turn (same on LAN clients)
   for (auto& rs : match.slots) {
     Soldier& s = sold[rs.id];
     s.slot = rs.id; s.inUse = true; s.alive = false; s.faction = rs.faction; s.role = rs.role; s.team = rs.team;
     s.human = rs.human; s.peer = rs.peer; s.localPlayer = rs.id == localSlot;
     int side = ffaMode(match.mode()) ? 0 : std::clamp(rs.team, 0, 1);
-    AiType ait = rs.human ? AiType::Soldiers : aiTypeFor(match.rules.aiTypes[side], aiSeen[side]++);
+    AiType ait = rs.human ? AiType::Soldiers : aiTypeNext(match.rules.aiCount[side], match.rules.aiTypes[side], aiGiven[side]);   // AI3: the typed counts per type
     s.zombie = ait != AiType::Soldiers && ait != AiType::Operators;   // G2 melee brain
     s.etype = !s.zombie ? 0 : ait == AiType::ZombiesHeavies ? enemyTypePick((uint32_t)rs.id)   // EN1: the mix by weight, per slot
             : ait == AiType::Brutes ? std::max(0, enemyTypeIndex("brute")) : ait == AiType::Spiders ? std::max(0, enemyTypeIndex("stalker"))
