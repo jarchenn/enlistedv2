@@ -165,7 +165,8 @@ void SelfTest::update(App& app, float dt) {
   { extern bool captureVh7SelfTest(App&, float); if (captureVh7SelfTest(app, dt)) return; }   // VH7: --capture-vh7
   { extern bool vehicleSpawnGenSelfTest(App&, float); if (vehicleSpawnGenSelfTest(app, dt)) return; }   // VH7: --gen-vehicle-spawns   // VH5: --capture-heli (capture_heli.cpp)
   { extern bool captureTk1SelfTest(App&, float); if (captureTk1SelfTest(app, dt)) return; }
-  { extern bool tk1MatchSelfTest(App&, float); if (tk1MatchSelfTest(app, dt)) return; }   // TK1: --check-tk1-match   // TK1: --capture-tk1 (capture_tk1.cpp)
+  { extern bool tk1MatchSelfTest(App&, float); if (tk1MatchSelfTest(app, dt)) return; }   // TK1: --check-tk1-match
+  { extern bool captureTk2SelfTest(App&, float); if (captureTk2SelfTest(app, dt)) return; }   // TK2: --capture-tk2 <tag>   // TK1: --capture-tk1 (capture_tk1.cpp)
   if (dt < 0) {  // post-render: capture queued screenshots (scene only, no UI)
     for (auto& s : shotQueue) app.screenshot(outDir() / (s + ".png"));
     shotQueue.clear();

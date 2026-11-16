@@ -15,8 +15,9 @@
     ],
     "realLength": 5.84,
     "lengthNode": "hull",
-    "maxTex": 1024,
-    "simplify": 0.35,
+    "maxTex": 2048,
+    "jpgMaps": true,
+    "lod1": 0.4, "lod1Tex": 1024, "lod2": 0.12, "lod2Tex": 256,
     "nodeParts": {
       "hull": "hull",
       "turret": "turret",

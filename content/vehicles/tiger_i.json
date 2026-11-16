@@ -13,7 +13,7 @@
     ],
     "realLength": 6.2319,
     "lengthNode": "tiger_hull_hull_0",
-    "maxTex": 1024,
+    "maxTex": 1024, "lod1": 0.4, "lod1Tex": 512, "lod2": 0.12, "lod2Tex": 256,
     "nodeParts": {
       "tiger_hull_tracks_0": "track",
       "tiger_hull_hull_0": "hull",

@@ -34,6 +34,7 @@ struct TankDef {
   std::string id, name, faction, identity;
   json raw;
   std::shared_ptr<GpuModel> model;
+  std::shared_ptr<GpuModel> lods[2];   // TK2: <dir>/lod1, lod2 (parts index for index with model; null: none)
   std::vector<int> hullParts, turretParts, gunParts, hatchParts, mgParts, trackParts[2], wheelParts[2];   // [0] left (-x), [1] right (+x)
   // rig (hull space, metres, turret at 0 deg, gun level)
   vec3 turretPivot{0}, gunPivot{0}, muzzle{0}, optic{0}, hatchEye{0}, mgPivot{0}, mgMuzzle{0}, engine{0};
@@ -142,7 +143,8 @@ struct TankRT {
   int shots = 0, loadsCompleted = 0, toggles = 0;
   // damage
   int hp = 100; bool wrecked = false; int hitsFront = 0, hitsSide = 0, hitsIgnored = 0, meleeBlows = 0;
-  float hitFlash = 0;   // TK1: 1 on a damaging hit, fades (the HUD bar flashes)
+  float hitFlash = 0;
+  mutable int lodLevel = 0;   // TK2: 0 full, 1, 2 (by screen size, with hysteresis; TankSys::lodModel)   // TK1: 1 on a damaging hit, fades (the HUD bar flashes)
   float burnT = 0;
   // engine / effects
   float rpm = 0.2f, exhaustAcc = 0, dustAcc = 0; int engineLoop = -1, trackLoop = -1, turretLoop = -1;
@@ -214,6 +216,7 @@ public:
   std::vector<TowTrail> towTrails;
   void drawHealthBar(App& app);
   void grassBoxes(const App& app, std::vector<vec4>& out) const;   // TK3: the nearest 16 vehicles on the ground (wrecks too) as grass-clearing boxes
+  const GpuModel* lodModel(const App& app, const TankRT& t) const;   // TK2: the mesh for this tank's screen size
   void drawWorldBars(App& app);                        // TK1: a bar over every damageable vehicle in view (Settings: Vehicle health bars)                        // TK1: the occupied vehicle's durability bar   // TK1: a heavy enemy's landed blow: 1/15 of the durability (15 destroy it)
   int classify(const TankRT& t, vec3 worldPos, vec3 worldNormal, bool& onTurret) const;
   void destroy(App& app, TankRT& t, const std::string& why);

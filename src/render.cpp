@@ -1841,6 +1841,7 @@ void main(){
   if (uHasNrm == 1) {
     vec3 T = vT.xyz - N*dot(N, vT.xyz);
     vec3 t = texture(uNrm, vUV).xyz*2.0 - 1.0;
+    if (t.z < -0.99) t.z = sqrt(max(0.0, 1.0 - dot(t.xy, t.xy)));   // TK2: a BC5 (RG) normal map: z rebuilt
     if (dot(T, T) > 1e-12) {
       T = normalize(T); vec3 B = cross(N, T) * (vT.w < 0.0 ? -1.0 : 1.0);
       vec3 n = T*t.x + B*t.y + N*max(t.z, 0.05);

@@ -4,6 +4,8 @@
 #include "simplify.h"
 #include <stb_image.h>
 #include <stb_image_write.h>
+#include <stb_dxt.h>   // TK2: block compression of large maps at load (the implementation is in textures.cpp)
+#include <thread>
 #include <fstream>
 #include <algorithm>
 #include <cstring>
@@ -41,6 +43,8 @@ ImportSpec importSpecFromJson(const json& j) {
   }
   { json kb = j.value("keepIslandsIn", json::array()); if (kb.size() == 2) { s.keepOn = true; s.keepLo = jvec3(kb[0], vec3(0)); s.keepHi = jvec3(kb[1], vec3(0)); } }
   s.simplify = j.value("simplify", 1.0f); s.lod1 = j.value("lod1", 0.0f); s.lod1Tex = j.value("lod1Tex", 256);
+  s.lod2 = j.value("lod2", 0.0f); s.lod2Tex = j.value("lod2Tex", 128);
+  if (j.contains("maxTexBy") && j["maxTexBy"].is_object()) for (auto& [k, v] : j["maxTexBy"].items()) s.maxTexBy[k] = v.get<int>();
   if (j.contains("sections")) { s.sectionAxis = j["sections"].value("axis", 2); s.sectionCount = std::max(1, j["sections"].value("count", 1)); }
   return s;
 }
@@ -472,8 +476,9 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
   size_t texBytes = 0; int texFiles = 0;
   std::map<std::pair<int, int>, std::string> written;
   static const char* pre[4] = {"albedo", "mr", "normal", "ao"};
+  int maxNow = spec.maxTex;   // TK2: raised for the albedo / normal of a material in maxTexBy
   auto emit = [&](const Img& a, int role, const std::string& file) -> std::string {   // downsize + write one map
-    Img d = downsize(a, spec.maxTex);
+    Img d = downsize(a, role == 0 || role == 2 ? maxNow : spec.maxTex);
     std::string fn = file;
     if (spec.jpgMaps && role != 0) fn = fs::path(file).replace_extension(".jpg").string();   // PR1: normal / MR as JPEG (a tenth of the size)
     fs::path pth = outDir / fn;
@@ -500,6 +505,7 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
     const Mat& m = mats[mi];
     json mj = {{"name", m.name}};
     if (!usedMats.count((int)mi)) { matsJ.push_back(mj); continue; }
+    { auto it = spec.maxTexBy.find(m.name); maxNow = it != spec.maxTexBy.end() ? std::max(spec.maxTex, it->second) : spec.maxTex; }
     std::string fa = save(m.alb, 0), fm = save(m.mr, 1), fn = save(m.nrm, 2);
     if (!fa.empty()) mj["albedo"] = fa;
     if (!fm.empty()) mj["mr"] = fm;
@@ -538,18 +544,76 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
   if (spec.lod1 > 0) {   // distance LOD: same placement, fewer triangles, small textures
     ImportSpec l = spec; l.simplify = spec.simplify * spec.lod1; l.lod1 = 0; l.maxTex = std::min(spec.maxTex, spec.lod1Tex); l.meshEdits = spec.meshEdits;
     std::string e2, s2;
+    l.lod2 = 0; l.maxTexBy.clear();
     if (!bakeGlbModel(glbPath, l, outDir / "lod1", e2, s2)) { err = "lod1: " + e2; return false; }
     summary += "; lod1 " + s2.substr(s2.find(':') + 2, s2.find(" tris") - s2.find(':') - 2) + " tris";
+  }
+  if (spec.lod2 > 0) {   // TK2: the far LOD
+    ImportSpec l = spec; l.simplify = spec.simplify * spec.lod2; l.lod1 = 0; l.lod2 = 0; l.maxTex = std::min(spec.maxTex, spec.lod2Tex); l.maxTexBy.clear(); l.meshEdits = spec.meshEdits;
+    std::string e2, s2;
+    if (!bakeGlbModel(glbPath, l, outDir / "lod2", e2, s2)) { err = "lod2: " + e2; return false; }
+    summary += "; lod2 " + s2.substr(s2.find(':') + 2, s2.find(" tris") - s2.find(':') - 2) + " tris";
   }
   return true;
 }
 
 // ------------------------------------------------------------------ runtime
-static GLuint loadTex(const fs::path& p, bool srgb, size_t& bytes) {
+// TK2: a map of 2048 px or more is block-compressed on load (CPU mips, stb_dxt): albedo BC1 sRGB (BC3 with alpha),
+// metal-rough / AO BC1, normal BC5 (RG; the shader rebuilds z when the blue channel reads 0). A 4096 RGBA8 map with mips
+// is 85 MB of VRAM, BC1 11 MB, BC5 22 MB. kind: 0 albedo, 1 linear data, 2 normal
+static GLuint loadTexBC(const uint8_t* d, int w, int h, int kind, size_t& bytes) {
+  static int s3tc = -1;
+  if (s3tc < 0) { s3tc = 0; GLint n = 0; glGetIntegerv(GL_NUM_EXTENSIONS, &n); int got = 0;
+    for (GLint i = 0; i < n; ++i) { const char* e = (const char*)glGetStringi(GL_EXTENSIONS, i); if (!std::strcmp(e, "GL_EXT_texture_compression_s3tc")) got |= 1; if (!std::strcmp(e, "GL_EXT_texture_sRGB")) got |= 2; }
+    s3tc = got == 3; }
+  if (!s3tc || w < 2048 || h < 2048 || (w & 3) || (h & 3)) return 0;
+  bool alpha = false; if (kind == 0) for (size_t k = 0; k < (size_t)w * h && !alpha; ++k) alpha = d[k * 4 + 3] < 250;
+  const GLenum fmt = kind == 2 ? 0x8DBD /* RG_RGTC2 */ : kind == 0 ? (alpha ? 0x8C4F /* SRGB_ALPHA_S3TC_DXT5 */ : 0x8C4C /* SRGB_S3TC_DXT1 */) : 0x83F0 /* RGB_S3TC_DXT1 */;
+  const int bsz = kind == 2 || alpha ? 16 : 8;
+  int levels = 1 + (int)std::floor(std::log2((float)std::max(w, h)));
+  GLuint t; glCreateTextures(GL_TEXTURE_2D, 1, &t);
+  glTextureStorage2D(t, levels, fmt, w, h);
+  std::vector<uint8_t> cur(d, d + (size_t)w * h * 4), next, out;
+  unsigned nt = std::clamp(std::thread::hardware_concurrency(), 1u, 16u);
+  for (int L = 0, lw = w, lh = h; L < levels; ++L) {
+    int bw = (lw + 3) / 4, bh = (lh + 3) / 4;
+    out.assign((size_t)bw * bh * bsz, 0);
+    auto rows = [&](int b0, int b1) {
+      uint8_t blk[64], rg[32];
+      for (int by = b0; by < b1; ++by) for (int bx = 0; bx < bw; ++bx) {
+        for (int y = 0; y < 4; ++y) for (int x = 0; x < 4; ++x) {
+          const uint8_t* s = &cur[((size_t)std::min(by * 4 + y, lh - 1) * lw + std::min(bx * 4 + x, lw - 1)) * 4];
+          std::memcpy(blk + (y * 4 + x) * 4, s, 4); rg[(y * 4 + x) * 2] = s[0]; rg[(y * 4 + x) * 2 + 1] = s[1];
+        }
+        uint8_t* o = &out[((size_t)by * bw + bx) * bsz];
+        if (kind == 2) stb_compress_bc5_block(o, rg); else stb_compress_dxt_block(o, blk, alpha ? 1 : 0, STB_DXT_NORMAL);
+      }
+    };
+    std::vector<std::thread> th; int per = (bh + (int)nt - 1) / (int)nt;
+    for (unsigned k = 0; k < nt; ++k) { int b0 = (int)k * per, b1 = std::min(bh, b0 + per); if (b0 < b1) th.emplace_back(rows, b0, b1); }
+    for (auto& x : th) x.join();
+    glCompressedTextureSubImage2D(t, L, 0, 0, lw, lh, fmt, (GLsizei)out.size(), out.data());
+    bytes += out.size();
+    if (L + 1 < levels) {   // the next mip: a 2x2 box
+      int nw = std::max(1, lw / 2), nh = std::max(1, lh / 2); next.assign((size_t)nw * nh * 4, 0);
+      for (int y = 0; y < nh; ++y) for (int x = 0; x < nw; ++x) for (int c = 0; c < 4; ++c) {
+        int x0 = std::min(2 * x, lw - 1), x1 = std::min(2 * x + 1, lw - 1), y0 = std::min(2 * y, lh - 1), y1 = std::min(2 * y + 1, lh - 1);
+        next[((size_t)y * nw + x) * 4 + c] = (uint8_t)((cur[((size_t)y0 * lw + x0) * 4 + c] + cur[((size_t)y0 * lw + x1) * 4 + c] + cur[((size_t)y1 * lw + x0) * 4 + c] + cur[((size_t)y1 * lw + x1) * 4 + c] + 2) / 4);
+      }
+      cur.swap(next); lw = nw; lh = nh;
+    }
+  }
+  glTextureParameteri(t, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTextureParameteri(t, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTextureParameterf(t, 0x84FE /* GL_TEXTURE_MAX_ANISOTROPY */, 8.0f);
+  return t;
+}
+
+static GLuint loadTex(const fs::path& p, bool srgb, size_t& bytes, int kind = -1) {
   int w, h, c;
   stbi_set_flip_vertically_on_load(0);
   stbi_uc* d = stbi_load(p.string().c_str(), &w, &h, &c, 4);
   if (!d) return 0;
+  if (kind >= 0) if (GLuint bt = loadTexBC(d, w, h, kind, bytes)) { stbi_image_free(d); return bt; }
   GLuint t; glCreateTextures(GL_TEXTURE_2D, 1, &t);
   int levels = 1 + (int)std::floor(std::log2((float)std::max(w, h)));
   glTextureStorage2D(t, levels, srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8, w, h);
@@ -608,7 +672,7 @@ bool GpuModel::load(const fs::path& dir, std::string& err, bool turn180) {
     if (!mj.contains(key)) return 0;
     std::string f = mj[key].get<std::string>();
     auto it = cache.find(f); if (it != cache.end()) return it->second;
-    GLuint t = loadTex(dir / f, srgb, gpuBytes); if (t) ++textureCount;
+    GLuint t = loadTex(dir / f, srgb, gpuBytes, srgb ? 0 : std::string(key) == "normal" ? 2 : 1); if (t) ++textureCount;
     return cache[f] = t;
   };
   if (j.contains("materials")) {
