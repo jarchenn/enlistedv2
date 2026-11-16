@@ -131,6 +131,8 @@ bool Game::begin(std::string& err) {
     s.etype = !s.zombie ? 0 : ait == AiType::ZombiesHeavies ? enemyTypePick((uint32_t)rs.id)   // EN1: the mix by weight, per slot
             : ait == AiType::Brutes ? std::max(0, enemyTypeIndex("brute")) : ait == AiType::Spiders ? std::max(0, enemyTypeIndex("stalker"))
             : ait == AiType::Creatures ? std::max(0, enemyTypeIndex("creature"))
+            : ait == AiType::Knights ? std::max(0, enemyTypeIndex("knight")) : ait == AiType::Animatronics ? std::max(0, enemyTypeIndex("animatronic"))
+            : ait == AiType::Aliens ? std::max(0, enemyTypeIndex("alien")) : ait == AiType::AlienQueens ? std::max(0, enemyTypeIndex("alien_queen"))
             : ait == AiType::Fighters ? std::max(0, enemyTypeIndex("fighter"))
             : ait == AiType::Fighters2 ? std::max(0, enemyTypeIndex("fighter2")) : 0;
     s.evariant = kindSeen[(int)ait]++;
