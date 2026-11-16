@@ -1,0 +1,41 @@
+{
+  "note": "VH5 helicopter flight feel (src/heli.cpp, docs/vehicles.md#helicopter). Angles in degrees, speeds m/s, times s. Positive pitch = nose up, positive bank = right side down. Every rate is applied frame-rate independently (exponential approach with a time constant, or a per-second limit).",
+  "attitude": {
+    "maxPitchForward": 22, "maxPitchBack": 16, "maxBank": 24,
+    "tau": 0.35, "maxRate": 45,
+    "note": "W / S pitch the nose down / up, A / D bank; the airframe eases to the target attitude (tau) no faster than maxRate"
+  },
+  "thrust": {
+    "tiltAccel": 1.0,
+    "note": "horizontal acceleration = g x tan(tilt) x tiltAccel along the tilt: forward pitch drives forward speed, bank drives sideways speed; S while moving forward pitches up and brakes before it reverses"
+  },
+  "drag": {
+    "linear": 0.035, "quadratic": 0.0011, "maxBackward": 14, "maxSideways": 18,
+    "note": "a = -v x linear - v |v| x quadratic: full forward tilt settles near 55 m/s; backward and sideways speeds are capped softly"
+  },
+  "assist": {
+    "gain": 0.55, "maxTilt": 7, "driftDamp": 0.18, "hoverDamp": 0.9, "hoverSpeed": 4,
+    "note": "with no directional input the airframe tilts against its own drift (gain deg per m/s, up to maxTilt) and a light extra damping (driftDamp /s) bleeds speed, so it levels and slows but keeps momentum; below hoverSpeed hoverDamp holds it near still"
+  },
+  "yaw": {
+    "rateHover": 75, "rateFast": 28, "fastSpeed": 45, "tau": 0.25, "velocityAlign": 0.35,
+    "note": "the nose follows the mouse yaw at up to rateHover (still) .. rateFast (fast); the flight path swings toward the nose at velocityAlign /s, so turns at speed are wide arcs unless the pilot banks and brakes"
+  },
+  "lift": {
+    "climb": 8, "sink": 6, "accel": 5, "tau": 0.45, "releaseTau": 0.9,
+    "note": "Space / Ctrl set a climb / sink target reached at up to accel m/s2 (tau); on release the vertical speed eases to a hold over releaseTau"
+  },
+  "hover": {
+    "wobbleDeg": 0.35, "wobblePeriod": 5.5, "note": "a slow, gentle attitude drift in the hover (no constant correcting needed)"
+  },
+  "rotor": { "spinUp": 4, "spinDown": 9 },
+  "landing": {
+    "suspensionMax": 0.28, "stiffness": 70, "damping": 11, "softImpact": 1.0, "hardImpact": 3.5,
+    "note": "touchdown compresses the gear (spring-damper, at most suspensionMax m); above softImpact m/s a thud, above hardImpact a camera jolt and a heavy sound scaled with the excess"
+  },
+  "camera": {
+    "distance": 17, "height": 3, "lag": 0.12, "accelLag": 0.08, "accelLagMax": 1.5,
+    "rollFactor": 0.35, "vibration": 0.02, "vibrationHz": 19, "impactShake": 1.4,
+    "note": "chase camera: follows with a short lag (s) and trails a little against acceleration (accelLag s, at most accelLagMax m); banks rollFactor of the airframe's bank; rotor vibration amplitude (m) at full rotor speed; Settings > Gameplay > Helicopter camera motion scales roll, vibration and shake (0..1), Reduced motion multiplies it by 0.3"
+  }
+}

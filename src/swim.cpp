@@ -139,8 +139,10 @@ bool App::stepSwim(float dt, const ExploreInput& in, const Physics::CharState& b
 float App::swimLower() const { return ease(swim.lower); }
 
 vec3 App::viewUp(vec3 fwd) const {
-  if (std::fabs(swim.roll) < 1e-3f || glm::length(fwd) < 1e-4f) return vec3(0, 1, 0);
-  return glm::angleAxis(radians(swim.roll), glm::normalize(fwd)) * vec3(0, 1, 0);
+  extern float gHeliViewRoll;   // VH5 (heli.cpp): the chase camera's restrained bank while flying
+  float roll = swim.roll + gHeliViewRoll;
+  if (std::fabs(roll) < 1e-3f || glm::length(fwd) < 1e-4f) return vec3(0, 1, 0);
+  return glm::angleAxis(radians(roll), glm::normalize(fwd)) * vec3(0, 1, 0);
 }
 
 bool App::swimHands(vec3& left, vec3& right, float& w) const {

@@ -1,11 +1,19 @@
 // VH5 helicopter (AH-64D Apache, content/vehicles/ah64d_apache.json, docs/vehicles.md#helicopter): a TankDef with
 // "heli": true that keeps the tanks' entry / exit, collision body, damage matrix (as an armoured car), wreck fire and
-// persistence, with its own step:
-//   flight   forgiving arcade model: velocities chase stick targets (W/S forward / back, A/D strafe, Space climb,
-//            Ctrl descend) at flight.accel; no input = hover; the nose turns toward the mouse yaw at flight.yawRate;
-//            lift only once the rotor is spun up (spinUp_s after entering, spinDown_s after leaving);
-//            ground: terrain or anything solid under the skids; buildings: the hull boxes and the rotor disc are swept
-//            per axis, so it slides along walls and never passes through them
+// persistence, with its own step. Flight feel to the user's spec (incoming flight_spec.md, HELICOPTER FLIGHT), every
+// tunable in content/settings/helicopter.json, all rates frame-rate independent:
+//   attitude W / S pitch the nose down / up, A / D bank; the airframe eases to the target attitude
+//   thrust   horizontal acceleration follows the tilt (g tan tilt): momentum builds and bleeds through drag, so braking
+//            from speed takes time and distance and S first brakes forward motion, then reverses
+//   assist   no directional input: the airframe tilts against its own drift and a light damping levels it; momentum stays
+//   yaw      the nose follows the mouse yaw, quick in the hover, slower at speed; the flight path swings toward the nose
+//            gradually (wide arcs at speed unless the pilot banks and brakes)
+//   lift     Space / Ctrl climb / sink targets; on release the vertical speed eases to a hold; lift only once spun up
+//   hover    a slow gentle attitude drift, no wobble to fight
+//   ground   terrain or anything solid under the skids; touchdown compresses the gear (spring-damper), harder impacts
+//            thud louder and jolt the camera; buildings: the hull boxes and the rotor disc are swept per axis
+//   camera   chase camera with a short lag, a trail against acceleration, restrained banking and rotor vibration;
+//            Settings > Gameplay > Helicopter camera motion (and Reduced motion) scale roll, vibration and shake
 //   rotors   main / tail rotor parts spin about their hubs with the rotor speed
 //   weapons  LMB: M230 chin gun toward the crosshair (within its traverse / elevation), explosive 30 mm rounds
 //            (Projectile::cannon30: a small blast per hit), heat-limited; R: one Hydra rocket per press from the pod
@@ -17,13 +25,49 @@
 #include "game.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
+#include "settings.h"
 #include <algorithm>
 
 namespace {
 float approach(float v, float t, float step) { float d = t - v; return std::fabs(d) <= step ? t : v + (d > 0 ? step : -step); }
 float wrap180(float d) { d = std::fmod(d + 180.0f, 360.0f); if (d < 0) d += 360.0f; return d - 180.0f; }
 uint64_t bodyUD(uint64_t id) { return id << 16; }
+float ease(float tau, float dt) { return 1.0f - std::exp(-dt / std::max(1e-3f, tau)); }   // frame-rate independent approach fraction
+// content/settings/helicopter.json (defaults = the shipped file)
+struct HeliTune {
+  float maxPitchFwd = 22, maxPitchBack = 16, maxBank = 24, attTau = 0.35f, attRate = 45, tiltAccel = 1;
+  float dragLin = 0.035f, dragQuad = 0.0011f, maxBack = 14, maxSide = 18;
+  float assistGain = 0.55f, assistTilt = 7, driftDamp = 0.18f, hoverDamp = 0.9f, hoverSpeed = 4;
+  float yawHover = 75, yawFast = 28, yawFastSpeed = 45, yawTau = 0.25f, velAlign = 0.35f;
+  float climb = 8, sink = 6, liftAccel = 5, liftTau = 0.45f, releaseTau = 0.9f, wobble = 0.35f, wobblePeriod = 5.5f;
+  float spinUp = 4, spinDown = 9;
+  float suspMax = 0.28f, suspK = 70, suspC = 11, softImpact = 1, hardImpact = 3.5f;
+  float camDist = 17, camHeight = 3, camLag = 0.12f, accelLag = 0.08f, accelLagMax = 1.5f, rollFactor = 0.35f, vib = 0.02f, vibHz = 19, impactShake = 1.4f;
+};
+const HeliTune& tune() {
+  static HeliTune T; static bool loaded = false;
+  if (loaded) return T;
+  loaded = true;
+  json j; try { j = json::parse(readTextFile(contentDir() / "settings" / "helicopter.json")); } catch (...) { logf("helicopter.json: missing or invalid, defaults"); return T; }
+  auto f = [&](const char* blk, const char* key, float& v) { if (j.contains(blk) && j[blk].is_object()) v = j[blk].value(key, v); };
+  f("attitude", "maxPitchForward", T.maxPitchFwd); f("attitude", "maxPitchBack", T.maxPitchBack); f("attitude", "maxBank", T.maxBank); f("attitude", "tau", T.attTau); f("attitude", "maxRate", T.attRate);
+  f("thrust", "tiltAccel", T.tiltAccel);
+  f("drag", "linear", T.dragLin); f("drag", "quadratic", T.dragQuad); f("drag", "maxBackward", T.maxBack); f("drag", "maxSideways", T.maxSide);
+  f("assist", "gain", T.assistGain); f("assist", "maxTilt", T.assistTilt); f("assist", "driftDamp", T.driftDamp); f("assist", "hoverDamp", T.hoverDamp); f("assist", "hoverSpeed", T.hoverSpeed);
+  f("yaw", "rateHover", T.yawHover); f("yaw", "rateFast", T.yawFast); f("yaw", "fastSpeed", T.yawFastSpeed); f("yaw", "tau", T.yawTau); f("yaw", "velocityAlign", T.velAlign);
+  f("lift", "climb", T.climb); f("lift", "sink", T.sink); f("lift", "accel", T.liftAccel); f("lift", "tau", T.liftTau); f("lift", "releaseTau", T.releaseTau);
+  f("hover", "wobbleDeg", T.wobble); f("hover", "wobblePeriod", T.wobblePeriod); f("rotor", "spinUp", T.spinUp); f("rotor", "spinDown", T.spinDown);
+  f("landing", "suspensionMax", T.suspMax); f("landing", "stiffness", T.suspK); f("landing", "damping", T.suspC); f("landing", "softImpact", T.softImpact); f("landing", "hardImpact", T.hardImpact);
+  f("camera", "distance", T.camDist); f("camera", "height", T.camHeight); f("camera", "lag", T.camLag); f("camera", "accelLag", T.accelLag); f("camera", "accelLagMax", T.accelLagMax);
+  f("camera", "rollFactor", T.rollFactor); f("camera", "vibration", T.vib); f("camera", "vibrationHz", T.vibHz); f("camera", "impactShake", T.impactShake);
+  return T;
 }
+// camera motion scale: the Settings slider, x 0.3 with Reduced motion
+float camMotion(const App& app) { return std::clamp(settings().s.heliCamMotion, 0.0f, 1.0f) * (app.reducedMotion ? 0.3f : 1.0f); }
+}
+float gHeliViewRoll = 0;   // degrees, read by App::viewUp (swim.cpp)
+
+void heliCameraStep(App& app, TankSys& sys, TankRT& t, float dt);
 
 // ground under the skids: anything solid below (a pad, a roof), else the terrain
 float TankSys::heliGround(App& app, const TankRT& t, vec3 p) const {
@@ -44,48 +88,84 @@ bool TankSys::heliBlocked(const TankRT& t, vec3 pos, float yaw) const {
 }
 
 void TankSys::stepHeli(App& app, TankRT& t, float dt, const ExploreInput* in) {
-  const TankDef& d = *t.def;
+  const TankDef& d = *t.def; const HeliTune& T = tune();
   bool focused = app.selftest || glfwGetWindowAttrib(app.win, GLFW_FOCUSED);
+  const float g = 9.81f;
   // rotor: spins up while someone is at the controls, runs down after
-  t.rotor = approach(t.rotor, in ? 1.0f : 0.0f, dt / std::max(0.1f, in ? d.spinUp : d.spinDown));
+  t.rotor = approach(t.rotor, in ? 1.0f : 0.0f, dt / std::max(0.1f, in ? T.spinUp : T.spinDown));
   t.rotorAng = std::fmod(t.rotorAng + 360.0f * d.rotorRps * t.rotor * dt, 360.0f);
   t.tailAng = std::fmod(t.tailAng + 360.0f * d.tailRps * t.rotor * dt, 360.0f);
   t.rpm = t.rotor;
   float lift = std::clamp((t.rotor - 0.8f) / 0.2f, 0.0f, 1.0f);
-  vec3 fwd = yawQuat(t.yaw) * vec3(0, 0, 1), rgt = glm::normalize(glm::cross(fwd, vec3(0, 1, 0)));
-  // stick targets (no input: hover in place)
-  vec3 want(0); float wantVy = 0;
-  if (in && lift > 0) {
-    float f = std::clamp(in->move.y, -1.0f, 1.0f), s = std::clamp(in->move.x, -1.0f, 1.0f);
-    want = fwd * (f >= 0 ? f * d.hMaxFwd : f * d.hMaxBack) + rgt * (s * d.hMaxSide);
-    wantVy = in->jumpHeld ? d.hClimb : in->crouch ? -d.hSink : 0.0f;
-    // the nose follows the mouse yaw; the mouse pitch aims within limits
+  float fIn = 0, sIn = 0; int vIn = 0;
+  if (in && lift > 0) { fIn = std::clamp(in->move.y, -1.0f, 1.0f); sIn = std::clamp(in->move.x, -1.0f, 1.0f); vIn = in->jumpHeld ? 1 : in->crouch ? -1 : 0; }
+  // ---- yaw: the nose follows the mouse, quick in the hover, slower at speed (separate from bank / strafe)
+  if (in) {
     app.eyePitch = std::clamp(app.eyePitch, d.hPitchMin, d.hPitchMax);
     vec3 cf = App::forward(app.eyeYaw, 0);
     float wantYaw = degrees(std::atan2(cf.x, cf.z));
-    if (!t.grounded || lift >= 1.0f) t.yaw += std::clamp(wrap180(wantYaw - t.yaw), -d.hYawRate * dt, d.hYawRate * dt);
+    float spd = glm::length(vec2(t.vel.x, t.vel.z));
+    float maxRate = glm::mix(T.yawHover, T.yawFast, std::clamp(spd / std::max(1.0f, T.yawFastSpeed), 0.0f, 1.0f)) * std::max(lift, t.grounded ? 0.0f : 0.3f);
+    float wantRate = std::clamp(wrap180(wantYaw - t.yaw) / std::max(0.05f, T.yawTau), -maxRate, maxRate);
+    t.yawV += (wantRate - t.yawV) * ease(T.yawTau * 0.5f, dt);
+  } else t.yawV *= 1.0f - ease(0.3f, dt);
+  if (t.grounded && lift < 0.99f) t.yawV = 0;
+  t.yaw = std::fmod(t.yaw + t.yawV * dt + 360.0f, 360.0f);
+  vec3 fwd = yawQuat(t.yaw) * vec3(0, 0, 1), rgt = glm::normalize(glm::cross(fwd, vec3(0, 1, 0)));
+  float vf = glm::dot(t.vel, fwd), vs = glm::dot(t.vel, rgt);
+  // ---- attitude targets: stick tilt, or assisted levelling against the drift; a slow gentle hover wobble
+  t.wobT += dt;
+  float w = 6.2831853f / std::max(0.5f, T.wobblePeriod);
+  float tgtPitch = fIn > 0 ? -fIn * T.maxPitchFwd : fIn < 0 ? -fIn * T.maxPitchBack : std::clamp(vf * T.assistGain, -T.assistTilt, T.assistTilt);
+  float tgtBank = sIn != 0 ? sIn * T.maxBank : std::clamp(-vs * T.assistGain, -T.assistTilt, T.assistTilt);
+  if (!t.grounded) { tgtPitch += T.wobble * std::sin(w * t.wobT); tgtBank += T.wobble * std::sin(w * 1.37f * t.wobT + 1.3f); }
+  if (t.grounded || lift < 0.99f) { tgtPitch = 0; tgtBank = 0; }
+  float aStep = T.attRate * dt;
+  t.pitch += std::clamp((tgtPitch - t.pitch) * ease(T.attTau, dt), -aStep, aStep);
+  t.roll += std::clamp((tgtBank - t.roll) * ease(T.attTau, dt), -aStep, aStep);
+  // ---- horizontal: thrust follows the tilt (g tan tilt), drag and assist bleed it; momentum carries the rest
+  vec3 vh(t.vel.x, 0, t.vel.z);
+  vec3 a = (fwd * std::tan(radians(-t.pitch)) + rgt * std::tan(radians(t.roll))) * (g * T.tiltAccel * lift);
+  float sp = glm::length(vh);
+  a -= vh * (T.dragLin + T.dragQuad * sp);
+  if (fIn == 0 && sIn == 0) a -= vh * (T.driftDamp + (sp < T.hoverSpeed ? T.hoverDamp : 0.0f));
+  if (vf < -T.maxBack) a += fwd * ((-vf - T.maxBack) * 2.0f);   // soft caps backward / sideways
+  if (std::fabs(vs) > T.maxSide) a -= rgt * ((std::fabs(vs) - T.maxSide) * 2.0f * (vs > 0 ? 1.0f : -1.0f));
+  if (t.grounded && vIn <= 0) a -= vh * 5.0f;   // skids on the ground: no sliding
+  vh += a * dt;
+  // the flight path swings toward the nose gradually (wide arcs at speed); only the forward-going part
+  if (sp > 1.0f && glm::dot(vh, fwd) > 0) {
+    float ang = std::atan2(glm::dot(glm::cross(glm::normalize(vh), fwd), vec3(0, 1, 0)), glm::dot(glm::normalize(vh), fwd));
+    float stepA = std::clamp(ang, -1.0f, 1.0f) * ease(1.0f / std::max(1e-3f, T.velAlign), dt);
+    vh = glm::angleAxis(stepA, vec3(0, 1, 0)) * vh;
   }
-  vec2 vh(t.vel.x, t.vel.z), wh(want.x, want.z), dv = wh - vh;
-  float L = glm::length(dv), step = d.hAccel * dt * std::max(0.2f, lift);
-  vh += L > step ? dv / L * step : dv;
-  t.vel.y = approach(t.vel.y, wantVy, 6.0f * dt * lift) - 9.81f * (1.0f - lift) * dt;
-  if (t.grounded && wantVy <= 0) vh *= std::exp(-5.0f * dt);   // skids on the ground: no sliding
-  t.vel.x = vh.x; t.vel.z = vh.y;
-  // move per axis (vertical first): blocked components stop, the rest slides along the obstacle
-  vec3 p = t.pos;
+  // ---- vertical: climb / sink targets, eased hold on release; gravity takes over below full rotor speed
+  float tgtVy = vIn > 0 ? T.climb : vIn < 0 ? -T.sink : 0.0f;
+  float dvy = (tgtVy - t.vel.y) * ease(vIn != 0 ? T.liftTau : T.releaseTau, dt);
+  t.vel.y += std::clamp(dvy, -T.liftAccel * dt, T.liftAccel * dt) * lift - g * (1.0f - lift) * dt;
+  vec3 prev = t.vel;
+  t.vel.x = vh.x; t.vel.z = vh.z;
+  // ---- move per axis (vertical first): blocked components stop, the rest slides along the obstacle
+  vec3 p = t.pos; float impact = 0;
   for (int ax : {1, 0, 2}) {
     vec3 q = p; q[ax] += t.vel[ax] * dt;
-    if (ax == 1) { float g = heliGround(app, t, q); if (q.y < g) { q.y = g; if (t.vel.y < 0) t.vel.y = 0; } }
+    if (ax == 1) { float gy = heliGround(app, t, q); if (q.y < gy) { q.y = gy; if (t.vel.y < 0) { impact = -t.vel.y; t.vel.y = 0; } } }
     if (heliBlocked(t, q, t.yaw)) { t.vel[ax] = 0; continue; }
     p = q;
   }
   t.pos = p;
   t.grounded = t.pos.y <= heliGround(app, t, t.pos) + 0.05f;
-  // attitude for the eye: nose down with forward speed, banked with sideways speed
-  float vf = glm::dot(t.vel, fwd), vs = glm::dot(t.vel, rgt);
-  t.pitch = approach(t.pitch, t.grounded ? 0.0f : -12.0f * vf / std::max(1.0f, d.hMaxFwd) + 6.0f * std::max(0.0f, -vf) / std::max(1.0f, d.hMaxBack), 20.0f * dt);
-  t.roll = approach(t.roll, t.grounded ? 0.0f : 12.0f * vs / std::max(1.0f, d.hMaxSide), 25.0f * dt);
+  // ---- landing: the gear compresses (spring-damper), harder touchdowns thud louder and jolt the camera
+  if (impact > 0.05f) {   // a touchdown (resting on the ground carries no downward speed)
+    t.suspV += impact * 0.6f;
+    if (impact > T.softImpact) app.audio.play(impact > T.hardImpact ? "impact_metal" : "steel_close", t.pos + vec3(0, 0.5f, 0), std::clamp(0.3f + 0.12f * impact, 0.3f, 1.0f));
+    if (impact > T.hardImpact && occupied == t.id) app.blastShake = std::max(app.blastShake, T.impactShake * (impact - T.hardImpact) * camMotion(app));
+  }
+  t.suspV += (-T.suspK * t.susp - T.suspC * t.suspV) * dt;
+  t.susp = std::clamp(t.susp + t.suspV * dt, -0.05f, T.suspMax);
+  if (!t.grounded && t.susp <= 0) { t.susp *= 1.0f - ease(0.2f, dt); }
   t.speed = glm::length(vec2(t.vel.x, t.vel.z));
+  t.accel = glm::mix(t.accel, (t.vel - prev) / std::max(1e-4f, dt), ease(0.25f, dt));
   // ---- weapons
   t.gunCool = std::max(0.0f, t.gunCool - dt); t.rocketCool = std::max(0.0f, t.rocketCool - dt);
   t.gunHeat = std::max(0.0f, t.gunHeat - d.gun30Cool * dt);
@@ -139,6 +219,7 @@ void TankSys::stepHeli(App& app, TankRT& t, float dt, const ExploreInput* in) {
       else exitTank(app, false);
     }
   }
+  if (occupied == t.id) heliCameraStep(app, *this, t, dt); else if (!occupied) gHeliViewRoll = 0;
   updateBody(app, t, false);
   effects(app, t, dt);
 }
@@ -193,22 +274,41 @@ void TankSys::heliKillCrew(App& app, TankRT& t) {
 }
 
 bool TankSys::heliCamera(const App& app, const TankRT& t, vec3& eye, vec3& fwd, float& fov) const {
-  // chase camera: behind and above along the mouse look, pulled in front of anything between it and the airframe
+  // chase camera: the lagged position from the step (behind and above along the mouse look, pulled in front of walls)
+  // plus a little rotor vibration; the restrained bank is the view roll (gHeliViewRoll, set in the step)
+  const HeliTune& T = tune();
   fwd = App::forward(app.eyeYaw, app.eyePitch);
-  vec3 piv = vec3(hullMatrix(t) * vec4(0, 2.6f, 0.5f, 1));
-  vec3 want = piv - fwd * 17.0f + vec3(0, 3.0f, 0), dir = want - piv;
-  float L = glm::length(dir);
-  Physics::Hit h;
-  if (L > 1e-3f && Physics::castRayEx(piv, dir / L, L, h, bodyUD(t.id))) want = piv + dir / L * std::max(1.0f, h.t - 0.6f);
-  eye = want; fov = 70;
+  eye = t.camInit ? t.camEye : vec3(hullMatrix(t) * vec4(0, 2.6f, 0.5f, 1)) - fwd * T.camDist + vec3(0, T.camHeight, 0);
+  float m = camMotion(app) * t.rotor, tt = (float)app.now;
+  if (m > 0) eye += vec3(std::sin(tt * T.vibHz * 6.2831853f), std::sin(tt * T.vibHz * 1.31f * 6.2831853f + 1.1f), std::sin(tt * T.vibHz * 0.83f * 6.2831853f + 2.3f)) * (T.vib * m);
+  fov = 70;
   return true;
 }
 
+// the lagged chase-camera position (step-side so camera() stays const): toward the wanted spot with camera.lag, trailing
+// against the smoothed acceleration, then pulled in front of anything between it and the airframe
+void heliCameraStep(App& app, TankSys& sys, TankRT& t, float dt) {
+  const HeliTune& T = tune();
+  vec3 fwd = App::forward(app.eyeYaw, app.eyePitch);
+  vec3 piv = vec3(sys.hullMatrix(t) * vec4(0, 2.6f, 0.5f, 1));
+  vec3 trail = t.accel * T.accelLag; float L = glm::length(trail); if (L > T.accelLagMax) trail *= T.accelLagMax / L;
+  vec3 want = piv - fwd * T.camDist + vec3(0, T.camHeight, 0) - trail;
+  if (!t.camInit) { t.camEye = want; t.camInit = true; }
+  // the lag is applied in the airframe's moving frame: the camera keeps up with the velocity, only the changes lag
+  t.camEye += t.vel * dt;
+  t.camEye += (want - t.camEye) * ease(T.camLag, dt);
+  vec3 dir = t.camEye - piv; float D = glm::length(dir);
+  Physics::Hit h;
+  if (D > 1e-3f && Physics::castRayEx(piv, dir / D, D, h, t.id << 16)) t.camEye = piv + dir / D * std::max(1.0f, h.t - 0.6f);
+  gHeliViewRoll = t.roll * T.rollFactor * camMotion(app);
+}
+
 void TankSys::drawHeli(App& app, const TankRT& t, vec4 tint, const mat4& h) {
+  mat4 hc = h * glm::translate(mat4(1), vec3(0, -t.susp, 0));   // gear compression (the airframe sinks on its wheels)
   const TankDef& d = *t.def; const GpuModel* gm = d.model.get();
   auto put = [&](const std::vector<int>& ps, const mat4& M) { for (int k : ps) app.R.worldModels.push_back({gm, k, M, tint}); };
-  auto spin = [&](vec3 hub, vec3 axis, float deg) { return h * glm::translate(mat4(1), hub) * glm::rotate(mat4(1), radians(deg), axis) * glm::translate(mat4(1), -hub); };
-  put(d.hullParts, h);
+  auto spin = [&](vec3 hub, vec3 axis, float deg) { return hc * glm::translate(mat4(1), hub) * glm::rotate(mat4(1), radians(deg), axis) * glm::translate(mat4(1), -hub); };
+  put(d.hullParts, hc);
   put(d.rotorParts, spin(d.rotorHub, vec3(0, 1, 0), -t.rotorAng));
   put(d.tailRotorParts, spin(d.tailHub, vec3(1, 0, 0), t.tailAng));
   mat4 hm, tu, g, rc; rig(t, hm, tu, g, rc);

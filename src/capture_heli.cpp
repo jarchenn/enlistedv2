@@ -38,16 +38,29 @@ bool captureHeliSelfTest(App& a, float dt) {
     if (!a.tanks.occupied) { bool ok = a.tanks.enter(a, gId); logf("[heli] enter: %s", ok ? "yes" : "NO"); if (!ok) return finish(1); }
     ExploreInput& in = a.scriptedInput; in = ExploreInput();
     float s = gT - 0.2f;
-    in.jumpHeld = s > 4.5f && s < 8.0f;                 // climb once spun up
-    in.move.y = s > 8.0f && s < 12.0f ? 1.0f : 0.0f;    // forward
-    in.fire = s > 9.0f && s < 10.5f;                    // chin gun burst
-    in.reload = (s > 10.6f && s < 10.7f) || (s > 11.0f && s < 11.1f);   // two rockets
-    if (at(4.7f)) logf("[heli] rotor %.2f grounded %d alt %.1f", r->rotor, (int)r->grounded, r->pos.y);
-    if (at(8.2f)) logf("[heli] after climbing 3.5 s: height above ground %.1f m, vy %.1f", r->pos.y - a.terrain.height(r->pos.x, r->pos.z), r->vel.y);
-    if (at(10.7f)) a.uiShot = shotPath("flying_firing");
-    if (at(11.6f)) logf("[heli] forward: %.0f km/h, 30 mm fired %d (ammo %d, heat %.2f), rockets fired %d (left %d)", r->speed * 3.6f, r->gunShots, r->gunAmmo, r->gunHeat, r->rocketsFired, r->rockets);
-    if (at(14.5f)) logf("[heli] hover after release: %.1f km/h, vy %.2f", r->speed * 3.6f, r->vel.y);
-    if (s > 15.0f) { a.tanks.destroy(a, *r, "capture: shot down"); gPhase = 3; gT = 0; }
+    vec3 fwd = yawQuat(r->yaw) * vec3(0, 0, 1), rgt = glm::normalize(glm::cross(fwd, vec3(0, 1, 0)));
+    float vf = glm::dot(r->vel, fwd), vs = glm::dot(r->vel, rgt), agl = r->pos.y - a.terrain.height(r->pos.x, r->pos.z);
+    static float stopAt = -1, maxSusp = 0, impactV = 0;
+    in.jumpHeld = (s > 4.5f && s < 8.0f) || (s > 33.0f && s < 36.0f);   // climb once spun up; again before the shoot-down
+    in.move.y = s > 8.5f && s < 14.5f ? 1.0f : s > 17.5f && s < 23.0f ? -1.0f : 0.0f;   // forward, release, back
+    in.move.x = s > 23.0f && s < 26.0f ? 1.0f : 0.0f;                                     // bank right
+    in.crouch = s > 27.0f && s < 33.0f && !r->grounded;                                   // descend to land
+    in.fire = s > 10.0f && s < 11.5f;                                                    // chin gun burst
+    in.reload = (s > 11.6f && s < 11.7f) || (s > 12.0f && s < 12.1f);                    // two rockets
+    if (s > 17.5f && s < 23.0f && stopAt < 0 && vf <= 0) stopAt = s - 17.5f;
+    if (s > 27.0f && s < 33.0f) { maxSusp = std::max(maxSusp, r->susp); if (r->grounded && impactV == 0) impactV = r->suspV; }
+    if (at(4.7f)) logf("[heli] rotor %.2f grounded %d", r->rotor, (int)r->grounded);
+    if (at(8.0f)) logf("[heli] climbing: agl %.1f m, vy %.1f", agl, r->vel.y);
+    if (at(8.5f)) logf("[heli] 0.5 s after releasing Space: vy %.2f (eases to a hold)", r->vel.y);
+    if (at(9.5f)) logf("[heli] 1.5 s after: vy %.2f, agl %.1f", r->vel.y, agl);
+    if (at(9.0f)) logf("[heli] W 0.5 s: pitch %.1f deg, forward %.1f m/s (grounded %d, ground-pos %.2f, rotor %.2f, move %.1f)", r->pitch, vf, (int)r->grounded, a.tanks.heliGround(a, *r, r->pos) - r->pos.y, r->rotor, in.move.y);
+    if (at(11.7f)) a.uiShot = shotPath("flying_firing");
+    if (at(14.4f)) logf("[heli] W 6 s: pitch %.1f, %.0f km/h; 30 mm fired %d (heat %.2f), rockets fired %d (left %d)", r->pitch, vf * 3.6f, r->gunShots, r->gunHeat, r->rocketsFired, r->rockets);
+    if (at(17.4f)) logf("[heli] 3 s after release: %.0f km/h (momentum kept), pitch %.1f (assist levels against the drift)", vf * 3.6f, r->pitch);
+    if (at(22.9f)) logf("[heli] S: forward motion stopped after %.1f s, now %.1f m/s (reversing), pitch %.1f", stopAt, vf, r->pitch);
+    if (at(25.9f)) logf("[heli] D 3 s: bank %.1f deg, sideways %.1f m/s", r->roll, vs);
+    if (at(32.9f)) logf("[heli] landed %d, gear compression max %.3f m, susp rate at touchdown %.2f", (int)r->grounded, maxSusp, impactV);
+    if (s > 36.5f) { a.tanks.destroy(a, *r, "capture: shot down"); gPhase = 3; gT = 0; }
     return true;
   }
   if (gPhase == 3) {   // the fall and the crash
