@@ -11,7 +11,7 @@ struct MpUi {
   Scenario sc; json lastSaved; bool loaded = false;
   std::vector<std::string> migration, worldIssues;
   std::string selObj, selSpawn;
-  enum Tool { T_NONE, T_OBJECTIVE, T_ATK, T_DEF, T_POLY, T_SLOT, T_LINK, T_TEAM_A, T_TEAM_B } tool = T_NONE;
+  enum Tool { T_NONE, T_OBJECTIVE, T_ATK, T_DEF, T_POLY, T_SLOT, T_LINK, T_TEAM_A, T_TEAM_B, T_VEH_A, T_VEH_B } tool = T_NONE;
   enum Drag { D_NONE, D_OBJ, D_RADIUS, D_VERTEX, D_SPAWN } drag = D_NONE;
   int dragIndex = 0, slotKind = 0, slotPriority = 2; bool lmbPrev = false;
   std::vector<ScenarioIssue> lastValidated; bool validatedOnce = false;

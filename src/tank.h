@@ -47,6 +47,12 @@ struct TankDef {
   int reserveHE = 20, reserveAP = 30; std::string startLoaded = "AP", ammoHE, ammoAP, cannonName, reticle;
   float zeroRange = 400;                         // m, game zero of the sight
   float muzzleScale = 1.2f;                      // discharge flash / smoke size (Fx::muzzle)
+  // VH7 autocannon (gun.auto: fires while LMB is held, one round per reloadTime), its sound, HE blast and light anti-armour
+  bool autoGun = false; std::string gunSound; float heBlastR = 0, lightAP = 0, lightHE = 0;
+  // VH7 TOW launcher on the turret (Q): count, reload of the pair, flight, guidance turn rate
+  int towCount = 0; float towReload = 14, towVel = 185, towDmg = 1100, towBlastR = 3, towTurn = 24; vec3 towMuzzle{0}; std::string towName;
+  bool launcherAllSides = false;                 // VH7: launchers count from the front too (lighter armour than a tank)
+  bool bowCoax = false;                          // VH7: the bow MG is a coax riding on the gun
   // roof MG (hatch mode)
   std::string mgWeapon, mgName, mgSound;         // mgWeapon: registry weapon whose supplied GLB is drawn on the mount
   vec3 mgModelOffset{0};
@@ -122,7 +128,8 @@ struct TankRT {
   float tYaw = 0, tYawV = 0, gElev = 0, gElevV = 0, recoilT = 9;
   float mgYaw = 0, mgElev = 0, mgCool = 0, mgReloadT = 0; int mgLoaded = 0, mgReserve = 0, mgShots = 0;
   float bowYaw = 0, bowElev = 0, bowCool = 0, bowReloadT = 0; int bowLoaded = 0, bowReserve = 0, bowShots = 0;
-  bool mgBurst = false, bowBurst = false;   // a burst is running (the recorded tail plays once on release)
+  bool mgBurst = false, bowBurst = false;
+  int towLeft = 0; float towReloadT = 0; bool towPrev = false;   // VH7: TOWs in the tubes, the reload running, Q edge   // a burst is running (the recorded tail plays once on release)
   // ramming: the obstacle being pushed and the energy put into it so far (tank_ram.cpp)
   uint64_t ramKey = 0; float ramWork = 0, ramNeed = 0; std::string ramName; int knocks = 0, breaches = 0;
   float hatchT = 0;   // 0 closed (gunner) .. 1 open (head out)
@@ -188,7 +195,7 @@ public:
   // TK1: the crew died: the seat is cleared without placing anyone (the body goes to limbo; nothing ties the next life to
   // this vehicle). spawnFresh: a new, full copy of that vehicle beside the respawn point, entered in that seat (0: none fits)
   void vacate(App& app);
-  uint64_t spawnFresh(App& app, const std::string& assetId, vec3 near, float faceYaw, int station);
+  uint64_t spawnFresh(App& app, const std::string& assetId, vec3 near, float faceYaw, int station, float firstR = 7.0f);   // VH7 firstR 0: at a vehicle spawn itself first
   std::vector<uint64_t> wreckOrder;   // wrecks in the order they happened (oldest cleared past wreckCap when a copy spawns)
   int wreckCap = 12;
   bool camera(const App& app, vec3& eye, vec3& fwd, float& fov) const;
@@ -199,8 +206,12 @@ public:
   void ghostItems(App& app, const AssetDef* a, const mat4& M, vec4 tint);   // Creative placement preview (tinted model)   // Creative selection panel (undoable edits of extra["tank"])
   // combat
   TankHitResult projectileHit(App& app, const Projectile& p, vec3 pos, vec3 normal, uint64_t ud);
-  TankHitResult applyHit(App& app, uint64_t id, int attack, vec3 worldPos, vec3 worldNormal, vec3 dir, float bulletJ = 0);
+  TankHitResult applyHit(App& app, uint64_t id, int attack, vec3 worldPos, vec3 worldNormal, vec3 dir, float bulletJ = 0, float lightAT = 0);
   bool meleeBlow(App& app, uint64_t id, vec3 from);
+  void fireTow(App& app, TankRT& t);                // VH7
+  void stepTows(App& app, float dt);                 // VH7: guidance and the wire trails
+  struct TowTrail { uint32_t uid = 0; uint64_t tank = 0; std::vector<vec3> p, v; float dropAcc = 0, fade = 1e9f, age = 0; vec3 last{0}; };   // fade: 1e9 while the missile flies, then 0.3 s down
+  std::vector<TowTrail> towTrails;
   void drawHealthBar(App& app);
   void drawWorldBars(App& app);                        // TK1: a bar over every damageable vehicle in view (Settings: Vehicle health bars)                        // TK1: the occupied vehicle's durability bar   // TK1: a heavy enemy's landed blow: 1/15 of the durability (15 destroy it)
   int classify(const TankRT& t, vec3 worldPos, vec3 worldNormal, bool& onTurret) const;

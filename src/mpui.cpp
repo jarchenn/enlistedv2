@@ -190,6 +190,9 @@ bool MpUi::creativeMouse(App& app) {
       case T_DEF: addSpawnAt(app, CombatRole::Defender, hit, so ? so->order : 0); tool = T_NONE; break;
       case T_TEAM_A: addTeamSpawnAt(app, 0, hit); tool = T_NONE; break;
       case T_TEAM_B: addTeamSpawnAt(app, 1, hit); tool = T_NONE; break;
+      case T_VEH_A: case T_VEH_B: {   // VH7: a team's vehicle spawn, facing the map centre
+        Scenario& s2 = scenario(app); VehicleSpawn v; v.id = s2.newId("vspawn"); v.team = tool == T_VEH_A ? 0 : 1; v.pos = hit;
+        v.yaw = wrapDeg(degrees(std::atan2(-hit.x, -hit.z))); s2.vehicleSpawns.push_back(v); commit(app); tool = T_NONE; break; }
       case T_POLY: if (so) { if (so->shape != CaptureShape::Polygon) { so->polygon.clear(); so->shape = CaptureShape::Polygon; } so->polygon.push_back(vec2(hit.x, hit.z)); commit(app); } break;
       case T_SLOT: if (so) { DefenseSlot d; d.pos = hit; d.yaw = wrapDeg(so->attackYaw + 180.0f); d.kind = (SlotKind)slotKind; d.priority = slotPriority; so->defenseSlots.push_back(d); commit(app); } break;
       case T_LINK: if (so) {
@@ -232,6 +235,13 @@ void MpUi::scenarioPanel(App& app) {
   ImGui::SameLine(); ImGui::BeginDisabled(s.objectives.empty()); toolBtn("Attacker spawn", T_ATK); ImGui::SameLine(); toolBtn("Defender spawn", T_DEF); ImGui::EndDisabled();
   toolBtn("Team A spawn", T_TEAM_A); ImGui::SameLine(); toolBtn("Team B spawn", T_TEAM_B);
   ImGui::SameLine(); ImGui::TextDisabled("(Team Deathmatch; Solo finds far-apart spots itself)");
+  toolBtn("Team A vehicle spawn", T_VEH_A); ImGui::SameLine(); toolBtn("Team B vehicle spawn", T_VEH_B);   // VH7
+  for (size_t k = 0; k < s.vehicleSpawns.size(); ++k) {
+    auto& v = s.vehicleSpawns[k]; ImGui::PushID((int)k + 9000);
+    ImGui::Text("  %s  %s  (%.0f, %.0f)", v.id.c_str(), v.team == 0 ? "Team A vehicles" : v.team == 1 ? "Team B vehicles" : "neutral vehicles", v.pos.x, v.pos.z);
+    ImGui::SameLine(); if (ImGui::SmallButton("Delete")) { s.vehicleSpawns.erase(s.vehicleSpawns.begin() + k); commit(app); ImGui::PopID(); break; }
+    ImGui::PopID();
+  }
   if (!s.canAddObjective()) ImGui::TextDisabled("10 objectives placed: the maximum (A to J).");
   if (tool != T_NONE) ImGui::TextColored(ImVec4(1, 0.85f, 0.4f, 1), "Click the ground to place (Esc or click the tool again to cancel).");
   if (tool != T_NONE && ImGui::IsKeyPressed(ImGuiKey_Escape)) tool = T_NONE;
@@ -373,6 +383,14 @@ void MpUi::creativeOverlay(App& app, Overlay& ov) {
       char b[140]; std::snprintf(b, sizeof b, "%c  %s  %.0f s", o.letter(), o.displayName().c_str(), o.captureTime);
       dl->AddText(ImVec2(sp.x - 40, sp.y), IM_COL32(255, 225, 140, 255), b);
     }
+  }
+  for (auto& v : s.vehicleSpawns) {   // VH7: a vehicle-sized rectangle with its heading
+    vec4 col = v.team == 0 ? vec4(0.3f, 0.6f, 1, 1) : v.team == 1 ? vec4(1, 0.35f, 0.25f, 1) : vec4(0.8f, 0.8f, 0.8f, 1);
+    vec3 f = yawQuat(v.yaw) * vec3(0, 0, 1), r = glm::normalize(glm::cross(f, vec3(0, 1, 0))), c0 = v.pos + vec3(0, 0.15f, 0);
+    vec3 q[4] = {c0 + f * 3.5f + r * 1.8f, c0 + f * 3.5f - r * 1.8f, c0 - f * 3.5f - r * 1.8f, c0 - f * 3.5f + r * 1.8f};
+    for (int k = 0; k < 4; ++k) ov.line(q[k], q[(k + 1) % 4], col, true);
+    ov.line(c0, c0 + f * 5.0f, col, true);
+    ImVec2 sp; if (project(app, v.pos + vec3(0, 2.5f, 0), sp)) dl->AddText(sp, IM_COL32(255, 220, 140, 255), v.team == 0 ? "VEHICLES A" : v.team == 1 ? "VEHICLES B" : "VEHICLES");
   }
   for (auto& m : s.spawns) {
     vec4 col = m.role == CombatRole::Attacker ? vec4(1, 0.35f, 0.25f, 1) : vec4(0.3f, 0.6f, 1, 1);
