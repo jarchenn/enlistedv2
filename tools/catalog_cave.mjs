@@ -245,19 +245,19 @@ lightAsset("cave_light_uplight", "Cave light (uplight)", "A warm glow from the f
     // carved ribs across the chest, shoulders, neck, a rounded head with two swept horns, tall spines behind like folded wings
   const D = "dripstone", P = [];
   P.push(piece(D, 9601, [9.0, 2.2, 7.0], [0, 0, 0], 0, [0, 0], 0.15, 2));                       // plinth
-  P.push(piece(D, 9602, [6.2, 10.0, 4.6], [0, 1.6, 0], 0, [0, 0], 0, 3));                       // body
-  P.push(piece(D, 9603, [4.6, 7.0, 3.4], [0, 7.5, 0], 0, [0, 0], 0, 3));                        // chest
+  P.push(piece(D, 9602, [4.0, 10.0, 3.2], [0, 1.6, 0], 0, [0, 0], 0, 3));   // a narrow waist                       // body
+  P.push(piece(D, 9603, [4.4, 6.6, 3.2], [0, 7.6, 0], 0, [0, 0], 0, 3));                        // chest
   for (let k = 0; k < 6; k++) {                                                                  // carved ribs on the chest, curving round it
     const y = 7.8 + k * 0.95, w = 5.6 - Math.abs(k - 2.5) * 0.45;
     P.push(piece(D, 9610 + k, [r2(w), 0.42, 1.0], [0, r2(y), -1.55], 0, [-8, 0], 0, 1));
     for (const sx of [-1, 1]) P.push(piece(D, 9620 + k * 2 + (sx > 0), [1.0, 0.42, r2(w * 0.5)], [r2(sx * w * 0.42), r2(y), -0.4], sx * 28, [0, 0], 0, 1));
   }
-  P.push(piece(D, 9604, [9.4, 2.6, 3.8], [0, 13.2, 0.2], 0, [0, 0], 0, 3));                      // shoulders
+  P.push(piece(D, 9604, [12.5, 2.8, 4.2], [0, 13.0, 0.2], 0, [0, 0], 0, 3));   // wide shoulders                      // shoulders
   P.push(piece(D, 9605, [1.9, 2.4, 1.9], [0, 14.6, 0], 0, [0, 0], 0, 2));                        // neck
-  P.push(piece(D, 9606, [3.6, 4.2, 3.6], [0, 15.8, -0.3], 0, [0, 0], 0, 3));                     // head
+  P.push(piece(D, 9606, [4.6, 4.8, 4.2], [0, 15.6, -0.3], 0, [0, 0], 0, 3));   // a big head                     // head
   P.push(piece(D, 9607, [2.8, 1.2, 1.2], [0, 17.2, -1.7], 0, [0, 0], 0, 2));                     // brow ridge
   for (const sx of [-1, 1]) {
-    P.push(piece(D, 9630 + (sx > 0), [0.9, 4.8, 0.9], [r2(sx * 1.6), 18.6, 0.4], 0, [-30, sx * -38], 0, 2));   // swept horns
+    P.push(piece(D, 9630 + (sx > 0), [1.3, 7.5, 1.3], [r2(sx * 2.2), 18.6, 0.4], 0, [-20, sx * -58], 0, 2));   // swept horns, wide
     P.push(piece(D, 9632 + (sx > 0), [1.2, 15.0, 1.6], [r2(sx * 3.4), 4.0, 2.2], 0, [6, sx * -10], 0, 2));     // folded-wing spines behind
     P.push(piece(D, 9634 + (sx > 0), [0.9, 11.0, 1.2], [r2(sx * 4.6), 3.0, 2.8], 0, [8, sx * -16], 0, 2));
     P.push(piece(D, 9636 + (sx > 0), [1.5, 7.5, 1.6], [r2(sx * 3.6), 2.0, -0.8], 0, [0, sx * -6], 0, 2));      // arms down the flanks
