@@ -9,6 +9,7 @@ const fs = require("fs"), path = require("path");
 const G = path.resolve(process.argv[2]) + "/", O = path.resolve(process.argv[3]) + "/", CFG = path.resolve(process.argv[4] || ".");
 const WDIR = path.resolve(__dirname, "../content/weapons") + "/";
 const X = path.resolve(process.argv[5] || G + "_extracted") + "/";
+const M12 = path.resolve(process.env.MG12_SRC || "E:/nmk/incoming/mg12") + "/";   // MG12 sources (moved off C: to E:, user disk policy)
 // MG2: Unreal mannequin arms (AR-15, MP7, RPG-7) and the Rigify agent's arms (Scorpion, Uzi)
 const manny = { MI_Manny_01: { albedo: "T_Manny_01_D.png", rough_f: 0.6 }, MI_Manny_02: { albedo: "T_Manny_02_D.png", rough_f: 0.6 } };
 const agent = { Gloves: { albedo: "Gloves_BaseColor.1003.png", rough: "Gloves_Roughness.1003.png", metal: "Gloves_Metallic.1003.png" }, Cloths: { albedo: "Cloths_BaseColor.1002.png", rough: "Cloths_Roughness.1002.png", metal: "Cloths_Metallic.1002.png" },
@@ -137,22 +138,22 @@ const A = {
     clips: { idle: [46, 76], fire: [77, 81], reload: [100, 180], reload_empty: [180, 280] } },
   // ---- MG12: DJMaesen's Cinema 4D arm rigs (incoming/mg12/<name>, CC BY 4.0; 30 fps timelines, cuts at the rest frames found
   // from the arm and part motion; the descriptions on Sketchfab list the pistols' ranges)
-  modern_revolver: { src: "../mg12/revolver-animated/source/arms@revolver.fbx", tex: "../mg12/revolver-animated", stat: "modern_revolver", hipRear: [0.07, 0.3, -0.09],
+  modern_revolver: { abs: true, src: M12 + "revolver-animated/source/arms@revolver.fbx", tex: M12 + "revolver-animated", stat: "modern_revolver", hipRear: [0.07, 0.3, -0.09],
     keep: ["armmesh", "base", "bullet1", "bullet2", "bullet3", "bullet4", "bullet5", "bullet6", "cylinder", "ejector", "hammer", "release", "trigger"],
     rigidify: ["base", "bullet1", "bullet2", "bullet3", "bullet4", "bullet5", "bullet6", "cylinder", "ejector", "hammer", "release", "trigger"], gun: "base", timeline: [1, 321],
     // rest frames 15, 51, 190, 224, 270, 297: the cylinder swings out and the empties go (15-52), one round per 23 frames (52-75 loops the
     // first), it closes (190-224); 224-270 a cylinder spin (inspect), 297-321 hide / draw not used
     clips: { fire: [1, 15], reload_start: [15, 52], reload_insert: [52, 75], reload_end: [190, 224], inspect: [224, 270], idle: [270, 297] },
     mats: { revolver: { albedo: "revolverColor.png", metal: "revolvermetallic.png", smooth: "revolversmoothness.png" }, arms: c4dArms() } },
-  modern_sawnoff: { src: "../mg12/sawnoff-animated/source/arms@sawnoff.fbx", tex: "../mg12/sawnoff-animated", stat: "modern_sawnoff",
+  modern_sawnoff: { abs: true, src: M12 + "sawnoff-animated/source/arms@sawnoff.fbx", tex: M12 + "sawnoff-animated", stat: "modern_sawnoff",
     keep: ["armmesh", "base", "ejector", "front", "release", "slug1", "slug2", "trigger1", "trigger2"], rigidify: ["base", "ejector", "front", "release", "slug1", "slug2", "trigger1", "trigger2"], gun: "base", timeline: [1, 271],
     clips: { fire: [1, 15], reload: [15, 107], reload_empty: [107, 195], idle: [221, 252] },   // rest frames 15, 107, 195, 221, 252 (195-221 and the draw 252-271 not used)
     mats: { sawnoff: { albedo: "sawnoffColor.png", metal: "sawnoffMetallic.png", smooth: "sawnoffSmoothness.png" }, arms: c4dArms() } },
-  modern_smg9: { src: "../mg12/fps-smg9-animated/source/arms@smg9.fbx", tex: "../mg12/fps-smg9-animated", stat: "modern_smg9",   // the red dot's lens object is not kept (open window)
+  modern_smg9: { abs: true, src: M12 + "fps-smg9-animated/source/arms@smg9.fbx", tex: M12 + "fps-smg9-animated", stat: "modern_smg9",   // the red dot's lens object is not kept (open window)
     keep: ["armmesh", "base", "bolt", "bullet", "grip", "mag", "release", "scope", "trigger"], rigidify: ["base", "bolt", "bullet", "grip", "mag", "release", "scope", "trigger"], gun: "base", timeline: [1, 222],
     clips: { fire: [1, 9], reload_empty: [9, 79], reload: [79, 133], inspect: [133, 179], idle: [179, 206] },   // rest frames 79, 133, 179, 206; the hide / draw 206-222 not used
     mats: { smg9: { albedo: "smg9color.png", metal: "smg9Metallic.png", smooth: "smg9Smoothness.png" }, arms: c4dArms() } },
-  modern_deagle: { src: "../mg12/animated-pistol/source/arms@talon.fbx", tex: "../mg12/animated-pistol", stat: "modern_deagle", hipRear: [0.07, 0.3, -0.09],
+  modern_deagle: { abs: true, src: M12 + "animated-pistol/source/arms@talon.fbx", tex: M12 + "animated-pistol", stat: "modern_deagle", hipRear: [0.07, 0.3, -0.09],
     keep: ["arms", "base", "bullet", "bullet2", "hammer", "mag", "slide", "trigger"], rigidify: ["base", "bullet", "bullet2", "hammer", "mag", "slide", "trigger"], gun: "base", timeline: [1, 271],
     // Sketchfab keyframes (0-based): fire 0-14, reload mag 15-96, reload full 70-157, hide 158-170, ready 170-218, ambient 219-248, melee 249-270; rest frames 16, 71, 159, 220, 250
     clips: { fire: [1, 16], reload: [16, 71], reload_empty: [71, 159], idle: [220, 250] },
@@ -167,7 +168,7 @@ for (const [id, a] of Object.entries(A)) {
   if (id.startsWith("_")) continue;   // parked entries (MG7: the SCAR-H rig, not exported)
   if (process.env.MG_ONLY && !process.env.MG_ONLY.split(",").includes(id)) continue;   // MG12: only these ids (the others need their own static summaries)
   if (a.frame) {   // MG7 (the knife): framed by its own camera, no static model or sights
-    fs.writeFileSync(path.join(CFG, "anim_" + id + ".json"), JSON.stringify({ maxTex: 2048, ...a, src: a.abs ? a.src : G + a.src, texdir: G + a.tex + "/textures", out: O + id + "_vm.glb", points: {} }, null, 1));
+    fs.writeFileSync(path.join(CFG, "anim_" + id + ".json"), JSON.stringify({ maxTex: 2048, ...a, src: a.abs ? a.src : G + a.src, texdir: (path.isAbsolute(a.tex) ? a.tex : G + a.tex) + "/textures", out: O + id + "_vm.glb", points: {} }, null, 1));
     continue;
   }
   const w = JSON.parse(fs.readFileSync(WDIR + id + ".json", "utf8"));
@@ -178,7 +179,7 @@ for (const [id, a] of Object.entries(A)) {
   const points = { rear: w.sights.rear, front: w.sights.front, muzzle: w.muzzle };
   if (w.scope) points.eye = w.scope.eye;
   const cfg = { maxTex: 2048, ...a, src: a.abs ? a.src : G + a.src,   // MG4: rig textures up to 2048 (never upscaled)
-    texdir: G + a.tex + "/textures", out: O + id + "_vm.glb", points,
+    texdir: (path.isAbsolute(a.tex) ? a.tex : G + a.tex) + "/textures", out: O + id + "_vm.glb", points,
     static: { s, o: [(mn[0] + mx[0]) / 2, (mn[1] + mx[1]) / 2, mn[2]] } };
   fs.writeFileSync(path.join(CFG, "anim_" + id + ".json"), JSON.stringify(cfg, null, 1));
 }
