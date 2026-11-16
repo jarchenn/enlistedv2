@@ -1,0 +1,331 @@
+{
+  "id": "ah64d_apache",
+  "name": "AH-64D Apache",
+  "faction": "Modern",
+  "identity": "Supplied boeing_ah-64d_apache_combat_helicopter.glb (Muhamad Mirza Arrafi, Sketchfab, CC BY 4.0, tagged AI-generated): AH-64D Longbow with Hellfires and two Hydra 70 rocket pods. The main rotor, the scissor tail rotor and the M230 chin gun were split from the body mesh at bake by island boxes; nothing was added.",
+  "heli": true,
+  "model": {
+    "src": "boeing_ah-64d_apache_combat_helicopter.glb",
+    "dir": "ah64d_apache",
+    "rot": [
+      0,
+      -90,
+      0
+    ],
+    "scale": 7.47,
+    "pivot": "ground",
+    "maxTex": 1024,
+    "groundRoles": [
+      "hull"
+    ],
+    "splits": [
+      {
+        "part": "AH-64D Apache Combat Helicopter.obj.cleaner.materialmerger.gles",
+        "islandsIn": [
+          [
+            -7.45,
+            3.25,
+            -5.46
+          ],
+          [
+            7.45,
+            4.07,
+            9.45
+          ]
+        ],
+        "name": "main_rotor",
+        "role": "rotor",
+        "note": "four main blades and the hub (the Longbow radar on the mast stays fixed)"
+      },
+      {
+        "part": "AH-64D Apache Combat Helicopter.obj.cleaner.materialmerger.gles",
+        "islandsIn": [
+          [
+            0.19,
+            2.07,
+            -9.42
+          ],
+          [
+            0.96,
+            3.92,
+            -6.4
+          ]
+        ],
+        "name": "tail_rotor",
+        "role": "tailrotor",
+        "note": "the two scissor tail rotors"
+      },
+      {
+        "part": "AH-64D Apache Combat Helicopter.obj.cleaner.materialmerger.gles",
+        "islandsIn": [
+          [
+            -0.36,
+            0.17,
+            4.0
+          ],
+          [
+            0.28,
+            0.56,
+            6.52
+          ]
+        ],
+        "name": "m230",
+        "role": "gun",
+        "note": "M230 30 mm chain gun under the nose: traverses / elevates toward the aim"
+      }
+    ],
+    "nodeParts": {
+      "AH-64D Apache Combat Helicopter.obj.cleaner.materialmerger.gles": "hull"
+    }
+  },
+  "rig": {
+    "turretPivot": [
+      -0.08,
+      0.42,
+      4.75
+    ],
+    "gunPivot": [
+      -0.08,
+      0.42,
+      4.75
+    ],
+    "muzzle": [
+      -0.08,
+      0.4,
+      5.5
+    ],
+    "hatchEye": [
+      0,
+      2.6,
+      4.2
+    ],
+    "engine": [
+      0,
+      2.4,
+      0.1
+    ],
+    "rotorHub": [
+      0,
+      3.65,
+      2.0
+    ],
+    "tailRotorHub": [
+      0.58,
+      2.8,
+      -7.92
+    ],
+    "rocketPods": [
+      [
+        -2.9,
+        0.91,
+        2.9
+      ],
+      [
+        2.9,
+        0.91,
+        2.9
+      ]
+    ],
+    "exhausts": [
+      [
+        1.4,
+        2.5,
+        -1.0
+      ],
+      [
+        -1.4,
+        2.5,
+        -1.0
+      ]
+    ],
+    "exits": [
+      [
+        2.2,
+        0,
+        4.0
+      ],
+      [
+        -2.2,
+        0,
+        4.0
+      ],
+      [
+        3.8,
+        0,
+        0.5
+      ],
+      [
+        -3.8,
+        0,
+        0.5
+      ],
+      [
+        0,
+        0,
+        8.5
+      ],
+      [
+        2.5,
+        0,
+        -3.5
+      ],
+      [
+        -2.5,
+        0,
+        -3.5
+      ]
+    ]
+  },
+  "colliders": {
+    "hull": [
+      {
+        "c": [
+          0,
+          1.75,
+          2.0
+        ],
+        "h": [
+          0.85,
+          1.2,
+          4.5
+        ]
+      },
+      {
+        "c": [
+          0,
+          2.2,
+          -5.0
+        ],
+        "h": [
+          0.4,
+          0.55,
+          3.0
+        ]
+      },
+      {
+        "c": [
+          0,
+          3.0,
+          -8.4
+        ],
+        "h": [
+          0.15,
+          1.0,
+          0.6
+        ]
+      },
+      {
+        "c": [
+          0,
+          1.25,
+          2.0
+        ],
+        "h": [
+          3.15,
+          0.35,
+          0.85
+        ]
+      },
+      {
+        "c": [
+          0,
+          2.35,
+          0.1
+        ],
+        "h": [
+          1.85,
+          0.5,
+          1.3
+        ]
+      }
+    ],
+    "armourHull": {
+      "c": [
+        0,
+        1.9,
+        0.0
+      ],
+      "h": [
+        1.0,
+        1.4,
+        6.5
+      ]
+    },
+    "rotorDisc": {
+      "c": [
+        0,
+        3.85,
+        1.97
+      ],
+      "h": [
+        7.0,
+        0.25,
+        7.0
+      ]
+    },
+    "note": "fuselage, tail boom, fin, stub wings with the pods, engine nacelles; the rotor disc box only stops flight into buildings (no projectile collision)"
+  },
+  "flight": {
+    "rotorRps": 4.8,
+    "tailRps": 23,
+    "pitchLimits": [
+      -60,
+      25
+    ],
+    "note": "rotor speeds and the mouse pitch limits; the flight feel (acceleration, drag, stabilisation, lift, landing, camera) is content/settings/helicopter.json"
+  },
+  "chinGun": {
+    "name": "M230 30 mm chain gun",
+    "rpm": 625,
+    "velocity": 805,
+    "damage": 60,
+    "blastRadius": 2.0,
+    "ammo": 1200,
+    "heatPerShot": 0.034,
+    "coolPerSec": 0.22,
+    "resumeHeat": 0.35,
+    "yaw": [
+      -100,
+      100
+    ],
+    "elevation": [
+      -60,
+      11
+    ],
+    "spreadDeg": 0.35,
+    "sound": "shot_m2hb",
+    "note": "explosive 30 mm: a small blast per hit (strong vs infantry and light vehicles, nothing vs tanks); about 80 rounds (7.7 s) of continuous fire overheat it, then it cools back to 35 % (~3 s) before firing again; 1200 rounds, no reload in the air"
+  },
+  "rockets": {
+    "name": "Hydra 70",
+    "count": 38,
+    "velocity": 300,
+    "damage": 420,
+    "radius": 2.6,
+    "crater": 0.6,
+    "splashGun": 60,
+    "gravScale": 0.3,
+    "cooldown": 0.25,
+    "note": "2 x 19-tube M261 pods; one rocket per R press, alternating left / right pod"
+  },
+  "durability": {
+    "heavyBulletJ": 9000,
+    "heavyBulletDamage": 4,
+    "launcherDamage": 50,
+    "cannonDamage": 100,
+    "smallArmsDamage": 0,
+    "note": "2 rocket hits or 1 tank / AT / Flak shell bring it down; rifle and MG rounds do nothing, .50 rounds 4 each"
+  },
+  "mobility": {
+    "halfSize": [
+      1.0,
+      1.4,
+      6.5
+    ],
+    "clearance": 0.2
+  },
+  "ramming": {
+    "massKg": 8000,
+    "engineKW": 2800
+  }
+}
