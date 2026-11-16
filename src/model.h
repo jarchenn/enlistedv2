@@ -23,11 +23,13 @@ struct ModelPart {
   vec3 bmin{0}, bmax{0};            // weapon space
   int section = -1;                 // destruction section (ImportSpec sections), -1 = none
   bool glass = false;               // a window / windscreen material (name "glass"): drawn in the blended glass pass
+  bool cutout = false;              // NT8: alpha-tested foliage (glTF alphaMode MASK / BLEND): needles, blades, fronds
   std::vector<mat4> anim;           // optional: weapon-space delta per animation sample (rest = identity)
 };
 
 struct ImportSpec {
   std::string src, dir;             // source .glb file name, output folder name
+  std::string lod1Src;              // NT8: hand-made LOD1 .glb (same folder as src); empty: lod1 = simplified src
   vec3 rot{0};                      // Euler degrees applied first
   float realLength = 1;             // metres along +z after rotation (scale = realLength / extent)
   float scale = 0;                  // > 0: absolute scale instead of realLength (map assets authored in metres)
@@ -67,7 +69,7 @@ struct GpuModel {
   GLuint vao = 0, vbo = 0, ebo = 0;
   GLuint texAlb = 0, texMR = 0, texN = 0, texAO = 0;   // first material's set (legacy single-set bakes)
   bool aoInMR = false;              // AO packed in the red channel of the MR map
-  struct MatTex { GLuint alb = 0, mr = 0, n = 0, ao = 0; bool aoInMR = false; std::string name; };
+  struct MatTex { GLuint alb = 0, mr = 0, n = 0, ao = 0; bool aoInMR = false; bool cutout = false; std::string name; };
   std::vector<MatTex> mats;         // one texture set per source material (multi-material models: FG42, M2, Tommy gun)
   int textureCount = 0;
   std::vector<ModelPart> parts;

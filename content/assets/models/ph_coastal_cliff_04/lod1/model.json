@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  43.28826141357422,
+  10.85451602935791,
+  12.15565299987793
+ ],
+ "bmin": [
+  -43.28826141357422,
+  0.0,
+  -12.15565299987793
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "coastal_cliff_04",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    43.28826141357422,
+    10.85451602935791,
+    12.15565299987793
+   ],
+   "bmin": [
+    -43.28826141357422,
+    0.0,
+    -12.15565299987793
+   ],
+   "count": 9225,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "coastal_cliff_04.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_coastal_cliff_04_lod1.glb",
+ "textures": {},
+ "triangles": 3075,
+ "vertices": 2567
+}

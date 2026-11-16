@@ -99,6 +99,8 @@ public:
   std::vector<NatPatchDraw> natPatches;   // flower / tall-grass patches (nature.cpp), drawn with the grass program
   int natDraws = 0; size_t natTufts = 0;   // last frame
   std::vector<ModelDraw> worldModelsGlass;   // their glass parts (blended, after the glass pass)
+  struct FolModelDraw { const GpuModel* model; mat4 m; float wind; };   // NT8: model foliage (pines, ferns, grass), instanced
+  std::vector<FolModelDraw> folModels;
   std::vector<ModelDraw> worldModels;   // imported models in the world (rack displays, the M2HB station)     // tree leaf cards (alpha-tested, wind sway, shadow casting)
   float wind = 1.0f;
   // sky clouds: fbm on a plane at 1500 m scrolling with the wind
@@ -269,6 +271,7 @@ public:
     bool mapNoFog = false;      // BR2: "look": {"fog": false}: no aerial haze, weather fog or light shafts
     float mapSat = 1.0f; vec3 mapTint{1.0f}; float mapGrime = 0.0f; float mapVegCull = 1.0f; float mapCave = 0.0f;   // CV1: look.cave   // NT5: look.vegCull   // NT3: look.grime   // NT2b: look.saturation / look.tint, after the weather grade
     float mapHaze = 1.0f;       // AS1: "look": {"haze": k}: the aerial haze density x k (an abandoned town: hazier)
+    float mapShafts = 0.0f;     // NT8: "look": {"shafts": k}: sun shafts on Medium too (not Low), strength x k (a forest at golden hour)
     vec3 mapAmbient{0.0f};      // BR2: the open map's extra.lighting.ambient: an even indirect term added to the fill (lights everything, furniture included)
     float mapFill = 1.0f;       // UG4: extra.lighting.fill: the fill / indirect term x this (Tunnels darker between its lamps)
     float mapExposure = 0.0f;   // BR3: extra.lighting.exposure: > 0 pins the exposure (x the fixed night exposure) in every mode, auto exposure off
@@ -313,6 +316,8 @@ private:
   // L1 leaf LOD distances (m at a 70 degree FOV): enter near / leave near, enter mid / leave mid (docs/leaves.md)
   static constexpr float kLeafNearIn = 10, kLeafNearOut = 12, kLeafMidIn = 22, kLeafMidOut = 26;
   void drawModelsDepth(GLuint prog, const std::vector<ModelDraw>& items, const Frustum* fr = nullptr);
+  void drawFolModels(bool depth, const mat4& vp, const Frustum* fr, float minH = 0);   // NT8: instanced, alpha-tested, wind; minH: casters shorter than this skipped
+  GLuint progFolModel = 0, progFolDepth = 0, folBuf = 0; size_t folBufBytes = 0;
   // uniform locations of the draw loops, looked up once per program (cleared by compile())
   struct DrawLocs { GLint model = -1, tint = -1, inst = -1, roomA = -1, roomB = -1, sills = -1, sillA = -1, sillB = -1, contactBox = -1, contact = -1, foundWx = -1, roomDec = -1, extDec = -1, roomX = -1,
                     vp = -1, time = -1, wind = -1, leafCol = -1, base = -1, metal = -1, rough = -1, thin = -1,

@@ -100,7 +100,7 @@
 | steel_rust_light | [Metal053B](https://ambientcg.com/a/Metal053B) | metal (MA1) | color, height, normal, roughness | 1.5 x 1.5 | imgmat:steel_light_rust | MA1 |
 | corrugated_galv | [CorrugatedSteel009](https://ambientcg.com/a/CorrugatedSteel009) | metal (MA1) | ao, color, height, normal, roughness | 2 x 2 | imgmat:galvanized | MA1 |
 | paint_metal_worn_white | [PaintedMetal012](https://ambientcg.com/a/PaintedMetal012) | metal (MA1) | ao, color, height, normal, roughness | 1.5 x 1.5 | imgmat:paint_metal_worn | MA1 |
-| dirt_compacted | [Ground112](https://ambientcg.com/a/Ground112) | ground (MA1) | ao, color, height, normal, roughness | 2 x 2 | imgmat:floor_earth | MA1 |
+| dirt_compacted | [Ground112](https://ambientcg.com/a/Ground112) | ground (MA1) | ao, color, height, normal, roughness | 2 x 2 | dirt_path_paint, imgmat:floor_earth | MA1 |
 | ground_mossy | [Ground068](https://ambientcg.com/a/Ground068) | ground (MA1) | ao, color, height, normal, roughness | 2 x 2 | imgmat:paint_dirt, imgmat:path_dirt, paint_dirt, path_dirt | MA1 |
 | leaf_litter | [ScatteredLeaves009](https://ambientcg.com/a/ScatteredLeaves009) | ground (MA1) | ao, color, height, normal, roughness | 2 x 2 | (unused) | MA1 |
 | gravel_coarse | [Gravel041](https://ambientcg.com/a/Gravel041) | ground (MA1) | ao, color, height, normal, roughness | 2 x 2 | imgmat:paint_gravel, imgmat:path_gravel, tun_floor_gravel | MA1 |
@@ -220,7 +220,7 @@
 | rock_dark_wet | [Rock035](https://ambientcg.com/a/Rock035) | rock (TX2) | ao, color, height, normal, roughness | 3 x 3 | rock_dark_wet | TX2 |
 | rock_red | [Rock029](https://ambientcg.com/a/Rock029) | rock (TX2) | ao, color, height, normal, roughness | 3 x 3 | rock_red | TX2 |
 | rock_slate_layers | [Rocks011](https://ambientcg.com/a/Rocks011) | rock (TX2) | ao, color, height, normal, roughness | 3 x 3 | rock_slab_paint, rock_slate_layers | TX2 |
-| moss_cushion | [Moss002](https://ambientcg.com/a/Moss002) | moss (TX2) | ao, color, height, normal, roughness | 2 x 2 | moss_cushion | TX2 |
+| moss_cushion | [Moss002](https://ambientcg.com/a/Moss002) | moss (TX2) | ao, color, height, normal, roughness | 2 x 2 | moss_cushion, moss_floor_paint | TX2 |
 | rock_green_mossy | [Rock059](https://ambientcg.com/a/Rock059) | rock (TX2) | ao, color, height, normal, roughness | 3 x 3 | rock_green_mossy | TX2 |
 | leaves_scattered | [ScatteredLeaves008](https://ambientcg.com/a/ScatteredLeaves008) | forest floor (TX2) | ao, color, height, normal, roughness | 2 x 2 | leaves_scattered | TX2 |
 | forest_floor | [Ground023](https://ambientcg.com/a/Ground023) | forest floor (TX2) | ao, color, height, normal, roughness | 3 x 3 | forest_floor | TX2 |

@@ -1,0 +1,91 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.5880822539329529,
+  1.608485221862793,
+  0.5253072381019592
+ ],
+ "bmin": [
+  -0.5880822539329529,
+  0.0,
+  -0.5253072381019592
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "fir_sapling_branches",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "name": "ph_fir_sapling_a_needles"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.023415934294462204,
+    1.3129611015319824,
+    0.030534278601408005
+   ],
+   "bmin": [
+    -0.012331180274486542,
+    0.1970013976097107,
+    -0.0012364760041236877
+   ],
+   "count": 117,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "fir_sapling_a.002",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5880822539329529,
+    1.608485221862793,
+    0.5253072381019592
+   ],
+   "bmin": [
+    -0.5880822539329529,
+    0.0,
+    -0.5253072381019592
+   ],
+   "count": 276,
+   "first": 117,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "ph_fir_sapling_a_cards1",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_fir_sapling_a_lod1.glb",
+ "textures": {},
+ "triangles": 131,
+ "vertices": 236
+}

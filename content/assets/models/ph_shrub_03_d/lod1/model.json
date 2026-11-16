@@ -1,0 +1,61 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.05638623237609863,
+  0.2555544972419739,
+  0.04463928937911987
+ ],
+ "bmin": [
+  -0.05638623237609863,
+  0.0,
+  -0.04463928937911987
+ ],
+ "materials": [
+  {
+   "albedo": "albedoa_1.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "shrub_03",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.05638623237609863,
+    0.2555544972419739,
+    0.04463928937911987
+   ],
+   "bmin": [
+    -0.05638623237609863,
+    0.0,
+    -0.04463928937911987
+   ],
+   "count": 1977,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "shrub_03_d.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_shrub_03_d_lod1.glb",
+ "textures": {},
+ "triangles": 659,
+ "vertices": 720
+}
