@@ -331,3 +331,20 @@ Screenshots are written to `selftest_out/tanks_*.png`.
     - The wreck stays where it died. The next life spawns at the normal team spawn and gets a fresh, full copy of the same vehicle (`TankSys::spawnFresh`): 7–30 m from the spawn, clear ground (`checkPlacement`), at least 8 m from other vehicles, facing the spawn's direction, entered in the same seat. With no clear spot it spawns on foot with a toast.
     - Wrecks past 12 are removed oldest first when a copy spawns.
     - The helicopter does the same: its crash already kills the crew.
+
+## TK2: higher-fidelity tank bakes, LODs, compressed maps
+
+- **Bakes** (`--import-vehicle-models`; sources outside the repo):
+
+  | Tank | Mesh | LOD1 | LOD2 | Textures |
+  |---|---|---|---|---|
+  | Panzer IV | full source 244k tris (was 30 %, 73k) | 98k | 29k | 2048 everywhere, 4096 albedo / normal on the turret and hulls (`maxTexBy`); was 1024 |
+  | Sherman M4 (local-only) | full 279k (was 35 %) | 113k | 36k | 2048 |
+  | Tiger I | 65k (source size) | 26k | 7.8k | 1024: the source's own maximum |
+  | Abrams | 14k (source size) | — | — | 2048 (the source's 2048 × 1024 maps) |
+
+  The Firefly's source (tank_fury.glb) is no longer on disk; its bake is unchanged.
+- **Bake options** (`src/model.cpp`): `lod2` / `lod2Tex` (a second distance LOD); `maxTexBy` (per source material, a higher cap for its albedo / normal). The vehicle post-pass (re-origin, splits) runs on every LOD, whose parts must line up with the full model's (checked at load, else LODs off).
+- **Runtime** (`TankSys::lodModel`): full mesh while the hull is over 260 px across, LOD1 over 80 px, LOD2 below, with 15 % hysteresis. The occupied vehicle is always full; a wreck is at most LOD1.
+- **Textures** (`loadTexBC`): a map of 2048 px or more is block-compressed on load (CPU mips, stb_dxt): albedo BC1 sRGB (BC3 with alpha), metal-rough / AO BC1, normal BC5. The model shader rebuilds z when the blue channel reads 0. A 4096 map with mips: 85 MB RGBA8 → 11 MB (BC1) / 22 MB (BC5).
+- **Check**: `--capture-tk2 <tag>` (`src/capture_tk2.cpp`): close-ups of every tank and a frame-time sample on chateau_town.

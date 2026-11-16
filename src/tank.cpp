@@ -40,16 +40,31 @@ void TankSys::loadDefs(App& app) {
     auto d = std::make_unique<TankDef>();
     d->raw = j; d->id = j.value("id", stem); d->name = j.value("name", d->id);
     d->faction = j.value("faction", ""); d->identity = j.value("identity", "");
+    // TK2: the distance LODs, kept only when their parts line up with the full model's (same count and roles)
+    auto loadLods = [&](const std::string& mdir) {
+      for (int L = 0; L < 2; ++L) {
+        fs::path ld = dir / "models" / mdir / (L == 0 ? "lod1" : "lod2");
+        if (!fs::exists(ld / "mesh.bin")) continue;
+        auto gm = std::make_shared<GpuModel>(); std::string err;
+        if (!gm->load(ld, err)) { logf("vehicle %s: %s not loaded (%s)", d->id.c_str(), ld.filename().string().c_str(), err.c_str()); continue; }
+        d->lods[L] = gm;
+      }
+    };
     // baked model (a car whose supplied model is local-only falls back to its committed part-built stand-in)
     for (const char* key : {"dir", "fallbackDir"}) {
       std::string mdir = j.contains("model") ? j["model"].value(key, "") : "";
       if (mdir.empty() || d->model) continue;
       if (loaded.count(mdir)) { d->model = loaded[mdir]; continue; }
       auto gm = std::make_shared<GpuModel>(); std::string err;
-      if (gm->load(dir / "models" / mdir, err)) { d->model = loaded[mdir] = gm; if (std::string(key) == "fallbackDir") logf("vehicle %s: supplied model missing, part-built fallback %s", d->id.c_str(), mdir.c_str()); }
+      if (gm->load(dir / "models" / mdir, err)) { d->model = loaded[mdir] = gm; if (std::string(key) == "dir") loadLods(mdir); if (std::string(key) == "fallbackDir") logf("vehicle %s: supplied model missing, part-built fallback %s", d->id.c_str(), mdir.c_str()); }
       else logf("vehicle %s: model %s not loaded (%s) - run --import-vehicle-models", d->id.c_str(), mdir.c_str(), err.c_str());
     }
     d->car = j.value("car", false);
+    for (auto& l : d->lods) if (l && d->model) {
+      bool same = l->parts.size() == d->model->parts.size();
+      for (size_t k = 0; same && k < l->parts.size(); ++k) same = l->parts[k].role == d->model->parts[k].role;
+      if (!same) { logf("vehicle %s: a LOD's parts do not line up with the model (%zu vs %zu): LODs off", d->id.c_str(), l->parts.size(), d->model->parts.size()); d->lods[0] = d->lods[1] = nullptr; break; }
+    }
     if (d->model) {
       static const char* wheelRoles[TankDef::MAX_WHEELS] = {"wheel_fl", "wheel_fr", "wheel_rl", "wheel_rr", "wheel_f2l", "wheel_f2r", "wheel_r2l", "wheel_r2r"};
       vec3 wlo[TankDef::MAX_WHEELS], whi[TankDef::MAX_WHEELS]; for (int w = 0; w < TankDef::MAX_WHEELS; ++w) { wlo[w] = vec3(1e9f); whi[w] = vec3(-1e9f); }
