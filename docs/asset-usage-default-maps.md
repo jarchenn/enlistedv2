@@ -1104,7 +1104,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `cave_shelf_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 12 |
 | `cave_shelf_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 10 |
 | `cave_spine_arch` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
-| `cave_spire_ancient` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `cave_spire_ancient` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_stalactites_0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_stalactites_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_stalactites_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -1182,6 +1182,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `cave_column_h60` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_column_h75` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_light_uplight` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 |
+| `cave_monument` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
 
 ## Notes
 

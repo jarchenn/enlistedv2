@@ -754,8 +754,8 @@ void lightsStep(App& app, float dt) {
           vec3 p(c.x + std::cos(a) * r, 0, c.z + std::sin(a) * r);
           p.y = app.terrain.height(p.x, p.z) + 0.25f + 0.5f * app.fx.rnd();
           float g = 0.07f + 0.03f * app.fx.rnd();   // dim: the puffs are not lit by the cave's lights
-          app.fx.smoke(p, vec3((app.fx.rnd() - 0.5f) * 0.25f, 0.02f, (app.fx.rnd() - 0.5f) * 0.25f), 2.6f + 1.8f * app.fx.rnd(), 9.0f + 5.0f * app.fx.rnd(),
-                       vec4(g * 0.85f, g * 0.95f, g * 1.08f, 0.07f), 0.18f, 0.0f);
+          app.fx.smoke(p, vec3((app.fx.rnd() - 0.5f) * 0.2f, 0.01f, (app.fx.rnd() - 0.5f) * 0.2f), 5.0f + 3.0f * app.fx.rnd(), 10.0f + 6.0f * app.fx.rnd(),
+                       vec4(g * 0.85f, g * 0.95f, g * 1.08f, 0.03f), 0.12f, 0.0f);   // large and faint: a haze layer, not puffs
           if (warm) app.fx.parts.back().life *= app.fx.rnd();
         }
         continue;
