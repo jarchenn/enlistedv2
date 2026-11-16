@@ -1,0 +1,209 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  1.7434666156768799,
+  4.256643295288086,
+  5.820000648498535
+ ],
+ "bmin": [
+  -1.7434666156768799,
+  0.0,
+  -3.9800004959106445
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_0.jpg",
+   "mr": "mr_1.png",
+   "name": "Material__25"
+  },
+  {
+   "albedo": "albedo_3.jpg",
+   "name": "Material__26"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "name": "Material__27"
+  },
+  {
+   "albedo": "albedo_5.jpg",
+   "name": "Material__28"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.6692023277282715,
+    1.3267037868499756,
+    3.6356801986694336
+   ],
+   "bmin": [
+    -1.6744608879089355,
+    0.0,
+    -3.5888078212738037
+   ],
+   "count": 1680,
+   "first": 0,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "M1A2 Abrams Main Battle Tank.obj.cleaner.materialmerger.gles",
+   "role": "track",
+   "rough": 0.6000000238418579,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.19904346764087677,
+    2.9079649448394775,
+    0.8932337760925293
+   ],
+   "bmin": [
+    -0.5544524192810059,
+    2.5998735427856445,
+    -0.1714155673980713
+   ],
+   "count": 9006,
+   "first": 1680,
+   "mat": 2,
+   "metal": 0.0,
+   "name": "M1A2 Abrams Main Battle Tank.obj.cleaner.materialmerger.gles",
+   "role": "mg",
+   "rough": 0.6000000238418579,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.3263671100139618,
+    2.852259874343872,
+    0.24102449417114258
+   ],
+   "bmin": [
+    -0.5961971282958984,
+    2.301206350326538,
+    0.031269073486328125
+   ],
+   "count": 3054,
+   "first": 10686,
+   "mat": 3,
+   "metal": 0.0,
+   "name": "M1A2 Abrams Main Battle Tank.obj.cleaner.materialmerger.gles",
+   "role": "turret",
+   "rough": 0.6000000238418579,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.7434666156768799,
+    1.7349119186401367,
+    4.00929594039917
+   ],
+   "bmin": [
+    -1.7434666156768799,
+    0.08193540573120117,
+    -3.9800004959106445
+   ],
+   "count": 12162,
+   "first": 13740,
+   "mat": 0,
+   "metal": 0.10000000149011612,
+   "name": "M1A2 Abrams Main Battle Tank.obj.cleaner.materialmerger.gles",
+   "role": "hull",
+   "rough": 0.30000001192092896,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.6251909732818604,
+    4.256643295288086,
+    2.403566360473633
+   ],
+   "bmin": [
+    -1.691877841949463,
+    1.5085991621017456,
+    -2.836796283721924
+   ],
+   "count": 14178,
+   "first": 25902,
+   "mat": 0,
+   "metal": 0.10000000149011612,
+   "name": "abrams_turret",
+   "role": "turret",
+   "rough": 0.30000001192092896,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.23117120563983917,
+    2.177368640899658,
+    5.820000648498535
+   ],
+   "bmin": [
+    -0.34099677205085754,
+    1.5736857652664185,
+    1.5676894187927246
+   ],
+   "count": 1404,
+   "first": 40080,
+   "mat": 0,
+   "metal": 0.10000000149011612,
+   "name": "abrams_gun",
+   "role": "gun",
+   "rough": 0.30000001192092896,
+   "textured": true
+  }
+ ],
+ "realLength": 9.800000190734863,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 0.013821453787386417,
+ "source": "general_dynamics_m1a2_abrams_main_battle_tank.glb",
+ "textures": {},
+ "triangles": 13828,
+ "vehicleOrigin": {
+  "note": "x/z centred on the hull, y = 0 at the running gear's lowest point",
+  "shift": [
+   5.960464477539063e-08,
+   2.1692891120910645,
+   -3.9800004959106445
+  ]
+ },
+ "vertices": 16815
+}

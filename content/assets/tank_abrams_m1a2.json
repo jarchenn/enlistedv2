@@ -1,0 +1,68 @@
+{
+ "id": "tank_abrams_m1a2",
+ "version": 1,
+ "name": "M1A2 Abrams",
+ "category": "Vehicles",
+ "description": "Drivable modern tank (Explore: E to enter). Supplied M1A2 model; 120 mm M256 with APFSDS / HEAT game data, stabilised fast turret, commander's roof .50. Faster and tougher than the WW2 tanks.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  3.49,
+  7.94
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1.2,
+ "noAutoPanels": true,
+ "faction": "Modern",
+ "materials": [
+  {
+   "name": "collider",
+   "albedo": [
+    0.3,
+    0.3,
+    0.3
+   ],
+   "roughness": 0.8,
+   "pattern": "metal"
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.9,
+    -0.02
+   ],
+   "s": [
+    3.48,
+    1.64,
+    7.92
+   ],
+   "m": "collider",
+   "v": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0,
+    1.97,
+    0.05
+   ],
+   "s": [
+    3.2,
+    0.94,
+    4.72
+   ],
+   "m": "collider",
+   "v": 0
+  }
+ ],
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "vehicle": "abrams_m1a2",
+ "nav": {
+  "effect": "none"
+ }
+}

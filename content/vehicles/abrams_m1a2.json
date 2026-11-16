@@ -1,0 +1,302 @@
+{
+  "id": "abrams_m1a2",
+  "name": "M1A2 Abrams",
+  "faction": "Modern",
+  "identity": "Supplied general_dynamics_m1a2_abrams_main_battle_tank.glb (Sketchfab, CC BY 4.0, tagged AI-generated): M1A2 with a commander's roof MG. The body is one mesh; the turret and the 120 mm barrel were split from it at bake by island boxes, the roof MG is its own mesh. Nothing was added.",
+  "model": {
+    "src": "general_dynamics_m1a2_abrams_main_battle_tank.glb",
+    "dir": "abrams",
+    "rot": [
+      0,
+      0,
+      0
+    ],
+    "realLength": 9.8,
+    "lengthNode": "Object_5",
+    "maxTex": 1024,
+    "nodeParts": {
+      "Object_5": "hull",
+      "Object_2": "track",
+      "Object_3": "mg",
+      "Object_4": "turret"
+    },
+    "originOffset": [
+      0,
+      0,
+      0.92
+    ],
+    "splits": [
+      {
+        "part": "M1A2 Abrams Main Battle Tank.obj.cleaner.materialmerger.gles",
+        "islandsIn": [
+          [
+            -0.42,
+            1.49,
+            1.5
+          ],
+          [
+            0.28,
+            2.22,
+            5.9
+          ]
+        ],
+        "name": "abrams_gun",
+        "role": "gun",
+        "note": "120 mm M256 barrel island: elevates on its own"
+      },
+      {
+        "part": "M1A2 Abrams Main Battle Tank.obj.cleaner.materialmerger.gles",
+        "islandsIn": [
+          [
+            -1.76,
+            1.44,
+            -2.9
+          ],
+          [
+            1.76,
+            4.43,
+            2.52
+          ]
+        ],
+        "name": "abrams_turret",
+        "role": "turret",
+        "note": "turret shell, mantlet, bustle rack, sights and antennas: every island above the turret ring inside the turret's footprint"
+      }
+    ]
+  },
+  "rig": {
+    "turretPivot": [
+      0,
+      1.51,
+      0.17
+    ],
+    "gunPivot": [
+      -0.06,
+      1.88,
+      1.41
+    ],
+    "muzzle": [
+      -0.06,
+      1.88,
+      5.8
+    ],
+    "optic": [
+      0.35,
+      2.05,
+      1.7
+    ],
+    "hatchEye": [
+      -0.4,
+      3.3,
+      0.0
+    ],
+    "mgPivot": [
+      -0.37,
+      2.7,
+      0.0
+    ],
+    "mgMuzzle": [
+      -0.37,
+      2.75,
+      0.89
+    ],
+    "engine": [
+      0,
+      1.3,
+      -3.2
+    ],
+    "exhausts": [
+      [
+        0.5,
+        1.2,
+        -4.0
+      ],
+      [
+        -0.5,
+        1.2,
+        -4.0
+      ]
+    ],
+    "exits": [
+      [
+        2.6,
+        0,
+        0.3
+      ],
+      [
+        -2.6,
+        0,
+        0.3
+      ],
+      [
+        2.6,
+        0,
+        -2.4
+      ],
+      [
+        -2.6,
+        0,
+        -2.4
+      ],
+      [
+        0,
+        0,
+        -5.0
+      ],
+      [
+        0,
+        0,
+        6.6
+      ],
+      [
+        2.6,
+        0,
+        2.8
+      ],
+      [
+        -2.6,
+        0,
+        2.8
+      ]
+    ]
+  },
+  "colliders": {
+    "hull": [
+      {
+        "c": [
+          0,
+          0.9,
+          -0.02
+        ],
+        "h": [
+          1.74,
+          0.82,
+          3.96
+        ]
+      }
+    ],
+    "turret": [
+      {
+        "c": [
+          0,
+          1.97,
+          0.05
+        ],
+        "h": [
+          1.6,
+          0.47,
+          2.36
+        ]
+      }
+    ],
+    "armourHull": {
+      "c": [
+        0,
+        0.9,
+        -0.02
+      ],
+      "h": [
+        1.74,
+        0.82,
+        3.96
+      ]
+    },
+    "armourTurret": {
+      "c": [
+        0,
+        2.05,
+        0.05
+      ],
+      "h": [
+        1.6,
+        0.55,
+        2.36
+      ]
+    },
+    "note": "simplified boxes in hull space (turret at 0 deg traverse): hull with the side skirts up to the deck (1.70 m), turret up to its roof (2.44 m)"
+  },
+  "gun": {
+    "muzzleScale": 1.5,
+    "name": "120 mm M256 L/44",
+    "traverseRate": 40,
+    "traverseAccel": 40,
+    "elevationRate": 12,
+    "elevationAccel": 30,
+    "elevation": [
+      -9,
+      20
+    ],
+    "recoil": 0.5,
+    "fov": 30,
+    "fovZoom": 8,
+    "zeroRange": 1000,
+    "reticle": "tiger",
+    "note": "stabilised modern turret: much faster traverse and elevation than the WW2 tanks (game tuning); reuses the Tiger reticle"
+  },
+  "ammunition": {
+    "reloadTime": 6.0,
+    "reserveAP": 22,
+    "reserveHE": 18,
+    "startLoaded": "AP",
+    "ap": "120mm_m829",
+    "he": "120mm_m830",
+    "velocityAP": 1670,
+    "velocityHE": 1140,
+    "blastHE": 220,
+    "note": "M829 APFSDS / M830 HEAT-MP; 40 rounds stowed; manual loader reload (game values)"
+  },
+  "roofMg": {
+    "name": "Commander's roof MG (modelled on the supplied turret, M2 .50 data)",
+    "sound": "shot_m2hb",
+    "yaw": [
+      -180,
+      180
+    ],
+    "elevation": [
+      -8,
+      50
+    ],
+    "rpm": 500,
+    "velocity": 890,
+    "spreadDeg": 0.25,
+    "belt": 100,
+    "reserve": 900,
+    "reload": 5.0,
+    "bulletMass": 0.046,
+    "reloadSound": "belt"
+  },
+  "mobility": {
+    "maxForward": 18.6,
+    "maxReverse": 8.0,
+    "accel": 2.6,
+    "brake": 6.0,
+    "coast": 0.8,
+    "turnRate": 26,
+    "pivotRate": 22,
+    "maxSlopeDeg": 35,
+    "offroadMul": 0.75,
+    "halfSize": [
+      1.8,
+      0.85,
+      3.95
+    ],
+    "clearance": 0.48,
+    "trackHalfGauge": 1.34,
+    "trackHalfLength": 3.08,
+    "note": "67 km/h governed road speed; quicker off the line and less slowed off-road than the Tiger (gas turbine)"
+  },
+  "historical": {
+    "roadSpeedKmh": 67,
+    "source": "General Dynamics Land Systems, M1A2: 67 km/h governed"
+  },
+  "durability": {
+    "frontHitsSurvived": 8,
+    "sideHitsSurvived": 3
+  },
+  "ramming": {
+    "massKg": 66800,
+    "engineKW": 1120,
+    "pushEfficiency": 0.6,
+    "note": "M1A2 SEP combat mass, AGT1500 (1500 hp)"
+  }
+}

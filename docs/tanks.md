@@ -53,6 +53,23 @@ The mesh is used unchanged and labelled **"Sherman Firefly (stand-in)"**. The gu
 
 The model is a mid-production Tiger I: commander's cupola, spare track links on the turret sides, and a hull antenna. The gun, the mantlet and the barrel sleeve were one mesh with the turret, so they are split at bake (islands inside the front box move to a `gun` part) to let them elevate on their own. No separate hatch or roof-MG mesh exists. The cupola MG 34 is drawn with the supplied **MG 42** model as a clearly provisional stand-in, while keeping MG 34 data (900 rpm, 7.92 mm, its own synthesized report).
 
+### M1A2 Abrams (VH3)
+
+`content/vehicles/abrams_m1a2.json`, catalog entry `tank_abrams_m1a2` (**Vehicles**, faction `Modern`). The supplied GLB is CC BY 4.0 (see [credits.md](credits.md)), so its bake is committed in `content/vehicles/models/abrams/`. To re-bake it: `--import-vehicle-models <folder with the GLB> content`.
+
+- **Model:** the whole tank is one body mesh plus the tracks and the roof MG. The bake splits the 120 mm barrel (`gun`) out by island boxes, then everything above the turret ring inside the turret's footprint (`turret`). The model is scaled to 9.8 m overall, and the origin is moved 0.92 m so that the hull body, not the gun, is centred.
+- **Game data:**
+  - 67 km/h on roads, and less slowed off-road than the Tiger.
+  - Turret traverse 40°/s, elevation −9 to +20°.
+  - Ammunition: M829 APFSDS at 1670 m/s and M830 HEAT-MP, 6 s reload.
+  - Survives 8 frontal hits and 3 side hits.
+  - The commander's roof gun uses the M2 .50 data.
+  - It reuses the Tiger's sight reticle and the Sherman's gun and engine sounds.
+- **Not done:**
+  - No coaxial MG.
+  - The tracks and road wheels do not animate; no tank does.
+- `--capture-abrams` takes one frame of the tank in Creative with the turret turned.
+
 ### Licences (from the GLB `asset.extras`)
 
 | File | Author | Licence | Source |

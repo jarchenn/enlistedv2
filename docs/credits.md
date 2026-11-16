@@ -60,6 +60,7 @@ Unlike the weapon files, both tank GLBs carry author and licence fields in their
 |---|---|---|---|---|
 | tank_fury.glb | Sherman Firefly **stand-in** (the mesh is an M4A3E8 "Easy Eight", see [tanks.md](tanks.md)) | FlashPoint (https://sketchfab.com/FlashPoin) | CC-BY-4.0 | https://sketchfab.com/3d-models/tank-fury-aa010de33f4e43a6954a9caedbb833db |
 | pzkpfw_vi_tiger_1.glb | Tiger I | Tinus (https://sketchfab.com/HeerBeer) | **CC-BY-NC-4.0 (non-commercial use only)** | https://sketchfab.com/3d-models/pzkpfw-vi-tiger-1-dfd7156c43124d1c9ff77d895c647142 |
+| general_dynamics_m1a2_abrams_main_battle_tank.glb, "General Dynamics M1A2 Abrams Main Battle Tank" (VH3; the page tags it "Generated with AI") | M1A2 Abrams, vehicle `abrams_m1a2`. **Modified:** scaled to 9.8 m; the turret and gun barrel were split out of the body mesh so they can traverse and elevate; textures capped at 1024² | Muhamad Mirza Arrafi (https://sketchfab.com/MirzaArrafiERV_45) | CC-BY-4.0 (Sketchfab page) | https://sketchfab.com/3d-models/general-dynamics-m1a2-abrams-main-battle-tank-10a16c96ca8b4ebc855915f5d5202046 |
 
 Both licences need visible attribution. The Tiger's NC licence rules out any commercial distribution of a build that contains it. Only the baked derivatives ship (`content/vehicles/models/`, textures at 1024² or less). The originals stay in the git-ignored `assets_src/vehicles/`. The tank sounds are synthesized placeholders, not recordings.
 
