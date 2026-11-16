@@ -318,6 +318,14 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     // coarse distance cull
     float camDist = glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos));
     if (camDist > 1200 * settings().drawDist()) continue;   // x the Settings draw distance (Low 0.6, High 1.4)
+    if (camDist < 300.0f) for (auto& am : r.asset->attached) {   // PR1 modelled pieces of a part-built asset (the detail only up close)
+      const GpuModel* gm = (am.lod && camDist > am.lodDist) ? am.lod.get() : am.model.get();
+      mat4 L = M * am.local;
+      for (size_t k = 0; k < gm->parts.size(); ++k) {
+        if (gm->parts[k].glass) R.worldModelsGlass.push_back({gm, (int)k, L, vec4(1), 0.0f, 1});
+        else R.worldModels.push_back({gm, (int)k, L});
+      }
+    }
     if (r.asset->model) {   // supplied model: LOD by distance, cut wire sections hidden; collider boxes are not drawn
       if (camDist > r.asset->modelCull) continue;
       const GpuModel* gm = (r.asset->modelLod && camDist > r.asset->modelLodDist) ? r.asset->modelLod.get() : r.asset->model.get();
@@ -858,6 +866,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--check-vehicle-ai") runSelf = true;   // selftest_vehicle_ai.cpp
     else if (a == "--tank-preview" && k + 1 < argc) tankPreviewDir = argv[++k];
     else if (a == "--capture-vehicle" && k + 1 < argc) { runSelf = true; ++k; }
+    else if (a == "--capture-props") runSelf = true;   // capture_props.cpp: close-up prop shots (PR1)
     else if (a == "--capture-dash") runSelf = true;   // capture_dash.cpp: driver's views (VH6)   // capture_vehicle.cpp: one frame of a placed vehicle   // tank.cpp: views of the baked tanks + rig sockets
     else if (a == "--import-vehicle-models" && k + 1 < argc) {   // tanks (tank_import.cpp): <srcDir> [content root]
       fs::path src = argv[++k], out = k + 1 < argc ? fs::path(argv[++k]) : contentDir();

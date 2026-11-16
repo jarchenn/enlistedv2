@@ -1,0 +1,61 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  1.60593581199646,
+  2.092693328857422,
+  0.31510668992996216
+ ],
+ "bmin": [
+  -1.60593581199646,
+  0.0,
+  -0.31510668992996216
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "aoInMR": true,
+   "mr": "mr_1.jpg",
+   "name": "Scene_-_Root",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.60593581199646,
+    2.092693328857422,
+    0.31510668992996216
+   ],
+   "bmin": [
+    -1.60593581199646,
+    0.0,
+    -0.31510668992996216
+   ],
+   "count": 4170,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "Plane004__0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "pr1_slide.glb",
+ "textures": {},
+ "triangles": 1390,
+ "vertices": 1141
+}

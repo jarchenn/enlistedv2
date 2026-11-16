@@ -218,6 +218,11 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `line_sandbag_low` | Lines | 99 | terrain-only base map | 8 | 21 | not used | not used | not used | 6 | 8 | 8 | not used |
 | `line_hedgerow` | Lines | 111 | terrain-only base map | 108 | not used | not used | not used | not used | not used | not used | 91 | not used |
 | `mil_stronghold` | Bunkers | excluded: GX6 Atlantic Wall command stronghold (60 x 34 m with earthworks); larger than any Omaha strongpoint, for hand-built maps | terrain-only base map | not used | 1 | not used | not used | not used | not used | not used | not used | not used |
+| `mod_hydrant_cast` | not used | not used | not used | not used | not used | not used | not used | 9 | not used | not used | not used | not used |
+| `mod_payphone` | not used | not used | not used | not used | not used | not used | not used | 9 | not used | not used | not used | not used |
+| `mod_play_slide_old` | not used | not used | not used | not used | not used | not used | not used | 1 | not used | not used | not used | not used |
+| `mod_play_swings_old` | not used | not used | not used | not used | not used | not used | not used | 1 | not used | not used | not used | not used |
+| `mod_traffic_barrel` | not used | not used | not used | not used | not used | not used | not used | 18 | 8 | 4 | not used | not used |
 | `nat_blackthorn_low` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 41 | 20 | not used | not used | not used | not used | not used | 28 | not used |
 | `nat_boulder_granite_l` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 4 | not used | not used | not used | not used |
 | `nat_boulder_granite_s` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | 15 | not used | not used |

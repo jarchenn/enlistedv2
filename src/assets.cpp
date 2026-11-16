@@ -1038,6 +1038,25 @@ bool AssetLibrary::loadOne(const fs::path& path) {
     a->opaque.destroy(); a->opaque.upload(pm);
     pts.push_back(vec3(-p.width * 0.5f, 0, -p.length * 0.5f)); pts.push_back(vec3(p.width * 0.5f, 0.05f, p.length * 0.5f));
   }
+  if (j.contains("models") && j["models"].is_array()) {   // PR1 attached modelled pieces, one GPU copy per folder
+    static std::map<std::string, std::pair<std::shared_ptr<GpuModel>, std::shared_ptr<GpuModel>>> cache;
+    for (auto& mj : j["models"]) {
+      std::string d = mj.value("dir", std::string());
+      auto it = cache.find(d);
+      if (it == cache.end()) {
+        fs::path dir = contentDir() / "assets" / "models" / d;
+        auto gm = std::make_shared<GpuModel>(), lod = std::make_shared<GpuModel>(); std::string e1, e2;
+        if (!gm->load(dir, e1)) { logf("asset %s: attached model %s: %s", a->id.c_str(), d.c_str(), e1.c_str()); gm.reset(); }
+        if (!fs::exists(dir / "lod1" / "mesh.bin") || !lod->load(dir / "lod1", e2)) lod.reset();
+        it = cache.emplace(d, std::make_pair(gm, lod)).first;
+      }
+      if (!it->second.first) continue;
+      AssetDef::Attached at; at.model = it->second.first; at.lod = it->second.second;
+      at.local = glm::translate(mat4(1), jvec3(mj["pos"], vec3(0))) * glm::mat4_cast(yawQuat(mj.value("yaw", 0.0f)));
+      at.lodDist = mj.value("lodDist", 15.0f);
+      a->attached.push_back(at);
+    }
+  }
   if (j.contains("model")) {   // imported model (baked; a missing bake leaves the collider boxes only, logged)
     auto& mj = j["model"];
     a->modelLodDist = mj.value("lodDist", 30.0f); a->modelCull = mj.value("cullDist", 400.0f); a->modelThinPx = mj.value("thinLinesPx", 0.0f);
