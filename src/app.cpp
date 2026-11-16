@@ -814,6 +814,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : q == "ultra" ? GrassQuality::Ultra : GrassQuality::Medium; }
     else if (a == "--selftest-gore") runSelf = true;
     else if (a == "--shots-backrooms") runSelf = true;
+    else if (a == "--find-floaters") runSelf = true;   // MAP1 (selftest_br3.cpp)
     else if (a == "--shots-poses") runSelf = true;   // AN1 (selftest_br3.cpp)
     else if (a == "--check-turn-engage") runSelf = true;   // AI5 (selftest_turn.cpp)
     else if (a == "--capture-lean") runSelf = true;   // MV3 (selftest_lean.cpp)

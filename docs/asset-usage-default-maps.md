@@ -15,7 +15,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 - **Outpost Woods:** *Outpost Woods* (NT3, `tools/mapgen/maps/outpost_woods.py`): placed counts; "not used" = not on this map.
 - **Caverns:** *Caverns* (CV1, `tools/mapgen/maps/caverns.py`): placed counts; "not used" = not on this map.
 
-| Asset | Category | Omaha | Mont-Castre | Chateau town | D-day | Tunnels | Backrooms | Newtown | Outpost Desert | Outpost Woods | Caverns |
+| Asset | Category | Omaha | Mont-Castre | Chateau town | D-day | Tunnels | Backrooms | Newtown | Outpost Desert | Outpost Woods | Chateau town |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `aw_dugout_log` | Atlantic Wall | 1: C: log-roofed dugout behind the draw-head roadblock | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `aw_dugout_personnel` | Atlantic Wall | 1: B: WN64 personnel dugout behind the crest | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -39,7 +39,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `bcg_marsh_patch` | Bocage | 8: Marsh pools on the sand shelf | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `bcg_quarry_face` | Bocage | excluded: No quarry at E-1 (a Mont-Castre feature) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `bcg_rampart` | Bocage | excluded: The Roman / medieval earthworks belong to Mont-Castre | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
-| `bcg_sunken_lane` | Bocage | 98: Plateau: west and east flank sunken lanes | terrain-only base map | 3 | not used | not used | not used | not used | not used | not used | not used |
+| `bcg_sunken_lane` | Bocage | 98: Plateau: west and east flank sunken lanes | terrain-only base map | 3 | not used | not used | not used | not used | not used | not used | 3 |
 | `bch_at_ditch` | Beach obstacles | 26: Across the E-1 mouth (s 476); second ditch at the draw head (C) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `bch_belgian_gate` | Beach obstacles | 90: Belt 1, 250 m out, with the Easy Red gaps | terrain-only base map | not used | 12 | not used | not used | not used | not used | not used | not used |
 | `bch_lcvp_beached` | Landing craft | 4: A1 landing (spawn cover, rack crates in the well) | terrain-only base map | not used | 6 | not used | not used | not used | not used | not used | not used |
@@ -58,46 +58,46 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `bunker_mg_casemate` | Bunkers | 1: A: WN65 flank MG casemate | terrain-only base map | not used | 2 | not used | not used | not used | not used | not used | not used |
 | `bunker_observation_post` | Bunkers | 1: B: WN64 observation post | terrain-only base map | not used | not used | not used | not used | not used | 1 | not used | not used |
 | `bunker_pak_casemate` | Bunkers | excluded: WN65's gun casemate is the R667 (`aw_r667_casemate`) | terrain-only base map | not used | 1 | not used | not used | not used | not used | not used | not used |
-| `crate_mixed_supply` | Supply | 14: Ammunition dump at D; dressing at every objective | terrain-only base map | 10 | 15 | 9 | 8 | 2 | 2 | 2 | not used |
+| `crate_mixed_supply` | Supply | 14: Ammunition dump at D; dressing at every objective | terrain-only base map | 10 | 15 | 9 | 8 | 2 | 2 | 2 | 10 |
 | `crate_pak40_he` | Supply | 7: A: behind the R667; D: ammunition dump | terrain-only base map | not used | 9 | not used | not used | not used | not used | not used | not used |
 | `def_sandbag_curved` | Defences | as `line_sandbag_low` | terrain-only base map | as `line_sandbag_low` | not used | not used | not used | not used | not used | not used | not used |
 | `def_sandbag_straight` | Defences | as `line_sandbag_low` | terrain-only base map | as `line_sandbag_low` | not used | not used | not used | not used | not used | not used | not used |
 | `def_tank_trap` | Defences | 233: Belt 4 (hedgehogs); beach cover fill | terrain-only base map | not used | 58 | not used | not used | not used | not used | not used | not used |
-| `drs_barrels` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 90 | 11 | not used | not used | not used | not used | not used | not used |
-| `drs_bridge_stone_large` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 1 | not used | not used | not used | not used | not used | not used | not used |
-| `drs_bridge_stone_small` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 1 | not used | not used | not used | not used | not used | not used | not used |
-| `drs_cart` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 62 | 5 | not used | not used | not used | not used | not used | not used |
-| `drs_churchyard_cross` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 2 | 1 | not used | not used | not used | not used | not used | not used |
-| `drs_flower_bed` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 233 | 22 | not used | not used | not used | not used | not used | not used |
+| `drs_barrels` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 90 | 11 | not used | not used | not used | not used | not used | 90 |
+| `drs_bridge_stone_large` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 1 | not used | not used | not used | not used | not used | not used | 1 |
+| `drs_bridge_stone_small` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 1 | not used | not used | not used | not used | not used | not used | 1 |
+| `drs_cart` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 62 | 5 | not used | not used | not used | not used | not used | 63 |
+| `drs_churchyard_cross` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 2 | 1 | not used | not used | not used | not used | not used | 2 |
+| `drs_flower_bed` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 233 | 22 | not used | not used | not used | not used | not used | 233 |
 | `drs_garden_wall` | Dressing | as `line_garden_wall` | terrain-only base map | as `line_garden_wall` | not used | not used | not used | not used | not used | not used | not used |
 | `drs_gate_piers` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 17 | not used | not used | not used | not used | not used | not used | not used |
-| `drs_gravestone_cross` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 34 | 8 | not used | not used | not used | not used | not used | not used |
-| `drs_gravestone_round` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 64 | 15 | not used | not used | not used | not used | not used | not used |
-| `drs_hay_bale_stack` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 77 | 13 | not used | not used | 1 | not used | not used | not used |
+| `drs_gravestone_cross` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 34 | 8 | not used | not used | not used | not used | not used | 33 |
+| `drs_gravestone_round` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 64 | 15 | not used | not used | not used | not used | not used | 62 |
+| `drs_hay_bale_stack` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 77 | 13 | not used | not used | 1 | not used | not used | 84 |
 | `drs_picket_fence` | Dressing | as `line_picket_fence` | terrain-only base map | as `line_picket_fence` | not used | not used | not used | not used | not used | not used | not used |
-| `drs_sandbag_ring` | Defences | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 7 | not used | not used | not used | not used | not used | not used | not used |
+| `drs_sandbag_ring` | Defences | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 7 | not used | not used | not used | not used | not used | not used | 6 |
 | `drs_sandbag_wall` | Defences | as `line_sandbag_wall` | terrain-only base map | as `line_sandbag_wall` | not used | not used | not used | not used | not used | not used | not used |
-| `drs_tomb_chest` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 22 | 7 | not used | not used | not used | not used | not used | not used |
-| `drs_well` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 19 | 3 | not used | not used | not used | not used | not used | not used |
-| `drs_wooden_x_obstacle` | Defences | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 32 | 30 | not used | not used | not used | not used | not used | not used |
-| `drs_woodpile` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 86 | 11 | not used | not used | not used | not used | not used | not used |
+| `drs_tomb_chest` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 22 | 7 | not used | not used | not used | not used | not used | 23 |
+| `drs_well` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 19 | 3 | not used | not used | not used | not used | not used | 17 |
+| `drs_wooden_x_obstacle` | Defences | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 32 | 30 | not used | not used | not used | not used | not used | 32 |
+| `drs_woodpile` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 86 | 11 | not used | not used | not used | not used | not used | 85 |
 | `env_sea_shallows` | Beach | 87: The sea (s < 50): shallow water surface | terrain-only base map | not used | 20 | not used | not used | not used | not used | not used | not used |
 | `fence_post_wire` | Dressing | as `line_post_wire_fence` | terrain-only base map | as `line_post_wire_fence` | not used | not used | not used | not used | not used | not used | not used |
-| `field_gate` | Dressing | 6: Bocage field gates | terrain-only base map | 1 | not used | not used | not used | not used | not used | not used | not used |
+| `field_gate` | Dressing | 6: Bocage field gates | terrain-only base map | 1 | not used | not used | not used | not used | not used | not used | 2 |
 | `fire_brazier` | Lighting | not hand-placed: an editor placement for maps that want it (L3, docs/lights.md) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `fire_campfire` | Lighting | not hand-placed: an editor placement for maps that want it (L3, docs/lights.md) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_armchair` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_armoire` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map | not used | not used | not used | 6 | not used | not used | not used | not used |
-| `furn_barrel` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | 18 | 16 | 12 | not used | not used | not used | not used | not used |
+| `furn_barrel` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | 18 | 16 | 12 | not used | not used | not used | not used | 15 |
 | `furn_barrel_rack` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_basket` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_bed` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map | not used | not used | not used | 4 | not used | not used | not used | not used |
 | `furn_bed_iron` | Furniture | not hand-placed: GX2 room dressing and interior lighting (content/settings/room_dressing.json, interior_lights.json) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
-| `furn_bench` | Furniture | 1: D: farmyard CP | terrain-only base map | 12 | 2 | not used | not used | not used | not used | not used | not used |
+| `furn_bench` | Furniture | 1: D: farmyard CP | terrain-only base map | 12 | 2 | not used | not used | not used | not used | not used | 12 |
 | `furn_bookcase` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_books` | Furniture | 1: D: CP map table | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_bottles` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
-| `furn_bucket` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | 20 | 8 | not used | not used | not used | not used | not used | not used |
+| `furn_bucket` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | 20 | 8 | not used | not used | not used | not used | not used | 20 |
 | `furn_candelabra` | Furniture | not hand-placed: generated with the room templates (L3 interior lighting, docs/lights.md): church altars | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_candle` | Furniture | not hand-placed: generated with the room templates (L3 interior lighting, docs/lights.md): bedrooms, small rooms | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_candlestick` | Furniture | not hand-placed: GX2 room dressing and interior lighting (content/settings/room_dressing.json, interior_lights.json) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -110,7 +110,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `furn_coat_rack` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_coat_stand` | Furniture | not hand-placed: GX2 room dressing and interior lighting (content/settings/room_dressing.json, interior_lights.json) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_commode` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
-| `furn_crate` | Furniture | 11: Ammunition dumps and dressing | terrain-only base map | 21 | 13 | 13 | not used | not used | not used | not used | not used |
+| `furn_crate` | Furniture | 11: Ammunition dumps and dressing | terrain-only base map | 21 | 13 | 13 | not used | not used | not used | not used | 20 |
 | `furn_crockery` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_curtains` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_curtains_half` | Furniture | not hand-placed: GX2 room dressing and interior lighting (content/settings/room_dressing.json, interior_lights.json) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -126,7 +126,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `furn_frame_seascape` | Furniture | not hand-placed: GX2 room dressing and interior lighting (content/settings/room_dressing.json, interior_lights.json) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_frame_small` | Furniture | not hand-placed: GX2 room dressing and interior lighting (content/settings/room_dressing.json, interior_lights.json) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_gramophone` | Furniture | not hand-placed: GX2 room dressing and interior lighting (content/settings/room_dressing.json, interior_lights.json) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
-| `furn_hay_bales` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | 37 | not used | not used | not used | 1 | not used | not used | not used |
+| `furn_hay_bales` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | 37 | not used | not used | not used | 1 | not used | not used | 29 |
 | `furn_hutch` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_hutch_glazed` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_jars` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -164,7 +164,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `furn_rug_large` | Furniture | not hand-placed: GX2 room dressing and interior lighting (content/settings/room_dressing.json, interior_lights.json) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_rug_medallion` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_rug_runner` | Furniture | not hand-placed: GX2 room dressing and interior lighting (content/settings/room_dressing.json, interior_lights.json) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
-| `furn_sacks` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | 33 | 9 | not used | not used | not used | not used | not used | not used |
+| `furn_sacks` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | 33 | 9 | not used | not used | not used | not used | not used | 34 |
 | `furn_school_desk` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_sconce` | Furniture | not hand-placed: GX2 room dressing and interior lighting (content/settings/room_dressing.json, interior_lights.json) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_sconce_candle` | Furniture | not hand-placed: GX2 room dressing and interior lighting (content/settings/room_dressing.json, interior_lights.json) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -185,7 +185,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `furn_wall_clock` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_wall_shelf` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_washstand` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
-| `furn_wood_pile` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | 24 | not used | not used | not used | not used | not used | not used | not used |
+| `furn_wood_pile` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | 24 | not used | not used | not used | not used | not used | not used | 24 |
 | `furn_workbench` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `fx_impact_smoke` | Lighting | not used: added with D-day (smouldering impact, smoke column) | terrain-only base map | not used | 6 | not used | not used | not used | not used | not used | not used |
 | `fx_wreck_fire` | Lighting | not used: added with D-day (burning wreckage, smoke column) | terrain-only base map | not used | 2 | not used | not used | not used | not used | not used | not used |
@@ -194,61 +194,61 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `gun_mg42_embrasure` | Field guns | 16: Every sandbag MG nest | terrain-only base map | not used | 10 | not used | not used | not used | not used | not used | not used |
 | `gun_pak40` | Field guns | 1: A: in the R667 (stands in for the 5 cm gun) | terrain-only base map | not used | 2 | not used | not used | not used | not used | not used | not used |
 | `hedgerow_bocage` | Vegetation | as `line_hedgerow` | terrain-only base map | as `line_hedgerow` | not used | not used | not used | not used | not used | not used | not used |
-| `house_farmhouse_2story` | Houses | 4: Saint-Laurent | terrain-only base map | 9 | not used | not used | not used | not used | not used | not used | not used |
-| `house_stone_cottage` | Houses | 7: Saint-Laurent; the beach house on the sand shelf | terrain-only base map | 11 | 1 | not used | not used | not used | not used | not used | not used |
+| `house_farmhouse_2story` | Houses | 4: Saint-Laurent | terrain-only base map | 9 | not used | not used | not used | not used | not used | not used | 9 |
+| `house_stone_cottage` | Houses | 7: Saint-Laurent; the beach house on the sand shelf | terrain-only base map | 11 | 1 | not used | not used | not used | not used | not used | 11 |
 | `kit_demo_folly` | Landmarks | excluded: the B1 geometry-kit demonstration piece (docs/asset-format.md#b1-geometry-kit), not a period building | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
-| `lamp_gas_street` | Lighting | not hand-placed: an editor placement for maps that want it (L3, docs/lights.md); the Beautify street_lamps role lines roads with it | terrain-only base map | 10 | 4 | not used | not used | not used | not used | not used | not used |
+| `lamp_gas_street` | Lighting | not hand-placed: an editor placement for maps that want it (L3, docs/lights.md); the Beautify street_lamps role lines roads with it | terrain-only base map | 10 | 4 | not used | not used | not used | not used | not used | 10 |
 | `lamp_hanging_lantern` | Lighting | not hand-placed: generated with the room templates (L3 interior lighting, docs/lights.md): barns, workshops, stores, church naves | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `lamp_lantern_post` | Lighting | not hand-placed: Paths > Line auto paths with lamp posts (L3, docs/lights.md) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `lamp_wall_lantern` | Lighting | not hand-placed: an editor placement for maps that want it (L3, docs/lights.md) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
-| `large_municipal_building` | Large buildings | 1: Saint-Laurent (mairie) | terrain-only base map | 3 | not used | not used | not used | not used | not used | not used | not used |
-| `large_stone_warehouse` | Large buildings | 1: Saint-Laurent | terrain-only base map | 3 | not used | not used | not used | not used | not used | not used | not used |
-| `large_village_inn` | Large buildings | 1: Saint-Laurent crossroads | terrain-only base map | 3 | not used | not used | not used | not used | not used | not used | not used |
-| `large_village_schoolhouse` | Large buildings | 1: Saint-Laurent | terrain-only base map | 3 | not used | not used | not used | not used | not used | not used | not used |
+| `large_municipal_building` | Large buildings | 1: Saint-Laurent (mairie) | terrain-only base map | 3 | not used | not used | not used | not used | not used | not used | 3 |
+| `large_stone_warehouse` | Large buildings | 1: Saint-Laurent | terrain-only base map | 3 | not used | not used | not used | not used | not used | not used | 3 |
+| `large_village_inn` | Large buildings | 1: Saint-Laurent crossroads | terrain-only base map | 3 | not used | not used | not used | not used | not used | not used | 3 |
+| `large_village_schoolhouse` | Large buildings | 1: Saint-Laurent | terrain-only base map | 3 | not used | not used | not used | not used | not used | not used | 3 |
 | `line_trench` | Lines | not used: LN1 trench line (old maps' trench pieces migrate to it on load) | terrain-only base map | not used | 10 | not used | not used | not used | not used | not used | not used |
 | `line_wire_fence` | Lines | 4 | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `line_concertina` | Lines | 5 | terrain-only base map | not used | 8 | not used | not used | not used | not used | not used | not used |
 | `line_knife_rest` | Lines | not used | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `line_minefield_fence` | Lines | 11 | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `line_post_wire_fence` | Lines | 4 | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
-| `line_picket_fence` | Lines | 16 | terrain-only base map | 177 | 30 | not used | not used | not used | not used | not used | not used |
-| `line_stone_wall` | Lines | 6 | terrain-only base map | 126 | 25 | not used | not used | 5 | not used | not used | not used |
-| `line_garden_wall` | Lines | 7 | terrain-only base map | 23 | 10 | not used | not used | not used | not used | not used | not used |
-| `line_sandbag_wall` | Lines | not used | terrain-only base map | 12 | 9 | not used | not used | not used | 2 | not used | not used |
-| `line_sandbag_low` | Lines | 99 | terrain-only base map | 8 | 21 | not used | not used | not used | 6 | 8 | not used |
-| `line_hedgerow` | Lines | 111 | terrain-only base map | 108 | not used | not used | not used | not used | not used | not used | not used |
+| `line_picket_fence` | Lines | 16 | terrain-only base map | 177 | 30 | not used | not used | not used | not used | not used | 179 |
+| `line_stone_wall` | Lines | 6 | terrain-only base map | 126 | 25 | not used | not used | 5 | not used | not used | 107 |
+| `line_garden_wall` | Lines | 7 | terrain-only base map | 23 | 10 | not used | not used | not used | not used | not used | 23 |
+| `line_sandbag_wall` | Lines | not used | terrain-only base map | 12 | 9 | not used | not used | not used | 2 | not used | 11 |
+| `line_sandbag_low` | Lines | 99 | terrain-only base map | 8 | 21 | not used | not used | not used | 6 | 8 | 8 |
+| `line_hedgerow` | Lines | 111 | terrain-only base map | 108 | not used | not used | not used | not used | not used | not used | 91 |
 | `mil_stronghold` | Bunkers | excluded: GX6 Atlantic Wall command stronghold (60 x 34 m with earthworks); larger than any Omaha strongpoint, for hand-built maps | terrain-only base map | not used | 1 | not used | not used | not used | not used | not used | not used |
-| `nat_blackthorn_low` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 41 | 20 | not used | not used | not used | not used | not used | not used |
+| `nat_blackthorn_low` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 41 | 20 | not used | not used | not used | not used | not used | 28 |
 | `nat_boulder_granite_l` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 7 | not used | not used | not used |
 | `nat_boulder_granite_s` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | 23 | not used |
-| `nat_boulder_limestone_l` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 3 | not used | not used | not used | 31 | not used | 29 |
-| `nat_boulder_limestone_m` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 5 | not used | not used | not used | 40 | not used | 19 |
+| `nat_boulder_limestone_l` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 3 | not used | not used | not used | 31 | not used | not used |
+| `nat_boulder_limestone_m` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 5 | not used | not used | not used | 40 | not used | not used |
 | `nat_boulder_schist_m` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | 9 | not used |
-| `nat_boulder_schist_slab` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | 4 | 21 |
-| `nat_boulders_granite_group` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 3 | 35 | 3 | 20 |
+| `nat_boulder_schist_slab` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | 4 | not used |
+| `nat_boulders_granite_group` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 3 | 35 | 3 | not used |
 | `nat_bracken_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 42 | not used | not used | not used | not used | 621 | not used |
-| `nat_bramble_thicket` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 1 | not used | not used | not used | 39 | not used | 195 | not used |
+| `nat_bramble_thicket` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 1 | not used | not used | not used | 39 | not used | 195 | 1 |
 | `nat_brush_patchy` | Vegetation | not placed: V9 ground cover (patchy brush, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used | not used | not used | not used |
 | `nat_brush_rank` | Vegetation | not placed: V9 ground cover (rank brush, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used | not used | 118 | not used |
 | `nat_brush_scrub` | Vegetation | not placed: V9 ground cover (dry scrub, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | 59 | not used | not used | not used | 96 | not used | not used |
-| `nat_clover_tufts` | Vegetation | not placed: V9 ground cover (clover and green tufts, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 9 | not used | not used | not used | not used | not used | not used | not used |
+| `nat_clover_tufts` | Vegetation | not placed: V9 ground cover (clover and green tufts, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 9 | not used | not used | not used | not used | not used | not used | 7 |
 | `nat_drygrass_sparse` | Vegetation | not placed: V9 ground cover (sparse dry grass, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | 113 | not used | not used | not used | 143 | not used | not used |
-| `nat_drygrass_tall` | Vegetation | not placed: V9 ground cover (tall dry grass, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 3 | 419 | not used | not used | not used | 1 | not used | not used |
-| `nat_drygrass_tufts` | Vegetation | not placed: V9 ground cover (dry grass tufts, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 12 | 177 | not used | not used | 49 | 187 | not used | not used |
-| `nat_fern_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 59 | 18 | not used | not used | not used | not used | 637 | 82 |
-| `nat_flowers_buttercup` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 21 | 1 | not used | not used | not used | not used | not used | not used |
+| `nat_drygrass_tall` | Vegetation | not placed: V9 ground cover (tall dry grass, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 3 | 419 | not used | not used | not used | 1 | not used | 3 |
+| `nat_drygrass_tufts` | Vegetation | not placed: V9 ground cover (dry grass tufts, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 12 | 177 | not used | not used | 49 | 187 | not used | 11 |
+| `nat_fern_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 59 | 18 | not used | not used | not used | not used | 637 | 50 |
+| `nat_flowers_buttercup` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 21 | 1 | not used | not used | not used | not used | not used | 26 |
 | `nat_flowers_clover` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | not used | not used |
-| `nat_flowers_cornflower` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 56 | 7 | not used | not used | not used | not used | not used | not used |
-| `nat_flowers_cowparsley` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 63 | 37 | not used | not used | not used | not used | not used | not used |
-| `nat_flowers_daisy` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 103 | 47 | not used | not used | not used | not used | not used | not used |
-| `nat_flowers_foxglove` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 41 | 3 | not used | not used | not used | not used | not used | not used |
-| `nat_flowers_meadow` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 18 | not used | not used | not used | 9 | not used | not used | not used |
-| `nat_flowers_poppy` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 110 | 39 | not used | not used | not used | not used | not used | not used |
+| `nat_flowers_cornflower` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 56 | 7 | not used | not used | not used | not used | not used | 56 |
+| `nat_flowers_cowparsley` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 63 | 37 | not used | not used | not used | not used | not used | 65 |
+| `nat_flowers_daisy` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 103 | 47 | not used | not used | not used | not used | not used | 106 |
+| `nat_flowers_foxglove` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 41 | 3 | not used | not used | not used | not used | not used | 41 |
+| `nat_flowers_meadow` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 18 | not used | not used | not used | 9 | not used | not used | 17 |
+| `nat_flowers_poppy` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 110 | 39 | not used | not used | not used | not used | not used | 104 |
 | `nat_gorse_shrub` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 91 | not used | not used | not used | 166 | not used | not used |
-| `nat_green_tufts` | Vegetation | not placed: V9 ground cover (green grass tufts, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 23 | 42 | not used | not used | not used | not used | 19 | 55 |
-| `nat_hawthorn_bush` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 155 | 70 | not used | not used | 58 | not used | not used | not used |
-| `nat_meadow_mixed` | Vegetation | not placed: V9 ground cover (mixed meadow, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 44 | 62 | not used | not used | 25 | not used | 2 | not used |
-| `nat_nettle_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 7 | 21 | not used | not used | 147 | not used | 287 | not used |
+| `nat_green_tufts` | Vegetation | not placed: V9 ground cover (green grass tufts, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 23 | 42 | not used | not used | not used | not used | 19 | 27 |
+| `nat_hawthorn_bush` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 155 | 70 | not used | not used | 58 | not used | not used | 146 |
+| `nat_meadow_mixed` | Vegetation | not placed: V9 ground cover (mixed meadow, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 44 | 62 | not used | not used | 25 | not used | 2 | 40 |
+| `nat_nettle_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 7 | 21 | not used | not used | 147 | not used | 287 | 7 |
 | `nat_outcrop_limestone` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 2 | not used | not used | 5 | 23 | not used | not used |
 | `nat_outcrop_schist` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | 3 | not used |
 | `nat_sapling_ash` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 3 | not used | 247 | not used |
@@ -256,17 +256,17 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `nat_scree_patch` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 3 | not used | not used | not used | 3 | not used | not used |
 | `nat_stones_granite_patch` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 112 | not used | 1 | not used |
 | `nat_stones_patch` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 4 | not used | not used | 250 | 8 | not used | not used |
-| `nat_tallgrass_patch` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 37 | 111 | not used | not used | 106 | not used | 29 | not used |
-| `nat_tallgrass_verge` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 9 | 75 | not used | not used | 7 | not used | not used | not used |
-| `nat_wheat_field` | Vegetation | not placed: V9 ground cover (wheat field square, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 52 | not used | not used | not used | not used | not used | not used | not used |
-| `nat_wheat_stubble` | Vegetation | not placed: V9 ground cover (wheat stubble square, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 58 | not used | not used | not used | not used | not used | not used | not used |
-| `nat_wheat_trampled` | Vegetation | not placed: V9 ground cover (trampled wheat square, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 8 | not used | not used | not used | not used | not used | not used | not used |
+| `nat_tallgrass_patch` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 37 | 111 | not used | not used | 106 | not used | 29 | 41 |
+| `nat_tallgrass_verge` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 9 | 75 | not used | not used | 7 | not used | not used | 15 |
+| `nat_wheat_field` | Vegetation | not placed: V9 ground cover (wheat field square, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 52 | not used | not used | not used | not used | not used | not used | 44 |
+| `nat_wheat_stubble` | Vegetation | not placed: V9 ground cover (wheat stubble square, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 58 | not used | not used | not used | not used | not used | not used | 58 |
+| `nat_wheat_trampled` | Vegetation | not placed: V9 ground cover (trampled wheat square, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 8 | not used | not used | not used | not used | not used | not used | 10 |
 | `path_concrete` | Paths | 1: A: apron behind the R667 | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `path_dirt` | Paths | 1: D: farmyard | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `path_gravel` | Paths | 1: E: church path | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
-| `rack_allied` | Supply | 3: Attacker spawns A3-A5 | terrain-only base map | 5 | 4 | not used | not used | 1 | 1 | 1 | not used |
+| `rack_allied` | Supply | 3: Attacker spawns A3-A5 | terrain-only base map | 5 | 4 | not used | not used | 1 | 1 | 1 | 5 |
 | `rack_allied_crates` | Supply | 2: A1 (in an LCVP well) and A2 (on the shingle): crate racks, SPEC 3.2 | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
-| `rack_axis` | Supply | 5: Defender spawns D1-D5 | terrain-only base map | 5 | 4 | not used | not used | 1 | 1 | 1 | not used |
+| `rack_axis` | Supply | 5: Defender spawns D1-D5 | terrain-only base map | 5 | 4 | not used | not used | 1 | 1 | 1 | 5 |
 | `rub_beam_tile_heap` | Rubble | not placed: V3 rubble (Beam and tile heap, docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | 3 | not used | not used | not used | not used | not used | not used |
 | `rub_brick_pile_l` | Rubble | not placed: V3 rubble (Brick rubble pile (large), docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used | not used | not used | not used |
 | `rub_brick_pile_m` | Rubble | not placed: V3 rubble (Brick rubble pile (medium), docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -286,54 +286,54 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `scn_treeline_a` | Scenery | not used: added with D-day (far forest silhouette) | terrain-only base map | not used | 25 | not used | not used | not used | not used | not used | not used |
 | `scn_treeline_b` | Scenery | not used: added with D-day (far forest silhouette) | terrain-only base map | not used | 22 | not used | not used | not used | not used | not used | not used |
 | `scn_treeline_c` | Scenery | not used: added with D-day (far forest silhouette) | terrain-only base map | not used | 26 | not used | not used | not used | not used | not used | not used |
-| `shrub_bramble` | Vegetation | 3974: Bluff scrub (about 1 per 38 m2), draw undergrowth, dunes | terrain-only base map | 40 | 33 | not used | not used | 28 | not used | not used | not used |
-| `shrub_hazel` | Vegetation | 1070: Bluff scrub, E-1 draw undergrowth | terrain-only base map | 346 | 211 | not used | not used | 90 | not used | 154 | not used |
-| `small_carpenter_workshop` | Small buildings | 2: Saint-Laurent | terrain-only base map | 8 | not used | not used | not used | not used | not used | not used | not used |
-| `small_roadside_office` | Small buildings | 1: Saint-Laurent crossroads | terrain-only base map | 7 | not used | not used | not used | not used | not used | not used | not used |
-| `small_stone_dairy` | Small buildings | 2: D farm; Saint-Laurent | terrain-only base map | 8 | 1 | not used | not used | not used | not used | not used | not used |
-| `small_storehouse` | Small buildings | 2: D farm; Saint-Laurent | terrain-only base map | 14 | 1 | not used | not used | not used | not used | not used | not used |
+| `shrub_bramble` | Vegetation | 3974: Bluff scrub (about 1 per 38 m2), draw undergrowth, dunes | terrain-only base map | 40 | 33 | not used | not used | 28 | not used | not used | 23 |
+| `shrub_hazel` | Vegetation | 1070: Bluff scrub, E-1 draw undergrowth | terrain-only base map | 346 | 211 | not used | not used | 90 | not used | 154 | 318 |
+| `small_carpenter_workshop` | Small buildings | 2: Saint-Laurent | terrain-only base map | 8 | not used | not used | not used | not used | not used | not used | 8 |
+| `small_roadside_office` | Small buildings | 1: Saint-Laurent crossroads | terrain-only base map | 7 | not used | not used | not used | not used | not used | not used | 7 |
+| `small_stone_dairy` | Small buildings | 2: D farm; Saint-Laurent | terrain-only base map | 8 | 1 | not used | not used | not used | not used | not used | 8 |
+| `small_storehouse` | Small buildings | 2: D farm; Saint-Laurent | terrain-only base map | 14 | 1 | not used | not used | not used | not used | not used | 14 |
 | `stone_wall_low` | Dressing | as `line_stone_wall` | terrain-only base map | as `line_stone_wall` | not used | not used | not used | not used | not used | not used | not used |
 | `tank_sherman_firefly` | Vehicles | excluded: The Firefly (17-pdr) was British, not at Omaha; no DD Sherman asset exists; player vehicles are out of scope (SPEC 11) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `tank_tiger_i` | Vehicles | excluded: No Tigers at Omaha; vehicles are out of scope (SPEC 11) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
-| `tree_apple` | Vegetation | 396: Orchards (D battery, A5, two more) | terrain-only base map | 305 | 58 | not used | not used | 18 | not used | not used | not used |
-| `tree_ash` | Vegetation | 213: Hedgerow trees; wooded E-1 draw | terrain-only base map | 368 | 283 | not used | not used | 385 | not used | not used | not used |
-| `tree_oak` | Vegetation | 316: Hedgerow trees; wooded E-1 draw | terrain-only base map | 294 | 310 | not used | not used | 310 | not used | 70 | not used |
-| `tree_poplar` | Vegetation | 73: Roadside poplars on the draw road; hedgerow trees | terrain-only base map | 130 | 149 | not used | not used | 148 | not used | not used | not used |
+| `tree_apple` | Vegetation | 396: Orchards (D battery, A5, two more) | terrain-only base map | 305 | 58 | not used | not used | 18 | not used | not used | 241 |
+| `tree_ash` | Vegetation | 213: Hedgerow trees; wooded E-1 draw | terrain-only base map | 368 | 283 | not used | not used | 385 | not used | not used | 327 |
+| `tree_oak` | Vegetation | 316: Hedgerow trees; wooded E-1 draw | terrain-only base map | 294 | 310 | not used | not used | 310 | not used | 70 | 271 |
+| `tree_poplar` | Vegetation | 73: Roadside poplars on the draw road; hedgerow trees | terrain-only base map | 130 | 149 | not used | not used | 148 | not used | not used | 127 |
 | `utility_pole` | Dressing | 23: Telegraph line from E-1 to the village, branch to the D command post | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `vil_bakery` | Houses | excluded: GX6 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | not used | 1 | not used | not used | not used | not used | not used | not used |
 | `vil_brick_townhouse` | Houses | excluded: GX6 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | not used | 1 | not used | not used | not used | not used | not used | not used |
 | `vil_cafe_corner` | Houses | excluded: GX6 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | not used | 1 | not used | not used | not used | not used | not used | not used |
-| `vil_chateau_grand` | Landmarks | excluded: B3 grand chateau, the centre of the Chateau-town map (M1); no chateau stood at Saint-Laurent | terrain-only base map | 1 | not used | not used | not used | not used | not used | not used | not used |
+| `vil_chateau_grand` | Landmarks | excluded: B3 grand chateau, the centre of the Chateau-town map (M1); no chateau stood at Saint-Laurent | terrain-only base map | 1 | not used | not used | not used | not used | not used | not used | 1 |
 | `vil_chateau_keep` | Landmarks | excluded: Belongs to Le Plessis-Lastelle (Mont-Castre) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
-| `vil_church` | Landmarks | 1: E: Saint-Laurent church (slots in the tower) | terrain-only base map | 1 | 1 | not used | not used | not used | not used | not used | not used |
+| `vil_church` | Landmarks | 1: E: Saint-Laurent church (slots in the tower) | terrain-only base map | 1 | 1 | not used | not used | not used | not used | not used | 1 |
 | `vil_church_ruined` | Landmarks | excluded: Saint-Laurent's church stood; the ruined church is on the Mont-Castre summit | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `vil_colombage_auge` | Houses | excluded: GX6 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | not used | 1 | not used | not used | not used | not used | not used | not used |
-| `vil_corner_shop` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 14 | 1 | not used | not used | not used | not used | not used | not used |
-| `vil_cottage_barn` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 3 | 1 | not used | not used | not used | not used | not used | not used |
+| `vil_corner_shop` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 14 | 1 | not used | not used | not used | not used | not used | 14 |
+| `vil_cottage_barn` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 3 | 1 | not used | not used | not used | not used | not used | 3 |
 | `vil_farm_courtyard` | Houses | excluded: GX6 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
-| `vil_gatehouse_chapel` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 7 | not used | not used | not used | not used | not used | not used | not used |
+| `vil_gatehouse_chapel` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 7 | not used | not used | not used | not used | not used | not used | 7 |
 | `vil_granite_longere` | Houses | excluded: GX6 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | not used | 1 | not used | not used | not used | not used | not used | not used |
-| `vil_longhouse_thatched` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 8 | not used | not used | not used | not used | not used | not used | not used |
-| `vil_manor_turret` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 7 | not used | not used | not used | not used | not used | not used | not used |
+| `vil_longhouse_thatched` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 8 | not used | not used | not used | not used | not used | not used | 8 |
+| `vil_manor_turret` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 7 | not used | not used | not used | not used | not used | not used | 7 |
 | `vil_merchant_house` | Houses | excluded: GX6 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | not used | 1 | not used | not used | not used | not used | not used | not used |
-| `vil_mill_house` | Houses | excluded: B3 house for the Chateau-town map (M1); no mill stream on the E-1 plateau | terrain-only base map | 4 | not used | not used | not used | not used | not used | not used | not used |
-| `vil_norman_farmhouse` | Houses | 2: D: farm HQ; Saint-Laurent | terrain-only base map | 6 | 1 | not used | not used | not used | not used | not used | not used |
+| `vil_mill_house` | Houses | excluded: B3 house for the Chateau-town map (M1); no mill stream on the E-1 plateau | terrain-only base map | 4 | not used | not used | not used | not used | not used | not used | 4 |
+| `vil_norman_farmhouse` | Houses | 2: D: farm HQ; Saint-Laurent | terrain-only base map | 6 | 1 | not used | not used | not used | not used | not used | 6 |
 | `vil_notary_house` | Houses | excluded: GX6 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `vil_pension_hotel` | Houses | excluded: GX6 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
-| `vil_rectory` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 8 | 1 | not used | not used | not used | not used | not used | not used |
+| `vil_rectory` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 8 | 1 | not used | not used | not used | not used | not used | 8 |
 | `vil_relais_inn` | Houses | excluded: GX6 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `vil_rendered_shutters` | Houses | excluded: GX6 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | not used | 1 | not used | not used | not used | not used | not used | not used |
-| `vil_stone_barn` | Houses | 3: C: barn strongpoint; D farm; Saint-Laurent | terrain-only base map | 5 | 1 | not used | not used | not used | not used | not used | not used |
-| `vil_terrace_pair` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 15 | 1 | not used | not used | not used | not used | not used | not used |
-| `vil_townhouse_jettied` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 15 | 1 | not used | not used | not used | not used | not used | not used |
-| `vil_villa_deauville` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 9 | 1 | not used | not used | not used | not used | not used | not used |
+| `vil_stone_barn` | Houses | 3: C: barn strongpoint; D farm; Saint-Laurent | terrain-only base map | 5 | 1 | not used | not used | not used | not used | not used | 5 |
+| `vil_terrace_pair` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 15 | 1 | not used | not used | not used | not used | not used | 15 |
+| `vil_townhouse_jettied` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 15 | 1 | not used | not used | not used | not used | not used | 15 |
+| `vil_villa_deauville` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 9 | 1 | not used | not used | not used | not used | not used | 9 |
 | `wat_crater_pool` | Water | not placed: V1 water feature added after the map was built (Beautify / the user place it) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `wat_pond_irregular` | Water | not placed: V1 water feature added after the map was built | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `wat_pond_round` | Water | not placed: V1 water feature added after the map was built | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `wat_puddles` | Water | not placed: V1 water feature added after the map was built | terrain-only base map | not used | not used | not used | not used | 14 | not used | 1 | not used |
 | `wat_stream_bend` | Water | not placed: V1 stream piece (snaps with V6) added after the map was built | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
 | `wat_stream_end` | Water | not placed: V1 stream piece added after the map was built | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used |
-| `wat_stream_straight` | Water | not placed: V1 stream piece added after the map was built | terrain-only base map | 63 | not used | not used | not used | not used | not used | not used | not used |
+| `wat_stream_straight` | Water | not placed: V1 stream piece added after the map was built | terrain-only base map | 63 | not used | not used | not used | not used | not used | not used | 63 |
 | `wire_concertina` | Defences | as `line_concertina` | terrain-only base map | as `line_concertina` | not used | not used | not used | not used | not used | not used | not used |
 | `wire_fence` | Defences | as `line_wire_fence` | terrain-only base map | as `line_wire_fence` | not used | not used | not used | not used | not used | not used | not used |
 | `wire_knife_rest` | Defences | as `line_knife_rest` (3 single) | terrain-only base map | as `line_knife_rest` | 3 | not used | not used | not used | not used | not used | not used |
@@ -919,7 +919,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_bld_tower_stone_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_bld_townhouse_row_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_crosswalk_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `mod_ivy_patch_ground` | not used | not used | not used | not used | not used | not used | not used | 86 | not used | not used | 46 |
+| `mod_ivy_patch_ground` | not used | not used | not used | not used | not used | not used | not used | 86 | not used | not used | not used |
 | `mod_parking_large_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_parking_medium_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_parking_small_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -937,7 +937,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_sidewalk_bay_c_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_sidewalk_bay_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_vines_hanging` | not used | not used | not used | not used | not used | not used | not used | 217 | not used | not used | not used |
-| `mod_vines_hanging_long` | not used | not used | not used | not used | not used | not used | not used | 422 | not used | not used | 27 |
+| `mod_vines_hanging_long` | not used | not used | not used | not used | not used | not used | not used | 422 | not used | not used | not used |
 | `mod_mil_hut_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 | 1 | 1 | not used |
 | `mod_mil_hut` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_pcar_compact` | not used | not used | not used | not used | not used | not used | not used | 1 | not used | not used | not used |
@@ -1084,27 +1084,27 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `tank_sherman_m4` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_column_l` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_column_m` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `cave_fire_altar` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `cave_glow_ember` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 9 |
-| `cave_lid_l0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 120 |
-| `cave_lid_l1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 89 |
-| `cave_lid_l2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 97 |
-| `cave_lid_m0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 16 |
-| `cave_lid_m1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 17 |
-| `cave_lid_m2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 15 |
-| `cave_lid_s0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `cave_lid_s1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `cave_light_cold` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 13 |
+| `cave_fire_altar` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_glow_ember` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_lid_l0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_lid_l1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_lid_l2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_lid_m0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_lid_m1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_lid_m2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_lid_s0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_lid_s1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_light_cold` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_light_crack` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `cave_light_crack_ns` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 |
-| `cave_ribwall_0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
+| `cave_light_crack_ns` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_ribwall_0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_ribwall_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_ribwall_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `cave_shelf_0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 15 |
-| `cave_shelf_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 12 |
-| `cave_shelf_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 10 |
-| `cave_spine_arch` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
-| `cave_spire_ancient` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `cave_shelf_0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_shelf_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_shelf_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_spine_arch` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_spire_ancient` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_stalactites_0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_stalactites_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_stalactites_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -1113,75 +1113,75 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `cave_stalagmites_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_stalagmites_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_stalagmites_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `cave_column_xl` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `cave_column_h45` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 |
-| `cave_drip_down_0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 |
-| `cave_drip_down_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 32 |
-| `cave_drip_down_10` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 31 |
-| `cave_drip_down_11` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 29 |
-| `cave_drip_down_12` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 19 |
-| `cave_drip_down_13` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 11 |
-| `cave_drip_down_14` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 |
-| `cave_drip_down_15` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
-| `cave_drip_down_16` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 23 |
-| `cave_drip_down_17` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 32 |
-| `cave_drip_down_18` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 46 |
-| `cave_drip_down_19` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 34 |
-| `cave_drip_down_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 47 |
-| `cave_drip_down_20` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 14 |
-| `cave_drip_down_21` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 |
-| `cave_drip_down_22` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 9 |
-| `cave_drip_down_23` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 |
-| `cave_drip_down_24` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 12 |
-| `cave_drip_down_25` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 33 |
-| `cave_drip_down_26` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 43 |
-| `cave_drip_down_27` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 41 |
-| `cave_drip_down_28` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 20 |
-| `cave_drip_down_29` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 15 |
-| `cave_drip_down_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 40 |
-| `cave_drip_down_30` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 |
-| `cave_drip_down_31` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 |
-| `cave_drip_down_4` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 16 |
-| `cave_drip_down_5` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 |
-| `cave_drip_down_6` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 10 |
-| `cave_drip_down_7` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
-| `cave_drip_down_8` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 |
-| `cave_drip_down_9` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 34 |
-| `cave_drip_up_0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 15 |
-| `cave_drip_up_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 19 |
-| `cave_drip_up_10` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 9 |
-| `cave_drip_up_11` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 |
-| `cave_drip_up_12` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 9 |
-| `cave_drip_up_13` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 |
-| `cave_drip_up_14` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
-| `cave_drip_up_15` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 |
-| `cave_drip_up_16` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 20 |
-| `cave_drip_up_17` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 17 |
-| `cave_drip_up_18` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 11 |
-| `cave_drip_up_19` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 15 |
-| `cave_drip_up_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 11 |
-| `cave_drip_up_20` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
-| `cave_drip_up_21` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 |
-| `cave_drip_up_22` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 9 |
-| `cave_drip_up_23` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 |
-| `cave_drip_up_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 11 |
-| `cave_drip_up_4` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 16 |
-| `cave_drip_up_5` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 11 |
-| `cave_drip_up_6` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 9 |
-| `cave_drip_up_7` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 9 |
-| `cave_drip_up_8` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 22 |
-| `cave_drip_up_9` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 |
-| `cave_light_rim` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 |
-| `cave_light_shaft_main` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `cave_organ_0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 |
+| `cave_column_xl` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_column_h45` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_10` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_11` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_12` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_13` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_14` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_15` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_16` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_17` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_18` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_19` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_20` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_21` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_22` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_23` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_24` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_25` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_26` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_27` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_28` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_29` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_30` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_31` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_4` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_5` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_6` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_7` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_8` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_down_9` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_10` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_11` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_12` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_13` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_14` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_15` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_16` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_17` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_18` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_19` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_20` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_21` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_22` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_23` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_4` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_5` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_6` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_7` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_8` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_drip_up_9` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_light_rim` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_light_shaft_main` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_organ_0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_organ_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `cave_organ_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 |
-| `cave_organ_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
+| `cave_organ_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `cave_organ_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_standing_stones` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `cave_steps` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `cave_steps` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_column_h60` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_column_h75` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `cave_light_uplight` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 |
+| `cave_light_uplight` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 
 ## Notes
 

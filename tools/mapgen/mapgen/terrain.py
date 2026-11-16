@@ -41,15 +41,16 @@ class Grid:
     def in_build(self, x, z):
         return abs(x) <= self.width * 0.5 and abs(z) <= self.depth * 0.5
 
-    def sample(self, x, z):
-        """Engine Terrain::baseHeight: bilinear on the a-d diagonal split."""
+    def sample(self, x, z, h=None):
+        """Engine Terrain::baseHeight: bilinear on the a-d diagonal split (h: another height array of this grid)."""
         fx = clamp((x - self.org_x) / KCELL, 0.0, self.nx - 1.001)
         fz = clamp((z - self.org_z) / KCELL, 0.0, self.nz - 1.001)
         xi, zi = int(fx), int(fz)
         tx, tz = fx - xi, fz - zi
         r0 = zi * self.nx
         r1 = r0 + self.nx
-        a, b, c, d = self.h[r0 + xi], self.h[r0 + xi + 1], self.h[r1 + xi], self.h[r1 + xi + 1]
+        H = self.h if h is None else h
+        a, b, c, d = H[r0 + xi], H[r0 + xi + 1], H[r1 + xi], H[r1 + xi + 1]
         if tx >= tz:
             return a + (b - a) * tx + (d - b) * tz
         return a + (c - a) * tz + (d - c) * tx
@@ -88,6 +89,10 @@ class Grid:
 
     def write_png(self, path):
         """16-bit greyscale PNG, row 0 = minimum z (the engine's j = 0)."""
+        b = getattr(self, "builder", None)
+        if b is not None and not getattr(b, "reseated_once", False):   # MAP1: seat every placement on the final ground
+            b.reseated_once = True
+            b.reseat_all()
         if self.hmin is None:
             self.quantise()
         span = self.hmax - self.hmin

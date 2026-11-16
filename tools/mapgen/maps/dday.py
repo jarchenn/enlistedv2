@@ -488,8 +488,9 @@ def build(ctx):
         for k in range(7):
             a = math.radians(yaw + 60 + k * 40)
             b.place("def_sandbag_curved", x + 6.2 * math.sin(a), z + 6.2 * math.cos(a), math.degrees(a), check=False, tags={"flak", "cover"})
-        for k in range(3):
-            b.place(R.choice(["crate_mixed_supply", "furn_crate", "crate_pak40_he"]), x + R.uniform(-3, 3), z + R.uniform(-3, 3),
+        for k in range(3):   # MAP1: stores just outside the sandbag ring (inside it they hung over the gun pit the engine carves)
+            a = math.radians(yaw + 60 + R.uniform(0, 240))
+            b.place(R.choice(["crate_mixed_supply", "furn_crate", "crate_pak40_he"]), x + 7.6 * math.sin(a), z + 7.6 * math.cos(a),
                     R.uniform(0, 360), tags={"flak"})
     T = build_trenches(b, strong, theights)
     rep["trenchMaxStep"] = round(tstep, 3)
