@@ -45,93 +45,93 @@
  },
  "vmRecoil": {
   "kinds": {
-   "_doc": "WP4 visual recoil (viewmodel only; the aim displacement is each weapon's recoil.pitch / yaw / climb). Per shot a critically damped spring kick: back_m along the bore into the shoulder (dominant), pitch_deg muzzle up, left_deg a barely visible left nudge; omega (1/s) sets the attack (peak after 1/omega) and the return (settled ~5/omega); backMax_m caps the accumulated back travel (eye relief); flash: muzzle flash size. Bursts add impulses to the running springs. Stance scales them with the square root of the gameplay stance factor.",
+   "_doc": "WP4 visual recoil (viewmodel only; the aim displacement is each weapon's recoil.pitch / yaw / climb). Per shot a critically damped spring kick: back_m along the bore into the shoulder (dominant), pitch_deg muzzle up, left_deg a barely visible left nudge; omega (1/s) sets the attack (peak after 1/omega) and the return (settled ~5/omega); backMax_m caps the accumulated back travel (eye relief); flash: muzzle flash size. Bursts add impulses to the running springs. Stance scales them with the square root of the gameplay stance factor. WP4c: a clean straight push back along the bore is the clearly dominant motion (peak ~20 ms after the shot, settled ~100 ms), the muzzle rise a third of WP4's and the left nudge a trace; in ADS the push is along the sight line (capped at 70 % of the eye relief) so the sights stay on the centre line.",
    "pistol": {
-    "back_m": 0.022,
-    "pitch_deg": 4.5,
-    "left_deg": 0.6,
-    "omega": 30,
-    "backMax_m": 0.05,
+    "back_m": 0.04,
+    "pitch_deg": 1.5,
+    "left_deg": 0.1,
+    "omega": 50,
+    "backMax_m": 0.06,
     "flash": 0.8
    },
    "smg": {
-    "back_m": 0.02,
-    "pitch_deg": 1.1,
-    "left_deg": 0.3,
-    "omega": 34,
-    "backMax_m": 0.05,
+    "back_m": 0.045,
+    "pitch_deg": 0.35,
+    "left_deg": 0.05,
+    "omega": 52,
+    "backMax_m": 0.065,
     "flash": 0.85
    },
    "assault": {
-    "back_m": 0.03,
-    "pitch_deg": 1.5,
-    "left_deg": 0.35,
-    "omega": 30,
-    "backMax_m": 0.06,
+    "back_m": 0.065,
+    "pitch_deg": 0.5,
+    "left_deg": 0.06,
+    "omega": 50,
+    "backMax_m": 0.09,
     "flash": 1.0
    },
    "battle": {
-    "back_m": 0.04,
-    "pitch_deg": 2.1,
-    "left_deg": 0.45,
-    "omega": 26,
-    "backMax_m": 0.07,
+    "back_m": 0.085,
+    "pitch_deg": 0.7,
+    "left_deg": 0.08,
+    "omega": 46,
+    "backMax_m": 0.11,
     "flash": 1.15
    },
    "carbine": {
-    "back_m": 0.038,
-    "pitch_deg": 2.4,
-    "left_deg": 0.4,
-    "omega": 24,
-    "backMax_m": 0.07,
+    "back_m": 0.08,
+    "pitch_deg": 0.8,
+    "left_deg": 0.08,
+    "omega": 46,
+    "backMax_m": 0.11,
     "flash": 0.95
    },
    "rifle": {
-    "back_m": 0.06,
-    "pitch_deg": 3.2,
-    "left_deg": 0.5,
-    "omega": 20,
-    "backMax_m": 0.08,
+    "back_m": 0.11,
+    "pitch_deg": 1.05,
+    "left_deg": 0.1,
+    "omega": 42,
+    "backMax_m": 0.13,
     "flash": 1.2
    },
    "sniper": {
-    "back_m": 0.07,
-    "pitch_deg": 3.8,
-    "left_deg": 0.6,
-    "omega": 16,
-    "backMax_m": 0.09,
+    "back_m": 0.12,
+    "pitch_deg": 1.25,
+    "left_deg": 0.1,
+    "omega": 40,
+    "backMax_m": 0.14,
     "flash": 1.25
    },
    "sniper50": {
-    "back_m": 0.09,
-    "pitch_deg": 5.0,
-    "left_deg": 0.8,
-    "omega": 13,
-    "backMax_m": 0.1,
+    "back_m": 0.14,
+    "pitch_deg": 1.7,
+    "left_deg": 0.12,
+    "omega": 36,
+    "backMax_m": 0.16,
     "flash": 1.6
    },
    "shotgun": {
-    "back_m": 0.08,
-    "pitch_deg": 5.5,
-    "left_deg": 0.7,
-    "omega": 16,
-    "backMax_m": 0.1,
+    "back_m": 0.13,
+    "pitch_deg": 1.8,
+    "left_deg": 0.12,
+    "omega": 38,
+    "backMax_m": 0.15,
     "flash": 1.4
    },
    "lmg": {
-    "back_m": 0.034,
-    "pitch_deg": 0.9,
-    "left_deg": 0.3,
-    "omega": 36,
-    "backMax_m": 0.06,
+    "back_m": 0.06,
+    "pitch_deg": 0.3,
+    "left_deg": 0.05,
+    "omega": 54,
+    "backMax_m": 0.085,
     "flash": 1.15
    },
    "launcher": {
-    "back_m": 0.03,
-    "pitch_deg": 1.5,
-    "left_deg": 0.3,
-    "omega": 15,
-    "backMax_m": 0.05,
+    "back_m": 0.05,
+    "pitch_deg": 0.5,
+    "left_deg": 0.05,
+    "omega": 36,
+    "backMax_m": 0.06,
     "flash": 0
    }
   },
@@ -150,8 +150,8 @@
    },
    "modern_pistol2": {
     "kind": "pistol",
-    "pitch_deg": 2.5,
-    "back_m": 0.015,
+    "pitch_deg": 0.8,
+    "back_m": 0.025,
     "suppressed": true
    },
    "m1_thompson": {
@@ -231,8 +231,8 @@
    },
    "modern_sniper_semi": {
     "kind": "sniper",
-    "pitch_deg": 2.8,
-    "omega": 20,
+    "pitch_deg": 0.9,
+    "omega": 46,
     "suppressed": true
    },
    "modern_sniper_50": {
