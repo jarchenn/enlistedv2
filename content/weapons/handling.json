@@ -316,6 +316,14 @@
     "kind": "pistol",
     "back_m": 0.045,
     "pitch_deg": 1.9
+   },
+   "modern_saiga": {
+    "kind": "shotgun",
+    "suppressed": true
+   },
+   "modern_vsk": {
+    "kind": "assault",
+    "suppressed": true
    }
   }
  },

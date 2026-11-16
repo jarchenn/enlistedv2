@@ -488,6 +488,10 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/pistol_9mm.mp3", false, {"modern_glock34"}, -1, 1.06f, 0.3f},
     {"guns/pistol_a.mp3", false, {"modern_makarov"}, -1, 1.08f, 0.1f},
     {"guns/pistol_b.mp3", false, {"modern_mark23"}, -1, 0.95f, -0.1f},
+    // MG12 batch 3 (borrowed, derived; both suppressed): the Saiga on the 870's shot, higher, much darker and shorter; the VSK on the
+    // suppressed .22's, lower and darker (heavier)
+    {"guns/shotgun.mp3", false, {"modern_saiga"}, -1, 1.12f, -0.7f, 1.0f},
+    {"guns/pistol_c.mp3", false, {"modern_vsk"}, -1, 0.78f, -0.4f, 1.2f, 1.0f},
     // SW1: synthesised blaster shots (tools: sweep + FM + odd harmonics + spring tail; no recordings): carbine, long rifle, robot blaster
     {"guns/blaster_a.wav", false, {"blaster_carbine"}, -1, 1, 0, 0.6f},
     {"guns/blaster_b.wav", false, {"blaster_rifle"}, -1, 1, 0, 0.8f},
@@ -639,6 +643,8 @@ int Audio::loadCustom(const fs::path& dir) {
       {"reload/reload_b.mp3", {"modern_glock34"}, 1.9f, 0, 1.08f},
       {"reload/reload_b.mp3", {"modern_makarov"}, 2.2f, 0, 0.95f},
       {"reload/reload_b.mp3", {"modern_mark23"}, 3.0f, 0, 0.85f},
+      {"reload/reload_ak.mp3", {"modern_saiga"}, 2.6f, 3.5f, 0.9f},   // MG12 batch 3: rock-in box magazines
+      {"reload/reload_ak.mp3", {"modern_vsk"}, 2.5f, 3.5f, 1.08f},
       {"reload/reload_m4.mp3", {"blaster_rifle"}, 2.4f, 0, 0.92f},
       {"reload/reload_m4.mp3", {"blaster_robot"}, 2.1f, 0, 1.2f},
     };
