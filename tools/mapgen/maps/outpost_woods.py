@@ -98,11 +98,11 @@ def dress(b, R, prop, drop, line, paint, rep):
         prop(aid, x, z, yaw, tags={"radar", "cover"})
     # the sawmill yard: lumber, logs, a dead truck
     for aid, x, z, yaw in (("mod_lumber_stack", -22.0, 46.0, 0.0), ("mod_lumber_stack", -24.0, 54.0, 90.0), ("mod_pallet_stack", -20.0, 30.0, 10.0),
-                           ("mod_box_truck", -48.0, 42.0, 80.0), ("mod_pcar_pickup_wreck", -26.0, 64.0, 200.0), ("mod_skip", -46.0, 32.0, 0.0),
+                           ("mod_box_truck", -48.0, 42.0, 80.0), ("mod_pcar_pickup_wreck", -14.0, 72.0, 200.0), ("mod_skip", -46.0, 32.0, 0.0),
                            ("mod_barrel_steel_rust", -38.0, 48.0, 0.0), ("mod_tyre_pile", -18.0, 60.0, 0.0), ("mod_concrete_pipe_stack", -50.0, 50.0, 90.0)):
         prop(aid, x, z, yaw, tags={"mill", "cover"})
     # cabins at the pond: a jetty of pallets, a boat, a car in the reeds
-    for aid, x, z, yaw in (("mod_pcar_offroad_wreck", 44.0, 30.0, 40.0), ("mod_nt_boat_trailer", 46.0, 46.0, 120.0), ("mod_nt_boat_motor", 20.0, 46.0, 70.0),
+    for aid, x, z, yaw in (("mod_pcar_offroad_wreck", 44.0, 30.0, 40.0), ("mod_nt_boat_trailer", 52.0, 58.0, 120.0), ("mod_nt_boat_motor", 20.0, 38.0, 70.0),
                            ("mod_pcar_wagon_wreck", 18.0, 66.0, 300.0), ("mod_trash_bin", 6.0, 50.0, 0.0), ("mod_jerry_cans", 56.0, 30.0, 0.0)):
         prop(aid, x, z, yaw, tags={"pond", "cover"})
     # the logging track: abandoned cars, a fallen-tree roadblock, ruts
