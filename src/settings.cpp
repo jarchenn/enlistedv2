@@ -103,7 +103,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     u.invertY = q.value("invertY", u.invertY); u.reducedMotion = q.value("reducedMotion", u.reducedMotion);
     u.showArms = q.value("showArms", u.showArms); u.sightMarkers = q.value("sightMarkers", u.sightMarkers);
     u.weaponList = q.value("weaponList", u.weaponList); u.friendlyMarkers = q.value("friendlyMarkers", u.friendlyMarkers);
-    u.heliCamMotion = std::clamp(q.value("heliCameraMotion", u.heliCamMotion), 0.0f, 1.0f);
+    u.heliCamMotion = std::clamp(q.value("heliCameraMotion", u.heliCamMotion), 0.0f, 3.0f);
   }
   if (j.contains("audio") && j["audio"].is_object()) {
     const json& q = j["audio"];
@@ -404,8 +404,8 @@ void settingsWindow(App& app) {
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Aiming sensitivity", &u.adsSens, 0.3f, 1.5f, "x %.2f");
       ImGui::Checkbox("Invert mouse Y", &u.invertY);
       ImGui::Checkbox("Reduced motion (keeps aim displacement)", &u.reducedMotion);
-      ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Helicopter camera motion", &u.heliCamMotion, 0.0f, 1.0f, "%.2f");
-      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Camera banking, rotor vibration and landing shake while flying a helicopter (0 = none, 1 = full).");
+      ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Helicopter camera motion", &u.heliCamMotion, 0.0f, 3.0f, "x %.2f");
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Camera banking, rotor vibration and landing shake while flying a helicopter (0 = none, 1 = default, up to 3x more).");
       ImGui::Checkbox("Show arms", &u.showArms);
       ImGui::Checkbox("Sight calibration markers", &u.sightMarkers);
       ImGui::Checkbox("Show weapon list", &u.weaponList);

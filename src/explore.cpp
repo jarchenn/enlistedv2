@@ -228,7 +228,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   {   // tanks (tank_sim.cpp): every tank steps (crew loader, engines, wrecks); the occupied one takes all input
     bool wasInTank = tanks.occupied != 0;
     tanks.stepAll(*this, dt, in);
-    if (wasInTank || tanks.occupied) { target = {}; stepProjectiles(dt); fx.update(dt, terrain); return; }
+    if (wasInTank || tanks.occupied) { target = {}; blastShake = std::max(0.0f, blastShake - dt * 1.5f); stepProjectiles(dt); fx.update(dt, terrain); return; }   // VH5c: the shake decays in vehicles too
   }
   if (!occupied) { build.dt = dt; stepBuilder(in); }
   if (occupied) { stepStation(dt, in); }
