@@ -1091,9 +1091,9 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `cave_column_m` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `cave_fire_altar` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `cave_glow_ember` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 15 |
-| `cave_lid_l0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 120 |
-| `cave_lid_l1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 89 |
-| `cave_lid_l2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 97 |
+| `cave_lid_l0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 90 |
+| `cave_lid_l1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 64 |
+| `cave_lid_l2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 81 |
 | `cave_lid_m0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 16 |
 | `cave_lid_m1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 17 |
 | `cave_lid_m2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 15 |
@@ -1195,6 +1195,9 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `cave_light_mineral_up` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 14 |
 | `cave_light_pool` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 |
 | `cave_crystals_small` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 37 |
+| `cave_lid_v0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 30 |
+| `cave_lid_v1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 25 |
+| `cave_lid_v2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 16 |
 
 ## Notes
 

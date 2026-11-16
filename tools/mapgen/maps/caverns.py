@@ -215,7 +215,7 @@ def height(x, z):
 
 
 # ---------------------------------------------------------------- lids: the roof
-LID = {"l": (42.0, 16.0, 40.0, 3), "m": (28.0, 11.0, 27.0, 3), "s": (16.0, 7.0, 15.0, 2)}   # size x, y, z; variants
+LID = {"v": (42.0, 16.0, 40.0, 3), "l": (42.0, 16.0, 40.0, 3), "m": (28.0, 11.0, 27.0, 3), "s": (16.0, 7.0, 15.0, 2)}   # size x, y, z; variants
 
 
 def lid_under(lids, x, z):
@@ -272,6 +272,8 @@ def build(ctx):
             if d > 7.0:
                 continue
             kind = "l" if c >= 20 else "m" if c >= 9.5 else "m" if R.random() < 0.6 else "s"
+            if kind == "l" and own is C:   # the central vault keeps the full relief
+                kind = "v"
             sx, sy, sz, nvar = LID[kind]
             dome = 0.78 * sy
             ytop = f + c + R.uniform(0.35, 0.7) * dome
