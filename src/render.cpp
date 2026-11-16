@@ -1784,9 +1784,28 @@ layout(location=1) out float oDist;
 layout(location=2) out vec4 oAmb;
 layout(location=3) out vec4 oNR;
 layout(location=4) out vec4 oVel; uniform float uVmVel;
+uniform int uGlass;   // 0 opaque; 1 window glass (dusty); 2 a wreck's glass (crazed, mostly broken out)
 void main(){
   vec4 base = uBase;
   if (uHasAlb == 1) base *= texture(uAlb, vUV);
+  if (uGlass > 0) {   // tinted window glass: see-through, a dust film, sky reflection at grazing angles
+    vec3 N = normalize(vN); if (!gl_FrontFacing) N = -N;
+    vec3 V = normalize(uCamPos - vW);
+    float dust = 0.35 + 0.4*smoothstep(0.3, 0.8, fract(sin(dot(floor(vW.xz*7.0 + vW.y*5.0), vec2(12.9898, 78.233)))*43758.5453)*0.3 + 0.5*clamp(-N.y + 0.5, 0.0, 1.0));
+    if (uGlass == 2) {   // broken out: jagged holes, the rest crazed
+      float h = fract(sin(dot(floor(vW*vec3(3.1, 2.3, 3.7)), vec3(12.9898, 78.233, 37.719)))*43758.5453);
+      float edge = fract(sin(dot(floor(vW*vec3(17.0, 13.0, 19.0)), vec3(7.1, 11.3, 5.7)))*91.17);
+      if (h < 0.7 && edge > 0.25) discard;
+      dust = min(1.0, dust + 0.3);
+    }
+    float fr = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 4.0);
+    vec3 tint = vec3(0.16, 0.19, 0.19);
+    vec3 c = shade(vW, N, mix(tint, vec3(0.42, 0.39, 0.33), dust*0.6), mix(0.06, 0.7, dust), 0.0, 1.0);
+    c = applyFog(c, vW);
+    oColor = vec4(c, clamp(0.22 + 0.28*dust + 0.5*fr, 0.0, 0.92));
+    oDist = length(vW - uCamPos); oAmb = vec4(0.0); oNR = vec4(0.0, 1.0, 0.0, 1.0); oVel = vec4(0.0);
+    return;
+  }
   float rough = uRough, metal = uMetal, ao = 1.0;
   if (uHasMR == 1) { vec4 mr = texture(uMR, vUV); rough *= mr.g; metal *= mr.b; if (uAOinMR == 1) ao = mr.r; }
   if (uHasAO == 1) ao = texture(uAO, vUV).r;
@@ -3987,6 +4006,7 @@ void Renderer::drawModels(const std::vector<ModelDraw>& items, const Frustum* fr
     glUniform4fv(lb, 1, glm::value_ptr(pt.base)); glUniform1f(lme, pt.metal); glUniform1f(lr, pt.rough);
     glUniform4fv(lt, 1, glm::value_ptr(it.tint));
     glUniform1f(lth, it.thinPx * pxAngle);
+    glUniform1i(U(p, "uGlass"), it.glass);
     glDrawElements(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u));
     stats.draws++; stats.tris += (int)pt.count / 3;
   }
@@ -4447,6 +4467,14 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     setLighting(progGlass, v);
     glUniformMatrix4fv(U(progGlass, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
     drawItems(progGlass, sorted, false);
+  }
+  if (!worldModelsGlass.empty()) {   // imported models' windows (cars): far to near, after the box glass
+    std::vector<ModelDraw> mg = worldModelsGlass;
+    std::sort(mg.begin(), mg.end(), [&](const ModelDraw& a, const ModelDraw& b) { return glm::length(vec3(a.m[3]) - v.camPos) > glm::length(vec3(b.m[3]) - v.camPos); });
+    setLighting(progModel, v);
+    glUniformMatrix4fv(U(progModel, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+    drawModels(mg, &frMain);
+    glUseProgram(progModel); glUniform1i(U(progModel, "uGlass"), 0);
   }
   if (!ghosts.empty()) {
     glEnable(GL_CULL_FACE);

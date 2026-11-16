@@ -22,6 +22,7 @@ struct ModelPart {
   int mat = -1;                     // index into GpuModel::mats (-1: factors only)
   vec3 bmin{0}, bmax{0};            // weapon space
   int section = -1;                 // destruction section (ImportSpec sections), -1 = none
+  bool glass = false;               // a window / windscreen material (name "glass"): drawn in the blended glass pass
   std::vector<mat4> anim;           // optional: weapon-space delta per animation sample (rest = identity)
 };
 

@@ -1,7 +1,7 @@
-// NT2: parked and wrecked cars from the user's "generic passenger car pack" (fab.fbx; licence to be confirmed): one model
+// NT2: parked and wrecked cars from "Generic passenger car pack" by Comrade1280 (Sketchfab, CC BY 4.0): one model
 // per car (incoming/modern_models/car_<kind>.glb, converted by a Blender background script), two variants each:
 // mod_pcar_<kind> (abandoned: dusty, faded) and mod_pcar_<kind>_wreck (rust-tinted, a wheel gone). The bakes are
-// local only (git-ignored); the committed asset shows the generated car of the nearest type ("mf" parts, hidden once
+// committed (content/assets/models/pcar_*); without them the asset shows the generated car of the nearest type ("mf" parts, hidden once
 // the bake is on disk) and keeps its colliders and cover.
 import { modernPropsAssets } from "./catalog_modern_props.mjs";
 
@@ -12,7 +12,7 @@ const CARS = [   // kind, size [w, h, l] m (cars.json), generated stand-in (inta
   ["sport", [1.99, 1.17, 4.4], "mod_sedan_red", "mod_sedan_wrecked"], ["suv", [2.33, 1.95, 5.19], "mod_suv", "mod_sedan_wrecked"],
   ["wagon", [2.19, 1.55, 4.93], "mod_sedan", "mod_sedan_wrecked"],
 ];
-const CREDIT = "Generic passenger car pack (fab.fbx), supplied by the user: licence to be confirmed (local only)";
+const CREDIT = "Generic passenger car pack by Comrade1280 (https://sketchfab.com/3d-models/generic-passenger-car-pack-20f9af9b8a404d5cb022ac6fe87f21f5), CC BY 4.0, modified";
 
 export function nt2CarAssets() {
   const gen = new Map(modernPropsAssets().map((A) => [A.json().id, A]));

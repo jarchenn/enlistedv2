@@ -184,7 +184,7 @@ void App::resetInteractStates() {
 }
 
 void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
-  R.foliage.clear(); R.worldModels.clear(); worldBoxDraws.clear(); R.natPatches.clear();
+  R.foliage.clear(); R.worldModels.clear(); R.worldModelsGlass.clear(); worldBoxDraws.clear(); R.natPatches.clear();
   foundationDrawItems(*this, op, mode == Mode::Explore ? eyePos() : camPos);   // MA3: foundation plants + stones (foundation.cpp)
   interior.beginFrame();   // R2 room culling: per-building visibility once per frame
   if (mode == Mode::Explore) { grenadeDrawItems(); gm2DrawItems(*this, op); }   // GM2: placed packs
@@ -324,6 +324,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       for (size_t k = 0; k < gm->parts.size(); ++k) {
         int s = gm->parts[k].section;
         if (s >= 0 && s < (int)r.secCut.size() && r.secCut[s]) continue;
+        if (gm->parts[k].glass) { const std::string& id = r.asset->id; R.worldModelsGlass.push_back({gm, (int)k, M, vec4(1), 0.0f, id.size() > 6 && id.compare(id.size() - 6, 6, "_wreck") == 0 ? 2 : 1}); continue; }
         R.worldModels.push_back({gm, (int)k, M, vec4(1), r.asset->modelThinPx});
       }
       op.push_back({&r.asset->opaque, M});   // any visible box parts (none for the wire obstacles)

@@ -579,6 +579,10 @@ bool GpuModel::load(const fs::path& dir, std::string& err) {
     p.metal = pj.value("metal", 1.0f); p.rough = pj.value("rough", 1.0f); p.textured = pj.value("textured", false);
     p.bmin = jvec3(pj["bmin"]); p.bmax = jvec3(pj["bmax"]); p.section = pj.value("section", -1);
     p.mat = pj.value("mat", -1);
+    if (p.mat >= 0 && j.contains("materials") && p.mat < (int)j["materials"].size()) {   // glass by its material's name (car windows, cockpit canopies)
+      std::string mn = j["materials"][p.mat].value("name", std::string()); for (auto& ch : mn) ch = (char)std::tolower((unsigned char)ch);
+      p.glass = mn.find("glass") != std::string::npos || mn.find("window") != std::string::npos || mn.find("windshield") != std::string::npos;
+    }
     for (auto& a : pj.value("anim", json::array())) { mat4 m; for (int k = 0; k < 16; ++k) glm::value_ptr(m)[k] = a[k].get<float>(); p.anim.push_back(m); }
     parts.push_back(std::move(p));
   }
