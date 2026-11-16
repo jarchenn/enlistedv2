@@ -102,6 +102,9 @@ int ammoTypeOf(const WeaponDef& d) {
   const std::string& c = d.caliber;
   if (d.action == "launcher") return AM_ROCKET;
   if (contains(c, "gauge")) return AM_12GA;
+  if (contains(c, ".50 AE") || contains(c, ".357")) return AM_45;   // MG12: magnum handgun rounds go with .45 (the .50 pool is the BMG's)
+  if (contains(c, "9x18")) return AM_9MM;
+  if (contains(c, "9x39")) return AM_762;   // MG12: the VSK's subsonic rifle round
   if (contains(c, ".50") || contains(c, "12.7")) return AM_50;
   if (contains(c, "9x19") || contains(c, "4.6x30") || contains(c, ".22") || contains(c, "7.65")) return AM_9MM;
   if (contains(c, ".45") || contains(c, "ACP")) return AM_45;
@@ -109,7 +112,7 @@ int ammoTypeOf(const WeaponDef& d) {
   if (contains(c, "7.62") || contains(c, "7.92x57") || contains(c, ".30-06")) return AM_762;
   return AM_NONE;
 }
-bool lootIsPistol(const WeaponDef& d) { int t = ammoTypeOf(d); return d.action == "semi" && d.feed == "magazine" && (t == AM_9MM || t == AM_45) && d.cap <= 16; }
+bool lootIsPistol(const WeaponDef& d) { int t = ammoTypeOf(d); return d.action == "semi" && (t == AM_9MM || t == AM_45) && d.cap <= 16; }   // MG12: any feed (the revolver loads round by round)
 static bool isShotgun(const WeaponDef& d) { return ammoTypeOf(d) == AM_12GA; }
 static bool isSmg(const WeaponDef& d) { int t = ammoTypeOf(d); return d.action == "auto" && (t == AM_9MM || t == AM_45); }
 int lootMagSize(const WeaponDef& d, const WeaponState& s) {

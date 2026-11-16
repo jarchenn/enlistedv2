@@ -433,6 +433,12 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/smg_a.mp3", false, {"modern_scorpion"}, -1, 1.12f, 0.4f, 1.0f},   // derived: the Scorpion, higher and brighter
     {"guns/smg_b.mp3", false, {"m1_thompson"}},   // SMG1.mp3
     {"guns/smg_b.mp3", false, {"m3_grease_gun"}, -1, 0.88f, -0.5f, 2.5f},   // derived: the grease gun, lower and darker
+    // MG12 (borrowed, derived): the .357 and .50 AE on the M1911 / Luger shots, lower, darker and heavier; the sawn-off on the
+    // 870's shot a little lower; the SMG-9 on the MP 40's, lower and darker
+    {"guns/pistol_b.mp3", false, {"modern_revolver"}, -1, 0.86f, -0.3f, 2.2f, 1.5f},
+    {"guns/pistol_a.mp3", false, {"modern_deagle"}, -1, 0.8f, -0.4f, 2.2f, 2.0f},
+    {"guns/shotgun.mp3", false, {"modern_sawnoff"}, -1, 0.93f, -0.2f},
+    {"guns/smg_a.mp3", false, {"modern_smg9"}, -1, 0.94f, -0.2f, 1.1f},
   };
   // SND5: each cut, resample and tone step runs on the mono mix and on both channels alike; levels: quieter recordings up to
   // 0.95 peak (the stereo pair by its louder channel), full-scale ones unchanged; the cut starts where the shot rises out of the quiet before its onset (no fade-in)
@@ -548,7 +554,7 @@ int Audio::loadCustom(const fs::path& dir) {
       // shot and one mid-track shell-loading sound per shell (also the single-round loading sound of other guns)
     // SND3: secs: the group's shortest (partial) reload time; the recording is fitted to it (fitTo); keep: seconds of the
     // file used (the AK recording's loud second half is dropped)
-    struct RSet { const char* file; std::vector<const char*> ids; float secs = 6.0f, keep = 0; };
+    struct RSet { const char* file; std::vector<const char*> ids; float secs = 6.0f, keep = 0, pitch = 1; };   // MG12 pitch: a derived variant (resampled), as the gun shots
     const RSet rs[] = {
       {"reload/reload_rifle.mp3", {"mg42", "m2hb_carry"}},   // belt guns keep the generic rifle recording
       {"reload/reload_ak.mp3", {"modern_ak", "modern_ak12"}, 2.4f, 3.5f},   // rock-in magazines (jigokukarano_sisya)
@@ -566,6 +572,11 @@ int Audio::loadCustom(const fs::path& dir) {
       {"reload/reload_bolt.mp3", {"kar98k"}, 2.2f},   // the stripper-clip reload (freesound_community "rifle or shotgun reload")
       {"reload/reload_a.mp3", {"mp40", "m1_thompson", "m3_grease_gun", "modern_uzi", "modern_mp7", "modern_scorpion", "m1_garand", "m1c_garand", "kar98k_zf39"}},
       {"reload/reload_b.mp3", {"luger", "m1911a1", "modern_pistol", "modern_pistol2", "modern_pistol3"}},
+      // MG12 (borrowed, pitched apart): the Desert Eagle on the pistol reload, lower; the SMG-9 on the SMG reload, higher; the
+      // sawn-off's two shells on the shell recording (the revolver loads round by round: clip_in per round)
+      {"reload/reload_b.mp3", {"modern_deagle"}, 1.8f, 0, 0.9f},
+      {"reload/reload_a.mp3", {"modern_smg9"}, 1.8f, 0, 1.06f},
+      {"reload/shotgun_shells.mp3", {"modern_sawnoff"}, 2.9f, 0, 1.05f},
     };
     auto norm = [&](Buf& s, float secs) { if (s.size() > (size_t)(secs * SR)) s.resize((size_t)(secs * SR)); float pk = 1e-4f; for (float x : s) pk = std::max(pk, std::fabs(x)); size_t f = std::min(s.size(), (size_t)(0.05f * SR)); for (size_t j = 0; j < s.size(); ++j) s[j] *= 0.7f / pk * (j + f >= s.size() ? (float)(s.size() - j) / f : 1.0f); };
     // SND3: a reload longer than the weapon's reload is shortened in its quiet gaps (each kept at least 0.1 s, 20 ms equal-power
@@ -592,6 +603,7 @@ int Audio::loadCustom(const fs::path& dir) {
     };
     for (auto& g : rs) if (decode(g.file, b)) {
       if (g.keep > 0 && b.size() > (size_t)(g.keep * SR)) { b.resize((size_t)(g.keep * SR)); size_t f = SR / 20; for (size_t j = 0; j < f; ++j) b[b.size() - 1 - j] *= (float)j / f; }
+      if (g.pitch != 1.0f) b = resampleSinc(b, 1.0 / g.pitch);
       ++used; fitTo(b, g.secs); norm(b, g.secs);
       { static const bool lg = std::getenv("NMK_AUDIO_LOG") != nullptr; if (lg) logf("audio: %s for %s: %.2f s (fit to %.1f s)", g.file, g.ids[0], b.size() / (float)SR, g.secs); }   // diagnostics
       Impl::Event ev; ev.v.push_back(b); for (const char* id : g.ids) p->events[std::string("reload_") + id] = ev;

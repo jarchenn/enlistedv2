@@ -2,10 +2,10 @@
  "_doc": "Per-weapon bullet damage (SPEC 6, DMG1 2026-11-16 to the user's reference sheet), read by src/damage_model.cpp. damage(r) = lerp(near, far, smoothstep(falloffStart_m, falloffEnd_m, r)) x zone, r = the distance the round actually travelled; no falloff when start == end. Zones, every gun: head x4, chest / neck / arms x1, stomach (lower torso) x1.25, legs and feet x0.75; a class's headMax caps the head hit (pistols and SMGs 80: two headshots kill). Armour (Battle Royale helmet: head; vest: chest, arms, stomach; legs never): damage x (1 - (1 - pen) x level share), level shares content/settings/loot.json armor.penApply (60 / 80 / 100 %); durability wears by what it stopped. Enemy types with their own head_mult (content/ai/zombie types) take base x head_mult on the head instead of the weapon's x4 / cap. 'rpm' is reference only; shots to kill are asserted by --selftest-rules. 'dataOnly' rows have no model in the repo yet.",
  "health": 100,
  "zones": {
-  "head": 4.0,
-  "torso": 1.0,
+  "head": 4,
+  "torso": 1,
   "stomach": 1.25,
-  "arms": 1.0,
+  "arms": 1,
   "legs": 0.75
  },
  "lowerTorsoSplit": 0.5,
@@ -17,60 +17,447 @@
   "_doc": "SPEC 6.2 [DECISION] defaults. springfieldProfile: 'brief' (one shot up close, 2 beyond ~150 m) or 'kar98k' (no falloff, 150 at any range).",
   "springfieldProfile": "brief"
  },
- "default": {"near": 35, "far": 26, "falloffStart_m": 50, "falloffEnd_m": 150, "rpm": 0, "note": "fallback for an unlisted bullet weapon", "class": "assault"},
+ "default": {
+  "near": 35,
+  "far": 26,
+  "falloffStart_m": 50,
+  "falloffEnd_m": 150,
+  "rpm": 0,
+  "note": "fallback for an unlisted bullet weapon",
+  "class": "assault"
+ },
  "weapons": {
-  "kar98k": {"near": 90, "far": 90, "falloffStart_m": 0, "falloffEnd_m": 0, "rpm": 60, "note": "DMG1 scout class: one headshot or stomach hit kills, a chest hit leaves a sliver (90), legs 2", "class": "bolt"},
-  "kar98k_zf39": {"near": 90, "far": 90, "falloffStart_m": 0, "falloffEnd_m": 0, "rpm": 55, "note": "Kar98k sniper (ZF39): same row as the Kar98k", "class": "bolt"},
-  "m1903a4": {"near": 95, "far": 80, "falloffStart_m": 100, "falloffEnd_m": 150, "rpm": 45, "dataOnly": true, "profileDecision": "springfieldProfile", "note": "M1903A4 Springfield. [DECISION] decisions.springfieldProfile: the brief (95 up to 100 m, 80 from 150 m); 'kar98k' gives it the no-falloff profile (95)", "class": "bolt"},
-  "m1_garand": {"near": 65, "far": 50, "falloffStart_m": 60, "falloffEnd_m": 150, "rpm": 400, "class": "semi"},
-  "m1c_garand": {"near": 65, "far": 50, "falloffStart_m": 60, "falloffEnd_m": 150, "rpm": 400, "note": "not in SPEC 6.2: the sniper Garand keeps the M1 Garand row, as the Kar98k sniper keeps the Kar98k row", "class": "semi"},
-  "g43": {"near": 65, "far": 50, "falloffStart_m": 60, "falloffEnd_m": 150, "rpm": 220, "dataOnly": true, "note": "Gewehr 43", "class": "semi"},
-  "m1_carbine": {"near": 30, "far": 23, "falloffStart_m": 40, "falloffEnd_m": 120, "rpm": 450, "class": "assault", "pen": 0.7},
-  "m1918a2_bar": {"near": 40, "far": 30, "falloffStart_m": 60, "falloffEnd_m": 200, "rpm": 550, "class": "battle"},
-  "stg44": {"near": 33, "far": 25, "falloffStart_m": 100, "falloffEnd_m": 250, "rpm": 560, "note": "gunplay overhaul", "class": "assault"},
-  "m1_thompson": {"near": 33, "far": 20, "falloffStart_m": 20, "falloffEnd_m": 60, "rpm": 700, "class": "smg"},
-  "m3_grease_gun": {"near": 33, "far": 20, "falloffStart_m": 20, "falloffEnd_m": 60, "rpm": 450, "class": "smg"},
-  "mp40": {"near": 28, "far": 17, "falloffStart_m": 15, "falloffEnd_m": 60, "rpm": 550, "class": "smg"},
-  "mg42": {"near": 35, "far": 27, "falloffStart_m": 60, "falloffEnd_m": 200, "rpm": 1200, "class": "lmg"},
-  "fg42": {"near": 40, "far": 30, "falloffStart_m": 60, "falloffEnd_m": 200, "rpm": 750, "note": "not in SPEC 6.2: full-power 7.92x57 at 750 rpm", "class": "battle"},
-  "m1919a6": {"near": 35, "far": 27, "falloffStart_m": 60, "falloffEnd_m": 200, "rpm": 500, "dataOnly": true, "class": "lmg"},
-  "m2hb_carry": {"near": 120, "far": 80, "falloffStart_m": 100, "falloffEnd_m": 200, "rpm": 500, "note": "not in SPEC 6.2: .50 BMG heavy MG", "class": "heavy"},
-  "m1911a1": {"near": 36, "far": 21, "falloffStart_m": 10, "falloffEnd_m": 35, "rpm": 360, "note": "GM1 class pistol (generated box model)", "class": "pistol"},
-  "luger": {"near": 34, "far": 20, "falloffStart_m": 10, "falloffEnd_m": 35, "rpm": 360, "note": "GM1 class pistol (generated box model): the Walther P38 row, same 9x19 mm round", "class": "pistol"},
-  "walther_p38": {"near": 34, "far": 20, "falloffStart_m": 10, "falloffEnd_m": 35, "rpm": 360, "dataOnly": true, "class": "pistol"},
-  "modern_scar": {"near": 40, "far": 30, "falloffStart_m": 150, "falloffEnd_m": 300, "rpm": 600, "note": "MG1 modern gun", "class": "battle"},
-  "modern_ak": {"near": 35, "far": 27, "falloffStart_m": 120, "falloffEnd_m": 250, "rpm": 650, "note": "MG1 modern gun", "class": "assault", "pen": 0.775},
-  "modern_m4": {"near": 32, "far": 24, "falloffStart_m": 100, "falloffEnd_m": 220, "rpm": 800, "note": "MG1 modern gun", "class": "assault"},
-  "modern_m4_irons": {"near": 32, "far": 24, "falloffStart_m": 100, "falloffEnd_m": 220, "rpm": 800, "note": "MG8: the M4 row", "class": "assault"},
-  "modern_m16": {"near": 33, "far": 25, "falloffStart_m": 120, "falloffEnd_m": 250, "rpm": 800, "note": "MG1 modern gun", "class": "assault"},
-  "modern_lmg": {"near": 32, "far": 24, "falloffStart_m": 150, "falloffEnd_m": 300, "rpm": 800, "note": "MG1 modern gun", "class": "lmg"},
-  "modern_shotgun": {"near": 28, "far": 6, "falloffStart_m": 10, "falloffEnd_m": 40, "rpm": 100, "note": "MG1 modern gun: per pellet (9 per shell)", "class": "shotgun"},
-  "modern_sniper_bolt": {"near": 105, "far": 95, "falloffStart_m": 300, "falloffEnd_m": 600, "rpm": 50, "note": "MG1 modern gun", "class": "sniper"},
-  "modern_sniper_semi": {"near": 79, "far": 65, "falloffStart_m": 250, "falloffEnd_m": 500, "rpm": 240, "note": "MG1 modern gun", "class": "sniper", "pen": 0.83},
-  "modern_pistol": {"near": 34, "far": 20, "falloffStart_m": 15, "falloffEnd_m": 40, "rpm": 400, "note": "MG1 modern gun", "class": "pistol"},
-  "modern_ar15": {"near": 32, "far": 24, "falloffStart_m": 100, "falloffEnd_m": 220, "rpm": 600, "note": "MG2 modern gun", "class": "assault"},
-  "modern_mp7": {"near": 28, "far": 17, "falloffStart_m": 40, "falloffEnd_m": 120, "rpm": 950, "note": "MG2 modern gun", "class": "smg", "pen": 0.69},
-  "modern_scorpion": {"near": 26, "far": 16, "falloffStart_m": 25, "falloffEnd_m": 70, "rpm": 1150, "note": "MG2 modern gun", "class": "smg"},
-  "modern_uzi": {"near": 27, "far": 16, "falloffStart_m": 25, "falloffEnd_m": 70, "rpm": 600, "note": "MG2 modern gun", "class": "smg"},
-  "modern_shotgun2": {"near": 26, "far": 6, "falloffStart_m": 10, "falloffEnd_m": 40, "rpm": 77.3, "note": "MG2 modern gun: per pellet (9 per shell)", "class": "shotgun"},
-  "modern_sniper_50": {"near": 600, "far": 600, "falloffStart_m": 0, "falloffEnd_m": 0, "rpm": 30, "note": "MG6 .50 BMG: one hit kills anywhere (the user's 600; legs 450); heavies take a large share", "class": "heavy"},
-  "modern_sniper_3": {"near": 105, "far": 95, "falloffStart_m": 300, "falloffEnd_m": 600, "rpm": 45, "note": "MG7 modern gun (the M24 row)", "class": "sniper"},
-  "modern_pistol3": {"near": 30, "far": 18, "falloffStart_m": 15, "falloffEnd_m": 40, "rpm": 450, "note": "MG7 modern gun (the 9 mm pistol row)", "class": "pistol"},
-  "modern_ak12": {"near": 33, "far": 25, "falloffStart_m": 120, "falloffEnd_m": 250, "rpm": 700, "note": "MG7 modern gun (the AK-74 row)", "class": "assault", "pen": 0.775},
-  "modern_fal": {"near": 40, "far": 30, "falloffStart_m": 150, "falloffEnd_m": 300, "rpm": 650, "note": "MG3 modern gun", "class": "battle"},
-  "modern_pistol2": {"near": 22, "far": 13, "falloffStart_m": 15, "falloffEnd_m": 40, "rpm": 400, "note": "MG3 modern gun (.22 LR)", "class": "pistol", "pen": 0.4}
+  "kar98k": {
+   "near": 90,
+   "far": 90,
+   "falloffStart_m": 0,
+   "falloffEnd_m": 0,
+   "rpm": 60,
+   "note": "DMG1 scout class: one headshot or stomach hit kills, a chest hit leaves a sliver (90), legs 2",
+   "class": "bolt"
+  },
+  "kar98k_zf39": {
+   "near": 90,
+   "far": 90,
+   "falloffStart_m": 0,
+   "falloffEnd_m": 0,
+   "rpm": 55,
+   "note": "Kar98k sniper (ZF39): same row as the Kar98k",
+   "class": "bolt"
+  },
+  "m1903a4": {
+   "near": 95,
+   "far": 80,
+   "falloffStart_m": 100,
+   "falloffEnd_m": 150,
+   "rpm": 45,
+   "dataOnly": true,
+   "profileDecision": "springfieldProfile",
+   "note": "M1903A4 Springfield. [DECISION] decisions.springfieldProfile: the brief (95 up to 100 m, 80 from 150 m); 'kar98k' gives it the no-falloff profile (95)",
+   "class": "bolt"
+  },
+  "m1_garand": {
+   "near": 65,
+   "far": 50,
+   "falloffStart_m": 60,
+   "falloffEnd_m": 150,
+   "rpm": 400,
+   "class": "semi"
+  },
+  "m1c_garand": {
+   "near": 65,
+   "far": 50,
+   "falloffStart_m": 60,
+   "falloffEnd_m": 150,
+   "rpm": 400,
+   "note": "not in SPEC 6.2: the sniper Garand keeps the M1 Garand row, as the Kar98k sniper keeps the Kar98k row",
+   "class": "semi"
+  },
+  "g43": {
+   "near": 65,
+   "far": 50,
+   "falloffStart_m": 60,
+   "falloffEnd_m": 150,
+   "rpm": 220,
+   "dataOnly": true,
+   "note": "Gewehr 43",
+   "class": "semi"
+  },
+  "m1_carbine": {
+   "near": 30,
+   "far": 23,
+   "falloffStart_m": 40,
+   "falloffEnd_m": 120,
+   "rpm": 450,
+   "class": "assault",
+   "pen": 0.7
+  },
+  "m1918a2_bar": {
+   "near": 40,
+   "far": 30,
+   "falloffStart_m": 60,
+   "falloffEnd_m": 200,
+   "rpm": 550,
+   "class": "battle"
+  },
+  "stg44": {
+   "near": 33,
+   "far": 25,
+   "falloffStart_m": 100,
+   "falloffEnd_m": 250,
+   "rpm": 560,
+   "note": "gunplay overhaul",
+   "class": "assault"
+  },
+  "m1_thompson": {
+   "near": 33,
+   "far": 20,
+   "falloffStart_m": 20,
+   "falloffEnd_m": 60,
+   "rpm": 700,
+   "class": "smg"
+  },
+  "m3_grease_gun": {
+   "near": 33,
+   "far": 20,
+   "falloffStart_m": 20,
+   "falloffEnd_m": 60,
+   "rpm": 450,
+   "class": "smg"
+  },
+  "mp40": {
+   "near": 28,
+   "far": 17,
+   "falloffStart_m": 15,
+   "falloffEnd_m": 60,
+   "rpm": 550,
+   "class": "smg"
+  },
+  "mg42": {
+   "near": 35,
+   "far": 27,
+   "falloffStart_m": 60,
+   "falloffEnd_m": 200,
+   "rpm": 1200,
+   "class": "lmg"
+  },
+  "fg42": {
+   "near": 40,
+   "far": 30,
+   "falloffStart_m": 60,
+   "falloffEnd_m": 200,
+   "rpm": 750,
+   "note": "not in SPEC 6.2: full-power 7.92x57 at 750 rpm",
+   "class": "battle"
+  },
+  "m1919a6": {
+   "near": 35,
+   "far": 27,
+   "falloffStart_m": 60,
+   "falloffEnd_m": 200,
+   "rpm": 500,
+   "dataOnly": true,
+   "class": "lmg"
+  },
+  "m2hb_carry": {
+   "near": 120,
+   "far": 80,
+   "falloffStart_m": 100,
+   "falloffEnd_m": 200,
+   "rpm": 500,
+   "note": "not in SPEC 6.2: .50 BMG heavy MG",
+   "class": "heavy"
+  },
+  "m1911a1": {
+   "near": 36,
+   "far": 21,
+   "falloffStart_m": 10,
+   "falloffEnd_m": 35,
+   "rpm": 360,
+   "note": "GM1 class pistol (generated box model)",
+   "class": "pistol"
+  },
+  "luger": {
+   "near": 34,
+   "far": 20,
+   "falloffStart_m": 10,
+   "falloffEnd_m": 35,
+   "rpm": 360,
+   "note": "GM1 class pistol (generated box model): the Walther P38 row, same 9x19 mm round",
+   "class": "pistol"
+  },
+  "walther_p38": {
+   "near": 34,
+   "far": 20,
+   "falloffStart_m": 10,
+   "falloffEnd_m": 35,
+   "rpm": 360,
+   "dataOnly": true,
+   "class": "pistol"
+  },
+  "modern_scar": {
+   "near": 40,
+   "far": 30,
+   "falloffStart_m": 150,
+   "falloffEnd_m": 300,
+   "rpm": 600,
+   "note": "MG1 modern gun",
+   "class": "battle"
+  },
+  "modern_ak": {
+   "near": 35,
+   "far": 27,
+   "falloffStart_m": 120,
+   "falloffEnd_m": 250,
+   "rpm": 650,
+   "note": "MG1 modern gun",
+   "class": "assault",
+   "pen": 0.775
+  },
+  "modern_m4": {
+   "near": 32,
+   "far": 24,
+   "falloffStart_m": 100,
+   "falloffEnd_m": 220,
+   "rpm": 800,
+   "note": "MG1 modern gun",
+   "class": "assault"
+  },
+  "modern_m4_irons": {
+   "near": 32,
+   "far": 24,
+   "falloffStart_m": 100,
+   "falloffEnd_m": 220,
+   "rpm": 800,
+   "note": "MG8: the M4 row",
+   "class": "assault"
+  },
+  "modern_m16": {
+   "near": 33,
+   "far": 25,
+   "falloffStart_m": 120,
+   "falloffEnd_m": 250,
+   "rpm": 800,
+   "note": "MG1 modern gun",
+   "class": "assault"
+  },
+  "modern_lmg": {
+   "near": 32,
+   "far": 24,
+   "falloffStart_m": 150,
+   "falloffEnd_m": 300,
+   "rpm": 800,
+   "note": "MG1 modern gun",
+   "class": "lmg"
+  },
+  "modern_shotgun": {
+   "near": 28,
+   "far": 6,
+   "falloffStart_m": 10,
+   "falloffEnd_m": 40,
+   "rpm": 100,
+   "note": "MG1 modern gun: per pellet (9 per shell)",
+   "class": "shotgun"
+  },
+  "modern_sniper_bolt": {
+   "near": 105,
+   "far": 95,
+   "falloffStart_m": 300,
+   "falloffEnd_m": 600,
+   "rpm": 50,
+   "note": "MG1 modern gun",
+   "class": "sniper"
+  },
+  "modern_sniper_semi": {
+   "near": 79,
+   "far": 65,
+   "falloffStart_m": 250,
+   "falloffEnd_m": 500,
+   "rpm": 240,
+   "note": "MG1 modern gun",
+   "class": "sniper",
+   "pen": 0.83
+  },
+  "modern_pistol": {
+   "near": 34,
+   "far": 20,
+   "falloffStart_m": 15,
+   "falloffEnd_m": 40,
+   "rpm": 400,
+   "note": "MG1 modern gun",
+   "class": "pistol"
+  },
+  "modern_ar15": {
+   "near": 32,
+   "far": 24,
+   "falloffStart_m": 100,
+   "falloffEnd_m": 220,
+   "rpm": 600,
+   "note": "MG2 modern gun",
+   "class": "assault"
+  },
+  "modern_mp7": {
+   "near": 28,
+   "far": 17,
+   "falloffStart_m": 40,
+   "falloffEnd_m": 120,
+   "rpm": 950,
+   "note": "MG2 modern gun",
+   "class": "smg",
+   "pen": 0.69
+  },
+  "modern_scorpion": {
+   "near": 26,
+   "far": 16,
+   "falloffStart_m": 25,
+   "falloffEnd_m": 70,
+   "rpm": 1150,
+   "note": "MG2 modern gun",
+   "class": "smg"
+  },
+  "modern_uzi": {
+   "near": 27,
+   "far": 16,
+   "falloffStart_m": 25,
+   "falloffEnd_m": 70,
+   "rpm": 600,
+   "note": "MG2 modern gun",
+   "class": "smg"
+  },
+  "modern_shotgun2": {
+   "near": 26,
+   "far": 6,
+   "falloffStart_m": 10,
+   "falloffEnd_m": 40,
+   "rpm": 77.3,
+   "note": "MG2 modern gun: per pellet (9 per shell)",
+   "class": "shotgun"
+  },
+  "modern_sniper_50": {
+   "near": 600,
+   "far": 600,
+   "falloffStart_m": 0,
+   "falloffEnd_m": 0,
+   "rpm": 30,
+   "note": "MG6 .50 BMG: one hit kills anywhere (the user's 600; legs 450); heavies take a large share",
+   "class": "heavy"
+  },
+  "modern_sniper_3": {
+   "near": 105,
+   "far": 95,
+   "falloffStart_m": 300,
+   "falloffEnd_m": 600,
+   "rpm": 45,
+   "note": "MG7 modern gun (the M24 row)",
+   "class": "sniper"
+  },
+  "modern_pistol3": {
+   "near": 30,
+   "far": 18,
+   "falloffStart_m": 15,
+   "falloffEnd_m": 40,
+   "rpm": 450,
+   "note": "MG7 modern gun (the 9 mm pistol row)",
+   "class": "pistol"
+  },
+  "modern_ak12": {
+   "near": 33,
+   "far": 25,
+   "falloffStart_m": 120,
+   "falloffEnd_m": 250,
+   "rpm": 700,
+   "note": "MG7 modern gun (the AK-74 row)",
+   "class": "assault",
+   "pen": 0.775
+  },
+  "modern_fal": {
+   "near": 40,
+   "far": 30,
+   "falloffStart_m": 150,
+   "falloffEnd_m": 300,
+   "rpm": 650,
+   "note": "MG3 modern gun",
+   "class": "battle"
+  },
+  "modern_pistol2": {
+   "near": 22,
+   "far": 13,
+   "falloffStart_m": 15,
+   "falloffEnd_m": 40,
+   "rpm": 400,
+   "note": "MG3 modern gun (.22 LR)",
+   "class": "pistol",
+   "pen": 0.4
+  },
+  "modern_revolver": {
+   "near": 62,
+   "far": 40,
+   "falloffStart_m": 20,
+   "falloffEnd_m": 50,
+   "rpm": 150,
+   "headCap": 80,
+   "note": "MG12 .357 Magnum (DMG1 scheme: magnum revolver ~62 chest; headCap for DMG1, not read yet)"
+  },
+  "modern_deagle": {
+   "near": 60,
+   "far": 38,
+   "falloffStart_m": 20,
+   "falloffEnd_m": 50,
+   "rpm": 200,
+   "headCap": 80,
+   "note": "MG12 .50 AE (the magnum row)"
+  },
+  "modern_sawnoff": {
+   "near": 28,
+   "far": 5,
+   "falloffStart_m": 6,
+   "falloffEnd_m": 25,
+   "rpm": 300,
+   "note": "MG12 per pellet (9 per shell; DMG1 pellets 26-30), shorter reach than the 870"
+  },
+  "modern_smg9": {
+   "near": 30,
+   "far": 18,
+   "falloffStart_m": 20,
+   "falloffEnd_m": 60,
+   "rpm": 900,
+   "headCap": 75,
+   "note": "MG12 9 mm SMG (DMG1 SMG 26-33)"
+  }
  },
  "classes": {
   "_doc": "DMG1: headMax caps a head hit (0 = none: x4); pen = armour penetration, the share of the damage a fully armoured zone still takes",
-  "pistol": {"headMax": 80, "pen": 0.5},
-  "smg": {"headMax": 80, "pen": 0.62},
-  "assault": {"pen": 0.75},
-  "battle": {"pen": 0.8},
-  "semi": {"pen": 0.85},
-  "bolt": {"pen": 0.85},
-  "sniper": {"pen": 0.9},
-  "lmg": {"pen": 0.78},
-  "shotgun": {"pen": 0.65},
-  "heavy": {"pen": 0.95}
+  "pistol": {
+   "headMax": 80,
+   "pen": 0.5
+  },
+  "smg": {
+   "headMax": 80,
+   "pen": 0.62
+  },
+  "assault": {
+   "pen": 0.75
+  },
+  "battle": {
+   "pen": 0.8
+  },
+  "semi": {
+   "pen": 0.85
+  },
+  "bolt": {
+   "pen": 0.85
+  },
+  "sniper": {
+   "pen": 0.9
+  },
+  "lmg": {
+   "pen": 0.78
+  },
+  "shotgun": {
+   "pen": 0.65
+  },
+  "heavy": {
+   "pen": 0.95
+  }
  }
 }

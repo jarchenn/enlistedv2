@@ -30,6 +30,8 @@
     "modern_sniper_50": {"gripZ": 0.76, "shoulder": [-0.08, 0.02, -0.04]},
     "modern_sniper_3": {"gripZ": 0.7, "shoulder": [-0.08, 0.02, -0.04]},
     "modern_m4_irons": {"gripZ": 0.47, "shoulder": [-0.08, 0.02, -0.04]},
-    "modern_ak12": {"gripZ": 0.6, "shoulder": [-0.08, 0.02, -0.04]}
+    "modern_ak12": {"gripZ": 0.6, "shoulder": [-0.08, 0.02, -0.04]},
+    "modern_sawnoff": {"gripZ": 0.7, "shoulder": [-0.08, 0.02, -0.04]},
+    "modern_smg9": {"gripZ": 0.7, "shoulder": [-0.08, 0.02, -0.04]}
   }
 }

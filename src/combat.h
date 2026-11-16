@@ -27,6 +27,7 @@ struct WeaponDef {
   bool locked = false;   // GM3 "locked": fixed in its slot (never dropped, swapped at a rack or replaced by a pickup)
   float sway = 1;                       // MG6: JSON "sway": breathing sway x this while standing (crouched / prone: x1; the .50)
   bool modern = false;                  // MG1: JSON "modern" (side "modern"): only from the modern weapons case, never in 1944 loadouts / classes / bot pools
+  bool casings = true;   // MG12: false = no case ejected per shot (revolver, break-action shotgun)
   int pellets = 1; float spreadDeg = 0;  // MG1: a shot fires `pellets` rounds, the extra ones inside a cone of half-angle spreadDeg (shotgun)
   float scopeMag = 1, scopeRelief = 0.07f;   // scope.relief: eye to the ocular lens in the scoped pose (m)
   vec3 boltPivot{0, 0.028f, 0}; float boltLift = 70;   // bolt action: handle lift about the z-parallel axis through the pivot (deg)

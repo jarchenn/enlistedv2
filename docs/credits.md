@@ -189,6 +189,18 @@ Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm ri
 | fps-50cal.zip (arms@bmg.fbx; extracted to incoming/fps-50cal) | Barrett M95 .50 BMG (`modern_sniper_50`, MG6) | supplied by the user | **licence to be confirmed by the user** (none stated in the zip) |
 | hardcase_for_weapons.glb | Modern weapons case (`rack_modern`) | FinBass (https://sketchfab.com/FinBass), from the GLB `asset.extras` | CC-BY-NC-4.0 per the GLB `asset.extras` (non-commercial; attribution required): **to be confirmed by the user** |
 
+## Modern guns (MG12)
+
+Supplied by the user (Downloads, copied / extracted to `incoming/mg12/<name>/`); the user states they are CC Attribution. The zips carry no licence file and empty FBX author fields: their Sketchfab pages were found by the download name and matched by triangle count (Sketchfab API), which also gives the author and licence. The GLBs carry title, author, source and licence in `asset.extras`. Each gun's own arms and clips are its first-person rig; the static gun mesh is its third-person, rack, pickup and icon model.
+
+| Source | Used for | Author | Licence |
+|---|---|---|---|
+| [revolver animated](https://sketchfab.com/3d-models/revolver-animated-a34b6d0ddc774744bc3567d6afc0878f) (revolver-animated.zip → arms@revolver.fbx; 20 416 triangles) | .357 Magnum revolver (`modern_revolver`) | DJMaesen (https://sketchfab.com/bumstrum) | CC BY 4.0 |
+| [sawnoff animated](https://sketchfab.com/3d-models/sawnoff-animated-806f8327bed34fc3b0e3911d01f0566d) (sawnoff-animated.zip → arms@sawnoff.fbx; 18 425) | Sawn-off double-barrel shotgun (`modern_sawnoff`) | DJMaesen | CC BY 4.0 |
+| [fps smg9 animated](https://sketchfab.com/3d-models/fps-smg9-animated-e77e2cd81dc048b998fd4652da644eb0) (fps-smg9-animated.zip → arms@smg9.fbx; 22 168) | SMG-9 (`modern_smg9`) | DJMaesen | CC BY 4.0 |
+| [animated pistol](https://sketchfab.com/3d-models/animated-pistol-30d1b612b2334a8294b02692b8c10cf1) ("first person animated heavy pistol"; animated-pistol.zip → arms@talon.fbx; 13 589) | Desert Eagle (`modern_deagle`) | DJMaesen | CC BY 4.0 |
+| fps-ak-animated (2).zip | **Not used**: byte-identical to fps-ak-animated (`modern_ak`, MG1) | supplied by the user | as MG1 |
+
 - Backrooms / Tunnels ambience: "Backrooms Ambience 2" by godbi (file godbi_3-backrooms-ambience-2-522106.mp3, supplied by the user; licence to be confirmed).
 - Footsteps: "Footsteps cellar" (freesound_community, file ...-26890.mp3); door opening: "Opening door" (soundreality, ...-411632.mp3); zombie: "Zombie sound 2" (dragon-studio, ...-357976.mp3). Supplied by the user; licences to be confirmed.
 - Gun shots (content/audio/custom/guns): makarov-shoot-36241, battle-rifle-42734, heavymachinegun-6998, single-pistol-gunshot-3-101923, 9mm-pistol-shot-6349, clean-machine-gun-burst-98224 (freesound_community); gunshot-447218 (yousef-kwt); shotgun-blast-352038 (universfield); machine-gun-sfx-631486 (dragon-studio); gun-shoot-512969 (u_2n07b18i8q). Supplied by the user; licences to be confirmed.
