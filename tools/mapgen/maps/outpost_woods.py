@@ -160,7 +160,7 @@ V = {
     "tracks": [(TRACK, 4.0), (SPUR_RADAR, 3.2), (SPUR_MILL, 3.5), (SPUR_POND, 3.0)],
     "sites": SITES, "site_info": INFO,
     "flats": [(rect(CAMP[0] + 1, CAMP[1] + 1, CAMP[2] - 1, CAMP[3] - 1), None), (circle_poly(-44.0, -44.0, 9.0, 16), None)],
-    "paint": [("poly", "leaf_litter", rect(-HX - 70, -HZ - 70, HX + 70, HZ + 70), {"weight": 0.55, "edge": 0.5}),
+    "paint": [("poly", "leaf_litter", rect(-HX - 70, -HZ - 70, HX + 70, HZ + 70), {"weight": 1.0, "edge": 0.5}),   # NT5: a full litter floor (the terrain skips its base layers under it; grass sparse in the forest)
               ("poly", "grass", rect(CAMP[0] - 2, CAMP[1] - 2, CAMP[2] + 2, CAMP[3] + 2), {"weight": 0.8, "edge": 3.0, "ragged": 3.0, "seed": 51}),
               ("poly", "dirt", rect(28.0, -48.0, 56.0, -34.0), {"weight": 0.8, "edge": 2.0, "ragged": 2.5, "seed": 52}),
               ("poly", "gravel", rect(30.0, -36.0, 58.0, -30.0), {"weight": 0.6, "edge": 2.0, "ragged": 2.0, "seed": 53}),
