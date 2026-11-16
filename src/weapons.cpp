@@ -94,7 +94,7 @@ void App::buildWeaponMeshes() {
       for (const json* src : {&kd, &w}) {
         const json& k = *src;
         d->vmBack = k.value("back_m", d->vmBack); d->vmPitch = k.value("pitch_deg", d->vmPitch); d->vmYaw = k.value("left_deg", d->vmYaw);
-        d->vmOmega = k.value("omega", d->vmOmega); d->vmBackMax = k.value("backMax_m", d->vmBackMax); d->flashScale = k.value("flash", d->flashScale);
+        d->vmOmega = k.value("omega", d->vmOmega); d->vmBackMax = k.value("backMax_m", d->vmBackMax); d->flashScale = k.value("flash", d->flashScale); d->yawScale = k.value("yawScale", d->yawScale);
         d->suppressed = k.value("suppressed", d->suppressed);
       }
     }
@@ -314,7 +314,7 @@ void App::weaponDrawItems(std::vector<DrawItem>& op) {
   if (d.feed == "magazine") {
     float y = 0;
     if (s.reload > 0) { float u = 1 - s.reload / s.reloadTotal; y = u < 0.5f ? -0.35f * (u / 0.5f) : -0.35f * (1 - (u - 0.5f) / 0.5f); }
-    if (s.loaded > 0 || s.reload > 0) add(WP_MAG, M * glm::translate(mat4(1), vec3(0, y, 0)));
+    if (!s.magOff || s.reload > 0) add(WP_MAG, M * glm::translate(mat4(1), vec3(0, y, 0)));
   }
   // MG 42 top cover opens for a belt change; bipod unfolds when supported
   if (d.feed == "belt") {
@@ -490,6 +490,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   if (s.reload > 0) {
     if ((s.reloadKind == 3 || s.reloadKind == 5 || (s.reloadKind == 4 && d.feed == "single")) && fireHeld && s.loaded > 0) { s.reload = 0; s.reloadKind = 0; }   // fire interrupts single-round loading
     s.reload -= dt;
+    if ((s.reloadKind == 1 || s.reloadKind == 2) && d.feed == "magazine" && s.reloadTotal > 0 && s.reload <= s.reloadTotal * 0.5f) s.magOff = true;   // WP5: mag-out (the old one is at the bottom of its drop)
     // MG2 shell loop: the round goes in at the insert moment of its segment (kind 5: the segment plays out), then the next
     // segment, or the end clip after the last round
     bool shellNow = s.reloadKind == 3 && d.feed == "single" && d.reloadInsert > 0 && s.reload <= d.reloadRound * (1 - d.reloadInsert);
@@ -520,7 +521,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
         int retained = s.loaded;
         auto it = fullest(); int n = *it; s.containers.erase(it);
         if (retained > 0) { s.containers.push_back(retained); weaponMsg = std::to_string(retained) + (d.feed == "enbloc" ? " rounds in the ejected clip kept in reserve" : " rounds in the partial " + d.container + " kept"); }
-        s.loaded = n;
+        s.loaded = n; s.magOff = false;   // WP5: mag-in
         s.reload = 0; s.reloadKind = 0;
         if (rest > 0) { s.reload = rest; s.reloadKind = 4; }   // MG1: rounds in; the clip plays out before the next shot
         audio.play(audio.hasEvent("clip_" + d.id) ? "clip_" + d.id : d.feed == "enbloc" ? "clip_in" : d.feed == "belt" ? "belt" : "mag_in", eyePos(), 0.8f);
@@ -601,11 +602,17 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
                : (ch.posture == Physics::PRONE ? 0.20f : 0.70f) * (d.rSupported < 0.999f ? d.rSupported : handling.recoil[STANCE_MOUNTED]);
       if (adsT > 0.85f) sc *= 0.85f;
       if (s.att[ATT_MUZZLE] == 2) sc *= 0.8f;   // BR2 muzzle brake: recoil -20 %
-      float yawK = moving ? handling.movingYaw : 0.0f;
+      float yawK = moving ? 1 + handling.movingYaw : 1.0f;
       lastRecoilScale = sc;
       s.recoilP += sc * (d.rPitch * (0.85f + 0.3f * wrand(s.seed)) + d.rClimb * std::min(s.burst, 12));
       s.recoilP = std::min(s.recoilP, std::max(0.0f, 85.0f - eyePitch));   // only the camera's pitch bound (look clamp 85) limits the climb
-      s.recoilY = std::clamp(s.recoilY + sc * yawK * d.rYaw * (wrand(s.seed) * 2 - 1) + sc * d.rPitch * 0.04f, -6.0f, 6.0f);   // restrained horizontal wander; WP4: a slight leftward bias (+ yaw = left), the visual nudge's
+      {   // WP4c: an erratic horizontal jerk every shot (+ = left): either side (slightly more often left), a wide spread of sizes
+          // with an occasional big one; yawScale per kind (handling.json vmRecoil), the stance factor squared (crouched calmer,
+          // prone / mounted small), moving worse
+        float side = wrand(s.seed) < 0.55f ? 1.0f : -1.0f, mag = 0.3f + 0.9f * wrand(s.seed);
+        if (wrand(s.seed) < 0.15f) mag *= 2.0f;
+        s.recoilY = std::clamp(s.recoilY + sc * sc * yawK * d.yawScale * d.rYaw * side * mag + sc * d.rPitch * 0.04f, -8.0f, 8.0f);
+      }
       s.sinceShot = 0;
       {   // WP4: a shot's impulse into the springs (peak = the per-shot value after 1 / omega); bursts blend, never restart
         float k = 2.718282f * d.vmOmega * std::sqrt(sc);
