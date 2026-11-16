@@ -74,6 +74,46 @@ The camera is the driver's head (left-hand drive): the steering wheel's centre p
 - **Armour:** `durability.heavyBulletJ` 9 kJ: rifle rounds (~3.5 kJ) do nothing, .50 rounds (~18 kJ) 1 each; launchers 34 (3 wreck it); tank / AT gun shells 50. Wreck as the other vehicles.
 - **Not done:** the rear ramp / hatches do not open (no animations in the file); not adopted in Battle Royale (the royale adopts only parked part-built civilian cars).
 
+## Helicopter (VH5)
+
+The AH-64D Apache: vehicle `ah64d_apache` (`content/vehicles/ah64d_apache.json`, `"heli": true`), catalog entry `heli_ah64d_apache` (**Vehicles**, faction Modern). The code is in `src/heli.cpp`, with hooks in the tank system. It uses the tanks' entry and exit, collision body, damage table, wreck fire and persistence. Anyone may fly it; Tanker bots never board it.
+
+- **Model:**
+  - The supplied CC BY GLB is baked and committed in `content/vehicles/models/ah64d_apache/`, with the front turned to +z and the scale set by the 14.6 m rotor.
+  - The bake splits the main rotor (`rotor`), the scissor tail rotor (`tailrotor`) and the M230 chin gun (`gun`) out of the body by island boxes.
+  - The rotors spin about `rig.rotorHub` (4.8 rev/s) and `rig.tailRotorHub` (23 rev/s) at the rotor speed. The rotor spins up over 4 s when the pilot enters and runs down over 9 s after they leave. There is no blur disc.
+- **Controls:**
+
+  | Key | Action |
+  |---|---|
+  | Space / Ctrl | Climb (8 m/s) / descend (6 m/s) |
+  | W / S | Forward (55 m/s) / back (12 m/s) |
+  | A / D | Strafe (15 m/s) |
+  | Mouse | Turns the nose (70°/s) and aims (pitch −60° to +25°) |
+  | LMB | Chin gun |
+  | R | One rocket per press (R only fires rockets while piloting) |
+  | E | Get out, only once landed and slower than 1 m/s |
+
+  With no input it holds a hover: the velocities ease to their targets at 9 m/s². It cannot lift off until the rotor is fully spun up. The camera is a chase camera, pulled in front of walls. The HUD shows altitude, speed, rotor, durability, 30 mm rounds and heat, rockets and which pod fires next. The key hint is shown on entry and at the bottom of the screen.
+- **Collision:**
+  - Ground means terrain or anything solid under the skids, so it can land on a pad or a roof.
+  - Every move is checked against the airframe boxes and a 14 m rotor-disc box. It slides along walls and never passes through them.
+- **M230 chin gun (LMB):**
+  - Fires toward the crosshair within ±100° traverse and −60° to +11° elevation, at 625 rounds/min and 805 m/s, with a tracer every third round.
+  - Each round is explosive (`Projectile::cannon30`): a 60-damage blast of 2 m. It hits infantry hard and counts as a launcher hit on cars, so it wrecks jeeps and wears down the APC (34 per hit). Tanks only take a spark from it.
+  - 1200 rounds. Heat rises 0.034 per round and cools 0.22/s, so about 80 rounds (7.7 s) of continuous fire overheat it. It fires again once cooled to 35 %.
+- **Hydra rockets (R):**
+  - 38 rockets, one per press (0.25 s minimum), from the pod muzzles (`rig.rocketPods`), left and right in turn.
+  - They fly toward the crosshair if it is within 12° of the nose, else straight ahead.
+  - The shared rocket projectile: 300 m/s, 420 blast damage, 2.6 m radius, kills AT guns on a direct hit. Backblast and smoke trail.
+- **Damage:**
+  - Treated as an armoured car: 2 rocket hits (50 each) or 1 tank, AT gun or Flak shell (100).
+  - Rifle and MG rounds do nothing; .50 rounds do 4 each.
+  - Destroyed in the air, it loses power, spins up to 320°/s with a smoke and fire trail, and falls. It crashes in a 300-damage, 6 m blast and stays as a burning wreck.
+  - The pilot is put out of the airframe and killed (`Game::killSoldier`) during a match. Outside a match there is no player death, so they are only put out beside the wreck.
+- **LAN:** host and single player only. Vehicles are not replicated, so a client sees it parked.
+- `--capture-heli` captures the helicopter parked, then runs a scripted flight with the gun and two rockets, logs the numbers, and records the shoot-down and the wreck.
+
 ## Limits
 
 - **Driver only:** no passenger seats and no LAN replication. The tanks have none either, so a LAN client sees a parked vehicle.

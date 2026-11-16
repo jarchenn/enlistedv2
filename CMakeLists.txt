@@ -67,6 +67,7 @@ add_executable(NormandyMapmaker
   src/tank.cpp src/tank_import.cpp src/tank_sim.cpp src/tank_ram.cpp src/tank_ui.cpp src/selftest_tanks.cpp src/selftest_vehicles.cpp
   src/capture_vehicle.cpp
   src/interior.cpp src/selftest_interiors.cpp src/hlod.cpp src/static_decals.cpp
+  src/heli.cpp src/capture_heli.cpp
   src/br_models.cpp src/selftest_brmodels.cpp)   # walls, interiors and furniture (docs/interiors.md)
 target_include_directories(NormandyMapmaker PRIVATE src ${stb_SOURCE_DIR} ${miniaudio_SOURCE_DIR})
 target_link_libraries(NormandyMapmaker PRIVATE glad glfw glm::glm imgui Jolt nlohmann_json::nlohmann_json)

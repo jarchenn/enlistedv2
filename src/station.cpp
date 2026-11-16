@@ -305,6 +305,7 @@ void App::stepProjectiles(float dt) {
             lastImpact = {hit.pos, "armour", p.kind, (float)glfwGetTime(), ex.breached};
           } else {
             if (p.kind == PROJ_BULLET) fx.impact(hit.pos, hit.normal, "metal");
+            if (p.cannon30) { fx.impact(hit.pos, hit.normal, "metal"); fx.flash(hit.pos + hit.normal * 0.1f, 0.7f, 0.07f, vec4(9, 6, 3, 1)); audio.play("impact_metal", hit.pos, 0.7f); }   // VH5: 30 mm bursts on armour
             lastImpact = {hit.pos, "armour", p.kind, (float)glfwGetTime(), 0};
           }
           projectiles.erase(projectiles.begin() + k);
@@ -334,7 +335,7 @@ void App::stepProjectiles(float dt) {
                   : p.at ? explode(hit.pos, p.v, 320.0f, 0.9f, 1.0f * gk, p.ignore, WALL_AP) : explode(hit.pos, p.v, p.dmg, p.blastR > 0 ? p.blastR : 2.2f, (p.craterScale > 0 ? p.craterScale : 1.0f) * gk, p.ignore, WALL_HE);
           blastAT = false; blastSplashGun = 40; blastPersonnel = 1;
           fx.explosion(hit.pos, hit.normal, surface == "ground" ? "ground" : surface, ground || ex.crater);
-          audio.play(p.kind == PROJ_ROCKET ? "explosion_rocket" : p.at ? "explosion_big" : "explosion", hit.pos, 1.0f);
+          audio.play(p.kind == PROJ_ROCKET ? "explosion_rocket" : p.at ? "explosion_big" : "explosion", hit.pos, p.cannon30 ? 0.35f : 1.0f);   // VH5: 10 rounds/s of 30 mm
           lastImpact = {hit.pos, surface, p.kind, (float)glfwGetTime(), ex.breached};
         } else {
           std::string surf2 = surface;

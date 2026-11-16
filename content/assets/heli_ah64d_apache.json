@@ -1,0 +1,83 @@
+{
+ "id": "heli_ah64d_apache",
+ "version": 1,
+ "name": "AH-64D Apache",
+ "category": "Vehicles",
+ "description": "Flyable attack helicopter (Explore: E to enter). Space up, Ctrl down, W/S forward / back, A/D strafe, mouse turns the nose and aims; LMB 30 mm chain gun, R Hydra rocket (alternating pods); no input hovers. E to get out once landed. 2 rocket hits or 1 tank shell bring it down.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  6.3,
+  17.6
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1.2,
+ "noAutoPanels": true,
+ "faction": "Modern",
+ "materials": [
+  {
+   "name": "collider",
+   "albedo": [
+    0.3,
+    0.3,
+    0.3
+   ],
+   "roughness": 0.8,
+   "pattern": "metal"
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    1.75,
+    2.0
+   ],
+   "s": [
+    1.7,
+    2.4,
+    9.0
+   ],
+   "m": "collider",
+   "v": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0,
+    2.2,
+    -5.0
+   ],
+   "s": [
+    0.8,
+    1.1,
+    6.0
+   ],
+   "m": "collider",
+   "v": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0,
+    1.25,
+    2.0
+   ],
+   "s": [
+    6.3,
+    0.7,
+    1.7
+   ],
+   "m": "collider",
+   "v": 0
+  }
+ ],
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "vehicle": "ah64d_apache",
+ "nav": {
+  "effect": "none"
+ }
+}
