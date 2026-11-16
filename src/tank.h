@@ -213,6 +213,7 @@ public:
   struct TowTrail { uint32_t uid = 0; uint64_t tank = 0; std::vector<vec3> p, v; float dropAcc = 0, fade = 1e9f, age = 0; vec3 last{0}; };   // fade: 1e9 while the missile flies, then 0.3 s down
   std::vector<TowTrail> towTrails;
   void drawHealthBar(App& app);
+  void grassBoxes(const App& app, std::vector<vec4>& out) const;   // TK3: the nearest 16 vehicles on the ground (wrecks too) as grass-clearing boxes
   void drawWorldBars(App& app);                        // TK1: a bar over every damageable vehicle in view (Settings: Vehicle health bars)                        // TK1: the occupied vehicle's durability bar   // TK1: a heavy enemy's landed blow: 1/15 of the durability (15 destroy it)
   int classify(const TankRT& t, vec3 worldPos, vec3 worldNormal, bool& onTurret) const;
   void destroy(App& app, TankRT& t, const std::string& why);

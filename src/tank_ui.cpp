@@ -145,6 +145,25 @@ void TankSys::makeThumbnails(App& app) {
 // ============================================================ HUD
 // TK1: the vehicle's durability bar (every vehicle, any seat), bottom left: 15 segments (a heavy's blow each), the number,
 // red when low; it flashes white on a damaging hit and reads DESTROYED once wrecked. Drawn after drawUI (over the sight mask)
+void TankSys::grassBoxes(const App& app, std::vector<vec4>& out) const {
+  out.clear();
+  std::vector<std::pair<float, const TankRT*>> near;
+  vec3 eye = app.eyePos();
+  for (auto& [id, t] : tanks) {
+    if (!t.def || t.def->hullBoxes.empty()) continue;
+    if (t.def->heli && t.pos.y - app.terrain.height(t.pos.x, t.pos.z) > 1.0f) continue;   // a helicopter only on the ground
+    float d = glm::length(vec2(t.pos.x - eye.x, t.pos.z - eye.z)); if (d < 160.0f) near.push_back({d, &t});
+  }
+  std::sort(near.begin(), near.end(), [](auto& a, auto& b) { return a.first < b.first; });
+  for (size_t k = 0; k < near.size() && k < 16; ++k) {
+    const TankRT& t = *near[k].second; float hx = 0, lo = 1e9f, hi = -1e9f;
+    for (auto& b : t.def->hullBoxes) { hx = std::max(hx, std::fabs(b.c.x) + b.h.x); lo = std::min(lo, b.c.z - b.h.z); hi = std::max(hi, b.c.z + b.h.z); }
+    float hz = 0.5f * (hi - lo), cz = 0.5f * (hi + lo), a = radians(t.yaw), c = std::cos(a), s = std::sin(a);
+    vec2 ctr = vec2(t.pos.x, t.pos.z) + vec2(s, c) * cz;   // hull +z is world (sin, cos)
+    out.push_back(vec4(ctr.x, ctr.y, c, s)); out.push_back(vec4(hx + 0.12f, hz + 0.12f, 0, 0));   // the shader takes world -> hull with (cos, sin)
+  }
+}
+
 void TankSys::drawHealthBar(App& app) {
   (void)app;
   TankRT* tp = occupied ? get(occupied) : nullptr;
