@@ -148,6 +148,7 @@ void SelfTest::update(App& app, float dt) {
   { extern bool lightsSelfTest(App&, float); if (lightsSelfTest(app, dt)) return; }   // L2: --selftest-lights (selftest_lights.cpp)
   { extern bool swimSelfTest(App&, float); if (swimSelfTest(app, dt)) return; }   // --selftest-swim (selftest_swim.cpp)
   { extern bool zombiesSelfTest(App&, float); if (zombiesSelfTest(app, dt)) return; }
+  { extern bool sdSelfTest(App&, float); if (sdSelfTest(app, dt)) return; }   // --selftest-sd (selftest_sd.cpp)
   { extern bool vehicleAiSelfTest(App&, float); if (vehicleAiSelfTest(app, dt)) return; }   // --check-vehicle-ai (selftest_vehicle_ai.cpp)
   { extern bool turnEngageSelfTest(App&, float); if (turnEngageSelfTest(app, dt)) return; }   // AI5: --check-turn-engage (selftest_turn.cpp)
   { extern bool leanCapture(App&, float); if (leanCapture(app, dt)) return; }   // MV3: --capture-lean (selftest_lean.cpp)
@@ -161,7 +162,12 @@ void SelfTest::update(App& app, float dt) {
   { extern bool royaleLiveSelfTest(App&, float); if (royaleLiveSelfTest(app, dt)) return; }
   { extern bool tdmLiveSelfTest(App&, float); if (tdmLiveSelfTest(app, dt)) return; }   // CV1: --selftest-tdm-live (selftest_royale_live.cpp)   // BR7: --selftest-royale-live (selftest_royale_live.cpp)   // VH1: --capture-jeep (selftest_vehicles.cpp)
   { extern bool perfSelfTest(App&, float); if (perfSelfTest(app, dt)) return; }   // PF3: --profile-map <id> <ai> <s> (selftest_perf.cpp)   // G2: --selftest-zombies (selftest_zombies.cpp)
-  { extern bool captureHeliSelfTest(App&, float); if (captureHeliSelfTest(app, dt)) return; }   // VH5: --capture-heli (capture_heli.cpp)
+  { extern bool captureHeliSelfTest(App&, float); if (captureHeliSelfTest(app, dt)) return; }
+  { extern bool captureVh7SelfTest(App&, float); if (captureVh7SelfTest(app, dt)) return; }   // VH7: --capture-vh7
+  { extern bool vehicleSpawnGenSelfTest(App&, float); if (vehicleSpawnGenSelfTest(app, dt)) return; }   // VH7: --gen-vehicle-spawns   // VH5: --capture-heli (capture_heli.cpp)
+  { extern bool captureTk1SelfTest(App&, float); if (captureTk1SelfTest(app, dt)) return; }
+  { extern bool tk1MatchSelfTest(App&, float); if (tk1MatchSelfTest(app, dt)) return; }   // TK1: --check-tk1-match
+  { extern bool captureTk2SelfTest(App&, float); if (captureTk2SelfTest(app, dt)) return; }   // TK2: --capture-tk2 <tag>   // TK1: --capture-tk1 (capture_tk1.cpp)
   if (dt < 0) {  // post-render: capture queued screenshots (scene only, no UI)
     for (auto& s : shotQueue) app.screenshot(outDir() / (s + ".png"));
     shotQueue.clear();

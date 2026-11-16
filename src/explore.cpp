@@ -1,5 +1,6 @@
 // Explore mode: first-person walkthrough of the same placed instances shown in Creative.
 #include "app.h"
+#include "mainmenu.h"
 #include "minimap.h"
 #include "abilities.h"
 #include "crumb.h"
@@ -419,6 +420,7 @@ void App::updateExplore(float dt) {
     }
     if (kp(win, GLFW_KEY_F5)) { exitExplore(); return; }
     if (kp(win, GLFW_KEY_F3)) showStats = !showStats;
+    if (kp(win, GLFW_KEY_F12)) settings().s.devOverlay = !settings().s.devOverlay;   // UI1b: developer overlay
     if (kp(win, GLFW_KEY_F4)) panelDebug = !panelDebug;
     if (kp(win, bk("loadout")) && !pauseMenu) { showLoadout = !showLoadout; syncCursor(); }
     if (kp(win, bk("flashlight")) && !pauseMenu) flashlight = !flashlight;   // FX1 headlamp
@@ -585,12 +587,18 @@ void App::drawExploreUI() {
         }
       }
     }
-    {   // GM1b: MG 42 (carried in ADS, or crewing the mount): a thin black mark in the rear notch, its top tip on the aim point
-      float a = 0;
-      if (occupied) { auto it = rt.find(occupied); if (it != rt.end() && it->second.asset && it->second.asset->station.kind == "mg42" && it->second.st.pos2 == ST_GUNNER) a = 1; }
-      else if (!weaponDefs.empty() && weaponDefs[activeWeapon]->id == "mg42" && !tanks.occupied) a = adsT * adsT * (3 - 2 * adsT);
-      if (a > 0.01f) { float len = io.DisplaySize.y * 0.016f; dl->AddLine(c, ImVec2(c.x, c.y + len), IM_COL32(0, 0, 0, (int)(255 * a)), std::max(1.5f, io.DisplaySize.y / 720.0f)); }
+    if (!occupied && !tanks.occupied && !weaponDefs.empty() && !scopeView() && weaponDefs[activeWeapon]->dotCrosshair) {   // SW2: blasters: a white dot in a thin +, a little tighter when aimed
+      float k = std::max(1.0f, io.DisplaySize.y / 1080.0f), t = adsT * adsT * (3 - 2 * adsT);
+      float gap = (7.0f - 2.5f * t) * k, len = 5.0f * k, w = 1.4f * k;
+      ImU32 white = IM_COL32(250, 250, 250, 235), dark = IM_COL32(0, 0, 0, 150);
+      for (int q = 0; q < 4; ++q) {
+        ImVec2 dv(q == 0 ? 1.0f : q == 1 ? -1.0f : 0.0f, q == 2 ? 1.0f : q == 3 ? -1.0f : 0.0f);
+        ImVec2 a(c.x + dv.x * gap, c.y + dv.y * gap), b(c.x + dv.x * (gap + len), c.y + dv.y * (gap + len));
+        dl->AddLine(a, b, dark, w + 2.0f * k); dl->AddLine(a, b, white, w);
+      }
+      dl->AddCircleFilled(c, 2.4f * k, dark); dl->AddCircleFilled(c, 1.5f * k, white);
     }
+    // (GM1b's black aim mark in the MG 42's rear notch removed at the user's request: the gun's own sights are the reference)
     if (target.valid && !tanks.occupied && !tanks.target) {
       auto it = rt.find(target.inst);
       if (it != rt.end()) {
@@ -611,8 +619,16 @@ void App::drawExploreUI() {
         }
       }
     }
-    dl->AddText(ImVec2(14, 12), IM_COL32(230, 230, 220, 150), "WASD walk | Shift sprint | Ctrl/C crouch | Space jump (stand up when prone) | E interact | LMB fire | RMB sights | R reload | Q weapon | N headlamp | T switch gun position | Backspace start | F4 damage debug | Esc menu");
-    if (tanks.occupied) tanks.drawUI(*this);
+    if (settings().s.devOverlay) dl->AddText(ImVec2(14, 12), IM_COL32(230, 230, 220, 150), "WASD walk | Shift sprint | Ctrl/C crouch | Space jump (stand up when prone) | E interact | LMB fire | RMB sights | R reload | Q weapon | N headlamp | T switch gun position | Backspace start | F4 damage debug | Esc menu");
+    else {   // UI1b: a short hint for the first seconds of play; the full list is in the pause menu (Controls)
+      static double seen = -10, until = 0; double tn = ImGui::GetTime(); if (tn - seen > 1.0) until = tn + 12.0; seen = tn;
+      if (tn < until) { const char* h = gGame && gGame->active ? "Esc  menu & controls     M  map     Tab  scores" : "Esc  menu & controls     M  map";
+        float a = (float)std::min(1.0, (until - tn) / 2.0); ImVec2 ts = ImGui::CalcTextSize(h), p(io.DisplaySize.x * 0.5f - ts.x * 0.5f, io.DisplaySize.y - 46);
+        dl->AddRectFilled(ImVec2(p.x - 12, p.y - 6), ImVec2(p.x + ts.x + 12, p.y + ts.y + 6), IM_COL32(12, 14, 16, (int)(150 * a)), 6);
+        dl->AddText(p, IM_COL32(225, 225, 215, (int)(220 * a)), h); }
+    }
+    tanks.drawWorldBars(*this);   // TK1: bars over the vehicles around
+    if (tanks.occupied) { tanks.drawUI(*this); tanks.drawHealthBar(*this); }   // TK1: the bar over the sight mask
     else { drawCombatUI(); drawWeaponUI(); tanks.drawUI(*this); drawSwimUI(); drawStaminaUI(); }
     if ((showMinimap || mapLarge) && !gm2ArtyMapOpen()) minimapHud(*this, mapLarge);   // GM2
     gm2Hud(*this);   // GM2: suppression vignette, the artillery map
@@ -631,18 +647,27 @@ void App::drawExploreUI() {
     ImGui::Text("bodies %d", Physics::bodyCount());
     ImGui::End();
   }
-  if (pauseMenu) {
+  static bool showControls = false;
+  if (pauseMenu) {   // UI1b: one column of equal buttons under a title; Controls opens the key list
+    ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), io.DisplaySize, IM_COL32(0, 0, 0, 120));
     ImGui::SetNextWindowPos(c, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-    ImGui::Begin("Paused", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove);
-    if (ImGui::Button("Resume", ImVec2(240, 0))) { pauseMenu = false; syncCursor(); }
-    if (ImGui::Button("Return to start marker", ImVec2(240, 0))) { returnToStart(); pauseMenu = false; syncCursor(); }
-    if (ImGui::Button("Return to Creative", ImVec2(240, 0))) exitExplore();
-    if (ImGui::Button("Settings...", ImVec2(240, 0))) settings().open = true;
-    ImGui::Separator();
-    if (ImGui::Button("Apply session changes to map + return", ImVec2(240, 0))) { applyDamageToMap(); exitExplore(); }
+    ImGui::Begin("Paused", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar);
+    const float bw = ImGui::GetFontSize() * 17;
+    { const char* t = "PAUSED"; ImGui::SetCursorPosX((bw + ImGui::GetStyle().WindowPadding.x * 2 - ImGui::CalcTextSize(t).x) * 0.5f); ImGui::TextDisabled("%s", t); }
+    ImGui::Spacing();
+    if (ImGui::Button("Resume", ImVec2(bw, 0))) { pauseMenu = false; syncCursor(); }
+    if (ImGui::Button("Controls", ImVec2(bw, 0))) showControls = true;
+    if (ImGui::Button("Settings", ImVec2(bw, 0))) settings().open = true;
+    ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+    if (ImGui::Button("Return to start marker", ImVec2(bw, 0))) { returnToStart(); pauseMenu = false; syncCursor(); }
+    if (ImGui::Button("Return to Creative", ImVec2(bw, 0))) exitExplore();
+    if (ImGui::Button("Main menu", ImVec2(bw, 0))) { exitExplore(); mainMenuOpen(*this); }   // UI2
+    if (ImGui::Button("Keep session changes and return", ImVec2(bw, 0))) { applyDamageToMap(); exitExplore(); }
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Keeps the current wall damage and craters in the map as one undoable edit.\nTanks keep their damage, wreck and ammunition (not their position).\nWeapons, ammunition, moved guns and doors are not kept.");
     ImGui::End();
   }
+  controlsWindow(*this, &showControls);   // UI1b
+  if (!pauseMenu) showControls = false;
 }
 
 // stamina bar: under the breath bar, only while not full; amber when a jump is no longer affordable

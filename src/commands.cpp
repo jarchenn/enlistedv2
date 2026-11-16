@@ -1,6 +1,7 @@
 // CMD1: the in-game command line (see commands.h). One table, kCommands; each handler gets the arguments after the
 // command name and returns its result text. Targets: "me" / "host" (you: commands run on the host), "@a" (every soldier
 // in the match) or a player name from the match roster; an omitted target is you. Outside a match only you exist.
+#include "sd_game.h"
 #include "commands.h"
 #include "app.h"
 #include "game.h"
@@ -175,6 +176,12 @@ const std::vector<Cmd>& table() {
        int n = 0; for (int s : w) if (Soldier* so = soldier(s)) if (so->alive) { so->protectUntil = -1; gGame->killSoldier(s, -1, vec3(0, 0, 1)); ++n; }
        gAdmin.allowKill = false;
        return "Killed " + std::to_string(n);
+     }},
+    {"sd", "/sd [skip | timeout | buy <item> | state]", "Search and Destroy: skip the warmup, call a timeout, buy by shop id",
+     [](App&, Args& a) -> std::string {
+       if (!matchOn() || !sdActive()) return "Search and Destroy is not running";
+       std::string s; for (size_t k = 0; k < a.size(); ++k) s += (k ? " " : "") + a[k];
+       return sdCommand(*gGame, s);
      }},
     {"heal", "/heal [target]", "full health (a match only)",
      [](App&, Args& a) -> std::string {

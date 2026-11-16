@@ -144,7 +144,9 @@ ev('step_water', 'step', 0.8, family(AM, 'footstep_waterdeep', 8, U), 'named', '
 for w, src in (('modern_scar', 'fg42'), ('modern_ak', 'stg44'), ('modern_m4', 'm3_grease_gun'), ('modern_m16', 'stg44'), ('modern_lmg', 'm1918a2_bar'),
                ('modern_shotgun', 'kar98k'), ('modern_sniper_bolt', 'kar98k_zf39'), ('modern_sniper_semi', 'kar98k_zf39'), ('modern_pistol', 'm1_carbine'),
                ('modern_ar15', 'm1_carbine'), ('modern_mp7', 'm3_grease_gun'), ('modern_scorpion', 'mp40'), ('modern_uzi', 'm3_grease_gun'), ('modern_rpg7', 'bazooka_m9'), ('modern_shotgun2', 'kar98k'),
-               ('modern_fal', 'fg42'), ('modern_pistol2', 'm1_carbine'), ('modern_glauncher', 'bazooka_m9')):   # MG2, MG3, MG4
+               ('modern_fal', 'fg42'), ('modern_pistol2', 'm1_carbine'), ('modern_glauncher', 'bazooka_m9'),
+               ('modern_revolver', 'm1_carbine'), ('modern_deagle', 'm1_carbine'), ('modern_sawnoff', 'kar98k'), ('modern_smg9', 'm3_grease_gun'),
+               ('modern_glock34', 'm1_carbine'), ('modern_makarov', 'm1_carbine'), ('modern_fn502', 'm1_carbine'), ('modern_mark23', 'm1_carbine')):   # MG2, MG3, MG4, MG12
     for pre, suf in (('shot', ''), ('shot', '_far'), ('tail', ''), ('reload', '')):
         f = '%s_%s%s' % (pre, src, suf)
         if f not in events and pre == 'reload' and src == 'kar98k_zf39': f = 'reload_kar98k'

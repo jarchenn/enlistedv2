@@ -63,10 +63,11 @@ json UserSettings::toJson() const {
                   {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi}, {"msaa", g.msaa}, {"ivy", g.ivy}, {"materialDetail", g.materials}, {"dustMotes", g.dustMotes},
                   {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}, {"weather", weather == 1 ? "Cloudy" : "Clear"}, {"envFog", envFog}}},
     {"gameplay", {{"mouseSensitivity", mouseSens}, {"adsSensitivity", adsSens}, {"invertY", invertY}, {"reducedMotion", reducedMotion},
-                  {"showArms", showArms}, {"sightMarkers", sightMarkers}, {"weaponList", weaponList}, {"friendlyMarkers", friendlyMarkers}, {"heliCameraMotion", heliCamMotion}}},
-    {"audio", {{"master", master}, {"effects", effects}, {"ui", ui}, {"ambience", ambience}}},
+                  {"showArms", showArms}, {"sightMarkers", sightMarkers}, {"weaponList", weaponList}, {"friendlyMarkers", friendlyMarkers}, {"heliCameraMotion", heliCamMotion}, {"vehicleHealthBars", vehicleBars}}},
+    {"audio", {{"master", master}, {"effects", effects}, {"ui", ui}, {"ambience", ambience}, {"gunfire", gunfire}}},
     {"controls", k},
-    {"interface", {{"uiScale", uiScale}, {"editorFlySpeed", editorFly}, {"editorOrbitSpeed", editorOrbit}, {"editorZoomSpeed", editorZoom}}},
+    {"player", {{"character", character}, {"primary", primary}}},
+    {"interface", {{"uiScale", uiScale}, {"minimapRotate", minimapRotate}, {"developerOverlay", devOverlay}, {"editorFlySpeed", editorFly}, {"editorOrbitSpeed", editorOrbit}, {"editorZoomSpeed", editorZoom}}},
   };
 }
 
@@ -104,17 +105,21 @@ UserSettings UserSettings::fromJson(const json& j) {
     u.showArms = q.value("showArms", u.showArms); u.sightMarkers = q.value("sightMarkers", u.sightMarkers);
     u.weaponList = q.value("weaponList", u.weaponList); u.friendlyMarkers = q.value("friendlyMarkers", u.friendlyMarkers);
     u.heliCamMotion = std::clamp(q.value("heliCameraMotion", u.heliCamMotion), 0.0f, 3.0f);
+    u.vehicleBars = q.value("vehicleHealthBars", u.vehicleBars);
   }
   if (j.contains("audio") && j["audio"].is_object()) {
     const json& q = j["audio"];
     u.master = std::clamp(q.value("master", u.master), 0.0f, 1.0f); u.effects = std::clamp(q.value("effects", u.effects), 0.0f, 1.0f);
     u.ui = std::clamp(q.value("ui", u.ui), 0.0f, 1.0f); u.ambience = std::clamp(q.value("ambience", u.ambience), 0.0f, 1.0f);
+    u.gunfire = std::clamp(q.value("gunfire", u.gunfire), 0.0f, 2.0f);
   }
   if (j.contains("controls") && j["controls"].is_object())
     for (auto it = j["controls"].begin(); it != j["controls"].end(); ++it) if (it->is_string()) u.keys[it.key()] = it->get<std::string>();
+  if (j.contains("player") && j["player"].is_object()) { u.character = j["player"].value("character", std::string()); u.primary = j["player"].value("primary", std::string()); }
   if (j.contains("interface") && j["interface"].is_object()) {
     const json& q = j["interface"];
     u.uiScale = std::clamp(q.value("uiScale", u.uiScale), 0.75f, 2.0f);
+    u.minimapRotate = q.value("minimapRotate", u.minimapRotate); u.devOverlay = q.value("developerOverlay", u.devOverlay);
     u.editorFly = std::clamp(q.value("editorFlySpeed", u.editorFly), 0.1f, 10.0f);
     u.editorOrbit = std::clamp(q.value("editorOrbitSpeed", u.editorOrbit), 0.25f, 4.0f);
     u.editorZoom = std::clamp(q.value("editorZoomSpeed", u.editorZoom), 0.25f, 4.0f);
@@ -172,6 +177,12 @@ const FixedKey kFixed[] = {
   {"F3", "performance stats"}, {"F4", "damage debug"}, {"F5", "Explore / Creative"}, {"F6", "match debug overlay"}, {"ESCAPE", "menu / back"},
 };
 const char* fixedUse(const std::string& n) { for (auto& f : kFixed) if (n == f.name) return f.what; return nullptr; }
+// "LEFT_SHIFT" -> "Left Shift", "ESCAPE" -> "Esc"
+static std::string prettyKey(std::string k) {
+  if (k == "ESCAPE") return "Esc"; if (k == "BACKSPACE") return "Backspace"; if (k == "ENTER") return "Enter";
+  bool up = true; for (char& c : k) { if (c == '_') { c = ' '; up = true; continue; } c = up ? (char)std::toupper((unsigned char)c) : (char)std::tolower((unsigned char)c); up = false; }
+  return k;
+}
 struct Action { const char* id; const char* label; };
 const Action kActions[] = {{"fireMode", "Fire mode"}, {"prone", "Prone"}, {"crouch", "Crouch"}, {"packUp", "Deploy / pack up heavy weapon"},
                            {"grenade", "Throw grenade"}, {"smokeGrenade", "Smoke grenade (match)"},
@@ -229,8 +240,8 @@ void Settings::apply(App& app) {
   app.fx.setBudget(g.particles);
   if (!gSelftest) platformSwapInterval(s.vsync ? 1 : 0);
   app.reducedMotion = s.reducedMotion; app.vm.showArms = s.showArms; app.sightMarkers = s.sightMarkers; app.showWeaponList = s.weaponList; app.friendlyMarkers = s.friendlyMarkers;
-  app.audio.setGains(s.master, s.effects, s.ui, s.ambience);
-  if (ImGui::GetCurrentContext()) ImGui::GetIO().FontGlobalScale = s.uiScale;
+  app.audio.setGains(s.master, s.effects, s.ui, s.ambience); app.audio.gunfireGain = std::clamp(s.gunfire, 0.0f, 2.0f);   // UI1b
+  // UI1b: the font scale is set every frame (app.cpp uiFontScale: resolution x UI scale)
   // editor camera: fly speed is the Alt+wheel multiplier; orbit / zoom scale the content/settings/editor.json values
   NavCamSettings& nav = const_cast<NavCamSettings&>(navSettings());
   if (!gNavBaseSet) { gNavBase = nav; gNavBaseSet = true; }
@@ -304,6 +315,27 @@ void settingsUiApply(App& app) {   // the Apply button (always enabled: it re-ap
   if (S.s.envFog != gApplied.envFog || S.s.weather != gApplied.weather) app.R.wx.userSet = true;   // NT2: the user overrides the map's sky
   S.apply(app); gApplied = S.s; gPendingSave = true;
 }
+// UI1b: the controls page (pause menu "Controls"): mouse, every action with its key, then the fixed keys (no debug keys)
+void controlsWindow(App& app, bool* open) {
+  if (!*open) return;
+  ImGuiIO& io = ImGui::GetIO();
+  ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+  if (ImGui::Begin("Controls", open, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse)) {
+    const ImVec4 keyCol(0.92f, 0.70f, 0.28f, 1.0f);
+    if (ImGui::BeginTable("controls", 4, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_PadOuterX)) {
+      int n = 0;
+      auto cell = [&](const std::string& key, const char* what) { if (n++ % 2 == 0) ImGui::TableNextRow(); ImGui::TableNextColumn(); ImGui::TextColored(keyCol, "%s", key.c_str()); ImGui::TableNextColumn(); ImGui::TextUnformatted(what); };
+      cell("Mouse", "look"); cell("Left button", "fire"); cell("Right button", "aim / sights"); cell("Wheel", "next / previous weapon");
+      for (auto& a : kActions) { auto it = app.binds.names.find(a.id); cell(it == app.binds.names.end() ? "-" : prettyKey(it->second), a.label); }
+      for (auto& f : kFixed) { std::string nm = f.name; if (nm == "F3" || nm == "F4" || nm == "F6") continue; cell(prettyKey(nm), f.what); }
+      cell("F12", "developer overlay");
+      ImGui::EndTable();
+    }
+    ImGui::Spacing(); ImGui::TextDisabled("Change keys in Settings > Controls.");
+  }
+  ImGui::End();
+}
+
 void settingsWindow(App& app) {
   Settings& S = settings();
   bool& wasOpen = gWasOpen; bool& pendingSave = gPendingSave;
@@ -406,6 +438,9 @@ void settingsWindow(App& app) {
       ImGui::Checkbox("Reduced motion (keeps aim displacement)", &u.reducedMotion);
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Helicopter camera motion", &u.heliCamMotion, 0.0f, 3.0f, "x %.2f");
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Camera banking, rotor vibration and landing shake while flying a helicopter (0 = none, 1 = default, up to 3x more).");
+      ImGui::Checkbox("Minimap turns with you (heading up)", &u.minimapRotate);
+      ImGui::Checkbox("Vehicle health bars", &u.vehicleBars);
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("A health bar floating over every vehicle within about 90 m.");
       ImGui::Checkbox("Show arms", &u.showArms);
       ImGui::Checkbox("Sight calibration markers", &u.sightMarkers);
       ImGui::Checkbox("Show weapon list", &u.weaponList);
@@ -416,7 +451,10 @@ void settingsWindow(App& app) {
     // ------------------------------------------------ audio
     if (ImGui::BeginTabItem("Audio")) {
       auto vol = [&](const char* l, float& v) { int p = (int)std::lround(v * 100); ImGui::SetNextItemWidth(260); if (ImGui::SliderInt(l, &p, 0, 100, "%d %%")) v = p / 100.0f; };
-      vol("Master", u.master); vol("Effects", u.effects); vol("Interface", u.ui); vol("Ambience (wind, leaves)", u.ambience);
+      vol("Master", u.master); vol("Effects", u.effects);
+      { int p = (int)std::lround(u.gunfire * 100); ImGui::SetNextItemWidth(260); if (ImGui::SliderInt("Gunfire", &p, 0, 200, "%d %%")) u.gunfire = p / 100.0f; }   // UI1b: guns, cannons, shell blasts
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Gunshots, cannon fire and shell explosions, on top of Effects (100 %% = as mixed, up to 200 %%).");
+      vol("Interface", u.ui); vol("Ambience (wind, leaves)", u.ambience);
       if (!app.audio.ok()) ImGui::TextDisabled("No audio device.");
       ImGui::EndTabItem();
     }
@@ -452,6 +490,8 @@ void settingsWindow(App& app) {
     // ------------------------------------------------ interface
     if (ImGui::BeginTabItem("Interface")) {
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("UI scale", &u.uiScale, 0.75f, 2.0f, "x %.2f");
+      ImGui::Checkbox("Developer overlay (F12)", &u.devOverlay);
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Frame time, the full key list, debug keys and status lines over play. Off for normal play.");
       if (ImGui::IsItemDeactivatedAfterEdit()) applyNow = true;   // resizing the window while dragging its own slider: on release
       ImGui::SeparatorText("Editor camera");
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Fly speed", &u.editorFly, 0.1f, 10.0f, "x %.2f", ImGuiSliderFlags_Logarithmic);

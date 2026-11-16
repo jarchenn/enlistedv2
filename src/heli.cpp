@@ -326,7 +326,7 @@ void heliCameraStep(App& app, TankSys& sys, TankRT& t, float dt) {
 
 void TankSys::drawHeli(App& app, const TankRT& t, vec4 tint, const mat4& h) {
   mat4 hc = h * glm::translate(mat4(1), vec3(0, -t.susp, 0));   // gear compression (the airframe sinks on its wheels)
-  const TankDef& d = *t.def; const GpuModel* gm = d.model.get();
+  const TankDef& d = *t.def; const GpuModel* gm = lodModel(app, t);
   auto put = [&](const std::vector<int>& ps, const mat4& M) { for (int k : ps) app.R.worldModels.push_back({gm, k, M, tint}); };
   auto spin = [&](vec3 hub, vec3 axis, float deg) { return hc * glm::translate(mat4(1), hub) * glm::rotate(mat4(1), radians(deg), axis) * glm::translate(mat4(1), -hub); };
   put(d.hullParts, hc);

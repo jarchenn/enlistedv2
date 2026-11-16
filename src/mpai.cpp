@@ -1,4 +1,5 @@
 // Glue between the shared core and the multiplayer + AI systems (see mpai.h).
+#include "sd_game.h"
 #include "mpai.h"
 #include "royale.h"
 #include "gore_api.h"
@@ -105,6 +106,7 @@ void mpaiInput(App& app, ExploreInput& in) {
   bool frozen = !L || !L->alive || gGame->match.phase != MatchPhase::Running;
   if (frozen) { if (L && !L->alive && app.occupied) { logf("station: leave, crew dead"); app.leaveStation(); } in = ExploreInput{}; return; }   // the dead free their gun
   royaleInput(app, in);   // BR1: aboard / falling: Space jumps / opens the chute, no walking
+  sdInput(app, in);       // SD1: freeze, no sprint / prone, plant / defuse holds, the buy menu
   if (app.selftest || app.pauseMenu) return;
   // grenades are the E3 items: Q / LMB, H quick frag (shared bindings); quick smoke on "smokeGrenade" (default J, match only)
   if (edge(app.win, app.binds.smokeGrenade) && L->throwT < 0 && app.quickReturn < 0) {
@@ -190,7 +192,7 @@ void mpaiSetBlastOwner(int owner) { gProjOwner = owner; }   // GM2: packs / arti
 
 void mpaiExplosion(App& app, vec3 p, vec3 dir, float dmg, float radius, float craterScale, int wallKind, int breached, size_t wallHits) {
   if (gNet && gNet->role == Net::HOST && gGame && gGame->active)
-    gNet->hostWorldEvent(json{{"t", "ex"}, {"p", tojson(p)}, {"d", tojson(dir)}, {"dmg", dmg}, {"r", radius}, {"cs", craterScale}, {"wk", wallKind}, {"wm", app.blastWall}, {"at", app.blastAT}, {"sg", app.blastSplashGun}, {"fx", !gInGrenadeBlast || true}});
+    gNet->hostWorldEvent(json{{"t", "ex"}, {"p", tojson(p)}, {"d", tojson(dir)}, {"dmg", dmg}, {"r", radius}, {"cs", craterScale}, {"wk", wallKind}, {"wm", app.blastWall}, {"at", app.blastAT}, {"sg", app.blastSplashGun}, {"sh", app.blastShell}, {"fx", !gInGrenadeBlast || true}});
   if (!gGame || !gGame->active) return;
   if (!gGame->isClient && !gInGrenadeBlast) gGame->explosionDamage(p, dmg * app.blastPersonnel, radius * app.blastPersonnel, gGame->soldierOfOwner(gProjOwner), false);
   gGame->hearSound(p, -1, 90.0f, gGame->soldierOfOwner(gProjOwner), 1);

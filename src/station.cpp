@@ -237,6 +237,7 @@ void App::switchStationPosition() {
 // Audio::casing limits the range (15 m), the rate per shooter and the number at once.
 void App::shotCasing(const WeaponDef& d, vec3 feet, int shooter) {
   if (d.action != "auto" && d.action != "semi" && d.action != "bolt" && d.action != "heavy") return;
+  if (!d.casings) return;   // MG12: the revolver keeps its cases, the sawn-off ejects them on reloading
   if (glm::length(feet - eyePos()) > 15.0f) return;   // before the ground query
   if (feet.y < waterAt(*this, feet.x, feet.z) - 0.05f) return;
   bool soft = true; Physics::Hit h;
@@ -263,6 +264,7 @@ void App::fireRounds(const WeaponDef& d, vec3 from, vec3 dir, int tracerKind, ui
     }
     fireProjectile(from, v, d.velocity, PROJ_BULLET, 0, ~0ull, k == 0 ? tracerKind : 0, d.container);
     Projectile& p = projectiles.back(); p.mass = d.bulletMass * 0.001f; p.owner = owner; p.extraPellet = k > 0;
+    if (d.blaster) { p.gravScale = 0; p.tracerKind = d.blaster; }   // SW1: a bolt flies straight, every pellet glows
   }
 }
 
@@ -322,11 +324,13 @@ void App::stepProjectiles(float dt) {
                     : p.at ? explode(hit.pos, p.v, 320.0f, 0.9f, 0.0f, p.ignore, WALL_AP) : explode(hit.pos, p.v, p.dmg, 2.2f, 0.0f, p.ignore, WALL_HE);
             blastSplashGun = 40; blastPersonnel = 1;
             fx.explosion(hit.pos, hit.normal, "metal", false);
-            audio.play("explosion", hit.pos, 1.0f);
+            if (p.kind == PROJ_HE && !p.cannon30) audio.play("shell_hit", hit.pos, 1.0f, 1.0f, glm::length(hit.pos - eyePos()) / 343.0f);   // SND9: the shell bursting, heard after the sound's travel time
+            else audio.play("explosion", hit.pos, 1.0f);
             lastImpact = {hit.pos, "armour", p.kind, (float)glfwGetTime(), ex.breached};
           } else {
             if (p.kind == PROJ_BULLET) fx.impact(hit.pos, hit.normal, "metal");
             if (p.cannon30) { fx.impact(hit.pos, hit.normal, "metal"); fx.flash(hit.pos + hit.normal * 0.1f, 0.7f, 0.07f, vec4(9, 6, 3, 1)); audio.play("impact_metal", hit.pos, 0.7f); }   // VH5: 30 mm bursts on armour
+            else if (p.kind == PROJ_HE) { fx.flash(hit.pos + hit.normal * 0.1f, 1.2f, 0.08f, vec4(9, 6, 3, 1)); audio.play("shell_hit", hit.pos, 1.0f, 1.0f, glm::length(hit.pos - eyePos()) / 343.0f); }   // SND9: a shell the armour stopped still bursts (it was silent)
             lastImpact = {hit.pos, "armour", p.kind, (float)glfwGetTime(), 0};
           }
           projectiles.erase(projectiles.begin() + k);
@@ -349,19 +353,25 @@ void App::stepProjectiles(float dt) {
           uint64_t hitInst = (hit.ud >> 60) == 0xF || hit.ud == 0 ? 0 : (hit.ud >> 16);
           if (p.atKill && hitInst) { auto hr = rt.find(hitInst); if (hr != rt.end() && isAtGun(hr->second.asset) && !hr->second.st.wrecked) { wreckStation(hitInst, p.kind == PROJ_ROCKET ? "rocket direct hit" : "shell direct hit"); ++directHits; } }
           blastAT = p.at;   // AT: concentrated wall damage, deep crater (ground.cpp)
+          blastShell = p.kind == PROJ_HE && !p.cannon30;   // SND9: LAN clients hear "shell_hit" for it
           blastSplashGun = p.splashGun;
           blastPersonnel = p.kind == PROJ_ROCKET ? 1.6f : p.at ? 1.0f : 2.0f;   // HE against soldiers: launchers +60 %, tank / AT gun shells +100 %
           const float gk = 0.5f;   // tank / AT gun shells dig half the crater (walls unchanged)
           auto ex = p.kind == PROJ_ROCKET ? explode(hit.pos, p.v, p.blastDmg, p.blastR, p.craterScale, p.ignore, WALL_ROCKET)
                   : p.at ? explode(hit.pos, p.v, 320.0f, 0.9f, 1.0f * gk, p.ignore, WALL_AP) : explode(hit.pos, p.v, p.dmg, p.blastR > 0 ? p.blastR : 2.2f, (p.craterScale > 0 ? p.craterScale : 1.0f) * gk, p.ignore, WALL_HE);
-          blastAT = false; blastSplashGun = 40; blastPersonnel = 1;
+          blastAT = false; blastSplashGun = 40; blastPersonnel = 1; blastShell = false;
           fx.explosion(hit.pos, hit.normal, surface == "ground" ? "ground" : surface, ground || ex.crater);
-          audio.play(p.kind == PROJ_ROCKET ? "explosion_rocket" : p.at ? "explosion_big" : "explosion", hit.pos, p.cannon30 ? 0.35f : 1.0f);   // VH5: 10 rounds/s of 30 mm
+          if (p.kind == PROJ_HE && !p.cannon30) audio.play("shell_hit", hit.pos, 1.0f, 1.0f, glm::length(hit.pos - eyePos()) / 343.0f);   // SND9: tank / AT / field-gun shells, on anything (ground, walls, soldiers, big enemies)
+          else audio.play(p.kind == PROJ_ROCKET ? "explosion_rocket" : p.at ? "explosion_big" : "explosion", hit.pos, p.cannon30 ? 0.35f : 1.0f);   // VH5: 10 rounds/s of 30 mm
           lastImpact = {hit.pos, surface, p.kind, (float)glfwGetTime(), ex.breached};
         } else {
           std::string surf2 = surface;
           bulletImpact(p, hit, surf2);   // glass / shutters / doors: damage, detach, maybe a penetrating continuation
           mpaiImpact(*this, p, hit.pos, hit.normal, hit.ud, hit.t, surface);   // LAN: the same impact on every client
+          if (p.tracerKind >= 3) {   // SW1: a blaster bolt: scorch, sparks and its own hit sound (no dust, no ricochet)
+            fx.blasterImpact(hit.pos, hit.normal, p.tracerKind);
+            if (glm::length(hit.pos - eyePos()) < 120.0f) audio.play("blaster_hit", hit.pos, 0.5f);
+          } else {
           fx.impact(hit.pos, hit.normal, surf2 == "concrete" || surf2 == "masonry" || surf2 == "gravel" ? "stone" : surf2 == "dirt" ? "ground" : surf2 == "wood_door" || surf2 == "wood_shutter" ? "wood" : surf2);
           {   // material impact sound at the contact
             std::string im = surf2 == "ground" || surf2 == "dirt" || surf2 == "gravel" || surf2 == "earth" ? "dirt" : surf2 == "steel" || surf2 == "metal" ? "metal"
@@ -372,6 +382,7 @@ void App::stepProjectiles(float dt) {
                 if (now - recent[o] >= 0.2) { recent[o] = now; static uint32_t rs = 777; rs = rs * 1664525u + 1013904223u; audio.play("bullet_hit", hit.pos, 0.6f, 0.9f + 0.2f * (rs >> 8) / 16777216.0f); }
               } else audio.play("impact_" + im, hit.pos, 0.5f);
             }
+          }
           }
           lastImpact = {hit.pos, surface, p.kind, (float)glfwGetTime(), 0};
         }

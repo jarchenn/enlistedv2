@@ -6,6 +6,7 @@
 //   ai_combat.cpp  perception, aim model and firing, grenades
 //   ai_debug.cpp   overlays, follow camera, freeze / step, debug window, difficulty selection
 // This replaces the AI/LAN milestone state machine (see docs/ai-inventory.md for the decision).
+#include "sd_game.h"
 #include "game.h"
 #include "app.h"
 #include "ai_core.h"
@@ -24,6 +25,7 @@ bool Game::lineOfSight(vec3 a, vec3 b, float* smokeT) const {
   Physics::Hit h[8];
   int n = Physics::castRayAll(a, d, L, h, 8, false);
   for (int k = 0; k < n; ++k) {
+    if (app.tanks.occupied && h[k].ud == (app.tanks.occupied << 16)) continue;   // TK1: the occupied vehicle's own hull (its crew is the target inside)
     if (isLeaf(h[k].ud)) {
       uint64_t inst = h[k].ud >> 16; int idx = (int)(h[k].ud & 0xFFFF) - 1;
       auto it = app.rt.find(inst);
@@ -46,7 +48,7 @@ void Game::aiStep(Soldier& s, float dt) {
   BotMind& m = A->mind(s);
   Brain& b = s.br;
   b.modeT += dt; b.grenadeCD -= dt;
-  if (A->frozen && !A->stepRun) {   // debug freeze: bots stand still, nothing thinks
+  if ((A->frozen && !A->stepRun) || sdFrozen() || (sdActive() && sdBotHolding(*this, s))) {   // debug freeze / SD1 freeze time, planting, defusing: bots stand still
     Physics::updateAgent(s.agent, dt, vec3(0), false, s.posture, s.yaw);
     auto st = Physics::agent(s.agent); s.feet = st.pos; s.vel = vec3(0); s.speed = 0;
     return;

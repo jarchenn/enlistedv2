@@ -795,3 +795,80 @@ At 25 m and 100 m these are the planned trajectory around each zero.
 **Dev point-of-impact check:** `NMK_MG_POI=id,...` stands 25 m, 100 m and at the zero range from the farmhouse wall, aims (no dispersion, sway or breathing), fires one round and logs the impact against the point under the screen centre (`[mg8poi]`).
 
 **Dev look** (`--selftest-weapons` with `NMK_MG_LOOK=all` or a list of ids; `NMK_MG_ONLY=1` runs only the MG steps): `selftest_out/mg2_<id>_{hip,strafe_r,strafe_l,ads,reload_a,b,c}.png` and `mg2_case.png`.
+
+### MG12: more animated guns
+
+Sources: `incoming/mg12/<name>/` (credits: [MG12](credits.md#modern-guns-mg12)). Same pipeline as MG1-MG8: `tools/modern_guns_config.cjs` + `modern_guns_convert.py` (static gun, 1K textures) → `--import-weapon-models`; `tools/modern_guns_anim_config.cjs` + `modern_guns_anim.py` (the source's own arms and clips, textures up to 2K) → `models/<id>/vm.glb`, `vm.json`. `MG_ONLY=id,...` limits the anim config to those ids. Every gun uses its source's own arms (none uses the game's generated arm). The WP4c fire-clip mask (the clip moves only the parts under the gun joint), the WP4 recoil spring, the muzzle point (flash, tracer) and the casing rule apply to them as to every rig.
+
+| Weapon (`id`) | Source, clips (30 fps) | Stats |
+|---|---|---|
+| .357 Magnum revolver (`modern_revolver`) | DJMaesen `revolver animated`; fire 1-15, reload_start 15-52 (cylinder out, empties ejected), reload_insert 52-75 (one round; loops), reload_end 190-224, inspect 224-270, idle 270-297 | 6 rounds, round by round, 150 rpm, 440 m/s, 10.2 g; no case ejected per shot (`casings` false) |
+| Sawn-off double-barrel (`modern_sawnoff`) | DJMaesen `sawnoff animated`; fire 1-15, reload 15-107, reload_empty 107-195, idle 221-252 | 12 gauge, 2 shells (`containerSize` 2), 9 pellets in 4.5°, 380 m/s; no pump sound, no case per shot |
+| SMG-9 (`modern_smg9`) | DJMaesen `fps smg9 animated`; fire 1-9, reload_empty 9-79 (with the bolt pull), reload 79-133, inspect 133-179, idle 179-206 | 9x19 mm, 30 rounds, 900 rpm auto / semi, 380 m/s; red dot (`animated.redDot` at the lens centre) |
+| Desert Eagle (`modern_deagle`) | DJMaesen `animated pistol` (heavy pistol); fire 1-16, reload 16-71, reload_empty 71-159, idle 220-250 | .50 AE, 7 rounds, 200 rpm, 470 m/s, 19.4 g |
+
+- **Sights** (rig points from the static mesh's top profile, checked in the ADS captures): revolver rear notch / front post (the post in the notch, level); Desert Eagle the same; sawn-off from just over the breech to the top of the muzzle block (the bead); SMG-9 through the red dot's lens centre (the lens object is dropped: open window).
+- **New weapon field** `casings` (default true): false = no spent case per shot (`App::shotCasing`).
+- **Pump sound:** only tube-fed (`feed` single) multi-pellet guns play it after a shot.
+- **Reload sounds** take an optional pitch (`RSet.pitch`, resampled like the shot variants).
+- **Battle Royale ammo** by calibre (`loot.cpp ammoTypeOf`): .357 and .50 AE count as .45 (the .50 pool is the BMG's), 9x18 as 9 mm, 9x39 as 7.62; a pistol for the loot weights is any semi-automatic 9 mm / .45 gun with 16 rounds or fewer, whatever its feed.
+- **Crate:** `357_speedloader6` and `50ae_mag7` in the mixed supply crate.
+- **Operators:** the SMG-9 joins both sides' primary pools (weight 1).
+- **Damage** (`content/ai/damage.json`, DMG1 bands): revolver 62 / 40, Desert Eagle 60 / 38, sawn-off 28 / 5 per pellet, SMG-9 30 / 18; DMG1 classes pistol / shotgun / smg with `headMax` 80 / 75.
+
+**Batch 2.**
+
+| Weapon (`id`) | Source, viewmodel | Stats |
+|---|---|---|
+| Glock 34 with compensator (`modern_glock34`) | DJMaesen `fps pistol Animated`, its own arms and clips; fire 226-235 (the slide cycles; the source's other fire clip 1-10 leaves it locked back), reload_empty 10-66 (from the slide lock), reload 66-132, idle 180-206 | 9x19 mm, 17 rounds, 450 rpm, 375 m/s; DMG1 pistol 32 / 20, `headMax` 80 |
+| Makarov PM (`modern_makarov`) | Cransh GLB: **the gun only**, static on the game's arms (slide -> bolt, mag -> mag) | 9x18 mm, 8 rounds, 400 rpm, 315 m/s; pistol 30 / 18, `headMax` 75; the Axis operators' sidearm |
+| FN 502 Tactical (`modern_fn502`) | Cransh GLB: the gun only, static on the game's arms | .22 LR, 15 rounds, 450 rpm, 330 m/s; pistol 26 / 15, `headMax` 70 |
+| HK Mk 23 (`modern_mark23`) | BarcodeGames FBX, its own arms and clips (named actions: Idle, Shoot, Reload); **local-only** (licence) | .45 ACP, 12 rounds, 350 rpm, 260 m/s; pistol 36 / 22, `headMax` 80 |
+
+- **The two Cransh GLBs:** their arms' skin is broken: the arms explode to thousands of units even in Blender's own glTF import, whatever its bind-pose options (as the MG7 SCAR-H). Their static guns are baked posed at the first frame of their idle / shot (their rest pose is taken apart; `poseFrame` / `poseAction`). The FN 502 GLB's `KHR_materials_pbrSpecularGlossiness` materials crash Blender's importer, so a copy with plain materials is converted first (base colour from the diffuse).
+- **The Mk 23:** the committed `modern_mark23.json` shows the Springfield XD's model and rig. The real model, rig and sights come from `content/weapons/local/modern_mark23.json` (merged by the weapon loader; `modern_guns_anim_config.cjs` reads it too) and `models/modern_mark23_local/`, both git-ignored.
+- **Crate:** `9mm_mag17`, `9x18_mag8`, `22lr_mag15`, `45_mag12`. Sounds are borrowed and pitched apart (`audio.cpp` MG12 batch 2).
+
+### SW1: blasters, blaster troopers and robot commandos
+
+Two AI types, selectable per side in the AI rows: **Blaster troopers** (`AiType::Troopers`, 16) and **Robot commandos** (`AiType::Robots`, 17).
+- **Brain:** the soldier brain (cover, facing, shouldered moving pose, hit zones), on either side.
+- **Bodies and loadouts:** `content/ai/combat.json` `kits`.
+  - Troopers: one of `trooper_a` / `_b` / `_c` in turn, carrying only `blaster_carbine` (weight 7) or `blaster_rifle` (weight 3).
+  - Robots: `robot_commando`, carrying only `blaster_robot`.
+  - No class kit, sidearm, grenades or explosion pack. They drop what they carry.
+- **Robot traits:** 0.85 health, 1.3x pace, 1.4x aim turn. Its hits spark with a metal sound instead of bleeding.
+- **Bodies:** baked by `tools/bake_ai_characters.py kits`, local-only (git-ignored `content/characters/trooper_*.glb`, `robot_*.glb`). Without them the soldier body is used.
+
+**Blasters** (`content/weapons/blaster_*.json`, side `blaster`): in no rack, case or loot table.
+- **Weapon fields:** `"blaster": "blue" | "red"` and `casings` false.
+- **Bolts:** every shot is a bolt (tracer kind 3 or 4) with no gravity and no zero tilt. Each bolt draws a white-hot 1.4 m core in a coloured glow, a short fading trail and a small travelling light.
+- **Muzzle flash:** tinted to the bolt's colour, with a coloured light.
+- **Impact** (`Fx::blasterImpact`): a coloured flash, sparks, scorch smoke and a brief light, with the synthesised `blaster_hit` sound. There is no dust and no ricochet.
+
+| id | Fire | Rounds | Velocity | Damage (DMG1) |
+|---|---|---|---|---|
+| `blaster_carbine` | auto 700 / semi | 50 | 180 m/s | 31 / 22, assault class, auto spread |
+| `blaster_rifle` | semi / auto 320 | 30 | 200 m/s | 44 / 36, battle class, rifle accuracy |
+| `blaster_robot` | auto 600 / semi | 40 | 170 m/s | 29 / 20, assault class, auto spread |
+
+- **Sounds:** synthesised in-house (a pitch sweep with FM wobble, odd harmonics, an attack click and a short spring-like echo): `content/audio/custom/guns/blaster_a|b|c.wav` and `fx/blaster_hit.wav`. The reloads borrow `reload_m4.mp3`, pitched apart.
+- **Committed models:** stand-ins, the static models and sights of the M4, M16 and AK.
+- **Local overrides:** an optional local file `content/weapons/local/<file>.json` (git-ignored) is merged over a weapon's JSON (`merge_patch`): names, model directory, sights, muzzle. The blasters' real models are local-only bakes in `content/weapons/models/blaster_*_local/`.
+- **Dev:**
+  - `NMK_AI_TYPES=<side 0>,<side 1>` makes every AI of a side that AI type.
+  - `--shots-poses` takes `NMK_POSE_POSTS` (`kneel`, `carry`, `moveaim`, `idle`, `fire`; `fire` shoots one round a frame before the picture).
+  - `NMK_POSE_WEAPONS=own:none` keeps the bot's own weapon.
+
+**SW2 (after play):**
+- **Hold:** a weapon's `"hold"` block sets its third-person hold.
+  - `offset`: in the chest frame (m), moves the shouldered and low-ready weapon.
+  - `weld`: the cheek-weld share.
+  - `kind`: `pistol` / `rifle` / `launcher`, overriding the guess from where the grip sits.
+  - The blasters are held out in front of the helmet: carbine (0, -0.02, 0.21), long rifle (0, -0.02, 0.06), robot blaster (0, -0.10, 0.12).
+  - Their grip and support sockets sit on the meshes: the pistol grip, and the shroud or fore-end underside.
+- **Robot blaster size:** its local bake is now 0.63 m long (it was 0.92 m: the asset itself was too big), so the hands, pickup and first-person model all use the real size.
+- **Aiming:** no sight picture for the blasters. `ads.zoom` keeps the hip pose (lifted and centred a little by `ads.posCorrection`) and narrows the FOV: 0.62x, and 0.5x for the long rifle.
+  - Zoom-aimed shots go from the muzzle to the camera ray's hit point, not along a sight line.
+  - `"crosshair": "dot"` draws a white dot in a thin outlined +, tighter when aimed.
+  - The dev look also writes `mg2_<id>_hip_ui.png` / `_ads_ui.png` with the HUD.

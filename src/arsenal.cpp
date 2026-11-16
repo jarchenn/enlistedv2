@@ -11,7 +11,9 @@
 //    swapping never refills or duplicates rounds; only ammunition crates restock (existing rule).
 //  - Returning to Creative (F5) resets the loadout, ammunition and fire modes (the existing session reset).
 #include "app.h"
+#include "settings.h"
 #include "mpai.h"
+
 
 #include "loot.h"   // BR2 Battle Royale loot
 #include <GLFW/glfw3.h>
@@ -122,7 +124,9 @@ std::vector<int> App::stackRows() const {
 
 void App::resetLoadout() {
   carried.clear();
-  for (const char* id : {"m1_garand", "m1_thompson"}) if (weaponIndex(id) >= 0) carried.push_back(weaponIndex(id));
+  const std::string& pri = settings().s.primary;   // UI2: the Character screen's primary goes first
+  if (!pri.empty() && weaponIndex(pri) >= 0) carried.push_back(weaponIndex(pri));
+  for (const char* id : {"m1_garand", "m1_thompson"}) if (weaponIndex(id) >= 0 && (pri.empty() || id == pri || carried.size() < 2) && std::find(carried.begin(), carried.end(), weaponIndex(id)) == carried.end()) carried.push_back(weaponIndex(id));
   for (size_t k = 0; k < weaponDefs.size(); ++k) if (isSmallArm(*weaponDefs[k]) && !weaponDefs[k]->pack.on && !weaponDefs[k]->modern && (carried.size() < 2 || weaponDefs[k]->equipment())) carried.push_back((int)k);   // GM2: packs only by grant
   capCarried(carried);
   if (!carried.empty() && std::find(carried.begin(), carried.end(), activeWeapon) == carried.end()) activeWeapon = carried[0];

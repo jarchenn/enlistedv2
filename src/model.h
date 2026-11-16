@@ -55,7 +55,9 @@ struct ImportSpec {
   bool keepOn = false; vec3 keepLo{0}, keepHi{0};
   // Runtime budget (map assets from heavy sources): simplify keeps this fraction of each part's triangles
   // (quadric error, src/simplify.cpp); lod1 > 0 also bakes <dir>/lod1 at simplify * lod1 with 256 px textures.
-  float simplify = 1, lod1 = 0; int lod1Tex = 256;   // MG4: lod1Tex caps the lod1 textures (weapons keep their old size for third person)
+  float simplify = 1, lod1 = 0; int lod1Tex = 256;
+  float lod2 = 0; int lod2Tex = 128;                  // TK2: a second distance LOD (<dir>/lod2) at simplify * lod2
+  std::map<std::string, int> maxTexBy;                // TK2: per source material, albedo / normal cap above maxTex (a hull at 4096)   // MG4: lod1Tex caps the lod1 textures (weapons keep their old size for third person)
   // Destruction sections: split every part into `sectionCount` slabs along `sectionAxis` (by triangle centroid) so a
   // blast can clear one stretch of a wire obstacle; parts are named "<name>#<k>" with "section": k.
   int sectionAxis = 2, sectionCount = 1;
@@ -69,6 +71,7 @@ struct GpuModel {
   GLuint vao = 0, vbo = 0, ebo = 0;
   GLuint texAlb = 0, texMR = 0, texN = 0, texAO = 0;   // first material's set (legacy single-set bakes)
   bool aoInMR = false;              // AO packed in the red channel of the MR map
+  float aoStrength = 1;             // TK3: how much of the baked occlusion shows (vehicle JSON model.aoStrength)
   struct MatTex { GLuint alb = 0, mr = 0, n = 0, ao = 0; bool aoInMR = false; bool cutout = false; std::string name; };
   std::vector<MatTex> mats;         // one texture set per source material (multi-material models: FG42, M2, Tommy gun)
   int textureCount = 0;

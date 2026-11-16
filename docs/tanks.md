@@ -301,3 +301,57 @@ Screenshots are written to `selftest_out/tanks_*.png`.
 - **Bow MG** fire comes from the ball mount, which is part of the hull mesh and is not drawn turning.
 - **Performance** has only an indicative measurement (the report's summary). There is no controlled CPU / GPU benchmark with several moving tanks, and the GPU is shared with other programs on the reference machine.
 - **Licence:** the Tiger model is CC-BY-NC-4.0, which is non-commercial.
+
+## TK1: firing rock, armour rules, durability bar, AI rockets
+
+- **Firing rock** (`fireCannon`, `src/tank_sim.cpp`): each main-gun shot kicks the hull away from the barrel. Pitch ∝ cos(turret), roll ×1.6 ∝ sin(turret), plus a 1.2 cm/deg shove back along the barrel. The size is `gun.rockDeg` (default 4 × the barrel recoil: Tiger 1.8°, Abrams 2.0°, Panzer IV 1.5°, Firefly 1.3°, Sherman 1.2°). Critically damped springs (ω 8.5): peak at about 0.12 s, settled in about 0.8 s, nothing left over afterwards. The barrel recoil and the gunner view kick are as before.
+- **Armour rules**:
+  - Small arms of every calibre do nothing to a tank: sparks and a ricochet ping only.
+  - The helicopter's 30 mm counts as small arms against armour; it still wrecks cars.
+  - Shells, rockets, packs, mines and artillery are unchanged.
+  - Melee on the crew of an armoured tank lands on the tank. A blow from an enemy type with `tank_damage` (default: hp ≥ 500) takes 7 (14 leave 2, the 15th destroys it); other melee does nothing. The crew is hurt only once the tank is wrecked.
+  - Strike reach and distances to a crewed tank are measured to its hull side (`armourGap`, `src/zombie.cpp`).
+- **Durability bar** (`TankSys::drawHealthBar`): drawn for every vehicle (tanks, cars, APC, helicopter) in any seat, after the sight mask. It has 15 segments and the number, flashes white on a damaging hit and reads DESTROYED once wrecked.
+- **AI rockets** (`src/ai_combat.cpp`, `Game::bigTarget / bulletProof / switchWeapon`):
+  - A bot that carries a launcher switches to it for a big target: a tank, armoured car or helicopter crew, or a heavy enemy type. It fires at 12–220 m (`tactics launcher.minRange_m / maxRange_m`), never with a teammate within 5 m behind it, reloads, and switches back afterwards.
+  - Bots without a launcher rank a crewed tank last and never fire bullets at it.
+  - WW2 Heavy-class bots carry the bazooka / Panzerschreck (class secondary). One operator in four (`combat.json loadouts_operator.launcher / launcherEvery`) carries the RPG-7.
+  - The occupied vehicle's own hull does not block bots' sight of its crew.
+- Check: `--capture-tk1` (`src/capture_tk1.cpp`).
+- **TK1 additions**:
+  - **Close targets.** Main-gun shells already sweep from the trunnion every step (`Game::shellSegment`). Checked in `--check-tk1-match`: a zombie 2 m past the muzzle and one 10 m out are killed. A man pressed against the hull front sits under the gun's depression (Tiger −8°: the bore crosses about 1.7 m above the ground there) and under the sight, so the main gun cannot reach him. The bow / roof MG covers that ground.
+  - **Abrams.**
+    - Sight: `gun.reticle "abrams"`, a modern gunner's sight of our own. Fine cross with a centre gap and a red dot, 2 mil stadia with lead marks every 5 and 5 mil brackets, drop ticks below, and a read-out of the laser range, the round (APFSDS / HEAT-MP, READY / LOADING) and WFOV / NFOV.
+    - Speed: 1.5× slower (12.4 m/s ≈ 45 km/h, reverse 5.3, accel 1.73).
+    - Roof gun: an M134 minigun at 2500 rpm (5×). 500-round belts, 4000 spare, a tracer every 3rd round, 9.7 g rounds. Damage is the default rifle row: the ammo name maps to no weapon. Sound `shot_minigun`, one play per round, falling back to `shot_m2hb` until that event exists. Belts over 100 rounds draw one mark per few rounds.
+  - **World health bars** (`TankSys::drawWorldBars`, Settings > Gameplay > Vehicle health bars, on by default): a bar over every vehicle that has durability (tanks, APC, Humvee / Ural / jeep, the Apache, drivable BR cars), except the one you are in and wrecks. Shown within 95 m, fading out over the last 20 m, scaled with distance (34–90 px), hidden behind solid geometry (one ray per vehicle in range), green / yellow / red by health. Placed civilian props without durability get none.
+  - **Death in a vehicle (match).**
+    - A destroyed crewed vehicle kills its crew; outside a match the bail-out stays.
+    - On the player's death the seat is cleared (`TankSys::vacate`), so nothing ties the next life to the wreck. This fixes the respawn at the old spot: the occupied vehicle kept pinning the body to itself.
+    - The wreck stays where it died. The next life spawns at the normal team spawn and gets a fresh, full copy of the same vehicle (`TankSys::spawnFresh`): 7–30 m from the spawn, clear ground (`checkPlacement`), at least 8 m from other vehicles, facing the spawn's direction, entered in the same seat. With no clear spot it spawns on foot with a toast.
+    - Wrecks past 12 are removed oldest first when a copy spawns.
+    - The helicopter does the same: its crash already kills the crew.
+
+## TK2: higher-fidelity tank bakes, LODs, compressed maps
+
+- **Bakes** (`--import-vehicle-models`; sources outside the repo):
+
+  | Tank | Mesh | LOD1 | LOD2 | Textures |
+  |---|---|---|---|---|
+  | Panzer IV | full source 244k tris (was 30 %, 73k) | 98k | 29k | 2048 everywhere, 4096 albedo / normal on the turret and hulls (`maxTexBy`); was 1024 |
+  | Sherman M4 (local-only) | full 279k (was 35 %) | 113k | 36k | 2048 |
+  | Tiger I | 65k (source size) | 26k | 7.8k | 1024: the source's own maximum |
+  | Abrams | 14k (source size) | — | — | 2048 (the source's 2048 × 1024 maps) |
+
+  The Firefly's source (tank_fury.glb) is no longer on disk; its bake is unchanged.
+- **Bake options** (`src/model.cpp`): `lod2` / `lod2Tex` (a second distance LOD); `maxTexBy` (per source material, a higher cap for its albedo / normal). The vehicle post-pass (re-origin, splits) runs on every LOD, whose parts must line up with the full model's (checked at load, else LODs off).
+- **Runtime** (`TankSys::lodModel`): full mesh while the hull is over 260 px across, LOD1 over 80 px, LOD2 below, with 15 % hysteresis. The occupied vehicle is always full; a wreck is at most LOD1.
+- **Textures** (`loadTexBC`): a map of 2048 px or more is block-compressed on load (CPU mips, stb_dxt): albedo BC1 sRGB (BC3 with alpha), metal-rough / AO BC1, normal BC5. The model shader rebuilds z when the blue channel reads 0. A 4096 map with mips: 85 MB RGBA8 → 11 MB (BC1) / 22 MB (BC5).
+- **Check**: `--capture-tk2 <tag>` (`src/capture_tk2.cpp`): close-ups of every tank and a frame-time sample on chateau_town.
+
+## TK3: grass under vehicles, model AO / metal, Abrams vignette
+
+- **Grass** (`TankSys::grassBoxes` → `Renderer::grassVeh` → `vehFlat` in the grass vertex shader, both blade paths and the sun-shadow pass): the nearest 16 vehicles within 160 m of the camera (wrecks too; a helicopter only within 1 m of the ground) are oriented boxes from their hull colliders plus 0.12 m. Blades rooted inside collapse; within 0.7 m outside they are flattened to 35–100 % of their height. Computed per frame, so it follows moving vehicles. No trail behind tracked vehicles.
+- **Model occlusion / metal** (vehicle JSON `model.aoStrength`, `model.metalScale`): `aoStrength` lerps the baked occlusion toward 1 (shader `uAOWeak` = 1 − strength; 0, the unset default, keeps every other model as baked); `metalScale` scales the parts' metal factor at load. Panzer IV: 0.25 / 0.2 (its maps averaged AO ≈ 0.5 and metal ≈ 0.35, which read near black). The Bradley and Sherman M4 bake no AO; the Tiger's (0.58–0.74) is left as is.
+- **Abrams gunner view**: the vignette is in the tone pass (`RenderView::rectVignette`, `uRectVig`): a superellipse on all four edges, rounded into the corners, clear to 62 % of the half extent, a smoothstep to 4 % brightness at the border, dithered. The optic moved to [0.6, 2.35, 3.0].
+- Check: `--capture-tk2 <tag>` now also takes the Tiger's tracks from the player's eye in Explore. The Creative-camera "tracks" views are not usable: at that height the Creative render covers the lower hull with grass-like ground in every build, which is not seen in play.

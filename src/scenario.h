@@ -17,13 +17,15 @@ inline Faction otherFaction(Faction f) { return f == Faction::Allies ? Faction::
 // unlimited respawns, the first team to the kill cap wins. The role stays the team's identity in TDM, so role-based
 // code keeps working; friend / foe is always the roster team (Game::hostile).
 // BR1 Battle royale (royale.h): every soldier its own team like Solo, one life, last alive wins; drop, storm.
-enum class GameMode : int { Assault = 0, Solo = 1, TDM = 2, BattleRoyale = 3 };
-inline const char* gameModeName(GameMode m) { return m == GameMode::Solo ? "Solo" : m == GameMode::TDM ? "Team Deathmatch" : m == GameMode::BattleRoyale ? "Battle royale" : "Assault"; }
+enum class GameMode : int { Assault = 0, Solo = 1, TDM = 2, BattleRoyale = 3, SearchDestroy = 4 };   // SD1: Search and Destroy (sd_mode.h)
+inline const char* gameModeName(GameMode m) { return m == GameMode::Solo ? "Solo" : m == GameMode::TDM ? "Team Deathmatch" : m == GameMode::BattleRoyale ? "Battle royale" : m == GameMode::SearchDestroy ? "Search and Destroy" : "Assault"; }
+inline bool teamMode(GameMode m) { return m == GameMode::TDM || m == GameMode::SearchDestroy; }   // two persistent teams (Match slot.team 0 / 1)
 inline bool ffaMode(GameMode m) { return m == GameMode::Solo || m == GameMode::BattleRoyale; }   // every soldier its own team
-enum class AiType : int { Soldiers = 0, Zombies = 1, ZombiesHeavies = 2, Brutes = 3, Fighters = 4, Operators = 5, Fighters2 = 6, Spiders = 7, Creatures = 8, Knights = 9, Animatronics = 10, Aliens = 11, AlienQueens = 12, Abominations = 13, Golems = 14, Boglords = 15 };   // EN1: 2 mixes the enemy types by weight; 3 brutes (trolls; was "Heavies", trolls and spiders), 7 spiders (stalkers), 8 creatures; 4 the "fighter" enemy type; 5 soldiers in operator bodies; 6 the "fighter2" enemy type; CH1: 9-12 the knight, animatronic, alien, alien_queen types (the last three local-only: a zombie without them)
-constexpr int kAiTypeCount = 16;   // CH3 / CH4: 13-15 the abomination, golem, boglord types (local-only: a zombie without them)
+enum class AiType : int { Soldiers = 0, Zombies = 1, ZombiesHeavies = 2, Brutes = 3, Fighters = 4, Operators = 5, Fighters2 = 6, Spiders = 7, Creatures = 8, Knights = 9, Animatronics = 10, Aliens = 11, AlienQueens = 12, Abominations = 13, Golems = 14, Boglords = 15, Troopers = 16, Robots = 17 };   // EN1: 2 mixes the enemy types by weight; 3 brutes (trolls; was "Heavies", trolls and spiders), 7 spiders (stalkers), 8 creatures; 4 the "fighter" enemy type; 5 soldiers in operator bodies; 6 the "fighter2" enemy type; CH1: 9-12 the knight, animatronic, alien, alien_queen types (the last three local-only: a zombie without them)
+constexpr int kAiTypeCount = 18;   // SW1: 16 / 17 blaster troopers and robot commandos (soldier brain, kit bodies and blasters; combat.json kits)
+//   // CH3 / CH4: 13-15 the abomination, golem, boglord types (local-only: a zombie without them)
 inline const char* aiTypeName(AiType t) {
-  static const char* n[kAiTypeCount] = {"Soldiers", "Zombies", "Zombies + heavies", "Brutes", "Fighters", "Operators", "Fighters 2", "Spiders", "Creatures", "Knights", "Animatronics", "Aliens", "Alien queens", "Abominations", "Golems", "Boglords"};
+  static const char* n[kAiTypeCount] = {"Soldiers", "Zombies", "Zombies + heavies", "Brutes", "Fighters", "Operators", "Fighters 2", "Spiders", "Creatures", "Knights", "Animatronics", "Aliens", "Alien queens", "Abominations", "Golems", "Boglords", "Blaster troopers", "Robot commandos"};
   return n[std::clamp((int)t, 0, kAiTypeCount - 1)];
 }
 inline int aiBit(AiType t) { return 1 << (int)t; }
@@ -50,6 +52,10 @@ inline AiType aiTypeNext(const int* count, int mask, int* given) {
 constexpr int kScenarioVersion = 2;
 constexpr int kMinObjectives = 1, kMaxObjectives = 10;
 inline char objectiveLetter(int order) { return char('A' + std::clamp(order, 0, 25)); }
+
+// VH7: where a team's vehicles come in (the fresh copy after a death in a vehicle), behind its infantry spawns. team -1:
+// neutral (Solo). Read by TankSys::spawnFresh through Game, and by the minimap (Scenario::vehicleSpawns: id, team, pos, yaw)
+struct VehicleSpawn { std::string id; int team = -1; vec3 pos{0}; float yaw = 0; };   // yaw: the vehicle's heading (asset convention, +z ahead at 0)
 
 struct SpawnMarker {
   std::string id, label;
@@ -112,6 +118,7 @@ struct ScenarioRules {
   float captureBase = 5.0f, capturePresenceFull = 5.0f;   // contest model: %/s at full advantage; attackers for full presence
   float laneLeft = 0.2f, laneMain = 0.6f, laneRight = 0.2f;
   bool friendlyFire = false;      // explosive / bullet damage to own side (default off; exposed in setup)
+  bool sdShort = false, sdWarmup = true;   // SD1 Search and Destroy: the MR12 preset (first to 13) instead of MR15; a warmup before round 1
   // ---- G1 modes (Solo / TDM); Assault ignores these
   GameMode mode = GameMode::Assault;
   int killCap = 25;               // Solo: the top player's kills; TDM: a team's kills
@@ -140,6 +147,8 @@ struct Scenario {
   int version = kScenarioVersion;
   std::vector<Objective> objectives;   // kept sorted by order
   std::vector<SpawnMarker> spawns;
+  std::vector<VehicleSpawn> vehicleSpawns;   // VH7
+  const VehicleSpawn* vehicleSpawnFor(int team, vec3 near) const;   // the team's nearest (else a neutral one; null: none)
   ScenarioRules rules;
   bool devTestMap = false;             // v1 flag (one objective is always allowed since v2); kept for round trips
   uint64_t nextSerial = 1;

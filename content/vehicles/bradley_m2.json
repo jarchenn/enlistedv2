@@ -1,0 +1,279 @@
+{
+ "id": "bradley_m2",
+ "name": "M2 Bradley IFV",
+ "faction": "Modern",
+ "identity": "Supplied m2-bradley-ifv.zip (m2_bradley.FBX + 2K TGA maps; no author or licence inside): M2 Bradley with the 25 mm M242 Bushmaster, coax M240C and the TOW launcher. Converted by E:/nmk/vh7scripts/convert_bradley.py (hull / turret / gun / track; the barrel split off the turret by its loose parts). Local-only (no confirmed licence): clones draw the committed Abrams mesh as a stand-in.",
+ "model": {
+  "src": "bradley_m2.glb",
+  "dir": "bradley",
+  "fallbackDir": "abrams",
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "realLength": 6.55,
+  "lengthNode": "hull",
+  "maxTex": 2048,
+  "jpgMaps": true,
+  "nodeParts": {
+   "hull": "hull",
+   "turret": "turret",
+   "gun": "gun",
+   "track": "track"
+  }
+ },
+ "rig": {
+  "turretPivot": [
+   0,
+   2.05,
+   -0.46
+  ],
+  "gunPivot": [
+   -0.12,
+   2.52,
+   0.55
+  ],
+  "muzzle": [
+   -0.12,
+   2.52,
+   2.36
+  ],
+  "optic": [
+   0.32,
+   2.78,
+   0.35
+  ],
+  "hatchEye": [
+   0.5,
+   3.75,
+   -0.7
+  ],
+  "mgPivot": [
+   0.5,
+   3.4,
+   -0.7
+  ],
+  "towMuzzle": [
+   -1.25,
+   2.95,
+   0.7
+  ],
+  "engine": [
+   0.6,
+   1.4,
+   2.2
+  ],
+  "exhausts": [
+   [
+    1.5,
+    1.7,
+    2.0
+   ]
+  ],
+  "exits": [
+   [
+    2.4,
+    0,
+    0.3
+   ],
+   [
+    -2.4,
+    0,
+    0.3
+   ],
+   [
+    0,
+    0,
+    -4.2
+   ],
+   [
+    2.4,
+    0,
+    -2.2
+   ],
+   [
+    -2.4,
+    0,
+    -2.2
+   ],
+   [
+    0,
+    0,
+    4.3
+   ],
+   [
+    2.4,
+    0,
+    2.4
+   ],
+   [
+    -2.4,
+    0,
+    2.4
+   ]
+  ],
+  "note": "measured on the baked parts: barrel x -0.18..-0.06, y 2.46..2.58, z 0.76..2.36; turret basket z -1.8..0.88; TOW box on the turret's left; commander's hatch right rear"
+ },
+ "colliders": {
+  "hull": [
+   {
+    "c": [
+     0,
+     1.12,
+     0
+    ],
+    "h": [
+     1.65,
+     1.08,
+     3.25
+    ]
+   }
+  ],
+  "turret": [
+   {
+    "c": [
+     0,
+     2.62,
+     -0.46
+    ],
+    "h": [
+     1.2,
+     0.56,
+     1.3
+    ]
+   }
+  ],
+  "armourHull": {
+   "c": [
+    0,
+    1.12,
+    0
+   ],
+   "h": [
+    1.65,
+    1.08,
+    3.25
+   ]
+  },
+  "armourTurret": {
+   "c": [
+    0,
+    2.62,
+    -0.46
+   ],
+   "h": [
+    1.2,
+    0.56,
+    1.3
+   ]
+  }
+ },
+ "gun": {
+  "muzzleScale": 0.55,
+  "name": "25 mm M242 Bushmaster",
+  "traverseRate": 50,
+  "traverseAccel": 60,
+  "elevationRate": 30,
+  "elevationAccel": 60,
+  "elevation": [
+   -9,
+   59
+  ],
+  "recoil": 0.08,
+  "rockDeg": 0.35,
+  "fov": 28,
+  "fovZoom": 6,
+  "zeroRange": 800,
+  "reticle": "bradley",
+  "sound": "shot_cannon30",
+  "auto": true,
+  "heBlastR": 1.6,
+  "lightAP": 6,
+  "lightHE": 2,
+  "note": "VH7: automatic 25 mm at ~200 rpm (a 0.3 s loader cycle while LMB is held), AP / HE selectable (R). HE: a small blast per round; AP hurts light armour and the sides / rear of tanks a little (lightAP per hit), never a tank's front"
+ },
+ "ammunition": {
+  "reloadTime": 0.3,
+  "reserveAP": 70,
+  "reserveHE": 230,
+  "startLoaded": "HE",
+  "ap": "25mm_m919",
+  "he": "25mm_m792",
+  "velocityAP": 1385,
+  "velocityHE": 1100,
+  "blastHE": 45,
+  "note": "300 ready rounds split AP / HE (the user's reference read-out: HE 0189 / 190)"
+ },
+ "bowMg": {
+  "name": "M240C coax (7.62 mm)",
+  "short": "Coax",
+  "coax": true,
+  "pivot": [
+   0.08,
+   2.5,
+   0.8
+  ],
+  "muzzle": [
+   0.08,
+   2.5,
+   1.15
+  ],
+  "yaw": 0,
+  "elevation": [
+   0,
+   0
+  ],
+  "rpm": 750,
+  "velocity": 850,
+  "spreadDeg": 0.2,
+  "belt": 200,
+  "reserve": 2000,
+  "reload": 4.0,
+  "bulletMass": 0.0097,
+  "sound": "shot_m249",
+  "note": "coax: rides on the gun (no traverse of its own)"
+ },
+ "tow": {
+  "count": 2,
+  "reload": 14.0,
+  "velocity": 185,
+  "damage": 1100,
+  "blastR": 3.0,
+  "turnDegPerS": 24,
+  "name": "BGM-71 TOW",
+  "note": "VH7: Q fires one; wire-guided toward the crosshair (turns at most turnDegPerS); 14 s to reload the pair one by one"
+ },
+ "mobility": {
+  "maxForward": 16.7,
+  "maxReverse": 6.0,
+  "accel": 2.6,
+  "brake": 6.5,
+  "coast": 0.8,
+  "turnRate": 32,
+  "pivotRate": 26,
+  "maxSlopeDeg": 33,
+  "offroadMul": 0.8,
+  "halfSize": [
+   1.7,
+   1.1,
+   3.25
+  ],
+  "clearance": 0.45,
+  "trackHalfGauge": 1.3,
+  "trackHalfLength": 2.9,
+  "note": "~60 km/h"
+ },
+ "durability": {
+  "frontHitsSurvived": 1,
+  "sideHitsSurvived": 0,
+  "launcherAllSides": true,
+  "note": "between an APC and a tank: small arms do nothing; a tank shell or AT rocket from any side: two from the front kill it, one from the side or rear"
+ },
+ "ramming": {
+  "massKg": 27600,
+  "engineKW": 447,
+  "pushEfficiency": 0.6,
+  "note": "M2A2 combat mass, Cummins VTA-903T (600 hp)"
+ }
+}

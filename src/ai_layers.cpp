@@ -4,10 +4,12 @@
 //                     the room / bunker clearing sequence (stack, grenade, entry one at a time, corners, next room)
 //   individual (5-10 Hz, 2 Hz beyond 300 m of every human): utility scores 0..1 per action from threat, cover,
 //                     suppression, ammo, orders; the best wins with a small bonus for the current one.
+#include "sd_game.h"
+#include "sd_mode.h"
 #include "ai_core.h"
 #include "app.h"
 #include "royale.h"
-#include "app.h"
+#include "app.h"
 #include "loot.h"   // BR2 Battle Royale loot
 #include <algorithm>
 #include <cmath>
@@ -166,6 +168,7 @@ vec3 AiCore::objectiveGoal(Soldier& s) {
     if (hb && hd < 220.0f) return snap(hb->entrances[(size_t)s.slot % hb->entrances.size()].p);   // BR7: its entrance (the middle can be solid kit)
     return snap(royaleSafePoint(s, (int)(G.t / 25.0)));   // BR7: no house in reach: another point of the next circle every 25 s
   }
+  if (G.match.mode() == GameMode::SearchDestroy) { vec3 gl; if (sdBotGoal(G, s, gl)) return gl; }   // SD1: sites, the bomb, holds
   if (G.match.mode() != GameMode::Assault) {   // G1 Solo / TDM: hunt the closest living enemy (user: closest combatant)
     const Soldier* best = nullptr; float bd = 1e9f;
     for (auto& o : G.sold) if (o.alive && Game::hostile(s, o)) { float d = lenXZ(o.feet - s.feet); if (d < bd) { bd = d; best = &o; } }
@@ -265,6 +268,12 @@ void AiCore::think(Soldier& s) {
       if (planGrenade(s, k.pos, vel)) { ok = true; tgt = k.pos; break; }
     }
     if (ok) { u[A_GRENADE] = (inCover || !underFire) ? 0.86f : 0.6f; s.throwTarget = tgt; s.throwVel = vel; }
+  }
+  if (G.match.mode() == GameMode::SearchDestroy) {   // SD1: attackers move on the site or the bomb, defenders hold; planting / defusing holds still
+    u[A_HOLD] = std::max(u[A_HOLD], attacker ? 0.0f : 0.66f);
+    if (attacker && !regroup) u[A_ADVANCE] = std::max(u[A_ADVANCE], 0.5f);
+    if (sdBotHolding(G, s)) { u[A_HOLD] = 0.99f; u[A_ADVANCE] = 0; u[A_RETURN_FIRE] *= 0.5f; u[A_TAKE_COVER] *= 0.3f; }
+    if (sdMatch() && sdMatch()->carrier == s.slot) { u[A_OVERWATCH] = 0; u[A_CLEAR] = 0; u[A_SUPPRESS] = 0; }   // the carrier goes for the plant, not overwatch or room clearing
   }
   // weights and inertia
   if (tactics.contains("utility")) for (int a = 0; a < A_COUNT; ++a) u[a] *= tactics["utility"].value(aiActionName(a), 1.0f);
@@ -381,6 +390,9 @@ void AiCore::act(Soldier& s, float dt) {
       b.mode = Brain::M_COVER; b.why = "overwatch: covering the moving pair"; break;
     case A_ADVANCE: {
       vec3 goal = objectiveGoal(s);
+      if (G.match.mode() == GameMode::SearchDestroy && tb.known.empty() && G.t - b.hurtAt > 5) {   // SD1: no contact yet: straight on to the site, not cover to cover
+        requestPath(s, goal, 1.0f, 3.0f); m.speed = SPD_JOG; m.posture = Physics::STAND; b.mode = Brain::M_ADVANCE; b.why = "pushing to the site"; break;
+      }
       float maxLen = (b.suppressed > 0.2f || G.t - b.hurtAt < 5 || !tb.known.empty()) ? diff.boundMaxUnderFire : diff.boundMax;
       if (diff.overwatch == 2) maxLen *= 0.85f;
       if (tb.known.empty() && !m.flanker) maxLen = std::max(maxLen, 25.0f);

@@ -52,6 +52,7 @@ struct Soldier {
   int team = 0;                              // friend / foe (G1): Assault / TDM = (int)role, Solo = own slot
   bool zombie = false;
   bool op = false;
+  uint8_t kit = 0; float kitSpeed = 1; bool kitSparks = false;   // SW1: 2 blaster trooper, 3 robot commando (combat.json kits: body, blasters, pace, hit sparks)
   float lean = 0;                            // MV3: the player's Q / E lean (-1 .. 1; local from App::lean, LAN in the snapshot)                           // AI5: an Operator bot (AiType::Operators): modern weapons (combat.json loadouts_operator)                       // G2: the melee brain (zombie.cpp: Zombies, heavies, Fighters): no weapon
   int etype = 0; double staggerUntil = 0;    // EN1: enemy type (enemy_types.h; LAN snapshot), stopped by a heavy hit until
   int evariant = 0;                          // the type's model variant (Game::begin, in turn per type; clients compute the same)
@@ -77,6 +78,7 @@ struct Soldier {
   uint32_t rng = 1;
   int lifeId = 0;                            // increments per spawn (net / tests)
   double lastShot = -100;
+  std::string lastHow;                       // SD1: the last damage kind (kill rewards: knife, grenade, firearm)
   float burnT = 0, burnDps = 0, burnTick = 0; int burnBy = -1;   // FT1: on fire (s left, damage per s, tick timer, who lit it)
   double protectUntil = -1;                  // spawn protection (SPEC 2.2): Game::t until which damage is ignored (W1 sets it)
   bool isProtected(double now) const { return alive && now < protectUntil; }
@@ -100,6 +102,7 @@ public:
   bool isClient = false;                     // mirror only (net client): no authority
   bool paused = false;
   int localSlot = 0;
+  std::string respawnVehicle; int respawnStation = 0;   // TK1: the vehicle the local player died in (a fresh copy at the next spawn)
   int pendingLocal = -1;                     // LAN client: our slot while its AI soldier still lives (late join)
   json combat, archetypes;
   std::vector<std::unique_ptr<CharModel>> models; std::map<std::string, int> modelIdx;
@@ -192,6 +195,12 @@ public:
   void assignLanes();
   // weapons for soldiers
   bool soldierFire(Soldier& s, vec3 dir);
+  // TK1: armour and big enemies. bulletProof: crew of an armoured tank (small arms do nothing); bigTarget: that, an
+  // armoured car or helicopter crew, or a heavy enemy type: worth a rocket
+  bool bulletProof(const Soldier& o) const;
+  bool bigTarget(const Soldier& o) const;
+  int carriedLauncher(const Soldier& s) const;   // a rocket launcher in the bot's carried kit (weapon index), -1: none
+  void switchWeapon(Soldier& s, int w);           // a bot's hand weapon: the old one's state kept in wsBy
   void soldierWeaponStep(Soldier& s, float dt);
   bool startThrow(Soldier& s, int kind, vec3 vel, vec3 target);
   void throwStep(Soldier& s, float dt);
@@ -200,7 +209,7 @@ public:
   void drawHud();
   void drawDebug();
   // G1 HUD (mpui_modes.cpp)
-  void drawModeBanner(); void drawModePanel(); void drawScoreboardOverlay(); void scoreboardTable(bool full = false);   // UI1: full = the end screen (every row, scrollable)
+  void drawModeBanner(); void drawModePanel(); void drawVitals(); void drawScoreboardOverlay(); void scoreboardTable(bool full = false);   // UI1: full = the end screen (every row, scrollable)
   bool showScoreboard = false;               // tests: hold the Tab scoreboard open
   bool camera(vec3& eye, vec3& fwd, float& fov);
   Soldier* local() { return localSlot >= 0 && localSlot < (int)sold.size() ? &sold[localSlot] : nullptr; }

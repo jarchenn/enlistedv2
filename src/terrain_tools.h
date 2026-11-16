@@ -1,6 +1,6 @@
 #pragma once
-// V8 terrain tools (docs/terrain-tools.md): the sculpt brush and Generate hills (terrain_brush.cpp), and Beautify
-// (beautify.cpp: open-ground scatter, the outer terrain ring, decorative border buildings).
+// V8 terrain tools (docs/terrain-tools.md): the sculpt brush and Generate hills (terrain_brush.cpp); decor that maps
+// saved from the old Beautify tool still draws (decor.cpp).
 // The editor reaches them through one-line hooks in editor.cpp / app.cpp.
 #include "app.h"
 
@@ -37,25 +37,15 @@ struct SeatRec { uint64_t id = 0; float h = 0; uint64_t host = 0; std::vector<fl
 std::vector<SeatRec> terrainSeats(const App& app, vec2 c, float radius);   // radius < 0: every placement
 int terrainReseat(App& app, const std::vector<SeatRec>& before);          // returns the number moved
 
-// ---------------------------------------------------------------- Beautify
-struct BeautifyParams {
-  float rocks = 0.5f, vegetation = 0.5f, groundCover = 0.5f, water = 0.3f, buildings = 0.6f;   // 0..1 densities
-  uint32_t seed = 1;
-  bool inside = true;   // scatter open ground inside the playable area (existing placements are never moved)
-  bool ring = true;     // grow the outer terrain ring and dress it (decor buildings, hedges, trees, scatter)
-};
-struct BeautifyReport { std::map<std::string, int> placed; int decor = 0, hedges = 0, ringTrees = 0, skippedRoles = 0, ringTiles = 0; std::vector<std::string> missing; };
-BeautifyReport beautifyRun(App& app, const BeautifyParams& p);   // the caller owns the undo step
-int beautifyRemove(App& app);                                     // removes earlier Beautify placements (extra.beautify)
+// ---------------------------------------------------------------- decor saved by the old Beautify tool (decor.cpp)
 bool isDecor(const Instance& i);
 bool decorMayLeaveBorder(const App& app, uint64_t id, vec3 w);   // checkPlacement exception for extra.decor buildings
 // cheap drawing for decor buildings (distance cull, no leaves / glass at range); true = handled (drawn or culled)
-bool beautifyDecorDraw(App& app, const Instance& i, InstanceRT& r, const mat4& M, std::vector<DrawItem>& op, std::vector<DrawItem>& gl);
-const json& beautifySettings();   // content/settings/beautify.json
+bool decorDraw(App& app, const Instance& i, InstanceRT& r, const mat4& M, std::vector<DrawItem>& op, std::vector<DrawItem>& gl);
 
 // ---------------------------------------------------------------- editor hooks
 void terrainToolbar(App& app);                 // toolbar button (editor.cpp)
-void terrainMenus(App& app);                   // "Terrain" menu + "Beautify..." (main menu bar)
-void terrainEditorUI(App& app);                // brush panel, Generate hills and Beautify dialogs
+void terrainMenus(App& app);                   // "Terrain" menu (main menu bar)
+void terrainEditorUI(App& app);                // brush panel and Generate hills dialog
 void terrainToolUpdate(App& app, float dt, bool uiMouse);   // strokes (updateCreative, Tool::Terrain)
 void terrainOverlay(App& app, Overlay& ov);    // brush ring preview

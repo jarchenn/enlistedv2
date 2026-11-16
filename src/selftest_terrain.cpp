@@ -1,14 +1,9 @@
-// --selftest-terrain (V8, docs/terrain-tools.md): terrain sculpting, Generate hills and Beautify.
+// --selftest-terrain (V8, docs/terrain-tools.md): terrain sculpting and Generate hills (UI2: Beautify removed).
 //  * brushes: every mode changes the ground the way it says, a stroke sequence is deterministic, tile borders never
 //    crack, sculpted ground (raised or lowered) has no disturbed-soil shading, colliders follow, one undo step per
 //    stroke, save / reopen restores it, craters on sculpted ground persist only the crater, dab cost on a 600 m map;
 //  * placements in a stroke re-seat (trees on their pivot, buildings on the footprint rule);
 //  * Generate hills: relief everywhere except footprints / paths, placements re-seat, undo;
-//  * outer ring: the terrain grows by whole tiles, crater / sculpt tile keys remap, the playable area keeps its exact
-//    ground (also after save / reopen and undo);
-//  * Beautify on Normandy Village Assault (battle1): scatter counts per role, nothing inside footprints, paths,
-//    objectives or spawns, decor buildings beyond the border only, existing placements untouched, the ring present,
-//    one undo step, save / reopen; eye-level frame time before / after (gated at 16.7 ms like --selftest-maps).
 #include "selftest.h"
 #include "mptest.h"
 #include "terrain_tools.h"
@@ -166,19 +161,9 @@ std::vector<View> battleViews(App& app) {
 // ---------------------------------------------------------------- state shared by the steps
 BrushParams gB; vec2 gC[BR_COUNT]; float gBefore[BR_COUNT];
 std::vector<vec2> gPts; std::vector<float> gH0, gHs;
-// inside a Beautify placement that digs the ground (V1 ponds carry a terrainCut): its basin is meant to change the ground
-bool inBeautifyCut(App& app, vec2 p) {
-  for (auto& i : app.doc.instances) {
-    if (!i.extra.is_object() || !i.extra.value("beautify", false)) continue;
-    const AssetDef* a = app.assetFor(i);
-    if (a && !a->navMeta.terrainCuts.empty() && glm::length(p - vec2(i.pos.x, i.pos.z)) < glm::length(a->footprint) * 0.5f + 3.0f) return true;
-  }
-  return false;
-}
 uint64_t gTree = 0, gHouse = 0, gPath = 0;
 struct InstRec { vec3 pos; float yaw; std::string asset; };
 std::map<uint64_t, InstRec> gInst; size_t gUndo0 = 0, gN0 = 0; int gTilesX0 = 0;
-BeautifyReport gRep;
 
 void build(App& app) {
   // ================================================================ brushes on Blank Slate
@@ -331,47 +316,6 @@ void build(App& app) {
     return true;
   });
   // ================================================================ outer ring and the tile-key remap
-  push("outer ring remaps tiles", [](App& app, float) {
-    const TemplateInfo* t = tpl(app, "blank_slate"); if (!t) return true;
-    app.newMap(*t, "Ring selftest");
-    BrushParams p; p.radius = 14; p.strength = 3; for (int k = 0; k < 30; ++k) terrainBrushDab(app, p, vec2(100, 100), 1 / 30.0f);
-    p.radius = 6; p.mode = BR_LOWER; for (int k = 0; k < 30; ++k) terrainBrushDab(app, p, vec2(-290, 280), 1 / 30.0f);   // near the border
-    commitAll(app);
-    app.craterAt(vec3(-50, app.terrain.height(-50, 20), 20), 2.0f, 0.6f, false);
-    app.doc.terrainDeltas = app.terrain.deltas(); app.doc.terrainTemplateVersion = app.doc.templateVersion;
-    gPts = samplePts(300, 300, 800, 9); for (vec2 q : {vec2(100, 100), vec2(-290, 280), vec2(-50, 20)}) gPts.push_back(q);
-    gH0 = heightsAt(app, gPts);
-    gTilesX0 = app.terrain.tilesX(); float m0 = app.terrain.margin; size_t ns = app.doc.terrainSculpt.size(), nd = app.doc.terrainDeltas.size();
-    int k0 = app.doc.terrainSculpt.begin()->first;
-    gUndo0 = app.undoStack.size();
-    BeautifyParams bp; bp.rocks = bp.vegetation = bp.groundCover = bp.water = bp.buildings = 0; bp.inside = false; bp.ring = true;
-    app.pushUndo(); gRep = beautifyRun(app, bp);
-    auto h1 = heightsAt(app, gPts);
-    chk(gRep.ringTiles == 6 && app.terrain.tilesX() == gTilesX0 + 12 && app.terrain.margin > m0 + 90, "ring: %d tiles each side, %d -> %d tiles across, margin %.0f -> %.0f m", gRep.ringTiles, gTilesX0, app.terrain.tilesX(), m0, app.terrain.margin);
-    chk(app.doc.terrainSculpt.size() == ns && app.doc.terrainDeltas.size() == nd && !app.doc.terrainSculpt.count(k0), "tile keys remapped (%zu sculpt, %zu crater tiles; first key %d -> %d)", app.doc.terrainSculpt.size(), app.doc.terrainDeltas.size(), k0, app.doc.terrainSculpt.begin()->first);
-    chk(maxDiff(gH0, h1) < 1e-4f, "the playable area keeps its exact ground (worst %.6f m over %zu points incl. sculpt and crater)", maxDiff(gH0, h1), gPts.size());
-    float outerH = app.terrain.height(0, app.terrain.buildHalfZ + 170);
-    chk(app.terrain.inTerrain(0, app.terrain.buildHalfZ + 170) && std::isfinite(outerH), "the ring extends the terrain to %.0f m beyond the border (ground %.1f m there)", app.terrain.margin, outerH);
-    fs::path f = userMapsDir() / "selftest_terrain_ring.nmap.json";
-    bool ok = app.saveMapTo(f) && app.openMap(f);
-    chk(ok && app.terrain.ringTiles() == 6 && maxDiff(gH0, heightsAt(app, gPts)) < 2e-3f, "ring + remapped layers survive save / reopen (worst %.4f m)", maxDiff(gH0, heightsAt(app, gPts)));
-    return true;
-  });
-  push("ring undo", [](App& app, float) {
-    const TemplateInfo* t = tpl(app, "blank_slate"); if (!t) return true;
-    app.newMap(*t, "Ring undo selftest");
-    BrushParams p; p.radius = 10; p.strength = 3; for (int k = 0; k < 20; ++k) terrainBrushDab(app, p, vec2(-200, -60), 1 / 30.0f);
-    commitAll(app);
-    auto pts = samplePts(300, 300, 300, 21); auto h0 = heightsAt(app, pts); int tx0 = app.terrain.tilesX();
-    BeautifyParams bp; bp.rocks = bp.vegetation = bp.groundCover = bp.water = 0; bp.buildings = 0.5f; bp.inside = false;
-    app.pushUndo(); beautifyRun(app, bp);
-    int tx1 = app.terrain.tilesX(); size_t n1 = app.doc.instances.size();
-    app.undo();
-    chk(tx1 == tx0 + 12 && app.terrain.tilesX() == tx0 && app.terrain.ringTiles() == 0 && app.doc.instances.empty() && maxDiff(h0, heightsAt(app, pts)) < 1e-4f,
-        "one undo removes the ring (%d -> %d -> %d tiles) and its %zu placements, sculpt intact (worst %.5f m)", tx0, tx1, app.terrain.tilesX(), n1, maxDiff(h0, heightsAt(app, pts)));
-    return true;
-  });
-  // ================================================================ Beautify on battle1
   // ================================================================ GX1 terrain conformance (docs/graphics-overhaul.md)
   push("gx1: house on 60 cm of variation", [](App& app, float) {
     if (!blendEnabled()) { note("GX1 disabled in content/settings/terrain_blend.json: conformance checks skipped"); return true; }
@@ -484,106 +428,6 @@ void build(App& app) {
     chk(bare > 0.08f && patchMax > 0.3f && sparse >= 1.5f, "slope blend: soil on the face %.2f, bare patches %.2f, a sparse-grass band %.2f m wide (brief: >= 1.5 m)", bare, patchMax, sparse);
     int prisms = 0; for (auto& pt : app.lib.find("bunker_observation_post")->parts) prisms += pt.shape == Part::PRISM;
     chk(prisms == 0, "the faceted bank prisms are gone from the bunker mesh (%d left)", prisms);
-    return true;
-  });
-  push("battle1", [](App& app, float s) {
-    if (s == 0) { const TemplateInfo* t = tpl(app, "battle1"); if (t) app.newMap(*t, "Beautify selftest"); return false; }
-    return s > 1.0f;
-  });
-  pushViews("before", battleViews);
-  push("beautify battle1", [](App& app, float) {
-    gInst.clear(); for (auto& i : app.doc.instances) gInst[i.id] = {i.pos, i.yaw, i.assetId};
-    gN0 = app.doc.instances.size();
-    const Terrain& t = app.terrain;
-    gPts = samplePts(t.buildHalfX, t.buildHalfZ, 1500, 77); gH0 = heightsAt(app, gPts);
-    gTilesX0 = t.tilesX(); gUndo0 = app.undoStack.size();
-    BeautifyParams bp;   // dialog defaults
-    double t0 = nowS();
-    app.pushUndo(); gRep = beautifyRun(app, bp);
-    double secs = nowS() - t0; perf["beautifySeconds"] = secs;
-    int scatter = 0; std::string roles; for (auto& [k, v] : gRep.placed) { scatter += v; roles += " " + k + "=" + std::to_string(v); }
-    note("Beautify battle1 in %.2f s: %d scatter (%s), %d decor buildings, %d hedges, %d ring trees, %zu -> %zu instances", secs, scatter, roles.c_str(), gRep.decor, gRep.hedges, gRep.ringTrees, gN0, app.doc.instances.size());
-    if (!gRep.missing.empty()) { std::string m; for (auto& x : gRep.missing) m += " " + x; note("roles without assets in this catalogue (skipped):%s", m.c_str()); }
-    perf["beautify"] = {{"scatter", gRep.placed}, {"decor", gRep.decor}, {"hedges", gRep.hedges}, {"ringTrees", gRep.ringTrees}, {"instancesBefore", gN0}, {"instancesAfter", app.doc.instances.size()}};
-    chk(scatter >= 80 && gRep.placed["trees"] > 5 && gRep.placed["boulders"] > 5 && gRep.placed["groundcover"] > 10, "scatter placed: %d (%s)", scatter, roles.c_str());
-    chk(gRep.decor >= 40 && gRep.hedges >= 10 && gRep.ringTrees >= 10, "border ring dressed: %d decor buildings, %d hedges, %d trees", gRep.decor, gRep.hedges, gRep.ringTrees);
-    chk(gRep.ringTiles == 6 && t.tilesX() == gTilesX0 + 12, "the outer ring is present (%d tiles, margin %.0f m)", gRep.ringTiles, t.margin);
-    navSyncCuts(app);   // cut now, as the next frame would: Beautify ponds dig their basins
-    { auto h = heightsAt(app, gPts); float worst = 0; int dug = 0;
-      for (size_t k = 0; k < gPts.size(); ++k) { if (inBeautifyCut(app, gPts[k])) { ++dug; continue; } worst = std::max(worst, std::fabs(h[k] - gH0[k])); }
-      chk(worst < 1e-4f, "the playable area keeps its exact ground outside Beautify's own pond basins (worst %.6f m over %zu points, %d in basins)", worst, gPts.size() - dug, dug); }
-    // existing placements untouched
-    int moved = 0, missing = 0;
-    for (auto& [id, r] : gInst) { Instance* i = app.doc.find(id); if (!i) { ++missing; continue; } if (i->pos != r.pos || i->yaw != r.yaw || i->assetId != r.asset) ++moved; }
-    chk(moved == 0 && missing == 0, "existing placements untouched: %d moved, %d missing of %zu", moved, missing, gInst.size());
-    // nothing new inside footprints, paths, objectives or spawns; decor only beyond the border
-    Scenario sc = Scenario::fromJson(app.doc.extra.value("scenario", json()));
-    int inFoot = 0, inPath = 0, inObj = 0, inSpawn = 0, decorInside = 0, untagged = 0, insideNew = 0; std::string ex, exDecor;
-    for (auto& i : app.doc.instances) {
-      if (gInst.count(i.id)) continue;
-      bool beyond = std::fabs(i.pos.x) > t.buildHalfX || std::fabs(i.pos.z) > t.buildHalfZ;
-      if (!i.extra.is_object() || !i.extra.value("beautify", false) || (beyond && !isDecor(i))) ++untagged;
-      if (isDecor(i) && !beyond) { ++decorInside; if (exDecor.size() < 120) exDecor += " " + i.assetId; }
-      if (beyond) continue;
-      ++insideNew;
-      vec2 p(i.pos.x, i.pos.z);
-      for (auto& [id, r] : gInst) {
-        const AssetDef* b = app.lib.find(r.asset); if (!b) continue;
-        if (b->nature.kind != NatureDef::NONE || b->tree.on || b->category == "Nature" || b->category == "Vegetation") continue;
-        if (b->path.on) { if (insideObb(p, vec2(r.pos.x, r.pos.z), b->footprint * 0.5f, r.yaw, 0)) { ++inPath; if (ex.size() < 160) ex += " " + i.assetId + "@" + b->id; } continue; }
-        if (insideObb(p, vec2(r.pos.x, r.pos.z), b->footprint * 0.5f, r.yaw, 0)) { ++inFoot; if (ex.size() < 160) ex += " " + i.assetId + "@" + b->id; }
-      }
-      for (auto& o : sc.objectives) if (glm::length(p - vec2(o.pos.x, o.pos.z)) < o.radius) ++inObj;
-      for (auto& sp : sc.spawns) if (glm::length(p - vec2(sp.pos.x, sp.pos.z)) < 10.0f) ++inSpawn;
-    }
-    chk(inFoot == 0 && inPath == 0 && inObj == 0 && inSpawn == 0, "%d new placements inside the playable area: %d in footprints, %d on paths, %d in objectives, %d at spawns%s", insideNew, inFoot, inPath, inObj, inSpawn, ex.c_str());
-    chk(decorInside == 0 && untagged == 0, "tags: %d decor inside the border%s, %d untagged / mis-tagged placements", decorInside, exDecor.c_str(), untagged);
-    // a decor building can be moved in the editor beyond the border (checkPlacement exception); others cannot
-    const Instance* d = nullptr; for (auto& i : app.doc.instances) if (isDecor(i) && app.assetFor(i)->enterable) { d = &i; break; }
-    if (d) {
-      PlaceCheck c = app.checkPlacement(app.assetFor(*d), d->pos + vec3(0.5f, 0, 0), d->yaw, d->id);
-      PlaceCheck c2 = app.checkPlacement(app.assetFor(*d), d->pos, d->yaw, 0);
-      chk(c.ok && !c2.ok, "decor building %s editable beyond the border (%s); a new placement there is refused (%s)", d->assetId.c_str(), c.reason.c_str(), c2.reason.c_str());
-    } else chk(false, "a decor building exists");
-    chk(app.undoStack.size() == gUndo0 + 1, "Beautify is one undo step");
-    return true;
-  });
-  push("ring screenshot", [](App& app, float s) {
-    if (s == 0) { const Terrain& t = app.terrain; app.camPos = vec3(-t.buildHalfX + 40, t.height(-t.buildHalfX + 40, t.buildHalfZ - 60) + 45, t.buildHalfZ - 60); app.camYaw = 150; app.camPitch = -18; return false; }
-    if (s > 2.5f && pendingShot.empty()) { pendingShot = outDir() / "terrain_beautify_ring.png"; return true; }
-    return false;
-  });
-  pushViews("after", battleViews);
-  push("frame time gate", [](App& app, float) {
-    double before = perf.value("before", json::object()).value("worstAvgMs", 0.0), after = perf.value("after", json::object()).value("worstAvgMs", 0.0);
-    // 60 FPS, or (when the unbeautified map is already over budget on this GPU) Beautify adds at most 0.5 ms
-    chk(after > 0 && (after < 16.7 || after <= before + 0.5), "eye-level views after Beautify: worst view %.2f ms, before %.2f ms (+%.2f ms; gate < 16.7 ms or <= +0.5 ms over an already over-budget baseline)", after, before, after - before);
-    return true;
-  });
-  push("beautified map saves and reopens", [](App& app, float s) {
-    static size_t n = 0; static int dec = 0; static bool ok = false;
-    if (s == 0) {
-      n = app.doc.instances.size(); dec = 0; for (auto& i : app.doc.instances) dec += isDecor(i);
-      gHs = heightsAt(app, gPts);   // the ground as saved (trenches and pond basins cut)
-      fs::path f = userMapsDir() / "selftest_terrain_beautify.nmap.json";
-      ok = app.saveMapTo(f) && app.openMap(f);
-      return false;
-    }
-    if (s < 0.3f) return false;   // the frame re-cuts the trenches (navSyncCuts) after opening
-    int dec2 = 0; for (auto& i : app.doc.instances) dec2 += isDecor(i);
-    chk(ok && app.doc.instances.size() == n && dec2 == dec && app.terrain.ringTiles() == 6 && maxDiff(gHs, heightsAt(app, gPts)) < 2e-3f, "save / reopen: %zu instances (was %zu), %d decor (was %d), ring %d tiles, worst height error vs the saved ground %.4f m, save+open %s", app.doc.instances.size(), n, dec2, dec, app.terrain.ringTiles(), maxDiff(gHs, heightsAt(app, gPts)), ok ? "ok" : "FAILED");
-    app.undoStack.clear();
-    return true;
-  });
-  push("undo Beautify", [](App& app, float) {
-    // reopened copy has no history: apply on top, then undo back to it
-    size_t n = app.doc.instances.size();
-    BeautifyParams bp; bp.seed = 9; app.pushUndo(); beautifyRun(app, bp);
-    size_t n2 = app.doc.instances.size();
-    app.undo();
-    chk(app.doc.instances.size() == n && n2 > 0, "undo after a re-run restores the map (%zu -> %zu -> %zu instances)", n, n2, app.doc.instances.size());
-    int removed = beautifyRemove(app);
-    chk(app.doc.instances.size() == gN0 && removed > 0, "Remove earlier Beautify takes the map back to its %zu authored placements (%d removed)", gN0, removed);
     return true;
   });
 }

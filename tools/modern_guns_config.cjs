@@ -4,6 +4,7 @@
 const path = require("path"), G = path.resolve(process.argv[2]) + "/", O = path.resolve(process.argv[3]) + "/", CFG = path.resolve(process.argv[4] || ".");
 const k = (...n) => Object.fromEntries(n.map(x => [x, x]));
 const X = path.resolve(process.argv[5] || G + "_extracted") + "/";
+const M12 = path.resolve(process.env.MG12_SRC || "E:/nmk/incoming/mg12") + "/";   // MG12 sources (moved off C: to E:, user disk policy)
 const C = {
   ak: { src: G + "fps-ak-animated/source/arms@ak.fbx", tex: "fps-ak-animated", keep: k("base", "bolt", "bullet", "mag", "release", "trigger"),
         mats: { ak74: { albedo: "ak74Color.png", normal: "ak74Normal.png", metal: "akMetallic.png", smooth: "aksmoothness.png", ao: "akAO.png" } } },
@@ -66,12 +67,33 @@ const C = {
   // ---- MG8: M4 with iron sights (m4-fps-weapon-animations-pack-v1.zip, extracted to incoming/mg8/m4pack)
   m4irons: { src: G + "../mg8/m4pack/source/M4.fbx", tex: "../mg8/m4pack", poseFrame: 226, poseAction: "Armature|Idle|BaseLayer", keep: { Main: "base", Bolt: "bolt", BoltCatch: "base", Mag1: "mag", Bullet5_56x45mm: "mag", Safety: "base", Trigger: "trigger" },
         mats: { M4_D: { albedo: "M4_D.png", normal: "M4_N.png", rough_f: 0.5, metal_f: 0.6 }, Bullet5_56x45mm_D: { albedo: "Bullet5.56x45mm_D.png", normal: "Bullet5.56x45mm_N.png", rough_f: 0.4, metal_f: 0.9 } } },
+  // ---- MG12 (incoming/mg12/<name>/: DJMaesen's Cinema 4D arm rigs, CC BY 4.0; gun parts are object-animated)
+  revolver: { src: M12 + "revolver-animated/source/arms@revolver.fbx", tex: M12 + "revolver-animated",
+        keep: k("base", "bullet1", "bullet2", "bullet3", "bullet4", "bullet5", "bullet6", "cylinder", "ejector", "hammer", "release", "trigger"),
+        mats: { revolver: { albedo: "revolverColor.png", normal: "revolverNormal.png", metal: "revolvermetallic.png", smooth: "revolversmoothness.png", ao: "revolverAo.png" } } },
+  sawnoff: { src: M12 + "sawnoff-animated/source/arms@sawnoff.fbx", tex: M12 + "sawnoff-animated",
+        keep: k("base", "ejector", "front", "release", "slug1", "slug2", "trigger1", "trigger2"),
+        mats: { sawnoff: { albedo: "sawnoffColor.png", normal: "sawnoffNormal.png", metal: "sawnoffMetallic.png", smooth: "sawnoffSmoothness.png", ao: "sawnoffAo.png" } } },
+  smg9: { src: M12 + "fps-smg9-animated/source/arms@smg9.fbx", tex: M12 + "fps-smg9-animated",   // the red dot's lens is dropped (the tube is open)
+        keep: k("base", "bolt", "bullet", "grip", "mag", "release", "scope", "trigger"),
+        mats: { smg9: { albedo: "smg9color.png", normal: "smg9Normal.png", metal: "smg9Metallic.png", smooth: "smg9Smoothness.png", ao: "smg9AO.png" } } },
+  deagle: { src: M12 + "animated-pistol/source/arms@talon.fbx", tex: M12 + "animated-pistol",
+        keep: k("base", "bullet", "bullet2", "hammer", "mag", "slide", "trigger"),
+        mats: { talon: { albedo: "talonColor.png", normal: "talonNormal.png", metal: "talonMetallic.png", rough: "talonRoughness.png", ao: "talonAO.png" } } },
+  // ---- MG12 batch 2
+  glock34: { src: M12 + "fps-pistol-animated/source/arms@bpPistol.fbx", tex: M12 + "fps-pistol-animated",   // long-slide 9 mm with a compensator ("muzzlebreak")
+        keep: { base: "frame", slide: "slide", slidecatch: "frame", muzzlebreak: "frame", clip: "mag", bullet: "mag", bullet_1: "mag", lid: "mag", trigger: "trigger" },
+        mats: { Mat: { albedo: "blackpantherColor.png", normal: "blackpantherNormal.png", metal: "bpPistoMetallic.png", smooth: "bpPistolsmoothness.png", ao: "bpPistolAO.png" } } },
+  makarov: { src: M12 + "makarov_pm_fps_animations/makarov_pm_fps_animations.glb", tex: "", poseFrame: 0, poseAction: "Rig|MK_Idle", keep: { Object_9: "frame" }, split: { Object_9: { Slide_016: "slide", Mag_019: "mag" } } },
+  fn502: { src: "E:/nmk/mg12/fn502fixed/fn502.glb", tex: "", poseFrame: 0, poseAction: "Armature|FN_Shot", keep: { Object_73: "frame" }, split: { Object_73: { Slide_058: "slide", Mag_061: "mag" } } },   // the GLB's spec-gloss materials converted (glbfix/specgloss.py)
+  mark23: { src: M12 + "mark-23-animated-free/source/Mark23.fbx", tex: M12 + "mark-23-animated-free", keep: { main: "frame", Side: "slide", mag: "mag" },
+        mats: { Mark23_D: { albedo: "Mark23_D.png", rough_f: 0.5, metal_f: 0.5 } } },
   case: { src: G + "hardcase_for_weapons.glb", tex: "", scale: 1.27,
         keep: k("CaseLower_low_Hardcase_0", "CaseUpped_low_Hardcase_0", "Foam_low_Hardcase_0", "Handle_low_Hardcase_0", "HandleRods_low_Hardcase_0", "HingesLower_low_Hardcase_0", "HingesUpper_low_Hardcase_0", "Knob_low_Hardcase_0", "LockRods_low_Hardcase_0", "Locks_low_Hardcase_0") },
 };
 const fs = require("fs");
 for (const [n, c] of Object.entries(C)) {
-  c.texdir = c.tex ? G + c.tex + "/textures" : ""; c.out = O + "modern_" + n + ".glb";
+  c.texdir = c.tex ? (path.isAbsolute(c.tex) ? c.tex : G + c.tex) + "/textures" : ""; c.out = O + "modern_" + n + ".glb";
   fs.writeFileSync(CFG + "/cfg_" + n + ".json", JSON.stringify(c, null, 1));
 }
 console.log(Object.keys(C).join(" "));

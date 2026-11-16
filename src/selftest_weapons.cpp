@@ -596,9 +596,9 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
               for (auto& q : P) q = vec3(V * vec4(q, 1));
               logf("[mg11hip] %s rear (%.3f %.3f %.3f) front (%.3f %.3f %.3f) muzzle (%.3f %.3f %.3f)", id.c_str(), P[0].x, P[0].y, P[0].z, P[1].x, P[1].y, P[1].z, P[2].x, P[2].y, P[2].z); }
           }
-          if (ph == 1 && t > 1.5f) { ph = 2; shot("strafe_r"); in.move = vec2(-1, 0); }
+          if (ph == 1 && t > 1.5f) { ph = 2; shot("strafe_r"); in.move = vec2(-1, 0); a.uiShot = exeDir() / "selftest_out" / ("mg2_" + id + "_hip_ui.png"); }
           if (ph == 2 && t > 2.3f) { ph = 3; shot("strafe_l"); in.move = vec2(0); in.aim = true; }
-          if (ph == 3 && t > 3.6f) { ph = 4; shot("ads"); }
+          if (ph == 3 && t > 3.6f) { ph = 4; shot("ads"); a.uiShot = exeDir() / "selftest_out" / ("mg2_" + id + "_ads_ui.png"); }   // SW2: with the HUD (crosshair)
           if (ph == 4 && t > 3.8f) { ph = 5; in.aim = false; s.loaded = d.feed == "single" ? std::max(0, d.cap - 3) : d.cap / 2; s.cooldown = 0; s.bolt = 0; in.reload = true; }
           if (ph == 5 && t > 3.9f) { ph = 6; in.reload = false; }
           float frac = s.reloadTotal > 0 ? 1 - s.reload / s.reloadTotal : 0;

@@ -16,6 +16,8 @@
 #include "selftest_crowd.h"
 #include "enemy_types.h"
 #include "damage_model.h"
+#include "commands.h"
+#include "physics.h"
 #include <algorithm>
 #include <cstdlib>
 #include <cstdarg>
@@ -651,11 +653,76 @@ void buildSlamCapture(App&) {
   push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
 }
 
+// CH8 --capture-ch8: does each enemy type face the way it walks? Each type in turn chases a soldier held 25 m away (+x,
+// +z, the diagonal); from 1.5 s to 5 s the feet's travel heading is compared with the drawn body's heading (checked: within
+// 10 deg) and, per playing clip, with the hips' and the chest's lines (logged: the clip's own stance; the plain zombie 0).
+// The player hovers above in admin fly (god, ignored) for selftest_out/ch8_<type>.png, looking down.
+void buildFacingCapture(App&) {
+  struct S { int z = -1, z2 = -1, tg = -1; std::vector<std::string> types; size_t ti = 0; int dir = 0; vec3 o{0}, prev{0}, start{0}; bool has = false, shot = false; int frames = 0; float t0 = -1; vec2 accW{0};
+             std::map<std::string, std::pair<vec2, int>> acc; std::map<std::string, vec2> hips; } static C;
+  push("start", [](App& a, float t) {
+    Game& G = *gGame;
+    if (t == 0) { chk(startMode(a, GameMode::TDM, 6, 2, 2, AiType::Soldiers, AiType::ZombiesHeavies), "TDM: the player and a soldier v two zombies (%s)", gGame->setupError.c_str()); return false; }
+    Soldier* L = G.local(); if (!L || !L->alive || !allSpawned(G)) return t > 20 ? (chk(false, "everyone spawns"), true) : false;
+    for (auto& s : G.sold) { if (s.zombie) (C.z < 0 ? C.z : C.z2) = s.slot; else if (!s.localPlayer) C.tg = s.slot; }
+    for (const char* id : {"zombie", "brute", "stalker", "creature", "knight", "animatronic", "alien", "abomination", "golem", "boglord"}) if (enemyTypeIndex(id) >= 0 && enemyType(enemyTypeIndex(id)).id == id) C.types.push_back(id);
+    T->note("types present: " + std::to_string(C.types.size()));
+    gAdmin.on = gAdmin.god = gAdmin.ignored = gAdmin.flyAllowed = gAdmin.fly = true;
+    C.o = L->feet + App::forward(a.eyeYaw, 0) * 15.0f; C.o.y = a.terrain.height(C.o.x, C.o.z);
+    return C.z >= 0 && C.tg >= 0; });
+  push("walks", [](App& a, float t) {
+    Game& G = *gGame; if (C.ti >= C.types.size()) return true;
+    Soldier& z = G.sold[C.z]; Soldier& tg = G.sold[C.tg]; Soldier* L = G.local();
+    const vec3 dirs[3] = {vec3(1, 0, 0), vec3(0, 0, 1), glm::normalize(vec3(1, 0, 1))};
+    vec3 goal = C.o + dirs[C.dir] * 25.0f; goal.y = a.terrain.height(goal.x, goal.z);
+    if (C.t0 < 0) {
+      C.t0 = t; C.accW = vec2(0);
+      z.etype = enemyTypeIndex(C.types[C.ti]); aiZombieAssign(G, z); if (!z.alive) z.alive = true;
+      const EnemyType& e = enemyType(z.etype); if (z.agent >= 0) { Physics::destroyAgent(z.agent); z.agent = e.capsuleH > 0 ? Physics::createAgent(C.o, e.capsuleH, e.capsuleR) : Physics::createAgent(C.o, 1.8f, 0.3f); }
+      place(G, z, C.o); z.meleeWind = -1; C.has = false; C.shot = false; C.frames = 0; C.start = C.o;
+    }
+    t -= C.t0;   // this run's time
+    z.hp = std::max(z.hp, 5000.0f); tg.hp = 5000; tg.protectUntil = -1; place(G, tg, goal);
+    if (C.z2 >= 0) { Soldier& z2 = G.sold[C.z2]; vec3 far = C.o - dirs[C.dir] * 90.0f; far.y = a.terrain.height(far.x, far.z); place(G, z2, far); z2.hp = 5000; }
+    vec3 above = z.feet + vec3(0, 6.0f + 1.2f * enemyType(z.etype).height, 0); Physics::setCharacterPos(above); L->feet = above; a.eyePitch = -89; a.eyeYaw = 0;
+    if (t >= 1.5f && t < 5.0f && C.has && z.model >= 0) {
+      vec3 v = z.feet - C.prev; float sp = glm::length(vec2(v.x, v.z));
+      auto W = [&](int j) { return vec3(z.world * vec4(z.pose.joint[j], 1)); };
+      vec3 f = glm::cross(vec3(0, 1, 0), (W(CJ_RARM) - W(CJ_LARM)) + (W(CJ_RUPLEG) - W(CJ_LUPLEG)));   // the upper arms' and hips' line
+      if (sp > 0.004f && glm::length(vec2(f.x, f.z)) > 1e-4f) {
+        float ang = std::atan2(f.x * v.z - f.z * v.x, f.x * v.x + f.z * v.z);   // travel relative to the chest, signed
+        std::string clip = z.anim.a >= 0 ? G.models[z.model]->clips[z.anim.a].name : "-";
+        auto& q = C.acc[C.types[C.ti] + " " + clip]; q.first += vec2(std::cos(ang), std::sin(ang)); ++q.second; ++C.frames;
+        vec3 fh = glm::cross(vec3(0, 1, 0), W(CJ_RUPLEG) - W(CJ_LUPLEG)); float ah = std::atan2(fh.x * v.z - fh.z * v.x, fh.x * v.x + fh.z * v.z);   // the hips alone
+        auto& qh = C.hips[C.types[C.ti] + " " + clip]; qh += vec2(std::cos(ah), std::sin(ah));
+        vec3 zf = vec3(z.world[2]); float aw = std::atan2(zf.x * v.z - zf.z * v.x, zf.x * v.x + zf.z * v.z); C.accW += vec2(std::cos(aw), std::sin(aw));   // vs the drawn model's +z
+      }
+    }
+    C.prev = z.feet; C.has = true;
+    if (C.dir == 1 && t >= 3.0f && !C.shot) { C.shot = true; pendingShot = outDir() / ("ch8_" + C.types[C.ti] + ".png"); }
+    if (t < 5.0f) return false;
+    { char b[240]; std::snprintf(b, sizeof b, "%s dir %d: moved %.1f m, %d frames counted, alive %d, model %d, clip %s, travel vs the model's +z axis %+.1f deg", C.types[C.ti].c_str(), C.dir, dXZ(z.feet, C.start), C.frames, (int)z.alive, z.model,
+      z.anim.a >= 0 && z.model >= 0 ? G.models[z.model]->clips[z.anim.a].name.c_str() : "-", glm::degrees(std::atan2(C.accW.y, C.accW.x))); T->note(b);
+      const char* dn[3] = {"+x", "+z", "the diagonal"};
+      chk(C.frames > 30 && std::fabs(glm::degrees(std::atan2(C.accW.y, C.accW.x))) < 10.0f, "%s walking along %s faces its travel (%+.1f deg)", C.types[C.ti].c_str(), dn[C.dir], glm::degrees(std::atan2(C.accW.y, C.accW.x))); }
+    C.t0 = -1;
+    if (++C.dir >= 3) { C.dir = 0; ++C.ti; }
+    return C.ti >= C.types.size(); });
+  push("report", [](App& a, float t) {
+    (void)a; if (t < 0.2f) return false;
+    for (auto& [k, q] : C.acc) { float deg = glm::degrees(std::atan2(q.first.y, q.first.x)), coh = glm::length(q.first) / std::max(1, q.second);
+      vec2 h = C.hips[k]; float hdeg = glm::degrees(std::atan2(h.y, h.x));
+      char b[240]; std::snprintf(b, sizeof b, "%-28s its hips are %+6.1f deg off the travel (chest + arms %+6.1f; %d frames, coherence %.2f): the clip's own stance", k.c_str(), hdeg, deg, q.second, coh); T->note(b); }
+    gAdmin = AdminMode{};
+    return true; });
+  push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
+}
+
 bool zombiesSelfTest(App& app, float dt) {
-  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) { std::string s = __argv[k]; if (s == "--selftest-zombies") mode = 1; else if (s == "--capture-heavies") mode = 2; else if (s == "--capture-ch1") mode = 5; else if (s == "--capture-ch6") mode = 6; else if (s == "--capture-fighter2") mode = 3; else if (s == "--capture-fighter2-slam") mode = 4; } }
-  if (mode < 1 || mode > 6) return false;
+  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) { std::string s = __argv[k]; if (s == "--selftest-zombies") mode = 1; else if (s == "--capture-heavies") mode = 2; else if (s == "--capture-ch1") mode = 5; else if (s == "--capture-ch6") mode = 6; else if (s == "--capture-fighter2") mode = 3; else if (s == "--capture-fighter2-slam") mode = 4; else if (s == "--capture-ch8") mode = 8; } }
+  if (mode < 1 || mode > 8 || mode == 7) return false;
   if (dt < 0) { if (!pendingShot.empty()) { app.screenshot(pendingShot); pendingShot.clear(); } return true; }
-  if (!started) { started = true; ch1Capture = mode == 5; if (mode == 5) mode = 2; T = new MpTest(mode == 6 ? "ch6" : ch1Capture ? "ch1" : mode == 2 ? "heavies" : mode == 3 ? "fighter2" : mode == 4 ? "fighter2_slam" : "zombies"); if (mode == 2) buildCapture(app); else if (mode == 3) buildFighterCapture(app); else if (mode == 4) buildSlamCapture(app); else if (mode == 6) buildStrikeCapture(app); else build(app); cur = 0; st = 0; }
+  if (!started) { started = true; ch1Capture = mode == 5; if (mode == 5) mode = 2; T = new MpTest(mode == 8 ? "ch8" : mode == 6 ? "ch6" : ch1Capture ? "ch1" : mode == 2 ? "heavies" : mode == 3 ? "fighter2" : mode == 4 ? "fighter2_slam" : "zombies"); if (mode == 2) buildCapture(app); else if (mode == 3) buildFighterCapture(app); else if (mode == 4) buildSlamCapture(app); else if (mode == 6) buildStrikeCapture(app); else if (mode == 8) buildFacingCapture(app); else build(app); cur = 0; st = 0; }
   if (cur < seq.size()) {
     bool done = seq[cur].fn(app, st);
     st += dt; total += dt;

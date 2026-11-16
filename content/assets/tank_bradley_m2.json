@@ -1,0 +1,68 @@
+{
+ "id": "tank_bradley_m2",
+ "version": 1,
+ "name": "M2 Bradley IFV",
+ "category": "Vehicles",
+ "description": "Drivable modern IFV (Explore: E to enter). 25 mm Bushmaster (AP / HE, automatic), coax 7.62, two TOW missiles (Q), commander pops out of the hatch (Ctrl). Supplied model is local-only; clones show a stand-in.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  3.56,
+  6.6
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1.2,
+ "noAutoPanels": true,
+ "faction": "Modern",
+ "materials": [
+  {
+   "name": "collider",
+   "albedo": [
+    0.3,
+    0.3,
+    0.3
+   ],
+   "roughness": 0.8,
+   "pattern": "metal"
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    1.12,
+    0
+   ],
+   "s": [
+    3.3,
+    2.16,
+    6.5
+   ],
+   "m": "collider",
+   "v": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0,
+    2.62,
+    -0.46
+   ],
+   "s": [
+    2.4,
+    1.12,
+    2.6
+   ],
+   "m": "collider",
+   "v": 0
+  }
+ ],
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "vehicle": "bradley_m2",
+ "nav": {
+  "effect": "none"
+ }
+}

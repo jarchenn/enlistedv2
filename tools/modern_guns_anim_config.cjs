@@ -9,6 +9,7 @@ const fs = require("fs"), path = require("path");
 const G = path.resolve(process.argv[2]) + "/", O = path.resolve(process.argv[3]) + "/", CFG = path.resolve(process.argv[4] || ".");
 const WDIR = path.resolve(__dirname, "../content/weapons") + "/";
 const X = path.resolve(process.argv[5] || G + "_extracted") + "/";
+const M12 = path.resolve(process.env.MG12_SRC || "E:/nmk/incoming/mg12") + "/";   // MG12 sources (moved off C: to E:, user disk policy)
 // MG2: Unreal mannequin arms (AR-15, MP7, RPG-7) and the Rigify agent's arms (Scorpion, Uzi)
 const manny = { MI_Manny_01: { albedo: "T_Manny_01_D.png", rough_f: 0.6 }, MI_Manny_02: { albedo: "T_Manny_02_D.png", rough_f: 0.6 } };
 const agent = { Gloves: { albedo: "Gloves_BaseColor.1003.png", rough: "Gloves_Roughness.1003.png", metal: "Gloves_Metallic.1003.png" }, Cloths: { albedo: "Cloths_BaseColor.1002.png", rough: "Cloths_Roughness.1002.png", metal: "Cloths_Metallic.1002.png" },
@@ -135,6 +136,44 @@ const A = {
     keep: ["Object_94", "Object_92", "Object_96"], gun: "Object_94", gunBone: "Weapon_057",
     // one 0-280 timeline at 24 fps: equip 1-45 (not used), idle 46-76 (still), four shots 77-97, reload 100-180, reload from empty 180-280
     clips: { idle: [46, 76], fire: [77, 81], reload: [100, 180], reload_empty: [180, 280] } },
+  // ---- MG12: DJMaesen's Cinema 4D arm rigs (incoming/mg12/<name>, CC BY 4.0; 30 fps timelines, cuts at the rest frames found
+  // from the arm and part motion; the descriptions on Sketchfab list the pistols' ranges)
+  modern_revolver: { abs: true, src: M12 + "revolver-animated/source/arms@revolver.fbx", tex: M12 + "revolver-animated", stat: "modern_revolver", hipRear: [0.07, 0.3, -0.09],
+    keep: ["armmesh", "base", "bullet1", "bullet2", "bullet3", "bullet4", "bullet5", "bullet6", "cylinder", "ejector", "hammer", "release", "trigger"],
+    rigidify: ["base", "bullet1", "bullet2", "bullet3", "bullet4", "bullet5", "bullet6", "cylinder", "ejector", "hammer", "release", "trigger"], gun: "base", timeline: [1, 321],
+    // rest frames 15, 51, 190, 224, 270, 297: the cylinder swings out and the empties go (15-52), one round per 23 frames (52-75 loops the
+    // first), it closes (190-224); 224-270 a cylinder spin (inspect), 297-321 hide / draw not used
+    clips: { fire: [1, 15], reload_start: [15, 52], reload_insert: [52, 75], reload_end: [190, 224], inspect: [224, 270], idle: [270, 297] },
+    mats: { revolver: { albedo: "revolverColor.png", metal: "revolvermetallic.png", smooth: "revolversmoothness.png" }, arms: c4dArms() } },
+  modern_sawnoff: { abs: true, src: M12 + "sawnoff-animated/source/arms@sawnoff.fbx", tex: M12 + "sawnoff-animated", stat: "modern_sawnoff",
+    keep: ["armmesh", "base", "ejector", "front", "release", "slug1", "slug2", "trigger1", "trigger2"], rigidify: ["base", "ejector", "front", "release", "slug1", "slug2", "trigger1", "trigger2"], gun: "base", timeline: [1, 271],
+    clips: { fire: [1, 15], reload: [15, 107], reload_empty: [107, 195], idle: [221, 252] },   // rest frames 15, 107, 195, 221, 252 (195-221 and the draw 252-271 not used)
+    mats: { sawnoff: { albedo: "sawnoffColor.png", metal: "sawnoffMetallic.png", smooth: "sawnoffSmoothness.png" }, arms: c4dArms() } },
+  modern_smg9: { abs: true, src: M12 + "fps-smg9-animated/source/arms@smg9.fbx", tex: M12 + "fps-smg9-animated", stat: "modern_smg9",   // the red dot's lens object is not kept (open window)
+    keep: ["armmesh", "base", "bolt", "bullet", "grip", "mag", "release", "scope", "trigger"], rigidify: ["base", "bolt", "bullet", "grip", "mag", "release", "scope", "trigger"], gun: "base", timeline: [1, 222],
+    clips: { fire: [1, 9], reload_empty: [9, 79], reload: [79, 133], inspect: [133, 179], idle: [179, 206] },   // rest frames 79, 133, 179, 206; the hide / draw 206-222 not used
+    mats: { smg9: { albedo: "smg9color.png", metal: "smg9Metallic.png", smooth: "smg9Smoothness.png" }, arms: c4dArms() } },
+  modern_deagle: { abs: true, src: M12 + "animated-pistol/source/arms@talon.fbx", tex: M12 + "animated-pistol", stat: "modern_deagle", hipRear: [0.07, 0.3, -0.09],
+    keep: ["arms", "base", "bullet", "bullet2", "hammer", "mag", "slide", "trigger"], rigidify: ["base", "bullet", "bullet2", "hammer", "mag", "slide", "trigger"], gun: "base", timeline: [1, 271],
+    // Sketchfab keyframes (0-based): fire 0-14, reload mag 15-96, reload full 70-157, hide 158-170, ready 170-218, ambient 219-248, melee 249-270; rest frames 16, 71, 159, 220, 250
+    clips: { fire: [1, 16], reload: [16, 71], reload_empty: [71, 159], idle: [220, 250] },
+    mats: { talon: { albedo: "talonColor.png", metal: "talonMetallic.png", rough: "talonRoughness.png" }, arms: { albedo: "armColor.png", metal: "armMetallic.png", rough: "armRoughness.png" } } },
+  // ---- MG12 batch 2
+  modern_glock34: { abs: true, src: M12 + "fps-pistol-animated/source/arms@bpPistol.fbx", tex: M12 + "fps-pistol-animated", stat: "modern_glock34", hipRear: [0.07, 0.3, -0.09],
+    keep: ["armmesh", "base", "bullet", "bullet_1", "clip", "lid", "muzzlebreak", "slide", "slidecatch", "trigger"], rigidify: ["base", "bullet", "bullet_1", "clip", "lid", "muzzlebreak", "slide", "slidecatch", "trigger"], gun: "base", timeline: [1, 235],
+    // Sketchfab keyframes (0-based): fireA 0-9 (the last round: the slide stays back), reloadA 9-64 (from the slide lock: empty), reloadB 65-130, ambient 179-204, fireB 225-234 (the slide cycles)
+    clips: { fire: [226, 235], reload_empty: [10, 66], reload: [66, 132], idle: [180, 206] },
+    mats: { Mat: { albedo: "blackpantherColor.png", metal: "bpPistoMetallic.png", smooth: "bpPistolsmoothness.png" }, "Mat.001": c4dArms() } },
+  modern_makarov: { abs: true, src: M12 + "makarov_pm_fps_animations/makarov_pm_fps_animations.glb", tex: M12 + "makarov_pm_fps_animations", stat: "modern_makarov", hipRear: [0.07, 0.3, -0.09], staticPoseFrame: 0, staticPoseAction: "Rig|MK_Idle",   // the static bake is posed (its rest is taken apart)
+    keep: ["Object_9", "Object_96"], gun: "Object_9", gunBone: "Body_015",   // its attachments mesh (suppressor, optic bracket, parked off the gun) is left out
+    clips: { idle: "Rig|MK_Idle", fire: "Rig|MK_Shot", reload: "Rig|MK_ReloadFast", reload_empty: "Rig|MK_ReloadFull" } },
+  modern_fn502: { abs: true, src: "E:/nmk/mg12/fn502fixed/fn502.glb", tex: M12 + "fps_animations_fn_502_tactical", stat: "modern_fn502", hipRear: [0.07, 0.3, -0.09], staticPoseFrame: 0, staticPoseAction: "Armature|FN_Shot",
+    keep: ["Object_73", "Object_9"], gun: "Object_73", gunBone: "Main_057",
+    clips: { idle: { action: "Armature|FN_Shot", range: [0, 1] }, fire: "Armature|FN_Shot", reload: "Armature|FN_Reload", reload_empty: "Armature|FN_ReloadFull" } },   // no idle clip: the shot's first frame, held
+  modern_mark23: { abs: true, src: M12 + "mark-23-animated-free/source/Mark23.fbx", tex: M12 + "mark-23-animated-free", stat: "modern_mark23", hipRear: [0.07, 0.3, -0.09], gun: "main", gunBone: "main_j",   // LOCAL-ONLY bake (Sketchfab Standard licence)
+    keep: ["Hand_Mesh", "main", "Side", "mag"],
+    clips: { idle: "Armature|Idle|BaseLayer", fire: "Armature|Shoot|BaseLayer", reload: "Armature|Reload|BaseLayer" },
+    mats: { Mark23_D: { albedo: "Mark23_D.png", rough_f: 0.5, metal_f: 0.5 }, Hand_D: { albedo: "Hand_D.png", rough_f: 0.6 }, Glove_D: { albedo: "Glove_D.png", rough_f: 0.7 } } },
   // ---- MG7: the first-person knife (knife_animated.glb, Sketchfab; one 0-116 timeline at 24 fps); framed by its camera: the eye
   // at the scene origin looking along -y in the exported frame (found by a test export), centimetres
   knife_bayonet: { src: "../mg7/knife_animated/knife_animated.glb", tex: "../mg7/knife_animated", frame: { rear: [0, 0, 0], front: [0, -100, 0], up: [0, 0, 1], scale: 0.01 }, hipRear: [0, 0, 0],
@@ -143,11 +182,13 @@ const A = {
 };
 for (const [id, a] of Object.entries(A)) {
   if (id.startsWith("_")) continue;   // parked entries (MG7: the SCAR-H rig, not exported)
+  if (process.env.MG_ONLY && !process.env.MG_ONLY.split(",").includes(id)) continue;   // MG12: only these ids (the others need their own static summaries)
   if (a.frame) {   // MG7 (the knife): framed by its own camera, no static model or sights
-    fs.writeFileSync(path.join(CFG, "anim_" + id + ".json"), JSON.stringify({ maxTex: 2048, ...a, src: a.abs ? a.src : G + a.src, texdir: G + a.tex + "/textures", out: O + id + "_vm.glb", points: {} }, null, 1));
+    fs.writeFileSync(path.join(CFG, "anim_" + id + ".json"), JSON.stringify({ maxTex: 2048, ...a, src: a.abs ? a.src : G + a.src, texdir: (path.isAbsolute(a.tex) ? a.tex : G + a.tex) + "/textures", out: O + id + "_vm.glb", points: {} }, null, 1));
     continue;
   }
   const w = JSON.parse(fs.readFileSync(WDIR + id + ".json", "utf8"));
+  if (fs.existsSync(WDIR + "local/" + id + ".json")) Object.assign(w, JSON.parse(fs.readFileSync(WDIR + "local/" + id + ".json", "utf8")));   // MG12: a local-only bake's real model / sights (content/weapons/local/<id>.json)
   const sum = JSON.parse(fs.readFileSync(O + a.stat + "_summary.json", "utf8"));
   const parts = a.lengthPart ? sum.parts.filter(p => p.name === a.lengthPart) : sum.parts;
   const mn = [0, 1, 2].map(i => Math.min(...parts.map(p => p.gltf_min[i]))), mx = [0, 1, 2].map(i => Math.max(...parts.map(p => p.gltf_max[i])));
@@ -155,7 +196,7 @@ for (const [id, a] of Object.entries(A)) {
   const points = { rear: w.sights.rear, front: w.sights.front, muzzle: w.muzzle };
   if (w.scope) points.eye = w.scope.eye;
   const cfg = { maxTex: 2048, ...a, src: a.abs ? a.src : G + a.src,   // MG4: rig textures up to 2048 (never upscaled)
-    texdir: G + a.tex + "/textures", out: O + id + "_vm.glb", points,
+    texdir: (path.isAbsolute(a.tex) ? a.tex : G + a.tex) + "/textures", out: O + id + "_vm.glb", points,
     static: { s, o: [(mn[0] + mx[0]) / 2, (mn[1] + mx[1]) / 2, mn[2]] } };
   fs.writeFileSync(path.join(CFG, "anim_" + id + ".json"), JSON.stringify(cfg, null, 1));
 }

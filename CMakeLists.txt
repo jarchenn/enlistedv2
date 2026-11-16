@@ -69,7 +69,7 @@ add_executable(NormandyMapmaker
   src/capture_dash.cpp src/capture_props.cpp
   src/vehicle_dash.cpp
   src/interior.cpp src/selftest_interiors.cpp src/hlod.cpp src/static_decals.cpp src/selftest_turn.cpp
-  src/heli.cpp src/capture_heli.cpp
+  src/heli.cpp src/capture_heli.cpp src/vspawn_gen.cpp src/capture_vh7.cpp src/capture_tk1.cpp src/capture_tk2.cpp
   src/br_models.cpp src/selftest_brmodels.cpp src/selftest_recoil.cpp src/selftest_lean.cpp src/selftest_vehicle_ai.cpp)   # walls, interiors and furniture (docs/interiors.md)
 target_include_directories(NormandyMapmaker PRIVATE src ${stb_SOURCE_DIR} ${miniaudio_SOURCE_DIR})
 target_link_libraries(NormandyMapmaker PRIVATE glad glfw glm::glm imgui Jolt nlohmann_json::nlohmann_json)
@@ -84,7 +84,8 @@ include(cmake/w3.cmake)     # editor & terrain (W3)
 include(cmake/recast.cmake) # W6: Recast/Detour navmesh + AI core
 include(cmake/w6b.cmake)    # W6b: AI tuning harness
 include(cmake/w5.cmake)     # W5 default maps runtime + suite
-include(cmake/v8.cmake)     # V8 terrain sculpt + Beautify
+include(cmake/v8.cmake)     # V8 terrain sculpt + saved decor
+include(cmake/ui2.cmake)    # UI2 main menu, logo
 include(cmake/nature.cmake) # natural ground dressing (boulders, flowers, tall grass, stones, shrubs)
 include(cmake/settings.cmake) # V2: Settings window, graphics presets, --selftest-settings
 include(cmake/v6.cmake)     # V6: snapping, crush & flatten (snap.cpp)

@@ -54,6 +54,7 @@ struct RenderView {
   // optic eyepiece (W2): radius of the clear circle (fraction of the frame height; 0 = none) and its reticle:
   // 1 German post with side bars (ZF39), 2 crosshair with a lower post (M1C), 3 TZF gunner sight (PaK 40)
   float eyepieceR = 0; int reticle = 0;
+  bool rectVignette = false;   // TK3: the Abrams' full-screen gunner view: a soft rounded-rectangle vignette (tone pass)
   bool underwater = false;             // camera below the water surface (swim.cpp): dense fog, tint, vignette
   vec3 underFogCol{0.06f, 0.24f, 0.25f}; float underFogDens = 0.11f;   // movement.json "swim"
 };
@@ -101,6 +102,7 @@ public:
   std::vector<ModelDraw> worldModelsGlass;   // their glass parts (blended, after the glass pass)
   struct FolModelDraw { const GpuModel* model; mat4 m; float wind; };   // NT8: model foliage (pines, ferns, grass), instanced
   std::vector<FolModelDraw> folModels;
+  std::vector<vec4> grassVeh;   // TK3: vehicle footprints that flatten the grass: per box (centre x, z, cos yaw, sin yaw), (half x, half z, 0, 0); 16 at most
   std::vector<ModelDraw> worldModels;   // imported models in the world (rack displays, the M2HB station)     // tree leaf cards (alpha-tested, wind sway, shadow casting)
   float wind = 1.0f;
   // sky clouds: fbm on a plane at 1500 m scrolling with the wind
@@ -258,7 +260,7 @@ public:
   int upscaleMode = 0;
   GLuint progMotion = 0, progDepthUp = 0, motionTex = 0, motionFbo = 0; int motionW = 0, motionH = 0;
   // offscreen orthographic/perspective render of textured parts (weapon calibration sheets, tests)
-  bool renderModelSheet(const std::vector<ModelDraw>& items, const std::vector<DrawItem>& boxes, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, std::vector<uint8_t>& rgba);
+  bool renderModelSheet(const std::vector<ModelDraw>& items, const std::vector<DrawItem>& boxes, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, std::vector<uint8_t>& rgba, bool transparent = false);   // transparent: alpha 0 where nothing was drawn (UI2 Character screen)
   vec3 sunDir = glm::normalize(vec3(-0.45f, 0.62f, 0.38f));   // the Day sun; inside render() the key light of the time of day (lighting.cpp)
   // ---- lighting engine (src/lighting.cpp, docs/lighting.md): time of day, clustered local lights, light shadows, probe GI
   struct LightQ {
@@ -321,7 +323,7 @@ private:
   // uniform locations of the draw loops, looked up once per program (cleared by compile())
   struct DrawLocs { GLint model = -1, tint = -1, inst = -1, roomA = -1, roomB = -1, sills = -1, sillA = -1, sillB = -1, contactBox = -1, contact = -1, foundWx = -1, roomDec = -1, extDec = -1, roomX = -1,
                     vp = -1, time = -1, wind = -1, leafCol = -1, base = -1, metal = -1, rough = -1, thin = -1,
-                    alb = -1, mr = -1, nrm = -1, ao = -1, hasAlb = -1, hasMR = -1, hasNrm = -1, hasAO = -1, aoInMR = -1, snapAp = -1, glow = -1; };
+                    alb = -1, mr = -1, nrm = -1, ao = -1, hasAlb = -1, hasMR = -1, hasNrm = -1, hasAO = -1, aoInMR = -1, aoStr = -1, snapAp = -1, glow = -1; };
   std::vector<std::pair<GLuint, DrawLocs>> locCache;
   DrawLocs drawLocs(GLuint prog);   // by value: the cache may grow while a loop holds it
   std::vector<uint32_t> drawIdx;   // scratch: visible items of the current drawItems call

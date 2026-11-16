@@ -21,9 +21,11 @@ void gm2ApplyClassSoldier(App& app, int slot, Soldier& s, const struct ClassDef&
 void gm2Reset(App& app);                                        // a new Explore session: no live packs, no strikes, no grants
 
 // ---- explosion pack: placed on the surface in reach (walls, vehicles, ground), it goes off `fuse` s later through explode()
-struct LivePack { vec3 pos{0}, nrm{0, 1, 0}; float fuse = 10; int def = -1, owner = -1; uint64_t tank = 0; vec3 local{0}, localN{0}; bool visualOnly = false; int beat = -1; };   // beat: the last countdown beep sounded (SND4)
+struct LivePack { vec3 pos{0}, nrm{0, 1, 0}; float fuse = 10; int def = -1, owner = -1; uint64_t tank = 0; vec3 local{0}, localN{0}; bool visualOnly = false; int beat = -1; float fuseTotal = 0; };   // fuseTotal: the countdown's length when not the weapon's own (SD1 bomb: 40 s)   // beat: the last countdown beep sounded (SND4)
 bool gm2PlacePack(App& app, int def, vec3 eye, vec3 dir, int owner, std::string* why = nullptr);   // host / solo: places it; a LAN client: a request
 const std::vector<LivePack>& gm2Packs();
+void gm2AddBombVisual(App& app, vec3 pos, float fuse);   // SD1: a planted bomb drawn and beeping as a pack (visual only: the round controller owns the blast)
+void gm2RemovePacksNear(vec3 pos, float r);              // SD1: defused / detonated / round reset
 
 // ---- artillery: a barrage of `shells` rounds within `spread` m of the target, the first `delay` s after the call
 struct ArtyConfig { float cooldown = 90, delay = 4, gap = 0.55f, spread = 14, damage = 300, radius = 7, crater = 0.45f; int shells = 6; };

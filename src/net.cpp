@@ -13,6 +13,7 @@ using SOCKET = int;
 constexpr SOCKET INVALID_SOCKET = -1;
 static int closesocket(SOCKET s) { return close(s); }
 #endif
+#include "sd_game.h"
 #include "net.h"
 #include "ai_hooks.h"
 #include "flame.h"
@@ -280,7 +281,7 @@ bool Net::host(App& app, std::string& err, int port) {
   std::string ips;
   addrinfo hints{}, *res = nullptr; hints.ai_family = AF_INET;
   if (getaddrinfo(hn, nullptr, &hints, &res) == 0) { for (auto* r = res; r; r = r->ai_next) { char b[64]; inet_ntop(AF_INET, &((sockaddr_in*)r->ai_addr)->sin_addr, b, sizeof b); ips += std::string(ips.empty() ? "" : ", ") + b; } freeaddrinfo(res); }
-  status = "Hosting on " + (ips.empty() ? std::string("this PC") : ips) + " port " + std::to_string(port) + ". If Windows asks, allow Normandy Mapmaker on private networks.";
+  status = "Hosting on " + (ips.empty() ? std::string("this PC") : ips) + " port " + std::to_string(port) + ". If Windows asks, allow Battle Foundry on private networks.";
   hostMapName = app.doc.name;
   d->lobbyDirty = true;
   logf("net: hosting (%s)", status.c_str());
@@ -534,7 +535,8 @@ void netApplyEvent(App& app, const json& ev, bool replay) {
     app.blastAT = ev.value("at", false); app.blastWall = ev.value("wm", 1.0f); app.blastSplashGun = ev.value("sg", 40.0f);
     app.explode(jvec3(ev["p"]), jvec3(ev["d"]), ev["dmg"].get<float>(), ev["r"].get<float>(), ev["cs"].get<float>(), ~0ull, ev["wk"].get<int>());
     app.blastAT = false; app.blastWall = 1; app.blastSplashGun = 40;
-    if (!replay && ev.value("fx", true)) { app.fx.explosion(jvec3(ev["p"]), vec3(0, 1, 0), "ground", true); app.audio.play("explosion", jvec3(ev["p"]), 0.9f); }
+    if (!replay && ev.value("fx", true)) { vec3 ep = jvec3(ev["p"]); app.fx.explosion(ep, vec3(0, 1, 0), "ground", true);
+      if (ev.value("sh", false)) app.audio.play("shell_hit", ep, 1.0f, 1.0f, glm::length(ep - app.eyePos()) / 343.0f); else app.audio.play("explosion", ep, 0.9f); }   // SND9
   } else if (t == "imp") {
     Projectile q; q.p = jvec3(ev["pp"]); q.v = jvec3(ev["pv"]); q.mass = ev.value("m", 0.01f); q.ammo = ev.value("a", ""); q.kind = PROJ_BULLET;
     Physics::Hit h; h.pos = jvec3(ev["hp"]); h.normal = jvec3(ev["hn"]); h.ud = ev["ud"].get<uint64_t>(); h.t = ev.value("ht", 0.0f);
@@ -551,6 +553,7 @@ void netApplyEvent(App& app, const json& ev, bool replay) {
       if (std::fabs(p - it->second.progress[k]) > 0.2f || replay) { it->second.progress[k] = p; for (auto& i : app.doc.instances) if (i.id == inst) app.updateLeafBodies(i, it->second, k); }
       g.doorSeen[(inst << 8) | (uint64_t)k] = ev["dir"].get<int>();
     }
+  } else if (sdClientEvent(app, ev)) {   // SD1: the Search and Destroy state, the bomb blast
   } else if (gm2ClientEvent(app, ev)) {   // GM2: a pack placed on the host, artillery incoming
   } else if (t == "cloud") {
     SmokeCloud c; c.id = g.gren.nextId++; c.p = jvec3(ev["p"]); c.start = ev["st"].get<double>(); c.seed = ev["seed"].get<uint32_t>();
@@ -757,6 +760,8 @@ static void hostRequest(App& app, Net& n, Peer& p, json& m) {   // m is mutable:
       hostSwitch(app, s, w);
       p.ch.send(json{{"t", "rack"}, {"w", w}}.dump());
     }
+  } else if (t == "sdhold" || t == "sdbuy") {   // SD1: plant / defuse holds, purchases (validated by the round controller)
+    sdHostRequest(g, slot, m);
   } else if (t == "pack" || t == "arty") {   // GM2: place an explosion pack / call artillery (inventory, reach, ability, cooldown)
     std::string why;
     if (!gm2HostRequest(app, g, s, slot, m, why)) { ++n.rejectedRequests; ++n.rejects[why]; }

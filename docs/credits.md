@@ -231,6 +231,22 @@ Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm ri
 | fps-50cal.zip (arms@bmg.fbx; extracted to incoming/fps-50cal) | Barrett M95 .50 BMG (`modern_sniper_50`, MG6) | supplied by the user | **licence to be confirmed by the user** (none stated in the zip) |
 | hardcase_for_weapons.glb | Modern weapons case (`rack_modern`) | FinBass (https://sketchfab.com/FinBass), from the GLB `asset.extras` | CC-BY-NC-4.0 per the GLB `asset.extras` (non-commercial; attribution required): **to be confirmed by the user** |
 
+## Modern guns (MG12)
+
+Supplied by the user (Downloads, copied / extracted to `incoming/mg12/<name>/`); the user states they are CC Attribution. The zips carry no licence file and empty FBX author fields: their Sketchfab pages were found by the download name and matched by triangle count (Sketchfab API), which also gives the author and licence. The GLBs carry title, author, source and licence in `asset.extras`. Each gun's own arms and clips are its first-person rig; the static gun mesh is its third-person, rack, pickup and icon model.
+
+| Source | Used for | Author | Licence |
+|---|---|---|---|
+| [revolver animated](https://sketchfab.com/3d-models/revolver-animated-a34b6d0ddc774744bc3567d6afc0878f) (revolver-animated.zip → arms@revolver.fbx; 20 416 triangles) | .357 Magnum revolver (`modern_revolver`) | DJMaesen (https://sketchfab.com/bumstrum) | CC BY 4.0 |
+| [sawnoff animated](https://sketchfab.com/3d-models/sawnoff-animated-806f8327bed34fc3b0e3911d01f0566d) (sawnoff-animated.zip → arms@sawnoff.fbx; 18 425) | Sawn-off double-barrel shotgun (`modern_sawnoff`) | DJMaesen | CC BY 4.0 |
+| [fps smg9 animated](https://sketchfab.com/3d-models/fps-smg9-animated-e77e2cd81dc048b998fd4652da644eb0) (fps-smg9-animated.zip → arms@smg9.fbx; 22 168) | SMG-9 (`modern_smg9`) | DJMaesen | CC BY 4.0 |
+| [animated pistol](https://sketchfab.com/3d-models/animated-pistol-30d1b612b2334a8294b02692b8c10cf1) ("first person animated heavy pistol"; animated-pistol.zip → arms@talon.fbx; 13 589) | Desert Eagle (`modern_deagle`) | DJMaesen | CC BY 4.0 |
+| fps-ak-animated (2).zip | **Not used**: byte-identical to fps-ak-animated (`modern_ak`, MG1) | supplied by the user | as MG1 |
+| [fps pistol Animated](https://sketchfab.com/3d-models/fps-pistol-animated-a8cdd6c2e936484aaf67e1786c8320d9) (fps-pistol-animated.zip → arms@bpPistol.fbx; 18 526; a later re-upload by wout.uyttebroek has the same count) | Glock 34 with compensator (`modern_glock34`, batch 2) | DJMaesen | CC BY 4.0 |
+| [Makarov PM FPS animations](https://sketchfab.com/3d-models/makarov-pm-fps-animations-d02ebd58e3cf44acb7af73e3f156be28) (makarov_pm_fps_animations.glb, GLB `asset.extras`) | Makarov PM (`modern_makarov`, batch 2): the gun only (the arms' skin is broken in the file; the game's arms hold it), its suppressor / optic bracket not used | Cransh (https://sketchfab.com/ccransh) | CC BY 4.0 |
+| [FPS animations FN 502 Tactical](https://sketchfab.com/3d-models/fps-animations-fn-502-tactical-dad2ee1250054a63adaa81918887c0fe) (fps_animations_fn_502_tactical.glb, GLB `asset.extras`; its spec-gloss materials converted for import) | FN 502 Tactical (`modern_fn502`, batch 2): the gun only, as the Makarov | Cransh | CC BY 4.0 |
+| mark-23-animated-free.zip (Mark23.fbx; 7 762 triangles) = [Mark 23 Animated (Free)](https://sketchfab.com/3d-models/mark-23-animated-free-7abebe340aca4f46b36368417b3ca920) | HK Mk 23 (`modern_mark23`, batch 2): **the bake is local-only** (content/weapons/local/modern_mark23.json, models/modern_mark23_local); the committed gun shows the Springfield XD stand-in | BarcodeGames | **Sketchfab Free Standard licence, not CC** (a CC BY copy by "notatree" with the same count looks like a re-upload): to be confirmed by the user |
+
 - Backrooms / Tunnels ambience: "Backrooms Ambience 2" by godbi (file godbi_3-backrooms-ambience-2-522106.mp3, supplied by the user; licence to be confirmed).
 - Footsteps: "Footsteps cellar" (freesound_community, file ...-26890.mp3); door opening: "Opening door" (soundreality, ...-411632.mp3); zombie: "Zombie sound 2" (dragon-studio, ...-357976.mp3). Supplied by the user; licences to be confirmed.
 - Gun shots (content/audio/custom/guns): makarov-shoot-36241, battle-rifle-42734, heavymachinegun-6998, single-pistol-gunshot-3-101923, 9mm-pistol-shot-6349, clean-machine-gun-burst-98224 (freesound_community); gunshot-447218 (yousef-kwt); shotgun-blast-352038 (universfield); machine-gun-sfx-631486 (dragon-studio); gun-shoot-512969 (u_2n07b18i8q). Supplied by the user; licences to be confirmed.
@@ -248,6 +264,7 @@ Supplied by the user in `incoming/modern_guns/<folder>` with first-person arm ri
 - Reloads (SND3), content/audio/custom/reload/: reload_ak.mp3 = jigokukarano_sisya-ak47-168856.mp3 (Pixabay, jigokukarano_sisya; its first 3.5 s), reload_m4.mp3 = squarebun-m4a1-reload-sound-316890.mp3 (Pixabay, squarebun), reload_bolt.mp3 = freesound_community-rifle-or-shotgun-reload-6787.mp3 (Freesound community via Pixabay); Pixabay content licence, to be confirmed. reload_sniper.mp3 = "m24 and 50cal.mp3", supplied by the user; source and licence to be confirmed.
 - Gun sounds (SND4): guns/rifle_a.mp3 = Rifle.mp3, guns/rifle_b.mp3 = Rifle2.mp3, guns/rifle_c.mp3 = Rifle3.mp3 (four shots), guns/sniper_m24.mp3 = Sniper.mp3, guns/bolt_cycle.mp3 = "Bolt action cycle.mp3", guns/tank_shot.mp3 = "Tank Shooting Sound.mp3", bullet_hit.mp3 = "Bullet Hit.mp3". Supplied by the user; licence to be confirmed.
 - More SND4 sounds: guns/smg_a.mp3 = SMG.mp3, guns/smg_b.mp3 = SMG1.mp3 (supplied by the user; source and licence to be confirmed). guns/casings.mp3 = freesound_community-shells-hitting-ground-9-39787.mp3, fx/bomb_beeps.mp3 = freesound_community-bomb-countdown-beeps-6868.mp3, guns/glauncher_fire.mp3 = freesound_community-grenade-launcher-106342.mp3, creature_screech.mp3 = freesound_community-high-quality-monster-screech-65012.mp3 (Freesound community via Pixabay); monster_growl.mp3 = rickworm-monster-growl-251374.mp3 (rickworm via Pixabay). Pixabay content licence, to be confirmed.
+- Vehicle rapid-fire guns (SND9): guns/gun_shot_1.mp3 = freesound_community-gun-shot-1-7069.mp3 (Freesound community via Pixabay), the Abrams roof minigun and the Apache's 30 mm. Licence to be confirmed.
 - Reload sounds (content/audio/custom/reload): reloading-weapon1, stalker-gun-reload, ak-74-eft-reload-full, 12g-pumpfull, shotgun-reload-sfx-36524 (freesound_community). Supplied by the user; sources and licences to be confirmed.
 - Sniper shot: heavy-sniper-shot.mp3. Supplied by the user; source and licence to be confirmed.
 - Modern models (MOD1, tools/catalog_modern_models.mjs, baked into content/assets/models/mod_*):
@@ -275,3 +292,11 @@ Supplied by the user (`incoming/pr1/<name>/`, converted by `tools/props/convert_
 | `mod_traffic_barrel` | [FREE] traffic barrier barrel | LaSamFish (https://sketchfab.com/lasamfish) | Sketchfab Standard (GLB `asset.extras`), not Creative Commons | https://sketchfab.com/3d-models/free-traffic-barrier-barrel-0e40ea8b59ac44a0ba51732ad462cec8 | no, local only |
 
 The petrol station's fuel dispensers (`pr1_fuel_dispenser`) are our own model, generated by `tools/props/props_build.py`.
+
+## UI2 main menu
+
+| File | Used for | Author | Licence | Source | Committed |
+|---|---|---|---|---|---|
+| city-soldier-outdated.zip (`sity soldier for scetchfab.blend`, Blender 2.79, 36 textures) | The soldier standing in the main menu: rendered once by Blender (CPU, transparent) to `content/ui/local/menu_soldier.png` | not in the files | not in the files | not given | no, local only (git-ignored); the committed backdrop `content/ui/menu_backdrop.jpg` shows the game's own soldier instead |
+
+The menu backdrops (`content/ui/menu_backdrop*.jpg`) are stills of our own Newtown map, captured in-engine and graded; the logo (`src/logo.cpp`) is our own vector drawing after the preliminary artwork.
