@@ -653,6 +653,7 @@ bool Game::soldierFire(Soldier& s, vec3 dir) {
   if (w.cooldown > 0 || s.reload > 0 || w.bolt > 0) return false;
   if (w.loaded <= 0) return false;
   w.loaded--; w.cooldown = 60.0f / std::max(1.0f, d.rpm); if (d.action == "bolt") w.bolt = d.boltTime; ++w.shotIdx; ++s.shots;
+  if (d.action == "bolt" && !s.localPlayer && app.audio.hasEvent("bolt_cycle_" + d.id) && glm::length(s.feet - app.eyePos()) < 80.0f) app.audio.play("bolt_cycle_" + d.id, s.feet + vec3(0, 1.5f, 0), 0.6f);   // SND4: a bot works its bolt too
   vec3 e = eye(s);
   vec3 muzzle = vec3(s.world * s.pose.weapon * vec4(d.muzzle, 1));
   Physics::Hit hb;

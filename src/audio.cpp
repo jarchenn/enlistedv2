@@ -272,17 +272,34 @@ int Audio::loadCustom(const fs::path& dir) {
   if (decode("door_open.mp3", b)) { ++used; Impl::Event ev; ev.v.push_back(b); ev.gain = 0.5f; for (const char* n : {"wood_open", "glass_open", "shutter_open", "steel_open"}) p->events[n] = ev; }
   // gun shots (guns/*.mp3): one recording per weapon group. A burst recording gives its last shot (the one with the tail);
   // automatic fire re-triggers it per round like every other shot event.
-  struct GunSet { const char* file; bool burst; std::vector<const char*> ids; };
+  // SND4: every rifle its own shot. take: which shot of a recording holding several (Rifle3: four), -1 the first;
+  // pitch / tilt / tail: a variant derived from a recording another rifle uses (resampled x pitch; tilt < 0 darker, > 0
+  // brighter; tail: seconds kept)
+  struct GunSet { const char* file; bool burst; std::vector<const char*> ids; int take = -1; float pitch = 1, tilt = 0, tail = 2.5f; };
   const GunSet guns[] = {
     {"guns/pistol_a.mp3", false, {"luger"}},
     {"guns/pistol_c.mp3", false, {"modern_pistol2"}},
     {"guns/pistol_b.mp3", false, {"m1911a1"}},
-    {"guns/pistol_9mm.mp3", false, {"modern_pistol", "modern_ar15", "modern_m16", "modern_m4", "modern_m4_irons", "modern_pistol3"}},
-    {"guns/semi_rifle.mp3", false, {"modern_sniper_semi", "modern_ak", "modern_fal", "modern_scar", "fg42", "m1918a2_bar", "modern_ak12"}},
+    {"guns/pistol_9mm.mp3", false, {"modern_pistol", "modern_ar15", "modern_pistol3"}},   // the AR-15 keeps the Springfield XD single shot (user request)
+    {"guns/semi_rifle.mp3", false, {"modern_sniper_semi"}},
+    {"guns/semi_rifle.mp3", false, {"modern_scar"}, -1, 0.9f, -0.5f, 2.2f},   // derived: SCAR-H, lower and darker
     {"guns/auto_rifle_burst.mp3", true, {"modern_mp7", "modern_scorpion"}},
     {"guns/carbine.mp3", false, {"m1_carbine"}},
-    {"guns/rifle_bolt.mp3", false, {"kar98k", "m1_garand", "m1c_garand"}},
-    {"guns/sniper_heavy.mp3", false, {"kar98k_zf39", "modern_sniper_bolt", "modern_sniper_50", "modern_sniper_3"}},
+    {"guns/rifle_bolt.mp3", false, {"m1_garand"}},   // the full rifle recording (user request)
+    {"guns/rifle_bolt.mp3", false, {"m1c_garand"}, -1, 0.95f, -0.6f, 1.8f},   // derived: M1C, darker, shorter tail
+    {"guns/rifle_bolt.mp3", false, {"m1918a2_bar"}, -1, 0.88f, 0.0f, 2.0f},   // derived: BAR, lower
+    {"guns/rifle_bolt.mp3", false, {"fg42"}, -1, 1.1f, 0.4f, 1.6f},   // derived: FG 42, higher and brighter
+    {"guns/sniper_heavy.mp3", false, {"modern_sniper_50"}},   // the heavy sniper shot (user request)
+    {"guns/sniper_m24.mp3", false, {"modern_sniper_bolt"}},   // Sniper.mp3: the M24's own
+    {"guns/sniper_m24.mp3", false, {"modern_sniper_3"}, -1, 1.08f, 0.3f, 1.8f},   // derived: scout rifle, higher, shorter
+    {"guns/rifle_a.mp3", false, {"kar98k"}},   // Rifle.mp3 (still 50 % louder, below)
+    {"guns/rifle_a.mp3", false, {"kar98k_zf39"}, -1, 0.92f, -0.4f, 2.5f},   // derived: the scoped Kar98k, lower, darker
+    {"guns/rifle_b.mp3", false, {"modern_ak"}},   // Rifle2.mp3: AK-74
+    {"guns/rifle_b.mp3", false, {"modern_ak12"}, -1, 0.92f, 0.3f, 1.8f},   // derived: AK-12
+    {"guns/rifle_c.mp3", false, {"modern_m16"}, 0},   // Rifle3.mp3 holds four shots: one each
+    {"guns/rifle_c.mp3", false, {"modern_m4"}, 1},
+    {"guns/rifle_c.mp3", false, {"modern_m4_irons"}, 2},
+    {"guns/rifle_c.mp3", false, {"modern_fal"}, 3},
     {"guns/assault_rifle.mp3", true, {"stg44"}},
     {"guns/shotgun.mp3", false, {"modern_shotgun", "modern_shotgun2"}},
     {"guns/hmg_burst.mp3", true, {"m2hb_carry"}},
@@ -294,18 +311,45 @@ int Audio::loadCustom(const fs::path& dir) {
     if (!decode(g.file, b)) continue;
     const int W = SR / 200; size_t nW = b.size() / W; float peak = 1e-4f; std::vector<float> env(nW, 0.0f);   // 5 ms windows
     for (size_t k = 0; k < nW; ++k) { for (int j = 0; j < W; ++j) env[k] = std::max(env[k], std::fabs(b[k * W + j])); peak = std::max(peak, env[k]); }
-    size_t first = nW, last = nW, prev = 0;
-    for (size_t k = 0; k < nW; ++k) if (env[k] > 0.5f * peak && (k == 0 || env[k - 1] <= 0.5f * peak) && (last == nW || k - prev >= 8)) { if (first == nW) first = k; last = prev = k; }
+    size_t first = nW, last = nW, prev = 0; std::vector<size_t> shots;   // shots: onsets at least 1 s apart (a recording of several)
+    for (size_t k = 0; k < nW; ++k) if (env[k] > 0.5f * peak && (k == 0 || env[k - 1] <= 0.5f * peak) && (last == nW || k - prev >= 8)) { if (first == nW) first = k; last = prev = k; if (shots.empty() || k - shots.back() >= 200) shots.push_back(k); }
     if (first == nW) continue;
-    size_t a = (g.burst ? last : first); a = (a > 0 ? a - 1 : 0) * W;
-    size_t e = std::min(b.size(), a + (size_t)(2.5f * SR));
-    Buf s(b.begin() + a, b.begin() + e); float pk = 1e-4f; for (float x : s) pk = std::max(pk, std::fabs(x));
+    size_t a = g.take >= 0 && g.take < (int)shots.size() ? shots[g.take] : (g.burst ? last : first); a = (a > 0 ? a - 1 : 0) * W;
+    size_t e = std::min(b.size(), a + (size_t)(g.tail * SR));
+    if (g.take >= 0 && g.take + 1 < (int)shots.size()) e = std::min(e, (shots[g.take + 1] - 2) * W);   // not into the next shot
+    { static const bool lg = std::getenv("NMK_AUDIO_LOG") != nullptr; if (lg && g.take >= 0) logf("audio: %s take %d of %d shots, from %.2f s", g.file, g.take, (int)shots.size(), a / (float)SR); }   // diagnostics
+    Buf s(b.begin() + a, b.begin() + e);
+    if (g.pitch != 1.0f) { Buf r((size_t)(s.size() / g.pitch)); for (size_t j = 0; j < r.size(); ++j) { float x = j * g.pitch; size_t i0 = (size_t)x; float u = x - i0; r[j] = i0 + 1 < s.size() ? s[i0] * (1 - u) + s[i0 + 1] * u : s[std::min(i0, s.size() - 1)]; } s.swap(r); }   // SND4 derived: resampled
+    if (g.tilt != 0.0f) { float lp = 0, al = 1 - std::exp(-2 * 3.14159f * 1500.0f / SR); for (float& x : s) { lp += al * (x - lp); x = g.tilt < 0 ? x * (1 + g.tilt) - lp * g.tilt : x + (x - lp) * g.tilt; } }   // tone: toward the low-passed (< 0) or the high-passed (> 0)
+    float pk = 1e-4f; for (float x : s) pk = std::max(pk, std::fabs(x));
     size_t f = std::min(s.size(), (size_t)(0.05f * SR));
     for (size_t j = 0; j < s.size(); ++j) s[j] *= 0.8f / pk * (j + f >= s.size() ? (float)(s.size() - j) / f : 1.0f);
     ++used; Impl::Event ev; ev.kind = "shot"; ev.v.push_back(std::move(s));
     for (const char* id : g.ids) { p->events[std::string("shot_") + id] = ev; p->events.erase(std::string("shot_") + id + "_far"); }
   }
   for (const char* id : {"shot_kar98k"}) if (auto it = p->events.find(id); it != p->events.end()) it->second.gain = 1.5f;   // louder (user request)
+  // SND4: the bolt action cycle after each shot of a bolt rifle: the recording's open / close (0.36-0.90 s) twice back to back,
+  // sped up (resampled) so both, from 0.06 s after the shot, end 0.05 s before the bolt time is up (at least 1.25x)
+  if (decode("guns/bolt_cycle.mp3", b) && b.size() > (size_t)(0.90f * SR)) {
+    Buf seg(b.begin() + (size_t)(0.36f * SR), b.begin() + (size_t)(0.90f * SR)); float pk = 1e-4f; for (float x : seg) pk = std::max(pk, std::fabs(x)); for (float& x : seg) x *= 0.8f / pk;
+    struct BoltSet { const char* id; float bolt; };
+    for (auto& bs : {BoltSet{"kar98k", 0.85f}, BoltSet{"kar98k_zf39", 1.0f}, BoltSet{"modern_sniper_bolt", 1.0f}, BoltSet{"modern_sniper_3", 1.0f}, BoltSet{"modern_sniper_50", 1.4f}}) {   // content/weapons boltTime
+      const float lead = 0.06f, len = seg.size() / (float)SR, speed = std::max(1.25f, 2 * len / (bs.bolt - 0.05f - lead));
+      Buf r((size_t)(seg.size() / speed)); for (size_t j = 0; j < r.size(); ++j) { float x = j * speed; size_t i0 = (size_t)x; float u = x - i0; r[j] = i0 + 1 < seg.size() ? seg[i0] * (1 - u) + seg[i0 + 1] * u : seg.back(); }
+      Buf out((size_t)(lead * SR), 0.0f); out.insert(out.end(), r.begin(), r.end()); out.insert(out.end(), r.begin(), r.end());
+      size_t f = std::min(out.size(), (size_t)(SR / 100)); for (size_t j = 0; j < f; ++j) out[out.size() - 1 - j] *= (float)j / f;
+      Impl::Event ev; ev.gain = 0.8f; ev.v.push_back(std::move(out)); p->events[std::string("bolt_cycle_") + bs.id] = ev;
+      { static const bool lg = std::getenv("NMK_AUDIO_LOG") != nullptr; if (lg) logf("audio: bolt cycle for %s: %.2fx, ends %.2f s after the shot (bolt %.2f s)", bs.id, speed, lead + 2 * len / speed, bs.bolt); }   // diagnostics
+    }
+    ++used;
+  }
+  // SND4: tank main guns (every tank: tank_sim plays tank_88 for the Tiger, tank_17pdr otherwise; both were procedural)
+  if (decode("guns/tank_shot.mp3", b)) {
+    float pk = 1e-4f; for (float x : b) pk = std::max(pk, std::fabs(x)); size_t a = 0; while (a < b.size() && std::fabs(b[a]) < 0.2f * pk) ++a; a = a > (size_t)(SR / 100) ? a - SR / 100 : 0;
+    Buf s(b.begin() + a, b.begin() + std::min(b.size(), a + (size_t)(5.0f * SR))); size_t f = std::min(s.size(), (size_t)(0.3f * SR));
+    for (size_t j = 0; j < s.size(); ++j) s[j] *= 0.9f / pk * (j + f >= s.size() ? (float)(s.size() - j) / f : 1.0f);
+    Impl::Event ev; ev.minDist = 40.0f; ev.v.push_back(std::move(s)); for (const char* n : {"tank_88", "tank_17pdr"}) { p->events[n] = ev; p->events.erase(std::string(n) + "_far"); } ++used;
+  }
   // launchers, cannon and explosions: whole recordings from their first loud moment (up to 6 s), far layers dropped
   struct FxSet { const char* file; std::vector<const char*> events; float from = 0; };   // from: seconds into the recording to start at
   const FxSet fxs[] = {
