@@ -25,9 +25,24 @@ const r2 = (v) => Math.round(v * 100) / 100;
 
 // ---------------------------------------------------------------- ceiling lids (flat top at the instance y, dome hanging below)
 for (const [sfx, sz, seeds] of [["l", [42, 16, 40], [501, 502, 503]], ["m", [28, 11, 27], [511, 512, 513]], ["s", [16, 7, 15], [521, 522]]]) {
-  seeds.forEach((sd, k) => rock(`cave_lid_${sfx}${k}`, `Cave ceiling (${sfx === "l" ? "large" : sfx === "m" ? "medium" : "small"} ${k + 1})`,
-    "A slab of cave roof hung from a flat top: a lumpy, fractured underside about " + Math.round(sz[1] * 0.78) + " m deep. Placed overlapping to close a cavern.",
-    [piece("dripstone", sd, sz, [0, 0, 0], 0, [180, 0], 0, 2)], [sz[0], sz[2]], "block", true, "Cave roof"));
+  seeds.forEach((sd, k) => {
+    S = sd * 7;
+    const P = [piece(k % 2 ? "schist" : "granite", sd, sz, [0, 0, 0], 0, [180, 0], 0, 2)];
+    // CV1d: vault relief: ribs and pockets hanging from the dome's underside (a lone dome read as one bare flat lid)
+    const a = (sz[0] + sz[2]) / 4, b = sz[1] / 2;
+    const under = (x, z) => { const q = (x * x + z * z) / (a * a); return q >= 1 ? -0.56 * b : -0.56 * b - b * Math.sqrt(1 - q); };
+    if (sfx !== "s") for (let r = 0; r < (sfx === "l" ? 6 : 4); r++) {   // ribs: long, narrow, hung along the underside
+      const t = rnd() * 6.283, d = rnd() * a * 0.55, x = Math.cos(t) * d, z = Math.sin(t) * d, L = a * (0.6 + rnd() * 0.6);
+      P.push(piece(rnd() < 0.5 ? "schist" : "granite", sd * 10 + r, [r2(L), r2(1.8 + rnd() * 2.2), r2(1.8 + rnd() * 1.6)], [r2(x), r2(under(x, z) + 1.0), r2(z)], Math.round(rnd() * 180), [180, 0], 0, 1));   /* detail 1: 306 lids x 6 ribs at 320 tris doubled the frame */
+    }
+    for (let r = 0; r < (sfx === "l" ? 9 : sfx === "m" ? 6 : 3); r++) {   // pockets / broken strata: lumps of mixed size
+      const t = rnd() * 6.283, d = rnd() * a * 0.7, x = Math.cos(t) * d, z = Math.sin(t) * d, w = 3 + rnd() * (sfx === "s" ? 3 : 7);
+      P.push(piece(rnd() < 0.5 ? "schist" : "granite", sd * 20 + r, [r2(w), r2(1.5 + rnd() * 3.0), r2(w * (0.6 + rnd() * 0.5))], [r2(x), r2(under(x, z) + 0.8), r2(z)], Math.round(rnd() * 180), [180, 0], 0, 0));   /* faceted knobs: seen from 15-30 m below */
+    }
+    rock(`cave_lid_${sfx}${k}`, `Cave ceiling (${sfx === "l" ? "large" : sfx === "m" ? "medium" : "small"} ${k + 1})`,
+      "A slab of cave roof hung from a flat top: a fractured underside about " + Math.round(sz[1] * 0.78) + " m deep with ribs and pockets of broken strata. Placed overlapping to close a cavern.",
+      P, [sz[0], sz[2]], "block", true, "Cave roof");
+  });
 }
 
 // ---------------------------------------------------------------- stalactites (hang from y = 0 down), stalagmites (rise from the floor), columns
@@ -152,8 +167,8 @@ const cone = (P, seed, x, z, y0, h, w, dir, yaw, lean, taper = 1.3, flute = 0) =
   pos: [r2(x), r2(y0), r2(z)], yaw: yaw % 360, tilt: dir > 0 ? [0, 0] : [180, 0], sink: dir > 0 ? 0.08 : 0, detail: w > 1.4 ? 3 : h > 1.5 ? 2 : 1,
   shape: "cone", taper: r2(taper), flute: r2(flute), lean: [r2(lean[0]), r2(lean[1])] });
 const spk = (P, seed, x, z, y0, h, w, dir, yaw, lean) => cone(P, seed, x, z, y0, h, w, dir, yaw, lean, 1.3 + rnd() * 0.4, 0);
-const KDOWN = ["needle", "spear", "fluted", "curved", "twin", "curtain", "spear", "needle", "spear", "bulb"];
-const KUP = ["spear", "fluted", "spear", "curved", "twin", "needle", "spear", "fluted", "stump", "cake"];
+const KDOWN = ["needle", "spear", "fluted", "curved", "twin", "curtain", "spear", "needle", "spear", "twin"];
+const KUP = ["spear", "fluted", "spear", "curved", "twin", "needle", "spear", "fluted", "twin", "spear"];   // CV1d: sharp cones only, no stacked / bulbous forms
 const drip = (P, kind, sd, x, z, y0, h, dir) => {
   const yaw = Math.round(rnd() * 360), ln = [(rnd() - 0.5) * 0.1, (rnd() - 0.5) * 0.1];
   if (kind === "needle") { cone(P, sd, x, z, y0, h, Math.max(0.08, h * (0.07 + rnd() * 0.04)), dir, yaw, ln, 1.05 + rnd() * 0.2, 0); return; }
@@ -195,7 +210,7 @@ const dripAsset = (dir, v) => {
   const R = 1.5 + H * 0.35, n = 4 + Math.floor(rnd() * (H > 8 ? 9 : 6));   // CV1 perf: fewer satellites
   for (let k = 0; k < n; k++) {
     const a = rnd() * 6.283, r = R * (0.25 + 0.75 * Math.pow(rnd(), 1.4)), hh = H * (0.05 + 0.4 * Math.pow(rnd(), 1.8)) + 0.3;
-    drip(P, rnd() < 0.35 ? "needle" : kinds[Math.floor(rnd() * kinds.length)], 8000 + v * 200 + 3 + k * 9 + (dir > 0 ? 100000 : 0), r2(Math.cos(a) * r), r2(Math.sin(a) * r), y0, hh, dir);
+    drip(P, rnd() < 0.35 ? "needle" : kinds[Math.floor(rnd() * kinds.length)].replace("curtain", "spear"), 8000 + v * 200 + 3 + k * 9 + (dir > 0 ? 100000 : 0), r2(Math.cos(a) * r), r2(Math.sin(a) * r), y0, hh, dir);
   }
   const big = dir > 0 || H >= 9;
   rock(`cave_drip_${dir > 0 ? "up" : "down"}_${v}`, `${dir > 0 ? "Stalagmites" : "Stalactites"}: ${main} cluster (${Math.round(H)} m)`,
@@ -268,18 +283,19 @@ const glowMats = (col, emi) => [{ name: "glow", albedo: col, roughness: 0.3, pat
   { name: "stone", albedo: [0.13, 0.12, 0.11], roughness: 0.85, pattern: "stone", metallic: 0, grain: 1 },
   { name: "ember", albedo: [0.3, 0.08, 0.02], roughness: 0.9, pattern: "plain", metallic: 0, grain: 1, emissive: [4.0, 1.1, 0.2] }];
 lightAsset("cave_brazier", "Cave brazier (stone bowl)", "A rough stone bowl of burning embers on a stone foot: a warm, flickering fire light.",
-  { color: [1.0, 0.5, 0.18], intensity: 70, radius: 26, offset: [0, 1.25, 0], flicker: 0.32, use: "fire", fx: "flame", fxSize: 0.5 },
+  { color: [1.0, 0.5, 0.18], intensity: 130, radius: 34, offset: [0, 1.25, 0], flicker: 0.32, use: "fire", fx: "flame", fxSize: 0.5 },
   [{ t: "c", c: [0, 0.45, 0], s: [0.5, 0.9, 0.5], m: "stone", n: 8 }, { t: "k", c: [0, 1.05, 0], s: [1.1, 0.35, 1.1], m: "stone", n: 8, top: 1.4 }, { t: "c", c: [0, 1.2, 0], s: [0.9, 0.05, 0.9], m: "ember", n: 12, k: 0 }],
   glowMats([0.2, 0.2, 0.2], [0, 0, 0]));
-for (const [id, nm, col, emi, lc] of [["cave_crystals", "Glowing crystals (cold)", [0.3, 0.6, 0.7], [0.5, 2.0, 2.8], [0.4, 0.8, 1.0]],
-                                       ["cave_crystals_violet", "Glowing crystals (violet)", [0.5, 0.3, 0.7], [1.6, 0.7, 2.6], [0.65, 0.4, 1.0]]]) {
+for (const [id, nm, col, emi, lc, li, lr] of [["cave_crystals", "Glowing crystals (cold)", [0.3, 0.6, 0.7], [0.5, 2.0, 2.8], [0.4, 0.8, 1.0], 160, 38],
+                                       ["cave_crystals_violet", "Glowing crystals (violet)", [0.5, 0.3, 0.7], [1.6, 0.7, 2.6], [0.65, 0.4, 1.0], 160, 38],
+                                       ["cave_crystals_small", "Glowing crystals (small, dim)", [0.3, 0.6, 0.7], [0.4, 1.5, 2.1], [0.4, 0.8, 1.0], 35, 18]]) {
   S = id.length * 131;
   const parts = [];
   for (let k = 0; k < 9; k++) {   // upright pointed crystal prisms, clustered
     const a = rnd() * 6.283, r = k === 0 ? 0 : 0.3 + rnd() * 0.8, h = (k === 0 ? 1.8 : 0.5 + rnd() * 1.2), w = 0.12 + h * 0.12;
     parts.push({ t: "k", c: [r2(Math.cos(a) * r), r2(h / 2 - 0.05), r2(Math.sin(a) * r)], s: [r2(w), r2(h), r2(w)], r: [Math.round((rnd() - 0.5) * 14), Math.round(rnd() * 60), Math.round((rnd() - 0.5) * 14)], m: "glow", n: 6, top: 0, k: 0 });
   }
-  lightAsset(id, nm, "A cluster of mineral crystals glowing from within: a steady cold light, no fire.", { color: lc, intensity: 45, radius: 24, offset: [0, 1.0, 0], use: "electric" }, parts, glowMats(col, emi));
+  lightAsset(id, nm, "A cluster of mineral crystals glowing from within: a steady cold light, no fire.", { color: lc, intensity: li, radius: lr, offset: [0, 1.0, 0], use: "electric" }, parts, glowMats(col, emi));
 }
 {
   S = 4447; const parts = [];
@@ -288,7 +304,7 @@ for (const [id, nm, col, emi, lc] of [["cave_crystals", "Glowing crystals (cold)
     parts.push({ t: "c", c: [x, r2(h / 2), z], s: [0.04, r2(h), 0.04], m: "glow", n: 6, k: 0 });
     parts.push({ t: "k", c: [x, r2(h), z], s: [r2(d), r2(d * 0.4), r2(d)], m: "glow", n: 10, top: 0.3, k: 0 });
   }
-  lightAsset("cave_fungi", "Glowing fungi", "A patch of bioluminescent fungi: a faint, soft green glow on the wet rock.", { color: [0.45, 1.0, 0.55], intensity: 9, radius: 12, offset: [0, 0.4, 0], use: "electric" }, parts, glowMats([0.3, 0.6, 0.35], [0.6, 2.6, 0.9]));
+  lightAsset("cave_fungi", "Glowing fungi", "A patch of bioluminescent fungi: a faint, soft green glow on the wet rock.", { color: [0.45, 1.0, 0.55], intensity: 14, radius: 14, offset: [0, 0.4, 0], use: "electric" }, parts, glowMats([0.3, 0.6, 0.35], [0.6, 2.6, 0.9]));
 }
 lightAsset("cave_light_pool", "Cave light (pool glow)", "Light rising from the water itself: a cold cyan glow over a pool, with a little mist.",
   { color: [0.3, 0.85, 0.85], intensity: 22, radius: 16, use: "electric", fx: "mist", fxSize: 9 });
