@@ -19,17 +19,22 @@ enum DmZone : int { DZ_HEAD = 0, DZ_UPPER_TORSO = 1, DZ_LIMB = 2, DZ_LOWER_TORSO
 struct WeaponDamage {
   std::string id;
   float nearDmg = 50, farDmg = 35, falloffStart = 50, falloffEnd = 150, rpm = 0;
+  std::string cls;            // DMG1: the row's class (damage.json classes): its head cap and armour penetration
+  float headMax = 0;          // DMG1: head damage cap (pistols / SMGs: a headshot alone does not kill); 0 = none
+  float pen = 1;              // DMG1: armour penetration (share of the damage an armoured zone still takes at full armour)
   bool dataOnly = false;      // no model in the repo yet
 };
 
 struct DamageTable {
-  float health = 100, head = 1.3f, torso = 1.0f, arms = 1.0f, legs = 0.6f;   // zone multipliers (neck counts as torso)
+  float health = 100, head = 4.0f, torso = 1.0f, stomach = 1.25f, arms = 1.0f, legs = 0.75f;   // zone multipliers (neck counts as torso; stomach = lower torso)
   float lowerTorsoSplit = 0.5f;   // fraction along hips -> neck below which a torso hit is lower torso (mid-spine)
   float neckFrom = 0.9f;          // fraction along hips -> neck above which a torso hit is reported as the neck (gore spurting)
   float upperThighTo = 0.5f;      // fraction along hip -> knee below which a leg hit is the upper thigh (gore spurting)
   float helmetAbove = 0.12f;      // m above the head joint (along neck -> head) where the helmet starts (brow level; the eye line is ~0.09)
   bool helmetReducesDamage = false;
   std::string springfieldProfile = "brief";   // [DECISION] decisions.springfieldProfile ("brief" | "kar98k")
+  struct Class { float headMax = 0, pen = 1; };
+  std::map<std::string, Class> classes;   // DMG1: per-class head cap and armour penetration
   WeaponDamage def;               // unlisted bullet weapons
   std::map<std::string, WeaponDamage> weapons;
   std::string error;              // load problem (empty = ok)

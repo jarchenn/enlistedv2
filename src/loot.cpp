@@ -25,6 +25,7 @@ struct LootCfg {
   std::string ammoNames[AM_COUNT] = {"9 mm", ".45", "5.56", "7.62", ".50", "Rockets", "12 gauge"};
   std::string ammoTypes[AM_COUNT] = {"9mm", "45", "556", "762", "50", "rocket", "12ga"};   // asset ids br_ammo_<type>
   float boxWeight = 10;
+  float penApply[4] = {0, 0.6f, 0.8f, 1.0f};   // DMG1: share of (1 - penetration) each armour level stops
   float reduce[4] = {0, 0.30f, 0.40f, 0.55f}, helmetDur[4] = {0, 80, 150, 230}, vestDur[4] = {0, 200, 220, 250};
   float healAmount[3] = {0, 25, 100}, healSeconds[3] = {0, 3, 7}, healCap[3] = {0, 75, 100};
   float largeArea = 120; int smallGuns[2] = {1, 1}, largeGuns[2] = {2, 3}, boxesPerGun[2] = {1, 3}, smallItems[2] = {1, 3}, largeItems[2] = {3, 6};
@@ -44,7 +45,7 @@ const LootCfg& cfg() {
     c.boxWeight = j.value("ammoBoxWeight", c.boxWeight);
     if (j.contains("armor")) for (int k = 0; k < 4; ++k) {
       const json& a = j["armor"];
-      if (a.contains("reduce")) c.reduce[k] = a["reduce"][k]; if (a.contains("helmetDurability")) c.helmetDur[k] = a["helmetDurability"][k]; if (a.contains("vestDurability")) c.vestDur[k] = a["vestDurability"][k];
+      if (a.contains("reduce")) c.reduce[k] = a["reduce"][k]; if (a.contains("penApply")) c.penApply[k] = a["penApply"][k]; if (a.contains("helmetDurability")) c.helmetDur[k] = a["helmetDurability"][k]; if (a.contains("vestDurability")) c.vestDur[k] = a["vestDurability"][k];
     }
     if (j.contains("heal")) for (int k = 1; k <= 2; ++k) {
       const json& h = j["heal"].value(k == 1 ? "bandage" : "medkit", json::object());
@@ -153,10 +154,11 @@ float kitWeight(const App* app, const Kit& k, const std::vector<int>* carried) {
   }
   return w;
 }
-float armorAbsorb(Kit& k, bool head, float dmg) {
+float armorAbsorb(Kit& k, bool head, float dmg, float pen) {
   int& lvl = head ? k.helmet : k.vest; float& dur = head ? k.helmetDur : k.vestDur;
   if (lvl <= 0 || dmg <= 0) return dmg;
-  float absorbed = dmg * cfg().reduce[std::clamp(lvl, 0, 3)];
+  int L = std::clamp(lvl, 0, 3);
+  float absorbed = pen >= 0 ? dmg * (1 - pen) * cfg().penApply[L] : dmg * cfg().reduce[L];   // DMG1: a bullet keeps its penetration share
   dur -= absorbed;
   if (dur <= 0) { dur = 0; lvl = 0; }   // broken: this hit was still softened
   return dmg - absorbed;
@@ -742,11 +744,11 @@ bool lootBotGoal(Game& G, Soldier& s, vec3& goal) {
   goal = best->pos; return true;
 }
 
-float lootDamage(int victim, int zone, float dmg) {
+float lootDamage(int victim, int zone, float dmg, float pen) {
   if (!lootActive() || victim < 0) return dmg;
-  bool head = zone == DZ_HEAD, torso = zone == DZ_UPPER_TORSO || zone == DZ_LOWER_TORSO || zone == DZ_NECK;
+  bool head = zone == DZ_HEAD, torso = zone == DZ_UPPER_TORSO || zone == DZ_LOWER_TORSO || zone == DZ_NECK || zone == DZ_ARM;   // DMG1: the vest covers chest, arms and stomach
   if (!head && !torso) return dmg;
-  float out = armorAbsorb(*kitOf(victim), head, dmg);
+  float out = armorAbsorb(*kitOf(victim), head, dmg, pen);
   syncWorn(*gGame, victim);
   return out;
 }

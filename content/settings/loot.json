@@ -13,7 +13,7 @@
   "ammoBoxWeight": 10,
   "botDeathAmmo": 50,
   "excludeGuns": ["modern_ak12", "modern_m4", "modern_ar15"],
-  "armor": {"reduce": [0, 0.30, 0.40, 0.55], "helmetDurability": [0, 80, 150, 230], "vestDurability": [0, 200, 220, 250]},
+  "armor": {"reduce": [0, 0.30, 0.40, 0.55], "penApply": [0, 0.6, 0.8, 1.0], "_penNote": "DMG1: bullets: damage x (1 - (1 - weapon pen) x penApply[level]) (content/ai/damage.json classes); reduce: the flat share for anything without a penetration", "helmetDurability": [0, 80, 150, 230], "vestDurability": [0, 200, 220, 250]},
   "heal": {
     "bandage": {"amount": 25, "seconds": 3, "cap": 75},
     "medkit": {"amount": 100, "seconds": 7, "cap": 100}
