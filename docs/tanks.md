@@ -318,3 +318,16 @@ Screenshots are written to `selftest_out/tanks_*.png`.
   - WW2 Heavy-class bots carry the bazooka / Panzerschreck (class secondary). One operator in four (`combat.json loadouts_operator.launcher / launcherEvery`) carries the RPG-7.
   - The occupied vehicle's own hull does not block bots' sight of its crew.
 - Check: `--capture-tk1` (`src/capture_tk1.cpp`).
+- **TK1 additions**:
+  - **Close targets.** Main-gun shells already sweep from the trunnion every step (`Game::shellSegment`). Checked in `--check-tk1-match`: a zombie 2 m past the muzzle and one 10 m out are killed. A man pressed against the hull front sits under the gun's depression (Tiger −8°: the bore crosses about 1.7 m above the ground there) and under the sight, so the main gun cannot reach him. The bow / roof MG covers that ground.
+  - **Abrams.**
+    - Sight: `gun.reticle "abrams"`, a modern gunner's sight of our own. Fine cross with a centre gap and a red dot, 2 mil stadia with lead marks every 5 and 5 mil brackets, drop ticks below, and a read-out of the laser range, the round (APFSDS / HEAT-MP, READY / LOADING) and WFOV / NFOV.
+    - Speed: 1.5× slower (12.4 m/s ≈ 45 km/h, reverse 5.3, accel 1.73).
+    - Roof gun: an M134 minigun at 2500 rpm (5×). 500-round belts, 4000 spare, a tracer every 3rd round, 9.7 g rounds. Damage is the default rifle row: the ammo name maps to no weapon. Sound `shot_minigun`, one play per round, falling back to `shot_m2hb` until that event exists. Belts over 100 rounds draw one mark per few rounds.
+  - **World health bars** (`TankSys::drawWorldBars`, Settings > Gameplay > Vehicle health bars, on by default): a bar over every vehicle that has durability (tanks, APC, Humvee / Ural / jeep, the Apache, drivable BR cars), except the one you are in and wrecks. Shown within 95 m, fading out over the last 20 m, scaled with distance (34–90 px), hidden behind solid geometry (one ray per vehicle in range), green / yellow / red by health. Placed civilian props without durability get none.
+  - **Death in a vehicle (match).**
+    - A destroyed crewed vehicle kills its crew; outside a match the bail-out stays.
+    - On the player's death the seat is cleared (`TankSys::vacate`), so nothing ties the next life to the wreck. This fixes the respawn at the old spot: the occupied vehicle kept pinning the body to itself.
+    - The wreck stays where it died. The next life spawns at the normal team spawn and gets a fresh, full copy of the same vehicle (`TankSys::spawnFresh`): 7–30 m from the spawn, clear ground (`checkPlacement`), at least 8 m from other vehicles, facing the spawn's direction, entered in the same seat. With no clear spot it spawns on foot with a toast.
+    - Wrecks past 12 are removed oldest first when a copy spawns.
+    - The helicopter does the same: its crash already kills the crew.

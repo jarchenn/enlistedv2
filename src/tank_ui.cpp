@@ -2,6 +2,7 @@
 // temporary synthesized tank sounds. docs/tanks.md
 #include "vehicle_dash.h"
 #include "app.h"
+#include "settings.h"
 #include <imgui.h>
 #include <random>
 #include <algorithm>
@@ -165,6 +166,30 @@ void TankSys::drawHealthBar(App& app) {
   }
 }
 
+void TankSys::drawWorldBars(App& app) {
+  if (!settings().s.vehicleBars || app.pauseMenu) return;
+  ImGuiIO& io = ImGui::GetIO(); ImDrawList* dl = ImGui::GetBackgroundDrawList();   // under the HUD panels
+  const mat4 vp = app.projM * app.viewM; const vec3 eye = app.eyePos();
+  for (auto& [id, t] : tanks) {
+    if (!t.def || t.wrecked || id == occupied) continue;   // the occupied one has the HUD bar; wrecks none
+    float dist = glm::length(t.pos - eye);
+    if (dist > 95.0f) continue;
+    float top = 0; for (auto* bs : {&t.def->hullBoxes, &t.def->turretBoxes}) for (auto& b : *bs) top = std::max(top, b.c.y + b.h.y);
+    vec3 p = t.pos + vec3(0, top + 0.7f, 0);
+    vec4 q = vp * vec4(p, 1); if (q.w <= 0.1f) continue;
+    ImVec2 s((q.x / q.w * 0.5f + 0.5f) * io.DisplaySize.x, (0.5f - q.y / q.w * 0.5f) * io.DisplaySize.y);
+    if (s.x < -50 || s.y < -20 || s.x > io.DisplaySize.x + 50 || s.y > io.DisplaySize.y + 20) continue;
+    Physics::Hit h;   // hidden behind something solid (its own body does not count)
+    if (Physics::castRayEx(eye, p - eye, dist - 0.3f, h, id << 16)) continue;
+    float a = std::clamp((95.0f - dist) / 20.0f, 0.0f, 1.0f), W = std::clamp(1400.0f / std::max(dist, 1.0f), 34.0f, 90.0f), H = std::max(4.0f, W * 0.09f);
+    float u = std::clamp(t.hp / 100.0f, 0.0f, 1.0f);
+    ImU32 fill = u > 0.5f ? IM_COL32(120, 200, 110, (int)(230 * a)) : u > 0.25f ? IM_COL32(235, 190, 80, (int)(235 * a)) : IM_COL32(235, 90, 70, (int)(240 * a));
+    ImVec2 o(s.x - W * 0.5f, s.y - H * 0.5f);
+    dl->AddRectFilled(ImVec2(o.x - 2, o.y - 2), ImVec2(o.x + W + 2, o.y + H + 2), IM_COL32(10, 10, 8, (int)(170 * a)), 2);
+    dl->AddRectFilled(o, ImVec2(o.x + W * u, o.y + H), fill);
+  }
+}
+
 void TankSys::drawUI(App& app) {
   ImGuiIO& io = ImGui::GetIO();
   ImDrawList* dl = ImGui::GetForegroundDrawList();
@@ -228,7 +253,30 @@ void TankSys::drawUI(App& app) {
         if (major && Rm > 400 && y - lastLabel >= 14.0f) { char b[8]; std::snprintf(b, sizeof b, "%d", Rm / 100); dl->AddText(ImVec2(right ? x + 12 : x - 12 - ImGui::CalcTextSize(b).x, y - 7), lc, b); lastLabel = y; }
       }
     };
-    if (d.reticle == "tiger") {
+    if (d.reticle == "abrams") {   // TK1: a modern gunner's primary sight of our own: fine cross with a centre gap and dot,
+      // 2 mil stadia with lead marks every 5, the laser range, the selected round and the field of view read out
+      ImU32 mc = IM_COL32(10, 12, 10, 235), ms = IM_COL32(10, 12, 10, 160);
+      float g = milPx(1.2f);
+      dl->AddLine(ImVec2(c.x - R, c.y), ImVec2(c.x - g, c.y), mc, 1.2f); dl->AddLine(ImVec2(c.x + g, c.y), ImVec2(c.x + R, c.y), mc, 1.2f);
+      dl->AddLine(ImVec2(c.x, c.y - R), ImVec2(c.x, c.y - g), mc, 1.2f); dl->AddLine(ImVec2(c.x, c.y + g), ImVec2(c.x, c.y + R), mc, 1.2f);
+      dl->AddCircleFilled(c, 1.8f, IM_COL32(200, 30, 20, 240));
+      for (int k = 1; k <= 10; ++k) {
+        float x = milPx(2.0f * k), h = k % 5 == 0 ? milPx(2.0f) : milPx(0.8f);
+        for (float sx : {-1.0f, 1.0f}) dl->AddLine(ImVec2(c.x + sx * x, c.y - h), ImVec2(c.x + sx * x, c.y + h), k % 5 == 0 ? mc : ms, 1.1f);
+        if (k <= 5) dl->AddLine(ImVec2(c.x - h * 0.6f, c.y + milPx(2.0f * k)), ImVec2(c.x + h * 0.6f, c.y + milPx(2.0f * k)), ms, 1.0f);   // drop ticks below
+      }
+      for (float sx : {-1.0f, 1.0f}) {   // open brackets at 5 mil: the lead box
+        float x = c.x + sx * milPx(5.0f), y0 = c.y - milPx(3.0f), y1 = c.y + milPx(3.0f), w = sx * milPx(1.2f);
+        dl->AddLine(ImVec2(x, y0), ImVec2(x - w, y0), mc, 1.2f); dl->AddLine(ImVec2(x, y1), ImVec2(x - w, y1), mc, 1.2f);
+      }
+      float rng = glm::length(aimPoint(app, t) - eye);
+      const char* rnd = (t.loaded != SHELL_NONE ? t.loaded : t.selected) == SHELL_AP ? "APFSDS" : "HEAT-MP";
+      char rb[96]; std::snprintf(rb, sizeof rb, "RNG %04.0f m   %s %s   %s x%.0f", std::min(rng, 9999.0f), rnd, t.loaded != SHELL_NONE ? "READY" : "LOADING", zoom ? "NFOV" : "WFOV", 75.0f / fov);
+      ImVec2 rs = ImGui::CalcTextSize(rb), rp(c.x - rs.x * 0.5f, c.y + R * 0.62f);
+      dl->AddRectFilled(ImVec2(rp.x - 8, rp.y - 4), ImVec2(rp.x + rs.x + 8, rp.y + rs.y + 4), IM_COL32(8, 10, 8, 170), 3);
+      dl->AddText(rp, IM_COL32(255, 200, 60, 255), rb);
+      dl->AddText(ImVec2(c.x - R * 0.62f, c.y - R * 0.72f), IM_COL32(255, 200, 60, 220), "GPS  DAY");
+    } else if (d.reticle == "tiger") {
       // central triangle with its apex on the aim point, three smaller triangles each side every 4 mil (lead marks)
       auto tri = [&](float x, float s) { dl->AddTriangle(ImVec2(x, c.y), ImVec2(x - s * 0.55f, c.y + s * 1.4f), ImVec2(x + s * 0.55f, c.y + s * 1.4f), rc, 1.6f); };
       tri(c.x, milPx(4.0f));
@@ -394,6 +442,7 @@ void TankSys::drawAmmoStrip(App& app, const TankRT& t) {
   };
   auto beltW = [&](int belt) { int perRow = std::min(belt, 50); return perRow * 4.0f; };
   auto belt = [&](float x, float yb, int belt, int loaded, bool lit) {   // rows of 50 (yb: bottom of the last row)
+    int per = std::max(1, (belt + 99) / 100); belt = (belt + per - 1) / per; loaded = (loaded + per - 1) / per;   // TK1: a long belt (the minigun's 500): one mark per few rounds, two rows at most
     int perRow = std::min(belt, 50), rows = (belt + perRow - 1) / perRow;
     for (int k = 0; k < belt; ++k) {
       int row = k / perRow, col = k % perRow;

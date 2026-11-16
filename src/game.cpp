@@ -442,6 +442,12 @@ bool Game::trySpawn(int slot, std::string& why) {
           if (best && !app.tanks.occupied && app.tanks.enter(app, best)) app.toast("Tanker: in the " + app.tanks.get(best)->def->name + ", hatch closed", 4);
           else app.toast(std::string("Tanker: no free ") + (s.faction == Faction::Axis ? "Tiger" : "Sherman") + " for you, spawned on foot", 5);
         }
+        if (s.localPlayer && !respawnVehicle.empty()) {   // TK1: a fresh copy of the vehicle it died in, beside the spawn (one per death)
+          std::string aid = respawnVehicle; respawnVehicle.clear();
+          if (app.tanks.occupied) {}   // the Tanker class already sat it in one
+          else if (app.tanks.spawnFresh(app, aid, feet, wrapDeg(m.yaw + 180.0f), respawnStation)) app.toast("A fresh vehicle is ready for you", 3);
+          else app.toast("No clear ground for a vehicle at this spawn - on foot", 4);
+        }
         return true;
       }
   }
@@ -460,6 +466,11 @@ void Game::killSoldier(int i, int killer, vec3 dir) {
   s.deathStyle = glm::dot(f, dir) > 0.3f ? 1 : glm::dot(f, dir) < -0.3f ? 0 : 2;
   if (s.throwT >= 0 && !s.throwReleased) s.throwT = -1;   // cancelled before release: nothing spent
   if (s.agent >= 0) { Physics::destroyAgent(s.agent); s.agent = -1; }   // the corpse has no collision
+  if (s.localPlayer && app.tanks.occupied) {   // TK1: died crewing a vehicle: its type comes back with the next life; the seat is cleared
+    const Instance* vi = app.doc.find(app.tanks.occupied); const TankRT* vt = app.tanks.get(app.tanks.occupied);
+    respawnVehicle = vi ? vi->assetId : std::string(); respawnStation = vt ? vt->station : 0;
+    app.tanks.vacate(app);
+  }
   if (s.localPlayer) {
     deployOpenedAt = t; deployReady = app.selftest;   // GM1: the deploy screen opens (tests skip it)
     vec3 p = s.feet; Physics::setCharacterPos(vec3(p.x, p.y - kLimboDepth, p.z));

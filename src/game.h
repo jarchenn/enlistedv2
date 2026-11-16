@@ -100,6 +100,7 @@ public:
   bool isClient = false;                     // mirror only (net client): no authority
   bool paused = false;
   int localSlot = 0;
+  std::string respawnVehicle; int respawnStation = 0;   // TK1: the vehicle the local player died in (a fresh copy at the next spawn)
   int pendingLocal = -1;                     // LAN client: our slot while its AI soldier still lives (late join)
   json combat, archetypes;
   std::vector<std::unique_ptr<CharModel>> models; std::map<std::string, int> modelIdx;

@@ -53,6 +53,7 @@ struct TankDef {
   float mgYawMin = -180, mgYawMax = 180, mgElevMin = -10, mgElevMax = 45, mgRpm = 500, mgVel = 890, mgSpread = 0.25f;
   int mgBelt = 100, mgReserve = 400; float mgReload = 5.0f, mgBulletMass = 0.012f;
   std::string mgTail, mgReloadSound;            // bank events: tail on release, belt change
+  int mgTracerEvery = 5, mgSoundEvery = 1;      // TK1: a tracer / the shot sound every n rounds (the minigun: a stream)
   // bow (hull) MG in the glacis ball mount: Space, from the gunner sight and the hatch alike (docs/tanks.md#bow-mg)
   bool bowOn = false;
   std::string bowName, bowShort, bowSound, bowTail, bowReloadSound;
@@ -184,6 +185,12 @@ public:
   bool handleInteract(App& app, const ExploreInput& in);   // E on a tank: enter (true = consumed)
   bool enter(App& app, uint64_t id);
   bool exitTank(App& app, bool force = false);
+  // TK1: the crew died: the seat is cleared without placing anyone (the body goes to limbo; nothing ties the next life to
+  // this vehicle). spawnFresh: a new, full copy of that vehicle beside the respawn point, entered in that seat (0: none fits)
+  void vacate(App& app);
+  uint64_t spawnFresh(App& app, const std::string& assetId, vec3 near, float faceYaw, int station);
+  std::vector<uint64_t> wreckOrder;   // wrecks in the order they happened (oldest cleared past wreckCap when a copy spawns)
+  int wreckCap = 12;
   bool camera(const App& app, vec3& eye, vec3& fwd, float& fov) const;
   void drawItems(App& app, const Instance& i, const InstanceRT& r);
   void drawUI(App& app);
@@ -194,7 +201,8 @@ public:
   TankHitResult projectileHit(App& app, const Projectile& p, vec3 pos, vec3 normal, uint64_t ud);
   TankHitResult applyHit(App& app, uint64_t id, int attack, vec3 worldPos, vec3 worldNormal, vec3 dir, float bulletJ = 0);
   bool meleeBlow(App& app, uint64_t id, vec3 from);
-  void drawHealthBar(App& app);                        // TK1: the occupied vehicle's durability bar   // TK1: a heavy enemy's landed blow: 1/15 of the durability (15 destroy it)
+  void drawHealthBar(App& app);
+  void drawWorldBars(App& app);                        // TK1: a bar over every damageable vehicle in view (Settings: Vehicle health bars)                        // TK1: the occupied vehicle's durability bar   // TK1: a heavy enemy's landed blow: 1/15 of the durability (15 destroy it)
   int classify(const TankRT& t, vec3 worldPos, vec3 worldNormal, bool& onTurret) const;
   void destroy(App& app, TankRT& t, const std::string& why);
   // persistence (Apply session changes)
