@@ -486,6 +486,7 @@ float App::blastOcclusion(vec3 from, vec3 to) const {
 
 void App::blastPlayer(vec3 p, float dmg, float radius) {
   if (mode != Mode::Explore) return;
+  if (const TankRT* ht = tanks.get(tanks.occupied); ht && ht->def && ht->def->heli) return;   // VH5c: no concussion shake in the cockpit (own cannon / rocket impacts)
   float R = radius * 3.0f;   // personnel exposure radius for the readout (game tuning)
   vec3 feet = Physics::character().pos;
   vec3 chest = feet + vec3(0, Physics::character().crouched ? 0.75f : 1.25f, 0), head = eyePos();

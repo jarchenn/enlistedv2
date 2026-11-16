@@ -276,12 +276,12 @@
   },
   "chinGun": {
     "name": "M230 30 mm chain gun",
-    "rpm": 625,
+    "rpm": 1200,
     "velocity": 805,
     "damage": 60,
     "blastRadius": 2.0,
     "ammo": 1200,
-    "heatPerShot": 0.034,
+    "heatPerShot": 0.0175,
     "coolPerSec": 0.22,
     "resumeHeat": 0.35,
     "yaw": [
@@ -294,7 +294,7 @@
     ],
     "spreadDeg": 0.35,
     "sound": "shot_m2hb",
-    "note": "explosive 30 mm: a small blast per hit (strong vs infantry and light vehicles, nothing vs tanks); about 80 rounds (7.7 s) of continuous fire overheat it, then it cools back to 35 % (~3 s) before firing again; 1200 rounds, no reload in the air"
+    "note": "explosive 30 mm: a small blast per hit (strong vs infantry and light vehicles, nothing vs tanks); about 150 rounds (7.7 s) of continuous fire overheat it, then it cools back to 35 % (~3 s) before firing again; 1200 rounds, no reload in the air"
   },
   "rockets": {
     "name": "Hydra 70",
