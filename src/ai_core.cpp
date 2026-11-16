@@ -492,12 +492,14 @@ void aiForget(Game& g, int slot) {
 
 void AiCore::rebuildGrid() {
   for (auto& [k, v] : sgrid) v.clear();
-  humans.clear();
+  for (auto& [k, v] : mgrid) v.clear();
+  humans.clear(); meleeAlive = 0;
   for (int i = 0; i < (int)G.sold.size(); ++i) {
     const Soldier& s = G.sold[i];
     if (!s.alive) continue;
     if (s.human) humans.push_back(i);
     sgrid[gridKey((int)std::floor(s.feet.x / kGridCell), (int)std::floor(s.feet.z / kGridCell))].push_back(i);
+    if (s.zombie) { mgrid[gridKey((int)std::floor(s.feet.x / kMeleeCell), (int)std::floor(s.feet.z / kMeleeCell))].push_back(i); ++meleeAlive; }
   }
 }
 
