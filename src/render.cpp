@@ -463,6 +463,7 @@ static const char* kMainFS = R"GLSL(
 in vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn, vEmi; in vec4 vPar; flat in vec3 vEye;
 uniform vec4 uTint; uniform float uTime; uniform int uWeather;   // 1: world structures get localized weathering
 uniform float uMapArid;   // NT4: look.arid (desert): sand-filled cracks
+uniform float uMapCave;   // CV1: look.cave: rock without sunlit lichen; calcite flowstone, manganese stains, wet drip streaks
 uniform float uMapGrime;   // NT3: an abandoned map's grime (look.grime): ruin walls streaked, roads broken up
 uniform float uGlow, uEmissiveK;   // L2 emission: per draw (DrawItem::glow) and global multipliers
 uniform int uNoWallRelief;   // A/B: 1 = rough-wall relief off (Renderer::wallRelief = 0)
@@ -1586,6 +1587,17 @@ void main(){
     float foot = 1.0 - smoothstep(-0.05, 0.25 + 0.25*vnL(vAp*1.7, 1.7), vAp.y);
     rock = mix(rock, vec3(0.12, 0.15, 0.06), foot*smoothstep(0.45, 0.7, vnL(vAp*2.3 + 7.0, 2.3))*0.6) * mix(1.0, 0.75, foot);   // damp foot
     alb = rock * vAlb * 0.8; rough = 0.86 + 0.08*grn; ao *= 1.0 - 0.3*crack;   // 0.8: matches the cliff faces' in-game brightness
+    if (uMapCave > 0.5 && length(vW - uCamPos) < 45.0) {   // CV1 cave rock (near only: sub-pixel beyond): no lichen (re-darken it), flowstone and stains run down the faces, wet streaks shine
+      float lichAll = clamp(lichen*0.55 + smoothstep(0.78, 0.86, vnL(p*5.5 + 61.0, 5.5))*smoothstep(0.0, 0.6, up)*0.45, 0.0, 1.0);
+      alb = mix(alb, alb*0.55, lichAll) * (1.0 + 0.3*bedLine);   // bedding lines faint: dripstone, not masonry
+      float drip = vnL(vec3(p.x*1.6, p.y*0.12, p.z*1.6) + 90.0, 1.6);                              // vertically stretched: runs down the face
+      float flow = smoothstep(0.62, 0.8, drip) * smoothstep(0.55, 0.75, fbmL(p*0.35 + 91.0, 0.35));
+      alb = mix(alb, vec3(0.62, 0.60, 0.55)*(0.85 + 0.3*grn), flow*0.55);                           // calcite flowstone, pale and waxy
+      float mang = smoothstep(0.6, 0.85, fbmL(vec3(p.x*0.5, p.y*0.18, p.z*0.5) + 93.0, 0.5));
+      alb *= 1.0 - 0.45*mang;                                                                       // manganese / soot-dark stains
+      float wet = smoothstep(0.42, 0.7, vnL(vec3(p.x*2.4, p.y*0.2, p.z*2.4) + 95.0, 2.4)) * (0.55 + 0.45*(1.0 - up*up));
+      alb *= 1.0 - 0.3*wet; rough = mix(rough, 0.16 + 0.2*grit, max(wet, flow*0.6));                 // dark wet sheen: the lights' highlights
+    }
   } else {
     alb *= 0.94 + 0.08*vnL(vAp*7.0, 7.0);
   }
@@ -2528,10 +2540,11 @@ void main(){
   // set's mean so the procedural palette and its broad variation stay; layers whose weight is ~0 take no samples
   TerrT tI = TerrT(vec3(1.0), 1.0, 1.0, vec3(0.0)), tG = tI, tS = tI, tV = tI, tA = tI;
   float wGrav = smoothstep(0.75, 1.0, kind), wSand = 1.0 - smoothstep(0.07, 0.16, abs(kind - 0.251)), wSoil = (1.0 - wGrav)*(1.0 - wSand);
-  if (tw < 0.995) tG = terrTex(0, p, tn0, tdx, tdy, tDist);
-  if (tw > 0.005 && wSoil > 0.01) tS = terrTex(1, p, tn0, tdx, tdy, tDist);
-  if (tw > 0.005 && wGrav > 0.01) tV = terrTex(3, p, tn0, tdx, tdy, tDist);
-  if (tw > 0.005 && wSand > 0.01) tA = terrTex(4, p, tn0, tdx, tdy, tDist);
+  bool under = paintCover(p) < 0.995 || vDirt > 0.15;   // CV1: full ground paint replaces the layers below it: take no samples there
+  if (under && tw < 0.995) tG = terrTex(0, p, tn0, tdx, tdy, tDist);
+  if (under && tw > 0.005 && wSoil > 0.01) tS = terrTex(1, p, tn0, tdx, tdy, tDist);
+  if (under && tw > 0.005 && wGrav > 0.01) tV = terrTex(3, p, tn0, tdx, tdy, tDist);
+  if (under && tw > 0.005 && wSand > 0.01) tA = terrTex(4, p, tn0, tdx, tdy, tDist);
   float wT = max(wSoil + wGrav*(1.0 - wSand) + wSand, 1e-4);
   TerrT tTr = TerrT((tS.alb*wSoil + tV.alb*wGrav*(1.0 - wSand) + tA.alb*wSand)/wT, (tS.r*wSoil + tV.r*wGrav*(1.0 - wSand) + tA.r*wSand)/wT,
                     (tS.ao*wSoil + tV.ao*wGrav*(1.0 - wSand) + tA.ao*wSand)/wT, (tS.dn*wSoil + tV.dn*wGrav*(1.0 - wSand) + tA.dn*wSand)/wT);
@@ -2577,7 +2590,7 @@ void main(){
     rBump = vec3(vnoise(vec3(p*1.7 + 50.0)) - 0.5, (bedLine - 0.5)*0.6, vnoise(vec3(p*1.7 + 51.0)) - 0.5)*1.1;
   }
   float mudK = clamp(rut*0.85 + wet*0.6, 0.0, 1.0)*tw;
-  if (mudK > 0.01) { TerrT tM = terrTex(2, p, tn0, tdx, tdy, tDist); mud *= tM.alb; tdn = mix(tdn, tM.dn, mudK); trr = mix(trr, tM.r, mudK); tao = mix(tao, tM.ao, mudK); }   // L4
+  if (under && mudK > 0.01) { TerrT tM = terrTex(2, p, tn0, tdx, tdy, tDist); mud *= tM.alb; tdn = mix(tdn, tM.dn, mudK); trr = mix(trr, tM.r, mudK); tao = mix(tao, tM.ao, mudK); }   // L4
   alb = mix(alb, mud, mudK);
   // crater and disturbed soil
   float dirt = clamp(vDirt, 0.0, 1.0);
@@ -2614,6 +2627,7 @@ void main(){
   }
   N = normalize(N + tdn*(1.0 - puddle)); rough = clamp(rough*mix(trr, 1.0, puddle), 0.04, 1.0); ao *= tao;   // L4 terrain layers
   paintFinish(po, rough, N, ao);   // lasso ground paint: roughness, AO, relief over every other layer (after L4)
+  if (puddle > 0.0) { rough = mix(rough, 0.08, puddle); N = normalize(mix(N, normalize(vN), puddle*0.85)); }   // CV1: standing water stays a mirror over painted ground
   vec3 c = shade(vW, N, alb, rough, 0.0, ao);
   if (uGrid == 1 && abs(p.x) <= uBuildHalf.x && abs(p.z) <= uBuildHalf.y) {
     vec2 g = abs(fract(p.xz/5.0 + 0.5) - 0.5)*5.0;
@@ -3618,7 +3632,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   const vec3 sunDirMap = sunDir;
   if (thumbMode && sunDir.y < 0.25f) sunDir = glm::normalize(vec3(0.45f, 0.8f, 0.4f));
   if (thumbMode) {
-    glUniform1i(U(p, "uWeather"), 0); glUniform1f(U(p, "uMapArid"), 0.0f); glUniform1f(U(p, "uMapGrime"), 0.0f);
+    glUniform1i(U(p, "uWeather"), 0); glUniform1f(U(p, "uMapArid"), 0.0f); glUniform1f(U(p, "uMapCave"), 0.0f); glUniform1f(U(p, "uMapGrime"), 0.0f);
     glUniform1i(U(p, "uMatLayer"), 0); glUniform1f(U(p, "uMatFar"), 0.0f); glUniform1i(U(p, "uRelief"), 0); glUniform1i(U(p, "uMatLod"), 0);
     glUniform1i(U(p, "uCloudOn"), 0);
   }
@@ -4399,6 +4413,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   setLighting(progMain, v);
   glUniform1i(U(progMain, "uWeather"), thumbMode ? 0 : 1);
   glUniform1f(U(progMain, "uMapArid"), groundPaintArid() ? 1.0f : 0.0f);
+  glUniform1f(U(progMain, "uMapCave"), lt.mapCave);
   glUniform1f(U(progMain, "uMapGrime"), std::getenv("NMK_AB_OFF") && std::strstr(std::getenv("NMK_AB_OFF"), "grime") ? 0.0f : lt.mapGrime);   // NT3
   glUniform1i(U(progMain, "uNoWallRelief"), wallRelief ? 0 : 1);
   glUniform1i(U(progMain, "uMatLod"), !thumbMode && perf.matLod ? 1 : 0);

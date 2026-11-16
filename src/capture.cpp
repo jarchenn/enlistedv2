@@ -899,6 +899,7 @@ void SelfTest::captureUpdate(App& app, float dt) {
   vec3 d = glm::normalize(c.target - c.pos);
   app.camYaw = degrees(std::atan2(-d.x, -d.z));
   app.camPitch = degrees(std::asin(std::clamp(d.y, -1.0f, 1.0f)));
+  if (std::getenv("NMK_CAPTURE_HEADLAMP")) app.flashlight = true;   // CV1: the player's headlamp (FX1) on for the capture
   if (grassSet) {   // frames 1-30 settle (TAA), 30 shot, 40-159 grass on, 160 off, 180-299 timed off
     ++frames;
     if (frames == 30) shotQueue.push_back(tag + "_" + c.name);

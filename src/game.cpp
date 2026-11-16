@@ -23,6 +23,7 @@ void netInterpolate(Game& g, double t, float dt);
 #include <algorithm>
 #include <cmath>
 #include <chrono>
+#include <random>
 #include <set>
 
 Game* gGame = nullptr;
@@ -365,6 +366,26 @@ bool Game::trySpawn(int slot, std::string& why) {
       std::sort(scored.begin(), scored.end(), [](auto& x, auto& y) { return x.first > y.first; });
       size_t keep = std::min<size_t>(scored.size(), 6);   // a little spread so two respawns don't stack on one point
       for (size_t k = 0; k < keep; ++k) { vec3 p = scored[(k + slot) % keep].second; cands.push_back({p, glm::degrees(std::atan2(-p.x, -p.z))}); }   // face the middle
+    } else if (mode == GameMode::TDM && cands.size() > 1) {
+      // CV1: a random marker per respawn, safe ones first: no living enemy within 18 m and none with a clear line of
+      // sight to it (eye to chest, 100 m); then the rest, farthest from enemies first (the loop below still skips
+      // occupied and blocked spots)
+      std::mt19937 rg((uint32_t)steps * 2654435761u ^ (uint32_t)slot * 40503u ^ (uint32_t)s.lifeId * 97u);
+      std::shuffle(cands.begin(), cands.end(), rg);
+      auto risk = [&](const Cand& c) {
+        float dMin = 1e9f; bool seen = false;
+        for (auto& o : sold) {
+          if (&o == &s || !o.alive || !hostile(s, o)) continue;
+          vec3 eye = o.feet + vec3(0, 1.6f, 0), d = c.pos + vec3(0, 1.3f, 0) - eye;
+          float L = glm::length(d); dMin = std::min(dMin, L);
+          if (!seen && L < 100.0f && L > 1.0f) { Physics::Hit h; seen = !Physics::castRayEx(eye + d / L * 0.6f, d / L, L - 0.9f, h); }
+        }
+        return std::make_pair(dMin < 18.0f || seen, dMin);
+      };
+      std::vector<std::pair<std::pair<bool, float>, Cand>> rs;
+      for (auto& c : cands) rs.push_back({risk(c), c});
+      std::stable_sort(rs.begin(), rs.end(), [](const auto& a, const auto& b) { return a.first.first != b.first.first ? !a.first.first : (a.first.first && a.first.second > b.first.second); });
+      for (size_t k = 0; k < rs.size(); ++k) cands[k] = rs[k].second;
     } else {
       int start = (slot * 3 + (int)steps) % (int)cands.size();
       std::rotate(cands.begin(), cands.begin() + start, cands.end());
@@ -666,6 +687,7 @@ bool Game::soldierFire(Soldier& s, vec3 dir) {
   app.fx.flash(muzzle + dd * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
   app.fx.smoke(muzzle, dd * 2.0f + vec3(0, 0.3f, 0), 0.05f, 1.2f, vec4(0.6f, 0.58f, 0.55f, 0.35f), 0.6f, 0.2f);
   app.audio.play("shot_" + d.id, muzzle, 1.0f);
+  if (!s.localPlayer) app.shotCasing(d, s.feet, s.slot);   // SND4
   s.recoil = 1.0f; s.lastShot = t;
   hearSound(muzzle, (int)s.role, archetypes["perception"].value("hearShot_m", 70.0f), s.slot, 0);
   ++shotsByBots;

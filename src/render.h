@@ -265,7 +265,7 @@ public:
     float emissive = 1.0f;      // global multiplier on material emission
     bool mapClean = false;      // BR2: the open map's "look": {"clean": true}: no wear (interior.cpp), static decals, dust motes or colour grade
     bool mapNoFog = false;      // BR2: "look": {"fog": false}: no aerial haze, weather fog or light shafts
-    float mapSat = 1.0f; vec3 mapTint{1.0f}; float mapGrime = 0.0f;   // NT3: look.grime   // NT2b: look.saturation / look.tint, after the weather grade
+    float mapSat = 1.0f; vec3 mapTint{1.0f}; float mapGrime = 0.0f; float mapCave = 0.0f;   // CV1: look.cave   // NT3: look.grime   // NT2b: look.saturation / look.tint, after the weather grade
     float mapHaze = 1.0f;       // AS1: "look": {"haze": k}: the aerial haze density x k (an abandoned town: hazier)
     vec3 mapAmbient{0.0f};      // BR2: the open map's extra.lighting.ambient: an even indirect term added to the fill (lights everything, furniture included)
     float mapFill = 1.0f;       // UG4: extra.lighting.fill: the fill / indirect term x this (Tunnels darker between its lamps)

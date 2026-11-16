@@ -12,6 +12,28 @@ namespace {
 #include <cstdlib>
 #include <cstdint>
 constexpr int SR = 44100;
+// SND5: band-limited resampling by `ratio` (output / input rate): a Blackman-windowed sinc, 16 zero crossings of the
+// lower rate, tabulated (512 steps per input sample, linearly interpolated). miniaudio's linear resampler, used before,
+// took -1.8 dB at 6 kHz and -5 dB at 10 kHz off the 24 kHz recordings
+std::vector<float> resampleSinc(const std::vector<float>& x, double ratio) {
+  if (x.empty() || std::fabs(ratio - 1.0) < 1e-9) return x;
+  const double fc = 0.5 * std::min(1.0, ratio) * 0.96;   // cutoff, cycles per input sample
+  const int H = (int)std::ceil(8.0 / fc), T = 512;       // half-width (input samples), table steps per input sample
+  std::vector<float> tab((size_t)H * T + 2);
+  for (size_t i = 0; i < tab.size(); ++i) { double u = (double)i / T, w = std::min(1.0, u / H);
+    double s = u < 1e-12 ? 2 * fc : std::sin(2 * 3.14159265358979 * fc * u) / (3.14159265358979 * u);
+    tab[i] = (float)(s * (0.42 + 0.5 * std::cos(3.14159265358979 * w) + 0.08 * std::cos(2 * 3.14159265358979 * w))); }
+  std::vector<float> y((size_t)(x.size() * ratio));
+  for (size_t n = 0; n < y.size(); ++n) {
+    double t = n / ratio; long c = (long)std::floor(t); double s = 0;
+    for (long k = std::max(0L, c - H + 1); k <= std::min((long)x.size() - 1, c + H); ++k) {
+      double u = std::fabs(t - k) * T; size_t i = (size_t)u; if (i + 1 >= tab.size()) continue; double f = u - i;
+      s += x[k] * (tab[i] * (1 - f) + tab[i + 1] * f);
+    }
+    y[n] = (float)s;
+  }
+  return y;
+}
 using Buf = std::vector<float>;
 
 struct Rng { std::mt19937 g{1234}; float n() { return std::uniform_real_distribution<float>(-1, 1)(g); } };
@@ -88,32 +110,111 @@ Buf makeWind(float secs, Rng& r, float bright, float gustRate) {
 }
 }
 
+struct LimiterNode { ma_node_base base; float g = 1, rel = 0; ma_uint32 ch = 2; };   // SND5 (Audio::Impl::lim)
+// SND5: the gunshot reverb (Audio::Impl::verb): the dry sound through unchanged, plus a slap-back (one early reflection)
+// and a damped Schroeder tail (4 parallel combs into 2 series all-passes per side, left / right 23 samples apart).
+// verb[0]: every gun, a small send; verb[1]: the M249 / MG 42, more and longer. Audio::setRoom(1) (tunnels, Backrooms):
+// a shorter slap-back, a longer, denser tail
+struct VerbNode {
+  ma_node_base base; ma_uint32 ch = 2; float sr = 44100, send = 0.1f, rtOut = 1.2f, room = -1;
+  std::vector<float> slap; size_t sp = 0, slapLen = 1; float slapG = 0.3f;
+  struct Line { std::vector<float> b; size_t i = 0; float fb = 0.8f, lp = 0; };
+  Line comb[2][4], ap[2][2];
+  void setRoom(float r) {
+    if (std::fabs(r - room) < 1e-3f) return; room = r;
+    const int cl[4] = {1557, 1617, 1491, 1422}, al[2] = {556, 441}; const float sc = sr / 44100.0f * (1.0f - 0.25f * r), rt = rtOut * (1.0f + 0.4f * r);
+    for (int s = 0; s < 2; ++s) {
+      for (int k = 0; k < 4; ++k) { Line& c = comb[s][k]; size_t n = (size_t)((cl[k] + 23 * s) * sc); if (c.b.size() != n) { c.b.assign(n, 0.0f); c.i = 0; } c.fb = std::pow(10.0f, -3.0f * n / (rt * sr)); }
+      for (int k = 0; k < 2; ++k) { Line& c = ap[s][k]; size_t n = (size_t)((al[k] + 23 * s) * sc); if (c.b.size() != n) { c.b.assign(n, 0.0f); c.i = 0; } }
+    }
+    if (slap.empty()) slap.assign((size_t)(0.2f * sr), 0.0f);
+    slapLen = (size_t)((0.11f - 0.075f * r) * sr); slapG = 0.3f + 0.1f * r;
+  }
+};
 struct Audio::Impl {
   ma_engine engine;
   std::map<std::string, Buf> bufs;
-  struct Event { float minDist = 1;   /* full volume inside this range (m): big sounds carry */ std::vector<Buf> v; float gain = 1; std::string kind; int last = -1; };
+  struct Event { float minDist = 1;   /* full volume inside this range (m): big sounds carry */ std::vector<Buf> v; float gain = 1; std::string kind; int last = -1;
+                 std::vector<Buf> st; };   // SND5 st: interleaved stereo of each variant (gun shots), played as is when at the listener
   std::map<std::string, Event> events;
   std::mt19937 pick{20260606};
   vec3 listener{0};
-  struct Voice { ma_audio_buffer buf; ma_sound snd; bool used = false; std::string event; double start = 0; };
+  struct Voice { ma_audio_buffer buf; ma_sound snd; bool used = false; std::string event; double start = 0; int bus = 0; };
+  std::map<int, double> casingAt;   // SND4: per shooter, when its last case sound was scheduled
   Voice voices[48];
   Buf windBuf, leafBuf; float windVol = 0.0f, leafVol = 0.0f;   // the wind bed gave way to the battlefield recording (setBed)
   ma_audio_buffer windAB, leafAB; ma_sound wind, leaves;
   ma_sound bed[2]; ma_audio_buffer bedAB[2]; Buf bedBuf[2]; bool bedOn[2] = {false, false}; std::string bedFile[2]; float bedVol[2] = {0, 0};
   Voice loops[16];
-  ma_lpf_node lpf; bool lpfOk = false; float lpfCut = -1;   // under-water muffle: every sound routes through it
-  void route(ma_sound& s) { if (lpfOk) ma_node_attach_output_bus(&s, 0, &lpf, 0); }
+  ma_lpf_node lpf; bool lpfOk = false; float lpfCut = -1;   // under-water muffle
+  // SND5: sounds reach the limiter directly, through the muffle only while under water (its 20 kHz "open" biquad still
+  // took the top octave); the limiter (instant attack, 40 ms release, ceiling 0.98) keeps loud overlaps from clipping
+  LimiterNode lim; bool limOk = false, muffled = false;
+  VerbNode verb[2]; bool verbOk = false;
+  double duckT = -1e9;   // SND5: the last gunshot within 60 m (the ambience beds duck under it)
+  ma_node* pre() { return muffled && lpfOk ? (ma_node*)&lpf : out(); }
+  ma_node* out() { return limOk ? (ma_node*)&lim : ma_engine_get_endpoint(&engine); }
+  void route(ma_sound& s, int bus = 0) { ma_node_attach_output_bus(&s, 0, bus > 0 && verbOk ? (ma_node*)&verb[bus - 1] : pre(), 0); }
+  void rerouteAll() {
+    if (verbOk) for (auto& v : verb) ma_node_attach_output_bus(&v, 0, pre(), 0);
+    for (auto& v : voices) if (v.used) route(v.snd, v.bus);
+    for (auto& v : loops) if (v.used) route(v.snd);
+    for (int k = 0; k < 2; ++k) if (bedOn[k]) route(bed[k]);
+    route(wind); route(leaves);
+  }
 };
+static void limiterProcess(ma_node* node, const float** in, ma_uint32* inFrames, float** outp, ma_uint32* outFrames) {
+  auto* L = (LimiterNode*)node; ma_uint32 n = std::min(*inFrames, *outFrames), C = L->ch; const float* x = in[0]; float* y = outp[0];
+  for (ma_uint32 i = 0; i < n; ++i) {
+    float a = 0; for (ma_uint32 c = 0; c < C; ++c) a = std::max(a, std::fabs(x[i * C + c]));
+    float need = a > 0.98f ? 0.98f / a : 1.0f; L->g = need < L->g ? need : L->g + (1.0f - L->g) * L->rel;
+    for (ma_uint32 c = 0; c < C; ++c) y[i * C + c] = x[i * C + c] * L->g;
+  }
+  *inFrames = n; *outFrames = n;
+}
+static ma_node_vtable gLimiterVt = {limiterProcess, nullptr, 1, 1, 0};
+static void verbProcess(ma_node* node, const float** in, ma_uint32* inFrames, float** outp, ma_uint32* outFrames) {
+  auto* V = (VerbNode*)node; ma_uint32 n = std::min(*inFrames, *outFrames), C = V->ch; const float* x = in[0]; float* y = outp[0];
+  for (ma_uint32 i = 0; i < n; ++i) {
+    float m = 0; for (ma_uint32 c = 0; c < C; ++c) m += x[i * C + c]; m *= V->send / C;
+    size_t rd = (V->sp + V->slap.size() - V->slapLen) % V->slap.size(); float early = V->slap[rd] * V->slapG; V->slap[V->sp] = m; V->sp = (V->sp + 1) % V->slap.size();
+    float wet[2];
+    for (int s = 0; s < 2; ++s) {
+      float acc = 0;
+      for (auto& c : V->comb[s]) { float o = c.b[c.i]; c.lp = o * 0.6f + c.lp * 0.4f; c.b[c.i] = m * 0.25f + c.lp * c.fb; if (++c.i >= c.b.size()) c.i = 0; acc += o; }
+      for (auto& a : V->ap[s]) { float o = a.b[a.i]; a.b[a.i] = acc + o * 0.5f; if (++a.i >= a.b.size()) a.i = 0; acc = o - acc; }
+      wet[s] = acc + early;
+    }
+    for (ma_uint32 c = 0; c < C; ++c) y[i * C + c] = x[i * C + c] + wet[c & 1];
+  }
+  *inFrames = n; *outFrames = n;
+}
+static ma_node_vtable gVerbVt = {verbProcess, nullptr, 1, 1, 0};
 
 bool Audio::init() {
   p = new Impl();
   ma_engine_config cfg = ma_engine_config_init();
   cfg.sampleRate = SR;
+  if (std::getenv("NMK_AUDIO_FIDELITY")) { cfg.noDevice = MA_TRUE; cfg.channels = 2; }   // SND5 diagnostics: the mix is read back
   if (ma_engine_init(&cfg, &p->engine) != MA_SUCCESS) { logf("audio: no device, sound disabled"); delete p; p = nullptr; return false; }
   {   // muffle stage (swim.cpp): open at 20 kHz until the camera goes under water
     ma_lpf_node_config lc = ma_lpf_node_config_init(ma_engine_get_channels(&p->engine), ma_engine_get_sample_rate(&p->engine), 20000.0, 2);
+    {   // SND5: the limiter in front of the endpoint
+      ma_uint32 ch = ma_engine_get_channels(&p->engine); p->lim.ch = ch; p->lim.rel = 1.0f - std::exp(-1.0f / (0.04f * ma_engine_get_sample_rate(&p->engine)));
+      ma_node_config nc = ma_node_config_init(); nc.vtable = &gLimiterVt; nc.pInputChannels = &ch; nc.pOutputChannels = &ch;
+      p->limOk = ma_node_init(ma_engine_get_node_graph(&p->engine), &nc, nullptr, &p->lim) == MA_SUCCESS &&
+                 ma_node_attach_output_bus(&p->lim, 0, ma_engine_get_endpoint(&p->engine), 0) == MA_SUCCESS;
+    }
     p->lpfOk = ma_lpf_node_init(ma_engine_get_node_graph(&p->engine), &lc, nullptr, &p->lpf) == MA_SUCCESS &&
-               ma_node_attach_output_bus(&p->lpf, 0, ma_engine_get_endpoint(&p->engine), 0) == MA_SUCCESS;
+               ma_node_attach_output_bus(&p->lpf, 0, p->out(), 0) == MA_SUCCESS;
+    {   // SND5: the gun reverbs: every gun (send 0.12, 1.2 s) and the M249 / MG 42 (send 0.35, 1.5 s)
+      ma_uint32 ch = ma_engine_get_channels(&p->engine); p->verbOk = true;
+      for (int k = 0; k < 2; ++k) {
+        VerbNode& v = p->verb[k]; v.ch = ch; v.sr = (float)ma_engine_get_sample_rate(&p->engine); v.send = k ? 0.35f : 0.12f; v.rtOut = k ? 1.5f : 1.2f; v.setRoom(0);
+        ma_node_config nc = ma_node_config_init(); nc.vtable = &gVerbVt; nc.pInputChannels = &ch; nc.pOutputChannels = &ch;
+        p->verbOk = p->verbOk && ma_node_init(ma_engine_get_node_graph(&p->engine), &nc, nullptr, &v) == MA_SUCCESS && ma_node_attach_output_bus(&v, 0, p->out(), 0) == MA_SUCCESS;
+      }
+    }
     p->lpfCut = 20000;
   }
   Rng r;
@@ -235,6 +336,7 @@ int Audio::loadEvents(const fs::path& dir) {
       fs::path wav = dir / "samples" / (bank + "_" + std::to_string(v.value("index", 0)) + ".wav");
       Buf b; if (loadWavMono(wav, b) && !b.empty()) { ev.v.push_back(std::move(b)); ++samplesLoaded; } else ++samplesMissing;
     }
+    if (ev.kind == "shot") for (auto& b : ev.v) { float pk = 1e-4f; for (float x : b) pk = std::max(pk, std::fabs(x)); if (pk < 0.95f) for (float& x : b) x *= 0.95f / pk; }   // SND5: bank gunshots up to 0.95 peak
     if (!ev.v.empty()) { p->events[name] = std::move(ev); ++eventsLoaded; }
   }
   logf("audio: %d events from %d samples (%d missing: run tools/fsb5.py extract)", eventsLoaded, samplesLoaded, samplesMissing);
@@ -244,13 +346,22 @@ int Audio::loadEvents(const fs::path& dir) {
 // dry step, door_open.mp3 for doors / windows / shutters opening at half volume, zombie.mp3 as "zombie_groan".
 int Audio::loadCustom(const fs::path& dir) {
   if (!p) return 0;
-  auto decode = [&](const char* file, Buf& out) {
-    ma_decoder_config dc = ma_decoder_config_init(ma_format_f32, 1, SR);
+  // SND5: decoded at the file's own rate and channels, resampled to 44.1 kHz by resampleSinc; out = (L + R) / 2 (the
+  // spatialised voice), L / R (optional) the channels themselves (a mono file: both the same)
+  auto decodeSt = [&](const char* file, Buf& out, Buf* L, Buf* R) {
+    ma_decoder_config dc = ma_decoder_config_init(ma_format_f32, 0, 0);
     ma_uint64 frames = 0; void* data = nullptr;
     if (ma_decode_file((dir / file).string().c_str(), &dc, &frames, &data) != MA_SUCCESS || !data) return false;
-    out.assign((float*)data, (float*)data + frames); ma_free(data, nullptr);
+    const float* d = (const float*)data; const ma_uint32 C = std::max<ma_uint32>(1, dc.channels);
+    Buf ch[2]; for (int c = 0; c < 2; ++c) { ch[c].resize(frames); for (ma_uint64 i = 0; i < frames; ++i) ch[c][i] = d[i * C + std::min<ma_uint32>(c, C - 1)]; }
+    ma_free(data, nullptr);
+    if (dc.sampleRate != (ma_uint32)SR && dc.sampleRate > 0) for (auto& x : ch) x = resampleSinc(x, (double)SR / dc.sampleRate);
+    out.resize(ch[0].size()); for (size_t i = 0; i < out.size(); ++i) out[i] = 0.5f * (ch[0][i] + ch[1][i]);
+    if (L) *L = std::move(ch[0]);
+    if (R) *R = std::move(ch[1]);
     return !out.empty();
   };
+  auto decode = [&](const char* file, Buf& out) { return decodeSt(file, out, nullptr, nullptr); };
   int used = 0; Buf b;
   struct StepSet { const char* file; std::vector<const char*> names; };   // fighter_steps.mp3: the Fighters' heavy tread (zombie.cpp)
   for (auto& ss : {StepSet{"footsteps.mp3", {"step", "step_stone", "step_wood"}}, StepSet{"grass_steps.mp3", {"step_grass"}}, StepSet{"fighter_steps.mp3", {"step_fighter"}}, StepSet{"spider_steps.mp3", {"step_spider"}}}) if (decode(ss.file, b)) {
@@ -275,7 +386,7 @@ int Audio::loadCustom(const fs::path& dir) {
   // SND4: every rifle its own shot. take: which shot of a recording holding several (Rifle3: four), -1 the first;
   // pitch / tilt / tail: a variant derived from a recording another rifle uses (resampled x pitch; tilt < 0 darker, > 0
   // brighter; tail: seconds kept)
-  struct GunSet { const char* file; bool burst; std::vector<const char*> ids; int take = -1; float pitch = 1, tilt = 0, tail = 2.5f; };
+  struct GunSet { const char* file; bool burst; std::vector<const char*> ids; int take = -1; float pitch = 1, tilt = 0, tail = 2.5f; bool body = false; };   // SND5 body: low-mid weight and density (M249, MG 42)
   const GunSet guns[] = {
     {"guns/pistol_a.mp3", false, {"luger"}},
     {"guns/pistol_c.mp3", false, {"modern_pistol2"}},
@@ -283,51 +394,72 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/pistol_9mm.mp3", false, {"modern_pistol", "modern_ar15", "modern_pistol3"}},   // the AR-15 keeps the Springfield XD single shot (user request)
     {"guns/semi_rifle.mp3", false, {"modern_sniper_semi"}},
     {"guns/semi_rifle.mp3", false, {"modern_scar"}, -1, 0.9f, -0.5f, 2.2f},   // derived: SCAR-H, lower and darker
-    {"guns/auto_rifle_burst.mp3", true, {"modern_mp7", "modern_scorpion"}},
+    {"guns/auto_rifle_burst.mp3", true, {"modern_mp7"}},
     {"guns/carbine.mp3", false, {"m1_carbine"}},
-    {"guns/rifle_bolt.mp3", false, {"m1_garand"}},   // the full rifle recording (user request)
-    {"guns/rifle_bolt.mp3", false, {"m1c_garand"}, -1, 0.95f, -0.6f, 1.8f},   // derived: M1C, darker, shorter tail
-    {"guns/rifle_bolt.mp3", false, {"m1918a2_bar"}, -1, 0.88f, 0.0f, 2.0f},   // derived: BAR, lower
-    {"guns/rifle_bolt.mp3", false, {"fg42"}, -1, 1.1f, 0.4f, 1.6f},   // derived: FG 42, higher and brighter
+    // SND5: the Garand recording retired (user request): its guns play Rifle.mp3, a few per cent apart in pitch, no tone change
+    {"guns/rifle_a.mp3", false, {"m1_garand"}, -1, 1.03f},
+    {"guns/rifle_a.mp3", false, {"m1c_garand"}, -1, 0.97f},
+    {"guns/rifle_a.mp3", false, {"m1918a2_bar"}, -1, 0.96f},
+    {"guns/rifle_a.mp3", false, {"fg42"}, -1, 1.04f},
     {"guns/sniper_heavy.mp3", false, {"modern_sniper_50"}},   // the heavy sniper shot (user request)
     {"guns/sniper_m24.mp3", false, {"modern_sniper_bolt"}},   // Sniper.mp3: the M24's own
     {"guns/sniper_m24.mp3", false, {"modern_sniper_3"}, -1, 1.08f, 0.3f, 1.8f},   // derived: scout rifle, higher, shorter
-    {"guns/rifle_a.mp3", false, {"kar98k"}},   // Rifle.mp3 (still 50 % louder, below)
+    {"guns/rifle_a.mp3", false, {"kar98k"}},   // Rifle.mp3
     {"guns/rifle_a.mp3", false, {"kar98k_zf39"}, -1, 0.92f, -0.4f, 2.5f},   // derived: the scoped Kar98k, lower, darker
     {"guns/rifle_b.mp3", false, {"modern_ak"}},   // Rifle2.mp3: AK-74
-    {"guns/rifle_b.mp3", false, {"modern_ak12"}, -1, 0.92f, 0.3f, 1.8f},   // derived: AK-12
+    {"guns/rifle_b.mp3", false, {"modern_ak12"}, -1, 0.98f},   // SND5: the AK-74 shot (user request), 2 % lower
+    {"guns/rifle_b.mp3", false, {"stg44"}, -1, 1.02f},   // SND5: the AK-74 shot, 2 % higher
+    {"guns/rifle_b.mp3", false, {"modern_lmg"}, -1, 0.97f, 0, 2.5f, true},   // SND5: the M249 on the AK-74 single shot (automatic fire re-triggers it per round), heavier
     {"guns/rifle_c.mp3", false, {"modern_m16"}, 0},   // Rifle3.mp3 holds four shots: one each
     {"guns/rifle_c.mp3", false, {"modern_m4"}, 1},
     {"guns/rifle_c.mp3", false, {"modern_m4_irons"}, 2},
     {"guns/rifle_c.mp3", false, {"modern_fal"}, 3},
-    {"guns/assault_rifle.mp3", true, {"stg44"}},
     {"guns/shotgun.mp3", false, {"modern_shotgun", "modern_shotgun2"}},
     {"guns/hmg_burst.mp3", true, {"m2hb_carry"}},
-    {"guns/mg_burst.mp3", true, {"mg42"}},
-    {"guns/mg2_burst.mp3", true, {"modern_lmg"}},
-    {"guns/smg_burst.mp3", true, {"mp40", "m1_thompson", "m3_grease_gun", "modern_uzi"}},
+    {"guns/mg_burst.mp3", true, {"mg42"}, -1, 1, 0, 2.5f, true},
+    {"guns/smg_burst.mp3", true, {"modern_uzi"}},
+    // SND4: every SMG its own shot (SMG.mp3, SMG1.mp3: single shots)
+    {"guns/smg_a.mp3", false, {"mp40"}, -1, 1, 0, 1.2f},   // SMG.mp3
+    {"guns/smg_a.mp3", false, {"modern_scorpion"}, -1, 1.12f, 0.4f, 1.0f},   // derived: the Scorpion, higher and brighter
+    {"guns/smg_b.mp3", false, {"m1_thompson"}},   // SMG1.mp3
+    {"guns/smg_b.mp3", false, {"m3_grease_gun"}, -1, 0.88f, -0.5f, 2.5f},   // derived: the grease gun, lower and darker
   };
+  // SND5: each cut, resample and tone step runs on the mono mix and on both channels alike; levels: quieter recordings up to
+  // 0.95 peak (the stereo pair by its louder channel), full-scale ones unchanged; the cut starts where the shot rises out of the quiet before its onset (no fade-in)
+  Buf gL, gR;
   for (auto& g : guns) {
-    if (!decode(g.file, b)) continue;
+    if (!decodeSt(g.file, b, &gL, &gR)) continue;
     const int W = SR / 200; size_t nW = b.size() / W; float peak = 1e-4f; std::vector<float> env(nW, 0.0f);   // 5 ms windows
     for (size_t k = 0; k < nW; ++k) { for (int j = 0; j < W; ++j) env[k] = std::max(env[k], std::fabs(b[k * W + j])); peak = std::max(peak, env[k]); }
     size_t first = nW, last = nW, prev = 0; std::vector<size_t> shots;   // shots: onsets at least 1 s apart (a recording of several)
     for (size_t k = 0; k < nW; ++k) if (env[k] > 0.5f * peak && (k == 0 || env[k - 1] <= 0.5f * peak) && (last == nW || k - prev >= 8)) { if (first == nW) first = k; last = prev = k; if (shots.empty() || k - shots.back() >= 200) shots.push_back(k); }
     if (first == nW) continue;
-    size_t a = g.take >= 0 && g.take < (int)shots.size() ? shots[g.take] : (g.burst ? last : first); a = (a > 0 ? a - 1 : 0) * W;
+    size_t a = g.take >= 0 && g.take < (int)shots.size() ? shots[g.take] : (g.burst ? last : first);
+    for (size_t back = 0; a > 0 && back < 10 && env[a - 1] > 0.02f * peak; ++back) --a;   // up to 50 ms of the rise
+    a = (a > 0 ? a - 1 : 0) * W;
     size_t e = std::min(b.size(), a + (size_t)(g.tail * SR));
     if (g.take >= 0 && g.take + 1 < (int)shots.size()) e = std::min(e, (shots[g.take + 1] - 2) * W);   // not into the next shot
     { static const bool lg = std::getenv("NMK_AUDIO_LOG") != nullptr; if (lg && g.take >= 0) logf("audio: %s take %d of %d shots, from %.2f s", g.file, g.take, (int)shots.size(), a / (float)SR); }   // diagnostics
-    Buf s(b.begin() + a, b.begin() + e);
-    if (g.pitch != 1.0f) { Buf r((size_t)(s.size() / g.pitch)); for (size_t j = 0; j < r.size(); ++j) { float x = j * g.pitch; size_t i0 = (size_t)x; float u = x - i0; r[j] = i0 + 1 < s.size() ? s[i0] * (1 - u) + s[i0 + 1] * u : s[std::min(i0, s.size() - 1)]; } s.swap(r); }   // SND4 derived: resampled
-    if (g.tilt != 0.0f) { float lp = 0, al = 1 - std::exp(-2 * 3.14159f * 1500.0f / SR); for (float& x : s) { lp += al * (x - lp); x = g.tilt < 0 ? x * (1 + g.tilt) - lp * g.tilt : x + (x - lp) * g.tilt; } }   // tone: toward the low-passed (< 0) or the high-passed (> 0)
-    float pk = 1e-4f; for (float x : s) pk = std::max(pk, std::fabs(x));
-    size_t f = std::min(s.size(), (size_t)(0.05f * SR));
-    for (size_t j = 0; j < s.size(); ++j) s[j] *= 0.8f / pk * (j + f >= s.size() ? (float)(s.size() - j) / f : 1.0f);
-    ++used; Impl::Event ev; ev.kind = "shot"; ev.v.push_back(std::move(s));
+    auto shape = [&](const Buf& src) {
+      Buf s(src.begin() + a, src.begin() + e);
+      if (g.pitch != 1.0f) s = resampleSinc(s, 1.0 / g.pitch);   // SND4 derived: pitched (SND5: band-limited)
+      if (g.tilt != 0.0f) { float lp = 0, al = 1 - std::exp(-2 * 3.14159f * 1500.0f / SR); for (float& x : s) { lp += al * (x - lp); x = g.tilt < 0 ? x * (1 + g.tilt) - lp * g.tilt : x + (x - lp) * g.tilt; } }   // tone: toward the low-passed (< 0) or the high-passed (> 0)
+      size_t f = std::min(s.size(), (size_t)(0.05f * SR));
+      for (size_t j = s.size() > f ? s.size() - f : 0; j < s.size(); ++j) s[j] *= (float)(s.size() - j) / f;   // 50 ms fade-out
+      return s;
+    };
+    Buf s = shape(b), sl = shape(gL), sr = shape(gR);
+    if (g.body) for (Buf* c : {&s, &sl, &sr}) {   // SND5: +low-mid (a 450 Hz low-pass mixed in), then a gentle saturation: denser at the same peak
+      float lp = 0, al = 1 - std::exp(-2 * 3.14159f * 450.0f / SR), pk = 1e-4f; for (float& x : *c) { lp += al * (x - lp); x += 0.8f * lp; pk = std::max(pk, std::fabs(x)); }
+      for (float& x : *c) x = std::tanh(2.2f * x / pk) / std::tanh(2.2f);
+    }
+    float pk = 1e-4f; for (float x : s) pk = std::max(pk, std::fabs(x)); for (float& x : s) x *= std::max(1.0f, 0.95f / pk);
+    float pk2 = 1e-4f; for (size_t j = 0; j < sl.size(); ++j) pk2 = std::max({pk2, std::fabs(sl[j]), std::fabs(sr[j])});
+    const float g2 = std::max(1.0f, 0.95f / pk2);   // a full-scale recording as it is (the limiter takes its mp3 overshoot), a quieter one up to 0.95
+    Buf st(sl.size() * 2); for (size_t j = 0; j < sl.size(); ++j) { st[2 * j] = sl[j] * g2; st[2 * j + 1] = sr[j] * g2; }
+    ++used; Impl::Event ev; ev.kind = "shot"; ev.v.push_back(std::move(s)); ev.st.push_back(std::move(st));
     for (const char* id : g.ids) { p->events[std::string("shot_") + id] = ev; p->events.erase(std::string("shot_") + id + "_far"); }
   }
-  for (const char* id : {"shot_kar98k"}) if (auto it = p->events.find(id); it != p->events.end()) it->second.gain = 1.5f;   // louder (user request)
   // SND4: the bolt action cycle after each shot of a bolt rifle: the recording's open / close (0.36-0.90 s) twice back to back,
   // sped up (resampled) so both, from 0.06 s after the shot, end 0.05 s before the bolt time is up (at least 1.25x)
   if (decode("guns/bolt_cycle.mp3", b) && b.size() > (size_t)(0.90f * SR)) {
@@ -353,7 +485,8 @@ int Audio::loadCustom(const fs::path& dir) {
   // launchers, cannon and explosions: whole recordings from their first loud moment (up to 6 s), far layers dropped
   struct FxSet { const char* file; std::vector<const char*> events; float from = 0; };   // from: seconds into the recording to start at
   const FxSet fxs[] = {
-    {"guns/rocket_launch.mp3", {"shot_bazooka_m9", "shot_panzerschreck", "shot_modern_rpg7", "shot_modern_glauncher"}, 3.0f},
+    {"guns/rocket_launch.mp3", {"shot_bazooka_m9", "shot_panzerschreck", "shot_modern_rpg7"}, 3.0f},
+    {"guns/glauncher_fire.mp3", {"shot_modern_glauncher"}},   // SND4: the six-shot launcher's own
     {"guns/launcher_fire.mp3", {"explosion_rocket"}},
     {"guns/cannon_fire.mp3", {"pak_fire", "flak_fire"}},
     {"guns/shell_impact.mp3", {"explosion", "explosion_big", "explosion_grenade"}},
@@ -481,6 +614,59 @@ int Audio::loadCustom(const fs::path& dir) {
       ++used; addSound("creature_ambience", std::move(loop));
     }
   }
+  // SND4: the strongest `secs` of a recording (10 ms energy), from sample `from` on: its first sample
+  auto strongest = [&](const Buf& s, float secs, size_t from = 0) {
+    const int W = SR / 100; size_t nW = s.size() / W, len = std::max<size_t>(1, std::min(nW, (size_t)(secs * 100))), best = from / W; double run = 0, bs = -1;
+    std::vector<double> e(nW, 0.0); for (size_t k = 0; k < nW; ++k) for (int j = 0; j < W; ++j) e[k] += s[k * W + j] * s[k * W + j];
+    for (size_t k = from / W; k < nW; ++k) { run += e[k]; if (k >= from / W + len) run -= e[k - len]; if (k + 1 >= from / W + len && run > bs) { bs = run; best = k + 1 - len; } }
+    return best * W;
+  };
+  auto clip = [&](const Buf& s, size_t a, size_t n, float fadeIn, float fadeOut, float level) {   // a cut with linear fades, levelled to its peak
+    Buf c(s.begin() + std::min(a, s.size()), s.begin() + std::min(s.size(), a + n)); float pk = peakOf(c);
+    float fi = std::max(1.0f, fadeIn * SR), fo = std::max(1.0f, fadeOut * SR);
+    for (size_t j = 0; j < c.size(); ++j) c[j] *= level / pk * std::min({1.0f, j / fi, (c.size() - j) / fo});
+    return c;
+  };
+  // SND4: the creature's pre-attack screech (zombie.cpp "windup"): the strongest 1.2 s of the recording
+  if (decode("creature_screech.mp3", b)) { Impl::Event ev; ev.minDist = 4.0f; ev.v.push_back(clip(b, strongest(b, 1.2f), (size_t)(1.2f * SR), 0.01f, 0.1f, 0.9f)); p->events["creature_screech"] = ev; ++used; }
+  // SND4: the big monsters' voice (monster_growl.mp3): its loud stretches (100 ms loudness over 0.3 of the loudest, gaps
+  // under 0.25 s bridged, at least 0.8 s, at most 3.5 s each) as idle growls, and its three strongest 1.5 s as attack roars
+  if (decode("monster_growl.mp3", b)) {
+    const int W = SR / 10; size_t nW = b.size() / W; std::vector<float> rms(nW, 0.0f); float top = 1e-6f;
+    for (size_t k = 0; k < nW; ++k) { double q = 0; for (int j = 0; j < W; ++j) q += b[k * W + j] * b[k * W + j]; rms[k] = (float)std::sqrt(q / W); top = std::max(top, rms[k]); }
+    std::vector<std::pair<size_t, size_t>> runs;
+    for (size_t k = 0; k < nW; ++k) if (rms[k] > 0.3f * top) { if (!runs.empty() && k - runs.back().second <= 3) runs.back().second = k; else runs.push_back({k, k}); }
+    Impl::Event idle; idle.minDist = 6.0f;
+    for (auto& r : runs) if ((r.second - r.first + 1) >= 8 && idle.v.size() < 8) idle.v.push_back(clip(b, r.first * W, std::min<size_t>(35, r.second - r.first + 1) * W, 0.02f, 0.15f, 0.8f));
+    Impl::Event atk; atk.minDist = 6.0f; Buf m = b;
+    for (int i = 0; i < 3; ++i) { size_t a = strongest(m, 1.5f); atk.v.push_back(clip(b, a, (size_t)(1.5f * SR), 0.01f, 0.12f, 0.9f)); std::fill(m.begin() + a, m.begin() + std::min(m.size(), a + (size_t)(1.5f * SR)), 0.0f); }
+    if (!idle.v.empty()) p->events["monster_growl"] = idle;
+    p->events["monster_growl_attack"] = atk; ++used;
+    { static const bool lg = std::getenv("NMK_AUDIO_LOG") != nullptr; if (lg) logf("audio: monster_growl %d idle growls, 3 attack roars", (int)idle.v.size()); }   // diagnostics
+  }
+  // SND4: a spent case hitting the ground (guns/casings.mp3: one landing with its bounces), 0.4 s from its onset
+  if (decode("guns/casings.mp3", b)) {
+    float pk = peakOf(b); size_t a = 0; while (a < b.size() && std::fabs(b[a]) < 0.3f * pk) ++a; a = a > (size_t)(SR / 100) ? a - SR / 100 : 0;
+    Impl::Event ev; ev.minDist = 2.0f; ev.v.push_back(clip(b, a, (size_t)(0.4f * SR), 0.002f, 0.08f, 0.8f)); p->events["casing"] = ev; ++used;
+  }
+  // SND4: the explosion pack's countdown (fx/bomb_beeps.mp3): its beeps by onset (5 ms loudness over 0.4 of the loudest,
+  // gaps under 15 ms bridged): the first long one (>= 90 ms) and the first short one; the shortest is the short one's first
+  // 25 ms (the recording has two lengths). abilities.cpp plays them
+  if (decode("fx/bomb_beeps.mp3", b)) {
+    const int W = SR / 200; size_t nW = b.size() / W; std::vector<float> env(nW, 0.0f); float pk = 1e-6f;
+    for (size_t k = 0; k < nW; ++k) { for (int j = 0; j < W; ++j) env[k] = std::max(env[k], std::fabs(b[k * W + j])); pk = std::max(pk, env[k]); }
+    std::vector<std::pair<size_t, size_t>> beeps;
+    for (size_t k = 0; k < nW; ++k) if (env[k] > 0.4f * pk) { if (!beeps.empty() && k - beeps.back().second <= 3) beeps.back().second = k; else beeps.push_back({k, k}); }
+    Buf L, S;
+    for (auto& r : beeps) { size_t n = (r.second - r.first + 1) * W; Buf c = clip(b, r.first * W, n + W, 0.003f, 0.01f, 0.8f); if (n >= (size_t)(0.09f * SR)) { if (L.empty()) L = c; } else if (n >= (size_t)(0.02f * SR) && S.empty()) S = c; }
+    if (!L.empty()) {
+      if (S.empty()) S = clip(L, 0, (size_t)(0.05f * SR), 0.003f, 0.01f, 0.8f);   // one length only: a trimmed long beep
+      Buf T = clip(S, 0, (size_t)(0.025f * SR), 0.002f, 0.008f, 0.8f);
+      for (auto& [n, s] : {std::pair<const char*, Buf*>{"pack_beep_long", &L}, {"pack_beep_short", &S}, {"pack_beep_shortest", &T}}) { Impl::Event ev; ev.minDist = 4.0f; ev.v.push_back(*s); p->events[n] = ev; }
+      ++used;
+      { static const bool lg = std::getenv("NMK_AUDIO_LOG") != nullptr; if (lg) logf("audio: bomb beeps: %d found, long %.3f s, short %.3f s", (int)beeps.size(), L.size() / (float)SR, S.size() / (float)SR); }   // diagnostics
+    }
+  }
   // SND1: any other mp3 here plays as an event named after its file (knightattack.mp3 -> "knightattack"): leading
   // silence trimmed, levelled, at most 6 s. A type's "sounds" (content/ai/zombie*.json) name them.
   std::error_code ec;
@@ -500,12 +686,12 @@ int Audio::loadCustom(const fs::path& dir) {
 bool Audio::hasEvent(const std::string& name) const { return p && p->events.count(name); }
 int Audio::eventVariant(const std::string& name) const { if (!p) return -1; auto it = p->events.find(name); return it == p->events.end() ? -1 : it->second.last; }
 
-void Audio::play(const std::string& name, vec3 pos, float volume, float pitch) {
+void Audio::play(const std::string& name, vec3 pos, float volume, float pitch, float delay) {
   ++playCount; lastPlayed = name; lastPos = pos;
   if (!p) return;
   // resolve: the event (its far layer beyond 90 m), else the procedural buffer, else the name without its last
   // "_suffix" (explosion_grenade -> explosion), so a missing sample never silences an event
-  const Buf* src = nullptr; std::string used; float gain = 1, minDist = 1; bool shot = false, step = false, uiEv = false;
+  const Buf* src = nullptr; const Buf* stereo = nullptr; std::string used; float gain = 1, minDist = 1; bool shot = false, step = false, uiEv = false;
   std::string n = name;
   for (int tries = 0; tries < 3 && !src; ++tries) {
     std::string cand = n;
@@ -514,7 +700,7 @@ void Audio::play(const std::string& name, vec3 pos, float volume, float pitch) {
     if (e != p->events.end()) {
       auto& ev = e->second; int k = 0;
       if (ev.v.size() > 1) { k = (int)(p->pick() % (ev.v.size() - 1)); if (ev.last >= 0 && k >= ev.last) ++k; }   // never the same twice running
-      ev.last = k; src = &ev.v[k]; used = cand; gain = ev.gain; minDist = ev.minDist; uiEv = ev.kind == "ui"; shot = ev.kind == "shot"; step = ev.kind == "step";
+      ev.last = k; src = &ev.v[k]; stereo = k < (int)ev.st.size() && !ev.st[k].empty() ? &ev.st[k] : nullptr; used = cand; gain = ev.gain; minDist = ev.minDist; uiEv = ev.kind == "ui"; shot = ev.kind == "shot"; step = ev.kind == "step";
     } else if (auto b = p->bufs.find(n); b != p->bufs.end()) { src = &b->second; used = n; }
     else { size_t u = n.rfind('_'); if (u == std::string::npos) break; n = n.substr(0, u); }
   }
@@ -537,18 +723,39 @@ void Audio::play(const std::string& name, vec3 pos, float volume, float pitch) {
   if (!v) { for (auto& c : p->voices) if (!v || c.start < v->start) v = &c; }   // all busy: steal the oldest
   if (v->used) { ma_sound_uninit(&v->snd); ma_audio_buffer_uninit(&v->buf); }
   volume *= gain * ((uiEv || name.rfind("ui_", 0) == 0) ? uiGain : effectsGain);
-  ma_audio_buffer_config c = ma_audio_buffer_config_init(ma_format_f32, 1, src->size(), src->data(), nullptr);
+  // SND5: a gun event with its stereo recording (the custom gunshots) at the listener (within 2 m: the player's own shot)
+  // plays it as recorded, not spatialised (the spatialiser cost a mono shot about 6 dB here); other sounds as before
+  const bool atEar = stereo && glm::length(pos - p->listener) < 2.0f; if (!atEar) stereo = nullptr;
+  // SND5: gunfire (shots of every class, tank / field guns, recorded tails) carries further (full level within 3 m, the
+  // M249 / MG 42 5 m), goes through the gun reverb and ducks the ambience beds
+  const bool gun = shot || used.rfind("shot_", 0) == 0 || used.rfind("tank_", 0) == 0 || used.rfind("tail_", 0) == 0 || used == "pak_fire" || used == "flak_fire";
+  const bool heavy = used == "shot_mg42" || used == "shot_modern_lmg" || used == "tail_mg42" || used == "tail_modern_lmg";
+  if (gun) { minDist = std::max(minDist, heavy ? 5.0f : 3.0f); if (glm::length(pos - p->listener) < 60.0f) p->duckT = now; }
+  ma_audio_buffer_config c = stereo ? ma_audio_buffer_config_init(ma_format_f32, 2, stereo->size() / 2, stereo->data(), nullptr)
+                                    : ma_audio_buffer_config_init(ma_format_f32, 1, src->size(), src->data(), nullptr);
   c.sampleRate = SR;
   ma_audio_buffer_init(&c, &v->buf);
-  ma_sound_init_from_data_source(&p->engine, &v->buf, 0, nullptr, &v->snd);
-  p->route(v->snd);
+  ma_sound_init_from_data_source(&p->engine, &v->buf, atEar ? MA_SOUND_FLAG_NO_SPATIALIZATION : 0, nullptr, &v->snd);
+  v->bus = gun ? (heavy ? 2 : 1) : 0; p->route(v->snd, v->bus);
   ma_sound_set_position(&v->snd, pos.x, pos.y, pos.z);
   ma_sound_set_min_distance(&v->snd, minDist);
   ma_sound_set_rolloff(&v->snd, 1.2f);
   ma_sound_set_volume(&v->snd, volume);
   if (pitch != 1.0f) ma_sound_set_pitch(&v->snd, std::max(0.05f, pitch));
+  if (delay > 0) ma_sound_set_start_time_in_milliseconds(&v->snd, ma_engine_get_time_in_milliseconds(&p->engine) + (ma_uint64)(delay * 1000));
   ma_sound_start(&v->snd);
-  v->used = true; v->event = used; v->start = now;
+  v->used = true; v->event = used; v->start = now + delay;
+}
+
+void Audio::casing(vec3 feet, int shooter, float delay, bool soft) {
+  if (!p || !p->events.count("casing")) return;
+  double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+  double& last = p->casingAt[shooter];
+  int live = 0; for (auto& c : p->voices) if (c.used && c.event == "casing" && (c.start > now || !ma_sound_at_end(&c.snd))) ++live;
+  if (glm::length(feet - p->listener) > 15.0f || now - last < 0.08 || live >= 6) { ++casingsSkipped; return; }
+  last = now; ++casingsPlayed;
+  std::uniform_real_distribution<float> u(0, 1);
+  play("casing", feet + vec3(0, 0.05f, 0), (soft ? 0.12f : 0.3f) * (0.8f + 0.2f * u(p->pick)), 0.9f + 0.2f * u(p->pick), delay);
 }
 
 void Audio::setListener(vec3 pos, vec3 fwd) {
@@ -594,12 +801,17 @@ void Audio::setBed(int slot, const fs::path& file, float volume) {
     }
   }
   p->bedVol[slot] = volume;
-  if (p->bedOn[slot]) ma_sound_set_volume(&p->bed[slot], volume * ambienceGain);
+  {   // SND5: -3 dB under nearby gunfire, back over 1.5 s
+    double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    float duck = 1.0f - 0.3f * (float)std::clamp(1.0 - (now - p->duckT) / 1.5, 0.0, 1.0);
+    if (p->bedOn[slot]) ma_sound_set_volume(&p->bed[slot], volume * ambienceGain * duck);
+  }
 }
 void Audio::setUnderwater(float k) {
   k = std::clamp(k, 0.0f, 1.0f);
   underwater = k;
   if (!p || !p->lpfOk) return;
+  if ((k > 0) != p->muffled) { p->muffled = k > 0; p->rerouteAll(); }   // SND5: the muffle is in the chain only under water
   float cut = k > 0 ? 20000.0f * std::pow(550.0f / 20000.0f, k) : 20000.0f;   // 20 kHz -> 550 Hz (log blend)
   if (std::fabs(cut - p->lpfCut) < 1.0f) return;
   p->lpfCut = cut;
@@ -607,6 +819,8 @@ void Audio::setUnderwater(float k) {
   ma_lpf_node_reinit(&c, &p->lpf);
   ma_node_set_output_bus_volume(&p->lpf, 0, 1.0f - 0.35f * k);
 }
+
+void Audio::setRoom(float r) { if (p && p->verbOk) for (auto& v : p->verb) v.setRoom(std::clamp(r, 0.0f, 1.0f)); }   // audio thread reads it too: a one-frame mix of old / new lengths is harmless
 
 void Audio::setGains(float master, float effects, float ui, float ambience) {
   masterGain = std::clamp(master, 0.0f, 1.0f); effectsGain = std::clamp(effects, 0.0f, 1.0f);
@@ -653,3 +867,62 @@ void Audio::loopStop(int h) {
   ma_sound_stop(&v.snd); ma_sound_uninit(&v.snd); ma_audio_buffer_uninit(&v.buf); v.used = false;
 }
 int Audio::loopsActive() const { int n = 0; if (p) for (auto& v : p->loops) n += v.used; return n; }
+
+// ---- SND5 diagnostics: the player's own shot as heard, against the mp3 itself
+namespace {
+struct Measure { float peak = 0, rms = 0, mid = 0, high = 0, tail = -200; };   // dB: peak / RMS (full scale), band energy 1-4 kHz and 4-10 kHz, RMS 0.4-1.4 s after the onset
+size_t onsetOf(const std::vector<float>& x, size_t from, float th) { size_t i = from; while (i < x.size() && std::fabs(x[i]) < th) ++i; return i; }
+Measure measure(const std::vector<float>& x, float fs, size_t from = 0) {
+  Measure m; float pk = 1e-9f; for (size_t i = from; i < x.size() && i < from + (size_t)(1.0f * fs); ++i) pk = std::max(pk, std::fabs(x[i]));
+  size_t on = onsetOf(x, from, 0.3f * pk); on = on > from + (size_t)(0.005f * fs) ? on - (size_t)(0.005f * fs) : from;
+  size_t n = std::min(x.size() - on, (size_t)(0.5f * fs)); double q = 0; for (size_t i = 0; i < n; ++i) q += (double)x[on + i] * x[on + i];
+  auto band = [&](float f0, float f1) {   // Goertzel at 125 Hz steps, Hann window: mean power
+    double sum = 0; int k = 0;
+    for (float f = f0; f <= f1; f += 125.0f, ++k) { double w = 2 * 3.14159265358979 * f / fs, c = 2 * std::cos(w), s1 = 0, s2 = 0;
+      for (size_t i = 0; i < n; ++i) { double hw = 0.5 - 0.5 * std::cos(2 * 3.14159265358979 * i / n); double s0 = x[on + i] * hw + c * s1 - s2; s2 = s1; s1 = s0; }
+      sum += (s1 * s1 + s2 * s2 - c * s1 * s2) / ((double)n * n); }
+    return (float)(10 * std::log10(sum / std::max(1, k) + 1e-20)); };
+  m.peak = 20 * std::log10(pk); m.rms = (float)(10 * std::log10(q / std::max<size_t>(1, n) + 1e-20)); m.mid = band(1000, 4000); m.high = band(4000, 10000);
+  size_t t0 = on + (size_t)(0.4f * fs), t1 = std::min(x.size(), on + (size_t)(1.4f * fs)); if (t1 > t0) { double r = 0; for (size_t i = t0; i < t1; ++i) r += (double)x[i] * x[i]; m.tail = (float)(10 * std::log10(r / (t1 - t0) + 1e-20)); }
+  return m;
+}
+}
+void Audio::fidelityReport(const fs::path& dir) {
+  if (!p) { logf("fidelity: no audio engine"); return; }
+  struct Pair { const char* ev; const char* file; int take; float dist; } pairs[] = {   // take: which shot of the source (onsets 1 s apart); dist: m ahead (0.6: the player's muzzle)
+    {"shot_kar98k", "guns/rifle_a.mp3", 0, 0.6f}, {"shot_m1_garand", "guns/rifle_a.mp3", 0, 0.6f}, {"shot_modern_ak", "guns/rifle_b.mp3", 0, 0.6f},
+    {"shot_modern_ak12", "guns/rifle_b.mp3", 0, 0.6f}, {"shot_stg44", "guns/rifle_b.mp3", 0, 0.6f}, {"shot_modern_lmg", "guns/rifle_b.mp3", 0, 0.6f},
+    {"shot_mg42", "guns/mg_burst.mp3", 0, 0.6f},
+    {"shot_modern_m16", "guns/rifle_c.mp3", 0, 0.6f}, {"shot_modern_m4", "guns/rifle_c.mp3", 1, 0.6f}, {"shot_modern_m4_irons", "guns/rifle_c.mp3", 2, 0.6f}, {"shot_modern_fal", "guns/rifle_c.mp3", 3, 0.6f},
+    {"shot_modern_sniper_bolt", "guns/sniper_m24.mp3", 0, 0.6f}, {"shot_mp40", "guns/smg_a.mp3", 0, 0.6f}, {"shot_luger", "guns/pistol_a.mp3", 0, 0.6f},
+    {"shot_modern_shotgun", "guns/shotgun.mp3", 0, 0.6f}, {"shot_kar98k", "guns/rifle_a.mp3", 0, 20.0f}, {"step", "footsteps.mp3", 0, 1.6f}};
+  setListener(vec3(0), vec3(0, 0, -1));
+  auto render = [&](const char* ev, vec3 pos, float secs) {
+    for (auto& c : p->voices) if (c.used) ma_sound_stop(&c.snd);
+    std::vector<float> st(SR * 2 * 4), mid((size_t)(SR * secs)); for (int k = 0; k < 20; ++k) ma_engine_read_pcm_frames(&p->engine, st.data(), SR / 10, nullptr);   // flush 2 s (tails)
+    if (ev) play(ev, pos, 1.0f);
+    for (size_t done = 0; done < mid.size();) { ma_uint64 n = std::min<size_t>(SR, mid.size() - done); ma_engine_read_pcm_frames(&p->engine, st.data(), n, nullptr); for (ma_uint64 i = 0; i < n; ++i) mid[done + i] = 0.5f * (st[2 * i] + st[2 * i + 1]); done += n; }
+    return mid;
+  };
+  for (auto& pr : pairs) {
+    if (!hasEvent(pr.ev)) { logf("fidelity %s: no event", pr.ev); continue; }
+    ma_decoder_config dc = ma_decoder_config_init(ma_format_f32, 0, 0); ma_uint64 fr = 0; void* data = nullptr;
+    if (ma_decode_file((dir / pr.file).string().c_str(), &dc, &fr, &data) != MA_SUCCESS || !data) { logf("fidelity %s: cannot decode %s", pr.ev, pr.file); continue; }
+    std::vector<float> src(fr); const float* d = (const float*)data;
+    for (ma_uint64 i = 0; i < fr; ++i) { float s = 0; for (ma_uint32 c = 0; c < dc.channels; ++c) s += d[i * dc.channels + c]; src[i] = s / dc.channels; }   // mid (L+R)/2
+    ma_free(data, nullptr);
+    size_t from = 0; { float pk = 1e-9f; for (float v : src) pk = std::max(pk, std::fabs(v)); size_t last = 0; int k = -1;   // the take's onset
+      for (size_t i = 0; i < src.size(); ++i) if (std::fabs(src[i]) > 0.5f * pk && (k < 0 || i - last >= dc.sampleRate)) { if (++k == pr.take) { from = i > dc.sampleRate / 20 ? i - dc.sampleRate / 20 : 0; break; } last = i; } else if (std::fabs(src[i]) > 0.5f * pk) last = i; }
+    std::vector<float> mid = render(pr.ev, vec3(0.15f, -0.1f, -pr.dist), 2.0f);
+    Measure a = measure(src, (float)dc.sampleRate, from), b = measure(mid, (float)SR);
+    logf("fidelity %-22s %-19s take %d at %4.1f m (%5u Hz %u ch): peak %6.1f -> %6.1f (%+5.1f)  rms %6.1f -> %6.1f (%+5.1f)  1-4k %+5.1f  4-10k %+5.1f  tilt %+5.1f dB  tail %6.1f -> %6.1f",
+         pr.ev, pr.file, pr.take, pr.dist, dc.sampleRate, dc.channels, a.peak, b.peak, b.peak - a.peak, a.rms, b.rms, b.rms - a.rms, b.mid - a.mid, b.high - a.high, (b.high - b.mid) - (a.high - a.mid), a.tail, b.tail);
+  }
+  {   // the ambience bed (battlefield, as Explore plays it: 0.7) over 6 s, and with a nearby shot
+    fs::path amb = dir.parent_path() / "ambience" / "battlefield.mp3";
+    setBed(1, amb, 0.7f); std::vector<float> m = render(nullptr, vec3(0), 6.0f);
+    double q = 0; float pk = 0; for (float v : m) { q += (double)v * v; pk = std::max(pk, std::fabs(v)); }
+    logf("fidelity ambience bed battlefield.mp3 x0.7: peak %6.1f  rms %6.1f dB", 20 * std::log10(pk + 1e-9f), 10 * std::log10(q / m.size() + 1e-20));
+    setBed(1, {}, 0);
+  }
+}

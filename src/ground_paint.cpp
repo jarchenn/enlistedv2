@@ -394,6 +394,18 @@ void paintMat(int t, vec3 p, out vec3 a, out float r, out vec3 bm, out float ao)
 // With L4's textures in the build (tex::glslCommon() prepended first: NMK_TEX_PAINT, uPaintSlot[12], terrTexSlot)
 // each painted type is modulated by its ambientCG set; without them the materials are the procedural ones above.
 struct PaintOut { float w; float rough, ao; vec3 dn, ng; };
+// CV1: the painted weight alone (paintApply's texel taps, no materials): kTerrainFS skips layer samples under full paint
+float paintCover(vec3 p) {
+  if (uPaintOn == 0) return 0.0;
+  float w[13]; for (int i = 0; i < 13; ++i) w[i] = 0.0;
+  vec2 j = (vec2(vnoise(vec3(p.xz*0.8, 61.0)), vnoise(vec3(p.xz*0.8, 62.0))) - 0.5)*0.8;
+  vec2 q = (p.xz - uPaintOrg)/uPaintTexel - 0.5 + j;
+  ivec2 c = ivec2(floor(q)); vec2 f = q - vec2(c);
+  paintAcc(w, c, (1.0 - f.x)*(1.0 - f.y)); paintAcc(w, c + ivec2(1, 0), f.x*(1.0 - f.y));
+  paintAcc(w, c + ivec2(0, 1), (1.0 - f.x)*f.y); paintAcc(w, c + ivec2(1, 1), f.x*f.y);
+  float W = 0.0; for (int i = 1; i < 13; ++i) W += w[i];
+  return clamp(W, 0.0, 1.0);
+}
 PaintOut paintApply(vec3 p, vec3 nGeo, inout vec3 alb, float dirt, vec3 dpx, vec3 dpy, float dist) {
   PaintOut o; o.w = 0.0; o.rough = 1.0; o.ao = 1.0; o.dn = vec3(0.0); o.ng = nGeo;
   if (uPaintOn == 0) return o;
