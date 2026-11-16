@@ -1,0 +1,17 @@
+{
+  "note": "BR delivery van: a commercial cab: hard grey plastic, the minivan's column shifter and wide dash with an open dash-top tray, a phone cradle and paper delivery sheets in place of the big screen, a plain digital cluster, no ambient light.",
+  "base": "pcar_minivan",
+  "palette": {
+    "pad": {"rgb": [0.34, 0.34, 0.34], "rough": 0.9, "pat": "fabric", "texture": "leather_black"},
+    "dash": {"rgb": [0.26, 0.26, 0.26], "rough": 0.9, "pat": "fabric", "texture": "leather_black"},
+    "paper": {"rgb": [0.86, 0.85, 0.8], "rough": 0.95}
+  },
+  "remove": ["screen", "cluster", "sliders", "cab_knee", "cab_stack", "cab_console", "cab_armrest", "cab_face", "cab_door_d", "cab_door_p"],
+  "add": [
+    {"id": "cluster", "type": "digital", "at": [0.0, 0.055, 0.005], "size": [0.3, 0.075], "telltales": 6, "base": [0.05, 0.05, 0.04]},
+    {"id": "radio", "type": "screen", "at": [0.42, -0.15, 0.005], "size": [0.17, 0.055], "ui": "radio", "bezel": "trim"},
+    {"id": "cradle", "type": "box", "at": [0.7, 0.07, 0.07], "size": [0.09, 0.15, 0.012], "mat": "trim", "rot": [-10, 0, 0]},
+    {"id": "phone", "type": "screen", "at": [0.7, 0.07, 0.063], "size": [0.07, 0.135], "ui": "map", "rot": [-10, 0, 0]},
+    {"id": "sheets", "type": "box", "at": [1.15, 0.022, 0.16], "size": [0.21, 0.004, 0.28], "mat": "paper", "rot": [0, -6, 0]}
+  ]
+}

@@ -240,5 +240,6 @@
     "engineKW": 530,
     "pushEfficiency": 0.55,
     "note": "Boxer ~33-38 t, 530 kW MTU diesel"
-  }
+  },
+  "dash": {"spec": "boxer_apc", "offset": [0, -0.2, 0.5], "note": "VH6b src/vehicle_dash.cpp: the interior content/vehicles/dash/boxer_apc.json, anchored at the driver's eye + offset"}
 }

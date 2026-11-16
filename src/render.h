@@ -30,7 +30,7 @@ struct TreeDef;
 struct FoliageDraw { const TreeDef* tree; mat4 m; uint8_t* lod = nullptr; uint8_t cur = 2; uint64_t id = 0; bool batched = false; };   // id: a standing tree copy (P2 folbatch); batched: drawn from its cell this frame
 // thinPx > 0: keep sub-pixel geometry (barbed wire) visible - vertices move out along their normals by thinPx pixels'
 // worth of angle at their distance (capped at 3 cm), so a 2 mm strand stays about a pixel wide at range
-struct ModelDraw { const GpuModel* model; int part; mat4 m; vec4 tint{1, 1, 1, 1}; float thinPx = 0; int glass = 0; };   // glass: 1 dusty, 2 broken (a wreck)
+struct ModelDraw { const GpuModel* model; int part; mat4 m; vec4 tint{1, 1, 1, 1}; float thinPx = 0; int glass = 0; float albFloor = 0; };   // glass: 1 dusty, 2 crazed (a wreck), 3 clean; albFloor: least albedo (a car-pack cabin seen from its seat)
 struct OverlayVert { vec3 p; vec4 c; };
 struct NatPatchDraw { GLuint vbo = 0; int count = 0; vec3 mn{0}, mx{0}; float reach = 1; };   // plant patch (nature.cpp); reach x the grass radius
 
@@ -75,6 +75,8 @@ struct WaterDraw { GLuint vao = 0; int count = 0; mat4 model{1}; vec4 look{0}, t
 
 class Renderer {
 public:
+  bool holdTime = false;   // FL1 flicker captures: the animation clock (wind, water, clouds, grass) stands still
+  bool flashOn = false; float flashExpoFloor = 0;   // FX1 headlamp in this frame's lights (flashlight.cpp); exposure floor while on
   bool init(int w, int h);
   void resize(int w, int h);
   void render(const RenderView& v, const Terrain& t, const std::vector<DrawItem>& opaque,
@@ -265,7 +267,7 @@ public:
     float emissive = 1.0f;      // global multiplier on material emission
     bool mapClean = false;      // BR2: the open map's "look": {"clean": true}: no wear (interior.cpp), static decals, dust motes or colour grade
     bool mapNoFog = false;      // BR2: "look": {"fog": false}: no aerial haze, weather fog or light shafts
-    float mapSat = 1.0f; vec3 mapTint{1.0f}; float mapGrime = 0.0f; float mapVegCull = 1.0f;   // NT5: look.vegCull   // NT3: look.grime   // NT2b: look.saturation / look.tint, after the weather grade
+    float mapSat = 1.0f; vec3 mapTint{1.0f}; float mapGrime = 0.0f; float mapVegCull = 1.0f; float mapCave = 0.0f;   // CV1: look.cave   // NT5: look.vegCull   // NT3: look.grime   // NT2b: look.saturation / look.tint, after the weather grade
     float mapHaze = 1.0f;       // AS1: "look": {"haze": k}: the aerial haze density x k (an abandoned town: hazier)
     vec3 mapAmbient{0.0f};      // BR2: the open map's extra.lighting.ambient: an even indirect term added to the fill (lights everything, furniture included)
     float mapFill = 1.0f;       // UG4: extra.lighting.fill: the fill / indirect term x this (Tunnels darker between its lamps)

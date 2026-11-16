@@ -73,6 +73,7 @@ struct ExploreInput {
   bool jumpHeld = false;   // Space held (vault)
   bool quickGrenade = false;   // H (rebindable "grenade"): throw the side's grenade from any weapon
   bool slot3 = false, slot4 = false;   // G4: number keys 3 (knife) and 4 (grenades); 1 / 2 arrive as choose1 / choose2
+  bool leanL = false, leanR = false;   // MV3: lean keys held (after the tap / hold arbitration with Interact / Next weapon)
 };
 
 struct Snapshot { std::vector<Instance> inst; StartMarker start; std::set<std::string> removedVeg; uint64_t selected = 0; std::map<int, std::vector<float>> terrain; json routes; std::map<int, std::vector<float>> sculpt; json terrainGen; std::vector<WaterBody> water; std::vector<uint64_t> selection; std::map<int64_t, std::vector<uint8_t>> paint; uint64_t paintSig = 0; };   // routes: MapDoc::extra["routes"] (auto paths)
@@ -112,6 +113,7 @@ public:
   Audio audio;
   double now = 0;
   float frameDt = 0.016f;
+  bool flashlight = false;   // FX1: the player's headlamp is on ('flashlight' binding, default N; flashlight.cpp)
   bool quit = false;
   std::string notice; double noticeUntil = 0;
   void toast(const std::string& s, double secs = 4.0);
@@ -258,6 +260,13 @@ public:
   // ---- climb / mantle (hold Space facing a 0.4-2.2 m top: ends standing ON it, never carried over a wall or roof rim):
   // hands on the ledge, weapon lowered, camera rises then rolls forward, the body follows a swept path (mantle.cpp)
   struct MantleSettings { float minH = 0.4f, maxH = 2.2f, reach = 0.85f, durMin = 0.45f, durMax = 1.3f, landUp = 0.3f, landDown = 0.6f, fenceDrop = 0.4f, minTop = 0.05f, pitchDip = 14.0f, pitchUp = 5.0f, handSpread = 0.24f; } mantleCfg;
+  // MV3 lean (explore.cpp): one shared parameter x (-1 left .. +1 right, collision-limited) drives the eye offset and
+  // roll (eyePos / viewUp: the weapon and the shot origin follow the camera), the third-person spine bend and LAN
+  struct LeanSettings { float side = 0.26f, radius = 0.85f, roll = 6.5f, in = 0.22f, out = 0.17f, clear = 0.2f, tap = 0.2f, bend = 16; } leanCfg;
+  struct LeanState { float x = 0, v = 0, limitL = 1, limitR = 1; } lean;
+  struct LeanKey { double down = -1; bool held = false, consumed = false, leaning = false; } leanKeys[2];
+  vec3 leanOffset() const;                                     // world offset of the eye for lean.x (curved about the waist)
+  void stepLean(float dt, const ExploreInput& in, bool sprinting);
   struct MantleState { bool active = false, over = false, window = false; float t = 0, dur = 0, h = 0, pitchOff = 0, eyeFrom = 1.62f; vec3 pts[4]{}; vec3 ledge{0}, fwd{0}; std::string why; int count = 0; } mantle;
   bool tryStartMantle(vec3 feet, float yawDeg, bool fromWater = false);   // fromWater: heights from the floating feet
   bool tryClimbBank(vec3 feet, float yawDeg, float surface);  // swimming: out up a sloped bank (no face for the mantle)
@@ -407,7 +416,8 @@ public:
   ImpactInfo lastImpact;
   void resetCombat();
   void fireProjectile(vec3 from, vec3 dir, float speed, int kind, float dmg, uint64_t ignore, int tracerKind, const std::string& ammo);
-  void fireRounds(const WeaponDef& d, vec3 from, vec3 dir, int tracerKind, uint32_t seed, int owner);   // MG1: one bullet, or a shotgun's pellets (d.pellets in d.spreadDeg)
+  void fireRounds(const WeaponDef& d, vec3 from, vec3 dir, int tracerKind, uint32_t seed, int owner);
+  void shotCasing(const WeaponDef& d, vec3 feet, int shooter);   // SND4: the spent case of a shot landing at the shooter's feet (station.cpp)   // MG1: one bullet, or a shotgun's pellets (d.pellets in d.spreadDeg)
   void stepProjectiles(float dt);
   void stepStation(float dt, const ExploreInput& in);
   bool occupyStation(uint64_t id, int pos);
@@ -564,6 +574,7 @@ public:
   void screenshot(const fs::path& p);
   Recorder rec; std::string recCaption; int recTick = 0; std::vector<uint8_t> recPx;   // --record-range
   fs::path uiShot;   // when set, the next frame including UI is written here
+  bool hideUi = false;   // captures: the frame is presented without the ImGui layer (editor panels)
 };
 
 extern App* gApp;

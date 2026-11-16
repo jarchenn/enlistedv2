@@ -1,7 +1,8 @@
 """MapBuilder: places catalogue instances on the sculpted grid the way the editor would.
 
-* Heights follow App::checkPlacement: the highest of nine footprint samples (centre, corners, edge midpoints) of the
-  ground including other instances' terrain cuts; defences (asset "defense") and paths take the centre height.
+* Heights (MAP1, placement_y / fill / reseat_all): trees sit on the lowest ground under the trunk, small pieces and
+  defences on the lowest footprint sample, large pieces on the highest with the ground raised under any edge that would
+  float (raise-only blend ring); every auto-seated piece is re-seated on the final ground. Paths take the centre height.
 * Footprints are oriented boxes in a spatial hash; a placement that overlaps another is refused unless the classes
   are allowed to overlap (`ok_with`) or both pieces belong to the same chain group.
 * Companions (asset "companions", e.g. the R667's PaK 40) are added with their host, as the palette does.
@@ -58,11 +59,13 @@ class MapBuilder:
         self.cover_points = []    # extra non-instance cover (terrain craters): (x, z, label)
         self.rejects = {}
         self.seed = seed
+        grid.builder = self   # MAP1: Grid.write_png re-seats every placement on the finished ground first
         self._group = 0
 
     # ---------------------------------------------------------------- ground
-    def ground(self, x, z, ignore_owner=None):
-        h = self.grid.sample(x, z)
+    def ground(self, x, z, ignore_owner=None, before_fills=False):
+        base = getattr(self, "prefill", None) if before_fills else None   # MAP1: the ground before any fill()
+        h = self.grid.sample(x, z, base)
         for poly, floor, top, bank, b, owner in self.cuts:
             if owner == ignore_owner or x < b[0] or z < b[1] or x > b[2] or z > b[3] or not in_poly((x, z), poly):
                 continue
@@ -71,15 +74,88 @@ class MapBuilder:
             h = min(h, top - (top - floor) * k)
         return h
 
+    NINE = ((0, 0), (-1, -1), (1, -1), (-1, 1), (1, 1), (0, -1), (0, 1), (-1, 0), (1, 0))
+    def padded(self, a):
+        """The engine levels a pad under these itself (terrain_blend.cpp blendPinned / snap.cpp crushBuilding):
+        enterable with wall panels and no terrain cut, or Atlantic Wall pieces of 6 m2 and more."""
+        if a.cuts or a.path_on:
+            return False
+        return (a.enterable and bool(a.raw.get("panels"))) or (a.category == "Atlantic Wall" and a.fw * a.fd >= 6.0)
+
+    def _samples(self, a, x, z, yaw, inset=0.1, before_fills=False):
+        hx, hz = max(0.02, a.half[0] - inset), max(0.02, a.half[1] - inset)
+        return [(lambda w: (w[0], w[1], self.ground(w[0], w[1], before_fills=before_fills)))(local_to_world((x, z), yaw, sx * hx, sz * hz)) for sx, sz in self.NINE]
+
     def placement_y(self, a, x, z, yaw):
-        if a.defense or a.path_on:
+        """MAP1: the seat height. Paths: the centre. Trees: the lowest ground under the trunk, 5 cm in. Scenery and small
+        pieces (< 6 m2, defences): the lowest footprint sample (never floats; a placement whose centre would sit > 15 cm
+        under is refused as too steep, try_place moves it; the grid's 3.1 m cells make ground fills for small pieces
+        lift their neighbours). Large pieces: the highest sample of the ground before any fill (the editor's rule; a
+        fill never lifts the next seat, so chains cannot creep); fill() then raises the ground under any low edge."""
+        if a.path_on:
             return self.ground(x, z)
-        hx, hz = a.half
-        top = -1e9
-        for lx, lz in ((0, 0), (-hx, -hz), (hx, -hz), (-hx, hz), (hx, hz), (0, -hz), (0, hz), (-hx, 0), (hx, 0)):
-            wx, wz = local_to_world((x, z), yaw, lx, lz)
-            top = max(top, self.ground(wx, wz))
-        return top
+        if a.tree:
+            r = 0.3
+            return min(self.ground(x + dx, z + dz) for dx, dz in ((0, 0), (r, 0), (-r, 0), (0, r), (0, -r))) - 0.05
+        if self.small(a) or a.category == "Scenery":   # the lowest corner of the ground as it is (Scenery: the base band sinks)
+            return min(s[2] for s in self._samples(a, x, z, yaw))
+        hs = [s[2] for s in self._samples(a, x, z, yaw, before_fills=True)]   # large: never the filled ground (no creep)
+        lo, hi = min(hs), max(hs)
+        # the editor's highest sample on gentle ground; on a slope 30 cm over the lowest corner: the uphill part beds
+        # into the ground and fill() raises the downhill edge by 30 cm at most (raising it to the top corner piled
+        # dunes up to 4 m high under wrecks and rubble on the beach)
+        return hi if hi - lo <= 0.3 else lo + 0.3
+
+    def near_cut(self, a, x, z, yaw, margin=1.5):
+        """MAP1: a small piece within 1.5 m of a trench / ditch cut (the engine's trench lines cut wider than the
+        pieces: a crate on the generator's lip hung over the engine's trench)."""
+        r = math.hypot(*a.half) + margin
+        for poly, floor, top, bank, b, owner in self.cuts:
+            if x < b[0] - r or z < b[1] - r or x > b[2] + r or z > b[3] + r:
+                continue
+            if in_poly((x, z), poly) or min(seg_dist((x, z), poly[i], poly[(i + 1) % len(poly)])[0] for i in range(len(poly))) < r:
+                return True
+        return False
+
+    def small(self, a):
+        return bool(a.defense) or a.fw * a.fd < 6.0
+
+    def too_steep(self, a, x, z, yaw):
+        """MAP1: a small piece whose centre stands > 15 cm over its lowest corner would sink visibly: another spot."""
+        hs = [s[2] for s in self._samples(a, x, z, yaw)]
+        return hs[0] - min(hs) > 0.15
+
+    def fills(self, a):
+        return not (self.small(a) or a.tree or a.path_on or self.padded(a) or a.cuts or a.category in ("Water", "Scenery")
+                    or a.raw.get("nature") or a.raw.get("scatter") or a.raw.get("line"))
+
+    def fill(self, a, x, z, yaw, y):
+        """MAP1: raise the ground under a placed footprint wherever it lies more than 4 cm below the base (every vertex
+        of the grid cells it touches, then a raise-only 3 m blend ring), so no edge of a large piece floats."""
+        if all(s[2] >= y - 0.04 for s in self._samples(a, x, z, yaw, inset=0.0)):
+            return False
+        if getattr(self, "prefill", None) is None:
+            self.prefill = list(self.grid.h)
+        hx, hz = a.half[0] + 0.3, a.half[1] + 0.3
+        poly = [local_to_world((x, z), yaw, sx * hx, sz * hz) for sx, sz in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+        ring = 3.0
+        from .geom import seg_dist, in_poly as inp, smoothstep as ss, lerp as lp
+
+        from .terrain import KCELL
+        full = KCELL * 1.05   # every vertex of a grid cell the footprint touches reaches the base (cells are ~3.1 m)
+
+        def fn(px, pz, h):
+            d = 0.0 if inp((px, pz), poly) else min(seg_dist((px, pz), poly[i], poly[(i + 1) % 4])[0] for i in range(4))
+            if d <= full:
+                return max(h, y - 0.02)
+            if d >= full + ring:
+                return h
+            return max(h, lp(y - 0.02, h, ss(0, ring, d - full)))
+        xs = [p[0] for p in poly]; zs = [p[1] for p in poly]
+        m = full + ring
+        self.grid.apply(fn, (min(xs) - m, min(zs) - m, max(xs) + m, max(zs) + m))
+        self.filled = getattr(self, "filled", 0) + 1
+        return True
 
     def grade(self, a, x, z, yaw):
         hx, hz = a.half
@@ -159,9 +235,18 @@ class MapBuilder:
                     return self._reject(asset_id, "grade")
             if not water_ok and self.ground(x, z) < self.water + 0.2:
                 return self._reject(asset_id, "water")
+            if y is None and dy == 0 and not a.tree and not a.path_on and not a.rack and self.small(a) and self.too_steep(a, x, z, yaw):
+                return self._reject(asset_id, "steep")
+            if y is None and not a.tree and not a.path_on and not a.rack and self.small(a) and self.near_cut(a, x, z, yaw):   # spawn racks are never refused
+                return self._reject(asset_id, "trench")
         py = (self.placement_y(a, x, z, yaw) if y is None else y) + dy
+        auto = y is None and dy == 0 and not a.cuts
+        if auto and cls != NONE and self.fills(a):
+            self.fill(a, x, z, yaw, py)
+        if self.padded(a) and self.grid.in_build(x, z):
+            self.pad(a, x, z, yaw, py)
         e = {"id": self.next_id, "asset": asset_id, "pos": [x, py, z], "yaw": yaw, "extra": dict(extra or {}),
-             "tags": set(tags), "cls": cls, "group": group}
+             "tags": set(tags), "cls": cls, "group": group, "auto": auto}
         if a.blocks_vehicles:
             e["extra"]["blocksVehicles"] = True
         self.next_id += 1
@@ -182,6 +267,116 @@ class MapBuilder:
                                 tags=set(tags) | {"companion"}, companions=False)
                 ce["host"] = e["id"]
         return e
+
+    HOSTS = ("Atlantic Wall", "Bunkers")
+
+    def _hosts(self):
+        return [h for h in self.inst if self.padded(self.cat[h["asset"]]) or (self.cat[h["asset"]].category in self.HOSTS
+                and self.cat[h["asset"]].fw * self.cat[h["asset"]].fd >= 6.0)]
+
+    def _inside(self, h, x, z, grow=0.0):
+        a = self.cat[h["asset"]]
+        r = math.radians(-h["yaw"]); c, s_ = math.cos(r), math.sin(r)
+        dx, dz = x - h["pos"][0], z - h["pos"][2]
+        lx, lz = dx * c + dz * s_, -dx * s_ + dz * c
+        return abs(lx) <= a.half[0] + grow and abs(lz) <= a.half[1] + grow
+
+    def tidy(self):
+        """MAP1, before the re-seat: drop vegetation within 3 m of a building / bunker / Atlantic Wall footprint (the
+        engine levels its own pad and ring there, burying it), and mark small pieces given an explicit height for
+        re-seating unless they stand inside such a footprint (on a roof, a platform, a floor)."""
+        hosts = self._hosts()
+        drop = [e for e in self.inst if e.get("auto") and "host" not in e and (self.cat[e["asset"]].tree or self.cat[e["asset"]].raw.get("nature"))
+                and any(self._inside(h, e["pos"][0], e["pos"][2], 3.0) for h in hosts if h is not e)]
+        for e in drop:
+            self.remove(e)
+        n = 0
+        for e in self.inst:   # companions standing outside their host (a church's churchyard) seat on their own ground
+            h = self.by_id.get(e.get("host"))
+            if h is not None and not self._inside(h, e["pos"][0], e["pos"][2], 0.2) and not self.cat[e["asset"]].cuts:
+                e["auto"] = True; e["free"] = True; n += 1
+        for e in self.inst:
+            a = self.cat[e["asset"]]
+            if e.get("auto") or "host" in e or e["cls"] == NONE or a.cuts or a.tree or a.path_on or not self.small(a) or a.category == "Water":
+                continue
+            if any(self._inside(h, e["pos"][0], e["pos"][2], 0.2) for h in hosts if h is not e):
+                continue
+            e["auto"] = True; n += 1
+        self.tidied = (len(drop), n)
+        return self.tidied
+
+    def pad(self, a, x, z, yaw, y):
+        """MAP1: level the ground the way the engine will (terrain_blend.cpp PAD: the walls' core, or the footprint,
+        grown one step, at the instance's height, then a 2-3.5 m ring), so the dressing around buildings, casemates and
+        the stronghold is seated on the ground the engine draws rather than on the ground before its pad."""
+        ew = a.raw.get("earthwork") if isinstance(a.raw.get("earthwork"), dict) else None
+        if ew and ew.get("core"):
+            c = ew["core"]; hx, hz = float(c[0]), float(c[1]); ox, oz = (float(c[2]), float(c[3])) if len(c) >= 4 else (0.0, 0.0)
+        else:
+            hx, hz, ox, oz = a.half[0], a.half[1], 0.0, 0.0
+        cx, cz = local_to_world((x, z), yaw, ox, oz)
+        hs = [self.grid.sample(*local_to_world((cx, cz), yaw, sx * hx, sz * hz)) for sx, sz in self.NINE]
+        dmax = max(abs(h - y) for h in hs)
+        if dmax < 0.05 and not ew:
+            return False
+        from .terrain import KCELL
+        from .geom import seg_dist, in_poly as inp, smoothstep as ss, lerp as lp
+        grow = 0.0 if ew else KCELL
+        ring = min(3.5, max(2.0, 2.0 + 1.5 * dmax)) + KCELL * 0.5
+        poly = [local_to_world((cx, cz), yaw, sx * (hx + grow), sz * (hz + grow)) for sx, sz in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+
+        def fn(px, pz, h):
+            d = 0.0 if inp((px, pz), poly) else min(seg_dist((px, pz), poly[i], poly[(i + 1) % 4])[0] for i in range(4))
+            if d >= ring:
+                return h
+            return lp(y, h, ss(0, ring, d))
+        xs = [p[0] for p in poly]; zs = [p[1] for p in poly]
+        bounds = (min(xs) - ring, min(zs) - ring, max(xs) + ring, max(zs) + ring)
+        self.grid.apply(fn, bounds)
+        if getattr(self, "prefill", None) is not None:   # a pad is real ground, not a fill: the large seats see it too
+            cur = self.grid.h; self.grid.h = self.prefill
+            self.grid.apply(fn, bounds)
+            self.grid.h = cur
+        self.padded_n = getattr(self, "padded_n", 0) + 1
+        return True
+
+    def reseat_all(self, passes=8):
+        """MAP1: re-seat every auto-seated instance on the finished ground (later fills raise ground under earlier
+        pieces) and fill again where an edge would float; companions move with their host. Called by Grid.write_png."""
+        self.tidy()
+        moved = 0
+        for _ in range(passes):   # until nothing moves: a fill raises ground under neighbours seated before it
+            moved_now = 0
+            for e in self.inst:
+                if not e.get("auto") or ("host" in e and not e.get("free")):
+                    continue
+                a = self.cat[e["asset"]]
+                x, z = e["pos"][0], e["pos"][2]
+                py = self.placement_y(a, x, z, e["yaw"])
+                if e["cls"] != NONE and self.fills(a):
+                    self.fill(a, x, z, e["yaw"], py)
+                d = py - e["pos"][1]
+                if abs(d) > 0.005:
+                    moved += 1
+                    moved_now += 1
+                    e["pos"][1] = py
+                    for c in self.inst:
+                        if c.get("host") == e["id"] and not c.get("free"):
+                            c["pos"][1] += d
+            if moved_now == 0:
+                break
+        self.reseat_passes = _ + 1
+        self.reseated = moved
+        bad = [e for e in self.inst if e.get("auto") and "host" not in e and self.ground(e["pos"][0], e["pos"][2]) - e["pos"][1] > 0.1
+               and not self.cat[e["asset"]].tree and self.cat[e["asset"]].category != "Scenery"]
+        flo = [e for e in self.inst if e.get("auto") and "host" not in e and not self.cat[e["asset"]].tree and self.cat[e["asset"]].category != "Scenery"
+               and not self.cat[e["asset"]].path_on and not self.padded(self.cat[e["asset"]]) and not self.cat[e["asset"]].raw.get("nature")
+               and not self.cat[e["asset"]].raw.get("scatter") and min(s[2] for s in self._samples(self.cat[e["asset"]], e["pos"][0], e["pos"][2], e["yaw"])) < e["pos"][1] - 0.05]
+        print("MAP1 tidy: %d plants dropped near structures, %d explicit-height pieces re-seated; %d auto pieces float on the grid%s" % (self.tidied + (len(flo),)
+              + ("".join(" | %s %.2f" % (e["asset"], e["pos"][1] - min(s[2] for s in self._samples(self.cat[e["asset"]], e["pos"][0], e["pos"][2], e["yaw"]))) for e in flo[:6]),)))
+        print("MAP1 reseat: %d moves in %d passes, %d auto pieces still > 10 cm under the ground at the centre%s" % (moved, self.reseat_passes, len(bad),
+              "".join(" | %s %.2f" % (e["asset"], self.ground(e["pos"][0], e["pos"][2]) - e["pos"][1]) for e in bad[:6])))
+        return moved
 
     def _reject(self, asset_id, why):
         self.rejects[(asset_id, why)] = self.rejects.get((asset_id, why), 0) + 1

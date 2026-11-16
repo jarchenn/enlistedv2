@@ -34,7 +34,7 @@ void AiCore::perceive(Soldier& s) {
   float range = diff.detectOpen;
   for (auto& mm : b.mem) mm.visible = false;
   for (auto& o : G.sold) {
-    if (!o.alive || o.team == s.team) continue;
+    if (!o.alive || !Game::hostile(s, o)) continue;   // CMD2: through hostile (the /admin is not seen as an enemy)
     vec3 tc = G.chest(o), th = G.eye(o);
     float dist = glm::length(tc - e);
     EnemyMemory* mm = nullptr; for (auto& x : b.mem) if (x.enemy == o.slot) mm = &x;
@@ -70,7 +70,7 @@ void AiCore::perceive(Soldier& s) {
   for (auto& snd : G.sounds) {
     if (G.t - snd.t > 0.25 || snd.src < 0 || snd.src >= (int)G.sold.size()) continue;
     const Soldier& o = G.sold[snd.src];
-    if (o.team == s.team || !o.alive) continue;
+    if (!Game::hostile(s, o) || !o.alive) continue;
     float d = glm::length(snd.p - s.feet), R = snd.range;
     if (snd.kind == 0) { bool pistol = o.weapon >= 0 && pistolCal(G.app.weaponDefs[o.weapon]->caliber); R = pistol ? tj("perception", "hearSmg_m", 120.0f) : tj("perception", "hearRifle_m", 250.0f);
       const WeaponState* ow = &o.ws; if (o.localPlayer && o.weapon >= 0) { auto it = G.app.wstate.find(G.app.weaponDefs[o.weapon]->id); if (it != G.app.wstate.end()) ow = &it->second; }
@@ -204,10 +204,14 @@ void AiCore::aim(Soldier& s, float dt) {
   // finite aim turn rate, separate from the body (thinking LOD: far from every player, no fine aiming)
   float hd = nearestHumanDist(s.feet);
   bool lod = hd < 1e8f && hd > 300.0f;
+  b.aimWantYaw = wrapDeg(wantYaw);   // AI5: the body turns toward it (move); the weapon only twists kWaist off the body
   float dy = angDiff(wantYaw, b.aimYaw), dp = wantPitch - b.aimPitch;
   float stepA = b.aimTurn * dt;
-  if (lod) { b.aimYaw = wrapDeg(wantYaw); b.aimPitch = wantPitch; dy = dp = 0; }
+  if (lod) { b.aimYaw = wrapDeg(wantYaw); b.aimPitch = wantPitch; }
   else { b.aimYaw = wrapDeg(b.aimYaw + std::clamp(dy, -stepA, stepA)); b.aimPitch = std::clamp(b.aimPitch + std::clamp(dp, -stepA, stepA), -60.0f, 60.0f); }
+  const float kWaist = 50.0f;   // matches the pose's waist twist limit (posesStep: 0.9 rad)
+  if (!s.zombie && std::fabs(angDiff(b.aimYaw, s.yaw)) > kWaist) b.aimYaw = wrapDeg(s.yaw + std::clamp(angDiff(b.aimYaw, s.yaw), -kWaist, kWaist));
+  dy = angDiff(wantYaw, b.aimYaw); if (lod) dp = 0;
   float turnErr = std::sqrt(dy * dy + dp * dp);
   b.aimSteady = turnErr < 3.0f ? b.aimSteady + dt : 0.0f;
   // aim error (AI_SPEC 6.4)
@@ -230,6 +234,7 @@ void AiCore::aim(Soldier& s, float dt) {
   if (rifle && s.speed > 4.0f && !suppress) return;                         // rifles fire on the move (the aim error grows with movement); not while sprinting                         // rifles stop and shoot
   if (b.targetTime < diff.reaction && !suppress) return;
   if (turnErr > 4.0f) return;
+  if (!s.zombie && s.speed < 1.0f && std::fabs(angDiff(s.yaw, wantYaw)) > 10.0f) return;   // AI5: standing, it fires only once its body faces the target
   if (b.burstPause > 0) { b.burstPause -= dt; return; }
   if (s.ws.cooldown > 0 || s.ws.bolt > 0) return;
   float dist = glm::length(aimPoint - e);

@@ -10,6 +10,8 @@
 #include "w3.h"
 #include "water_query.h"
 #include "loot.h"   // BR2 Battle Royale loot
+#include "royale.h"
+#include "game.h"
 #include "commands.h"   // CMD1 "/" command line
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -33,7 +35,42 @@ static bool kp(GLFWwindow* w, int k) {
 
 vec3 App::eyePos() const {
   auto c = Physics::character();
-  return c.pos + vec3(0, eyeHeight, 0);
+  return c.pos + vec3(0, eyeHeight, 0) + leanOffset();
+}
+
+// MV3 lean: the head swings on an arc about a waist pivot radius below the eye (sideways out to `side`, the drop ~4 cm
+// follows from the arc); yaw / pitch untouched
+vec3 App::leanOffset() const {
+  if (std::fabs(lean.x) < 1e-4f) return vec3(0);
+  vec3 f = forward(eyeYaw, 0); f.y = 0; f = glm::normalize(f); vec3 r = glm::normalize(glm::cross(f, vec3(0, 1, 0)));
+  float R = std::max(0.3f, leanCfg.radius), a = std::asin(std::clamp(leanCfg.side * lean.x / R, -0.9f, 0.9f));
+  return r * (R * std::sin(a)) - vec3(0, R * (1 - std::cos(a)), 0);
+}
+
+// MV3: the lean parameter: Q / E held (arbitrated with Interact / Next weapon in the input), a critically damped spring
+// to the target (in_s going out, out_s coming back: a reversal passes smoothly through upright, a release mid-lean
+// returns from where it is); no lean sprinting, prone, swimming, climbing or building; the head and the shoulders are
+// kept clearance_m off any geometry on the leaning side (rays from the upright eye and shoulders), so it never looks
+// through a wall
+void App::stepLean(float dt, const ExploreInput& in, bool sprinting) {
+  auto c = Physics::character();
+  bool can = !sprinting && c.posture != Physics::PRONE && !swim.active && !mantle.active && !build.active && !occupied && !tanks.occupied;
+  float tgt = can ? (in.leanR ? 1.0f : 0.0f) - (in.leanL ? 1.0f : 0.0f) : 0.0f;
+  vec3 f = forward(eyeYaw, 0); f.y = 0; f = glm::normalize(f); vec3 r = glm::normalize(glm::cross(f, vec3(0, 1, 0)));
+  vec3 eye0 = c.pos + vec3(0, eyeHeight, 0);
+  for (int side = 0; side < 2; ++side) {   // 0 left, 1 right: free room for the head and the shoulders
+    vec3 d = side ? r : -r; float room = 1e9f;
+    for (float dy : {0.0f, -0.32f}) { Physics::Hit h; if (Physics::castRayEx(eye0 + vec3(0, dy, 0), d, leanCfg.side + leanCfg.clear + 0.05f, h)) room = std::min(room, h.t); }
+    float lim = room > 1e8f ? 1.0f : std::clamp((room - leanCfg.clear) / std::max(0.05f, leanCfg.side), 0.0f, 1.0f);
+    (side ? lean.limitR : lean.limitL) = lim;
+  }
+  tgt = std::clamp(tgt, -lean.limitL, lean.limitR);
+  float T = std::fabs(tgt) > std::fabs(lean.x) && tgt * lean.x >= 0 ? leanCfg.in : leanCfg.out;
+  float w = 4.6f / std::max(0.05f, T);   // settles (~1 %) in T
+  lean.v += (w * w * (tgt - lean.x) - 2.0f * w * lean.v) * dt;
+  lean.x += lean.v * dt;
+  if (lean.x > lean.limitR) { lean.x = lean.limitR; lean.v = std::min(lean.v, 0.0f); }
+  if (lean.x < -lean.limitL) { lean.x = -lean.limitL; lean.v = std::max(lean.v, 0.0f); }
 }
 
 bool App::enterExplore() {
@@ -228,7 +265,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   {   // tanks (tank_sim.cpp): every tank steps (crew loader, engines, wrecks); the occupied one takes all input
     bool wasInTank = tanks.occupied != 0;
     tanks.stepAll(*this, dt, in);
-    if (wasInTank || tanks.occupied) { target = {}; stepProjectiles(dt); fx.update(dt, terrain); return; }
+    if (wasInTank || tanks.occupied) { target = {}; blastShake = std::max(0.0f, blastShake - dt * 1.5f); stepProjectiles(dt); fx.update(dt, terrain); return; }   // VH5c: the shake decays in vehicles too
   }
   if (!occupied) { build.dt = dt; stepBuilder(in); }
   if (occupied) { stepStation(dt, in); }
@@ -260,6 +297,12 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   // still jumps immediately; a climb that starts during that jump adds no second impulse). One climb per hold.
   if (!in.jumpHeld) { vault.held = 0; vault.latch = false; }
   else vault.held += dt;
+  if (gAdmin.fly) vault.latch = true;   // CMD2: no climbing or vaulting while flying (Space is "up")
+  if (gAdmin.flyAllowed && in.jump && !occupied) {   // CMD2: a double-tap of Space toggles flying
+    static double last = -1; double now = glfwGetTime();
+    if (now - last < 0.3) { gAdmin.fly = !gAdmin.fly; if (!gAdmin.fly) gAdmin.fallSafe = true; toast(gAdmin.fly ? "Flying: Space up, Ctrl down, Shift fast; double-tap Space to land" : "Flying off", 3); last = -1; }
+    else last = now;
+  }
   if (mantle.active) { stepMantle(dt); return; }
   if (!occupied && stepSwim(dt, in, before)) { target = {}; stepProjectiles(dt); fx.update(dt, terrain); return; }   // swim.cpp: chest-deep water
   if (in.jumpHeld && !vault.latch && vault.held >= vaultCfg.hold && before.posture == Physics::STAND && !occupied && (tryStartWindowVault(before.pos, eyeYaw) || tryStartMantle(before.pos, eyeYaw))) { vault.latch = true; spendStamina(move.staminaJump); return; }   // a climb costs like a jump (never refused: trench exits)
@@ -271,12 +314,19 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   speed *= traversalFactor(Physics::character().pos);   // inside a "slow" wire volume
   Physics::tuning.gravity = move.gravity; Physics::tuning.jumpVelocity = move.jumpVelocity; Physics::tuning.jumpBuffer = move.jumpBuffer; Physics::tuning.coyote = move.coyote;
   bool jump = in.jump && !spaceUp && !(rising && riseProne) && stamina >= move.staminaJump;   // only the prone get-up holds a jump back; too tired: no jump
-  bool jumped = !occupied && Physics::updateCharacter(dt, wish * speed + knockVel, jump, postureWanted, eyeYaw);
+  const bool flying = gAdmin.fly && !occupied;
+  if (flying) {   // CMD2 /fly: where you look, Space up, Ctrl down, Shift fast; collisions kept
+    vec3 d = forward(eyeYaw, eyePitch) * in.move.y + rgt * in.move.x; if (glm::length(d) > 1) d = glm::normalize(d);
+    d.y += (in.jumpHeld ? 1.0f : 0.0f) - (in.crouch ? 1.0f : 0.0f);
+    Physics::flyCharacter(dt, d * (in.sprint ? 30.0f : 9.0f));
+  }
+  bool jumped = !occupied && !flying && Physics::updateCharacter(dt, wish * speed + knockVel, jump, postureWanted, eyeYaw);
   knockVel *= std::exp(-5.0f * dt);
   if (jumped) spendStamina(move.staminaJump);   // buffered and coyote jumps too
   { int pp = Physics::character().posture; tickStamina(dt, sprinting && glm::length(wish) > 0.1f, pp == Physics::CROUCH || pp == Physics::PRONE ? move.staminaLowRegen : 1.0f); }   // crouched / prone: faster recovery
   auto c = Physics::character();
-  rulesAfterMove(*this, before, c, dt);   // W1: fall damage (match, player only)
+  if (gAdmin.fly || gAdmin.fallSafe) { if (!gAdmin.fly && c.grounded) gAdmin.fallSafe = false; }   // CMD2: no fall damage while flying or on the way down after it
+  else rulesAfterMove(*this, before, c, dt);   // W1: fall damage (match, player only)
   vm.speed = glm::length(vec2(c.pos.x - before.pos.x, c.pos.z - before.pos.z)) / std::max(dt, 1e-4f);
   float eyeTarget = c.posture == Physics::PRONE ? move.eyeProne : c.posture == Physics::CROUCH ? move.eyeCrouch : move.eyeStand;
   // getting up takes time: prone -> stand 1.1 s, prone -> crouch 0.75 s, crouch -> stand 0.45 s (movement.json),
@@ -290,6 +340,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
     float u = std::clamp(riseT / std::max(riseDur, 1e-3f), 0.0f, 1.0f);
     eyeHeight = glm::mix(riseFrom, eyeTarget, u * u * (3 - 2 * u));
   } else eyeHeight += (eyeTarget - eyeHeight) * std::min(1.0f, dt * move.eyeRate);
+  stepLean(dt, in, sprinting && glm::length(in.move) > 0.1f);   // MV3
   if (eyeHeight > eyeTarget + 0.02f) {   // never raise the camera through a ceiling while standing up
     Physics::Hit ch; vec3 f0 = c.pos + vec3(0, eyeTarget * 0.5f, 0);
     if (Physics::castRayEx(f0, vec3(0, 1, 0), eyeHeight - eyeTarget * 0.5f + 0.1f, ch) && ch.pos.y - 0.1f < c.pos.y + eyeHeight) eyeHeight = std::max(eyeTarget, ch.pos.y - 0.1f - c.pos.y);
@@ -370,6 +421,7 @@ void App::updateExplore(float dt) {
     if (kp(win, GLFW_KEY_F3)) showStats = !showStats;
     if (kp(win, GLFW_KEY_F4)) panelDebug = !panelDebug;
     if (kp(win, bk("loadout")) && !pauseMenu) { showLoadout = !showLoadout; syncCursor(); }
+    if (kp(win, bk("flashlight")) && !pauseMenu) flashlight = !flashlight;   // FX1 headlamp
     if (kp(win, GLFW_KEY_V)) scopeIronsMode = !scopeIronsMode;
   }
   // the cursor is captured unless a menu needs it: every look delta below assumes GLFW_CURSOR_DISABLED (a free cursor
@@ -407,6 +459,33 @@ void App::updateExplore(float dt) {
     in.jump = kp(win, bk("jump"));
     in.jumpHeld = bk("jump") >= 0 && glfwGetKey(win, bk("jump")) == GLFW_PRESS;
     in.interact = kp(win, bk("interact"));
+    {   // MV3 lean keys. A lean key that is also Interact / Next weapon (Q / E by default): with an interact prompt on screen E
+        // interacts at once; otherwise a tap (released within tap_s, before any lean) does the action on release and a
+        // hold leans. In vehicles, at a gun, building, in the inventory or in the air the keys keep their old meaning.
+      bool keep = occupied || tanks.occupied || build.active || lootInventoryOpen() || (gGame && gGame->active && royaleAirborne(gGame->localSlot));
+      int kl = bk("leanLeft"), kr = bk("leanRight"), kn = bk("nextWeapon"), ki = bk("interact");
+      bool prompt = target.valid || tanks.target;
+      auto arb = [&](int idx, int key, int actKey, bool promptNow, bool& action, bool& leanHeld) {
+        LeanKey& K = leanKeys[idx];
+        bool down = key >= 0 && glfwGetKey(win, key) == GLFW_PRESS;
+        if (key != actKey || keep) {   // not shared (rebound), or the old meaning applies here
+          leanHeld = !keep && down; K = LeanKey{}; K.held = down; return;
+        }
+        action = false;   // the plain edge press of the shared key is decided here
+        if (down && !K.held) { K.down = now; K.consumed = promptNow; K.leaning = false; if (promptNow) action = true; }
+        if (down && !K.consumed && now - K.down >= leanCfg.tap) K.leaning = true;
+        if (!down && K.held && !K.consumed && !K.leaning) action = true;   // a tap
+        leanHeld = down && K.leaning;
+        K.held = down;
+      };
+      bool next = false, inter = false;
+      arb(0, kl, kn, false, next, in.leanL);
+      arb(1, kr, ki, prompt, inter, in.leanR);
+      if (kl == kn && !keep) in.nextWeapon = next; else if (kl == kn) in.nextWeapon = kp(win, kn);
+      if (kr == ki && !keep) in.interact = inter;
+      if (kl == ki && !keep) { bool a = false, h = false; arb(0, kl, ki, prompt, a, h); in.interact = in.interact || a; in.leanL = h; }   // swapped bindings
+      if (kr == kn && !keep) { bool a = false, h = false; arb(1, kr, kn, false, a, h); in.nextWeapon = in.nextWeapon || a; in.leanR = h; }
+    }
     in.fire = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && !io.WantCaptureMouse;
     in.aim = glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS && !io.WantCaptureMouse;
     in.reload = kp(win, bk("reload"));
@@ -426,7 +505,7 @@ void App::updateExplore(float dt) {
     { extern double gScrollY; in.wheel = io.WantCaptureMouse ? 0.0f : (float)gScrollY; gScrollY = 0; }
     in.choose1 = kp(win, bk("slot1")); in.choose2 = kp(win, bk("slot2"));
     in.slot3 = kp(win, bk("slot3")); in.slot4 = kp(win, bk("slot4"));   // G4: knife, grenades
-    in.nextWeapon = kp(win, bk("nextWeapon"));
+    if (bk("leanLeft") != bk("nextWeapon") && bk("leanRight") != bk("nextWeapon")) in.nextWeapon = kp(win, bk("nextWeapon"));   // MV3: else decided by the lean arbitration above
     if (kp(win, bk("map"))) mapLarge = !mapLarge;   // GM2: the large map (rebindable, UI1)
     if (kp(win, bk("artillery"))) gm2ToggleArtyMap(*this);   // GM2: artillery (ability; rebindable, default 7)
     if (kp(win, GLFW_KEY_BACKSPACE)) returnToStart();
@@ -530,7 +609,7 @@ void App::drawExploreUI() {
         }
       }
     }
-    dl->AddText(ImVec2(14, 12), IM_COL32(230, 230, 220, 150), "WASD walk | Shift sprint | Ctrl/C crouch | Space jump (stand up when prone) | E interact | LMB fire | RMB sights | R reload | Q weapon | T switch gun position | Backspace start | F4 damage debug | Esc menu");
+    dl->AddText(ImVec2(14, 12), IM_COL32(230, 230, 220, 150), "WASD walk | Shift sprint | Ctrl/C crouch | Space jump (stand up when prone) | E interact | LMB fire | RMB sights | R reload | Q weapon | N headlamp | T switch gun position | Backspace start | F4 damage debug | Esc menu");
     if (tanks.occupied) tanks.drawUI(*this);
     else { drawCombatUI(); drawWeaponUI(); tanks.drawUI(*this); drawSwimUI(); drawStaminaUI(); }
     if ((showMinimap || mapLarge) && !gm2ArtyMapOpen()) minimapHud(*this, mapLarge);   // GM2

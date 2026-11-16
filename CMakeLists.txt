@@ -68,9 +68,9 @@ add_executable(NormandyMapmaker
   src/capture_vehicle.cpp
   src/capture_dash.cpp
   src/vehicle_dash.cpp
-  src/interior.cpp src/selftest_interiors.cpp src/hlod.cpp src/static_decals.cpp
+  src/interior.cpp src/selftest_interiors.cpp src/hlod.cpp src/static_decals.cpp src/selftest_turn.cpp
   src/heli.cpp src/capture_heli.cpp
-  src/br_models.cpp src/selftest_brmodels.cpp)   # walls, interiors and furniture (docs/interiors.md)
+  src/br_models.cpp src/selftest_brmodels.cpp src/selftest_lean.cpp src/selftest_vehicle_ai.cpp)   # walls, interiors and furniture (docs/interiors.md)
 target_include_directories(NormandyMapmaker PRIVATE src ${stb_SOURCE_DIR} ${miniaudio_SOURCE_DIR})
 target_link_libraries(NormandyMapmaker PRIVATE glad glfw glm::glm imgui Jolt nlohmann_json::nlohmann_json)
 target_compile_definitions(NormandyMapmaker PRIVATE GLM_ENABLE_EXPERIMENTAL GLFW_INCLUDE_NONE)

@@ -23,6 +23,7 @@ void netInterpolate(Game& g, double t, float dt);
 #include <algorithm>
 #include <cmath>
 #include <chrono>
+#include <random>
 #include <set>
 
 Game* gGame = nullptr;
@@ -77,6 +78,12 @@ void Game::syncGrenadeView() {
   }
 }
 static float bodyScale(const Soldier& s) { return s.zombie ? s.eBody : 1.0f; }   // EN1: a troll stands taller, a spider lower
+void Game::renderView(vec3& e, vec3& f) const {
+  e = app.eyePos(); f = App::forward(app.eyeYaw, app.eyePitch); float fov = 70;
+  vec3 e2 = e, f2 = f;
+  if (app.tanks.camera(app, e2, f2, fov) || app.stationCamera(e2, f2, fov)) { e = e2; f = f2; }
+}
+
 vec3 Game::eye(const Soldier& s) const {
   if (s.localPlayer && s.alive) return app.eyePos();
   float h = s.posture == Physics::PRONE ? 0.32f : s.posture == Physics::CROUCH ? 1.05f : 1.62f;
@@ -120,19 +127,22 @@ bool Game::begin(std::string& err) {
   // soldiers per roster slot
   sold.clear(); sold.resize(match.slots.size());
   auto& arr = archetypes["archetypes"];
-  int aiSeen[2] = {0, 0}, kindSeen[kAiTypeCount] = {};   // per side / per AI type: types and model variants go round in turn (same on LAN clients)
+  int aiGiven[2][kAiTypeCount] = {}, kindSeen[kAiTypeCount] = {};   // per side / per AI type: types and model variants go round in turn (same on LAN clients)
   for (auto& rs : match.slots) {
     Soldier& s = sold[rs.id];
     s.slot = rs.id; s.inUse = true; s.alive = false; s.faction = rs.faction; s.role = rs.role; s.team = rs.team;
     s.human = rs.human; s.peer = rs.peer; s.localPlayer = rs.id == localSlot;
     int side = ffaMode(match.mode()) ? 0 : std::clamp(rs.team, 0, 1);
-    AiType ait = rs.human ? AiType::Soldiers : aiTypeFor(match.rules.aiTypes[side], aiSeen[side]++);
+    AiType ait = rs.human ? AiType::Soldiers : aiTypeNext(match.rules.aiCount[side], match.rules.aiTypes[side], aiGiven[side]);   // AI3: the typed counts per type
     s.zombie = ait != AiType::Soldiers && ait != AiType::Operators;   // G2 melee brain
+    s.op = ait == AiType::Operators;
     s.etype = !s.zombie ? 0 : ait == AiType::ZombiesHeavies ? enemyTypePick((uint32_t)rs.id)   // EN1: the mix by weight, per slot
             : ait == AiType::Brutes ? std::max(0, enemyTypeIndex("brute")) : ait == AiType::Spiders ? std::max(0, enemyTypeIndex("stalker"))
             : ait == AiType::Creatures ? std::max(0, enemyTypeIndex("creature"))
             : ait == AiType::Knights ? std::max(0, enemyTypeIndex("knight")) : ait == AiType::Animatronics ? std::max(0, enemyTypeIndex("animatronic"))
             : ait == AiType::Aliens ? std::max(0, enemyTypeIndex("alien")) : ait == AiType::AlienQueens ? std::max(0, enemyTypeIndex("alien_queen"))
+            : ait == AiType::Abominations ? std::max(0, enemyTypeIndex("abomination")) : ait == AiType::Golems ? std::max(0, enemyTypeIndex("golem"))
+            : ait == AiType::Boglords ? std::max(0, enemyTypeIndex("boglord"))
             : ait == AiType::Fighters ? std::max(0, enemyTypeIndex("fighter"))
             : ait == AiType::Fighters2 ? std::max(0, enemyTypeIndex("fighter2")) : 0;
     s.evariant = kindSeen[(int)ait]++;
@@ -180,6 +190,8 @@ bool Game::begin(std::string& err) {
 }
 
 void Game::end() {
+  gAdmin = AdminMode{};   // CMD2: /admin ends with the match
+  aiZombieLoopsStop(app);   // SND2: no creature breathing on after the match
   aiMatchEnd(*this);   // W6
   for (auto& s : sold) { if (s.agent >= 0) Physics::destroyAgent(s.agent); s.agent = -1; if (s.ciReady) s.ci.destroy(); s.ciReady = false; }
   Physics::destroyAllAgents();
@@ -222,6 +234,29 @@ void Game::applyLoadout(Soldier& s, bool newLife) {
   const json& lo = combat["loadouts"][fac];
   const ClassDef* cd = s.cls >= 0 && s.cls < (int)classDefs().size() ? &classDefs()[s.cls] : nullptr;
   std::vector<int> cw = classWeapons(s);
+  // AI5: Operator bots carry modern weapons (combat.json loadouts_operator), not the faction pool or the class weapons:
+  // a weighted primary per slot + life, every lmgEvery-th operator of a side the LMG, the sidearm carried too
+  if (s.op && !s.human && !s.localPlayer && combat.contains("loadouts_operator") && combat["loadouts_operator"].contains(fac)) {
+    const json& ol = combat["loadouts_operator"][fac];
+    std::vector<std::pair<int, int>> pool; int tot = 0;
+    for (auto& e : ol.value("ai", json::array())) { int w = app.weaponIndex(e[0].get<std::string>()); if (w >= 0) { pool.push_back({w, e[1].get<int>()}); tot += e[1].get<int>(); } }
+    int nth = 0; for (auto& o : sold) { if (&o == &s) break; if (o.inUse && o.op && o.team == s.team) ++nth; }
+    int lmg = app.weaponIndex(ol.value("lmg", "")), every = ol.value("lmgEvery", 5);
+    if (!pool.empty() || lmg >= 0) {
+      int w = pool.empty() ? lmg : pool[0].first;
+      int pick = tot > 0 ? (int)((s.slot * 7 + s.lifeId * 3) % tot) : 0;
+      for (auto& [i, n] : pool) { if (pick < n) { w = i; break; } pick -= n; }
+      if (lmg >= 0 && every > 0 && nth % every == every - 1) w = lmg;
+      s.wsBy.clear(); s.weapon = w;
+      const WeaponDef& d = *app.weaponDefs[w]; s.ws = WeaponState{}; s.ws.loaded = d.loaded; s.ws.reserveMax = d.loaded + d.reserve;
+      for (int r = d.reserve; r > 0; r -= d.containerSize) s.ws.containers.push_back(std::min(r, d.containerSize));
+      s.ws.seed = s.rng | 1;
+      s.carried = {w}; if (int p = app.weaponIndex(ol.value("sidearm", "")); p >= 0) s.carried.push_back(p);
+      if (newLife) { s.frags = cd ? cd->frags : match.rules.fragPerLife; s.smokes = cd ? cd->smokes : (s.role == CombatRole::Attacker ? match.rules.smokePerLifeAttacker : match.rules.smokePerLifeDefender); if (cd) s.hp *= cd->hpMul; }
+      s.reload = 0; s.throwT = -1; s.throwReleased = false;
+      return;
+    }
+  }
   auto items = [&](std::vector<int>& v) {   // the side's grenades travel only when the class carries some; the knife always
     if (!cd || cd->frags > 0) if (fragDef(s.faction) >= 0) v.push_back(fragDef(s.faction));
     if (!cd || cd->smokes > 0) if (smokeDef() >= 0) v.push_back(smokeDef());
@@ -331,6 +366,26 @@ bool Game::trySpawn(int slot, std::string& why) {
       std::sort(scored.begin(), scored.end(), [](auto& x, auto& y) { return x.first > y.first; });
       size_t keep = std::min<size_t>(scored.size(), 6);   // a little spread so two respawns don't stack on one point
       for (size_t k = 0; k < keep; ++k) { vec3 p = scored[(k + slot) % keep].second; cands.push_back({p, glm::degrees(std::atan2(-p.x, -p.z))}); }   // face the middle
+    } else if (mode == GameMode::TDM && cands.size() > 1) {
+      // CV1: a random marker per respawn, safe ones first: no living enemy within 18 m and none with a clear line of
+      // sight to it (eye to chest, 100 m); then the rest, farthest from enemies first (the loop below still skips
+      // occupied and blocked spots)
+      std::mt19937 rg((uint32_t)steps * 2654435761u ^ (uint32_t)slot * 40503u ^ (uint32_t)s.lifeId * 97u);
+      std::shuffle(cands.begin(), cands.end(), rg);
+      auto risk = [&](const Cand& c) {
+        float dMin = 1e9f; bool seen = false;
+        for (auto& o : sold) {
+          if (&o == &s || !o.alive || !hostile(s, o)) continue;
+          vec3 eye = o.feet + vec3(0, 1.6f, 0), d = c.pos + vec3(0, 1.3f, 0) - eye;
+          float L = glm::length(d); dMin = std::min(dMin, L);
+          if (!seen && L < 100.0f && L > 1.0f) { Physics::Hit h; seen = !Physics::castRayEx(eye + d / L * 0.6f, d / L, L - 0.9f, h); }
+        }
+        return std::make_pair(dMin < 18.0f || seen, dMin);
+      };
+      std::vector<std::pair<std::pair<bool, float>, Cand>> rs;
+      for (auto& c : cands) rs.push_back({risk(c), c});
+      std::stable_sort(rs.begin(), rs.end(), [](const auto& a, const auto& b) { return a.first.first != b.first.first ? !a.first.first : (a.first.first && a.first.second > b.first.second); });
+      for (size_t k = 0; k < rs.size(); ++k) cands[k] = rs[k].second;
     } else {
       int start = (slot * 3 + (int)steps) % (int)cands.size();
       std::rotate(cands.begin(), cands.begin() + start, cands.end());
@@ -359,6 +414,7 @@ bool Game::trySpawn(int slot, std::string& why) {
         s.feet = feet; s.yaw = m.yaw; s.pitch = 0; s.alive = true; s.flat = false; s.hp = s.zombie ? enemyType(s.etype).hp : combat.value("health", 100.0f); s.killer = -1; s.staggerUntil = 0; s.posture = Physics::STAND;
         s.human = match.slots[slot].human || match.slots[slot].pendingPeer >= 0; s.peer = match.slots[slot].pendingPeer >= 0 ? match.slots[slot].pendingPeer : match.slots[slot].peer;
         ++s.lifeId;
+        aiForget(*this, slot);   // a fresh life: no stale last-known position of it anywhere
         rulesOnSpawn(*this, s);   // W1: spawn protection starts (SPEC 2.2)
         if (s.localPlayer) {
           Physics::setCharacterPos(feet); app.eyeYaw = m.yaw; app.eyePitch = 0; app.exploreStartPos = feet; app.R.resetTemporal();
@@ -394,7 +450,10 @@ bool Game::trySpawn(int slot, std::string& why) {
 
 void Game::killSoldier(int i, int killer, vec3 dir) {
   Soldier& s = sold[i];
+  if (gAdmin.god && s.localPlayer && !gAdmin.allowKill) return;   // CMD2: no direct death either (a heli crash, out of the world)
+  if (s.zombie && s.alive && !enemyType(s.etype).sndDeath.empty()) app.audio.play(enemyType(s.etype).sndDeath.c_str(), s.feet + vec3(0, 1.0f, 0), 1.0f);   // SND1. shortcut: host / single player only
   if (!s.alive) return;
+  aiForget(*this, i);   // nobody keeps attacking where it fell
   s.alive = false; s.diedAt = t; s.killer = killer; s.deathDir = dir; s.hp = 0;
   vec3 f = vec3(-std::sin(radians(s.yaw)), 0, -std::cos(radians(s.yaw)));
   s.deathStyle = glm::dot(f, dir) > 0.3f ? 1 : glm::dot(f, dir) < -0.3f ? 0 : 2;
@@ -440,7 +499,7 @@ bool Game::hitTest(const Soldier& s, vec3 a, vec3 d, float maxT, HitZone& hz) co
     {W(CJ_LUPLEG), W(CJ_LLEG), 0.085f, 2}, {W(CJ_LLEG), W(CJ_LFOOT), 0.07f, 2},
     {W(CJ_RUPLEG), W(CJ_RLEG), 0.085f, 2}, {W(CJ_RLEG), W(CJ_RFOOT), 0.07f, 2},
   };
-  float best = maxT; int zone = -1;
+  float best = maxT, headT = 1e9f; int zone = -1;
   for (auto& k : caps) k.r *= zs;
   for (auto& k : caps) {
     // ray vs capsule: sample the closest approach between the ray and the segment
@@ -456,8 +515,12 @@ bool Game::hitTest(const Soldier& s, vec3 a, vec3 d, float maxT, HitZone& hz) co
     if (dist > k.r) continue;
     float back = std::sqrt(std::max(0.0f, k.r * k.r - dist * dist));
     float tt = std::max(0.0f, sc - back);
+    if (k.zone == 0) headT = std::min(headT, tt);
     if (tt < best) { best = tt; zone = k.zone; }
   }
+  // CH7: on an enemy type a ray that meets the head capsule is a head hit (on the big hunched rigs the scaled torso capsule
+  // round the neck enclosed most of the head, so a shot at the head counted as the torso); soldiers keep their zones
+  if (s.zombie && headT < maxT) { best = headT; zone = 0; }
   if (zone < 0) return false;
   hz.zone = zone; hz.t = best;
   return true;
@@ -498,11 +561,13 @@ void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
   Soldier& s = sold[i];
   if (!s.alive || dmg <= 0) return;
   if (rulesIgnoreDamage(*this, i)) return;
+  if (gAdmin.god && s.localPlayer) return;   // CMD2 /admin: nothing hurts you (bullets, blasts, melee, flame, falls, drowning, storm)
   if (s.zombie && enemyType(s.etype).shellKills > 0) {   // a fixed number of direct shell hits kills it
     static std::map<int, double> shellAt; const bool shell = how && std::strcmp(how, "shell") == 0, blast = how && std::strcmp(how, "blast") == 0;
     if (shell) { shellAt[i] = t; s.hp -= enemyType(s.etype).hp / enemyType(s.etype).shellKills - 0.01f; dmg = 0.01f; how = "blast"; }   // applied here; the rest of the function sees a token blast
     else if (blast && shellAt.count(i) && std::fabs(t - shellAt[i]) < 0.05) return;   // that shell's own blast
   }
+  if (s.zombie && how && std::strcmp(how, "head") == 0 && enemyType(s.etype).headMult > 0) dmg *= enemyType(s.etype).headMult / std::max(0.01f, damageTable().head);   // CH7: the type's own head multiplier in place of the global one
   if (s.zombie && (!how || std::strcmp(how, "blast") != 0)) { if (enemyType(s.etype).blastOnly || (enemyType(s.etype).nonBlastMult < 1 && how && std::strcmp(how, "shell") == 0)) return; dmg *= enemyType(s.etype).nonBlastMult;   // a direct shell hit is not an instant kill on a resistant type: its blast does the damage
   if (dmg <= 0) return; }   // immune to all but explosions   // W1: spawn-protected (bullets, blasts, falls)
   // buttoned up in a tank (hatch closed): the crew takes no damage until the tank is knocked out (destroy() bails them out).
@@ -609,6 +674,7 @@ bool Game::soldierFire(Soldier& s, vec3 dir) {
   if (w.cooldown > 0 || s.reload > 0 || w.bolt > 0) return false;
   if (w.loaded <= 0) return false;
   w.loaded--; w.cooldown = 60.0f / std::max(1.0f, d.rpm); if (d.action == "bolt") w.bolt = d.boltTime; ++w.shotIdx; ++s.shots;
+  if (d.action == "bolt" && !s.localPlayer && app.audio.hasEvent("bolt_cycle_" + d.id) && glm::length(s.feet - app.eyePos()) < 80.0f) app.audio.play("bolt_cycle_" + d.id, s.feet + vec3(0, 1.5f, 0), 0.6f);   // SND4: a bot works its bolt too
   vec3 e = eye(s);
   vec3 muzzle = vec3(s.world * s.pose.weapon * vec4(d.muzzle, 1));
   Physics::Hit hb;
@@ -621,6 +687,7 @@ bool Game::soldierFire(Soldier& s, vec3 dir) {
   app.fx.flash(muzzle + dd * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
   app.fx.smoke(muzzle, dd * 2.0f + vec3(0, 0.3f, 0), 0.05f, 1.2f, vec4(0.6f, 0.58f, 0.55f, 0.35f), 0.6f, 0.2f);
   app.audio.play("shot_" + d.id, muzzle, 1.0f);
+  if (!s.localPlayer) app.shotCasing(d, s.feet, s.slot);   // SND4
   s.recoil = 1.0f; s.lastShot = t;
   hearSound(muzzle, (int)s.role, archetypes["perception"].value("hearShot_m", 70.0f), s.slot, 0);
   ++shotsByBots;
@@ -689,7 +756,7 @@ void Game::clientStep(float dt) {
   netInterpolate(*this, t, dt);
   if (Soldier* L = local(); L && L->alive) {
     auto c = Physics::character();
-    L->vel = (c.pos - L->feet) / std::max(dt, 1e-4f); L->feet = c.pos; L->yaw = app.eyeYaw; L->pitch = app.eyePitch; L->posture = c.posture; L->weapon = app.activeWeapon; L->swim = app.swim.active;
+    L->vel = (c.pos - L->feet) / std::max(dt, 1e-4f); L->feet = c.pos; L->yaw = app.eyeYaw; L->pitch = app.eyePitch; L->posture = c.posture; L->lean = app.lean.x; L->weapon = app.activeWeapon; L->swim = app.swim.active;
     L->speed = glm::length(vec2(L->vel.x, L->vel.z));
   }
   // door toggles made locally are requests: undo them here and ask the host
@@ -722,7 +789,8 @@ void Game::step(float dt) {
   if (Soldier* L = local(); L && L->alive) {
     localGrenadeCounts(*L, false);   // the E3 items are the local inventory (spent at release)
     auto c = Physics::character();
-    L->vel = (c.pos - L->feet) / std::max(dt, 1e-4f); L->feet = c.pos; L->yaw = app.eyeYaw; L->pitch = app.eyePitch; L->posture = c.posture;
+    if (glm::length(c.pos - L->feet) > 15.0f) aiForget(*this, L->slot);   // a jump (teleport, admin fly, a vehicle exit far away): enemies re-acquire
+    L->vel = (c.pos - L->feet) / std::max(dt, 1e-4f); L->feet = c.pos; L->yaw = app.eyeYaw; L->pitch = app.eyePitch; L->posture = c.posture; L->lean = app.lean.x;
     L->weapon = app.activeWeapon; L->swim = app.swim.active;
     L->speed = glm::length(vec2(L->vel.x, L->vel.z));
   }
@@ -749,7 +817,7 @@ void Game::step(float dt) {
 
 void Game::posesStep(float dt) {
   // AI2 crowds (over 200 combatants): far soldiers re-pose every 2nd step beyond 80 m, every 4th beyond 150 m (staggered)
-  const bool poseLod = sold.size() > 200; const vec3 cam = app.eyePos();
+  const bool poseLod = sold.size() > 200; vec3 cam, camF; renderView(cam, camF);   // the actual camera (vehicle chase / sight cameras too)
   for (auto& s : sold) {
     if (!s.inUse || (!s.alive && t - s.diedAt > (s.zombie ? 3.5 : 2.0))) continue;   // G2: the zombie death clip runs ~3 s
     const CharModel& m = *models[s.model];
@@ -778,11 +846,15 @@ void Game::posesStep(float dt) {
       bool engaged = (s.br.target >= 0 && !s.human && !s.localPlayer) || t - s.lastShot < 1.5 || s.reload > 0 || s.throwT >= 0
                   || (isClient && s.netEngaged);   // AN1b: a LAN client has no brains: the host's "has a target" bit (net.cpp)
       s.anKneel += ((s.posture == Physics::CROUCH && !moving ? 1.0f : 0.0f) - s.anKneel) * k;
-      s.anCarry += ((moving && !engaged ? 1.0f : 0.0f) - s.anCarry) * k;
-      s.anMoveAim += ((moving && engaged ? 1.0f : 0.0f) - s.anMoveAim) * k;
+      // AI5: bots never carry the rifle low on the move: shouldered, muzzle forward, sights up whether engaged or not
+      bool bot = !s.human && !s.localPlayer;
+      s.anCarry += ((moving && !engaged && !bot ? 1.0f : 0.0f) - s.anCarry) * k;
+      s.anMoveAim += ((moving && (engaged || bot) ? 1.0f : 0.0f) - s.anMoveAim) * k;
+      pp.hunch = bot ? 1.0f : 0.0f;
       s.anLow += ((!moving && !engaged ? (s.posture == Physics::CROUCH ? 0.25f : 0.45f) : 0.0f) - s.anLow) * k;   // relaxed ready: shouldered low
       s.anTwist += (yawOff - s.anTwist) * (1.0f - std::exp(-dt / 0.12f));   // no snapping torso twist
       pp.kneel = s.anKneel; pp.carry = s.anCarry; pp.moveAim = s.anMoveAim; pp.aimYawOffset = s.anTwist;
+      pp.lean = s.alive ? s.lean : 0.0f; pp.leanBend = radians(app.leanCfg.bend);   // MV3
       {   // AN1b: the terrain's gradient under the feet (model space) for the stepping feet and the kneel; floors and bridges stay flat
         const float r = 0.4f; vec3 f = s.feet; float h0 = app.terrain.height(f.x, f.z);
         vec2 g(0);
@@ -799,7 +871,7 @@ void Game::posesStep(float dt) {
     if (s.weapon >= 0) { const WeaponDef& d = *app.weaponDefs[s.weapon]; pp.gripR = d.gripR; pp.gripL = d.gripL; pp.magPos = d.gripL + vec3(0, -0.1f, -0.12f); }
     pp.reload = s.reload > 0 && s.reloadTotal > 0 ? 1.0f - s.reload / s.reloadTotal : 0;
     pp.throwT = s.throwT; pp.recoil = s.recoil;
-    pp.lowReady = s.zombie ? 0.0f : s.anLow;   // AN1: the run carry (pp.carry) replaces the lowered muzzle on the move
+    pp.lowReady = s.zombie ? 0.0f : std::max(s.anLow, !s.human && !s.localPlayer && s.speed > 4.0f ? 0.2f : 0.0f);   // AI5: a sprinting bot dips the muzzle a little, weapon still forward   // AN1: the run carry (pp.carry) replaces the lowered muzzle on the move
     if (s.localPlayer) app.mantlePose(s.feet, pp);   // hands on the ledge while mantling (mantle.cpp)
     s.swimBlend += ((s.swim && s.alive ? 1.0f : 0.0f) - s.swimBlend) * std::min(1.0f, dt * 5);
     pp.swim = s.swimBlend; pp.swimPhase = (float)t * 5.3f + (float)s.slot;   // breaststroke ~0.85 Hz
@@ -865,7 +937,7 @@ void Game::drawItems() {
   }
   lootDraw(*this);   // BR2 floor items
   crumb("game: draw");
-  vec3 cam = app.eyePos(); vec3 fwd = App::forward(app.eyeYaw, app.eyePitch);
+  vec3 cam, fwd; renderView(cam, fwd);   // cull against the camera actually rendering (a vehicle's chase / sight camera), not the seated body
   static int frame = 0; ++frame;
   for (auto& s : sold) {
     if (!s.inUse || s.lifeId == 0) continue;

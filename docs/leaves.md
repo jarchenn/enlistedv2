@@ -182,3 +182,17 @@ Values are ms, species leaves / ovals.
 - `ab_leaftex_final.txt`: every view.
 
 Whole-frame draws and triangles per shot are in `shots_draws_tris.txt`.
+
+## Tone inside a crown (L2, L2b)
+
+Within one tree, leaf cards vary in value and slightly in hue so the crown reads as lit and shaded clumps rather than one flat green.
+
+- **Tone per card** (`src/foliage.cpp`, `cardTone`, about -1.25 .. 1.25, dark to light):
+  - 0.85 x the **clump** offset: canopy clusters grouped on a grid about a third of the crown wide (at least 0.9 m), one hash per grid cell, pushed toward clearly light or clearly dark (sign x sqrt). Round crowns are 40-120 small clusters whose own offsets average out by 20 m; the clumps do not.
+  - 0.15 x the cluster's own random offset;
+  - 0.4 x the height in the crown (sunlit top light, base dark, centred so the average tone holds);
+  - 0.25 x the card's face of its cluster (top face light, underside dark).
+  The interior is already darker through `shadeV` (self-shading), so there is no separate outside term.
+- **In the shader** (`src/render.cpp`, `kLeafFS`): value x (1 + 0.34 tone) and a few degrees of hue: lighter cards warmer, darker ones cooler. The per-card random scatter is ±8 % (textured) and ±16 % (ovals): darker and lighter leaves side by side, not confetti. Self-shading and the seasonal drift stay.
+- **Where it rides:** species trees: the spare 16th float of each instance (`iMSS.w`). Oval-card trees (`nt3_tree_*`, anything without a species): a parallel one-float-per-vertex buffer on attribute 5, so the 10-float card layout and its shadow-LOD copies are unchanged. Ivy has no stream and reads 0.
+- **LOD:** the tone is fixed per card and the far tiers draw an even random prefix of the same cards, so near, mid, far and the folbatch cells keep the same average tone; nothing depends on time or the camera, so nothing shimmers. No new textures, no extra draw calls.

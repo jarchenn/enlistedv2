@@ -1,6 +1,7 @@
 // Phase 2 tanks: definitions, Explore simulation (driving, turret, gunner sight, hatch MG, HE/AP loading),
 // damage rules, wrecks, effects, sound and persistence. docs/tanks.md
 #include "app.h"
+#include "vehicle_dash.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <stb_image_write.h>
@@ -197,12 +198,12 @@ bool TankSys::adoptCar(App& app, uint64_t id) {
   const AssetDef* a = rt->second.asset;
   auto& dp = adoptedDefs[a->id];
   if (!dp) {
-    vec3 dashS(0, 0.3f, 0.4f), rlo(1e9f), rhi(-1e9f), dash(0, 1.0f, 0.6f), blo(1e9f), bhi(-1e9f); float wr = 0.33f; bool rims = false;
+    vec3 dashS(0), rlo(1e9f), rhi(-1e9f), dash(0, 1.0f, 0.6f), blo(1e9f), bhi(-1e9f); float wr = 0.33f; bool rims = false;
     for (auto& p : a->parts) {
       const std::string& mn = p.mat >= 0 && p.mat < (int)a->materials.size() ? a->materials[p.mat].name : std::string();
       blo = glm::min(blo, p.center - p.size * 0.5f); bhi = glm::max(bhi, p.center + p.size * 0.5f);
       if (mn == "rim") { rims = true; rlo = glm::min(rlo, p.center); rhi = glm::max(rhi, p.center); wr = std::max(wr, p.center.y); }
-      if (mn == "dash") { dash = p.center; dashS = p.size; }
+      if (mn == "dash" && p.size.x * p.size.y * p.size.z > dashS.x * dashS.y * dashS.z) { dash = p.center; dashS = p.size; }   // the biggest: the dash itself (the console / knee panel share its material)
     }
     if (!rims || bhi.x <= blo.x) return false;   // not a car
     auto d = std::make_unique<TankDef>();
@@ -216,7 +217,8 @@ bool TankSys::adoptCar(App& app, uint64_t id) {
     float wheelX = -0.37f;   // VH6: on the steering wheel's side (a thin rubber ring at dash height), else the generic kit's x -0.37
     for (auto& p : a->parts) { const std::string& mn = p.mat >= 0 && p.mat < (int)a->materials.size() ? a->materials[p.mat].name : std::string();
       if (mn == "rubber" && p.shape == Part::CYL && p.size.y < 0.06f && p.size.x < 0.5f && std::fabs(p.center.y - dash.y) < 0.4f) wheelX = p.center.x; }
-    d->driverEye = vec3(wheelX, dash.y + dashS.y * 0.5f + 0.30f, dash.z - dashS.z * 0.5f - 0.62f); d->hatchEye = d->driverEye;   // over the wheel, ~0.6 m behind the dash
+    d->driverEye = vec3(wheelX, dash.y + dashS.y * 0.5f + 0.30f, dash.z - dashS.z * 0.5f - 0.57f);   // over the wheel, ~0.55 m behind the dash: the dash and rim low in the view, the sun visors above it
+    vehicleDashModelEye(a, d->driverEye); d->hatchEye = d->driverEye;   // a car-pack copy: its model's own seat (the interior spec's "model" fit)
     d->engine = vec3(0, 0.8f, bhi.z - 0.6f); d->exhausts = {vec3(0.4f, 0.3f, blo.z - 0.05f)};
     float sx = hx + 1.1f; d->exits = {vec3(-sx, 0, 0), vec3(sx, 0, 0), vec3(-sx, 0, blo.z * 0.6f), vec3(sx, 0, blo.z * 0.6f), vec3(0, 0, blo.z - 1.5f), vec3(0, 0, bhi.z + 1.5f)};
     // arcade civilian handling (bigger = slower): ~80 km/h on roads, 45 off-road

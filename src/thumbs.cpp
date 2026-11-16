@@ -96,6 +96,9 @@ std::string assetThumbKey(const AssetDef& a) {
 static void toneNeutral(GLuint p) {
   glUniform1f(U(p, "uMapGamma"), 1.0f); glUniform1f(U(p, "uNightGamma"), 1.0f);
   glUniform1i(U(p, "uGradeOn"), 0); glUniform1f(U(p, "uUnderTone"), 0.0f); glUniform1f(U(p, "uEyeR"), 0.0f);
+  // the map look the main tone pass sets: overcast (uWxK: 38 % darker and muted), saturation, tint; and the tone curve
+  glUniform1f(U(p, "uWxK"), 0.0f); glUniform1f(U(p, "uMapSat"), 1.0f); glUniform3f(U(p, "uMapTint"), 1.0f, 1.0f, 1.0f);
+  glUniform1i(U(p, "uTonemap"), 1); glUniform1f(U(p, "uAspect"), 1.0f);
 }
 GLuint Renderer::renderThumbnail(const std::vector<DrawItem>& opaque, const std::vector<DrawItem>& glass, vec3 bmin, vec3 bmax, const Terrain* terr, const mat4* customView) {
   // map templates (terrain views) and the legacy path: sky background, fixed 3/4 sphere framing

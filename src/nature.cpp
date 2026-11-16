@@ -57,9 +57,9 @@ void icosphere(int det, std::vector<vec3>& V, std::vector<glm::uvec3>& F) {
   }
 }
 int lithFrom(const json& v) {
-  if (v.is_number()) return std::clamp(v.get<int>(), -1, 2);
+  if (v.is_number()) return std::clamp(v.get<int>(), -1, 3);
   std::string s = v.is_string() ? v.get<std::string>() : "limestone";
-  return s == "granite" ? 0 : s == "schist" ? 2 : s == "mixed" ? -1 : 1;
+  return s == "granite" ? 0 : s == "schist" ? 2 : s == "mixed" ? -1 : s == "dripstone" ? 3 : 1;   // CV1: dripstone = smooth flowstone, no fracture planes
 }
 vec3 lithTint(int lith, float r) {   // vertex albedo multiplies the pattern's own palette (~1 = as the cliffs)
   if (lith == 0) return vec3(1.0f, 0.98f, 0.97f) * (0.92f + 0.16f * r);
@@ -83,8 +83,8 @@ void buildRockPiece(MeshData& m, const RockPiece& rp, vec3 tint, std::vector<vec
   std::vector<vec3> V; std::vector<glm::uvec3> F;
   icosphere(std::clamp(rp.detail, 0, 3), V, F);
   Rng r{mix64(rp.seed * 0x9E3779B1ull + (uint64_t)rp.lith * 7919ull)};
-  int lith = std::clamp(rp.lith, 0, 2);
-  float amp = lith == 0 ? 0.13f : lith == 1 ? 0.09f : 0.07f, freq = lith == 0 ? 1.3f : lith == 1 ? 1.7f : 2.3f;
+  int lith = std::clamp(rp.lith, 0, 3);
+  float amp = lith == 0 ? 0.13f : lith == 1 ? 0.09f : lith == 2 ? 0.07f : 0.06f, freq = lith == 0 ? 1.3f : lith == 1 ? 1.7f : lith == 2 ? 2.3f : 1.5f;
   vec3 he = glm::max(rp.size * 0.5f, vec3(0.01f));
   uint32_t ns = (uint32_t)rp.seed * 31u + 5u;
   vec3 off(r.f() * 50, r.f() * 50, r.f() * 50);
@@ -106,7 +106,7 @@ void buildRockPiece(MeshData& m, const RockPiece& rp, vec3 tint, std::vector<vec
     addPl(vec3((r.f() - 0.5f) * 0.25f, 1, (r.f() - 0.5f) * 0.25f), 0.62f, 0.8f);                      // bedding: flat top
     for (int k = 0; k < 4; ++k) { float a = r.f() * 6.2831853f; addPl(vec3(std::cos(a), (r.f() - 0.5f) * 0.3f, std::sin(a)), 0.62f, 0.85f); }   // joints: steep faces
     for (int k = 0; k < 4; ++k) addPl(rdir(), 0.7f, 0.9f);
-  } else {
+  } else if (lith == 2) {
     float a = r.f() * 6.2831853f, tl = 0.25f + 0.35f * r.f();
     vec3 bed(std::cos(a) * tl, 1, std::sin(a) * tl);
     addPl(bed, 0.5f, 0.66f); addPl(-bed, 0.62f, 0.78f);                                                // slab: two parallel beds
@@ -142,7 +142,7 @@ void buildRockPiece(MeshData& m, const RockPiece& rp, vec3 tint, std::vector<vec
       vec3 sn = glm::length(vn[idx[k]]) > 1e-12f ? glm::normalize(vn[idx[k]]) : fn;
       vec3 nn = glm::normalize(glm::mix(fn, sn, 0.55f));
       float var = vn3(p * 0.9f, ns + 77);
-      Vertex v{p, nn, tint * (0.94f + 0.12f * var), vec4((float)PAT_ROCK, 0.88f, 0.0f, (float)lith), p, nn};
+      Vertex v{p, nn, tint * (0.94f + 0.12f * var), vec4((float)PAT_ROCK, 0.88f, 0.0f, (float)lith), p, nn};   // grain 3: dripstone (its own shading: no beds, vertical fluting)
       m.v.push_back(v); m.i.push_back(base++);
       if (tris) tris->push_back(p);
     }

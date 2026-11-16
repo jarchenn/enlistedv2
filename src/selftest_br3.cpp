@@ -12,13 +12,15 @@
 #include <cstdlib>
 #include <cmath>
 #include <sstream>
+#include <fstream>
+#include "terrain_blend.h"
 
 namespace {
 int mode = -1;
 float st = 0;
 int stage = 0, shotIdx = 0;
 fs::path pending;
-struct Spot { std::string name; vec2 eye, at; float y = 0; };
+struct Spot { std::string name; vec2 eye, at; float y = 0, ly = -1; };   // L2: ly >= 0: look at the target at this height over the floor
 std::vector<Spot> spots;
 int b1 = -1, b2 = -1;
 
@@ -29,11 +31,16 @@ void place(Soldier& s, vec3 feet, vec3 face) {
 }
 void hold(App& app, const Spot& sp) {
   Game& G = *gGame;
-  vec3 e(sp.eye.x, sp.y, sp.eye.y), t(sp.at.x, sp.y, sp.at.y), d = glm::normalize(t - e), side = glm::normalize(glm::cross(d, vec3(0, 1, 0)));
+  float fy = sp.y <= -9000 ? gGame->app.terrain.height(sp.eye.x, sp.eye.y) : sp.y;   // L2: y -9999 = the terrain there
+  vec3 e(sp.eye.x, fy, sp.eye.y), t(sp.at.x, fy, sp.at.y), d = glm::normalize(t - e), side = glm::normalize(glm::cross(d, vec3(0, 1, 0)));
   Physics::setCharacterPos(e);
   if (Soldier* L = G.local()) { L->feet = e; L->hp = 100; }
-  vec3 eye = e + vec3(0, 1.62f, 0), look = e + d * 6.0f + vec3(0, 1.3f, 0), v = look - eye;
+  vec3 eye = e + vec3(0, 1.62f, 0), look = sp.ly >= 0 ? t + vec3(0, sp.ly, 0) : e + d * 6.0f + vec3(0, 1.3f, 0), v = look - eye;
   app.eyeYaw = yawToward(v); app.eyePitch = degrees(std::atan2(v.y, glm::length(vec2(v.x, v.z))));
+  if (std::getenv("NMK_SHOTS_NOBOTS")) {   // L2 scenery shots: every bot far behind the camera
+    for (auto& s : G.sold) if (s.alive && !s.localPlayer) { vec3 p = e - d * (300.0f + 3.0f * s.slot); p.y = gGame->app.terrain.height(p.x, p.z); place(s, p, e); }
+    return;
+  }
   if (b1 >= 0) { place(G.sold[b1], e + d * 4.5f - side * 1.2f, e); G.sold[b1].hp = 100; }
   if (b2 >= 0) { place(G.sold[b2], e + d * 7.0f + side * 1.3f, e); G.sold[b2].hp = 100; }
 }
@@ -48,15 +55,18 @@ bool br3Shots(App& app, float dt) {
     if (const char* e = std::getenv("NMK_BR3_SHOTS")) {
       std::stringstream ss(e); std::string item;
       while (std::getline(ss, item, ';')) {
-        std::stringstream is(item); std::string f[6]; for (auto& x : f) std::getline(is, x, ':');
+        std::stringstream is(item); std::string f[7]; for (auto& x : f) std::getline(is, x, ':');
         auto n = [&](int i) { return (float)std::atof(f[i].c_str()); };
-        if (!f[5].empty()) spots.push_back({f[0], vec2(n(1), n(3)), vec2(n(4), n(5)), n(2)});   // UG3: name:x:y:z:tx:tz (y = the floor)
+        if (!f[5].empty()) spots.push_back({f[0], vec2(n(1), n(3)), vec2(n(4), n(5)), n(2), f[6].empty() ? -1.0f : n(6)});   // UG3: name:x:y:z:tx:tz[:look height] (y = the floor)
         else if (!f[4].empty()) spots.push_back({f[0], vec2(n(1), n(2)), vec2(n(3), n(4))});
       }
     }
     const char* mp = std::getenv("NMK_SHOTS_MAP");   // UG3: another map (content-relative), default Backrooms
     bool ok = app.openMap(contentDir() / (mp && *mp ? mp : "templates/backrooms.nmap.json"));
     gUi.loaded = false; gUi.matchScenario = json();
+    if (std::getenv("NMK_SHOTS_NOBOTS") && app.doc.extra.is_object() && app.doc.extra.contains("scenario") && app.doc.extra["scenario"].contains("rules"))
+      app.doc.extra["scenario"]["rules"]["mode"] = "solo";   // L2 scenery shots: a royale map would start aboard the drop plane
+    if (std::getenv("NMK_SHOTS_NOBOTS")) app.shotsNoViewModel = true;
     if (!gGame) gGame = new Game(app);
     gGame->pendingStart = true;
     ok = ok && app.enterExplore() && gGame->active;
@@ -237,5 +247,76 @@ bool poseShots(App& app, float dt) {
     }
     ++idx; t = 0; app.R.resetTemporal();
   }
+  return true;
+}
+
+// --find-floaters (MAP1): every placed instance against the ground it should stand on. NMK_FLOAT_MAPS = "dday,battle1,..."
+// (templates/<name>.nmap.json; default dday). Per instance: footprint corners (0.1 m in), edge midpoints and centre on the
+// runtime terrain (pads, berms, trench cuts; its own cut ignored). Floating: the base is over the ground by more than
+// 5 cm at any of them (trees: at the trunk); sunk: the centre more than 10 cm under it. Not counted: paths / decals,
+// nature / scatter patches and line assets (they conform per plant / segment), anything resting on a host's floor (inside an enterable or pinned footprint and over the ground there), pads with a
+// retaining skirt. Writes selftest_out/floaters_<map>.csv and logs "[floaters] <map>: N floating, M sunk".
+// the engine's pad core (terrain_blend.cpp padHalf / padOff): an earthwork's walls ("core": [hx, hz, cx, cz]), else the footprint
+static vec2 padHalf(const AssetDef* a) { const json& e = a->raw.is_object() && a->raw.contains("earthwork") ? a->raw["earthwork"] : json();
+  return e.is_object() && e.contains("core") ? vec2(e["core"][0].get<float>(), e["core"][1].get<float>()) : a->footprint * 0.5f; }
+static vec2 padOff(const AssetDef* a) { const json& e = a->raw.is_object() && a->raw.contains("earthwork") ? a->raw["earthwork"] : json();
+  return e.is_object() && e.contains("core") && e["core"].size() >= 4 ? vec2(e["core"][2].get<float>(), e["core"][3].get<float>()) : vec2(0); }
+bool floaterScan(App& app, float dt) {
+  static int pm = -1, idx = 0, stage = 0; static float t = 0; static std::vector<std::string> maps;
+  if (pm < 0) { pm = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--find-floaters") pm = 1;
+    if (pm) { const char* e = std::getenv("NMK_FLOAT_MAPS"); std::stringstream ss(e && *e ? e : "dday"); std::string it; while (std::getline(ss, it, ',')) if (!it.empty()) maps.push_back(it); } }
+  if (pm != 1) return false;
+  if (dt < 0) return true;
+  t += dt;
+  if (idx >= (int)maps.size()) { app.selftest->exitCode = 0; app.selftest->done = true; return true; }
+  if (stage == 0) {
+    bool ok = app.openMap(contentDir() / "templates" / (maps[idx] + ".nmap.json"));
+    logf("[floaters] open %s: %s", maps[idx].c_str(), ok ? "ok" : "FAILED");
+    if (!ok) { ++idx; return true; }
+    stage = 1; t = 0; return true;
+  }
+  if (t < 2.0f) return true;   // pads and cuts settle
+  const Terrain& T = app.terrain;
+  std::vector<const Instance*> hosts;
+  for (auto& i : app.doc.instances) { const AssetDef* a = app.assetFor(i); if (a && (a->enterable || blendPinned(a))) hosts.push_back(&i); }
+  auto toW = [](const Instance& i, vec2 l) { float r = radians(i.yaw), c = std::cos(r), s = std::sin(r); return vec2(i.pos.x + l.x * c + l.y * s, i.pos.z - l.x * s + l.y * c); };
+  auto onHost = [&](const Instance& p) {
+    for (auto* h : hosts) {
+      if (h->id == p.id) continue;
+      const AssetDef* ha = app.assetFor(*h); float r = radians(-h->yaw), c = std::cos(r), s = std::sin(r);
+      vec2 d(p.pos.x - h->pos.x, p.pos.z - h->pos.z), l(d.x * c + d.y * s, -d.x * s + d.y * c);
+      if (std::fabs(l.x) <= ha->footprint.x * 0.5f + 0.2f && std::fabs(l.y) <= ha->footprint.y * 0.5f + 0.2f && p.pos.y > T.placementHeight(p.pos.x, p.pos.z, p.id) + 0.08f) return true;
+    }
+    return false;
+  };
+  std::ofstream csv(exeDir() / "selftest_out" / ("floaters_" + maps[idx] + ".csv"));
+  csv << "kind,asset,id,x,y,z,yaw,gap_m,category\n";
+  int nf = 0, ns = 0;
+  for (auto& i : app.doc.instances) {
+    const AssetDef* a = app.assetFor(i);
+    if (!a || a->path.on) continue;
+    // conforming by construction: nature / scatter patches (each plant on the ground, nature.cpp), line assets (each
+    // segment on the ground; the instance position is only the anchor)
+    if (a->nature.kind != NatureDef::NONE || a->raw.contains("scatter") || a->raw.contains("line")) continue;
+    if (onHost(i)) continue;
+    bool skirted = false;
+    for (auto& st : T.stamps) if (st.owner == i.id && st.skirt > 0) skirted = true;
+    std::vector<vec2> L;
+    if (a->tree.on) { float r = std::max(0.1f, a->tree.trunkR * 0.8f); L = {vec2(0), vec2(r, 0), vec2(-r, 0), vec2(0, r), vec2(0, -r)}; }
+    else if (blendPinned(a)) { vec2 h = glm::max(padHalf(a) - vec2(0.15f), vec2(0.02f)), o = padOff(a);   // the engine's pad core (an earthwork's walls), as blendValidate
+      L = {o, o + vec2(-h.x, -h.y), o + vec2(h.x, -h.y), o + vec2(h.x, h.y), o + vec2(-h.x, h.y), o + vec2(0, -h.y), o + vec2(0, h.y), o + vec2(-h.x, 0), o + vec2(h.x, 0)}; }
+    else { vec2 h = glm::max(a->footprint * 0.5f - vec2(0.1f), vec2(0.02f)); L = {vec2(0), vec2(-h.x, -h.y), vec2(h.x, -h.y), vec2(h.x, h.y), vec2(-h.x, h.y), vec2(0, -h.y), vec2(0, h.y), vec2(-h.x, 0), vec2(h.x, 0)}; }
+    float gap = -1e9f, sink = 0;
+    for (size_t k = 0; k < L.size(); ++k) {
+      vec2 w = toW(i, L[k]); float d = i.pos.y - T.placementHeight(w.x, w.y, i.id);
+      gap = std::max(gap, d); if (k == 0) sink = -d;
+    }
+    const char* kind = nullptr; float v = 0;
+    if (gap > 0.05f && !skirted) { kind = "floating"; v = gap; ++nf; }
+    else if (sink > (a->tree.on ? 0.35f : !a->defense.kind.empty() ? 0.30f : a->footprint.x * a->footprint.y < 6.0f ? 0.20f : 0.10f) && a->navMeta.terrainCuts.empty() && !blendTrench(a)) { kind = "sunk"; v = sink; ++ns; }   // a trunk or a small piece into a slope is natural
+    if (kind) csv << kind << "," << a->id << "," << i.id << "," << i.pos.x << "," << i.pos.y << "," << i.pos.z << "," << i.yaw << "," << v << "," << a->category << "\n";
+  }
+  logf("[floaters] %s: %d floating, %d sunk (of %zu instances)", maps[idx].c_str(), nf, ns, app.doc.instances.size());
+  ++idx; stage = 0; t = 0;
   return true;
 }

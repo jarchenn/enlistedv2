@@ -105,6 +105,19 @@ void gm2ApplyClassSoldier(App& app, int slot, Soldier& s, const ClassDef& c) {
 }
 
 // ---------------------------------------------------------------- explosion pack
+// SND4: the countdown over the fuse (10 s): long beeps every tenth of it for its first 70 %, short ones every twentieth for
+// the next 20 %, the shortest every fiftieth for the last 10 % (7 long, 4 short, 5 shortest), then the blast; the LED
+// lights with each beep
+namespace {
+struct PackPhase { float from, gap; const char* ev; };
+const PackPhase kPackPhases[] = {{0.0f, 0.1f, "pack_beep_long"}, {0.7f, 0.05f, "pack_beep_short"}, {0.9f, 0.02f, "pack_beep_shortest"}};
+// u: the fraction of the fuse burnt (0..1); returns the phase, `key` the beep it is in, `since` the fraction since that beep
+int packBeat(float u, int& key, float& since) {
+  int i = u < 0.7f ? 0 : u < 0.9f ? 1 : 2; const PackPhase& ph = kPackPhases[i];
+  int k = (int)std::floor((u - ph.from) / ph.gap + 1e-4f); since = u - ph.from - k * ph.gap; key = i * 100 + k; return i;
+}
+float packFuseOf(const App& app, const LivePack& p) { return p.def >= 0 && p.def < (int)app.weaponDefs.size() && app.weaponDefs[p.def]->pack.fuse > 0 ? app.weaponDefs[p.def]->pack.fuse : 10.0f; }
+}
 bool gm2PlacePack(App& app, int def, vec3 eye, vec3 dir, int owner, std::string* why) {
   if (def < 0 || def >= (int)app.weaponDefs.size() || !app.weaponDefs[def]->pack.on) { if (why) *why = "not a pack"; return false; }
   const WeaponDef& d = *app.weaponDefs[def];
@@ -166,6 +179,10 @@ void gm2Step(App& app, float dt) {
   for (auto& p : gS.packs) {
     if (p.tank) { if (TankRT* t = app.tanks.get(p.tank)) { mat4 H = app.tanks.hullMatrix(*t); p.pos = vec3(H * vec4(p.local, 1)); p.nrm = glm::normalize(glm::mat3(H) * p.localN); } }
     p.fuse -= dt;
+    if (p.fuse > 0) {   // SND4: the countdown beeps (solo, host and LAN clients alike), heard within 45 m
+      int key; float since; int ph = packBeat(std::clamp(1.0f - p.fuse / packFuseOf(app, p), 0.0f, 0.9999f), key, since);
+      if (key != p.beat) { p.beat = key; if (glm::length(p.pos - app.eyePos()) < 45.0f) app.audio.play(kPackPhases[ph].ev, p.pos, 1.0f); }
+    }
     if (p.fuse > 0 || p.visualOnly) continue;
     const WeaponDef& d = *app.weaponDefs[p.def];
     blast(app, p.pos, p.nrm, d.pack.damage, d.pack.radius, d.pack.crater, p.owner, 4.0f);   // strength = sqrt(dmg): x4 = twice the depth, twice the breach area
@@ -195,9 +212,18 @@ void gm2NearMisses(App& app, float dt) {
     int me = gGame && gGame->active ? gGame->localSlot : -2;
     auto test = [&](vec3 p, vec3 v) {
       vec3 a = p - v * dt, ab = p - a; float L2 = glm::dot(ab, ab); if (L2 < 1e-6f) return;
-      float u = glm::dot(e - a, ab) / L2; if (u <= 0 || u >= 1) return;
-      float d = glm::length(a + ab * u - e);
+      float u = glm::dot(e - a, ab) / L2; if (u <= 0 || u >= 1) return;   // the closest approach falls in this step: once per bullet
+      vec3 c = a + ab * u; float d = glm::length(c - e);
       if (d < 2.5f && d > 0.05f) gm2AddNearMiss(1.0f - d / 2.5f);
+      if (d < 6.0f && d > 0.05f) {   // SND1: the whiz of a round passing the head: full inside 0.5 m, silent at 6 m, panned to the pass side
+        static double recent[4] = {-9, -9, -9, -9}; double now = ImGui::GetTime(); int slot = 0;
+        for (int k = 1; k < 4; ++k) if (recent[k] < recent[slot]) slot = k;
+        if (now - recent[slot] < 0.3) return;   // four in the last 0.3 s already: an MG burst does not stack dozens
+        recent[slot] = now;
+        float x = std::clamp((d - 0.5f) / 5.5f, 0.0f, 1.0f), vol = 1.0f - x * x * (3 - 2 * x);
+        static uint32_t rs = 12345; rs = rs * 1664525u + 1013904223u; float pitch = 0.92f + 0.16f * (rs >> 8) / 16777216.0f;
+        app.audio.play("bulletwhiz", e + (c - e) / d * 0.8f, vol, pitch);   // inside the 1 m min distance: panned, not attenuated twice
+      }
     };
     static int dbg = 0;   // shortcut: diagnostics for the near-miss self-test (enemy rounds within 10 m only), remove once it passes in the combined batch
     for (auto& q : app.projectiles) if (q.owner != -1 && dbg < 30 && glm::length(q.p - e) < 10.0f) { ++dbg; logf("gm2 nm: owner %d kind %d at (%.2f %.2f %.2f) v (%.0f %.0f %.0f) eye (%.2f %.2f %.2f) me %d dt %.4f", q.owner, q.kind, q.p.x, q.p.y, q.p.z, q.v.x, q.v.y, q.v.z, e.x, e.y, e.z, me, dt); }
@@ -214,12 +240,12 @@ void gm2DrawItems(App& app, std::vector<DrawItem>& op) {
     mat4 M(vec4(x, 0), vec4(y, 0), vec4(z, 0), vec4(p.pos, 1));
     if (d.useModel()) {   // MG10: the supplied charge (its base on the surface); without the local bake, the part-built box
       for (size_t k = 0; k < d.model->parts.size(); ++k) app.R.worldModels.push_back({d.model.get(), (int)k, M});
-      if (d.pack.hasLed) {   // blinking faster as the fuse runs down: 1 Hz, then 4 Hz in the last 3 s
+      if (d.pack.hasLed) {   // lit with each countdown beep (SND4), for 0.12 s or half the gap
         static GpuMesh led;
         if (!led.vao) { Material m{"pack_led"}; m.albedo = vec3(1, 0.05f, 0.03f); m.emissive = vec3(60, 2, 1);
           Part q; q.shape = Part::CYL; q.size = vec3(0.007f, 0.004f, 0.007f); q.collide = false; q.seg = 12; MeshData md; appendPart(md, q, m, mat4(1)); led.upload(md); }
-        float hz = p.fuse < 3 ? 4.0f : 1.0f, ph = std::fmod((d.pack.fuse - p.fuse) * hz, 1.0f);
-        if (ph < 0.3f) op.push_back({&led, M * glm::translate(mat4(1), d.pack.led)});
+        float D = packFuseOf(app, p), since; int key, ph = packBeat(std::clamp(1.0f - p.fuse / D, 0.0f, 0.9999f), key, since);
+        if (since * D < std::min(0.12f, 0.5f * kPackPhases[ph].gap * D)) op.push_back({&led, M * glm::translate(mat4(1), d.pack.led)});
       }
       continue;
     }

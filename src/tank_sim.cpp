@@ -170,6 +170,9 @@ void TankSys::stepAll(App& app, float dt, const ExploreInput& in) {
     }
   }
   for (auto& [id, t] : tanks) stepOne(app, t, dt, id == occupied ? &in : nullptr);
+  // the occupant's body rides with the vehicle: everything that asks where the player is (the local soldier's feet, AI
+  // targeting and LOD, enemies' chase) follows the vehicle instead of the spot where the player got in
+  if (occupied) if (TankRT* t = get(occupied); t && !(t->def && t->def->heli)) Physics::setCharacterPos(t->pos + vec3(0, 1.0f, 0));   // the helicopter places its own (heli.cpp)
   stepKnocked(app, dt);
   stepMs = (glfwGetTime() - t0) * 1000.0; stepMsMax = std::max(stepMsMax, stepMs);
 }

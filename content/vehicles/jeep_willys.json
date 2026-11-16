@@ -62,11 +62,7 @@
     "note": "part-built stand-in made of boxes and cylinders by tools/vehicles/make_jeep_fallback.py (committed)"
   },
   "rig": {
-    "driverEyeFromSteer": [
-      0,
-      0.43,
-      -0.51
-    ],
+    "driverEyeFromSteer": [0, 0.38, -0.51],
     "steerAxis": [
       0,
       0.497,
@@ -187,5 +183,6 @@
     "engineKW": 45,
     "pushEfficiency": 0.5,
     "note": "Willys MB ~1,040 kg empty, 60 hp Go Devil engine"
-  }
+  },
+  "dash": {"spec": "jeep_willys", "offset": [0, -0.37, 0.62], "note": "VH6b src/vehicle_dash.cpp: the interior content/vehicles/dash/jeep_willys.json, anchored at the driver's eye + offset"}
 }

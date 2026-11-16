@@ -17,7 +17,14 @@ public:
   std::string lastEvent;   // event or procedural buffer actually used by the last play()
   std::map<std::string, int> eventPlays;   // plays per resolved event (tests)
   void shutdown();
-  void play(const std::string& name, vec3 pos, float volume = 1.0f);
+  void play(const std::string& name, vec3 pos, float volume = 1.0f, float pitch = 1.0f, float delay = 0);   // SND1: pitch (1 = as recorded); SND4: delay (s) before it starts
+  // SND4: a spent case landing `delay` s after a shot at a shooter's feet (`soft` ground: quieter): within 15 m of the
+  // listener only, at most one per 80 ms per shooter (automatic fire) and 6 at once
+  void casing(vec3 feet, int shooter, float delay, bool soft);
+  int casingsPlayed = 0, casingsSkipped = 0;   // tests
+  // SND5 diagnostics (NMK_AUDIO_FIDELITY: no device, the mix read back): each gun event played as the player's own shot,
+  // against its decoded mp3: peak, RMS and 1-4 / 4-10 kHz band energy (first 0.5 s from the onset), logged
+  void fidelityReport(const fs::path& customDir);
   void setListener(vec3 pos, vec3 fwd);
   void setAmbience(float wind, float leaves);
   void setBed(int slot, const fs::path& file, float volume);   // a looping music / room-tone file under everything, two slots that mix (empty path: none); cheap to call every frame
@@ -26,11 +33,12 @@ public:
   void setGains(float master, float effects, float ui, float ambience);
   // under water (swim.cpp): 0 normal .. 1 muffled (a low-pass on everything that reaches the speakers, a little quieter)
   void setUnderwater(float k);
+  void setRoom(float indoor);   // SND5: 0 outdoors .. 1 tunnels / Backrooms: the gun reverb's slap-back and tail
   float underwater = 0;
   float masterGain = 1, effectsGain = 1, uiGain = 1, ambienceGain = 1;
   // looping spatialised voices (tank engines, tracks, turret motors) and runtime-registered sounds (tank.cpp)
   void addSound(const std::string& name, std::vector<float> mono44k);
-  int loopStart(const std::string& name, vec3 pos, float volume, float pitch);   // -1: no voice / unknown sound
+  int loopStart(const std::string& name, vec3 pos, float volume, float pitch, float offset = 0);   // -1: no voice / unknown sound; offset: 0..1 into the loop
   void loopSet(int handle, vec3 pos, float volume, float pitch);
   void loopStop(int handle);
   int loopsActive() const;

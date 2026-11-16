@@ -103,7 +103,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     u.invertY = q.value("invertY", u.invertY); u.reducedMotion = q.value("reducedMotion", u.reducedMotion);
     u.showArms = q.value("showArms", u.showArms); u.sightMarkers = q.value("sightMarkers", u.sightMarkers);
     u.weaponList = q.value("weaponList", u.weaponList); u.friendlyMarkers = q.value("friendlyMarkers", u.friendlyMarkers);
-    u.heliCamMotion = std::clamp(q.value("heliCameraMotion", u.heliCamMotion), 0.0f, 1.0f);
+    u.heliCamMotion = std::clamp(q.value("heliCameraMotion", u.heliCamMotion), 0.0f, 3.0f);
   }
   if (j.contains("audio") && j["audio"].is_object()) {
     const json& q = j["audio"];
@@ -178,7 +178,7 @@ const Action kActions[] = {{"fireMode", "Fire mode"}, {"prone", "Prone"}, {"crou
                            {"forward", "Move forward"}, {"back", "Move back"}, {"left", "Move left"}, {"right", "Move right"}, {"sprint", "Sprint"}, {"jump", "Jump"},
                            {"leanLeft", "Lean left"}, {"leanRight", "Lean right"}, {"interact", "Interact / enter"}, {"reload", "Reload"}, {"nextWeapon", "Next weapon"},
                            {"slot1", "Weapon slot 1"}, {"slot2", "Weapon slot 2"}, {"slot3", "Weapon slot 3 (knife)"}, {"slot4", "Weapon slot 4 (grenades)"},
-                           {"build", "Build"}, {"loadout", "Loadout / range"}, {"map", "Map"}, {"artillery", "Artillery"}, {"scoreboard", "Scoreboard"}};   // UI1
+                           {"build", "Build"}, {"loadout", "Loadout / range"}, {"map", "Map"}, {"artillery", "Artillery"}, {"scoreboard", "Scoreboard"}, {"flashlight", "Flashlight (headlamp)"}};   // UI1
 int* bindSlot(App& app, const std::string& a) {
   auto& b = app.binds;
   return a == "fireMode" ? &b.fireMode : a == "prone" ? &b.prone : a == "crouch" ? &b.crouch : a == "packUp" ? &b.packUp : a == "grenade" ? &b.grenade : a == "smokeGrenade" ? &b.smokeGrenade : b.key.count(a) ? &b.key[a] : nullptr;
@@ -404,8 +404,8 @@ void settingsWindow(App& app) {
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Aiming sensitivity", &u.adsSens, 0.3f, 1.5f, "x %.2f");
       ImGui::Checkbox("Invert mouse Y", &u.invertY);
       ImGui::Checkbox("Reduced motion (keeps aim displacement)", &u.reducedMotion);
-      ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Helicopter camera motion", &u.heliCamMotion, 0.0f, 1.0f, "%.2f");
-      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Camera banking, rotor vibration and landing shake while flying a helicopter (0 = none, 1 = full).");
+      ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Helicopter camera motion", &u.heliCamMotion, 0.0f, 3.0f, "x %.2f");
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Camera banking, rotor vibration and landing shake while flying a helicopter (0 = none, 1 = default, up to 3x more).");
       ImGui::Checkbox("Show arms", &u.showArms);
       ImGui::Checkbox("Sight calibration markers", &u.sightMarkers);
       ImGui::Checkbox("Show weapon list", &u.weaponList);

@@ -437,7 +437,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   s.cooldown = std::max(0.0f, s.cooldown - dt);
   float boltPrev = s.bolt;
   s.bolt = std::max(0.0f, s.bolt - dt);
-  if (d.action == "bolt" && d.boltTime > 0 && boltPrev > s.bolt) {   // working the bolt: open, then close (bank foley; "bolt" fallback)
+  if (d.action == "bolt" && d.boltTime > 0 && boltPrev > s.bolt && !audio.hasEvent("bolt_cycle_" + d.id)) {   // working the bolt: open, then close (bank foley; "bolt" fallback; SND4: the cycle recording plays at the shot instead)
     auto crossed = [&](float u) { float k = d.boltTime * (1 - u); return boltPrev > k && s.bolt <= k; };
     if (crossed(0.25f)) audio.play("bolt", eyePos(), 0.6f);
     if (crossed(0.7f)) audio.play("bolt_close", eyePos(), 0.6f);
@@ -514,7 +514,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       s.clicked = false;
       s.loaded -= 1; ++s.shotIdx; ++s.burst;
       s.cooldown = 60.0f / d.rpm;
-      if (d.action == "bolt") s.bolt = d.boltTime;
+      if (d.action == "bolt") { s.bolt = d.boltTime; if (audio.hasEvent("bolt_cycle_" + d.id)) audio.play("bolt_cycle_" + d.id, eyePos(), 0.7f); }   // SND4: open-back, forward-close, twice
       vec3 eye = eyePos();
       vec3 aimDir = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch);
       // dispersion: the class's hip / ADS cone (handling.json) x the stance (prone near laser-like, mounted near none)
@@ -566,6 +566,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       fx.smoke(fxm, aimDir * 2.0f + vec3(0, 0.3f, 0), 0.05f, 0.7f + 0.5f * fx.rnd(), vec4(0.6f, 0.58f, 0.55f, 0.16f), 0.6f, 0.2f); fx.parts.back().fade = 1.6f;   // thin, short-lived, eroded wisp
       audio.play("shot_" + d.id, muzzle, 1.0f);
       if (d.pellets > 1) audio.play("shotgun_pump", eyePos(), 0.8f);   // the pump cycling the next shell (the recording starts 0.3 s in)
+      shotCasing(d, ch.pos, -1);   // SND4
       // recoil per shot = profile x stance (handling.json: crouched 0.85, prone 0.6) x 0.85 in ADS. Mounted keeps the
       // pre-overhaul values: the old posture factor (prone 0.20, crouched 0.70) x the weapon's own bipod factor
       // (recoil.supported; MG 42 prone 0.2 x 0.35 = 0.07), handling.json mounted 0.5 only for a bipod weapon without one.

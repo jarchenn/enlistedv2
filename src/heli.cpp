@@ -63,7 +63,7 @@ const HeliTune& tune() {
   return T;
 }
 // camera motion scale: the Settings slider, x 0.3 with Reduced motion
-float camMotion(const App& app) { return std::clamp(settings().s.heliCamMotion, 0.0f, 1.0f) * (app.reducedMotion ? 0.3f : 1.0f); }
+float camMotion(const App& app) { return std::clamp(settings().s.heliCamMotion, 0.0f, 3.0f) * (app.reducedMotion ? 0.3f : 1.0f); }
 }
 float gHeliViewRoll = 0;   // degrees, read by App::viewUp (swim.cpp)
 
@@ -147,12 +147,14 @@ void TankSys::stepHeli(App& app, TankRT& t, float dt, const ExploreInput* in) {
   t.vel.x = vh.x; t.vel.z = vh.z;
   // ---- move per axis (vertical first): blocked components stop, the rest slides along the obstacle
   vec3 p = t.pos; float impact = 0;
-  for (int ax : {1, 0, 2}) {
-    vec3 q = p; q[ax] += t.vel[ax] * dt;
-    if (ax == 1) { float gy = heliGround(app, t, q); if (q.y < gy) { q.y = gy; if (t.vel.y < 0) { impact = -t.vel.y; t.vel.y = 0; } } }
-    if (heliBlocked(t, q, t.yaw)) { t.vel[ax] = 0; continue; }
-    p = q;
-  }
+  int nSub = std::clamp((int)std::ceil(glm::length(t.vel) * dt / 0.4f), 1, 16);   // at 300 km/h: <= 0.4 m per sweep (no tunnelling through walls)
+  for (int k = 0; k < nSub; ++k)
+    for (int ax : {1, 0, 2}) {
+      vec3 q = p; q[ax] += t.vel[ax] * dt / nSub;
+      if (ax == 1) { float gy = heliGround(app, t, q); if (q.y < gy) { q.y = gy; if (t.vel.y < 0) { impact = -t.vel.y; t.vel.y = 0; } } }
+      if (heliBlocked(t, q, t.yaw)) { t.vel[ax] = 0; continue; }
+      p = q;
+    }
   t.pos = p;
   t.grounded = t.pos.y <= heliGround(app, t, t.pos) + 0.05f;
   // ---- landing: the gear compresses (spring-damper), harder touchdowns thud louder and jolt the camera

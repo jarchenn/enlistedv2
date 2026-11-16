@@ -3,6 +3,7 @@
 // the presentation (skinned characters, HUD). Runs inside Explore mode when a match was started from the Play menu
 // (Singleplayer / Host LAN); plain Explore walkthroughs are unchanged. Clients (net.cpp) mirror it from snapshots.
 #include "match.h"
+#include "commands.h"   // CMD2 gAdmin (hostile)
 #include "nav.h"
 #include "character.h"
 #include "combat.h"
@@ -26,6 +27,7 @@ struct Brain {
   int mode = M_IDLE; float modeT = 0;
   int target = -1; float targetTime = 0, aimSteady = 0;
   float aimYaw = 0, aimPitch = 0;            // aim direction (turns at aimTurn), separate from the body / locomotion yaw
+  float aimWantYaw = 0;                      // AI5: where the aim wants to go (the body turns toward it; the aim twists at most 50 deg off the body)
   std::vector<EnemyMemory> mem;
   int lane = LANE_MAIN;
   std::vector<vec3> route; size_t routeIdx = 0;
@@ -48,7 +50,9 @@ struct Soldier {
   int slot = -1; bool inUse = false, alive = false;
   Faction faction = Faction::Allies; CombatRole role = CombatRole::Defender;
   int team = 0;                              // friend / foe (G1): Assault / TDM = (int)role, Solo = own slot
-  bool zombie = false;                       // G2: the melee brain (zombie.cpp: Zombies, heavies, Fighters): no weapon
+  bool zombie = false;
+  bool op = false;
+  float lean = 0;                            // MV3: the player's Q / E lean (-1 .. 1; local from App::lean, LAN in the snapshot)                           // AI5: an Operator bot (AiType::Operators): modern weapons (combat.json loadouts_operator)                       // G2: the melee brain (zombie.cpp: Zombies, heavies, Fighters): no weapon
   int etype = 0; double staggerUntil = 0;    // EN1: enemy type (enemy_types.h; LAN snapshot), stopped by a heavy hit until
   int evariant = 0;                          // the type's model variant (Game::begin, in turn per type; clients compute the same)
   bool flat = false;   // crushed by a Fighter's stomp: the body is drawn pressed flat into the ground
@@ -165,10 +169,12 @@ public:
   bool hitTest(const Soldier& s, vec3 a, vec3 d, float maxT, HitZone& hz) const;
   int soldierOfOwner(int owner) const;
   bool sameTeam(int a, int b) const { return a >= 0 && b >= 0 && sold[a].team == sold[b].team; }
-  static bool hostile(const Soldier& a, const Soldier& b) { return &a != &b && a.team != b.team; }   // G1: every enemy check
+  static bool hostile(const Soldier& a, const Soldier& b) {   // G1: every enemy check; CMD2: an AI never takes the /admin (ignored) or anyone (/peace) for an enemy
+    return &a != &b && a.team != b.team && !(!a.human && (gAdmin.peace || (gAdmin.ignored && b.localPlayer))); }
   // perception helpers
   bool lineOfSight(vec3 a, vec3 b, float* smokeT = nullptr) const;
   vec3 eye(const Soldier& s) const;
+  void renderView(vec3& eye, vec3& fwd) const;   // the camera the frame renders from: a vehicle / gun camera when seated, else the eye
   vec3 chest(const Soldier& s) const;
   // AI (ai.cpp)
   void aiStep(Soldier& s, float dt);

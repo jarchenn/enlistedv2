@@ -623,9 +623,10 @@ void AiCore::move(Soldier& s, float dt) {
     }
   }
   // body facing: toward movement when moving fast, else toward the aim
-  float bodyWant = glm::length(vel) > 1.0f ? yawOf(vel) : b.aimYaw;
-  if (std::fabs(angDiff(b.aimYaw, bodyWant)) > 70.0f && m.speed != SPD_SPRINT) bodyWant = b.aimYaw;
-  float turn = 400.0f * dt;
+  // AI5: the upper body twists at most kWaist from the body; an engaged bot turns its body toward the target first
+  float bodyWant = glm::length(vel) > 1.0f ? yawOf(vel) : b.aimWantYaw;   // standing: the body itself faces what it aims at
+  if (std::fabs(angDiff(b.aimWantYaw, bodyWant)) > 45.0f && m.speed != SPD_SPRINT) bodyWant = b.aimWantYaw;
+  float turn = 300.0f * dt;   // realistic body turn rate (deg/s)
   s.yaw = wrapDeg(s.yaw + std::clamp(angDiff(bodyWant, s.yaw), -turn, turn));
   int posture = m.posture;
   if (crouchArea && posture == Physics::STAND) posture = Physics::CROUCH;

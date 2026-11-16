@@ -1,0 +1,35 @@
+{
+  "note": "Willys MB (1944): a flat olive-drab steel panel, the speedometer in the middle with fuel / ammeter and temperature / oil-pressure dials either side (oil pressure follows the revs: the rpm read-out), three riveted data plates, pull knobs, the passenger grab bar, a canvas map pouch. Kit space: x toward the cab's middle, y up, z forward; at = the mounting surface (src/vehicle_dash.cpp).",
+  "palette": {
+    "od": {"rgb": [0.23, 0.24, 0.15], "rough": 0.75, "metal": 0.35, "pat": "painted", "tex": true},
+    "od_worn": {"rgb": [0.3, 0.29, 0.21], "rough": 0.8, "metal": 0.5, "pat": "metal", "tex": true},
+    "face": {"rgb": [0.015, 0.015, 0.015], "rough": 0.6},
+    "bezel": {"rgb": [0.05, 0.05, 0.045], "rough": 0.4, "metal": 0.6, "pat": "metal"},
+    "canvas": {"rgb": [0.3, 0.29, 0.18], "rough": 0.95, "pat": "fabric", "tex": true},
+    "knob": {"rgb": [0.03, 0.03, 0.028], "rough": 0.35},
+    "mark": {"rgb": [0.95, 0.95, 0.92], "rough": 0.6, "emi": [0.5, 0.48, 0.4]}
+  },
+  "needle": [0.95, 0.92, 0.82],
+  "items": [
+    {"id": "panel", "type": "box", "at": [0.33, -0.02, 0.015], "size": [1.24, 0.2, 0.03], "mat": "od"},
+    {"id": "roll", "type": "cyl", "at": [0.33, 0.08, 0.0], "r": 0.016, "depth": 1.24, "axis": [1, 0, 0], "mat": "od", "sides": 10},
+    {"id": "flange", "type": "box", "at": [0.33, -0.126, -0.03], "size": [1.24, 0.012, 0.09], "mat": "od"},
+    {"id": "wear", "type": "stencil", "at": [-0.15, -0.105, 0.0], "n": 6, "size": [0.05, 0.01], "mat": "od_worn"},
+    {"id": "speedo", "type": "gauge", "at": [0.33, 0.0, 0.0], "r": 0.058, "n": 5, "numStep": 1, "read": "speed", "bezel": "bezel", "bezelD": 0.012},
+    {"id": "fuel", "type": "gauge", "at": [0.2, 0.032, 0.0], "r": 0.027, "sweep": 90, "read": "fuel", "bezel": "bezel", "bezelW": 0.006, "bezelD": 0.01},
+    {"id": "amps", "type": "gauge", "at": [0.2, -0.04, 0.0], "r": 0.027, "sweep": 90, "bezel": "bezel", "bezelW": 0.006, "bezelD": 0.01},
+    {"id": "temp", "type": "gauge", "at": [0.46, 0.032, 0.0], "r": 0.027, "sweep": 90, "read": "temp", "bezel": "bezel", "bezelW": 0.006, "bezelD": 0.01},
+    {"id": "oil", "type": "gauge", "at": [0.46, -0.04, 0.0], "r": 0.027, "sweep": 90, "read": "rpm", "bezel": "bezel", "bezelW": 0.006, "bezelD": 0.01},
+    {"id": "plates", "type": "plates", "at": [0.6, 0.03, 0.0], "n": 3, "pitch": [0.075, 0], "size": [0.066, 0.042]},
+    {"id": "plate_low", "type": "plates", "at": [0.64, -0.05, 0.0], "n": 1, "size": [0.12, 0.03]},
+    {"id": "pulls", "type": "pullknobs", "at": [0.0, -0.075, 0.0], "n": 4, "pitch": [0.052, 0], "r": 0.011, "mat": "knob"},
+    {"id": "ignition", "type": "knobs", "at": [0.06, 0.03, 0.0], "n": 1, "r": 0.012, "ring": "od_worn", "mat": "knob"},
+    {"id": "lamps", "type": "lamps", "at": [0.27, -0.075, 0.0], "rows": 1, "cols": 2, "pitch": [0.12, 0], "r": 0.005, "bezel": "bezel", "color": [2.6, 0.25, 0.1]},
+    {"id": "stencil", "type": "stencil", "at": [0.54, -0.095, 0.0], "n": 9, "size": [0.01, 0.005]},
+    {"id": "bolts", "type": "bolts", "at": [-0.25, 0.06, 0.0], "n": 11, "pitch": [0.116, 0], "r": 0.005, "mat": "od_worn"},
+    {"id": "grab", "type": "grab", "at": [0.82, 0.03, 0.0], "len": 0.26, "mat": "od"},
+    {"id": "pouch", "type": "box", "at": [0.86, -0.21, -0.02], "size": [0.22, 0.17, 0.035], "mat": "canvas"},
+    {"id": "pouch_flap", "type": "box", "at": [0.86, -0.14, -0.04], "size": [0.23, 0.05, 0.012], "mat": "canvas", "rot": [-15, 0, 0]},
+    {"id": "strap", "type": "box", "at": [0.86, -0.08, -0.002], "size": [0.03, 0.12, 0.004], "mat": "canvas"}
+  ]
+}

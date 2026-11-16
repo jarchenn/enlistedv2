@@ -814,7 +814,10 @@ int App::run(int argc, char** argv) {
     else if (a == "--grass" && k + 1 < argc) { std::string q = argv[++k]; grass.quality = q == "off" ? GrassQuality::Off : q == "low" ? GrassQuality::Low : q == "high" ? GrassQuality::High : q == "ultra" ? GrassQuality::Ultra : GrassQuality::Medium; }
     else if (a == "--selftest-gore") runSelf = true;
     else if (a == "--shots-backrooms") runSelf = true;
+    else if (a == "--find-floaters") runSelf = true;   // MAP1 (selftest_br3.cpp)
     else if (a == "--shots-poses") runSelf = true;   // AN1 (selftest_br3.cpp)
+    else if (a == "--check-turn-engage") runSelf = true;   // AI5 (selftest_turn.cpp)
+    else if (a == "--capture-lean") runSelf = true;   // MV3 (selftest_lean.cpp)
     else if (a == "--shots-palette") runSelf = true;   // BR5 (selftest_br3.cpp)   // BR3 (selftest_br3.cpp)
     else if (a == "--selftest-modes") runSelf = true;   // G1 Solo / TDM modes (selftest_modes.cpp)   // W7 gore suite (selftest_gore.cpp)
     else if (a == "--selftest-nature") runSelf = true;   // natural ground dressing (selftest_nature.cpp)
@@ -825,7 +828,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-lights") runSelf = true;   // L2 lighting engine (selftest_lights.cpp)
     else if (a == "--selftest-swim") runSelf = true;     // swimming, underwater view, breath (selftest_swim.cpp)
     else if (a == "--capture-heli") runSelf = true;   // VH5 (capture_heli.cpp)
-    else if (a == "--selftest-zombies" || a == "--capture-heavies" || a == "--capture-commands" || a == "--capture-ch1" || a == "--capture-fighter2" || a == "--capture-fighter2-slam") runSelf = true;
+    else if (a == "--selftest-zombies" || a == "--capture-heavies" || a == "--capture-commands" || a == "--capture-ch1" || a == "--capture-ch6" || a == "--capture-fighter2" || a == "--capture-fighter2-slam") runSelf = true;
     else if (a == "--capture-br-models" || a == "--capture-br-worn") runSelf = true;   // BR3 / BR8: a look at the Battle Royale models and worn gear (selftest_brmodels.cpp)
     else if (a == "--capture-jeep" || a == "--capture-abrams") runSelf = true;
     else if (a == "--selftest-royale-live") runSelf = true;   // BR7: 20 bots on Newtown (selftest_royale_live.cpp)   // VH1: a look at the jeeps (selftest_vehicles.cpp)   // EN2: a look at the heavies (selftest_zombies.cpp)
@@ -850,6 +853,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--box-weapons") useImportedModels = false;
     else if (a == "--weapon-sheets" && k + 1 < argc) sheetsDir = argv[++k];
     else if (a == "--model-preview" && k + 2 < argc) { previewGlb = argv[++k]; previewOut = argv[++k]; if (k + 1 < argc && argv[k + 1][0] != '-') previewSpec = argv[++k]; }
+    else if (a == "--check-vehicle-ai") runSelf = true;   // selftest_vehicle_ai.cpp
     else if (a == "--tank-preview" && k + 1 < argc) tankPreviewDir = argv[++k];
     else if (a == "--capture-vehicle" && k + 1 < argc) { runSelf = true; ++k; }
     else if (a == "--capture-dash") runSelf = true;   // capture_dash.cpp: driver's views (VH6)   // capture_vehicle.cpp: one frame of a placed vehicle   // tank.cpp: views of the baked tanks + rig sockets
@@ -897,6 +901,7 @@ int App::run(int argc, char** argv) {
   audio.init();
   audio.loadEvents(contentDir() / "audio");
   audio.loadCustom(contentDir() / "audio" / "custom");
+  if (std::getenv("NMK_AUDIO_FIDELITY")) { audio.fidelityReport(contentDir() / "audio" / "custom"); std::exit(0); }   // SND5 diagnostics
   int fbw, fbh; glfwGetFramebufferSize(win, &fbw, &fbh);
   R.init(fbw, fbh);
   settingsInit(*this, runSelf);   // settings_user.json: presets, gameplay, audio, keys, UI (settings.cpp)
@@ -1031,8 +1036,12 @@ int App::run(int argc, char** argv) {
       audio.setListener(e, forward(eyeYaw, eyePitch));
       {   // ambience loops: the battlefield everywhere but Backrooms; the room tone (60 %) on Backrooms and, under the battlefield, Tunnels
         const fs::path amb = contentDir() / "audio" / "ambience"; const bool br = doc.templateId == "backrooms", tn = doc.templateId == "tunnels";
-        audio.setBed(0, br && fs::exists(amb / "level0.mp3") ? amb / "level0.mp3" : br || tn ? amb / "backrooms.mp3" : fs::path(), 0.6f);   // level0.mp3: local-only track
-        audio.setBed(1, br ? fs::path() : amb / "battlefield.mp3", 0.7f);
+        // CV1: a map may name its own bed (extra.audio.bed, a file in content/audio/ambience) and drop the battlefield (extra.audio.battlefield false)
+        const json* au = doc.extra.is_object() && doc.extra.contains("audio") && doc.extra["audio"].is_object() ? &doc.extra["audio"] : nullptr;
+        const std::string own = au ? au->value("bed", std::string()) : std::string();
+        audio.setBed(0, !own.empty() ? amb / own : br && fs::exists(amb / "level0.mp3") ? amb / "level0.mp3" : br || tn ? amb / "backrooms.mp3" : fs::path(), !own.empty() ? au->value("bedVolume", 0.8f) : 0.6f);   // level0.mp3: local-only track
+        audio.setBed(1, br || (au && !au->value("battlefield", true)) ? fs::path() : amb / "battlefield.mp3", 0.7f);
+        audio.setRoom(br || tn || (au && !au->value("battlefield", true)) ? 1.0f : 0.0f);   // SND5: the gun reverb
       }
     }
     audio.setUnderwater(v.underwater ? 1.0f : 0.0f);   // swim.cpp: muffled under water
@@ -1041,7 +1050,7 @@ int App::run(int argc, char** argv) {
     mark("fx");
     v.view = viewM; v.proj = projM; v.dt = frameDt;
     R.fxAlpha.clear(); R.fxAdd.clear();
-    if (mode == Mode::Explore) fx.build(viewM, R.fxAlpha, R.fxAdd);
+    if (mode == Mode::Explore || selftest) fx.build(viewM, R.fxAlpha, R.fxAdd);   // CV1: captures show light shafts / mist too
     if (mode == Mode::Explore) { extern void royaleFx(App&, std::vector<FxVert>&); royaleFx(*this, R.fxAlpha); }   // BR12: the storm wall, depth-tested in the scene
     if (!R.lt.mapClean) lightsMotes(*this, viewM, R.fxAdd);   // GX2: dust in the sun shafts indoors (every mode); BR2: none on a clean map
     mark("w3");
@@ -1071,6 +1080,7 @@ int App::run(int argc, char** argv) {
       R.lt.mapSat = lk ? std::clamp(lk->value("saturation", 1.0f), 0.0f, 2.0f) : 1.0f;
       R.lt.mapGrime = lk ? std::clamp(lk->value("grime", 0.0f), 0.0f, 2.0f) : 0.0f;
       R.lt.mapVegCull = lk ? std::clamp(lk->value("vegCull", 1.0f), 0.3f, 1.0f) : 1.0f;
+      R.lt.mapCave = lk && lk->value("cave", false) ? 1.0f : 0.0f;
       tex::mapPaintSets(lk);   // NT4
       R.lt.mapTint = lk && lk->contains("tint") && (*lk)["tint"].is_array() && (*lk)["tint"].size() == 3 ? vec3((*lk)["tint"][0].get<float>(), (*lk)["tint"][1].get<float>(), (*lk)["tint"][2].get<float>()) : vec3(1.0f);
       R.wx.mapFog = lk && lk->contains("envFog") ? std::clamp(lk->value("envFog", 1), 0, 3) : -1;
@@ -1100,7 +1110,7 @@ int App::run(int argc, char** argv) {
     }
     ImGui::Render();
     glViewport(0, 0, fbw, fbh);
-    platformImGuiRender(ImGui::GetDrawData());
+    if (!hideUi) platformImGuiRender(ImGui::GetDrawData());
     R.gpuMark(GP_Count);   // end of the UI pass (render.cpp gpuMark)
     mark("present");
     if (rec.active() && (++recTick & 1)) {   // 30 fps from the fixed 60 Hz simulation, HUD included

@@ -54,7 +54,8 @@ json ScenarioRules::toJson() const {
           {"lanes", {laneLeft, laneMain, laneRight}}, {"friendlyFire", friendlyFire},
           {"mode", mode == GameMode::Solo ? "solo" : mode == GameMode::TDM ? "tdm" : mode == GameMode::BattleRoyale ? "royale" : "assault"}, {"killCap", killCap},
           {"royalePlayers", royalePlayers}, {"lootModern", lootModern},
-          {"soloPlayers", soloPlayers}, {"teamPlayers", {teamPlayers[0], teamPlayers[1]}}, {"aiTypes", {aiTypes[0], aiTypes[1]}}, {"heavyTrollPct", {heavyTrollPct[0], heavyTrollPct[1]}},
+          {"soloPlayers", soloPlayers}, {"teamPlayers", {teamPlayers[0], teamPlayers[1]}}, {"aiTypes", {aiTypes[0], aiTypes[1]}},
+          {"aiCount", {std::vector<int>(aiCount[0], aiCount[0] + kAiTypeCount), std::vector<int>(aiCount[1], aiCount[1] + kAiTypeCount)}}, {"heavyTrollPct", {heavyTrollPct[0], heavyTrollPct[1]}},
           {"humanTeam", humanTeam}, {"teamFaction", {factionName(teamFaction[0]), factionName(teamFaction[1])}}, {"respawnDelay_s", respawnDelay}, {"allowedClasses", allowedClasses}};
 }
 
@@ -89,6 +90,9 @@ ScenarioRules ScenarioRules::fromJson(const json& j, int version) {
     for (int t = 0; t < 2; ++t) { int m = j["aiTypes"][t].get<int>() & ((1 << kAiTypeCount) - 1); r.aiTypes[t] = m ? m : 1; }
   else if (j.contains("aiType") && j["aiType"].is_array() && j["aiType"].size() == 2)   // before the checklist: one type per side (0..3)
     for (int t = 0; t < 2; ++t) r.aiTypes[t] = aiBit((AiType)std::clamp(j["aiType"][t].get<int>(), 0, 3));
+  if (j.contains("aiCount") && j["aiCount"].is_array() && j["aiCount"].size() == 2)   // AI3 (older rules: none, the ticked types in turn)
+    for (int t = 0; t < 2; ++t) if (j["aiCount"][t].is_array())
+      for (int k = 0; k < kAiTypeCount && k < (int)j["aiCount"][t].size(); ++k) r.aiCount[t][k] = j["aiCount"][t][k].is_number_integer() ? std::clamp(j["aiCount"][t][k].get<int>(), 0, kMaxAI) : 0;
   if (j.contains("heavyTrollPct") && j["heavyTrollPct"].is_array() && j["heavyTrollPct"].size() == 2)
     for (int t = 0; t < 2; ++t) r.heavyTrollPct[t] = std::clamp(j["heavyTrollPct"][t].get<int>(), 0, 100);
   r.humanTeam = std::clamp(j.value("humanTeam", r.humanTeam), 0, 1);

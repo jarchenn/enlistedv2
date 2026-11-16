@@ -32,11 +32,7 @@
     }
   },
   "rig": {
-    "driverEyeFromSteer": [
-      0,
-      0.42,
-      -0.64
-    ],
+    "driverEyeFromSteer": [0, 0.38, -0.56],
     "steerAxis": [
       0,
       0.66,
@@ -157,5 +153,6 @@
     "engineKW": 45,
     "pushEfficiency": 0.5,
     "note": "Willys MB ~1,040 kg empty, 60 hp Go Devil engine"
-  }
+  },
+  "dash": {"spec": "jeep_ww2", "offset": [0, -0.38, 0.54], "note": "VH6b src/vehicle_dash.cpp: the interior content/vehicles/dash/jeep_ww2.json, anchored at the driver's eye + offset"}
 }

@@ -33,11 +33,7 @@
     "note": "converted by tools/vehicles/convert_vehicles.py opel 'flak cannon' (glass dropped, steering wheel cut out of the body)"
   },
   "rig": {
-    "driverEyeFromSteer": [
-      0,
-      0.42,
-      -0.55
-    ],
+    "driverEyeFromSteer": [0, 0.42, -0.47],
     "steerAxis": [
       0,
       0.627,
@@ -158,5 +154,6 @@
     "engineKW": 55,
     "pushEfficiency": 0.5,
     "note": "Opel Blitz ~3.3 t empty plus load; 75 hp"
-  }
+  },
+  "dash": {"spec": "opel_blitz", "offset": [0, -0.31, 0.62], "note": "VH6b src/vehicle_dash.cpp: the interior content/vehicles/dash/opel_blitz.json, anchored at the driver's eye + offset"}
 }

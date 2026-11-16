@@ -8,6 +8,7 @@
 #include "mptest.h"
 #include "ai_core.h"
 #include "royale.h"
+#include "loot.h"   // CV1: lootIndoorMap
 #include <functional>
 #include <cstdarg>
 
@@ -56,6 +57,25 @@ void build(App&) {
     if (air == 0 && alive > 0) { note("all %d bots down after %.0f s", alive, t); return true; }
     if (t > 120) { T->check(false, "every bot lands within 120 s (" + std::to_string(air) + " still airborne)"); return true; }
     return false; });
+  push("routes", [](App& a, float t) {   // CV1: on a map with TDM team spawns, a navmesh path from Team A's first spawn to every Team B spawn, and rock overhead on an indoor map
+    (void)t;
+    Game& G = *gGame;
+    json scj = a.doc.extra.is_object() ? a.doc.extra.value("scenario", json::object()) : json::object();
+    Scenario sc = Scenario::fromJson(scj);
+    const SpawnMarker* A0 = nullptr; for (auto& m : sc.spawns) if (m.team == 0) { A0 = &m; break; }
+    if (!A0) return true;
+    int nB = 0, okB = 0, roofed = 0, nAll = 0; float longest = 0;
+    for (auto& m : sc.spawns) {
+      if (m.team == 0 || m.team == 1) { ++nAll; Physics::Hit h; roofed += Physics::castRayEx(m.pos + vec3(0, 1.9f, 0), vec3(0, 1, 0), 80.0f, h); }
+      if (m.team != 1) continue;
+      ++nB; std::vector<vec3> pts; float len = 0;
+      bool ok = G.nav.pathSync(A0->pos, m.pos, pts, nullptr, nullptr, &len) && !pts.empty() && glm::length(pts.back() - m.pos) < 3.0f;
+      okB += ok; if (ok) longest = std::max(longest, len);
+      if (!ok) note("no route from Team A to %s at (%.0f %.1f %.0f)", m.label.c_str(), m.pos.x, m.pos.y, m.pos.z);
+    }
+    T->check(okB == nB, "routes: Team A reaches all " + std::to_string(nB) + " Team B spawns on the navmesh (" + std::to_string(okB) + " ok, longest " + std::to_string((int)longest) + " m)");
+    if (lootIndoorMap(a)) T->check(roofed == nAll, "indoor map: rock overhead at all " + std::to_string(nAll) + " team spawns (" + std::to_string(roofed) + ")");
+    return true; });
   push("ring shot", [](App& a, float t) {   // BR12 (NMK_ROYALE_RING): the storm wall from inside, buildings in front
     if (!std::getenv("NMK_ROYALE_RING")) return true;
     Game& G = *gGame; Soldier* L = G.local();

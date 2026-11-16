@@ -1,0 +1,15 @@
+{
+  "note": "The second WW2 jeep (Ford-built pattern): same steel tub, but a darker, more chipped panel, two larger data plates, a guarded blackout-drive switch, a dash-top compass and a rolled canvas top strapped along the windscreen frame.",
+  "base": "jeep_willys",
+  "palette": {
+    "od": {"rgb": [0.19, 0.2, 0.13], "rough": 0.8, "metal": 0.3, "pat": "painted", "tex": true},
+    "od_worn": {"rgb": [0.33, 0.31, 0.24], "rough": 0.7, "metal": 0.6, "pat": "metal", "tex": true},
+    "canvas": {"rgb": [0.27, 0.26, 0.17], "rough": 0.95, "pat": "fabric", "tex": true}
+  },
+  "remove": ["plates", "plate_low", "lamps", "pouch", "pouch_flap", "strap"],
+  "add": [
+    {"id": "plates2", "type": "plates", "at": [0.6, 0.0, 0.0], "n": 2, "pitch": [0.12, 0], "size": [0.1, 0.07]},
+    {"id": "blackout", "type": "toggles", "at": [0.08, 0.03, 0.0], "cols": 2, "pitch": [0.05, 0], "guard": true, "base": "od_worn"},
+    {"id": "lamp", "type": "lamps", "at": [0.27, -0.075, 0.0], "rows": 1, "cols": 1, "r": 0.006, "bezel": "bezel", "color": [0.4, 0.8, 2.6]}
+  ]
+}

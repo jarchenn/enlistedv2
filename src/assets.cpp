@@ -1043,11 +1043,12 @@ bool AssetLibrary::loadOne(const fs::path& path) {
     a->modelLodDist = mj.value("lodDist", 30.0f); a->modelCull = mj.value("cullDist", 400.0f); a->modelThinPx = mj.value("thinLinesPx", 0.0f);
     fs::path dir = contentDir() / "assets" / "models" / mj.value("dir", a->id);
     auto gm = std::make_shared<GpuModel>(); std::string err;
-    if (gm->load(dir, err)) {
+    bool turn = mj.value("yaw", 0.0f) == 180.0f;   // "yaw": 180 - the bake faces -z (the car pack), the asset's parts +z
+    if (gm->load(dir, err, turn)) {
       a->model = gm;
       pts.push_back(gm->bmin); pts.push_back(gm->bmax);
       auto lod = std::make_shared<GpuModel>(); std::string e2;
-      if (fs::exists(dir / "lod1" / "mesh.bin") && lod->load(dir / "lod1", e2)) a->modelLod = lod;
+      if (fs::exists(dir / "lod1" / "mesh.bin") && lod->load(dir / "lod1", e2, turn)) a->modelLod = lod;
       if (mj.contains("stationRoles")) {   // part-name prefix -> station role: base / traverse / elevation / recoil
         static const std::map<std::string, int> rn = {{"base", 0}, {"traverse", 1}, {"elevation", 2}, {"recoil", 3}};
         for (auto& p : gm->parts) {

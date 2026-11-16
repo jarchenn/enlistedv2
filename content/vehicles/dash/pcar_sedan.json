@@ -1,0 +1,25 @@
+{
+  "note": "Sedan / luxury (59.png): tan stitched leather pad over a piano-black band, warm ambient light, chrome vent rings, the hooded twin-ring digital cluster, the wide embedded navigation screen, a body-colour inlay strip on the passenger side.",
+  "base": "pcar_core",
+  "model": {"note": "the car-pack model's own dash top / rear face and the driver's eye on its seat ([y, z] in the asset frame; eye [y, z, |x|] moves it inboard)", "dash": [1.1, 0.68], "eye": [1.32, -0.2]},
+  "palette": {
+    "pad": {"rgb": [0.3, 0.2, 0.13], "rough": 0.55, "pat": "fabric", "texture": "leather_cream"},
+    "stitch": {"rgb": [0.85, 0.78, 0.62], "rough": 0.9},
+    "dash": {"rgb": [0.26, 0.21, 0.17], "rough": 0.7, "pat": "fabric", "texture": "leather_black"},
+    "inlay": {"rgb": [0.3, 0.3, 0.3], "fromPaint": 0.8, "rough": 0.25, "metal": 0.5},
+    "wheel": {"rgb": [0.12, 0.08, 0.06], "rough": 0.55, "pat": "fabric", "texture": "leather_black"},
+    "wood": {"rgb": [0.38, 0.24, 0.14], "rough": 0.35, "pat": "wood", "texture": "wood_veneer_walnut"}
+  },
+  "remove": ["screen"],
+  "add": [
+    {"id": "pad_roll", "type": "cyl", "at": [0.37, 0.0, 0.012], "r": 0.013, "depth": 1.44, "axis": [1, 0, 0], "mat": "pad", "sides": 12},
+    {"id": "defrost", "type": "box", "at": [0.62, 0.0125, 0.3], "size": [0.6, 0.002, 0.03], "mat": "trim"},
+    {"id": "defrost_d", "type": "box", "at": [-0.12, 0.0125, 0.3], "size": [0.3, 0.002, 0.03], "mat": "trim"},
+    {"id": "cab_door_d", "type": "doorcard", "at": [-0.465, -0.3, -0.45], "size": [0.03, 0.5, 0.9]},
+    {"id": "cab_door_p", "type": "doorcard", "at": [1.205, -0.3, -0.45], "size": [0.03, 0.5, 0.9], "switches": 1},
+    {"id": "screen", "type": "screen", "at": [0.37, -0.165, 0.005], "size": [0.3, 0.13], "ui": "map", "bezel": "trim"},
+    {"id": "inlay", "type": "box", "at": [0.86, -0.13, 0.003], "size": [0.5, 0.02, 0.004], "mat": "inlay"},
+    {"id": "clock", "type": "gauge", "at": [0.37, -0.255, 0.005], "r": 0.022, "sweep": 360, "bezel": "chrome", "bezelW": 0.004, "bezelD": 0.008},
+    {"id": "wood", "type": "box", "at": [0.37, -0.11, 0.003], "size": [1.44, 0.025, 0.004], "mat": "wood"}
+  ]
+}

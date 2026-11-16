@@ -4,6 +4,7 @@
 #include "crumb.h"
 #include "mpai.h"
 #include "net.h"
+#include "water_query.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -230,6 +231,26 @@ void App::switchStationPosition() {
 
 // MG1: a small-arms shot: the round along dir, plus a shotgun's other pellets spread evenly over the cone's area
 // (deterministic from seed, so host and replays agree). Only the first pellet carries the tracer.
+// SND4: guns that eject brass (not launchers, grenades, flame, melee): the case lands 0.35-0.6 s after the shot, a bolt
+// rifle's later (it comes out as the bolt opens), a shotgun's on the pump. Water: none; soft ground (terrain that is not
+// a gravel / concrete path or stone / gravel / wood paint): quieter; buildings, props, vehicles, tunnels: full.
+// Audio::casing limits the range (15 m), the rate per shooter and the number at once.
+void App::shotCasing(const WeaponDef& d, vec3 feet, int shooter) {
+  if (d.action != "auto" && d.action != "semi" && d.action != "bolt" && d.action != "heavy") return;
+  if (glm::length(feet - eyePos()) > 15.0f) return;   // before the ground query
+  if (feet.y < waterAt(*this, feet.x, feet.z) - 0.05f) return;
+  bool soft = true; Physics::Hit h;
+  if (Physics::castRayEx(feet + vec3(0, 0.3f, 0), vec3(0, -1, 0), 1.0f, h) && h.ud != 0) soft = false;
+  else {
+    std::string ps = pathSurfaceAt(feet);
+    extern const std::string& groundPaintStep(float, float); const std::string& gs = groundPaintStep(feet.x, feet.z);
+    if (ps == "gravel" || ps == "concrete" || gs == "step_stone" || gs == "step_gravel" || gs == "step_wood") soft = false;
+  }
+  static uint32_t r = 977; r = r * 1664525u + 1013904223u;
+  float delay = 0.35f + 0.25f * (r >> 8) / 16777216.0f + (d.action == "bolt" ? 0.25f : d.pellets > 1 ? 0.3f : 0.0f);
+  audio.casing(feet, shooter, delay, soft);
+}
+
 void App::fireRounds(const WeaponDef& d, vec3 from, vec3 dir, int tracerKind, uint32_t seed, int owner) {
   vec3 rt = glm::normalize(glm::cross(dir, std::fabs(dir.y) > 0.99f ? vec3(1, 0, 0) : vec3(0, 1, 0))), up = glm::cross(rt, dir);
   float tc = std::tan(radians(d.spreadDeg));
@@ -345,7 +366,12 @@ void App::stepProjectiles(float dt) {
           {   // material impact sound at the contact
             std::string im = surf2 == "ground" || surf2 == "dirt" || surf2 == "gravel" || surf2 == "earth" ? "dirt" : surf2 == "steel" || surf2 == "metal" ? "metal"
                            : surf2 == "wood" || surf2 == "wood_door" || surf2 == "wood_shutter" || surf2 == "timber" ? "wood" : surf2 == "glass" ? "" : "concrete";
-            if (!im.empty() && glm::length(hit.pos - eyePos()) < 120.0f) audio.play("impact_" + im, hit.pos, 0.5f);
+            if (!im.empty() && glm::length(hit.pos - eyePos()) < 120.0f) {
+              if (audio.hasEvent("bullet_hit")) {   // SND4: the supplied bullet hit on every surface (glass keeps its own break), a few at a time, pitch varied
+                static double recent[6] = {-9, -9, -9, -9, -9, -9}; double now = glfwGetTime(); int o = 0; for (int q = 1; q < 6; ++q) if (recent[q] < recent[o]) o = q;
+                if (now - recent[o] >= 0.2) { recent[o] = now; static uint32_t rs = 777; rs = rs * 1664525u + 1013904223u; audio.play("bullet_hit", hit.pos, 0.6f, 0.9f + 0.2f * (rs >> 8) / 16777216.0f); }
+              } else audio.play("impact_" + im, hit.pos, 0.5f);
+            }
           }
           lastImpact = {hit.pos, surface, p.kind, (float)glfwGetTime(), 0};
         }

@@ -561,7 +561,7 @@ static GLuint loadTex(const fs::path& p, bool srgb, size_t& bytes) {
   return t;
 }
 
-bool GpuModel::load(const fs::path& dir, std::string& err) {
+bool GpuModel::load(const fs::path& dir, std::string& err, bool turn180) {
   destroy();
   json j;
   try { j = json::parse(readTextFile(dir / "model.json")); } catch (...) { err = "missing or bad " + (dir / "model.json").string(); return false; }
@@ -571,6 +571,8 @@ bool GpuModel::load(const fs::path& dir, std::string& err) {
   std::vector<TexVertex> V(hdr[1]); std::vector<uint32_t> I(hdr[2]);
   f.read((char*)V.data(), V.size() * sizeof(TexVertex)); f.read((char*)I.data(), I.size() * 4);
   if (!f) { err = "truncated mesh.bin"; return false; }
+  auto turn = [&](vec3 v) { return turn180 ? vec3(-v.x, v.y, -v.z) : v; };
+  if (turn180) for (auto& v : V) { v.pos = turn(v.pos); v.nrm = turn(v.nrm); v.tan = vec4(turn(vec3(v.tan)), v.tan.w); }
   for (auto& pj : j["parts"]) {
     ModelPart p;
     p.name = pj.value("name", ""); p.role = pj.value("role", "body");
@@ -578,6 +580,7 @@ bool GpuModel::load(const fs::path& dir, std::string& err) {
     auto& b = pj["base"]; p.base = vec4(b[0], b[1], b[2], b[3]);
     p.metal = pj.value("metal", 1.0f); p.rough = pj.value("rough", 1.0f); p.textured = pj.value("textured", false);
     p.bmin = jvec3(pj["bmin"]); p.bmax = jvec3(pj["bmax"]); p.section = pj.value("section", -1);
+    if (turn180) { vec3 a0 = turn(p.bmin), a1 = turn(p.bmax); p.bmin = glm::min(a0, a1); p.bmax = glm::max(a0, a1); }
     p.mat = pj.value("mat", -1);
     if (p.mat >= 0 && j.contains("materials") && p.mat < (int)j["materials"].size()) {   // glass by its material's name (car windows, cockpit canopies)
       std::string mn = j["materials"][p.mat].value("name", std::string()); for (auto& ch : mn) ch = (char)std::tolower((unsigned char)ch);
@@ -588,6 +591,7 @@ bool GpuModel::load(const fs::path& dir, std::string& err) {
   }
   animDuration = j.value("animDuration", 0.0f);
   bmin = jvec3(j["bmin"]); bmax = jvec3(j["bmax"]);
+  if (turn180) { vec3 a0 = turn(bmin), a1 = turn(bmax); bmin = glm::min(a0, a1); bmax = glm::max(a0, a1); }
   tris = (int)I.size() / 3;
   glCreateVertexArrays(1, &vao); glCreateBuffers(1, &vbo); glCreateBuffers(1, &ebo);
   glNamedBufferStorage(vbo, V.size() * sizeof(TexVertex), V.data(), 0);

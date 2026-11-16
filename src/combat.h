@@ -132,7 +132,7 @@ struct Fx {
   std::vector<Particle> parts;
   std::vector<Streak> streaks;
   std::vector<Debris> debris;
-  size_t maxParts = 900, maxStreaks = 160, maxDebris = 72;
+  size_t maxParts = 1500, maxStreaks = 160, maxDebris = 72;
   void setBudget(float k);        // settings: caps = the defaults above x k (Low 0.6, Medium 1, High 1.5)
   bool rangeMode = true;          // range presentation: every trajectory clearly visible
   void update(float dt, const Terrain& t);

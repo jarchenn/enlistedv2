@@ -13,6 +13,7 @@
 # - CH1: an optional spec JSON (8th argument; the 7th is then '-' for no synthesized death):
 #     height_m: the rest-pose mesh scaled to this height (sources in cm or odd units: the game's foot analysis is in metres)
 #     jpeg: textures exported as JPEG (85) instead of PNG
+#     no_scale: bone scale keys dropped from the cut clips (every clip at the bind pose's size)
 #     rest_pose: a clip name: its first frame becomes the bind pose (meshes deformed into it, every clip re-keyed against it).
 #       For a source whose bind pose lies on its side and whose takes stand it up: the game sizes and grounds the bind pose
 #     forward: "+x" / "-x" / "+y" / "-y" or an angle in degrees: the model's front in the imported scene, instead of judging it
@@ -67,7 +68,10 @@ for c in spec.get('clips', []):
     samples = []
     for f in range(f0, f1 + 1, step):
         use(src_act); bpy.context.scene.frame_set(f)
-        samples.append(({p.name: p.matrix_basis.copy() for p in arm.pose.bones}, {p.name: p.matrix.copy() for p in roots}, arm.matrix_world @ arm.pose.bones[bmap['Hips']].head))
+        basis = {p.name: p.matrix_basis.copy() for p in arm.pose.bones}
+        if spec.get('no_scale'):   # bone scale keys dropped: one take scaling its root 1.77x made the model grow in that clip
+            for k, m in basis.items(): l, r, _ = m.decompose(); basis[k] = Matrix.LocRotScale(l, r, Vector((1, 1, 1)))
+        samples.append((basis, {p.name: p.matrix.copy() for p in roots}, arm.matrix_world @ arm.pose.bones[bmap['Hips']].head))
     drift = samples[-1][2] - samples[0][2]; drift.z = 0
     start = samples[0][2] - rest_hips; start.z = 0   # a mocap take keeps where on the stage it was: each clip starts over the rest hips
     act = bpy.data.actions.new(c['name']); act.use_fake_user = True; use(act)
