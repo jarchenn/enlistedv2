@@ -9,7 +9,8 @@ rigid base on a slope steeper than the 15 cm window) is a justified exception.
 
     <python> -I tools/mapgen/seat_from_floaters.py <map> <floaters csv>
 
-Re-run after regenerating the map (the generator rewrites the template)."""
+Re-run after regenerating the map (the generator rewrites the template). An instance carrying the engine's ED1
+"support" field (it rests on another instance) is never moved."""
 import csv
 import json
 import os
@@ -31,15 +32,18 @@ def main():
             if r["asset"].startswith("heli_"):
                 continue   # a helicopter on its raised pad is never pulled to the terrain (the finder already skips pieces resting on a structure)
             fix[int(r["id"])] = (g - 0.06) if r["kind"] == "sunk" else -(g - 0.02)
-    n = 0
+    n = held = 0
     for i in doc["instances"]:
         d = fix.get(int(i["id"]))
+        if d is not None and "support" in i:   # ED1: rests on another instance (its deck, table, roof): never pulled to the terrain
+            held += 1
+            continue
         if d is not None and abs(d) > 0.005:
             i["position"][1] = round(i["position"][1] + d, 4)
             n += 1
     with open(mp, "w", encoding="utf-8", newline="\n") as f:
         json.dump(doc, f, separators=(",", ":"))
-    print("%s: %d instances moved (%d listed)" % (tid, n, len(fix)))
+    print("%s: %d instances moved (%d listed, %d held by their support)" % (tid, n, len(fix), held))
 
 
 if __name__ == "__main__":

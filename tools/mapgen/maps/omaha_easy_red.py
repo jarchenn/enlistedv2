@@ -137,7 +137,7 @@ def build(ctx):
     # the A1 rack: weapon crates in the well of the first LCVP
     host = lcvps[0]
     rx, rz = local_to_world((host["pos"][0], host["pos"][2]), host["yaw"], 0.0, 2.0)
-    rack_a1 = b.place("rack_allied_crates", rx, rz, host["yaw"] + 90, check=False, cls="none", y=host["pos"][1] + 0.45, tags={"rack"})
+    rack_a1 = b.place("rack_allied_crates", rx, rz, host["yaw"] + 90, check=False, cls="none", y=host["pos"][1] + 0.45, tags={"rack"}, support=host)
 
     # ------------------------------------------------------------------ tidal flat: the four obstacle belts (s 60-400)
     hw = 400.0   # high-water line: obstacle distances are measured seaward from it
@@ -246,9 +246,9 @@ def build(ctx):
     tx, tz = w(203, 1640)
     t = b.place("furn_table_dining", tx, tz, 8, tags={"D", "cp"})
     if t:
-        b.place("furn_papers", tx, tz, 20, check=False, cls="none", y=t["pos"][1] + 0.76, tags={"D"})
-        b.place("furn_lamp", *local_to_world((tx, tz), 8, 0.6, 0.1), 0, check=False, cls="none", y=t["pos"][1] + 0.76, tags={"D"})
-        b.place("furn_books", *local_to_world((tx, tz), 8, -0.6, -0.1), 0, check=False, cls="none", y=t["pos"][1] + 0.76, tags={"D"})
+        b.place("furn_papers", tx, tz, 20, check=False, cls="none", y=t["pos"][1] + 0.76, tags={"D"}, support=t)
+        b.place("furn_lamp", *local_to_world((tx, tz), 8, 0.6, 0.1), 0, check=False, cls="none", y=t["pos"][1] + 0.76, tags={"D"}, support=t)
+        b.place("furn_books", *local_to_world((tx, tz), 8, -0.6, -0.1), 0, check=False, cls="none", y=t["pos"][1] + 0.76, tags={"D"}, support=t)
         for lx, lz, yy in ((0.0, 0.8, 180), (0.0, -0.8, 0), (1.1, 0.0, 90)):
             b.place("furn_chair_ladder", *local_to_world((tx, tz), 8, lx, lz), 8 + yy, tags={"D"})
     for k in range(9):

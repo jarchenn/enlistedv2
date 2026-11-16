@@ -215,8 +215,10 @@ class MapBuilder:
 
     # ---------------------------------------------------------------- placement
     def place(self, asset_id, x, z, yaw=0.0, *, check=True, ok_with=None, cls=None, group=None, tags=(), extra=None,
-              y=None, dy=0.0, water_ok=False, max_grade=None, companions=True):
-        """Place one instance; returns its dict or None (reason counted in self.rejects)."""
+              y=None, dy=0.0, water_ok=False, max_grade=None, companions=True, support=None):
+        """Place one instance; returns its dict or None (reason counted in self.rejects). support: the instance (dict)
+        it rests on (a helicopter on its pad, props on a table): saved as the engine's ED1 "support" field, never
+        re-seated to the terrain, carried with its supporter."""
         a = self.cat[asset_id]
         yaw = wrap_deg(yaw)
         cls = cls or default_class(a)
@@ -249,6 +251,9 @@ class MapBuilder:
              "tags": set(tags), "cls": cls, "group": group, "auto": auto}
         if a.blocks_vehicles:
             e["extra"]["blocksVehicles"] = True
+        if support is not None:
+            e["extra"]["support"] = int(support["id"])
+            e["auto"] = False
         self.next_id += 1
         self.inst.append(e)
         self.by_id[e["id"]] = e
@@ -297,6 +302,8 @@ class MapBuilder:
                 e["auto"] = True; e["free"] = True; n += 1
         for e in self.inst:
             a = self.cat[e["asset"]]
+            if "support" in e["extra"]:   # ED1: rests on another instance, never seated on the terrain
+                continue
             if e.get("auto") or "host" in e or e["cls"] == NONE or a.cuts or a.tree or a.path_on or not self.small(a) or a.category == "Water":
                 continue
             if any(self._inside(h, e["pos"][0], e["pos"][2], 0.2) for h in hosts if h is not e):
@@ -348,7 +355,7 @@ class MapBuilder:
         for _ in range(passes):   # until nothing moves: a fill raises ground under neighbours seated before it
             moved_now = 0
             for e in self.inst:
-                if not e.get("auto") or ("host" in e and not e.get("free")):
+                if not e.get("auto") or ("host" in e and not e.get("free")) or "support" in e["extra"]:
                     continue
                 a = self.cat[e["asset"]]
                 x, z = e["pos"][0], e["pos"][2]
@@ -361,7 +368,7 @@ class MapBuilder:
                     moved_now += 1
                     e["pos"][1] = py
                     for c in self.inst:
-                        if c.get("host") == e["id"] and not c.get("free"):
+                        if (c.get("host") == e["id"] and not c.get("free")) or c["extra"].get("support") == e["id"]:
                             c["pos"][1] += d
             if moved_now == 0:
                 break
@@ -389,6 +396,9 @@ class MapBuilder:
             if e in lst:
                 lst.remove(e)
         self.cuts = [c for c in self.cuts if c[5] != e["id"]]
+        for c in self.inst:   # ED1: what rested on it falls back to the ground
+            if c["extra"].get("support") == e["id"]:
+                del c["extra"]["support"]; c["auto"] = True
 
     def try_place(self, asset_id, x, z, yaw, rng, tries=12, radius=4.0, **kw):
         """place(), nudging the position up to `tries` times within `radius` when refused."""
