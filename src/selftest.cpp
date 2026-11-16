@@ -157,6 +157,7 @@ void SelfTest::update(App& app, float dt) {
   { extern bool vehiclesSelfTest(App&, float); if (vehiclesSelfTest(app, dt)) return; }
   { extern bool captureVehicleSelfTest(App&, float); if (captureVehicleSelfTest(app, dt)) return; }
   { extern bool captureDashSelfTest(App&, float); if (captureDashSelfTest(app, dt)) return; }   // VH6
+  { extern bool capturePropsSelfTest(App&, float); if (capturePropsSelfTest(app, dt)) return; }   // PR1
   { extern bool royaleLiveSelfTest(App&, float); if (royaleLiveSelfTest(app, dt)) return; }
   { extern bool tdmLiveSelfTest(App&, float); if (tdmLiveSelfTest(app, dt)) return; }   // CV1: --selftest-tdm-live (selftest_royale_live.cpp)   // BR7: --selftest-royale-live (selftest_royale_live.cpp)   // VH1: --capture-jeep (selftest_vehicles.cpp)
   { extern bool perfSelfTest(App&, float); if (perfSelfTest(app, dt)) return; }   // PF3: --profile-map <id> <ai> <s> (selftest_perf.cpp)   // G2: --selftest-zombies (selftest_zombies.cpp)

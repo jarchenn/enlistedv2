@@ -1011,18 +1011,9 @@ export function gasStation() {
     for (const s of [-1, 1]) {
       A.cyl([x + s * 2.05, 0.7, z], [0.16, 1.0, 0.16], "sign_b", { seg: 10 });   // bollards at the island ends
       A.cyl([x + s * 2.05, 1.18, z], [0.17, 0.05, 0.17], "rubber", { seg: 10, ...L1 });
-      const px = x + s * 1.15;   // dispenser: plinth, housing, lit head, per face a screen, card reader, holster, nozzle and hose
-      A.box([px - 0.48, 0.2, z - 0.32], [px + 0.48, 0.32, z + 0.32], "stainless", { bv: 0.01 });
-      A.box([px - 0.42, 0.32, z - 0.25], [px + 0.42, 1.95, z + 0.25], "sign_w", { bv: 0.02 });
-      A.box([px - 0.45, 1.95, z - 0.28], [px + 0.45, 2.3, z + 0.28], "sign_a", { k: 0, bv: 0.02 });
-      for (const f of [-1, 1]) {
-        const zf = z + f * 0.25, zz = (a, b) => [Math.min(zf + f * a, zf + f * b), Math.max(zf + f * a, zf + f * b)];
-        A.box([px - 0.3, 1.4, zz(0.005, 0.02)[0]], [px + 0.06, 1.75, zz(0.005, 0.02)[1]], "screen", L1);
-        A.box([px + 0.12, 1.4, zz(0.005, 0.04)[0]], [px + 0.3, 1.62, zz(0.005, 0.04)[1]], "metal_panel", L1);
-        A.box([px - 0.36, 0.95, zz(0.005, 0.14)[0]], [px - 0.16, 1.25, zz(0.005, 0.14)[1]], "metal_panel", L1);   // holster
-        A.box([px - 0.3, 1.0, zz(0.14, 0.24)[0]], [px - 0.22, 1.3, zz(0.14, 0.24)[1]], "rubber", L1);             // nozzle
-        rod(A, [px - 0.38, 1.95, zf + f * 0.02], [px - 0.26, 0.98, zf + f * 0.2], 0.03, "rubber", L1);            // hose
-      }
+      const px = x + s * 1.15;   // PR1 dispenser: the modelled pump (tools/props/props_build.py pr1_fuel_dispenser) on the island, its collider here
+      A.box([px - 0.48, 0.2, z - 0.32], [px + 0.48, 2.3, z + 0.32], "stainless", { v: 0 });
+      (A.meta.models ||= []).push({ dir: "pr1_fuel_dispenser", pos: [px, 0.2, z], yaw: 0, bake: { simplify: 0.45, lod1: 0.15, jpgMaps: true } });
     }
     A.box([x - 0.75, 0.2, z + 0.34], [x - 0.4, 1.0, z + 0.58], "metal_panel", { bv: 0.01 });   // bin and screen wash
   }

@@ -36,6 +36,7 @@ void collectFaces(const AssetDef& a, std::vector<Face>& out, std::vector<std::pa
   auto add = [&](const Part& p, int panel, int panelN, float panelSign) {
     if (!aligned(p) || !p.visible) return;
     solids.push_back({p.center - p.size * 0.5f, p.center + p.size * 0.5f});   // visible, solid or not (railings, glass)
+    if (std::max(p.size.x, p.size.z) < 1.2f && p.size.y < 2.5f) return;   // PR1: no creeper on small pieces (pumps, bins, cabinets): it read as a flat card
     if (!p.collide || (p.bv > 0 && !gIvyAnyWall) || p.mat < 0 || p.mat >= (int)a.materials.size() || !ivyMaterial(a.materials[p.mat]) || p.size.y < 0.3f) return;   // bevelled: trim, the ivy goes round it
     for (int n : {0, 2}) for (float sign : {-1.0f, 1.0f}) {
       if (panel >= 0 && (n != panelN || sign != panelSign)) continue;

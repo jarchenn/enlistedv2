@@ -16,6 +16,7 @@ with TDM team spawns (Solo spreads its own spawns). Uses the MOD1 modern set plu
 
 Writes content/templates/newtown.{json,height.png,nmap.json} and the "Newtown" column of
 docs/asset-usage-default-maps.md. The thumbnail comes from --render-map-thumbs (NMK_MAPS_ONLY=newtown)."""
+import json
 import math
 import os
 
@@ -1145,6 +1146,10 @@ def build(ctx):
         {"name": "base_eye", "pos": eye(-130.0, -98.0), "yaw": look_yaw(0.0, -1.0), "pitch": 4.0, "gameplay": True},
         {"name": "lake_eye", "pos": eye(110.0, 120.0), "yaw": look_yaw(1.0, 1.0), "pitch": 0.0, "gameplay": True},
     ]
+    # PR1 (tools/props/place_pr1.py): the modelled props placed after the committed template was seated
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "pr1_props.json"), encoding="utf-8") as f:
+        for p in json.load(f).get(TID, []):
+            b.place(p["asset"], p["x"], p["z"], p["yaw"], check=False, tags=set(p["tags"]))
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sj, explore_start=((-14.0, b.ground(-14.0, 16.0), 16.0), look_yaw(14.0, -26.0)), camera=cam,
               bookmarks={str(k): {"position": [c[0], b.ground(*c) + 60.0, c[1] + 70.0], "yaw": 0.0, "pitch": -40} for k, (n, c) in DISTRICTS.items()},

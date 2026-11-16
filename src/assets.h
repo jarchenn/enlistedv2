@@ -240,6 +240,10 @@ struct AssetDef {
   NatureDef nature;
   // imported model (JSON "model": baked from a supplied GLB by --import-weapon-models into content/assets/models/<dir>)
   std::shared_ptr<GpuModel> model, modelLod;   // modelLod: <dir>/lod1, drawn beyond modelLodDist
+  // PR1 "models": [{dir, pos, yaw}] modelled pieces drawn with a part-built asset (the petrol station's dispensers);
+  // their colliders stay parts of the asset. lod: <dir>/lod1 beyond lodDist
+  struct Attached { std::shared_ptr<GpuModel> model, lod; mat4 local{1}; float lodDist = 15; };
+  std::vector<Attached> attached;
   float modelLodDist = 30, modelCull = 400;   // m
   float modelThinPx = 0;                       // thin-line widening (wire), pixels
   ShapePtr playerShape;                        // union of "k": 2 parts (no sections)

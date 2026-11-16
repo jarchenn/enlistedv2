@@ -23,7 +23,7 @@ ImportSpec importSpecFromJson(const json& j) {
   json np = j.value("nodeParts", json::object()), hd = j.value("hide", json::array());   // keep the temporaries alive
   for (auto& [k, v] : np.items()) s.nodeParts[k] = v.get<std::string>();
   for (auto& h : hd) s.hide.push_back(h.get<std::string>());
-  s.maxTex = j.value("maxTex", 1024);
+  s.maxTex = j.value("maxTex", 1024); s.jpgMaps = j.value("jpgMaps", false);
   s.matOverride = j.value("matOverride", json::object());
   s.tint = jvec3(j.value("tint", json()), vec3(1));
   for (auto& e : j.value("meshEdits", json::array())) {
@@ -474,12 +474,14 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
   static const char* pre[4] = {"albedo", "mr", "normal", "ao"};
   auto emit = [&](const Img& a, int role, const std::string& file) -> std::string {   // downsize + write one map
     Img d = downsize(a, spec.maxTex);
-    fs::path pth = outDir / file;
-    if (role == 0) { std::vector<uint8_t> rgb((size_t)d.w * d.h * 3); for (size_t k = 0; k < (size_t)d.w * d.h; ++k) std::memcpy(&rgb[k * 3], &d.px[k * 4], 3);
+    std::string fn = file;
+    if (spec.jpgMaps && role != 0) fn = fs::path(file).replace_extension(".jpg").string();   // PR1: normal / MR as JPEG (a tenth of the size)
+    fs::path pth = outDir / fn;
+    if (role == 0 || spec.jpgMaps) { std::vector<uint8_t> rgb((size_t)d.w * d.h * 3); for (size_t k = 0; k < (size_t)d.w * d.h; ++k) std::memcpy(&rgb[k * 3], &d.px[k * 4], 3);
                      stbi_write_jpg(pth.string().c_str(), d.w, d.h, 3, rgb.data(), 92); }
     else stbi_write_png(pth.string().c_str(), d.w, d.h, 4, d.px.data(), d.w * 4);
     texBytes += fs::file_size(pth, ec); ++texFiles;
-    return file;
+    return fn;
   };
   auto loadExt = [&](const std::string& rel, Img& out) -> bool {   // external texture file next to the GLB
     int w, h, c; stbi_uc* p = stbi_load((glbPath.parent_path() / rel).string().c_str(), &w, &h, &c, 4);
@@ -664,6 +666,22 @@ bool importWeaponModels(const fs::path& srcDir, const fs::path& contentRoot) {
   for (auto& f : files) {
     fs::path wdir = f.parent_path();
     json j; try { j = json::parse(readTextFile(f)); } catch (...) { continue; }
+    if (j.contains("models") && j["models"].is_array()) for (auto& mj : j["models"]) {   // PR1 attached modelled pieces: <dir>.glb, ground pivot, metres
+      json b = mj.value("bake", json::object());
+      std::string d = mj.value("dir", std::string());
+      if (d.empty() || done.count(d)) continue;
+      b["dir"] = d; if (!b.contains("src")) b["src"] = d + ".glb";
+      if (!b.contains("pivot")) b["pivot"] = "ground";
+      if (!b.contains("scale")) b["scale"] = 1;
+      if (!b.contains("lod1")) b["lod1"] = 0.3;
+      done[d] = b;
+      ImportSpec s = importSpecFromJson(b);
+      fs::path glb = srcDir / s.src;
+      if (!fs::exists(glb)) continue;
+      std::string err, sum;
+      if (bakeGlbModel(glb, s, wdir / "models" / s.dir, err, sum)) { logf("import %-12s %s", s.dir.c_str(), sum.c_str()); ++ok; }
+      else { logf("import %-12s FAILED: %s", s.dir.c_str(), err.c_str()); ++bad; }
+    }
     if (!j.contains("model")) continue;
     ImportSpec s = importSpecFromJson(j["model"]);
     if (s.src.empty() || s.dir.empty()) continue;

@@ -12,6 +12,7 @@ scenario rules default to 16 players.
 
     <python> -I tools/mapgen/build.py outpost_desert | outpost_woods
 """
+import json
 import math
 import os
 
@@ -242,6 +243,10 @@ def build_variant(ctx, V):
         views.append({"name": name, "pos": eye(x, z), "yaw": look_yaw(tx - x, tz - z), "pitch": 2.0, "gameplay": True})
     cam = ([0.0, 90.0, 120.0], 0.0, -38.0)
     sx, sz = V["start"][0]
+    # PR1 (tools/props/place_pr1.py): the modelled props placed after the committed template was seated
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "pr1_props.json"), encoding="utf-8") as f:
+        for p in json.load(f).get(tid, []):
+            b.place(p["asset"], p["x"], p["z"], p["yaw"], check=False, tags=set(p["tags"]))
     write_map(os.path.join(tdir, tid + ".nmap.json"), name=V["name"], template_id=tid, template_version=1, seed=V["seed"], width=W, depth=D,
               builder=b, scenario_json=sj, explore_start=((sx, b.ground(sx, sz), sz), look_yaw(*V["start"][1])), camera=cam,
               bookmarks={str(k + 1): {"position": [c[0], b.ground(*c) + 40.0, c[1] + 45.0], "yaw": 0.0, "pitch": -40} for k, (n, c) in enumerate(V["districts"])},
