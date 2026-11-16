@@ -3783,9 +3783,13 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
     // walls, rooms and props it hides. A run keeps its inner order (coplanar ties never depend on the camera).
     struct Run { float d; uint32_t a, b; };
     std::vector<Run> runs; runs.reserve(256);
+    // CV1: a large item without finish parameters (cave roof lids, boulders: > 4 m across) is a run of its own, so
+    // overlapping rock sorts front to back too; small ones keep the shared run (their coplanar ties stay put)
+    auto big = [&](uint32_t k) { const DrawItem& it = items[k]; return !it.surf && glm::length(it.mesh->bmax - it.mesh->bmin) > 4.0f; };
     for (uint32_t a = 0; a < drawIdx.size();) {
       const SurfaceParams* s = surfOf(drawIdx[a]); uint32_t b = a; float d = 1e30f;
-      for (; b < drawIdx.size() && surfOf(drawIdx[b]) == s; ++b) {
+      if (big(drawIdx[a])) { const DrawItem& it = items[drawIdx[a]]; runs.push_back({glm::distance(vec3(it.model * vec4(0.5f * (it.mesh->bmin + it.mesh->bmax), 1.0f)), sortEye), a, a + 1}); a = a + 1; continue; }
+      for (; b < drawIdx.size() && surfOf(drawIdx[b]) == s && !big(drawIdx[b]); ++b) {
         const DrawItem& it = items[drawIdx[b]];
         d = std::min(d, glm::distance(vec3(it.model * vec4(0.5f * (it.mesh->bmin + it.mesh->bmax), 1.0f)), sortEye));
       }
