@@ -1,0 +1,16 @@
+{
+  "note": "BR hatchback: a city car whose instruments sit in a pod in the middle of the dash top (a digital speed read-out with bar gauges), a body-colour dash panel, a phone cradle in place of a screen, rectangular vents, simple rocker switches.",
+  "base": "pcar_compact",
+  "palette": {
+    "band": {"rgb": [0.3, 0.3, 0.3], "fromPaint": 1.0, "rough": 0.35, "metal": 0.25},
+    "pad": {"rgb": [0.06, 0.06, 0.065], "rough": 0.85, "pat": "textile"}
+  },
+  "remove": ["hood", "visor", "cheek_l", "cheek_r", "speedo", "tach", "fuel", "temp", "tell", "radio", "radio_keys"],
+  "add": [
+    {"id": "pod", "type": "box", "at": [0.37, 0.045, 0.06], "size": [0.26, 0.09, 0.1], "mat": "dash"},
+    {"id": "cluster", "type": "digital", "at": [0.37, 0.05, 0.01], "size": [0.22, 0.065], "telltales": 5},
+    {"id": "cradle", "type": "box", "at": [0.37, -0.16, -0.006], "size": [0.09, 0.15, 0.012], "mat": "trim"},
+    {"id": "phone", "type": "screen", "at": [0.37, -0.16, -0.012], "size": [0.07, 0.135], "ui": "map"},
+    {"id": "radio_keys", "type": "buttons", "at": [0.29, -0.255, 0.005], "cols": 5, "pitch": [0.04, 0], "size": [0.03, 0.014]}
+  ]
+}

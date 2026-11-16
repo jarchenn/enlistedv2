@@ -1,0 +1,31 @@
+{
+  "note": "Shared core of the part-built cars' interiors (BR cars and car-pack copies; each car kind is a spec on this base): anchored on the car's dash top at its rear face (kit x toward the car's middle at x = 0.37, y up from the dash top, z forward; the dash face is at z = 0.005, the centre stack's face at z = -0.115). Soft-touch pad with stitching, trim band, a binnacle with the digital cluster behind the wheel, the embedded centre screen, vents, switches, ambient strip, climate knobs, the steering wheel (rim, spokes, hub, buttons).",
+  "palette": {
+    "dash": {"rgb": [0.05, 0.05, 0.052], "rough": 0.75, "pat": "textile"},
+    "pad": {"rgb": [0.07, 0.065, 0.06], "rough": 0.8, "pat": "textile", "tex": true},
+    "stitch": {"rgb": [0.55, 0.5, 0.42], "rough": 0.9},
+    "trim": {"rgb": [0.015, 0.015, 0.016], "rough": 0.15, "metal": 0.1},
+    "wheel": {"rgb": [0.035, 0.033, 0.03], "rough": 0.6, "pat": "textile", "tex": true},
+    "hub": {"rgb": [0.03, 0.03, 0.032], "rough": 0.5}
+  },
+  "wheel": {"r": 0.185, "rim": 0.028, "spokes": [0, 180, 270], "buttons": true, "hub": 0.06, "mat": "wheel", "hubMat": "hub", "badge": "chrome"},
+  "items": [
+    {"id": "pad", "type": "box", "at": [0.37, 0.006, 0.2], "size": [1.44, 0.012, 0.38], "mat": "pad"},
+    {"id": "stitch", "type": "box", "at": [0.37, -0.016, 0.0044], "size": [1.44, 0.002, 0.0008], "mat": "stitch"},
+    {"id": "band", "type": "box", "at": [0.37, -0.06, 0.003], "size": [1.44, 0.05, 0.004], "mat": "trim"},
+    {"id": "ambient", "type": "strip", "at": [0.37, -0.0875, 0.0032], "len": 1.44, "w": 0.0025},
+    {"id": "hood", "type": "box", "at": [0.0, 0.055, 0.075], "size": [0.4, 0.11, 0.14], "mat": "dash"},
+    {"id": "visor", "type": "box", "at": [0.0, 0.114, 0.035], "size": [0.43, 0.012, 0.08], "mat": "pad"},
+    {"id": "cheek_l", "type": "box", "at": [-0.209, 0.06, 0.035], "size": [0.012, 0.1, 0.08], "mat": "dash"},
+    {"id": "cheek_r", "type": "box", "at": [0.209, 0.06, 0.035], "size": [0.012, 0.1, 0.08], "mat": "dash"},
+    {"id": "cluster", "type": "digital", "at": [0.0, 0.055, 0.005], "size": [0.34, 0.085], "rings": true},
+    {"id": "screen", "type": "screen", "at": [0.37, -0.17, 0.005], "size": [0.24, 0.13], "ui": "map", "bezel": "trim"},
+    {"id": "vent_d", "type": "vent", "at": [-0.3, -0.06, 0.001], "r": 0.028},
+    {"id": "vent_cl", "type": "vent", "at": [0.21, -0.06, 0.001], "r": 0.028},
+    {"id": "vent_cr", "type": "vent", "at": [0.53, -0.06, 0.001], "r": 0.028},
+    {"id": "vent_p", "type": "vent", "at": [1.04, -0.06, 0.001], "r": 0.028},
+    {"id": "switches", "type": "buttons", "at": [0.25, -0.27, 0.005], "cols": 4, "pitch": [0.08, 0], "size": [0.06, 0.022]},
+    {"id": "climate", "type": "knobs", "at": [0.29, -0.4, -0.115], "n": 2, "pitch": [0.16, 0], "r": 0.022, "ring": "chrome"},
+    {"id": "climate_keys", "type": "buttons", "at": [0.3, -0.47, -0.115], "cols": 3, "pitch": [0.07, 0], "size": [0.05, 0.02], "full": true, "glow": [0.4, 0.9, 1.6]}
+  ]
+}

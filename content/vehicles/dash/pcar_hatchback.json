@@ -1,0 +1,24 @@
+{
+  "note": "Hatchback: a small modern plastic dash in two tones, a slim digital cluster (no rings) under a short hood, a tablet-style touch screen standing on the dash, round vents with body-colour rings, a light accent stripe.",
+  "base": "civil_core",
+  "model": {"note": "the car-pack model's own dash top / rear face and the driver's eye on its seat, [y, z] in the asset frame", "eye": [1.3, -0.28]},
+  "palette": {
+    "dash": {"rgb": [0.08, 0.08, 0.085], "rough": 0.8, "pat": "textile"},
+    "pad": {"rgb": [0.32, 0.32, 0.33], "rough": 0.85, "pat": "textile", "tex": true},
+    "accent": {"rgb": [0.3, 0.3, 0.3], "fromPaint": 0.9, "rough": 0.35, "metal": 0.3},
+    "stitch": {"rgb": [0.2, 0.2, 0.2], "fromPaint": 0.7, "rough": 0.9}
+  },
+  "remove": ["cluster", "screen", "band", "vent_cl", "vent_cr", "vent_d", "vent_p", "cheek_l", "cheek_r"],
+  "add": [
+    {"id": "band", "type": "box", "at": [0.37, -0.06, 0.003], "size": [1.42, 0.05, 0.004], "mat": "dash"},
+    {"id": "cluster", "type": "digital", "at": [0.0, 0.05, 0.005], "size": [0.28, 0.07], "telltales": 5},
+    {"id": "tablet", "type": "screen", "at": [0.37, 0.09, 0.06], "size": [0.24, 0.14], "ui": "map", "bezel": "trim", "rot": [-12, 0, 0]},
+    {"id": "tablet_stand", "type": "box", "at": [0.37, 0.012, 0.09], "size": [0.08, 0.024, 0.05], "mat": "trim"},
+    {"id": "vent_d", "type": "vent", "at": [-0.3, -0.06, 0.001], "r": 0.026, "ring": "accent"},
+    {"id": "vent_cl", "type": "vent", "at": [0.25, -0.06, 0.001], "r": 0.026, "ring": "accent"},
+    {"id": "vent_cr", "type": "vent", "at": [0.49, -0.06, 0.001], "r": 0.026, "ring": "accent"},
+    {"id": "vent_p", "type": "vent", "at": [1.04, -0.06, 0.001], "r": 0.026, "ring": "accent"},
+    {"id": "stripe", "type": "box", "at": [0.37, -0.1, 0.003], "size": [1.42, 0.012, 0.004], "mat": "accent"},
+    {"id": "hazard", "type": "buttons", "at": [0.37, -0.15, 0.005], "cols": 1, "size": [0.04, 0.025], "full": true, "glow": [2.4, 0.3, 0.1]}
+  ]
+}

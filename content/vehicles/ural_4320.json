@@ -187,13 +187,5 @@
     "pushEfficiency": 0.6,
     "note": "Ural-4320 ~8.6 t empty, 230 hp diesel"
   },
-  "dash": {
-    "style": "military",
-    "offset": [
-      0,
-      -0.32,
-      0.55
-    ],
-    "note": "VH6 src/vehicle_dash.cpp: in front of the model's own dash face, its top just over the steering hub"
-  }
+  "dash": {"spec": "ural_4320", "offset": [0, -0.32, 0.55], "note": "VH6b src/vehicle_dash.cpp: the interior content/vehicles/dash/ural_4320.json, anchored at the driver's eye + offset"}
 }

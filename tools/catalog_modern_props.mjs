@@ -92,6 +92,9 @@ const MT = {
   dash: T("leather_brown", [0.09, 0.09, 0.095], 0.75, "fabric"),
   seat: T("cloth_grey", [0.24, 0.24, 0.26], 0.95, "fabric"),
   seat_tan: T("cloth_grey", [0.52, 0.46, 0.36], 0.95, "fabric"),
+  carpet: T("cloth_grey", [0.07, 0.07, 0.075], 0.98, "fabric"),                 // VH6b car cabins: floor, headliner, door cards
+  headliner: T("cloth_grey", [0.5, 0.49, 0.46], 0.95, "fabric"),
+  door_card: T("plastic_black", [0.075, 0.075, 0.08], 0.7, "plain"),
   pl_orange: [[0.92, 0.34, 0.04], 0.5, "plain"],
   pl_white: [[0.88, 0.88, 0.86], 0.5, "plain"],
   pl_red: [[0.72, 0.07, 0.05], 0.5, "plain"],
@@ -199,6 +202,19 @@ function bar(A, a, b, w, t, m, o = {}) {
   return A.obox(lerp3(a, b, 0.5), [w, t, L], [pitch, yaw, 0], m, o);
 }
 // convex polygon in (z, y) extruded along x (fan of prisms), and in (x, y) extruded along z
+// VH6b: a convex [z, y] profile clipped to z0 <= z <= z1 (Sutherland-Hodgman)
+function clipZ(poly, z0, z1) {
+  let out = poly;
+  for (const [lim, keep] of [[z0, (p) => p[0] >= z0], [z1, (p) => p[0] <= z1]]) {
+    const inp = out; out = [];
+    for (let i = 0; i < inp.length; i++) {
+      const a = inp[i], b = inp[(i + 1) % inp.length], ka = keep(a), kb = keep(b);
+      if (ka) out.push(a);
+      if (ka !== kb) { const t = (lim - a[0]) / (b[0] - a[0]); out.push([lim, a[1] + t * (b[1] - a[1])]); }
+    }
+  }
+  return out;
+}
 function extrudeX(A, x0, x1, poly, m, o = {}) { for (let i = 1; i + 1 < poly.length; i++) A.prism(0, x0, x1, [poly[0], poly[i], poly[i + 1]], m, o); }
 function extrudeZ(A, z0, z1, poly, m, o = {}) { for (let i = 1; i + 1 < poly.length; i++) A.prism(2, z0, z1, [poly[0], poly[i], poly[i + 1]], m, o); }
 // ring of n boxes radius R (to the box centre), radial thickness t, depth dep along the ring axis ('x' | 'y' | 'z')
@@ -987,7 +1003,11 @@ function carBody(A, v) {
   const gap = Dw + 0.08, yC = Dw / 2, yW = Dw + 0.06, start = A.parts.length;
   // lower body under the wheel tops, cut round the wheels; arch spandrels, flares and dark well liners
   const seg = (z0, z1) => { if (z1 - z0 > 0.02) A.box([-hx, clear, z0], [hx, yW, z1], paint, vb(0.03)); };
-  seg(wf + gap / 2, zN); seg(wr + gap / 2, wf - gap / 2); seg(zT, wr - gap / 2);
+  seg(wf + gap / 2, zN); seg(zT, wr - gap / 2);
+  // VH6b: between the wheels a floor pan and two sills, not a solid block (the cabin is hollow: seats, footwells, console)
+  const yF = clear + 0.1;
+  A.box([-hx, clear, wr + gap / 2], [hx, yF, wf - gap / 2], paint, vb(0.03));
+  for (const s of [-1, 1]) A.box([s > 0 ? hx - 0.12 : -hx, clear, wr + gap / 2], [s > 0 ? hx : -hx + 0.12, yW, wf - gap / 2], paint, vb(0.03));
   for (const wz of [wf, wr]) {
     A.arch([0, yC + (yW - yC) / 2, wz], [gap, yW - yC, W], paint, { k: 0, fill: 1, th: 0.02, r: [0, 90, 0] });
     A.arch([0, yC + (yW - yC + 0.03) / 2, wz], [gap + 0.06, yW - yC + 0.03, W + 0.02], wreck ? "rust_h" : trimM, { k: 0, lod: 1, th: 0.035, r: [0, 90, 0] });   // AS1: arch lips rot first
@@ -996,7 +1016,11 @@ function carBody(A, v) {
   // upper lower-body: side profile from the nose over the bonnet and the waist to the tail
   const prof = v.pickup ? [[v.zCab, yW], [zN, yW], [zN, hood - 0.1], [zN - 0.15, hood], [zA, belt], [v.zCab, belt]]
     : [[zT, yW], [zN, yW], [zN, hood - 0.1], [zN - 0.15, hood], [zA, belt], [zT + 0.1, deck], [zT, deck - 0.12]];
-  extrudeX(A, -hx, hx, prof, paint, V);
+  // VH6b: solid ahead of the windscreen and behind the rear seat; between them only the side walls (the cabin)
+  const zCF = zA - 0.02, zCR = v.pickup ? v.zCab + 0.05 : (v.seatR != null ? v.seatR - 0.62 : v.seatsF - 0.62);
+  extrudeX(A, -hx, hx, clipZ(prof, zCF, 1e9), paint, V);
+  extrudeX(A, -hx, hx, clipZ(prof, -1e9, zCR), paint, V);
+  for (const s of [-1, 1]) extrudeX(A, s > 0 ? hx - 0.07 : -hx, s > 0 ? hx : -hx + 0.07, clipZ(prof, zCR, zCF), paint, V);
   // greenhouse: glass, roof, pillars
   const ws = glassM("ws");
   if (ws) bar(A, [0, belt + 0.01, zA - 0.02], [0, roof - 0.04, zB], cx * 2 - 0.08, 0.012, ws, V);
@@ -1025,9 +1049,34 @@ function carBody(A, v) {
   // interior seen through the glass
   const seatM = burn ? "burnt_dk" : v.seat || "seat", iy = belt - 0.42;
   A.box([-cx + 0.06, belt - 0.25, zA - 0.5], [cx - 0.06, belt + 0.06, zA - 0.08], burn ? "burnt_dk" : "dash", V);
-  if (!burn) A.box([-cx + 0.2, belt + 0.06, zA - 0.3], [cx - 0.2, belt + 0.065, zA - 0.12], "screen_off", D);
-  A.cyl([0.37, belt + 0.07, zA - 0.56], [0.38, 0.03, 0.38], burn ? "burnt_dk" : "rubber", { ...D, seg: 16, r: [-62, 0, 0] });
-  A.cyl([0.37, belt + 0.07, zA - 0.56], [0.12, 0.05, 0.12], trimM, { ...D, seg: 10, r: [-62, 0, 0] });
+  // the steering wheel: an invisible marker the game finds (src/vehicle_dash.cpp draws the wheel, turning, with its
+  // cluster, screens and lit trim); a burned shell keeps a static rim
+  A.cyl([0.37, belt + 0.07, zA - 0.56], [0.38, 0.03, 0.38], burn ? "burnt_dk" : "rubber", { ...D, seg: 16, r: [-62, 0, 0], ...(burn ? {} : { v: 0 }) });
+  A.cyl([0.37, belt + 0.07, zA - 0.56], [0.12, 0.05, 0.12], trimM, { ...D, seg: 10, r: [-62, 0, 0], ...(burn ? {} : { v: 0 }) });
+  if (!burn) {   // VH6b cabin: carpet, knee bolster, centre stack, console with armrest and selector, door cards, headliner, visors, mirror
+    A.box([-cx + 0.1, yF, zCR + 0.05], [cx - 0.1, yF + 0.012, zA - 0.3], "carpet", D);
+    A.box([-cx + 0.06, belt - 0.42, zA - 0.6], [cx - 0.06, belt - 0.25, zA - 0.48], "dash", V);   // knee bolster under the dash face
+    A.box([-0.15, yF, zA - 0.62], [0.15, belt - 0.25, zA - 0.3], "dash", V);
+    if (!v.van) {
+      A.box([-0.12, yF, v.seatsF - 0.55], [0.12, iy - 0.02, zA - 0.62], "dash", V);
+      A.rbox([-0.11, iy - 0.02, v.seatsF - 0.55], [0.11, iy + 0.05, v.seatsF - 0.2], 0.02, seatM, D);
+      A.box([-0.035, iy - 0.02, zA - 0.86], [0.035, iy + 0.015, zA - 0.7], trimM, D);
+      A.cyl([0, iy + 0.05, zA - 0.78], [0.04, 0.07, 0.04], "chrome", { ...D, seg: 10 });
+    }
+    const dz = v.doors || [zA, zD];
+    for (const s of [-1, 1]) for (let d = 0; d + 1 < dz.length; d++) {
+      const z1 = dz[d] - 0.04, z0 = dz[d + 1] + 0.04, x0 = s > 0 ? cx - 0.075 : -cx + 0.045, x1 = s > 0 ? cx - 0.045 : -cx + 0.075, xi = s > 0 ? x0 - 0.06 : x1;
+      A.box([x0, yF + 0.12, z0], [x1, belt + 0.01, z1], "door_card", D);
+      A.box([s > 0 ? x0 - 0.004 : x1, yF + 0.2, z0 + 0.06], [s > 0 ? x0 : x1 + 0.004, belt - 0.3, z1 - 0.06], seatM, D);       // fabric insert
+      A.box([s > 0 ? xi : x1, belt - 0.27, z0 + 0.05], [s > 0 ? x0 : xi + 0.06, belt - 0.22, z1 - 0.12], "door_card", D);    // armrest
+      A.box([s > 0 ? x0 - 0.012 : x1, belt - 0.1, z1 - 0.2], [s > 0 ? x0 : x1 + 0.012, belt - 0.08, z1 - 0.1], "chrome", D);   // handle
+      A.box([s > 0 ? xi + 0.01 : x1, belt - 0.22, z1 - 0.2], [s > 0 ? x0 : xi + 0.05, belt - 0.205, z1 - 0.13], trimM, D);   // window switches
+    }
+    if (!v.van) A.box([-cx + 0.05, roof - 0.09, zC + 0.05], [cx - 0.05, roof - 0.07, zB - 0.02], "headliner", D);
+    for (const s of [-1, 1]) A.box([s * 0.37 - 0.16, roof - 0.115, zB - 0.17], [s * 0.37 + 0.16, roof - 0.095, zB - 0.03], "headliner", D);
+    A.box([-0.12, roof - 0.2, zB - 0.12], [0.12, roof - 0.145, zB - 0.1], trimM, D);
+    A.box([-0.012, roof - 0.145, zB - 0.12], [0.012, roof - 0.085, zB - 0.1], trimM, D);
+  }
   for (const x of [-0.37, 0.37]) seat(A, x, iy, v.seatsF, 0.5, seatM);
   if (v.seatR != null) seat(A, 0, iy, v.seatR, cx * 2 - 0.22, seatM, { head: true });
   if (v.van) A.box([-cx + 0.02, belt, v.seatsF - 0.75], [cx - 0.02, roof - 0.1, v.seatsF - 0.72], "p_grey", V);           // bulkhead

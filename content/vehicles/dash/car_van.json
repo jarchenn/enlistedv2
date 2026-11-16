@@ -1,0 +1,11 @@
+{
+  "note": "BR van (the wrecked / burned vans): the delivery van's cab with a plain two-dial cluster and no phone.",
+  "base": "car_delivery_van",
+  "remove": ["cluster", "cradle", "phone"],
+  "add": [
+    {"id": "speedo", "type": "gauge", "at": [0.07, 0.055, 0.005], "r": 0.042, "n": 6, "numStep": 4, "read": "speed", "bezel": "dash", "bezelW": 0.004},
+    {"id": "tach", "type": "gauge", "at": [-0.07, 0.055, 0.005], "r": 0.042, "n": 5, "numStep": 1, "read": "rpm", "bezel": "dash", "bezelW": 0.004},
+    {"id": "fuel", "type": "gauge", "at": [0.16, 0.045, 0.005], "r": 0.018, "sweep": 90, "read": "fuel", "bezel": "dash", "bezelW": 0.003},
+    {"id": "temp", "type": "gauge", "at": [-0.16, 0.045, 0.005], "r": 0.018, "sweep": 90, "read": "temp", "bezel": "dash", "bezelW": 0.003}
+  ]
+}

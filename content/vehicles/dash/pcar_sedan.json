@@ -1,0 +1,18 @@
+{
+  "note": "Sedan / luxury (59.png): tan stitched leather pad over a piano-black band, warm ambient light, chrome vent rings, the hooded twin-ring digital cluster, the wide embedded navigation screen, a body-colour inlay strip on the passenger side.",
+  "base": "civil_core",
+  "model": {"note": "the car-pack model's own dash top / rear face and the driver's eye on its seat, [y, z] in the asset frame", "dash": [1.1, 0.68], "eye": [1.32, -0.3]},
+  "palette": {
+    "pad": {"rgb": [0.46, 0.3, 0.17], "rough": 0.6, "pat": "textile", "tex": true},
+    "stitch": {"rgb": [0.85, 0.78, 0.62], "rough": 0.9},
+    "dash": {"rgb": [0.06, 0.05, 0.045], "rough": 0.7, "pat": "textile"},
+    "inlay": {"rgb": [0.3, 0.3, 0.3], "fromPaint": 0.8, "rough": 0.25, "metal": 0.5},
+    "wheel": {"rgb": [0.05, 0.035, 0.025], "rough": 0.55, "pat": "textile", "tex": true}
+  },
+  "remove": ["screen"],
+  "add": [
+    {"id": "screen", "type": "screen", "at": [0.37, -0.165, 0.005], "size": [0.3, 0.13], "ui": "map", "bezel": "trim"},
+    {"id": "inlay", "type": "box", "at": [0.86, -0.13, 0.003], "size": [0.5, 0.02, 0.004], "mat": "inlay"},
+    {"id": "clock", "type": "gauge", "at": [0.37, -0.255, 0.005], "r": 0.022, "sweep": 360, "bezel": "chrome", "bezelW": 0.004, "bezelD": 0.008}
+  ]
+}

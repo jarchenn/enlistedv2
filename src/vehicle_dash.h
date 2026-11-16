@@ -1,15 +1,17 @@
 #pragma once
-// VH6 vehicle interiors seen from the driver's seat: a generated instrument panel attached per vehicle in hull space
-// (anchored on the driver's eye: content/vehicles/<id>.json "dash": {"style": "military" | "civilian", "offset":
-// [x, y, z] from the eye, default [0, -0.40, 0.70], "scale"}). Military: painted metal panel, a gauge cluster whose
-// needles move (speed, rpm, fuel, temperature), toggle rows, knobs, a warning-light panel and backlit buttons that glow
-// (brighter at night / underground), levers, a radio, data plates, grime. Civilian: digital cluster with the live speed,
-// a centre screen (our own simple map UI), round vents, buttons, gear selector, console; parked cars show dark screens,
-// wrecks dusty and cracked ones. Our own geometry and colours (no textures, no logos).
+// VH6 vehicle interiors seen from the driver's seat, one per vehicle model: content/vehicles/dash/<spec>.json (palette,
+// items from shared part builders, optional "base" spec) - see src/vehicle_dash.cpp. Model vehicles name their spec and
+// anchor in content/vehicles/<id>.json "dash": {"spec", "offset" from the driver's eye}; part-built cars (BR cars,
+// car-pack copies) take theirs from the asset id and anchor on the asset's dash. Every interior has an animated wheel
+// (the model's or the kit's), live speed / rpm / fuel / temperature read-outs, warning lamps and backlit controls that
+// glow with the engine running (brighter at night / underground), dark screens when parked, dusty cracked ones in wrecks.
+// Our own geometry and colours (no textures from the references, no logos).
 #include "common.h"
 
 class App;
 struct TankRT;
+struct AssetDef;
 
 void vehicleDashDraw(App& app, const TankRT& t, const mat4& hull);   // tank_ui.cpp drawCar: a car's interior
-void vehicleDashFrame(App& app);                                      // app.cpp: parked civilian car props near the camera
+void vehicleDashFrame(App& app);                                      // app.cpp: parked part-built cars near the camera
+bool vehicleDashModelEye(const AssetDef* a, vec3& eye);               // a car-pack copy (drawn as its model): the eye on the model's seat, from its spec's "model" fit

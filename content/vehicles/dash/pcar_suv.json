@@ -1,0 +1,21 @@
+{
+  "note": "SUV: a high, broad premium dash in two-tone grey and cream with an open-pore wood band, a tall twin-ring digital cluster, a large landscape screen over the climate panel, a terrain-mode dial, vertical vents beside the screen, a passenger grab handle.",
+  "base": "civil_core",
+  "model": {"note": "the car-pack model's own dash top / rear face and the driver's eye on its seat, [y, z] in the asset frame", "eye": [1.5, -0.1], "dash": [1.42, 0.58]},
+  "palette": {
+    "pad": {"rgb": [0.2, 0.2, 0.205], "rough": 0.75, "pat": "textile", "tex": true},
+    "dash": {"rgb": [0.48, 0.45, 0.39], "rough": 0.75, "pat": "textile"},
+    "wood": {"rgb": [0.25, 0.15, 0.08], "rough": 0.45, "pat": "wood", "tex": true},
+    "stitch": {"rgb": [0.55, 0.52, 0.46], "rough": 0.9}
+  },
+  "remove": ["band", "screen", "vent_cl", "vent_cr"],
+  "add": [
+    {"id": "band", "type": "box", "at": [0.37, -0.06, 0.003], "size": [1.44, 0.05, 0.004], "mat": "wood"},
+    {"id": "screen", "type": "screen", "at": [0.37, -0.17, 0.005], "size": [0.3, 0.15], "ui": "map", "bezel": "trim"},
+    {"id": "vent_cl", "type": "ventrect", "at": [0.175, -0.17, 0.005], "size": [0.04, 0.12], "ring": "trim"},
+    {"id": "vent_cr", "type": "ventrect", "at": [0.565, -0.17, 0.005], "size": [0.04, 0.12], "ring": "trim"},
+    {"id": "terrain", "type": "knobs", "at": [0.37, -0.64, -0.115], "n": 1, "r": 0.03, "ring": "chrome", "sides": 16},
+    {"id": "terrain_lamps", "type": "lamps", "at": [0.31, -0.595, -0.115], "rows": 1, "cols": 5, "pitch": [0.03, 0], "r": 0.004, "color": [0.4, 1.4, 2.4]},
+    {"id": "grab", "type": "grab", "at": [0.95, -0.02, 0.001], "len": 0.28, "mat": "pad"}
+  ]
+}

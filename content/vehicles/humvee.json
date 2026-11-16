@@ -178,5 +178,6 @@
     "engineKW": 140,
     "pushEfficiency": 0.55,
     "note": "HMMWV ~2,400-2,700 kg, 6.5 L diesel ~190 hp"
-  }
+  },
+  "dash": {"spec": "humvee", "offset": [0, -0.2, 0.45], "note": "VH6b src/vehicle_dash.cpp: the interior content/vehicles/dash/humvee.json, anchored at the driver's eye + offset"}
 }

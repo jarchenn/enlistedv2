@@ -28,7 +28,7 @@ export function nt2CarAssets() {
         j.description = wrecked ? "A rusted, stripped " + kind + " with a wheel gone, left where it died." : "A dusty, faded " + kind + " abandoned at the kerb.";
         j.footprint = [size[0], size[2]];
         for (const p of j.parts) if (p.v !== 0) p.mf = 1;   // stand-in look; colliders stay
-        j.model = { src: "car_" + kind + ".glb", dir: "pcar_" + kind + (wrecked ? "_wreck" : ""), pivot: "ground", scale: 1, maxTex: 1024, simplify: 0.6,
+        j.model = { src: "car_" + kind + ".glb", dir: "pcar_" + kind + (wrecked ? "_wreck" : ""), pivot: "ground", scale: 1, yaw: 180, maxTex: 1024, simplify: 0.6,
           lodDist: 35, cullDist: 400, tint: wrecked ? [0.62, 0.5, 0.4] : [0.85, 0.83, 0.79], ...(wrecked ? { hide: ["wheel_0"] } : {}), credit: CREDIT };
         return j;
       } });
