@@ -48,6 +48,9 @@ std::vector<View> sViews; size_t sVi = 0; bool sViewInit = false;
 // pixels) are named by a physics ray through the cell (asset id, "terrain" for ground / grass / water, "sky").
 // -> selftest_out/fl1.json, fl1_<map>_<view>_a|b|c.png and _diff.png (flicker in red over the dimmed frame)
 const bool kFl1 = std::getenv("NMK_FL1") != nullptr;
+// L3: NMK_FL1_WIND=1: the clock runs (wind on) and b is the very next frame, so sway moves leaves only a few mm between
+// a and b: what still flickers there is sparkle under motion (smear: look at the _a shots)
+const bool kFl1Wind = std::getenv("NMK_FL1_WIND") != nullptr;
 int gFlPh = 0; float gFlT = 0; vec3 gFlCam{0}; json gFl1 = json::array(), gFlState = json::array();   // state: exposure / probes at each shot
 std::string fl1Analyse(App& app, const std::string& map, const std::string& view, const std::string& base) {
   int w = 0, h = 0, n = 0, w2 = 0, h2 = 0, w3 = 0, h3 = 0;
@@ -478,9 +481,9 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     sLast = tnow;
     if (kFl1 && sPresetPass == 0 && stageTime >= measEnd && gFlPh < 6) {   // FL1 (see fl1Analyse)
       std::string map = app.templates[sTpl[sTi]].id, base = "fl1_" + map + "_" + v.name;
-      if (gFlPh == 0) { app.R.holdTime = true; gFlT = stageTime; gFlPh = 1; }
+      if (gFlPh == 0) { app.R.holdTime = !kFl1Wind; gFlT = stageTime; gFlPh = 1; }
       else if (gFlPh == 1 && stageTime > gFlT + 1.2f) { shotQueue.push_back(base + "_a"); gFlState = json::array({{app.R.exposure(), app.R.stats.probePending, app.R.stats.probeDirty, app.eyePos().x, app.eyePos().y, app.eyePos().z, app.eyeYaw, app.eyePitch}}); gFlPh = 2; gFlT = stageTime; }
-      else if (gFlPh == 2 && stageTime > gFlT + 0.3f) { shotQueue.push_back(base + "_b"); gFlState.push_back({app.R.exposure(), app.R.stats.probePending, app.R.stats.probeDirty, app.eyePos().x, app.eyePos().y, app.eyePos().z, app.eyeYaw, app.eyePitch}); gFlPh = 3; gFlT = stageTime; }
+      else if (gFlPh == 2 && stageTime > gFlT + (kFl1Wind ? 0.0f : 0.3f)) { shotQueue.push_back(base + "_b"); gFlState.push_back({app.R.exposure(), app.R.stats.probePending, app.R.stats.probeDirty, app.eyePos().x, app.eyePos().y, app.eyePos().z, app.eyeYaw, app.eyePitch}); gFlPh = 3; gFlT = stageTime; }
       else if (gFlPh == 3 && stageTime > gFlT + 0.1f) {   // 5 cm to the side (editor camera; a first-person view stays put)
         gFlCam = app.camPos; if (!v.explore) app.camPos += vec3(std::cos(radians(app.camYaw)), 0, -std::sin(radians(app.camYaw))) * 0.05f;
         gFlPh = 4; gFlT = stageTime; }

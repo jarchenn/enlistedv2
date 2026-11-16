@@ -2209,15 +2209,19 @@ void main(){
     // FL1: a still pixel gets a wider clip box (2.25 sigma): sub-pixel bars, wires, pickets and blade tips show up in only
     // some jitter positions, and the tight box clipped their history away every frame, so they sparkled with the camera
     // standing still. Under motion it stays tight against ghosting.
-    float gam = mv.a > 0.5 ? mix(1.75, 1.1, clamp(motion, 0.0, 1.0)) : mix(2.25, 1.1, clamp(motion/1.5, 0.0, 1.0));   // swaying grass / leaves: wider only while nearly still
+    // L3: swaying grass / leaves narrow the box over 1 px of their own motion (was a flat 1.75 even standing still: leaf-card
+    // edges against the sky, sub-pixel and on in only some jitter positions, had their history clipped away and shimmered)
+    float gam = mix(2.25, 1.1, clamp(motion/(mv.a > 0.5 ? 1.0 : 1.5), 0.0, 1.0));
     vec3 lo = m1 - gam*sig, hi = m1 + gam*sig;
     vec3 ctr = 0.5*(lo + hi), ext = max(0.5*(hi - lo), vec3(1e-4));   // clip toward the box centre
     vec3 d = h - ctr; vec3 a = abs(d/ext); float mx = max(a.x, max(a.y, a.z));
     if (mx > 1.0) h = ctr + d/mx;
-    float alpha = mix(0.08, 0.30, clamp(motion/16.0, 0.0, 1.0));
+    // L3: a still pixel keeps more history (0.05, was 0.08): sub-pixel sky gaps in a canopy are sampled in only some jitter
+    // positions, and the blend's own noise (~ sqrt(alpha)) was what still flickered; from 1 px of motion as before
+    float alpha = motion < 1.0 ? mix(0.05, 0.08, motion) : mix(0.08, 0.30, clamp(motion/16.0, 0.0, 1.0));
     if (uUp == 1) {   // TAAU: a sample far from this pixel counts less; wind-animated pixels (approximate motion) keep less history
       alpha *= 0.25 + 1.5*conf;
-      if (mv.a > 0.5) alpha = max(alpha, 0.2);
+      if (mv.a > 0.5) alpha = max(alpha, 0.2*clamp(motion*2.0, 0.0, 1.0));   // L3: only once they really move (0.5 px+): still / far canopies keep their history
     }
     res = mix(fromYC(h), cur, alpha);
   }
