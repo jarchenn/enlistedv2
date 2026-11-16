@@ -395,8 +395,9 @@
    "falloffStart_m": 20,
    "falloffEnd_m": 50,
    "rpm": 150,
-   "headCap": 80,
-   "note": "MG12 .357 Magnum (DMG1 scheme: magnum revolver ~62 chest; headCap for DMG1, not read yet)"
+   "note": "MG12 .357 Magnum (DMG1 scheme: magnum revolver ~62 chest; headCap for DMG1, not read yet)",
+   "headMax": 80,
+   "class": "pistol"
   },
   "modern_deagle": {
    "near": 60,
@@ -404,8 +405,9 @@
    "falloffStart_m": 20,
    "falloffEnd_m": 50,
    "rpm": 200,
-   "headCap": 80,
-   "note": "MG12 .50 AE (the magnum row)"
+   "note": "MG12 .50 AE (the magnum row)",
+   "headMax": 80,
+   "class": "pistol"
   },
   "modern_sawnoff": {
    "near": 28,
@@ -413,7 +415,8 @@
    "falloffStart_m": 6,
    "falloffEnd_m": 25,
    "rpm": 300,
-   "note": "MG12 per pellet (9 per shell; DMG1 pellets 26-30), shorter reach than the 870"
+   "note": "MG12 per pellet (9 per shell; DMG1 pellets 26-30), shorter reach than the 870",
+   "class": "shotgun"
   },
   "modern_smg9": {
    "near": 30,
@@ -421,8 +424,9 @@
    "falloffStart_m": 20,
    "falloffEnd_m": 60,
    "rpm": 900,
-   "headCap": 75,
-   "note": "MG12 9 mm SMG (DMG1 SMG 26-33)"
+   "note": "MG12 9 mm SMG (DMG1 SMG 26-33)",
+   "headMax": 75,
+   "class": "smg"
   }
  },
  "classes": {
