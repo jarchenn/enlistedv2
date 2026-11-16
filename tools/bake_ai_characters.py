@@ -361,5 +361,60 @@ def bake_operators():
     for a in list(bpy.data.actions): bpy.data.actions.remove(a)
     export(os.path.join(OUT, 'operator_allied.glb'), arm, meshes, [])
 
+# ---------------------------------------------------------------- SW1 kits: blaster troopers (three looks) and the robot commando
+#   kits <trooper.fbx> <looks: name=armour textures dir,...> <undersuit textures dir> <robot.fbx> <robot texture.png>
+#       -> trooper_<name>.glb (each look: the supplied mesh and rig, already on the joint names; 1.83 m), robot_commando.glb
+#          (Mixamo rig; only the full-detail body and its lights kept, the LOD meshes dropped; 1.90 m). No clips: the procedural
+#          soldier pose drives them (AI types Blaster troopers / Robot commandos, content/ai/combat.json kits). Local-only output.
+def flat_material(name, rgb, emit=0.0):
+    mat = bpy.data.materials.new(name); mat.use_nodes = True; b = mat.node_tree.nodes.get('Principled BSDF')
+    b.inputs['Base Color'].default_value = (*rgb, 1); b.inputs['Roughness'].default_value = 0.4
+    if emit > 0 and 'Emission Color' in b.inputs: b.inputs['Emission Color'].default_value = (*rgb, 1); b.inputs['Emission Strength'].default_value = emit
+    return mat
+
+def bake_kits():
+    global TEX
+    TEX = 1024
+    trooper_fbx, looks, under_dir, robot_fbx, robot_png = SRCS[:5]
+    for look in looks.split(','):
+        name, armour_dir = look.split('=', 1)
+        reset()
+        bpy.ops.import_scene.fbx(filepath=trooper_fbx)
+        arm = objs_of('ARMATURE')[0]; meshes = [o for o in objs_of('MESH') if any(m.type == 'ARMATURE' for m in o.modifiers)]
+        clear_anim(arm)
+        face_front(arm)
+        normalise(arm, meshes, 1.83)
+        tex = {'Clone_P2_Armor': os.path.join(armour_dir, 'Clone Trooper (Phase2)_Clone_P2_Armor_BaseColor.png'),
+               'Phase2_Helmet': os.path.join(armour_dir, 'Clone Trooper (Phase2)_Phase2_Helmet_BaseColor.png'),
+               'Undersuit': os.path.join(under_dir, 'Clone Trooper (Phase2)_Undersuit_BaseColor.png')}
+        mats = {}
+        for mo in meshes:
+            for sl in mo.material_slots:
+                base = sl.material.name.split('.')[0] if sl.material else mo.name
+                if base in tex and os.path.exists(tex[base]):
+                    if base not in mats: mats[base] = textured_material(base, tex[base])
+                    sl.material = mats[base]
+        for img in list(bpy.data.images):
+            if img.users == 0: bpy.data.images.remove(img)
+        shrink_images()
+        for a in list(bpy.data.actions): bpy.data.actions.remove(a)
+        export(os.path.join(OUT, 'trooper_' + name + '.glb'), arm, meshes, [])
+    reset()
+    bpy.ops.import_scene.fbx(filepath=robot_fbx)
+    arm = objs_of('ARMATURE')[0]
+    keep = {'M_body', 'M_Glow_red', 'M_Glow_white'}   # the full-detail meshes (M_body1-5, M_Glow_*1-3 are lower LODs)
+    meshes = [o for o in objs_of('MESH') if o.name in keep]
+    clear_anim(arm)
+    face_front(arm)
+    normalise(arm, meshes, 1.90)
+    body = textured_material('robot', robot_png)
+    for mo in meshes:
+        m = body if mo.name == 'M_body' else flat_material(mo.name, (1.0, 0.15, 0.05) if 'red' in mo.name else (0.9, 0.9, 0.85), 4.0)
+        mo.data.materials.clear(); mo.data.materials.append(m)
+    shrink_images()
+    for a in list(bpy.data.actions): bpy.data.actions.remove(a)
+    export(os.path.join(OUT, 'robot_commando.glb'), arm, meshes, [])
+
 if WHAT == 'zombies': bake_zombies()
 if WHAT == 'operators': bake_operators()
+if WHAT == 'kits': bake_kits()

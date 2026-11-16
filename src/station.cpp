@@ -264,6 +264,7 @@ void App::fireRounds(const WeaponDef& d, vec3 from, vec3 dir, int tracerKind, ui
     }
     fireProjectile(from, v, d.velocity, PROJ_BULLET, 0, ~0ull, k == 0 ? tracerKind : 0, d.container);
     Projectile& p = projectiles.back(); p.mass = d.bulletMass * 0.001f; p.owner = owner; p.extraPellet = k > 0;
+    if (d.blaster) { p.gravScale = 0; p.tracerKind = d.blaster; }   // SW1: a bolt flies straight, every pellet glows
   }
 }
 
@@ -367,6 +368,10 @@ void App::stepProjectiles(float dt) {
           std::string surf2 = surface;
           bulletImpact(p, hit, surf2);   // glass / shutters / doors: damage, detach, maybe a penetrating continuation
           mpaiImpact(*this, p, hit.pos, hit.normal, hit.ud, hit.t, surface);   // LAN: the same impact on every client
+          if (p.tracerKind >= 3) {   // SW1: a blaster bolt: scorch, sparks and its own hit sound (no dust, no ricochet)
+            fx.blasterImpact(hit.pos, hit.normal, p.tracerKind);
+            if (glm::length(hit.pos - eyePos()) < 120.0f) audio.play("blaster_hit", hit.pos, 0.5f);
+          } else {
           fx.impact(hit.pos, hit.normal, surf2 == "concrete" || surf2 == "masonry" || surf2 == "gravel" ? "stone" : surf2 == "dirt" ? "ground" : surf2 == "wood_door" || surf2 == "wood_shutter" ? "wood" : surf2);
           {   // material impact sound at the contact
             std::string im = surf2 == "ground" || surf2 == "dirt" || surf2 == "gravel" || surf2 == "earth" ? "dirt" : surf2 == "steel" || surf2 == "metal" ? "metal"
@@ -377,6 +382,7 @@ void App::stepProjectiles(float dt) {
                 if (now - recent[o] >= 0.2) { recent[o] = now; static uint32_t rs = 777; rs = rs * 1664525u + 1013904223u; audio.play("bullet_hit", hit.pos, 0.6f, 0.9f + 0.2f * (rs >> 8) / 16777216.0f); }
               } else audio.play("impact_" + im, hit.pos, 0.5f);
             }
+          }
           }
           lastImpact = {hit.pos, surface, p.kind, (float)glfwGetTime(), 0};
         }

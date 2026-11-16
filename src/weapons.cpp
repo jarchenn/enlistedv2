@@ -47,6 +47,9 @@ void App::buildWeaponMeshes() {
     if (f.filename() == "handling.json") continue;
     json j;
     try { j = json::parse(readTextFile(f)); } catch (...) { continue; }
+    if (fs::path lp = f.parent_path() / "local" / f.filename(); fs::exists(lp)) {   // SW1: a local-only override (git-ignored content/weapons/local/<file>): names, model, sights
+      try { j.merge_patch(json::parse(readTextFile(lp))); } catch (std::exception& e) { logf("weapons: %s: %s (ignored)", lp.string().c_str(), e.what()); }
+    }
     auto d = std::make_unique<WeaponDef>();
     d->id = j.value("id", ""); d->name = j.value("name", d->id); d->side = j.value("side", "");
     d->tool = j.value("tool", std::string()) == "build"; d->locked = j.value("locked", false);   // GM3: the Engineer's hammer
@@ -79,6 +82,7 @@ void App::buildWeaponMeshes() {
     }
     d->modern = j.value("modern", d->side == "modern"); d->pellets = std::max(1, j.value("pellets", 1)); d->spreadDeg = j.value("spreadDeg", 0.0f);   // MG1
     d->casings = j.value("casings", true);
+    { std::string bl = j.value("blaster", std::string()); d->blaster = bl == "red" ? 4 : bl.empty() ? 0 : 3; }   // SW1
     d->laterWar = j.value("laterWar", false); d->moveSpeed = j.value("moveSpeed", 1.0f); d->showArms = j.value("arms", true);
     if (j.contains("scope")) { d->hasScope = true; d->scopeMag = j["scope"].value("mag", 2.5f); d->reticle = j["scope"].value("reticle", ""); d->scopeEye = jvec3(j["scope"]["eye"]); d->scopeIrons = j["scope"].value("irons", false); d->scopeRelief = j["scope"].value("relief", 0.07f); }
     if (j.contains("boltPivot")) { d->boltPivot = vec3(j["boltPivot"][0].get<float>(), j["boltPivot"][1].get<float>(), 0); d->boltLift = j.value("boltLift", 70.0f); }
@@ -574,7 +578,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       }
       // declared zero: tilt up by the drop at the zero range
       float g = d.action == "launcher" ? 9.81f * d.rocketGrav : 9.81f;   // rockets: reduced effective gravity (sustained motor); MG4 grenades: full
-      float tz = d.zero / d.velocity, drop = 0.5f * g * tz * tz;
+      float tz = d.zero / d.velocity, drop = d.blaster ? 0.0f : 0.5f * g * tz * tz;   // SW1: bolts do not drop
       dir = glm::normalize(dir + vec3(0, drop / d.zero, 0));
       int tracer = s.att[ATT_MUZZLE] == 1 ? 0 : d.tracerKind(s.shotIdx);   // BR2 suppressor: no tracers
       if (d.action == "launcher") {   // rocket: data-tuned blast through the shared destruction pipeline
@@ -589,7 +593,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       vec3 fxm = vmApparent(muzzle);   // effects are drawn with the world projection
       {   // WP4: along the drawn bore at the viewmodel's apparent muzzle (compact in ADS), the light at the world muzzle
         mat4 VM = viewModelMatrix(d, s); vec3 bore = glm::normalize(vec3(VM * vec4(d.muzzleDir, 0)));
-        fx.muzzleFlash(fxm, bore, d.flashScale * (adsT > 0.85f ? 0.6f : 1.0f), d.suppressed || s.att[ATT_MUZZLE] == 1, muzzle);
+        fx.muzzleFlash(fxm, bore, d.flashScale * (adsT > 0.85f ? 0.6f : 1.0f), d.suppressed || s.att[ATT_MUZZLE] == 1, muzzle, d.blaster ? blasterColour(d.blaster) : vec3(-1));
       }
       fx.smoke(fxm, aimDir * 2.0f + vec3(0, 0.3f, 0), 0.05f, 0.7f + 0.5f * fx.rnd(), vec4(0.6f, 0.58f, 0.55f, 0.16f), 0.6f, 0.2f); fx.parts.back().fade = 1.6f;   // thin, short-lived, eroded wisp
       audio.play("shot_" + d.id, muzzle, 1.0f);

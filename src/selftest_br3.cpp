@@ -137,7 +137,8 @@ bool poseShots(App& app, float dt) {
     bodies = list("NMK_POSE_BODIES", "-");
     const char* sl = std::getenv("NMK_POSE_SLOPE"); slope = sl && *sl == '1';
   }
-  static const char* posts[3] = {"kneel", "carry", "moveaim"};
+  static std::vector<std::string> posts;   // SW1: NMK_POSE_POSTS = kneel,carry,moveaim (default) and idle (standing still), fire (standing, aiming, one shot just before the shot)
+  if (posts.empty()) posts = list("NMK_POSE_POSTS", "kneel,carry,moveaim");
   static const char* views[2] = {"side", "front34"};
   if (stage == 0) {
     const char* mp = std::getenv("NMK_SHOTS_MAP");
@@ -185,12 +186,13 @@ bool poseShots(App& app, float dt) {
     if (bot < 0) { app.selftest->exitCode = 1; app.selftest->done = true; return true; }
     stage = 2; t = 0; idx = 0; return true;
   }
-  int per = 6 * (int)weps.size();
+  const int np = (int)posts.size(), per = 2 * np * (int)weps.size();
   if (idx >= per * (int)bodies.size()) {
     logf("[poses] ground: worst stance-foot gap %.3f m, worst kneel contact gap %.3f m (%d frames)", worstStance, worstKneel, frames);
     app.selftest->exitCode = 0; app.selftest->done = true; return true;
   }
-  int bi = idx / per, w = (idx % per) / 6, ps = (idx / 2) % 3, vw = idx % 2;
+  int bi = idx / per, w = (idx % per) / (2 * np), vw = idx % 2; const std::string pn = posts[(idx / 2) % np];
+  const int ps = pn == "kneel" ? 0 : pn == "carry" || pn == "idle" ? 1 : 2;   // 0 crouched still, 1 no target, 2 a target
   Soldier& s = G.sold[bot];
   if (bodies[bi] != "-" && t == dt) {   // the body under test (loaded like Game::begin's operator bodies)
     std::string id = bodies[bi]; int mi = -1;
@@ -217,7 +219,7 @@ bool poseShots(App& app, float dt) {
   s.reload = 0; s.throwT = -1; s.recoil = 0;
   s.posture = ps == 0 ? Physics::CROUCH : Physics::STAND;
   static float runV = [] { const char* e = std::getenv("NMK_POSE_SPEED"); return e && *e ? (float)std::atof(e) : 2.69f; }();   // jog by default
-  s.speed = ps == 0 ? 0.0f : runV; s.vel = face * s.speed;
+  s.speed = ps == 0 || pn == "idle" || pn == "fire" ? 0.0f : runV; s.vel = face * s.speed;
   s.br.target = ps == 1 ? -1 : G.localSlot; s.lastShot = -100;
   vec3 left = glm::cross(vec3(0, 1, 0), face);   // the bot's left
   vec3 cd = vw == 0 ? -left : glm::normalize(left * 0.7f + face);   // side: from its right; three-quarter: front left
@@ -234,9 +236,14 @@ bool poseShots(App& app, float dt) {
     if (ps == 0) worstKneel = std::max({worstKneel, std::fabs(gap(CJ_RLEG) - 0.065f), std::fabs(gap(CJ_LFOOT))});
     else worstStance = std::max(worstStance, std::fabs(std::min(gap(CJ_LFOOT), gap(CJ_RFOOT))));
   }
+  if (pn == "fire" && t > 1.585f && t - dt <= 1.585f && s.weapon >= 0) {   // a frame before the shot: bolt and flash at the muzzle   // SW1: one shot, its bolt / tracer and flash in the picture
+    s.ws.loaded = std::max(s.ws.loaded, 1); s.ws.cooldown = 0; s.reload = 0;
+    vec3 tgt = B + face * 30.0f + vec3(0, 1.4f, 0); bool fired = G.soldierFire(s, glm::normalize(tgt - (B + vec3(0, 1.5f, 0))));
+    logf("[poses] fire %s: %s (cooldown %.2f bolt %.2f throw %.2f loaded %d)", app.weaponDefs[s.weapon]->id.c_str(), fired ? "fired" : "NOT fired", s.ws.cooldown, s.ws.bolt, s.throwT, s.ws.loaded);
+  }
   if (t > 1.6f) {
     std::string tag = (bodies[bi] == "-" ? "" : bodies[bi] + "_") + (slope ? "slope_" : "");
-    pend = exeDir() / "selftest_out" / ("pose_" + tag + weps[w].first + "_" + posts[ps] + "_" + views[vw] + ".png");
+    pend = exeDir() / "selftest_out" / ("pose_" + tag + weps[w].first + "_" + pn + "_" + views[vw] + ".png");
     logf("[poses] %s: kneel %.2f carry %.2f moveAim %.2f stride %.2f", pend.filename().string().c_str(), s.anKneel, s.anCarry, s.anMoveAim, s.anStride);
     if (s.weapon >= 0) {   // wrists vs the grip sockets (model space), shoulder heights, head
       const WeaponDef& d = *app.weaponDefs[s.weapon]; const PoseResult& r = s.pose;

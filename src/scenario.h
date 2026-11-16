@@ -20,10 +20,11 @@ inline Faction otherFaction(Faction f) { return f == Faction::Allies ? Faction::
 enum class GameMode : int { Assault = 0, Solo = 1, TDM = 2, BattleRoyale = 3 };
 inline const char* gameModeName(GameMode m) { return m == GameMode::Solo ? "Solo" : m == GameMode::TDM ? "Team Deathmatch" : m == GameMode::BattleRoyale ? "Battle royale" : "Assault"; }
 inline bool ffaMode(GameMode m) { return m == GameMode::Solo || m == GameMode::BattleRoyale; }   // every soldier its own team
-enum class AiType : int { Soldiers = 0, Zombies = 1, ZombiesHeavies = 2, Brutes = 3, Fighters = 4, Operators = 5, Fighters2 = 6, Spiders = 7, Creatures = 8, Knights = 9, Animatronics = 10, Aliens = 11, AlienQueens = 12, Abominations = 13, Golems = 14, Boglords = 15 };   // EN1: 2 mixes the enemy types by weight; 3 brutes (trolls; was "Heavies", trolls and spiders), 7 spiders (stalkers), 8 creatures; 4 the "fighter" enemy type; 5 soldiers in operator bodies; 6 the "fighter2" enemy type; CH1: 9-12 the knight, animatronic, alien, alien_queen types (the last three local-only: a zombie without them)
-constexpr int kAiTypeCount = 16;   // CH3 / CH4: 13-15 the abomination, golem, boglord types (local-only: a zombie without them)
+enum class AiType : int { Soldiers = 0, Zombies = 1, ZombiesHeavies = 2, Brutes = 3, Fighters = 4, Operators = 5, Fighters2 = 6, Spiders = 7, Creatures = 8, Knights = 9, Animatronics = 10, Aliens = 11, AlienQueens = 12, Abominations = 13, Golems = 14, Boglords = 15, Troopers = 16, Robots = 17 };   // EN1: 2 mixes the enemy types by weight; 3 brutes (trolls; was "Heavies", trolls and spiders), 7 spiders (stalkers), 8 creatures; 4 the "fighter" enemy type; 5 soldiers in operator bodies; 6 the "fighter2" enemy type; CH1: 9-12 the knight, animatronic, alien, alien_queen types (the last three local-only: a zombie without them)
+constexpr int kAiTypeCount = 18;   // SW1: 16 / 17 blaster troopers and robot commandos (soldier brain, kit bodies and blasters; combat.json kits)
+//   // CH3 / CH4: 13-15 the abomination, golem, boglord types (local-only: a zombie without them)
 inline const char* aiTypeName(AiType t) {
-  static const char* n[kAiTypeCount] = {"Soldiers", "Zombies", "Zombies + heavies", "Brutes", "Fighters", "Operators", "Fighters 2", "Spiders", "Creatures", "Knights", "Animatronics", "Aliens", "Alien queens", "Abominations", "Golems", "Boglords"};
+  static const char* n[kAiTypeCount] = {"Soldiers", "Zombies", "Zombies + heavies", "Brutes", "Fighters", "Operators", "Fighters 2", "Spiders", "Creatures", "Knights", "Animatronics", "Aliens", "Alien queens", "Abominations", "Golems", "Boglords", "Blaster troopers", "Robot commandos"};
   return n[std::clamp((int)t, 0, kAiTypeCount - 1)];
 }
 inline int aiBit(AiType t) { return 1 << (int)t; }
