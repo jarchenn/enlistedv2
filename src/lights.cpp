@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <map>
 #include <cmath>
+#include <set>
 
 bool gAutoPathLamps = false;
 std::string gLightsSkip;   // GX2 A/B timing: lights of this asset left out of the frame
@@ -702,7 +703,8 @@ void lightsStep(App& app, float dt) {
   vec3 cam = app.mode == Mode::Explore ? app.eyePos() : app.camPos;
   int fires = 0;
   for (auto& i : app.doc.instances) {
-    if (glm::length(i.pos - cam) > 40.0f) continue;
+    float camD = glm::length(i.pos - cam);
+    if (camD > 90.0f) continue;
     auto it = app.rt.find(i.id);
     if (it == app.rt.end() || !it->second.asset) continue;
     const LightAssetDef* d = lightDef(it->second.asset);
@@ -710,7 +712,49 @@ void lightsStep(App& app, float dt) {
     mat4 M(1); bool haveM = false;
     for (size_t k = 0; k < d->lights.size(); ++k) {
       const LightSpec& s = d->lights[k];
-      if (s.fx.empty() || fires >= 16) continue;
+      if (s.fx == "shaft") {   // CV1: a visible light shaft: faint additive dust motes hanging in the spot's cone (fxSize = its length, m)
+        if (!offReason(app, i, it->second.asset, d, (int)k).empty()) continue;
+        if (!haveM) { M = app.instanceMatrix(i); haveM = true; }
+        vec3 top = vec3(M * vec4(s.offset, 1)), dir = glm::normalize(yawQuat(i.yaw) * s.dir);
+        vec3 ax = glm::normalize(glm::cross(dir, std::fabs(dir.y) < 0.9f ? vec3(0, 1, 0) : vec3(1, 0, 0))), ay = glm::cross(dir, ax);
+        float co = std::clamp(s.cosOuter, 0.2f, 0.9999f), tanc = std::sqrt(1 - co * co) / co, Lsh = std::max(4.0f, s.fxSize);
+        float& acc = gFxAcc[i.id * 16 + k];
+        static std::set<uint64_t> warmS; const bool warm = warmS.insert(i.id * 16 + k).second;   // first sight: a steady-state cloud at once
+        acc += warm ? 90.0f : dt * 14.0f;
+        while (acc >= 1.0f) {
+          acc -= 1.0f;
+          if (app.fx.parts.size() >= app.fx.maxParts) break;
+          float t = Lsh * std::pow(app.fx.rnd(), 0.8f), r = tanc * t * 0.85f * std::sqrt(app.fx.rnd()), a = app.fx.rnd() * 6.2831853f;
+          Particle q; q.p = top + dir * t + (ax * std::cos(a) + ay * std::sin(a)) * r;
+          q.v = vec3((app.fx.rnd() - 0.5f) * 0.08f, -0.06f - 0.05f * app.fx.rnd(), (app.fx.rnd() - 0.5f) * 0.08f);
+          q.size = 1.4f + 0.09f * t + app.fx.rnd() * 0.8f; q.life = q.maxLife = 5.0f + 3.0f * app.fx.rnd();
+          if (warm) q.life *= app.fx.rnd();
+          float b = (0.030f + 0.02f * app.fx.rnd()) * std::clamp(1.2f - t / Lsh, 0.35f, 1.0f);   // brightest near the crack
+          q.col = vec4(s.color * b, 1); q.additive = true; q.grow = 0.05f; q.drag = 0.2f; q.lift = 0;
+          app.fx.parts.push_back(q);
+        }
+        continue;
+      }
+      if (s.fx == "mist") {   // CV1: ground mist: low, wide, slow puffs on the floor round the light (fxSize = the patch radius, m)
+        if (!haveM) { M = app.instanceMatrix(i); haveM = true; }
+        vec3 c = vec3(M * vec4(s.offset, 1));
+        float& acc = gFxAcc[i.id * 16 + k];
+        static std::set<uint64_t> warmM; const bool warm = warmM.insert(i.id * 16 + k).second;
+        acc += warm ? 30.0f : dt * 3.0f;
+        while (acc >= 1.0f) {
+          acc -= 1.0f;
+          if (app.fx.parts.size() >= app.fx.maxParts) break;
+          float a = app.fx.rnd() * 6.2831853f, r = std::max(2.0f, s.fxSize) * std::sqrt(app.fx.rnd());
+          vec3 p(c.x + std::cos(a) * r, 0, c.z + std::sin(a) * r);
+          p.y = app.terrain.height(p.x, p.z) + 0.25f + 0.5f * app.fx.rnd();
+          float g = 0.07f + 0.03f * app.fx.rnd();   // dim: the puffs are not lit by the cave's lights
+          app.fx.smoke(p, vec3((app.fx.rnd() - 0.5f) * 0.25f, 0.02f, (app.fx.rnd() - 0.5f) * 0.25f), 2.6f + 1.8f * app.fx.rnd(), 9.0f + 5.0f * app.fx.rnd(),
+                       vec4(g * 0.85f, g * 0.95f, g * 1.08f, 0.07f), 0.18f, 0.0f);
+          if (warm) app.fx.parts.back().life *= app.fx.rnd();
+        }
+        continue;
+      }
+      if (s.fx.empty() || fires >= 16 || camD > 40.0f) continue;
       if (!offReason(app, i, it->second.asset, d, (int)k).empty()) continue;
       ++fires;
       if (!haveM) { M = app.instanceMatrix(i); haveM = true; }
