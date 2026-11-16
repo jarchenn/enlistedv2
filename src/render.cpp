@@ -4421,6 +4421,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glUniform1i(U(progTerrain, "uGrid"), v.grid ? 1 : 0);
     terrainCacheBind(t, progTerrain);
     glEnable(GL_CULL_FACE); glCullFace(GL_BACK);
+    { extern bool gGroundPaintPerf; gGroundPaintPerf = perf.groundPaint; }
     // FL1: the ground a hair behind anything laid on it (paving, plinths, aprons, roads, ground patches at ~1 cm),
     // so those win the depth test every frame instead of z-fighting with the terrain
     glEnable(GL_POLYGON_OFFSET_FILL); glPolygonOffset(-zToward(), -2.0f * zToward());
