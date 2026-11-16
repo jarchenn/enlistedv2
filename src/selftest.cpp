@@ -147,6 +147,7 @@ void SelfTest::update(App& app, float dt) {
   { extern bool lightsSelfTest(App&, float); if (lightsSelfTest(app, dt)) return; }   // L2: --selftest-lights (selftest_lights.cpp)
   { extern bool swimSelfTest(App&, float); if (swimSelfTest(app, dt)) return; }   // --selftest-swim (selftest_swim.cpp)
   { extern bool zombiesSelfTest(App&, float); if (zombiesSelfTest(app, dt)) return; }
+  { extern bool vehicleAiSelfTest(App&, float); if (vehicleAiSelfTest(app, dt)) return; }   // --check-vehicle-ai (selftest_vehicle_ai.cpp)
   { extern bool brModelsSelfTest(App&, float); if (brModelsSelfTest(app, dt)) return; }
   { extern bool commandsSelfTest(App&, float); if (commandsSelfTest(app, dt)) return; }   // CMD1: --capture-commands (commands.cpp)   // BR3: --capture-br-models (selftest_brmodels.cpp)
   { extern bool vehiclesSelfTest(App&, float); if (vehiclesSelfTest(app, dt)) return; }

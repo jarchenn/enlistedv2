@@ -850,6 +850,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--box-weapons") useImportedModels = false;
     else if (a == "--weapon-sheets" && k + 1 < argc) sheetsDir = argv[++k];
     else if (a == "--model-preview" && k + 2 < argc) { previewGlb = argv[++k]; previewOut = argv[++k]; if (k + 1 < argc && argv[k + 1][0] != '-') previewSpec = argv[++k]; }
+    else if (a == "--check-vehicle-ai") runSelf = true;   // selftest_vehicle_ai.cpp
     else if (a == "--tank-preview" && k + 1 < argc) tankPreviewDir = argv[++k];
     else if (a == "--capture-vehicle" && k + 1 < argc) { runSelf = true; ++k; }
     else if (a == "--capture-dash") runSelf = true;   // capture_dash.cpp: driver's views (VH6)   // capture_vehicle.cpp: one frame of a placed vehicle   // tank.cpp: views of the baked tanks + rig sockets

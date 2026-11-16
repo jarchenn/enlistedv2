@@ -77,6 +77,12 @@ void Game::syncGrenadeView() {
   }
 }
 static float bodyScale(const Soldier& s) { return s.zombie ? s.eBody : 1.0f; }   // EN1: a troll stands taller, a spider lower
+void Game::renderView(vec3& e, vec3& f) const {
+  e = app.eyePos(); f = App::forward(app.eyeYaw, app.eyePitch); float fov = 70;
+  vec3 e2 = e, f2 = f;
+  if (app.tanks.camera(app, e2, f2, fov) || app.stationCamera(e2, f2, fov)) { e = e2; f = f2; }
+}
+
 vec3 Game::eye(const Soldier& s) const {
   if (s.localPlayer && s.alive) return app.eyePos();
   float h = s.posture == Physics::PRONE ? 0.32f : s.posture == Physics::CROUCH ? 1.05f : 1.62f;
@@ -363,6 +369,7 @@ bool Game::trySpawn(int slot, std::string& why) {
         s.feet = feet; s.yaw = m.yaw; s.pitch = 0; s.alive = true; s.flat = false; s.hp = s.zombie ? enemyType(s.etype).hp : combat.value("health", 100.0f); s.killer = -1; s.staggerUntil = 0; s.posture = Physics::STAND;
         s.human = match.slots[slot].human || match.slots[slot].pendingPeer >= 0; s.peer = match.slots[slot].pendingPeer >= 0 ? match.slots[slot].pendingPeer : match.slots[slot].peer;
         ++s.lifeId;
+        aiForget(*this, slot);   // a fresh life: no stale last-known position of it anywhere
         rulesOnSpawn(*this, s);   // W1: spawn protection starts (SPEC 2.2)
         if (s.localPlayer) {
           Physics::setCharacterPos(feet); app.eyeYaw = m.yaw; app.eyePitch = 0; app.exploreStartPos = feet; app.R.resetTemporal();
@@ -401,6 +408,7 @@ void Game::killSoldier(int i, int killer, vec3 dir) {
   if (gAdmin.god && s.localPlayer && !gAdmin.allowKill) return;   // CMD2: no direct death either (a heli crash, out of the world)
   if (s.zombie && s.alive && !enemyType(s.etype).sndDeath.empty()) app.audio.play(enemyType(s.etype).sndDeath.c_str(), s.feet + vec3(0, 1.0f, 0), 1.0f);   // SND1. shortcut: host / single player only
   if (!s.alive) return;
+  aiForget(*this, i);   // nobody keeps attacking where it fell
   s.alive = false; s.diedAt = t; s.killer = killer; s.deathDir = dir; s.hp = 0;
   vec3 f = vec3(-std::sin(radians(s.yaw)), 0, -std::cos(radians(s.yaw)));
   s.deathStyle = glm::dot(f, dir) > 0.3f ? 1 : glm::dot(f, dir) < -0.3f ? 0 : 2;
@@ -729,6 +737,7 @@ void Game::step(float dt) {
   if (Soldier* L = local(); L && L->alive) {
     localGrenadeCounts(*L, false);   // the E3 items are the local inventory (spent at release)
     auto c = Physics::character();
+    if (glm::length(c.pos - L->feet) > 15.0f) aiForget(*this, L->slot);   // a jump (teleport, admin fly, a vehicle exit far away): enemies re-acquire
     L->vel = (c.pos - L->feet) / std::max(dt, 1e-4f); L->feet = c.pos; L->yaw = app.eyeYaw; L->pitch = app.eyePitch; L->posture = c.posture;
     L->weapon = app.activeWeapon; L->swim = app.swim.active;
     L->speed = glm::length(vec2(L->vel.x, L->vel.z));
@@ -756,7 +765,7 @@ void Game::step(float dt) {
 
 void Game::posesStep(float dt) {
   // AI2 crowds (over 200 combatants): far soldiers re-pose every 2nd step beyond 80 m, every 4th beyond 150 m (staggered)
-  const bool poseLod = sold.size() > 200; const vec3 cam = app.eyePos();
+  const bool poseLod = sold.size() > 200; vec3 cam, camF; renderView(cam, camF);   // the actual camera (vehicle chase / sight cameras too)
   for (auto& s : sold) {
     if (!s.inUse || (!s.alive && t - s.diedAt > (s.zombie ? 3.5 : 2.0))) continue;   // G2: the zombie death clip runs ~3 s
     const CharModel& m = *models[s.model];
@@ -872,7 +881,7 @@ void Game::drawItems() {
   }
   lootDraw(*this);   // BR2 floor items
   crumb("game: draw");
-  vec3 cam = app.eyePos(); vec3 fwd = App::forward(app.eyeYaw, app.eyePitch);
+  vec3 cam, fwd; renderView(cam, fwd);   // cull against the camera actually rendering (a vehicle's chase / sight camera), not the seated body
   static int frame = 0; ++frame;
   for (auto& s : sold) {
     if (!s.inUse || s.lifeId == 0) continue;

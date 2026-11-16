@@ -12,6 +12,7 @@ int aiZombieModel(Game& g, int type = 0, int variant = 0);  // the character of 
 void aiZombieAssign(Game& g, Soldier& s);                  // EN1: model, draw scale, lean and body size for s.etype (the zombie rig when its own model is unusable)
 void aiZombiePose(Game& g, struct Soldier& s, float dt);  // Game::posesStep: clip-driven pose instead of poseCharacter
 void aiZombieFeet(Game& g, struct Soldier& s);            // Game::posesStep, after s.world: the fighters' lower sole on the ground; footprints where a foot comes down
+void aiForget(Game& g, int slot);                         // the slot died, respawned or jumped: drop it from every bot's knowledge / targets (ai_core.cpp)
 void aiDifficultyCombo();                                 // MpUi::setupWindow: Recruit / Regular / Veteran
 class App;
 inline fs::path navSidecarOf(const fs::path& map) {   // PF1: maps/x.nmap.json -> maps/x.nav

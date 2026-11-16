@@ -171,6 +171,7 @@ public:
   // perception helpers
   bool lineOfSight(vec3 a, vec3 b, float* smokeT = nullptr) const;
   vec3 eye(const Soldier& s) const;
+  void renderView(vec3& eye, vec3& fwd) const;   // the camera the frame renders from: a vehicle / gun camera when seated, else the eye
   vec3 chest(const Soldier& s) const;
   // AI (ai.cpp)
   void aiStep(Soldier& s, float dt);
