@@ -148,6 +148,7 @@ void SelfTest::update(App& app, float dt) {
   { extern bool lightsSelfTest(App&, float); if (lightsSelfTest(app, dt)) return; }   // L2: --selftest-lights (selftest_lights.cpp)
   { extern bool swimSelfTest(App&, float); if (swimSelfTest(app, dt)) return; }   // --selftest-swim (selftest_swim.cpp)
   { extern bool zombiesSelfTest(App&, float); if (zombiesSelfTest(app, dt)) return; }
+  { extern bool sdSelfTest(App&, float); if (sdSelfTest(app, dt)) return; }   // --selftest-sd (selftest_sd.cpp)
   { extern bool vehicleAiSelfTest(App&, float); if (vehicleAiSelfTest(app, dt)) return; }   // --check-vehicle-ai (selftest_vehicle_ai.cpp)
   { extern bool turnEngageSelfTest(App&, float); if (turnEngageSelfTest(app, dt)) return; }   // AI5: --check-turn-engage (selftest_turn.cpp)
   { extern bool leanCapture(App&, float); if (leanCapture(app, dt)) return; }   // MV3: --capture-lean (selftest_lean.cpp)

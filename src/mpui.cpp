@@ -1,6 +1,7 @@
 // Multiplayer + AI user interface: Play menu (Singleplayer / Host LAN / Join LAN + match setup), the Creative
 // Scenario panel (ordered objectives, spawn markers, approach routes, validation) with its world overlay, and the
 // in-match HUD (objective sequence bar, counts, grenades, death screen, results).
+#include "sd_game.h"
 #include "mpui.h"
 #include "w5.h"
 #include "game.h"
@@ -434,8 +435,15 @@ void MpUi::setupWindow(App& app) {
     ImGui::RadioButton("Solo (free-for-all)", &m, (int)GameMode::Solo); ImGui::SameLine();
     ImGui::RadioButton("Team Deathmatch", &m, (int)GameMode::TDM); ImGui::SameLine();
     ImGui::RadioButton("Assault (objectives)", &m, (int)GameMode::Assault); ImGui::SameLine();
-    ImGui::RadioButton("Battle royale", &m, (int)GameMode::BattleRoyale);
+    ImGui::RadioButton("Battle royale", &m, (int)GameMode::BattleRoyale); ImGui::SameLine();
+    ImGui::RadioButton("Search and Destroy", &m, (int)GameMode::SearchDestroy);
+    if (m == (int)GameMode::SearchDestroy && rules.mode != GameMode::SearchDestroy)   // SD1: 5 v 5 soldiers by default (spec §2)
+      for (int t = 0; t < 2; ++t) { for (int& x : rules.aiCount[t]) x = 0; rules.aiTypes[t] = aiBit(AiType::Soldiers); rules.aiCount[t][(int)AiType::Soldiers] = t == rules.humanTeam ? 4 : 5; rules.teamPlayers[t] = 5; }
     rules.mode = (GameMode)m;
+    if (rules.mode == GameMode::SearchDestroy) {
+      ImGui::Checkbox("Short match (MR12: first to 13, swap after 12)", &rules.sdShort); ImGui::SameLine(); ImGui::Checkbox("Warmup (60 s)", &rules.sdWarmup);
+      ImGui::TextDisabled("Two bomb sites; one life a round; buy with B in your spawn; E in a site plants, E at the bomb defuses (docs/search-and-destroy.md).");
+    }
   }
   int humansHere = setupMode == 1 && gNet ? gNet->humanCount() : 1;
   // per side: tick any AI types; each AI takes the ticked ones in turn (the last tick cannot be cleared). EN1 Zombies +
@@ -629,7 +637,8 @@ void Game::drawHud() {
   CombatRole myRole = L ? L->role : CombatRole::Defender;
   Faction myFac = L ? L->faction : match.rules.defendingFaction;
   const bool assault = match.mode() == GameMode::Assault;
-  if (!assault) { drawModeBanner(); drawModePanel(); }   // G1: Solo / TDM banner, panel, respawn countdown (mpui_modes.cpp)
+  if (match.mode() == GameMode::SearchDestroy) sdDrawHud(*this);   // SD1: score, round clock, money, the bomb, the buy menu
+  else if (!assault) { drawModeBanner(); drawModePanel(); }   // G1: Solo / TDM banner, panel, respawn countdown (mpui_modes.cpp)
   drawScoreboardOverlay();                              // G1: held Tab, every mode
   if (app.friendlyMarkers) drawAllyMarkers(); else markedSlots.clear();   // G4: a chevron over every friendly soldier's head (GM1: optional)
   // ---- objective sequence across the top: every point, in order, with permanent progress and live occupancy

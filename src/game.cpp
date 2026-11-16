@@ -1,6 +1,7 @@
 #include <cstring>
 #include <map>
 // Match game layer: lifecycle, spawning, soldier weapons / grenades, damage, presentation. AI is in ai.cpp.
+#include "sd_game.h"
 #include "game.h"
 #include "classes.h"
 #include "abilities.h"
@@ -102,6 +103,7 @@ bool Game::begin(std::string& err) {
   if (!loadData(err) || !ensureModels(err)) { setupError = err; return false; }
   json scj = !gUi.matchScenario.is_null() ? gUi.matchScenario : app.doc.extra.is_object() ? app.doc.extra.value("scenario", json()) : json();
   Scenario sc = Scenario::fromJson(scj);
+  sdPrepareScenario(app, sc);   // SD1: the map's Search and Destroy layout, or the temporary one
   auto issues = validateScenario(sc, false);
   for (auto& i : issues) if (i.error) { err = i.what; setupError = err; return false; }
   int humans = isClient ? 0 : std::max<int>(1, (int)humanPeers.size());
@@ -192,11 +194,13 @@ bool Game::begin(std::string& err) {
   if (Soldier* L = local()) { vec3 p = app.exploreStartPos; Physics::setCharacterPos(vec3(p.x, p.y - kLimboDepth, p.z)); (void)L; }
   setupError.clear();
   lootBegin(*this);   // BR2: floor loot in the buildings
+  sdBegin(*this);     // SD1: the round controller (Search and Destroy only)
   logf("match: %zu slots, local slot %d, nav %d floors in %.0f ms", sold.size(), localSlot, nav.usedNodes, nav.buildMs);
   return true;
 }
 
 void Game::end() {
+  sdEnd();   // SD1
   gAdmin = AdminMode{};   // CMD2: /admin ends with the match
   aiZombieLoopsStop(app);   // SND2: no creature breathing on after the match
   aiMatchEnd(*this);   // W6
@@ -383,6 +387,7 @@ bool Game::trySpawn(int slot, std::string& why) {
     std::rotate(cands.begin(), cands.begin() + start, cands.end());
   } else {
     if (mode == GameMode::TDM) for (auto& m : match.sc.spawns) if (m.team == s.team) cands.push_back({m.pos, m.yaw});
+    if (mode == GameMode::SearchDestroy) for (auto& m : match.sc.spawns) if (m.team < 0 && m.role == s.role) cands.push_back({m.pos, m.yaw});   // SD1: the side's spawn (roles swap at halftime)
     if (cands.empty()) {   // Solo / unmarked TDM team: the walkable points farthest from living enemies
       std::vector<std::pair<float, vec3>> scored;
       for (vec3 p : spawnPool()) {
@@ -450,10 +455,11 @@ bool Game::trySpawn(int slot, std::string& why) {
           const EnemyType* et = s.zombie ? &enemyType(s.etype) : nullptr;   // EN2: a heavy's own capsule
           s.agent = et && et->capsuleH > 0 ? Physics::createAgent(feet, et->capsuleH, et->capsuleR) : Physics::createAgent(feet);
         }
-        chooseClass(s);
-        applyLoadout(s, true);
+        if (match.mode() == GameMode::SearchDestroy) { s.cls = -1; sdOnSpawned(*this, slot); }   // SD1: the kept / bought gear, no classes
+        else { chooseClass(s);
+        applyLoadout(s, true); }
         if (s.localPlayer) { app.staminaMul = s.cls >= 0 ? classDefs()[s.cls].staminaMul : 1.0f; app.stamina = app.staminaCap(); app.staminaIdle = 0; }   // GM1: full stamina on respawn
-        if (s.cls >= 0) { if (s.localPlayer) gm2ApplyClass(app, classDefs()[s.cls]); else gm2ApplyClassSoldier(app, slot, s, classDefs()[s.cls]); }   // GM2: packs, artillery
+        if (s.cls >= 0 && match.mode() != GameMode::SearchDestroy) { if (s.localPlayer) gm2ApplyClass(app, classDefs()[s.cls]); else gm2ApplyClassSoldier(app, slot, s, classDefs()[s.cls]); }   // GM2: packs, artillery
         s.br = Brain{s.br.arch, s.br.reaction, s.br.aimTurn, s.br.sigma, s.br.sight, s.br.fov, s.br.aggression, s.br.burstMin, s.br.burstMax};
         s.br.lane = match.slots[slot].lane; s.br.aimYaw = m.yaw; s.br.grenadeCD = 3.0f + rnd(s) * 3;
         s.br.nextPerceive = (float)t + rnd(s) * 0.2f; s.br.nextTactic = (float)t + rnd(s);
@@ -501,7 +507,7 @@ void Game::killSoldier(int i, int killer, vec3 dir) {
   if (s.localPlayer) {
     deployOpenedAt = t; deployReady = app.selftest;   // GM1: the deploy screen opens (tests skip it)
     vec3 p = s.feet; Physics::setCharacterPos(vec3(p.x, p.y - kLimboDepth, p.z));
-    spectate = killer >= 0 ? killer : -1;
+    spectate = killer >= 0 && match.mode() != GameMode::SearchDestroy ? killer : -1;   // SD1: teammates only
   }
   bool cased = lootOnDeath(*this, i);   // BR5: in Battle Royale everything it carried goes into a case by the body
   if (!cased && !s.localPlayer && !s.human && !s.zombie && s.weapon >= 0 && !isClient) {   // GM1: the AI's weapon falls by the body
@@ -511,6 +517,7 @@ void Game::killSoldier(int i, int killer, vec3 dir) {
   if (killer >= 0 && killer != i && killer < (int)sold.size() && sold[killer].zombie && enemyType(sold[killer].etype).id.rfind("fighter", 0) == 0) app.audio.play("fighter_laugh", sold[killer].feet + vec3(0, 2, 0), 1.0f);   // shortcut: host / single player only
   if (killer == localSlot && killer != i && hostile(sold[killer], s)) killMarker = 0.6f;   // red marker: enemy down
   match.onDeath(i, killer);
+  if (match.mode() == GameMode::SearchDestroy) sdOnKill(*this, i, killer, s.lastHow);   // SD1: rewards, the dropped bomb
   if (killer >= 0 && killer != i) ++kills;
   for (auto& o : sold) if (o.br.target == i) o.br.target = -1;
   for (auto& d : defSpots) if (d.heldBy == i) d.heldBy = -1;
@@ -624,6 +631,11 @@ void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
     if (it != app.tanks.tanks.end() && !it->second.def->car && !it->second.wrecked && it->second.station == TS_GUNNER && it->second.hatchT == 0) return;
   }
   if (attacker >= 0 && attacker != i && sameTeam(attacker, i) && !match.rules.friendlyFire) return;
+  if (match.mode() == GameMode::SearchDestroy) {   // SD1: no damage in freeze / breaks; the mode's armor (spec §8)
+    if (sdFrozen()) return;
+    dmg = sdArmor(*this, i, dmg, how, attacker); s.lastHow = how ? how : "";
+    if (dmg <= 0) return;
+  }
   s.hp -= dmg;
   if (s.zombie) { const EnemyType& e = enemyType(s.etype); if (e.staggerS > 0 && dmg >= e.staggerMin) s.staggerUntil = t + e.staggerS; }   // EN1: only a heavy hit staggers
   s.br.hurtFrom = attacker >= 0 ? sold[attacker].feet : s.feet - dir * 10.0f; s.br.hurtAt = t;
@@ -838,6 +850,7 @@ void Game::throwStep(Soldier& s, float dt) {
 void Game::clientStep(float dt) {
   // mirror only: the host owns spawning, damage, AI, grenades and capture
   ++steps;
+  sdClientStep(*this, dt);   // SD1: the mirrored bomb
   burnStep(dt);   // FT1: the look of the soldiers the host set alight
   netInterpolate(*this, t, dt);
   if (Soldier* L = local(); L && L->alive) {
@@ -882,6 +895,7 @@ void Game::step(float dt) {
   }
   // occupancy sample at step start (capture precedence uses it)
   for (auto& s : sold) match.reportAlive(s.slot, s.alive, s.feet);
+  sdStep(*this, dt);   // SD1: rounds, the bomb, the economy (respawns at a round start go through stepRest)
   crumb("game: poses"); posesStep(dt);
   crumb("game: doors");
   // doors moved on the host (players, bots, client requests) -> clients
@@ -1081,7 +1095,7 @@ bool Game::camera(vec3& e, vec3& f, float& fov) {
   if (w < 0 || w >= (int)sold.size() || !sold[w].alive) {
     w = -1;
     for (auto& s : sold) if (s.alive && s.team == L->team && &s != L) { w = s.slot; break; }   // Solo: none, so the killer or the body
-    if (t - L->diedAt < 3.0 && L->killer >= 0 && sold[L->killer].alive) w = L->killer;
+    if (t - L->diedAt < 3.0 && L->killer >= 0 && sold[L->killer].alive && match.mode() != GameMode::SearchDestroy) w = L->killer;   // SD1: never an enemy
     spectate = w;
   }
   vec3 target = w >= 0 ? sold[w].feet + vec3(0, 1.6f, 0) : L->feet + vec3(0, 1.0f, 0);

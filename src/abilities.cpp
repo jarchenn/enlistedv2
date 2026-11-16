@@ -66,6 +66,11 @@ void placeLocal(App& app, const LivePack& p) {
 
 Gm2Stats& gm2Stats() { return gS.stats; }
 const std::vector<LivePack>& gm2Packs() { return gS.packs; }
+void gm2AddBombVisual(App& app, vec3 pos, float fuse) {
+  LivePack p; p.def = app.weaponIndex("explosion_pack"); p.pos = pos + vec3(0, 0.03f, 0); p.fuse = p.fuseTotal = fuse; p.visualOnly = true;
+  if (p.def >= 0) gS.packs.push_back(p);
+}
+void gm2RemovePacksNear(vec3 pos, float r) { gS.packs.erase(std::remove_if(gS.packs.begin(), gS.packs.end(), [&](const LivePack& p) { return glm::length(p.pos - pos) < r; }), gS.packs.end()); }
 const ArtyConfig& gm2Arty() { return gArty; }
 bool gm2ArtyMapOpen() { return gS.artyMap; }
 float gm2Suppression() { return gS.supp; }
@@ -116,7 +121,7 @@ int packBeat(float u, int& key, float& since) {
   int i = u < 0.7f ? 0 : u < 0.9f ? 1 : 2; const PackPhase& ph = kPackPhases[i];
   int k = (int)std::floor((u - ph.from) / ph.gap + 1e-4f); since = u - ph.from - k * ph.gap; key = i * 100 + k; return i;
 }
-float packFuseOf(const App& app, const LivePack& p) { return p.def >= 0 && p.def < (int)app.weaponDefs.size() && app.weaponDefs[p.def]->pack.fuse > 0 ? app.weaponDefs[p.def]->pack.fuse : 10.0f; }
+float packFuseOf(const App& app, const LivePack& p) { if (p.fuseTotal > 0) return p.fuseTotal; return p.def >= 0 && p.def < (int)app.weaponDefs.size() && app.weaponDefs[p.def]->pack.fuse > 0 ? app.weaponDefs[p.def]->pack.fuse : 10.0f; }
 }
 bool gm2PlacePack(App& app, int def, vec3 eye, vec3 dir, int owner, std::string* why) {
   if (def < 0 || def >= (int)app.weaponDefs.size() || !app.weaponDefs[def]->pack.on) { if (why) *why = "not a pack"; return false; }
