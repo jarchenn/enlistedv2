@@ -47,7 +47,7 @@ python -I tools/fsb5.py extract content/audio/manifest.json "<part1 dir>;<part2 
 - **Smoke grenade.** Ignites with `smoke_pop` (no blast).
 - **Footsteps.** Below the water level the player wades with `step_water`: one recorded stride per step, and the previous stride's water tail fades out over 250 ms. Dry ground keeps the procedural grass / stone / wood steps, because the pack has no dry-ground footsteps.
 - **Automatic fire.**
-  - One shot body plays per fired round, at the game's real cadence, and a new body of the same gun fades the previous one out in 40 ms, so bursts do not stack or clip.
+  - One shot body plays per fired round, at the game's real cadence. A new body of the same gun fades the previous one out in 5 ms and starts 6 ms later, so bursts neither stack nor sum into the limiter (SND7; it was a 40 ms overlap that dipped each attack by up to 3 dB).
   - The recorded tail plays once when the trigger is released after a burst.
   - Measured: a 1 s MG 42 burst gives 21 rounds and 21 bodies (13 variations, no repeats), then 1 tail.
 - **Reloads.** The start and the completion each play from the weapon's reload pool. The Garand plays its clip sound when the clip seats; the Kar98k has its own clip set.
@@ -65,7 +65,8 @@ python -I tools/fsb5.py extract content/audio/manifest.json "<part1 dir>;<part2 
   - machine guns (M249, MG 42, M2HB): send 0.175, 1.3 s;
   - the .50 sniper: send 0.25, 1.8 s.
   Tunnels and Backrooms use a shorter slap and a longer, denser tail (`Audio::setRoom`).
-- **Body.** The M249, MG 42, M2HB (carried) and the .50 sniper get added low-mid weight and saturation, which makes them denser at the same peak. The .50 gets the most.
+- **Body.** The M249, MG 42, M2HB (carried), the four Rifle3 guns (M4, M4 irons, M16, FAL; SND7) and the .50 sniper get added low-mid weight and saturation, which makes them denser at the same peak. The .50 gets the most.
+- **Per-gun trims.** `mix.json` `guns`: an id maps to a gain (0-2), or to `{gain, body}` where body is the saturation drive baked in at load.
 - **Distance.** Gunfire stays at full level within 3 m (machine guns 5 m), then rolls off. The .50 stays at full level to 8 m and rolls off more slowly.
 - **Ducking.** Gunfire within 60 m ducks the ambience beds by 3 dB; they recover over 1.5 s.
 - **Measuring.** `NMK_AUDIO_FIDELITY=1` (no device: the mix is read back) logs each gun event as the player hears it against its decoded mp3: peak, RMS, 1-4 / 4-10 kHz band energy and the tail. It also logs a footstep and the battlefield bed.
