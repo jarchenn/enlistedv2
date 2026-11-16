@@ -454,7 +454,7 @@ bool Game::hitTest(const Soldier& s, vec3 a, vec3 d, float maxT, HitZone& hz) co
     {W(CJ_LUPLEG), W(CJ_LLEG), 0.085f, 2}, {W(CJ_LLEG), W(CJ_LFOOT), 0.07f, 2},
     {W(CJ_RUPLEG), W(CJ_RLEG), 0.085f, 2}, {W(CJ_RLEG), W(CJ_RFOOT), 0.07f, 2},
   };
-  float best = maxT; int zone = -1;
+  float best = maxT, headT = 1e9f; int zone = -1;
   for (auto& k : caps) k.r *= zs;
   for (auto& k : caps) {
     // ray vs capsule: sample the closest approach between the ray and the segment
@@ -470,8 +470,12 @@ bool Game::hitTest(const Soldier& s, vec3 a, vec3 d, float maxT, HitZone& hz) co
     if (dist > k.r) continue;
     float back = std::sqrt(std::max(0.0f, k.r * k.r - dist * dist));
     float tt = std::max(0.0f, sc - back);
+    if (k.zone == 0) headT = std::min(headT, tt);
     if (tt < best) { best = tt; zone = k.zone; }
   }
+  // CH7: on an enemy type a ray that meets the head capsule is a head hit (on the big hunched rigs the scaled torso capsule
+  // round the neck enclosed most of the head, so a shot at the head counted as the torso); soldiers keep their zones
+  if (s.zombie && headT < maxT) { best = headT; zone = 0; }
   if (zone < 0) return false;
   hz.zone = zone; hz.t = best;
   return true;
@@ -518,6 +522,7 @@ void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
     if (shell) { shellAt[i] = t; s.hp -= enemyType(s.etype).hp / enemyType(s.etype).shellKills - 0.01f; dmg = 0.01f; how = "blast"; }   // applied here; the rest of the function sees a token blast
     else if (blast && shellAt.count(i) && std::fabs(t - shellAt[i]) < 0.05) return;   // that shell's own blast
   }
+  if (s.zombie && how && std::strcmp(how, "head") == 0 && enemyType(s.etype).headMult > 0) dmg *= enemyType(s.etype).headMult / std::max(0.01f, damageTable().head);   // CH7: the type's own head multiplier in place of the global one
   if (s.zombie && (!how || std::strcmp(how, "blast") != 0)) { if (enemyType(s.etype).blastOnly || (enemyType(s.etype).nonBlastMult < 1 && how && std::strcmp(how, "shell") == 0)) return; dmg *= enemyType(s.etype).nonBlastMult;   // a direct shell hit is not an instant kill on a resistant type: its blast does the damage
   if (dmg <= 0) return; }   // immune to all but explosions   // W1: spawn-protected (bullets, blasts, falls)
   // buttoned up in a tank (hatch closed): the crew takes no damage until the tank is knocked out (destroy() bails them out).

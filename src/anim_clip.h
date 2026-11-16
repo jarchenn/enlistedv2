@@ -14,6 +14,8 @@ struct AnimClip {
   std::vector<Channel> ch;
   float swing = -1;          // time of the fastest hand: where an attack's blow lands
   vec3 swingChest{0};        // the chest joint (model space) at the swing: where a body drop ("drop" in the name) lands
+  int swingJoint = -1;       // CH6: the striking joint (CJ_LHAND / CJ_RHAND, or a foot for a kick) and its model-space position at the swing
+  vec3 swingAt{0};
   float groundSpeed = 0;     // m/s the planted feet slide back (locomotion: playback rate = speed / groundSpeed)
 };
 
