@@ -448,12 +448,12 @@ def build(ctx):
         if u is None:
             continue
         hgt = u - f
-        if n_st < 560 and R.random() < (0.05 if open_ else 0.24) and hgt > 7.0:
+        if n_st < 600 and R.random() < (0.09 if open_ else 0.24) and hgt > 7.0:
             # size class by roof height: giants (21-25 m) only under the high vaults, never lower than 5 m above the floor;
             # over the open hall only the short ones (the vault reads tall)
             vmax = max(i for i, h in enumerate((1.5, 3, 5, 8, 12, 17, 21, 25)) if h < hgt - 5.0 or i == 0)
             if open_:
-                vmax = min(vmax, 3)
+                vmax = min(vmax, 5)   # sparse, but long ones too: the vault is dressed, not bare
             vv = min(vmax, int(vmax * (R.random() ** 0.8) + 0.5))
             place("cave_drip_down_%d" % (vv + 8 * R.randrange(4)), x, z, y=u + 1.5, tags=("deco",))
             n_st += 1
@@ -464,7 +464,7 @@ def build(ctx):
         elif not open_ and R.random() < 0.04 and clear_spot(x, z, 2.5) and math.hypot(x - px, z - pz) > 26:
             place(R.choice(["nat_boulder_limestone_l", "nat_boulder_limestone_m", "nat_boulder_schist_slab", "nat_boulders_granite_group", "cave_shelf_0", "cave_shelf_1", "cave_shelf_2"]), x, z)
             n_cov += 1
-        if n_st >= 560 and n_sg > 200:
+        if n_st >= 600 and n_sg > 200:
             break
     rep.update({"stalactites": n_st, "stalagmites": n_sg, "cover": n_cov})
     for ix, iz in ISLANDS:   # the hall's cover islands: a few stalagmites and blocks each, open floor round them
@@ -520,7 +520,7 @@ def build(ctx):
             a = k / n * 6.283 + R.uniform(0, 0.6)
             x, z = s_.c[0] + math.sin(a) * s_.rx * 0.78, s_.c[1] + math.cos(a) * s_.rz * 0.78
             if inside(x, z, 4.0) and clear_spot(x, z, 1.5) and not hall_open(x, z):
-                place("cave_fungi" if R.random() < 0.5 else "cave_crystals", x, z, tags=("light",))
+                place("cave_fungi" if R.random() < 0.5 else "cave_crystals_small", x, z, tags=("light",))
     for (cx, cz), rx, rz, depth, below in POOLS:   # the pools glow from within
         place("cave_light_pool", cx, cz, y=floor_y(cx, cz) + 0.6, tags=("light",))
         for k in range(10):
@@ -530,10 +530,26 @@ def build(ctx):
                 place(R.choice(["nat_fern_clump", "mod_ivy_patch_ground", "nat_green_tufts", "cave_fungi"]), gx, gz, tags=("veg",))
     for x, z in ((WH.c[0] + 6, WH.c[1] - 10), (NE.c[0], NE.c[1] - 6), (SL.c[0] + 20, SL.c[1] + 16)):
         place("cave_glow_ember", x, z, tags=("light",))
-    for t in TUN[10:]:   # the narrow flanks: a few fungi patches (the headlamp does the rest)
-        for s2 in range(15, int(t.L) - 8, 30):
+    for t in TUN:   # route glows every ~30 m along every mouth and passage (fungi, or a small crystal cluster), to orient by
+        for s2 in range(12, int(t.L) - 8, 30):
             p = t.pts[min(len(t.pts) - 1, int(s2 / 2.0))]
-            place("cave_fungi", p[0] + 1.5, p[1], tags=("light",))
+            q = t.pts[min(len(t.pts) - 1, int(s2 / 2.0) + 1)]
+            nx, nz = -(q[1] - p[1]), q[0] - p[0]
+            nl = math.hypot(nx, nz) or 1.0
+            off = t.width * 0.38
+            x, z = p[0] + nx / nl * off, p[1] + nz / nl * off
+            if inside(x, z, 1.0):
+                place("cave_fungi" if R.random() < 0.6 else "cave_crystals_small", x, z, tags=("light",))
+    for o in OUT:   # each outer chamber's shape and scale: cold mineral light up two of its far walls
+        for k in range(2):
+            a = math.atan2(o.c[0], o.c[1]) + (k - 0.5) * 1.2
+            for r in range(6, 60):
+                x, z = o.c[0] + math.sin(a) * r, o.c[1] + math.cos(a) * r
+                if fd(x, z)[0] > -4.0:
+                    break
+            if inside(x, z, 2.0):
+                place("cave_light_mineral_up", x, z, y=floor_y(x, z) + 0.2, tags=("light",))
+                place("cave_crystals_small", x, z - 0.6, tags=("light",))
 
     # ---- scenario: Team Deathmatch (Team A in the pocket, Team B round the outside), an Assault objective for the validator
     sc = ScenarioBuilder(b, defending="Axis")
