@@ -433,7 +433,7 @@ void App::drawCreativeUI() {
     scan(userMapsDir(), false);   // UI1: the content examples and the other templates are hidden (kept on disk)
     ImGui::BeginChild("##list", ImVec2(0, -40), true);
     // UI1: the two shipped maps first, with their thumbnails (opened as an editable copy), then the user's saved maps
-    for (const char* id : {"dday", "chateau_town", "tunnels", "backrooms", "newtown"}) {
+    for (const char* id : {"dday", "chateau_town", "tunnels", "backrooms", "newtown", "outpost_desert", "outpost_woods"}) {
       const TemplateInfo* t = findTemplate(id);
       if (!t || !t->available) continue;
       ImGui::PushID(id);

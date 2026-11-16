@@ -607,7 +607,7 @@ const SurfaceParams* InteriorSys::surfaceFor(App& app, const Instance& i, const 
     if (k < 16) { sp.roomA[k] = A; sp.roomB[k] = B; } else { xA.push_back(A); xB.push_back(B); }
   }
   sp.inst.w = (float)std::min(n, 16);
-  staticDecalsFor(app.R, i.id, *ri, sp, sp.inst.y, isRuinedAsset(a->id) || sp.inst.y > 1.5f, xA, xB);   // GX5 (static_decals.cpp)
+  staticDecalsFor(app.R, i.id, *ri, sp, sp.inst.y, isRuinedAsset(a->id) || sp.inst.y > 1.5f, xA, xB, ruinHost(app, a));   // GX5 (static_decals.cpp); NT3: urban ruin exteriors
   sp.sills = std::min((int)ri->sills.size(), 12);
   for (int k = 0; k < sp.sills; ++k) {
     const auto& s = ri->sills[k];

@@ -87,6 +87,7 @@ struct Cfg {
   RoyaleStormCfg storm;
 };
 Cfg gCfg;
+void stormCfg(const json& s);
 void loadCfg() {
   gCfg = Cfg{};
   json j; try { j = json::parse(readTextFile(contentDir() / "settings" / "royale.json")); } catch (...) { logf("royale: content/settings/royale.json missing or bad, defaults"); return; }
@@ -96,8 +97,10 @@ void loadCfg() {
   f("chute", "autoOpen_m", gCfg.chuteAt); f("chute", "descent_mps", gCfg.chuteDescent); f("chute", "across_mps", gCfg.chuteAcross); f("chute", "accel_mps2", gCfg.chuteAccel);
   f("bots", "jumpFrom", gCfg.botJumpFrom); f("bots", "jumpTo", gCfg.botJumpTo); f("bots", "landSpread_m", gCfg.botLandSpread);
   if (j.contains("vehicles")) { gCfg.vehicles = j["vehicles"].value("count", gCfg.vehicles); gCfg.vehicleSpacing = j["vehicles"].value("spacing_m", gCfg.vehicleSpacing); }
-  if (j.contains("storm")) {
-    const json& s = j["storm"];
+  if (j.contains("storm")) stormCfg(j["storm"]);
+}
+void stormCfg(const json& s) {   // royale.json "storm", then a map's own (NT3: extra.royale.storm, small maps)
+  {
     auto arr = [&](const char* k, float* v, int n) { if (s.contains(k) && s[k].is_array()) for (int i = 0; i < n && i < (int)s[k].size(); ++i) v[i] = s[k][i].get<float>(); };
     arr("wait_s", gCfg.storm.wait, 4); arr("shrink_s", gCfg.storm.shrink, 4); arr("dps", gCfg.storm.dps, 4); arr("radiusFrac", gCfg.storm.radiusFrac, 3);
     gCfg.storm.finalRadius = s.value("finalRadius_m", gCfg.storm.finalRadius);
@@ -174,6 +177,11 @@ void royaleBegin(App& app, Game& G) {
   S = State{};
   if (G.match.mode() != GameMode::BattleRoyale || G.isClient) return;
   loadCfg();
+  if (app.doc.extra.is_object() && app.doc.extra.contains("royale") && app.doc.extra["royale"].is_object()) {   // NT3: a small map scales its match
+    const json& r = app.doc.extra["royale"];
+    if (r.contains("storm")) stormCfg(r["storm"]);
+    gCfg.vehicles = r.value("vehicles", gCfg.vehicles); gCfg.vehicleSpacing = r.value("vehicleSpacing_m", gCfg.vehicleSpacing); gCfg.botLandSpread = r.value("landSpread_m", gCfg.botLandSpread);
+  }
   S.on = true;
   S.indoor = lootIndoorMap(app);
   S.seed = (uint32_t)std::chrono::steady_clock::now().time_since_epoch().count() | 1u;

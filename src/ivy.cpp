@@ -171,7 +171,7 @@ void grow(Grower& G, const Facet& F, const Grid& gr, std::vector<Walker> ws, con
       w.u = nu; w.v = nv; w.len += kStep;
       if (++sn == 3) flush();
       // leaves: denser low and on old ivy, sparser at the ragged leading tips; deciduous types bare in winter
-      float rate = tp.perNode * L.vig * (1.15f - 0.45f * t) * (r > 0.85f ? 0.55f : 1.0f);
+      float rate = tp.perNode * std::max(L.vig, 0.9f) * (1.15f - 0.45f * t) * (r > 0.85f ? 0.55f : 1.0f);   // NT3: a thinned budget means fewer stems, each still in leaf (not bare stems)
       if (tp.deciduous && L.season == 2) rate *= 0.06f;
       for (float q = rate; q > 0.0f; q -= 1.0f) {
         if (q < 1.0f && u01(g) > q) break;
@@ -232,7 +232,9 @@ static void growIvy(const AssetDef& a, const IvyDef& iv, const std::vector<uint8
 void buildIvyCards(const AssetDef& a, const IvyDef& iv, const std::vector<uint8_t>& state, uint32_t seed, float density, const IvyEnv& env, std::vector<float>& v) {
   if (density <= 0) return;
   const bool heavy = (a.raw.is_object() && a.raw.value("ruin", false)) || env.abandoned;
-  const int cap = (int)((heavy ? 22000 : 6000) * std::min(1.15f, density));   // NT2b: ruins carry curtains, big blocks too   // ordinary 1944 buildings: moderate
+  const vec3 ext = a.bmax - a.bmin;   // NT3: a ruin's budget follows its wall area (big blocks get curtains too, not a thin film)
+  const float wallA = 2.0f * (ext.x + ext.z) * std::max(ext.y, 1.0f);
+  const int cap = (int)((heavy ? std::clamp(22.0f * wallA, 16000.0f, 60000.0f) : 6000.0f) * std::min(1.15f, density));   // ordinary 1944 buildings: moderate
   growIvy(a, iv, state, seed, density, env, v, 1 << 30);
   int n = (int)v.size() / 60;
   if (n > cap) { v.clear(); growIvy(a, iv, state, seed, density * cap / (float)n * 0.95f, env, v, cap); }
@@ -251,7 +253,7 @@ static void growIvy(const AssetDef& a, const IvyDef& iv, const std::vector<uint8
     if (L.type < 0) L.type = heavy ? pickW({{T_COMMON, 45}, {T_CREEPER, 20}, {T_DEAD, 5}, {T_BOSTON, 30}})   // NT2b: lush, few dead
                     : modern ? pickW({{T_BOSTON, 45}, {T_CREEPER, 30}, {T_COMMON, 25}}) : pickW({{T_COMMON, 75}, {T_SMALL, 15}, {T_CREEPER, 10}});
     L.flags = patternsOf(pat);
-    if (!L.flags) L.flags = heavy ? pickW({{P_BLANKET, 30}, {P_FAN | P_CURTAIN, 25}, {P_ISLANDS | P_GROUND, 20}, {P_CORNER | P_FRAME, 25}})
+    if (!L.flags) L.flags = heavy ? pickW({{P_BLANKET, 35}, {P_FAN | P_CURTAIN, 40}, {P_ISLANDS | P_GROUND, 10}, {P_CORNER | P_FRAME, 15}})   // NT3: curtains and blankets
                           : modern ? pickW({{P_CORNER, 35}, {P_FRAME, 30}, {P_FAN, 20}, {P_CURTAIN, 15}}) : pickW({{P_FAN | P_GROUND, 50}, {P_CORNER, 25}, {P_FRAME, 25}});
     L.age = age >= 0 ? std::clamp(age, 0.0f, 1.0f) : heavy ? 0.7f + 0.3f * u01(g) : 0.35f + 0.45f * u01(g);
     L.overgrown = over || (heavy && (L.flags & P_BLANKET));
@@ -309,13 +311,14 @@ static void growIvy(const AssetDef& a, const IvyDef& iv, const std::vector<uint8
     float W = ub - ua, wRoot = 0.004f + 0.032f * L.age, reach = L.H * (0.35f + 0.75f * L.age);
     std::vector<Walker> ws; const float NaN = std::numeric_limits<float>::quiet_NaN();
     auto rootAt = [&](float u) { for (float y = L.ground + 0.05f; y < L.ground + 0.8f; y += kCell) if (gr.s(u, y) == 1 || (L.overgrown && gr.s(u, y) == 2)) return y; return NaN; };
-    auto climb = [&](float u, float len, float tu) { float y = rootAt(u); if (y != y) return; int n = 3 + (int)(u01(g) * 3); for (int k = 0; k < n; ++k) ws.push_back({u, y, 1.5708f + (u01(g) - 0.5f) * 1.6f, wRoot, 0.0f, len * (0.6f + 0.5f * u01(g)), 0, false, tu}); };
+    const float vs = std::clamp(L.vig / 0.9f, 0.25f, 1.0f);   // NT3: a thinned budget shortens the stems (leaves stay full on them)
+    auto climb = [&](float u, float len, float tu) { float y = rootAt(u); if (y != y) return; int n = 3 + (int)(u01(g) * 3); for (int k = 0; k < n; ++k) ws.push_back({u, y, 1.5708f + (u01(g) - 0.5f) * 1.6f, wRoot, 0.0f, vs * len * (0.6f + 0.5f * u01(g)), 0, false, tu}); };
     auto topEdges = [&](float every, float len) {   // eaves, parapets, sills, balcony edges: wall cells with no wall above
       for (int j = 0; j < gr.nv; ++j) for (int i = 0; i < gr.nu; ++i) {
         int k = j * gr.nu + i; if (gr.st[k] != 1 || (j + 1 < gr.nv && gr.st[k + gr.nu] == 1)) continue;
         float u = gr.u0 + (i + 0.5f) * kCell, vv = gr.v0 + (j + 0.5f) * kCell;
         if (u < ua || u > ub || vv < va || vv > vb || u01(g) > kCell / every) continue;
-        ws.push_back({u, vv, -1.5708f, wRoot * 0.6f, 0.0f, len * (0.5f + 0.6f * u01(g)), 1, true, NaN});
+        ws.push_back({u, vv, -1.5708f, wRoot * 0.6f, 0.0f, vs * len * (0.5f + 0.6f * u01(g)), 1, true, NaN});
       }
     };
     if (L.flags & P_FAN) { int n = std::max(1, (int)std::lround(W / 4.5f * (0.6f + 0.6f * u01(g)))); for (int k = 0; k < n; ++k) climb(ua + 0.2f + u01(g) * std::max(0.0f, W - 0.4f), reach, NaN); }
