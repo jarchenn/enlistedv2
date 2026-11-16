@@ -467,8 +467,19 @@ bool AiCore::ray(vec3 o, vec3 d, float len, Physics::Hit* h) {
 
 float AiCore::nearestHumanDist(vec3 p) const {
   float best = 1e9f;
-  for (auto& o : G.sold) if (o.alive && o.human) best = std::min(best, glm::length(o.feet - p));
+  for (int i : humans) if (G.sold[i].alive) best = std::min(best, glm::length(G.sold[i].feet - p));
   return best;
+}
+
+void AiCore::rebuildGrid() {
+  for (auto& [k, v] : sgrid) v.clear();
+  humans.clear();
+  for (int i = 0; i < (int)G.sold.size(); ++i) {
+    const Soldier& s = G.sold[i];
+    if (!s.alive) continue;
+    if (s.human) humans.push_back(i);
+    sgrid[gridKey((int)std::floor(s.feet.x / kGridCell), (int)std::floor(s.feet.z / kGridCell))].push_back(i);
+  }
 }
 
 bool AiCore::humanSees(const Soldier& s) {
@@ -681,6 +692,7 @@ void AiCore::frame() {
   for (double& f : prof.frame) f = 0;
   raysThisFrame = 0;
   frameT = G.t;
+  rebuildGrid();
   {
     AiProf::Scope sc(prof, PROF_NAV);
     crumb("ai: nav commit");
@@ -732,8 +744,10 @@ void AiCore::frame() {
     if (advancing) {
       metrics.advT += dt; metrics.advSpeedSum += s.speed; ++metrics.advN;
       if (s.posture != Physics::STAND) ++metrics.advCrouchN; if (s.speed < 1.0f) ++metrics.advSlowN; if (m.speed == SPD_SPRINT) ++metrics.advSprintN;
-      float nn = 1e9f; for (auto& o : G.sold) if (&o != &s && o.alive && o.team == s.team) nn = std::min(nn, glm::length(o.feet - s.feet));
-      if (nn < 1e8f) { metrics.nnSum += nn; ++metrics.nnN; }
+      if ((s.slot + G.steps) % 16 == 0) {   // AI2: sampled (an O(n^2) scan every step at 1000 AI)
+        float nn = 1e9f; for (auto& o : G.sold) if (&o != &s && o.alive && o.team == s.team) nn = std::min(nn, glm::length(o.feet - s.feet));
+        if (nn < 1e8f) { metrics.nnSum += nn; ++metrics.nnN; }
+      }
     }
     bool underFire = G.t - s.br.hurtAt < 2.0 || s.br.suppressed > 0.3f || G.t - m.nearMissAt < 1.0;
     if (underFire) {

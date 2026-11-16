@@ -230,7 +230,7 @@ void followerStep(Game& G, AiCore& A, Soldier& s, BotMind& m, const Soldier& L) 
     m.flockT = G.t + 0.1;
     // break off: the closest hostile within reach of a lunge (not a pack mate)
     const Soldier* v = nullptr; float vd = c.breakOff;
-    for (auto& o : G.sold) if (o.alive && Game::hostile(s, o) && !packMate(A, o, m.pack)) { float d = zLenXZ(o.feet - s.feet); if (d < vd && std::fabs(o.feet.y - s.feet.y) < 2.0f) { vd = d; v = &o; } }
+    A.forNear(s.feet, c.breakOff, [&](const Soldier& o) { if (o.alive && Game::hostile(s, o) && !packMate(A, o, m.pack)) { float d = zLenXZ(o.feet - s.feet); if (d < vd && std::fabs(o.feet.y - s.feet.y) < 2.0f) { vd = d; v = &o; } } });   // AI2: grid, not every soldier
     // the wedge slot behind the leader, in its heading
     vec3 fwd = zLenXZ(L.vel) > 0.5f ? vec3(L.vel.x, 0, L.vel.z) : (mindAt(A, L.slot) ? mindAt(A, L.slot)->moveDir : vec3(0, 0, 1));
     fwd.y = 0; fwd = zLenXZ(fwd) > 1e-3f ? glm::normalize(fwd) : vec3(0, 0, 1);
@@ -376,8 +376,13 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
   } else {
     if (m.follower) { m.follower = false; m.flockPush = vec3(0); m.speedScale = 1; }   // its leader fell: on its own until the next pack pass
     // the closest hostile, human or bot, wherever it is (no perception: zombies always know); never a pack mate
-    float bd = 1e9f;
-    for (auto& o : G.sold) if (o.alive && Game::hostile(s, o) && !packMate(*A, o, m.pack)) { float d = glm::length(o.feet - s.feet); if (d < bd) { bd = d; best = &o; } }
+    // AI2: re-picked 4x a second (staggered), not every step: a full scan per leader / lone zombie per step is O(n^2) at 1000
+    const Soldier* cur = b.target >= 0 && b.target < (int)G.sold.size() && G.sold[b.target].alive ? &G.sold[b.target] : nullptr;
+    if (!cur || G.t >= m.tgtT) {
+      m.tgtT = G.t + 0.25 + 0.1 * ((s.slot * 37) % 8) / 8.0;
+      float bd = 1e9f;
+      for (auto& o : G.sold) if (o.alive && Game::hostile(s, o) && !packMate(*A, o, m.pack)) { float d = glm::length(o.feet - s.feet); if (d < bd) { bd = d; best = &o; } }
+    } else best = cur;
     b.target = best ? best->slot : -1;
     if (best) {
       m.speed = SPD_ZOMBIE;

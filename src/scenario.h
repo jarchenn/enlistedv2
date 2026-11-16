@@ -104,7 +104,7 @@ struct ScenarioRules {
   GameMode mode = GameMode::Assault;
   int killCap = 25;               // Solo: the top player's kills; TDM: a team's kills
   int soloPlayers = 8;            // Solo: combatants in all (humans + AI)
-  int royalePlayers = 30;         // BR1 battle royale: combatants in all (humans + AI), 10..100
+  int royalePlayers = 30;         // BR1 battle royale: combatants in all (humans + AI), 10..kMaxCombatants (AI2; was 100)
   int teamPlayers[2] = {8, 8};    // TDM: combatants per team (humans + AI)
   int heavyTrollPct[2] = {35, 35};   // EN3: the troll share of the old AI type Heavies; unused since Brutes / Spiders are their own types (kept in the rules JSON)
   int aiTypes[2] = {1, 1};        // per team, the ticked AI types (aiBit mask; Assault: [Defender], [Attacker]); Solo uses [0]
@@ -114,7 +114,7 @@ struct ScenarioRules {
   bool lootModern = false;        // Battle Royale: floor guns from the modern list (else WW2) (loot.cpp)
   std::vector<std::string> allowedClasses;   // GM1: class ids the host allows (empty = every class)
   bool classAllowed(const std::string& id) const { for (auto& c : allowedClasses) if (c == id) return true; return allowedClasses.empty(); }
-  static constexpr int kMaxAI = 200;             // up to 200 AI (user request, 2026-11-08; was 100)
+  static constexpr int kMaxAI = 1000;            // up to 1000 AI (AI2, user request 2026-11-15; was 200, 100)
   static constexpr int kMaxCombatants = kMaxAI + 16;   // plus up to 16 humans
   json toJson() const;
   static ScenarioRules fromJson(const json& j, int version = kScenarioVersion);

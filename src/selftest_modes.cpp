@@ -11,6 +11,7 @@
 #include "nav.h"
 #include "physics.h"
 #include "loot.h"
+#include "settings.h"
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <set>
@@ -86,7 +87,7 @@ void headless() {
     Scenario back = Scenario::fromJson(tdm.toJson());
     chk(!err && !terr && warns == 2 && back.spawns.size() == 1 && back.spawns[0].team == 1 && back.spawns[0].phases.empty(),
         "Solo / TDM need no objectives; TDM without team markers warns (%d); team markers round trip", warns);
-    chk(ScenarioRules::kMaxAI == 200 && dmRules(GameMode::Solo).kMaxCombatants >= 201, "up to 200 AI (kMaxCombatants %d)", ScenarioRules::kMaxCombatants);
+    chk(ScenarioRules::kMaxAI == 1000 && dmRules(GameMode::Solo).kMaxCombatants >= 1001, "up to 1000 AI (kMaxCombatants %d)", ScenarioRules::kMaxCombatants);
   }
 }
 
@@ -333,21 +334,29 @@ void build(App&) {
     T->note("stalls:" + when);
     pendingShot = outDir() / "modes_100ai.png";
     return true; });
-  // ---- 200 AI (PF1): Solo, 201 combatants, 40 s; frame time, AI ms and path requests
-  push("200 ai", [](App& a, float t) {
-    static CrowdBench cb;
-    if (t == 0) { chk(startMode(a, GameMode::Solo, 201, 999), "200-AI Solo match starts (%s)", gGame->setupError.c_str()); cb.begin(); return false; }
-    Game& G = *gGame;
-    cb.frame(G, t, 3.0f);
-    if (Soldier* L = G.local()) if (L->alive) { L->hp = 100; L->protectUntil = G.t + 1; }
-    if (t < 40) return false;
-    int alive = 0; for (auto& s : G.sold) alive += s.alive;
-    int kills = 0; for (auto& s : G.match.slots) kills += s.kills;
-    chk(G.sold.size() == 201 && alive >= 150, "200 AI: %zu combatants, %d alive, %d kills in 40 s", G.sold.size(), alive, kills);
-    chk(cb.over150() == 0, "200 AI: %s", cb.line(G).c_str());
-    if (!cb.stalls.empty()) T->note("stalls:" + cb.stalls);
-    pendingShot = outDir() / "modes_200ai.png";
-    return true; });
+  // ---- 200 AI (PF1): Solo, 201 combatants, 40 s; frame time, AI ms and path requests. AI2: 500 and 1000 AI the same
+  // way, only with NMK_MODES_AI_SCALE (measurement runs, Medium preset; not part of the suite)
+  for (int n : {200, 500, 1000})
+    push(std::to_string(n) + " ai", [n](App& a, float t) {
+      static CrowdBench cb;
+      const bool scale = std::getenv("NMK_MODES_AI_SCALE") != nullptr;
+      if (n > 200 && !scale) return true;
+      if (t == 0) {
+        if (scale) settings().applyPreset(a, GfxPreset::Medium);
+        chk(startMode(a, GameMode::Solo, n + 1, 999), "%d-AI Solo match starts (%s)", n, gGame->setupError.c_str()); cb.begin(); return false;
+      }
+      Game& G = *gGame;
+      cb.frame(G, t, 3.0f);
+      if (Soldier* L = G.local()) if (L->alive) { L->hp = 100; L->protectUntil = G.t + 1; }
+      if (t < 40) return false;
+      int alive = 0; for (auto& s : G.sold) alive += s.alive;
+      int kills = 0; for (auto& s : G.match.slots) kills += s.kills;
+      chk((int)G.sold.size() == n + 1 && alive >= n * 3 / 4, "%d AI: %zu combatants, %d alive, %d kills in 40 s", n, G.sold.size(), alive, kills);
+      if (n == 200) chk(cb.over150() == 0, "200 AI: %s", cb.line(G).c_str());
+      else T->note(std::to_string(n) + " AI: " + cb.line(G));
+      if (!cb.stalls.empty()) T->note("stalls:" + cb.stalls);
+      pendingShot = outDir() / ("modes_" + std::to_string(n) + "ai.png");
+      return true; });
   // BR2 capture (NMK_MODES_ONLY_BR2): a Solo start switched to Battle Royale, a filled kit, the inventory screen
   push("br2 inventory", [](App& a, float t) {
     if (!std::getenv("NMK_MODES_ONLY_BR2")) return true;
@@ -456,7 +465,7 @@ bool modesSelfTest(App& app, float dt) {
     if (std::getenv("NMK_NAV_PREBAKE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "prebake templates" && s.name != "done"; }), seq.end());   // just the bake
     else if (std::getenv("NMK_MODES_ONLY_CACHE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "nav bake cache" && s.name != "done"; }), seq.end());   // just the cache round trip (with NMK_MODES_MAP: on another map)
     else if (std::getenv("NMK_MODES_ONLY_BR2")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "br2 inventory" && s.name != "done"; }), seq.end());   // BR2 inventory capture
-    else if (std::getenv("NMK_MODES_ONLY_100")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "100 ai" && s.name != "200 ai" && s.name != "done"; }), seq.end());   // just the crowds
+    else if (std::getenv("NMK_MODES_ONLY_100")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "100 ai" && s.name != "200 ai" && s.name != "500 ai" && s.name != "1000 ai" && s.name != "done"; }), seq.end());   // just the crowds
   }
   if (cur < seq.size()) {
     bool done = seq[cur].fn(app, st);

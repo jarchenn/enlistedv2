@@ -521,20 +521,20 @@ void AiCore::move(Soldier& s, float dt) {
   } else if (m.wantPath || m.pendingReq) wantsMove = G.t - m.lastReplan > 1.5;   // waiting long for a route counts as stuck
   if (G.t < m.departAt) { desired = vec3(0); wantsMove = false; }   // staggered departure from the spawn
   // wedged against a soldier with no room to pass (a trench, a pit, a doorway): pass through for a moment, never near a human
-  auto humanNear = [&](float r) { for (auto& o : G.sold) if (o.alive && o.human && lenXZ(o.feet - pos) < r) return true; return false; };
+  auto humanNear = [&](float r) { for (int i : humans) if (G.sold[i].alive && lenXZ(G.sold[i].feet - pos) < r) return true; return false; };
   auto ghostOn = [&](float sec) { if (humanNear(4.0f)) return; m.ghostUntil = G.t + sec; if (!m.ghost) { m.ghost = true; Physics::setAgentGhost(s.agent, true); ++metrics.ghosts; } };
   if (m.ghost && G.t >= m.ghostUntil) {
-    bool overlap = false; for (auto& o : G.sold) if (&o != &s && o.alive && lenXZ(o.feet - pos) < 0.65f && std::fabs(o.feet.y - pos.y) < 1.5f) overlap = true;
+    bool overlap = false; forNear(pos, 0.65f, [&](const Soldier& o) { if (&o != &s && o.alive && lenXZ(o.feet - pos) < 0.65f && std::fabs(o.feet.y - pos.y) < 1.5f) overlap = true; });
     if (overlap && G.t < m.ghostUntil + 3.0) m.ghostUntil = G.t + 0.3; else { m.ghost = false; Physics::setAgentGhost(s.agent, false); }
   }
   // a soldier standing in the way (a teammate settled in cover along a wall): side-step around him before it becomes a stuck
   if (wantsMove && glm::length(desired) > 0.5f && !(G.t < m.backUntil) && q && m.hasPath && !offMesh && !m.ghost && !m.follower) {   // PF1: a pack follower slides by its flock
     vec3 fwd = glm::normalize(xz(desired)); const Soldier* blk = nullptr; float bd = 1e9f;
-    for (auto& o : G.sold) {
-      if (&o == &s || !o.alive) continue;
+    forNear(pos, 1.4f, [&](const Soldier& o) {
+      if (&o == &s || !o.alive) return;
       vec3 d = xz(o.feet - pos); float L = glm::length(d);
       if (L < 1.4f && std::fabs(o.feet.y - pos.y) < 1.5f && glm::dot(d, fwd) > 0.45f * L && L < bd) { bd = L; blk = &o; }
-    }
+    });
     if (blk && s.speed < 0.35f * std::max(1.0f, vmax)) m.blockedT += dt; else m.blockedT = std::max(0.0f, m.blockedT - dt);
     if (blk && m.blockedT > tj("movement", "sidestepAfter_s", 0.4f)) {
       vec3 side(-fwd.z, 0, fwd.x); if (glm::dot(side, xz(pos - blk->feet)) < 0) side = -side;   // the side away from him
@@ -556,14 +556,14 @@ void AiCore::move(Soldier& s, float dt) {
   if (m.follower) { if (glm::length(desired) > 0.1f) desired += m.flockPush; }   // PF1: separation / alignment from the pack (zombie.cpp)
   else if (glm::length(desired) > 0.5f && (m.action == A_ADVANCE || m.action == A_TAKE_COVER) && !m.trav.on) {
     vec3 fwd = glm::normalize(desired), side(0);
-    for (auto& o : G.sold) {
-      if (&o == &s || !o.alive || o.team != s.team) continue;
+    forNear(pos, sepR, [&](const Soldier& o) {
+      if (&o == &s || !o.alive || o.team != s.team) return;
       vec3 d = xz(pos - o.feet); float L = glm::length(d);
-      if (L < 0.05f || L > sepR) continue;
+      if (L < 0.05f || L > sepR) return;
       vec3 lat = d - fwd * glm::dot(d, fwd);                 // sideways only: never slows the advance
       if (glm::length(lat) < 0.05f) lat = vec3(-fwd.z, 0, fwd.x) * (((s.slot + o.slot) & 1) ? 1.0f : -1.0f);
       side += glm::normalize(lat) * (1.0f - L / sepR);
-    }
+    });
     if (glm::length(side) > 0.01f) desired = glm::normalize(desired + side * tj("movement", "separationGain", 0.45f)) * glm::length(desired);
   }
   vec3 vel = desired;
@@ -584,12 +584,12 @@ void AiCore::move(Soldier& s, float dt) {
     }
     if (((int)G.steps + s.slot) % 2 == 0 || glm::length(m.avoidVel) < 0.01f) {
       oaq->reset();
-      for (auto& o : G.sold) {
-        if (&o == &s || !o.alive || m.ghost) continue;   // passing through: soldiers are not obstacles for now
-        vec3 d = o.feet - pos; if (glm::length(d) > 5.0f || std::fabs(d.y) > 1.8f) continue;
+      if (!m.ghost) forNear(pos, 5.0f, [&](const Soldier& o) {   // passing through (ghost): soldiers are not obstacles for now
+        if (&o == &s || !o.alive) return;
+        vec3 d = o.feet - pos; if (glm::length(d) > 5.0f || std::fabs(d.y) > 1.8f) return;
         vec3 ov = o.vel; ov.y = 0; vec3 dv = ov;
         oaq->addCircle(&o.feet.x, G.nav.cfg.radius + tj("movement", "avoidPad_m", 0.3f), &ov.x, &dv.x);
-      }
+      });
       for (int k = 0; k < m.boundary.getSegmentCount(); ++k) { const float* sg = m.boundary.getSegment(k); oaq->addSegment(sg, sg + 3); }
       for (auto& sg : m.probeSegs) { float a[3] = {sg.x, pos.y, sg.y}, bb[3] = {sg.z, pos.y, sg.w}; oaq->addSegment(a, bb); }
       vec3 cur = xz(s.vel), nv(0);
