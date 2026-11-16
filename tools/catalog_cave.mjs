@@ -27,7 +27,7 @@ const r2 = (v) => Math.round(v * 100) / 100;
 for (const [sfx, sz, seeds] of [["l", [42, 16, 40], [501, 502, 503]], ["m", [28, 11, 27], [511, 512, 513]], ["s", [16, 7, 15], [521, 522]]]) {
   seeds.forEach((sd, k) => rock(`cave_lid_${sfx}${k}`, `Cave ceiling (${sfx === "l" ? "large" : sfx === "m" ? "medium" : "small"} ${k + 1})`,
     "A slab of cave roof hung from a flat top: a lumpy, fractured underside about " + Math.round(sz[1] * 0.78) + " m deep. Placed overlapping to close a cavern.",
-    [piece("dripstone", sd, sz, [0, 0, 0], 0, [180, 0], 0, 3)], [sz[0], sz[2]], "block", true, "Cave roof"));
+    [piece("dripstone", sd, sz, [0, 0, 0], 0, [180, 0], 0, 2)], [sz[0], sz[2]], "block", true, "Cave roof"));
 }
 
 // ---------------------------------------------------------------- stalactites (hang from y = 0 down), stalagmites (rise from the floor), columns
@@ -125,11 +125,11 @@ const crackParts = [{ t: "b", c: [0, -0.05, 0], s: [5.5, 0.06, 0.45], r: [0, 18,
   { t: "b", c: [-1.9, -0.06, -0.5], s: [1.8, 0.06, 0.18], r: [0, -12, 0], m: "sky", k: 0 }];   // the crack itself: a cold, bright sliver of sky in the roof
 const skyMat = [{ name: "sky", albedo: [0.5, 0.6, 0.75], roughness: 1, pattern: "plain", metallic: 0, grain: 1, emissive: [2.2, 2.7, 3.4] }];
 lightAsset("cave_light_crack", "Cave light (ceiling crack)", "Cold, faint daylight falling through a crack in the cave roof: a narrow downward spot that casts shadows.",
-  { color: [0.55, 0.68, 0.95], intensity: 2200, radius: 60, dir: [0, -1, 0], cone: [8, 22], shadow: 0, use: "electric", fx: "shaft", fxSize: 30 });
+  { color: [0.55, 0.68, 0.95], intensity: 2200, radius: 46, dir: [0, -1, 0], cone: [8, 22], shadow: 0, use: "electric", fx: "shaft", fxSize: 30 });
 lightAsset("cave_light_crack_ns", "Cave light (ceiling crack, no shadow)", "Cold light through a crack in the cave roof, without a shadow map (cheaper).",
-  { color: [0.55, 0.68, 0.95], intensity: 5000, radius: 60, dir: [0, -1, 0], cone: [6, 20], use: "electric", fx: "shaft", fxSize: 28 });
+  { color: [0.55, 0.68, 0.95], intensity: 5000, radius: 46, dir: [0, -1, 0], cone: [6, 20], use: "electric", fx: "shaft", fxSize: 28 });
 lightAsset("cave_light_cold", "Cave light (cold fill)", "A faint cold glow over water: no fitting, no shadow.",
-  { color: [0.45, 0.6, 0.85], intensity: 9, radius: 18, use: "electric", fx: "mist", fxSize: 9 });
+  { color: [0.45, 0.6, 0.85], intensity: 9, radius: 13, use: "electric", fx: "mist", fxSize: 9 });
 lightAsset("cave_glow_ember", "Ember fissure", "A crack in the floor glowing deep orange: a small, flickering warm accent.",
   { color: [1.0, 0.42, 0.12], intensity: 14, radius: 11, flicker: 0.35, use: "fire" },
   [{ t: "b", c: [0, 0.02, 0], s: [1.6, 0.04, 0.22], r: [0, 25, 0], m: "ember", k: 0 }, { t: "b", c: [0.5, 0.02, 0.3], s: [0.9, 0.04, 0.14], r: [0, -35, 0], m: "ember", k: 0 }],
@@ -194,7 +194,7 @@ const dripAsset = (dir, v) => {
   if (dir > 0 && cls > 12 && (main === "mound" || main === "cake")) main = "fluted";   // giants are spears / fluted / bulbs
   const H = dir > 0 ? Math.min(cls, 15) : cls, y0 = dir > 0 ? -0.2 : 0.8;
   drip(P, main, 8000 + v * 200 + (dir > 0 ? 100000 : 0), 0, 0, y0, H, dir);
-  const R = 1.5 + H * 0.35, n = 5 + Math.floor(rnd() * (H > 8 ? 16 : 10));
+  const R = 1.5 + H * 0.35, n = 4 + Math.floor(rnd() * (H > 8 ? 9 : 6));   // CV1 perf: fewer satellites
   for (let k = 0; k < n; k++) {
     const a = rnd() * 6.283, r = R * (0.25 + 0.75 * Math.pow(rnd(), 1.4)), hh = H * (0.05 + 0.4 * Math.pow(rnd(), 1.8)) + 0.3;
     drip(P, rnd() < 0.35 ? "needle" : kinds[Math.floor(rnd() * kinds.length)], 8000 + v * 200 + 3 + k * 9 + (dir > 0 ? 100000 : 0), r2(Math.cos(a) * r), r2(Math.sin(a) * r), y0, hh, dir);
@@ -234,11 +234,35 @@ for (let v = 0; v < 4; v++) {
   rock("cave_steps", "Rough stone steps", "Five worn slabs rising 1.2 m: rough steps cut long ago.", P, [3.8, 5]);
 }
 lightAsset("cave_light_rim", "Cave light (rim)", "A faint, high cold glow with no fitting: grazes distant formations so their silhouettes separate from the dark.",
-  { color: [0.5, 0.62, 0.85], intensity: 60, radius: 40, use: "electric" });
+  { color: [0.5, 0.62, 0.85], intensity: 60, radius: 28, use: "electric" });
 lightAsset("cave_light_shaft_main", "Cave light (great shaft)", "The big crack over the central cavern: a strong cold beam through haze onto the wet floor.",
-  { color: [0.6, 0.72, 0.98], intensity: 20000, radius: 115, dir: [0, -1, 0], cone: [9, 21], use: "electric", fx: "shaft", fxSize: 66 });
+  { color: [0.6, 0.72, 0.98], intensity: 14000, radius: 88, dir: [0, -1, 0], cone: [9, 21], use: "electric", fx: "shaft", fxSize: 66 });
 
 lightAsset("cave_light_uplight", "Cave light (uplight)", "A warm glow from the foot of a rock wall, grazing up its ribs and fading into the dark above.",
-  { color: [1.0, 0.55, 0.24], intensity: 900, radius: 55, dir: [0, 1, 0], cone: [12, 34], use: "fire", flicker: 0.12 });
+  { color: [1.0, 0.55, 0.24], intensity: 900, radius: 40, dir: [0, 1, 0], cone: [12, 34], use: "fire", flicker: 0.12 });
+
+{   // CV1e: the monument: one carved figure, symmetrical (faces local -z, the south entry): plinth, tapering body,
+    // carved ribs across the chest, shoulders, neck, a rounded head with two swept horns, tall spines behind like folded wings
+  const D = "dripstone", P = [];
+  P.push(piece(D, 9601, [9.0, 2.2, 7.0], [0, 0, 0], 0, [0, 0], 0.15, 2));                       // plinth
+  P.push(piece(D, 9602, [6.2, 10.0, 4.6], [0, 1.6, 0], 0, [0, 0], 0, 3));                       // body
+  P.push(piece(D, 9603, [4.6, 7.0, 3.4], [0, 7.5, 0], 0, [0, 0], 0, 3));                        // chest
+  for (let k = 0; k < 6; k++) {                                                                  // carved ribs on the chest, curving round it
+    const y = 7.8 + k * 0.95, w = 5.6 - Math.abs(k - 2.5) * 0.45;
+    P.push(piece(D, 9610 + k, [r2(w), 0.42, 1.0], [0, r2(y), -1.55], 0, [-8, 0], 0, 1));
+    for (const sx of [-1, 1]) P.push(piece(D, 9620 + k * 2 + (sx > 0), [1.0, 0.42, r2(w * 0.5)], [r2(sx * w * 0.42), r2(y), -0.4], sx * 28, [0, 0], 0, 1));
+  }
+  P.push(piece(D, 9604, [9.4, 2.6, 3.8], [0, 13.2, 0.2], 0, [0, 0], 0, 3));                      // shoulders
+  P.push(piece(D, 9605, [1.9, 2.4, 1.9], [0, 14.6, 0], 0, [0, 0], 0, 2));                        // neck
+  P.push(piece(D, 9606, [3.6, 4.2, 3.6], [0, 15.8, -0.3], 0, [0, 0], 0, 3));                     // head
+  P.push(piece(D, 9607, [2.8, 1.2, 1.2], [0, 17.2, -1.7], 0, [0, 0], 0, 2));                     // brow ridge
+  for (const sx of [-1, 1]) {
+    P.push(piece(D, 9630 + (sx > 0), [0.9, 4.8, 0.9], [r2(sx * 1.6), 18.6, 0.4], 0, [-30, sx * -38], 0, 2));   // swept horns
+    P.push(piece(D, 9632 + (sx > 0), [1.2, 15.0, 1.6], [r2(sx * 3.4), 4.0, 2.2], 0, [6, sx * -10], 0, 2));     // folded-wing spines behind
+    P.push(piece(D, 9634 + (sx > 0), [0.9, 11.0, 1.2], [r2(sx * 4.6), 3.0, 2.8], 0, [8, sx * -16], 0, 2));
+    P.push(piece(D, 9636 + (sx > 0), [1.5, 7.5, 1.6], [r2(sx * 3.6), 2.0, -0.8], 0, [0, sx * -6], 0, 2));      // arms down the flanks
+  }
+  rock("cave_monument", "The monument (carved figure)", "A 22 m carved figure of dripstone: plinth, ribbed chest, broad shoulders, a horned head and folded-wing spines. Ancient and unsettling.", P, [10, 8]);
+}
 
 console.log(`cave catalog: ${ids.length} assets`);

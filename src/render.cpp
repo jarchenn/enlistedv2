@@ -1580,14 +1580,17 @@ void main(){
       h = grn*0.4 + mott*0.4 - bedLine*0.5 - crack*0.6 + thin*lith*0.3; bump = 0.018;
     }
     // weathering at hand scale: blotchy tone, solution pits / vesicles, fine grit relief
-    float blot = vnL(p*1.7 + 70.0, 1.7), pit = smoothstep(0.72, 0.88, vnL(p*7.0 + 71.0, 7.0)), grit = vnL(p*11.0 + 72.0, 11.0);
+    float grit = 0.5, lichen = 0.0;
+    if (uMapCave < 0.5 || length(vW - uCamPos) < 40.0) {   // CV1: on cave maps the hand-scale weathering only near (lids / stalactites far overhead)
+    float blot = vnL(p*1.7 + 70.0, 1.7), pit = smoothstep(0.72, 0.88, vnL(p*7.0 + 71.0, 7.0)); grit = vnL(p*11.0 + 72.0, 11.0);
     rock *= (0.80 + 0.40*blot) * (1.0 - 0.32*pit) * (0.92 + 0.16*grit);
     h += grit*0.35 - pit*0.6; bump = max(bump, 0.035);
-    float lichen = smoothstep(0.62, 0.8, vnL(p*0.9 + 47.0, 0.9)) * smoothstep(0.1, 0.7, up + 0.25);
+    lichen = smoothstep(0.62, 0.8, vnL(p*0.9 + 47.0, 0.9)) * smoothstep(0.1, 0.7, up + 0.25);
     rock = mix(rock, mix(vec3(0.16, 0.19, 0.09), vec3(0.42, 0.41, 0.30), grn), lichen*0.55);     // moss / grey lichen
     rock = mix(rock, vec3(0.55, 0.50, 0.26), smoothstep(0.78, 0.86, vnL(p*5.5 + 61.0, 5.5))*smoothstep(0.0, 0.6, up)*0.45);   // crusty yellow lichen
     float foot = 1.0 - smoothstep(-0.05, 0.25 + 0.25*vnL(vAp*1.7, 1.7), vAp.y);
     rock = mix(rock, vec3(0.12, 0.15, 0.06), foot*smoothstep(0.45, 0.7, vnL(vAp*2.3 + 7.0, 2.3))*0.6) * mix(1.0, 0.75, foot);   // damp foot
+    } else rock *= 0.92;
     alb = rock * vAlb * 0.8; rough = 0.86 + 0.08*grn; ao *= 1.0 - 0.3*crack;   // 0.8: matches the cliff faces' in-game brightness
     if (uMapCave > 0.5 && length(vW - uCamPos) < 45.0) {   // CV1 cave rock (near only: sub-pixel beyond): no lichen (re-darken it), flowstone and stains run down the faces, wet streaks shine
       float lichAll = clamp(lichen*0.55 + smoothstep(0.78, 0.86, vnL(p*5.5 + 61.0, 5.5))*smoothstep(0.0, 0.6, up)*0.45, 0.0, 1.0);
@@ -2562,7 +2565,16 @@ void main(){
   float ewK = clamp(vEw.x + vEw.y, 0.0, 1.0);                           // GX1: dug earth is never rock or scree
   float ewRock = 1.0 - smoothstep(0.0, 0.12, ewK);                       // (any earthworks weight at all suppresses it)
   screeK = smoothstep(0.89, 0.75, sny)*ewRock;
-  if (screeK > 0.001) {
+  if (screeK > 0.001 && uTerrCave > 0.5) {   // CV1: cave walls everywhere on screen: the same palette, a fraction of the noise (one texture tap)
+    rockK = smoothstep(0.75, 0.62, sny)*ewRock;
+    float bedV = vnoise(vec3(p.xz*0.05, p.y*0.35 + 40.0)), mott = vnoise(vec3(p*0.7 + 45.0));
+    float flute = vnoise(vec3(p.x*1.4, p.y*0.07, p.z*1.4) + 60.0);
+    vec3 rock = mix(vec3(0.30,0.28,0.25), vec3(0.44,0.41,0.35), bedV) * (0.78 + 0.4*mott) * (0.78 + 0.38*flute);
+    TerrT tRk = terrTex(5, p, tn0, tdx, tdy, tDist); rock *= tRk.alb;
+    tdn = mix(tdn, tRk.dn, rockK); trr = mix(trr, tRk.r, rockK); tao = mix(tao, tRk.ao, rockK);
+    alb = mix(alb, rock, max(rockK, screeK*0.8));
+    rBump = vec3(mott - 0.5, (flute - 0.5)*0.4, bedV - 0.5)*0.8;
+  } else if (screeK > 0.001) {
     float rBreak = fbm(vec3(p.xz*0.21, p.y*0.21 + 40.0));
     rockK = smoothstep(0.75, 0.62, sny + (rBreak - 0.5)*0.16)*ewRock;
     float lith = smoothstep(0.35, 0.65, fbm(vec3(p.xz*0.018, p.y*0.03 + 41.0)));              // limestone <-> schist

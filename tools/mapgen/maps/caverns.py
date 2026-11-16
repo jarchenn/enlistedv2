@@ -361,7 +361,7 @@ def build(ctx):
     # organ wall behind it rising into the dark, flanking organ walls left and right, warm niches between them, steps
     # down to a round basin in front. Low ribbed walls close the front corners; exits east, west and south (baffled).
     px, pz = POCKET
-    place("cave_spire_ancient", px, pz, yaw=17.0)
+    place("cave_monument", px, pz + 1.0, yaw=0.0)                                         # the carved figure, facing the south entry
     place("cave_organ_3", px, pz + 21.0, yaw=look_yaw(0.0, -1.0))                       # the backdrop: 44 m of ribs behind the spire
     for sx in (-1.0, 1.0):
         x, z = px + sx * 19.0, pz + 7.0
@@ -587,7 +587,7 @@ def build(ctx):
               extra={"groundPaint": paint.to_json(), "waterBodies": water,
                      "lighting": {"hour": 0.0, "fill": 0.02, "exposure": 0.85},
                      "look": {"fog": True, "haze": 0.15, "cave": True, "weather": 0.0, "envFog": 0, "saturation": 0.92, "tint": [0.94, 0.98, 1.06], "grime": 0.0,
-                              "paintSets": {"rock": "paint_rock", "dirt": "ground_rubble_paint", "gravel": "gravel_mixed", "pebbles": "rock_slab_paint"}},
+                              "paintSets": {"rock": "ground_rubble_paint", "dirt": "ground_rubble_paint", "gravel": "gravel_mixed", "pebbles": "paint_pebbles"}},
                      "audio": {"bed": "cave.wav", "battlefield": False},
                      "royale": {"indoor": True}})
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=8, version=VERSION, seed=SEED,
