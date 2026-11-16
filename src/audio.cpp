@@ -113,19 +113,21 @@ Buf makeWind(float secs, Rng& r, float bright, float gustRate) {
 struct LimiterNode { ma_node_base base; float g = 1, rel = 0; ma_uint32 ch = 2; };   // SND5 (Audio::Impl::lim)
 // SND5: the gunshot reverb (Audio::Impl::verb): the dry sound through unchanged, plus a slap-back (one early reflection)
 // and a damped Schroeder tail (4 parallel combs into 2 series all-passes per side, left / right 23 samples apart).
-// verb[0]: every gun, a small send; verb[1]: the M249 / MG 42, more and longer. Audio::setRoom(1) (tunnels, Backrooms):
-// a shorter slap-back, a longer, denser tail
+// verb[0]: every gun, a small send; verb[1]: machine guns (M249, MG 42, M2HB); verb[2]: the .50 sniper, more and longer.
+// Sends and tails: content/audio/custom/mix.json "reverb". Audio::setRoom(1) (tunnels, Backrooms): a shorter slap-back,
+// a longer, denser tail. The delay lines are allocated once at their longest (outdoors) and only their used length
+// changes, so a retune never reallocates under the audio thread
 struct VerbNode {
   ma_node_base base; ma_uint32 ch = 2; float sr = 44100, send = 0.1f, rtOut = 1.2f, room = -1;
   std::vector<float> slap; size_t sp = 0, slapLen = 1; float slapG = 0.3f;
-  struct Line { std::vector<float> b; size_t i = 0; float fb = 0.8f, lp = 0; };
+  struct Line { std::vector<float> b; size_t n = 1, i = 0; float fb = 0.8f, lp = 0; };
   Line comb[2][4], ap[2][2];
-  void setRoom(float r) {
-    if (std::fabs(r - room) < 1e-3f) return; room = r;
-    const int cl[4] = {1557, 1617, 1491, 1422}, al[2] = {556, 441}; const float sc = sr / 44100.0f * (1.0f - 0.25f * r), rt = rtOut * (1.0f + 0.4f * r);
+  void setRoom(float r, bool force = false) {
+    if (!force && std::fabs(r - room) < 1e-3f) return; room = r;
+    const int cl[4] = {1557, 1617, 1491, 1422}, al[2] = {556, 441}; const float sc0 = sr / 44100.0f, sc = sc0 * (1.0f - 0.25f * r), rt = rtOut * (1.0f + 0.4f * r);
     for (int s = 0; s < 2; ++s) {
-      for (int k = 0; k < 4; ++k) { Line& c = comb[s][k]; size_t n = (size_t)((cl[k] + 23 * s) * sc); if (c.b.size() != n) { c.b.assign(n, 0.0f); c.i = 0; } c.fb = std::pow(10.0f, -3.0f * n / (rt * sr)); }
-      for (int k = 0; k < 2; ++k) { Line& c = ap[s][k]; size_t n = (size_t)((al[k] + 23 * s) * sc); if (c.b.size() != n) { c.b.assign(n, 0.0f); c.i = 0; } }
+      for (int k = 0; k < 4; ++k) { Line& c = comb[s][k]; if (c.b.empty()) c.b.assign((size_t)((cl[k] + 23 * s) * sc0) + 1, 0.0f); c.n = std::min(c.b.size(), (size_t)((cl[k] + 23 * s) * sc)); c.fb = std::pow(10.0f, -3.0f * c.n / (rt * sr)); }
+      for (int k = 0; k < 2; ++k) { Line& c = ap[s][k]; if (c.b.empty()) c.b.assign((size_t)((al[k] + 23 * s) * sc0) + 1, 0.0f); c.n = std::min(c.b.size(), (size_t)((al[k] + 23 * s) * sc)); }
     }
     if (slap.empty()) slap.assign((size_t)(0.2f * sr), 0.0f);
     slapLen = (size_t)((0.11f - 0.075f * r) * sr); slapG = 0.3f + 0.1f * r;
@@ -151,7 +153,7 @@ struct Audio::Impl {
   // SND5: sounds reach the limiter directly, through the muffle only while under water (its 20 kHz "open" biquad still
   // took the top octave); the limiter (instant attack, 40 ms release, ceiling 0.98) keeps loud overlaps from clipping
   LimiterNode lim; bool limOk = false, muffled = false;
-  VerbNode verb[2]; bool verbOk = false;
+  VerbNode verb[3]; bool verbOk = false;
   double duckT = -1e9;   // SND5: the last gunshot within 60 m (the ambience beds duck under it)
   ma_node* pre() { return muffled && lpfOk ? (ma_node*)&lpf : out(); }
   ma_node* out() { return limOk ? (ma_node*)&lim : ma_engine_get_endpoint(&engine); }
@@ -182,8 +184,8 @@ static void verbProcess(ma_node* node, const float** in, ma_uint32* inFrames, fl
     float wet[2];
     for (int s = 0; s < 2; ++s) {
       float acc = 0;
-      for (auto& c : V->comb[s]) { float o = c.b[c.i]; c.lp = o * 0.6f + c.lp * 0.4f; c.b[c.i] = m * 0.25f + c.lp * c.fb; if (++c.i >= c.b.size()) c.i = 0; acc += o; }
-      for (auto& a : V->ap[s]) { float o = a.b[a.i]; a.b[a.i] = acc + o * 0.5f; if (++a.i >= a.b.size()) a.i = 0; acc = o - acc; }
+      for (auto& c : V->comb[s]) { if (c.i >= c.n) c.i = 0; float o = c.b[c.i]; c.lp = o * 0.6f + c.lp * 0.4f; c.b[c.i] = m * 0.25f + c.lp * c.fb; ++c.i; acc += o; }
+      for (auto& a : V->ap[s]) { if (a.i >= a.n) a.i = 0; float o = a.b[a.i]; a.b[a.i] = acc + o * 0.5f; ++a.i; acc = o - acc; }
       wet[s] = acc + early;
     }
     for (ma_uint32 c = 0; c < C; ++c) y[i * C + c] = x[i * C + c] + wet[c & 1];
@@ -208,10 +210,12 @@ bool Audio::init() {
     }
     p->lpfOk = ma_lpf_node_init(ma_engine_get_node_graph(&p->engine), &lc, nullptr, &p->lpf) == MA_SUCCESS &&
                ma_node_attach_output_bus(&p->lpf, 0, p->out(), 0) == MA_SUCCESS;
-    {   // SND5: the gun reverbs: every gun (send 0.12, 1.2 s) and the M249 / MG 42 (send 0.35, 1.5 s)
+    {   // SND5: the gun reverbs (defaults; content/audio/custom/mix.json "reverb" retunes them at load): every gun (send 0.12,
+        // 1.2 s), machine guns (SND6: halved, 0.35 -> 0.175, 1.5 -> 1.3 s), the .50 sniper (0.25, 1.8 s)
       ma_uint32 ch = ma_engine_get_channels(&p->engine); p->verbOk = true;
-      for (int k = 0; k < 2; ++k) {
-        VerbNode& v = p->verb[k]; v.ch = ch; v.sr = (float)ma_engine_get_sample_rate(&p->engine); v.send = k ? 0.35f : 0.12f; v.rtOut = k ? 1.5f : 1.2f; v.setRoom(0);
+      const float sends[3] = {0.12f, 0.175f, 0.25f}, tails[3] = {1.2f, 1.3f, 1.8f};
+      for (int k = 0; k < 3; ++k) {
+        VerbNode& v = p->verb[k]; v.ch = ch; v.sr = (float)ma_engine_get_sample_rate(&p->engine); v.send = sends[k]; v.rtOut = tails[k]; v.setRoom(0);
         ma_node_config nc = ma_node_config_init(); nc.vtable = &gVerbVt; nc.pInputChannels = &ch; nc.pOutputChannels = &ch;
         p->verbOk = p->verbOk && ma_node_init(ma_engine_get_node_graph(&p->engine), &nc, nullptr, &v) == MA_SUCCESS && ma_node_attach_output_bus(&v, 0, p->out(), 0) == MA_SUCCESS;
       }
@@ -387,7 +391,7 @@ int Audio::loadCustom(const fs::path& dir) {
   // SND4: every rifle its own shot. take: which shot of a recording holding several (Rifle3: four), -1 the first;
   // pitch / tilt / tail: a variant derived from a recording another rifle uses (resampled x pitch; tilt < 0 darker, > 0
   // brighter; tail: seconds kept)
-  struct GunSet { const char* file; bool burst; std::vector<const char*> ids; int take = -1; float pitch = 1, tilt = 0, tail = 2.5f; bool body = false; };   // SND5 body: low-mid weight and density (M249, MG 42)
+  struct GunSet { const char* file; bool burst; std::vector<const char*> ids; int take = -1; float pitch = 1, tilt = 0, tail = 2.5f; float body = 0; };   // SND5 body: low-mid weight and density (M249, MG 42)
   const GunSet guns[] = {
     {"guns/pistol_a.mp3", false, {"luger"}},
     {"guns/pistol_c.mp3", false, {"modern_pistol2"}},
@@ -402,7 +406,7 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/rifle_a.mp3", false, {"m1c_garand"}, -1, 0.97f},
     {"guns/rifle_a.mp3", false, {"m1918a2_bar"}, -1, 0.96f},
     {"guns/rifle_a.mp3", false, {"fg42"}, -1, 1.04f},
-    {"guns/sniper_heavy.mp3", false, {"modern_sniper_50"}},   // the heavy sniper shot (user request)
+    {"guns/sniper_heavy.mp3", false, {"modern_sniper_50"}, -1, 1, 0, 2.5f, 4.0f},   // the heavy sniper shot (user request); SND6: the loudest small arm: most body
     {"guns/sniper_m24.mp3", false, {"modern_sniper_bolt"}},   // Sniper.mp3: the M24's own
     {"guns/sniper_m24.mp3", false, {"modern_sniper_3"}, -1, 1.08f, 0.3f, 1.8f},   // derived: scout rifle, higher, shorter
     {"guns/rifle_a.mp3", false, {"kar98k"}},   // Rifle.mp3
@@ -410,14 +414,14 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/rifle_b.mp3", false, {"modern_ak"}},   // Rifle2.mp3: AK-74
     {"guns/rifle_b.mp3", false, {"modern_ak12"}, -1, 0.98f},   // SND5: the AK-74 shot (user request), 2 % lower
     {"guns/rifle_b.mp3", false, {"stg44"}, -1, 1.02f},   // SND5: the AK-74 shot, 2 % higher
-    {"guns/rifle_b.mp3", false, {"modern_lmg"}, -1, 0.97f, 0, 2.5f, true},   // SND5: the M249 on the AK-74 single shot (automatic fire re-triggers it per round), heavier
+    {"guns/rifle_b.mp3", false, {"modern_lmg"}, -1, 0.97f, 0, 2.5f, 2.2f},   // SND5: the M249 on the AK-74 single shot (automatic fire re-triggers it per round), heavier
     {"guns/rifle_c.mp3", false, {"modern_m16"}, 0},   // Rifle3.mp3 holds four shots: one each
     {"guns/rifle_c.mp3", false, {"modern_m4"}, 1},
     {"guns/rifle_c.mp3", false, {"modern_m4_irons"}, 2},
     {"guns/rifle_c.mp3", false, {"modern_fal"}, 3},
     {"guns/shotgun.mp3", false, {"modern_shotgun", "modern_shotgun2"}},
-    {"guns/hmg_burst.mp3", true, {"m2hb_carry"}},
-    {"guns/mg_burst.mp3", true, {"mg42"}, -1, 1, 0, 2.5f, true},
+    {"guns/hmg_burst.mp3", true, {"m2hb_carry"}, -1, 1, 0, 2.5f, 3.0f},   // SND6: body (it measured 12 dB under the rifles)
+    {"guns/mg_burst.mp3", true, {"mg42"}, -1, 1, 0, 2.5f, 2.2f},
     {"guns/smg_burst.mp3", true, {"modern_uzi"}},
     // SND4: every SMG its own shot (SMG.mp3, SMG1.mp3: single shots)
     {"guns/smg_a.mp3", false, {"mp40"}, -1, 1, 0, 1.2f},   // SMG.mp3
@@ -450,9 +454,9 @@ int Audio::loadCustom(const fs::path& dir) {
       return s;
     };
     Buf s = shape(b), sl = shape(gL), sr = shape(gR);
-    if (g.body) for (Buf* c : {&s, &sl, &sr}) {   // SND5: +low-mid (a 450 Hz low-pass mixed in), then a gentle saturation: denser at the same peak
+    if (g.body > 0) for (Buf* c : {&s, &sl, &sr}) {   // SND5: +low-mid (a 450 Hz low-pass mixed in), then saturation (drive g.body): denser at the same peak
       float lp = 0, al = 1 - std::exp(-2 * 3.14159f * 450.0f / SR), pk = 1e-4f; for (float& x : *c) { lp += al * (x - lp); x += 0.8f * lp; pk = std::max(pk, std::fabs(x)); }
-      for (float& x : *c) x = std::tanh(2.2f * x / pk) / std::tanh(2.2f);
+      for (float& x : *c) x = std::tanh(g.body * x / pk) / std::tanh(g.body);
     }
     float pk = 1e-4f; for (float x : s) pk = std::max(pk, std::fabs(x)); for (float& x : s) x *= std::max(1.0f, 0.95f / pk);
     float pk2 = 1e-4f; for (size_t j = 0; j < sl.size(); ++j) pk2 = std::max({pk2, std::fabs(sl[j]), std::fabs(sr[j])});
@@ -649,6 +653,13 @@ int Audio::loadCustom(const fs::path& dir) {
   {   // SND6: mix.json: casing_gain (x on the spent-case sound; 1 = the SND4 level)
     json mx; try { std::ifstream f(dir / "mix.json"); if (f) mx = json::parse(f); } catch (...) { logf("audio: custom/mix.json unreadable, defaults kept"); }
     if (mx.is_object()) p->casingGain = std::clamp(mx.value("casing_gain", p->casingGain), 0.0f, 3.0f);
+    if (mx.is_object() && mx.contains("reverb") && mx["reverb"].is_object() && p->verbOk) {   // per class: send (0-1) and tail_s (0.3-4 s)
+      const char* cls[3] = {"gun", "mg", "fifty"};
+      for (int k = 0; k < 3; ++k) if (mx["reverb"].contains(cls[k]) && mx["reverb"][cls[k]].is_object()) {
+        const json& r = mx["reverb"][cls[k]]; VerbNode& v = p->verb[k];
+        v.send = std::clamp(r.value("send", v.send), 0.0f, 1.0f); v.rtOut = std::clamp(r.value("tail_s", v.rtOut), 0.3f, 4.0f); v.setRoom(v.room < 0 ? 0 : v.room, true);
+      }
+    }
   }
   if (decode("guns/casings.mp3", b)) {
     float pk = peakOf(b); size_t a = 0; while (a < b.size() && std::fabs(b[a]) < 0.3f * pk) ++a; a = a > (size_t)(SR / 100) ? a - SR / 100 : 0;
@@ -734,17 +745,18 @@ void Audio::play(const std::string& name, vec3 pos, float volume, float pitch, f
   // SND5: gunfire (shots of every class, tank / field guns, recorded tails) carries further (full level within 3 m, the
   // M249 / MG 42 5 m), goes through the gun reverb and ducks the ambience beds
   const bool gun = shot || used.rfind("shot_", 0) == 0 || used.rfind("tank_", 0) == 0 || used.rfind("tail_", 0) == 0 || used == "pak_fire" || used == "flak_fire";
-  const bool heavy = used == "shot_mg42" || used == "shot_modern_lmg" || used == "tail_mg42" || used == "tail_modern_lmg";
-  if (gun) { minDist = std::max(minDist, heavy ? 5.0f : 3.0f); if (glm::length(pos - p->listener) < 60.0f) p->duckT = now; }
+  const bool fifty = used == "shot_modern_sniper_50";
+  const bool heavy = used == "shot_mg42" || used == "shot_modern_lmg" || used == "tail_mg42" || used == "tail_modern_lmg" || used.rfind("shot_m2hb", 0) == 0 || used.rfind("tail_m2hb", 0) == 0;
+  if (gun) { minDist = std::max(minDist, fifty ? 8.0f : heavy ? 5.0f : 3.0f); if (glm::length(pos - p->listener) < 60.0f) p->duckT = now; }   // SND6: the .50 full level to 8 m
   ma_audio_buffer_config c = stereo ? ma_audio_buffer_config_init(ma_format_f32, 2, stereo->size() / 2, stereo->data(), nullptr)
                                     : ma_audio_buffer_config_init(ma_format_f32, 1, src->size(), src->data(), nullptr);
   c.sampleRate = SR;
   ma_audio_buffer_init(&c, &v->buf);
   ma_sound_init_from_data_source(&p->engine, &v->buf, atEar ? MA_SOUND_FLAG_NO_SPATIALIZATION : 0, nullptr, &v->snd);
-  v->bus = gun ? (heavy ? 2 : 1) : 0; p->route(v->snd, v->bus);
+  v->bus = gun ? (fifty ? 3 : heavy ? 2 : 1) : 0; p->route(v->snd, v->bus);
   ma_sound_set_position(&v->snd, pos.x, pos.y, pos.z);
   ma_sound_set_min_distance(&v->snd, minDist);
-  ma_sound_set_rolloff(&v->snd, 1.2f);
+  ma_sound_set_rolloff(&v->snd, fifty ? 0.8f : 1.2f);   // SND6: the .50 carries further
   ma_sound_set_volume(&v->snd, volume);
   if (pitch != 1.0f) ma_sound_set_pitch(&v->snd, std::max(0.05f, pitch));
   if (delay > 0) ma_sound_set_start_time_in_milliseconds(&v->snd, ma_engine_get_time_in_milliseconds(&p->engine) + (ma_uint64)(delay * 1000));
@@ -899,7 +911,7 @@ void Audio::fidelityReport(const fs::path& dir) {
     {"shot_modern_ak12", "guns/rifle_b.mp3", 0, 0.6f}, {"shot_stg44", "guns/rifle_b.mp3", 0, 0.6f}, {"shot_modern_lmg", "guns/rifle_b.mp3", 0, 0.6f},
     {"shot_mg42", "guns/mg_burst.mp3", 0, 0.6f},
     {"shot_modern_m16", "guns/rifle_c.mp3", 0, 0.6f}, {"shot_modern_m4", "guns/rifle_c.mp3", 1, 0.6f}, {"shot_modern_m4_irons", "guns/rifle_c.mp3", 2, 0.6f}, {"shot_modern_fal", "guns/rifle_c.mp3", 3, 0.6f},
-    {"shot_modern_sniper_bolt", "guns/sniper_m24.mp3", 0, 0.6f}, {"shot_mp40", "guns/smg_a.mp3", 0, 0.6f}, {"shot_luger", "guns/pistol_a.mp3", 0, 0.6f},
+    {"shot_modern_sniper_bolt", "guns/sniper_m24.mp3", 0, 0.6f}, {"shot_modern_sniper_50", "guns/sniper_heavy.mp3", 0, 0.6f}, {"shot_modern_sniper_50", "guns/sniper_heavy.mp3", 0, 20.0f}, {"shot_m2hb_carry", "guns/hmg_burst.mp3", 0, 0.6f}, {"shot_m2hb", "guns/hmg_burst.mp3", 0, 0.6f}, {"shot_mp40", "guns/smg_a.mp3", 0, 0.6f}, {"shot_luger", "guns/pistol_a.mp3", 0, 0.6f},
     {"shot_modern_shotgun", "guns/shotgun.mp3", 0, 0.6f}, {"shot_kar98k", "guns/rifle_a.mp3", 0, 20.0f}, {"step", "footsteps.mp3", 0, 1.6f}};
   setListener(vec3(0), vec3(0, 0, -1));
   auto render = [&](const char* ev, vec3 pos, float secs) {
