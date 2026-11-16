@@ -113,6 +113,7 @@ float animVmClipDur(const AnimVM& a, const std::string& clip) { auto it = a.dur.
 static bool ensureLoaded(AnimVM& a, const WeaponDef& d) {
   if (a.loaded || a.failed) return a.loaded;
   std::string err;
+  a.model.wantNormals = true;   // WP2: a rig exported with a normal map (the Scorpion) draws it
   if (!a.model.load(a.glb, err, 0, false)) { a.failed = true; logf("weapon %s: animated viewmodel failed to load (%s): static model", d.id.c_str(), err.c_str()); return false; }
   for (int j = 0; j < a.model.joints(); ++j) if (a.model.nodeName[a.model.jointNode[j]] == a.gunJointName) a.gunJoint = j;
   for (auto& [k, n] : a.clipOf) { int c = findClip(a.model, n); if (c >= 0) a.clip[k] = c; }

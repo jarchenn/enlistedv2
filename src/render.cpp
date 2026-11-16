@@ -1817,11 +1817,17 @@ void main(){
   if (!gl_FrontFacing) N = -N;                         // glTF models are double sided
   if (uHasNrm == 1) {
     vec3 T = vT.xyz - N*dot(N, vT.xyz);
+    vec3 t = texture(uNrm, vUV).xyz*2.0 - 1.0;
     if (dot(T, T) > 1e-12) {
       T = normalize(T); vec3 B = cross(N, T) * (vT.w < 0.0 ? -1.0 : 1.0);
-      vec3 t = texture(uNrm, vUV).xyz*2.0 - 1.0;
       vec3 n = T*t.x + B*t.y + N*max(t.z, 0.05);
       if (dot(n, n) > 1e-12) N = normalize(n);
+    } else {   // WP2: no tangent stream (skinned first-person rigs): the cotangent frame from the screen derivatives
+      vec3 dp1 = dFdx(vW), dp2 = dFdy(vW); vec2 du1 = dFdx(vUV), du2 = dFdy(vUV);
+      vec3 p2 = cross(dp2, N), p1 = cross(N, dp1);
+      vec3 Tc = p2*du1.x + p1*du2.x, Bc = p2*du1.y + p1*du2.y;
+      float k = max(dot(Tc, Tc), dot(Bc, Bc));
+      if (k > 1e-24) { k = inversesqrt(k); vec3 n = Tc*k*t.x + Bc*k*t.y + N*max(t.z, 0.05); if (dot(n, n) > 1e-12) N = normalize(n); }
     }
   }
   vec3 c = shade(vW, N, base.rgb, clamp(rough, 0.04, 1.0), clamp(metal, 0.0, 1.0), mix(1.0, ao, 0.85));
