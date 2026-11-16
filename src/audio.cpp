@@ -10,6 +10,7 @@
 namespace {
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 constexpr int SR = 44100;
 using Buf = std::vector<float>;
 
@@ -333,14 +334,56 @@ int Audio::loadCustom(const fs::path& dir) {
   for (const char* n : {"troll_attack", "troll_idle"}) if (decode((std::string(n) + ".mp3").c_str(), b)) { ++used; if (b.size() > (size_t)(5 * SR)) { b.resize(5 * SR); for (int j = 0; j < SR / 5; ++j) b[b.size() - 1 - j] *= j / (SR / 5.0f); } Impl::Event ev; ev.v.push_back(b); p->events[n] = ev; }
   {   // reload recordings (reload/*.mp3): one whole reload per magazine / clip / belt weapon at reload start; shotguns: the pump after each
       // shot and one mid-track shell-loading sound per shell (also the single-round loading sound of other guns)
-    struct RSet { const char* file; std::vector<const char*> ids; };
+    // SND3: secs: the group's shortest (partial) reload time; the recording is fitted to it (fitTo); keep: seconds of the
+    // file used (the AK recording's loud second half is dropped)
+    struct RSet { const char* file; std::vector<const char*> ids; float secs = 6.0f, keep = 0; };
     const RSet rs[] = {
-      {"reload/reload_rifle.mp3", {"modern_ak", "modern_ar15", "modern_m16", "modern_m4", "modern_m4_irons", "modern_fal", "modern_scar", "stg44", "fg42", "m1918a2_bar", "m1_carbine", "modern_sniper_semi", "modern_sniper_bolt", "modern_sniper_50", "modern_sniper_3", "modern_ak12", "modern_lmg", "mg42", "m2hb_carry"}},
-      {"reload/reload_a.mp3", {"mp40", "m1_thompson", "m3_grease_gun", "modern_uzi", "modern_mp7", "modern_scorpion", "m1_garand", "m1c_garand", "kar98k", "kar98k_zf39"}},
+      {"reload/reload_rifle.mp3", {"mg42", "m2hb_carry"}},   // belt guns keep the generic rifle recording
+      {"reload/reload_ak.mp3", {"modern_ak", "modern_ak12"}, 2.4f, 3.5f},   // rock-in magazines (jigokukarano_sisya)
+      {"reload/reload_ak.mp3", {"stg44"}, 2.7f, 3.5f},
+      {"reload/reload_m4.mp3", {"modern_m4", "modern_m4_irons"}, 2.2f},   // AR pattern and the other magazine rifles (squarebun)
+      {"reload/reload_m4.mp3", {"modern_m16", "modern_scar"}, 2.3f},
+      {"reload/reload_m4.mp3", {"modern_ar15", "modern_fal"}, 2.4f},
+      {"reload/reload_m4.mp3", {"modern_sniper_semi"}, 2.5f},
+      {"reload/reload_m4.mp3", {"fg42"}, 2.7f},
+      {"reload/reload_m4.mp3", {"m1918a2_bar"}, 3.0f},
+      {"reload/reload_m4.mp3", {"m1_carbine"}, 2.0f},
+      {"reload/reload_m4.mp3", {"modern_lmg"}, 5.2f},   // the M249's box change (nothing better)
+      {"reload/reload_sniper.mp3", {"modern_sniper_bolt", "modern_sniper_3"}, 2.8f},   // bolt magazine snipers (the user's "m24 and 50cal")
+      {"reload/reload_sniper.mp3", {"modern_sniper_50"}, 4.2f},
+      {"reload/reload_bolt.mp3", {"kar98k"}, 2.2f},   // the stripper-clip reload (freesound_community "rifle or shotgun reload")
+      {"reload/reload_a.mp3", {"mp40", "m1_thompson", "m3_grease_gun", "modern_uzi", "modern_mp7", "modern_scorpion", "m1_garand", "m1c_garand", "kar98k_zf39"}},
       {"reload/reload_b.mp3", {"luger", "m1911a1", "modern_pistol", "modern_pistol2", "modern_pistol3"}},
     };
     auto norm = [&](Buf& s, float secs) { if (s.size() > (size_t)(secs * SR)) s.resize((size_t)(secs * SR)); float pk = 1e-4f; for (float x : s) pk = std::max(pk, std::fabs(x)); size_t f = std::min(s.size(), (size_t)(0.05f * SR)); for (size_t j = 0; j < s.size(); ++j) s[j] *= 0.7f / pk * (j + f >= s.size() ? (float)(s.size() - j) / f : 1.0f); };
-    for (auto& g : rs) if (decode(g.file, b)) { ++used; norm(b, 6.0f); Impl::Event ev; ev.v.push_back(b); for (const char* id : g.ids) p->events[std::string("reload_") + id] = ev; }
+    // SND3: a reload longer than the weapon's reload is shortened in its quiet gaps (each kept at least 0.1 s, 20 ms equal-power
+    // joins), so the whole mag-out / mag-in / charge sequence stays, at its own pitch; still too long, norm fades it out at secs
+    auto fitTo = [&](Buf& s, float secs) {
+      const size_t want = (size_t)(secs * SR), X = SR / 50, keepGap = SR / 10;
+      if (s.size() <= want) return;
+      float pk = 1e-4f; for (float x : s) pk = std::max(pk, std::fabs(x));
+      std::vector<std::pair<size_t, size_t>> gaps; size_t g0 = SIZE_MAX, last = 0;   // quiet runs (20 ms peak under 12 % of the loudest) over 0.2 s, before the last sound
+      for (size_t k = 0; k + X <= s.size(); k += X) { float e = 0; for (size_t j = 0; j < X; ++j) e = std::max(e, std::fabs(s[k + j])); if (e >= 0.12f * pk) last = k + X;
+        bool q = e < 0.12f * pk; if (q && g0 == SIZE_MAX) g0 = k; if (!q && g0 != SIZE_MAX) { if (k - g0 > (size_t)(0.2f * SR)) gaps.push_back({g0, k}); g0 = SIZE_MAX; } }
+      size_t content = std::min(s.size(), last + SR / 10);   // the trailing quiet beyond the last sound goes anyway
+      size_t spare = 0; for (auto& g : gaps) spare += g.second - g.first - keepGap;
+      float frac = content > want && spare ? std::min(1.0f, (float)(content - want) / spare) : 0.0f;
+      Buf out; size_t pos = 0;
+      for (auto& g : gaps) {
+        size_t cut = (size_t)((g.second - g.first - keepGap) * frac), a = g.first + (g.second - g.first - cut) / 2;
+        if (cut < 2 * X || a < pos + X || a + cut + X > s.size()) continue;
+        out.insert(out.end(), s.begin() + pos, s.begin() + a);
+        size_t o = out.size() - X; for (size_t j = 0; j < X; ++j) { float t = (j + 0.5f) / X * 1.5707963f; out[o + j] = out[o + j] * std::cos(t) + s[a + cut + j] * std::sin(t); }
+        pos = a + cut + X;
+      }
+      out.insert(out.end(), s.begin() + pos, s.begin() + content); s.swap(out);
+    };
+    for (auto& g : rs) if (decode(g.file, b)) {
+      if (g.keep > 0 && b.size() > (size_t)(g.keep * SR)) { b.resize((size_t)(g.keep * SR)); size_t f = SR / 20; for (size_t j = 0; j < f; ++j) b[b.size() - 1 - j] *= (float)j / f; }
+      ++used; fitTo(b, g.secs); norm(b, g.secs);
+      { static const bool lg = std::getenv("NMK_AUDIO_LOG") != nullptr; if (lg) logf("audio: %s for %s: %.2f s (fit to %.1f s)", g.file, g.ids[0], b.size() / (float)SR, g.secs); }   // diagnostics
+      Impl::Event ev; ev.v.push_back(b); for (const char* id : g.ids) p->events[std::string("reload_") + id] = ev;
+    }
     if (decode("reload/shotgun_pump.mp3", b)) { ++used; norm(b, 1.5f); b.insert(b.begin(), (size_t)(0.3f * SR), 0.0f); Impl::Event ev; ev.v.push_back(b); p->events["shotgun_pump"] = ev; }
     if (decode("reload/shotgun_shells.mp3", b)) {
       const int W = SR / 200; size_t nW = b.size() / W; float peak = 1e-4f; std::vector<float> env(nW, 0.0f);
