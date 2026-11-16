@@ -83,7 +83,7 @@ void TankSys::loadDefs(App& app) {
     }
     const json rg = j.value("rig", json::object());
     d->turretPivot = jv(rg, "turretPivot"); d->gunPivot = jv(rg, "gunPivot"); d->muzzle = jv(rg, "muzzle"); d->optic = jv(rg, "optic");
-    d->hatchEye = jv(rg, "hatchEye"); d->mgPivot = jv(rg, "mgPivot"); d->mgMuzzle = jv(rg, "mgMuzzle"); d->engine = jv(rg, "engine");
+    d->hatchEye = jv(rg, "hatchEye"); d->towMuzzle = jv(rg, "towMuzzle"); d->mgPivot = jv(rg, "mgPivot"); d->mgMuzzle = jv(rg, "mgMuzzle"); d->engine = jv(rg, "engine");
     for (auto& x : rg.value("exhausts", json::array())) d->exhausts.push_back(jvec3(x));
     for (auto& x : rg.value("exits", json::array())) d->exits.push_back(jvec3(x));
     const json cl = j.value("colliders", json::object());
@@ -96,6 +96,8 @@ void TankSys::loadDefs(App& app) {
     d->elevRate = g.value("elevationRate", d->elevRate); d->elevAccel = g.value("elevationAccel", d->elevAccel);
     if (g.contains("elevation")) { d->elevMin = g["elevation"][0]; d->elevMax = g["elevation"][1]; }
     d->recoil = g.value("recoil", d->recoil); d->rockDeg = g.value("rockDeg", d->rockDeg); d->fov = g.value("fov", d->fov); d->fovZoom = g.value("fovZoom", d->fovZoom);
+    d->autoGun = g.value("auto", false); d->gunSound = g.value("sound", ""); d->heBlastR = g.value("heBlastR", 0.0f); d->lightAP = g.value("lightAP", 0.0f); d->lightHE = g.value("lightHE", 0.0f);
+    { const json tw = j.value("tow", json::object()); d->towCount = tw.value("count", 0); d->towReload = tw.value("reload", d->towReload); d->towVel = tw.value("velocity", d->towVel); d->towDmg = tw.value("damage", d->towDmg); d->towBlastR = tw.value("blastR", d->towBlastR); d->towTurn = tw.value("turnDegPerS", d->towTurn); d->towName = tw.value("name", "TOW"); }
     d->cannonName = g.value("name", ""); d->reticle = g.value("reticle", ""); d->zeroRange = g.value("zeroRange", d->zeroRange); d->muzzleScale = g.value("muzzleScale", d->muzzleScale);
     const json a = j.value("ammunition", json::object());
     d->reloadTime = a.value("reloadTime", d->reloadTime); d->reserveHE = a.value("reserveHE", d->reserveHE); d->reserveAP = a.value("reserveAP", d->reserveAP);
@@ -112,6 +114,7 @@ void TankSys::loadDefs(App& app) {
     d->mgTracerEvery = std::max(1, m.value("tracerEvery", d->mgTracerEvery)); d->mgSoundEvery = std::max(1, m.value("soundEvery", d->mgSoundEvery));
     const json bw = j.value("bowMg", json::object());
     d->bowOn = !bw.empty();
+    d->bowCoax = bw.value("coax", false);
     d->bowName = bw.value("name", ""); d->bowShort = bw.value("short", "Bow MG");
     d->bowSound = bw.value("sound", "shot_mg42"); d->bowTail = bw.value("tail", ""); d->bowReloadSound = bw.value("reloadSound", "belt");
     d->bowPivot = jv(bw, "pivot"); d->bowMuzzle = jv(bw, "muzzle", d->bowPivot + vec3(0, 0, 0.35f));
@@ -128,6 +131,7 @@ void TankSys::loadDefs(App& app) {
     const json hi = j.value("historical", json::object());
     d->histRoadKmh = hi.value("roadSpeedKmh", 0.0f); d->histSource = hi.value("source", "");
     const json du = j.value("durability", json::object());
+    d->launcherAllSides = du.value("launcherAllSides", false);
     d->frontSurvive = du.value("frontHitsSurvived", d->frontSurvive); d->sideSurvive = du.value("sideHitsSurvived", d->sideSurvive);
     const json rm = j.value("ramming", json::object());
     d->massKg = rm.value("massKg", d->massKg); d->engineKW = rm.value("engineKW", d->engineKW); d->pushEff = rm.value("pushEfficiency", d->pushEff);

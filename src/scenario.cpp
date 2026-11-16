@@ -134,7 +134,21 @@ json Scenario::toJson() const {
   for (auto& s : spawns)
     sp.push_back({{"id", s.id}, {"label", s.label}, {"role", s.role == CombatRole::Attacker ? "attacker" : "defender"},
                   {"phases", s.phases}, {"pos", tojson(s.pos)}, {"yaw", s.yaw}, {"rack", s.rack}, {"team", s.team}});
-  return {{"version", version}, {"objectives", o}, {"spawns", sp}, {"rules", rules.toJson()}, {"devTestMap", devTestMap}, {"nextSerial", nextSerial}};
+  json vs = json::array();
+  for (auto& v : vehicleSpawns) vs.push_back({{"id", v.id}, {"team", v.team}, {"pos", tojson(v.pos)}, {"yaw", v.yaw}});
+  json out = {{"version", version}, {"objectives", o}, {"spawns", sp}, {"rules", rules.toJson()}, {"devTestMap", devTestMap}, {"nextSerial", nextSerial}};
+  if (!vehicleSpawns.empty()) out["vehicleSpawns"] = vs;
+  return out;
+}
+
+const VehicleSpawn* Scenario::vehicleSpawnFor(int team, vec3 near) const {
+  const VehicleSpawn* best = nullptr; float bd = 1e18f;
+  for (int pass = 0; pass < 2 && !best; ++pass)
+    for (auto& v : vehicleSpawns) {
+      if (pass == 0 ? v.team != team : v.team != -1) continue;
+      float d = glm::length(vec2(v.pos.x - near.x, v.pos.z - near.z)); if (d < bd) { bd = d; best = &v; }
+    }
+  return best;
 }
 
 Scenario Scenario::fromJson(const json& j, std::vector<std::string>* notes) {
@@ -189,6 +203,11 @@ Scenario Scenario::fromJson(const json& j, std::vector<std::string>* notes) {
     if (m.team >= 0) m.phases.clear();   // TDM markers serve no Assault phase
     if (m.id.empty()) m.id = s.newId("spawn");
     s.spawns.push_back(m);
+  }
+  if (j.contains("vehicleSpawns")) for (auto& o : j["vehicleSpawns"]) {
+    VehicleSpawn m; m.id = o.value("id", ""); m.team = std::clamp(o.value("team", -1), -1, 1); m.pos = jvec3(o.value("pos", json())); m.yaw = o.value("yaw", 0.0f);
+    if (m.id.empty()) m.id = s.newId("vspawn");
+    s.vehicleSpawns.push_back(m);
   }
   s.rules = ScenarioRules::fromJson(j.value("rules", json()), v);
   s.sortByOrder();

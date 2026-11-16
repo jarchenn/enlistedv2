@@ -445,6 +445,7 @@ bool Game::trySpawn(int slot, std::string& why) {
         if (s.localPlayer && !respawnVehicle.empty()) {   // TK1: a fresh copy of the vehicle it died in, beside the spawn (one per death)
           std::string aid = respawnVehicle; respawnVehicle.clear();
           if (app.tanks.occupied) {}   // the Tanker class already sat it in one
+          else if (const VehicleSpawn* vs = match.sc.vehicleSpawnFor(s.team, feet); vs && app.tanks.spawnFresh(app, aid, vs->pos, vs->yaw, respawnStation, 0.0f)) app.toast("A fresh vehicle is ready for you at your vehicle spawn", 3);   // VH7
           else if (app.tanks.spawnFresh(app, aid, feet, wrapDeg(m.yaw + 180.0f), respawnStation)) app.toast("A fresh vehicle is ready for you", 3);
           else app.toast("No clear ground for a vehicle at this spawn - on foot", 4);
         }
@@ -727,7 +728,7 @@ bool Game::soldierFire(Soldier& s, vec3 dir) {
 bool Game::bulletProof(const Soldier& o) const {
   if (!o.localPlayer || !app.tanks.occupied) return false;
   auto it = app.tanks.tanks.find(app.tanks.occupied);
-  return it != app.tanks.tanks.end() && !it->second.wrecked && !it->second.def->car && !it->second.def->heli;
+  return it != app.tanks.tanks.end() && !it->second.wrecked && !it->second.def->car && !it->second.def->heli && it->second.station == TS_GUNNER && it->second.hatchT == 0;   // VH7: popped out of the hatch: shootable
 }
 bool Game::bigTarget(const Soldier& o) const {
   if (o.zombie) { const EnemyType& e = enemyType(o.etype); return e.tankDamage || e.headMult > 0; }

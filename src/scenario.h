@@ -51,6 +51,10 @@ constexpr int kScenarioVersion = 2;
 constexpr int kMinObjectives = 1, kMaxObjectives = 10;
 inline char objectiveLetter(int order) { return char('A' + std::clamp(order, 0, 25)); }
 
+// VH7: where a team's vehicles come in (the fresh copy after a death in a vehicle), behind its infantry spawns. team -1:
+// neutral (Solo). Read by TankSys::spawnFresh through Game, and by the minimap (Scenario::vehicleSpawns: id, team, pos, yaw)
+struct VehicleSpawn { std::string id; int team = -1; vec3 pos{0}; float yaw = 0; };   // yaw: the vehicle's heading (asset convention, +z ahead at 0)
+
 struct SpawnMarker {
   std::string id, label;
   CombatRole role = CombatRole::Attacker;
@@ -140,6 +144,8 @@ struct Scenario {
   int version = kScenarioVersion;
   std::vector<Objective> objectives;   // kept sorted by order
   std::vector<SpawnMarker> spawns;
+  std::vector<VehicleSpawn> vehicleSpawns;   // VH7
+  const VehicleSpawn* vehicleSpawnFor(int team, vec3 near) const;   // the team's nearest (else a neutral one; null: none)
   ScenarioRules rules;
   bool devTestMap = false;             // v1 flag (one objective is always allowed since v2); kept for round trips
   uint64_t nextSerial = 1;

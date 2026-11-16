@@ -140,3 +140,32 @@ The AH-64D Apache: vehicle `ah64d_apache` (`content/vehicles/ah64d_apache.json`,
 - **Untextured truck surfaces:** truck materials whose textures were not in the archive show their base colour.
 - **Kinematic:** no tyre or traction physics. Trenches and steep banks stop a vehicle rather than tipping it.
 - **Not verified in a capture:** running people over (logic only) and the road top speeds (the capture map has no road).
+
+## VH7: M2 Bradley IFV, modern sights, vehicle spawns
+
+- **Bradley** (`content/vehicles/bradley_m2.json`, asset `tank_bradley_m2`, Build menu > Vehicles, faction Modern): a tracked IFV in the tank system.
+  - 6.55 m, about 60 km/h.
+  - Small arms do nothing. A tank shell or AT rocket counts from any side: 2 from the front kill it, 1 from the side or rear.
+  - Wreck, firing rock (0.35°), world health bar and fresh-copy respawn come from the shared code.
+  - No passenger seats: the vehicle system has none.
+  - The supplied model has no licence, so it is local-only (`content/vehicles/models/bradley`, gitignored); clones draw the Abrams mesh as a stand-in.
+  - Converter: `E:/nmk/vh7scripts/convert_bradley.py` (Blender, background).
+- **Weapons.**
+  - 25 mm M242 (`gun.auto`): fires while LMB is held, one round per 0.3 s loader cycle (≈200 rpm), 70 AP / 230 HE, R switches.
+    - HE: a small burst (1.6 m).
+    - AP and HE carry `lightAT`: per counted hit on armour, damage × 10 on cars / helicopters, × 3 on light armour (`durability.launcherAllSides`), × 1 on a tank's sides / rear. A tank's front is never hurt.
+  - Coax M240C (`bowMg.coax`): rides on the gun, Space.
+  - BGM-71 TOW (`tow`): Q, two missiles, a 14 s reload. Wire-guided toward the crosshair (turns at up to 24°/s) with a decaying corkscrew weave. Counts from any side and does a flank shell's damage (`TankDef::sideDamage`).
+  - Wire trail (`TankSys::stepTows`): points paid out every 0.3 m, each sagging, dragged and stirred, never below the ground. The launcher end follows the turret; capped at 360 points (the oldest stretch thinned); fades 0.3 s after impact.
+- **Pop-out.** Ctrl (the tanks' hatch station). The commander's head is out at `rig.hatchEye` and looks around; a vehicle without a roof gun (`roofMg`) only observes. While out the crew can be shot: `Game::bulletProof` is off and the hull no longer hides them.
+- **Sights.**
+  - `gun.reticle "bradley"`: a round eyepiece (80 % of the height, black surround) with a thin red reticle (centre circle and dot, two dash rows, converging verticals, baseline with a slanted range line). The bottom panel reads the round, its count, the other type's count, heading and TOWs, with the hull / turret icon and "25mm".
+  - `gun.reticle "abrams"` (redrawn after the user's reference): full-screen rectangular view with a vignette; full-width / full-height black lines and a centre circle; a lead scale numbered 8–32 each side; a range ladder; a range-bar block 4–56 sliding with the lased range; the range large above the centre and as "Distance:"; a STAB dial with gear / RPM / speed. The Abrams optic moved out of the turret mesh to [0.6, 2.3, 2.5].
+- **Vehicle spawns.**
+  - `Scenario::vehicleSpawns` (`id`, `team` 0 / 1 / −1 neutral, `pos`, `yaw` in the asset convention); the accessor is `Scenario::vehicleSpawnFor(team, near)`.
+  - Editor tools "Team A / B vehicle spawn" (Scenario panel), drawn as a vehicle-sized box with its heading.
+  - A fresh copy after a death in a vehicle goes to the team's nearest vehicle spawn, else beside the infantry spawn as before.
+  - Shipped maps: `--gen-vehicle-spawns` proposes them (5 m grid within 200 m of a team's spawns, behind them from the enemy, gentle ground, a tank fits, a clear line back preferred, about 120 m × map size / 600 back) and `tools/vehicles/apply_vspawns.py` writes them.
+  - Got them: battle1, chateau_town, dday, newtown, omaha_easy_red (Team B: one), outpost_desert, outpost_woods (Team B only: woods all round A), village_assault.
+  - None: tunnels, backrooms, caverns (underground) and normandy_forest, tank_range, gx_test_scene (no team spawns).
+- Check: `--capture-vh7` (`src/capture_vh7.cpp`).
