@@ -1,0 +1,155 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  5.3617262840271,
+  15.471641540527344,
+  5.288736343383789
+ ],
+ "bmin": [
+  -5.3617262840271,
+  0.0,
+  -5.288736343383789
+ ],
+ "materials": [
+  {
+   "albedo": "albedoa_0.png",
+   "cutout": true,
+   "name": "ph_pine_tree_01_b_needles"
+  },
+  {
+   "albedo": "albedo_2.jpg",
+   "mr": "mr_3.jpg",
+   "name": "pine_tree_01_dead_branches",
+   "normal": "normal_1.jpg"
+  },
+  {
+   "albedo": "albedo_2.jpg",
+   "mr": "mr_3.jpg",
+   "name": "pine_tree_01_bark",
+   "normal": "normal_1.jpg"
+  },
+  {
+   "albedo": "albedo_5.jpg",
+   "mr": "mr_6.jpg",
+   "name": "pine_tree_01_trunk_b",
+   "normal": "normal_4.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    5.3617262840271,
+    15.471641540527344,
+    5.288736343383789
+   ],
+   "bmin": [
+    -5.3617262840271,
+    1.6053107976913452,
+    -5.288736343383789
+   ],
+   "count": 15192,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "ph_pine_tree_01_b_cards",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.4678220748901367,
+    5.895135879516602,
+    0.5388669967651367
+   ],
+   "bmin": [
+    -1.0136616230010986,
+    1.8690305948257446,
+    -1.2809438705444336
+   ],
+   "count": 717,
+   "first": 15192,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "pine_tree_01_b_LOD0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.839350461959839,
+    14.26169490814209,
+    3.3041818141937256
+   ],
+   "bmin": [
+    -3.230034828186035,
+    4.743034362792969,
+    -3.3116025924682617
+   ],
+   "count": 11052,
+   "first": 15909,
+   "mat": 2,
+   "metal": 0.0,
+   "name": "pine_tree_01_b_LOD0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.40039873123168945,
+    12.524027824401855,
+    0.3454783260822296
+   ],
+   "bmin": [
+    -0.8315277099609375,
+    0.0,
+    -0.9099401831626892
+   ],
+   "count": 12120,
+   "first": 26961,
+   "mat": 3,
+   "metal": 0.0,
+   "name": "pine_tree_01_b_LOD0.002",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_pine_tree_01_b.glb",
+ "textures": {},
+ "triangles": 13027,
+ "vertices": 17870
+}

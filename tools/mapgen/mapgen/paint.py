@@ -73,6 +73,23 @@ class GroundPaint:
                 if d < h and (mask is None or mask(x, z)):
                     self.dab(i, j, t, weight * smoothstep(0.0, max(edge, 1e-3), h - d))
 
+    def field(self, bounds, fn, mask=None):
+        """NT8: every texel in bounds (x0, z0, x1, z1) from fn(x, z) -> [(kind, weight), ...] (strongest first): the top
+        layer and the one under it are written directly, so slope / moisture / canopy blends are smooth, not stamped."""
+        x0, z0, x1, z1 = bounds
+        for j in range(int(math.floor(z0 / TEXEL)), int(math.ceil(z1 / TEXEL)) + 1):
+            z = (j + 0.5) * TEXEL
+            for i in range(int(math.floor(x0 / TEXEL)), int(math.ceil(x1 / TEXEL)) + 1):
+                x = (i + 0.5) * TEXEL
+                if mask is not None and not mask(x, z):
+                    continue
+                L = [(k, w) for k, w in fn(x, z) if w > 0.004]
+                if not L:
+                    continue
+                c, k = self._texel(i, j)
+                top = L[0]; und = L[1] if len(L) > 1 else (top[0], 0.0)
+                c[k:k + 4] = bytes((TYPES.index(top[0]), int(round(min(1.0, top[1]) * 255)), TYPES.index(und[0]), int(round(min(1.0, und[1]) * 255))))
+
     def to_json(self):
         out = []
         for (cx, cz), c in sorted(self.chunks.items()):

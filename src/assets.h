@@ -246,6 +246,7 @@ struct AssetDef {
   std::vector<Attached> attached;
   float modelLodDist = 30, modelCull = 400;   // m
   float modelThinPx = 0;                       // thin-line widening (wire), pixels
+  bool modelFoliage = false; float modelWind = 0;   // NT8: "model": {"foliage": true, "wind": k}: instanced, alpha-tested cards, sway k
   ShapePtr playerShape;                        // union of "k": 2 parts (no sections)
   GpuMesh colliderGhost;                       // every collider as a box: placement preview of model assets
   DefenseDef defense;

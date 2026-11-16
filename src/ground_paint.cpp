@@ -434,7 +434,9 @@ PaintOut paintApply(vec3 p, vec3 nGeo, inout vec3 alb, float dirt, vec3 dpx, vec
     paintMat(i, p, nz, ai, ri, bi, oi);
 #ifdef NMK_TEX_PAINT
     TerrT t = terrTexSlot(uPaintSlot[i - 1], p, nGeo, dpx, dpy, dist);   // identity when texturing is off / the set is missing
-    ai *= t.alb; ri *= t.r; oi *= t.ao; bi += t.dn;
+    int ps = uPaintSlot[i - 1];
+    bool absAlb = texOn() && ps >= 0 && ps < 320 && uTexA[ps].x >= 0.0 && uTexB[ps].x < 0.0;   // NT8: the set's own colour, not a modulation
+    ai = absAlb ? t.alb : ai*t.alb; ri *= t.r; oi *= t.ao; bi += t.dn;
 #endif
     a += ai*w[i]; r += ri*w[i]; ao += oi*w[i]; bm += bi*w[i]; tot += w[i];
   }

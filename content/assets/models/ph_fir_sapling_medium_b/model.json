@@ -1,0 +1,123 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  2.2853927612304688,
+  8.956036567687988,
+  2.3972060680389404
+ ],
+ "bmin": [
+  -2.2853927612304688,
+  0.0,
+  -2.3972060680389404
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "fir_sapling_medium_branches_dead",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "fir_sapling_medium_branches",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "name": "ph_fir_sapling_medium_b_needles"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.6593603491783142,
+    2.2386722564697266,
+    0.8696858286857605
+   ],
+   "bmin": [
+    -0.6303529143333435,
+    1.010518193244934,
+    -0.5216224193572998
+   ],
+   "count": 1962,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "fir_sapling_medium_b_LOD0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.3012864589691162,
+    8.120809555053711,
+    1.6345243453979492
+   ],
+   "bmin": [
+    -1.4427942037582397,
+    1.134360671043396,
+    -1.3330522775650024
+   ],
+   "count": 4032,
+   "first": 1962,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "fir_sapling_medium_b_LOD0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.2853927612304688,
+    8.956036567687988,
+    2.3972060680389404
+   ],
+   "bmin": [
+    -2.2853927612304688,
+    0.0,
+    -2.3972060680389404
+   ],
+   "count": 13950,
+   "first": 5994,
+   "mat": 2,
+   "metal": 0.0,
+   "name": "ph_fir_sapling_medium_b_cards",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_fir_sapling_medium_b.glb",
+ "textures": {},
+ "triangles": 6648,
+ "vertices": 11244
+}

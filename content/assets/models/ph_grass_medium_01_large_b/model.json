@@ -1,0 +1,61 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.14204877614974976,
+  0.1692626178264618,
+  0.1378699392080307
+ ],
+ "bmin": [
+  -0.14204877614974976,
+  0.0,
+  -0.1378699392080307
+ ],
+ "materials": [
+  {
+   "albedo": "albedoa_1.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "grass_medium_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.14204877614974976,
+    0.1692626178264618,
+    0.1378699392080307
+   ],
+   "bmin": [
+    -0.14204877614974976,
+    0.0,
+    -0.1378699392080307
+   ],
+   "count": 13878,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "grass_medium_01_large_b_LOD0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_grass_medium_01_large_b.glb",
+ "textures": {},
+ "triangles": 4626,
+ "vertices": 4873
+}

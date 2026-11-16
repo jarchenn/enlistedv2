@@ -237,7 +237,7 @@ void App::resetInteractStates() {
 }
 
 void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
-  R.foliage.clear(); R.worldModels.clear(); R.worldModelsGlass.clear(); worldBoxDraws.clear(); R.natPatches.clear();
+  R.foliage.clear(); R.folModels.clear(); R.worldModels.clear(); R.worldModelsGlass.clear(); worldBoxDraws.clear(); R.natPatches.clear();
   foundationDrawItems(*this, op, mode == Mode::Explore ? eyePos() : camPos);   // MA3: foundation plants + stones (foundation.cpp)
   interior.beginFrame();   // R2 room culling: per-building visibility once per frame
   if (mode == Mode::Explore) { grenadeDrawItems(); gm2DrawItems(*this, op); }   // GM2: placed packs
@@ -382,6 +382,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     if (r.asset->model) {   // supplied model: LOD by distance, cut wire sections hidden; collider boxes are not drawn
       if (camDist > r.asset->modelCull) continue;
       const GpuModel* gm = (r.asset->modelLod && camDist > r.asset->modelLodDist) ? r.asset->modelLod.get() : r.asset->model.get();
+      if (r.asset->modelFoliage) { R.folModels.push_back({gm, M, r.asset->modelWind}); continue; }   // NT8: instanced, alpha tested
       for (size_t k = 0; k < gm->parts.size(); ++k) {
         int s = gm->parts[k].section;
         if (s >= 0 && s < (int)r.secCut.size() && r.secCut[s]) continue;
@@ -1222,6 +1223,7 @@ int App::run(int argc, char** argv) {
       R.lt.mapAmbient = lj && lj->contains("ambient") && (*lj)["ambient"].is_array() && (*lj)["ambient"].size() == 3 ? vec3((*lj)["ambient"][0].get<float>(), (*lj)["ambient"][1].get<float>(), (*lj)["ambient"][2].get<float>()) : vec3(0.0f);
       R.lt.mapNoFog = lk && !lk->value("fog", true);
       R.lt.mapHaze = lk ? std::clamp(lk->value("haze", 1.0f), 0.0f, 6.0f) : 1.0f;   // AS1
+      R.lt.mapShafts = lk ? std::clamp(lk->value("shafts", 0.0f), 0.0f, 4.0f) : 0.0f;   // NT8
       R.wx.mapCloud = lk && lk->contains("weather") && (*lk)["weather"].is_number() ? std::clamp((*lk)["weather"].get<float>(), 0.0f, 1.0f) : -1.0f;   // NT2b: broken cloud
       R.wx.mapWx = R.wx.mapCloud >= 0.0f ? (R.wx.mapCloud >= 0.5f ? 1 : 0) : lk && lk->contains("weather") ? (lk->value("weather", std::string()) == "cloudy" ? 1 : 0) : -1;   // NT2: the map's default sky
       R.lt.mapSat = lk ? std::clamp(lk->value("saturation", 1.0f), 0.0f, 2.0f) : 1.0f;
@@ -1232,7 +1234,7 @@ int App::run(int argc, char** argv) {
       R.lt.mapTint = lk && lk->contains("tint") && (*lk)["tint"].is_array() && (*lk)["tint"].size() == 3 ? vec3((*lk)["tint"][0].get<float>(), (*lk)["tint"][1].get<float>(), (*lk)["tint"][2].get<float>()) : vec3(1.0f);
       R.wx.mapFog = lk && lk->contains("envFog") ? std::clamp(lk->value("envFog", 1), 0, 3) : -1;
       { static int prev = -9; int cur = R.wx.mapWx * 8 + R.wx.mapFog + (int)(R.wx.mapCloud * 1000.0f) * 64; if (cur != prev) { R.wx.snap(); R.wx.fogNow = R.wx.fogDens(); prev = cur; } }   // a map opens under its own sky
-      R.wx.enclosed = fixedHour || R.lt.mapNoFog;   // WX2: Tunnels / Backrooms keep their own light
+      R.wx.enclosed = (fixedHour && !(lj && !lj->value("enclosed", true))) || R.lt.mapNoFog;   // NT8: "enclosed": false: a fixed hour under the open sky (golden-hour Woods)   // WX2: Tunnels / Backrooms keep their own light
       R.lt.mapGamma = lj && lj->contains("gamma") && (*lj)["gamma"].is_number() ? std::clamp((*lj)["gamma"].get<float>(), 0.5f, 4.0f) : 1.0f;   // BR1c: a map may lift its gamma
     }
     { extern void lightingAppFrame(App&); lightingAppFrame(*this); }   // L2: the frame's lights (src/lights.h) and room volumes

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  1.0644686222076416,
+  1.2572895288467407,
+  1.3792762756347656
+ ],
+ "bmin": [
+  -1.0644686222076416,
+  0.0,
+  -1.3792762756347656
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "rock_moss_set_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.0644686222076416,
+    1.2572895288467407,
+    1.3792762756347656
+   ],
+   "bmin": [
+    -1.0644686222076416,
+    0.0,
+    -1.3792762756347656
+   ],
+   "count": 7497,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "rock_moss_set_01_rock06.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_rock_moss_set_01_rock06.glb",
+ "textures": {},
+ "triangles": 2499,
+ "vertices": 1489
+}
