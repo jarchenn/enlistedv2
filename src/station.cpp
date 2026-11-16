@@ -345,7 +345,12 @@ void App::stepProjectiles(float dt) {
           {   // material impact sound at the contact
             std::string im = surf2 == "ground" || surf2 == "dirt" || surf2 == "gravel" || surf2 == "earth" ? "dirt" : surf2 == "steel" || surf2 == "metal" ? "metal"
                            : surf2 == "wood" || surf2 == "wood_door" || surf2 == "wood_shutter" || surf2 == "timber" ? "wood" : surf2 == "glass" ? "" : "concrete";
-            if (!im.empty() && glm::length(hit.pos - eyePos()) < 120.0f) audio.play("impact_" + im, hit.pos, 0.5f);
+            if (!im.empty() && glm::length(hit.pos - eyePos()) < 120.0f) {
+              if (audio.hasEvent("bullet_hit")) {   // SND4: the supplied bullet hit on every surface (glass keeps its own break), a few at a time, pitch varied
+                static double recent[6] = {-9, -9, -9, -9, -9, -9}; double now = glfwGetTime(); int o = 0; for (int q = 1; q < 6; ++q) if (recent[q] < recent[o]) o = q;
+                if (now - recent[o] >= 0.2) { recent[o] = now; static uint32_t rs = 777; rs = rs * 1664525u + 1013904223u; audio.play("bullet_hit", hit.pos, 0.6f, 0.9f + 0.2f * (rs >> 8) / 16777216.0f); }
+              } else audio.play("impact_" + im, hit.pos, 0.5f);
+            }
           }
           lastImpact = {hit.pos, surface, p.kind, (float)glfwGetTime(), 0};
         }
