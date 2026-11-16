@@ -14,7 +14,7 @@ import { Asset, cutRect, wbox, P, swingSign } from "./kit.mjs";
 import { wall, partition, hinged, aabb, fbox, railing } from "./parts.mjs";
 import { mats as baseMats, comp } from "./catalog_chateau.mjs";
 import { cover, fire, room, corners, setNav, setTour } from "./catalog_atlantic.mjs";
-import { tdTown, tdAwning, tdRoof, tdPilaster, tdBars, tdMats } from "./catalog_modern_buildings_a.mjs";
+import { tdTown, tdAwning, tdRoof, tdPilaster, tdBars, tdMats, tdMerge, tdCornice } from "./catalog_modern_buildings_a.mjs";
 const GF = 0.3, SLAB = 0.25, PT = 0.03, CW = 1.25, SP = 0.12, ENC = 0.15, LAND = 1.4, LT = 0.2;
 const SIDES = ["front", "rear", "east", "west"];
 const K0 = { k: 0 }, L1 = { k: 0, lod: 1 };
@@ -90,7 +90,7 @@ function mk(id, name, description, floors, footprint, accent) {
   A.meta.roomTypes = {};
   return A;
 }
-function finish(A, cuts = null) { as1Run(A); setNav(A, A._nav, cuts); delete A._nav; return A; }
+function finish(A, cuts = null) { tdMerge(A); as1Run(A); tdMerge(A); setNav(A, A._nav, cuts); delete A._nav; return A; }
 function addRoom(A, id, type, x0, y, z0, x1, top, z1) {
   A._nav.rooms.push(room(id, [x0, y, z0], [x1, top, z1]));
   A._nav.corners.push(...corners(id, x0, x1, z0, z1, y, Math.min(0.45, (x1 - x0) / 4, (z1 - z0) / 4)));
@@ -110,13 +110,17 @@ const WB = (A, F, a0, a1, y0, y1, e0, e1, m, o) => wbox(A, F.axis, a0, a1, y0, y
 // Ribbon glazing in a0..a1 between y0 and y1 on the wall frame F: aluminium head and sill, mullions with exterior fins,
 // and per unit a fixed light plus a side-hung opening sash. Each unit is one window interactable whose aperture covers
 // the whole unit. floor: the storey's walking level (firing points). Returns the wall hole.
-function ribbon(A, F, { id, a0, a1, y0, y1, unit = 3.6, floor, fin = 0.16, finMat = "alu", glass = "glass_t" }) {
-  const n = Math.max(1, Math.round((a1 - a0) / unit)), uw = (a1 - a0) / n, mw = 0.07, g0 = 0.12, g1 = 0.14;   // TD1: glass 12 cm back in the reveal
-  WB(A, F, a0, a1, y1 - 0.08, y1, 0.04, 0.2, "alu", K0);                                // head
-  WB(A, F, a0, a1, y0, y0 + 0.08, 0.04, 0.2, "alu");                                    // sill frame
-  WB(A, F, a0 - 0.03, a1 + 0.03, y0 - 0.05, y0 + 0.01, -0.06, 0.04, "alu", L1);        // pressed sill flashing
-  as1(A, () => WB(A, F, a0 - 0.03, a1 + 0.03, y1 - 0.012, y1 + 0.035, -0.045, 0.03, "alu_lt", L1), true);   // AS1: head drip
-  const mull = (a, w) => { WB(A, F, a - w / 2, a + w / 2, y0 + 0.08, y1 - 0.08, 0.04, 0.2, "alu"); if (fin) WB(A, F, a - 0.025, a + 0.025, y0, y1, -fin, 0.04, finMat, L1); };
+// NT2b: the frame sits r (18 cm in a 0.3 m wall) back in the reveal, the glass at r; a precast sill projects under it and
+// a lintel band (lintel: material or null) spans the head
+function ribbon(A, F, { id, a0, a1, y0, y1, unit = 3.6, floor, fin = 0.16, finMat = "alu", glass = "glass_t", sill = "precast", lintel = "precast" }) {
+  const T = Math.abs(F.outer - F.inner), r = Math.min(0.18, T - 0.1), f0e = r - 0.06, f1e = Math.min(T - 0.02, r + 0.08);
+  const n = Math.max(1, Math.round((a1 - a0) / unit)), uw = (a1 - a0) / n, mw = 0.07, g0 = r, g1 = r + 0.02;
+  WB(A, F, a0, a1, y1 - 0.08, y1, f0e, f1e, "alu", K0);                                 // head
+  WB(A, F, a0, a1, y0, y0 + 0.08, f0e, f1e, "alu");                                     // sill frame
+  WB(A, F, a0 - 0.06, a1 + 0.06, y0 - 0.08, y0 + 0.01, -0.07, f0e, sill, { k: 0, bv: 0.01 });   // projecting sill
+  if (lintel) WB(A, F, a0 - 0.12, a1 + 0.12, y1, y1 + 0.16, -0.025, 0.02, lintel, { k: 0, bv: 0.008 });
+  else as1(A, () => WB(A, F, a0 - 0.03, a1 + 0.03, y1 - 0.012, y1 + 0.035, -0.045, 0.03, "alu_lt", L1), true);   // AS1: head drip
+  const mull = (a, w) => { WB(A, F, a - w / 2, a + w / 2, y0 + 0.08, y1 - 0.08, f0e, f1e, "alu"); if (fin) WB(A, F, a - 0.025, a + 0.025, y0, y1, -fin, f0e, finMat, L1); };
   for (let i = 0; i < n; i++) {
     const ua0 = a0 + i * uw, ua1 = ua0 + uw;
     mull(i === 0 ? ua0 + mw / 2 : ua0, mw);
@@ -125,16 +129,16 @@ function ribbon(A, F, { id, a0, a1, y0, y1, unit = 3.6, floor, fin = 0.16, finMa
     const s1 = right, s0 = right - sw;
     if (uw > 1.8) {
       const f0 = i === 0 ? ua0 + mw : ua0 + mw / 2;
-      WB(A, F, s0 - mw, s0, y0 + 0.08, y1 - 0.08, 0.05, 0.18, "alu");                   // sash mullion
+      WB(A, F, s0 - mw, s0, y0 + 0.08, y1 - 0.08, f0e + 0.01, f1e - 0.02, "alu");       // sash mullion
       WB(A, F, f0, s0 - mw, y0 + 0.08, y1 - 0.08, g0, g1, glass);                       // fixed light
     }
     const L = { parts: [] }, T = { into: L.parts, k: 0 };
     WB(A, F, s0, s1, y0 + 0.08, y1 - 0.08, g0, g1, glass, T);
-    WB(A, F, s0, s1, y0 + 0.08, y0 + 0.16, 0.085, 0.135, "alu", T);                     // sash bottom rail
-    WB(A, F, s0 + 0.04, s0 + 0.06, (y0 + y1) / 2 - 0.1, (y0 + y1) / 2 + 0.1, 0.135, 0.16, "alu_lt", T);   // handle
-    WB(A, F, s0, s1, y0 + 0.08, y1 - 0.08, 0.085, 0.135, "alu", { into: L.parts, v: 0 });
-    L.hinge = P(F.axis, s1, 0, D(F, 0.135));
-    L.sign = swingSign(F.axis, P(F.axis, (s0 + s1) / 2, 0, D(F, 0.11)), L.hinge, -F.out);
+    WB(A, F, s0, s1, y0 + 0.08, y0 + 0.16, r - 0.035, r + 0.015, "alu", T);             // sash bottom rail
+    WB(A, F, s0 + 0.04, s0 + 0.06, (y0 + y1) / 2 - 0.1, (y0 + y1) / 2 + 0.1, r + 0.015, r + 0.04, "alu_lt", T);   // handle
+    WB(A, F, s0, s1, y0 + 0.08, y1 - 0.08, r - 0.035, r + 0.015, "alu", { into: L.parts, v: 0 });
+    L.hinge = P(F.axis, s1, 0, D(F, r + 0.015));
+    L.sign = swingSign(F.axis, P(F.axis, (s0 + s1) / 2, 0, D(F, r - 0.01)), L.hinge, -F.out);
     A.interactables.push({ id: `${id}_${i}_casement`, kind: "window", label: "window", sound: "glass", axis: [0, 1, 0], openAngle: 85, duration: 0.8,
       defaultOpen: false, leaves: [L], aperture: aabb(P(F.axis, ua0, y0, F.inner), P(F.axis, ua1, y1, D(F, 0.08))) });
     const c = (ua0 + ua1) / 2, ins = F.inner - F.out * 0.6;
@@ -321,6 +325,7 @@ const RH = (r) => ({ a0: r[0], a1: r[2], y0: r[1], y1: r[3] });   // [x0, z0, x1
 // par (parapet height), parSkip {side: [[a0, a1]]}, roof(A, w) (plant), dress(A, w).
 function wing(A, cfg) {
   const w = { T: 0.3, gf: GF, omit: [], n: 1, base: true, par: 1.1, cores: [], lifts: [], doors: [], links: [], special: [], band: "panel_dk", ...cfg, _h: {} };
+  if (w.n > 1 && !w.band) w.band = "precast";   // NT2b: a floor band between storeys on every multi-storey wing
   geom(w);
   const { x0, x1, z0, z1, n, h, gf } = w, yAt = (f) => gf + f * h, top = yAt(n);
   Object.assign(w, { yAt, top });
@@ -367,12 +372,12 @@ function wing(A, cfg) {
         navDoor(A, l.a, l.b, F.axis === "x" ? [l.c, y, F.outer - F.out * w.T / 2] : [F.outer - F.out * w.T / 2, y, l.c]);
       }
       const G = w.glaze?.(f)?.[s] ?? [];
-      G.forEach((g, i) => H.push(ribbon(A, F, { id: `${w.tag}${s}${f}_${i}`, a0: g[0], a1: g[1], y0: y + g[2], y1: y + g[3], unit: g[4] ?? w.unit ?? 3.6, floor: y, fin: w.fin ?? 0.16, finMat: w.finMat, glass: w.glass })));
+      G.forEach((g, i) => H.push(ribbon(A, F, { id: `${w.tag}${s}${f}_${i}`, a0: g[0], a1: g[1], y0: y + g[2], y1: y + g[3], unit: g[4] ?? w.unit ?? 3.6, floor: y, fin: w.fin ?? 0.16, finMat: w.finMat, glass: w.glass, sill: w.sill, lintel: w.lintel })));
       wall(A, { axis: F.axis, outer: F.outer, inner: F.inner, aOut: F.aOut, aIn: F.aIn, y0: yb, y1: yt, holes: H, stone: w.skin(f, s), plaster: w.plaster ?? "plaster", pt: PT });
       (w._h[s] ??= []).push(...H.map((q) => ({ ...q })));
       if (f > 0 && w.band) {
-        const [a0, a1] = F.axis === "x" ? [x0 - 0.045, x1 + 0.045] : [z0 + 0.005, z1 - 0.005];
-        fbox(A, F, a0, a1, y - SLAB - 0.06, y + 0.04, -0.005, 0.045, w.band, { k: 0, lod: 1, bv: 0.012 });
+        const [a0, a1] = F.axis === "x" ? [x0 - 0.094, x1 + 0.094] : [z0 + 0.005, z1 - 0.005];   // NT2b: 9 cm proud
+        fbox(A, F, a0, a1, y - SLAB - 0.06, y + 0.04, -0.005, 0.09, w.band, { k: 0, bv: 0.015 });
       }
     }
   }
@@ -409,7 +414,16 @@ function wing(A, cfg) {
 // wall (crest / pier material), crest [{side, a, w, kind, rise}], piers (material), quoin (material), courses (floor
 // indices: a string course under each), fe {side, len, from, f0 (lowest landing floor), lite}, roof [kinds], cornice }
 function wingTown(A, w) {
-  const o = w.fac, R = { x0: w.x0, x1: w.x1, z0: w.z0, z1: w.z1 }, live = (c) => !w.omit.includes(c[0] === "f" ? "front" : "rear") && !w.omit.includes(c[1] === "e" ? "east" : "west");
+  const o = w.fac;
+  // NT2b pilasters: { m, at: [a...], side, f0 (lowest floor), w, p } through the floor bands, up to the wall top
+  const autoAt = (pl) => {   // between the openings of the floors from f0 up, and at both corners
+    const s = pl.side ?? "front", F = sideF(w, s), [lo, hi] = F.axis === "x" ? [w.x0, w.x1] : [w.z0, w.z1], pw = pl.w ?? 0.5, y0 = w.yAt(pl.f0 ?? 0);
+    const iv = (w._h[s] ?? []).filter((q) => q.y1 > y0 + 0.1).map((q) => [q.a0 - 0.2, q.a1 + 0.2]).sort((p, q) => p[0] - q[0]), out = [lo + pw / 2 + 0.02, hi - pw / 2 - 0.02];
+    for (let i = 0; i + 1 < iv.length; i++) { const g0 = Math.max(...iv.slice(0, i + 1).map((q) => q[1])), g1 = iv[i + 1][0]; if (g1 - g0 >= pw + 0.3) out.push((g0 + g1) / 2); }
+    return out;
+  };
+  for (const pl of [o.pil ?? []].flat()) for (const a of pl.at === "auto" ? autoAt(pl) : pl.at) tdPilaster(A, sideF(w, pl.side ?? "front"), a, pl.f0 ? w.yAt(pl.f0) + 0.05 : w.gf + 0.4, w.top - 0.02, pl.m ?? w.skin(w.n - 1, pl.side ?? "front"), { w: pl.w ?? 0.5, p: pl.p ?? 0.13, ignore: [w.band] });
+  const R = { x0: w.x0, x1: w.x1, z0: w.z0, z1: w.z1 }, live = (c) => !w.omit.includes(c[0] === "f" ? "front" : "rear") && !w.omit.includes(c[1] === "e" ? "east" : "west");
   let fe = null;
   if (o.fe) {
     const F = sideF(w, o.fe.side), [lo, hi] = F.axis === "x" ? [w.x0, w.x1] : [w.z0, w.z1], f0 = o.fe.f0 ?? 1;
@@ -756,7 +770,8 @@ export function hotel() {
   const fr = [-8.93, -4.8, -0.7, 3.4, 7.5, 11.7], rr = [-7.0, -2.3, 2.35, 7.0, 11.7];
   const w = wing(A, {
     tag: "h", x0: -12, x1: 12, z0: -8, z1: 8, n, h, cores: [k], lifts: [L], band: "panel_acc", fin: 0.08,
-    fac: { wall: "render_w", crest: [{ a: 1.0, w: 7.0, kind: "step", rise: 1.2 }], piers: "render_w" },   // TD1
+    fac: { wall: "render_w", crest: [{ a: 1.0, w: 7.0, kind: "step", rise: 1.2 }], piers: "render_w",   // TD1
+      pil: [{ at: "auto", f0: 1, w: 0.55 }, { side: "east", at: "auto", f0: 1, w: 0.55 }] },   // NT2b
     skin: (f) => (f === 0 ? "stone_clad" : "render_w"),
     doors: [{ id: "main_entrance", side: "front", c: -3.5, w: 2.0, h: 2.5, double: true, glass: true, room: "f0_lobby", apron: false },
       { id: "service_door", side: "rear", c: 10.4, w: 1.0, room: "f0_kitchen", apron: false },
@@ -853,6 +868,16 @@ export function parkingGarage() {
     para(y, "z", -Z + 0.25, Z - 0.25, -X, -X + 0.2, g ? [[-0.8, 0.8]] : []);
     para(y, "z", RZ, Z - 0.25, X - 0.25, X, []);
     para(y, "z", -Z + 0.25, -RZ, X - 0.25, X, []);
+  }
+  // NT2b: precast piers on the column lines up the long faces and at the corners, rising past the top parapet
+  for (const s of [-1, 1]) for (const x of [-X + 0.3, -12, -4.5, 3, 10.5, X - 0.3]) {
+    const g = s > 0 ? [[-1.0, 9.0]] : [[-8.0, -6.5]], y0 = g.some(([a, b]) => x > a - 0.4 && x < b + 0.4) ? ys[1] - ST - 0.45 : 0;
+    A.box([x - 0.3, y0, Math.min(s * Z, s * (Z + 0.22))], [x + 0.3, ys[3] + PH + 0.55, Math.max(s * Z, s * (Z + 0.22))], "precast", { k: 0, bv: 0.02 });
+    A.box([x - 0.36, ys[3] + PH + 0.55, Math.min(s * (Z - 0.05), s * (Z + 0.28))], [x + 0.36, ys[3] + PH + 0.65, Math.max(s * (Z - 0.05), s * (Z + 0.28))], "concrete_wash", { k: 0, bv: 0.01 });
+  }
+  for (const z of [-Z + 0.3, -5, 5, Z - 0.3]) {
+    A.box([-X - 0.22, z === 0 ? 0 : 0, z - 0.3], [-X, ys[3] + PH + 0.55, z + 0.3], "precast", { k: 0, bv: 0.02 });
+    A.box([-X - 0.28, ys[3] + PH + 0.55, z - 0.36], [-X + 0.05, ys[3] + PH + 0.65, z + 0.36], "concrete_wash", { k: 0, bv: 0.01 });
   }
   // columns (guard paint at the foot), downstand beams, ceiling lights
   const colX = [-12, -4.5, 3, 10.5], cols = [];
@@ -977,9 +1002,10 @@ export function clockTower() {
   A.box([0.55, -0.3, Xo], [2.15, GF - 0.04, 4.0], "precast", { bv: 0.015 });
   for (const s of SIDES) {
     const F = sideF(w, s), isX = F.axis === "x", [a0, a1] = isX ? [-Xo, Xo] : [-Xo, Xo];
-    for (const a of [a0 + 0.3, a1 - 0.3]) fbox(A, F, a - 0.3, a + 0.3, 0.9, w.top, -0.005, 0.04, "stone_clad", { k: 0, lod: 1, bv: 0.01 });
+    for (const a of [a0 + 0.3, a1 - 0.3]) fbox(A, F, a - 0.3, a + 0.3, 0.9, w.top, -0.005, 0.14, "stone_clad", { k: 0, bv: 0.015 });   // NT2b: 14 cm corner pilasters (were 4 cm strips)
     fbox(A, F, isX ? a0 - 0.12 : a0 + 0.005, isX ? a1 + 0.12 : a1 - 0.005, w.top - 0.25, w.top + 0.05, -0.005, 0.12, "stone_dressed", { k: 0, bv: 0.015 });
   }
+  tdCornice(A, { x0: -Xo, x1: Xo, z0: -Xo, z1: Xo }, ys[3] - 0.32, SIDES, { m: "stone_dressed", prof: [[0.12, 0.17], [0.14, 0.24], [0.16, 0.36]] });   // NT2b: the clock stage
   // belfry: parapet, corner and centre piers, twin round arches, lintel band, cornice, roof slab, spire
   const yb = w.top, yS = yb + 1.05, yA = yb + 2.9, yC = yb + 3.6, yR = yb + 4.2;
   for (const s of SIDES) {
@@ -1239,6 +1265,7 @@ export function carDealership() {
   nt(A);
   const s = wing(A, {
     tag: "s", x0: -15, x1: 15, z0: 0, z1: 10, n: 1, h: 6.0, band: null, par: 1.0, fm: "terracotta", skin: () => "panel_lt", fin: 0.1, finMat: "alu_lt",
+    fac: { m: "td_cast_dark", prof: [[0.14, 0.08], [0.2, 0.24]], crest: [{ a: -2.0, w: 6.0, kind: "block", rise: 1.4 }], piers: "panel_lt", roof: ["ac", "ac", "vent"] },   // NT2b
     doors: [{ id: "showroom_door", side: "front", c: -2.0, w: 2.2, h: 2.6, double: true, glass: true, room: "showroom", apron: false },
       { id: "showroom_roller", side: "rear", c: 6, w: 3.6, h: 4.0, roller: true, room: "showroom", to: "bay" }],
     links: [{ side: "rear", c: -9, w: 1.6, h: 2.4, a: "showroom", b: "o_corridor" }],
@@ -1271,6 +1298,7 @@ export function carDealership() {
   });
   const wk = wing(A, {
     tag: "w", x0: -3, x1: 15, z0: -10, z1: 0, omit: ["front"], n: 1, h: 5.0, band: null, par: 0.8, fm: "concrete_wash", skin: () => "corrugated",
+    fac: { cornice: false, piers: "precast", roof: ["vent", "vent", "ac"] },   // NT2b
     doors: [{ id: "service_door_1", side: "rear", c: 2.5, w: 3.6, h: 4.2, roller: true, room: "bay", apron: false },
       { id: "service_door_2", side: "rear", c: 9.5, w: 3.6, h: 4.2, roller: true, room: "bay", apron: false },
       { id: "workshop_door", side: "rear", c: 13.5, w: 1.0, room: "bay", apron: false },
@@ -1531,7 +1559,8 @@ export function municipal() {
   const FR = [[-11.93, -6, 6, 14.7], [-11.93, -6, 0, 6, 14.7], [-11.93, -5, 3, 14.7]], RR = [[-12.3, -9, -2, 5, 10, 14.7], [-12.3, -9, -2, 5, 14.7], [-12.3, -9, -3, 14.7]];
   const w = wing(A, {
     tag: "m", x0: -15, x1: 15, z0: -9, z1: 6, n, h, gf, cores: [k], lifts: [L], band: "stone_dressed", fin: 0.06, finMat: "stone_dressed",
-    fac: { m: "stone_dressed", prof: [[0.14, 0.08], [0.16, 0.18], [0.18, 0.34]], crest: [{ a: 0, w: 10.0, kind: "pediment", rise: 1.7 }], piers: "stone_dressed" },   // TD1
+    fac: { m: "stone_dressed", prof: [[0.14, 0.08], [0.16, 0.18], [0.18, 0.34]], crest: [{ a: 0, w: 10.0, kind: "pediment", rise: 1.7 }], piers: "stone_dressed",   // TD1
+      pil: [{ at: "auto", f0: 1, w: 0.6, m: "stone_dressed" }] },   // NT2b
     skin: (f) => (f === 0 ? "stone_clad" : "brick"),
     doors: [{ id: "main_entrance", side: "front", c: 0, w: 2.4, h: 2.8, double: true, glass: true, room: "f0_lobby" }, { id: "east_exit", side: "east", c: -0.4, w: 1.0, room: "f0_corridor", apron: false }],
     glaze: (f) => ({
@@ -1819,5 +1848,5 @@ function check(A) {
   return A;
 }
 export function newtownAssetsB() {
-  return [hotel(), parkingGarage(), clockTower(), shopSmall(), shopRow(), cafe(), carDealership(), motel(), fireStation(), municipal(), coveredPassage(), kiosk(), ambulance(), fireEngine()].map(check);
+  return [hotel(), parkingGarage(), clockTower(), shopSmall(), shopRow(), cafe(), carDealership(), motel(), fireStation(), municipal(), coveredPassage(), kiosk(), ambulance(), fireEngine()].map(tdMerge).map(check);
 }

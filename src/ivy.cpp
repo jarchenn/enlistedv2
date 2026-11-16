@@ -17,7 +17,9 @@ namespace {
 // horizontal axis) x v (y), and the bay it belongs to (-1: static wall)
 struct Face { int n; float sign, plane, u0, u1, v0, v1; int panel; };
 
+static bool gIvyAnyWall = false;   // NT2b: a ruin / an abandoned map: ivy takes any rough, opaque, non-metal wall (render, concrete, precast)
 bool ivyMaterial(const Material& m) {
+  if (gIvyAnyWall && m.roughness >= 0.55f && m.metallic < 0.3f && m.emissive == vec3(0.0f) && m.name.find("glass") == std::string::npos) return true;
   return m.pattern == PAT_RUBBLE || m.pattern == PAT_ASHLAR || m.pattern == PAT_STONE || m.pattern == PAT_BRICKWORK || m.pattern == PAT_BRICK || m.pattern == PAT_LIMEWASH;
 }
 
@@ -230,7 +232,7 @@ static void growIvy(const AssetDef& a, const IvyDef& iv, const std::vector<uint8
 void buildIvyCards(const AssetDef& a, const IvyDef& iv, const std::vector<uint8_t>& state, uint32_t seed, float density, const IvyEnv& env, std::vector<float>& v) {
   if (density <= 0) return;
   const bool heavy = (a.raw.is_object() && a.raw.value("ruin", false)) || env.abandoned;
-  const int cap = (int)((heavy ? 14000 : 6000) * std::min(1.15f, density));   // ordinary 1944 buildings: moderate
+  const int cap = (int)((heavy ? 22000 : 6000) * std::min(1.15f, density));   // NT2b: ruins carry curtains, big blocks too   // ordinary 1944 buildings: moderate
   growIvy(a, iv, state, seed, density, env, v, 1 << 30);
   int n = (int)v.size() / 60;
   if (n > cap) { v.clear(); growIvy(a, iv, state, seed, density * cap / (float)n * 0.95f, env, v, cap); }
@@ -246,7 +248,7 @@ static void growIvy(const AssetDef& a, const IvyDef& iv, const std::vector<uint8
   auto lookFor = [&](const std::string& ty, const std::string& pat, float age, bool over, float dens) {
     Look L{};
     L.type = typeOf(ty);
-    if (L.type < 0) L.type = heavy ? pickW({{T_COMMON, 40}, {T_CREEPER, 20}, {T_DEAD, 20}, {T_BOSTON, 20}})
+    if (L.type < 0) L.type = heavy ? pickW({{T_COMMON, 45}, {T_CREEPER, 20}, {T_DEAD, 5}, {T_BOSTON, 30}})   // NT2b: lush, few dead
                     : modern ? pickW({{T_BOSTON, 45}, {T_CREEPER, 30}, {T_COMMON, 25}}) : pickW({{T_COMMON, 75}, {T_SMALL, 15}, {T_CREEPER, 10}});
     L.flags = patternsOf(pat);
     if (!L.flags) L.flags = heavy ? pickW({{P_BLANKET, 30}, {P_FAN | P_CURTAIN, 25}, {P_ISLANDS | P_GROUND, 20}, {P_CORNER | P_FRAME, 25}})
@@ -258,7 +260,7 @@ static void growIvy(const AssetDef& a, const IvyDef& iv, const std::vector<uint8
     return L;
   };
 
-  std::vector<Face> faces; std::vector<std::pair<vec3, vec3>> solids; collectFaces(a, faces, solids);
+  std::vector<Face> faces; std::vector<std::pair<vec3, vec3>> solids; gIvyAnyWall = heavy; collectFaces(a, faces, solids); gIvyAnyWall = false;
   // facades: faces sharing a normal and a plane (within 3 cm)
   struct Facade { int n; float sign, plane, u0 = FLT_MAX, u1 = -FLT_MAX, v0 = FLT_MAX, v1 = -FLT_MAX; std::vector<int> faces; };
   std::vector<Facade> fac;

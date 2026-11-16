@@ -839,6 +839,7 @@ def populate(ctx, grid, pads=None):
     # ------------------------------------------------------------------ 12b. AS1 abandoned: stones and weeds on the roads, rubble, broken walls
     if STYLE == "abandoned":
         nd = {"stones": 0, "weeds": 0, "saplings": 0, "rubble": 0, "walls": 0}
+        RD = rng(SEED + 23)   # NT2b: its own stream, so the rest of the town keeps its layout
 
         def drop(aid, x, z, yaw, dy=0.0, cls="flat"):
             if aid not in cat or not grid.in_build(x, z) or b.ground(x, z) < WATER + 0.2:
@@ -866,7 +867,11 @@ def populate(ctx, grid, pads=None):
                     nd["saplings"] += drop("mod_sapling_paving", px + nx * o, pz + nz * o, R.uniform(0, 360), cls="veg") is not None
                 elif r < 0.895:   # NT2: a tree grown out of the road
                     o = R.choice((-1, 1)) * R.uniform(0.5, 3.0)
-                    nd["saplings"] += drop(R.choice(["tree_ash", "tree_oak", "mod_tree_ornamental", "nat_sapling_ash", "mod_sapling_paving"]), px + nx * o, pz + nz * o, R.uniform(0, 360), cls="veg") is not None
+                    tr = drop(R.choice(["tree_ash", "tree_oak", "mod_tree_ornamental", "nat_sapling_ash", "mod_sapling_paving"]), px + nx * o, pz + nz * o, R.uniform(0, 360), cls="veg")
+                    nd["saplings"] += tr is not None
+                    if tr is not None:   # NT2b: the slabs heaved round its roots
+                        for a in (0.0, 2.1, 4.2):
+                            drop(RD.choice(["mod_sapling_paving", "mod_rubble_small", "mod_ivy_patch_ground"]), px + nx * o + math.cos(a) * 1.6, pz + nz * o + math.sin(a) * 1.6, RD.uniform(0, 360), cls="veg")
                 elif r < 0.95:   # rubble spilled onto the road edge
                     o = R.choice((-1, 1)) * R.uniform(2.0, 3.6)
                     nd["rubble"] += drop(R.choice(["mod_rubble_small", "mod_wall_chunks", "mod_glass_pile"]), px + nx * o, pz + nz * o, R.uniform(0, 360), dy=0.04, cls="solid") is not None
@@ -875,6 +880,38 @@ def populate(ctx, grid, pads=None):
                     nd["walls"] += drop(R.choice(["mod_cinder_wall", "mod_jersey_barrier_damaged", "mod_wall_chunks", "mod_retaining_wall"]), px + nx * o, pz + nz * o,
                                         asset_yaw_along(*t) + R.uniform(-8, 8), cls="solid") is not None
                 s_ += R.uniform(1.2, 2.8)
+        nd.update({"potholes": 0, "puddles": 0, "debris": 0, "papers": 0, "groundIvy": 0, "drifts": 0})
+        for k in ROADS:   # NT2b: the carriageway breaking up: potholes, puddles, debris, litter, ivy creeping in from the kerbs
+            pts = g[k]
+            Lr, s_ = polyline_length(pts), RD.uniform(0, 6)
+            half = 7.5 if k in DOWNTOWN_ST else 3.4
+            while s_ < Lr:
+                (px, pz), t = point_at(pts, s_)
+                nx, nz = -t[1], t[0]
+                r = RD.random()
+                if r < 0.07:
+                    o = RD.uniform(-1.5, 1.5)
+                    nd["potholes"] += drop("mod_asphalt_crater", px + nx * o, pz + nz * o, RD.uniform(0, 360), cls="flat") is not None
+                elif r < 0.2:
+                    o = RD.uniform(-2.0, 2.0)
+                    nd["puddles"] += drop("wat_puddles", px + nx * o, pz + nz * o, asset_yaw_along(*t) + RD.uniform(-20, 20), cls="flat") is not None
+                elif r < 0.42:
+                    o = RD.uniform(-2.5, 2.5)
+                    nd["debris"] += drop("rub_debris_patch", px + nx * o, pz + nz * o, RD.uniform(0, 360), dy=0.02, cls="flat") is not None
+                elif r < 0.62:
+                    o = RD.choice((-1, 1)) * RD.uniform(1.0, half)
+                    nd["papers"] += drop(RD.choice(["furn_papers", "furn_papers", "mod_glass_pile"]), px + nx * o, pz + nz * o, RD.uniform(0, 360), dy=0.01, cls="flat") is not None
+                elif r < 0.85:
+                    o = RD.choice((-1, 1)) * RD.uniform(half - 1.2, half + 0.4)
+                    nd["groundIvy"] += drop("mod_ivy_patch_ground", px + nx * o, pz + nz * o, RD.uniform(0, 360), dy=0.02, cls="veg") is not None
+                else:   # a drift of tall grass and weeds banked against the kerb (clumped, not a row)
+                    side = RD.choice((-1, 1))
+                    for q in range(RD.randint(4, 8)):
+                        o = side * RD.uniform(half - 2.0, half + 0.8)
+                        a = RD.uniform(-2.5, 2.5)
+                        nd["drifts"] += drop(RD.choice(["nat_tallgrass_patch", "nat_tallgrass_verge", "mod_weeds_clump", "nat_nettle_clump", "nat_bramble_thicket"]),
+                                             px + nx * o + t[0] * a, pz + nz * o + t[1] * a, RD.uniform(0, 360), cls="veg") is not None
+                s_ += RD.uniform(7.0, 13.0)
         jams = 0   # NT2: abandoned traffic: short queues of dead cars on the main roads, a few barricaded junctions
         for k in ("ring", "ns_n", "ns_s", "ew_w", "ew_e", "service"):
             pts = g[k]; Lr = polyline_length(pts)
@@ -883,7 +920,13 @@ def populate(ctx, grid, pads=None):
                 for q in range(R.randint(2, 4)):
                     (px, pz), t = point_at(pts, min(Lr - 1, s0 + q * R.uniform(5.5, 7.5)))
                     yw = asset_yaw_facing(t[0] * lane, t[1] * lane) + R.uniform(-12, 12)
-                    jams += drop(RW.choice(WRECKS), px - t[1] * lane, pz + t[0] * lane, yw, dy=0.08, cls="solid") is not None
+                    car = drop(RW.choice(WRECKS), px - t[1] * lane, pz + t[0] * lane, yw, dy=0.08, cls="solid")
+                    jams += car is not None
+                    if car is not None:   # NT2b: brambles and grass grown up round the dead cars
+                        for _ in range(RD.randint(1, 3)):
+                            a = RD.uniform(0, 2 * math.pi)
+                            drop(RD.choice(["nat_bramble_thicket", "nat_tallgrass_patch", "mod_weeds_clump", "mod_ivy_patch_ground"]),
+                                 px - t[1] * lane + math.cos(a) * 2.6, pz + t[0] * lane + math.sin(a) * 2.6, RD.uniform(0, 360), cls="veg")
         for k in ("ns_n2", "ew_e2", "ring"):
             (px, pz), t = point_at(g[k], R.uniform(8, polyline_length(g[k]) - 8))
             for j in (-1, 0, 1):
@@ -893,12 +936,13 @@ def populate(ctx, grid, pads=None):
         for e in [e for e in b.inst if "building" in e["tags"]]:   # rubble and weeds against the walls
             a = cat[e["asset"]]
             hx, hz = a.half
-            for q in range(R.randint(2, 5)):
+            for q in range(R.randint(2, 5) + RD.randint(2, 4)):   # NT2b: more growth against the walls
                 side = R.randrange(4)
                 u = R.uniform(-0.45, 0.45)
                 lx, lz = ((u * 2 * hx, -hz - 0.6), (u * 2 * hx, hz + 0.6), (-hx - 0.6, u * 2 * hz), (hx + 0.6, u * 2 * hz))[side]
                 wx, wz = local_to_world((e["pos"][0], e["pos"][2]), e["yaw"], lx, lz)
-                aid = R.choice(["mod_weeds_clump", "nat_nettle_clump", "nat_tallgrass_patch", "mod_weeds_crack", "mod_rubble_small", "nat_bramble_thicket"])
+                aid = R.choice(["mod_weeds_clump", "nat_nettle_clump", "nat_tallgrass_patch", "mod_weeds_crack", "mod_rubble_small", "nat_bramble_thicket",
+                                "mod_sapling_paving", "shrub_hazel", "mod_ivy_patch_ground", "nat_bramble_thicket"])
                 nd["weeds"] += drop(aid, wx, wz, R.uniform(0, 360), cls="veg" if not aid.startswith("mod_rubble") else "solid") is not None
         rep["ruinDressing"] = nd
 
@@ -922,6 +966,8 @@ def populate(ctx, grid, pads=None):
     b.scatter([("shrub_hazel", 3), ("nat_hawthorn_bush", 2), ("shrub_bramble", 1)], lambda x, z: open_ground(x, z) and district_of(x, z) != 5, 1 / 520.0, R,
               bounds=(-HX, -HZ, HX, HZ), tags={"shrubs"}, cls="veg")
     rep["trees"] = ntree
+    for e in [e for e in b.inst if 138 < e["pos"][0] < 180 and -32 < e["pos"][2] < 10 and e["asset"].startswith(("tree_", "mod_tree_", "nat_sapling", "mod_sapling", "shrub_"))]:
+        b.remove(e)   # NT2b: the petrol forecourt stays open (no tree in front of the canopy)
 
     # ------------------------------------------------------------------ 14. decor ring beyond the border (trees, extra.decor)
     nt = 0
@@ -1062,8 +1108,8 @@ def build(ctx):
               builder=b, scenario_json=sj, explore_start=((-14.0, b.ground(-14.0, 16.0), 16.0), look_yaw(14.0, -26.0)), camera=cam,
               bookmarks={str(k): {"position": [c[0], b.ground(*c) + 60.0, c[1] + 70.0], "yaw": 0.0, "pitch": -40} for k, (n, c) in DISTRICTS.items()},
               extra={"groundPaint": b.paint.to_json(), "waterBodies": [lake_body()],
-                     **({"look": {"style": "abandoned", "haze": 5.0, "weather": "cloudy", "envFog": 1, "bloom": 1.4},
-                        "lighting": {"fill": 1.15, "ambient": [0.06, 0.048, 0.026]}} if STYLE == "abandoned" else {})})
+                     **({"look": {"style": "abandoned", "haze": 4.0, "weather": 0.45, "envFog": 1, "bloom": 1.35, "saturation": 1.12, "tint": [1.04, 1.0, 0.94]},
+                        "lighting": {"fill": 1.2, "ambient": [0.035, 0.05, 0.045]}} if STYLE == "abandoned" else {})})
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=9, version=VERSION, seed=SEED,
                    description="A modern town for Battle Royale, 350 x 400 m, nine districts: a walled military base on a hill, "
                                "industrial yards with a rail siding, rural farms and orchards, a residential quarter with a park, "

@@ -54,6 +54,101 @@
         "perMetre": 30,
         "min": 60,
         "max": 170
+      },
+      "furn_papers": {
+        "perMetre": 10,
+        "min": 22,
+        "max": 30
+      },
+      "mod_glass_pile": {
+        "perMetre": 12,
+        "min": 30,
+        "max": 40
+      },
+      "rub_debris_patch": {
+        "perMetre": 10,
+        "min": 50,
+        "max": 70
+      },
+      "mod_ivy_patch_ground": {
+        "perMetre": 15,
+        "min": 35,
+        "max": 50
+      },
+      "wat_puddles": {
+        "perMetre": 8,
+        "min": 60,
+        "max": 80
+      },
+      "mod_weeds_crack": {
+        "perMetre": 15,
+        "min": 35,
+        "max": 55
+      },
+      "mod_weeds_clump": {
+        "perMetre": 15,
+        "min": 40,
+        "max": 60
+      },
+      "nat_stones_patch": {
+        "perMetre": 12,
+        "min": 35,
+        "max": 50
+      },
+      "nat_stones_granite_patch": {
+        "perMetre": 12,
+        "min": 35,
+        "max": 50
+      },
+      "mod_rock_small": {
+        "perMetre": 15,
+        "min": 35,
+        "max": 55
+      },
+      "mod_rubble_small": {
+        "perMetre": 15,
+        "min": 45,
+        "max": 70
+      },
+      "mod_sapling_paving": {
+        "perMetre": 25,
+        "min": 50,
+        "max": 90
+      },
+      "nat_tallgrass_patch": {
+        "perMetre": 15,
+        "min": 45,
+        "max": 75
+      },
+      "nat_tallgrass_verge": {
+        "perMetre": 15,
+        "min": 45,
+        "max": 75
+      },
+      "nat_nettle_clump": {
+        "perMetre": 15,
+        "min": 40,
+        "max": 65
+      },
+      "nat_bramble_thicket": {
+        "perMetre": 15,
+        "min": 50,
+        "max": 80
+      },
+      "nat_drygrass_tufts": {
+        "perMetre": 15,
+        "min": 40,
+        "max": 70
+      },
+      "nat_green_tufts": {
+        "perMetre": 15,
+        "min": 40,
+        "max": 70
+      },
+      "mod_tree_ornamental": {
+        "perMetre": 25,
+        "min": 70,
+        "max": 150
       }
     }
   }

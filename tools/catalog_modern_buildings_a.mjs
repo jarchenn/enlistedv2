@@ -200,7 +200,7 @@ function roomTypes(A, rules) {
 }
 // TD1 town pass on a house() build under a flatRoof (parapet 0.25 thick, coping underside yt)
 const hTown = (A, k, yt, o = {}) => tdTown(A, { x0: -k.X, x1: k.X, z0: -k.Z, z1: k.Z }, { yW: k.EAVE, yd: k.EAVE + 0.16, yt, t: 0.25, ...o });
-const modHouse = (A, c) => { const k = house(A, c); noRail(A, k); ceilings(A); as1Run(A); return k; };
+const modHouse = (A, c) => { const k = house(A, c); noRail(A, k); ceilings(A); tdMerge(A); as1Run(A); return k; };
 const HALLS = [/(^|_)c\d$/, "hall"];
 
 // ============================================================================ AS1 detail pass
@@ -544,6 +544,7 @@ export function townhouseRow() {
         hTown(B, k, EAVE + ph, { wall: m, sides: endSide ? ["front", endSide] : ["front"], crest: { w: [3.2, 2.2, 4.0][i], kind: ["step", "block", "pediment"][i], rise: [0.9, 0.6, 1.0][i] } });   // TD1
       },
     });
+    tdOpenRisers(B);   // NT2b: open-riser stairs keep the row under the part budget
     const st = placeSub(A, B, { dx, pre });
     steps = steps.length ? [...steps, { goto: [-W - X - 2.0, -Z - 2.5] }, { goto: [-W - X - 2.0, Z + 3.0] }, ...st] : st;
   });
@@ -1216,9 +1217,9 @@ export function tdFree(A, rs, ap = rs[0]) {
   return !apBoxes(A).some((b) => bHit(b, ap));
 }
 // free stretches of a0..a1 on face F for a trim over y0..y1 reaching e0..e1 out of the face
-export function tdRuns(A, F, a0, a1, y0, y1, e0, e1, { step = 0.1, min = 0.3 } = {}) {
+export function tdRuns(A, F, a0, a1, y0, y1, e0, e1, { step = 0.1, min = 0.3, ignore = [] } = {}) {
   const pr = tdWB(F, a0, a1, y0, y1, Math.max(e0, 0.003), e1), full = tdWB(F, a0, a1, y0, y1, e0, e1), L = F.axis === "x" ? 0 : 2;
-  const bl = A.parts.filter((p) => p.s).map(bbOf).filter((b) => bHit(b, pr)).concat(apBoxes(A).filter((b) => bHit(b, full)));
+  const bl = A.parts.filter((p) => p.s && !ignore.includes(p.m)).map(bbOf).filter((b) => bHit(b, pr)).concat(apBoxes(A).filter((b) => bHit(b, full)));
   const n = Math.max(1, Math.round((a1 - a0) / step)), st = (a1 - a0) / n, runs = [];
   let s = null;
   for (let i = 0; i <= n; i++) {
@@ -1294,8 +1295,8 @@ export function tdQuoins(A, R, y0, y1, m, { corners = tdCorners(R), h = 0.3, gap
   }
 }
 // flat pilaster strip on face F at a (w wide) from y0 to y1 with a plinth block and a capital
-export function tdPilaster(A, F, a, y0, y1, m, { w = 0.5, p = 0.08, cap = "td_cast_stone" } = {}) {
-  if (tdRuns(A, F, a - w / 2 - 0.05, a + w / 2 + 0.05, y0, y1, -0.01, p + 0.05, { min: w + 0.1 - 1e-3 }).length !== 1) return false;
+export function tdPilaster(A, F, a, y0, y1, m, { w = 0.5, p = 0.08, cap = "td_cast_stone", ignore = [] } = {}) {
+  if (tdRuns(A, F, a - w / 2 - 0.05, a + w / 2 + 0.05, y0, y1, -0.01, p + 0.05, { min: w + 0.1 - 1e-3, ignore }).length !== 1) return false;
   fbox(A, F, a - w / 2 - 0.04, a + w / 2 + 0.04, y0, y0 + 0.35, -0.01, p + 0.03, cap, { k: 0, bv: 0.01 });
   fbox(A, F, a - w / 2, a + w / 2, y0 + 0.35, y1 - 0.25, -0.01, p, m, { k: 0, bv: 0.01 });
   fbox(A, F, a - w / 2 - 0.05, a + w / 2 + 0.05, y1 - 0.25, y1, -0.01, p + 0.05, cap, { k: 0, bv: 0.01 });
@@ -1426,10 +1427,49 @@ export function tdTown(A, R, o) {
   if (o.quoin) tdQuoins(A, R, o.yq0 ?? 0.35, o.yq1 ?? o.yW, o.quoin, { corners: o.quoinCorners ? tdCorners(R, o.quoinCorners) : undefined });
 }
 
+// NT2b: merge axis-aligned boxes that tile exactly (same material, flags and cross-section, touching end to end) into
+// one part: the look is unchanged, the part count drops. In place (A._target keeps pointing at A.parts).
+const k4 = (v) => Math.round(v * 1e4);
+export function tdMerge(A) {
+  let list = A.parts, changed = true;
+  while (changed) {
+    changed = false;
+    for (let a = 0; a < 3; a++) {
+      const groups = new Map(), out = [];
+      for (const p of list) {
+        if (p.t !== "b" || p.r || p.q) { out.push(p); continue; }
+        const key = [p.m, p.k ?? 1, p.v ?? 1, p.lod ?? 0, p.bv ?? 0, ...[0, 1, 2].filter((i) => i !== a).flatMap((i) => [k4(p.c[i] - p.s[i] / 2), k4(p.c[i] + p.s[i] / 2)])].join("|");
+        (groups.get(key) ?? groups.set(key, []).get(key)).push(p);
+      }
+      for (const g of groups.values()) {
+        g.sort((p, q) => p.c[a] - p.s[a] / 2 - (q.c[a] - q.s[a] / 2));
+        let cur = g[0];
+        for (let i = 1; i < g.length; i++) {
+          const q = g[i], lo = cur.c[a] - cur.s[a] / 2, hi = q.c[a] + q.s[a] / 2;
+          if (Math.abs(cur.c[a] + cur.s[a] / 2 - (q.c[a] - q.s[a] / 2)) < 2e-4) {
+            cur = { ...cur, c: [...cur.c], s: [...cur.s] };
+            cur.c[a] = Math.round(((lo + hi) / 2) * 1e4) / 1e4; cur.s[a] = Math.round((hi - lo) * 1e4) / 1e4; changed = true;
+          } else { out.push(cur); cur = q; }
+        }
+        out.push(cur);
+      }
+      list = out;
+    }
+  }
+  A.parts.length = 0; A.parts.push(...list);
+  return A;
+}
+// NT2b: open-riser stairs (drops the thin riser boards stairs() puts under each tread): a lighter modern stair
+export function tdOpenRisers(A) {
+  const keep = A.parts.filter((p) => !(p.t === "b" && p.m === "oak_x" && p.k === 0 && !p.r && p.s[1] < 0.2 && Math.abs(Math.min(p.s[0], p.s[2]) - 0.02) < 0.002));
+  A.parts.length = 0; A.parts.push(...keep);
+  return A;
+}
+
 // ============================================================================ catalog
 export function modernBuildingsA() {
   const out = [familyHouse(), townhouseRow(), apartmentBlock(), bungalow(), mixedUse(), dinerSmall(), restaurantFamily(), restaurantLarge(), fastFood(), gasStation(), busStation()];
-  for (const A of out) as1Run(A);   // AS1: detail queued on the outer asset (garage roofs)
+  for (const A of out) { as1Run(A); tdMerge(A); }   // AS1: detail queued on the outer asset (garage roofs); NT2b merge
   const ids = new Set();
   for (const A of out) {   // self-check: unique mod_ ids, unique nav room ids, every room typed, every door interactable framed
     const id = A.meta.id;
