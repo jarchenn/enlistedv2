@@ -37,6 +37,11 @@ void App::buildWeaponMeshes() {
     handling.movingYaw = rc.value("movingYaw", handling.movingYaw);
     classes = h.value("classes", json::object());
     vmRecoil = h.value("vmRecoil", json::object());   // WP4
+    {   // WP4b: the muzzle flash's colours and light
+      json mf = h.value("muzzleFlash", json::object()); Fx::FlashLook& F = fx.flashLook; F = Fx::FlashLook{};
+      F.core = jvec3(mf.value("core", json()), F.core); F.petal = jvec3(mf.value("petal", json()), F.petal); F.edge = jvec3(mf.value("edge", json()), F.edge);
+      F.light = jvec3(mf.value("lightColor", json()), F.light); F.radius = mf.value("lightRadius_m", F.radius); F.intensity = mf.value("lightIntensity", F.intensity);
+    }
   } catch (std::exception& e) { logf("content/weapons/handling.json: %s (built-in handling)", e.what()); }
   for (auto& f : files) {
     if (f.filename() == "handling.json") continue;

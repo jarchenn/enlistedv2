@@ -155,6 +155,8 @@ struct Fx {
   void muzzleFlash(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light);
   struct MuzzleLight { vec3 p{0}; float age = 0, life = 0.035f, k = 1; uint32_t id = 0; };
   std::vector<MuzzleLight> mlights; uint32_t mlightSerial = 0;
+  // WP4b: handling.json "muzzleFlash" (HDR linear colours; the light's radius m and intensity)
+  struct FlashLook { vec3 core{5.5f, 2.9f, 0.45f}, petal{4.6f, 1.45f, 0.18f}, edge{2.6f, 0.55f, 0.06f}, light{1.0f, 0.48f, 0.14f}; float radius = 3.2f, intensity = 4.5f; } flashLook;
   void backblast(vec3 p, vec3 back);              // launcher backblast (fx.json "backblast")
   void impact(vec3 p, vec3 n, const std::string& surface);
   void splinters(vec3 p, vec3 v, int n, vec4 col, float size);   // furniture breaks (V4): falling chips

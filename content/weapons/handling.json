@@ -267,5 +267,30 @@
     "flash": 0.6
    }
   }
+ },
+ "muzzleFlash": {
+  "_doc": "WP4b muzzle flash look (Fx::muzzleFlash): HDR linear colours of the core (saturated yellow-orange), the orange petals and their darker orange-red rim; the brief point light at the muzzle (no shadow): colour, radius m and intensity at full (fades over the flash's 20-40 ms)",
+  "core": [
+   5.5,
+   2.9,
+   0.45
+  ],
+  "petal": [
+   4.6,
+   1.45,
+   0.18
+  ],
+  "edge": [
+   2.6,
+   0.55,
+   0.06
+  ],
+  "lightColor": [
+   1.0,
+   0.48,
+   0.14
+  ],
+  "lightRadius_m": 3.2,
+  "lightIntensity": 4.5
  }
 }

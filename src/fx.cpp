@@ -22,15 +22,18 @@ void Fx::muzzleFlash(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light)
     if (parts.size() >= maxParts) parts.erase(parts.begin());
     Particle a; a.p = q; a.size = size; a.life = a.maxLife = life; a.col = col; a.additive = true; a.grow = size * 1.5f; parts.push_back(a);
   };
-  if (suppressed) { put(p + dir * 0.01f * scale, 0.025f * scale, vec4(3.0f, 1.6f, 0.5f, 1)); return; }
-  put(p + dir * 0.015f * scale, (0.05f + 0.025f * rnd()) * scale, vec4(10.0f, 7.5f, 3.0f, 1));   // yellow-orange core
+  const FlashLook& F = flashLook;
+  if (suppressed) { put(p + dir * 0.01f * scale, 0.025f * scale, vec4(F.core * 0.5f, 1)); return; }
+  put(p + dir * 0.015f * scale, (0.05f + 0.025f * rnd()) * scale, vec4(F.core, 1));   // saturated yellow-orange core (not white)
   int n = 4 + (int)(rnd() * 3.0f);
   float spin = rnd() * 6.2831853f;
   for (int k = 0; k < n; ++k) {
     float along = (0.03f + 0.11f * rnd()) * scale;   // outer flame: forward along the bore, a few side petals
     float a = spin + k * 6.2831853f / n, sideK = k < 2 ? 0.0f : (0.02f + 0.03f * rnd()) * scale;
     vec3 q = p + dir * along + (s1 * std::cos(a) + s2 * std::sin(a)) * sideK;
-    put(q, (0.045f - 0.15f * along / std::max(0.1f, scale) + 0.02f * rnd()) * scale, vec4(7.5f, 3.0f + 1.2f * rnd(), 0.6f, 1));
+    float sz = (0.045f - 0.15f * along / std::max(0.1f, scale) + 0.02f * rnd()) * scale;
+    put(q, sz, vec4(F.petal * (0.85f + 0.3f * rnd()), 1));                         // orange flame
+    put(q + dir * 0.25f * sz, sz * 1.35f, vec4(F.edge, 1));                         // a darker orange-red rim around it
   }
   if (mlights.size() >= 8) mlights.erase(mlights.begin());
   MuzzleLight L; L.p = light; L.life = life + 0.01f; L.k = scale; L.id = 0xF1A50100u + (++mlightSerial & 0xFF); mlights.push_back(L);
