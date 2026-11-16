@@ -1108,7 +1108,7 @@ def build(ctx):
               builder=b, scenario_json=sj, explore_start=((-14.0, b.ground(-14.0, 16.0), 16.0), look_yaw(14.0, -26.0)), camera=cam,
               bookmarks={str(k): {"position": [c[0], b.ground(*c) + 60.0, c[1] + 70.0], "yaw": 0.0, "pitch": -40} for k, (n, c) in DISTRICTS.items()},
               extra={"groundPaint": b.paint.to_json(), "waterBodies": [lake_body()],
-                     **({"look": {"style": "abandoned", "haze": 4.0, "weather": 0.45, "envFog": 1, "bloom": 1.35, "saturation": 1.12, "tint": [1.04, 1.0, 0.94]},
+                     **({"look": {"style": "abandoned", "haze": 4.0, "weather": 0.45, "envFog": 1, "bloom": 1.35, "saturation": 1.12, "tint": [1.04, 1.0, 0.94], "grime": 1.0},
                         "lighting": {"fill": 1.2, "ambient": [0.035, 0.05, 0.045]}} if STYLE == "abandoned" else {})})
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=9, version=VERSION, seed=SEED,
                    description="A modern town for Battle Royale, 350 x 400 m, nine districts: a walled military base on a hill, "

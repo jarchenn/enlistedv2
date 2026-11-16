@@ -1064,6 +1064,7 @@ int App::run(int argc, char** argv) {
       R.wx.mapCloud = lk && lk->contains("weather") && (*lk)["weather"].is_number() ? std::clamp((*lk)["weather"].get<float>(), 0.0f, 1.0f) : -1.0f;   // NT2b: broken cloud
       R.wx.mapWx = R.wx.mapCloud >= 0.0f ? (R.wx.mapCloud >= 0.5f ? 1 : 0) : lk && lk->contains("weather") ? (lk->value("weather", std::string()) == "cloudy" ? 1 : 0) : -1;   // NT2: the map's default sky
       R.lt.mapSat = lk ? std::clamp(lk->value("saturation", 1.0f), 0.0f, 2.0f) : 1.0f;
+      R.lt.mapGrime = lk ? std::clamp(lk->value("grime", 0.0f), 0.0f, 2.0f) : 0.0f;
       R.lt.mapTint = lk && lk->contains("tint") && (*lk)["tint"].is_array() && (*lk)["tint"].size() == 3 ? vec3((*lk)["tint"][0].get<float>(), (*lk)["tint"][1].get<float>(), (*lk)["tint"][2].get<float>()) : vec3(1.0f);
       R.wx.mapFog = lk && lk->contains("envFog") ? std::clamp(lk->value("envFog", 1), 0, 3) : -1;
       { static int prev = -9; int cur = R.wx.mapWx * 8 + R.wx.mapFog + (int)(R.wx.mapCloud * 1000.0f) * 64; if (cur != prev) { R.wx.snap(); R.wx.fogNow = R.wx.fogDens(); prev = cur; } }   // a map opens under its own sky

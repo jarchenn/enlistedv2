@@ -119,6 +119,12 @@ def dress(b, R, prop, drop, line, paint, rep):
         x, z = R.uniform(-HX, HX), R.uniform(-HZ, HZ)
         if mesa(x, z) < 0.3:
             paint.poly("dry_grass", circle_poly(x, z, R.uniform(3.0, 8.0), 12), weight=R.uniform(0.6, 0.85), edge=3.0, ragged=3.0, seed=100 + k)
+    # the highway breaking up (NT2b): potholes, sand-blown debris, papers and glass round the hamlet
+    for k in range(22):
+        (px, pz), t = point_at(ROAD, R.uniform(4, L - 4))
+        o = R.uniform(-2.2, 2.2)
+        drop(R.choice(["mod_asphalt_crater", "rub_debris_patch", "rub_debris_patch", "furn_papers", "mod_glass_pile", "nat_scree_patch"]),
+             px - t[1] * o, pz + t[0] * o, R.uniform(0, 360), dy=0.02, cls="flat")
     # the wadi: boulders and dead trees in the bed
     Lw = polyline_length(WADI)
     for k in range(34):
@@ -175,8 +181,8 @@ V = {
               ("mesa_eye", (26.0, -40.0), (50.0, -28.0))],
     "start": ((-38.0, 22.0), (20.0, 28.0)),
     "thumb_cam": ([60.0, 70.0, 110.0], look_yaw(-60.0, -110.0), -28.0),
-    "look": {"style": "abandoned", "haze": 6.0, "weather": "clear", "envFog": 1, "bloom": 1.5},
-    "lighting": {"fill": 1.2, "ambient": [0.08, 0.06, 0.03]},
+    "look": {"style": "abandoned", "haze": 6.0, "weather": 0.15, "envFog": 1, "bloom": 1.4, "saturation": 1.0, "tint": [1.06, 1.0, 0.9], "grime": 0.8},
+    "lighting": {"fill": 1.2, "ambient": [0.08, 0.06, 0.035]},
 }
 
 

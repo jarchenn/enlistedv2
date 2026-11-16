@@ -54,12 +54,12 @@ StaticDecal mk(int type, vec3 c, vec3 n, float hw, float hh, float strength, Rng
 }  // namespace
 
 const char* staticDecalName(int t) {
-  static const char* n[] = {"crack", "water stain", "soot", "scuff", "bullet pocks", "rain streak", "picture outline", "damp"};
+  static const char* n[] = {"crack", "water stain", "soot", "scuff", "bullet pocks", "rain streak", "picture outline", "damp", "graffiti", "poster"};
   return t >= 0 && t < SD_TYPES ? n[t] : "?";
 }
 
 void staticDecalsFor(Renderer& R, uint64_t instId, const RoomInfo& ri, SurfaceParams& sp, float wear, bool damaged,
-                     const std::vector<vec4>& xA, const std::vector<vec4>& xB) {
+                     const std::vector<vec4>& xA, const std::vector<vec4>& xB, bool urbanRuin) {
   const Cfg& C = cfg();
   std::vector<StaticDecal> out;
   auto wkOf = [&](float w) { return std::clamp(0.35f + 0.65f * w, 0.2f, 2.4f) * C.density; };   // wear 0 (kept) .. 2 (derelict)
@@ -156,6 +156,27 @@ void staticDecalsFor(Renderer& R, uint64_t instId, const RoomInfo& ri, SurfacePa
     Rng g{mix32((uint32_t)instId * 2246822519u + 99u)};
     wk = wkOf(wear);
     size_t first = out.size();
+    if (urbanRuin) {   // NT3: the ground storey's outer walls (the storey-0 rooms' outline, ~0.3 m wall): graffiti, posters, big stains, cracks
+      vec2 mn(1e9f), mx(-1e9f); float y0 = 1e9f;
+      for (const auto& Rm : ri.rooms) if (Rm.storey == 0) { mn = glm::min(mn, Rm.mn); mx = glm::max(mx, Rm.mx); y0 = std::min(y0, Rm.y0); }
+      if (mx.x > mn.x) {
+        const float th = 0.3f;
+        struct Side { vec3 p0, along, n; float len; } sd[4] = {
+          {vec3(mn.x - th, 0, mn.y), vec3(0, 0, 1), vec3(-1, 0, 0), mx.y - mn.y}, {vec3(mx.x + th, 0, mn.y), vec3(0, 0, 1), vec3(1, 0, 0), mx.y - mn.y},
+          {vec3(mn.x, 0, mn.y - th), vec3(1, 0, 0), vec3(0, 0, -1), mx.x - mn.x}, {vec3(mn.x, 0, mx.y + th), vec3(1, 0, 0), vec3(0, 0, 1), mx.x - mn.x}};
+        for (auto& s : sd) {
+          int n = g.count(s.len / 6.0f * 1.1f);
+          for (int q = 0; q < n; ++q) {
+            float r = g.f(), at = g.r(0.8f, std::max(0.9f, s.len - 0.8f));
+            vec3 c = s.p0 + s.along * at;
+            if (r < 0.38f) out.push_back(mk(SD_GRAFFITI, c + vec3(0, y0 + g.r(0.7f, 1.5f), 0), s.n, g.r(0.8f, 1.9f), g.r(0.35f, 0.7f), g.r(0.7f, 1.0f), g));
+            else if (r < 0.58f) out.push_back(mk(SD_POSTER, c + vec3(0, y0 + g.r(1.2f, 1.7f), 0), s.n, g.r(0.28f, 0.42f), g.r(0.4f, 0.58f), g.r(0.8f, 1.0f), g));
+            else if (r < 0.82f) out.push_back(mk(SD_STAIN, c + vec3(0, y0 + g.r(0.6f, 2.2f), 0), s.n, g.r(0.6f, 1.5f), g.r(0.6f, 1.3f), g.r(0.7f, 1.0f), g));
+            else out.push_back(mk(SD_CRACK, c + vec3(0, y0 + g.r(1.0f, 2.4f), 0), s.n, g.r(0.3f, 0.6f), g.r(0.6f, 1.2f), g.r(0.8f, 1.0f), g));
+          }
+        }
+      }
+    }
     for (const auto& S : ri.sills) {
       if (g.f() >= C.streakPerSill * wk) continue;
       float hh = g.r(0.45f, 1.1f);

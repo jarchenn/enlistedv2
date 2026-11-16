@@ -163,8 +163,8 @@ V = {
     "water_bodies": [{"id": 1, "kind": "pond", "level": WATER, "seed": [POND[0], POND[1]],
                       "outline": [[round(POND[0] + math.cos(a) * POND[2] * 1.12, 3), round(POND[1] + math.sin(a) * POND[3] * 1.12, 3)]
                                   for a in [2 * math.pi * k / 48 for k in range(48)]]}],
-    "look": {"style": "abandoned", "haze": 4.0, "weather": "cloudy", "envFog": 2, "bloom": 1.3},
-    "lighting": {"fill": 1.35, "ambient": [0.05, 0.06, 0.042]},
+    "look": {"style": "abandoned", "haze": 4.0, "weather": 0.6, "envFog": 2, "bloom": 1.3, "saturation": 1.12, "tint": [1.0, 1.02, 0.97], "grime": 1.0},
+    "lighting": {"fill": 1.35, "ambient": [0.04, 0.06, 0.045]},
     "views_clear": 4.5,
 }
 

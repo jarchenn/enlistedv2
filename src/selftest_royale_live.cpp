@@ -26,16 +26,17 @@ void build(App&) {
   push("start", [](App& a, float t) {
     (void)t;
     if (a.mode == Mode::Explore) a.exitExplore();
-    a.openMap(contentDir() / "templates" / "newtown.nmap.json");
+    const char* mp = std::getenv("NMK_ROYALE_MAP");   // NT3: another map (outpost_desert, outpost_woods); its own player count
+    a.openMap(contentDir() / "templates" / (std::string(mp && *mp ? mp : "newtown") + ".nmap.json"));
     json scj = a.doc.extra.is_object() ? a.doc.extra.value("scenario", json::object()) : json::object();
     Scenario sc = Scenario::fromJson(scj);
-    sc.rules.mode = GameMode::BattleRoyale; sc.rules.royalePlayers = 21;
+    sc.rules.mode = GameMode::BattleRoyale; if (!(mp && *mp)) sc.rules.royalePlayers = 21;
     gUi.loaded = false; gUi.matchScenario = sc.toJson();
     if (!gGame) gGame = new Game(a);
     gGame->pendingStart = true;
     bool ok = a.enterExplore() && gGame->active;
     a.useScripted = true; a.scriptedInput = ExploreInput{};
-    T->check(ok && gGame->match.mode() == GameMode::BattleRoyale, "battle royale on Newtown starts (" + gGame->setupError + ")");
+    T->check(ok && gGame->match.mode() == GameMode::BattleRoyale, "battle royale on " + a.doc.name + " starts (" + gGame->setupError + ")");
     landed.assign(gGame->sold.size(), vec3(1e9f)); landedAt.assign(gGame->sold.size(), -1);
     return true; });
   push("drop", [](App& a, float t) {

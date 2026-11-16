@@ -455,6 +455,7 @@ void main(){
 static const char* kMainFS = R"GLSL(
 in vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn, vEmi; in vec4 vPar; flat in vec3 vEye;
 uniform vec4 uTint; uniform float uTime; uniform int uWeather;   // 1: world structures get localized weathering
+uniform float uMapGrime;   // NT3: an abandoned map's grime (look.grime): ruin walls streaked, roads broken up
 uniform float uGlow, uEmissiveK;   // L2 emission: per draw (DrawItem::glow) and global multipliers
 uniform int uCapture;              // L2 probe capture: radiance + front-facing flag, no emission
 uniform int uNoWallRelief;   // A/B: 1 = rough-wall relief off (Renderer::wallRelief = 0)
@@ -708,6 +709,43 @@ void sdecals(vec3 an, inout vec3 alb, inout float rough, inout float ao){
       alb = mix(alb, vec3(0.62, 0.6, 0.55)*mix(1.0, 0.85, sd), max(m, ring*0.5)*k);
       alb *= 1.0 - 0.75*hole*k;
       gDecH -= (0.006*m + 0.001*ring)*k; ao *= 1.0 - 0.5*hole*k; rough = mix(rough, 0.98, m*k);
+    } else if (type == 8) { // NT3 graffiti: generated bubble lettering (no real tags), outlined, faded, dripping
+      float nl = 3.0 + floor(sd*4.0);
+      float cx = (u.x*0.5 + 0.5)*nl, cell = floor(cx), fx = fract(cx) - 0.5;
+      float hl = hash12(vec2(cell, sd*7.0));
+      vec2 p = vec2(fx*1.7, u.y*(1.05 + 0.35*hl) + 0.14*sin(cell*1.7 + sd*6.0));
+      float n = fbm(vec3(u*vec2(2.5, 1.6), sd*19.0));
+      float dd = 9.0;   // a glyph = three fat strokes between points of a 3 x 3 grid (a main upright, two random)
+      for (int j = 0; j < 3; ++j) {
+        float h1 = hash12(vec2(cell*5.0 + float(j), sd*13.0)), h2 = hash12(vec2(float(j)*7.0 + cell, sd*29.0));
+        vec2 a = (vec2(floor(h1*3.0), floor(fract(h1*7.0)*3.0)) - 1.0)*vec2(0.32, 0.72);
+        vec2 b = (vec2(floor(h2*3.0), floor(fract(h2*7.0)*3.0)) - 1.0)*vec2(0.32, 0.72);
+        if (j == 0) { a = vec2(-0.32 + 0.3*hl, -0.72); b = vec2(-0.32 + 0.64*h1, 0.72); }
+        vec2 pa = p - a, ba = b - a; float hh = clamp(dot(pa, ba)/max(dot(ba, ba), 1e-4), 0.0, 1.0);
+        dd = min(dd, length(pa - ba*hh) - 0.17);
+      }
+      dd += (n - 0.5)*0.08;
+      float fill = 1.0 - smoothstep(0.0, 0.03, dd);
+      float ol = (1.0 - smoothstep(0.07, 0.11, dd))*(1.0 - fill);
+      float drip = (1.0 - smoothstep(0.0, 0.03, abs(fract(fx*3.0 + hl) - 0.5)*0.33))*step(hash12(vec2(cell*3.0 + floor(fx*3.0 + hl), sd)), 0.35)*smoothstep(0.1, -0.2, p.y)*smoothstep(-1.0, -0.6, u.y);
+      int vr = int(D.c.w + 0.5);
+      vec3 col = vr == 0 ? vec3(0.62, 0.14, 0.12) : vr == 1 ? vec3(0.12, 0.34, 0.62) : vr == 2 ? vec3(0.72, 0.58, 0.1) : vec3(0.2, 0.5, 0.26);
+      float fade = 0.55 + 0.45*vnoise(vec3(q*3.0, sd*5.0));
+      alb = mix(alb, col*(0.8 + 0.3*n), max(fill, drip*0.7)*k*fade*edgeF);
+      alb = mix(alb, vec3(0.05, 0.05, 0.06), ol*k*fade*0.9*edgeF);
+      rough = mix(rough, 0.7, fill*k*0.5);
+    } else if (type == 9) { // NT3 torn poster: paper with a coloured header, an image block, text lines; ragged, sun-faded
+      float tear = fbm(vec3(u*4.0, sd*5.0));
+      float m = (1.0 - smoothstep(0.84, 0.92, abs(u.x) + 0.18*(tear - 0.5)))*(1.0 - smoothstep(0.84, 0.92, abs(u.y) + 0.18*(tear - 0.5)));
+      m *= 1.0 - step(0.6, u.x + u.y*0.8 + 0.4*tear)*step(0.5, sd);   // a corner torn away on half of them
+      int vr = int(D.c.w + 0.5);
+      vec3 col = vr == 0 ? vec3(0.6, 0.16, 0.12) : vr == 1 ? vec3(0.16, 0.24, 0.42) : vr == 2 ? vec3(0.7, 0.55, 0.15) : vec3(0.1, 0.1, 0.1);
+      vec3 paper = vec3(0.74, 0.71, 0.62);
+      vec3 pc = u.y > 0.55 ? col : (abs(u.x) < 0.7 && u.y > -0.35 && u.y < 0.45) ? vec3(0.3 + 0.35*fbm(vec3(u*3.0, sd*9.0))) : paper;
+      pc = mix(pc, vec3(0.2), (u.y < -0.45 && abs(u.x) < 0.7 ? 1.0 : 0.0)*step(0.5, fract(u.y*9.0))*0.5);
+      pc = mix(pc, paper*0.9, 0.3 + 0.2*vnoise(vec3(q*6.0, sd)));   // faded
+      alb = mix(alb, pc, m*k); rough = mix(rough, 0.92, m*k);
+      gDecH += 0.0008*m*k;
     } else if (type == 5) { // rain streaks below a sill
       float y = 1.0 - (u.y*0.5 + 0.5);        // 0 at the sill .. 1 at the bottom
       float s = smoothstep(0.45, 0.8, vnoise(vec3(q.x*16.0, y*0.6, sd*9.0)))*(0.6 + 0.4*vnoise(vec3(q.x*40.0, y*3.0, sd)));
@@ -1551,6 +1589,42 @@ void main(){
     if (uMatLayer > 0 && farK < 1.0) gxLayer(pat, normalize(vAn), alb, rough, ao);   // GX5 wear / grime layer, roughness breakup, seam occlusion
     if (uSDecOn == 1 && farK < 1.0 && (pat == 20 || (pat == 21 && gRoom >= 0) || (gIn == 0 && pat != 21 && pat != 23 && pat < 25 && uInst.w > 0.5))) sdecals(normalize(vAn), alb, rough, ao);   // GX5 static decals
     if (farK > 0.0) { alb = mix(alb, a0, farK); rough = mix(rough, r0, farK); ao = mix(ao, o0, farK); gSeam = mix(gSeam, 1.0, farK); }
+  }
+  if (uMapGrime > 0.0 && uWeather == 1 && gIn == 0 && pat != 20 && pat != 21 && farK < 1.0) {   // NT3: abandoned map (look.grime)
+    vec3 nW = normalize(vN);
+    float gk = uMapGrime*(1.0 - farK);
+    float vertG = 1.0 - smoothstep(0.3, 0.6, abs(nW.y));
+    if (vertG > 0.0 && uInst.y > 1.2 && rough >= 0.5 && pat != 6 && pat != 7) {   // ruin walls: run-off and rust streaks, a dirty lower storey
+      float along = dot(vAp.xz, vec2(-nW.z, nW.x));
+      float sdG = fract(uInst.x)*31.0;
+      float run = smoothstep(0.55, 0.8, vnoise(vec3(along*1.3, 3.7, sdG))) * smoothstep(0.3, 0.7, vnoise(vec3(along*11.0, vAp.y*0.18, 1.3)));
+      float rust = smoothstep(0.84, 0.96, vnoise(vec3(along*0.9, 7.1, sdG*0.5))) * smoothstep(0.35, 0.65, vnoise(vec3(along*14.0, vAp.y*0.25, 2.1)));
+      float lower = 1.0 - smoothstep(0.8, 4.0 + 1.5*vnoise(vec3(along*0.4, 5.0, sdG)), vAp.y);
+      alb *= mix(vec3(1.0), vec3(0.56, 0.55, 0.5), clamp(run*0.8*gk, 0.0, 0.8)*vertG);
+      alb = mix(alb, alb*vec3(0.8, 0.52, 0.32), clamp(rust*0.85*gk, 0.0, 0.85)*vertG);
+      alb *= 1.0 - 0.3*lower*gk*vertG;
+      rough = min(1.0, rough + 0.05*run*gk);
+    }
+    float upG = smoothstep(0.85, 0.95, nW.y);
+    if (upG > 0.0 && (pat == 10 || pat == 11)) {   // roads, pavements, markings: broken up in world space
+      vec2 w = vW.xz;
+      alb *= mix(1.0, mix(0.76, 1.14, fbm2(vec3(w*0.07, 3.0))), gk);                 // ~15 m tone variation
+      vec2 cs = vec2(3.7, 5.3); vec2 cell = floor(w/cs), fc = fract(w/cs);
+      float ph = hash12(cell*1.31 + 7.0);
+      float pch = step(0.8, ph)*step(abs(fc.x - 0.5), 0.36)*step(abs(fc.y - 0.5), 0.41);   // repair patches
+      alb = mix(alb, alb*(ph > 0.9 ? 0.7 : 1.16), pch*0.8*gk);
+      float cn = fbm2(vec3(w*0.33, 11.0)), cn2 = fbm2(vec3(w*0.9 + 4.0, 2.0));
+      float crack = 1.0 - smoothstep(0.0, 0.008 + gPix*0.5, abs(cn - 0.5));
+      crack = max(crack, (1.0 - smoothstep(0.0, 0.01 + gPix*0.6, abs(cn2 - 0.5)))*smoothstep(0.45, 0.6, vnoise(vec3(w*0.2, 1.0))));
+      float mossC = (1.0 - smoothstep(0.0, 0.05, abs(cn - 0.5)))*(1.0 - crack);
+      alb = mix(alb, alb*0.5, crack*0.7*gk);
+      alb = mix(alb, vec3(0.16, 0.2, 0.08), mossC*0.5*gk);
+      float drift = smoothstep(0.55, 0.8, fbm2(vec3(w*0.25, 21.0)));                   // dirt and leaf drifts
+      float leaves = smoothstep(0.55, 0.75, vnoise(vec3(w*3.0, 5.0)));
+      alb = mix(alb, mix(vec3(0.24, 0.19, 0.13), vec3(0.33, 0.2, 0.08), leaves), drift*0.55*gk*upG);
+      if (pat == 10) alb = mix(alb, vec3(0.3, 0.29, 0.27), smoothstep(0.35, 0.7, vnoise(vec3(w*0.6, 9.0)))*0.75*gk);   // faded, broken markings
+      rough = mix(rough, 1.0, drift*0.3*gk);
+    }
   }
   if (uWeather == 1 && (pat == 1 || pat == 2 || pat == 3 || pat == 9 || pat == 11 || pat == 15 || pat == 17 || pat == 18 || pat == 19 || pat == 22)) {
     // localized weathering in asset space (origin at the ground): rising damp and splash at the foot of vertical
@@ -4260,16 +4334,18 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glEnable(GL_CULL_FACE); // all authored solids are closed with outward winding
   setLighting(progMain, v);
   glUniform1i(U(progMain, "uWeather"), thumbMode ? 0 : 1);
+  glUniform1f(U(progMain, "uMapGrime"), std::getenv("NMK_AB_OFF") && std::strstr(std::getenv("NMK_AB_OFF"), "grime") ? 0.0f : lt.mapGrime);   // NT3
   glUniform1i(U(progMain, "uNoWallRelief"), wallRelief ? 0 : 1);
   glUniform1i(U(progMain, "uMatLod"), !thumbMode && perf.matLod ? 1 : 0);
   tex::setImgMat(perf.imgMat);   // MA1: the image-material slot table (re-uploads only when it flips)
-  glUniform1i(U(progMain, "uMatLayer"), thumbMode || q.legacy || !perf.matLayer ? 0 : q.matLayer);
+  static const std::string abOff = std::getenv("NMK_AB_OFF") ? std::getenv("NMK_AB_OFF") : "";   // NT3 dev A/B: decals,layer,grime
+  glUniform1i(U(progMain, "uMatLayer"), thumbMode || q.legacy || !perf.matLayer || abOff.find("layer") != std::string::npos ? 0 : q.matLayer);
   // PERF1 matfar: Medium / Low (material detail 0-1) from 25 m (x the zoom, so scopes keep the detail); High keeps its look
   glUniform1f(U(progMain, "uMatFar"), thumbMode || q.legacy || !perf.matFar || q.matLayer >= 2 ? 0.0f : 25.0f * std::max(1.0f, 1.43f / std::max(0.1f, v.proj[1][1])));
   glUniform1i(U(progMain, "uRelief"), thumbMode || q.legacy || !perf.relief || !perf.matLayer || q.matLayer == 0 ? 0 : 1);   // MA1b: Medium and up
   uploadStaticDecals();
   { static const int dbg = std::getenv("NMK_GX5_DEBUG") ? std::atoi(std::getenv("NMK_GX5_DEBUG")) : 0; glUniform1i(U(progMain, "uGxDebug"), gxDebug ? gxDebug : dbg); }
-  glUniform1i(U(progMain, "uSDecOn"), thumbMode || q.legacy || q.matLayer == 0 || lt.mapClean || !perf.staticDecals || !sdecBuf || sdec.empty() ? 0 : 1);
+  glUniform1i(U(progMain, "uSDecOn"), thumbMode || q.legacy || q.matLayer == 0 || lt.mapClean || !perf.staticDecals || !sdecBuf || sdec.empty() || abOff.find("decals") != std::string::npos ? 0 : 1);
   glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
   sortEye = v.camPos;
   bool zpre = perf.zPrepass && !thumbMode;
