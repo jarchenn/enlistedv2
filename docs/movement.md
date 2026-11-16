@@ -46,6 +46,18 @@ The path is re-checked every step. If something moves into it (a destroyed ledge
 
 **Bots** keep their own navmesh mantle links (`nav_links.cpp` and `ai_path.cpp`, unchanged; `content/ai/navigation.json`: mantle 0.4–1.6 m, vault ≤ 1.1 m). Those ranges stay inside the player's, which `--selftest-move` checks.
 
+## Window vault (`App::tryStartWindowVault`, `src/mantle.cpp`)
+
+Since MV2 the same Space hold also goes **through windows**, on every building (WW2, modern `mod_bld_*`, ruins), from either side. It is tried before the climb:
+
+- **Opening:** horizontal rays 0.3–3.2 m up, with door and window leaves skipped, find the wall face within `mantle.reach_m`. Above it there must be an open band (the ray runs on past the face by more than 0.45 m) and a lintel over that band. With no lintel it is a wall top, and the climb takes over.
+- **Sill:** 0.4–2.2 m above the ground under the feet (`mantle` range), in a wall at most 1.2 m deep.
+- **Crossing:** the **crouched** body (1.2 m) is swept up, through at the sill's highest point, and down. The window's own sashes (every `"kind": "window"` leaf: frames, glazing bars, glass) are ignored, so they never snag. Anything else solid blocks: closed shutters, bars that are part of the wall, a lintel too low for the crouched body. Openings too small stay blocked.
+- **Landing:** 0.35–1.2 m past the far face, at most 1.8 m below the sill, where the standing body fits.
+- **Glass:** intact panes along the crossing break as the vault starts (`breakGlass`, the same shatter as a shot). The sash stays.
+
+The motion, camera, hands and body pose are the climb's. Refusals start with `window:` in `App::mantle.why`. **Player only:** bots have no window nav links.
+
 ## Swimming (`src/swim.cpp`)
 
 **Water.** Every gameplay water check goes through `waterAt(app, x, z)` (`src/water_query.{h,cpp}`). It returns the highest of three sources:

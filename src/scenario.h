@@ -20,10 +20,10 @@ inline Faction otherFaction(Faction f) { return f == Faction::Allies ? Faction::
 enum class GameMode : int { Assault = 0, Solo = 1, TDM = 2, BattleRoyale = 3 };
 inline const char* gameModeName(GameMode m) { return m == GameMode::Solo ? "Solo" : m == GameMode::TDM ? "Team Deathmatch" : m == GameMode::BattleRoyale ? "Battle royale" : "Assault"; }
 inline bool ffaMode(GameMode m) { return m == GameMode::Solo || m == GameMode::BattleRoyale; }   // every soldier its own team
-enum class AiType : int { Soldiers = 0, Zombies = 1, ZombiesHeavies = 2, Brutes = 3, Fighters = 4, Operators = 5, Fighters2 = 6, Spiders = 7, Creatures = 8 };   // EN1: 2 mixes the enemy types by weight; 3 brutes (trolls; was "Heavies", trolls and spiders), 7 spiders (stalkers), 8 creatures; 4 the "fighter" enemy type; 5 soldiers in operator bodies; 6 the "fighter2" enemy type
-constexpr int kAiTypeCount = 9;
+enum class AiType : int { Soldiers = 0, Zombies = 1, ZombiesHeavies = 2, Brutes = 3, Fighters = 4, Operators = 5, Fighters2 = 6, Spiders = 7, Creatures = 8, Knights = 9, Animatronics = 10, Aliens = 11, AlienQueens = 12 };   // EN1: 2 mixes the enemy types by weight; 3 brutes (trolls; was "Heavies", trolls and spiders), 7 spiders (stalkers), 8 creatures; 4 the "fighter" enemy type; 5 soldiers in operator bodies; 6 the "fighter2" enemy type; CH1: 9-12 the knight, animatronic, alien, alien_queen types (the last three local-only: a zombie without them)
+constexpr int kAiTypeCount = 13;
 inline const char* aiTypeName(AiType t) {
-  static const char* n[kAiTypeCount] = {"Soldiers", "Zombies", "Zombies + heavies", "Brutes", "Fighters", "Operators", "Fighters 2", "Spiders", "Creatures"};
+  static const char* n[kAiTypeCount] = {"Soldiers", "Zombies", "Zombies + heavies", "Brutes", "Fighters", "Operators", "Fighters 2", "Spiders", "Creatures", "Knights", "Animatronics", "Aliens", "Alien queens"};
   return n[std::clamp((int)t, 0, kAiTypeCount - 1)];
 }
 inline int aiBit(AiType t) { return 1 << (int)t; }
@@ -104,7 +104,7 @@ struct ScenarioRules {
   GameMode mode = GameMode::Assault;
   int killCap = 25;               // Solo: the top player's kills; TDM: a team's kills
   int soloPlayers = 8;            // Solo: combatants in all (humans + AI)
-  int royalePlayers = 30;         // BR1 battle royale: combatants in all (humans + AI), 10..100
+  int royalePlayers = 30;         // BR1 battle royale: combatants in all (humans + AI), 10..kMaxCombatants (AI2; was 100)
   int teamPlayers[2] = {8, 8};    // TDM: combatants per team (humans + AI)
   int heavyTrollPct[2] = {35, 35};   // EN3: the troll share of the old AI type Heavies; unused since Brutes / Spiders are their own types (kept in the rules JSON)
   int aiTypes[2] = {1, 1};        // per team, the ticked AI types (aiBit mask; Assault: [Defender], [Attacker]); Solo uses [0]
@@ -114,7 +114,7 @@ struct ScenarioRules {
   bool lootModern = false;        // Battle Royale: floor guns from the modern list (else WW2) (loot.cpp)
   std::vector<std::string> allowedClasses;   // GM1: class ids the host allows (empty = every class)
   bool classAllowed(const std::string& id) const { for (auto& c : allowedClasses) if (c == id) return true; return allowedClasses.empty(); }
-  static constexpr int kMaxAI = 200;             // up to 200 AI (user request, 2026-11-08; was 100)
+  static constexpr int kMaxAI = 1000;            // up to 1000 AI (AI2, user request 2026-11-15; was 200, 100)
   static constexpr int kMaxCombatants = kMaxAI + 16;   // plus up to 16 humans
   json toJson() const;
   static ScenarioRules fromJson(const json& j, int version = kScenarioVersion);

@@ -349,15 +349,16 @@ void Net::clientInteract(uint64_t inst, int idx) { if (role == CLIENT && connect
 // PF1: one snapshot is several datagrams (a part per kSnapSlots soldiers, ~1 KB each: 200 soldiers do not fit one);
 // each part carries the match header, a slot range and, in the last, the grenades and guns
 static const int kSnapSlots = 24;
-static std::string snapshotPart(Game& g, int forPeer, int first, int count, const std::string* extras) {
+static std::string snapshotPart(Game& g, int forPeer, const std::vector<int>& ids, int first, int count, const std::string* extras) {
   W w;
   Match& m = g.match;
-  w.f32((float)g.t); w.u8((uint8_t)m.phase); w.u8((uint8_t)(m.winner == Winner::None ? 255 : (int)m.winner)); w.u8((uint8_t)m.active); w.u8((uint8_t)(m.winnerSlot < 0 ? 255 : m.winnerSlot));   // G1: Solo winner
+  w.f32((float)g.t); w.u8((uint8_t)m.phase); w.u8((uint8_t)(m.winner == Winner::None ? 255 : (int)m.winner)); w.u8((uint8_t)m.active); w.u16((uint16_t)(m.winnerSlot < 0 ? 0xffff : m.winnerSlot));   // G1: Solo winner
   w.f32(m.attackerWaveIn); w.f32(m.defenderWaveIn); w.f32((float)m.time);
   w.u8((uint8_t)m.obj.size());
-  for (auto& o : m.obj) { w.u8((uint8_t)o.state); w.f32(o.progress); w.u8((uint8_t)o.A); w.u8((uint8_t)o.D); }
-  w.u8((uint8_t)m.slots.size()); w.u8((uint8_t)first); w.u8((uint8_t)count);
-  for (int i = first; i < first + count; ++i) {
+  for (auto& o : m.obj) { w.u8((uint8_t)o.state); w.f32(o.progress); w.u8((uint8_t)std::min(255, (int)o.A)); w.u8((uint8_t)std::min(255, (int)o.D)); }
+  w.u16((uint16_t)m.slots.size()); w.u16((uint16_t)count);
+  for (int q = first; q < first + count; ++q) {
+    int i = ids[q]; w.u16((uint16_t)i);   // AI2: explicit 16-bit slot ids (interest-filtered, up to 1016 slots)
     const RosterSlot& r = m.slots[i];
     const Soldier& s = g.sold[r.id];
     uint8_t fl = (s.alive ? 1 : 0) | (s.swim ? 6 : s.posture == Physics::CROUCH ? 2 : s.posture == Physics::PRONE ? 4 : 0) | (r.human ? 8 : 0) | (r.pending ? 16 : 0) | (s.reload > 0 ? 32 : 0) | (s.throwT >= 0 ? 64 : 0) | (s.isProtected(g.t) ? 128 : 0);   // 2|4: swimming; 128: W1 spawn protection
@@ -368,7 +369,7 @@ static std::string snapshotPart(Game& g, int forPeer, int first, int count, cons
     w.u8((uint8_t)std::clamp(s.recoil * 255.0f, 0.0f, 255.0f)); w.u8((uint8_t)std::clamp(s.throwT < 0 ? 0.0f : s.throwT * 255.0f, 0.0f, 255.0f));
     w.u8((uint8_t)std::clamp(s.reloadTotal > 0 ? s.reload / s.reloadTotal * 255.0f : 0.0f, 0.0f, 255.0f));
     w.u8((uint8_t)(r.livesLeft < 0 ? 255 : r.livesLeft)); w.u8((uint8_t)std::min(250.0f, r.deadFor * 10)); w.u16((uint16_t)std::max(0, r.kills)); w.u16((uint16_t)std::max(0, r.deaths)); w.u16((uint16_t)(int16_t)std::clamp(r.score, -32000, 32000));
-    w.u8((uint8_t)(s.killer < 0 ? 255 : s.killer)); w.u8((uint8_t)(s.deathStyle | ((s.br.target >= 0 && !s.human) || g.t - s.lastShot < 1.5 ? 0x80 : 0))); w.u8((uint8_t)s.etype);   // EN1; AN1b: 0x80 = engaged (a bot with a target, or fired in the last 1.5 s): the client's aimed postures
+    w.u16((uint16_t)(s.killer < 0 ? 0xffff : s.killer)); w.u8((uint8_t)(s.deathStyle | ((s.br.target >= 0 && !s.human) || g.t - s.lastShot < 1.5 ? 0x80 : 0))); w.u8((uint8_t)s.etype);   // EN1; AN1b: 0x80 = engaged (a bot with a target, or fired in the last 1.5 s): the client's aimed postures
     bool own = r.human && r.peer == forPeer;
     w.u8(own ? 1 : 0);
     if (own) { w.u8((uint8_t)s.frags); w.u8((uint8_t)s.smokes); w.u16((uint16_t)s.ws.loaded); }
@@ -380,7 +381,7 @@ static std::string snapshotPart(Game& g, int forPeer, int first, int count, cons
 static std::string snapshotExtras(App& app, Net::Impl& d, Game& g) {
   W w;
   w.u8((uint8_t)std::min<size_t>(g.gren.live.size(), 24));   // 24 x 36 B + the guns keep the part under 1.3 KB
-  for (size_t k = 0; k < g.gren.live.size() && k < 24; ++k) { auto& x = g.gren.live[k]; w.u8((uint8_t)x.kind); w.u8((uint8_t)std::max(0, x.def)); w.v3(x.p); w.f32(x.rot.x); w.f32(x.rot.y); w.f32(x.rot.z); w.f32(x.rot.w); w.u8((uint8_t)(x.owner < 0 ? 255 : x.owner)); w.u8(x.resting ? 1 : 0); w.f32(x.fuse); }
+  for (size_t k = 0; k < g.gren.live.size() && k < 24; ++k) { auto& x = g.gren.live[k]; w.u8((uint8_t)x.kind); w.u8((uint8_t)std::max(0, x.def)); w.v3(x.p); w.f32(x.rot.x); w.f32(x.rot.y); w.f32(x.rot.z); w.f32(x.rot.w); w.u16((uint16_t)(x.owner < 0 ? 0xffff : x.owner)); w.u8(x.resting ? 1 : 0); w.f32(x.fuse); }
   // crew-served guns: every crewed one, then the rest in turn (6 per snapshot keeps the packet small)
   auto& gl = gunList(app, d);
   std::vector<uint64_t> pick;
@@ -390,7 +391,7 @@ static std::string snapshotExtras(App& app, Net::Impl& d, Game& g) {
   w.u8((uint8_t)pick.size());
   for (uint64_t id : pick) {
     const StationRT& s = *app.station(id); int occ = gunOccupant(app, d, id);
-    w.u64(id); w.u8((uint8_t)(occ < 0 ? 255 : occ));
+    w.u64(id); w.u16((uint16_t)(occ < 0 ? 0xffff : occ));
     w.i16((int16_t)std::lround(std::clamp(s.yaw, -327.0f, 327.0f) * 100)); w.i16((int16_t)std::lround(std::clamp(s.elev, -327.0f, 327.0f) * 100));
     w.u16((uint16_t)std::max(0, s.loaded)); w.u16((uint16_t)std::max(0, s.reserve)); w.u16((uint16_t)std::max(0, s.reserveAT));
     w.u8((uint8_t)((s.reload > 0 ? 1 : 0) | (s.wrecked ? 2 : 0) | (s.selAT ? 4 : 0) | (s.loadedAT ? 8 : 0) | (s.deployed ? 16 : 0)));
@@ -400,15 +401,28 @@ static std::string snapshotExtras(App& app, Net::Impl& d, Game& g) {
 static std::vector<std::string> writeSnapshot(App& app, Net::Impl& d, Game& g, int forPeer) {
   std::vector<std::string> parts;
   std::string ex = snapshotExtras(app, d, g);
-  int n = (int)g.match.slots.size();
+  // AI2 interest: humans and soldiers within kSnapNear_m of this peer's soldier every snapshot (20 Hz), the rest on
+  // alternate snapshots by slot parity (10 Hz; each soldier interpolates on its own timestamps). 1000 AI: ~22 parts.
+  const float kSnapNear_m = 150.0f;
+  Match& m = g.match;
+  vec3 eye(0); bool haveEye = false;
+  for (auto& s : m.slots) if (s.peer == forPeer && s.id < (int)g.sold.size()) { eye = g.sold[s.id].feet; haveEye = true; break; }
+  int parity = (int)std::lround(d.now * 20.0) & 1;
+  std::vector<int> ids;
+  for (int i = 0; i < (int)m.slots.size(); ++i) {
+    const Soldier& s = g.sold[m.slots[i].id];
+    bool close = m.slots[i].human || (haveEye && glm::distance(vec3(s.feet.x, 0, s.feet.z), vec3(eye.x, 0, eye.z)) < kSnapNear_m);
+    if (close || (i & 1) == parity) ids.push_back(i);
+  }
+  int n = (int)ids.size();
   for (int k = 0; k < n; k += kSnapSlots) {
     int c = std::min(kSnapSlots, n - k);
     bool last = k + c >= n;
-    std::string p = snapshotPart(g, forPeer, k, c, nullptr);
-    if (last && p.size() + ex.size() < 1300) { p = snapshotPart(g, forPeer, k, c, &ex); ex.clear(); }
+    std::string p = snapshotPart(g, forPeer, ids, k, c, nullptr);
+    if (last && p.size() + ex.size() < 1300) { p = snapshotPart(g, forPeer, ids, k, c, &ex); ex.clear(); }
     parts.push_back(std::move(p));
   }
-  if (!ex.empty()) parts.push_back(snapshotPart(g, forPeer, n, 0, &ex));   // the grenades and guns on their own
+  if (!ex.empty() || parts.empty()) parts.push_back(snapshotPart(g, forPeer, ids, n, 0, &ex));   // the grenades and guns on their own
   return parts;
 }
 
@@ -418,17 +432,19 @@ static void readSnapshot(Game& g, Net::Impl& d, const std::string& data, App& ap
   Match& m = g.match;
   if (st + 1e-4f < d.serverT) return;   // out of order: keep the newer one
   d.serverT = st; d.serverTAt = d.now;
-  m.phase = (MatchPhase)r.u8(); uint8_t wn = r.u8(); m.winner = wn == 255 ? Winner::None : (Winner)wn; m.active = r.u8(); { int ws = r.u8(); m.winnerSlot = ws == 255 ? -1 : ws; }
+  m.phase = (MatchPhase)r.u8(); uint8_t wn = r.u8(); m.winner = wn == 255 ? Winner::None : (Winner)wn; m.active = r.u8(); { int ws = r.u16(); m.winnerSlot = ws == 0xffff ? -1 : ws; }
   m.attackerWaveIn = r.f32(); m.defenderWaveIn = r.f32(); m.time = r.f32();
   int no = r.u8();
   for (int k = 0; k < no && k < (int)m.obj.size(); ++k) { m.obj[k].state = (ObjState)r.u8(); m.obj[k].progress = r.f32(); m.obj[k].A = r.u8(); m.obj[k].D = r.u8(); }
-  r.u8(); int first = r.u8(), ns = r.u8();   // all slots, this part's range (PF1)
-  for (int i = 0, k = first; i < ns && k < (int)g.sold.size() && r.ok; ++i, k = first + i) {
+  r.u16(); int ns = r.u16();   // all slots, this part's count (PF1; AI2: each soldier carries its slot id)
+  for (int i = 0; i < ns && r.ok; ++i) {
+    int k = r.u16();
+    if (k >= (int)g.sold.size() || k >= (int)m.slots.size()) break;
     Soldier& s = g.sold[k]; RosterSlot& rs = m.slots[k];
     uint8_t fl = r.u8(); vec3 feet = r.v3(); float yaw = r.i16() / 100.0f + 180.0f, pitch = r.i16() / 100.0f, aimYaw = r.i16() / 100.0f + 180.0f;
     float hp = r.u16(); int weapon = r.u8(); int life = r.u16();
     float recoil = r.u8() / 255.0f, thr = r.u8() / 255.0f, rel = r.u8() / 255.0f;
-    int lives = r.u8(); float deadFor = r.u8() / 10.0f; int kills = r.u16(), deaths = r.u16(); int score = (int16_t)r.u16(); int killer = r.u8(); int dstyle = r.u8(); int etype = r.u8();
+    int lives = r.u8(); float deadFor = r.u8() / 10.0f; int kills = r.u16(), deaths = r.u16(); int score = (int16_t)r.u16(); int killer = r.u16(); int dstyle = r.u8(); int etype = r.u8();
     bool own = r.u8() != 0;
     int frags = 0, smokes = 0, loaded = 0; if (own) { frags = r.u8(); smokes = r.u8(); loaded = r.u16(); }
     rs.livesLeft = lives == 255 ? -1 : lives; rs.deadFor = deadFor; rs.kills = kills; rs.deaths = deaths; rs.score = score; rs.human = fl & 8; rs.pending = fl & 16; rs.alive = fl & 1;
@@ -436,7 +452,7 @@ static void readSnapshot(Game& g, Net::Impl& d, const std::string& data, App& ap
     rulesNetProtect(g, s, fl & 128);   // W1: spawn protection (shimmer, shield icon, ring)
     if (s.zombie && etype != s.etype) { s.etype = etype; aiZombieAssign(g, s); }   // EN1: the host's enemy type
     s.hp = hp; s.weapon = s.zombie ? -1 : weapon < (int)app.weaponDefs.size() ? weapon : 0;   // G2: zombies carry nothing
-    s.killer = killer == 255 ? -1 : killer; s.deathStyle = dstyle & 0x7f; s.netEngaged = dstyle & 0x80;
+    s.killer = killer == 0xffff ? -1 : killer; s.deathStyle = dstyle & 0x7f; s.netEngaged = dstyle & 0x80;
     s.recoil = recoil; s.throwT = (fl & 64) ? thr : -1.0f; s.reload = (fl & 32) ? rel : 0; s.reloadTotal = (fl & 32) ? 1 : 0;
     s.swim = (fl & 6) == 6;   // 2|4: swimming (swim.cpp), drawn upright-tilted, not prone
     s.posture = s.swim ? Physics::STAND : (fl & 4) ? Physics::PRONE : (fl & 2) ? Physics::CROUCH : Physics::STAND;
@@ -469,13 +485,13 @@ static void readSnapshot(Game& g, Net::Impl& d, const std::string& data, App& ap
   if (!r.ok || !r.u8()) return;   // grenades and guns ride in one part only
   int ngr = r.u8();
   g.gren.live.clear();
-  for (int k = 0; k < ngr && r.ok; ++k) { GrenadeRT x; x.kind = r.u8(); x.def = r.u8(); x.p = r.v3(); x.rot.x = r.f32(); x.rot.y = r.f32(); x.rot.z = r.f32(); x.rot.w = r.f32(); int o = r.u8(); x.owner = o == 255 ? -1 : o; x.resting = r.u8() != 0; x.fuse = r.f32(); g.gren.live.push_back(x); }
+  for (int k = 0; k < ngr && r.ok; ++k) { GrenadeRT x; x.kind = r.u8(); x.def = r.u8(); x.p = r.v3(); x.rot.x = r.f32(); x.rot.y = r.f32(); x.rot.z = r.f32(); x.rot.w = r.f32(); int o = r.u16(); x.owner = o == 0xffff ? -1 : o; x.resting = r.u8() != 0; x.fuse = r.f32(); g.gren.live.push_back(x); }
   int ngun = r.u8();
   for (int k = 0; k < ngun && r.ok; ++k) {
-    uint64_t id = r.u64(); int occ = r.u8(); float yaw = r.i16() / 100.0f, elev = r.i16() / 100.0f;
+    uint64_t id = r.u64(); int occ = r.u16(); float yaw = r.i16() / 100.0f, elev = r.i16() / 100.0f;
     int loaded = r.u16(), reserve = r.u16(), reserveAT = r.u16(), fl = r.u8();
     if (!r.ok) break;
-    if (occ == 255) gNet->gunOcc.erase(id); else gNet->gunOcc[id] = occ;
+    if (occ == 0xffff) gNet->gunOcc.erase(id); else gNet->gunOcc[id] = occ;
     StationRT* s = app.station(id);
     if (!s) continue;
     if ((fl & 2) && !s->wrecked) app.wreckStation(id, "destroyed on the host");

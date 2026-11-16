@@ -95,6 +95,16 @@ struct TankDef {
   float maxSteerDeg = 32, steerRate = 1.8f, steerTurns = 2.5f, handbrakeDecel = 7, suspTravel = 0.12f, runOverDmg = 9;
   int smallArmsDmg = 0;                          // durability lost per bullet (cars; tanks ignore small arms)
   const AssetDef* partsAsset = nullptr;          // BR7 adopted car: no model, the part-built asset's own mesh is drawn
+  // VH5 helicopter ("heli": true; heli.cpp, docs/vehicles.md#helicopter): damage as an armoured car (durability block)
+  bool heli = false;
+  std::vector<int> rotorParts, tailRotorParts;   // roles "rotor" (about rig.rotorHub, +y) and "tailrotor" (about rig.tailRotorHub, +x)
+  vec3 rotorHub{0}, tailHub{0}; std::vector<vec3> pods;   // rocket pod muzzles (hull space), fired in turn
+  TankBox rotorDisc{vec3(0), vec3(0)};           // flight sweep only (buildings), not a projectile collider
+  float rotorRps = 4.8f, tailRps = 23, hPitchMin = -60, hPitchMax = 25;   // flight feel: content/settings/helicopter.json (heli.cpp)
+  std::string gun30Name, gun30Sound;
+  float gun30Rpm = 625, gun30Vel = 805, gun30Dmg = 60, gun30R = 2, gun30Heat = 0.0125f, gun30Cool = 0.22f, gun30Resume = 0.35f, gun30Spread = 0.35f;
+  float gun30YawMin = -100, gun30YawMax = 100, gun30ElevMin = -60, gun30ElevMax = 11; int gun30Ammo = 1200;
+  int rocketCount = 38; float rocketVel = 300, rocketDmg = 420, rocketR = 2.6f, rocketCrater = 0.6f, rocketSplashGun = 60, rocketGrav = 0.3f, rocketCooldown = 0.25f;
 };
 
 enum TankStation : int { TS_GUNNER = 0, TS_HATCH = 1 };
@@ -133,6 +143,12 @@ struct TankRT {
   float steer = 0, wheelSpin[TankDef::MAX_WHEELS] = {}, wheelSusp[TankDef::MAX_WHEELS] = {}; bool handbrake = false;
   std::map<int, double> runOverT; int runOvers = 0;
   bool adopted = false;   // BR7: a parked part-built car made drivable for this session (TankSys::adoptCar)
+  // VH5 helicopter: velocity, rotor speed 0..1 and blade angles, chin gun heat / ammo, rockets, the fall after a kill
+  vec3 vel{0}; float rotor = 0, rotorAng = 0, tailAng = 0, gunHeat = 0, gunCool = 0, rocketCool = 0;
+  bool overheat = false, falling = false, grounded = true, reloadPrev = false, camInit = false;
+  float susp = 0, suspV = 0, yawV = 0, wobT = 0;   // gear compression (m) and its rate, nose turn rate, hover wobble clock
+  vec3 camEye{0}, accel{0};                       // lagged chase-camera position, smoothed acceleration (camera trail)
+  int gunAmmo = 0, rockets = 0, rocketSide = 0, gunShots = 0, rocketsFired = 0;
 };
 
 struct TankHitResult { bool tank = false, counted = false, consumed = false, destroyed = false; int zone = -1, attack = 0; uint64_t id = 0; std::string info; };
@@ -198,6 +214,17 @@ public:
   void releaseAdopted(App& app);
   bool isAdopted(uint64_t id) const { auto it = tanks.find(id); return it != tanks.end() && it->second.adopted; }
   void drive(App& app, TankRT& t, float dt);
+  // VH5 helicopter (heli.cpp)
+  void stepHeli(App& app, TankRT& t, float dt, const ExploreInput* in);
+  void stepHeliFall(App& app, TankRT& t, float dt);
+  void heliCrash(App& app, TankRT& t);
+  void heliKillCrew(App& app, TankRT& t);
+  float heliGround(App& app, const TankRT& t, vec3 p) const;
+  bool heliBlocked(const TankRT& t, vec3 pos, float yaw) const;
+  bool heliCamera(const App& app, const TankRT& t, vec3& eye, vec3& fwd, float& fov) const;
+  void drawHeli(App& app, const TankRT& t, vec4 tint, const mat4& h);
+  void drawHeliUI(App& app, TankRT& t);
+  void heliEffects(App& app, TankRT& t, float dt);
   void aimGun(TankRT& t, float dt, bool active);
   void fireCannon(App& app, TankRT& t);
   void fireMg(App& app, TankRT& t);

@@ -6,16 +6,82 @@
     "overrun_m": 150,
     "endJitter": 0.25
   },
-  "fall": {
-    "speed_mps": 55,
-    "across_mps": 25,
-    "accel_mps2": 14
+  "deployment_note": "BR13 (src/royale.cpp): aboard -> exit -> freefall -> deploy -> canopy -> landing; velocity carries across every state. All updates are frame-rate independent (exponential easing with time constants, integrated forces). Keys: SPACE jump / pull; mouse look-and-steer in free fall (look down = head-down dive), ALT free look; W track / S spread / A D slide; under the canopy A D turn, W faster, S or SPACE brake (flare within flare.window_m of the ground).",
+  "exit": {
+    "time_s": 0.8,
+    "dropBelow_m": 2.0
   },
-  "chute": {
+  "freefall": {
+    "gravity_mps2": 9.81,
+    "terminalFlat_mps": 52,
+    "terminalDive_mps": 88,
+    "terminalSpread_mps": 44,
+    "diveLookPitch_deg": 60,
+    "attitudeIn_per_s": 1.4,
+    "attitudeOut_per_s": 0.55,
+    "trackFlat_mps": 32,
+    "trackDive_mps": 16,
+    "driftFlat_mps": 4,
+    "driftDive_mps": 9,
+    "slide_mps": 9,
+    "horizontalTau_s": 2.2,
+    "spreadTau_s": 1.2,
+    "turnRate_dps": 75
+  },
+  "deploy": {
     "autoOpen_m": 60,
-    "descent_mps": 6,
-    "across_mps": 8,
-    "accel_mps2": 1.5
+    "time_s": 1.8,
+    "unfold_s": 0.45,
+    "maxDecel_mps2": 32,
+    "swingKick_radps": 0.6
+  },
+  "canopy": {
+    "glide_mps": 9,
+    "glideFast_mps": 12.5,
+    "glideBrake_mps": 3.5,
+    "descent_mps": 5.5,
+    "descentFast_mps": 7.5,
+    "descentBrake_mps": 3.8,
+    "descentStall_mps": 6.5,
+    "brakeHold_s": 2.5,
+    "turnRate_dps": 38,
+    "turnTau_s": 0.6,
+    "horizontalTau_s": 1.3,
+    "verticalTau_s": 0.9,
+    "lineLength_m": 6,
+    "swingDamping_per_s": 0.7
+  },
+  "flare": {
+    "window_m": 7,
+    "time_s": 1.1,
+    "glide_mps": 2,
+    "descent_mps": 1.2,
+    "tau_s": 0.3
+  },
+  "landing": {
+    "softSpeed_mps": 3.0,
+    "softTime_s": 0.35,
+    "hardTime_s": 0.9,
+    "runOut": 0.6
+  },
+  "camera": {
+    "fovPerMps": 0.09,
+    "fovMax_deg": 7,
+    "fovTau_s": 0.6,
+    "buffet_deg": 0.25,
+    "joltDrop_m": 0.35,
+    "joltFreq_hz": 9,
+    "joltDamping": 6,
+    "swingPitch": 0.5,
+    "landDip_m": 0.25
+  },
+  "sound": {
+    "windMin_mps": 12,
+    "windFull_mps": 70,
+    "windVolume": 0.9,
+    "softWindVolume": 0.45,
+    "planeVolume": 0.7,
+    "openVolume": 1.0
   },
   "bots": {
     "jumpFrom": 0.08,

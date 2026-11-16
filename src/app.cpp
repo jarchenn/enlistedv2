@@ -824,9 +824,10 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-render") runSelf = true;   // V1 facades, walls, water (selftest_render.cpp)
     else if (a == "--selftest-lights") runSelf = true;   // L2 lighting engine (selftest_lights.cpp)
     else if (a == "--selftest-swim") runSelf = true;     // swimming, underwater view, breath (selftest_swim.cpp)
-    else if (a == "--selftest-zombies" || a == "--capture-heavies" || a == "--capture-fighter2" || a == "--capture-fighter2-slam") runSelf = true;
+    else if (a == "--capture-heli") runSelf = true;   // VH5 (capture_heli.cpp)
+    else if (a == "--selftest-zombies" || a == "--capture-heavies" || a == "--capture-commands" || a == "--capture-ch1" || a == "--capture-fighter2" || a == "--capture-fighter2-slam") runSelf = true;
     else if (a == "--capture-br-models" || a == "--capture-br-worn") runSelf = true;   // BR3 / BR8: a look at the Battle Royale models and worn gear (selftest_brmodels.cpp)
-    else if (a == "--capture-jeep") runSelf = true;
+    else if (a == "--capture-jeep" || a == "--capture-abrams") runSelf = true;
     else if (a == "--selftest-royale-live") runSelf = true;   // BR7: 20 bots on Newtown (selftest_royale_live.cpp)   // VH1: a look at the jeeps (selftest_vehicles.cpp)   // EN2: a look at the heavies (selftest_zombies.cpp)
     else if (a == "--profile-map" && k + 3 < argc) { runSelf = true; k += 3; }   // PF3 CPU frame profile (selftest_perf.cpp)  // G2 zombie AI type, melee, knife v soldiers (selftest_zombies.cpp)
     else if (a == "--selftest-tanks") runSelf = true;   // tank suite (selftest_tanks.cpp)
@@ -849,7 +850,9 @@ int App::run(int argc, char** argv) {
     else if (a == "--box-weapons") useImportedModels = false;
     else if (a == "--weapon-sheets" && k + 1 < argc) sheetsDir = argv[++k];
     else if (a == "--model-preview" && k + 2 < argc) { previewGlb = argv[++k]; previewOut = argv[++k]; if (k + 1 < argc && argv[k + 1][0] != '-') previewSpec = argv[++k]; }
-    else if (a == "--tank-preview" && k + 1 < argc) tankPreviewDir = argv[++k];   // tank.cpp: views of the baked tanks + rig sockets
+    else if (a == "--tank-preview" && k + 1 < argc) tankPreviewDir = argv[++k];
+    else if (a == "--capture-vehicle" && k + 1 < argc) { runSelf = true; ++k; }
+    else if (a == "--capture-dash") runSelf = true;   // capture_dash.cpp: driver's views (VH6)   // capture_vehicle.cpp: one frame of a placed vehicle   // tank.cpp: views of the baked tanks + rig sockets
     else if (a == "--import-vehicle-models" && k + 1 < argc) {   // tanks (tank_import.cpp): <srcDir> [content root]
       fs::path src = argv[++k], out = k + 1 < argc ? fs::path(argv[++k]) : contentDir();
       return importVehicleModels(src, out) ? 0 : 1;
@@ -1034,11 +1037,12 @@ int App::run(int argc, char** argv) {
     }
     audio.setUnderwater(v.underwater ? 1.0f : 0.0f);   // swim.cpp: muffled under water
     mark("mpai");
-    { size_t nBox = worldBoxDraws.size(); mpaiFrame(*this, ov); op.insert(op.end(), worldBoxDraws.begin() + nBox, worldBoxDraws.end()); }   // soldiers, grenades, scenario overlay; BR9: its box meshes (loot, dropped weapons, worn gear) join the opaque list, which took worldBoxDraws before this ran
+    { size_t nBox = worldBoxDraws.size(); mpaiFrame(*this, ov); { extern void vehicleDashFrame(App&); vehicleDashFrame(*this); } op.insert(op.end(), worldBoxDraws.begin() + nBox, worldBoxDraws.end()); }   // VH6: parked cars' interiors   // soldiers, grenades, scenario overlay; BR9: its box meshes (loot, dropped weapons, worn gear) join the opaque list, which took worldBoxDraws before this ran
     mark("fx");
     v.view = viewM; v.proj = projM; v.dt = frameDt;
     R.fxAlpha.clear(); R.fxAdd.clear();
     if (mode == Mode::Explore) fx.build(viewM, R.fxAlpha, R.fxAdd);
+    if (mode == Mode::Explore) { extern void royaleFx(App&, std::vector<FxVert>&); royaleFx(*this, R.fxAlpha); }   // BR12: the storm wall, depth-tested in the scene
     if (!R.lt.mapClean) lightsMotes(*this, viewM, R.fxAdd);   // GX2: dust in the sun shafts indoors (every mode); BR2: none on a clean map
     mark("w3");
     w3Frame(*this);   // terrain cuts, chunk physics sync, editor camera flight (editor_nav.cpp)

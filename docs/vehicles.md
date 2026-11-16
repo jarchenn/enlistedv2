@@ -74,6 +74,61 @@ The camera is the driver's head (left-hand drive): the steering wheel's centre p
 - **Armour:** `durability.heavyBulletJ` 9 kJ: rifle rounds (~3.5 kJ) do nothing, .50 rounds (~18 kJ) 1 each; launchers 34 (3 wreck it); tank / AT gun shells 50. Wreck as the other vehicles.
 - **Not done:** the rear ramp / hatches do not open (no animations in the file); not adopted in Battle Royale (the royale adopts only parked part-built civilian cars).
 
+## Helicopter (VH5)
+
+The AH-64D Apache: vehicle `ah64d_apache` (`content/vehicles/ah64d_apache.json`, `"heli": true`), catalog entry `heli_ah64d_apache` (**Vehicles**, faction Modern). The code is in `src/heli.cpp`, with hooks in the tank system. It uses the tanks' entry and exit, collision body, damage table, wreck fire and persistence. Anyone may fly it; Tanker bots never board it.
+
+- **Model:**
+  - The supplied CC BY GLB is baked and committed in `content/vehicles/models/ah64d_apache/`, with the front turned to +z and the scale set by the 14.6 m rotor.
+  - The bake splits the main rotor (`rotor`), the scissor tail rotor (`tailrotor`) and the M230 chin gun (`gun`) out of the body by island boxes.
+  - The rotors spin about `rig.rotorHub` (4.8 rev/s) and `rig.tailRotorHub` (23 rev/s) at the rotor speed. The rotor spins up over 4 s when the pilot enters and runs down over 9 s after they leave. There is no blur disc.
+- **Controls:**
+
+  | Key | Action |
+  |---|---|
+  | W / S | Pitch the nose down / up |
+  | A / D | Bank |
+  | Mouse | Turns the nose (yaw, separate from banking) and aims |
+  | Space / Ctrl | Climb / descend |
+  | LMB | Chin gun |
+  | R | One rocket per press (R only fires rockets while piloting) |
+  | E | Get out, only once landed and slower than 1 m/s |
+
+  It cannot lift off until the rotor is fully spun up. The HUD shows altitude, speed, rotor, durability, 30 mm rounds and heat, rockets and which pod fires next. The key hint is shown on entry and at the bottom of the screen.
+- **Flight feel:** built to the user's movement spec (the HELICOPTER FLIGHT section). Every number is in `content/settings/helicopter.json`, and every rate is frame-rate independent.
+  - **Attitude:** the airframe eases to the stick's pitch (22° forward, 16° back) or bank (24°) with a 0.35 s time constant, at most 45°/s.
+  - **Thrust follows the tilt:** g × tan(tilt), against linear plus quadratic drag. So speed builds and bleeds with momentum. Full forward tilt settles near 55 m/s, and backward and sideways speeds are capped softly.
+  - **Brake before reverse:** S while moving forward first brakes, then reverses. The capture measured 3 s to stop from about 35 km/h.
+  - **Assisted levelling:** with no directional input the airframe tilts against its own drift (up to 7°) and a light damping applies. It levels and slows but keeps momentum: 67 km/h was still 34 km/h 3 s after letting go. Below 4 m/s a stronger hover damping holds it.
+  - **Yaw:** the nose follows the mouse at up to 75°/s in the hover and 28°/s at speed. The flight path swings toward the nose at 0.35/s, so turns at speed are wide arcs unless the pilot banks and brakes.
+  - **Lift:** Space and Ctrl aim for 8 m/s climb or 6 m/s sink, reached at up to 5 m/s². On release the vertical speed eases to a hold over 0.9 s.
+  - **Hover:** a slow ±0.35° drift (5.5 s period) and nothing to fight.
+  - **Landing:** touchdown compresses the gear on a spring-damper (at most 0.28 m). Above 1 m/s it thuds; above 3.5 m/s a heavier sound plays and the camera jolts in proportion.
+- **Camera:**
+  - A chase camera 17 m behind and 3 m above, along the mouse look, pulled in front of walls.
+  - It follows the airframe's movement exactly; only changes in that movement lag, by 0.12 s, and it trails up to 1.5 m against acceleration.
+  - It banks 35 % of the airframe's bank and has a small rotor vibration.
+  - **Settings > Gameplay > Helicopter camera motion** (0–1) scales the roll, vibration and landing shake. Reduced motion multiplies it by 0.3.
+  - Aiming stays on the mouse look: the crosshair is the camera ray.
+- **Collision:**
+  - Ground means terrain or anything solid under the skids, so it can land on a pad or a roof.
+  - Every move is checked against the airframe boxes and a 14 m rotor-disc box. It slides along walls and never passes through them.
+- **M230 chin gun (LMB):**
+  - Fires toward the crosshair within ±100° traverse and −60° to +11° elevation, at 625 rounds/min and 805 m/s, with a tracer every third round.
+  - Each round is explosive (`Projectile::cannon30`): a 60-damage blast of 2 m. It hits infantry hard and counts as a launcher hit on cars, so it wrecks jeeps and wears down the APC (34 per hit). Tanks only take a spark from it.
+  - 1200 rounds. Heat rises 0.034 per round and cools 0.22/s, so about 80 rounds (7.7 s) of continuous fire overheat it. It fires again once cooled to 35 %.
+- **Hydra rockets (R):**
+  - 38 rockets, one per press (0.25 s minimum), from the pod muzzles (`rig.rocketPods`), left and right in turn.
+  - They fly toward the crosshair if it is within 12° of the nose, else straight ahead.
+  - The shared rocket projectile: 300 m/s, 420 blast damage, 2.6 m radius, kills AT guns on a direct hit. Backblast and smoke trail.
+- **Damage:**
+  - Treated as an armoured car: 2 rocket hits (50 each) or 1 tank, AT gun or Flak shell (100).
+  - Rifle and MG rounds do nothing; .50 rounds do 4 each.
+  - Destroyed in the air, it loses power, spins up to 320°/s with a smoke and fire trail, and falls. It crashes in a 300-damage, 6 m blast and stays as a burning wreck.
+  - The pilot is put out of the airframe and killed (`Game::killSoldier`) during a match. Outside a match there is no player death, so they are only put out beside the wreck.
+- **LAN:** host and single player only. Vehicles are not replicated, so a client sees it parked.
+- `--capture-heli` captures the helicopter parked, then runs a scripted flight with the gun and two rockets, logs the numbers, and records the shoot-down and the wreck.
+
 ## Limits
 
 - **Driver only:** no passenger seats and no LAN replication. The tanks have none either, so a LAN client sees a parked vehicle.

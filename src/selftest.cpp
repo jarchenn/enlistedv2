@@ -147,10 +147,14 @@ void SelfTest::update(App& app, float dt) {
   { extern bool lightsSelfTest(App&, float); if (lightsSelfTest(app, dt)) return; }   // L2: --selftest-lights (selftest_lights.cpp)
   { extern bool swimSelfTest(App&, float); if (swimSelfTest(app, dt)) return; }   // --selftest-swim (selftest_swim.cpp)
   { extern bool zombiesSelfTest(App&, float); if (zombiesSelfTest(app, dt)) return; }
-  { extern bool brModelsSelfTest(App&, float); if (brModelsSelfTest(app, dt)) return; }   // BR3: --capture-br-models (selftest_brmodels.cpp)
+  { extern bool brModelsSelfTest(App&, float); if (brModelsSelfTest(app, dt)) return; }
+  { extern bool commandsSelfTest(App&, float); if (commandsSelfTest(app, dt)) return; }   // CMD1: --capture-commands (commands.cpp)   // BR3: --capture-br-models (selftest_brmodels.cpp)
   { extern bool vehiclesSelfTest(App&, float); if (vehiclesSelfTest(app, dt)) return; }
+  { extern bool captureVehicleSelfTest(App&, float); if (captureVehicleSelfTest(app, dt)) return; }
+  { extern bool captureDashSelfTest(App&, float); if (captureDashSelfTest(app, dt)) return; }   // VH6
   { extern bool royaleLiveSelfTest(App&, float); if (royaleLiveSelfTest(app, dt)) return; }   // BR7: --selftest-royale-live (selftest_royale_live.cpp)   // VH1: --capture-jeep (selftest_vehicles.cpp)
   { extern bool perfSelfTest(App&, float); if (perfSelfTest(app, dt)) return; }   // PF3: --profile-map <id> <ai> <s> (selftest_perf.cpp)   // G2: --selftest-zombies (selftest_zombies.cpp)
+  { extern bool captureHeliSelfTest(App&, float); if (captureHeliSelfTest(app, dt)) return; }   // VH5: --capture-heli (capture_heli.cpp)
   if (dt < 0) {  // post-render: capture queued screenshots (scene only, no UI)
     for (auto& s : shotQueue) app.screenshot(outDir() / (s + ".png"));
     shotQueue.clear();

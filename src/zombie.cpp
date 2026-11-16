@@ -62,6 +62,7 @@ const ZombieCfg& zcfg() {
         t.capsuleH = e.value("capsule_height_m", t.capsuleH); t.capsuleR = e.value("capsule_radius_m", t.capsuleR);
         t.climbM = e.value("climb_m", t.climbM); t.stepGap = e.value("step_gap_m", t.stepGap);
         t.knock = e.value("knockback_mps", t.knock); t.staggerMin = e.value("stagger_min_damage", t.staggerMin); t.staggerS = e.value("stagger_s", t.staggerS);
+        json sd = e.value("sounds", json::object()); t.sndAttack = sd.value("attack", ""); t.sndIdle = sd.value("idle", ""); t.sndStep = sd.value("step", "");
         json cl = e.value("clips", json::object());
         strs(cl, "walk", t.walkClips); strs(cl, "idle", t.idleClips); strs(cl, "attack", t.attackClips);
         t.runClip = cl.value("run", t.runClip); t.climbClip = cl.value("climb", t.climbClip); strs(cl, "damage", t.damageClips); strs(cl, "death", t.deathClips);
@@ -229,7 +230,7 @@ void followerStep(Game& G, AiCore& A, Soldier& s, BotMind& m, const Soldier& L) 
     m.flockT = G.t + 0.1;
     // break off: the closest hostile within reach of a lunge (not a pack mate)
     const Soldier* v = nullptr; float vd = c.breakOff;
-    for (auto& o : G.sold) if (o.alive && Game::hostile(s, o) && !packMate(A, o, m.pack)) { float d = zLenXZ(o.feet - s.feet); if (d < vd && std::fabs(o.feet.y - s.feet.y) < 2.0f) { vd = d; v = &o; } }
+    A.forNear(s.feet, c.breakOff, [&](const Soldier& o) { if (o.alive && Game::hostile(s, o) && !packMate(A, o, m.pack)) { float d = zLenXZ(o.feet - s.feet); if (d < vd && std::fabs(o.feet.y - s.feet.y) < 2.0f) { vd = d; v = &o; } } });   // AI2: grid, not every soldier
     // the wedge slot behind the leader, in its heading
     vec3 fwd = zLenXZ(L.vel) > 0.5f ? vec3(L.vel.x, 0, L.vel.z) : (mindAt(A, L.slot) ? mindAt(A, L.slot)->moveDir : vec3(0, 0, 1));
     fwd.y = 0; fwd = zLenXZ(fwd) > 1e-3f ? glm::normalize(fwd) : vec3(0, 0, 1);
@@ -375,8 +376,13 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
   } else {
     if (m.follower) { m.follower = false; m.flockPush = vec3(0); m.speedScale = 1; }   // its leader fell: on its own until the next pack pass
     // the closest hostile, human or bot, wherever it is (no perception: zombies always know); never a pack mate
-    float bd = 1e9f;
-    for (auto& o : G.sold) if (o.alive && Game::hostile(s, o) && !packMate(*A, o, m.pack)) { float d = glm::length(o.feet - s.feet); if (d < bd) { bd = d; best = &o; } }
+    // AI2: re-picked 4x a second (staggered), not every step: a full scan per leader / lone zombie per step is O(n^2) at 1000
+    const Soldier* cur = b.target >= 0 && b.target < (int)G.sold.size() && G.sold[b.target].alive ? &G.sold[b.target] : nullptr;
+    if (!cur || G.t >= m.tgtT) {
+      m.tgtT = G.t + 0.25 + 0.1 * ((s.slot * 37) % 8) / 8.0;
+      float bd = 1e9f;
+      for (auto& o : G.sold) if (o.alive && Game::hostile(s, o) && !packMate(*A, o, m.pack)) { float d = glm::length(o.feet - s.feet); if (d < bd) { bd = d; best = &o; } }
+    } else best = cur;
     b.target = best ? best->slot : -1;
     if (best) {
       m.speed = SPD_ZOMBIE;
@@ -398,22 +404,22 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     if (s.etype == 0 && G.t >= nextGroan && glm::length(s.feet - G.app.eyePos()) < 35.0f && G.rnd(s) < 0.02f) { G.app.audio.play("zombie_groan", s.feet + vec3(0, 1.4f, 0), 0.9f); nextGroan = G.t + 5.0 + 6.0 * G.rnd(s); }
     if (nextGroan > G.t + 30.0) nextGroan = 0;   // a new match restarts the clock
   }
-  if (e.id == "brute" && s.meleeWind < 0 && glm::length(s.feet - G.app.eyePos()) < 50.0f) {   // the troll's idle noises between attacks. shortcut: host / single player only
+  if ((e.id == "brute" || !e.sndIdle.empty()) && s.meleeWind < 0 && glm::length(s.feet - G.app.eyePos()) < 50.0f) {   // the troll's idle noises between attacks. shortcut: host / single player only
     static std::map<int, double> nextIdle;
     double& ni = nextIdle[s.slot];
     if (ni > G.t + 40.0) ni = 0;
-    if (G.t >= ni) { if (ni > 0) G.app.audio.play("troll_idle", s.feet + vec3(0, 2, 0), 0.9f); ni = G.t + 7.0 + 8.0 * G.rnd(s); }
+    if (G.t >= ni) { if (ni > 0) G.app.audio.play(e.sndIdle.empty() ? "troll_idle" : e.sndIdle.c_str(), s.feet + vec3(0, 2, 0), 0.9f); ni = G.t + 7.0 + 8.0 * G.rnd(s); }
   }
   const bool down = s.anim.a >= 0 && s.model >= 0 && s.anim.a < (int)G.models[s.model]->clips.size() && G.models[s.model]->clips[s.anim.a].name.find("drop") != std::string::npos;   // in the body slam: no standing column to push out of
   if (e.blockR > 0 && !down && G.localSlot >= 0 && G.localSlot < (int)G.sold.size() && G.sold[G.localSlot].alive && !G.app.tanks.occupied) {   // solid to the player: pushed out of the body column. shortcut: local player only (bots, LAN clients and vehicles pass)
     Soldier& lp = G.sold[G.localSlot]; float BR = e.blockR * e.height * e.scale; vec3 d = lp.feet - s.feet; float dy = d.y; d.y = 0; float L = glm::length(d);
     if (L < BR && dy > -2.0f && dy < e.height * e.scale) Physics::setCharacterPos(s.feet + (L > 1e-3f ? d / L : vec3(1, 0, 0)) * BR + vec3(0, dy, 0));
   }
-  const bool fighterT = e.id.rfind("fighter", 0) == 0, spiderT = e.id == "stalker";
-  if ((fighterT || spiderT) && e.stepCrater <= 0 && s.speed > 0.5f && glm::length(s.feet - G.app.eyePos()) < (fighterT ? 600.0f : 40.0f)) {   // the Fighters' heavy footsteps. shortcut: host / single player only
+  const bool fighterT = e.id.rfind("fighter", 0) == 0, spiderT = e.id == "stalker", stepT = !e.sndStep.empty();
+  if ((fighterT || spiderT || stepT) && e.stepCrater <= 0 && s.speed > 0.5f && glm::length(s.feet - G.app.eyePos()) < (fighterT ? 600.0f : 40.0f)) {   // the Fighters' heavy footsteps. shortcut: host / single player only
     static std::map<int, double> nextStep;
     double& ns = nextStep[s.slot];
-    if (G.t >= ns || ns > G.t + 5.0) { G.app.audio.play(fighterT ? "step_fighter" : "step_spider", s.feet, fighterT ? 1.0f : 0.7f); ns = G.t + (fighterT ? std::clamp(2.6f / std::max(1.0f, s.speed), 0.35f, 0.9f) : std::clamp(1.2f / std::max(1.0f, s.speed), 0.18f, 0.45f)); }   // the spider scuttles: quicker steps
+    if (G.t >= ns || ns > G.t + 5.0) { G.app.audio.play(fighterT ? "step_fighter" : stepT ? e.sndStep.c_str() : "step_spider", s.feet, fighterT ? 1.0f : 0.7f); ns = G.t + (fighterT ? std::clamp(2.6f / std::max(1.0f, s.speed), 0.35f, 0.9f) : std::clamp(1.2f / std::max(1.0f, s.speed), 0.18f, 0.45f)); }   // the spider scuttles: quicker steps
   }
   crumb("zombie: strike");
   // the strike: wind-up (the attack clip up to its swing frame), then the blow lands if the victim is still in reach
@@ -430,7 +436,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     int n = 0; for (auto& o : G.sold) if (o.alive && Game::hostile(s, o) && inSlam(o.feet, s.feet + f * dropR, f, e, s.eScale) < 1.0f) ++n;
     dropOk = n >= ((int)ac.size() > 1 ? 2 : 1);   // two or more; one will do when the slam is her only attack
   }
-  if (s.meleeWind < 0 && best && G.t >= s.meleeReady && G.t >= s.staggerUntil && ((inR && (int)ac.size() > (di >= 0 ? 1 : 0)) || dropOk)) { if (e.id == "stalker") G.app.audio.play("spider_attack", s.feet + vec3(0, 1, 0), 1.0f); else if (e.id == "brute") G.app.audio.play("troll_attack", s.feet + vec3(0, 2, 0), 1.0f);   /* one of three, picked at random */
+  if (s.meleeWind < 0 && best && G.t >= s.meleeReady && G.t >= s.staggerUntil && ((inR && (int)ac.size() > (di >= 0 ? 1 : 0)) || dropOk)) { if (e.id == "stalker") G.app.audio.play("spider_attack", s.feet + vec3(0, 1, 0), 1.0f); else if (e.id == "brute") G.app.audio.play("troll_attack", s.feet + vec3(0, 2, 0), 1.0f); else if (!e.sndAttack.empty()) G.app.audio.play(e.sndAttack.c_str(), s.feet + vec3(0, 0.6f * e.height * e.scale, 0), 1.0f);   /* one of three, picked at random */
     s.meleeWind = 0; int n = (int)ac.size() - (di >= 0 ? 1 : 0);   // EN2: any of the type's attacks (the drop only at its distance)
     if (dropOk || n <= 0) s.meleeClip = di;   // two or more in the slam's oval: the slam; otherwise the others
     else { int pick = std::min(n - 1, (int)(G.rnd(s) * n)); s.meleeClip = di >= 0 && pick >= di ? pick + 1 : pick; }

@@ -1,0 +1,199 @@
+{
+  "id": "ural_4320",
+  "name": "Ural-4320 (6x6 army truck)",
+  "faction": "Modern",
+  "identity": "Supplied ural-4320-soviet-army-truck.zip (source/URAL-4320 Army.glb; no author or licence in the archive or the GLB): scaled x0.934 to the real 7.37 m, glass dropped, the six wheels split by axle, the steering wheel cut out of the cab by tools/vehicles/convert_vehicles.py ural. The baked model is local-only (git-ignored, licence unknown); without it the committed part-built fallback (models/ural_4320_fallback) is drawn.",
+  "car": true,
+  "model": {
+    "src": "ural_4320.glb",
+    "dir": "ural_4320",
+    "fallbackDir": "ural_4320_fallback",
+    "rot": [
+      0,
+      0,
+      0
+    ],
+    "scale": 1,
+    "maxTex": 1024,
+    "groundRoles": [
+      "wheel_fl",
+      "wheel_fr",
+      "wheel_r2l",
+      "wheel_r2r",
+      "wheel_rl",
+      "wheel_rr"
+    ],
+    "nodeParts": {
+      "hull": "hull",
+      "steer": "steer",
+      "wheel_fl": "wheel_fl",
+      "wheel_fr": "wheel_fr",
+      "wheel_r2l": "wheel_r2l",
+      "wheel_r2r": "wheel_r2r",
+      "wheel_rl": "wheel_rl",
+      "wheel_rr": "wheel_rr"
+    },
+    "note": "converted by tools/vehicles/convert_vehicles.py ural into assets_src/vehicles/ural_4320.glb first"
+  },
+  "fallbackModel": {
+    "src": "ural_4320_fallback.glb",
+    "dir": "ural_4320_fallback",
+    "rot": [
+      0,
+      0,
+      0
+    ],
+    "scale": 1,
+    "maxTex": 64,
+    "groundRoles": [
+      "wheel_fl",
+      "wheel_fr",
+      "wheel_r2l",
+      "wheel_r2r",
+      "wheel_rl",
+      "wheel_rr"
+    ],
+    "nodeParts": {
+      "hull": "hull",
+      "steer": "steer",
+      "wheel_fl": "wheel_fl",
+      "wheel_fr": "wheel_fr",
+      "wheel_r2l": "wheel_r2l",
+      "wheel_r2r": "wheel_r2r",
+      "wheel_rl": "wheel_rl",
+      "wheel_rr": "wheel_rr"
+    },
+    "note": "part-built stand-in made of boxes and cylinders by tools/vehicles/make_fallback.py ural (committed)"
+  },
+  "rig": {
+    "driverEyeFromSteer": [
+      0,
+      0.42,
+      -0.5
+    ],
+    "steerAxis": [
+      0,
+      0.489,
+      -0.872
+    ],
+    "engine": [
+      0,
+      1.3,
+      2.8
+    ],
+    "exhausts": [
+      [
+        1.0,
+        1.0,
+        0.6
+      ]
+    ],
+    "exits": [
+      [
+        1.9,
+        0,
+        1.4
+      ],
+      [
+        -1.9,
+        0,
+        1.4
+      ],
+      [
+        1.9,
+        0,
+        -1.0
+      ],
+      [
+        -1.9,
+        0,
+        -1.0
+      ],
+      [
+        0,
+        0,
+        -4.6
+      ],
+      [
+        0,
+        0,
+        4.6
+      ]
+    ],
+    "note": "driver's eye = steering wheel centre + driverEyeFromSteer (left-hand drive, under the 2.42 m cab roof); exits by the two doors, beside the bed, behind, ahead"
+  },
+  "colliders": {
+    "hull": [
+      {
+        "c": [
+          0,
+          1.7,
+          0
+        ],
+        "h": [
+          1.2,
+          1.1,
+          3.7
+        ]
+      }
+    ],
+    "armourHull": {
+      "c": [
+        0,
+        1.7,
+        0
+      ],
+      "h": [
+        1.2,
+        1.1,
+        3.7
+      ]
+    },
+    "note": "one body box from the cab / tilt bounds"
+  },
+  "carDrive": {
+    "maxSteerDeg": 32,
+    "steerRate": 1.3,
+    "steerTurns": 3.5,
+    "handbrakeDecel": 5.5,
+    "suspensionTravel": 0.25,
+    "runOverDamage": 16,
+    "note": "a 6x6 truck: slow steering, heavy run-over hits"
+  },
+  "mobility": {
+    "maxForward": 21.0,
+    "maxReverse": 4.0,
+    "accel": 2.0,
+    "brake": 6.0,
+    "coast": 0.6,
+    "maxSlopeDeg": 38,
+    "offroadMul": 0.8,
+    "halfSize": [
+      1.2,
+      1.1,
+      3.7
+    ],
+    "clearance": 0.4,
+    "note": "gameplay profile: 75 km/h on roads, 60 km/h off-road (Ural-4320: 85 km/h, 6x6, 400 mm clearance)"
+  },
+  "durability": {
+    "frontHitsSurvived": 2,
+    "sideHitsSurvived": 2,
+    "smallArmsDamage": 2
+  },
+  "ramming": {
+    "massKg": 8600,
+    "engineKW": 170,
+    "pushEfficiency": 0.6,
+    "note": "Ural-4320 ~8.6 t empty, 230 hp diesel"
+  },
+  "dash": {
+    "style": "military",
+    "offset": [
+      0,
+      -0.32,
+      0.55
+    ],
+    "note": "VH6 src/vehicle_dash.cpp: in front of the model's own dash face, its top just over the steering hub"
+  }
+}

@@ -55,6 +55,7 @@ struct UserSettings {
   float mouseSens = 0.1f;      // deg per mouse count at the 72 deg reference view (matched across FOVs, explore.cpp)
   float adsSens = 1.0f;        // extra factor while aiming (blended with the ADS state)
   bool invertY = false, reducedMotion = false, showArms = true, sightMarkers = false, weaponList = true, friendlyMarkers = true;
+  float heliCamMotion = 1.0f;  // VH5: helicopter camera roll / vibration / shake (0 none .. 1 full)
   // audio (linear gains 0..1)
   float master = 1.0f, effects = 1.0f, ui = 1.0f, ambience = 1.0f;
   // controls: action -> key name overrides of content/settings/bindings.json (only the ones the user changed)

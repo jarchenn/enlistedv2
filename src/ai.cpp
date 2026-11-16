@@ -54,8 +54,9 @@ void Game::aiStep(Soldier& s, float dt) {
   if (s.zombie) { AiProf::Scope sc(A->prof, PROF_MOVEMENT); crumb("ai: zombie"); aiZombieStep(*this, s, dt); return; }   // G2: no perception, decisions, cover, aim or grenades
   float hd = A->nearestHumanDist(s.feet);
   bool lod = hd < 1e8f && hd > A->tj("budget", "lodDistance_m", 300.0f);
-  // G1 crowds (up to 100 AI): beyond 60 m from every human, perception / decisions slow down with the bot count
-  float crowd = hd > 60.0f ? std::clamp((float)sold.size() / 40.0f, 1.0f, 2.5f) : 1.0f;
+  // G1 crowds (up to 100 AI): beyond 60 m from every human, perception / decisions slow down with the bot count;
+  // AI2: up to 1000 AI the slow-down keeps growing past 200 (x2.5 at 100-200, x6 at 1000: far bots think ~every 0.6-1.2 s)
+  float crowd = hd > 60.0f ? std::clamp((float)sold.size() / 40.0f, 1.0f, 2.5f) * std::max(1.0f, (float)sold.size() / 400.0f) : 1.0f;
   {
     AiProf::Scope sc(A->prof, PROF_PERCEPTION);
     crumb("ai: perceive");

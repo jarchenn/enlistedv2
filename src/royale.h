@@ -8,6 +8,7 @@
 // For the loot stream (BR2): royaleSafePoint / royaleRing / royaleAirState below; the storm damages through
 // Game::damage with how = "storm" (armor must not reduce it); rules.lootModern (BR2) holds the WW2 / Modern switch.
 #include "common.h"
+struct FxVert;
 
 class App;
 class Game;
@@ -41,7 +42,9 @@ struct RoyaleStorm {
 };
 
 // ---- airborne state per soldier
-enum RoyaleAir : int { RA_GROUND = 0, RA_ABOARD = 1, RA_FREEFALL = 2, RA_CHUTE = 3 };
+// BR13: aboard -> exit (clearing the aircraft) -> free fall -> deploy (canopy opening) -> chute (glide) -> landing (back
+// on the feet, settling into normal movement; the local player only) -> ground. Velocity carries across every change.
+enum RoyaleAir : int { RA_GROUND = 0, RA_ABOARD = 1, RA_FREEFALL = 2, RA_CHUTE = 3, RA_EXIT = 4, RA_DEPLOY = 5, RA_LANDING = 6 };
 
 bool royaleActive();                          // a battle royale match is running (host / single player)
 void royaleBegin(App& app, Game& G);          // after Game::begin: plane line, storm circles, everyone aboard, drivable cars
@@ -50,9 +53,11 @@ void royaleEnd(App& app);
 bool royaleSnap(const Game& G, vec3 p, float r, vec3& out);                     // leaving Explore: the adopted cars go back to their parking spots
 void royaleStep(App& app, Game& G, float dt); // each fixed step before Game::step: plane, falls, landings, storm damage
 int royaleAirState(int slot);                 // RoyaleAir of a roster slot
-inline bool royaleAirborne(int slot) { return royaleAirState(slot) != RA_GROUND; }
+inline bool royaleAirborne(int slot) { int s = royaleAirState(slot); return s != RA_GROUND && s != RA_LANDING; }   // landing: already on the ground
 bool royaleBareHands(App& app, Game& G, Soldier& s);   // applyLoadout hook: true = the soldier got fists / knife only
-RoyaleRing royaleRing(bool next);             // the current ring / the next one (BR2: bots loot inside it)
+RoyaleRing royaleRing(bool next);
+void royaleFx(App& app, std::vector<FxVert>& out);   // BR12: the storm wall (app.cpp, after the effects are built)
+void royaleSetTime(float t);                         // tests: the storm clock             // the current ring / the next one (BR2: bots loot inside it)
 vec3 royaleSafePoint(const Soldier& s, int salt = 0);   // a point inside the next circle for this soldier (stable per soldier, stage and salt)
 float royaleStormSoon(const Soldier& s);      // s until the storm reaches this soldier's spot (0 = already outside), 1e9 = never
 void royaleInput(App& app, ExploreInput& in); // local player: Space jumps / opens the chute; no walking while airborne

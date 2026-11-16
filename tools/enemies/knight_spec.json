@@ -1,0 +1,82 @@
+{
+ "note": "CH1: Brother Knight's one 60 fps mocap take, cut into clips (frames found by tracking the hips, hands and ankles)",
+ "height_m": 1.95,
+ "forward": "+x", "same_turn": true, "jpeg": true,
+ "drop_takes": [
+  "TempMotion"
+ ],
+ "clips": [
+  {
+   "name": "walk",
+   "take": "TempMotion",
+   "range": [
+    297,
+    435
+   ],
+   "inplace": true
+  },
+  {
+   "name": "idle",
+   "take": "TempMotion",
+   "range": [
+    1885,
+    1935
+   ],
+   "inplace": true
+  },
+  {
+   "name": "attack_slam",
+   "take": "TempMotion",
+   "range": [
+    871,
+    1087
+   ],
+   "inplace": true
+  },
+  {
+   "name": "attack_spin",
+   "take": "TempMotion",
+   "range": [
+    1131,
+    1327
+   ],
+   "inplace": true
+  },
+  {
+   "name": "attack_bash",
+   "take": "TempMotion",
+   "range": [
+    1381,
+    1591
+   ],
+   "inplace": true
+  },
+  {
+   "name": "attack_charge",
+   "take": "TempMotion",
+   "range": [
+    1933,
+    2101
+   ],
+   "inplace": true
+  },
+  {
+   "name": "damage",
+   "take": "TempMotion",
+   "range": [
+    1729,
+    1831
+   ],
+   "inplace": true
+  },
+  {
+   "name": "death",
+   "take": "TempMotion",
+   "range": [
+    2235,
+    2531
+   ],
+   "inplace": false
+  }
+ ]
+}

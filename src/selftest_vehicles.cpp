@@ -28,6 +28,24 @@ std::set<long> marks;   // one-shot time marks (step index, ms)
 bool at(float t, float m) { long key = (long)cur * 100000 + std::lround(m * 1000); if (t >= m && !marks.count(key)) { marks.insert(key); return true; } return false; }
 std::string tag(App& a, int k) { return std::to_string(k + 1) + "_" + T(a, k).def->id; }
 
+// VH3 --capture-abrams: the M1A2 on the ground in Creative, turret turned 60 deg and the gun up 5 deg (one frame)
+void buildAbrams() {
+  push("abrams", [](App& a, float t) {
+    static uint64_t id = 0;
+    if (t == 0) {
+      a.newMap(*a.findTemplate("blank_slate"), "Abrams capture");
+      const AssetDef* as = a.lib.find("tank_abrams_m1a2");
+      if (!as) { note("FAIL: no asset tank_abrams_m1a2"); return true; }
+      id = a.placeInstance(as, vec3(0, a.terrain.height(0, 0), 0), 0);
+      a.syncRuntime(); a.tanks.sync(a);
+      a.camPos = vec3(-9, a.terrain.height(0, 0) + 4.0f, 11); a.camYaw = -40; a.camPitch = -12;
+    }
+    TankRT* r = a.tanks.get(id); if (!r) { note("FAIL: no vehicle state"); return true; }
+    r->tYaw = 60; r->gElev = 5;
+    if (at(t, 0.8f)) { shot(a, "abrams_turret_turned"); note("abrams: %s, %zu parts, hp %d", r->def->name.c_str(), r->def->model ? r->def->model->parts.size() : 0, r->hp); }
+    return t > 1.1f; });
+}
+
 void build(App&) {
   push("place", [](App& a, float t) {
     if (t == 0) {
@@ -114,10 +132,10 @@ void build(App&) {
 }   // namespace
 
 bool vehiclesSelfTest(App& app, float dt) {
-  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-jeep") mode = 1; }
-  if (mode != 1) return false;
+  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) { if (std::string(__argv[k]) == "--capture-jeep") mode = 1; if (std::string(__argv[k]) == "--capture-abrams") mode = 2; } }
+  if (mode != 1 && mode != 2) return false;
   if (dt < 0) return true;
-  if (!started) { started = true; build(app); }
+  if (!started) { started = true; if (mode == 2) buildAbrams(); else build(app); }
   if (cur < seq.size()) {
     bool done = seq[cur].fn(app, st);
     st += dt; total += dt;

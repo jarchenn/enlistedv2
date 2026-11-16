@@ -262,6 +262,20 @@ public:
   float tj(const char* sect, const char* key, float def) const;
   bool humanSees(const Soldier& s);
   float nearestHumanDist(vec3 p) const;
+  // AI2 (up to 1000 AI): alive soldiers on a 6 m grid and the alive humans, rebuilt once per step in frame(), so the
+  // per-bot neighbour checks (steering, separation, avoidance) are not O(n^2)
+  static constexpr float kGridCell = 6.0f;
+  std::unordered_map<int64_t, std::vector<int>> sgrid; std::vector<int> humans;
+  static int64_t gridKey(int x, int z) { return ((int64_t)x << 32) ^ (uint32_t)z; }
+  void rebuildGrid();
+  template <class F> void forNear(vec3 p, float r, F&& f) {
+    int x0 = (int)std::floor((p.x - r) / kGridCell), x1 = (int)std::floor((p.x + r) / kGridCell);
+    int z0 = (int)std::floor((p.z - r) / kGridCell), z1 = (int)std::floor((p.z + r) / kGridCell);
+    for (int z = z0; z <= z1; ++z) for (int x = x0; x <= x1; ++x) {
+      auto it = sgrid.find(gridKey(x, z)); if (it == sgrid.end()) continue;
+      for (int i : it->second) f(G.sold[i]);
+    }
+  }
   void logStuck(const StuckEvent& e);
   void pollWorld(bool rebuild = true);
   void onTilesChanged();

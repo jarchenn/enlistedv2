@@ -403,7 +403,7 @@ void MpUi::setupWindow(App& app) {
   }
   int humansHere = setupMode == 1 && gNet ? gNet->humanCount() : 1;
   // per side: tick any AI types; each AI takes the ticked ones in turn (the last tick cannot be cleared). EN1 Zombies +
-  // heavies: brutes and stalkers by weight (content/ai/zombie.json types); Brutes, Spiders and Creatures: that type only
+  // heavies: brutes and stalkers by weight (content/ai/zombie.json types); Brutes, Spiders, Creatures, Knights, Animatronics, Aliens, Alien queens: that type only
   auto aiTypes = [](const char* label, int& mask) {
     ImGui::PushID(label); ImGui::TextUnformatted(label);
     for (int k = 0; k < kAiTypeCount; ++k) {
@@ -413,7 +413,7 @@ void MpUi::setupWindow(App& app) {
     ImGui::Unindent(); ImGui::PopID();
   };
   if (rules.mode == GameMode::BattleRoyale) {   // BR1: one life each, last one alive wins (royale.cpp)
-    ImGui::SliderInt("Players in all (you + AI)", &rules.royalePlayers, std::max(10, humansHere), 100);
+    ImGui::SliderInt("Players in all (you + AI)", &rules.royalePlayers, std::max(10, humansHere), std::min(ScenarioRules::kMaxCombatants, ScenarioRules::kMaxAI + humansHere));
     { int lp = rules.lootModern ? 1 : 0; ImGui::Text("Loot:"); ImGui::SameLine(); ImGui::RadioButton("WW2 weapons", &lp, 0); ImGui::SameLine(); ImGui::RadioButton("Modern weapons", &lp, 1); rules.lootModern = lp == 1; }   // BR2 reads rules.lootModern
     rules.aiTypes[0] = rules.aiTypes[1] = aiBit(AiType::Soldiers);   // BR5: no bot types: everyone is a soldier in the player's body
     ImGui::TextDisabled("Every bot lands with two random guns; you land unarmed and loot. Everyone wears your character.");

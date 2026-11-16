@@ -131,6 +131,8 @@ bool Game::begin(std::string& err) {
     s.etype = !s.zombie ? 0 : ait == AiType::ZombiesHeavies ? enemyTypePick((uint32_t)rs.id)   // EN1: the mix by weight, per slot
             : ait == AiType::Brutes ? std::max(0, enemyTypeIndex("brute")) : ait == AiType::Spiders ? std::max(0, enemyTypeIndex("stalker"))
             : ait == AiType::Creatures ? std::max(0, enemyTypeIndex("creature"))
+            : ait == AiType::Knights ? std::max(0, enemyTypeIndex("knight")) : ait == AiType::Animatronics ? std::max(0, enemyTypeIndex("animatronic"))
+            : ait == AiType::Aliens ? std::max(0, enemyTypeIndex("alien")) : ait == AiType::AlienQueens ? std::max(0, enemyTypeIndex("alien_queen"))
             : ait == AiType::Fighters ? std::max(0, enemyTypeIndex("fighter"))
             : ait == AiType::Fighters2 ? std::max(0, enemyTypeIndex("fighter2")) : 0;
     s.evariant = kindSeen[(int)ait]++;
@@ -377,7 +379,7 @@ bool Game::trySpawn(int slot, std::string& why) {
         if (s.localPlayer && s.cls >= 0 && classDefs()[s.cls].drivesTanks) {   // GM1b: the Tanker starts inside the nearest free tank of its side
           uint64_t best = 0; float bd = 1e9f;
           for (auto& [id, tk] : app.tanks.tanks) {
-            if (!tk.def || tk.def->car || tk.wrecked || app.tanks.occupied == id || (tk.def->faction == "Axis") != (s.faction == Faction::Axis)) continue;
+            if (!tk.def || tk.def->car || tk.def->heli || tk.wrecked || app.tanks.occupied == id || (tk.def->faction == "Axis") != (s.faction == Faction::Axis)) continue;
             float d = glm::length(tk.pos - feet); if (d < bd) { bd = d; best = id; }
           }
           if (best && !app.tanks.occupied && app.tanks.enter(app, best)) app.toast("Tanker: in the " + app.tanks.get(best)->def->name + ", hatch closed", 4);
@@ -746,6 +748,8 @@ void Game::step(float dt) {
 }
 
 void Game::posesStep(float dt) {
+  // AI2 crowds (over 200 combatants): far soldiers re-pose every 2nd step beyond 80 m, every 4th beyond 150 m (staggered)
+  const bool poseLod = sold.size() > 200; const vec3 cam = app.eyePos();
   for (auto& s : sold) {
     if (!s.inUse || (!s.alive && t - s.diedAt > (s.zombie ? 3.5 : 2.0))) continue;   // G2: the zombie death clip runs ~3 s
     const CharModel& m = *models[s.model];
@@ -801,7 +805,9 @@ void Game::posesStep(float dt) {
     pp.swim = s.swimBlend; pp.swimPhase = (float)t * 5.3f + (float)s.slot;   // breaststroke ~0.85 Hz
     if (s.localPlayer) app.swimPose(pp);   // swim.cpp: the player's own stroke phase
     if (!s.alive) { pp.death = std::min(1.0f, (float)(t - s.diedAt) / 0.8f); pp.deathStyle = s.deathStyle; }
-    if (s.zombie && !m.clips.empty()) aiZombiePose(*this, s, dt); else { poseCharacter(m, pp, s.pose); s.poseFrom = -1; ++s.poseRev; }   // G2: clips
+    float camD = poseLod ? glm::length(s.feet - cam) : 0.0f; int every = camD > 150 ? 4 : camD > 80 ? 2 : 1;
+    bool skipPose = poseLod && !s.localPlayer && s.alive && every > 1 && (steps + s.slot) % every != 0;
+    if (s.zombie && !m.clips.empty()) aiZombiePose(*this, s, dt); else if (!skipPose) { poseCharacter(m, pp, s.pose); s.poseFrom = -1; ++s.poseRev; }   // G2: clips
     float yawUse = s.localPlayer ? app.eyeYaw : s.yaw;
     s.world = glm::translate(mat4(1), s.feet) * glm::mat4_cast(glm::angleAxis(radians(yawUse) + 3.14159265f, vec3(0, 1, 0)));
     if (s.zombie) {   // EN1: the type's draw scale, and a forward lean about the feet (the stalker on the zombie rig)

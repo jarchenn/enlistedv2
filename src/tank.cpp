@@ -63,6 +63,8 @@ void TankSys::loadDefs(App& app) {
         else if (d->car && p.role == "stowage") d->stowageParts.push_back((int)k);
         else if (d->car && p.role == "pintle") d->pintleParts.push_back((int)k);
         else if (d->car && p.role == "rws") d->rwsParts.push_back((int)k);
+        else if (p.role == "rotor") d->rotorParts.push_back((int)k);          // VH5 helicopter
+        else if (p.role == "tailrotor") d->tailRotorParts.push_back((int)k);
         else if (p.role == "turret") d->turretParts.push_back((int)k);
         else if (p.role == "gun") d->gunParts.push_back((int)k);
         else if (p.role == "hatch") d->hatchParts.push_back((int)k);
@@ -73,7 +75,8 @@ void TankSys::loadDefs(App& app) {
       }
       if (d->car) {
         for (int w = 0; w < TankDef::MAX_WHEELS; ++w) if (!d->wheelPart[w].empty()) { d->wheelC[w] = (wlo[w] + whi[w]) * 0.5f; d->wheelR = (whi[w].y - wlo[w].y) * 0.5f; }
-        if (!d->wheelPart[4].empty()) d->nWheels = 8;
+        if (!d->wheelPart[4].empty() || !d->wheelPart[6].empty()) d->nWheels = 8;   // VH6: a 6x6 (Ural) has the rear bogie (r2) but no second front axle
+        for (int w : {4, 5}) if (d->nWheels == 8 && d->wheelPart[w].empty()) d->wheelC[w] = d->wheelC[w - 4];   // its empty slots sit on the front axle (nothing drawn, ground samples doubled there)
         if (!d->steerParts.empty()) d->steerC = (slo + shi) * 0.5f;
       }
     }
@@ -126,6 +129,28 @@ void TankSys::loadDefs(App& app) {
     d->frontSurvive = du.value("frontHitsSurvived", d->frontSurvive); d->sideSurvive = du.value("sideHitsSurvived", d->sideSurvive);
     const json rm = j.value("ramming", json::object());
     d->massKg = rm.value("massKg", d->massKg); d->engineKW = rm.value("engineKW", d->engineKW); d->pushEff = rm.value("pushEfficiency", d->pushEff);
+    d->heli = j.value("heli", false);
+    if (d->heli) {   // VH5 helicopter: flight, rotors, chin gun, rockets; damage as an armoured car
+      d->rotorHub = jv(rg, "rotorHub"); d->tailHub = jv(rg, "tailRotorHub");
+      for (auto& x : rg.value("rocketPods", json::array())) d->pods.push_back(jvec3(x));
+      if (cl.contains("rotorDisc")) d->rotorDisc = jbox(cl["rotorDisc"]);
+      const json fl = j.value("flight", json::object());
+      d->rotorRps = fl.value("rotorRps", d->rotorRps); d->tailRps = fl.value("tailRps", d->tailRps);
+      if (fl.contains("pitchLimits")) { d->hPitchMin = fl["pitchLimits"][0]; d->hPitchMax = fl["pitchLimits"][1]; }
+      const json cg = j.value("chinGun", json::object());
+      d->gun30Name = cg.value("name", "Chin gun"); d->gun30Sound = cg.value("sound", "shot_m2hb");
+      d->gun30Rpm = cg.value("rpm", d->gun30Rpm); d->gun30Vel = cg.value("velocity", d->gun30Vel); d->gun30Dmg = cg.value("damage", d->gun30Dmg); d->gun30R = cg.value("blastRadius", d->gun30R);
+      d->gun30Ammo = cg.value("ammo", d->gun30Ammo); d->gun30Heat = cg.value("heatPerShot", d->gun30Heat); d->gun30Cool = cg.value("coolPerSec", d->gun30Cool); d->gun30Resume = cg.value("resumeHeat", d->gun30Resume);
+      d->gun30Spread = cg.value("spreadDeg", d->gun30Spread);
+      if (cg.contains("yaw")) { d->gun30YawMin = cg["yaw"][0]; d->gun30YawMax = cg["yaw"][1]; }
+      if (cg.contains("elevation")) { d->gun30ElevMin = cg["elevation"][0]; d->gun30ElevMax = cg["elevation"][1]; }
+      const json rk = j.value("rockets", json::object());
+      d->rocketCount = rk.value("count", d->rocketCount); d->rocketVel = rk.value("velocity", d->rocketVel); d->rocketDmg = rk.value("damage", d->rocketDmg); d->rocketR = rk.value("radius", d->rocketR);
+      d->rocketCrater = rk.value("crater", d->rocketCrater); d->rocketSplashGun = rk.value("splashGun", d->rocketSplashGun); d->rocketGrav = rk.value("gravScale", d->rocketGrav); d->rocketCooldown = rk.value("cooldown", d->rocketCooldown);
+      d->smallArmsDmg = du.value("smallArmsDamage", 0); d->heavyBulletJ = du.value("heavyBulletJ", 0.0f); d->heavyBulletDmg = du.value("heavyBulletDamage", 0);
+      d->launcherDmg = du.value("launcherDamage", 50); d->cannonDmg = du.value("cannonDamage", 100);
+      logf("vehicle %s: helicopter, rotor parts %zu, tail rotor parts %zu, %zu rocket pods", d->id.c_str(), d->rotorParts.size(), d->tailRotorParts.size(), d->pods.size());
+    }
     if (d->car) {
       d->driverEye = jv(rg, "driverEye", d->hatchEye); if (!rg.contains("hatchEye")) d->hatchEye = d->driverEye;   // VH2: the exits are checked from the driver's head
       d->steerAxis = glm::normalize(jv(rg, "steerAxis", d->steerAxis)); d->windshieldPivot = jv(rg, "windshieldPivot");
@@ -172,12 +197,12 @@ bool TankSys::adoptCar(App& app, uint64_t id) {
   const AssetDef* a = rt->second.asset;
   auto& dp = adoptedDefs[a->id];
   if (!dp) {
-    vec3 rlo(1e9f), rhi(-1e9f), dash(0, 1.0f, 0.6f), blo(1e9f), bhi(-1e9f); float wr = 0.33f; bool rims = false;
+    vec3 dashS(0, 0.3f, 0.4f), rlo(1e9f), rhi(-1e9f), dash(0, 1.0f, 0.6f), blo(1e9f), bhi(-1e9f); float wr = 0.33f; bool rims = false;
     for (auto& p : a->parts) {
       const std::string& mn = p.mat >= 0 && p.mat < (int)a->materials.size() ? a->materials[p.mat].name : std::string();
       blo = glm::min(blo, p.center - p.size * 0.5f); bhi = glm::max(bhi, p.center + p.size * 0.5f);
       if (mn == "rim") { rims = true; rlo = glm::min(rlo, p.center); rhi = glm::max(rhi, p.center); wr = std::max(wr, p.center.y); }
-      if (mn == "dash") dash = p.center;
+      if (mn == "dash") { dash = p.center; dashS = p.size; }
     }
     if (!rims || bhi.x <= blo.x) return false;   // not a car
     auto d = std::make_unique<TankDef>();
@@ -188,7 +213,10 @@ bool TankSys::adoptCar(App& app, uint64_t id) {
     d->trackHalfGauge = std::max(0.5f, std::max(std::fabs(rlo.x), std::fabs(rhi.x)));
     d->trackHalfLen = std::max(0.8f, 0.5f * (rhi.z - rlo.z)); d->carL = 2 * d->trackHalfLen;
     d->wheelR = wr;
-    d->driverEye = vec3(-0.37f, dash.y + 0.38f, dash.z - 0.75f); d->hatchEye = d->driverEye;   // the generic kit seats the driver at x -0.37
+    float wheelX = -0.37f;   // VH6: on the steering wheel's side (a thin rubber ring at dash height), else the generic kit's x -0.37
+    for (auto& p : a->parts) { const std::string& mn = p.mat >= 0 && p.mat < (int)a->materials.size() ? a->materials[p.mat].name : std::string();
+      if (mn == "rubber" && p.shape == Part::CYL && p.size.y < 0.06f && p.size.x < 0.5f && std::fabs(p.center.y - dash.y) < 0.4f) wheelX = p.center.x; }
+    d->driverEye = vec3(wheelX, dash.y + dashS.y * 0.5f + 0.30f, dash.z - dashS.z * 0.5f - 0.62f); d->hatchEye = d->driverEye;   // over the wheel, ~0.6 m behind the dash
     d->engine = vec3(0, 0.8f, bhi.z - 0.6f); d->exhausts = {vec3(0.4f, 0.3f, blo.z - 0.05f)};
     float sx = hx + 1.1f; d->exits = {vec3(-sx, 0, 0), vec3(sx, 0, 0), vec3(-sx, 0, blo.z * 0.6f), vec3(sx, 0, blo.z * 0.6f), vec3(0, 0, blo.z - 1.5f), vec3(0, 0, bhi.z + 1.5f)};
     // arcade civilian handling (bigger = slower): ~80 km/h on roads, 45 off-road

@@ -1,0 +1,325 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  7.314967155456543,
+  5.103011131286621,
+  9.337499618530273
+ ],
+ "bmin": [
+  -7.314967155456543,
+  0.0,
+  -9.337499618530273
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_0.jpg",
+   "name": "mat_0-Decal.jpg"
+  },
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.png",
+   "name": "mat_1-Glass.jpg"
+  },
+  {
+   "albedo": "albedo_0.jpg",
+   "name": "mat_2-Alpha.jpg"
+  },
+  {
+   "albedo": "albedo_3.jpg",
+   "name": "mat_3-Alpha_2.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "name": "mat_4-Missile_1.jpg"
+  },
+  {
+   "albedo": "albedo_5.jpg",
+   "name": "mat_5-Main_Body_1.jpg"
+  },
+  {
+   "albedo": "albedo_7.jpg",
+   "name": "mat_6-Main_Body_2.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.6537145376205444,
+    1.6686112880706787,
+    -0.5000864863395691
+   ],
+   "bmin": [
+    -0.731574535369873,
+    0.897834300994873,
+    -3.0195231437683105
+   ],
+   "count": 30,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "AH-64D Apache Combat Helicopter.obj.cleaner.materialmerger.gles",
+   "role": "hull",
+   "rough": 0.6000000238418579,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.879227638244629,
+    3.132962942123413,
+    5.634605407714844
+   ],
+   "bmin": [
+    -1.9259003400802612,
+    1.8701145648956299,
+    -0.936155378818512
+   ],
+   "count": 504,
+   "first": 30,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "AH-64D Apache Combat Helicopter.obj.cleaner.materialmerger.gles",
+   "role": "hull",
+   "rough": 0.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.8589093685150146,
+    2.4012839794158936,
+    0.0509529784321785
+   ],
+   "bmin": [
+    -1.8477118015289307,
+    2.253146171569824,
+    -0.5537884831428528
+   ],
+   "count": 12,
+   "first": 534,
+   "mat": 2,
+   "metal": 0.0,
+   "name": "AH-64D Apache Combat Helicopter.obj.cleaner.materialmerger.gles",
+   "role": "hull",
+   "rough": 0.6000000238418579,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.0786471366882324,
+    1.0389426946640015,
+    3.1270315647125244
+   ],
+   "bmin": [
+    -2.1336631774902344,
+    0.5079972743988037,
+    3.048185348510742
+   ],
+   "count": 3120,
+   "first": 546,
+   "mat": 3,
+   "metal": 0.0,
+   "name": "AH-64D Apache Combat Helicopter.obj.cleaner.materialmerger.gles",
+   "role": "hull",
+   "rough": 0.6000000238418579,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.1319079399108887,
+    1.096043348312378,
+    3.1171486377716064
+   ],
+   "bmin": [
+    -2.1876938343048096,
+    0.44298601150512695,
+    1.335986852645874
+   ],
+   "count": 13488,
+   "first": 3666,
+   "mat": 4,
+   "metal": 0.0,
+   "name": "AH-64D Apache Combat Helicopter.obj.cleaner.materialmerger.gles",
+   "role": "hull",
+   "rough": 0.6000000238418579,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    3.0895845890045166,
+    5.103011131286621,
+    5.870597839355469
+   ],
+   "bmin": [
+    -3.1442723274230957,
+    0.6856788396835327,
+    0.9793092608451843
+   ],
+   "count": 13869,
+   "first": 17154,
+   "mat": 5,
+   "metal": 0.0,
+   "name": "AH-64D Apache Combat Helicopter.obj.cleaner.materialmerger.gles",
+   "role": "hull",
+   "rough": 0.30000001192092896,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    3.0891435146331787,
+    4.011905670166016,
+    7.229092121124268
+   ],
+   "bmin": [
+    -3.139326810836792,
+    0.0,
+    -9.33365249633789
+   ],
+   "count": 31191,
+   "first": 31023,
+   "mat": 6,
+   "metal": 0.0,
+   "name": "AH-64D Apache Combat Helicopter.obj.cleaner.materialmerger.gles",
+   "role": "hull",
+   "rough": 0.4000000059604645,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.11190088093280792,
+    0.5506064891815186,
+    5.453525066375732
+   ],
+   "bmin": [
+    -0.2796913981437683,
+    0.2606954574584961,
+    4.616751194000244
+   ],
+   "count": 360,
+   "first": 62214,
+   "mat": 6,
+   "metal": 0.0,
+   "name": "m230",
+   "role": "gun",
+   "rough": 0.4000000059604645,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.9415331482887268,
+    3.3514902591705322,
+    -6.493453502655029
+   ],
+   "bmin": [
+    0.22127583622932434,
+    2.252481460571289,
+    -9.337499618530273
+   ],
+   "count": 1104,
+   "first": 62574,
+   "mat": 6,
+   "metal": 0.0,
+   "name": "tail_rotor",
+   "role": "tailrotor",
+   "rough": 0.4000000059604645,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    7.314967155456543,
+    3.9612812995910645,
+    9.337499618530273
+   ],
+   "bmin": [
+    -7.314967155456543,
+    3.2637550830841064,
+    -5.329545974731445
+   ],
+   "count": 1968,
+   "first": 63678,
+   "mat": 6,
+   "metal": 0.0,
+   "name": "main_rotor",
+   "role": "rotor",
+   "rough": 0.4000000059604645,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  -90.0,
+  0.0
+ ],
+ "scale": 7.46999979019165,
+ "source": "boeing_ah-64d_apache_combat_helicopter.glb",
+ "textures": {},
+ "triangles": 21882,
+ "vehicleOrigin": {
+  "note": "x/z centred on the hull, y = 0 at the running gear's lowest point",
+  "shift": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ "vertices": 23988
+}

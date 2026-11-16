@@ -108,12 +108,14 @@ bool App::tryStartMantle(vec3 feet, float yawDeg, bool fromWater) {
 }
 
 // the climb from `feet` up to yCross, forward dLand along f, down onto `land`: swept for the standing body, then started
-bool App::beginMantle(vec3 feet, vec3 f, float dLand, float yCross, float land, float hgt, vec3 ledgePt, bool over) {
+// window: the crouched body is swept instead (window sashes ignored, mantleFits) and the landing must stand
+bool App::beginMantle(vec3 feet, vec3 f, float dLand, float yCross, float land, float hgt, vec3 ledgePt, bool over, bool window) {
   const MantleSettings& M = mantleCfg;
-  const vec3 lift(0, 0.06f, 0);
+  const vec3 lift(0, window ? 0.02f : 0.06f, 0);
   vec3 P0 = feet, P1(feet.x, yCross, feet.z), P2 = feet + f * dLand, P3;
   P2.y = yCross; P3 = vec3(P2.x, land, P2.z);
-  auto sweep = [&](vec3 a, vec3 b) { int n = std::max(1, (int)std::ceil(glm::length(b - a) / 0.08f)); for (int k = 1; k <= n; ++k) if (!Physics::shapeFitsAt(Physics::STAND, glm::mix(a, b, (float)k / n) + lift)) return false; return true; };
+  mantle.window = window;
+  auto sweep = [&](vec3 a, vec3 b) { int n = std::max(1, (int)std::ceil(glm::length(b - a) / 0.08f)); for (int k = 1; k <= n; ++k) if (!mantleFits(glm::mix(a, b, (float)k / n) + lift)) return false; return true; };
   if (!sweep(P0, P1)) { mantle.why = "no room to pull up (overhang / ceiling)"; return false; }
   if (!sweep(P1, P2)) { mantle.why = "body does not clear the ledge (head room)"; return false; }
   if (!sweep(P2, P3)) { mantle.why = "landing blocked"; return false; }
@@ -125,6 +127,82 @@ bool App::beginMantle(vec3 feet, vec3 f, float dLand, float yCross, float land, 
   mantle.t = 0; mantle.pitchOff = 0; mantle.eyeFrom = eyeHeight;
   mantle.active = true; mantle.why = over ? "mantle over" : "mantle"; ++mantle.count;
   riseT = riseDur = 0;
+  return true;
+}
+
+bool App::isWindowLeafUD(uint64_t u) const {
+  uint64_t low = u & 0xFFFF;
+  if (u == 0 || (u >> 60) == 0xF || low == 0 || low >= 0xFFF0) return false;   // terrain, static core, debris, wall compound
+  auto it = rt.find(u >> 16); if (it == rt.end() || !it->second.asset) return false;
+  const auto& v = it->second.asset->interactables;
+  return low <= v.size() && v[low - 1].kind == "window";
+}
+
+bool App::mantleFits(vec3 p) const {
+  if (!mantle.window) return Physics::shapeFitsAt(Physics::STAND, p);
+  return Physics::shapeFitsAtSkip(Physics::CROUCH, p, [this](uint64_t u) { return isWindowLeafUD(u); });
+}
+
+// MV2: through a window (docs/movement.md#window-vault). Hold Space facing an opening whose sill is 0.4-2.2 m above the
+// ground under the feet, in a wall at most 1 m deep, with a lintel above it (else it is a wall top: the mantle climbs
+// onto it). The crouched body crosses at sill height with the window's sashes ignored (frames and glass never snag) and
+// must fit through; the landing beyond is at most 1.8 m below the sill, where the standing body fits. Intact panes
+// on the way break. Closed shutters, bars and anything else solid stay in the way. Player only: bots keep their links.
+bool App::tryStartWindowVault(vec3 feet, float yawDeg) {
+  const MantleSettings& M = mantleCfg;
+  vec3 f = forward(yawDeg, 0); f.y = 0; f = glm::normalize(f);
+  float ground = feet.y; { Physics::Hit g; if (Physics::castRayEx(feet + vec3(0, 0.05f, 0), vec3(0, -1, 0), 1.6f, g)) ground = g.pos.y; }
+  const float len = M.reach + 2.0f;
+  auto ray = [&](vec3 o, vec3 d, float L, Physics::Hit& h) { Physics::Hit hs[4]; if (Physics::castRayAll(o, d, L, hs, 4, true) < 1) return false; h = hs[0]; return true; };
+  // horizontal scan 0.3-3.2 m up, sashes skipped: the face, then the open band (the ray carries on past the face)
+  constexpr int N = 30; float t[N]; float dFace = 99;
+  for (int i = 0; i < N; ++i) { Physics::Hit h; t[i] = ray(vec3(feet.x, ground + 0.3f + 0.1f * i, feet.z), f, len, h) ? h.t : len; if (i < 9) dFace = std::min(dFace, t[i]); }
+  if (dFace > M.reach + 0.3f) { mantle.why = "window: no wall in reach"; return false; }
+  auto open = [&](int i) { return t[i] > dFace + 0.45f; };
+  int lo = 0; while (lo < N && !open(lo)) ++lo;
+  if (lo == 0 || lo >= N) { mantle.why = "window: no opening"; return false; }
+  int hi = lo; while (hi + 1 < N && open(hi + 1)) ++hi;
+  if (hi + 1 >= N || t[hi + 1] > dFace + 0.45f) { mantle.why = "window: no lintel (a wall top)"; return false; }
+  // the sill: down from inside the opening, along f until it falls away (the wall's far face)
+  const float yProbe = ground + 0.3f + 0.1f * lo + 0.2f;
+  float sill = -1e9f, run = -1e9f, dEdge = -1;
+  for (float d = dFace + 0.02f; d <= dFace + 1.2f; d += 0.03f) {
+    Physics::Hit g; vec3 o = feet + f * d; o.y = yProbe;
+    bool got = ray(o, vec3(0, -1, 0), 3.5f, g);
+    if (sill < -1e8f) { if (!got) break; sill = run = g.pos.y; continue; }
+    if (!got || g.pos.y < sill - 0.3f) { dEdge = d; break; }
+    run = std::max(run, g.pos.y);
+  }
+  if (sill < -1e8f) { mantle.why = "window: no sill"; return false; }
+  if (dEdge < 0) { mantle.why = "window: wall deeper than 1.2 m"; return false; }
+  float hgt = sill - ground;
+  if (hgt < M.minH || hgt > M.maxH) { char b[96]; std::snprintf(b, sizeof b, "window: sill %.2f m outside the climb range", hgt); mantle.why = b; return false; }
+  const float yCross = run + 0.02f;
+  float dLand = -1, land = 0;
+  for (float d = dEdge + 0.35f; d <= dEdge + 1.2f + 1e-4f; d += 0.06f) {
+    Physics::Hit g; vec3 o = feet + f * d; o.y = yCross + 0.5f;
+    if (!ray(o, vec3(0, -1, 0), 2.6f, g)) continue;
+    if (g.pos.y > yCross + 0.3f || g.pos.y < sill - 1.8f) continue;
+    if (!Physics::shapeFitsAtSkip(Physics::STAND, g.pos + vec3(0, 0.06f, 0), [this](uint64_t u) { return isWindowLeafUD(u); })) continue;
+    dLand = d; land = g.pos.y; break;
+  }
+  if (dLand < 0) { mantle.why = "window: nowhere to land beyond"; return false; }
+  vec3 ledgePt = feet + f * dFace; ledgePt.y = sill;
+  if (!beginMantle(feet, f, dLand, yCross, land, hgt, ledgePt, true, true)) { mantle.window = false; return false; }
+  mantle.why = "window vault";
+  // intact panes in the way break (the sash itself stays): rays through the crossing, sashes included
+  vec3 rgt = glm::normalize(glm::cross(f, vec3(0, 1, 0)));
+  for (float side : {-0.2f, 0.0f, 0.2f})
+    for (float y = 0.15f; y <= 1.15f; y += 0.25f) {
+      Physics::Hit hs[6]; int n = Physics::castRayAll(vec3(feet.x, yCross + y, feet.z) + rgt * side, f, dLand + 0.1f, hs, 6, false);
+      for (int j = 0; j < n; ++j) {
+        if (!isWindowLeafUD(hs[j].ud)) continue;
+        Instance* inst = doc.find(hs[j].ud >> 16); auto it = rt.find(hs[j].ud >> 16);
+        if (!inst || it == rt.end()) continue;
+        int k = (int)(hs[j].ud & 0xFFFF) - 1, l = -1; bool onGlass = false;
+        if (locateLeaf(*inst, it->second, k, hs[j].pos, l, onGlass) && it->second.asset->interactables[k].leaves[l].glass.count > 0) breakGlass(*inst, it->second, k, l, hs[j].pos);
+      }
+    }
   return true;
 }
 
@@ -158,7 +236,7 @@ void App::stepMantle(float dt) {
     m.active = false; if (why) m.why = why;
   };
   // the ledge or the landing may change mid-climb (destroyed, someone in the way): stop where the body still fits
-  if (!Physics::shapeFitsAt(Physics::STAND, p + vec3(0, 0.06f, 0))) { finish("mantle interrupted (path blocked)"); return; }
+  if (!mantleFits(p + vec3(0, m.window ? 0.02f : 0.06f, 0))) { finish("mantle interrupted (path blocked)"); return; }
   Physics::setCharacterPos(p);
   // camera: rises with the pull to ~0.7 m over the ledge, dips forward over it, then stands
   float yL = m.ledge.y, y0 = m.pts[0].y + m.eyeFrom, yA = yL + 0.72f, yB = (m.over ? m.pts[2].y : yL) + 0.6f, yEnd = m.pts[3].y + move.eyeStand;

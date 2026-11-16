@@ -1,5 +1,6 @@
 // Tanks: drawing (supplied GLB parts on the rig), gunner sights, HUD, Enter prompt, catalog thumbnails and the
 // temporary synthesized tank sounds. docs/tanks.md
+#include "vehicle_dash.h"
 #include "app.h"
 #include <imgui.h>
 #include <random>
@@ -19,6 +20,7 @@ void TankSys::drawItems(App& app, const Instance& i, const InstanceRT& r) {
   mat4 h, tu, g, rc; rig(t, h, tu, g, rc);
   vec4 tint = t.wrecked ? vec4(0.13f, 0.12f, 0.11f, 1) : vec4(1);   // burnt-out: darker than a live tank
   if (d.car) { drawCar(app, t, tint, h); return; }
+  if (d.heli) { drawHeli(app, t, tint, h); return; }   // VH5
   bool sight = app.mode == Mode::Explore && occupied == t.id && t.hatchT < 0.5f;   // inside the optic: the own gun is not drawn
   auto put = [&](const std::vector<int>& ps, const mat4& M) { for (int k : ps) app.R.worldModels.push_back({gm, k, M, tint}); };
   put(d.hullParts, h);
@@ -47,6 +49,7 @@ void TankSys::carStaticParts(const TankDef& d, std::vector<int>& out) const {
 }
 void TankSys::drawCar(App& app, const TankRT& t, vec4 tint, const mat4& h) {
   const TankDef& d = *t.def; const GpuModel* gm = d.model.get();
+  vehicleDashDraw(app, t, h);   // VH6: the instrument panel seen from the driver's seat
   if (d.partsAsset) {   // BR7 adopted car: its part-built mesh moves as one (the wheels do not turn)
     app.worldBoxDraws.push_back({&d.partsAsset->opaque, h, tint});   // shortcut: its glass is not drawn while adopted (the box list is opaque)
     return;
@@ -155,6 +158,7 @@ void TankSys::drawUI(App& app) {
   if (!tp) return;
   TankRT& t = *tp; const TankDef& d = *t.def;
   if (d.car) { drawCarUI(app, t); return; }
+  if (d.heli) { drawHeliUI(app, t); return; }   // VH5
   vec3 eye, fwd; float fov;
   camera(app, eye, fwd, fov);
   float fpx = (io.DisplaySize.y * 0.5f) / std::tan(radians(fov) * 0.5f);   // pixels per unit tangent (vertical FOV)

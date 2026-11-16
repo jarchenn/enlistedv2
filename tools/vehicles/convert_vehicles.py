@@ -7,6 +7,7 @@
 #   blender -b --factory-startup --python convert_vehicles.py -- willys  <jeep_willys_mb...glb> <out.glb>
 #   blender -b --factory-startup --python convert_vehicles.py -- ww2jeep <ww2_jeep.glb> <out.glb>
 #   blender -b --factory-startup --disable-autoexec "<all5 together.blend>" --python convert_vehicles.py -- opel "<collection>" <out.glb>
+#   blender -b --factory-startup --disable-autoexec <Sketchfab_2022_12_12_22_16_32.blend> --python convert_vehicles.py -- sherman_m4 <out.glb>
 import bpy, sys, bmesh
 import numpy as np
 from mathutils import Matrix, Vector
@@ -279,6 +280,79 @@ elif mode == 'boxer':
         elif n.startswith(RWS): put(o, 'rws')
         else: put(o, 'hull')
     print('BOXER roles', {k: len(v.children) for k, v in groups.items()})
+elif mode == 'sherman_m4':
+    # VH4 M4 Sherman (m4-sherman.zip: source/Sketchfab_2022_12_12_22_16_32.blend, a multi-variant scene; the visible
+    # "M4" collection is the 75 mm M4, ~180 loose objects, front -y, z up, ~0.51 m per unit). Roles by material and place:
+    # Tower -> turret, except the gun (barrel, mantlet, sight: Tower objects in front of the turret face, |x| < 0.25,
+    # 0.3 < z): "gun"; the roof .50 and its belt -> "mg"; Tracks -> track; Suspension (bogies, wheels) -> wheels;
+    # body, skirts, stowage -> hull. Curves (cables) are dropped. The game scales it (realLength on the hull node).
+    # usage: blender -b --factory-startup --disable-autoexec <the .blend> --python convert_vehicles.py -- sherman_m4 <out.glb>
+    coll = bpy.data.collections['M4']
+    meshes = [o for o in coll.objects if o.type == 'MESH']
+    dg = bpy.context.evaluated_depsgraph_get()
+    for o in meshes:   # mirror / array modifiers (one side of the tracks and bogies is modelled) applied first
+        me = bpy.data.meshes.new_from_object(o.evaluated_get(dg)); o.modifiers.clear(); o.data = me
+    bake_world(meshes, 1.0)
+    for o in list(bpy.data.objects):
+        if o not in meshes: bpy.data.objects.remove(o, do_unlink=True)
+    for o in meshes:
+        m = o.material_slots[0].material.name if o.material_slots and o.material_slots[0].material else ''
+        vs = [v.co for v in o.data.vertices]; lo = Vector([min(v[i] for v in vs) for i in range(3)]); hi = Vector([max(v[i] for v in vs) for i in range(3)])
+        if m.startswith('M4_Base_Tower'):
+            put(o, 'gun' if hi.y <= -0.14 and lo.z >= 0.3 and max(abs(lo.x), abs(hi.x)) <= 0.25 else 'turret')
+        elif m.startswith(('MG_M4A2', 'Bullet')): put(o, 'mg')
+        elif m.startswith('M4_Base_Tracks'): put(o, 'track')
+        elif m.startswith('M4_Base_Suspension'): put(o, 'wheels')
+        else: put(o, 'hull')
+    print('SHERMAN gun parts', [o.name for o in groups['gun'].children])
+elif mode == 'ural':
+    # VH6 Ural-4320 6x6 army truck (ural-4320-soviet-army-truck.zip: source/URAL-4320 Army.glb; no author or licence in
+    # the archive: the bake is local-only). Front -y, z up, 7.89 m long: scaled x0.934 to the real 7.37 m. Glass dropped;
+    # the six wheels are one mesh: its islands by axle (front -> wheel_f*, middle -> wheel_r2*, rear -> wheel_r*) and side;
+    # the steering wheel is cut out of the cab interior (the islands around its hub behind the dash gauges).
+    # usage: blender -b --factory-startup --disable-autoexec --python convert_vehicles.py -- ural <URAL-4320 Army.glb> <out.glb>
+    bpy.ops.wm.read_factory_settings(use_empty=True); bpy.ops.import_scene.gltf(filepath=a[1]); bpy.context.view_layer.update()
+    meshes = [o for o in bpy.data.objects if o.type == 'MESH']
+    bake_world(meshes, 1.0)
+    for o in list(bpy.data.objects):
+        if o.type != 'MESH': bpy.data.objects.remove(o, do_unlink=True)
+    for o in list(bpy.data.objects):
+        if o.name == 'Windows': bpy.data.objects.remove(o, do_unlink=True)
+    for o in bpy.data.objects: drop_faces(o, {'Windows glass'})
+    def isl_split(o, pick, name):   # islands for which pick(lo, hi, centre) -> a new object
+        b = bmesh.new(); b.from_mesh(o.data); b.verts.ensure_lookup_table()
+        keep = set()
+        for c in islands(b):
+            vs = [v.co for v in c]; lo = Vector([min(v[i] for v in vs) for i in range(3)]); hi = Vector([max(v[i] for v in vs) for i in range(3)])
+            if pick(lo, hi, (lo + hi) / 2): keep.update(v.index for v in c)
+        b.free()
+        return split_off(o, keep, name) if keep else None
+    C = Vector((0.465, -1.685, 1.98))   # the steering wheel's hub
+    inside = lambda lo, hi, c: max((lo - C).length, (hi - C).length) < 0.27 and c.y > -1.75
+    st = isl_split(bpy.data.objects['Interior.003'], inside, 'steer_wheel')
+    if st: put(st, 'steer')
+    wheel = bpy.data.objects['Wheel']
+    b = bmesh.new(); b.from_mesh(wheel.data); b.verts.ensure_lookup_table(); isl = islands(b)
+    cs = [sum((v.co for v in c), Vector()) / len(c) for c in isl]
+    ys = sorted(c.y for c in cs); axles = [ys[0], ys[len(ys) // 2], ys[-1]]
+    for _ in range(8):   # three axles by y (k-means)
+        groups3 = [[], [], []]
+        for c in cs: groups3[min(range(3), key=lambda k: abs(c.y - axles[k]))].append(c.y)
+        axles = [sum(g) / len(g) if g else axles[k] for k, g in enumerate(groups3)]
+    b.free()
+    names = ['f', 'r2', 'r']   # front to back (-y is the front)
+    order = sorted(range(3), key=lambda k: axles[k])
+    for rank, k in enumerate(order):
+        for side in ('l', 'r'):
+            pick = lambda lo, hi, c, k=k, side=side: min(range(3), key=lambda j: abs(c.y - axles[j])) == k and ((c.x > 0) == (side == 'l'))
+            w = isl_split(wheel, pick, 'wheel_' + names[rank] + side)
+            if w: put(w, 'wheel_' + names[rank] + side)
+    bpy.data.objects.remove(wheel, do_unlink=True)
+    S = Matrix.Scale(7.37 / 7.89, 4)
+    for o in bpy.data.objects:
+        if o.type == 'MESH': o.data.transform(S)
+        if o.type == 'MESH' and o.parent is None: put(o, 'hull')
+    print('URAL axles y', [round(x, 2) for x in sorted(axles)])
 else:
     raise SystemExit('unknown mode ' + mode)
 

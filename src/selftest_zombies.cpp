@@ -374,6 +374,8 @@ void build(App&) {
 // while they walk in and early / late in each heavy's first strike (selftest_out/heavies_*.png), with the playing clip
 // and head height logged. Nobody falls (hp topped up every frame).
 std::vector<std::pair<fs::path, std::string>> shotQ;
+bool ch1Capture = false;   // --capture-ch1: the CH1 types instead (selftest_out/ch1_*.png), then their deaths
+const char* kCh1Types[4] = {"knight", "animatronic", "alien", "alien_queen"};
 void buildCapture(App&) {
   push("capture", [](App& a, float t) {
     static int z3[4], atk[4], mc0[4], sol; static double t0, atkAt[4]; static float yaw, prev;
@@ -387,7 +389,7 @@ void buildCapture(App&) {
     if (!L || !L->alive || !allSpawned(G)) return t > 20 ? (chk(false, "everyone spawns"), true) : false;
     L->protectUntil = -1; if (L->hp < 3000) L->hp = 5000;
     if (t0 < 0) {
-      int k = 0; for (auto& s : G.sold) if (s.zombie && k < 4) { s.etype = k < 3 ? k : std::max(0, enemyTypeIndex("creature")); aiZombieAssign(G, s); s.hp = enemyType(s.etype).hp; z3[k++] = s.slot;
+      int k = 0; for (auto& s : G.sold) if (s.zombie && k < 4) { s.etype = ch1Capture ? std::max(0, enemyTypeIndex(kCh1Types[k])) : k < 3 ? k : std::max(0, enemyTypeIndex("creature")); aiZombieAssign(G, s); s.hp = enemyType(s.etype).hp; z3[k++] = s.slot;
         const EnemyType& e = enemyType(s.etype); if (s.agent >= 0 && e.capsuleH > 0) { Physics::destroyAgent(s.agent); s.agent = Physics::createAgent(s.feet, e.capsuleH, e.capsuleR); } }
       sol = -1; for (auto& s : G.sold) if (!s.zombie && !s.localPlayer && s.alive) sol = s.slot;
       vec3 sp; if (sol < 0 || !openPoint(G, L->feet, 6.0f, sp, 0.0f)) { chk(false, "the soldier placed"); return true; }
@@ -408,15 +410,43 @@ void buildCapture(App&) {
       Soldier& z = G.sold[z3[k]]; const CharModel& m = *G.models[z.model];
       float hy = vec3(z.world * vec4(z.pose.joint[CJ_HEAD], 1)).y - z.feet.y;
       n += std::snprintf(line + n, sizeof line - n, " | %s %s %.2fm d%.1f v%.1f", enemyType(z.etype).id.c_str(), z.anim.a >= 0 ? m.clips[z.anim.a].name.c_str() : "-", hy, dXZ(z.feet, sol >= 0 ? G.sold[sol].feet : L->feet), z.speed);
-      if (k > 0 && atkAt[k] < 0 && z.meleeCount > mc0[k]) atkAt[k] = G.t;   // its first strike: frames 0.35 s and 0.8 s in
-      if (k > 0 && atkAt[k] >= 0) { float in = (float)(G.t - atkAt[k]); int stage = in > 0.8f ? 2 : in > 0.35f ? 1 : 0;
-        if (stage > atk[k] && atk[k] < 2) { atk[k] = stage; char nm[64]; std::snprintf(nm, sizeof nm, "heavies_%s_attack%d.png", enemyType(z.etype).id.c_str(), stage); shotQ.push_back({outDir() / nm, line}); } }
+      if ((k > 0 || ch1Capture) && atkAt[k] < 0 && z.meleeCount > mc0[k]) atkAt[k] = G.t;   // its first strike: frames 0.35 s and 0.8 s in
+      if ((k > 0 || ch1Capture) && atkAt[k] >= 0) { float in = (float)(G.t - atkAt[k]); int stage = in > 0.8f ? 2 : in > 0.35f ? 1 : 0;
+        if (stage > atk[k] && atk[k] < 2) { atk[k] = stage; char nm[64]; std::snprintf(nm, sizeof nm, "%s_%s_attack%d.png", ch1Capture ? "ch1" : "heavies", enemyType(z.etype).id.c_str(), stage); shotQ.push_back({outDir() / nm, line}); } }
     }
-    for (float w : {0.6f, 1.2f, 1.8f}) if (since >= w && prev < w) { char nm[64]; std::snprintf(nm, sizeof nm, "heavies_walk_%.1f.png", w); shotQ.push_back({outDir() / nm, line}); }
+    for (float w : {0.6f, 1.2f, 1.8f}) if (since >= w && prev < w) { char nm[64]; std::snprintf(nm, sizeof nm, "%s_walk_%.1f.png", ch1Capture ? "ch1" : "heavies", w); shotQ.push_back({outDir() / nm, line}); }
     if ((int)(since * 4) != (int)(prev * 4)) T->note(line);
     prev = since;
     if (pendingShot.empty() && !shotQ.empty()) { pendingShot = shotQ.front().first; T->note("shot " + pendingShot.filename().string() + ": " + shotQ.front().second); shotQ.erase(shotQ.begin()); }
-    return (atk[1] >= 2 && atk[2] >= 2 && atk[3] >= 2 && shotQ.empty() && pendingShot.empty()) || since > 40; });
+    return ((!ch1Capture || atk[0] >= 2) && atk[1] >= 2 && atk[2] >= 2 && atk[3] >= 2 && shotQ.empty() && pendingShot.empty()) || since > 40; });
+  if (ch1Capture) push("line-up", [](App& a, float t) {   // close, one at a time: each in turn held ahead of the player facing it, the others far behind (selftest_out/ch1_close_<type>.png)
+    Game& G = *gGame; Soldier* L = G.local(); if (!L) return true;
+    static float yaw0, prevT; if (t == 0) { yaw0 = a.eyeYaw; prevT = 0; }
+    vec3 f = App::forward(yaw0, 0); f.y = 0; f = glm::normalize(f);
+    for (auto& s : G.sold) if (!s.zombie && !s.localPlayer && s.alive) { place(G, s, L->feet - f * 4.0f); s.hp = 5000; }   // their target behind the camera: they face it
+    int turn = 3 - (int)(t / 1.5f), k = 0;   // the last-spawned first
+    for (auto& s : G.sold) if (s.zombie && s.alive && k < 4) {
+      bool big = enemyType(s.etype).id == "alien_queen";
+      vec3 p = k == turn ? L->feet + f * (big ? 12.0f : 6.5f) : L->feet - f * (40.0f + 6.0f * k); p.y = a.terrain.height(p.x, p.z);
+      place(G, s, p); s.yaw = glm::degrees(std::atan2(f.x, f.z)); s.meleeReady = G.t + 5; s.hp = enemyType(s.etype).hp; s.protectUntil = G.t + 1;   // unhurt: the soldier keeps shooting
+      if (k == turn && std::fmod(t, 1.5f) >= 1.0f && std::fmod(prevT, 1.5f) < 1.0f) { pendingShot = outDir() / ("ch1_close_" + enemyType(s.etype).id + ".png"); char ln[200]; std::snprintf(ln, sizeof ln, "close %s at %.1f %.1f %.1f (player %.1f %.1f %.1f) clip %d hp %.0f", enemyType(s.etype).id.c_str(), s.feet.x, s.feet.y, s.feet.z, L->feet.x, L->feet.y, L->feet.z, s.anim.a, s.hp); T->note(ln); }
+      ++k;
+    }
+    a.eyeYaw = yaw0; a.eyePitch = 6;
+    prevT = t;
+    return t > 6.2f && pendingShot.empty(); });
+  if (ch1Capture) push("deaths", [](App& a, float t) {   // the four in a row ahead of the player, then they fall (their death clips)
+    Game& G = *gGame; static bool shot1, shot2;
+    if (t == 0) {
+      shot1 = shot2 = false; Soldier* L = G.local(); vec3 f = App::forward(a.eyeYaw, 0); f.y = 0; f = glm::normalize(f); vec3 r(-f.z, 0, f.x); int k = 0;
+      for (auto& s : G.sold) if (s.zombie && s.alive) {
+        if (L) { vec3 p = L->feet + f * 8.0f + r * ((k++ - 1.5f) * 3.2f); p.y = a.terrain.height(p.x, p.z); place(G, s, p); }
+        s.protectUntil = -1; G.killSoldier(s.slot, -1, -f);
+      }
+      return false; }
+    if (!shot1 && t > 0.6f && pendingShot.empty()) { shot1 = true; pendingShot = outDir() / "ch1_death_0.6.png"; }
+    if (!shot2 && t > 3.0f && pendingShot.empty()) { shot2 = true; pendingShot = outDir() / "ch1_death_3.0.png"; }
+    return shot2 && pendingShot.empty() && t > 3.5f; });
   push("done", [](App& a, float t) { if (t < 0.5f) return false; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
 }
 }   // namespace
@@ -534,10 +564,10 @@ void buildSlamCapture(App&) {
 }
 
 bool zombiesSelfTest(App& app, float dt) {
-  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) { std::string s = __argv[k]; if (s == "--selftest-zombies") mode = 1; else if (s == "--capture-heavies") mode = 2; else if (s == "--capture-fighter2") mode = 3; else if (s == "--capture-fighter2-slam") mode = 4; } }
-  if (mode < 1 || mode > 4) return false;
+  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) { std::string s = __argv[k]; if (s == "--selftest-zombies") mode = 1; else if (s == "--capture-heavies") mode = 2; else if (s == "--capture-ch1") mode = 5; else if (s == "--capture-fighter2") mode = 3; else if (s == "--capture-fighter2-slam") mode = 4; } }
+  if (mode < 1 || mode > 5) return false;
   if (dt < 0) { if (!pendingShot.empty()) { app.screenshot(pendingShot); pendingShot.clear(); } return true; }
-  if (!started) { started = true; T = new MpTest(mode == 2 ? "heavies" : mode == 3 ? "fighter2" : mode == 4 ? "fighter2_slam" : "zombies"); if (mode == 2) buildCapture(app); else if (mode == 3) buildFighterCapture(app); else if (mode == 4) buildSlamCapture(app); else build(app); cur = 0; st = 0; }
+  if (!started) { started = true; ch1Capture = mode == 5; if (mode == 5) mode = 2; T = new MpTest(ch1Capture ? "ch1" : mode == 2 ? "heavies" : mode == 3 ? "fighter2" : mode == 4 ? "fighter2_slam" : "zombies"); if (mode == 2) buildCapture(app); else if (mode == 3) buildFighterCapture(app); else if (mode == 4) buildSlamCapture(app); else build(app); cur = 0; st = 0; }
   if (cur < seq.size()) {
     bool done = seq[cur].fn(app, st);
     st += dt; total += dt;

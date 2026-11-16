@@ -1,0 +1,34 @@
+{
+ "Arms": [
+  "Arms_Diffuse.png",
+  "Arms_Normal.png"
+ ],
+ "Helmet": [
+  "Helmet_Diffuse.png",
+  "Helmet_Normal.png"
+ ],
+ "Legs": [
+  "Legs_Diffuse.png",
+  "Legs_Normal.png"
+ ],
+ "Legs2": [
+  "Legs_Diffuse.png",
+  "Legs_Normal.png"
+ ],
+ "Torso": [
+  "Torso_Diffuse.png",
+  "Torso_Normal.png"
+ ],
+ "Torso2": [
+  "Torso_Diffuse.png",
+  "Torso_Normal.png"
+ ],
+ "Mace": [
+  "Mace_Diffuse.png",
+  "Mace_Normal.png"
+ ],
+ "Shield": [
+  "Shield_Diffuse.png",
+  "Shield_Normal.png"
+ ]
+}

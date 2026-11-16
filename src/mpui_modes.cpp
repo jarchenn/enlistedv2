@@ -2,6 +2,7 @@
 #include "game.h"
 #include "app.h"
 #include "mpui.h"
+
 #include "royale.h"
 #include "loot.h"   // BR2 Battle Royale loot
 #include <imgui.h>
@@ -78,11 +79,9 @@ void Game::scoreboardTable(bool full) {
       ImGui::TableSetupColumn("#", 0, 28); ImGui::TableSetupColumn("Player", 0, 220); ImGui::TableSetupColumn("Kills", 0, 56);
       ImGui::TableSetupColumn("Deaths", 0, 56); ImGui::TableSetupColumn("Score", 0, 64);
       ImGui::TableHeadersRow();
-      int rank = 0, hiddenN = 0;
-      for (auto* s : v) {
-        ++rank;
+      int hiddenN = 0;
+      auto row = [&](int rank, const RosterSlot* s) {
         bool me = L && s->id == L->slot;
-        if (!full && rank > kTop && !me) { ++hiddenN; continue; }
         ImGui::TableNextRow();
         if (me) ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, IM_COL32(90, 80, 40, 150));
         ImGui::TableNextColumn(); ImGui::Text("%d", rank);
@@ -90,7 +89,9 @@ void Game::scoreboardTable(bool full) {
         ImGui::TableNextColumn(); ImGui::Text("%d", s->kills);
         ImGui::TableNextColumn(); ImGui::Text("%d", s->deaths);
         ImGui::TableNextColumn(); ImGui::Text("%d", s->score);
-      }
+      };
+      if (full) { ImGuiListClipper clip; clip.Begin((int)v.size()); while (clip.Step()) for (int i = clip.DisplayStart; i < clip.DisplayEnd; ++i) row(i + 1, v[i]); }   // AI2: 1000 rows, only the visible ones drawn
+      else for (int i = 0; i < (int)v.size(); ++i) { if (i >= kTop && !(L && v[i]->id == L->slot)) { ++hiddenN; continue; } row(i + 1, v[i]); }
       ImGui::EndTable();
       if (hiddenN) ImGui::TextDisabled("+ %d more", hiddenN);
     }
