@@ -604,7 +604,7 @@ void TankSys::fireMg(App& app, TankRT& t) {
   app.fireProjectile(m, fd, d.mgVel, PROJ_BULLET, 0, bodyUD(t.id), (t.mgShots % 5) == 0, d.mgName);
   if (!app.projectiles.empty()) app.projectiles.back().mass = d.mgBulletMass;
   --t.mgLoaded; ++t.mgShots; t.mgCool += 60.0f / d.mgRpm; t.mgBurst = true;
-  app.fx.flash(m + dir * 0.06f, 0.2f, 0.04f, vec4(9, 6, 2.5f, 1));
+  app.fx.muzzleFlash(m + dir * 0.03f, dir, 1.7f, false, m);   // WP4
   app.audio.play(d.mgSound, m, 0.9f);
   app.viewKickPitch = 0.25f;
 }
@@ -644,7 +644,7 @@ void TankSys::fireBow(App& app, TankRT& t) {
   app.fireProjectile(m, fd, d.bowVel, PROJ_BULLET, 0, bodyUD(t.id), (t.bowShots % 5) == 0, d.bowName);
   if (!app.projectiles.empty()) app.projectiles.back().mass = d.bowBulletMass;
   --t.bowLoaded; ++t.bowShots; t.bowCool += 60.0f / d.bowRpm; t.bowBurst = true;
-  app.fx.flash(m + dir * 0.06f, 0.18f, 0.04f, vec4(9, 6, 2.5f, 1));
+  app.fx.muzzleFlash(m + dir * 0.03f, dir, 1.5f, false, m);   // WP4
   app.fx.smoke(m + dir * 0.1f, dir * 1.5f + vec3(0, 0.3f, 0), 0.05f, 1.0f, vec4(0.6f, 0.58f, 0.55f, 0.3f), 0.6f, 0.2f);
   app.audio.play(d.bowSound, m, 0.95f);
   if (occupied == t.id) app.viewKickPitch = std::max(app.viewKickPitch, 0.08f);

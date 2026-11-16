@@ -488,7 +488,7 @@ void App::stationShoot(uint64_t id, int owner) {
     tracer = tracerKindFor(3, s->shots + 1);   // MG 42 / M2HB: a red tracer every 3rd round, the others a short streak
     fireProjectile(start, dir, mg42 ? 755.0f : 890.0f, PROJ_BULLET, 0, coreUD(inst->id), tracer, d.ammo);
     s->burst++;
-    fx.flash(muzzle + dir * 0.08f, mg42 ? 0.18f : 0.25f, 0.04f, vec4(9, 6, 2.5f, 1));
+    fx.muzzleFlash(muzzle + dir * 0.03f, dir, mg42 ? 1.5f : 1.9f, false, muzzle);   // WP4
     audio.play(mg42 ? "shot_mg42" : "shot_m2hb", muzzle, 1.0f);
   } else {
     vec3 bore = d.muzzle - d.elevPivot;   // the bore axis at the trunnion plane (the Flak's bore sits above its trunnions)

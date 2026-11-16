@@ -86,8 +86,13 @@ mat4 App::vmLocal(const WeaponDef& d, const WeaponState& s, bool withProcedural)
           glm::mat4_cast(glm::angleAxis(radians(vm.swayR.x), vec3(0, 1, 0)) * glm::angleAxis(radians(vm.swayR.y), vec3(1, 0, 0))) *
           glm::translate(mat4(1), -pivot);
   }
-  p.z += s.kick * (reducedMotion ? 0.3f : 1.0f);   // recoil push into the shoulder
+  float rm = reducedMotion ? 0.3f : 1.0f;
+  p.z += s.kick * rm;   // recoil: back along the bore into the shoulder (WP4 spring)
   mat4 m = rot * glm::translate(mat4(1), p) * glm::mat4_cast(Q);
+  if (!vmNoRecoilRot && (s.kickP != 0 || s.kickY != 0)) {   // WP4: muzzle up and a slight left nudge, pivoting at the shoulder behind the rear sight
+    vec3 piv = p + Q * Rp + vec3(0, -0.04f, 0.16f);
+    m = glm::translate(mat4(1), piv) * glm::mat4_cast(glm::angleAxis(radians(s.kickY * rm), vec3(0, 1, 0)) * glm::angleAxis(radians(s.kickP * rm), vec3(1, 0, 0))) * glm::translate(mat4(1), -piv) * m;
+  }
   if (d.equipment() || d.tool) m = m * equipmentPose(d, s);   // GM3: the hammer's swing too   // wind-up / throw / swing (procedural: no animations supplied)
   // reload / switch dip
   if (s.reload > 0 && s.reloadKind != 3) {

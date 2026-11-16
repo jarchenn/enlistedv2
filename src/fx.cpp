@@ -14,6 +14,28 @@ void Fx::flash(vec3 p, float size, float life, vec4 col) {
   Particle q; q.p = p; q.size = size; q.life = q.maxLife = life; q.col = col; q.additive = true; q.grow = -size / life * 0.3f;
   parts.push_back(q);
 }
+void Fx::muzzleFlash(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light) {
+  dir = glm::length(dir) > 1e-4f ? glm::normalize(dir) : vec3(0, 0, -1);
+  vec3 up = std::fabs(dir.y) > 0.95f ? vec3(1, 0, 0) : vec3(0, 1, 0), s1 = glm::normalize(glm::cross(dir, up)), s2 = glm::cross(s1, dir);
+  float life = 0.02f + 0.02f * rnd();
+  auto put = [&](vec3 q, float size, vec4 col) {
+    if (parts.size() >= maxParts) parts.erase(parts.begin());
+    Particle a; a.p = q; a.size = size; a.life = a.maxLife = life; a.col = col; a.additive = true; a.grow = size * 1.5f; parts.push_back(a);
+  };
+  if (suppressed) { put(p + dir * 0.01f * scale, 0.025f * scale, vec4(3.0f, 1.6f, 0.5f, 1)); return; }
+  put(p + dir * 0.015f * scale, (0.05f + 0.025f * rnd()) * scale, vec4(10.0f, 7.5f, 3.0f, 1));   // yellow-orange core
+  int n = 4 + (int)(rnd() * 3.0f);
+  float spin = rnd() * 6.2831853f;
+  for (int k = 0; k < n; ++k) {
+    float along = (0.03f + 0.11f * rnd()) * scale;   // outer flame: forward along the bore, a few side petals
+    float a = spin + k * 6.2831853f / n, sideK = k < 2 ? 0.0f : (0.02f + 0.03f * rnd()) * scale;
+    vec3 q = p + dir * along + (s1 * std::cos(a) + s2 * std::sin(a)) * sideK;
+    put(q, (0.045f - 0.15f * along / std::max(0.1f, scale) + 0.02f * rnd()) * scale, vec4(7.5f, 3.0f + 1.2f * rnd(), 0.6f, 1));
+  }
+  if (mlights.size() >= 8) mlights.erase(mlights.begin());
+  MuzzleLight L; L.p = light; L.life = life + 0.01f; L.k = scale; L.id = 0xF1A50100u + (++mlightSerial & 0xFF); mlights.push_back(L);
+}
+
 void Fx::streak(vec3 a, vec3 b, float width, float life, vec4 col) {
   if (streaks.size() >= maxStreaks) streaks.erase(streaks.begin());
   streaks.push_back({a, b, life, life, width, col});
@@ -121,6 +143,8 @@ void Fx::impact(vec3 p, vec3 n, const std::string& surface) {
 }
 
 void Fx::update(float dt, const Terrain& t) {
+  for (auto& L : mlights) L.age += dt;   // WP4 muzzle lights
+  mlights.erase(std::remove_if(mlights.begin(), mlights.end(), [](const MuzzleLight& L) { return L.age >= L.life; }), mlights.end());
   for (auto& q : parts) {
     q.life -= dt;
     q.v *= std::exp(-q.drag * dt);

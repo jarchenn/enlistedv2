@@ -940,6 +940,10 @@ void lightingAppFrame(App& app) {
   lightsGather(app, R.lights);
 #endif
   { extern void flashlightAppFrame(App&); flashlightAppFrame(app); }   // FX1: the player's headlamp
+  for (auto& m : app.fx.mlights) {   // WP4: a muzzle flash's warm light (no shadow; too short to move the exposure meter)
+    LightDesc d; d.pos = m.p; d.radius = 5.0f; d.color = vec3(1.0f, 0.62f, 0.28f); d.intensity = 9.0f * m.k * (1.0f - m.age / m.life); d.shadow = 0; d.id = m.id;
+    R.lights.push_back(d);
+  }
   // room volumes of enterable buildings near the camera (probe placement), refreshed every half second
   static int tick = 0; static size_t lastN = (size_t)-1;
   if (++tick % 30 != 1 && app.doc.instances.size() == lastN) return;

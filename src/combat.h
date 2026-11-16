@@ -82,6 +82,11 @@ struct WeaponDef {
   struct FlameDef { bool on = false; float fuelSeconds = 20, range = 22, speed = 30, coneDeg = 3.5f, parcelsPerSec = 30, parcelDamage = 3.5f,
                     burnSeconds = 3, burnDps = 14, patchSeconds = 3, patchRadius = 1.3f, patchDps = 12, botRange = 18, botBurst = 1.6f, botPause = 1.4f; } flame;
   int tracerKind(int shot) const { return tracerKindFor(tracerEvery, shot); }
+  // WP4 visual recoil (handling.json "vmRecoil": per kind, per-weapon overrides): the peaks of a single shot's
+  // critically damped spring (back along the bore into the shoulder m, muzzle up deg, leftward deg), its rate omega
+  // (1/s: peak at 1 / omega, settled ~5 / omega) and the back travel cap (eye relief: never into the camera)
+  float vmBack = 0.035f, vmPitch = 1.6f, vmYaw = 0.35f, vmOmega = 28, vmBackMax = 0.07f, flashScale = 1;
+  bool suppressed = false;              // a built-in suppressor: a tiny flash, no light
 };
 struct WeaponState {
   int loaded = 0;                 // rounds in the weapon, chamber included
@@ -92,6 +97,7 @@ struct WeaponState {
   int reloadKind = 0;             // 1 empty, 2 partial (retain), 3 single rounds
   bool triggerReleased = true, clicked = false;
   float recoilP = 0, recoilY = 0, kick = 0;
+  float kickV = 0, kickP = 0, kickPV = 0, kickY = 0, kickYV = 0;   // WP4 spring: kick (back, m) and its rate, muzzle up / left (deg) and rates
   float sinceShot = 99;           // s since the last shot (a burst ends, and its recoil is folded into the aim, once firing has stopped)
   int shotIdx = 0, burst = 0, clipPings = 0;
   float flameFrac = 0;            // flamethrower: fuel used since the last whole percent
@@ -143,6 +149,12 @@ struct Fx {
   void streak(vec3 a, vec3 b, float width, float life, vec4 col);
   void explosion(vec3 p, vec3 n, const std::string& family, bool ground);
   void muzzle(vec3 p, vec3 dir, float scale);   // tank / AT / Flak gun discharge (content/settings/fx.json "muzzle")
+  // WP4 small-arms muzzle flash, once per shot: a yellow-orange core and 4-6 orange flame petals along the bore
+  // (20-40 ms, randomised), plus a warm point light at `light` (world muzzle; the player's flash is drawn at the
+  // viewmodel's apparent muzzle). suppressed: a faint core, no light
+  void muzzleFlash(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light);
+  struct MuzzleLight { vec3 p{0}; float age = 0, life = 0.035f, k = 1; uint32_t id = 0; };
+  std::vector<MuzzleLight> mlights; uint32_t mlightSerial = 0;
   void backblast(vec3 p, vec3 back);              // launcher backblast (fx.json "backblast")
   void impact(vec3 p, vec3 n, const std::string& surface);
   void splinters(vec3 p, vec3 v, int n, vec4 col, float size);   // furniture breaks (V4): falling chips

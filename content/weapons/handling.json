@@ -1,13 +1,271 @@
 {
-  "_doc": "Player weapon handling (src/weapons.cpp stepWeapons). Dispersion: each shot leaves inside a cone of half-angle hip[class] or ads[class] (deg, ADS = adsT > 0.85; the sight-line path uses the same draw) x stance[stance]. Stance, first match wins: mounted (bipod deployed: a bipod weapon, prone or crouched, still), prone, crouched, sprinting (moving with Shift, not aiming), moving, standing (still). Recoil per shot: the weapon's own profile x recoil[stance] x 0.85 in ADS; mounted keeps the pre-overhaul values, the old posture factor (prone 0.20, crouched 0.70, in src/weapons.cpp) x the weapon's recoil.supported (its bipod factor; MG 42 prone 0.07), recoil.mounted only for a bipod weapon without one; standing still kicks pitch only, moving (any stance) adds movingYaw of the weapon's horizontal wander. classes: weapon id -> rifle / sniper / auto / lmg (unlisted: scope -> sniper, belt -> lmg, auto -> auto, else rifle). Bots keep their own aim model (content/ai).",
-  "hip": { "rifle": 0.15, "sniper": 0.15, "auto": 3.0, "lmg": 3.0 },
-  "ads": { "rifle": 0.03, "sniper": 0.03, "auto": 0.45, "lmg": 0.45 },
-  "stance": { "moving": 1.0, "standing": 0.8, "crouched": 0.4, "prone": 0.08, "mounted": 0.05, "sprinting": 1.6 },
-  "recoil": { "moving": 1.0, "standing": 1.0, "crouched": 0.85, "prone": 0.6, "mounted": 0.5, "sprinting": 1.0, "movingYaw": 0.25 },
-  "classes": {
-    "kar98k": "rifle", "m1_garand": "rifle", "m1_carbine": "rifle",
-    "kar98k_zf39": "sniper", "m1c_garand": "sniper",
-    "stg44": "auto", "mp40": "auto", "m1_thompson": "auto", "m3_grease_gun": "auto", "fg42": "auto",
-    "m1918a2_bar": "lmg", "mg42": "lmg"
+ "_doc": "Player weapon handling (src/weapons.cpp stepWeapons). Dispersion: each shot leaves inside a cone of half-angle hip[class] or ads[class] (deg, ADS = adsT > 0.85; the sight-line path uses the same draw) x stance[stance]. Stance, first match wins: mounted (bipod deployed: a bipod weapon, prone or crouched, still), prone, crouched, sprinting (moving with Shift, not aiming), moving, standing (still). Recoil per shot: the weapon's own profile x recoil[stance] x 0.85 in ADS; mounted keeps the pre-overhaul values, the old posture factor (prone 0.20, crouched 0.70, in src/weapons.cpp) x the weapon's recoil.supported (its bipod factor; MG 42 prone 0.07), recoil.mounted only for a bipod weapon without one; standing still kicks pitch only, moving (any stance) adds movingYaw of the weapon's horizontal wander. classes: weapon id -> rifle / sniper / auto / lmg (unlisted: scope -> sniper, belt -> lmg, auto -> auto, else rifle). Bots keep their own aim model (content/ai).",
+ "hip": {
+  "rifle": 0.15,
+  "sniper": 0.15,
+  "auto": 3.0,
+  "lmg": 3.0
+ },
+ "ads": {
+  "rifle": 0.03,
+  "sniper": 0.03,
+  "auto": 0.45,
+  "lmg": 0.45
+ },
+ "stance": {
+  "moving": 1.0,
+  "standing": 0.8,
+  "crouched": 0.4,
+  "prone": 0.08,
+  "mounted": 0.05,
+  "sprinting": 1.6
+ },
+ "recoil": {
+  "moving": 1.0,
+  "standing": 1.0,
+  "crouched": 0.85,
+  "prone": 0.6,
+  "mounted": 0.5,
+  "sprinting": 1.0,
+  "movingYaw": 0.25
+ },
+ "classes": {
+  "kar98k": "rifle",
+  "m1_garand": "rifle",
+  "m1_carbine": "rifle",
+  "kar98k_zf39": "sniper",
+  "m1c_garand": "sniper",
+  "stg44": "auto",
+  "mp40": "auto",
+  "m1_thompson": "auto",
+  "m3_grease_gun": "auto",
+  "fg42": "auto",
+  "m1918a2_bar": "lmg",
+  "mg42": "lmg"
+ },
+ "vmRecoil": {
+  "kinds": {
+   "_doc": "WP4 visual recoil (viewmodel only; the aim displacement is each weapon's recoil.pitch / yaw / climb). Per shot a critically damped spring kick: back_m along the bore into the shoulder (dominant), pitch_deg muzzle up, left_deg a barely visible left nudge; omega (1/s) sets the attack (peak after 1/omega) and the return (settled ~5/omega); backMax_m caps the accumulated back travel (eye relief); flash: muzzle flash size. Bursts add impulses to the running springs. Stance scales them with the square root of the gameplay stance factor.",
+   "pistol": {
+    "back_m": 0.022,
+    "pitch_deg": 4.5,
+    "left_deg": 0.6,
+    "omega": 30,
+    "backMax_m": 0.05,
+    "flash": 0.8
+   },
+   "smg": {
+    "back_m": 0.02,
+    "pitch_deg": 1.1,
+    "left_deg": 0.3,
+    "omega": 34,
+    "backMax_m": 0.05,
+    "flash": 0.85
+   },
+   "assault": {
+    "back_m": 0.03,
+    "pitch_deg": 1.5,
+    "left_deg": 0.35,
+    "omega": 30,
+    "backMax_m": 0.06,
+    "flash": 1.0
+   },
+   "battle": {
+    "back_m": 0.04,
+    "pitch_deg": 2.1,
+    "left_deg": 0.45,
+    "omega": 26,
+    "backMax_m": 0.07,
+    "flash": 1.15
+   },
+   "carbine": {
+    "back_m": 0.038,
+    "pitch_deg": 2.4,
+    "left_deg": 0.4,
+    "omega": 24,
+    "backMax_m": 0.07,
+    "flash": 0.95
+   },
+   "rifle": {
+    "back_m": 0.06,
+    "pitch_deg": 3.2,
+    "left_deg": 0.5,
+    "omega": 20,
+    "backMax_m": 0.08,
+    "flash": 1.2
+   },
+   "sniper": {
+    "back_m": 0.07,
+    "pitch_deg": 3.8,
+    "left_deg": 0.6,
+    "omega": 16,
+    "backMax_m": 0.09,
+    "flash": 1.25
+   },
+   "sniper50": {
+    "back_m": 0.09,
+    "pitch_deg": 5.0,
+    "left_deg": 0.8,
+    "omega": 13,
+    "backMax_m": 0.1,
+    "flash": 1.6
+   },
+   "shotgun": {
+    "back_m": 0.08,
+    "pitch_deg": 5.5,
+    "left_deg": 0.7,
+    "omega": 16,
+    "backMax_m": 0.1,
+    "flash": 1.4
+   },
+   "lmg": {
+    "back_m": 0.034,
+    "pitch_deg": 0.9,
+    "left_deg": 0.3,
+    "omega": 36,
+    "backMax_m": 0.06,
+    "flash": 1.15
+   },
+   "launcher": {
+    "back_m": 0.03,
+    "pitch_deg": 1.5,
+    "left_deg": 0.3,
+    "omega": 15,
+    "backMax_m": 0.05,
+    "flash": 0
+   }
+  },
+  "weapons": {
+   "luger": {
+    "kind": "pistol"
+   },
+   "m1911a1": {
+    "kind": "pistol"
+   },
+   "modern_pistol": {
+    "kind": "pistol"
+   },
+   "modern_pistol3": {
+    "kind": "pistol"
+   },
+   "modern_pistol2": {
+    "kind": "pistol",
+    "pitch_deg": 2.5,
+    "back_m": 0.015,
+    "suppressed": true
+   },
+   "m1_thompson": {
+    "kind": "smg"
+   },
+   "m3_grease_gun": {
+    "kind": "smg"
+   },
+   "mp40": {
+    "kind": "smg"
+   },
+   "modern_uzi": {
+    "kind": "smg"
+   },
+   "modern_scorpion": {
+    "kind": "smg"
+   },
+   "modern_mp7": {
+    "kind": "smg",
+    "suppressed": true
+   },
+   "stg44": {
+    "kind": "assault"
+   },
+   "modern_ak": {
+    "kind": "assault"
+   },
+   "modern_ak12": {
+    "kind": "assault"
+   },
+   "modern_m16": {
+    "kind": "assault"
+   },
+   "modern_m4": {
+    "kind": "assault"
+   },
+   "modern_m4_irons": {
+    "kind": "assault"
+   },
+   "modern_ar15": {
+    "kind": "assault",
+    "suppressed": true
+   },
+   "fg42": {
+    "kind": "battle"
+   },
+   "m1918a2_bar": {
+    "kind": "battle"
+   },
+   "modern_scar": {
+    "kind": "battle"
+   },
+   "modern_fal": {
+    "kind": "battle"
+   },
+   "m1_carbine": {
+    "kind": "carbine"
+   },
+   "m1_garand": {
+    "kind": "rifle"
+   },
+   "kar98k": {
+    "kind": "rifle"
+   },
+   "kar98k_zf39": {
+    "kind": "sniper"
+   },
+   "m1c_garand": {
+    "kind": "sniper"
+   },
+   "modern_sniper_3": {
+    "kind": "sniper"
+   },
+   "modern_sniper_bolt": {
+    "kind": "sniper",
+    "suppressed": true
+   },
+   "modern_sniper_semi": {
+    "kind": "sniper",
+    "pitch_deg": 2.8,
+    "omega": 20,
+    "suppressed": true
+   },
+   "modern_sniper_50": {
+    "kind": "sniper50"
+   },
+   "modern_shotgun": {
+    "kind": "shotgun"
+   },
+   "modern_shotgun2": {
+    "kind": "shotgun"
+   },
+   "mg42": {
+    "kind": "lmg"
+   },
+   "modern_lmg": {
+    "kind": "lmg"
+   },
+   "m2hb_carry": {
+    "kind": "lmg"
+   },
+   "bazooka_m9": {
+    "kind": "launcher"
+   },
+   "panzerschreck": {
+    "kind": "launcher"
+   },
+   "modern_rpg7": {
+    "kind": "launcher"
+   },
+   "modern_glauncher": {
+    "kind": "launcher",
+    "flash": 0.6
+   }
   }
+ }
 }

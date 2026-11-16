@@ -457,6 +457,7 @@ public:
   int activeWeapon = 0;
   float adsT = 0;
   bool ivyOn = true;   // B1: Settings > Ivy on walls (ivy.cpp)
+  mutable bool vmNoRecoilRot = false;   // WP4: viewmodel posed without the visual recoil rotation (the ADS shot's sight line)
   bool strictDDay = false, reducedMotion = false, scopeIronsMode = false, supported = false, showLoadout = false;
   std::string weaponMsg;
   vec3 lastShotStart{0}, lastShotDir{0}, lastShotMuzzle{0};

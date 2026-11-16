@@ -26,7 +26,7 @@ void App::buildWeaponMeshes() {
   std::sort(files.begin(), files.end());
   // handling.json: dispersion cones by class, stance factors, and each weapon's class
   handling = Handling{};
-  json classes = json::object();
+  json classes = json::object(), vmRecoil = json::object();
   try {
     json h = json::parse(readTextFile(dir / "handling.json"));
     static const char* cn[4] = {"rifle", "sniper", "auto", "lmg"};
@@ -36,6 +36,7 @@ void App::buildWeaponMeshes() {
     for (int k = 0; k < STANCE_COUNT; ++k) { handling.stance[k] = st.value(sn[k], handling.stance[k]); handling.recoil[k] = rc.value(sn[k], handling.recoil[k]); }
     handling.movingYaw = rc.value("movingYaw", handling.movingYaw);
     classes = h.value("classes", json::object());
+    vmRecoil = h.value("vmRecoil", json::object());   // WP4
   } catch (std::exception& e) { logf("content/weapons/handling.json: %s (built-in handling)", e.what()); }
   for (auto& f : files) {
     if (f.filename() == "handling.json") continue;
@@ -79,6 +80,18 @@ void App::buildWeaponMeshes() {
       std::string c = classes.value(d->id, std::string());
       d->wclass = c == "sniper" ? WC_SNIPER : c == "lmg" ? WC_LMG : c == "auto" ? WC_AUTO : c == "rifle" ? WC_RIFLE
                 : d->hasScope ? WC_SNIPER : d->feed == "belt" ? WC_LMG : d->action == "auto" ? WC_AUTO : WC_RIFLE;
+    }
+    {   // WP4 visual recoil: the weapon's kind (vmRecoil.weapons; else from its class), then the weapon's own overrides
+      json kinds = vmRecoil.value("kinds", json::object()), ws = vmRecoil.value("weapons", json::object());
+      json w = ws.value(d->id, json::object());
+      std::string kind = w.value("kind", d->wclass == WC_SNIPER ? "sniper" : d->wclass == WC_LMG ? "lmg" : d->wclass == WC_AUTO ? "assault" : "rifle");
+      json kd = kinds.value(kind, json::object());
+      for (const json* src : {&kd, &w}) {
+        const json& k = *src;
+        d->vmBack = k.value("back_m", d->vmBack); d->vmPitch = k.value("pitch_deg", d->vmPitch); d->vmYaw = k.value("left_deg", d->vmYaw);
+        d->vmOmega = k.value("omega", d->vmOmega); d->vmBackMax = k.value("backMax_m", d->vmBackMax); d->flashScale = k.value("flash", d->flashScale);
+        d->suppressed = k.value("suppressed", d->suppressed);
+      }
     }
     std::map<std::string, int> mi;
     d->mats.push_back(Material{"default"});
@@ -449,7 +462,12 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   s.sinceShot += dt;
   float cycle = 60.0f / std::max(1.0f, d.rpm);
   if (s.sinceShot > cycle * 1.6f + 0.06f) settleRecoil(s);
-  s.kick -= s.kick * std::min(1.0f, 14.0f * dt);
+  {   // WP4: the visual recoil springs (critically damped, exact step: a sharp kick, a controlled return, no bounce)
+    float w = d.vmOmega, e = std::exp(-w * dt);
+    auto spring = [&](float& x, float& v) { float c = v + w * x; x = (x + c * dt) * e; v = (v - w * c * dt) * e; };
+    spring(s.kick, s.kickV); spring(s.kickP, s.kickPV); spring(s.kickY, s.kickYV);
+    if (s.kick > d.vmBackMax) { s.kick = d.vmBackMax; s.kickV = std::min(s.kickV, 0.0f); }   // never into the camera
+  }
   if (!fireHeld) {
     if (s.burst > 1 && d.action == "auto") audio.play("tail_" + d.id, weaponMuzzleWorld(d, s), 0.9f);   // recorded tail, once per release
     s.triggerReleased = true; s.burst = 0;
@@ -536,7 +554,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       // Aimed fire: the round leaves the front sight tip F along the sight line V = normalize(F - R), where R is the
       // rear aperture, both in world space from the posed weapon (sway / breathing move the sights and the shot together).
       if (adsT > 0.85f && !vmScoped(d) && !d.sightLineOnly) {
-        vec3 Rw, Fw; sightLineWorld(d, s, Rw, Fw);
+        vec3 Rw, Fw; vmNoRecoilRot = true; sightLineWorld(d, s, Rw, Fw); vmNoRecoilRot = false;   // WP4: the visual muzzle rise is not aim (the gameplay recoil is)
         // MG8: an animated rig's ADS puts both posed sights on the camera axis, so its line is the camera's; the axis itself
         // avoids the alignment's numeric residual (0.02 deg = 0.5 mrad on the M4 irons)
         vec3 V = d.anim ? forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch) : glm::normalize(Fw - Rw);
@@ -562,7 +580,10 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       }
       lastShotStart = start; lastShotDir = dir; lastShotMuzzle = muzzle;
       vec3 fxm = vmApparent(muzzle);   // effects are drawn with the world projection
-      fx.flash(fxm + aimDir * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
+      {   // WP4: along the drawn bore at the viewmodel's apparent muzzle (compact in ADS), the light at the world muzzle
+        mat4 VM = viewModelMatrix(d, s); vec3 bore = glm::normalize(vec3(VM * vec4(d.muzzleDir, 0)));
+        fx.muzzleFlash(fxm, bore, d.flashScale * (adsT > 0.85f ? 0.6f : 1.0f), d.suppressed || s.att[ATT_MUZZLE] == 1, muzzle);
+      }
       fx.smoke(fxm, aimDir * 2.0f + vec3(0, 0.3f, 0), 0.05f, 0.7f + 0.5f * fx.rnd(), vec4(0.6f, 0.58f, 0.55f, 0.16f), 0.6f, 0.2f); fx.parts.back().fade = 1.6f;   // thin, short-lived, eroded wisp
       audio.play("shot_" + d.id, muzzle, 1.0f);
       if (d.pellets > 1) audio.play("shotgun_pump", eyePos(), 0.8f);   // the pump cycling the next shell (the recording starts 0.3 s in)
@@ -579,9 +600,12 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       lastRecoilScale = sc;
       s.recoilP += sc * (d.rPitch * (0.85f + 0.3f * wrand(s.seed)) + d.rClimb * std::min(s.burst, 12));
       s.recoilP = std::min(s.recoilP, std::max(0.0f, 85.0f - eyePitch));   // only the camera's pitch bound (look clamp 85) limits the climb
-      s.recoilY = std::clamp(s.recoilY + sc * yawK * d.rYaw * (wrand(s.seed) * 2 - 1), -6.0f, 6.0f);   // restrained horizontal wander
+      s.recoilY = std::clamp(s.recoilY + sc * yawK * d.rYaw * (wrand(s.seed) * 2 - 1) + sc * d.rPitch * 0.04f, -6.0f, 6.0f);   // restrained horizontal wander; WP4: a slight leftward bias (+ yaw = left), the visual nudge's
       s.sinceShot = 0;
-      s.kick = std::min(std::max(0.08f, d.rVisual), s.kick + d.rVisual);   // bursts build to 0.08; a single rifle shot may kick harder (2026-11-08)
+      {   // WP4: a shot's impulse into the springs (peak = the per-shot value after 1 / omega); bursts blend, never restart
+        float k = 2.718282f * d.vmOmega * std::sqrt(sc);
+        s.kickV += d.vmBack * k; s.kickPV += d.vmPitch * k * (0.9f + 0.2f * wrand(s.seed)); s.kickYV += d.vmYaw * k * (0.6f + 0.8f * wrand(s.seed));
+      }
       if (d.action == "bolt") adsT = 0;   // working the bolt takes the rifle off the shoulder
       if (d.feed == "enbloc" && s.loaded == 0) { audio.play("ping", muzzle, 0.8f); weaponMsg = "Clip ejected (ping)"; s.clipPings++; }
     }
