@@ -534,7 +534,8 @@ void netApplyEvent(App& app, const json& ev, bool replay) {
     app.blastAT = ev.value("at", false); app.blastWall = ev.value("wm", 1.0f); app.blastSplashGun = ev.value("sg", 40.0f);
     app.explode(jvec3(ev["p"]), jvec3(ev["d"]), ev["dmg"].get<float>(), ev["r"].get<float>(), ev["cs"].get<float>(), ~0ull, ev["wk"].get<int>());
     app.blastAT = false; app.blastWall = 1; app.blastSplashGun = 40;
-    if (!replay && ev.value("fx", true)) { app.fx.explosion(jvec3(ev["p"]), vec3(0, 1, 0), "ground", true); app.audio.play("explosion", jvec3(ev["p"]), 0.9f); }
+    if (!replay && ev.value("fx", true)) { vec3 ep = jvec3(ev["p"]); app.fx.explosion(ep, vec3(0, 1, 0), "ground", true);
+      if (ev.value("sh", false)) app.audio.play("shell_hit", ep, 1.0f, 1.0f, glm::length(ep - app.eyePos()) / 343.0f); else app.audio.play("explosion", ep, 0.9f); }   // SND9
   } else if (t == "imp") {
     Projectile q; q.p = jvec3(ev["pp"]); q.v = jvec3(ev["pv"]); q.mass = ev.value("m", 0.01f); q.ammo = ev.value("a", ""); q.kind = PROJ_BULLET;
     Physics::Hit h; h.pos = jvec3(ev["hp"]); h.normal = jvec3(ev["hn"]); h.ud = ev["ud"].get<uint64_t>(); h.t = ev.value("ht", 0.0f);

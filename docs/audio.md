@@ -68,6 +68,7 @@ python -I tools/fsb5.py extract content/audio/manifest.json "<part1 dir>;<part2 
 - **Body.** The M249, MG 42, M2HB (carried), the four Rifle3 guns (M4, M4 irons, M16, FAL; SND7) and the .50 sniper get added low-mid weight and saturation, which makes them denser at the same peak. The .50 gets the most.
 - **Per-gun trims.** `mix.json` `guns`: an id maps to a gain (0-2), or to `{gain, body}` where body is the saturation drive baked in at load.
 - **Distance.** Gunfire stays at full level within 3 m (machine guns 5 m), then rolls off. The .50 stays at full level to 8 m and rolls off more slowly.
+- **Tank gun and shell hits (SND9).** The tank main gun (`tank_88` / `tank_17pdr`) gets body and a 2 s reverb (`reverb.tank`). It stays at full level within 15 m and rolls off slowly; within 8 m (in or on the tank) it plays its stereo recording directly. Tank, AT-gun and field-gun shells play `shell_hit` (launcher_fire.mp3, the heaviest supplied explosion) on anything they hit, including armour that stops them, after the sound's travel time (distance / 343 m/s); LAN clients get it through the `ex` event's `sh` flag. Both are tunable in `mix.json` (`tank_gun`, `shell_hit`: gain, body, full_level_m, rolloff).
 - **Ducking.** Gunfire within 60 m ducks the ambience beds by 3 dB; they recover over 1.5 s.
 - **Measuring.** `NMK_AUDIO_FIDELITY=1` (no device: the mix is read back) logs each gun event as the player hears it against its decoded mp3: peak, RMS, 1-4 / 4-10 kHz band energy and the tail. It also logs a footstep and the battlefield bed.
 

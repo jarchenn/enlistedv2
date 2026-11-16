@@ -322,11 +322,13 @@ void App::stepProjectiles(float dt) {
                     : p.at ? explode(hit.pos, p.v, 320.0f, 0.9f, 0.0f, p.ignore, WALL_AP) : explode(hit.pos, p.v, p.dmg, 2.2f, 0.0f, p.ignore, WALL_HE);
             blastSplashGun = 40; blastPersonnel = 1;
             fx.explosion(hit.pos, hit.normal, "metal", false);
-            audio.play("explosion", hit.pos, 1.0f);
+            if (p.kind == PROJ_HE && !p.cannon30) audio.play("shell_hit", hit.pos, 1.0f, 1.0f, glm::length(hit.pos - eyePos()) / 343.0f);   // SND9: the shell bursting, heard after the sound's travel time
+            else audio.play("explosion", hit.pos, 1.0f);
             lastImpact = {hit.pos, "armour", p.kind, (float)glfwGetTime(), ex.breached};
           } else {
             if (p.kind == PROJ_BULLET) fx.impact(hit.pos, hit.normal, "metal");
             if (p.cannon30) { fx.impact(hit.pos, hit.normal, "metal"); fx.flash(hit.pos + hit.normal * 0.1f, 0.7f, 0.07f, vec4(9, 6, 3, 1)); audio.play("impact_metal", hit.pos, 0.7f); }   // VH5: 30 mm bursts on armour
+            else if (p.kind == PROJ_HE) { fx.flash(hit.pos + hit.normal * 0.1f, 1.2f, 0.08f, vec4(9, 6, 3, 1)); audio.play("shell_hit", hit.pos, 1.0f, 1.0f, glm::length(hit.pos - eyePos()) / 343.0f); }   // SND9: a shell the armour stopped still bursts (it was silent)
             lastImpact = {hit.pos, "armour", p.kind, (float)glfwGetTime(), 0};
           }
           projectiles.erase(projectiles.begin() + k);
@@ -349,14 +351,16 @@ void App::stepProjectiles(float dt) {
           uint64_t hitInst = (hit.ud >> 60) == 0xF || hit.ud == 0 ? 0 : (hit.ud >> 16);
           if (p.atKill && hitInst) { auto hr = rt.find(hitInst); if (hr != rt.end() && isAtGun(hr->second.asset) && !hr->second.st.wrecked) { wreckStation(hitInst, p.kind == PROJ_ROCKET ? "rocket direct hit" : "shell direct hit"); ++directHits; } }
           blastAT = p.at;   // AT: concentrated wall damage, deep crater (ground.cpp)
+          blastShell = p.kind == PROJ_HE && !p.cannon30;   // SND9: LAN clients hear "shell_hit" for it
           blastSplashGun = p.splashGun;
           blastPersonnel = p.kind == PROJ_ROCKET ? 1.6f : p.at ? 1.0f : 2.0f;   // HE against soldiers: launchers +60 %, tank / AT gun shells +100 %
           const float gk = 0.5f;   // tank / AT gun shells dig half the crater (walls unchanged)
           auto ex = p.kind == PROJ_ROCKET ? explode(hit.pos, p.v, p.blastDmg, p.blastR, p.craterScale, p.ignore, WALL_ROCKET)
                   : p.at ? explode(hit.pos, p.v, 320.0f, 0.9f, 1.0f * gk, p.ignore, WALL_AP) : explode(hit.pos, p.v, p.dmg, p.blastR > 0 ? p.blastR : 2.2f, (p.craterScale > 0 ? p.craterScale : 1.0f) * gk, p.ignore, WALL_HE);
-          blastAT = false; blastSplashGun = 40; blastPersonnel = 1;
+          blastAT = false; blastSplashGun = 40; blastPersonnel = 1; blastShell = false;
           fx.explosion(hit.pos, hit.normal, surface == "ground" ? "ground" : surface, ground || ex.crater);
-          audio.play(p.kind == PROJ_ROCKET ? "explosion_rocket" : p.at ? "explosion_big" : "explosion", hit.pos, p.cannon30 ? 0.35f : 1.0f);   // VH5: 10 rounds/s of 30 mm
+          if (p.kind == PROJ_HE && !p.cannon30) audio.play("shell_hit", hit.pos, 1.0f, 1.0f, glm::length(hit.pos - eyePos()) / 343.0f);   // SND9: tank / AT / field-gun shells, on anything (ground, walls, soldiers, big enemies)
+          else audio.play(p.kind == PROJ_ROCKET ? "explosion_rocket" : p.at ? "explosion_big" : "explosion", hit.pos, p.cannon30 ? 0.35f : 1.0f);   // VH5: 10 rounds/s of 30 mm
           lastImpact = {hit.pos, surface, p.kind, (float)glfwGetTime(), ex.breached};
         } else {
           std::string surf2 = surface;
