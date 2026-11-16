@@ -294,6 +294,12 @@ for mname, m in cfg.get("mats", {}).items():
         a = resample(px(im), im.size[0], im.size[1], W_, H_)
         v = a[:, ch] if ch < 4 else a[:, :3] @ np.array([0.2126, 0.7152, 0.0722], np.float32)
         return 1 - v if inv else v
+    if m.get("normal") and cfg.get("normals"):   # WP2: a tangent-space (OpenGL) normal map; opt-in per rig ("normals": true)
+        nim = load(m["normal"])
+        if nim:
+            nim.colorspace_settings.name = "Non-Color"
+            t = nt.nodes.new("ShaderNodeTexImage"); t.image = nim; nm = nt.nodes.new("ShaderNodeNormalMap")
+            nt.links.new(t.outputs["Color"], nm.inputs["Color"]); nt.links.new(nm.outputs["Normal"], bsdf.inputs["Normal"])
     rough = chan("rough") if "rough" in m else chan("smooth", 0, True) if "smooth" in m else chan("gloss", 4, True) if "gloss" in m else None
     metal = chan("metal") if "metal" in m else None
     if "spec" in m: sp = chan("spec", 4); metal = (sp > 0.5).astype(np.float32) if sp is not None else None

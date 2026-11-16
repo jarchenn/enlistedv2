@@ -19,6 +19,7 @@ enum CharJoint : int {
 
 struct CharModel {
   std::string id;
+  bool wantNormals = false;   // WP2: load the materials' normal maps (animated first-person rigs; tangents from screen derivatives)
   // skeleton (all scene nodes on the joint paths; joints index into these)
   std::vector<std::string> nodeName;
   std::vector<int> nodeParent;
