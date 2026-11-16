@@ -80,6 +80,14 @@ const C = {
   deagle: { src: M12 + "animated-pistol/source/arms@talon.fbx", tex: M12 + "animated-pistol",
         keep: k("base", "bullet", "bullet2", "hammer", "mag", "slide", "trigger"),
         mats: { talon: { albedo: "talonColor.png", normal: "talonNormal.png", metal: "talonMetallic.png", rough: "talonRoughness.png", ao: "talonAO.png" } } },
+  // ---- MG12 batch 2
+  glock34: { src: M12 + "fps-pistol-animated/source/arms@bpPistol.fbx", tex: M12 + "fps-pistol-animated",   // long-slide 9 mm with a compensator ("muzzlebreak")
+        keep: { base: "frame", slide: "slide", slidecatch: "frame", muzzlebreak: "frame", clip: "mag", bullet: "mag", bullet_1: "mag", lid: "mag", trigger: "trigger" },
+        mats: { Mat: { albedo: "blackpantherColor.png", normal: "blackpantherNormal.png", metal: "bpPistoMetallic.png", smooth: "bpPistolsmoothness.png", ao: "bpPistolAO.png" } } },
+  makarov: { src: M12 + "makarov_pm_fps_animations/makarov_pm_fps_animations.glb", tex: "", poseFrame: 0, poseAction: "Rig|MK_Idle", keep: { Object_9: "frame" }, split: { Object_9: { Slide_016: "slide", Mag_019: "mag" } } },
+  fn502: { src: "E:/nmk/mg12/fn502fixed/fn502.glb", tex: "", poseFrame: 0, poseAction: "Armature|FN_Shot", keep: { Object_73: "frame" }, split: { Object_73: { Slide_058: "slide", Mag_061: "mag" } } },   // the GLB's spec-gloss materials converted (glbfix/specgloss.py)
+  mark23: { src: M12 + "mark-23-animated-free/source/Mark23.fbx", tex: M12 + "mark-23-animated-free", keep: { main: "frame", Side: "slide", mag: "mag" },
+        mats: { Mark23_D: { albedo: "Mark23_D.png", rough_f: 0.5, metal_f: 0.5 } } },
   case: { src: G + "hardcase_for_weapons.glb", tex: "", scale: 1.27,
         keep: k("CaseLower_low_Hardcase_0", "CaseUpped_low_Hardcase_0", "Foam_low_Hardcase_0", "Handle_low_Hardcase_0", "HandleRods_low_Hardcase_0", "HingesLower_low_Hardcase_0", "HingesUpper_low_Hardcase_0", "Knob_low_Hardcase_0", "LockRods_low_Hardcase_0", "Locks_low_Hardcase_0") },
 };
