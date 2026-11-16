@@ -1,6 +1,6 @@
 {
   "note": "SUV: a high, broad premium dash in two-tone grey and cream with an open-pore wood band, a tall twin-ring digital cluster, a large landscape screen over the climate panel, a terrain-mode dial, vertical vents beside the screen, a passenger grab handle.",
-  "base": "civil_core",
+  "base": "pcar_core",
   "model": {"note": "the car-pack model's own dash top / rear face and the driver's eye on its seat ([y, z] in the asset frame; eye [y, z, |x|] moves it inboard)", "eye": [1.6, 0.0], "wheelY": 1.26, "dash": [1.42, 0.58]},
   "palette": {
     "pad": {"rgb": [0.3, 0.3, 0.31], "rough": 0.7, "pat": "fabric", "texture": "leather_black"},
@@ -10,7 +10,11 @@
   },
   "remove": ["band", "screen", "vent_cl", "vent_cr"],
   "add": [
-    {"id": "band", "type": "box", "at": [0.37, -0.06, 0.003], "size": [1.44, 0.05, 0.004], "mat": "wood"},
+    {"id": "band_chrome_t", "type": "box", "at": [0.37, -0.045, 0.0005], "size": [1.44, 0.003, 0.004], "mat": "brushed"},
+    {"id": "band_chrome_b", "type": "box", "at": [0.37, -0.075, 0.0005], "size": [1.44, 0.003, 0.004], "mat": "brushed"},
+    {"id": "cab_door_d", "type": "doorcard", "at": [-0.475, -0.3, -0.45], "size": [0.03, 0.5, 0.9]},
+    {"id": "cab_door_p", "type": "doorcard", "at": [1.215, -0.3, -0.45], "size": [0.03, 0.5, 0.9], "switches": 1},
+    {"id": "band", "type": "box", "at": [0.37, -0.06, 0.003], "size": [1.44, 0.028, 0.004], "mat": "wood"},
     {"id": "screen", "type": "screen", "at": [0.37, -0.17, 0.005], "size": [0.3, 0.15], "ui": "map", "bezel": "trim"},
     {"id": "vent_cl", "type": "ventrect", "at": [0.175, -0.17, 0.005], "size": [0.04, 0.12], "ring": "trim"},
     {"id": "vent_cr", "type": "ventrect", "at": [0.565, -0.17, 0.005], "size": [0.04, 0.12], "ring": "trim"},

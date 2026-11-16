@@ -1,6 +1,6 @@
 {
   "note": "Hatchback: a small modern plastic dash in two tones, a slim digital cluster (no rings) under a short hood, a tablet-style touch screen standing on the dash, round vents with body-colour rings, a light accent stripe.",
-  "base": "civil_core",
+  "base": "pcar_core",
   "model": {"note": "the car-pack model's own dash top / rear face and the driver's eye on its seat ([y, z] in the asset frame; eye [y, z, |x|] moves it inboard)", "eye": [1.31, -0.05, 0.24]},
   "palette": {
     "dash": {"rgb": [0.18, 0.18, 0.19], "rough": 0.8, "pat": "fabric", "texture": "leather_black"},
@@ -10,6 +10,8 @@
   },
   "remove": ["cluster", "screen", "band", "vent_cl", "vent_cr", "vent_d", "vent_p", "cheek_l", "cheek_r"],
   "add": [
+    {"id": "cab_door_d", "type": "doorcard", "at": [-0.405, -0.3, -0.45], "size": [0.03, 0.5, 0.9]},
+    {"id": "cab_door_p", "type": "doorcard", "at": [1.145, -0.3, -0.45], "size": [0.03, 0.5, 0.9], "switches": 1},
     {"id": "band", "type": "box", "at": [0.37, -0.06, 0.003], "size": [1.42, 0.05, 0.004], "mat": "dash"},
     {"id": "cluster", "type": "digital", "at": [0.0, 0.05, 0.005], "size": [0.28, 0.07], "telltales": 5},
     {"id": "tablet", "type": "screen", "at": [0.37, 0.09, 0.06], "size": [0.24, 0.14], "ui": "map", "bezel": "trim", "rot": [-12, 0, 0]},

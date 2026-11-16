@@ -12,6 +12,7 @@
 #include "tank.h"
 #include "assets.h"
 #include "lights.h"
+#include "lighting.h"
 #include "light_types.h"
 #include "textures.h"
 #include <glm/gtx/quaternion.hpp>
@@ -46,7 +47,7 @@ struct Pal {
     m["stencil"] = M("stencil", vec3(0.85f, 0.84f, 0.78f), 0.8f); m["plate"] = M("plate", vec3(0.62f, 0.6f, 0.52f), 0.45f, 0.5f, PAT_METAL);
     m["ink"] = M("ink", vec3(0.05f), 0.8f); m["grime"] = M("grime", vec3(0.07f, 0.065f, 0.045f), 1.0f); m["red"] = M("red", vec3(0.55f, 0.06f, 0.04f), 0.55f, 0.1f, PAT_METAL, vec3(0), true);
     m["bakelite"] = M("bakelite", vec3(0.09f, 0.045f, 0.025f), 0.3f); m["rubber"] = M("rubber", vec3(0.03f), 0.9f);
-    m["dead"] = M("dead", vec3(0.02f, 0.022f, 0.026f), 0.15f); m["dust"] = M("dust", vec3(0.22f, 0.2f, 0.17f), 0.95f); m["crack"] = M("crack", vec3(0.55f), 0.3f);
+    m["dead"] = M("dead", vec3(0.02f, 0.022f, 0.026f), 0.15f); m["dust"] = M("dust", vec3(0.085f, 0.08f, 0.07f), 0.95f);   // a dead screen under grime: dark, not a pale block m["crack"] = M("crack", vec3(0.55f), 0.3f);
     m["lamp_off"] = M("lamp_off", vec3(0.14f, 0.05f, 0.04f), 0.3f); m["periglass"] = M("periglass", vec3(0.05f, 0.09f, 0.1f), 0.08f, 0.2f);
     m["seat"] = M("seat", vec3(0.08f), 0.85f, 0, PAT_FABRIC, vec3(0), true); m["door"] = M("door", vec3(0.1f), 0.7f); m["headliner"] = M("headliner", vec3(0.5f, 0.48f, 0.44f), 0.9f, 0, PAT_FABRIC, vec3(0), true);
     m["dash"] = M("dash", vec3(0.06f), 0.7f); m["wheel"] = M("wheel", vec3(0.03f), 0.65f);
@@ -329,6 +330,15 @@ Kit buildKit(const json& spec, float in, vec3 paint) {
       b.box(body, at + vec3(o * (s.x * 0.5f + 0.002f), -s.y * 0.1f, 0), vec3(0.004f, s.y * 0.4f, s.z * 0.8f), mat(i, "insert", "seat"));
       b.box(body, at + vec3(o * (s.x * 0.5f + 0.03f), -s.y * 0.05f + 0.02f, -0.05f), vec3(0.06f, 0.04f, s.z * 0.6f), mat(i, "mat", "door"));
       b.box(body, at + vec3(o * (s.x * 0.5f + 0.008f), s.y * 0.2f, s.z * 0.3f), vec3(0.012f, 0.02f, 0.1f), pal("chrome"));
+      // speaker grille low at the front, window switches on the armrest (backlit)
+      b.cyl(body, at + vec3(o * (s.x * 0.5f + 0.003f), -s.y * 0.3f, s.z * 0.32f), 0.065f, 0.008f, mat(i, "grille", "black"), vec3(1, 0, 0), 20);
+      b.cyl(body, at + vec3(o * (s.x * 0.5f + 0.006f), -s.y * 0.3f, s.z * 0.32f), 0.02f, 0.004f, pal("chrome"), vec3(1, 0, 0), 12);
+      float ay = -s.y * 0.05f + 0.04f;   // the armrest's top
+      for (int k = 0; k < (i.value("switches", 2)); ++k) {
+        vec3 p = at + vec3(o * (s.x * 0.5f + 0.03f), ay + 0.003f, s.z * 0.18f - k * 0.03f);
+        b.box(body, p, vec3(0.022f, 0.006f, 0.02f), pal("black"));
+        b.box(glow, p + vec3(0, 0.0034f, 0), vec3(0.006f, 0.0008f, 0.004f), E("btn", vec3(1.0f, 0.9f, 0.7f)));
+      }
     }
   }
   // the steering wheel for cars whose model has none (part-built cars): rim, spokes, hub, spoke buttons, column shroud;
@@ -382,7 +392,7 @@ std::map<uint64_t, CabinLight> gCabin; int gFrame = 0;
 void cabinLight(App& app, uint64_t id, const mat4& W, vec3 kitPos, bool running) {
   CabinLight& c = gCabin[id];
   c.pos = vec3(W * vec4(kitPos, 1)); c.frame = gFrame;
-  c.day = app.R.wx.enclosed ? 0.0f : glm::smoothstep(0.3f, 0.8f, lightsDaylight(app));   // moonlight is no fill c.glow = running ? 1.0f : 0.0f;
+  c.day = vehicleCabinDay(app); c.glow = running ? 1.0f : 0.0f;
 }
 float glowNow(App& app) { return 1.0f + 1.6f * (app.R.wx.enclosed ? 1.0f : 1.0f - std::clamp(lightsDaylight(app), 0.0f, 1.0f)); }
 
@@ -468,6 +478,9 @@ const CarInfo& carInfo(const AssetDef* a) {
 }
 }   // namespace
 
+float vehicleCabinDay(App& app) {   // 1 by day .. 0 by night (the time of day's night factor: the night exposure would turn any fill into glare)
+  return app.R.wx.enclosed ? 0.0f : 1.0f - lightingTod(app.R.lt.hour).nightK;
+}
 bool vehicleDashModelEye(const AssetDef* a, vec3& eye) {
   if (!a || !a->model) return false;
   const CarInfo& c = carInfo(a); if (!c.car) return false;

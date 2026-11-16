@@ -93,8 +93,8 @@ const MT = {
   seat: T("cloth_grey", [0.24, 0.24, 0.26], 0.95, "fabric"),
   seat_tan: T("cloth_grey", [0.52, 0.46, 0.36], 0.95, "fabric"),
   carpet: T("cloth_grey", [0.07, 0.07, 0.075], 0.98, "fabric"),                 // VH6b car cabins: floor, headliner, door cards
-  headliner: T("cloth_grey", [0.5, 0.49, 0.46], 0.95, "fabric"),
-  door_card: T("plastic_black", [0.075, 0.075, 0.08], 0.7, "plain"),
+  headliner: T(null, [0.3, 0.29, 0.27], 0.95, "plain"),   // VH6d: calm, darker (the cloth set read as bright noise overhead)
+  door_card: T("leather_black", [0.14, 0.14, 0.15], 0.7, "plain"),   // VH6d: grained (the plastic set read as frosty metal)
   pl_orange: [[0.92, 0.34, 0.04], 0.5, "plain"],
   pl_white: [[0.88, 0.88, 0.86], 0.5, "plain"],
   pl_red: [[0.72, 0.07, 0.05], 0.5, "plain"],

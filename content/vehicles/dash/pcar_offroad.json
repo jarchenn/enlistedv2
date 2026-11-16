@@ -1,6 +1,6 @@
 {
   "note": "Off-road: a chunky, flat, upright dash in rubbery black with orange accents, four square-bezel analogue dials behind the wheel, a pod of three auxiliary dials (inclinometer, oil, volts) on the centre stack, a passenger grab handle, guarded auxiliary-light toggles, the transfer-case (4x4) lever beside the gear lever on the tunnel.",
-  "base": "civil_core",
+  "base": "pcar_core",
   "model": {"note": "the car-pack model's own dash top / rear face and the driver's eye on its seat ([y, z] in the asset frame; eye [y, z, |x|] moves it inboard)", "eye": [1.54, -0.2], "wheelY": 1.2, "dash": [1.38, 0.3]},
   "palette": {
     "dash": {"rgb": [0.16, 0.16, 0.16], "rough": 0.9, "pat": "fabric", "texture": "leather_black"},
@@ -13,6 +13,8 @@
   "wheel": {"r": 0.19, "rim": 0.034, "spokes": [0, 180, 240, 300], "spokeW": 0.04, "hub": 0.07, "badge": "orange"},
   "remove": ["stitch", "band", "ambient", "cluster", "screen", "switches", "vent_cl", "vent_cr", "climate_keys"],
   "add": [
+    {"id": "cab_door_d", "type": "doorcard", "at": [-0.395, -0.3, -0.45], "size": [0.03, 0.5, 0.9]},
+    {"id": "cab_door_p", "type": "doorcard", "at": [1.135, -0.3, -0.45], "size": [0.03, 0.5, 0.9], "switches": 1},
     {"id": "band", "type": "box", "at": [0.37, -0.06, 0.003], "size": [1.44, 0.05, 0.004], "mat": "dash"},
     {"id": "speedo", "type": "gauge", "at": [0.08, 0.055, 0.005], "r": 0.04, "n": 4, "numStep": 4, "read": "speed", "square": true, "bezel": "bolt"},
     {"id": "tach", "type": "gauge", "at": [-0.08, 0.055, 0.005], "r": 0.04, "n": 6, "numStep": 1, "read": "rpm", "square": true, "bezel": "bolt", "redline": 0.2},

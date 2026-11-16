@@ -1762,7 +1762,7 @@ void main(){
   vec3 tint = vec3(0.82,0.88,0.84);
   vec3 c = refl*F + uSunCol*spec*F + tint*0.03*dirt;
   if (uLightCount > 0) { vec3 ld, ls; localLights(vW, N, N, V, 0.05, vec3(0.04), ld, ls); c += ls + tint*ld*0.02; }   // lamp highlights on the panes
-  float a = clamp(0.10 + F*0.85 + dirt*0.08, 0.0, 0.95);
+  float a = clamp(0.10 + F*0.85*mix(0.35, 1.0, smoothstep(0.05, 0.6, dot(uSunCol, vec3(0.3, 0.5, 0.2)))) + dirt*0.08, 0.0, 0.95);   // VH6d: a faint night reflection, not a milky pane
   vec3 emi = vEmi*(uGlow*uEmissiveK);   // lit lamp glass: added in full whatever the pane alpha
   c = applyFog(c, vW);
   oColor = vec4((c + emi) / max(a, 0.05), a);
@@ -1793,30 +1793,30 @@ layout(location=1) out float oDist;
 layout(location=2) out vec4 oAmb;
 layout(location=3) out vec4 oNR;
 layout(location=4) out vec4 oVel; uniform float uVmVel;
-uniform int uGlass;   // 0 opaque; 1 window glass (dusty); 2 a wreck's glass (crazed, mostly broken out)
+uniform float uAlbFloor;
+uniform int uGlass;   // 0 opaque; 1 window glass (dusty); 2 a wreck's glass (crazed, grimy); 3 clean (the car you sit in: no film to catch the cabin light at night)
 void main(){
   vec4 base = uBase;
   if (uHasAlb == 1) base *= texture(uAlb, vUV);
+  base.rgb = max(base.rgb, vec3(uAlbFloor));   // VH6d: a near-black supplied cabin reads as dark grey trim from the seat
   if (uGlass > 0) {   // tinted window glass: see-through, a dust film, sky reflection at grazing angles
     vec3 N = normalize(vN); if (!gl_FrontFacing) N = -N;
     vec3 V = normalize(uCamPos - vW);
     float dust = 0.35 + 0.4*smoothstep(0.3, 0.8, fract(sin(dot(floor(vW.xz*7.0 + vW.y*5.0), vec2(12.9898, 78.233)))*43758.5453)*0.3 + 0.5*clamp(-N.y + 0.5, 0.0, 1.0));
-    if (uGlass == 2) {   // broken out: jagged holes, the rest crazed
-      float h = fract(sin(dot(floor(vW*vec3(3.1, 2.3, 3.7)), vec3(12.9898, 78.233, 37.719)))*43758.5453);
-      float edge = fract(sin(dot(floor(vW*vec3(17.0, 13.0, 19.0)), vec3(7.1, 11.3, 5.7)))*91.17);
-      if (h < 0.7 && edge > 0.25) discard;
-      dust = min(1.0, dust + 0.3);
-    }
+    if (uGlass == 2) dust = min(1.0, dust + 0.15);   // a wreck's glass: crazed and grimy (VH6d: no punched-out cells, they read as a checker pattern)
+    if (uGlass == 3) dust = 0.0;
+    dust *= mix(0.2, 1.0, smoothstep(0.05, 0.6, dot(uSunCol, vec3(0.3, 0.5, 0.2))));   // VH6d: an unlit film at night: the pane stays see-through, not a milky sheet
     float fr = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 4.0);
     vec3 tint = vec3(0.16, 0.19, 0.19);
     vec3 c = shade(vW, N, mix(tint, vec3(0.42, 0.39, 0.33), dust*0.6), mix(0.06, 0.7, dust), 0.0, 1.0);
     c = applyFog(c, vW);
-    oColor = vec4(c, clamp(0.22 + 0.28*dust + 0.5*fr, 0.0, 0.92));
+    oColor = vec4(c, uGlass == 3 ? clamp(0.06 + 0.3*fr, 0.0, 0.5) : clamp(0.22 + 0.28*dust + 0.5*fr, 0.0, 0.92));
     oDist = length(vW - uCamPos); oAmb = vec4(0.0); oNR = vec4(0.0, 1.0, 0.0, 1.0); oVel = vec4(0.0);
     return;
   }
   float rough = uRough, metal = uMetal, ao = 1.0;
   if (uHasMR == 1) { vec4 mr = texture(uMR, vUV); rough *= mr.g; metal *= mr.b; if (uAOinMR == 1) ao = mr.r; }
+  if (uAlbFloor > 0.0) { metal = min(metal, 0.15); rough = max(rough, 0.6); }   // VH6d: cabin trim, not a black mirror
   if (uHasAO == 1) ao = texture(uAO, vUV).r;
   vec3 N = normalize(vN);
   if (!gl_FrontFacing) N = -N;                         // glTF models are double sided
@@ -4046,7 +4046,7 @@ void Renderer::drawModels(const std::vector<ModelDraw>& items, const Frustum* fr
     glUniform4fv(lb, 1, glm::value_ptr(pt.base)); glUniform1f(lme, pt.metal); glUniform1f(lr, pt.rough);
     glUniform4fv(lt, 1, glm::value_ptr(it.tint));
     glUniform1f(lth, it.thinPx * pxAngle);
-    glUniform1i(U(p, "uGlass"), it.glass);
+    glUniform1i(U(p, "uGlass"), it.glass); glUniform1f(U(p, "uAlbFloor"), it.albFloor);
     glDrawElements(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u));
     stats.draws++; stats.tris += (int)pt.count / 3;
   }

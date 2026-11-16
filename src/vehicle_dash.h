@@ -17,4 +17,5 @@ struct LightDesc;
 void vehicleDashDraw(App& app, const TankRT& t, const mat4& hull);   // tank_ui.cpp drawCar: a car's interior
 void vehicleDashFrame(App& app);                                      // app.cpp: parked part-built cars near the camera
 void vehicleDashLights(App& app, std::vector<LightDesc>& out);       // lights.cpp lightsGather: the cabin fill of each interior drawn
+float vehicleCabinDay(App& app);                                    // 1 by day .. 0 by night: cabin fill and trim lift
 bool vehicleDashModelEye(const AssetDef* a, vec3& eye);               // a car-pack copy (drawn as its model): the eye on the model's seat, from its spec's "model" fit
