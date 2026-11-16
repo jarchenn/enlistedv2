@@ -624,8 +624,12 @@ void AiCore::move(Soldier& s, float dt) {
   }
   // body facing: toward movement when moving fast, else toward the aim
   // AI5: the upper body twists at most kWaist from the body; an engaged bot turns its body toward the target first
-  float bodyWant = glm::length(vel) > 1.0f ? yawOf(vel) : b.aimWantYaw;   // standing: the body itself faces what it aims at
-  if (std::fabs(angDiff(b.aimWantYaw, bodyWant)) > 45.0f && m.speed != SPD_SPRINT) bodyWant = b.aimWantYaw;
+  // CH8: the zombie brains (zombie.cpp: every enemy type) say where to face in aimYaw (the path, or the victim when close or
+  // striking); AI5's aimWantYaw is the soldier combat brain's and stayed 0 for them, so a zombie walking slower than 1 m/s, or
+  // more than 45 deg off that stale 0, faced yaw 0 and crab-walked (most visible on the big, slow types)
+  const float aimWant = s.zombie ? b.aimYaw : b.aimWantYaw;
+  float bodyWant = glm::length(vel) > 1.0f ? yawOf(vel) : aimWant;   // standing: the body itself faces what it aims at
+  if (std::fabs(angDiff(aimWant, bodyWant)) > 45.0f && m.speed != SPD_SPRINT) bodyWant = aimWant;
   float turn = 300.0f * dt;   // realistic body turn rate (deg/s)
   s.yaw = wrapDeg(s.yaw + std::clamp(angDiff(bodyWant, s.yaw), -turn, turn));
   int posture = m.posture;
