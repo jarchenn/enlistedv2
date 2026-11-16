@@ -115,6 +115,9 @@ def dress(b, R, prop, drop, line, paint, rep):
         o = R.uniform(-2.2, 2.2)
         drop(R.choice(["nat_green_tufts", "nat_fern_clump", "nat_tallgrass_patch", "mod_weeds_clump", "nat_bracken_clump"]), px - t[1] * o, pz + t[0] * o,
              R.uniform(0, 360), cls="veg")
+    # NT4: Ural-4320 trucks (drivable): one at the motor pool, one stopped on the logging track
+    prop("car_ural_4320", 45.0, -39.0, 92.0, tags={"camp", "cover", "vehicle"})
+    prop("car_ural_4320", 31.0, 34.5, 95.0, tags={"track", "cover", "vehicle"})   # on the pond spur
     # NT4: the range in its clearing west of the creek, firing uphill into the radar hill
     range_layout(b, R, prop, (-3.0, -56.0), 90.0, (15.0, 20.0, 25.0), 2, rep)
     for x, z, yaw in ((22.0, 0.0, 0.0), (11.0, 0.0, 90.0)):   # camo nets and crates round the tents

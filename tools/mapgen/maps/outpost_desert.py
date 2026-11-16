@@ -133,6 +133,10 @@ def dress(b, R, prop, drop, line, paint, rep):
              R.uniform(0, 360), dy=-0.7, cls="solid")
         if R.random() < 0.5:
             drop(R.choice(["nat_scree_patch", "nat_boulder_limestone_m", "nat_stones_patch"]), x - R.uniform(3, 6), z + R.uniform(-2, 2), R.uniform(0, 360), cls="solid")
+    # NT4: Ural-4320 trucks (drivable): one in the base, one at the head of the convoy
+    prop("car_ural_4320", -14.0, -28.5, 95.0, tags={"fob", "cover", "vehicle"})
+    (px, pz), t = point_at(ROAD, 48.0)
+    drop("car_ural_4320", px - t[1] * 1.9, pz + t[0] * 1.9, math.degrees(math.atan2(t[0], t[1])) + 6.0, cls="solid")
     # NT4: the shooting range in the strip west of the highway, firing north into the berm
     range_layout(b, R, prop, (-54.5, -34.0), 0.0, (16.0, 25.0, 30.0), 1, rep)
     for aid, x, z, yaw in (("mod_sandbag_position", -46.0, 30.0, 90.0), ("mod_ammo_crate_old", -47.5, 27.0, 20.0)):   # the checkpoint's crate
