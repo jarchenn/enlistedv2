@@ -899,6 +899,7 @@ int App::run(int argc, char** argv) {
   audio.init();
   audio.loadEvents(contentDir() / "audio");
   audio.loadCustom(contentDir() / "audio" / "custom");
+  if (std::getenv("NMK_AUDIO_FIDELITY")) { audio.fidelityReport(contentDir() / "audio" / "custom"); std::exit(0); }   // SND5 diagnostics
   int fbw, fbh; glfwGetFramebufferSize(win, &fbw, &fbh);
   R.init(fbw, fbh);
   settingsInit(*this, runSelf);   // settings_user.json: presets, gameplay, audio, keys, UI (settings.cpp)
@@ -1035,6 +1036,7 @@ int App::run(int argc, char** argv) {
         const fs::path amb = contentDir() / "audio" / "ambience"; const bool br = doc.templateId == "backrooms", tn = doc.templateId == "tunnels";
         audio.setBed(0, br && fs::exists(amb / "level0.mp3") ? amb / "level0.mp3" : br || tn ? amb / "backrooms.mp3" : fs::path(), 0.6f);   // level0.mp3: local-only track
         audio.setBed(1, br ? fs::path() : amb / "battlefield.mp3", 0.7f);
+        audio.setRoom(br || tn ? 1.0f : 0.0f);   // SND5: the gun reverb
       }
     }
     audio.setUnderwater(v.underwater ? 1.0f : 0.0f);   // swim.cpp: muffled under water

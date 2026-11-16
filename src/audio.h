@@ -22,6 +22,9 @@ public:
   // listener only, at most one per 80 ms per shooter (automatic fire) and 6 at once
   void casing(vec3 feet, int shooter, float delay, bool soft);
   int casingsPlayed = 0, casingsSkipped = 0;   // tests
+  // SND5 diagnostics (NMK_AUDIO_FIDELITY: no device, the mix read back): each gun event played as the player's own shot,
+  // against its decoded mp3: peak, RMS and 1-4 / 4-10 kHz band energy (first 0.5 s from the onset), logged
+  void fidelityReport(const fs::path& customDir);
   void setListener(vec3 pos, vec3 fwd);
   void setAmbience(float wind, float leaves);
   void setBed(int slot, const fs::path& file, float volume);   // a looping music / room-tone file under everything, two slots that mix (empty path: none); cheap to call every frame
@@ -30,6 +33,7 @@ public:
   void setGains(float master, float effects, float ui, float ambience);
   // under water (swim.cpp): 0 normal .. 1 muffled (a low-pass on everything that reaches the speakers, a little quieter)
   void setUnderwater(float k);
+  void setRoom(float indoor);   // SND5: 0 outdoors .. 1 tunnels / Backrooms: the gun reverb's slap-back and tail
   float underwater = 0;
   float masterGain = 1, effectsGain = 1, uiGain = 1, ambienceGain = 1;
   // looping spatialised voices (tank engines, tracks, turret motors) and runtime-registered sounds (tank.cpp)
