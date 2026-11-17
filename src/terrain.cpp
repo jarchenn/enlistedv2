@@ -201,6 +201,7 @@ void Terrain::baseEdited(vec2 lo, vec2 hi) {
 
 float Terrain::baseHeight(float x, float z) const {
   if (h.empty()) return 0;
+  if (!std::isfinite(x) || !std::isfinite(z)) { static bool logged = false; if (!logged) { logged = true; logf("terrain: height asked at a non-finite position (%f, %f): the middle of the map answered (the caller has a NaN)", x, z); } x = org.x + nx * kCell * 0.5f; z = org.y + nz * kCell * 0.5f; }   // NaN through std::clamp then (int)NaN indexed far outside the grid (a crash): the middle of the map
   float fx = (x - org.x) / kCell, fz = (z - org.y) / kCell;
   fx = std::clamp(fx, 0.0f, (float)nx - 1.001f); fz = std::clamp(fz, 0.0f, (float)nz - 1.001f);
   int xi = (int)fx, zi = (int)fz; float tx = fx - xi, tz = fz - zi;

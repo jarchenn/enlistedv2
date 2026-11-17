@@ -956,6 +956,13 @@ void Game::step(float dt) {
   auto c0 = std::chrono::steady_clock::now();
   struct Timer { Game& g; std::chrono::steady_clock::time_point c; ~Timer() { g.stepMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - c).count(); ++g.stepCalls; } } timer{*this, c0};
   t += dt; ++steps;
+  for (auto& s : sold) {   // never a non-finite position (it reached Terrain::height via the camera / draws: a crash): restore the last good one, log the first
+    if (std::isfinite(s.feet.x) && std::isfinite(s.feet.y) && std::isfinite(s.feet.z) && std::isfinite(s.yaw)) { s.lastGoodFeet = s.feet; continue; }
+    static int logged = 0;
+    if (logged++ < 3) logf("game: soldier %d (%s, alive %d, agent %d, local %d) has a non-finite position (%f %f %f) yaw %f at t %.1f%s; restored to (%.1f %.1f %.1f)", s.slot, s.human ? "human" : "bot", (int)s.alive, s.agent, (int)s.localPlayer,
+                           s.feet.x, s.feet.y, s.feet.z, s.yaw, t, sdActive() ? " (SD)" : "", s.lastGoodFeet.x, s.lastGoodFeet.y, s.lastGoodFeet.z);
+    s.feet = s.lastGoodFeet; if (!std::isfinite(s.yaw)) s.yaw = 0; s.vel = vec3(0);
+  }
   // local player mirror
   if (Soldier* L = local(); L && L->alive) {
     localGrenadeCounts(*L, false);   // the E3 items are the local inventory (spent at release)
@@ -1153,8 +1160,14 @@ void Game::drawItems() {
     }
 }
 
+static bool finite3(vec3 v) { return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z); }
 bool Game::camera(vec3& e, vec3& f, float& fov) {
   specCam = cameraOrbit(e, f, fov);
+  if (specCam && (!finite3(e) || !finite3(f) || glm::dot(f, f) < 1e-6f)) {   // never a non-finite camera (it indexed the terrain grid out of range): the last good one
+    static bool logged = false; if (!logged) { logged = true; logf("spectate: non-finite camera (%f %f %f), the last valid one kept", e.x, e.y, e.z); }
+    if (finite3(specEye) && finite3(specFwd) && glm::dot(specFwd, specFwd) > 1e-6f) { e = specEye; f = specFwd; fov = 70; } else specCam = false;
+    return specCam;
+  }
   if (specCam) { specEye = e; specFwd = f; }
   return specCam;
 }
@@ -1169,15 +1182,18 @@ bool Game::cameraOrbit(vec3& e, vec3& f, float& fov) {
     e = target + back; f = glm::normalize(-back); fov = 70; return true;
   }
   // death / spectator camera: orbit behind the watched soldier (teammate or killer), never through walls
+  // a watchable soldier: alive, a teammate (a side swap or a round reset can leave a stale index), a finite position
+  auto watchable = [&](int k) { return k >= 0 && k < (int)sold.size() && &sold[k] != L && sold[k].alive && finite3(sold[k].feet) && std::isfinite(sold[k].yaw); };
   int w = spectate;
-  if (w < 0 || w >= (int)sold.size() || !sold[w].alive) {
+  if (!watchable(w) || (sold[w].team != L->team && !(t - L->diedAt < 3.0 && w == L->killer && match.mode() != GameMode::SearchDestroy))) {
     w = -1;
-    for (auto& s : sold) if (s.alive && s.team == L->team && &s != L) { w = s.slot; break; }   // Solo: none, so the killer or the body
-    if (t - L->diedAt < 3.0 && L->killer >= 0 && sold[L->killer].alive && match.mode() != GameMode::SearchDestroy) w = L->killer;   // SD1: never an enemy
+    for (auto& s : sold) if (s.team == L->team && watchable(s.slot)) { w = s.slot; break; }   // Solo: none, so the killer or the body
+    if (t - L->diedAt < 3.0 && watchable(L->killer) && match.mode() != GameMode::SearchDestroy) w = L->killer;   // SD1: never an enemy
     spectate = w;
   }
+  if (w < 0 && !finite3(L->feet)) return false;   // nobody to watch and no body to orbit: the caller keeps the last valid camera
   vec3 target = w >= 0 ? sold[w].feet + vec3(0, 1.6f, 0) : L->feet + vec3(0, 1.0f, 0);
-  float yaw = w >= 0 ? sold[w].yaw : L->yaw;
+  float yaw = w >= 0 ? sold[w].yaw : (std::isfinite(L->yaw) ? L->yaw : 0.0f);
   vec3 back = vec3(std::sin(radians(yaw)), 0.45f, std::cos(radians(yaw))) * 3.2f;
   // the wall test starts outside the watched body (from its head it hit its own capsule and put the camera inside the
   // model: an invisible body); never closer than 1 m to the head: a wall that close lifts the camera over the shoulder
