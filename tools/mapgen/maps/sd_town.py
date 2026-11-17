@@ -186,9 +186,7 @@ def build(ctx):
     _tp = os.path.join(tdir, TID + ".json")
     import json as _json
     _t = _json.load(open(_tp, encoding="utf-8")); _t["available"] = False
-    open(_tp, "w", encoding="utf-8", newline="
-").write(_json.dumps(_t, indent=1) + "
-")
+    open(_tp, "w", encoding="utf-8", newline="\n").write(_json.dumps(_t, indent=1) + "\n")
     rep = {"instances": len(b.inst), "walls": nw, "masses": n_mass, "cover": n_cover, "plan": [plan.nx, plan.nz], "errors": err}
     write_summary(os.path.join(ctx.out, TID + ".summary.json"), rep)
     print("instances %d | walls %d, masses %d, cover %d | plan %d x %d cells of %.0f m" % (len(b.inst), n_walls, n_mass, n_cover, plan.nx, plan.nz, CELL))
