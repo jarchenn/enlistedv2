@@ -8,7 +8,7 @@ import os
 
 from mapgen import (GroundPaint, Grid, Frame, MapBuilder, ScenarioBuilder, write_map, write_template, write_summary, asset_usage,
                     rng, look_yaw)
-from maps.sd_common import rows_from, Plan, place_walls2, spread, place_masses, place_cover, wall_spot, place_container_walls, site_signs, wall_lamps, place_along_walls, place_in_space
+from maps.sd_common import inside_eye, free_spot, door_segs, rows_from, Plan, place_walls2, spread, place_masses, place_cover, wall_spot, place_container_walls, site_signs, wall_lamps, place_along_walls, place_in_space
 
 TID, NAME, VERSION, SEED = "sd_yard", "Night Yard", 1, 2612
 CELL = 6.0
@@ -154,6 +154,33 @@ def build(ctx):
     b.place("mod_nt_radar_tower", mx, mz + 1.0, 0.0, check=False, cls="none", y=y0, tags={"landmark", "cover"})   # the parade square's landmark: splits mid
     _xa, _za = plan.cc(*PLANT_A_CELL); _xb, _zb = plan.cc(*PLANT_B_CELL)
     PADS = [(_xa + PLANT_A_OFF[0], _za + PLANT_A_OFF[1], 3.5), (_xb + PLANT_B_OFF[0], _zb + PLANT_B_OFF[1], 3.5)]
+    EYES = [("a_inside",) + inside_eye(plan, "A", PADS[0][:2])[:2] + (PADS[0][:2],), ("b_inside",) + inside_eye(plan, "B", PADS[1][:2])[:2] + (PADS[1][:2],),
+            ("m_inside",) + inside_eye(plan, "M", plan.centre("M"), 8.0)[:2] + (plan.centre("M"),)]   # eye views from inside each site and mid
+    PADS += [(ex, ez, 1.8) for _n, ex, ez, _t in EYES]
+    # the open aprons: a container stack (two wide, the near one two high) and a forklift working a pallet row
+    taken = []
+    for ch in "ABM":
+        segs = door_segs(plan, ch)
+        spot = free_spot(plan, ch, 3.0, 3.4, R, segs, PADS, taken, lane=1.5)
+        if spot:
+            sx, sz, syaw = spot
+            ux, uz = (1.0, 0.0) if syaw == 90.0 else (0.0, 1.0)   # across the boxes' long side
+            low = None
+            for k, col in enumerate(R.sample(["sd_box_blue", "sd_box_white", "sd_box_orange", "sd_box_green", "sd_box_grey"], 3)):
+                if k < 2:
+                    low = b.place(col, sx + uz * (k - 0.5) * 2.6, sz + ux * (k - 0.5) * 2.6, syaw, check=False, cls="none", y=y0, tags={"cover"})
+                else:
+                    b.place(col, sx + uz * 0.5 * 2.6, sz + ux * 0.5 * 2.6, syaw + R.uniform(-3, 3), check=False, cls="none", y=y0 + 2.6, tags={"cover", "stacked"}, support=low)
+            taken.append((sx, sz, 4.0))
+        if ch == "M":
+            continue
+        spot = free_spot(plan, ch, 2.6, 2.0, R, segs, PADS, taken, lane=1.5)
+        if spot:
+            sx, sz, syaw = spot
+            b.place("sd_forklift", sx, sz, syaw + 20.0, check=False, cls="none", y=y0, tags={"cover", "vehicle"})
+            b.place("sd_dry_pallet_stack", sx + 2.0, sz - 0.6, syaw, check=False, cls="none", y=y0, tags={"cover"})
+            b.place("cl_yard_barrel_stack", sx - 1.9, sz + 0.8, syaw + 90.0, check=False, cls="none", y=y0, tags={"cover"})
+            taken.append((sx, sz, 3.2))
     n_cover = 0
     for ch, items in COVER.items():
         n_cover += place_cover(b, plan, ch, items, R, y0, keep=PADS)
@@ -277,6 +304,8 @@ def build(ctx):
     cam = ([0.0, 120.0, -110.0], 0.0, -48.0)
     eye = 1.65
     views = [{"name": "overview_high", "pos": [0.0, 130.0, -100.0], "yaw": 0.0, "pitch": -55.0}]
+    for name, ex, ez, (tx, tz) in EYES:
+        views.append({"name": name, "pos": [round(ex, 2), round(y0 + eye, 2), round(ez, 2)], "yaw": look_yaw(tx - ex, tz - ez), "pitch": 0.0, "gameplay": True})
     for name, (i, j), (ti, tj) in (("a_site", (2, 10), (2, 12)), ("b_site", (11, 6), (12, 8)), ("mid", (6, 5), (6, 7)), ("t_spawn", (2, 1), (2, 3)), ("d_spawn", (10, 15), (10, 13)), ("reefer", (8, 8), (10, 8)), ("rail", (9, 10), (5, 10))):
         x, z = plan.cc(i, j); tx, tz = plan.cc(ti, tj)
         views.append({"name": name + "_eye", "pos": [round(x, 2), round(y0 + eye, 2), round(z, 2)], "yaw": look_yaw(tx - x, tz - z), "pitch": 0.0, "gameplay": True})

@@ -34,7 +34,7 @@ def M(name, albedo, pattern="painted", rough=0.7, metal=0.0, tex=None, emis=None
 MATS = [M("yellow", [0.78, 0.6, 0.08], tex="paint_metal_worn"), M("white", [0.8, 0.8, 0.76], tex="paint_metal_worn"), M("black", [0.03, 0.03, 0.03]),
         M("joint", [0.05, 0.05, 0.05], "plain", 0.9), M("rail", [0.42, 0.42, 0.43], "metal", 0.35, 0.8, "steel_scratched"),
         M("galv", [0.55, 0.57, 0.58], "metal", 0.5, 0.6, "steel_scratched"), M("head", [0.18, 0.19, 0.2], "metal", 0.6, 0.4),
-        M("lens", [1.0, 0.92, 0.78], "plain", 0.3, emis=3.0), M("red_lens", [1.0, 0.08, 0.04], "plain", 0.3, emis=4.0), M("grate", [0.08, 0.08, 0.085], "metal", 0.6, 0.5), M("wet", [0.025, 0.026, 0.03], "plain", 0.03), M("lit", [1.0, 0.82, 0.55], "plain", 0.4, emis=1.6), M("lit_cool", [0.75, 0.85, 1.0], "plain", 0.4, emis=1.3)]
+        M("lens", [1.0, 0.92, 0.78], "plain", 0.3, emis=3.0), M("red_lens", [1.0, 0.08, 0.04], "plain", 0.3, emis=4.0), M("grate", [0.08, 0.08, 0.085], "metal", 0.6, 0.5), M("wet", [0.025, 0.026, 0.03], "plain", 0.03), M("pallet_wood", [0.55, 0.42, 0.28], "wood", 0.8), M("lit", [1.0, 0.82, 0.55], "plain", 0.4, emis=1.6), M("lit_cool", [0.75, 0.85, 1.0], "plain", 0.4, emis=1.3)]
 
 
 def B(p, c, s, m, k=0, lod=0, r=None):
@@ -135,6 +135,23 @@ def main():
         if q.get("t") == "p":
             q["a"] = [0.0, 0.008]
     out.append(w)
+    # a counterbalance forklift (2.4 t), forks to +z, parked with a pallet on the forks; the chassis collides
+    p = []
+    B(p, [0, 0.75, -0.2], [1.15, 0.9, 1.9], "yellow", k=1)          # body
+    B(p, [0, 0.85, -1.25], [1.15, 1.0, 0.4], "head", k=1)           # counterweight
+    B(p, [0, 1.25, -0.45], [0.6, 0.12, 0.5], "black")               # seat
+    for sx in (-0.52, 0.52):
+        for sz in (-0.85, 0.55):
+            p.append({"t": "c", "c": [sx, 0.33, sz], "s": [0.66, 0.22, 0.66], "m": "black", "seg": 14, "r": [0, 0, 90], "k": 1})
+        B(p, [sx, 1.55, -0.25], [0.07, 1.4, 0.07], "black", lod=1)  # overhead guard posts
+        B(p, [sx * 0.6, 1.5, 0.8], [0.1, 2.9, 0.12], "head", k=1)   # mast
+    B(p, [0, 2.27, -0.25], [1.1, 0.06, 1.2], "black", lod=1)        # guard roof
+    B(p, [0, 0.55, 0.9], [0.95, 0.5, 0.06], "head")                 # carriage
+    for sx in (-0.32, 0.32):
+        B(p, [sx, 0.12, 1.5], [0.12, 0.05, 1.15], "head", k=1)     # forks
+    B(p, [0, 0.25, 1.55], [1.1, 0.14, 1.1], "pallet_wood", k=1)
+    B(p, [0, 0.62, 1.55], [1.0, 0.6, 1.0], "white", k=1)            # a wrapped load
+    out.append(asset("sd_forklift", "Forklift", "a yellow counterbalance forklift with a wrapped pallet on its forks.", [1.2, 3.2], p))
     # the floodlight mast: +z faces the lane; two floods aimed down and out
     p = []
     p.append({"t": "c", "c": [0, 7.0, 0], "s": [0.36, 14.0, 0.36], "m": "galv", "seg": 10, "top": 0.55, "k": 1})

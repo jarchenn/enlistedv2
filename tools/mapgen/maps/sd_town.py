@@ -9,7 +9,7 @@ import os
 
 from mapgen import (GroundPaint, Grid, Frame, MapBuilder, ScenarioBuilder, write_map, write_template, write_summary, asset_usage,
                     rng, look_yaw)
-from maps.sd_common import rows_from, Plan, place_facades, spread, place_masses, place_cover, wall_spot, site_signs, place_along_walls, place_in_space
+from maps.sd_common import door_points, rect_ok, inside_eye, rows_from, Plan, place_facades, spread, place_masses, place_cover, wall_spot, site_signs, place_along_walls, place_in_space
 
 TID, NAME, VERSION, SEED = "sd_town", "Rue Haute", 1, 2613
 CELL = 6.0
@@ -132,6 +132,9 @@ def build(ctx):
     b.place("sd_monument", mx, mz, 0.0, check=False, cls="none", y=y0, tags={"landmark", "cover"})   # the square's war memorial (the old well's footprint): the mid landmark
     _xa, _za = plan.cc(*PLANT_A_CELL); _xb, _zb = plan.cc(*PLANT_B_CELL)
     PADS = [(_xa + PLANT_A_OFF[0], _za + PLANT_A_OFF[1], 3.5), (_xb + PLANT_B_OFF[0], _zb + PLANT_B_OFF[1], 3.5)]
+    EYES = [("a_inside",) + inside_eye(plan, "A", PADS[0][:2])[:2] + (PADS[0][:2],), ("b_inside",) + inside_eye(plan, "B", PADS[1][:2])[:2] + (PADS[1][:2],),
+            ("m_inside",) + inside_eye(plan, "M", plan.centre("M"), 8.0)[:2] + (plan.centre("M"),)]   # eye views from inside each site and mid
+    PADS += [(ex, ez, 1.8) for _n, ex, ez, _t in EYES]
     n_cover = 0
     for ch, items in COVER.items():
         n_cover += place_cover(b, plan, ch, items, R, y0, keep=PADS)
@@ -185,7 +188,7 @@ def build(ctx):
         used_m.append((x + nx_ * 1.2, z + nz_ * 1.2, 3.0 if yaw == 0.0 else 1.3, 1.3 if yaw == 0.0 else 3.0))
         n_kit += 2
     for ch, items in (("B", [("cl_town_market_row", 4.75, 1.6, 1), ("cl_town_market_stall", 1.6, 0.9, 2)]),
-                      ("M", [("cl_town_cafe_terrace_large", 4.7, 2.3, 1), ("cl_town_doorstep", 1.6, 0.6, 1), ("cl_town_bench_corner", 1.5, 0.7, 1)]),
+                      ("M", [("mod_fountain_wall", 1.7, 0.95, 1), ("cl_town_doorstep", 1.6, 0.6, 1), ("cl_town_bench_corner", 1.5, 0.7, 1)]),
                       ("A", [("cl_town_doorstep", 1.6, 0.6, 1), ("cl_town_bench_corner", 1.5, 0.7, 1)]),
                       ("s", [("cl_town_roadblock", 2.25, 0.5, 1), ("cl_town_doorstep", 1.6, 0.6, 2)]),
                       ("t", [("cl_town_barricade", 5.25, 1.8, 1), ("cl_town_doorstep", 1.6, 0.6, 2)]),
@@ -194,8 +197,38 @@ def build(ctx):
         Rk = rng(SEED * 31 + ord(ch))   # each region's own draws: dressing one region never moves another's (the barricade on the B route)
         n_kit += place_along_walls(b, plan, ch, items, Rk, y0, keep=PADS, placed=used_m if ch == "M" else None)
     # the open square: stalls, a cart and benches round the memorial; the covered passages: barrels and doorsteps
-    taken = [(mx, mz, 2.6)]
-    n_kit += place_in_space(b, plan, "M", [("cl_town_market_stall", 1.6, 0.9, 2), ("drs_cart", 1.9, 0.95, 1)], R, y0, PADS, taken)
+    b.place("sd_memorial_railing", mx, mz, 0.0, check=False, cls="none", y=y0, tags={"cover"})
+    taken = [(mx, mz, 3.6)]
+    # market day: two rows of stalls under striped canopies across the square, 4.2 m either side of the memorial, 1.2 m
+    # walks between them; a stall never within 3 m of a doorway, a plant pad or an audit eye
+    mcs = [plan._cc(i, j) for i, j in plan.cells("M")]
+    wide = (max(p[0] for p in mcs) - min(p[0] for p in mcs)) >= (max(p[1] for p in mcs) - min(p[1] for p in mcs))
+    mdoors = door_points(plan, "M")
+    for row in (-4.2, 4.2):
+        for k in range(-3, 4):
+            t = k * 4.7
+            if k == 0:   # the memorial's benches
+                continue
+            sx, sz = (mx + t, mz + row) if wide else (mx + row, mz + t)
+            syaw = 0.0 if wide else 90.0
+            ex, ez = (1.75, 1.05) if wide else (1.05, 1.75)
+            if not rect_ok(plan, sx, sz, ex, ez, walkable=True, margin=0.6):
+                continue
+            if any(math.hypot(sx - dx, sz - dz) < 3.0 + 1.75 for dx, dz in mdoors) or any(math.hypot(sx - kx, sz - kz) < kr + 1.75 for kx, kz, kr in PADS):
+                continue
+            if any(abs(sx - ux) < ua + ex + 1.0 and abs(sz - uz) < ud + ez + 1.0 for ux, uz, ua, ud in used_m):   # clear of the covered market
+                continue
+            b.place("cl_town_market_stall", sx, sz, syaw + R.uniform(-3, 3), check=False, cls="none", y=y0, tags={"cover", "market"})
+            b.place("sd_stall_awning_%d" % R.randint(1, 3), sx, sz, syaw, check=False, cls="none", y=y0, tags={"cover", "market"})
+            taken.append((sx, sz, 2.0))
+            n_kit += 2
+    n_kit += place_in_space(b, plan, "M", [("drs_cart", 1.9, 0.95, 2)], R, y0, PADS, taken, lane=1.0)
+    # the cafe's terrace spills out in front of the cafe nearest the square
+    cafes = [(math.hypot(x - mx, z - mz), x, z, nx_, nz_) for x, z, nx_, nz_, h in houses if h is not None and h["asset"] == "sd_facade_cafe"]
+    if cafes:
+        _d, x, z, nx_, nz_ = min(cafes)
+        b.place("cl_town_cafe_terrace_large", x + nx_ * 2.75, z + nz_ * 2.75, math.degrees(math.atan2(-nz_, nx_)) % 360.0, check=False, cls="none", y=y0, tags={"cover"})
+        n_kit += 1
     for k, (dx, dz) in enumerate(((0.0, 3.4), (3.4, 0.0), (0.0, -3.4), (-3.4, 0.0))):
         if k % 2 == 0:
             b.place("mod_garden_bench", mx + dx, mz + dz, math.degrees(math.atan2(-dx, -dz)) % 360.0, check=False, cls="none", y=y0, tags={"cover"})
@@ -254,6 +287,8 @@ def build(ctx):
     cam = ([0.0, 120.0, -110.0], 0.0, -48.0)
     eye = 1.65
     views = [{"name": "overview_high", "pos": [0.0, 130.0, -100.0], "yaw": 0.0, "pitch": -55.0}]
+    for name, ex, ez, (tx, tz) in EYES:
+        views.append({"name": name, "pos": [round(ex, 2), round(y0 + eye, 2), round(ez, 2)], "yaw": look_yaw(tx - ex, tz - ez), "pitch": 0.0, "gameplay": True})
     for name, (i, j), (ti, tj) in (("a_site", (12, 10), (12, 12)), ("b_site", (3, 6), (2, 8)), ("mid", (9, 6), (8, 8)), ("t_spawn", (12, 1), (12, 3)), ("d_spawn", (4, 15), (4, 13)), ("bakery", (6, 8), (4, 8)), ("arcade", (5, 10), (9, 10))):
         x, z = plan.cc(i, j); tx, tz = plan.cc(ti, tj)
         views.append({"name": name + "_eye", "pos": [round(x, 2), round(y0 + eye, 2), round(z, 2)], "yaw": look_yaw(tx - x, tz - z), "pitch": 0.0, "gameplay": True})

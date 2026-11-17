@@ -500,3 +500,29 @@ def place_in_space(b, plan, ch, items, R, y, keep, placed, lane=1.5, tags=("cove
             placed.append((x, z, max(hw, hd)))
             n += 1
     return n
+
+
+def inside_eye(plan, ch, target, dist=9.0):
+    """An eye spot in region ch `dist` from `target` (a pad or a landmark), 1.2 m clear of its walls, on the side facing
+    the region's centre: (x, z, yaw at the target). For the audit's views from inside a site or a square."""
+    cx, cz = plan.centre(ch)
+    tx, tz = target
+    best = None
+    for k in range(32):
+        a = 2 * math.pi * k / 32
+        for d in (dist, dist * 0.8, dist * 0.6):
+            x, z = tx + math.sin(a) * d, tz + math.cos(a) * d
+            if not rect_ok(plan, x, z, 0.3, 0.3, walkable=True, margin=1.2):
+                continue
+            # a clear line to the target: every sample in a cell of region ch (walls only stand between regions)
+            if any(plan.at(int(math.floor((x + (tx - x) * f - plan.x0) / plan.cell)), int(math.floor((z + (tz - z) * f - plan.z0) / plan.cell))) != ch
+                   for f in (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)):
+                continue
+            score = (math.sin(a) * (cx - tx) + math.cos(a) * (cz - tz)) + d
+            if best is None or score > best[0]:
+                best = (score, x, z)
+            break
+    if best is None:
+        return cx, cz, 0.0
+    _, x, z = best
+    return x, z, math.degrees(math.atan2(tx - x, tz - z)) % 360.0

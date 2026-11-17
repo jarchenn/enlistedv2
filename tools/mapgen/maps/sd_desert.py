@@ -8,7 +8,7 @@ import os
 
 from mapgen import (GroundPaint, Grid, Frame, MapBuilder, ScenarioBuilder, write_map, write_template, write_summary, asset_usage,
                     rng, look_yaw)
-from maps.sd_common import Plan, place_walls2, spread, place_masses, place_cover, wall_spot, roof_clutter, place_along_walls, free_spot, door_segs, barrier_line, place_in_space
+from maps.sd_common import inside_eye, Plan, place_walls2, spread, place_masses, place_cover, wall_spot, roof_clutter, place_along_walls, free_spot, door_segs, barrier_line, place_in_space
 
 TID, NAME, VERSION, SEED = "sd_desert", "Sun Fort", 1, 2611
 CELL = 6.0
@@ -119,6 +119,9 @@ def build(ctx):
     _xa, _za = plan.cc(*PLANT_A_CELL); _xb, _zb = plan.cc(*PLANT_B_CELL)
     PADS = [(_xa + PLANT_A_OFF[0], _za + PLANT_A_OFF[1], 3.5), (_xb + PLANT_B_OFF[0], _zb + PLANT_B_OFF[1], 3.5)]
     PADS += [(plan.cc(i, j)[0], plan.cc(i, j)[1], 1.6) for _n, (i, j), _t in VIEW_CELLS]   # the audit eyes stand clear of the dressing
+    EYES = [("a_inside",) + inside_eye(plan, "A", PADS[0][:2])[:2] + (PADS[0][:2],), ("b_inside",) + inside_eye(plan, "B", PADS[1][:2])[:2] + (PADS[1][:2],),
+            ("m_inside",) + inside_eye(plan, "M", plan.centre("M"), 8.0)[:2] + (plan.centre("M"),)]   # eye views from inside each site and mid
+    PADS += [(ex, ez, 1.8) for _n, ex, ez, _t in EYES]
     n_cover = 0
     for ch, items in COVER.items():
         if ch in "MTD":   # mid and the spawn yards: their clutter lines the walls too
@@ -167,6 +170,26 @@ def build(ctx):
             b.place(it, px + dx * (ux or 0.7) - dz * uz * 0.0 + (dz if uz else 0.0), pz + dz * (1.0 if ux else 0.0) + dx * uz, pyaw + 7.0 * k, check=False, cls="none", y=y0, tags={"cover"})
         taken.append((px, pz, 4.6))
     n_space = 0
+    # the open middle of each site: a parked vehicle pair, a container with T-walls at its ends, the site's dump
+    for ch, vehs, dump in (("A", ("sd_static_ural", "sd_static_boxer"), ("cl_desert_supply_dump", 3.7, 2.2)), ("B", ("sd_static_humvee", "sd_static_ural"), ("cl_desert_fuel_dump", 4.2, 2.8))):
+        segs = door_segs(plan, ch)
+        for k, veh in enumerate(vehs):   # one vehicle per spot (a pair needs more room than the door lines leave)
+            spot = free_spot(plan, ch, 1.3, 3.8, R, segs, PADS, taken, lane=0.5)
+            if spot:
+                sx, sz, syaw = spot
+                b.place(veh, sx, sz, syaw + (6.0 if k else -9.0), check=False, cls="none", y=y0, tags={"cover", "vehicle"})
+                taken.append((sx, sz, 3.8))
+                n_space += 1
+        spot = free_spot(plan, ch, 4.0, 1.4, R, segs, PADS, taken, lane=0.5)
+        if spot:
+            sx, sz, syaw = spot
+            ux, uz = (1.0, 0.0) if syaw == 0.0 else (0.0, 1.0)
+            b.place("sd_dry_container_20_damaged", sx, sz, syaw + 90.0, check=False, cls="none", y=y0, tags={"cover"})
+            for e in (-1, 1):
+                b.place("mod_twall", sx + ux * e * 3.9, sz + uz * e * 3.9, syaw + R.uniform(-4, 4), check=False, cls="none", y=y0, tags={"cover"})
+            taken.append((sx, sz, 4.6))
+            n_space += 3
+        n_space += place_in_space(b, plan, ch, [dump + (1,)], R, y0, PADS, taken, lane=0.5)
     for ch in "AB":
         n_space += barrier_line(b, plan, ch, "mod_twall", 3, 1.55, 1.25, R, y0, PADS, taken)
         n_space += barrier_line(b, plan, ch, "mod_jersey_barrier", 2, 3.2, 0.8, R, y0, PADS, taken)
@@ -175,7 +198,7 @@ def build(ctx):
     n_space += barrier_line(b, plan, "M", "mod_jersey_barrier", 2, 3.2, 0.8, R, y0, PADS, taken)
     n_space += place_in_space(b, plan, "M", [("cl_desert_supply_stack", 1.45, 0.7, 1), ("cl_desert_rocks_deadwood", 3.0, 2.35, 1)], R, y0, PADS, taken)
     if os.environ.get("NMK_SD_BIG", "1") != "0":   # the large clusters against the site / mid walls, edge dressing inside the sites (on since SD5; NMK_SD_BIG=0 drops them)
-        for ch, big in (("A", [("cl_desert_supply_dump", 3.6, 2.4, 1), ("cl_desert_fuel_dump", 4.2, 2.8, 1)]), ("B", [("cl_desert_motor_pool", 3.6, 2.1, 1), ("cl_desert_guard_point", 3.0, 2.6, 1)]),
+        for ch, big in (("A", [("cl_desert_guard_point", 3.0, 2.6, 1)]), ("B", [("cl_desert_motor_pool", 3.6, 2.1, 1), ("cl_desert_guard_point", 3.0, 2.6, 1)]),
                         ("M", [("cl_desert_supply_dump", 3.6, 2.4, 1)])):
             n_space += place_along_walls(b, plan, ch, big, R, y0, keep=PADS)
         for ch in "AB":
@@ -303,6 +326,8 @@ def build(ctx):
     thumb_cam = ([_tx + 1.5, y0 + 2.4, _tz - 1.5], look_yaw(_ax - _tx, _az - _tz), -6.0)   # A Vehicle Court across from its south-east corner
     eye = 1.65
     views = [{"name": "overview_high", "pos": [0.0, 130.0, -100.0], "yaw": 0.0, "pitch": -55.0}]
+    for name, ex, ez, (tx, tz) in EYES:
+        views.append({"name": name, "pos": [round(ex, 2), round(y0 + eye, 2), round(ez, 2)], "yaw": look_yaw(tx - ex, tz - ez), "pitch": 0.0, "gameplay": True})
     for name, (i, j), (ti, tj) in VIEW_CELLS:
         x, z = plan.cc(i, j); tx, tz = plan.cc(ti, tj)
         views.append({"name": name + "_eye", "pos": [round(x, 2), round(y0 + eye, 2), round(z, 2)], "yaw": look_yaw(tx - x, tz - z), "pitch": 0.0, "gameplay": True})

@@ -56,6 +56,39 @@
       "pitch": -55.0
     },
     {
+      "name": "a_inside",
+      "pos": [
+        -32.06,
+        11.65,
+        20.31
+      ],
+      "yaw": 22.5,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "b_inside",
+      "pos": [
+        30.5,
+        11.65,
+        20.98
+      ],
+      "yaw": -33.74999999999999,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "m_inside",
+      "pos": [
+        6.65,
+        11.65,
+        10.44
+      ],
+      "yaw": 56.25000000000001,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
       "name": "a_site_eye",
       "pos": [
         -30.0,

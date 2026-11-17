@@ -36,11 +36,11 @@
   "thumbnail": "sd_yard.thumb.png",
   "thumbnailCamera": {
     "pos": [
-      -30.0,
+      -23.64,
       12.25,
-      24.0
+      42.36
     ],
-    "yaw": 180.0,
+    "yaw": 45.0,
     "pitch": -5.0
   },
   "userMap": true,
@@ -54,6 +54,39 @@
       ],
       "yaw": 0.0,
       "pitch": -55.0
+    },
+    {
+      "name": "a_inside",
+      "pos": [
+        -23.64,
+        11.65,
+        42.36
+      ],
+      "yaw": 45.0,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "b_inside",
+      "pos": [
+        23.64,
+        11.65,
+        18.36
+      ],
+      "yaw": -45.00000000000002,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "m_inside",
+      "pos": [
+        0.06,
+        11.65,
+        19.39
+      ],
+      "yaw": 22.499999999999996,
+      "pitch": 0.0,
+      "gameplay": true
     },
     {
       "name": "a_site_eye",
