@@ -407,7 +407,7 @@ void mainMenuFrame(App& app) {
   if (S.page != Guns && S.page != Vehicles && !(S.page == Character && charTab == 1)) statEditorFlush(app);   // ED2: edits apply when their screen is left
   if (S.page != Main) {
     const float pa = ease(((float)ImGui::GetTime() - (float)S.pageAt) / 0.16f) * fadeIn;
-    uiGlassFlat(dl, V(0, 0), V(W, H), 0.62f);
+    uiGlassFlat(dl, V(0, 0), V(W, H), 0.40f);   // UI5: the scene reads behind the page
     dl->AddRectFilledMultiColor(V(0, 0), V(W * 0.6f, H), rgba(0, 0, 0, 0.45f), rgba(0, 0, 0, 0), rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.45f));
     const float X0 = 84 * s, tp = 104 * s, ry = 54 * s + tp * 1.02f + 30 * s;
     const char* title = S.page == Play ? "PLAY" : S.page == Character ? "CHARACTER" : S.page == Guns ? "GUNS" : S.page == Vehicles ? "VEHICLES" : "CREDITS";

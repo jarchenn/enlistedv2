@@ -372,9 +372,19 @@ void settingsWindow(App& app) {
   int& tab = gSettingsTab;
   ImGui::SetCursorScreenPos(ImVec2(X0, 54 * sc + 104 * sc * 1.02f + 46 * sc));
   { static const char* tn[] = {"Video", "Gameplay", "Audio", "Keybindings", "Interface"}; flat::tabs(tn, 5, tab); }
-  const float bodyTop = ImGui::GetCursorScreenPos().y + 18 * sc, bodyBot = H - 150 * sc;
+  const float bodyTop = ImGui::GetCursorScreenPos().y + 18 * sc, bodyBot = H - 116 * sc;
   ImGui::SetCursorScreenPos(ImVec2(X0, bodyTop));
-  ImGui::BeginChild("##setbody", ImVec2(std::min(W * 0.5f, 900 * sc), bodyBot - bodyTop), 0, ImGuiWindowFlags_NoBackground);
+  // UI5: the rows span the page: two columns on the long tabs (Video, Keybindings), else one wide column whose values sit
+  // near 45 % of the width; tight row spacing (the rows carry their own height)
+  ImGui::BeginChild("##setbody", ImVec2(W - 2 * X0, bodyBot - bodyTop), 0, ImGuiWindowFlags_NoBackground);
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(10 * sc, 2)); ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(0, 0));
+  const bool twoCol = tab == 0 || tab == 3;
+  ImGui::BeginTable("##setcols", 3, ImGuiTableFlags_SizingStretchProp);
+  ImGui::TableSetupColumn("a", ImGuiTableColumnFlags_WidthStretch, twoCol ? 1.0f : 0.62f);
+  ImGui::TableSetupColumn("gap", ImGuiTableColumnFlags_WidthFixed, 72 * sc);
+  ImGui::TableSetupColumn("b", ImGuiTableColumnFlags_WidthStretch, twoCol ? 1.0f : 0.38f);
+  ImGui::TableNextColumn();
+  auto nextCol = [] { ImGui::TableNextColumn(); ImGui::TableNextColumn(); };
   {
     // ------------------------------------------------ graphics
     if (tab == 0) {
@@ -386,7 +396,6 @@ void settingsWindow(App& app) {
       
       if (flat::combo("Preset", &pr, pn, 5) && order[pr] != GfxPreset::Custom) g = presetOpts(order[pr]);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Medium is the standard look. Low: half-size shadows, no cloud shadows / light shafts / reflections / AO,\nless grass and decoration, 85 %% resolution. High: sharper far shadows, full-resolution AO, more grass, longer view.");
-      ImGui::Separator();
       flat::sliderFloat("Resolution scale", &g.resScale, 0.5f, 1.0f, "%.2f");
       if (ImGui::IsItemDeactivatedAfterEdit()) applyNow = true;   // targets are recreated once, on release
       { const char* um[] = {"Temporal", "Spatial", "Off (native)"}; flat::combo("Upscaling", &u.upscale, um, 3);
@@ -406,6 +415,7 @@ void settingsWindow(App& app) {
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Cloud cover: Creative > View > Sky");
       { const char* gq[] = {"Off", "Low", "Medium", "High", "Ultra"}; flat::combo("Grass", &g.grass, gq, 5); }
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Ultra: denser, longer-reaching grass (grass only: no preset sets it, and it leaves shadows, probes and MSAA alone).");
+      nextCol();
       {   // PF2: render distance in metres, four named stops plus any value on the slider
         const float stops[4] = {600, 1200, 2500, 5000}; const char* names[5] = {"Low (600 m)", "Medium (1.2 km)", "High (2.5 km)", "Ultra (5 km)", "Custom"};
         int cur = 4; for (int k = 0; k < 4; ++k) if (std::fabs(g.renderDist - stops[k]) < 1) cur = k;
@@ -440,7 +450,7 @@ void settingsWindow(App& app) {
         { const char* gn[] = {"Off", "Medium", "High"}; flat::combo("Indirect light", &g.gi, gn, 3);
           if (ImGui::IsItemHovered()) ImGui::SetTooltip("Probe light around the camera: lamplight and window light bounce onto walls and ceilings.\nOff: the flat fill of earlier versions."); }
       }
-      ImGui::Separator();
+      flat::section("Display");
       flat::sliderFloat("Field of view", &u.fov, 55.0f, 100.0f, "%.0f deg");
       flat::sliderFloat("Gamma", &u.gamma, 0.5f, 2.0f, "%.2f");
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Above 1 brightens the dark tones, below 1 darkens them. 1.00 is the default.");
@@ -452,7 +462,6 @@ void settingsWindow(App& app) {
       { int caps[] = {0, 30, 60, 90, 120, 144, 165, 240}; const char* cn[] = {"Unlimited", "30", "60", "90", "120", "144", "165", "240"};
         int ci = 0; for (int k = 0; k < 8; ++k) if (caps[k] == u.fpsCap) ci = k;
         if (flat::combo("FPS cap", &ci, cn, 8)) u.fpsCap = caps[ci]; }
-      ImGui::TextDisabled("Frame %.2f ms (%.0f FPS) | render %d x %d of %d x %d", io.DeltaTime * 1000, io.Framerate, app.R.width, app.R.height, app.R.displayW, app.R.displayH);
     }
     // ------------------------------------------------ gameplay
     if (tab == 1) {
@@ -484,7 +493,9 @@ void settingsWindow(App& app) {
     // ------------------------------------------------ controls
     if (tab == 3) {
       ImGui::TextWrapped("Rebindable Explore actions (defaults in content/settings/bindings.json). Click a key, then press the new one (Esc cancels).");
+      int ai = 0;
       for (auto& a : kActions) {
+        if (ai++ == (int)(sizeof kActions / sizeof kActions[0] + 1) / 2) nextCol();
         auto it = app.binds.names.find(a.id); std::string cur = it == app.binds.names.end() ? "?" : it->second;
         if (flat::keyRow((std::string(a.label) + "##" + a.id).c_str(), cur.c_str(), S.rebinding == a.id)) { S.rebinding = a.id; S.bindMsg.clear(); }   // UI4
       }
@@ -520,11 +531,10 @@ void settingsWindow(App& app) {
       flat::sliderFloat("Zoom step", &u.editorZoom, 0.25f, 4.0f, "x %.2f", ImGuiSliderFlags_Logarithmic);
     }
   }
+  ImGui::EndTable(); ImGui::PopStyleVar(2);
   ImGui::EndChild();
   const bool dirty = !(u == applied);
   {   // the footer: a hint, a rule, the text actions, a small status line
-    static const char* hints[] = {"Change your video settings", "Change your gameplay settings", "Change your audio levels", "Change your keys", "Change the interface"};
-    ImGui::SetCursorScreenPos(ImVec2(X0, H - 132 * sc)); flat::note(hints[std::clamp(tab, 0, 4)]);
     flat::rule(pdl, X0, W - X0, H - 104 * sc);
     ImGui::SetCursorScreenPos(ImVec2(X0, H - 92 * sc));
     if (flat::action("Back")) S.open = false;   // unapplied edits are dropped, as Close did
@@ -532,7 +542,9 @@ void settingsWindow(App& app) {
     if (flat::action("Reset to defaults")) { std::map<std::string, std::string> k = u.keys; u = UserSettings{}; u.keys = k; }
     ImGui::SameLine(0, 48 * sc);
     if (flat::action("Apply settings")) applyNow = true;   // WX2: never greyed out
-    const char* st = dirty ? "CHANGES NOT APPLIED YET" : S.persist ? "SAVED TO SETTINGS_USER.JSON" : "SELF-TEST: NOT SAVED";
+    char stb[200]; std::snprintf(stb, sizeof stb, "%s   //   FRAME %.2f MS (%.0f FPS)   RENDER %d X %d OF %d X %d", dirty ? "CHANGES NOT APPLIED YET" : S.persist ? "SAVED TO SETTINGS_USER.JSON" : "SELF-TEST: NOT SAVED",
+                                 io.DeltaTime * 1000, io.Framerate, app.R.width, app.R.height, app.R.displayW, app.R.displayH);   // UI5: the Video tab's frame line lives here
+    const char* st = stb;
     flat::text(pdl, ImGui::GetFont(), 12 * sc, ImVec2(W * 0.5f - flat::textW(ImGui::GetFont(), 12 * sc, st, 0.12f) * 0.5f, H - 34 * sc), flat::grey(0.7f), st, 0.12f);
   }
   ImGui::End();

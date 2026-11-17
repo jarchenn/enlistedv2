@@ -16,19 +16,22 @@ std::string upper(const char* s) {   // the visible part of an ImGui label ("Tex
   for (auto& c : t) c = (char)std::toupper((unsigned char)c);
   return t;
 }
-float rowH() { return std::round(ImGui::GetFontSize() * 2.0f); }
-float labelPx() { return ImGui::GetFontSize() * 0.92f; }
+// UI5 legibility (at 1080p the font size is 16 px): rows ~36 px, labels 27 px condensed semibold at full strength,
+// values 24 px Barlow Medium
+float rowH() { return std::round(ImGui::GetFontSize() * 2.15f); }   // + the page's 2 px spacing: ~36 px rows
+float labelPx() { return ImGui::GetFontSize() * 1.7f; }
+float valuePx() { return ImGui::GetFontSize() * 1.5f; }
 // the row's label at the left; returns the control column [x0, x1)
 void rowLabel(const char* label, ImVec2 p, float& x0, float& x1) {
   const float W = ImGui::GetContentRegionAvail().x, h = rowH();
   x0 = p.x + std::max(W * 0.48f, 180.0f); x1 = p.x + W;
   std::string t = upper(label);
-  if (!t.empty()) { ImFont* f = ImGui::GetFont(); const float px = labelPx(); text(ImGui::GetWindowDrawList(), f, px, ImVec2(p.x, p.y + (h - px) * 0.5f), ink(0.92f), t.c_str(), 0.09f); }
+  if (!t.empty()) { ImFont* f = uiFontHead(); const float px = labelPx(); text(ImGui::GetWindowDrawList(), f, px, ImVec2(p.x, p.y + (h - px) * 0.5f), ink(), t.c_str(), 0.05f); }
 }
 void chevron(ImDrawList* dl, ImVec2 c, float s, bool right, ImU32 cl) {
   const float d = right ? 1.0f : -1.0f;
-  dl->AddLine(ImVec2(c.x - d * s * 0.35f, c.y - s * 0.6f), ImVec2(c.x + d * s * 0.35f, c.y), cl, 1.6f);
-  dl->AddLine(ImVec2(c.x + d * s * 0.35f, c.y), ImVec2(c.x - d * s * 0.35f, c.y + s * 0.6f), cl, 1.6f);
+  dl->AddLine(ImVec2(c.x - d * s * 0.35f, c.y - s * 0.6f), ImVec2(c.x + d * s * 0.35f, c.y), cl, 2.0f);
+  dl->AddLine(ImVec2(c.x + d * s * 0.35f, c.y), ImVec2(c.x - d * s * 0.35f, c.y + s * 0.6f), cl, 2.0f);
 }
 // "<  VALUE  >": the arrows step, a click on the value steps on; true when it changed
 bool stepper(const char* label, const char* value, int& dir) {
@@ -41,12 +44,12 @@ bool stepper(const char* label, const char* value, int& dir) {
   ImGui::SetCursorScreenPos(ImVec2(x0 + h, p.y)); ImGui::InvisibleButton("##v", ImVec2(std::max(1.0f, x1 - x0 - 2 * h), h)); const bool hv = ImGui::IsItemHovered();
   if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) dir = 1; else if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) dir = -1;
   ImGui::PopID();
-  const float cy = p.y + h * 0.5f, s = ImGui::GetFontSize() * 0.55f;
+  const float cy = p.y + h * 0.5f, s = ImGui::GetFontSize() * 0.7f;
   chevron(dl, ImVec2(x0 + h * 0.5f, cy), s, false, hl ? gold() : ink(0.75f));
   chevron(dl, ImVec2(x1 - h * 0.5f, cy), s, true, hr ? gold() : ink(0.75f));
-  std::string v = upper(value); ImFont* f = ImGui::GetFont(); const float px = labelPx();
-  const float tw = textW(f, px, v.c_str(), 0.08f);
-  text(dl, f, px, ImVec2((x0 + x1) * 0.5f - tw * 0.5f, cy - px * 0.5f), hv ? gold() : ink(), v.c_str(), 0.08f);
+  std::string v = upper(value); ImFont* f = ImGui::GetFont(); const float px = valuePx();
+  const float tw = textW(f, px, v.c_str(), 0.06f);
+  text(dl, f, px, ImVec2((x0 + x1) * 0.5f - tw * 0.5f, cy - px * 0.55f), hv ? gold() : ink(), v.c_str(), 0.06f);
   return dir != 0;
 }
 }
@@ -57,7 +60,7 @@ ImU32 rust(float a) { return col(166, 92, 52, a); }
 ImU32 gold(float a) { return col(206, 172, 118, a); }
 ImFont* titleFont() { return uiFontTitle(); }
 
-void backdrop(ImDrawList* dl, ImVec2 mn, ImVec2 mx) { uiGlassFlat(dl, mn, mx, 0.62f); }
+void backdrop(ImDrawList* dl, ImVec2 mn, ImVec2 mx) { uiGlassFlat(dl, mn, mx, 0.40f); }   // UI5: the scene reads behind the page (~40 %)
 
 float textW(ImFont* f, float px, const char* s, float trackEm) {
   float w = 0; const float tr = px * trackEm; for (const char* c = s; *c; ++c) w += f->CalcTextSizeA(px, 1e9f, 0, c, c + 1).x + tr;
@@ -71,14 +74,14 @@ float text(ImDrawList* dl, ImFont* f, float px, ImVec2 p, ImU32 c, const char* s
 void rule(ImDrawList* dl, float x0, float x1, float y) { dl->AddRectFilled(ImVec2(x0, y), ImVec2(x1, y + 1.0f), rust(0.85f)); }
 
 bool tabs(const char* const* names, int n, int& cur) {
-  ImDrawList* dl = ImGui::GetWindowDrawList(); ImFont* f = uiFontHead(); const float px = ImGui::GetFontSize() * 1.25f;
-  ImVec2 p = ImGui::GetCursorScreenPos(); const float h = px * 1.6f; bool changed = false;
+  ImDrawList* dl = ImGui::GetWindowDrawList(); ImFont* f = uiFontHead(); const float px = ImGui::GetFontSize() * 1.9f;   // UI5: ~30 px at 1080p
+  ImVec2 p = ImGui::GetCursorScreenPos(); const float h = px * 1.5f; bool changed = false;
   for (int k = 0; k < n; ++k) {
     std::string t = upper(names[k]); const float w = textW(f, px, t.c_str(), 0.06f);
     ImGui::SetCursorScreenPos(p); ImGui::PushID(k); ImGui::InvisibleButton("##tab", ImVec2(w, h)); ImGui::PopID();
     const bool hov = ImGui::IsItemHovered(); if (ImGui::IsItemClicked() && cur != k) { cur = k; changed = true; }
     text(dl, f, px, ImVec2(p.x, p.y + (h - px) * 0.45f), k == cur ? gold() : hov ? ink(0.9f) : grey(), t.c_str(), 0.06f);
-    if (k == cur) dl->AddRectFilled(ImVec2(p.x, p.y + h - 2), ImVec2(p.x + w, p.y + h - 1), gold());
+    if (k == cur) dl->AddRectFilled(ImVec2(p.x, p.y + h - 3), ImVec2(p.x + w, p.y + h - 1), gold());
     p.x += w;
     if (k + 1 < n) { const float sw = textW(f, px, "  //  ", 0.0f); text(dl, f, px, ImVec2(p.x, p.y + (h - px) * 0.45f), grey(0.55f), "  //  ", 0.0f); p.x += sw; }
   }
@@ -87,11 +90,11 @@ bool tabs(const char* const* names, int n, int& cur) {
 }
 
 void section(const char* name) {
-  ImGui::Dummy(ImVec2(1, ImGui::GetFontSize() * 0.5f));
-  ImDrawList* dl = ImGui::GetWindowDrawList(); const ImVec2 p = ImGui::GetCursorScreenPos(); const float px = ImGui::GetFontSize() * 0.8f;
-  std::string t = upper(name); const float w = text(dl, uiFontHead(), px, p, grey(), t.c_str(), 0.14f);
-  dl->AddRectFilled(ImVec2(p.x + w + 12, p.y + px * 0.55f), ImVec2(p.x + ImGui::GetContentRegionAvail().x, p.y + px * 0.55f + 1), grey(0.25f));
-  ImGui::Dummy(ImVec2(1, px * 1.3f));
+  ImGui::Dummy(ImVec2(1, ImGui::GetFontSize() * 0.6f));
+  ImDrawList* dl = ImGui::GetWindowDrawList(); const ImVec2 p = ImGui::GetCursorScreenPos(); const float px = ImGui::GetFontSize() * 1.25f;   // UI5: ~20 px
+  std::string t = upper(name); const float w = text(dl, uiFontHead(), px, p, gold(), t.c_str(), 0.14f);
+  dl->AddRectFilled(ImVec2(p.x + w + 14, p.y + px * 0.55f), ImVec2(p.x + ImGui::GetContentRegionAvail().x, p.y + px * 0.55f + 1), rust(0.6f));
+  ImGui::Dummy(ImVec2(1, px * 1.35f));
 }
 
 bool combo(const char* label, int* cur, const char* const items[], int n) {
@@ -110,8 +113,8 @@ static bool sliderCore(const char* label, double& v, double lo, double hi, const
   ImGuiWindow* w = ImGui::GetCurrentWindow(); if (w->SkipItems) return false;
   ImDrawList* dl = w->DrawList; const ImVec2 p = ImGui::GetCursorScreenPos(); const float h = rowH();
   float x0, x1; rowLabel(label, p, x0, x1);
-  ImFont* f = ImGui::GetFont(); const float px = labelPx();
-  const float valW = std::max(ImGui::GetFontSize() * 5.0f, textW(f, px, valueText, 0.04f) + 10), tx0 = x0 + valW, tx1 = x1 - 4;
+  ImFont* f = ImGui::GetFont(); const float px = valuePx();
+  const float valW = std::max(ImGui::GetFontSize() * 6.5f, textW(f, px, valueText, 0.04f) + 14), tx0 = x0 + valW, tx1 = x1 - 4;
   ImGui::SetCursorScreenPos(ImVec2(x0, p.y)); ImGui::PushID(label); ImGui::InvisibleButton("##s", ImVec2(std::max(1.0f, x1 - x0), h)); ImGui::PopID();
   const bool hov = ImGui::IsItemHovered(), act = ImGui::IsItemActive(); bool changed = false;
   auto toT = [&](double x) { return logScale && lo > 0 ? std::log(x / lo) / std::log(hi / lo) : (x - lo) / (hi - lo); };
@@ -125,10 +128,10 @@ static bool sliderCore(const char* label, double& v, double lo, double hi, const
     double nv = fromT(std::clamp(toT(v) + ImGui::GetIO().MouseWheel * 0.01, 0.0, 1.0)); if (integer) nv = std::round(nv);
     if (nv != v) { v = nv; changed = true; }
   }
-  const float cy = p.y + h * 0.5f, t = (float)std::clamp(toT(v), 0.0, 1.0), hx = tx0 + (tx1 - tx0) * t, hs = 5.0f;
-  text(dl, f, px, ImVec2(x0, cy - px * 0.5f), act || hov ? gold() : ink(), valueText, 0.04f);
-  dl->AddRectFilled(ImVec2(tx0, cy - 0.5f), ImVec2(tx1, cy + 0.5f), ink(0.35f));
-  dl->AddRectFilled(ImVec2(tx0, cy - 0.5f), ImVec2(hx, cy + 0.5f), ink(0.85f));
+  const float cy = p.y + h * 0.5f, t = (float)std::clamp(toT(v), 0.0, 1.0), hx = tx0 + (tx1 - tx0) * t, hs = std::round(ImGui::GetFontSize() * 0.4f);
+  text(dl, f, px, ImVec2(x0, cy - px * 0.55f), act || hov ? gold() : ink(), valueText, 0.04f);
+  dl->AddRectFilled(ImVec2(tx0, cy - 1.0f), ImVec2(tx1, cy + 1.0f), ink(0.35f));
+  dl->AddRectFilled(ImVec2(tx0, cy - 1.0f), ImVec2(hx, cy + 1.0f), ink(0.9f));
   dl->AddRectFilled(ImVec2(hx - hs, cy - hs), ImVec2(hx + hs, cy + hs), act ? gold() : ink());
   return changed;
 }
@@ -148,14 +151,14 @@ bool keyRow(const char* label, const char* key, bool waiting) {
   const ImVec2 p = ImGui::GetCursorScreenPos(); const float h = rowH(); float x0, x1; rowLabel(label, p, x0, x1);
   ImGui::SetCursorScreenPos(ImVec2(x0, p.y)); ImGui::PushID(label); ImGui::InvisibleButton("##k", ImVec2(std::max(1.0f, x1 - x0), h)); ImGui::PopID();
   const bool hov = ImGui::IsItemHovered(), hit = ImGui::IsItemClicked();
-  std::string v = waiting ? std::string("PRESS A KEY") : upper(key); ImFont* f = ImGui::GetFont(); const float px = labelPx();
+  std::string v = waiting ? std::string("PRESS A KEY") : upper(key); ImFont* f = ImGui::GetFont(); const float px = valuePx();
   const float tw = textW(f, px, v.c_str(), 0.08f), cx = (x0 + x1) * 0.5f, cy = p.y + h * 0.5f;
   text(w->DrawList, f, px, ImVec2(cx - tw * 0.5f, cy - px * 0.5f), waiting || hov ? gold() : ink(), v.c_str(), 0.08f);
   w->DrawList->AddRectFilled(ImVec2(x0 + h, p.y + h - 6), ImVec2(x1 - h, p.y + h - 5), waiting ? gold(0.8f) : ink(hov ? 0.5f : 0.18f));
   return hit;
 }
 bool action(const char* label) {
-  ImDrawList* dl = ImGui::GetWindowDrawList(); ImFont* f = uiFontHead(); const float px = ImGui::GetFontSize() * 1.15f;
+  ImDrawList* dl = ImGui::GetWindowDrawList(); ImFont* f = uiFontHead(); const float px = ImGui::GetFontSize() * 1.6f;   // UI5: ~26 px
   std::string t = upper(label); const float w = textW(f, px, t.c_str(), 0.08f), h = px * 1.5f;
   const ImVec2 p = ImGui::GetCursorScreenPos();
   ImGui::InvisibleButton(label, ImVec2(w, h));
@@ -165,7 +168,7 @@ bool action(const char* label) {
   return hit;
 }
 void note(const char* s) {
-  ImDrawList* dl = ImGui::GetWindowDrawList(); const ImVec2 p = ImGui::GetCursorScreenPos(); const float px = ImGui::GetFontSize() * 0.82f;
+  ImDrawList* dl = ImGui::GetWindowDrawList(); const ImVec2 p = ImGui::GetCursorScreenPos(); const float px = ImGui::GetFontSize() * 1.05f;
   std::string t = upper(s); text(dl, uiFontHead(), px, p, grey(), t.c_str(), 0.1f); ImGui::Dummy(ImVec2(1, px * 1.4f));
 }
 }  // namespace flat
