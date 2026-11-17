@@ -2,7 +2,7 @@
 
 Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/gen_furniture.py`, `tools/gen_furniture_mil.py` and `tools/catalog_modern_furniture.mjs`) was captured from 1 m at standing eye height (1.62 m), 35 degrees off its front (`NMK_PROPS_NEAR=1.0 NMK_PROPS_NEAR_ONLY=1 --capture-props`), and set beside a reference photo of the real object (Wikimedia Commons, linked per item). The 92 imported paintings (`furn_art_*`) are models already and were not audited.
 
-**Outcome:** 16 assets **replaced** by scanned Poly Haven models (CC0), 186 **kept** with a change request below. Replacement keeps the asset id, its parts as colliders / stand-ins, its furnishing envelope, its broken remains and its cover (content/settings/furniture_models.json, `src/assets.cpp` furnitureModelFor, fitted by `tools/props/furn_fit.py`), so placement, nav and gameplay do not change.
+**Outcome:** 37 assets **replaced** by scanned Poly Haven models (CC0), 165 **kept** with a change request below. Replacement keeps the asset id, its parts as colliders / stand-ins, its furnishing envelope, its broken remains and its cover (content/settings/furniture_models.json, `src/assets.cpp` furnitureModelFor, fitted by `tools/props/furn_fit.py`), so placement, nav and gameplay do not change.
 
 **How to execute a request:** edit the asset's builder (period pieces: `tools/gen_furniture.py`, military: `tools/gen_furniture_mil.py`, modern: `tools/catalog_modern_furniture.mjs`), keep the stated outer size (the footprint and height the furnishing planner reserves), regenerate, recapture with the command above (`NMK_PROPS=<id>`), and compare with the reference. Colours are linear albedo (r, g, b); roughness 0 = mirror, 1 = matte. A request may also be met by replacing the asset with an imported model of the same size and era: add it to `tools/props/furn_replace.json` and run `tools/props/furn_fit.py` (it refuses a model that would distort more than 30 %).
 
@@ -34,15 +34,17 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Rooms:* attic, bedroom, bedroom_modern, church, hall, kitchen, mil_command, office, office_modern, sitting, tavern. *Size:* 0.44 x 0.44 m footprint, h 0.95 m.
 ![furn_chair_ladder at 1 m](furniture-audit/furn_chair_ladder.jpg)
 *Reference:* [Ladder-back side chair, by Charles Rennie Mackintosh, 1903, ebonized oak with rush seat - Huntington Art Museum - San Marino, CA - DSC01820.jpg](https://commons.wikimedia.org/wiki/File:Ladder-back_side_chair,_by_Charles_Rennie_Mackintosh,_1903,_ebonized_oak_with_rush_seat_-_Huntington_Art_Museum_-_San_Marino,_CA_-_DSC01820.jpg) (Public domain)
-**KEEP: change request.** **Wrong:** close to the reference (ladder back, rush seat), but the rails are all one thickness, the rush seat is a flat tan plate and the back slats are flat.
-**Change:** keep 0.44 x 0.44 x 0.95. Back posts 0.035 m round, slightly raked back (8 degrees) above the seat, finials 0.03 m. Four ladder slats 0.06 m tall, 0.012 m thick, bent (concave 0.02 m toward the sitter), decreasing spacing upward. Front legs 0.03 m round, two stretchers per side at 0.12 and 0.25 m. Seat: rush in the albedo / normal: four triangular quadrants of twisted rush meeting at the centre (diagonal X), rolls 0.012 m, straw-olive (0.42, 0.37, 0.22), 0.03 m thick rounded edge. Wood: dark stained beech (0.18, 0.11, 0.07), worn lighter on the front stretcher.
+*After:* ![furn_chair_ladder replaced, 1 m](furniture-audit/furn_chair_ladder_after.jpg)
+**REPLACED** by the Poly Haven model `painted_wooden_chair_02`: worn painted ladder-back chair (PR3) Fitted: turn 0 degrees, scale 0.72; baked into `content/assets/models/fr_chair_ladder/`.
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong:** close to the reference (ladder back, rush seat), but the rails are all one thickness, the rush seat is a flat tan plate and the back slats are flat. **Change:** keep 0.44 x 0.44 x 0.95. Back posts 0.035 m round, slightly raked back (8 degrees) above the seat, finials 0.03 m. Four ladder slats 0.06 m tall, 0.012 m thick, bent (concave 0.02 m toward the sitter), decreasing spacing upward. Front legs 0.03 m round, two stretchers per side at 0.12 and 0.25 m. Seat: rush in the albedo / normal: four triangular quadrants of twisted rush meeting at the centre (diagonal X), rolls 0.012 m, straw-olive (0.42, 0.37, 0.22), 0.03 m thick rounded edge. Wood: dark stained beech (0.18, 0.11, 0.07), worn lighter on the front stretcher.
 
 ### `furn_chest`: Blanket chest
 *Rooms:* attic, barn, bedroom, church, hall, office, sitting, utility, workshop. *Size:* 1.03 x 0.53 m footprint, h 0.57 m.
 ![furn_chest at 1 m](furniture-audit/furn_chest.jpg)
 *Reference:* [Coffre Anglais en cuir à décor de clous de cuivre, 1227.jpg](https://commons.wikimedia.org/wiki/File:Coffre_Anglais_en_cuir_%C3%A0_d%C3%A9cor_de_clous_de_cuivre,_1227.jpg) (CC0)
-**KEEP: change request.** **Wrong:** box with two straps; the reference coffer has bracket feet, a moulded lid, studs and a big lock plate.
-**Change:** keep 1.03 x 0.53 x 0.57. Lid: 0.04 m board with a moulded edge (0.015 m round-over), overhanging 0.02 m. Front: three panels (0.28 m) in a frame (0.06 m stiles), panels raised 0.01 m. Iron: two straps 0.04 m over the lid and down the front with rows of 0.012 m round-head studs every 0.05 m; a 0.10 x 0.14 m lock plate with a hasp; side handles (0.12 m loops). Bracket feet 0.07 m tall, ogee cut. Oak, dark waxed (0.15, 0.09, 0.05, roughness 0.45), lighter worn edges; iron black with rust in the corners.
+*After:* ![furn_chest replaced, 1 m](furniture-audit/furn_chest_after.jpg)
+**REPLACED** by the Poly Haven model `treasure_chest`: strapped wooden trunk (PR3) Fitted: turn 0 degrees, scale 1.00; baked into `content/assets/models/fr_chest/`.
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong:** box with two straps; the reference coffer has bracket feet, a moulded lid, studs and a big lock plate. **Change:** keep 1.03 x 0.53 x 0.57. Lid: 0.04 m board with a moulded edge (0.015 m round-over), overhanging 0.02 m. Front: three panels (0.28 m) in a frame (0.06 m stiles), panels raised 0.01 m. Iron: two straps 0.04 m over the lid and down the front with rows of 0.012 m round-head studs every 0.05 m; a 0.10 x 0.14 m lock plate with a hasp; side handles (0.12 m loops). Bracket feet 0.07 m tall, ogee cut. Oak, dark waxed (0.15, 0.09, 0.05, roughness 0.45), lighter worn edges; iron black with rust in the corners.
 
 ### `furn_frame_dusk`: Painting (evening)
 *Rooms:* bedroom, church, hall, sitting. *Size:* 0.5 x 0.05 m footprint, h 0.75 m.
@@ -62,8 +64,9 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Rooms:* bedroom, church, class, hall, kitchen, mil_quarters, office, sitting, tavern. *Size:* 0.56 x 0.04 m footprint, h 0.42 m.
 ![furn_picture at 1 m](furniture-audit/furn_picture.jpg)
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
-**KEEP: change request.** **Wrong (1 m capture, hung in the air without its wall):** a plain flat frame with a pale print.
-**Change:** Picture frame: as the furn_frame_* request; the portrait as a sepia photograph (0.62, 0.52, 0.38 tones) behind glass (reflection, roughness 0.05) in a black or oak frame.
+*After:* ![furn_picture replaced, 1 m](furniture-audit/furn_picture_after.jpg)
+**REPLACED** by the Poly Haven model `hanging_picture_frame_02`: framed print (PR3) Fitted: turn 0 degrees, scale 0.85; baked into `content/assets/models/fr_picture/`.
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong (1 m capture, hung in the air without its wall):** a plain flat frame with a pale print. **Change:** Picture frame: as the furn_frame_* request; the portrait as a sepia photograph (0.62, 0.52, 0.38 tones) behind glass (reflection, roughness 0.05) in a black or oak frame.
 
 ### `furn_sconce_candle`: Candle sconce
 *Rooms:* bedroom, church. *Size:* 0.32 x 0.12 m footprint, h 0.28 m.
@@ -76,8 +79,9 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Rooms:* church, kitchen, office, sitting, tavern. *Size:* 1.7 x 0.86 m footprint, h 0.76 m.
 ![furn_table_dining at 1 m](furniture-audit/furn_table_dining.jpg)
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
-**KEEP: change request.** **Wrong:** reads; tapered legs plain; board joints invisible; top too clean.
-**Change:** keep 1.70 x 0.86 x 0.76. Top: 4 boards with 0.003 m gaps, end cleats, wear (lighter, polished) in the middle and around the edges, knife marks; apron 0.10 m with a drawer at one end; legs 0.07 m square tapering to 0.045 m. Oak (0.32, 0.22, 0.12).
+*After:* ![furn_table_dining replaced, 1 m](furniture-audit/furn_table_dining_after.jpg)
+**REPLACED** by the Poly Haven model `painted_wooden_table`: painted farmhouse table (PR3) Fitted: turn 0 degrees, scale 0.75; baked into `content/assets/models/fr_table_dining/`.
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong:** reads; tapered legs plain; board joints invisible; top too clean. **Change:** keep 1.70 x 0.86 x 0.76. Top: 4 boards with 0.003 m gaps, end cleats, wear (lighter, polished) in the middle and around the edges, knife marks; apron 0.10 m with a drawer at one end; legs 0.07 m square tapering to 0.045 m. Oak (0.32, 0.22, 0.12).
 
 ## School (period classroom)
 
@@ -85,8 +89,9 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Rooms:* class, office, sitting. *Size:* 1.06 x 0.38 m footprint, h 2.04 m.
 ![furn_bookcase at 1 m](furniture-audit/furn_bookcase.jpg)
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
-**KEEP: change request.** **Wrong:** books are uniform flat coloured blocks in saturated primaries (red / blue / white) all the same height, shelves without depth shadow; the oak case is fine.
-**Change:** keep 1.06 x 0.38 x 2.04. Books: 3-4 height classes per shelf (0.18-0.30 m), widths 0.025-0.06 m, 5-15 % leaning, gaps; spines in muted cloth colours (oxblood 0.35, 0.08, 0.06; bottle green 0.08, 0.18, 0.10; navy 0.08, 0.10, 0.20; tan 0.45, 0.35, 0.22; faded black), two 0.006 m gilt bands per spine (normal + 0.6 roughness brass); spines set back 0.02 m from the shelf front so the shelf edge casts a line. Case: add a 0.06 m cornice and a 0.08 m plinth; shelf fronts 0.02 m lipped.
+*After:* ![furn_bookcase replaced, 1 m](furniture-audit/furn_bookcase_after.jpg)
+**REPLACED** by the Poly Haven model `wooden_bookshelf_worn`: worn wooden bookcase (PR3) Fitted: turn 0 degrees, scale 0.79; baked into `content/assets/models/fr_bookcase/`.
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong:** books are uniform flat coloured blocks in saturated primaries (red / blue / white) all the same height, shelves without depth shadow; the oak case is fine. **Change:** keep 1.06 x 0.38 x 2.04. Books: 3-4 height classes per shelf (0.18-0.30 m), widths 0.025-0.06 m, 5-15 % leaning, gaps; spines in muted cloth colours (oxblood 0.35, 0.08, 0.06; bottle green 0.08, 0.18, 0.10; navy 0.08, 0.10, 0.20; tan 0.45, 0.35, 0.22; faded black), two 0.006 m gilt bands per spine (normal + 0.6 roughness brass); spines set back 0.02 m from the shelf front so the shelf edge casts a line. Case: add a 0.06 m cornice and a 0.08 m plinth; shelf fronts 0.02 m lipped.
 
 ### `furn_books`: Book stack
 *Rooms:* attic, bedroom, bedroom_modern, class, class_modern, hall, kitchen, lobby, mil_command, office, office_modern, sitting, sitting_modern, ward, workshop. *Size:* 0.26 x 0.2 m footprint, h 0.14 m.
@@ -183,8 +188,9 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Rooms:* cellar, class, kitchen, mil_command, office, sitting, tavern, utility, workshop. *Size:* 1.0 x 0.32 m footprint, h 1.60 m.
 ![furn_shelf at 1 m](furniture-audit/furn_shelf.jpg)
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
-**KEEP: change request.** **Wrong:** reads; uprights plain, shelves bare in the capture.
-**Change:** keep 1.0 x 0.32 x 1.60. Uprights 0.04 m with notched supports; shelves 0.025 m pine with a worn front edge; the planner already puts items on it; pine colour (0.50, 0.36, 0.20).
+*After:* ![furn_shelf replaced, 1 m](furniture-audit/furn_shelf_after.jpg)
+**REPLACED** by the Poly Haven model `shelf_01`: tall wooden shelf (PR3) Fitted: turn 0 degrees, scale 0.98; baked into `content/assets/models/fr_shelf/`.
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong:** reads; uprights plain, shelves bare in the capture. **Change:** keep 1.0 x 0.32 x 1.60. Uprights 0.04 m with notched supports; shelves 0.025 m pine with a worn front edge; the planner already puts items on it; pine colour (0.50, 0.36, 0.20).
 
 ### `furn_stove`: Cooking range
 *Rooms:* class, kitchen. *Size:* 1.02 x 0.65 m footprint, h 1.82 m.
@@ -353,8 +359,9 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Rooms:* shop. *Size:* 1.25 x 0.512 m footprint, h 2.15 m.
 ![furn_mod_shop_wall_shelf at 1 m](furniture-audit/furn_mod_shop_wall_shelf.jpg)
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
-**KEEP: change request.** **Wrong:** stock is big flat colour blocks; shelves blotchy.
-**Change:** keep sizes. Packaging atlas (shared fix), price-edge strips on shelf fronts (white with blank labels), shelves painted steel light grey (shared fix); stock rack: chrome wire shelves as alpha grid.
+*After:* ![furn_mod_shop_wall_shelf replaced, 1 m](furniture-audit/furn_mod_shop_wall_shelf_after.jpg)
+**REPLACED** by the Poly Haven model `steel_frame_shelves_01`: shop shelving (PR3) Fitted: turn 0 degrees, scale 1.05; baked into `content/assets/models/fr_mod_shop_wall_shelf/`.
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong:** stock is big flat colour blocks; shelves blotchy. **Change:** keep sizes. Packaging atlas (shared fix), price-edge strips on shelf fronts (white with blank labels), shelves painted steel light grey (shared fix); stock rack: chrome wire shelves as alpha grid.
 
 ### `furn_mod_wall_clock`: Wall clock
 *Rooms:* bedroom_modern, class_modern, dining, gym, kitchen_modern, lobby, office_modern, prokitchen, shop, sitting_modern, ward. *Size:* 0.35 x 0.054 m footprint, h 0.35 m.
@@ -388,8 +395,9 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Rooms:* kitchen, mil_command, mil_quarters, mil_radio, office, ruin, sitting, tavern. *Size:* 1.1 x 0.7 m footprint, h 0.76 m.
 ![furn_table_small at 1 m](furniture-audit/furn_table_small.jpg)
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
-**KEEP: change request.** **Wrong:** as furn_table_dining.
-**Change:** keep 1.10 x 0.70 x 0.76; as furn_table_dining with 3 boards and a cutlery drawer.
+*After:* ![furn_table_small replaced, 1 m](furniture-audit/furn_table_small_after.jpg)
+**REPLACED** by the Poly Haven model `wooden_table_02`: farmhouse kitchen table (PR3) Fitted: turn 0 degrees, scale 0.97; baked into `content/assets/models/fr_table_small/`.
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong:** as furn_table_dining. **Change:** keep 1.10 x 0.70 x 0.76; as furn_table_dining with 3 boards and a cutlery drawer.
 
 ## Military: bunkers, command posts, quarters
 
@@ -588,8 +596,9 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Rooms:* bedroom_modern, lobby, sitting_modern. *Size:* 1.2 x 0.6 m footprint, h 0.42 m.
 ![furn_mod_coffee_table at 1 m](furniture-audit/furn_mod_coffee_table.jpg)
 *Reference:* [Miele, IFA 2018, Berlin (P1070072).jpg](https://commons.wikimedia.org/wiki/File:Miele,_IFA_2018,_Berlin_(P1070072).jpg) (CC BY-SA 4.0)
-**KEEP: change request.** **Wrong:** reads (oak slab on a black frame with a slatted shelf); top plain.
-**Change:** keep 1.2 x 0.6 x 0.42. Oak top 0.03 m with a fine grain and a matt lacquer (0.45), slat shelf of 6 slats with 0.01 m gaps, black powder-coated 0.02 m steel tube frame with welded corners. (The Poly Haven coffee tables imported were of other styles and were not used.)
+*After:* ![furn_mod_coffee_table replaced, 1 m](furniture-audit/furn_mod_coffee_table_after.jpg)
+**REPLACED** by the Poly Haven model `coffeetable_01`: coffee table (PR3) Fitted: turn 0 degrees, scale 0.73; baked into `content/assets/models/fr_mod_coffee_table/`.
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong:** reads (oak slab on a black frame with a slatted shelf); top plain. **Change:** keep 1.2 x 0.6 x 0.42. Oak top 0.03 m with a fine grain and a matt lacquer (0.45), slat shelf of 6 slats with 0.01 m gaps, black powder-coated 0.02 m steel tube frame with welded corners. (The Poly Haven coffee tables imported were of other styles and were not used.)
 
 ### `furn_mod_copier`: Photocopier
 *Rooms:* office_modern. *Size:* 0.72 x 0.698 m footprint, h 1.13 m.
@@ -609,8 +618,9 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Rooms:* bedroom_modern, office_modern. *Size:* 1.4 x 0.7 m footprint, h 0.75 m.
 ![furn_mod_desk at 1 m](furniture-audit/furn_mod_desk.jpg)
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
-**KEEP: change request.** **Wrong:** top uses a stained white texture.
-**Change:** keep 1.4 x 0.7 x 0.75. White laminate top (shared fix) 0.025 m with a 0.002 m dark edge band, cable grommet 0.06 m; grey powder-coated steel T legs (0.30, 0.31, 0.32, roughness 0.45); modesty panel perforated (alpha dots).
+*After:* ![furn_mod_desk replaced, 1 m](furniture-audit/furn_mod_desk_after.jpg)
+**REPLACED** by the Poly Haven model `metal_office_desk`: steel office desk (PR3) Fitted: turn 0 degrees, scale 0.79; baked into `content/assets/models/fr_mod_desk/`.
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong:** top uses a stained white texture. **Change:** keep 1.4 x 0.7 x 0.75. White laminate top (shared fix) 0.025 m with a 0.002 m dark edge band, cable grommet 0.06 m; grey powder-coated steel T legs (0.30, 0.31, 0.32, roughness 0.45); modesty panel perforated (alpha dots).
 
 ### `furn_mod_desk_l`: L-shaped desk
 *Rooms:* bedroom_modern, office_modern. *Size:* 1.6 x 1.5 m footprint, h 0.75 m.
@@ -622,8 +632,9 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Rooms:* kitchen_modern, office_modern, sitting_modern. *Size:* 1.9 x 0.95 m footprint, h 0.75 m.
 ![furn_mod_dining_table6 at 1 m](furniture-audit/furn_mod_dining_table6.jpg)
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
-**KEEP: change request.** **Wrong:** reads.
-**Change:** keep. Oak top 0.035 m with a matt lacquer (roughness 0.45), plank joints (3-4 boards, 0.002 m lines), black steel sled legs 0.04 x 0.02 m flat bar.
+*After:* ![furn_mod_dining_table6 replaced, 1 m](furniture-audit/furn_mod_dining_table6_after.jpg)
+**REPLACED** by the Poly Haven model `woodentable_01`: wooden dining table (PR3) Fitted: turn 0 degrees, scale 1.28; baked into `content/assets/models/fr_mod_dining_table6/`.
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong:** reads. **Change:** keep. Oak top 0.035 m with a matt lacquer (roughness 0.45), plank joints (3-4 boards, 0.002 m lines), black steel sled legs 0.04 x 0.02 m flat bar.
 
 ### `furn_mod_dish_sink`: Dish pit sink
 *Rooms:* prokitchen. *Size:* 1.8 x 0.71 m footprint, h 1.66 m.
@@ -866,8 +877,9 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Rooms:* prokitchen. *Size:* 1.205 x 0.465 m footprint, h 1.80 m.
 ![furn_mod_stock_rack at 1 m](furniture-audit/furn_mod_stock_rack.jpg)
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
-**KEEP: change request.** **Wrong:** stock is big flat colour blocks; shelves blotchy.
-**Change:** keep sizes. Packaging atlas (shared fix), price-edge strips on shelf fronts (white with blank labels), shelves painted steel light grey (shared fix); stock rack: chrome wire shelves as alpha grid.
+*After:* ![furn_mod_stock_rack replaced, 1 m](furniture-audit/furn_mod_stock_rack_after.jpg)
+**REPLACED** by the Poly Haven model `steel_frame_shelves_01`: stock shelving (PR3) Fitted: turn 0 degrees, scale 0.95; baked into `content/assets/models/fr_mod_stock_rack/`.
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong:** stock is big flat colour blocks; shelves blotchy. **Change:** keep sizes. Packaging atlas (shared fix), price-edge strips on shelf fronts (white with blank labels), shelves painted steel light grey (shared fix); stock rack: chrome wire shelves as alpha grid.
 
 ### `furn_mod_student_desk`: Student desk-chair combo
 *Rooms:* class_modern. *Size:* 0.64 x 0.97 m footprint, h 0.77 m.
@@ -887,8 +899,9 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Rooms:* class_modern. *Size:* 1.4 x 0.71 m footprint, h 0.76 m.
 ![furn_mod_teacher_desk at 1 m](furniture-audit/furn_mod_teacher_desk.jpg)
 *Reference:* [Teacher's desk made of steel 2012-01-29.JPG](https://commons.wikimedia.org/wiki/File:Teacher%27s_desk_made_of_steel_2012-01-29.JPG) (CC0)
-**KEEP: change request.** **Wrong:** counters use a stained white stone texture.
-**Change:** keep sizes. Fronts: white laminate (shared fix) or walnut slats as authored; ledges quartz (light grey speckle, roughness 0.2); monitors and file trays on the work top.
+*After:* ![furn_mod_teacher_desk replaced, 1 m](furniture-audit/furn_mod_teacher_desk_after.jpg)
+**REPLACED** by the Poly Haven model `metal_office_desk`: steel teacher's desk (PR3) Fitted: turn 0 degrees, scale 0.80; baked into `content/assets/models/fr_mod_teacher_desk/`.
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong:** counters use a stained white stone texture. **Change:** keep sizes. Fronts: white laminate (shared fix) or walnut slats as authored; ledges quartz (light grey speckle, roughness 0.2); monitors and file trays on the work top.
 
 ### `furn_mod_treadmill`: Treadmill
 *Rooms:* gym. *Size:* 0.8 x 1.8 m footprint, h 1.46 m.
@@ -993,8 +1006,9 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Rooms:* kitchen_modern, sitting_modern. *Size:* 0.44 x 0.445 m footprint, h 0.86 m.
 ![furn_mod_dining_chair at 1 m](furniture-audit/furn_mod_dining_chair.jpg)
 *Reference:* [Modern chair sits in front of a dining table.jpg](https://commons.wikimedia.org/wiki/File:Modern_chair_sits_in_front_of_a_dining_table.jpg) (CC BY 2.0), partial match
-**KEEP: change request.** **Wrong:** steel and slats read; seat pad flat.
-**Change:** keep. Upholstered seat pad 0.04 m with rounded edges in grey woven fabric; oak back rail curved (0.02 m bow); black powder-coated legs 0.02 m.
+*After:* ![furn_mod_dining_chair replaced, 1 m](furniture-audit/furn_mod_dining_chair_after.jpg)
+**REPLACED** by the Poly Haven model `dining_chair_02`: dining chair (PR3) Fitted: turn 0 degrees, scale 0.88; baked into `content/assets/models/fr_mod_dining_chair/`.
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong:** steel and slats read; seat pad flat. **Change:** keep. Upholstered seat pad 0.04 m with rounded edges in grey woven fabric; oak back rail curved (0.02 m bow); black powder-coated legs 0.02 m.
 
 ### `furn_mod_dining_table4`: Dining table (4 seats)
 *Rooms:* kitchen_modern, sitting_modern. *Size:* 1.4 x 0.85 m footprint, h 0.75 m.
@@ -1042,15 +1056,17 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Rooms:* kitchen_modern. *Size:* 0.5 x 0.395 m footprint, h 0.30 m.
 ![furn_mod_microwave at 1 m](furniture-audit/furn_mod_microwave.jpg)
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
-**KEEP: change request.** **Wrong:** reads small; window not visible.
-**Change:** keep. Door window dark glass with a perforated mesh (alpha dots), a black control panel with an emissive display, brushed or white body.
+*After:* ![furn_mod_microwave replaced, 1 m](furniture-audit/furn_mod_microwave_after.jpg)
+**REPLACED** by the Poly Haven model `vintage_microwave`: countertop microwave (PR3) Fitted: turn 0 degrees, scale 0.52; baked into `content/assets/models/fr_mod_microwave/`.
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong:** reads small; window not visible. **Change:** keep. Door window dark glass with a perforated mesh (alpha dots), a black control panel with an emissive display, brushed or white body.
 
 ### `furn_mod_nightstand`: Nightstand
 *Rooms:* bedroom_modern, sitting_modern. *Size:* 0.45 x 0.42 m footprint, h 0.55 m.
 ![furn_mod_nightstand at 1 m](furniture-audit/furn_mod_nightstand.jpg)
 *Reference:* [Antique bedside table - Casa Loma.jpg](https://commons.wikimedia.org/wiki/File:Antique_bedside_table_-_Casa_Loma.jpg) (CC BY 2.0), partial match
-**KEEP: change request.** **Wrong:** reads.
-**Change:** keep. Walnut veneer, black bar pulls 0.10 m, slim steel legs.
+*After:* ![furn_mod_nightstand replaced, 1 m](furniture-audit/furn_mod_nightstand_after.jpg)
+**REPLACED** by the Poly Haven model `painted_wooden_nightstand`: nightstand (PR3) Fitted: turn 0 degrees, scale 0.87; baked into `content/assets/models/fr_mod_nightstand/`.
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong:** reads. **Change:** keep. Walnut veneer, black bar pulls 0.10 m, slim steel legs.
 
 ### `furn_mod_shower`: Shower enclosure
 *Rooms:* bathroom_modern. *Size:* 0.904 x 0.932 m footprint, h 2.00 m.
@@ -1140,15 +1156,17 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Rooms:* bedroom, office, sitting, sitting_modern. *Size:* 1.9 x 0.82 m footprint, h 1.16 m.
 ![furn_settee at 1 m](furniture-audit/furn_settee.jpg)
 *Reference:* [Strassburg 5922.jpg](https://commons.wikimedia.org/wiki/File:Strassburg_5922.jpg) (CC BY-SA 3.0), partial match
-**KEEP: change request.** **Wrong:** close; cushions are plaid boxes and the back is a flat slab.
-**Change:** keep 1.90 x 0.82 x 1.16. Back: upholstered with buttoning (3 x 6 buttons, diamond tufting in the normal), shaped top rail of carved cherry. Seat: three cushions with welted edges (rounded boxes radius 0.03). Fabric: damask or velvet (deep green 0.10, 0.20, 0.13 or wine), sheen (roughness 0.6), wear on the front edge. Turned legs 0.18 m.
+*After:* ![furn_settee replaced, 1 m](furniture-audit/furn_settee_after.jpg)
+**REPLACED** by the Poly Haven model `sofa_01`: camelback settee (PR3) Fitted: turn 0 degrees, scale 1.31; baked into `content/assets/models/fr_settee/`.
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong:** close; cushions are plaid boxes and the back is a flat slab. **Change:** keep 1.90 x 0.82 x 1.16. Back: upholstered with buttoning (3 x 6 buttons, diamond tufting in the normal), shaped top rail of carved cherry. Seat: three cushions with welted edges (rounded boxes radius 0.03). Fabric: damask or velvet (deep green 0.10, 0.20, 0.13 or wine), sheen (roughness 0.6), wear on the front edge. Turned legs 0.18 m.
 
 ### `furn_side_table`: Side table with drawer
 *Rooms:* attic, bedroom, bedroom_modern, hall, office, sitting, sitting_modern. *Size:* 0.55 x 0.42 m footprint, h 0.72 m.
 ![furn_side_table at 1 m](furniture-audit/furn_side_table.jpg)
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
-**KEEP: change request.** **Wrong:** reads; legs are square instead of turned, drawer pull missing at 1 m.
-**Change:** keep 0.55 x 0.42 x 0.72. Turned legs (vase-and-ring profile, 0.04 m max), a 0.12 m drawer with a 0.02 m brass knob, an undershelf 0.15 m from the floor; cherry (0.30, 0.13, 0.07), polished. (Poly Haven side_table_tall_01 is an alternative of the right size.)
+*After:* ![furn_side_table replaced, 1 m](furniture-audit/furn_side_table_after.jpg)
+**REPLACED** by the Poly Haven model `classicnightstand_01`: side table with drawer (PR3) Fitted: turn 0 degrees, scale 1.00; baked into `content/assets/models/fr_side_table/`.
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong:** reads; legs are square instead of turned, drawer pull missing at 1 m. **Change:** keep 0.55 x 0.42 x 0.72. Turned legs (vase-and-ring profile, 0.04 m max), a 0.12 m drawer with a 0.02 m brass knob, an undershelf 0.15 m from the floor; cherry (0.30, 0.13, 0.07), polished. (Poly Haven side_table_tall_01 is an alternative of the right size.)
 
 ### `furn_table_low`: Low table
 *Rooms:* bedroom, office, sitting, sitting_modern. *Size:* 1.1 x 0.6 m footprint, h 0.46 m.
@@ -1177,8 +1195,9 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Rooms:* attic, bedroom. *Size:* 1 x 2 m footprint, h 1.23 m.
 ![furn_bed_iron at 1 m](furniture-audit/furn_bed_iron.jpg)
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
-**KEEP: change request.** **Wrong:** frame reads as thin black tubes OK, but the mattress is a grey box with stripes like slats, the knobs are invisible, no spindles visible in head / footboard at 1 m.
-**Change:** keep 1.00 x 2.00 x 1.23. Headboard 1.23 m, footboard 0.95 m; posts 0.035 m tubes, black enamel (roughness 0.3) with chips to grey iron on top rails; 7 vertical spindles 0.012 m in each end panel plus one cast-iron rosette (0.12 m disc) centred; brass ball finials 0.045 m on all four posts, polished brass (0.75, 0.55, 0.25, roughness 0.2). Mattress: 0.90 x 1.90 x 0.18, cotton ticking (narrow blue-grey stripes 0.01 m on off-white, running head to foot), rounded edges (rounded box, radius 0.04), a slight sag 0.02 m in the middle; a folded grey wool blanket across the foot and a bolster at the head.
+*After:* ![furn_bed_iron replaced, 1 m](furniture-audit/furn_bed_iron_after.jpg)
+**REPLACED** by the Poly Haven model `old_bed_frame`: iron bedstead (PR3) Fitted: turn 0 degrees, scale 1.05; baked into `content/assets/models/fr_bed_iron/`.
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong:** frame reads as thin black tubes OK, but the mattress is a grey box with stripes like slats, the knobs are invisible, no spindles visible in head / footboard at 1 m. **Change:** keep 1.00 x 2.00 x 1.23. Headboard 1.23 m, footboard 0.95 m; posts 0.035 m tubes, black enamel (roughness 0.3) with chips to grey iron on top rails; 7 vertical spindles 0.012 m in each end panel plus one cast-iron rosette (0.12 m disc) centred; brass ball finials 0.045 m on all four posts, polished brass (0.75, 0.55, 0.25, roughness 0.2). Mattress: 0.90 x 1.90 x 0.18, cotton ticking (narrow blue-grey stripes 0.01 m on off-white, running head to foot), rounded edges (rounded box, radius 0.04), a slight sag 0.02 m in the middle; a folded grey wool blanket across the foot and a bolster at the head.
 
 ### `furn_candle`: Candle
 *Rooms:* bedroom. *Size:* 0.13 x 0.12 m footprint, h 0.15 m.
@@ -1233,8 +1252,9 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Rooms:* kitchen. *Size:* 1.34 x 0.53 m footprint, h 1.96 m.
 ![furn_hutch_glazed at 1 m](furniture-audit/furn_hutch_glazed.jpg)
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
-**KEEP: change request.** **Wrong:** as furn_hutch: plates read as striped labels; the glazed doors are clear sheets without glazing bars.
-**Change:** keep 1.34 x 0.53 x 1.96. Upper cabinet: two doors with 0.025 m glazing bars making 3 x 2 panes each, old glass (slight green tint, waves in the normal, roughness 0.05); faience inside as furn_hutch. Lower and cornice as furn_hutch.
+*After:* ![furn_hutch_glazed replaced, 1 m](furniture-audit/furn_hutch_glazed_after.jpg)
+**REPLACED** by the Poly Haven model `vintage_cabinet_01`: glazed dresser cabinet (PR3) Fitted: turn 0 degrees, scale 0.77; baked into `content/assets/models/fr_hutch_glazed/`.
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong:** as furn_hutch: plates read as striped labels; the glazed doors are clear sheets without glazing bars. **Change:** keep 1.34 x 0.53 x 1.96. Upper cabinet: two doors with 0.025 m glazing bars making 3 x 2 panes each, old glass (slight green tint, waves in the normal, roughness 0.05); faience inside as furn_hutch. Lower and cornice as furn_hutch.
 
 ### `furn_mod_bar_stool`: Bar stool
 *Rooms:* dining. *Size:* 0.42 x 0.42 m footprint, h 0.80 m.
@@ -1289,8 +1309,9 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Rooms:* dining. *Size:* 0.81 x 0.81 m footprint, h 0.75 m.
 ![furn_mod_rest_table at 1 m](furniture-audit/furn_mod_rest_table.jpg)
 *Reference:* [Restaurant table at Amantaka luxury Resort & Hotel in Luang Prabang Laos.jpg](https://commons.wikimedia.org/wiki/File:Restaurant_table_at_Amantaka_luxury_Resort_%26_Hotel_in_Luang_Prabang_Laos.jpg) (CC BY-SA 4.0), partial match
-**KEEP: change request.** **Wrong:** read; table laminate plain white.
-**Change:** keep. Beech-look seat / back with grain (0.65, 0.50, 0.33); table top a wood-look or marble-look laminate with a steel edge band; cast-iron cross base visible.
+*After:* ![furn_mod_rest_table replaced, 1 m](furniture-audit/furn_mod_rest_table_after.jpg)
+**REPLACED** by the Poly Haven model `round_wooden_table_02`: café table (PR3) Fitted: turn 0 degrees, scale 1.01; baked into `content/assets/models/fr_mod_rest_table/`.
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong:** read; table laminate plain white. **Change:** keep. Beech-look seat / back with grain (0.65, 0.50, 0.33); table top a wood-look or marble-look laminate with a steel edge band; cast-iron cross base visible.
 
 ### `furn_mod_service_counter`: Service counter
 *Rooms:* dining. *Size:* 2.4 x 0.955 m footprint, h 1.46 m.

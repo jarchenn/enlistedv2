@@ -33,6 +33,7 @@ struct ImportSpec {
   vec3 rot{0};                      // Euler degrees applied first
   float realLength = 1;             // metres along +z after rotation (scale = realLength / extent)
   float scale = 0;                  // > 0: absolute scale instead of realLength (map assets authored in metres)
+  vec3 axes{1};                     // PR3: extra per-axis stretch after scale (furniture fitted to an envelope)
   std::string pivot = "weapon";     // "weapon": butt at z = 0, centred x / y; "ground": centred x / z, lowest point at y = 0
   std::string lengthNode;           // node whose extent defines the length ("" = all visible parts)
   vec3 offset{0};                   // added after the automatic placement (butt at z = 0, centred in x, y)

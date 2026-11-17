@@ -69,7 +69,113 @@
   "why": "round wall clock"
  },
  "furn_settee": {
-  "ph": "sofa_03",
-  "why": "buttoned leather settee with show-wood frame"
+  "ph": "Sofa_01",
+  "why": "camelback settee (PR3)",
+  "stretch": true
+ },
+ "furn_bed_iron": {
+  "ph": "old_bed_frame",
+  "why": "iron bedstead (PR3)",
+  "stretch": true
+ },
+ "furn_chair_ladder": {
+  "ph": "painted_wooden_chair_02",
+  "why": "worn painted ladder-back chair (PR3)",
+  "stretch": true
+ },
+ "furn_chest": {
+  "ph": "treasure_chest",
+  "why": "strapped wooden trunk (PR3)",
+  "stretch": true
+ },
+ "furn_table_dining": {
+  "ph": "painted_wooden_table",
+  "why": "painted farmhouse table (PR3)",
+  "stretch": true
+ },
+ "furn_table_small": {
+  "ph": "wooden_table_02",
+  "why": "farmhouse kitchen table (PR3)",
+  "stretch": true
+ },
+ "furn_side_table": {
+  "ph": "ClassicNightstand_01",
+  "why": "side table with drawer (PR3)",
+  "stretch": true
+ },
+ "furn_picture": {
+  "ph": "hanging_picture_frame_02",
+  "why": "framed print (PR3)",
+  "stretch": true
+ },
+ "furn_bookcase": {
+  "ph": "wooden_bookshelf_worn",
+  "why": "worn wooden bookcase (PR3)",
+  "stretch": true
+ },
+ "furn_shelf": {
+  "ph": "Shelf_01",
+  "why": "tall wooden shelf (PR3)",
+  "stretch": true
+ },
+ "furn_armoire": {
+  "ph": "GothicCabinet_01",
+  "why": "carved oak armoire (PR3)",
+  "stretch": true
+ },
+ "furn_hutch_glazed": {
+  "ph": "vintage_cabinet_01",
+  "why": "glazed dresser cabinet (PR3)",
+  "stretch": true
+ },
+ "furn_mod_microwave": {
+  "ph": "vintage_microwave",
+  "why": "countertop microwave (PR3)",
+  "stretch": true
+ },
+ "furn_mod_shop_wall_shelf": {
+  "ph": "steel_frame_shelves_01",
+  "why": "shop shelving (PR3)",
+  "stretch": true
+ },
+ "furn_mod_stock_rack": {
+  "ph": "steel_frame_shelves_01",
+  "why": "stock shelving (PR3)",
+  "stretch": true
+ },
+ "furn_mod_rest_table": {
+  "ph": "round_wooden_table_02",
+  "why": "café table (PR3)",
+  "stretch": true
+ },
+ "furn_mod_dining_chair": {
+  "ph": "dining_chair_02",
+  "why": "dining chair (PR3)",
+  "stretch": true
+ },
+ "furn_mod_desk": {
+  "ph": "metal_office_desk",
+  "why": "steel office desk (PR3)",
+  "stretch": true
+ },
+ "furn_mod_teacher_desk": {
+  "ph": "metal_office_desk",
+  "why": "steel teacher's desk (PR3)",
+  "stretch": true
+ },
+ "furn_mod_dining_table6": {
+  "ph": "WoodenTable_01",
+  "why": "wooden dining table (PR3)",
+  "stretch": true
+ },
+ "furn_mod_nightstand": {
+  "ph": "painted_wooden_nightstand",
+  "why": "nightstand (PR3)",
+  "stretch": true
+ },
+ "furn_mod_coffee_table": {
+  "ph": "CoffeeTable_01",
+  "why": "coffee table (PR3)",
+  "stretch": true
  }
 }

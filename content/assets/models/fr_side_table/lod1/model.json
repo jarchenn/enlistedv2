@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.26493653655052185,
+  0.7199493050575256,
+  0.20588457584381104
+ ],
+ "bmin": [
+  -0.2642439305782318,
+  1.9892558711376296e-09,
+  -0.20588457584381104
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "ClassicNightstand_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.26493653655052185,
+    0.7199493050575256,
+    0.20588457584381104
+   ],
+   "bmin": [
+    -0.2642439305782318,
+    1.9892558711376296e-09,
+    -0.20588457584381104
+   ],
+   "count": 750,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "ClassicNightstand_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 0.9955000281333923,
+ "source": "ph_classicnightstand_01.glb",
+ "textures": {},
+ "triangles": 250,
+ "vertices": 393
+}
