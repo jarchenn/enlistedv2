@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  1.475045919418335,
+  2.9265236854553223,
+  0.046121466904878616
+ ],
+ "bmin": [
+  -1.475045919418335,
+  0.0,
+  -0.04612432420253754
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "large_iron_gate",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.475045919418335,
+    2.9265236854553223,
+    0.046121466904878616
+   ],
+   "bmin": [
+    -1.475045919418335,
+    0.0,
+    -0.04612432420253754
+   ],
+   "count": 14301,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "large_iron_gate_right_door",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_large_iron_gate.glb",
+ "textures": {},
+ "triangles": 4767,
+ "vertices": 3452
+}

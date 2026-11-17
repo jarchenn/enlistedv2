@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.37083256244659424,
+  0.8578824400901794,
+  0.8586598634719849
+ ],
+ "bmin": [
+  -0.37083256244659424,
+  2.3283064365386963e-10,
+  -0.8586598634719849
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "outdoor_table_chair_set_01_chair",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "outdoor_table_chair_set_01_table",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.37083256244659424,
+    0.8578824400901794,
+    0.8586598634719849
+   ],
+   "bmin": [
+    -0.25861042737960815,
+    2.3283064365386963e-10,
+    -0.8586598634719849
+   ],
+   "count": 11253,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "outdoor_table_chair_set_01_chair_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.3208504915237427,
+    0.7318593859672546,
+    0.3693991005420685
+   ],
+   "bmin": [
+    -0.37083256244659424,
+    0.005937496200203896,
+    -0.32245153188705444
+   ],
+   "count": 3483,
+   "first": 11253,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "outdoor_table_chair_set_01_chair_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_outdoor_table_chair_set_01.glb",
+ "textures": {},
+ "triangles": 4912,
+ "vertices": 5473
+}

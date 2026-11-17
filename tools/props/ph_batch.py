@@ -14,7 +14,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 BLENDER = r"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe"
 DB = os.path.join(HERE, "ph_props.json")
 # files that ship a second (aged / rusted / "_b") copy beside the first: keep one
-DROP = {"fire_hydrant": "aged", "exterior_aircon_unit": "rusted", "metal_trash_can": "rust", "old_military_crate": "_b"}
+DROP = {"fire_hydrant": "aged", "exterior_aircon_unit": "rusted", "metal_trash_can": "rust", "old_military_crate": "_b",
+        "rollershutter_door": "graffiti"}
 
 
 def drop_contained(boxes, tol=0.04):
@@ -36,11 +37,18 @@ def main():
         m = man.get(pid)
         if not m or m.get("status") != "ok": print("skip  %-32s not downloaded" % pid); continue
         aid = "ph_" + pid.lower(); out = os.path.join(glbs, aid + ".glb")
-        if not os.path.exists(out):
+        def convert(size_opt):
             r = subprocess.run([BLENDER, "-b", "--factory-startup", "--disable-autoexec", "--python", os.path.join(HERE, "convert_supplied.py"), "--",
-                                os.path.join(dl, pid, m["gltf"]), out, "--scale", "1"] + (["--drop", DROP[pid]] if pid in DROP else []), capture_output=True, text=True)
-            if not os.path.exists(out): print("FAIL  %-32s %s" % (pid, (r.stdout + r.stderr)[-400:])); continue
+                                os.path.join(dl, pid, m["gltf"]), out] + size_opt + (["--drop", DROP[pid]] if pid in DROP else []), capture_output=True, text=True)
+            if not os.path.exists(out): print("FAIL  %-32s %s" % (pid, (r.stdout + r.stderr)[-400:]))
+            return os.path.exists(out)
+        if not os.path.exists(out) and not convert(["--scale", "1"]): continue
         side = json.load(open(os.path.splitext(out)[0] + ".json"))
+        ph_h = (m.get("dimensions_mm") or [0, 0, 0])[2] / 1000   # Poly Haven's listed height; a few sources are in the wrong unit
+        if ph_h > 0.05 and abs(side["size"][1] / ph_h - 1) > 0.2:
+            print("scale %-32s %.2f m -> listed %.2f m" % (pid, side["size"][1], ph_h)); os.remove(out)
+            if not convert(["--height", "%.4f" % ph_h]): continue
+            side = json.load(open(os.path.splitext(out)[0] + ".json"))
         sx, sy, sz = side["size"]
         side["colliders"] = drop_contained(side["colliders"])
         db[aid] = {"ph": pid, "name": m["name"], "category": cat, "size": side["size"], "colliders": side["colliders"],

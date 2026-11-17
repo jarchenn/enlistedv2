@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  1.1755385398864746,
+  2.311832904815674,
+  0.36018723249435425
+ ],
+ "bmin": [
+  -1.1755385398864746,
+  0.0,
+  -0.3606230616569519
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "steel_frame_shelves_03",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "steel_frame_shelves_03_drawers",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.1755385398864746,
+    2.311832904815674,
+    0.35782015323638916
+   ],
+   "bmin": [
+    -1.1754417419433594,
+    0.0,
+    -0.3606230616569519
+   ],
+   "count": 6870,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "steel_frame_shelves_03",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.1660430431365967,
+    1.752873420715332,
+    0.36018723249435425
+   ],
+   "bmin": [
+    -1.1755385398864746,
+    0.2795264422893524,
+    -0.33055639266967773
+   ],
+   "count": 5724,
+   "first": 6870,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "steel_frame_shelves_03",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_steel_frame_shelves_03.glb",
+ "textures": {},
+ "triangles": 4198,
+ "vertices": 4019
+}
