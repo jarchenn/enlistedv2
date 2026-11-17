@@ -6,6 +6,9 @@
 #include "smithy.h"
 #include "loot.h"
 #include "physics.h"
+#include "game.h"
+#include "mpui.h"
+#include "scenario.h"
 
 namespace {
 int fails = 0;
@@ -17,12 +20,42 @@ fs::path out(const char* n) { fs::path p = exeDir() / "selftest_out"; std::error
 
 bool sm1SelfTest(App& a, float dt) {
   static int mode = -1;
-  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) { std::string s = __argv[k]; if (s == "--check-sm1") mode = 1; if (s == "--capture-sm1") mode = 2; } }
+  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) { std::string s = __argv[k]; if (s == "--check-sm1") mode = 1; if (s == "--capture-sm1") mode = 2; if (s == "--check-sm1-br") mode = 3; } }
   if (!mode) return false;
   if (dt < 0) { if (!pend.empty()) { a.screenshot(pend); pend.clear(); } return true; }
   float t0 = t; t += dt;
   auto at = [&](float m) { return t0 < m && t >= m; };
-  auto done = [&]() { smithyUseKit(nullptr); if (smithyOpen()) smithyClose(a); if (a.mode == Mode::Explore) a.exitExplore(); logf("[sm1] done: %d failures", fails); a.selftest->exitCode = fails ? 1 : 0; a.selftest->done = true; return true; };
+  auto done = [&]() { smithyUseKit(nullptr); smithyTestHover(-1); if (smithyOpen()) smithyClose(a); if (a.mode == Mode::Explore) a.exitExplore(); logf("[sm1] done: %d failures", fails); a.selftest->exitCode = fails ? 1 : 0; a.selftest->done = true; return true; };
+  if (mode == 3) {   // SM2: real Battle Royale matches: how many tables each map gets, the anvils on the large map
+    static const char* maps[] = {"newtown", "outpost_woods"}; static int mi = -1; static float tm = 0;
+    if (mi < 0 || tm > 4.0f) {
+      if (mi >= 0) {
+        size_t n = smithyPlaced().size(); std::string where;
+        for (uint64_t id : smithyPlaced()) if (const Instance* ti = a.doc.find(id)) {   // the building each stands in: the nearest enterable one
+          const Instance* best = nullptr; float bd = 1e9f;
+          for (auto& i : a.doc.instances) { const AssetDef* ad = a.assetFor(i); if (!ad || !ad->enterable) continue; float d2 = glm::length(i.pos - ti->pos); if (d2 < bd) { bd = d2; best = &i; } }
+          if (best) where += " " + best->assetId;
+        }
+        chk(n >= 2, std::string("battle royale on ") + maps[mi] + ": " + std::to_string(n) + " smithing tables placed (in" + where + ")");
+        a.exitExplore();
+      }
+      if (++mi >= 2) return done();
+      a.openMap(contentDir() / "templates" / (std::string(maps[mi]) + ".nmap.json"));
+      Scenario sc = Scenario::fromJson(a.doc.extra.is_object() ? a.doc.extra.value("scenario", json::object()) : json::object());
+      sc.rules.mode = GameMode::BattleRoyale;
+      gUi.loaded = false; gUi.matchScenario = sc.toJson();
+      if (!gGame) gGame = new Game(a);
+      gGame->pendingStart = true;
+      bool ok = a.enterExplore() && gGame->active;
+      a.useScripted = true; a.scriptedInput = ExploreInput{};
+      chk(ok, std::string("battle royale starts on ") + maps[mi]);
+      tm = 0; return true;
+    }
+    float t1 = tm; tm += dt;
+    if (t1 < 2.5f && tm >= 2.5f) { a.mapLarge = true; a.uiShot = out((std::string("brmap_") + maps[mi]).c_str()); }
+    if (t1 < 3.2f && tm >= 3.2f) a.mapLarge = false;
+    return true;
+  }
   if (phase == 0) {
     a.newMap(*a.findTemplate("blank_slate"), "SM1");
     const AssetDef* ws = a.lib.find("mod_nt_workshop");
@@ -94,7 +127,7 @@ bool sm1SelfTest(App& a, float dt) {
   }
   if (phase == 2) {
     a.scriptedInput = ExploreInput{};
-    if (at(0.4f)) smithyOpenAt(a, table);
+    if (at(0.4f)) { smithyOpenAt(a, table); smithyTestHover(3); }   // the "after" column for [4] Fit Muzzle brake
     if (at(1.6f)) { logf("[sm1] fitting screen open: %s", smithyOpen() ? "yes" : "NO"); a.uiShot = out("fitting"); }   // with the UI (screenshot() is the scene only)
     if (t > 2.0f) return done();
   }
