@@ -74,21 +74,25 @@ void drawLoading(ImDrawList* dl, float W, float H, float a, float t) {
     dl->AddCircleFilled(ImVec2(x, y), sz * 3.2f, rgba(255, 120, 30, 0.11f * al));
     dl->AddCircleFilled(ImVec2(x, y), sz, rgba(255, 180, 96, al));
   }
-  // emblem, wordmark between rules, map name, mode
+  // the logo (the user's artwork, content/ui/logo.png; else the vector emblem with the wordmark between rules), map name, mode
   const float cx = W * 0.5f, top = H * 0.24f, eh = 230 * s;
-  drawLogo(dl, ImVec2(cx - eh * 0.43f, top), eh, a, false);
+  const float la = logoImageAspect();
+  if (la > 0) { const float lw = std::min(W * 0.62f, 1150 * s), lh = lw / la; drawLogo(dl, ImVec2(cx - lw * 0.5f, H * 0.42f - lh), lh, a, true); }
+  else drawLogo(dl, ImVec2(cx - eh * 0.43f, top), eh, a, false);
   ImFont* fd = uiFontDisplay(); ImFont* fh = uiFontHead(); ImFont* fb = ImGui::GetFont();
   auto centred = [&](ImFont* f, float px, float y, ImU32 c, const std::string& txt, float track) {
     float w = 0; for (char ch : txt) w += f->CalcTextSizeA(px, 1e9f, 0, &ch, &ch + 1).x + track;
     w -= track; float x = cx - w * 0.5f;
     for (char ch : txt) { dl->AddText(f, px, ImVec2(x, y), c, &ch, &ch + 1); x += f->CalcTextSizeA(px, 1e9f, 0, &ch, &ch + 1).x + track; }
     return w; };
-  const float wy = top + eh + 30 * s, wpx = 104 * s;
+  const float wy = la > 0 ? H * 0.42f + 40 * s - 104 * s * 1.18f : top + eh + 30 * s, wpx = 104 * s;   // with the image: the lines below line up under it
   float ww = 0;   // a soft shadow under the wordmark, then the letters
-  { const float o = 3 * s; const int v0 = dl->VtxBuffer.Size; centred(fd, wpx, wy + o, rgba(0, 0, 0, 0.55f * a), "BATTLE FOUNDRY", wpx * 0.05f); for (int k = v0; k < dl->VtxBuffer.Size; ++k) dl->VtxBuffer[k].pos.x += o * 0.5f; }
-  ww = centred(fd, wpx, wy, rgba(236, 232, 224, a), "BATTLE FOUNDRY", wpx * 0.05f);
-  dl->AddRectFilled(ImVec2(cx - ww * 0.5f, wy - 8 * s), ImVec2(cx + ww * 0.5f, wy - 6.5f * s), rgba(236, 232, 224, 0.8f * a));
-  dl->AddRectFilled(ImVec2(cx - ww * 0.5f, wy + wpx * 1.18f), ImVec2(cx + ww * 0.5f, wy + wpx * 1.18f + 1.5f * s), rgba(236, 232, 224, 0.8f * a));
+  if (la <= 0) { const float o = 3 * s; const int v0 = dl->VtxBuffer.Size; centred(fd, wpx, wy + o, rgba(0, 0, 0, 0.55f * a), "BATTLE FOUNDRY", wpx * 0.05f); for (int k = v0; k < dl->VtxBuffer.Size; ++k) dl->VtxBuffer[k].pos.x += o * 0.5f; }
+  if (la <= 0) {
+    ww = centred(fd, wpx, wy, rgba(236, 232, 224, a), "BATTLE FOUNDRY", wpx * 0.05f);
+    dl->AddRectFilled(ImVec2(cx - ww * 0.5f, wy - 8 * s), ImVec2(cx + ww * 0.5f, wy - 6.5f * s), rgba(236, 232, 224, 0.8f * a));
+    dl->AddRectFilled(ImVec2(cx - ww * 0.5f, wy + wpx * 1.18f), ImVec2(cx + ww * 0.5f, wy + wpx * 1.18f + 1.5f * s), rgba(236, 232, 224, 0.8f * a));
+  }
   std::string T = J.title; for (auto& c : T) c = (char)std::toupper((unsigned char)c);
   if (!T.empty()) centred(fh, 36 * s, wy + wpx * 1.18f + 40 * s, rgba(236, 232, 224, 0.95f * a), T, 36 * s * 0.16f);
   std::string Sb = J.subtitle; for (auto& c : Sb) c = (char)std::toupper((unsigned char)c);

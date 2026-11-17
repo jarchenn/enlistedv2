@@ -303,7 +303,7 @@ void mainMenuFrame(App& app) {
   dl->AddRectFilledMultiColor(V(0, H * 0.80f), V(W, H), rgba(4, 6, 7, 0), rgba(4, 6, 7, 0), rgba(4, 6, 7, 0.70f), rgba(4, 6, 7, 0.70f));
 
   // ---- logo
-  drawLogo(dl, V(72 * s, 56 * s), 128 * s, fadeIn);
+  drawLogo(dl, V(72 * s, 56 * s), (logoImageAspect() > 0 ? 88.0f : 128.0f) * s, fadeIn);   // UI3: the artwork is a wide lock-up
 
   // ---- input
   const bool overlay = settings().open || S.showControls || gUi.showSetup || gUi.showJoin;   // their own windows take the keys
@@ -335,7 +335,6 @@ void mainMenuFrame(App& app) {
     const float tx = x0 + 22 * s + 8 * s * h;
     if (h > 0.01f) dl->AddRectFilled(V(x0, y + px * 0.12f), V(x0 + 3 * s, y + px * 0.98f), alphaOf(kAccent, h * a));
     tracked(dl, fh, px, V(tx, y), rgba(236, 232, 224, (0.50f + 0.50f * h) * a), kItems[k].label, track);
-    if (h > 0.02f) dl->AddText(fb, 15 * s, V(tx, y + px * 1.22f), rgba(200, 200, 194, 0.62f * h * a), kItems[k].hint);
   }
   // ---- footer: version, key hints
   {
@@ -436,7 +435,8 @@ void mainMenuFrame(App& app) {
       if (ImGui::Begin("##menu_credits", nullptr, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus)) {
         auto head = [](const char* h) { ImGui::Spacing(); ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.94f, 0.46f, 0.13f, 1)); ImGui::TextUnformatted(h); ImGui::PopStyleColor(); };
         auto line = [](const char* a, const char* b) { ImGui::TextUnformatted(a); ImGui::SameLine(ImGui::GetContentRegionAvail().x * 0.48f); ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.8f, 0.77f, 0.7f)); ImGui::TextUnformatted(b); ImGui::PopStyleColor(); };
-        head("BATTLE FOUNDRY"); ImGui::TextWrapped("A battlefield builder and combined-arms shooter.");
+        { const ImVec2 p = ImGui::GetCursorScreenPos(); const float lh = 64 * S.s; ImGui::Dummy(V(drawLogo(ImGui::GetWindowDrawList(), p, lh, 1.0f, logoImageAspect() > 0), lh)); }   // UI3: the logo
+        ImGui::TextWrapped("A battlefield builder and combined-arms shooter.");
         head("ENGINE LIBRARIES");
         line("Dear ImGui", "MIT"); line("GLFW", "zlib"); line("GLM", "MIT"); line("Jolt Physics", "MIT"); line("nlohmann/json", "MIT"); line("stb", "MIT / public domain"); line("miniaudio", "MIT-0 / public domain");
         head("TYPE"); line("Barlow, Barlow Condensed (The Barlow Project Authors)", "SIL OFL 1.1"); line("Black Ops One (The Black Ops One Project Authors)", "SIL OFL 1.1");

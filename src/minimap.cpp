@@ -166,11 +166,6 @@ void shape(ImDrawList* dl, vec2 c, int kind, float s, float yaw, uint32_t col) {
   }
 }
 float niceStep(float span) { for (float s : {25.0f, 50.0f, 100.0f, 200.0f, 250.0f, 500.0f, 1000.0f}) if (span / s <= 10.0f) return s; return 2000.0f; }
-// vehicle spawn markers (PF1: "vspawn:0" / "vspawn:1" in a spawn marker's id or label): the team, else -1
-int vspawnTeam(const SpawnMarker& s) {
-  for (const std::string* f : {&s.id, &s.label}) { size_t k = f->find("vspawn:"); if (k != std::string::npos && k + 7 < f->size()) return (*f)[k + 7] == '1' ? 1 : 0; }
-  return -1;
-}
 }   // namespace
 
 MinimapView drawMinimap(App& app, ImDrawList* dl, vec2 p0, vec2 p1, vec2 centre, float metres, unsigned layers, const std::vector<MinimapMarker>& markers) {
@@ -214,9 +209,13 @@ MinimapView drawMinimap(App& app, ImDrawList* dl, vec2 p0, vec2 p1, vec2 centre,
   if (sc && (layers & MM_SPAWNS))
     for (auto& s : sc->spawns) {
       vec2 c = v.toScreen(vec2(s.pos.x, s.pos.z));
-      int vt = vspawnTeam(s);
-      bool mine = vt >= 0 ? (vt == 0) == (myRole == CombatRole::Defender) : s.role == myRole;
-      if (vt >= 0) tankIcon(dl, c, 7.0f, mine ? kBlue : kRed); else flag(dl, c, 8.0f, mine ? kBlue : kRed);
+      flag(dl, c, 8.0f, s.role == myRole ? kBlue : kRed);
+    }
+  if (sc && (layers & MM_SPAWNS))   // VH7 / UI3: vehicle spawns from Scenario::vehicleSpawns (team -1: neutral, drawn as ours)
+    for (const VehicleSpawn& vs : sc->vehicleSpawns) {
+      if (!onMap(vec2(vs.pos.x, vs.pos.z))) continue;
+      const bool mine = vs.team < 0 || vs.team == (me ? me->team : 0);
+      tankIcon(dl, v.toScreen(vec2(vs.pos.x, vs.pos.z)), 7.0f, mine ? kBlue : kRed);
     }
   if (sc && (layers & MM_OBJECTIVES)) {
     for (size_t k = 0; k < sc->objectives.size(); ++k) {

@@ -1,8 +1,8 @@
 // "Drop in" explorer (SPEC 9.3, Street View style): a soldier figure in the editor toolbar is dragged onto the terrain.
 // While dragging, a ground marker and a facing arrow follow the cursor; the direction the cursor moves over the ground
 // sets the facing. Releasing saves the point as the map's explore start and enters first person there. In a session
-// entered from Creative (drop-in or "Explore from start"), Esc returns to the editor camera exactly where it was and
-// P opens the pause menu (the pause menu still offers "Return to Creative").
+// entered from Creative (drop-in or F5), Esc (or P) opens the pause menu as in a game; its "Return to Creator" goes back
+// to the editor camera exactly where it was (UI3).
 #include "editor_nav.h"
 #include "app.h"
 #include <GLFW/glfw3.h>
@@ -30,7 +30,7 @@ void w3Toolbar(App& app) {
   ImDrawList* dl = ImGui::GetWindowDrawList();
   dl->AddRectFilled(a, b, ImGui::GetColorU32(act ? ImGuiCol_ButtonActive : hov ? ImGuiCol_ButtonHovered : ImGuiCol_Button), ImGui::GetStyle().FrameRounding);
   soldierIcon(dl, ImVec2((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f + hgt * 0.05f), hgt * 0.78f, n.dropDrag ? IM_COL32(255, 220, 120, 120) : IM_COL32(235, 225, 190, 255));
-  if (hov && !n.dropDrag) ImGui::SetTooltip("Drop in: drag the soldier onto the terrain to explore from there.\nThe direction you drag over the ground sets the facing.\nThe drop point becomes the map's explore start. In first person: Esc returns here, P pauses.");
+  if (hov && !n.dropDrag) ImGui::SetTooltip("Drop in: drag the soldier onto the terrain to explore from there.\nThe direction you drag over the ground sets the facing.\nThe drop point becomes the map's explore start. In first person: Esc opens the menu (Return to Creator comes back here).");
   if (act && !n.dropDrag && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 3.0f) && app.mode == Mode::Creative) {
     n.dropDrag = true; n.dropValid = false; n.dropFaceSet = false; n.dropYaw = app.camYaw;
   }
@@ -42,7 +42,7 @@ bool w3EnterExplore(App& app) {
   n.creativeSession = true; n.escReturn = false;
   bool ok = app.enterExplore();
   if (!ok || app.mode != Mode::Explore) { n.creativeSession = false; return false; }
-  if (!app.selftest) app.toast("Esc: back to the editor  |  P: pause menu  |  B: build with the Assets palette (map edits)", 4);
+  if (!app.selftest) app.toast("Esc: menu (Return to Creator)  |  B: build with the Assets palette (map edits)", 4);
   return true;
 }
 
@@ -117,12 +117,7 @@ void dropinOverlay(App& app, Overlay& ov) {
 bool w3ExploreKeys(App& app) {
   NavState& n = navState();
   if (app.selftest || !n.creativeSession || app.mode != Mode::Explore) return false;
-  bool esc = kedge2(app.win, GLFW_KEY_ESCAPE), pause = kedge2(app.win, GLFW_KEY_P);
-  if (esc && !app.rackOpen && !app.build.palette) n.escReturn = true;   // an open rack / build palette closes first (explore.cpp)
-  if (n.escReturn) {   // return on release, so the editor does not also see the press (it would drop the selection)
-    if (glfwGetKey(app.win, GLFW_KEY_ESCAPE) != GLFW_PRESS) { n.escReturn = false; dropinReturn(app); }
-    return true;
-  }
+  bool pause = kedge2(app.win, GLFW_KEY_P);   // UI3: Esc is the game's own (explore.cpp): the pause menu, with "Return to Creator"
   if (pause) {
     app.pauseMenu = !app.pauseMenu;
     app.syncCursor();

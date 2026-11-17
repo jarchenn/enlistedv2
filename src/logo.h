@@ -2,4 +2,5 @@
 // when present, replaces the vector logo.
 #pragma once
 #include <imgui.h>
-float drawLogo(ImDrawList* dl, ImVec2 p, float h, float alpha = 1.0f, bool wordmark = true);
+float drawLogo(ImDrawList* dl, ImVec2 p, float h, float alpha = 1.0f, bool wordmark = true);   // wordmark false: the mark only (content/ui/logo_mark.png)
+float logoImageAspect();   // width / height of content/ui/logo.png, 0 when it is missing (the vector logo is drawn)

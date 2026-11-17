@@ -251,9 +251,21 @@ void App::drawCreativeUI() {
     terrainMenus(*this);   // V8: Terrain menu (sculpt, Generate hills) (terrain_brush.cpp); UI2: no Beautify, no Explore button (F5 play-tests)
     mpaiMenus(*this);   // Play (Singleplayer / Host LAN / Join LAN) and Scenario menus
     { extern void autopathMenu(App&); autopathMenu(*this); }   // Paths > Connect houses (autopath.cpp)
-    ImGui::SameLine(ImGui::GetWindowWidth() - 360);
+    const float mmW = ImGui::CalcTextSize("Main Menu").x + ImGui::GetStyle().FramePadding.x * 2;   // UI3: right-aligned, after the map name
+    ImGui::SameLine(ImGui::GetWindowWidth() - 360 - mmW - 16);
     ImGui::TextDisabled("%s%s  |  %s", doc.name.c_str(), dirty ? " *" : "", docPath.empty() ? "unsaved" : docPath.filename().string().c_str());
+    ImGui::SameLine(ImGui::GetWindowWidth() - mmW - 12);
+    static bool askLeave = false;
+    if (ImGui::Button("Main Menu")) { if (dirty) askLeave = true; else mainMenuOpen(*this); }
     ImGui::EndMainMenuBar();
+    if (askLeave) { ImGui::OpenPopup("Leave for the main menu?"); askLeave = false; }
+  }
+  if (ImGui::BeginPopupModal("Leave for the main menu?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {   // UI3: the map stays open behind the menu (Create Map returns to it)
+    ImGui::Text("\"%s\" has unsaved changes. Save before going to the main menu?", doc.name.c_str());
+    if (ImGui::Button("Save")) { if (!docPath.empty() && saveMapTo(docPath)) mainMenuOpen(*this); else showSaveAs = true; ImGui::CloseCurrentPopup(); }
+    ImGui::SameLine(); if (ImGui::Button("Don't save")) { mainMenuOpen(*this); ImGui::CloseCurrentPopup(); }
+    ImGui::SameLine(); if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+    ImGui::EndPopup();
   }
   // ---- toolbar
   ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, menuH + 6), ImGuiCond_Always, ImVec2(0.5f, 0));
