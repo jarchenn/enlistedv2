@@ -586,7 +586,7 @@ static void cutoutMips(GLuint t, int w, int h, int levels, const stbi_uc* d) {
     px.swap(q); raw.swap(r2); w = w2; h = h2;
   }
 }
-// TK2: a map of 2048 px or more is block-compressed on load (CPU mips, stb_dxt): albedo BC1 sRGB (BC3 with alpha),
+// TK2: a map of 2048 px (MEM1: 1024) or more is block-compressed on load (CPU mips, stb_dxt): albedo BC1 sRGB (BC3 with alpha),
 // metal-rough / AO BC1, normal BC5 (RG; the shader rebuilds z when the blue channel reads 0). A 4096 RGBA8 map with mips
 // is 85 MB of VRAM, BC1 11 MB, BC5 22 MB. kind: 0 albedo, 1 linear data, 2 normal
 static GLuint loadTexBC(const uint8_t* d, int w, int h, int kind, size_t& bytes) {
@@ -594,7 +594,7 @@ static GLuint loadTexBC(const uint8_t* d, int w, int h, int kind, size_t& bytes)
   if (s3tc < 0) { s3tc = 0; GLint n = 0; glGetIntegerv(GL_NUM_EXTENSIONS, &n); int got = 0;
     for (GLint i = 0; i < n; ++i) { const char* e = (const char*)glGetStringi(GL_EXTENSIONS, i); if (!std::strcmp(e, "GL_EXT_texture_compression_s3tc")) got |= 1; if (!std::strcmp(e, "GL_EXT_texture_sRGB")) got |= 2; }
     s3tc = got == 3; }
-  if (!s3tc || w < 2048 || h < 2048 || (w & 3) || (h & 3)) return 0;
+  if (!s3tc || w < 1024 || h < 1024 || (w & 3) || (h & 3)) return 0;   // MEM1: 1024 maps too (RGBA8 + mips 5.6 MB each, BC1 0.7 MB): weapons, vehicles, props
   bool alpha = false; if (kind == 0) for (size_t k = 0; k < (size_t)w * h && !alpha; ++k) alpha = d[k * 4 + 3] < 250;
   const GLenum fmt = kind == 2 ? 0x8DBD /* RG_RGTC2 */ : kind == 0 ? (alpha ? 0x8C4F /* SRGB_ALPHA_S3TC_DXT5 */ : 0x8C4C /* SRGB_S3TC_DXT1 */) : 0x83F0 /* RGB_S3TC_DXT1 */;
   const int bsz = kind == 2 || alpha ? 16 : 8;
