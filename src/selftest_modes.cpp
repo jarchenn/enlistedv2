@@ -410,7 +410,27 @@ void build(App&) {
     const bool survey = std::getenv("NMK_UI2_SURVEY") != nullptr;
     if (t == 0) {
       const char* m = std::getenv("NMK_UI2_MAP");
-      chk(startMode(a, GameMode::TDM, 24, 999, 2, 1, contentDir() / "templates" / (std::string(m && *m ? m : "newtown") + ".nmap.json")), "UI2 backdrop: TDM starts (%s)", gGame->setupError.c_str());
+      a.openMap(contentDir() / "templates" / (std::string(m && *m ? m : "newtown") + ".nmap.json"));
+      if (const char* v = std::getenv("NMK_UI2_VIEW")) {   // UI3 (d): battle damage along the street ahead of the view (rubble, timber, craters, puddles, a collapsed wall)
+        float x, z, yw, pt; if (sscanf(v, "%f,%f,%f,%f", &x, &z, &yw, &pt) == 4) {
+          const vec3 f = App::forward(yw, 0), r = glm::normalize(glm::cross(f, vec3(0, 1, 0)));
+          struct R { const char* id; float d, lat, yaw; };
+          static const R rub[] = {{"wat_puddles", 3.2f, 1.3f, 70}, {"rub_debris_patch", 4.6f, 2.2f, 20}, {"rub_brick_pile_s", 4.2f, 3.4f, 150}, {"mod_rubble_small", 4.8f, -3.4f, 60}, {"wat_puddles", 8, -1.4f, 10}, {"rub_brick_pile_s", 6.5f, 2.9f, 40}, {"mod_glass_pile", 7, -4.2f, 0}, {"rub_debris_patch", 9.5f, 0.6f, 75},
+            {"rub_brick_pile_l", 11, -4.6f, 200}, {"mod_rubble_small", 12.5f, -2.0f, 15}, {"mod_asphalt_crater", 15, 1.4f, 0}, {"rub_beam_tile_heap", 17, -3.9f, 120},
+            {"rub_brick_pile_m", 19, 3.6f, 300}, {"mod_wall_chunks", 21, -5.2f, 30}, {"wat_puddles", 23, 2.4f, 160}, {"rub_brick_pile_s", 26, -3.1f, 90},
+            {"mod_collapsed_slab", 29, 6.0f, 80}, {"rub_debris_patch", 31, -0.8f, 10}, {"mod_rubble_large", 35, 4.2f, 220}, {"rub_collapsed_wall", 40, -6.3f, 0},
+            {"mod_asphalt_crater", 44, -1.5f, 50}, {"wat_crater_pool", 50, 1.2f, 0}, {"rub_brick_pile_l", 55, -4.0f, 140}};
+          int n = 0;
+          for (const R& q : rub) {
+            if (!a.lib.find(q.id)) continue;
+            vec3 p = vec3(x, 0, z) + f * q.d + r * q.lat;
+            Instance in; in.id = a.doc.newId(); in.assetId = q.id; in.pos = vec3(p.x, a.terrain.height(p.x, p.z), p.z); in.yaw = yw + q.yaw;
+            a.doc.instances.push_back(in); ++n;
+          }
+          a.syncRuntime(); logf("UI2 backdrop: %d rubble pieces in the street", n);
+        }
+      }
+      chk(startMode(a, GameMode::TDM, 24, 999, 2, 1, fs::path()), "UI2 backdrop: TDM starts (%s)", gGame->setupError.c_str());   // the map opened above (with its rubble)
       a.shotsNoViewModel = true; a.R.wx.forced = 1; a.R.wx.fogForced = 3; a.R.wx.snap();
       settings().s.hour = 19.6f; settings().apply(a);
       return false;
