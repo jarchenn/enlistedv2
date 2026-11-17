@@ -70,7 +70,7 @@ add_executable(NormandyMapmaker
   src/vehicle_dash.cpp
   src/interior.cpp src/selftest_interiors.cpp src/hlod.cpp src/static_decals.cpp src/selftest_turn.cpp
   src/heli.cpp src/capture_heli.cpp src/overrides.cpp src/stat_editor.cpp src/check_ed2.cpp src/check_vh8.cpp src/capture_vh8.cpp src/check_mem.cpp src/check_rm1.cpp src/user_cache.cpp src/smithy.cpp src/check_sm1.cpp src/capture_shade.cpp src/capture_rc2.cpp src/check_snd10.cpp src/vspawn_gen.cpp src/capture_vh7.cpp src/capture_tk1.cpp src/capture_tk2.cpp
-  src/br_models.cpp src/selftest_brmodels.cpp src/selftest_recoil.cpp src/selftest_lean.cpp src/selftest_vehicle_ai.cpp)   # walls, interiors and furniture (docs/interiors.md)
+  src/br_models.cpp src/selftest_brmodels.cpp src/selftest_reticles.cpp src/selftest_recoil.cpp src/selftest_lean.cpp src/selftest_vehicle_ai.cpp)   # walls, interiors and furniture (docs/interiors.md)
 target_include_directories(NormandyMapmaker PRIVATE src ${stb_SOURCE_DIR} ${miniaudio_SOURCE_DIR})
 target_link_libraries(NormandyMapmaker PRIVATE glad glfw glm::glm imgui Jolt nlohmann_json::nlohmann_json)
 target_compile_definitions(NormandyMapmaker PRIVATE GLM_ENABLE_EXPERIMENTAL GLFW_INCLUDE_NONE)

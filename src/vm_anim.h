@@ -17,6 +17,8 @@ void animVmStep(App& app, const WeaponDef& d, WeaponState& s, float dt);
 bool animVmDraw(App& app, const WeaponDef& d);
 // posed world points of the weapon in hand: 0 rear sight, 1 front sight, 2 muzzle; false when not ready
 bool animVmPoint(const App& app, const WeaponDef& d, int which, vec3& world);
+// AT2: the rig's own red-dot sight: the mark's colour and its ring (in dot radii, 0 none); false when the rig has none
+bool animVmDot(const WeaponDef& d, vec3& col, float& ring);
 // the weapon in hand has no animated rig (the next animated one plays its draw clip)
 void animVmNotActive();
 void animVmReset();   // ED2: drop every rig's state (its definition is being replaced)

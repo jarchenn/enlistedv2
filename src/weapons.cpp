@@ -606,6 +606,9 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       // aim from the eye: find the point under the sight line
       Physics::Hit h;
       vec3 P = Physics::castRayEx(eye, aimDir, 600, h) ? h.pos : eye + aimDir * 600.0f;
+      // AT2: aimed through an optic (or a blaster's zoom) the bore crosses the line of sight at the zero, not at whatever the
+      // eye ray meets far behind the target (soldiers are not in that ray): the reticle centre is then the impact at the zero
+      if (adsT > 0.85f && (scopeView() || d.adsZoom > 0)) { float zr = std::max(5.0f, d.zero); if (glm::length(P - eye) > zr) P = eye + aimDir * zr; }
       // ...but sweep from the real muzzle: a wall beside the barrel stops the shot
       vec3 muzzle = weaponMuzzleWorld(d, s);
       vec3 start = muzzle;
@@ -619,12 +622,14 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
         vec3 Rw, Fw; vmNoRecoilRot = true; sightLineWorld(d, s, Rw, Fw); vmNoRecoilRot = false;   // WP4: the visual muzzle rise is not aim (the gameplay recoil is)
         // MG8: an animated rig's ADS puts both posed sights on the camera axis, so its line is the camera's; the axis itself
         // avoids the alignment's numeric residual (0.02 deg = 0.5 mrad on the M4 irons)
-        vec3 V = d.anim ? forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch) : glm::normalize(Fw - Rw);
+        // AT2: through a fitted magnified optic the reticle is the eyepiece's, drawn on the camera axis: fire along it too
+        vec3 V = d.anim || scopeView() ? forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch) : glm::normalize(Fw - Rw);
         vec3 vr = glm::normalize(glm::cross(V, vec3(0, 1, 0))), vu = glm::cross(vr, V);
         V = glm::normalize(V + vr * std::cos(a) * r + vu * std::sin(a) * r);   // same dispersion draw as the hip path
         Physics::Hit hf;
         start = Fw;
-        if (Physics::castRayEx(eye, Fw - eye, glm::length(Fw - eye), hf)) start = eye + glm::normalize(Fw - eye) * std::max(0.0f, hf.t - 0.01f);
+        if (scopeView()) start = eye + forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch) * glm::dot(Fw - eye, forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch));   // AT2: the gun's own sight points sit under a fitted optic: its line of sight is the camera axis
+        if (Physics::castRayEx(eye, start - eye, glm::length(start - eye), hf)) start = eye + glm::normalize(start - eye) * std::max(0.0f, hf.t - 0.01f);
         dir = V; lastSightR = Rw; lastSightF = Fw; lastSightV = glm::normalize(Fw - Rw);
       }
       // declared zero: tilt up by the drop at the zero range
@@ -791,6 +796,7 @@ void App::drawWeaponUI() {
     std::snprintf(cb, sizeof cb, "%s  rear %.1f px  front %.1f px from the dot  | relief %.3f m  weapon FOV %.1f", d.id.c_str(), glm::length(mk[0].px - ctr), glm::length(mk[1].px - ctr), d.eyeRelief, vmFovNow());
     dl->AddText(ImVec2(20, io.DisplaySize.y - 60), IM_COL32(255, 255, 255, 230), cb);
   }
+  drawReflexReticle(*this, dl, io.DisplaySize.x / std::max(1, R.width), io.DisplaySize.y / std::max(1, R.height));   // AT2: red dot / holographic mark
   drawSightOverlay(*this, dl, io.DisplaySize.x / std::max(1, R.width), io.DisplaySize.y / std::max(1, R.height));   // W2: centre, sight points, roll
   drawStackUI(dl, io.DisplaySize);   // G4: the carried list (while switching) and the ammo / fire-mode readout
   if (showLoadout) {

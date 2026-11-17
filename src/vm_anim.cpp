@@ -23,9 +23,9 @@ struct AnimVM {
   bool shells = false;                 // reload_start / reload_insert (once per round) / reload_end
   float fireRate = 1, reloadRate = 1;  // MG4: clips played faster (the shotguns' pump and shell loop); the timing follows
   vec3 dot{0}; bool hasDot = false;    // red-dot sight: the dot at this rig point (the front lens centre), seen along the sight line
-  GpuMesh dotMesh;
+  vec3 dotCol{1, 0.03f, 0.015f}; float dotRing = 0;   // AT2: the mark's colour; a ring around it (in dot radii, 0 none)
   mat4 w2r{1}; bool w2rOk = false;     // BR3: weapon JSON space -> rest rig space (fitted optics), from the shared sight points
-  ~AnimVM() { model.destroy(); dotMesh.destroy(); }
+  ~AnimVM() { model.destroy(); }
 };
 
 // weapon space (JSON: +z forward, +y up) -> rest rig space: the eye / rear sight, the sight line and the muzzle below it
@@ -83,27 +83,10 @@ std::shared_ptr<AnimVM> animVmLoad(const fs::path& dir, const json& block, std::
   a->shells = a->dur.count("reload_insert") > 0;
   a->fireRate = std::max(0.1f, block.value("fireRate", 1.0f)); a->reloadRate = std::max(0.1f, block.value("reloadRate", 1.0f));
   for (auto& [k, len] : a->dur) len /= k == "fire" ? a->fireRate : k.rfind("reload", 0) == 0 ? a->reloadRate : 1.0f;   // the weapon's pump / reload times
-  if (block.contains("redDot")) {   // a small emissive disc facing back along the sight line; the tube hides it off the axis
+  if (block.contains("redDot")) {   // AT2: the mark itself is drawn on the HUD at its angular size (sight_overlay.cpp drawReflexReticle)
     a->hasDot = true; a->dot = jv(block["redDot"]);
-    float r = block.value("redDotRadius", 0.0006f);
-    vec3 col = block.contains("dotColor") ? jv(block["dotColor"]) : vec3(1, 0.03f, 0.015f);   // MG7: the AK-12's mark is green
-    Material m{"red_dot"}; m.albedo = col; m.emissive = col * 40.0f;
-    vec3 ax = glm::normalize(a->pt[1] - a->pt[0]);
-    Part p; p.shape = Part::CYL; p.size = vec3(2 * r, 0.0002f, 2 * r); p.collide = false; p.seg = 16;
-    p.rot = glm::rotation(vec3(0, 1, 0), ax); p.center = a->dot;
-    MeshData md; appendPart(md, p, m, mat4(1));
-    if (float rr = block.value("dotRing", 0.0f); rr > 0) {   // MG7: a thin ring around the dot (24 short segments in the lens plane)
-      vec3 u = glm::normalize(glm::cross(ax, std::fabs(ax.y) < 0.9f ? vec3(0, 1, 0) : vec3(1, 0, 0))), v = glm::cross(ax, u);
-      for (int k = 0; k < 24; ++k) {
-        float t = k * 6.2831853f / 24; Part q; q.collide = false;
-        q.size = vec3(rr * 6.2831853f / 24 * 1.1f, 0.0002f, 0.35f * r);   // x: along the ring, z: the ring's width
-        q.center = a->dot + (u * std::cos(t) + v * std::sin(t)) * rr;
-        vec3 tg = -u * std::sin(t) + v * std::cos(t);
-        q.rot = glm::rotation(vec3(0, 1, 0), ax); q.rot = glm::rotation(q.rot * vec3(1, 0, 0), tg) * q.rot;
-        appendPart(md, q, m, mat4(1));
-      }
-    }
-    a->dotMesh.upload(md);
+    a->dotCol = block.contains("dotColor") ? jv(block["dotColor"]) : vec3(1, 0.03f, 0.015f);   // MG7: the AK-12's mark is green
+    a->dotRing = block.value("dotRing", 0.0f) / std::max(1e-5f, block.value("redDotRadius", 0.0006f));   // MG7: its ring, in dot radii
   }
   return a;
 }
@@ -232,11 +215,12 @@ bool animVmDraw(App& app, const WeaponDef& d) {
   mat4 rig = camNow(app) * st.local;
   for (size_t k = 0; k < st.inst.view.parts.size(); ++k) app.R.viewModelTex.push_back({&st.inst.view, (int)k, rig});
   const WeaponState& ws = app.wstate[d.id];
-  if (d.anim->hasDot && app.adsT > 0.6f && !ws.att[0]) app.R.viewModel.push_back({&d.anim->dotMesh, rig * st.pose.delta[d.anim->gunJoint]});
   if (ws.att[0]) brSightDraws(app, d, ws, rig * st.pose.delta[d.anim->gunJoint] * weaponToRig(*d.anim, d), app.R.viewModelTex, app.R.viewModel);   // BR3
   lootAttachDraws(app, d, ws, rig * st.pose.delta[d.anim->gunJoint] * weaponToRig(*d.anim, d), app.R.viewModelTex, app.R.viewModel);   // BR10: muzzle, magazine, recoil pad
   return true;
 }
+
+bool animVmDot(const WeaponDef& d, vec3& col, float& ring) { if (!d.anim || !d.anim->hasDot) return false; col = d.anim->dotCol; ring = d.anim->dotRing; return true; }
 
 bool animVmPoint(const App& app, const WeaponDef& d, int which, vec3& world) {
   auto it = gSt.find(&d);

@@ -3,6 +3,7 @@
 // player sees; the roll is the drawn weapon's +y axis in view space against the screen vertical.
 #include "sight_overlay.h"
 #include "app.h"
+#include "vm_anim.h"
 #include <imgui.h>
 
 SightCheck sightCheck(const App& a) {
@@ -44,4 +45,77 @@ void drawSightOverlay(const App& a, ImDrawList* dl, float sx, float sy) {
                 c.centre.x, c.centre.y, c.rear.x - c.centre.x, c.rear.y - c.centre.y, c.front.x - c.centre.x, c.front.y - c.centre.y, c.rollDeg, a.R.width, a.R.height);
   bool pass = c.frontErr <= 1.0f && c.rearErr <= 2.0f && std::fabs(c.rollDeg) < 0.05f;
   dl->AddText(ImVec2(20, ImGui::GetIO().DisplaySize.y - 80), pass ? k : IM_COL32(255, 90, 90, 255), b);
+}
+
+// ---- AT2: reflex (red dot) and holographic reticles. A collimated mark sits on the shot line, not on the glass: drawn here
+// on the HUD (after TAA, so it never swims or smears), placed sub-pixel exactly where the round goes at the gun's zero and
+// sized in angle (2 MOA dot; the holographic sight's layout from its model image: 1 MOA dot, 65 MOA ring, four ticks).
+ReflexReticle reflexReticle(const App& a) {
+  ReflexReticle r;
+  if (a.occupied || a.weaponDefs.empty() || a.mode != Mode::Explore || a.R.width <= 0 || a.scopeView()) return r;
+  const WeaponDef& d = *a.weaponDefs[a.activeWeapon];
+  auto it = a.wstate.find(d.id); if (it == a.wstate.end() || d.hasScope) return r;
+  const WeaponState& s = it->second;
+  vec3 col(1, 0.03f, 0.015f); float ring = 0;
+  if (s.att[0] == 1) r.kind = 1; else if (s.att[0] == 5) r.kind = 2;
+  else if (s.att[0] == 0 && animVmDot(d, col, ring)) r.kind = 1;
+  if (!r.kind) return r;
+  r.col = col; r.ring = ring;
+  r.alpha = glm::smoothstep(0.85f, 0.97f, a.adsT);
+  mat4 view; float wf; a.fpCamera(view, wf);
+  float W = (float)a.R.width, H = (float)a.R.height, aspect = W / std::max(1.0f, H);
+  mat4 wP = glm::perspective(radians(wf), aspect, 0.03f, 4000.0f);
+  vec3 Rw, Fw; a.sightLineWorld(d, s, Rw, Fw);
+  // the shot line (weapons.cpp): an animated rig fires along the camera axis, a static gun along its sight line; the mark
+  // goes where that line meets the zero range (where the round crosses it)
+  vec3 dir = d.anim ? App::forward(a.eyeYaw + a.viewKickYaw, a.eyePitch + a.viewKickPitch) : glm::normalize(Fw - Rw);
+  vec4 q = wP * view * vec4(Fw + dir * std::max(5.0f, d.zero), 1);
+  if (q.w <= 0) return r;
+  r.pos = vec2((q.x / q.w * 0.5f + 0.5f) * W, (0.5f - q.y / q.w * 0.5f) * H);
+  r.pxMoa = wP[1][1] * H * 0.5f * 2.908882e-4f;
+  if (d.anim && s.att[0] == 0) {   // the rig's own sight: the mark only through its window (about 11 mm across the lens centre)
+    mat4 vP = glm::perspective(radians(a.vmFovNow()), aspect, 0.01f, 6.0f);
+    vec4 v = view * vec4(Fw, 1), c = vP * v;
+    if (c.w > 0 && -v.z > 0.01f) {
+      vec2 w((c.x / c.w * 0.5f + 0.5f) * W, (0.5f - c.y / c.w * 0.5f) * H);
+      float winR = vP[1][1] * H * 0.5f * 0.011f / -v.z;
+      r.alpha *= 1.0f - glm::smoothstep(0.8f * winR, winR, glm::length(w - r.pos));
+    }
+  }
+  r.ok = r.alpha > 0.01f;
+  return r;
+}
+
+void drawReflexReticle(const App& a, ImDrawList* dl, float sx, float sy) {
+  ReflexReticle r = reflexReticle(a);
+  if (!r.ok) return;
+  const float S = a.reticleSize, B = a.reticleBright, pm = r.pxMoa * S;
+  const float dotR = std::max(0.75f * std::max(0.67f, S), (r.kind == 1 ? 1.0f : 0.5f) * pm);   // never below ~1.5 px across (1 px at 50 %)
+  const float lw = 0.5f * std::max(1.0f, S);                                                    // line half width: 1 px lines
+  const float ringR = r.kind == 2 ? std::max(3.0f, 32.5f * pm) : r.ring > 0 ? std::max(3.5f * S, r.ring * pm) : 0.0f;
+  const float tickR = r.kind == 2 ? ringR * 1.25f : 0.0f;   // the model's ticks run out from the ring (shortened a little)
+  auto ink = [&](vec2 p, float grow) {
+    float dd = glm::length(p), k = std::clamp(dotR + grow + 0.5f - dd, 0.0f, 1.0f);
+    if (grow == 0) k = std::max(k, 0.25f * std::clamp(dotR + 1.5f - dd, 0.0f, 1.0f));   // a faint 1 px soft edge
+    if (ringR > 0) k = std::max(k, std::clamp(lw + grow + 0.5f - std::fabs(dd - ringR), 0.0f, 1.0f));
+    if (tickR > 0) {
+      vec2 q = glm::abs(p);
+      float tx = std::max(q.y - lw - grow, std::max(ringR - q.x, q.x - tickR - grow)), ty = std::max(q.x - lw - grow, std::max(ringR - q.y, q.y - tickR - grow));
+      k = std::max(k, std::clamp(0.5f - std::min(tx, ty), 0.0f, 1.0f));
+    }
+    return k;
+  };
+  auto srgb = [](float v) { return (int)std::lround(255.0f * std::pow(std::clamp(v, 0.0f, 1.0f), 1.0f / 2.2f)); };
+  vec3 c = glm::mix(r.col, vec3(1.0f), 0.25f * std::max(0.0f, B - 1.0f));   // above 100 %: a hotter core
+  int cr = srgb(c.x), cg = srgb(c.y), cb = srgb(c.z);
+  float aInk = std::min(1.0f, 0.95f * B) * r.alpha, aOut = 0.3f * r.alpha;   // a thin dark outline at 30 % for bright backgrounds
+  float ext = std::max(dotR, tickR > 0 ? tickR : ringR + lw) + 2.5f;
+  for (int y = (int)std::floor(r.pos.y - ext); y <= (int)std::ceil(r.pos.y + ext); ++y)
+    for (int x = (int)std::floor(r.pos.x - ext); x <= (int)std::ceil(r.pos.x + ext); ++x) {
+      vec2 p = vec2(x + 0.5f, y + 0.5f) - r.pos;
+      float k = ink(p, 0), o = ink(p, 1.0f) * (1.0f - k);
+      ImVec2 p0(x * sx, y * sy), p1((x + 1) * sx, (y + 1) * sy);
+      if (o > 0.01f) dl->AddRectFilled(p0, p1, IM_COL32(0, 0, 0, (int)(255 * aOut * o)));
+      if (k > 0.01f) dl->AddRectFilled(p0, p1, IM_COL32(cr, cg, cb, (int)(255 * aInk * k)));
+    }
 }

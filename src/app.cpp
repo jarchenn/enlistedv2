@@ -1024,7 +1024,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--capture-heli" || a == "--gen-vehicle-spawns" || a == "--capture-vh7" || a == "--check-ed2" || a == "--check-vh8" || a == "--capture-vh8" || a == "--mem-probe" || a == "--check-sm1" || a == "--capture-sm1" || a == "--check-sm1-br" || a == "--capture-shade" || a == "--capture-rc2" || a == "--check-snd10" || a == "--check-rm1") runSelf = true;   // VH5 (capture_heli.cpp)
     else if (a == "--selftest-zombies" || a == "--capture-heavies" || a == "--capture-commands" || a == "--capture-ch1" || a == "--capture-ch6" || a == "--capture-ch8") runSelf = true;
     else if (a == "--capture-tk1" || a == "--check-tk1-match" || a == "--capture-tk2" || a == "--selftest-sd" || a == "--selftest-playerdmg" || a == "--selftest-prone" || a == "--selftest-sd3" || a == "--selftest-spectate" || a == "--sd-timings" || a == "--selftest-sd-plant" || a == "--capture-th1" || a == "--selftest-sd-freeze" || a == "--selftest-sd-time") runSelf = true;   // TK1 (capture_tk1.cpp)
-    else if (a == "--capture-br-models" || a == "--capture-br-worn") runSelf = true;   // BR3 / BR8: a look at the Battle Royale models and worn gear (selftest_brmodels.cpp)
+    else if (a == "--capture-br-models" || a == "--capture-br-worn" || a == "--capture-reticles") runSelf = true;   // BR3 / BR8: a look at the Battle Royale models and worn gear (selftest_brmodels.cpp)
     else if (a == "--capture-jeep" || a == "--capture-abrams") runSelf = true;
     else if (a == "--selftest-tdm-live") runSelf = true;   // CV1: a big TDM, spawn tour shots (selftest_royale_live.cpp)
     else if (a == "--selftest-royale-live") runSelf = true;   // BR7: 20 bots on Newtown (selftest_royale_live.cpp)   // VH1: a look at the jeeps (selftest_vehicles.cpp)   // EN2: a look at the heavies (selftest_zombies.cpp)
@@ -1260,6 +1260,7 @@ int App::run(int argc, char** argv) {
       if (scopeView()) { v.eyepieceR = kScopeEyepieceR; { const std::string& rt = weaponDefs[activeWeapon]->reticle; v.reticle = rt == "de_absehen1" ? 1 : rt == "plus" ? 4 : rt == "mil" ? 5 : rt == "bmg" ? 6 : rt == "acog" ? 7 : 2; } { float m; int r; if (lootScope(*this, m, r)) { v.reticle = r; v.thermal = r == 8; } }
         v.eyepieceR *= 1 - 1.5f * std::min(wstate[weaponDefs[activeWeapon]->id].kick, 0.15f); }   // WP4c: a shot drives the scope back at the eye: the eye box closes in briefly
       else if (gunnerOptic()) { v.eyepieceR = kGunnerEyepieceR; v.reticle = 3; }
+      v.reticleSize = reticleSize; v.reticleBright = reticleBright;   // AT2
       if (const TankRT* gt = tanks.occupied ? tanks.get(tanks.occupied) : nullptr; gt && gt->def && gt->def->reticle == "abrams" && gt->hatchT < 0.5f) v.rectVignette = true;   // TK3
       v.editor = false; v.autoExposure = true; v.camPos = e;
       v.underwater = underwaterAt(*this, e); v.underFogCol = swimCfg.fogColor; v.underFogDens = swimCfg.fogDensity;   // swim.cpp
