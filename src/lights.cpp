@@ -7,6 +7,7 @@
 //     editor's Light section.
 #include "interior.h"
 #include "lights.h"
+#include "lighting.h"
 #include "vehicle_dash.h"
 #include <unordered_set>
 #include "app.h"
@@ -223,7 +224,9 @@ bool lightsLitBuilding(const AssetDef* a) {
 void lightsSetDaylight(float d) { gDaylight = d; }
 float lightsDaylight(App& app) {
   if (gDaylight >= 0.0f) return std::clamp(gDaylight, 0.0f, 1.0f);
-  float e = glm::normalize(app.R.sunDir).y;   // sun elevation: full day above ~15 deg, night below the horizon
+  // SD2: the TRUE sun's elevation for the hour; R.sunDir is the key light, the moon at night (a high moon read as day
+  // and kept street lamps off)
+  float e = std::sin(glm::radians(lightingTod(app.R.lt.hour).sunEl));   // full day above ~15 deg, night below the horizon
   return std::clamp((e + 0.05f) / 0.31f, 0.0f, 1.0f);
 }
 
