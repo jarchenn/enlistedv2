@@ -1,4 +1,5 @@
 #include "render.h"
+#include "crumb.h"
 #include "ground_paint.h"   // NT4: groundPaintArid
 #include "lighting.h"
 #include "settings.h"
@@ -3368,6 +3369,7 @@ void Overlay::capsule(vec3 f, float h, float r, vec4 c) {
 
 // ============================================================== renderer
 GLuint Renderer::compile(const char* vs, const char* fs, const char* name) {
+  crumb("shader compile");   // UI5: the launch splash presents between programs
   locCache.clear();   // a new program may reuse a deleted one's id
   auto sh = [&](GLenum type, const char* const* srcs, int n) {
     GLuint s = glCreateShader(type);

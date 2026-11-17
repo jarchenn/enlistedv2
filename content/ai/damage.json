@@ -484,6 +484,24 @@
    "note": "MG12 .45 ACP pistol",
    "headMax": 80,
    "class": "pistol"
+  },
+  "modern_saiga": {
+   "near": 27,
+   "far": 6,
+   "falloffStart_m": 10,
+   "falloffEnd_m": 40,
+   "rpm": 300,
+   "note": "MG12 12 gauge per pellet (8 per shell; DMG1 pellets 26-30)",
+   "class": "shotgun"
+  },
+  "modern_vsk": {
+   "near": 48,
+   "far": 36,
+   "falloffStart_m": 80,
+   "falloffEnd_m": 200,
+   "rpm": 800,
+   "note": "MG12 suppressed 9x39 mm marksman (DMG1 ~45-50)",
+   "class": "semi"
   }
  },
  "classes": {

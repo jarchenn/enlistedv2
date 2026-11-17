@@ -1,3 +1,5 @@
+#include <atomic>
+#include <thread>
 #include "audio.h"
 #include <cstring>
 #include <miniaudio.h>
@@ -359,7 +361,35 @@ int Audio::loadCustom(const fs::path& dir) {
   if (!p) return 0;
   // SND5: decoded at the file's own rate and channels, resampled to 44.1 kHz by resampleSinc; out = (L + R) / 2 (the
   // spatialised voice), L / R (optional) the channels themselves (a mono file: both the same)
+  // CACHE1: every recording of the folder decoded and resampled in parallel first (one at a time took ~2 s at startup);
+  // decodeSt takes the prepared result (a file not prepared decodes here as before)
+  struct Pre { bool ok = false; Buf out, L, R; };
+  std::map<std::string, Pre> pre;
+  auto decodeRaw = [&](const fs::path& f, Pre& r) {
+    ma_decoder_config dc = ma_decoder_config_init(ma_format_f32, 0, 0);
+    ma_uint64 frames = 0; void* data = nullptr;
+    if (ma_decode_file(f.string().c_str(), &dc, &frames, &data) != MA_SUCCESS || !data) return;
+    const float* d = (const float*)data; const ma_uint32 C = std::max<ma_uint32>(1, dc.channels);
+    Buf ch[2]; for (int c = 0; c < 2; ++c) { ch[c].resize(frames); for (ma_uint64 i = 0; i < frames; ++i) ch[c][i] = d[i * C + std::min<ma_uint32>(c, C - 1)]; }
+    ma_free(data, nullptr);
+    if (dc.sampleRate != (ma_uint32)SR && dc.sampleRate > 0) for (auto& x : ch) x = resampleSinc(x, (double)SR / dc.sampleRate);
+    r.out.resize(ch[0].size()); for (size_t i = 0; i < r.out.size(); ++i) r.out[i] = 0.5f * (ch[0][i] + ch[1][i]);
+    r.L = std::move(ch[0]); r.R = std::move(ch[1]); r.ok = true;
+  };
+  {
+    std::error_code ec; std::vector<fs::path> fl;
+    for (auto it = fs::recursive_directory_iterator(dir, ec); !ec && it != fs::recursive_directory_iterator(); it.increment(ec)) {
+      std::string x = it->path().extension().string(); if (x == ".mp3" || x == ".wav" || x == ".ogg" || x == ".flac") fl.push_back(it->path());
+    }
+    for (auto& f : fl) pre[fs::relative(f, dir, ec).generic_string()];
+    std::atomic<size_t> next{0}; std::vector<std::thread> th;
+    unsigned nt = std::clamp(std::thread::hardware_concurrency(), 1u, 12u);
+    for (unsigned t = 0; t < nt && t < fl.size(); ++t) th.emplace_back([&] { for (size_t i; (i = next++) < fl.size();) { std::error_code e2; decodeRaw(fl[i], pre.at(fs::relative(fl[i], dir, e2).generic_string())); } });
+    for (auto& t : th) t.join();
+  }
   auto decodeSt = [&](const char* file, Buf& out, Buf* L, Buf* R) {
+    auto pit = pre.find(fs::path(file).generic_string());
+    if (pit != pre.end() && pit->second.ok) { out = pit->second.out; if (L) *L = pit->second.L; if (R) *R = pit->second.R; return true; }
     ma_decoder_config dc = ma_decoder_config_init(ma_format_f32, 0, 0);
     ma_uint64 frames = 0; void* data = nullptr;
     if (ma_decode_file((dir / file).string().c_str(), &dc, &frames, &data) != MA_SUCCESS || !data) return false;
@@ -458,6 +488,10 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/pistol_9mm.mp3", false, {"modern_glock34"}, -1, 1.06f, 0.3f},
     {"guns/pistol_a.mp3", false, {"modern_makarov"}, -1, 1.08f, 0.1f},
     {"guns/pistol_b.mp3", false, {"modern_mark23"}, -1, 0.95f, -0.1f},
+    // MG12 batch 3 (borrowed, derived; both suppressed): the Saiga on the 870's shot, higher, much darker and shorter; the VSK on the
+    // suppressed .22's, lower and darker (heavier)
+    {"guns/shotgun.mp3", false, {"modern_saiga"}, -1, 1.12f, -0.7f, 1.0f},
+    {"guns/pistol_c.mp3", false, {"modern_vsk"}, -1, 0.78f, -0.4f, 1.2f, 1.0f},
     // SW1: synthesised blaster shots (tools: sweep + FM + odd harmonics + spring tail; no recordings): carbine, long rifle, robot blaster
     {"guns/blaster_a.wav", false, {"blaster_carbine"}, -1, 1, 0, 0.6f},
     {"guns/blaster_b.wav", false, {"blaster_rifle"}, -1, 1, 0, 0.8f},
@@ -609,6 +643,8 @@ int Audio::loadCustom(const fs::path& dir) {
       {"reload/reload_b.mp3", {"modern_glock34"}, 1.9f, 0, 1.08f},
       {"reload/reload_b.mp3", {"modern_makarov"}, 2.2f, 0, 0.95f},
       {"reload/reload_b.mp3", {"modern_mark23"}, 3.0f, 0, 0.85f},
+      {"reload/reload_ak.mp3", {"modern_saiga"}, 2.6f, 3.5f, 0.9f},   // MG12 batch 3: rock-in box magazines
+      {"reload/reload_ak.mp3", {"modern_vsk"}, 2.5f, 3.5f, 1.08f},
       {"reload/reload_m4.mp3", {"blaster_rifle"}, 2.4f, 0, 0.92f},
       {"reload/reload_m4.mp3", {"blaster_robot"}, 2.1f, 0, 1.2f},
     };

@@ -87,6 +87,11 @@ const C = {
   makarov: { src: M12 + "makarov_pm_fps_animations/makarov_pm_fps_animations.glb", tex: "", poseFrame: 0, poseAction: "Rig|MK_Idle", keep: { Object_9: "frame" }, split: { Object_9: { Slide_016: "slide", Mag_019: "mag" } } },
   mark23: { src: M12 + "mark-23-animated-free/source/Mark23.fbx", tex: M12 + "mark-23-animated-free", keep: { main: "frame", Side: "slide", mag: "mag" },
         mats: { Mark23_D: { albedo: "Mark23_D.png", rough_f: 0.5, metal_f: 0.5 } } },
+  // ---- MG12 batch 3 (Cransh GLBs: the arms' skin is broken, the guns are baked posed at their idle; baked posed at the idle)
+  saiga: { src: M12 + "fps_arms_saiga_animations_remake/fps_arms_saiga_animations_remake.glb", tex: "", poseFrame: 0, poseAction: "Rig|Saiga_Idle",
+        keep: { Object_95: "frame", Object_96: "device" }, split: { Object_95: { Rif_059: "bolt", Pmag_062: "mag" } } },
+  vsk: { src: M12 + "fps_animations_vsk/fps_animations_vsk.glb", tex: "", poseFrame: 0, poseAction: "Rig|VSK_Idle", rotX: 180,   // its idle pose holds it reversed and upside down
+        keep: { Object_69: "frame", Object_68: "stock", Object_67: "magcover" }, split: { Object_69: { Slider_052: "bolt", Mag_055: "mag" } } },
   case: { src: G + "hardcase_for_weapons.glb", tex: "", scale: 1.27,
         keep: k("CaseLower_low_Hardcase_0", "CaseUpped_low_Hardcase_0", "Foam_low_Hardcase_0", "Handle_low_Hardcase_0", "HandleRods_low_Hardcase_0", "HingesLower_low_Hardcase_0", "HingesUpper_low_Hardcase_0", "Knob_low_Hardcase_0", "LockRods_low_Hardcase_0", "Locks_low_Hardcase_0") },
 };

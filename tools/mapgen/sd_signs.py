@@ -80,6 +80,16 @@ def main():
     r = asset("sd_roof_bay", "Roof slab (6 m bay)", "Search and Destroy: a 6.6 m precast concrete roof slab on two steel beams, resting on 3 m compound walls to roof one 6 m bay (a connector room).", [6.6, 6.6], roof, [0.5, 0.5, 0.5])
     r["materials"] = roof_mats
     out.append(r)
+    # Rue Haute: the same bay as a timbered ceiling: dark oak beams under a lime-plaster soffit, a terracotta tile top
+    rt = [{"t": "b", "c": [0, 3.24, 0], "s": [6.6, 0.12, 6.6], "m": "plaster", "bv": 0.01},
+          {"t": "b", "c": [0, 3.34, 0], "s": [6.7, 0.08, 6.7], "m": "tile", "k": 0, "lod": 1}]
+    for x in (-2.4, -0.8, 0.8, 2.4):
+        rt.append({"t": "b", "c": [x, 3.08, 0], "s": [0.2, 0.22, 6.5], "m": "oak", "bv": 0.02})
+    r2 = asset("sd_roof_bay_timber", "Timbered roof (6 m bay)", "Search and Destroy (Rue Haute): a 6.6 m lime-plaster ceiling on four dark oak beams with a terracotta tile top, resting on 3 m town walls.", [6.6, 6.6], rt, [0.5, 0.5, 0.5])
+    r2["materials"] = [{"name": "plaster", "albedo": [0.82, 0.78, 0.7], "roughness": 0.9, "pattern": "plaster", "metallic": 0, "grain": 1, "texture": "limewash"},
+                       {"name": "oak", "albedo": [0.24, 0.17, 0.11], "roughness": 0.8, "pattern": "wood", "metallic": 0, "grain": 2},
+                       {"name": "tile", "albedo": [0.62, 0.36, 0.24], "roughness": 0.85, "pattern": "plain", "metallic": 0, "grain": 1, "texture": "roof_tile"}]
+    out.append(r2)
     # SD2 Night Yard: a sodium yard light, a 6 m galvanised mast on a base plate with an arm and a lantern; its +z faces
     # the lane (the arm reaches 0.9 m out), the light warm orange, wide enough to pool on the asphalt
     mast = [{"t": "c", "c": [0, 3.0, 0], "s": [0.12, 6.0, 0.12], "m": "galv", "seg": 8},
@@ -91,11 +101,11 @@ def main():
     m["materials"] = [{"name": "galv", "albedo": [0.55, 0.57, 0.58], "roughness": 0.5, "pattern": "metal", "metallic": 0.6, "grain": 1, "texture": "steel_scratched"},
                       {"name": "head", "albedo": [0.25, 0.26, 0.27], "roughness": 0.6, "pattern": "metal", "metallic": 0.4, "grain": 1},
                       {"name": "glow", "albedo": [1.0, 0.72, 0.38], "roughness": 0.3, "pattern": "plain", "metallic": 0, "grain": 1, "emissive": 2.0}]
-    m["light"] = {"offset": [0, 5.65, 0.9], "color": [1.0, 0.62, 0.3], "intensity": 6.0, "radius": 18.0, "cone": [75, 115], "dir": [0, -1, 0], "group": 2, "use": "street"}
+    m["light"] = {"offset": [0, 5.65, 0.9], "color": [1.0, 0.58, 0.26], "intensity": 40.0, "radius": 22.0, "cone": [75, 115], "dir": [0, -1, 0], "group": 2, "use": "street"}
     out.append(m)
     # SD2 Rue Haute: the town's walled lanes, a 6 m bay of 3.2 m rubble-stone wall (plinth, body, coping), not climbable
     # (an invisible collider to 3.9 m); a door bay with a 1.8 m opening under a stone lintel for the connector links
-    stone_mats = [{"name": "stone", "albedo": [0.62, 0.58, 0.52], "roughness": 0.9, "pattern": "stone", "metallic": 0, "grain": 1, "texture": "stone_field"},
+    stone_mats = [{"name": "stone", "albedo": [0.74, 0.69, 0.6], "roughness": 0.9, "pattern": "stone", "metallic": 0, "grain": 1, "texture": "limestone_dressed"},
                   {"name": "dressed", "albedo": [0.7, 0.67, 0.61], "roughness": 0.85, "pattern": "stone", "metallic": 0, "grain": 1, "texture": "stone_coursed"},
                   {"name": "air", "albedo": [0.5, 0.5, 0.5], "roughness": 1, "pattern": "plain", "metallic": 0, "grain": 1}]
     def wall_bay(x0, x1, top=3.05):

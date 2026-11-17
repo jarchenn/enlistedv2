@@ -1,136 +1,136 @@
 {
- "id": "sd_yard",
- "version": 1,
- "order": 20,
- "name": "Night Yard",
- "available": false,
- "seed": 2612,
- "description": "Search and Destroy: a desert compound of precast concrete walls and courtyards in hard noon light. A: the west vehicle court; B: the east supply yard; Mid: the parade square. 5 v 5.",
- "width": 150.0,
- "depth": 150.0,
- "margin": 60,
- "camera": {
-  "pos": [
-   0.0,
-   120.0,
-   -110.0
-  ],
-  "yaw": 0.0,
-  "pitch": -48.0
- },
- "heightmap": {
-  "file": "sd_yard.height.png",
-  "nx": 91,
-  "nz": 91,
-  "min": 9,
-  "max": 11,
-  "org": [
-   -141.1765,
-   -141.1765
-  ],
-  "cell": 3.1372549019607843
- },
- "waterLevel": -1000.0,
- "map": "sd_yard.nmap.json",
- "playable": true,
- "thumbnail": "sd_yard.thumb.png",
- "thumbnailCamera": {
-  "pos": [
-   -13.0,
-   11.700015259021896,
-   25.0
-  ],
-  "yaw": 135.0,
-  "pitch": -4.0
- },
- "userMap": true,
- "views": [
-  {
-   "name": "overview_high",
-   "pos": [
-    0.0,
-    130.0,
-    -100.0
-   ],
-   "yaw": 0.0,
-   "pitch": -55.0
+  "id": "sd_yard",
+  "version": 1,
+  "order": 20,
+  "name": "Night Yard",
+  "available": true,
+  "seed": 2612,
+  "description": "Search and Destroy: a desert compound of precast concrete walls and courtyards in hard noon light. A: the west vehicle court; B: the east supply yard; Mid: the parade square. 5 v 5.",
+  "width": 150.0,
+  "depth": 150.0,
+  "margin": 60,
+  "camera": {
+    "pos": [
+      0.0,
+      120.0,
+      -110.0
+    ],
+    "yaw": 0.0,
+    "pitch": -48.0
   },
-  {
-   "name": "a_site_eye",
-   "pos": [
-    -30.0,
-    11.65,
-    24.0
-   ],
-   "yaw": 180.0,
-   "pitch": 0.0,
-   "gameplay": true
+  "heightmap": {
+    "file": "sd_yard.height.png",
+    "nx": 91,
+    "nz": 91,
+    "min": 9,
+    "max": 11,
+    "org": [
+      -141.1765,
+      -141.1765
+    ],
+    "cell": 3.1372549019607843
   },
-  {
-   "name": "b_site_eye",
-   "pos": [
-    24.0,
-    11.65,
-    0.0
-   ],
-   "yaw": -153.434948822922,
-   "pitch": 0.0,
-   "gameplay": true
+  "waterLevel": -1000.0,
+  "map": "sd_yard.nmap.json",
+  "playable": true,
+  "thumbnail": "sd_yard.thumb.png",
+  "thumbnailCamera": {
+    "pos": [
+      -30.0,
+      12.25,
+      24.0
+    ],
+    "yaw": 180.0,
+    "pitch": -5.0
   },
-  {
-   "name": "mid_eye",
-   "pos": [
-    -12.0,
-    11.65,
-    0.0
-   ],
-   "yaw": -153.434948822922,
-   "pitch": 0.0,
-   "gameplay": true
-  },
-  {
-   "name": "t_spawn_eye",
-   "pos": [
-    -30.0,
-    11.65,
-    -54.0
-   ],
-   "yaw": 180.0,
-   "pitch": 0.0,
-   "gameplay": true
-  },
-  {
-   "name": "d_spawn_eye",
-   "pos": [
-    18.0,
-    11.65,
-    54.0
-   ],
-   "yaw": -0.0,
-   "pitch": 0.0,
-   "gameplay": true
-  },
-  {
-   "name": "reefer_eye",
-   "pos": [
-    6.0,
-    11.65,
-    12.0
-   ],
-   "yaw": -90.0,
-   "pitch": 0.0,
-   "gameplay": true
-  },
-  {
-   "name": "rail_eye",
-   "pos": [
-    12.0,
-    11.65,
-    24.0
-   ],
-   "yaw": 90.0,
-   "pitch": 0.0,
-   "gameplay": true
-  }
- ]
+  "userMap": true,
+  "views": [
+    {
+      "name": "overview_high",
+      "pos": [
+        0.0,
+        130.0,
+        -100.0
+      ],
+      "yaw": 0.0,
+      "pitch": -55.0
+    },
+    {
+      "name": "a_site_eye",
+      "pos": [
+        -30.0,
+        11.65,
+        24.0
+      ],
+      "yaw": 180.0,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "b_site_eye",
+      "pos": [
+        24.0,
+        11.65,
+        0.0
+      ],
+      "yaw": -153.434948822922,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "mid_eye",
+      "pos": [
+        -6.0,
+        11.65,
+        -9.0
+      ],
+      "yaw": 180.0,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "t_spawn_eye",
+      "pos": [
+        -30.0,
+        11.65,
+        -54.0
+      ],
+      "yaw": 180.0,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "d_spawn_eye",
+      "pos": [
+        18.0,
+        11.65,
+        54.0
+      ],
+      "yaw": -0.0,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "reefer_eye",
+      "pos": [
+        6.0,
+        11.65,
+        12.0
+      ],
+      "yaw": -90.0,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "rail_eye",
+      "pos": [
+        12.0,
+        11.65,
+        24.0
+      ],
+      "yaw": 90.0,
+      "pitch": 0.0,
+      "gameplay": true
+    }
+  ]
 }

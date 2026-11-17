@@ -1,4 +1,5 @@
 // Tanks: drawing (supplied GLB parts on the rig), gunner sights, HUD, Enter prompt, catalog thumbnails and the
+#include "crumb.h"
 // temporary synthesized tank sounds. docs/tanks.md
 #include "vehicle_dash.h"
 #include "ui_glass.h"   // UI2: glass panel backgrounds
@@ -141,6 +142,7 @@ void TankSys::makeThumbnails(App& app) {
   for (auto& a : app.lib.assets) {
     const TankDef* d = defFor(a.get());
     if (!d) continue;
+    crumb("vehicle thumbnails");   // UI5
     std::vector<ModelDraw> md;
     auto add = [&](const std::vector<int>& ps) { for (int k : ps) md.push_back({d->model.get(), k, mat4(1)}); };
     add(d->hullParts); add(d->turretParts); add(d->gunParts); add(d->mgParts); add(d->hatchParts);

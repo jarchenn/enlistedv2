@@ -1,7 +1,9 @@
 // User settings and the Settings window (docs/settings.md). Values live in Settings::s, are pushed into the running
 // game by apply() and are saved to exeDir()/settings_user.json (same place as gore_user.json). Medium is exactly the
 // built-in defaults; self-test runs never read or write the file (persist = false) and start on Medium.
+#include "user_cache.h"
 #include "settings.h"
+#include "ui_flat.h"
 #include "mainmenu.h"
 #include "app.h"
 #include "editor_nav.h"
@@ -343,6 +345,7 @@ void controlsWindow(App& app, bool* open) {
   ImGui::End();
 }
 
+int gSettingsTab = 0;   // UI4: the Settings page tab (captures set it)
 void settingsWindow(App& app) {
   Settings& S = settings();
   bool& wasOpen = gWasOpen; bool& pendingSave = gPendingSave;
@@ -355,127 +358,147 @@ void settingsWindow(App& app) {
   const UserSettings before = u;
   bool applyNow = false, saveNow = false;
   ImGuiIO& io = ImGui::GetIO();
-  ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-  ImGui::SetNextWindowSize(ImVec2(560, 0), ImGuiCond_Appearing);
-  if (!ImGui::Begin("Settings", &S.open, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize)) { ImGui::End(); return; }
+  // UI4: a full page in the flat options language (ui_flat.h): title, version, copper rule, "//" tabs, flat rows in the
+  // left half, a hint, a rule and the text actions at the bottom; the blurred scene (or the menu's backdrop) behind
+  const float W = io.DisplaySize.x, H = io.DisplaySize.y, sc = H / 1080.0f, X0 = 84 * sc;
+  ImGui::SetNextWindowPos(ImVec2(0, 0)); ImGui::SetNextWindowSize(io.DisplaySize);
+  if (!ImGui::Begin("Settings", &S.open, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar)) { ImGui::End(); return; }
   ++S.windowFrames;
-  if (ImGui::BeginTabBar("##settabs")) {
+  ImDrawList* pdl = ImGui::GetWindowDrawList();
+  flat::backdrop(pdl, ImVec2(0, 0), io.DisplaySize);
+  pdl->AddRectFilledMultiColor(ImVec2(0, 0), ImVec2(W * 0.6f, H), IM_COL32(0, 0, 0, 120), IM_COL32(0, 0, 0, 0), IM_COL32(0, 0, 0, 0), IM_COL32(0, 0, 0, 120));
+  { const float tp = 104 * sc; flat::text(pdl, flat::titleFont(), tp, ImVec2(X0, 54 * sc), flat::ink(), "OPTIONS", 0.01f);
+    flat::text(pdl, ImGui::GetFont(), 13 * sc, ImVec2(X0 + 4 * sc, 54 * sc + tp * 1.02f), flat::grey(0.8f), "BATTLE FOUNDRY  PRE-ALPHA  BUILD " __DATE__, 0.12f);
+    flat::rule(pdl, X0, W - X0, 54 * sc + tp * 1.02f + 30 * sc); }
+  int& tab = gSettingsTab;
+  ImGui::SetCursorScreenPos(ImVec2(X0, 54 * sc + 104 * sc * 1.02f + 46 * sc));
+  { static const char* tn[] = {"Video", "Gameplay", "Audio", "Keybindings", "Interface"}; flat::tabs(tn, 5, tab); }
+  const float bodyTop = ImGui::GetCursorScreenPos().y + 18 * sc, bodyBot = H - 116 * sc;
+  ImGui::SetCursorScreenPos(ImVec2(X0, bodyTop));
+  // UI5: the rows span the page: two columns on the long tabs (Video, Keybindings), else one wide column whose values sit
+  // near 45 % of the width; tight row spacing (the rows carry their own height)
+  ImGui::BeginChild("##setbody", ImVec2(W - 2 * X0, bodyBot - bodyTop), 0, ImGuiWindowFlags_NoBackground);
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(10 * sc, 2)); ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(0, 0));
+  const bool twoCol = tab == 0 || tab == 3;
+  ImGui::BeginTable("##setcols", 3, ImGuiTableFlags_SizingStretchProp);
+  ImGui::TableSetupColumn("a", ImGuiTableColumnFlags_WidthStretch, twoCol ? 1.0f : 0.62f);
+  ImGui::TableSetupColumn("gap", ImGuiTableColumnFlags_WidthFixed, 72 * sc);
+  ImGui::TableSetupColumn("b", ImGuiTableColumnFlags_WidthStretch, twoCol ? 1.0f : 0.38f);
+  ImGui::TableNextColumn();
+  auto nextCol = [] { ImGui::TableNextColumn(); ImGui::TableNextColumn(); };
+  {
     // ------------------------------------------------ graphics
-    if (ImGui::BeginTabItem("Graphics")) {
+    if (tab == 0) {
       GraphicsOpts& g = u.gfx;
       // the list in quality order; GfxPreset keeps its stored values (Ultra Low was appended as 4)
       const GfxPreset order[5] = {GfxPreset::UltraLow, GfxPreset::Low, GfxPreset::Medium, GfxPreset::High, GfxPreset::Custom};
       const char* pn[] = {"Ultra Low", "Low", "Medium", "High", "Custom"};
       int pr = 4; for (int k = 0; k < 5; ++k) if (order[k] == u.preset()) pr = k;
-      ImGui::SetNextItemWidth(200);
-      if (ImGui::Combo("Preset", &pr, pn, 5) && order[pr] != GfxPreset::Custom) g = presetOpts(order[pr]);
+      
+      if (flat::combo("Preset", &pr, pn, 5) && order[pr] != GfxPreset::Custom) g = presetOpts(order[pr]);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Medium is the standard look. Low: half-size shadows, no cloud shadows / light shafts / reflections / AO,\nless grass and decoration, 85 %% resolution. High: sharper far shadows, full-resolution AO, more grass, longer view.");
-      ImGui::Separator();
-      ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Resolution scale", &g.resScale, 0.5f, 1.0f, "%.2f");
+      flat::sliderFloat("Resolution scale", &g.resScale, 0.5f, 1.0f, "%.2f");
       if (ImGui::IsItemDeactivatedAfterEdit()) applyNow = true;   // targets are recreated once, on release
-      { const char* um[] = {"Temporal", "Spatial", "Off (native)"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Upscaling", &u.upscale, um, 3);
+      { const char* um[] = {"Temporal", "Spatial", "Off (native)"}; flat::combo("Upscaling", &u.upscale, um, 3);
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Below 100 %% resolution: Temporal rebuilds full detail over several frames (sharpest),\nSpatial upscales each frame (fastest on the Mac), Off renders at full resolution."); }
-      { const char* sq[] = {"Low (2048 / 1024)", "Medium (4096 / 2048)", "High (4096 / 4096)"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Shadow quality", &g.shadowQuality, sq, 3); }
-      ImGui::Checkbox("Far shadow cascade", &g.farCascade); ImGui::SameLine(220); ImGui::Checkbox("Cloud shadows", &g.cloudShadows);
-      ImGui::Checkbox("Ambient occlusion", &g.ssao); ImGui::SameLine(220); ImGui::BeginDisabled(!g.ssao); ImGui::Checkbox("Full-resolution AO", &g.ssaoFull); ImGui::EndDisabled();
-      ImGui::Checkbox("Screen-space reflections", &g.ssr); ImGui::SameLine(220); ImGui::Checkbox("Bloom", &g.bloom);
-      ImGui::Checkbox("Light shafts", &g.shafts); ImGui::SameLine(220); ImGui::Checkbox("Temporal AA", &g.taa);
-      { bool m = g.msaa >= 2; if (ImGui::Checkbox("4x MSAA", &m)) g.msaa = m ? 4 : 0; }
+      { const char* sq[] = {"Low (2048 / 1024)", "Medium (4096 / 2048)", "High (4096 / 4096)"}; flat::combo("Shadow quality", &g.shadowQuality, sq, 3); }
+      flat::checkbox("Far shadow cascade", &g.farCascade); flat::checkbox("Cloud shadows", &g.cloudShadows);
+      flat::checkbox("Ambient occlusion", &g.ssao); ImGui::BeginDisabled(!g.ssao); flat::checkbox("Full-resolution AO", &g.ssaoFull); ImGui::EndDisabled();
+      flat::checkbox("Screen-space reflections", &g.ssr); flat::checkbox("Bloom", &g.bloom);
+      flat::checkbox("Light shafts", &g.shafts); flat::checkbox("Temporal AA", &g.taa);
+      { bool m = g.msaa >= 2; if (flat::checkbox("4x MSAA", &m)) g.msaa = m ? 4 : 0; }
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Multisampled world geometry (smoother building and roof edges), resolved before temporal AA. High turns it on.");
-      ImGui::SameLine(220); ImGui::Checkbox("Ivy on walls", &g.ivy);
+      flat::checkbox("Ivy on walls", &g.ivy);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Ivy on stone walls; its density follows the grass quality.");
-      { const char* dm[] = {"Off", "Low", "High"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Dust motes", &g.dustMotes, dm, 3); }
+      { const char* dm[] = {"Off", "Low", "High"}; flat::combo("Dust motes", &g.dustMotes, dm, 3); }
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Dust drifting in the sunlight that falls through windows indoors (a few dozen motes per lit window near you).");
-      ImGui::Checkbox("Clouds", &g.clouds);
+      flat::checkbox("Clouds", &g.clouds);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Cloud cover: Creative > View > Sky");
-      { const char* gq[] = {"Off", "Low", "Medium", "High", "Ultra"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Grass", &g.grass, gq, 5); }
+      { const char* gq[] = {"Off", "Low", "Medium", "High", "Ultra"}; flat::combo("Grass", &g.grass, gq, 5); }
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Ultra: denser, longer-reaching grass (grass only: no preset sets it, and it leaves shadows, probes and MSAA alone).");
+      nextCol();
       {   // PF2: render distance in metres, four named stops plus any value on the slider
         const float stops[4] = {600, 1200, 2500, 5000}; const char* names[5] = {"Low (600 m)", "Medium (1.2 km)", "High (2.5 km)", "Ultra (5 km)", "Custom"};
         int cur = 4; for (int k = 0; k < 4; ++k) if (std::fabs(g.renderDist - stops[k]) < 1) cur = k;
-        ImGui::SetNextItemWidth(200);
-        if (ImGui::Combo("Render distance", &cur, names, 5) && cur < 4) g.renderDist = stops[cur];
-        ImGui::SetNextItemWidth(200); ImGui::SliderFloat("##renderdist", &g.renderDist, 300.0f, 5000.0f, "%.0f m");
+        
+        if (flat::combo("Render distance", &cur, names, 5) && cur < 4) g.renderDist = stops[cur];
+        flat::sliderFloat("##renderdist", &g.renderDist, 300.0f, 5000.0f, "%.0f m");
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("How far buildings, props, trees and nature are drawn; also the far terrain detail and the haze (thinner haze for longer distances).");
       }
-      ImGui::SameLine(); ImGui::Checkbox("Grass wind", &g.grassWind);
+      flat::checkbox("Grass wind", &g.grassWind);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Wind sway on the grass near you (within ~13 m; distant grass is always still). Off saves a little GPU time.");
-      { const char* mq[] = {"Low", "Medium", "High"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Material detail", &g.materials, mq, 3); }
+      { const char* mq[] = {"Low", "Medium", "High"}; flat::combo("Material detail", &g.materials, mq, 3); }
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Medium: wear and grime by room, corner shading, wall decals (stains, soot, cracks, scuffs).\nHigh: also parallax relief on textured walls. Low: the base materials.");
-      ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Particle budget", &g.particles, 0.25f, 2.5f, "x %.2f");
-      ImGui::SeparatorText("Lighting");
+      flat::sliderFloat("Particle budget", &g.particles, 0.25f, 2.5f, "x %.2f");
+      flat::section("Lighting");
       {   // L2 (docs/lighting.md): time of day is personal (kept when a preset is picked); the rest belongs to the presets
         int tp = (int)todPresetOf(u.hour); const char* tn[] = {"Day", "Dusk", "Night", "Dawn", "Custom"};
-        ImGui::SetNextItemWidth(200);
-        if (ImGui::Combo("Time of day", &tp, tn, 5) && tp != (int)TodPreset::Custom) u.hour = todPresetHour((TodPreset)tp);
+        
+        if (flat::combo("Time of day", &tp, tn, 5) && tp != (int)TodPreset::Custom) u.hour = todPresetHour((TodPreset)tp);
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Day is the standard look. Dusk and Dawn: low sun, long shadows. Night: moon, stars, lamps.");
         int hh = (int)u.hour, mm = (int)std::lround((u.hour - hh) * 60); if (mm == 60) { ++hh; mm = 0; }
         char hl[32]; std::snprintf(hl, sizeof hl, "%02d:%02d", hh % 24, mm);
-        ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Hour", &u.hour, 0.0f, 23.99f, hl);
-        { const char* wn[] = {"Clear", "Cloudy"}; ImGui::SetNextItemWidth(200);   // WX2: live (no Apply needed) and kept when the window closes
-          if (ImGui::Combo("Weather", &u.weather, wn, 2)) settingsUiWeather(app, u.weather); }
-        { const char* fn[] = {"Off", "Light", "Moderate", "Dense"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Environmental fog", &u.envFog, fn, 4); }
+        flat::sliderFloat("Hour", &u.hour, 0.0f, 23.99f, hl);
+        { const char* wn[] = {"Clear", "Cloudy"};   // WX2: live (no Apply needed) and kept when the window closes
+          if (flat::combo("Weather", &u.weather, wn, 2)) settingsUiWeather(app, u.weather); }
+        { const char* fn[] = {"Off", "Light", "Moderate", "Dense"}; flat::combo("Environmental fog", &u.envFog, fn, 4); }
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Ground fog in hollows, low ground and along the shore, drifting on the wind. Limits how far bots see. A LAN match uses the host's.");
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Cloudy: full overcast in layers, soft diffuse light, no sun rays, slightly muted colours. Applies at once. In a LAN match the host's weather applies.");
-        ImGui::SetNextItemWidth(200); ImGui::SliderInt("Light count", &g.lightCount, 0, 1024);
+        flat::sliderInt("Light count", &g.lightCount, 0, 1024);
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Lamps, lanterns and fires lit each frame (nearest first).");
         { int sl[] = {0, 2, 4, 8}; const char* sn[] = {"Off", "2", "4", "8"}; int si = 0; for (int k = 0; k < 4; ++k) if (sl[k] == g.shadowLights) si = k;
-          ImGui::SetNextItemWidth(200); if (ImGui::Combo("Shadowed lights", &si, sn, 4)) g.shadowLights = sl[si]; }
-        { const char* gn[] = {"Off", "Medium", "High"}; ImGui::SetNextItemWidth(200); ImGui::Combo("Indirect light", &g.gi, gn, 3);
+          if (flat::combo("Shadowed lights", &si, sn, 4)) g.shadowLights = sl[si]; }
+        { const char* gn[] = {"Off", "Medium", "High"}; flat::combo("Indirect light", &g.gi, gn, 3);
           if (ImGui::IsItemHovered()) ImGui::SetTooltip("Probe light around the camera: lamplight and window light bounce onto walls and ceilings.\nOff: the flat fill of earlier versions."); }
       }
-      ImGui::Separator();
-      ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Field of view", &u.fov, 55.0f, 100.0f, "%.0f deg");
-      ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Gamma", &u.gamma, 0.5f, 2.0f, "%.2f");
+      flat::section("Display");
+      flat::sliderFloat("Field of view", &u.fov, 55.0f, 100.0f, "%.0f deg");
+      flat::sliderFloat("Gamma", &u.gamma, 0.5f, 2.0f, "%.2f");
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Above 1 brightens the dark tones, below 1 darkens them. 1.00 is the default.");
-      { float pc = u.microcontrast * 100.0f; ImGui::SetNextItemWidth(200);   // UI2: live (no Apply needed), like Weather
-        if (ImGui::SliderFloat("Microcontrast", &pc, 0.0f, 100.0f, "%.0f %%")) { u.microcontrast = std::clamp(pc / 100.0f, 0.0f, 1.0f); gApplied.microcontrast = u.microcontrast; app.R.q.microcontrast = u.microcontrast; gPendingSave = true; } }
+      { float pc = u.microcontrast * 100.0f;   // UI2: live (no Apply needed), like Weather
+        if (flat::sliderFloat("Microcontrast", &pc, 0.0f, 100.0f, "%.0f %%")) { u.microcontrast = std::clamp(pc / 100.0f, 0.0f, 1.0f); gApplied.microcontrast = u.microcontrast; app.R.q.microcontrast = u.microcontrast; gPendingSave = true; } }
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Local contrast (clarity): brings out surface detail and depth in flat, hazy light without sharpening edges or dark noise. 0 %% is off.");
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Vertical field of view on foot (72 standard). Aiming and gun sights narrow from it.");
-      ImGui::Checkbox("Vsync", &u.vsync); ImGui::SameLine(220);
+      flat::checkbox("Vsync", &u.vsync);
       { int caps[] = {0, 30, 60, 90, 120, 144, 165, 240}; const char* cn[] = {"Unlimited", "30", "60", "90", "120", "144", "165", "240"};
         int ci = 0; for (int k = 0; k < 8; ++k) if (caps[k] == u.fpsCap) ci = k;
-        ImGui::SetNextItemWidth(120); if (ImGui::Combo("FPS cap", &ci, cn, 8)) u.fpsCap = caps[ci]; }
-      ImGui::TextDisabled("Frame %.2f ms (%.0f FPS) | render %d x %d of %d x %d", io.DeltaTime * 1000, io.Framerate, app.R.width, app.R.height, app.R.displayW, app.R.displayH);
-      ImGui::EndTabItem();
+        if (flat::combo("FPS cap", &ci, cn, 8)) u.fpsCap = caps[ci]; }
     }
     // ------------------------------------------------ gameplay
-    if (ImGui::BeginTabItem("Gameplay")) {
-      ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Mouse sensitivity", &u.mouseSens, 0.02f, 0.4f, "%.3f deg/count");
+    if (tab == 1) {
+      flat::sliderFloat("Mouse sensitivity", &u.mouseSens, 0.02f, 0.4f, "%.3f deg/count");
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Degrees per mouse count in the standard 72 deg view (0.100 default). Matched to the view, so\nirons, scopes and tank sights move the picture by the same distance per count.");
-      ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Aiming sensitivity", &u.adsSens, 0.3f, 1.5f, "x %.2f");
-      ImGui::Checkbox("Invert mouse Y", &u.invertY);
-      ImGui::Checkbox("Reduced motion (keeps aim displacement)", &u.reducedMotion);
-      ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Helicopter camera motion", &u.heliCamMotion, 0.0f, 3.0f, "x %.2f");
+      flat::sliderFloat("Aiming sensitivity", &u.adsSens, 0.3f, 1.5f, "x %.2f");
+      flat::checkbox("Invert mouse Y", &u.invertY);
+      flat::checkbox("Reduced motion (keeps aim displacement)", &u.reducedMotion);
+      flat::sliderFloat("Helicopter camera motion", &u.heliCamMotion, 0.0f, 3.0f, "x %.2f");
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Camera banking, rotor vibration and landing shake while flying a helicopter (0 = none, 1 = default, up to 3x more).");
-      ImGui::Checkbox("Minimap turns with you (heading up)", &u.minimapRotate);
-      ImGui::Checkbox("Health bars over other vehicles", &u.vehicleBars);
+      flat::checkbox("Minimap turns with you (heading up)", &u.minimapRotate);
+      flat::checkbox("Health bars over other vehicles", &u.vehicleBars);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("A health bar floating over every vehicle within about 90 m.");
-      ImGui::Checkbox("Show arms", &u.showArms);
-      ImGui::Checkbox("Sight calibration markers", &u.sightMarkers);
-      ImGui::Checkbox("Show weapon list", &u.weaponList);
-      ImGui::Checkbox("Friendly markers over teammates", &u.friendlyMarkers);
+      flat::checkbox("Show arms", &u.showArms);
+      flat::checkbox("Sight calibration markers", &u.sightMarkers);
+      flat::checkbox("Show weapon list", &u.weaponList);
+      flat::checkbox("Friendly markers over teammates", &u.friendlyMarkers);
       { extern void goreOptionsUI(); goreOptionsUI(); }   // gore_user.json (gore.cpp)
-      ImGui::EndTabItem();
     }
     // ------------------------------------------------ audio
-    if (ImGui::BeginTabItem("Audio")) {
-      auto vol = [&](const char* l, float& v) { int p = (int)std::lround(v * 100); ImGui::SetNextItemWidth(260); if (ImGui::SliderInt(l, &p, 0, 100, "%d %%")) v = p / 100.0f; };
+    if (tab == 2) {
+      auto vol = [&](const char* l, float& v) { int p = (int)std::lround(v * 100); if (flat::sliderInt(l, &p, 0, 100, "%d %%")) v = p / 100.0f; };
       vol("Master", u.master); vol("Effects", u.effects);
-      { int p = (int)std::lround(u.gunfire * 100); ImGui::SetNextItemWidth(260); if (ImGui::SliderInt("Gunfire", &p, 0, 200, "%d %%")) u.gunfire = p / 100.0f; }   // UI1b: guns, cannons, shell blasts
+      { int p = (int)std::lround(u.gunfire * 100); if (flat::sliderInt("Gunfire", &p, 0, 200, "%d %%")) u.gunfire = p / 100.0f; }   // UI1b: guns, cannons, shell blasts
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Gunshots, cannon fire and shell explosions, on top of Effects (100 %% = as mixed, up to 200 %%).");
       vol("Interface", u.ui); vol("Ambience (wind, leaves)", u.ambience);
       if (!app.audio.ok()) ImGui::TextDisabled("No audio device.");
-      ImGui::EndTabItem();
     }
     // ------------------------------------------------ controls
-    if (ImGui::BeginTabItem("Controls")) {
+    if (tab == 3) {
       ImGui::TextWrapped("Rebindable Explore actions (defaults in content/settings/bindings.json). Click a key, then press the new one (Esc cancels).");
+      int ai = 0;
       for (auto& a : kActions) {
+        if (ai++ == (int)(sizeof kActions / sizeof kActions[0] + 1) / 2) nextCol();
         auto it = app.binds.names.find(a.id); std::string cur = it == app.binds.names.end() ? "?" : it->second;
-        ImGui::AlignTextToFramePadding(); ImGui::TextUnformatted(a.label); ImGui::SameLine(260);
-        std::string lbl = (S.rebinding == a.id ? std::string("press a key...") : cur) + "##" + a.id;
-        if (ImGui::Button(lbl.c_str(), ImVec2(150, 0))) { S.rebinding = a.id; S.bindMsg.clear(); }
+        if (flat::keyRow((std::string(a.label) + "##" + a.id).c_str(), cur.c_str(), S.rebinding == a.id)) { S.rebinding = a.id; S.bindMsg.clear(); }   // UI4
       }
       if (!S.rebinding.empty()) {
         for (auto& k : keyNames()) {
@@ -490,39 +513,47 @@ void settingsWindow(App& app) {
         }
       }
       if (!S.bindMsg.empty()) ImGui::TextColored(ImVec4(1, 0.82f, 0.45f, 1), "%s", S.bindMsg.c_str());
-      if (ImGui::Button("Reset keys to bindings.json")) { u.keys.clear(); app.loadBindings(); S.bindMsg = "keys reset"; saveNow = true; }
+      if (flat::action("Reset keys")) { u.keys.clear(); app.loadBindings(); S.bindMsg = "keys reset"; saveNow = true; }
       if (ImGui::CollapsingHeader("Fixed keys")) {
         ImGui::TextDisabled("Mouse: LMB fire, RMB sights (tank: zoom), wheel: tank sight range");
         for (auto& f : kFixed) { ImGui::BulletText("%-10s %s", f.name, f.what); }
       }
-      ImGui::EndTabItem();
     }
     // ------------------------------------------------ interface
-    if (ImGui::BeginTabItem("Interface")) {
-      ImGui::SetNextItemWidth(200); ImGui::SliderFloat("UI scale", &u.uiScale, 0.75f, 2.0f, "x %.2f");
-      ImGui::Checkbox("Developer overlay (F12)", &u.devOverlay);
+    if (tab == 4) {
+      flat::sliderFloat("UI scale", &u.uiScale, 0.75f, 2.0f, "x %.2f");
+      flat::checkbox("Developer overlay (F12)", &u.devOverlay);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Frame time, the full key list, debug keys and status lines over play. Off for normal play.");
       if (ImGui::IsItemDeactivatedAfterEdit()) applyNow = true;   // resizing the window while dragging its own slider: on release
-      ImGui::SeparatorText("Editor camera");
-      ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Fly speed", &u.editorFly, 0.1f, 10.0f, "x %.2f", ImGuiSliderFlags_Logarithmic);
+      flat::section("Editor camera");
+      flat::sliderFloat("Fly speed", &u.editorFly, 0.1f, 10.0f, "x %.2f", ImGuiSliderFlags_Logarithmic);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Also Alt+wheel in the editor.");
-      ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Orbit speed", &u.editorOrbit, 0.25f, 4.0f, "x %.2f", ImGuiSliderFlags_Logarithmic);
-      ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Zoom step", &u.editorZoom, 0.25f, 4.0f, "x %.2f", ImGuiSliderFlags_Logarithmic);
-      ImGui::EndTabItem();
+      flat::sliderFloat("Orbit speed", &u.editorOrbit, 0.25f, 4.0f, "x %.2f", ImGuiSliderFlags_Logarithmic);
+      flat::sliderFloat("Zoom step", &u.editorZoom, 0.25f, 4.0f, "x %.2f", ImGuiSliderFlags_Logarithmic);
+      flat::section("Caches");   // CACHE1 (user_cache.h): thumbnails, furnishing plans, compressed textures
+      static double scanned = -1; if (scanned < 0 || ImGui::GetTime() - scanned > 5) { userCacheBytes(true); scanned = ImGui::GetTime(); }   // recount every 5 s while the tab is open
+      ImGui::TextDisabled("Thumbnails, furnishing plans and compressed textures: %.0f MB of %.0f MB (oldest pruned at launch)", userCacheBytes(false) / 1048576.0, userCacheCapBytes() / 1048576.0);
+      ImGui::TextDisabled("%s", userCacheDir("texbc", nullptr).parent_path().string().c_str());
+      if (flat::action("Clear caches")) { userCacheClear(); scanned = -1; }
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Frees the disk space. They fill again as needed: the next launch and first map loads are slower.");
     }
-    ImGui::EndTabBar();
   }
-  ImGui::Separator();
+  ImGui::EndTable(); ImGui::PopStyleVar(2);
+  ImGui::EndChild();
   const bool dirty = !(u == applied);
-  if (ImGui::Button("Defaults (Medium)")) { std::map<std::string, std::string> k = u.keys; u = UserSettings{}; u.keys = k; }
-  ImGui::SameLine();
-  ImGui::BeginDisabled(false);   // WX2: never greyed out (a live Weather change left nothing pending, so Apply looked dead)
-  if (ImGui::Button("Apply")) applyNow = true;
-  ImGui::EndDisabled();
-  ImGui::SameLine();
-  if (ImGui::Button("Close")) S.open = false;
-  ImGui::SameLine();
-  ImGui::TextDisabled(dirty ? "changes not applied yet" : S.persist ? "saved to settings_user.json" : "self-test: not saved");
+  {   // the footer: a hint, a rule, the text actions, a small status line
+    flat::rule(pdl, X0, W - X0, H - 104 * sc);
+    ImGui::SetCursorScreenPos(ImVec2(X0, H - 92 * sc));
+    if (flat::action("Back")) S.open = false;   // unapplied edits are dropped, as Close did
+    ImGui::SameLine(0, 48 * sc);
+    if (flat::action("Reset to defaults")) { std::map<std::string, std::string> k = u.keys; u = UserSettings{}; u.keys = k; }
+    ImGui::SameLine(0, 48 * sc);
+    if (flat::action("Apply settings")) applyNow = true;   // WX2: never greyed out
+    char stb[200]; std::snprintf(stb, sizeof stb, "%s   //   FRAME %.2f MS (%.0f FPS)   RENDER %d X %d OF %d X %d", dirty ? "CHANGES NOT APPLIED YET" : S.persist ? "SAVED TO SETTINGS_USER.JSON" : "SELF-TEST: NOT SAVED",
+                                 io.DeltaTime * 1000, io.Framerate, app.R.width, app.R.height, app.R.displayW, app.R.displayH);   // UI5: the Video tab's frame line lives here
+    const char* st = stb;
+    flat::text(pdl, ImGui::GetFont(), 12 * sc, ImVec2(W * 0.5f - flat::textW(ImGui::GetFont(), 12 * sc, st, 0.12f) * 0.5f, H - 34 * sc), flat::grey(0.7f), st, 0.12f);
+  }
   ImGui::End();
   (void)before;
   // apply: only on the Apply button; closing the window without it drops the edits

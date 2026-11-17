@@ -77,5 +77,18 @@
    -0.0576
   ],
   "backOut": 0.035
+ },
+ "wornFix": {
+  "pos": [
+   0,
+   0.01,
+   0.006
+  ],
+  "scale": [
+   1.03,
+   1.0,
+   1.12
+  ],
+  "note": "AN1 step 4: the front plate sat inside the chest (baked depth < 1)"
  }
 }

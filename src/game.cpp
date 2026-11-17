@@ -98,6 +98,10 @@ float advanceStride(App& app, Soldier& s, float v, float dt) {
   float cad = std::min(1.75f, 0.75f + 0.25f * v);
   const float ph0 = s.walkPhase;
   s.walkPhase += v * dt > 0 ? 6.2831853f * cad * dt : 0.0f;
+  if (v * dt <= 0 && s.anStride > 0.01f && !s.zombie) {   // AN1 step 3b: stopping mid-stride finishes the step: on until both feet are down
+    float u = s.walkPhase / 6.2831853f; u -= std::floor(u);
+    if (!(u < 0.12f || (u >= 0.5f && u < 0.62f))) s.walkPhase += 6.2831853f * 1.0f * dt;
+  }
   if (!s.localPlayer && s.alive && std::floor(s.walkPhase / 3.14159265f) != std::floor(ph0 / 3.14159265f)) botFootstep(app, s, v);   // SND10
   return cad;
 }
@@ -956,6 +960,13 @@ void Game::step(float dt) {
   auto c0 = std::chrono::steady_clock::now();
   struct Timer { Game& g; std::chrono::steady_clock::time_point c; ~Timer() { g.stepMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - c).count(); ++g.stepCalls; } } timer{*this, c0};
   t += dt; ++steps;
+  for (auto& s : sold) {   // never a non-finite position (it reached Terrain::height via the camera / draws: a crash): restore the last good one, log the first
+    if (std::isfinite(s.feet.x) && std::isfinite(s.feet.y) && std::isfinite(s.feet.z) && std::isfinite(s.yaw)) { s.lastGoodFeet = s.feet; continue; }
+    static int logged = 0;
+    if (logged++ < 3) logf("game: soldier %d (%s, alive %d, agent %d, local %d) has a non-finite position (%f %f %f) yaw %f at t %.1f%s; restored to (%.1f %.1f %.1f)", s.slot, s.human ? "human" : "bot", (int)s.alive, s.agent, (int)s.localPlayer,
+                           s.feet.x, s.feet.y, s.feet.z, s.yaw, t, sdActive() ? " (SD)" : "", s.lastGoodFeet.x, s.lastGoodFeet.y, s.lastGoodFeet.z);
+    s.feet = s.lastGoodFeet; if (!std::isfinite(s.yaw)) s.yaw = 0; s.vel = vec3(0);
+  }
   // local player mirror
   if (Soldier* L = local(); L && L->alive) {
     localGrenadeCounts(*L, false);   // the E3 items are the local inventory (spent at release)
@@ -996,22 +1007,39 @@ void Game::posesStep(float dt) {
     PoseParams pp;
     pp.walkAmount = std::min(1.0f, s.speed / 3.0f);
     float wantCrouch = s.posture == Physics::CROUCH ? 1.0f : 0.0f;
-    s.crouchBlend += (wantCrouch - s.crouchBlend) * std::min(1.0f, dt * 8);
-    pp.crouch = s.crouchBlend; pp.prone = s.posture == Physics::PRONE ? 1.0f : 0.0f;
+    s.crouchBlend += (wantCrouch - s.crouchBlend) * (1.0f - std::exp(-dt / 0.15f));   // AN1 step 3: ~0.4 s to settle
+    s.anProne += ((s.posture == Physics::PRONE ? 1.0f : 0.0f) - s.anProne) * (1.0f - std::exp(-dt / 0.12f));   // lying down / getting up over ~0.35 s
+    { float e = s.anProne; pp.crouch = s.crouchBlend; pp.prone = e * e * (3 - 2 * e); }
     pp.aimPitch = radians(s.localPlayer ? app.eyePitch : s.br.aimPitch);
-    float yawOff = s.localPlayer ? 0.0f : std::clamp(radians(wrapDeg(s.br.aimYaw - s.yaw + 180.0f) - 180.0f), -0.9f, 0.9f);
+    // AN1 step 3: a bot's drawn gun follows the brain's aim through a critically damped spring with a turn-rate cap (the brain's aim
+    // jumps between the path and a threat, and its body turns with the path), so the weapon swings smoothly; the shots keep the brain's aim
+    float aimYawDraw = s.br.aimYaw, aimPitchDraw = s.localPlayer ? app.eyePitch : s.br.aimPitch;
+    if (!s.localPlayer && !s.zombie && !s.human) {
+      bool hot = s.br.target >= 0 || t - s.lastShot < 1.5;
+      if (!s.anGunInit || !s.alive) { s.anGunYaw = s.br.aimYaw; s.anGunPitch = s.br.aimPitch; s.anGunVel = s.anGunPVel = 0; s.anGunInit = s.alive; }
+      const float w = hot ? 11.0f : 6.0f, vmax = hot ? 400.0f : 160.0f;   // rad/s natural frequency; deg/s cap
+      auto follow = [&](float& x, float& v, float target, bool wrap) {
+        float e = wrap ? wrapDeg(target - x + 180.0f) - 180.0f : target - x;
+        v += (w * w * e - 2 * w * v) * dt; v = std::clamp(v, -vmax, vmax); x += v * dt; if (wrap) x = wrapDeg(x);
+      };
+      follow(s.anGunYaw, s.anGunVel, s.br.aimYaw, true); follow(s.anGunPitch, s.anGunPVel, s.br.aimPitch, false);
+      aimYawDraw = s.anGunYaw; aimPitchDraw = s.anGunPitch;
+    }
+    pp.aimPitch = radians(aimPitchDraw);
+    float yawOff = s.localPlayer ? 0.0f : std::clamp(radians(wrapDeg(aimYawDraw - s.yaw + 180.0f) - 180.0f), -0.9f, 0.9f);
     if (s.zombie) { s.walkPhase += s.speed * dt * 2.6f; pp.aimYawOffset = yawOff; }
     else {   // AN1: kneel (still, crouched), carry (moving, not engaged), moveAim (moving, engaged); ~0.25 s blends
-      float v = s.speed, k = 1.0f - std::exp(-dt / 0.08f);
+      float v = s.speed, k = 1.0f - std::exp(-dt / 0.18f);   // AN1 step 3: posture blends settle in ~0.5 s (0.08 s ended in a visible snap)
       float cad = advanceStride(app, s, v, dt);
       float duty = std::clamp(0.62f - 0.17f * (v - 1.5f), 0.30f, 0.62f);
-      s.anStride += (0.5f * duty * v / cad - s.anStride) * k;
+      const float kf = 1.0f - std::exp(-dt / 0.08f);   // stride, travel direction and slope stay quick (the feet are planted on them)
+      s.anStride += (0.5f * duty * v / cad - s.anStride) * kf;
       pp.gait = true; pp.stride = s.anStride; pp.duty = duty;
       float yawUse = s.localPlayer ? app.eyeYaw : s.yaw;
       quat bodyQ = glm::angleAxis(radians(yawUse) + 3.14159265f, vec3(0, 1, 0));
       vec3 mv = glm::inverse(bodyQ) * vec3(s.vel.x, 0, s.vel.z);
-      if (glm::length(mv) > 0.3f) s.anDir = glm::normalize(glm::mix(s.anDir, glm::normalize(mv), k));
-      else s.anDir = glm::normalize(glm::mix(s.anDir, vec3(0, 0, 1), k));
+      if (glm::length(mv) > 0.3f) s.anDir = glm::normalize(glm::mix(s.anDir, glm::normalize(mv), kf));
+      else s.anDir = glm::normalize(glm::mix(s.anDir, vec3(0, 0, 1), kf));
       pp.moveDir = s.anDir;
       bool moving = v > 0.5f;
       bool engaged = (s.br.target >= 0 && !s.human && !s.localPlayer) || t - s.lastShot < 1.5 || s.reload > 0 || s.throwT >= 0
@@ -1021,8 +1049,8 @@ void Game::posesStep(float dt) {
       bool bot = !s.human && !s.localPlayer;
       s.anCarry += ((moving && !engaged && !bot ? 1.0f : 0.0f) - s.anCarry) * k;
       s.anMoveAim += ((moving && (engaged || bot) ? 1.0f : 0.0f) - s.anMoveAim) * k;
-      pp.hunch = bot ? (s.kit == 2 ? 0.5f : 1.0f) : 0.0f;   // SW3: blaster troopers aim and fire half as hunched (taller stance); cover crouching unchanged
-      s.anLow += ((!moving && !engaged ? (s.posture == Physics::CROUCH ? 0.25f : 0.45f) : 0.0f) - s.anLow) * k;   // relaxed ready: shouldered low
+      pp.hunch = bot ? (s.kit == 2 ? 0.25f : 1.0f) : 0.0f;   // AN1 step 2b: troopers as upright as the soldiers look (their armour reads deeper)   // SW3: blaster troopers aim and fire half as hunched (taller stance); cover crouching unchanged
+      s.anLow += ((!moving && !engaged ? (s.posture == Physics::CROUCH ? 0.6f : 1.0f) : 0.0f) - s.anLow) * k;   // relaxed ready: butt in the shoulder, muzzle ~35 deg down (AN1 step 2)
       s.anTwist += (yawOff - s.anTwist) * (1.0f - std::exp(-dt / 0.12f));   // no snapping torso twist
       pp.kneel = s.anKneel; pp.carry = s.anCarry; pp.moveAim = s.anMoveAim; pp.aimYawOffset = s.anTwist;
       pp.lean = s.alive ? s.lean : 0.0f; pp.leanBend = radians(app.leanCfg.bend);   // MV3
@@ -1034,14 +1062,19 @@ void Game::posesStep(float dt) {
           if (float gl = glm::length(g); gl > 0.7f) g *= 0.7f / gl;
         }
         vec3 gm = glm::inverse(bodyQ) * vec3(g.x, 0, g.y);
-        s.anSlope += (vec2(gm.x, gm.z) - s.anSlope) * k;
+        s.anSlope += (vec2(gm.x, gm.z) - s.anSlope) * kf;
         pp.slope = s.anSlope;
       }
     }
     pp.walkPhase = s.walkPhase;
-    if (s.weapon >= 0) { const WeaponDef& d = *app.weaponDefs[s.weapon]; pp.gripR = d.gripR; pp.gripL = d.gripL; pp.magPos = d.gripL + vec3(0, -0.1f, -0.12f); pp.holdOffset = d.holdOffset; pp.holdWeld = d.holdWeld; pp.holdKind = d.holdKind; }
+    if (s.weapon >= 0) { const WeaponDef& d = *app.weaponDefs[s.weapon]; pp.gripR = d.gripR; pp.gripL = d.gripL; pp.magPos = d.gripL + vec3(0, -0.1f, -0.12f); pp.holdOffset = d.holdOffset; pp.holdWeld = d.holdWeld; pp.holdKind = d.holdKind;
+      pp.gripC = d.gripC; pp.gripAx = d.gripAx; pp.gripRad = d.gripRad; pp.guardC = d.guardC; pp.guardRad = d.guardRad; pp.sightR = d.rear; }   // AN1 step 2b
     pp.reload = s.reload > 0 && s.reloadTotal > 0 ? 1.0f - s.reload / s.reloadTotal : 0;
     pp.throwT = s.throwT; pp.recoil = s.recoil;
+    if (static const char* tr = std::getenv("NMK_AIM_TRACE"); tr && !s.human && !s.localPlayer && s.alive && s.slot < 16) {   // AN1 step 3: the bots' body / gun facing per frame (aimtrace.csv; step 7: zombie types too)
+      static FILE* f = nullptr; if (!f) { std::error_code ec; fs::create_directories(exeDir() / "selftest_out", ec); f = std::fopen((exeDir() / "selftest_out" / "aimtrace.csv").string().c_str(), "w"); if (f) std::fprintf(f, "t,slot,bodyYaw,gunYaw,gunPitch,speed,engaged\n"); }
+      if (f) std::fprintf(f, "%.4f,%d,%.2f,%.2f,%.2f,%.2f,%d\n", t, s.slot, s.yaw, wrapDeg(s.yaw + degrees(pp.aimYawOffset)), degrees(pp.aimPitch), s.speed, s.anMoveAim > 0.5f ? 1 : 0);
+    }
     pp.lowReady = s.zombie ? 0.0f : std::max(s.anLow, !s.human && !s.localPlayer && s.speed > 4.0f ? 0.2f : 0.0f);   // AI5: a sprinting bot dips the muzzle a little, weapon still forward   // AN1: the run carry (pp.carry) replaces the lowered muzzle on the move
     if (s.localPlayer) app.mantlePose(s.feet, pp);   // hands on the ledge while mantling (mantle.cpp)
     s.swimBlend += ((s.swim && s.alive ? 1.0f : 0.0f) - s.swimBlend) * std::min(1.0f, dt * 5);
@@ -1050,6 +1083,47 @@ void Game::posesStep(float dt) {
     if (!s.alive) { pp.death = std::min(1.0f, (float)(t - s.diedAt) / 0.8f); pp.deathStyle = s.deathStyle; }
     float camD = poseLod ? glm::length(s.feet - cam) : 0.0f; int every = camD > 150 ? 4 : camD > 80 ? 2 : 1;
     bool skipPose = poseLod && !s.localPlayer && s.alive && every > 1 && (steps + s.slot) % every != 0;
+    // AN1 step 3b: foot planting. A foot that comes down is held at its world point for its stance (turns, speed changes, strafes and
+    // stops no longer drag it); it lets go at lift-off, when the leg would overreach, or (standing) when it ends 14 cm off its rest spot
+    // (turning in place), blending from that point to its stepping path over a third of the swing (a standing re-step lifts it)
+    if (!noFootLock && !s.zombie && s.alive && pp.gait && pp.prone < 0.5f && pp.kneel < 0.5f && pp.swim < 0.5f && pp.climb < 0 && !s.pose.delta.empty() && !skipPose) {
+      float yawNow = s.localPlayer ? app.eyeYaw : s.yaw;
+      mat4 Wn = glm::translate(mat4(1), s.feet) * glm::mat4_cast(glm::angleAxis(radians(yawNow) + 3.14159265f, vec3(0, 1, 0))), Wi = glm::inverse(Wn);
+      bool moving = s.speed > 0.3f; float du = std::clamp(pp.duty, 0.2f, 0.8f), cadN = std::min(1.75f, 0.75f + 0.25f * s.speed);
+      for (int leg = 0; leg < 2; ++leg) {
+        int sf = m.semantic[leg ? CJ_RFOOT : CJ_LFOOT], su = m.semantic[leg ? CJ_RUPLEG : CJ_LUPLEG], sk = m.semantic[leg ? CJ_RLEG : CJ_LLEG];
+        if (sf < 0 || su < 0 || sk < 0) continue;
+        float u = (pp.walkPhase + (leg ? 3.14159265f : 0.0f)) / 6.2831853f; u -= std::floor(u);
+        bool stance = u < du;
+        vec3 cur = vec3(s.world * vec4(s.pose.joint[leg ? CJ_RFOOT : CJ_LFOOT], 1));
+        float reach = 0.97f * (glm::length(m.jointHead[sk] - m.jointHead[su]) + glm::length(m.jointHead[sf] - m.jointHead[sk]));
+        if (s.anFootLock[leg]) {
+          vec3 pin = vec3(Wi * vec4(s.anFootW[leg], 1)), rest = m.jointHead[sf];
+          bool over = glm::length(vec2(pin.x - rest.x, pin.z - rest.z)) > std::min(reach * 0.75f, 2.2f * pp.stride + 0.16f);   // left behind beyond a stride (or the leg's reach)
+          bool other = s.anFootRel[1 - leg] >= 0;   // one standing re-step at a time
+          float ang = std::fabs(std::atan2(pin.x * rest.z - pin.z * rest.x, pin.x * rest.x + pin.z * rest.z));   // turned in place about the body's centre
+          bool far = !moving && !other && (glm::length(vec2(pin.x - rest.x, pin.z - rest.z)) > 0.10f || ang > 0.5f);
+          if (over || far || (moving && !stance)) {
+            s.anFootLock[leg] = false; s.anFootRel[leg] = 0; s.anFootFrom[leg] = s.anFootW[leg]; s.anFootStep[leg] = !moving && !over;
+            s.anFootDur[leg] = moving ? std::max(0.08f, 0.35f * (1 - du) / cadN) : 0.32f;
+          }
+        } else if (stance && s.anFootRel[leg] < 0) {
+          s.anFootLock[leg] = true; s.anFootW[leg] = cur; s.anFootN[leg] = vec3(0);
+          // AN1 step 3c: touchdown probe: the anchor on the real ground under it (a stair tread, a slope), the ankle its rest height above
+          Physics::Hit h;
+          static const bool probeOff = std::getenv("NMK_NO_FOOTPROBE") != nullptr;   // captures: the before measurement
+          if (!probeOff && Physics::castRayEx(cur + vec3(0, 0.45f, 0), vec3(0, -1, 0), 0.9f, h) && h.normal.y > 0.5f) {
+            s.anFootW[leg].y = h.pos.y + m.jointHead[sf].y; s.anFootN[leg] = h.normal;
+          }
+        }
+        if (s.anFootLock[leg]) { pp.footPin[leg] = vec3(Wi * vec4(s.anFootW[leg], 1)); pp.footPinW[leg] = 1; if (s.anFootN[leg] != vec3(0)) pp.footN[leg] = glm::normalize(vec3(Wi * vec4(s.anFootN[leg], 0))); }
+        else if (s.anFootRel[leg] >= 0) {
+          s.anFootRel[leg] += dt; float k = s.anFootRel[leg] / s.anFootDur[leg];
+          if (k >= 1) s.anFootRel[leg] = -1;
+          else { float e = k * k * (3 - 2 * k); pp.footPin[leg] = vec3(Wi * vec4(s.anFootFrom[leg], 1)); pp.footPinW[leg] = 1 - e; if (s.anFootStep[leg]) pp.footLift[leg] = 0.07f * std::sin(3.14159265f * k); }
+        }
+      }
+    } else if (!s.alive || pp.prone >= 0.5f || pp.kneel >= 0.5f || pp.swim >= 0.5f) { s.anFootLock[0] = s.anFootLock[1] = false; s.anFootRel[0] = s.anFootRel[1] = -1; }
     if (s.zombie && !m.clips.empty()) aiZombiePose(*this, s, dt); else if (!skipPose) { poseCharacter(m, pp, s.pose); s.poseFrom = -1; ++s.poseRev; }   // G2: clips
     float yawUse = s.localPlayer ? app.eyeYaw : s.yaw;
     s.world = glm::translate(mat4(1), s.feet) * glm::mat4_cast(glm::angleAxis(radians(yawUse) + 3.14159265f, vec3(0, 1, 0)));
@@ -1057,6 +1131,13 @@ void Game::posesStep(float dt) {
       if (s.eLean != 0 && s.alive) s.world = glm::rotate(s.world, radians(s.eLean), vec3(1, 0, 0));
       if (s.eScale != 1) s.world = glm::scale(s.world, vec3(s.eScale));
       aiZombieFeet(*this, s); }
+    if (static const char* ft = std::getenv("NMK_FOOT_TRACE"); ft && !s.localPlayer && !s.zombie && s.alive && s.slot < 24 && !s.pose.delta.empty()) {   // AN1 step 3b: planted-foot slip (foottrace.csv)
+      static FILE* f = nullptr; if (!f) { std::error_code ec; fs::create_directories(exeDir() / "selftest_out", ec); f = std::fopen((exeDir() / "selftest_out" / "foottrace.csv").string().c_str(), "w"); if (f) std::fprintf(f, "t,slot,model,speed,stanceL,stanceR,lx,lz,rx,rz,gapL,gapR\n"); }
+      auto st = [&](int leg) { float u = (pp.walkPhase + (leg ? 3.14159265f : 0.0f)) / 6.2831853f; u -= std::floor(u); float du = std::clamp(pp.duty, 0.2f, 0.8f); return u > 0.1f * du && u < 0.9f * du ? 1 : 0; };
+      vec3 L = vec3(s.world * vec4(s.pose.joint[CJ_LFOOT], 1)), R = vec3(s.world * vec4(s.pose.joint[CJ_RFOOT], 1));
+      auto gap = [&](vec3 F, int sf) { Physics::Hit h; return Physics::castRayEx(F + vec3(0, 0.6f, 0), vec3(0, -1, 0), 1.5f, h) ? F.y - m.jointHead[sf].y - h.pos.y : 9.0f; };   // ankle over the ground minus its rest height (+ hover, - sink)
+      if (f) std::fprintf(f, "%.4f,%d,%s,%.2f,%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f\n", t, s.slot, m.id.c_str(), s.speed, st(0), st(1), L.x, L.z, R.x, R.z, gap(L, m.semantic[CJ_LFOOT]), gap(R, m.semantic[CJ_RFOOT]));
+    }
     if (s.flat && !s.alive) {   // squashed: the whole body pressed into a thin, slightly spread layer on the ground, within 0.12 s
       float k = std::min(1.0f, (float)(t - s.diedAt) / 0.12f);
       s.world = glm::translate(mat4(1), s.feet) * glm::scale(mat4(1), vec3(1.0f + 0.25f * k, 1.0f - 0.96f * k, 1.0f + 0.25f * k)) * glm::translate(mat4(1), -s.feet) * s.world;
@@ -1152,8 +1233,14 @@ void Game::drawItems() {
     }
 }
 
+static bool finite3(vec3 v) { return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z); }
 bool Game::camera(vec3& e, vec3& f, float& fov) {
   specCam = cameraOrbit(e, f, fov);
+  if (specCam && (!finite3(e) || !finite3(f) || glm::dot(f, f) < 1e-6f)) {   // never a non-finite camera (it indexed the terrain grid out of range): the last good one
+    static bool logged = false; if (!logged) { logged = true; logf("spectate: non-finite camera (%f %f %f), the last valid one kept", e.x, e.y, e.z); }
+    if (finite3(specEye) && finite3(specFwd) && glm::dot(specFwd, specFwd) > 1e-6f) { e = specEye; f = specFwd; fov = 70; } else specCam = false;
+    return specCam;
+  }
   if (specCam) { specEye = e; specFwd = f; }
   return specCam;
 }
@@ -1168,15 +1255,18 @@ bool Game::cameraOrbit(vec3& e, vec3& f, float& fov) {
     e = target + back; f = glm::normalize(-back); fov = 70; return true;
   }
   // death / spectator camera: orbit behind the watched soldier (teammate or killer), never through walls
+  // a watchable soldier: alive, a teammate (a side swap or a round reset can leave a stale index), a finite position
+  auto watchable = [&](int k) { return k >= 0 && k < (int)sold.size() && &sold[k] != L && sold[k].alive && finite3(sold[k].feet) && std::isfinite(sold[k].yaw); };
   int w = spectate;
-  if (w < 0 || w >= (int)sold.size() || !sold[w].alive) {
+  if (!watchable(w) || (sold[w].team != L->team && !(t - L->diedAt < 3.0 && w == L->killer && match.mode() != GameMode::SearchDestroy))) {
     w = -1;
-    for (auto& s : sold) if (s.alive && s.team == L->team && &s != L) { w = s.slot; break; }   // Solo: none, so the killer or the body
-    if (t - L->diedAt < 3.0 && L->killer >= 0 && sold[L->killer].alive && match.mode() != GameMode::SearchDestroy) w = L->killer;   // SD1: never an enemy
+    for (auto& s : sold) if (s.team == L->team && watchable(s.slot)) { w = s.slot; break; }   // Solo: none, so the killer or the body
+    if (t - L->diedAt < 3.0 && watchable(L->killer) && match.mode() != GameMode::SearchDestroy) w = L->killer;   // SD1: never an enemy
     spectate = w;
   }
+  if (w < 0 && !finite3(L->feet)) return false;   // nobody to watch and no body to orbit: the caller keeps the last valid camera
   vec3 target = w >= 0 ? sold[w].feet + vec3(0, 1.6f, 0) : L->feet + vec3(0, 1.0f, 0);
-  float yaw = w >= 0 ? sold[w].yaw : L->yaw;
+  float yaw = w >= 0 ? sold[w].yaw : (std::isfinite(L->yaw) ? L->yaw : 0.0f);
   vec3 back = vec3(std::sin(radians(yaw)), 0.45f, std::cos(radians(yaw))) * 3.2f;
   // the wall test starts outside the watched body (from its head it hit its own capsule and put the camera inside the
   // model: an invisible body); never closer than 1 m to the head: a wall that close lifts the camera over the shoulder

@@ -1,7 +1,9 @@
 // Explore mode: first-person walkthrough of the same placed instances shown in Creative.
+#include "smithy.h"
 #include "app.h"
 #include "ui_glass.h"   // UI2: glass panel backgrounds
 #include "mainmenu.h"
+#include "ui_flat.h"
 #include "editor_nav.h"
 #include "loading.h"
 #include "mpui.h"
@@ -99,7 +101,7 @@ void App::stepLean(float dt, const ExploreInput& in, bool sprinting) {
 bool App::enterExplore() {
   if (mode == Mode::Explore) return true;
   std::unique_ptr<LoadingJob> lj;   // UI2: a match start gets the loading screen (a plain play-test is quick)
-  if (gGame && gGame->pendingStart) { Scenario sc = Scenario::fromJson(gUi.matchScenario); const TemplateInfo* tp = findTemplate(doc.templateId); lj = std::make_unique<LoadingJob>(*this, doc.name, std::string(gameModeName(sc.rules.mode)), 2, tp ? tp->thumbnail : 0u); }
+  if (gGame && gGame->pendingStart) { Scenario sc = Scenario::fromJson(gUi.matchScenario); const TemplateInfo* tp = findTemplate(doc.templateId); lj = std::make_unique<LoadingJob>(*this, doc.name, std::string(gameModeName(sc.rules.mode)), 2, tp ? tp->thumbnail : 0u, doc.templateId); }
   { LoadStep ls("enterExplore syncRuntime"); syncRuntime(); Physics::optimizeBroadPhase(); }   // bodies added since load: balanced tree for play
   if (!doc.start.set) {
     // No marker yet: start on the ground at the centre of the view (or under the camera), facing the same way.
@@ -226,7 +228,7 @@ InteractTarget App::findTarget(vec3 eye, vec3 dir) const {
   float tObj = 1e9f; uint64_t objId = 0; int objKind = 0;
   auto kindOf = [&](const InstanceRT& r) {
     bool isStation = !r.asset->station.kind.empty(), isCrate = r.asset->crate.is_object() && !r.asset->crate.empty();
-    return isStation ? (r.st.wrecked ? 0 : 1) : r.asset->rack ? 3 : isCrate ? 2 : 0;
+    return isStation ? (r.st.wrecked ? 0 : 1) : r.asset->rack ? 3 : isCrate ? 2 : isSmithy(r.asset) ? 4 : 0;   // SM1: 4 smithing table
   };
   if (rayHit && th <= objReach) {
     uint64_t owner = ud >> 16;
@@ -398,6 +400,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
     if (target.kind == 1) choiceFor = target.inst;
     else if (target.kind == 2) toast(crateTransaction(target.inst), 5);
     else if (target.kind == 3) openRack(target.inst);
+    else if (target.kind == 4) { if (!smithyOpen()) smithyOpenAt(*this, target.inst); }   // SM1
     else toggleInteract(target.inst, target.idx);
   }
   stepProjectiles(dt);
@@ -433,6 +436,7 @@ void App::updateExplore(float dt) {
     if ((rackOpen || build.palette) && kp(win, GLFW_KEY_ESCAPE)) { if (rackOpen) closeRack("closed"); else setBuildPalette(false); }
     else if (lootInventoryOpen() && kp(win, GLFW_KEY_ESCAPE)) { lootSetInventory(false); lootOpenCase(0); }   // BR6: Esc closes the inventory / crate first
     else if (sdBuyMenuOpen() && kp(win, GLFW_KEY_ESCAPE)) sdCloseBuyMenu();   // SD3: Esc closes the buy menu first
+    else if (smithyOpen() && kp(win, GLFW_KEY_ESCAPE)) smithyClose(*this);   // SM1: and the fitting screen
     else if (kp(win, GLFW_KEY_ESCAPE)) {
       pauseMenu = !pauseMenu; syncCursor();
     }
@@ -574,6 +578,7 @@ void App::updateExplore(float dt) {
 void App::drawExploreUI() {
   commandsFrame(*this);   // CMD1: "/" command line
   lootUi(*this);   // BR2: pick-up prompt, heal ring, inventory screen
+  smithyUi(*this);   // SM1: the smithing table's fitting screen
   if (lootInventoryOpen()) return;   // the inventory replaces the play HUD
   ImGuiIO& io = ImGui::GetIO();
   ImDrawList* dl = ImGui::GetForegroundDrawList();
@@ -618,11 +623,11 @@ void App::drawExploreUI() {
       dl->AddCircleFilled(c, 2.4f * k, dark); dl->AddCircleFilled(c, 1.5f * k, white);
     }
     // (GM1b's black aim mark in the MG 42's rear notch removed at the user's request: the gun's own sights are the reference)
-    if (target.valid && !tanks.occupied && !tanks.target) {
+    if (target.valid && !tanks.occupied && !tanks.target && !smithyOpen()) {
       auto it = rt.find(target.inst);
       if (it != rt.end()) {
         if (target.kind != 0) {
-          std::string t = target.kind == 1 ? "E  -  Crew " + it->second.asset->name : target.kind == 3 ? "E  -  Open " + it->second.asset->name : "E  -  Take ammunition (" + it->second.asset->name + ")";
+          std::string t = target.kind == 1 ? "E  -  Crew " + it->second.asset->name : target.kind == 3 ? "E  -  Open " + it->second.asset->name : target.kind == 4 ? std::string("E  -  Smithing table") : "E  -  Take ammunition (" + it->second.asset->name + ")";
           ImVec2 ts = ImGui::CalcTextSize(t.c_str());
           ImVec2 p(c.x - ts.x * 0.5f, c.y + 28);
           uiGlassPanel(dl, ImVec2(p.x - 10, p.y - 5), ImVec2(p.x + ts.x + 10, p.y + ts.y + 5), std::max(8.0f, (float)4));
@@ -649,7 +654,7 @@ void App::drawExploreUI() {
     tanks.drawWorldBars(*this);   // TK1: bars over the vehicles around
     if (tanks.occupied) { tanks.drawUI(*this); tanks.drawHealthBar(*this); }   // TK1: the bar over the sight mask
     else { drawCombatUI(); drawWeaponUI(); tanks.drawUI(*this); drawSwimUI(); drawStaminaUI(); }
-    if ((showMinimap || mapLarge) && !gm2ArtyMapOpen()) minimapHud(*this, mapLarge);   // GM2
+    if ((showMinimap || mapLarge) && !gm2ArtyMapOpen() && !smithyOpen()) minimapHud(*this, mapLarge);   // GM2; SM1: not over the fitting screen
     gm2Hud(*this);   // GM2: suppression vignette, the artillery map
     if (now < noticeUntil) {   // UI2: a glass toast with the accent bar
       ImVec2 ts = ImGui::CalcTextSize(notice.c_str());
@@ -673,21 +678,28 @@ void App::drawExploreUI() {
   }
   static bool showControls = false;
   if (pauseMenu) {   // UI1b: one column of equal buttons under a title; Controls opens the key list
-    ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), io.DisplaySize, IM_COL32(0, 0, 0, 120));
-    ImGui::SetNextWindowPos(c, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-    ImGui::Begin("Paused", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar);
-    const float bw = ImGui::GetFontSize() * 17;
-    { const char* t = "PAUSED"; ImGui::SetCursorPosX((bw + ImGui::GetStyle().WindowPadding.x * 2 - ImGui::CalcTextSize(t).x) * 0.5f); ImGui::TextDisabled("%s", t); }
-    ImGui::Spacing();
-    if (ImGui::Button("Resume", ImVec2(bw, 0))) { pauseMenu = false; syncCursor(); }
-    if (ImGui::Button("Controls", ImVec2(bw, 0))) showControls = true;
-    if (ImGui::Button("Settings", ImVec2(bw, 0))) settings().open = true;
-    ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
-    if (ImGui::Button("Return to start marker", ImVec2(bw, 0))) { returnToStart(); pauseMenu = false; syncCursor(); }
-    if (ImGui::Button("Return to Creator", ImVec2(bw, 0))) { if (navState().creativeSession) dropinReturn(*this); else exitExplore(); }   // UI3: the editor camera where it was
-    if (ImGui::Button("Main menu", ImVec2(bw, 0))) { exitExplore(); mainMenuOpen(*this); }   // UI2
-    if (ImGui::Button("Keep session changes and return", ImVec2(bw, 0))) { applyDamageToMap(); exitExplore(); }
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Keeps the current wall damage and craters in the map as one undoable edit.\nTanks keep their damage, wreck and ammunition (not their position).\nWeapons, ammunition, moved guns and doors are not kept.");
+    (void)c;   // UI4: a flat page in the options language: the blurred game behind, PAUSED, a rule, a column of text actions
+    const float W = io.DisplaySize.x, H = io.DisplaySize.y, sc = H / 1080.0f, X0 = 84 * sc, tp = 104 * sc, ry = 54 * sc + tp * 1.02f + 30 * sc;
+    ImGui::SetNextWindowPos(ImVec2(0, 0)); ImGui::SetNextWindowSize(io.DisplaySize);
+    ImGui::Begin("Paused", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus);
+    ImDrawList* pdl = ImGui::GetWindowDrawList();
+    flat::backdrop(pdl, ImVec2(0, 0), io.DisplaySize);
+    pdl->AddRectFilledMultiColor(ImVec2(0, 0), ImVec2(W * 0.6f, H), IM_COL32(0, 0, 0, 110), IM_COL32(0, 0, 0, 0), IM_COL32(0, 0, 0, 0), IM_COL32(0, 0, 0, 110));
+    flat::text(pdl, flat::titleFont(), tp, ImVec2(X0, 54 * sc), flat::ink(), "PAUSED", 0.01f);
+    flat::rule(pdl, X0, W - X0, ry);
+    ImGui::SetCursorScreenPos(ImVec2(X0, ry + 40 * sc));
+    auto act = [&](const char* l) { ImGui::SetCursorScreenPos(ImVec2(X0, ImGui::GetCursorScreenPos().y)); const bool hit = flat::action(l); ImGui::Dummy(ImVec2(1, 10 * sc)); return hit; };
+    if (act("Resume")) { pauseMenu = false; syncCursor(); }
+    if (act("Controls")) showControls = true;
+    if (act("Settings")) settings().open = true;
+    ImGui::Dummy(ImVec2(1, 18 * sc));
+    if (act("Return to start marker")) { returnToStart(); pauseMenu = false; syncCursor(); }
+    if (act("Return to Creator")) { if (navState().creativeSession) dropinReturn(*this); else exitExplore(); }   // UI3: the editor camera where it was
+    if (act("Main menu")) { exitExplore(); mainMenuOpen(*this); }   // UI2
+    const bool keepHover = [&] { const bool hit = act("Keep session changes and return"); if (hit) { applyDamageToMap(); exitExplore(); } return ImGui::IsItemHovered(); }();
+    if (keepHover) ImGui::SetTooltip("Keeps the current wall damage and craters in the map as one undoable edit.\nTanks keep their damage, wreck and ammunition (not their position).\nWeapons, ammunition, moved guns and doors are not kept.");
+    flat::rule(pdl, X0, W - X0, H - 104 * sc);
+    flat::text(pdl, uiFontHead(), 15 * sc, ImVec2(X0, H - 132 * sc), flat::grey(), "ESC  RESUME", 0.1f);
     ImGui::End();
   }
   controlsWindow(*this, &showControls);   // UI1b

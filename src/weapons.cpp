@@ -1,4 +1,7 @@
 // Personal weapons: definitions (content/weapons/*.json), container-based ammunition accounting,
+#include "smithy.h"
+#include "loading.h"
+#include "crumb.h"
 // reload state machine, recoil springs, sights/scopes, first-person view model, crate resupply.
 // HUD "loaded" counts every round in the weapon including the chambered one.
 #include "app.h"
@@ -17,6 +20,40 @@
 
 enum WPart { WP_BODY, WP_BOLT, WP_MAG, WP_COVER, WP_CLIP, WP_BIPOD, WP_SCOPE, WP_HANDLE, WP_COUNT };
 static const char* kPartNames[WP_COUNT] = {"body", "bolt", "mag", "cover", "clip", "bipod", "scope", "handle"};
+
+// AN1 step 2b: the grip and the handguard as capsules fitted to the model's vertices at the hand sockets. A slice 3 cm thick across
+// the axis, within 6 cm of it: its centroid is the axis point, the median distance from the axis the radius (surface vertices);
+// the grip's axis comes from the centroids of two slices 5 cm apart. Returns the fit radius (0: too few vertices).
+static float fitCapsule(const std::vector<vec3>& P, vec3& c, vec3& a, bool fitAxis) {
+  auto slice = [&](vec3 cc, vec3 aa, vec3& cen, std::vector<float>* dist) {
+    vec3 s(0); int n = 0;
+    for (auto& p : P) { vec3 d = p - cc; float t = glm::dot(d, aa); if (std::fabs(t) > 0.02f) continue; vec3 r = d - aa * t; if (glm::length(r) > 0.06f) continue; s += p - aa * t; ++n; }
+    if (n < 4) return false;
+    cen = s / (float)n;
+    if (dist) for (auto& p : P) { vec3 d = p - cen; float t = glm::dot(d, aa); if (std::fabs(t) > 0.02f) continue; float r = glm::length(d - aa * t); if (r < 0.06f) dist->push_back(r); }
+    return true;
+  };
+  for (int it = 0; it < 3; ++it) {
+    vec3 cen; if (!slice(c, a, cen, nullptr)) return 0;
+    c = cen;
+    if (fitAxis) { vec3 c0, c1; if (slice(c - a * 0.025f, a, c0, nullptr) && slice(c + a * 0.025f, a, c1, nullptr) && glm::length(c1 - c0) > 0.01f) { vec3 na = glm::normalize(c1 - c0); if (glm::dot(na, a) > 0.5f) a = na; } }
+  }
+  std::vector<float> d; vec3 cen; if (!slice(c, a, cen, &d) || d.size() < 4) return 0;
+  std::nth_element(d.begin(), d.begin() + d.size() / 2, d.end());
+  return d[d.size() / 2];
+}
+static void measureHold(WeaponDef& d, const std::vector<vec3>& P) {
+  if (P.empty()) return;
+  vec3 c = d.gripL, a(0, 0, 1);
+  if (float r = fitCapsule(P, c, a, false); r > 0) { d.guardC = c; d.guardRad = std::clamp(r, 0.014f, 0.05f); }   // a hand wraps at least a 28 mm handguard
+  c = d.gripR; a = glm::normalize(vec3(0, -1, -0.25f));   // grips rake back
+  if (float r = fitCapsule(P, c, a, true); r > 0) {
+    if (a.z > 0.1f) { a = glm::normalize(vec3(0, -1, -0.25f)); c = d.gripR; r = fitCapsule(P, c, a, false); }   // a grip never rakes forward: the slices caught the trigger guard / receiver (MG 42)
+    if (r > 0) { d.gripC = c; d.gripAx = a; d.gripRad = std::clamp(r, 0.013f, 0.035f); }
+  }
+  logf("[hold] %s grip (%.3f %.3f %.3f) ax (%.2f %.2f %.2f) r %.3f | guard (%.3f %.3f %.3f) r %.3f | sockets R (%.3f %.3f %.3f) L (%.3f %.3f %.3f)", d.id.c_str(),
+       d.gripC.x, d.gripC.y, d.gripC.z, d.gripAx.x, d.gripAx.y, d.gripAx.z, d.gripRad, d.guardC.x, d.guardC.y, d.guardC.z, d.guardRad, d.gripR.x, d.gripR.y, d.gripR.z, d.gripL.x, d.gripL.y, d.gripL.z);
+}
 
 void App::buildWeaponMeshes() {
   weaponDefs.clear();
@@ -44,7 +81,11 @@ void App::buildWeaponMeshes() {
       F.light = jvec3(mf.value("lightColor", json()), F.light); F.radius = mf.value("lightRadius_m", F.radius); F.intensity = mf.value("lightIntensity", F.intensity);
     }
   } catch (std::exception& e) { logf("content/weapons/handling.json: %s (built-in handling)", e.what()); }
+  size_t wk = 0;
+  if (useImportedModels) prefetchModelTree(dir / "models");   // CACHE1: a cold texture cache fills in one parallel pass
   for (auto& f : files) {
+    crumb("weapon defs");   // UI5
+    if (gLoadingDepth) { char b[80]; std::snprintf(b, sizeof b, "Loading weapons %zu / %zu", ++wk, files.size()); loadingProgress(b, (float)wk / files.size()); }   // CACHE1: the splash shows the real count
     if (f.filename() == "handling.json" || f.filename() == "overrides_user.json") continue;   // ED2: the user's overrides patch the weapons below
     json j;
     try { j = json::parse(readTextFile(f)); } catch (...) { continue; }
@@ -147,7 +188,7 @@ void App::buildWeaponMeshes() {
       auto it = modelCache.find(dirName);
       if (it == modelCache.end()) {
         auto gm = std::make_shared<GpuModel>();
-        std::string err;
+        std::string err; gm->keepPos = true;   // AN1 step 2b: the hold cross-sections (measureHold)
         if (!gm->load(dir / "models" / dirName, err)) { logf("weapon %s: model '%s' not loaded (%s); using box parts", d->id.c_str(), dirName.c_str(), err.c_str()); gm.reset(); }
         it = modelCache.emplace(dirName, gm).first;
       }
@@ -162,6 +203,7 @@ void App::buildWeaponMeshes() {
         for (auto& hp : j["model"].value("hideParts", json::array())) for (int p = 0; p < WP_COUNT; ++p) if (hp.get<std::string>() == kPartNames[p]) parts[p].clear();   // e.g. the Garand clip: never drawn
       };
       if (d->model) {
+        measureHold(*d, d->model->cpuPos);
         roles(*d->model, d->modelParts);
         fs::path ld = dir / "models" / dirName / "lod1";   // MG4: the reduced bake for third person and the world
         if (fs::exists(ld / "mesh.bin")) {
@@ -453,7 +495,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   // bolt actions (Kar98k, ZF39): a shot drops out of ADS (adsT = 0 at the shot); aiming waits for the bolt and the
   // cooldown, then a held aim key re-enters
   bool aimBlocked = d.action == "bolt" && (s.bolt > 0 || s.cooldown > 0);
-  float adsRate = d.adsSpeed / std::max(0.05f, move.adsTime) * (s.att[ATT_STOCK] ? 1.0f / 0.75f : 1.0f);   // the only writer of adsT while a weapon is out; BR2 recoil pad: ADS time -25 %
+  float adsRate = d.adsSpeed / std::max(0.05f, move.adsTime) * (s.att[ATT_STOCK] ? 1.0f / kPadAdsTime : 1.0f);   // the only writer of adsT while a weapon is out; BR2 recoil pad: ADS time -25 %
   adsT = std::clamp(adsT + (in.aim && !modal && !aimBlocked ? adsRate : -adsRate) * dt, 0.0f, 1.0f);
   stepViewModel(dt, in, d, s);
   if (d.anim) animVmStep(*this, d, s, dt); else animVmNotActive();   // MG1: clips, pose, rig placement
@@ -555,7 +597,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       vec3 eye = eyePos();
       vec3 aimDir = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch);
       // dispersion: the class's hip / ADS cone (handling.json) x the stance (prone near laser-like, mounted near none)
-      lastStance = stance; lastSpreadDeg = handling.cone(d.wclass, adsT > 0.85f, stance) * (s.att[ATT_MUZZLE] == 2 ? 0.7f : 1.0f);   // BR2 muzzle brake: spread -30 %
+      lastStance = stance; lastSpreadDeg = handling.cone(d.wclass, adsT > 0.85f, stance) * (s.att[ATT_MUZZLE] == 2 ? kBrakeSpread : 1.0f);   // BR2 muzzle brake: spread -30 %
       float spread = radians(lastSpreadDeg);
       vec3 rt = glm::normalize(glm::cross(aimDir, vec3(0, 1, 0))), up = glm::cross(rt, aimDir);
       float a = wrand(s.seed) * 6.2831853f, r = std::sqrt(wrand(s.seed)) * std::tan(spread);
@@ -619,7 +661,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       float sc = stance != STANCE_MOUNTED ? handling.recoil[stance]
                : (ch.posture == Physics::PRONE ? 0.20f : 0.70f) * (d.rSupported < 0.999f ? d.rSupported : handling.recoil[STANCE_MOUNTED]);
       if (adsT > 0.85f) sc *= 0.85f;
-      if (s.att[ATT_MUZZLE] == 2) sc *= 0.8f;   // BR2 muzzle brake: recoil -20 %
+      if (s.att[ATT_MUZZLE] == 2) sc *= kBrakeRecoil;   // BR2 muzzle brake: recoil -20 %
       float yawK = moving ? 1 + handling.movingYaw : 1.0f;
       lastRecoilScale = sc;
       s.recoilP += sc * (d.rPitch * (0.85f + 0.3f * wrand(s.seed)) + d.rClimb * std::min(s.burst, 12));
@@ -695,7 +737,7 @@ void App::drawStackUI(ImDrawList* dl, ImVec2 ds) {
   if (!st.empty()) { ImVec2 t = f->CalcTextSizeA(smSz, 1e9f, 0, st.c_str()); shadowText(dl, f, smSz, ImVec2(right - t.x, yInfo), IM_COL32(255, 205, 130, 255), st.c_str(), 1); yInfo -= smSz + 2 * sc; }
   if (!weaponMsg.empty()) { ImVec2 t = f->CalcTextSizeA(smSz, 1e9f, 0, weaponMsg.c_str()); shadowText(dl, f, smSz, ImVec2(right - t.x, yInfo), IM_COL32(255, 210, 130, 230), weaponMsg.c_str(), 1); yInfo -= smSz + 2 * sc; }
   // ---- the list: always shown unless hidden in Settings > Gameplay
-  float a = showWeaponList ? 1.0f : 0.0f;
+  float a = showWeaponList && !smithyOpen() ? 1.0f : 0.0f;   // SM1: not over the fitting screen
   lastStackAlpha = a;
   if (a <= 0) return;
   std::vector<int> rows = lootActive() ? std::vector<int>{activeWeapon} : stackRows();   // BR2: in play only the gun in hand shows
@@ -844,6 +886,7 @@ void App::makeWeaponSilhouettes() {
   fs::path dir = exeDir() / "cache" / "weapon_silhouettes";
   std::error_code ec; fs::create_directories(dir, ec);
   for (auto& dp : weaponDefs) {
+    crumb("weapon silhouettes");   // UI5
     const WeaponDef& d = *dp;
     std::string key = d.id;   // MG10: an imported model's part count and bounds in the name, so a re-baked model draws a fresh icon
     if (d.useModel()) { char b[96]; std::snprintf(b, sizeof b, "_m%zu_%.3f_%.3f_%.3f", d.model->parts.size(), d.model->bmax.x, d.model->bmax.y, d.model->bmax.z); key += b; }

@@ -1,0 +1,292 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.8999998569488525,
+  1.9000141620635986,
+  0.4276880621910095
+ ],
+ "bmin": [
+  -0.8999998569488525,
+  0.0,
+  -0.4287128746509552
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "aoInMR": true,
+   "mr": "mr_1.jpg",
+   "name": "Cabinet",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_5.jpg",
+   "aoInMR": true,
+   "mr": "mr_4.jpg",
+   "name": "Chisel",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "albedo": "albedo_8.jpg",
+   "aoInMR": true,
+   "mr": "mr_7.jpg",
+   "name": "Hammer",
+   "normal": "normal_6.jpg"
+  },
+  {
+   "albedo": "albedo_11.jpg",
+   "aoInMR": true,
+   "mr": "mr_10.jpg",
+   "name": "material_0",
+   "normal": "normal_9.jpg"
+  },
+  {
+   "albedo": "albedo_14.jpg",
+   "aoInMR": true,
+   "mr": "mr_13.jpg",
+   "name": "HandAxe",
+   "normal": "normal_12.jpg"
+  },
+  {
+   "albedo": "albedo_17.jpg",
+   "aoInMR": true,
+   "mr": "mr_16.jpg",
+   "name": "Mallet",
+   "normal": "normal_15.jpg"
+  },
+  {
+   "albedo": "albedo_20.jpg",
+   "aoInMR": true,
+   "mr": "mr_19.jpg",
+   "name": "Right_Edge",
+   "normal": "normal_18.jpg"
+  },
+  {
+   "albedo": "albedo_23.jpg",
+   "aoInMR": true,
+   "mr": "mr_22.jpg",
+   "name": "material",
+   "normal": "normal_21.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.8999998569488525,
+    1.9000141620635986,
+    0.4276880621910095
+   ],
+   "bmin": [
+    -0.8999998569488525,
+    0.0,
+    -0.4287128746509552
+   ],
+   "count": 1176,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "Cabinet_Cabinet_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.3025137186050415,
+    1.6580650806427002,
+    -0.3502059280872345
+   ],
+   "bmin": [
+    -0.6816098690032959,
+    1.6123251914978027,
+    -0.39065662026405334
+   ],
+   "count": 498,
+   "first": 1176,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "Chisel_Chisel_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.3036257028579712,
+    1.391878366470337,
+    -0.3423512279987335
+   ],
+   "bmin": [
+    -0.48906609416007996,
+    1.0631775856018066,
+    -0.3902481198310852
+   ],
+   "count": 1056,
+   "first": 1674,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "Hammer_Hammer_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.29278165102005005,
+    1.5753098726272583,
+    -0.3114987909793854
+   ],
+   "bmin": [
+    -0.7135928273200989,
+    1.4139411449432373,
+    -0.3906562626361847
+   ],
+   "count": 1926,
+   "first": 2730,
+   "mat": 3,
+   "metal": 1.0,
+   "name": "Hand Drill_HandDrill_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.7834902405738831,
+    1.188659906387329,
+    -0.34308671951293945
+   ],
+   "bmin": [
+    0.34296271204948425,
+    0.9918330311775208,
+    -0.39051148295402527
+   ],
+   "count": 684,
+   "first": 4656,
+   "mat": 4,
+   "metal": 1.0,
+   "name": "Handaxe_HandAxe_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.5197142958641052,
+    1.3893449306488037,
+    -0.3411672115325928
+   ],
+   "bmin": [
+    -0.6539561748504639,
+    1.0465729236602783,
+    -0.3881000876426697
+   ],
+   "count": 450,
+   "first": 5340,
+   "mat": 5,
+   "metal": 0.0,
+   "name": "Mallet_Mallet_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.07906459271907806,
+    0.9707344174385071,
+    0.09973523765802383
+   ],
+   "bmin": [
+    -0.3632659316062927,
+    0.959133505821228,
+    -0.14354485273361206
+   ],
+   "count": 282,
+   "first": 5790,
+   "mat": 6,
+   "metal": 0.0,
+   "name": "Right Edge_Right Edge_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.606221079826355,
+    1.2582257986068726,
+    -0.36238500475883484
+   ],
+   "bmin": [
+    0.11725766211748123,
+    1.1444141864776611,
+    -0.38691332936286926
+   ],
+   "count": 1350,
+   "first": 6072,
+   "mat": 7,
+   "metal": 1.0,
+   "name": "Saw_Saw_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "smithing_table.glb",
+ "textures": {},
+ "triangles": 2474,
+ "vertices": 3950
+}

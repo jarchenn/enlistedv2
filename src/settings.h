@@ -110,6 +110,7 @@ Settings& settings();
 // ---- hooks (one line each at the call site)
 void settingsInit(App& app, bool selftest);   // app.cpp, after the renderer and bindings exist
 void controlsWindow(App& app, bool* open);   // UI1b: the read-only controls page (pause menu)
+extern int gSettingsTab;   // UI4: 0 video, 1 gameplay, 2 audio, 3 keybindings, 4 interface
 void settingsWindow(App& app);                // drawn every frame in both modes (no-op while closed)
 void settingsEndFrame(App& app);              // app.cpp, after SwapBuffers: FPS cap
 bool settingsMenuItem();                      // "Settings..." menu entry / button helper: opens the window

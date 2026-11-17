@@ -22,12 +22,12 @@ os.makedirs(OUT, exist_ok=True)
 # id -> how to bake. kind: tree (cards), plant (keep), solid (decimate). split: one game asset per object (variant).
 #   voxel: card cluster size (m) LOD0 / LOD1; wood: target triangles LOD0 / LOD1; tris: solid target LOD0 / LOD1
 SPEC = {
-    "pine_tree_01":        {"kind": "tree", "voxel": (0.55, 1.4), "wood": (5000, 900)},
-    "fir_tree_01":         {"kind": "tree", "voxel": (0.5, 1.3), "wood": (5000, 900)},
-    "pine_sapling_medium": {"kind": "tree", "voxel": (0.35, 0.9), "wood": (2500, 500)},
-    "fir_sapling_medium":  {"kind": "tree", "voxel": (0.3, 0.8), "wood": (2000, 400)},
-    "fir_sapling":         {"kind": "tree", "voxel": (0.16, 0.4), "wood": (800, 200)},
-    "pine_sapling_small":  {"kind": "tree", "voxel": (0.12, 0.3), "wood": (500, 150)},
+    "pine_tree_01":        {"kind": "tree", "voxel": (0.33, 1.4), "wood": (5000, 900), "atlas": (3072, 6), "sprig": 0.4, "trueColour": True},   # FOL2: real sprigs, own colours   # FOL1: 36 tiles of 512 px
+    "fir_tree_01":         {"kind": "tree", "voxel": (0.3, 1.3), "wood": (5000, 900), "atlas": (3072, 6), "sprig": 0.4, "trueColour": True},
+    "pine_sapling_medium": {"kind": "tree", "voxel": (0.35, 0.9), "wood": (2500, 500), "sprig": 0.25, "trueColour": True},   # FOL3: real sprigs
+    "fir_sapling_medium":  {"kind": "tree", "voxel": (0.3, 0.8), "wood": (2000, 400), "sprig": 0.25, "trueColour": True},
+    "fir_sapling":         {"kind": "tree", "voxel": (0.16, 0.4), "wood": (800, 200), "sprig": 0.15, "trueColour": True},
+    "pine_sapling_small":  {"kind": "tree", "voxel": (0.12, 0.3), "wood": (500, 150), "sprig": 0.15, "trueColour": True},
     "island_tree_01":      {"kind": "tree", "voxel": (0.6, 1.5), "wood": (5000, 900)},
     "fern_02":             {"kind": "plant"},
     "shrub_03":            {"kind": "plant"},
@@ -50,7 +50,10 @@ SPEC = {
     "sand_rocks_small_01": {"kind": "solid", "tris": (8000, 1600)},
 }
 TWIG = ("twig", "leaves")          # material name parts that hold the foliage
-ATLAS, TILES = 2048, 4             # 4 x 4 tiles of 512 px
+ATLAS, TILES = 2048, 4             # 4 x 4 tiles of 512 px (a SPEC "atlas": (size, tiles) overrides it per tree)
+TILE_ASPECT = []                   # FOL1: the rendered tiles' cluster aspect (u / v extent), for card_mesh's tile choice
+TRUE_COLOUR = False                # FOL2: a SPEC "trueColour" tree keeps the source colours and soft alpha (render_tiles)
+TILE_COVER = []                    # FOL1: each tile's alpha coverage (near-empty tiles are never borrowed by other cards)
 report = {}
 
 
@@ -198,6 +201,7 @@ def render_tiles(twig, clusters, atlas_path):
     cam_d = bpy.data.cameras.new("tile"); cam_d.type = 'ORTHO'
     cam = bpy.data.objects.new("tile", cam_d); sc.collection.objects.link(cam); sc.camera = cam
     T = ATLAS // TILES
+    TILE_COVER.clear(); TILE_ASPECT.clear(); TILE_ASPECT.extend(c["ext"][0] / max(1e-6, c["ext"][1]) for c in clusters[:TILES * TILES])
     atlas = np.zeros((ATLAS, ATLAS, 4), np.float32)
     tmp = os.path.join(OUT, "_tile.png")
     for k, c in enumerate(clusters[:TILES * TILES]):
@@ -219,10 +223,17 @@ def render_tiles(twig, clusters, atlas_path):
         bpy.data.images.remove(img)
         yy, xx = np.mgrid[0:T, 0:T]; d = np.sqrt(((xx + 0.5) / T * 2 - 1) ** 2 + ((yy + 0.5) / T * 2 - 1) ** 2)
         px[..., 3] *= np.clip((1.06 - d) / 0.12, 0, 1)                      # only the corners trimmed (the sprig is its own silhouette)
-        px[..., :3] = np.clip((px[..., :3] - px[..., :3].mean(-1, keepdims=True)) * 1.15 + px[..., :3].mean(-1, keepdims=True), 0, 1) * np.array([1.42, 1.38, 1.18], np.float32)   # Workbench flat albedo reads dull and cold in the game: lift, a warmer green (the banner's sunlit needles)
-        px[..., 3] = np.where(px[..., 3] > 0.35, 1.0, px[..., 3] * 0.6)      # crisp needles (alpha-tested at 0.5)
+        if not TRUE_COLOUR:
+            px[..., :3] = np.clip((px[..., :3] - px[..., :3].mean(-1, keepdims=True)) * 1.15 + px[..., :3].mean(-1, keepdims=True), 0, 1) * np.array([1.42, 1.38, 1.18], np.float32)   # Workbench flat albedo reads dull and cold in the game: lift, a warmer green (the banner's sunlit needles)
+            px[..., 3] = np.where(px[..., 3] > 0.35, 1.0, px[..., 3] * 0.6)      # crisp needles (alpha-tested at 0.5)
+        # FOL2 trueColour: the source's own diffuse as rendered (no warm lift: it made olive / rust plates); the render's
+        # anti-aliased alpha x2.2 (a needle is ~1 px at 512 px a tile: as rendered most fell under the game's 0.5 cutout and
+        # the crowns read bare; forcing > 0.35 to 1 as before fattened them into plates)
+        else:
+            px[..., 3] = np.clip(px[..., 3] * 2.2, 0, 1)
         tx, ty = k % TILES, k // TILES
         atlas[ty * T:(ty + 1) * T, tx * T:(tx + 1) * T] = px
+        TILE_COVER.append(float((px[..., 3] > 0.5).mean()))
     # bleed colour into the transparent texels (no dark fringe on the mips)
     a = atlas[..., 3] > 0.01
     if a.any():
@@ -258,23 +269,110 @@ def clusters_of(twig, voxel, axis_c):
     return out
 
 
-def card_mesh(name, clusters, mat, axis_xy, crossed):
+def sprig_clusters(twig, max_size, axis_c):
+    """FOL2: the tree's real sprigs as clusters. The Poly Haven twig mesh is loose needles (4-polygon pieces) and a few
+    larger stem pieces: every needle joins the stem nearest to it, a sprig is a stem and its needles (a sprig longer than
+    max_size is split along the stem into max_size pieces). Same output as clusters_of: one card per sprig, so cards
+    follow the real sprigs (gaps between them) instead of voxels cut across several stacked sprigs."""
+    from mathutils.kdtree import KDTree
+    me = twig.data; nP = len(me.polygons)
+    ls = np.zeros(nP, np.int32); me.polygons.foreach_get("loop_start", ls)
+    lt = np.zeros(nP, np.int32); me.polygons.foreach_get("loop_total", lt)
+    lv = np.zeros(len(me.loops), np.int32); me.loops.foreach_get("vertex_index", lv)
+    C = np.zeros(nP * 3, np.float32); me.polygons.foreach_get("center", C); C = C.reshape(nP, 3)
+    A = np.zeros(nP, np.float32); me.polygons.foreach_get("area", A)
+    parent = np.arange(len(me.vertices))
+    def find(x):
+        r = x
+        while parent[r] != r: r = parent[r]
+        while parent[x] != r: parent[x], x = r, parent[x]
+        return r
+    for k in range(1, int(lt.max())):
+        m = lt > k
+        for x, y in zip(lv[ls[m]], lv[ls[m] + k]):
+            rx, ry = find(x), find(y)
+            if rx != ry: parent[ry] = rx
+    comp = np.array([find(v) for v in lv[ls]])
+    uc, inv, cnt = np.unique(comp, return_inverse=True, return_counts=True)
+    stem_comp = cnt > max(8, 4 * int(np.median(cnt)))   # a needle is a few polygons (fir 4, pine more): a stem is much bigger than the typical piece
+    stem_faces = np.flatnonzero(stem_comp[inv])
+    if len(stem_faces) == 0: return clusters_of(twig, max_size, axis_c)
+    # a stem piece: its faces split along the stem every max_size (a long branch is several sprigs)
+    sid = np.full(nP, -1, np.int64)
+    key = inv[stem_faces].astype(np.int64) * 4096 + np.floor(C[stem_faces] / max_size).astype(np.int64) @ np.array([1, 16, 256], np.int64)
+    _, sid[stem_faces] = np.unique(key, return_inverse=True)
+    kd = KDTree(len(stem_faces))
+    for i, f in enumerate(stem_faces): kd.insert(C[f].tolist(), i)
+    kd.balance()
+    needle_comp = np.flatnonzero(~stem_comp)
+    cc = np.zeros((len(uc), 3)); np.add.at(cc, inv, C); cc /= cnt[:, None]
+    comp_sid = np.full(len(uc), -1, np.int64)
+    for ci in needle_comp:
+        _, i, _ = kd.find(cc[ci].tolist()); comp_sid[ci] = sid[stem_faces[i]]
+    nf = np.flatnonzero(~stem_comp[inv]); sid[nf] = comp_sid[inv[nf]]
+    order = np.argsort(sid); cuts = np.flatnonzero(np.diff(sid[order])) + 1
+    out = []
+    for g in np.split(order, cuts):
+        if len(g) < 6: continue
+        P = C[g]; w = A[g] + 1e-9; m = (P * w[:, None]).sum(0) / w.sum()
+        Q = P - m; cov = (Q * w[:, None]).T @ Q / w.sum()
+        ev, evec = np.linalg.eigh(cov)
+        nrm = evec[:, 0]; u = evec[:, 2]; v = np.cross(nrm, u)
+        pu, pv, pn = Q @ u, Q @ v, Q @ nrm
+        (u0, u1), (v0, v1) = np.percentile(pu, (2, 98)), np.percentile(pv, (2, 98))
+        ext = (float(u1 - u0) + 0.02, float(v1 - v0) + 0.02, float(np.percentile(np.abs(pn), 95)) + 0.02)
+        ctr = m + u * (u0 + u1) / 2 + v * (v0 + v1) / 2
+        out.append({"c": ctr.tolist(), "u": u.tolist(), "v": v.tolist(), "n": nrm.tolist(), "ext": ext, "area": float(w.sum()), "faces": g})
+    out.sort(key=lambda c: -c["area"])
+    print("SPRIGS", twig.name, len(out), "sprigs from", len(stem_faces), "stem faces,", len(needle_comp), "needles")
+    return out
+
+
+def sprig_lod1(lod0, keep=8, grow=2.4):
+    """FOL3: the distance LOD of a sprig tree: every keep-th LOD0 sprig card (by hash), grown x grow, one plane, its LOD0
+    tile and flips (the same look and colour as LOD0: no pop to the old voxel plates at the LOD distance)."""
+    out = []
+    for k, c in enumerate(lod0):
+        if ((k * 2654435761) >> 12) % keep: continue
+        d = dict(c); d["ext"] = (c["ext"][0] * grow, c["ext"][1] * grow, c["ext"][2]); out.append(d)
+    return out
+
+
+def card_mesh(name, clusters, mat, axis_xy, crossed, rect=False):
     """One quad (two crossed quads when crossed) per cluster, UVs into an atlas tile, normals leaning out from the trunk."""
     verts, faces, uvs, nrms = [], [], [], []
     for k, c in enumerate(clusters):
-        t = k % (TILES * TILES); tx, ty = t % TILES, t // TILES
+        # FOL1: a rendered cluster shows its own tile; any other card the tile of a cluster shaped like it (aspect), one of
+        # the three closest by a per-card hash, mirrored / turned 180 deg by the hash (was tile k % 16 for every card: the
+        # same 16 blobs, stretched onto clusters of any shape)
+        h = (k * 2654435761) & 0xffffffff
+        n_t = max(1, min(len(TILE_ASPECT), TILES * TILES))
+        if "tile" in c: t = c["tile"]   # FOL3: a LOD1 sprig card keeps its LOD0 card's tile
+        elif crossed != 2 and k < n_t: t = k   # LOD0 (crossed / sprig cards): a rendered cluster shows its own tile
+        else:
+            a = c["ext"][0] / max(1e-6, c["ext"][1])
+            pool = [i for i in range(n_t) if i < len(TILE_COVER) and TILE_COVER[i] > 0.12] or list(range(n_t))
+            best = sorted(pool, key=lambda i: abs(math.log(max(1e-6, a) / max(1e-6, TILE_ASPECT[i] if i < len(TILE_ASPECT) else 1.0))))[:3]
+            t = best[(h >> 8) % len(best)]
+        flip_u, flip_v = bool((h >> 4) & 1), bool((h >> 5) & 1) and bool((h >> 4) & 1)   # mirror, or mirror + flip = 180 deg
+        c["tile"] = t
+        tx, ty = t % TILES, t // TILES
         u0, v0 = tx / TILES, 1 - (ty + 1) / TILES
         ctr = Vector(c["c"]); u = Vector(c["u"]); v = Vector(c["v"]); nrm = Vector(c["n"])
         hu, hv = c["ext"][0] * 0.5 * 1.15, c["ext"][1] * 0.5 * 1.15
         hs = max(hu, hv)   # the tile was rendered square (size = max extent)
+        ru, rv = (hu / hs, hv / hs) if rect else (1.0, 1.0)   # FOL2 rect: a long thin sprig gets a card its own shape (the middle of its square tile)
         out = Vector((ctr.x - axis_xy[0], ctr.y - axis_xy[1], 0.35)); out = out.normalized() if out.length > 1e-6 else Vector((0, 0, 1))
         w2 = (u * 0.5 + nrm * 0.866).normalized()
-        planes = [(u, v), (u, nrm), (w2, v)] if crossed is True else [(u, v), (u, nrm)] if crossed == 2 else [(u, v)]   # 3 planes near, 2 far: a full crown
+        v60 = (v * 0.5 + nrm * 0.866).normalized()
+        planes = [(u, v), (u, nrm), (w2, v)] if crossed is True else [(u, v), (u, nrm)] if crossed == 2 else [(u, v), (u, v60)] if crossed == "sprig" else [(u, v)]   # 3 planes near, 2 far: a full crown; FOL2 sprig: two crossed along the stem
         for pu, pv in planes:
             b = len(verts)
             for su, sv in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
+                su, sv = su * ru, sv * rv
                 verts.append(ctr + pu * (su * hs) + pv * (sv * hs))
-                uvs.append((u0 + (su + 1) / 2 / TILES, v0 + (sv + 1) / 2 / TILES))
+                fu, fv = (-su if flip_u else su), (-sv if flip_v else sv)
+                uvs.append((u0 + (fu + 1) / 2 / TILES, v0 + (fv + 1) / 2 / TILES))
                 pn = pu.cross(pv).normalized(); pn = pn if pn.dot(out) >= 0 else -pn
                 nrms.append((pn * 0.35 + out * 0.65).normalized())
             faces.append((b, b + 1, b + 2, b + 3))
@@ -363,13 +461,14 @@ def bake(pid, spec):
         twig = twig[0]
         for q in meshes(): q.hide_render = q is not twig
         axis = (0.0, 0.0)
-        lod0 = clusters_of(twig, spec["voxel"][0], axis)
+        lod0 = sprig_clusters(twig, spec["sprig"], axis) if spec.get("sprig") else clusters_of(twig, spec["voxel"][0], axis)
         lod1 = clusters_of(twig, spec["voxel"][1], axis)
         atlas_path = os.path.join(OUT, aid + "_atlas.png")
         atlas = render_tiles(twig, lod0, atlas_path)
         mat = card_material(aid + "_needles", atlas)
-        cards0 = card_mesh(aid + "_cards", lod0, mat, axis, crossed=True)
-        cards1 = card_mesh(aid + "_cards1", lod1, mat, axis, crossed=2)
+        cards0 = card_mesh(aid + "_cards", lod0, mat, axis, crossed="sprig" if spec.get("sprig") else True, rect=bool(spec.get("sprig")))   # FOL2: a sprig: two planes crossed along its stem
+        if spec.get("sprig"): lod1 = sprig_lod1(lod0)
+        cards1 = card_mesh(aid + "_cards1", lod1, mat, axis, crossed=False if spec.get("sprig") else 2, rect=bool(spec.get("sprig")))
         bpy.data.objects.remove(twig)
         w0 = []
         w1 = []
@@ -408,10 +507,12 @@ def bake_rest(pid, spec, todo):
             select(twig); bpy.ops.object.join(); twig = [bpy.context.view_layer.objects.active]
         twig = twig[0]
         for q in meshes(): q.hide_render = q is not twig
-        lod0 = clusters_of(twig, spec["voxel"][0], (0, 0)); lod1 = clusters_of(twig, spec["voxel"][1], (0, 0))
+        lod0 = sprig_clusters(twig, spec["sprig"], (0, 0)) if spec.get("sprig") else clusters_of(twig, spec["voxel"][0], (0, 0)); lod1 = clusters_of(twig, spec["voxel"][1], (0, 0))
         atlas = render_tiles(twig, lod0, os.path.join(OUT, aid + "_atlas.png"))
         mat = card_material(aid + "_needles", atlas)
-        cards0 = card_mesh(aid + "_cards", lod0, mat, (0, 0), True); cards1 = card_mesh(aid + "_cards1", lod1, mat, (0, 0), 2)
+        cards0 = card_mesh(aid + "_cards", lod0, mat, (0, 0), "sprig" if spec.get("sprig") else True, rect=bool(spec.get("sprig")))
+        if spec.get("sprig"): lod1 = sprig_lod1(lod0)
+        cards1 = card_mesh(aid + "_cards1", lod1, mat, (0, 0), False if spec.get("sprig") else 2, rect=bool(spec.get("sprig")))
         bpy.data.objects.remove(twig)
         total = sum(tri_count(p) for p in wood) or 1; w0, w1 = [], []
         for p in wood:
@@ -426,6 +527,7 @@ def bake_rest(pid, spec, todo):
 for pid, spec in SPEC.items():
     if ONLY and pid not in ONLY: continue
     if not os.path.exists(os.path.join(SRC, pid, pid + "_1k.gltf")): print("BAKE", pid, "missing"); continue
+    ATLAS, TILES = spec.get("atlas", (2048, 4)); TRUE_COLOUR = spec.get("trueColour", False)
     try:
         bake(pid, spec)
     except Exception as e:

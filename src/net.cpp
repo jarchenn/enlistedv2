@@ -1,5 +1,6 @@
 // LAN multiplayer over UDP: Winsock2 on Windows, BSD sockets elsewhere (see net.h, docs/multiplayer.md).
 #ifdef _WIN32
+#include <mutex>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #else
@@ -226,17 +227,35 @@ std::string Net::contentHashAt(const fs::path& root) {
 std::string Net::contentHashOf(const fs::path& root, std::initializer_list<const char*> subs, const std::string& seed) {
   uint64_t h = fnv(seed);
   std::vector<std::pair<std::string, fs::path>> files;   // sorted by relative path, the same order on every OS
+  std::map<std::string, std::string> stampOf;   // CACHE1: rel -> size#time, from the listing itself (no extra stat calls)
+  const std::string rootG = root.generic_string();
   for (const char* sub : subs) {
     std::error_code ec;
-    for (auto& e : fs::recursive_directory_iterator(root / sub, ec)) if (e.is_regular_file()) { auto ext = e.path().extension().string(); if (ext == ".json" || ext == ".glb" || ext == ".bin") files.push_back({fs::relative(e.path(), root, ec).generic_string(), e.path()}); }
+    for (auto it = fs::recursive_directory_iterator(root / sub, ec); !ec && it != fs::recursive_directory_iterator(); it.increment(ec)) {
+      const fs::directory_entry& e = *it; std::error_code e2;
+      if (!e.is_regular_file(e2)) continue;
+      auto ext = e.path().extension().string(); if (ext != ".json" && ext != ".glb" && ext != ".bin") continue;
+      std::string g = e.path().generic_string();
+      std::string rel = g.size() > rootG.size() && g.compare(0, rootG.size(), rootG) == 0 ? g.substr(rootG.size() + (g[rootG.size()] == '/' ? 1 : 0)) : fs::relative(e.path(), root, e2).generic_string();
+      stampOf[rel] = std::to_string(e.file_size(e2)) + "#" + std::to_string((long long)e.last_write_time(e2).time_since_epoch().count());
+      files.push_back({rel, e.path()});
+    }
   }
   std::sort(files.begin(), files.end());
+  // CACHE1: the hash is of the contents (machines compare it), but while no file's name, size or time changed it is the
+  // same: remembered per root / subs / seed (reading every asset JSON took ~2.8 s at each match start)
+  static std::map<std::string, std::pair<uint64_t, std::string>> memo; static std::mutex memoM;   // aiNavWarmup computes one on a thread
+  std::string mk = root.string() + "|" + seed; for (const char* sub : subs) mk += std::string("|") + sub;
+  uint64_t stamp = fnv(mk);
+  for (auto& [rel, f] : files) stamp = fnv(rel + "#" + stampOf[rel], stamp);
+  { std::lock_guard<std::mutex> lk(memoM); if (auto it = memo.find(mk); it != memo.end() && it->second.first == stamp) return it->second.second; }
   for (auto& [rel, f] : files) {
     if (f.extension() == ".json") {
       std::string t = readTextFile(f); t.erase(std::remove(t.begin(), t.end(), '\r'), t.end());
       h = fnv(rel + "#" + std::to_string(t.size()), h); h = fnv(t, h);
     } else { std::error_code ec; h = fnv(rel + "#" + std::to_string(fs::file_size(f, ec)), h); }
   }
+  { std::lock_guard<std::mutex> lk(memoM); memo[mk] = {stamp, hex(h)}; }
   return hex(h);
 }
 std::string Net::mapHash(const App& app) {

@@ -1,4 +1,5 @@
 #ifdef _WIN32
+#include "smithy.h"
 #include <malloc.h>
 #include <windows.h>
 #endif
@@ -11,6 +12,8 @@
 #include "hlod.h"
 #include "abilities.h"
 #include "crumb.h"
+#include <optional>
+#include <future>
 #include "terrain_tools.h"   // V8 decor exception / draw (beautify.cpp)
 #include "editor_nav.h"     // V8: navSyncCuts after an undo that regenerates the terrain
 #include "settings.h"
@@ -161,12 +164,12 @@ void applyUiTheme() {
   ImGuiStyle& st = ImGui::GetStyle();
   // liquid glass (ui_glass.cpp draws the frosted backing, edge and shadow under each window): large radii, no ImGui
   // border, translucent fills; off-white text; the logo orange is the one accent (team blue / red stay for team meaning)
-  st.WindowRounding = 14; st.ChildRounding = 10; st.FrameRounding = 7; st.PopupRounding = 10; st.GrabRounding = 6; st.TabRounding = 7; st.ScrollbarRounding = 8;
+  st.WindowRounding = 2; st.ChildRounding = 0; st.FrameRounding = 1; st.PopupRounding = 2; st.GrabRounding = 0; st.TabRounding = 0; st.ScrollbarRounding = 0;   // UI4: flat and square (no pills)
   st.WindowBorderSize = 0; st.FrameBorderSize = 0; st.PopupBorderSize = 0; st.ChildBorderSize = 1;
   st.WindowPadding = ImVec2(18, 14); st.FramePadding = ImVec2(10, 6); st.ItemSpacing = ImVec2(10, 8); st.ItemInnerSpacing = ImVec2(7, 5);
   st.ScrollbarSize = 11; st.GrabMinSize = 10; st.WindowTitleAlign = ImVec2(0.0f, 0.5f); st.SeparatorTextBorderSize = 1;
   auto C = [&](ImGuiCol k, float r, float g, float b, float a = 1.0f) { st.Colors[k] = ImVec4(r, g, b, a); };
-  const float A[3] = {0.94f, 0.46f, 0.13f};   // accent
+  const float A[3] = {0.65f, 0.36f, 0.20f};   // UI4: the muted copper accent (the logo orange, less saturated)
   C(ImGuiCol_Text, 0.93f, 0.91f, 0.88f); C(ImGuiCol_TextDisabled, 0.58f, 0.58f, 0.56f);
   C(ImGuiCol_WindowBg, 0.05f, 0.06f, 0.07f, 0.30f); C(ImGuiCol_ChildBg, 0, 0, 0, 0); C(ImGuiCol_PopupBg, 0.05f, 0.06f, 0.07f, 0.42f);
   C(ImGuiCol_Border, 1, 1, 1, 0.10f); C(ImGuiCol_BorderShadow, 0, 0, 0, 0);
@@ -212,7 +215,7 @@ const App::ActiveSet& App::activeSet() {
     if (!it->second.asset) continue;
     const AssetDef* a = it->second.asset;
     if (!a->interactables.empty()) s.inter.push_back({k, &it->second});
-    if (!a->station.kind.empty() || a->rack || (a->crate.is_object() && !a->crate.empty())) s.objs.push_back({k, &it->second});
+    if (!a->station.kind.empty() || a->rack || (a->crate.is_object() && !a->crate.empty()) || isSmithy(a)) s.objs.push_back({k, &it->second});   // SM1: smithing tables
     if (isVehicleAsset(a)) s.vehicles.push_back({k, &it->second});
     if (a->raw.is_object() && a->raw.contains("light")) s.lights.push_back({k, &it->second});   // lightDef (lights.cpp)
     if (a->defense.kind == "wire" && a->defense.traversal == "slow") s.slowWire.push_back({k, &it->second});   // traversalFactor (builder.cpp)
@@ -589,10 +592,10 @@ static void trimHeap() {   // MEM2: freed map memory goes back to Windows (the C
 #endif
 }
 bool App::newMap(const TemplateInfo& t, const std::string& name) {
-  LoadingJob lj(*this, t.name, "Generating map", 3, t.thumbnail);   // UI2: terrain, content, furniture
+  LoadingJob lj(*this, t.name, "Generating map", 3, t.thumbnail, t.id);   // UI2: terrain, content, furniture
   if (mode == Mode::Explore) exitExplore();
   clearRuntime();
-  placing = nullptr; { double c0 = processMemory().PrivateBytes / 1048576.0; int n = lib.releaseAll(); if (n) { glFinish(); trimHeap(); } if (n) logf("assets: %d released with the old map (commit %.0f -> %.0f MB)", n, c0, processMemory().PrivateBytes / 1048576.0); }   // MEM2: the new map builds what it uses
+  placing = nullptr; { double c0 = processMemory().PrivateBytes / 1048576.0; int n = lib.releaseAll(); crumb("heap trim"); if (n) { glFinish(); trimHeap(); } if (n) logf("assets: %d released with the old map (commit %.0f -> %.0f MB)", n, c0, processMemory().PrivateBytes / 1048576.0); }   // MEM2: the new map builds what it uses
   doc = MapDoc();
   doc.name = name; doc.templateId = t.id; doc.templateVersion = t.version; doc.seed = t.seed;
   applyTemplate(t.id);
@@ -610,12 +613,12 @@ bool App::openMap(const fs::path& p) {
   MapDoc d; std::string err;
   std::string title = p.filename().string(); title = title.substr(0, title.find('.')); for (auto& c : title) if (c == '_') c = ' ';
   const TemplateInfo* tp = findTemplate(p.filename().string().substr(0, p.filename().string().find('.')));
-  LoadingJob lj(*this, title, "Loading map", 3, tp ? tp->thumbnail : 0);   // UI2: read, build, furnish
+  LoadingJob lj(*this, title, "Loading map", 3, tp ? tp->thumbnail : 0, tp ? tp->id : std::string());   // UI2: read, build, furnish
   LoadStep lsAll("openMap");
   if (!loadMap(p, d, err)) { toast("Could not open map: " + err, 8); return false; }
   if (mode == Mode::Explore) exitExplore();
   clearRuntime();
-  placing = nullptr; { double c0 = processMemory().PrivateBytes / 1048576.0; int n = lib.releaseAll(); if (n) { glFinish(); trimHeap(); } if (n) logf("assets: %d released with the old map (commit %.0f -> %.0f MB)", n, c0, processMemory().PrivateBytes / 1048576.0); }   // MEM2: the new map builds what it uses
+  placing = nullptr; { double c0 = processMemory().PrivateBytes / 1048576.0; int n = lib.releaseAll(); crumb("heap trim"); if (n) { glFinish(); trimHeap(); } if (n) logf("assets: %d released with the old map (commit %.0f -> %.0f MB)", n, c0, processMemory().PrivateBytes / 1048576.0); }   // MEM2: the new map builds what it uses
   doc = std::move(d);
   { extern int lineMigrateTrenches(App&); lineMigrateTrenches(*this); }   // LN1: trench pieces become trench lines
   { extern int lineMigratePieces(App&); lineMigratePieces(*this); }   // LN2: fence / wire / wall / hedge pieces become lines
@@ -953,7 +956,9 @@ bool App::startMarkerValid(vec3 pos) const { return !Physics::capsuleBlocked(pos
 // ============================================================ thumbnails & screenshots
 void App::makeThumbnails() {
   // MEM2: catalogue tiles load / render on demand as the build palette shows them (assetThumbOnDemand, thumbs.cpp)
+  int k = 0;
   for (auto& t : templates) {
+    if (gLoadingDepth) { char b[64]; std::snprintf(b, sizeof b, "Preparing map previews %d / %zu", ++k, templates.size()); loadingProgress(b, (float)k / templates.size()); }   // UI5
     if (!t.available) continue;
     if (w5TemplateThumbnail(t)) continue;   // W5: pre-rendered default-map preview
     terrain.generate(t);
@@ -1015,7 +1020,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-render") runSelf = true;   // V1 facades, walls, water (selftest_render.cpp)
     else if (a == "--selftest-lights") runSelf = true;   // L2 lighting engine (selftest_lights.cpp)
     else if (a == "--selftest-swim") runSelf = true;     // swimming, underwater view, breath (selftest_swim.cpp)
-    else if (a == "--capture-heli" || a == "--gen-vehicle-spawns" || a == "--capture-vh7" || a == "--check-ed2" || a == "--check-vh8" || a == "--capture-vh8" || a == "--mem-probe" || a == "--capture-rc2" || a == "--check-snd10") runSelf = true;   // VH5 (capture_heli.cpp)
+    else if (a == "--capture-heli" || a == "--gen-vehicle-spawns" || a == "--capture-vh7" || a == "--check-ed2" || a == "--check-vh8" || a == "--capture-vh8" || a == "--mem-probe" || a == "--check-sm1" || a == "--capture-sm1" || a == "--check-sm1-br" || a == "--capture-shade" || a == "--capture-rc2" || a == "--check-snd10") runSelf = true;   // VH5 (capture_heli.cpp)
     else if (a == "--selftest-zombies" || a == "--capture-heavies" || a == "--capture-commands" || a == "--capture-ch1" || a == "--capture-ch6" || a == "--capture-ch8" || a == "--capture-fighter2" || a == "--capture-fighter2-slam") runSelf = true;
     else if (a == "--capture-tk1" || a == "--check-tk1-match" || a == "--capture-tk2" || a == "--selftest-sd" || a == "--selftest-playerdmg" || a == "--selftest-prone" || a == "--selftest-sd3" || a == "--selftest-spectate" || a == "--sd-timings") runSelf = true;   // TK1 (capture_tk1.cpp)
     else if (a == "--capture-br-models" || a == "--capture-br-worn") runSelf = true;   // BR3 / BR8: a look at the Battle Royale models and worn gear (selftest_brmodels.cpp)
@@ -1061,6 +1066,7 @@ int App::run(int argc, char** argv) {
   }
   if (!glfwInit()) { logf("glfwInit failed"); return 1; }
   platformWindowHints();
+  glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);   // UI5: shown after the first splash frame (no white window)
   int W = runSelf ? 1920 : 1600, H = runSelf ? 1080 : 900;
   win = glfwCreateWindow(W, H, "Battle Foundry", nullptr, nullptr);   // UI2: the game's name (repo / exe keep theirs)
   if (!win) { logf("Could not create an OpenGL 4.5 core window. Update your graphics driver."); glfwTerminate(); return 1; }
@@ -1078,22 +1084,36 @@ int App::run(int argc, char** argv) {
   applyUiTheme();   // UI1b: one font, palette and panel style for every window (app.cpp)
   platformImGuiInit(win);
 
+  // UI5: the launch runs under the loading screen from its first frame: every crumb / stage presents and pumps events
+  // a dark window at once (the font atlas for the first splash frame takes a moment to build)
+  glfwShowWindow(win); for (int k = 0; k < 2; ++k) { glClearColor(0.016f, 0.024f, 0.027f, 1); glClear(GL_COLOR_BUFFER_BIT); platformPresent(win); } glfwPollEvents();
+  logf("startup: window shown at %.0f ms", glfwGetTime() * 1000);
+  std::optional<LoadingJob> boot; boot.emplace(*this, "", "", 10); loadingBootMode();
+  loadingStage("Starting the physics and audio");
+  auto stage = [](const char* s) { loadingStageDone(); loadingStage(s); };
   Physics::init();
   audio.init();
-  audio.loadEvents(contentDir() / "audio");
-  audio.loadCustom(contentDir() / "audio" / "custom");
+  // UI5: decoding the sample banks and recordings is CPU only (seconds): a worker does it while the splash presents
+  auto audioLoad = std::async(std::launch::async, [this] { audio.loadEvents(contentDir() / "audio"); audio.loadCustom(contentDir() / "audio" / "custom"); });
+  auto audioJoin = [&] { if (!audioLoad.valid()) return; while (audioLoad.wait_for(std::chrono::milliseconds(15)) != std::future_status::ready) { crumb("audio decode"); loadingTick(); } audioLoad.get(); };
+  if (std::getenv("NMK_AUDIO_FIDELITY")) audioJoin();
   if (std::getenv("NMK_AUDIO_FIDELITY")) { audio.fidelityReport(contentDir() / "audio" / "custom"); std::exit(0); }   // SND5 diagnostics
   int fbw, fbh; glfwGetFramebufferSize(win, &fbw, &fbh);
+  stage("Compiling the shaders");
   R.init(fbw, fbh);
+  stage("Reading the settings");
   settingsInit(*this, runSelf);   // settings_user.json: presets, gameplay, audio, keys, UI (settings.cpp)
   R.q.legacy = legacyLook;
   for (auto& f : rqOff) { if (f == "taa") R.q.taa = false; else if (f == "ssr") R.q.ssr = false; else if (f == "ssao") R.q.ssao = false; else if (f == "bloom") R.q.bloom = false; else if (f == "shafts") R.q.shafts = false; else if (f == "cascade") R.q.farCascade = false; else if (f == "cloudshadow") R.q.cloudShadows = false; else if (f == "wind") grass.wind = false; else if (!R.perf.set(f, false)) logf("--rq-off: unknown feature %s", f.c_str()); }
   for (auto& f : rqOn) if (!R.perf.set(f, true)) logf("--rq-on: unknown feature %s", f.c_str());
   templates = loadTemplates(contentDir() / "templates");
   { bool probe = false; for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--mem-probe") probe = true; lib.lazy = !runSelf || probe || std::getenv("NMK_LAZY_ASSETS"); }   // MEM1: full self-tests walk every asset built
+  stage("Scanning the asset catalogue");
   if (!lib.loadAll(contentDir() / "assets")) logf("warning: no assets found in %s", (contentDir() / "assets").string().c_str());
   tex::flushPending();   // TX2: lazy library texture sets the assets name (textures.json "lazy" slots)
+  stage("Preparing the map previews");
   makeThumbnails();
+  stage("Loading weapons and classes");
   {
     Material rm{"debris", vec3(0.30f, 0.27f, 0.21f), 0.95f, 0.0f, PAT_STONE, 1};
     Part p; p.center = vec3(0); p.size = vec3(1);
@@ -1113,7 +1133,11 @@ int App::run(int argc, char** argv) {
   }
   if (!sheetsDir.empty()) { writeWeaponSheets(sheetsDir); glfwTerminate(); return 0; }
   if (!previewGlb.empty()) { bool ok = writeModelPreview(previewGlb, previewOut, previewSpec); glfwTerminate(); return ok ? 0 : 1; }
+  stage("Loading the sounds");
+  audioJoin();
+  stage("Loading the vehicles");
   tanks.loadDefs(*this); tanks.makeThumbnails(*this);
+  stage("Placing the battlefield");
   if (!tankPreviewDir.empty()) { tanks.writePreview(*this, tankPreviewDir); glfwTerminate(); return 0; }
   {
     LoadingJob boot(*this, "", "Starting", 3);   // UI2: launch shows the loading screen (the first map joins this job)
@@ -1122,6 +1146,9 @@ int App::run(int argc, char** argv) {
     newMap(t ? *t : fb, "My Normandy map");
   }
   if (!openPath.empty()) openMap(openPath);
+  if (!runSelf && openPath.empty()) { stage("Preparing the menu"); menuBackdropTex(false); }   // the menu scene and soldier load under the splash
+  boot.reset();   // UI5: fades into the menu (loadingOverlay)
+  { extern void userCachePruneAsync(); userCachePruneAsync(); extern void aiNavWarmup(); if (!runSelf || std::getenv("NMK_NAV_CACHE")) aiNavWarmup(); }   // CACHE1   // CACHE1: after loading (what this launch used is now the newest): back under the cap, off the main thread
   if (runSelf) selftest = new SelfTest(bench);
   else if (openPath.empty()) mainMenuOpen(*this);   // UI2: launch into the main menu (a map given on the command line opens the editor)
 
@@ -1216,6 +1243,12 @@ int App::run(int argc, char** argv) {
       if (tanks.camera(*this, e, fv, fov)) tanks.cameraKick(*this, e, fv);   // RC2: the vehicle's firing kick on the seat view
       else if (!stationCamera(e, fv, fov)) weaponCamera(fov);
       mpaiCamera(*this, e, fv, fov);   // death / spectator camera during a match
+      {   // every mode: never render from a non-finite camera (Terrain::height indexed its grid out of range); the last good one
+        static vec3 lastE(0, 2, 0), lastF(0, 0, -1);
+        auto ok = [](vec3 v) { return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z); };
+        if (ok(e) && ok(fv) && glm::dot(fv, fv) > 1e-6f) { lastE = e; lastF = fv; }
+        else { static bool logged = false; if (!logged) { logged = true; logf("camera: non-finite (%f %f %f), the last valid one kept", e.x, e.y, e.z); } e = lastE; fv = lastF; }
+      }
       { extern bool gVh8CamOn; extern vec3 gVh8CamEye, gVh8CamAt; if (gVh8CamOn) { e = gVh8CamEye; fv = glm::normalize(gVh8CamAt - e); fov = 60; } }   // VH8 capture: outside view
       viewM = glm::lookAt(e, e + fv, viewUp(fv));   // swim.cpp: a slight roll with the stroke
       projM = glm::perspective(radians(fov), aspect, 0.03f, std::max(4000.0f, settings().renderDist() * 1.2f));   // PF2: Ultra render distance (5 km)
@@ -1271,6 +1304,11 @@ int App::run(int argc, char** argv) {
       R.lt.mapNoFog = lk && !lk->value("fog", true);
       R.lt.mapHaze = lk ? std::clamp(lk->value("haze", 1.0f), 0.0f, 6.0f) : 1.0f;   // AS1
       R.lt.mapShafts = lk ? std::clamp(lk->value("shafts", 0.0f), 0.0f, 4.0f) : 0.0f;   // NT8
+      {   // SD2: a map's own fair-weather cloud cover ("look": {"clouds": 0..1}; a hot desert noon: 0.05), restored on another map
+        static float savedCover = -1.0f;
+        if (lk && lk->contains("clouds") && (*lk)["clouds"].is_number()) { if (savedCover < 0) savedCover = R.cloudCover; R.cloudCover = std::clamp((*lk)["clouds"].get<float>(), 0.0f, 1.0f); }
+        else if (savedCover >= 0) { R.cloudCover = savedCover; savedCover = -1.0f; }
+      }
       R.wx.mapCloud = lk && lk->contains("weather") && (*lk)["weather"].is_number() ? std::clamp((*lk)["weather"].get<float>(), 0.0f, 1.0f) : -1.0f;   // NT2b: broken cloud
       R.wx.mapWx = R.wx.mapCloud >= 0.0f ? (R.wx.mapCloud >= 0.5f ? 1 : 0) : lk && lk->contains("weather") ? (lk->value("weather", std::string()) == "cloudy" ? 1 : 0) : -1;   // NT2: the map's default sky
       R.lt.mapSat = lk ? std::clamp(lk->value("saturation", 1.0f), 0.0f, 2.0f) : 1.0f;

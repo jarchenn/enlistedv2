@@ -20,6 +20,7 @@
 // default 3/4 view's crop is used whenever it fills at least 1.25x the best whole view, otherwise the searched
 // view's crop under the same bar; with neither, the whole view stays. Thickened box wire is rebuilt at 1.5 px
 // of the zoomed tile so it does not grow with the zoom.
+#include "user_cache.h"
 #include <unordered_set>
 #include "thumbs.h"
 #include "textures.h"
@@ -63,15 +64,7 @@ std::string footprintLabel(vec2 fp) {
   return b;
 }
 
-fs::path thumbCacheDir() {   // MEM2: one per-user cache, keyed by content (assetThumbKey): every build folder reuses it
-  if (const char* e = std::getenv("NMK_THUMB_CACHE")) if (*e) return fs::path(e);
-#ifdef _WIN32
-  if (const char* e = std::getenv("LOCALAPPDATA")) if (*e) return fs::path(e) / "BattleFoundry" / "thumbs";
-#else
-  if (const char* e = std::getenv("HOME")) if (*e) return fs::path(e) / ".cache" / "BattleFoundry" / "thumbs";
-#endif
-  return exeDir() / "cache" / "thumbs";
-}
+fs::path thumbCacheDir() { return userCacheDir("thumbs", "NMK_THUMB_CACHE"); }   // MEM2 / CACHE1: one per-user cache, keyed by content (assetThumbKey)
 
 std::string assetThumbKey(const AssetDef& a) {
   uint64_t h = 1469598103934665603ull;
@@ -392,7 +385,7 @@ static int thumbOne(App& app, AssetDef* a, ThumbStats& st, bool render) {
     ThumbInfo info; info.key = assetThumbKey(*a);
     fs::path file = dir / (a->id + "-" + info.key + ".png");
     if (a->thumbnail) { glDeleteTextures(1, &a->thumbnail); a->thumbnail = 0; }
-    if (fs::exists(file, ec) && loadTile(file, a->thumbnail)) { info.cached = true; ++st.loaded; gThumbInfo[a->id] = info; return 0; }
+    if (fs::exists(file, ec) && loadTile(file, a->thumbnail)) { userCacheTouch(file); info.cached = true; ++st.loaded; gThumbInfo[a->id] = info; return 0; }
     if (!render) return -1;
     app.lib.build(*a);   // MEM1: an uncached tile is rendered from the built asset
     std::vector<DrawItem> op{{&a->opaque, mat4(1)}, {&a->panelsIntact, mat4(1)}}, gl;

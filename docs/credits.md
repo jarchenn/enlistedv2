@@ -244,6 +244,8 @@ Supplied by the user (Downloads, copied / extracted to `incoming/mg12/<name>/`);
 | fps-ak-animated (2).zip | **Not used**: byte-identical to fps-ak-animated (`modern_ak`, MG1) | supplied by the user | as MG1 |
 | [fps pistol Animated](https://sketchfab.com/3d-models/fps-pistol-animated-a8cdd6c2e936484aaf67e1786c8320d9) (fps-pistol-animated.zip → arms@bpPistol.fbx; 18 526; a later re-upload by wout.uyttebroek has the same count) | Glock 34 with compensator (`modern_glock34`, batch 2) | DJMaesen | CC BY 4.0 |
 | [Makarov PM FPS animations](https://sketchfab.com/3d-models/makarov-pm-fps-animations-d02ebd58e3cf44acb7af73e3f156be28) (makarov_pm_fps_animations.glb, GLB `asset.extras`) | Makarov PM (`modern_makarov`, batch 2): the gun only (the arms' skin is broken in the file; the game's arms hold it), its suppressor / optic bracket not used | Cransh (https://sketchfab.com/ccransh) | CC BY 4.0 |
+| [FPS Arms saiga animations remake](https://sketchfab.com/3d-models/fps-arms-saiga-animations-remake-74e30b71e4a049b2a82b9d18f58e623c) (GLB `asset.extras`) | Saiga-12 with its suppressor (`modern_saiga`, batch 3): the gun only (the arms' skin is broken in the file; the game's arms hold it) | Cransh | CC BY 4.0 |
+| [FPS animations VSK](https://sketchfab.com/3d-models/fps-animations-vsk-191e34e043d546718d9e899d19d2f974) (GLB `asset.extras`) | VSK-94 (`modern_vsk`, batch 3): the gun only, as the Saiga | Cransh | CC BY 4.0 |
 | mark-23-animated-free.zip (Mark23.fbx; 7 762 triangles) = [Mark 23 Animated (Free)](https://sketchfab.com/3d-models/mark-23-animated-free-7abebe340aca4f46b36368417b3ca920) | HK Mk 23 (`modern_mark23`, batch 2): **the bake is local-only** (content/weapons/local/modern_mark23.json, models/modern_mark23_local); the committed gun shows the Springfield XD stand-in | BarcodeGames | **Sketchfab Free Standard licence, not CC** (a CC BY copy by "notatree" with the same count looks like a re-upload): to be confirmed by the user |
 
 - Backrooms / Tunnels ambience: "Backrooms Ambience 2" by godbi (file godbi_3-backrooms-ambience-2-522106.mp3, supplied by the user; licence to be confirmed).
@@ -648,6 +650,14 @@ The menu backdrops (`content/ui/menu_backdrop*.jpg`) are stills of our own Newto
 
 The fonts are bundled unmodified. If they are ever subset or changed, the OFL forbids keeping any Reserved Font Name in the changed copy.
 
+## Smithing table (SM1)
+
+Supplied by the user (`crafting_bench.glb`), opened only through a Blender background script (meshes kept, lights and
+cameras dropped, scaled to 1.8 m wide, textures to 1024 px) and baked into `content/assets/models/smithing_table/`.
+
+| Asset | Model | Author | Licence | Source | In the repo |
+|---|---|---|---|---|---|
+| `smithing_table` | Crafting Bench | Matt LeMoine (https://sketchfab.com/Matt_LeMoine) | CC-BY-4.0 (the GLB `asset.extras`) | https://sketchfab.com/3d-models/crafting-bench-80886d6fd9844a35bf78a25e31c41705 | yes |
 <!-- user_models: written by tools/props/user_models.py -->
 Furniture models the user supplied (Sketchfab downloads; licence, author and source read from each file's own metadata). A local-only model is not in the repository: the committed game shows its box stand-in.
 

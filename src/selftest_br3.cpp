@@ -190,14 +190,23 @@ bool poseShots(App& app, float dt) {
     if (bot < 0) { app.selftest->exitCode = 1; app.selftest->done = true; return true; }
     stage = 2; t = 0; idx = 0; return true;
   }
-  const int np = (int)posts.size(), per = 2 * np * (int)weps.size();
+  // AN1 study: NMK_POSE_VIEWS (side, front34, front, back, top), NMK_POSE_FRAMES (frames through a moving cycle, 0.1 s apart),
+  // postures: kneel carry moveaim idle fire aim walk jog sprint strafe crouchwalk prone reload throw lean lookup lookdown
+  static std::vector<std::string> viewsL; if (viewsL.empty()) viewsL = list("NMK_POSE_VIEWS", "side,front34");
+  static int nfr = [] { const char* e = std::getenv("NMK_POSE_FRAMES"); return e && *e ? std::max(1, std::atoi(e)) : 1; }();
+  static int fk = 0;   // the frame within a moving posture
+  const int np = (int)posts.size(), nv = (int)viewsL.size(), perW = np * nv, per = perW * (int)weps.size();
   if (idx >= per * (int)bodies.size()) {
     logf("[poses] ground: worst stance-foot gap %.3f m, worst kneel contact gap %.3f m (%d frames)", worstStance, worstKneel, frames);
     app.selftest->exitCode = 0; app.selftest->done = true; return true;
   }
-  int bi = idx / per, w = (idx % per) / (2 * np), vw = idx % 2; const std::string pn = posts[(idx / 2) % np];
-  const int ps = pn == "kneel" ? 0 : pn == "carry" || pn == "idle" ? 1 : 2;   // 0 crouched still, 1 no target, 2 a target
+  int bi = idx / per, w = (idx % per) / perW, vw = idx % nv; const std::string pn = posts[(idx / nv) % np], vn = viewsL[vw];
+  const bool movingP = pn == "carry" || pn == "moveaim" || pn == "walk" || pn == "jog" || pn == "sprint" || pn == "strafe" || pn == "crouchwalk";
+  const int nframes = movingP ? nfr : 1;
+  const int ps = pn == "kneel" ? 0 : pn == "carry" || pn == "idle" || pn == "sprint" ? 1 : 2;   // 0 crouched still, 1 no target, 2 a target
   Soldier& s = G.sold[bot];
+  G.noFootLock = true;   // AN1 step 3b: the posed bot stays put while it "walks" (a treadmill): no world foot locks
+  if (const char* gear = std::getenv("NMK_POSE_GEAR")) { int h = 0, v = 0, b = 0; std::sscanf(gear, "%d,%d,%d", &h, &v, &b); s.helmetLvl = h; s.vestLvl = v; s.backpack = b; }   // AN1 step 4b: BR gear on the posed bot
   if (bodies[bi] != "-" && t == dt) {   // the body under test (loaded like Game::begin's operator bodies)
     std::string id = bodies[bi]; int mi = -1;
     if (id == "br_marine") mi = brMarineModel(G);
@@ -205,6 +214,7 @@ bool poseShots(App& app, float dt) {
     else { auto cm = std::make_unique<CharModel>(); std::string e;
       if (cm->load(contentDir() / "characters" / (id + ".glb"), e)) { mi = G.modelIdx[id] = (int)G.models.size(); G.models.push_back(std::move(cm)); }
       else logf("[poses] body %s: %s", id.c_str(), e.c_str()); }
+    if (mi >= 0) s.kit = id.rfind("trooper", 0) == 0 ? 2 : id.rfind("robot", 0) == 0 ? 3 : 0;   // AN1 step 2b: the body's kit as in a match (troopers' hunch)
     if (mi >= 0 && mi != s.model) {
       if (s.ciReady) s.ci.destroy();
       s.model = mi; s.ci.frameSkinned = -1; s.ciReady = false;
@@ -217,20 +227,37 @@ bool poseShots(App& app, float dt) {
     }
   }
   vec3 B(anchor.x, H(anchor.x, anchor.z), anchor.z);
-  s.feet = B; s.hp = 100; s.yaw = degrees(std::atan2(-face.x, -face.z)); s.br.aimYaw = s.yaw; s.br.aimPitch = 0;
+  s.feet = B; s.hp = 100; s.yaw = degrees(std::atan2(-face.x, -face.z)); s.br.aimYaw = s.yaw;
+  s.br.aimPitch = pn == "lookup" ? 30.0f : pn == "lookdown" ? -30.0f : 0.0f;
   if (s.agent >= 0) Physics::setAgentPos(s.agent, B);
   int wi = app.weaponIndex(weps[w].second); if (wi >= 0) s.weapon = wi;
-  s.reload = 0; s.throwT = -1; s.recoil = 0;
-  s.posture = ps == 0 ? Physics::CROUCH : Physics::STAND;
+  if (const char* at = std::getenv("NMK_POSE_SIGHT")) { s.ws.att[0] = std::atoi(at); s.ws.loaded = std::max(s.ws.loaded, 5); }   // AT1: an optic on the posed bot's gun (third person; loaded, or the refill resets the state)
+  s.throwT = pn == "throw" ? 0.3f + 0.25f * std::min(1.0f, t / 1.6f) : -1; s.recoil = 0; s.lean = pn == "lean" ? 1.0f : 0.0f;
+  if (pn == "reload") { s.reloadTotal = 2.0f; s.reload = 1.0f; } else s.reload = 0;
+  s.posture = ps == 0 || pn == "crouchwalk" ? Physics::CROUCH : pn == "prone" ? Physics::PRONE : Physics::STAND;
   static float runV = [] { const char* e = std::getenv("NMK_POSE_SPEED"); return e && *e ? (float)std::atof(e) : 2.69f; }();   // jog by default
-  s.speed = ps == 0 || pn == "idle" || pn == "fire" ? 0.0f : runV; s.vel = face * s.speed;
-  s.br.target = ps == 1 ? -1 : G.localSlot; s.lastShot = -100;
   vec3 left = glm::cross(vec3(0, 1, 0), face);   // the bot's left
-  vec3 cd = vw == 0 ? -left : glm::normalize(left * 0.7f + face);   // side: from its right; three-quarter: front left
+  s.speed = pn == "walk" ? 1.3f : pn == "jog" ? 2.69f : pn == "sprint" ? 4.6f : pn == "strafe" ? 2.0f : pn == "crouchwalk" ? 1.2f : (pn == "carry" || pn == "moveaim") ? runV : 0.0f;
+  s.vel = (pn == "strafe" ? left : face) * s.speed;
+  s.br.target = ps == 1 ? -1 : G.localSlot; s.lastShot = -100;
+  vec3 cd = vn == "side" ? -left : vn == "front" ? face : vn == "back" ? -face : glm::normalize(left * 0.7f + face);   // side: from its right; three-quarter: front left
   vec3 e = B + cd * 3.2f; e.y = H(e.x, e.z) - 0.45f;   // eye ~1.2 m above the ground
+  if (vn == "top") e = B + face * 0.6f + vec3(0, 2.4f, 0);   // from above, a little ahead
+  vec3 handsP = vec3(s.world * vec4(0.5f * (s.pose.joint[CJ_RHAND] + s.pose.joint[CJ_LHAND]), 1));   // AN1 step 2: the posed hands (last frame)
+  // AN1 step 2b: each hand close up from outside and inside (rhand_o: right of the right hand; rhand_i: front-left, below; lhand_o: left of the
+  // left hand; lhand_i: front-right, below)
+  const bool handV = vn.rfind("rhand", 0) == 0 || vn.rfind("lhand", 0) == 0;
+  if (handV) {
+    vec3 hp = vec3(s.world * vec4(s.pose.joint[vn[0] == 'r' ? CJ_RHAND : CJ_LHAND], 1)); handsP = hp;
+    vec3 dir = vn == "rhand_o" ? -left * 0.9f + face * 0.3f + vec3(0, 0.15f, 0) : vn == "rhand_i" ? -left * 0.5f + face * 0.6f - vec3(0, 0.5f, 0)
+             : vn == "lhand_o" ? left * 0.9f + face * 0.4f + vec3(0, 0.15f, 0) : -left * 0.25f + face * 0.45f - vec3(0, 0.85f, 0);   // inside views from below the hand
+    e = hp + glm::normalize(dir) * 0.42f - vec3(0, 1.62f, 0);
+  }
+  if (vn == "head") { vec3 hp = vec3(s.world * vec4(s.pose.joint[CJ_HEAD], 1)) + vec3(0, 0.06f, 0); handsP = hp; e = hp + glm::normalize(-left * 0.6f + face * 0.8f + vec3(0, 0.1f, 0)) * 0.7f - vec3(0, 1.62f, 0); }   // AN1 step 4b: close on the head and shoulders
+  if (vn == "hands") e = handsP + glm::normalize(-left * 0.8f + face * 0.6f + vec3(0, 0.25f, 0)) * 0.75f - vec3(0, 1.62f, 0);   // close on the hands from the front right, a little above
   Physics::setCharacterPos(e);
   if (Soldier* L = G.local()) { L->feet = e; L->hp = 100; }
-  vec3 v = (B + vec3(0, 0.85f, 0)) - (e + vec3(0, 1.62f, 0));
+  vec3 v = (vn == "hands" || vn == "head" || handV ? handsP : B + vec3(0, 0.85f, 0)) - (e + vec3(0, 1.62f, 0));
   app.eyeYaw = degrees(std::atan2(-v.x, -v.z)); app.eyePitch = degrees(std::atan2(v.y, glm::length(vec2(v.x, v.z))));
   G.posesStep(dt > 0 ? dt : 1.0f / 60);
   if (t > 0.6f) {   // settled: the joints over the ground (feet at the ankle's rest height when planted, the knee on the ground)
@@ -238,17 +265,22 @@ bool poseShots(App& app, float dt) {
     auto gap = [&](int c) { vec3 w = vec3(s.world * vec4(s.pose.joint[c], 1)); return w.y - H(w.x, w.z) - (c == CJ_RLEG ? 0.0f : m.jointHead[m.semantic[c]].y); };
     ++frames;
     if (ps == 0) worstKneel = std::max({worstKneel, std::fabs(gap(CJ_RLEG) - 0.065f), std::fabs(gap(CJ_LFOOT))});
-    else worstStance = std::max(worstStance, std::fabs(std::min(gap(CJ_LFOOT), gap(CJ_RFOOT))));
+    else if (!movingP && pn != "prone") worstStance = std::max(worstStance, std::fabs(std::min(gap(CJ_LFOOT), gap(CJ_RFOOT))));
   }
-  if (pn == "fire" && t > 1.585f && t - dt <= 1.585f && s.weapon >= 0) {   // a frame before the shot: bolt and flash at the muzzle   // SW1: one shot, its bolt / tracer and flash in the picture
+  const float shotT = 1.6f + 0.1f * fk;
+  if (pn == "fire" && t > shotT - 0.015f && t - dt <= shotT - 0.015f && s.weapon >= 0) {   // a frame before the shot: bolt and flash at the muzzle   // SW1: one shot, its bolt / tracer and flash in the picture
     s.ws.loaded = std::max(s.ws.loaded, 1); s.ws.cooldown = 0; s.reload = 0;
     vec3 tgt = B + face * 30.0f + vec3(0, 1.4f, 0); bool fired = G.soldierFire(s, glm::normalize(tgt - (B + vec3(0, 1.5f, 0))));
     logf("[poses] fire %s: %s (cooldown %.2f bolt %.2f throw %.2f loaded %d)", app.weaponDefs[s.weapon]->id.c_str(), fired ? "fired" : "NOT fired", s.ws.cooldown, s.ws.bolt, s.throwT, s.ws.loaded);
   }
-  if (t > 1.6f) {
+  if (t > shotT) {
     std::string tag = (bodies[bi] == "-" ? "" : bodies[bi] + "_") + (slope ? "slope_" : "");
-    pend = exeDir() / "selftest_out" / ("pose_" + tag + weps[w].first + "_" + pn + "_" + views[vw] + ".png");
-    logf("[poses] %s: kneel %.2f carry %.2f moveAim %.2f stride %.2f", pend.filename().string().c_str(), s.anKneel, s.anCarry, s.anMoveAim, s.anStride);
+    pend = exeDir() / "selftest_out" / ("pose_" + tag + weps[w].first + "_" + pn + "_" + vn + (nframes > 1 ? "_f" + std::to_string(fk) : std::string()) + ".png");
+    logf("[poses] %s: kneel %.2f carry %.2f moveAim %.2f stride %.2f | fingers R %d gap %.4f pen %.4f  L %d gap %.4f pen %.4f", pend.filename().string().c_str(), s.anKneel, s.anCarry, s.anMoveAim, s.anStride,
+         s.pose.fingersOn[1], s.pose.fingerGap[1], s.pose.fingerPen[1], s.pose.fingersOn[0], s.pose.fingerGap[0], s.pose.fingerPen[0]);
+    if (vn == "side") for (int h = 1; h >= 0; --h) { const auto& D = s.pose.fingerDiag[h];
+      logf("[fingers] %s %s: thumb %.2f/%+.0f/%+.0f index %.2f/%+.0f/%+.0f middle %.2f/%+.0f/%+.0f ring %.2f/%+.0f/%+.0f little %.2f/%+.0f/%+.0f (rad / tip gap mm / start clearance mm)", pend.filename().string().c_str(), h ? "R" : "L",
+           D[0][0], D[0][1] * 1000, D[0][2] * 1000, D[1][0], D[1][1] * 1000, D[1][2] * 1000, D[2][0], D[2][1] * 1000, D[2][2] * 1000, D[3][0], D[3][1] * 1000, D[3][2] * 1000, D[4][0], D[4][1] * 1000, D[4][2] * 1000); }
     if (s.weapon >= 0) {   // wrists vs the grip sockets (model space), shoulder heights, head
       const WeaponDef& d = *app.weaponDefs[s.weapon]; const PoseResult& r = s.pose;
       vec3 gR = vec3(r.weapon * vec4(d.gripR, 1)), gL = vec3(r.weapon * vec4(d.gripL, 1)), bt = vec3(r.weapon * vec4(0, 0, 0, 1));
@@ -256,6 +288,8 @@ bool poseShots(App& app, float dt) {
       logf("[poses]   wristR %s gripR %s | wristL %s gripL %s | shR %s shL %s head %s butt %s", P(r.joint[CJ_RHAND]).c_str(), P(gR).c_str(), P(r.joint[CJ_LHAND]).c_str(), P(gL).c_str(),
            P(r.joint[CJ_RARM]).c_str(), P(r.joint[CJ_LARM]).c_str(), P(r.joint[CJ_HEAD]).c_str(), P(bt).c_str());
     }
+    if (++fk < nframes) return true;   // the next frame of the same cycle (time keeps running)
+    fk = 0;
     ++idx; t = 0; app.R.resetTemporal();
   }
   return true;

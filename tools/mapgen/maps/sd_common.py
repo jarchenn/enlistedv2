@@ -155,7 +155,7 @@ def rect_ok(plan, x, z, hw, hd, walkable=False, margin=0.6):
     return regs == {"#"}
 
 
-def place_masses(b, plan, cands, R, y, ring=2, tags=("mass",)):
+def place_masses(b, plan, cands, R, y, ring=2, tags=("mass",), out=None):
     """Decorative buildings on solid ground (behind the walls, seen above them): largest first, greedy on a 1 m step,
     never within 0.6 m of a walkable cell; out to `ring` cells past the plan's edge."""
     placed, n = [], 0
@@ -174,6 +174,8 @@ def place_masses(b, plan, cands, R, y, ring=2, tags=("mass",)):
                     continue
                 b.place(aid, x, z, yaw + R.choice((0.0, 180.0)), check=False, cls="none", y=y, tags=set(tags))
                 placed.append((x, z, hw, hd))
+                if out is not None:
+                    out.append((aid, x, z, hw, hd))
                 n += 1
                 break
     return n
@@ -233,6 +235,9 @@ def place_walls2(b, plan, inner, perimeter, y=0.0, tags=("wall",)):
         else:
             solid = a if not plan.walk(*a) else c
             aid, key = (perimeter, "perimeter") if not plan.walk(*solid) and outer(plan, solid) else (inner, "inner")
+            if isinstance(aid, (list, tuple)):   # variants, picked by the edge's position (stable between builds)
+                hx, hz = int(math.floor(x / 3.0 + 0.5)), int(math.floor(z / 3.0 + 0.5))
+                aid = aid[((hx * 73856093) ^ (hz * 19349663) ^ (hx * hz * 83492791)) % len(aid)]   # positions are multiples of 3 m: a real spatial hash
         b.place(aid, x, z, yaw, check=False, cls="none", y=y, tags=set(tags))
         n[key] += 1
     return n
@@ -295,7 +300,7 @@ def place_container_walls(b, plan, perimeter, between, R, y=0.0, boxes=("mod_con
     return n
 
 
-def site_signs(b, plan, ch, letter, y, tags=("sign",)):
+def site_signs(b, plan, ch, letter, y, tags=("sign",), asset="sd_stencil_%s", inset=0.27):
     """The site's letter board on the wall beside each of its entrances, inside and outside (sd_sign_<a|b>_wall)."""
     n = 0
     seen = []
@@ -308,11 +313,11 @@ def site_signs(b, plan, ch, letter, y, tags=("sign",)):
         other = rc if ra == ch else ra
         for reg in (ch, other):
             try:
-                sx, sz, syaw = wall_spot(plan, reg, (x, z))
+                sx, sz, syaw = wall_spot(plan, reg, (x, z), inset=inset)
             except TypeError:
                 continue
             if all(math.hypot(sx - p, sz - q) > 3.0 for p, q in seen) and math.hypot(sx - x, sz - z) < 9.0:
-                b.place("sd_sign_%s_wall" % letter, sx, sz, syaw, check=False, cls="none", y=y, tags=set(tags))
+                b.place(asset % letter, sx, sz, syaw, check=False, cls="none", y=y, tags=set(tags))   # stencil-painted letters (the pixel boards read low-res)
                 seen.append((sx, sz))
                 n += 1
     return n
@@ -331,5 +336,123 @@ def wall_lamps(b, plan, regions, aid, y, every=3, inset=0.6, tags=("lamp",)):
             except TypeError:
                 continue
             b.place(aid, x, z, yaw, check=False, cls="none", y=y, tags=set(tags))
+            n += 1
+    return n
+
+
+def asset_top(repo, aid):
+    """The highest point of an asset's box / cylinder parts (its roof line), from its JSON."""
+    import json as _json
+    a = _json.load(open(os.path.join(repo, "content", "assets", aid + ".json"), encoding="utf-8"))
+    tops = [q["c"][1] + q["s"][1] / 2 for q in a.get("parts", []) if q.get("t") in ("b", "c") and "c" in q and "s" in q and q.get("v", 1) != 0]
+    return max(tops) if tops else 0.0
+
+
+def roof_clutter(b, repo, masses, items, R, y, flat=(), tags=("roof",)):
+    """1-3 rooftop items (HVAC units, tanks, antennas) on each flat-roofed mass, at its roof line, so skylines break up."""
+    n = 0
+    for aid, x, z, hw, hd in masses:
+        if aid not in flat:
+            continue
+        top = asset_top(repo, aid)
+        for k in range(R.randint(1, 3)):
+            it = R.choice(items)
+            px, pz = x + R.uniform(-hw + 1.5, hw - 1.5), z + R.uniform(-hd + 1.5, hd - 1.5)
+            b.place(it, px, pz, R.choice((0.0, 90.0, 180.0, 270.0)), check=False, cls="none", y=y + top, tags=set(tags))
+            n += 1
+    return n
+
+
+def place_along_walls(b, plan, ch, items, R, y, keep=(), door_gap=4.5, tries=300, tags=("cover",)):
+    """items [(asset, half along the wall, half depth, count)]: set against region ch's plain walls (their long side on the
+    wall, `half depth` + 0.15 m off it), never within door_gap of a doorway or on a plant pad, not overlapping each other."""
+    walls = []
+    for x, z, yaw, kind, a, c in plan.edges():
+        if kind:
+            continue
+        ra, rc = plan.at(*a), plan.at(*c)
+        if (ra == ch) == (rc == ch):
+            continue
+        inside = a if ra == ch else c
+        ix, iz = plan._cc(*inside)
+        nx, nz = (math.copysign(1.0, ix - x), 0.0) if yaw == 90.0 else (0.0, math.copysign(1.0, iz - z))
+        walls.append((x, z, nx, nz))
+    doors = door_points(plan, ch)
+    placed, n = [], 0
+    for aid, ha, hd, cnt in items:
+        for _ in range(cnt):
+            for _t in range(tries):
+                x, z, nx, nz = R.choice(walls)
+                t = R.uniform(-plan.cell / 2 + ha, plan.cell / 2 - ha)
+                px, pz = x + nx * (hd + 0.4) + (-nz) * t, z + nz * (hd + 0.4) + nx * t
+                if any(math.hypot(px - dx, pz - dz) < door_gap + ha for dx, dz in doors):
+                    continue
+                if any(math.hypot(px - kx, pz - kz) < kr + max(ha, hd) for kx, kz, kr in keep):
+                    continue
+                if any(abs(px - qx) < ha + qa + 1.0 and abs(pz - qz) < hd + qd + 1.0 for qx, qz, qa, qd in placed):   # a 1 m walkway between pieces (tight gaps became vault links the bots fail)
+                    continue
+                yaw = math.degrees(math.atan2(-nz, nx)) % 360.0 + R.uniform(-4, 4)   # the long side (local x) along the wall
+                b.place(aid, px, pz, yaw, check=False, cls="none", y=y, tags=set(tags))
+                placed.append((px, pz, ha, hd))
+                n += 1
+                break
+    return n
+
+
+
+def free_spot(plan, ch, hw, hd, R, segs, keep, placed, lane=1.5, tries=500):
+    """A centre (x, z, yaw 0 / 90) for a hw x hd block inside region ch: 1 m off its walls, `lane` + its size clear of the
+    door-to-door lines `segs`, clear of the plant pads `keep` and of the blocks already `placed` [(x, z, r)]."""
+    cells = plan.cells(ch)
+    for _ in range(tries):
+        i, j = R.choice(cells)
+        cx, cz = plan._cc(i, j)
+        x, z = cx + R.uniform(-plan.cell / 2, plan.cell / 2), cz + R.uniform(-plan.cell / 2, plan.cell / 2)
+        yaw = R.choice((0.0, 90.0))
+        ex, ez = (hw, hd) if yaw == 0.0 else (hd, hw)
+        if not rect_ok(plan, x, z, ex, ez, walkable=True, margin=1.0):
+            continue
+        r = max(hw, hd)
+        if any(_seg_dist((x, z), s0, s1) < lane + r for s0, s1 in segs):
+            continue
+        if any(math.hypot(x - kx, z - kz) < kr + r for kx, kz, kr in keep):
+            continue
+        if any(math.hypot(x - px, z - pz) < r + pr + 1.2 for px, pz, pr in placed):
+            continue
+        return x, z, yaw
+    return None
+
+
+def door_segs(plan, ch):
+    d = door_points(plan, ch)
+    return [(d[a], d[k]) for a in range(len(d)) for k in range(a + 1, len(d))]
+
+
+def barrier_line(b, plan, ch, piece, n, length, depth, R, y, keep, placed, lane=1.5, tags=("cover",)):
+    """n pieces (each `length` along the line, `depth` deep) side by side as one straight line, at a free spot."""
+    spot = free_spot(plan, ch, n * length / 2.0, depth / 2.0, R, door_segs(plan, ch), keep, placed, lane=lane)
+    if not spot:
+        return 0
+    x, z, yaw = spot
+    ux, uz = (1.0, 0.0) if yaw == 0.0 else (0.0, 1.0)
+    for k in range(n):
+        t = (k - (n - 1) / 2.0) * length
+        b.place(piece, x + ux * t, z + uz * t, yaw + R.uniform(-3, 3), check=False, cls="none", y=y, tags=set(tags))
+    placed.append((x, z, n * length / 2.0))
+    return n
+
+
+def place_in_space(b, plan, ch, items, R, y, keep, placed, lane=1.5, tags=("cover",)):
+    """items [(asset, half w, half d, count)] at free spots inside region ch (the playable middle, not the walls)."""
+    n = 0
+    segs = door_segs(plan, ch)
+    for aid, hw, hd, cnt in items:
+        for _ in range(cnt):
+            spot = free_spot(plan, ch, hw, hd, R, segs, keep, placed, lane=lane)
+            if not spot:
+                continue
+            x, z, yaw = spot
+            b.place(aid, x, z, yaw + R.uniform(-12, 12), check=False, cls="none", y=y, tags=set(tags))
+            placed.append((x, z, max(hw, hd)))
             n += 1
     return n

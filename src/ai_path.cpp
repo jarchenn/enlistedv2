@@ -628,10 +628,20 @@ void AiCore::move(Soldier& s, float dt) {
   // striking); AI5's aimWantYaw is the soldier combat brain's and stayed 0 for them, so a zombie walking slower than 1 m/s, or
   // more than 45 deg off that stale 0, faced yaw 0 and crab-walked (most visible on the big, slow types)
   const float aimWant = s.zombie ? b.aimYaw : b.aimWantYaw;
-  float bodyWant = glm::length(vel) > 1.0f ? yawOf(vel) : aimWant;   // standing: the body itself faces what it aims at
-  if (std::fabs(angDiff(aimWant, bodyWant)) > 45.0f && m.speed != SPD_SPRINT) bodyWant = aimWant;
-  float turn = 300.0f * dt;   // realistic body turn rate (deg/s)
-  s.yaw = wrapDeg(s.yaw + std::clamp(angDiff(bodyWant, s.yaw), -turn, turn));
+  // AN1 step 3: the body faces the travel direction low-passed over ~0.3 s (avoidance and path corners no longer wag it), latches onto
+  // the aim for strafing / backpedalling with hysteresis (on past 55 deg, off under 35), and turns through a critically damped follow
+  // capped at 300 deg/s instead of a flat-rate snap
+  { float k = 1.0f - std::exp(-dt / 0.3f); b.faceVel += (vec2(vel.x, vel.z) - b.faceVel) * k; }
+  bool moving = glm::length(b.faceVel) > 1.0f;
+  float bodyWant = moving ? yawOf(vec3(b.faceVel.x, 0, b.faceVel.y)) : aimWant;   // standing: the body itself faces what it aims at
+  float off = std::fabs(angDiff(aimWant, bodyWant));
+  b.faceAim = moving && m.speed != SPD_SPRINT && (b.faceAim ? off > 35.0f : off > 55.0f);
+  if (b.faceAim) bodyWant = aimWant;
+  {   // AN1 step 7: zombie types too (was a flat 300 deg/s clamp); a bigger body turns slower
+    const float big = s.zombie ? std::max(1.0f, s.eScale) : 1.0f, w = 9.0f / std::sqrt(big); float e = angDiff(bodyWant, s.yaw);
+    b.yawVel += (w * w * e - 2 * w * b.yawVel) * dt; b.yawVel = std::clamp(b.yawVel, -300.0f / big, 300.0f / big);
+    s.yaw = wrapDeg(s.yaw + b.yawVel * dt);
+  }
   int posture = m.posture;
   if (crouchArea && posture == Physics::STAND) posture = Physics::CROUCH;
   if (posture == Physics::CROUCH && glm::length(vel) > vCrouch + 0.2f) vel = glm::normalize(vel) * vCrouch;

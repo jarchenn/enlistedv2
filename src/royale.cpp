@@ -1,5 +1,6 @@
 // BR1 Battle royale: the drop (bomber line, free fall, parachute), the storm (four shrinking circles), placement and
 // the HUD. See royale.h for the hooks; numbers in content/settings/royale.json.
+#include "smithy.h"
 #include "royale.h"
 #include "ui_glass.h"   // UI2: glass panel backgrounds
 #include "app.h"
@@ -677,6 +678,7 @@ void royaleHud(App& app, Game& G) {
   }
 }
 
+extern App* gApp;
 void royaleMinimap(ImDrawList* dl, const MinimapView& v) {
   if (!royaleActive()) return;
   RoyaleStorm::At a = S.storm.at(S.time);
@@ -684,6 +686,14 @@ void royaleMinimap(ImDrawList* dl, const MinimapView& v) {
   ring(a.now, IM_COL32(80, 130, 255, 230), 2.5f);
   if (a.stage < 4 || a.next.c != a.now.c) ring(a.next, IM_COL32(255, 255, 255, 230), 1.5f);   // BR7: also where the final circle drifts to
   if (planeFlying()) { vec3 P = planeAt(S.time); vec2 p = v.toScreen(vec2(P.x, P.z)), q = v.toScreen(vec2(P.x + S.dir.x * 40, P.z + S.dir.z * 40)); dl->AddLine(ImVec2(p.x, p.y), ImVec2(q.x, q.y), IM_COL32(255, 220, 120, 240), 3); }
+  for (uint64_t id : smithyPlaced()) if (const Instance* t = gApp->doc.find(id)) {   // SM1: smithing tables: a small anvil
+    vec2 p = v.toScreen(vec2(t->pos.x, t->pos.z)); if (!v.contains(p)) continue;
+    float a = std::clamp(v.scale * 1.6f, 4.0f, 8.0f); ImU32 c = IM_COL32(235, 190, 120, 240), k = IM_COL32(20, 16, 12, 220);
+    ImVec2 top[4] = {ImVec2(p.x - a * 1.2f, p.y - a * 0.6f), ImVec2(p.x + a * 1.3f, p.y - a * 0.6f), ImVec2(p.x + a * 0.5f, p.y), ImVec2(p.x - a * 0.6f, p.y)};
+    dl->AddRectFilled(ImVec2(p.x - a * 0.9f, p.y + a * 0.55f), ImVec2(p.x + a * 0.9f, p.y + a * 0.85f), k);   // the foot, shadowed
+    dl->AddConvexPolyFilled(top, 4, c); dl->AddRectFilled(ImVec2(p.x - a * 0.35f, p.y), ImVec2(p.x + a * 0.35f, p.y + a * 0.6f), c);
+    dl->AddRectFilled(ImVec2(p.x - a * 0.8f, p.y + a * 0.6f), ImVec2(p.x + a * 0.8f, p.y + a * 0.8f), c);
+  }
   // BR1b: district names (the big map at full size; the corner map, ~200 m across, small)
   float size = std::clamp(v.scale * 7.0f, 10.0f, 17.0f);
   for (auto& d : S.districts) {

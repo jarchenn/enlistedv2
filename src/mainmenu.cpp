@@ -9,6 +9,8 @@
 // Keys: Up / Down (W / S) pick, Enter / Space / Right open, Esc / Left / Backspace back. The mouse hovers and clicks.
 #include "mainmenu.h"
 #include "logo.h"
+#include "ui_flat.h"
+#include "ui_glass.h"
 #include "app.h"
 #include "settings.h"
 #include "mpui.h"
@@ -26,7 +28,7 @@
 void statEditorPage(App& app, int kind, ImVec2 mn, ImVec2 mx, float alpha);   // ED2 (stat_editor.cpp)
 void statEditorFlush(App& app);
 namespace {
-const ImU32 kAccent = IM_COL32(240, 118, 32, 255);   // the logo orange: the one accent
+const ImU32 kAccent = IM_COL32(166, 92, 52, 255);   // UI4: the muted copper accent (the logo orange, less saturated)
 inline ImU32 rgba(int r, int g, int b, float a) { return IM_COL32(r, g, b, (int)std::clamp(a * 255.0f, 0.0f, 255.0f)); }
 inline ImU32 alphaOf(ImU32 c, float a) { return (c & 0x00ffffffu) | ((ImU32)std::clamp((float)(c >> 24) * a, 0.0f, 255.0f) << 24); }
 inline float ease(float t) { t = std::clamp(t, 0.0f, 1.0f); return 1 - (1 - t) * (1 - t) * (1 - t); }
@@ -314,7 +316,7 @@ void mainMenuFrame(App& app) {
     dl->AddImage((ImTextureID)(intptr_t)S.bg.tex, V(0, 0), V(W, H), V(S.uvC.x - S.uvH.x, S.uvC.y - S.uvH.y), V(S.uvC.x + S.uvH.x, S.uvC.y + S.uvH.y), rgba(255, 255, 255, fadeIn));
   }
   // ---- the supplied soldier (local-only), standing centre-left, slightly more parallax than the street
-  static float soldierA = 1; soldierA += ((S.page == Character ? 0.0f : 1.0f) - soldierA) * std::min(1.0f, io.DeltaTime / 0.08f);
+  static float soldierA = 1; soldierA += ((S.page != Main ? 0.0f : 1.0f) - soldierA) * std::min(1.0f, io.DeltaTime / 0.08f);
   if (S.soldierLocal && soldierA > 0.01f) {
     const bool live = liveSoldier();   // (re)loads after menuRelease
     const float ch = H * (live ? 0.80f : 0.74f), cw = live ? ch * 0.62f : ch * (S.soldier.uv1.x - S.soldier.uv0.x) * S.soldier.w / ((S.soldier.uv1.y - S.soldier.uv0.y) * S.soldier.h);
@@ -354,8 +356,8 @@ void mainMenuFrame(App& app) {
   dl->AddRectFilledMultiColor(V(0, 0), V(W, H * 0.26f), rgba(4, 6, 7, 0.55f), rgba(4, 6, 7, 0.55f), rgba(4, 6, 7, 0), rgba(4, 6, 7, 0));    // a darker sky
   dl->AddRectFilledMultiColor(V(0, H * 0.80f), V(W, H), rgba(4, 6, 7, 0), rgba(4, 6, 7, 0), rgba(4, 6, 7, 0.70f), rgba(4, 6, 7, 0.70f));
 
-  // ---- logo
-  drawLogo(dl, V(72 * s, 56 * s), (logoImageAspect() > 0 ? 88.0f : 128.0f) * s, fadeIn);   // UI3: the artwork is a wide lock-up
+  // ---- logo (the main page only: the pages carry their own title)
+  if (S.page == Main) drawLogo(dl, V(72 * s, 56 * s), (logoImageAspect() > 0 ? 88.0f : 128.0f) * s, fadeIn);   // UI3: the artwork is a wide lock-up
 
   // ---- input
   const bool overlay = settings().open || S.showControls || gUi.showSetup || gUi.showJoin;   // their own windows take the keys
@@ -375,7 +377,7 @@ void mainMenuFrame(App& app) {
   // ---- left menu
   ImFont* fh = uiFontHead(); ImFont* fb = ImGui::GetFont();
   const float px = 25 * s, track = px * 0.16f, x0 = 76 * s, y0 = H * 0.40f, dy = 60 * s;
-  for (int k = 0; k < kN; ++k) {
+  for (int k = 0; k < kN && S.page == Main; ++k) {
     const float y = y0 + k * dy;
     const ImVec2 rmn(x0 - 20 * s, y - 12 * s), rmx(x0 + 360 * s, y + px + 12 * s);
     const bool hover = !overlay && !io.WantCaptureMouse && ImGui::IsMouseHoveringRect(rmn, rmx, false);
@@ -388,8 +390,8 @@ void mainMenuFrame(App& app) {
     if (h > 0.01f) dl->AddRectFilled(V(x0, y + px * 0.12f), V(x0 + 3 * s, y + px * 0.98f), alphaOf(kAccent, h * a));
     tracked(dl, fh, px, V(tx, y), rgba(236, 232, 224, (0.50f + 0.50f * h) * a), kItems[k].label, track);
   }
-  // ---- footer: version, key hints
-  {
+  // ---- footer: version, key hints (main page)
+  if (S.page == Main) {
     char ver[96]; snprintf(ver, sizeof ver, "BATTLE FOUNDRY   PRE-ALPHA   BUILD %s", __DATE__);
     tracked(dl, fb, 13 * s, V(x0, H - 44 * s), rgba(220, 220, 214, 0.42f * fadeIn), ver, 1.2f * s);
     const char* hint = S.focus == 0 ? "UP / DOWN  SELECT      ENTER  OPEN      ESC  BACK" : "UP / DOWN  SELECT      ENTER  CHOOSE      ESC  BACK";
@@ -397,89 +399,76 @@ void mainMenuFrame(App& app) {
     tracked(dl, fb, 13 * s, V(W - 72 * s - hw, H - 44 * s), rgba(220, 220, 214, 0.42f * fadeIn), hint, 1.2f * s);
   }
 
-  // ---- right panel (Play / Character / Credits)
+  // ---- UI4 pages (Play / Character / Guns / Vehicles / Credits): full pages in the options language (ui_flat.h) over
+  // the dark blurred backdrop: a heavy condensed title, the version, a copper rule, tabs where there are two views,
+  // flat content, then a hint, a rule and BACK. The left menu, the logo and the soldier step aside.
   int& charTab = S.charTab;   // UI3 (h): Character > YOUR SOLDIER / AI TYPES
   if (S.page != Character) charTab = 0;
   if (S.page != Guns && S.page != Vehicles && !(S.page == Character && charTab == 1)) statEditorFlush(app);   // ED2: edits apply when their screen is left
-  // the Character tabs (clickable labels on the panel's title row; Tab switches)
-  auto charTabs = [&](ImVec2 at, float pa) {
-    const char* names[2] = {"YOUR SOLDIER", "AI TYPES"}; float x = at.x;
-    if (!io.WantCaptureKeyboard && ImGui::IsKeyPressed(ImGuiKey_Tab, false)) charTab ^= 1;
-    for (int k = 0; k < 2; ++k) {
-      const float tw = trackedW(fh, 18 * s, names[k], 18 * s * 0.16f);
-      const ImVec2 a0(x - 10 * s, at.y - 8 * s), a1(x + tw + 10 * s, at.y + 28 * s);
-      const bool hov = !io.WantCaptureMouse && ImGui::IsMouseHoveringRect(a0, a1, false);
-      if (hov && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) { charTab = k; S.pageAt = ImGui::GetTime(); }
-      tracked(dl, fh, 18 * s, V(x, at.y), rgba(236, 232, 224, (charTab == k ? 1.0f : hov ? 0.75f : 0.5f) * pa), names[k], 18 * s * 0.16f);
-      if (charTab == k) dl->AddRectFilled(V(x, at.y + 26 * s), V(x + tw, at.y + 28 * s), alphaOf(kAccent, pa));
-      x += tw + 34 * s;
+  if (S.page != Main) {
+    const float pa = ease(((float)ImGui::GetTime() - (float)S.pageAt) / 0.16f) * fadeIn;
+    uiGlassFlat(dl, V(0, 0), V(W, H), 0.40f);   // UI5: the scene reads behind the page
+    dl->AddRectFilledMultiColor(V(0, 0), V(W * 0.6f, H), rgba(0, 0, 0, 0.45f), rgba(0, 0, 0, 0), rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.45f));
+    const float X0 = 84 * s, tp = 104 * s, ry = 54 * s + tp * 1.02f + 30 * s;
+    const char* title = S.page == Play ? "PLAY" : S.page == Character ? "CHARACTER" : S.page == Guns ? "GUNS" : S.page == Vehicles ? "VEHICLES" : "CREDITS";
+    flat::text(dl, flat::titleFont(), tp, V(X0, 54 * s), flat::ink(pa), title, 0.01f);
+    { char ver[96]; snprintf(ver, sizeof ver, "BATTLE FOUNDRY  PRE-ALPHA  BUILD %s", __DATE__); flat::text(dl, fb, 13 * s, V(X0 + 4 * s, 54 * s + tp * 1.02f), flat::grey(0.8f * pa), ver, 0.12f); }
+    flat::rule(dl, X0, W - X0, ry);
+    float bodyTop = ry + 34 * s;
+    if (S.page == Character) {   // YOUR SOLDIER // AI TYPES (Tab switches)
+      if (!io.WantCaptureKeyboard && ImGui::IsKeyPressed(ImGuiKey_Tab, false)) charTab ^= 1;
+      ImGui::SetNextWindowPos(V(X0, ry + 14 * s)); ImGui::SetNextWindowSize(V(W - 2 * X0, 56 * s));
+      if (ImGui::Begin("##page_tabs", nullptr, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoNav)) {
+        static const char* tn[] = {"Your soldier", "AI types"}; if (flat::tabs(tn, 2, charTab)) S.pageAt = ImGui::GetTime();
+      }
+      ImGui::End();
+      bodyTop = ry + 84 * s;
     }
-  };
-  if (S.page == Guns || S.page == Vehicles || (S.page == Character && charTab == 1)) {   // ED2: the stat editors take a wider panel (UI3: the AI types too)
-    const float pa = ease(((float)ImGui::GetTime() - (float)S.pageAt) / 0.16f) * fadeIn, off = (1 - pa) * 26 * s;
-    const ImVec2 mn(W * 0.27f + off, 120 * s), mx(W - 48 * s + off, H - 90 * s);
-    menuGlass(dl, mn, mx, pa);
-    const char* ttl = S.page == Guns ? "GUNS" : S.page == Vehicles ? "VEHICLES" : "CHARACTER";
-    tracked(dl, fh, 30 * s, V(mn.x + 32 * s, mn.y + 26 * s), rgba(236, 232, 224, pa), ttl, 30 * s * 0.16f);
-    dl->AddRectFilled(V(mn.x + 32 * s, mn.y + 72 * s), V(mn.x + 76 * s, mn.y + 74 * s), alphaOf(kAccent, pa));
-    if (S.page == Character) charTabs(V(mn.x + 32 * s + trackedW(fh, 30 * s, ttl, 30 * s * 0.16f) + 48 * s, mn.y + 34 * s), pa);
-    statEditorPage(app, S.page == Guns ? 0 : S.page == Vehicles ? 1 : 2, V(mn.x + 32 * s, mn.y + 90 * s), V(mx.x - 28 * s, mx.y - 24 * s), pa);
-  } else if (S.page != Main) {
-    const float pa = ease(((float)ImGui::GetTime() - (float)S.pageAt) / 0.16f) * fadeIn, off = (1 - pa) * 26 * s;
-    const ImVec2 mn(W * 0.555f + off, 150 * s), mx(W - 72 * s + off, S.page == Play ? 150 * s + 108 * s + 3 * 130 * s + 64 * s : H - 112 * s);   // Play: as tall as its cards
-    menuGlass(dl, mn, mx, pa);
-    const char* title = S.page == Play ? "PLAY" : S.page == Character ? "CHARACTER" : "CREDITS";
-    tracked(dl, fh, 30 * s, V(mn.x + 40 * s, mn.y + 34 * s), rgba(236, 232, 224, pa), title, 30 * s * 0.16f);
-    dl->AddRectFilled(V(mn.x + 40 * s, mn.y + 82 * s), V(mn.x + 84 * s, mn.y + 84 * s), alphaOf(kAccent, pa));
-    if (S.page == Character) charTabs(V(mn.x + 40 * s + trackedW(fh, 30 * s, title, 30 * s * 0.16f) + 48 * s, mn.y + 42 * s), pa);
-    const ImVec2 cmn(mn.x + 40 * s, mn.y + 108 * s), cmx(mx.x - 40 * s, mx.y - 36 * s);
-    if (S.page == Play) {
-      struct Card { const char* t; const char* d; };
-      const Card cards[] = {{"SINGLEPLAYER", "Pick a ready map or your own, set the mode, teams and AI, and deploy."},
-                            {"HOST LAN", "Run a match that players on your network can join."},
-                            {"JOIN LAN", "Find a match hosted on your network."}};
-      const float chh = 112 * s, gap = 18 * s;
+    const ImVec2 cmn(X0, bodyTop), cmx(W - X0, H - 150 * s);
+    if (S.page == Guns || S.page == Vehicles || (S.page == Character && charTab == 1)) {
+      statEditorPage(app, S.page == Guns ? 0 : S.page == Vehicles ? 1 : 2, cmn, cmx, pa);
+    } else if (S.page == Play) {   // three flat entries, a hairline under each; no boxes
+      struct Entry { const char* t; const char* d; };
+      const Entry es[] = {{"Singleplayer", "Pick a ready map or your own, set the mode, teams and AI, and deploy."},
+                          {"Host LAN", "Run a match that players on your network can join."},
+                          {"Join LAN", "Find a match hosted on your network."}};
+      const float eh = 104 * s, ew = std::min(W * 0.5f, 900 * s);
       if (S.focus == 1 && !overlay && !io.WantCaptureKeyboard) { if (up) S.sel2 = (S.sel2 + 2) % 3; if (down) S.sel2 = (S.sel2 + 1) % 3; }
       bool go = S.focus == 1 && enter && !overlay && !io.WantCaptureKeyboard;
       for (int k = 0; k < 3; ++k) {
-        const ImVec2 a0(cmn.x, cmn.y + k * (chh + gap)), a1(cmx.x, cmn.y + k * (chh + gap) + chh);
+        const ImVec2 a0(cmn.x, cmn.y + k * eh), a1(cmn.x + ew, cmn.y + (k + 1) * eh);
         const bool hover = !overlay && !io.WantCaptureMouse && ImGui::IsMouseHoveringRect(a0, a1, false);
         if (hover && (io.MouseDelta.x != 0 || io.MouseDelta.y != 0)) { S.focus = 1; S.sel2 = k; }
         if (hover && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) { S.focus = 1; S.sel2 = k; go = true; }
         const bool on = S.focus == 1 && S.sel2 == k;
-        dl->AddRectFilled(a0, a1, rgba(255, 255, 255, (on ? 0.075f : 0.035f) * pa), 12 * s);
-        dl->AddRect(a0, a1, on ? alphaOf(kAccent, 0.75f * pa) : rgba(255, 255, 255, 0.10f * pa), 12 * s, 0, std::max(1.0f, s));
-        if (on) dl->AddRectFilled(V(a0.x, a0.y + 26 * s), V(a0.x + 3 * s, a1.y - 26 * s), alphaOf(kAccent, pa));
-        tracked(dl, fh, 22 * s, V(a0.x + 28 * s, a0.y + 26 * s), rgba(236, 232, 224, (on ? 1.0f : 0.78f) * pa), cards[k].t, 22 * s * 0.14f);
-        dl->AddText(fb, 16 * s, V(a0.x + 28 * s, a0.y + 64 * s), rgba(205, 205, 198, 0.70f * pa), cards[k].d);
+        std::string t = es[k].t; for (auto& c : t) c = (char)std::toupper((unsigned char)c);
+        flat::text(dl, fh, 34 * s, V(a0.x, a0.y + 18 * s), on ? flat::gold(pa) : flat::ink(0.9f * pa), t.c_str(), 0.06f);
+        dl->AddText(fb, 16 * s, V(a0.x, a0.y + 62 * s), flat::grey(0.95f * pa), es[k].d);
+        dl->AddRectFilled(V(a0.x, a1.y - 1), V(a1.x, a1.y), on ? flat::gold(0.8f * pa) : rgba(255, 255, 255, 0.12f * pa));
       }
       if (go) {
         if (S.sel2 == 0) { gUi.showSetup = true; gUi.setupMode = 0; }
         else if (S.sel2 == 1) { gUi.showSetup = true; gUi.setupMode = 1; }
         else gUi.showJoin = true;
       }
-      dl->AddText(fb, 15 * s, V(cmn.x, cmn.y + 3 * 130 * s + 2 * s), rgba(205, 205, 198, 0.55f * pa), "Maps you build in Create Map are listed in the match setup.");
     } else if (S.page == Character) {
-      const float split = cmn.x + (cmx.x - cmn.x) * 0.48f;
-      // one undecorated window over the panel: the turning preview on the left, the choices (scrolling) on the right
+      const float split = cmn.x + (cmx.x - cmn.x) * 0.42f;
+      // one undecorated window: the turning preview on the left, the choices (scrolling) on the right
       ImGui::SetNextWindowPos(cmn); ImGui::SetNextWindowSize(V(cmx.x - cmn.x, cmx.y - cmn.y));
-      ImGui::SetNextWindowBgAlpha(0);
-      ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(1, 1, 1, 0.07f)); ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(1, 1, 1, 0.10f)); ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.94f, 0.46f, 0.13f, 0.35f));
+      ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(1, 1, 1, 0.06f)); ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(1, 1, 1, 0.09f)); ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.81f, 0.67f, 0.46f, 0.30f));
       ImGui::PushStyleVar(ImGuiStyleVar_Alpha, pa);
       if (ImGui::Begin("##menu_character", nullptr, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNav)) {
         drawPreview(app, dl, cmn, V(split - 16 * s, cmx.y), pa);
         ImGui::SetCursorScreenPos(V(split + 8 * s, cmn.y));
-        ImGui::BeginChild("##lists", V(cmx.x - split - 8 * s, cmx.y - cmn.y), 0, ImGuiWindowFlags_NoBackground);
-        ImGui::SetWindowFontScale(1.2f);
+        ImGui::BeginChild("##lists", V(std::min(cmx.x - split - 8 * s, 760 * s), cmx.y - cmn.y), 0, ImGuiWindowFlags_NoBackground);
         auto B = bodies(); auto Wp = primaries(app);
         const int n = (int)B.size() + (int)Wp.size();
         if (S.focus == 1 && !overlay) { if (up) S.sel2 = (S.sel2 + n - 1) % n; if (down) S.sel2 = (S.sel2 + 1) % n; }
-        auto heading = [&](const char* h) { ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.94f, 0.46f, 0.13f, 1)); ImGui::TextUnformatted(h); ImGui::PopStyleColor(); };
         int row = 0; bool changed = false;
         auto entry = [&](const std::string& label, bool chosen, auto&& pick) {
           const bool cur = S.focus == 1 && S.sel2 == row;
-          std::string l = label + "##e" + std::to_string(row);
-          if (chosen) ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.94f, 0.46f, 0.13f, 1));   // the choice in the accent
+          std::string l = label + "##e" + std::to_string(row); for (size_t c = 0; c < label.size(); ++c) l[c] = (char)std::toupper((unsigned char)l[c]);
+          if (chosen) ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.81f, 0.67f, 0.46f, 1));   // the choice in the gold-tan of the active state
           const bool hit = ImGui::Selectable(l.c_str(), cur);
           if (chosen) ImGui::PopStyleColor();
           if (hit) { S.focus = 1; S.sel2 = row; pick(); changed = true; }
@@ -487,35 +476,43 @@ void mainMenuFrame(App& app) {
           if (cur && (up || down)) ImGui::SetScrollHereY(0.5f);
           ++row;
         };
-        heading("BODY");
+        flat::section("Body");
         for (auto& b : B) entry(b.second, settings().s.character == b.first, [&] { settings().s.character = b.first; });
-        ImGui::Spacing(); heading("PRIMARY WEAPON");
+        flat::section("Primary weapon");
         for (int k : Wp) { const WeaponDef& d = *app.weaponDefs[k]; entry(d.name, app.weaponIndex(settings().s.primary) < 0 ? d.id == "m1_garand" : settings().s.primary == d.id, [&] { settings().s.primary = d.id; }); }
-        ImGui::Spacing();
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.8f, 0.77f, 0.65f));
-        ImGui::TextWrapped("Your body in every match and your first weapon in Explore and at spawn. Grenades, knife and the rest of the kit are unchanged. Drag the soldier to turn him.");
-        ImGui::PopStyleColor();
         if (changed) { settings().save(); app.resetLoadout(); }
         ImGui::EndChild();
       }
       ImGui::End();
       ImGui::PopStyleVar(); ImGui::PopStyleColor(3);
     } else {   // Credits
-      ImGui::SetNextWindowPos(cmn); ImGui::SetNextWindowSize(V(cmx.x - cmn.x, cmx.y - cmn.y)); ImGui::SetNextWindowBgAlpha(0);
+      ImGui::SetNextWindowPos(cmn); ImGui::SetNextWindowSize(V(std::min(W * 0.5f, 900 * s), cmx.y - cmn.y));
       ImGui::PushStyleVar(ImGuiStyleVar_Alpha, pa);
       if (ImGui::Begin("##menu_credits", nullptr, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus)) {
-        auto head = [](const char* h) { ImGui::Spacing(); ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.94f, 0.46f, 0.13f, 1)); ImGui::TextUnformatted(h); ImGui::PopStyleColor(); };
-        auto line = [](const char* a, const char* b) { ImGui::TextUnformatted(a); ImGui::SameLine(ImGui::GetContentRegionAvail().x * 0.48f); ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.8f, 0.77f, 0.7f)); ImGui::TextUnformatted(b); ImGui::PopStyleColor(); };
+        auto line = [](const char* a, const char* b) { std::string u = a; for (auto& c : u) c = (char)std::toupper((unsigned char)c); ImGui::TextUnformatted(u.c_str()); ImGui::SameLine(ImGui::GetContentRegionAvail().x * 0.55f); ImGui::TextDisabled("%s", b); };
         { const ImVec2 p = ImGui::GetCursorScreenPos(); const float lh = 64 * S.s; ImGui::Dummy(V(drawLogo(ImGui::GetWindowDrawList(), p, lh, 1.0f, logoImageAspect() > 0), lh)); }   // UI3: the logo
-        ImGui::TextWrapped("A battlefield builder and combined-arms shooter.");
-        head("ENGINE LIBRARIES");
+        ImGui::TextDisabled("A battlefield builder and combined-arms shooter.");
+        flat::section("Engine libraries");
         line("Dear ImGui", "MIT"); line("GLFW", "zlib"); line("GLM", "MIT"); line("Jolt Physics", "MIT"); line("nlohmann/json", "MIT"); line("stb", "MIT / public domain"); line("miniaudio", "MIT-0 / public domain");
-        head("TYPE"); line("Barlow, Barlow Condensed (The Barlow Project Authors)", "SIL OFL 1.1"); line("Black Ops One (The Black Ops One Project Authors)", "SIL OFL 1.1");
-        ImGui::TextWrapped("The font files and their licences are in content/fonts.");
-        head("MODELS, TEXTURES AND SOUNDS");
+        flat::section("Type"); line("Barlow, Barlow Condensed", "SIL OFL 1.1"); line("Black Ops One (the logo)", "SIL OFL 1.1");
+        ImGui::TextDisabled("The font files and their licences are in content/fonts.");
+        flat::section("Models, textures and sounds");
         ImGui::TextWrapped("Third-party models, textures and sounds are listed with their authors and licences in docs/credits.md.");
       }
       ImGui::End(); ImGui::PopStyleVar();
+    }
+    {   // footer: a hint, a rule, BACK
+      const char* hint = S.page == Play ? "Choose how to play" : S.page == Character ? (charTab ? "Change the AI types" : "Change your soldier and loadout") : S.page == Credits ? "The people and the software behind the game" : "Change their stats";
+      std::string h = hint; for (auto& c : h) c = (char)std::toupper((unsigned char)c);
+      flat::text(dl, fh, 15 * s, V(X0, H - 132 * s), flat::grey(pa), h.c_str(), 0.1f);
+      flat::rule(dl, X0, W - X0, H - 104 * s);
+      const float bw = flat::textW(fh, 21 * s, "BACK", 0.08f); const ImVec2 b0(X0, H - 92 * s), b1(X0 + bw, H - 92 * s + 32 * s);
+      const bool bh = !overlay && !io.WantCaptureMouse && ImGui::IsMouseHoveringRect(b0, b1, false);
+      flat::text(dl, fh, 21 * s, b0, bh ? flat::gold(pa) : flat::ink(pa), "BACK", 0.08f);
+      if (bh) dl->AddRectFilled(V(b0.x, b1.y - 2), V(b1.x, b1.y - 1), flat::gold(pa));
+      if (bh && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) { S.page = Main; S.focus = 0; }
+      const char* kh = "ESC  BACK      UP / DOWN  SELECT      ENTER  CHOOSE"; const float kw = flat::textW(fb, 13 * s, kh, 0.12f);
+      flat::text(dl, fb, 13 * s, V(W - X0 - kw, H - 84 * s), flat::grey(0.8f * pa), kh, 0.12f);
     }
   }
   if (S.showControls) controlsWindow(app, &S.showControls);

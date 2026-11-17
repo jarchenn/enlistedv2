@@ -843,7 +843,17 @@ The hip view is framed by the firing hand: the weapon's `rightGrip` socket sits 
   - AK-12 and .50 sniper: the rule brings their scopes too close.
   - Semi-auto sniper, Uzi and Scorpion: their grip sockets don't match the visible hand.
   - Thompson: its hip view reads better as before.
+  - VSK-94 (MG12 batch 3): its grip socket sits high on the grip, so the rule drops the gun out of view. The Saiga-12 follows the rule (its firing hand was behind the eye).
   - Carried M2HB and Panzerschreck: they use their own holds.
+
+**Batch 3.** Both are Cransh GLBs. Their arms' skin is broken, as with the Makarov, so they are static guns on the game's arms (bolt and mag roles), baked posed at their idle. The VSK's idle holds it reversed and upside down, so it is turned 180 degrees about x when converted (`rotX`).
+
+| Weapon (`id`) | Stats |
+|---|---|
+| Saiga-12 with suppressor (`modern_saiga`) | 12 gauge, 8-round box, 8 pellets in 3.2°, semi, 400 m/s; DMG1 shotgun 27 / 6 per pellet; suppressed (`handling.json`); sights along its rail |
+| VSK-94 (`modern_vsk`) | 9x39 mm, 20 rounds, semi / auto 800 rpm, 270 m/s, 16 g; DMG1 semi 48 / 36; integrally suppressed |
+
+Both are in the Axis operators' primary pool (weight 1), with crate magazines `12ga_mag8` and `9x39_mag20`. Sounds are borrowed, both muffled: the 870's shot for the Saiga, the suppressed .22's for the VSK (heavier); the AK reload, pitched apart.
 
 ### SW1: blasters, blaster troopers and robot commandos
 

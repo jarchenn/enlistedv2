@@ -73,6 +73,7 @@ def main():
         model = {"src": aid + ".glb", "lod1Src": aid + "_lod1.glb", "dir": aid, "pivot": "ground", "scale": 1,
                  "maxTex": 1024, "lod1Tex": 512 if kind in ("tree", "sapling") else 256,
                  "jpgMaps": True, "lodDist": lod, "cullDist": cull, "foliage": True, "wind": wind,
+                 **({"maxTexBy": {aid + "_needles": 3072 if pid in ("fir_tree_01", "pine_tree_01") else 2048}} if kind in ("tree", "sapling") else {}),   # FOL1: the needle atlas at its baked size (512 px tiles; BC3 at load)
                  "credit": "%s by %s, Poly Haven (polyhaven.com/a/%s), CC0" % (title, authors, pid)}
         a = {"id": aid, "version": 1, "name": "%s%s (Poly Haven)" % (name, " " + var.upper() if var else ""), "category": cat,
              "description": "%s from Poly Haven's %s (CC0), baked for the game: %s." % (title, pid,

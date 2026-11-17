@@ -1,4 +1,5 @@
 // Glue between the shared core and the multiplayer + AI systems (see mpai.h).
+#include "smithy.h"
 #include "sd_game.h"
 #include "mpai.h"
 #include "royale.h"
@@ -88,12 +89,13 @@ void mpaiEnterExplore(App& app) {
     gUi.worldIssues = {err};
     app.exitExplore();
     gUi.showSetup = true;
-  } else royaleBegin(app, *gGame);   // BR1: the bomber, the storm (no-op in other modes)
+  } else { smithyBegin(app, *gGame); royaleBegin(app, *gGame); }   // SM1: smithing tables (every peer); BR1: the bomber, the storm (no-op in other modes)
 }
 
 void mpaiExitExplore(App& app) {
   goreReset(app);
   royaleEnd(app);   // BR7: adopted cars released
+  smithyEnd(app);   // SM1: the placed smithing tables go
   if (gGame && gGame->active) {
     if (gNet && gNet->role == Net::HOST && gNet->matchRunning) gNet->returnToLobby(app);
     gGame->end();

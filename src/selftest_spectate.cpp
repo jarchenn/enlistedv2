@@ -13,7 +13,8 @@
 
 namespace {
 MpTest* T = nullptr;
-int mode = -1, cur = -1, stage = 0, idx = 0; float st = 0; std::vector<int> mates; int drawnOk = 0, closeOk = 0;
+int mode = -1, cur = -1, stage = 0, idx = 0; float st = 0; std::vector<int> mates; int drawnOk = 0, closeOk = 0; int badFrames = 0, frames = 0; bool sawHalf = false;
+bool finiteM(const mat4& m) { for (int c = 0; c < 4; ++c) for (int r = 0; r < 4; ++r) if (!std::isfinite(m[c][r])) return false; return true; }
 struct Case { const char* name; GameMode m; const char* map; };
 const Case kCases[] = {{"Team Deathmatch", GameMode::TDM, "examples/village_assault_3.nmap.json"}, {"Search and Destroy", GameMode::SearchDestroy, "templates/chateau_town.nmap.json"}};
 bool start(App& a, const Case& c) {
@@ -88,7 +89,19 @@ bool spectateSelfTest(App& app, float dt) {
     int s = g.spectate; bool ok = s >= 0 && s < (int)g.sold.size() && g.sold[s].alive && g.sold[s].team == L->team;
     bool any = false; for (auto& o : g.sold) any |= o.alive && !o.localPlayer && o.team == L->team;
     T->check(ok || !any, std::string(nm) + ": the watched teammate died, the camera moved to a living teammate (slot " + std::to_string(s) + ")");
-    next();
+    // the last teammate dies (SD: this round end is halftime: the sides swap while the player is dead)
+    if (SdMatch* m = sdMatch()) { m->cfg.halfRounds = m->round; m->cfg.roundEnd = 1.5f; m->cfg.halftime = 2.0f; m->cfg.freeze = 2.0f; }
+    for (auto& o : g.sold) if (o.alive && !o.localPlayer && o.team == L->team) g.killSoldier(o.slot, -1, vec3(0, 0, 1));
+    stage = 5; st = 0; badFrames = frames = 0; sawHalf = false; return true;
+  }
+  if (stage == 5) {   // every frame until well into the next round: a finite camera
+    ++frames; if (!finiteM(app.viewM) || !std::isfinite(g.specEye.x) || !std::isfinite(g.specEye.y) || !std::isfinite(g.specEye.z)) ++badFrames;
+    SdMatch* m = sdMatch(); if (m && m->phase == SdPhase::Halftime) sawHalf = true;
+    const bool done = m ? (m->round >= 2 && m->phase == SdPhase::LiveUnplanted && m->t - m->liveStart > 1.0) : st > 2.0f;
+    if (done || st > 60) {
+      T->check(badFrames == 0 && (!m || sawHalf) && done, std::string(nm) + ": the last teammate died" + (m ? ", halftime swapped the sides" : "") + " while the player was dead: " + std::to_string(badFrames) + " of " + std::to_string(frames) + " frames with a non-finite camera");
+      next();
+    }
   }
   return true;
 }

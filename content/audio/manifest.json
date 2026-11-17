@@ -8658,6 +8658,384 @@
      "peak": 1.0
     }
    ]
+  },
+  "shot_modern_saiga": {
+   "kind": "shot",
+   "gain": 0.95,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses shot_kar98k",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 684,
+     "name": "mauser98k_body_1",
+     "dur": 4.941,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 591,
+     "name": "mauser98k_body_2",
+     "dur": 5.094,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 366,
+     "name": "mauser98k_body_3",
+     "dur": 5.201,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 273,
+     "name": "mauser98k_body_4",
+     "dur": 4.822,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 126,
+     "name": "mauser98k_body_5",
+     "dur": 4.706,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_modern_saiga_far": {
+   "kind": "far",
+   "gain": 0.9,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses shot_kar98k_far",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 134,
+     "name": "mauser98k_e_far_body_1",
+     "dur": 1.92,
+     "peak": 0.716
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 551,
+     "name": "mauser98k_e_far_body_2",
+     "dur": 1.901,
+     "peak": 0.716
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 246,
+     "name": "mauser98k_e_far_body_3",
+     "dur": 1.882,
+     "peak": 0.716
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 150,
+     "name": "mauser98k_e_far_body_4",
+     "dur": 1.864,
+     "peak": 0.716
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 609,
+     "name": "mauser98k_e_far_body_5",
+     "dur": 1.921,
+     "peak": 0.717
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 236,
+     "name": "mauser98k_e_far_body_6",
+     "dur": 1.981,
+     "peak": 0.717
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 612,
+     "name": "mauser98k_e_far_body_7",
+     "dur": 2.042,
+     "peak": 0.717
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 746,
+     "name": "mauser98k_e_far_body_8",
+     "dur": 1.96,
+     "peak": 0.32
+    }
+   ]
+  },
+  "reload_modern_saiga": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses reload_kar98k",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 328,
+     "name": "change_ammo_mauser98k_1",
+     "dur": 0.65,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 199,
+     "name": "change_ammo_mauser98k_2",
+     "dur": 0.794,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 136,
+     "name": "change_ammo_mauser98k_3",
+     "dur": 1.365,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 351,
+     "name": "change_ammo_mauser98k_6",
+     "dur": 0.7,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_modern_vsk": {
+   "kind": "shot",
+   "gain": 0.9,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses shot_stg44",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1109,
+     "name": "stg_44_body_1",
+     "dur": 1.962,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 317,
+     "name": "stg_44_body_2",
+     "dur": 2.023,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 976,
+     "name": "stg_44_body_3",
+     "dur": 1.915,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 861,
+     "name": "stg_44_body_4",
+     "dur": 2.087,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1421,
+     "name": "stg_44_body_5",
+     "dur": 1.85,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_modern_vsk_far": {
+   "kind": "far",
+   "gain": 0.9,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses shot_stg44_far",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 4,
+     "name": "shot_mgun_far_01",
+     "dur": 0.5,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 666,
+     "name": "shot_mgun_far_02",
+     "dur": 0.495,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 257,
+     "name": "shot_mgun_far_03",
+     "dur": 0.49,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 371,
+     "name": "shot_mgun_far_04",
+     "dur": 0.48,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 854,
+     "name": "shot_mgun_far_05",
+     "dur": 0.48,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 883,
+     "name": "shot_mgun_far_06",
+     "dur": 0.476,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 874,
+     "name": "shot_mgun_far_07",
+     "dur": 0.471,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1696,
+     "name": "shot_mgun_far_08",
+     "dur": 0.505,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1111,
+     "name": "shot_mgun_far_09",
+     "dur": 0.51,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 470,
+     "name": "shot_mgun_far_10",
+     "dur": 0.515,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1281,
+     "name": "shot_mgun_far_11",
+     "dur": 0.531,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1507,
+     "name": "shot_mgun_far_12",
+     "dur": 0.526,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 432,
+     "name": "shot_mgun_far_13",
+     "dur": 0.536,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 147,
+     "name": "shot_mgun_far_14",
+     "dur": 0.542,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 356,
+     "name": "shot_mgun_far_15",
+     "dur": 0.547,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 5,
+     "name": "shot_mgun_far_16",
+     "dur": 0.553,
+     "peak": 1.0
+    }
+   ]
+  },
+  "tail_modern_vsk": {
+   "kind": "tail",
+   "gain": 0.8,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses tail_stg44",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 68,
+     "name": "stg_44_tail_1",
+     "dur": 4.638,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 13,
+     "name": "stg_44_tail_2",
+     "dur": 5.54,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1173,
+     "name": "stg_44_tail_3",
+     "dur": 4.62,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1647,
+     "name": "stg_44_tail_4",
+     "dur": 4.345,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 8,
+     "name": "stg_44_tail_5",
+     "dur": 4.433,
+     "peak": 1.0
+    }
+   ]
+  },
+  "reload_modern_vsk": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses reload_stg44",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 281,
+     "name": "change_ammo_stg_44_1",
+     "dur": 0.62,
+     "peak": 0.905
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 41,
+     "name": "change_ammo_stg_44_2",
+     "dur": 1.137,
+     "peak": 0.996
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 179,
+     "name": "change_ammo_stg_44_3",
+     "dur": 0.975,
+     "peak": 1.0
+    }
+   ]
   }
  }
 }

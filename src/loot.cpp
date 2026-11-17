@@ -113,7 +113,7 @@ int ammoTypeOf(const WeaponDef& d) {
   if (contains(c, "7.62") || contains(c, "7.92x57") || contains(c, ".30-06")) return AM_762;
   return AM_NONE;
 }
-bool lootIsPistol(const WeaponDef& d) { int t = ammoTypeOf(d); return d.action == "semi" && (t == AM_9MM || t == AM_45) && d.cap <= 16; }   // MG12: any feed (the revolver loads round by round)
+bool lootIsPistol(const WeaponDef& d) { int t = ammoTypeOf(d); return d.action == "semi" && (t == AM_9MM || t == AM_45) && d.cap <= 20; }   // AT1: the Glock 34's 17 rounds (it took rifle optics)   // MG12: any feed (the revolver loads round by round)
 static bool isShotgun(const WeaponDef& d) { return ammoTypeOf(d) == AM_12GA; }
 static bool isSmg(const WeaponDef& d) { int t = ammoTypeOf(d); return d.action == "auto" && (t == AM_9MM || t == AM_45); }
 int lootMagSize(const WeaponDef& d, const WeaponState& s) {
@@ -124,7 +124,7 @@ int lootSight(const WeaponDef& d, const WeaponState& s) { return lootBuiltInAcog
 bool lootSightFits(const WeaponDef& d, int sight) {
   bool pistol = lootIsPistol(d), sniper = d.wclass == WC_SNIPER, shotgun = isShotgun(d);
   switch (sight) {
-    case 1: return !pistol && !sniper;               // red dot: SMG, rifle, shotgun
+    case 1: case 5: return !pistol && !sniper;       // red dot, holographic (AT1): SMG, rifle, shotgun, LMG
     case 2: return !pistol;                          // ACOG: all but pistols
     case 3: return !pistol && !shotgun;              // 4x
     case 4: return sniper;                           // 10x: snipers only
@@ -140,6 +140,50 @@ bool lootAttachFits(const WeaponDef& d, const ItemDef& it) {
     case ItemKind::Stock: return (d.wclass == WC_RIFLE || d.wclass == WC_SNIPER) && !lootIsPistol(d);   // recoil pad: rifles and snipers (pistols count as rifles by class)
     default: return false;
   }
+}
+
+static const char* kAttIds[4][6] = {
+  {"", "br_sight_reddot", "br_sight_acog", "br_sight_4x", "br_sight_10x", "br_sight_holo"},
+  {"", "br_suppressor", "br_muzzle_brake", "", "", ""},
+  {"", "br_mag_ext", "", "", "", ""},
+  {"", "br_recoil_pad", "", "", "", ""}};
+const char* lootAttachItemId(int slot, int value) { return slot >= 0 && slot < 4 && value >= 0 && value < 6 ? kAttIds[slot][value] : ""; }
+const char* lootSlotName(int slot) { static const char* n[4] = {"Sight", "Muzzle", "Magazine", "Stock"}; return slot >= 0 && slot < 4 ? n[slot] : "?"; }
+int lootSlotOf(ItemKind k) { return k == ItemKind::Sight ? ATT_SIGHT : k == ItemKind::Muzzle ? ATT_MUZZLE : k == ItemKind::Mag ? ATT_MAG : ATT_STOCK; }
+bool lootGunTakesParts(const WeaponDef& d) {
+  for (int sl = 0; sl < 4; ++sl) for (int v = 1; v < 6; ++v) { const char* id = kAttIds[sl][v]; if (*id) if (const ItemDef* it = lootItem(id)) if (lootAttachFits(d, *it)) return true; }
+  return false;
+}
+bool lootFit(App& app, Kit& k, int weapon, const std::string& itemId, std::string* why) {
+  auto no = [&](const char* m) { if (why) *why = m; return false; };
+  if (weapon < 0 || weapon >= (int)app.weaponDefs.size()) return no("no such weapon");
+  const WeaponDef& d = *app.weaponDefs[weapon];
+  const ItemDef* it = lootItem(itemId);
+  if (!it || it->kind < ItemKind::Sight || it->kind > ItemKind::Stock) return no("not an attachment");
+  auto have = k.items.find(itemId); if (have == k.items.end() || have->second <= 0) return no("not carried");
+  if (!lootAttachFits(d, *it)) return no("does not fit this weapon");
+  WeaponState& s = app.wstate[d.id]; int sl = lootSlotOf(it->kind);
+  if (s.att[sl] == it->value) return no("already fitted");
+  if (s.att[sl]) { const char* old = kAttIds[sl][std::clamp(s.att[sl], 0, 5)]; if (*old) k.items[old]++; }   // the swapped part into the bag
+  s.att[sl] = it->value; if (--k.items[itemId] <= 0) k.items.erase(itemId);
+  return true;
+}
+bool lootTakeOff(App& app, Kit& k, int weapon, int slot, std::string* why) {
+  auto no = [&](const char* m) { if (why) *why = m; return false; };
+  if (weapon < 0 || weapon >= (int)app.weaponDefs.size() || slot < 0 || slot > 3) return no("no such slot");
+  const WeaponDef& d = *app.weaponDefs[weapon]; WeaponState& s = app.wstate[d.id];
+  if (!s.att[slot]) return no("nothing fitted");
+  const char* id = kAttIds[slot][std::clamp(s.att[slot], 0, 5)];
+  if (*id) k.items[id]++;
+  s.att[slot] = 0;
+  return true;
+}
+GunStats lootGunStats(const App& app, const WeaponDef& d, const WeaponState& s) {
+  GunStats g;
+  g.adsTime = d.adsSpeed > 0 ? app.move.adsTime / d.adsSpeed * (s.att[ATT_STOCK] ? kPadAdsTime : 1.0f) : 0;
+  g.recoil = s.att[ATT_MUZZLE] == 2 ? kBrakeRecoil : 1.0f; g.spread = s.att[ATT_MUZZLE] == 2 ? kBrakeSpread : 1.0f;
+  g.mag = lootMagSize(d, s); g.sight = lootSight(d, s); g.quiet = s.att[ATT_MUZZLE] == 1;
+  return g;
 }
 
 // ---------------------------------------------------------------- pure rules
@@ -1093,8 +1137,7 @@ void lootUi(App& app) {
     const char* t = k.healKind == 1 ? "Bandage" : "Medkit"; ImVec2 ts = ImGui::CalcTextSize(t);
     dl->AddText(ImVec2(c.x - ts.x * 0.5f, c.y + 118), IM_COL32(230, 240, 230, 255), t);
   }
-  // red dot: a dot over the iron sight picture in ADS
-  if (app.activeWeapon >= 0 && app.adsT > 0.85f && app.wstate[app.weaponDefs[app.activeWeapon]->id].att[ATT_SIGHT] == 1) dl->AddCircleFilled(c, 2.5f, IM_COL32(255, 40, 30, 255));
+  // WP9: no HUD dot for the red dot sight: the sight's own window mark (br_models.cpp) is the one dot (the two parted whenever the gun swayed)
   // armour / weight strip, bottom centre
   char b[160]; std::snprintf(b, sizeof b, "Helmet %d  Vest %d  Bag %d   %d / %d", k.helmet, k.vest, k.backpack, (int)kitWeight(&app, k, &app.carried), (int)kitCapacity(k));
   ImVec2 bs = ImGui::CalcTextSize(b); dl->AddText(ImVec2(c.x - bs.x * 0.5f, io.DisplaySize.y - 34), IM_COL32(230, 225, 205, 220), b);

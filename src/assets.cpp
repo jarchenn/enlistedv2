@@ -1,4 +1,8 @@
+#include "user_cache.h"
+#include <chrono>
 #include "assets.h"
+#include "crumb.h"
+#include "loading.h"
 #include "model.h"
 #include "textures.h"
 int blendPartMode(const json& asset, const json& pj);   // GX1 (terrain_blend.cpp)
@@ -27,7 +31,7 @@ void logf(const char* fmt, ...) {
   va_list ap; va_start(ap, fmt);
   char buf[2048]; std::vsnprintf(buf, sizeof buf, fmt, ap); va_end(ap);
   static const bool memlog = std::getenv("NMK_MEMLOG") != nullptr;   // MEM1: every line stamped with commit / working set (MB)
-  if (memlog && f) { ProcMem m = processMemory(); std::fprintf(f, "[c%6.0f w%6.0f] ", m.PrivateBytes / 1048576.0, m.WorkingSetSize / 1048576.0); }
+  if (memlog && f) { static const auto t0 = std::chrono::steady_clock::now(); ProcMem m = processMemory(); std::fprintf(f, "[c%6.0f w%6.0f t%7.2f] ", m.PrivateBytes / 1048576.0, m.WorkingSetSize / 1048576.0, std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count()); }
   if (f) { std::fputs(buf, f); std::fputc('\n', f); std::fflush(f); }
   std::fputs(buf, stdout); std::fputc('\n', stdout); std::fflush(stdout);
 }
@@ -996,12 +1000,13 @@ void AssetLibrary::release(AssetDef& a) const {
   readHeader(a);
 }
 int AssetLibrary::releaseAll() const {
-  int n = 0; for (auto& a : assets) if (a->built && !a->vehicle && !a->raw.contains("rack")) { release(*a); n += !a->built; }
+  int n = 0; for (auto& a : assets) if (a->built && !a->vehicle && !a->raw.contains("rack")) { crumb("asset release"); release(*a); n += !a->built; }   // UI5: the loading screen presents between them
   return n;
 }
-bool AssetLibrary::loadOne(const fs::path& path) {
+bool AssetLibrary::loadOne(const fs::path& path, const json* parsed) {
   json j;
-  try { j = json::parse(readTextFile(path)); } catch (std::exception& e) { logf("asset %s: parse error %s", path.string().c_str(), e.what()); return false; }
+  if (parsed) j = *parsed;
+  else try { j = json::parse(readTextFile(path)); } catch (std::exception& e) { logf("asset %s: parse error %s", path.string().c_str(), e.what()); return false; }
   auto a = std::make_unique<AssetDef>();
   a->file = path.filename().string();
   a->id = j.is_object() ? j.value("id", path.stem().string()) : path.stem().string();
@@ -1301,14 +1306,24 @@ void AssetLibrary::build(AssetDef& ad) const {
     auto& mj = j["model"];
     a->modelLodDist = mj.value("lodDist", 30.0f); a->modelCull = mj.value("cullDist", 400.0f); a->modelThinPx = mj.value("thinLinesPx", 0.0f);
     a->modelFoliage = mj.value("foliage", false); a->modelWind = mj.value("wind", 0.0f);   // NT8: instanced model foliage
-    fs::path dir = contentDir() / "assets" / "models" / mj.value("dir", a->id);
+    // SD2: "root": "vehicles" reads a vehicle's bake (content/vehicles/models) for a static prop of it; "fallbackDir" is
+    // tried when the main bake is missing (a licence-restricted bake kept local: the public tree shows the box fallback)
+    const fs::path base = mj.value("root", std::string()) == "vehicles" ? contentDir() / "vehicles" / "models" : contentDir() / "assets" / "models";
+    fs::path dir = base / mj.value("dir", a->id);
+    if (mj.contains("fallbackDir") && !fs::exists(dir / "mesh.bin")) dir = base / mj["fallbackDir"].get<std::string>();
     auto gm = std::make_shared<GpuModel>(); std::string err;
     bool turn = mj.value("yaw", 0.0f) == 180.0f;   // "yaw": 180 - the bake faces -z (the car pack), the asset's parts +z
     if (gm->load(dir, err, turn)) {
       a->model = gm;
       pts.push_back(gm->bmin); pts.push_back(gm->bmax);
       auto lod = std::make_shared<GpuModel>(); std::string e2;
-      if (fs::exists(dir / "lod1" / "mesh.bin") && lod->load(dir / "lod1", e2, turn)) a->modelLod = lod;
+      if (fs::exists(dir / "lod1" / "mesh.bin") && lod->load(dir / "lod1", e2, turn)) {
+        // FOL1: the LOD1 cards sample the same atlas layout as LOD0 (one bake): they draw LOD0's full-size cutout albedo
+        // instead of their own (512, 128 px tiles on 1.3 m cards: the blurred, blocky canopy overhead); no extra memory
+        for (auto& lm : lod->mats) if (lm.cutout) for (auto& m0 : gm->mats)
+          if (m0.cutout && m0.alb && m0.name == lm.name && lm.alb != m0.alb) { if (lm.alb) glDeleteTextures(1, &lm.alb); lm.alb = m0.alb; lod->borrowed.insert(m0.alb); }
+        a->modelLod = lod;
+      }
       if (mj.contains("stationRoles")) {   // part-name prefix -> station role: base / traverse / elevation / recoil
         static const std::map<std::string, int> rn = {{"base", 0}, {"traverse", 1}, {"elevation", 2}, {"recoil", 3}};
         for (auto& p : gm->parts) {
@@ -1342,7 +1357,32 @@ bool AssetLibrary::loadAll(const fs::path& dir) {
   std::vector<fs::path> files;
   for (auto& e : fs::directory_iterator(dir)) if (e.path().extension() == ".json") files.push_back(e.path());
   std::sort(files.begin(), files.end());
-  for (auto& f : files) loadOne(f);
+  // CACHE1: the parsed catalogue in one CBOR file (texbc cache folder, pruned with it): parsing 1600 JSON texts took ~1.8 s
+  // a start; an entry is reused while its file's size and time match, and the file is rewritten when any changed
+  uint64_t dh = 1469598103934665603ull; for (unsigned char c : dir.lexically_normal().string()) { dh ^= c; dh *= 1099511628211ull; }
+  char cn[48]; std::snprintf(cn, sizeof cn, "catalog-%016llx.cbor", (unsigned long long)dh);
+  const fs::path cf = userCacheDir("texbc", "NMK_TEXBC_CACHE") / cn;
+  json cache = json::object(), fresh = json::object(); bool miss = false;
+  try { std::ifstream in(cf, std::ios::binary); if (in) { std::vector<uint8_t> b((std::istreambuf_iterator<char>(in)), {}); cache = json::from_cbor(b); userCacheTouch(cf); } } catch (...) { cache = json::object(); }
+  for (size_t k = 0; k < files.size(); ++k) {
+    crumb("asset catalogue");
+    if (gLoadingDepth && k % 16 == 0) loadingProgress("Scanning the asset catalogue", (float)k / files.size());   // UI5: the boot splash keeps presenting
+    const fs::path& f = files[k];
+    std::error_code ec; std::string key = f.filename().string();
+    std::string stamp = std::to_string(fs::file_size(f, ec)) + ":" + std::to_string((long long)fs::last_write_time(f, ec).time_since_epoch().count());
+    auto it = cache.find(key);
+    if (it != cache.end() && it->is_object() && it->value("s", std::string()) == stamp && it->contains("j")) { loadOne(f, &(*it)["j"]); fresh[key] = std::move(*it); continue; }
+    miss = true;
+    json j; try { j = json::parse(readTextFile(f)); } catch (std::exception& e) { logf("asset %s: parse error %s", f.string().c_str(), e.what()); continue; }
+    loadOne(f, &j);
+    fresh[key] = {{"s", stamp}, {"j", std::move(j)}};
+  }
+  if (miss || fresh.size() != cache.size()) {
+    std::error_code ec; fs::create_directories(cf.parent_path(), ec);
+    fs::path tmp = cf; tmp += "." + std::to_string((unsigned long long)(uintptr_t)&fresh) + ".tmp";
+    { std::vector<uint8_t> b = json::to_cbor(fresh); std::ofstream o(tmp, std::ios::binary); o.write((const char*)b.data(), (std::streamsize)b.size()); }
+    fs::rename(tmp, cf, ec);
+  }
   buildPlaceholder(placeholder_);
   { int b = 0; for (auto& a : assets) b += a->built; logf("assets: %zu in the catalogue, %d built now (lazy %d)", assets.size(), b, (int)lazy); }
   return !assets.empty();
