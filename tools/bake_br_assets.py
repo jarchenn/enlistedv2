@@ -522,6 +522,21 @@ def bake_sights():
         o = rings(o); place_ground(o)
         clear_glass(o, eye_height(o))
         export(o, 'br_sight_4x', 512); write_asset('br_sight_4x', '4x scope', 'sight', gl_size(o), sight_block(o))
+    if want('br_sight_thermal'):   # TH1: the supplied rifle scope (rifle-scope.zip, licence unknown: local-only); NMK_TH1_SRC: its extracted folder
+        base = os.environ.get('NMK_TH1_SRC') or J('rifle-scope')
+        o = item('br_sight_thermal', os.path.join(base, 'source', 'scope.blend'), tris_max=8000,
+                 mats=lambda mo: [mat_tex('thermal_scope', os.path.join(base, 'textures', 'p3dm_ru_CZ-LM4_1P_Diff.png'), 0.55, 0.25)])
+        long_to_y(o); big_end_forward(o); place_ground(o); size_to(o, 1, 0.30); place_ground(o)
+        o = rings(o); place_ground(o)
+        clear_glass(o, eye_height(o))
+        export(o, 'br_sight_thermal', 512); write_asset('br_sight_thermal', 'Thermal scope', 'sight', gl_size(o), sight_block(o))
+        # the committed stand-in: the 4x scope's part-built tube (drawn when the local bake is missing); the bake's eye point kept as "modelSight"
+        p = os.path.join(CONTENT, 'assets', 'br_sight_thermal.json'); tj = json.load(open(p, encoding='utf-8'))
+        fj = json.load(open(os.path.join(CONTENT, 'assets', 'br_sight_4x.json'), encoding='utf-8'))
+        tj['modelSight'] = tj['sight']; tj['sight'] = fj['sight']
+        for k in ('parts', 'materials', 'footprint'): tj[k] = fj[k]
+        tj['description'] = "TH1 Battle Royale optic: a thermal scope (loot.json br_sight_thermal). Stand-in: the 4x scope's part-built tube; the real model is local-only (licence unknown): bake it with tools/bake_br_assets.py (NMK_TH1_SRC)."
+        json.dump(tj, open(p, 'w', encoding='utf-8'), indent=1)
     if want('br_sight_10x'):
         o = item('br_sight_10x', J('10x', '10x .glb'), tris_max=8000)
         long_to_y(o); big_end_forward(o); place_ground(o); size_to(o, 1, 0.36); place_ground(o)

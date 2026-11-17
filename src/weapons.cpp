@@ -452,7 +452,8 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   bool modal = pauseMenu || showLoadout || choiceFor || rackOpen;
   if (in.fireMode && !modal) toggleFireMode(d, s);
   if (d.action == "heavy") {   // carried M2: no firing; LMB deploys it on its tripod; RMB brings the rear ring over the front post
-    adsT = std::clamp(adsT + (in.aim && !modal ? d.adsSpeed / std::max(0.05f, move.adsTime) : -d.adsSpeed / std::max(0.05f, move.adsTime)) * dt, 0.0f, 1.0f);
+    { const float as = d.adsSpeed * (wstate[d.id].att[ATT_SIGHT] == 6 ? 0.8f : 1.0f);   // TH1: a thermal scope is slower to the eye
+    adsT = std::clamp(adsT + (in.aim && !modal ? as / std::max(0.05f, move.adsTime) : -as / std::max(0.05f, move.adsTime)) * dt, 0.0f, 1.0f); }
     stepViewModel(dt, in, d, s);
     if (in.fire && !modal && s.triggerReleased) { s.triggerReleased = false; deployHeavy(d, s); }
     if (!in.fire) s.triggerReleased = true;

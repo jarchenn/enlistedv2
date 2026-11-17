@@ -1187,6 +1187,7 @@ void Game::drawItems() {
     mat4 W = glm::translate(mat4(1), d.pos) * glm::rotate(mat4(1), radians(d.yaw + 90.0f), vec3(0, 1, 0)) * glm::rotate(mat4(1), radians(90.0f), vec3(0, 0, 1)) * glm::translate(mat4(1), vec3(0, 0, -0.4f));
     if (w.useModel()) { for (int p = 0; p < 8; ++p) for (int k : w.worldParts()[p]) app.R.worldModels.push_back({w.worldModel(), k, W}); }
     else for (int p = 0; p < 8; ++p) if (w.mesh[p].count) app.worldBoxDraws.push_back({&w.mesh[p], W});
+    if (w.useModel()) brSightDraws(app, w, d.ws, W, app.R.worldModels, app.worldBoxDraws);   // TH1: a dropped gun keeps its fitted optic
   }
   lootDraw(*this);   // BR2 floor items
   crumb("game: draw");
@@ -1212,12 +1213,25 @@ void Game::drawItems() {
       if (due) { s.ci.skin(s.pose.skin); s.ci.frameSkinned = frame; s.skinRev = s.poseRev; }
     }
     for (int k = 0; k < (int)src->ci.view.parts.size(); ++k) if (!brHidePart(s, src->ci.view.parts[k].name)) app.R.worldModels.push_back({&src->ci.view, k, s.world, s.zombie ? rulesTint(*this, s) * vec4(enemyType(s.etype).tint, 1) : rulesTint(*this, s)});   // W1: protection shimmer
+    if (app.R.thermalWanted) {   // TH1: body heat through a thermal scope: men hot (head / face hottest), monsters a little cooler, robots cool, the dead cooling over a minute
+      const float h = s.alive ? (s.kit == 3 ? 0.45f : s.zombie ? 0.85f : 0.95f) : std::max(0.08f, 0.95f * (1.0f - (float)(t - s.diedAt) / 60.0f));
+      for (int k = 0; k < (int)src->ci.view.parts.size(); ++k) {
+        if (brHidePart(s, src->ci.view.parts[k].name)) continue;
+        const std::string& pn = src->ci.view.parts[k].name; const bool head = pn.find("ead") != std::string::npos || pn.find("ace") != std::string::npos;
+        app.R.heatDraws.push_back({{&src->ci.view, k, s.world}, s.alive && head && s.kit != 3 ? h + 0.18f : h,
+                                   s.alive && s.kit != 3 && s.posture != Physics::PRONE ? s.feet.y + (s.posture == Physics::CROUCH ? 0.95f : 1.45f) * bodyScale(s) : 1e9f});
+      }
+    }
     if (!(s.localPlayer && s.alive)) brWornDraws(app, *this, s, s.world, app.R.worldModels, app.worldBoxDraws);   // BR3: helmet / vest / backpack; never in your own first person (the corpse and the death camera keep it)
     if (s.alive && s.weapon >= 0) {
       const WeaponDef& d = *app.weaponDefs[s.weapon];
       if (d.useModel()) {
         mat4 W = s.world * s.pose.weapon;
         for (int p = 0; p < 8; ++p) for (int k : d.worldParts()[p]) app.R.worldModels.push_back({d.worldModel(), k, W});
+        if (app.R.thermalWanted) {   // TH1: a gun warms with firing and cools over ~15 s
+          const float gh = 0.18f + 0.6f * std::exp(-(float)(t - s.lastShot) / 15.0f);
+          for (int p = 0; p < 8; ++p) for (int k : d.worldParts()[p]) app.R.heatDraws.push_back({{d.worldModel(), k, W}, gh});
+        }
         brSightDraws(app, d, s.ws, W, app.R.worldModels, app.worldBoxDraws);   // BR3: the fitted optic
         lootAttachDraws(app, d, s.ws, W, app.R.worldModels, app.worldBoxDraws);   // BR10: muzzle, magazine, recoil pad
       }

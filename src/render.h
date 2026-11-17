@@ -55,6 +55,7 @@ struct RenderView {
   // optic eyepiece (W2): radius of the clear circle (fraction of the frame height; 0 = none) and its reticle:
   // 1 German post with side bars (ZF39), 2 crosshair with a lower post (M1C), 3 TZF gunner sight (PaK 40)
   float eyepieceR = 0; int reticle = 0;
+  bool thermal = false;   // TH1: the eyepiece shows the thermal image (heatDraws / heatSpots; no smoke)
   bool rectVignette = false;   // TK3: the Abrams' full-screen gunner view: a soft rounded-rectangle vignette (tone pass)
   bool underwater = false;             // camera below the water surface (swim.cpp): dense fog, tint, vignette
   vec3 underFogCol{0.06f, 0.24f, 0.25f}; float underFogDens = 0.11f;   // movement.json "swim"
@@ -104,6 +105,9 @@ public:
   struct FolModelDraw { const GpuModel* model; mat4 m; float wind; };   // NT8: model foliage (pines, ferns, grass), instanced
   std::vector<FolModelDraw> folModels;
   std::vector<vec4> grassVeh;   // TK3: vehicle footprints that flatten the grass: per box (centre x, z, cos yaw, sin yaw), (half x, half z, 0, 0); 16 at most
+  struct HeatDraw { ModelDraw md; float heat; float headY = 1e9f; };   // headY: a body's head height (world y): hotter above it, the torso below a little   // TH1: a warm body for the thermal pass (0 ambient .. 1 a living man; > 1 fire)
+  std::vector<HeatDraw> heatDraws; std::vector<vec4> heatSpots;   // spots: world xyz, w = radius (m) x heat sign (fires, blasts, muzzles: w > 0)
+  bool thermalWanted = false;   // TH1: the last frame drew a thermal eyepiece: the game collects heat this frame
   std::vector<ModelDraw> worldModels;   // imported models in the world (rack displays, the M2HB station)     // tree leaf cards (alpha-tested, wind sway, shadow casting)
   float wind = 1.0f;
   // sky clouds: fbm on a plane at 1500 m scrolling with the wind
@@ -358,6 +362,7 @@ private:
   void prepFoliageBatches();   // render() start: membership, rebuilds (bounded), FoliageDraw::batched
   GLuint progLeaf = 0, progLeafShadow = 0, progLeafI = 0, progLeafIShadow = 0;   // I: L1 instanced species leaves
   GLuint progModel = 0, progDof = 0, progShaft = 0, progComposite = 0, progEyepiece = 0;
+  GLuint progHeat = 0, heatTex = 0, heatFbo = 0, heatDepthOf = 0; int heatW = 0, heatH = 0;   // TH1 thermal heat target (R16F, the scene depth attached)
   GLuint sceneCopy = 0, compFbo = 0, shaftTex = 0, shaftFbo = 0;   // world composite (before the weapon pass)
   void worldComposite(const RenderView& v, const mat4& vp);
   GLuint ambTex = 0, aoTex = 0, aoFbo = 0, progSsao = 0, progBloomDown = 0, progBloomUp = 0;

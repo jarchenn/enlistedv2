@@ -128,6 +128,7 @@ bool lootSightFits(const WeaponDef& d, int sight) {
     case 2: return !pistol;                          // ACOG: all but pistols
     case 3: return !pistol && !shotgun;              // 4x
     case 4: return sniper;                           // 10x: snipers only
+    case 6: return !pistol && !shotgun && !isSmg(d) && d.wclass != WC_LMG;   // TH1 thermal: rifles (assault, battle, semi-auto, bolt) and snipers
     default: return false;
   }
 }
@@ -142,16 +143,16 @@ bool lootAttachFits(const WeaponDef& d, const ItemDef& it) {
   }
 }
 
-static const char* kAttIds[4][6] = {
-  {"", "br_sight_reddot", "br_sight_acog", "br_sight_4x", "br_sight_10x", "br_sight_holo"},
-  {"", "br_suppressor", "br_muzzle_brake", "", "", ""},
-  {"", "br_mag_ext", "", "", "", ""},
-  {"", "br_recoil_pad", "", "", "", ""}};
-const char* lootAttachItemId(int slot, int value) { return slot >= 0 && slot < 4 && value >= 0 && value < 6 ? kAttIds[slot][value] : ""; }
+static const char* kAttIds[4][7] = {
+  {"", "br_sight_reddot", "br_sight_acog", "br_sight_4x", "br_sight_10x", "br_sight_holo", "br_sight_thermal"},   // TH1: 6 the thermal scope
+  {"", "br_suppressor", "br_muzzle_brake", "", "", "", ""},
+  {"", "br_mag_ext", "", "", "", "", ""},
+  {"", "br_recoil_pad", "", "", "", "", ""}};
+const char* lootAttachItemId(int slot, int value) { return slot >= 0 && slot < 4 && value >= 0 && value < 7 ? kAttIds[slot][value] : ""; }
 const char* lootSlotName(int slot) { static const char* n[4] = {"Sight", "Muzzle", "Magazine", "Stock"}; return slot >= 0 && slot < 4 ? n[slot] : "?"; }
 int lootSlotOf(ItemKind k) { return k == ItemKind::Sight ? ATT_SIGHT : k == ItemKind::Muzzle ? ATT_MUZZLE : k == ItemKind::Mag ? ATT_MAG : ATT_STOCK; }
 bool lootGunTakesParts(const WeaponDef& d) {
-  for (int sl = 0; sl < 4; ++sl) for (int v = 1; v < 6; ++v) { const char* id = kAttIds[sl][v]; if (*id) if (const ItemDef* it = lootItem(id)) if (lootAttachFits(d, *it)) return true; }
+  for (int sl = 0; sl < 4; ++sl) for (int v = 1; v < 7; ++v) { const char* id = kAttIds[sl][v]; if (*id) if (const ItemDef* it = lootItem(id)) if (lootAttachFits(d, *it)) return true; }
   return false;
 }
 bool lootFit(App& app, Kit& k, int weapon, const std::string& itemId, std::string* why) {
@@ -164,7 +165,7 @@ bool lootFit(App& app, Kit& k, int weapon, const std::string& itemId, std::strin
   if (!lootAttachFits(d, *it)) return no("does not fit this weapon");
   WeaponState& s = app.wstate[d.id]; int sl = lootSlotOf(it->kind);
   if (s.att[sl] == it->value) return no("already fitted");
-  if (s.att[sl]) { const char* old = kAttIds[sl][std::clamp(s.att[sl], 0, 5)]; if (*old) k.items[old]++; }   // the swapped part into the bag
+  if (s.att[sl]) { const char* old = kAttIds[sl][std::clamp(s.att[sl], 0, 6)]; if (*old) k.items[old]++; }   // the swapped part into the bag
   s.att[sl] = it->value; if (--k.items[itemId] <= 0) k.items.erase(itemId);
   return true;
 }
@@ -173,7 +174,7 @@ bool lootTakeOff(App& app, Kit& k, int weapon, int slot, std::string* why) {
   if (weapon < 0 || weapon >= (int)app.weaponDefs.size() || slot < 0 || slot > 3) return no("no such slot");
   const WeaponDef& d = *app.weaponDefs[weapon]; WeaponState& s = app.wstate[d.id];
   if (!s.att[slot]) return no("nothing fitted");
-  const char* id = kAttIds[slot][std::clamp(s.att[slot], 0, 5)];
+  const char* id = kAttIds[slot][std::clamp(s.att[slot], 0, 6)];
   if (*id) k.items[id]++;
   s.att[slot] = 0;
   return true;
@@ -834,12 +835,14 @@ void lootMolotov(App& app, vec3 pos, int owner) {   // the bottle bursts: a ring
   app.audio.play("explosion_grenade", pos, 0.35f);
 }
 bool lootScope(const App& app, float& mag, int& reticle) {
-  if (!lootActive() || app.activeWeapon < 0 || app.weaponDefs.empty()) return false;
+  if (app.activeWeapon < 0 || app.weaponDefs.empty()) return false;
   auto it = app.wstate.find(app.weaponDefs[app.activeWeapon]->id); if (it == app.wstate.end()) return false;
+  if (!lootActive() && it->second.att[ATT_SIGHT] != 6) return false;   // TH1: a fitted thermal scope works in any mode (the other optics: Battle Royale only)
   switch (lootSight(*app.weaponDefs[app.activeWeapon], it->second)) {   // a sniper keeps its own model: only the magnification and reticle change   // the plan's pictures: ACOG = the marksman rifle's, 4x = the M24's, 10x = the .50's
     case 2: mag = 2; reticle = 7; return true;
     case 3: mag = 4; reticle = 5; return true;
     case 4: mag = 10; reticle = 6; return true;
+    case 6: mag = 4; reticle = 8; return true;   // TH1 thermal: 4x, its own reticle; the view is the thermal image (RenderView::thermal)
     default: return false;
   }
 }

@@ -38,6 +38,9 @@ void TankSys::drawItems(App& app, const Instance& i, const InstanceRT& r) {
   if (it == tanks.end() || !it->second.def || (!it->second.def->model && !it->second.def->partsAsset)) return;
   const TankRT& t = it->second; const TankDef& d = *t.def;
   const GpuModel* gm = lodModel(app, t);
+  // TH1: what this vehicle draws, warm through a thermal scope: a wreck hot, a running engine warm, a parked one near ambient
+  struct HeatTail { App& a; size_t n0; float h; ~HeatTail() { if (a.R.thermalWanted) for (size_t k = n0; k < a.R.worldModels.size(); ++k) a.R.heatDraws.push_back({a.R.worldModels[k], h}); } }
+    heatTail{app, app.R.worldModels.size(), t.wrecked ? 0.75f : (t.rpm > 0.25f || std::fabs(t.speed) > 0.3f || occupied == t.id) ? 0.6f : 0.12f};
   mat4 h, tu, g, rc; rig(t, h, tu, g, rc);
   vec4 tint = t.wrecked ? vec4(0.13f, 0.12f, 0.11f, 1) : vec4(1);   // burnt-out: darker than a live tank
   if (d.car) { drawCar(app, t, tint, h); return; }
