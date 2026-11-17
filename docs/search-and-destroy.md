@@ -163,7 +163,7 @@ These are changes from the spec or partial implementations, with the reason for 
 10. **Map validation:** the spawn and site counts only. With anything missing, the temporary layout is used and a warning is shown. Reachability and defuse-access checks are not implemented; route timings are measured by the bot test, not checked.
 11. **Explosion cover:** the bomb uses the engine's blast occlusion rather than a fixed 0.25 multiplier for full cover.
 12. **Timeouts:** `/sd timeout` (two per team) starts a 30 s pause before the next freeze. There is no UI button.
-13. **HUD:** inline panels in the current HUD style; the buy menu is its own glass panel after the user's reference layout (this branch has no shared glass-panel helpers). Equipment icons are silhouettes of the BR vest and helmet models; the defuse kit is a drawn glyph (there is no kit model).
+13. **HUD:** the score, money and buy menu panels use the UI2 glass (ui_glass.h); the buy menu follows the user's reference layout. Armor, the defuse kit and the Molotov are drawn glyphs (the BR armor models are local-only, there is no kit model, the Molotov silhouette is blank).
 14. **Debug:** debug output is `/sd state` and the log only. There is no debug overlay of deadlines, loss indices, plant legality or timings.
 15. **LAN clocks:** clients draw the host's clocks from state updates sent at least twice a second, so a client's countdown can lag the host by up to 0.5 s. The host alone decides results.
 16. **Bots (SD3):**

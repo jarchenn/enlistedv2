@@ -439,6 +439,7 @@ void App::updateExplore(float dt) {
   // the cursor is captured unless a menu needs it: every look delta below assumes GLFW_CURSOR_DISABLED (a free cursor
   // stops at the screen edge and look then stops in that direction). syncCursor is the only place that sets the mode.
   syncCursor();
+  const bool panelCursor = uiCursor;   // a HUD panel that wanted the cursor last frame (deploy, inventory, buy menu...): no look while it is open
   uiCursor = false;
   if (pauseMenu) return;
   ExploreInput in;
@@ -451,7 +452,7 @@ void App::updateExplore(float dt) {
     if (!occupied) { eyeYaw = wrapDeg(eyeYaw + in.dyaw); eyePitch = std::clamp(eyePitch + in.dpitch, -85.0f, 85.0f); }
   } else if (!commandsOwnKeys()) {   // CMD1: while the command line is open no key, button or look reaches the game
     double mx, my; glfwGetCursorPos(win, &mx, &my);
-    if (haveLast && !wantCursor()) {   // not io.WantCaptureMouse: the hidden cursor can sit over a HUD window
+    if (haveLast && !wantCursor() && !panelCursor) {   // not io.WantCaptureMouse: the hidden cursor can sit over a HUD window
       StationRT* gs = station(occupied);
       bool mgMount = gs && (rt[occupied].asset->station.kind == "m2hb" || rt[occupied].asset->station.kind == "mg42");
       // a mounted MG aims like the carried gun (the player's look sensitivity and ADS scale; stepStation drops the rates);
