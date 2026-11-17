@@ -206,6 +206,7 @@ bool poseShots(App& app, float dt) {
   const int ps = pn == "kneel" ? 0 : pn == "carry" || pn == "idle" || pn == "sprint" ? 1 : 2;   // 0 crouched still, 1 no target, 2 a target
   Soldier& s = G.sold[bot];
   G.noFootLock = true;   // AN1 step 3b: the posed bot stays put while it "walks" (a treadmill): no world foot locks
+  if (const char* gear = std::getenv("NMK_POSE_GEAR")) { int h = 0, v = 0, b = 0; std::sscanf(gear, "%d,%d,%d", &h, &v, &b); s.helmetLvl = h; s.vestLvl = v; s.backpack = b; }   // AN1 step 4b: BR gear on the posed bot
   if (bodies[bi] != "-" && t == dt) {   // the body under test (loaded like Game::begin's operator bodies)
     std::string id = bodies[bi]; int mi = -1;
     if (id == "br_marine") mi = brMarineModel(G);
@@ -251,10 +252,11 @@ bool poseShots(App& app, float dt) {
              : vn == "lhand_o" ? left * 0.9f + face * 0.4f + vec3(0, 0.15f, 0) : -left * 0.25f + face * 0.45f - vec3(0, 0.85f, 0);   // inside views from below the hand
     e = hp + glm::normalize(dir) * 0.42f - vec3(0, 1.62f, 0);
   }
+  if (vn == "head") { vec3 hp = vec3(s.world * vec4(s.pose.joint[CJ_HEAD], 1)) + vec3(0, 0.06f, 0); handsP = hp; e = hp + glm::normalize(-left * 0.6f + face * 0.8f + vec3(0, 0.1f, 0)) * 0.7f - vec3(0, 1.62f, 0); }   // AN1 step 4b: close on the head and shoulders
   if (vn == "hands") e = handsP + glm::normalize(-left * 0.8f + face * 0.6f + vec3(0, 0.25f, 0)) * 0.75f - vec3(0, 1.62f, 0);   // close on the hands from the front right, a little above
   Physics::setCharacterPos(e);
   if (Soldier* L = G.local()) { L->feet = e; L->hp = 100; }
-  vec3 v = (vn == "hands" || handV ? handsP : B + vec3(0, 0.85f, 0)) - (e + vec3(0, 1.62f, 0));
+  vec3 v = (vn == "hands" || vn == "head" || handV ? handsP : B + vec3(0, 0.85f, 0)) - (e + vec3(0, 1.62f, 0));
   app.eyeYaw = degrees(std::atan2(-v.x, -v.z)); app.eyePitch = degrees(std::atan2(v.y, glm::length(vec2(v.x, v.z))));
   G.posesStep(dt > 0 ? dt : 1.0f / 60);
   if (t > 0.6f) {   // settled: the joints over the ground (feet at the ankle's rest height when planted, the knee on the ground)
