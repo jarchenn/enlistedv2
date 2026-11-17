@@ -16,6 +16,8 @@
 #include "platform_gfx.h"
 #include <imgui.h>
 #include <stb_image_write.h>
+#include <stb_image.h>
+#include <map>
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -26,7 +28,7 @@ namespace {
 struct Job {
   int depth = 0, expected = 1, done = 0; float sub = 0, shown = 0;
   std::string title, subtitle, label = "Loading";
-  unsigned thumb = 0; double t0 = 0, lastPresent = -1, endedAt = -10; bool fading = false;
+  unsigned thumb = 0, still = 0; double t0 = 0, lastPresent = -1, endedAt = -10; bool fading = false;   // still: the map's 1080p loading still (UI4)
   int shot = 0;
   const char* step = "";   // the internal LoadStep name (watchdog lines)
   const char* crumbAtPresent = "-";   // the crumb when the last frame went out: a stall lies between it and the next one
@@ -52,22 +54,25 @@ const int kTipN = (int)(sizeof kTips / sizeof kTips[0]);
 void drawLoading(ImDrawList* dl, float W, float H, float a, float t) {
   const float s = H / 1080.0f;
   dl->AddRectFilled(ImVec2(0, 0), ImVec2(W, H), rgba(4, 6, 7, a));
-  // backdrop: cover, slow push-in, graded dark and cold
-  unsigned tex = J.thumb ? J.thumb : menuBackdropTex(true);
+  // UI4 backdrop: the map itself, clearly recognisable (its 1080p loading still, else its thumbnail, else the menu's
+  // street), a slow push-in, under a dark neutral glass (~50 %) and a soft, wide vignette at the sides
+  const bool still = J.still != 0;
+  unsigned tex = still ? J.still : J.thumb ? J.thumb : menuBackdropTex(false);
   if (tex) {
-    const float z = 1.04f + 0.02f * std::min(t / 12.0f, 1.0f);
+    const float z = 1.03f + 0.02f * std::min(t / 12.0f, 1.0f);
     ImVec2 uv0(0.5f - 0.5f / z, 0.5f - 0.5f / z), uv1(0.5f + 0.5f / z, 0.5f + 0.5f / z);
-    if (J.thumb) { uv0.y = 0.8f - (0.8f - 0.5f) * (1 - 1 / z); uv1.y = 0.2f + (0.5f - 0.2f) * (1 - 1 / z); }   // thumbnails are stored bottom-up (as the editor draws them)
-    dl->AddImage((ImTextureID)(intptr_t)tex, ImVec2(0, 0), ImVec2(W, H), uv0, uv1, rgba(120, 136, 140, a));
-    dl->AddRectFilled(ImVec2(0, 0), ImVec2(W, H), rgba(70, 76, 78, (J.thumb ? 0.30f : 0.0f) * a));   // thumbnails are saturated: pulled toward grey
-    dl->AddRectFilled(ImVec2(0, 0), ImVec2(W, H), rgba(6, 18, 22, (J.thumb ? 0.55f : 0.42f) * a));   // teal-black
+    if (!still && J.thumb) { uv0.y = 0.8f - (0.8f - 0.5f) * (1 - 1 / z); uv1.y = 0.2f + (0.5f - 0.2f) * (1 - 1 / z); }   // thumbnails are stored bottom-up (as the editor draws them)
+    dl->AddImage((ImTextureID)(intptr_t)tex, ImVec2(0, 0), ImVec2(W, H), uv0, uv1, rgba(235, 232, 228, a));
   }
-  // fire light from below, smoke above, edges
-  dl->AddRectFilledMultiColor(ImVec2(0, H * 0.55f), ImVec2(W, H), rgba(255, 110, 30, 0), rgba(255, 110, 30, 0), rgba(255, 96, 24, 0.24f * a), rgba(255, 96, 24, 0.24f * a));
-  dl->AddRectFilledMultiColor(ImVec2(0, 0), ImVec2(W, H * 0.35f), rgba(3, 5, 6, 0.7f * a), rgba(3, 5, 6, 0.7f * a), rgba(3, 5, 6, 0), rgba(3, 5, 6, 0));
-  dl->AddRectFilledMultiColor(ImVec2(0, 0), ImVec2(W * 0.22f, H), rgba(3, 5, 6, 0.75f * a), rgba(3, 5, 6, 0), rgba(3, 5, 6, 0), rgba(3, 5, 6, 0.75f * a));
-  dl->AddRectFilledMultiColor(ImVec2(W * 0.78f, 0), ImVec2(W, H), rgba(3, 5, 6, 0), rgba(3, 5, 6, 0.75f * a), rgba(3, 5, 6, 0.75f * a), rgba(3, 5, 6, 0));
-  dl->AddRectFilledMultiColor(ImVec2(0, H * 0.78f), ImVec2(W, H), rgba(3, 5, 6, 0), rgba(3, 5, 6, 0), rgba(3, 5, 6, 0.8f * a), rgba(3, 5, 6, 0.8f * a));
+  dl->AddRectFilled(ImVec2(0, 0), ImVec2(W, H), rgba(4, 4, 4, (still ? 0.50f : 0.56f) * a));   // the black glass
+  dl->AddRectFilledMultiColor(ImVec2(0, H * 0.6f), ImVec2(W, H), rgba(255, 110, 30, 0), rgba(255, 110, 30, 0), rgba(255, 96, 24, 0.10f * a), rgba(255, 96, 24, 0.10f * a));   // a little fire light
+  for (int k = 0; k < 2; ++k) {   // the side vignette in two widths, blended (no band edge)
+    const float w = W * (k ? 0.42f : 0.20f), al = (k ? 0.40f : 0.32f) * a;
+    dl->AddRectFilledMultiColor(ImVec2(0, 0), ImVec2(w, H), rgba(0, 0, 0, al), rgba(0, 0, 0, 0), rgba(0, 0, 0, 0), rgba(0, 0, 0, al));
+    dl->AddRectFilledMultiColor(ImVec2(W - w, 0), ImVec2(W, H), rgba(0, 0, 0, 0), rgba(0, 0, 0, al), rgba(0, 0, 0, al), rgba(0, 0, 0, 0));
+  }
+  dl->AddRectFilledMultiColor(ImVec2(0, 0), ImVec2(W, H * 0.25f), rgba(0, 0, 0, 0.35f * a), rgba(0, 0, 0, 0.35f * a), rgba(0, 0, 0, 0), rgba(0, 0, 0, 0));
+  dl->AddRectFilledMultiColor(ImVec2(0, H * 0.72f), ImVec2(W, H), rgba(0, 0, 0, 0), rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.55f * a), rgba(0, 0, 0, 0.55f * a));
   // embers: stateless (position from time), so presents at any rate move them correctly
   for (int i = 0; i < 90; ++i) {
     uint32_t h = (uint32_t)i * 2654435761u; auto r = [&](int k) { uint32_t x = h ^ (uint32_t)(k * 0x9E3779B9u); x ^= x >> 15; x *= 2246822519u; x ^= x >> 13; return (x & 0xffff) / 65535.0f; };
@@ -108,9 +113,9 @@ void drawLoading(ImDrawList* dl, float W, float H, float a, float t) {
     dl->AddRectFilled(ImVec2(cx - ww * 0.5f, wy + wpx * 1.18f), ImVec2(cx + ww * 0.5f, wy + wpx * 1.18f + 1.5f * s), rgba(236, 232, 224, 0.8f * a));
   }
   std::string T = J.title; for (auto& c : T) c = (char)std::toupper((unsigned char)c);
-  if (!T.empty()) centred(fh, 36 * s, wy + wpx * 1.18f + 40 * s, rgba(236, 232, 224, 0.95f * a), T, 36 * s * 0.16f);
+  if (!T.empty()) centred(uiFontTitle(), 58 * s, wy + wpx * 1.18f + 30 * s, rgba(236, 232, 224, 0.97f * a), T, 58 * s * 0.03f);   // UI4: the heavy condensed title face
   std::string Sb = J.subtitle; for (auto& c : Sb) c = (char)std::toupper((unsigned char)c);
-  centred(fb, 16 * s, wy + wpx * 1.18f + (T.empty() ? 44 : 94) * s, rgba(214, 214, 206, 0.62f * a), Sb, 16 * s * 0.18f);
+  centred(fh, 17 * s, wy + wpx * 1.18f + (T.empty() ? 44 : 100) * s, rgba(214, 210, 200, 0.70f * a), Sb, 17 * s * 0.16f);
   // progress: label, percent, slim bar, tip
   const float x0 = W * 0.30f, x1 = W * 0.70f, by = H - 112 * s;
   std::string L = J.label; for (auto& c : L) c = (char)std::toupper((unsigned char)c);
@@ -167,12 +172,24 @@ void present(App& app, bool force) {
 }
 }  // namespace
 
-void loadingBegin(App& app, const std::string& title, const std::string& sub, int expectedStages, unsigned thumbTex) {
+// UI4: content/templates/<id>.loading.jpg, loaded once per map
+unsigned stillFor(const std::string& id) {
+  static std::map<std::string, unsigned> cache;
+  if (id.empty()) return 0;
+  auto it = cache.find(id); if (it != cache.end()) return it->second;
+  unsigned tex = 0; int w, h, c;
+  if (stbi_uc* d = stbi_load((contentDir() / "templates" / (id + ".loading.jpg")).string().c_str(), &w, &h, &c, 4)) {
+    glCreateTextures(GL_TEXTURE_2D, 1, &tex); glTextureStorage2D(tex, 1, GL_RGBA8, w, h); glTextureSubImage2D(tex, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, d);
+    glTextureParameteri(tex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(tex, GL_TEXTURE_MAG_FILTER, GL_LINEAR); stbi_image_free(d);
+  }
+  return cache[id] = tex;
+}
+void loadingBegin(App& app, const std::string& title, const std::string& sub, int expectedStages, unsigned thumbTex, const std::string& mapId) {
   if (J.depth++ > 0) { J.expected = std::max(J.expected, J.done + expectedStages); return; }   // nested: the outer job grows
   gLoadingDepth = J.depth;
   mainMenuLeaveForLoad(gGame && gGame->pendingStart);   // UI3: loading a map / starting a match from the menu leaves it (the loading screen covers the work)
   J.expected = std::max(1, expectedStages); J.done = 0; J.sub = 0; J.shown = 0; J.title = title; J.subtitle = sub; J.label = "Loading";
-  J.thumb = thumbTex; J.t0 = glfwGetTime(); J.lastPresent = -1; J.fading = false;
+  J.thumb = thumbTex; J.still = stillFor(mapId); J.t0 = glfwGetTime(); J.lastPresent = -1; J.fading = false;
   present(app, true);
 }
 void loadingStage(const char* what) { if (J.depth <= 0 || !gApp) return; J.step = what; J.label = friendly(what); J.sub = 0; present(*gApp, true); }

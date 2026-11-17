@@ -5,11 +5,11 @@
 #pragma once
 #include <string>
 struct App;
-void loadingBegin(App& app, const std::string& title, const std::string& sub, int expectedStages, unsigned thumbTex = 0);   // nested calls join the outer job
+void loadingBegin(App& app, const std::string& title, const std::string& sub, int expectedStages, unsigned thumbTex = 0, const std::string& mapId = "");   // nested calls join the outer job; mapId: content/templates/<id>.loading.jpg as the backdrop (UI4)
 void loadingStage(const char* what);      // a LoadStep began: a new stage label (internal names map to player-facing ones)
 void loadingStageDone();                  // a LoadStep ended: the bar moves on
 void loadingProgress(const char* label, float f);   // a long stage with its own fraction (the AI navigation bake)
 void loadingEnd();
 void loadingOverlay(App& app);            // every frame after NewFrame: the fade-out once a job ended
 bool loadingActive();
-struct LoadingJob { LoadingJob(App& a, const std::string& t, const std::string& s, int n, unsigned th = 0) { loadingBegin(a, t, s, n, th); } ~LoadingJob() { loadingEnd(); } };
+struct LoadingJob { LoadingJob(App& a, const std::string& t, const std::string& s, int n, unsigned th = 0, const std::string& id = "") { loadingBegin(a, t, s, n, th, id); } ~LoadingJob() { loadingEnd(); } };

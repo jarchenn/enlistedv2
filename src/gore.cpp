@@ -1,6 +1,7 @@
 // Gore system (SPEC 7, workstream W7): wounds, spray, droplets, bleeding, pools, budgets and LAN replication.
 // Replaces gore_stub.cpp. See gore.h for the model; decals.cpp draws the decals.
 #include "gore.h"
+#include "ui_flat.h"
 #include "game.h"
 #include "app.h"
 #include "net.h"
@@ -594,8 +595,7 @@ void goreRenderPass(Renderer& r, const RenderView& v, const mat4& vp, unsigned d
 void goreOptionsUI() {
   ensureLoaded();
   int l = (int)gS.level; const char* names[] = {"Off", "Reduced", "Full"};
-  ImGui::SetNextItemWidth(140);
-  if (ImGui::Combo("Gore", &l, names, 3)) goreSetLevel((GoreLevel)l, true);
+  if (flat::combo("Gore", &l, names, 3)) goreSetLevel((GoreLevel)l, true);   // UI4: the Settings page's flat row
   if (ImGui::IsItemHovered()) ImGui::SetTooltip("Blood impacts, spray, wounds and pools (SPEC 7).\nOff: hits show a dust puff only. Reduced: fewer droplets, smaller budgets, no spurting.");
 }
 

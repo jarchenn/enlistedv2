@@ -45,21 +45,18 @@ static void emblem(ImDrawList* dl, ImVec2 p, float h, float a) {
   dl->AddRectFilled(P(30, 69), P(77, 77), fade(kInk, a), 0.8f * u);
   dl->AddQuadFilled(P(39, 77), P(68, 77), P(62, 86), P(45, 86), fade(kInk, a));
   dl->AddQuadFilled(P(45, 85.5f), P(62, 85.5f), P(73, 94), P(34, 94), fade(kInk, a));
-  // flame: off-white tongue, orange core
-  auto flame = [&](float s, ImU32 c) {   // scaled about the base (51, 66)
-    auto Q = [&](float x, float y) { return P(51 + (x - 51) * s, 66 + (y - 66) * s); };
-    dl->PathLineTo(Q(51, 66));
-    dl->PathBezierCubicCurveTo(Q(37, 66), Q(32, 54), Q(38, 44));
-    dl->PathBezierCubicCurveTo(Q(41, 38), Q(43, 32), Q(41, 24));
-    dl->PathBezierCubicCurveTo(Q(50, 30), Q(54, 37), Q(52, 45));
-    dl->PathBezierCubicCurveTo(Q(57, 41), Q(59, 35), Q(57, 28));
-    dl->PathBezierCubicCurveTo(Q(68, 38), Q(70, 55), Q(62, 62));
-    dl->PathBezierCubicCurveTo(Q(59, 65), Q(55, 66), Q(51, 66));
-    dl->PathFillConcave(c);
-  };
-  flame(1.0f, fade(kInk, a));
-  flame(0.62f, fade(IM_COL32(240, 118, 32, 255), a));
-  flame(0.30f, fade(IM_COL32(255, 196, 104, 255), a));
+  // flame (UI3): harsh and angular like the artwork: straight facets, sharp asymmetric tongues, taller than wide,
+  // a small hot orange-to-red diamond core; no curves, no glow
+  {
+    const ImVec2 F[] = {P(51, 67), P(37, 63), P(33, 51), P(39, 42), P(37, 33), P(43, 37), P(45, 20), P(51, 31), P(55, 26), P(57, 38), P(63, 30), P(66, 45), P(64, 57), P(58, 65)};
+    for (const ImVec2& q : F) dl->PathLineTo(q);
+    dl->PathFillConcave(fade(kInk, a));
+    const ImVec2 H[] = {P(51, 62), P(43, 57), P(43, 49), P(47, 44), P(48, 37), P(52, 44), P(55, 41), P(58, 50), P(57, 58)};
+    for (const ImVec2& q : H) dl->PathLineTo(q);
+    dl->PathFillConcave(fade(IM_COL32(10, 12, 14, 255), a));   // the hollow between outline and core (the artwork's dark gap)
+    dl->AddQuadFilled(P(51, 46), P(55.5f, 53), P(51, 60), P(46.5f, 53), fade(IM_COL32(242, 112, 26, 255), a));   // the hot diamond core
+    dl->AddQuadFilled(P(51, 52), P(53, 55.5f), P(51, 60), P(49, 55.5f), fade(IM_COL32(205, 48, 22, 255), a));    // red at its root
+  }
 }
 
 float drawLogo(ImDrawList* dl, ImVec2 p, float h, float a, bool wordmark) {

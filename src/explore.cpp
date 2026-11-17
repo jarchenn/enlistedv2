@@ -2,6 +2,7 @@
 #include "app.h"
 #include "ui_glass.h"   // UI2: glass panel backgrounds
 #include "mainmenu.h"
+#include "ui_flat.h"
 #include "editor_nav.h"
 #include "loading.h"
 #include "mpui.h"
@@ -83,7 +84,7 @@ void App::stepLean(float dt, const ExploreInput& in, bool sprinting) {
 bool App::enterExplore() {
   if (mode == Mode::Explore) return true;
   std::unique_ptr<LoadingJob> lj;   // UI2: a match start gets the loading screen (a plain play-test is quick)
-  if (gGame && gGame->pendingStart) { Scenario sc = Scenario::fromJson(gUi.matchScenario); const TemplateInfo* tp = findTemplate(doc.templateId); lj = std::make_unique<LoadingJob>(*this, doc.name, std::string(gameModeName(sc.rules.mode)), 2, tp ? tp->thumbnail : 0u); }
+  if (gGame && gGame->pendingStart) { Scenario sc = Scenario::fromJson(gUi.matchScenario); const TemplateInfo* tp = findTemplate(doc.templateId); lj = std::make_unique<LoadingJob>(*this, doc.name, std::string(gameModeName(sc.rules.mode)), 2, tp ? tp->thumbnail : 0u, doc.templateId); }
   { LoadStep ls("enterExplore syncRuntime"); syncRuntime(); Physics::optimizeBroadPhase(); }   // bodies added since load: balanced tree for play
   if (!doc.start.set) {
     // No marker yet: start on the ground at the centre of the view (or under the camera), facing the same way.
@@ -665,21 +666,28 @@ void App::drawExploreUI() {
   }
   static bool showControls = false;
   if (pauseMenu) {   // UI1b: one column of equal buttons under a title; Controls opens the key list
-    ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), io.DisplaySize, IM_COL32(0, 0, 0, 120));
-    ImGui::SetNextWindowPos(c, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-    ImGui::Begin("Paused", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar);
-    const float bw = ImGui::GetFontSize() * 17;
-    { const char* t = "PAUSED"; ImGui::SetCursorPosX((bw + ImGui::GetStyle().WindowPadding.x * 2 - ImGui::CalcTextSize(t).x) * 0.5f); ImGui::TextDisabled("%s", t); }
-    ImGui::Spacing();
-    if (ImGui::Button("Resume", ImVec2(bw, 0))) { pauseMenu = false; syncCursor(); }
-    if (ImGui::Button("Controls", ImVec2(bw, 0))) showControls = true;
-    if (ImGui::Button("Settings", ImVec2(bw, 0))) settings().open = true;
-    ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
-    if (ImGui::Button("Return to start marker", ImVec2(bw, 0))) { returnToStart(); pauseMenu = false; syncCursor(); }
-    if (ImGui::Button("Return to Creator", ImVec2(bw, 0))) { if (navState().creativeSession) dropinReturn(*this); else exitExplore(); }   // UI3: the editor camera where it was
-    if (ImGui::Button("Main menu", ImVec2(bw, 0))) { exitExplore(); mainMenuOpen(*this); }   // UI2
-    if (ImGui::Button("Keep session changes and return", ImVec2(bw, 0))) { applyDamageToMap(); exitExplore(); }
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Keeps the current wall damage and craters in the map as one undoable edit.\nTanks keep their damage, wreck and ammunition (not their position).\nWeapons, ammunition, moved guns and doors are not kept.");
+    (void)c;   // UI4: a flat page in the options language: the blurred game behind, PAUSED, a rule, a column of text actions
+    const float W = io.DisplaySize.x, H = io.DisplaySize.y, sc = H / 1080.0f, X0 = 84 * sc, tp = 104 * sc, ry = 54 * sc + tp * 1.02f + 30 * sc;
+    ImGui::SetNextWindowPos(ImVec2(0, 0)); ImGui::SetNextWindowSize(io.DisplaySize);
+    ImGui::Begin("Paused", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus);
+    ImDrawList* pdl = ImGui::GetWindowDrawList();
+    flat::backdrop(pdl, ImVec2(0, 0), io.DisplaySize);
+    pdl->AddRectFilledMultiColor(ImVec2(0, 0), ImVec2(W * 0.6f, H), IM_COL32(0, 0, 0, 110), IM_COL32(0, 0, 0, 0), IM_COL32(0, 0, 0, 0), IM_COL32(0, 0, 0, 110));
+    flat::text(pdl, flat::titleFont(), tp, ImVec2(X0, 54 * sc), flat::ink(), "PAUSED", 0.01f);
+    flat::rule(pdl, X0, W - X0, ry);
+    ImGui::SetCursorScreenPos(ImVec2(X0, ry + 40 * sc));
+    auto act = [&](const char* l) { ImGui::SetCursorScreenPos(ImVec2(X0, ImGui::GetCursorScreenPos().y)); const bool hit = flat::action(l); ImGui::Dummy(ImVec2(1, 10 * sc)); return hit; };
+    if (act("Resume")) { pauseMenu = false; syncCursor(); }
+    if (act("Controls")) showControls = true;
+    if (act("Settings")) settings().open = true;
+    ImGui::Dummy(ImVec2(1, 18 * sc));
+    if (act("Return to start marker")) { returnToStart(); pauseMenu = false; syncCursor(); }
+    if (act("Return to Creator")) { if (navState().creativeSession) dropinReturn(*this); else exitExplore(); }   // UI3: the editor camera where it was
+    if (act("Main menu")) { exitExplore(); mainMenuOpen(*this); }   // UI2
+    const bool keepHover = [&] { const bool hit = act("Keep session changes and return"); if (hit) { applyDamageToMap(); exitExplore(); } return ImGui::IsItemHovered(); }();
+    if (keepHover) ImGui::SetTooltip("Keeps the current wall damage and craters in the map as one undoable edit.\nTanks keep their damage, wreck and ammunition (not their position).\nWeapons, ammunition, moved guns and doors are not kept.");
+    flat::rule(pdl, X0, W - X0, H - 104 * sc);
+    flat::text(pdl, uiFontHead(), 15 * sc, ImVec2(X0, H - 132 * sc), flat::grey(), "ESC  RESUME", 0.1f);
     ImGui::End();
   }
   controlsWindow(*this, &showControls);   // UI1b
