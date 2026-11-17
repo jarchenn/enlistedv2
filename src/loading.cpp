@@ -11,6 +11,7 @@
 #include "mainmenu.h"
 #include "logo.h"
 #include "app.h"
+#include "textures.h"
 #include "crumb.h"
 #include "game.h"
 #include "platform_gfx.h"
@@ -242,8 +243,26 @@ static const std::thread::id gMainThread = std::this_thread::get_id();   // the 
 void loadingTick() { if (J.depth > 0 && gApp && std::this_thread::get_id() == gMainThread) present(*gApp, false); }   // from crumb() and the long loops: a frame (and the message pump) every 33 ms
 void loadingStageDone() { if (J.depth <= 0 || !gApp) return; J.done = std::min(J.done + 1, J.expected); J.sub = 0; present(*gApp, false); }
 void loadingProgress(const char* label, float f) { if (J.depth <= 0 || !gApp) return; const bool change = J.label != label; J.label = label; J.sub = std::clamp(f, 0.0f, 1.0f); present(*gApp, change); }
+// UI9: wait for the GPU to finish what is queued (the released map's memory goes back, the new map's uploads land) while
+// the window keeps answering: a fence polled every 2 ms with the message pump, instead of glFinish's silent block (5-6 s
+// behind a busy GPU). Up to 20 s, then it carries on.
+void gpuDrain(const char* why) {
+  const double t0 = glfwGetTime();
+  GLsync f = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0); if (!f) { glFinish(); return; }
+  GLenum r = glClientWaitSync(f, GL_SYNC_FLUSH_COMMANDS_BIT, 0);
+  while (r == GL_TIMEOUT_EXPIRED && glfwGetTime() - t0 < 20.0) {
+    glfwPollEvents(); hangBeat(); if (gApp && !gApp->selftest) forceQuitCheck(gApp->win, true);
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    r = glClientWaitSync(f, 0, 0);
+  }
+  glDeleteSync(f);
+  const double ms = (glfwGetTime() - t0) * 1000.0;
+  if (ms > 250) logf("gpu drain (%s): %.0f ms", why, ms);
+}
 void loadingEnd() {
   if (J.depth <= 0) return;
+  if (J.depth == 1) {   // UI9: the new map's texture sets and GPU work done under the loading screen, not in the first frames after it
+    loadingStage("Loading textures"); tex::flushPending(); gpuDrain("end of load"); }
   gLoadingDepth = --J.depth;
   if (J.depth > 0) return;
   J.done = J.expected; J.sub = 0; J.endedAt = glfwGetTime(); J.fading = true;

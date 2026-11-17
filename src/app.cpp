@@ -590,14 +590,27 @@ void App::applyTemplate(const std::string& id) {
 }
 static void trimHeap() {   // MEM2: freed map memory goes back to Windows (the CRT heap keeps it committed otherwise)
 #ifdef _WIN32
-  _heapmin(); HeapCompact(GetProcessHeap(), 0);
+  static const bool prof = std::getenv("NMK_TRIM_PROF") != nullptr;   // UI9: what each part costs and returns
+  auto ms = [] { return glfwGetTime() * 1000.0; }; auto mb = [] { return processMemory().PrivateBytes / 1048576.0; };
+  // UI9 measured (10 map changes): the GPU wait returns 37-1205 MB (the driver frees the released meshes once the GPU
+  // is done with them) and took up to 5-6 s behind a busy GPU; _heapmin ~0 ms / ~0 MB; HeapCompact 0 ms / 0 MB: dropped
+  double t0 = ms(), m0 = prof ? mb() : 0; gpuDrain("released map"); double t1 = ms(), m1 = prof ? mb() : 0;
+  _heapmin(); double t2 = ms(), m2 = prof ? mb() : 0;
+  if (prof) logf("trimprof: GPU drain %.0f ms (%+.0f MB), _heapmin %.0f ms (%+.0f MB)", t1 - t0, m1 - m0, t2 - t1, m2 - m1);
+  if (prof && gApp) {   // UI9: what stays built after the release
+    extern size_t snapCacheShapes(); int nb[4] = {}; double mb4[4] = {};
+    for (auto& a : gApp->lib.assets) if (a->built) { int k = a->vehicle ? 0 : a->raw.contains("rack") ? 1 : (a->tree.on || a->modelFoliage || !a->ivy.blocks.empty()) ? 2 : 3; ++nb[k];
+      for (auto* m : {&a->model, &a->modelLod}) if (*m) mb4[k] += (*m)->gpuBytes / 1048576.0; }
+    logf("trimprof: kept built: vehicles %d (%.0f MB models), racks %d (%.0f), foliage %d (%.0f), other %d (%.0f); physics bodies %d; snap shapes %zu",
+         nb[0], mb4[0], nb[1], mb4[1], nb[2], mb4[2], nb[3], mb4[3], Physics::bodyCount(), snapCacheShapes());
+  }
 #endif
 }
 bool App::newMap(const TemplateInfo& t, const std::string& name) {
   LoadingJob lj(*this, t.name, "Generating map", 3, t.thumbnail, t.id);   // UI2: terrain, content, furniture
   if (mode == Mode::Explore) exitExplore();
   clearRuntime();
-  placing = nullptr; { double c0 = processMemory().PrivateBytes / 1048576.0; int n = lib.releaseAll(); crumb("heap trim"); if (n) { glFinish(); trimHeap(); } if (n) logf("assets: %d released with the old map (commit %.0f -> %.0f MB)", n, c0, processMemory().PrivateBytes / 1048576.0); }   // MEM2: the new map builds what it uses
+  placing = nullptr; { double c0 = processMemory().PrivateBytes / 1048576.0; int n = lib.releaseAll(); crumb("heap trim"); if (n) trimHeap(); if (n) logf("assets: %d released with the old map (commit %.0f -> %.0f MB)", n, c0, processMemory().PrivateBytes / 1048576.0); }   // MEM2: the new map builds what it uses
   doc = MapDoc();
   doc.name = name; doc.templateId = t.id; doc.templateVersion = t.version; doc.seed = t.seed;
   applyTemplate(t.id);
@@ -621,7 +634,7 @@ bool App::openMap(const fs::path& p) {
   if (!loadMap(p, d, err)) { toast("Could not open map: " + err, 8); return false; }
   if (mode == Mode::Explore) exitExplore();
   clearRuntime();
-  placing = nullptr; { double c0 = processMemory().PrivateBytes / 1048576.0; int n = lib.releaseAll(); crumb("heap trim"); if (n) { glFinish(); trimHeap(); } if (n) logf("assets: %d released with the old map (commit %.0f -> %.0f MB)", n, c0, processMemory().PrivateBytes / 1048576.0); }   // MEM2: the new map builds what it uses
+  placing = nullptr; { double c0 = processMemory().PrivateBytes / 1048576.0; int n = lib.releaseAll(); crumb("heap trim"); if (n) trimHeap(); if (n) logf("assets: %d released with the old map (commit %.0f -> %.0f MB)", n, c0, processMemory().PrivateBytes / 1048576.0); }   // MEM2: the new map builds what it uses
   doc = std::move(d);
   { extern int lineMigrateTrenches(App&); lineMigrateTrenches(*this); }   // LN1: trench pieces become trench lines
   { extern int lineMigratePieces(App&); lineMigratePieces(*this); }   // LN2: fence / wire / wall / hedge pieces become lines
