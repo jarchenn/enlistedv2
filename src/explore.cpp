@@ -59,6 +59,22 @@ vec3 App::leanOffset() const {
 // returns from where it is); no lean sprinting, prone, swimming, climbing or building; the head and the shoulders are
 // kept clearance_m off any geometry on the leaning side (rays from the upright eye and shoulders), so it never looks
 // through a wall
+// the footstep event for a foot at pos: path / painted ground, an object underfoot (wood high up, stone low), wading.
+// groundUser: the body the walker stands on (~0 / 0: unknown, a short ray finds it) (SND10: the player and the bots)
+std::string App::stepSound(vec3 pos, uint64_t groundUser) {
+  std::string s = "step_grass";
+  std::string ps = pathSurfaceAt(pos);
+  if (ps == "gravel" || ps == "concrete") s = "step_stone";   // dirt stays the soft step
+  { extern const std::string& groundPaintStep(float, float); const std::string& gs = groundPaintStep(pos.x, pos.z); if (!gs.empty() && audio.hasEvent(gs)) s = gs; }   // lasso ground paint
+  if (groundUser == ~0ull || groundUser == 0) { Physics::Hit h; if (Physics::castRayEx(pos + vec3(0, 0.3f, 0), vec3(0, -1, 0), 0.8f, h)) groundUser = h.ud; }
+  if (groundUser != ~0ull && groundUser != 0) {
+    uint64_t iid = groundUser >> 16;
+    if (const Instance* i = doc.find(iid)) s = (pos.y - i->pos.y > 0.9f) ? "step_wood" : "step_stone";
+  }
+  if (pos.y < waterAt(*this, pos.x, pos.z) - 0.05f && audio.hasEvent("step_water")) s = "step_water";   // wading: the bank's deep-water steps (any water, water_query.h)
+  return s;
+}
+
 void App::stepLean(float dt, const ExploreInput& in, bool sprinting) {
   auto c = Physics::character();
   bool can = !sprinting && c.posture != Physics::PRONE && !swim.active && !mantle.active && !build.active && !occupied && !tanks.occupied;
@@ -282,6 +298,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   else if (lootInventoryOpen()) { ExploreInput w = in; w.fire = w.aim = w.reload = false; lootBeforeWeapons(*this); stepWeapons(dt, w); lootAfterWeapons(*this); }   // BR2: the inventory screen is open
   else { lootBeforeWeapons(*this); stepWeapons(dt, in); lootAfterWeapons(*this); }   // BR2: pooled ammo as magazines (no-op outside Battle Royale)
   blastShake = std::max(0.0f, blastShake - dt * 1.5f);
+  { extern float gKickRoll; gKickRoll *= std::exp(-dt * 5.0f); }   // RC2: a launcher's roll settles in ~0.6 s
   if (mpaiLocalFrozen(*this)) { stepProjectiles(dt); fx.update(dt, terrain); return; }   // dead in a match: spectating
   swimBreath(dt);   // swim.cpp: breath runs down with the eye under water (swimming or not), then drowning
   // ---- move
@@ -361,16 +378,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
     float stride = in.sprint ? 1.1f : 0.75f;
     if (stepTimer > stride) {
       stepTimer = 0;
-      std::string s = "step_grass";
-      std::string ps = pathSurfaceAt(c.pos);
-      if (ps == "gravel" || ps == "concrete") s = "step_stone";   // dirt stays the soft step
-      { extern const std::string& groundPaintStep(float, float); const std::string& gs = groundPaintStep(c.pos.x, c.pos.z); if (!gs.empty() && audio.hasEvent(gs)) s = gs; }   // lasso ground paint
-      if (c.groundUser != ~0ull && c.groundUser != 0) {
-        uint64_t iid = c.groundUser >> 16;
-        for (auto& i : doc.instances) if (i.id == iid) s = (c.pos.y - i.pos.y > 0.9f) ? "step_wood" : "step_stone";
-      }
-      if (c.pos.y < waterAt(*this, c.pos.x, c.pos.z) - 0.05f && audio.hasEvent("step_water")) s = "step_water";   // wading: the bank's deep-water steps (any water, water_query.h)
-      audio.play(s, c.pos, in.crouch ? 0.4f : 0.8f);
+      audio.play(stepSound(c.pos, c.groundUser), c.pos, in.crouch ? 0.4f : 0.8f);
     }
   }
   // ---- interaction

@@ -119,7 +119,7 @@ void TankSys::loadDefs(App& app) {
     d->traverseRate = g.value("traverseRate", d->traverseRate); d->traverseAccel = g.value("traverseAccel", d->traverseAccel);
     d->elevRate = g.value("elevationRate", d->elevRate); d->elevAccel = g.value("elevationAccel", d->elevAccel);
     if (g.contains("elevation")) { d->elevMin = g["elevation"][0]; d->elevMax = g["elevation"][1]; }
-    d->recoil = g.value("recoil", d->recoil); d->rockDeg = g.value("rockDeg", d->rockDeg); d->fov = g.value("fov", d->fov); d->fovZoom = g.value("fovZoom", d->fovZoom);
+    d->recoil = g.value("recoil", d->recoil); d->rockDeg = g.value("rockDeg", d->rockDeg); d->viewKick = g.value("viewKick", d->viewKick); d->fov = g.value("fov", d->fov); d->fovZoom = g.value("fovZoom", d->fovZoom);
     d->autoGun = g.value("auto", false); d->gunSound = g.value("sound", ""); d->heBlastR = g.value("heBlastR", 0.0f); d->lightAP = g.value("lightAP", 0.0f); d->lightHE = g.value("lightHE", 0.0f);
     { const json tw = j.value("tow", json::object()); d->towCount = tw.value("count", 0); d->towReload = tw.value("reload", d->towReload); d->towVel = tw.value("velocity", d->towVel); d->towDmg = tw.value("damage", d->towDmg); d->towBlastR = tw.value("blastR", d->towBlastR); d->towTurn = tw.value("turnDegPerS", d->towTurn); d->towName = tw.value("name", "TOW"); }
     d->cannonName = g.value("name", ""); d->reticle = g.value("reticle", ""); d->zeroRange = g.value("zeroRange", d->zeroRange); d->muzzleScale = g.value("muzzleScale", d->muzzleScale);

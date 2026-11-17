@@ -211,7 +211,7 @@
   },
   "gun": {
     "muzzleScale": 1.2,
-    "name": "OQF 17-pounder (game data; mesh shows the 76 mm M1)",
+    "name": "OQF 17-pounder (game data; mesh shows the 76 mm M1)", "rockDeg": 2.9, "viewKick": 1.8,
     "traverseRate": 24,
     "traverseAccel": 40,
     "elevationRate": 5,

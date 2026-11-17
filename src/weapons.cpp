@@ -594,6 +594,11 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
         Projectile& rp = projectiles.back();
         rp.blastDmg = d.rocketDmg; rp.blastR = d.rocketR; rp.craterScale = d.rocketCrater; rp.splashGun = d.rocketSplashGun; rp.atKill = d.rocketAtKill; rp.gravScale = d.rocketGrav; rp.armourMult = d.rocketArmour;
         if (d.rocketBackblast) fx.backblast(weaponMuzzleWorld(d, s) - aimDir * 1.4f, -aimDir);   // content/settings/fx.json
+        {   // RC2: the launch shoves the shooter: a backblast concussion shake and a roll of the view while the sight settles
+          extern float gKickRoll;
+          blastShake = std::max(blastShake, d.rocketBackblast ? 0.6f : 0.4f);
+          gKickRoll = (d.rocketBackblast ? 2.2f : 1.4f) * (fx.rnd() < 0.5f ? -1.0f : 1.0f);
+        }
       } else {
         fireRounds(d, start, dir, tracer, s.seed ^ (uint32_t)s.shotIdx * 7919u, -1);   // MG1: a shotgun's pellets
       }

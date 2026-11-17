@@ -27,6 +27,8 @@ public:
   // against its decoded mp3: peak, RMS and 1-4 / 4-10 kHz band energy (first 0.5 s from the onset), logged
   void fidelityReport(const fs::path& customDir);
   void setListener(vec3 pos, vec3 fwd);
+  vec3 listenerPos() const { return listener_; }   // SND10: where setListener last put the ears
+  vec3 listener_{0};
   void setAmbience(float wind, float leaves);
   void setBed(int slot, const fs::path& file, float volume);   // a looping music / room-tone file under everything, two slots that mix (empty path: none); cheap to call every frame
   // volume settings (settings.cpp): master on the engine; effects on every spatial play / loop; UI on events whose

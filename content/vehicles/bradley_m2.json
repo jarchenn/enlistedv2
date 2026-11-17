@@ -171,7 +171,7 @@
  },
  "gun": {
   "muzzleScale": 0.55,
-  "name": "25 mm M242 Bushmaster",
+  "name": "25 mm M242 Bushmaster", "viewKick": 0.3,
   "traverseRate": 50,
   "traverseAccel": 60,
   "elevationRate": 30,

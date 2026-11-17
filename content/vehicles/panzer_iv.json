@@ -185,7 +185,7 @@
   },
   "gun": {
     "muzzleScale": 1.0,
-    "name": "7.5 cm KwK 40 L/48",
+    "name": "7.5 cm KwK 40 L/48", "rockDeg": 3.4, "viewKick": 2.1,
     "traverseRate": 14,
     "traverseAccel": 12,
     "elevationRate": 5,
