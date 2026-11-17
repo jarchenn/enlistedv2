@@ -3890,8 +3890,8 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
         GLuint& iv = const_cast<GpuMesh*>(r.mesh)->ivao;
         if (!iv) {
           glCreateVertexArrays(1, &iv);
-          glVertexArrayVertexBuffer(iv, 0, r.mesh->vbo, 0, sizeof(Vertex)); glVertexArrayElementBuffer(iv, r.mesh->ebo);
-          glEnableVertexArrayAttrib(iv, 0); glVertexArrayAttribFormat(iv, 0, 3, GL_FLOAT, GL_FALSE, (GLuint)offsetof(Vertex, pos)); glVertexArrayAttribBinding(iv, 0, 0);
+          glVertexArrayVertexBuffer(iv, 0, r.mesh->vbo, 0, sizeof(GpuVertex)); glVertexArrayElementBuffer(iv, r.mesh->ebo);
+          glEnableVertexArrayAttrib(iv, 0); glVertexArrayAttribFormat(iv, 0, 3, GL_FLOAT, GL_FALSE, (GLuint)offsetof(GpuVertex, pos)); glVertexArrayAttribBinding(iv, 0, 0);
           for (int c = 0; c < 4; ++c) { glEnableVertexArrayAttrib(iv, 12 + c); glVertexArrayAttribFormat(iv, 12 + c, 4, GL_FLOAT, GL_FALSE, c * 16); glVertexArrayAttribBinding(iv, 12 + c, 1); }
           glVertexArrayBindingDivisor(iv, 1, 1);
           glVertexArrayVertexBuffer(iv, 1, instBuf, 0, sizeof(mat4));
