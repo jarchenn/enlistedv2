@@ -64,12 +64,13 @@ bool capturePropsSelfTest(App& a, float dt) {
       rooms[{hid, std::atoi(sl.c_str() + 1)}].push_back(p);
     }
     std::set<uint64_t> usedHost;
+    std::pair<uint64_t, int> curKey{0, 0};   // the room being scored (for type filters)
     auto pickRoom = [&](std::function<int(const std::vector<const Instance*>&)> score, const char* why, std::function<bool(const std::string&)> focus) {
       std::pair<uint64_t, int> best{0, 0}; int bs = 0;
       for (int pass = 0; pass < 2 && !bs; ++pass)
         for (auto& [key, v] : rooms) {
           Instance* h = a.doc.find(key.first); if (!h || (!pass && (usedHost.count(key.first) || has(h->assetId, {"ruin"})))) continue;
-          int sc = score(v); if (sc > bs) { bs = sc; best = key; }
+          curKey = key; int sc = score(v); if (sc > bs) { bs = sc; best = key; }
         }
       if (!bs) return;
       usedHost.insert(best.first);
@@ -116,6 +117,23 @@ bool capturePropsSelfTest(App& a, float dt) {
       gShots.push_back(s);
     };
     auto count = [&](const std::vector<const Instance*>& v, std::function<bool(const std::string&)> f) { int n = 0; for (auto* p : v) n += f(p->assetId); return n; };
+    auto typeOf = [&](std::pair<uint64_t, int> k) -> std::string {
+      Instance* h = a.doc.find(k.first); const AssetDef* ha = h ? a.assetFor(*h) : nullptr; const RoomInfo* ri = ha ? a.interior.rooms(ha) : nullptr;
+      return ri && k.second < (int)ri->rooms.size() ? roomTypeKey(ri->rooms[k.second].type) : "";
+    };
+    // NMK_PROPS_ROOMS="tavern|dining,kitchen,shop": one room per group, by room type, the most furnished one; the camera
+    // looks at the centre of its furniture (lamps, rugs and curtains left out)
+    if (const char* rs = std::getenv("NMK_PROPS_ROOMS")) {
+      std::stringstream ss(rs); std::string grp;
+      auto big = [&](const std::string& id) { return !has(id, {"lamp", "rug", "curtain", "light", "sconce", "pendant", "candle", "debris", "frame_", "picture"}); };
+      while (std::getline(ss, grp, ',')) {
+        std::vector<std::string> alts; std::stringstream gs(grp); std::string w; while (std::getline(gs, w, '|')) alts.push_back(w);
+        pickRoom([&](const std::vector<const Instance*>& v) {
+          std::string t = typeOf(curKey); bool ok = false; for (auto& al : alts) ok |= t.rfind(al, 0) == 0;
+          if (Instance* hh = a.doc.find(curKey.first); hh && has(hh->assetId, {"boathouse"})) ok = false;   // its room is mostly open water
+          return ok ? count(v, big) : 0; }, grp.c_str(), big);
+      }
+    } else {
     pickRoom([&](const std::vector<const Instance*>& v) {   // a bedroom with one of the user's beds (else a modelled bed)
       int ub = count(v, [&](const std::string& id) { return has(id, {"_bed", "bunk"}) && isUser(id); }), mb = count(v, [&](const std::string& id) { return has(id, {"_bed", "bunk"}) && modelBakedFor(id); });
       return ub * 100 + mb * 10 + (ub + mb ? count(v, modelBakedFor) : 0); }, "user bed", [&](const std::string& id) { return has(id, {"_bed", "bunk"}) && modelBakedFor(id); });
@@ -124,6 +142,7 @@ bool capturePropsSelfTest(App& a, float dt) {
       int m = count(v, [&](const std::string& id) { return has(id, {"sofa", "armchair", "piano", "settee", "chesterfield", "_tv"}) && modelBakedFor(id); });
       return u * 100 + m * 10 + (u + m ? count(v, modelBakedFor) : 0); }, "seating, piano", [&](const std::string& id) { return has(id, {"sofa", "armchair", "chair_", "piano", "settee", "chesterfield", "_tv", "synth"}) && modelBakedFor(id); });
     pickRoom([&](const std::vector<const Instance*>& v) { return count(v, modelBakedFor); }, "most modelled pieces", [&](const std::string& id) { return modelBakedFor(id); });
+    }
     a.hideEditorOverlays = true;   // no gizmos, markers or nav lines in the shots
     { std::ofstream f(out("map_counts.json")); f << cj.dump(1); }
     a.syncRuntime();
