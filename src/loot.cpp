@@ -1093,8 +1093,7 @@ void lootUi(App& app) {
     const char* t = k.healKind == 1 ? "Bandage" : "Medkit"; ImVec2 ts = ImGui::CalcTextSize(t);
     dl->AddText(ImVec2(c.x - ts.x * 0.5f, c.y + 118), IM_COL32(230, 240, 230, 255), t);
   }
-  // red dot: a dot over the iron sight picture in ADS
-  if (app.activeWeapon >= 0 && app.adsT > 0.85f && app.wstate[app.weaponDefs[app.activeWeapon]->id].att[ATT_SIGHT] == 1) dl->AddCircleFilled(c, 2.5f, IM_COL32(255, 40, 30, 255));
+  // WP9: no HUD dot for the red dot sight: the sight's own window mark (br_models.cpp) is the one dot (the two parted whenever the gun swayed)
   // armour / weight strip, bottom centre
   char b[160]; std::snprintf(b, sizeof b, "Helmet %d  Vest %d  Bag %d   %d / %d", k.helmet, k.vest, k.backpack, (int)kitWeight(&app, k, &app.carried), (int)kitCapacity(k));
   ImVec2 bs = ImGui::CalcTextSize(b); dl->AddText(ImVec2(c.x - bs.x * 0.5f, io.DisplaySize.y - 34), IM_COL32(230, 225, 205, 220), b);
