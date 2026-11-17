@@ -22,7 +22,8 @@ float sdArmor(Game& g, int victim, float dmg, const char* how, int attacker);   
 void sdInput(App& app, ExploreInput& in);             // local player: freeze, no sprint / prone, plant / defuse holds, the buy menu key
 bool sdBotGoal(Game& g, const Soldier& s, vec3& goal);   // AI: where this bot goes now (false: the default goal)
 bool sdBotHolding(Game& g, const Soldier& s);
-bool sdBotFetching(Game& g, const Soldier& s);       // SD3: the attacker nearest the dropped bomb (it goes straight for it)        // AI: planting / defusing / at its post: hold still
+bool sdBotFetching(Game& g, const Soldier& s);
+bool sdBotPushing(Game& g, const Soldier& s);        // SD5: the carrier near a pad / late, or an attacker stalled: straight for the goal       // SD3: the attacker nearest the dropped bomb (it goes straight for it)        // AI: planting / defusing / at its post: hold still
 void sdDrawHud(Game& g);
 bool sdClientEvent(App& app, const json& ev);
 bool sdHostRequest(Game& g, int slot, const json& req);
