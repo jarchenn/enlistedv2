@@ -771,10 +771,10 @@ bool importWeaponModels(const fs::path& srcDir, const fs::path& contentRoot) {
       if (!b.contains("pivot")) b["pivot"] = "ground";
       if (!b.contains("scale")) b["scale"] = 1;
       if (!b.contains("lod1")) b["lod1"] = 0.3;
-      done[d] = b;
       ImportSpec s = importSpecFromJson(b);
       fs::path glb = srcDir / s.src;
-      if (!fs::exists(glb)) continue;
+      if (!mj.contains("bake") || !fs::exists(glb)) continue;   // PR4: a plain reference (a prop cluster reusing a ph_* bake) neither bakes nor claims the folder
+      done[d] = b;
       std::string err, sum;
       if (bakeGlbModel(glb, s, wdir / "models" / s.dir, err, sum)) { logf("import %-12s %s", s.dir.c_str(), sum.c_str()); ++ok; }
       else { logf("import %-12s FAILED: %s", s.dir.c_str(), err.c_str()); ++bad; }
