@@ -1,0 +1,93 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.15910418331623077,
+  0.3043093979358673,
+  0.12427651882171631
+ ],
+ "bmin": [
+  -0.16016694903373718,
+  0.0,
+  -0.12427651882171631
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "vintage_electric_kettle",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "vintage_electric_kettle_glass",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.15910418331623077,
+    0.3043093979358673,
+    0.12427651882171631
+   ],
+   "bmin": [
+    -0.16016694903373718,
+    0.0,
+    -0.12427651882171631
+   ],
+   "count": 5490,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "vintage_electric_kettle",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.027282046154141426,
+    0.15648378431797028,
+    0.09564647078514099
+   ],
+   "bmin": [
+    -0.018550727516412735,
+    0.1082400530576706,
+    0.08355652540922165
+   ],
+   "count": 93,
+   "first": 5490,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "vintage_electric_kettle",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_vintage_electric_kettle.glb",
+ "textures": {},
+ "triangles": 1861,
+ "vertices": 1338
+}

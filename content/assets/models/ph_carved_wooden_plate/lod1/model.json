@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.13442391157150269,
+  0.03687114268541336,
+  0.13233241438865662
+ ],
+ "bmin": [
+  -0.13360567390918732,
+  0.0003736999351531267,
+  -0.13324569165706635
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "carved_wooden_plate",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.13442391157150269,
+    0.03687114268541336,
+    0.13233241438865662
+   ],
+   "bmin": [
+    -0.13360567390918732,
+    0.0003736999351531267,
+    -0.13324569165706635
+   ],
+   "count": 792,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "carved_wooden_plate",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_carved_wooden_plate.glb",
+ "textures": {},
+ "triangles": 264,
+ "vertices": 250
+}

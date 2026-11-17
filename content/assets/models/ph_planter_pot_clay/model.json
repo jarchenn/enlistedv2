@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.1322650909423828,
+  0.22174209356307983,
+  0.1311996877193451
+ ],
+ "bmin": [
+  -0.13281691074371338,
+  4.1561987018212676e-05,
+  -0.13166528940200806
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "planter_pot_clay",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.1322650909423828,
+    0.22174209356307983,
+    0.1311996877193451
+   ],
+   "bmin": [
+    -0.13281691074371338,
+    4.1561987018212676e-05,
+    -0.13166528940200806
+   ],
+   "count": 4620,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "planter_pot_clay",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_planter_pot_clay.glb",
+ "textures": {},
+ "triangles": 1540,
+ "vertices": 1057
+}

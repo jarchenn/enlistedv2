@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.3440864086151123,
+  2.2725610733032227,
+  0.32824409008026123
+ ],
+ "bmin": [
+  -0.34360066056251526,
+  0.0,
+  -0.3288916349411011
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "WoodenChair_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.3440864086151123,
+    2.2725610733032227,
+    0.32824409008026123
+   ],
+   "bmin": [
+    -0.34360066056251526,
+    0.0,
+    -0.3288916349411011
+   ],
+   "count": 7494,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "WoodenChair_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_woodenchair_01.glb",
+ "textures": {},
+ "triangles": 2498,
+ "vertices": 2894
+}

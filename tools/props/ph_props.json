@@ -1,4 +1,58 @@
 {
+ "ph_alarm_clock_01": {
+  "ph": "alarm_clock_01",
+  "name": "Alarm Clock 01",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.132,
+   0.174,
+   0.067
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.066,
+    0.027,
+    0.118,
+    0.118,
+    0.04
+   ],
+   [
+    0.0,
+    0.066,
+    -0.028,
+    0.103,
+    0.103,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Alarm Clock 01 by James Ray Cock, Yann Kervran, Poly Haven (polyhaven.com/a/alarm_clock_01), CC0"
+ },
+ "ph_antique_ceramic_vase_01": {
+  "ph": "antique_ceramic_vase_01",
+  "name": "Antique Ceramic Vase 01",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.255,
+   0.44,
+   0.255
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.233,
+    -0.0,
+    0.255,
+    0.413,
+    0.255
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Antique Ceramic Vase 01 by James Ray Cock, Poly Haven (polyhaven.com/a/antique_ceramic_vase_01), CC0"
+ },
  "ph_armchair_01": {
   "ph": "ArmChair_01",
   "name": "Arm Chair 01",
@@ -53,6 +107,53 @@
   "maxTex": 1024,
   "lodDist": 15,
   "credit": "Arm Chair 01 by Kirill Sannikov, Poly Haven (polyhaven.com/a/ArmChair_01), CC0"
+ },
+ "ph_bar_chair_round_01": {
+  "ph": "bar_chair_round_01",
+  "name": "Bar Chair Round 01",
+  "category": "Interior: Modern",
+  "size": [
+   0.483,
+   0.751,
+   0.486
+  ],
+  "colliders": [
+   [
+    0.019,
+    0.654,
+    -0.005,
+    0.205,
+    0.04,
+    0.417
+   ],
+   [
+    -0.056,
+    0.654,
+    0.02,
+    0.197,
+    0.04,
+    0.401
+   ],
+   [
+    0.091,
+    0.654,
+    -0.031,
+    0.182,
+    0.04,
+    0.374
+   ],
+   [
+    -0.122,
+    0.654,
+    0.048,
+    0.159,
+    0.04,
+    0.336
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Bar Chair Round 01 by Dairon Sanchez, Poly Haven (polyhaven.com/a/bar_chair_round_01), CC0"
  },
  "ph_barbershopchair_01": {
   "ph": "BarberShopChair_01",
@@ -329,6 +430,148 @@
   "lodDist": 15,
   "credit": "Barrel Stove by MP, Poly Haven (polyhaven.com/a/barrel_stove), CC0"
  },
+ "ph_book_encyclopedia_set_01": {
+  "ph": "book_encyclopedia_set_01",
+  "name": "Book Encyclopedia Set 01",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.551,
+   0.237,
+   0.163
+  ],
+  "colliders": [
+   [
+    0.152,
+    0.119,
+    -0.001,
+    0.04,
+    0.237,
+    0.16
+   ],
+   [
+    -0.169,
+    0.119,
+    -0.001,
+    0.04,
+    0.237,
+    0.16
+   ],
+   [
+    -0.102,
+    0.119,
+    -0.001,
+    0.04,
+    0.237,
+    0.16
+   ],
+   [
+    -0.056,
+    0.119,
+    -0.001,
+    0.04,
+    0.237,
+    0.16
+   ],
+   [
+    -0.222,
+    0.119,
+    -0.001,
+    0.04,
+    0.237,
+    0.16
+   ],
+   [
+    0.082,
+    0.119,
+    -0.001,
+    0.04,
+    0.237,
+    0.16
+   ],
+   [
+    0.264,
+    0.119,
+    -0.001,
+    0.04,
+    0.237,
+    0.16
+   ],
+   [
+    -0.012,
+    0.119,
+    -0.001,
+    0.04,
+    0.237,
+    0.16
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Book Encyclopedia Set 01 by John Malcolm, Poly Haven (polyhaven.com/a/book_encyclopedia_set_01), CC0"
+ },
+ "ph_boombox": {
+  "ph": "boombox",
+  "name": "Boombox",
+  "category": "Interior: Modern",
+  "size": [
+   0.724,
+   0.47,
+   0.186
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.132,
+    0.078,
+    0.723,
+    0.264,
+    0.04
+   ],
+   [
+    -0.0,
+    0.124,
+    -0.076,
+    0.723,
+    0.247,
+    0.04
+   ],
+   [
+    0.0,
+    0.256,
+    0.001,
+    0.723,
+    0.04,
+    0.154
+   ],
+   [
+    0.0,
+    0.0,
+    0.001,
+    0.723,
+    0.04,
+    0.154
+   ],
+   [
+    0.361,
+    0.132,
+    0.001,
+    0.04,
+    0.264,
+    0.154
+   ],
+   [
+    -0.361,
+    0.132,
+    0.001,
+    0.04,
+    0.264,
+    0.154
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Boombox by Thomas Paul Mouilleron, Poly Haven (polyhaven.com/a/boombox), CC0"
+ },
  "ph_brass_candleholders": {
   "ph": "brass_candleholders",
   "name": "Brass Candleholders",
@@ -400,6 +643,186 @@
   "lodDist": 15,
   "credit": "Brass Candleholders by Tina, Poly Haven (polyhaven.com/a/brass_candleholders), CC0"
  },
+ "ph_brass_goblets": {
+  "ph": "brass_goblets",
+  "name": "Brass Goblets",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.453,
+   0.273,
+   0.298
+  ],
+  "colliders": [
+   [
+    -0.007,
+    0.202,
+    0.074,
+    0.15,
+    0.14,
+    0.15
+   ],
+   [
+    0.152,
+    0.211,
+    -0.074,
+    0.149,
+    0.124,
+    0.149
+   ],
+   [
+    -0.156,
+    0.204,
+    -0.077,
+    0.14,
+    0.125,
+    0.14
+   ],
+   [
+    -0.007,
+    0.016,
+    0.074,
+    0.145,
+    0.04,
+    0.145
+   ],
+   [
+    -0.156,
+    0.001,
+    -0.077,
+    0.141,
+    0.04,
+    0.141
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Brass Goblets by Tina, Poly Haven (polyhaven.com/a/brass_goblets), CC0"
+ },
+ "ph_brass_pan_01": {
+  "ph": "brass_pan_01",
+  "name": "Brass Pan 01",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.191,
+   0.053,
+   0.45
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.027,
+    0.128,
+    0.182,
+    0.048,
+    0.184
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Brass Pan 01 by Rico Cilliers, Poly Haven (polyhaven.com/a/brass_pan_01), CC0"
+ },
+ "ph_brass_pot_01": {
+  "ph": "brass_pot_01",
+  "name": "Brass Pot 01",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.302,
+   0.291,
+   0.302
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.106,
+    0.0,
+    0.298,
+    0.197,
+    0.298
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Brass Pot 01 by Rico Cilliers, Poly Haven (polyhaven.com/a/brass_pot_01), CC0"
+ },
+ "ph_caged_hanging_light": {
+  "ph": "caged_hanging_light",
+  "name": "Caged Hanging Light",
+  "category": "Interior: Modern",
+  "size": [
+   1.162,
+   0.75,
+   0.315
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.052,
+    0.0,
+    1.107,
+    0.065,
+    0.257
+   ],
+   [
+    0.283,
+    0.112,
+    -0.053,
+    0.242,
+    0.041,
+    0.107
+   ],
+   [
+    0.283,
+    0.112,
+    0.053,
+    0.242,
+    0.041,
+    0.107
+   ],
+   [
+    -0.274,
+    0.112,
+    0.053,
+    0.224,
+    0.041,
+    0.107
+   ],
+   [
+    -0.274,
+    0.112,
+    -0.053,
+    0.224,
+    0.041,
+    0.107
+   ],
+   [
+    -0.214,
+    0.74,
+    0.0,
+    0.153,
+    0.04,
+    0.153
+   ],
+   [
+    0.212,
+    0.74,
+    -0.0,
+    0.153,
+    0.04,
+    0.153
+   ],
+   [
+    -0.079,
+    0.174,
+    -0.0,
+    0.157,
+    0.04,
+    0.136
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Caged Hanging Light by Ulan Cabanilla, Poly Haven (polyhaven.com/a/caged_hanging_light), CC0"
+ },
  "ph_cardboard_box_01": {
   "ph": "cardboard_box_01",
   "name": "Cardboard Box 01",
@@ -422,6 +845,37 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Cardboard Box 01 by Rahul Chaudhary, Poly Haven (polyhaven.com/a/cardboard_box_01), CC0"
+ },
+ "ph_carved_wooden_plate": {
+  "ph": "carved_wooden_plate",
+  "name": "Carved Wooden Plate",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.272,
+   0.038,
+   0.269
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.02,
+    0.065,
+    0.272,
+    0.04,
+    0.14
+   ],
+   [
+    0.0,
+    0.018,
+    -0.067,
+    0.272,
+    0.04,
+    0.134
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Carved Wooden Plate by Jan Martens, Poly Haven (polyhaven.com/a/carved_wooden_plate), CC0"
  },
  "ph_cashregister_01": {
   "ph": "CashRegister_01",
@@ -477,6 +931,53 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Cash Register 01 by Joe Seabuhr, Poly Haven (polyhaven.com/a/CashRegister_01), CC0"
+ },
+ "ph_ceiling_fan": {
+  "ph": "ceiling_fan",
+  "name": "Ceiling Fan",
+  "category": "Interior: Modern",
+  "size": [
+   1.463,
+   0.516,
+   1.463
+  ],
+  "colliders": [
+   [
+    -0.038,
+    0.122,
+    0.432,
+    0.238,
+    0.061,
+    0.599
+   ],
+   [
+    -0.432,
+    0.122,
+    -0.038,
+    0.599,
+    0.061,
+    0.238
+   ],
+   [
+    0.038,
+    0.122,
+    -0.432,
+    0.238,
+    0.061,
+    0.599
+   ],
+   [
+    0.432,
+    0.122,
+    0.038,
+    0.599,
+    0.061,
+    0.238
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Ceiling Fan by Ulan Cabanilla, Poly Haven (polyhaven.com/a/ceiling_fan), CC0"
  },
  "ph_cement_bag": {
   "ph": "cement_bag",
@@ -540,6 +1041,92 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Cement Bag by PierreB3D, Poly Haven (polyhaven.com/a/cement_bag), CC0"
+ },
+ "ph_ceramic_pot": {
+  "ph": "ceramic_pot",
+  "name": "Ceramic Pot",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.656,
+   0.372,
+   0.502
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.113,
+    -0.0,
+    0.504,
+    0.187,
+    0.502
+   ],
+   [
+    -0.0,
+    0.261,
+    0.0,
+    0.484,
+    0.109,
+    0.486
+   ],
+   [
+    -0.0,
+    0.344,
+    0.0,
+    0.152,
+    0.056,
+    0.153
+   ],
+   [
+    0.281,
+    0.159,
+    0.0,
+    0.095,
+    0.07,
+    0.188
+   ],
+   [
+    -0.281,
+    0.159,
+    0.004,
+    0.095,
+    0.07,
+    0.18
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Ceramic Pot by Aron Łyczek, Poly Haven (polyhaven.com/a/ceramic_pot), CC0"
+ },
+ "ph_ceramic_vase_01": {
+  "ph": "ceramic_vase_01",
+  "name": "Ceramic Vase 01",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.204,
+   0.4,
+   0.204
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.108,
+    -0.0,
+    0.204,
+    0.214,
+    0.204
+   ],
+   [
+    0.0,
+    0.304,
+    0.004,
+    0.099,
+    0.178,
+    0.111
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Ceramic Vase 01 by James Ray Cock, Poly Haven (polyhaven.com/a/ceramic_vase_01), CC0"
  },
  "ph_chandelier_01": {
   "ph": "Chandelier_01",
@@ -707,6 +1294,108 @@
   "lodDist": 15,
   "credit": "Chandelier 03 by Kirill Sannikov, Poly Haven (polyhaven.com/a/Chandelier_03), CC0"
  },
+ "ph_chess_set": {
+  "ph": "chess_set",
+  "name": "Chess Set",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.553,
+   0.112,
+   0.553
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.002,
+    -0.0,
+    0.553,
+    0.04,
+    0.553
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Chess Set by Riley Queen, Poly Haven (polyhaven.com/a/chess_set), CC0"
+ },
+ "ph_classic_laptop": {
+  "ph": "classic_laptop",
+  "name": "Classic Laptop",
+  "category": "Interior: Modern",
+  "size": [
+   0.652,
+   0.543,
+   0.486
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.004,
+    -0.019,
+    0.651,
+    0.04,
+    0.448
+   ],
+   [
+    0.002,
+    0.327,
+    -0.222,
+    0.649,
+    0.432,
+    0.04
+   ],
+   [
+    -0.0,
+    0.058,
+    0.059,
+    0.628,
+    0.04,
+    0.265
+   ],
+   [
+    -0.0,
+    0.075,
+    -0.142,
+    0.618,
+    0.04,
+    0.118
+   ],
+   [
+    -0.0,
+    0.057,
+    0.203,
+    0.628,
+    0.04,
+    0.075
+   ],
+   [
+    0.001,
+    0.038,
+    -0.237,
+    0.63,
+    0.069,
+    0.04
+   ],
+   [
+    0.318,
+    0.038,
+    -0.007,
+    0.04,
+    0.069,
+    0.472
+   ],
+   [
+    -0.319,
+    0.038,
+    -0.001,
+    0.04,
+    0.069,
+    0.461
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Classic Laptop by Arrangemonk, Poly Haven (polyhaven.com/a/classic_laptop), CC0"
+ },
  "ph_classicconsole_01": {
   "ph": "ClassicConsole_01",
   "name": "Classic Console 01",
@@ -809,6 +1498,69 @@
   "lodDist": 15,
   "credit": "Classic Nightstand 01 by Kirill Sannikov, Poly Haven (polyhaven.com/a/ClassicNightstand_01), CC0"
  },
+ "ph_coffee_table_round_01": {
+  "ph": "coffee_table_round_01",
+  "name": "Coffee Table Round 01",
+  "category": "Interior: Modern",
+  "size": [
+   1.301,
+   0.491,
+   1.301
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.445,
+    -0.0,
+    1.126,
+    0.04,
+    1.126
+   ],
+   [
+    0.0,
+    0.487,
+    -0.0,
+    1.123,
+    0.04,
+    1.123
+   ],
+   [
+    -0.419,
+    0.22,
+    0.0,
+    0.463,
+    0.44,
+    0.098
+   ],
+   [
+    0.0,
+    0.221,
+    0.423,
+    0.098,
+    0.441,
+    0.455
+   ],
+   [
+    0.0,
+    0.221,
+    -0.423,
+    0.098,
+    0.441,
+    0.455
+   ],
+   [
+    0.43,
+    0.22,
+    0.0,
+    0.442,
+    0.44,
+    0.098
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Coffee Table Round 01 by Ulan Cabanilla, Poly Haven (polyhaven.com/a/coffee_table_round_01), CC0"
+ },
  "ph_coffeecart_01": {
   "ph": "CoffeeCart_01",
   "name": "Coffee Cart 01",
@@ -871,6 +1623,45 @@
   "maxTex": 1024,
   "lodDist": 30,
   "credit": "Coffee Cart 01 by Joe Seabuhr, Poly Haven (polyhaven.com/a/CoffeeCart_01), CC0"
+ },
+ "ph_coffeetable_01": {
+  "ph": "CoffeeTable_01",
+  "name": "Coffee Table 01",
+  "category": "Interior: Modern",
+  "size": [
+   1.54,
+   0.523,
+   0.973
+  ],
+  "colliders": [
+   [
+    -0.001,
+    0.394,
+    0.0,
+    1.44,
+    0.14,
+    0.868
+   ],
+   [
+    -0.0,
+    0.245,
+    0.0,
+    1.502,
+    0.099,
+    0.932
+   ],
+   [
+    0.002,
+    0.51,
+    0.0,
+    1.488,
+    0.04,
+    0.898
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Coffee Table 01 by Fernando Quinn, Poly Haven (polyhaven.com/a/CoffeeTable_01), CC0"
  },
  "ph_compost_bag_02": {
   "ph": "compost_bag_02",
@@ -1163,6 +1954,76 @@
   "lodDist": 30,
   "credit": "Covered Car by MP, Poly Haven (polyhaven.com/a/covered_car), CC0"
  },
+ "ph_dartboard": {
+  "ph": "dartboard",
+  "name": "Dartboard",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.451,
+   0.451,
+   0.04
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.225,
+    0.018,
+    0.451,
+    0.451,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Dartboard by Satyaki Mandal, Poly Haven (polyhaven.com/a/dartboard), CC0"
+ },
+ "ph_desk_lamp_arm_01": {
+  "ph": "desk_lamp_arm_01",
+  "name": "Desk Lamp Arm 01",
+  "category": "Interior: Modern",
+  "size": [
+   0.202,
+   0.893,
+   0.614
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.782,
+    -0.21,
+    0.199,
+    0.219,
+    0.192
+   ],
+   [
+    0.035,
+    0.223,
+    0.078,
+    0.04,
+    0.23,
+    0.185
+   ],
+   [
+    -0.009,
+    0.223,
+    0.078,
+    0.04,
+    0.23,
+    0.185
+   ],
+   [
+    0.013,
+    0.545,
+    0.165,
+    0.04,
+    0.184,
+    0.206
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Desk Lamp Arm 01 by Kuutti Siitonen, Yann Kervran, Poly Haven (polyhaven.com/a/desk_lamp_arm_01), CC0"
+ },
  "ph_dining_chair_02": {
   "ph": "dining_chair_02",
   "name": "Dining Chair 02",
@@ -1367,6 +2228,85 @@
   "lodDist": 15,
   "credit": "Drill Press 01 by Viktor, Poly Haven (polyhaven.com/a/drill_press_01), CC0"
  },
+ "ph_electric_stove": {
+  "ph": "electric_stove",
+  "name": "Electric Stove",
+  "category": "Interior: Modern",
+  "size": [
+   0.503,
+   0.859,
+   0.648
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.535,
+    0.026,
+    0.45,
+    0.335,
+    0.426
+   ],
+   [
+    0.0,
+    0.218,
+    0.026,
+    0.45,
+    0.217,
+    0.426
+   ],
+   [
+    -0.25,
+    0.42,
+    -0.029,
+    0.04,
+    0.824,
+    0.589
+   ],
+   [
+    0.25,
+    0.42,
+    -0.029,
+    0.04,
+    0.824,
+    0.589
+   ],
+   [
+    0.0,
+    0.008,
+    -0.029,
+    0.5,
+    0.04,
+    0.589
+   ],
+   [
+    0.0,
+    0.835,
+    -0.024,
+    0.482,
+    0.04,
+    0.578
+   ],
+   [
+    0.0,
+    0.591,
+    0.265,
+    0.5,
+    0.488,
+    0.04
+   ],
+   [
+    0.0,
+    0.625,
+    -0.313,
+    0.482,
+    0.421,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Electric Stove by Kuutti Siitonen, Poly Haven (polyhaven.com/a/electric_stove), CC0"
+ },
  "ph_exterior_aircon_unit": {
   "ph": "exterior_aircon_unit",
   "name": "Exterior Aircon Unit",
@@ -1507,6 +2447,69 @@
   "maxTex": 1024,
   "lodDist": 15,
   "credit": "Fancy Picture Frame 02 by Rico Cilliers, Rob Tuytel, Poly Haven (polyhaven.com/a/fancy_picture_frame_02), CC0"
+ },
+ "ph_filmstrip_projector_8mm": {
+  "ph": "filmstrip_projector_8mm",
+  "name": "Filmstrip Projector 8mm",
+  "category": "Interior: Modern",
+  "size": [
+   0.254,
+   0.345,
+   0.603
+  ],
+  "colliders": [
+   [
+    -0.028,
+    0.212,
+    0.099,
+    0.04,
+    0.231,
+    0.142
+   ],
+   [
+    -0.018,
+    0.006,
+    -0.02,
+    0.111,
+    0.04,
+    0.268
+   ],
+   [
+    -0.017,
+    0.108,
+    -0.02,
+    0.04,
+    0.105,
+    0.268
+   ],
+   [
+    -0.033,
+    0.147,
+    -0.078,
+    0.04,
+    0.172,
+    0.094
+   ],
+   [
+    -0.033,
+    0.147,
+    -0.157,
+    0.04,
+    0.172,
+    0.094
+   ],
+   [
+    0.082,
+    0.083,
+    0.114,
+    0.086,
+    0.154,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Filmstrip Projector 8mm by PeterM, Poly Haven (polyhaven.com/a/filmstrip_projector_8mm), CC0"
  },
  "ph_fire_hydrant": {
   "ph": "fire_hydrant",
@@ -2202,6 +3205,45 @@
   "lodDist": 15,
   "credit": "Hand Truck by Mutanzom3D, Poly Haven (polyhaven.com/a/hand_truck), CC0"
  },
+ "ph_hanging_industrial_lamp": {
+  "ph": "hanging_industrial_lamp",
+  "name": "Hanging Industrial Lamp",
+  "category": "Interior: Modern",
+  "size": [
+   0.55,
+   1.355,
+   0.55
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.242,
+    -0.0,
+    0.507,
+    0.126,
+    0.507
+   ],
+   [
+    0.137,
+    0.31,
+    0.0,
+    0.275,
+    0.213,
+    0.55
+   ],
+   [
+    -0.137,
+    0.31,
+    0.0,
+    0.275,
+    0.213,
+    0.55
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Hanging Industrial Lamp by Kuutti Siitonen, Poly Haven (polyhaven.com/a/hanging_industrial_lamp), CC0"
+ },
  "ph_hanging_picture_frame_01": {
   "ph": "hanging_picture_frame_01",
   "name": "Hanging Picture Frame 01",
@@ -2286,6 +3328,85 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Hanging Picture Frame 03 by James Ray Cock, Poly Haven (polyhaven.com/a/hanging_picture_frame_03), CC0"
+ },
+ "ph_industrial_caged_sconce": {
+  "ph": "industrial_caged_sconce",
+  "name": "Industrial Caged Sconce",
+  "category": "Interior: Modern",
+  "size": [
+   1.21,
+   0.913,
+   0.389
+  ],
+  "colliders": [
+   [
+    -0.5,
+    0.105,
+    -0.132,
+    0.21,
+    0.21,
+    0.04
+   ],
+   [
+    0.5,
+    0.105,
+    -0.132,
+    0.21,
+    0.21,
+    0.04
+   ],
+   [
+    0.0,
+    0.705,
+    -0.132,
+    0.21,
+    0.21,
+    0.04
+   ],
+   [
+    0.0,
+    0.105,
+    -0.132,
+    0.21,
+    0.21,
+    0.04
+   ],
+   [
+    -0.3,
+    0.8,
+    -0.132,
+    0.096,
+    0.133,
+    0.096
+   ],
+   [
+    -0.215,
+    0.269,
+    0.132,
+    0.096,
+    0.133,
+    0.096
+   ],
+   [
+    0.216,
+    0.269,
+    0.132,
+    0.096,
+    0.133,
+    0.096
+   ],
+   [
+    0.5,
+    0.269,
+    0.011,
+    0.096,
+    0.133,
+    0.096
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Industrial Caged Sconce by Ulan Cabanilla, Poly Haven (polyhaven.com/a/industrial_caged_sconce), CC0"
  },
  "ph_industrial_coffee_table": {
   "ph": "industrial_coffee_table",
@@ -2475,6 +3596,108 @@
   "maxTex": 1024,
   "lodDist": 30,
   "credit": "Industrial Storage Cart by Jule Bielitz, Poly Haven (polyhaven.com/a/industrial_storage_cart), CC0"
+ },
+ "ph_industrial_wall_lamp": {
+  "ph": "industrial_wall_lamp",
+  "name": "Industrial Wall Lamp",
+  "category": "Interior: Modern",
+  "size": [
+   0.273,
+   0.43,
+   0.14
+  ],
+  "colliders": [
+   [
+    0.046,
+    0.215,
+    0.006,
+    0.092,
+    0.156,
+    0.097
+   ],
+   [
+    -0.046,
+    0.215,
+    0.006,
+    0.092,
+    0.156,
+    0.097
+   ],
+   [
+    -0.0,
+    0.215,
+    -0.07,
+    0.213,
+    0.158,
+    0.04
+   ],
+   [
+    0.064,
+    0.215,
+    -0.044,
+    0.086,
+    0.365,
+    0.04
+   ],
+   [
+    -0.064,
+    0.215,
+    -0.044,
+    0.086,
+    0.365,
+    0.04
+   ],
+   [
+    -0.0,
+    0.091,
+    0.006,
+    0.102,
+    0.092,
+    0.097
+   ],
+   [
+    -0.0,
+    0.339,
+    0.006,
+    0.102,
+    0.092,
+    0.097
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Industrial Wall Lamp by Kuutti Siitonen, Poly Haven (polyhaven.com/a/industrial_wall_lamp), CC0"
+ },
+ "ph_jug_01": {
+  "ph": "jug_01",
+  "name": "Jug 01",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.275,
+   0.211,
+   0.168
+  ],
+  "colliders": [
+   [
+    0.034,
+    0.105,
+    -0.0,
+    0.207,
+    0.209,
+    0.168
+   ],
+   [
+    -0.095,
+    0.098,
+    0.0,
+    0.086,
+    0.141,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Jug 01 by Kuutti Siitonen, Poly Haven (polyhaven.com/a/jug_01), CC0"
  },
  "ph_korean_fire_extinguisher_01": {
   "ph": "korean_fire_extinguisher_01",
@@ -3052,6 +4275,29 @@
   "lodDist": 15,
   "credit": "Metal Jerrycan Green by Ulan Cabanilla, Poly Haven (polyhaven.com/a/metal_jerrycan_green), CC0"
  },
+ "ph_metal_jug": {
+  "ph": "metal_jug",
+  "name": "Metal Jug",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.197,
+   0.288,
+   0.195
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.142,
+    -0.0,
+    0.196,
+    0.285,
+    0.195
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Metal Jug by Anzor Lezhava, Poly Haven (polyhaven.com/a/metal_jug), CC0"
+ },
  "ph_metal_office_desk": {
   "ph": "metal_office_desk",
   "name": "Metal Office Desk",
@@ -3328,6 +4574,85 @@
   "lodDist": 15,
   "credit": "Metal Stool 03 by Flo Tasser, Poly Haven (polyhaven.com/a/metal_stool_03), CC0"
  },
+ "ph_metal_tool_chest": {
+  "ph": "metal_tool_chest",
+  "name": "Metal Tool Chest",
+  "category": "Interior: Modern",
+  "size": [
+   0.685,
+   0.652,
+   0.407
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.499,
+    -0.168,
+    0.66,
+    0.305,
+    0.072
+   ],
+   [
+    0.0,
+    0.17,
+    -0.132,
+    0.659,
+    0.339,
+    0.04
+   ],
+   [
+    0.0,
+    0.0,
+    0.021,
+    0.659,
+    0.04,
+    0.304
+   ],
+   [
+    0.0,
+    0.273,
+    0.021,
+    0.657,
+    0.04,
+    0.301
+   ],
+   [
+    0.33,
+    0.17,
+    0.021,
+    0.04,
+    0.339,
+    0.304
+   ],
+   [
+    -0.33,
+    0.17,
+    0.021,
+    0.04,
+    0.339,
+    0.304
+   ],
+   [
+    0.0,
+    0.3,
+    0.173,
+    0.659,
+    0.079,
+    0.04
+   ],
+   [
+    -0.0,
+    0.065,
+    0.161,
+    0.609,
+    0.078,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Metal Tool Chest by John Hutcheson, Yann Kervran, Poly Haven (polyhaven.com/a/metal_tool_chest), CC0"
+ },
  "ph_metal_toolbox": {
   "ph": "metal_toolbox",
   "name": "Metal Toolbox",
@@ -3421,6 +4746,383 @@
   "maxTex": 1024,
   "lodDist": 15,
   "credit": "Metal Trash Can by GurJas Studios, Poly Haven (polyhaven.com/a/metal_trash_can), CC0"
+ },
+ "ph_mid_century_lounge_chair": {
+  "ph": "mid_century_lounge_chair",
+  "name": "Mid Century Lounge Chair",
+  "category": "Interior: Modern",
+  "size": [
+   1.009,
+   1.169,
+   1.19
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.726,
+    -0.242,
+    0.746,
+    0.887,
+    0.588
+   ],
+   [
+    -0.0,
+    0.703,
+    -0.322,
+    0.753,
+    0.877,
+    0.546
+   ],
+   [
+    0.0,
+    0.46,
+    0.204,
+    1.009,
+    0.447,
+    0.741
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Mid Century Lounge Chair by Kuutti Siitonen, Poly Haven (polyhaven.com/a/mid_century_lounge_chair), CC0"
+ },
+ "ph_modern_arm_chair_01": {
+  "ph": "modern_arm_chair_01",
+  "name": "Modern Arm Chair 01",
+  "category": "Interior: Modern",
+  "size": [
+   0.82,
+   1.023,
+   0.987
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.736,
+    -0.345,
+    0.673,
+    0.528,
+    0.296
+   ],
+   [
+    0.003,
+    0.76,
+    -0.263,
+    0.671,
+    0.525,
+    0.295
+   ],
+   [
+    0.0,
+    0.614,
+    -0.343,
+    0.631,
+    0.507,
+    0.22
+   ],
+   [
+    0.001,
+    0.416,
+    0.103,
+    0.707,
+    0.137,
+    0.724
+   ],
+   [
+    -0.002,
+    0.499,
+    0.099,
+    0.701,
+    0.136,
+    0.728
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Modern Arm Chair 01 by Vibrant Nordic, Poly Haven (polyhaven.com/a/modern_arm_chair_01), CC0"
+ },
+ "ph_modern_ceiling_lamp_01": {
+  "ph": "modern_ceiling_lamp_01",
+  "name": "Modern Ceiling Lamp 01",
+  "category": "Interior: Modern",
+  "size": [
+   0.432,
+   0.952,
+   0.432
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.154,
+    -0.0,
+    0.432,
+    0.307,
+    0.432
+   ],
+   [
+    -0.0,
+    0.339,
+    0.0,
+    0.295,
+    0.061,
+    0.295
+   ],
+   [
+    0.0,
+    0.676,
+    -0.001,
+    0.04,
+    0.48,
+    0.04
+   ],
+   [
+    0.001,
+    0.942,
+    -0.001,
+    0.119,
+    0.04,
+    0.12
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Modern Ceiling Lamp 01 by James Ray Cock, Poly Haven (polyhaven.com/a/modern_ceiling_lamp_01), CC0"
+ },
+ "ph_modern_coffee_table_01": {
+  "ph": "modern_coffee_table_01",
+  "name": "Modern Coffee Table 01",
+  "category": "Interior: Modern",
+  "size": [
+   0.6,
+   0.39,
+   1.202
+  ],
+  "colliders": [
+   [
+    -0.027,
+    0.315,
+    0.011,
+    0.503,
+    0.058,
+    1.106
+   ],
+   [
+    0.025,
+    0.315,
+    -0.013,
+    0.503,
+    0.058,
+    1.106
+   ],
+   [
+    -0.149,
+    0.211,
+    0.377,
+    0.298,
+    0.355,
+    0.299
+   ],
+   [
+    0.149,
+    0.211,
+    -0.377,
+    0.298,
+    0.355,
+    0.299
+   ],
+   [
+    0.149,
+    0.211,
+    0.377,
+    0.298,
+    0.355,
+    0.299
+   ],
+   [
+    -0.149,
+    0.211,
+    -0.377,
+    0.298,
+    0.355,
+    0.299
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Modern Coffee Table 01 by Amin, Poly Haven (polyhaven.com/a/modern_coffee_table_01), CC0"
+ },
+ "ph_modern_coffee_table_02": {
+  "ph": "modern_coffee_table_02",
+  "name": "Modern Coffee Table 02",
+  "category": "Interior: Modern",
+  "size": [
+   1.199,
+   0.369,
+   1.2
+  ],
+  "colliders": [
+   [
+    0.191,
+    0.368,
+    -0.418,
+    0.776,
+    0.04,
+    0.318
+   ],
+   [
+    0.42,
+    0.34,
+    -0.189,
+    0.318,
+    0.04,
+    0.771
+   ],
+   [
+    0.191,
+    0.126,
+    -0.6,
+    0.774,
+    0.251,
+    0.04
+   ],
+   [
+    0.579,
+    0.126,
+    -0.189,
+    0.04,
+    0.251,
+    0.771
+   ],
+   [
+    -0.386,
+    0.17,
+    -0.6,
+    0.378,
+    0.338,
+    0.04
+   ],
+   [
+    -0.598,
+    0.17,
+    -0.423,
+    0.04,
+    0.338,
+    0.351
+   ],
+   [
+    0.023,
+    0.126,
+    0.599,
+    0.446,
+    0.25,
+    0.04
+   ],
+   [
+    -0.575,
+    0.126,
+    -0.023,
+    0.04,
+    0.25,
+    0.446
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Modern Coffee Table 02 by Amin, Poly Haven (polyhaven.com/a/modern_coffee_table_02), CC0"
+ },
+ "ph_modern_wooden_cabinet": {
+  "ph": "modern_wooden_cabinet",
+  "name": "Modern Wooden Cabinet",
+  "category": "Interior: Modern",
+  "size": [
+   2.44,
+   0.68,
+   0.52
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.66,
+    -0.0,
+    2.439,
+    0.04,
+    0.52
+   ],
+   [
+    0.0,
+    0.406,
+    -0.259,
+    2.399,
+    0.467,
+    0.04
+   ],
+   [
+    -0.61,
+    0.172,
+    0.0,
+    1.22,
+    0.04,
+    0.52
+   ],
+   [
+    0.61,
+    0.172,
+    0.0,
+    1.22,
+    0.04,
+    0.52
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Modern Wooden Cabinet by Patrik Pangerl, Poly Haven (polyhaven.com/a/modern_wooden_cabinet), CC0"
+ },
+ "ph_mounted_fluorescent_lights": {
+  "ph": "mounted_fluorescent_lights",
+  "name": "Mounted Fluorescent Lights",
+  "category": "Interior: Modern",
+  "size": [
+   0.912,
+   0.035,
+   0.645
+  ],
+  "colliders": [
+   [
+    -0.225,
+    0.024,
+    -0.297,
+    0.45,
+    0.04,
+    0.047
+   ],
+   [
+    0.225,
+    0.024,
+    -0.297,
+    0.45,
+    0.04,
+    0.047
+   ],
+   [
+    0.225,
+    0.025,
+    0.284,
+    0.45,
+    0.04,
+    0.04
+   ],
+   [
+    -0.225,
+    0.025,
+    0.284,
+    0.45,
+    0.04,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Mounted Fluorescent Lights by Ulan Cabanilla, Poly Haven (polyhaven.com/a/mounted_fluorescent_lights), CC0"
  },
  "ph_ocean_buoy": {
   "ph": "ocean_buoy",
@@ -4795,6 +6497,29 @@
   "lodDist": 30,
   "credit": "Painted Wooden Table by Kirill Sannikov, Poly Haven (polyhaven.com/a/painted_wooden_table), CC0"
  },
+ "ph_planter_pot_clay": {
+  "ph": "planter_pot_clay",
+  "name": "Planter Pot Clay",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.266,
+   0.222,
+   0.263
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.109,
+    -0.0,
+    0.266,
+    0.215,
+    0.263
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Planter Pot Clay by Amal Kumar, Poly Haven (polyhaven.com/a/planter_pot_clay), CC0"
+ },
  "ph_plastic_broom": {
   "ph": "plastic_broom",
   "name": "Plastic Broom",
@@ -5417,6 +7142,108 @@
   "maxTex": 1024,
   "lodDist": 30,
   "credit": "Portable Welding Cart by Georgii Gorbunov, Poly Haven (polyhaven.com/a/portable_welding_cart), CC0"
+ },
+ "ph_pot_enamel_01": {
+  "ph": "pot_enamel_01",
+  "name": "Pot Enamel 01",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.263,
+   0.178,
+   0.18
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.065,
+    -0.045,
+    0.18,
+    0.129,
+    0.09
+   ],
+   [
+    0.0,
+    0.065,
+    0.045,
+    0.18,
+    0.129,
+    0.09
+   ],
+   [
+    0.0,
+    0.145,
+    -0.0,
+    0.18,
+    0.04,
+    0.18
+   ],
+   [
+    0.0,
+    0.0,
+    -0.0,
+    0.115,
+    0.04,
+    0.115
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Pot Enamel 01 by Kuutti Siitonen, Poly Haven (polyhaven.com/a/pot_enamel_01), CC0"
+ },
+ "ph_power_box_01": {
+  "ph": "power_box_01",
+  "name": "Power Box 01",
+  "category": "Interior: Modern",
+  "size": [
+   0.461,
+   0.503,
+   0.399
+  ],
+  "colliders": [
+   [
+    -0.177,
+    0.25,
+    0.042,
+    0.107,
+    0.487,
+    0.307
+   ],
+   [
+    0.055,
+    0.252,
+    -0.138,
+    0.308,
+    0.47,
+    0.04
+   ],
+   [
+    0.055,
+    0.252,
+    -0.179,
+    0.306,
+    0.47,
+    0.04
+   ],
+   [
+    0.226,
+    0.252,
+    -0.153,
+    0.04,
+    0.503,
+    0.093
+   ],
+   [
+    -0.115,
+    0.252,
+    -0.153,
+    0.04,
+    0.503,
+    0.093
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Power Box 01 by Rico Cilliers, Yann Kervran, Poly Haven (polyhaven.com/a/power_box_01), CC0"
  },
  "ph_projector_screen": {
   "ph": "projector_screen",
@@ -6558,6 +8385,61 @@
   "lodDist": 30,
   "credit": "Sofa 02 by Kirill Sannikov, Poly Haven (polyhaven.com/a/sofa_02), CC0"
  },
+ "ph_sofa_03": {
+  "ph": "sofa_03",
+  "name": "Sofa 03",
+  "category": "Interior: Modern",
+  "size": [
+   2.731,
+   1.118,
+   0.925
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.536,
+    0.052,
+    2.731,
+    0.648,
+    0.791
+   ],
+   [
+    -0.0,
+    0.666,
+    -0.293,
+    2.24,
+    0.905,
+    0.107
+   ],
+   [
+    -0.0,
+    0.077,
+    0.001,
+    2.314,
+    0.075,
+    0.915
+   ],
+   [
+    -0.811,
+    0.766,
+    -0.063,
+    0.49,
+    0.478,
+    0.477
+   ],
+   [
+    0.811,
+    0.766,
+    -0.063,
+    0.49,
+    0.478,
+    0.477
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Sofa 03 by Fran Calvente, Poly Haven (polyhaven.com/a/sofa_03), CC0"
+ },
  "ph_spinning_wheel_01": {
   "ph": "spinning_wheel_01",
   "name": "Spinning Wheel 01",
@@ -6604,6 +8486,101 @@
   "maxTex": 1024,
   "lodDist": 15,
   "credit": "Spinning Wheel 01 by Sofia Pahaoja, Poly Haven (polyhaven.com/a/spinning_wheel_01), CC0"
+ },
+ "ph_standing_chalkboard_01": {
+  "ph": "standing_chalkboard_01",
+  "name": "Standing Chalkboard 01",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.92,
+   1.509,
+   0.759
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.874,
+    0.147,
+    0.769,
+    1.11,
+    0.236
+   ],
+   [
+    0.0,
+    0.874,
+    -0.147,
+    0.769,
+    1.11,
+    0.236
+   ],
+   [
+    -0.421,
+    0.726,
+    0.228,
+    0.072,
+    1.426,
+    0.303
+   ],
+   [
+    -0.421,
+    0.713,
+    0.167,
+    0.072,
+    1.426,
+    0.303
+   ],
+   [
+    0.421,
+    0.713,
+    -0.167,
+    0.072,
+    1.426,
+    0.303
+   ],
+   [
+    0.421,
+    0.726,
+    -0.228,
+    0.072,
+    1.426,
+    0.303
+   ],
+   [
+    -0.421,
+    0.726,
+    -0.228,
+    0.072,
+    1.426,
+    0.303
+   ],
+   [
+    -0.421,
+    0.713,
+    -0.167,
+    0.072,
+    1.426,
+    0.303
+   ],
+   [
+    0.421,
+    0.726,
+    0.228,
+    0.072,
+    1.426,
+    0.303
+   ],
+   [
+    0.421,
+    0.713,
+    0.167,
+    0.072,
+    1.426,
+    0.303
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Standing Chalkboard 01 by ParzivalCG, Poly Haven (polyhaven.com/a/standing_chalkboard_01), CC0"
  },
  "ph_standing_picture_frame_01": {
   "ph": "standing_picture_frame_01",
@@ -7055,6 +9032,69 @@
   "lodDist": 30,
   "credit": "Street Lamp 01 by Josh Dean, Poly Haven (polyhaven.com/a/street_lamp_01), CC0"
  },
+ "ph_tea_set_01": {
+  "ph": "tea_set_01",
+  "name": "Tea Set 01",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.918,
+   0.165,
+   0.484
+  ],
+  "colliders": [
+   [
+    -0.324,
+    0.062,
+    0.102,
+    0.082,
+    0.121,
+    0.164
+   ],
+   [
+    -0.406,
+    0.062,
+    0.102,
+    0.082,
+    0.121,
+    0.164
+   ],
+   [
+    -0.365,
+    0.011,
+    -0.147,
+    0.188,
+    0.04,
+    0.19
+   ],
+   [
+    -0.115,
+    0.011,
+    -0.147,
+    0.188,
+    0.04,
+    0.188
+   ],
+   [
+    0.385,
+    0.01,
+    -0.147,
+    0.149,
+    0.04,
+    0.149
+   ],
+   [
+    0.135,
+    0.01,
+    -0.147,
+    0.149,
+    0.04,
+    0.149
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Tea Set 01 by James Ray Cock, Jurita Burger, Rico Cilliers, Poly Haven (polyhaven.com/a/tea_set_01), CC0"
+ },
  "ph_television_01": {
   "ph": "Television_01",
   "name": "Television 01",
@@ -7125,6 +9165,93 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Television 01 by Gabriel Radić, Poly Haven (polyhaven.com/a/Television_01), CC0"
+ },
+ "ph_television_02": {
+  "ph": "television_02",
+  "name": "Television 02",
+  "category": "Interior: Modern",
+  "size": [
+   0.4,
+   0.411,
+   0.35
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.18,
+    -0.076,
+    0.334,
+    0.315,
+    0.198
+   ],
+   [
+    0.0,
+    0.012,
+    0.012,
+    0.4,
+    0.04,
+    0.287
+   ],
+   [
+    0.0,
+    0.259,
+    0.159,
+    0.317,
+    0.237,
+    0.04
+   ],
+   [
+    -0.131,
+    0.207,
+    0.028,
+    0.137,
+    0.391,
+    0.04
+   ],
+   [
+    0.0,
+    0.407,
+    0.099,
+    0.4,
+    0.04,
+    0.132
+   ],
+   [
+    -0.2,
+    0.207,
+    0.099,
+    0.04,
+    0.391,
+    0.132
+   ],
+   [
+    0.2,
+    0.207,
+    0.099,
+    0.04,
+    0.391,
+    0.132
+   ],
+   [
+    0.136,
+    0.207,
+    0.028,
+    0.128,
+    0.391,
+    0.04
+   ],
+   [
+    0.0,
+    0.374,
+    0.028,
+    0.4,
+    0.074,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Television 02 by Benny Weimer, Poly Haven (polyhaven.com/a/television_02), CC0"
  },
  "ph_tire_pump": {
   "ph": "tire_pump",
@@ -7282,6 +9409,69 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Trashbag by Benny Weimer, Poly Haven (polyhaven.com/a/trashbag), CC0"
+ },
+ "ph_treasure_chest": {
+  "ph": "treasure_chest",
+  "name": "Treasure Chest",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.959,
+   0.619,
+   0.523
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.57,
+    -0.001,
+    0.886,
+    0.088,
+    0.503
+   ],
+   [
+    0.0,
+    0.002,
+    -0.001,
+    0.888,
+    0.04,
+    0.501
+   ],
+   [
+    0.0,
+    0.213,
+    -0.244,
+    0.888,
+    0.421,
+    0.04
+   ],
+   [
+    0.0,
+    0.213,
+    0.243,
+    0.888,
+    0.421,
+    0.04
+   ],
+   [
+    0.437,
+    0.213,
+    -0.001,
+    0.04,
+    0.421,
+    0.501
+   ],
+   [
+    -0.437,
+    0.213,
+    -0.001,
+    0.04,
+    0.421,
+    0.501
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Treasure Chest by Rico Cilliers, Poly Haven (polyhaven.com/a/treasure_chest), CC0"
  },
  "ph_utility_box_01": {
   "ph": "utility_box_01",
@@ -7574,6 +9764,53 @@
   "maxTex": 1024,
   "lodDist": 30,
   "credit": "Vintage Day Bed by Aron Łyczek, Poly Haven (polyhaven.com/a/vintage_day_bed), CC0"
+ },
+ "ph_vintage_electric_kettle": {
+  "ph": "vintage_electric_kettle",
+  "name": "Vintage Electric Kettle",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.321,
+   0.305,
+   0.249
+  ],
+  "colliders": [
+   [
+    0.005,
+    0.099,
+    -0.0,
+    0.249,
+    0.198,
+    0.249
+   ],
+   [
+    -0.121,
+    0.142,
+    0.011,
+    0.078,
+    0.139,
+    0.04
+   ],
+   [
+    -0.065,
+    0.241,
+    -0.0,
+    0.04,
+    0.118,
+    0.04
+   ],
+   [
+    0.074,
+    0.241,
+    0.0,
+    0.04,
+    0.118,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Vintage Electric Kettle by SV Garip, Poly Haven (polyhaven.com/a/vintage_electric_kettle), CC0"
  },
  "ph_vintage_grandfather_clock_01": {
   "ph": "vintage_grandfather_clock_01",
@@ -8228,6 +10465,100 @@
   "lodDist": 15,
   "credit": "Wheelchair 01 by Garreth Dean, Poly Haven (polyhaven.com/a/wheelchair_01), CC0"
  },
+ "ph_wicker_basket_01": {
+  "ph": "wicker_basket_01",
+  "name": "Wicker Basket 01",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.383,
+   0.117,
+   0.295
+  ],
+  "colliders": [
+   [
+    -0.001,
+    0.099,
+    0.002,
+    0.38,
+    0.04,
+    0.292
+   ],
+   [
+    0.001,
+    0.055,
+    -0.0,
+    0.359,
+    0.04,
+    0.278
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Wicker Basket 01 by Kuutti Siitonen, Poly Haven (polyhaven.com/a/wicker_basket_01), CC0"
+ },
+ "ph_wicker_basket_02": {
+  "ph": "wicker_basket_02",
+  "name": "Wicker Basket 02",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.347,
+   0.2,
+   0.254
+  ],
+  "colliders": [
+   [
+    0.12,
+    0.115,
+    -0.022,
+    0.108,
+    0.159,
+    0.181
+   ],
+   [
+    0.002,
+    0.109,
+    0.025,
+    0.058,
+    0.18,
+    0.167
+   ],
+   [
+    -0.141,
+    0.108,
+    0.02,
+    0.049,
+    0.183,
+    0.16
+   ],
+   [
+    -0.068,
+    0.111,
+    -0.063,
+    0.133,
+    0.179,
+    0.04
+   ],
+   [
+    -0.069,
+    0.108,
+    0.101,
+    0.129,
+    0.175,
+    0.04
+   ],
+   [
+    0.082,
+    0.099,
+    -0.092,
+    0.12,
+    0.172,
+    0.043
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Wicker Basket 02 by Kuutti Siitonen, Poly Haven (polyhaven.com/a/wicker_basket_02), CC0"
+ },
  "ph_wine_barrel_01": {
   "ph": "wine_barrel_01",
   "name": "Wine Barrel 01",
@@ -8338,6 +10669,53 @@
   "maxTex": 1024,
   "lodDist": 15,
   "credit": "Wine Barrel 01 by James Ray Cock, Poly Haven (polyhaven.com/a/wine_barrel_01), CC0"
+ },
+ "ph_wine_bottles_01": {
+  "ph": "wine_bottles_01",
+  "name": "Wine Bottles 01",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.676,
+   0.331,
+   0.081
+  ],
+  "colliders": [
+   [
+    0.108,
+    0.156,
+    -0.0,
+    0.077,
+    0.299,
+    0.077
+   ],
+   [
+    0.298,
+    0.151,
+    -0.0,
+    0.075,
+    0.29,
+    0.075
+   ],
+   [
+    -0.092,
+    0.151,
+    -0.0,
+    0.071,
+    0.294,
+    0.071
+   ],
+   [
+    -0.302,
+    0.168,
+    -0.0,
+    0.067,
+    0.325,
+    0.067
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Wine Bottles 01 by Jurita Burger, Rico Cilliers, Poly Haven (polyhaven.com/a/wine_bottles_01), CC0"
  },
  "ph_wooden_barrels_01": {
   "ph": "wooden_barrels_01",
@@ -8473,6 +10851,29 @@
   "lodDist": 30,
   "credit": "Wooden Bookshelf Worn by Ulan Cabanilla, Poly Haven (polyhaven.com/a/wooden_bookshelf_worn), CC0"
  },
+ "ph_wooden_bowl_01": {
+  "ph": "wooden_bowl_01",
+  "name": "Wooden Bowl 01",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.313,
+   0.094,
+   0.309
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.047,
+    -0.0,
+    0.313,
+    0.094,
+    0.309
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Wooden Bowl 01 by Oliver Harries, Poly Haven (polyhaven.com/a/wooden_bowl_01), CC0"
+ },
  "ph_wooden_broom": {
   "ph": "wooden_broom",
   "name": "Wooden Broom",
@@ -8590,6 +10991,69 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Wooden Bucket 01 by James Ray Cock, Poly Haven (polyhaven.com/a/wooden_bucket_01), CC0"
+ },
+ "ph_wooden_bucket_02": {
+  "ph": "wooden_bucket_02",
+  "name": "Wooden Bucket 02",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.615,
+   0.35,
+   0.616
+  ],
+  "colliders": [
+   [
+    0.001,
+    0.232,
+    0.0,
+    0.582,
+    0.04,
+    0.581
+   ],
+   [
+    -0.0,
+    0.021,
+    0.0,
+    0.502,
+    0.04,
+    0.501
+   ],
+   [
+    -0.178,
+    0.177,
+    -0.194,
+    0.098,
+    0.346,
+    0.099
+   ],
+   [
+    -0.121,
+    0.177,
+    -0.231,
+    0.097,
+    0.343,
+    0.095
+   ],
+   [
+    -0.236,
+    0.177,
+    0.113,
+    0.095,
+    0.343,
+    0.092
+   ],
+   [
+    0.179,
+    0.177,
+    0.194,
+    0.092,
+    0.343,
+    0.093
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Wooden Bucket 02 by James Ray Cock, Poly Haven (polyhaven.com/a/wooden_bucket_02), CC0"
  },
  "ph_wooden_candlestick": {
   "ph": "wooden_candlestick",
@@ -8747,6 +11211,29 @@
   "maxTex": 1024,
   "lodDist": 15,
   "credit": "Wooden Crate 02 by James Ray Cock, Jurita Burger, Poly Haven (polyhaven.com/a/wooden_crate_02), CC0"
+ },
+ "ph_wooden_cutting_board": {
+  "ph": "wooden_cutting_board",
+  "name": "Wooden Cutting Board",
+  "category": "Interior: Tableware & Decor",
+  "size": [
+   0.45,
+   0.041,
+   0.247
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.004,
+    -0.0,
+    0.447,
+    0.04,
+    0.244
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Wooden Cutting Board by Kuutti Siitonen, Poly Haven (polyhaven.com/a/wooden_cutting_board), CC0"
  },
  "ph_wooden_display_shelves_01": {
   "ph": "wooden_display_shelves_01",
@@ -9243,6 +11730,93 @@
   "maxTex": 1024,
   "lodDist": 15,
   "credit": "Wooden Table 02 by Serhii Khromov, Poly Haven (polyhaven.com/a/wooden_table_02), CC0"
+ },
+ "ph_woodenchair_01": {
+  "ph": "WoodenChair_01",
+  "name": "Wooden Chair 01",
+  "category": "Interior: Modern",
+  "size": [
+   0.688,
+   2.274,
+   0.658
+  ],
+  "colliders": [
+   [
+    -0.0,
+    1.402,
+    -0.273,
+    0.334,
+    1.269,
+    0.04
+   ],
+   [
+    0.0,
+    0.656,
+    -0.001,
+    0.672,
+    0.04,
+    0.601
+   ],
+   [
+    -0.104,
+    1.411,
+    -0.28,
+    0.208,
+    1.379,
+    0.044
+   ],
+   [
+    -0.143,
+    0.531,
+    -0.026,
+    0.289,
+    0.04,
+    0.508
+   ],
+   [
+    0.159,
+    1.301,
+    -0.28,
+    0.099,
+    1.16,
+    0.044
+   ],
+   [
+    -0.273,
+    0.98,
+    0.02,
+    0.138,
+    0.048,
+    0.618
+   ],
+   [
+    0.273,
+    0.98,
+    0.02,
+    0.138,
+    0.048,
+    0.618
+   ],
+   [
+    0.223,
+    0.932,
+    -0.254,
+    0.056,
+    1.727,
+    0.04
+   ],
+   [
+    -0.223,
+    0.932,
+    -0.254,
+    0.056,
+    1.727,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Wooden Chair 01 by Jake Mobley, Poly Haven (polyhaven.com/a/WoodenChair_01), CC0"
  },
  "ph_woodentable_01": {
   "ph": "WoodenTable_01",

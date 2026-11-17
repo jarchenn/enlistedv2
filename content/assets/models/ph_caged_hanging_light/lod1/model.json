@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.579545259475708,
+  0.7500966191291809,
+  0.15409182012081146
+ ],
+ "bmin": [
+  -0.579545259475708,
+  0.0,
+  -0.15639010071754456
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "mr": "mr_3.jpg",
+   "name": "caged_hanging_light",
+   "normal": "normal_1.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.579545259475708,
+    0.7500966191291809,
+    0.15409182012081146
+   ],
+   "bmin": [
+    -0.579545259475708,
+    0.0,
+    -0.15639010071754456
+   ],
+   "count": 8580,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "caged_hanging_light",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_caged_hanging_light.glb",
+ "textures": {},
+ "triangles": 2860,
+ "vertices": 4169
+}

@@ -1,0 +1,93 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.1367304027080536,
+  0.42990660667419434,
+  0.06965135037899017
+ ],
+ "bmin": [
+  -0.1367304027080536,
+  0.0,
+  -0.0701892226934433
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "mr": "mr_3.jpg",
+   "name": "industrial_wall_lamp",
+   "normal": "normal_1.jpg"
+  },
+  {
+   "albedo": "albedoa_5.png",
+   "cutout": true,
+   "mr": "mr_6.jpg",
+   "name": "industrial_wall_lamp_glass",
+   "normal": "normal_4.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.1367304027080536,
+    0.42990660667419434,
+    0.06965135037899017
+   ],
+   "bmin": [
+    -0.1367304027080536,
+    0.0,
+    -0.0701892226934433
+   ],
+   "count": 5544,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "industrial_wall_lamp",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.09192521125078201,
+    0.38502630591392517,
+    0.054581090807914734
+   ],
+   "bmin": [
+    -0.09193754196166992,
+    0.04488019645214081,
+    -0.04277830570936203
+   ],
+   "count": 1122,
+   "first": 5544,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "industrial_wall_lamp",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_industrial_wall_lamp.glb",
+ "textures": {},
+ "triangles": 2222,
+ "vertices": 2229
+}

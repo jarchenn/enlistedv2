@@ -296,33 +296,54 @@ Poly Haven props (CC0), downloaded by `tools/props/fetch_polyhaven.py`, converte
 <!-- ph_props: written by tools/props/ph_batch.py -->
 | Asset | Model | Author | Licence | Source | In the repo |
 |---|---|---|---|---|---|
+| `ph_alarm_clock_01` | Alarm Clock 01 | James Ray Cock, Yann Kervran | CC0 (Poly Haven) | https://polyhaven.com/a/alarm_clock_01 | yes |
+| `ph_antique_ceramic_vase_01` | Antique Ceramic Vase 01 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/antique_ceramic_vase_01 | yes |
 | `ph_armchair_01` | Arm Chair 01 | Kirill Sannikov | CC0 (Poly Haven) | https://polyhaven.com/a/ArmChair_01 | yes |
+| `ph_bar_chair_round_01` | Bar Chair Round 01 | Dairon Sanchez | CC0 (Poly Haven) | https://polyhaven.com/a/bar_chair_round_01 | yes |
 | `ph_barbershopchair_01` | Barber Shop Chair 01 | Fernando Quinn | CC0 (Poly Haven) | https://polyhaven.com/a/BarberShopChair_01 | yes |
 | `ph_barrel_01` | Barrel_01 | Jorge Camacho | CC0 (Poly Haven) | https://polyhaven.com/a/Barrel_01 | yes |
 | `ph_barrel_02` | Barrel 02 | Jorge Camacho | CC0 (Poly Haven) | https://polyhaven.com/a/Barrel_02 | yes |
 | `ph_barrel_03` | Barrel 03 | Serhii Khromov | CC0 (Poly Haven) | https://polyhaven.com/a/barrel_03 | yes |
 | `ph_barrel_stove` | Barrel Stove | MP | CC0 (Poly Haven) | https://polyhaven.com/a/barrel_stove | yes |
+| `ph_book_encyclopedia_set_01` | Book Encyclopedia Set 01 | John Malcolm | CC0 (Poly Haven) | https://polyhaven.com/a/book_encyclopedia_set_01 | yes |
+| `ph_boombox` | Boombox | Thomas Paul Mouilleron | CC0 (Poly Haven) | https://polyhaven.com/a/boombox | yes |
 | `ph_brass_candleholders` | Brass Candleholders | Tina | CC0 (Poly Haven) | https://polyhaven.com/a/brass_candleholders | yes |
+| `ph_brass_goblets` | Brass Goblets | Tina | CC0 (Poly Haven) | https://polyhaven.com/a/brass_goblets | yes |
+| `ph_brass_pan_01` | Brass Pan 01 | Rico Cilliers | CC0 (Poly Haven) | https://polyhaven.com/a/brass_pan_01 | yes |
+| `ph_brass_pot_01` | Brass Pot 01 | Rico Cilliers | CC0 (Poly Haven) | https://polyhaven.com/a/brass_pot_01 | yes |
+| `ph_caged_hanging_light` | Caged Hanging Light | Ulan Cabanilla | CC0 (Poly Haven) | https://polyhaven.com/a/caged_hanging_light | yes |
 | `ph_cardboard_box_01` | Cardboard Box 01 | Rahul Chaudhary | CC0 (Poly Haven) | https://polyhaven.com/a/cardboard_box_01 | yes |
+| `ph_carved_wooden_plate` | Carved Wooden Plate | Jan Martens | CC0 (Poly Haven) | https://polyhaven.com/a/carved_wooden_plate | yes |
 | `ph_cashregister_01` | Cash Register 01 | Joe Seabuhr | CC0 (Poly Haven) | https://polyhaven.com/a/CashRegister_01 | yes |
+| `ph_ceiling_fan` | Ceiling Fan | Ulan Cabanilla | CC0 (Poly Haven) | https://polyhaven.com/a/ceiling_fan | yes |
 | `ph_cement_bag` | Cement Bag | PierreB3D | CC0 (Poly Haven) | https://polyhaven.com/a/cement_bag | yes |
+| `ph_ceramic_pot` | Ceramic Pot | Aron Łyczek | CC0 (Poly Haven) | https://polyhaven.com/a/ceramic_pot | yes |
+| `ph_ceramic_vase_01` | Ceramic Vase 01 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/ceramic_vase_01 | yes |
 | `ph_chandelier_01` | Chandelier 01 | Kirill Sannikov | CC0 (Poly Haven) | https://polyhaven.com/a/Chandelier_01 | yes |
 | `ph_chandelier_03` | Chandelier 03 | Kirill Sannikov | CC0 (Poly Haven) | https://polyhaven.com/a/Chandelier_03 | yes |
+| `ph_chess_set` | Chess Set | Riley Queen | CC0 (Poly Haven) | https://polyhaven.com/a/chess_set | yes |
+| `ph_classic_laptop` | Classic Laptop | Arrangemonk | CC0 (Poly Haven) | https://polyhaven.com/a/classic_laptop | yes |
 | `ph_classicconsole_01` | Classic Console 01 | Kirill Sannikov | CC0 (Poly Haven) | https://polyhaven.com/a/ClassicConsole_01 | yes |
 | `ph_classicnightstand_01` | Classic Nightstand 01 | Kirill Sannikov | CC0 (Poly Haven) | https://polyhaven.com/a/ClassicNightstand_01 | yes |
+| `ph_coffee_table_round_01` | Coffee Table Round 01 | Ulan Cabanilla | CC0 (Poly Haven) | https://polyhaven.com/a/coffee_table_round_01 | yes |
 | `ph_coffeecart_01` | Coffee Cart 01 | Joe Seabuhr | CC0 (Poly Haven) | https://polyhaven.com/a/CoffeeCart_01 | yes |
+| `ph_coffeetable_01` | Coffee Table 01 | Fernando Quinn | CC0 (Poly Haven) | https://polyhaven.com/a/CoffeeTable_01 | yes |
 | `ph_compost_bag_02` | Compost Bag 02 | Satyaki Mandal | CC0 (Poly Haven) | https://polyhaven.com/a/compost_bag_02 | yes |
 | `ph_compost_bags` | Compost Bags | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/compost_bags | yes |
 | `ph_concrete_road_barrier` | Concrete Road Barrier | Amal Kumar | CC0 (Poly Haven) | https://polyhaven.com/a/concrete_road_barrier | yes |
 | `ph_concrete_road_barrier_02` | Concrete Road Barrier 02 | Amal Kumar | CC0 (Poly Haven) | https://polyhaven.com/a/concrete_road_barrier_02 | yes |
 | `ph_covered_car` | Covered Car | MP | CC0 (Poly Haven) | https://polyhaven.com/a/covered_car | yes |
+| `ph_dartboard` | Dartboard | Satyaki Mandal | CC0 (Poly Haven) | https://polyhaven.com/a/dartboard | yes |
+| `ph_desk_lamp_arm_01` | Desk Lamp Arm 01 | Kuutti Siitonen, Yann Kervran | CC0 (Poly Haven) | https://polyhaven.com/a/desk_lamp_arm_01 | yes |
 | `ph_dining_chair_02` | Dining Chair 02 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/dining_chair_02 | yes |
 | `ph_dining_table` | Dining Table | Aron Łyczek | CC0 (Poly Haven) | https://polyhaven.com/a/dining_table | yes |
 | `ph_drawer_cabinet` | Drawer Cabinet | Ulan Cabanilla | CC0 (Poly Haven) | https://polyhaven.com/a/drawer_cabinet | yes |
 | `ph_drill_press_01` | Drill Press 01 | Viktor | CC0 (Poly Haven) | https://polyhaven.com/a/drill_press_01 | yes |
+| `ph_electric_stove` | Electric Stove | Kuutti Siitonen | CC0 (Poly Haven) | https://polyhaven.com/a/electric_stove | yes |
 | `ph_exterior_aircon_unit` | Exterior Aircon Unit | Monsta3D | CC0 (Poly Haven) | https://polyhaven.com/a/exterior_aircon_unit | yes |
 | `ph_fancy_picture_frame_01` | Fancy Picture Frame 01 | Rico Cilliers, Rob Tuytel | CC0 (Poly Haven) | https://polyhaven.com/a/fancy_picture_frame_01 | yes |
 | `ph_fancy_picture_frame_02` | Fancy Picture Frame 02 | Rico Cilliers, Rob Tuytel | CC0 (Poly Haven) | https://polyhaven.com/a/fancy_picture_frame_02 | yes |
+| `ph_filmstrip_projector_8mm` | Filmstrip Projector 8mm | PeterM | CC0 (Poly Haven) | https://polyhaven.com/a/filmstrip_projector_8mm | yes |
 | `ph_fire_hydrant` | Fire Hydrant | Gonçalo Felício | CC0 (Poly Haven) | https://polyhaven.com/a/fire_hydrant | yes |
 | `ph_flood_lights` | Flood Lights | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/flood_lights | yes |
 | `ph_folding_wooden_stool` | Folding Wooden Stool | Ulan Cabanilla | CC0 (Poly Haven) | https://polyhaven.com/a/folding_wooden_stool | yes |
@@ -333,12 +354,16 @@ Poly Haven props (CC0), downloaded by `tools/props/fetch_polyhaven.py`, converte
 | `ph_gothiccommode_01` | Gothic Commode 01 | Kirill Sannikov | CC0 (Poly Haven) | https://polyhaven.com/a/GothicCommode_01 | yes |
 | `ph_greenchair_01` | Green Chair 01 | Kirill Sannikov | CC0 (Poly Haven) | https://polyhaven.com/a/GreenChair_01 | yes |
 | `ph_hand_truck` | Hand Truck | Mutanzom3D | CC0 (Poly Haven) | https://polyhaven.com/a/hand_truck | yes |
+| `ph_hanging_industrial_lamp` | Hanging Industrial Lamp | Kuutti Siitonen | CC0 (Poly Haven) | https://polyhaven.com/a/hanging_industrial_lamp | yes |
 | `ph_hanging_picture_frame_01` | Hanging Picture Frame 01 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/hanging_picture_frame_01 | yes |
 | `ph_hanging_picture_frame_02` | Hanging Picture Frame 02 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/hanging_picture_frame_02 | yes |
 | `ph_hanging_picture_frame_03` | Hanging Picture Frame 03 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/hanging_picture_frame_03 | yes |
+| `ph_industrial_caged_sconce` | Industrial Caged Sconce | Ulan Cabanilla | CC0 (Poly Haven) | https://polyhaven.com/a/industrial_caged_sconce | yes |
 | `ph_industrial_coffee_table` | Industrial Coffee Table | Ulan Cabanilla | CC0 (Poly Haven) | https://polyhaven.com/a/industrial_coffee_table | yes |
 | `ph_industrial_pastic_container` | Industrial Plastic Container | Galo Benivegna | CC0 (Poly Haven) | https://polyhaven.com/a/industrial_pastic_container | yes |
 | `ph_industrial_storage_cart` | Industrial Storage Cart | Jule Bielitz | CC0 (Poly Haven) | https://polyhaven.com/a/industrial_storage_cart | yes |
+| `ph_industrial_wall_lamp` | Industrial Wall Lamp | Kuutti Siitonen | CC0 (Poly Haven) | https://polyhaven.com/a/industrial_wall_lamp | yes |
+| `ph_jug_01` | Jug 01 | Kuutti Siitonen | CC0 (Poly Haven) | https://polyhaven.com/a/jug_01 | yes |
 | `ph_korean_fire_extinguisher_01` | Korean Fire Extinguisher 01 | UM JOORIN | CC0 (Poly Haven) | https://polyhaven.com/a/korean_fire_extinguisher_01 | yes |
 | `ph_ladder_sectioned_01` | Ladder Sectioned 01 | MP | CC0 (Poly Haven) | https://polyhaven.com/a/ladder_sectioned_01 | yes |
 | `ph_lantern_01` | Lantern 01 | Rajil Jose Macatangay | CC0 (Poly Haven) | https://polyhaven.com/a/Lantern_01 | yes |
@@ -347,12 +372,21 @@ Poly Haven props (CC0), downloaded by `tools/props/fetch_polyhaven.py`, converte
 | `ph_mantel_clock_01` | Mantel Clock 01 | Rico Cilliers, Yann Kervran | CC0 (Poly Haven) | https://polyhaven.com/a/mantel_clock_01 | yes |
 | `ph_metal_jerrycan` | Metal Jerrycan | Sean Buckley | CC0 (Poly Haven) | https://polyhaven.com/a/metal_jerrycan | yes |
 | `ph_metal_jerrycan_green` | Metal Jerrycan Green | Ulan Cabanilla | CC0 (Poly Haven) | https://polyhaven.com/a/metal_jerrycan_green | yes |
+| `ph_metal_jug` | Metal Jug | Anzor Lezhava | CC0 (Poly Haven) | https://polyhaven.com/a/metal_jug | yes |
 | `ph_metal_office_desk` | Metal Office Desk | Ulan Cabanilla | CC0 (Poly Haven) | https://polyhaven.com/a/metal_office_desk | yes |
 | `ph_metal_stool_01` | Metal Stool 01 | Ulan Cabanilla | CC0 (Poly Haven) | https://polyhaven.com/a/metal_stool_01 | yes |
 | `ph_metal_stool_02` | Metal Stool 02 | Ulan Cabanilla | CC0 (Poly Haven) | https://polyhaven.com/a/metal_stool_02 | yes |
 | `ph_metal_stool_03` | Metal Stool 03 | Flo Tasser | CC0 (Poly Haven) | https://polyhaven.com/a/metal_stool_03 | yes |
+| `ph_metal_tool_chest` | Metal Tool Chest | John Hutcheson, Yann Kervran | CC0 (Poly Haven) | https://polyhaven.com/a/metal_tool_chest | yes |
 | `ph_metal_toolbox` | Metal Toolbox | Mateusz Sadek | CC0 (Poly Haven) | https://polyhaven.com/a/metal_toolbox | yes |
 | `ph_metal_trash_can` | Metal Trash Can | GurJas Studios | CC0 (Poly Haven) | https://polyhaven.com/a/metal_trash_can | yes |
+| `ph_mid_century_lounge_chair` | Mid Century Lounge Chair | Kuutti Siitonen | CC0 (Poly Haven) | https://polyhaven.com/a/mid_century_lounge_chair | yes |
+| `ph_modern_arm_chair_01` | Modern Arm Chair 01 | Vibrant Nordic | CC0 (Poly Haven) | https://polyhaven.com/a/modern_arm_chair_01 | yes |
+| `ph_modern_ceiling_lamp_01` | Modern Ceiling Lamp 01 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/modern_ceiling_lamp_01 | yes |
+| `ph_modern_coffee_table_01` | Modern Coffee Table 01 | Amin | CC0 (Poly Haven) | https://polyhaven.com/a/modern_coffee_table_01 | yes |
+| `ph_modern_coffee_table_02` | Modern Coffee Table 02 | Amin | CC0 (Poly Haven) | https://polyhaven.com/a/modern_coffee_table_02 | yes |
+| `ph_modern_wooden_cabinet` | Modern Wooden Cabinet | Patrik Pangerl | CC0 (Poly Haven) | https://polyhaven.com/a/modern_wooden_cabinet | yes |
+| `ph_mounted_fluorescent_lights` | Mounted Fluorescent Lights | Ulan Cabanilla | CC0 (Poly Haven) | https://polyhaven.com/a/mounted_fluorescent_lights | yes |
 | `ph_ocean_buoy` | Ocean Buoy | Mateusz Sadek | CC0 (Poly Haven) | https://polyhaven.com/a/ocean_buoy | yes |
 | `ph_old_bed_frame` | Old Bed Frame | Luca B | CC0 (Poly Haven) | https://polyhaven.com/a/old_bed_frame | yes |
 | `ph_old_drill_press` | Old Drill Press | Harsh Vardhan Singh | CC0 (Poly Haven) | https://polyhaven.com/a/old_drill_press | yes |
@@ -372,6 +406,7 @@ Poly Haven props (CC0), downloaded by `tools/props/fetch_polyhaven.py`, converte
 | `ph_painted_wooden_sofa` | Painted Wooden Sofa | Kirill Sannikov | CC0 (Poly Haven) | https://polyhaven.com/a/painted_wooden_sofa | yes |
 | `ph_painted_wooden_stool` | Painted Wooden Stool | Kirill Sannikov | CC0 (Poly Haven) | https://polyhaven.com/a/painted_wooden_stool | yes |
 | `ph_painted_wooden_table` | Painted Wooden Table | Kirill Sannikov | CC0 (Poly Haven) | https://polyhaven.com/a/painted_wooden_table | yes |
+| `ph_planter_pot_clay` | Planter Pot Clay | Amal Kumar | CC0 (Poly Haven) | https://polyhaven.com/a/planter_pot_clay | yes |
 | `ph_plastic_broom` | Plastic Broom | L | CC0 (Poly Haven) | https://polyhaven.com/a/plastic_broom | yes |
 | `ph_plastic_container` | Plastic Container | PierreB3D | CC0 (Poly Haven) | https://polyhaven.com/a/plastic_container | yes |
 | `ph_plastic_crate_01` | Plastic Crate 01 | PierreB3D | CC0 (Poly Haven) | https://polyhaven.com/a/plastic_crate_01 | yes |
@@ -381,6 +416,8 @@ Poly Haven props (CC0), downloaded by `tools/props/fetch_polyhaven.py`, converte
 | `ph_plastic_monobloc_chair_01` | Plastic Monobloc Chair 01 | Kuutti Siitonen | CC0 (Poly Haven) | https://polyhaven.com/a/plastic_monobloc_chair_01 | yes |
 | `ph_portable_generator` | Portable Generator | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/portable_generator | yes |
 | `ph_portable_welding_cart` | Portable Welding Cart | Georgii Gorbunov | CC0 (Poly Haven) | https://polyhaven.com/a/portable_welding_cart | yes |
+| `ph_pot_enamel_01` | Pot Enamel 01 | Kuutti Siitonen | CC0 (Poly Haven) | https://polyhaven.com/a/pot_enamel_01 | yes |
+| `ph_power_box_01` | Power Box 01 | Rico Cilliers, Yann Kervran | CC0 (Poly Haven) | https://polyhaven.com/a/power_box_01 | yes |
 | `ph_projector_screen` | Projector Screen | PeterM | CC0 (Poly Haven) | https://polyhaven.com/a/projector_screen | yes |
 | `ph_propane_tank` | Propane Tank | Slinc | CC0 (Poly Haven) | https://polyhaven.com/a/propane_tank | yes |
 | `ph_rockingchair_01` | Rockingchair 01 | Jorge Camacho | CC0 (Poly Haven) | https://polyhaven.com/a/Rockingchair_01 | yes |
@@ -401,21 +438,27 @@ Poly Haven props (CC0), downloaded by `tools/props/fetch_polyhaven.py`, converte
 | `ph_small_wooden_table_01` | Small Wooden Table 01 | Ulan Cabanilla | CC0 (Poly Haven) | https://polyhaven.com/a/small_wooden_table_01 | yes |
 | `ph_sofa_01` | Sofa 01 | Kirill Sannikov | CC0 (Poly Haven) | https://polyhaven.com/a/Sofa_01 | yes |
 | `ph_sofa_02` | Sofa 02 | Kirill Sannikov | CC0 (Poly Haven) | https://polyhaven.com/a/sofa_02 | yes |
+| `ph_sofa_03` | Sofa 03 | Fran Calvente | CC0 (Poly Haven) | https://polyhaven.com/a/sofa_03 | yes |
 | `ph_spinning_wheel_01` | Spinning Wheel 01 | Sofia Pahaoja | CC0 (Poly Haven) | https://polyhaven.com/a/spinning_wheel_01 | yes |
+| `ph_standing_chalkboard_01` | Standing Chalkboard 01 | ParzivalCG | CC0 (Poly Haven) | https://polyhaven.com/a/standing_chalkboard_01 | yes |
 | `ph_standing_picture_frame_01` | Standing Picture Frame 01 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/standing_picture_frame_01 | yes |
 | `ph_steel_frame_shelves_01` | Steel Frame Shelves 01 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/steel_frame_shelves_01 | yes |
 | `ph_steel_frame_shelves_02` | Steel Frame Shelves 02 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/steel_frame_shelves_02 | yes |
 | `ph_steel_frame_shelves_03` | Steel Frame Shelves 03 | Ulan Cabanilla | CC0 (Poly Haven) | https://polyhaven.com/a/steel_frame_shelves_03 | yes |
 | `ph_stone_fire_pit` | Stone Fire Pit | Sebastian Platen | CC0 (Poly Haven) | https://polyhaven.com/a/stone_fire_pit | yes |
 | `ph_street_lamp_01` | Street Lamp 01 | Josh Dean | CC0 (Poly Haven) | https://polyhaven.com/a/street_lamp_01 | yes |
+| `ph_tea_set_01` | Tea Set 01 | James Ray Cock, Jurita Burger, Rico Cilliers | CC0 (Poly Haven) | https://polyhaven.com/a/tea_set_01 | yes |
 | `ph_television_01` | Television 01 | Gabriel Radić | CC0 (Poly Haven) | https://polyhaven.com/a/Television_01 | yes |
+| `ph_television_02` | Television 02 | Benny Weimer | CC0 (Poly Haven) | https://polyhaven.com/a/television_02 | yes |
 | `ph_tire_pump` | Tire Pump | Garrison Gager | CC0 (Poly Haven) | https://polyhaven.com/a/tire_pump | yes |
 | `ph_tool_cart` | Tool Cart | Savva Zakharov | CC0 (Poly Haven) | https://polyhaven.com/a/tool_cart | yes |
 | `ph_trashbag` | Trashbag | Benny Weimer | CC0 (Poly Haven) | https://polyhaven.com/a/trashbag | yes |
+| `ph_treasure_chest` | Treasure Chest | Rico Cilliers | CC0 (Poly Haven) | https://polyhaven.com/a/treasure_chest | yes |
 | `ph_utility_box_01` | Utility Box 01 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/utility_box_01 | yes |
 | `ph_utility_box_02` | Utility Box 02 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/utility_box_02 | yes |
 | `ph_vintage_cabinet_01` | Vintage Cabinet 01 | Rico Cilliers | CC0 (Poly Haven) | https://polyhaven.com/a/vintage_cabinet_01 | yes |
 | `ph_vintage_day_bed` | Vintage Day Bed | Aron Łyczek | CC0 (Poly Haven) | https://polyhaven.com/a/vintage_day_bed | yes |
+| `ph_vintage_electric_kettle` | Vintage Electric Kettle | SV Garip | CC0 (Poly Haven) | https://polyhaven.com/a/vintage_electric_kettle | yes |
 | `ph_vintage_grandfather_clock_01` | Vintage Grandfather Clock 01 | James Ray Cock, Yann Kervran | CC0 (Poly Haven) | https://polyhaven.com/a/vintage_grandfather_clock_01 | yes |
 | `ph_vintage_microwave` | Vintage Microwave | Adam Nekola | CC0 (Poly Haven) | https://polyhaven.com/a/vintage_microwave | yes |
 | `ph_vintage_oil_lamp` | Vintage Oil Lamp | Monsta3D | CC0 (Poly Haven) | https://polyhaven.com/a/vintage_oil_lamp | yes |
@@ -427,14 +470,20 @@ Poly Haven props (CC0), downloaded by `tools/props/fetch_polyhaven.py`, converte
 | `ph_water_manhole_cover` | Water Manhole Cover | Raunox | CC0 (Poly Haven) | https://polyhaven.com/a/water_manhole_cover | yes |
 | `ph_wetfloorsign_01` | Wet Floor Sign 01 | Fran Calvente | CC0 (Poly Haven) | https://polyhaven.com/a/WetFloorSign_01 | yes |
 | `ph_wheelchair_01` | Wheelchair 01 | Garreth Dean | CC0 (Poly Haven) | https://polyhaven.com/a/wheelchair_01 | yes |
+| `ph_wicker_basket_01` | Wicker Basket 01 | Kuutti Siitonen | CC0 (Poly Haven) | https://polyhaven.com/a/wicker_basket_01 | yes |
+| `ph_wicker_basket_02` | Wicker Basket 02 | Kuutti Siitonen | CC0 (Poly Haven) | https://polyhaven.com/a/wicker_basket_02 | yes |
 | `ph_wine_barrel_01` | Wine Barrel 01 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/wine_barrel_01 | yes |
+| `ph_wine_bottles_01` | Wine Bottles 01 | Jurita Burger, Rico Cilliers | CC0 (Poly Haven) | https://polyhaven.com/a/wine_bottles_01 | yes |
 | `ph_wooden_barrels_01` | Wooden Barrels 01 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/wooden_barrels_01 | yes |
 | `ph_wooden_bookshelf_worn` | Wooden Bookshelf Worn | Ulan Cabanilla | CC0 (Poly Haven) | https://polyhaven.com/a/wooden_bookshelf_worn | yes |
+| `ph_wooden_bowl_01` | Wooden Bowl 01 | Oliver Harries | CC0 (Poly Haven) | https://polyhaven.com/a/wooden_bowl_01 | yes |
 | `ph_wooden_broom` | Wooden Broom | Balen | CC0 (Poly Haven) | https://polyhaven.com/a/wooden_broom | yes |
 | `ph_wooden_bucket_01` | Wooden Bucket 01 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/wooden_bucket_01 | yes |
+| `ph_wooden_bucket_02` | Wooden Bucket 02 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/wooden_bucket_02 | yes |
 | `ph_wooden_candlestick` | Wooden Candlestick | Josh Dean | CC0 (Poly Haven) | https://polyhaven.com/a/wooden_candlestick | yes |
 | `ph_wooden_crate_01` | Wooden Crate 01 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/wooden_crate_01 | yes |
 | `ph_wooden_crate_02` | Wooden Crate 02 | James Ray Cock, Jurita Burger | CC0 (Poly Haven) | https://polyhaven.com/a/wooden_crate_02 | yes |
+| `ph_wooden_cutting_board` | Wooden Cutting Board | Kuutti Siitonen | CC0 (Poly Haven) | https://polyhaven.com/a/wooden_cutting_board | yes |
 | `ph_wooden_display_shelves_01` | Wooden Display Shelves 01 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/wooden_display_shelves_01 | yes |
 | `ph_wooden_ladder` | Wooden Ladder | Miroslav Turura | CC0 (Poly Haven) | https://polyhaven.com/a/wooden_ladder | yes |
 | `ph_wooden_ladder_02` | Wooden Ladder 02 | JN_3DPRINTINGNERD | CC0 (Poly Haven) | https://polyhaven.com/a/wooden_ladder_02 | yes |
@@ -443,6 +492,7 @@ Poly Haven props (CC0), downloaded by `tools/props/fetch_polyhaven.py`, converte
 | `ph_wooden_picnic_table` | Wooden Picnic Table | Ulan Cabanilla | CC0 (Poly Haven) | https://polyhaven.com/a/wooden_picnic_table | yes |
 | `ph_wooden_stool_01` | Wooden Stool 01 | Kuutti Siitonen | CC0 (Poly Haven) | https://polyhaven.com/a/wooden_stool_01 | yes |
 | `ph_wooden_table_02` | Wooden Table 02 | Serhii Khromov | CC0 (Poly Haven) | https://polyhaven.com/a/wooden_table_02 | yes |
+| `ph_woodenchair_01` | Wooden Chair 01 | Jake Mobley | CC0 (Poly Haven) | https://polyhaven.com/a/WoodenChair_01 | yes |
 | `ph_woodentable_01` | Wooden Table 01 | Ethan Place | CC0 (Poly Haven) | https://polyhaven.com/a/WoodenTable_01 | yes |
 | `ph_woodentable_03` | Wooden Table 03 | Gabriel Radić | CC0 (Poly Haven) | https://polyhaven.com/a/WoodenTable_03 | yes |
 | `ph_worn_metal_rack` | Worn Metal Rack | Luca B | CC0 (Poly Haven) | https://polyhaven.com/a/worn_metal_rack | yes |

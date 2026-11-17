@@ -1,0 +1,93 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.12683960795402527,
+  0.3454076647758484,
+  0.30130940675735474
+ ],
+ "bmin": [
+  -0.12683960795402527,
+  0.0,
+  -0.30130940675735474
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "filmstrip_projector_8mm",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "filmstrip_projector_8mm_film",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.12683960795402527,
+    0.3454076647758484,
+    0.30130940675735474
+   ],
+   "bmin": [
+    -0.12683960795402527,
+    0.0,
+    -0.30130940675735474
+   ],
+   "count": 48615,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "filmstrip_projector_8mm_takeup_holder",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.023960258811712265,
+    0.3277967870235443,
+    0.17012377083301544
+   ],
+   "bmin": [
+    -0.032200656831264496,
+    0.0970410406589508,
+    0.02816317230463028
+   ],
+   "count": 426,
+   "first": 48615,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "filmstrip_projector_8mm_takeup_holder",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_filmstrip_projector_8mm.glb",
+ "textures": {},
+ "triangles": 16347,
+ "vertices": 15634
+}
