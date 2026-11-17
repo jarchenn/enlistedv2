@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.2121950089931488,
+  0.5495533347129822,
+  0.20361042022705078
+ ],
+ "bmin": [
+  -0.2121949940919876,
+  0.0,
+  -0.18814916908740997
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "painted_wooden_nightstand",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.2121950089931488,
+    0.5495533347129822,
+    0.20361042022705078
+   ],
+   "bmin": [
+    -0.2121949940919876,
+    0.0,
+    -0.18814916908740997
+   ],
+   "count": 174,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "painted_wooden_nightstand",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 0.8690999746322632,
+ "source": "ph_painted_wooden_nightstand.glb",
+ "textures": {},
+ "triangles": 58,
+ "vertices": 133
+}

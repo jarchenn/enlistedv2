@@ -19,7 +19,7 @@ ImportSpec importSpecFromJson(const json& j) {
   s.src = j.value("src", ""); s.dir = j.value("dir", "");
   s.rot = jvec3(j.value("rot", json()), vec3(0));
   s.realLength = j.value("realLength", 1.0f);
-  s.scale = j.value("scale", 0.0f); s.pivot = j.value("pivot", std::string("weapon"));
+  s.scale = j.value("scale", 0.0f); s.axes = jvec3(j.value("axes", json()), vec3(1)); s.pivot = j.value("pivot", std::string("weapon"));
   s.lengthNode = j.value("lengthNode", "");
   s.offset = jvec3(j.value("offset", json()), vec3(0));
   json np = j.value("nodeParts", json::object()), hd = j.value("hide", json::array());   // keep the temporaries alive
@@ -332,9 +332,10 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
   if (lmax.z <= lmin.z) { err = "length node '" + spec.lengthNode + "' has no extent"; return false; }
   float S = spec.scale > 0 ? spec.scale : spec.realLength / (lmax.z - lmin.z);
   vec3 c = (lmin + lmax) * 0.5f;
-  vec3 T = spec.pivot == "ground" ? vec3(-c.x * S, -lmin.y * S, -c.z * S) + spec.offset   // map asset: on the ground, centred
-                                  : vec3(-c.x * S, -c.y * S, -lmin.z * S) + spec.offset;
-  mat4 X = glm::translate(mat4(1), T) * glm::scale(mat4(1), vec3(S)) * glm::mat4_cast(R);
+  const vec3 SA = vec3(S) * spec.axes;   // PR3: per-axis stretch (1 for everything else)
+  vec3 T = spec.pivot == "ground" ? vec3(-c.x, -lmin.y, -c.z) * SA + spec.offset   // map asset: on the ground, centred
+                                  : vec3(-c.x, -c.y, -lmin.z) * SA + spec.offset;
+  mat4 X = glm::translate(mat4(1), T) * glm::scale(mat4(1), SA) * glm::mat4_cast(R);
   mat4 Xi = glm::inverse(X);
 
   // ---- animation (first clip): weapon-space delta per sample for every part under an animated node
@@ -394,7 +395,7 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
     uint32_t base = (uint32_t)V.size();
     vec3 pmin(1e9f), pmax(-1e9f);
     std::vector<TexVertex> qv = q.v;
-    for (auto& v : qv) { v.pos = vec3(X * vec4(v.pos, 1)); v.nrm = glm::normalize(R * v.nrm); v.tan = vec4(glm::normalize(R * vec3(v.tan)), v.tan.w); }
+    for (auto& v : qv) { v.pos = vec3(X * vec4(v.pos, 1)); v.nrm = glm::normalize((R * v.nrm) / spec.axes); v.tan = vec4(glm::normalize((R * vec3(v.tan)) * spec.axes), v.tan.w); }   // PR3: normals by the inverse stretch
     std::vector<uint8_t> dropV(qv.size(), 0);
     if (!spec.meshEdits.empty()) {
       // islands: union-find over vertices, joined by triangles and by coincident positions (split UV seams)

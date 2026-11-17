@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.500974714756012,
+  1.233388066291809,
+  0.9877001047134399
+ ],
+ "bmin": [
+  -0.500974714756012,
+  0.0,
+  -0.9877001047134399
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "old_bed_frame",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.500974714756012,
+    1.233388066291809,
+    0.9877001047134399
+   ],
+   "bmin": [
+    -0.500974714756012,
+    0.0,
+    -0.9877001047134399
+   ],
+   "count": 18744,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "old_bed_frame",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0532000064849854,
+ "source": "ph_old_bed_frame.glb",
+ "textures": {},
+ "triangles": 6248,
+ "vertices": 5563
+}

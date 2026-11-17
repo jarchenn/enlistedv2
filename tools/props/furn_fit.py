@@ -1,6 +1,6 @@
 """PR2: fit imported Poly Haven models to the furniture they replace -> content/settings/furniture_models.json.
 
-tools/props/furn_replace.json maps a furniture asset id to {"ph": <Poly Haven id>, "turn": 0 | 90 | 180 | 270 (optional: tables and other symmetric pieces only; a seat keeps its front)}.
+tools/props/furn_replace.json maps a furniture asset id to {"ph": <Poly Haven id>, "turn": 0 | 90 | 180 | 270 (optional: tables and other symmetric pieces only; a seat keeps its front), "stretch": true (optional, PR3: fill the envelope with a per-axis stretch, each axis within 30 % of one uniform scale; baked through the model spec "axes")}.
 For each pair: the asset's envelope (its prop "bounds", else the box of its visible parts), the model's size
 (tools/props/ph_props.json, metres, front +z, ground pivot), turned only by an explicit "turn";
 one uniform scale that keeps the model inside the footprint (never wider or deeper, 3 % slack), without distorting it;
@@ -29,19 +29,26 @@ def envelope(aid):
     return lo, hi
 
 
-def fit(env, size, turn=None):
+def fit(env, size, turn=None, stretch=False):
     lo, hi = env; E = [hi[k] - lo[k] for k in range(3)]
     best = None
     for t in ([turn] if turn is not None else [0]):   # the model's front stays the asset's front unless a turn is asked for
         mx, my, mz = (size[2], size[1], size[0]) if t in (90, 270) else size
         r = [E[0] / mx, E[1] / my, E[2] / mz]
+        if stretch:   # PR3: fill the envelope (footprint with 2 % slack); each axis stretched at most 30 % from one uniform scale
+            s = math.exp(sum(math.log(max(x, 1e-3)) for x in r) / 3)
+            ax = [r[0] / s * 0.98, r[1] / s, r[2] / s * 0.98]
+            err = max(max(a, 1 / a) - 1 for a in ax)
+            if best is None or err < best[2]: best = (t, s, err, r, ax)
+            continue
         s = min(r[0], r[2]) * 1.03   # never wider or deeper than the footprint (3 % slack): walls and neighbours stay clear
         err = max(abs(r[1] / s - 1), 1 - min(r[0], r[2]) / max(r[0], r[2]))   # height off, footprint left empty
-        if best is None or err < best[2]: best = (t, s, err, r)
+        if best is None or err < best[2]: best = (t, s, err, r, [1, 1, 1])
     return best
 
 
 assert fit(([-0.5, 0, -0.25], [0.5, 1, 0.25]), [0.5, 1, 1], 90)[2] < 0.05 and fit(([-0.5, 0, -0.25], [0.5, 1, 0.25]), [0.5, 1, 1])[2] > 0.5   # turned only when asked
+assert abs(fit(([-0.5, 0, -0.5], [0.5, 1, 0.5]), [1.2, 1, 1], stretch=True)[4][0] * 1.2 * fit(([-0.5, 0, -0.5], [0.5, 1, 0.5]), [1.2, 1, 1], stretch=True)[1] - 0.98) < 1e-6   # stretch fills the footprint
 
 
 def main():
@@ -53,13 +60,13 @@ def main():
         if aid.startswith("_"): continue
         p = ph.get("ph_" + r["ph"].lower())
         if not p: print("skip  %-26s ph_%s not imported" % (aid, r["ph"].lower())); bad += 1; continue
-        env = envelope(aid); t, s, err, rr = fit(env, p["size"], r.get("turn"))
+        env = envelope(aid); t, s, err, rr, ax = fit(env, p["size"], r.get("turn"), r.get("stretch", False))
         lo, hi = env
         line = "%-26s <- %-28s turn %3d scale %.2f  axis ratios %s  worst %.0f %%" % (aid, r["ph"], t, s, [round(x / s, 2) for x in rr], err * 100)
         if err > 0.30: print("REFUSE", line); bad += 1; continue
         print("ok    ", line)
         out[aid] = {"_ref": "%s (Poly Haven, CC0): %s" % (r["ph"], r.get("why", "")), "src": "ph_%s.glb" % r["ph"].lower(), "dir": "fr_" + aid[5:],
-                    "pivot": "ground", "scale": round(s, 4), "rot": [0, t, 0], "offset": [round((lo[0] + hi[0]) / 2, 3), round(lo[1], 3), round((lo[2] + hi[2]) / 2, 3)],
+                    "pivot": "ground", "scale": round(s, 4), "rot": [0, t, 0], **({"axes": [round(a, 4) for a in ax]} if r.get("stretch") else {}), "offset": [round((lo[0] + hi[0]) / 2, 3), round(lo[1], 3), round((lo[2] + hi[2]) / 2, 3)],
                     "jpgMaps": True, "maxTex": p["maxTex"], "simplify": 0.5, "lod1": 0.25, "lodDist": 12, "cullDist": 60, "credit": p["credit"]}
     if "--check" not in sys.argv:
         json.dump(out, open(OUT, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
