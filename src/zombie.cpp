@@ -56,10 +56,11 @@ const ZombieCfg& zcfg() {
         if (e.contains(k) && e[k].is_string()) v = {e[k].get<std::string>()};
         else if (e.contains(k) && e[k].is_array() && !e[k].empty()) { v.clear(); for (auto& s : e[k]) v.push_back(s.get<std::string>()); } };
       for (auto& e : j.value("types", json::array())) {   // EN1 enemy types; a missing field keeps the plain zombie's value
+        if (e.value("id", std::string()).rfind("fighter", 0) == 0) { logf("enemy types: '%s' is a removed type: ignored", e.value("id", std::string()).c_str()); continue; }   // RM1: an old local file
         EnemyType t;
         t.id = e.value("id", t.id); t.name = e.value("name", t.id); t.model = e.value("model", t.model); t.height = e.value("height_m", t.height);
         t.models = {t.model}; strs(e, "models", t.models); t.model = t.models[0];
-        t.scale = std::clamp(e.value("scale", t.scale), 0.3f, 100.0f); t.lean = e.value("lean_deg", t.lean);   // the fighters are drawn at 20
+        t.scale = std::clamp(e.value("scale", t.scale), 0.3f, 100.0f); t.lean = e.value("lean_deg", t.lean);   // giants are drawn many times life size
         t.fallbackScale = std::clamp(e.value("fallback_scale", t.scale), 0.3f, 100.0f); t.fallbackLean = e.value("fallback_lean_deg", t.lean);
         if (e.contains("tint") && e["tint"].is_array() && e["tint"].size() == 3) t.tint = vec3(e["tint"][0].get<float>(), e["tint"][1].get<float>(), e["tint"][2].get<float>());
         t.hp = std::max(1.0f, e.value("hp", t.hp)); t.damage = e.value("damage", t.damage); t.reach = e.value("reach_m", t.reach); t.lunge = e.value("lunge_m", t.lunge);
@@ -77,7 +78,7 @@ const ZombieCfg& zcfg() {
           if (!x.clip.empty()) t.attackSpecs.push_back(x);
         }
         t.attackDust = e.value("attack_dust", t.attackDust); t.tankDamage = e.value("tank_damage", t.hp >= 500); t.headMult = std::max(0.0f, e.value("head_mult", t.headMult));
-        t.explosiveMult = std::max(0.0f, e.value("explosive_mult", t.explosiveMult)); t.blastOnly = e.value("blast_only", t.blastOnly); t.stepCrater = std::clamp(e.value("step_crater", t.stepCrater), 0.0f, 3.0f); t.blockR = std::clamp(e.value("block_radius", t.blockR), 0.0f, 0.5f); t.shellKills = std::clamp(e.value("shell_hits_to_kill", t.shellKills), 0, 100); t.locoRate = std::clamp(e.value("walk_rate", t.locoRate), 0.25f, 4.0f); t.nonBlastMult = std::clamp(e.value("non_blast_mult", t.nonBlastMult), 0.0f, 1.0f); t.stompArea = std::clamp(e.value("stomp_area", t.stompArea), 0.0f, 1.0f); t.kickCrater = std::clamp(e.value("kick_crater", t.kickCrater), 0.0f, 3.0f);
+        t.explosiveMult = std::max(0.0f, e.value("explosive_mult", t.explosiveMult)); t.blockR = std::clamp(e.value("block_radius", t.blockR), 0.0f, 0.5f); t.locoRate = std::clamp(e.value("walk_rate", t.locoRate), 0.25f, 4.0f); t.stompArea = std::clamp(e.value("stomp_area", t.stompArea), 0.0f, 1.0f);
         t.capsuleH = e.value("capsule_height_m", t.capsuleH); t.capsuleR = e.value("capsule_radius_m", t.capsuleR);
         t.climbM = e.value("climb_m", t.climbM); t.stepGap = e.value("step_gap_m", t.stepGap);
         t.knock = e.value("knockback_mps", t.knock); t.staggerMin = e.value("stagger_min_damage", t.staggerMin); t.staggerS = e.value("stagger_s", t.staggerS);
@@ -399,46 +400,6 @@ void aiZombieAssign(Game& G, Soldier& s) {
   s.eScale = s.eFallback ? t.fallbackScale : t.scale; s.eLean = s.eFallback ? t.fallbackLean : t.lean;
   s.eBody = s.eFallback ? t.fallbackScale : t.scale * t.height / 1.85f;   // chest / eye heights and hit sphere vs the 1.85 m zombie
 }
-// The fighters, drawn many times life size: every small lift in a clip, the lean about the feet and the slope of the
-// ground across a wide stance is multiplied by the draw scale, so the body floats or sinks. Each frame the soles (the
-// ankle and toe joints, less their rest height: the rest pose stands its soles on y = 0) are measured against the
-// terrain under them and the body is moved so the lower one stands on it (a crater floor too). A foot whose sole comes
-// down to the ground stamps its footprint there (step_crater), with the stomp sound.
-void aiZombieFeet(Game& G, Soldier& s) {
-  if (!s.alive || s.model < 0 || s.model >= (int)G.models.size()) return;
-  const EnemyType& e = typeOf(s);
-  if (e.id.rfind("fighter", 0) != 0) return;
-  const CharModel& m = *G.models[s.model];
-  if (s.anim.a >= 0 && s.anim.a < (int)m.clips.size() && m.clips[s.anim.a].name.find("drop") != std::string::npos) return;   // on hands and knees: the clip grounds itself
-  const int J[2][2] = {{CJ_LFOOT, CJ_LTOE}, {CJ_RFOOT, CJ_RTOE}};
-  float gap[2] = {1e9f, 1e9f}; vec3 at[2]{vec3(0), vec3(0)};
-  for (int f = 0; f < 2; ++f)
-    for (int j : J[f]) {
-      if (m.semantic[j] < 0) continue;
-      vec3 w = vec3(s.world * vec4(s.pose.joint[j], 1));
-      float g = w.y - m.jointHead[m.semantic[j]].y * s.eScale - G.app.terrain.height(w.x, w.z);
-      if (g < gap[f]) { gap[f] = g; at[f] = w; }
-    }
-  float drop = std::min(gap[0], gap[1]);
-  if (drop > 1e8f) return;
-  s.world = glm::translate(mat4(1), vec3(0, -drop, 0)) * s.world;
-  if (e.stepCrater <= 0 || G.isClient) return;   // shortcut: footprints host / single player only, not sent to LAN clients or the navmesh
-  struct Fd { int life = -1; bool down[2] = {true, true}; }; static std::map<int, Fd> fd; Fd& k = fd[s.slot];
-  if (k.life != s.lifeId) k = Fd{s.lifeId};   // a new life starts standing: no prints on spawn
-  const float H = e.height * s.eScale, downAt = 0.02f * H, upAt = 0.05f * H;   // hysteresis: a foot is up once its sole clears 5 % of her height
-  vec3 fw = s.vel; fw.y = 0; fw = glm::length(fw) > 0.1f ? glm::normalize(fw) : vec3(0, 0, 1);
-  for (int f = 0; f < 2; ++f) {
-    float g = gap[f] - drop;
-    if (k.down[f] && g > upAt) k.down[f] = false;
-    else if (!k.down[f] && g < downAt) {
-      k.down[f] = true;
-      vec3 p(at[f].x, G.app.terrain.height(at[f].x, at[f].z), at[f].z); const float footL = 0.26f * s.eScale;
-      for (int i = -1; i <= 1; ++i) G.app.deformGround(p + fw * (i * footL * 0.3f), e.stepCrater);   // three overlapping stamps: an oval about a foot long
-      G.app.audio.play("fighter_stomp", p, 1.0f);
-    }
-  }
-}
-
 void aiZombieStep(Game& G, Soldier& s, float dt) {
   enemyLoops(G);   // SND2
   AiCore* A = aiCore();
@@ -502,11 +463,11 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     Soldier& lp = G.sold[G.localSlot]; float BR = e.blockR * e.height * e.scale; vec3 d = lp.feet - s.feet; float dy = d.y; d.y = 0; float L = glm::length(d);
     if (L < BR && dy > -2.0f && dy < e.height * e.scale) Physics::setCharacterPos(s.feet + (L > 1e-3f ? d / L : vec3(1, 0, 0)) * BR + vec3(0, dy, 0));
   }
-  const bool fighterT = e.id.rfind("fighter", 0) == 0, spiderT = e.id == "stalker", stepT = !e.sndStep.empty();
-  if ((fighterT || spiderT || stepT) && e.stepCrater <= 0 && s.speed > 0.5f && glm::length(s.feet - G.app.eyePos()) < (fighterT ? 600.0f : 40.0f)) {   // the Fighters' heavy footsteps. shortcut: host / single player only
+  const bool spiderT = e.id == "stalker", stepT = !e.sndStep.empty();
+  if ((spiderT || stepT) && s.speed > 0.5f && glm::length(s.feet - G.app.eyePos()) < 40.0f) {   // a type's own footsteps (the spider's scuttle). shortcut: host / single player only
     static std::map<int, double> nextStep;
     double& ns = nextStep[s.slot];
-    if (G.t >= ns || ns > G.t + 5.0) { G.app.audio.play(fighterT ? "step_fighter" : stepT ? e.sndStep.c_str() : "step_spider", s.feet, fighterT ? 1.0f : 0.7f); ns = G.t + (fighterT ? std::clamp(2.6f / std::max(1.0f, s.speed), 0.35f, 0.9f) : std::clamp(1.2f / std::max(1.0f, s.speed), 0.18f, 0.45f)); }   // the spider scuttles: quicker steps
+    if (G.t >= ns || ns > G.t + 5.0) { G.app.audio.play(stepT ? e.sndStep.c_str() : "step_spider", s.feet, 0.7f); ns = G.t + std::clamp(1.2f / std::max(1.0f, s.speed), 0.18f, 0.45f); }   // the spider scuttles: quicker steps
   }
   crumb("zombie: strike");
   // the strike: wind-up (the attack clip up to its swing frame), then the blow lands if the victim is still in reach
@@ -557,8 +518,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
         if (w0 < wu && s.meleeWind >= wu) {
           vec3 at(p.x, G.app.terrain.height(p.x, p.z), p.z); float R = e.stompArea * e.height * e.scale;
           if (e.groundShake > 0) G.app.blastShake = std::max(G.app.blastShake, e.groundShake * std::max(0.0f, 1.0f - glm::length(at - G.app.eyePos()) / 30.0f));
-          if (e.kickCrater > 0) G.app.deformGround(at, e.kickCrater);
-          G.app.audio.play("fighter_stomp", at, 1.0f);   // shortcut: host / single player only
+          G.app.audio.play("heavy_stomp", at, 1.0f);   // shortcut: host / single player only
           if (e.attackDust) for (int k = 0; k < 28; ++k) {
             float an = k * 0.2244f, rr = k % 4 == 3 ? R * 0.35f : R; vec3 dirv(std::cos(an), 0, std::sin(an)); vec3 pp = at + dirv * rr; pp.y = G.app.terrain.height(pp.x, pp.z) + 0.3f;
             G.app.fx.smoke(pp, dirv * (R * 0.25f) + vec3(0, 0.6f + 0.05f * R, 0), std::max(1.5f, R * 0.14f), 3.5f, vec4(0.52f, 0.46f, 0.38f, 0.55f), 1.6f, 0.4f);
@@ -599,7 +559,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
         vec3 c = vec3(s.world * vec4(s.pose.joint[CJ_SPINE2], 1)); at = vec3(c.x, G.app.terrain.height(c.x, c.z), c.z);
         vec3 f = c - s.feet; f.y = 0; f = glm::length(f) > 1e-3f ? glm::normalize(f) : vec3(0, 0, 1); vec3 sd(-f.z, 0, f.x);
         float A = 0.18f * e.height * s.eScale, B = 0.10f * e.height * s.eScale;
-        G.app.audio.play("fighter_stomp", at, 1.0f);   // shortcut: host / single player only
+        G.app.audio.play("heavy_stomp", at, 1.0f);   // shortcut: host / single player only
         if (e.attackDust) for (int k = 0; k < 28; ++k) {   // the dust ring, round the oval's edge
           float an = k * 0.2244f; vec3 out = f * std::cos(an) * A + sd * std::sin(an) * B, pp = at + out; pp.y = G.app.terrain.height(pp.x, pp.z) + 0.3f;
           G.app.fx.smoke(pp, glm::normalize(out) * (B * 0.25f) + vec3(0, 0.6f + 0.05f * B, 0), std::max(1.5f, B * 0.14f), 3.5f, vec4(0.52f, 0.46f, 0.38f, 0.55f), 1.6f, 0.4f);
@@ -607,10 +567,9 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
         for (auto& o : G.sold) { if (!o.alive || &o == &s || !Game::hostile(s, o)) continue; float r = inSlam(o.feet, at, f, e, s.eScale); if (r < 1.0f) { vec3 dir = o.feet - at; dir.y = 0.3f; G.damage(o.slot, e.damage * (1.0f - r), s.slot, glm::normalize(dir), "melee"); if (!o.alive) o.flat = true; } }   // flat: host / single player only
         if (best && hp0 > best->hp) { ++gBlows; gBlowLog.push_back({s.slot, s.etype, hp0 - best->hp}); contactSound(G, e, *best); }
       } else {
-      if (e.kickCrater > 0 && best) G.app.deformGround(at, e.kickCrater);   // repeated blows on one spot dig deeper. shortcut: host / single player only, the crater is not sent to LAN clients or the navmesh
       if (e.stompArea > 0 && best) {   // area blow: everyone hostile round the landing point, full damage at the centre falling to none at the edge
         float R = e.stompArea * e.height * e.scale;
-        G.app.audio.play("fighter_stomp", at, 1.0f);   // shortcut: host / single player only
+        G.app.audio.play("heavy_stomp", at, 1.0f);   // shortcut: host / single player only
         if (e.attackDust) for (int k = 0; k < 28; ++k) {   // dust thrown out from the blow: a ring at the edge of the damage radius and a core
           float an = k * 0.2244f, rr = k % 4 == 3 ? R * 0.35f : R; vec3 dirv(std::cos(an), 0, std::sin(an)); vec3 pp = at + dirv * rr; pp.y = G.app.terrain.height(pp.x, pp.z) + 0.3f;
           G.app.fx.smoke(pp, dirv * (R * 0.25f) + vec3(0, 0.6f + 0.05f * R, 0), std::max(1.5f, R * 0.14f), 3.5f, vec4(0.52f, 0.46f, 0.38f, 0.55f), 1.6f, 0.4f);

@@ -96,6 +96,13 @@ ScenarioRules ScenarioRules::fromJson(const json& j, int version) {
   if (j.contains("aiCount") && j["aiCount"].is_array() && j["aiCount"].size() == 2)   // AI3 (older rules: none, the ticked types in turn)
     for (int t = 0; t < 2; ++t) if (j["aiCount"][t].is_array())
       for (int k = 0; k < kAiTypeCount && k < (int)j["aiCount"][t].size(); ++k) r.aiCount[t][k] = j["aiCount"][t][k].is_number_integer() ? std::clamp(j["aiCount"][t][k].get<int>(), 0, kMaxAI) : 0;
+  for (int t = 0; t < 2; ++t) {   // RM1: a setup naming a removed type: its AI become plain zombies
+    bool had = false;
+    for (int k = 0; k < kAiTypeCount; ++k) if (aiTypeRetired(k) && ((r.aiTypes[t] >> k & 1) || r.aiCount[t][k] > 0)) {
+      had = true; r.aiCount[t][(int)AiType::Zombies] += r.aiCount[t][k]; r.aiCount[t][k] = 0; r.aiTypes[t] &= ~(1 << k);
+    }
+    if (had) { r.aiTypes[t] |= aiBit(AiType::Zombies); logf("scenario: side %d named a removed enemy type: those AI are plain zombies", t); }
+  }
   if (j.contains("heavyTrollPct") && j["heavyTrollPct"].is_array() && j["heavyTrollPct"].size() == 2)
     for (int t = 0; t < 2; ++t) r.heavyTrollPct[t] = std::clamp(j["heavyTrollPct"][t].get<int>(), 0, 100);
   r.humanTeam = std::clamp(j.value("humanTeam", r.humanTeam), 0, 1);
