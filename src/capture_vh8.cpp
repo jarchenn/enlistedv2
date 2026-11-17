@@ -6,14 +6,14 @@
 bool gVh8CamOn = false; vec3 gVh8CamEye{0}, gVh8CamAt{0};   // read by App's view setup (app.cpp): an outside camera
 
 namespace {
-int idx = -1; float t = 0; fs::path pend; uint64_t cur = 0;
+int idx = -1; float t = 0; fs::path pend; uint64_t cur = 0; std::string only;   // VH9: "--capture-vh8 <tank>" shoots that one only
 const char* kTanks[] = {"sherman_m4", "sherman_firefly", "tiger_i", "panzer_iv", "abrams_m1a2"};
 fs::path out(const std::string& n) { fs::path p = exeDir() / "selftest_out"; std::error_code ec; fs::create_directories(p, ec); return p / ("vh8_mg_" + n + ".png"); }
 }
 
 bool captureVh8SelfTest(App& a, float dt) {
   static int mode = -1;
-  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-vh8") mode = 1; }
+  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-vh8") { mode = 1; if (k + 1 < __argc && __argv[k + 1][0] != '-') only = __argv[k + 1]; } }
   if (mode != 1) return false;
   if (dt < 0) { if (!pend.empty()) { a.screenshot(pend); pend.clear(); } return true; }
   float t0 = t; t += dt;
@@ -26,6 +26,7 @@ bool captureVh8SelfTest(App& a, float dt) {
   }
   if (idx >= (int)(sizeof kTanks / sizeof *kTanks)) { gVh8CamOn = false; if (a.mode == Mode::Explore) a.exitExplore(); a.selftest->exitCode = 0; a.selftest->done = true; return true; }
   const std::string id = kTanks[idx];
+  if (!only.empty() && id != only) { ++idx; t = 0; return true; }
   if (at(0.05f)) {
     float x = idx * 20.0f;
     cur = a.placeInstance(a.lib.find("tank_" + id), vec3(x, a.terrain.height(x, 0), 0), 0); a.syncRuntime(); a.tanks.sync(a);
@@ -41,7 +42,7 @@ bool captureVh8SelfTest(App& a, float dt) {
   }
   if (t > 3.0f && t < 3.9f) in.fire = true;
   if (at(2.5f)) {   // depression sweep: per 15 deg sector, the lowest elevation whose line of fire clears the own hull / turret
-    float y0 = tt->mgYaw, e0 = tt->mgElev; std::string s; int clear = 0;
+    float y0 = tt->mgYaw, e0 = tt->mgElev; std::string s; int clear = 0; float front = -99;
     for (float y = -180; y < 180; y += 15) {
       float lo = 99;
       for (float e = tt->def->mgElevMin; e <= 10; e += 1) {
@@ -50,10 +51,12 @@ bool captureVh8SelfTest(App& a, float dt) {
         if (!Physics::castRayOnly(m, dir, 9.0f, tt->id << 16, sh)) { lo = e; break; }
       }
       if (lo <= tt->def->mgElevMin + 0.5f) ++clear;
+      if (std::fabs(y) <= 90) front = std::max(front, lo);
       char b[24]; std::snprintf(b, sizeof b, " %+.0f:%s", y, lo > 50 ? "x" : std::to_string((int)lo).c_str()); s += b;
     }
     tt->mgYaw = y0; tt->mgElev = e0;
     logf("[vh8cap] %s depression: limit %.0f / +%.0f deg, reached in %d of 24 sectors; lowest clear elevation by yaw (0 = ahead):%s", id.c_str(), tt->def->mgElevMin, tt->def->mgElevMax, clear, s.c_str());
+    logf("[vh8cap] %s %s: the frontal 180 deg reach at least %.0f deg", id.c_str(), front <= -15 ? "PASS" : "below -15 FAIL", front);
   }
   if (at(2.9f)) {   // outside, low on the left rear quarter, looking past the turret roof along the MG's line
     mat4 H = a.tanks.hullMatrix(*tt);
@@ -67,6 +70,8 @@ bool captureVh8SelfTest(App& a, float dt) {
          id.c_str(), tt->station, tt->mgYaw, tt->mgElev, tt->mgShots, glm::length(m - piv), glm::length(m - gm), m.y - tt->pos.y);
     pend = out(id);
   }
-  if (t > 4.4f) { gVh8CamOn = false; a.tanks.exitTank(a, true); ++idx; t = 0; }
+  if (at(4.1f)) gVh8CamOn = false;   // the popped-out gunner's own view
+  if (at(4.35f)) pend = out(id + "_hatch");
+  if (t > 4.6f) { gVh8CamOn = false; a.tanks.exitTank(a, true); ++idx; t = 0; }
   return true;
 }
