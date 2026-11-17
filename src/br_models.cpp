@@ -44,7 +44,19 @@ void brWornDraws(App& app, Game& G, const Soldier& s, const mat4& world, std::ve
     vec3 pos = jvec3(w["pos"], vec3(0)), sc = jvec3(w["scale"], vec3(1)), rest = w.contains("rest") ? jvec3(w["rest"]) : m.jointHead[j];
     pos += m.jointHead[j] - rest;   // fitted to the marine; another body carries it from its own joint
     if (slot == 2) pos.z -= vestOut;   // the back is -z (the body faces +z)
-    addAsset(a, world * s.pose.delta[j] * glm::translate(mat4(1), pos) * glm::scale(mat4(1), sc), md, boxes);
+    // AN1 step 4: a hand-tuned correction on top of the baked fit ("wornFix": {"pos": [m], "rot": [deg x, y, z]}, about the item's base),
+    // and a vest rides between the two upper spine joints so a bent torso does not drive its lower edge into the belly
+    mat4 J = s.pose.delta[j];
+    if (slot == 1 && m.semantic[CJ_SPINE1] >= 0 && m.semantic[CJ_SPINE1] != j) {
+      const mat4& J1 = s.pose.delta[m.semantic[CJ_SPINE1]];
+      quat q = glm::slerp(glm::normalize(glm::quat_cast(glm::mat3(J1))), glm::normalize(glm::quat_cast(glm::mat3(J))), 0.5f);
+      vec3 piv = pos;   // blend the two deltas as they act on the vest's base point
+      vec3 p = glm::mix(vec3(J1 * vec4(piv, 1)), vec3(J * vec4(piv, 1)), 0.5f);
+      J = glm::translate(mat4(1), p) * glm::mat4_cast(q) * glm::translate(mat4(1), -piv);
+    }
+    mat4 fixR(1);
+    if (a->raw.contains("wornFix")) { const json& f = a->raw["wornFix"]; pos += jvec3(f.value("pos", json()), vec3(0)); vec3 r = jvec3(f.value("rot", json()), vec3(0)); fixR = glm::mat4_cast(glm::quat(glm::radians(r))); sc *= jvec3(f.value("scale", json()), vec3(1)); }
+    addAsset(a, world * J * glm::translate(mat4(1), pos) * fixR * glm::scale(mat4(1), sc), md, boxes);
   }
 }
 

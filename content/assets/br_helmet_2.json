@@ -76,5 +76,18 @@
    1.5981,
    -0.0187
   ]
+ },
+ "wornFix": {
+  "pos": [
+   0,
+   -0.024,
+   0.004
+  ],
+  "rot": [
+   4,
+   0,
+   0
+  ],
+  "note": "AN1 step 4: hand-tuned on the baked fit (it sat high and tipped back)"
  }
 }
