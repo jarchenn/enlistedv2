@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.3608285188674927,
+  0.8998029828071594,
+  0.4358454644680023
+ ],
+ "bmin": [
+  -0.3608285188674927,
+  0.0,
+  -0.43193915486335754
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "modern_arm_chair_01_legs",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "modern_arm_chair_01_pillow",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.3608285188674927,
+    0.76483553647995,
+    0.4358454644680023
+   ],
+   "bmin": [
+    -0.3608285188674927,
+    0.0,
+    -0.4186849296092987
+   ],
+   "count": 8412,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "modern_arm_chair_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.3122844398021698,
+    0.8998029828071594,
+    0.41224297881126404
+   ],
+   "bmin": [
+    -0.31512486934661865,
+    0.30534809827804565,
+    -0.43193915486335754
+   ],
+   "count": 4962,
+   "first": 8412,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "modern_arm_chair_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 0.8797000050544739,
+ "source": "ph_modern_arm_chair_01.glb",
+ "textures": {},
+ "triangles": 4458,
+ "vertices": 3349
+}

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.5586046576499939,
+  1.1330174207687378,
+  0.2814001739025116
+ ],
+ "bmin": [
+  -0.5615355968475342,
+  0.0,
+  -0.2614002525806427
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "GothicCommode_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5586046576499939,
+    1.1330174207687378,
+    0.2814001739025116
+   ],
+   "bmin": [
+    -0.5615355968475342,
+    0.0,
+    -0.2614002525806427
+   ],
+   "count": 1461,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "GothicCommode_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 0.9348000288009644,
+ "source": "ph_gothiccommode_01.glb",
+ "textures": {},
+ "triangles": 487,
+ "vertices": 808
+}

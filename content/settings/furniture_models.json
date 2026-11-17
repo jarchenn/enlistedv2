@@ -1,0 +1,387 @@
+{
+ "_doc": "PR2: furniture drawn by an imported model (src/assets.cpp furnitureModelFor): asset id -> its model block (src / dir / scale / offset / yaw / lodDist ...; \"_ref\": notes). The asset keeps its parts as colliders and stand-ins (shown while the bake is missing; its envelope, broken remains and fragments). Baked by --import-weapon-models like any model. docs/furniture-change-requests.md.",
+ "furn_armchair": {
+  "_ref": "GreenChair_01 (Poly Haven, CC0): upholstered fauteuil with show-wood frame",
+  "src": "ph_greenchair_01.glb",
+  "dir": "fr_armchair",
+  "pivot": "ground",
+  "scale": 1.0407,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   -0.016
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Green Chair 01 by Kirill Sannikov, Poly Haven (polyhaven.com/a/GreenChair_01), CC0"
+ },
+ "furn_barrel": {
+  "_ref": "wine_barrel_01 (Poly Haven, CC0): oak cask, real staves and hoops",
+  "src": "ph_wine_barrel_01.glb",
+  "dir": "fr_barrel",
+  "pivot": "ground",
+  "scale": 0.7859,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Wine Barrel 01 by James Ray Cock, Poly Haven (polyhaven.com/a/wine_barrel_01), CC0"
+ },
+ "furn_bed": {
+  "_ref": "GothicBed_01 (Poly Haven, CC0): carved oak bed with posts, made up",
+  "src": "ph_gothicbed_01.glb",
+  "dir": "fr_bed",
+  "pivot": "ground",
+  "scale": 0.979,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   -0.005
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Gothic Bed 01 by Kirill Sannikov, Poly Haven (polyhaven.com/a/GothicBed_01), CC0"
+ },
+ "furn_bucket": {
+  "_ref": "wooden_bucket_01 (Poly Haven, CC0): coopered pail with handle",
+  "src": "ph_wooden_bucket_01.glb",
+  "dir": "fr_bucket",
+  "pivot": "ground",
+  "scale": 0.842,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 512,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Wooden Bucket 01 by James Ray Cock, Poly Haven (polyhaven.com/a/wooden_bucket_01), CC0"
+ },
+ "furn_chair_slat": {
+  "_ref": "painted_wooden_chair_01 (Poly Haven, CC0): painted farmhouse chair, slatted back",
+  "src": "ph_painted_wooden_chair_01.glb",
+  "dir": "fr_chair_slat",
+  "pivot": "ground",
+  "scale": 0.9062,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   -0.0,
+   -0.013
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Painted Wooden Chair 01 by Kuutti Siitonen, Poly Haven (polyhaven.com/a/painted_wooden_chair_01), CC0"
+ },
+ "furn_clock": {
+  "_ref": "vintage_grandfather_clock_01 (Poly Haven, CC0): long-case clock with hood, dial and pendulum trunk",
+  "src": "ph_vintage_grandfather_clock_01.glb",
+  "dir": "fr_clock",
+  "pivot": "ground",
+  "scale": 0.784,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.003
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Vintage Grandfather Clock 01 by James Ray Cock, Yann Kervran, Poly Haven (polyhaven.com/a/vintage_grandfather_clock_01), CC0"
+ },
+ "furn_commode": {
+  "_ref": "GothicCommode_01 (Poly Haven, CC0): three-drawer chest with pulls",
+  "src": "ph_gothiccommode_01.glb",
+  "dir": "fr_commode",
+  "pivot": "ground",
+  "scale": 0.9348,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.01
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Gothic Commode 01 by Kirill Sannikov, Poly Haven (polyhaven.com/a/GothicCommode_01), CC0"
+ },
+ "furn_dresser": {
+  "_ref": "WoodenTable_03 (Poly Haven, CC0): low buffet: drawers over doors",
+  "src": "ph_woodentable_03.glb",
+  "dir": "fr_dresser",
+  "pivot": "ground",
+  "scale": 0.9942,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.012
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Wooden Table 03 by Gabriel Radić, Poly Haven (polyhaven.com/a/WoodenTable_03), CC0"
+ },
+ "furn_lamp": {
+  "_ref": "vintage_oil_lamp (Poly Haven, CC0): brass oil lamp with glass chimney",
+  "src": "ph_vintage_oil_lamp.glb",
+  "dir": "fr_lamp",
+  "pivot": "ground",
+  "scale": 0.5618,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Vintage Oil Lamp by Monsta3D, Poly Haven (polyhaven.com/a/vintage_oil_lamp), CC0"
+ },
+ "furn_mirror": {
+  "_ref": "ornate_mirror_01 (Poly Haven, CC0): gilt-framed looking glass",
+  "src": "ph_ornate_mirror_01.glb",
+  "dir": "fr_mirror",
+  "pivot": "ground",
+  "scale": 1.1656,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   -0.025,
+   0.016
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Ornate Mirror 01 by James Ray Cock, Poly Haven (polyhaven.com/a/ornate_mirror_01), CC0"
+ },
+ "furn_mod_armchair": {
+  "_ref": "modern_arm_chair_01 (Poly Haven, CC0): upholstered lounge armchair",
+  "src": "ph_modern_arm_chair_01.glb",
+  "dir": "fr_mod_armchair",
+  "pivot": "ground",
+  "scale": 0.8797,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.002
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Modern Arm Chair 01 by Vibrant Nordic, Poly Haven (polyhaven.com/a/modern_arm_chair_01), CC0"
+ },
+ "furn_mod_bar_stool": {
+  "_ref": "bar_chair_round_01 (Poly Haven, CC0): round bar stool",
+  "src": "ph_bar_chair_round_01.glb",
+  "dir": "fr_mod_bar_stool",
+  "pivot": "ground",
+  "scale": 0.8901,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Bar Chair Round 01 by Dairon Sanchez, Poly Haven (polyhaven.com/a/bar_chair_round_01), CC0"
+ },
+ "furn_mod_stove": {
+  "_ref": "electric_stove (Poly Haven, CC0): freestanding electric cooker",
+  "src": "ph_electric_stove.glb",
+  "dir": "fr_mod_stove",
+  "pivot": "ground",
+  "scale": 1.0491,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.03
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Electric Stove by Kuutti Siitonen, Poly Haven (polyhaven.com/a/electric_stove), CC0"
+ },
+ "furn_mod_wall_clock": {
+  "_ref": "wall_clock (Poly Haven, CC0): round wall clock",
+  "src": "ph_wall_clock.glb",
+  "dir": "fr_mod_wall_clock",
+  "pivot": "ground",
+  "scale": 1.1266,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.027
+  ],
+  "jpgMaps": true,
+  "maxTex": 512,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Wall Clock by PierreB3D, Poly Haven (polyhaven.com/a/wall_clock), CC0"
+ },
+ "furn_mod_wheelchair": {
+  "_ref": "wheelchair_01 (Poly Haven, CC0): folding steel wheelchair",
+  "src": "ph_wheelchair_01.glb",
+  "dir": "fr_mod_wheelchair",
+  "pivot": "ground",
+  "scale": 0.8497,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.03
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Wheelchair 01 by Garreth Dean, Poly Haven (polyhaven.com/a/wheelchair_01), CC0"
+ },
+ "furn_stool": {
+  "_ref": "wooden_stool_01 (Poly Haven, CC0): low turned stool",
+  "src": "ph_wooden_stool_01.glb",
+  "dir": "fr_stool",
+  "pivot": "ground",
+  "scale": 0.7457,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   -0.012,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 512,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Wooden Stool 01 by Kuutti Siitonen, Poly Haven (polyhaven.com/a/wooden_stool_01), CC0"
+ }
+}

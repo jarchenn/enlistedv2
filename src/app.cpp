@@ -379,7 +379,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
         else R.worldModels.push_back({gm, (int)k, L});
       }
     }
-    if (r.asset->model) {   // supplied model: LOD by distance, cut wire sections hidden; collider boxes are not drawn
+    if (r.asset->model && !interior.prop(r.asset)) {   // supplied model: LOD by distance, cut wire sections hidden; collider boxes are not drawn (PR2: furniture models draw in propDraw)
       if (camDist > r.asset->modelCull) continue;
       const GpuModel* gm = (r.asset->modelLod && camDist > r.asset->modelLodDist) ? r.asset->modelLod.get() : r.asset->model.get();
       if (r.asset->modelFoliage) { R.folModels.push_back({gm, M, r.asset->modelWind}); continue; }   // NT8: instanced, alpha tested
@@ -1269,7 +1269,7 @@ int App::run(int argc, char** argv) {
       glReadPixels(0, 0, fbw, fbh, GL_RGBA, GL_UNSIGNED_BYTE, recPx.data());
       rec.frame(recPx.data(), fbw, fbh);
     }
-    if (!uiShot.empty()) {
+    if (!uiShot.empty() && fbw > 0 && fbh > 0) {   // PR2: a minimised / zero-size window keeps the shot pending (no empty PNG)
       std::vector<uint8_t> px((size_t)fbw * fbh * 4), fl(px.size());
       glReadBuffer(GL_BACK); glReadPixels(0, 0, fbw, fbh, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
       for (int y = 0; y < fbh; ++y) std::memcpy(&fl[(size_t)y * fbw * 4], &px[(size_t)(fbh - 1 - y) * fbw * 4], (size_t)fbw * 4);
