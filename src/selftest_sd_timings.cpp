@@ -1,7 +1,8 @@
 // SD2 --sd-timings [map]: route timings of a Search and Destroy map (docs/search-and-destroy.md section 7), measured
 // as navmesh path lengths, against the spec's targets in seconds. The judged time is the realistic rush: sprint (the
 // player's sprint speed) until the stamina runs out, then the jog (run speed); the jog-only time is reported too.
-// Speeds x NMK_SD_SPEED_MUL (the mode's movement multiplier, default 1) x NMK_SD_WEAPON_SPEED (the weapon in hand,
+// The speeds are the match's own (GP1: Search and Destroy multiplies them by speed_x at the start) x NMK_SD_SPEED_MUL
+// (an extra factor, default 1) x NMK_SD_WEAPON_SPEED (the weapon in hand,
 // default 1: a rifle; the knife is 1.3). Spawn to site is measured from every spawn marker. Optional, in the scenario's rules.sd:
 //   "timingPoints": {"contest": [[x, y, z], ...]}      the attackers' first contested boundaries
 //   "timingRoutes": [{"name", "kind": "rotation" | "mid" | "fallback" | "attackMid", "points": [[x, y, z], ...]}]

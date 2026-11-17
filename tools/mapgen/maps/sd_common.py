@@ -252,3 +252,13 @@ def wall_spot(plan, ch, near, inset=0.27):
         if best is None or d < best[0]:
             best = (d, x + dx * inset, z + dz * inset, math.degrees(math.atan2(dx, dz)) % 360.0)
     return best[1:]
+
+
+def rows_from(nx, nz, rects):
+    """ASCII plan rows (north first) from [(ch, i0, j0, i1, j1), ...] (inclusive cell rectangles; later ones win)."""
+    g = [["#"] * nx for _ in range(nz)]
+    for ch, i0, j0, i1, j1 in rects:
+        for j in range(j0, j1 + 1):
+            for i in range(i0, i1 + 1):
+                g[j][i] = ch
+    return ["".join(g[j]) for j in range(nz - 1, -1, -1)]
