@@ -406,7 +406,7 @@ def roof_clutter(b, repo, masses, items, R, y, flat=(), tags=("roof",)):
     return n
 
 
-def place_along_walls(b, plan, ch, items, R, y, keep=(), door_gap=4.5, tries=300, tags=("cover",)):
+def place_along_walls(b, plan, ch, items, R, y, keep=(), door_gap=4.5, tries=300, tags=("cover",), placed=None):
     """items [(asset, half along the wall, half depth, count)]: set against region ch's plain walls (their long side on the
     wall, `half depth` + 0.15 m off it), never within door_gap of a doorway or on a plant pad, not overlapping each other."""
     walls = []
@@ -421,7 +421,8 @@ def place_along_walls(b, plan, ch, items, R, y, keep=(), door_gap=4.5, tries=300
         nx, nz = (math.copysign(1.0, ix - x), 0.0) if yaw == 90.0 else (0.0, math.copysign(1.0, iz - z))
         walls.append((x, z, nx, nz))
     doors = door_points(plan, ch)
-    placed, n = [], 0
+    placed = [] if placed is None else placed   # [(x, z, half x, half z)]: shared with what is already there
+    n = 0
     for aid, ha, hd, cnt in items:
         for _ in range(cnt):
             for _t in range(tries):
