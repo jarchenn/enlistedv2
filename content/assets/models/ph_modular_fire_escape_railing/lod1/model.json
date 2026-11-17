@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  2.3481719493865967,
+  0.9766530990600586,
+  0.6933373212814331
+ ],
+ "bmin": [
+  -2.3470566272735596,
+  0.0,
+  -0.6752526760101318
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "modular_fire_escape_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.3481719493865967,
+    0.9766530990600586,
+    0.6933373212814331
+   ],
+   "bmin": [
+    -2.3470566272735596,
+    0.0,
+    -0.6752526760101318
+   ],
+   "count": 348,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "modular_fire_escape_railing_middle",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_modular_fire_escape_railing.glb",
+ "textures": {},
+ "triangles": 116,
+ "vertices": 144
+}

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.2636522054672241,
+  0.4087218642234802,
+  0.02651255577802658
+ ],
+ "bmin": [
+  -0.2636522650718689,
+  0.011275175958871841,
+  -0.030149519443511963
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "modular_airduct_rectangular_01_parts01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.2636522054672241,
+    0.4087218642234802,
+    0.02651255577802658
+   ],
+   "bmin": [
+    -0.2636522650718689,
+    0.011275175958871841,
+    -0.030149519443511963
+   ],
+   "count": 144,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "modular_airduct_rectangular_01_vent_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_modular_airduct_rectangular_01_vent.glb",
+ "textures": {},
+ "triangles": 48,
+ "vertices": 102
+}

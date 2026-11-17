@@ -4,7 +4,7 @@
 # faces the game's +z (`--yaw <deg>` about the up axis), drops the parts a pack ships but the prop does not need
 # (`--keep <name substring>` keeps only matching meshes), sets the origin at the ground under the middle and prints the
 # result's size. Run from Blender with the source treated as data only:
-#   blender -b --factory-startup --disable-autoexec --python tools/props/convert_supplied.py -- <src> <out.glb> [--height h | --scale k] [--yaw d] [--tex <dir>] [--keep s] [--drop s1,s2]
+#   blender -b --factory-startup --disable-autoexec --python tools/props/convert_supplied.py -- <src> <out.glb> [--height h | --scale k] [--yaw d] [--tex <dir>] [--keep s] [--drop s1,s2] [--only node1,node2] [--nowindow 1]
 import bpy, sys, os, math
 from mathutils import Vector
 
@@ -21,6 +21,10 @@ elif ext == ".fbx": bpy.ops.import_scene.fbx(filepath=src)
 else: raise SystemExit("unknown source " + src)
 meshes = [o for o in bpy.context.scene.objects if o.type == "MESH"]
 if "keep" in opt: meshes = [o for o in meshes if opt["keep"].lower() in o.name.lower()]
+if "only" in opt:   # PR4: kit pieces by exact node name (Blender adds ".001" to repeats)
+    import re as _re
+    want = {w.strip().lower() for w in opt["only"].split(",")}
+    meshes = [o for o in meshes if _re.sub(r"\.\d{3}$", "", o.name).strip().lower() in want or (o.parent and _re.sub(r"\.\d{3}$", "", o.parent.name).strip().lower() in want)]
 if "drop" in opt: meshes = [o for o in meshes if not any(d in o.name.lower() for d in opt["drop"].lower().split(","))]   # Poly Haven variants side by side
 for o in list(bpy.context.scene.objects):
     if o.type == "MESH" and o not in meshes: bpy.data.objects.remove(o, do_unlink=True)
@@ -45,6 +49,8 @@ if "tex" in opt:
             if paths["metal"]: L.new(img(paths["metal"], False).outputs[0], bs.inputs["Metallic"])
             if paths["normal"]:
                 nm = N.new("ShaderNodeNormalMap"); L.new(img(paths["normal"], False).outputs[0], nm.inputs["Color"]); L.new(nm.outputs[0], bs.inputs["Normal"])
+if "nowindow" in opt:   # PR4: the engine treats a material named "window" as glass (blended); a roller shutter is steel
+    for mt in bpy.data.materials: mt.name = mt.name.replace("window", "shutter").replace("Window", "Shutter")
 # one object, transforms applied
 for o in bpy.context.selected_objects: o.select_set(False)
 for o in meshes: o.select_set(True)

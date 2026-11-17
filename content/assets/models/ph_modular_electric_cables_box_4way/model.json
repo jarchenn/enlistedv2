@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.10000001639127731,
+  0.20000001788139343,
+  0.01815568283200264
+ ],
+ "bmin": [
+  -0.10000001639127731,
+  0.0,
+  -0.018426161259412766
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "modular_electric_cables_boxes",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.10000001639127731,
+    0.20000001788139343,
+    0.01815568283200264
+   ],
+   "bmin": [
+    -0.10000001639127731,
+    0.0,
+    -0.018426161259412766
+   ],
+   "count": 2670,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "cable_box_4way",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_modular_electric_cables_box_4way.glb",
+ "textures": {},
+ "triangles": 890,
+ "vertices": 1196
+}

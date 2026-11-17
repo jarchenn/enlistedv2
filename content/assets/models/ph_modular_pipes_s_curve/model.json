@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.1003342866897583,
+  0.20000004768371582,
+  0.05190378427505493
+ ],
+ "bmin": [
+  -0.1003342866897583,
+  0.0,
+  -0.05190372094511986
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "modular_pipes_metal",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.1003342866897583,
+    0.20000004768371582,
+    0.05190378427505493
+   ],
+   "bmin": [
+    -0.1003342866897583,
+    0.0,
+    -0.05190372094511986
+   ],
+   "count": 1368,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "pipe_s_curve_1_metal",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_modular_pipes_s_curve.glb",
+ "textures": {},
+ "triangles": 456,
+ "vertices": 265
+}

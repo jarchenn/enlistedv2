@@ -52,7 +52,7 @@ export function modernModelAssets() {
     // PR1 Poly Haven props (CC0): tools/props/ph_props.json, written by tools/props/ph_batch.py
     ...Object.entries(JSON.parse(fs.readFileSync(new URL("./props/ph_props.json", import.meta.url), "utf8"))).map(([id, p]) =>
       modelAsset(id, p.name + " (model)", p.category, `${p.name}, ${p.size.map((v) => v.toFixed(2)).join(" x ")} m (Poly Haven).`,
-        { src: id + ".glb", dir: id, jpgMaps: true, scale: 1, maxTex: p.maxTex, simplify: 0.5, lod1: 0.25, lodDist: p.lodDist, credit: p.credit },
+        { src: id + ".glb", dir: id, jpgMaps: true, scale: 1, maxTex: p.maxTex, simplify: 0.5, lod1: 0.25, lodDist: p.lodDist, credit: p.credit, ...(p.foliage ? { foliage: true, wind: 0 } : {}) },
         p.size, { colliders: p.colliders.length ? p.colliders : undefined, cover: p.size[1] >= 0.8 && Math.max(p.size[0], p.size[2]) >= 0.6 ? undefined : [] })),
   ];
 }

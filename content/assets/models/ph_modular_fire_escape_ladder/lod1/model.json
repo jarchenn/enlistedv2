@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.38079285621643066,
+  6.465871334075928,
+  0.028395473957061768
+ ],
+ "bmin": [
+  -0.38079285621643066,
+  2.86102294921875e-06,
+  -0.03220692276954651
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "modular_fire_escape_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.38079285621643066,
+    6.465871334075928,
+    0.028395473957061768
+   ],
+   "bmin": [
+    -0.38079285621643066,
+    2.86102294921875e-06,
+    -0.03220692276954651
+   ],
+   "count": 234,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "modular_fire_escape_ladder_bottom",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_modular_fire_escape_ladder.glb",
+ "textures": {},
+ "triangles": 78,
+ "vertices": 124
+}

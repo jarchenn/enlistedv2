@@ -1,7 +1,7 @@
 // --capture-props: no suite, close-up shots of props (PR1): each asset of NMK_PROPS (ids separated by ";"; an entry
 // "id@x,y,z" aims at that asset-space point instead of the bounds' centre, e.g. one fuel dispenser of the petrol
 // station) placed alone on a blank map by day, shot from 1.5 m and 4 m at standing eye height (1.62 m), 35 degrees off
-// its +z face (NMK_PROPS_NEAR: the near distance; NMK_PROPS_NEAR_ONLY: no far shot), into selftest_out/prop_<k>_<n|f>.png; selftest_out/props.txt lists them (tools/props/sheet.py stitches
+// its +z face (NMK_PROPS_NEAR / NMK_PROPS_FAR: the two distances; NMK_PROPS_NEAR_ONLY: no far shot; NMK_PROPS_GROUND: an asset laid under each piece), into selftest_out/prop_<k>_<n|f>.png; selftest_out/props.txt lists them (tools/props/sheet.py stitches
 // the labelled contact sheet). The editor camera, no UI.
 #include "selftest.h"
 #include "settings.h"
@@ -44,6 +44,10 @@ bool capturePropsSelfTest(App& a, float dt) {
         a.doc.instances.push_back(i); s.inst = i.id;
       }
       if (!s.inst) { logf("[capture-props] %s could not be placed", s.id.c_str()); continue; }
+      if (const char* gid = std::getenv("NMK_PROPS_GROUND")) if (const AssetDef* ga = a.lib.find(gid)) {   // PR4: a hard pad under the piece (scale reads on concrete / dirt, not in long grass)
+        Instance g; g.id = a.doc.newId(); g.assetId = ga->id; g.assetVersion = ga->version; g.pos = vec3(x, a.terrain.height(x, z) - 0.01f, z);
+        a.doc.instances.push_back(g);
+      }
       gShots.push_back(s);
     }
     a.syncRuntime();
@@ -63,7 +67,8 @@ bool capturePropsSelfTest(App& a, float dt) {
     vec3 c = s.aim ? s.at : (as.bmin + as.bmax) * 0.5f;
     vec3 tgt = inst->pos + yawQuat(inst->yaw) * c;
     static const float nearD = std::getenv("NMK_PROPS_NEAR") ? (float)std::atof(std::getenv("NMK_PROPS_NEAR")) : 1.5f;   // PR2 audit: 1 m
-    float d = far ? 4.0f : nearD, ang = glm::radians(35.0f);
+    static const float farD = std::getenv("NMK_PROPS_FAR") ? (float)std::atof(std::getenv("NMK_PROPS_FAR")) : 4.0f;   // PR4: large clusters need ~10 m
+    float d = far ? farD : nearD, ang = glm::radians(35.0f);
     vec3 dir = yawQuat(inst->yaw) * vec3(std::sin(ang), 0, std::cos(ang));
     vec3 eye = tgt + dir * (d + (s.aim ? 0.0f : 0.5f * std::max(as.bmax.x - as.bmin.x, as.bmax.z - as.bmin.z) * 0.5f));
     eye.y = inst->pos.y + 1.62f;

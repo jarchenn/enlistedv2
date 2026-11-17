@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.07470530271530151,
+  2.5225226879119873,
+  0.07470530271530151
+ ],
+ "bmin": [
+  -0.07470530271530151,
+  1.2452597729861736e-05,
+  -0.07470530271530151
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "modular_chainlink_fence_posts",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.07470530271530151,
+    2.5225226879119873,
+    0.07470530271530151
+   ],
+   "bmin": [
+    -0.07470530271530151,
+    1.2452597729861736e-05,
+    -0.07470530271530151
+   ],
+   "count": 1698,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "modular_chainlink_fence_post",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_modular_chainlink_fence_post.glb",
+ "textures": {},
+ "triangles": 566,
+ "vertices": 662
+}

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.18135219812393188,
+  0.37284237146377563,
+  0.08221496641635895
+ ],
+ "bmin": [
+  -0.18135195970535278,
+  0.0061789825558662415,
+  -0.08890032768249512
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "modular_airduct_circular_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.18135219812393188,
+    0.37284237146377563,
+    0.08221496641635895
+   ],
+   "bmin": [
+    -0.18135195970535278,
+    0.0061789825558662415,
+    -0.08890032768249512
+   ],
+   "count": 192,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "modular_airduct_circular_bend_quater",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_modular_airduct_circular_01_bend.glb",
+ "textures": {},
+ "triangles": 64,
+ "vertices": 103
+}

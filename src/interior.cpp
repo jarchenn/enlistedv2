@@ -1506,10 +1506,10 @@ struct Planner {
     if (getenv("NMK_FN1_OFF")) return 0;
     int dropped = 0; const float C = ri.cell;
     // first: no floor piece in a portal's walking corridor (0.56 m wide, 1.08 m out either side: doorwayReport's capsule)
-    for (auto& P : ri.portals) {
-      if (P.storey < 0 || P.storey >= (int)ri.storeys.size()) continue;
-      float y = ri.storeys[P.storey].y; vec3 ax = P.axis == 0 ? vec3(1, 0, 0) : vec3(0, 0, 1), lat = P.axis == 0 ? vec3(0, 0, 1) : vec3(1, 0, 0);
-      vec3 cmn = glm::min(P.c - ax * 1.08f - lat * 0.28f, P.c + ax * 1.08f + lat * 0.28f), cmx = glm::max(P.c - ax * 1.08f - lat * 0.28f, P.c + ax * 1.08f + lat * 0.28f);
+    for (auto& P : ri.portals) {   // every portal, as doorwayReport: a ruin's opening may have no storey
+      float y = P.c.y; vec3 ax = P.axis == 0 ? vec3(1, 0, 0) : vec3(0, 0, 1), lat = P.axis == 0 ? vec3(0, 0, 1) : vec3(1, 0, 0);   // PR4: the portal's own height, as doorwayReport (a portal off its storey's floor slipped through)
+      const float CA = 1.10f, CL = 0.30f;   // 2 cm past doorwayReport's capsule: a piece that only touches its edge is dropped here, not left to rounding
+      vec3 cmn = glm::min(P.c - ax * CA - lat * CL, P.c + ax * CA + lat * CL), cmx = glm::max(P.c - ax * CA - lat * CL, P.c + ax * CA + lat * CL);
       cmn.y = y + 0.15f; cmx.y = y + 1.7f;
       for (size_t q = 0; q < out.size();) {
         const AssetDef* fa = A(out[q].asset.c_str()); const PropDef* pd = fa ? sys.prop(fa) : nullptr;
@@ -2451,6 +2451,7 @@ struct Planner {
       s.lights += lightDef(fa) != nullptr;
     }
     std::vector<Edge> E = wallEdges(k); s.wallLen = E.size() * ri.cell;
+    { const auto& S = ri.storeys[ri.rooms[k].storey]; int n = 0; for (size_t q = 0; q < S.id.size(); ++q) n += S.id[q] == k && !S.keep[q]; s.free = n * ri.cell * ri.cell; }   // PR4
     bcache.clear();
     for (auto& run : bareRuns(k, E, r, {}, true)) s.bare = std::max(s.bare, run.len);
     return s;
@@ -2506,7 +2507,10 @@ InteriorSys::DoorwayReport InteriorSys::doorwayReport(App& app) {
       for (int t = -4; t <= 4 && hit.empty(); ++t) {   // a 0.56 m capsule (as a box) at 0.2 m steps, its centre out to 0.8 m either side
         vec3 c = P.c + ax * (t * 0.2f);
         vec3 mn = vec3(c.x - 0.28f, P.c.y + 0.15f, c.z - 0.28f), mx = vec3(c.x + 0.28f, P.c.y + 1.7f, c.z + 0.28f);
-        for (auto& b : bx) if (boxOverlap(mn, mx, b.mn, b.mx)) { hit = b.id; break; }
+        for (auto& b : bx) if (boxOverlap(mn, mx, b.mn, b.mx)) {
+          char d[200]; std::snprintf(d, sizeof d, " (portal %.2f %.2f %.2f axis %d storey %d; piece %.2f..%.2f %.2f..%.2f %.2f..%.2f)", P.c.x, P.c.y, P.c.z, P.axis, P.storey, b.mn.x, b.mx.x, b.mn.y, b.mx.y, b.mn.z, b.mx.z);
+          hit = b.id + d; break;
+        }
       }
       if (!hit.empty()) {
         ++r.blocked;

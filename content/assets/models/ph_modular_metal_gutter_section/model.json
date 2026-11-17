@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.7554601430892944,
+  0.13739275932312012,
+  0.19456490874290466
+ ],
+ "bmin": [
+  -0.7554601430892944,
+  0.0,
+  -0.19456490874290466
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "modular_metal_gutter",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.7554601430892944,
+    0.13739275932312012,
+    0.19456490874290466
+   ],
+   "bmin": [
+    -0.7554601430892944,
+    0.0,
+    -0.19456490874290466
+   ],
+   "count": 1110,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "modular_metal_gutter",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_modular_metal_gutter_section.glb",
+ "textures": {},
+ "triangles": 370,
+ "vertices": 347
+}

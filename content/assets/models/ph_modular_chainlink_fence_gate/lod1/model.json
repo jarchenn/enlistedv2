@@ -1,0 +1,93 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.9516398906707764,
+  2.521657705307007,
+  0.0740635097026825
+ ],
+ "bmin": [
+  -0.9516398906707764,
+  1.2452597729861736e-05,
+  -0.07141511887311935
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "modular_chainlink_fence_posts",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_4.png",
+   "cutout": true,
+   "mr": "mr_5.jpg",
+   "name": "modular_chainlink_fence_wire",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.9516398906707764,
+    2.521657705307007,
+    0.0740635097026825
+   ],
+   "bmin": [
+    -0.9516398906707764,
+    1.2452597729861736e-05,
+    -0.07141511887311935
+   ],
+   "count": 9420,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "modular_chainlink_fence_door_latch",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.9337935447692871,
+    2.419999599456787,
+    0.02149672619998455
+   ],
+   "bmin": [
+    -0.9282429218292236,
+    0.06999993324279785,
+    -5.1262404667795636e-06
+   ],
+   "count": 138,
+   "first": 9420,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "modular_chainlink_fence_door_latch",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_modular_chainlink_fence_gate.glb",
+ "textures": {},
+ "triangles": 3186,
+ "vertices": 5521
+}

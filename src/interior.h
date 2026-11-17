@@ -155,7 +155,7 @@ public:
   float lastFurnishMs = 0;
   // GX2 dressing stats of the last furnish() per room: pieces, wall-mounted pieces, the longest bare wall run (m) and
   // the wall length; the self-tests and captures read them
-  struct RoomStat { int room = -1, type = 0, pieces = 0, wallItems = 0, lights = 0; float bare = 0, wallLen = 0, area = 0; };
+  struct RoomStat { int room = -1, type = 0, pieces = 0, wallItems = 0, lights = 0; float bare = 0, wallLen = 0, area = 0, free = 0; };   // PR4 free: floor (m2) not kept clear (stairs, walkways)
   std::vector<RoomStat> lastStats;
 private:
   std::map<const AssetDef*, std::unique_ptr<PropDef>> props_;

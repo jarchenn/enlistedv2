@@ -181,6 +181,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [DSC 7584 Dust-covered dilapidated interior of an abandoned building with debris scattered across the floor and a broken balcony railing overlooking a misty treeline.jpg](https://commons.wikimedia.org/wiki/File:DSC_7584_Dust-covered_dilapidated_interior_of_an_abandoned_building_with_debris_scattered_across_the_floor_and_a_broken_balcony_railing_overlooking_a_misty_treeline.jpg) (CC BY-SA 4.0), partial match
 **KEEP: change request.** **Wrong:** fine at 1 m; sheets are pure white and perfectly flat.
 **Change:** keep 0.60 x 0.60 x 0.03. Off-white / yellowed paper (0.85, 0.82, 0.72), 2 sheets with a 0.01 m curl at a corner, printed text texture (generic, unreadable) on a folded newspaper, one envelope; slight dirt.
+**Status:** PR4 batch 4, done in part: some sheets yellowed with age. The rest of the request is still open.
 
 ### `furn_portrait`: Portrait
 *Rooms:* attic, bedroom, bedroom_modern, class, hall, mil_command, office, office_modern, sitting. *Size:* 0.3 x 0.03 m footprint, h 0.36 m.
@@ -349,7 +350,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** garments are flat coloured planks; no hangers, sleeves or folds.
 **Change:** keep 1.24 x 0.52 x 1.61. 10-12 garments: shirts and jackets each as a shoulder shape (0.45 m wide) + body with 3-5 vertical folds (normal + slight geometric wave), sleeves hanging at the sides, muted colours (navy, grey, olive, white, denim); visible hangers (0.003 m wire hook over the rail).
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open.
+**Status:** PR4 batch 4, done in part: garments with shoulders and sleeves instead of flat boards. The rest of the request is still open.
 
 ### `furn_mod_display_table`: Display table
 *Rooms:* shop. *Size:* 1.5 x 0.9 m footprint, h 1.01 m.
@@ -373,7 +374,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** glass doors read opaque black; contents invisible.
 **Change:** keep 1.56 x 0.83 x 2.05. Glass doors alpha 0.25 with reflections, black frames; inside: lit (emissive white strip top) shelves with bottles and cans (packaging atlas, 6-8 designs), a blank lit header.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. Stainless switched to a flat metallic finish (PR3); it still shows some mottling from reflections at 1 m: open.
+**Status:** PR4 batch 4, done in part: door rails and handles on the glass doors. The rest of the request is still open.
 ![furn_mod_fridge_case after, 1 m](furniture-audit/furn_mod_fridge_case_after.jpg)
 
 ### `furn_mod_gondola`: Gondola shelving (2.4 m)
@@ -768,7 +769,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong (1 m capture):** a dark blue-grey slab with a box on top: no sloped front, no filters, colour wrong.
 **Change:** keep 2.0 x 1.1 x 0.70 (bottom at 2.0 m). Canopy: brushed stainless (shared fix), front face sloped 30 degrees back to the wall, 0.10 m vertical lip at the bottom; underside: a row of 4-5 baffle filters (0.5 x 0.4 m, chevron louvres in the normal) in a recessed channel, a grease gutter along the front with a drain cup at one end, two recessed light panels (emissive); a 0.35 x 0.35 m duct rising to the ceiling.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open.
+**Status:** PR4 batch 4, done in part: sloped front on the cooker hood. The rest of the request is still open.
 
 ### `furn_mod_hoop`: Basketball hoop (wall)
 *Rooms:* gym. *Size:* 1.8 x 1.189 m footprint, h 1.18 m.
@@ -1025,7 +1026,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Vending machine, Rostock (LRM 20201205 124620).jpg](https://commons.wikimedia.org/wiki/File:Vending_machine,_Rostock_(LRM_20201205_124620).jpg) (CC BY-SA 4.0), partial match
 **KEEP: change request.** **Wrong:** read; vending glass front opaque.
 **Change:** keep sizes. Vending: glass front alpha 0.3 showing spiral rows of coloured packs (packaging atlas), lit header (emissive, blank graphic), keypad; soda: coloured valve badges (abstract), drip tray grille.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open.
+**Status:** PR4 batch 4, done in part: a cabinet shell around the front. The rest of the request is still open.
 
 ### `furn_mod_waiting_row`: Waiting seats (row of four)
 *Rooms:* lobby, ward. *Size:* 2.4 x 0.591 m footprint, h 0.89 m.
@@ -1283,6 +1284,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Traditional Bosnian kilim (1908) in Fojnica Franciscan Monastery museum, Bosnia and Herzegovina (2025)-bs.jpg](https://commons.wikimedia.org/wiki/File:Traditional_Bosnian_kilim_(1908)_in_Fojnica_Franciscan_Monastery_museum,_Bosnia_and_Herzegovina_(2025)-bs.jpg) (CC BY-SA 4.0)
 **KEEP: change request.** **Wrong:** pale beige with faint stripes; kilims are saturated reds, ochres and indigos with geometric lozenges.
 **Change:** keep 1.6 x 0.9. Albedo: madder red field (0.45, 0.10, 0.07), ochre (0.65, 0.45, 0.15) and indigo (0.12, 0.13, 0.30) lozenge rows, 0.10 m border of hooks, flat weave normal (fine horizontal ribs), fringes at both ends (alpha cards 0.04 m). Slight wear lighter in the middle.
+**Status:** PR4 batch 4, done in part: saturated colours that read at 2 m. The rest of the request is still open.
 
 ### `furn_rug_large`: Rug (large)
 *Rooms:* bedroom, kitchen, office, sitting, sitting_modern. *Size:* 4.0 x 3.0 m footprint, h 0.01 m.
@@ -1290,6 +1292,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Oriental rugs, antique and modern (1922) (14780670785).jpg](https://commons.wikimedia.org/wiki/File:Oriental_rugs,_antique_and_modern_(1922)_(14780670785).jpg) (No restrictions)
 **KEEP: change request.** **Wrong:** low-contrast brown with a muddy medallion; reads as a stain.
 **Change:** keep 4.0 x 3.0. Persian-style: deep red field (0.40, 0.08, 0.07), navy main border (0.08, 0.10, 0.22) with a floral running pattern, ivory guard stripes, a large central medallion in ivory / navy / gold with corner spandrels; pile normal (fine noise), worn path lighter.
+**Status:** PR4 batch 4, done in part: saturated colours that read at 2 m. The rest of the request is still open.
 
 ### `furn_sconce`: Wall sconce
 *Rooms:* bedroom, bedroom_modern, office, sitting, sitting_modern. *Size:* 0.15 x 0.2 m footprint, h 0.23 m.
@@ -1397,7 +1400,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** plates show stripes like stamped labels; the plate rack has no rails; lower cupboard plain; no cornice.
 **Change:** keep 1.34 x 0.53 x 1.96. Upper: open rack with three shelves, each with a 0.02 m plate rail 0.06 m above the shelf; a 0.10 m shaped cornice with a scalloped valance. Plates: faience as in furn_crockery (cream glaze, blue / manganese border and centre motif, no stripes), tilted 12 degrees against the back, 4-5 per shelf, a jug and two bowls between. Lower: two framed doors with raised fields and brass escutcheons over two drawers with brass pulls, top 0.03 m overhanging 0.03 m. Oak or cherry polished (as furn_armoire).
-**Status:** PR3 batch 3, done in part: plates in a plain cream and a dotted glaze (no banded labels). The rest of the request is still open.
+**Status:** PR4 batch 4, done in part: plates in plain faience and a dotted glaze. The rest of the request is still open.
 
 ### `furn_hutch_glazed`: Glazed hutch
 *Rooms:* kitchen. *Size:* 1.34 x 0.53 m footprint, h 1.96 m.
@@ -1405,7 +1408,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** as furn_hutch: plates read as striped labels; the glazed doors are clear sheets without glazing bars.
 **Change:** keep 1.34 x 0.53 x 1.96. Upper cabinet: two doors with 0.025 m glazing bars making 3 x 2 panes each, old glass (slight green tint, waves in the normal, roughness 0.05); faience inside as furn_hutch. Lower and cornice as furn_hutch. (PR3: Poly Haven vintage_cabinet_01 was fitted and reverted: its glazing is not a glass material, so the panes could no longer be seen to break.)
-**Status:** PR3 batch 3, done in part: plates in a plain cream and a dotted glaze. The rest of the request is still open.
+**Status:** PR4 batch 4, done in part: plates in plain faience and a dotted glaze. The rest of the request is still open.
 
 ### `furn_mod_bar_stool`: Bar stool
 *Rooms:* dining. *Size:* 0.42 x 0.42 m footprint, h 0.80 m.
@@ -1491,6 +1494,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [New Mexico. Mrs. Fidel Romero proudly exhibits her canned food.. (Two women standing in a kitchen pantry. Pantry... - NARA - 513405.tif](https://commons.wikimedia.org/wiki/File:New_Mexico._Mrs._Fidel_Romero_proudly_exhibits_her_canned_food.._(Two_women_standing_in_a_kitchen_pantry._Pantry..._-_NARA_-_513405.tif) (Public domain)
 **KEEP: change request.** **Wrong:** jars read as green and brown cylinders, all one size; crocks, cheese and cloths are not legible.
 **Change:** keep 1.1 x 0.36 x 1.85. Shelves 4, pine 0.025 m. Contents per shelf: jars as furn_jars (glass with contents), stoneware crocks (0.15-0.25 m, salt-glaze grey-brown with a darker top), a round cheese (Camembert box 0.11 m), folded linen cloths, two bottles of cider (corked). Vary heights and leave gaps.
+**Status:** PR4 batch 4, done in part: Camembert boxes and cider bottles on the shelves. The rest of the request is still open.
 
 ### `furn_rug_medallion`: Rug (medallion)
 *Rooms:* attic, bedroom, kitchen, office, sitting. *Size:* 2.2 x 1.5 m footprint, h 0.01 m.
@@ -1498,6 +1502,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Toranj - special circular design of Iranian carpets.JPG](https://commons.wikimedia.org/wiki/File:Toranj_-_special_circular_design_of_Iranian_carpets.JPG) (CC BY-SA 4.0)
 **KEEP: change request.** **Wrong:** flat terracotta field with a faint lozenge; reference medallion rugs are dense floral patterns.
 **Change:** keep 2.2 x 1.5. As furn_rug_large at smaller scale: navy field, ivory and red medallion, floral infill, three borders.
+**Status:** PR4 batch 4, done in part: saturated colours that read at 2 m. The rest of the request is still open.
 
 ### `furn_rug_runner`: Hall runner
 *Rooms:* hall. *Size:* 0.85 x 3.2 m footprint, h 0.01 m.
@@ -1505,6 +1510,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Oriental carpets, runners and rugs and some Jacquard reproductions (1910) (14762404981).jpg](https://commons.wikimedia.org/wiki/File:Oriental_carpets,_runners_and_rugs_and_some_Jacquard_reproductions_(1910)_(14762404981).jpg) (No restrictions)
 **KEEP: change request.** **Wrong:** reads; field motifs are plain bars.
 **Change:** keep 0.85 x 3.2. Red field with a repeating boteh / lozenge pattern, navy border with a running floral, ivory guards, fringed ends.
+**Status:** PR4 batch 4, done in part: saturated colours that read at 2 m. The rest of the request is still open.
 
 ### `furn_sacks`: Grain sacks
 *Rooms:* attic, barn, cellar, kitchen, office, ruin, utility, workshop. *Size:* 0.9 x 0.7 m footprint, h 0.75 m.
@@ -1551,6 +1557,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Firewood in Russia.jpg](https://commons.wikimedia.org/wiki/File:Firewood_in_Russia.jpg) (CC BY-SA 4.0)
 **KEEP: change request.** **Wrong:** reads well; logs are too uniform.
 **Change:** keep 0.92 x 0.46 x 0.64. Vary log diameters 0.08-0.15 m, split faces (pale 0.70, 0.55, 0.35 with radial cracks) vs bark faces, a few small kindling sticks on top.
+**Status:** PR4 batch 4, done in part: logs of varied diameter, staggered ends. The rest of the request is still open.
 
 ## Placed by hand or by map scripts only (not in room_dressing.json)
 
@@ -1585,6 +1592,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Broken window glass on apartment floor after break-in by firefighters due to water leak, Paris 2004.jpg](https://commons.wikimedia.org/wiki/File:Broken_window_glass_on_apartment_floor_after_break-in_by_firefighters_due_to_water_leak,_Paris_2004.jpg) (CC0)
 **KEEP: change request.** **Wrong:** at 1 m almost invisible: a few dark specks; the reference shows bright shards catching light.
 **Change:** keep 0.60 x 0.50 x 0.02. 15-25 shards, triangles / slivers 0.02-0.15 m, 0.003 m thick, scattered denser toward one side, three larger pieces still attached to a 0.40 m split glazing bar (0.03 x 0.04 m painted white, paint flaking). Glass: slight green tint (0.80, 0.86, 0.82), roughness 0.05, alpha 0.3 with strong specular so they sparkle; a light dust patch (decal) under them.
+**Status:** PR4 batch 4, done in part: thin glass slivers and a broken painted glazing bar (subtle at 1 m by design). The rest of the request is still open.
 
 ### `furn_debris_plaster`: Plaster debris
 *Rooms:* none in room_dressing.json. *Size:* 1.1 x 0.8 m footprint, h 0.07 m.
