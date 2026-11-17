@@ -171,6 +171,13 @@ bool Game::begin(std::string& err) {
       const std::string& id = settings().s.character;
       if (!modelIdx.count(id)) { auto cm = std::make_unique<CharModel>(); std::string e; if (cm->load(contentDir() / "characters" / (id + ".glb"), e)) { modelIdx[id] = (int)models.size(); models.push_back(std::move(cm)); } else logf("character %s: %s (faction body kept)", id.c_str(), e.c_str()); }
       if (modelIdx.count(id)) s.model = modelIdx[id];
+      // GP1: a body that is not a soldier rig (creatures, fighters, the alien...) is posed by the soldier pose code with its own
+      // skeleton, so its joints (and the hit zones built from them) end up where no bullet goes: the player was unhittable.
+      // Such a body keeps its look; its hits use the standard soldier volumes (hitTest)
+      static const char* kSoldierBodies[] = {"allied_", "axis_", "operator_", "trooper_", "br_marine", "robot_commando"};
+      bool soldierRig = false; for (const char* p : kSoldierBodies) soldierRig |= id.rfind(p, 0) == 0;
+      s.genericHits = modelIdx.count(id) && !soldierRig;
+      if (s.genericHits) logf("player body %s: not a soldier rig, hits use the standard soldier volumes", id.c_str());
     }
     const json kitj = s.kit >= 2 ? combat.value("kits", json::object()).value(s.kit == 2 ? "trooper" : "robot", json::object()) : json::object();   // SW1
     if (s.kit >= 2) { s.kitSpeed = kitj.value("speed", 1.0f); s.kitSparks = kitj.value("sparks", false); b.aimTurn *= kitj.value("aimTurn", 1.0f); }
@@ -541,16 +548,30 @@ bool Game::hitTest(const Soldier& s, vec3 a, vec3 d, float maxT, HitZone& hz) co
   const vec3* J = s.pose.joint;
   auto W = [&](int j) { return vec3(s.world * vec4(J[j], 1)); };
   struct Cap { vec3 p, q; float r; int zone; };
-  vec3 head = W(CJ_HEAD), neck = W(CJ_NECK);
-  vec3 headTop = head + glm::normalize(head - neck + vec3(1e-4f)) * 0.12f * bs;
-  Cap caps[] = {
-    {head, headTop, 0.11f, 0},
-    {W(CJ_HIPS), W(CJ_NECK), 0.17f, 1},
-    {W(CJ_LARM), W(CJ_LFOREARM), 0.06f, 2}, {W(CJ_LFOREARM), W(CJ_LHAND), 0.055f, 2},
-    {W(CJ_RARM), W(CJ_RFOREARM), 0.06f, 2}, {W(CJ_RFOREARM), W(CJ_RHAND), 0.055f, 2},
-    {W(CJ_LUPLEG), W(CJ_LLEG), 0.085f, 2}, {W(CJ_LLEG), W(CJ_LFOOT), 0.07f, 2},
-    {W(CJ_RUPLEG), W(CJ_RLEG), 0.085f, 2}, {W(CJ_RLEG), W(CJ_RFOOT), 0.07f, 2},
-  };
+  std::vector<Cap> caps;
+  if (s.genericHits) {   // GP1: the standard soldier volumes from the feet, posture and facing (a non-soldier body: its joints are not a soldier's)
+    const vec3 f(-std::sin(radians(s.yaw)), 0, -std::cos(radians(s.yaw))), rt(std::cos(radians(s.yaw)), 0, -std::sin(radians(s.yaw))), F = s.feet;
+    if (s.posture == Physics::PRONE) {
+      caps = {{F + f * 0.72f + vec3(0, 0.24f, 0), F + f * 0.86f + vec3(0, 0.26f, 0), 0.11f, 0}, {F + f * 0.05f + vec3(0, 0.2f, 0), F + f * 0.6f + vec3(0, 0.22f, 0), 0.17f, 1},
+              {F + rt * 0.12f + vec3(0, 0.12f, 0), F - f * 0.9f + rt * 0.14f + vec3(0, 0.1f, 0), 0.085f, 2}, {F - rt * 0.12f + vec3(0, 0.12f, 0), F - f * 0.9f - rt * 0.14f + vec3(0, 0.1f, 0), 0.085f, 2}};
+    } else {
+      const float H = s.posture == Physics::CROUCH ? 1.2f : 1.75f;
+      caps = {{F + vec3(0, H - 0.2f, 0), F + vec3(0, H - 0.04f, 0), 0.11f, 0}, {F + vec3(0, H * 0.52f, 0), F + vec3(0, H - 0.3f, 0), 0.17f, 1},
+              {F + rt * 0.24f + vec3(0, H - 0.34f, 0), F + rt * 0.26f + f * 0.2f + vec3(0, H * 0.62f, 0), 0.06f, 2}, {F - rt * 0.24f + vec3(0, H - 0.34f, 0), F - rt * 0.26f + f * 0.2f + vec3(0, H * 0.62f, 0), 0.06f, 2},
+              {F + rt * 0.11f + vec3(0, 0.05f, 0), F + rt * 0.1f + vec3(0, H * 0.5f, 0), 0.085f, 2}, {F - rt * 0.11f + vec3(0, 0.05f, 0), F - rt * 0.1f + vec3(0, H * 0.5f, 0), 0.085f, 2}};
+    }
+  } else {
+    vec3 head = W(CJ_HEAD), neck = W(CJ_NECK);
+    vec3 headTop = head + glm::normalize(head - neck + vec3(1e-4f)) * 0.12f * bs;
+    caps = {
+      {head, headTop, 0.11f, 0},
+      {W(CJ_HIPS), W(CJ_NECK), 0.17f, 1},
+      {W(CJ_LARM), W(CJ_LFOREARM), 0.06f, 2}, {W(CJ_LFOREARM), W(CJ_LHAND), 0.055f, 2},
+      {W(CJ_RARM), W(CJ_RFOREARM), 0.06f, 2}, {W(CJ_RFOREARM), W(CJ_RHAND), 0.055f, 2},
+      {W(CJ_LUPLEG), W(CJ_LLEG), 0.085f, 2}, {W(CJ_LLEG), W(CJ_LFOOT), 0.07f, 2},
+      {W(CJ_RUPLEG), W(CJ_RLEG), 0.085f, 2}, {W(CJ_RLEG), W(CJ_RFOOT), 0.07f, 2},
+    };
+  }
   float best = maxT, headT = 1e9f; int zone = -1;
   for (auto& k : caps) k.r *= zs;
   for (auto& k : caps) {
@@ -609,11 +630,13 @@ bool Game::projectileSegment(Projectile& p, vec3 a, vec3 seg, float len, float& 
   return dmBulletHit(*this, p, best, bz, a, d, tHit, shooter);   // W1 damage model (damage_model.cpp): table, zones, helmet, protection, FleshHit
 }
 
+int gPlayerDmgBlock[8] = {};   // GP1 diagnostics: hits on the local player dropped by: 0 protection, 1 admin god, 2 tank melee, 3 tank crew, 4 friendly fire, 5 SD freeze, 6 SD armor, 7 landed
 void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
   Soldier& s = sold[i];
   if (!s.alive || dmg <= 0) return;
-  if (rulesIgnoreDamage(*this, i)) return;
-  if (gAdmin.god && s.localPlayer) return;   // CMD2 /admin: nothing hurts you (bullets, blasts, melee, flame, falls, drowning, storm)
+  auto drop = [&](int k) { if (s.localPlayer) ++gPlayerDmgBlock[k]; };
+  if (rulesIgnoreDamage(*this, i)) { drop(0); return; }
+  if (gAdmin.god && s.localPlayer) { drop(1); return; }   // CMD2 /admin: nothing hurts you (bullets, blasts, melee, flame, falls, drowning, storm)
   if (s.zombie && enemyType(s.etype).shellKills > 0) {   // a fixed number of direct shell hits kills it
     static std::map<int, double> shellAt; const bool shell = how && std::strcmp(how, "shell") == 0, blast = how && std::strcmp(how, "blast") == 0;
     if (shell) { shellAt[i] = t; s.hp -= enemyType(s.etype).hp / enemyType(s.etype).shellKills - 0.01f; dmg = 0.01f; how = "blast"; }   // applied here; the rest of the function sees a token blast
@@ -627,21 +650,22 @@ void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
     auto it = app.tanks.tanks.find(app.tanks.occupied);
     if (it != app.tanks.tanks.end() && !it->second.def->car && !it->second.def->heli && !it->second.wrecked) {
       if (attacker >= 0 && attacker < (int)sold.size() && sold[attacker].zombie && enemyType(sold[attacker].etype).tankDamage) app.tanks.meleeBlow(app, it->first, sold[attacker].feet);
-      return;
+      drop(2); return;
     }
   }
   // buttoned up in a tank (hatch closed): the crew takes no damage until the tank is knocked out (destroy() bails them out).
   // Head out of the hatch stays exposed.
   if (s.localPlayer && app.tanks.occupied) {
     auto it = app.tanks.tanks.find(app.tanks.occupied);
-    if (it != app.tanks.tanks.end() && !it->second.def->car && !it->second.wrecked && it->second.station == TS_GUNNER && it->second.hatchT == 0) return;
+    if (it != app.tanks.tanks.end() && !it->second.def->car && !it->second.wrecked && it->second.station == TS_GUNNER && it->second.hatchT == 0) { drop(3); return; }
   }
-  if (attacker >= 0 && attacker != i && sameTeam(attacker, i) && !match.rules.friendlyFire) return;
+  if (attacker >= 0 && attacker != i && sameTeam(attacker, i) && !match.rules.friendlyFire) { drop(4); return; }
   if (match.mode() == GameMode::SearchDestroy) {   // SD1: no damage in freeze / breaks; the mode's armor (spec §8)
-    if (sdFrozen()) return;
+    if (sdFrozen()) { drop(5); return; }
     dmg = sdArmor(*this, i, dmg, how, attacker); s.lastHow = how ? how : "";
-    if (dmg <= 0) return;
+    if (dmg <= 0) { drop(6); return; }
   }
+  drop(7);
   s.hp -= dmg;
   if (s.zombie) { const EnemyType& e = enemyType(s.etype); if (e.staggerS > 0 && dmg >= e.staggerMin) s.staggerUntil = t + e.staggerS; }   // EN1: only a heavy hit staggers
   s.br.hurtFrom = attacker >= 0 ? sold[attacker].feet : s.feet - dir * 10.0f; s.br.hurtAt = t;
