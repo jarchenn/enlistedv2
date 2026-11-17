@@ -2,6 +2,7 @@
 #include "app.h"
 #include "ui_glass.h"   // UI2: glass panel backgrounds
 #include "mainmenu.h"
+#include "editor_nav.h"
 #include "loading.h"
 #include "mpui.h"
 #include "scenario.h"
@@ -415,7 +416,7 @@ bool App::syncCursor() {
 
 void App::updateExplore(float dt) {
   ImGuiIO& io = ImGui::GetIO();
-  if (w3ExploreKeys(*this)) return;   // creative sessions: Esc back to the editor, P pause (dropin.cpp)
+  if (w3ExploreKeys(*this)) return;   // creative sessions: P pause (dropin.cpp); Esc opens the pause menu below (UI3)
   if (commandsTakeCreative()) { exitExplore(); return; }   // CMD1 /creative: as F5
   if (!selftest && commandsOwnKeys()) (void)kp(win, GLFW_KEY_ESCAPE);   // CMD1: the command line has the keyboard (its Esc must not open the pause menu)
   else if (!selftest) {
@@ -671,7 +672,7 @@ void App::drawExploreUI() {
     if (ImGui::Button("Settings", ImVec2(bw, 0))) settings().open = true;
     ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
     if (ImGui::Button("Return to start marker", ImVec2(bw, 0))) { returnToStart(); pauseMenu = false; syncCursor(); }
-    if (ImGui::Button("Return to Creative", ImVec2(bw, 0))) exitExplore();
+    if (ImGui::Button("Return to Creator", ImVec2(bw, 0))) { if (navState().creativeSession) dropinReturn(*this); else exitExplore(); }   // UI3: the editor camera where it was
     if (ImGui::Button("Main menu", ImVec2(bw, 0))) { exitExplore(); mainMenuOpen(*this); }   // UI2
     if (ImGui::Button("Keep session changes and return", ImVec2(bw, 0))) { applyDamageToMap(); exitExplore(); }
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Keeps the current wall damage and craters in the map as one undoable edit.\nTanks keep their damage, wreck and ammunition (not their position).\nWeapons, ammunition, moved guns and doors are not kept.");
