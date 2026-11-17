@@ -31,7 +31,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Pair of candlesticks MET 47593.jpg](https://commons.wikimedia.org/wiki/File:Pair_of_candlesticks_MET_47593.jpg) (CC0)
 **KEEP: change request.** **Wrong:** two tiny sticks; the pair reads as noise at 1 m.
 **Change:** keep 0.24 x 0.10 x 0.33. Same construction as furn_candlestick scaled to 0.30 m (stem knops 0.010-0.018 m, base 0.085 m), set 0.13 m apart; candles at different burn heights (0.12 and 0.07 m) with drips. (Poly Haven brass_candleholders was tried as a replacement and refused: its pair is 1.05 m wide.)
-**Status:** PR3 batch 2, done in part: second knop on the stems. The rest of the request is still open.
+**Status:** PR3 batch 2, done in part: second knop on the stems. The rest of the request is still open. PR5 kitchen batch, done: rebuilt: stepped foot, baluster stem with knops, bobèche, candles burnt to different heights with drips.
 ![furn_candlesticks after, 1 m](furniture-audit/furn_candlesticks_after.jpg)
 
 ### `furn_chair_ladder`: Ladder-back chair
@@ -107,7 +107,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Old Books 01.JPG](https://commons.wikimedia.org/wiki/File:Old_Books_01.JPG) (CC0)
 **KEEP: change request.** **Wrong:** four flat blocks in one colour family; no spine bands, no page block, no cloth corners.
 **Change:** keep 0.26 x 0.20 x 0.14. Four books 0.03-0.045 m thick, slightly different sizes (0.20-0.24 m long), stacked with 3-8 degree twists; cloth covers in oxblood, bottle green, navy and tan (see furn_bookcase), worn lighter on corners, page blocks cream (0.82, 0.78, 0.66) with fine page lines in the normal, raised spine bands, a gilt title block (abstract, no text). (Poly Haven book_encyclopedia_set_01 was tried and refused: a 0.55 m row of standing books, the wrong shape for a stack.)
-**Status:** PR3 batch 2, done in part: gilt bands across the spines. The rest of the request is still open.
+**Status:** PR3 batch 2, done in part: gilt bands across the spines. The rest of the request is still open. PR5 kitchen batch, done: raised bands on the spines, gilt titles, page edges with lines.
 ![furn_books after, 1 m](furniture-audit/furn_books_after.jpg)
 
 ### `furn_bucket`: Bucket
@@ -169,7 +169,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Preserved lemon in a clip top jar, 4 years old.jpg](https://commons.wikimedia.org/wiki/File:Preserved_lemon_in_a_clip_top_jar,_4_years_old.jpg) (CC BY-SA 4.0)
 **KEEP: change request.** **Wrong:** three tiny grey cylinders; the zinc lids and the contents do not read.
 **Change:** keep 0.22 x 0.20 x 0.21. Three jars 0.09-0.11 m diameter, 0.14-0.19 m tall, rounded shoulders; glass (alpha 0.35, slight green, roughness 0.05) with visible contents: halved apricots / plums / beans (orange 0.75, 0.45, 0.10; deep purple; green), a wire bail clamp and an orange rubber seal on one (Le Parfait type), screw zinc lids (dull grey, roughness 0.5) on the others.
-**Status:** PR3 batch 2, done in part: Le Parfait seal and wire bail. The rest of the request is still open.
+**Status:** PR3 batch 2, done in part: Le Parfait seal and wire bail. The rest of the request is still open. PR5 kitchen batch, done: preserving jars with fruit inside (apricots, plums, beans); seal and wire bail as before.
 ![furn_jars after, 1 m](furniture-audit/furn_jars_after.jpg)
 
 ### `furn_lamp`: Oil lamp
@@ -236,6 +236,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong (1 m capture, hung in the air without its wall):** (not in the wall shots).
 **Change:** Cartel clock: violin-shaped painted case 0.32 x 0.61 m (cream with flowers or green), a convex enamel dial 0.16 m with black numerals and hands, a pendulum window with a brass bob. (Poly Haven wall_clock was tried and refused: it is a round 0.32 m clock; it now replaces furn_mod_wall_clock.)
+**Status:** PR5 kitchen batch, done: violin-case (Comtoise style) body with painted flowers, convex enamel dial with hour marks and hands.
+![furn_wall_clock after, 1 m](furniture-audit/furn_wall_clock_after.jpg)
 
 ### `furn_wall_shelf`: Wall shelf
 *Rooms:* barn, bedroom, cellar, class, kitchen, office, sitting, tavern, utility, workshop. *Size:* 0.9 x 0.26 m footprint, h 0.20 m.
@@ -243,6 +245,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong (1 m capture, hung in the air without its wall):** (not in the wall shots).
 **Change:** Pine board 0.9 x 0.26 x 0.025 on two shaped brackets (ogee cut), worn edge.
+**Status:** PR5 kitchen batch, done: ogee-cut brackets, a worn front edge.
+![furn_wall_shelf after, 1 m](furniture-audit/furn_wall_shelf_after.jpg)
 
 ## Café, tavern and shop
 
@@ -266,7 +270,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [A Post Medieval glass wine bottle dating from AD 1690-1700. (FindID 891131) (cropped).jpg](https://commons.wikimedia.org/wiki/File:A_Post_Medieval_glass_wine_bottle_dating_from_AD_1690-1700._(FindID_891131)_(cropped).jpg) (CC BY 2.0), partial match
 **KEEP: change request.** **Wrong:** three dark cylinders the size of a thumb at 1 m; no shoulders, necks or corks.
 **Change:** keep 0.26 x 0.20 x 0.28. One 0.75 l Burgundy bottle (green 0.04, 0.10, 0.05, glass alpha 0.6, roughness 0.05: sloping shoulders, punt), one cider bottle (brown, rounded shoulder, swing-top stopper with a white ceramic cap and wire), one stone gin / Calvados flask; corks, a paper label shape on two (cream, no legible text), liquid level visible through the glass. (Poly Haven wine_bottles_01 was tried and refused: five bottles in a 0.68 m row.)
-**Status:** PR3 batch 2, done in part: swing-top stopper, paper labels. The rest of the request is still open.
+**Status:** PR3 batch 2, done in part: swing-top stopper, paper labels. The rest of the request is still open. PR5 kitchen batch, done: Burgundy wine, cider and a stoneware flask; labels and swing tops as before.
 ![furn_bottles after, 1 m](furniture-audit/furn_bottles_after.jpg)
 
 ### `furn_commode`: Commode (chest of drawers)
@@ -282,7 +286,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** flat white discs and a white blob; no rims, no glaze, no blue decoration typical of Norman faience.
 **Change:** keep 0.42 x 0.32 x 0.07. Stack of 5 plates 0.22 m (each 0.012 m, raised rim 0.02 m wide, slight dish), a 0.14 m bowl beside it, a cup with handle on a saucer. Faience: cream-white (0.85, 0.82, 0.74), glossy (roughness 0.12), blue / manganese hand-painted border band and a centre flower (albedo), crazing in the normal; a chip on one rim showing buff clay.
-**Status:** PR3 batch 2, done in part: saucer under the cup. The rest of the request is still open.
+**Status:** PR3 batch 2, done in part: saucer under the cup. The rest of the request is still open. PR5 kitchen batch, done: faience plates and bowls with painted bands; saucer under the cup as before.
 ![furn_crockery after, 1 m](furniture-audit/furn_crockery_after.jpg)
 
 ### `furn_dresser`: Buffet bas (dresser)
@@ -417,6 +421,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong (1 m capture, hung in the air without its wall):** reads: rack with white plates; plates plain white.
 **Change:** Oak rack 1.0 m, two plate rails, faience plates as furn_crockery tilted on the rails, a top shelf with a jug.
+**Status:** PR5 kitchen batch, done: faience plates with painted bands round cream wells in three patterns, worn pine.
+![furn_plate_rack after, 1 m](furniture-audit/furn_plate_rack_after.jpg)
 
 ### `furn_radio`: Wireless set
 *Rooms:* attic, bedroom, bedroom_modern, mil_command, office, office_modern, sitting, tavern. *Size:* 0.36 x 0.22 m footprint, h 0.36 m.
@@ -1422,6 +1428,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [CratesHidalgoExpoMAP.jpg](https://commons.wikimedia.org/wiki/File:CratesHidalgoExpoMAP.jpg) (CC BY-SA 3.0), partial match
 **KEEP: change request.** **Wrong:** fine at 10 m; at 1 m the slats are uniform and spotless, no nails, no stencil.
 **Change:** keep 0.50 x 0.50 x 0.45. Slats 0.09 m with 0.02 m gaps, 0.012 m thick, rough-sawn pine (0.55, 0.42, 0.28) with grey weathering on top edges; corner posts 0.03 m; nail heads (dark 0.006 m dots, two per slat end) in the normal / albedo; a faded black stencil (a Calvados / cidre mark, no legible text needed) on one side; straw sticking out between slats on top.
+**Status:** PR5 kitchen batch, done: weathered pine slats with worn edges, a faded stencil (block characters, no legible text), straw showing between the slats.
+![furn_crate after, 1 m](furniture-audit/furn_crate_after.jpg)
 
 ### `furn_frame_portrait`: Painting (portrait)
 *Rooms:* bedroom, hall, office, sitting. *Size:* 0.42 x 0.05 m footprint, h 0.57 m.
@@ -1445,7 +1453,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** plates show stripes like stamped labels; the plate rack has no rails; lower cupboard plain; no cornice.
 **Change:** keep 1.34 x 0.53 x 1.96. Upper: open rack with three shelves, each with a 0.02 m plate rail 0.06 m above the shelf; a 0.10 m shaped cornice with a scalloped valance. Plates: faience as in furn_crockery (cream glaze, blue / manganese border and centre motif, no stripes), tilted 12 degrees against the back, 4-5 per shelf, a jug and two bowls between. Lower: two framed doors with raised fields and brass escutcheons over two drawers with brass pulls, top 0.03 m overhanging 0.03 m. Oak or cherry polished (as furn_armoire).
-**Status:** PR4 batch 4, done in part: plates in plain faience and a dotted glaze. The rest of the request is still open.
+**Status:** PR4 batch 4, done in part: plates in plain faience and a dotted glaze. The rest of the request is still open. PR5 kitchen batch, done: scalloped valance under the plate shelf, jug and bowls on the shelves, plates in three Normandy faience patterns (blue border and flower, manganese, dots) with a painted band round a cream well.
 ![furn_hutch after, 1 m](furniture-audit/furn_hutch_after.jpg)
 
 ### `furn_hutch_glazed`: Glazed hutch
@@ -1454,7 +1462,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** as furn_hutch: plates read as striped labels; the glazed doors are clear sheets without glazing bars.
 **Change:** keep 1.34 x 0.53 x 1.96. Upper cabinet: two doors with 0.025 m glazing bars making 3 x 2 panes each, old glass (slight green tint, waves in the normal, roughness 0.05); faience inside as furn_hutch. Lower and cornice as furn_hutch. (PR3: Poly Haven vintage_cabinet_01 was fitted and reverted: its glazing is not a glass material, so the panes could no longer be seen to break.)
-**Status:** PR4 batch 4, done in part: plates in plain faience and a dotted glaze. The rest of the request is still open.
+**Status:** PR4 batch 4, done in part: plates in plain faience and a dotted glaze. The rest of the request is still open. PR5 kitchen batch, done: as the hutch: faience plates with painted bands round cream wells, jug and bowls.
 ![furn_hutch_glazed after, 1 m](furniture-audit/furn_hutch_glazed_after.jpg)
 
 ### `furn_mod_bar_stool`: Bar stool
@@ -1542,7 +1550,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [New Mexico. Mrs. Fidel Romero proudly exhibits her canned food.. (Two women standing in a kitchen pantry. Pantry... - NARA - 513405.tif](https://commons.wikimedia.org/wiki/File:New_Mexico._Mrs._Fidel_Romero_proudly_exhibits_her_canned_food.._(Two_women_standing_in_a_kitchen_pantry._Pantry..._-_NARA_-_513405.tif) (Public domain)
 **KEEP: change request.** **Wrong:** jars read as green and brown cylinders, all one size; crocks, cheese and cloths are not legible.
 **Change:** keep 1.1 x 0.36 x 1.85. Shelves 4, pine 0.025 m. Contents per shelf: jars as furn_jars (glass with contents), stoneware crocks (0.15-0.25 m, salt-glaze grey-brown with a darker top), a round cheese (Camembert box 0.11 m), folded linen cloths, two bottles of cider (corked). Vary heights and leave gaps.
-**Status:** PR4 batch 4, done in part: Camembert boxes and cider bottles on the shelves. The rest of the request is still open.
+**Status:** PR4 batch 4, done in part: Camembert boxes and cider bottles on the shelves. The rest of the request is still open. PR5 kitchen batch, done: salt-glazed stoneware crocks with dark tops, a stack of linen, corked bottles; Camembert boxes and cider bottles as before.
 ![furn_pantry after, 1 m](furniture-audit/furn_pantry_after.jpg)
 
 ### `furn_rug_medallion`: Rug (medallion)
