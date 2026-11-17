@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.11010381579399109,
+  0.06076497957110405,
+  0.11010381579399109
+ ],
+ "bmin": [
+  -0.11010381579399109,
+  0.0,
+  -0.11010381579399109
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "seeding_tray_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.11010381579399109,
+    0.06076497957110405,
+    0.11010381579399109
+   ],
+   "bmin": [
+    -0.11010381579399109,
+    0.0,
+    -0.11010381579399109
+   ],
+   "count": 12498,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "seeding_tray_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_seeding_tray_01.glb",
+ "textures": {},
+ "triangles": 4166,
+ "vertices": 3662
+}

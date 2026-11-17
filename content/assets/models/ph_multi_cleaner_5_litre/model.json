@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.10964597016572952,
+  0.3003377318382263,
+  0.052889883518218994
+ ],
+ "bmin": [
+  -0.10964597016572952,
+  6.358913395843047e-12,
+  -0.05288988724350929
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "multi_cleaner_5_litre",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.10964597016572952,
+    0.3003377318382263,
+    0.052889883518218994
+   ],
+   "bmin": [
+    -0.10964597016572952,
+    6.358913395843047e-12,
+    -0.05288988724350929
+   ],
+   "count": 6498,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "multi_cleaner_5_litre",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_multi_cleaner_5_litre.glb",
+ "textures": {},
+ "triangles": 2166,
+ "vertices": 1755
+}

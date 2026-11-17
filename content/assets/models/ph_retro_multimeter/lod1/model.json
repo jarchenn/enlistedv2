@@ -1,0 +1,93 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.10746316611766815,
+  0.27863749861717224,
+  0.10059492290019989
+ ],
+ "bmin": [
+  -0.1073015108704567,
+  8.023995906114578e-05,
+  -0.10113262385129929
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "retro_multimeter",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "retro_multimeter_glass",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.10746316611766815,
+    0.27863749861717224,
+    0.10059492290019989
+   ],
+   "bmin": [
+    -0.1073015108704567,
+    8.023995906114578e-05,
+    -0.10113262385129929
+   ],
+   "count": 3351,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "retro_multimeter_LOD0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.08544765412807465,
+    0.21316158771514893,
+    -0.04147089272737503
+   ],
+   "bmin": [
+    -0.030558422207832336,
+    0.15712764859199524,
+    -0.04147089272737503
+   ],
+   "count": 6,
+   "first": 3351,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "retro_multimeter_LOD0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_retro_multimeter.glb",
+ "textures": {},
+ "triangles": 1119,
+ "vertices": 1293
+}

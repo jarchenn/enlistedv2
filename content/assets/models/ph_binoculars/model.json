@@ -1,0 +1,93 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.08346639573574066,
+  0.06624974310398102,
+  0.14395086467266083
+ ],
+ "bmin": [
+  -0.08346639573574066,
+  0.0,
+  -0.14390696585178375
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "binoculars",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "binoculars_glass",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.08346639573574066,
+    0.06624974310398102,
+    0.14395086467266083
+   ],
+   "bmin": [
+    -0.08346639573574066,
+    0.0,
+    -0.14390696585178375
+   ],
+   "count": 26757,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "binoculars_left",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.06410849094390869,
+    0.04292316734790802,
+    0.14089971780776978
+   ],
+   "bmin": [
+    -0.07873959839344025,
+    0.008157845586538315,
+    0.03428881987929344
+   ],
+   "count": 2109,
+   "first": 26757,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "binoculars_left",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_binoculars.glb",
+ "textures": {},
+ "triangles": 9622,
+ "vertices": 7406
+}

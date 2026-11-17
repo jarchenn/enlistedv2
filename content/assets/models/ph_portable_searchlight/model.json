@@ -1,0 +1,93 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.08263799548149109,
+  0.1853470355272293,
+  0.1266917884349823
+ ],
+ "bmin": [
+  -0.08263799548149109,
+  0.0,
+  -0.1266917884349823
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "portable_searchlight",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "portable_searchlight_glass",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.08263799548149109,
+    0.1853470355272293,
+    0.1266917884349823
+   ],
+   "bmin": [
+    -0.08263799548149109,
+    0.0,
+    -0.1266917884349823
+   ],
+   "count": 25914,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "portable_searchlight",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.06895079463720322,
+    0.1515888273715973,
+    0.11792363971471786
+   ],
+   "bmin": [
+    -0.06895080953836441,
+    0.01368723064661026,
+    -0.08433963358402252
+   ],
+   "count": 2286,
+   "first": 25914,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "portable_searchlight",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_portable_searchlight.glb",
+ "textures": {},
+ "triangles": 9400,
+ "vertices": 6218
+}
