@@ -201,6 +201,10 @@ void Terrain::baseEdited(vec2 lo, vec2 hi) {
 
 float Terrain::baseHeight(float x, float z) const {
   if (h.empty()) return 0;
+  if (!std::isfinite(x) || !std::isfinite(z)) {   // SD2: std::clamp passes NaN through and (int)NaN indexed far outside h (a crash in render)
+    static bool once = false; if (!once) { once = true; logf("terrain: height asked at a non-finite position (%f, %f); answered at the origin", x, z); }
+    x = org.x; z = org.y;
+  }
   float fx = (x - org.x) / kCell, fz = (z - org.y) / kCell;
   fx = std::clamp(fx, 0.0f, (float)nx - 1.001f); fz = std::clamp(fz, 0.0f, (float)nz - 1.001f);
   int xi = (int)fx, zi = (int)fz; float tx = fx - xi, tz = fz - zi;
