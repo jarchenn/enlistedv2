@@ -188,7 +188,7 @@
   "reticle": "bradley",
   "sound": "shot_cannon30",
   "auto": true,
-  "heBlastR": 1.6,
+  "heBlastR": 0.8,
   "lightAP": 6,
   "lightHE": 2,
   "note": "VH7: automatic 25 mm at ~200 rpm (a 0.3 s loader cycle while LMB is held), AP / HE selectable (R). HE: a small blast per round; AP hurts light armour and the sides / rear of tanks a little (lightAP per hit), never a tank's front"
@@ -231,7 +231,7 @@
   "reserve": 2000,
   "reload": 4.0,
   "bulletMass": 0.0097,
-  "sound": "shot_m249",
+  "sound": "shot_modern_lmg",
   "note": "coax: rides on the gun (no traverse of its own)"
  },
  "tow": {

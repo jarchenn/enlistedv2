@@ -163,7 +163,9 @@ void SelfTest::update(App& app, float dt) {
   { extern bool tdmLiveSelfTest(App&, float); if (tdmLiveSelfTest(app, dt)) return; }   // CV1: --selftest-tdm-live (selftest_royale_live.cpp)   // BR7: --selftest-royale-live (selftest_royale_live.cpp)   // VH1: --capture-jeep (selftest_vehicles.cpp)
   { extern bool perfSelfTest(App&, float); if (perfSelfTest(app, dt)) return; }   // PF3: --profile-map <id> <ai> <s> (selftest_perf.cpp)   // G2: --selftest-zombies (selftest_zombies.cpp)
   { extern bool captureHeliSelfTest(App&, float); if (captureHeliSelfTest(app, dt)) return; }
+  { extern bool vh8SelfTest(App&, float); if (vh8SelfTest(app, dt)) return; }   // VH8: --check-vh8 (check_vh8.cpp)
   { extern bool captureVh7SelfTest(App&, float); if (captureVh7SelfTest(app, dt)) return; }   // VH7: --capture-vh7
+  { extern bool captureVh8SelfTest(App&, float); if (captureVh8SelfTest(app, dt)) return; }   // VH8: --capture-vh8
   { extern bool vehicleSpawnGenSelfTest(App&, float); if (vehicleSpawnGenSelfTest(app, dt)) return; }   // VH7: --gen-vehicle-spawns   // VH5: --capture-heli (capture_heli.cpp)
   { extern bool captureTk1SelfTest(App&, float); if (captureTk1SelfTest(app, dt)) return; }
   { extern bool tk1MatchSelfTest(App&, float); if (tk1MatchSelfTest(app, dt)) return; }   // TK1: --check-tk1-match

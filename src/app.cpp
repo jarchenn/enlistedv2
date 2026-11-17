@@ -975,7 +975,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-render") runSelf = true;   // V1 facades, walls, water (selftest_render.cpp)
     else if (a == "--selftest-lights") runSelf = true;   // L2 lighting engine (selftest_lights.cpp)
     else if (a == "--selftest-swim") runSelf = true;     // swimming, underwater view, breath (selftest_swim.cpp)
-    else if (a == "--capture-heli" || a == "--gen-vehicle-spawns" || a == "--capture-vh7") runSelf = true;   // VH5 (capture_heli.cpp)
+    else if (a == "--capture-heli" || a == "--gen-vehicle-spawns" || a == "--capture-vh7" || a == "--check-vh8" || a == "--capture-vh8") runSelf = true;   // VH5 (capture_heli.cpp)
     else if (a == "--selftest-zombies" || a == "--capture-heavies" || a == "--capture-commands" || a == "--capture-ch1" || a == "--capture-ch6" || a == "--capture-ch8" || a == "--capture-fighter2" || a == "--capture-fighter2-slam") runSelf = true;
     else if (a == "--capture-tk1" || a == "--check-tk1-match" || a == "--capture-tk2" || a == "--selftest-sd") runSelf = true;   // TK1 (capture_tk1.cpp)
     else if (a == "--capture-br-models" || a == "--capture-br-worn") runSelf = true;   // BR3 / BR8: a look at the Battle Royale models and worn gear (selftest_brmodels.cpp)
@@ -1169,6 +1169,7 @@ int App::run(int argc, char** argv) {
       float fov = settings().fov();   // 72 unless changed in Settings
       if (!tanks.camera(*this, e, fv, fov) && !stationCamera(e, fv, fov)) weaponCamera(fov);
       mpaiCamera(*this, e, fv, fov);   // death / spectator camera during a match
+      { extern bool gVh8CamOn; extern vec3 gVh8CamEye, gVh8CamAt; if (gVh8CamOn) { e = gVh8CamEye; fv = glm::normalize(gVh8CamAt - e); fov = 60; } }   // VH8 capture: outside view
       viewM = glm::lookAt(e, e + fv, viewUp(fv));   // swim.cpp: a slight roll with the stroke
       projM = glm::perspective(radians(fov), aspect, 0.03f, std::max(4000.0f, settings().renderDist() * 1.2f));   // PF2: Ultra render distance (5 km)
       worldFov = fov;

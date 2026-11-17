@@ -222,7 +222,7 @@
     "note": "87 rounds stowed (Ausf. H); muzzle velocities of the PzGr 39 and SprGr 34"
   },
   "roofMg": {
-    "name": "MG 34 on the cupola ring (drawn with the MG 42 model, MG 42 sound pack)"
+    "name": "MG 34 on the cupola ring (drawn with the MG 42 model, MG 42 sound pack)", "elevation": [-22, 45]
   },
   "bowMg": {
     "name": "MG 34 bow MG (hull ball mount)",

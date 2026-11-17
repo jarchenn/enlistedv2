@@ -55,7 +55,7 @@ struct WeaponDef {
   std::vector<std::string> modes;       // fire-selector modes, first is the default ("auto", "semi")
   std::string deploys;                  // heavy weapon: station asset it deploys as
   float rocketDmg = 0, rocketR = 0, rocketCrater = 0, rocketSplashGun = 0;   // launcher rocket tuning (data)
-  float rocketGrav = 0.35f; bool rocketAtKill = true, rocketBackblast = true;   // MG4: "gravity" (x g; a 40 mm grenade arcs at 1), a direct hit kills an AT gun, backblast
+  float rocketGrav = 0.35f; bool rocketAtKill = true, rocketBackblast = true; float rocketArmour = 1;   // MG4: "gravity" (x g; a 40 mm grenade arcs at 1), a direct hit kills an AT gun, backblast
   // per-weapon ADS calibration (JSON "ads", docs/fps-weapons.md#calibration). rear / front / muzzle above are the
   // measured anchors on the mesh; these refine the pose without touching the mesh.
   float eyeRelief = 0.21f;              // m, eye to rear sight in ADS (irons); smaller = larger sight picture
@@ -133,6 +133,7 @@ struct Projectile {
   float travelled = 0;          // m flown so far (W1 damage falloff: the true range)
   bool cannon30 = false;        // VH5 helicopter chin gun: an HE round that counts as small arms on tanks, as a launcher on cars
   float lightAT = 0;            // VH7 autocannon round: > 0 its damage per counted hit on armour (never a tank's front)
+  float armourMult = 1;         // VH8: launcher damage factor on armoured vehicles (the 40 mm grenade launcher 0.2)
   uint64_t towOf = 0;           // VH7: a TOW guided by this vehicle's gunner (its crosshair); 0 none
   uint32_t uid = 0;             // VH7: identity for the TOW wire trail
 };
