@@ -1,5 +1,6 @@
 // glTF binary import (offline bake) and the runtime textured model. No third-party glTF library: the GLB
 // container is a 12-byte header, a JSON chunk and a BIN chunk, and accessors are read directly.
+#include <chrono>
 #include "model.h"
 #include "simplify.h"
 #include <stb_image.h>
@@ -592,7 +593,7 @@ static void cutoutMips(GLuint t, int w, int h, int levels, const stbi_uc* d) {
 // is 85 MB of VRAM, BC1 11 MB, BC5 22 MB. kind: 0 albedo, 1 linear data, 2 normal
 // FOL1: a cutout albedo (cut) compresses too, BC3, its mips' alpha scaled to keep level 0's coverage at the 0.5 cutoff
 // (as cutoutMips): the 2048 needle atlases cost less than the old 1024 RGBA8 ones
-static GLuint loadTexBC(const uint8_t* d, int w, int h, int kind, size_t& bytes, bool cut = false) {
+static GLuint loadTexBC(const uint8_t* d, int w, int h, int kind, size_t& bytes, bool cut = false, std::vector<std::vector<uint8_t>>* keep = nullptr, GLenum* fmtOut = nullptr) {
   static int s3tc = -1;
   if (s3tc < 0) { s3tc = 0; GLint n = 0; glGetIntegerv(GL_NUM_EXTENSIONS, &n); int got = 0;
     for (GLint i = 0; i < n; ++i) { const char* e = (const char*)glGetStringi(GL_EXTENSIONS, i); if (!std::strcmp(e, "GL_EXT_texture_compression_s3tc")) got |= 1; if (!std::strcmp(e, "GL_EXT_texture_sRGB")) got |= 2; }
@@ -627,6 +628,7 @@ static GLuint loadTexBC(const uint8_t* d, int w, int h, int kind, size_t& bytes,
     for (auto& x : th) x.join();
     glCompressedTextureSubImage2D(t, L, 0, 0, lw, lh, fmt, (GLsizei)out.size(), out.data());
     bytes += out.size();
+    if (keep) keep->push_back(out);   // MEM3: the levels go to the disk cache
     if (L + 1 < levels) {   // the next mip: a 2x2 box
       int nw = std::max(1, lw / 2), nh = std::max(1, lh / 2); next.assign((size_t)nw * nh * 4, 0);
       for (int y = 0; y < nh; ++y) for (int x = 0; x < nw; ++x) for (int c = 0; c < 4; ++c) {
@@ -650,15 +652,63 @@ static GLuint loadTexBC(const uint8_t* d, int w, int h, int kind, size_t& bytes,
   }
   glTextureParameteri(t, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTextureParameteri(t, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTextureParameterf(t, 0x84FE /* GL_TEXTURE_MAX_ANISOTROPY */, 8.0f);
+  if (fmtOut) *fmtOut = fmt;
+  return t;
+}
+
+// MEM3: block-compressed model maps cached per user (%LOCALAPPDATA%/BattleFoundry/texbc): a hit skips the JPEG / PNG decode
+// and the CPU compression (most of the weapons' and vehicles' startup time). Keyed by the source's path, size and time.
+static fs::path texCacheFile(const fs::path& p, int kind) {
+  std::error_code ec; uintmax_t sz = fs::file_size(p, ec); if (ec) return {};
+  auto mt = fs::last_write_time(p, ec); if (ec) return {};
+  std::string key = "bc1|" + p.lexically_normal().string() + "|" + std::to_string(sz) + "|" + std::to_string((long long)mt.time_since_epoch().count()) + "|" + std::to_string(kind);
+  uint64_t x = 1469598103934665603ull; for (unsigned char c : key) { x ^= c; x *= 1099511628211ull; }
+  fs::path dir;
+  if (const char* e = std::getenv("NMK_TEXBC_CACHE")) { if (*e) dir = e; }
+#ifdef _WIN32
+  if (dir.empty()) if (const char* e = std::getenv("LOCALAPPDATA")) if (*e) dir = fs::path(e) / "BattleFoundry" / "texbc";
+#else
+  if (dir.empty()) if (const char* e = std::getenv("HOME")) if (*e) dir = fs::path(e) / ".cache" / "BattleFoundry" / "texbc";
+#endif
+  if (dir.empty()) dir = exeDir() / "cache" / "texbc";
+  char nm[32]; std::snprintf(nm, sizeof nm, "%016llx.bc", (unsigned long long)x);
+  return dir / nm;
+}
+static GLuint texFromCache(const fs::path& f, size_t& bytes) {
+  std::ifstream in(f, std::ios::binary); if (!in) return 0;
+  uint32_t hd[4]; if (!in.read((char*)hd, sizeof hd) || hd[0] != 0x31434258u) return 0;   // "XBC1", w, h, format
+  int w = (int)hd[1], h = (int)hd[2]; GLenum fmt = hd[3];
+  if (w < 4 || h < 4 || w > 16384 || h > 16384) return 0;
+  int levels = 1 + (int)std::floor(std::log2((float)std::max(w, h)));
+  std::vector<std::vector<uint8_t>> lv(levels);
+  for (int L = 0; L < levels; ++L) { uint32_t n = 0; if (!in.read((char*)&n, 4) || n > (64u << 20)) return 0; lv[L].resize(n); if (!in.read((char*)lv[L].data(), n)) return 0; }
+  GLuint t; glCreateTextures(GL_TEXTURE_2D, 1, &t);
+  glTextureStorage2D(t, levels, fmt, w, h);
+  for (int L = 0, lw = w, lh = h; L < levels; ++L, lw = std::max(1, lw / 2), lh = std::max(1, lh / 2)) { glCompressedTextureSubImage2D(t, L, 0, 0, lw, lh, fmt, (GLsizei)lv[L].size(), lv[L].data()); bytes += lv[L].size(); }
+  glTextureParameteri(t, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTextureParameteri(t, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTextureParameterf(t, 0x84FE /* GL_TEXTURE_MAX_ANISOTROPY */, 8.0f);
   return t;
 }
 
 static GLuint loadTex(const fs::path& p, bool srgb, size_t& bytes, int kind = -1, bool cutout = false) {
   int w, h, c;
+  fs::path cf = kind >= 0 || cutout ? texCacheFile(p, cutout ? 3 : kind) : fs::path();
+  if (!cf.empty()) if (GLuint ct = texFromCache(cf, bytes)) return ct;
   stbi_set_flip_vertically_on_load(0);
   stbi_uc* d = stbi_load(p.string().c_str(), &w, &h, &c, 4);
   if (!d) return 0;
-  if (kind >= 0 || cutout) if (GLuint bt = loadTexBC(d, w, h, cutout ? 0 : kind, bytes, cutout)) { stbi_image_free(d); return bt; }
+  std::vector<std::vector<uint8_t>> lv; GLenum fmt = 0;
+  if (kind >= 0 || cutout) if (GLuint bt = loadTexBC(d, w, h, cutout ? 0 : kind, bytes, cutout, cf.empty() ? nullptr : &lv, &fmt)) {
+    stbi_image_free(d);
+    if (!lv.empty()) {   // written under a temp name: a half-written file never reads as a hit
+      std::error_code ec; fs::create_directories(cf.parent_path(), ec);
+      fs::path tmp = cf; tmp += "." + std::to_string((unsigned long long)(uintptr_t)&lv ^ (unsigned long long)std::chrono::steady_clock::now().time_since_epoch().count()) + ".tmp";   // unique per writer (several game instances)
+      { std::ofstream o(tmp, std::ios::binary); uint32_t hd[4] = {0x31434258u, (uint32_t)w, (uint32_t)h, (uint32_t)fmt}; o.write((const char*)hd, sizeof hd);
+        for (auto& l : lv) { uint32_t n = (uint32_t)l.size(); o.write((const char*)&n, 4); o.write((const char*)l.data(), n); } }
+      fs::rename(tmp, cf, ec);
+    }
+    return bt;
+  }
   GLuint t; glCreateTextures(GL_TEXTURE_2D, 1, &t);
   int levels = 1 + (int)std::floor(std::log2((float)std::max(w, h)));
   glTextureStorage2D(t, levels, srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8, w, h);
