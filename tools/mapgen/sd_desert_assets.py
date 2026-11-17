@@ -118,6 +118,16 @@ def warm_mass(src):
     return a
 
 
+def clean_fence():
+    """The chain-link panel without its weed and leaf tufts (low-poly cones in a desert yard)."""
+    a = json.load(open(os.path.join(A, "mod_chainlink_panel.json"), encoding="utf-8"))
+    a["parts"] = [q for q in a["parts"] if q.get("m") not in ("weeds", "leaves")]
+    a["materials"] = [m for m in a["materials"] if m["name"] not in ("weeds", "leaves")]
+    a["id"], a["name"] = "sd_chainlink_panel", "Chain-link panel (clean)"
+    a["description"] = a["description"] + " Without the weed tufts (Search and Destroy, Sun Fort)."
+    return a
+
+
 def canopy():
     p = []
     for sx in (-1, 1):
@@ -169,6 +179,7 @@ def main():
     out.append(warm_copy("mod_nt_compound_wall_plain", "sd_compound_wall_warm_plain", "Compound wall bay, inner, tan (6 m)"))
     out.append(warm_copy("mod_nt_compound_wall_breach", "sd_compound_wall_warm_breach", "Compound wall bay, breached, tan"))
     out.append(canopy())
+    out.append(clean_fence())
     out += [warm_mass(m) for m in WARM_MASSES]
     out.append(stencil("A", [0.93, 0.47, 0.09]))
     out.append(stencil("B", [0.05, 0.6, 0.62]))
