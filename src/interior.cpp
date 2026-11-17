@@ -2516,6 +2516,31 @@ InteriorSys::DoorwayReport InteriorSys::doorwayReport(App& app) {
   return r;
 }
 
+// FUR1: the planner's result per building type and seed (and density, clutter, wear, ruin, lights-only), cached per user:
+// planning is ~100 ms a building (15 s on chateau_town at every load / match start); a hit replays it. The key hashes
+// the building's asset file, the dressing rules (content/settings) and every furniture / lamp asset file.
+static const std::string& furnContentHash() {
+  static const std::string h = [] {
+    uint64_t x = 1469598103934665603ull;
+    auto mix = [&](const std::string& s) { for (unsigned char c : s) { x ^= c; x *= 1099511628211ull; } };
+    std::error_code ec; std::vector<fs::path> fl;
+    for (auto& e : fs::directory_iterator(contentDir() / "settings", ec)) if (e.path().extension() == ".json") fl.push_back(e.path());
+    for (auto& e : fs::directory_iterator(contentDir() / "assets", ec)) { std::string n = e.path().filename().string(); if (e.path().extension() == ".json" && (n.rfind("furn_", 0) == 0 || n.rfind("lamp_", 0) == 0)) fl.push_back(e.path()); }
+    std::sort(fl.begin(), fl.end());
+    for (auto& f : fl) { mix(f.filename().string()); mix(readTextFile(f)); }
+    char b[20]; std::snprintf(b, sizeof b, "%016llx", (unsigned long long)x); return std::string(b);
+  }();
+  return h;
+}
+static fs::path furnCacheDir() {
+  if (const char* e = std::getenv("NMK_FURNISH_CACHE")) if (*e) return fs::path(e);
+#ifdef _WIN32
+  if (const char* e = std::getenv("LOCALAPPDATA")) if (*e) return fs::path(e) / "BattleFoundry" / "furnish";
+#else
+  if (const char* e = std::getenv("HOME")) if (*e) return fs::path(e) / ".cache" / "BattleFoundry" / "furnish";
+#endif
+  return exeDir() / "cache" / "furnish";
+}
 int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
   auto t0 = std::chrono::high_resolution_clock::now();
   Instance* h = app.doc.find(hostId); if (!h) return 0;
@@ -2572,8 +2597,24 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
     P.boxes.push_back({mn, mx});
     for (size_t s = 0; s < ri->storeys.size(); ++s) if (std::fabs(ri->storeys[s].y - lp.y) < 0.5f) P.mark((int)s, vec2(mn.x, mn.z), vec2(mx.x, mx.z), 1);
   }
+  fs::path cacheFile;
+  bool cached = false;
+  if (manual.empty() && !getenv("NMK_GX2_GRID") && !getenv("NMK_FURNISH_NOCACHE")) {   // FUR1: a planned building of this type, seed and finish replays
+    char k[256]; std::snprintf(k, sizeof k, "v1|%s|%u|%.3f|%.3f|%.3f|%d|%d|", ha->id.c_str(), seed, density, clutter, wear, (int)ruin, (int)lightsOnly);
+    std::string key = std::string(k) + furnContentHash() + "|" + readTextFile(contentDir() / "assets" / ha->file);
+    uint64_t x = 1469598103934665603ull; for (unsigned char c : key) { x ^= c; x *= 1099511628211ull; }
+    char nm[64]; std::snprintf(nm, sizeof nm, "%016llx.json", (unsigned long long)x);
+    cacheFile = furnCacheDir() / (ha->id + "-" + nm);
+    std::error_code ec;
+    if (fs::exists(cacheFile, ec)) try {
+      json c = json::parse(readTextFile(cacheFile));
+      for (auto& e : c["out"]) { PlanItem it; it.slot = e[0]; it.asset = e[1]; it.p = vec3(e[2].get<float>(), e[3].get<float>(), e[4].get<float>()); it.yaw = e[5]; P.out.push_back(it); }
+      cached = true;
+    } catch (...) { P.out.clear(); }
+  }
   std::vector<int> order(ri->rooms.size());
   for (size_t k = 0; k < order.size(); ++k) order[k] = (int)k;
+  if (!cached) {
   for (int k : order) if (!lightsOnly) { P.room(k); crumb("furnish: room"); }   // UI3: crumbs give the loading screen its frames
   if (ruin && !lightsOnly) P.ruinPass();   // AS1: abandoned (before the doorway rules: they still apply)
   if (!lightsOnly) P.clearPaths();   // FN1: no generated piece cuts one doorway off from another
@@ -2590,6 +2631,13 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
     size_t n0 = li.size(); if (!ruin) lightsPlanRooms(app, *this, *h, ha, *ri, seed, li, wallFix);   // AS1: no working lamps in a ruin
     for (size_t q = n0; q < li.size(); ++q) { PlanItem it; it.slot = li[q].slot; it.asset = li[q].asset; it.p = li[q].p; it.yaw = li[q].yaw; P.out.push_back(it); }
   }
+  if (!cacheFile.empty()) {   // FUR1: save the plan (before the seeded breakage below, which replays the same)
+    json c = json::object(), o = json::array();
+    for (auto& it : P.out) o.push_back({it.slot, it.asset, it.p.x, it.p.y, it.p.z, it.yaw});
+    c["out"] = o; std::error_code ec; fs::create_directories(cacheFile.parent_path(), ec);
+    std::ofstream f(cacheFile, std::ios::binary); if (f) f << c.dump();
+  }
+  }   // !cached
   if (const char* g = getenv("NMK_GX2_GRID"); g && ha->id == g) {   // GX2 debug: each storey's grid as a PPM image
     for (size_t s = 0; s < ri->storeys.size(); ++s) {
       const auto& S = ri->storeys[s];
@@ -2609,7 +2657,7 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
     }
   }
   lastStats.clear();
-  if (!lightsOnly) {   // GX2: what each room ended up with
+  if (!lightsOnly && !cached) {   // GX2: what each room ended up with
     std::string rep;
     for (size_t k = 0; k < ri->rooms.size(); ++k) {
       lastStats.push_back(P.stat((int)k));
@@ -2659,7 +2707,7 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
   app.syncRuntime();
   lastFurnishMs = (float)std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - t0).count();
   if (getenv("NMK_INTERIORS_QUICK")) { std::string l; for (auto& it : P.out) l += " " + it.slot + "=" + it.asset.substr(5); logf("interior: placed%s", l.c_str()); }
-  logf("interior: furnished %s #%llu: %d pieces (%zu slots, %zu kept overrides, %zu removed) in %.1f ms, %d solid queries; no room for:%s", ha->id.c_str(), (unsigned long long)hostId, made, P.out.size(), manual.size(), removed.size(), lastFurnishMs, P.calls, P.failed.empty() ? " -" : P.failed.c_str());
+  logf("interior: furnished %s #%llu: %d pieces (%zu slots, %zu kept overrides, %zu removed) in %.1f ms, %d solid queries%s; no room for:%s", ha->id.c_str(), (unsigned long long)hostId, made, P.out.size(), manual.size(), removed.size(), lastFurnishMs, P.calls, cached ? " (cached plan)" : "", P.failed.empty() ? " -" : P.failed.c_str());
   return made;
 }
 

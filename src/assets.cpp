@@ -1,3 +1,4 @@
+#include <chrono>
 #include "assets.h"
 #include "model.h"
 #include "textures.h"
@@ -27,7 +28,7 @@ void logf(const char* fmt, ...) {
   va_list ap; va_start(ap, fmt);
   char buf[2048]; std::vsnprintf(buf, sizeof buf, fmt, ap); va_end(ap);
   static const bool memlog = std::getenv("NMK_MEMLOG") != nullptr;   // MEM1: every line stamped with commit / working set (MB)
-  if (memlog && f) { ProcMem m = processMemory(); std::fprintf(f, "[c%6.0f w%6.0f] ", m.PrivateBytes / 1048576.0, m.WorkingSetSize / 1048576.0); }
+  if (memlog && f) { static const auto t0 = std::chrono::steady_clock::now(); ProcMem m = processMemory(); std::fprintf(f, "[c%6.0f w%6.0f t%7.2f] ", m.PrivateBytes / 1048576.0, m.WorkingSetSize / 1048576.0, std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count()); }
   if (f) { std::fputs(buf, f); std::fputc('\n', f); std::fflush(f); }
   std::fputs(buf, stdout); std::fputc('\n', stdout); std::fflush(stdout);
 }
