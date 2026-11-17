@@ -151,7 +151,7 @@ const char* lootAttachItemId(int slot, int value) { return slot >= 0 && slot < 4
 const char* lootSlotName(int slot) { static const char* n[4] = {"Sight", "Muzzle", "Magazine", "Stock"}; return slot >= 0 && slot < 4 ? n[slot] : "?"; }
 int lootSlotOf(ItemKind k) { return k == ItemKind::Sight ? ATT_SIGHT : k == ItemKind::Muzzle ? ATT_MUZZLE : k == ItemKind::Mag ? ATT_MAG : ATT_STOCK; }
 bool lootGunTakesParts(const WeaponDef& d) {
-  for (int sl = 0; sl < 4; ++sl) for (int v = 1; v < 5; ++v) { const char* id = kAttIds[sl][v]; if (*id) if (const ItemDef* it = lootItem(id)) if (lootAttachFits(d, *it)) return true; }
+  for (int sl = 0; sl < 4; ++sl) for (int v = 1; v < 6; ++v) { const char* id = kAttIds[sl][v]; if (*id) if (const ItemDef* it = lootItem(id)) if (lootAttachFits(d, *it)) return true; }
   return false;
 }
 bool lootFit(App& app, Kit& k, int weapon, const std::string& itemId, std::string* why) {

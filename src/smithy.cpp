@@ -44,7 +44,7 @@ void renderGun(App& app, const WeaponDef& d, const WeaponState& s, int w, int h)
   glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
   glTextureSubImage2D(gTex, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
 }
-const char* sightName(int v) { static const char* n[] = {"iron sights", "red dot", "ACOG", "4x", "10x"}; return v >= 0 && v <= 4 ? n[v] : "?"; }
+const char* sightName(int v) { static const char* n[] = {"iron sights", "red dot", "ACOG", "4x", "10x", "holographic"}; return v >= 0 && v <= 5 ? n[v] : "?"; }
 }
 
 bool smithyOpen() { return gOpen; }
