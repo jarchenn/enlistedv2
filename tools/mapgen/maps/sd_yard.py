@@ -178,9 +178,13 @@ def build(ctx):
     for ch, items in (("A", [("cl_yard_loading_area", 4.85, 2.45, 1), ("cl_yard_workshop_bay", 3.8, 2.25, 1)]),
                       ("B", [("ph_overhead_crane", 6.25, 2.0, 1), ("cl_yard_pipe_yard", 3.9, 2.15, 1)]),
                       ("M", [("cl_yard_pipe_rack", 1.25, 0.4, 2), ("cl_yard_barrel_stack", 0.95, 0.75, 1)]),
-                      ("s", [("cl_yard_tool_carts", 1.55, 0.8, 1), ("cl_yard_camera_pole", 0.7, 0.6, 1), ("ph_modular_electricity_poles", 0.65, 0.45, 1), ("tun_cable_reel", 0.6, 0.4, 1), ("mod_bollard_steel", 0.15, 0.15, 2)]),
-                      ("t", [("cl_yard_workshop_corner", 1.6, 1.0, 1), ("cl_yard_camera_pole", 0.7, 0.6, 1), ("ph_modular_electricity_poles", 0.65, 0.45, 2), ("sd_dry_pallet_stack", 1.0, 0.45, 1), ("mod_bollard_steel", 0.15, 0.15, 2)]),
-                      ("f", [("cl_yard_barrel_stack", 0.95, 0.75, 1), ("tun_cable_reel", 0.6, 0.4, 1)]), ("R", [("ph_modular_electricity_poles", 0.65, 0.45, 2), ("cl_yard_tool_carts", 1.55, 0.8, 1)])):
+                      ("s", [("cl_yard_tool_carts", 1.55, 0.8, 1), ("cl_yard_camera_pole", 0.7, 0.6, 1), ("ph_modular_electricity_poles", 0.65, 0.45, 1), ("tun_cable_reel", 0.6, 0.4, 1), ("mod_bollard_steel", 0.15, 0.15, 2),
+                            ("cl_yard_pipe_rack", 1.25, 0.4, 1), ("sd_dry_pallet_stack", 1.0, 0.45, 2), ("cl_yard_barrel_stack", 0.95, 0.75, 1)]),
+                      ("t", [("cl_yard_workshop_corner", 1.6, 1.0, 1), ("cl_yard_camera_pole", 0.7, 0.6, 1), ("ph_modular_electricity_poles", 0.65, 0.45, 2), ("sd_dry_pallet_stack", 1.0, 0.45, 2), ("mod_bollard_steel", 0.15, 0.15, 2),
+                            ("cl_yard_pipe_rack", 1.25, 0.4, 1), ("cl_yard_tool_carts", 1.55, 0.8, 1)]),
+                      ("f", [("cl_yard_barrel_stack", 0.95, 0.75, 1), ("tun_cable_reel", 0.6, 0.4, 1), ("cl_yard_pipe_rack", 1.25, 0.4, 1), ("sd_dry_pallet_stack", 1.0, 0.45, 1)]),
+                      ("p", [("cl_yard_pipe_rack", 1.25, 0.4, 1), ("cl_yard_barrel_stack", 0.95, 0.75, 1)]),
+                      ("c", [("cl_yard_tool_carts", 1.55, 0.8, 1), ("sd_dry_pallet_stack", 1.0, 0.45, 1)]), ("R", [("ph_modular_electricity_poles", 0.65, 0.45, 2), ("cl_yard_tool_carts", 1.55, 0.8, 1)])):
         n_kit += place_along_walls(b, plan, ch, items, R, y0, keep=keep)
     for ch in "ABMstR":
         cs = plan.cells(ch)
@@ -280,7 +284,7 @@ def build(ctx):
     thumb_cam = ([_v["pos"][0], _v["pos"][1] + 0.6, _v["pos"][2]], _v["yaw"], -5.0)
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sc.to_json(rules_extra=rules), explore_start=((a1[0], a1[1], a1[2]), 0.0), camera=cam, bookmarks={},
-              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 22.5, "fill": 0.4}, "look": {"haze": 1.35, "clouds": 0.8, "saturation": 1.0, "tint": [1.03, 0.97, 0.9], "bloom": 1.7, "paintSets": {"rock": "yard_asphalt_paint", "gravel": "gravel_mixed", "pebbles": "yard_apron_paint"}}})
+              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 22.5, "fill": 0.15}, "look": {"haze": 1.35, "clouds": 0.95, "saturation": 1.0, "tint": [1.03, 0.97, 0.9], "bloom": 1.7, "paintSets": {"rock": "yard_asphalt_paint", "gravel": "gravel_mixed", "pebbles": "yard_apron_paint"}}})
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=20, version=VERSION, seed=SEED,
                    description="Search and Destroy: a desert compound of precast concrete walls and courtyards in hard noon light. "
                                "A: the west vehicle court; B: the east supply yard; Mid: the parade square. 5 v 5.",

@@ -309,6 +309,31 @@ def monument():
             "furniture": [], "interactables": [], "panels": []}
 
 
+def market_lean_to():
+    """The square's covered market against a divider wall (6 m bay, its origin on the wall's edge line, +z into the
+    square): oak posts 1.7 m out at the bay ends, a beam and a pent tile roof from the wall top down to 2.7 m, rafters
+    under it. Only the posts collide (a 1.5 m walk between them and the wall)."""
+    p = []
+    zp = 0.31 + 1.7
+    for x in (-2.9, 2.9):
+        B(p, [x, 1.35, zp], [0.2, 2.7, 0.2], "oak", k=1, bv=0.02)
+        B(p, [x, 0.08, zp], [0.34, 0.16, 0.34], "plinth", bv=0.02)
+        B(p, [x, 2.45, zp - 0.3], [0.1, 0.1, 0.7], "oak", r=[-40, 0, 0], lod=1)   # brace
+    B(p, [0, 2.8, zp], [6.0, 0.22, 0.2], "oak")
+    y0, y1, z0, z1 = 3.3, 2.75, 0.31, zp + 0.45
+    import math as _m
+    L, ang = _m.hypot(z1 - z0, y0 - y1), _m.degrees(_m.atan2(y0 - y1, z1 - z0))
+    B(p, [0, (y0 + y1) / 2 + 0.1, (z0 + z1) / 2], [6.06, 0.06, L], "tile", r=[ang, 0, 0])
+    for x in (-2.25, -0.75, 0.75, 2.25):
+        B(p, [x, (y0 + y1) / 2 + 0.02, (z0 + z1) / 2], [0.1, 0.1, L], "oak", r=[ang, 0, 0], lod=1)
+    B(p, [0, 3.35, 0.36], [6.0, 0.12, 0.12], "oak", lod=1)   # the wall plate
+    return {"id": "sd_market_lean_to", "version": 1, "name": "Covered market bay", "category": "Modern: Military",
+            "description": "Search and Destroy (Rue Haute): a 6 m covered market bay against a wall of the square: oak posts and a pent tile roof.",
+            "footprint": [6.0, 2.4], "floors": 0, "enterable": False, "plinthDepth": 0, "maxGrade": 3, "noAutoPanels": True, "materials": MATS, "parts": p,
+            "nav": {"effect": "none", "rooms": [], "doors": [], "entrances": [], "corners": [], "firingPoints": [], "cover": [], "areas": []},
+            "furniture": [], "interactables": [], "panels": []}
+
+
 def washing_line():
     """A washing line across a 6 m lane between two house fronts (5.3 m, its origin on the line): an iron bracket at each
     end, linen, shirts and a blanket pegged along it, sagging a little. Nothing collides."""
@@ -341,7 +366,7 @@ def washing_line():
 def main():
     n = 0
     out = [house(aid, name, "Search and Destroy (Rue Haute): a 6 m Norman town-house frontage on a lane edge, not enterable; " + name.lower() + ".", **kw)
-           for aid, name, kw in VARIANTS] + [monument(), washing_line()]
+           for aid, name, kw in VARIANTS] + [monument(), washing_line(), market_lean_to()]
     for a in out:
         with open(os.path.join(ROOT, "content", "assets", a["id"] + ".json"), "w", encoding="utf-8", newline="\n") as f:
             json.dump(a, f, separators=(",", ":"))

@@ -9,7 +9,7 @@ import os
 
 from mapgen import (GroundPaint, Grid, Frame, MapBuilder, ScenarioBuilder, write_map, write_template, write_summary, asset_usage,
                     rng, look_yaw)
-from maps.sd_common import rows_from, Plan, place_facades, spread, place_masses, place_cover, wall_spot, site_signs, place_along_walls
+from maps.sd_common import rows_from, Plan, place_facades, spread, place_masses, place_cover, wall_spot, site_signs, place_along_walls, place_in_space
 
 TID, NAME, VERSION, SEED = "sd_town", "Rue Haute", 1, 2613
 CELL = 6.0
@@ -171,6 +171,19 @@ def build(ctx):
     # the town kit against the walls (4.5 m clear of doorways, 1 m walkways): the market row and stalls in the Market Hall,
     # the cafe terrace and doorsteps on the square, a barricade and roadblock in the lanes, carts and rubble
     n_kit = 0
+    # the square's divider walls carry a covered market (oak posts, a pent tile roof) with a stall under each bay
+    used_m = []
+    for x, z, yaw, kind, a, c in plan.edges():
+        if kind or not (plan.walk(*a) and plan.walk(*c)) or "M" not in (plan.at(*a), plan.at(*c)):
+            continue
+        inside = a if plan.at(*a) == "M" else c
+        ix, iz = plan._cc(*inside)
+        nx_, nz_ = (1.0 if ix > x else -1.0, 0.0) if yaw == 90.0 else (0.0, 1.0 if iz > z else -1.0)
+        fy = math.degrees(math.atan2(nx_, nz_)) % 360.0
+        b.place("sd_market_lean_to", x, z, fy, check=False, cls="none", y=y0, tags={"cover", "market"})
+        b.place("cl_town_market_stall", x + nx_ * 1.25, z + nz_ * 1.25, (fy + 90.0) % 360.0 + R.uniform(-3, 3), check=False, cls="none", y=y0, tags={"cover", "market"})
+        used_m.append((x + nx_ * 1.2, z + nz_ * 1.2, 3.0 if yaw == 0.0 else 1.3, 1.3 if yaw == 0.0 else 3.0))
+        n_kit += 2
     for ch, items in (("B", [("cl_town_market_row", 4.75, 1.6, 1), ("cl_town_market_stall", 1.6, 0.9, 2)]),
                       ("M", [("cl_town_cafe_terrace_large", 4.7, 2.3, 1), ("cl_town_doorstep", 1.6, 0.6, 1), ("cl_town_bench_corner", 1.5, 0.7, 1)]),
                       ("A", [("cl_town_doorstep", 1.6, 0.6, 1), ("cl_town_bench_corner", 1.5, 0.7, 1)]),
@@ -178,7 +191,17 @@ def build(ctx):
                       ("t", [("cl_town_barricade", 5.25, 1.8, 1), ("cl_town_doorstep", 1.6, 0.6, 2)]),
                       ("f", [("cl_town_doorstep", 1.6, 0.6, 1)]), ("R", [("cl_town_doorstep", 1.6, 0.6, 2), ("cl_town_cafe_terrace", 2.8, 1.2, 1)]),
                       ("c", [("cl_town_market_stall", 1.6, 0.9, 1)])):
-        n_kit += place_along_walls(b, plan, ch, items, R, y0, keep=PADS)
+        Rk = rng(SEED * 31 + ord(ch))   # each region's own draws: dressing one region never moves another's (the barricade on the B route)
+        n_kit += place_along_walls(b, plan, ch, items, Rk, y0, keep=PADS, placed=used_m if ch == "M" else None)
+    # the open square: stalls, a cart and benches round the memorial; the covered passages: barrels and doorsteps
+    taken = [(mx, mz, 2.6)]
+    n_kit += place_in_space(b, plan, "M", [("cl_town_market_stall", 1.6, 0.9, 2), ("drs_cart", 1.9, 0.95, 1)], R, y0, PADS, taken)
+    for k, (dx, dz) in enumerate(((0.0, 3.4), (3.4, 0.0), (0.0, -3.4), (-3.4, 0.0))):
+        if k % 2 == 0:
+            b.place("mod_garden_bench", mx + dx, mz + dz, math.degrees(math.atan2(-dx, -dz)) % 360.0, check=False, cls="none", y=y0, tags={"cover"})
+            n_kit += 1
+    for ch in "k":   # the defenders' access only: barrels in the bakery and cafe passages slowed the attackers' B route past 20 s
+        n_kit += place_along_walls(b, plan, ch, [("drs_barrels", 1.0, 0.7, 1), ("cl_town_doorstep", 1.6, 0.6, 1)], R, y0, keep=PADS)
     # ---------------------------------------------------------------- scenario: sites, spawns, timings
     sc = ScenarioBuilder(b, defending="Axis")
     xA, zA = plan.cc(*PLANT_A_CELL)

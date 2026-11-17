@@ -174,7 +174,7 @@ def build(ctx):
                                                  ("cl_desert_scrap_pile", 0.9, 0.7, 1)], R, y0, PADS, taken)
     n_space += barrier_line(b, plan, "M", "mod_jersey_barrier", 2, 3.2, 0.8, R, y0, PADS, taken)
     n_space += place_in_space(b, plan, "M", [("cl_desert_supply_stack", 1.45, 0.7, 1), ("cl_desert_rocks_deadwood", 3.0, 2.35, 1)], R, y0, PADS, taken)
-    if os.environ.get("NMK_SD_BIG"):   # SD5 harness: the large clusters against the site / mid walls and the edge dressing inside the sites (what broke the bots)
+    if os.environ.get("NMK_SD_BIG", "1") != "0":   # the large clusters against the site / mid walls, edge dressing inside the sites (on since SD5; NMK_SD_BIG=0 drops them)
         for ch, big in (("A", [("cl_desert_supply_dump", 3.6, 2.4, 1), ("cl_desert_fuel_dump", 4.2, 2.8, 1)]), ("B", [("cl_desert_motor_pool", 3.6, 2.1, 1), ("cl_desert_guard_point", 3.0, 2.6, 1)]),
                         ("M", [("cl_desert_supply_dump", 3.6, 2.4, 1)])):
             n_space += place_along_walls(b, plan, ch, big, R, y0, keep=PADS)
