@@ -934,7 +934,7 @@ bool App::startMarkerValid(vec3 pos) const { return !Physics::capsuleBlocked(pos
 
 // ============================================================ thumbnails & screenshots
 void App::makeThumbnails() {
-  makeAssetThumbnails(*this);   // thumbs.cpp (W2): silhouette framing, models and wire, disk cache
+  // MEM2: catalogue tiles load / render on demand as the build palette shows them (assetThumbOnDemand, thumbs.cpp)
   for (auto& t : templates) {
     if (!t.available) continue;
     if (w5TemplateThumbnail(t)) continue;   // W5: pre-rendered default-map preview

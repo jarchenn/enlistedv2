@@ -811,6 +811,35 @@ json furnitureModelFor(const std::string& id) {   // PR2: content/settings/furni
   json m = *f; m.erase("_ref"); return m;
 }
 
+// the catalogue fields every asset has before (and after) its geometry is built: from raw
+static void readHeader(AssetDef& a) {
+  const json& j = a.raw;
+  a.vehicle = j.is_object() && j.contains("vehicle");
+  a.version = j.value("version", 1);
+  a.name = j.value("name", a.id);
+  a.category = j.value("category", "Misc");
+  a.description = j.value("description", "");
+  a.floors = j.value("floors", 1);
+  a.enterable = j.value("enterable", false);
+  if (j.contains("footprint")) a.footprint = vec2(j["footprint"][0].get<float>(), j["footprint"][1].get<float>());
+  a.plinthDepth = j.value("plinthDepth", 1.0f);
+  a.maxGrade = j.value("maxGrade", 1.0f);
+}
+// MEM2: back to the header only (GPU meshes and buffers, CPU geometry, collision freed); the next find builds it again.
+// Only for an asset nothing uses (the palette's tile renders): placed copies, the placing ghost and caches hold its parts.
+void AssetLibrary::release(AssetDef& a) const {
+  if (!a.built || a.vehicle || a.placeholder || a.raw.contains("rack")) return;
+  for (GpuMesh* m : {&a.opaque, &a.glass, &a.colliderGhost, &a.defBrokenMesh, &a.panelsIntact, &a.panelsLod[0], &a.panelsLod[1], &a.noFurnOpaque, &a.noFurnGlass,
+                     &a.lodMesh[0], &a.lodMesh[1], &a.station.yawMesh, &a.station.elevMesh, &a.station.recoilMesh, &a.tree.stumpMesh, &a.tree.trunkMesh}) m->destroy();
+  for (auto& it : a.interactables) for (auto& l : it.leaves) { l.opaque.destroy(); l.glass.destroy(); }
+  for (auto& pn : a.panels) for (auto& m : pn.mesh) m.destroy();
+  for (GLuint* b : {&a.tree.cardVbo, &a.tree.cardToneVbo, &a.tree.leafInst}) if (*b) { glDeleteBuffers(1, b); *b = 0; }
+  for (GLuint* v : {&a.tree.cardVao, &a.tree.leafVao}) if (*v) { glDeleteVertexArrays(1, v); *v = 0; }
+  for (auto* m : {&a.model, &a.modelLod}) if (*m && m->use_count() == 1) (*m)->destroy();   // attached / shared models stay (their cache)
+  AssetDef h; h.file = a.file; h.id = a.id; h.raw = std::move(a.raw); h.thumbnail = a.thumbnail;
+  a = std::move(h);
+  readHeader(a);
+}
 bool AssetLibrary::loadOne(const fs::path& path) {
   json j;
   try { j = json::parse(readTextFile(path)); } catch (std::exception& e) { logf("asset %s: parse error %s", path.string().c_str(), e.what()); return false; }
@@ -824,16 +853,8 @@ bool AssetLibrary::loadOne(const fs::path& path) {
       for (auto& pj : j["parts"]) pj["mf"] = 1;
     }
   }
-  a->raw = j; a->vehicle = j.is_object() && j.contains("vehicle");
-  a->version = j.value("version", 1);
-  a->name = j.value("name", a->id);
-  a->category = j.value("category", "Misc");
-  a->description = j.value("description", "");
-  a->floors = j.value("floors", 1);
-  a->enterable = j.value("enterable", false);
-  if (j.contains("footprint")) a->footprint = vec2(j["footprint"][0].get<float>(), j["footprint"][1].get<float>());
-  a->plinthDepth = j.value("plinthDepth", 1.0f);
-  a->maxGrade = j.value("maxGrade", 1.0f);
+  a->raw = j;
+  readHeader(*a);
   AssetDef* p = a.get();
   index_.emplace(a->id, p);   // the first asset of an id wins, as the old linear find did
   assets.push_back(std::move(a));

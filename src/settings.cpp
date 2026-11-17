@@ -294,7 +294,8 @@ void settingsEndFrame(App& app) {
   if (mainMenuActive()) lim(focused ? 60 : 30);   // UI2: the menu is a still: 60 fps, 30 in the background
   if (!focused) lim(30);                                       // MEM1: a background game does not need a full core
   if (glfwGetWindowAttrib(app.win, GLFW_ICONIFIED)) lim(10);   // vsync does not hold a minimised window: it would spin
-  if (cap > 0 && !gSelftest) {
+  static const bool capInTest = std::getenv("NMK_FRAMECAP_IN_TEST") != nullptr;   // MEM2: --mem-probe measures the real idle CPU
+  if (cap > 0 && (!gSelftest || capInTest)) {
     auto target = last + std::chrono::duration_cast<clk::duration>(std::chrono::duration<double>(1.0 / cap));
     auto now = clk::now();
     if (target > now + std::chrono::milliseconds(2)) std::this_thread::sleep_for(target - now - std::chrono::milliseconds(2));

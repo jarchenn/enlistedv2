@@ -68,7 +68,15 @@ bool memProbeSelfTest(App& a, float dt) {
     case 0: { static double w0 = -1; if (w0 < 0) { w0 = wall(); cpu0 = cpuSec(); wall0 = w0; frames = 0; mainMenuOpen(a); }   // the real menu (self-tests skip it); wall clock: the menu may hold dt
       static double lastTick = 0; t = (float)(wall() - w0);
       if (t - lastTick >= 10) { lastTick = t; ProcMem m = processMemory(); logf("[mem]   t %4.0f s %s: commit %6.0f MB  working set %6.0f MB", t, mainMenuActive() ? "menu" : "no menu", m.PrivateBytes / 1048576.0, m.WorkingSetSize / 1048576.0); } } if (t > (std::getenv("NMK_MEM_MENU_S") ? std::atof(std::getenv("NMK_MEM_MENU_S")) : 10.0)) { report("main menu idle"); mainMenuGo(a, 0); next(); if (std::getenv("NMK_MEM_MENU_ONLY")) phase = 99; } break;
-    case 1: { std::string why; logf("[mem] GpuVertex packing check: %s", gpuVertexPackCheck(why) ? "PASS" : ("FAIL " + why).c_str()); load("blank_slate"); next(); } break;
+    case 1: if (std::getenv("NMK_MEM_PALETTE")) {   // MEM2: browse 40 uncached tiles as the palette would (render, then release)
+        extern void assetThumbOnDemand(App&, AssetDef&, int&);
+        ProcMem m0 = processMemory(); int shown = 0;
+        for (auto& ap : a.lib.assets) { if (ap->vehicle || ap->built || ap->thumbnail) continue; int b = 2; assetThumbOnDemand(a, *ap, b); if (++shown >= 40) break; }
+        int built = 0; for (auto& ap : a.lib.assets) built += ap->built;
+        ProcMem m1 = processMemory();
+        logf("[mem] palette: %d tiles shown, commit %.0f -> %.0f MB, %d assets built after (released ones are not)", shown, m0.PrivateBytes / 1048576.0, m1.PrivateBytes / 1048576.0, built);
+      } [[fallthrough]];
+    case 100: { std::string why; logf("[mem] GpuVertex packing check: %s", gpuVertexPackCheck(why) ? "PASS" : ("FAIL " + why).c_str()); load("blank_slate"); next(); } break;
     case 2: if (t > 5) { report("small map (blank slate)"); next(); } break;
     case 3: load("chateau_town"); next(); break;
     case 4: if (t > 4.5f && t - dt <= 4.5f) { fs::path d = exeDir() / "selftest_out"; std::error_code ec; fs::create_directories(d, ec); gShot = d / "mem1_large.png"; }
