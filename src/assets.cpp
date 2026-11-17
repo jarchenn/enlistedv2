@@ -26,6 +26,8 @@ void logf(const char* fmt, ...) {
   if (!f) f = std::fopen((exeDir() / "normandy.log").string().c_str(), "w");
   va_list ap; va_start(ap, fmt);
   char buf[2048]; std::vsnprintf(buf, sizeof buf, fmt, ap); va_end(ap);
+  static const bool memlog = std::getenv("NMK_MEMLOG") != nullptr;   // MEM1: every line stamped with commit / working set (MB)
+  if (memlog && f) { ProcMem m = processMemory(); std::fprintf(f, "[c%6.0f w%6.0f] ", m.PrivateBytes / 1048576.0, m.WorkingSetSize / 1048576.0); }
   if (f) { std::fputs(buf, f); std::fputc('\n', f); std::fflush(f); }
   std::fputs(buf, stdout); std::fputc('\n', stdout); std::fflush(stdout);
 }
@@ -65,8 +67,8 @@ fs::path exeDir() {
 ProcMem processMemory() {
   ProcMem m;
 #ifdef _WIN32
-  PROCESS_MEMORY_COUNTERS pmc{}; GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof pmc);
-  m.WorkingSetSize = pmc.WorkingSetSize; m.PeakWorkingSetSize = pmc.PeakWorkingSetSize;
+  PROCESS_MEMORY_COUNTERS_EX pmc{}; GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof pmc);
+  m.WorkingSetSize = pmc.WorkingSetSize; m.PeakWorkingSetSize = pmc.PeakWorkingSetSize; m.PrivateBytes = pmc.PrivateUsage;
 #elif defined(__APPLE__)
   mach_task_basic_info_data_t info{}; mach_msg_type_number_t n = MACH_TASK_BASIC_INFO_COUNT;
   if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&info, &n) == KERN_SUCCESS) { m.WorkingSetSize = info.resident_size; m.PeakWorkingSetSize = info.resident_size_max; }
@@ -119,6 +121,29 @@ float segOBBDist2(vec3 a, vec3 b, vec3 c, vec3 he, const quat& q) {
 }
 
 // ---------------------------------------------------------------- GPU mesh
+namespace {   // MEM1: GpuVertex packing (the bundled GLM lacks gtc/packing's sources)
+uint16_t toHalf(float f) {
+  uint32_t x; std::memcpy(&x, &f, 4);
+  uint32_t sign = (x >> 16) & 0x8000u; int e = (int)((x >> 23) & 0xff) - 127 + 15; uint32_t m = x & 0x7fffffu;
+  if (((x >> 23) & 0xff) == 0xff) return (uint16_t)(sign | 0x7c00u | (m ? 0x200u : 0));   // inf / nan
+  if (e >= 31) return (uint16_t)(sign | 0x7c00u);                                         // overflow: inf
+  if (e <= 0) { if (e < -10) return (uint16_t)sign; m |= 0x800000u; uint32_t sh = (uint32_t)(14 - e); return (uint16_t)(sign | ((m + (1u << (sh - 1))) >> sh)); }   // subnormal
+  uint32_t h = sign | ((uint32_t)e << 10) | (m >> 13);
+  if (m & 0x1000u) ++h;   // round half up (carries into the exponent correctly)
+  return (uint16_t)h;
+}
+uint32_t snorm10x3(vec3 n) {   // GL_INT_2_10_10_10_REV, normalized: x bits 0-9, y 10-19, z 20-29, w 0
+  auto c = [](float v) { int q = (int)std::lround(std::clamp(v, -1.0f, 1.0f) * 511.0f); return (uint32_t)q & 0x3ffu; };
+  return c(n.x) | (c(n.y) << 10) | (c(n.z) << 20);
+}
+}
+bool gpuVertexPackCheck(std::string& why) {   // MEM1: known half / snorm encodings (the probe runs it)
+  struct H { float f; uint16_t h; } hs[] = {{0.0f, 0}, {1.0f, 0x3C00}, {-2.0f, 0xC000}, {0.5f, 0x3800}, {65504.0f, 0x7BFF}, {1e6f, 0x7C00}, {5.9604645e-8f, 0x0001}, {0.333333f, 0x3555}, {8.0f, 0x4800}};
+  for (auto& x : hs) if (toHalf(x.f) != x.h) { char b[96]; std::snprintf(b, sizeof b, "half(%g) = %04x, want %04x", x.f, toHalf(x.f), x.h); why = b; return false; }
+  uint32_t n = snorm10x3(vec3(1, -1, 0));
+  if ((n & 0x3ff) != 511 || ((n >> 10) & 0x3ff) != (uint32_t)(-511 & 0x3ff) || (n >> 20) != 0) { why = "snorm10 packing"; return false; }
+  return true;
+}
 void GpuMesh::upload(const MeshData& m) {
   destroy();
   count = (int)m.i.size();
@@ -128,16 +153,23 @@ void GpuMesh::upload(const MeshData& m) {
   if (bmin.x > bmax.x) bmin = bmax = vec3(0);
   glCreateVertexArrays(1, &vao);
   glCreateBuffers(1, &vbo); glCreateBuffers(1, &ebo);
-  glNamedBufferData(vbo, m.v.size() * sizeof(Vertex), m.v.data(), GL_STATIC_DRAW);
+  std::vector<GpuVertex> pv(m.v.size());
+  auto h3 = [](uint16_t* o, vec3 c) { o[0] = toHalf(c.x); o[1] = toHalf(c.y); o[2] = toHalf(c.z); o[3] = 0; };
+  for (size_t k = 0; k < m.v.size(); ++k) {
+    const Vertex& v = m.v[k]; GpuVertex& g = pv[k];
+    g.pos = v.pos; g.nrm = snorm10x3(v.nrm); h3(g.albedo, v.albedo); g.params = v.params;
+    g.pcoord = v.pcoord; g.pnrm = snorm10x3(v.pnrm); h3(g.emis, v.emis);
+  }
+  glNamedBufferData(vbo, pv.size() * sizeof(GpuVertex), pv.data(), GL_STATIC_DRAW);
   glNamedBufferData(ebo, m.i.size() * sizeof(uint32_t), m.i.data(), GL_STATIC_DRAW);
-  glVertexArrayVertexBuffer(vao, 0, vbo, 0, sizeof(Vertex));
+  glVertexArrayVertexBuffer(vao, 0, vbo, 0, sizeof(GpuVertex));
   glVertexArrayElementBuffer(vao, ebo);
-  struct A { int n; size_t off; } attrs[] = {
-    {3, offsetof(Vertex, pos)}, {3, offsetof(Vertex, nrm)}, {3, offsetof(Vertex, albedo)},
-    {4, offsetof(Vertex, params)}, {3, offsetof(Vertex, pcoord)}, {3, offsetof(Vertex, pnrm)}, {3, offsetof(Vertex, emis)}};
+  struct A { int n; GLenum type; GLboolean norm; size_t off; } attrs[] = {
+    {3, GL_FLOAT, GL_FALSE, offsetof(GpuVertex, pos)}, {4, GL_INT_2_10_10_10_REV, GL_TRUE, offsetof(GpuVertex, nrm)}, {3, GL_HALF_FLOAT, GL_FALSE, offsetof(GpuVertex, albedo)},
+    {4, GL_FLOAT, GL_FALSE, offsetof(GpuVertex, params)}, {3, GL_FLOAT, GL_FALSE, offsetof(GpuVertex, pcoord)}, {4, GL_INT_2_10_10_10_REV, GL_TRUE, offsetof(GpuVertex, pnrm)}, {3, GL_HALF_FLOAT, GL_FALSE, offsetof(GpuVertex, emis)}};
   for (int k = 0; k < 7; ++k) {
     glEnableVertexArrayAttrib(vao, k);
-    glVertexArrayAttribFormat(vao, k, attrs[k].n, GL_FLOAT, GL_FALSE, (GLuint)attrs[k].off);
+    glVertexArrayAttribFormat(vao, k, attrs[k].n, attrs[k].type, attrs[k].norm, (GLuint)attrs[k].off);
     glVertexArrayAttribBinding(vao, k, 0);
   }
 }
@@ -499,6 +531,7 @@ static Part parsePart(const json& j, const std::map<std::string, int>& mats) {
   auto mit = mats.find(j.value("m", ""));
   p.mat = mit == mats.end() ? 0 : mit->second;
   p.visible = j.value("v", 1) != 0 && !(gModelBaked && j.value("mf", 0) != 0);
+  p.standIn = j.value("v", 1) != 0 && !p.visible;
   if (j.contains("q")) p.rot = glm::normalize(quat(j["q"][3].get<float>(), j["q"][0].get<float>(), j["q"][1].get<float>(), j["q"][2].get<float>()));   // explicit quaternion (x, y, z, w)
   p.collide = j.value("k", 1) != 0; p.playerOnly = j.value("k", 1) == 2; p.sec = j.value("sec", -1); p.grp = j.value("g", -1);
   p.lodDetail = j.value("lod", 0) >= 1;
@@ -771,13 +804,27 @@ static void extractTrim(AssetDef& a, const json& j, std::vector<Panel>& out, vec
   a.parts.swap(keep);
 }
 
+json furnitureModelFor(const std::string& id) {   // PR2: content/settings/furniture_models.json, id -> model block ("_ref": notes, dropped)
+  static json over = [] { json o; try { o = json::parse(readTextFile(contentDir() / "settings" / "furniture_models.json")); } catch (...) {} return o.is_object() ? o : json::object(); }();
+  auto f = over.find(id);
+  if (f == over.end() || !f->is_object()) return json();
+  json m = *f; m.erase("_ref"); return m;
+}
+
 bool AssetLibrary::loadOne(const fs::path& path) {
   json j;
   try { j = json::parse(readTextFile(path)); } catch (std::exception& e) { logf("asset %s: parse error %s", path.string().c_str(), e.what()); return false; }
   auto a = std::make_unique<AssetDef>();
   a->file = path.filename().string();
+  a->id = j.is_object() ? j.value("id", path.stem().string()) : path.stem().string();
+  {   // PR2: content/settings/furniture_models.json: furniture drawn by an imported model, its parts kept as stand-ins
+    json f = furnitureModelFor(a->id);
+    if (!f.is_null() && j.is_object() && !j.contains("model") && j.contains("parts")) {
+      j["model"] = f;
+      for (auto& pj : j["parts"]) pj["mf"] = 1;
+    }
+  }
   a->raw = j; a->vehicle = j.is_object() && j.contains("vehicle");
-  a->id = j.value("id", path.stem().string());
   a->version = j.value("version", 1);
   a->name = j.value("name", a->id);
   a->category = j.value("category", "Misc");
@@ -787,6 +834,18 @@ bool AssetLibrary::loadOne(const fs::path& path) {
   if (j.contains("footprint")) a->footprint = vec2(j["footprint"][0].get<float>(), j["footprint"][1].get<float>());
   a->plinthDepth = j.value("plinthDepth", 1.0f);
   a->maxGrade = j.value("maxGrade", 1.0f);
+  AssetDef* p = a.get();
+  index_.emplace(a->id, p);   // the first asset of an id wins, as the old linear find did
+  assets.push_back(std::move(a));
+  // MEM1: catalogue assets are built (geometry, GPU buffers, collision) on first use (find / build), not all at startup:
+  // building every one committed ~13 GB. Vehicles and racks stay eager (TankSys / the arsenal walk them at startup).
+  if (!lazy || p->vehicle || j.contains("rack")) build(*p);
+  return true;
+}
+void AssetLibrary::build(AssetDef& ad) const {
+  if (ad.built) return;
+  ad.built = true;
+  AssetDef* a = &ad; const json& j = ad.raw;
   std::map<std::string, int> mats;
   a->materials.push_back(Material{"default"});
   for (auto& mj : j.value("materials", json::array())) {
@@ -1087,9 +1146,6 @@ bool AssetLibrary::loadOne(const fs::path& path) {
   if (pts.empty()) { a->bmin = vec3(-1); a->bmax = vec3(1); }
   buildAssetLods(*a, op.i.size() / 3, allIntact);
   logf("asset %-28s %5zu parts %3zu interactables %3zu panels %3zu trims %6d tris, walls %d / %d / %d (LOD1 %d, LOD2 %d)", a->id.c_str(), a->parts.size(), a->interactables.size(), a->panels.size(), a->trims.size(), (int)((op.i.size() + allIntact.i.size()) / 3), (int)(allIntact.i.size() / 3), a->panelsLod[0].count / 3, a->panelsLod[1].count / 3, a->lodMesh[0].count / 3, a->lodMesh[1].count / 3);
-  index_.emplace(a->id, a.get());   // the first asset of an id wins, as the old linear find did
-  assets.push_back(std::move(a));
-  return true;
 }
 
 void buildPlaceholder(AssetDef& a) {
@@ -1107,10 +1163,13 @@ bool AssetLibrary::loadAll(const fs::path& dir) {
   std::sort(files.begin(), files.end());
   for (auto& f : files) loadOne(f);
   buildPlaceholder(placeholder_);
+  { int b = 0; for (auto& a : assets) b += a->built; logf("assets: %zu in the catalogue, %d built now (lazy %d)", assets.size(), b, (int)lazy); }
   return !assets.empty();
 }
 
 const AssetDef* AssetLibrary::find(const std::string& id) const {   // per instance per frame in several places: hashed
   auto it = index_.find(id);
-  return it != index_.end() ? it->second : nullptr;
+  if (it == index_.end()) return nullptr;
+  if (!it->second->built) build(const_cast<AssetDef&>(*it->second));   // MEM1: first use builds it (main thread: GL)
+  return it->second;
 }

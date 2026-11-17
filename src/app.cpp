@@ -219,10 +219,21 @@ void App::syncRuntime() {
   { extern int lineSyncGates(App&); if (lineSyncGates(*this)) sig = placementSig(doc.instances, false); }   // LN2: line gates follow their spans
   syncSig_ = sig;   // taken before the pass: anything a rebuild changes is seen by the next call
   std::set<uint64_t> live;
+  static const bool memAttr = std::getenv("NMK_MEMLOG") != nullptr; std::map<std::string, std::pair<double, int>> memBy;   // MEM1: commit per asset's copies
   for (auto& i : doc.instances) {
     live.insert(i.id);
     auto& r = rt[i.id];
-    if (r.rev != i.rev || r.id != i.id) buildRT(i, r);
+    if (r.rev != i.rev || r.id != i.id) {
+      size_t c0 = memAttr ? processMemory().PrivateBytes : 0;
+      buildRT(i, r);
+      if (memAttr) { auto& e = memBy[i.assetId]; e.first += ((double)processMemory().PrivateBytes - (double)c0) / 1048576.0; ++e.second; }
+    }
+  }
+  if (memAttr && !memBy.empty()) {
+    std::vector<std::pair<double, std::string>> v; double tot = 0; for (auto& [k, e] : memBy) { v.push_back({e.first, k}); tot += e.first; }
+    std::sort(v.rbegin(), v.rend());
+    std::string s; for (size_t k = 0; k < v.size() && k < 12; ++k) { char b[96]; std::snprintf(b, sizeof b, " %s %.0f MB x%d;", v[k].second.c_str(), v[k].first, memBy[v[k].second].second); s += b; }
+    logf("memattr: buildRT %.0f MB over %zu assets:%s", tot, v.size(), s.c_str());
   }
   for (auto it = rt.begin(); it != rt.end();) {
     if (!live.count(it->first)) { destroyRT(it->second); it = rt.erase(it); } else ++it;
@@ -384,7 +395,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
         else R.worldModels.push_back({gm, (int)k, L});
       }
     }
-    if (r.asset->model) {   // supplied model: LOD by distance, cut wire sections hidden; collider boxes are not drawn
+    if (r.asset->model && !interior.prop(r.asset)) {   // supplied model: LOD by distance, cut wire sections hidden; collider boxes are not drawn (PR2: furniture models draw in propDraw)
       if (camDist > r.asset->modelCull) continue;
       const GpuModel* gm = (r.asset->modelLod && camDist > r.asset->modelLodDist) ? r.asset->modelLod.get() : r.asset->model.get();
       if (r.asset->modelFoliage) { R.folModels.push_back({gm, M, r.asset->modelWind}); continue; }   // NT8: instanced, alpha tested
@@ -986,7 +997,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-render") runSelf = true;   // V1 facades, walls, water (selftest_render.cpp)
     else if (a == "--selftest-lights") runSelf = true;   // L2 lighting engine (selftest_lights.cpp)
     else if (a == "--selftest-swim") runSelf = true;     // swimming, underwater view, breath (selftest_swim.cpp)
-    else if (a == "--capture-heli" || a == "--gen-vehicle-spawns" || a == "--capture-vh7" || a == "--check-ed2" || a == "--check-vh8" || a == "--capture-vh8") runSelf = true;   // VH5 (capture_heli.cpp)
+    else if (a == "--capture-heli" || a == "--gen-vehicle-spawns" || a == "--capture-vh7" || a == "--check-ed2" || a == "--check-vh8" || a == "--capture-vh8" || a == "--mem-probe") runSelf = true;   // VH5 (capture_heli.cpp)
     else if (a == "--selftest-zombies" || a == "--capture-heavies" || a == "--capture-commands" || a == "--capture-ch1" || a == "--capture-ch6" || a == "--capture-ch8" || a == "--capture-fighter2" || a == "--capture-fighter2-slam") runSelf = true;
     else if (a == "--capture-tk1" || a == "--check-tk1-match" || a == "--capture-tk2" || a == "--selftest-sd" || a == "--selftest-playerdmg" || a == "--selftest-prone" || a == "--selftest-sd3" || a == "--selftest-spectate" || a == "--sd-timings") runSelf = true;   // TK1 (capture_tk1.cpp)
     else if (a == "--capture-br-models" || a == "--capture-br-worn") runSelf = true;   // BR3 / BR8: a look at the Battle Royale models and worn gear (selftest_brmodels.cpp)
@@ -1061,6 +1072,7 @@ int App::run(int argc, char** argv) {
   for (auto& f : rqOff) { if (f == "taa") R.q.taa = false; else if (f == "ssr") R.q.ssr = false; else if (f == "ssao") R.q.ssao = false; else if (f == "bloom") R.q.bloom = false; else if (f == "shafts") R.q.shafts = false; else if (f == "cascade") R.q.farCascade = false; else if (f == "cloudshadow") R.q.cloudShadows = false; else if (f == "wind") grass.wind = false; else if (!R.perf.set(f, false)) logf("--rq-off: unknown feature %s", f.c_str()); }
   for (auto& f : rqOn) if (!R.perf.set(f, true)) logf("--rq-on: unknown feature %s", f.c_str());
   templates = loadTemplates(contentDir() / "templates");
+  { bool probe = false; for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--mem-probe") probe = true; lib.lazy = !runSelf || probe || std::getenv("NMK_LAZY_ASSETS"); }   // MEM1: full self-tests walk every asset built
   if (!lib.loadAll(contentDir() / "assets")) logf("warning: no assets found in %s", (contentDir() / "assets").string().c_str());
   tex::flushPending();   // TX2: lazy library texture sets the assets name (textures.json "lazy" slots)
   makeThumbnails();
@@ -1099,7 +1111,9 @@ int App::run(int argc, char** argv) {
   bool confirmQuit = false;
   // NMK_FRAME_PROF=1: a frame over 150 ms logs where its time went: time per phase / crumb, summed, top 8. A mark names
   // the section that follows it (time to the next mark is charged to it), like crumb()
-  auto mark = [&](const char* w) { if (gCrumbProf) crumbMark(w); };
+  static const bool memMarks = std::getenv("NMK_MEMLOG") != nullptr; static size_t memLast = 0;   // MEM1: which frame section commits
+  auto mark = [&](const char* w) { if (gCrumbProf) crumbMark(w);
+    if (memMarks) { size_t c = processMemory().PrivateBytes; if (memLast && c > memLast + (50u << 20)) logf("memmark: +%zu MB before '%s'", (c - memLast) >> 20, w); memLast = c; } };
   while (!quit) {
     if (gCrumbProf) crumbFrameEnd();
     mark("start");
@@ -1285,7 +1299,7 @@ int App::run(int argc, char** argv) {
       glReadPixels(0, 0, fbw, fbh, GL_RGBA, GL_UNSIGNED_BYTE, recPx.data());
       rec.frame(recPx.data(), fbw, fbh);
     }
-    if (!uiShot.empty()) {
+    if (!uiShot.empty() && fbw > 0 && fbh > 0) {   // PR2: a minimised / zero-size window keeps the shot pending (no empty PNG)
       std::vector<uint8_t> px((size_t)fbw * fbh * 4), fl(px.size());
       glReadBuffer(GL_BACK); glReadPixels(0, 0, fbw, fbh, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
       for (int y = 0; y < fbh; ++y) std::memcpy(&fl[(size_t)y * fbw * 4], &px[(size_t)(fbh - 1 - y) * fbw * 4], (size_t)fbw * 4);
@@ -1394,8 +1408,10 @@ static std::map<std::string, std::vector<float>> gSecMs;   // section -> ms per 
 static std::vector<float> gFrameMs;
 static double gProfSince = -1;
 void crumbMark(const char* s) { gMarks.push_back({s, glfwGetTime()}); }
-LoadStep::LoadStep(const char* w) : what(w), t0(gCrumbProf ? glfwGetTime() : 0) { loadingStage(w); }   // UI2: the loading screen's stages
-LoadStep::~LoadStep() { if (gCrumbProf) logf("[loadprof] %s %.1f ms", what, (glfwGetTime() - t0) * 1000); loadingStageDone(); }
+bool gMemCrumb = std::getenv("NMK_MEMLOG") != nullptr;
+void memCrumb(const char* s) { static size_t last = 0; size_t c = processMemory().PrivateBytes; if (last && c > last + (50u << 20)) logf("memcrumb: +%zu MB before '%s'", (c - last) >> 20, s); last = c; }
+LoadStep::LoadStep(const char* w) : what(w), t0(gCrumbProf ? glfwGetTime() : 0), c0(gMemCrumb ? processMemory().PrivateBytes : 0) { loadingStage(w); }   // UI2: the loading screen's stages
+LoadStep::~LoadStep() { if (gCrumbProf) logf("[loadprof] %s %.1f ms", what, (glfwGetTime() - t0) * 1000); if (gMemCrumb) logf("memstep: %s %+.0f MB", what, ((double)processMemory().PrivateBytes - (double)c0) / 1048576.0); loadingStageDone(); }
 json crumbProfReport(const char* tag) {
   auto stat = [](std::vector<float> v) { double s = 0; for (float x : v) s += x; std::sort(v.begin(), v.end()); return std::pair<double, double>(v.empty() ? 0 : s / v.size(), v.empty() ? 0 : v[std::min(v.size() - 1, (size_t)(0.95 * v.size()))]); };
   json out = json::object();

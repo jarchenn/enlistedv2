@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.3956913948059082,
+  0.7500491142272949,
+  0.3956913948059082
+ ],
+ "bmin": [
+  -0.39399880170822144,
+  0.0010462969075888395,
+  -0.39399880170822144
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "round_wooden_table_02",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.3956913948059082,
+    0.7500491142272949,
+    0.3956913948059082
+   ],
+   "bmin": [
+    -0.39399880170822144,
+    0.0010462969075888395,
+    -0.39399880170822144
+   ],
+   "count": 1593,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "round_wooden_table_02",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0134999752044678,
+ "source": "ph_round_wooden_table_02.glb",
+ "textures": {},
+ "triangles": 531,
+ "vertices": 953
+}

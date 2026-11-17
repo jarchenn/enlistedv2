@@ -240,8 +240,9 @@ bool animVmDraw(App& app, const WeaponDef& d) {
 
 bool animVmPoint(const App& app, const WeaponDef& d, int which, vec3& world) {
   auto it = gSt.find(&d);
-  if (!d.anim || it == gSt.end() || !it->second.ready || which < 0 || which > 2) return false;
+  if (!d.anim || it == gSt.end() || !it->second.ready || which < 0 || which > 3) return false;
   const St& st = it->second;
+  if (which == 3) { world = vec3(camNow(app) * st.local * st.pose.delta[d.anim->gunJoint] * weaponToRig(*d.anim, d) * vec4(d.gripR, 1)); return true; }   // WP8: the firing-hand grip socket
   world = vec3(camNow(app) * st.local * st.pose.delta[d.anim->gunJoint] * vec4(d.anim->pt[which], 1));
   return true;
 }

@@ -14,6 +14,7 @@
 #include "mpui.h"
 #include "combat.h"
 #include "character.h"
+#include "anim_clip.h"
 #include <imgui.h>
 #include <GLFW/glfw3.h>
 #include <stb_image.h>
@@ -129,11 +130,39 @@ struct State {
 } S;
 float frand() { S.rng = S.rng * 1664525u + 1013904223u; return (S.rng >> 8) / 16777216.0f; }
 
+// UI3 (e): the supplied soldier as a live, animated model: content/ui/local/menu_soldier.glb (local-only, licence
+// unknown; exported from the supplied .blend with its idle clip and full 2K textures by E:/nmk/ui2_tools/export_glb.py)
+struct LiveSoldier { std::unique_ptr<CharModel> m; CharInstance ci; bool ok = false, tried = false; vec3 lo{0}, hi{0}; float t = 0; } LS;
+bool liveSoldier() {
+  if (LS.tried) return LS.ok;
+  LS.tried = true;
+  const fs::path p = contentDir() / "ui" / "local" / "menu_soldier.glb";
+  std::error_code ec; if (std::getenv("NMK_UI2_STANDIN") || !fs::exists(p, ec)) return false;
+  LS.m = std::make_unique<CharModel>(); std::string e;
+  if (!initSkinning(e) || !LS.m->load(p, e, 0, false) || !LS.ci.create(*LS.m)) { logf("menu: live soldier %s: %s (the cut-out is used)", p.string().c_str(), e.c_str()); return false; }
+  std::vector<float> ax[3]; for (auto& v : LS.m->verts) for (int k = 0; k < 3; ++k) ax[k].push_back(v.pos[k]);
+  for (int k = 0; k < 3; ++k) if (!ax[k].empty()) { std::sort(ax[k].begin(), ax[k].end()); LS.lo[k] = ax[k][ax[k].size() / 200]; LS.hi[k] = ax[k][ax[k].size() - 1 - ax[k].size() / 200]; }
+  logf("menu: live soldier: %zu verts, %zu clips", LS.m->verts.size(), LS.m->clips.size());
+  return LS.ok = true;
+}
+// one frame of it into the menu's live slot: its own idle clip, the camera framing the figure (feet at the bottom)
+GLuint liveSoldierFrame(App& app, int w, int h, float dt) {
+  LS.t += dt;
+  NodeLocals L; restLocals(*LS.m, L);
+  if (!LS.m->clips.empty()) sampleClip(*LS.m, 0, LS.t, true, L);
+  PoseResult pr; poseFromLocals(*LS.m, L, pr); LS.ci.skin(pr.skin);
+  std::vector<ModelDraw> md; const mat4 world = glm::rotate(mat4(1), glm::radians(38.0f), vec3(0, 1, 0));   // turned three quarters, the rifle side toward the viewer (clear of the face)
+  for (int k = 0; k < (int)LS.ci.view.parts.size(); ++k) md.push_back({&LS.ci.view, k, world});
+  const float hh = std::max(0.5f, LS.hi.y - LS.lo.y), fov = 14.0f, dist = 0.56f * hh / std::tan(glm::radians(fov * 0.5f));
+  const vec3 c(0.5f * (LS.lo.x + LS.hi.x), LS.lo.y + 0.52f * hh, 0.5f * (LS.lo.z + LS.hi.z)), eye = c + vec3(0, 0.03f * hh, dist);
+  return app.R.renderModelLive(md, glm::lookAt(eye, c, vec3(0, 1, 0)), glm::perspective(glm::radians(fov), (float)w / h, 0.1f * dist, dist * 3), eye, w, h, 0.5f, 0);
+}
+
 void ensureLoaded() {
   if (S.loaded) return;
   S.loaded = true;
   const fs::path ui = contentDir() / "ui";
-  if (!std::getenv("NMK_UI2_STANDIN") && loadCutout(ui / "local" / "menu_soldier.png", S.soldier) && loadBackdrop(ui / "menu_backdrop_empty.jpg", S.bg, S.bgBlur)) S.soldierLocal = true;
+  if (!std::getenv("NMK_UI2_STANDIN") && (liveSoldier() || loadCutout(ui / "local" / "menu_soldier.png", S.soldier)) && loadBackdrop(ui / "menu_backdrop_empty.jpg", S.bg, S.bgBlur)) S.soldierLocal = true;
   else { S.soldierLocal = false; if (!loadBackdrop(ui / "menu_backdrop.jpg", S.bg, S.bgBlur)) logf("menu: %s missing (plain dark backdrop)", (ui / "menu_backdrop.jpg").string().c_str()); }
   S.fog = makeFog(); S.vig = makeVignette();
 }
@@ -189,14 +218,14 @@ void drawPreview(App& app, ImDrawList* dl, ImVec2 mn, ImVec2 mx, float a) {
   const int w = std::clamp((int)(mx.x - mn.x), 16, 900), h = std::clamp((int)(mx.y - mn.y), 16, 1400);
   int wi = app.weaponIndex(settings().s.primary.empty() ? "m1_garand" : settings().s.primary);
   if (wi < 0) wi = app.weaponIndex("m1_garand");   // WP7: a saved primary that no longer exists (the FN 502) shows the default
-  if (ImGui::GetTime() >= P.next || w != P.w || h != P.h || wi != P.weapon) {
-    P.next = ImGui::GetTime() + 0.05; P.weapon = wi;
+  {   // UI3: every frame on the GPU (renderModelLive, slot 1): a smooth turn, no read-back
+    P.weapon = wi;
     PoseParams pp; pp.carry = 1; pp.holdWeapon = wi >= 0;
     const WeaponDef* d = wi >= 0 && P.humanoid ? app.weaponDefs[wi].get() : nullptr;
     if (d) { pp.gripR = d->gripR; pp.gripL = d->gripL; pp.magPos = d->gripL + vec3(0, -0.1f, -0.12f); }
     PoseResult pr;
     if (P.humanoid) { poseCharacter(*P.m, pp, pr); P.ci.skin(pr.skin); } else { P.ci.skin(std::vector<mat4>(P.m->joints(), mat4(1))); d = nullptr; }
-    std::vector<ModelDraw> md; std::vector<DrawItem> boxes;
+    std::vector<ModelDraw> md;
     mat4 world = glm::rotate(mat4(1), glm::radians(P.yaw), vec3(0, 1, 0));
     for (int k = 0; k < (int)P.ci.view.parts.size(); ++k) md.push_back({&P.ci.view, k, world});
     if (d && d->useModel()) { mat4 W = world * pr.weapon; for (int p = 0; p < 8; ++p) for (int k : d->worldParts()[p]) md.push_back({d->worldModel(), k, W}); }
@@ -210,21 +239,13 @@ void drawPreview(App& app, ImDrawList* dl, ImVec2 mn, ImVec2 mx, float a) {
     const float hh = bmx.y - bmn.y, rad = 0.5f * std::max({bmx.x - bmn.x, bmx.z - bmn.z, hh * (d ? 0.5f : 0.3f)});   // turning: the widest horizontal extent
     float tv = std::tan(glm::radians(15.0f)), dist = std::max(0.56f * hh / tv, 1.08f * rad / (tv * (float)w / h)) + rad;
     vec3 c(0.5f * (bmn.x + bmx.x), bmn.y + 0.5f * hh, 0.5f * (bmn.z + bmx.z)), eye = c + vec3(0, 0.06f * hh, dist);
-    std::vector<uint8_t> px;
-    if (app.R.renderModelSheet(md, boxes, glm::lookAt(eye, c, vec3(0, 1, 0)), glm::perspective(glm::radians(30.0f), (float)w / h, 0.05f * dist, dist + 4 * rad + 40.0f), eye, w, h, px, true)) {
-      if (!P.tex || w != P.w || h != P.h) {
-        if (P.tex) glDeleteTextures(1, &P.tex);
-        glCreateTextures(GL_TEXTURE_2D, 1, &P.tex); glTextureStorage2D(P.tex, 1, GL_RGBA8, w, h);
-        glTextureParameteri(P.tex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(P.tex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        P.w = w; P.h = h;
-      }
-      glTextureSubImage2D(P.tex, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
-    }
+    P.tex = app.R.renderModelLive(md, glm::lookAt(eye, c, vec3(0, 1, 0)), glm::perspective(glm::radians(30.0f), (float)w / h, 0.05f * dist, dist + 4 * rad + 40.0f), eye, w, h, 1.0f, 1);
+    P.w = w; P.h = h;
   }
   // a soft floor glow under the feet, then the body
   const float cx = (mn.x + mx.x) * 0.5f, fy = mn.y + (mx.y - mn.y) * 0.93f;
   for (int i = 6; i >= 1; --i) dl->AddEllipseFilled(V(cx, fy), V(i * 0.045f * (mx.x - mn.x), i * 0.008f * (mx.y - mn.y)), rgba(0, 0, 0, 0.09f * a));
-  if (P.tex) dl->AddImage((ImTextureID)(intptr_t)P.tex, mn, V(mn.x + P.w, mn.y + P.h), V(0, 0), V(1, 1), rgba(255, 255, 255, a));
+  if (P.tex) dl->AddImage((ImTextureID)(intptr_t)P.tex, mn, V(mn.x + P.w, mn.y + P.h), V(0, 1), V(1, 0), rgba(255, 255, 255, a));   // the live target is bottom-up
 }
 } // namespace
 
@@ -286,10 +307,14 @@ void mainMenuFrame(App& app) {
   // ---- the supplied soldier (local-only), standing centre-left, slightly more parallax than the street
   static float soldierA = 1; soldierA += ((S.page == Character ? 0.0f : 1.0f) - soldierA) * std::min(1.0f, io.DeltaTime / 0.08f);
   if (S.soldierLocal && soldierA > 0.01f) {
-    const float ch = H * 0.74f, cw = ch * (S.soldier.uv1.x - S.soldier.uv0.x) * S.soldier.w / ((S.soldier.uv1.y - S.soldier.uv0.y) * S.soldier.h);
+    const bool live = LS.ok;
+    const float ch = H * (live ? 0.80f : 0.74f), cw = live ? ch * 0.62f : ch * (S.soldier.uv1.x - S.soldier.uv0.x) * S.soldier.w / ((S.soldier.uv1.y - S.soldier.uv0.y) * S.soldier.h);
     const float cx = W * 0.43f - (S.uvC.x - 0.5f) * W * 0.6f, fy = H * 0.965f;
-    for (int i = 7; i >= 1; --i) dl->AddEllipseFilled(V(cx + 6 * s, fy - 4 * s), V(cw * 0.11f * i, 7.0f * s * i * 0.5f), rgba(0, 0, 0, 0.07f * fadeIn * soldierA));   // contact shadow
-    dl->AddImage((ImTextureID)(intptr_t)S.soldier.tex, V(cx - cw * 0.5f, fy - ch), V(cx + cw * 0.5f, fy), S.soldier.uv0, S.soldier.uv1, rgba(150, 156, 160, fadeIn * soldierA));   // into the street's light
+    for (int i = 7; i >= 1; --i) dl->AddEllipseFilled(V(cx + 6 * s, fy - 4 * s), V(cw * (live ? 0.07f : 0.11f) * i, 7.0f * s * i * 0.5f), rgba(0, 0, 0, 0.07f * fadeIn * soldierA));   // contact shadow
+    if (live) {   // UI3 (e): rendered this frame at full quality, its own idle playing
+      const GLuint t = liveSoldierFrame(app, std::max(16, (int)cw), std::max(16, (int)ch), std::min(dt, 0.1f));
+      dl->AddImage((ImTextureID)(intptr_t)t, V(cx - cw * 0.5f, fy - ch), V(cx + cw * 0.5f, fy), V(0, 1), V(1, 0), rgba(168, 174, 178, fadeIn * soldierA));   // the target is bottom-up; graded into the street's light
+    } else dl->AddImage((ImTextureID)(intptr_t)S.soldier.tex, V(cx - cw * 0.5f, fy - ch), V(cx + cw * 0.5f, fy), S.soldier.uv0, S.soldier.uv1, rgba(150, 156, 160, fadeIn * soldierA));   // into the street's light
   }
   // ---- fog (two layers drifting at different speeds), embers, shading
   if (S.fog.tex) {

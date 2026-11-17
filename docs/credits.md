@@ -503,7 +503,7 @@ The petrol station's fuel dispensers (`pr1_fuel_dispenser`) are our own model, g
 
 | File | Used for | Author | Licence | Source | Committed |
 |---|---|---|---|---|---|
-| city-soldier-outdated.zip (`sity soldier for scetchfab.blend`, Blender 2.79, 36 textures) | The soldier standing in the main menu: rendered once by Blender (CPU, transparent) to `content/ui/local/menu_soldier.png` | not in the files | not in the files | not given | no, local only (git-ignored); the committed backdrop `content/ui/menu_backdrop.jpg` shows the game's own soldier instead |
+| city-soldier-outdated.zip (`sity soldier for scetchfab.blend`, Blender 2.79, 36 textures) | The soldier standing in the main menu: exported with its idle clip and 2K textures to `content/ui/local/menu_soldier.glb` (drawn live and animated; `E:/nmk/ui2_tools/export_glb.py`), with a Blender still `content/ui/local/menu_soldier.png` as the fallback | not in the files | not in the files | not given | no, local only (git-ignored); the committed backdrop `content/ui/menu_backdrop.jpg` shows the game's own soldier instead |
 
 The menu backdrops (`content/ui/menu_backdrop*.jpg`) are stills of our own Newtown map, captured in-engine and graded; the logo (`src/logo.cpp`) is our own vector drawing after the preliminary artwork.
 

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.3469470739364624,
+  1.0928807258605957,
+  0.32542455196380615
+ ],
+ "bmin": [
+  -0.34583353996276855,
+  0.0,
+  -0.3610081374645233
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "GreenChair_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.3469470739364624,
+    1.0928807258605957,
+    0.32542455196380615
+   ],
+   "bmin": [
+    -0.34583353996276855,
+    0.0,
+    -0.3610081374645233
+   ],
+   "count": 1575,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "GreenChair_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0406999588012695,
+ "source": "ph_greenchair_01.glb",
+ "textures": {},
+ "triangles": 525,
+ "vertices": 602
+}

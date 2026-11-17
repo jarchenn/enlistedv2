@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.5193641781806946,
+  2.045484781265259,
+  0.19630540907382965
+ ],
+ "bmin": [
+  -0.5193641781806946,
+  0.0,
+  -0.1763053983449936
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "wooden_bookshelf_worn",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5193641781806946,
+    2.045484781265259,
+    0.19630540907382965
+   ],
+   "bmin": [
+    -0.5193641781806946,
+    0.0,
+    -0.1763053983449936
+   ],
+   "count": 3789,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "wooden_bookshelf_worn",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 0.7937999963760376,
+ "source": "ph_wooden_bookshelf_worn.glb",
+ "textures": {},
+ "triangles": 1263,
+ "vertices": 1393
+}

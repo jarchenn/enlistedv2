@@ -31,9 +31,10 @@ void SelfTest::moveUpdate(App& app, float dt) {
     mseq.clear(); mcur = 0; mt = 0;
     push("settings", [this](App& a, float) {
       auto& m = a.move;
-      char b[360]; std::snprintf(b, sizeof b, "tuning (content/settings/movement.json): run %.4f m/s (3.1625 x0.85), sprint %.3f (6.325 x0.85), crouch %.2f (1.32 x0.85), prone %.2f (0.66 x0.85), player gravity %.3f m/s^2 (real life: 9.81), jump %.3f m/s (real life 3.1; was SPEC 4: 3.757 x1.6), buffer %.2f s, coyote %.2f s",
+      const float K = 0.85f * 0.85f;   // the gunplay overhaul x0.85, then GP1 movement.json infantrySpeed_x 0.85
+      char b[360]; std::snprintf(b, sizeof b, "tuning (content/settings/movement.json): run %.4f m/s (3.1625 x0.85 x0.85 GP1), sprint %.3f (6.325 x0.85 x0.85), crouch %.2f (1.32 x0.85 x0.85), prone %.2f (0.66 x0.85 x0.85), player gravity %.3f m/s^2 (real life: 9.81), jump %.3f m/s (real life 3.1; was SPEC 4: 3.757 x1.6), buffer %.2f s, coyote %.2f s",
                     m.run, m.sprint, m.crouch, m.prone, m.gravity, m.jumpVelocity, m.jumpBuffer, m.coyote);
-      check(std::fabs(m.run - 3.1625f * 0.85f) < 1e-3f && std::fabs(m.sprint - 6.325f * 0.85f) < 1e-3f && std::fabs(m.crouch - 1.32f * 0.85f) < 1e-3f && std::fabs(m.prone - 0.66f * 0.85f) < 1e-3f &&
+      check(std::fabs(m.run - 3.1625f * K) < 1e-3f && std::fabs(m.sprint - 6.325f * K) < 1e-3f && std::fabs(m.crouch - 1.32f * K) < 1e-3f && std::fabs(m.prone - 0.66f * K) < 1e-3f &&
             std::fabs(m.gravity - 9.81f) < 1e-3f && std::fabs(m.jumpVelocity - 3.1f) < 2e-3f && m.jumpBuffer >= 0.1f && m.jumpBuffer <= 0.2f && m.coyote >= 0.08f && m.coyote <= 0.15f, b);
       summary["movement"] = {{"run", m.run}, {"sprint", m.sprint}, {"crouch", m.crouch}, {"prone", m.prone}, {"gravity", m.gravity}, {"jump", m.jumpVelocity}};
       return true; });
@@ -77,13 +78,14 @@ void SelfTest::moveUpdate(App& app, float dt) {
         check(std::fabs(v - want) / want < 0.03f, b);
         return true; };
     };
-    // gunplay overhaul: every posture speed x0.85 (run 2.688, sprint 5.376, crouch 1.122, prone 0.561)
-    push("run", speedTest("run", vec2(0, 1), false, Physics::STAND, 2.688125f, false));
-    push("run diagonal", speedTest("diagonal W+D (normalised)", vec2(1, 1), false, Physics::STAND, 2.688125f, false));
-    push("run 10fps", speedTest("run", vec2(0, 1), false, Physics::STAND, 2.688125f, true));
-    push("sprint", speedTest("sprint", vec2(0, 1), true, Physics::STAND, 5.37625f, false));
-    push("crouch", speedTest("crouch (sprint held: ignored)", vec2(0, 1), true, Physics::CROUCH, 1.122f, false));
-    push("prone", speedTest("prone (sprint held: ignored)", vec2(0, 1), true, Physics::PRONE, 0.561f, false));
+    // gunplay overhaul: every posture speed x0.85 (run 2.688, sprint 5.376, crouch 1.122, prone 0.561); GP1: x0.85 again (infantrySpeed_x)
+    constexpr float kI = 0.85f;
+    push("run", speedTest("run", vec2(0, 1), false, Physics::STAND, 2.688125f * kI, false));
+    push("run diagonal", speedTest("diagonal W+D (normalised)", vec2(1, 1), false, Physics::STAND, 2.688125f * kI, false));
+    push("run 10fps", speedTest("run", vec2(0, 1), false, Physics::STAND, 2.688125f * kI, true));
+    push("sprint", speedTest("sprint", vec2(0, 1), true, Physics::STAND, 5.37625f * kI, false));
+    push("crouch", speedTest("crouch (sprint held: ignored)", vec2(0, 1), true, Physics::CROUCH, 1.122f * kI, false));
+    push("prone", speedTest("prone (sprint held: ignored)", vec2(0, 1), true, Physics::PRONE, 0.561f * kI, false));
     push("stamina", [this](App& a, float t) {   // sprint drains, a jump costs a chunk, rest regenerates; empty blocks sprint / jump
       static float s0, afterSprint = 1e9f, beforeJump, afterJump, sprintBlocked; static int j0, lowJumps;
       const auto& m = a.move;

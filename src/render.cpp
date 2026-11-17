@@ -3890,8 +3890,8 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
         GLuint& iv = const_cast<GpuMesh*>(r.mesh)->ivao;
         if (!iv) {
           glCreateVertexArrays(1, &iv);
-          glVertexArrayVertexBuffer(iv, 0, r.mesh->vbo, 0, sizeof(Vertex)); glVertexArrayElementBuffer(iv, r.mesh->ebo);
-          glEnableVertexArrayAttrib(iv, 0); glVertexArrayAttribFormat(iv, 0, 3, GL_FLOAT, GL_FALSE, (GLuint)offsetof(Vertex, pos)); glVertexArrayAttribBinding(iv, 0, 0);
+          glVertexArrayVertexBuffer(iv, 0, r.mesh->vbo, 0, sizeof(GpuVertex)); glVertexArrayElementBuffer(iv, r.mesh->ebo);
+          glEnableVertexArrayAttrib(iv, 0); glVertexArrayAttribFormat(iv, 0, 3, GL_FLOAT, GL_FALSE, (GLuint)offsetof(GpuVertex, pos)); glVertexArrayAttribBinding(iv, 0, 0);
           for (int c = 0; c < 4; ++c) { glEnableVertexArrayAttrib(iv, 12 + c); glVertexArrayAttribFormat(iv, 12 + c, 4, GL_FLOAT, GL_FALSE, c * 16); glVertexArrayAttribBinding(iv, 12 + c, 1); }
           glVertexArrayBindingDivisor(iv, 1, 1);
           glVertexArrayVertexBuffer(iv, 1, instBuf, 0, sizeof(mat4));
@@ -4240,6 +4240,54 @@ bool Renderer::renderModelSheet(const std::vector<ModelDraw>& items, const std::
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glDeleteFramebuffers(1, &fbo); glDeleteTextures(1, &col); glDeleteTextures(1, &dep);
   return true;
+}
+
+static const char* kLiveFS = R"GLSL(
+#version 450 core
+in vec2 vUV; uniform sampler2D uHdr, uDep; uniform float uSat; out vec4 o;
+vec3 tone(vec3 c){ c = clamp(c*0.9, 0.0, 4.0); c = c/(1.0 + c*0.25)*1.25; return pow(clamp(c, 0.0, 1.0), vec3(1.0/2.2)); }   // as renderModelSheet
+void main(){
+  vec2 tx = 1.0/vec2(textureSize(uHdr, 0)); vec3 c = vec3(0.0); float a = 0.0;
+  for (int k = 0; k < 4; ++k) {   // the 2x2 source texels of this pixel: soft edges
+    vec2 uv = vUV + (vec2(k & 1, k >> 1) - 0.5)*tx;
+    float cov = texture(uDep, uv).r < 1.0 ? 1.0 : 0.0; c += tone(texture(uHdr, uv).rgb)*cov; a += cov;
+  }
+  c = a > 0.0 ? c/a : vec3(0.0); a *= 0.25;
+  float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); o = vec4(mix(vec3(l), c, uSat), a);
+}
+)GLSL";
+GLuint Renderer::renderModelLive(const std::vector<ModelDraw>& items, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, float saturation, int slot) {
+  struct Slot { GLuint hdr = 0, dep = 0, fbo = 0, ldr = 0, ldrFbo = 0; int W = 0, H = 0; };
+  static Slot slots[2]; static GLuint prog = 0;
+  Slot& S = slots[std::clamp(slot, 0, 1)];
+  GLuint &hdr = S.hdr, &dep = S.dep, &fbo = S.fbo, &ldr = S.ldr, &ldrFbo = S.ldrFbo; int &W = S.W, &H = S.H;
+  if (!prog) prog = compile(kFullVS, kLiveFS, "modelLive");
+  w = std::max(w, 8); h = std::max(h, 8);
+  if (w != W || h != H) {
+    if (fbo) { glDeleteFramebuffers(1, &fbo); glDeleteFramebuffers(1, &ldrFbo); GLuint t[3] = {hdr, dep, ldr}; glDeleteTextures(3, t); }
+    glCreateTextures(GL_TEXTURE_2D, 1, &hdr); glTextureStorage2D(hdr, 1, GL_RGBA16F, w * 2, h * 2);
+    glCreateTextures(GL_TEXTURE_2D, 1, &dep); glTextureStorage2D(dep, 1, GL_DEPTH_COMPONENT32F, w * 2, h * 2);
+    for (GLuint t : {hdr, dep}) { glTextureParameteri(t, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTextureParameteri(t, GL_TEXTURE_MAG_FILTER, GL_NEAREST); glTextureParameteri(t, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(t, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); }
+    glCreateFramebuffers(1, &fbo); glNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, hdr, 0); glNamedFramebufferTexture(fbo, GL_DEPTH_ATTACHMENT, dep, 0);
+    glCreateTextures(GL_TEXTURE_2D, 1, &ldr); glTextureStorage2D(ldr, 1, GL_RGBA8, w, h);
+    glTextureParameteri(ldr, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(ldr, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glCreateFramebuffers(1, &ldrFbo); glNamedFramebufferTexture(ldrFbo, GL_COLOR_ATTACHMENT0, ldr, 0);
+    W = w; H = h;
+  }
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo); glViewport(0, 0, w * 2, h * 2);
+  glClearColor(0, 0, 0, 0); glClearDepth(1.0); glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LESS); glDepthMask(GL_TRUE); glDisable(GL_BLEND); glDisable(GL_CULL_FACE);
+  RenderView v; v.view = view; v.proj = proj; v.camPos = camPos;
+  thumbMode = true;
+  setLighting(progModel, v); glUniformMatrix4fv(U(progModel, "uVP"), 1, GL_FALSE, glm::value_ptr(proj * view)); drawModels(items);
+  thumbMode = false;
+  glBindFramebuffer(GL_FRAMEBUFFER, ldrFbo); glViewport(0, 0, w, h);
+  glDisable(GL_DEPTH_TEST); glDepthMask(GL_FALSE);
+  glUseProgram(prog); glBindVertexArray(emptyVao);
+  glBindTextureUnit(0, hdr); glBindTextureUnit(1, dep); glUniform1i(U(prog, "uHdr"), 0); glUniform1i(U(prog, "uDep"), 1); glUniform1f(U(prog, "uSat"), saturation);
+  glDrawArrays(GL_TRIANGLES, 0, 3);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0); glEnable(GL_DEPTH_TEST); glDepthMask(GL_TRUE);
+  return ldr;
 }
 
 static mat4 stableOrtho(vec3 focus, vec3 dir, float radius, float depth, int res, mat4& viewOut) {
