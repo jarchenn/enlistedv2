@@ -44,7 +44,10 @@ static void measureHold(WeaponDef& d, const std::vector<vec3>& P) {
   vec3 c = d.gripL, a(0, 0, 1);
   if (float r = fitCapsule(P, c, a, false); r > 0) { d.guardC = c; d.guardRad = std::clamp(r, 0.014f, 0.05f); }   // a hand wraps at least a 28 mm handguard
   c = d.gripR; a = glm::normalize(vec3(0, -1, -0.25f));   // grips rake back
-  if (float r = fitCapsule(P, c, a, true); r > 0) { d.gripC = c; d.gripAx = a; d.gripRad = std::clamp(r, 0.013f, 0.035f); }
+  if (float r = fitCapsule(P, c, a, true); r > 0) {
+    if (a.z > 0.1f) { a = glm::normalize(vec3(0, -1, -0.25f)); c = d.gripR; r = fitCapsule(P, c, a, false); }   // a grip never rakes forward: the slices caught the trigger guard / receiver (MG 42)
+    if (r > 0) { d.gripC = c; d.gripAx = a; d.gripRad = std::clamp(r, 0.013f, 0.035f); }
+  }
   logf("[hold] %s grip (%.3f %.3f %.3f) ax (%.2f %.2f %.2f) r %.3f | guard (%.3f %.3f %.3f) r %.3f | sockets R (%.3f %.3f %.3f) L (%.3f %.3f %.3f)", d.id.c_str(),
        d.gripC.x, d.gripC.y, d.gripC.z, d.gripAx.x, d.gripAx.y, d.gripAx.z, d.gripRad, d.guardC.x, d.guardC.y, d.guardC.z, d.guardRad, d.gripR.x, d.gripR.y, d.gripR.z, d.gripL.x, d.gripL.y, d.gripL.z);
 }

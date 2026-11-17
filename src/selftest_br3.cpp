@@ -212,6 +212,7 @@ bool poseShots(App& app, float dt) {
     else { auto cm = std::make_unique<CharModel>(); std::string e;
       if (cm->load(contentDir() / "characters" / (id + ".glb"), e)) { mi = G.modelIdx[id] = (int)G.models.size(); G.models.push_back(std::move(cm)); }
       else logf("[poses] body %s: %s", id.c_str(), e.c_str()); }
+    if (mi >= 0) s.kit = id.rfind("trooper", 0) == 0 ? 2 : id.rfind("robot", 0) == 0 ? 3 : 0;   // AN1 step 2b: the body's kit as in a match (troopers' hunch)
     if (mi >= 0 && mi != s.model) {
       if (s.ciReady) s.ci.destroy();
       s.model = mi; s.ci.frameSkinned = -1; s.ciReady = false;
