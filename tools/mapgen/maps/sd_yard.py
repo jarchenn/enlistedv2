@@ -80,7 +80,9 @@ def build(ctx):
     paint = GroundPaint()
     paint.poly("sand", [(-W / 2 - MARGIN, -D / 2 - MARGIN), (W / 2 + MARGIN, -D / 2 - MARGIN), (W / 2 + MARGIN, D / 2 + MARGIN), (-W / 2 - MARGIN, D / 2 + MARGIN)], weight=1.0, edge=0.5)
     y0 = b.ground(0.0, 0.0)
-    nw = place_container_walls(b, plan, WALL, WALL_IN, R, y=y0, boxes=("mod_container_20", "mod_container_20_damaged"))
+    boxes_out = []
+    nw = place_container_walls(b, plan, WALL, WALL_IN, R, y=y0, boxes=("sd_box_blue", "sd_box_green", "sd_box_grey", "sd_box_white", "sd_box_maroon", "sd_box_orange",
+                                                                     "sd_box_yellow", "mod_container_20", "sd_box_blue", "mod_container_20_damaged"), skew=4.0, out=boxes_out)
     n_walls = sum(nw.values())
     # ground: the sites, mid and the spawns are paved aprons; gravel tracks along the streets; sand drifts elsewhere
     for ch, kind in (("A", "rock"), ("B", "rock"), ("M", "rock"), ("T", "rock"), ("D", "rock"), ("s", "rock"), ("t", "rock"), ("p", "rock"), ("f", "rock"), ("R", "rock"), ("c", "rock")):
@@ -88,13 +90,66 @@ def build(ctx):
             x, z = plan._cc(i, j)
             h = CELL / 2 + 0.9   # overlap: the sand base showed through the cell seams as light grid lines
             paint.poly(kind, [(x - h, z - h), (x + h, z - h), (x + h, z + h), (x - h, z + h)], weight=1.0, edge=0.6, ragged=0.4, seed=i * 31 + j)
-    for ch in "stfpRc":
+    # the sites and the square are concrete aprons (pebbles -> apron_concrete_paint) with sawn slab joints
+    for ch in "ABM":
         for i, j in plan.cells(ch):
             x, z = plan._cc(i, j)
-            paint.poly("gravel", [(x - 1.4, z - 1.4), (x + 1.4, z - 1.4), (x + 1.4, z + 1.4), (x - 1.4, z + 1.4)], weight=0.55, edge=1.2, ragged=1.0, seed=i * 17 + j)
+            h = CELL / 2 + 0.9
+            paint.poly("pebbles", [(x - h, z - h), (x + h, z - h), (x + h, z + h), (x - h, z + h)], weight=1.0, edge=0.3)
+            b.place("sd_slab_joints", x, z, 0.0, check=False, cls="none", y=y0, tags={"marking"})
+    # markings: a yellow edge line 1 m off every container wall, a dashed white centre line down each lane, hazard bands
+    # across the site entrances, drains in the gutters
+    n_mark = 0
+    for x, z, yaw, kind, a, c in plan.edges():
+        wa, wc = plan.walk(*a), plan.walk(*c)
+        if wa == wc:
+            if kind and wa and "A" in (plan.at(*a), plan.at(*c)) or kind and wa and "B" in (plan.at(*a), plan.at(*c)):
+                b.place("sd_mark_hazard", x, z, yaw, check=False, cls="none", y=y0, tags={"marking"}); n_mark += 1
+            continue
+        inside = a if wa else c
+        ix, iz = plan._cc(*inside)
+        nx_, nz_ = (1.0 if ix > x else -1.0, 0.0) if yaw == 90.0 else (0.0, 1.0 if iz > z else -1.0)
+        b.place("sd_mark_line", x + nx_ * 1.0, z + nz_ * 1.0, yaw, check=False, cls="none", y=y0, tags={"marking"}); n_mark += 1
+        hx, hz = int(x // 3), int(z // 3)
+        if (hx * 7 + hz * 3) % 5 == 0:
+            b.place("sd_drain", x + nx_ * 0.6, z + nz_ * 0.6, yaw, check=False, cls="none", y=y0, tags={"marking"})
+    for ch in "stpfRcTD":
+        for i, j in plan.cells(ch):
+            ns = plan.walk(i, j - 1) or plan.walk(i, j + 1)
+            ew = plan.walk(i - 1, j) or plan.walk(i + 1, j)
+            if ns != ew:   # a straight lane cell: the centre line runs along it
+                x, z = plan._cc(i, j)
+                b.place("sd_mark_dash", x, z, 90.0 if ns else 0.0, check=False, cls="none", y=y0, tags={"marking"}); n_mark += 1
+    # numbered container bays on the aprons (off the plant pads), a crane rail pair along the east lane
+    _bay = 1
+    for ch in "ABM":
+        for i, j in plan.cells(ch)[::3]:
+            x, z = plan._cc(i, j)
+            _xa_, _za_ = plan.cc(*PLANT_A_CELL); _xb_, _zb_ = plan.cc(*PLANT_B_CELL)
+            if min(math.hypot(x - _xa_, z - _za_), math.hypot(x - _xb_, z - _zb_)) < 7.0:
+                continue
+            b.place("sd_mark_bay_%02d" % _bay, x + 1.5, z, 0.0, check=False, cls="none", y=y0, tags={"marking"})
+            _bay = _bay % 12 + 1
+    for i, j in plan.cells("s"):
+        x, z = plan._cc(i, j)
+        for off in (-1.9, 1.9):
+            b.place("sd_crane_rail", x + off, z, 90.0, check=False, cls="none", y=y0, tags={"marking"})
 
     # ---------------------------------------------------------------- dressing: masses behind the walls, a mid landmark, cover
-    n_mass = place_masses(b, plan, MASSES, R, y0)
+    masses = []
+    n_mass = place_masses(b, plan, MASSES, R, y0, out=masses)
+    for aid, x, z, hw, hd in masses:   # the sheds' sides toward the yard: a band of lit windows 4.5 m up
+        if aid not in ("mod_nt_warehouse", "mod_nt_barn_steel", "mod_nt_workshop"):
+            continue
+        if abs(x) * hd > abs(z) * hw:   # the yard is towards the origin: the east / west side faces it
+            fx, fz, yaw, span = x - math.copysign(hw + 0.02, x), z, (90.0 if x < 0 else 270.0), 2 * hd
+        else:
+            fx, fz, yaw, span = x, z - math.copysign(hd + 0.02, z), (0.0 if z < 0 else 180.0), 2 * hw
+        for k in range(max(1, int(span // 14))):
+            off = -span / 2 + 7.0 + k * 14.0
+            tx, tz = (0.0, off) if yaw in (90.0, 270.0) else (off, 0.0)
+            shed = next(e for e in b.inst if e["asset"] == aid and abs(e["pos"][0] - x) < 0.01 and abs(e["pos"][2] - z) < 0.01)
+            b.place("sd_lit_windows", fx + tx, fz + tz, yaw, check=False, cls="none", y=y0 + 4.5, tags={"lamp"}, support=shed)
     mx, mz = plan.centre("M")
     b.place("mod_nt_radar_tower", mx, mz + 1.0, 0.0, check=False, cls="none", y=y0, tags={"landmark", "cover"})   # the parade square's landmark: splits mid
     _xa, _za = plan.cc(*PLANT_A_CELL); _xb, _zb = plan.cc(*PLANT_B_CELL)
@@ -123,9 +178,9 @@ def build(ctx):
     for ch, items in (("A", [("cl_yard_loading_area", 4.85, 2.45, 1), ("cl_yard_workshop_bay", 3.8, 2.25, 1)]),
                       ("B", [("ph_overhead_crane", 6.25, 2.0, 1), ("cl_yard_pipe_yard", 3.9, 2.15, 1)]),
                       ("M", [("cl_yard_pipe_rack", 1.25, 0.4, 2), ("cl_yard_barrel_stack", 0.95, 0.75, 1)]),
-                      ("s", [("cl_yard_tool_carts", 1.55, 0.8, 1), ("cl_yard_camera_pole", 0.7, 0.6, 1), ("ph_modular_electricity_poles", 0.65, 0.45, 1)]),
-                      ("t", [("cl_yard_workshop_corner", 1.6, 1.0, 1), ("cl_yard_camera_pole", 0.7, 0.6, 1), ("ph_modular_electricity_poles", 0.65, 0.45, 2)]),
-                      ("f", [("cl_yard_barrel_stack", 0.95, 0.75, 1)]), ("R", [("ph_modular_electricity_poles", 0.65, 0.45, 2), ("cl_yard_tool_carts", 1.55, 0.8, 1)])):
+                      ("s", [("cl_yard_tool_carts", 1.55, 0.8, 1), ("cl_yard_camera_pole", 0.7, 0.6, 1), ("ph_modular_electricity_poles", 0.65, 0.45, 1), ("tun_cable_reel", 0.6, 0.4, 1), ("mod_bollard_steel", 0.15, 0.15, 2)]),
+                      ("t", [("cl_yard_workshop_corner", 1.6, 1.0, 1), ("cl_yard_camera_pole", 0.7, 0.6, 1), ("ph_modular_electricity_poles", 0.65, 0.45, 2), ("sd_dry_pallet_stack", 1.0, 0.45, 1), ("mod_bollard_steel", 0.15, 0.15, 2)]),
+                      ("f", [("cl_yard_barrel_stack", 0.95, 0.75, 1), ("tun_cable_reel", 0.6, 0.4, 1)]), ("R", [("ph_modular_electricity_poles", 0.65, 0.45, 2), ("cl_yard_tool_carts", 1.55, 0.8, 1)])):
         n_kit += place_along_walls(b, plan, ch, items, R, y0, keep=keep)
     for ch in "ABMstR":
         cs = plan.cells(ch)
@@ -135,6 +190,37 @@ def build(ctx):
             x, z = x + R.uniform(-2, 2), z + R.uniform(-2, 2)
             paint.poly("mud", [(x - 1.3, z - 0.8), (x + 1.0, z - 1.2), (x + 1.4, z + 0.9), (x - 0.9, z + 1.2)], weight=0.65, edge=0.7, ragged=0.6, seed=i * 7 + j)
     n_lamp = wall_lamps(b, plan, "AB", "sd_sodium_light", y0, every=3) + wall_lamps(b, plan, "MstpfRcTD", "sd_sodium_light", y0, every=5)
+    # floodlight masts behind the container walls of the sites and the square, aimed out over them (the yard reads by
+    # its pools of light); work lights on some container roofs; a red beacon on the gantry tower
+    for ch in "ABM":
+        cx_, cz_ = plan.centre(ch)
+        best = None
+        for x, z, yaw, kind, a, c in plan.edges():
+            if kind or plan.walk(*a) == plan.walk(*c):
+                continue
+            inside = a if plan.walk(*a) else c
+            if plan.at(*inside) != ch:
+                continue
+            ix, iz = plan._cc(*inside)
+            nx_, nz_ = (1.0 if ix > x else -1.0, 0.0) if yaw == 90.0 else (0.0, 1.0 if iz > z else -1.0)
+            d = math.hypot(x - cx_, z - cz_)
+            if best is None or d > best[0]:
+                best = (d, x, z, nx_, nz_)
+        _, x, z, nx_, nz_ = best
+        b.place("sd_flood_mast", x - nx_ * 3.0, z - nz_ * 3.0, math.degrees(math.atan2(nx_, nz_)) % 360.0, check=False, cls="none", y=y0, tags={"lamp"})
+        n_lamp += 1
+    for k, (x, z, nx_, nz_, top) in enumerate(boxes_out):
+        if k % 6 == 2:
+            b.place("sd_work_light", x + nx_ * 1.0, z + nz_ * 1.0, math.degrees(math.atan2(nx_, nz_)) % 360.0, check=False, cls="none", y=y0 + top, tags={"lamp"})
+            n_lamp += 1
+    b.place("sd_beacon_red", mx, mz + 1.0, 0.0, check=False, cls="none", y=y0 + 22.05, tags={"lamp"})
+    # pools of rain, catching the lamps (flat films: no terrain cut)
+    Rp = rng(SEED + 5)
+    for ch in "ABMstpfRc":
+        cs = plan.cells(ch)
+        for i, j in Rp.sample(cs, max(1, len(cs) // 7)):
+            x, z = plan._cc(i, j)
+            b.place("sd_puddle_yard", x + Rp.uniform(-1.0, 1.0), z + Rp.uniform(-1.0, 1.0), Rp.choice((0.0, 90.0, 180.0, 270.0)), check=False, cls="none", y=y0, tags={"puddle"})
     # ---------------------------------------------------------------- scenario: sites, spawns, timings
     sc = ScenarioBuilder(b, defending="Axis")
     xA, zA = plan.cc(*PLANT_A_CELL)
@@ -194,7 +280,7 @@ def build(ctx):
     thumb_cam = ([_v["pos"][0], _v["pos"][1] + 0.6, _v["pos"][2]], _v["yaw"], -5.0)
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sc.to_json(rules_extra=rules), explore_start=((a1[0], a1[1], a1[2]), 0.0), camera=cam, bookmarks={},
-              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 22.5, "fill": 1.0}, "look": {"haze": 0.9, "saturation": 0.95, "tint": [0.94, 0.98, 1.06], "bloom": 1.3, "paintSets": {"rock": "yard_asphalt_paint", "gravel": "gravel_mixed"}}})
+              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 22.5, "fill": 0.4}, "look": {"haze": 1.35, "clouds": 0.8, "saturation": 1.0, "tint": [1.03, 0.97, 0.9], "bloom": 1.7, "paintSets": {"rock": "yard_asphalt_paint", "gravel": "gravel_mixed", "pebbles": "yard_apron_paint"}}})
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=20, version=VERSION, seed=SEED,
                    description="Search and Destroy: a desert compound of precast concrete walls and courtyards in hard noon light. "
                                "A: the west vehicle court; B: the east supply yard; Mid: the parade square. 5 v 5.",

@@ -1,14 +1,15 @@
-"""SD2 map 1: Rue Haute, a Search and Destroy map: a desert military compound of precast concrete walls, courtyards and
-huts in hard noon light. Laid out on the 6 m bay of the compound wall (sd_common.Plan). Raiders spawn at the south
-gate, Security in the north yard. A: the west vehicle court; B: the east supply yard; Mid: the parade square.
+"""SD2 map 3: Rue Haute, a Search and Destroy map: a Norman town quarter on an overcast morning. The lanes run between
+house frontages (tools/mapgen/sd_town_facades.py, one 6 m bay per plan edge: the play space is the old walled plan's,
+so the timings hold), roofed passages under the houses, the churchyard behind its wall (A), the market hall (B) and the
+market square with its war memorial (mid). Raiders spawn in the station yard, Security in the gendarmerie yard.
 
-    <python> -I tools/mapgen/build.py sd_desert"""
+    <python> -I tools/mapgen/build.py sd_town"""
 import math
 import os
 
 from mapgen import (GroundPaint, Grid, Frame, MapBuilder, ScenarioBuilder, write_map, write_template, write_summary, asset_usage,
                     rng, look_yaw)
-from maps.sd_common import rows_from, Plan, place_walls2, spread, place_masses, place_cover, wall_spot, site_signs, place_along_walls
+from maps.sd_common import rows_from, Plan, place_facades, spread, place_masses, place_cover, wall_spot, site_signs, place_along_walls
 
 TID, NAME, VERSION, SEED = "sd_town", "Rue Haute", 1, 2613
 CELL = 6.0
@@ -16,6 +17,8 @@ WALL = "mod_nt_compound_wall"            # perimeter (razor wire)
 WALL_IN = "mod_nt_compound_wall_plain"   # inner yard walls
 BREACH = "sd_town_wall_door"   # the connector doorways
 CULVERT = "mod_nt_compound_wall_culvert"
+FACADES = ["sd_facade_render_a", "sd_facade_timber_a", "sd_facade_render_b", "sd_facade_stone", "sd_facade_render_c", "sd_facade_timber_b",
+           "sd_facade_brick", "sd_facade_slate", "sd_facade_cafe", "sd_facade_timber_a", "sd_facade_slate", "sd_facade_render_a"]
 
 # north at the top; column i from the west, row j from the south (the last row is j = 0)
 ROWS = rows_from(15, 17, [
@@ -81,23 +84,52 @@ def build(ctx):
     paint = GroundPaint()
     paint.poly("sand", [(-W / 2 - MARGIN, -D / 2 - MARGIN), (W / 2 + MARGIN, -D / 2 - MARGIN), (W / 2 + MARGIN, D / 2 + MARGIN), (-W / 2 - MARGIN, D / 2 + MARGIN)], weight=1.0, edge=0.5)
     y0 = b.ground(0.0, 0.0)
-    nw = place_walls2(b, plan, "sd_town_wall", "sd_town_wall", y=y0)
+    # the lanes are the gaps between house fronts; the churchyard keeps its wall; walls only between two open regions
+    houses = []
+    nw = place_facades(b, plan, FACADES, "sd_town_wall", y=y0, plain="A", plain_asset="sd_town_wall", out=houses)
     n_walls = sum(nw.values())
-    # ground: the sites, mid and the spawns are paved aprons; gravel tracks along the streets; sand drifts elsewhere
-    for ch, kind in (("A", "grass"), ("B", "cobbles"), ("M", "cobbles"), ("T", "cobbles"), ("D", "cobbles"), ("s", "cobbles"), ("t", "cobbles"), ("p", "cobbles"), ("f", "dirt"), ("R", "cobbles"), ("c", "cobbles"), ("w", "cobbles"), ("n", "cobbles"), ("k", "cobbles")):
+    # ground: cobbled lanes, the square and the spawn yards cobbled too, the churchyard grass,
+    # a strip of setts (pebbles -> setts_paint) along every house front: the gutter
+    for ch, kind in (("A", "grass"), ("B", "cobbles"), ("M", "cobbles"), ("T", "cobbles"), ("D", "cobbles"), ("s", "cobbles"), ("t", "cobbles"), ("p", "cobbles"), ("f", "cobbles"), ("R", "cobbles"), ("c", "cobbles"), ("w", "cobbles"), ("n", "cobbles"), ("k", "cobbles")):
         for i, j in plan.cells(ch):
             x, z = plan._cc(i, j)
             h = CELL / 2 + 0.9   # overlap: the sand base showed through the cell seams as light grid lines
             paint.poly(kind, [(x - h, z - h), (x + h, z - h), (x + h, z + h), (x - h, z + h)], weight=1.0, edge=0.6, ragged=0.4, seed=i * 31 + j)
-    for ch in "stfpRc":
+    for ch in "TDA":   # worn tracks across the yards
         for i, j in plan.cells(ch):
             x, z = plan._cc(i, j)
             paint.poly("gravel", [(x - 1.4, z - 1.4), (x + 1.4, z - 1.4), (x + 1.4, z + 1.4), (x - 1.4, z + 1.4)], weight=0.55, edge=1.2, ragged=1.0, seed=i * 17 + j)
+    for x, z, nx_, nz_, _h in houses:
+        tx, tz = -nz_, nx_
+        q = [(x + nx_ * d + tx * t, z + nz_ * d + tz * t) for d, t in ((0.0, -3.0), (1.05, -3.0), (1.05, 3.0), (0.0, 3.0))]
+        paint.poly("pebbles", q, weight=1.0, edge=0.12)
+    for ch in "stpfR":   # the narrow lanes drain to a central gutter of setts
+        for i, j in plan.cells(ch):
+            ns = plan.walk(i, j - 1) or plan.walk(i, j + 1)
+            ew = plan.walk(i - 1, j) or plan.walk(i + 1, j)
+            if ns != ew:
+                x, z = plan._cc(i, j)
+                hw, hd = (0.35, CELL / 2 + 0.2) if ns else (CELL / 2 + 0.2, 0.35)
+                paint.poly("pebbles", [(x - hw, z - hd), (x + hw, z - hd), (x + hw, z + hd), (x - hw, z + hd)], weight=1.0, edge=0.1)
+    Rp = rng(SEED + 7)
+    for ch in "stpfRBM":   # puddles in the low spots
+        cells = plan.cells(ch)
+        for i, j in Rp.sample(cells, max(1, len(cells) // 5)):
+            x, z = plan._cc(i, j)
+            x += Rp.uniform(-1.8, 1.8); z += Rp.uniform(-1.8, 1.8)
+            r1, r2 = Rp.uniform(0.6, 1.3), Rp.uniform(0.4, 0.9)
+            paint.poly("mud", [(x - r1, z - r2), (x + r1 * 0.6, z - r2 * 1.1), (x + r1, z + r2 * 0.5), (x - r1 * 0.4, z + r2)], weight=0.8, edge=0.35, ragged=0.5, seed=i * 13 + j)
 
     # ---------------------------------------------------------------- dressing: masses behind the walls, a mid landmark, cover
-    n_mass = place_masses(b, plan, MASSES, R, y0)
+    # the church behind the churchyard wall (north of A), then the town's roofs beyond the frontages (3.4 m clear of the
+    # lanes: the facade bodies reach 2.9 m into the solid cells)
+    _acs = [plan._cc(i, j) for i, j in plan.cells("A")]
+    _ax = sum(p[0] for p in _acs) / len(_acs)
+    _azmax = max(p[1] for p in _acs) + CELL / 2
+    b.place("vil_church", _ax, _azmax + 1.2 + 4.7, 180.0, check=False, cls="none", y=y0, tags={"mass", "landmark"})
+    n_mass = place_masses(b, plan, MASSES, R, y0, margin=3.4) + 1
     mx, mz = plan.centre("M")
-    b.place("drs_well", mx, mz, 0.0, check=False, cls="none", y=y0, tags={"landmark", "cover"})   # the market square's well: the mid landmark
+    b.place("sd_monument", mx, mz, 0.0, check=False, cls="none", y=y0, tags={"landmark", "cover"})   # the square's war memorial (the old well's footprint): the mid landmark
     _xa, _za = plan.cc(*PLANT_A_CELL); _xb, _zb = plan.cc(*PLANT_B_CELL)
     PADS = [(_xa + PLANT_A_OFF[0], _za + PLANT_A_OFF[1], 3.5), (_xb + PLANT_B_OFF[0], _zb + PLANT_B_OFF[1], 3.5)]
     n_cover = 0
@@ -115,6 +147,25 @@ def build(ctx):
             paint.poly("cobbles", [(x - h, z - h), (x + h, z - h), (x + h, z + h), (x - h, z + h)], weight=1.0, edge=0.3)
             n_roof += 1
         n_cover += place_cover(b, plan, ch, [("ph_metal_toolbox", 0.3, 0.15, 1), ("ph_wooden_crate_01", 0.5, 0.5, 1)], R, y0, lane=1.6)
+    # wall lanterns on every third house front, washing lines across the narrow lanes
+    n_lamp = 0
+    by_edge = {(round(x, 1), round(z, 1)): h for x, z, _nx, _nz, h in houses}
+    for k, (x, z, nx_, nz_, house) in enumerate(sorted(houses, key=lambda t: (t[0], t[1]))):
+        if k % 3 == 0:
+            tx, tz = -nz_, nx_
+            b.place("lamp_wall_lantern", x + nx_ * 0.33 + tx * 2.75, z + nz_ * 0.33 + tz * 2.75, math.degrees(math.atan2(nx_, nz_)) % 360.0,
+                    check=False, cls="none", y=y0 + 2.75, tags={"lamp"}, support=house)
+            n_lamp += 1
+    n_line = 0
+    for ch in "stRf":
+        for i, j in plan.cells(ch)[1::3]:
+            x, z = plan._cc(i, j)
+            ew = not plan.walk(i - 1, j) and not plan.walk(i + 1, j)   # the lane runs north-south: the line spans east-west
+            ns = not plan.walk(i, j - 1) and not plan.walk(i, j + 1)
+            host = by_edge.get((round(x - CELL / 2, 1), round(z, 1)) if ew else (round(x, 1), round(z - CELL / 2, 1)))
+            if (ew or ns) and host is not None:
+                b.place("sd_washing_line", x, z, 0.0 if ew else 90.0, check=False, cls="none", y=y0 + 4.9, tags={"dressing"}, support=host)
+                n_line += 1
     # signs at every site entrance
     n_sign = site_signs(b, plan, "A", "a", y0) + site_signs(b, plan, "B", "b", y0)
     # the town kit against the walls (4.5 m clear of doorways, 1 m walkways): the market row and stalls in the Market Hall,
@@ -187,10 +238,10 @@ def build(ctx):
     thumb_cam = ([_v["pos"][0], _v["pos"][1] + 0.6, _v["pos"][2]], _v["yaw"], -5.0)
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sc.to_json(rules_extra=rules), explore_start=((a1[0], a1[1], a1[2]), 0.0), camera=cam, bookmarks={},
-              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 11.0}, "look": {"haze": 1.0, "weather": 0.75, "saturation": 0.95, "tint": [0.98, 0.99, 1.02]}})
+              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 11.0}, "look": {"haze": 1.0, "weather": 0.75, "saturation": 0.95, "tint": [0.98, 0.99, 1.02], "paintSets": {"pebbles": "setts_paint"}}})
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=20, version=VERSION, seed=SEED,
-                   description="Search and Destroy: a desert compound of precast concrete walls and courtyards in hard noon light. "
-                               "A: the west vehicle court; B: the east supply yard; Mid: the parade square. 5 v 5.",
+                   description="Search and Destroy: a Norman town quarter on an overcast morning, its lanes between house fronts. "
+                               "A: the churchyard; B: the market hall; Mid: the market square. 5 v 5.",
                    width=W, depth=D, margin=MARGIN, heightmap=grid.meta(TID + ".height.png"), water_level=-1000.0,
                    map_file=TID + ".nmap.json", camera=cam, thumbnail=TID + ".thumb.png", thumb_camera=thumb_cam,
                    extra={"userMap": True, "views": views})
