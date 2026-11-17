@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.4450201392173767,
+  0.37210333347320557,
+  0.13305449485778809
+ ],
+ "bmin": [
+  -0.4451223611831665,
+  1.738890387059655e-05,
+  -0.13286617398262024
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "rubber_boots",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "rubber_boots_dirty",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.1549799144268036,
+    0.37210333347320557,
+    0.13305449485778809
+   ],
+   "bmin": [
+    -0.4451223611831665,
+    1.7394209862686694e-05,
+    -0.13286617398262024
+   ],
+   "count": 10524,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "rubber_boots_l",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.4450201392173767,
+    0.37210333347320557,
+    0.13305449485778809
+   ],
+   "bmin": [
+    0.1549798548221588,
+    1.738890387059655e-05,
+    -0.13286617398262024
+   ],
+   "count": 10524,
+   "first": 10524,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "rubber_boots_l",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_rubber_boots.glb",
+ "textures": {},
+ "triangles": 7016,
+ "vertices": 4882
+}

@@ -107,6 +107,7 @@ static void initFromInstance(App& app, TankSys& sys, TankRT& t, const Instance& 
   n.selected = n.loaded != SHELL_NONE ? n.loaded : SHELL_AP;
   n.mgLoaded = d.mgBelt; n.mgReserve = d.mgReserve;
   n.bowLoaded = d.bowOn ? d.bowBelt : 0; n.bowReserve = d.bowOn ? d.bowReserve : 0;
+  n.towLeft = d.towCount;
   if (n.wrecked) { n.hp = 0; n.loaded = SHELL_NONE; n.burnT = 0; }
   if (d.heli) { n.gunAmmo = d.gun30Ammo; n.rockets = d.rocketCount; n.grounded = true; n.rpm = 0; if (n.wrecked) n.roll = 18; t = n; return; }   // VH5: sits at the instance's height (a raised pad)
   float y, p, r, s; sys.groundPose(app, d, n.pos, n.yaw, y, p, r, s, n.id);
@@ -183,6 +184,7 @@ void TankSys::stepAll(App& app, float dt, const ExploreInput& in) {
     }
   }
   for (auto& [id, t] : tanks) stepOne(app, t, dt, id == occupied ? &in : nullptr);
+  stepTows(app, dt);   // VH7
   // the occupant's body rides with the vehicle: everything that asks where the player is (the local soldier's feet, AI
   // targeting and LOD, enemies' chase) follows the vehicle instead of the spot where the player got in
   if (occupied) if (TankRT* t = get(occupied); t && !(t->def && t->def->heli)) Physics::setCharacterPos(t->pos + vec3(0, 1.0f, 0));   // the helicopter places its own (heli.cpp)
@@ -233,8 +235,9 @@ bool TankSys::enter(App& app, uint64_t id) {
   // the infantry body waits inside the hull (no collision update while crewing)
   Physics::setCharacterPos(t->pos + vec3(0, 1.0f, 0));
   app.audio.play("steel_close", t->pos + vec3(0, 2.5f, 0), 0.8f);
-  app.toast("In " + t->def->name + " - gunner sight. W/S A/D drive | mouse aim | LMB main gun | Space " + (t->def->bowOn ? t->def->bowShort : std::string("-")) +
-            " | RMB zoom | R next shell HE/AP | Ctrl hatch (LMB roof MG, Space both MGs, RMB main gun) | E get out", 7);
+  if (t->def->towCount) app.toast("In " + t->def->name + " - gunner sight. W/S A/D drive | mouse aim | LMB 25 mm (hold) | R AP / HE | Space coax | Q " + t->def->towName + " | RMB zoom | Ctrl pop out of the hatch | E get out", 7);   // VH7
+  else app.toast("In " + t->def->name + " - gunner sight. W/S A/D drive | mouse aim | LMB main gun | Space " + (t->def->bowOn ? t->def->bowShort : std::string("-")) +
+            " | RMB zoom | R next shell HE/AP | Ctrl hatch (" + std::string(t->def->mgName.empty() ? "look out" : t->def->bowOn ? "LMB roof MG, Space both MGs" : "LMB / Space roof MG") + ", RMB main gun) | E get out", 7);   // VH8: only the guns it has
   return true;
 }
 
@@ -268,7 +271,7 @@ void TankSys::vacate(App& app) {
   occupied = 0; zoom = false; zoomT = 0;
 }
 
-uint64_t TankSys::spawnFresh(App& app, const std::string& assetId, vec3 near, float faceYaw, int station) {
+uint64_t TankSys::spawnFresh(App& app, const std::string& assetId, vec3 near, float faceYaw, int station, float firstR) {
   const AssetDef* a = app.lib.find(assetId);
   if (!a || !defFor(a)) return 0;
   // the cap: the oldest wrecks go first (they would pile up with every respawn)
@@ -281,8 +284,8 @@ uint64_t TankSys::spawnFresh(App& app, const std::string& assetId, vec3 near, fl
     removed |= I.size() != n0;
   }
   if (removed) { app.syncRuntime(); sync(app); }
-  for (float r : {7.0f, 10.0f, 14.0f, 18.0f, 24.0f, 30.0f})
-    for (int k = 0; k < 12; ++k) {
+  for (float r : {firstR, 7.0f, 10.0f, 14.0f, 18.0f, 24.0f, 30.0f})
+    for (int k = 0; k < (r < 0.5f ? 1 : 12); ++k) {
       float an = k * 0.5235988f; vec3 p = near + vec3(std::cos(an) * r, 0, std::sin(an) * r); p.y = app.terrain.height(p.x, p.z);
       bool near2 = false; for (auto& [id, o] : tanks) if (glm::length(vec2(o.pos.x - p.x, o.pos.z - p.z)) < 8.0f) near2 = true;   // not on another vehicle
       if (near2 || !app.checkPlacement(a, p, faceYaw, 0).ok) continue;
@@ -383,7 +386,16 @@ void TankSys::stepOne(App& app, TankRT& t, float dt, const ExploreInput* in) {
     if (t.loaded != SHELL_NONE) fireCannon(app, t);
     else { app.audio.play("click", t.pos + vec3(0, 2, 0), 0.6f); app.toast(t.reload > 0 ? "Loading..." : "No round loaded.", 1.5); }
   };
-  if (in && fireHeld && fireArmed && t.station == TS_GUNNER && t.hatchT == 0) { fireArmed = false; cannon(); }
+  if (in && fireHeld && (fireArmed || d.autoGun) && t.station == TS_GUNNER && t.hatchT == 0) {   // VH7: an autocannon keeps firing while held
+    if (d.autoGun) { fireArmed = false; if (t.loaded != SHELL_NONE) fireCannon(app, t); else if (t.reserveAP + t.reserveHE == 0 && t.mgCool <= 0) { app.audio.play("click", t.pos + vec3(0, 2, 0), 0.5f); t.mgCool = 0.4f; } }
+    else { fireArmed = false; cannon(); }
+  }
+  if (d.towCount > 0) {   // VH7 TOW: Q fires one (gunner sight); the pair reloads one by one
+    bool q = in && in->nextWeapon && focused;
+    if (q && !t.towPrev && t.station == TS_GUNNER && t.hatchT == 0) fireTow(app, t);
+    t.towPrev = q;
+    if (t.towLeft < d.towCount) { if (t.towReloadT <= 0) t.towReloadT = d.towReload / d.towCount; t.towReloadT -= dt; if (t.towReloadT <= 0) { ++t.towLeft; t.towReloadT = 0; if (occupied == t.id) app.toast(d.towName + " ready (" + std::to_string(t.towLeft) + ")", 1.5); } }
+  }
   if (in && rmbFire) cannon();
   // ---- machine guns: roof MG (hatch: LMB or Space), bow MG (Space, any station); belts change automatically
   stepMgs(app, t, dt, in, focused);
@@ -450,6 +462,57 @@ void TankSys::stepCar(App& app, TankRT& t, float dt, const ExploreInput* in) {
   effects(app, t, dt);
 }
 
+namespace {
+// 2D separating-axis test of two yawed rectangles (centre xz, half extents x / z, yaw deg)
+bool rectsOverlap(vec2 c1, vec2 h1, float y1, vec2 c2, vec2 h2, float y2) {
+  auto axes = [](float yaw, vec2& ax, vec2& az) { float a = radians(yaw); ax = vec2(std::cos(a), -std::sin(a)); az = vec2(std::sin(a), std::cos(a)); };
+  vec2 a1x, a1z, a2x, a2z; axes(y1, a1x, a1z); axes(y2, a2x, a2z);
+  vec2 d = c2 - c1;
+  for (vec2 L : {a1x, a1z, a2x, a2z}) {
+    float r1 = h1.x * std::fabs(glm::dot(a1x, L)) + h1.y * std::fabs(glm::dot(a1z, L));
+    float r2 = h2.x * std::fabs(glm::dot(a2x, L)) + h2.y * std::fabs(glm::dot(a2z, L));
+    if (std::fabs(glm::dot(d, L)) > r1 + r2) return false;
+  }
+  return true;
+}
+}
+
+// VH8: before the static obstacles: a vehicle or wreck the hull would overlap is shoved by the mass ratio. Twice the other's
+// mass or more: it is carried along at nearly the full speed; equal mass: slowly; under 0.7 x: it holds (a tank does not
+// push a heavier tank). The pushed one slides along the push and a little aside, stays on the ground, takes 1 durability per
+// metre shoved (a wreck nothing), and holds when it would be pushed into something solid itself
+bool TankSys::pushVehicles(App& app, TankRT& t, vec3& np, float ny, std::string& why) {
+  const TankDef& d = *t.def;
+  vec3 move = np - t.pos; move.y = 0;
+  if (glm::length(move) < 1e-5f) return true;
+  vec2 hT(d.halfSize.x, d.halfSize.z);
+  for (auto& [oid, o] : tanks) {
+    if (oid == t.id || !o.def || o.falling) continue;
+    if (o.def->heli && o.pos.y - heliGround(app, o, o.pos) > 0.5f) continue;   // a helicopter in the air is not in the way
+    vec2 hO(o.def->halfSize.x, o.def->halfSize.z);
+    if (!rectsOverlap(vec2(np.x, np.z), hT, ny, vec2(o.pos.x, o.pos.z), hO, o.yaw)) continue;
+    if (rectsOverlap(vec2(t.pos.x, t.pos.z), hT, t.yaw, vec2(o.pos.x, o.pos.z), hO, o.yaw) && glm::dot(vec2(o.pos.x - t.pos.x, o.pos.z - t.pos.z), vec2(move.x, move.z)) < 0) continue;   // already overlapping and moving away: let it go
+    float k = std::clamp((d.massKg / std::max(1.0f, o.def->massKg) - 0.7f) / 1.3f, 0.0f, 1.0f);
+    if (k < 0.05f) { why = "a heavier vehicle (" + o.def->name + ")"; return false; }
+    vec3 step = move * k; np = t.pos + step;   // the pusher slows to the pushed one's pace
+    vec3 fwd = glm::normalize(step), side = glm::normalize(glm::cross(fwd, vec3(0, 1, 0)));
+    float sgn = glm::dot(o.pos - t.pos, side) >= 0 ? 1.0f : -1.0f;
+    vec3 shove = step + side * (sgn * glm::length(step) * 0.3f);
+    vec3 to = o.pos + shove;
+    for (int it = 0; it < 30 && rectsOverlap(vec2(np.x, np.z), hT, ny, vec2(to.x, to.z), hO, o.yaw); ++it) to += fwd * 0.03f + side * (sgn * 0.01f);   // clear of the pusher
+    float oy, op, orl, os; groundPose(app, *o.def, to, o.yaw, oy, op, orl, os, o.id); to.y = oy;
+    TankRT probe = o; probe.pos = to; mat4 OH = hullMatrix(probe); quat oq = glm::quat_cast(glm::mat3(OH));
+    vec3 oc = vec3(OH * vec4(0, o.def->clearance + o.def->halfSize.y, 0, 1));
+    if (!app.terrain.inBuildArea(to.x, to.z) || Physics::boxBlocked(oc, o.def->halfSize * 0.95f, oq, bodyUD(o.id), true)) { why = o.def->name + " is pinned"; return false; }
+    float moved = glm::length(vec2(to.x - o.pos.x, to.z - o.pos.z));
+    o.pos = to; o.pitch = op; o.roll = orl; o.pushedM += moved;
+    if (!o.wrecked) { o.pushedDmg += moved; while (o.pushedDmg >= 1.0f) { o.pushedDmg -= 1.0f; o.hp = std::max(1, o.hp - 1); } }
+    updateBody(app, o, true);
+    if (glm::length(t.pos - app.eyePos()) < 60.0f && app.fx.rnd() < 0.05f) app.audio.play("impact_metal", o.pos + vec3(0, 1, 0), 0.5f);
+  }
+  return true;
+}
+
 void TankSys::drive(App& app, TankRT& t, float dt) {
   const TankDef& d = *t.def;
   bool road = app.terrain.wearAt(t.pos.x, t.pos.z) > 0.5f;
@@ -503,6 +566,8 @@ void TankSys::drive(App& app, TankRT& t, float dt) {
       int hits = mpaiRunOver(app, c, he + vec3(0.2f, 0, 0.25f), hq, yawQuat(ny) * vec3(0, 0, 1) * t.speed, d.runOverDmg, t.runOverT);
       if (hits) { t.runOvers += hits; t.speed *= std::pow(0.8f, (float)hits); app.audio.play("impact_metal", c, 0.7f); }
     }
+    if (ok && !pushVehicles(app, t, np, ny, why)) ok = false;   // VH8: other vehicles and wrecks: shoved by mass, or holding
+    if (ok) { groundPose(app, d, np, ny, y, p, r, s, t.id); np.y = y; probe.pos = np; H = hullMatrix(probe); c = vec3(H * vec4(0, d.clearance + he.y, 0, 1)); }
     // anything in the way: knocked over, crushed, pushed through or holding (tank_ram.cpp, one energy rule)
     if (ok && Physics::boxBlocked(c, he, hq, bodyUD(t.id), true) && !ramObstacles(app, t, dt, H, c, he, hq, why)) ok = false;
     // never drive into the player (no crushing; the tank stops)
@@ -627,8 +692,13 @@ void TankSys::fireCannon(App& app, TankRT& t) {
   vec3 fireDir = glm::normalize(P + vec3(0, drop, 0) - muzzle);
   // the shell is swept from the trunnions along the bore: a wall at the muzzle stops it (no firing through cover)
   vec3 start = piv + fireDir * 0.05f;
-  app.fireProjectile(start, fireDir, v, PROJ_HE, ap ? 120.0f : d.dmgHE, bodyUD(t.id), false, ap ? d.ammoAP : d.ammoHE);
-  if (!app.projectiles.empty()) { auto& pr = app.projectiles.back(); pr.at = ap; pr.atKill = true; }
+  app.fireProjectile(start, fireDir, v, PROJ_HE, ap ? (d.autoGun ? 12.0f : 120.0f) : d.dmgHE, bodyUD(t.id), d.autoGun && (t.shots % 3) == 0 ? 2 : 0, ap ? d.ammoAP : d.ammoHE);
+  if (!app.projectiles.empty()) {
+    auto& pr = app.projectiles.back(); pr.at = ap && !d.autoGun; pr.atKill = !d.autoGun;
+    if (d.autoGun) {   // VH7: a 25 mm round: small HE burst (AP: a puff), light anti-armour, every third a tracer
+      pr.blastR = ap ? 0.5f : d.heBlastR; pr.craterScale = ap ? 0.05f : 0.15f; pr.lightAT = ap ? d.lightAP : d.lightHE;
+    }
+  }
   t.loaded = SHELL_NONE; ++t.shots; t.recoilT = 0;
   {   // TK1: the hull rocks away from the barrel on its suspension (more broadside: the hull is narrower than long) and is
       // shoved a little back along it; springs in the drive step bring it back
@@ -638,13 +708,17 @@ void TankSys::fireCannon(App& app, TankRT& t) {
     vec3 back = -vec3(dir.x, 0, dir.z); float L = glm::length(back);
     if (L > 1e-3f) t.shoveV += back / L * (0.012f * deg * k);
   }
-  app.fx.muzzle(muzzle, dir, d.muzzleScale);   // vehicle JSON gun.muzzleScale (firing smoke: content/settings/fx.json)
-  app.audio.play(t.def->id == "tiger_i" ? "tank_88" : "tank_17pdr", muzzle, 1.0f);
-  app.viewKickPitch = 0.6f;
+  if (d.autoGun) {   // VH8: an autocannon's shot is a small short puff (200 rpm: a full tank-gun cloud each round built a wall in the sight)
+    app.fx.flash(muzzle + dir * 0.15f, 0.35f * d.muzzleScale / 0.55f, 0.04f, vec4(10, 7, 3, 1));
+    for (int k = 0; k < 2; ++k) app.fx.smoke(muzzle + dir * 0.3f, dir * (2.0f + 2.0f * app.fx.rnd()) + vec3(0, 0.3f, 0), 0.12f, 0.45f + 0.25f * app.fx.rnd(), vec4(0.62f, 0.6f, 0.57f, 0.35f), 0.9f, 0.25f);
+  } else app.fx.muzzle(muzzle, dir, d.muzzleScale);   // vehicle JSON gun.muzzleScale (firing smoke: content/settings/fx.json)
+  app.audio.play(!d.gunSound.empty() && app.audio.hasEvent(d.gunSound) ? d.gunSound : t.def->id == "tiger_i" ? "tank_88" : "tank_17pdr", muzzle, d.autoGun ? 0.8f : 1.0f);
+  app.viewKickPitch = d.autoGun ? 0.12f : 0.6f;
 }
 
 void TankSys::fireMg(App& app, TankRT& t) {
   const TankDef& d = *t.def;
+  if (d.mgName.empty()) return;   // VH7: no roof gun (the Bradley's commander only looks out)
   if (t.mgCool > 0 || t.mgReloadT > 0) return;
   if (t.mgLoaded <= 0) {   // belts change on their own (stepMgs); nothing left at all: dry click
     if (t.mgReserve <= 0) { app.audio.play("click", t.pos + vec3(0, 2.8f, 0), 0.6f); t.mgCool = 0.4f; }
@@ -663,13 +737,14 @@ void TankSys::fireMg(App& app, TankRT& t) {
   if (!app.projectiles.empty()) app.projectiles.back().mass = d.mgBulletMass;
   --t.mgLoaded; ++t.mgShots; t.mgCool += 60.0f / d.mgRpm; t.mgBurst = true;
   app.fx.muzzleFlash(m + dir * 0.03f, dir, 1.7f, false, m);   // WP4
-  if ((t.mgShots - 1) % d.mgSoundEvery == 0) app.audio.play(app.audio.hasEvent(d.mgSound) ? d.mgSound : "shot_m2hb", m, 0.9f);   // TK1: the minigun's sound (until the sound session's shot_minigun lands: the M2's)
+  if ((t.mgShots - 1) % d.mgSoundEvery == 0) app.audio.play(app.audio.hasSound(d.mgSound) ? d.mgSound : "shot_m2hb", m, 0.9f);   // TK1: the minigun's sound (until the sound session's shot_minigun lands: the M2's)
   app.viewKickPitch = 0.25f;
 }
 
 // ============================================================ bow MG (glacis ball mount)
 mat4 TankSys::bowMatrix(const TankRT& t) const {
   const TankDef& d = *t.def;
+  if (d.bowCoax) { mat4 h, tu, g, rc; rig(t, h, tu, g, rc); return g * glm::translate(mat4(1), d.bowPivot); }   // VH7: the coax rides on the gun
   return hullMatrix(t) * glm::translate(mat4(1), d.bowPivot) * glm::rotate(mat4(1), radians(t.bowYaw), vec3(0, 1, 0)) * glm::rotate(mat4(1), radians(-t.bowElev), vec3(1, 0, 0));
 }
 vec3 TankSys::bowMuzzleWorld(const TankRT& t, vec3& dir) const {
@@ -683,6 +758,78 @@ vec3 TankSys::aimPoint(App& app, const TankRT& t) const {
   Physics::Hit ah;
   if (Physics::castRayEx(eye, fwd, 600.0f, ah, bodyUD(t.id))) return ah.pos;
   return eye + fwd * 400.0f;
+}
+
+// VH7 TOW: one missile from the turret-side launcher toward the crosshair; the gunner guides it (stepTows) and a wire
+// trail is paid out behind it
+void TankSys::fireTow(App& app, TankRT& t) {
+  const TankDef& d = *t.def;
+  if (t.towLeft <= 0) { app.audio.play("click", t.pos + vec3(0, 2.5f, 0), 0.6f); app.toast(d.towName + ": reloading", 1.5); return; }
+  mat4 h, tu, g, rc; rig(t, h, tu, g, rc);
+  vec3 m = vec3(tu * vec4(d.towMuzzle, 1)), dir = glm::normalize(aimPoint(app, t) - m);
+  static uint32_t uid = 0; ++uid;
+  app.fireProjectile(m + dir * 0.6f, dir, d.towVel, PROJ_ROCKET, d.towDmg, bodyUD(t.id), false, "tow");
+  Projectile& p = app.projectiles.back();
+  p.blastDmg = d.towDmg; p.blastR = d.towBlastR; p.craterScale = 0.6f; p.atKill = true; p.gravScale = 0; p.splashGun = 120; p.towOf = t.id; p.uid = uid;
+  app.fx.backblast(m - dir * 1.0f, -dir);
+  app.fx.flash(m + dir * 0.4f, 1.2f, 0.1f, vec4(9, 6, 3, 1));
+  app.audio.play(app.audio.hasEvent("shot_tow") ? "shot_tow" : app.audio.hasEvent("shot_modern_rpg7") ? "shot_modern_rpg7" : "shot_panzerschreck", m, 1.0f);   // VH8: the RPG launch recording
+  --t.towLeft;
+  TowTrail tr; tr.uid = uid; tr.tank = t.id; tr.p = {m, m + dir * 0.6f}; tr.v = {vec3(0), dir * 2.0f}; tr.last = m + dir * 0.6f;
+  towTrails.push_back(tr);
+}
+
+// VH7: guidance (the missile turns toward the gunner's crosshair at towTurn deg/s and weaves round its line, the weave
+// damping as it settles) and the guidance wire: points paid out every 0.3 m, each then sagging, dragged and stirred, so
+// the line keeps writhing; the launcher end follows the turret; the trail fades 0.3 s after the missile is gone
+void TankSys::stepTows(App& app, float dt) {
+  for (auto& tr : towTrails) {
+    Projectile* pm = nullptr; for (auto& p : app.projectiles) if (p.uid == tr.uid && p.towOf) { pm = &p; break; }
+    TankRT* t = get(tr.tank);
+    tr.age += dt;
+    if (pm) {
+      float sp = glm::length(pm->v); vec3 f = pm->v / std::max(sp, 1e-3f);
+      if (t && occupied == tr.tank && !t->wrecked) {   // wire guidance: toward what the crosshair is on
+        vec3 want = glm::normalize(aimPoint(app, *t) - pm->p);
+        float c = std::clamp(glm::dot(f, want), -1.0f, 1.0f), ang = std::acos(c), mx = radians(t->def->towTurn) * dt;
+        if (ang > 1e-4f) { vec3 ax = glm::cross(f, want); if (glm::length(ax) > 1e-6f) f = glm::angleAxis(std::min(ang, mx), glm::normalize(ax)) * f; }
+      }
+      vec3 up(0, 1, 0), rgt = glm::normalize(glm::cross(f, std::fabs(f.y) > 0.95f ? vec3(1, 0, 0) : up)), u2 = glm::cross(rgt, f);
+      float amp = 0.35f + 1.6f * std::exp(-tr.age / 1.1f), w = 6.2831853f * 1.7f;   // the corkscrew: m/s sideways, damping
+      vec3 weave = (rgt * std::cos(w * tr.age) + u2 * std::sin(w * tr.age)) * amp;
+      pm->v = f * sp; pm->p += weave * dt;   // the path weaves round its line; the heading keeps to the guidance
+      // pay out the wire behind the missile
+      vec3 back = pm->p - f * 0.4f;
+      while (glm::length(back - tr.last) > 0.3f) { vec3 q = tr.last + glm::normalize(back - tr.last) * 0.3f; tr.p.push_back(q); tr.v.push_back(f * sp * 0.02f); tr.last = q; }
+      if (app.fx.rnd() < 0.8f) app.fx.smoke(pm->p - f * 0.5f, -f * 1.5f + vec3(0, 0.2f, 0), 0.18f, 1.2f, vec4(0.85f, 0.82f, 0.78f, 0.55f), 1.2f, 0.25f);   // the motor's smoke
+    } else if (tr.fade > 1e8f) tr.fade = 0.3f;
+    if (tr.fade < 1e8f) tr.fade -= dt;
+    // the wire: the launcher end on the turret; the rest sags, drags and stirs (cheap turbulence), never into the ground
+    if (t && !tr.p.empty()) { mat4 h, tu, g, rc; rig(*t, h, tu, g, rc); tr.p[0] = vec3(tu * vec4(t->def->towMuzzle, 1)); tr.v[0] = vec3(0); }
+    for (size_t k = 1; k + 1 < tr.p.size(); ++k) {
+      vec3& v = tr.v[k];
+      float s = (float)k * 0.37f + tr.age * 2.3f;
+      v += (vec3(0, -2.2f, 0) + vec3(std::sin(s * 1.3f), 0.5f * std::sin(s * 0.7f + 1.0f), std::cos(s * 1.1f)) * 1.6f) * dt;
+      v *= std::exp(-1.8f * dt);
+      tr.p[k] += v * dt;
+      float gy = app.terrain.height(tr.p[k].x, tr.p[k].z) + 0.04f;
+      if (tr.p[k].y < gy) { tr.p[k].y = gy; v = vec3(0); }
+    }
+    if (tr.p.size() > 360) {   // cap: thin the oldest stretch (by the launcher) to every other point
+      std::vector<vec3> np, nv; size_t half = tr.p.size() / 2;
+      for (size_t k = 0; k < tr.p.size(); ++k) if (k >= half || k % 2 == 0) { np.push_back(tr.p[k]); nv.push_back(tr.v[k]); }
+      tr.p.swap(np); tr.v.swap(nv);
+    }
+    // draw: a thin line, light smoke clinging near the motor end
+    float a = tr.fade < 1e8f ? std::clamp(tr.fade / 0.3f, 0.0f, 1.0f) : 1.0f;
+    for (size_t k = 0; k + 1 < tr.p.size(); ++k) {
+      float u = (float)k / std::max<size_t>(1, tr.p.size() - 1);
+      app.fx.streak(tr.p[k], tr.p[k + 1], 0.03f + 0.05f * u * u, dt * 1.5f, vec4(0.45f + 0.9f * u, 0.43f + 0.6f * u, 0.4f + 0.3f * u, a * (0.6f + 0.4f * u)));   // grey wire, brighter toward the motor
+    }
+    if (pm && tr.p.size() > 4) for (int sm = 0; sm < 2; ++sm) { size_t k = tr.p.size() - 1 - (size_t)(app.fx.rnd() * std::min<size_t>(40, tr.p.size() - 1));
+      app.fx.smoke(tr.p[k], vec3(0, 0.15f, 0), 0.12f, 1.6f, vec4(0.8f, 0.78f, 0.75f, 0.25f), 1.4f, 0.1f); }
+  }
+  towTrails.erase(std::remove_if(towTrails.begin(), towTrails.end(), [](const TowTrail& tr) { return tr.fade <= 0.0f; }), towTrails.end());
 }
 
 void TankSys::fireBow(App& app, TankRT& t) {
@@ -704,7 +851,7 @@ void TankSys::fireBow(App& app, TankRT& t) {
   --t.bowLoaded; ++t.bowShots; t.bowCool += 60.0f / d.bowRpm; t.bowBurst = true;
   app.fx.muzzleFlash(m + dir * 0.03f, dir, 1.5f, false, m);   // WP4
   app.fx.smoke(m + dir * 0.1f, dir * 1.5f + vec3(0, 0.3f, 0), 0.05f, 1.0f, vec4(0.6f, 0.58f, 0.55f, 0.3f), 0.6f, 0.2f);
-  app.audio.play(d.bowSound, m, 0.95f);
+  app.audio.play(app.audio.hasSound(d.bowSound) ? d.bowSound : "shot_mg42", m, 0.95f);   // VH8: never a silent gun
   if (occupied == t.id) app.viewKickPitch = std::max(app.viewKickPitch, 0.08f);
 }
 
@@ -830,12 +977,12 @@ TankHitResult TankSys::projectileHit(App& app, const Projectile& p, vec3 pos, ve
   TankHitResult r;
   if ((ud >> 60) == 0xF || ud == 0 || (ud & 0xFFFF) != 0) return r;
   if (!tanks.count(ud >> 16)) return r;
-  int attack = p.kind == PROJ_BULLET ? TA_SMALL_ARMS : p.kind == PROJ_ROCKET ? TA_LAUNCHER : TA_CANNON;
+  int attack = p.kind == PROJ_BULLET ? TA_SMALL_ARMS : p.kind == PROJ_ROCKET && !p.towOf ? TA_LAUNCHER : TA_CANNON;   // VH7: a TOW counts from every side, like a tank shell
   if (p.cannon30) { const TankRT& t = tanks[ud >> 16]; attack = t.def && t.def->car ? TA_LAUNCHER : TA_SMALL_ARMS; }   // VH5: 30 mm HE wrecks cars, scratches armour
-  return applyHit(app, ud >> 16, attack, pos, normal, p.v, 0.5f * p.mass * glm::dot(p.v, p.v));
+  return applyHit(app, ud >> 16, attack, pos, normal, p.v, 0.5f * p.mass * glm::dot(p.v, p.v), p.towOf ? -1.0f : p.lightAT, p.armourMult);   // -1: a TOW (heavy AT)
 }
 
-TankHitResult TankSys::applyHit(App& app, uint64_t id, int attack, vec3 pos, vec3 normal, vec3 dir, float bulletJ) {
+TankHitResult TankSys::applyHit(App& app, uint64_t id, int attack, vec3 pos, vec3 normal, vec3 dir, float bulletJ, float lightAT, float armourMult) {
   TankHitResult r; r.tank = true; r.id = id; r.attack = attack;
   TankRT* t = get(id);
   if (!t) { r.tank = false; return r; }
@@ -845,24 +992,35 @@ TankHitResult TankSys::applyHit(App& app, uint64_t id, int attack, vec3 pos, vec
   if (t->wrecked) { r.info = std::string(an[attack]) + " on the wreck"; lastHit = r; return r; }
   // the matrix: cannon (tank gun, AT gun, Flak) counts from every side; launchers only side / rear; small arms never.
   // roof / underside: cannon counts as a side-class hit, launchers do not count (no rule given -> conservative)
-  bool counted = attack == TA_CANNON || (attack == TA_LAUNCHER && (r.zone == TZ_SIDE || r.zone == TZ_REAR));
+  bool counted = attack == TA_CANNON || (attack == TA_LAUNCHER && (r.zone == TZ_SIDE || r.zone == TZ_REAR || t->def->launcherAllSides));
+  // VH7 autocannon: a tank's front shrugs it off; its sides / rear, light armour (an IFV) and soft vehicles take lightAT
+  const bool lightArmour = t->def->launcherAllSides;
+  if (lightAT > 0 && !t->def->car && !t->def->heli) counted = lightArmour || r.zone != TZ_FRONT;
   // VH1: soft-skinned: every launcher hit, bullets wear it down. VH2 armoured car: only heavy bullets (.50) wear it down
   bool heavy = t->def->heavyBulletJ > 0 && bulletJ >= t->def->heavyBulletJ;
   if (t->def->car || t->def->heli) counted = attack != TA_SMALL_ARMS || t->def->smallArmsDmg > 0 || heavy;
+  // VH8: every bullet chips a helicopter by its energy (dmg 1.4 (J / 3500)^0.6: ~71 rifle, ~27 .50, ~230 pistol hits of 100)
+  const bool chip = t->def->heli && attack == TA_SMALL_ARMS && bulletJ > 0;
+  if (chip) counted = true;
   r.counted = counted;
   r.consumed = attack == TA_SMALL_ARMS || (attack == TA_LAUNCHER && !counted);   // no penetration, no blast
   char b[200];
   if (counted) {
     int dmg = r.zone == TZ_FRONT ? t->def->frontDamage() : t->def->sideDamage();
     if (t->def->car || t->def->heli) dmg = attack == TA_SMALL_ARMS ? (heavy ? t->def->heavyBulletDmg : t->def->smallArmsDmg) : attack == TA_LAUNCHER ? t->def->launcherDmg : t->def->cannonDmg;   // VH1: 100: one shell or rocket wrecks a jeep
+    if (lightAT > 0) dmg = (int)std::ceil(lightAT * (t->def->car || t->def->heli ? 10.0f : lightArmour ? 3.0f : 1.0f));   // VH7: 25 mm per hit
+    if (lightAT < 0 && !t->def->car && !t->def->heli) dmg = t->def->sideDamage();   // VH7 TOW: a flank shell's damage from any side (a Tiger: 2 kill it)
+    if (attack == TA_LAUNCHER && armourMult != 1 && !t->def->car && !t->def->heli) dmg = std::max(1, (int)std::lround(dmg * armourMult));   // VH8 40 mm grenade on armour
+    if (chip) { t->chipAcc += 1.4f * std::pow(bulletJ / 3500.0f, 0.6f); dmg = (int)t->chipAcc; t->chipAcc -= (float)dmg; }
     t->hp = std::max(0, t->hp - dmg); t->hitFlash = 1;
     if (r.zone == TZ_FRONT) ++t->hitsFront; else ++t->hitsSide;
     std::snprintf(b, sizeof b, "%s hit, %s %s: durability %d (front hits %d, side/rear hits %d)", an[attack], onTurret ? "turret" : "hull", tankZoneName(r.zone), t->hp, t->hitsFront, t->hitsSide);
     r.info = b;
     app.fx.impact(pos, normal, "metal");
-    app.fx.flash(pos + normal * 0.1f, 0.6f, 0.08f, vec4(8, 5, 2, 1));
+    if (chip) { if (glm::length(pos - app.eyePos()) < 120.0f) app.audio.play("impact_metal", pos, 0.5f, 0.9f + 0.4f * app.fx.rnd()); }   // sparks and a ping, no shell-hit flash / toast
+    else app.fx.flash(pos + normal * 0.1f, 0.6f, 0.08f, vec4(8, 5, 2, 1));
     if (t->hp <= 0) { destroy(app, *t, r.info); r.destroyed = true; }
-    else if (occupied == id) app.toast("HIT - " + std::string(onTurret ? "turret " : "hull ") + tankZoneName(r.zone) + ", durability " + std::to_string(t->hp), 3);
+    else if (occupied == id && !chip) app.toast("HIT - " + std::string(onTurret ? "turret " : "hull ") + tankZoneName(r.zone) + ", durability " + std::to_string(t->hp), 3);
   } else {
     ++t->hitsIgnored;
     std::snprintf(b, sizeof b, "%s on the %s %s: no penetration (no damage)", an[attack], onTurret ? "turret" : "hull", tankZoneName(r.zone));

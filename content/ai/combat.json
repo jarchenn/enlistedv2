@@ -84,6 +84,9 @@
    ]
   }
  },
+ "kits": {"note": "SW1: AI types Blaster troopers (trooper) and Robot commandos (robot): the soldier brain in the kit's body (content/characters/<model>.glb, local-only bakes; missing: the soldier body), carrying only the kit's weighted blasters (no sidearm, no grenades), on either side. robot: hp share, pace and aim-turn factors, hits spark instead of bleeding.",
+  "trooper": {"models": ["trooper_a", "trooper_b", "trooper_c"], "ai": [["blaster_carbine", 7], ["blaster_rifle", 3]], "hp": 1.0},
+  "robot": {"models": ["robot_commando"], "ai": [["blaster_robot", 1]], "hp": 0.85, "speed": 1.3, "aimTurn": 1.4, "sparks": true}},
  "loadouts_operator": {
   "note": "AI5: Operator bots (AiType::Operators) draw from these modern weapons instead of the faction pool and the class weapons: weighted primary, every lmgEvery-th operator on a side carries the LMG, all carry the sidearm; TK1: one in launcherEvery also carries the launcher, used on armour and heavy enemy types. Grenades stay the side's (no modern grenade is modelled). Battle Royale keeps its bare-hands start (royale loot rules).",
   "Allies": {
@@ -188,7 +191,7 @@
    ],
    "lmg": "modern_lmg",
    "lmgEvery": 5,
-   "sidearm": "modern_pistol",
+   "sidearm": "modern_makarov",
    "launcher": "modern_rpg7",
    "launcherEvery": 4
   }

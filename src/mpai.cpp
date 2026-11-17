@@ -1,4 +1,5 @@
 // Glue between the shared core and the multiplayer + AI systems (see mpai.h).
+#include "sd_game.h"
 #include "mpai.h"
 #include "royale.h"
 #include "gore_api.h"
@@ -105,6 +106,7 @@ void mpaiInput(App& app, ExploreInput& in) {
   bool frozen = !L || !L->alive || gGame->match.phase != MatchPhase::Running;
   if (frozen) { if (L && !L->alive && app.occupied) { logf("station: leave, crew dead"); app.leaveStation(); } in = ExploreInput{}; return; }   // the dead free their gun
   royaleInput(app, in);   // BR1: aboard / falling: Space jumps / opens the chute, no walking
+  sdInput(app, in);       // SD1: freeze, no sprint / prone, plant / defuse holds, the buy menu
   if (app.selftest || app.pauseMenu) return;
   // grenades are the E3 items: Q / LMB, H quick frag (shared bindings); quick smoke on "smokeGrenade" (default J, match only)
   if (edge(app.win, app.binds.smokeGrenade) && L->throwT < 0 && app.quickReturn < 0) {

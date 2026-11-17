@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.8706218004226685,
+  0.14357556402683258,
+  0.41316497325897217
+ ],
+ "bmin": [
+  -0.8706218004226685,
+  0.0,
+  -0.41316497325897217
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "pine_roots_a",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.8706218004226685,
+    0.14357556402683258,
+    0.41316497325897217
+   ],
+   "bmin": [
+    -0.8706218004226685,
+    0.0,
+    -0.41316497325897217
+   ],
+   "count": 17997,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "pine_roots_a.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_pine_roots_a.glb",
+ "textures": {},
+ "triangles": 5999,
+ "vertices": 4405
+}

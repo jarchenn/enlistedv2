@@ -54,8 +54,10 @@ bool brHidePart(const Soldier& s, const std::string& partName) { return s.helmet
 static const char* sightId(int k) { static const char* ids[5] = {"", "br_sight_reddot", "br_sight_acog", "br_sight_4x", "br_sight_10x"}; return ids[std::clamp(k, 0, 4)]; }
 
 struct Rail { vec3 p{0}; float scale = 1; };
+static std::map<const WeaponDef*, Rail> gRailCache;   // keyed by definition: cleared when the weapons reload (ED2)
+void brRailCacheClear() { gRailCache.clear(); }
 static const Rail& railOf(const WeaponDef& d) {   // the gun JSON "rail" / "railScale" (read once); none: just under the rear sight
-  static std::map<const WeaponDef*, Rail> cache;
+  auto& cache = gRailCache;
   auto it = cache.find(&d);
   if (it != cache.end()) return it->second;
   Rail r; r.p = d.rear + vec3(0, -0.012f, 0.05f);

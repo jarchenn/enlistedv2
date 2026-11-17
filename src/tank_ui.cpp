@@ -13,12 +13,30 @@ const char* shellName(int s) { return s == SHELL_HE ? "HE" : s == SHELL_AP ? "AP
 }
 
 // ============================================================ drawing
+// TK2: the LOD by the hull's projected size: full above 260 px across, LOD1 above 80 px, LOD2 below; 15 % hysteresis
+// so a tank at a threshold does not flicker. The occupied vehicle is always full (sights, first-person views); a wreck
+// is at most LOD1
+const GpuModel* TankSys::lodModel(const App& app, const TankRT& t) const {
+  const TankDef& d = *t.def;
+  if (!d.model || (!d.lods[0] && !d.lods[1]) || t.id == occupied) { t.lodLevel = 0; return d.model.get(); }
+  float r = 0.5f * glm::length(d.model->bmax - d.model->bmin), dist = std::max(0.5f, glm::length(t.pos - app.eyePos()));
+  float px = 2.0f * r / dist * app.projM[1][1] * 0.5f * std::max(1, app.R.height);
+  int want = px > 260.0f ? 0 : px > 80.0f ? 1 : 2;
+  int cur = t.lodLevel;
+  if (want > cur && px > (cur == 0 ? 260.0f : 80.0f) * 0.85f) want = cur;   // getting smaller: only past 85 % of the threshold
+  if (want < cur && px < (cur == 2 ? 80.0f : 260.0f) * 1.15f) want = cur;   // getting bigger: only past 115 %
+  if (t.wrecked) want = std::max(want, 1);
+  t.lodLevel = want;
+  for (int L = want; L >= 1; --L) if (d.lods[L - 1]) return d.lods[L - 1].get();
+  return d.model.get();
+}
+
 void TankSys::drawItems(App& app, const Instance& i, const InstanceRT& r) {
   (void)r;
   auto it = tanks.find(i.id);
   if (it == tanks.end() || !it->second.def || (!it->second.def->model && !it->second.def->partsAsset)) return;
   const TankRT& t = it->second; const TankDef& d = *t.def;
-  const GpuModel* gm = d.model.get();
+  const GpuModel* gm = lodModel(app, t);
   mat4 h, tu, g, rc; rig(t, h, tu, g, rc);
   vec4 tint = t.wrecked ? vec4(0.13f, 0.12f, 0.11f, 1) : vec4(1);   // burnt-out: darker than a live tank
   if (d.car) { drawCar(app, t, tint, h); return; }
@@ -50,7 +68,7 @@ void TankSys::carStaticParts(const TankDef& d, std::vector<int>& out) const {
   if (d.pintle) out.insert(out.end(), d.pintleParts.begin(), d.pintleParts.end());
 }
 void TankSys::drawCar(App& app, const TankRT& t, vec4 tint, const mat4& h) {
-  const TankDef& d = *t.def; const GpuModel* gm = d.model.get();
+  const TankDef& d = *t.def; const GpuModel* gm = lodModel(app, t);
   vehicleDashDraw(app, t, h);   // VH6: the instrument panel seen from the driver's seat
   if (d.partsAsset) {   // BR7 adopted car: its part-built mesh (or its supplied model: car-pack copies) moves as one (the wheels do not turn)
     if (const GpuModel* pm = d.partsAsset->model.get()) {
@@ -146,6 +164,25 @@ void TankSys::makeThumbnails(App& app) {
 // ============================================================ HUD
 // TK1: the vehicle's durability bar (every vehicle, any seat), bottom left: 15 segments (a heavy's blow each), the number,
 // red when low; it flashes white on a damaging hit and reads DESTROYED once wrecked. Drawn after drawUI (over the sight mask)
+void TankSys::grassBoxes(const App& app, vec3 cam, std::vector<vec4>& out) const {
+  out.clear();
+  std::vector<std::pair<float, const TankRT*>> near;
+  vec3 eye = cam;   // the rendering camera (Creative or Explore)
+  for (auto& [id, t] : tanks) {
+    if (!t.def || t.def->hullBoxes.empty()) continue;
+    if (t.def->heli && t.pos.y - app.terrain.height(t.pos.x, t.pos.z) > 1.0f) continue;   // a helicopter only on the ground
+    float d = glm::length(vec2(t.pos.x - eye.x, t.pos.z - eye.z)); if (d < 160.0f) near.push_back({d, &t});
+  }
+  std::sort(near.begin(), near.end(), [](auto& a, auto& b) { return a.first < b.first; });
+  for (size_t k = 0; k < near.size() && k < 16; ++k) {
+    const TankRT& t = *near[k].second; float hx = 0, lo = 1e9f, hi = -1e9f;
+    for (auto& b : t.def->hullBoxes) { hx = std::max(hx, std::fabs(b.c.x) + b.h.x); lo = std::min(lo, b.c.z - b.h.z); hi = std::max(hi, b.c.z + b.h.z); }
+    float hz = 0.5f * (hi - lo), cz = 0.5f * (hi + lo), a = radians(t.yaw), c = std::cos(a), s = std::sin(a);
+    vec2 ctr = vec2(t.pos.x, t.pos.z) + vec2(s, c) * cz;   // hull +z is world (sin, cos)
+    out.push_back(vec4(ctr.x, ctr.y, c, s)); out.push_back(vec4(hx + 0.12f, hz + 0.12f, 0, 0));   // the shader takes world -> hull with (cos, sin)
+  }
+}
+
 void TankSys::drawHealthBar(App& app) {
   (void)app;
   TankRT* tp = occupied ? get(occupied) : nullptr;
@@ -228,15 +265,19 @@ void TankSys::drawUI(App& app) {
   };
   auto milPx = [&](float mil) { return fpx * std::tan(mil / 1000.0f); };
   if (t.hatchT < 0.5f) {
-    // ---- gunner sight: circular field, dark surround, original reticle (docs/tanks.md#optics)
-    float R = io.DisplaySize.y * 0.45f;
-    for (int k = 0; k < 72; ++k) {
+    // ---- gunner sight: circular field, dark surround, original reticle (docs/tanks.md#optics). VH7: the Abrams' is a
+    // full-screen rectangular view with a soft vignette; the Bradley's a round eyepiece (80 % of the height) with a red reticle
+    const bool rectSight = d.reticle == "abrams";
+    const float W = io.DisplaySize.x, Hs = io.DisplaySize.y;
+    float R = Hs * (d.reticle == "bradley" ? 0.40f : 0.45f);
+    if (rectSight) R = std::max(W, Hs);   // TK3: its vignette is in the tone pass (RenderView::rectVignette)
+    for (int k = 0; k < 72 && !rectSight; ++k) {
       float a0 = k * 6.2831853f / 72, a1 = (k + 1) * 6.2831853f / 72;
       ImVec2 p0(c.x + std::cos(a0) * R, c.y + std::sin(a0) * R), p1(c.x + std::cos(a1) * R, c.y + std::sin(a1) * R);
       ImVec2 q0(c.x + std::cos(a0) * io.DisplaySize.x, c.y + std::sin(a0) * io.DisplaySize.x), q1(c.x + std::cos(a1) * io.DisplaySize.x, c.y + std::sin(a1) * io.DisplaySize.x);
       dl->AddQuadFilled(p0, q0, q1, p1, IM_COL32(5, 5, 4, 255));
     }
-    dl->AddCircle(c, R, IM_COL32(25, 24, 20, 255), 128, 5);
+    if (!rectSight) dl->AddCircle(c, R, IM_COL32(25, 24, 20, 255), 128, 5);
     ImU32 rc = IM_COL32(12, 10, 8, 240), lc = IM_COL32(20, 18, 14, 230);
     // range marks calibrated to this game's ballistics (no drag): the bore is superelevated for the zero range; the
     // point at range R sits (a(R) - a(zero)) below the aiming mark, a(R) = atan(g R / 2 v^2)
@@ -254,29 +295,62 @@ void TankSys::drawUI(App& app) {
         if (major && Rm > 400 && y - lastLabel >= 14.0f) { char b[8]; std::snprintf(b, sizeof b, "%d", Rm / 100); dl->AddText(ImVec2(right ? x + 12 : x - 12 - ImGui::CalcTextSize(b).x, y - 7), lc, b); lastLabel = y; }
       }
     };
-    if (d.reticle == "abrams") {   // TK1: a modern gunner's primary sight of our own: fine cross with a centre gap and dot,
-      // 2 mil stadia with lead marks every 5, the laser range, the selected round and the field of view read out
-      ImU32 mc = IM_COL32(10, 12, 10, 235), ms = IM_COL32(10, 12, 10, 160);
-      float g = milPx(1.2f);
-      dl->AddLine(ImVec2(c.x - R, c.y), ImVec2(c.x - g, c.y), mc, 1.2f); dl->AddLine(ImVec2(c.x + g, c.y), ImVec2(c.x + R, c.y), mc, 1.2f);
-      dl->AddLine(ImVec2(c.x, c.y - R), ImVec2(c.x, c.y - g), mc, 1.2f); dl->AddLine(ImVec2(c.x, c.y + g), ImVec2(c.x, c.y + R), mc, 1.2f);
-      dl->AddCircleFilled(c, 1.8f, IM_COL32(200, 30, 20, 240));
-      for (int k = 1; k <= 10; ++k) {
-        float x = milPx(2.0f * k), h = k % 5 == 0 ? milPx(2.0f) : milPx(0.8f);
-        for (float sx : {-1.0f, 1.0f}) dl->AddLine(ImVec2(c.x + sx * x, c.y - h), ImVec2(c.x + sx * x, c.y + h), k % 5 == 0 ? mc : ms, 1.1f);
-        if (k <= 5) dl->AddLine(ImVec2(c.x - h * 0.6f, c.y + milPx(2.0f * k)), ImVec2(c.x + h * 0.6f, c.y + milPx(2.0f * k)), ms, 1.0f);   // drop ticks below
+    ImFont* font = ImGui::GetFont();
+    const float lased = glm::length(aimPoint(app, t) - eye);
+    if (d.reticle == "abrams") {   // VH7: the user's reference layout, our own drawing: full-width / full-height black lines,
+      // a small centre circle, a mil scale (ticks every 4, numbered 8 .. 32), a range ladder below, a range-bar block that
+      // slides with the lased range, the range read out large above the centre and as "Distance:" at upper left
+      ImU32 bk = IM_COL32(12, 12, 12, 235), bks = IM_COL32(12, 12, 12, 170);
+      dl->AddLine(ImVec2(0, c.y), ImVec2(W, c.y), bk, 1.3f); dl->AddLine(ImVec2(c.x, 0), ImVec2(c.x, Hs), bk, 1.3f);
+      dl->AddCircle(c, milPx(1.3f), bk, 24, 1.3f);
+      const float U = W * 0.44f / 32.0f;   // one scale unit: 32 sits 44 % of the width out (the reference's spread)
+      for (int k = 1; k <= 8; ++k) {
+        float x = U * 4.0f * k, h = k % 2 == 0 ? 40.0f : 22.0f;
+        for (float sx : {-1.0f, 1.0f}) {
+          dl->AddLine(ImVec2(c.x + sx * x, c.y - h), ImVec2(c.x + sx * x, c.y + h), bk, 1.3f);
+          if (k % 2 == 0) { char n[8]; std::snprintf(n, sizeof n, "%d", k * 4); ImVec2 ns = font->CalcTextSizeA(30, FLT_MAX, 0, n); dl->AddText(font, 30, ImVec2(c.x + sx * x - ns.x * 0.5f, c.y - h - ns.y - 6), bk, n); }
+        }
       }
-      for (float sx : {-1.0f, 1.0f}) {   // open brackets at 5 mil: the lead box
-        float x = c.x + sx * milPx(5.0f), y0 = c.y - milPx(3.0f), y1 = c.y + milPx(3.0f), w = sx * milPx(1.2f);
-        dl->AddLine(ImVec2(x, y0), ImVec2(x - w, y0), mc, 1.2f); dl->AddLine(ImVec2(x, y1), ImVec2(x - w, y1), mc, 1.2f);
+      for (int k = 1; k <= 22; ++k) { float y = c.y + 9.0f * k, w = k % 3 == 0 ? 16.0f : 10.0f; dl->AddLine(ImVec2(c.x - w, y), ImVec2(c.x + w, y), bks, 1.2f); }   // the ladder
+      {   // range bars: hectometres 4 .. 56, positioned by the AP drop relative to the lased range (the block slides)
+        float x0 = c.x - U * 21.0f, x1 = c.x - U * 15.0f;   // left of the centre, clear of the dial
+        auto dropPx = [&](float Rm) { return Rm / 100.0f * 8.0f; };   // 8 px a hectometre: the block slides with the lased range
+        float base = dropPx(std::clamp(lased, 0.0f, 6000.0f));
+        static const int lab[] = {4, 16, 28, 40, 48, 56};
+        for (int hm = 4; hm <= 56; hm += 2) {
+          float y = c.y + dropPx(hm * 100.0f) - base + milPx(1.0f);
+          if (y < c.y - milPx(2) || y > Hs * 0.9f) continue;
+          bool L = std::find(std::begin(lab), std::end(lab), hm) != std::end(lab);
+          dl->AddLine(ImVec2(L ? x0 - 18 : x0, y), ImVec2(x1, y), bk, L ? 1.6f : 1.1f);
+          if (L) { char n[8]; std::snprintf(n, sizeof n, "%d", hm); ImVec2 ns = font->CalcTextSizeA(30, FLT_MAX, 0, n); dl->AddText(font, 30, ImVec2(x0 - 24 - ns.x, y - ns.y * 0.5f), bk, n); }
+        }
       }
-      float rng = glm::length(aimPoint(app, t) - eye);
-      const char* rnd = (t.loaded != SHELL_NONE ? t.loaded : t.selected) == SHELL_AP ? "APFSDS" : "HEAT-MP";
-      char rb[96]; std::snprintf(rb, sizeof rb, "RNG %04.0f m   %s %s   %s x%.0f", std::min(rng, 9999.0f), rnd, t.loaded != SHELL_NONE ? "READY" : "LOADING", zoom ? "NFOV" : "WFOV", 75.0f / fov);
-      ImVec2 rs = ImGui::CalcTextSize(rb), rp(c.x - rs.x * 0.5f, c.y + R * 0.62f);
-      dl->AddRectFilled(ImVec2(rp.x - 8, rp.y - 4), ImVec2(rp.x + rs.x + 8, rp.y + rs.y + 4), IM_COL32(8, 10, 8, 170), 3);
-      dl->AddText(rp, IM_COL32(255, 200, 60, 255), rb);
-      dl->AddText(ImVec2(c.x - R * 0.62f, c.y - R * 0.72f), IM_COL32(255, 200, 60, 220), "GPS  DAY");
+      char rb[32]; std::snprintf(rb, sizeof rb, "%d", (int)std::min(lased, 9999.0f));
+      dl->AddText(font, 46, ImVec2(c.x + 12, c.y - Hs * 0.40f), bk, rb);
+      char db[48]; std::snprintf(db, sizeof db, "Distance: %d", (int)std::min(lased, 9999.0f));
+      dl->AddText(font, 30, ImVec2(15, Hs * 0.26f + 1), IM_COL32(230, 225, 210, 150), db); dl->AddText(font, 30, ImVec2(14, Hs * 0.26f), bk, db);   // a light shadow over the vignette
+      {   // bottom left: the orientation dial (hull, turret line), STAB, gear, RPM, speed
+        ImVec2 o(120, Hs - 400); float r = 95;   // clear of the durability bar
+        dl->AddCircleFilled(o, r, IM_COL32(20, 34, 54, 150), 48); dl->AddCircle(o, r, IM_COL32(170, 190, 210, 200), 48, 2); dl->AddCircle(o, r * 0.72f, IM_COL32(170, 190, 210, 120), 48, 1.5f);
+        dl->AddText(ImVec2(o.x - 18, o.y - r + 8), IM_COL32(230, 235, 240, 255), "STAB");
+        dl->AddRect(ImVec2(o.x - 18, o.y - 42), ImVec2(o.x + 18, o.y + 42), IM_COL32(225, 205, 120, 235), 3, 0, 2);
+        float ta = radians(t.tYaw); dl->AddCircle(o, 11, IM_COL32(200, 215, 255, 240), 16, 2);
+        dl->AddLine(o, ImVec2(o.x - std::sin(ta) * 60, o.y - std::cos(ta) * 60), IM_COL32(200, 215, 255, 255), 3);
+        char gb[96]; std::snprintf(gb, sizeof gb, "GEAR %s\nRPM %d\nSPD %d km/h", t.speed < -0.2f ? "R" : std::fabs(t.speed) < 0.2f ? "N" : "D", (int)(t.rpm * 2600), (int)std::fabs(t.speed * 3.6f));
+        dl->AddText(ImVec2(o.x - r + 6, o.y + r + 6), IM_COL32(230, 235, 240, 255), gb);
+      }
+    } else if (d.reticle == "bradley") {   // VH7: the round red sight (our own drawing of the user's description)
+      ImU32 rd = IM_COL32(235, 40, 30, 235), rdd = IM_COL32(235, 40, 30, 160);
+      dl->AddCircle(c, milPx(1.6f), rd, 24, 1.4f); dl->AddCircleFilled(c, 1.8f, rd);
+      for (int row = 0; row < 2; ++row) for (int k = 1; k <= 5; ++k) for (float sx : {-1.0f, 1.0f}) {   // two rows of lead / stadia dashes
+        float x = c.x + sx * milPx(3.0f + 4.0f * k), y = c.y + row * milPx(3.0f);
+        dl->AddLine(ImVec2(x - milPx(1.0f), y), ImVec2(x + milPx(1.0f), y), row ? rdd : rd, 1.4f);
+      }
+      for (float sx : {-1.0f, 1.0f}) dl->AddLine(ImVec2(c.x + sx * milPx(7.0f), c.y - R * 0.92f), ImVec2(c.x + sx * milPx(2.4f), c.y - milPx(4.0f)), rd, 1.4f);   // the converging verticals
+      float by = c.y + R * 0.52f;
+      dl->AddLine(ImVec2(c.x - R * 0.62f, by), ImVec2(c.x + R * 0.18f, by), rd, 1.4f);
+      dl->AddLine(ImVec2(c.x + R * 0.18f, by), ImVec2(c.x + R * 0.66f, by - R * 0.24f), rd, 1.4f);   // the range line
+      for (int k = 1; k <= 4; ++k) { float u = k / 5.0f; ImVec2 p0(c.x + R * (0.18f + 0.48f * u), by - R * 0.24f * u); dl->AddLine(p0, ImVec2(p0.x, p0.y + 8), rdd, 1.2f); }
     } else if (d.reticle == "tiger") {
       // central triangle with its apex on the aim point, three smaller triangles each side every 4 mil (lead marks)
       auto tri = [&](float x, float s) { dl->AddTriangle(ImVec2(x, c.y), ImVec2(x - s * 0.55f, c.y + s * 1.4f), ImVec2(x + s * 0.55f, c.y + s * 1.4f), rc, 1.6f); };
@@ -313,8 +387,30 @@ void TankSys::drawUI(App& app) {
         dl->AddCircle(s, 9, IM_COL32(230, 180, 60, 220), 20, 2);
       }
     }
-    char b[96]; std::snprintf(b, sizeof b, "%s  %s", zoom ? "ZOOM" : "SIGHT", d.cannonName.c_str());
-    dl->AddText(ImVec2(c.x - R * 0.62f, c.y - R * 0.78f), IM_COL32(205, 195, 160, 220), b);
+    if (d.reticle == "bradley") {   // VH7 read-out panel: selected round, its count, the other type's, the heading; the hull /
+      // turret icon at the left; the weapon at the lower right; TOWs ready
+      ImU32 rd = IM_COL32(255, 45, 35, 255);
+      bool he = (t.loaded != SHELL_NONE ? t.loaded : t.selected) == SHELL_HE;
+      int sel = he ? t.reserveHE : t.reserveAP, oth = he ? t.reserveAP : t.reserveHE;
+      if (t.loaded != SHELL_NONE) { if ((t.loaded == SHELL_HE) == he) ++sel; else ++oth; }
+      vec3 gd; muzzleWorld(t, gd); int hdg = ((int)std::lround(degrees(std::atan2(gd.x, -gd.z))) + 360) % 360;
+      ImVec2 p0(c.x - 210, c.y + R * 0.80f), p1(c.x + 210, c.y + R * 0.80f + 58);
+      dl->AddRectFilled(p0, p1, IM_COL32(0, 0, 0, 245), 4);
+      char rb[64];
+      dl->AddText(font, 34, ImVec2(p0.x + 14, p0.y + 11), rd, he ? "HE" : "AP");
+      std::snprintf(rb, sizeof rb, "%04d", sel); dl->AddText(font, 40, ImVec2(p0.x + 78, p0.y + 7), rd, rb);
+      std::snprintf(rb, sizeof rb, "%03d", oth); dl->AddText(font, 26, ImVec2(p0.x + 200, p0.y + 16), IM_COL32(255, 45, 35, 200), rb);
+      std::snprintf(rb, sizeof rb, "%03d", hdg); dl->AddText(font, 22, ImVec2(p0.x + 278, p0.y + 19), IM_COL32(255, 45, 35, 200), rb);
+      std::snprintf(rb, sizeof rb, "TOW %d", t.towLeft); dl->AddText(font, 22, ImVec2(p0.x + 334, p0.y + 19), t.towLeft ? rd : IM_COL32(150, 40, 30, 200), rb);
+      ImVec2 hi(c.x - R * 0.80f, c.y + R * 0.40f);   // the hull / turret icon
+      dl->AddRect(ImVec2(hi.x - 9, hi.y - 18), ImVec2(hi.x + 9, hi.y + 18), rd, 2, 0, 1.6f);
+      float ta = radians(t.tYaw); dl->AddLine(hi, ImVec2(hi.x - std::sin(ta) * 26, hi.y - std::cos(ta) * 26), rd, 2);
+      dl->AddText(font, 20, ImVec2(c.x + R * 0.52f, c.y + R * 0.62f), rd, "25mm");
+      if (zoom) dl->AddText(font, 20, ImVec2(c.x + R * 0.62f, c.y - R * 0.72f), rd, "NFOV");
+    } else if (!rectSight) {
+      char b[96]; std::snprintf(b, sizeof b, "%s  %s", zoom ? "ZOOM" : "SIGHT", d.cannonName.c_str());
+      dl->AddText(ImVec2(c.x - R * 0.62f, c.y - R * 0.78f), IM_COL32(205, 195, 160, 220), b);
+    }
   } else {
     // hatch: open-sight crosshair for the roof MG (it converges on the aim point)
     dl->AddCircle(c, 7, IM_COL32(240, 240, 230, 210), 20, 1.5f);
@@ -340,13 +436,18 @@ void TankSys::drawUI(App& app) {
     }
   }
   // ---- status panel (ammunition: the strip at the bottom)
+  // VH8: the keys this vehicle really has (no bow MG on the Abrams / M4, no roof gun on the Bradley)
+  const std::string bowK = d.bowOn ? std::string(" | Space ") + (d.bowCoax ? "coax" : "bow MG") : std::string();
+  std::string keys;
+  if (t.station == TS_HATCH) keys = d.mgName.empty() ? "Head out: look around | RMB main gun" + bowK + " | Ctrl duck back in | E get out"
+                                                     : std::string("LMB roof MG | Space roof") + (d.bowOn ? " + bow" : "") + " MG | RMB main gun | Ctrl back to the sight | R next shell | E get out";
+  else if (d.towCount) keys = "LMB 25 mm (hold) | R AP / HE" + bowK + " | Q TOW | RMB zoom | Ctrl pop out of the hatch | E get out";
+  else keys = "LMB main gun" + bowK + " | RMB zoom | Ctrl open hatch | R next shell | E get out";
   char b[480];
   std::snprintf(b, sizeof b,
     "%s  [%s]\nSPEED %3.0f km/h   TURRET %+4.0f   GUN %+4.1f\nDURABILITY %d/100   (front hits %d, side/rear hits %d)\n%s",
     d.name.c_str(), t.station == TS_HATCH ? "HATCH" : "GUNNER",
-    std::fabs(t.speed) * 3.6f, t.tYaw, t.gElev, t.hp, t.hitsFront, t.hitsSide,
-    t.station == TS_HATCH ? "LMB roof MG | Space roof + bow MG | RMB main gun | Ctrl back to the sight | R next shell | E get out"
-                          : "LMB main gun | Space bow MG | RMB zoom | Ctrl open hatch | R next shell | E get out");
+    std::fabs(t.speed) * 3.6f, t.tYaw, t.gElev, t.hp, t.hitsFront, t.hitsSide, keys.c_str());
   ImVec2 ts = ImGui::CalcTextSize(b);
   ImVec2 p(io.DisplaySize.x - ts.x - 30, io.DisplaySize.y - ts.y - 30 - 108);   // above the ammunition strip
   panel(p, b, t.hp <= 50 ? IM_COL32(255, 170, 120, 255) : IM_COL32(235, 225, 190, 255));
@@ -454,7 +555,9 @@ void TankSys::drawAmmoStrip(App& app, const TankRT& t) {
   const float gunW = 230;
   float bowW = d.bowOn ? std::max(170.0f, beltW(d.bowBelt) + 16) : 0;
   float roofW = std::max(170.0f, beltW(d.mgBelt) + 16);
-  float W = gunW + (d.bowOn ? bowW + pad : 0) + roofW + pad * 2;
+  const bool roofOn = !d.mgName.empty();   // VH8: a vehicle without a roof gun (the Bradley) shows none
+  if (!roofOn) roofW = 0;
+  float W = gunW + (d.bowOn ? bowW + pad : 0) + (roofOn ? roofW + pad : 0) + pad;
   float x0 = io.DisplaySize.x * 0.5f - W * 0.5f, y0 = io.DisplaySize.y - H - 12;
   uiGlassPanel(dl, ImVec2(x0 - pad, y0), ImVec2(x0 + W, y0 + H), std::max(8.0f, (float)6));
   float x = x0;
@@ -506,7 +609,7 @@ void TankSys::drawAmmoStrip(App& app, const TankRT& t) {
   if (d.bowOn) mgGroup(d.bowShort.c_str(), "[Space]", true, d.bowBelt, t.bowLoaded, t.bowReserve, t.bowReloadT, d.bowReload, bowW);
   std::string roofName = d.mgName.substr(0, d.mgName.find(" ("));
   if (roofName.size() > 18) roofName = "Roof MG";
-  mgGroup(roofName.c_str(), hatch ? "[LMB / Space]" : "[hatch]", hatch, d.mgBelt, t.mgLoaded, t.mgReserve, t.mgReloadT, d.mgReload, roofW);
+  if (roofOn) mgGroup(roofName.c_str(), hatch ? "[LMB / Space]" : "[hatch]", hatch, d.mgBelt, t.mgLoaded, t.mgReserve, t.mgReloadT, d.mgReload, roofW);
 }
 
 // ============================================================ Creative selection panel

@@ -16,6 +16,7 @@ struct Handling {   // content/weapons/handling.json (defaults = the file's valu
 };
 // 0 untraced, 1 red tracer (every `every`-th round), 2 the short white-yellow streak of the guns' other rounds
 inline int tracerKindFor(int every, int shot) { return every <= 0 ? 0 : shot % every == 0 ? 1 : 2; }
+inline vec3 blasterColour(int kind) { return kind == 4 ? vec3(1.0f, 0.05f, 0.03f) : vec3(0.18f, 0.45f, 1.0f); }   // SW1: tracer kind 3 blue, 4 red
 struct WeaponDef {
   std::string id, name, side, action, feed, container, caliber, note, reticle;
   int cap = 1, loaded = 1, reserve = 0, containerSize = 1, tracerEvery = 0;
@@ -28,6 +29,9 @@ struct WeaponDef {
   float sway = 1;                       // MG6: JSON "sway": breathing sway x this while standing (crouched / prone: x1; the .50)
   bool modern = false;                  // MG1: JSON "modern" (side "modern"): only from the modern weapons case, never in 1944 loadouts / classes / bot pools
   bool casings = true;   // MG12: false = no case ejected per shot (revolver, break-action shotgun)
+  vec3 holdOffset{0}; float holdWeld = 1; int holdKind = -1;   // SW2 JSON "hold": third-person hold: offset (chest frame m: x left, y up, z forward) of the shouldered / low-ready weapon, cheek-weld share, kind 0 pistol / 1 rifle / 2 launcher (-1: by the grip)
+  bool dotCrosshair = false;   // SW2 JSON "crosshair": "dot": a small white dot in a thin + (hip and zoom aim)
+  int blaster = 0;       // SW1: a blaster: every shot a glowing bolt, tracer kind 3 blue / 4 red ("blaster": "blue" | "red"), no drop, its colour on the flash
   int pellets = 1; float spreadDeg = 0;  // MG1: a shot fires `pellets` rounds, the extra ones inside a cone of half-angle spreadDeg (shotgun)
   float scopeMag = 1, scopeRelief = 0.07f;   // scope.relief: eye to the ocular lens in the scoped pose (m)
   vec3 boltPivot{0, 0.028f, 0}; float boltLift = 70;   // bolt action: handle lift about the z-parallel axis through the pivot (deg)
@@ -51,7 +55,7 @@ struct WeaponDef {
   std::vector<std::string> modes;       // fire-selector modes, first is the default ("auto", "semi")
   std::string deploys;                  // heavy weapon: station asset it deploys as
   float rocketDmg = 0, rocketR = 0, rocketCrater = 0, rocketSplashGun = 0;   // launcher rocket tuning (data)
-  float rocketGrav = 0.35f; bool rocketAtKill = true, rocketBackblast = true;   // MG4: "gravity" (x g; a 40 mm grenade arcs at 1), a direct hit kills an AT gun, backblast
+  float rocketGrav = 0.35f; bool rocketAtKill = true, rocketBackblast = true; float rocketArmour = 1;   // MG4: "gravity" (x g; a 40 mm grenade arcs at 1), a direct hit kills an AT gun, backblast
   // per-weapon ADS calibration (JSON "ads", docs/fps-weapons.md#calibration). rear / front / muzzle above are the
   // measured anchors on the mesh; these refine the pose without touching the mesh.
   float eyeRelief = 0.21f;              // m, eye to rear sight in ADS (irons); smaller = larger sight picture
@@ -82,7 +86,7 @@ struct WeaponDef {
   // flamethrower (FT1, action "flame", JSON "flame"; docs/flamethrower.md): game tuning, not real data
   struct FlameDef { bool on = false; float fuelSeconds = 20, range = 22, speed = 30, coneDeg = 3.5f, parcelsPerSec = 30, parcelDamage = 3.5f,
                     burnSeconds = 3, burnDps = 14, patchSeconds = 3, patchRadius = 1.3f, patchDps = 12, botRange = 18, botBurst = 1.6f, botPause = 1.4f; } flame;
-  int tracerKind(int shot) const { return tracerKindFor(tracerEvery, shot); }
+  int tracerKind(int shot) const { return blaster ? blaster : tracerKindFor(tracerEvery, shot); }
   // WP4 visual recoil (handling.json "vmRecoil": per kind, per-weapon overrides): the peaks of a single shot's
   // critically damped spring (back along the bore into the shoulder m, muzzle up deg, leftward deg), its rate omega
   // (1/s: peak at 1 / omega, settled ~5 / omega) and the back travel cap (eye relief: never into the camera)
@@ -128,6 +132,10 @@ struct Projectile {
   std::string ammo;
   float travelled = 0;          // m flown so far (W1 damage falloff: the true range)
   bool cannon30 = false;        // VH5 helicopter chin gun: an HE round that counts as small arms on tanks, as a launcher on cars
+  float lightAT = 0;            // VH7 autocannon round: > 0 its damage per counted hit on armour (never a tank's front)
+  float armourMult = 1;         // VH8: launcher damage factor on armoured vehicles (the 40 mm grenade launcher 0.2)
+  uint64_t towOf = 0;           // VH7: a TOW guided by this vehicle's gunner (its crosshair); 0 none
+  uint32_t uid = 0;             // VH7: identity for the TOW wire trail
 };
 struct Particle { vec3 p{0}, v{0}; float life = 0, maxLife = 1, size = 0.3f, grow = 0, drag = 0, lift = 0; vec4 col{1}; bool additive = false; float fade = 0;
                   float flame = -1; };   // flame >= 0 (additive): a flame sprite, id 0..255 = its rotation and noise seed; col.x = brightness, the colour follows its age (Fx::build) and the fragment shader erodes it with noise   // fade > 0: alpha x (life left)^fade (firing smoke, content/settings/fx.json)
@@ -146,6 +154,7 @@ struct Fx {
   void update(float dt, const Terrain& t);
   void clear() { parts.clear(); streaks.clear(); debris.clear(); }
   void bullet(vec3 a, vec3 b, int tracerKind);   // one flight segment of a round, drawn by its tracer kind
+  void blasterImpact(vec3 p, vec3 n, int kind);   // SW1: a bolt striking a surface: coloured flash, sparks, a scorch puff, a brief light
   void smoke(vec3 p, vec3 v, float size, float life, vec4 col, float grow = 1.2f, float lift = 0.6f);
   void flash(vec3 p, float size, float life, vec4 col);
   void streak(vec3 a, vec3 b, float width, float life, vec4 col);
@@ -154,8 +163,8 @@ struct Fx {
   // WP4 small-arms muzzle flash, once per shot: a yellow-orange core and 4-6 orange flame petals along the bore
   // (20-40 ms, randomised), plus a warm point light at `light` (world muzzle; the player's flash is drawn at the
   // viewmodel's apparent muzzle). suppressed: a faint core, no light
-  void muzzleFlash(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light);
-  struct MuzzleLight { vec3 p{0}; float age = 0, life = 0.035f, k = 1; uint32_t id = 0; };
+  void muzzleFlash(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light, vec3 tint = vec3(-1));   // SW1 tint: a blaster's colour (x < 0: the flash look)
+  struct MuzzleLight { vec3 p{0}; float age = 0, life = 0.035f, k = 1; uint32_t id = 0; vec3 col{-1}; };   // SW1 col: own colour (x < 0: the flash look's)
   std::vector<MuzzleLight> mlights; uint32_t mlightSerial = 0;
   // WP4b: handling.json "muzzleFlash" (HDR linear colours; the light's radius m and intensity)
   struct FlashLook { vec3 core{5.5f, 2.9f, 0.45f}, petal{4.6f, 1.45f, 0.18f}, edge{2.6f, 0.55f, 0.06f}, light{1.0f, 0.48f, 0.14f}; float radius = 3.2f, intensity = 4.5f; } flashLook;

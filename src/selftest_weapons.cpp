@@ -1,5 +1,6 @@
 // --selftest-weapons: Milestone 4 — eight weapon entries, ammunition accounting, sights, recoil, crates.
 #include "selftest.h"
+#include <sstream>
 #include <GLFW/glfw3.h>
 #include "settings.h"
 #include "game.h"
@@ -596,9 +597,9 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
               for (auto& q : P) q = vec3(V * vec4(q, 1));
               logf("[mg11hip] %s rear (%.3f %.3f %.3f) front (%.3f %.3f %.3f) muzzle (%.3f %.3f %.3f)", id.c_str(), P[0].x, P[0].y, P[0].z, P[1].x, P[1].y, P[1].z, P[2].x, P[2].y, P[2].z); }
           }
-          if (ph == 1 && t > 1.5f) { ph = 2; shot("strafe_r"); in.move = vec2(-1, 0); }
+          if (ph == 1 && t > 1.5f) { ph = 2; shot("strafe_r"); in.move = vec2(-1, 0); a.uiShot = exeDir() / "selftest_out" / ("mg2_" + id + "_hip_ui.png"); }
           if (ph == 2 && t > 2.3f) { ph = 3; shot("strafe_l"); in.move = vec2(0); in.aim = true; }
-          if (ph == 3 && t > 3.6f) { ph = 4; shot("ads"); }
+          if (ph == 3 && t > 3.6f) { ph = 4; shot("ads"); a.uiShot = exeDir() / "selftest_out" / ("mg2_" + id + "_ads_ui.png"); }   // SW2: with the HUD (crosshair)
           if (ph == 4 && t > 3.8f) { ph = 5; in.aim = false; s.loaded = d.feed == "single" ? std::max(0, d.cap - 3) : d.cap / 2; s.cooldown = 0; s.bolt = 0; in.reload = true; }
           if (ph == 5 && t > 3.9f) { ph = 6; in.reload = false; }
           float frac = s.reloadTotal > 0 ? 1 - s.reload / s.reloadTotal : 0;
@@ -675,7 +676,9 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
       std::string L = std::string(",") + poi + ",";
       for (auto& wd : app.weaponDefs) {
         if (L.find("," + wd->id + ",") == std::string::npos) continue;
-        for (float dist : {25.0f, 100.0f, wd->zero}) {   // the zero range too (M249 200 m, M4 50 m)
+        std::vector<float> dists = {25.0f, 100.0f, wd->zero};   // the zero range too (M249 200 m, M4 50 m)
+        if (const char* dl = std::getenv("NMK_MG_POI_DIST")) { dists.clear(); std::stringstream ss(dl); std::string it; while (std::getline(ss, it, ',')) if (!it.empty()) dists.push_back((float)std::atof(it.c_str())); }   // WP6: e.g. 20,50,100
+        for (float dist : dists) {
           const std::string id = wd->id;
           push(("mg8 poi " + id + " " + std::to_string((int)dist)).c_str(), [this, id, dist](App& a, float t) {
             static int ph; static float t0, wallZ; static vec3 aimPt, aimDir; static float saved[4];
@@ -688,7 +691,7 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
               for (int k = 0; k < 4; ++k) { saved[k] = a.handling.ads[k]; a.handling.ads[k] = 0; }
               a.vm.procedural = false; return false;
             }
-            a.eyeYaw = 0; a.eyePitch = 0; in.aim = true;
+            a.eyeYaw = 0; a.eyePitch = 0; in.aim = std::getenv("NMK_MG_POI_HIP") == nullptr;   // WP6: NMK_MG_POI_HIP=1 fires from the hip
             if (ph == 0 && t > 1.6f) {   // settled in ADS: the point under the screen centre, then one round
               ph = 1; vec3 e = a.eyePos(); aimDir = App::forward(a.eyeYaw + a.viewKickYaw, a.eyePitch + a.viewKickPitch);
               Physics::Hit h; aimPt = Physics::castRayEx(e, aimDir, 400, h) ? h.pos : e + aimDir * 400.0f;

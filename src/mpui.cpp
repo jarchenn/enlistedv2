@@ -1,6 +1,7 @@
 // Multiplayer + AI user interface: Play menu (Singleplayer / Host LAN / Join LAN + match setup), the Creative
 // Scenario panel (ordered objectives, spawn markers, approach routes, validation) with its world overlay, and the
 // in-match HUD (objective sequence bar, counts, grenades, death screen, results).
+#include "sd_game.h"
 #include "mpui.h"
 #include "ui_glass.h"   // UI2: glass panel backgrounds
 #include "w5.h"
@@ -191,6 +192,9 @@ bool MpUi::creativeMouse(App& app) {
       case T_DEF: addSpawnAt(app, CombatRole::Defender, hit, so ? so->order : 0); tool = T_NONE; break;
       case T_TEAM_A: addTeamSpawnAt(app, 0, hit); tool = T_NONE; break;
       case T_TEAM_B: addTeamSpawnAt(app, 1, hit); tool = T_NONE; break;
+      case T_VEH_A: case T_VEH_B: {   // VH7: a team's vehicle spawn, facing the map centre
+        Scenario& s2 = scenario(app); VehicleSpawn v; v.id = s2.newId("vspawn"); v.team = tool == T_VEH_A ? 0 : 1; v.pos = hit;
+        v.yaw = wrapDeg(degrees(std::atan2(-hit.x, -hit.z))); s2.vehicleSpawns.push_back(v); commit(app); tool = T_NONE; break; }
       case T_POLY: if (so) { if (so->shape != CaptureShape::Polygon) { so->polygon.clear(); so->shape = CaptureShape::Polygon; } so->polygon.push_back(vec2(hit.x, hit.z)); commit(app); } break;
       case T_SLOT: if (so) { DefenseSlot d; d.pos = hit; d.yaw = wrapDeg(so->attackYaw + 180.0f); d.kind = (SlotKind)slotKind; d.priority = slotPriority; so->defenseSlots.push_back(d); commit(app); } break;
       case T_LINK: if (so) {
@@ -233,6 +237,13 @@ void MpUi::scenarioPanel(App& app) {
   ImGui::SameLine(); ImGui::BeginDisabled(s.objectives.empty()); toolBtn("Attacker spawn", T_ATK); ImGui::SameLine(); toolBtn("Defender spawn", T_DEF); ImGui::EndDisabled();
   toolBtn("Team A spawn", T_TEAM_A); ImGui::SameLine(); toolBtn("Team B spawn", T_TEAM_B);
   ImGui::SameLine(); ImGui::TextDisabled("(Team Deathmatch; Solo finds far-apart spots itself)");
+  toolBtn("Team A vehicle spawn", T_VEH_A); ImGui::SameLine(); toolBtn("Team B vehicle spawn", T_VEH_B);   // VH7
+  for (size_t k = 0; k < s.vehicleSpawns.size(); ++k) {
+    auto& v = s.vehicleSpawns[k]; ImGui::PushID((int)k + 9000);
+    ImGui::Text("  %s  %s  (%.0f, %.0f)", v.id.c_str(), v.team == 0 ? "Team A vehicles" : v.team == 1 ? "Team B vehicles" : "neutral vehicles", v.pos.x, v.pos.z);
+    ImGui::SameLine(); if (ImGui::SmallButton("Delete")) { s.vehicleSpawns.erase(s.vehicleSpawns.begin() + k); commit(app); ImGui::PopID(); break; }
+    ImGui::PopID();
+  }
   if (!s.canAddObjective()) ImGui::TextDisabled("10 objectives placed: the maximum (A to J).");
   if (tool != T_NONE) ImGui::TextColored(ImVec4(1, 0.85f, 0.4f, 1), "Click the ground to place (Esc or click the tool again to cancel).");
   if (tool != T_NONE && ImGui::IsKeyPressed(ImGuiKey_Escape)) tool = T_NONE;
@@ -375,6 +386,14 @@ void MpUi::creativeOverlay(App& app, Overlay& ov) {
       dl->AddText(ImVec2(sp.x - 40, sp.y), IM_COL32(255, 225, 140, 255), b);
     }
   }
+  for (auto& v : s.vehicleSpawns) {   // VH7: a vehicle-sized rectangle with its heading
+    vec4 col = v.team == 0 ? vec4(0.3f, 0.6f, 1, 1) : v.team == 1 ? vec4(1, 0.35f, 0.25f, 1) : vec4(0.8f, 0.8f, 0.8f, 1);
+    vec3 f = yawQuat(v.yaw) * vec3(0, 0, 1), r = glm::normalize(glm::cross(f, vec3(0, 1, 0))), c0 = v.pos + vec3(0, 0.15f, 0);
+    vec3 q[4] = {c0 + f * 3.5f + r * 1.8f, c0 + f * 3.5f - r * 1.8f, c0 - f * 3.5f - r * 1.8f, c0 - f * 3.5f + r * 1.8f};
+    for (int k = 0; k < 4; ++k) ov.line(q[k], q[(k + 1) % 4], col, true);
+    ov.line(c0, c0 + f * 5.0f, col, true);
+    ImVec2 sp; if (project(app, v.pos + vec3(0, 2.5f, 0), sp)) dl->AddText(sp, IM_COL32(255, 220, 140, 255), v.team == 0 ? "VEHICLES A" : v.team == 1 ? "VEHICLES B" : "VEHICLES");
+  }
   for (auto& m : s.spawns) {
     vec4 col = m.role == CombatRole::Attacker ? vec4(1, 0.35f, 0.25f, 1) : vec4(0.3f, 0.6f, 1, 1);
     if (m.id == selSpawn) col = vec4(1, 1, 1, 1);
@@ -417,8 +436,15 @@ void MpUi::setupWindow(App& app) {
     ImGui::RadioButton("Solo (free-for-all)", &m, (int)GameMode::Solo); ImGui::SameLine();
     ImGui::RadioButton("Team Deathmatch", &m, (int)GameMode::TDM); ImGui::SameLine();
     ImGui::RadioButton("Assault (objectives)", &m, (int)GameMode::Assault); ImGui::SameLine();
-    ImGui::RadioButton("Battle royale", &m, (int)GameMode::BattleRoyale);
+    ImGui::RadioButton("Battle royale", &m, (int)GameMode::BattleRoyale); ImGui::SameLine();
+    ImGui::RadioButton("Search and Destroy", &m, (int)GameMode::SearchDestroy);
+    if (m == (int)GameMode::SearchDestroy && rules.mode != GameMode::SearchDestroy)   // SD1: 5 v 5 soldiers by default (spec §2)
+      for (int t = 0; t < 2; ++t) { for (int& x : rules.aiCount[t]) x = 0; rules.aiTypes[t] = aiBit(AiType::Soldiers); rules.aiCount[t][(int)AiType::Soldiers] = t == rules.humanTeam ? 4 : 5; rules.teamPlayers[t] = 5; }
     rules.mode = (GameMode)m;
+    if (rules.mode == GameMode::SearchDestroy) {
+      ImGui::Checkbox("Short match (MR12: first to 13, swap after 12)", &rules.sdShort); ImGui::SameLine(); ImGui::Checkbox("Warmup (60 s)", &rules.sdWarmup);
+      ImGui::TextDisabled("Two bomb sites; one life a round; buy with B in your spawn; E in a site plants, E at the bomb defuses (docs/search-and-destroy.md).");
+    }
   }
   int humansHere = setupMode == 1 && gNet ? gNet->humanCount() : 1;
   // per side: tick any AI types; each AI takes the ticked ones in turn (the last tick cannot be cleared). EN1 Zombies +
@@ -612,7 +638,8 @@ void Game::drawHud() {
   CombatRole myRole = L ? L->role : CombatRole::Defender;
   Faction myFac = L ? L->faction : match.rules.defendingFaction;
   const bool assault = match.mode() == GameMode::Assault;
-  if (!assault) { drawModeBanner(); drawModePanel(); }   // G1: Solo / TDM banner, panel, respawn countdown (mpui_modes.cpp)
+  if (match.mode() == GameMode::SearchDestroy) sdDrawHud(*this);   // SD1: score, round clock, money, the bomb, the buy menu
+  else if (!assault) { drawModeBanner(); drawModePanel(); }   // G1: Solo / TDM banner, panel, respawn countdown (mpui_modes.cpp)
   drawScoreboardOverlay();                              // G1: held Tab, every mode
   if (app.friendlyMarkers) drawAllyMarkers(); else markedSlots.clear();   // G4: a chevron over every friendly soldier's head (GM1: optional)
   // ---- objective sequence across the top: every point, in order, with permanent progress and live occupancy

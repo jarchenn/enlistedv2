@@ -2238,6 +2238,33 @@
    "family": "grass plant atlas (GT1)",
    "files": "color, color_dry, alpha (1K): the five bottom clumps and three seed plumes",
    "packed": "tools/pack_grass_atlas.mjs -> content/textures/grass_atlas/"
+  },
+  {
+   "set": "ph_forest_ground_04",
+   "id": "forest_ground_04",
+   "source": "https://polyhaven.com/a/forest_ground_04",
+   "license": "CC0 1.0 Universal",
+   "family": "forest floor, needles and roots (NT8)",
+   "files": "diffuse, normal (GL), ARM, displacement (2K)",
+   "packed": "NormandyMapmaker --pack-texture (ARM split to roughness / AO) -> content/textures/ph_forest_ground_04/"
+  },
+  {
+   "set": "ph_forest_leaves_04",
+   "id": "forest_leaves_04",
+   "source": "https://polyhaven.com/a/forest_leaves_04",
+   "license": "CC0 1.0 Universal",
+   "family": "leaf litter (NT8)",
+   "files": "diffuse, normal (GL), ARM, displacement (2K)",
+   "packed": "NormandyMapmaker --pack-texture (ARM split to roughness / AO) -> content/textures/ph_forest_leaves_04/"
+  },
+  {
+   "set": "ph_pine_bark",
+   "id": "pine_bark",
+   "source": "https://polyhaven.com/a/pine_bark",
+   "license": "CC0 1.0 Universal",
+   "family": "pine bark (NT8)",
+   "files": "diffuse, normal (GL), ARM, displacement (2K)",
+   "packed": "NormandyMapmaker --pack-texture (ARM split to roughness / AO) -> content/textures/ph_pine_bark/"
   }
  ]
 }

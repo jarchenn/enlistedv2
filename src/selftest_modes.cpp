@@ -463,7 +463,7 @@ void build(App&) {
       case 2: if (at(0.8f)) { shot("2_play"); ph = 3; t0 = t; r0 = glfwGetTime(); } break;
       case 3: if (at(0.2f)) { mainMenuGo(a, 2); ph = 4; t0 = t; r0 = glfwGetTime(); } break;
       case 4: if (at(1.5f)) { shot("3_character"); ph = 5; t0 = t; r0 = glfwGetTime(); } break;
-      case 5: if (at(0.2f)) { mainMenuGo(a, 5); ph = 6; t0 = t; r0 = glfwGetTime(); } break;
+      case 5: if (at(0.2f)) { mainMenuGo(a, 6); ph = 6; t0 = t; r0 = glfwGetTime(); } break;
       case 6: if (at(0.8f)) { shot("4_credits"); ph = 7; t0 = t; r0 = glfwGetTime(); } break;
       case 7: if (at(0.2f)) { mainMenuGo(a, -1); mainMenuGo(a, 3); ph = 8; t0 = t; r0 = glfwGetTime(); } break;
       case 8: if (at(0.8f)) { shot("5_settings"); ph = 9; t0 = t; r0 = glfwGetTime(); } break;

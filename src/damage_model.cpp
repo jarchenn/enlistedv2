@@ -5,7 +5,8 @@
 #include "rules.h"
 #include "game.h"
 #include "app.h"
-#include "loot.h"   // BR2 Battle Royale loot
+#include "loot.h"
+#include "overrides.h"   // BR2 Battle Royale loot
 #include "enemy_types.h"
 #include <algorithm>
 #include <cmath>
@@ -71,6 +72,10 @@ bool damageTableReload() {
   std::string err;
   try {
     json j = json::parse(readTextFile(contentDir() / "ai" / "damage.json"));
+    for (auto& [id, o] : weaponOverrides().items()) if (o.is_object() && o.contains("_damage") && o["_damage"].is_object()) {   // ED2: the user's damage overrides
+      if (!j["weapons"].contains(id)) j["weapons"][id] = j.value("default", json::object());
+      j["weapons"][id].merge_patch(o["_damage"]);
+    }
     if (parseDamageTable(j, gTable, err)) return true;
   } catch (std::exception& e) { err = e.what(); }
   gTable = DamageTable{}; gTable.error = "content/ai/damage.json: " + err;
@@ -161,7 +166,7 @@ bool dmBulletHit(Game& g, Projectile& p, int victim, const HitZone& hz, vec3 a, 
   bool prot = v.isProtected(g.t);
   ++g.hitsOnSoldiers;
   // ---- hit effect: the visuals (deflect puff, helmet sparks, blood / dust puff) are drawn by gore (gore.cpp, W7); the helmet sound stays here
-  if (!prot && helmet && glm::length(at - app.eyePos()) < 120.0f) app.audio.play("impact_metal", at, 0.6f);
+  if (!prot && (helmet || v.kitSparks) && glm::length(at - app.eyePos()) < 120.0f) app.audio.play("impact_metal", at, 0.6f);
   float hpBefore = v.hp;
   dmg = lootDamage(victim, zone, dmg, W.pen);   // BR2: helmet (head) / vest (torso) absorb part and wear
   g.damage(victim, dmg, shooter, d, zoneName(zone));   // protection is enforced there too (rules.cpp hook)
@@ -171,7 +176,7 @@ bool dmBulletHit(Game& g, Projectile& p, int victim, const HitZone& hz, vec3 a, 
   auto has = [&](const char* k) { return caliber.find(k) != std::string::npos; };
   bool rifle = has("x57") || has("30-06") || has(".50");
   fh.energy = rifle ? 1.0f : has("Kurz") || has("Carbine") ? 0.7f : 0.4f; fh.exits = rifle && !helmet && !prot;
-  fh.helmet = helmet; fh.deflected = prot;
+  fh.helmet = helmet || v.kitSparks; fh.deflected = prot;   // SW1: a robot sparks, it does not bleed
   float bd = 1e9f; for (int j = 0; j < CJ_COUNT; ++j) { float dd = glm::length(J(j) - at); if (dd < bd) { bd = dd; fh.bone = j; } }
   fh.seed = (uint32_t)(g.hitsOnSoldiers * 2654435761u) ^ (uint32_t)(victim * 40503u);
   goreFleshHit(app, fh);

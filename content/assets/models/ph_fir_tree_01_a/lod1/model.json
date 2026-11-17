@@ -1,0 +1,155 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  3.957611083984375,
+  18.111555099487305,
+  4.035709381103516
+ ],
+ "bmin": [
+  -3.957611083984375,
+  0.0,
+  -4.035709381103516
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "fir_tree_01_dead_branches",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "fir_tree_01_bark",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "fir_tree_01_trunk_a",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "albedo": "albedoa_6.png",
+   "cutout": true,
+   "name": "ph_fir_tree_01_a_needles"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.03479912877082825,
+    6.912591934204102,
+    1.0722291469573975
+   ],
+   "bmin": [
+    -1.7054431438446045,
+    5.166016578674316,
+    0.5521455407142639
+   ],
+   "count": 72,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "fir_tree_01_a_LOD0.003",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.0628812313079834,
+    14.706414222717285,
+    2.755195379257202
+   ],
+   "bmin": [
+    -2.8012540340423584,
+    5.039931297302246,
+    -1.888568639755249
+   ],
+   "count": 3012,
+   "first": 72,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "fir_tree_01_a_LOD0.004",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.14828038215637207,
+    16.263458251953125,
+    0.7064631581306458
+   ],
+   "bmin": [
+    -0.5779384970664978,
+    0.0,
+    0.15797297656536102
+   ],
+   "count": 324,
+   "first": 3084,
+   "mat": 2,
+   "metal": 0.0,
+   "name": "fir_tree_01_a_LOD0.005",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    3.957611083984375,
+    18.111555099487305,
+    4.035709381103516
+   ],
+   "bmin": [
+    -3.957611083984375,
+    4.0613508224487305,
+    -4.035709381103516
+   ],
+   "count": 2064,
+   "first": 3408,
+   "mat": 3,
+   "metal": 0.0,
+   "name": "ph_fir_tree_01_a_cards1",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_fir_tree_01_a_lod1.glb",
+ "textures": {},
+ "triangles": 1824,
+ "vertices": 3003
+}

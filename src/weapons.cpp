@@ -2,6 +2,7 @@
 // reload state machine, recoil springs, sights/scopes, first-person view model, crate resupply.
 // HUD "loaded" counts every round in the weapon including the chambered one.
 #include "app.h"
+#include "overrides.h"
 #include "settings.h"
 #include "sight_overlay.h"
 #include "vm_anim.h"
@@ -44,9 +45,16 @@ void App::buildWeaponMeshes() {
     }
   } catch (std::exception& e) { logf("content/weapons/handling.json: %s (built-in handling)", e.what()); }
   for (auto& f : files) {
-    if (f.filename() == "handling.json") continue;
+    if (f.filename() == "handling.json" || f.filename() == "overrides_user.json") continue;   // ED2: the user's overrides patch the weapons below
     json j;
     try { j = json::parse(readTextFile(f)); } catch (...) { continue; }
+    if (fs::path lp = f.parent_path() / "local" / f.filename(); fs::exists(lp)) {   // SW1: a local-only override (git-ignored content/weapons/local/<file>): names, model, sights
+      try { j.merge_patch(json::parse(readTextFile(lp))); } catch (std::exception& e) { logf("weapons: %s: %s (ignored)", lp.string().c_str(), e.what()); }
+    }
+    {   // ED2: the user's stat overrides (the menu's Guns screen): the weapon keys; _damage / _handling go to their tables
+      json& ov = weaponOverrides(); auto it = ov.find(j.value("id", ""));
+      if (it != ov.end() && it->is_object()) { json p = *it; p.erase("_damage"); p.erase("_handling"); j.merge_patch(p); }
+    }
     auto d = std::make_unique<WeaponDef>();
     d->id = j.value("id", ""); d->name = j.value("name", d->id); d->side = j.value("side", "");
     d->tool = j.value("tool", std::string()) == "build"; d->locked = j.value("locked", false);   // GM3: the Engineer's hammer
@@ -79,6 +87,9 @@ void App::buildWeaponMeshes() {
     }
     d->modern = j.value("modern", d->side == "modern"); d->pellets = std::max(1, j.value("pellets", 1)); d->spreadDeg = j.value("spreadDeg", 0.0f);   // MG1
     d->casings = j.value("casings", true);
+    { std::string bl = j.value("blaster", std::string()); d->blaster = bl == "red" ? 4 : bl.empty() ? 0 : 3; }   // SW1
+    if (j.contains("hold")) { const json& h = j["hold"]; d->holdOffset = jvec3(h.value("offset", json()), vec3(0)); d->holdWeld = h.value("weld", 1.0f); std::string hk = h.value("kind", std::string()); d->holdKind = hk == "pistol" ? 0 : hk == "rifle" ? 1 : hk == "launcher" ? 2 : -1; }   // SW2
+    d->dotCrosshair = j.value("crosshair", std::string()) == "dot";   // SW2
     d->laterWar = j.value("laterWar", false); d->moveSpeed = j.value("moveSpeed", 1.0f); d->showArms = j.value("arms", true);
     if (j.contains("scope")) { d->hasScope = true; d->scopeMag = j["scope"].value("mag", 2.5f); d->reticle = j["scope"].value("reticle", ""); d->scopeEye = jvec3(j["scope"]["eye"]); d->scopeIrons = j["scope"].value("irons", false); d->scopeRelief = j["scope"].value("relief", 0.07f); }
     if (j.contains("boltPivot")) { d->boltPivot = vec3(j["boltPivot"][0].get<float>(), j["boltPivot"][1].get<float>(), 0); d->boltLift = j.value("boltLift", 70.0f); }
@@ -92,6 +103,7 @@ void App::buildWeaponMeshes() {
       json w = ws.value(d->id, json::object());
       std::string kind = w.value("kind", d->wclass == WC_SNIPER ? "sniper" : d->wclass == WC_LMG ? "lmg" : d->wclass == WC_AUTO ? "assault" : "rifle");
       json kd = kinds.value(kind, json::object());
+      { json& ov = weaponOverrides(); auto it = ov.find(d->id); if (it != ov.end() && it->is_object() && it->contains("_handling")) w.merge_patch((*it)["_handling"]); }   // ED2
       for (const json* src : {&kd, &w}) {
         const json& k = *src;
         d->vmBack = k.value("back_m", d->vmBack); d->vmPitch = k.value("pitch_deg", d->vmPitch); d->vmYaw = k.value("left_deg", d->vmYaw);
@@ -124,7 +136,7 @@ void App::buildWeaponMeshes() {
     for (auto& m : j.value("modes", json::array())) d->modes.push_back(m.get<std::string>());
     d->deploys = j.value("deploys", "");
     if (j.contains("rocket")) { auto& rj = j["rocket"]; d->rocketDmg = rj.value("damage", 260.0f); d->rocketR = rj.value("radius", 1.6f); d->rocketCrater = rj.value("crater", 0.6f); d->rocketSplashGun = rj.value("splashGun", 40.0f);
-      d->rocketGrav = rj.value("gravity", 0.35f); d->rocketAtKill = rj.value("atKill", true); d->rocketBackblast = rj.value("backblast", true); }
+      d->rocketGrav = rj.value("gravity", 0.35f); d->rocketAtKill = rj.value("atKill", true); d->rocketBackblast = rj.value("backblast", true); d->rocketArmour = rj.value("armourMult", 1.0f); }
     loadEquipment(*d, j);
     if (j.contains("sockets")) { d->gripR = jvec3(j["sockets"]["rightGrip"], d->gripR); d->gripL = jvec3(j["sockets"]["leftSupport"], d->gripL); }
     if (j.contains("pivots")) { const json& pv = j["pivots"];   // MG9: the model's own hinges
@@ -560,7 +572,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       if (glm::dot(dir, aimDir) < 0.5f) dir = aimDir;
       // Aimed fire: the round leaves the front sight tip F along the sight line V = normalize(F - R), where R is the
       // rear aperture, both in world space from the posed weapon (sway / breathing move the sights and the shot together).
-      if (adsT > 0.85f && !vmScoped(d) && !d.sightLineOnly) {
+      if (adsT > 0.85f && !vmScoped(d) && !d.sightLineOnly && d.adsZoom <= 0) {   // SW2: zoom aiming fires from the hip toward the dot
         vec3 Rw, Fw; vmNoRecoilRot = true; sightLineWorld(d, s, Rw, Fw); vmNoRecoilRot = false;   // WP4: the visual muzzle rise is not aim (the gameplay recoil is)
         // MG8: an animated rig's ADS puts both posed sights on the camera axis, so its line is the camera's; the axis itself
         // avoids the alignment's numeric residual (0.02 deg = 0.5 mrad on the M4 irons)
@@ -574,13 +586,13 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       }
       // declared zero: tilt up by the drop at the zero range
       float g = d.action == "launcher" ? 9.81f * d.rocketGrav : 9.81f;   // rockets: reduced effective gravity (sustained motor); MG4 grenades: full
-      float tz = d.zero / d.velocity, drop = 0.5f * g * tz * tz;
+      float tz = d.zero / d.velocity, drop = d.blaster ? 0.0f : 0.5f * g * tz * tz;   // SW1: bolts do not drop
       dir = glm::normalize(dir + vec3(0, drop / d.zero, 0));
       int tracer = s.att[ATT_MUZZLE] == 1 ? 0 : d.tracerKind(s.shotIdx);   // BR2 suppressor: no tracers
       if (d.action == "launcher") {   // rocket: data-tuned blast through the shared destruction pipeline
         fireProjectile(start, dir, d.velocity, PROJ_ROCKET, d.rocketDmg, ~0ull, false, d.container);
         Projectile& rp = projectiles.back();
-        rp.blastDmg = d.rocketDmg; rp.blastR = d.rocketR; rp.craterScale = d.rocketCrater; rp.splashGun = d.rocketSplashGun; rp.atKill = d.rocketAtKill; rp.gravScale = d.rocketGrav;
+        rp.blastDmg = d.rocketDmg; rp.blastR = d.rocketR; rp.craterScale = d.rocketCrater; rp.splashGun = d.rocketSplashGun; rp.atKill = d.rocketAtKill; rp.gravScale = d.rocketGrav; rp.armourMult = d.rocketArmour;
         if (d.rocketBackblast) fx.backblast(weaponMuzzleWorld(d, s) - aimDir * 1.4f, -aimDir);   // content/settings/fx.json
       } else {
         fireRounds(d, start, dir, tracer, s.seed ^ (uint32_t)s.shotIdx * 7919u, -1);   // MG1: a shotgun's pellets
@@ -589,7 +601,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       vec3 fxm = vmApparent(muzzle);   // effects are drawn with the world projection
       {   // WP4: along the drawn bore at the viewmodel's apparent muzzle (compact in ADS), the light at the world muzzle
         mat4 VM = viewModelMatrix(d, s); vec3 bore = glm::normalize(vec3(VM * vec4(d.muzzleDir, 0)));
-        fx.muzzleFlash(fxm, bore, d.flashScale * (adsT > 0.85f ? 0.6f : 1.0f), d.suppressed || s.att[ATT_MUZZLE] == 1, muzzle);
+        fx.muzzleFlash(fxm, bore, d.flashScale * (adsT > 0.85f ? 0.6f : 1.0f), d.suppressed || s.att[ATT_MUZZLE] == 1, muzzle, d.blaster ? blasterColour(d.blaster) : vec3(-1));
       }
       fx.smoke(fxm, aimDir * 2.0f + vec3(0, 0.3f, 0), 0.05f, 0.7f + 0.5f * fx.rnd(), vec4(0.6f, 0.58f, 0.55f, 0.16f), 0.6f, 0.2f); fx.parts.back().fade = 1.6f;   // thin, short-lived, eroded wisp
       audio.play("shot_" + d.id, muzzle, 1.0f);

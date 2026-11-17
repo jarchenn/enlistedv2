@@ -14,8 +14,10 @@
     ],
     "realLength": 5.92,
     "lengthNode": "fender_low",
-    "maxTex": 1024,
-    "simplify": 0.3,
+    "maxTex": 2048, "aoStrength": 0.25, "metalScale": 0.2,
+    "maxTexBy": {"turret": 4096, "hull_001": 4096, "hull_002": 4096},
+    "jpgMaps": true,
+    "lod1": 0.4, "lod1Tex": 1024, "lod2": 0.12, "lod2Tex": 256,
     "nodeParts": {
       "turret_low": "turret",
       "commanderCupola_low": "turret",
@@ -220,7 +222,7 @@
     "note": "87 rounds stowed (Ausf. H); muzzle velocities of the PzGr 39 and SprGr 34"
   },
   "roofMg": {
-    "name": "MG 34 on the cupola ring (drawn with the MG 42 model, MG 42 sound pack)"
+    "name": "MG 34 on the cupola ring (drawn with the MG 42 model, MG 42 sound pack)", "elevation": [-22, 45]
   },
   "bowMg": {
     "name": "MG 34 bow MG (hull ball mount)",

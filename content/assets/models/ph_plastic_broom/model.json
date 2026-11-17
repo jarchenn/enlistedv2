@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.20819631218910217,
+  1.1974873542785645,
+  0.28329646587371826
+ ],
+ "bmin": [
+  -0.20776411890983582,
+  0.0,
+  -0.2832465171813965
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "plastic_broom",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_3.jpg",
+   "mr": "mr_2.jpg",
+   "name": "plastic_broom_bristles",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.19996947050094604,
+    1.1974873542785645,
+    0.2697871923446655
+   ],
+   "bmin": [
+    -0.20003050565719604,
+    0.05325661227107048,
+    -0.2832465171813965
+   ],
+   "count": 8376,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "plastic_broom",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.20819631218910217,
+    0.053806547075510025,
+    0.28329646587371826
+   ],
+   "bmin": [
+    -0.20776411890983582,
+    0.0,
+    0.20514503121376038
+   ],
+   "count": 19728,
+   "first": 8376,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "plastic_broom",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_plastic_broom.glb",
+ "textures": {},
+ "triangles": 9368,
+ "vertices": 9022
+}

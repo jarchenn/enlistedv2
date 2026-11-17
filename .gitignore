@@ -27,6 +27,12 @@ content/assets/models/mod_mil_hut/
 content/assets/models/mod_mil_hut_ruin/
 # MG10 explosion pack: the supplied C4 model (c4-explosive.zip) has no licence: the bake stays local-only; the part-built box is the fallback
 content/weapons/models/explosion_pack/
+# SW1: the blaster troopers / robot commandos and their blasters depict a film franchise's designs: the bakes and the
+# naming overrides stay local-only (committed: neutral ids, stand-in soldier bodies and guns)
+content/weapons/local/
+content/weapons/models/*_local/
+content/characters/trooper_*.glb
+content/characters/robot_*.glb
 
 
 # VH2: the supplied Humvee (low-poly-humvee-vehicle.zip) carries no author or licence: its bake stays local-only;
@@ -42,8 +48,11 @@ content/assets/models/range_target_paper/
 # VH4: the supplied M4 Sherman (m4-sherman.zip, a Sketchfab source .blend with no author or licence inside) stays
 # local-only; clones draw the committed Firefly mesh (content/vehicles/models/sherman) for sherman_m4
 content/vehicles/models/sherman_m4/
+content/vehicles/models/bradley/
 # VH6 Ural-4320: supplied model of unknown licence, local-only; clones draw the committed part-built fallback (content/vehicles/models/ural_4320_fallback)
 content/vehicles/models/ural_4320/
 # UI2: the supplied city soldier (city-soldier-outdated.zip, licence unknown): its menu cut-out stays local-only; the committed
 # backdrop shows the game's own soldier instead
 content/ui/local/
+content/weapons/overrides_user.json
+content/vehicles/overrides_user.json

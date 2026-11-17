@@ -427,6 +427,73 @@
    "note": "MG12 9 mm SMG (DMG1 SMG 26-33)",
    "headMax": 75,
    "class": "smg"
+  },
+  "blaster_carbine": {
+   "near": 31,
+   "far": 22,
+   "falloffStart_m": 40,
+   "falloffEnd_m": 120,
+   "rpm": 700,
+   "note": "SW1 blaster carbine (assault class 30-32)",
+   "class": "assault"
+  },
+  "blaster_rifle": {
+   "near": 44,
+   "far": 36,
+   "falloffStart_m": 120,
+   "falloffEnd_m": 300,
+   "rpm": 320,
+   "note": "SW1 long blaster rifle (battle class 40-45)",
+   "class": "battle"
+  },
+  "blaster_robot": {
+   "near": 29,
+   "far": 20,
+   "falloffStart_m": 35,
+   "falloffEnd_m": 100,
+   "rpm": 600,
+   "note": "SW1 robot blaster (28-30)",
+   "class": "assault"
+  },
+  "modern_glock34": {
+   "near": 32,
+   "far": 20,
+   "falloffStart_m": 15,
+   "falloffEnd_m": 40,
+   "rpm": 450,
+   "note": "MG12 9 mm pistol (compensated)",
+   "headMax": 80,
+   "class": "pistol"
+  },
+  "modern_makarov": {
+   "near": 30,
+   "far": 18,
+   "falloffStart_m": 12,
+   "falloffEnd_m": 35,
+   "rpm": 400,
+   "note": "MG12 9x18 mm pistol",
+   "headMax": 75,
+   "class": "pistol"
+  },
+  "modern_fn502": {
+   "near": 26,
+   "far": 15,
+   "falloffStart_m": 12,
+   "falloffEnd_m": 35,
+   "rpm": 450,
+   "note": "MG12 .22 LR pistol",
+   "headMax": 70,
+   "class": "pistol"
+  },
+  "modern_mark23": {
+   "near": 36,
+   "far": 22,
+   "falloffStart_m": 15,
+   "falloffEnd_m": 40,
+   "rpm": 350,
+   "note": "MG12 .45 ACP pistol",
+   "headMax": 80,
+   "class": "pistol"
   }
  },
  "classes": {

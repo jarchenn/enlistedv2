@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.8036057949066162,
+  0.566047728061676,
+  0.11920420825481415
+ ],
+ "bmin": [
+  -0.8036057949066162,
+  0.0030460322741419077,
+  -0.11894399672746658
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "vintage_suitcase_01",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "vintage_suitcase_02",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.8036057949066162,
+    0.566047728061676,
+    0.11920420825481415
+   ],
+   "bmin": [
+    0.11079421639442444,
+    0.0030460322741419077,
+    -0.11894399672746658
+   ],
+   "count": 3084,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "vintage_suitcase_01_bottom",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.11079418659210205,
+    0.566047728061676,
+    0.11920420825481415
+   ],
+   "bmin": [
+    -0.8036057949066162,
+    0.0030460322741419077,
+    -0.11894399672746658
+   ],
+   "count": 3084,
+   "first": 3084,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "vintage_suitcase_01_bottom",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_vintage_suitcase.glb",
+ "textures": {},
+ "triangles": 2056,
+ "vertices": 2500
+}

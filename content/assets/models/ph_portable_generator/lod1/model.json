@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.40794065594673157,
+  0.576913595199585,
+  0.28200000524520874
+ ],
+ "bmin": [
+  -0.4084537923336029,
+  0.0,
+  -0.28200000524520874
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "mr": "mr_3.jpg",
+   "name": "portable_generator",
+   "normal": "normal_1.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_3.jpg",
+   "name": "portable_generator_glass",
+   "normal": "normal_1.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.40794065594673157,
+    0.576913595199585,
+    0.28200000524520874
+   ],
+   "bmin": [
+    -0.4084537923336029,
+    0.0,
+    -0.28200000524520874
+   ],
+   "count": 9882,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "portable_generator",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.12409423291683197,
+    0.4558557868003845,
+    0.24558435380458832
+   ],
+   "bmin": [
+    0.0711035430431366,
+    0.4033339321613312,
+    0.2296871691942215
+   ],
+   "count": 162,
+   "first": 9882,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "portable_generator",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_portable_generator.glb",
+ "textures": {},
+ "triangles": 3348,
+ "vertices": 5268
+}

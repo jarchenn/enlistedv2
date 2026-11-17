@@ -19,5 +19,6 @@ bool animVmDraw(App& app, const WeaponDef& d);
 bool animVmPoint(const App& app, const WeaponDef& d, int which, vec3& world);
 // the weapon in hand has no animated rig (the next animated one plays its draw clip)
 void animVmNotActive();
+void animVmReset();   // ED2: drop every rig's state (its definition is being replaced)
 // the clip playing now (self-tests): name and time; "" when none
 std::string animVmClipNow(const WeaponDef& d, float* time = nullptr);

@@ -1,0 +1,380 @@
+{
+ "note": "SD1 Search and Destroy (docs/search-and-destroy.md, src/sd_mode.h SdConfig): every value is the user's specification default (16 Nov 2026). Shop entries name the game weapon they give (never another gun under a shop name); 'role' is the spec slot it fills. Missing from the spec's catalog (no such weapon in the game): the Raiders' high-capacity pistol (Tec-9 role), both automatic shotguns, the flashbang and the decoy. raiders / security: the price for that side (absent: not sold to it); slot 1 primary, 2 secondary, 4 grenade, 0 equipment.",
+ "warmup_s": 60,
+ "ready_s": 5,
+ "freeze_s": 15,
+ "liveBuy_s": 20,
+ "round_s": 115,
+ "plant_s": 3.2,
+ "fuse_s": 40,
+ "defuse_s": 10,
+ "defuseKit_s": 5,
+ "roundEnd_s": 7,
+ "halftime_s": 30,
+ "timeout_s": 30,
+ "timeouts": 2,
+ "halfRounds": 15,
+ "winRounds": 16,
+ "otHalfRounds": 3,
+ "otWinRounds": 4,
+ "otCash": 10000,
+ "teamSize": 5,
+ "startCash": 800,
+ "maxCash": 16000,
+ "winElimination": 3250,
+ "winTime": 3250,
+ "winDetonation": 3500,
+ "winDefuse": 3500,
+ "plantReward": 300,
+ "defuseReward": 300,
+ "plantedLossBonus": 800,
+ "lossBase": 1400,
+ "lossStep": 500,
+ "lossMax": 4,
+ "lossStart": 1,
+ "killReward": {
+  "firearm": 300,
+  "smg": 600,
+  "shotgun": 900,
+  "sniperHeavy": 100,
+  "knife": 1500,
+  "grenade": 300,
+  "bomb": 0,
+  "world": 0
+ },
+ "teamKillPenalty": 300,
+ "defuseRange_m": 1.5,
+ "bombDamage": 500,
+ "bombRadius_m": 35,
+ "bombCoverMult": 0.25,
+ "buyRadius_m": 12,
+ "friendlyFire": true,
+ "freePistol": [
+  "modern_pistol3",
+  "m1911a1"
+ ],
+ "factions": [
+  "Raiders",
+  "Security"
+ ],
+ "presets": {
+  "mr15": {
+   "halfRounds": 15,
+   "winRounds": 16
+  },
+  "mr12": {
+   "halfRounds": 12,
+   "winRounds": 13
+  }
+ },
+ "shop": [
+  {
+   "id": "luger",
+   "weapon": "luger",
+   "cat": "pistol",
+   "slot": 2,
+   "kill": "firearm",
+   "role": "budget pistol (P250 role)",
+   "raiders": 300,
+   "name": "Luger P08"
+  },
+  {
+   "id": "pistol22",
+   "weapon": "modern_pistol2",
+   "cat": "pistol",
+   "slot": 2,
+   "kill": "firearm",
+   "role": "budget pistol (P228 role)",
+   "security": 300,
+   "name": "Suppressed .22 pistol"
+  },
+  {
+   "id": "xd",
+   "weapon": "modern_pistol",
+   "cat": "pistol",
+   "slot": 2,
+   "kill": "firearm",
+   "role": "high-capacity pistol (Five-Seven role)",
+   "security": 500,
+   "name": "Springfield XD pistol"
+  },
+  {
+   "id": "deagle",
+   "weapon": "modern_deagle",
+   "cat": "pistol",
+   "slot": 2,
+   "kill": "firearm",
+   "role": "heavy pistol, shared",
+   "raiders": 700,
+   "security": 700,
+   "name": "Desert Eagle (.50 AE)"
+  },
+  {
+   "id": "uzi",
+   "weapon": "modern_uzi",
+   "cat": "smg",
+   "slot": 1,
+   "kill": "smg",
+   "role": "low-cost SMG (MAC-10 role)",
+   "raiders": 1050,
+   "name": "Uzi"
+  },
+  {
+   "id": "smg9",
+   "weapon": "modern_smg9",
+   "cat": "smg",
+   "slot": 1,
+   "kill": "smg",
+   "role": "low-cost SMG (MP9 role)",
+   "security": 1250,
+   "name": "SMG-9 (9 mm, red dot)"
+  },
+  {
+   "id": "scorpion",
+   "weapon": "modern_scorpion",
+   "cat": "smg",
+   "slot": 1,
+   "kill": "smg",
+   "role": "mid-cost SMG (PP-Bizon role)",
+   "raiders": 1400,
+   "name": "CZ Scorpion EVO 3 A1"
+  },
+  {
+   "id": "mp7",
+   "weapon": "modern_mp7",
+   "cat": "smg",
+   "slot": 1,
+   "kill": "smg",
+   "role": "mid-cost SMG (MP5 role)",
+   "security": 1500,
+   "name": "HK MP7A1 (suppressed, red dot)"
+  },
+  {
+   "id": "sawnoff",
+   "weapon": "modern_sawnoff",
+   "cat": "shotgun",
+   "slot": 1,
+   "kill": "shotgun",
+   "role": "sawed-off shotgun",
+   "raiders": 1100,
+   "name": "Sawn-off double-barrel shotgun (12 gauge)"
+  },
+  {
+   "id": "r870",
+   "weapon": "modern_shotgun",
+   "cat": "shotgun",
+   "slot": 1,
+   "kill": "shotgun",
+   "role": "pump-action tactical shotgun",
+   "security": 1200,
+   "name": "Remington 870 shotgun"
+  },
+  {
+   "id": "fal",
+   "weapon": "modern_fal",
+   "cat": "rifle",
+   "slot": 1,
+   "kill": "firearm",
+   "role": "budget rifle (Galil role)",
+   "raiders": 1800,
+   "name": "FN FAL (7.62 mm)"
+  },
+  {
+   "id": "m16",
+   "weapon": "modern_m16",
+   "cat": "rifle",
+   "slot": 1,
+   "kill": "firearm",
+   "role": "budget rifle (FAMAS role)",
+   "security": 2050,
+   "name": "M16A3 rifle"
+  },
+  {
+   "id": "ak74",
+   "weapon": "modern_ak",
+   "cat": "rifle",
+   "slot": 1,
+   "kill": "firearm",
+   "role": "main rifle (AK role)",
+   "raiders": 2700,
+   "name": "AK-74"
+  },
+  {
+   "id": "m4",
+   "weapon": "modern_m4",
+   "cat": "rifle",
+   "slot": 1,
+   "kill": "firearm",
+   "role": "main rifle (M4 role)",
+   "security": 3100,
+   "name": "M4 carbine (red dot)"
+  },
+  {
+   "id": "ar15",
+   "weapon": "modern_ar15",
+   "cat": "rifle",
+   "slot": 1,
+   "kill": "firearm",
+   "role": "scoped rifle (SG role)",
+   "raiders": 3000,
+   "name": "AR-15 (suppressed, 3x scope)"
+  },
+  {
+   "id": "ak12",
+   "weapon": "modern_ak12",
+   "cat": "rifle",
+   "slot": 1,
+   "kill": "firearm",
+   "role": "scoped rifle (AUG role: red dot)",
+   "security": 3300,
+   "name": "AK-12 (red dot)"
+  },
+  {
+   "id": "scout",
+   "weapon": "modern_sniper_3",
+   "cat": "sniper",
+   "slot": 1,
+   "kill": "firearm",
+   "role": "light sniper, shared",
+   "raiders": 1700,
+   "security": 1700,
+   "name": "Bolt-action scout rifle (4x)"
+  },
+  {
+   "id": "m24",
+   "weapon": "modern_sniper_bolt",
+   "cat": "sniper",
+   "slot": 1,
+   "kill": "sniperHeavy",
+   "role": "heavy sniper, shared (AWP role)",
+   "raiders": 4750,
+   "security": 4750,
+   "name": "M24 sniper rifle (10x)"
+  },
+  {
+   "id": "marksman",
+   "weapon": "modern_sniper_semi",
+   "cat": "sniper",
+   "slot": 1,
+   "kill": "sniperHeavy",
+   "role": "automatic sniper (G3 role)",
+   "raiders": 5000,
+   "name": "Marksman rifle (2x ACOG)"
+  },
+  {
+   "id": "scar",
+   "weapon": "modern_scar",
+   "cat": "sniper",
+   "slot": 1,
+   "kill": "sniperHeavy",
+   "role": "automatic sniper (SCAR role)",
+   "security": 5000,
+   "name": "FN SCAR-H (7.62 mm)"
+  },
+  {
+   "id": "mg42",
+   "weapon": "mg42",
+   "cat": "heavy",
+   "slot": 1,
+   "kill": "firearm",
+   "role": "machine gun (RPK role)",
+   "raiders": 4200,
+   "name": "MG 42 (light, bipod)"
+  },
+  {
+   "id": "m249",
+   "weapon": "modern_lmg",
+   "cat": "heavy",
+   "slot": 1,
+   "kill": "firearm",
+   "role": "machine gun (M249 role)",
+   "security": 5200,
+   "name": "M249 light machine gun"
+  },
+  {
+   "id": "he",
+   "weapon": "mk2_grenade",
+   "cat": "grenade",
+   "slot": 4,
+   "raiders": 300,
+   "security": 300,
+   "maxCarry": 1,
+   "maxPerRound": 1,
+   "kill": "grenade",
+   "role": "HE grenade",
+   "name": "Mk 2 hand grenade"
+  },
+  {
+   "id": "smoke",
+   "weapon": "smoke_grenade",
+   "cat": "grenade",
+   "slot": 4,
+   "raiders": 300,
+   "security": 300,
+   "maxCarry": 1,
+   "maxPerRound": 1,
+   "kill": "grenade",
+   "role": "smoke grenade",
+   "name": "Smoke grenade"
+  },
+  {
+   "id": "molotov",
+   "weapon": "molotov",
+   "cat": "grenade",
+   "slot": 4,
+   "raiders": 400,
+   "maxCarry": 1,
+   "maxPerRound": 1,
+   "kill": "grenade",
+   "role": "Molotov-style incendiary (attackers)",
+   "name": "Molotov"
+  },
+  {
+   "id": "incendiary",
+   "weapon": "molotov",
+   "cat": "grenade",
+   "slot": 4,
+   "security": 600,
+   "maxCarry": 1,
+   "maxPerRound": 1,
+   "kill": "grenade",
+   "role": "incendiary grenade (defenders): the game's Molotov",
+   "name": "Molotov"
+  },
+  {
+   "id": "vest",
+   "cat": "equipment",
+   "slot": 0,
+   "raiders": 650,
+   "security": 650,
+   "role": "Kevlar vest: armor 100",
+   "name": "Kevlar vest"
+  },
+  {
+   "id": "helmet",
+   "cat": "equipment",
+   "slot": 0,
+   "raiders": 350,
+   "security": 350,
+   "role": "helmet (needs armor)",
+   "name": "Helmet"
+  },
+  {
+   "id": "vesthelmet",
+   "cat": "equipment",
+   "slot": 0,
+   "raiders": 1000,
+   "security": 1000,
+   "role": "vest + helmet",
+   "name": "Vest + helmet"
+  },
+  {
+   "id": "kit",
+   "cat": "equipment",
+   "slot": 0,
+   "security": 400,
+   "role": "defuse kit (defenders)",
+   "name": "Defuse kit"
+  }
+ ]
+}

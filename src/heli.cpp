@@ -25,6 +25,7 @@
 // Single player / host only: vehicles are not replicated over LAN.
 #include "app.h"
 #include "game.h"
+#include "overrides.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include "settings.h"
@@ -47,11 +48,13 @@ struct HeliTune {
   float suspMax = 0.28f, suspK = 70, suspC = 11, softImpact = 1, hardImpact = 3.5f;
   float camDist = 17, camHeight = 3, camLag = 0.12f, accelLag = 0.08f, accelLagMax = 1.5f, rollFactor = 0.35f, vib = 0.02f, vibHz = 19, impactShake = 1.4f;
 };
+bool gHeliTuneLoaded = false;   // ED2: cleared by App::reloadGameplayDefs
 const HeliTune& tune() {
-  static HeliTune T; static bool loaded = false;
-  if (loaded) return T;
-  loaded = true;
+  static HeliTune T;
+  if (gHeliTuneLoaded) return T;
+  gHeliTuneLoaded = true; T = HeliTune{};
   json j; try { j = json::parse(readTextFile(contentDir() / "settings" / "helicopter.json")); } catch (...) { logf("helicopter.json: missing or invalid, defaults"); return T; }
+  if (vehicleOverrides().contains("_helicopter") && vehicleOverrides()["_helicopter"].is_object()) j.merge_patch(vehicleOverrides()["_helicopter"]);   // ED2
   auto f = [&](const char* blk, const char* key, float& v) { if (j.contains(blk) && j[blk].is_object()) v = j[blk].value(key, v); };
   f("attitude", "maxPitchForward", T.maxPitchFwd); f("attitude", "maxPitchBack", T.maxPitchBack); f("attitude", "maxBank", T.maxBank); f("attitude", "tau", T.attTau); f("attitude", "maxRate", T.attRate);
   f("thrust", "tiltAccel", T.tiltAccel);
@@ -69,6 +72,7 @@ const HeliTune& tune() {
 // camera motion scale: the Settings slider, x 0.3 with Reduced motion
 float camMotion(const App& app) { return std::clamp(settings().s.heliCamMotion, 0.0f, 3.0f) * (app.reducedMotion ? 0.3f : 1.0f); }
 }
+void heliTuneReset() { gHeliTuneLoaded = false; }   // ED2: the next tune() re-reads helicopter.json and the overrides
 float gHeliViewRoll = 0;   // degrees, read by App::viewUp (swim.cpp)
 
 void heliCameraStep(App& app, TankSys& sys, TankRT& t, float dt);
@@ -239,6 +243,10 @@ void TankSys::stepHeli(App& app, TankRT& t, float dt, const ExploreInput* in) {
   }
   if (occupied == t.id) heliCameraStep(app, *this, t, dt); else if (!occupied) gHeliViewRoll = 0;
   updateBody(app, t, false);
+  if (!t.wrecked && t.hp < 40 && app.fx.rnd() < dt * (6.0f + 0.3f * (40 - t.hp))) {   // VH8: shot up: the engines smoke, thicker as it weakens
+    vec3 e = vec3(hullMatrix(t) * vec4(t.def->engine, 1));
+    app.fx.smoke(e, vec3(0, 0.8f, 0) - t.vel * 0.2f, 0.5f + 0.01f * (40 - t.hp), 3.0f, vec4(0.12f, 0.12f, 0.12f, 0.5f), 1.0f, 0.5f);
+  }
   effects(app, t, dt);
 }
 
@@ -326,7 +334,7 @@ void heliCameraStep(App& app, TankSys& sys, TankRT& t, float dt) {
 
 void TankSys::drawHeli(App& app, const TankRT& t, vec4 tint, const mat4& h) {
   mat4 hc = h * glm::translate(mat4(1), vec3(0, -t.susp, 0));   // gear compression (the airframe sinks on its wheels)
-  const TankDef& d = *t.def; const GpuModel* gm = d.model.get();
+  const TankDef& d = *t.def; const GpuModel* gm = lodModel(app, t);
   auto put = [&](const std::vector<int>& ps, const mat4& M) { for (int k : ps) app.R.worldModels.push_back({gm, k, M, tint}); };
   auto spin = [&](vec3 hub, vec3 axis, float deg) { return hc * glm::translate(mat4(1), hub) * glm::rotate(mat4(1), radians(deg), axis) * glm::translate(mat4(1), -hub); };
   put(d.hullParts, hc);

@@ -3,6 +3,7 @@
 #include <miniaudio.h>
 #include <random>
 #include <cmath>
+#include <map>
 #include <algorithm>
 #include <fstream>
 #include <chrono>
@@ -147,6 +148,7 @@ struct Audio::Impl {
   std::map<int, double> casingAt;   // SND4: per shooter, when its last case sound was scheduled
   std::map<std::string, double> rapidAt;   // SND9: rapid-fire event + 4 m cell -> when it last sounded
   float casingGain = 2.0f;           // SND6: x on the case sound (content/audio/custom/mix.json casing_gain)
+  float reloadGain = 2.24f; std::map<std::string, float> reloadTrim;   // WP6: x on reload / magazine / clip / bolt / pump foley (mix.json "reload": gain_db, trim_db per weapon id)
   Voice voices[48];
   Buf windBuf, leafBuf; float windVol = 0.0f, leafVol = 0.0f;   // the wind bed gave way to the battlefield recording (setBed)
   ma_audio_buffer windAB, leafAB; ma_sound wind, leaves;
@@ -374,6 +376,10 @@ int Audio::loadCustom(const fs::path& dir) {
   json mx; try { std::ifstream f(dir / "mix.json"); if (f) mx = json::parse(f); } catch (...) { logf("audio: custom/mix.json unreadable, defaults kept"); }
   if (!mx.is_object()) mx = json::object();
   const json mixGuns = mx.contains("guns") && mx["guns"].is_object() ? mx["guns"] : json::object();   // id: gain, or {gain, body}
+  if (mx.contains("reload") && mx["reload"].is_object()) {   // WP6: reload foley level (dB) and per-weapon trims
+    const json& rl = mx["reload"]; p->reloadGain = std::pow(10.0f, rl.value("gain_db", 7.0f) / 20.0f);
+    for (auto& [k, v] : rl.value("trim_db", json::object()).items()) if (v.is_number()) p->reloadTrim[k] = std::pow(10.0f, v.get<float>() / 20.0f);
+  }
   int used = 0; Buf b;
   struct StepSet { const char* file; std::vector<const char*> names; };   // fighter_steps.mp3: the Fighters' heavy tread (zombie.cpp)
   for (auto& ss : {StepSet{"footsteps.mp3", {"step", "step_stone", "step_wood"}}, StepSet{"grass_steps.mp3", {"step_grass"}}, StepSet{"fighter_steps.mp3", {"step_fighter"}}, StepSet{"spider_steps.mp3", {"step_spider"}}}) if (decode(ss.file, b)) {
@@ -445,6 +451,16 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/pistol_a.mp3", false, {"modern_deagle"}, -1, 0.8f, -0.4f, 2.2f, 2.0f},
     {"guns/shotgun.mp3", false, {"modern_sawnoff"}, -1, 0.93f, -0.2f},
     {"guns/smg_a.mp3", false, {"modern_smg9"}, -1, 0.94f, -0.2f, 1.1f},
+    // MG12 batch 2 (borrowed, derived): the compensated Glock on the 9 mm shot, higher and brighter; the Makarov on the Luger's,
+    // higher; the FN 502 on the suppressed .22's, higher and shorter; the Mk 23 on the M1911's, a little lower
+    {"guns/pistol_9mm.mp3", false, {"modern_glock34"}, -1, 1.06f, 0.3f},
+    {"guns/pistol_a.mp3", false, {"modern_makarov"}, -1, 1.08f, 0.1f},
+    {"guns/pistol_c.mp3", false, {"modern_fn502"}, -1, 1.12f, 0.2f, 1.6f},
+    {"guns/pistol_b.mp3", false, {"modern_mark23"}, -1, 0.95f, -0.1f},
+    // SW1: synthesised blaster shots (tools: sweep + FM + odd harmonics + spring tail; no recordings): carbine, long rifle, robot blaster
+    {"guns/blaster_a.wav", false, {"blaster_carbine"}, -1, 1, 0, 0.6f},
+    {"guns/blaster_b.wav", false, {"blaster_rifle"}, -1, 1, 0, 0.8f},
+    {"guns/blaster_c.wav", false, {"blaster_robot"}, -1, 1, 0, 0.7f},
   };
   // SND5: each cut, resample and tone step runs on the mono mix and on both channels alike; levels: quieter recordings up to
   // 0.95 peak (the stereo pair by its louder channel), full-scale ones unchanged; the cut starts where the shot rises out of the quiet before its onset (no fade-in)
@@ -586,6 +602,15 @@ int Audio::loadCustom(const fs::path& dir) {
       {"reload/reload_b.mp3", {"modern_deagle"}, 1.8f, 0, 0.9f},
       {"reload/reload_a.mp3", {"modern_smg9"}, 1.8f, 0, 1.06f},
       {"reload/shotgun_shells.mp3", {"modern_sawnoff"}, 2.9f, 0, 1.05f},
+      // SW1 (borrowed, pitched apart): the energy-cell swaps on the AR magazine reload
+      {"reload/reload_m4.mp3", {"blaster_carbine"}, 1.9f, 0, 1.12f},
+      // MG12 batch 2 (borrowed, pitched apart): the pistol reload
+      {"reload/reload_b.mp3", {"modern_glock34"}, 1.9f, 0, 1.08f},
+      {"reload/reload_b.mp3", {"modern_makarov"}, 2.2f, 0, 0.95f},
+      {"reload/reload_b.mp3", {"modern_fn502"}, 2.0f, 0, 1.15f},
+      {"reload/reload_b.mp3", {"modern_mark23"}, 3.0f, 0, 0.85f},
+      {"reload/reload_m4.mp3", {"blaster_rifle"}, 2.4f, 0, 0.92f},
+      {"reload/reload_m4.mp3", {"blaster_robot"}, 2.1f, 0, 1.2f},
     };
     auto norm = [&](Buf& s, float secs) { if (s.size() > (size_t)(secs * SR)) s.resize((size_t)(secs * SR)); float pk = 1e-4f; for (float x : s) pk = std::max(pk, std::fabs(x)); size_t f = std::min(s.size(), (size_t)(0.05f * SR)); for (size_t j = 0; j < s.size(); ++j) s[j] *= 0.7f / pk * (j + f >= s.size() ? (float)(s.size() - j) / f : 1.0f); };
     // SND3: a reload longer than the weapon's reload is shortened in its quiet gaps (each kept at least 0.1 s, 20 ms equal-power
@@ -718,6 +743,7 @@ int Audio::loadCustom(const fs::path& dir) {
   // SND4: the explosion pack's countdown (fx/bomb_beeps.mp3): its beeps by onset (5 ms loudness over 0.4 of the loudest,
   // gaps under 15 ms bridged): the first long one (>= 90 ms) and the first short one; the shortest is the short one's first
   // 25 ms (the recording has two lengths). abilities.cpp plays them
+  if (decode("fx/blaster_hit.wav", b)) { ++used; Impl::Event ev; ev.v.push_back(b); p->events["blaster_hit"] = ev; }   // SW1: a bolt striking (synthesised sizzle)
   if (decode("fx/bomb_beeps.mp3", b)) {
     const int W = SR / 200; size_t nW = b.size() / W; std::vector<float> env(nW, 0.0f); float pk = 1e-6f;
     for (size_t k = 0; k < nW; ++k) { for (int j = 0; j < W; ++j) env[k] = std::max(env[k], std::fabs(b[k * W + j])); pk = std::max(pk, env[k]); }
@@ -750,6 +776,7 @@ int Audio::loadCustom(const fs::path& dir) {
   return used;
 }
 bool Audio::hasEvent(const std::string& name) const { return p && p->events.count(name); }
+bool Audio::hasSound(const std::string& name) const { return p && (p->events.count(name) || p->bufs.count(name)); }
 int Audio::eventVariant(const std::string& name) const { if (!p) return -1; auto it = p->events.find(name); return it == p->events.end() ? -1 : it->second.last; }
 
 void Audio::play(const std::string& name, vec3 pos, float volume, float pitch, float delay) {
@@ -802,6 +829,15 @@ void Audio::play(const std::string& name, vec3 pos, float volume, float pitch, f
   if (!v) { for (auto& c : p->voices) if (!v || c.start < v->start) v = &c; }   // all busy: steal the oldest
   if (v->used) { ma_sound_uninit(&v->snd); ma_audio_buffer_uninit(&v->buf); }
   volume *= gain * ((uiEv || name.rfind("ui_", 0) == 0) ? uiGain : effectsGain);
+  // WP6: reload / magazine / clip / bolt / pump foley: the Effects level, never the gunfire bus or the gun reverb, louder (mix.json
+  // "reload"), and it falls off quickly (heard close by: someone else's reload is a near sound)
+  const bool foley = used.rfind("reload_", 0) == 0 || used.rfind("clip_", 0) == 0 || used.rfind("bolt_cycle_", 0) == 0 || used == "mag_in" || used == "mag_out"
+                  || used == "bolt" || used == "belt" || used == "shotgun_pump" || used == "rocket_ready" || used == "rocket_in";
+  if (foley) {
+    float tr = 1; size_t us = used.find('_');
+    if (us != std::string::npos) { std::string id = used.substr(used.rfind("bolt_cycle_", 0) == 0 ? 11 : us + 1); auto it = p->reloadTrim.find(id); if (it != p->reloadTrim.end()) tr = it->second; }
+    volume *= p->reloadGain * tr; evBus = 0; if (evRoll <= 0) evRoll = 2.0f;
+  }
   { const bool gunBus = shot || used.rfind("shot_", 0) == 0 || used.rfind("tail_", 0) == 0 || used.rfind("explosion", 0) == 0 || used.find("_fire") != std::string::npos || used.find("cannon") != std::string::npos;
     if (gunBus) volume *= gunfireGain; }   // UI1b: the gunfire bus
   // SND5: a gun event with its stereo recording (the custom gunshots) at the listener (within 2 m: the player's own shot)

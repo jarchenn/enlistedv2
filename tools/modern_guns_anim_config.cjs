@@ -158,6 +158,22 @@ const A = {
     // Sketchfab keyframes (0-based): fire 0-14, reload mag 15-96, reload full 70-157, hide 158-170, ready 170-218, ambient 219-248, melee 249-270; rest frames 16, 71, 159, 220, 250
     clips: { fire: [1, 16], reload: [16, 71], reload_empty: [71, 159], idle: [220, 250] },
     mats: { talon: { albedo: "talonColor.png", metal: "talonMetallic.png", rough: "talonRoughness.png" }, arms: { albedo: "armColor.png", metal: "armMetallic.png", rough: "armRoughness.png" } } },
+  // ---- MG12 batch 2
+  modern_glock34: { abs: true, src: M12 + "fps-pistol-animated/source/arms@bpPistol.fbx", tex: M12 + "fps-pistol-animated", stat: "modern_glock34", hipRear: [0.07, 0.3, -0.09],
+    keep: ["armmesh", "base", "bullet", "bullet_1", "clip", "lid", "muzzlebreak", "slide", "slidecatch", "trigger"], rigidify: ["base", "bullet", "bullet_1", "clip", "lid", "muzzlebreak", "slide", "slidecatch", "trigger"], gun: "base", timeline: [1, 235],
+    // Sketchfab keyframes (0-based): fireA 0-9 (the last round: the slide stays back), reloadA 9-64 (from the slide lock: empty), reloadB 65-130, ambient 179-204, fireB 225-234 (the slide cycles)
+    clips: { fire: [226, 235], reload_empty: [10, 66], reload: [66, 132], idle: [180, 206] },
+    mats: { Mat: { albedo: "blackpantherColor.png", metal: "bpPistoMetallic.png", smooth: "bpPistolsmoothness.png" }, "Mat.001": c4dArms() } },
+  modern_makarov: { abs: true, src: M12 + "makarov_pm_fps_animations/makarov_pm_fps_animations.glb", tex: M12 + "makarov_pm_fps_animations", stat: "modern_makarov", hipRear: [0.07, 0.3, -0.09], staticPoseFrame: 0, staticPoseAction: "Rig|MK_Idle",   // the static bake is posed (its rest is taken apart)
+    keep: ["Object_9", "Object_96"], gun: "Object_9", gunBone: "Body_015",   // its attachments mesh (suppressor, optic bracket, parked off the gun) is left out
+    clips: { idle: "Rig|MK_Idle", fire: "Rig|MK_Shot", reload: "Rig|MK_ReloadFast", reload_empty: "Rig|MK_ReloadFull" } },
+  modern_fn502: { abs: true, src: "E:/nmk/mg12/fn502fixed/fn502.glb", tex: M12 + "fps_animations_fn_502_tactical", stat: "modern_fn502", hipRear: [0.07, 0.3, -0.09], staticPoseFrame: 0, staticPoseAction: "Armature|FN_Shot",
+    keep: ["Object_73", "Object_9"], gun: "Object_73", gunBone: "Main_057",
+    clips: { idle: { action: "Armature|FN_Shot", range: [0, 1] }, fire: "Armature|FN_Shot", reload: "Armature|FN_Reload", reload_empty: "Armature|FN_ReloadFull" } },   // no idle clip: the shot's first frame, held
+  modern_mark23: { abs: true, src: M12 + "mark-23-animated-free/source/Mark23.fbx", tex: M12 + "mark-23-animated-free", stat: "modern_mark23", hipRear: [0.07, 0.3, -0.09], gun: "main", gunBone: "main_j",   // LOCAL-ONLY bake (Sketchfab Standard licence)
+    keep: ["Hand_Mesh", "main", "Side", "mag"],
+    clips: { idle: "Armature|Idle|BaseLayer", fire: "Armature|Shoot|BaseLayer", reload: "Armature|Reload|BaseLayer" },
+    mats: { Mark23_D: { albedo: "Mark23_D.png", rough_f: 0.5, metal_f: 0.5 }, Hand_D: { albedo: "Hand_D.png", rough_f: 0.6 }, Glove_D: { albedo: "Glove_D.png", rough_f: 0.7 } } },
   // ---- MG7: the first-person knife (knife_animated.glb, Sketchfab; one 0-116 timeline at 24 fps); framed by its camera: the eye
   // at the scene origin looking along -y in the exported frame (found by a test export), centimetres
   knife_bayonet: { src: "../mg7/knife_animated/knife_animated.glb", tex: "../mg7/knife_animated", frame: { rear: [0, 0, 0], front: [0, -100, 0], up: [0, 0, 1], scale: 0.01 }, hipRear: [0, 0, 0],
@@ -172,6 +188,7 @@ for (const [id, a] of Object.entries(A)) {
     continue;
   }
   const w = JSON.parse(fs.readFileSync(WDIR + id + ".json", "utf8"));
+  if (fs.existsSync(WDIR + "local/" + id + ".json")) Object.assign(w, JSON.parse(fs.readFileSync(WDIR + "local/" + id + ".json", "utf8")));   // MG12: a local-only bake's real model / sights (content/weapons/local/<id>.json)
   const sum = JSON.parse(fs.readFileSync(O + a.stat + "_summary.json", "utf8"));
   const parts = a.lengthPart ? sum.parts.filter(p => p.name === a.lengthPart) : sum.parts;
   const mn = [0, 1, 2].map(i => Math.min(...parts.map(p => p.gltf_min[i]))), mx = [0, 1, 2].map(i => Math.max(...parts.map(p => p.gltf_max[i])));

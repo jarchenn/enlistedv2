@@ -40,6 +40,9 @@
   "m1_thompson": "auto",
   "m3_grease_gun": "auto",
   "fg42": "auto",
+  "blaster_carbine": "auto",
+  "blaster_rifle": "rifle",
+  "blaster_robot": "auto",
   "m1918a2_bar": "lmg",
   "mg42": "lmg"
  },
@@ -284,6 +287,43 @@
    },
    "modern_smg9": {
     "kind": "smg"
+   },
+   "blaster_carbine": {
+    "kind": "assault",
+    "back_m": 0.035,
+    "pitch_deg": 0.25,
+    "flash": 0.8
+   },
+   "blaster_rifle": {
+    "kind": "battle",
+    "back_m": 0.045,
+    "pitch_deg": 0.35,
+    "flash": 0.9
+   },
+   "blaster_robot": {
+    "kind": "assault",
+    "back_m": 0.035,
+    "pitch_deg": 0.3,
+    "flash": 0.8
+   },
+   "modern_glock34": {
+    "kind": "pistol",
+    "pitch_deg": 1.0,
+    "flash": 1.1
+   },
+   "modern_makarov": {
+    "kind": "pistol"
+   },
+   "modern_fn502": {
+    "kind": "pistol",
+    "pitch_deg": 0.7,
+    "back_m": 0.025,
+    "flash": 0.6
+   },
+   "modern_mark23": {
+    "kind": "pistol",
+    "back_m": 0.045,
+    "pitch_deg": 1.9
    }
   }
  },

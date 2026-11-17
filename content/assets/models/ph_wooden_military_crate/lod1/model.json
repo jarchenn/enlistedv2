@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.6210327744483948,
+  0.4648151993751526,
+  0.25988930463790894
+ ],
+ "bmin": [
+  -0.6210327744483948,
+  0.0,
+  -0.25988930463790894
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "wooden_military_crate",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.6210327744483948,
+    0.4648151993751526,
+    0.25988930463790894
+   ],
+   "bmin": [
+    -0.6210327744483948,
+    0.0,
+    -0.25988930463790894
+   ],
+   "count": 8616,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "wooden_military_crate",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_wooden_military_crate.glb",
+ "textures": {},
+ "triangles": 2872,
+ "vertices": 3545
+}

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.8016743659973145,
+  1.3773844242095947,
+  0.551372766494751
+ ],
+ "bmin": [
+  -0.8016743659973145,
+  0.0,
+  -0.551372766494751
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "industrial_storage_cart",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.8016743659973145,
+    1.3773844242095947,
+    0.551372766494751
+   ],
+   "bmin": [
+    -0.8016743659973145,
+    0.0,
+    -0.551372766494751
+   ],
+   "count": 28350,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "industrial_storage_cart",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_industrial_storage_cart.glb",
+ "textures": {},
+ "triangles": 9450,
+ "vertices": 7480
+}

@@ -1,0 +1,20 @@
+{
+ "set": "ph_forest_leaves_04",
+ "id": "forest_leaves_04",
+ "family": "leaf litter (NT8)",
+ "size": [
+  1.5,
+  1.5
+ ],
+ "source": "https://polyhaven.com/a/forest_leaves_04",
+ "license": "CC0 1.0 Universal",
+ "credit": "Poly Haven (CC0): Rob Tuytel",
+ "resolution": "2K-JPG (packed to the engine size)",
+ "maps": [
+  "ao.jpg",
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

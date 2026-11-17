@@ -4,7 +4,7 @@
 # faces the game's +z (`--yaw <deg>` about the up axis), drops the parts a pack ships but the prop does not need
 # (`--keep <name substring>` keeps only matching meshes), sets the origin at the ground under the middle and prints the
 # result's size. Run from Blender with the source treated as data only:
-#   blender -b --factory-startup --disable-autoexec --python tools/props/convert_supplied.py -- <src> <out.glb> [--height h | --scale k] [--yaw d] [--tex <dir>] [--keep s]
+#   blender -b --factory-startup --disable-autoexec --python tools/props/convert_supplied.py -- <src> <out.glb> [--height h | --scale k] [--yaw d] [--tex <dir>] [--keep s] [--drop s1,s2]
 import bpy, sys, os, math
 from mathutils import Vector
 
@@ -21,6 +21,7 @@ elif ext == ".fbx": bpy.ops.import_scene.fbx(filepath=src)
 else: raise SystemExit("unknown source " + src)
 meshes = [o for o in bpy.context.scene.objects if o.type == "MESH"]
 if "keep" in opt: meshes = [o for o in meshes if opt["keep"].lower() in o.name.lower()]
+if "drop" in opt: meshes = [o for o in meshes if not any(d in o.name.lower() for d in opt["drop"].lower().split(","))]   # Poly Haven variants side by side
 for o in list(bpy.context.scene.objects):
     if o.type == "MESH" and o not in meshes: bpy.data.objects.remove(o, do_unlink=True)
 # loose textures (FBX packs): base / roughness / metallic / normal / ao by file name
@@ -51,6 +52,7 @@ bpy.context.view_layer.objects.active = meshes[0]
 for o in meshes:
     if o.parent: o.matrix_world = o.matrix_world.copy()
 bpy.ops.object.parent_clear(type="CLEAR_KEEP_TRANSFORM")
+bpy.ops.object.make_single_user(object=True, obdata=True)   # instanced meshes (Poly Haven variants) cannot take applied transforms
 bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
 bpy.ops.object.join(); ob = bpy.context.object
 for o in list(bpy.context.scene.objects):

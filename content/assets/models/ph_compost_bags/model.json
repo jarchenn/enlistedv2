@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.9108331799507141,
+  0.703833818435669,
+  0.4592945873737335
+ ],
+ "bmin": [
+  -0.9140639305114746,
+  0.0009680092334747314,
+  -0.46297162771224976
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "mr": "mr_3.jpg",
+   "name": "compost_bags",
+   "normal": "normal_1.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.9108331799507141,
+    0.703833818435669,
+    0.4592945873737335
+   ],
+   "bmin": [
+    -0.9140639305114746,
+    0.0009680092334747314,
+    -0.46297162771224976
+   ],
+   "count": 28062,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "compost_bags_floorstacked",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_compost_bags.glb",
+ "textures": {},
+ "triangles": 9354,
+ "vertices": 5108
+}

@@ -8,6 +8,7 @@
     "src": "sherman_m4.glb",
     "dir": "sherman_m4",
     "fallbackDir": "sherman",
+    "fallbackRig": {"note": "VH8: rig points of the part-built stand-in (as sherman_firefly), used only when the local-only supplied model is missing", "turretPivot": [-0.016, 1.952, 0.129], "gunPivot": [-0.012, 2.283, 1.114], "muzzle": [-0.012, 2.283, 4.448], "optic": [-0.33, 2.38, 1.42], "hatchEye": [-0.47, 3.6, -0.25], "mgPivot": [-0.03, 3.1, -0.93], "mgMuzzle": [-0.03, 3.34, 0.3]},
     "rot": [
       0,
       0,
@@ -15,8 +16,9 @@
     ],
     "realLength": 5.84,
     "lengthNode": "hull",
-    "maxTex": 1024,
-    "simplify": 0.35,
+    "maxTex": 2048,
+    "jpgMaps": true,
+    "lod1": 0.4, "lod1Tex": 1024, "lod2": 0.12, "lod2Tex": 256,
     "nodeParts": {
       "hull": "hull",
       "turret": "turret",

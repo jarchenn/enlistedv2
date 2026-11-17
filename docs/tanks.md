@@ -331,3 +331,27 @@ Screenshots are written to `selftest_out/tanks_*.png`.
     - The wreck stays where it died. The next life spawns at the normal team spawn and gets a fresh, full copy of the same vehicle (`TankSys::spawnFresh`): 7–30 m from the spawn, clear ground (`checkPlacement`), at least 8 m from other vehicles, facing the spawn's direction, entered in the same seat. With no clear spot it spawns on foot with a toast.
     - Wrecks past 12 are removed oldest first when a copy spawns.
     - The helicopter does the same: its crash already kills the crew.
+
+## TK2: higher-fidelity tank bakes, LODs, compressed maps
+
+- **Bakes** (`--import-vehicle-models`; sources outside the repo):
+
+  | Tank | Mesh | LOD1 | LOD2 | Textures |
+  |---|---|---|---|---|
+  | Panzer IV | full source 244k tris (was 30 %, 73k) | 98k | 29k | 2048 everywhere, 4096 albedo / normal on the turret and hulls (`maxTexBy`); was 1024 |
+  | Sherman M4 (local-only) | full 279k (was 35 %) | 113k | 36k | 2048 |
+  | Tiger I | 65k (source size) | 26k | 7.8k | 1024: the source's own maximum |
+  | Abrams | 14k (source size) | — | — | 2048 (the source's 2048 × 1024 maps) |
+
+  The Firefly's source (tank_fury.glb) is no longer on disk; its bake is unchanged.
+- **Bake options** (`src/model.cpp`): `lod2` / `lod2Tex` (a second distance LOD); `maxTexBy` (per source material, a higher cap for its albedo / normal). The vehicle post-pass (re-origin, splits) runs on every LOD, whose parts must line up with the full model's (checked at load, else LODs off).
+- **Runtime** (`TankSys::lodModel`): full mesh while the hull is over 260 px across, LOD1 over 80 px, LOD2 below, with 15 % hysteresis. The occupied vehicle is always full; a wreck is at most LOD1.
+- **Textures** (`loadTexBC`): a map of 2048 px or more is block-compressed on load (CPU mips, stb_dxt): albedo BC1 sRGB (BC3 with alpha), metal-rough / AO BC1, normal BC5. The model shader rebuilds z when the blue channel reads 0. A 4096 map with mips: 85 MB RGBA8 → 11 MB (BC1) / 22 MB (BC5).
+- **Check**: `--capture-tk2 <tag>` (`src/capture_tk2.cpp`): close-ups of every tank and a frame-time sample on chateau_town.
+
+## TK3: grass under vehicles, model AO / metal, Abrams vignette
+
+- **Grass** (`TankSys::grassBoxes` → `Renderer::grassVeh` → `vehFlat` in the grass vertex shader, both blade paths and the sun-shadow pass): the nearest 16 vehicles within 160 m of the camera (wrecks too; a helicopter only within 1 m of the ground) are oriented boxes from their hull colliders plus 0.12 m. Blades rooted inside collapse; within 0.7 m outside they are flattened to 35–100 % of their height. Computed per frame, so it follows moving vehicles. No trail behind tracked vehicles.
+- **Model occlusion / metal** (vehicle JSON `model.aoStrength`, `model.metalScale`): `aoStrength` lerps the baked occlusion toward 1 (shader `uAOWeak` = 1 − strength; 0, the unset default, keeps every other model as baked); `metalScale` scales the parts' metal factor at load. Panzer IV: 0.25 / 0.2 (its maps averaged AO ≈ 0.5 and metal ≈ 0.35, which read near black). The Bradley and Sherman M4 bake no AO; the Tiger's (0.58–0.74) is left as is.
+- **Abrams gunner view**: the vignette is in the tone pass (`RenderView::rectVignette`, `uRectVig`): a superellipse on all four edges, rounded into the corners, clear to 62 % of the half extent, a smoothstep to 4 % brightness at the border, dithered. The optic moved to [0.6, 2.35, 3.0].
+- Check: `--capture-tk2 <tag>` now also takes the Tiger's tracks from the player's eye in Explore. The Creative-camera "tracks" views are not usable: at that height the Creative render covers the lower hull with grass-like ground in every build, which is not seen in play.

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.2695852518081665,
+  0.4336056113243103,
+  0.23526841402053833
+ ],
+ "bmin": [
+  -0.26953157782554626,
+  0.0,
+  -0.23526841402053833
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "compost_bag_02",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.2695852518081665,
+    0.4336056113243103,
+    0.23526841402053833
+   ],
+   "bmin": [
+    -0.26953157782554626,
+    0.0,
+    -0.23526841402053833
+   ],
+   "count": 18144,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "compost_bag_02",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_compost_bag_02.glb",
+ "textures": {},
+ "triangles": 6048,
+ "vertices": 3847
+}

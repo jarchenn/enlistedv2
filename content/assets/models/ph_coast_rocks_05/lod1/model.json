@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  2.012965202331543,
+  1.3221441507339478,
+  1.8737413883209229
+ ],
+ "bmin": [
+  -2.012965202331543,
+  0.0,
+  -1.8737413883209229
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "coast_rocks_05",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.012965202331543,
+    1.3221441507339478,
+    1.8737413883209229
+   ],
+   "bmin": [
+    -2.012965202331543,
+    0.0,
+    -1.8737413883209229
+   ],
+   "count": 4800,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "coast_rocks_05.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_coast_rocks_05_lod1.glb",
+ "textures": {},
+ "triangles": 1600,
+ "vertices": 1537
+}

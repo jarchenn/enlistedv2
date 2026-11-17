@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.2966264486312866,
+  1.402512788772583,
+  0.3462635576725006
+ ],
+ "bmin": [
+  -0.2966264486312866,
+  0.0,
+  -0.3462635576725006
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "hand_truck",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.2966264486312866,
+    1.402512788772583,
+    0.3462635576725006
+   ],
+   "bmin": [
+    -0.2966264486312866,
+    0.0,
+    -0.3462635576725006
+   ],
+   "count": 19830,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "hand_truck",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_hand_truck.glb",
+ "textures": {},
+ "triangles": 6610,
+ "vertices": 4654
+}

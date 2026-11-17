@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.4795858860015869,
+  1.334923267364502,
+  0.25
+ ],
+ "bmin": [
+  -0.4795858860015869,
+  0.0,
+  -0.25
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "wooden_ladder",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.4795858860015869,
+    1.334923267364502,
+    0.25
+   ],
+   "bmin": [
+    -0.4795858860015869,
+    0.0,
+    -0.25
+   ],
+   "count": 3183,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "wooden_ladder_supports",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_wooden_ladder.glb",
+ "textures": {},
+ "triangles": 1061,
+ "vertices": 1348
+}

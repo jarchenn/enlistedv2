@@ -2,6 +2,7 @@
 // damage rules, wrecks, effects, sound and persistence. docs/tanks.md
 #include "app.h"
 #include "vehicle_dash.h"
+#include "overrides.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <stb_image_write.h>
@@ -26,30 +27,52 @@ void TankSys::loadDefs(App& app) {
   // VH1 variants: "base": "<id>" takes that file and applies the variant's keys over it (JSON merge patch)
   std::map<std::string, json> files;
   for (auto& e : fs::directory_iterator(dir, ec)) {
-    if (e.path().extension() != ".json" || e.path().stem() == "ramming") continue;   // ramming.json: obstacle table (tank_ram.cpp)
+    if (e.path().extension() != ".json" || e.path().stem() == "ramming" || e.path().stem() == "overrides_user") continue;   // ED2: the user's overrides patch below   // ramming.json: obstacle table (tank_ram.cpp)
     try { files[e.path().stem().string()] = json::parse(readTextFile(e.path())); } catch (std::exception& x) { logf("vehicle %s: %s", e.path().string().c_str(), x.what()); }
   }
   std::map<std::string, std::shared_ptr<GpuModel>> loaded;   // variants share their base's GPU model
   for (auto& [stem, j0] : files) {
     json j = j0;
+    json ovPatch; { json& ov = vehicleOverrides(); auto it = ov.find(stem); if (it != ov.end() && it->is_object()) ovPatch = *it; }   // ED2: applied after the base / variant merge
     if (j0.contains("base")) {
       auto b = files.find(j0["base"].get<std::string>());
       if (b == files.end()) { logf("vehicle %s: base %s not found", stem.c_str(), j0["base"].get<std::string>().c_str()); continue; }
       j = b->second; j.erase("fallbackModel"); j.merge_patch(j0); j.erase("base");
     }
+    if (!ovPatch.is_null()) j.merge_patch(ovPatch);
     auto d = std::make_unique<TankDef>();
     d->raw = j; d->id = j.value("id", stem); d->name = j.value("name", d->id);
     d->faction = j.value("faction", ""); d->identity = j.value("identity", "");
+    // TK2: the distance LODs, kept only when their parts line up with the full model's (same count and roles)
+    auto loadLods = [&](const std::string& mdir) {
+      for (int L = 0; L < 2; ++L) {
+        fs::path ld = dir / "models" / mdir / (L == 0 ? "lod1" : "lod2");
+        if (!fs::exists(ld / "mesh.bin")) continue;
+        auto gm = std::make_shared<GpuModel>(); std::string err;
+        if (!gm->load(ld, err)) { logf("vehicle %s: %s not loaded (%s)", d->id.c_str(), ld.filename().string().c_str(), err.c_str()); continue; }
+        d->lods[L] = gm;
+      }
+    };
     // baked model (a car whose supplied model is local-only falls back to its committed part-built stand-in)
+    bool fellBack = false;   // VH8: the stand-in mesh is drawn: its own rig points (model.fallbackRig) replace the supplied model's
     for (const char* key : {"dir", "fallbackDir"}) {
       std::string mdir = j.contains("model") ? j["model"].value(key, "") : "";
       if (mdir.empty() || d->model) continue;
+      fellBack = std::string(key) == "fallbackDir";
       if (loaded.count(mdir)) { d->model = loaded[mdir]; continue; }
       auto gm = std::make_shared<GpuModel>(); std::string err;
-      if (gm->load(dir / "models" / mdir, err)) { d->model = loaded[mdir] = gm; if (std::string(key) == "fallbackDir") logf("vehicle %s: supplied model missing, part-built fallback %s", d->id.c_str(), mdir.c_str()); }
+      if (gm->load(dir / "models" / mdir, err)) { d->model = loaded[mdir] = gm; if (std::string(key) == "dir") loadLods(mdir); if (std::string(key) == "fallbackDir") logf("vehicle %s: supplied model missing, part-built fallback %s", d->id.c_str(), mdir.c_str()); }
       else logf("vehicle %s: model %s not loaded (%s) - run --import-vehicle-models", d->id.c_str(), mdir.c_str(), err.c_str());
     }
     d->car = j.value("car", false);
+    for (auto& l : d->lods) if (l && d->model) {
+      bool same = l->parts.size() == d->model->parts.size();
+      for (size_t k = 0; same && k < l->parts.size(); ++k) same = l->parts[k].role == d->model->parts[k].role;
+      if (!same) { logf("vehicle %s: a LOD's parts do not line up with the model (%zu vs %zu): LODs off", d->id.c_str(), l->parts.size(), d->model->parts.size()); d->lods[0] = d->lods[1] = nullptr; break; }
+    }
+    if (d->model && j.contains("model")) { float s = std::clamp(j["model"].value("aoStrength", 1.0f), 0.0f, 1.0f); d->model->aoStrength = s; for (auto& l : d->lods) if (l) l->aoStrength = s;
+      float ms = std::clamp(j["model"].value("metalScale", 1.0f), 0.0f, 1.0f);   // TK3: a painted hull that baked as half metal reads too dark
+      if (ms < 0.999f) { for (auto& p : d->model->parts) p.metal *= ms; for (auto& l : d->lods) if (l) for (auto& p : l->parts) p.metal *= ms; } }   // TK3
     if (d->model) {
       static const char* wheelRoles[TankDef::MAX_WHEELS] = {"wheel_fl", "wheel_fr", "wheel_rl", "wheel_rr", "wheel_f2l", "wheel_f2r", "wheel_r2l", "wheel_r2r"};
       vec3 wlo[TankDef::MAX_WHEELS], whi[TankDef::MAX_WHEELS]; for (int w = 0; w < TankDef::MAX_WHEELS; ++w) { wlo[w] = vec3(1e9f); whi[w] = vec3(-1e9f); }
@@ -81,9 +104,10 @@ void TankSys::loadDefs(App& app) {
         if (!d->steerParts.empty()) d->steerC = (slo + shi) * 0.5f;
       }
     }
-    const json rg = j.value("rig", json::object());
+    json rg = j.value("rig", json::object());
+    if (fellBack && d->model && j["model"].contains("fallbackRig")) rg.update(j["model"]["fallbackRig"]);
     d->turretPivot = jv(rg, "turretPivot"); d->gunPivot = jv(rg, "gunPivot"); d->muzzle = jv(rg, "muzzle"); d->optic = jv(rg, "optic");
-    d->hatchEye = jv(rg, "hatchEye"); d->mgPivot = jv(rg, "mgPivot"); d->mgMuzzle = jv(rg, "mgMuzzle"); d->engine = jv(rg, "engine");
+    d->hatchEye = jv(rg, "hatchEye"); d->towMuzzle = jv(rg, "towMuzzle"); d->mgPivot = jv(rg, "mgPivot"); d->mgMuzzle = jv(rg, "mgMuzzle"); d->engine = jv(rg, "engine");
     for (auto& x : rg.value("exhausts", json::array())) d->exhausts.push_back(jvec3(x));
     for (auto& x : rg.value("exits", json::array())) d->exits.push_back(jvec3(x));
     const json cl = j.value("colliders", json::object());
@@ -96,6 +120,8 @@ void TankSys::loadDefs(App& app) {
     d->elevRate = g.value("elevationRate", d->elevRate); d->elevAccel = g.value("elevationAccel", d->elevAccel);
     if (g.contains("elevation")) { d->elevMin = g["elevation"][0]; d->elevMax = g["elevation"][1]; }
     d->recoil = g.value("recoil", d->recoil); d->rockDeg = g.value("rockDeg", d->rockDeg); d->fov = g.value("fov", d->fov); d->fovZoom = g.value("fovZoom", d->fovZoom);
+    d->autoGun = g.value("auto", false); d->gunSound = g.value("sound", ""); d->heBlastR = g.value("heBlastR", 0.0f); d->lightAP = g.value("lightAP", 0.0f); d->lightHE = g.value("lightHE", 0.0f);
+    { const json tw = j.value("tow", json::object()); d->towCount = tw.value("count", 0); d->towReload = tw.value("reload", d->towReload); d->towVel = tw.value("velocity", d->towVel); d->towDmg = tw.value("damage", d->towDmg); d->towBlastR = tw.value("blastR", d->towBlastR); d->towTurn = tw.value("turnDegPerS", d->towTurn); d->towName = tw.value("name", "TOW"); }
     d->cannonName = g.value("name", ""); d->reticle = g.value("reticle", ""); d->zeroRange = g.value("zeroRange", d->zeroRange); d->muzzleScale = g.value("muzzleScale", d->muzzleScale);
     const json a = j.value("ammunition", json::object());
     d->reloadTime = a.value("reloadTime", d->reloadTime); d->reserveHE = a.value("reserveHE", d->reserveHE); d->reserveAP = a.value("reserveAP", d->reserveAP);
@@ -112,6 +138,7 @@ void TankSys::loadDefs(App& app) {
     d->mgTracerEvery = std::max(1, m.value("tracerEvery", d->mgTracerEvery)); d->mgSoundEvery = std::max(1, m.value("soundEvery", d->mgSoundEvery));
     const json bw = j.value("bowMg", json::object());
     d->bowOn = !bw.empty();
+    d->bowCoax = bw.value("coax", false);
     d->bowName = bw.value("name", ""); d->bowShort = bw.value("short", "Bow MG");
     d->bowSound = bw.value("sound", "shot_mg42"); d->bowTail = bw.value("tail", ""); d->bowReloadSound = bw.value("reloadSound", "belt");
     d->bowPivot = jv(bw, "pivot"); d->bowMuzzle = jv(bw, "muzzle", d->bowPivot + vec3(0, 0, 0.35f));
@@ -128,6 +155,7 @@ void TankSys::loadDefs(App& app) {
     const json hi = j.value("historical", json::object());
     d->histRoadKmh = hi.value("roadSpeedKmh", 0.0f); d->histSource = hi.value("source", "");
     const json du = j.value("durability", json::object());
+    d->launcherAllSides = du.value("launcherAllSides", false);
     d->frontSurvive = du.value("frontHitsSurvived", d->frontSurvive); d->sideSurvive = du.value("sideHitsSurvived", d->sideSurvive);
     const json rm = j.value("ramming", json::object());
     d->massKg = rm.value("massKg", d->massKg); d->engineKW = rm.value("engineKW", d->engineKW); d->pushEff = rm.value("pushEfficiency", d->pushEff);
