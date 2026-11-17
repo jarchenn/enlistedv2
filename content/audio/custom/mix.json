@@ -21,6 +21,51 @@
     }
   },
   "guns": {
+    "m1_carbine": {
+      "gain": 1.2,
+      "body": 3.0
+    },
+    "modern_mp7": {
+      "gain": 1.22,
+      "body": 3.0
+    },
+    "blaster_robot": {
+      "gain": 1.6
+    },
+    "blaster_rifle": {
+      "gain": 1.6
+    },
+    "blaster_carbine": {
+      "gain": 1.6
+    },
+    "m2hb_carry": {
+      "gain": 1.5,
+      "body": 3.0
+    },
+    "modern_makarov": {
+      "gain": 1.2,
+      "body": 3.0
+    },
+    "luger": {
+      "gain": 1.2,
+      "body": 3.0
+    },
+    "modern_uzi": {
+      "gain": 1.15,
+      "body": 4.0
+    },
+    "modern_smg9": {
+      "gain": 0.77,
+      "body": 4.0
+    },
+    "modern_scorpion": {
+      "gain": 1.0,
+      "body": 4.0
+    },
+    "mp40": {
+      "gain": 0.81,
+      "body": 4.0
+    },
     "modern_m4_irons": {
       "gain": 1.0,
       "body": 3.0

@@ -1072,6 +1072,16 @@ void Audio::fidelityReport(const fs::path& dir) {
     for (size_t done = 0; done < mid.size();) { ma_uint64 n = std::min<size_t>(SR, mid.size() - done); ma_engine_read_pcm_frames(&p->engine, st.data(), n, nullptr); for (ma_uint64 i = 0; i < n; ++i) mid[done + i] = 0.5f * (st[2 * i] + st[2 * i + 1]); done += n; }
     return mid;
   };
+  if (const char* fm = std::getenv("NMK_AUDIO_FIDELITY"); fm && std::string(fm) == "guns") {   // SND11: every gun's shot as played, at 3 m and 30 m
+    std::vector<std::string> ids; for (auto& [k, e] : p->events) if (k.rfind("shot_", 0) == 0 && k.find("_far") == std::string::npos) ids.push_back(k);
+    std::sort(ids.begin(), ids.end());
+    for (auto& id : ids) for (float dist : {3.0f, 30.0f}) {
+      std::vector<float> m = render(id.c_str(), vec3(0.15f, -0.1f, -dist), 2.0f);
+      Measure b = measure(m, (float)SR);
+      logf("gunlevel %-26s %4.0f m  peak %6.1f  rms %6.1f  1-4k %6.1f  4-10k %6.1f  tail %6.1f dB", id.c_str(), dist, b.peak, b.rms, b.mid, b.high, b.tail);
+    }
+    return;
+  }
   for (auto& pr : pairs) {
     if (!hasEvent(pr.ev)) { logf("fidelity %s: no event", pr.ev); continue; }
     ma_decoder_config dc = ma_decoder_config_init(ma_format_f32, 0, 0); ma_uint64 fr = 0; void* data = nullptr;
