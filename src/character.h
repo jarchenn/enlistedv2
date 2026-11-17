@@ -33,6 +33,7 @@ struct CharModel {
   // its segment (1 proximal .. 3 distal) and its rest curl axis (bone x rest palm normal, so + curls toward the palm)
   std::vector<signed char> finger, fingerSeg;
   std::vector<vec3> fingerAx;
+  vec3 palmN[2] = {vec3(0, -1, 0), vec3(0, -1, 0)};   // rest palm normal (out of the palm) of the left / right hand, from the finger joints
   std::vector<int> nodeOrder;               // parents before children
   mat4 rootFix{1};                          // applied above the root nodes (load with a height: scale / recentre)
   std::vector<AnimClip> clips;              // G2: the GLB's own clips (anim_clip.h), empty for the soldiers

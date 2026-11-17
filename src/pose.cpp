@@ -210,7 +210,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
   auto handOf = [&](int j) { for (int k = 0, a = m.jointParent[j]; k < 4 && a >= 0; ++k, a = m.jointParent[a]) { if (a == J(CJ_LHAND)) return 0; if (a == J(CJ_RHAND)) return 1; } return -1; };
   vec3 curlAx[2];
   for (int h = 0; h < 2; ++h) {
-    vec3 rd = glm::normalize(H(h ? CJ_RHAND : CJ_LHAND) - H(h ? CJ_RFOREARM : CJ_LFOREARM)), rp = vec3(0, -1, 0) - rd * glm::dot(vec3(0, -1, 0), rd);
+    vec3 rd = glm::normalize(H(h ? CJ_RHAND : CJ_LHAND) - H(h ? CJ_RFOREARM : CJ_LFOREARM)), rp = m.palmN[h] - rd * glm::dot(m.palmN[h], rd);   // AN1 step 2: the rig's own rest palm
     curlAx[h] = glm::length(rp) > 1e-3f ? glm::normalize(glm::cross(rd, glm::normalize(rp))) : vec3(0, 0, 1);
   }
   // AN1 step 2: per-finger curls (rad per segment: proximal, middle, distal). Firing hand: middle / ring / little wrapped round the grip,
@@ -223,7 +223,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
     static const float relaxed[5][3] = {{0.15f, 0.20f, 0.10f}, {0.25f, 0.35f, 0.20f}, {0.30f, 0.40f, 0.25f}, {0.35f, 0.45f, 0.25f}, {0.40f, 0.50f, 0.30f}};
     static const float fist[5][3] = {{0.45f, 0.50f, 0.40f}, {0.95f, 1.10f, 0.60f}, {1.05f, 1.15f, 0.65f}, {1.10f, 1.15f, 0.65f}, {1.15f, 1.10f, 0.60f}};
     static const float fireG[5][3] = {{0.35f, 0.45f, 0.35f}, {0.15f, 0.10f, 0.05f}, {1.05f, 1.15f, 0.65f}, {1.10f, 1.15f, 0.65f}, {1.15f, 1.10f, 0.60f}};
-    static const float support[5][3] = {{0.25f, 0.30f, 0.20f}, {0.75f, 0.90f, 0.50f}, {0.80f, 0.95f, 0.55f}, {0.90f, 0.95f, 0.55f}, {0.95f, 0.95f, 0.55f}};
+    static const float support[5][3] = {{0.20f, 0.25f, 0.15f}, {0.45f, 0.50f, 0.30f}, {0.50f, 0.55f, 0.30f}, {0.55f, 0.55f, 0.30f}, {0.60f, 0.55f, 0.30f}};   // up the far side of a slim handguard, tips at its top
     static const float cup[5][3] = {{0.20f, 0.25f, 0.15f}, {1.00f, 1.10f, 0.60f}, {1.00f, 1.10f, 0.60f}, {1.05f, 1.10f, 0.60f}, {1.10f, 1.05f, 0.60f}};
     if (dead || !armSolved[h]) return relaxed[f][s];
     if (h == 1 && p.throwT >= 0) return fist[f][s];
@@ -307,8 +307,8 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       }
       if (hs >= 0 && armSolved[hs] && handW[hs] > 0 && par >= 0) {
         vec3 rest = H(hs ? CJ_RHAND : CJ_LHAND) - H(hs ? CJ_RFOREARM : CJ_LFOREARM);
-        // rest palms face down (T- or A-pose rigs): turn the fingers onto handDir, then roll the palm about them onto palmDir
-        vec3 rd = glm::normalize(rest), rp = vec3(0, -1, 0) - rd * glm::dot(vec3(0, -1, 0), rd);
+        // turn the fingers onto handDir, then roll the rest palm (the rig's own, AN1 step 2) about them onto palmDir
+        vec3 rd = glm::normalize(rest), rp = m.palmN[hs] - rd * glm::dot(m.palmN[hs], rd);
         quat q = between(rd, handDir[hs]);
         if (glm::length(rp) > 1e-3f) {
           vec3 hd = handDir[hs], a = q * glm::normalize(rp), b = palmDir[hs] - hd * glm::dot(palmDir[hs], hd);

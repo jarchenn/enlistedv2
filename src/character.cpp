@@ -184,6 +184,22 @@ bool CharModel::load(const fs::path& path, std::string& err, float height, bool 
     if (n[f] >= 'a' && n[f] <= 'd') return 1 + (n[f] - 'a');
     return -1;
   };
+  // rest palm normals from the joints (not every rig's rest palm faces down): fingers f from the hand to the knuckles, thumb side t;
+  // a right palm faces cross(t, f), a left one cross(f, t)
+  int handOfJ[2] = {semantic[CJ_LHAND], semantic[CJ_RHAND]};
+  auto handOfK = [&](int k) { for (int a = jointParent[k], d = 0; a >= 0 && d < 5; a = jointParent[a], ++d) { if (a == handOfJ[0]) return 0; if (a == handOfJ[1]) return 1; } return -1; };
+  for (int h = 0; h < 2 && handOfJ[0] >= 0 && handOfJ[1] >= 0; ++h) {
+    vec3 base[5]; bool has[5] = {};
+    for (int k = 0; k < nj; ++k) if (handOfK(k) == h) { int f = fingerOf(k); if (f >= 0 && !has[f] && (jointParent[k] < 0 || fingerOf(jointParent[k]) != f)) { base[f] = jointHead[k]; has[f] = true; } }
+    int outer = has[4] ? 4 : has[3] ? 3 : has[2] ? 2 : -1;
+    if (!has[1] || outer < 0) continue;
+    vec3 hp = jointHead[handOfJ[h]], f = glm::normalize(0.5f * (base[1] + base[outer]) - hp);
+    vec3 t = has[0] ? base[0] - hp : base[1] - base[outer];
+    t -= f * glm::dot(t, f);
+    if (glm::length(t) < 1e-5f) continue;
+    vec3 n = h ? glm::cross(t, f) : glm::cross(f, t);
+    if (glm::length(n) > 1e-6f) palmN[h] = glm::normalize(n);
+  }
   for (int k = 0; k < nj; ++k) {
     bool underHand = false;
     for (int a = jointParent[k], d = 0; a >= 0 && d < 5; a = jointParent[a], ++d) if (a == semantic[CJ_LHAND] || a == semantic[CJ_RHAND]) { underHand = semantic[CJ_LHAND] >= 0; break; }
@@ -193,7 +209,8 @@ bool CharModel::load(const fs::path& path, std::string& err, float height, bool 
     finger[k] = (signed char)f; fingerSeg[k] = (signed char)std::min(seg, 4);
     vec3 bone(0); for (int c = 0; c < nj; ++c) if (jointParent[c] == k) { bone = jointHead[c] - jointHead[k]; break; }
     if (glm::length(bone) < 1e-5f && jointParent[k] >= 0) bone = jointHead[k] - jointHead[jointParent[k]];
-    vec3 ax = glm::cross(bone, vec3(0, -1, 0));   // rest palms face down (T / A pose)
+    int hk = handOfK(k);
+    vec3 ax = glm::cross(bone, palmN[hk < 0 ? 0 : hk]);   // + curls toward the palm
     if (glm::length(ax) > 1e-6f) fingerAx[k] = glm::normalize(ax);
   }
   // ---- geometry: every mesh primitive (skinned: model space; unskinned: node world, bound to its nearest joint)
