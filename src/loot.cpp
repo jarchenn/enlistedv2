@@ -837,7 +837,7 @@ void lootMolotov(App& app, vec3 pos, int owner) {   // the bottle bursts: a ring
 bool lootScope(const App& app, float& mag, int& reticle) {
   if (app.activeWeapon < 0 || app.weaponDefs.empty()) return false;
   auto it = app.wstate.find(app.weaponDefs[app.activeWeapon]->id); if (it == app.wstate.end()) return false;
-  if (!lootActive() && it->second.att[ATT_SIGHT] != 6) return false;   // TH1: a fitted thermal scope works in any mode (the other optics: Battle Royale only)
+  if (!lootActive() && it->second.att[ATT_SIGHT] == 0) return false;   // AT2: a fitted optic works in any mode (SM3's free fits); outside Battle Royale a sniper keeps its own scope
   switch (lootSight(*app.weaponDefs[app.activeWeapon], it->second)) {   // a sniper keeps its own model: only the magnification and reticle change   // the plan's pictures: ACOG = the marksman rifle's, 4x = the M24's, 10x = the .50's
     case 2: mag = 2; reticle = 7; return true;
     case 3: mag = 4; reticle = 5; return true;

@@ -163,6 +163,7 @@ void SelfTest::update(App& app, float dt) {
   { extern bool leanCapture(App&, float); if (leanCapture(app, dt)) return; }   // MV3: --capture-lean (selftest_lean.cpp)
   { extern bool recoilCapture(App&, float); if (recoilCapture(app, dt)) return; }   // WP4: --capture-recoil (selftest_recoil.cpp)
   { extern bool brModelsSelfTest(App&, float); if (brModelsSelfTest(app, dt)) return; }
+  { extern bool reticlesSelfTest(App&, float); if (reticlesSelfTest(app, dt)) return; }   // AT2: --capture-reticles (selftest_reticles.cpp)
   { extern bool commandsSelfTest(App&, float); if (commandsSelfTest(app, dt)) return; }   // CMD1: --capture-commands (commands.cpp)   // BR3: --capture-br-models (selftest_brmodels.cpp)
   { extern bool vehiclesSelfTest(App&, float); if (vehiclesSelfTest(app, dt)) return; }
   { extern bool captureVehicleSelfTest(App&, float); if (captureVehicleSelfTest(app, dt)) return; }

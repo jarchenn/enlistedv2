@@ -93,72 +93,27 @@ static bool sightMount(const WeaponDef& d, int k, const AssetDef*& a, mat4& M, v
   return true;
 }
 
-// the red dot's mark: a small emissive disc in the window on the eye line, facing the eye (asset space)
-static const GpuMesh* redDotMark(const AssetDef& a) {
-  static GpuMesh mesh; static bool built = false;
-  if (!built) {
-    built = true;
-    vec3 eye = jvec3(a.raw["sight"]["eye"], vec3(0, 0.035f, -0.04f)); float L = a.raw["sight"].value("length", 0.085f);
-    vec3 col(1, 0.03f, 0.015f);
-    Material m{"br_red_dot"}; m.albedo = col; m.emissive = col * 40.0f;
-    Part p; p.shape = Part::CYL; p.size = vec3(0.0016f, 0.0002f, 0.0016f); p.collide = false; p.seg = 16;
-    p.rot = glm::angleAxis(1.5707963f, vec3(1, 0, 0));   // the disc axis (y) along the sight line (z)
-    p.center = vec3(eye.x, eye.y, eye.z + 0.6f * L);
-    MeshData md; appendPart(md, p, m, mat4(1)); mesh.upload(md);
-  }
-  return &mesh;
-}
-
-// AT1: the holographic sight's reticle is the model's own (the user's rule: no recreated reticle): the image on its window plate
-// (modelSight.reticle: the plate's centre and size, the image copied beside the local bake), its lit texels drawn as emissive quads
-// on the plate, a little brighter than the red dot's mark (the renderer has no emissive textures). Without the local model the
-// stand-in is the red dot's frame, and the red dot's mark is its one dot
-static const GpuMesh* holoReticle(const AssetDef& a) {
-  static GpuMesh mesh[2]; static bool built[2] = {false, false};
-  int k = a.model ? 1 : 0;
-  if (!built[k]) {
-    built[k] = true;
-    const json& s = sightOf(a);
-    MeshData md;
-    int w = 0, h = 0, n = 0; stbi_uc* px = nullptr;
-    if (k && s.contains("reticle")) {
-      const json& r = s["reticle"];
-      fs::path img = contentDir() / "assets" / "models" / a.raw["model"].value("dir", std::string()) / r.value("image", std::string("reticle.png"));
-      px = stbi_load(img.string().c_str(), &w, &h, &n, 3);
-      if (px) {
-        vec3 c = jvec3(r["center"], vec3(0)); vec2 sz(r["size"][0].get<float>(), r["size"][1].get<float>());
-        const int N = 96; vec3 col(1, 0.04f, 0.02f);
-        for (int j = 0; j < N; ++j) for (int i = 0; i < N; ++i) {
-          float lit = 0;   // the cell's brightest red over the rest (the plate's black is nothing)
-          for (int y = j * h / N; y < (j + 1) * h / N; ++y) for (int x = i * w / N; x < (i + 1) * w / N; ++x) {
-            const stbi_uc* q = px + (y * w + x) * 3; lit = std::max(lit, (q[0] - 0.5f * (q[1] + q[2])) / 255.0f);
-          }
-          if (lit < 0.2f) continue;
-          Material m{"br_holo_reticle"}; m.albedo = col; m.emissive = col * (85.0f * std::min(1.0f, lit * 1.4f));   // readable against a bright sky
-          Part p; p.shape = Part::BOX; p.collide = false; p.size = vec3(sz.x / N * 1.05f, sz.y / N * 1.05f, 0.0002f);
-          p.center = c + vec3(((i + 0.5f) / N - 0.5f) * sz.x, (0.5f - (j + 0.5f) / N) * sz.y, 0);
-          appendPart(md, p, m, mat4(1));
-        }
-        stbi_image_free(px);
-      } else logf("AT1: the holographic sight's reticle image %s is missing: no reticle", img.string().c_str());
-    } else {   // the stand-in (the red dot's frame): the red dot's mark
-      vec3 eye = jvec3(s["eye"], vec3(0, 0.035f, -0.04f)); float L = s.value("length", 0.085f);
-      vec3 col(1, 0.03f, 0.015f); Material m{"br_red_dot"}; m.albedo = col; m.emissive = col * 40.0f;
-      Part p; p.shape = Part::CYL; p.size = vec3(0.0016f, 0.0002f, 0.0016f); p.collide = false; p.seg = 16;
-      p.rot = glm::angleAxis(1.5707963f, vec3(1, 0, 0)); p.center = vec3(eye.x, eye.y, eye.z + 0.6f * L);
-      appendPart(md, p, m, mat4(1));
-    }
-    mesh[k].upload(md);
-  }
-  return &mesh[k];
-}
+// AT2: the red dot's mark and the holographic reticle are drawn on the HUD at their angular size (sight_overlay.cpp
+// drawReflexReticle): a mesh mark sized for 2 MOA is under a pixel and shimmers; the holo keeps its model's layout
 
 void brSightDraws(App& app, const WeaponDef& d, const WeaponState& ws, const mat4& W, std::vector<ModelDraw>& md, std::vector<DrawItem>& boxes) {
   (void)app; const AssetDef* a; mat4 M; vec3 e;
   if (!sightMount(d, ws.att[0], a, M, e)) return;
   addAsset(a, W * M, md, boxes);
-  if (ws.att[0] == 1) boxes.push_back({redDotMark(*a), W * M});   // the reticle: the window itself is open
-  if (ws.att[0] == 5) boxes.push_back({holoReticle(*a), W * M});   // AT1: the holographic sight: the model's own reticle
+}
+
+// AT2: the fitted red dot / holographic sight's window (weapon space): its centre on the eye line, its radius; the mount
+// (asset -> weapon space) and the asset's bounds for the scale check
+bool brSightWindow(const WeaponDef& d, const WeaponState& ws, vec3& centre, float& radius, mat4* mount, vec3* bmin, vec3* bmax) {
+  const AssetDef* a; mat4 M; vec3 e;
+  if (!sightMount(d, ws.att[0], a, M, e)) return false;
+  const json& s = sightOf(*a);
+  vec3 eye = jvec3(s["eye"], vec3(0, 0.035f, -0.04f)); float L = s.value("length", 0.085f);
+  centre = vec3(M * vec4(eye.x, eye.y, eye.z + 0.6f * L, 1));
+  radius = (ws.att[0] == 5 ? 0.013f : 0.010f) * glm::length(vec3(M[0]));   // the open window around the eye line
+  if (mount) *mount = M;
+  if (bmin && bmax) { if (a->model) { *bmin = a->model->bmin; *bmax = a->model->bmax; } else { *bmin = a->opaque.bmin; *bmax = a->opaque.bmax; } }
+  return true;
 }
 
 bool brSightLine(const WeaponDef& d, const WeaponState& ws, vec3& R, vec3& F, float& relief) {

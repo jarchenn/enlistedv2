@@ -1030,15 +1030,16 @@ void Game::posesStep(float dt) {
       // AN3: upright travel. Out of contact the hips ride at 97 % (walk) .. 94 % (run, sprint) of their standing height, in contact 90 %;
       // the half-stride is capped to what the leg reaches from there (the cadence rises instead), so the hips need not drop to reach
       const bool engaged0 = (s.br.target >= 0 && !s.human && !s.localPlayer) || t - s.lastShot < 1.5 || s.reload > 0 || s.throwT >= 0 || (isClient && s.netEngaged);
-      const float hipFrac = s.posture != Physics::STAND ? 0.0f : engaged0 ? 0.92f : v < 3.0f ? glm::mix(0.985f, 0.96f, std::clamp((v - 1.4f) / 0.8f, 0.0f, 1.0f)) : 0.95f;   // mid-stance; the reach dips them at each footfall
+      // AN4: the pelvis rides at one height per speed band (walk 95 %, run 93 %, sprint 91.5 %, in contact 92 %): low enough that the
+      // capped stride below is always within the leg's reach, so the hips no longer dip at each footfall (AN3's vaulting gait read as a lunge)
+      const float hipFrac = s.posture != Physics::STAND ? 0.0f : engaged0 ? 0.92f : v < 3.0f ? glm::mix(0.95f, 0.93f, std::clamp((v - 1.2f) / 0.8f, 0.0f, 1.0f)) : 0.915f;
       float cadUse = gaitCadence(v);
       if (hipFrac > 0 && v > 0.3f) {
         int su = m.semantic[CJ_LUPLEG], sk = m.semantic[CJ_LLEG], sf = m.semantic[CJ_LFOOT], sh = m.semantic[CJ_HIPS];
         if (su >= 0 && sk >= 0 && sf >= 0 && sh >= 0) {
           float L = 0.975f * (glm::length(m.jointHead[sk] - m.jointHead[su]) + glm::length(m.jointHead[sf] - m.jointHead[sk]));
           float vert = m.jointHead[su].y - (1 - hipFrac) * m.jointHead[sh].y - m.jointHead[sf].y;
-          float Amax = std::max(0.12f, 0.42f * L);   // about a walking stride (half the planted foot's travel); past it the cadence rises (vert: the leg's drop at the target, kept for reference)
-          (void)vert;
+          float Amax = std::max(0.12f, std::min(0.42f * L, 0.97f * std::sqrt(std::max(0.0f, L * L - vert * vert))));   // AN4: half-stride within the leg's reach from the fixed pelvis (vert: hip to ankle); past it the cadence rises
           cadUse = std::max(cadUse, 0.5f * duty * v / Amax);
         }
       }
