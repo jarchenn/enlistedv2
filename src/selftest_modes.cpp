@@ -463,7 +463,12 @@ void build(App&) {
       case 1: if (at(0.2f)) { mainMenuGo(a, 1); ph = 2; t0 = t; r0 = glfwGetTime(); } break;
       case 2: if (at(0.8f)) { shot("2_play"); ph = 3; t0 = t; r0 = glfwGetTime(); } break;
       case 3: if (at(0.2f)) { mainMenuGo(a, 2); ph = 4; t0 = t; r0 = glfwGetTime(); } break;
-      case 4: if (at(1.5f)) { shot("3_character"); ph = 5; t0 = t; r0 = glfwGetTime(); } break;
+      case 4: if (at(1.5f)) { shot("3_character"); ph = 40; t0 = t; r0 = glfwGetTime(); } break;
+      case 40: if (at(0.2f)) { settings().s.character = "troll"; ph = 41; t0 = t; r0 = glfwGetTime(); } break;   // UI3 (h): a big body is framed whole
+      case 41: if (at(1.2f)) { shot("3b_character_big"); ph = 43; t0 = t; r0 = glfwGetTime(); } break;   // (a shot is of this frame: state changes wait for the next phase)
+      case 43: if (at(0.2f)) { settings().s.character.clear(); mainMenuCharTab(1); ph = 42; t0 = t; r0 = glfwGetTime(); } break;
+      case 42: if (at(1.5f)) { shot("3c_ai_types"); ph = 44; t0 = t; r0 = glfwGetTime(); } break;
+      case 44: if (at(0.2f)) { mainMenuCharTab(0); ph = 5; t0 = t; r0 = glfwGetTime(); } break;
       case 5: if (at(0.2f)) { mainMenuGo(a, 6); ph = 6; t0 = t; r0 = glfwGetTime(); } break;
       case 6: if (at(0.8f)) { shot("4_credits"); ph = 7; t0 = t; r0 = glfwGetTime(); } break;
       case 7: if (at(0.2f)) { mainMenuGo(a, -1); mainMenuGo(a, 3); ph = 8; t0 = t; r0 = glfwGetTime(); } break;

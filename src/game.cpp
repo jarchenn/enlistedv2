@@ -10,6 +10,7 @@
 #include "damage_model.h"
 #include "app.h"
 #include "settings.h"
+#include "overrides.h"
 #include "mpui.h"
 #include "net.h"
 #include "crumb.h"
@@ -36,6 +37,7 @@ bool Game::loadData(std::string& err) {
   try {
     combat = json::parse(readTextFile(contentDir() / "ai" / "combat.json"));
     archetypes = json::parse(readTextFile(contentDir() / "ai" / "archetypes.json"));
+    if (aiOverrides().contains("_soldier") && aiOverrides()["_soldier"].is_object()) combat.merge_patch(aiOverrides()["_soldier"]);   // UI3 (h): the user's soldier patch (overrides.h)
   } catch (std::exception& e) { err = std::string("content/ai data: ") + e.what(); return false; }
   json gj = archetypes.value("grenade", json::object());
   return true;

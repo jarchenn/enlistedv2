@@ -22,6 +22,7 @@ static const char* kSemanticNames[] = {"Hips", "Spine", "Spine1", "Spine2", "Nec
   "LeftUpLeg", "LeftLeg", "LeftFoot", "LeftToeBase", "RightUpLeg", "RightLeg", "RightFoot", "RightToeBase"};
 static_assert(sizeof(kSemanticNames) / sizeof(kSemanticNames[0]) == CJ_COUNT, "the CharJoint list changed");
 #include <algorithm>
+#include "overrides.h"
 #include <cmath>
 #include <cstdlib>
 #include <set>
@@ -36,10 +37,11 @@ struct ZombieCfg {
   float sepR = 1.3f, sepGain = 2.0f, align = 0.35f, lost = 18;
   bool lod = true; float animNear = 40, animFar = 100, animHzNear = 15, animHzFar = 7.5f, shareM = 60;
 };
+bool gZLoaded = false;   // UI3: zombieCfgReload() (the menu's AI type editor) drops the table
 const ZombieCfg& zcfg() {
-  static ZombieCfg c; static bool loaded = false;
-  if (!loaded) {
-    loaded = true;
+  static ZombieCfg c;
+  if (!gZLoaded) {
+    gZLoaded = true; c = ZombieCfg{};
     try {
       json j = json::parse(readTextFile(contentDir() / "ai" / "zombie.json"));
       if (fs::exists(contentDir() / "ai" / "zombie_local.json")) {   // local-only extra enemy types (git-ignored), appended to the list
@@ -47,6 +49,8 @@ const ZombieCfg& zcfg() {
         if (!j.contains("types")) j["types"] = json::array();
         for (auto& e : lj.value("types", json::array())) j["types"].push_back(e);
       }
+      { const json& ao = aiOverrides(); if (ao.contains("types") && ao["types"].is_object() && j.contains("types"))   // UI3 (h): the user's patches (overrides.h)
+          for (auto& e : j["types"]) { std::string id = e.value("id", std::string("zombie")); if (ao["types"].contains(id) && ao["types"][id].is_object()) e.merge_patch(ao["types"][id]); } }
       c.repath = j.value("repath_s", c.repath); c.flinch = j.value("flinch_s", c.flinch);
       auto strs = [](const json& e, const char* k, std::vector<std::string>& v) {   // a name or a list of names
         if (e.contains(k) && e[k].is_string()) v = {e[k].get<std::string>()};
@@ -321,6 +325,7 @@ void followerStep(Game& G, AiCore& A, Soldier& s, BotMind& m, const Soldier& L) 
 }   // namespace
 
 const std::vector<EnemyType>& enemyTypes() { return zcfg().types; }
+void zombieCfgReload() { gZLoaded = false; }   // UI3: from App::reloadGameplayDefs (the menu only, never mid-match)
 const EnemyType& enemyType(int k) { const auto& T = zcfg().types; return T[std::clamp(k, 0, (int)T.size() - 1)]; }
 int enemyTypeIndex(const std::string& id) { const auto& T = zcfg().types; for (int k = 0; k < (int)T.size(); ++k) if (T[k].id == id) return k; return -1; }
 int enemyTypePick(uint32_t seed) {

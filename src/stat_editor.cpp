@@ -8,6 +8,9 @@
 #include "overrides.h"
 #include "damage_model.h"
 #include "vm_anim.h"
+#include "character.h"
+#include <map>
+#include <memory>
 #include <imgui.h>
 #include <algorithm>
 #include <cctype>
@@ -15,11 +18,12 @@
 
 void heliTuneReset();      // heli.cpp
 void brRailCacheClear();   // br_models.cpp
+void zombieCfgReload();    // zombie.cpp
 
 void App::reloadGameplayDefs() {
   animVmReset(); brRailCacheClear();
   buildWeaponMeshes(); makeWeaponSilhouettes(); layoutRackDisplays();
-  damageTableReload(); heliTuneReset();
+  damageTableReload(); heliTuneReset(); zombieCfgReload();   // UI3: enemy types with the AI overrides
   tanks.loadDefs(*this); tanks.sync(*this);
   resetLoadout();
   logf("ed2: gameplay definitions reloaded with %d override(s)", overrideCount());
@@ -27,8 +31,8 @@ void App::reloadGameplayDefs() {
 
 namespace {
 struct Ed {
-  int kind = 0;                 // 0 guns, 1 vehicles
-  std::string sel[2], search[2];
+  int kind = 0;                 // 0 guns, 1 vehicles, 2 AI types (UI3: the Character screen's AI TYPES tab)
+  std::string sel[3], search[3];
   bool raw = false; std::string rawText, rawErr; std::string rawFor;
   bool dirty = false; double resetArm = -10; std::string status;
   // preview
@@ -78,6 +82,7 @@ std::string sectionName(const std::string& k, const json& v) {
 }
 
 json readJson(const fs::path& p) { try { return json::parse(readTextFile(p)); } catch (...) { return json::object(); } }
+json readJsonQuiet(const fs::path& p) { std::error_code ec; return fs::exists(p, ec) ? readJson(p) : json::object(); }
 // the shipped item without the user's overrides
 json weaponBase(const WeaponDef& d) {
   json j = readJson(d.file);
@@ -98,7 +103,33 @@ json vehicleBase(const std::string& id) {
   if (j.contains("base") && j["base"].is_string()) { json b = readJson(dir / (j["base"].get<std::string>() + ".json")); b.erase("fallbackModel"); b.merge_patch(j); b.erase("base"); j = b; }
   return j;
 }
-json& itemOverride(int kind, const std::string& id) { json& o = kind == 0 ? weaponOverrides() : vehicleOverrides(); if (!o.contains(id) || !o[id].is_object()) o[id] = json::object(); return o[id]; }
+// UI3 (h): the AI overrides keep enemy types under "types" and the soldier data under "_soldier" (overrides.h)
+json& overrideTable(int kind, const std::string& id) {
+  if (kind < 2) return kind == 0 ? weaponOverrides() : vehicleOverrides();
+  json& a = aiOverrides(); if (id == "_soldier") return a;
+  if (!a.contains("types") || !a["types"].is_object()) a["types"] = json::object();
+  return a["types"];
+}
+json& itemOverride(int kind, const std::string& id) { json& o = overrideTable(kind, id); if (!o.contains(id) || !o[id].is_object()) o[id] = json::object(); return o[id]; }
+// every enemy type (content/ai/zombie.json "types" plus the local-only zombie_local.json), shipped values
+std::vector<json> aiTypeEntries() {
+  std::vector<json> v;
+  for (const char* f : {"zombie.json", "zombie_local.json"}) { json j = readJsonQuiet(contentDir() / "ai" / f); for (auto& e : j.value("types", json::array())) if (e.is_object()) v.push_back(e); }
+  return v;
+}
+// a body model for the AI preview, in its bind pose (no clips needed; non-humanoid bodies load too)
+struct AiBody { std::unique_ptr<CharModel> m; CharInstance ci; bool ok = false; };
+AiBody* aiBody(const std::string& model) {
+  static std::map<std::string, std::unique_ptr<AiBody>> cache;
+  auto& b = cache[model];
+  if (!b) {
+    b = std::make_unique<AiBody>(); b->m = std::make_unique<CharModel>(); std::string e;
+    const fs::path p = contentDir() / "characters" / (model + ".glb");
+    if ((initSkinning(e) && (b->m->load(p, e) || b->m->load(p, e, 0, false))) && b->ci.create(*b->m)) { b->ci.skin(std::vector<mat4>(b->m->joints(), mat4(1))); b->ok = true; }
+    else logf("ai editor: preview model %s: %s", model.c_str(), e.c_str());
+  }
+  return b->ok ? b.get() : nullptr;
+}
 bool hasPath(const json& j, const json::json_pointer& p) { try { return j.contains(p); } catch (...) { return false; } }
 // remove a patch path; drop emptied parents
 void erasePath(json& root, json::json_pointer p) {
@@ -226,7 +257,7 @@ void statEditorPage(App& app, int kind, ImVec2 mn, ImVec2 mx, float alpha) {
   ImGui::SetNextWindowPos(mn); ImGui::SetNextWindowSize(ImVec2(mx.x - mn.x, mx.y - mn.y)); ImGui::SetNextWindowBgAlpha(0);
   ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
   ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(1, 1, 1, 0.07f)); ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(1, 1, 1, 0.10f)); ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.94f, 0.46f, 0.13f, 0.35f));
-  if (ImGui::Begin(kind == 0 ? "##menu_guns" : "##menu_vehicles", nullptr, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus)) {
+  if (ImGui::Begin(kind == 0 ? "##menu_guns" : kind == 1 ? "##menu_vehicles" : "##menu_ai", nullptr, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus)) {
     const float W = mx.x - mn.x, H = mx.y - mn.y, listW = W * 0.27f;
     // ---- left: global state, search, the grouped list
     ImGui::BeginChild("##list", ImVec2(listW, H), 0, ImGuiWindowFlags_NoBackground);
@@ -236,7 +267,7 @@ void statEditorPage(App& app, int kind, ImVec2 mn, ImVec2 mx, float alpha) {
     ImGui::SameLine();
     bool armed = ImGui::GetTime() - E.resetArm < 3.0;
     if (ImGui::Button(armed ? "Confirm reset all" : "Reset all")) {
-      if (armed) { weaponOverrides() = json::object(); vehicleOverrides() = json::object(); saveOverrides(); E.dirty = true; E.resetArm = -10; E.status = "Every override removed."; }
+      if (armed) { weaponOverrides() = json::object(); vehicleOverrides() = json::object(); aiOverrides() = json::object(); saveOverrides(); E.dirty = true; E.resetArm = -10; E.status = "Every override removed."; }
       else E.resetArm = ImGui::GetTime();
     }
     char sb[96]; std::snprintf(sb, sizeof sb, "%s", E.search[kind].c_str());
@@ -244,10 +275,17 @@ void statEditorPage(App& app, int kind, ImVec2 mn, ImVec2 mx, float alpha) {
     std::string q = E.search[kind]; for (auto& c : q) c = (char)std::tolower((unsigned char)c);
     auto match = [&](const std::string& s) { std::string l = s; for (auto& c : l) c = (char)std::tolower((unsigned char)c); return q.empty() || l.find(q) != std::string::npos; };
     ImGui::BeginChild("##items", ImVec2(0, 0), 0, ImGuiWindowFlags_NoBackground);
-    static const char* gG[3] = {"WWII", "MODERN", "BLASTERS"}; static const char* gV[4] = {"CARS", "TRUCKS", "TANKS", "AIRCRAFT"};
-    for (int g = 0; g < (kind == 0 ? 3 : 4); ++g) {
-      ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.94f, 0.46f, 0.13f, 1)); ImGui::TextUnformatted(kind == 0 ? gG[g] : gV[g]); ImGui::PopStyleColor();
-      if (kind == 0) {
+    static const char* gG[3] = {"WWII", "MODERN", "BLASTERS"}; static const char* gV[4] = {"CARS", "TRUCKS", "TANKS", "AIRCRAFT"}; static const char* gA[2] = {"SOLDIERS", "ENEMY TYPES"};
+    for (int g = 0; g < (kind == 0 ? 3 : kind == 1 ? 4 : 2); ++g) {
+      ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.94f, 0.46f, 0.13f, 1)); ImGui::TextUnformatted(kind == 0 ? gG[g] : kind == 1 ? gV[g] : gA[g]); ImGui::PopStyleColor();
+      if (kind == 2) {   // UI3 (h): every AI type
+        auto item = [&](const std::string& id, const std::string& name) {
+          json& tb = overrideTable(2, id); bool ov = tb.contains(id) && tb[id].is_object() && !tb[id].empty();
+          if (ImGui::Selectable(((ov ? "* " : "  ") + name + "##" + id).c_str(), E.sel[2] == id)) { E.sel[2] = id; E.raw = false; }
+          if (E.sel[2].empty()) E.sel[2] = id; };
+        if (g == 0) { if (match("soldiers") || match("operators") || match("troopers")) item("_soldier", "Soldiers (every soldier AI)"); }
+        else for (const json& e : aiTypeEntries()) { std::string id = e.value("id", std::string("zombie")), nm = e.value("name", id); if (match(nm) || match(id)) item(id, nm); }
+      } else if (kind == 0) {
         for (auto& dp : app.weaponDefs) { const WeaponDef& d = *dp; if (!isGun(d) || gunGroup(d) != g || !(match(d.name) || match(d.id))) continue;
           bool ov = weaponOverrides().contains(d.id) && !weaponOverrides()[d.id].empty();
           if (ImGui::Selectable(((ov ? "* " : "  ") + d.name + "##" + d.id).c_str(), E.sel[0] == d.id)) { E.sel[0] = d.id; E.raw = false; }
@@ -275,6 +313,14 @@ void statEditorPage(App& app, int kind, ImVec2 mn, ImVec2 mx, float alpha) {
         if (d.useModel() && d.worldModel()) { bmin = vec3(1e9f); bmax = vec3(-1e9f); for (int p = 0; p < 8; ++p) for (int k : d.worldParts()[p]) { md.push_back({d.worldModel(), k, mat4(1)}); const ModelPart& mp = d.worldModel()->parts[k]; bmin = glm::min(bmin, mp.bmin); bmax = glm::max(bmax, mp.bmax); } if (bmin.x > bmax.x) { bmin = vec3(-0.5f); bmax = vec3(0.5f); } }   // frame what is drawn
         else { for (int p = 0; p < 8; ++p) if (d.mesh[p].count) boxes.push_back({&d.mesh[p], mat4(1)}); bmin = vec3(-0.05f, -0.1f, 0); bmax = vec3(0.05f, 0.1f, 1.0f); }
       }
+    } else if (kind == 2) {   // UI3 (h): a soldier patch on combat.json, or an enemy type's entry
+      std::string model = "allied_ranger_0";
+      if (id == "_soldier") { title = "Soldiers"; base = readJson(contentDir() / "ai" / "combat.json"); }
+      else for (const json& e : aiTypeEntries()) if (e.value("id", std::string("zombie")) == id) {
+        base = e; title = e.value("name", id);
+        model = e.contains("models") && e["models"].is_array() && !e["models"].empty() && e["models"][0].is_string() ? e["models"][0].get<std::string>() : e.value("model", std::string("zombie"));
+      }
+      if (AiBody* b = aiBody(model)) { for (size_t k = 0; k < b->ci.view.parts.size(); ++k) md.push_back({&b->ci.view, (int)k, mat4(1)}); bmin = b->m->bmin; bmax = b->m->bmax; if (!(bmax.y > bmin.y)) { bmin = vec3(-0.5f, 0, -0.5f); bmax = vec3(0.5f, 1.9f, 0.5f); } }   // framed by its own bounds: big ones fit too
     } else {
       auto it = app.tanks.defs.find(id);
       if (it != app.tanks.defs.end()) {
@@ -292,13 +338,14 @@ void statEditorPage(App& app, int kind, ImVec2 mn, ImVec2 mx, float alpha) {
       ImGui::SameLine(ImGui::GetContentRegionAvail().x - 250);
       if (ImGui::Button(E.raw ? "Fields" : "JSON")) { E.raw = !E.raw; E.rawFor.clear(); }
       ImGui::SameLine();
-      if (ImGui::Button("Reset to default")) { (kind == 0 ? weaponOverrides() : vehicleOverrides()).erase(id); saveOverrides(); E.dirty = true; E.status = title + ": shipped values"; }
+      if (ImGui::Button("Reset to default")) { overrideTable(kind, id).erase(id); saveOverrides(); E.dirty = true; E.status = title + ": shipped values"; }
       ImVec2 p0 = ImGui::GetCursorScreenPos(); float pw = ImGui::GetContentRegionAvail().x, ph = std::min(220.0f, H * 0.28f);
       preview(app, p0, ImVec2(p0.x + pw, p0.y + ph), md, boxes, bmin, bmax, std::to_string(kind) + id);
       ImGui::SetCursorScreenPos(ImVec2(p0.x, p0.y + ph + 6));
       if (!E.status.empty()) ImGui::TextColored(ImVec4(0.75f, 0.85f, 0.7f, 1), "%s", E.status.c_str());
       ImGui::TextDisabled(kind == 0 ? "LAN: the host's values rule damage; each player's own file sets fire rate, recoil and handling."
-                                    : "Vehicles are not replicated over LAN: each player's own values apply in their game.");
+                          : kind == 1 ? "Vehicles are not replicated over LAN: each player's own values apply in their game."
+                                      : "The AI runs on the host: in a LAN match the host's values apply. Soldier changes take effect at the next match start.");
       ImGui::BeginChild("##fields", ImVec2(0, 0), 0, ImGuiWindowFlags_NoBackground);
       if (E.raw) {   // the item's override patch as JSON: anything without a control
         if (E.rawFor != id) { E.rawFor = id; json o = ov; if (kind == 1 && vehicleOverrides().contains("_helicopter") && app.tanks.defs.at(id)->heli) o["_helicopter"] = vehicleOverrides()["_helicopter"]; E.rawText = o.dump(2); E.rawErr.clear(); }
@@ -310,7 +357,7 @@ void statEditorPage(App& app, int kind, ImVec2 mn, ImVec2 mx, float alpha) {
             if (!j.is_object()) throw std::runtime_error("the override must be a JSON object { ... }");
             json test = base; test.merge_patch(j);   // must merge cleanly
             if (j.contains("_helicopter")) { vehicleOverrides()["_helicopter"] = j["_helicopter"]; j.erase("_helicopter"); }
-            (kind == 0 ? weaponOverrides() : vehicleOverrides())[id] = j;
+            overrideTable(kind, id)[id] = j;
             std::string e; if (!saveOverrides(&e)) throw std::runtime_error(e);
             E.rawErr.clear(); E.status = "JSON applied and saved."; E.dirty = true;
           } catch (std::exception& e) { E.rawErr = std::string("Not applied: ") + e.what(); }
