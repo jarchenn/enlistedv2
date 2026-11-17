@@ -50,7 +50,14 @@ bool proneSelfTest(App& app, float dt) {
   if (stage == 1 && st > 0.25f) { app.scriptedInput.prone = true; stage = 2; st = 0; return true; }   // Z
   if (stage == 2 && st > 0.8f) {
     bool prone = Physics::character().posture == Physics::PRONE;
-    if (prone) ++ok; else { ++refused; char b[160]; std::snprintf(b, sizeof b, "refused at (%.1f %.1f %.1f), facing %.0f", at.x, at.y, at.z, app.eyeYaw); misses.push_back(b); }
+    if (prone) ++ok; else {
+      ++refused; char b[200]; Physics::Hit h; float ny = Physics::castRayEx(at + vec3(0, 1, 0), vec3(0, -1, 0), 3, h) ? h.normal.y : -1;
+      std::snprintf(b, sizeof b, "refused at (%.1f %.1f %.1f), facing %.0f, ground normal y %.2f, terrain %.1f m below; within 1.5 m:", at.x, at.y, at.z, app.eyeYaw, ny, at.y - app.terrain.height(at.x, at.z));
+      std::string m = b; int n = 0;
+      for (auto& i : app.doc.instances) if (glm::length(vec2(i.pos.x - at.x, i.pos.z - at.z)) < 1.5f && n++ < 6) m += " " + i.assetId;
+      if (!n) m += " (no instance origin; a larger object, terrain or a line)";
+      misses.push_back(m);
+    }
     if (prone) app.scriptedInput.prone = true;   // Z again: stand up
     stage = 3; st = 0; return true;
   }

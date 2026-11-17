@@ -441,7 +441,7 @@ static bool postureFitsAt(int posture, float bodyYaw, RVec3 at) {
   Quat q = posture == PRONE ? Quat::sRotation(Vec3::sAxisY(), DegreesToRadians(bodyYaw)) : Quat::sIdentity();
   // lifted 4 cm so resting on the ground (and the stair nosing under the feet) is not a collision
   RVec3 p = at + Vec3(0, 0.04f, 0);
-  IgnoreUDTerrain filt(~0ull, true);   // ground contact is the controller's job; walls, ceilings and props block
+  IgnoreUDTerrain filt(~0ull, posture != PRONE);   // ground contact is the controller's job; walls, ceilings and props block. GP1: a prone body tests the terrain too (SetShape does: on a slope a body along the fall line digs in)
   // CollideShape takes the shape's CENTRE-OF-MASS transform: offset by the (rotated) centre of mass of the
   // feet-origin capsule, or the test body sits 0.9 m too low (centred on the feet)
   RMat44 xf = RMat44::sRotationTranslation(q, p).PreTranslated(sh->GetCenterOfMass());
@@ -516,7 +516,7 @@ bool Physics::updateCharacter(float dt, vec3 hv, bool jump, int want, float yawW
       // moved there before the shape changes, so it never ends up inside geometry
       const RVec3 at = c->GetPosition();
       static const float dy[] = {0, 20, -20, 40, -40, 60, -60, 90, -90, 120, -120, 150, -150, 180};
-      static const float lift[] = {0.0f, 0.12f, 0.25f, 0.38f};
+      static const float lift[] = {0.0f, 0.12f, 0.25f, 0.38f, 0.5f, 0.65f};
       for (float L : lift) {
         for (float r : {0.0f, 0.3f, 0.6f}) {
           for (int k = 0; k < (r == 0 ? 1 : 8) && !fits; ++k) {
