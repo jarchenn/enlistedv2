@@ -49,6 +49,9 @@ struct WeaponDef {
   const std::vector<int>* worldParts() const { return modelLod ? modelPartsLod : modelParts; }
   fs::path file;                        // source JSON (calibration panel saves back into it)
   vec3 gripR{0, -0.06f, 0.30f}, gripL{0, -0.02f, 0.62f};   // IK hand sockets (weapon space)
+  // AN1 step 2b: the grip and the handguard as capsules measured from the model at the sockets (weapon space; radius 0 = not measured):
+  // the grip along gripAx through gripC, the handguard along the bore (z) through guardC
+  vec3 gripC{0}, gripAx{0, -1, 0}, guardC{0}; float gripRad = 0, guardRad = 0;
   vec3 coverPivot{0, 0.065f, 0.58f}, bipodPivot{0, 0.02f, 1.1f};   // MG9 belt guns: top-cover hinge and bipod hinge (weapon space, JSON "pivots")
   float coverDeg = -75, bipodDeg = -80;                              // rotation about +x when open / deployed
   float bulletMass = 10;                // grams (penetration energy)

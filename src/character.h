@@ -29,6 +29,17 @@ struct CharModel {
   std::vector<int> jointParent;             // skin joint -> parent skin joint (-1 root)
   std::vector<vec3> jointHead;              // rest head position (model space)
   int semantic[CJ_COUNT];                   // CharJoint -> skin joint (-1 missing)
+  // AN1 step 2: per skin joint under a hand, which finger (0 thumb, 1 index .. 4 little; -1 not a classified finger),
+  // its segment (1 proximal .. 3 distal) and its rest curl axis (bone x rest palm normal, so + curls toward the palm)
+  std::vector<signed char> finger, fingerSeg;
+  std::vector<vec3> fingerAx;
+  vec3 fingerDir[2] = {vec3(0), vec3(0)};   // AN1 step 2b: rest direction wrist -> knuckles per hand (0: unknown; the forearm line then)
+  vec3 palmN[2] = {vec3(0, -1, 0), vec3(0, -1, 0)};   // rest palm normal (out of the palm) of the left / right hand, from the finger joints
+  std::vector<int> fingerNext;              // AN1 step 2b: the next joint of the same finger (-1 at the chain's end)
+  std::vector<vec3> fingerTip;              // per finger base joint: the fingertip (rest; the end joint's head or the last bone extended)
+  std::vector<float> fingerSpread;          // per finger base joint: its rest angle from the middle finger in the palm plane (rad, about palmN)
+  float headPitchFix = 0;                   // AN1 step 2b: rad, + raises a long head's rest snout to just above level (robot commando)
+  float fingerR = 0.009f;                   // finger pad radius (m), a tenth of the hand length (wrist to the middle knuckle)
   std::vector<int> nodeOrder;               // parents before children
   mat4 rootFix{1};                          // applied above the root nodes (load with a height: scale / recentre)
   std::vector<AnimClip> clips;              // G2: the GLB's own clips (anim_clip.h), empty for the soldiers
@@ -68,6 +79,8 @@ struct PoseParams {
   vec3 gripR{0}, gripL{0};                  // weapon-space hand sockets
   vec3 holdOffset{0}; float holdWeld = 1; int holdKind = -1;   // SW2: the weapon's own hold (WeaponDef::holdOffset)
   vec3 magPos{0, -0.12f, 0.45f};            // weapon-space magazine (reload hand target)
+  vec3 gripC{0}, gripAx{0, -1, 0}, guardC{0}; float gripRad = 0, guardRad = 0;   // AN1 step 2b: the weapon's grip / handguard capsules (WeaponDef; radius 0 = none)
+  vec3 sightR{0};                           // AN1 step 2b: weapon-space rear sight (0: none; aim then puts it at the eye for the cheek weld)
   float reload = 0;                         // 0..1 progress of a reload motion (0 = none)
   float throwT = -1;                        // 0..1 grenade throw (right arm), < 0 = none
   float death = -1;                         // 0..1 fall progress, < 0 = alive
@@ -92,6 +105,9 @@ struct PoseResult {
   std::vector<mat4> delta;                  // per skin joint: model-space delta (posed = delta * rest)
   vec3 joint[CJ_COUNT];                     // posed semantic joint heads (model space)
   mat4 weapon{1};                           // weapon -> model (after recoil / reload / throw adjustments)
+  float fingerGap[2] = {0, 0}, fingerPen[2] = {0, 0};   // AN1 step 2b: per hand on a capsule, the worst fingertip pad gap off the surface and the deepest pad penetration (m)
+  int fingersOn[2] = {0, 0};                // fingers solved against the capsule
+  float fingerDiag[2][5][3] = {};           // per hand and finger: the closing angle (rad), the tip pad gap and the starting clearance of the pads (m)
 };
 
 void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out);

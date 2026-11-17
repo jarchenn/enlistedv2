@@ -1022,7 +1022,7 @@ void Game::posesStep(float dt) {
       s.anCarry += ((moving && !engaged && !bot ? 1.0f : 0.0f) - s.anCarry) * k;
       s.anMoveAim += ((moving && (engaged || bot) ? 1.0f : 0.0f) - s.anMoveAim) * k;
       pp.hunch = bot ? (s.kit == 2 ? 0.5f : 1.0f) : 0.0f;   // SW3: blaster troopers aim and fire half as hunched (taller stance); cover crouching unchanged
-      s.anLow += ((!moving && !engaged ? (s.posture == Physics::CROUCH ? 0.25f : 0.45f) : 0.0f) - s.anLow) * k;   // relaxed ready: shouldered low
+      s.anLow += ((!moving && !engaged ? (s.posture == Physics::CROUCH ? 0.6f : 1.0f) : 0.0f) - s.anLow) * k;   // relaxed ready: butt in the shoulder, muzzle ~35 deg down (AN1 step 2)
       s.anTwist += (yawOff - s.anTwist) * (1.0f - std::exp(-dt / 0.12f));   // no snapping torso twist
       pp.kneel = s.anKneel; pp.carry = s.anCarry; pp.moveAim = s.anMoveAim; pp.aimYawOffset = s.anTwist;
       pp.lean = s.alive ? s.lean : 0.0f; pp.leanBend = radians(app.leanCfg.bend);   // MV3
@@ -1039,7 +1039,8 @@ void Game::posesStep(float dt) {
       }
     }
     pp.walkPhase = s.walkPhase;
-    if (s.weapon >= 0) { const WeaponDef& d = *app.weaponDefs[s.weapon]; pp.gripR = d.gripR; pp.gripL = d.gripL; pp.magPos = d.gripL + vec3(0, -0.1f, -0.12f); pp.holdOffset = d.holdOffset; pp.holdWeld = d.holdWeld; pp.holdKind = d.holdKind; }
+    if (s.weapon >= 0) { const WeaponDef& d = *app.weaponDefs[s.weapon]; pp.gripR = d.gripR; pp.gripL = d.gripL; pp.magPos = d.gripL + vec3(0, -0.1f, -0.12f); pp.holdOffset = d.holdOffset; pp.holdWeld = d.holdWeld; pp.holdKind = d.holdKind;
+      pp.gripC = d.gripC; pp.gripAx = d.gripAx; pp.gripRad = d.gripRad; pp.guardC = d.guardC; pp.guardRad = d.guardRad; pp.sightR = d.rear; }   // AN1 step 2b
     pp.reload = s.reload > 0 && s.reloadTotal > 0 ? 1.0f - s.reload / s.reloadTotal : 0;
     pp.throwT = s.throwT; pp.recoil = s.recoil;
     pp.lowReady = s.zombie ? 0.0f : std::max(s.anLow, !s.human && !s.localPlayer && s.speed > 4.0f ? 0.2f : 0.0f);   // AI5: a sprinting bot dips the muzzle a little, weapon still forward   // AN1: the run carry (pp.carry) replaces the lowered muzzle on the move
