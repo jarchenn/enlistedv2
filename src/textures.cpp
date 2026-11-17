@@ -813,9 +813,14 @@ std::string stateKey() {   // cached: thumbnail keys ask once per asset
   if (enabled()) {
     k += readTextFile(root / "textures.json");
     std::error_code ec;
-    for (auto& s : sets) {
-      k += "|" + s.name;
-      for (const char* f : {"color.jpg", "normal.jpg", "rma.jpg", "meta.json"}) k += ":" + std::to_string(fs::exists(root / s.name / f, ec) ? (long long)fs::file_size(root / s.name / f, ec) : -1LL);
+    // MEM1: every set on disk, not the ones loaded now: lazy sets load as assets build, and a key that followed them
+    // missed the cache on every start (each miss rendered, so built, every catalogue asset)
+    std::vector<std::string> names;
+    for (auto& e : fs::directory_iterator(root, ec)) if (e.is_directory()) names.push_back(e.path().filename().string());
+    std::sort(names.begin(), names.end());
+    for (auto& nm : names) {
+      k += "|" + nm;
+      for (const char* f : {"color.jpg", "normal.jpg", "rma.jpg", "meta.json"}) k += ":" + std::to_string(fs::exists(root / nm / f, ec) ? (long long)fs::file_size(root / nm / f, ec) : -1LL);
     }
   }
   gKey = k; gKeyValid = true;

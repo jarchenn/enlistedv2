@@ -26,6 +26,8 @@ void logf(const char* fmt, ...) {
   if (!f) f = std::fopen((exeDir() / "normandy.log").string().c_str(), "w");
   va_list ap; va_start(ap, fmt);
   char buf[2048]; std::vsnprintf(buf, sizeof buf, fmt, ap); va_end(ap);
+  static const bool memlog = std::getenv("NMK_MEMLOG") != nullptr;   // MEM1: every line stamped with commit / working set (MB)
+  if (memlog && f) { ProcMem m = processMemory(); std::fprintf(f, "[c%6.0f w%6.0f] ", m.PrivateBytes / 1048576.0, m.WorkingSetSize / 1048576.0); }
   if (f) { std::fputs(buf, f); std::fputc('\n', f); std::fflush(f); }
   std::fputs(buf, stdout); std::fputc('\n', stdout); std::fflush(stdout);
 }
@@ -65,8 +67,8 @@ fs::path exeDir() {
 ProcMem processMemory() {
   ProcMem m;
 #ifdef _WIN32
-  PROCESS_MEMORY_COUNTERS pmc{}; GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof pmc);
-  m.WorkingSetSize = pmc.WorkingSetSize; m.PeakWorkingSetSize = pmc.PeakWorkingSetSize;
+  PROCESS_MEMORY_COUNTERS_EX pmc{}; GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof pmc);
+  m.WorkingSetSize = pmc.WorkingSetSize; m.PeakWorkingSetSize = pmc.PeakWorkingSetSize; m.PrivateBytes = pmc.PrivateUsage;
 #elif defined(__APPLE__)
   mach_task_basic_info_data_t info{}; mach_msg_type_number_t n = MACH_TASK_BASIC_INFO_COUNT;
   if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&info, &n) == KERN_SUCCESS) { m.WorkingSetSize = info.resident_size; m.PeakWorkingSetSize = info.resident_size_max; }
@@ -787,6 +789,18 @@ bool AssetLibrary::loadOne(const fs::path& path) {
   if (j.contains("footprint")) a->footprint = vec2(j["footprint"][0].get<float>(), j["footprint"][1].get<float>());
   a->plinthDepth = j.value("plinthDepth", 1.0f);
   a->maxGrade = j.value("maxGrade", 1.0f);
+  AssetDef* p = a.get();
+  index_.emplace(a->id, p);   // the first asset of an id wins, as the old linear find did
+  assets.push_back(std::move(a));
+  // MEM1: catalogue assets are built (geometry, GPU buffers, collision) on first use (find / build), not all at startup:
+  // building every one committed ~13 GB. Vehicles and racks stay eager (TankSys / the arsenal walk them at startup).
+  if (!lazy || p->vehicle || j.contains("rack")) build(*p);
+  return true;
+}
+void AssetLibrary::build(AssetDef& ad) const {
+  if (ad.built) return;
+  ad.built = true;
+  AssetDef* a = &ad; const json& j = ad.raw;
   std::map<std::string, int> mats;
   a->materials.push_back(Material{"default"});
   for (auto& mj : j.value("materials", json::array())) {
@@ -1087,9 +1101,6 @@ bool AssetLibrary::loadOne(const fs::path& path) {
   if (pts.empty()) { a->bmin = vec3(-1); a->bmax = vec3(1); }
   buildAssetLods(*a, op.i.size() / 3, allIntact);
   logf("asset %-28s %5zu parts %3zu interactables %3zu panels %3zu trims %6d tris, walls %d / %d / %d (LOD1 %d, LOD2 %d)", a->id.c_str(), a->parts.size(), a->interactables.size(), a->panels.size(), a->trims.size(), (int)((op.i.size() + allIntact.i.size()) / 3), (int)(allIntact.i.size() / 3), a->panelsLod[0].count / 3, a->panelsLod[1].count / 3, a->lodMesh[0].count / 3, a->lodMesh[1].count / 3);
-  index_.emplace(a->id, a.get());   // the first asset of an id wins, as the old linear find did
-  assets.push_back(std::move(a));
-  return true;
 }
 
 void buildPlaceholder(AssetDef& a) {
@@ -1107,10 +1118,13 @@ bool AssetLibrary::loadAll(const fs::path& dir) {
   std::sort(files.begin(), files.end());
   for (auto& f : files) loadOne(f);
   buildPlaceholder(placeholder_);
+  { int b = 0; for (auto& a : assets) b += a->built; logf("assets: %zu in the catalogue, %d built now (lazy %d)", assets.size(), b, (int)lazy); }
   return !assets.empty();
 }
 
 const AssetDef* AssetLibrary::find(const std::string& id) const {   // per instance per frame in several places: hashed
   auto it = index_.find(id);
-  return it != index_.end() ? it->second : nullptr;
+  if (it == index_.end()) return nullptr;
+  if (!it->second->built) build(const_cast<AssetDef&>(*it->second));   // MEM1: first use builds it (main thread: GL)
+  return it->second;
 }

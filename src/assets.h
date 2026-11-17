@@ -291,6 +291,7 @@ struct AssetDef {
   json raw;
   bool vehicle = false;   // raw has "vehicle" (isVehicleAsset, per instance per frame): set with raw at load
   bool placeholder = false;
+  bool built = false;     // MEM1: geometry built (AssetLibrary::build)
   int findInteract(const std::string& id) const;
 };
 
@@ -298,6 +299,8 @@ class AssetLibrary {
 public:
   bool loadAll(const fs::path& dir);
   const AssetDef* find(const std::string& id) const;
+  void build(AssetDef& a) const;   // MEM1: geometry / GPU / collision of a catalogue asset, once (find calls it)
+  bool lazy = false;               // MEM1: loadAll leaves assets unbuilt until first use (the game; full self-tests build all)
   AssetDef* placeholder() { return &placeholder_; }
   std::vector<std::unique_ptr<AssetDef>> assets;
 private:
