@@ -2531,11 +2531,15 @@ InteriorSys::DoorwayReport InteriorSys::doorwayReport(App& app) {
 
 // FUR1: the planner's result per building type and seed (and density, clutter, wear, ruin, lights-only), cached per user:
 // planning is ~100 ms a building (15 s on chateau_town at every load / match start); a hit replays it. The key hashes
-// the building's asset file, the dressing rules (content/settings) and every furniture / lamp asset file.
+// the building's asset file, the dressing rules (content/settings) and every furniture / lamp asset file, and the
+// planner's own version: bump kFurnishPlannerVersion whenever the planning code changes what a plan holds (a code-only
+// change -- the doorway corridor, the lighting fallbacks -- would otherwise replay plans made by the old code).
+static const int kFurnishPlannerVersion = 2;   // 2: PR5 (relaxed table-lamp fallback, 2 mm doorway pad, non-blocking pieces ignored)
 static const std::string& furnContentHash() {
   static const std::string h = [] {
     uint64_t x = 1469598103934665603ull;
     auto mix = [&](const std::string& s) { for (unsigned char c : s) { x ^= c; x *= 1099511628211ull; } };
+    mix("planner " + std::to_string(kFurnishPlannerVersion));
     std::error_code ec; std::vector<fs::path> fl;
     for (auto& e : fs::directory_iterator(contentDir() / "settings", ec)) if (e.path().extension() == ".json") fl.push_back(e.path());
     for (auto& e : fs::directory_iterator(contentDir() / "assets", ec)) { std::string n = e.path().filename().string(); if (e.path().extension() == ".json" && (n.rfind("furn_", 0) == 0 || n.rfind("lamp_", 0) == 0)) fl.push_back(e.path()); }
