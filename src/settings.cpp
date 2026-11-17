@@ -531,8 +531,9 @@ void settingsWindow(App& app) {
       flat::sliderFloat("Orbit speed", &u.editorOrbit, 0.25f, 4.0f, "x %.2f", ImGuiSliderFlags_Logarithmic);
       flat::sliderFloat("Zoom step", &u.editorZoom, 0.25f, 4.0f, "x %.2f", ImGuiSliderFlags_Logarithmic);
       flat::section("Caches");   // CACHE1 (user_cache.h): thumbnails, furnishing plans, compressed textures
-      static double scanned = -1; if (scanned < 0 || ImGui::GetTime() - scanned > 5) { userCacheBytes(true); scanned = ImGui::GetTime(); }   // recount every 5 s while the tab is open
-      ImGui::TextDisabled("Thumbnails, furnishing plans and compressed textures: %.0f MB of %.0f MB (oldest pruned at launch)", userCacheBytes(false) / 1048576.0, userCacheCapBytes() / 1048576.0);
+      static double scanned = -1; if (scanned < 0 || ImGui::GetTime() - scanned > 5) { for (int c = 0; c < UC_COUNT; ++c) userCacheBytes(c, true); scanned = ImGui::GetTime(); }   // recount every 5 s while the tab is open
+      for (int c = 0; c < UC_COUNT; ++c) ImGui::TextDisabled("%-20s %6.0f MB of %.0f MB", userCacheName(c), userCacheBytes(c, false) / 1048576.0, userCacheCapBytes(c) / 1048576.0);   // CACHE2: each its own cap
+      ImGui::TextDisabled("Each is pruned at launch when over its cap: unused for 30 days first, then the oldest.");
       ImGui::TextDisabled("%s", userCacheDir("texbc", nullptr).parent_path().string().c_str());
       if (flat::action("Clear caches")) { userCacheClear(); scanned = -1; }
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Frees the disk space. They fill again as needed: the next launch and first map loads are slower.");

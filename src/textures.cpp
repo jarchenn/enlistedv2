@@ -238,11 +238,11 @@ void buildSetRaw(const fs::path& dir, bool bc, Cpu& o) {
 // CACHE1: a built set (compressed levels and its means) cached per user next to the model maps (texbc, "set-*"): the
 // decode, resample, mip and compression of 90+ sets took ~1.6 s every start. Keyed by the folder, its files' sizes / times
 fs::path setCacheFile(const fs::path& dir, bool bc) {
-  std::string key = "set1|" + dir.lexically_normal().string() + "|" + std::to_string(bc) + "|" + std::to_string(kSize) + "|" + std::to_string(kLevels);
+  std::string key = "set2|" + std::to_string(bc) + "|" + std::to_string(kSize) + "|" + std::to_string(kLevels);   // CACHE2: by content, not by folder or time
   std::error_code ec;
   for (const char* f : {"color.jpg", "color.png", "normal.jpg", "normal.png", "rma.jpg", "rma.png", "meta.json"}) {
     fs::path q = dir / f; if (!fs::exists(q, ec)) continue;
-    key += std::string("|") + f + ":" + std::to_string(fs::file_size(q, ec)) + ":" + std::to_string((long long)fs::last_write_time(q, ec).time_since_epoch().count());
+    key += std::string("|") + f + ":" + userCacheContentStamp(q);
   }
   uint64_t x = 1469598103934665603ull; for (unsigned char c : key) { x ^= c; x *= 1099511628211ull; }
   char nm[48]; std::snprintf(nm, sizeof nm, "set-%016llx.bin", (unsigned long long)x);
