@@ -1271,6 +1271,11 @@ int App::run(int argc, char** argv) {
       R.lt.mapNoFog = lk && !lk->value("fog", true);
       R.lt.mapHaze = lk ? std::clamp(lk->value("haze", 1.0f), 0.0f, 6.0f) : 1.0f;   // AS1
       R.lt.mapShafts = lk ? std::clamp(lk->value("shafts", 0.0f), 0.0f, 4.0f) : 0.0f;   // NT8
+      {   // SD2: a map's own fair-weather cloud cover ("look": {"clouds": 0..1}; a hot desert noon: 0.05), restored on another map
+        static float savedCover = -1.0f;
+        if (lk && lk->contains("clouds") && (*lk)["clouds"].is_number()) { if (savedCover < 0) savedCover = R.cloudCover; R.cloudCover = std::clamp((*lk)["clouds"].get<float>(), 0.0f, 1.0f); }
+        else if (savedCover >= 0) { R.cloudCover = savedCover; savedCover = -1.0f; }
+      }
       R.wx.mapCloud = lk && lk->contains("weather") && (*lk)["weather"].is_number() ? std::clamp((*lk)["weather"].get<float>(), 0.0f, 1.0f) : -1.0f;   // NT2b: broken cloud
       R.wx.mapWx = R.wx.mapCloud >= 0.0f ? (R.wx.mapCloud >= 0.5f ? 1 : 0) : lk && lk->contains("weather") ? (lk->value("weather", std::string()) == "cloudy" ? 1 : 0) : -1;   // NT2: the map's default sky
       R.lt.mapSat = lk ? std::clamp(lk->value("saturation", 1.0f), 0.0f, 2.0f) : 1.0f;
