@@ -431,14 +431,16 @@ void Physics::updateSwim(float dt, vec3 vel) {
   c->ExtendedUpdate(dt, Vec3::sZero(), us, bpf, olf, bf, sf, *W->temp);
 }
 
-bool Physics::postureFits(int posture, float bodyYaw) {
-  auto& c = W->character; if (!c) return false;
+static bool postureFitsAt(int posture, float bodyYaw, RVec3 at);
+bool Physics::postureFits(int posture, float bodyYaw) { auto& c = W->character; if (!c) return false; return postureFitsAt(posture, bodyYaw, c->GetPosition()); }
+static bool postureFitsAt(int posture, float bodyYaw, RVec3 at) {
+  constexpr int PRONE = Physics::PRONE, CROUCH = Physics::CROUCH; auto& c = W->character; if (!c) return false;
   const Shape* sh = posture == PRONE ? W->proneShape.GetPtr() : posture == CROUCH ? W->crouchShape.GetPtr() : W->standShape.GetPtr();
   CollideShapeSettings cs; cs.mMaxSeparationDistance = 0; cs.mActiveEdgeMode = EActiveEdgeMode::CollideOnlyWithActive;
   AnyHitCollisionCollector<CollideShapeCollector> col;
   Quat q = posture == PRONE ? Quat::sRotation(Vec3::sAxisY(), DegreesToRadians(bodyYaw)) : Quat::sIdentity();
   // lifted 4 cm so resting on the ground (and the stair nosing under the feet) is not a collision
-  RVec3 p = c->GetPosition() + Vec3(0, 0.04f, 0);
+  RVec3 p = at + Vec3(0, 0.04f, 0);
   IgnoreUDTerrain filt(~0ull, true);   // ground contact is the controller's job; walls, ceilings and props block
   // CollideShape takes the shape's CENTRE-OF-MASS transform: offset by the (rotated) centre of mass of the
   // feet-origin capsule, or the test body sits 0.9 m too low (centred on the feet)
@@ -508,6 +510,27 @@ bool Physics::updateCharacter(float dt, vec3 hv, bool jump, int want, float yawW
     // a shape that would penetrate, so the character never ends up inside geometry
     float y = want == PRONE ? yawWanted : W->bodyYaw;
     bool fits = postureFits(want, y);
+    if (!fits && want == PRONE) {
+      // GP1: Z always goes prone where a prone body fits at all: the nearest heading first (±20 .. 180 deg), then nudged
+      // up to 0.6 m off a wall, then lifted onto a step / tilted floor (the body settles under gravity); the character is
+      // moved there before the shape changes, so it never ends up inside geometry
+      const RVec3 at = c->GetPosition();
+      static const float dy[] = {0, 20, -20, 40, -40, 60, -60, 90, -90, 120, -120, 150, -150, 180};
+      static const float lift[] = {0.0f, 0.12f, 0.25f, 0.38f};
+      for (float L : lift) {
+        for (float r : {0.0f, 0.3f, 0.6f}) {
+          for (int k = 0; k < (r == 0 ? 1 : 8) && !fits; ++k) {
+            const float a = k * 0.785398f; const RVec3 q = at + Vec3(std::cos(a) * r, L, std::sin(a) * r);
+            if (r > 0 || L > 0) { CollideShapeSettings cs; AnyHitCollisionCollector<CollideShapeCollector> col; IgnoreUDTerrain filt(~0ull, true);
+              const Shape* cur = c->GetShape(); W->sys->GetNarrowPhaseQuery().CollideShape(cur, Vec3::sReplicate(1.0f), RMat44::sRotationTranslation(c->GetRotation(), q + Vec3(0, 0.04f, 0)).PreTranslated(cur->GetCenterOfMass()), cs, RVec3::sZero(), col, {}, {}, filt);
+              if (col.HadHit()) continue; }   // the current body must fit there too (no squeezing through a wall to reach it)
+            for (float d : dy) if (postureFitsAt(PRONE, wrapDeg(yawWanted + d), q)) { y = wrapDeg(yawWanted + d); fits = true; if (r > 0 || L > 0) c->SetPosition(q); break; }
+          }
+          if (fits) break;
+        }
+        if (fits) break;
+      }
+    }
     if (fits) {
       if (want == PRONE) c->SetRotation(Quat::sRotation(Vec3::sAxisY(), DegreesToRadians(y)));
       const Shape* sh = want == PRONE ? W->proneShape.GetPtr() : want == CROUCH ? W->crouchShape.GetPtr() : W->standShape.GetPtr();

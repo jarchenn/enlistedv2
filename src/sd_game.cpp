@@ -9,6 +9,7 @@
 #include "abilities.h"
 #include "net.h"
 #include "physics.h"
+#include "ai_core.h"
 #include <imgui.h>
 #include <GLFW/glfw3.h>
 #include <algorithm>
@@ -190,6 +191,7 @@ void sdPrepareScenario(App& app, Scenario& sc) {
 }
 
 // ---------------------------------------------------------------- lifecycle
+App* gSdApp = nullptr; bool gSdSpeed = false; App::MoveSettings gSdMove;   // GP1: the player's movement before the mode's speed factor
 void sdBegin(Game& g) {
   sdEnd();
   if (g.match.mode() != GameMode::SearchDestroy) return;
@@ -199,11 +201,17 @@ void sdBegin(Game& g) {
   gSd->cfg.friendlyFire = g.match.rules.friendlyFire;
   gSd->setup((int)g.match.slots.size(), team, !g.app.selftest && g.match.rules.sdWarmup);
   applySides(g);
+  {   // GP1: a brisker mode: everyone's speeds x speed_x (the player's movement, the bots' speed table); restored at the end
+    const float k = std::clamp(gSd->cfg.speedX, 0.5f, 2.0f);
+    gSdApp = &g.app; gSdMove = g.app.move; gSdSpeed = true;
+    g.app.move.run *= k; g.app.move.sprint *= k; g.app.move.crouch *= k; g.app.move.prone *= k;
+    if (AiCore* A = aiCore()) { A->vSprint *= k; A->vJog *= k; A->vWalk *= k; A->vCrouch *= k; A->vProne *= k; }
+  }
   feed.clear(); banner.clear(); buyMenu = false; remoteHold.clear(); lastSend = -1; clientBomb = 0; clientRound = 0; clientWinner = -1;
   gm2RemovePacksNear(vec3(0), 1e9f);
   logf("sd: Search and Destroy, %d players, first to %d (halves of %d), %zu shop items", (int)g.match.slots.size(), gSd->cfg.winRounds, gSd->cfg.halfRounds, gSd->cfg.shop.size());
 }
-void sdEnd() { delete gSd; gSd = nullptr; }
+void sdEnd() { if (gSdApp && gSdSpeed) gSdApp->move = gSdMove; gSdSpeed = false; delete gSd; gSd = nullptr; }
 
 void sdOnSpawned(Game& g, int slot) {
   if (!gSd || slot < 0 || slot >= (int)gSd->players.size()) return;
@@ -330,7 +338,7 @@ void sdInput(App& app, ExploreInput& in) {
   if (context && rawE) in.leanR = in.leanL = false;   // E means plant / defuse here, not lean
   if (holdE) { in.fire = in.aim = false; in.move = vec2(0); }   // planting / defusing locks movement and weapons
   if (g.isClient && gNet) { static bool sent = false; static double at = 0; if (holdE != sent || (holdE && g.t - at > 0.2)) { sent = holdE; at = g.t; gNet->clientRequest(json{{"t", "sdhold"}, {"h", holdE}}); } }
-  in.sprint = false; in.prone = false;   // spec §11: no sprint, no prone
+  // GP1 (user): sprint and prone both allowed in this mode (the spec turned them off)
   if (m.frozen() || m.phase == SdPhase::MatchEnd) { in.move = vec2(0); in.fire = in.aim = in.jump = false; in.quickGrenade = false; }
 }
 

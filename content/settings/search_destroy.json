@@ -376,5 +376,7 @@
    "role": "defuse kit (defenders)",
    "name": "Defuse kit"
   }
- ]
+ ],
+ "speed_x": 1.18,
+ "_speed_note": "GP1 (user): in a Search and Destroy match everyone moves at movement.json speeds x speed_x (players and bots, walk / run / sprint / crouch); sprint works with the normal stamina rules; prone stays off."
 }

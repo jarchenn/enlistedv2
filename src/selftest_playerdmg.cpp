@@ -86,8 +86,7 @@ bool playerDmgSelfTest(App& app, float dt) {
   if (e && e->agent >= 0) {
     vec3 f(-std::sin(radians(app.eyeYaw)), 0, -std::cos(radians(app.eyeYaw)));
     vec3 p = L->feet + f * 9.0f; p.y = app.terrain.height(p.x, p.z) + 0.05f;
-    { Physics::Hit h; if (Physics::castRayEx(vec3(p.x, L->feet.y + 1.5f, p.z), vec3(0, -1, 0), 4.0f, h)) p.y = h.pos.y + 0.05f; }   // the player's floor (an SD spawn on a terrace), not the terrain under it
-    if (frames == 0 || glm::length(e->feet - L->feet) > 15.0f) { Physics::setAgentPos(e->agent, p); e->feet = p; }   // placed once (and again only if it wanders off): then it acts on its own
+    if (frames == 0 || glm::length(e->feet - L->feet) > 30.0f) { Physics::setAgentPos(e->agent, p); e->feet = p; }   // placed once (and again only if it wanders off): then it acts on its own
     ++frames; onMe += e->br.target == L->slot;
     { int mem = (int)e->br.mem.size(), vis = 0; for (auto& x : e->br.mem) vis += x.enemy == L->slot && x.visible;
       bool los = g.lineOfSight(g.eye(*e), g.chest(*L), nullptr); vec3 cp = Physics::character().pos;

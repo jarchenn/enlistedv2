@@ -56,7 +56,7 @@ struct UserSettings {
   float mouseSens = 0.1f;      // deg per mouse count at the 72 deg reference view (matched across FOVs, explore.cpp)
   float adsSens = 1.0f;        // extra factor while aiming (blended with the ADS state)
   bool invertY = false, reducedMotion = false, showArms = true, sightMarkers = false, weaponList = true, friendlyMarkers = true;
-  bool vehicleBars = true;     // TK1: a health bar floating over every vehicle in the world
+  bool vehicleBars = false;    // TK1: a health bar floating over every other vehicle in the world (GP1: off by default; your own vehicle's bar is the HUD's)
   bool minimapRotate = false;  // UI1b: the corner map turns with the player (heading up) instead of north up
   bool devOverlay = false;     // UI1b: developer overlay (FPS / perf lines, key strip, debug text); also the F12 key
   float heliCamMotion = 1.0f;  // VH5: helicopter camera roll / vibration / shake (0 none, 1 default .. 3)

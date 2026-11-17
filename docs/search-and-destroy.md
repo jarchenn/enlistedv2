@@ -71,7 +71,7 @@ A Search and Destroy map is an ordinary map file whose scenario (`doc.extra.scen
 | A to B through mid | 8-11 s |
 | A to B on the attacker-side fallback | 18-24 s |
 
-Defenders should reach site setups about 3-5 s before a full-speed attacker rush. Speeds in this mode are knife 5.5, rifle about 4.6, walk 2.5 and crouch 1.8 m/s; sprint and prone are off.
+Defenders should reach site setups about 3-5 s before a full-speed attacker rush. The spec's speeds were knife 5.5, rifle about 4.6, walk 2.5 and crouch 1.8 m/s. The game's own speeds apply instead (deviation 6): jog about 2.7 and sprint about 5.4 m/s, with sprint and prone on.
 
 ### 8. Validation
 
@@ -152,7 +152,7 @@ These are changes from the spec or partial implementations, with the reason for 
    - **Refunds:** only the last purchase can be refunded (that is always unambiguous). Use of a gun (firing) does not block a refund; thrown grenades and picked-up guns do.
 4. **Drops on death:** a bot drops the gun in its hands, the local player its primary. The kit, the secondary and grenades do not drop. Only the local player can pick guns up (existing E pickup); bots do not pick up guns.
 5. **Utility:** the game's existing frag, smoke and Molotov behaviour and timings, not the spec's HE 98 / 6 m, smoke 7 m for 18 s, or fire 40 dps. HE and fire still damage walls (only the bomb is personnel-only).
-6. **Movement:** the existing controller speeds. Sprint and prone are off; mantling stays on.
+6. **Movement:** the game's controller with sprint (stamina) and prone on (the user's choice; the spec turns both off), mantling on. Every speed is `movement.json` `infantrySpeed_x` (0.85) x `search_destroy.json` `speed_x` (1.18): jog 2.70, sprint 5.39, crouch 1.13, prone 0.56 m/s for the player; bots alike. Bots sprint when they push or rotate without contact.
 7. **Radar:** no teammate-sighting radar (enemy dots for 3 s, the dropped bomb for defenders). Attackers see the dropped bomb on screen and the carrier's name on the HUD.
 8. **Disconnects:** the existing rule: the slot keeps playing as a bot (inventory kept) rather than "10 s under bot control, then removed as a death". A late joiner takes a bot slot at the next round start.
 9. **Buy zone:** 12 m around the side's spawn markers instead of an authored volume (map contract §4).

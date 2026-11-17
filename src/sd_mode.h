@@ -42,6 +42,7 @@ struct SdConfig {
   int teamKillPenalty = 300;
   // bomb / site
   float defuseRange = 1.5f, bombDamage = 500, bombRadius = 35, bombCoverMult = 0.25f, buyRadius = 12;
+  float speedX = 1.18f;           // GP1: everyone's movement speed in this mode x this (players and bots; on top of movement.json infantrySpeed_x)
   bool friendlyFire = true;
   std::vector<SdItem> shop;
   std::string freePistol[2] = {"modern_pistol", "m1911a1"};   // [attackers, defenders]

@@ -29,7 +29,7 @@ SdConfig SdConfig::load() {
   I("startCash", c.startCash); I("maxCash", c.maxCash); I("winElimination", c.winElim); I("winTime", c.winTime); I("winDetonation", c.winDetonate); I("winDefuse", c.winDefuse);
   I("plantReward", c.plantBonus); I("defuseReward", c.defuseBonus); I("plantedLossBonus", c.plantedLossBonus); I("lossBase", c.lossBase); I("lossStep", c.lossStep); I("lossMax", c.lossMax); I("lossStart", c.lossStart);
   I("teamKillPenalty", c.teamKillPenalty);
-  F("defuseRange_m", c.defuseRange); F("bombDamage", c.bombDamage); F("bombRadius_m", c.bombRadius); F("bombCoverMult", c.bombCoverMult); F("buyRadius_m", c.buyRadius);
+  F("defuseRange_m", c.defuseRange); F("bombDamage", c.bombDamage); F("bombRadius_m", c.bombRadius); F("bombCoverMult", c.bombCoverMult); F("buyRadius_m", c.buyRadius); F("speed_x", c.speedX);
   if (j.contains("friendlyFire")) c.friendlyFire = j.value("friendlyFire", true);
   if (j.contains("killReward") && j["killReward"].is_object()) {
     const char* k[8] = {"firearm", "smg", "shotgun", "sniperHeavy", "knife", "grenade", "bomb", "world"};

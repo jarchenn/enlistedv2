@@ -391,7 +391,7 @@ void AiCore::act(Soldier& s, float dt) {
     case A_ADVANCE: {
       vec3 goal = objectiveGoal(s);
       if (G.match.mode() == GameMode::SearchDestroy && tb.known.empty() && G.t - b.hurtAt > 5) {   // SD1: no contact yet: straight on to the site, not cover to cover
-        requestPath(s, goal, 1.0f, 3.0f); m.speed = SPD_JOG; m.posture = Physics::STAND; b.mode = Brain::M_ADVANCE; b.why = "pushing to the site"; break;
+        requestPath(s, goal, 1.0f, 3.0f); m.speed = SPD_SPRINT; m.posture = Physics::STAND; b.mode = Brain::M_ADVANCE; b.why = "pushing to the site"; break;   // GP1: sprinting outside contact
       }
       float maxLen = (b.suppressed > 0.2f || G.t - b.hurtAt < 5 || !tb.known.empty()) ? diff.boundMaxUnderFire : diff.boundMax;
       if (diff.overwatch == 2) maxLen *= 0.85f;
