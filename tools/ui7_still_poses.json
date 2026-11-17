@@ -1,0 +1,117 @@
+{
+ "_note": "UI7 loading stills (selftest_modes 'ui7 stills'): eye / at absolute [x,y,z], or eyeG / atG [x,z,height above terrain]; hour; weather 0 clear / 1 cloudy",
+ "omaha_easy_red": {
+  "eyeG": [
+   -270,
+   -770,
+   1.4
+  ],
+  "atG": [
+   -205,
+   -580,
+   22
+  ],
+  "hour": 10.5
+ },
+ "village_assault": {
+  "eyeG": [
+   -39,
+   -100,
+   1.7
+  ],
+  "atG": [
+   8,
+   15,
+   6
+  ]
+ },
+ "chateau_town": {
+  "eyeG": [
+   22,
+   -184,
+   1.7
+  ],
+  "atG": [
+   0,
+   -16,
+   9
+  ],
+  "hour": 18.3
+ },
+ "dday": {
+  "eyeG": [
+   32,
+   96,
+   1.4
+  ],
+  "atG": [
+   -9,
+   44,
+   3
+  ],
+  "hour": 18.5
+ },
+ "tunnels": {
+  "eye": [
+   -74,
+   13.2,
+   8
+  ],
+  "at": [
+   -24,
+   9.0,
+   8
+  ]
+ },
+ "caverns": {
+  "eyeG": [
+   0,
+   -20,
+   1.8
+  ],
+  "atG": [
+   0,
+   8,
+   2.5
+  ]
+ },
+ "sd_desert": {
+  "eyeG": [
+   -26,
+   24,
+   1.7
+  ],
+  "atG": [
+   -41,
+   20,
+   4
+  ]
+ },
+ "outpost_woods": {
+  "eyeG": [
+   -30,
+   -20,
+   1.7
+  ],
+  "atG": [
+   -50,
+   20,
+   5
+  ],
+  "faceSun": 0,
+  "pitch": 4,
+  "hour": 18.7
+ },
+ "sd_yard": {
+  "eyeG": [
+   -20,
+   40,
+   1.7
+  ],
+  "atG": [
+   -37,
+   26,
+   3.5
+  ]
+ }
+}

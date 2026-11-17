@@ -613,6 +613,7 @@ bool App::openMap(const fs::path& p) {
   MapDoc d; std::string err;
   std::string title = p.filename().string(); title = title.substr(0, title.find('.')); for (auto& c : title) if (c == '_') c = ' ';
   const TemplateInfo* tp = findTemplate(p.filename().string().substr(0, p.filename().string().find('.')));
+  if (tp && !tp->name.empty()) title = tp->name;   // UI7: a built-in map's display name ("Sun Fort", not "sd desert")
   LoadingJob lj(*this, title, "Loading map", 3, tp ? tp->thumbnail : 0, tp ? tp->id : std::string());   // UI2: read, build, furnish
   LoadStep lsAll("openMap");
   if (!loadMap(p, d, err)) { toast("Could not open map: " + err, 8); return false; }

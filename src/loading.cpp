@@ -6,7 +6,7 @@
 // stage that reports its own fraction (the navigation bake) fills its share smoothly. The bar never reaches 100 % before
 // loadingEnd. Frames are presented from inside the work on a second ImGui context (shared font atlas), at most 30 a
 // second plus one per stage change, so the window keeps answering and never shows a frozen frame.
-// NMK_UI2_LOADSHOT=1: each stage change also writes selftest_out/ui2_load_<k>.png (captures).
+// NMK_UI2_LOADSHOT=1: one frame per loading job (the launch: one, a few stages in) as selftest_out/ui2_load_<k>.png (captures).
 #include "loading.h"
 #include "mainmenu.h"
 #include "logo.h"
@@ -52,28 +52,72 @@ const char* const kTips[] = {
   "Gunfire has its own volume slider under Settings > Audio.", "F12 shows the developer overlay: frame time and debug lines."};
 const int kTipN = (int)(sizeof kTips / sizeof kTips[0]);
 
+// UI6: a loading image, graded once as it loads: a contrast curve that crushes the blacks and keeps the highlights
+// (darker, moodier, the midtones still readable), so the screen needs only a light glass over it. Cached by path.
+unsigned gradedTex(const fs::path& p, bool lift = false) {
+  static std::map<std::string, unsigned> cache;
+  auto it = cache.find(p.string()); if (it != cache.end()) return it->second;
+  uint8_t lut[256];
+  for (int i = 0; i < 256; ++i) {
+    if (lift) { lut[i] = (uint8_t)std::lround(255.0f * std::pow(i / 255.0f, 0.72f)); continue; }   // UI7: the dusk street, opened up
+    float x = std::clamp((i / 255.0f - 0.05f) / 0.95f, 0.0f, 1.0f);   // black point
+    float sc = x * x * (3 - 2 * x); x = 0.6f * x + 0.4f * sc;          // a gentle S: deeper shadows, highlights kept
+    lut[i] = (uint8_t)std::lround(255.0f * std::pow(x, 1.12f));
+  }
+  unsigned tex = 0; int w, h, c;
+  if (stbi_uc* d = stbi_load(p.string().c_str(), &w, &h, &c, 4)) {
+    if (!lift) {   // UI7: auto exposure: the image's median luminance lifted to ~33 % (a gamma: blacks and highlights kept)
+      int hist[256] = {}; size_t n = 0;
+      for (size_t k = 0; k < (size_t)w * h; k += 7, ++n) hist[std::min(255, (int)(0.2126f * d[k * 4] + 0.7152f * d[k * 4 + 1] + 0.0722f * d[k * 4 + 2]))]++;
+      int med = 0; for (size_t acc = 0; med < 255 && (acc += hist[med]) < n / 2; ++med) {}
+      const float g = std::clamp(std::log(0.33f) / std::log(std::max(med, 4) / 255.0f), 0.35f, 1.0f);
+      for (int i = 0; i < 256; ++i) {
+        float x = std::pow(i / 255.0f, g);
+        x = std::clamp((x - 0.03f) / 0.97f, 0.0f, 1.0f);                   // black point
+        float sc = x * x * (3 - 2 * x); x = 0.65f * x + 0.35f * sc;          // a gentle S
+        lut[i] = (uint8_t)std::lround(255.0f * x);
+      }
+    }
+    for (size_t k = 0; k < (size_t)w * h * 4; ++k) if (k % 4 != 3) d[k] = lut[d[k]];
+    glCreateTextures(GL_TEXTURE_2D, 1, &tex); glTextureStorage2D(tex, 1, GL_RGBA8, w, h); glTextureSubImage2D(tex, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, d);
+    glTextureParameteri(tex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(tex, GL_TEXTURE_MAG_FILTER, GL_LINEAR); stbi_image_free(d);
+  }
+  return cache[p.string()] = tex;
+}
+unsigned streetTex() {   // the menu's street: the launch splash and maps without a still (the file only: no menu scene load)
+  const fs::path ui = contentDir() / "ui";
+  return gradedTex(fs::exists(ui / "menu_backdrop_empty.jpg") ? ui / "menu_backdrop_empty.jpg" : ui / "menu_backdrop.jpg", true);
+}
+// a soft dark glow: an ellipse whose darkness falls off radially to nothing (32 stacked ellipses, each a little smaller
+// and a little dark: no edge, no band); al is the darkness at the centre
+void softGlow(ImDrawList* dl, ImVec2 c, float rx, float ry, float al) {
+  const int N = 32; const float k = 1.0f - std::pow(1.0f - std::clamp(al, 0.0f, 0.99f), 1.0f / N);
+  for (int i = 0; i < N; ++i) { const float f = 1.0f - 0.9f * i / (N - 1.0f); dl->AddEllipseFilled(c, ImVec2(rx * f, ry * f), rgba(0, 0, 0, k), 0.0f, 64); }
+}
+
 void drawLoading(ImDrawList* dl, float W, float H, float a, float t) {
   const float s = H / 1080.0f;
-  dl->AddRectFilled(ImVec2(0, 0), ImVec2(W, H), rgba(4, 6, 7, a));
-  // UI4 backdrop: the map itself, clearly recognisable (its 1080p loading still, else its thumbnail, else the menu's
-  // street), a slow push-in, under a dark neutral glass (~50 %) and a soft, wide vignette at the sides
+  dl->AddRectFilled(ImVec2(0, 0), ImVec2(W, H), rgba(0, 0, 0, a));
+  // UI6 backdrop: the map's own sharp still (graded: crushed blacks), else its thumbnail, else the menu's street (the
+  // launch too), a slow push-in, under a light neutral-black glass (~32 %); the contrast for the type comes from soft
+  // dark patches behind the logo / title block and the bottom third, plus the side vignette, not from a heavier veil
   const bool still = J.still != 0;
-  unsigned tex = still ? J.still : J.thumb ? J.thumb : J.boot ? 0 : menuBackdropTex(false);   // UI5: at launch the menu scene is not loaded yet
+  unsigned tex = still ? J.still : J.thumb ? J.thumb : streetTex();
   if (tex) {
     const float z = 1.03f + 0.02f * std::min(t / 12.0f, 1.0f);
     ImVec2 uv0(0.5f - 0.5f / z, 0.5f - 0.5f / z), uv1(0.5f + 0.5f / z, 0.5f + 0.5f / z);
     if (!still && J.thumb) { uv0.y = 0.8f - (0.8f - 0.5f) * (1 - 1 / z); uv1.y = 0.2f + (0.5f - 0.2f) * (1 - 1 / z); }   // thumbnails are stored bottom-up (as the editor draws them)
-    dl->AddImage((ImTextureID)(intptr_t)tex, ImVec2(0, 0), ImVec2(W, H), uv0, uv1, rgba(235, 232, 228, a));
+    dl->AddImage((ImTextureID)(intptr_t)tex, ImVec2(0, 0), ImVec2(W, H), uv0, uv1, rgba(255, 255, 255, a));
   }
-  dl->AddRectFilled(ImVec2(0, 0), ImVec2(W, H), rgba(4, 4, 4, (still ? 0.50f : 0.56f) * a));   // the black glass
-  dl->AddRectFilledMultiColor(ImVec2(0, H * 0.6f), ImVec2(W, H), rgba(255, 110, 30, 0), rgba(255, 110, 30, 0), rgba(255, 96, 24, 0.10f * a), rgba(255, 96, 24, 0.10f * a));   // a little fire light
+  dl->AddRectFilled(ImVec2(0, 0), ImVec2(W, H), rgba(0, 0, 0, (still ? 0.26f : J.thumb ? 0.40f : 0.16f) * a));   // the black glass: true black, light (the lifted street: lighter still)
+  dl->AddRectFilledMultiColor(ImVec2(0, H * 0.7f), ImVec2(W, H), rgba(255, 110, 30, 0), rgba(255, 110, 30, 0), rgba(255, 96, 24, 0.05f * a), rgba(255, 96, 24, 0.05f * a));   // a little fire light
   for (int k = 0; k < 2; ++k) {   // the side vignette in two widths, blended (no band edge)
-    const float w = W * (k ? 0.42f : 0.20f), al = (k ? 0.40f : 0.32f) * a;
+    const float w = W * (k ? 0.40f : 0.18f), al = (k ? 0.38f : 0.30f) * a;
     dl->AddRectFilledMultiColor(ImVec2(0, 0), ImVec2(w, H), rgba(0, 0, 0, al), rgba(0, 0, 0, 0), rgba(0, 0, 0, 0), rgba(0, 0, 0, al));
     dl->AddRectFilledMultiColor(ImVec2(W - w, 0), ImVec2(W, H), rgba(0, 0, 0, 0), rgba(0, 0, 0, al), rgba(0, 0, 0, al), rgba(0, 0, 0, 0));
   }
-  dl->AddRectFilledMultiColor(ImVec2(0, 0), ImVec2(W, H * 0.25f), rgba(0, 0, 0, 0.35f * a), rgba(0, 0, 0, 0.35f * a), rgba(0, 0, 0, 0), rgba(0, 0, 0, 0));
-  dl->AddRectFilledMultiColor(ImVec2(0, H * 0.72f), ImVec2(W, H), rgba(0, 0, 0, 0), rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.55f * a), rgba(0, 0, 0, 0.55f * a));
+  softGlow(dl, ImVec2(W * 0.5f, H * 0.40f), W * 0.50f, H * 0.34f, 0.50f * a);   // UI7: behind the logo, map name and mode (radial, edge-free)
+  dl->AddRectFilledMultiColor(ImVec2(0, H * 0.55f), ImVec2(W, H), rgba(0, 0, 0, 0), rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.62f * a), rgba(0, 0, 0, 0.62f * a));   // the bar and the tip (a long ramp)
   // embers: stateless (position from time), so presents at any rate move them correctly
   for (int i = 0; i < 90; ++i) {
     uint32_t h = (uint32_t)i * 2654435761u; auto r = [&](int k) { uint32_t x = h ^ (uint32_t)(k * 0x9E3779B9u); x ^= x >> 15; x *= 2246822519u; x ^= x >> 13; return (x & 0xffff) / 65535.0f; };
@@ -161,7 +205,9 @@ void present(App& app, bool force) {
   ImGui::Render();
   glBindFramebuffer(GL_FRAMEBUFFER, 0); glViewport(0, 0, fw, fh); glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT);
   platformImGuiRender(ImGui::GetDrawData());
-  if (std::getenv("NMK_UI2_LOADSHOT") && force && J.shot < 16) {   // captures: one picture per stage change
+  static std::string lastShot; const std::string shotKey = J.boot ? std::string("_launch") : J.title + "|" + std::to_string(J.t0);
+  if (std::getenv("NMK_UI2_LOADSHOT") && force && J.shot < 64 && shotKey != lastShot && J.done >= (J.boot ? 3 : 1)) {   // captures: one picture per job (UI6)
+    lastShot = shotKey;
     std::vector<uint8_t> px((size_t)fw * fh * 4), fl(px.size());
     glPixelStorei(GL_PACK_ALIGNMENT, 1); glReadBuffer(GL_BACK); glReadPixels(0, 0, fw, fh, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
     for (int y = 0; y < fh; ++y) std::memcpy(&fl[(size_t)y * fw * 4], &px[(size_t)(fh - 1 - y) * fw * 4], (size_t)fw * 4);
@@ -176,17 +222,7 @@ void present(App& app, bool force) {
 }  // namespace
 
 // UI4: content/templates/<id>.loading.jpg, loaded once per map
-unsigned stillFor(const std::string& id) {
-  static std::map<std::string, unsigned> cache;
-  if (id.empty()) return 0;
-  auto it = cache.find(id); if (it != cache.end()) return it->second;
-  unsigned tex = 0; int w, h, c;
-  if (stbi_uc* d = stbi_load((contentDir() / "templates" / (id + ".loading.jpg")).string().c_str(), &w, &h, &c, 4)) {
-    glCreateTextures(GL_TEXTURE_2D, 1, &tex); glTextureStorage2D(tex, 1, GL_RGBA8, w, h); glTextureSubImage2D(tex, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, d);
-    glTextureParameteri(tex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(tex, GL_TEXTURE_MAG_FILTER, GL_LINEAR); stbi_image_free(d);
-  }
-  return cache[id] = tex;
-}
+unsigned stillFor(const std::string& id) { return id.empty() ? 0 : fs::exists(contentDir() / "templates" / (id + ".loading.jpg")) ? gradedTex(contentDir() / "templates" / (id + ".loading.jpg")) : 0; }
 void loadingBegin(App& app, const std::string& title, const std::string& sub, int expectedStages, unsigned thumbTex, const std::string& mapId) {
   if (J.depth++ > 0) { J.expected = std::max(J.expected, J.done + expectedStages); return; }   // nested: the outer job grows
   gLoadingDepth = J.depth;
