@@ -73,6 +73,10 @@ struct Soldier {
   float throwT = -1; int throwKind = 0; vec3 throwTarget{0}; vec3 throwVel{0}; bool throwReleased = false;
   int model = -1; CharInstance ci; bool ciReady = false; PoseResult pose; float walkPhase = 0, recoil = 0, crouchBlend = 0;
   float anProne = 0;   // AN1 step 3: the prone blend (was a one-frame switch)
+  // AN1 step 3b: foot planting: a planted foot's world anchor, the point a releasing foot blends from, lock / standing re-step flags,
+  // the release blend's clock (-1 none) and length (s)
+  vec3 anFootW[2] = {vec3(0), vec3(0)}, anFootFrom[2] = {vec3(0), vec3(0)}; bool anFootLock[2] = {false, false}, anFootStep[2] = {false, false};
+  float anFootRel[2] = {-1, -1}, anFootDur[2] = {0.3f, 0.3f};
   float anGunYaw = 0, anGunVel = 0, anGunPitch = 0, anGunPVel = 0; bool anGunInit = false;   // AN1 step 3: the gun's drawn world facing (deg), a damped follow of the brain's aim
   float anKneel = 0, anCarry = 0, anMoveAim = 0, anLow = 0, anTwist = 0, anStride = 0; vec3 anDir{0, 0, 1}; vec2 anSlope{0}; bool netEngaged = false;   // AN1 posture blends (Game::posesStep)
   uint32_t poseRev = 0, skinRev = ~0u; int poseFrom = -1;   // PF1: skin only a changed pose; a far pack follower draws its leader's skin
@@ -104,6 +108,7 @@ public:
   std::vector<Soldier> sold;                 // index == roster slot
   bool active = false;                       // a match is running in this Explore session
   bool pendingStart = false;                 // Play menu asked for a match; begins on enterExplore
+  bool noFootLock = false;                   // AN1 step 3b: the pose harness (a bot posed in place) turns the world foot locks off
   bool isClient = false;                     // mirror only (net client): no authority
   bool paused = false;
   int localSlot = 0;

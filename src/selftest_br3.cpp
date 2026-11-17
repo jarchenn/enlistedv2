@@ -205,6 +205,7 @@ bool poseShots(App& app, float dt) {
   const int nframes = movingP ? nfr : 1;
   const int ps = pn == "kneel" ? 0 : pn == "carry" || pn == "idle" || pn == "sprint" ? 1 : 2;   // 0 crouched still, 1 no target, 2 a target
   Soldier& s = G.sold[bot];
+  G.noFootLock = true;   // AN1 step 3b: the posed bot stays put while it "walks" (a treadmill): no world foot locks
   if (bodies[bi] != "-" && t == dt) {   // the body under test (loaded like Game::begin's operator bodies)
     std::string id = bodies[bi]; int mi = -1;
     if (id == "br_marine") mi = brMarineModel(G);
