@@ -334,6 +334,23 @@ bool CharModel::load(const fs::path& path, std::string& err, float height, bool 
     }
     if (h == 1) { fingerR = std::clamp(0.1f * glm::length(jointHead[mid] - hp), 0.006f, 0.02f); handScale = glm::length(jointHead[mid] - hp) / 0.09f; }
   }
+  // AN1 step 2d: hands whose fingers are modelled closed and never weighted to the finger bones (the Rangers): where the fist's centre
+  // sits from the wrist, so the hold puts the grip through it (the finger solve cannot show on them)
+  if (semantic[CJ_LHAND] >= 0 && semantic[CJ_RHAND] >= 0 && !finger.empty()) {
+    int onFingers = 0;
+    for (auto& v : verts) for (int i = 0; i < 4; ++i) if (v.w[i] > 0.3f && (int)v.j[i] < nj && finger[v.j[i]] >= 0) { ++onFingers; break; }
+    if (onFingers == 0) {
+      fingerless = true;
+      for (int h = 0; h < 2; ++h) {
+        int hj = semantic[h ? CJ_RHAND : CJ_LHAND]; vec3 c(0); int n = 0;
+        for (auto& v : verts) { int best = -1; float bw = 0; for (int i = 0; i < 4; ++i) if (v.w[i] > bw) { bw = v.w[i]; best = (int)v.j[i]; } if (best == hj && bw > 0.5f) { c += v.pos; ++n; } }
+        if (n < 10 || fingerDir[h] == vec3(0)) continue;
+        vec3 d = c / (float)n - jointHead[hj];
+        fistF[h] = glm::dot(d, fingerDir[h]); fistN[h] = glm::dot(d, palmN[h]);
+      }
+      logf("character %s: modelled closed hands (no finger weights): fist centre L %.3f / %.3f, R %.3f / %.3f m (along the fingers / the palm normal)", id.c_str(), fistF[0], fistN[0], fistF[1], fistN[1]);
+    }
+  }
   // AN1 step 2b: per rig, the palm's thickness (hand-weighted vertices: how far the palm side reaches past the hand's bone line, 95th
   // percentile) and the finger pad radius (finger-weighted vertices: median distance from their joint's bone)
   if (semantic[CJ_LHAND] >= 0 && semantic[CJ_RHAND] >= 0 && !finger.empty()) {

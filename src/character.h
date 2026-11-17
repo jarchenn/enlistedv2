@@ -40,6 +40,7 @@ struct CharModel {
   std::vector<float> fingerSpread;          // per finger base joint: its rest angle from the middle finger in the palm plane (rad, about palmN)
   float headPitchFix = 0;                   // AN1 step 2b: rad, + raises a long head's rest snout to just above level (robot commando)
   float palmThick[2] = {0.022f, 0.022f};    // AN1 step 2b: hand joint line -> palm skin along the palm normal (m), measured from the hand's vertices
+  bool fingerless = false; float fistF[2] = {0, 0}, fistN[2] = {0, 0};   // AN1 step 2d: hands with no vertex on a finger bone (the Rangers' modelled closed grip): the fist's centre from the wrist, along the fingers and the palm normal
   float handScale = 1;                      // wrist -> middle knuckle over a human's 9 cm (the robot's claws ~2)
   float fingerR = 0.009f;                   // finger pad radius (m), a tenth of the hand length (wrist to the middle knuckle)
   std::vector<int> nodeOrder;               // parents before children
