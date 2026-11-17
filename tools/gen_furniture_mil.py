@@ -41,6 +41,10 @@ MIL = {
     "leather_liner": ([0.22, 0.13, 0.07], 0.6, "plain", 1),
     "yellow_plate": ([0.75, 0.6, 0.1], 0.5, "plain", 1),
     "mug_enamel": ([0.55, 0.55, 0.5], 0.35, "plain", 1),
+    # PR5 review: single-piece colours (the shared field_grey / olive_paint / bakelite stay)
+    "field_grey_gen": ([0.3, 0.31, 0.27], 0.58, "metal", 1),     # generator: lighter, weathered field grey
+    "dunkelgelb": ([0.5, 0.42, 0.22], 0.6, "metal", 1),          # jerrycans: dark yellow
+    "bakelite_case": ([0.18, 0.09, 0.04], 0.25, "plain", 1),     # field telephone case: brown bakelite
 }
 
 
@@ -361,23 +365,37 @@ def rifle_rack(root):
 def generator(root):
     a = mk("furn_mil_generator", "Diesel generator set", "Field-grey diesel generator set on a steel skid, 1.7 x 0.75 m: engine block and head, flywheel, radiator with grille, the alternator drum, a control box with gauges and an exhaust stub.",
            "metal", 40, 90, wall=True, front=0.8)
-    a.r([0, 0.06, 0], [1.7, 0.12, 0.75], "steel_bare", "skid", 0.01)
-    a.r([-0.25, 0.48, 0], [0.75, 0.62, 0.55], "field_grey", "engine", 0.02)
-    a.r([-0.25, 0.86, 0], [0.7, 0.16, 0.42], "field_grey", "engine", 0.02)
+    fg = "field_grey_gen"   # PR5 review: lighter field grey
+    for sz in (-1, 1):   # PR5 review: the skid as two 10 cm channels joined by three cross bars
+        a.r([0, 0.05, sz * 0.3], [1.7, 0.1, 0.1], "steel_bare", "skid", 0.006)
+    for x in (-0.65, -0.25, 0.55):
+        a.r([x, 0.13, 0], [0.08, 0.06, 0.7], "steel_bare", "skid", 0.006)
+    a.r([-0.25, 0.22, 0], [0.5, 0.12, 0.35], fg, "engine", 0.015)                # PR5 review: oil sump under the smaller block
+    a.r([-0.25, 0.53, 0], [0.6, 0.5, 0.45], fg, "engine", 0.02)
+    a.r([-0.25, 0.86, 0], [0.7, 0.16, 0.42], fg, "engine", 0.02)
     for k in range(3):
-        a.r([-0.5 + k * 0.25, 0.97, 0], [0.14, 0.06, 0.3], "field_grey", "engine", 0.01)
-    a.r([-0.78, 0.55, 0], [0.18, 0.8, 0.62], "field_grey", "engine", 0.01)       # radiator
+        a.r([-0.5 + k * 0.25, 0.97, 0], [0.14, 0.06, 0.3], fg, "engine", 0.01)
+    a.cyl([-0.25, 0.6, -0.3], 0.15, 0.2, fg, "engine", seg=14)                   # PR5 review: air filter on the back of the block
+    a.r([-0.65, 0.46, 0], [0.1, 0.6, 0.5], fg, "engine", 0.01)                   # radiator (PR5 review: 0.1 x 0.6 x 0.5)
     for k in range(9):
-        a.b([-0.875, 0.25 + k * 0.07, 0], [0.006, 0.02, 0.52], "rubber", "engine")
-    a.cyl([0.2, 0.45, 0], 0.62, 0.09, "steel_bare", "engine", seg=24, rot=[0, 0, 90])   # flywheel
-    a.cyl([0.55, 0.45, 0], 0.46, 0.5, "field_grey", "alternator", seg=20, rot=[0, 0, 90])
-    a.r([0.55, 0.85, 0.2], [0.3, 0.3, 0.12], "field_grey", "alternator", 0.01)
+        a.b([-0.703, 0.22 + k * 0.06, 0], [0.006, 0.02, 0.42], "rubber", "engine")
+    a.cyl([0.175, 0.45, 0], 0.06, 0.25, "steel_bare", "engine", seg=10, rot=[0, 0, 90])   # PR5 review: shaft to the alternator
+    # PR5 review: a 0.40 flywheel: rim (two half rings), hub and six spokes
+    for rx in (0, 180):
+        a.arch([0.12, 0.45 + (0.1 if rx == 0 else -0.1), 0], [0.4, 0.2, 0.06], "steel_bare", "engine", th=0.035, rot=[rx, 90, 0])
+    a.cyl([0.12, 0.45, 0], 0.1, 0.07, "steel_bare", "engine", seg=14, rot=[0, 0, 90])
+    for k in range(6):
+        t = 60 * k
+        a.b([0.12, 0.45 + 0.1175 * math.cos(math.radians(t)), 0.1175 * math.sin(math.radians(t))], [0.03, 0.135, 0.025], "steel_bare", "engine", rot=[t, 0, 0])
+    a.cyl([0.55, 0.45, 0], 0.3, 0.5, fg, "alternator", seg=20, rot=[0, 0, 90])   # PR5 review: 0.30 drum
+    a.r([0.55, 0.23, 0], [0.3, 0.14, 0.3], "steel_bare", "alternator", 0.006)     # its cradle on the cross bar
+    a.r([0.55, 0.745, 0.1], [0.3, 0.3, 0.12], fg, "alternator", 0.01)
     for k in range(2):
-        a.cyl([0.48 + k * 0.14, 0.88, 0.262], 0.08, 0.01, "dial_face", "alternator", seg=12, rot=[90, 0, 0])
-    a.cyl([-0.1, 1.15, -0.15], 0.08, 0.35, "steel_bare", "engine", seg=10)
+        a.cyl([0.48 + k * 0.14, 0.775, 0.162], 0.08, 0.01, "dial_face", "alternator", seg=12, rot=[90, 0, 0])
+    a.cyl([-0.1, 1.1325, -0.15], 0.05, 0.385, "rust_iron", "engine", seg=10)     # PR5 review: 5 cm rusted exhaust, down to the head
     for k in range(7):   # PR3: cooling fins on the cylinder block
-        a.b([-0.25, 0.62 + k * 0.03, 0.29], [0.66, 0.008, 0.04], "field_grey", "engine")
-    a.cyl([-0.1, 1.33, -0.07], 0.07, 0.18, "steel_bare", "engine", seg=10, rot=[60, 0, 0])   # PR3: exhaust bend
+        a.b([-0.25, 0.58 + k * 0.03, 0.245], [0.56, 0.008, 0.04], fg, "engine")
+    a.cyl([-0.1, 1.33, -0.07], 0.05, 0.18, "rust_iron", "engine", seg=10, rot=[60, 0, 0])   # PR3: exhaust bend
     a.col([0, 0.6, 0], [1.7, 1.2, 0.75])
     return a.write(root, [1.7, 0.75], fragments=["alternator"], keep=["skid", "engine"])
 
@@ -385,20 +403,31 @@ def generator(root):
 def jerrycans(root):
     a = mk("furn_mil_jerrycans", "Jerrycans", "Three pressed-steel jerrycans with the X stamping and triple handles, one lying down.",
            "metal", 6, 25, wall=True, front=0.3)
-    for i, (x, rot) in enumerate(((-0.24, None), (0.0, None), (0.36, [0, 0, 90]))):
+    # PR5 review: dunkelgelb paint, arched tube handles, a cam lever on the cap, a pale stencil band on the middle can; the
+    # lying can is the same can turned onto its side (local +y, its top, toward -x); middle and lying cans shifted to make room
+    for i, (x, lying) in enumerate(((-0.24, False), (-0.025, False), (0.355, True))):
         g = f"can{i}"
-        if rot:
-            a.r([x, 0.09, 0], [0.47, 0.17, 0.35], "olive_paint", g, 0.02)
-        else:
-            a.r([x, 0.235, 0], [0.17, 0.47, 0.35], "olive_paint", g, 0.02)
-            for fx in (-0.088, 0.088):   # PR3: the X pressing on both faces, a rim weld round the edge
-                for s in (-1, 1):
-                    a.b([x + fx, 0.24, 0], [0.006, 0.36, 0.022], "olive_paint", g, rot=[s * 36, 0, 0])
-            a.b([x, 0.235, 0.176], [0.18, 0.48, 0.006], "olive_paint", g)
-            a.b([x, 0.235, -0.176], [0.18, 0.48, 0.006], "olive_paint", g)
-            a.cyl([x, 0.5, 0.12], 0.045, 0.04, "steel_bare", g, seg=10)   # PR3: cam-lever spout cap
-            for k in range(3):
-                a.r([x, 0.49, -0.1 + k * 0.08], [0.03, 0.03, 0.05], "olive_paint", g, 0.008)
+        cy = 0.091 if lying else 0.235   # the lying can rests on its X pressings
+
+        def at(lx, ly, lz):   # can-local offset from its centre -> asset position
+            return [x - ly, cy + lx, lz] if lying else [x + lx, cy + ly, lz]
+
+        def rr(r):   # turn a part with the can (euler x, y, z; the can turns +90 about z, applied last)
+            r = r or [0, 0, 0]
+            return [r[0], r[1], r[2] + 90] if lying else (r if any(r) else None)
+        p = 0.235   # the old standing centre height: offsets below are from it
+        a.r(at(0, 0, 0), [0.17, 0.47, 0.35], "dunkelgelb", g, 0.02, rot=rr(None))
+        for fx in (-0.088, 0.088):   # PR3: the X pressing on both faces, a rim weld round the edge
+            for sg in (-1, 1):
+                a.b(at(fx, 0.24 - p, 0), [0.006, 0.36, 0.022], "dunkelgelb", g, rot=rr([sg * 36, 0, 0]))
+        for sz in (-1, 1):
+            a.b(at(0, 0, sz * 0.176), [0.18, 0.48, 0.006], "dunkelgelb", g, rot=rr(None))
+        a.cyl(at(0, 0.5 - p, 0.12), 0.045, 0.04, "steel_bare", g, seg=10, rot=rr(None))   # PR3: cam-lever spout cap
+        a.r(at(0, 0.505 - p, 0.15), [0.06, 0.012, 0.015], "steel_bare", g, 0.003, rot=rr(None))   # its cam lever, beside the cap
+        for k in range(3):   # three arched tube handles
+            a.arch(at(0, 0.47 + 0.0225 - p, -0.1 + k * 0.08), [0.075, 0.045, 0.02], "dunkelgelb", g, th=0.02, rot=rr([0, 90, 0]))
+        if i == 1:
+            a.b(at(0, 0.33 - p, 0.1795), [0.17, 0.05, 0.001], "stencil", g)   # pale stencil band
     a.col([0.05, 0.25, 0], [0.8, 0.5, 0.36])
     return a.write(root, [0.8, 0.36], fragments=["can0"], keep=["can1", "can2"])
 
@@ -406,15 +435,21 @@ def jerrycans(root):
 def phone(root):
     a = mk("furn_mil_phone", "Field telephone", "Bakelite field telephone in its case, handset on the cradle, crank on the side.",
            "ceramic", 1, 4, blocking=False, front=0.0)
-    a.r([0, 0.06, 0], [0.27, 0.12, 0.2], "bakelite", "body", 0.012)
+    a.r([0, 0.06, 0], [0.27, 0.12, 0.2], "bakelite_case", "body", 0.012)   # PR5 review: brown bakelite case (handset stays black)
     a.r([0, 0.14, 0], [0.24, 0.04, 0.06], "bakelite", "body", 0.015)
     for s in (-1, 1):
         a.cyl([s * 0.11, 0.14, 0], 0.06, 0.05, "bakelite", "body", seg=10)
     a.cyl([0.145, 0.07, 0], 0.012, 0.06, "steel_bare", "body", seg=6, rot=[0, 0, 90])
     a.r([0.175, 0.04, 0.03], [0.012, 0.07, 0.012], "steel_bare", "body", 0.003)   # PR3: crank arm and knob
     a.cyl([0.18, 0.005, 0.03], 0.02, 0.03, "bakelite", "body", seg=8, rot=[90, 0, 0])
-    a.r([0, 0.19, -0.11], [0.27, 0.15, 0.012], "bakelite", "body", 0.006, rot=[-100, 0, 0])   # PR3: the case lid, open
-    a.arch([-0.06, 0.13, 0.1], [0.12, 0.05, 0.008], "rubber", "body", th=0.006, rot=[0, 0, 180])   # PR3: handset cord
+    a.r([0, 0.19, -0.11], [0.27, 0.15, 0.012], "bakelite_case", "body", 0.006, rot=[-100, 0, 0])   # PR3: the case lid, open
+    a.arch([-0.06, 0.13, 0.096], [0.12, 0.05, 0.008], "rubber", "body", th=0.006, rot=[0, 0, 180])   # PR3: handset cord
+    for k in range(8):   # PR5 review: coiled: 1.5 cm turns along it (discs: an arch this small has no hole)
+        f = math.pi * (k + 0.5) / 8
+        tx, ty = -0.057 * math.sin(f), -0.047 * math.cos(f)
+        a.cyl([-0.06 + 0.057 * math.cos(f), 0.155 - 0.047 * math.sin(f), 0.096], 0.015, 0.004, "rubber", "body", seg=8,
+              rot=[0, 0, math.degrees(math.atan2(-tx, ty))])
+    a.arch([0, 0.13, 0.06], [0.28, 0.14, 0.025], "leather_brown", "body", th=0.004)   # PR5 review: carrying strap over the case
     return a.write(root, [0.3, 0.2], fragments=[], keep=["body"])
 
 

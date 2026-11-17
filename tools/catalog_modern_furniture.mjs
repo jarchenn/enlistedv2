@@ -33,7 +33,7 @@ const PAL = {
   blackmetal: [[0.05, 0.05, 0.055], 0.45, "metal", { metallic: 0.4 }],
   whitemetal: [[0.85, 0.86, 0.86], 0.4, "plain", { metallic: 0.2 }],
   greymetal: [[0.48, 0.5, 0.52], 0.45, "plain", { metallic: 0.3 }],
-  bluemetal: [[0.14, 0.26, 0.46], 0.45, "plain", { metallic: 0.3 }],
+  bluemetal: [[0.15, 0.3, 0.55], 0.45, "plain", { metallic: 0.3 }],
   redmetal: [[0.52, 0.09, 0.07], 0.45, "plain", { metallic: 0.3 }],
   greenmetal: [[0.2, 0.36, 0.26], 0.45, "plain", { metallic: 0.3 }],
   iron: [[0.08, 0.08, 0.08], 0.7, "metal", T("iron_worn", { metallic: 0.5 })],
@@ -146,9 +146,32 @@ const PAL = {
   jar_pickle: [[0.42, 0.46, 0.16], 0.15, "plain"],
   cap_gold: [[0.78, 0.62, 0.26], 0.3, "plain", { metallic: 0.9 }],
   price_rail: [[0.22, 0.23, 0.24], 0.5, "plain"],
+  // partly-done follow-ups: per-piece finishes as their own entries (the shared ones stay as they are)
+  oak_lacq: [[0.52, 0.38, 0.24], 0.45, "joinery", T("wood_oak", { grain: -1 })],
+  oak_satin: [[0.52, 0.38, 0.24], 0.4, "joinery", T("wood_oak", { grain: -1 })],
+  beech_lacq: [[0.7, 0.55, 0.38], 0.35, "joinery", T("wood_oak", { grain: -1 })],
+  ash_varnish: [[0.74, 0.66, 0.54], 0.35, "joinery", T("wood_oak", { grain: -1 })],
+  lam_fleck: [[0.55, 0.56, 0.56], 0.45, "plain", T("concrete_speckled")],
+  plastic_offwhite: [[0.82, 0.82, 0.78], 0.5, "plain"],
+  plastic_gloss: [[0.035, 0.035, 0.04], 0.15, "plain"],
+  rubber_hex: [[0.04, 0.04, 0.045], 0.7, "plain", T("rug_rough")],
+  cab_grey: [[0.62, 0.63, 0.62], 0.45, "plain", { metallic: 0.3 }],
+  locker_grey: [[0.55, 0.57, 0.58], 0.45, "plain", { metallic: 0.3 }],
+  alu_anod: [[0.75, 0.76, 0.78], 0.35, "plain", T("none", { metallic: 0.9 })],
+  ceramic_glaze: [[0.92, 0.92, 0.9], 0.15, "ceramic", { grain: 0 }],
+  screen_matte: [[0.05, 0.12, 0.18], 0.55, "plain", { emissive: [0.06, 0.16, 0.24] }],
+  glass_frost: [[0.8, 0.82, 0.83], 0.5, "glass"],
+  bottle_blue: [[0.5, 0.7, 0.95], 0.05, "glass"],
+  book_oxblood: [[0.36, 0.09, 0.08], 0.75, "paper"],
+  book_navy: [[0.1, 0.13, 0.25], 0.75, "paper"],
+  book_green: [[0.12, 0.25, 0.16], 0.75, "paper"],
+  book_tan: [[0.56, 0.43, 0.29], 0.75, "paper"],
+  book_grey: [[0.42, 0.42, 0.41], 0.75, "paper"],
 };
 const PACKS = ["pack_red", "pack_blue", "pack_yellow", "pack_green", "pack_white", "pack_orange", "pack_purple", "pack_brown"];
 const BOOKS = ["pack_red", "pack_blue", "paint_e", "pack_white", "paint_d", "pack_brown", "paint_c", "fab_cream"];
+const SPINES = ["book_oxblood", "book_navy", "book_green", "book_tan", "book_grey"];
+const MUTED = ["fab_blue", "fab_grey", "fab_sage", "linen", "linen_blue"];
 const CLOTHES = ["fab_blue", "fab_charcoal", "fab_cream", "fab_rust", "fab_sage", "fab_mustard", "fab_teal", "linen"];
 
 // ---------------------------------------------------------------- builder
@@ -410,17 +433,35 @@ def("furn_mod_bookshelf", "Open bookshelf", "0.9 x 1.9 m open oak bookshelf with
   const ys = [0.06, 0.42, 0.78, 1.14, 1.5, 1.88];
   for (const y of ys) f.b([-0.43, y - 0.02, -0.155], [0.43, y, 0.17], "oak", 0.004);
   f.b([-0.43, 0, 0.15], [0.43, 0.04, 0.17], "oak", 0.003);
+  const row = (x0, x1, y) => {   // muted spines 0.20 / 0.24 / 0.28 tall, one or two 0.06 gaps a row
+    const gx = [x0 + (x1 - x0) * (0.15 + 0.3 * f.rand()), x0 + (x1 - x0) * (0.55 + 0.3 * f.rand())].slice(0, f.rand() < 0.5 ? 1 : 2);
+    for (let x = x0 + 0.01; ;) {
+      if (gx.length && x >= gx[0]) { gx.shift(); x += 0.06; }
+      const w = 0.025 + f.rand() * 0.025, h = [0.2, 0.24, 0.28][Math.floor(f.rand() * 3)], dd = 0.26 * (0.7 + 0.28 * f.rand());
+      if (x + w > x1 - 0.005) break;
+      f.b([x, y, 0.12 - dd], [x + w, y + h, 0.11], f.pick(SPINES), 0.004);
+      x += w + 0.002;
+    }
+  };
   f.grp("books");
   for (let i = 0; i < 5; i++) {
     const y = ys[i];
-    if (i === 2) { goods(f, -0.42, 0.05, y, -0.14, 0.12, 0.27, BOOKS, 0.025, 0.05, 0.002); f.cy([0.25, y + 0.09, 0], [0.12, 0.18, 0.12], "ceramic", { n: 12, top: 0.7 }); }
-    else if (i === 4) { goods(f, -0.42, -0.05, y, -0.14, 0.12, 0.26, BOOKS, 0.025, 0.05, 0.002); f.b([0.08, y, -0.08], [0.32, y + 0.05, 0.1], f.pick(BOOKS), 0.004); f.b([0.1, y + 0.05, -0.07], [0.3, y + 0.09, 0.09], f.pick(BOOKS), 0.004); }
-    else goods(f, -0.42, 0.42, y, -0.14, 0.12, 0.28, BOOKS, 0.025, 0.05, 0.002);
+    if (i === 2) {
+      row(-0.42, 0.05, y);
+      const n0 = f.A.parts.length;
+      plant(f, 0, 0, 0.16, 0.14, 0.4, "ceramic", 7);   // built at 4/3 scale, then shrunk round its base to a 0.12 pot so it fits the shelf
+      for (const p of f.A.parts.slice(n0)) { p.c = [r3(0.27 + p.c[0] * 0.75), r3(y + p.c[1] * 0.75), r3(0.01 + p.c[2] * 0.75)]; p.s = p.s.map((v) => r3(v * 0.75)); }
+      f.grp("books");
+    } else if (i === 4) {
+      row(-0.42, -0.05, y); f.b([0.06, y, -0.08], [0.28, y + 0.05, 0.1], f.pick(SPINES), 0.004); f.b([0.08, y + 0.05, -0.07], [0.26, y + 0.09, 0.09], f.pick(SPINES), 0.004);
+      f.ob([0.36, y + 0.0896, -0.128], [0.13, 0.18, 0.015], [-12, 0, 0], "walnut", 0.003);   // photo frame leaning on the back panel
+      f.ob([0.36, y + 0.0914, -0.1197], [0.1, 0.15, 0.002], [-12, 0, 0], "paint_d", 0.0005);
+    } else row(-0.42, 0.42, y);
   }
 });
 def("furn_mod_floor_lamp", "Floor lamp", "1.6 m floor lamp: weighted steel base, slim stem with a switch collar, fabric drum shade (unlit prop).", { family: "metal", front: 0, rounds: 3, blast: 10, cover: false }, (f) => {
   f.cy([0, 0.012, 0], [0.3, 0.024, 0.3], "blackmetal", { n: 16 });
-  f.cy([0, 0.7, 0], [0.022, 1.36, 0.022], "blackmetal", { n: 8 });
+  f.cy([0, 0.7, 0], [0.022, 1.36, 0.022], "steel", { n: 8 });
   f.cy([0, 0.9, 0], [0.032, 0.05, 0.032], "chrome", { n: 8 });
   f.cy([0, 1.38, 0], [0.05, 0.06, 0.05], "plastic_white", { n: 8 });
   f.grp("shade");
@@ -480,14 +521,17 @@ def("furn_mod_dresser", "Chest of drawers", "1.2 m six-drawer oak dresser on a r
 for (const [n, L, D] of [[4, 1.4, 0.85], [6, 1.9, 0.95]]) {
   def(`furn_mod_dining_table${n}`, `Dining table (${n} seats)`, `${L} x ${D} m oak dining table on black steel sled legs with a centre rail.`,
     { family: "wood", front: 0.6, surfaces: [[-L / 2 + 0.05, -D / 2 + 0.05, L / 2 - 0.05, D / 2 - 0.05, 0.75]] }, (f) => {
-      f.b([-L / 2, 0.71, -D / 2], [L / 2, 0.75, D / 2], "oak", 0.008);
-      f.b([-L / 2 + 0.1, 0.68, -D / 2 + 0.08], [L / 2 - 0.1, 0.71, D / 2 - 0.08], "oak", 0.004);
+      const t4 = n === 4, wood = t4 ? "oak_lacq" : "oak", ty = t4 ? 0.715 : 0.71;   // 4-seat: lacquered 35 mm top with plank joints
+      f.b([-L / 2, ty, -D / 2], [L / 2, 0.75, D / 2], wood, 0.008);
+      f.b([-L / 2 + 0.1, 0.68, -D / 2 + 0.08], [L / 2 - 0.1, ty, D / 2 - 0.08], wood, 0.004);
+      if (t4) for (const z of [-0.21, 0, 0.21]) f.b([-L / 2 + 0.01, 0.7497, z - 0.001], [L / 2 - 0.01, 0.7502, z + 0.001], "lam_dark", 0);
       f.grp("legs");
       for (const s of [-1, 1]) {
         const x = s * (L / 2 - 0.16);
         f.b([x - 0.02, 0, -D / 2 + 0.06], [x + 0.02, 0.03, D / 2 - 0.06], "blackmetal", 0.004);
         f.b([x - 0.02, 0.65, -D / 2 + 0.06], [x + 0.02, 0.68, D / 2 - 0.06], "blackmetal", 0.004);
-        for (const z of [-D / 2 + 0.08, D / 2 - 0.08]) f.b([x - 0.02, 0.03, z - 0.02], [x + 0.02, 0.65, z + 0.02], "blackmetal", 0.004);
+        const hz = n === 4 ? 0.01 : 0.02;   // 4-seat: flat-bar uprights
+        for (const z of [-D / 2 + 0.08, D / 2 - 0.08]) f.b([x - 0.02, 0.03, z - hz], [x + 0.02, 0.65, z + hz], "blackmetal", 0.004);
       }
       f.b([-L / 2 + 0.16, 0.6, -0.02], [L / 2 - 0.16, 0.64, 0.02], "blackmetal", 0.004);
     });
@@ -628,6 +672,8 @@ def("furn_mod_shower", "Shower enclosure", "0.9 m corner shower: low ceramic tra
     f.b([-0.45, 0, -0.45], [0.45, 0.06, 0.45], "ceramic", 0.01);
     f.cy([0, 0.061, 0], [0.09, 0.002, 0.09], "chrome", { n: 12 });
     f.b([-0.45, 0.06, -0.45], [0.45, 2.0, -0.44], "tile_white", 0.002);   // splash panel on the wall behind
+    for (let x = -0.25; x < 0.4; x += 0.2) f.b([x - 0.0015, 0.06, -0.44], [x + 0.0015, 2.0, -0.4395], "grout", 0);   // 0.2 m tile joints
+    for (let y = 0.26; y < 1.95; y += 0.2) f.b([-0.45, y - 0.0015, -0.44], [0.45, y + 0.0015, -0.4395], "grout", 0);
     f.b([0.06, 1.0, -0.44], [0.08, 1.9, -0.42], "chrome", 0.004);
     f.ob([0.07, 1.55, -0.38], [0.04, 0.2, 0.04], [20, 0, 0], "chrome", 0.01);
     f.b([-0.06, 1.0, -0.44], [0.06, 1.12, -0.41], "chrome", 0.006);
@@ -642,6 +688,7 @@ def("furn_mod_shower", "Shower enclosure", "0.9 m corner shower: low ceramic tra
     f.grp("glass");
     f.b([-0.43, 0.07, 0.435], [0.43, 1.97, 0.445], "glass", 0.002);
     f.b([0.435, 0.07, -0.43], [0.445, 1.97, 0.43], "glass", 0.002);
+    f.b([-0.43, 0.9, 0.445], [0.43, 1.2, 0.446], "glass_frost", 0.0003); f.b([0.445, 0.9, -0.43], [0.446, 1.2, 0.43], "glass_frost", 0.0003);   // frosted privacy band
   });
 def("furn_mod_bath", "Bath", "1.7 m built-in bath: glossy ceramic tub with a 6 cm rim, a well with chamfered corners and a sloped back, white front panel with a shadow gap, chrome mixer and overflow at the tap end.", { family: "ceramic", front: 0.6, rounds: 12, blast: 30 }, (f) => {
   f.b([-0.85, 0, 0.33], [0.85, 0.515, 0.37], "lam_white", 0.004);   // front panel, a 3 mm shadow gap under the rim
@@ -692,6 +739,8 @@ def("furn_mod_mirror", "Wall mirror", "0.6 x 0.9 m mirror in a slim black steel 
   f.b([-0.3, 0, 0], [0.3, 0.9, 0.02], "blackmetal", 0.003);
   f.grp("glass");
   f.b([-0.285, 0.015, 0.02], [0.285, 0.885, 0.024], "mirror", 0.001);
+  for (const x of [-0.271, 0.271]) f.b([x - 0.002, 0.025, 0.024], [x + 0.002, 0.875, 0.0243], "steel", 0.0001);   // edge-bevel line 12 mm in
+  for (const y of [0.029, 0.871]) f.b([-0.269, y - 0.002, 0.024], [0.269, y + 0.002, 0.0243], "steel", 0.0001);
 });
 def("furn_mod_plant_tall", "House plant (tall)", "1.4 m leafy house plant in a pale concrete planter.", { family: "ceramic", front: 0, rounds: 4, blast: 12, cover: false }, (f) => {
   plant(f, 0, 0, 0.38, 0.4, 1.4, "concrete", 14);
@@ -702,10 +751,10 @@ def("furn_mod_plant_small", "House plant (small)", "Small potted plant in a terr
 });
 def("furn_mod_table_lamp", "Table lamp", "Ceramic table lamp with a linen drum shade (unlit prop; stands on tables and nightstands).", { family: "ceramic", blocking: false, rounds: 1, blast: 4 }, (f) => {
   f.cy([0, 0.01, 0], [0.13, 0.02, 0.13], "walnut", { n: 12 });
-  f.cy([0, 0.12, 0], [0.12, 0.2, 0.12], "ceramic", { n: 12, top: 0.55 });
+  f.cy([0, 0.12, 0], [0.12, 0.2, 0.12], "ceramic_glaze", { n: 12, top: 0.55 });
   f.cy([0, 0.27, 0], [0.015, 0.1, 0.015], "chrome", { n: 8 });
   f.grp("shade");
-  f.cy([0, 0.36, 0], [0.24, 0.16, 0.24], "linen", { n: 16, top: 0.85 });
+  f.cy([0, 0.35, 0], [0.24, 0.18, 0.24], "linen", { n: 16 });   // straight drum, unlit (modern props have no light state)
 });
 
 // ============================================================================ office
@@ -729,7 +778,7 @@ def("furn_mod_desk_l", "L-shaped desk", "1.6 m L-shaped workstation with a retur
   f.grp("pedestal");
   f.b([0.2, 0.02, 0.45], [0.62, 0.68, 1.05], "lam_grey", 0.006);   // pedestal: drawers face the sitter (-x)
   for (const [y0, y1] of [[0.02, 0.3], [0.3, 0.49], [0.49, 0.68]]) f.b([0.182, y0 + 0.003, 0.453], [0.2, y1 - 0.003, 1.047], "lam_grey", 0.003);
-  for (const y of [0.25, 0.44, 0.63]) f.b([0.165, y - 0.006, 0.68], [0.182, y + 0.006, 0.82], "steel", 0.003);
+  for (const y of [0.25, 0.44, 0.63]) { f.b([0.181, y - 0.006, 0.68], [0.19, y + 0.006, 0.82], "lam_dark", 0.001); f.b([0.1805, y + 0.003, 0.681], [0.19, y + 0.006, 0.819], "steel", 0.0005); }   // recessed finger pulls with a steel lip
   for (const [x, z] of [[0.25, 0.5], [0.57, 0.5], [0.25, 1.0], [0.57, 1.0]]) f.cy([x, 0.01, z], [0.03, 0.02, 0.03], "rubber", { n: 8 });
   f.col([-0.8, 0, -0.35], [0.8, 0.75, 0.35]); f.col([0.15, 0, 0.35], [0.8, 0.75, 1.15]);
 });
@@ -750,60 +799,75 @@ def("furn_mod_office_chair", "Office chair", "Swivel office chair: five-star bas
 });
 def("furn_mod_cubicle", "Cubicle partition", "1.6 x 1.4 m fabric screen panel in an aluminium frame on two feet, for desk pods.", { family: "cloth", front: 0, rounds: 6, blast: 16, cover: true }, (f) => {
   f.b([-0.8, 0.02, -0.03], [0.8, 1.4, 0.03], "steel", 0.006);
-  f.b([-0.78, 0.04, -0.032], [0.78, 1.38, 0.032], "fab_panel", 0.003);
-  f.b([-0.8, 1.38, -0.032], [0.8, 1.4, 0.032], "steel", 0.004);
+  f.b([-0.77, 0.05, -0.032], [0.77, 1.37, 0.032], "fab_panel", 0.003);
+  f.b([-0.8, 1.37, -0.032], [0.8, 1.4, 0.032], "steel", 0.004);
   for (const x of [-0.7, 0.7]) f.b([x - 0.03, 0, -0.2], [x + 0.03, 0.02, 0.2], "steel", 0.004);
+  f.grp("papers");   // pinned sheets, as on the notice board
+  for (const [x, y, m, rz] of [[-0.45, 1.0, "paper", 3], [-0.12, 0.92, "paper_yellow", -2], [0.4, 1.02, "paper", 4]]) { f.ob([x, y, 0.033], [0.21, 0.297, 0.002], [0, 0, rz], m, 0.0003); f.cy([x, y + 0.128, 0.037], [0.008, 0.006, 0.008], f.pick(["plastic_red", "plastic_blue", "plastic_green"]), { r: [90, 0, 0], n: 6 }); }
 });
 def("furn_mod_filing_cabinet", "Filing cabinet", "Four-drawer grey steel filing cabinet with recessed pulls and blank label holders.", { family: "metal", front: 0.8, surfaces: [[-0.22, -0.29, 0.22, 0.29, 1.32]], rounds: 30 }, (f) => {
-  f.b([-0.235, 0, -0.31], [0.235, 1.32, 0.29], "greymetal", 0.006);
+  f.b([-0.235, 0, -0.31], [0.235, 1.32, 0.29], "cab_grey", 0.006);
   f.b([-0.22, 0, 0.27], [0.22, 0.04, 0.29], "blackmetal", 0.003);
   f.grp("drawers");
-  for (let i = 0; i < 4; i++) { const y0 = 0.04 + i * 0.32, y1 = y0 + 0.32; panel(f, -0.235, 0.235, y0, y1, 0.29, "greymetal"); f.b([-0.08, y1 - 0.08, 0.308], [0.08, y1 - 0.055, 0.322], "steel", 0.003); f.b([-0.04, y1 - 0.045, 0.308], [0.04, y1 - 0.025, 0.31], "paper", 0.0005); }
+  for (let i = 0; i < 4; i++) {
+    const y0 = 0.04 + i * 0.32, y1 = y0 + 0.32;
+    panel(f, -0.235, 0.235, y0, y1, 0.29, "cab_grey");
+    f.b([-0.08, y1 - 0.0825, 0.308], [0.08, y1 - 0.0525, 0.3085], "lam_dark", 0.0002);   // recessed pull, the bar inside it flush
+    f.b([-0.075, y1 - 0.062, 0.308], [0.075, y1 - 0.0545, 0.309], "steel", 0.0003);
+    f.b([-0.045, y1 - 0.05, 0.308], [0.045, y1 - 0.02, 0.31], "chrome", 0.0005);   // label-holder frame round the card
+    f.b([-0.04, y1 - 0.045, 0.308], [0.04, y1 - 0.025, 0.3105], "paper", 0.0005);
+  }
+  f.cy([0.17, 1.29, 0.315], [0.022, 0.014, 0.022], "chrome", { r: [90, 0, 0], n: 12 });   // lock barrel (keeps the old pull depth)
 });
 def("furn_mod_meeting_table", "Meeting table", "2.4 x 1.1 m racetrack meeting table in oak on two steel pedestal bases, a flush cable box in the middle.", { family: "wood", front: 0.9, surfaces: [[-1.15, -0.5, 1.15, 0.5, 0.75]] }, (f) => {
-  f.b([-0.65, 0.72, -0.55], [0.65, 0.75, 0.55], "oak", 0.006);
-  for (const s of [-1, 1]) f.cy([s * 0.65, 0.735, 0], [1.1, 0.03, 1.1], "oak", { n: 24 });
+  f.b([-0.65, 0.72, -0.55], [0.65, 0.75, 0.55], "oak_satin", 0.006);
+  for (const s of [-1, 1]) f.cy([s * 0.65, 0.735, 0], [1.1, 0.03, 1.1], "oak_satin", { n: 24 });
   f.b([-0.15, 0.7505, -0.06], [0.15, 0.752, 0.06], "steel", 0.001);
   f.grp("bases");
   for (const s of [-1, 1]) { const x = s * 0.6; f.b([x - 0.3, 0, -0.35], [x + 0.3, 0.02, 0.35], "steel_dark", 0.006); f.b([x - 0.06, 0.02, -0.15], [x + 0.06, 0.72, 0.15], "steel_dark", 0.01); }
   f.col([-1.2, 0, -0.55], [1.2, 0.75, 0.55]);
 });
 def("furn_mod_whiteboard", "Whiteboard", "1.8 x 1.2 m whiteboard in an aluminium frame: marker tray with three markers and an eraser, faint smudges.", { family: "metal", blocking: false, wall: true, mount: 0.9, rounds: 4, blast: 10 }, (f) => {
-  f.b([-0.9, 0, 0], [0.9, 1.2, 0.02], "steel", 0.004);
-  f.b([-0.885, 0.015, 0.02], [0.885, 1.185, 0.022], "board_white", 0.001);
+  f.b([-0.9, 0, 0], [0.9, 1.2, 0.02], "alu_anod", 0.004);
+  f.b([-0.875, 0.025, 0.02], [0.875, 1.175, 0.022], "board_white", 0.001);
+  for (const [x, y, rz] of [[-0.8875, 0.0125, 45], [0.8875, 0.0125, -45], [-0.8875, 1.1875, -45], [0.8875, 1.1875, 45]]) f.ob([x, y, 0.02025], [0.035, 0.001, 0.0005], [0, 0, rz], "lam_dark", 0);   // mitre joints
   f.b([-0.4, 0.6, 0.022], [0.1, 0.66, 0.0225], "smudge", 0.0002);
   f.b([0.2, 0.85, 0.022], [0.6, 0.88, 0.0225], "smudge", 0.0002);
   f.grp("tray");
-  f.b([-0.6, -0.03, 0.0], [0.6, 0.0, 0.07], "steel", 0.003);
-  f.b([-0.6, 0.0, 0.06], [0.6, 0.012, 0.07], "steel", 0.002);
-  for (const [x, m] of [[-0.3, "plastic_blue"], [-0.22, "plastic_red"], [-0.14, "plastic_black"]]) f.cy([x, 0.009, 0.035], [0.018, 0.12, 0.018], m, { r: [0, 0, 90], n: 8 });
-  f.b([0.2, 0.0, 0.015], [0.32, 0.035, 0.06], "plastic_black", 0.005);
+  f.b([-0.6, -0.03, 0.0], [0.6, 0.0, 0.07], "alu_anod", 0.003);
+  f.b([-0.6, 0.0, 0.06], [0.6, 0.012, 0.07], "alu_anod", 0.002);
+  for (const [x, m] of [[-0.3, "plastic_blue"], [-0.22, "plastic_red"], [-0.14, "plastic_black"]]) { f.cy([x - 0.01, 0.009, 0.035], [0.018, 0.1, 0.018], "plastic_white", { r: [0, 0, 90], n: 8 }); f.cy([x + 0.05, 0.009, 0.035], [0.018, 0.02, 0.018], m, { r: [0, 0, 90], n: 8 }); }   // white markers, coloured caps
+  f.b([0.2, 0.0, 0.015], [0.32, 0.008, 0.06], "fab_grey", 0.002);   // felt
+  f.b([0.2, 0.008, 0.015], [0.32, 0.035, 0.06], "plastic_black", 0.005);
 });
 def("furn_mod_water_cooler", "Water cooler", "Floor-standing water cooler: white cabinet, blue water bottle, hot and cold taps, drip tray, cup tube.", { family: "metal", front: 0.5, rounds: 4, blast: 12, cover: false }, (f) => {
   f.b([-0.16, 0, -0.16], [0.16, 0.98, 0.16], "plastic_white", 0.012);
   f.b([-0.14, 0.62, 0.16], [0.14, 0.86, 0.17], "plastic_grey", 0.004);
   f.b([-0.1, 0.62, 0.17], [0.1, 0.64, 0.24], "plastic_grey", 0.004);
+  for (let i = 0; i < 5; i++) f.b([-0.09, 0.64, 0.18 + i * 0.012 - 0.003], [0.09, 0.643, 0.18 + i * 0.012 + 0.003], "steel", 0);   // drip grille
   for (const [x, m] of [[-0.06, "plastic_blue"], [0.06, "plastic_red"]]) { f.b([x - 0.02, 0.76, 0.17], [x + 0.02, 0.8, 0.21], m, 0.006); f.b([x - 0.008, 0.74, 0.19], [x + 0.008, 0.76, 0.2], m, 0.002); }
   vent(f, -0.12, 0.12, 0.1, 0.4, 0.16, 6, "plastic_grey");
   f.cy([0.19, 0.75, 0], [0.07, 0.3, 0.07], "glass", { n: 12 });
   f.grp("glass");
-  f.cy([0, 1.22, 0], [0.27, 0.42, 0.27], "water", { n: 16 });
-  f.cone([0, 1.0, 0], [0.27, 0.06, 0.27], "water", { n: 16, top: 0.3 });
+  f.cy([0, 1.22, 0], [0.27, 0.42, 0.27], "bottle_blue", { n: 16 });
+  f.cone([0, 1.0, 0], [0.27, 0.06, 0.27], "bottle_blue", { n: 16, top: 0.3 });
+  f.cy([0, 1.135, 0], [0.25, 0.25, 0.25], "water", { n: 16 });   // water ~60 % up the upturned bottle
   f.col([-0.16, 0, -0.16], [0.16, 1.43, 0.16]);
 });
 def("furn_mod_copier", "Photocopier", "Floor-standing office copier on casters: paper drawers, scanner lid, tilted touch panel, output tray.", { family: "metal", front: 0.9, rounds: 14, blast: 30 }, (f) => {
   for (const [x, z] of corners4(0.27, 0.28)) caster(f, x, z, 0.06);
   f.b([-0.3, 0.06, -0.32], [0.3, 0.62, 0.3], "plastic_grey", 0.008);
   f.grp("drawers");
-  for (let i = 0; i < 3; i++) { const y0 = 0.08 + i * 0.18; panel(f, -0.3, 0.3, y0, y0 + 0.18, 0.3, "plastic_white"); f.b([-0.1, y0 + 0.12, 0.316], [0.1, y0 + 0.14, 0.33], "plastic_grey", 0.004); }
+  for (let i = 0; i < 3; i++) { const y0 = 0.08 + i * 0.18; panel(f, -0.3, 0.3, y0, y0 + 0.18, 0.3, "plastic_grey"); f.b([-0.1, y0 + 0.12, 0.316], [0.1, y0 + 0.14, 0.33], "plastic_grey", 0.004); }
   f.grp("body");
-  f.b([-0.3, 0.62, -0.32], [0.3, 1.05, 0.3], "plastic_white", 0.01);
+  f.b([-0.3, 0.62, -0.32], [0.3, 1.05, 0.3], "plastic_offwhite", 0.01);
   f.b([-0.3, 1.05, -0.32], [0.3, 1.1, 0.25], "plastic_grey", 0.006);
-  f.b([-0.3, 1.1, -0.32], [0.3, 1.13, 0.25], "plastic_white", 0.006);
-  f.ob([0.12, 1.06, 0.3], [0.3, 0.015, 0.16], [20, 0, 0], "plastic_grey", 0.004);
-  f.ob([0.12, 1.068, 0.3], [0.2, 0.004, 0.1], [20, 0, 0], "screen_on", 0.001);
+  f.b([-0.3, 1.1, -0.32], [0.3, 1.13, 0.25], "plastic_offwhite", 0.006);
+  for (const x of [-0.2, 0.2]) f.b([x - 0.02, 1.1154, -0.3204], [x + 0.02, 1.1304, -0.3004], "plastic_grey", 0.002);   // lid hinges
+  f.ob([0.12, 1.06, 0.3047], [0.3, 0.015, 0.16], [30, 0, 0], "plastic_grey", 0.004);   // 30 degree panel, nudged forward to keep its old front edge
+  f.ob([0.12, 1.0669, 0.3087], [0.2, 0.004, 0.1], [30, 0, 0], "screen_on", 0.001);
   f.b([-0.42, 0.78, -0.2], [-0.3, 0.8, 0.2], "plastic_grey", 0.004);
-  f.b([-0.4, 0.8, -0.15], [-0.31, 0.81, 0.15], "paper", 0.001);
+  for (const [dx, dz, ry, k] of [[0, 0, 0, 0], [0.004, -0.006, 2, 1], [-0.003, 0.005, -2.5, 2]]) f.ob([-0.355 + dx, 0.801 + k * 0.002, dz], [0.09, 0.002, 0.29], [0, ry, 0], "paper", 0.0003);   // output sheets, not squared up
 });
 def("furn_mod_server_rack", "Server rack", "42U black server cabinet (2.0 m): side panels, front rails, eleven rack servers and switches with status LEDs, cable bundles.", { family: "metal", front: 1.0, rounds: 40, blast: 60 }, (f) => {
   f.b([-0.3, 0, -0.5], [-0.28, 2.0, 0.5], "blackmetal", 0.004); f.b([0.28, 0, -0.5], [0.3, 2.0, 0.5], "blackmetal", 0.004);
@@ -816,7 +880,9 @@ def("furn_mod_server_rack", "Server rack", "42U black server cabinet (2.0 m): si
   for (let i = 0; i < 11; i++) {
     const u = i % 4 === 0 ? 0.088 : 0.044, m = i % 5 === 2 ? "steel_dark" : "plastic_black";
     f.b([-0.24, y, -0.42], [0.24, y + u - 0.004, 0.46], m, 0.003);
-    vent(f, -0.22, 0.05, y + 0.006, y + u - 0.01, 0.46, Math.round(u / 0.012), "steel_dark");
+    const big = u > 0.05, nc = big ? 8 : 5, ch = big ? 0.07 : 0.03, cy = y + (u - 0.004) / 2;   // drive caddies, each with its LED
+    for (let k = 0; k < nc; k++) { const x = -0.225 + k * 0.038; f.b([x, cy - ch / 2, 0.46], [x + 0.035, cy + ch / 2, 0.462], "steel_dark", 0.001); f.b([x + 0.027, cy + ch / 2 - 0.008, 0.462], [x + 0.031, cy + ch / 2 - 0.004, 0.4625], (k + i) % 7 ? "led_green" : "led_amber", 0); }
+    if (!big) vent(f, -0.03, 0.1, y + 0.006, y + u - 0.01, 0.46, Math.round(u / 0.012), "steel_dark");
     for (let l = 0; l < 3; l++) f.b([0.12 + l * 0.03, y + u * 0.5 - 0.004, 0.46], [0.13 + l * 0.03, y + u * 0.5 + 0.004, 0.463], l === 2 && i % 3 === 0 ? "led_amber" : "led_green", 0.0005);
     y += u + (i % 3 === 2 ? 0.1 : 0.012);
   }
@@ -846,7 +912,7 @@ def("furn_mod_reception_desk", "Reception desk", "2.4 m reception counter: walnu
 def("furn_mod_monitor", "Desk monitor and keyboard", "24 inch monitor on a stand with a keyboard and mouse (stands on desks).", { family: "glass", blocking: false, rounds: 2, blast: 6 }, (f) => {
   f.grp("screen");
   f.b([-0.28, 0.12, -0.1], [0.28, 0.45, -0.08], "plastic_black", 0.003);
-  f.b([-0.27, 0.13, -0.08], [0.27, 0.44, -0.078], "screen_on", 0.0005);
+  f.b([-0.27, 0.13, -0.08], [0.27, 0.44, -0.078], "screen_matte", 0.0005);
   f.b([-0.03, 0.01, -0.13], [0.03, 0.25, -0.11], "plastic_black", 0.004);
   f.b([-0.11, 0, -0.18], [0.11, 0.012, -0.05], "plastic_black", 0.004);
   f.grp("keys");
@@ -993,6 +1059,7 @@ def("furn_mod_fridge_case", "Glass-door drinks fridge", "1.5 m upright chiller c
     for (const x of [-0.75, 0.75]) f.b([x - 0.03, 0, -0.4], [x + 0.03, 2.05, 0.38], "whitemetal", 0.006);
     f.b([-0.75, 1.8, -0.4], [0.75, 2.05, 0.38], "whitemetal", 0.006);
     f.b([-0.7, 1.84, 0.38], [0.7, 2.0, 0.385], "lightpanel", 0.001);
+    f.b([-0.7, 1.77, 0.285], [0.7, 1.79, 0.315], "lightpanel", 0.003);   // LED strip inside under the header, behind the glass
     f.b([-0.75, 0, -0.4], [0.75, 0.2, 0.38], "plastic_black", 0.004);
     vent(f, -0.7, 0.7, 0.03, 0.17, 0.38, 5, "steel_dark");
     f.b([-0.72, 0.2, -0.36], [0.72, 0.22, 0.32], "whitemetal", 0.003);
@@ -1054,17 +1121,21 @@ def("furn_mod_cart_row", "Nested shopping carts", "Row of five nested shopping c
 def("furn_mod_clothes_rack", "Clothing rail", "1.2 m chrome garment rail on casters with a row of shirts and jackets on hangers.", { family: "cloth", front: 0.4, rounds: 6, blast: 18, cover: false }, (f) => {
   f.grp("frame");
   for (const x of [-0.6, 0.6]) { f.cy([x, 0.85, 0], [0.03, 1.5, 0.03], "chrome", { n: 10 }); f.b([x - 0.02, 0.08, -0.25], [x + 0.02, 0.11, 0.25], "chrome", 0.006); caster(f, x, -0.22, 0.08); caster(f, x, 0.22, 0.08); }
-  f.cy([0, 1.6, 0], [0.03, 1.24, 0.03], "chrome", { r: [0, 0, 90], n: 10 });
+  f.cy([0, 1.595, 0], [0.03, 1.24, 0.03], "chrome", { r: [0, 0, 90], n: 10 });   // rail sits 5 mm low so the hooks clear it inside the old height
   f.cy([0, 0.18, 0], [0.025, 1.2, 0.025], "chrome", { r: [0, 0, 90], n: 10 });
   f.grp("clothes");
-  for (let i = 0; i < 14; i++) {
-    const x = -0.52 + i * 0.08, m = f.pick(CLOTHES), L = 0.6 + 0.4 * f.rand();
-    f.ob([x, 1.56, 0], [0.006, 0.06, 0.006], [0, 0, 0], "chrome", 0.001);
+  for (let i = 0; i < 11; i++) {
+    const x = -0.5 + i * 0.1, m = f.pick(MUTED), L = 0.6 + 0.4 * f.rand();
+    f.ob([x, 1.5475, 0], [0.006, 0.065, 0.006], [0, 0, 0], "chrome", 0.001);   // hook: neck, then an inverted U over the rail
+    for (const sz of [-1, 1]) f.ob([x, 1.5965, sz * 0.0175], [0.004, 0.037, 0.004], [0, 0, 0], "chrome", 0);
+    f.ob([x, 1.613, 0], [0.004, 0.004, 0.039], [0, 0, 0], "chrome", 0);
     f.ob([x, 1.5, 0], [0.01, 0.03, 0.42], [0, 0, 0], "plastic_black", 0.003);
     const tilt = (f.rand() - 0.5) * 6;   // PR3: a garment, not a plank: rounded shoulders, a body narrowing a little, sleeves hanging at the sides
     f.ob([x, 1.46, 0], [0.04, 0.08, 0.44], [0, 0, tilt], m, 0.018);
     f.ob([x, 1.42 - L / 2, 0], [0.025, L, 0.4], [0, 0, tilt], m, 0.008);
     for (const sz of [-1, 1]) f.ob([x, 1.38 - L * 0.3, sz * 0.2], [0.022, L * 0.6, 0.07], [sz * 4, 0, tilt], m, 0.008);
+    const t = (tilt * Math.PI) / 180, nr = 3 + Math.floor(f.rand() * 2);   // fold ridges down both body faces
+    for (const sx of [-1, 1]) for (let k = 0; k < nr; k++) { const d = sx * 0.0145, zz = -0.14 + (0.28 * (k + 0.5)) / nr + (f.rand() - 0.5) * 0.03; f.ob([x + d * Math.cos(t), 1.42 - L / 2 + d * Math.sin(t), zz], [0.006, L * 0.9, 0.03], [0, 0, tilt], m, 0.002); }
   }
   f.col([-0.62, 0, -0.26], [0.62, 1.62, 0.26]);
 });
@@ -1074,8 +1145,20 @@ def("furn_mod_display_table", "Display table", "1.5 x 0.9 m oak display table wi
   f.b([-0.55, 0.42, -0.3], [0.55, 0.45, 0.3], "ash", 0.004);
   legsBox(f, corners4(0.5, 0.26), 0, 0.42, 0.04, "ash");
   f.grp("goods");
-  for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) { let y = 0.8; const n = 3 + Math.floor(f.rand() * 4), m = f.pick(CLOTHES); for (let k = 0; k < n; k++) { f.b([0.06 + i * 0.22, y, -0.38 + j * 0.42], [0.26 + i * 0.22, y + 0.035, -0.08 + j * 0.42], m, 0.008); y += 0.036; } }
-  for (let i = 0; i < 4; i++) f.b([-0.5 + i * 0.26, 0.45, -0.2], [-0.3 + i * 0.26, 0.5, 0.2], f.pick(CLOTHES), 0.01);
+  const stacks = [];   // same draws as before, so every stack keeps its old height (n * 0.036 - 0.001) and the table its bounds
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) { const n = 3 + Math.floor(f.rand() * 4); stacks.push([i, j, n, f.pick(MUTED)]); }
+  for (let i = 0; i < 4; i++) f.b([-0.5 + i * 0.26, 0.45, -0.2], [-0.3 + i * 0.26, 0.5, 0.2], f.pick(MUTED), 0.01);
+  for (const [i, j, n, m] of stacks) {
+    const H = n * 0.036 - 0.001, k = Math.round(H / 0.03), t = H / k;   // ~0.03 folded layers, a little untidy, rounded fold at the front
+    for (let l = 0; l < k; l++) {
+      const y = 0.8 + l * t, dx = (f.rand() - 0.5) * 0.02, dz = (f.rand() - 0.5) * 0.02, x0 = 0.06 + i * 0.22 + dx, z0 = -0.38 + j * 0.42 + dz, z1 = z0 + 0.3;
+      f.b([x0, y, z0], [x0 + 0.2, y + t, z1 - t / 2], m, 0.006);
+      f.cy([x0 + 0.1, y + t / 2, z1 - t / 2], [t, 0.2, t], m, { r: [0, 0, 90], n: 10 });
+    }
+  }
+  f.grp("sign");   // chrome sign holder with a blank card
+  f.b([-0.38, 0.8, 0.28], [-0.32, 0.804, 0.32], "chrome", 0.001);
+  f.ob([-0.35, 0.8427, 0.2896], [0.12, 0.08, 0.002], [-15, 0, 0], "paper", 0.0005);
 });
 def("furn_mod_end_cap", "End cap display", "1.0 m promotional end-cap unit: stacked shelves of packs over a dump bin, tall blank coloured header.", { family: "metal", front: 0.9, rounds: 20, blast: 40, keep: ["frame"] }, (f) => {
   f.grp("frame");
@@ -1201,13 +1284,13 @@ def("furn_mod_condiment_station", "Condiment station", "0.9 m self-serve condime
   for (const x of [-0.16, 0.16]) for (let k = 0; k < 8; k++) f.cy([x, 1.055 + k * 0.008, 0.14], [0.09, 0.006, 0.09], "plastic_white", { n: 12, top: 0.95 });   // lid stacks
 });
 def("furn_mod_high_chair", "High chair", "Beech child's high chair: splayed legs with a footrest, moulded seat, tray and backrest.", { family: "wood", front: 0, rounds: 4, blast: 10, cover: false }, (f) => {
-  for (const [x, z] of corners4(0.2, 0.2)) f.ob([x * 0.75, 0.385, z * 0.75], [0.035, 0.76, 0.035], [z > 0 ? 6 : -6, 0, x > 0 ? -6 : 6], "ply", 0.006);
-  for (const z of [-0.18, 0.18]) f.b([-0.19, 0.2, z - 0.012], [0.19, 0.22, z + 0.012], "ply", 0.003);
-  f.b([-0.14, 0.42, 0.1], [0.14, 0.44, 0.22], "ply", 0.004);
+  for (const [x, z] of corners4(0.2, 0.2)) f.ob([x * 0.75, 0.385, z * 0.75], [0.035, 0.76, 0.035], [z > 0 ? 6 : -6, 0, x > 0 ? -6 : 6], "beech_lacq", 0.01);
+  for (const z of [-0.18, 0.18]) f.b([-0.19, 0.2, z - 0.012], [0.19, 0.22, z + 0.012], "beech_lacq", 0.003);
+  f.b([-0.14, 0.42, 0.1], [0.14, 0.44, 0.22], "beech_lacq", 0.004);
   f.grp("seat");
-  f.b([-0.17, 0.74, -0.16], [0.17, 0.77, 0.14], "ply", 0.006);
-  f.b([-0.17, 0.77, -0.17], [0.17, 1.12, -0.14], "ply", 0.006);
-  for (const x of [-0.17, 0.17]) f.b([x - 0.012, 0.77, -0.15], [x + 0.012, 0.92, 0.12], "ply", 0.004);
+  f.b([-0.17, 0.74, -0.16], [0.17, 0.77, 0.14], "beech_lacq", 0.01);
+  f.b([-0.17, 0.77, -0.17], [0.17, 1.12, -0.14], "beech_lacq", 0.01);
+  for (const x of [-0.17, 0.17]) f.b([x - 0.012, 0.77, -0.15], [x + 0.012, 0.92, 0.12], "beech_lacq", 0.01);
   f.grp("tray");
   f.rb([-0.22, 0.92, 0.08], [0.22, 0.95, 0.34], 0.012, "plastic_white");
 });
@@ -1273,15 +1356,21 @@ def("furn_mod_range_oven", "Range with oven", "0.9 m six-burner commercial range
 });
 def("furn_mod_hood", "Extraction hood", "2.0 m wall-hung kitchen canopy (bottom at 2.0 m, 1.1 m deep): sloped front, baffle filter bank, grease gutter, duct collar on top.",
   { family: "metal", blocking: true, wall: true, mount: 2.0, rounds: 30, blast: 50 }, (f) => {
-    f.b([-1.0, 0.25, 0], [1.0, 0.6, 1.1], "steel", 0.006);
-    f.b([-1.0, 0, 0.9], [1.0, 0.25, 1.1], "steel", 0.006);   // front skirt
+    // canopy body over a 0.10 perimeter lip; underside at y 0.10 with the filter bank in a 0.05 deep channel
+    f.b([-1.0, 0.15, 0], [1.0, 0.6, 1.1], "steel", 0.006);
+    for (const [z0, z1] of [[0, 0.3], [0.7, 1.08]]) f.b([-1.0, 0.1, z0], [1.0, 0.15, z1], "steel", 0.004);
+    for (const x of [-1.0, 0.98]) f.b([x, 0.1, 0.3], [x + 0.02, 0.15, 0.7], "steel", 0.003);
+    f.b([-0.98, 0.145, 0.3], [0.98, 0.15, 0.7], "steel_dark", 0.001);   // channel lining
+    f.b([-1.0, 0, 1.08], [1.0, 0.1, 1.1], "steel", 0.003);   // front lip
     f.ob([0, 0.42, 1.0], [2.0, 0.38, 0.02], [-32, 0, 0], "steel", 0.004);   // PR3: the sloped front back to the wall
-    for (const x of [-1.0, 0.98]) f.b([x, 0, 0], [x + 0.02, 0.25, 0.9], "steel", 0.003);
-    f.b([-0.98, 0.0, 0.88], [0.98, 0.04, 0.9], "steel_dark", 0.002);   // grease gutter
+    for (const x of [-1.0, 0.98]) f.b([x, 0, 0], [x + 0.02, 0.1, 1.08], "steel", 0.003);
+    f.b([-0.98, 0.0, 1.03], [0.98, 0.04, 1.08], "steel_dark", 0.002);   // grease gutter
+    f.cy([0.9, 0.025, 1.05],[0.06, 0.05, 0.06], "steel_dark", { n: 12 });   // drain cup at the gutter end
+    for (const x of [-0.5, 0.5]) f.b([x - 0.15, 0.097, 0.8], [x + 0.15, 0.1, 1.0], "lightpanel", 0.001);   // recessed light panels
     f.grp("filters");
-    for (let i = 0; i < 8; i++) { const x = -0.92 + i * 0.235; f.ob([x + 0.1, 0.22, 0.45], [0.22, 0.4, 0.02], [55, 0, 0], "steel_dark", 0.003); for (let k = 0; k < 4; k++) f.ob([x + 0.03 + k * 0.05, 0.22, 0.462], [0.008, 0.38, 0.012], [55, 0, 0], "steel", 0.001); }
+    for (let i = 0; i < 4; i++) { const x = -0.735 + i * 0.49; f.b([x - 0.24, 0.12, 0.3], [x + 0.24, 0.145, 0.7], "steel", 0.003); for (let k = 0; k < 7; k++) f.b([x - 0.18 + k * 0.06 - 0.006, 0.112, 0.31], [x - 0.18 + k * 0.06 + 0.006, 0.12, 0.69], "steel_dark", 0.001); }   // baffle louvres
     f.grp("duct");
-    f.b([-0.25, 0.6, 0.2], [0.25, 0.7, 0.6], "steel", 0.004);
+    f.b([-0.175, 0.6, 0.225], [0.175, 0.7, 0.575], "steel", 0.004);
     f.col([-1.0, 0, 0], [1.0, 0.6, 1.1]);
   });
 def("furn_mod_prep_table", "Stainless prep table", "1.5 m stainless prep table with a back upstand, undershelf with stock and a cutting board.", { family: "metal", front: 0.9, rounds: 20, blast: 36, surfaces: [[-0.72, -0.3, 0.72, 0.33, 0.9]] }, (f) => {
@@ -1410,9 +1499,11 @@ def("furn_mod_iv_stand", "IV drip stand", "Mobile IV pole on a five-castor base:
   for (const s of [-1, 1]) f.ob([s * 0.07, 1.93, 0], [0.14, 0.01, 0.01], [0, 0, s * -15], "chrome", 0.002);
   f.grp("bag");
   f.rb([-0.13, 1.68, -0.02], [-0.01, 1.9, 0.02], 0.01, "glass");
+  f.b([-0.105, 1.735, 0.0205], [-0.035, 1.825, 0.0215], "paper", 0.0002);   // blank bag label
   f.cy([-0.07, 1.1, 0.0], [0.006, 1.1, 0.006], "plastic_white", { n: 6 });
   f.b([0.015, 1.15, -0.06], [0.14, 1.32, 0.06], "plastic_white", 0.01);
   f.b([0.05, 1.27, 0.06], [0.12, 1.3, 0.062], "screen_on", 0.0005);
+  for (const [y, m] of [[1.276, "led_green"], [1.284, "led_amber"], [1.292, "led_green"]]) f.b([0.06, y - 0.0015, 0.062], [0.11, y + 0.0015, 0.0625], m, 0);   // readout bars
 });
 def("furn_mod_patient_monitor", "Patient monitor on stand", "Vital-signs monitor on a castored roll stand: tilted screen with blank traces, handle, cable basket.", { family: "metal", front: 0, rounds: 4, blast: 12, cover: false }, (f) => {
   for (let i = 0; i < 5; i++) { const a = i * 72 + 36, r = (a * Math.PI) / 180; f.ob([Math.sin(r) * 0.14, 0.06, Math.cos(r) * 0.14], [0.03, 0.02, 0.28], [0, a, 0], "plastic_grey", 0.004); caster(f, Math.sin(r) * 0.27, Math.cos(r) * 0.27, 0.05); }
@@ -1506,7 +1597,7 @@ def("furn_mod_treadmill", "Treadmill", "Motorised treadmill: rubber running belt
   f.b([-0.4, 0, -0.9], [0.4, 0.12, 0.9], "plastic_black", 0.01);
   f.b([-0.27, 0.12, -0.85], [0.27, 0.15, 0.6], "belt", 0.004);
   for (const s of [-1, 1]) f.b([s * 0.34 - 0.06, 0.12, -0.9], [s * 0.34 + 0.06, 0.16, 0.6], "plastic_grey", 0.006);
-  f.b([-0.4, 0.12, 0.6], [0.4, 0.3, 0.9], "plastic_grey", 0.02);
+  f.b([-0.4, 0.12, 0.6], [0.4, 0.3, 0.9], "plastic_gloss", 0.02);
   f.grp("console");
   for (const s of [-1, 1]) { f.ob([s * 0.36, 0.75, 0.68], [0.06, 1.0, 0.06], [-10, 0, 0], "plastic_grey", 0.012); f.b([s * 0.36 - 0.02, 1.0, 0.0], [s * 0.36 + 0.02, 1.04, 0.62], "steel", 0.006); }
   f.ob([0, 1.3, 0.62], [0.7, 0.3, 0.12], [-30, 0, 0], "plastic_black", 0.02);
@@ -1516,7 +1607,7 @@ def("furn_mod_treadmill", "Treadmill", "Motorised treadmill: rubber running belt
 def("furn_mod_exercise_bike", "Exercise bike", "Upright exercise bike: weighted flywheel housing, saddle post, handlebars and a console, pedals.", { family: "metal", front: 0, rounds: 12, blast: 26, cover: false }, (f) => {
   for (const z of [-0.5, 0.45]) f.b([-0.28, 0, z - 0.04], [0.28, 0.06, z + 0.04], "steel_dark", 0.01);
   f.b([-0.04, 0.03, -0.5], [0.04, 0.09, 0.45], "steel_dark", 0.006);
-  f.cy([0, 0.4, 0.28], [0.56, 0.1, 0.56], "plastic_black", { r: [0, 0, 90], n: 24 });
+  f.cy([0, 0.4, 0.28], [0.56, 0.1, 0.56], "plastic_gloss", { r: [0, 0, 90], n: 24 });
   f.cy([0, 0.4, 0.28], [0.3, 0.104, 0.3], "steel", { r: [0, 0, 90], n: 16 });
   f.ob([0, 0.55, -0.1], [0.07, 0.8, 0.07], [-20, 0, 0], "plastic_grey", 0.01);
   f.ob([0, 0.7, 0.45], [0.06, 0.8, 0.06], [15, 0, 0], "plastic_grey", 0.01);
@@ -1526,7 +1617,8 @@ def("furn_mod_exercise_bike", "Exercise bike", "Upright exercise bike: weighted 
   f.b([-0.24, 1.08, 0.52], [0.24, 1.12, 0.56], "steel", 0.006);
   f.ob([0, 1.15, 0.52], [0.24, 0.14, 0.05], [-30, 0, 0], "plastic_black", 0.01);
   f.ob([0, 1.155, 0.5], [0.16, 0.08, 0.004], [-30, 0, 0], "screen_on", 0.0005);
-  for (const s of [-1, 1]) { f.b([s * 0.11 - 0.01, 0.38, 0.0], [s * 0.11 + 0.01, 0.42, 0.18], "steel", 0.003); f.b([s * 0.14 - 0.04, 0.3, 0.0], [s * 0.14 + 0.04, 0.32, 0.12], "plastic_black", 0.004); }
+  for (const s of [-1, 1]) { f.b([s * 0.11 - 0.01, 0.38, 0.0], [s * 0.11 + 0.01, 0.42, 0.18], "steel", 0.003); f.b([s * 0.14 - 0.04, 0.3, 0.0], [s * 0.14 + 0.04, 0.32, 0.12], "plastic_black", 0.004);
+    const sx = s * 0.14; f.b([sx - 0.035, 0.34, 0.065], [sx + 0.035, 0.344, 0.095], "vinyl_black", 0.001); for (const e of [-1, 1]) f.b([sx + e * 0.035 - 0.002, 0.32, 0.065], [sx + e * 0.035 + 0.002, 0.344, 0.095], "vinyl_black", 0.001); }   // toe strap arched over the pedal
   f.col([-0.28, 0, -0.54], [0.28, 1.2, 0.58]);
 });
 def("furn_mod_weight_bench", "Weight bench and rack", "Flat bench press station: padded bench, two-post rack with J-hooks, loaded barbell with coloured bumper plates.", { family: "metal", front: 0.6, rounds: 30, blast: 50 }, (f) => {
@@ -1550,16 +1642,17 @@ def("furn_mod_dumbbell_rack", "Dumbbell rack", "1.4 m two-tier dumbbell rack wit
   for (let t = 0; t < 2; t++) for (let i = 0; i < 5; i++) {
     const x = -0.56 + i * 0.28, y = t ? 0.84 : 0.54, z = t ? -0.1 : 0.12, s = 0.09 + i * 0.012 + t * 0.04;
     f.cy([x, y, z], [0.03, 0.22, 0.03], "chrome", { r: [0, 0, 90], n: 8 });
-    for (const e of [-1, 1]) f.cy([x + e * 0.1, y, z], [s, 0.06, s], "rubber", { r: [0, 0, 90], n: 6 });
+    for (const e of [-1, 1]) f.cy([x + e * 0.1, y, z], [s, 0.06, s], "rubber_hex", { r: [0, 0, 90], n: 6 });
   }
   f.col([-0.72, 0, -0.3], [0.72, 0.95, 0.3]);
 });
 def("furn_mod_gym_mat", "Rubber gym mat", "2.0 x 1.0 m interlocking rubber floor mat with blue foam exercise mats rolled on it.", { family: "cloth", blocking: false, front: 0, rounds: 0, blast: 30 }, (f) => {
   f.b([-1.0, 0, -0.5], [1.0, 0.015, 0.5], "rubber", 0.003);
   for (let i = 1; i < 4; i++) f.b([-1.0 + i * 0.5 - 0.003, 0.015, -0.5], [-1.0 + i * 0.5 + 0.003, 0.0155, 0.5], "plastic_black", 0.0005);
+  f.b([-1.0, 0.015, -0.003], [1.0, 0.0155, 0.003], "plastic_black", 0.0005);   // joint between the two rows of 0.5 m tiles
   f.b([-0.9, 0.015, -0.4], [-0.1, 0.03, 0.4], "mat_blue", 0.006);
 });
-function lockers(f, n, m, accent) {
+function lockers(f, n, m, accent, stickers = false) {
   const W = 0.3 * n;
   f.grp("body");
   f.b([-W / 2, 0, -0.25], [W / 2, 0.1, 0.22], "lam_dark", 0.004);
@@ -1569,32 +1662,37 @@ function lockers(f, n, m, accent) {
   for (let i = 0; i < n; i++) {
     const a = -W / 2 + i * 0.3, b = a + 0.3;
     panel(f, a, b, 0.1, 1.83, 0.22, m, 0.004);
-    vent(f, a + 0.07, b - 0.07, 1.6, 1.76, 0.238, 5, "steel_dark");
-    vent(f, a + 0.07, b - 0.07, 0.2, 0.34, 0.238, 4, "steel_dark");
+    vent(f, a + 0.07, b - 0.07, 1.6, 1.76, 0.238, 6, "steel_dark");
+    vent(f, a + 0.07, b - 0.07, 0.2, 0.34, 0.238, 6, "steel_dark");
     f.b([b - 0.07, 1.0, 0.238], [b - 0.03, 1.12, 0.25], "chrome", 0.004);
     f.b([a + 0.09, 1.3, 0.238], [b - 0.09, 1.35, 0.24], accent, 0.001);
   }
+  if (stickers) for (const [i, y, sq] of [[0, 0.62, 1], [1, 1.45, 0], [3, 0.85, 1], [4, 0.5, 0]]) {   // a few plain stickers on the doors
+    const x = -W / 2 + i * 0.3 + 0.1 + f.rand() * 0.08, s = 0.05 + f.rand() * 0.03, m = f.pick(["pack_red", "pack_yellow", "pack_green", "pack_orange", "pack_white"]);
+    if (sq) f.ob([x, y, 0.2385], [s, s, 0.001], [0, 0, (f.rand() - 0.5) * 30], m, 0.0002);
+    else f.cy([x, y, 0.2385], [s, 0.001, s], m, { r: [90, 0, 0], n: 12 });
+  }
 }
-def("furn_mod_lockers", "Gym lockers (row of five)", "1.5 m row of five full-height grey steel lockers with vent louvres, lift handles and blank tag plates, on a plinth.", { family: "metal", front: 0.8, rounds: 40, blast: 60 }, (f) => lockers(f, 5, "greymetal", "paper"));
-def("furn_mod_lockers_school", "School lockers (row of five)", "1.5 m row of five full-height blue school lockers with vent louvres, lift handles and blank name plates.", { family: "metal", front: 0.8, rounds: 40, blast: 60 }, (f) => lockers(f, 5, "bluemetal", "paper_yellow"));
+def("furn_mod_lockers", "Gym lockers (row of five)", "1.5 m row of five full-height grey steel lockers with vent louvres, lift handles and blank tag plates, on a plinth.", { family: "metal", front: 0.8, rounds: 40, blast: 60 }, (f) => lockers(f, 5, "locker_grey", "paper"));
+def("furn_mod_lockers_school", "School lockers (row of five)", "1.5 m row of five full-height blue school lockers with vent louvres, lift handles and blank name plates.", { family: "metal", front: 0.8, rounds: 40, blast: 60 }, (f) => lockers(f, 5, "bluemetal", "paper_yellow", true));
 def("furn_mod_locker_bench", "Changing-room bench", "1.5 m changing-room bench: laminated ash slats on black steel legs with a lower shoe rail.", { family: "wood", front: 0.4, rounds: 12, blast: 24, cover: false }, (f) => {
-  for (let i = 0; i < 3; i++) f.b([-0.75, 0.42, -0.18 + i * 0.12], [0.75, 0.45, -0.08 + i * 0.12], "ash", 0.004);
+  for (let i = 0; i < 3; i++) f.b([-0.75, 0.42, -0.18 + i * 0.12], [0.75, 0.45, -0.08 + i * 0.12], "ash_varnish", 0.004);
   f.grp("frame");
   for (const x of [-0.65, 0.65]) { f.b([x - 0.02, 0, -0.17], [x + 0.02, 0.42, -0.13], "blackmetal", 0.004); f.b([x - 0.02, 0, 0.13], [x + 0.02, 0.42, 0.17], "blackmetal", 0.004); f.b([x - 0.02, 0.38, -0.17], [x + 0.02, 0.42, 0.17], "blackmetal", 0.004); }
   f.b([-0.65, 0.12, -0.02], [0.65, 0.15, 0.02], "blackmetal", 0.004);
 });
 def("furn_mod_hoop", "Basketball hoop (wall)", "Wall-mounted basketball goal: steel bracket, 1.8 m backboard with a target box outline, orange rim and a net (rim at 3.05 m).",
   { family: "metal", blocking: false, wall: true, mount: 2.75, rounds: 20, blast: 40 }, (f) => {
-    f.b([-0.5, 0.1, 0], [0.5, 0.15, 0.6], "blackmetal", 0.006);
-    f.b([-0.5, 0.75, 0], [0.5, 0.8, 0.6], "blackmetal", 0.006);
-    for (const x of [-0.45, 0.45]) f.ob([x, 0.45, 0.3], [0.04, 0.8, 0.04], [37, 0, 0], "blackmetal", 0.006);
+    f.b([-0.5, 0.1, 0], [0.5, 0.15, 0.6], "steel_dark", 0.006);
+    f.b([-0.5, 0.75, 0], [0.5, 0.8, 0.6], "steel_dark", 0.006);
+    for (const x of [-0.45, 0.45]) f.cy([x, 0.45, 0.3], [0.05, 0.8, 0.05], "steel_dark", { r: [37, 0, 0], n: 10 });   // A-frame tubes
     f.grp("board");
     f.b([-0.9, 0, 0.6], [0.9, 1.05, 0.64], "board_white", 0.008);
-    for (const [a, b] of [[[-0.9, 0, 0.64], [0.9, 0.04, 0.65]], [[-0.9, 1.01, 0.64], [0.9, 1.05, 0.65]], [[-0.9, 0, 0.64], [-0.86, 1.05, 0.65]], [[0.86, 0, 0.64], [0.9, 1.05, 0.65]]]) f.b(a, b, "plastic_red", 0.002);
-    for (const [a, b] of [[[-0.3, 0.15, 0.64], [0.3, 0.18, 0.645]], [[-0.3, 0.6, 0.64], [0.3, 0.63, 0.645]], [[-0.3, 0.15, 0.64], [-0.27, 0.63, 0.645]], [[0.27, 0.15, 0.64], [0.3, 0.63, 0.645]]]) f.b(a, b, "plastic_red", 0.001);
-    f.grp("rim");
+    for (const [a, b] of [[[-0.9, 0, 0.64], [0.9, 0.05, 0.65]], [[-0.9, 1.0, 0.64], [0.9, 1.05, 0.65]], [[-0.9, 0, 0.64], [-0.85, 1.05, 0.65]], [[0.85, 0, 0.64], [0.9, 1.05, 0.65]]]) f.b(a, b, "plastic_orange", 0.002);
+    for (const [a, b] of [[[-0.295, 0.15, 0.64], [0.295, 0.18, 0.645]], [[-0.295, 0.57, 0.64], [0.295, 0.6, 0.645]], [[-0.295, 0.15, 0.64], [-0.265, 0.6, 0.645]], [[0.265, 0.15, 0.64], [0.295, 0.6, 0.645]]]) f.b(a, b, "plastic_red", 0.001);   // 0.59 x 0.45 shooter's square
+    f.grp("rim");   // rim segments with a net hook under each, and the net strands
     f.b([-0.1, 0.2, 0.64], [0.1, 0.32, 0.72], "plastic_orange", 0.004);
-    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; f.ob([Math.sin(a) * 0.23, 0.3, 0.95 + Math.cos(a) * 0.23], [0.124, 0.018, 0.018], [0, i * 30, 0], "plastic_orange", 0.003); f.ob([Math.sin(a) * 0.19, 0.08, 0.95 + Math.cos(a) * 0.19], [0.006, 0.42, 0.006], [Math.cos(a) * 10, 0, -Math.sin(a) * 10], "linen", 0.001); }
+    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; f.ob([Math.sin(a) * 0.23, 0.3, 0.95 + Math.cos(a) * 0.23], [0.124, 0.018, 0.018], [0, i * 30, 0], "plastic_orange", 0.003); f.ob([Math.sin(a) * 0.23, 0.281, 0.95 + Math.cos(a) * 0.23], [0.01, 0.02, 0.006], [0, i * 30, 0], "plastic_orange", 0); f.ob([Math.sin(a) * 0.19, 0.08, 0.95 + Math.cos(a) * 0.19], [0.006, 0.42, 0.006], [Math.cos(a) * 10, 0, -Math.sin(a) * 10], "linen", 0.001); }
   });
 def("furn_mod_bleachers", "Bleacher section", "3.0 m four-row aluminium bleacher on a steel frame: seat planks, foot planks, side rails, 1.6 m deep.", { family: "metal", front: 0.6, rounds: 60, blast: 80, keep: ["frame"] }, (f) => {
   f.grp("frame");
@@ -1607,6 +1705,8 @@ def("furn_mod_bleachers", "Bleacher section", "3.0 m four-row aluminium bleacher
     f.b([-1.5, y - 0.04, z - 0.14], [1.5, y, z + 0.14], "steel", 0.004);
     f.b([-1.5, y - 0.27, z + 0.16], [1.5, y - 0.24, z + 0.36], "steel", 0.003);
     f.b([-1.5, y - 0.04, z + 0.14], [1.5, y, z + 0.145], "steel_dark", 0.001);
+    for (const dz of [-0.07, 0, 0.07]) f.b([-1.5, y, z + dz - 0.002], [1.5, y + 0.002, z + dz + 0.002], "steel_dark", 0);   // ribs along the seat plank
+    for (const x of [-1.45, -0.5, 0.5, 1.45]) { f.cy([x, y + 0.003, z + 0.035], [0.015, 0.006, 0.015], "steel_dark", { n: 8 }); f.cy([x, y - 0.24 + 0.003, z + 0.26], [0.015, 0.006, 0.015], "steel_dark", { n: 8 }); }   // carriage bolts over the frames
   }
   f.col([-1.5, 0, -0.8], [1.5, 1.4, 0.8]);
 });
@@ -1647,13 +1747,14 @@ def("furn_mod_chalkboard", "Chalkboard", "2.4 x 1.2 m green chalkboard in an oak
   f.b([0.3, 0.0, 0.015], [0.44, 0.04, 0.065], "cork", 0.006);
 });
 def("furn_mod_cafeteria_table", "Cafeteria table with benches", "2.4 m folding cafeteria table with integrated bench seats both sides on a steel undercarriage.", { family: "metal", front: 0.4, rounds: 26, blast: 44, surfaces: [[-1.15, -0.33, 1.15, 0.33, 0.74]] }, (f) => {
-  f.b([-1.2, 0.71, -0.36], [1.2, 0.74, 0.36], "lam_white", 0.004);
-  f.b([-1.205, 0.705, -0.365], [1.205, 0.745, -0.355], "plastic_grey", 0.002); f.b([-1.205, 0.705, 0.355], [1.205, 0.745, 0.365], "plastic_grey", 0.002);
+  f.b([-1.202, 0.71, -0.357], [1.202, 0.74, 0.357], "lam_fleck", 0.004);
+  for (const s of [-1, 1]) { f.b([-1.205, 0.705, s * 0.3585 - 0.0015], [1.205, 0.745, s * 0.3585 + 0.0015], "steel", 0.0008); f.b([s * 1.2035 - 0.0015, 0.705, -0.357], [s * 1.2035 + 0.0015, 0.745, 0.357], "steel", 0.0008); }   // 3 mm edge band all round
   f.grp("benches");
   for (const s of [-1, 1]) { f.b([-1.15, 0.42, s * 0.62 - 0.15], [1.15, 0.45, s * 0.62 + 0.15], "plastic_blue", 0.008); }
   f.grp("frame");
   for (const x of [-0.8, 0.8]) { f.b([x - 0.025, 0, -0.75], [x + 0.025, 0.03, 0.75], "steel_dark", 0.004); f.b([x - 0.025, 0.38, -0.75], [x + 0.025, 0.42, 0.75], "steel_dark", 0.004); f.b([x - 0.025, 0.03, -0.03], [x + 0.025, 0.71, 0.03], "steel_dark", 0.004); for (const s of [-1, 1]) f.ob([x, 0.2, s * 0.5], [0.04, 0.4, 0.04], [s * 25, 0, 0], "steel_dark", 0.004); }
   f.b([-0.8, 0.6, -0.02], [0.8, 0.63, 0.02], "steel_dark", 0.004);
+  for (const x of [-0.8, 0.8]) for (const e of [-1, 1]) f.b([x + e * 0.025 - (e < 0 ? 0.006 : 0), 0.38, -0.03], [x + e * 0.025 + (e > 0 ? 0.006 : 0), 0.42, 0.03], "chrome", 0.001);   // hinge plates at the leg / arm joint
   f.col([-1.2, 0, -0.77], [1.2, 0.45, 0.77]); f.col([-1.2, 0.45, -0.36], [1.2, 0.74, 0.36]);
 });
 def("furn_mod_notice_board", "Notice board", "1.2 x 0.9 m cork notice board in an oak frame with pinned blank sheets, notes and a coloured flyer (no text).", { family: "paper", blocking: false, wall: true, mount: 1.1, rounds: 3, blast: 8 }, (f) => {
@@ -1682,7 +1783,7 @@ def("furn_mod_vending", "Vending machine", "Snack vending machine: glass front o
   for (let r = 0; r < 6; r++) {
     const y = 0.42 + r * 0.205;
     f.b([-0.41, y - 0.01, -0.36], [0.13, y, 0.32], "steel", 0.002);
-    for (let c = 0; c < 5; c++) { const x = -0.38 + c * 0.1, m = f.pick(PACKS); f.b([x, y, 0.1], [x + 0.08, y + 0.13, 0.12], m, 0.002); f.b([x, y, 0.02], [x + 0.08, y + 0.13, 0.04], m, 0.002); f.ob([x + 0.04, y + 0.05, 0.13], [0.06, 0.06, 0.003], [0, 0, 0], "chrome", 0.0005); }
+    for (let c = 0; c < 5; c++) { const x = -0.38 + c * 0.1, m = f.pick(PACKS); f.b([x, y, 0.1], [x + 0.08, y + 0.13, 0.12], m, 0.002); f.b([x, y, 0.02], [x + 0.08, y + 0.13, 0.04], m, 0.002); for (let k = 0; k < 4; k++) f.cy([x + 0.04, y + 0.05, 0.13 + k * 0.025], [0.004, 0.07, 0.004], "chrome", { r: [90, k % 2 ? 65 : 115, 0], n: 6 }); }   // spiral coil: wire runs at +-25 degrees
   }
   f.grp("glass");
   f.b([-0.42, 0.36, 0.38], [0.15, 1.66, 0.39], "glass", 0.001);
