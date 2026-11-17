@@ -95,8 +95,8 @@ static void botFootstep(App& app, const Soldier& s, float v) {
 
 // the gait cycle (cycles per second: the planted foot travels back at the body speed); a bot's foot lands every half cycle
 float gaitCadence(float v) { return 0.9f * std::min(1.75f, 0.75f + 0.25f * v); }   // AN2: 10 % fewer steps (longer strides) than before, so legs do not look hurried
-float advanceStride(App& app, Soldier& s, float v, float dt) {
-  float cad = gaitCadence(v);
+float advanceStride(App& app, Soldier& s, float v, float dt, float cadIn) {
+  float cad = cadIn > 0 ? cadIn : gaitCadence(v);
   const float ph0 = s.walkPhase;
   s.walkPhase += v * dt > 0 ? 6.2831853f * cad * dt : 0.0f;
   if (v * dt <= 0 && s.anStride > 0.01f && !s.zombie) {   // AN1 step 3b: stopping mid-stride finishes the step: on until both feet are down
@@ -1031,8 +1031,23 @@ void Game::posesStep(float dt) {
     if (s.zombie) { s.walkPhase += s.speed * dt * 2.6f; pp.aimYawOffset = yawOff; }
     else {   // AN1: kneel (still, crouched), carry (moving, not engaged), moveAim (moving, engaged); ~0.25 s blends
       float v = s.speed, k = 1.0f - std::exp(-dt / 0.18f);   // AN1 step 3: posture blends settle in ~0.5 s (0.08 s ended in a visible snap)
-      float cad = advanceStride(app, s, v, dt);
-      float duty = std::clamp(0.62f - 0.17f * (v - 1.5f), 0.30f, 0.62f);
+      float duty = std::clamp(0.62f - 0.30f * (v - 1.4f), 0.32f, 0.62f);   // AN3: the planted share falls faster with speed (jog ~0.45, sprint ~0.32, as running does)
+      // AN3: upright travel. Out of contact the hips ride at 97 % (walk) .. 94 % (run, sprint) of their standing height, in contact 90 %;
+      // the half-stride is capped to what the leg reaches from there (the cadence rises instead), so the hips need not drop to reach
+      const bool engaged0 = (s.br.target >= 0 && !s.human && !s.localPlayer) || t - s.lastShot < 1.5 || s.reload > 0 || s.throwT >= 0 || (isClient && s.netEngaged);
+      const float hipFrac = s.posture != Physics::STAND ? 0.0f : engaged0 ? 0.92f : v < 3.0f ? glm::mix(0.985f, 0.96f, std::clamp((v - 1.4f) / 0.8f, 0.0f, 1.0f)) : 0.95f;   // mid-stance; the reach dips them at each footfall
+      float cadUse = gaitCadence(v);
+      if (hipFrac > 0 && v > 0.3f) {
+        int su = m.semantic[CJ_LUPLEG], sk = m.semantic[CJ_LLEG], sf = m.semantic[CJ_LFOOT], sh = m.semantic[CJ_HIPS];
+        if (su >= 0 && sk >= 0 && sf >= 0 && sh >= 0) {
+          float L = 0.975f * (glm::length(m.jointHead[sk] - m.jointHead[su]) + glm::length(m.jointHead[sf] - m.jointHead[sk]));
+          float vert = m.jointHead[su].y - (1 - hipFrac) * m.jointHead[sh].y - m.jointHead[sf].y;
+          float Amax = std::max(0.12f, 0.42f * L);   // about a walking stride (half the planted foot's travel); past it the cadence rises (vert: the leg's drop at the target, kept for reference)
+          (void)vert;
+          cadUse = std::max(cadUse, 0.5f * duty * v / Amax);
+        }
+      }
+      float cad = advanceStride(app, s, v, dt, cadUse);
       const float kf = 1.0f - std::exp(-dt / 0.08f);   // stride, travel direction and slope stay quick (the feet are planted on them)
       s.anStride += (0.5f * duty * v / cad - s.anStride) * kf;
       pp.gait = true; pp.stride = s.anStride; pp.duty = duty;
@@ -1049,9 +1064,11 @@ void Game::posesStep(float dt) {
       // AI5: bots never carry the rifle low on the move: shouldered, muzzle forward, sights up whether engaged or not
       bool bot = !s.human && !s.localPlayer;
       s.anCarry += ((moving && !engaged && !bot ? 1.0f : 0.0f) - s.anCarry) * k;
-      s.anMoveAim += ((moving && (engaged || bot) ? 1.0f : 0.0f) - s.anMoveAim) * k;
-      pp.hunch = bot ? (s.kit == 2 ? 0.25f : 1.0f) : 0.0f;   // AN1 step 2b: troopers as upright as the soldiers look (their armour reads deeper)   // SW3: blaster troopers aim and fire half as hunched (taller stance); cover crouching unchanged
-      s.anLow += ((!moving && !engaged ? (s.posture == Physics::CROUCH ? 0.6f : 1.0f) : 0.0f) - s.anLow) * k;   // relaxed ready: butt in the shoulder, muzzle ~35 deg down (AN1 step 2)
+      s.anMoveAim += ((moving && engaged ? 1.0f : 0.0f) - s.anMoveAim) * k;   // AN3: the glide only in contact (was every moving bot)
+      pp.hunch = bot && !moving ? (s.kit == 2 ? 0.25f : 1.0f) : 0.0f;   // AN3: no hunch on the move (the combat crouch is hipFrac / leanMove)
+      pp.hipFrac = moving ? hipFrac : 0.0f;
+      pp.leanMove = moving && s.posture == Physics::STAND ? (engaged ? 0.21f : v < 1.6f ? 0.07f : v < 3.0f ? 0.20f : 0.30f) : -1.0f;   // AN3: spine pitch (rad): 4 / 9 / 13 deg, 11 in contact   // AN1 step 2b: troopers as upright as the soldiers look (their armour reads deeper)   // SW3: blaster troopers aim and fire half as hunched (taller stance); cover crouching unchanged
+      s.anLow += ((!moving && !engaged ? (s.posture == Physics::CROUCH ? 0.6f : 1.0f) : moving && !engaged && bot ? 0.6f : 0.0f) - s.anLow) * k;   // AN3: a bot on the move out of contact: low ready   // relaxed ready: butt in the shoulder, muzzle ~35 deg down (AN1 step 2)
       s.anTwist += (yawOff - s.anTwist) * (1.0f - std::exp(-dt / 0.12f));   // no snapping torso twist
       pp.kneel = s.anKneel; pp.carry = s.anCarry; pp.moveAim = s.anMoveAim; pp.aimYawOffset = s.anTwist;
       pp.lean = s.alive ? s.lean : 0.0f; pp.leanBend = radians(app.leanCfg.bend);   // MV3

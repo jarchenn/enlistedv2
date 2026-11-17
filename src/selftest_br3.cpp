@@ -203,7 +203,7 @@ bool poseShots(App& app, float dt) {
   int bi = idx / per, w = (idx % per) / perW, vw = idx % nv; const std::string pn = posts[(idx / nv) % np], vn = viewsL[vw];
   const bool movingP = pn == "carry" || pn == "moveaim" || pn == "walk" || pn == "jog" || pn == "sprint" || pn == "strafe" || pn == "crouchwalk";
   const int nframes = movingP ? nfr : 1;
-  const int ps = pn == "kneel" ? 0 : pn == "carry" || pn == "idle" || pn == "sprint" ? 1 : 2;   // 0 crouched still, 1 no target, 2 a target
+  const int ps = pn == "kneel" ? 0 : pn == "carry" || pn == "idle" || pn == "sprint" || pn == "walk" || pn == "jog" ? 1 : 2;   // 0 crouched still, 1 no target, 2 a target (AN3: walk / jog / sprint out of contact; moveaim the combat walk)
   Soldier& s = G.sold[bot];
   G.noFootLock = true;   // AN1 step 3b: the posed bot stays put while it "walks" (a treadmill): no world foot locks
   if (const char* gear = std::getenv("NMK_POSE_GEAR")) { int h = 0, v = 0, b = 0; std::sscanf(gear, "%d,%d,%d", &h, &v, &b); s.helmetLvl = h; s.vestLvl = v; s.backpack = b; }   // AN1 step 4b: BR gear on the posed bot
@@ -237,7 +237,7 @@ bool poseShots(App& app, float dt) {
   s.posture = ps == 0 || pn == "crouchwalk" ? Physics::CROUCH : pn == "prone" ? Physics::PRONE : Physics::STAND;
   static float runV = [] { const char* e = std::getenv("NMK_POSE_SPEED"); return e && *e ? (float)std::atof(e) : 2.69f; }();   // jog by default
   vec3 left = glm::cross(vec3(0, 1, 0), face);   // the bot's left
-  s.speed = pn == "walk" ? 1.3f : pn == "jog" ? 2.69f : pn == "sprint" ? 4.6f : pn == "strafe" ? 2.0f : pn == "crouchwalk" ? 1.2f : (pn == "carry" || pn == "moveaim") ? runV : 0.0f;
+  s.speed = pn == "walk" ? 1.2f : pn == "jog" ? 2.01f : pn == "sprint" ? 4.02f : pn == "strafe" ? 2.0f : pn == "crouchwalk" ? 1.06f : (pn == "carry" || pn == "moveaim") ? runV : 0.0f;   // AN3: the AN2 bot speeds
   s.vel = (pn == "strafe" ? left : face) * s.speed;
   s.br.target = ps == 1 ? -1 : G.localSlot; s.lastShot = -100;
   vec3 cd = vn == "side" ? -left : vn == "front" ? face : vn == "back" ? -face : glm::normalize(left * 0.7f + face);   // side: from its right; three-quarter: front left
@@ -266,6 +266,18 @@ bool poseShots(App& app, float dt) {
     ++frames;
     if (ps == 0) worstKneel = std::max({worstKneel, std::fabs(gap(CJ_RLEG) - 0.065f), std::fabs(gap(CJ_LFOOT))});
     else if (!movingP && pn != "prone") worstStance = std::max(worstStance, std::fabs(std::min(gap(CJ_LFOOT), gap(CJ_RFOOT))));
+  }
+  if (t > 1.0f && vn == viewsL[0] && movingP && s.model >= 0) {   // AN3: the moving posture per frame: hips over their standing height, spine pitch, knee flex, stance
+    const CharModel& m = *G.models[s.model];
+    auto P = [&](int c) { return s.pose.joint[c]; };
+    float hf = P(CJ_HIPS).y / std::max(0.1f, m.jointHead[m.semantic[CJ_HIPS]].y);
+    vec3 sp = P(CJ_NECK) - P(CJ_HIPS), s0 = m.jointHead[m.semantic[CJ_NECK]] - m.jointHead[m.semantic[CJ_HIPS]];
+    float spine = glm::degrees(std::atan2(sp.z, sp.y) - std::atan2(s0.z, s0.y));   // forward pitch from the rest pose's own
+    auto knee = [&](int u, int k, int f) { vec3 a = glm::normalize(P(k) - P(u)), b = glm::normalize(P(f) - P(k)); return glm::degrees(std::acos(std::clamp(glm::dot(a, b), -1.0f, 1.0f))); };
+    float duty = std::clamp(0.62f - 0.30f * (s.speed - 1.4f), 0.32f, 0.62f);
+    auto st = [&](int leg) { float u = (s.walkPhase + (leg ? 3.14159265f : 0.0f)) / 6.2831853f; u -= std::floor(u); return u < duty ? std::fabs(u / duty - 0.5f) : 9.0f; };   // 0 = mid-stance
+    logf("[gait] %s %s v %.2f hip %.3f spine %.1f kneeL %.1f kneeR %.1f midL %.2f midR %.2f stride %.3f", bodies[bi].c_str(), pn.c_str(), s.speed, hf, spine,
+         knee(CJ_LUPLEG, CJ_LLEG, CJ_LFOOT), knee(CJ_RUPLEG, CJ_RLEG, CJ_RFOOT), st(0), st(1), s.anStride);
   }
   const float shotT = 1.6f + 0.1f * fk;
   if (pn == "fire" && t > shotT - 0.015f && t - dt <= shotT - 0.015f && s.weapon >= 0) {   // a frame before the shot: bolt and flash at the muzzle   // SW1: one shot, its bolt / tracer and flash in the picture

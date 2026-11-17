@@ -3,7 +3,7 @@
 #include "selftest.h"
 #include "game.h"
 
-float advanceStride(App& app, Soldier& s, float v, float dt);   // game.cpp
+float advanceStride(App& app, Soldier& s, float v, float dt, float cadIn = -1);   // game.cpp
 extern int gBotSteps;
 
 bool snd10SelfTest(App& a, float dt) {
@@ -20,7 +20,7 @@ bool snd10SelfTest(App& a, float dt) {
     Soldier s; s.alive = true; s.localPlayer = false; s.posture = posture; s.kit = (uint8_t)kit; s.slot = 3;
     s.feet = vec3(dist, a.terrain.height(dist, 0), 0);
     int n0 = gBotSteps; const float h = 1.0f / 60.0f;
-    for (int k = 0; k < 120; ++k) advanceStride(a, s, v, h);   // 2 s
+    for (int k = 0; k < 120; ++k) advanceStride(a, s, v, h, -1);   // 2 s
     if (last) *last = a.audio.lastPlayed;
     return gBotSteps - n0;
   };
