@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.33075132966041565,
+  2.1339032649993896,
+  0.08881066739559174
+ ],
+ "bmin": [
+  -0.33075132966041565,
+  0.0005029365420341492,
+  -0.08843566477298737
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "ladder_sectioned_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.33075132966041565,
+    2.1339032649993896,
+    0.08881066739559174
+   ],
+   "bmin": [
+    -0.33075132966041565,
+    0.0005029365420341492,
+    -0.08843566477298737
+   ],
+   "count": 10923,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "ladder_section_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_ladder_sectioned_01.glb",
+ "textures": {},
+ "triangles": 3641,
+ "vertices": 4668
+}

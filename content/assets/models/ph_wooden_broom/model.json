@@ -1,0 +1,90 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.24511872231960297,
+  1.4535678625106812,
+  0.05625705420970917
+ ],
+ "bmin": [
+  -0.24511872231960297,
+  0.0,
+  -0.05625705420970917
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_0.jpg",
+   "name": "wooden_broom_bristles"
+  },
+  {
+   "albedo": "albedo_2.jpg",
+   "mr": "mr_3.jpg",
+   "name": "wooden_broom",
+   "normal": "normal_1.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.24511872231960297,
+    0.07153448462486267,
+    0.05625705420970917
+   ],
+   "bmin": [
+    -0.24511872231960297,
+    0.0,
+    -0.05625705420970917
+   ],
+   "count": 7878,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "wooden_broom_bristles",
+   "role": "body",
+   "rough": 0.5,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.20716148614883423,
+    1.4535678625106812,
+    0.02445415034890175
+   ],
+   "bmin": [
+    -0.20716148614883423,
+    0.06883510947227478,
+    -0.024454163387417793
+   ],
+   "count": 13506,
+   "first": 7878,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "wooden_broom_bristles",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_wooden_broom.glb",
+ "textures": {},
+ "triangles": 7128,
+ "vertices": 8680
+}

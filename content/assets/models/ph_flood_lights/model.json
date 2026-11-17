@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  2.2996881008148193,
+  1.8078129291534424,
+  1.0557947158813477
+ ],
+ "bmin": [
+  -2.2997589111328125,
+  0.0003460720181465149,
+  -1.056345820426941
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "mr": "mr_3.jpg",
+   "name": "flood_lights",
+   "normal": "normal_1.jpg"
+  },
+  {
+   "albedo": "albedo_5.jpg",
+   "mr": "mr_6.jpg",
+   "name": "flood_lights_glass",
+   "normal": "normal_4.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.2996881008148193,
+    1.8078129291534424,
+    1.0557947158813477
+   ],
+   "bmin": [
+    -2.2997589111328125,
+    0.0003460720181465149,
+    -1.056345820426941
+   ],
+   "count": 113277,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "flood_lights_cable_a_geo",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.2353200912475586,
+    1.657821536064148,
+    0.9151896238327026
+   ],
+   "bmin": [
+    -2.1660170555114746,
+    0.12324823439121246,
+    -0.11325252056121826
+   ],
+   "count": 2022,
+   "first": 113277,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "flood_lights_cable_a_geo",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_flood_lights.glb",
+ "textures": {},
+ "triangles": 38433,
+ "vertices": 47026
+}
