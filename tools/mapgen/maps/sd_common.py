@@ -155,7 +155,7 @@ def rect_ok(plan, x, z, hw, hd, walkable=False, margin=0.6):
     return regs == {"#"}
 
 
-def place_masses(b, plan, cands, R, y, ring=2, tags=("mass",), out=None):
+def place_masses(b, plan, cands, R, y, ring=2, tags=("mass",), out=None, margin=0.6):
     """Decorative buildings on solid ground (behind the walls, seen above them): largest first, greedy on a 1 m step,
     never within 0.6 m of a walkable cell; out to `ring` cells past the plan's edge."""
     placed, n = [], 0
@@ -168,7 +168,7 @@ def place_masses(b, plan, cands, R, y, ring=2, tags=("mass",), out=None):
             R.shuffle(spots)
             for x, z, yaw in spots:
                 hw, hd = (fw / 2, fd / 2) if yaw == 0.0 else (fd / 2, fw / 2)
-                if not rect_ok(plan, x, z, hw, hd):
+                if not rect_ok(plan, x, z, hw, hd, margin=margin):
                     continue
                 if any(abs(x - px) < hw + phw + 1.0 and abs(z - pz) < hd + phd + 1.0 for px, pz, phw, phd in placed):
                     continue
@@ -243,6 +243,45 @@ def place_walls2(b, plan, inner, perimeter, y=0.0, tags=("wall",)):
     return n
 
 
+def place_facades(b, plan, variants, double, y=0.0, plain=(), plain_asset=None, tags=("wall", "facade"), out=None):
+    """Rue Haute: a house frontage (+z to the lane, body into the solid cell) on every plain edge with one walkable side;
+    `double` on edges between two walkable regions; a link's own piece wins. Edges of the regions in `plain` keep
+    `plain_asset` (the churchyard wall). The variant is a spatial hash of the edge, never the same as the bay before it
+    along the same line."""
+    n = {"facade": 0, "double": 0, "link": 0, "plain": 0}
+    last = {}
+    for x, z, yaw, kind, a, c in sorted(plan.edges(), key=lambda e: (e[2], e[1], e[0]) if e[2] == 0.0 else (e[2], e[0], e[1])):
+        if kind:
+            b.place(kind, x, z, yaw, check=False, cls="none", y=y, tags=set(tags) - {"facade"})
+            n["link"] += 1
+            continue
+        wa, wc = plan.walk(*a), plan.walk(*c)
+        if wa and wc:
+            b.place(double, x, z, yaw, check=False, cls="none", y=y, tags=set(tags) - {"facade"})
+            n["double"] += 1
+            continue
+        inside = a if wa else c
+        ix, iz = plan._cc(*inside)
+        dx, dz = (1.0 if ix > x else -1.0, 0.0) if yaw == 90.0 else (0.0, 1.0 if iz > z else -1.0)
+        fy = math.degrees(math.atan2(dx, dz)) % 360.0
+        if plan.at(*inside) in plain:
+            b.place(plain_asset, x, z, fy, check=False, cls="none", y=y, tags=set(tags) - {"facade"})
+            n["plain"] += 1
+            continue
+        hx, hz = int(math.floor(x / 3.0 + 0.5)), int(math.floor(z / 3.0 + 0.5))
+        k = ((hx * 73856093) ^ (hz * 19349663) ^ (hx * hz * 83492791)) % len(variants)
+        line = (yaw, round(z if yaw == 0.0 else x, 1), dz if yaw == 0.0 else dx)
+        prev = last.get(line)
+        if prev is not None and prev[0] == k and abs((x if yaw == 0.0 else z) - prev[1]) < plan.cell + 0.1:
+            k = (k + 1 + hx % 3) % len(variants)
+        last[line] = (k, x if yaw == 0.0 else z)
+        inst = b.place(variants[k], x, z, fy, check=False, cls="none", y=y, tags=set(tags))
+        if out is not None:
+            out.append((x, z, dx, dz, inst))   # the edge, its lane normal, the house (a support for what hangs on it)
+        n["facade"] += 1
+    return n
+
+
 def wall_spot(plan, ch, near, inset=0.27):
     """The plain wall of region ch nearest to `near`: (x, z, yaw) on its face, an asset's +z facing into the region."""
     best = None
@@ -271,7 +310,7 @@ def rows_from(nx, nz, rects):
     return ["".join(g[j]) for j in range(nz - 1, -1, -1)]
 
 
-def place_container_walls(b, plan, perimeter, between, R, y=0.0, boxes=("mod_container_20",), stack=0.35, tags=("wall",)):
+def place_container_walls(b, plan, perimeter, between, R, y=0.0, boxes=("mod_container_20",), stack=0.35, tags=("wall",), skew=0.0, out=None):
     """Night Yard walls: a 20 ft container along every inner edge that has solid ground on one side, pushed half its
     depth into the solid side (the lane keeps its 6 m), some stacked two high; `perimeter` where the solid side is on
     the plan's outer ring; `between` (a thin wall) between two walkable regions; a link's own piece wins."""
@@ -295,7 +334,11 @@ def place_container_walls(b, plan, perimeter, between, R, y=0.0, boxes=("mod_con
         aid = R.choice(boxes)
         low = b.place(aid, px, pz, cyaw + R.choice((0.0, 180.0)), check=False, cls="none", y=y, tags=set(tags))
         if low is not None and R.random() < stack:   # stacked: rests on the box below (ED1 support, never seated on the ground)
-            b.place(R.choice(boxes), px, pz, cyaw + R.choice((0.0, 180.0)), check=False, cls="none", y=y + 2.6, tags=set(tags) | {"stacked"}, support=low)
+            b.place(R.choice(boxes), px, pz, cyaw + R.choice((0.0, 180.0)) + R.uniform(-skew, skew), check=False, cls="none", y=y + 2.6, tags=set(tags) | {"stacked"}, support=low)
+            if out is not None:
+                out.append((px, pz, -dx, -dz, 5.2))
+        elif out is not None:
+            out.append((px, pz, -dx, -dz, 2.6))   # the box's centre, its lane normal, its top
         n["container"] += 1
     return n
 
