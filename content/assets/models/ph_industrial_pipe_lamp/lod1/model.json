@@ -1,0 +1,93 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.09019032120704651,
+  0.3636999726295471,
+  0.13091421127319336
+ ],
+ "bmin": [
+  -0.09053890407085419,
+  0.0,
+  -0.1300826072692871
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "mr": "mr_3.jpg",
+   "name": "industrial_pipe_lamp",
+   "normal": "normal_1.jpg"
+  },
+  {
+   "albedo": "albedoa_4.png",
+   "cutout": true,
+   "mr": "mr_3.jpg",
+   "name": "industrial_pipe_lamp_glass",
+   "normal": "normal_1.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.09019032120704651,
+    0.3636999726295471,
+    0.13091421127319336
+   ],
+   "bmin": [
+    -0.09053890407085419,
+    0.0,
+    -0.1300826072692871
+   ],
+   "count": 2916,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "industrial_pipe_lamp",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    0.20000000298023224
+   ],
+   "bmax": [
+    0.02096710167825222,
+    0.3278370797634125,
+    0.08702439069747925
+   ],
+   "bmin": [
+    -0.02096705697476864,
+    0.27118903398513794,
+    0.02774248644709587
+   ],
+   "count": 312,
+   "first": 2916,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "industrial_pipe_lamp",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_industrial_pipe_lamp.glb",
+ "textures": {},
+ "triangles": 1076,
+ "vertices": 1471
+}

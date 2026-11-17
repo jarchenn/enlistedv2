@@ -1,0 +1,91 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.0751740038394928,
+  0.3417818546295166,
+  0.12578794360160828
+ ],
+ "bmin": [
+  -0.0751740038394928,
+  0.0,
+  -0.12578794360160828
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "industrial_wall_sconce",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_3.jpg",
+   "mr": "mr_2.jpg",
+   "name": "industrial_wall_sconce_bulb"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.0751740038394928,
+    0.3417818546295166,
+    0.12578794360160828
+   ],
+   "bmin": [
+    -0.0751740038394928,
+    0.0,
+    -0.12578794360160828
+   ],
+   "count": 10692,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "industrial_wall_sconce",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.02878057211637497,
+    0.1765628308057785,
+    0.08942090719938278
+   ],
+   "bmin": [
+    -0.032660938799381256,
+    0.07641240209341049,
+    0.027979396283626556
+   ],
+   "count": 4044,
+   "first": 10692,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "industrial_wall_sconce",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_industrial_wall_sconce.glb",
+ "textures": {},
+ "triangles": 4912,
+ "vertices": 3968
+}

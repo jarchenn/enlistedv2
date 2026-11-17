@@ -1,0 +1,125 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.192369282245636,
+  1.6731605529785156,
+  0.4025173783302307
+ ],
+ "bmin": [
+  -0.19236929714679718,
+  0.00016099214553833008,
+  -0.4033946394920349
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "street_lamp_02",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "street_lamp_02_glass",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "street_lamp_02_bulb",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.192369282245636,
+    1.6731605529785156,
+    0.4025173783302307
+   ],
+   "bmin": [
+    -0.19236929714679718,
+    0.00016099214553833008,
+    -0.4033946394920349
+   ],
+   "count": 7413,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "street_lamp_02",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.17394879460334778,
+    1.314034104347229,
+    0.3837748169898987
+   ],
+   "bmin": [
+    -0.17387127876281738,
+    0.9421406984329224,
+    0.036521390080451965
+   ],
+   "count": 126,
+   "first": 7413,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "street_lamp_02",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.02775479108095169,
+    1.1043381690979004,
+    0.23766812682151794
+   ],
+   "bmin": [
+    -0.02775563858449459,
+    1.0315927267074585,
+    0.18242135643959045
+   ],
+   "count": 93,
+   "first": 7539,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "street_lamp_02",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_street_lamp_02.glb",
+ "textures": {},
+ "triangles": 2544,
+ "vertices": 2475
+}

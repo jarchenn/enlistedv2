@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.6230000853538513,
+  0.45337265729904175,
+  0.2316131740808487
+ ],
+ "bmin": [
+  -0.6243200898170471,
+  0.0,
+  -0.23260945081710815
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "planter_box_02",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.6230000853538513,
+    0.45337265729904175,
+    0.2316131740808487
+   ],
+   "bmin": [
+    -0.6243200898170471,
+    0.0,
+    -0.23260945081710815
+   ],
+   "count": 16416,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "planter_box_02",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_planter_box_02.glb",
+ "textures": {},
+ "triangles": 5472,
+ "vertices": 4178
+}

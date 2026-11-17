@@ -1,0 +1,125 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.1931011974811554,
+  1.675041913986206,
+  0.40324926376342773
+ ],
+ "bmin": [
+  -0.1931011974811554,
+  0.0,
+  -0.4033946394920349
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "street_lamp_02",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "street_lamp_02_glass",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "street_lamp_02_bulb",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.1931011974811554,
+    1.675041913986206,
+    0.40324926376342773
+   ],
+   "bmin": [
+    -0.1931011974811554,
+    0.0,
+    -0.4033946394920349
+   ],
+   "count": 29664,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "street_lamp_02",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.17394879460334778,
+    1.314034104347229,
+    0.3837748169898987
+   ],
+   "bmin": [
+    -0.17387127876281738,
+    0.9421406984329224,
+    0.036521390080451965
+   ],
+   "count": 504,
+   "first": 29664,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "street_lamp_02",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.029994584619998932,
+    1.106044888496399,
+    0.24017156660556793
+   ],
+   "bmin": [
+    -0.029995422810316086,
+    1.0315927267074585,
+    0.1801815778017044
+   ],
+   "count": 336,
+   "first": 30168,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "street_lamp_02",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_street_lamp_02.glb",
+ "textures": {},
+ "triangles": 10168,
+ "vertices": 7161
+}

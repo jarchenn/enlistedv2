@@ -1,4 +1,18 @@
 {
+ "ph_adjustable_wrench": {
+  "ph": "adjustable_wrench",
+  "name": "Adjustable Wrench",
+  "category": "Industrial: Yard",
+  "size": [
+   0.068,
+   0.254,
+   0.031
+  ],
+  "colliders": [],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Adjustable Wrench by Mateusz Sadek, Poly Haven (polyhaven.com/a/adjustable_wrench), CC0"
+ },
  "ph_alarm_clock_01": {
   "ph": "alarm_clock_01",
   "name": "Alarm Clock 01",
@@ -430,6 +444,232 @@
   "lodDist": 15,
   "credit": "Barrel Stove by MP, Poly Haven (polyhaven.com/a/barrel_stove), CC0"
  },
+ "ph_bench_vice_01": {
+  "ph": "bench_vice_01",
+  "name": "Bench Vice 01",
+  "category": "Industrial: Yard",
+  "size": [
+   0.2,
+   0.285,
+   0.396
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.201,
+    0.147,
+    0.133,
+    0.151,
+    0.043
+   ],
+   [
+    0.038,
+    0.169,
+    -0.023,
+    0.04,
+    0.113,
+    0.184
+   ],
+   [
+    -0.038,
+    0.169,
+    -0.023,
+    0.04,
+    0.113,
+    0.184
+   ],
+   [
+    -0.05,
+    0.087,
+    -0.016,
+    0.1,
+    0.04,
+    0.2
+   ],
+   [
+    0.05,
+    0.087,
+    -0.016,
+    0.1,
+    0.04,
+    0.2
+   ],
+   [
+    -0.022,
+    0.165,
+    -0.076,
+    0.04,
+    0.08,
+    0.241
+   ],
+   [
+    0.022,
+    0.165,
+    -0.076,
+    0.04,
+    0.08,
+    0.241
+   ],
+   [
+    -0.0,
+    0.211,
+    -0.031,
+    0.089,
+    0.04,
+    0.191
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Bench Vice 01 by Antanas Kep, Yann Kervran, Poly Haven (polyhaven.com/a/bench_vice_01), CC0"
+ },
+ "ph_binder_notebook": {
+  "ph": "binder_notebook",
+  "name": "Binder Notebook",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.584,
+   0.025,
+   0.2
+  ],
+  "colliders": [
+   [
+    -0.066,
+    0.012,
+    -0.0,
+    0.137,
+    0.04,
+    0.187
+   ],
+   [
+    0.202,
+    0.012,
+    -0.0,
+    0.137,
+    0.04,
+    0.187
+   ],
+   [
+    -0.242,
+    0.006,
+    0.0,
+    0.1,
+    0.04,
+    0.2
+   ],
+   [
+    -0.146,
+    0.006,
+    -0.0,
+    0.093,
+    0.04,
+    0.199
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Binder Notebook by DaDrood, Poly Haven (polyhaven.com/a/binder_notebook), CC0"
+ },
+ "ph_binoculars": {
+  "ph": "binoculars",
+  "name": "Binoculars",
+  "category": "Town clutter",
+  "size": [
+   0.167,
+   0.066,
+   0.288
+  ],
+  "colliders": [],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Binoculars by Derek Wight, Poly Haven (polyhaven.com/a/binoculars), CC0"
+ },
+ "ph_bleach_bottle": {
+  "ph": "bleach_bottle",
+  "name": "Bleach Bottle",
+  "category": "Town clutter",
+  "size": [
+   0.088,
+   0.294,
+   0.061
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.107,
+    -0.0,
+    0.084,
+    0.11,
+    0.056
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Bleach Bottle by James Ray Cock, Poly Haven (polyhaven.com/a/bleach_bottle), CC0"
+ },
+ "ph_bolt_cutters_01": {
+  "ph": "bolt_cutters_01",
+  "name": "Bolt Cutters 01",
+  "category": "Industrial: Yard",
+  "size": [
+   0.151,
+   0.803,
+   0.036
+  ],
+  "colliders": [
+   [
+    -0.022,
+    0.428,
+    -0.004,
+    0.091,
+    0.409,
+    0.04
+   ],
+   [
+    0.032,
+    0.427,
+    0.003,
+    0.074,
+    0.411,
+    0.04
+   ],
+   [
+    -0.022,
+    0.706,
+    -0.001,
+    0.057,
+    0.193,
+    0.04
+   ],
+   [
+    0.035,
+    0.706,
+    -0.001,
+    0.057,
+    0.193,
+    0.04
+   ],
+   [
+    0.054,
+    0.111,
+    -0.0,
+    0.04,
+    0.222,
+    0.04
+   ],
+   [
+    -0.061,
+    0.113,
+    -0.0,
+    0.04,
+    0.222,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Bolt Cutters 01 by Antanas Kep, Yann Kervran, Poly Haven (polyhaven.com/a/bolt_cutters_01), CC0"
+ },
  "ph_book_encyclopedia_set_01": {
   "ph": "book_encyclopedia_set_01",
   "name": "Book Encyclopedia Set 01",
@@ -571,6 +811,37 @@
   "maxTex": 1024,
   "lodDist": 15,
   "credit": "Boombox by Thomas Paul Mouilleron, Poly Haven (polyhaven.com/a/boombox), CC0"
+ },
+ "ph_brass_blowtorch": {
+  "ph": "brass_blowtorch",
+  "name": "Brass Blowtorch",
+  "category": "Industrial: Yard",
+  "size": [
+   0.129,
+   0.211,
+   0.259
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.055,
+    -0.016,
+    0.107,
+    0.073,
+    0.106
+   ],
+   [
+    0.0,
+    0.189,
+    0.034,
+    0.04,
+    0.04,
+    0.133
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Brass Blowtorch by Ulan Cabanilla, Poly Haven (polyhaven.com/a/brass_blowtorch), CC0"
  },
  "ph_brass_candleholders": {
   "ph": "brass_candleholders",
@@ -744,6 +1015,163 @@
   "lodDist": 15,
   "credit": "Brass Pot 01 by Rico Cilliers, Poly Haven (polyhaven.com/a/brass_pot_01), CC0"
  },
+ "ph_brass_pot_02": {
+  "ph": "brass_pot_02",
+  "name": "Brass Pot 02",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.367,
+   0.109,
+   0.302
+  ],
+  "colliders": [
+   [
+    0.064,
+    0.059,
+    -0.0,
+    0.168,
+    0.099,
+    0.297
+   ],
+   [
+    -0.075,
+    0.05,
+    -0.0,
+    0.15,
+    0.097,
+    0.3
+   ],
+   [
+    -0.0,
+    0.007,
+    -0.0,
+    0.264,
+    0.04,
+    0.264
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Brass Pot 02 by Rico Cilliers, Poly Haven (polyhaven.com/a/brass_pot_02), CC0"
+ },
+ "ph_brass_vase_01": {
+  "ph": "brass_vase_01",
+  "name": "Brass Vase 01",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.227,
+   0.692,
+   0.227
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.588,
+    0.0,
+    0.184,
+    0.208,
+    0.184
+   ],
+   [
+    0.0,
+    0.305,
+    -0.0,
+    0.227,
+    0.132,
+    0.227
+   ],
+   [
+    0.0,
+    0.401,
+    -0.0,
+    0.227,
+    0.061,
+    0.227
+   ],
+   [
+    0.0,
+    0.014,
+    -0.0,
+    0.177,
+    0.04,
+    0.177
+   ],
+   [
+    -0.0,
+    0.455,
+    -0.0,
+    0.117,
+    0.047,
+    0.117
+   ],
+   [
+    0.0,
+    0.067,
+    -0.0,
+    0.091,
+    0.075,
+    0.091
+   ],
+   [
+    0.0,
+    0.168,
+    0.0,
+    0.068,
+    0.108,
+    0.068
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Brass Vase 01 by Rico Cilliers, Poly Haven (polyhaven.com/a/brass_vase_01), CC0"
+ },
+ "ph_brass_vase_02": {
+  "ph": "brass_vase_02",
+  "name": "Brass Vase 02",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.21,
+   0.529,
+   0.21
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.114,
+    -0.0,
+    0.21,
+    0.087,
+    0.21
+   ],
+   [
+    0.0,
+    0.044,
+    -0.0,
+    0.209,
+    0.054,
+    0.209
+   ],
+   [
+    -0.0,
+    0.328,
+    -0.0,
+    0.065,
+    0.339,
+    0.065
+   ],
+   [
+    -0.057,
+    0.303,
+    0.0,
+    0.064,
+    0.418,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Brass Vase 02 by Rico Cilliers, Poly Haven (polyhaven.com/a/brass_vase_02), CC0"
+ },
  "ph_caged_hanging_light": {
   "ph": "caged_hanging_light",
   "name": "Caged Hanging Light",
@@ -822,6 +1250,76 @@
   "maxTex": 1024,
   "lodDist": 15,
   "credit": "Caged Hanging Light by Ulan Cabanilla, Poly Haven (polyhaven.com/a/caged_hanging_light), CC0"
+ },
+ "ph_camera_01": {
+  "ph": "Camera_01",
+  "name": "Camera 01",
+  "category": "Town clutter",
+  "size": [
+   0.214,
+   0.078,
+   0.263
+  ],
+  "colliders": [
+   [
+    -0.06,
+    0.005,
+    0.011,
+    0.093,
+    0.04,
+    0.24
+   ],
+   [
+    -0.016,
+    0.005,
+    -0.031,
+    0.111,
+    0.04,
+    0.161
+   ],
+   [
+    -0.028,
+    0.01,
+    0.094,
+    0.143,
+    0.04,
+    0.075
+   ],
+   [
+    0.029,
+    0.039,
+    -0.07,
+    0.137,
+    0.077,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Camera 01 by Rajil Jose Macatangay, Poly Haven (polyhaven.com/a/Camera_01), CC0"
+ },
+ "ph_can_rusted": {
+  "ph": "can_rusted",
+  "name": "Can Rusted",
+  "category": "Desert",
+  "size": [
+   0.125,
+   0.151,
+   0.125
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.076,
+    -0.0,
+    0.125,
+    0.151,
+    0.125
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Can Rusted by Rahul Chaudhary, Poly Haven (polyhaven.com/a/can_rusted), CC0"
  },
  "ph_cardboard_box_01": {
   "ph": "cardboard_box_01",
@@ -931,6 +1429,37 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Cash Register 01 by Joe Seabuhr, Poly Haven (polyhaven.com/a/CashRegister_01), CC0"
+ },
+ "ph_cassette_player": {
+  "ph": "cassette_player",
+  "name": "Cassette Player",
+  "category": "Town clutter",
+  "size": [
+   0.129,
+   0.237,
+   0.049
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.113,
+    -0.024,
+    0.122,
+    0.219,
+    0.04
+   ],
+   [
+    0.002,
+    0.115,
+    0.023,
+    0.112,
+    0.215,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Cassette Player by Oday Abuzaeed, Poly Haven (polyhaven.com/a/cassette_player), CC0"
  },
  "ph_ceiling_fan": {
   "ph": "ceiling_fan",
@@ -1128,6 +1657,123 @@
   "lodDist": 15,
   "credit": "Ceramic Vase 01 by James Ray Cock, Poly Haven (polyhaven.com/a/ceramic_vase_01), CC0"
  },
+ "ph_ceramic_vase_02": {
+  "ph": "ceramic_vase_02",
+  "name": "Ceramic Vase 02",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.218,
+   0.309,
+   0.218
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.132,
+    -0.0,
+    0.218,
+    0.259,
+    0.218
+   ],
+   [
+    -0.0,
+    0.285,
+    0.0,
+    0.158,
+    0.046,
+    0.158
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Ceramic Vase 02 by James Ray Cock, Poly Haven (polyhaven.com/a/ceramic_vase_02), CC0"
+ },
+ "ph_ceramic_vase_03": {
+  "ph": "ceramic_vase_03",
+  "name": "Ceramic Vase 03",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.112,
+   0.414,
+   0.112
+  ],
+  "colliders": [
+   [
+    0.046,
+    0.214,
+    -0.0,
+    0.04,
+    0.401,
+    0.107
+   ],
+   [
+    -0.0,
+    0.214,
+    0.046,
+    0.107,
+    0.401,
+    0.04
+   ],
+   [
+    -0.0,
+    0.214,
+    -0.046,
+    0.107,
+    0.401,
+    0.04
+   ],
+   [
+    -0.046,
+    0.206,
+    0.0,
+    0.04,
+    0.386,
+    0.107
+   ],
+   [
+    0.0,
+    0.406,
+    -0.0,
+    0.11,
+    0.04,
+    0.11
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Ceramic Vase 03 by James Ray Cock, Poly Haven (polyhaven.com/a/ceramic_vase_03), CC0"
+ },
+ "ph_ceramic_vase_04": {
+  "ph": "ceramic_vase_04",
+  "name": "Ceramic Vase 04",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.181,
+   0.342,
+   0.181
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.122,
+    -0.0,
+    0.181,
+    0.242,
+    0.181
+   ],
+   [
+    -0.0,
+    0.292,
+    -0.0,
+    0.098,
+    0.098,
+    0.098
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Ceramic Vase 04 by James Ray Cock, Poly Haven (polyhaven.com/a/ceramic_vase_04), CC0"
+ },
  "ph_chandelier_01": {
   "ph": "Chandelier_01",
   "name": "Chandelier 01",
@@ -1206,6 +1852,45 @@
   "maxTex": 1024,
   "lodDist": 15,
   "credit": "Chandelier 01 by Kirill Sannikov, Poly Haven (polyhaven.com/a/Chandelier_01), CC0"
+ },
+ "ph_chandelier_02": {
+  "ph": "Chandelier_02",
+  "name": "Chandelier 02",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.679,
+   0.848,
+   0.619
+  ],
+  "colliders": [
+   [
+    -0.055,
+    0.262,
+    -0.126,
+    0.118,
+    0.248,
+    0.169
+   ],
+   [
+    0.042,
+    0.261,
+    -0.125,
+    0.11,
+    0.248,
+    0.174
+   ],
+   [
+    0.087,
+    0.262,
+    -0.106,
+    0.104,
+    0.248,
+    0.177
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Chandelier 02 by Kirill Sannikov, Poly Haven (polyhaven.com/a/Chandelier_02), CC0"
  },
  "ph_chandelier_03": {
   "ph": "Chandelier_03",
@@ -1293,6 +1978,172 @@
   "maxTex": 1024,
   "lodDist": 15,
   "credit": "Chandelier 03 by Kirill Sannikov, Poly Haven (polyhaven.com/a/Chandelier_03), CC0"
+ },
+ "ph_cheiridopsis_succulent": {
+  "ph": "cheiridopsis_succulent",
+  "name": "Cheiridopsis Succulent",
+  "category": "Desert",
+  "size": [
+   2.161,
+   0.271,
+   0.959
+  ],
+  "colliders": [
+   [
+    0.206,
+    0.043,
+    -0.231,
+    0.516,
+    0.081,
+    0.478
+   ],
+   [
+    0.812,
+    0.034,
+    -0.189,
+    0.457,
+    0.062,
+    0.495
+   ],
+   [
+    -0.342,
+    0.044,
+    -0.203,
+    0.463,
+    0.074,
+    0.357
+   ],
+   [
+    -0.877,
+    0.05,
+    -0.185,
+    0.397,
+    0.044,
+    0.326
+   ],
+   [
+    0.686,
+    0.049,
+    0.298,
+    0.299,
+    0.042,
+    0.276
+   ],
+   [
+    0.181,
+    0.049,
+    0.318,
+    0.26,
+    0.04,
+    0.288
+   ],
+   [
+    -0.365,
+    0.193,
+    -0.312,
+    0.138,
+    0.086,
+    0.124
+   ],
+   [
+    -0.468,
+    0.235,
+    -0.202,
+    0.112,
+    0.071,
+    0.121
+   ],
+   [
+    -0.299,
+    0.123,
+    -0.285,
+    0.072,
+    0.122,
+    0.104
+   ],
+   [
+    0.64,
+    0.096,
+    -0.318,
+    0.085,
+    0.126,
+    0.082
+   ],
+   [
+    -0.226,
+    0.039,
+    0.317,
+    0.164,
+    0.04,
+    0.131
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Cheiridopsis Succulent by James Ray Cock, Jenelle van Heerden, Poly Haven (polyhaven.com/a/cheiridopsis_succulent), CC0"
+ },
+ "ph_chemistry_set": {
+  "ph": "chemistry_set",
+  "name": "Chemistry Set",
+  "category": "Industrial: Yard",
+  "size": [
+   1.078,
+   0.429,
+   0.354
+  ],
+  "colliders": [
+   [
+    0.383,
+    0.071,
+    0.052,
+    0.096,
+    0.119,
+    0.09
+   ],
+   [
+    0.436,
+    0.017,
+    -0.098,
+    0.195,
+    0.04,
+    0.124
+   ],
+   [
+    0.502,
+    0.233,
+    -0.098,
+    0.04,
+    0.39,
+    0.04
+   ],
+   [
+    0.484,
+    0.177,
+    0.052,
+    0.047,
+    0.288,
+    0.043
+   ],
+   [
+    -0.014,
+    0.045,
+    -0.083,
+    0.279,
+    0.04,
+    0.04
+   ],
+   [
+    -0.014,
+    0.11,
+    -0.098,
+    0.279,
+    0.04,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Chemistry Set by Jiří Ptáček, Poly Haven (polyhaven.com/a/chemistry_set), CC0"
  },
  "ph_chess_set": {
   "ph": "chess_set",
@@ -1497,6 +2348,29 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Classic Nightstand 01 by Kirill Sannikov, Poly Haven (polyhaven.com/a/ClassicNightstand_01), CC0"
+ },
+ "ph_clipboard": {
+  "ph": "clipboard",
+  "name": "Clipboard",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.229,
+   0.042,
+   0.337
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.003,
+    0.01,
+    0.228,
+    0.04,
+    0.318
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Clipboard by ProgrammerOnCoffee, Poly Haven (polyhaven.com/a/clipboard), CC0"
  },
  "ph_coffee_table_round_01": {
   "ph": "coffee_table_round_01",
@@ -1954,6 +2828,37 @@
   "lodDist": 30,
   "credit": "Covered Car by MP, Poly Haven (polyhaven.com/a/covered_car), CC0"
  },
+ "ph_crowbar_01": {
+  "ph": "crowbar_01",
+  "name": "Crowbar 01",
+  "category": "Industrial: Yard",
+  "size": [
+   0.04,
+   0.555,
+   0.128
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.256,
+    -0.031,
+    0.04,
+    0.329,
+    0.04
+   ],
+   [
+    -0.0,
+    0.486,
+    -0.039,
+    0.04,
+    0.134,
+    0.049
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Crowbar 01 by Alexander Otterbeck, Poly Haven (polyhaven.com/a/crowbar_01), CC0"
+ },
  "ph_dartboard": {
   "ph": "dartboard",
   "name": "Dartboard",
@@ -1976,6 +2881,147 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Dartboard by Satyaki Mandal, Poly Haven (polyhaven.com/a/dartboard), CC0"
+ },
+ "ph_dead_quiver_branch_01": {
+  "ph": "dead_quiver_branch_01",
+  "name": "Dead Quiver Branch 01",
+  "category": "Desert",
+  "size": [
+   0.255,
+   0.439,
+   0.227
+  ],
+  "colliders": [
+   [
+    -0.01,
+    0.117,
+    -0.05,
+    0.195,
+    0.227,
+    0.09
+   ],
+   [
+    0.003,
+    0.258,
+    -0.034,
+    0.137,
+    0.143,
+    0.094
+   ],
+   [
+    0.05,
+    0.371,
+    -0.036,
+    0.062,
+    0.124,
+    0.084
+   ],
+   [
+    0.07,
+    0.312,
+    0.031,
+    0.088,
+    0.049,
+    0.125
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Dead Quiver Branch 01 by Greg Zaal, Jenelle van Heerden, Poly Haven (polyhaven.com/a/dead_quiver_branch_01), CC0"
+ },
+ "ph_dead_quiver_branch_02": {
+  "ph": "dead_quiver_branch_02",
+  "name": "Dead Quiver Branch 02",
+  "category": "Desert",
+  "size": [
+   0.287,
+   0.526,
+   0.201
+  ],
+  "colliders": [
+   [
+    -0.005,
+    0.266,
+    -0.005,
+    0.168,
+    0.433,
+    0.19
+   ],
+   [
+    -0.003,
+    0.086,
+    0.005,
+    0.166,
+    0.156,
+    0.191
+   ],
+   [
+    0.064,
+    0.451,
+    -0.009,
+    0.139,
+    0.121,
+    0.132
+   ],
+   [
+    -0.072,
+    0.458,
+    -0.009,
+    0.144,
+    0.114,
+    0.127
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Dead Quiver Branch 02 by Greg Zaal, Jenelle van Heerden, Poly Haven (polyhaven.com/a/dead_quiver_branch_02), CC0"
+ },
+ "ph_dead_quiver_trunk": {
+  "ph": "dead_quiver_trunk",
+  "name": "Dead Quiver Trunk",
+  "category": "Desert",
+  "size": [
+   0.306,
+   1.994,
+   0.268
+  ],
+  "colliders": [
+   [
+    0.03,
+    0.524,
+    0.013,
+    0.21,
+    1.017,
+    0.229
+   ],
+   [
+    0.02,
+    1.414,
+    0.006,
+    0.19,
+    0.859,
+    0.169
+   ],
+   [
+    0.061,
+    1.891,
+    -0.043,
+    0.185,
+    0.207,
+    0.182
+   ],
+   [
+    -0.064,
+    1.845,
+    0.046,
+    0.179,
+    0.134,
+    0.176
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Dead Quiver Trunk by Dario Barresi, James Ray Cock, Rico Cilliers, Poly Haven (polyhaven.com/a/dead_quiver_trunk), CC0"
  },
  "ph_desk_lamp_arm_01": {
   "ph": "desk_lamp_arm_01",
@@ -2181,6 +3227,29 @@
   "lodDist": 30,
   "credit": "Drawer Cabinet by Ulan Cabanilla, Poly Haven (polyhaven.com/a/drawer_cabinet), CC0"
  },
+ "ph_drill_01": {
+  "ph": "Drill_01",
+  "name": "Drill 01",
+  "category": "Industrial: Yard",
+  "size": [
+   0.183,
+   0.185,
+   0.052
+  ],
+  "colliders": [
+   [
+    0.038,
+    0.122,
+    0.013,
+    0.097,
+    0.119,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Drill 01 by Fernando Quinn, Poly Haven (polyhaven.com/a/Drill_01), CC0"
+ },
  "ph_drill_press_01": {
   "ph": "drill_press_01",
   "name": "Drill Press 01",
@@ -2227,6 +3296,29 @@
   "maxTex": 1024,
   "lodDist": 15,
   "credit": "Drill Press 01 by Viktor, Poly Haven (polyhaven.com/a/drill_press_01), CC0"
+ },
+ "ph_dustpan": {
+  "ph": "dustpan",
+  "name": "Dustpan",
+  "category": "Town clutter",
+  "size": [
+   0.332,
+   0.1,
+   0.368
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.05,
+    0.0,
+    0.332,
+    0.099,
+    0.368
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Dustpan by Balen, Poly Haven (polyhaven.com/a/dustpan), CC0"
  },
  "ph_electric_stove": {
   "ph": "electric_stove",
@@ -2510,6 +3602,29 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Filmstrip Projector 8mm by PeterM, Poly Haven (polyhaven.com/a/filmstrip_projector_8mm), CC0"
+ },
+ "ph_fire_alarm": {
+  "ph": "fire_alarm",
+  "name": "Fire Alarm",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.099,
+   0.144,
+   0.026
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.072,
+    -0.013,
+    0.099,
+    0.144,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Fire Alarm by Slinc, Poly Haven (polyhaven.com/a/fire_alarm), CC0"
  },
  "ph_fire_hydrant": {
   "ph": "fire_hydrant",
@@ -2866,6 +3981,211 @@
   "lodDist": 15,
   "credit": "Gallinera Table by Ulan Cabanilla, Poly Haven (polyhaven.com/a/gallinera_table), CC0"
  },
+ "ph_garden_gnome": {
+  "ph": "garden_gnome",
+  "name": "Garden Gnome",
+  "category": "Town clutter",
+  "size": [
+   0.258,
+   0.599,
+   0.21
+  ],
+  "colliders": [
+   [
+    0.03,
+    0.249,
+    -0.009,
+    0.198,
+    0.132,
+    0.127
+   ],
+   [
+    0.015,
+    0.497,
+    -0.028,
+    0.113,
+    0.204,
+    0.124
+   ],
+   [
+    0.015,
+    0.361,
+    -0.041,
+    0.158,
+    0.115,
+    0.104
+   ],
+   [
+    0.016,
+    0.337,
+    0.024,
+    0.151,
+    0.175,
+    0.07
+   ],
+   [
+    0.017,
+    0.165,
+    0.013,
+    0.209,
+    0.087,
+    0.087
+   ],
+   [
+    0.017,
+    0.162,
+    -0.062,
+    0.209,
+    0.079,
+    0.085
+   ],
+   [
+    0.016,
+    0.13,
+    -0.027,
+    0.206,
+    0.04,
+    0.155
+   ],
+   [
+    -0.025,
+    0.095,
+    -0.022,
+    0.08,
+    0.082,
+    0.122
+   ],
+   [
+    0.055,
+    0.095,
+    -0.022,
+    0.08,
+    0.082,
+    0.122
+   ],
+   [
+    0.015,
+    0.001,
+    0.0,
+    0.134,
+    0.04,
+    0.119
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Garden Gnome by Bhargav Kubal, Poly Haven (polyhaven.com/a/garden_gnome), CC0"
+ },
+ "ph_garden_hose_wall_mounted_01": {
+  "ph": "garden_hose_wall_mounted_01",
+  "name": "Garden Hose Wall Mounted 01",
+  "category": "Town clutter",
+  "size": [
+   0.467,
+   0.557,
+   0.25
+  ],
+  "colliders": [
+   [
+    -0.043,
+    0.335,
+    -0.067,
+    0.376,
+    0.419,
+    0.11
+   ],
+   [
+    0.0,
+    0.292,
+    -0.006,
+    0.467,
+    0.515,
+    0.071
+   ],
+   [
+    -0.005,
+    0.331,
+    0.071,
+    0.406,
+    0.374,
+    0.096
+   ],
+   [
+    -0.078,
+    0.167,
+    -0.015,
+    0.268,
+    0.3,
+    0.179
+   ],
+   [
+    -0.025,
+    0.251,
+    -0.056,
+    0.376,
+    0.449,
+    0.084
+   ],
+   [
+    -0.026,
+    0.246,
+    0.05,
+    0.342,
+    0.438,
+    0.087
+   ],
+   [
+    0.025,
+    0.299,
+    0.086,
+    0.381,
+    0.464,
+    0.066
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Garden Hose Wall Mounted 01 by Kuutti Siitonen, Poly Haven (polyhaven.com/a/garden_hose_wall_mounted_01), CC0"
+ },
+ "ph_garden_sprinkler_01": {
+  "ph": "garden_sprinkler_01",
+  "name": "Garden Sprinkler 01",
+  "category": "Town clutter",
+  "size": [
+   0.351,
+   0.203,
+   0.249
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.057,
+    -0.025,
+    0.231,
+    0.048,
+    0.137
+   ],
+   [
+    -0.065,
+    0.171,
+    0.026,
+    0.12,
+    0.04,
+    0.04
+   ],
+   [
+    0.065,
+    0.171,
+    0.018,
+    0.12,
+    0.04,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Garden Sprinkler 01 by Amal Kumar, Poly Haven (polyhaven.com/a/garden_sprinkler_01), CC0"
+ },
  "ph_gothicbed_01": {
   "ph": "GothicBed_01",
   "name": "Gothic Bed 01",
@@ -3166,6 +4486,45 @@
   "lodDist": 15,
   "credit": "Green Chair 01 by Kirill Sannikov, Poly Haven (polyhaven.com/a/GreenChair_01), CC0"
  },
+ "ph_hand_plane_no4": {
+  "ph": "hand_plane_no4",
+  "name": "Hand Plane No4",
+  "category": "Industrial: Yard",
+  "size": [
+   0.331,
+   0.198,
+   0.084
+  ],
+  "colliders": [
+   [
+    0.029,
+    0.116,
+    -0.0,
+    0.141,
+    0.163,
+    0.076
+   ],
+   [
+    0.0,
+    0.0,
+    -0.0,
+    0.33,
+    0.04,
+    0.083
+   ],
+   [
+    0.111,
+    0.096,
+    0.016,
+    0.094,
+    0.162,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Hand Plane No4 by Satyaki Mandal, Poly Haven (polyhaven.com/a/hand_plane_no4), CC0"
+ },
  "ph_hand_truck": {
   "ph": "hand_truck",
   "name": "Hand Truck",
@@ -3204,6 +4563,37 @@
   "maxTex": 1024,
   "lodDist": 15,
   "credit": "Hand Truck by Mutanzom3D, Poly Haven (polyhaven.com/a/hand_truck), CC0"
+ },
+ "ph_handsaw_wood": {
+  "ph": "handsaw_wood",
+  "name": "Handsaw Wood",
+  "category": "Industrial: Yard",
+  "size": [
+   0.041,
+   0.167,
+   0.633
+  ],
+  "colliders": [
+   [
+    -0.001,
+    0.091,
+    0.07,
+    0.04,
+    0.118,
+    0.492
+   ],
+   [
+    -0.015,
+    0.085,
+    -0.194,
+    0.04,
+    0.161,
+    0.201
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Handsaw Wood by Konrad Szałankiewicz, Poly Haven (polyhaven.com/a/handsaw_wood), CC0"
  },
  "ph_hanging_industrial_lamp": {
   "ph": "hanging_industrial_lamp",
@@ -3328,6 +4718,29 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Hanging Picture Frame 03 by James Ray Cock, Poly Haven (polyhaven.com/a/hanging_picture_frame_03), CC0"
+ },
+ "ph_hatchet": {
+  "ph": "hatchet",
+  "name": "Hatchet",
+  "category": "Town clutter",
+  "size": [
+   0.026,
+   0.289,
+   0.104
+  ],
+  "colliders": [
+   [
+    -0.006,
+    0.254,
+    0.001,
+    0.04,
+    0.07,
+    0.103
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Hatchet by James Ray Cock, Ulan Cabanilla, Poly Haven (polyhaven.com/a/hatchet), CC0"
  },
  "ph_industrial_caged_sconce": {
   "ph": "industrial_caged_sconce",
@@ -3534,6 +4947,29 @@
   "lodDist": 15,
   "credit": "Industrial Plastic Container by Galo Benivegna, Poly Haven (polyhaven.com/a/industrial_pastic_container), CC0"
  },
+ "ph_industrial_pipe_lamp": {
+  "ph": "industrial_pipe_lamp",
+  "name": "Industrial Pipe Lamp",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.183,
+   0.364,
+   0.262
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.291,
+    0.065,
+    0.178,
+    0.128,
+    0.125
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Industrial Pipe Lamp by Mateusz Sadek, Poly Haven (polyhaven.com/a/industrial_pipe_lamp), CC0"
+ },
  "ph_industrial_storage_cart": {
   "ph": "industrial_storage_cart",
   "name": "Industrial Storage Cart",
@@ -3667,6 +5103,45 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Industrial Wall Lamp by Kuutti Siitonen, Poly Haven (polyhaven.com/a/industrial_wall_lamp), CC0"
+ },
+ "ph_industrial_wall_sconce": {
+  "ph": "industrial_wall_sconce",
+  "name": "Industrial Wall Sconce",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.15,
+   0.342,
+   0.252
+  ],
+  "colliders": [
+   [
+    -0.001,
+    0.129,
+    0.06,
+    0.125,
+    0.118,
+    0.125
+   ],
+   [
+    0.0,
+    0.171,
+    -0.122,
+    0.123,
+    0.314,
+    0.04
+   ],
+   [
+    -0.001,
+    0.158,
+    -0.049,
+    0.04,
+    0.235,
+    0.105
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Industrial Wall Sconce by Ulan Cabanilla, Poly Haven (polyhaven.com/a/industrial_wall_sconce), CC0"
  },
  "ph_jug_01": {
   "ph": "jug_01",
@@ -4062,6 +5537,195 @@
   "lodDist": 30,
   "credit": "Large Iron Gate by Josh Dean, Poly Haven (polyhaven.com/a/large_iron_gate), CC0"
  },
+ "ph_life_jacket": {
+  "ph": "life_jacket",
+  "name": "Life Jacket",
+  "category": "Industrial: Yard",
+  "size": [
+   0.696,
+   0.992,
+   0.184
+  ],
+  "colliders": [
+   [
+    -0.163,
+    0.498,
+    0.039,
+    0.365,
+    0.985,
+    0.105
+   ],
+   [
+    0.178,
+    0.498,
+    0.039,
+    0.335,
+    0.983,
+    0.105
+   ],
+   [
+    -0.165,
+    0.496,
+    -0.047,
+    0.36,
+    0.985,
+    0.07
+   ],
+   [
+    0.176,
+    0.499,
+    -0.047,
+    0.337,
+    0.982,
+    0.07
+   ],
+   [
+    -0.241,
+    0.15,
+    -0.001,
+    0.131,
+    0.06,
+    0.158
+   ],
+   [
+    0.246,
+    0.153,
+    -0.002,
+    0.128,
+    0.059,
+    0.159
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Life Jacket by PierreB3D, Poly Haven (polyhaven.com/a/life_jacket), CC0"
+ },
+ "ph_lifebuoy": {
+  "ph": "lifebuoy",
+  "name": "Lifebuoy",
+  "category": "Industrial: Yard",
+  "size": [
+   0.783,
+   0.841,
+   0.155
+  ],
+  "colliders": [
+   [
+    0.049,
+    0.522,
+    -0.036,
+    0.658,
+    0.638,
+    0.077
+   ],
+   [
+    -0.051,
+    0.402,
+    -0.036,
+    0.658,
+    0.638,
+    0.077
+   ],
+   [
+    0.049,
+    0.522,
+    0.027,
+    0.658,
+    0.638,
+    0.067
+   ],
+   [
+    -0.051,
+    0.402,
+    0.027,
+    0.658,
+    0.638,
+    0.067
+   ],
+   [
+    -0.056,
+    0.643,
+    0.032,
+    0.671,
+    0.325,
+    0.091
+   ],
+   [
+    0.179,
+    0.374,
+    -0.006,
+    0.425,
+    0.749,
+    0.04
+   ],
+   [
+    -0.212,
+    0.241,
+    -0.006,
+    0.36,
+    0.479,
+    0.04
+   ],
+   [
+    0.228,
+    0.248,
+    -0.007,
+    0.194,
+    0.191,
+    0.14
+   ],
+   [
+    -0.23,
+    0.676,
+    -0.007,
+    0.194,
+    0.191,
+    0.14
+   ],
+   [
+    -0.215,
+    0.233,
+    -0.007,
+    0.19,
+    0.194,
+    0.14
+   ],
+   [
+    0.217,
+    0.688,
+    -0.007,
+    0.187,
+    0.189,
+    0.137
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Lifebuoy by Hank Kaamura, Poly Haven (polyhaven.com/a/lifebuoy), CC0"
+ },
+ "ph_lubricant_spray": {
+  "ph": "lubricant_spray",
+  "name": "Lubricant Spray",
+  "category": "Industrial: Yard",
+  "size": [
+   0.067,
+   0.165,
+   0.065
+  ],
+  "colliders": [
+   [
+    -0.001,
+    0.073,
+    -0.0,
+    0.065,
+    0.139,
+    0.065
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Lubricant Spray by James Ray Cock, Poly Haven (polyhaven.com/a/lubricant_spray), CC0"
+ },
  "ph_mantel_clock_01": {
   "ph": "mantel_clock_01",
   "name": "Mantel Clock 01",
@@ -4092,6 +5756,201 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Mantel Clock 01 by Rico Cilliers, Yann Kervran, Poly Haven (polyhaven.com/a/mantel_clock_01), CC0"
+ },
+ "ph_measuring_tape_01": {
+  "ph": "measuring_tape_01",
+  "name": "Measuring Tape 01",
+  "category": "Industrial: Yard",
+  "size": [
+   0.041,
+   0.073,
+   0.169
+  ],
+  "colliders": [],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Measuring Tape 01 by Kuutti Siitonen, Poly Haven (polyhaven.com/a/measuring_tape_01), CC0"
+ },
+ "ph_medical_box": {
+  "ph": "medical_box",
+  "name": "Medical Box",
+  "category": "Desert",
+  "size": [
+   0.525,
+   0.098,
+   0.35
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.088,
+    -0.003,
+    0.517,
+    0.04,
+    0.33
+   ],
+   [
+    0.0,
+    0.0,
+    -0.003,
+    0.515,
+    0.04,
+    0.331
+   ],
+   [
+    -0.005,
+    0.042,
+    0.15,
+    0.477,
+    0.073,
+    0.04
+   ],
+   [
+    0.005,
+    0.042,
+    -0.155,
+    0.477,
+    0.073,
+    0.04
+   ],
+   [
+    -0.243,
+    0.042,
+    -0.008,
+    0.04,
+    0.073,
+    0.296
+   ],
+   [
+    0.243,
+    0.042,
+    0.002,
+    0.04,
+    0.073,
+    0.296
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Medical Box by Ulan Cabanilla, Poly Haven (polyhaven.com/a/medical_box), CC0"
+ },
+ "ph_megaphone_01": {
+  "ph": "Megaphone_01",
+  "name": "Megaphone 01",
+  "category": "Town clutter",
+  "size": [
+   0.371,
+   0.3,
+   0.228
+  ],
+  "colliders": [
+   [
+    -0.076,
+    0.187,
+    -0.0,
+    0.198,
+    0.202,
+    0.204
+   ],
+   [
+    0.085,
+    0.186,
+    -0.0,
+    0.135,
+    0.1,
+    0.101
+   ],
+   [
+    0.051,
+    0.083,
+    0.011,
+    0.101,
+    0.134,
+    0.05
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Megaphone 01 by Ethan Simon-Law, Poly Haven (polyhaven.com/a/Megaphone_01), CC0"
+ },
+ "ph_metal_detector": {
+  "ph": "metal_detector",
+  "name": "Metal Detector",
+  "category": "Desert",
+  "size": [
+   0.238,
+   0.962,
+   0.861
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.358,
+    0.003,
+    0.04,
+    0.545,
+    0.495
+   ],
+   [
+    0.0,
+    0.517,
+    -0.141,
+    0.04,
+    0.542,
+    0.495
+   ],
+   [
+    0.0,
+    0.787,
+    -0.235,
+    0.155,
+    0.186,
+    0.17
+   ],
+   [
+    0.0,
+    0.755,
+    -0.302,
+    0.141,
+    0.223,
+    0.149
+   ],
+   [
+    -0.0,
+    0.04,
+    0.313,
+    0.238,
+    0.065,
+    0.231
+   ],
+   [
+    -0.071,
+    0.755,
+    -0.27,
+    0.04,
+    0.219,
+    0.209
+   ],
+   [
+    0.071,
+    0.755,
+    -0.27,
+    0.04,
+    0.219,
+    0.209
+   ],
+   [
+    -0.013,
+    0.116,
+    0.243,
+    0.067,
+    0.127,
+    0.145
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Metal Detector by Kuutti Siitonen, Poly Haven (polyhaven.com/a/metal_detector), CC0"
  },
  "ph_metal_jerrycan": {
   "ph": "metal_jerrycan",
@@ -5077,6 +6936,212 @@
   "lodDist": 30,
   "credit": "Modern Wooden Cabinet by Patrik Pangerl, Poly Haven (polyhaven.com/a/modern_wooden_cabinet), CC0"
  },
+ "ph_modular_electricity_poles": {
+  "ph": "modular_electricity_poles",
+  "name": "Modular Electricity Poles",
+  "category": "Industrial: Yard",
+  "size": [
+   1.287,
+   6.13,
+   0.852
+  ],
+  "colliders": [
+   [
+    0.409,
+    4.031,
+    0.028,
+    0.419,
+    0.391,
+    0.223
+   ],
+   [
+    0.441,
+    3.849,
+    0.0,
+    0.24,
+    0.364,
+    0.24
+   ],
+   [
+    0.207,
+    3.5,
+    0.0,
+    0.14,
+    1.0,
+    0.14
+   ],
+   [
+    0.207,
+    2.5,
+    0.0,
+    0.14,
+    1.0,
+    0.14
+   ],
+   [
+    0.207,
+    1.502,
+    0.0,
+    0.14,
+    0.996,
+    0.14
+   ],
+   [
+    0.207,
+    0.506,
+    0.0,
+    0.14,
+    0.996,
+    0.14
+   ],
+   [
+    0.207,
+    4.498,
+    0.0,
+    0.14,
+    0.996,
+    0.14
+   ],
+   [
+    0.207,
+    5.494,
+    0.0,
+    0.14,
+    0.996,
+    0.14
+   ],
+   [
+    0.392,
+    5.644,
+    -0.153,
+    0.067,
+    0.326,
+    0.524
+   ],
+   [
+    -0.477,
+    5.665,
+    -0.153,
+    0.053,
+    0.284,
+    0.524
+   ],
+   [
+    0.39,
+    4.565,
+    0.153,
+    0.053,
+    0.284,
+    0.524
+   ],
+   [
+    -0.479,
+    5.644,
+    0.268,
+    0.07,
+    0.327,
+    0.293
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Modular Electricity Poles by James Ray Cock, Poly Haven (polyhaven.com/a/modular_electricity_poles), CC0"
+ },
+ "ph_modular_industrial_pipes_01": {
+  "ph": "modular_industrial_pipes_01",
+  "name": "Modular Industrial Pipes 01",
+  "category": "Industrial: Yard",
+  "size": [
+   1.403,
+   1.955,
+   0.308
+  ],
+  "colliders": [
+   [
+    -0.206,
+    0.664,
+    -0.051,
+    0.525,
+    1.266,
+    0.134
+   ],
+   [
+    -0.598,
+    0.977,
+    -0.048,
+    0.133,
+    1.905,
+    0.132
+   ],
+   [
+    0.534,
+    1.665,
+    -0.051,
+    0.263,
+    0.409,
+    0.134
+   ],
+   [
+    0.271,
+    1.665,
+    -0.051,
+    0.263,
+    0.409,
+    0.134
+   ],
+   [
+    0.402,
+    0.477,
+    -0.048,
+    0.133,
+    0.81,
+    0.132
+   ],
+   [
+    0.451,
+    1.177,
+    -0.051,
+    0.262,
+    0.306,
+    0.143
+   ],
+   [
+    -0.189,
+    1.715,
+    -0.017,
+    0.363,
+    0.384,
+    0.067
+   ],
+   [
+    -0.189,
+    1.715,
+    -0.084,
+    0.363,
+    0.384,
+    0.067
+   ],
+   [
+    0.002,
+    1.078,
+    -0.087,
+    0.306,
+    0.359,
+    0.072
+   ],
+   [
+    0.002,
+    1.078,
+    -0.015,
+    0.306,
+    0.359,
+    0.072
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Modular Industrial Pipes 01 by Jorge Camacho, Poly Haven (polyhaven.com/a/modular_industrial_pipes_01), CC0"
+ },
  "ph_mounted_fluorescent_lights": {
   "ph": "mounted_fluorescent_lights",
   "name": "Mounted Fluorescent Lights",
@@ -5123,6 +7188,621 @@
   "maxTex": 1024,
   "lodDist": 15,
   "credit": "Mounted Fluorescent Lights by Ulan Cabanilla, Poly Haven (polyhaven.com/a/mounted_fluorescent_lights), CC0"
+ },
+ "ph_multi_cleaner_5_litre": {
+  "ph": "multi_cleaner_5_litre",
+  "name": "Multi Cleaner 5 Litre",
+  "category": "Town clutter",
+  "size": [
+   0.219,
+   0.3,
+   0.106
+  ],
+  "colliders": [
+   [
+    0.005,
+    0.132,
+    0.042,
+    0.185,
+    0.257,
+    0.04
+   ],
+   [
+    0.005,
+    0.132,
+    -0.042,
+    0.185,
+    0.257,
+    0.04
+   ],
+   [
+    -0.093,
+    0.124,
+    0.0,
+    0.04,
+    0.242,
+    0.1
+   ],
+   [
+    0.098,
+    0.132,
+    -0.0,
+    0.04,
+    0.256,
+    0.085
+   ],
+   [
+    -0.0,
+    0.002,
+    -0.0,
+    0.192,
+    0.04,
+    0.088
+   ],
+   [
+    -0.04,
+    0.272,
+    0.0,
+    0.132,
+    0.057,
+    0.061
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Multi Cleaner 5 Litre by James Ray Cock, Poly Haven (polyhaven.com/a/multi_cleaner_5_litre), CC0"
+ },
+ "ph_multi_cleaner_bottle": {
+  "ph": "multi_cleaner_bottle",
+  "name": "Multi Cleaner Bottle",
+  "category": "Industrial: Yard",
+  "size": [
+   0.088,
+   0.229,
+   0.09
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.086,
+    -0.0,
+    0.088,
+    0.168,
+    0.088
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Multi Cleaner Bottle by James Ray Cock, Poly Haven (polyhaven.com/a/multi_cleaner_bottle), CC0"
+ },
+ "ph_namaqualand_boulder_02": {
+  "ph": "namaqualand_boulder_02",
+  "name": "Namaqualand Boulder 02",
+  "category": "Desert",
+  "size": [
+   2.532,
+   0.883,
+   1.234
+  ],
+  "colliders": [
+   [
+    0.098,
+    0.475,
+    0.007,
+    0.78,
+    0.816,
+    0.949
+   ],
+   [
+    -1.02,
+    0.349,
+    0.173,
+    0.492,
+    0.584,
+    0.863
+   ],
+   [
+    0.581,
+    0.342,
+    -0.006,
+    0.554,
+    0.364,
+    0.975
+   ],
+   [
+    0.368,
+    0.589,
+    0.095,
+    0.336,
+    0.588,
+    0.765
+   ],
+   [
+    -0.43,
+    0.351,
+    -0.266,
+    0.46,
+    0.557,
+    0.549
+   ],
+   [
+    0.149,
+    0.351,
+    -0.323,
+    0.774,
+    0.547,
+    0.311
+   ],
+   [
+    -0.639,
+    0.449,
+    0.382,
+    0.44,
+    0.412,
+    0.463
+   ],
+   [
+    1.077,
+    0.304,
+    -0.122,
+    0.306,
+    0.514,
+    0.527
+   ],
+   [
+    -0.352,
+    0.366,
+    0.133,
+    0.322,
+    0.538,
+    0.464
+   ],
+   [
+    0.887,
+    0.382,
+    -0.116,
+    0.324,
+    0.386,
+    0.54
+   ],
+   [
+    0.522,
+    0.173,
+    0.133,
+    0.411,
+    0.234,
+    0.69
+   ],
+   [
+    0.639,
+    0.217,
+    0.3,
+    0.28,
+    0.378,
+    0.495
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Namaqualand Boulder 02 by Greg Zaal, Rico Cilliers, Poly Haven (polyhaven.com/a/namaqualand_boulder_02), CC0"
+ },
+ "ph_namaqualand_boulder_03": {
+  "ph": "namaqualand_boulder_03",
+  "name": "Namaqualand Boulder 03",
+  "category": "Desert",
+  "size": [
+   2.407,
+   1.473,
+   3.065
+  ],
+  "colliders": [
+   [
+    0.409,
+    0.699,
+    0.647,
+    1.589,
+    1.296,
+    1.771
+   ],
+   [
+    -0.596,
+    0.769,
+    -0.426,
+    1.216,
+    1.305,
+    2.213
+   ],
+   [
+    0.039,
+    1.225,
+    -0.263,
+    2.225,
+    0.496,
+    2.47
+   ],
+   [
+    -0.595,
+    0.768,
+    0.793,
+    1.213,
+    1.411,
+    1.479
+   ],
+   [
+    0.559,
+    0.643,
+    -0.723,
+    1.288,
+    1.069,
+    1.619
+   ],
+   [
+    0.088,
+    0.117,
+    0.085,
+    2.085,
+    0.234,
+    2.849
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Namaqualand Boulder 03 by Dario Barresi, Jenelle van Heerden, Poly Haven (polyhaven.com/a/namaqualand_boulder_03), CC0"
+ },
+ "ph_namaqualand_boulder_04": {
+  "ph": "namaqualand_boulder_04",
+  "name": "Namaqualand Boulder 04",
+  "category": "Desert",
+  "size": [
+   2.522,
+   1.9,
+   2.496
+  ],
+  "colliders": [
+   [
+    -0.054,
+    0.974,
+    0.156,
+    2.415,
+    1.852,
+    2.185
+   ],
+   [
+    0.696,
+    0.863,
+    -0.379,
+    1.131,
+    1.563,
+    1.705
+   ],
+   [
+    0.555,
+    0.869,
+    0.733,
+    1.411,
+    1.646,
+    1.012
+   ],
+   [
+    -0.287,
+    0.854,
+    -0.897,
+    1.831,
+    1.573,
+    0.703
+   ],
+   [
+    0.007,
+    0.098,
+    -0.074,
+    2.416,
+    0.195,
+    2.337
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Namaqualand Boulder 04 by Jenelle van Heerden, Poly Haven (polyhaven.com/a/namaqualand_boulder_04), CC0"
+ },
+ "ph_namaqualand_boulder_06": {
+  "ph": "namaqualand_boulder_06",
+  "name": "Namaqualand Boulder 06",
+  "category": "Desert",
+  "size": [
+   0.675,
+   0.652,
+   1.212
+  ],
+  "colliders": [
+   [
+    -0.2,
+    0.33,
+    -0.206,
+    0.244,
+    0.64,
+    0.757
+   ],
+   [
+    0.041,
+    0.108,
+    -0.028,
+    0.494,
+    0.216,
+    1.013
+   ],
+   [
+    0.031,
+    0.273,
+    0.402,
+    0.564,
+    0.419,
+    0.407
+   ],
+   [
+    -0.028,
+    0.458,
+    0.294,
+    0.618,
+    0.237,
+    0.555
+   ],
+   [
+    -0.036,
+    0.548,
+    -0.21,
+    0.562,
+    0.207,
+    0.628
+   ],
+   [
+    0.055,
+    0.378,
+    -0.447,
+    0.45,
+    0.485,
+    0.318
+   ],
+   [
+    0.265,
+    0.278,
+    -0.162,
+    0.137,
+    0.385,
+    0.503
+   ],
+   [
+    -0.259,
+    0.318,
+    0.359,
+    0.157,
+    0.281,
+    0.473
+   ],
+   [
+    -0.173,
+    0.109,
+    0.309,
+    0.164,
+    0.193,
+    0.538
+   ],
+   [
+    0.279,
+    0.293,
+    0.181,
+    0.088,
+    0.39,
+    0.33
+   ],
+   [
+    0.268,
+    0.504,
+    -0.18,
+    0.084,
+    0.22,
+    0.349
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Namaqualand Boulder 06 by Greg Zaal, Jenelle van Heerden, Poly Haven (polyhaven.com/a/namaqualand_boulder_06), CC0"
+ },
+ "ph_namaqualand_boulders_01": {
+  "ph": "namaqualand_boulders_01",
+  "name": "Namaqualand Boulders 01",
+  "category": "Desert",
+  "size": [
+   1.058,
+   0.252,
+   0.587
+  ],
+  "colliders": [
+   [
+    0.345,
+    0.161,
+    -0.01,
+    0.357,
+    0.181,
+    0.551
+   ],
+   [
+    -0.415,
+    0.104,
+    -0.012,
+    0.229,
+    0.194,
+    0.561
+   ],
+   [
+    0.304,
+    0.062,
+    -0.013,
+    0.274,
+    0.123,
+    0.546
+   ],
+   [
+    -0.331,
+    0.043,
+    -0.008,
+    0.283,
+    0.084,
+    0.57
+   ],
+   [
+    -0.253,
+    0.119,
+    -0.03,
+    0.127,
+    0.182,
+    0.482
+   ],
+   [
+    0.461,
+    0.088,
+    -0.11,
+    0.137,
+    0.171,
+    0.353
+   ],
+   [
+    0.397,
+    0.085,
+    0.123,
+    0.225,
+    0.134,
+    0.273
+   ],
+   [
+    -0.324,
+    0.173,
+    0.011,
+    0.146,
+    0.073,
+    0.307
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Namaqualand Boulders 01 by Greg Zaal, Jenelle van Heerden, Poly Haven (polyhaven.com/a/namaqualand_boulders_01), CC0"
+ },
+ "ph_namaqualand_rocks_01": {
+  "ph": "namaqualand_rocks_01",
+  "name": "Namaqualand Rocks 01",
+  "category": "Desert",
+  "size": [
+   1.448,
+   0.152,
+   0.217
+  ],
+  "colliders": [
+   [
+    -0.61,
+    0.047,
+    -0.001,
+    0.226,
+    0.094,
+    0.212
+   ],
+   [
+    0.625,
+    0.068,
+    0.011,
+    0.199,
+    0.113,
+    0.147
+   ],
+   [
+    -0.546,
+    0.072,
+    0.005,
+    0.097,
+    0.13,
+    0.199
+   ],
+   [
+    0.254,
+    0.045,
+    0.018,
+    0.16,
+    0.084,
+    0.132
+   ],
+   [
+    -0.192,
+    0.04,
+    -0.032,
+    0.219,
+    0.066,
+    0.094
+   ],
+   [
+    -0.191,
+    0.02,
+    0.012,
+    0.216,
+    0.04,
+    0.143
+   ],
+   [
+    -0.67,
+    0.114,
+    0.008,
+    0.107,
+    0.078,
+    0.14
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Namaqualand Rocks 01 by Greg Zaal, Jenelle van Heerden, Poly Haven (polyhaven.com/a/namaqualand_rocks_01), CC0"
+ },
+ "ph_namaqualand_stones_01": {
+  "ph": "namaqualand_stones_01",
+  "name": "Namaqualand Stones 01",
+  "category": "Desert",
+  "size": [
+   1.022,
+   0.084,
+   0.112
+  ],
+  "colliders": [
+   [
+    -0.241,
+    0.048,
+    0.008,
+    0.151,
+    0.072,
+    0.079
+   ],
+   [
+    0.455,
+    0.04,
+    -0.012,
+    0.111,
+    0.076,
+    0.088
+   ],
+   [
+    0.013,
+    0.009,
+    -0.007,
+    0.098,
+    0.04,
+    0.098
+   ],
+   [
+    0.225,
+    0.021,
+    -0.0,
+    0.113,
+    0.04,
+    0.082
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Namaqualand Stones 01 by Greg Zaal, Jenelle van Heerden, Poly Haven (polyhaven.com/a/namaqualand_stones_01), CC0"
  },
  "ph_ocean_buoy": {
   "ph": "ocean_buoy",
@@ -5234,6 +7914,29 @@
   "maxTex": 1024,
   "lodDist": 30,
   "credit": "Ocean Buoy by Mateusz Sadek, Poly Haven (polyhaven.com/a/ocean_buoy), CC0"
+ },
+ "ph_oil_tin": {
+  "ph": "oil_tin",
+  "name": "Oil Tin",
+  "category": "Desert",
+  "size": [
+   0.115,
+   0.205,
+   0.154
+  ],
+  "colliders": [
+   [
+    0.011,
+    0.099,
+    -0.0,
+    0.093,
+    0.189,
+    0.153
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Oil Tin by Niklas, Poly Haven (polyhaven.com/a/oil_tin), CC0"
  },
  "ph_old_bed_frame": {
   "ph": "old_bed_frame",
@@ -5352,6 +8055,45 @@
   "maxTex": 1024,
   "lodDist": 15,
   "credit": "Old Drill Press by Harsh Vardhan Singh, Poly Haven (polyhaven.com/a/old_drill_press), CC0"
+ },
+ "ph_old_gas_mask": {
+  "ph": "old_gas_mask",
+  "name": "Old Gas Mask",
+  "category": "Desert",
+  "size": [
+   0.211,
+   1.126,
+   0.309
+  ],
+  "colliders": [
+   [
+    -0.001,
+    0.986,
+    -0.028,
+    0.195,
+    0.28,
+    0.252
+   ],
+   [
+    0.0,
+    0.105,
+    0.115,
+    0.211,
+    0.201,
+    0.079
+   ],
+   [
+    -0.001,
+    0.542,
+    0.118,
+    0.04,
+    0.527,
+    0.047
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Old Gas Mask by Michał Wiśniewski, Poly Haven (polyhaven.com/a/old_gas_mask), CC0"
  },
  "ph_old_military_compressor": {
   "ph": "old_military_compressor",
@@ -5565,6 +8307,101 @@
   "lodDist": 15,
   "credit": "Ornate Mirror 01 by James Ray Cock, Poly Haven (polyhaven.com/a/ornate_mirror_01), CC0"
  },
+ "ph_othonna_cerarioides": {
+  "ph": "othonna_cerarioides",
+  "name": "Othonna Cerarioides",
+  "category": "Desert",
+  "size": [
+   3.969,
+   1.97,
+   1.799
+  ],
+  "colliders": [
+   [
+    1.508,
+    0.236,
+    -0.455,
+    0.193,
+    0.432,
+    0.222
+   ],
+   [
+    1.557,
+    0.195,
+    -0.44,
+    0.254,
+    0.378,
+    0.123
+   ],
+   [
+    1.661,
+    0.587,
+    -0.639,
+    0.174,
+    0.295,
+    0.205
+   ],
+   [
+    1.467,
+    0.192,
+    -0.18,
+    0.206,
+    0.368,
+    0.132
+   ],
+   [
+    1.263,
+    0.211,
+    -0.197,
+    0.213,
+    0.398,
+    0.118
+   ],
+   [
+    1.381,
+    0.185,
+    -0.323,
+    0.189,
+    0.369,
+    0.137
+   ],
+   [
+    1.382,
+    0.178,
+    -0.187,
+    0.164,
+    0.355,
+    0.156
+   ],
+   [
+    -0.152,
+    0.184,
+    -0.258,
+    0.175,
+    0.313,
+    0.16
+   ],
+   [
+    -0.186,
+    0.198,
+    -0.274,
+    0.117,
+    0.33,
+    0.227
+   ],
+   [
+    1.366,
+    0.255,
+    -0.371,
+    0.17,
+    0.465,
+    0.107
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Othonna Cerarioides by James Ray Cock, Jenelle van Heerden, Poly Haven (polyhaven.com/a/othonna_cerarioides), CC0"
+ },
  "ph_ottoman_01": {
   "ph": "Ottoman_01",
   "name": "Ottoman 01",
@@ -5754,6 +8591,109 @@
   "maxTex": 1024,
   "lodDist": 30,
   "credit": "Outdoor Table Chair Set 01 by James Ray Cock, Poly Haven (polyhaven.com/a/outdoor_table_chair_set_01), CC0"
+ },
+ "ph_overhead_crane": {
+  "ph": "overhead_crane",
+  "name": "Overhead Crane",
+  "category": "Industrial: Yard",
+  "size": [
+   12.492,
+   5.133,
+   4.0
+  ],
+  "colliders": [
+   [
+    0.0,
+    4.31,
+    -0.755,
+    11.837,
+    0.851,
+    1.037
+   ],
+   [
+    0.0,
+    4.692,
+    -1.043,
+    10.356,
+    0.227,
+    0.571
+   ],
+   [
+    0.073,
+    3.544,
+    -1.377,
+    4.534,
+    0.381,
+    0.602
+   ],
+   [
+    -5.547,
+    3.125,
+    -0.701,
+    0.819,
+    1.447,
+    0.846
+   ],
+   [
+    5.547,
+    3.125,
+    -0.701,
+    0.819,
+    1.447,
+    0.846
+   ],
+   [
+    -0.438,
+    2.227,
+    -1.361,
+    0.622,
+    2.015,
+    0.307
+   ],
+   [
+    0.0,
+    3.884,
+    -1.043,
+    10.388,
+    0.064,
+    0.571
+   ],
+   [
+    0.139,
+    3.483,
+    -0.871,
+    1.831,
+    0.495,
+    0.419
+   ],
+   [
+    0.139,
+    3.448,
+    -1.254,
+    1.831,
+    0.565,
+    0.348
+   ],
+   [
+    0.139,
+    3.1,
+    -1.03,
+    1.831,
+    0.272,
+    0.709
+   ],
+   [
+    -1.387,
+    3.348,
+    -1.045,
+    0.514,
+    0.727,
+    0.727
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Overhead Crane by Timothy3D, Poly Haven (polyhaven.com/a/overhead_crane), CC0"
  },
  "ph_painted_wooden_bench": {
   "ph": "painted_wooden_bench",
@@ -6497,6 +9437,273 @@
   "lodDist": 30,
   "credit": "Painted Wooden Table by Kirill Sannikov, Poly Haven (polyhaven.com/a/painted_wooden_table), CC0"
  },
+ "ph_picke_dirty_01": {
+  "ph": "picke_dirty_01",
+  "name": "Picke Dirty 01",
+  "category": "Town clutter",
+  "size": [
+   0.55,
+   1.116,
+   0.069
+  ],
+  "colliders": [
+   [
+    -0.027,
+    0.312,
+    -0.012,
+    0.04,
+    0.517,
+    0.043
+   ],
+   [
+    0.004,
+    0.784,
+    -0.003,
+    0.04,
+    0.431,
+    0.044
+   ],
+   [
+    -0.049,
+    1.038,
+    -0.0,
+    0.071,
+    0.083,
+    0.068
+   ],
+   [
+    0.022,
+    1.038,
+    -0.0,
+    0.07,
+    0.084,
+    0.068
+   ],
+   [
+    -0.143,
+    1.071,
+    0.004,
+    0.121,
+    0.04,
+    0.054
+   ],
+   [
+    0.121,
+    1.07,
+    -0.003,
+    0.14,
+    0.04,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Picke Dirty 01 by Dennis Halbeck, Poly Haven (polyhaven.com/a/picke_dirty_01), CC0"
+ },
+ "ph_pipe_wrench": {
+  "ph": "pipe_wrench",
+  "name": "Pipe Wrench",
+  "category": "Industrial: Yard",
+  "size": [
+   0.084,
+   0.405,
+   0.034
+  ],
+  "colliders": [
+   [
+    0.013,
+    0.149,
+    -0.006,
+    0.048,
+    0.296,
+    0.04
+   ],
+   [
+    0.036,
+    0.193,
+    -0.0,
+    0.04,
+    0.303,
+    0.04
+   ],
+   [
+    0.005,
+    0.313,
+    -0.005,
+    0.067,
+    0.18,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Pipe Wrench by Will Evarts, Poly Haven (polyhaven.com/a/pipe_wrench), CC0"
+ },
+ "ph_planter_box_01": {
+  "ph": "planter_box_01",
+  "name": "Planter Box 01",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.913,
+   0.425,
+   0.414
+  ],
+  "colliders": [
+   [
+    0.002,
+    0.051,
+    0.0,
+    0.877,
+    0.04,
+    0.365
+   ],
+   [
+    -0.001,
+    0.228,
+    -0.175,
+    0.811,
+    0.354,
+    0.04
+   ],
+   [
+    0.001,
+    0.228,
+    0.174,
+    0.809,
+    0.355,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Planter Box 01 by James Ray Cock, Poly Haven (polyhaven.com/a/planter_box_01), CC0"
+ },
+ "ph_planter_box_02": {
+  "ph": "planter_box_02",
+  "name": "Planter Box 02",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   1.252,
+   0.453,
+   0.467
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.244,
+    -0.136,
+    1.12,
+    0.35,
+    0.08
+   ],
+   [
+    -0.0,
+    0.244,
+    0.138,
+    1.122,
+    0.35,
+    0.078
+   ],
+   [
+    0.005,
+    0.081,
+    0.0,
+    1.075,
+    0.049,
+    0.305
+   ],
+   [
+    -0.534,
+    0.242,
+    0.001,
+    0.07,
+    0.352,
+    0.349
+   ],
+   [
+    0.531,
+    0.246,
+    0.0,
+    0.068,
+    0.345,
+    0.343
+   ],
+   [
+    -0.001,
+    0.039,
+    0.002,
+    1.185,
+    0.04,
+    0.13
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Planter Box 02 by James Ray Cock, Poly Haven (polyhaven.com/a/planter_box_02), CC0"
+ },
+ "ph_planter_box_03": {
+  "ph": "planter_box_03",
+  "name": "Planter Box 03",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.914,
+   0.855,
+   0.656
+  ],
+  "colliders": [
+   [
+    -0.002,
+    0.486,
+    0.0,
+    0.827,
+    0.04,
+    0.511
+   ],
+   [
+    0.002,
+    0.645,
+    -0.256,
+    0.789,
+    0.348,
+    0.04
+   ],
+   [
+    0.002,
+    0.644,
+    0.262,
+    0.79,
+    0.347,
+    0.04
+   ],
+   [
+    -0.412,
+    0.644,
+    0.003,
+    0.04,
+    0.348,
+    0.474
+   ],
+   [
+    0.409,
+    0.644,
+    -0.0,
+    0.04,
+    0.347,
+    0.47
+   ],
+   [
+    -0.0,
+    0.449,
+    0.082,
+    0.904,
+    0.04,
+    0.13
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Planter Box 03 by James Ray Cock, Poly Haven (polyhaven.com/a/planter_box_03), CC0"
+ },
  "ph_planter_pot_clay": {
   "ph": "planter_pot_clay",
   "name": "Planter Pot Clay",
@@ -6519,6 +9726,29 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Planter Pot Clay by Amal Kumar, Poly Haven (polyhaven.com/a/planter_pot_clay), CC0"
+ },
+ "ph_plastic_bottle_gallon": {
+  "ph": "plastic_bottle_gallon",
+  "name": "Plastic Bottle Gallon",
+  "category": "Desert",
+  "size": [
+   0.166,
+   0.274,
+   0.126
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.126,
+    -0.0,
+    0.166,
+    0.252,
+    0.126
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Plastic Bottle Gallon by Rahul Chaudhary, Poly Haven (polyhaven.com/a/plastic_bottle_gallon), CC0"
  },
  "ph_plastic_broom": {
   "ph": "plastic_broom",
@@ -6945,6 +10175,37 @@
   "lodDist": 15,
   "credit": "Plastic Monobloc Chair 01 by Kuutti Siitonen, Poly Haven (polyhaven.com/a/plastic_monobloc_chair_01), CC0"
  },
+ "ph_plunger": {
+  "ph": "plunger",
+  "name": "Plunger",
+  "category": "Town clutter",
+  "size": [
+   0.172,
+   0.421,
+   0.172
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.034,
+    0.0,
+    0.155,
+    0.06,
+    0.155
+   ],
+   [
+    -0.005,
+    0.257,
+    0.005,
+    0.04,
+    0.325,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Plunger by James Ray Cock, Poly Haven (polyhaven.com/a/plunger), CC0"
+ },
  "ph_portable_generator": {
   "ph": "portable_generator",
   "name": "Portable Generator",
@@ -7055,6 +10316,37 @@
   "maxTex": 1024,
   "lodDist": 15,
   "credit": "Portable Generator by James Ray Cock, Poly Haven (polyhaven.com/a/portable_generator), CC0"
+ },
+ "ph_portable_searchlight": {
+  "ph": "portable_searchlight",
+  "name": "Portable Searchlight",
+  "category": "Town clutter",
+  "size": [
+   0.165,
+   0.185,
+   0.253
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.083,
+    -0.018,
+    0.151,
+    0.155,
+    0.201
+   ],
+   [
+    0.0,
+    0.083,
+    0.107,
+    0.157,
+    0.157,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Portable Searchlight by Elijah Cragg, Poly Haven (polyhaven.com/a/portable_searchlight), CC0"
  },
  "ph_portable_welding_cart": {
   "ph": "portable_welding_cart",
@@ -7189,6 +10481,187 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Pot Enamel 01 by Kuutti Siitonen, Poly Haven (polyhaven.com/a/pot_enamel_01), CC0"
+ },
+ "ph_potted_plant_01": {
+  "ph": "potted_plant_01",
+  "name": "Potted Plant 01",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.587,
+   1.35,
+   0.634
+  ],
+  "colliders": [
+   [
+    0.045,
+    0.351,
+    0.047,
+    0.419,
+    0.363,
+    0.419
+   ],
+   [
+    -0.058,
+    0.73,
+    0.104,
+    0.231,
+    0.611,
+    0.144
+   ],
+   [
+    0.045,
+    0.085,
+    0.047,
+    0.364,
+    0.085,
+    0.364
+   ],
+   [
+    0.045,
+    0.021,
+    0.047,
+    0.385,
+    0.04,
+    0.385
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Potted Plant 01 by Rico Cilliers, Poly Haven (polyhaven.com/a/potted_plant_01), CC0"
+ },
+ "ph_potted_plant_02": {
+  "ph": "potted_plant_02",
+  "name": "Potted Plant 02",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.701,
+   0.841,
+   0.657
+  ],
+  "colliders": [
+   [
+    0.046,
+    0.136,
+    0.092,
+    0.474,
+    0.273,
+    0.474
+   ],
+   [
+    -0.023,
+    0.521,
+    -0.048,
+    0.141,
+    0.42,
+    0.281
+   ],
+   [
+    -0.216,
+    0.631,
+    0.109,
+    0.249,
+    0.23,
+    0.256
+   ],
+   [
+    0.046,
+    0.304,
+    0.092,
+    0.465,
+    0.064,
+    0.465
+   ],
+   [
+    -0.093,
+    0.725,
+    -0.195,
+    0.151,
+    0.231,
+    0.268
+   ],
+   [
+    0.047,
+    0.658,
+    -0.074,
+    0.195,
+    0.222,
+    0.215
+   ],
+   [
+    0.231,
+    0.514,
+    0.22,
+    0.239,
+    0.196,
+    0.189
+   ],
+   [
+    0.145,
+    0.438,
+    0.142,
+    0.202,
+    0.252,
+    0.152
+   ],
+   [
+    -0.138,
+    0.504,
+    0.043,
+    0.258,
+    0.233,
+    0.119
+   ],
+   [
+    -0.149,
+    0.602,
+    -0.08,
+    0.242,
+    0.155,
+    0.176
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Potted Plant 02 by Rico Cilliers, Poly Haven (polyhaven.com/a/potted_plant_02), CC0"
+ },
+ "ph_potted_plant_04": {
+  "ph": "potted_plant_04",
+  "name": "Potted Plant 04",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.168,
+   0.267,
+   0.185
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.065,
+    -0.008,
+    0.158,
+    0.13,
+    0.158
+   ],
+   [
+    0.0,
+    0.153,
+    -0.008,
+    0.167,
+    0.04,
+    0.167
+   ],
+   [
+    -0.023,
+    0.182,
+    -0.006,
+    0.079,
+    0.073,
+    0.061
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Potted Plant 04 by James Ray Cock, Poly Haven (polyhaven.com/a/potted_plant_04), CC0"
  },
  "ph_power_box_01": {
   "ph": "power_box_01",
@@ -7346,6 +10819,398 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Propane Tank by Slinc, Poly Haven (polyhaven.com/a/propane_tank), CC0"
+ },
+ "ph_propane_torch_02": {
+  "ph": "propane_torch_02",
+  "name": "Propane Torch 02",
+  "category": "Industrial: Yard",
+  "size": [
+   0.072,
+   0.4,
+   0.068
+  ],
+  "colliders": [
+   [
+    0.002,
+    0.065,
+    -0.0,
+    0.066,
+    0.126,
+    0.066
+   ],
+   [
+    0.002,
+    0.188,
+    -0.0,
+    0.067,
+    0.12,
+    0.067
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Propane Torch 02 by Divine, Poly Haven (polyhaven.com/a/propane_torch_02), CC0"
+ },
+ "ph_pull_chain_light_socket": {
+  "ph": "pull_chain_light_socket",
+  "name": "Pull Chain Light Socket",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.11,
+   0.165,
+   0.11
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.154,
+    -0.0,
+    0.11,
+    0.04,
+    0.11
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Pull Chain Light Socket by Josh Dean, Poly Haven (polyhaven.com/a/pull_chain_light_socket), CC0"
+ },
+ "ph_quiver_tree_01": {
+  "ph": "quiver_tree_01",
+  "name": "Quiver Tree 01",
+  "category": "Desert",
+  "size": [
+   1.181,
+   2.715,
+   0.969
+  ],
+  "colliders": [
+   [
+    -0.034,
+    0.524,
+    -0.026,
+    0.21,
+    1.017,
+    0.229
+   ],
+   [
+    -0.044,
+    1.414,
+    -0.034,
+    0.19,
+    0.859,
+    0.169
+   ],
+   [
+    -0.146,
+    2.013,
+    0.028,
+    0.215,
+    0.471,
+    0.219
+   ],
+   [
+    0.008,
+    1.986,
+    -0.101,
+    0.209,
+    0.398,
+    0.22
+   ],
+   [
+    0.358,
+    2.496,
+    -0.099,
+    0.287,
+    0.178,
+    0.234
+   ],
+   [
+    0.167,
+    2.525,
+    -0.054,
+    0.188,
+    0.192,
+    0.313
+   ],
+   [
+    -0.094,
+    2.342,
+    0.004,
+    0.163,
+    0.155,
+    0.297
+   ],
+   [
+    0.041,
+    2.499,
+    -0.228,
+    0.361,
+    0.151,
+    0.115
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Quiver Tree 01 by Dario Barresi, James Ray Cock, Rico Cilliers, Poly Haven (polyhaven.com/a/quiver_tree_01), CC0"
+ },
+ "ph_quiver_tree_02": {
+  "ph": "quiver_tree_02",
+  "name": "Quiver Tree 02",
+  "category": "Desert",
+  "size": [
+   0.872,
+   1.469,
+   0.881
+  ],
+  "colliders": [
+   [
+    0.032,
+    0.24,
+    -0.014,
+    0.297,
+    0.48,
+    0.233
+   ],
+   [
+    0.01,
+    0.751,
+    0.008,
+    0.198,
+    0.625,
+    0.193
+   ],
+   [
+    0.157,
+    1.099,
+    -0.076,
+    0.378,
+    0.173,
+    0.285
+   ],
+   [
+    -0.097,
+    1.051,
+    -0.156,
+    0.247,
+    0.22,
+    0.323
+   ],
+   [
+    0.145,
+    1.318,
+    -0.133,
+    0.312,
+    0.183,
+    0.276
+   ],
+   [
+    0.084,
+    1.031,
+    -0.163,
+    0.239,
+    0.231,
+    0.285
+   ],
+   [
+    -0.186,
+    1.274,
+    -0.136,
+    0.332,
+    0.155,
+    0.297
+   ],
+   [
+    -0.064,
+    0.924,
+    -0.102,
+    0.2,
+    0.271,
+    0.273
+   ],
+   [
+    -0.152,
+    0.989,
+    -0.068,
+    0.252,
+    0.247,
+    0.227
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Quiver Tree 02 by Dario Barresi, Rico Cilliers, Poly Haven (polyhaven.com/a/quiver_tree_02), CC0"
+ },
+ "ph_ratchet_wrench": {
+  "ph": "ratchet_wrench",
+  "name": "Ratchet Wrench",
+  "category": "Industrial: Yard",
+  "size": [
+   0.044,
+   0.246,
+   0.043
+  ],
+  "colliders": [],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Ratchet Wrench by John Hutcheson, Poly Haven (polyhaven.com/a/ratchet_wrench), CC0"
+ },
+ "ph_retro_multimeter": {
+  "ph": "retro_multimeter",
+  "name": "Retro Multimeter",
+  "category": "Town clutter",
+  "size": [
+   0.216,
+   0.279,
+   0.203
+  ],
+  "colliders": [
+   [
+    0.027,
+    0.11,
+    -0.098,
+    0.128,
+    0.218,
+    0.04
+   ],
+   [
+    0.027,
+    0.128,
+    -0.038,
+    0.128,
+    0.182,
+    0.04
+   ],
+   [
+    0.005,
+    0.008,
+    0.038,
+    0.206,
+    0.04,
+    0.074
+   ],
+   [
+    0.027,
+    0.236,
+    -0.068,
+    0.141,
+    0.086,
+    0.04
+   ],
+   [
+    0.027,
+    0.001,
+    -0.064,
+    0.13,
+    0.04,
+    0.068
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Retro Multimeter by elli moeller, Poly Haven (polyhaven.com/a/retro_multimeter), CC0"
+ },
+ "ph_rock_face_02": {
+  "ph": "rock_face_02",
+  "name": "Rock Face 02",
+  "category": "Desert",
+  "size": [
+   5.192,
+   4.734,
+   4.073
+  ],
+  "colliders": [
+   [
+    -0.345,
+    3.762,
+    -1.07,
+    4.5,
+    1.941,
+    1.385
+   ],
+   [
+    -0.589,
+    2.646,
+    -0.677,
+    4.007,
+    1.617,
+    1.795
+   ],
+   [
+    -0.626,
+    4.035,
+    -1.465,
+    3.932,
+    1.397,
+    1.097
+   ],
+   [
+    -0.884,
+    2.036,
+    -0.355,
+    3.153,
+    1.351,
+    1.312
+   ],
+   [
+    1.25,
+    2.222,
+    0.214,
+    2.614,
+    1.345,
+    1.539
+   ],
+   [
+    -0.092,
+    1.282,
+    0.517,
+    2.954,
+    0.883,
+    1.34
+   ],
+   [
+    1.727,
+    3.332,
+    -0.579,
+    1.609,
+    1.175,
+    1.418
+   ],
+   [
+    0.215,
+    0.381,
+    1.502,
+    2.417,
+    0.76,
+    1.068
+   ],
+   [
+    0.486,
+    0.82,
+    1.135,
+    2.325,
+    0.683,
+    1.228
+   ],
+   [
+    1.529,
+    2.559,
+    -0.132,
+    2.034,
+    0.981,
+    0.817
+   ],
+   [
+    -0.89,
+    0.585,
+    1.23,
+    1.29,
+    0.942,
+    1.234
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Rock Face 02 by Dario Barresi, Rico Cilliers, Poly Haven (polyhaven.com/a/rock_face_02), CC0"
  },
  "ph_rockingchair_01": {
   "ph": "Rockingchair_01",
@@ -7646,6 +11511,100 @@
   "lodDist": 15,
   "credit": "Rubber Boots by L, Poly Haven (polyhaven.com/a/rubber_boots), CC0"
  },
+ "ph_rusted_hacksaw": {
+  "ph": "rusted_hacksaw",
+  "name": "Rusted Hacksaw",
+  "category": "Industrial: Yard",
+  "size": [
+   0.496,
+   0.109,
+   0.033
+  ],
+  "colliders": [
+   [
+    0.004,
+    0.097,
+    0.0,
+    0.173,
+    0.04,
+    0.04
+   ],
+   [
+    0.085,
+    0.105,
+    0.0,
+    0.163,
+    0.04,
+    0.04
+   ],
+   [
+    0.119,
+    0.018,
+    0.001,
+    0.155,
+    0.04,
+    0.04
+   ],
+   [
+    -0.036,
+    0.018,
+    0.001,
+    0.155,
+    0.04,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Rusted Hacksaw by Dabou Master, Poly Haven (polyhaven.com/a/rusted_hacksaw), CC0"
+ },
+ "ph_rusted_spade_01": {
+  "ph": "rusted_spade_01",
+  "name": "Rusted Spade 01",
+  "category": "Town clutter",
+  "size": [
+   0.168,
+   1.101,
+   0.046
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.223,
+    0.008,
+    0.168,
+    0.446,
+    0.04
+   ],
+   [
+    -0.003,
+    0.498,
+    -0.017,
+    0.04,
+    0.413,
+    0.04
+   ],
+   [
+    -0.003,
+    0.895,
+    -0.017,
+    0.04,
+    0.38,
+    0.04
+   ],
+   [
+    0.0,
+    1.086,
+    -0.018,
+    0.131,
+    0.04,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Rusted Spade 01 by Blemonade, Poly Haven (polyhaven.com/a/rusted_spade_01), CC0"
+ },
  "ph_rusted_wheel_rim_01": {
   "ph": "rusted_wheel_rim_01",
   "name": "Rusted Wheel Rim 01",
@@ -7904,6 +11863,383 @@
   "maxTex": 1024,
   "lodDist": 15,
   "credit": "School Desk 01 by Ethan Place, Poly Haven (polyhaven.com/a/SchoolDesk_01), CC0"
+ },
+ "ph_searsia_burchellii": {
+  "ph": "searsia_burchellii",
+  "name": "Searsia Burchellii",
+  "category": "Desert",
+  "size": [
+   8.356,
+   3.247,
+   5.049
+  ],
+  "colliders": [
+   [
+    -1.459,
+    0.637,
+    0.169,
+    0.562,
+    1.252,
+    0.835
+   ],
+   [
+    -1.504,
+    0.734,
+    -0.635,
+    0.53,
+    0.986,
+    0.822
+   ],
+   [
+    2.056,
+    1.043,
+    1.006,
+    0.841,
+    0.325,
+    1.409
+   ],
+   [
+    1.023,
+    1.216,
+    1.045,
+    0.344,
+    0.88,
+    0.853
+   ],
+   [
+    -1.072,
+    0.838,
+    -0.883,
+    0.258,
+    1.072,
+    0.804
+   ],
+   [
+    -3.294,
+    0.341,
+    0.153,
+    0.417,
+    0.648,
+    0.786
+   ],
+   [
+    -3.644,
+    0.514,
+    0.194,
+    0.53,
+    0.698,
+    0.555
+   ],
+   [
+    -2.524,
+    1.459,
+    -0.147,
+    0.585,
+    0.728,
+    0.476
+   ],
+   [
+    2.677,
+    0.674,
+    0.462,
+    0.493,
+    0.576,
+    0.66
+   ],
+   [
+    2.333,
+    1.393,
+    1.948,
+    0.793,
+    0.284,
+    0.806
+   ],
+   [
+    3.078,
+    1.564,
+    0.482,
+    0.833,
+    0.706,
+    0.263
+   ],
+   [
+    1.51,
+    1.34,
+    0.049,
+    0.356,
+    0.74,
+    0.556
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Searsia Burchellii by James Ray Cock, Jenelle van Heerden, Poly Haven (polyhaven.com/a/searsia_burchellii), CC0"
+ },
+ "ph_searsia_lucida": {
+  "ph": "searsia_lucida",
+  "name": "Searsia Lucida",
+  "category": "Desert",
+  "size": [
+   4.777,
+   2.339,
+   2.838
+  ],
+  "colliders": [
+   [
+    1.838,
+    0.599,
+    -0.915,
+    0.342,
+    0.695,
+    0.466
+   ],
+   [
+    -1.227,
+    0.628,
+    -0.227,
+    0.408,
+    0.6,
+    0.407
+   ],
+   [
+    -2.138,
+    0.861,
+    -0.26,
+    0.412,
+    0.668,
+    0.334
+   ],
+   [
+    1.953,
+    0.897,
+    -0.962,
+    0.429,
+    0.446,
+    0.374
+   ],
+   [
+    1.875,
+    0.973,
+    -0.982,
+    0.283,
+    0.593,
+    0.409
+   ],
+   [
+    1.554,
+    0.777,
+    -0.097,
+    0.162,
+    0.69,
+    0.537
+   ],
+   [
+    1.953,
+    0.971,
+    -0.881,
+    0.428,
+    0.596,
+    0.213
+   ],
+   [
+    -0.111,
+    0.558,
+    -1.004,
+    0.171,
+    0.643,
+    0.411
+   ],
+   [
+    1.34,
+    0.854,
+    -0.037,
+    0.146,
+    0.526,
+    0.453
+   ],
+   [
+    1.224,
+    1.016,
+    -0.162,
+    0.288,
+    0.442,
+    0.273
+   ],
+   [
+    0.255,
+    0.815,
+    -0.556,
+    0.319,
+    0.646,
+    0.168
+   ],
+   [
+    1.587,
+    0.471,
+    -0.683,
+    0.337,
+    0.443,
+    0.227
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Searsia Lucida by James Ray Cock, Jenelle van Heerden, Poly Haven (polyhaven.com/a/searsia_lucida), CC0"
+ },
+ "ph_security_camera_01": {
+  "ph": "security_camera_01",
+  "name": "Security Camera 01",
+  "category": "Industrial: Yard",
+  "size": [
+   0.17,
+   0.286,
+   0.554
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.234,
+    0.071,
+    0.165,
+    0.1,
+    0.411
+   ],
+   [
+    0.0,
+    0.172,
+    0.083,
+    0.144,
+    0.059,
+    0.284
+   ],
+   [
+    0.0,
+    0.209,
+    -0.098,
+    0.149,
+    0.14,
+    0.079
+   ],
+   [
+    0.0,
+    0.049,
+    -0.124,
+    0.068,
+    0.045,
+    0.295
+   ],
+   [
+    0.0,
+    0.21,
+    0.225,
+    0.156,
+    0.135,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Security Camera 01 by Alexander Otterbeck, Yann Kervran, Poly Haven (polyhaven.com/a/security_camera_01), CC0"
+ },
+ "ph_security_camera_02": {
+  "ph": "security_camera_02",
+  "name": "Security Camera 02",
+  "category": "Industrial: Yard",
+  "size": [
+   0.141,
+   0.209,
+   0.394
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.167,
+    0.002,
+    0.137,
+    0.075,
+    0.298
+   ],
+   [
+    -0.0,
+    0.169,
+    0.17,
+    0.137,
+    0.079,
+    0.054
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Security Camera 02 by Garrison Gager, Yann Kervran, Poly Haven (polyhaven.com/a/security_camera_02), CC0"
+ },
+ "ph_security_light": {
+  "ph": "security_light",
+  "name": "Security Light",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.323,
+   0.531,
+   0.417
+  ],
+  "colliders": [
+   [
+    0.001,
+    0.096,
+    0.045,
+    0.302,
+    0.193,
+    0.302
+   ],
+   [
+    0.0,
+    0.248,
+    0.046,
+    0.323,
+    0.115,
+    0.326
+   ],
+   [
+    0.001,
+    0.378,
+    0.045,
+    0.186,
+    0.138,
+    0.19
+   ],
+   [
+    0.0,
+    0.344,
+    -0.102,
+    0.143,
+    0.087,
+    0.141
+   ],
+   [
+    0.001,
+    0.466,
+    0.046,
+    0.157,
+    0.045,
+    0.156
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Security Light by Maximilian Schuster, Poly Haven (polyhaven.com/a/security_light), CC0"
+ },
+ "ph_seeding_tray_01": {
+  "ph": "seeding_tray_01",
+  "name": "Seedling Tray 01",
+  "category": "Town clutter",
+  "size": [
+   0.22,
+   0.061,
+   0.22
+  ],
+  "colliders": [],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Seedling Tray 01 by Satyaki Mandal, Poly Haven (polyhaven.com/a/seeding_tray_01), CC0"
  },
  "ph_shelf_01": {
   "ph": "Shelf_01",
@@ -8236,6 +12572,45 @@
   "lodDist": 15,
   "credit": "Small Lpg Tank by Ulan Cabanilla, Poly Haven (polyhaven.com/a/small_lpg_tank), CC0"
  },
+ "ph_small_oil_can_01": {
+  "ph": "small_oil_can_01",
+  "name": "Small Oil Can 01",
+  "category": "Town clutter",
+  "size": [
+   0.266,
+   0.237,
+   0.104
+  ],
+  "colliders": [
+   [
+    -0.042,
+    0.046,
+    0.0,
+    0.1,
+    0.091,
+    0.1
+   ],
+   [
+    0.044,
+    0.18,
+    0.0,
+    0.159,
+    0.114,
+    0.04
+   ],
+   [
+    -0.105,
+    0.097,
+    0.0,
+    0.055,
+    0.116,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Small Oil Can 01 by Raven van de Werken, Poly Haven (polyhaven.com/a/small_oil_can_01), CC0"
+ },
  "ph_small_wooden_table_01": {
   "ph": "small_wooden_table_01",
   "name": "Small Wooden Table 01",
@@ -8487,6 +12862,68 @@
   "lodDist": 15,
   "credit": "Spinning Wheel 01 by Sofia Pahaoja, Poly Haven (polyhaven.com/a/spinning_wheel_01), CC0"
  },
+ "ph_spray_paint_bottles": {
+  "ph": "spray_paint_bottles",
+  "name": "Spray Paint Bottles",
+  "category": "Town clutter",
+  "size": [
+   0.158,
+   0.229,
+   0.066
+  ],
+  "colliders": [
+   [
+    -0.046,
+    0.087,
+    -0.0,
+    0.065,
+    0.167,
+    0.065
+   ],
+   [
+    0.046,
+    0.087,
+    0.0,
+    0.065,
+    0.167,
+    0.065
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Spray Paint Bottles by James Ray Cock, Poly Haven (polyhaven.com/a/spray_paint_bottles), CC0"
+ },
+ "ph_spray_paint_bottles_02": {
+  "ph": "spray_paint_bottles_02",
+  "name": "Spray Paint Bottles 02",
+  "category": "Industrial: Yard",
+  "size": [
+   0.196,
+   0.219,
+   0.077
+  ],
+  "colliders": [
+   [
+    0.049,
+    0.09,
+    0.0,
+    0.093,
+    0.166,
+    0.077
+   ],
+   [
+    -0.06,
+    0.097,
+    -0.0,
+    0.076,
+    0.176,
+    0.076
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Spray Paint Bottles 02 by Riley Queen, Poly Haven (polyhaven.com/a/spray_paint_bottles_02), CC0"
+ },
  "ph_standing_chalkboard_01": {
   "ph": "standing_chalkboard_01",
   "name": "Standing Chalkboard 01",
@@ -8612,6 +13049,37 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Standing Picture Frame 01 by James Ray Cock, Poly Haven (polyhaven.com/a/standing_picture_frame_01), CC0"
+ },
+ "ph_stationery_supplies": {
+  "ph": "stationery_supplies",
+  "name": "Stationery Supplies",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.302,
+   0.164,
+   0.084
+  ],
+  "colliders": [
+   [
+    0.109,
+    0.042,
+    -0.0,
+    0.084,
+    0.084,
+    0.084
+   ],
+   [
+    -0.051,
+    0.082,
+    0.0,
+    0.13,
+    0.04,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Stationery Supplies by Mateusz Sadek, Poly Haven (polyhaven.com/a/stationery_supplies), CC0"
  },
  "ph_steel_frame_shelves_01": {
   "ph": "steel_frame_shelves_01",
@@ -9032,6 +13500,69 @@
   "lodDist": 30,
   "credit": "Street Lamp 01 by Josh Dean, Poly Haven (polyhaven.com/a/street_lamp_01), CC0"
  },
+ "ph_street_lamp_02": {
+  "ph": "street_lamp_02",
+  "name": "Street Lamp 02",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.386,
+   1.675,
+   0.807
+  ],
+  "colliders": [
+   [
+    0.0,
+    1.402,
+    0.21,
+    0.353,
+    0.147,
+    0.353
+   ],
+   [
+    -0.132,
+    1.128,
+    0.21,
+    0.084,
+    0.372,
+    0.336
+   ],
+   [
+    0.132,
+    1.128,
+    0.21,
+    0.084,
+    0.372,
+    0.336
+   ],
+   [
+    -0.0,
+    1.128,
+    0.078,
+    0.336,
+    0.372,
+    0.084
+   ],
+   [
+    -0.0,
+    1.128,
+    0.342,
+    0.336,
+    0.372,
+    0.084
+   ],
+   [
+    -0.0,
+    0.496,
+    0.174,
+    0.132,
+    0.241,
+    0.205
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Street Lamp 02 by Josh Dean, Poly Haven (polyhaven.com/a/street_lamp_02), CC0"
+ },
  "ph_tea_set_01": {
   "ph": "tea_set_01",
   "name": "Tea Set 01",
@@ -9253,6 +13784,45 @@
   "lodDist": 15,
   "credit": "Television 02 by Benny Weimer, Poly Haven (polyhaven.com/a/television_02), CC0"
  },
+ "ph_throw_pillows_01": {
+  "ph": "throw_pillows_01",
+  "name": "Throw Pillows 01",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.94,
+   0.45,
+   0.452
+  ],
+  "colliders": [
+   [
+    -0.186,
+    0.225,
+    0.018,
+    0.568,
+    0.45,
+    0.416
+   ],
+   [
+    0.219,
+    0.222,
+    -0.093,
+    0.501,
+    0.443,
+    0.265
+   ],
+   [
+    0.218,
+    0.222,
+    -0.017,
+    0.499,
+    0.441,
+    0.242
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Throw Pillows 01 by Serhii Khromov, Poly Haven (polyhaven.com/a/throw_pillows_01), CC0"
+ },
  "ph_tire_pump": {
   "ph": "tire_pump",
   "name": "Tire Pump",
@@ -9473,6 +14043,259 @@
   "lodDist": 15,
   "credit": "Treasure Chest by Rico Cilliers, Poly Haven (polyhaven.com/a/treasure_chest), CC0"
  },
+ "ph_tree_stump_01": {
+  "ph": "tree_stump_01",
+  "name": "Tree Stump 01",
+  "category": "Desert",
+  "size": [
+   1.426,
+   0.573,
+   1.59
+  ],
+  "colliders": [
+   [
+    -0.439,
+    0.219,
+    -0.011,
+    0.547,
+    0.409,
+    0.713
+   ],
+   [
+    -0.349,
+    0.169,
+    -0.544,
+    0.728,
+    0.306,
+    0.454
+   ],
+   [
+    0.512,
+    0.125,
+    0.281,
+    0.402,
+    0.251,
+    0.808
+   ],
+   [
+    0.147,
+    0.138,
+    -0.6,
+    0.845,
+    0.233,
+    0.391
+   ],
+   [
+    0.487,
+    0.156,
+    -0.338,
+    0.446,
+    0.292,
+    0.559
+   ],
+   [
+    0.236,
+    0.127,
+    0.578,
+    0.664,
+    0.247,
+    0.435
+   ],
+   [
+    -0.51,
+    0.145,
+    0.512,
+    0.385,
+    0.268,
+    0.46
+   ],
+   [
+    0.258,
+    0.39,
+    -0.226,
+    0.425,
+    0.256,
+    0.38
+   ],
+   [
+    -0.299,
+    0.123,
+    0.618,
+    0.455,
+    0.235,
+    0.352
+   ],
+   [
+    0.102,
+    0.355,
+    0.353,
+    0.395,
+    0.354,
+    0.192
+   ],
+   [
+    0.384,
+    0.277,
+    0.169,
+    0.295,
+    0.17,
+    0.477
+   ],
+   [
+    0.315,
+    0.396,
+    0.122,
+    0.302,
+    0.209,
+    0.348
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Tree Stump 01 by Rob Tuytel, Poly Haven (polyhaven.com/a/tree_stump_01), CC0"
+ },
+ "ph_tree_stump_02": {
+  "ph": "tree_stump_02",
+  "name": "Tree Stump 02",
+  "category": "Desert",
+  "size": [
+   1.522,
+   0.522,
+   1.393
+  ],
+  "colliders": [
+   [
+    0.328,
+    0.221,
+    0.388,
+    0.847,
+    0.401,
+    0.583
+   ],
+   [
+    0.467,
+    0.204,
+    -0.286,
+    0.553,
+    0.342,
+    0.485
+   ],
+   [
+    0.273,
+    0.199,
+    -0.472,
+    0.614,
+    0.338,
+    0.435
+   ],
+   [
+    -0.302,
+    0.146,
+    -0.46,
+    0.625,
+    0.287,
+    0.472
+   ],
+   [
+    -0.552,
+    0.145,
+    0.294,
+    0.415,
+    0.287,
+    0.691
+   ],
+   [
+    0.497,
+    0.212,
+    0.034,
+    0.527,
+    0.366,
+    0.388
+   ],
+   [
+    -0.095,
+    0.158,
+    0.5,
+    0.577,
+    0.313,
+    0.393
+   ],
+   [
+    -0.478,
+    0.158,
+    -0.321,
+    0.563,
+    0.317,
+    0.386
+   ],
+   [
+    -0.014,
+    0.443,
+    0.034,
+    0.535,
+    0.148,
+    0.439
+   ],
+   [
+    -0.169,
+    0.352,
+    0.264,
+    0.36,
+    0.233,
+    0.267
+   ],
+   [
+    -0.104,
+    0.387,
+    -0.217,
+    0.463,
+    0.24,
+    0.158
+   ],
+   [
+    -0.384,
+    0.363,
+    0.067,
+    0.304,
+    0.174,
+    0.263
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Tree Stump 02 by Rob Tuytel, Poly Haven (polyhaven.com/a/tree_stump_02), CC0"
+ },
+ "ph_trowel_01": {
+  "ph": "trowel_01",
+  "name": "Trowel 01",
+  "category": "Town clutter",
+  "size": [
+   0.099,
+   0.103,
+   0.347
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.013,
+    0.091,
+    0.099,
+    0.04,
+    0.165
+   ],
+   [
+    0.0,
+    0.076,
+    -0.112,
+    0.04,
+    0.053,
+    0.123
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Trowel 01 by Satyaki Mandal, Poly Haven (polyhaven.com/a/trowel_01), CC0"
+ },
  "ph_utility_box_01": {
   "ph": "utility_box_01",
   "name": "Utility Box 01",
@@ -9686,6 +14509,45 @@
   "lodDist": 30,
   "credit": "Vintage Cabinet 01 by Rico Cilliers, Poly Haven (polyhaven.com/a/vintage_cabinet_01), CC0"
  },
+ "ph_vintage_crutches_01": {
+  "ph": "vintage_crutches_01",
+  "name": "Vintage Crutches 01",
+  "category": "Town clutter",
+  "size": [
+   0.384,
+   1.605,
+   0.204
+  ],
+  "colliders": [
+   [
+    0.059,
+    0.803,
+    -0.02,
+    0.266,
+    1.603,
+    0.081
+   ],
+   [
+    0.055,
+    0.803,
+    -0.064,
+    0.264,
+    1.603,
+    0.076
+   ],
+   [
+    -0.081,
+    0.794,
+    0.033,
+    0.222,
+    1.585,
+    0.084
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Vintage Crutches 01 by James Ray Cock, Poly Haven (polyhaven.com/a/vintage_crutches_01), CC0"
+ },
  "ph_vintage_day_bed": {
   "ph": "vintage_day_bed",
   "name": "Vintage Day Bed",
@@ -9812,6 +14674,45 @@
   "lodDist": 15,
   "credit": "Vintage Electric Kettle by SV Garip, Poly Haven (polyhaven.com/a/vintage_electric_kettle), CC0"
  },
+ "ph_vintage_flashlight": {
+  "ph": "vintage_flashlight",
+  "name": "Vintage Flashlight",
+  "category": "Town clutter",
+  "size": [
+   0.096,
+   0.144,
+   0.305
+  ],
+  "colliders": [
+   [
+    -0.001,
+    0.059,
+    0.001,
+    0.094,
+    0.04,
+    0.223
+   ],
+   [
+    -0.001,
+    0.003,
+    0.001,
+    0.083,
+    0.04,
+    0.211
+   ],
+   [
+    -0.001,
+    0.099,
+    -0.029,
+    0.04,
+    0.04,
+    0.182
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Vintage Flashlight by Omar M. El-Safy, Poly Haven (polyhaven.com/a/vintage_flashlight), CC0"
+ },
  "ph_vintage_grandfather_clock_01": {
   "ph": "vintage_grandfather_clock_01",
   "name": "Vintage Grandfather Clock 01",
@@ -9898,6 +14799,37 @@
   "maxTex": 1024,
   "lodDist": 30,
   "credit": "Vintage Grandfather Clock 01 by James Ray Cock, Yann Kervran, Poly Haven (polyhaven.com/a/vintage_grandfather_clock_01), CC0"
+ },
+ "ph_vintage_hand_drill": {
+  "ph": "vintage_hand_drill",
+  "name": "Vintage Hand Drill",
+  "category": "Industrial: Yard",
+  "size": [
+   0.131,
+   0.486,
+   0.125
+  ],
+  "colliders": [
+   [
+    -0.002,
+    0.237,
+    0.023,
+    0.102,
+    0.1,
+    0.04
+   ],
+   [
+    0.025,
+    0.179,
+    0.026,
+    0.073,
+    0.129,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Vintage Hand Drill by Benjamin McDonnell, Yann Kervran, Poly Haven (polyhaven.com/a/vintage_hand_drill), CC0"
  },
  "ph_vintage_microwave": {
   "ph": "vintage_microwave",
@@ -10087,6 +15019,37 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Vintage Radio Transceiver by Mateusz Sadek, Poly Haven (polyhaven.com/a/vintage_radio_transceiver), CC0"
+ },
+ "ph_vintage_stapler": {
+  "ph": "vintage_stapler",
+  "name": "Vintage Stapler",
+  "category": "Town clutter",
+  "size": [
+   0.208,
+   0.095,
+   0.047
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.001,
+    -0.0,
+    0.208,
+    0.04,
+    0.047
+   ],
+   [
+    -0.006,
+    0.045,
+    -0.0,
+    0.155,
+    0.04,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Vintage Stapler by Mateusz Sadek, Poly Haven (polyhaven.com/a/vintage_stapler), CC0"
  },
  "ph_vintage_suitcase": {
   "ph": "vintage_suitcase",
@@ -10362,6 +15325,37 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Water Manhole Cover by Raunox, Poly Haven (polyhaven.com/a/water_manhole_cover), CC0"
+ },
+ "ph_watering_can_metal_01": {
+  "ph": "watering_can_metal_01",
+  "name": "Watering Can Metal 01",
+  "category": "Town clutter",
+  "size": [
+   0.191,
+   0.197,
+   0.452
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.077,
+    -0.052,
+    0.188,
+    0.151,
+    0.189
+   ],
+   [
+    -0.0,
+    0.088,
+    0.113,
+    0.044,
+    0.156,
+    0.162
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Watering Can Metal 01 by Charles Nderitu, Poly Haven (polyhaven.com/a/watering_can_metal_01), CC0"
  },
  "ph_wetfloorsign_01": {
   "ph": "WetFloorSign_01",
@@ -10717,6 +15711,45 @@
   "lodDist": 15,
   "credit": "Wine Bottles 01 by Jurita Burger, Rico Cilliers, Poly Haven (polyhaven.com/a/wine_bottles_01), CC0"
  },
+ "ph_wooden_axe": {
+  "ph": "wooden_axe",
+  "name": "Wooden Axe",
+  "category": "Town clutter",
+  "size": [
+   0.047,
+   0.63,
+   0.214
+  ],
+  "colliders": [
+   [
+    0.013,
+    0.562,
+    -0.008,
+    0.04,
+    0.127,
+    0.196
+   ],
+   [
+    0.009,
+    0.427,
+    -0.071,
+    0.04,
+    0.257,
+    0.06
+   ],
+   [
+    0.007,
+    0.151,
+    -0.075,
+    0.04,
+    0.297,
+    0.05
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Wooden Axe by Ulan Cabanilla, Poly Haven (polyhaven.com/a/wooden_axe), CC0"
+ },
  "ph_wooden_barrels_01": {
   "ph": "wooden_barrels_01",
   "name": "Wooden Barrels 01",
@@ -10873,6 +15906,29 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Wooden Bowl 01 by Oliver Harries, Poly Haven (polyhaven.com/a/wooden_bowl_01), CC0"
+ },
+ "ph_wooden_bowl_02": {
+  "ph": "wooden_bowl_02",
+  "name": "Wooden Bowl 02",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.131,
+   0.073,
+   0.125
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.031,
+    -0.001,
+    0.112,
+    0.04,
+    0.107
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Wooden Bowl 02 by Kuutti Siitonen, Poly Haven (polyhaven.com/a/wooden_bowl_02), CC0"
  },
  "ph_wooden_broom": {
   "ph": "wooden_broom",
@@ -11864,6 +16920,45 @@
   "maxTex": 1024,
   "lodDist": 30,
   "credit": "Wooden Table 01 by Ethan Place, Poly Haven (polyhaven.com/a/WoodenTable_01), CC0"
+ },
+ "ph_woodentable_02": {
+  "ph": "WoodenTable_02",
+  "name": "Wooden Table 02",
+  "category": "Interior: Decor & Lighting",
+  "size": [
+   0.301,
+   0.418,
+   0.301
+  ],
+  "colliders": [
+   [
+    -0.013,
+    0.193,
+    -0.022,
+    0.275,
+    0.386,
+    0.257
+   ],
+   [
+    0.022,
+    0.193,
+    0.033,
+    0.257,
+    0.386,
+    0.234
+   ],
+   [
+    0.0,
+    0.418,
+    -0.0,
+    0.293,
+    0.04,
+    0.293
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Wooden Table 02 by Fran Calvente, Poly Haven (polyhaven.com/a/WoodenTable_02), CC0"
  },
  "ph_woodentable_03": {
   "ph": "WoodenTable_03",
