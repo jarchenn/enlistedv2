@@ -314,12 +314,6 @@
    "modern_makarov": {
     "kind": "pistol"
    },
-   "modern_fn502": {
-    "kind": "pistol",
-    "pitch_deg": 0.7,
-    "back_m": 0.025,
-    "flash": 0.6
-   },
    "modern_mark23": {
     "kind": "pistol",
     "back_m": 0.045,
