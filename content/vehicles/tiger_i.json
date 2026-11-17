@@ -201,7 +201,7 @@
   },
   "gun": {
     "muzzleScale": 1.2,
-    "name": "8.8 cm KwK 36 L/56",
+    "name": "8.8 cm KwK 36 L/56", "rockDeg": 4.0, "viewKick": 2.5,
     "traverseRate": 10,
     "traverseAccel": 8,
     "elevationRate": 4,

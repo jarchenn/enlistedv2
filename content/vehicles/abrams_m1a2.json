@@ -213,7 +213,7 @@
   },
   "gun": {
     "muzzleScale": 1.5,
-    "name": "120 mm M256 L/44",
+    "name": "120 mm M256 L/44", "rockDeg": 4.5, "viewKick": 2.8,
     "traverseRate": 40,
     "traverseAccel": 40,
     "elevationRate": 12,

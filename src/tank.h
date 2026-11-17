@@ -42,7 +42,7 @@ struct TankDef {
   std::vector<TankBox> hullBoxes, turretBoxes;   // colliders: hull space, turret boxes at 0 deg
   TankBox armourHull, armourTurret;              // zone classification volumes (hull / turret frame at 0 deg)
   // main gun
-  float traverseRate = 24, traverseAccel = 36, elevRate = 6, elevAccel = 18, elevMin = -5, elevMax = 20, recoil = 0.3f, rockDeg = -1;   // TK1 rockDeg: the hull's rock per shot (deg; < 0: 4 x the barrel recoil)
+  float traverseRate = 24, traverseAccel = 36, elevRate = 6, elevAccel = 18, elevMin = -5, elevMax = 20, recoil = 0.3f, rockDeg = -1, viewKick = -1;   // TK1 rockDeg: the hull's rock per shot (deg; < 0: RC2 9 x the barrel recoil); RC2 viewKick: the seat camera's jump (deg; < 0: 5.5 x the recoil)
   float fov = 18, fovZoom = 8;                   // gunner sight field (deg): base / RMB magnification
   float reloadTime = 6.0f, velAP = 880, velHE = 600, dmgHE = 140;
   int reserveHE = 20, reserveAP = 30; std::string startLoaded = "AP", ammoHE, ammoAP, cannonName, reticle;
@@ -128,6 +128,7 @@ struct TankRT {
   float throttleIn = 0, steerIn = 0;
   // turret / gun relative to the hull: achieved angle and rate
   float tYaw = 0, tYawV = 0, gElev = 0, gElevV = 0, recoilT = 9;
+  float kickT = 9, kickDeg = 0;   // RC2: the seat camera's firing kick (s since, deg; TankSys::cameraKick)
   float mgYaw = 0, mgElev = 0, mgCool = 0, mgReloadT = 0; int mgLoaded = 0, mgReserve = 0, mgShots = 0;
   float bowYaw = 0, bowElev = 0, bowCool = 0, bowReloadT = 0; int bowLoaded = 0, bowReserve = 0, bowShots = 0;
   bool mgBurst = false, bowBurst = false;
@@ -204,6 +205,7 @@ public:
   std::vector<uint64_t> wreckOrder;   // wrecks in the order they happened (oldest cleared past wreckCap when a copy spawns)
   int wreckCap = 12;
   bool camera(const App& app, vec3& eye, vec3& fwd, float& fov) const;
+  void cameraKick(const App& app, vec3& eye, vec3& fwd) const;   // RC2: the occupied vehicle's firing kick on whatever seat view camera() gave
   void drawItems(App& app, const Instance& i, const InstanceRT& r);
   void drawUI(App& app);
   void drawAmmoStrip(App& app, const TankRT& t);   // bottom-centre ammunition / belt display (tank_ui.cpp)

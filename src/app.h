@@ -298,7 +298,8 @@ public:
   bool swimHands(vec3& left, vec3& right, float& w) const;    // camera-space breaststroke hand targets and blend weight
   void swimPose(PoseParams& pp) const;                        // third-person body for the local soldier (pose.cpp)
   void drawSwimUI();                                          // breath bar
-  vec3 viewUp(vec3 fwd) const;                                // first-person camera up: world up, rolled with the stroke while swimming
+  vec3 viewUp(vec3 fwd) const;
+  std::string stepSound(vec3 pos, uint64_t groundUser);   // SND10 (explore.cpp): the footstep event for a foot there                                // first-person camera up: world up, rolled with the stroke while swimming
   void loadSwimSettings(const json& movement);                // "swim" block of movement.json
   int postureWanted = 0;          // Physics::Posture requested by input (stand / crouch / prone)
   static constexpr float kInteractReach = 2.5f;   // m (was 2.0; guns / crates / racks reach + 0.5)

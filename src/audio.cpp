@@ -245,6 +245,7 @@ bool Audio::init() {
   { Buf b = mk(0.18f); addSteps(b, 90, 0.08f, 0.8f, r); normalize(b, 0.35f); p->bufs["step_wood"] = b; }
   { Buf b = mk(0.15f); addSteps(b, 140, 0.25f, 0.8f, r); normalize(b, 0.3f); p->bufs["step_stone"] = b; }
   { Buf b = mk(0.2f); addSteps(b, 60, 0.6f, 0.8f, r); normalize(b, 0.18f); p->bufs["step_grass"] = b; }
+  { Buf b = mk(0.22f); addSteps(b, 120, 0.2f, 0.8f, r); addClang(b, 0.004f, 1850, 0.35f, 0.05f, r); addClang(b, 0.006f, 2900, 0.15f, 0.03f, r); normalize(b, 0.32f); p->bufs["step_metal"] = b; }   // SND10: the robot commando's step
   // ordnance: PaK 40 discharge (sharp crack + low boom), HE detonation, breech, crate, carriage, dry click
   { Buf b = mk(2.4f); addClick(b, 0.0f, 0.03f, 5000, 1.0f, r); addThud(b, 0.0f, 48, 1.0f, r); addThud(b, 0.02f, 75, 0.8f, r);
     float lp = 0; for (size_t i = 0; i < b.size(); ++i) { float t = i / (float)SR; lp += (r.n() - lp) * 0.02f; b[i] += lp * 3.0f * std::exp(-t * 2.2f); } normalize(b); p->bufs["pak_fire"] = b; }
@@ -877,6 +878,7 @@ void Audio::casing(vec3 feet, int shooter, float delay, bool soft) {
 }
 
 void Audio::setListener(vec3 pos, vec3 fwd) {
+  listener_ = pos;
   if (!p) return;
   p->listener = pos;
   ma_engine_listener_set_position(&p->engine, 0, pos.x, pos.y, pos.z);

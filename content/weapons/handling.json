@@ -130,11 +130,12 @@
     "flash": 1.15, "yawScale": 2.5
    },
    "launcher": {
-    "back_m": 0.05,
-    "pitch_deg": 0.5,
-    "left_deg": 0.05,
-    "omega": 36,
-    "backMax_m": 0.06,
+    "_doc": "RC2: a heavy shove into the shoulder and a big, slow muzzle climb (peak ~75 ms, settled ~0.4 s); the launch also shakes and rolls the view (weapons.cpp)",
+    "back_m": 0.15,
+    "pitch_deg": 7.0,
+    "left_deg": 0.8,
+    "omega": 13,
+    "backMax_m": 0.17,
     "flash": 0, "yawScale": 1
    }
   },
@@ -265,10 +266,7 @@
    "modern_rpg7": {
     "kind": "launcher"
    },
-   "modern_glauncher": {
-    "kind": "launcher",
-    "flash": 0.6
-   },
+   "modern_glauncher": {"kind": "launcher", "flash": 0.6, "back_m": 0.1, "pitch_deg": 4.5, "omega": 17},
    "modern_revolver": {
     "kind": "pistol",
     "back_m": 0.05,

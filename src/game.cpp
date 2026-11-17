@@ -63,6 +63,45 @@ vec3 Game::soldierFeet(int s) const { return sold[s].feet; }
 int Game::fragDef(Faction f) const { return app.weaponIndex(f == Faction::Axis ? "m24_grenade" : "mk2_grenade"); }
 int Game::smokeDef() const { return app.weaponIndex("smoke_grenade"); }
 
+// SND10: a bot's footstep, from its own (replicated) movement: the player's surface sets, louder and farther when
+// running, quiet crouched, none prone; positional on the effects bus, softened through walls; only bots within range
+// sound and at most maxPerSecond steps start (200 bots stay cheap). content/audio/custom/mix.json "botSteps"
+int gBotSteps = 0;   // steps played (headless check)
+static void botFootstep(App& app, const Soldier& s, float v) {
+  static const json cfg = [] { try { return json::parse(readTextFile(contentDir() / "audio" / "custom" / "mix.json")).value("botSteps", json::object()); } catch (...) { return json::object(); } }();
+  static const float runR = cfg.value("runRange_m", 20.0f), walkR = cfg.value("walkRange_m", 8.0f), crouchR = cfg.value("crouchRange_m", 5.0f);
+  static const float runV = cfg.value("runVolume", 0.85f), walkV = cfg.value("walkVolume", 0.55f), crouchV = cfg.value("crouchVolume", 0.3f);
+  static const float wallV = cfg.value("throughWallVolume", 0.35f), runSpeed = cfg.value("runSpeed_mps", 3.0f);
+  static const int maxPerSec = cfg.value("maxPerSecond", 24);
+  if (s.posture == Physics::PRONE || s.swim || v < 0.3f) return;
+  const bool crouch = s.posture == Physics::CROUCH, run = !crouch && v >= runSpeed;
+  float range = crouch ? crouchR : run ? runR : walkR, vol = crouch ? crouchV : run ? runV : walkV;
+  vec3 ear = app.audio.listenerPos(), foot = s.feet + vec3(0, 0.05f, 0);
+  float d = glm::length(foot - ear);
+  if (d > range) return;
+  static double bucket = 0, last = 0; double now = glfwGetTime();   // voice limit: a token bucket of maxPerSecond
+  bucket = std::min((double)maxPerSec, bucket + (now - last) * maxPerSec); last = now;
+  if (bucket < 1) return;
+  Physics::Hit h;
+  if (d > 1.0f && Physics::castRayEx(ear, glm::normalize(foot + vec3(0, 0.9f, 0) - ear), d, h) && glm::length(h.pos - ear) < d - 0.6f) {   // a wall between: muffled, shorter reach
+    if (d > range * 0.6f) return;
+    vol *= wallV;
+  }
+  bucket -= 1;
+  std::string ev = s.kit == 3 && app.audio.hasSound("step_metal") ? "step_metal" : app.stepSound(s.feet, 0);   // the robot commando: a metallic step
+  app.audio.play(ev, foot, vol, s.kit == 3 && ev != "step_metal" ? 0.8f : 0.9f + 0.2f * (float)((s.slot * 7 + (int)(now * 13)) % 10) / 10.0f);
+  ++gBotSteps;
+}
+
+// the gait cycle (cycles per second: the planted foot travels back at the body speed); a bot's foot lands every half cycle
+float advanceStride(App& app, Soldier& s, float v, float dt) {
+  float cad = std::min(1.75f, 0.75f + 0.25f * v);
+  const float ph0 = s.walkPhase;
+  s.walkPhase += v * dt > 0 ? 6.2831853f * cad * dt : 0.0f;
+  if (!s.localPlayer && s.alive && std::floor(s.walkPhase / 3.14159265f) != std::floor(ph0 / 3.14159265f)) botFootstep(app, s, v);   // SND10
+  return cad;
+}
+
 void Game::localGrenadeCounts(Soldier& L, bool write) {
   int fd = fragDef(L.faction), sd = smokeDef();
   auto put = [&](int d, int n) { if (d < 0) return; WeaponState& s = app.wstate[app.weaponDefs[d]->id]; if (s.throwT >= 0) return; s.loaded = n > 0 ? 1 : 0; s.containers.assign(std::max(0, n - 1), 1); };
@@ -789,7 +828,7 @@ bool Game::soldierFire(Soldier& s, vec3 dir) {
   app.fx.smoke(muzzle, dd * 2.0f + vec3(0, 0.3f, 0), 0.05f, 1.2f, vec4(0.6f, 0.58f, 0.55f, 0.35f), 0.6f, 0.2f);
   app.audio.play("shot_" + d.id, muzzle, 1.0f);
   if (!s.localPlayer) app.shotCasing(d, s.feet, s.slot);   // SND4
-  s.recoil = 1.0f; s.lastShot = t;
+  s.recoil = d.action == "launcher" ? 3.0f : 1.0f; s.lastShot = t;   // RC2: a launcher rocks the shooter's arms and weapon back (pose.cpp)
   hearSound(muzzle, (int)s.role, archetypes["perception"].value("hearShot_m", 70.0f), s.slot, 0);
   ++shotsByBots;
   if (gNet && gNet->role == Net::HOST) gNet->hostWorldEvent(json{{"t", "shot"}, {"p", tojson(start)}, {"d", tojson(dd)}, {"w", s.weapon}, {"tr", tracer}, {"by", s.slot}});
@@ -964,8 +1003,7 @@ void Game::posesStep(float dt) {
     if (s.zombie) { s.walkPhase += s.speed * dt * 2.6f; pp.aimYawOffset = yawOff; }
     else {   // AN1: kneel (still, crouched), carry (moving, not engaged), moveAim (moving, engaged); ~0.25 s blends
       float v = s.speed, k = 1.0f - std::exp(-dt / 0.08f);
-      float cad = std::min(1.75f, 0.75f + 0.25f * v);   // gait cycles per second: the planted foot travels back at the body speed
-      s.walkPhase += v * dt > 0 ? 6.2831853f * cad * dt : 0.0f;
+      float cad = advanceStride(app, s, v, dt);
       float duty = std::clamp(0.62f - 0.17f * (v - 1.5f), 0.30f, 0.62f);
       s.anStride += (0.5f * duty * v / cad - s.anStride) * k;
       pp.gait = true; pp.stride = s.anStride; pp.duty = duty;

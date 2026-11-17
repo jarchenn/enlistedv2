@@ -34,9 +34,9 @@ void TankSys::rig(const TankRT& t, mat4& hull, mat4& turret, mat4& gun, mat4& re
   turret = hull * glm::translate(mat4(1), d.turretPivot) * glm::rotate(mat4(1), radians(t.tYaw), vec3(0, 1, 0)) * glm::translate(mat4(1), -d.turretPivot);
   mat4 g = glm::translate(mat4(1), d.gunPivot) * glm::rotate(mat4(1), radians(-t.gElev), vec3(1, 0, 0));
   gun = turret * g * glm::translate(mat4(1), -d.gunPivot);
-  float r = t.recoilT, off = 0;
-  if (r < 0.05f) off = d.recoil * (r / 0.05f);
-  else if (r < 0.9f) { float u = (r - 0.05f) / 0.85f; off = d.recoil * (1 - u * u * (3 - 2 * u)); }
+  float r = t.recoilT, off = 0, stroke = 1.3f * d.recoil;   // RC2: a longer, faster stroke and a slower run-out back to battery
+  if (r < 0.03f) off = stroke * (r / 0.03f);
+  else if (r < 1.33f) { float u = (r - 0.03f) / 1.3f; off = stroke * (1 - u * u * (3 - 2 * u)); }
   recoil = turret * g * glm::translate(mat4(1), vec3(0, 0, -off)) * glm::translate(mat4(1), -d.gunPivot);
 }
 vec3 TankSys::muzzleWorld(const TankRT& t, vec3& dir) const {
@@ -333,7 +333,7 @@ bool TankSys::exitTank(App& app, bool force) {
 
 void TankSys::stepOne(App& app, TankRT& t, float dt, const ExploreInput* in) {
   const TankDef& d = *t.def;
-  t.recoilT += dt;
+  t.recoilT += dt; t.kickT += dt;
   if (t.wrecked && d.heli && t.falling) { stepHeliFall(app, t, dt); effects(app, t, dt); return; }   // VH5: going down
   if (t.wrecked) {
     t.speed = 0; t.yawRate = 0; t.reload = 0;
@@ -702,7 +702,7 @@ void TankSys::fireCannon(App& app, TankRT& t) {
   t.loaded = SHELL_NONE; ++t.shots; t.recoilT = 0;
   {   // TK1: the hull rocks away from the barrel on its suspension (more broadside: the hull is narrower than long) and is
       // shoved a little back along it; springs in the drive step bring it back
-    float deg = d.rockDeg >= 0 ? d.rockDeg : 4.0f * d.recoil, k = 8.5f * 2.718282f, a = radians(t.tYaw);
+    float deg = d.rockDeg >= 0 ? d.rockDeg : 9.0f * d.recoil, k = 8.5f * 2.718282f, a = radians(t.tYaw);
     t.suspPitchV += deg * std::cos(a) * k;
     t.suspRollV += 1.6f * deg * std::sin(a) * k;
     vec3 back = -vec3(dir.x, 0, dir.z); float L = glm::length(back);
@@ -714,6 +714,30 @@ void TankSys::fireCannon(App& app, TankRT& t) {
   } else app.fx.muzzle(muzzle, dir, d.muzzleScale);   // vehicle JSON gun.muzzleScale (firing smoke: content/settings/fx.json)
   app.audio.play(!d.gunSound.empty() && app.audio.hasEvent(d.gunSound) ? d.gunSound : t.def->id == "tiger_i" ? "tank_88" : "tank_17pdr", muzzle, d.autoGun ? 0.8f : 1.0f);
   app.viewKickPitch = d.autoGun ? 0.12f : 0.6f;
+  t.kickT = 0; t.kickDeg = d.viewKick >= 0 ? d.viewKick : 5.5f * d.recoil;   // RC2: every seat's view jumps (cameraKick)
+  if (!d.autoGun) {
+    float gy = app.terrain.height(t.pos.x, t.pos.z), R = std::max(2.5f, 1.2f * d.trackHalfLen);   // RC2: the blast lifts a dust ring round the hull
+    for (int k = 0; k < 20; ++k) {
+      float a = 6.2831853f * (k + app.fx.rnd()) / 20.0f; vec3 o(std::sin(a), 0, std::cos(a));
+      app.fx.smoke(vec3(t.pos.x, gy + 0.3f, t.pos.z) + o * R, o * (3.0f + 2.0f * app.fx.rnd()) + vec3(0, 0.6f, 0), 0.7f + 0.4f * app.fx.rnd(), 1.6f + 0.8f * app.fx.rnd(), vec4(0.52f, 0.47f, 0.38f, 0.45f), 1.4f, 0.3f);
+    }
+    if (occupied != t.id) {   // infantry nearby feel it (concussion shake by distance)
+      float dist = glm::length(app.eyePos() - muzzle);
+      if (dist < 60.0f) app.blastShake = std::max(app.blastShake, 0.7f * (1.0f - dist / 60.0f));
+    }
+  }
+}
+void TankSys::cameraKick(const App& app, vec3& eye, vec3& fwd) const {
+  auto it = tanks.find(occupied);
+  if (it == tanks.end()) return;
+  const TankRT& t = it->second; float r = t.kickT, k = t.kickDeg;
+  if (k <= 0 || r > 1.2f) return;
+  // a hard jump up and back (peak 40 ms), a damped settle in ~0.7 s, and a short shake; the aim itself never moves
+  float env = r < 0.04f ? r / 0.04f : std::exp(-(r - 0.04f) * 6.0f) * std::cos((r - 0.04f) * 9.0f);
+  float shake = app.reducedMotion ? 0.0f : 0.2f * k * std::exp(-r * 7.0f);   // reduced motion: the jump stays, no shake
+  float yaw = degrees(std::atan2(-fwd.x, -fwd.z)) + shake * std::sin(r * 47.0f + 1.3f), pitch = degrees(std::asin(std::clamp(fwd.y, -1.0f, 1.0f))) + k * env + shake * std::sin(r * 61.0f);
+  fwd = App::forward(yaw, std::clamp(pitch, -89.0f, 89.0f));
+  eye -= fwd * (0.035f * k * std::max(0.0f, env));
 }
 
 void TankSys::fireMg(App& app, TankRT& t) {
@@ -774,6 +798,11 @@ void TankSys::fireTow(App& app, TankRT& t) {
   app.fx.backblast(m - dir * 1.0f, -dir);
   app.fx.flash(m + dir * 0.4f, 1.2f, 0.1f, vec4(9, 6, 3, 1));
   app.audio.play(app.audio.hasEvent("shot_tow") ? "shot_tow" : app.audio.hasEvent("shot_modern_rpg7") ? "shot_modern_rpg7" : "shot_panzerschreck", m, 1.0f);   // VH8: the RPG launch recording
+  {   // RC2: the launch nudges the hull (the launcher sits on the turret's left) and the view
+    float k = 8.5f * 2.718282f, a = radians(t.tYaw);
+    t.suspPitchV += 0.5f * std::cos(a) * k; t.suspRollV += 0.6f * std::sin(a) * k;
+    t.kickT = 0; t.kickDeg = 0.7f;
+  }
   --t.towLeft;
   TowTrail tr; tr.uid = uid; tr.tank = t.id; tr.p = {m, m + dir * 0.6f}; tr.v = {vec3(0), dir * 2.0f}; tr.last = m + dir * 0.6f;
   towTrails.push_back(tr);
