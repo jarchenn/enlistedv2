@@ -255,7 +255,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
     return true;
   };
   auto capDist = [](vec3 q, vec3 A, vec3 B, float r) { vec3 ab = B - A; float t = std::clamp(glm::dot(q - A, ab) / std::max(1e-8f, glm::dot(ab, ab)), 0.0f, 1.0f); return glm::length(q - (A + ab * t)) - r; };
-  std::vector<float> solved(nj, -1.0f); std::vector<quat> spreadQ(nj, quat(1, 0, 0, 0));
+  std::vector<float> solved(nj, -10.0f); std::vector<quat> spreadQ(nj, quat(1, 0, 0, 0));   // solved -10: not solved (a solved angle may be negative: opened out of the surface)
   auto solveFinger = [&](int j0, int h, const mat4& Pd) {
     vec3 A, B; float r;
     if (!capsuleOf(h, A, B, r)) return;
@@ -271,7 +271,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
     auto eval = [&](float th, float& tipD, float& minD) {
       mat4 M = Pd; float lo = 1e9f;
       for (int i = 0; i < n; ++i) {
-        quat q = glm::angleAxis(th * k[i], m.fingerAx[ch[i]]) * (i == 0 ? sp : quat(1, 0, 0, 0));
+        quat q = i == 0 ? glm::angleAxis(th * k[i], sp * m.fingerAx[ch[i]]) * sp : glm::angleAxis(th * k[i], m.fingerAx[ch[i]]);   // the base curls about its spread-turned axis
         M = M * about(m.jointHead[ch[i]], q);
         vec3 nxt = i + 1 < n ? m.jointHead[ch[i + 1]] : m.fingerTip[j0];
         vec3 a = xf(M, m.jointHead[ch[i]]), b = xf(M, nxt);
@@ -280,16 +280,46 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       }
       minD = lo;
     };
-    float th = 0, tipD = 0, minD = 0, cap = supportThumb ? 0.7f : f == 0 ? 1.8f : f == 4 ? 2.4f : 1.9f, md0 = 0, td0 = 0;   // the support thumb closes onto the near side
+    float th = 0, tipD = 0, minD = 0, cap = (supportThumb ? 0.7f : f == 0 ? 1.8f : f == 4 ? 2.4f : 1.9f) + (m.handScale > 1.6f ? 0.8f : 0.0f), md0 = 0, td0 = 0;   // long claws (the robot) close past each other   // the support thumb closes onto the near side
     eval(0, td0, md0);
-    for (float t = 0; t <= cap + 1e-4f; t += 0.03f) {
+    float t0 = 0;
+    if (md0 < fr - 0.003f) for (float t = -0.03f; t >= -0.8f; t -= 0.03f) { float td, md; eval(t, td, md); t0 = t; if (md >= fr - 0.003f) { md0 = md; break; } }   // starting inside: open out first
+    th = t0;
+    for (float t = t0; t <= cap + 1e-4f; t += 0.03f) {
       float td, md; eval(t, td, md);
-      if (md < std::min(fr - 0.003f, md0 - 0.002f) && t > 0) break;   // a pad would go (further) into the surface: keep the last angle
+      if (md < std::min(fr - 0.003f, md0 - 0.002f) && t > t0) break;   // a pad would go (further) into the surface: keep the last angle
       th = t; tipD = td; minD = md;
       if (td <= fr) break;   // the fingertip pad on the surface
     }
-    if (h == 1 && f == 1) th *= 0.2f + 0.45f * trig;   // the index: straight along the frame, or bent onto the trigger in front of the grip
-    for (int i = 0; i < n; ++i) solved[ch[i]] = glm::mix(fingerCurl(h, f, m.fingerSeg[ch[i]]), th * k[i], handW[h]);
+    float ang[3] = {t0 * k[0], t0 * k[1], t0 * k[2]};
+    if (h == 1 && f == 1) { th *= 0.2f + 0.45f * trig; for (int i = 0; i < 3; ++i) ang[i] = th * k[i]; }   // the index: straight along the frame, or bent onto the trigger in front of the grip
+    else if (!supportThumb) {
+      // wrap: close the joints one after another, each until its own segment's end reaches the surface (the proximal segment along
+      // the underside, the next ones up and over the far side), never pushing a pad 3 mm in; the last until the tip touches
+      auto evalA = [&](float* a, float* endD, float& lo) {
+        mat4 M = Pd; lo = 1e9f;
+        for (int i = 0; i < n; ++i) {
+          quat q = i == 0 ? glm::angleAxis(a[0], sp * m.fingerAx[ch[0]]) * sp : glm::angleAxis(a[i], m.fingerAx[ch[i]]);
+          M = M * about(m.jointHead[ch[i]], q);
+          vec3 nxt = i + 1 < n ? m.jointHead[ch[i + 1]] : m.fingerTip[j0];
+          vec3 pa = xf(M, m.jointHead[ch[i]]), pb = xf(M, nxt);
+          endD[i] = capDist(pb, A, B, r); lo = std::min({lo, capDist(0.5f * (pa + pb), A, B, r), endD[i]});
+        }
+      };
+      const float jcap[3] = {1.4f + (m.handScale > 1.6f ? 0.6f : 0.0f), 1.7f, 1.3f};
+      float endD[3], lo; evalA(ang, endD, lo); float lo0 = lo;
+      for (int i = 0; i < n; ++i) {
+        while (ang[i] < jcap[i]) {
+          float trial[3] = {ang[0], ang[1], ang[2]}; trial[i] += 0.03f;
+          float e2[3], l2; evalA(trial, e2, l2);
+          if (l2 < std::min(fr - 0.003f, lo0 - 0.002f)) break;   // a pad would go in
+          ang[i] = trial[i]; for (int q = 0; q < 3; ++q) endD[q] = e2[q]; lo = l2;
+          if (endD[i] <= fr) break;   // this segment's end on the surface
+        }
+      }
+      tipD = endD[n - 1]; minD = lo; th = ang[0];
+    } else { for (int i = 0; i < 3; ++i) ang[i] = th * k[i]; }
+    for (int i = 0; i < n; ++i) solved[ch[i]] = glm::mix(fingerCurl(h, f, m.fingerSeg[ch[i]]), ang[i], handW[h]);
     out.fingerDiag[h][f][0] = th; out.fingerDiag[h][f][1] = tipD - fr; out.fingerDiag[h][f][2] = md0 - fr;
     if (!(h == 1 && f == 1) && !supportThumb) {   // the numeric check (the trigger finger and the support thumb don't wrap)
       out.fingerGap[h] = std::max(out.fingerGap[h], tipD - fr); out.fingerPen[h] = std::max(out.fingerPen[h], fr - minD); ++out.fingersOn[h];
@@ -327,7 +357,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       if (side == 1 && p.throwT >= 0) {   // right arm throws: wind-up behind the head, release forward-up, follow through
         mat4 C = J(CJ_SPINE2) >= 0 ? Dl[J(CJ_SPINE2)] : Pd;
         // wind-up: with the chest turned right this lands beside and behind the right ear, clear of the helmet
-        vec3 back = xf(C, vec3(-0.36f, 1.60f - drop, -0.07f)), rel = xf(C, vec3(-0.18f, 1.76f - drop, 0.45f)), fol = xf(C, vec3(0.12f, 1.10f - drop, 0.42f));   // AN1 step 2: wind-up beside and behind the shoulder
+        vec3 back = xf(C, vec3(-0.41f, 1.60f - drop, -0.08f)), rel = xf(C, vec3(-0.18f, 1.76f - drop, 0.45f)), fol = xf(C, vec3(0.12f, 1.10f - drop, 0.42f));   // AN1 step 2: wind-up beside and behind the shoulder
         float t = p.throwT;
         T = t < 0.45f ? glm::mix(xf(weapon, p.gripR), back, ease(t / 0.45f)) : t < 0.7f ? glm::mix(back, rel, ease((t - 0.45f) / 0.25f)) : glm::mix(rel, fol, ease((t - 0.7f) / 0.3f));
       }
@@ -342,17 +372,17 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       // the palm on the socket: the hand lies along the weapon and the wrist sits ~7.5 cm back from the socket
       {
         vec3 wx = glm::normalize(vec3(weapon[0])), wy = glm::normalize(vec3(weapon[1])), wz = glm::normalize(vec3(weapon[2]));
-        vec3 hd = side ? wy * -0.72f + wz * 0.69f : kind == 0 ? wx * -0.55f + wy * -0.45f + wz * 0.70f : wx * -0.75f + wz * 0.66f;   // AN1 step 2b: support fingers across under the handguard (they close up its far side)
+        vec3 hd = side ? wy * -0.72f + wz * 0.69f : kind == 0 ? wx * -0.55f + wy * -0.45f + wz * 0.70f : wx * -0.88f + wz * 0.47f;   // AN1 step 2b: support fingers across under the handguard (they close up its far side)
         float w = (1 - climbW) * (1 - swim) * (side == 1 && p.throwT >= 0 ? 0.0f : 1.0f) * (side == 0 && p.reload > 0 && p.reload < 1 ? 0.0f : 1.0f);
         // palms: the firing hand against the grip's right side, the support palm up under the handguard (pistols: cupping the right hand)
-        vec3 pn = side ? wx : kind == 0 ? -wx * 0.8f + wy * 0.3f : wy;   // AN1 step 2b: the support palm straight up under the handguard
+        vec3 pn = side ? wx : kind == 0 ? -wx * 0.8f + wy * 0.3f : wy * 0.9f - wx * 0.45f;   // AN1 step 2b: the support palm up under the handguard, cupping from the outboard side
         hd = glm::normalize(hd); pn -= hd * glm::dot(pn, hd);   // the palm normal square to the fingers (the hand roll makes it so; the placement must agree)
         handDir[side] = hd; palmDir[side] = glm::normalize(pn); handW[side] = w;
         bool onGrip = side == 1 || kind == 0; float cr = onGrip ? p.gripRad + (side == 0 ? 0.022f : 0.0f) : p.guardRad;   // a pistol's support palm on the firing fingers
         if ((onGrip ? p.gripRad : p.guardRad) > 0) {   // AN1 step 2b: the palm on the measured surface: the axis point at the socket, out by the radius and the palm's half thickness
           vec3 c = xf(weapon, onGrip ? p.gripC : p.guardC), ax = onGrip ? glm::normalize(glm::mat3(weapon) * p.gripAx) : glm::normalize(vec3(weapon[2]));
           vec3 onAx = c + ax * glm::dot(T - c, ax);
-          T = glm::mix(T, onAx - palmDir[side] * (cr + 0.022f) - handDir[side] * (5.0f * m.fingerR), w);   // the palm's centre (half the hand length from the wrist) on the axis line
+          T = glm::mix(T, onAx - palmDir[side] * (cr + m.palmThick[side]) - handDir[side] * (5.0f * 0.009f * m.handScale), w);   // the rig's own palm thickness   // the palm's centre (half the hand length from the wrist) on the axis line
         } else T -= (handDir[side] * 0.075f + palmDir[side] * (side ? 0.03f : 0.04f)) * w;   // the palm's surface (not the bones) against the weapon
       }
       // elbows hang down and in (not winged out)
@@ -376,7 +406,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
         int f = j < (int)m.finger.size() ? m.finger[j] : -1;
         if (f >= 0) {
           if (m.fingerSeg[j] == 1) solveFinger(j, fh, Pd);
-          D[j] = glm::angleAxis(solved[j] >= 0 ? solved[j] : fingerCurl(fh, f, m.fingerSeg[j]), m.fingerAx[j]) * spreadQ[j];
+          D[j] = glm::angleAxis(solved[j] > -9 ? solved[j] : fingerCurl(fh, f, m.fingerSeg[j]), spreadQ[j] * m.fingerAx[j]) * spreadQ[j];
         }
         else if (armSolved[fh] && handW[fh] > 0) D[j] = glm::angleAxis(0.4f * handW[fh], curlAx[fh]);   // unnamed finger joints: one curl
       }

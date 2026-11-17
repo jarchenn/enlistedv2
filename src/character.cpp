@@ -294,6 +294,7 @@ bool CharModel::load(const fs::path& path, std::string& err, float height, bool 
       vec3 b1 = glm::normalize(jointHead[c] - jointHead[k]), b2 = glm::normalize(jointHead[g] - jointHead[c]);
       vec3 perp = b2 - b1 * glm::dot(b2, b1); bend += perp; curlAng += std::acos(std::clamp(glm::dot(b1, b2), -1.0f, 1.0f)); ++nc;
     }
+    if (glm::length(bend) > 1e-4f && glm::dot(palmN[h], bend) < 0) palmN[h] = -palmN[h];   // the thumb rule's sign follows the fingers' rest curl (Biped, trooper rigs)
     if (nc > 0 && curlAng / nc > 0.2f && glm::length(bend) > 1e-4f) {
       vec3 nb = bend - f * glm::dot(bend, f);
       if (glm::length(nb) > 1e-4f) palmN[h] = glm::normalize(nb);
@@ -331,7 +332,27 @@ bool CharModel::load(const fs::path& path, std::string& err, float height, bool 
       vec3 fd = inPlane(fingerTip[k] - jointHead[k]);
       fingerSpread[k] = std::atan2(glm::dot(glm::cross(md, fd), n), glm::dot(md, fd));
     }
-    if (h == 1) fingerR = std::clamp(0.1f * glm::length(jointHead[mid] - hp), 0.006f, 0.02f);
+    if (h == 1) { fingerR = std::clamp(0.1f * glm::length(jointHead[mid] - hp), 0.006f, 0.02f); handScale = glm::length(jointHead[mid] - hp) / 0.09f; }
+  }
+  // AN1 step 2b: per rig, the palm's thickness (hand-weighted vertices: how far the palm side reaches past the hand's bone line, 95th
+  // percentile) and the finger pad radius (finger-weighted vertices: median distance from their joint's bone)
+  if (semantic[CJ_LHAND] >= 0 && semantic[CJ_RHAND] >= 0 && !finger.empty()) {
+    std::vector<float> pads;
+    for (int h = 0; h < 2; ++h) {
+      int hj = semantic[h ? CJ_RHAND : CJ_LHAND]; std::vector<float> pr;
+      for (auto& v : verts) {
+        int best = -1; float bw = 0; for (int i = 0; i < 4; ++i) if (v.w[i] > bw) { bw = v.w[i]; best = (int)v.j[i]; }
+        if (best < 0 || bw < 0.5f) continue;
+        if (best == hj) pr.push_back(glm::dot(v.pos - jointHead[hj], palmN[h]));
+        else if (best < nj && finger[best] >= 1 && fingerNext[best] >= 0) {
+          vec3 a = jointHead[best], b = jointHead[fingerNext[best]], ab = b - a; float t = std::clamp(glm::dot(v.pos - a, ab) / std::max(1e-8f, glm::dot(ab, ab)), 0.0f, 1.0f);
+          pads.push_back(glm::length(v.pos - (a + ab * t)));
+        }
+      }
+      if (pr.size() > 20) { std::sort(pr.begin(), pr.end()); palmThick[h] = std::clamp(pr[pr.size() * 80 / 100], 0.012f, 0.02f); }   // a palm's skin sits 1-2 cm off its bone line   // sleeves / cuffs weighted to the hand inflate the top end
+    }
+    if (pads.size() > 20) { std::nth_element(pads.begin(), pads.begin() + pads.size() / 2, pads.end()); fingerR = std::clamp(pads[pads.size() / 2], 0.006f, 0.016f); }
+    logf("character %s: palm thickness L %.3f R %.3f, finger pad %.3f m", id.c_str(), palmThick[0], palmThick[1], fingerR);
   }
   // AN1 step 2b: per-rig head pitch fix (the robot commando's long head hangs at rest; raise it to just above level)
   { static const std::map<std::string, float> kHeadFix = {{"robot_commando", 0.35f}}; auto it = kHeadFix.find(id); if (it != kHeadFix.end()) headPitchFix = it->second; }
