@@ -677,9 +677,8 @@ static GLuint loadTexBC(const uint8_t* d, int w, int h, int kind, size_t& bytes,
 // MEM3: block-compressed model maps cached per user (%LOCALAPPDATA%/BattleFoundry/texbc): a hit skips the JPEG / PNG decode
 // and the CPU compression (most of the weapons' and vehicles' startup time). Keyed by the source's path, size and time.
 static fs::path texCacheFile(const fs::path& p, int kind) {
-  std::error_code ec; uintmax_t sz = fs::file_size(p, ec); if (ec) return {};
-  auto mt = fs::last_write_time(p, ec); if (ec) return {};
-  std::string key = "bc1|" + p.lexically_normal().string() + "|" + std::to_string(sz) + "|" + std::to_string((long long)mt.time_since_epoch().count()) + "|" + std::to_string(kind);
+  const std::string st = userCacheContentStamp(p); if (st.empty()) return {};   // CACHE2: by content: every build with this source shares it
+  std::string key = "bc2|" + st + "|" + std::to_string(kind);
   uint64_t x = 1469598103934665603ull; for (unsigned char c : key) { x ^= c; x *= 1099511628211ull; }
   fs::path dir = userCacheDir("texbc", "NMK_TEXBC_CACHE");
   char nm[32]; std::snprintf(nm, sizeof nm, "%016llx.bc", (unsigned long long)x);
