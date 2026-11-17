@@ -18,6 +18,6 @@ struct Instance;
 void w5TerrainBase(Terrain& t, const TemplateInfo& ti);          // authored base heights + water level
 void w5NewMapContent(App& app, const TemplateInfo& t);           // load the template's map content into the new doc
 bool w5TemplateThumbnail(TemplateInfo& t);                       // true = preview loaded from the template's PNG
-void w5PlayMapPicker(App& app);                                  // "Default maps" picker in the match setup window
+void w5PlayMapPicker(App& app, bool list = false);               // "Default maps" picker in the match setup window (UI4 list: rows with thumbnails)
 bool w5CullDraw(const App& app, const Instance& i, const AssetDef* a);   // distance cull for small decorators
 json w5MapSettings();                                            // content/settings/maps.json (cached)

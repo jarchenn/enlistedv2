@@ -491,9 +491,12 @@ void build(App&) {
       case 44: if (at(0.2f)) { mainMenuCharTab(0); ph = 5; t0 = t; r0 = glfwGetTime(); } break;
       case 5: if (at(0.2f)) { mainMenuGo(a, 6); ph = 6; t0 = t; r0 = glfwGetTime(); } break;
       case 6: if (at(0.8f)) { shot("4_credits"); ph = 7; t0 = t; r0 = glfwGetTime(); } break;
-      case 7: if (at(0.2f)) { mainMenuGo(a, -1); mainMenuGo(a, 3); ph = 8; t0 = t; r0 = glfwGetTime(); } break;
-      case 8: if (at(0.8f)) { shot("5_settings"); ph = 9; t0 = t; r0 = glfwGetTime(); } break;
-      case 9: if (at(0.2f)) { settings().open = false; mainMenuGo(a, 0); ph = 10; t0 = t; r0 = glfwGetTime(); } break;
+      case 7: if (at(0.2f)) { mainMenuGo(a, -1); mainMenuGo(a, 4); ph = 70; t0 = t; r0 = glfwGetTime(); } break;   // UI4: the Guns page
+      case 70: if (at(1.0f)) { shot("4b_guns"); ph = 71; t0 = t; r0 = glfwGetTime(); } break;
+      case 71: if (at(0.2f)) { mainMenuGo(a, -1); mainMenuGo(a, 3); ph = 8; t0 = t; r0 = glfwGetTime(); } break;
+      case 8: if (at(0.8f)) { shot(("5_settings_" + std::to_string(gSettingsTab)).c_str()); ph = gSettingsTab < 4 ? 80 : 9; t0 = t; r0 = glfwGetTime(); } break;   // UI4: every tab
+      case 80: if (at(0.2f)) { ++gSettingsTab; ph = 8; t0 = t; r0 = glfwGetTime(); } break;
+      case 9: if (at(0.2f)) { gSettingsTab = 0; settings().open = false; mainMenuGo(a, 0); ph = 10; t0 = t; r0 = glfwGetTime(); } break;
       case 10: if (at(0.5f)) { chk(!mainMenuActive() && a.mode == Mode::Creative, "UI2: Create Map closes the menu into Creative"); mainMenuOpen(a); mainMenuGo(a, 1); gUi.showSetup = true; gUi.setupMode = 0; ph = 11; t0 = t; r0 = glfwGetTime(); } break;
       case 11: if (at(0.3f)) {   // UI3 (a): Play > Singleplayer setup > a default map picked, as w5PlayMapPicker does it
                  const TemplateInfo* tp = a.findTemplate("newtown");
@@ -503,6 +506,22 @@ void build(App&) {
                  gUi.showSetup = false; return true; } break;
     }
     return t > 600; });   // sim time races ahead under the menu (no 3D render); the phases wait on real time too
+  // UI4 loading stills (NMK_UI4_STILLS): every ready-to-play map from its own editor camera, no UI ->
+  // selftest_out/ui4_still_<id>.png (made into content/templates/<id>.loading.jpg for the loading screen)
+  push("ui4 stills", [](App& a, float t) {
+    if (!std::getenv("NMK_UI4_STILLS")) return true;
+    static std::vector<std::string> ids; static size_t k = 0; static double r0 = 0; static int ph = 0;
+    if (t == 0) {
+      ids.clear(); k = 0; ph = 0;
+      for (auto& tp : a.templates) if (tp.available && tp.raw.value("playable", false) && fs::exists(contentDir() / "templates" / (tp.id + ".nmap.json"))) ids.push_back(tp.id);
+      if (a.mode == Mode::Explore) a.exitExplore();
+      gUi.showOverlay = false;   // no scenario lines / markers in the stills
+    }
+    if (k >= ids.size()) { a.hideUi = false; gUi.showOverlay = true; return true; }
+    if (ph == 0) { a.openMap(contentDir() / "templates" / (ids[k] + ".nmap.json")); a.hideUi = true; r0 = glfwGetTime(); ph = 1; return false; }
+    if (ph == 1 && glfwGetTime() > r0 + 3.0) { a.uiShot = outDir() / ("ui4_still_" + ids[k] + ".png"); ph = 2; return false; }
+    if (ph == 2) { ++k; ph = 0; }
+    return t > 900; });
   push("ai3 setup", [](App& a, float t) {
     if (!std::getenv("NMK_AI3_SHOT")) return true;
     if (t == 0) {
@@ -628,6 +647,7 @@ bool modesSelfTest(App& app, float dt) {
     started = true; T = new MpTest("modes"); build(app); cur = 0; st = 0;
     if (std::getenv("NMK_NAV_PREBAKE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "prebake templates" && s.name != "done"; }), seq.end());   // just the bake
     else if (std::getenv("NMK_MODES_ONLY_CACHE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "nav bake cache" && s.name != "done"; }), seq.end());   // just the cache round trip (with NMK_MODES_MAP: on another map)
+    else if (std::getenv("NMK_UI4_STILLS")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui4 stills" && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_UI2_MENU")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui2 menu" && s.name != "done" && !(s.name == "ui2 backdrop" && std::getenv("NMK_UI2_BACKDROP")) && !(s.name == "ui1p screens" && std::getenv("NMK_UI1_POLISH")); }), seq.end());   // with NMK_UI2_BACKDROP too: one run for both (GPU budget)
     else if (std::getenv("NMK_UI2_BACKDROP")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui2 backdrop" && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_UI1_POLISH")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui1p screens" && s.name != "done" && !(s.name == "ui2 menu" && std::getenv("NMK_UI2_MENU")); }), seq.end());   // UI2: with the menu pages in one run

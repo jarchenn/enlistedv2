@@ -11,6 +11,7 @@
 #include "app.h"
 #include "net.h"
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <GLFW/glfw3.h>
 #include "physics.h"
 #include "ai_hooks.h"
@@ -424,38 +425,23 @@ void MpUi::setupWindow(App& app) {
   if (!showSetup) return;
   Scenario& s = scenario(app);
   if (!rulesInit) { rules = s.rules; rulesInit = true; }
-  ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-  ImGui::SetNextWindowSize(ImVec2(560, 0), ImGuiCond_Appearing);
+  // UI4: wide and short: three columns (map / mode and rules / sides and AI), compact type, the advanced parts
+  // collapsible, Start at the bottom right; fits a 1080p screen without scrolling in the common case
+  const ImVec2 ds = ImGui::GetIO().DisplaySize; const float sc = ds.y / 1080.0f;
+  const ImVec2 ws(std::min(ds.x * 0.94f, 1780 * sc), std::min(ds.y * 0.86f, 940 * sc));
+  ImGui::SetNextWindowPos(ImVec2(ds.x * 0.5f, ds.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+  ImGui::SetNextWindowSize(ws, ImGuiCond_Always);
+  { static int last = -10; const int f = ImGui::GetFrameCount(); if (f > last + 1) ImGui::SetNextWindowFocus(); last = f; }   // in front of the editor's panels whenever it (re)opens
   const char* title = setupMode == 0 ? "Singleplayer setup" : "Host LAN: lobby";
-  if (!ImGui::Begin(title, &showSetup, ImGuiWindowFlags_AlwaysAutoResize)) { ImGui::End(); return; }
-  ImGui::Text("Map: %s   (%zu objectives)", app.doc.name.c_str(), s.objectives.size());
-  w5PlayMapPicker(app);   // W5: ready-to-play default maps (w5_maps.cpp)
-  // ---- G1: mode first (Solo / Team Deathmatch / Assault), then that mode's settings
-  {
-    int m = (int)rules.mode;
-    ImGui::SeparatorText("Game mode");
-    ImGui::RadioButton("Solo (free-for-all)", &m, (int)GameMode::Solo); ImGui::SameLine();
-    ImGui::RadioButton("Team Deathmatch", &m, (int)GameMode::TDM); ImGui::SameLine();
-    ImGui::RadioButton("Assault (objectives)", &m, (int)GameMode::Assault); ImGui::SameLine();
-    ImGui::RadioButton("Battle royale", &m, (int)GameMode::BattleRoyale); ImGui::SameLine();
-    ImGui::RadioButton("Search and Destroy", &m, (int)GameMode::SearchDestroy);
-    if (m == (int)GameMode::SearchDestroy && rules.mode != GameMode::SearchDestroy)   // SD1: 5 v 5 soldiers by default (spec §2)
-      for (int t = 0; t < 2; ++t) { for (int& x : rules.aiCount[t]) x = 0; rules.aiTypes[t] = aiBit(AiType::Soldiers); rules.aiCount[t][(int)AiType::Soldiers] = t == rules.humanTeam ? 4 : 5; rules.teamPlayers[t] = 5; }
-    if (m == (int)GameMode::SearchDestroy && rules.mode != GameMode::SearchDestroy) { SdConfig c = SdConfig::load(); rules.sdWarmup = c.warmupDefault; rules.sdVehicles = c.vehiclesDefault; }   // SD3: the options' defaults (search_destroy.json)
-    rules.mode = (GameMode)m;
-    if (rules.mode == GameMode::SearchDestroy) {
-      ImGui::Checkbox("Short match (MR12: first to 13, swap after 12)", &rules.sdShort); ImGui::SameLine(); ImGui::Checkbox("Warmup (60 s)", &rules.sdWarmup); ImGui::SameLine(); ImGui::Checkbox("Vehicles", &rules.sdVehicles);
-      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Off: the map's vehicles are removed for the match and none spawn");
-      ImGui::TextDisabled("Two bomb sites; one life a round; buy with B in your spawn; E in a site plants, E at the bomb defuses (docs/search-and-destroy.md).");
-    }
-  }
+  if (!ImGui::Begin(title, &showSetup, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings)) { ImGui::End(); return; }
+  ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());   // above the editor's panels while it is open
+  ImGui::SetWindowFontScale(0.94f);
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 4)); ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6, 3));
   int humansHere = setupMode == 1 && gNet ? gNet->humanCount() : 1;
-  // per side: tick any AI types; each AI takes the ticked ones in turn (the last tick cannot be cleared). EN1 Zombies +
-  // heavies: brutes and stalkers by weight (content/ai/zombie.json types); Brutes, Spiders, Creatures, Knights, Animatronics, Aliens, Alien queens, Abominations, Golems, Boglords: that type only
-  // AI3: per side, a typed count for every AI type (0 = none of it); the side's AI is their sum and the team / player
+  ScenarioRules& R = rules;
+  // per side: a typed count for every AI type (AI3; 0 = none of it); the side's AI is their sum and the team / player
   // totals follow from it. Rules from before AI3 (no counts) start from their total split evenly over the ticked types.
   // Every field stops where the match total would pass the AI cap.
-  ScenarioRules& R = rules;
   auto aiTotal = [&]() { return R.aiSum(0) + (ffaMode(R.mode) ? 0 : R.aiSum(1)); };
   auto aiTypes = [&](const char* label, int side, int oldTotal) {
     int* c = R.aiCount[side];
@@ -465,11 +451,11 @@ void MpUi::setupWindow(App& app) {
     }
     ImGui::PushID(label);
     ImGui::Text("%s %d AI", label, R.aiSum(side));
-    if (ImGui::BeginTable("types", 4, ImGuiTableFlags_SizingFixedFit)) {
+    if (ImGui::BeginTable("types", 6, ImGuiTableFlags_SizingStretchProp)) {   // UI4: three type / count pairs a row
       for (int k = 0; k < kAiTypeCount; ++k) {
-        if (k % 2 == 0) ImGui::TableNextRow();
+        if (k % 3 == 0) ImGui::TableNextRow();
         ImGui::TableNextColumn(); ImGui::TextUnformatted(aiTypeName((AiType)k));
-        ImGui::TableNextColumn(); ImGui::PushID(k);
+        ImGui::TableNextColumn(); ImGui::PushID(k); ImGui::SetNextItemWidth(-1);
         intField("##n", c[k], 0, c[k] + std::max(0, ScenarioRules::kMaxAI - aiTotal()), false);
         ImGui::PopID();
       }
@@ -484,96 +470,153 @@ void MpUi::setupWindow(App& app) {
     if (t > ScenarioRules::kMaxAI) ImGui::TextColored(ImVec4(1, 0.55f, 0.45f, 1), "AI in all: %d / %d (too many)", t, ScenarioRules::kMaxAI);
     else ImGui::Text("AI in all: %d / %d", t, ScenarioRules::kMaxAI);
   };
-  if (rules.mode == GameMode::BattleRoyale) {   // BR1: one life each, last one alive wins (royale.cpp)
-    { int ai = std::max(0, rules.royalePlayers - humansHere); ImGui::Text("AI soldiers:"); ImGui::SameLine();
-      if (intField("##brai", ai, std::max(0, 10 - humansHere), ScenarioRules::kMaxAI)) rules.royalePlayers = humansHere + ai;
-      ImGui::SameLine(); ImGui::Text("-> %d players with you", rules.royalePlayers); }
-    { int lp = rules.lootModern ? 1 : 0; ImGui::Text("Loot:"); ImGui::SameLine(); ImGui::RadioButton("WW2 weapons", &lp, 0); ImGui::SameLine(); ImGui::RadioButton("Modern weapons", &lp, 1); rules.lootModern = lp == 1; }   // BR2 reads rules.lootModern
-    rules.aiTypes[0] = rules.aiTypes[1] = aiBit(AiType::Soldiers);   // BR5: no bot types: everyone is a soldier in the player's body
-    ImGui::TextDisabled("Every bot lands with two random guns; you land unarmed and loot. Everyone wears your character.");
-    ImGui::TextDisabled("Everyone boards a bomber and jumps (Space; Space again or 60 m up opens the parachute). No respawns:");
-    ImGui::TextDisabled("the last one alive wins. Four storm circles close in; outside them you lose 1 / 2 / 4 / 8 health a second.");
-    aiDifficultyCombo();
-  } else if (rules.mode != GameMode::Assault) {
-    ImGui::SliderInt("Kill cap (wins the match)", &rules.killCap, 5, 150);
-    if (rules.mode == GameMode::Solo) {
+  const float footH = ImGui::GetFrameHeightWithSpacing() * 2.6f;
+  bool blocked = false;
+  {   // validate what will be played (the setup rules, not the map's saved defaults): the lobby's Start needs it too
+    Scenario withRules = s; withRules.rules = rules;
+    for (auto& i : validateScenario(withRules, false)) if (i.error) blocked = true;
+  }
+  if (ImGui::BeginTable("##setupcols", 3, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp, ImVec2(0, ImGui::GetContentRegionAvail().y - footH))) {
+    ImGui::TableSetupColumn("map", ImGuiTableColumnFlags_WidthStretch, 0.28f); ImGui::TableSetupColumn("rules", ImGuiTableColumnFlags_WidthStretch, 0.34f); ImGui::TableSetupColumn("sides", ImGuiTableColumnFlags_WidthStretch, 0.38f);
+    ImGui::TableNextRow();
+    const float colH = ImGui::GetContentRegionAvail().y - footH;
+    // ---- column 1: the map (and the LAN lobby)
+    ImGui::TableNextColumn();
+    ImGui::BeginChild("##c1", ImVec2(0, colH), 0, ImGuiWindowFlags_NoBackground);
+    ImGui::SeparatorText("MAP");
+    ImGui::Text("%s   (%zu objectives)", app.doc.name.c_str(), s.objectives.size());
+    w5PlayMapPicker(app, true);   // W5: ready-to-play default maps (w5_maps.cpp), as a list with thumbnails
+    if (setupMode == 1) { ImGui::SeparatorText("LAN LOBBY"); netLobby(app, blocked); }
+    ImGui::EndChild();
+    // ---- column 2: mode first (Solo / Team Deathmatch / Assault / Battle royale / Search and Destroy), then its rules
+    ImGui::TableNextColumn();
+    ImGui::BeginChild("##c2", ImVec2(0, colH), 0, ImGuiWindowFlags_NoBackground);
+    {
+      int m = (int)rules.mode;
+      ImGui::SeparatorText("GAME MODE");
+      ImGui::RadioButton("Solo (free-for-all)", &m, (int)GameMode::Solo); ImGui::SameLine();
+      ImGui::RadioButton("Team Deathmatch", &m, (int)GameMode::TDM);
+      ImGui::RadioButton("Assault (objectives)", &m, (int)GameMode::Assault); ImGui::SameLine();
+      ImGui::RadioButton("Battle royale", &m, (int)GameMode::BattleRoyale);
+      ImGui::RadioButton("Search and Destroy", &m, (int)GameMode::SearchDestroy);
+      if (m == (int)GameMode::SearchDestroy && rules.mode != GameMode::SearchDestroy)   // SD1: 5 v 5 soldiers by default (spec §2)
+        for (int t = 0; t < 2; ++t) { for (int& x : rules.aiCount[t]) x = 0; rules.aiTypes[t] = aiBit(AiType::Soldiers); rules.aiCount[t][(int)AiType::Soldiers] = t == rules.humanTeam ? 4 : 5; rules.teamPlayers[t] = 5; }
+      if (m == (int)GameMode::SearchDestroy && rules.mode != GameMode::SearchDestroy) { SdConfig c = SdConfig::load(); rules.sdWarmup = c.warmupDefault; rules.sdVehicles = c.vehiclesDefault; }   // SD3: the options' defaults (search_destroy.json)
+      rules.mode = (GameMode)m;
+      ImGui::SeparatorText("RULES");
+      if (rules.mode == GameMode::SearchDestroy) {
+        ImGui::Checkbox("Short match (MR12: first to 13, swap after 12)", &rules.sdShort); ImGui::Checkbox("Warmup (60 s)", &rules.sdWarmup); ImGui::SameLine(); ImGui::Checkbox("Vehicles", &rules.sdVehicles);
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Off: the map's vehicles are removed for the match and none spawn");
+        ImGui::TextDisabled("Two bomb sites; one life a round; buy with B in your spawn; E in a site plants, E at the bomb defuses.");
+      }
+    }
+    if (rules.mode == GameMode::BattleRoyale) {   // BR1: one life each, last one alive wins (royale.cpp)
+      { int ai = std::max(0, rules.royalePlayers - humansHere); ImGui::Text("AI soldiers:"); ImGui::SameLine();
+        if (intField("##brai", ai, std::max(0, 10 - humansHere), ScenarioRules::kMaxAI)) rules.royalePlayers = humansHere + ai;
+        ImGui::SameLine(); ImGui::Text("-> %d players with you", rules.royalePlayers); }
+      { int lp = rules.lootModern ? 1 : 0; ImGui::Text("Loot:"); ImGui::SameLine(); ImGui::RadioButton("WW2 weapons", &lp, 0); ImGui::SameLine(); ImGui::RadioButton("Modern weapons", &lp, 1); rules.lootModern = lp == 1; }   // BR2 reads rules.lootModern
+      rules.aiTypes[0] = rules.aiTypes[1] = aiBit(AiType::Soldiers);   // BR5: no bot types: everyone is a soldier in the player's body
+      ImGui::TextDisabled("Every bot lands with two random guns; you land unarmed and loot. Everyone wears your character.");
+      ImGui::TextDisabled("Board the bomber and jump (Space; again or 60 m up opens the parachute). No respawns: the last one alive");
+      ImGui::TextDisabled("wins. Four storm circles close in; outside them you lose 1 / 2 / 4 / 8 health a second.");
+      aiDifficultyCombo();
+    } else if (rules.mode != GameMode::Assault) {
+      ImGui::SliderInt("Kill cap (wins the match)", &rules.killCap, 5, 150);
+      ImGui::SliderFloat("Respawn delay (s)", &rules.respawnDelay, 1, 15, "%.0f");
+      ImGui::SliderInt("Frag grenades per life", &rules.fragPerLife, 0, 4);
+      if (rules.mode != GameMode::Solo) ImGui::Checkbox("Friendly fire (bullets and blasts hurt your own team)", &rules.friendlyFire);
+      aiDifficultyCombo();
+      if (rules.mode == GameMode::Solo) ImGui::TextDisabled("Every AI attacks whoever is closest; spawns are chosen far from everyone.");
+    } else {
+      int fac = (int)rules.defendingFaction;
+      ImGui::Text("Defending side (humans join the defenders):");
+      ImGui::RadioButton("Axis [GER] defend, Allies attack", &fac, 1); ImGui::RadioButton("Allies [US] defend, Axis attack", &fac, 0);
+      rules.defendingFaction = (Faction)fac;
+      ImGui::SliderInt("Attacker respawns per slot", &rules.attackerRespawns, 0, 20);
+      ImGui::SliderFloat("Attacker wave interval (s)", &rules.attackerWave, 3, 60, "%.0f");
+      ImGui::SliderFloat("Defender wave interval (s)", &rules.defenderWave, 3, 60, "%.0f");
+      ImGui::SliderInt("Frag grenades per life", &rules.fragPerLife, 0, 4);
+      ImGui::SliderInt("Smoke grenades per attacker life", &rules.smokePerLifeAttacker, 0, 3);
+      ImGui::SliderInt("Smoke grenades per defender life", &rules.smokePerLifeDefender, 0, 3);
+      ImGui::Checkbox("Friendly fire (bullets and blasts hurt your own side)", &rules.friendlyFire);
+      aiDifficultyCombo();   // W6: Recruit / Regular / Veteran (AI_SPEC 10)
+    }
+    if (!classDefs().empty() && rules.mode != GameMode::BattleRoyale && ImGui::CollapsingHeader("Allowed classes")) {   // GM1: classes players may pick (empty list = all); at least one stays on. BR5: none in battle royale (loot is the kit)
+      const auto& C = classDefs();
+      for (size_t k = 0; k < C.size(); ++k) {
+        bool on = rules.classAllowed(C[k].id), was = on;
+        if (k % 2) ImGui::SameLine(ImGui::GetContentRegionAvail().x * 0.5f);
+        ImGui::Checkbox((C[k].us.name + (C[k].de.name != C[k].us.name ? " / " + C[k].de.name : std::string())).c_str(), &on);
+        if (on == was) continue;
+        std::vector<std::string> all; for (auto& c : C) if (rules.classAllowed(c.id)) all.push_back(c.id);
+        if (on) all.push_back(C[k].id); else if (all.size() > 1) all.erase(std::remove(all.begin(), all.end(), C[k].id), all.end());
+        rules.allowedClasses = all.size() == C.size() ? std::vector<std::string>{} : all;
+      }
+    }
+    ImGui::EndChild();
+    // ---- column 3: sides and AI
+    ImGui::TableNextColumn();
+    ImGui::BeginChild("##c3", ImVec2(0, colH), 0, ImGuiWindowFlags_NoBackground);
+    if (rules.mode == GameMode::BattleRoyale) {
+      ImGui::SeparatorText("PLAYERS");
+      ImGui::Text("%d players: you and %d AI soldiers.", rules.royalePlayers, std::max(0, rules.royalePlayers - humansHere));
+    } else if (rules.mode == GameMode::Solo) {
+      ImGui::SeparatorText("AI");
       aiTypes("AI:", 0, rules.soloPlayers - humansHere); rules.aiTypes[1] = rules.aiTypes[0];
       rules.soloPlayers = std::max(2, humansHere + rules.aiSum(0)); aiCap();
       ImGui::Text("Players in all: %d (%d human%s)", rules.soloPlayers, humansHere, humansHere == 1 ? "" : "s");
-      ImGui::TextDisabled("Every AI attacks whoever is closest; spawns are chosen far from everyone.");
-    } else {
+    } else if (rules.mode != GameMode::Assault) {
       for (int t = 0; t < 2; ++t) {
         ImGui::PushID(t);
-        ImGui::SeparatorText(t == 0 ? "Team A" : "Team B");
+        ImGui::SeparatorText(t == 0 ? "TEAM A" : "TEAM B");
         int f = (int)rules.teamFaction[t];
         ImGui::RadioButton("Allies [US]", &f, 0); ImGui::SameLine(); ImGui::RadioButton("Axis [GER]", &f, 1); rules.teamFaction[t] = (Faction)f;
         int hOn = 0; for (int h = 0, on[2] = {0, 0}; h < humansHere; ++h) { int ht = h == 0 ? rules.humanTeam : (on[0] <= on[1] ? 0 : 1); ++on[ht]; if (ht == t) ++hOn; }   // as Match::setupDeathmatch
+        ImGui::SameLine(); ImGui::TextDisabled("  %d on the team (%d human%s)", std::max(1, rules.aiSum(t) + hOn), hOn, hOn == 1 ? "" : "s");
         aiTypes("AI:", t, rules.teamPlayers[t] - hOn);
         rules.teamPlayers[t] = std::max(1, rules.aiSum(t) + hOn);
-        ImGui::Text("Players on the team: %d (%d human%s)", rules.teamPlayers[t], hOn, hOn == 1 ? "" : "s");
         ImGui::PopID();
       }
       aiCap();
       ImGui::Text("You play on:"); ImGui::SameLine(); ImGui::RadioButton("Team A", &rules.humanTeam, 0); ImGui::SameLine(); ImGui::RadioButton("Team B", &rules.humanTeam, 1);
       if (setupMode == 1) ImGui::TextDisabled("LAN players who join are put on the team with fewer humans.");
-      ImGui::Checkbox("Friendly fire (bullets and blasts hurt your own team)", &rules.friendlyFire);
+    } else {
+      int humans = setupMode == 1 && gNet ? gNet->humanCount() : 1;
+      rules.defenderSlots = std::clamp(rules.defenderSlots, std::max(1, humans), ScenarioRules::kMaxCombatants - 1);
+      rules.attackerAI = std::clamp(rules.attackerAI, 1, ScenarioRules::kMaxCombatants - rules.defenderSlots);
+      ImGui::SeparatorText("DEFENDERS");
+      { ImGui::PushID(0); aiTypes("Defending AI (with you):", 0, rules.defenderSlots - humans); ImGui::PopID(); }
+      ImGui::SeparatorText("ATTACKERS");
+      { ImGui::PushID(1); aiTypes("Attacking AI:", 1, rules.attackerAI); ImGui::PopID(); }
+      rules.defenderSlots = std::max(1, humans + rules.aiSum(0)); rules.attackerAI = std::max(1, rules.aiSum(1));
+      if (rules.aiSum(1) == 0) ImGui::TextColored(ImVec4(1, 0.55f, 0.45f, 1), "At least one attacking AI: 1 soldier is used.");
+      aiCap();
+      int lives = 1 + rules.attackerRespawns;
+      ImGui::Text("Humans %d  |  Friendly AI %d  |  Enemy AI %d  |  Total %d / %d", humans, rules.defenderSlots - humans, rules.attackerAI, rules.defenderSlots + rules.attackerAI, ScenarioRules::kMaxCombatants);
+      ImGui::TextDisabled("Each attacking slot: 1 life + %d respawns = %d lives (%d attacker lives in all)", rules.attackerRespawns, lives, lives * rules.attackerAI);
+      ImGui::TextDisabled("Defenders respawn without limit. Minimum %.0f s from death to respawn.", rules.minRespawnDelay);
     }
-    ImGui::SliderFloat("Respawn delay (s)", &rules.respawnDelay, 1, 15, "%.0f");
-    ImGui::SliderInt("Frag grenades per life", &rules.fragPerLife, 0, 4);
-    aiDifficultyCombo();
-  } else {
-  int fac = (int)rules.defendingFaction;
-  ImGui::Text("Defending side (humans join the defenders):");
-  ImGui::RadioButton("Axis [GER] defend, Allies attack", &fac, 1); ImGui::SameLine(); ImGui::RadioButton("Allies [US] defend, Axis attack", &fac, 0);
-  rules.defendingFaction = (Faction)fac;
-  int humans = setupMode == 1 && gNet ? gNet->humanCount() : 1;
-  ImGui::SliderInt("Attacker respawns per slot", &rules.attackerRespawns, 0, 20);
-  ImGui::SliderFloat("Attacker wave interval (s)", &rules.attackerWave, 3, 60, "%.0f");
-  ImGui::SliderFloat("Defender wave interval (s)", &rules.defenderWave, 3, 60, "%.0f");
-  ImGui::SliderInt("Frag grenades per life", &rules.fragPerLife, 0, 4);
-  ImGui::SliderInt("Smoke grenades per attacker life", &rules.smokePerLifeAttacker, 0, 3);
-  ImGui::SliderInt("Smoke grenades per defender life (humans + AI)", &rules.smokePerLifeDefender, 0, 3);
-  ImGui::Checkbox("Friendly fire (bullets and blasts hurt your own side)", &rules.friendlyFire);
-  aiDifficultyCombo();   // W6: Recruit / Regular / Veteran (AI_SPEC 10)
-  rules.defenderSlots = std::clamp(rules.defenderSlots, std::max(1, humans), ScenarioRules::kMaxCombatants - 1);
-  rules.attackerAI = std::clamp(rules.attackerAI, 1, ScenarioRules::kMaxCombatants - rules.defenderSlots);
-  { ImGui::PushID(0); aiTypes("Defending AI (with you):", 0, rules.defenderSlots - humans); ImGui::PopID(); }
-  { ImGui::PushID(1); aiTypes("Attacking AI:", 1, rules.attackerAI); ImGui::PopID(); }
-  rules.defenderSlots = std::max(1, humans + rules.aiSum(0)); rules.attackerAI = std::max(1, rules.aiSum(1));
-  if (rules.aiSum(1) == 0) ImGui::TextColored(ImVec4(1, 0.55f, 0.45f, 1), "At least one attacking AI: 1 soldier is used.");
-  aiCap();
-  int lives = 1 + rules.attackerRespawns;
-  ImGui::Separator();
-  ImGui::Text("Humans %d  |  Friendly AI %d  |  Enemy AI %d  |  Total %d / %d", humans, rules.defenderSlots - humans, rules.attackerAI, rules.defenderSlots + rules.attackerAI, ScenarioRules::kMaxCombatants);
-  ImGui::Text("Each attacking slot: 1 initial life + %d respawns = %d lives  ->  %d attacker lives in total", rules.attackerRespawns, lives, lives * rules.attackerAI);
-  ImGui::Text("Defenders respawn without limit. Minimum %.0f s from death to respawn.", rules.minRespawnDelay);
+    ImGui::EndChild();
+    ImGui::EndTable();
   }
-  if (!classDefs().empty() && rules.mode != GameMode::BattleRoyale) {   // GM1: classes players may pick (empty list = all); at least one stays on. BR5: none in battle royale (loot is the kit)
-    ImGui::SeparatorText("Allowed classes");
-    const auto& C = classDefs();
-    for (size_t k = 0; k < C.size(); ++k) {
-      bool on = rules.classAllowed(C[k].id), was = on;
-      if (k % 4) ImGui::SameLine();
-      ImGui::Checkbox((C[k].us.name + (C[k].de.name != C[k].us.name ? " / " + C[k].de.name : std::string())).c_str(), &on);
-      if (on == was) continue;
-      std::vector<std::string> all; for (auto& c : C) if (rules.classAllowed(c.id)) all.push_back(c.id);
-      if (on) all.push_back(C[k].id); else if (all.size() > 1) all.erase(std::remove(all.begin(), all.end(), C[k].id), all.end());
-      rules.allowedClasses = all.size() == C.size() ? std::vector<std::string>{} : all;
-    }
-  }
+  // ---- footer: problems, then the actions (Start at the bottom right)
   Scenario withRules = s; withRules.rules = rules;   // validate what will be played, not the map's saved defaults
   auto issues = validateScenario(withRules, false);
-  bool blocked = false;
-  for (auto& i : issues) if (i.error) { blocked = true; ImGui::TextColored(ImVec4(1, 0.55f, 0.45f, 1), "%s", i.what.c_str()); }
-  if (gGame && !gGame->setupError.empty()) ImGui::TextColored(ImVec4(1, 0.55f, 0.45f, 1), "Last start failed: %s", gGame->setupError.c_str());
-  if (setupMode == 1) netLobby(app, blocked);
-  else {
+  std::string problems;
+  for (auto& i : issues) if (i.error) problems += (problems.empty() ? "" : "  |  ") + i.what;
+  if (gGame && !gGame->setupError.empty()) problems += (problems.empty() ? "Last start failed: " : "  |  Last start failed: ") + gGame->setupError;
+  ImGui::Separator();
+  if (!problems.empty()) ImGui::TextColored(ImVec4(1, 0.55f, 0.45f, 1), "%s%s", problems.c_str(), blocked ? "  (Scenario > Objectives and spawns panel fixes the map)" : "");
+  else ImGui::TextDisabled("Ready.");
+  if (ImGui::Button("Save these rules as map defaults")) { s.rules = rules; commit(app); }
+  if (setupMode != 1) {
+    const float bw = 280 * sc;
+    ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - bw);
     ImGui::BeginDisabled(blocked);
-    if (ImGui::Button("Start singleplayer match", ImVec2(260, 0))) startMatch(app);
+    if (ImGui::Button("START MATCH", ImVec2(bw, 0))) startMatch(app);
     ImGui::EndDisabled();
   }
-  ImGui::SameLine(); if (ImGui::Button("Save these rules as map defaults")) { s.rules = rules; commit(app); }
-  if (blocked) ImGui::TextWrapped("Open Scenario > Objectives and spawns panel to fix the map first.");
+  ImGui::PopStyleVar(2);
   ImGui::End();
 }
 

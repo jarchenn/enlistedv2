@@ -6,6 +6,7 @@
 #include <imgui_internal.h>
 #include <unordered_map>
 #include <algorithm>
+#include <cstring>
 
 namespace {
 GLuint gFull = 0, gView = 0, gFbo = 0; int gW = 0, gH = 0; bool gHave = false;
@@ -38,13 +39,29 @@ void uiGlassPanel(ImDrawList* dl, ImVec2 mn, ImVec2 mx, float r, float a) {
   if (gHave) {
     const ImVec2 io = ImGui::GetIO().DisplaySize;
     auto uv = [&](ImVec2 p) { return ImVec2(p.x / io.x, 1.0f - p.y / io.y); };   // the copy is bottom-up
-    dl->AddImageRounded((ImTextureID)(intptr_t)gView, mn, mx, uv(mn), uv(mx), rgba(222, 228, 232, a), r);
-    dl->AddRectFilled(mn, mx, rgba(10, 13, 16, 0.40f * a), r);   // dark smoke tint
-  } else dl->AddRectFilled(mn, mx, rgba(16, 19, 22, 0.84f * a), r);   // Low: a tinted panel
-  dl->AddRectFilledMultiColor(ImVec2(mn.x + r * 0.6f, mn.y + 1), ImVec2(mx.x - r * 0.6f, mn.y + std::min(40.0f, (mx.y - mn.y) * 0.4f)),
-                              rgba(255, 255, 255, 0.045f * a), rgba(255, 255, 255, 0.045f * a), rgba(255, 255, 255, 0), rgba(255, 255, 255, 0));   // gradient sheen
-  dl->AddRect(ImVec2(mn.x + 0.5f, mn.y + 0.5f), ImVec2(mx.x - 0.5f, mx.y - 0.5f), rgba(255, 255, 255, 0.13f * a), r);   // bright inner edge
-  dl->AddLine(ImVec2(mn.x + r, mn.y + 1.0f), ImVec2(mx.x - r, mn.y + 1.0f), rgba(255, 255, 255, 0.26f * a));
+    r = std::min(r, 2.0f);   // UI4: flat, square panels (1-2 px), darker smoke, no sheen or bright edge
+    dl->AddImageRounded((ImTextureID)(intptr_t)gView, mn, mx, uv(mn), uv(mx), rgba(205, 200, 194, a), r);
+    dl->AddRectFilled(mn, mx, rgba(8, 8, 8, 0.62f * a), r);
+  } else dl->AddRectFilled(mn, mx, rgba(12, 12, 12, 0.88f * a), std::min(r, 2.0f));   // Low: a tinted panel
+  dl->AddRect(mn, mx, rgba(255, 255, 255, 0.06f * a), std::min(r, 2.0f));   // a faint hairline, not an edge light
+}
+
+// UI4: a window's glass goes under its own content, in its own draw list (prepended), so a window in front covers the
+// windows behind it instead of letting them show through its translucent background
+static void prependGlass(ImDrawList* dst, ImVec2 mn, ImVec2 mx, float r, float a) {
+  static ImDrawList* tmp = nullptr;
+  if (!tmp) tmp = IM_NEW(ImDrawList)(ImGui::GetDrawListSharedData());
+  tmp->_ResetForNewFrame(); tmp->PushTextureID(ImGui::GetIO().Fonts->TexID); tmp->PushClipRectFullScreen();
+  uiGlassPanel(tmp, mn, mx, r, a);
+  tmp->PopClipRect(); tmp->PopTextureID();
+  while (!tmp->CmdBuffer.empty() && tmp->CmdBuffer.back().ElemCount == 0) tmp->CmdBuffer.pop_back();
+  if (tmp->CmdBuffer.empty()) return;
+  const unsigned nv = (unsigned)tmp->VtxBuffer.Size, ni = (unsigned)tmp->IdxBuffer.Size;
+  for (ImDrawCmd& c : dst->CmdBuffer) { c.VtxOffset += nv; c.IdxOffset += ni; }   // the window's own commands move up
+  dst->VtxBuffer.resize(dst->VtxBuffer.Size + (int)nv); std::memmove(dst->VtxBuffer.Data + nv, dst->VtxBuffer.Data, (size_t)(dst->VtxBuffer.Size - nv) * sizeof(ImDrawVert)); std::memcpy(dst->VtxBuffer.Data, tmp->VtxBuffer.Data, nv * sizeof(ImDrawVert));
+  dst->IdxBuffer.resize(dst->IdxBuffer.Size + (int)ni); std::memmove(dst->IdxBuffer.Data + ni, dst->IdxBuffer.Data, (size_t)(dst->IdxBuffer.Size - ni) * sizeof(ImDrawIdx)); std::memcpy(dst->IdxBuffer.Data, tmp->IdxBuffer.Data, ni * sizeof(ImDrawIdx));
+  dst->CmdBuffer.reserve(dst->CmdBuffer.Size + tmp->CmdBuffer.Size);
+  for (int k = tmp->CmdBuffer.Size - 1; k >= 0; --k) dst->CmdBuffer.push_front(tmp->CmdBuffer[k]);
 }
 
 void uiGlassFrame() {
@@ -61,15 +78,22 @@ void uiGlassFrame() {
     const float age = (float)(now - (born.count(root->ID) ? born[root->ID] : now));
     const float k = std::clamp(age / 0.16f, 0.0f, 1.0f), e = 1 - (1 - k) * (1 - k) * (1 - k);
     if (k < 1) for (ImDrawVert& v : w->DrawList->VtxBuffer) {   // fade and rise in over 160 ms
-      v.col = (v.col & 0x00ffffffu) | ((ImU32)((float)(v.col >> 24) * e) << 24); v.pos.y += (1 - e) * 8.0f;
+      v.col = (v.col & 0x00ffffffu) | ((ImU32)((float)(v.col >> 24) * e) << 24);   // UI4: a plain fade (no rise / bounce)
     }
     if (w != root || (w->Flags & ImGuiWindowFlags_NoBackground) || w->IsFallbackWindow) continue;   // the implicit "Debug" window: active, empty
     const float r = (w->Flags & (ImGuiWindowFlags_Popup | ImGuiWindowFlags_Tooltip)) ? st.PopupRounding : (w->Flags & ImGuiWindowFlags_MenuBar) && w->Size.y < 60 ? 0.0f : w->WindowRounding;
     ImVec2 mn = w->Pos, mx(w->Pos.x + w->Size.x, w->Pos.y + w->Size.y);
-    mn.y += (1 - e) * 8.0f; mx.y += (1 - e) * 8.0f;
     if (!(w->Flags & ImGuiWindowFlags_Tooltip))
-      for (int i = 1; i <= 3; ++i) { const float gr = i * 4.0f; bg->AddRectFilled(ImVec2(mn.x - gr, mn.y - gr + 6), ImVec2(mx.x + gr, mx.y + gr + 6), rgba(0, 0, 0, 0.07f * e * (4 - i) / 3.0f), r + gr); }   // soft shadow
-    uiGlassPanel(bg, mn, mx, r, e);
+      {}   // UI4: no drop shadow (flat)
+    prependGlass(w->DrawList, mn, mx, r, e);
   }
   for (auto it = seen.begin(); it != seen.end();) { if (it->second != frame) { born.erase(it->first); it = seen.erase(it); } else ++it; }   // closed: the next opening fades in again
+}
+
+void uiGlassFlat(ImDrawList* dl, ImVec2 mn, ImVec2 mx, float darkness) {
+  const ImVec2 io = ImGui::GetIO().DisplaySize;
+  if (mainMenuActive()) { if (unsigned t = menuBackdropTex(true)) dl->AddImage((ImTextureID)(intptr_t)t, mn, mx, ImVec2(mn.x / io.x, mn.y / io.y), ImVec2(mx.x / io.x, mx.y / io.y), rgba(214, 206, 196, 1)); else dl->AddRectFilled(mn, mx, rgba(10, 10, 10, 1)); }
+  else if (gHave) dl->AddImage((ImTextureID)(intptr_t)gView, mn, mx, ImVec2(mn.x / io.x, 1.0f - mn.y / io.y), ImVec2(mx.x / io.x, 1.0f - mx.y / io.y), rgba(214, 206, 196, 1));
+  else dl->AddRectFilled(mn, mx, rgba(14, 13, 12, 1));
+  dl->AddRectFilled(mn, mx, rgba(8, 7, 6, darkness));
 }

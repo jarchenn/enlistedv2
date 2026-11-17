@@ -161,12 +161,12 @@ void applyUiTheme() {
   ImGuiStyle& st = ImGui::GetStyle();
   // liquid glass (ui_glass.cpp draws the frosted backing, edge and shadow under each window): large radii, no ImGui
   // border, translucent fills; off-white text; the logo orange is the one accent (team blue / red stay for team meaning)
-  st.WindowRounding = 14; st.ChildRounding = 10; st.FrameRounding = 7; st.PopupRounding = 10; st.GrabRounding = 6; st.TabRounding = 7; st.ScrollbarRounding = 8;
+  st.WindowRounding = 2; st.ChildRounding = 0; st.FrameRounding = 1; st.PopupRounding = 2; st.GrabRounding = 0; st.TabRounding = 0; st.ScrollbarRounding = 0;   // UI4: flat and square (no pills)
   st.WindowBorderSize = 0; st.FrameBorderSize = 0; st.PopupBorderSize = 0; st.ChildBorderSize = 1;
   st.WindowPadding = ImVec2(18, 14); st.FramePadding = ImVec2(10, 6); st.ItemSpacing = ImVec2(10, 8); st.ItemInnerSpacing = ImVec2(7, 5);
   st.ScrollbarSize = 11; st.GrabMinSize = 10; st.WindowTitleAlign = ImVec2(0.0f, 0.5f); st.SeparatorTextBorderSize = 1;
   auto C = [&](ImGuiCol k, float r, float g, float b, float a = 1.0f) { st.Colors[k] = ImVec4(r, g, b, a); };
-  const float A[3] = {0.94f, 0.46f, 0.13f};   // accent
+  const float A[3] = {0.65f, 0.36f, 0.20f};   // UI4: the muted copper accent (the logo orange, less saturated)
   C(ImGuiCol_Text, 0.93f, 0.91f, 0.88f); C(ImGuiCol_TextDisabled, 0.58f, 0.58f, 0.56f);
   C(ImGuiCol_WindowBg, 0.05f, 0.06f, 0.07f, 0.30f); C(ImGuiCol_ChildBg, 0, 0, 0, 0); C(ImGuiCol_PopupBg, 0.05f, 0.06f, 0.07f, 0.42f);
   C(ImGuiCol_Border, 1, 1, 1, 0.10f); C(ImGuiCol_BorderShadow, 0, 0, 0, 0);
@@ -589,7 +589,7 @@ static void trimHeap() {   // MEM2: freed map memory goes back to Windows (the C
 #endif
 }
 bool App::newMap(const TemplateInfo& t, const std::string& name) {
-  LoadingJob lj(*this, t.name, "Generating map", 3, t.thumbnail);   // UI2: terrain, content, furniture
+  LoadingJob lj(*this, t.name, "Generating map", 3, t.thumbnail, t.id);   // UI2: terrain, content, furniture
   if (mode == Mode::Explore) exitExplore();
   clearRuntime();
   placing = nullptr; { double c0 = processMemory().PrivateBytes / 1048576.0; int n = lib.releaseAll(); if (n) { glFinish(); trimHeap(); } if (n) logf("assets: %d released with the old map (commit %.0f -> %.0f MB)", n, c0, processMemory().PrivateBytes / 1048576.0); }   // MEM2: the new map builds what it uses
@@ -610,7 +610,7 @@ bool App::openMap(const fs::path& p) {
   MapDoc d; std::string err;
   std::string title = p.filename().string(); title = title.substr(0, title.find('.')); for (auto& c : title) if (c == '_') c = ' ';
   const TemplateInfo* tp = findTemplate(p.filename().string().substr(0, p.filename().string().find('.')));
-  LoadingJob lj(*this, title, "Loading map", 3, tp ? tp->thumbnail : 0);   // UI2: read, build, furnish
+  LoadingJob lj(*this, title, "Loading map", 3, tp ? tp->thumbnail : 0, tp ? tp->id : std::string());   // UI2: read, build, furnish
   LoadStep lsAll("openMap");
   if (!loadMap(p, d, err)) { toast("Could not open map: " + err, 8); return false; }
   if (mode == Mode::Explore) exitExplore();

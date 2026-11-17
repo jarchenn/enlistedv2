@@ -113,7 +113,7 @@ bool w5TemplateThumbnail(TemplateInfo& t) {
 }
 
 // ---------------------------------------------------------------- MpUi::setupWindow
-void w5PlayMapPicker(App& app) {
+void w5PlayMapPicker(App& app, bool list) {
   static int pending = -1;
   std::vector<int> maps;
   for (int k = 0; k < (int)app.templates.size(); ++k) {
@@ -121,6 +121,21 @@ void w5PlayMapPicker(App& app) {
     if (t.available && t.raw.value("playable", false) && t.raw.contains("map")) maps.push_back(k);
   }
   if (maps.empty()) return;
+  if (list) {   // UI4: a row per map with its thumbnail (the current map highlighted)
+    const float th = ImGui::GetFrameHeight() * 1.9f, tw = th * 1.6f;
+    for (int k : maps) {
+      const TemplateInfo& t = app.templates[k];
+      ImGui::PushID(k);
+      const ImVec2 p = ImGui::GetCursorScreenPos();
+      if (ImGui::Selectable("##map", app.doc.templateId == t.id, 0, ImVec2(0, th))) pending = k;
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.description.c_str());
+      ImDrawList* dl = ImGui::GetWindowDrawList();
+      if (t.thumbnail) dl->AddImage((ImTextureID)(intptr_t)t.thumbnail, p, ImVec2(p.x + tw, p.y + th), ImVec2(0, 0.8f), ImVec2(1, 0.2f));
+      std::string n = t.name; for (auto& c : n) c = (char)std::toupper((unsigned char)c);
+      dl->AddText(ImVec2(p.x + tw + 10, p.y + th * 0.5f - ImGui::GetFontSize() * 0.5f), ImGui::GetColorU32(ImGuiCol_Text), n.c_str());
+      ImGui::PopID();
+    }
+  } else {
   ImGui::SetNextItemWidth(330);
   if (ImGui::BeginCombo("Default maps", "Load a ready-to-play map...")) {
     for (int k : maps) {
@@ -129,6 +144,7 @@ void w5PlayMapPicker(App& app) {
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.description.c_str());
     }
     ImGui::EndCombo();
+  }
   }
   if (pending >= 0 && app.dirty && !ImGui::IsPopupOpen("Discard unsaved changes?")) ImGui::OpenPopup("Discard unsaved changes?");
   bool go = pending >= 0 && !app.dirty;

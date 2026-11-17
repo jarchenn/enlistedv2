@@ -7,3 +7,4 @@
 void uiGlassCapture(int fbw, int fbh);   // after the 3D render, before the UI is drawn (the frame's blur source)
 void uiGlassFrame();                     // just before ImGui::Render: glass under every window, 160 ms fade-in of new windows
 void uiGlassPanel(ImDrawList* dl, ImVec2 mn, ImVec2 mx, float rounding, float alpha = 1.0f);   // a custom panel's background
+void uiGlassFlat(ImDrawList* dl, ImVec2 mn, ImVec2 mx, float darkness);   // UI4: a page backdrop: the blurred scene (or the menu's), square, no edge, darkened
