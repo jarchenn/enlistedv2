@@ -25,7 +25,7 @@ bool snd10SelfTest(App& a, float dt) {
     return gBotSteps - n0;
   };
   std::string ev;
-  float cad = std::min(1.75f, 0.75f + 0.25f * 4.5f);
+  extern float gaitCadence(float); float cad = gaitCadence(4.5f);   // AN2: the shared cadence (game.cpp)
   int nRun = run(4.5f, Physics::STAND, 10, 0, &ev), nWalk = run(1.4f, Physics::STAND, 10, 0, nullptr), nProne = run(1.0f, Physics::PRONE, 3, 0, nullptr);
   char b[200]; std::snprintf(b, sizeof b, "running bot (4.5 m/s) at 10 m: %d steps in 2 s, stride rate %.1f /s expected %.1f (%s)", nRun, nRun / 2.0f, 2 * cad, ev.c_str());
   chk(std::abs(nRun - (int)std::lround(4 * cad)) <= 1 && ev.rfind("step_", 0) == 0, b);

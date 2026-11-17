@@ -94,8 +94,9 @@ static void botFootstep(App& app, const Soldier& s, float v) {
 }
 
 // the gait cycle (cycles per second: the planted foot travels back at the body speed); a bot's foot lands every half cycle
+float gaitCadence(float v) { return 0.9f * std::min(1.75f, 0.75f + 0.25f * v); }   // AN2: 10 % fewer steps (longer strides) than before, so legs do not look hurried
 float advanceStride(App& app, Soldier& s, float v, float dt) {
-  float cad = std::min(1.75f, 0.75f + 0.25f * v);
+  float cad = gaitCadence(v);
   const float ph0 = s.walkPhase;
   s.walkPhase += v * dt > 0 ? 6.2831853f * cad * dt : 0.0f;
   if (v * dt <= 0 && s.anStride > 0.01f && !s.zombie) {   // AN1 step 3b: stopping mid-stride finishes the step: on until both feet are down
@@ -1089,7 +1090,7 @@ void Game::posesStep(float dt) {
     if (!noFootLock && !s.zombie && s.alive && pp.gait && pp.prone < 0.5f && pp.kneel < 0.5f && pp.swim < 0.5f && pp.climb < 0 && !s.pose.delta.empty() && !skipPose) {
       float yawNow = s.localPlayer ? app.eyeYaw : s.yaw;
       mat4 Wn = glm::translate(mat4(1), s.feet) * glm::mat4_cast(glm::angleAxis(radians(yawNow) + 3.14159265f, vec3(0, 1, 0))), Wi = glm::inverse(Wn);
-      bool moving = s.speed > 0.3f; float du = std::clamp(pp.duty, 0.2f, 0.8f), cadN = std::min(1.75f, 0.75f + 0.25f * s.speed);
+      bool moving = s.speed > 0.3f; float du = std::clamp(pp.duty, 0.2f, 0.8f), cadN = gaitCadence(s.speed);
       for (int leg = 0; leg < 2; ++leg) {
         int sf = m.semantic[leg ? CJ_RFOOT : CJ_LFOOT], su = m.semantic[leg ? CJ_RUPLEG : CJ_LUPLEG], sk = m.semantic[leg ? CJ_RLEG : CJ_LLEG];
         if (sf < 0 || su < 0 || sk < 0) continue;
