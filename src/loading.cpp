@@ -32,6 +32,7 @@ struct Job {
   int shot = 0;
   const char* step = "";   // the internal LoadStep name (watchdog lines)
   const char* crumbAtPresent = "-";   // the crumb when the last frame went out: a stall lies between it and the next one
+  bool boot = false; double firstPresent = -1, maxGap = 0; std::string gapAt;   // UI5: launch splash and the job's longest frame gap
 } J;
 ImGuiContext* gCtx = nullptr;   // the loading screen's own context (shares the main font atlas)
 
@@ -57,7 +58,7 @@ void drawLoading(ImDrawList* dl, float W, float H, float a, float t) {
   // UI4 backdrop: the map itself, clearly recognisable (its 1080p loading still, else its thumbnail, else the menu's
   // street), a slow push-in, under a dark neutral glass (~50 %) and a soft, wide vignette at the sides
   const bool still = J.still != 0;
-  unsigned tex = still ? J.still : J.thumb ? J.thumb : menuBackdropTex(false);
+  unsigned tex = still ? J.still : J.thumb ? J.thumb : J.boot ? 0 : menuBackdropTex(false);   // UI5: at launch the menu scene is not loaded yet
   if (tex) {
     const float z = 1.03f + 0.02f * std::min(t / 12.0f, 1.0f);
     ImVec2 uv0(0.5f - 0.5f / z, 0.5f - 0.5f / z), uv1(0.5f + 0.5f / z, 0.5f + 0.5f / z);
@@ -137,6 +138,8 @@ void present(App& app, bool force) {
   {   // watchdog: a stretch of the load that presented nothing (the window stops answering and the embers freeze) is named in the log
     static const double thr = [] { const char* e = std::getenv("NMK_LOAD_GAPS"); return e && *e ? std::atof(e) : 1.0; }();
     if (J.lastPresent > 0 && now - J.lastPresent > thr) logf("loading: no frame for %.2f s during \"%s\" (step %s, between crumbs %s .. %s)", now - J.lastPresent, J.label.c_str(), J.step, J.crumbAtPresent, gCrumb ? gCrumb : "-");
+    if (J.lastPresent > 0 && now - J.lastPresent > J.maxGap) { J.maxGap = now - J.lastPresent; J.gapAt = std::string(J.crumbAtPresent) + " .. " + (gCrumb ? gCrumb : "-"); }
+    if (J.firstPresent < 0) J.firstPresent = now;
     J.crumbAtPresent = gCrumb ? gCrumb : "-";
   }
   const float dt = J.lastPresent < 0 ? 1.0f / 60.0f : (float)std::min(0.1, now - J.lastPresent);
@@ -189,7 +192,7 @@ void loadingBegin(App& app, const std::string& title, const std::string& sub, in
   gLoadingDepth = J.depth;
   mainMenuLeaveForLoad(gGame && gGame->pendingStart);   // UI3: loading a map / starting a match from the menu leaves it (the loading screen covers the work)
   J.expected = std::max(1, expectedStages); J.done = 0; J.sub = 0; J.shown = 0; J.title = title; J.subtitle = sub; J.label = "Loading";
-  J.thumb = thumbTex; J.still = stillFor(mapId); J.t0 = glfwGetTime(); J.lastPresent = -1; J.fading = false;
+  J.thumb = thumbTex; J.still = stillFor(mapId); J.t0 = glfwGetTime(); J.lastPresent = -1; J.fading = false; J.boot = false; J.firstPresent = -1; J.maxGap = 0; J.gapAt.clear();
   present(app, true);
 }
 void loadingStage(const char* what) { if (J.depth <= 0 || !gApp) return; J.step = what; J.label = friendly(what); J.sub = 0; present(*gApp, true); }
@@ -203,7 +206,12 @@ void loadingEnd() {
   gLoadingDepth = --J.depth;
   if (J.depth > 0) return;
   J.done = J.expected; J.sub = 0; J.endedAt = glfwGetTime(); J.fading = true;
+  // UI5: every job logs its length and longest frame gap (glfwGetTime counts from glfwInit, just after launch)
+  if (J.boot) logf("startup: first frame at %.0f ms, menu at %.0f ms, longest gap %.0f ms (%s)", J.firstPresent * 1000, J.endedAt * 1000, J.maxGap * 1000, J.gapAt.c_str());
+  else logf("loading: \"%s\" took %.2f s, longest gap %.0f ms (%s)", J.title.c_str(), J.endedAt - J.t0, J.maxGap * 1000, J.gapAt.c_str());
+  J.boot = false;
 }
+void loadingBootMode() { J.boot = true; }
 bool loadingActive() { return J.depth > 0; }
 
 void loadingOverlay(App& app) {

@@ -11,6 +11,8 @@
 #include "hlod.h"
 #include "abilities.h"
 #include "crumb.h"
+#include <optional>
+#include <future>
 #include "terrain_tools.h"   // V8 decor exception / draw (beautify.cpp)
 #include "editor_nav.h"     // V8: navSyncCuts after an undo that regenerates the terrain
 #include "settings.h"
@@ -592,7 +594,7 @@ bool App::newMap(const TemplateInfo& t, const std::string& name) {
   LoadingJob lj(*this, t.name, "Generating map", 3, t.thumbnail, t.id);   // UI2: terrain, content, furniture
   if (mode == Mode::Explore) exitExplore();
   clearRuntime();
-  placing = nullptr; { double c0 = processMemory().PrivateBytes / 1048576.0; int n = lib.releaseAll(); if (n) { glFinish(); trimHeap(); } if (n) logf("assets: %d released with the old map (commit %.0f -> %.0f MB)", n, c0, processMemory().PrivateBytes / 1048576.0); }   // MEM2: the new map builds what it uses
+  placing = nullptr; { double c0 = processMemory().PrivateBytes / 1048576.0; int n = lib.releaseAll(); crumb("heap trim"); if (n) { glFinish(); trimHeap(); } if (n) logf("assets: %d released with the old map (commit %.0f -> %.0f MB)", n, c0, processMemory().PrivateBytes / 1048576.0); }   // MEM2: the new map builds what it uses
   doc = MapDoc();
   doc.name = name; doc.templateId = t.id; doc.templateVersion = t.version; doc.seed = t.seed;
   applyTemplate(t.id);
@@ -615,7 +617,7 @@ bool App::openMap(const fs::path& p) {
   if (!loadMap(p, d, err)) { toast("Could not open map: " + err, 8); return false; }
   if (mode == Mode::Explore) exitExplore();
   clearRuntime();
-  placing = nullptr; { double c0 = processMemory().PrivateBytes / 1048576.0; int n = lib.releaseAll(); if (n) { glFinish(); trimHeap(); } if (n) logf("assets: %d released with the old map (commit %.0f -> %.0f MB)", n, c0, processMemory().PrivateBytes / 1048576.0); }   // MEM2: the new map builds what it uses
+  placing = nullptr; { double c0 = processMemory().PrivateBytes / 1048576.0; int n = lib.releaseAll(); crumb("heap trim"); if (n) { glFinish(); trimHeap(); } if (n) logf("assets: %d released with the old map (commit %.0f -> %.0f MB)", n, c0, processMemory().PrivateBytes / 1048576.0); }   // MEM2: the new map builds what it uses
   doc = std::move(d);
   { extern int lineMigrateTrenches(App&); lineMigrateTrenches(*this); }   // LN1: trench pieces become trench lines
   { extern int lineMigratePieces(App&); lineMigratePieces(*this); }   // LN2: fence / wire / wall / hedge pieces become lines
@@ -953,7 +955,9 @@ bool App::startMarkerValid(vec3 pos) const { return !Physics::capsuleBlocked(pos
 // ============================================================ thumbnails & screenshots
 void App::makeThumbnails() {
   // MEM2: catalogue tiles load / render on demand as the build palette shows them (assetThumbOnDemand, thumbs.cpp)
+  int k = 0;
   for (auto& t : templates) {
+    if (gLoadingDepth) { char b[64]; std::snprintf(b, sizeof b, "Preparing map previews %d / %zu", ++k, templates.size()); loadingProgress(b, (float)k / templates.size()); }   // UI5
     if (!t.available) continue;
     if (w5TemplateThumbnail(t)) continue;   // W5: pre-rendered default-map preview
     terrain.generate(t);
@@ -1061,6 +1065,7 @@ int App::run(int argc, char** argv) {
   }
   if (!glfwInit()) { logf("glfwInit failed"); return 1; }
   platformWindowHints();
+  glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);   // UI5: shown after the first splash frame (no white window)
   int W = runSelf ? 1920 : 1600, H = runSelf ? 1080 : 900;
   win = glfwCreateWindow(W, H, "Battle Foundry", nullptr, nullptr);   // UI2: the game's name (repo / exe keep theirs)
   if (!win) { logf("Could not create an OpenGL 4.5 core window. Update your graphics driver."); glfwTerminate(); return 1; }
@@ -1078,22 +1083,36 @@ int App::run(int argc, char** argv) {
   applyUiTheme();   // UI1b: one font, palette and panel style for every window (app.cpp)
   platformImGuiInit(win);
 
+  // UI5: the launch runs under the loading screen from its first frame: every crumb / stage presents and pumps events
+  // a dark window at once (the font atlas for the first splash frame takes a moment to build)
+  glfwShowWindow(win); for (int k = 0; k < 2; ++k) { glClearColor(0.016f, 0.024f, 0.027f, 1); glClear(GL_COLOR_BUFFER_BIT); platformPresent(win); } glfwPollEvents();
+  logf("startup: window shown at %.0f ms", glfwGetTime() * 1000);
+  std::optional<LoadingJob> boot; boot.emplace(*this, "", "", 10); loadingBootMode();
+  loadingStage("Starting the physics and audio");
+  auto stage = [](const char* s) { loadingStageDone(); loadingStage(s); };
   Physics::init();
   audio.init();
-  audio.loadEvents(contentDir() / "audio");
-  audio.loadCustom(contentDir() / "audio" / "custom");
+  // UI5: decoding the sample banks and recordings is CPU only (seconds): a worker does it while the splash presents
+  auto audioLoad = std::async(std::launch::async, [this] { audio.loadEvents(contentDir() / "audio"); audio.loadCustom(contentDir() / "audio" / "custom"); });
+  auto audioJoin = [&] { if (!audioLoad.valid()) return; while (audioLoad.wait_for(std::chrono::milliseconds(15)) != std::future_status::ready) { crumb("audio decode"); loadingTick(); } audioLoad.get(); };
+  if (std::getenv("NMK_AUDIO_FIDELITY")) audioJoin();
   if (std::getenv("NMK_AUDIO_FIDELITY")) { audio.fidelityReport(contentDir() / "audio" / "custom"); std::exit(0); }   // SND5 diagnostics
   int fbw, fbh; glfwGetFramebufferSize(win, &fbw, &fbh);
+  stage("Compiling the shaders");
   R.init(fbw, fbh);
+  stage("Reading the settings");
   settingsInit(*this, runSelf);   // settings_user.json: presets, gameplay, audio, keys, UI (settings.cpp)
   R.q.legacy = legacyLook;
   for (auto& f : rqOff) { if (f == "taa") R.q.taa = false; else if (f == "ssr") R.q.ssr = false; else if (f == "ssao") R.q.ssao = false; else if (f == "bloom") R.q.bloom = false; else if (f == "shafts") R.q.shafts = false; else if (f == "cascade") R.q.farCascade = false; else if (f == "cloudshadow") R.q.cloudShadows = false; else if (f == "wind") grass.wind = false; else if (!R.perf.set(f, false)) logf("--rq-off: unknown feature %s", f.c_str()); }
   for (auto& f : rqOn) if (!R.perf.set(f, true)) logf("--rq-on: unknown feature %s", f.c_str());
   templates = loadTemplates(contentDir() / "templates");
   { bool probe = false; for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--mem-probe") probe = true; lib.lazy = !runSelf || probe || std::getenv("NMK_LAZY_ASSETS"); }   // MEM1: full self-tests walk every asset built
+  stage("Scanning the asset catalogue");
   if (!lib.loadAll(contentDir() / "assets")) logf("warning: no assets found in %s", (contentDir() / "assets").string().c_str());
   tex::flushPending();   // TX2: lazy library texture sets the assets name (textures.json "lazy" slots)
+  stage("Preparing the map previews");
   makeThumbnails();
+  stage("Loading weapons and classes");
   {
     Material rm{"debris", vec3(0.30f, 0.27f, 0.21f), 0.95f, 0.0f, PAT_STONE, 1};
     Part p; p.center = vec3(0); p.size = vec3(1);
@@ -1113,7 +1132,11 @@ int App::run(int argc, char** argv) {
   }
   if (!sheetsDir.empty()) { writeWeaponSheets(sheetsDir); glfwTerminate(); return 0; }
   if (!previewGlb.empty()) { bool ok = writeModelPreview(previewGlb, previewOut, previewSpec); glfwTerminate(); return ok ? 0 : 1; }
+  stage("Loading the sounds");
+  audioJoin();
+  stage("Loading the vehicles");
   tanks.loadDefs(*this); tanks.makeThumbnails(*this);
+  stage("Placing the battlefield");
   if (!tankPreviewDir.empty()) { tanks.writePreview(*this, tankPreviewDir); glfwTerminate(); return 0; }
   {
     LoadingJob boot(*this, "", "Starting", 3);   // UI2: launch shows the loading screen (the first map joins this job)
@@ -1122,6 +1145,8 @@ int App::run(int argc, char** argv) {
     newMap(t ? *t : fb, "My Normandy map");
   }
   if (!openPath.empty()) openMap(openPath);
+  if (!runSelf && openPath.empty()) { stage("Preparing the menu"); menuBackdropTex(false); }   // the menu scene and soldier load under the splash
+  boot.reset();   // UI5: fades into the menu (loadingOverlay)
   if (runSelf) selftest = new SelfTest(bench);
   else if (openPath.empty()) mainMenuOpen(*this);   // UI2: launch into the main menu (a map given on the command line opens the editor)
 
