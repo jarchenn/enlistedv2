@@ -207,7 +207,7 @@ void drawInventoryScreen(App& app) {
     for (int sl = 0; sl < 4; ++sl) {
       ImGui::PushID(sl);
       bool builtIn = sl == ATT_SIGHT && lootBuiltInAcog(d, s);   // the sniper's own scope shows as its ACOG; it does not come off
-      const char* id = attId(sl, std::clamp(builtIn ? 2 : s.att[sl], 0, 5));
+      const char* id = attId(sl, std::clamp(builtIn ? 2 : s.att[sl], 0, 6));
       const ItemDef* ad = *id ? lootItem(id) : nullptr;
       ImGui::Text("   %-9s", kSlotNames[sl]); ImGui::SameLine();
       if (ad) { lootIcon(app, id, 16); ImGui::Text("%s", ad->name.c_str()); if (!builtIn) { ImGui::SameLine(); if (ImGui::SmallButton("Take off")) { lootTakeOff(app, k, w, sl); } } }   // a sniper's own scope does not come off
@@ -248,7 +248,7 @@ void drawInventoryScreen(App& app) {
 // "Take all" takes what fits without swapping guns; what is left stays for whoever comes next.
 static std::string attList(const WeaponState& s) {
   std::string out;
-  for (int sl = 0; sl < 4; ++sl) { const char* id = attId(sl, std::clamp(s.att[sl], 0, 5)); if (const ItemDef* d = *id ? lootItem(id) : nullptr) out += (out.empty() ? "" : ", ") + d->name; }
+  for (int sl = 0; sl < 4; ++sl) { const char* id = attId(sl, std::clamp(s.att[sl], 0, 6)); if (const ItemDef* d = *id ? lootItem(id) : nullptr) out += (out.empty() ? "" : ", ") + d->name; }
   return out;
 }
 void drawCaseScreen(App& app, LootCase& c) {
