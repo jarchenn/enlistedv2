@@ -1,0 +1,90 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.40497589111328125,
+  0.4628581404685974,
+  0.09777437895536423
+ ],
+ "bmin": [
+  -0.40497589111328125,
+  0.0,
+  -0.09777437895536423
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "name": "LCD_ultrawide_nc",
+   "normal": "normal_1.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "name": "LCD_ultrawide_nc_screen.001",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.40497589111328125,
+    0.4628581404685974,
+    0.09777437895536423
+   ],
+   "bmin": [
+    -0.40497589111328125,
+    0.0,
+    -0.09777437895536423
+   ],
+   "count": 1602,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "Object_41.001",
+   "role": "body",
+   "rough": 0.234375,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.39223432540893555,
+    0.4534987509250641,
+    0.030414171516895294
+   ],
+   "bmin": [
+    -0.39223456382751465,
+    0.11984739452600479,
+    0.03041389212012291
+   ],
+   "count": 6,
+   "first": 1602,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "Object_41.001",
+   "role": "body",
+   "rough": 0.0234375,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "furn_mod_monitor_ultrawide.glb",
+ "textures": {},
+ "triangles": 536,
+ "vertices": 630
+}

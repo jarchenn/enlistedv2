@@ -59,3 +59,61 @@ content/vehicles/overrides_user.json
 content/ai/overrides_user.json
 # PR5: local-only model (its licence), see docs/credits.md
 content/assets/models/fr_stool_metal/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_ac_unit_small/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_ac_unit_tall/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_ac_unit_box/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_ac_unit_wide/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_ac_rack_a/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_ac_rack_b/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_ac_rack_c/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_ac_rack_d/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_window_frame_wood/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_window_frame_white/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_window_wide_a/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_window_wide_b/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_vent_grille_a/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_vent_grille_b/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_billboard_01/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_billboard_02/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_billboard_03/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_billboard_04/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_billboard_05/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_billboard_06/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_billboard_07/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_billboard_08/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_billboard_09/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_billboard_10/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_billboard_11/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_billboard_12/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_billboard_13/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_billboard_14/
+# PR6: local-only model (no licence in the pack), see docs/credits.md
+content/assets/models/mod_billboard_15/

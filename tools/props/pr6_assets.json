@@ -1,0 +1,3042 @@
+{
+ "def_sandbag_bags_low": {
+  "source": "sandbag",
+  "file": "sandbag_wall_-_24mb/sandbag_wall_-_24mb.glb",
+  "title": "Sandbag Wall - 24MB",
+  "author": "adventurer",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/sandbag-wall-24mb-35f39f3b391040169eb04d9a339d88a5",
+  "local": false,
+  "size": [
+   2.072,
+   0.669,
+   0.518
+  ],
+  "tris": 18139,
+  "category": "Defences"
+ },
+ "def_sandbag_bags_high": {
+  "source": "sandbag",
+  "file": "sandbag_wall_-_24mb/sandbag_wall_-_24mb.glb",
+  "title": "Sandbag Wall - 24MB",
+  "author": "adventurer",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/sandbag-wall-24mb-35f39f3b391040169eb04d9a339d88a5",
+  "local": false,
+  "size": [
+   2.072,
+   1.27,
+   0.518
+  ],
+  "tris": 36278,
+  "category": "Defences"
+ },
+ "def_sandbag_single": {
+  "source": "sandbag",
+  "file": "sandbag_wall_-_24mb/sandbag_wall_-_24mb.glb",
+  "title": "Sandbag Wall - 24MB",
+  "author": "adventurer",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/sandbag-wall-24mb-35f39f3b391040169eb04d9a339d88a5",
+  "local": false,
+  "size": [
+   0.578,
+   0.166,
+   0.357
+  ],
+  "tris": 1778,
+  "category": "Defences"
+ },
+ "mod_wall_cement_bay": {
+  "source": "cement",
+  "file": "wall_cement_fence_wall_building/wall_cement_fence_wall_building.glb",
+  "title": "wall Cement fence Wall Building",
+  "author": "adventurer",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/wall-cement-fence-wall-building-bdc47284bdc843fb9274efe1c5df52ee",
+  "local": false,
+  "size": [
+   3.444,
+   1.227,
+   0.544
+  ],
+  "tris": 426,
+  "category": "Modern: Fences"
+ },
+ "mod_wall_cement_pillar": {
+  "source": "cement",
+  "file": "wall_cement_fence_wall_building/wall_cement_fence_wall_building.glb",
+  "title": "wall Cement fence Wall Building",
+  "author": "adventurer",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/wall-cement-fence-wall-building-bdc47284bdc843fb9274efe1c5df52ee",
+  "local": false,
+  "size": [
+   0.444,
+   1.227,
+   0.544
+  ],
+  "tris": 398,
+  "category": "Modern: Fences"
+ },
+ "mod_wall_brick_rail_bay": {
+  "source": "retain",
+  "file": "fence_retaining_wall/fence_retaining_wall.glb",
+  "title": "Fence_retaining_wall",
+  "author": "Mehdi Shahsavan",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/fence-retaining-wall-b26ac6fb2f5441e09cc1d66594816bec",
+  "local": false,
+  "size": [
+   4.6,
+   2.294,
+   0.599
+  ],
+  "tris": 8912,
+  "category": "Modern: Fences"
+ },
+ "mod_wall_brick_rail_pillar": {
+  "source": "retain",
+  "file": "fence_retaining_wall/fence_retaining_wall.glb",
+  "title": "Fence_retaining_wall",
+  "author": "Mehdi Shahsavan",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/fence-retaining-wall-b26ac6fb2f5441e09cc1d66594816bec",
+  "local": false,
+  "size": [
+   0.59,
+   2.294,
+   0.599
+  ],
+  "tris": 324,
+  "category": "Modern: Fences"
+ },
+ "mod_wall_compound_bay": {
+  "source": "compound",
+  "file": "wall_door_-_19mb/wall_door_-_19mb.glb",
+  "title": "Wall Door - 19MB",
+  "author": "adventurer",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/wall-door-19mb-cac51dfd82784736a726bba118e86de9",
+  "local": false,
+  "size": [
+   6.823,
+   3.003,
+   0.773
+  ],
+  "tris": 552,
+  "category": "Modern: Fences"
+ },
+ "mod_wall_compound_doorway": {
+  "source": "compound",
+  "file": "wall_door_-_19mb/wall_door_-_19mb.glb",
+  "title": "Wall Door - 19MB",
+  "author": "adventurer",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/wall-door-19mb-cac51dfd82784736a726bba118e86de9",
+  "local": false,
+  "size": [
+   2.812,
+   3.003,
+   0.773
+  ],
+  "tris": 604,
+  "category": "Modern: Fences"
+ },
+ "mod_wall_compound_pillar": {
+  "source": "compound",
+  "file": "wall_door_-_19mb/wall_door_-_19mb.glb",
+  "title": "Wall Door - 19MB",
+  "author": "adventurer",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/wall-door-19mb-cac51dfd82784736a726bba118e86de9",
+  "local": false,
+  "size": [
+   0.773,
+   3.003,
+   0.71
+  ],
+  "tris": 302,
+  "category": "Modern: Fences"
+ },
+ "furn_mod_monitor_16x9": {
+  "source": "pc",
+  "file": "pc_pack/pc_pack.glb",
+  "title": "PC pack",
+  "author": "That one larry",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/pc-pack-edb6d3b95bd54fb78985c909d4aa74ff",
+  "local": false,
+  "size": [
+   0.579,
+   0.411,
+   0.167
+  ],
+  "tris": 2178,
+  "category": "Furniture"
+ },
+ "furn_mod_monitor_4x3": {
+  "source": "pc",
+  "file": "pc_pack/pc_pack.glb",
+  "title": "PC pack",
+  "author": "That one larry",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/pc-pack-edb6d3b95bd54fb78985c909d4aa74ff",
+  "local": false,
+  "size": [
+   0.4,
+   0.406,
+   0.163
+  ],
+  "tris": 1022,
+  "category": "Furniture"
+ },
+ "furn_mod_monitor_superwide": {
+  "source": "pc",
+  "file": "pc_pack/pc_pack.glb",
+  "title": "PC pack",
+  "author": "That one larry",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/pc-pack-edb6d3b95bd54fb78985c909d4aa74ff",
+  "local": false,
+  "size": [
+   1.276,
+   0.54,
+   0.322
+  ],
+  "tris": 902,
+  "category": "Furniture"
+ },
+ "furn_mod_monitor_curved": {
+  "source": "pc",
+  "file": "pc_pack/pc_pack.glb",
+  "title": "PC pack",
+  "author": "That one larry",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/pc-pack-edb6d3b95bd54fb78985c909d4aa74ff",
+  "local": false,
+  "size": [
+   0.803,
+   0.421,
+   0.206
+  ],
+  "tris": 551,
+  "category": "Furniture"
+ },
+ "furn_mod_monitor_ultrawide": {
+  "source": "pc",
+  "file": "pc_pack/pc_pack.glb",
+  "title": "PC pack",
+  "author": "That one larry",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/pc-pack-edb6d3b95bd54fb78985c909d4aa74ff",
+  "local": false,
+  "size": [
+   0.81,
+   0.463,
+   0.196
+  ],
+  "tris": 536,
+  "category": "Furniture"
+ },
+ "mod_fp_container_closed": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   2.653,
+   2.578,
+   5.657
+  ],
+  "tris": 8782,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_container_open": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   2.653,
+   2.578,
+   6.708
+  ],
+  "tris": 9868,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_generator_big": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   4.296,
+   1.789,
+   1.847
+  ],
+  "tris": 3278,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_generator_small": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   1.062,
+   0.824,
+   0.725
+  ],
+  "tris": 3574,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_light_tower": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.658,
+   1.715,
+   0.623
+  ],
+  "tris": 3108,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_pallet": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.982,
+   0.194,
+   1.456
+  ],
+  "tris": 348,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_sack": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.417,
+   0.166,
+   0.641
+  ],
+  "tris": 564,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_cone": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.399,
+   0.614,
+   0.399
+  ],
+  "tris": 434,
+  "category": "Modern: Barriers"
+ },
+ "mod_fp_bollard": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.398,
+   0.95,
+   0.398
+  ],
+  "tris": 298,
+  "category": "Modern: Barriers"
+ },
+ "mod_fp_caution_sign": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.564,
+   0.931,
+   0.45
+  ],
+  "tris": 320,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_sign_post": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.736,
+   1.496,
+   0.033
+  ],
+  "tris": 178,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_planks": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.776,
+   0.081,
+   1.569
+  ],
+  "tris": 440,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_door_frame": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   1.505,
+   2.443,
+   0.528
+  ],
+  "tris": 253,
+  "category": "Modern: Interior"
+ },
+ "mod_fp_door_a": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   1.045,
+   2.133,
+   0.068
+  ],
+  "tris": 42,
+  "category": "Modern: Interior"
+ },
+ "mod_fp_door_b": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   1.02,
+   2.128,
+   0.066
+  ],
+  "tris": 228,
+  "category": "Modern: Interior"
+ },
+ "mod_fp_partition": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.025,
+   2.128,
+   1.729
+  ],
+  "tris": 12,
+  "category": "Modern: Interior"
+ },
+ "mod_fp_locker_single": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.41,
+   1.456,
+   0.455
+  ],
+  "tris": 820,
+  "category": "Modern: Interior"
+ },
+ "mod_fp_locker_tall": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.41,
+   1.834,
+   0.455
+  ],
+  "tris": 1016,
+  "category": "Modern: Interior"
+ },
+ "mod_fp_washbasin": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.855,
+   1.505,
+   0.947
+  ],
+  "tris": 4378,
+  "category": "Modern: Interior"
+ },
+ "mod_fp_wc": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.516,
+   1.23,
+   0.905
+  ],
+  "tris": 3362,
+  "category": "Modern: Interior"
+ },
+ "mod_fp_racking_tall": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   2.185,
+   2.63,
+   0.778
+  ],
+  "tris": 14360,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_racking_low": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   1.674,
+   1.113,
+   0.653
+  ],
+  "tris": 5916,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_worktable_a": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   2.238,
+   0.933,
+   1.122
+  ],
+  "tris": 1364,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_worktable_b": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   2.212,
+   0.939,
+   1.096
+  ],
+  "tris": 3116,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_platform_trolley": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.871,
+   1.089,
+   1.907
+  ],
+  "tris": 4676,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_sack_truck": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.589,
+   1.231,
+   0.53
+  ],
+  "tris": 2432,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_vent_fan": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.61,
+   0.61,
+   0.097
+  ],
+  "tris": 374,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_fp_vent_louvre": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.967,
+   0.679,
+   0.063
+  ],
+  "tris": 234,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_fp_folding_chair": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.589,
+   0.86,
+   0.576
+  ],
+  "tris": 1702,
+  "category": "Modern: Interior"
+ },
+ "mod_fp_ladder": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.594,
+   3.387,
+   0.202
+  ],
+  "tris": 860,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_stepladder": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.536,
+   2.228,
+   1.351
+  ],
+  "tris": 728,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_crate_wood": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.932,
+   0.932,
+   0.932
+  ],
+  "tris": 192,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_crate_steel": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.986,
+   0.744,
+   0.986
+  ],
+  "tris": 593,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_light_batten": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   1.346,
+   0.126,
+   0.226
+  ],
+  "tris": 386,
+  "category": "Modern: Interior"
+ },
+ "mod_fp_light_batten_twin": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   1.093,
+   0.155,
+   0.317
+  ],
+  "tris": 1994,
+  "category": "Modern: Interior"
+ },
+ "mod_fp_light_pendant": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.548,
+   1.143,
+   0.548
+  ],
+  "tris": 2056,
+  "category": "Modern: Interior"
+ },
+ "mod_fp_drum_a": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.489,
+   0.88,
+   0.489
+  ],
+  "tris": 2888,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_drum_b": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.487,
+   0.88,
+   0.487
+  ],
+  "tris": 1538,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_gas_cylinder": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.312,
+   1.091,
+   0.312
+  ],
+  "tris": 1878,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_extinguisher": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.356,
+   0.73,
+   0.194
+  ],
+  "tris": 2174,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_box_open": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.93,
+   0.405,
+   0.73
+  ],
+  "tris": 372,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_box_closed": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.677,
+   0.436,
+   0.492
+  ],
+  "tris": 80,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_box_small": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.46,
+   0.291,
+   0.33
+  ],
+  "tris": 32,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_tools_scatter": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.833,
+   0.125,
+   0.31
+  ],
+  "tris": 3544,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_pipe_long": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.566,
+   0.566,
+   7.739
+  ],
+  "tris": 576,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_pipe_short": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.566,
+   0.566,
+   3.87
+  ],
+  "tris": 384,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_pipe_bend": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   2.129,
+   0.566,
+   2.098
+  ],
+  "tris": 768,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_pipe_flange": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   1.041,
+   0.387,
+   1.041
+  ],
+  "tris": 192,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_pipe_elbow": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   1.046,
+   0.566,
+   1.015
+  ],
+  "tris": 576,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_pipe_tee": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.566,
+   0.566,
+   0.282
+  ],
+  "tris": 734,
+  "category": "Modern: Industrial"
+ },
+ "mod_fp_pipe_valve": {
+  "source": "factory",
+  "file": "factory_props/factory_props.glb",
+  "title": "Factory Props",
+  "author": "Thomas_Crozelon",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca",
+  "local": false,
+  "size": [
+   0.497,
+   0.913,
+   1.15
+  ],
+  "tris": 1468,
+  "category": "Modern: Industrial"
+ },
+ "mod_ac_unit_small": {
+  "source": "ac",
+  "file": "air-conditioner-pack/source/Air conditioner.fbx",
+  "title": "Air conditioner.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   0.662,
+   0.663,
+   0.332
+  ],
+  "tris": 62,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_ac_unit_tall": {
+  "source": "ac",
+  "file": "air-conditioner-pack/source/Air conditioner.fbx",
+  "title": "Air conditioner.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   0.979,
+   1.137,
+   0.364
+  ],
+  "tris": 68,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_ac_unit_box": {
+  "source": "ac",
+  "file": "air-conditioner-pack/source/Air conditioner.fbx",
+  "title": "Air conditioner.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   0.783,
+   0.893,
+   0.332
+  ],
+  "tris": 112,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_ac_unit_wide": {
+  "source": "ac",
+  "file": "air-conditioner-pack/source/Air conditioner.fbx",
+  "title": "Air conditioner.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   0.979,
+   0.7,
+   0.364
+  ],
+  "tris": 102,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_ac_rack_a": {
+  "source": "ac",
+  "file": "air-conditioner-pack/source/Air conditioner.fbx",
+  "title": "Air conditioner.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   2.306,
+   1.342,
+   0.45
+  ],
+  "tris": 222,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_ac_rack_b": {
+  "source": "ac",
+  "file": "air-conditioner-pack/source/Air conditioner.fbx",
+  "title": "Air conditioner.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   2.636,
+   0.867,
+   0.478
+  ],
+  "tris": 170,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_ac_rack_c": {
+  "source": "ac",
+  "file": "air-conditioner-pack/source/Air conditioner.fbx",
+  "title": "Air conditioner.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   2.636,
+   1.449,
+   0.45
+  ],
+  "tris": 142,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_ac_rack_d": {
+  "source": "ac",
+  "file": "air-conditioner-pack/source/Air conditioner.fbx",
+  "title": "Air conditioner.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   2.389,
+   0.867,
+   0.478
+  ],
+  "tris": 176,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_window_frame_wood": {
+  "source": "ac",
+  "file": "air-conditioner-pack/source/Air conditioner.fbx",
+  "title": "Air conditioner.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   1.269,
+   1.27,
+   0.045
+  ],
+  "tris": 72,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_window_frame_white": {
+  "source": "ac",
+  "file": "air-conditioner-pack/source/Air conditioner.fbx",
+  "title": "Air conditioner.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   1.3,
+   1.3,
+   0.056
+  ],
+  "tris": 48,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_window_wide_a": {
+  "source": "ac",
+  "file": "air-conditioner-pack/source/Air conditioner.fbx",
+  "title": "Air conditioner.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   1.92,
+   1.364,
+   0.082
+  ],
+  "tris": 122,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_window_wide_b": {
+  "source": "ac",
+  "file": "air-conditioner-pack/source/Air conditioner.fbx",
+  "title": "Air conditioner.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   1.92,
+   1.364,
+   0.082
+  ],
+  "tris": 122,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_vent_grille_a": {
+  "source": "ac",
+  "file": "air-conditioner-pack/source/Air conditioner.fbx",
+  "title": "Air conditioner.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   0.474,
+   0.325,
+   0.019
+  ],
+  "tris": 22,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_vent_grille_b": {
+  "source": "ac",
+  "file": "air-conditioner-pack/source/Air conditioner.fbx",
+  "title": "Air conditioner.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   0.401,
+   0.275,
+   0.016
+  ],
+  "tris": 22,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_billboard_01": {
+  "source": "billboard",
+  "file": "abandoned-billboard-pack/source_x/Billboard.fbx",
+  "title": "Billboard.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   6.628,
+   6.999,
+   0.422
+  ],
+  "tris": 536,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_billboard_02": {
+  "source": "billboard",
+  "file": "abandoned-billboard-pack/source_x/Billboard.fbx",
+  "title": "Billboard.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   6.628,
+   6.999,
+   0.422
+  ],
+  "tris": 536,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_billboard_03": {
+  "source": "billboard",
+  "file": "abandoned-billboard-pack/source_x/Billboard.fbx",
+  "title": "Billboard.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   6.628,
+   6.999,
+   0.422
+  ],
+  "tris": 536,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_billboard_04": {
+  "source": "billboard",
+  "file": "abandoned-billboard-pack/source_x/Billboard.fbx",
+  "title": "Billboard.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   6.628,
+   6.999,
+   0.422
+  ],
+  "tris": 536,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_billboard_05": {
+  "source": "billboard",
+  "file": "abandoned-billboard-pack/source_x/Billboard.fbx",
+  "title": "Billboard.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   6.628,
+   6.999,
+   0.422
+  ],
+  "tris": 536,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_billboard_06": {
+  "source": "billboard",
+  "file": "abandoned-billboard-pack/source_x/Billboard.fbx",
+  "title": "Billboard.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   6.628,
+   6.999,
+   0.422
+  ],
+  "tris": 536,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_billboard_07": {
+  "source": "billboard",
+  "file": "abandoned-billboard-pack/source_x/Billboard.fbx",
+  "title": "Billboard.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   6.628,
+   6.999,
+   0.422
+  ],
+  "tris": 536,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_billboard_08": {
+  "source": "billboard",
+  "file": "abandoned-billboard-pack/source_x/Billboard.fbx",
+  "title": "Billboard.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   6.628,
+   6.999,
+   0.422
+  ],
+  "tris": 536,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_billboard_09": {
+  "source": "billboard",
+  "file": "abandoned-billboard-pack/source_x/Billboard.fbx",
+  "title": "Billboard.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   6.628,
+   6.999,
+   0.422
+  ],
+  "tris": 536,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_billboard_10": {
+  "source": "billboard",
+  "file": "abandoned-billboard-pack/source_x/Billboard.fbx",
+  "title": "Billboard.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   6.628,
+   6.999,
+   0.422
+  ],
+  "tris": 536,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_billboard_11": {
+  "source": "billboard",
+  "file": "abandoned-billboard-pack/source_x/Billboard.fbx",
+  "title": "Billboard.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   6.628,
+   6.999,
+   0.422
+  ],
+  "tris": 536,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_billboard_12": {
+  "source": "billboard",
+  "file": "abandoned-billboard-pack/source_x/Billboard.fbx",
+  "title": "Billboard.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   6.628,
+   6.999,
+   0.422
+  ],
+  "tris": 536,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_billboard_13": {
+  "source": "billboard",
+  "file": "abandoned-billboard-pack/source_x/Billboard.fbx",
+  "title": "Billboard.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   6.628,
+   6.999,
+   0.422
+  ],
+  "tris": 536,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_billboard_14": {
+  "source": "billboard",
+  "file": "abandoned-billboard-pack/source_x/Billboard.fbx",
+  "title": "Billboard.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   6.628,
+   6.999,
+   0.422
+  ],
+  "tris": 536,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_billboard_15": {
+  "source": "billboard",
+  "file": "abandoned-billboard-pack/source_x/Billboard.fbx",
+  "title": "Billboard.fbx",
+  "author": "unknown",
+  "license": "unknown",
+  "url": "",
+  "local": true,
+  "size": [
+   6.628,
+   6.999,
+   0.422
+  ],
+  "tris": 536,
+  "category": "Modern: Facade & Roof"
+ },
+ "mod_sign_merging_traffic": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.875,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_reverse_turn": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.875,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_u_turn_ahead": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.875,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_roundabout_ahead": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.875,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_road_narrows": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.88,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_winding_road": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.903,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_yield_ahead": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.903,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_slippery_road": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.941,
+   2.84,
+   0.055
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_curve_right": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.914,
+   2.84,
+   0.055
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_two_way_traffic": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.913,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_traffic_signal_ahead": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.871,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_guide_sign": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   2.468,
+   2.84,
+   0.056
+  ],
+  "tris": 192,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_large_arrow": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   1.484,
+   2.84,
+   0.055
+  ],
+  "tris": 148,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_chevron": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.521,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_speed_limit_55": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.638,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_interstate_95": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.634,
+   2.84,
+   0.054
+  ],
+  "tris": 144,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_one_way": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   1.458,
+   2.84,
+   0.054
+  ],
+  "tris": 148,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_wrong_way": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.837,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_airport": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.558,
+   2.84,
+   0.055
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_route_66": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.752,
+   2.84,
+   0.055
+  ],
+  "tris": 144,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_dead_end": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.865,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_railroad_crossing": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.701,
+   2.84,
+   0.055
+  ],
+  "tris": 112,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_school_crossing": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.866,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_bike_lane_wrong_way": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.427,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_disabled_parking": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.607,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_stop": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.736,
+   2.84,
+   0.054
+  ],
+  "tris": 80,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_pedestrian_crossing": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.874,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_parking": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.717,
+   2.84,
+   0.054
+  ],
+  "tris": 112,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_bicycle_crossing": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.84,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_no_parking_any_time": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.502,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_tow_away_zone": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.504,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_detour": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.832,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_detour_arrow": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   1.389,
+   2.84,
+   0.054
+  ],
+  "tris": 148,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_under_construction": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.862,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_caution_slow_down": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.758,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_road_work_ahead": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.855,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_slow": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.916,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_men_at_work": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.864,
+   2.84,
+   0.055
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_construction_zone": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.904,
+   2.84,
+   0.055
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_no_right_turn": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.637,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_no_u_turn": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.637,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_no_left_turn": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.637,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_no_bicycles": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.62,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_left_turn_only": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.521,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_left_or_straight": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.521,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_do_not_enter": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.63,
+   2.84,
+   0.054
+  ],
+  "tris": 96,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_yield": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.857,
+   2.84,
+   0.055
+  ],
+  "tris": 92,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_merging_traffic": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.875,
+   0.875,
+   0.004
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_reverse_turn": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.875,
+   0.875,
+   0.004
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_u_turn_ahead": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.875,
+   0.875,
+   0.004
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_roundabout_ahead": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.875,
+   0.875,
+   0.004
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_road_narrows": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.88,
+   0.875,
+   0.005
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_winding_road": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.903,
+   0.898,
+   0.005
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_yield_ahead": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.903,
+   0.898,
+   0.005
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_slippery_road": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.941,
+   0.936,
+   0.007
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_curve_right": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.914,
+   0.909,
+   0.005
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_two_way_traffic": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.913,
+   0.908,
+   0.005
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_traffic_signal_ahead": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.871,
+   0.866,
+   0.005
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_guide_sign": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   2.468,
+   1.143,
+   0.008
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_exit_6_tab": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.479,
+   0.143,
+   0.008
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_large_arrow": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   1.484,
+   0.734,
+   0.008
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_chevron": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.521,
+   0.617,
+   0.004
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_speed_limit_55": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.638,
+   0.795,
+   0.004
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_interstate_95": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.634,
+   0.638,
+   0.004
+  ],
+  "tris": 92,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_one_way": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   1.458,
+   0.488,
+   0.005
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_wrong_way": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.837,
+   0.572,
+   0.005
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_airport": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.558,
+   0.569,
+   0.006
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_route_66": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.752,
+   0.739,
+   0.006
+  ],
+  "tris": 92,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_dead_end": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.865,
+   0.86,
+   0.004
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_railroad_crossing": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.701,
+   0.701,
+   0.006
+  ],
+  "tris": 60,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_school_crossing": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.866,
+   0.861,
+   0.004
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_bike_lane_wrong_way": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.427,
+   0.633,
+   0.004
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_disabled_parking": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.607,
+   0.609,
+   0.004
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_stop": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.736,
+   0.736,
+   0.004
+  ],
+  "tris": 28,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_pedestrian_crossing": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.874,
+   0.87,
+   0.005
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_parking": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.717,
+   0.717,
+   0.005
+  ],
+  "tris": 60,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_bicycle_crossing": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.84,
+   0.835,
+   0.005
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_no_parking_any_time": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.502,
+   0.739,
+   0.004
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_tow_away_zone": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.504,
+   0.748,
+   0.005
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_detour": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.832,
+   0.626,
+   0.005
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_detour_arrow": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   1.389,
+   0.465,
+   0.005
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_under_construction": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.862,
+   0.858,
+   0.005
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_caution_slow_down": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.758,
+   0.57,
+   0.004
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_road_work_ahead": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.855,
+   0.855,
+   0.005
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_slow": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.916,
+   0.912,
+   0.005
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_men_at_work": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.864,
+   0.859,
+   0.006
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_construction_zone": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.904,
+   0.899,
+   0.006
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_no_right_turn": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.637,
+   0.637,
+   0.004
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_no_u_turn": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.637,
+   0.637,
+   0.004
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_no_left_turn": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.637,
+   0.637,
+   0.004
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_no_bicycles": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.62,
+   0.619,
+   0.004
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_left_turn_only": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.521,
+   0.617,
+   0.004
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_left_or_straight": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.521,
+   0.617,
+   0.004
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_do_not_enter": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.63,
+   0.632,
+   0.004
+  ],
+  "tris": 44,
+  "category": "Modern: Signs"
+ },
+ "mod_sign_face_yield": {
+  "source": "signs",
+  "file": "road_signs/road_signs.glb",
+  "title": "Road Signs",
+  "author": "FrodoUndead",
+  "license": "CC-BY-4.0",
+  "url": "https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592",
+  "local": false,
+  "size": [
+   0.857,
+   0.735,
+   0.006
+  ],
+  "tris": 40,
+  "category": "Modern: Signs"
+ }
+}

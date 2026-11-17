@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  1.035788655281067,
+  0.6685944199562073,
+  0.2587648332118988
+ ],
+ "bmin": [
+  -1.035788655281067,
+  0.0,
+  -0.2587648332118988
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "material",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.035788655281067,
+    0.6685944199562073,
+    0.2587648332118988
+   ],
+   "bmin": [
+    -1.035788655281067,
+    0.0,
+    -0.2587648332118988
+   ],
+   "count": 54417,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "Cube_Mat_0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "def_sandbag_bags_low.glb",
+ "textures": {},
+ "triangles": 18139,
+ "vertices": 12001
+}

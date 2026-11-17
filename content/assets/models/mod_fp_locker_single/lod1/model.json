@@ -1,0 +1,59 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.20516014099121094,
+  1.455910563468933,
+  0.19700896739959717
+ ],
+ "bmin": [
+  -0.20516014099121094,
+  0.0,
+  -0.2277311086654663
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_0.jpg",
+   "mr": "mr_1.jpg",
+   "name": "Lockers"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.20516014099121094,
+    1.455910563468933,
+    0.19700896739959717
+   ],
+   "bmin": [
+    -0.20516014099121094,
+    0.0,
+    -0.2277311086654663
+   ],
+   "count": 738,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "Locker_01_Lockers_0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "mod_fp_locker_single.glb",
+ "textures": {},
+ "triangles": 246,
+ "vertices": 323
+}

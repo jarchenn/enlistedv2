@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.297027587890625,
+  3.386685371398926,
+  0.10117888450622559
+ ],
+ "bmin": [
+  -0.297027587890625,
+  0.0,
+  -0.10117888450622559
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "Ladders",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.297027587890625,
+    3.386685371398926,
+    0.10117888450622559
+   ],
+   "bmin": [
+    -0.297027587890625,
+    0.0,
+    -0.10117888450622559
+   ],
+   "count": 2580,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "Ladder_01_Ladders_0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "mod_fp_ladder.glb",
+ "textures": {},
+ "triangles": 860,
+ "vertices": 984
+}

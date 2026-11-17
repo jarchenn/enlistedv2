@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  1.1187859773635864,
+  0.9325278401374817,
+  0.5608723163604736
+ ],
+ "bmin": [
+  -1.1187859773635864,
+  0.0,
+  -0.5608723163604736
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "Tables",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.1187859773635864,
+    0.9325278401374817,
+    0.5608723163604736
+   ],
+   "bmin": [
+    -1.1187859773635864,
+    0.0,
+    -0.5608723163604736
+   ],
+   "count": 4092,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "Plane.093_Tables_0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "mod_fp_worktable_a.glb",
+ "textures": {},
+ "triangles": 1364,
+ "vertices": 1470
+}
