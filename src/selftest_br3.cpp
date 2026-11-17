@@ -231,6 +231,7 @@ bool poseShots(App& app, float dt) {
   s.br.aimPitch = pn == "lookup" ? 30.0f : pn == "lookdown" ? -30.0f : 0.0f;
   if (s.agent >= 0) Physics::setAgentPos(s.agent, B);
   int wi = app.weaponIndex(weps[w].second); if (wi >= 0) s.weapon = wi;
+  if (const char* at = std::getenv("NMK_POSE_SIGHT")) { s.ws.att[0] = std::atoi(at); s.ws.loaded = std::max(s.ws.loaded, 5); }   // AT1: an optic on the posed bot's gun (third person; loaded, or the refill resets the state)
   s.throwT = pn == "throw" ? 0.3f + 0.25f * std::min(1.0f, t / 1.6f) : -1; s.recoil = 0; s.lean = pn == "lean" ? 1.0f : 0.0f;
   if (pn == "reload") { s.reloadTotal = 2.0f; s.reload = 1.0f; } else s.reload = 0;
   s.posture = ps == 0 || pn == "crouchwalk" ? Physics::CROUCH : pn == "prone" ? Physics::PRONE : Physics::STAND;

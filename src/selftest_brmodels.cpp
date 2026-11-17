@@ -139,23 +139,44 @@ void build(App&) {
   // optics: the AK (animated rig) and the Kar98k (static model)
   // from here a Battle Royale match (BR2's loot rules: the optic reticles, a sniper's own scope as its ACOG)
   push("battle royale", [](App&, float) { gGame->match.rules.mode = GameMode::BattleRoyale; lootBegin(*gGame); return true; });
-  static const char* sn[5] = {"none", "reddot", "acog", "4x", "10x"};
-  for (const char* gun : {"modern_ak", "kar98k", "modern_sniper_bolt"}) {
-    for (int k = 0; k <= 4; ++k) {
-      if (std::string(gun) == "kar98k" && k != 2) continue;
-      if (std::string(gun) == "modern_sniper_bolt" && k != 0 && k != 4) continue;   // its own scope (= the ACOG) and the 10x
-      for (int ads = 0; ads < 2; ++ads) {
+  static const char* sn[6] = {"none", "reddot", "acog", "4x", "10x", "holo"};
+  // AT1: NMK_BRW_GUNS / NMK_BRW_SIGHTS (sight numbers) pick the optic shots; each gets hip, ADS (sky) and ADS against dark ground
+  std::vector<std::string> guns = {"modern_ak", "kar98k", "modern_sniper_bolt"}; std::vector<int> sights;
+  if (const char* e = std::getenv("NMK_BRW_GUNS")) { guns.clear(); std::stringstream ss(e); std::string it; while (std::getline(ss, it, ',')) if (!it.empty()) guns.push_back(it); }
+  if (const char* e = std::getenv("NMK_BRW_SIGHTS")) { std::stringstream ss(e); std::string it; while (std::getline(ss, it, ',')) if (!it.empty()) sights.push_back(std::atoi(it.c_str())); }
+  for (const std::string& gun : guns) {
+    for (int k = 0; k <= 5; ++k) {
+      if (!sights.empty() ? std::find(sights.begin(), sights.end(), k) == sights.end() : k == 5) continue;
+      if (sights.empty() && gun == "kar98k" && k != 2) continue;
+      if (sights.empty() && gun == "modern_sniper_bolt" && k != 0 && k != 4) continue;   // its own scope (= the ACOG) and the 10x
+      for (int ads = 0; ads < (sights.empty() ? 2 : 3); ++ads) {
         std::string g = gun;
-        shot(std::string("sight_") + gun + "_" + sn[k] + (ads ? "_ads" : "_hip"), [g, k, ads](App& a) {
+        shot(std::string("sight_") + gun + "_" + sn[k] + (ads == 2 ? "_adsdark" : ads ? "_ads" : "_hip"), [g, k, ads](App& a) {
           holdBot = false;
           int w = a.weaponIndex(g); std::string msg;
           if (w >= 0 && a.activeWeapon != w) a.equipWeapon(w, msg);
           if (w >= 0) a.wstate[a.weaponDefs[w]->id].att[0] = k;
-          a.eyePitch = 0; a.scriptedInput = ExploreInput{}; a.scriptedInput.aim = ads != 0;
+          a.eyePitch = ads == 2 ? -35.0f : ads == 1 && std::getenv("NMK_BRW_SIGHTS") ? 12.0f : 0.0f; a.scriptedInput = ExploreInput{}; a.scriptedInput.aim = ads != 0;
         }, 1.2f);
       }
     }
   }
+  // AT1: every gun the holographic sight fits (as the red dot): it mounts (a sight line) and its reticle draws; the list in the log
+  push("holo mount check", [](App& a, float) {
+    int ok = 0, n = 0; std::string list;
+    const ItemDef* it = lootItem("br_sight_holo");
+    for (auto& dp : a.weaponDefs) {
+      const WeaponDef& d = *dp;
+      if (!it || !lootAttachFits(d, *it) || d.hasScope) continue;
+      ++n; WeaponState ws; ws.att[0] = 5; vec3 R, F; float rel;
+      bool m = brSightLine(d, ws, R, F, rel);
+      std::vector<ModelDraw> md; std::vector<DrawItem> bx; brSightDraws(a, d, ws, mat4(1), md, bx);
+      bool drew = !bx.empty() && (!md.empty() || bx.size() >= 2);
+      if (m && drew) ++ok; list += d.id + (m && drew ? "" : "(FAIL)") + " ";
+    }
+    logf("[at1] holographic sight on %d / %d guns: %s", ok, n, list.c_str());
+    T->check(n > 0 && ok == n, "the holographic sight mounts and draws its reticle on every gun it fits (" + std::to_string(ok) + " / " + std::to_string(n) + ")");
+    return true; });
   push("inventory", [](App& a, float t) {   // the inventory screen with the sniper and the AK carried
     if (t == 0) {
       a.scriptedInput = ExploreInput{}; a.carried.clear();
