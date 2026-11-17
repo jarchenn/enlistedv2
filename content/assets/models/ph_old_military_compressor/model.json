@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.2991413176059723,
+  1.1790863275527954,
+  0.8377721309661865
+ ],
+ "bmin": [
+  -0.2991413176059723,
+  0.0,
+  -0.8377721309661865
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "old_military_compressor",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_3.jpg",
+   "mr": "mr_2.jpg",
+   "name": "old_military_compressor_glass",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.2991413176059723,
+    1.1790863275527954,
+    0.8377721309661865
+   ],
+   "bmin": [
+    -0.2991413176059723,
+    0.0,
+    -0.8377721309661865
+   ],
+   "count": 118179,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "old_military_compressor",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.03620725870132446,
+    0.8751575350761414,
+    0.5796654224395752
+   ],
+   "bmin": [
+    0.01092800498008728,
+    0.8532586097717285,
+    0.5538959503173828
+   ],
+   "count": 381,
+   "first": 118179,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "old_military_compressor",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_old_military_compressor.glb",
+ "textures": {},
+ "triangles": 39520,
+ "vertices": 34239
+}

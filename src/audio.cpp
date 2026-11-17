@@ -3,6 +3,7 @@
 #include <miniaudio.h>
 #include <random>
 #include <cmath>
+#include <map>
 #include <algorithm>
 #include <fstream>
 #include <chrono>
@@ -147,6 +148,7 @@ struct Audio::Impl {
   std::map<int, double> casingAt;   // SND4: per shooter, when its last case sound was scheduled
   std::map<std::string, double> rapidAt;   // SND9: rapid-fire event + 4 m cell -> when it last sounded
   float casingGain = 2.0f;           // SND6: x on the case sound (content/audio/custom/mix.json casing_gain)
+  float reloadGain = 2.24f; std::map<std::string, float> reloadTrim;   // WP6: x on reload / magazine / clip / bolt / pump foley (mix.json "reload": gain_db, trim_db per weapon id)
   Voice voices[48];
   Buf windBuf, leafBuf; float windVol = 0.0f, leafVol = 0.0f;   // the wind bed gave way to the battlefield recording (setBed)
   ma_audio_buffer windAB, leafAB; ma_sound wind, leaves;
@@ -374,6 +376,10 @@ int Audio::loadCustom(const fs::path& dir) {
   json mx; try { std::ifstream f(dir / "mix.json"); if (f) mx = json::parse(f); } catch (...) { logf("audio: custom/mix.json unreadable, defaults kept"); }
   if (!mx.is_object()) mx = json::object();
   const json mixGuns = mx.contains("guns") && mx["guns"].is_object() ? mx["guns"] : json::object();   // id: gain, or {gain, body}
+  if (mx.contains("reload") && mx["reload"].is_object()) {   // WP6: reload foley level (dB) and per-weapon trims
+    const json& rl = mx["reload"]; p->reloadGain = std::pow(10.0f, rl.value("gain_db", 7.0f) / 20.0f);
+    for (auto& [k, v] : rl.value("trim_db", json::object()).items()) if (v.is_number()) p->reloadTrim[k] = std::pow(10.0f, v.get<float>() / 20.0f);
+  }
   int used = 0; Buf b;
   struct StepSet { const char* file; std::vector<const char*> names; };   // fighter_steps.mp3: the Fighters' heavy tread (zombie.cpp)
   for (auto& ss : {StepSet{"footsteps.mp3", {"step", "step_stone", "step_wood"}}, StepSet{"grass_steps.mp3", {"step_grass"}}, StepSet{"fighter_steps.mp3", {"step_fighter"}}, StepSet{"spider_steps.mp3", {"step_spider"}}}) if (decode(ss.file, b)) {
@@ -770,6 +776,7 @@ int Audio::loadCustom(const fs::path& dir) {
   return used;
 }
 bool Audio::hasEvent(const std::string& name) const { return p && p->events.count(name); }
+bool Audio::hasSound(const std::string& name) const { return p && (p->events.count(name) || p->bufs.count(name)); }
 int Audio::eventVariant(const std::string& name) const { if (!p) return -1; auto it = p->events.find(name); return it == p->events.end() ? -1 : it->second.last; }
 
 void Audio::play(const std::string& name, vec3 pos, float volume, float pitch, float delay) {
@@ -822,6 +829,15 @@ void Audio::play(const std::string& name, vec3 pos, float volume, float pitch, f
   if (!v) { for (auto& c : p->voices) if (!v || c.start < v->start) v = &c; }   // all busy: steal the oldest
   if (v->used) { ma_sound_uninit(&v->snd); ma_audio_buffer_uninit(&v->buf); }
   volume *= gain * ((uiEv || name.rfind("ui_", 0) == 0) ? uiGain : effectsGain);
+  // WP6: reload / magazine / clip / bolt / pump foley: the Effects level, never the gunfire bus or the gun reverb, louder (mix.json
+  // "reload"), and it falls off quickly (heard close by: someone else's reload is a near sound)
+  const bool foley = used.rfind("reload_", 0) == 0 || used.rfind("clip_", 0) == 0 || used.rfind("bolt_cycle_", 0) == 0 || used == "mag_in" || used == "mag_out"
+                  || used == "bolt" || used == "belt" || used == "shotgun_pump" || used == "rocket_ready" || used == "rocket_in";
+  if (foley) {
+    float tr = 1; size_t us = used.find('_');
+    if (us != std::string::npos) { std::string id = used.substr(used.rfind("bolt_cycle_", 0) == 0 ? 11 : us + 1); auto it = p->reloadTrim.find(id); if (it != p->reloadTrim.end()) tr = it->second; }
+    volume *= p->reloadGain * tr; evBus = 0; if (evRoll <= 0) evRoll = 2.0f;
+  }
   { const bool gunBus = shot || used.rfind("shot_", 0) == 0 || used.rfind("tail_", 0) == 0 || used.rfind("explosion", 0) == 0 || used.find("_fire") != std::string::npos || used.find("cannon") != std::string::npos;
     if (gunBus) volume *= gunfireGain; }   // UI1b: the gunfire bus
   // SND5: a gun event with its stereo recording (the custom gunshots) at the listener (within 2 m: the player's own shot)

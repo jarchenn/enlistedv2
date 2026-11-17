@@ -136,7 +136,7 @@ void App::buildWeaponMeshes() {
     for (auto& m : j.value("modes", json::array())) d->modes.push_back(m.get<std::string>());
     d->deploys = j.value("deploys", "");
     if (j.contains("rocket")) { auto& rj = j["rocket"]; d->rocketDmg = rj.value("damage", 260.0f); d->rocketR = rj.value("radius", 1.6f); d->rocketCrater = rj.value("crater", 0.6f); d->rocketSplashGun = rj.value("splashGun", 40.0f);
-      d->rocketGrav = rj.value("gravity", 0.35f); d->rocketAtKill = rj.value("atKill", true); d->rocketBackblast = rj.value("backblast", true); }
+      d->rocketGrav = rj.value("gravity", 0.35f); d->rocketAtKill = rj.value("atKill", true); d->rocketBackblast = rj.value("backblast", true); d->rocketArmour = rj.value("armourMult", 1.0f); }
     loadEquipment(*d, j);
     if (j.contains("sockets")) { d->gripR = jvec3(j["sockets"]["rightGrip"], d->gripR); d->gripL = jvec3(j["sockets"]["leftSupport"], d->gripL); }
     if (j.contains("pivots")) { const json& pv = j["pivots"];   // MG9: the model's own hinges
@@ -592,7 +592,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       if (d.action == "launcher") {   // rocket: data-tuned blast through the shared destruction pipeline
         fireProjectile(start, dir, d.velocity, PROJ_ROCKET, d.rocketDmg, ~0ull, false, d.container);
         Projectile& rp = projectiles.back();
-        rp.blastDmg = d.rocketDmg; rp.blastR = d.rocketR; rp.craterScale = d.rocketCrater; rp.splashGun = d.rocketSplashGun; rp.atKill = d.rocketAtKill; rp.gravScale = d.rocketGrav;
+        rp.blastDmg = d.rocketDmg; rp.blastR = d.rocketR; rp.craterScale = d.rocketCrater; rp.splashGun = d.rocketSplashGun; rp.atKill = d.rocketAtKill; rp.gravScale = d.rocketGrav; rp.armourMult = d.rocketArmour;
         if (d.rocketBackblast) fx.backblast(weaponMuzzleWorld(d, s) - aimDir * 1.4f, -aimDir);   // content/settings/fx.json
       } else {
         fireRounds(d, start, dir, tracer, s.seed ^ (uint32_t)s.shotIdx * 7919u, -1);   // MG1: a shotgun's pellets

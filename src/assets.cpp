@@ -1060,6 +1060,7 @@ bool AssetLibrary::loadOne(const fs::path& path) {
   if (j.contains("model")) {   // imported model (baked; a missing bake leaves the collider boxes only, logged)
     auto& mj = j["model"];
     a->modelLodDist = mj.value("lodDist", 30.0f); a->modelCull = mj.value("cullDist", 400.0f); a->modelThinPx = mj.value("thinLinesPx", 0.0f);
+    a->modelFoliage = mj.value("foliage", false); a->modelWind = mj.value("wind", 0.0f);   // NT8: instanced model foliage
     fs::path dir = contentDir() / "assets" / "models" / mj.value("dir", a->id);
     auto gm = std::make_shared<GpuModel>(); std::string err;
     bool turn = mj.value("yaw", 0.0f) == 180.0f;   // "yaw": 180 - the bake faces -z (the car pack), the asset's parts +z

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.2050096094608307,
+  0.6419748067855835,
+  0.2045956403017044
+ ],
+ "bmin": [
+  -0.20487606525421143,
+  2.908706846938003e-06,
+  -0.2045956403017044
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "small_lpg_tank",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.2050096094608307,
+    0.6419748067855835,
+    0.2045956403017044
+   ],
+   "bmin": [
+    -0.20487606525421143,
+    2.908706846938003e-06,
+    -0.2045956403017044
+   ],
+   "count": 22560,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "small_lpg_tank",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_small_lpg_tank.glb",
+ "textures": {},
+ "triangles": 7520,
+ "vertices": 5213
+}

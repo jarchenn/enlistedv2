@@ -1,0 +1,123 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  2.3437094688415527,
+  7.953393459320068,
+  2.3285303115844727
+ ],
+ "bmin": [
+  -2.3437094688415527,
+  0.0,
+  -2.3285303115844727
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "fir_sapling_medium_branches_dead",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "fir_sapling_medium_branches",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "name": "ph_fir_sapling_medium_c_needles"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.6263745427131653,
+    2.634737968444824,
+    0.873708188533783
+   ],
+   "bmin": [
+    -0.6580228805541992,
+    1.6769680976867676,
+    -0.5177645087242126
+   ],
+   "count": 1941,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "fir_sapling_medium_c_LOD0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.3003109693527222,
+    6.963516712188721,
+    1.7011513710021973
+   ],
+   "bmin": [
+    -1.485304594039917,
+    1.825364112854004,
+    -1.3302315473556519
+   ],
+   "count": 4056,
+   "first": 1941,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "fir_sapling_medium_c_LOD0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.3437094688415527,
+    7.953393459320068,
+    2.3285303115844727
+   ],
+   "bmin": [
+    -2.3437094688415527,
+    0.0,
+    -2.3285303115844727
+   ],
+   "count": 13284,
+   "first": 5997,
+   "mat": 2,
+   "metal": 0.0,
+   "name": "ph_fir_sapling_medium_c_cards",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_fir_sapling_medium_c.glb",
+ "textures": {},
+ "triangles": 6427,
+ "vertices": 10802
+}

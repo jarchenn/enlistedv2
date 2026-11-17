@@ -61,6 +61,59 @@ INFO = {("mod_tent_sleeping", 16.5, -7.0): {"d": 1, "mil": True, "spot": True}, 
         ("mod_nt_house_small", 52.0, 38.0): {"d": 4}, ("mod_nt_house_two", 10.0, 58.0): {"d": 4}}
 
 
+# NT8: Poly Haven (CC0) forest kit (tools/bake_ph_forest.py, tools/catalog_ph_forest.py): the Pine Forest collection
+PINES = [("ph_pine_tree_01_a", 3), ("ph_pine_tree_01_b", 3), ("ph_pine_tree_01_c", 3), ("ph_fir_tree_01_a", 2), ("ph_fir_tree_01_b", 2), ("ph_fir_tree_01_c", 2)]
+YOUNG = [("ph_pine_sapling_medium_a", 2), ("ph_pine_sapling_medium_b", 2), ("ph_pine_sapling_medium_c", 2), ("ph_fir_sapling_medium_a", 2),
+         ("ph_fir_sapling_medium_b", 2), ("ph_fir_sapling_medium_c", 2)]
+FERNS = ["ph_fern_02_a", "ph_fern_02_b", "ph_fern_02_c", "ph_fern_02_d"]
+GRASS = ["ph_grass_medium_01_" + t for t in ("small_a", "small_b", "mid_a", "mid_b", "mid_c", "tall_a", "tall_b", "tall_c", "large_a", "large_b",
+                                             "large_c", "tiny_a", "tiny_c", "tiny_e")]
+FLOOR = ([(f, 5) for f in FERNS] + [("ph_shrub_03_%s" % v, 2) for v in "abcd"] + [(g, 1) for g in GRASS]
+         + [("ph_pine_sapling_small_%s" % v, 2) for v in "abc"] + [("ph_fir_sapling_%s" % v, 2) for v in "abc"])
+MOSSY = ["ph_rock_moss_set_01_rock0%d" % k for k in range(1, 7)] + ["ph_rock_moss_set_02_rock%02d" % k for k in range(8, 14)]
+STONES = ["ph_stone_01", "ph_rock_09", "ph_sand_rocks_small_01"]   # low stones only along the track: the 2-3 m mossy rocks hemmed it in (bots snagged at the camp gate)
+ROOTS = ["ph_pine_roots_a", "ph_pine_roots_b", "ph_root_cluster_01"] + ["ph_root_cluster_02_%s" % v for v in "cdefgh"]
+LOGS = ["ph_dead_tree_trunk", "ph_dead_tree_trunk_02"]
+DEBRIS = ["ph_dry_branches_medium_01_a", "ph_dry_branches_medium_01_b", "ph_dry_branches_medium_01_c"]
+
+
+def slope(x, z):
+    e = 1.0
+    return math.hypot(height(x + e, z) - height(x - e, z), height(x, z + e) - height(x, z - e)) / (2 * e)
+
+
+def floor_mix(x, z):
+    """NT8: the forest floor by texel: pine needles under the canopy, moss in the damp hollows and by the water, broadleaf
+    litter towards the clearings' edges, bare earth on the steep banks; grass only in the open. Large, soft fields (no
+    blotches): every weight is a smooth function of distance, slope and two low-frequency noises."""
+    if clearing(x, z):
+        return [("grass", 1.0)] if not (CAMP[0] < x < CAMP[2] and CAMP[1] < z < CAMP[3]) else []
+    wet = max(1.0 - polyline_dist((x, z), CREEK)[0] / 9.0, 1.0 - max(0.0, pond_k(x, z) - 1.0) / 0.8, 0.0)
+    n1 = fbm(x / 34.0, z / 34.0, 11, 3); n2 = fbm(x / 13.0, z / 13.0, 12, 2)
+    sl = slope(x, z)
+    moss = smoothstep(-0.05, 0.45, wet * 0.9 + n1 * 0.7) * (1.0 - smoothstep(0.4, 0.75, sl))   # the banner's floor: moss and green between the needles
+    bank = smoothstep(0.45, 0.85, sl) * (0.6 + 0.4 * n2)
+    edge = 0.0
+    for dx, dz in ((7, 0), (-7, 0), (0, 7), (0, -7)):
+        if clearing(x + dx, z + dz):
+            edge = max(edge, 0.55 + 0.25 * n2)
+    leaves = edge * (1.0 - moss)   # broadleaf litter only where the broadleaves stand, at the clearings' edges
+    bare = max(bank, smoothstep(0.35, 0.7, n2) * 0.55)                    # patches of bare earth between the needles
+    L = sorted([("ploughed", moss), ("dirt", bare), ("scorched", leaves)], key=lambda k: -k[1])
+    if L[0][1] > 0.004:   # the strongest accent over the needles, which stay under everything
+        return [L[0], ("leaf_litter", 1.0)]
+    return [("leaf_litter", 1.0)]
+
+
+def dry(fn):
+    """A scatter region minus the pond and its wet margin (plants were standing in the water)."""
+    return lambda x, z: fn(x, z) and height(x, z) > WATER + 0.3
+
+
+def edge_of_clearing(x, z):
+    return forest(x, z) and any(clearing(x + dx, z + dz) for dx, dz in ((8, 0), (-8, 0), (0, 8), (0, -8)))
+
+
 def clearing(x, z):
     x0, z0, x1, z1 = CAMP
     return ((x0 - 3 < x < x1 + 3 and z0 - 3 < z < z1 + 3) or math.hypot(x + 44, z + 44) < 11 or math.hypot(x + 36, z - 46) < 20
@@ -113,7 +166,7 @@ def dress(b, R, prop, drop, line, paint, rep):
     for s in range(0, int(L), 3):   # the forest taking the track back
         (px, pz), t = point_at(TRACK, s + R.uniform(0, 2))
         o = R.uniform(-2.2, 2.2)
-        drop(R.choice(["nat_green_tufts", "nat_fern_clump", "nat_tallgrass_patch", "mod_weeds_clump", "nat_bracken_clump"]), px - t[1] * o, pz + t[0] * o,
+        drop(R.choice(GRASS + FERNS), px - t[1] * o, pz + t[0] * o,
              R.uniform(0, 360), cls="veg")
     # NT4: Ural-4320 trucks (drivable): one at the motor pool, one stopped on the logging track
     prop("car_ural_4320", 45.0, -39.0, 92.0, tags={"camp", "cover", "vehicle"})
@@ -126,20 +179,26 @@ def dress(b, R, prop, drop, line, paint, rep):
         e = prop("mod_ammo_crate_old", x, z, R.uniform(0, 360), tags={"tents", "cover"})
         if e is not None:
             e["extra"] = e.get("extra") or {}; e["extra"]["loot"] = {"spot": True, "size": "small", "district": 1, "military": True}
-    # NT4: the track churned to mud with puddles, trunks fallen across it
-    paint.line("mud", TRACK, 2.8, weight=0.85, edge=0.8)
-    for s in range(10, int(L) - 6, 17):
+    # NT8: a packed-earth forest track (the Pine Forest banner): roots across it, stones along its edges, a few puddles
+    paint.line("dirt", TRACK, 2.6, weight=0.9, edge=0.9)
+    for s in range(6, int(L) - 4, 9):
+        (px, pz), t = point_at(TRACK, s + R.uniform(-3, 3))
+        drop(R.choice(ROOTS), px + t[1] * R.uniform(-0.6, 0.6), pz - t[0] * R.uniform(-0.6, 0.6), math.degrees(math.atan2(-t[1], t[0])) + R.uniform(-30, 30), dy=-0.04, cls="none")
+    for s in range(0, int(L), 2):
+        (px, pz), t = point_at(TRACK, s + R.uniform(0, 2)); o = R.choice((-1, 1)) * R.uniform(1.2, 2.4)
+        drop(R.choice(STONES), px - t[1] * o, pz + t[0] * o, R.uniform(0, 360), dy=-0.02, cls="none")
+    for s in range(10, int(L) - 6, 23):
         (px, pz), t = point_at(TRACK, s + R.uniform(-4, 4))
         drop("wat_puddles", px, pz, math.degrees(math.atan2(t[0], t[1])) + R.uniform(-20, 20), cls="flat")
     for s in (34.0, 76.0, 120.0):
         (px, pz), t = point_at(TRACK, min(s, L - 5))
-        drop("mod_fallen_tree", px + t[1] * 2.0, pz - t[0] * 2.0, math.degrees(math.atan2(-t[1], t[0])) + R.uniform(-25, 25), cls="solid")
+        drop(R.choice(LOGS), px + t[1] * 3.0, pz - t[0] * 3.0, math.degrees(math.atan2(-t[1], t[0])) + R.uniform(-25, 25), cls="solid")
     # the creek: mossy stones, fallen saplings, reeds near the pond
     Lc = polyline_length(CREEK)
     for k in range(40):
         (px, pz), t = point_at(CREEK, R.uniform(0, Lc))
         o = R.uniform(-2.5, 2.5)
-        drop(R.choice(["nat_boulder_schist_m", "nat_boulder_granite_s", "nat_stones_granite_patch", "nat_fern_clump", "nat_nettle_clump", "nat_sapling_ash"]),
+        drop(R.choice(MOSSY + FERNS + ["ph_root_cluster_02_c", "ph_root_cluster_02_d"]),
              px - t[1] * o, pz + t[0] * o, R.uniform(0, 360), cls="solid")
     # the ridge: schist outcrops along the steep side
     for z in range(-66, 66, 5):
@@ -161,6 +220,7 @@ V = {
     "sites": SITES, "site_info": INFO,
     "flats": [(rect(CAMP[0] + 1, CAMP[1] + 1, CAMP[2] - 1, CAMP[3] - 1), None), (circle_poly(-44.0, -44.0, 9.0, 16), None)],
     "paint": [("poly", "leaf_litter", rect(-HX - 70, -HZ - 70, HX + 70, HZ + 70), {"weight": 1.0, "edge": 0.5}),   # NT5: a full litter floor (the terrain skips its base layers under it; grass sparse in the forest)
+              ("field", (-HX - 2, -HZ - 2, HX + 2, HZ + 2), floor_mix, {}),   # NT8: needles / moss / bare banks / broadleaf edges
               ("poly", "grass", rect(CAMP[0] - 2, CAMP[1] - 2, CAMP[2] + 2, CAMP[3] + 2), {"weight": 0.8, "edge": 3.0, "ragged": 3.0, "seed": 51}),
               ("poly", "dirt", rect(28.0, -48.0, 56.0, -34.0), {"weight": 0.8, "edge": 2.0, "ragged": 2.5, "seed": 52}),
               ("poly", "gravel", rect(30.0, -36.0, 58.0, -30.0), {"weight": 0.6, "edge": 2.0, "ragged": 2.0, "seed": 53}),
@@ -171,15 +231,18 @@ V = {
     "dress": dress,
     "helis": [("mod_helipad_ground", 0.0, 0.165, 200.0)],
     "yard_paint": ["dirt", "gravel", "pebbles", "dirt"],
-    "wall_dress": ["nat_nettle_clump", "nat_bramble_thicket", "nat_fern_clump", "mod_weeds_clump", "mod_rubble_small", "nat_bracken_clump", "nat_tallgrass_patch"],
-    "scatter": [([("nt3_tree_forest_oak", 4), ("nt3_tree_forest_ash", 4), ("nt3_tree_forest_poplar", 2), ("tree_oak", 1)], forest, 1 / 42.0, 4.6),
-                ([("nat_fern_clump", 4), ("nat_bracken_clump", 4), ("nat_bramble_thicket", 1), ("nat_nettle_clump", 1), ("shrub_hazel", 1), ("nat_sapling_ash", 1),
-                  ("nat_sapling_oak", 1), ("nat_brush_rank", 1)], forest, 1 / 4.5, 1.0, {"ok_with": {"flat", "none", "wire", "veg"}}),
-                ([("nat_boulder_schist_m", 2), ("nat_boulder_granite_s", 2), ("nat_boulder_granite_l", 1)], forest, 1 / 220.0, 6.0),
+    "wall_dress": ["nat_nettle_clump", "ph_fern_02_b", "ph_fern_02_c", "mod_weeds_clump", "mod_rubble_small", "ph_shrub_03_a", "nat_tallgrass_patch"],
+    "scatter": [(PINES, dry(forest), 1 / 30.0, 4.4),   # NT8: a pine / fir canopy (Poly Haven Pine Forest)
+                ([("nt3_tree_forest_oak", 2), ("nt3_tree_forest_ash", 1), ("ph_island_tree_01", 1)], dry(edge_of_clearing), 1 / 160.0, 6.0),   # a few broadleaves at the edges
+                (YOUNG, dry(forest), 1 / 45.0, 3.0, {"ok_with": {"flat", "none", "wire", "veg"}}),   # under and between the pines
+                (FLOOR, dry(forest), 1 / 3.2, 0.8, {"ok_with": {"flat", "none", "wire", "veg"},
+                 "accept": lambda x, z: 0.25 + 0.75 * smoothstep(-0.25, 0.35, fbm(x / 11.0, z / 11.0, 21, 2))}),   # clumped, not even
+                ([(m, 1) for m in MOSSY] + [(l, 2) for l in LOGS] + [(d, 2) for d in DEBRIS] + [(r, 1) for r in ROOTS] + [("ph_boulder_01", 2)], dry(forest), 1 / 85.0, 2.5,
+                 {"ok_with": {"flat", "none", "wire", "veg"}}),
                 ([("nat_tallgrass_patch", 3), ("nat_green_tufts", 2), ("nat_meadow_mixed", 1), ("mod_weeds_clump", 2), ("nat_nettle_clump", 1),
-                  ("nat_sapling_ash", 1), ("nat_bramble_thicket", 1)], clearing, 1 / 9.0, 1.2,
+                  ("nat_sapling_ash", 1), ("nat_bramble_thicket", 1)], dry(clearing), 1 / 9.0, 1.2,
                  {"ok_with": {"flat", "none", "wire", "veg"}, "accept": lambda x, z: 0.15 + 0.85 * max(0.0, math.sin(x * 0.31 + math.sin(z * 0.23) * 2.0) * math.sin(z * 0.27 + x * 0.05))})],   # clumped, not even
-    "decor": ["nt3_tree_forest_oak", "nt3_tree_forest_ash", "nt3_tree_forest_oak", "nt3_tree_forest_poplar", "tree_oak"],
+    "decor": ["ph_pine_tree_01_a", "ph_pine_tree_01_b", "ph_pine_tree_01_c", "ph_fir_tree_01_a", "ph_fir_tree_01_b", "ph_fir_tree_01_c", "nt3_tree_forest_oak"],
     "decor_n": 300,
     "tdm": {"A": (-52.0, 66.0), "B": (54.0, 22.0)},
     "objective": (36.0, -40.0), "objective_name": "Forest camp", "attack_from": (-4.0, 12.0), "defend_at": (46.0, -46.0),
@@ -192,9 +255,13 @@ V = {
     "water_bodies": [{"id": 1, "kind": "pond", "level": WATER, "seed": [POND[0], POND[1]],
                       "outline": [[round(POND[0] + math.cos(a) * POND[2] * 1.12, 3), round(POND[1] + math.sin(a) * POND[3] * 1.12, 3)]
                                   for a in [2 * math.pi * k / 48 for k in range(48)]]}],
-    "look": {"style": "abandoned", "haze": 1.4, "weather": 0.35, "envFog": 0, "bloom": 1.4, "vegCull": 0.55, "saturation": 1.14, "tint": [1.04, 1.01, 0.93], "grime": 1.0,
-             "paintSets": {"gravel": "gravel_mixed", "dirt": "ground_rubble_paint", "pebbles": "rock_slab_paint"}},
-    "lighting": {"fill": 1.3, "ambient": [0.04, 0.06, 0.045]},
+    # NT8: golden hour in a pine forest (the Pine Forest banner): a low warm sun broken into shafts by the canopy, clear near
+    # and middle ground (the earlier preview read too hazy), the glow in the shafts and the distance, cool green shade
+    "look": {"style": "abandoned", "haze": 0.85, "weather": 0.12, "envFog": 0, "bloom": 1.35, "vegCull": 0.55, "saturation": 1.16, "tint": [1.1, 1.0, 0.84], "grime": 1.0,
+             "shafts": 2.6,
+             "paintSets": {"gravel": "gravel_mixed", "dirt": "dirt_path_paint", "pebbles": "rock_slab_paint", "leaf_litter": "ph_needle_floor",
+                           "ploughed": "moss_floor_paint", "scorched": "ph_leaf_floor"}},
+    "lighting": {"hour": 17.9, "enclosed": False, "fill": 1.4, "ambient": [0.045, 0.06, 0.045]},
     "views_clear": 3.5,
 }
 

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.13401144742965698,
+  0.3184141516685486,
+  0.17044635117053986
+ ],
+ "bmin": [
+  -0.1339641958475113,
+  0.0,
+  -0.17044436931610107
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "plastic_jerrycan",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.13401144742965698,
+    0.3184141516685486,
+    0.17044635117053986
+   ],
+   "bmin": [
+    -0.1339641958475113,
+    0.0,
+    -0.17044436931610107
+   ],
+   "count": 11022,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "plastic_jerrycan",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_plastic_jerrycan.glb",
+ "textures": {},
+ "triangles": 3674,
+ "vertices": 2813
+}

@@ -1,5 +1,6 @@
 // --selftest-weapons: Milestone 4 — eight weapon entries, ammunition accounting, sights, recoil, crates.
 #include "selftest.h"
+#include <sstream>
 #include <GLFW/glfw3.h>
 #include "settings.h"
 #include "game.h"
@@ -675,7 +676,9 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
       std::string L = std::string(",") + poi + ",";
       for (auto& wd : app.weaponDefs) {
         if (L.find("," + wd->id + ",") == std::string::npos) continue;
-        for (float dist : {25.0f, 100.0f, wd->zero}) {   // the zero range too (M249 200 m, M4 50 m)
+        std::vector<float> dists = {25.0f, 100.0f, wd->zero};   // the zero range too (M249 200 m, M4 50 m)
+        if (const char* dl = std::getenv("NMK_MG_POI_DIST")) { dists.clear(); std::stringstream ss(dl); std::string it; while (std::getline(ss, it, ',')) if (!it.empty()) dists.push_back((float)std::atof(it.c_str())); }   // WP6: e.g. 20,50,100
+        for (float dist : dists) {
           const std::string id = wd->id;
           push(("mg8 poi " + id + " " + std::to_string((int)dist)).c_str(), [this, id, dist](App& a, float t) {
             static int ph; static float t0, wallZ; static vec3 aimPt, aimDir; static float saved[4];
@@ -688,7 +691,7 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
               for (int k = 0; k < 4; ++k) { saved[k] = a.handling.ads[k]; a.handling.ads[k] = 0; }
               a.vm.procedural = false; return false;
             }
-            a.eyeYaw = 0; a.eyePitch = 0; in.aim = true;
+            a.eyeYaw = 0; a.eyePitch = 0; in.aim = std::getenv("NMK_MG_POI_HIP") == nullptr;   // WP6: NMK_MG_POI_HIP=1 fires from the hip
             if (ph == 0 && t > 1.6f) {   // settled in ADS: the point under the screen centre, then one round
               ph = 1; vec3 e = a.eyePos(); aimDir = App::forward(a.eyeYaw + a.viewKickYaw, a.eyePitch + a.viewKickPitch);
               Physics::Hit h; aimPt = Physics::castRayEx(e, aimDir, 400, h) ? h.pos : e + aimDir * 400.0f;

@@ -313,7 +313,8 @@ bool floaterScan(App& app, float dt) {
     bool skirted = false;
     for (auto& st : T.stamps) if (st.owner == i.id && st.skirt > 0) skirted = true;
     std::vector<vec2> L;
-    if (a->tree.on) { float r = std::max(0.1f, a->tree.trunkR * 0.8f); L = {vec2(0), vec2(r, 0), vec2(-r, 0), vec2(0, r), vec2(0, -r)}; }
+    if (a->modelFoliage) L = {vec2(0), vec2(0.15f, 0), vec2(-0.15f, 0), vec2(0, 0.15f), vec2(0, -0.15f)};   // NT8 trees / plants / rocks: the trunk or the middle, not the crown's corners
+    else if (a->tree.on) { float r = std::max(0.1f, a->tree.trunkR * 0.8f); L = {vec2(0), vec2(r, 0), vec2(-r, 0), vec2(0, r), vec2(0, -r)}; }
     else if (blendPinned(a)) { vec2 h = glm::max(padHalf(a) - vec2(0.15f), vec2(0.02f)), o = padOff(a);   // the engine's pad core (an earthwork's walls), as blendValidate
       L = {o, o + vec2(-h.x, -h.y), o + vec2(h.x, -h.y), o + vec2(h.x, h.y), o + vec2(-h.x, h.y), o + vec2(0, -h.y), o + vec2(0, h.y), o + vec2(-h.x, 0), o + vec2(h.x, 0)}; }
     else { vec2 h = glm::max(a->footprint * 0.5f - vec2(0.1f), vec2(0.02f)); L = {vec2(0), vec2(-h.x, -h.y), vec2(h.x, -h.y), vec2(h.x, h.y), vec2(-h.x, h.y), vec2(0, -h.y), vec2(0, h.y), vec2(-h.x, 0), vec2(h.x, 0)}; }
@@ -328,7 +329,7 @@ bool floaterScan(App& app, float dt) {
     bool onStructure = false;
     if (gap > 0.05f) { Physics::Hit h; if (Physics::castRayEx(i.pos + vec3(0, 0.25f, 0), vec3(0, -1, 0), 0.55f, h) && h.ud != 0 && (h.ud >> 60) != 0xF && (h.ud >> 16) != i.id) onStructure = true; }
     if (gap > 0.05f && !skirted && !onStructure) { kind = "floating"; v = gap; ++nf; }
-    else if (sink > (a->tree.on ? 0.35f : !a->defense.kind.empty() ? 0.30f : a->footprint.x * a->footprint.y < 6.0f ? 0.20f : 0.10f) && a->navMeta.terrainCuts.empty() && !blendTrench(a)) { kind = "sunk"; v = sink; ++ns; }   // a trunk or a small piece into a slope is natural
+    else if (sink > (a->tree.on ? 0.35f : a->modelFoliage ? (a->category == "Trees" ? 0.35f : 0.5f * std::max(0.1f, a->bmax.y - a->bmin.y)) : !a->defense.kind.empty() ? 0.30f : a->footprint.x * a->footprint.y < 6.0f ? 0.20f : 0.10f) && a->navMeta.terrainCuts.empty() && !blendTrench(a)) { kind = "sunk"; v = sink; ++ns; }   // a trunk or a small piece into a slope is natural
     if (kind) csv << kind << "," << a->id << "," << i.id << "," << i.pos.x << "," << i.pos.y << "," << i.pos.z << "," << i.yaw << "," << v << "," << a->category << "\n";
   }
   logf("[floaters] %s: %d floating, %d sunk (of %zu instances)", maps[idx].c_str(), nf, ns, app.doc.instances.size());

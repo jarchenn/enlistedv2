@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.5467833280563354,
+  1.799464225769043,
+  0.45734745264053345
+ ],
+ "bmin": [
+  -0.5467833280563354,
+  0.0001415461301803589,
+  -0.4573022127151489
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "projector_screen_frame",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "projector_screen",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5467833280563354,
+    1.799464225769043,
+    0.45734745264053345
+   ],
+   "bmin": [
+    -0.5467833280563354,
+    0.0001415461301803589,
+    -0.4573022127151489
+   ],
+   "count": 2925,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "projector_screen",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.4871302843093872,
+    1.7411787509918213,
+    0.20823200047016144
+   ],
+   "bmin": [
+    -0.5079934597015381,
+    0.7250497937202454,
+    0.1805894374847412
+   ],
+   "count": 342,
+   "first": 2925,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "projector_screen",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_projector_screen.glb",
+ "textures": {},
+ "triangles": 1089,
+ "vertices": 1380
+}

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.2615862488746643,
+  1.0499999523162842,
+  0.30378150939941406
+ ],
+ "bmin": [
+  -0.2618669867515564,
+  2.9802322387695313e-08,
+  -0.28672313690185547
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "old_drill_press",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.2615862488746643,
+    1.0499999523162842,
+    0.30378150939941406
+   ],
+   "bmin": [
+    -0.2618669867515564,
+    2.9802322387695313e-08,
+    -0.28672313690185547
+   ],
+   "count": 8187,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "old_drill_press_cable",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_old_drill_press.glb",
+ "textures": {},
+ "triangles": 2729,
+ "vertices": 2992
+}

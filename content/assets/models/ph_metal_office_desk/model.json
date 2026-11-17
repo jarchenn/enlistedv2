@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  1.000000238418579,
+  0.7875000238418579,
+  0.4735104441642761
+ ],
+ "bmin": [
+  -1.000000238418579,
+  0.0,
+  -0.47360676527023315
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "metal_office_desk",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.000000238418579,
+    0.7875000238418579,
+    0.4735104441642761
+   ],
+   "bmin": [
+    -1.000000238418579,
+    0.0,
+    -0.47360676527023315
+   ],
+   "count": 10344,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "metal_office_desk_drawer_06",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_metal_office_desk.glb",
+ "textures": {},
+ "triangles": 3448,
+ "vertices": 3863
+}

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.38913223147392273,
+  0.6384221911430359,
+  0.3789641559123993
+ ],
+ "bmin": [
+  -0.38913223147392273,
+  4.7644022060922e-09,
+  -0.3789641559123993
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "industrial_coffee_table",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.38913223147392273,
+    0.6384221911430359,
+    0.3789641559123993
+   ],
+   "bmin": [
+    -0.38913223147392273,
+    4.7644022060922e-09,
+    -0.3789641559123993
+   ],
+   "count": 15486,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "industrial_coffee_table",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_industrial_coffee_table.glb",
+ "textures": {},
+ "triangles": 5162,
+ "vertices": 6771
+}

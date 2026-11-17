@@ -1811,10 +1811,12 @@ layout(location=2) out vec4 oAmb;
 layout(location=3) out vec4 oNR;
 layout(location=4) out vec4 oVel; uniform float uVmVel;
 uniform float uAlbFloor;
+uniform int uCutout;   // NT8: alpha-tested foliage (needles, blades, fronds): discard under 0.5, sun through the thin side
 uniform int uGlass;   // 0 opaque; 1 window glass (dusty); 2 a wreck's glass (crazed, grimy); 3 clean (the car you sit in: no film to catch the cabin light at night)
 void main(){
   vec4 base = uBase;
   if (uHasAlb == 1) base *= texture(uAlb, vUV);
+  if (uCutout == 1 && base.a < 0.5) discard;
   base.rgb = max(base.rgb, vec3(uAlbFloor));   // VH6d: a near-black supplied cabin reads as dark grey trim from the seat
   if (uGlass > 0) {   // tinted window glass: see-through, a dust film, sky reflection at grazing angles
     vec3 N = normalize(vN); if (!gl_FrontFacing) N = -N;
@@ -1855,6 +1857,10 @@ void main(){
     }
   }
   vec3 c = shade(vW, N, base.rgb, clamp(rough, 0.04, 1.0), clamp(metal, 0.0, 1.0), mix(1.0, ao, 0.85));
+  if (uCutout == 1) {   // thin needles / blades: the low sun through them from behind, a warm rim (still shadowed)
+    vec3 Vv = normalize(uCamPos - vW); float VoL = max(dot(-Vv, uSunDir), 0.0);
+    c += base.rgb*vec3(1.0, 1.05, 0.6)*uSunCol*(0.04 + 0.35*pow(VoL, 5.0))*sunShadowT(vW, N, 1.0, 1);
+  }
   if (uTint.a >= 0.999) c *= uTint.rgb;   // opaque tint multiplies (white = unchanged; tank wrecks are blackened)
   c = applyFog(c, vW);
   if (uTint.a < 0.999) c = mix(c, uTint.rgb, 0.55);
@@ -1864,6 +1870,33 @@ void main(){
   oNR = vec4(N, clamp(rough, 0.04, 1.0) + (1.0 - gFogT));
   oVel = vec4(0.0, 0.0, 0.0, uVmVel);   // first-person weapon: a = 1, zero motion (TAA keeps its own pixel, not the world reprojection)
 }
+)GLSL";
+
+// ---- NT8 model foliage: one instanced draw per (model, part); per instance a mat4 in binding 12 whose column 0 .w carries
+// the wind amount (0 for rocks / trunks of no sway). Sway grows with the height above the instance origin.
+static const char* kFolVS = R"GLSL(
+layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec4 aTan; layout(location=3) in vec2 aUV;
+layout(std430, binding = 12) readonly buffer NmkFol { vec4 gFol[]; };
+uniform mat4 uVP; uniform float uTime, uWind; uniform int uInstBase;
+out vec3 vW, vN; out vec4 vT; out vec2 vUV;
+void main(){
+  int b = (uInstBase + gl_InstanceID)*4;
+  vec4 c0 = gFol[b]; float wk = c0.w; c0.w = 0.0;
+  mat4 M = mat4(c0, gFol[b + 1], gFol[b + 2], gFol[b + 3]);
+  vec4 w = M*vec4(aPos, 1.0);
+  float h = max(aPos.y, 0.0), ph = 0.21*M[3].x + 0.17*M[3].z;
+  float s = sin(1.1*uTime + ph) + 0.35*sin(2.7*uTime + 1.3*ph + 0.4*h);
+  float f = 0.012*sin(7.0*uTime + 3.1*dot(w.xyz, vec3(1.0, 0.7, 1.3)));   // needle / blade flutter
+  w.xyz += (vec3(0.8, 0.0, 0.6)*(0.018*h*s) + vec3(f, 0.5*f, f)*min(h, 1.5))*wk*uWind;
+  mat3 m = mat3(M);
+  vW = w.xyz; vN = m*aNrm; vT = vec4(m*aTan.xyz, aTan.w); vUV = aUV;
+  gl_Position = uVP*w;
+}
+)GLSL";
+static const char* kFolDepthFS = R"GLSL(
+in vec3 vW, vN; in vec4 vT; in vec2 vUV;
+uniform sampler2D uAlb; uniform int uCutout;
+void main(){ if (uCutout == 1 && texture(uAlb, vUV).a < 0.5) discard; }
 )GLSL";
 
 // ---- near-field depth of field for aiming down the sights: only first-person weapon pixels nearer than the
@@ -3418,6 +3451,7 @@ bool Renderer::init(int w, int h) {
   progGrassShadow = compile(kGrassVS, kGrassShadowFS, "grass_shadow");
   { extern bool grassAtlasInit(GLuint, GLuint); grassAtlasReady = grassAtlasInit(progGrass, progGrassShadow); }   // GT1 (grass.cpp)
   progModel = compile(kModelVS, kModelFS, "model");
+  progFolModel = compile(kFolVS, kModelFS, "fol_model"); progFolDepth = compile(kFolVS, kFolDepthFS, "fol_depth");   // NT8
   progDof = compile(kFullVS, kDofFS, "dof");
   progEyepiece = compile(kFullVS, kEyepieceFS, "eyepiece");
   progShaft = compile(kFullVS, kShaftFS, "shafts");
@@ -4087,6 +4121,59 @@ void Renderer::drawModelsDepth(GLuint p, const std::vector<ModelDraw>& items, co
   }
 }
 
+// NT8: model foliage. Instances are culled per model (bounding sphere), their matrices packed into one SSBO (binding 12),
+// then each part is one instanced draw; cutout parts alpha test (depth too), no back-face culling.
+void Renderer::drawFolModels(bool depth, const mat4& vp, const Frustum* fr, float minH) {
+  if (folModels.empty()) return;
+  std::map<const GpuModel*, std::vector<const FolModelDraw*>> by;
+  for (auto& d : folModels) {
+    if (!d.model || !d.model->vao) continue;
+    if (minH > 0 && d.model->bmax.y - d.model->bmin.y < minH) continue;   // ferns / grass do not cast into this cascade
+    if (fr) { vec3 c = vec3(d.m * vec4(0.5f * (d.model->bmin + d.model->bmax), 1)); float r = 0.5f * glm::length(vec3(d.m * vec4(d.model->bmax - d.model->bmin, 0)));
+              if (!fr->sphere(c, r)) { stats.culled++; continue; } }
+    by[d.model].push_back(&d);
+  }
+  std::vector<vec4> buf; std::vector<std::pair<const GpuModel*, std::pair<int, int>>> runs;
+  for (auto& [m, v] : by) {
+    runs.push_back({m, {(int)(buf.size() / 4), (int)v.size()}});
+    for (auto* d : v) { mat4 M = d->m; M[0].w = d->wind; for (int k = 0; k < 4; ++k) buf.push_back(M[k]); }
+  }
+  if (buf.empty()) return;
+  static const bool dbg = std::getenv("NMK_DBG_FOL") != nullptr; static int dbgN = 0;
+  if (dbg && !depth && dbgN++ < 3) for (auto& [m, rn] : runs) logf("fol: model %p parts %zu inst %d tris %d mats %zu alb0 %u cut0 %d", (const void*)m, m->parts.size(), rn.second, m->tris, m->mats.size(), m->mats.empty() ? 0u : m->mats[0].alb, m->parts.empty() ? -1 : (int)m->parts[0].cutout);
+  size_t bytes = buf.size() * sizeof(vec4);
+  if (!folBuf || folBufBytes < bytes) { if (folBuf) glDeleteBuffers(1, &folBuf); glCreateBuffers(1, &folBuf); folBufBytes = std::max(bytes, folBufBytes * 2); glNamedBufferData(folBuf, folBufBytes, nullptr, GL_STREAM_DRAW); }
+  glNamedBufferSubData(folBuf, 0, bytes, buf.data());
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 12, folBuf);
+  GLuint p = depth ? progFolDepth : progFolModel;
+  glUseProgram(p);
+  glUniformMatrix4fv(U(p, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+  glUniform1f(U(p, "uTime"), time); glUniform1f(U(p, "uWind"), wind);
+  const DrawLocs L = drawLocs(p);
+  glUniform1i(L.alb, 2);
+  if (!depth) { glUniform1i(L.mr, 3); glUniform1i(L.nrm, 4); glUniform1i(L.ao, 5); glUniform4f(L.tint, 1, 1, 1, 1); glUniform1f(L.thin, 0); glUniform1i(U(p, "uGlass"), 0); glUniform1f(U(p, "uAlbFloor"), 0); }
+  GLint lCut = U(p, "uCutout"), lBase = U(p, "uInstBase");
+  glDisable(GL_CULL_FACE);
+  for (auto& [m, rn] : runs) {
+    glBindVertexArray(m->vao); glUniform1i(lBase, rn.first);
+    int boundMat = -2;
+    for (auto& pt : m->parts) {
+      int mi = pt.mat >= 0 && pt.mat < (int)m->mats.size() ? pt.mat : -1;
+      if (mi != boundMat) {
+        boundMat = mi; GpuModel::MatTex none; const GpuModel::MatTex& t = mi >= 0 ? m->mats[mi] : none;
+        glBindTextureUnit(2, t.alb);
+        if (!depth) { glBindTextureUnit(3, t.mr); glBindTextureUnit(4, t.n); glBindTextureUnit(5, t.ao);
+          glUniform1i(L.hasAlb, t.alb ? 1 : 0); glUniform1i(L.hasMR, t.mr ? 1 : 0); glUniform1i(L.hasNrm, t.n ? 1 : 0); glUniform1i(L.hasAO, t.ao ? 1 : 0); glUniform1i(L.aoInMR, t.aoInMR ? 1 : 0); }
+      }
+      glUniform1i(lCut, pt.cutout && (mi >= 0 && m->mats[mi].alb) ? 1 : 0);
+      if (!depth) { glUniform4fv(L.base, 1, glm::value_ptr(pt.base)); glUniform1f(L.metal, pt.metal); glUniform1f(L.rough, pt.rough); }
+      glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u), rn.second);
+      stats.draws++; stats.tris += (int)pt.count / 3 * rn.second;
+    }
+  }
+  glEnable(GL_CULL_FACE);
+}
+
 void Renderer::drawModels(const std::vector<ModelDraw>& items, const Frustum* fr) {
   GLuint p = progModel;
   const DrawLocs L = drawLocs(p);
@@ -4304,6 +4391,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glUniform1i(U(progGrassShadow, "uGAOn"), perf.grassAtlas && grassAtlasReady && grassAtlasTier);
     grass->drawShadow(progGrassShadow, lightVP, v0.proj * v.view, v.camPos);
   }
+  if (!folModels.empty() && !thumbMode) drawFolModels(true, lightVP, &frNear, 1.0f);   // NT8: ground plants under 1 m cast no sun shadow
   glUseProgram(progShadow);
   if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frNear);
   gpuMark(GP_ShadowFar);
@@ -4369,6 +4457,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       farHadDyn = farDyn;
     }
     glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
+    if (!folModels.empty()) { drawFolModels(true, lightVPFar, &frFar, 4.0f); glUseProgram(progShadow); }   // NT8: trees only
     if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frFar);
     minCaster = 0;
   }
@@ -4503,6 +4592,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     drawModels(worldModels, &frMain);
     glEnable(GL_CULL_FACE);
   }
+  if (!folModels.empty()) { setLighting(progFolModel, v); drawFolModels(false, vp, &frMain); }   // NT8 model foliage
   gpuMark(GP_Trees);
   // tree canopies (double sided, alpha tested)
   if (!foliage.empty()) {
@@ -4801,7 +4891,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
 }
 
 void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
-  bool shafts = q.shafts && perf.shafts && q.shaftStrength > 0 && !lt.mapNoFog && wx.k < 0.99f,   /* WX2: no sun shafts under overcast */ ao = q.ssao && q.ssaoStrength > 0, ssr = q.ssr && q.ssrStrength > 0;
+  bool shafts = (q.shafts || (lt.mapShafts > 0 && q.bloom)) && perf.shafts && q.shaftStrength > 0 && !lt.mapNoFog && wx.k < 0.99f,   /* NT8: a map's own shafts from Medium up */   /* WX2: no sun shafts under overcast */ ao = q.ssao && q.ssaoStrength > 0, ssr = q.ssr && q.ssrStrength > 0;
   if (!shafts && !ao && !ssr) return;
   glDisable(GL_DEPTH_TEST); glDepthMask(GL_FALSE); glDisable(GL_BLEND); glDisable(GL_CULL_FACE);
   glBindVertexArray(emptyVao);
@@ -4839,7 +4929,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   glBindTextureUnit(8, sceneCopy); glBindTextureUnit(9, shaftTex); glBindTextureUnit(10, ambTex); glBindTextureUnit(11, aoTex); glBindTextureUnit(7, depthTex);
   glUniform1i(U(progComposite, "uScene"), 8); glUniform1i(U(progComposite, "uShafts"), 9);
   glUniform1i(U(progComposite, "uAmb"), 10); glUniform1i(U(progComposite, "uAO"), 11); glUniform1i(U(progComposite, "uDepth"), 7);
-  glUniform1f(U(progComposite, "uShaftAmt"), shafts ? q.shaftStrength * (1.0f - 0.75f * lightingTod(lt.hour).nightK) * (1.0f - wx.k) : 0.0f);   // moon shafts at a quarter strength: the night exposure made them glare
+  glUniform1f(U(progComposite, "uShaftAmt"), shafts ? q.shaftStrength * (lt.mapShafts > 0 ? lt.mapShafts : 1.0f) * (1.0f - 0.75f * lightingTod(lt.hour).nightK) * (1.0f - wx.k) : 0.0f);   // moon shafts at a quarter strength: the night exposure made them glare
   glUniform1f(U(progComposite, "uAoAmt"), ao ? q.ssaoStrength : 0.0f);
   setLighting(progComposite, v);   // sky model + noise for the reflection estimate
   glUseProgram(progComposite);

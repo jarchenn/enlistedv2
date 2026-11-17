@@ -1,0 +1,91 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.37947994470596313,
+  1.101823329925537,
+  0.3737482726573944
+ ],
+ "bmin": [
+  -0.37947994470596313,
+  0.0,
+  -0.3737482726573944
+ ],
+ "materials": [
+  {
+   "albedo": "albedoa_0.png",
+   "cutout": true,
+   "name": "ph_pine_sapling_small_c_needles"
+  },
+  {
+   "albedo": "albedo_2.jpg",
+   "mr": "mr_3.jpg",
+   "name": "pine_sapling_small_bark",
+   "normal": "normal_1.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.37947994470596313,
+    1.101823329925537,
+    0.3737482726573944
+   ],
+   "bmin": [
+    -0.37947994470596313,
+    0.0,
+    -0.3737482726573944
+   ],
+   "count": 1548,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "ph_pine_sapling_small_c_cards",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.08829964697360992,
+    0.9824493527412415,
+    0.2088913768529892
+   ],
+   "bmin": [
+    -0.157232865691185,
+    0.1122971922159195,
+    -0.21600505709648132
+   ],
+   "count": 1500,
+   "first": 1548,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "pine_sapling_small_c.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_pine_sapling_small_c.glb",
+ "textures": {},
+ "triangles": 1016,
+ "vertices": 1362
+}

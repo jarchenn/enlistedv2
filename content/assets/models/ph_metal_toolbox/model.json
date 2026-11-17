@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.2000049501657486,
+  0.3047237992286682,
+  0.13526654243469238
+ ],
+ "bmin": [
+  -0.2000049501657486,
+  0.0,
+  -0.13526654243469238
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "metal_toolbox",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.2000049501657486,
+    0.3047237992286682,
+    0.13526654243469238
+   ],
+   "bmin": [
+    -0.2000049501657486,
+    0.0,
+    -0.13526654243469238
+   ],
+   "count": 21342,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "metal_toolbox",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_metal_toolbox.glb",
+ "textures": {},
+ "triangles": 7114,
+ "vertices": 6496
+}

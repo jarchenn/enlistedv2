@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.5368134379386902,
+  0.5257424116134644,
+  0.37277764081954956
+ ],
+ "bmin": [
+  -0.5368555784225464,
+  0.0,
+  -0.3725380301475525
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "vintage_microwave",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_3.jpg",
+   "mr": "mr_2.jpg",
+   "name": "vintage_microwave_glass",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5368134379386902,
+    0.5257424116134644,
+    0.37277764081954956
+   ],
+   "bmin": [
+    -0.5368555784225464,
+    0.0,
+    -0.3725380301475525
+   ],
+   "count": 12072,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "vintage_microwave",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.4386591911315918,
+    0.45854437351226807,
+    0.3326141834259033
+   ],
+   "bmin": [
+    -0.4180533289909363,
+    0.13880395889282227,
+    0.32981353998184204
+   ],
+   "count": 105,
+   "first": 12072,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "vintage_microwave",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_vintage_microwave.glb",
+ "textures": {},
+ "triangles": 4059,
+ "vertices": 3417
+}

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.5322226881980896,
+  2.6562342643737793,
+  0.4760739803314209
+ ],
+ "bmin": [
+  -0.5333051681518555,
+  0.0,
+  -0.4760739803314209
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "mr": "mr_3.jpg",
+   "name": "buoy",
+   "normal": "normal_1.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5322226881980896,
+    2.6562342643737793,
+    0.4760739803314209
+   ],
+   "bmin": [
+    -0.5333051681518555,
+    0.0,
+    -0.4760739803314209
+   ],
+   "count": 18360,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "ocean_buoy",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_ocean_buoy.glb",
+ "textures": {},
+ "triangles": 6120,
+ "vertices": 6836
+}

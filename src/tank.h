@@ -143,6 +143,8 @@ struct TankRT {
   int shots = 0, loadsCompleted = 0, toggles = 0;
   // damage
   int hp = 100; bool wrecked = false; int hitsFront = 0, hitsSide = 0, hitsIgnored = 0, meleeBlows = 0;
+  float pushedDmg = 0; float pushedM = 0;
+  float chipAcc = 0;   // VH8: fractional small-arms damage owed (helicopters)   // VH8: shove damage owed (1 per m) and metres shoved so far
   float hitFlash = 0;
   mutable int lodLevel = 0;   // TK2: 0 full, 1, 2 (by screen size, with hysteresis; TankSys::lodModel)   // TK1: 1 on a damaging hit, fades (the HUD bar flashes)
   float burnT = 0;
@@ -208,7 +210,7 @@ public:
   void ghostItems(App& app, const AssetDef* a, const mat4& M, vec4 tint);   // Creative placement preview (tinted model)   // Creative selection panel (undoable edits of extra["tank"])
   // combat
   TankHitResult projectileHit(App& app, const Projectile& p, vec3 pos, vec3 normal, uint64_t ud);
-  TankHitResult applyHit(App& app, uint64_t id, int attack, vec3 worldPos, vec3 worldNormal, vec3 dir, float bulletJ = 0, float lightAT = 0);
+  TankHitResult applyHit(App& app, uint64_t id, int attack, vec3 worldPos, vec3 worldNormal, vec3 dir, float bulletJ = 0, float lightAT = 0, float armourMult = 1);
   bool meleeBlow(App& app, uint64_t id, vec3 from);
   void fireTow(App& app, TankRT& t);                // VH7
   void stepTows(App& app, float dt);                 // VH7: guidance and the wire trails
@@ -285,6 +287,7 @@ public:
   // drive(): the swept hull box at the new pose overlaps something. Returns true when the move may go on (everything
   // in the way gave way or is driven over); speed is reduced by the energy the obstacles took. why: what blocks.
   bool ramObstacles(App& app, TankRT& t, float dt, const mat4& H, vec3 c, vec3 he, quat hq, std::string& why);
+  bool pushVehicles(App& app, TankRT& t, vec3& np, float ny, std::string& why);   // VH8: a lighter vehicle or wreck in the way is shoved (false: a heavier one blocks)
   void knockProp(App& app, Instance& i, InstanceRT& r, const RamSpec& s, vec3 at, vec3 dir, float speed);
   void breachWall(App& app, Instance& i, InstanceRT& r, const TankRT& t, vec3 at, vec3 n, vec3 dir);
   void stepKnocked(App& app, float dt);
