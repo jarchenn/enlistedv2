@@ -264,6 +264,9 @@ def generator(root):
     for k in range(2):
         a.cyl([0.48 + k * 0.14, 0.88, 0.262], 0.08, 0.01, "dial_face", "alternator", seg=12, rot=[90, 0, 0])
     a.cyl([-0.1, 1.15, -0.15], 0.08, 0.35, "steel_bare", "engine", seg=10)
+    for k in range(7):   # PR3: cooling fins on the cylinder block
+        a.b([-0.25, 0.62 + k * 0.03, 0.29], [0.66, 0.008, 0.04], "field_grey", "engine")
+    a.cyl([-0.1, 1.33, -0.07], 0.07, 0.18, "steel_bare", "engine", seg=10, rot=[60, 0, 0])   # PR3: exhaust bend
     a.col([0, 0.6, 0], [1.7, 1.2, 0.75])
     return a.write(root, [1.7, 0.75], fragments=["alternator"], keep=["skid", "engine"])
 
@@ -277,8 +280,12 @@ def jerrycans(root):
             a.r([x, 0.09, 0], [0.47, 0.17, 0.35], "olive_paint", g, 0.02)
         else:
             a.r([x, 0.235, 0], [0.17, 0.47, 0.35], "olive_paint", g, 0.02)
-            for s in (-1, 1):
-                a.b([x + 0.088, 0.24, 0], [0.006, 0.36, 0.022], "olive_paint", g, rot=[s * 36, 0, 0])
+            for fx in (-0.088, 0.088):   # PR3: the X pressing on both faces, a rim weld round the edge
+                for s in (-1, 1):
+                    a.b([x + fx, 0.24, 0], [0.006, 0.36, 0.022], "olive_paint", g, rot=[s * 36, 0, 0])
+            a.b([x, 0.235, 0.176], [0.18, 0.48, 0.006], "olive_paint", g)
+            a.b([x, 0.235, -0.176], [0.18, 0.48, 0.006], "olive_paint", g)
+            a.cyl([x, 0.5, 0.12], 0.045, 0.04, "steel_bare", g, seg=10)   # PR3: cam-lever spout cap
             for k in range(3):
                 a.r([x, 0.49, -0.1 + k * 0.08], [0.03, 0.03, 0.05], "olive_paint", g, 0.008)
     a.col([0.05, 0.25, 0], [0.8, 0.5, 0.36])
@@ -293,6 +300,10 @@ def phone(root):
     for s in (-1, 1):
         a.cyl([s * 0.11, 0.14, 0], 0.06, 0.05, "bakelite", "body", seg=10)
     a.cyl([0.145, 0.07, 0], 0.012, 0.06, "steel_bare", "body", seg=6, rot=[0, 0, 90])
+    a.r([0.175, 0.04, 0.03], [0.012, 0.07, 0.012], "steel_bare", "body", 0.003)   # PR3: crank arm and knob
+    a.cyl([0.18, 0.005, 0.03], 0.02, 0.03, "bakelite", "body", seg=8, rot=[90, 0, 0])
+    a.r([0, 0.19, -0.11], [0.27, 0.15, 0.012], "bakelite", "body", 0.006, rot=[-100, 0, 0])   # PR3: the case lid, open
+    a.arch([-0.06, 0.13, 0.1], [0.12, 0.05, 0.008], "rubber", "body", th=0.006, rot=[0, 0, 180])   # PR3: handset cord
     return a.write(root, [0.3, 0.2], fragments=[], keep=["body"])
 
 

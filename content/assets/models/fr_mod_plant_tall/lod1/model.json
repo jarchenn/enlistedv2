@@ -1,0 +1,93 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.2878130376338959,
+  1.229250192642212,
+  0.2890681326389313
+ ],
+ "bmin": [
+  -0.28981301188468933,
+  0.013270577415823936,
+  -0.2730681598186493
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "potted_plant_01_pot",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_4.png",
+   "cutout": true,
+   "mr": "mr_5.jpg",
+   "name": "potted_plant_01_leaves",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.27159544825553894,
+    1.1492148637771606,
+    0.25592145323753357
+   ],
+   "bmin": [
+    -0.185731440782547,
+    0.013270577415823936,
+    -0.1567029505968094
+   ],
+   "count": 25992,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "potted_plant_01_stem",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.2878130376338959,
+    1.229250192642212,
+    0.2890681326389313
+   ],
+   "bmin": [
+    -0.28981301188468933,
+    0.5438824892044067,
+    -0.2730681598186493
+   ],
+   "count": 40086,
+   "first": 25992,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "potted_plant_01_stem",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 0.9387000203132629,
+ "source": "frsrc_potted_plant_01.glb",
+ "textures": {},
+ "triangles": 22026,
+ "vertices": 16226
+}

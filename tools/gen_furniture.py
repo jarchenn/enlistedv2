@@ -34,7 +34,7 @@ MATS = {
     "ticking": ([0.62, 0.6, 0.53], 0.95, "textile", 1),
     "check": ([0.5, 0.22, 0.16], 0.95, "textile", 2),
     "blanket": ([0.3, 0.085, 0.05], 0.97, "textile", 3),
-    "curtain": ([0.52, 0.47, 0.36], 0.95, "textile", 2),
+    "curtain": ([0.6, 0.27, 0.22], 0.95, "textile", 2),   # PR3: a red-and-white check that reads (was a faint beige)
     "rush": ([0.42, 0.33, 0.16], 0.9, "fabric", 1),
     "paper": ([0.7, 0.66, 0.55], 0.9, "paper", 1),
     "cover_red": ([0.2, 0.06, 0.04], 0.7, "fabric", 1),
@@ -83,6 +83,8 @@ MATS = {
     "enamel_cream": ([0.85, 0.8, 0.68], 0.15, "ceramic", 0),
     "beech": ([0.55, 0.4, 0.25], 0.6, "joinery", -1),
     "rubber_orange": ([0.75, 0.32, 0.08], 0.6, "plain", 1),
+    "twine": ([0.45, 0.22, 0.07], 0.9, "fabric", 1),
+    "faience_plain": ([0.78, 0.75, 0.66], 0.18, "ceramic", 0),
 }
 # L3: linear HDR emissive multipliers (the lighting engine, L2, scales them by the light's on / time-of-day state)
 # P1: each piece's furnishing envelope (placement, keep-clear, ceiling spots, culling) as its version 1 parts gave it,
@@ -389,7 +391,7 @@ def hutch(root, glazed):
     for y in [y0 + 0.02] + shelves:   # plates standing on the shelves, a few bowls
         for i in range(5):
             x = -W / 2 + 0.17 + i * 0.24
-            m = ["faience", "faience_dots", "faience_red"][(i + k) % 3]
+            m = ["faience_plain", "faience_dots"][(i + k) % 2]   # PR3: plain cream glaze and the dotted one (the banded variants read as printed labels)
             a.plate([x, y + 0.13, -D / 2 + UD - 0.06], 0.22, 0.012, m, "plates", axis="z", tilt=[-12, 0, 0])
         k += 1
     if glazed:
@@ -726,7 +728,7 @@ def curtains(root):
         a.r([sx * 0.7, 1.5, 0.03], [0.012, 0.012, 0.06], "iron", "rod", 0.003)                # wall brackets
         for i in range(5):   # gathered folds: flattened round pleats, deeper toward the tie-back
             x = sx * (0.64 - i * 0.04)
-            a.cyl([x, 0.78, 0.06 + 0.01 * (i % 2)], 0.05, 1.44, "curtain", f"side{(sx + 1) // 2}", dz=0.022 + 0.004 * i, seg=8)
+            a.cyl([x, 0.78, 0.06 + 0.016 * (i % 2)], 0.05, 1.44, "curtain", f"side{(sx + 1) // 2}", dz=0.034 + 0.006 * i, seg=8)   # PR3: deeper pleats
         a.cyl([sx * 0.56, 0.62, 0.075], 0.2, 0.025, "curtain", f"side{(sx + 1) // 2}", dz=0.05, seg=10)   # tie-back band
     return a.write(root, [1.5, 0.08], fragments=[], keep=["rod"])
 
@@ -921,6 +923,7 @@ def sacks(root):
     for i, (x, z, h, tilt) in enumerate([(-0.25, 0.0, 0.62, 4), (0.12, 0.04, 0.55, -6), (-0.05, -0.28, 0.5, 9)]):
         a.r([x, h / 2, z], [0.42, h, 0.32], "sacking", f"sack{i}", 0.12, rot=[0, 15 * i, tilt])
         a.r([x, h + 0.04, z], [0.1, 0.1, 0.08], "sacking", f"sack{i}", 0.04, rot=[0, 15 * i, tilt])
+        a.cyl([x, h + 0.005, z], 0.075, 0.018, "twine", f"sack{i}", seg=10, rot=[0, 15 * i, tilt])   # PR3: twine tied round the neck
     a.col([-0.07, 0.3, -0.1], [0.85, 0.6, 0.65])
     return a.write(root, [0.9, 0.7], fragments=["sack1", "sack2"], keep=["sack0"])
 
@@ -1125,8 +1128,8 @@ def hay_bales(root):
     a.r([0, 0.2, 0], [0.9, 0.4, 0.5], "hay", "bale0", 0.05)
     a.r([0.06, 0.6, 0.02], [0.9, 0.4, 0.5], "hay", "bale1", 0.05, rot=[0, 6, 0])
     for z in (-0.15, 0.15):
-        a.r([0, 0.2, z], [0.92, 0.41, 0.012], "sacking", "bale0", 0.004)
-        a.r([0.06, 0.6, z + 0.02], [0.92, 0.41, 0.012], "sacking", "bale1", 0.004, rot=[0, 6, 0])
+        a.r([0, 0.2, z], [0.92, 0.41, 0.012], "twine", "bale0", 0.004)   # PR3: orange baler twine
+        a.r([0.06, 0.6, z + 0.02], [0.92, 0.41, 0.012], "twine", "bale1", 0.004, rot=[0, 6, 0])
     a.r([0.2, 0.015, 0.35], [0.6, 0.03, 0.3], "hay", "loose", 0.012)
     a.col([0, 0.4, 0], [0.95, 0.8, 0.55])
     return a.write(root, [1.0, 0.8], fragments=["bale1", "loose"], keep=["bale0"])
@@ -1337,8 +1340,8 @@ def table_lamp(root):
     a.cyl([0, 0.115, 0], 0.115, 0.04, "porcelain", "base", top=0.45, seg=16)
     a.cyl([0, 0.18, 0], 0.016, 0.12, "brass", "base", seg=8)
     a.r([0, 0.255, 0], [0.04, 0.05, 0.04], "bulb", "bulb", 0.018)
-    a.cyl([0, 0.29, 0], 0.26, 0.16, "shade_silk", "shade", top=0.55, n=12)   # pleated (12-sided) tapering shade
-    a.cyl([0, 0.212, 0], 0.262, 0.006, "brass", "shade", n=12)              # rim wire
+    a.cyl([0, 0.29, 0], 0.26, 0.16, "shade_silk", "shade", top=0.55, n=20)   # pleated (PR3: 20 pleats) tapering shade
+    a.cyl([0, 0.212, 0], 0.262, 0.006, "brass", "shade", n=20)              # rim wire
     a.light = {"color": [1.0, 0.76, 0.48], "intensity": 0.9, "radius": 5.5, "offset": [0, 0.27, 0], "group": "bulb", "use": "interior"}
     a.col([0, 0.19, 0], [0.22, 0.36, 0.22])
     return a.write(root, [0.24, 0.24], fragments=["shade"], keep=["base"], glass="bulb")
