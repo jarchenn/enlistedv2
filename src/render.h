@@ -275,6 +275,9 @@ public:
   // ---- lighting engine (src/lighting.cpp, docs/lighting.md): time of day, clustered local lights, light shadows, probe GI
   struct LightQ {
     float hour = 14.0f;         // time of day, 0..24 (14:00 = Day: exactly the pre-L2 sun, sky and exposure)
+    bool userHour = false;      // SD8: the user picked an hour on this map (a map's own hour is only its default under the open sky)
+    float forcedHour = -1.0f;   // SD8: a LAN client: the host's hour (-1: none)
+    float mapHour = -1.0f;      // SD8: this map's default hour (extra.lighting.hour), -1: none
     int maxLights = 256;        // local lights uploaded per frame (nearest first)
     int shadowLights = 2;       // nearest spot / point lights with a shadow map (Low 0, Medium 2, High 8)
     int gi = 1;                 // probe GI: 0 off (the old fill term), 1 near volume, 2 near + far volumes, faster updates

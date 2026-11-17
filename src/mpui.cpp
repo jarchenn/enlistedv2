@@ -508,6 +508,7 @@ void MpUi::setupWindow(App& app) {
       if (rules.mode == GameMode::SearchDestroy) {
         ImGui::Checkbox("Short match (MR12: first to 13, swap after 12)", &rules.sdShort); ImGui::Checkbox("Warmup (60 s)", &rules.sdWarmup); ImGui::SameLine(); ImGui::Checkbox("Vehicles", &rules.sdVehicles);
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Off: the map's vehicles are removed for the match and none spawn");
+        sdTimingUI(rules, false);   // SD8: the round clocks (the host can change them mid-match from the pause menu)
         ImGui::TextDisabled("Two bomb sites; one life a round; buy with B in your spawn; E in a site plants, E at the bomb defuses.");
       }
     }

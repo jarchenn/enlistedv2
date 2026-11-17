@@ -318,10 +318,17 @@ static bool gWasOpen = false, gPendingSave = false;
 void settingsUiWeather(App& app, int w) {   // the Weather combo: live (no Apply needed), kept when the window closes
   settings().s.weather = w; gApplied.weather = w; app.R.wx.target = w; app.R.wx.userSet = true; gPendingSave = true;
 }
+void settingsUiHour(App& app, float h) {   // SD8: Time of day / Hour: live, kept when the window closes; under the open sky it overrides the map's hour
+  settings().s.hour = h; gApplied.hour = h; app.R.lt.hour = h; app.R.lt.userHour = true; gPendingSave = true;
+}
+void settingsUiMapHour(App& app) {   // SD8: "Map default": back to the map's own hour
+  app.R.lt.userHour = false; if (app.R.lt.mapHour >= 0) { settings().s.hour = gApplied.hour = app.R.lt.mapHour; app.R.lt.hour = app.R.lt.mapHour; }
+}
 void settingsUiApply(App& app) {   // the Apply button (always enabled: it re-applies and saves even when nothing is pending)
   Settings& S = settings();
   if (S.s.keys != gApplied.keys) app.loadBindings();   // re-reads bindings.json, then the overrides (settingsApplyKeys)
   if (S.s.envFog != gApplied.envFog || S.s.weather != gApplied.weather) app.R.wx.userSet = true;   // NT2: the user overrides the map's sky
+  if (S.s.hour != gApplied.hour) app.R.lt.userHour = true;   // SD8
   S.apply(app); gApplied = S.s; gPendingSave = true;
 }
 // UI1b: the controls page (pause menu "Controls"): mouse, every action with its key, then the fixed keys (no debug keys)
@@ -432,15 +439,21 @@ void settingsWindow(App& app) {
       flat::sliderFloat("Particle budget", &g.particles, 0.25f, 2.5f, "x %.2f");
       flat::section("Lighting");
       {   // L2 (docs/lighting.md): time of day is personal (kept when a preset is picked); the rest belongs to the presets
-        int tp = (int)todPresetOf(u.hour); const char* tn[] = {"Day", "Dusk", "Night", "Dawn", "Custom"};
-        
-        if (flat::combo("Time of day", &tp, tn, 5) && tp != (int)TodPreset::Custom) u.hour = todPresetHour((TodPreset)tp);
-        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Day is the standard look. Dusk and Dawn: low sun, long shadows. Night: moon, stars, lamps.");
+        // SD8: live (no Apply needed); a map's own hour is its default ("Map default"), fixed only on an enclosed map
+        const bool mapDef = app.R.lt.mapHour >= 0 && !app.R.wx.enclosed, hostHour = app.R.lt.forcedHour >= 0;
+        int tp = mapDef && !app.R.lt.userHour ? 5 : (int)todPresetOf(u.hour); const char* tn[] = {"Day", "Dusk", "Night", "Dawn", "Custom", "Map default"};
+        ImGui::BeginDisabled(hostHour || (app.R.lt.mapHour >= 0 && app.R.wx.enclosed));
+        const float h0 = u.hour;
+        if (flat::combo("Time of day", &tp, tn, mapDef ? 6 : 5)) { if (tp == 5) settingsUiMapHour(app); else if (tp != (int)TodPreset::Custom) settingsUiHour(app, todPresetHour((TodPreset)tp)); }
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip(hostHour ? "A LAN match uses the host's time of day." : app.R.lt.mapHour >= 0 && app.R.wx.enclosed ? "This map is enclosed: it keeps its own hour." :
+                                                       "Day is the standard look. Dusk and Dawn: low sun, long shadows. Night: moon, stars, lamps.\nMap default: the map's own hour. Applies at once; in a LAN match the host's applies.");
         int hh = (int)u.hour, mm = (int)std::lround((u.hour - hh) * 60); if (mm == 60) { ++hh; mm = 0; }
         char hl[32]; std::snprintf(hl, sizeof hl, "%02d:%02d", hh % 24, mm);
-        flat::sliderFloat("Hour", &u.hour, 0.0f, 23.99f, hl);
-        { const char* wn[] = {"Clear", "Cloudy"};   // WX2: live (no Apply needed) and kept when the window closes
-          if (flat::combo("Weather", &u.weather, wn, 2)) settingsUiWeather(app, u.weather); }
+        if (flat::sliderFloat("Hour", &u.hour, 0.0f, 23.99f, hl) && u.hour != h0) settingsUiHour(app, u.hour);
+        ImGui::EndDisabled();
+        { const bool wxDef = app.R.wx.mapWx >= 0 && !app.R.wx.enclosed;   // WX2: live (no Apply needed) and kept when the window closes
+          int wi = wxDef && !app.R.wx.userSet ? 2 : u.weather; const char* wn[] = {"Clear", "Cloudy", "Map default"};
+          if (flat::combo("Weather", &wi, wn, wxDef ? 3 : 2)) { if (wi == 2) app.R.wx.userSet = false; else { u.weather = wi; settingsUiWeather(app, wi); } } }
         { const char* fn[] = {"Off", "Light", "Moderate", "Dense"}; flat::combo("Environmental fog", &u.envFog, fn, 4); }
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Ground fog in hollows, low ground and along the shore, drifting on the wind. Limits how far bots see. A LAN match uses the host's.");
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Cloudy: full overcast in layers, soft diffuse light, no sun rays, slightly muted colours. Applies at once. In a LAN match the host's weather applies.");
