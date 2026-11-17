@@ -18,6 +18,37 @@
 enum WPart { WP_BODY, WP_BOLT, WP_MAG, WP_COVER, WP_CLIP, WP_BIPOD, WP_SCOPE, WP_HANDLE, WP_COUNT };
 static const char* kPartNames[WP_COUNT] = {"body", "bolt", "mag", "cover", "clip", "bipod", "scope", "handle"};
 
+// AN1 step 2b: the grip and the handguard as capsules fitted to the model's vertices at the hand sockets. A slice 3 cm thick across
+// the axis, within 6 cm of it: its centroid is the axis point, the median distance from the axis the radius (surface vertices);
+// the grip's axis comes from the centroids of two slices 5 cm apart. Returns the fit radius (0: too few vertices).
+static float fitCapsule(const std::vector<vec3>& P, vec3& c, vec3& a, bool fitAxis) {
+  auto slice = [&](vec3 cc, vec3 aa, vec3& cen, std::vector<float>* dist) {
+    vec3 s(0); int n = 0;
+    for (auto& p : P) { vec3 d = p - cc; float t = glm::dot(d, aa); if (std::fabs(t) > 0.02f) continue; vec3 r = d - aa * t; if (glm::length(r) > 0.06f) continue; s += p - aa * t; ++n; }
+    if (n < 4) return false;
+    cen = s / (float)n;
+    if (dist) for (auto& p : P) { vec3 d = p - cen; float t = glm::dot(d, aa); if (std::fabs(t) > 0.02f) continue; float r = glm::length(d - aa * t); if (r < 0.06f) dist->push_back(r); }
+    return true;
+  };
+  for (int it = 0; it < 3; ++it) {
+    vec3 cen; if (!slice(c, a, cen, nullptr)) return 0;
+    c = cen;
+    if (fitAxis) { vec3 c0, c1; if (slice(c - a * 0.025f, a, c0, nullptr) && slice(c + a * 0.025f, a, c1, nullptr) && glm::length(c1 - c0) > 0.01f) { vec3 na = glm::normalize(c1 - c0); if (glm::dot(na, a) > 0.5f) a = na; } }
+  }
+  std::vector<float> d; vec3 cen; if (!slice(c, a, cen, &d) || d.size() < 4) return 0;
+  std::nth_element(d.begin(), d.begin() + d.size() / 2, d.end());
+  return d[d.size() / 2];
+}
+static void measureHold(WeaponDef& d, const std::vector<vec3>& P) {
+  if (P.empty()) return;
+  vec3 c = d.gripL, a(0, 0, 1);
+  if (float r = fitCapsule(P, c, a, false); r > 0) { d.guardC = c; d.guardRad = std::clamp(r, 0.014f, 0.05f); }   // a hand wraps at least a 28 mm handguard
+  c = d.gripR; a = glm::normalize(vec3(0, -1, -0.25f));   // grips rake back
+  if (float r = fitCapsule(P, c, a, true); r > 0) { d.gripC = c; d.gripAx = a; d.gripRad = std::clamp(r, 0.013f, 0.035f); }
+  logf("[hold] %s grip (%.3f %.3f %.3f) ax (%.2f %.2f %.2f) r %.3f | guard (%.3f %.3f %.3f) r %.3f | sockets R (%.3f %.3f %.3f) L (%.3f %.3f %.3f)", d.id.c_str(),
+       d.gripC.x, d.gripC.y, d.gripC.z, d.gripAx.x, d.gripAx.y, d.gripAx.z, d.gripRad, d.guardC.x, d.guardC.y, d.guardC.z, d.guardRad, d.gripR.x, d.gripR.y, d.gripR.z, d.gripL.x, d.gripL.y, d.gripL.z);
+}
+
 void App::buildWeaponMeshes() {
   weaponDefs.clear();
   fs::path dir = contentDir() / "weapons";
@@ -147,7 +178,7 @@ void App::buildWeaponMeshes() {
       auto it = modelCache.find(dirName);
       if (it == modelCache.end()) {
         auto gm = std::make_shared<GpuModel>();
-        std::string err;
+        std::string err; gm->keepPos = true;   // AN1 step 2b: the hold cross-sections (measureHold)
         if (!gm->load(dir / "models" / dirName, err)) { logf("weapon %s: model '%s' not loaded (%s); using box parts", d->id.c_str(), dirName.c_str(), err.c_str()); gm.reset(); }
         it = modelCache.emplace(dirName, gm).first;
       }
@@ -162,6 +193,7 @@ void App::buildWeaponMeshes() {
         for (auto& hp : j["model"].value("hideParts", json::array())) for (int p = 0; p < WP_COUNT; ++p) if (hp.get<std::string>() == kPartNames[p]) parts[p].clear();   // e.g. the Garand clip: never drawn
       };
       if (d->model) {
+        measureHold(*d, d->model->cpuPos);
         roles(*d->model, d->modelParts);
         fs::path ld = dir / "models" / dirName / "lod1";   // MG4: the reduced bake for third person and the world
         if (fs::exists(ld / "mesh.bin")) {

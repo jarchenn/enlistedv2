@@ -240,10 +240,19 @@ bool poseShots(App& app, float dt) {
   vec3 e = B + cd * 3.2f; e.y = H(e.x, e.z) - 0.45f;   // eye ~1.2 m above the ground
   if (vn == "top") e = B + face * 0.6f + vec3(0, 2.4f, 0);   // from above, a little ahead
   vec3 handsP = vec3(s.world * vec4(0.5f * (s.pose.joint[CJ_RHAND] + s.pose.joint[CJ_LHAND]), 1));   // AN1 step 2: the posed hands (last frame)
+  // AN1 step 2b: each hand close up from outside and inside (rhand_o: right of the right hand; rhand_i: front-left, below; lhand_o: left of the
+  // left hand; lhand_i: front-right, below)
+  const bool handV = vn.rfind("rhand", 0) == 0 || vn.rfind("lhand", 0) == 0;
+  if (handV) {
+    vec3 hp = vec3(s.world * vec4(s.pose.joint[vn[0] == 'r' ? CJ_RHAND : CJ_LHAND], 1)); handsP = hp;
+    vec3 dir = vn == "rhand_o" ? -left * 0.9f + face * 0.3f + vec3(0, 0.15f, 0) : vn == "rhand_i" ? -left * 0.5f + face * 0.6f - vec3(0, 0.5f, 0)
+             : vn == "lhand_o" ? left * 0.9f + face * 0.4f + vec3(0, 0.15f, 0) : -left * 0.25f + face * 0.45f - vec3(0, 0.85f, 0);   // inside views from below the hand
+    e = hp + glm::normalize(dir) * 0.42f - vec3(0, 1.62f, 0);
+  }
   if (vn == "hands") e = handsP + glm::normalize(-left * 0.8f + face * 0.6f + vec3(0, 0.25f, 0)) * 0.75f - vec3(0, 1.62f, 0);   // close on the hands from the front right, a little above
   Physics::setCharacterPos(e);
   if (Soldier* L = G.local()) { L->feet = e; L->hp = 100; }
-  vec3 v = (vn == "hands" ? handsP : B + vec3(0, 0.85f, 0)) - (e + vec3(0, 1.62f, 0));
+  vec3 v = (vn == "hands" || handV ? handsP : B + vec3(0, 0.85f, 0)) - (e + vec3(0, 1.62f, 0));
   app.eyeYaw = degrees(std::atan2(-v.x, -v.z)); app.eyePitch = degrees(std::atan2(v.y, glm::length(vec2(v.x, v.z))));
   G.posesStep(dt > 0 ? dt : 1.0f / 60);
   if (t > 0.6f) {   // settled: the joints over the ground (feet at the ankle's rest height when planted, the knee on the ground)
@@ -262,7 +271,11 @@ bool poseShots(App& app, float dt) {
   if (t > shotT) {
     std::string tag = (bodies[bi] == "-" ? "" : bodies[bi] + "_") + (slope ? "slope_" : "");
     pend = exeDir() / "selftest_out" / ("pose_" + tag + weps[w].first + "_" + pn + "_" + vn + (nframes > 1 ? "_f" + std::to_string(fk) : std::string()) + ".png");
-    logf("[poses] %s: kneel %.2f carry %.2f moveAim %.2f stride %.2f", pend.filename().string().c_str(), s.anKneel, s.anCarry, s.anMoveAim, s.anStride);
+    logf("[poses] %s: kneel %.2f carry %.2f moveAim %.2f stride %.2f | fingers R %d gap %.4f pen %.4f  L %d gap %.4f pen %.4f", pend.filename().string().c_str(), s.anKneel, s.anCarry, s.anMoveAim, s.anStride,
+         s.pose.fingersOn[1], s.pose.fingerGap[1], s.pose.fingerPen[1], s.pose.fingersOn[0], s.pose.fingerGap[0], s.pose.fingerPen[0]);
+    if (vn == "side") for (int h = 1; h >= 0; --h) { const auto& D = s.pose.fingerDiag[h];
+      logf("[fingers] %s %s: thumb %.2f/%+.0f/%+.0f index %.2f/%+.0f/%+.0f middle %.2f/%+.0f/%+.0f ring %.2f/%+.0f/%+.0f little %.2f/%+.0f/%+.0f (rad / tip gap mm / start clearance mm)", pend.filename().string().c_str(), h ? "R" : "L",
+           D[0][0], D[0][1] * 1000, D[0][2] * 1000, D[1][0], D[1][1] * 1000, D[1][2] * 1000, D[2][0], D[2][1] * 1000, D[2][2] * 1000, D[3][0], D[3][1] * 1000, D[3][2] * 1000, D[4][0], D[4][1] * 1000, D[4][2] * 1000); }
     if (s.weapon >= 0) {   // wrists vs the grip sockets (model space), shoulder heights, head
       const WeaponDef& d = *app.weaponDefs[s.weapon]; const PoseResult& r = s.pose;
       vec3 gR = vec3(r.weapon * vec4(d.gripR, 1)), gL = vec3(r.weapon * vec4(d.gripL, 1)), bt = vec3(r.weapon * vec4(0, 0, 0, 1));

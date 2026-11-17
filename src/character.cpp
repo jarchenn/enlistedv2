@@ -167,52 +167,6 @@ bool CharModel::load(const fs::path& path, std::string& err, float height, bool 
   if (semantic[CJ_SPINE1] < 0) semantic[CJ_SPINE1] = semantic[CJ_SPINE2] >= 0 ? semantic[CJ_SPINE2] : semantic[CJ_SPINE];   // a two-bone spine (zombie)
   if (body) for (int s : {CJ_HIPS, CJ_SPINE2, CJ_HEAD, CJ_LARM, CJ_LFOREARM, CJ_LHAND, CJ_RARM, CJ_RFOREARM, CJ_RHAND, CJ_LUPLEG, CJ_LLEG, CJ_LFOOT, CJ_RUPLEG, CJ_RLEG, CJ_RFOOT})
     if (semantic[s] < 0) { err = std::string("skeleton has no ") + kSemanticNames[s] + " joint"; return false; }
-  // AN1 step 2: classify the finger joints by name (Mixamo Thumb / Index / Middle / Ring / Pinky, Biped and NPC FingerN digits, Finger_A..D)
-  finger.assign(nj, -1); fingerSeg.assign(nj, 0); fingerAx.assign(nj, vec3(0, 0, 1));
-  auto fingerOf = [&](int k) -> int {
-    std::string n = nodeName[jointNode[k]]; for (auto& c : n) c = (char)std::tolower((unsigned char)c);
-    if (n.find("palm") != std::string::npos || n.find("metacarpal") != std::string::npos) return -1;
-    if (n.find("thumb") != std::string::npos) return 0;
-    if (n.find("index") != std::string::npos) return 1;
-    if (n.find("middle") != std::string::npos) return 2;
-    if (n.find("ring") != std::string::npos) return 3;
-    if (n.find("pinky") != std::string::npos || n.find("little") != std::string::npos) return 4;
-    size_t f = n.rfind("finger"); if (f == std::string::npos) return -1;
-    f += 6; if (f < n.size() && n[f] == '_') ++f;
-    if (f >= n.size()) return -1;
-    if (n[f] >= '0' && n[f] <= '4') return n[f] - '0';
-    if (n[f] >= 'a' && n[f] <= 'd') return 1 + (n[f] - 'a');
-    return -1;
-  };
-  // rest palm normals from the joints (not every rig's rest palm faces down): fingers f from the hand to the knuckles, thumb side t;
-  // a right palm faces cross(t, f), a left one cross(f, t)
-  int handOfJ[2] = {semantic[CJ_LHAND], semantic[CJ_RHAND]};
-  auto handOfK = [&](int k) { for (int a = jointParent[k], d = 0; a >= 0 && d < 5; a = jointParent[a], ++d) { if (a == handOfJ[0]) return 0; if (a == handOfJ[1]) return 1; } return -1; };
-  for (int h = 0; h < 2 && handOfJ[0] >= 0 && handOfJ[1] >= 0; ++h) {
-    vec3 base[5]; bool has[5] = {};
-    for (int k = 0; k < nj; ++k) if (handOfK(k) == h) { int f = fingerOf(k); if (f >= 0 && !has[f] && (jointParent[k] < 0 || fingerOf(jointParent[k]) != f)) { base[f] = jointHead[k]; has[f] = true; } }
-    int outer = has[4] ? 4 : has[3] ? 3 : has[2] ? 2 : -1;
-    if (!has[1] || outer < 0) continue;
-    vec3 hp = jointHead[handOfJ[h]], f = glm::normalize(0.5f * (base[1] + base[outer]) - hp);
-    vec3 t = has[0] ? base[0] - hp : base[1] - base[outer];
-    t -= f * glm::dot(t, f);
-    if (glm::length(t) < 1e-5f) continue;
-    vec3 n = h ? glm::cross(t, f) : glm::cross(f, t);
-    if (glm::length(n) > 1e-6f) palmN[h] = glm::normalize(n);
-  }
-  for (int k = 0; k < nj; ++k) {
-    bool underHand = false;
-    for (int a = jointParent[k], d = 0; a >= 0 && d < 5; a = jointParent[a], ++d) if (a == semantic[CJ_LHAND] || a == semantic[CJ_RHAND]) { underHand = semantic[CJ_LHAND] >= 0; break; }
-    if (!underHand) continue;
-    int f = fingerOf(k); if (f < 0) continue;
-    int seg = 1; for (int a = jointParent[k]; a >= 0 && fingerOf(a) == f; a = jointParent[a]) ++seg;
-    finger[k] = (signed char)f; fingerSeg[k] = (signed char)std::min(seg, 4);
-    vec3 bone(0); for (int c = 0; c < nj; ++c) if (jointParent[c] == k) { bone = jointHead[c] - jointHead[k]; break; }
-    if (glm::length(bone) < 1e-5f && jointParent[k] >= 0) bone = jointHead[k] - jointHead[jointParent[k]];
-    int hk = handOfK(k);
-    vec3 ax = glm::cross(bone, palmN[hk < 0 ? 0 : hk]);   // + curls toward the palm
-    if (glm::length(ax) > 1e-6f) fingerAx[k] = glm::normalize(ax);
-  }
   // ---- geometry: every mesh primitive (skinned: model space; unskinned: node world, bound to its nearest joint)
   std::vector<uint32_t> I;
   bmin = vec3(1e9f); bmax = vec3(-1e9f);
@@ -298,6 +252,89 @@ bool CharModel::load(const fs::path& path, std::string& err, float height, bool 
     for (int k = 0; k < nj; ++k) jointHead[k] = vec3(nodeWorld[jointNode[k]][3]);
     for (auto& p : gpu.parts) { p.bmin = bmin; p.bmax = bmax; }
   }
+  // AN1 step 2: classify the finger joints by name (Mixamo Thumb / Index / Middle / Ring / Pinky, Biped and NPC FingerN digits, Finger_A..D)
+  finger.assign(nj, -1); fingerSeg.assign(nj, 0); fingerAx.assign(nj, vec3(0, 0, 1));
+  auto fingerOf = [&](int k) -> int {
+    std::string n = nodeName[jointNode[k]]; for (auto& c : n) c = (char)std::tolower((unsigned char)c);
+    if (n.find("palm") != std::string::npos || n.find("metacarpal") != std::string::npos) return -1;
+    if (n.find("thumb") != std::string::npos) return 0;
+    if (n.find("index") != std::string::npos) return 1;
+    if (n.find("middle") != std::string::npos) return 2;
+    if (n.find("ring") != std::string::npos) return 3;
+    if (n.find("pinky") != std::string::npos || n.find("little") != std::string::npos) return 4;
+    size_t f = n.rfind("finger"); if (f == std::string::npos) return -1;
+    f += 6; if (f < n.size() && n[f] == '_') ++f;
+    if (f >= n.size()) return -1;
+    if (n[f] >= '0' && n[f] <= '4') return n[f] - '0';
+    if (n[f] >= 'a' && n[f] <= 'd') return 1 + (n[f] - 'a');
+    return -1;
+  };
+  // rest palm normals from the joints (not every rig's rest palm faces down): fingers f from the hand to the knuckles, thumb side t;
+  // a right palm faces cross(t, f), a left one cross(f, t)
+  int handOfJ[2] = {semantic[CJ_LHAND], semantic[CJ_RHAND]};
+  auto handOfK = [&](int k) { for (int a = jointParent[k], d = 0; a >= 0 && d < 5; a = jointParent[a], ++d) { if (a == handOfJ[0]) return 0; if (a == handOfJ[1]) return 1; } return -1; };
+  for (int h = 0; h < 2 && handOfJ[0] >= 0 && handOfJ[1] >= 0; ++h) {
+    vec3 base[5]; bool has[5] = {};
+    for (int k = 0; k < nj; ++k) if (handOfK(k) == h) { int f = fingerOf(k); if (f >= 0 && !has[f] && (jointParent[k] < 0 || fingerOf(jointParent[k]) != f)) { base[f] = jointHead[k]; has[f] = true; } }
+    int outer = has[4] ? 4 : has[3] ? 3 : has[2] ? 2 : -1;
+    if (!has[1] || outer < 0) continue;
+    vec3 hp = jointHead[handOfJ[h]], f = glm::normalize(0.5f * (base[1] + base[outer]) - hp);
+    fingerDir[h] = f;
+    vec3 t = has[0] ? base[0] - hp : base[1] - base[outer];
+    t -= f * glm::dot(t, f);
+    if (glm::length(t) < 1e-5f) continue;
+    vec3 n = h ? glm::cross(t, f) : glm::cross(f, t);
+    if (glm::length(n) > 1e-6f) palmN[h] = glm::normalize(n);
+    // a rig with pre-curled fingers (the robot's claws): the side the fingers curl toward is the palm, whatever the thumb says
+    vec3 bend(0); float curlAng = 0; int nc = 0;
+    for (int k = 0; k < nj; ++k) if (handOfK(k) == h && fingerOf(k) >= 1) {
+      int c = -1; for (int q = 0; q < nj; ++q) if (jointParent[q] == k && fingerOf(q) == fingerOf(k)) { c = q; break; }
+      int g = -1; if (c >= 0) for (int q = 0; q < nj; ++q) if (jointParent[q] == c && fingerOf(q) == fingerOf(k)) { g = q; break; }
+      if (c < 0 || g < 0) continue;
+      vec3 b1 = glm::normalize(jointHead[c] - jointHead[k]), b2 = glm::normalize(jointHead[g] - jointHead[c]);
+      vec3 perp = b2 - b1 * glm::dot(b2, b1); bend += perp; curlAng += std::acos(std::clamp(glm::dot(b1, b2), -1.0f, 1.0f)); ++nc;
+    }
+    if (nc > 0 && curlAng / nc > 0.2f && glm::length(bend) > 1e-4f) {
+      vec3 nb = bend - f * glm::dot(bend, f);
+      if (glm::length(nb) > 1e-4f) palmN[h] = glm::normalize(nb);
+    }
+  }
+  for (int k = 0; k < nj; ++k) {
+    bool underHand = false;
+    for (int a = jointParent[k], d = 0; a >= 0 && d < 5; a = jointParent[a], ++d) if (a == semantic[CJ_LHAND] || a == semantic[CJ_RHAND]) { underHand = semantic[CJ_LHAND] >= 0; break; }
+    if (!underHand) continue;
+    int f = fingerOf(k); if (f < 0) continue;
+    int seg = 1; for (int a = jointParent[k]; a >= 0 && fingerOf(a) == f; a = jointParent[a]) ++seg;
+    finger[k] = (signed char)f; fingerSeg[k] = (signed char)std::min(seg, 4);
+    vec3 bone(0); for (int c = 0; c < nj; ++c) if (jointParent[c] == k) { bone = jointHead[c] - jointHead[k]; break; }
+    if (glm::length(bone) < 1e-5f && jointParent[k] >= 0) bone = jointHead[k] - jointHead[jointParent[k]];
+    int hk = handOfK(k);
+    vec3 ax = glm::cross(bone, palmN[hk < 0 ? 0 : hk]);   // + curls toward the palm
+    if (glm::length(ax) > 1e-6f) fingerAx[k] = glm::normalize(ax);
+  }
+  // AN1 step 2b: finger chains (base -> tip), each base's rest spread from the middle finger, the pad radius
+  fingerNext.assign(nj, -1); fingerTip.assign(nj, vec3(0)); fingerSpread.assign(nj, 0.0f);
+  for (int k = 0; k < nj; ++k) if (finger[k] >= 0) for (int c = 0; c < nj; ++c) if (jointParent[c] == k && finger[c] == finger[k]) { fingerNext[k] = c; break; }
+  for (int k = 0; k < nj; ++k) {
+    if (finger[k] < 0 || fingerSeg[k] != 1) continue;
+    int a = k, prev = -1; while (fingerNext[a] >= 0) { prev = a; a = fingerNext[a]; }
+    fingerTip[k] = prev >= 0 && fingerSeg[a] >= 4 ? jointHead[a] : prev >= 0 ? jointHead[a] + (jointHead[a] - jointHead[prev]) * 0.8f : jointHead[a];
+  }
+  for (int h = 0; h < 2 && handOfJ[0] >= 0; ++h) {
+    int mid = -1; for (int k = 0; k < nj; ++k) if (handOfK(k) == h && fingerSeg[k] == 1 && finger[k] == 2) mid = k;
+    if (mid < 0) for (int k = 0; k < nj; ++k) if (handOfK(k) == h && fingerSeg[k] == 1 && finger[k] == 1) mid = k;
+    if (mid < 0) continue;
+    vec3 n = palmN[h], hp = jointHead[handOfJ[h]];
+    auto inPlane = [&](vec3 v) { v -= n * glm::dot(v, n); return glm::length(v) > 1e-6f ? glm::normalize(v) : v; };
+    vec3 md = inPlane(fingerTip[mid] - jointHead[mid]);
+    for (int k = 0; k < nj; ++k) if (handOfK(k) == h && fingerSeg[k] == 1 && finger[k] >= 1) {
+      vec3 fd = inPlane(fingerTip[k] - jointHead[k]);
+      fingerSpread[k] = std::atan2(glm::dot(glm::cross(md, fd), n), glm::dot(md, fd));
+    }
+    if (h == 1) fingerR = std::clamp(0.1f * glm::length(jointHead[mid] - hp), 0.006f, 0.02f);
+  }
+  // AN1 step 2b: per-rig head pitch fix (the robot commando's long head hangs at rest; raise it to just above level)
+  { static const std::map<std::string, float> kHeadFix = {{"robot_commando", 0.35f}}; auto it = kHeadFix.find(id); if (it != kHeadFix.end()) headPitchFix = it->second; }
   // GPU: shared index buffer + rest vertices (SSBO for skinning; a bind-pose VBO for the shared vao)
   std::vector<TexVertex> tv(verts.size());
   for (size_t k = 0; k < verts.size(); ++k) tv[k] = {verts[k].pos, verts[k].nrm, vec4(1, 0, 0, 1), verts[k].uv};
