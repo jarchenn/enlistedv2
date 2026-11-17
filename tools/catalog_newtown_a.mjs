@@ -1127,6 +1127,16 @@ export function compoundWall() {
   return pdone(A, { cover: wallNav(-3, 3) });
 }
 
+// SD2: the same bay as an inner yard wall: no Y-arms, strands or razor coil (the wire stays on the perimeter); still
+// not climbable (the collider above the coping), so a Search and Destroy layout's lanes keep their timings
+export function compoundWallPlain() {
+  const A = mkP("mod_nt_compound_wall_plain", "Compound wall bay, inner (6 m)", "Military", "One 6 m bay of the 3 m precast concrete compound wall used inside the perimeter: formwork-textured planks between square concrete posts on a strip footing, a precast coping, no wire. Not climbable: a collider tops the wall.",
+    [6, 0.5]);
+  wallPost(A, -3.0); wallPost(A, 3.0); wallPanels(A, -2.84, 2.84);
+  A.box([-3.1, WH, -0.2], [3.1, WH + 0.65, 0.2], "wire", H0);
+  return pdone(A, { cover: wallNav(-3, 3) });
+}
+
 export function compoundWallBreach() {
   const A = mkP("mod_nt_compound_wall_breach", "Compound wall bay, breached", "Military", "The 6 m precast perimeter wall bay blasted open: a 2.5 m walkable gap between ragged panel ends with exposed and bent rebar, a broken coping, cut razor wire hanging, and a rubble mound with slabs and chunks ramping up from both sides (about 0.55 m at the wall line).",
     [6, 3]);
@@ -1703,6 +1713,6 @@ export function flatcar() {
 
 // ============================================================================ catalog
 export function newtownAssetsA() {
-  return [barracks(), armory(), hq(), motorPool(), radarTower(), compoundWall(), compoundWallBreach(), compoundWallCulvert(), compoundGate(),
+  return [barracks(), armory(), hq(), motorPool(), radarTower(), compoundWall(), compoundWallPlain(), compoundWallBreach(), compoundWallCulvert(), compoundGate(),
     trainingWall(), trainingFrame(), crawlFrame(), warehouse(), workshopUnit(), storageTank(), railTrack(), railBuffer(), boxcar(), flatcar()];
 }
