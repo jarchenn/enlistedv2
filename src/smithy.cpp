@@ -14,7 +14,8 @@
 
 namespace {
 bool gOpen = false; uint64_t gId = 0; int gSel = 0;   // gSel: index into the carried guns
-GLuint gTex = 0; int gTw = 0, gTh = 0;
+GLuint gTex = 0; int gTw = 0, gTh = 0; double gTexAt = -1; uint64_t gTexSig = 0;   // the preview, re-rendered every 50 ms or on a change
+int gTestHover = -1;   // the capture: the "after" column for this action
 Kit gNoKit;   // outside a match: nothing carried
 Kit* gTestKit = nullptr;   // the headless check / capture: their own carried parts
 std::vector<uint64_t> gPlaced;   // the tables Battle Royale placed this match
@@ -24,6 +25,9 @@ std::vector<int> guns(App& app) { std::vector<int> v; for (int w : app.carried) 
 
 // the gun and its parts, turning (yaw from the clock), rendered off screen into gTex
 void renderGun(App& app, const WeaponDef& d, const WeaponState& s, int w, int h) {
+  uint64_t sig = std::hash<std::string>()(d.id); for (int a : s.att) sig = sig * 31 + (uint64_t)a;
+  if (gTex && sig == gTexSig && ImGui::GetTime() - gTexAt < 0.05) return;   // ~20 Hz: a full read-back each time
+  gTexSig = sig; gTexAt = ImGui::GetTime();
   std::vector<ModelDraw> md; std::vector<DrawItem> bx;
   float yaw = (float)ImGui::GetTime() * 25.0f;
   vec3 lo0 = d.useModel() ? d.model->bmin : vec3(-0.1f, -0.1f, 0), hi0 = d.useModel() ? d.model->bmax : vec3(0.1f, 0.1f, 1);
@@ -34,7 +38,8 @@ void renderGun(App& app, const WeaponDef& d, const WeaponState& s, int w, int h)
   vec3 c(0); float r = std::max(0.2f, glm::length(hi0 - lo0) * 0.5f);
   vec3 eye = c + vec3(0, r * 0.35f, r * 2.4f);
   std::vector<uint8_t> px;
-  if (!app.R.renderModelSheet(md, bx, glm::lookAt(eye, c, vec3(0, 1, 0)), glm::perspective(glm::radians(32.0f), (float)w / h, 0.02f, r * 10), eye, w, h, px)) return;
+  if (!app.R.renderModelSheet(md, bx, glm::lookAt(eye, c, vec3(0, 1, 0)), glm::perspective(glm::radians(30.0f), (float)w / h, 0.02f, r * 10), eye, w, h, px, true)) return;   // transparent: over the page
+  for (size_t i = 0; i < px.size(); i += 4) for (int k = 0; k < 3; ++k) px[i + k] = (uint8_t)std::min(255.0f, px[i + k] * 1.35f + 14.0f);   // lifted: black guns still read on the dark page
   if (!gTex || gTw != w || gTh != h) {
     if (gTex) glDeleteTextures(1, &gTex);
     glCreateTextures(GL_TEXTURE_2D, 1, &gTex); glTextureStorage2D(gTex, 1, GL_RGBA8, w, h);
@@ -89,10 +94,19 @@ void smithyUi(App& app) {
   ImGui::BeginChild("##guns", ImVec2(colW, H - y0 - 80 * s), false, ImGuiWindowFlags_NoBackground);
   flat::section("Weapons");
   if (g.empty()) flat::note("no guns carried");
-  for (size_t i = 0; i < g.size(); ++i) {
-    const WeaponDef& d = *app.weaponDefs[g[i]];
-    std::string lb = d.name + (lootGunTakesParts(d) ? "" : "   (no fittings)");
-    if (ImGui::Selectable(lb.c_str(), (int)i == gSel)) gSel = (int)i;
+  for (size_t i = 0; i < g.size(); ++i) {   // icon, name, and what it carries
+    const WeaponDef& d = *app.weaponDefs[g[i]]; const WeaponState& gs = app.wstate[d.id];
+    std::string parts;
+    for (int sl = 0; sl < 4; ++sl) { const char* id = lootAttachItemId(sl, gs.att[sl]); if (*id) if (const ItemDef* it = lootItem(id)) parts += (parts.empty() ? "" : ", ") + it->name; }
+    if (!lootGunTakesParts(d)) parts = "no fittings"; else if (parts.empty()) parts = "nothing fitted";
+    ImGui::PushID((int)i);
+    ImVec2 p0 = ImGui::GetCursorScreenPos();
+    if (ImGui::Selectable("##gun", (int)i == gSel, 0, ImVec2(colW - 8 * s, 58 * s))) gSel = (int)i;
+    auto si = app.weaponSilhouette.find(d.id);
+    if (si != app.weaponSilhouette.end() && si->second) dl->AddImage((ImTextureID)(intptr_t)si->second, ImVec2(p0.x + 4 * s, p0.y + 8 * s), ImVec2(p0.x + 104 * s, p0.y + 36 * s));
+    dl->AddText(ImGui::GetFont(), 17 * s, ImVec2(p0.x + 112 * s, p0.y + 6 * s), flat::ink(), d.name.c_str());
+    dl->AddText(ImGui::GetFont(), 13 * s, ImVec2(p0.x + 112 * s, p0.y + 30 * s), flat::grey(), parts.c_str());
+    ImGui::PopID();
   }
   ImGui::EndChild();
   if (g.empty()) { ImGui::End(); goto keys; }
@@ -100,8 +114,13 @@ void smithyUi(App& app) {
     const int w = g[gSel]; const WeaponDef& d = *app.weaponDefs[w]; WeaponState& ws = app.wstate[d.id];
     // ---- middle: the gun, turning
     const float mx0 = X0 + colW + 30 * s, mx1 = rightX - 30 * s, mh = (mx1 - mx0) * 9 / 16;
-    renderGun(app, d, ws, 960, 540);
-    if (gTex) { ImGui::SetCursorScreenPos(ImVec2(mx0, y0)); ImGui::Image((ImTextureID)(intptr_t)gTex, ImVec2(mx1 - mx0, mh)); }
+    {   // a dark studio: a soft gradient, a floor shadow under the gun, the gun over it (transparent render)
+      dl->AddRectFilledMultiColor(ImVec2(mx0, y0), ImVec2(mx1, y0 + mh), IM_COL32(44, 47, 52, 210), IM_COL32(44, 47, 52, 210), IM_COL32(12, 13, 15, 230), IM_COL32(12, 13, 15, 230));
+      ImVec2 sc((mx0 + mx1) * 0.5f, y0 + mh * 0.84f);
+      for (int k = 0; k < 6; ++k) { float f = 1.0f - k / 6.0f; dl->AddEllipseFilled(sc, ImVec2((mx1 - mx0) * 0.36f * (0.5f + 0.5f * f), mh * 0.05f * (0.5f + 0.5f * f)), IM_COL32(0, 0, 0, 34)); }
+    }
+    renderGun(app, d, ws, 1536, 864);
+    if (gTex) dl->AddImage((ImTextureID)(intptr_t)gTex, ImVec2(mx0, y0), ImVec2(mx1, y0 + mh));
     flat::text(dl, flat::titleFont(), 30 * s, ImVec2(mx0, y0 + mh + 12 * s), flat::ink(), d.name.c_str(), 0.04f);
     // ---- right: the slots; every action numbered (1-9) in reading order
     struct Act { int slot; std::string item; std::string label; };
@@ -138,26 +157,33 @@ void smithyUi(App& app) {
     for (int n = 0; n < 9 && n < (int)acts.size(); ++n) if (ImGui::IsKeyPressed((ImGuiKey)(ImGuiKey_1 + n), false)) smithyApply(app, w, acts[n].slot, acts[n].item);
     // ---- the read-out: bare / now / after the hovered change
     WeaponState bare = ws; for (int& a : bare.att) a = 0;
+    if (hover < 0 && gTestHover >= 0 && gTestHover < (int)acts.size()) hover = gTestHover;
     WeaponState after = ws; bool hasAfter = hover >= 0;
     if (hasAfter) { const Act& A = acts[hover]; if (A.item.empty()) after.att[A.slot] = 0; else if (const ItemDef* it = lootItem(A.item)) after.att[A.slot] = it->value; }
     GunStats b0 = lootGunStats(app, d, bare), b1 = lootGunStats(app, d, ws), b2 = lootGunStats(app, d, after);
     float ry = y0 + mh + 60 * s;
-    auto row = [&](const char* name, const std::string& a, const std::string& b, const std::string& c, bool changed) {
+    // better: green, worse: red (the hovered change against now)
+    auto row = [&](const char* name, const std::string& a, const std::string& b, const std::string& c, int better) {   // better: +1 / -1 / 0 same
       flat::text(dl, ImGui::GetFont(), 15 * s, ImVec2(mx0, ry), flat::grey(), name, 0.1f);
       flat::text(dl, ImGui::GetFont(), 17 * s, ImVec2(mx0 + 160 * s, ry), flat::grey(), a.c_str(), 0.0f);
       flat::text(dl, ImGui::GetFont(), 17 * s, ImVec2(mx0 + 300 * s, ry), flat::ink(), b.c_str(), 0.0f);
-      if (hasAfter) flat::text(dl, ImGui::GetFont(), 17 * s, ImVec2(mx0 + 440 * s, ry), changed ? flat::gold() : flat::grey(), c.c_str(), 0.0f);
+      ImU32 col = !hasAfter ? flat::grey(0.5f) : better > 0 ? IM_COL32(120, 220, 120, 255) : better < 0 ? IM_COL32(235, 105, 95, 255) : flat::grey();
+      flat::text(dl, ImGui::GetFont(), 17 * s, ImVec2(mx0 + 440 * s, ry), col, hasAfter ? c.c_str() : "-", 0.0f);
       ry += 26 * s;
     };
+    auto cmp = [](float now, float aft, bool lowerBetter) { return aft == now ? 0 : ((aft < now) == lowerBetter ? 1 : -1); };
     auto f2 = [](float v, const char* u) { char t[32]; std::snprintf(t, sizeof t, "%.2f%s", v, u); return std::string(t); };
     auto pc = [](float v) { char t[32]; std::snprintf(t, sizeof t, "%.0f %%", v * 100); return std::string(t); };
-    row("", "BARE", "NOW", hasAfter ? "AFTER" : "", false);
-    row("ADS TIME", f2(b0.adsTime, " s"), f2(b1.adsTime, " s"), f2(b2.adsTime, " s"), b2.adsTime != b1.adsTime);
-    row("RECOIL", pc(b0.recoil), pc(b1.recoil), pc(b2.recoil), b2.recoil != b1.recoil);
-    row("SPREAD", pc(b0.spread), pc(b1.spread), pc(b2.spread), b2.spread != b1.spread);
-    row("MAGAZINE", std::to_string(b0.mag), std::to_string(b1.mag), std::to_string(b2.mag), b2.mag != b1.mag);
-    row("OPTIC", sightName(b0.sight), sightName(b1.sight), sightName(b2.sight), b2.sight != b1.sight);
-    row("SUPPRESSED", b0.quiet ? "yes" : "no", b1.quiet ? "yes" : "no", b2.quiet ? "yes" : "no", b2.quiet != b1.quiet);
+    flat::text(dl, ImGui::GetFont(), 13 * s, ImVec2(mx0 + 160 * s, ry), flat::grey(), "BARE", 0.12f);
+    flat::text(dl, ImGui::GetFont(), 13 * s, ImVec2(mx0 + 300 * s, ry), flat::grey(), "NOW", 0.12f);
+    flat::text(dl, ImGui::GetFont(), 13 * s, ImVec2(mx0 + 440 * s, ry), flat::grey(), hasAfter ? ("AFTER: " + acts[hover].label).c_str() : "AFTER (HOVER A PART)", 0.12f);
+    ry += 26 * s;
+    row("ADS TIME", f2(b0.adsTime, " s"), f2(b1.adsTime, " s"), f2(b2.adsTime, " s"), cmp(b1.adsTime, b2.adsTime, true));
+    row("RECOIL", pc(b0.recoil), pc(b1.recoil), pc(b2.recoil), cmp(b1.recoil, b2.recoil, true));
+    row("SPREAD", pc(b0.spread), pc(b1.spread), pc(b2.spread), cmp(b1.spread, b2.spread, true));
+    row("MAGAZINE", std::to_string(b0.mag), std::to_string(b1.mag), std::to_string(b2.mag), cmp((float)b1.mag, (float)b2.mag, false));
+    row("OPTIC", sightName(b0.sight), sightName(b1.sight), sightName(b2.sight), b2.sight == b1.sight ? 0 : b2.sight > b1.sight ? 1 : -1);
+    row("SUPPRESSED", b0.quiet ? "yes" : "no", b1.quiet ? "yes" : "no", b2.quiet ? "yes" : "no", b2.quiet == b1.quiet ? 0 : b2.quiet ? 1 : -1);
     if (k.items.empty()) flat::text(dl, ImGui::GetFont(), 14 * s, ImVec2(mx0, ry + 8 * s), flat::grey(), "PARTS COME FROM BATTLE ROYALE LOOT", 0.1f);
   }
   ImGui::End();
@@ -223,3 +249,4 @@ void smithyEnd(App& app) {
 }
 const std::vector<uint64_t>& smithyPlaced() { return gPlaced; }
 void smithyUseKit(Kit* k) { gTestKit = k; }
+void smithyTestHover(int action) { gTestHover = action; }
