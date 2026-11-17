@@ -158,7 +158,7 @@ def build(ctx):
         paint.poly("rock", [(px - h, pz - h), (px + h, pz - h), (px + h, pz + h), (px - h, pz + h)], weight=0.95, edge=0.4)   # the pool's concrete pad
         b.place("sd_shade_canopy", px, pz, pyaw, check=False, cls="none", y=y0, tags={"dress", "shade"})
         ux, uz = (1.0, 0.0) if pyaw == 0.0 else (0.0, 1.0)
-        for k, (veh, ang) in enumerate((("mod_mil_utility_green", 8.0), ("mod_mil_utility_green", -14.0))):
+        for k, (veh, ang) in enumerate((("sd_static_humvee", 8.0), ("sd_static_truck_cargo", -14.0))):
             t = (k - 0.5) * 3.0
             vx, vz = px + ux * t, pz + uz * t
             b.place(veh, vx, vz, pyaw + 90.0 + ang, check=False, cls="none", y=y0, tags={"cover", "vehicle"})

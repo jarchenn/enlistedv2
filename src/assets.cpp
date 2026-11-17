@@ -1152,7 +1152,11 @@ void AssetLibrary::build(AssetDef& ad) const {
     auto& mj = j["model"];
     a->modelLodDist = mj.value("lodDist", 30.0f); a->modelCull = mj.value("cullDist", 400.0f); a->modelThinPx = mj.value("thinLinesPx", 0.0f);
     a->modelFoliage = mj.value("foliage", false); a->modelWind = mj.value("wind", 0.0f);   // NT8: instanced model foliage
-    fs::path dir = contentDir() / "assets" / "models" / mj.value("dir", a->id);
+    // SD2: "root": "vehicles" reads a vehicle's bake (content/vehicles/models) for a static prop of it; "fallbackDir" is
+    // tried when the main bake is missing (a licence-restricted bake kept local: the public tree shows the box fallback)
+    const fs::path base = mj.value("root", std::string()) == "vehicles" ? contentDir() / "vehicles" / "models" : contentDir() / "assets" / "models";
+    fs::path dir = base / mj.value("dir", a->id);
+    if (mj.contains("fallbackDir") && !fs::exists(dir / "mesh.bin")) dir = base / mj["fallbackDir"].get<std::string>();
     auto gm = std::make_shared<GpuModel>(); std::string err;
     bool turn = mj.value("yaw", 0.0f) == 180.0f;   // "yaw": 180 - the bake faces -z (the car pack), the asset's parts +z
     if (gm->load(dir, err, turn)) {

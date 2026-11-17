@@ -8,7 +8,7 @@ import os
 
 from mapgen import (GroundPaint, Grid, Frame, MapBuilder, ScenarioBuilder, write_map, write_template, write_summary, asset_usage,
                     rng, look_yaw)
-from maps.sd_common import rows_from, Plan, place_walls2, spread, place_masses, place_cover, wall_spot, place_container_walls, site_signs, wall_lamps
+from maps.sd_common import rows_from, Plan, place_walls2, spread, place_masses, place_cover, wall_spot, place_container_walls, site_signs, wall_lamps, place_along_walls, place_in_space
 
 TID, NAME, VERSION, SEED = "sd_yard", "Night Yard", 1, 2612
 CELL = 6.0
@@ -116,6 +116,24 @@ def build(ctx):
         n_cover += place_cover(b, plan, ch, [("ph_metal_toolbox", 0.3, 0.15, 1), ("ph_wooden_crate_01", 0.5, 0.5, 1)], R, y0, lane=1.6)
     # signs at every site entrance; sodium street lights against the walls; the sheds lit by caged lamps (INTERIORS above)
     n_sign = site_signs(b, plan, "A", "a", y0) + site_signs(b, plan, "B", "b", y0)
+    # the yard kit: large clusters and the gantry crane against the walls (4.5 m clear of doorways, 1 m walkways), smaller
+    # clusters and poles in the lanes, puddles and oil stains on the asphalt
+    keep = list(PADS)
+    n_kit = 0
+    for ch, items in (("A", [("cl_yard_loading_area", 4.85, 2.45, 1), ("cl_yard_workshop_bay", 3.8, 2.25, 1)]),
+                      ("B", [("ph_overhead_crane", 6.25, 2.0, 1), ("cl_yard_pipe_yard", 3.9, 2.15, 1)]),
+                      ("M", [("cl_yard_pipe_rack", 1.25, 0.4, 2), ("cl_yard_barrel_stack", 0.95, 0.75, 1)]),
+                      ("s", [("cl_yard_tool_carts", 1.55, 0.8, 1), ("cl_yard_camera_pole", 0.7, 0.6, 1), ("ph_modular_electricity_poles", 0.65, 0.45, 1)]),
+                      ("t", [("cl_yard_workshop_corner", 1.6, 1.0, 1), ("cl_yard_camera_pole", 0.7, 0.6, 1), ("ph_modular_electricity_poles", 0.65, 0.45, 2)]),
+                      ("f", [("cl_yard_barrel_stack", 0.95, 0.75, 1)]), ("R", [("ph_modular_electricity_poles", 0.65, 0.45, 2), ("cl_yard_tool_carts", 1.55, 0.8, 1)])):
+        n_kit += place_along_walls(b, plan, ch, items, R, y0, keep=keep)
+    for ch in "ABMstR":
+        cs = plan.cells(ch)
+        for k in range(max(1, len(cs) // 6)):
+            i, j = R.choice(cs)
+            x, z = plan._cc(i, j)
+            x, z = x + R.uniform(-2, 2), z + R.uniform(-2, 2)
+            paint.poly("mud", [(x - 1.3, z - 0.8), (x + 1.0, z - 1.2), (x + 1.4, z + 0.9), (x - 0.9, z + 1.2)], weight=0.65, edge=0.7, ragged=0.6, seed=i * 7 + j)
     n_lamp = wall_lamps(b, plan, "AB", "sd_sodium_light", y0, every=3) + wall_lamps(b, plan, "MstpfRcTD", "sd_sodium_light", y0, every=5)
     # ---------------------------------------------------------------- scenario: sites, spawns, timings
     sc = ScenarioBuilder(b, defending="Axis")
