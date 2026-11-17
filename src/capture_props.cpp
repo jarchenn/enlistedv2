@@ -1,7 +1,7 @@
 // --capture-props: no suite, close-up shots of props (PR1): each asset of NMK_PROPS (ids separated by ";"; an entry
 // "id@x,y,z" aims at that asset-space point instead of the bounds' centre, e.g. one fuel dispenser of the petrol
 // station) placed alone on a blank map by day, shot from 1.5 m and 4 m at standing eye height (1.62 m), 35 degrees off
-// its +z face (NMK_PROPS_NEAR / NMK_PROPS_FAR: the two distances; NMK_PROPS_NEAR_ONLY: no far shot; NMK_PROPS_GROUND: an asset laid under each piece), into selftest_out/prop_<k>_<n|f>.png; selftest_out/props.txt lists them (tools/props/sheet.py stitches
+// its +z face (NMK_PROPS_NEAR / NMK_PROPS_FAR: the two distances; NMK_PROPS_EYE: eye height above the piece; NMK_PROPS_NEAR_ONLY: no far shot; NMK_PROPS_GROUND: an asset laid under each piece), into selftest_out/prop_<k>_<n|f>.png; selftest_out/props.txt lists them (tools/props/sheet.py stitches
 // the labelled contact sheet). The editor camera, no UI.
 #include "selftest.h"
 #include "settings.h"
@@ -71,7 +71,8 @@ bool capturePropsSelfTest(App& a, float dt) {
     float d = far ? farD : nearD, ang = glm::radians(35.0f);
     vec3 dir = yawQuat(inst->yaw) * vec3(std::sin(ang), 0, std::cos(ang));
     vec3 eye = tgt + dir * (d + (s.aim ? 0.0f : 0.5f * std::max(as.bmax.x - as.bmin.x, as.bmax.z - as.bmin.z) * 0.5f));
-    eye.y = inst->pos.y + 1.62f;
+    static const char* eyeRel = std::getenv("NMK_PROPS_EYE");   // PR4: small pieces: the eye this far above the piece's middle (default standing height above the ground)
+    eye.y = eyeRel ? tgt.y + (float)std::atof(eyeRel) : inst->pos.y + 1.62f;
     vec3 v = tgt - eye;
     a.camPos = eye; a.camYaw = glm::degrees(std::atan2(-v.x, -v.z)); a.camPitch = glm::degrees(std::atan2(v.y, glm::length(vec2(v.x, v.z))));
   }

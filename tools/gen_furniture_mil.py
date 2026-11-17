@@ -28,6 +28,19 @@ MIL = {
     "brass_case": ([0.55, 0.4, 0.17], 0.35, "metal", 1),
     "steel_bare": ([0.5, 0.5, 0.5], 0.4, "metal", 1),
     "stencil": ([0.62, 0.6, 0.52], 0.8, "plain", 1),
+    # PR4 batch 6
+    "field_grey_gloss": ([0.17, 0.18, 0.16], 0.35, "plain", 1),     # semi-gloss locker paint (plain: the "metal" pattern blotches it all over)
+    "stencil_black": ([0.03, 0.03, 0.03], 0.8, "plain", 1),         # lot bands, block characters (no legible text)
+    "mil_crate_paint": ([0.27, 0.29, 0.22], 0.65, "paintwood", -1),   # (not "crate_olive": textures.json maps that name to the teal, rusted paint_green set)
+    "rope": ([0.52, 0.43, 0.28], 0.9, "textile", 0),
+    "map_green": ([0.32, 0.42, 0.22], 0.85, "paper", 1),
+    "map_blue": ([0.36, 0.5, 0.62], 0.85, "paper", 1),
+    "map_brown": ([0.5, 0.36, 0.22], 0.85, "paper", 1),
+    "map_black": ([0.1, 0.1, 0.1], 0.85, "paper", 1),
+    "porcelain_w": ([0.86, 0.85, 0.8], 0.25, "plain", 1),
+    "leather_liner": ([0.22, 0.13, 0.07], 0.6, "plain", 1),
+    "yellow_plate": ([0.75, 0.6, 0.1], 0.5, "plain", 1),
+    "mug_enamel": ([0.55, 0.55, 0.5], 0.35, "plain", 1),
 }
 
 
@@ -78,19 +91,29 @@ def bunk(root):
 
 
 def locker(root):
-    a = mk("furn_mil_locker", "Steel locker (double)", "Double steel kit locker, 0.9 x 0.5 x 1.9 m, field grey: two doors with louvre vents, handles, a padlock and card holders; a steel helmet on top.",
+    a = mk("furn_mil_locker", "Steel locker (double)", "Double steel kit locker, 0.9 x 0.5 x 1.9 m, semi-gloss field grey: two doors with six pressed louvres top and bottom, drop handles, a hasp and padlock, card holders, paint worn to bare steel on the edges and round the handles; a steel helmet on top.",
            "metal", 20, 50, wall=True, front=0.7)
     W, D, H = 0.9, 0.5, 1.9
-    a.r([0, H / 2, 0], [W, H, D], "field_grey", "carcass", 0.008)
+    a.r([0, H / 2, 0], [W, H, D], "field_grey_gloss", "carcass", 0.008)
     for sx in (-1, 1):
         x = sx * W / 4
-        a.r([x, H / 2 + 0.04, D / 2 + 0.004], [W / 2 - 0.03, H - 0.16, 0.012], "field_grey", "doors", 0.004)
-        for y0 in (0.25, H - 0.35):
-            for k in range(5):
-                a.r([x, y0 + k * 0.035, D / 2 + 0.012], [0.22, 0.012, 0.01], "rubber", "doors", 0.002)
-        a.r([x - sx * 0.17, 1.0, D / 2 + 0.03], [0.02, 0.14, 0.03], "steel_bare", "doors", 0.004)
-        a.r([x, 1.45, D / 2 + 0.013], [0.1, 0.06, 0.004], "stencil", "doors", 0.001)                      # name card
-    a.r([-0.02, 1.0, D / 2 + 0.05], [0.04, 0.05, 0.02], "brass", "doors", 0.004)                           # padlock
+        a.r([x, H / 2 + 0.04, D / 2 + 0.004], [W / 2 - 0.03, H - 0.16, 0.012], "field_grey_gloss", "doors", 0.004)
+        for y0 in (0.22, H - 0.42):   # six pressed louvres: a raised lip over a dark slot
+            for k in range(6):
+                y = y0 + k * 0.03
+                a.r([x, y, D / 2 + 0.0105], [0.2, 0.012, 0.006], "rubber", "doors", 0.002)
+                a.r([x, y + 0.008, D / 2 + 0.013], [0.2, 0.008, 0.008], "field_grey_gloss", "doors", 0.003, rot=[-30, 0, 0])
+        hx = x - sx * 0.17   # drop handle on a pivot plate, the paint worn off round it
+        a.r([hx, 1.0, D / 2 + 0.0115], [0.06, 0.16, 0.002], "steel_bare", "doors", 0.0008)
+        a.cyl([hx, 1.04, D / 2 + 0.02], 0.025, 0.014, "steel_bare", "doors", seg=10, rot=[90, 0, 0])
+        a.r([hx, 0.98, D / 2 + 0.03], [0.018, 0.12, 0.012], "steel_bare", "doors", 0.005)
+        a.r([x, 1.45, D / 2 + 0.0125], [0.07, 0.05, 0.003], "brass", "doors", 0.001)                      # card holder
+        a.r([x, 1.45, D / 2 + 0.0145], [0.06, 0.04, 0.002], "paper", "doors", 0.0005)
+        for ey in (0.13, H - 0.07):   # worn top and bottom door edges
+            a.r([x, ey, D / 2 + 0.0105], [W / 2 - 0.05, 0.006, 0.0012], "steel_bare", "doors", 0.0004)
+    a.r([0, 1.0, D / 2 + 0.035], [0.05, 0.02, 0.012], "steel_bare", "doors", 0.003)                          # hasp
+    a.r([0, 0.955, D / 2 + 0.045], [0.04, 0.05, 0.02], "brass", "doors", 0.005)                              # padlock
+    a.arch([0, 0.985, D / 2 + 0.045], [0.03, 0.03, 0.006], "steel_bare", "doors", th=0.005)
     a.cyl([0.12, H + 0.06, 0], 0.3, 0.12, "field_grey", "helmet", top=0.55, seg=16)
     a.cyl([0.12, H + 0.012, 0], 0.36, 0.024, "field_grey", "helmet", top=0.9, seg=16)
     a.col([0, H / 2, 0], [W, H, D])
@@ -98,100 +121,172 @@ def locker(root):
 
 
 def radio(root):
-    a = mk("furn_mil_radio", "Radio desk", "Plank radio desk, 1.5 x 0.65 m: two field-grey transceivers with dials and knobs, headphones, a Morse key, a field telephone, a log book and wiring; a battery box underneath.",
+    a = mk("furn_mil_radio", "Radio desk", "Rough plank radio desk on trestles, 1.5 x 0.65 m: a field-grey transceiver with two large tuning dials in scale windows, four knobs and jacks, its battery box beside it, headphones, a brass Morse key on a black base, a field telephone, log sheets and cables.",
            "metal", 18, 45, wall=True, front=0.8)
     W, D, H = 1.5, 0.65, 0.76
-    a.r([0, H - 0.02, 0], [W, 0.04, D], "pine", "desk", 0.004)
-    for sx in (-1, 1):
+    for k in range(3):   # rough planks, 4 cm
+        a.r([0, H - 0.02, -D / 2 + D / 6 + k * D / 3], [W, 0.04, D / 3 - 0.006], "pine", "desk", 0.004)
+    for sx in (-1, 1):   # trestles: A-frame legs with a cross brace
+        x = sx * (W / 2 - 0.12)
         for sz in (-1, 1):
-            a.r([sx * (W / 2 - 0.05), (H - 0.04) / 2, sz * (D / 2 - 0.05)], [0.06, H - 0.04, 0.06], "pine", "desk", 0.004)
-    a.r([0, 0.12, -0.05], [W - 0.2, 0.03, D - 0.15], "pine", "desk", 0.003)                                 # shelf
-    a.r([0.35, 0.27, -0.08], [0.45, 0.27, 0.35], "olive_paint", "battery", 0.008)
-    for i, (x, w) in enumerate(((-0.4, 0.46), (0.22, 0.4))):
-        y = H + 0.17
-        a.r([x, y, -0.12], [w, 0.34, 0.36], "field_grey", f"set{i}", 0.01)
-        a.r([x, y + 0.06, 0.065], [w - 0.06, 0.13, 0.01], "dial_face", f"set{i}", 0.002)
-        for k in range(3):
-            a.cyl([x - w / 2 + 0.09 + k * (w - 0.18) / 2, y - 0.08, 0.075], 0.035, 0.03, "bakelite", f"set{i}", seg=10, rot=[90, 0, 0])
-        a.r([x, y + 0.18, -0.12], [w + 0.01, 0.02, 0.37], "field_grey", f"set{i}", 0.004)
-    a.arch([-0.75 + 0.95, H + 0.06, 0.18], [0.2, 0.12, 0.03], "bakelite", "phones", th=0.02, rot=[90, 0, 0])   # headphones
+            a.r([x, (H - 0.04) / 2, sz * 0.17], [0.05, H - 0.02, 0.05], "pine", "desk", 0.006, rot=[sz * 12, 0, 0])
+        a.r([x, H - 0.06, 0], [0.07, 0.04, D - 0.08], "pine", "desk", 0.004)
+        a.r([x, 0.22, 0], [0.04, 0.04, 0.38], "pine", "desk", 0.003)
+    # the transceiver (Torn.Fu-style): 0.36 x 0.30 x 0.20 in field-grey crackle paint
+    x0, y0 = -0.3, H + 0.15
+    a.r([x0, y0, -0.12], [0.36, 0.3, 0.2], "field_grey", "set0", 0.01)
+    a.r([x0, y0, -0.019], [0.33, 0.27, 0.006], "field_grey", "set0", 0.004)                               # front panel
+    for k, dx in enumerate((-0.08, 0.08)):   # two tuning dials in scale windows
+        a.r([x0 + dx, y0 + 0.07, -0.014], [0.11, 0.05, 0.004], "dial_face", "set0", 0.001)
+        a.cyl([x0 + dx, y0 + 0.0, -0.01], 0.06, 0.02, "bakelite", "set0", seg=16, rot=[90, 0, 0])
+        a.r([x0 + dx, y0 + 0.025, -0.0], [0.006, 0.012, 0.004], "stencil", "set0", 0.0008)
+    for k in range(4):
+        a.cyl([x0 - 0.12 + k * 0.08, y0 - 0.09, -0.01], 0.025, 0.018, "bakelite", "set0", seg=10, rot=[90, 0, 0])
+    for k in range(3):
+        a.cyl([x0 + 0.1 + k * 0.03, y0 - 0.115, -0.014], 0.01, 0.01, "steel_bare", "set0", seg=8, rot=[90, 0, 0])   # jacks
+    a.r([x0 + 0.33, H + 0.1, -0.12], [0.22, 0.2, 0.2], "olive_paint", "battery", 0.008)                    # battery box
+    a.r([x0 + 0.33, H + 0.205, -0.12], [0.06, 0.012, 0.03], "steel_bare", "battery", 0.003)
+    # headphones: two cups on a band, lying on the desk
+    a.arch([0.25, H + 0.002, 0.16], [0.18, 0.1, 0.016], "bakelite", "phones", th=0.014, rot=[90, 0, 0])
     for sx in (-1, 1):
-        a.cyl([0.2 + sx * 0.1, H + 0.02, 0.18], 0.07, 0.03, "bakelite", "phones", seg=12)
-    a.r([-0.15, H + 0.015, 0.22], [0.12, 0.03, 0.06], "brass", "phones", 0.004)                              # Morse key
-    a.r([0.6, H + 0.06, 0.12], [0.22, 0.12, 0.17], "bakelite", "phones", 0.01)                              # field telephone
-    a.r([0.6, H + 0.135, 0.12], [0.2, 0.03, 0.05], "bakelite", "phones", 0.01)
-    a.r([-0.55, H + 0.008, 0.2], [0.24, 0.012, 0.17], "paper", "phones", 0.002)                             # log book
-    for x in (-0.4, 0.22):
-        a.cyl([x, H + 0.3, -0.3 - 0.03], 0.012, 0.5, "rubber", "desk", seg=6)
+        a.cyl([0.25 + sx * 0.085, H + 0.02, 0.16], 0.07, 0.035, "bakelite", "phones", seg=14)
+    a.r([0.0, H + 0.01, 0.2], [0.12, 0.02, 0.08], "bakelite", "phones", 0.004)                             # Morse key: black base
+    a.r([0.0, H + 0.026, 0.2], [0.09, 0.008, 0.012], "brass", "phones", 0.002, rot=[0, 0, 4])              # brass lever
+    a.cyl([0.04, H + 0.036, 0.2], 0.02, 0.012, "bakelite", "phones", seg=10)                               # knob
+    a.r([0.58, H + 0.06, 0.12], [0.22, 0.12, 0.17], "bakelite", "phones", 0.01)                             # field telephone
+    a.r([0.58, H + 0.135, 0.12], [0.2, 0.03, 0.05], "bakelite", "phones", 0.01)
+    for k, (x, z, yaw) in enumerate(((-0.55, 0.15, 6), (-0.5, 0.2, -4))):   # log / message sheets
+        a.r([x, H + 0.002 + 0.001 * k, z], [0.21, 0.002, 0.3], "paper", "phones", 0.0005, rot=[0, yaw, 0])
+    a.cyl([x0, H + 0.33, -0.27], 0.012, 0.5, "rubber", "desk", seg=6)
+    tube(a, [x0 + 0.18, H + 0.06, -0.12], [x0 + 0.22, H + 0.06, -0.12], 0.012, "rubber", "desk", seg=6)
     a.col([0, (H + 0.35) / 2, 0], [W, H + 0.35, D])
-    return a.write(root, [W, D], fragments=["set1", "phones"], keep=["desk", "set0", "battery"])
+    return a.write(root, [W, D], fragments=["battery", "phones"], keep=["desk", "set0"])
+
+
+def topo_map(a, cx, cy, z, w, h, grp, flat=False):
+    """A printed topographic map look (no legible text): woods, a coast, contours, roads, grid squares, a pencil front line.
+    Drawn in its own plane: x across, the second axis up (wall) or along -z (flat on a table)."""
+    def P(u, v, dz): return [cx + u, cy + dz, z - v] if flat else [cx + u, cy + v, z + dz]
+    def R(u, v, su, sv, m, dz, rot=0.0, t=0.002):
+        if flat: a.r(P(u, v, dz), [su, t, sv], m, grp, 0.0, rot=[0, rot, 0] if rot else None)
+        else: a.r(P(u, v, dz), [su, sv, t], m, grp, 0.0, rot=[0, 0, rot] if rot else None)
+    R(0, 0, w, h, "map_paper", 0.0, t=0.003)
+    for (u, v, su, sv, r) in ((-0.3, 0.15, 0.3, 0.2, 12), (-0.18, 0.2, 0.18, 0.14, -20), (0.25, -0.2, 0.26, 0.16, 8), (0.1, 0.28, 0.14, 0.1, 30)):
+        R(u * w, v * h, su * w, su * h * 1.4, "map_green", 0.0018, r)                                        # woods
+    R(-0.42 * w, -0.25 * h, 0.16 * w, 0.5 * h, "map_blue", 0.0018, 4)                                        # the sea along one edge
+    for k in range(5):   # contour lines round a hill
+        R(0.18 * w, 0.1 * h, (0.08 + 0.05 * k) * w, 0.0035, "map_brown", 0.0022 + 0.0001 * k, 18 * k - 30)
+        R(0.18 * w, 0.1 * h, 0.0035, (0.06 + 0.04 * k) * h, "map_brown", 0.0022 + 0.0001 * k, 18 * k - 30)
+    for (u0, v0, u1, v1, m) in ((-0.5, -0.05, 0.5, 0.12, "pin_red"), (-0.1, -0.5, 0.05, 0.5, "map_black"), (0.2, -0.5, 0.35, 0.1, "pin_red")):   # roads
+        L = math.hypot((u1 - u0) * w, (v1 - v0) * h)
+        R((u0 + u1) / 2 * w, (v0 + v1) / 2 * h, L, 0.006, m, 0.0026, math.degrees(math.atan2((v1 - v0) * h, (u1 - u0) * w)) * (-1 if flat else 1))
+    for i in range(1, 6):   # grid squares
+        R(-w / 2 + i * w / 6, 0, 0.0025, h * 0.98, "map_black", 0.0028)
+    for j in range(1, 4):
+        R(0, -h / 2 + j * h / 4, w * 0.98, 0.0025, "map_black", 0.0028)
+    for k, (u0, v0, u1, v1, m) in enumerate(((-0.38, -0.3, -0.1, -0.02, "pin_red"), (-0.1, -0.02, 0.15, 0.06, "pin_red"), (0.15, 0.06, 0.4, 0.32, "pin_red"),
+                                             (-0.36, -0.22, -0.08, 0.06, "pin_blue"), (-0.08, 0.06, 0.18, 0.14, "pin_blue"))):   # pencil front lines
+        L = math.hypot((u1 - u0) * w, (v1 - v0) * h)
+        R((u0 + u1) / 2 * w, (v0 + v1) / 2 * h, L, 0.007, m, 0.0032, math.degrees(math.atan2((v1 - v0) * h, (u1 - u0) * w)) * (-1 if flat else 1))
 
 
 def wall_map(root):
-    a = mk("furn_mil_map", "Situation map", "Situation map on a plywood board, 1.3 x 0.9 m, with coloured pins, a red front line, grid squares and a clipboard of orders.",
+    a = mk("furn_mil_map", "Situation map", "Situation map on a plywood board, 1.3 x 0.9 m: a printed topographic sheet (woods, coast, contours, roads, grid), coloured pins along red and blue pencil front lines, curling tacked corners, a clipboard of orders hung at the corner.",
            "paper", 2, 6, blocking=False, wall=True, front=0.0, mount=1.15)
     a.r([0, 0.45, 0.01], [1.3, 0.9, 0.02], "pine", "board", 0.004)
-    a.r([0, 0.45, 0.022], [1.2, 0.8, 0.003], "map_paper", "map", 0.0)
-    for i in range(1, 6):
-        a.r([-0.6 + i * 0.2, 0.45, 0.0245], [0.004, 0.8, 0.004], "rubber", "map", 0.0018)
-    for j in range(1, 4):
-        a.r([0, 0.05 + j * 0.2, 0.0245], [1.2, 0.004, 0.004], "rubber", "map", 0.0018)
-    for k, (x0, y0, x1, y1) in enumerate(((-0.5, 0.25, -0.15, 0.4), (-0.15, 0.4, 0.2, 0.33), (0.2, 0.33, 0.52, 0.55))):
-        L = math.hypot(x1 - x0, y1 - y0)
-        a.r([(x0 + x1) / 2, (y0 + y1) / 2, 0.026], [L, 0.008, 0.004], "pin_red", "map", 0.0018, rot=[0, 0, math.degrees(math.atan2(y1 - y0, x1 - x0))])
-    pins = [(-0.4, 0.6, "pin_blue"), (-0.1, 0.62, "pin_blue"), (0.25, 0.7, "pin_blue"), (0.1, 0.2, "pin_red"), (-0.3, 0.15, "pin_red"), (0.42, 0.3, "pin_red")]
-    for x, y, m in pins:
-        a.cyl([x, y, 0.03], 0.016, 0.014, m, "map", seg=8, rot=[90, 0, 0])
-    a.r([0.78, 0.35, 0.02], [0.22, 0.3, 0.012], "pine", "orders", 0.003)
-    a.r([0.78, 0.33, 0.028], [0.2, 0.26, 0.002], "paper", "orders", 0.0)
+    topo_map(a, 0, 0.45, 0.021, 1.2, 0.8, "map")
+    pins = [(-0.4, 0.3, "pin_red"), (-0.15, 0.43, "pin_red"), (0.1, 0.5, "pin_red"), (0.36, 0.64, "pin_red"), (-0.38, 0.38, "pin_blue"), (-0.12, 0.51, "pin_blue"), (0.14, 0.58, "pin_blue")]
+    for x, y, m in pins:   # map pins: a head on a short steel shank
+        a.cyl([x, y, 0.031], 0.003, 0.012, "steel_bare", "map", seg=6, rot=[90, 0, 0])
+        a.cyl([x, y, 0.039], 0.016, 0.01, m, "map", seg=8, rot=[90, 0, 0])
+    for sx in (-1, 1):   # tacked corners curling off the board
+        for sy in (0, 1):
+            x, y = sx * 0.6, 0.05 + sy * 0.8
+            a.wedge([x - sx * 0.025, y + (0.025 if sy == 0 else -0.025), 0.03], [0.05, 0.05, 0.012], "map_paper", "map", top=0.0, rot=[0, 0, 0 if sy == 0 else 180])
+            a.cyl([x - sx * 0.03, y + (0.03 if sy == 0 else -0.03), 0.034], 0.012, 0.006, "brass", "map", seg=8, rot=[90, 0, 0])
+    a.cyl([0.78, 0.53, 0.03], 0.012, 0.012, "steel_bare", "orders", seg=6, rot=[90, 0, 0])                 # the nail
+    a.r([0.78, 0.35, 0.025], [0.22, 0.32, 0.012], "pine", "orders", 0.003)                                    # clipboard
+    a.r([0.78, 0.49, 0.034], [0.1, 0.03, 0.008], "steel_bare", "orders", 0.003)
+    for k in range(3):
+        a.r([0.78 + 0.004 * k, 0.33 - 0.004 * k, 0.033 + 0.001 * k], [0.2, 0.27, 0.0015], "paper", "orders", 0.0)
     return a.write(root, [1.5, 0.04], fragments=["orders"], keep=["board", "map"])
 
 
+def mg_box(a, x, y, z, g, yaw=0):
+    """Patronenkasten 34: 0.28 long x 0.10 wide x 0.20 tall, field grey, a hinged lid with a latch and a top carry handle."""
+    r = [0, yaw, 0] if yaw else None
+    a.r([x, y + 0.095, z], [0.1, 0.19, 0.28], "field_grey", g, 0.006, rot=r)
+    a.r([x, y + 0.197, z], [0.105, 0.016, 0.285], "field_grey", g, 0.004, rot=r)                         # the lid
+    a.arch([x, y + 0.205, z], [0.03, 0.1, 0.012], "steel_bare", g, th=0.008, rot=[0, 90 + yaw, 0])      # carry handle
+    a.r([x, y + 0.16, z + 0.143], [0.03, 0.04, 0.008], "steel_bare", g, 0.002, rot=r)                   # latch
+    a.r([x, y + 0.205, z + 0.12], [0.1, 0.004, 0.02], "steel_bare", g, 0.001, rot=r)                    # chipped lid edge
+
+
 def ammo_rack(root):
-    a = mk("furn_mil_ammo_rack", "Ammunition rack", "Timber ammunition rack, 1.6 x 0.5 x 1.8 m, on four shelves: steel MG belt boxes, rope-handled shell crates and grenade boxes.",
+    a = mk("furn_mil_ammo_rack", "Ammunition rack", "Rough pine ammunition rack, 1.6 x 0.5 x 1.8 m, braced at the back: rows of field-grey MG belt boxes (Patronenkasten 34) with lids, latches and carry handles, rope-handled shell crates with black lot bands, and a row of stick-grenade crates.",
            "wood", 22, 60, wall=True, front=0.8)
     W, D, H = 1.6, 0.5, 1.8
     for sx in (-1, 1):
         for sz in (-1, 1):
-            a.r([sx * (W / 2 - 0.04), H / 2, sz * (D / 2 - 0.04)], [0.07, H, 0.07], "pine", "frame", 0.005)
+            a.r([sx * (W / 2 - 0.04), H / 2, sz * (D / 2 - 0.04)], [0.08, H, 0.08], "pine", "frame", 0.005)
     ys = (0.08, 0.52, 0.96, 1.4)
     for y in ys:
-        a.r([0, y, 0], [W, 0.035, D], "pine", "frame", 0.004)
+        a.r([0, y, 0], [W, 0.03, D], "pine", "frame", 0.004)
+    L = math.hypot(W - 0.16, 1.3)
+    a.r([0, 0.75, -D / 2 + 0.02], [L, 0.06, 0.02], "pine", "frame", 0.004, rot=[0, 0, math.degrees(math.atan2(1.3, W - 0.16))])   # diagonal brace
     a.b([0, 1.6, -D / 2 + 0.02], [W, 0.06, 0.02], "pine", "frame")
-    for i, y in enumerate(ys):
-        g = f"load{i}"
-        if i % 2 == 0:
-            for k in range(5):
-                x = -W / 2 + 0.18 + k * 0.31
-                a.r([x, y + 0.13, 0.0], [0.28, 0.2, 0.11], "field_grey", g, 0.006)
-                a.r([x, y + 0.245, 0.0], [0.1, 0.02, 0.03], "steel_bare", g, 0.004)
-                a.r([x, y + 0.13, 0.058], [0.08, 0.05, 0.004], "stencil", g, 0.001)
-        else:
-            for k in range(2):
-                x = -W / 2 + 0.4 + k * 0.78
-                a.r([x, y + 0.13, 0.0], [0.72, 0.22, 0.4], "olive_paint", g, 0.008)
-                a.r([x, y + 0.13, 0.203], [0.5, 0.06, 0.004], "stencil", g, 0.001)
-                for sx in (-1, 1):
-                    a.arch([x + sx * 0.37, y + 0.17, 0.0], [0.14, 0.05, 0.016], "sacking", g, th=0.012, rot=[0, 90, 0])
+    # shelf 0 and 3: MG belt boxes, narrow side out
+    for i, y in ((0, ys[0]), (3, ys[3])):
+        for k in range(10):
+            mg_box(a, -W / 2 + 0.16 + k * 0.142, y + 0.015, 0.05, "load%d" % i)
+    # shelf 1: two long shell crates with rope handles and a black lot band
+    for k in range(2):
+        x, y = -W / 2 + 0.42 + k * 0.76, ys[1] + 0.015
+        a.r([x, y + 0.11, 0.0], [0.72, 0.22, 0.4], "mil_crate_paint", "load1", 0.008)
+        for j in range(3):
+            a.r([x, y + 0.04 + j * 0.07, 0.201], [0.72, 0.003, 0.003], "pine", "load1", 0.0)               # plank seams
+        a.r([x, y + 0.13, 0.203], [0.36, 0.05, 0.003], "stencil_black", "load1", 0.0005)
+        for c in range(5):
+            a.r([x - 0.12 + c * 0.06, y + 0.06, 0.203], [0.03, 0.04, 0.003], "stencil_black", "load1", 0.0005)   # block characters
+        for sx in (-1, 1):
+            a.arch([x + sx * 0.37, y + 0.15, 0.0], [0.14, 0.05, 0.016], "rope", "load1", th=0.012, rot=[0, 90, 0])
+    # shelf 2: stick-grenade crates
+    for k in range(3):
+        x, y = -W / 2 + 0.28 + k * 0.52, ys[2] + 0.015
+        a.r([x, y + 0.1, 0.0], [0.48, 0.2, 0.36], "mil_crate_paint", "load2", 0.008)
+        a.r([x, y + 0.205, 0.0], [0.5, 0.02, 0.37], "mil_crate_paint", "load2", 0.004)
+        a.r([x, y + 0.1, 0.181], [0.24, 0.04, 0.003], "stencil_black", "load2", 0.0005)
+        for sx in (-1, 1):
+            a.arch([x + sx * 0.25, y + 0.13, 0.0], [0.1, 0.04, 0.014], "rope", "load2", th=0.01, rot=[0, 90, 0])
     a.col([0, H / 2, 0], [W, H, D])
     return a.write(root, [W, D], fragments=["load0", "load1"], keep=["frame", "load2", "load3"], surfaces=[[-0.75, -0.2, 0.75, 0.2, 1.42]])
 
 
 def crates(root):
-    a = mk("furn_mil_crates", "Ammunition crates", "Stack of three olive-painted ammunition crates with rope handles, iron corner straps and stencilled lot bands.",
+    a = mk("furn_mil_crates", "Ammunition crates", "Stack of three olive-painted plank ammunition crates: plank seams, iron corner straps, rope handles, a black stencilled lot band, paint worn back to the wood on the corners and lid edges.",
            "wood", 14, 40, wall=True, front=0.4)
     for i, (x, y, z, yaw) in enumerate(((-0.42, 0.0, 0.0, 0), (0.42, 0.0, 0.0, 0), (0.0, 0.46, 0.02, 7))):
-        g = f"crate{i}"
-        a.r([x, y + 0.22, z], [0.8, 0.44, 0.42], "olive_paint", g, 0.01, rot=[0, yaw, 0] if yaw else None)
-        a.r([x, y + 0.22, z + 0.213], [0.5, 0.07, 0.004], "stencil", g, 0.001, rot=[0, yaw, 0] if yaw else None)
+        g = f"crate{i}"; r = [0, yaw, 0] if yaw else None
+        q = math.radians(yaw)
+        def at(dx, dz): return [x + dx * math.cos(q) + dz * math.sin(q), None, z - dx * math.sin(q) + dz * math.cos(q)]
+        a.r([x, y + 0.22, z], [0.8, 0.44, 0.42], "mil_crate_paint", g, 0.01, rot=r)
+        for j in range(1, 4):   # plank seams on the front
+            c = at(0, 0.211); a.r([c[0], y + j * 0.11, c[2]], [0.78, 0.005, 0.003], "pine", g, 0.0, rot=r)
+        c = at(0, 0.213); a.r([c[0], y + 0.26, c[2]], [0.4, 0.07, 0.004], "stencil_black", g, 0.001, rot=r)
+        for k in range(4):
+            c = at(-0.15 + k * 0.1, 0.213); a.r([c[0], y + 0.15, c[2]], [0.05, 0.05, 0.004], "stencil_black", g, 0.001, rot=r)
         for sx in (-1, 1):
-            a.r([x + sx * 0.37, y + 0.22, z], [0.03, 0.45, 0.43], "iron", g, 0.003, rot=[0, yaw, 0] if yaw else None)
+            c = at(sx * 0.37, 0); a.r([c[0], y + 0.22, c[2]], [0.03, 0.45, 0.43], "iron", g, 0.003, rot=r)       # corner straps
+            c = at(sx * 0.405, 0); a.arch([c[0], y + 0.26, c[2]], [0.12, 0.05, 0.015], "rope", g, th=0.015, rot=[0, 90 + yaw, 0])   # rope handles
+            for sz in (-1, 1):   # worn corners
+                c = at(sx * 0.395, sz * 0.205); a.r([c[0], y + 0.22, c[2]], [0.012, 0.42, 0.012], "pine", g, 0.004, rot=r)
+        c = at(0, 0.205); a.r([c[0], y + 0.437, c[2]], [0.76, 0.008, 0.012], "pine", g, 0.002, rot=r)              # worn lid edge
     a.col([0, 0.45, 0], [1.64, 0.9, 0.44])
     return a.write(root, [1.64, 0.44], fragments=["crate2"], keep=["crate0", "crate1"], surfaces=[[-0.38, -0.18, 0.38, 0.18, 0.9]])
 
 
 def map_table(root):
-    a = mk("furn_mil_table", "Map table (trestle)", "Plank map table on two trestles, 1.8 x 0.9 m, with a spread map, dividers, a compass, a set square and pencils.",
+    a = mk("furn_mil_table", "Map table (trestle)", "Plank map table on two A-frame trestles, 1.8 x 0.9 m: a topographic map with pencil front lines and curled corners, weighted by a compass and an enamel mug; dividers, a set square and pencils.",
            "wood", 20, 45, front=0.6)
     W, D, H = 1.8, 0.9, 0.78
     for k in range(4):
@@ -202,55 +297,65 @@ def map_table(root):
             a.r([x, (H - 0.05) / 2, sz * 0.22], [0.05, H - 0.05, 0.05], "pine", "trestle", 0.008, rot=[sz * 14, 0, 0])
         a.r([x, H - 0.065, 0], [0.07, 0.05, D - 0.1], "pine", "trestle", 0.004)
         a.r([x, 0.25, 0], [0.04, 0.04, 0.5], "pine", "trestle", 0.003)
-    a.r([-0.1, H + 0.002, 0.02], [1.1, 0.002, 0.74], "map_paper", "map", 0.0)
-    for i in range(1, 5):
-        a.r([-0.65 + i * 0.22, H + 0.004, 0.02], [0.004, 0.004, 0.74], "rubber", "map", 0.0018)
-    a.r([0.1, H + 0.004, 0.0], [0.5, 0.005, 0.006], "pin_red", "map", 0.002, rot=[0, 25, 0])
+    topo_map(a, -0.1, H + 0.0015, 0.02, 1.0, 0.7, "map", flat=True)
+    for sx in (-1, 1):   # corners curling up
+        for sz in (-1, 1):
+            a.wedge([-0.1 + sx * 0.48, H + 0.008, 0.02 + sz * 0.33], [0.04, 0.012, 0.04], "map_paper", "map", top=0.0, rot=[0, 90 * (sx < 0) + 180 * (sz < 0), 0])
+    a.cyl([0.33, H + 0.012, -0.28], 0.07, 0.02, "brass", "tools", seg=14)                                    # compass
+    a.cyl([0.33, H + 0.023, -0.28], 0.06, 0.002, "dial_face", "tools", seg=14)
+    a.cyl([-0.55, H + 0.045, 0.3], 0.08, 0.09, "mug_enamel", "tools", seg=14)                               # enamel mug
+    a.arch([-0.505, H + 0.05, 0.3], [0.04, 0.05, 0.008], "mug_enamel", "tools", th=0.008, rot=[0, 90, -90])
     a.r([0.62, H + 0.008, -0.2], [0.22, 0.012, 0.16], "paper", "tools", 0.002)
-    a.r([0.55, H + 0.006, 0.2], [0.22, 0.004, 0.012], "steel_bare", "tools", 0.0018, rot=[0, 30, 0])
+    a.r([0.55, H + 0.006, 0.2], [0.22, 0.004, 0.012], "steel_bare", "tools", 0.0018, rot=[0, 30, 0])         # dividers
     a.r([0.55, H + 0.006, 0.2], [0.22, 0.004, 0.012], "steel_bare", "tools", 0.0018, rot=[0, 48, 0])
-    a.cyl([0.72, H + 0.012, 0.05], 0.07, 0.02, "brass", "tools", seg=14)
-    a.r([-0.62, H + 0.006, -0.25], [0.15, 0.006, 0.006], "pin_blue", "tools", 0.0025, rot=[0, 70, 0])
+    a.wedge([0.7, H + 0.003, 0.05], [0.2, 0.004, 0.14], "map_paper", "tools", top=0.0)                       # set square
+    for k, m in enumerate(("pin_blue", "pin_red")):   # pencils
+        a.r([0.3 + 0.05 * k, H + 0.006, 0.28], [0.17, 0.007, 0.007], m, "tools", 0.0025, rot=[0, 70 + 12 * k, 0])
     a.col([0, H / 2, 0], [W, H, D])
     return a.write(root, [W, D], fragments=["top", "tools"], keep=["trestle"], surfaces=[[0.5, -0.4, 0.85, 0.4, H]])
 
 
 def gasmask_hooks(root):
-    a = mk("furn_mil_gasmask_hooks", "Gas-mask and helmet pegs", "Wall rail with five fluted gas-mask canisters on their straps and two steel helmets.",
+    a = mk("furn_mil_gasmask_hooks", "Gas-mask and helmet pegs", "Wall rail with five fluted GM-30/38 gas-mask canisters hanging by their canvas straps and two M35 helmets (stepped, flared rim, leather liner inside).",
            "cloth", 4, 10, blocking=False, wall=True, front=0.0, mount=1.38)
     a.r([0, 0.0, 0.02], [1.3, 0.08, 0.025], "pine", "rail", 0.004)
     for k in range(5):
         x = -0.52 + k * 0.26
         a.cyl([x, 0.0, 0.05], 0.015, 0.06, "iron", "rail", seg=6, rot=[90, 0, 0])
-        a.b([x, -0.12, 0.06], [0.02, 0.22, 0.004], "sacking", "masks")
-        for f in range(6):   # fluted canister: a ring of thin ribs round a drum
-            ang = f * 60
-            a.r([x + 0.055 * math.cos(math.radians(ang)), -0.42, 0.09 + 0.055 * math.sin(math.radians(ang))], [0.025, 0.25, 0.025], "field_grey", "masks", 0.008)
-        a.cyl([x, -0.42, 0.09], 0.1, 0.26, "field_grey", "masks", seg=12)
-        a.cyl([x, -0.285, 0.09], 0.11, 0.02, "field_grey", "masks", seg=12)
-    for x in (-0.65, 0.65):
-        a.cyl([x, -0.1, 0.13], 0.28, 0.16, "field_grey", "helmets", top=0.6, seg=16, rot=[-80, 0, 0])
-        a.cyl([x, -0.1, 0.06], 0.33, 0.02, "field_grey", "helmets", seg=16, rot=[-80, 0, 0])
+        for sx in (-1, 1):   # two canvas straps
+            a.b([x + sx * 0.03, -0.12, 0.06 + 0.004 * sx], [0.02, 0.22, 0.004], "sacking", "masks", rot=[0, 0, -sx * 8])
+        a.cyl([x, -0.39, 0.09], 0.11, 0.27, "field_grey", "masks", n=10)                                      # fluted drum: 10 flutes
+        a.cyl([x, -0.39, 0.09], 0.1, 0.271, "field_grey", "masks", seg=20)
+        a.cyl([x, -0.248, 0.09], 0.115, 0.016, "field_grey", "masks", seg=16)                                # the hinged lid
+        a.r([x, -0.248, 0.152], [0.02, 0.014, 0.012], "steel_bare", "masks", 0.003)                         # its hinge
+        a.r([x, -0.24, 0.03], [0.03, 0.012, 0.015], "steel_bare", "masks", 0.003)                           # catch
+    for x in (-0.65, 0.65):   # M35: dome, a stepped flared skirt, the rim, a leather liner
+        a.cyl([x, -0.06, 0.17], 0.24, 0.13, "field_grey", "helmets", top=0.55, seg=18, rot=[-80, 0, 0])
+        a.cyl([x, -0.065, 0.085], 0.28, 0.05, "field_grey", "helmets", top=0.86, seg=18, rot=[-80, 0, 0])
+        a.cyl([x, -0.068, 0.05], 0.33, 0.03, "field_grey", "helmets", top=0.85, seg=18, rot=[-80, 0, 0])   # flared skirt
+        a.cyl([x, -0.07, 0.035], 0.335, 0.008, "field_grey", "helmets", seg=18, rot=[-80, 0, 0])            # rolled rim
+        a.cyl([x, -0.07, 0.04], 0.24, 0.02, "leather_liner", "helmets", seg=16, rot=[-80, 0, 0])            # liner
     return a.write(root, [1.4, 0.22], fragments=["masks", "helmets"], keep=["rail"])
 
 
 def rifle_rack(root):
-    a = mk("furn_mil_rifle_rack", "Rifle rack", "Timber floor rack for six bolt-action rifles, stocks in a notched base, barrels in a notched rail.",
+    a = mk("furn_mil_rifle_rack", "Rifle rack", "Timber floor rack for six Kar98k rifles (the game's own rifle model): butts in a notched base rail, muzzles in a notched upper rail at 0.9 m.",
            "wood", 14, 35, wall=True, front=0.5)
     W, D = 1.3, 0.35
     a.r([0, 0.05, 0], [W, 0.1, D], "pine", "rack", 0.005)
-    a.r([0, 1.0, -D / 2 + 0.04], [W, 0.07, 0.08], "pine", "rack", 0.005)
+    a.r([0, 0.12, 0.05], [W, 0.08, 0.1], "pine", "rack", 0.005)                                              # notched base rail
+    a.r([0, 0.95, -D / 2 + 0.05], [W, 0.07, 0.1], "pine", "rack", 0.005)                                     # notched upper rail
     for sx in (-1, 1):
         a.r([sx * (W / 2 - 0.04), 0.6, -D / 2 + 0.04], [0.07, 1.1, 0.07], "pine", "rack", 0.005)
     for k in range(6):
         x = -W / 2 + 0.13 + k * 0.21
-        g = f"rifle{k % 3}"
-        a.b([x, 0.38, 0.03], [0.05, 0.62, 0.11], "oak", g, rot=[-8, 0, 0])            # stock and fore-end
-        a.b([x, 0.19, 0.055], [0.045, 0.2, 0.15], "oak", g, rot=[-8, 0, 0])
-        a.cyl([x, 1.0, -0.05], 0.018, 0.55, "iron", g, seg=8, rot=[-8, 0, 0])          # barrel
-        a.cyl([x + 0.03, 0.68, 0.05], 0.012, 0.05, "iron", g, seg=6, rot=[0, 0, 90])    # bolt handle
+        for dx in (-0.035, 0.035):   # the notches either side of each rifle
+            a.r([x + dx, 0.965, -D / 2 + 0.1], [0.012, 0.04, 0.02], "pine", "rack", 0.002)
+            a.r([x + dx, 0.17, 0.1], [0.012, 0.03, 0.02], "pine", "rack", 0.002)
+        # the rifle: standing, butt down in the base, leaning back 8 degrees into the upper rail
+        a.models.append({"dir": "../../weapons/models/kar98k", "pos": [round(x, 3), 0.1, 0.08], "yaw": 0, "tilt": [-82, 0], "lodDist": 12})
     a.col([0, 0.65, 0], [W, 1.3, D])
-    return a.write(root, [W, D], fragments=["rifle1", "rifle2"], keep=["rack", "rifle0"])
+    return a.write(root, [W, D], fragments=[], keep=["rack"])
 
 
 def generator(root):
@@ -314,15 +419,27 @@ def phone(root):
 
 
 def fusebox(root):
-    a = mk("furn_mil_fusebox", "Fuse box and conduits", "Wall-mounted steel fuse box with a rotary switch, two conduits running up to the ceiling and a cable gland below.",
+    a = mk("furn_mil_fusebox", "Fuse box and conduits", "Pressed-steel fuse box (0.30 x 0.40 x 0.15 m), field grey: a hinged door with a recessed latch and a lightning-flash plate, a rotary switch with a handle, two ceramic fuse holders seen through a vent slot, a cable gland below and two conduits rising to the ceiling in saddle clips.",
            "metal", 4, 10, blocking=False, wall=True, front=0.0, mount=1.25)
-    a.r([0, 0.25, 0.08], [0.45, 0.5, 0.16], "field_grey", "box", 0.01)
-    a.cyl([0.12, 0.3, 0.17], 0.08, 0.02, "bakelite", "box", seg=12, rot=[90, 0, 0])
-    a.r([0.12, 0.3, 0.185], [0.012, 0.07, 0.015], "bakelite", "box", 0.003)
-    a.r([-0.08, 0.35, 0.162], [0.12, 0.06, 0.004], "stencil", "box", 0.001)
-    for x in (-0.12, 0.05):
-        a.cyl([x, 0.5 + 0.6, 0.04], 0.03, 1.2, "field_grey", "box", seg=8)
-    a.cyl([0, -0.06, 0.08], 0.05, 0.12, "rubber", "box", seg=8)
+    a.r([0, 0.25, 0.075], [0.3, 0.4, 0.15], "field_grey", "box", 0.008)
+    a.r([-0.02, 0.25, 0.152], [0.25, 0.37, 0.006], "field_grey", "box", 0.003)                               # the door
+    for y in (0.13, 0.37):
+        a.cyl([0.112, y, 0.152], 0.012, 0.03, "steel_bare", "box", seg=8)                                    # hinges
+    a.r([-0.12, 0.25, 0.155], [0.02, 0.05, 0.004], "rubber", "box", 0.001)                                  # recessed latch
+    a.r([-0.03, 0.34, 0.156], [0.09, 0.08, 0.002], "yellow_plate", "box", 0.0008)                           # warning plate
+    for k, (dx, dy, r) in enumerate(((-0.012, 0.02, -25), (0.006, 0.0, 30), (-0.006, -0.02, -25))):         # lightning flash
+        a.r([-0.03 + dx, 0.34 + dy, 0.158], [0.008, 0.03, 0.002], "stencil_black", "box", 0.0005, rot=[0, 0, r])
+    a.r([-0.03, 0.18, 0.156], [0.15, 0.03, 0.002], "rubber", "box", 0.0008)                                 # vent slot
+    for dx in (-0.06, 0.0):
+        a.cyl([-0.03 + dx + 0.03, 0.18, 0.154], 0.018, 0.02, "porcelain_w", "box", seg=10, rot=[90, 0, 0])   # fuse holders
+    a.cyl([0.2, 0.3, 0.09], 0.06, 0.03, "bakelite", "box", seg=14, rot=[90, 0, 0])                          # rotary switch at the side
+    a.r([0.2, 0.3, 0.11], [0.012, 0.07, 0.016], "bakelite", "box", 0.003)
+    for x in (-0.08, 0.06):   # conduits to the ceiling, clipped every 0.4 m
+        a.cyl([x, 0.45 + 0.6, 0.035], 0.025, 1.2, "field_grey", "box", seg=8)
+        for k in range(3):
+            a.r([x, 0.6 + k * 0.4, 0.024], [0.045, 0.02, 0.012], "steel_bare", "box", 0.002)
+    a.cyl([0, 0.03, 0.075], 0.04, 0.06, "steel_bare", "box", seg=8)                                         # cable gland
+    a.cyl([0, -0.06, 0.075], 0.022, 0.14, "rubber", "box", seg=8)
     return a.write(root, [0.45, 0.2], fragments=[], keep=["box"])
 
 

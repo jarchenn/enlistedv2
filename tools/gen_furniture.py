@@ -78,7 +78,10 @@ MATS = {
     "ember": ([0.32, 0.08, 0.02], 0.95, "plain", 1),
     "mica": ([0.45, 0.25, 0.08], 0.2, "plain", 1),   # the stove's fire-door window, lit from behind
     "ash": ([0.2, 0.19, 0.18], 0.98, "plain", 1),
-    "enamel_green": ([0.12, 0.2, 0.14], 0.3, "ceramic", 0),
+    "enamel_green": ([0.1, 0.25, 0.15], 0.2, "ceramic", 0),
+    "enamel_blue": ([0.1, 0.18, 0.42], 0.3, "ceramic", 0),       # PR4 batch 6: the chamberstick's rim line
+    "bakelite_brown": ([0.12, 0.07, 0.04], 0.35, "plain", 1),
+    "wick": ([0.03, 0.03, 0.03], 0.9, "plain", 1),
     "enamel_white": ([0.68, 0.67, 0.62], 0.3, "ceramic", 0),
     "shade_silk": ([0.62, 0.5, 0.32], 0.85, "textile", 0),
     "porcelain": ([0.76, 0.74, 0.68], 0.25, "ceramic", 0),
@@ -114,6 +117,7 @@ class A:
         self.cols = []
         self.extra_mats = {}
         self.light = None   # L3: "light" block (dict or list of dicts), docs/lights.md
+        self.models = []    # PR4 batch 6: attached models (asset "models" block: dir, pos, yaw, tilt)
 
     def g(self, name):
         if name not in self.groups:
@@ -224,6 +228,8 @@ class A:
                "parts": self.parts + self.cols, "prop": self.prop}
         if self.light is not None:
             doc["light"] = light_block(self, self.light)
+        if self.models:
+            doc["models"] = self.models
         out = root / "content" / "assets" / (self.id + ".json")
         out.write_text(json.dumps(doc, ensure_ascii=False, separators=(",", ":")), encoding="utf-8", newline="")
         return out
@@ -1381,29 +1387,44 @@ def candle(root):
     a = A("furn_candle", "Candle", "A tallow candle in an enamelled chamberstick with a finger ring, half burnt.", "ceramic", 1, 4, blocking=False, front=0.0)
     a.cyl([0, 0.008, 0], 0.13, 0.016, "enamel_white", "holder", top=1.0, seg=18)                        # dish
     a.cyl([0, 0.019, 0], 0.11, 0.006, "enamel_white", "holder", seg=18)                                  # rim
+    a.cyl([0, 0.0225, 0], 0.112, 0.002, "enamel_blue", "holder", seg=18)                                 # PR4: the blue rim line
+    for ang in (40, 200):                                                                                # chips to black iron
+        a.r([0.056 * math.cos(math.radians(ang)), 0.02, 0.056 * math.sin(math.radians(ang))], [0.012, 0.008, 0.008], "iron", "holder", 0.002, rot=[0, -ang, 0])
     a.arch([0.07, 0.008, 0], [0.04, 0.035, 0.008], "enamel_white", "holder", th=0.008, rot=[0, 0, -90])  # finger ring
     a.cyl([0, 0.03, 0], 0.04, 0.03, "enamel_white", "holder", top=0.85, seg=12)
     a.cyl([0, 0.085, 0], 0.024, 0.08, "wax", "candle", seg=10)
     a.r([0.008, 0.11, 0.011], [0.008, 0.03, 0.006], "wax", "candle", 0.003)                               # a drip
-    a.r([0, 0.138, 0], [0.008, 0.026, 0.004], "flame", "candle", 0.0018)
+    a.cyl([0, 0.13, 0], 0.003, 0.012, "wick", "candle", seg=5)                                           # PR4: the black wick
+    a.r([0, 0.145, 0], [0.008, 0.022, 0.004], "flame", "candle", 0.0018)
     a.col([0, 0.07, 0], [0.1, 0.14, 0.1])
     a.light = {"color": [1.0, 0.62, 0.3], "intensity": 0.12, "radius": 2.5, "offset": [0, 0.14, 0], "flicker": 0.3, "group": "candle", "use": "interior"}
     return a.write(root, [0.13, 0.12], fragments=[], keep=["holder"])
 
 
 def candelabra(root):
-    a = A("furn_candelabra", "Candelabra", "Five-branch brass altar candelabra with beeswax candles.", "metal", 0, 10, blocking=False, front=0.0)
-    a.cyl([0, 0.02, 0], 0.18, 0.04, "brass", "frame", top=0.55, seg=16)
-    a.cyl([0, 0.2, 0], 0.028, 0.36, "brass", "frame", top=0.75, seg=10)
-    for y in (0.12, 0.27):   # knops on the stem
-        a.r([0, y, 0], [0.045, 0.035, 0.045], "brass", "frame", 0.02)
-    a.arch([0, 0.345, 0], [0.48, 0.07, 0.016], "brass", "frame", th=0.014, rot=[180, 0, 0])   # curved arms
-    a.cyl([0, 0.38, 0], 0.018, 0.5, "brass", "frame", seg=8, rot=[0, 0, 90])
-    for x in (-0.24, -0.12, 0.0, 0.12, 0.24):
-        y = 0.38 + (0.06 if x == 0 else 0.0)
-        a.cyl([x, y + 0.01, 0], 0.045, 0.02, "brass", "frame", top=1.0, seg=12)   # drip pan
-        a.cyl([x, y + 0.08, 0], 0.022, 0.12, "wax", "candles", seg=10)
-        a.r([x, y + 0.155, 0], [0.008, 0.026, 0.004], "flame", "candles", 0.0018)
+    a = A("furn_candelabra", "Candelabra", "Five-branch brass altar candelabra on a trefoil base: a turned stem with three knops, S-curved arms with cups stepping down outward, drip pans, beeswax candles burnt to different heights.", "metal", 0, 10, blocking=False, front=0.0)
+    for k in range(3):   # trefoil base: three lobes round a raised boss
+        ang = math.radians(90 + 120 * k)
+        a.cyl([0.045 * math.cos(ang), 0.012, 0.045 * math.sin(ang) * 0.9], 0.1, 0.024, "brass", "frame", top=0.85, seg=16)
+    a.cyl([0, 0.035, 0], 0.08, 0.03, "brass", "frame", top=0.55, seg=14)
+    a.cyl([0, 0.21, 0], 0.03, 0.34, "brass", "frame", top=0.7, seg=10)                                   # stem, 0.05 -> 0.03
+    for y, d in ((0.09, 0.05), (0.2, 0.046), (0.31, 0.042)):                                             # three knops
+        a.r([0, y, 0], [d, 0.03, d], "brass", "frame", 0.02)
+    a.cyl([0, 0.38, 0], 0.045, 0.02, "brass", "frame", top=1.0, seg=12)
+    for sx in (-1, 1):   # two pairs of S-curved arms, two segments each, cups stepping down outward
+        for reach, drop in ((0.13, 0.0), (0.25, 0.04)):
+            tube = lambda p0, p1: a.r([(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2, 0], [math.dist(p0, p1) + 0.012, 0.012, 0.012], "brass", "frame", 0.005, rot=[0, 0, math.degrees(math.atan2(p1[1] - p0[1], p1[0] - p0[0]))])
+            mid = (sx * reach * 0.55, 0.33 - drop)
+            tube((0, 0.36), mid)
+            tube(mid, (sx * reach, 0.37 - drop))
+    for x, drop, burn in ((-0.25, 0.04, 0.05), (-0.13, 0.0, 0.11), (0.0, -0.06, 0.12), (0.13, 0.0, 0.08), (0.25, 0.04, 0.12)):
+        y = 0.38 - drop
+        a.cyl([x, y + 0.008, 0], 0.05, 0.012, "brass", "frame", top=1.0, seg=12)                          # drip pan
+        a.cyl([x, y + 0.02, 0], 0.028, 0.012, "brass", "frame", seg=10)                                   # cup
+        a.cyl([x, y + 0.026 + burn / 2, 0], 0.022, burn, "wax", "candles", seg=10)
+        a.r([x + 0.008, y + 0.026 + burn * 0.6, 0.009], [0.007, burn * 0.5, 0.005], "wax", "candles", 0.003)   # a drip
+        a.cyl([x, y + 0.03 + burn, 0], 0.003, 0.01, "wick", "candles", seg=5)
+        a.r([x, y + 0.045 + burn, 0], [0.008, 0.024, 0.004], "flame", "candles", 0.0018)
     a.light = {"color": [1.0, 0.64, 0.32], "intensity": 0.55, "radius": 4.5, "offset": [0, 0.56, 0], "flicker": 0.25, "group": "candles", "use": "interior"}
     return a.write(root, [0.52, 0.18], fragments=[], keep=["frame"])
 
@@ -1412,12 +1433,17 @@ def ceiling_lamp(root):
     a = A("furn_lamp_ceiling", "Ceiling lamp", "Pendant lamp: a green enamelled steel shade on a cord from a ceiling rose, one bulb. Hangs from a ceiling or beam (origin at the top).",
           "metal", 0, 10, blocking=False, front=0.0)
     a.prop["hang"] = True
-    a.cyl([0, -0.012, 0], 0.09, 0.024, "porcelain", "rose", top=0.7, seg=14, rot=[180, 0, 0])
-    a.cyl([0, -0.22, 0], 0.008, 0.4, "iron", "rose", seg=6)
+    a.cyl([0, -0.012, 0], 0.09, 0.024, "bakelite_brown", "rose", top=0.7, seg=14, rot=[180, 0, 0])     # PR4: bakelite rose
+    for k in range(10):   # braided cord: short twisted links
+        a.r([0, -0.04 - k * 0.036, 0], [0.007, 0.036, 0.007], "bakelite_brown", "rose", 0.0025, rot=[0, 45 * (k % 2), 8 * (1 - 2 * (k % 2))])
     a.cyl([0, -0.43, 0], 0.05, 0.04, "brass", "shade", top=0.7, seg=12)
     a.cyl([0, -0.475, 0], 0.32, 0.07, "enamel_green", "shade", top=0.2, seg=24)       # conical enamel shade
-    a.cyl([0, -0.511, 0], 0.325, 0.006, "enamel_white", "shade", seg=24)               # white enamel rim
-    a.r([0, -0.52, 0], [0.06, 0.06, 0.06], "bulb", "bulb", 0.026)
+    a.cyl([0, -0.473, 0], 0.3, 0.065, "enamel_white", "shade", top=0.2, seg=24)       # PR4: white inside
+    a.cyl([0, -0.511, 0], 0.325, 0.008, "enamel_white", "shade", seg=24)               # rolled white rim
+    for ang in (70, 250):                                                               # enamel chipped to black at two spots
+        a.r([0.162 * math.cos(math.radians(ang)), -0.511, 0.162 * math.sin(math.radians(ang))], [0.014, 0.01, 0.01], "iron", "shade", 0.002, rot=[0, -ang, 0])
+    a.cyl([0, -0.5, 0], 0.035, 0.03, "bulb", "bulb", top=0.6, seg=12, rot=[180, 0, 0])   # pear bulb: neck...
+    a.r([0, -0.535, 0], [0.06, 0.055, 0.06], "bulb", "bulb", 0.026)                      # ...and globe
     a.light = {"color": [1.0, 0.77, 0.5], "intensity": 1.6, "radius": 8.0, "offset": [0, -0.53, 0], "cone": [70, 105], "dir": [0, -1, 0], "shadow": 1, "group": "bulb", "use": "interior"}
     a.col([0, -0.49, 0], [0.3, 0.12, 0.3])
     return a.write(root, [0.32, 0.32], fragments=["shade"], keep=["rose"], glass="bulb")
@@ -1433,9 +1459,10 @@ def caged_lamp(root):
     a.cyl([0, -0.035, 0], 0.15, 0.014, "bunker_grey", "mount", seg=16)                  # globe collar
     a.r([0, -0.09, 0], [0.13, 0.12, 0.13], "lamp_glass", "globe", 0.05)
     a.r([0, -0.08, 0], [0.04, 0.05, 0.04], "bulb", "globe", 0.018)
-    for rot in (0, 60, 120):   # wire guard: three bent hoops over the globe
+    for rot in (0, 90):   # PR4: wire guard of four meridians (two hoops) and two rings
         a.arch([0, -0.105, 0], [0.16, 0.13, 0.006], "bunker_grey", "cage", th=0.005, rot=[180, rot, 0])
     a.cyl([0, -0.11, 0], 0.165, 0.006, "bunker_grey", "cage", seg=16)                  # equator ring
+    a.cyl([0, -0.15, 0], 0.12, 0.006, "bunker_grey", "cage", seg=14)                   # lower ring
     a.col([0, -0.09, 0], [0.18, 0.16, 0.18])
     a.cyl([0, -0.17, 0], 0.05, 0.012, "bunker_grey", "cage", seg=10)
     a.light = {"color": [1.0, 0.85, 0.64], "intensity": 1.3, "radius": 7.0, "offset": [0, -0.1, 0], "shadow": 1, "group": "globe", "use": "electric"}
@@ -1704,9 +1731,12 @@ def sconce(root):
 def sconce_candle(root):
     a = A("furn_sconce_candle", "Candle sconce", "Brass girandole: a repoussé back plate with two scrolled arms, drip pans and tallow candles.",
           "metal", 0, 6, blocking=False, wall=True, front=0.0, mount=1.55)
-    a.r([0, 0.12, 0.006], [0.12, 0.26, 0.012], "brass", "plate", 0.05)
-    a.cyl([0, 0.12, 0.014], 0.08, 0.008, "brass", "plate", seg=14, rot=[90, 0, 0])
-    a.r([0, 0.24, 0.012], [0.05, 0.05, 0.016], "brass", "plate", 0.022)                            # crest
+    a.r([0, 0.13, 0.006], [0.2, 0.28, 0.012], "brass", "plate", 0.06)                             # PR4: repoussé plate 0.20 x 0.28
+    for k in range(7):   # the shell: ribs fanning from a hinge low on the plate
+        ang = -60 + k * 20
+        a.r([0.055 * math.sin(math.radians(ang)), 0.18 + 0.055 * math.cos(math.radians(ang)), 0.015], [0.012, 0.11, 0.008], "brass", "plate", 0.004, rot=[0, 0, -ang])
+    a.cyl([0, 0.13, 0.014], 0.05, 0.01, "brass", "plate", seg=14, rot=[90, 0, 0])
+    a.r([0, 0.255, 0.012], [0.05, 0.03, 0.016], "brass", "plate", 0.012)                            # crest
     for sx in (-1, 1):
         tube(a, [0, 0.07, 0.016], [sx * 0.11, 0.06, 0.08], 0.012, "brass", "plate")
         tube(a, [sx * 0.11, 0.06, 0.08], [sx * 0.13, 0.11, 0.1], 0.012, "brass", "plate")
@@ -1724,6 +1754,7 @@ def wall_oil_lamp(root):
     a.cyl([0, 0.2, 0.012], 0.2, 0.012, "mirror", "reflector", seg=20, rot=[90, 0, 0])               # reflector disc
     a.cyl([0, 0.2, 0.006], 0.215, 0.012, "brass", "reflector", seg=20, rot=[90, 0, 0])
     a.wedge([0, 0.02, 0.05], [0.03, 0.06, 0.09], "cast_iron", "bracket", top=0.25, rot=[180, 180, 0])
+    a.arch([0, -0.03, 0.04], [0.016, 0.07, 0.06], "cast_iron", "bracket", th=0.012, rot=[0, 90, 180])   # PR4: the scroll under the bracket
     a.cyl([0, 0.055, 0.12], 0.1, 0.014, "cast_iron", "bracket", seg=14)                             # holder ring
     a.cyl([0, 0.1, 0.12], 0.09, 0.07, "glass", "glass", top=0.7, seg=14, rot=[180, 0, 0])          # font
     a.cyl([0, 0.145, 0.12], 0.05, 0.016, "brass", "glass", seg=12)                                  # burner
@@ -1737,8 +1768,9 @@ def wall_oil_lamp(root):
 
 def candlestick(root):
     a = A("furn_candlestick", "Candlestick", "Tall turned brass candlestick with a half-burnt beeswax candle.", "metal", 0, 6, blocking=False, front=0.0)
-    a.cyl([0, 0.01, 0], 0.11, 0.02, "brass", "stick", top=0.7, seg=16)
-    a.cyl([0, 0.035, 0], 0.06, 0.03, "brass", "stick", top=0.6, seg=14)
+    a.r([0, 0.007, 0], [0.1, 0.014, 0.1], "brass", "stick", 0.004)                                  # PR4: square foot...
+    a.cyl([0, 0.02, 0], 0.09, 0.012, "brass", "stick", top=0.8, seg=16)                             # ...stepping to round
+    a.cyl([0, 0.036, 0], 0.06, 0.02, "brass", "stick", top=0.6, seg=14)
     for y, d in ((0.06, 0.04), (0.13, 0.036), (0.2, 0.034)):   # stem with knops
         a.cyl([0, y + 0.035, 0], 0.02, 0.07, "brass", "stick", top=0.85, seg=10)
         a.r([0, y, 0], [d, 0.026, d], "brass", "stick", 0.012)
@@ -1770,37 +1802,30 @@ def hall_pendant(root):
 
 
 def coat_stand(root):
-    a = A("furn_coat_stand", "Coat stand", "Bentwood hall stand by the door: four splayed feet, a drip ring, a turned pole crowned with hooks; a greatcoat, "
-          "a jacket, a felt hat and a furled umbrella.", "wood", 10, 30, wall=True, front=0.3)
-    a.cyl([0, 0.95, 0], 0.045, 1.8, "walnut", "pole", top=0.75, seg=12)
+    a = A("furn_coat_stand", "Coat stand", "Bentwood hall stand by the door: a 4 cm pole on four splayed feet with brass toe caps, a drip ring, a crown of six bent hooks; a field-grey greatcoat hanging in folds, a felt hat on a top hook, a scarf over another.",
+          "wood", 10, 30, wall=True, front=0.3)
+    a.cyl([0, 0.95, 0], 0.04, 1.8, "walnut", "pole", top=0.8, seg=12)
     a.r([0, 1.86, 0], [0.06, 0.06, 0.06], "walnut", "pole", 0.028)
-    for k in range(4):   # splayed bentwood feet and the drip ring
-        ang = math.radians(45 + 90 * k)
-        tube(a, [0, 0.3, 0], [math.cos(ang) * 0.27, 0.02, math.sin(ang) * 0.27], 0.03, "walnut", "pole")
-        a.r([math.cos(ang) * 0.28, 0.01, math.sin(ang) * 0.28], [0.04, 0.02, 0.04], "walnut", "pole", 0.009)
-    a.cyl([0, 0.42, 0], 0.4, 0.02, "walnut", "pole", seg=20)
-    a.cyl([0, 0.42, 0], 0.36, 0.022, "walnut", "pole", seg=20)
-    for k in range(4):   # bentwood hooks at the crown
-        yaw = 90 * k
-        a.arch([math.sin(math.radians(yaw)) * 0.1, 1.72, math.cos(math.radians(yaw)) * 0.1], [0.14, 0.1, 0.02], "walnut", "pole", th=0.02, rot=[0, yaw + 90, 0])
-    # greatcoat hanging off the front hook: shoulders, a long body in three folds, sleeves
-    a.r([0, 1.6, 0.16], [0.42, 0.14, 0.16], "coat_wool", "coats", 0.06)
-    for i, (x, rz) in enumerate(((-0.12, 3), (0.0, -1), (0.12, -3))):
-        a.r([x, 1.02, 0.17 + 0.012 * (i % 2)], [0.16, 1.05, 0.09], "coat_wool", "coats", 0.04, rot=[3, 0, rz])
-    for sx in (-1, 1):
-        a.r([sx * 0.2, 1.25, 0.15], [0.08, 0.6, 0.08], "coat_wool", "coats", 0.035, rot=[0, 0, sx * 4])
-    a.r([0.0, 1.58, 0.24], [0.1, 0.12, 0.04], "coat_wool", "coats", 0.018)                           # collar
-    # a jacket on the side hook
-    a.r([0.17, 1.38, -0.02], [0.12, 0.6, 0.3], "coat_blue", "coats", 0.04, rot=[0, 0, -5])
-    a.r([0.15, 1.6, -0.02], [0.13, 0.1, 0.3], "coat_blue", "coats", 0.04)
-    # felt hat on top, umbrella in the ring
-    a.cyl([0, 1.893, 0], 0.3, 0.012, "felt_hat", "hat", seg=20)
-    a.cyl([0, 1.945, 0], 0.17, 0.1, "felt_hat", "hat", top=0.85, seg=16)
-    a.cyl([0, 1.912, 0], 0.175, 0.025, "scarf", "hat", seg=16)
-    tube(a, [-0.12, 0.43, -0.1], [-0.17, 1.15, -0.13], 0.045, "umbrella", "umbrella")
-    a.arch([-0.175, 1.18, -0.13], [0.06, 0.05, 0.014], "walnut", "umbrella", th=0.014, rot=[0, 30, 0])
+    for k in range(4):   # bentwood feet: a curve out and down in two segments, brass toe caps
+        ang = math.radians(45 + 90 * k); c, s_ = math.cos(ang), math.sin(ang)
+        tube(a, [0, 0.32, 0], [c * 0.15, 0.1, s_ * 0.15], 0.03, "walnut", "pole")
+        tube(a, [c * 0.15, 0.1, s_ * 0.15], [c * 0.25, 0.02, s_ * 0.25], 0.028, "walnut", "pole")
+        a.cyl([c * 0.255, 0.012, s_ * 0.255], 0.035, 0.024, "brass", "pole", seg=10)
+    a.cyl([0, 0.55, 0], 0.36, 0.018, "walnut", "pole", seg=20)                                     # drip ring at 0.55
+    a.cyl([0, 0.55, 0], 0.32, 0.02, "walnut", "pole", seg=20)
+    for k in range(6):   # crown of six bent hooks at 1.8 m
+        yaw = 60 * k
+        a.arch([math.sin(math.radians(yaw)) * 0.08, 1.76, math.cos(math.radians(yaw)) * 0.08], [0.12, 0.09, 0.018], "walnut", "pole", th=0.018, rot=[0, yaw + 90, 0])
+    # greatcoat on the front hook: shoulders as a padded yoke, the body a heavy cloth falling in folds
+    a.soft("s", [0, 1.66, 0.14], [0.4, 0.1, 0.12], "coat_wool", "coats", puff=0.4, rad=0.04, wr=0.006, fold=0.12)
+    a.soft("d", [0, 1.12, 0.15], [0.42, 0.06, 1.0], "coat_wool", "coats", rot=[90, 0, 0], sides=0, pleat=0.022, fold=0.09, wr=0.008, th=0.012, rad=0.01)
+    a.r([0.0, 1.68, 0.2], [0.12, 0.08, 0.04], "coat_wool", "coats", 0.018)                          # collar
+    # felt hat on a top hook, a scarf over the back hook
+    a.cyl([0.08, 1.8, 0.0], 0.28, 0.012, "felt_hat", "hat", seg=20, rot=[0, 0, 14])
+    a.cyl([0.08, 1.85, 0.0], 0.16, 0.09, "felt_hat", "hat", top=0.85, seg=16, rot=[0, 0, 14])
+    a.soft("d", [-0.06, 1.55, -0.1], [0.08, 0.03, 0.42], "scarf", "hat", rot=[90, 90, 0], sides=0, pleat=0.006, fold=0.05, wr=0.004, th=0.008, rad=0.005)
     a.col([0, 0.95, 0], [0.5, 1.9, 0.5])
-    return gx2_write(a, root, [0.56, 0.56], fragments=["coats", "hat", "umbrella"], keep=["pole"])
+    return gx2_write(a, root, [0.56, 0.56], fragments=["coats", "hat"], keep=["pole"])
 
 
 def coat_hooks(root):
@@ -1813,11 +1838,11 @@ def coat_hooks(root):
         tube(a, [x, -0.01, 0.026], [x, 0.03, 0.09], 0.01, "iron", "board", seg=6)
         tube(a, [x, -0.01, 0.026], [x, -0.03, 0.07], 0.01, "iron", "board", seg=6)
         a.r([x, 0.032, 0.092], [0.016, 0.016, 0.016], "iron", "board", 0.007)
-    for i, (x, rz) in enumerate(((-0.33, 4), (-0.27, 0), (-0.2, -3))):   # greatcoat, three folds
-        a.r([x, -0.52, 0.065 + 0.012 * (i % 2)], [0.13, 0.95, 0.08], "coat_wool", "coats", 0.035, rot=[2, 0, rz])
-    a.r([-0.27, -0.06, 0.07], [0.3, 0.1, 0.1], "coat_wool", "coats", 0.04)
-    a.r([0.0, -0.38, 0.07], [0.32, 0.68, 0.09], "coat_blue", "coats", 0.04, rot=[0, 0, 2])          # jacket
-    a.r([0.0, -0.06, 0.07], [0.3, 0.1, 0.1], "coat_blue", "coats", 0.04)
+    # PR4: the coats as cloth: a padded shoulder yoke, the body falling in folds (soft parts)
+    a.soft("s", [-0.27, -0.06, 0.07], [0.3, 0.1, 0.1], "coat_wool", "coats", puff=0.4, rad=0.035, wr=0.005, fold=0.12)
+    a.soft("d", [-0.27, -0.55, 0.075], [0.32, 0.07, 0.92], "coat_wool", "coats", rot=[90, 0, 0], sides=0, pleat=0.024, fold=0.08, wr=0.008, th=0.012, rad=0.01)
+    a.soft("s", [0.0, -0.06, 0.07], [0.3, 0.1, 0.1], "coat_blue", "coats", puff=0.4, rad=0.035, wr=0.005, fold=0.12)          # jacket
+    a.soft("d", [0.0, -0.4, 0.075], [0.31, 0.07, 0.6], "coat_blue", "coats", rot=[90, 0, 0], sides=0, pleat=0.018, fold=0.09, wr=0.007, th=0.01, rad=0.01)
     for sx, h in ((-1, 0.55), (1, 0.4)):   # scarf over the right hook, both ends hanging
         a.r([0.27 + sx * 0.035, -h / 2 + 0.02, 0.08], [0.06, h, 0.014], "scarf", "scarf", 0.006, rot=[0, 0, sx * 3])
     a.cyl([0.27, 0.025, 0.08], 0.05, 0.08, "scarf", "scarf", dz=0.03, seg=8, rot=[0, 0, 90])

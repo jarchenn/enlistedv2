@@ -2,7 +2,7 @@
 
 Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/gen_furniture.py`, `tools/gen_furniture_mil.py` and `tools/catalog_modern_furniture.mjs`) was captured from 1 m at standing eye height (1.62 m), 35 degrees off its front (`NMK_PROPS_NEAR=1.0 NMK_PROPS_NEAR_ONLY=1 --capture-props`), and set beside a reference photo of the real object (Wikimedia Commons, linked per item). The 92 imported paintings (`furn_art_*`) are models already and were not audited.
 
-**Outcome:** 38 assets **replaced** by scanned Poly Haven models (CC0), 164 **kept** with a change request below. Replacement keeps the asset id, its parts as colliders / stand-ins, its furnishing envelope, its broken remains and its cover (content/settings/furniture_models.json, `src/assets.cpp` furnitureModelFor, fitted by `tools/props/furn_fit.py`), so placement, nav and gameplay do not change.
+**Outcome:** 40 assets **replaced** by scanned Poly Haven models (CC0), 162 **kept** with a change request below. Replacement keeps the asset id, its parts as colliders / stand-ins, its furnishing envelope, its broken remains and its cover (content/settings/furniture_models.json, `src/assets.cpp` furnitureModelFor, fitted by `tools/props/furn_fit.py`), so placement, nav and gameplay do not change.
 
 **How to execute a request:** edit the asset's builder (period pieces: `tools/gen_furniture.py`, military: `tools/gen_furniture_mil.py`, modern: `tools/catalog_modern_furniture.mjs`), keep the stated outer size (the footprint and height the furnishing planner reserves), regenerate, recapture with the command above (`NMK_PROPS=<id>`), and compare with the reference. Colours are linear albedo (r, g, b); roughness 0 = mirror, 1 = matte. A request may also be met by replacing the asset with an imported model of the same size and era: add it to `tools/props/furn_replace.json` and run `tools/props/furn_fit.py` (it refuses a model that would distort more than 30 %).
 
@@ -80,6 +80,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong (1 m capture, hung in the air without its wall):** a tiny brass plate with two specks.
 **Change:** Repoussé brass back plate 0.20 x 0.28 m with a shell motif, two scrolled arms, drip pans and tallow candles.
+**Status:** PR4 batch 6, done: repoussé plate 0.20 x 0.28 m with a fanned shell, two scrolled arms, drip pans, candles.
+![furn_sconce_candle after, 1 m](furniture-audit/furn_sconce_candle_after.jpg)
 
 ### `furn_table_dining`: Dining table
 *Rooms:* church, kitchen, office, sitting, tavern. *Size:* 1.7 x 0.86 m footprint, h 0.76 m.
@@ -128,6 +130,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong (1 m capture, hung in the air without its wall):** the garments are grey and blue slabs with no folds; hooks hidden.
 **Change:** Oak board 0.82 m with 3 cast-iron double hooks; the greatcoat must hang with folds (see furn_coat_stand), not as a slab.
+**Status:** PR4 batch 6, done: the coats hang as cloth (soft parts): padded shoulders, bodies falling in pleated folds.
+![furn_coat_hooks after, 1 m](furniture-audit/furn_coat_hooks_after.jpg)
 
 ### `furn_coat_rack`: Coat pegs
 *Rooms:* bedroom, class, hall, kitchen, mil_command, mil_passage, mil_quarters, mil_radio, office, tavern, utility, workshop. *Size:* 0.9 x 0.12 m footprint, h 0.93 m.
@@ -315,6 +319,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong (1 m capture, hung in the air without its wall):** a small grey blob; chimney and reflector not legible.
 **Change:** Cast-iron bracket with a scroll, a glass font 0.08 m (paraffin visible), a brass burner, a 0.20 m glass chimney, a 0.15 m tin reflector disc behind.
+**Status:** PR4 batch 6, done: a scroll under the cast-iron bracket; font, burner, chimney and reflector as before.
+![furn_lamp_wall_oil after, 1 m](furniture-audit/furn_lamp_wall_oil_after.jpg)
 
 ### `furn_mirror`: Mirror
 *Rooms:* bedroom, hall, sitting, tavern. *Size:* 0.52 x 0.04 m footprint, h 0.65 m.
@@ -462,6 +468,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** structure ok; boxes are flat grey blocks with pale label bands; nothing reads as German ammunition.
 **Change:** keep 1.6 x 0.5 x 1.8. Shelves: rough pine 0.03 m on 0.08 m uprights, diagonal brace at the back. Contents: MG belt boxes (Patronenkasten 34: 0.28 x 0.10 x 0.20, field grey 0.30, 0.31, 0.27, a hinged lid with a latch and a top carry handle), wooden shell crates with rope handles and stencilled lot bands (black stencil, no legible text needed), a row of Stielhandgranate crates. Painted metal roughness 0.55, chipped edges to bare steel.
+**Status:** PR4 batch 6, done: rough pine shelves on 8 cm uprights with a diagonal back brace; rows of Patronenkasten 34 belt boxes (0.28 x 0.10 x 0.20, lids, latches, carry handles, chipped lid edges), rope-handled shell crates with plank seams and black lot bands, a row of stick-grenade crates.
+![furn_mil_ammo_rack after, 1 m](furniture-audit/furn_mil_ammo_rack_after.jpg)
 
 ### `furn_mil_bunk`: Steel bunk (two-tier)
 *Rooms:* mil_quarters. *Size:* 2.0 x 0.86 m footprint.
@@ -469,7 +477,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Bunks in the USS Pampanito.jpg](https://commons.wikimedia.org/wiki/File:Bunks_in_the_USS_Pampanito.jpg) (CC BY-SA 4.0), partial match
 **KEEP: change request.** **Wrong:** frame reads; straw ticks are striped like modern mattresses and too thin.
 **Change:** keep 2.0 x 0.86 x 1.8. Straw ticks 0.12 m thick, lumpy (2-3 sag lines in the normal), coarse jute / hessian (0.55, 0.46, 0.30) with a faint check, not stripes; folded grey wool blankets (0.20, 0.20, 0.19) with two darker stripes at the ends; a foot ladder with 4 rungs on one end. Frame: field-grey steel tube 0.03 m, chipped.
-**Status:** PR4 batch 5, done: 12 cm lumpy straw ticks in coarse jute with a faint check (three fills with sag lines), grey wool blankets with two dark stripes at each end, four ladder rungs, 3 cm field-grey tube frame.
+**Status:** PR4 batch 5, done: 12 cm lumpy straw ticks in coarse jute with a faint check (three fills with sag lines), grey wool blankets with two dark stripes at each end, four ladder rungs, 3 cm field-grey tube frame. PR5, done: soft cloth parts (domed / sagging / piped / tufted upholstery, draped and pleated cloth) replace the hard slabs.
 ![furn_mil_bunk after, 1 m](furniture-audit/furn_mil_bunk_after.jpg)
 
 ### `furn_mil_crates`: Ammunition crates
@@ -478,6 +486,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Box, ammunition belts (AM 1985.370-1).jpg](https://commons.wikimedia.org/wiki/File:Box,_ammunition_belts_(AM_1985.370-1).jpg) (CC BY 4.0), partial match
 **KEEP: change request.** **Wrong:** boxes read; corners are clean, labels are pale blank bands, no rope handles visible.
 **Change:** keep 1.64 x 0.44 x the stack. Crates: olive / field-grey painted wood (0.27, 0.29, 0.22), plank seams 0.005 m on the faces, iron corner straps 0.03 m, rope handles (0.015 m loop) on the ends, black stencilled lot band (generic characters / block shapes, no legible words), paint worn to wood on corners and lid edges (roughness 0.65).
+**Status:** PR4 batch 6, done: olive-painted plank crates (seams, iron corner straps, rope handles, black lot band and block characters), paint worn to wood on the corners and lid edge.
+![furn_mil_crates after, 1 m](furniture-audit/furn_mil_crates_after.jpg)
 
 ### `furn_mil_fusebox`: Fuse box and conduits
 *Rooms:* mil_ammo, mil_command, mil_passage, mil_plant, mil_quarters, mil_radio. *Size:* 0.45 x 0.2 m footprint.
@@ -485,6 +495,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong (1 m capture, hung in the air):** a grey box with a black switch and two long rods; reads, but plain.
 **Change:** keep 0.45 x 0.2 x height. Box: pressed steel 0.30 x 0.40 x 0.15, field grey, a hinged door with a recessed latch and a lightning-flash plate (no text), a rotary switch 0.06 m with a handle; conduits 0.025 m steel tubes rising to the ceiling with saddle clips every 0.4 m; a cable gland and two ceramic fuse holders visible through a vent slot.
+**Status:** PR4 batch 6, done: pressed-steel box 0.30 x 0.40 x 0.15 with a hinged door, recessed latch, a yellow lightning-flash plate, a vent slot showing two ceramic fuse holders, a rotary switch, a cable gland and conduits clipped every 0.4 m.
+![furn_mil_fusebox after, 1 m](furniture-audit/furn_mil_fusebox_after.jpg)
 
 ### `furn_mil_gasmask_hooks`: Gas-mask and helmet pegs
 *Rooms:* mil_fighting, mil_passage, mil_quarters. *Size:* 1.4 x 0.22 m footprint.
@@ -492,6 +504,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong (1 m capture, hung in the air):** canisters and helmets read as grey lumps on a rail.
 **Change:** keep 1.4 x 0.22 x height. Five GM-30/38 canisters: fluted cylinders 0.27 m x 0.11 m (8-10 flutes in the normal), field grey with a hinged lid and two straps hanging (canvas, 0.02 m); two M35/M40 helmets: the stepped flared rim profile (lathe of 8-10 points), field grey matte (roughness 0.7), leather liner inside visible.
+**Status:** PR4 batch 6, done: fluted (10-flute) GM-30/38 canisters 0.27 x 0.11 m with hinged lids and two canvas straps; M35 helmets with the stepped, flared skirt, rolled rim and a leather liner.
+![furn_mil_gasmask_hooks after, 1 m](furniture-audit/furn_mil_gasmask_hooks_after.jpg)
 
 ### `furn_mil_generator`: Diesel generator set
 *Rooms:* mil_plant. *Size:* 1.7 x 0.75 m footprint.
@@ -517,6 +531,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** reads, but grime is a uniform blotch over the whole door; vent louvres flat.
 **Change:** keep 0.9 x 0.5 x 1.9. Louvres: 6 pressed vents per door top and bottom (0.06 x 0.012 m, protruding 0.004 m, dark gap). Handle: 0.12 m drop handle with a hasp and padlock. Paint: field grey semi-gloss (roughness 0.35), wear concentrated on edges and around handles (bare steel), not overall blotching; a small paper card holder 0.06 x 0.04 m.
+**Status:** PR4 batch 6, done: semi-gloss field grey without the overall blotching; six pressed louvres top and bottom per door, drop handles on pivot plates, hasp and padlock, card holders, wear on edges and round the handles.
+![furn_mil_locker after, 1 m](furniture-audit/furn_mil_locker_after.jpg)
 
 ### `furn_mil_map`: Situation map
 *Rooms:* mil_command, mil_fighting, mil_quarters, mil_radio. *Size:* 1.5 x 0.04 m footprint.
@@ -524,6 +540,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong (1 m capture, hung in the air):** a plain grid on a pale board with a few dots.
 **Change:** keep 1.5 x 0.04 x height. Plywood board 1.3 x 0.9 m with a printed topographic map (contours, woods green, roads red / black, coast blue, grid squares, no legible text), coloured map pins (red / blue heads) along a hand-drawn front line in red and blue pencil, a clipboard with sheets hung at the corner, thumb-tacked corners curling.
+**Status:** PR4 batch 6, done: a topographic sheet (woods, sea, contours, roads, grid) with red and blue pencil front lines, pins with heads on shanks, curling tacked corners, a clipboard with sheets on a nail.
+![furn_mil_map after, 1 m](furniture-audit/furn_mil_map_after.jpg)
 
 ### `furn_mil_phone`: Field telephone
 *Rooms:* mil_command, mil_radio. *Size:* 0.3 x 0.2 m footprint.
@@ -540,6 +558,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Victory Show Cosby UK 06-09-2015 WW2 re-enactment Military Vehicles etc zaphad1 Flickr CCBY2.0 Polish tent radio station communications reenactors camp area Niedziela etc IMG 3942.jpg](https://commons.wikimedia.org/wiki/File:Victory_Show_Cosby_UK_06-09-2015_WW2_re-enactment_Military_Vehicles_etc_zaphad1_Flickr_CCBY2.0_Polish_tent_radio_station_communications_reenactors_camp_area_Niedziela_etc_IMG_3942.jpg) (CC BY 2.0), partial match
 **KEEP: change request.** **Wrong:** two grey boxes with dials on a desk; they do not read as Wehrmacht radio sets.
 **Change:** keep 1.5 x 0.65 x height. Sets: Torn.Fu-style transceiver 0.36 x 0.20 x 0.30, field grey crackle paint, front panel with 2 large tuning dials (0.06 m with a scale window), 4 knobs, jacks; a battery box beside; headphones (two 0.07 m cups on a band) and a Morse key (brass on a black base); cables between. Desk: rough plank top 0.04 m on trestles, map / log sheets. Field grey paint roughness 0.6, chipped edges.
+**Status:** PR4 batch 6, done: rough plank desk on A-frame trestles; one Torn.Fu-style transceiver (two tuning dials in scale windows, four knobs, jacks), battery box, headphones, Morse key on a black base, field telephone, log sheets, cables.
+![furn_mil_radio after, 1 m](furniture-audit/furn_mil_radio_after.jpg)
 
 ### `furn_mil_rifle_rack`: Rifle rack
 *Rooms:* mil_fighting, mil_passage, mil_quarters. *Size:* 1.3 x 0.35 m footprint.
@@ -547,6 +567,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [6517 - Fürigen - Festung Fürigen - Gun rack.JPG](https://commons.wikimedia.org/wiki/File:6517_-_F%C3%BCrigen_-_Festung_F%C3%BCrigen_-_Gun_rack.JPG) (CC BY-SA 2.5), partial match
 **KEEP: change request.** **Wrong:** rifles are uniform dark sticks; stocks and barrels not distinguishable.
 **Change:** keep 1.3 x 0.35 x height. Six Kar98k: 1.11 m long each; walnut stock (0.25, 0.14, 0.07) with the bolt handle and a sling (leather 0.02 m strap); barrel and bands dark blued steel (0.06, 0.06, 0.07, metallic, roughness 0.35); stocks in a notched base rail (0.08 m), muzzles in a notched upper rail at 0.9 m. Use the game's own kar98k model if available instead of sticks.
+**Status:** PR4 batch 6, done: six of the game's own Kar98k models standing in notched base and upper rails (no more sticks).
+![furn_mil_rifle_rack after, 1 m](furniture-audit/furn_mil_rifle_rack_after.jpg)
 
 ### `furn_mil_table`: Map table (trestle)
 *Rooms:* mil_command. *Size:* 1.8 x 0.9 m footprint.
@@ -554,6 +576,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** plank table reads; the map is a flat pale sheet without content.
 **Change:** keep 1.8 x 0.9 x 0.78. Map: 1.0 x 0.7 m, printed topographic look (contours, grid squares, coloured pencil front lines, no legible text), corners curled 0.01 m, weighted by a compass and a mug; dividers, set square and pencils on it. Trestles: A-frame legs 0.05 m with a cross brace.
+**Status:** PR4 batch 6, done: the same topographic map look with curled corners, a compass and an enamel mug on it, dividers, a set square, pencils; A-frame trestles with a cross brace.
+![furn_mil_table after, 1 m](furniture-audit/furn_mil_table_after.jpg)
 
 ### `furn_pot`: Cooking pot
 *Rooms:* barn, cellar, kitchen, mil_plant, prokitchen, utility, workshop. *Size:* 0.3 x 0.26 m footprint, h 0.34 m.
@@ -793,7 +817,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Inauguración del Hospital Regional de Apatzingán. (20503993770).jpg](https://commons.wikimedia.org/wiki/File:Inauguraci%C3%B3n_del_Hospital_Regional_de_Apatzing%C3%A1n._(20503993770).jpg) (CC BY 2.0)
 **KEEP: change request.** **Wrong:** reads; sheets striped.
 **Change:** keep. Plain white / pale blue sheets with folds, grey steel chassis with castors and a hand crank, side rails 0.02 m tubes.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open.
+**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. PR5, done: soft cloth parts (domed / sagging / piped / tufted upholstery, draped and pleated cloth) replace the hard slabs.
 ![furn_mod_hospital_bed after, 1 m](furniture-audit/furn_mod_hospital_bed_after.jpg)
 
 ### `furn_mod_ice_machine`: Ice machine
@@ -927,7 +951,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong (1 m capture):** reads, but the stripes are too strong and the pleats are flat.
 **Change:** keep. Pastel pattern (pale blue / green small geometric), 0.12 m pleats with real depth (wave geometry 0.04 m), a 0.4 m mesh band at the top (alpha), stainless ceiling track and drop rods.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open.
+**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. PR5, done: soft cloth parts (domed / sagging / piped / tufted upholstery, draped and pleated cloth) replace the hard slabs.
 
 ### `furn_mod_range_oven`: Range with oven
 *Rooms:* prokitchen. *Size:* 0.9 x 0.867 m footprint, h 1.39 m.
@@ -975,18 +999,17 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Rooms:* bedroom_modern, lobby, sitting_modern. *Size:* 1.7 x 0.923 m footprint, h 0.87 m.
 ![furn_mod_sofa2 at 1 m](furniture-audit/furn_mod_sofa2.jpg)
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
-**KEEP: change request.** **Wrong:** pinstripe fabric reads as suit cloth; cushions are hard boxes.
-**Change:** keep sizes. Fabric: plain woven (boucle or linen) in grey, sand or teal with a weave normal, roughness 0.85, no stripes; cushions rounded boxes (radius 0.05) with welt seams and a slight sag; one scatter cushion with a pattern; tapered walnut legs.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open.
-![furn_mod_sofa2 after, 1 m](furniture-audit/furn_mod_sofa2_after.jpg)
+*After:* ![furn_mod_sofa2 replaced, 1 m](furniture-audit/furn_mod_sofa2_after.jpg)
+**REPLACED** by the user's model Sofa 202205_001 (Sketchfab, CC-BY-4.0); credit: Sofa 202205_001 by vegu, Sketchfab (https://sketchfab.com/3d-models/sofa-202205-001-86a1883d07c441178d4e5cc7a14bf14f), CC-BY-4.0. Fitted: scale 0.94, per-axis stretch; baked into `content/assets/models/fr_mod_sofa2/` (docs/user-furniture-models.md).
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong:** pinstripe fabric reads as suit cloth; cushions are hard boxes. **Change:** keep sizes. Fabric: plain woven (boucle or linen) in grey, sand or teal with a weave normal, roughness 0.85, no stripes; cushions rounded boxes (radius 0.05) with welt seams and a slight sag; one scatter cushion with a pattern; tapered walnut legs.
 
 ### `furn_mod_sofa3`: Modern sofa (3-seat)
 *Rooms:* bedroom_modern, lobby, sitting_modern. *Size:* 2.2 x 0.923 m footprint, h 0.87 m.
 ![furn_mod_sofa3 at 1 m](furniture-audit/furn_mod_sofa3.jpg)
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
-**KEEP: change request.** **Wrong / change:** as furn_mod_sofa2 at 2.2 x 0.92 x 0.87 (pinstripe fabric to a plain weave, softer cushions). (Poly Haven sofa_03 was tried and not used: it is a buttoned leather period sofa.)
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open.
-![furn_mod_sofa3 after, 1 m](furniture-audit/furn_mod_sofa3_after.jpg)
+*After:* ![furn_mod_sofa3 replaced, 1 m](furniture-audit/furn_mod_sofa3_after.jpg)
+**REPLACED** by the user's model Sofa_3230 (Sketchfab, CC-BY-4.0); credit: Sofa_3230 by vasycrukov, Sketchfab (https://sketchfab.com/3d-models/sofa-3230-a13c1053ff894d4fa0a6aeb1bb90e8fc), CC-BY-4.0. Fitted: scale 0.80, per-axis stretch; baked into `content/assets/models/fr_mod_sofa3/` (docs/user-furniture-models.md).
+*(The in-house version's audit note, kept for the stand-in that shows while the bake is missing):* **Wrong / change:** as furn_mod_sofa2 at 2.2 x 0.92 x 0.87 (pinstripe fabric to a plain weave, softer cushions). (Poly Haven sofa_03 was tried and not used: it is a buttoned leather period sofa.)
 
 ### `furn_mod_stock_rack`: Wire shelving with stock
 *Rooms:* prokitchen. *Size:* 1.205 x 0.465 m footprint, h 1.80 m.
@@ -1043,7 +1066,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** reads.
 **Change:** keep. Seats perforated steel (alpha dots) or moulded with upholstered pads in blue fabric, beam brushed steel.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open.
+**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. PR5, done: soft cloth parts (domed / sagging / piped / tufted upholstery, draped and pleated cloth) replace the hard slabs.
 
 ### `furn_mod_walkin_door`: Walk-in cooler door
 *Rooms:* prokitchen. *Size:* 1.4 x 0.25 m footprint, h 2.30 m.
@@ -1077,7 +1100,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Carrying the Weight- Camp Zama teen becomes youngest to join installation’s 1,000 Pound Club (9771679).jpg](https://commons.wikimedia.org/wiki/File:Carrying_the_Weight-_Camp_Zama_teen_becomes_youngest_to_join_installation%E2%80%99s_1,000_Pound_Club_(9771679).jpg) (Public domain)
 **KEEP: change request.** **Wrong:** plates thin.
 **Change:** keep. Bumper plates 0.06-0.10 m thick in rubber colours, chrome knurled barbell 0.028 m, padded bench black vinyl.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open.
+**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. PR5, done: soft cloth parts (domed / sagging / piped / tufted upholstery, draped and pleated cloth) replace the hard slabs.
 
 ### `furn_mod_wheelchair`: Wheelchair
 *Rooms:* ward. *Size:* 0.68 x 0.9 m footprint, h 0.99 m.
@@ -1110,6 +1133,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Edward L. Loper, Brass Candlestick, c. 1938, NGA 24283.jpg](https://commons.wikimedia.org/wiki/File:Edward_L._Loper,_Brass_Candlestick,_c._1938,_NGA_24283.jpg) (CC0)
 **KEEP: change request.** **Wrong:** thin rod with a tiny base, reads as a stick, no turnings.
 **Change:** keep 0.11 x 0.11 x 0.42. Brass, three turned knops on a baluster stem (radius profile 0.012 -> 0.022 -> 0.015 -> 0.02 m), a 0.10 m stepped square-to-round base 0.03 m tall, a 0.04 m bobèche at the top. Polished brass with darker tarnish in the turnings. Candle 0.022 m beeswax, half burnt with a drip.
+**Status:** PR4 batch 6, done: stepped square-to-round foot; baluster stem with knops, bobèche, half-burnt candle with a drip.
+![furn_candlestick after, 1 m](furniture-audit/furn_candlestick_after.jpg)
 
 ### `furn_mod_bath`: Bath
 *Rooms:* bathroom_modern. *Size:* 1.7 x 0.74 m footprint, h 0.68 m.
@@ -1126,7 +1151,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Canopy bed of Amantaka Suite in Amantaka luxury Resort & Hotel in Luang Prabang Laos.jpg](https://commons.wikimedia.org/wiki/File:Canopy_bed_of_Amantaka_Suite_in_Amantaka_luxury_Resort_%26_Hotel_in_Luang_Prabang_Laos.jpg) (CC BY-SA 4.0), partial match
 **KEEP: change request.** **Wrong:** flat saturated colours (yellow throw band), mattress stripes, no fabric softness.
 **Change:** keep 1.74 x 2.13 x 1.10. Duvet: rounded box radius 0.06 with 3-4 soft folds over the edges (normal), white or light grey cotton (roughness 0.85); folded throw in a muted tone (ochre 0.55, 0.42, 0.20 or grey); two pillows 0.65 x 0.45 x 0.15 rounded; headboard upholstered in a woven fabric (normal) with piping; walnut frame (0.25, 0.15, 0.09) with a 0.005 m reveal.
-**Status:** PR4 batch 5, done: soft white duvet (rounded, sides hanging in folds, creases, turned-down top), muted ochre throw folded over the foot, two 0.65 x 0.45 x 0.15 rounded pillows, woven upholstered headboard with piping, walnut frame with a 5 mm reveal.
+**Status:** PR4 batch 5, done: soft white duvet (rounded, sides hanging in folds, creases, turned-down top), muted ochre throw folded over the foot, two 0.65 x 0.45 x 0.15 rounded pillows, woven upholstered headboard with piping, walnut frame with a 5 mm reveal. PR5, done: soft cloth parts (domed / sagging / piped / tufted upholstery, draped and pleated cloth) replace the hard slabs.
 ![furn_mod_bed_double after, 1 m](furniture-audit/furn_mod_bed_double_after.jpg)
 
 ### `furn_mod_bed_single`: Modern bed (single)
@@ -1134,7 +1159,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 ![furn_mod_bed_single at 1 m](furniture-audit/furn_mod_bed_single.jpg)
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong / change:** as furn_mod_bed_double at 1.04 x 2.13 x 1.10 with one pillow.
-**Status:** PR4 batch 5, done: as the double at its size: light grey duvet in folds, grey throw, one pillow, piped woven headboard, walnut frame with a reveal.
+**Status:** PR4 batch 5, done: as the double at its size: light grey duvet in folds, grey throw, one pillow, piped woven headboard, walnut frame with a reveal. PR5, done: soft cloth parts (domed / sagging / piped / tufted upholstery, draped and pleated cloth) replace the hard slabs.
 ![furn_mod_bed_single after, 1 m](furniture-audit/furn_mod_bed_single_after.jpg)
 
 ### `furn_mod_dining_chair`: Modern dining chair
@@ -1237,7 +1262,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** pinstripe fabric reads as suit cloth; cushions are hard boxes.
 **Change:** keep sizes. Fabric: plain woven (boucle or linen) in grey, sand or teal with a weave normal, roughness 0.85, no stripes; cushions rounded boxes (radius 0.05) with welt seams and a slight sag; one scatter cushion with a pattern; tapered walnut legs.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open.
+**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. PR5, done: soft cloth parts (domed / sagging / piped / tufted upholstery, draped and pleated cloth) replace the hard slabs.
 ![furn_mod_sofa_l after, 1 m](furniture-audit/furn_mod_sofa_l_after.jpg)
 
 ### `furn_mod_stove`: Cooker
@@ -1314,6 +1339,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong (1 m capture, hung in the air without its wall):** a white blob on no visible arm.
 **Change:** Brass back plate 0.10 x 0.14 m, a scrolled arm 0.15 m, a frosted glass tulip shade 0.10 m (emissive), polished brass.
+**Status:** PR4 batch 6, done: already met (brass plate, scrolled arm, frosted tulip); confirmed close up.
+![furn_sconce after, 1 m](furniture-audit/furn_sconce_after.jpg)
 
 ### `furn_settee`: Settee
 *Rooms:* bedroom, office, sitting, sitting_modern. *Size:* 1.9 x 0.82 m footprint, h 1.16 m.
@@ -1370,6 +1397,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Archibald Knox candle holder.jpg](https://commons.wikimedia.org/wiki/File:Archibald_Knox_candle_holder.jpg) (CC BY-SA 4.0), partial match
 **KEEP: change request.** **Wrong:** at 1 m it is a white dot; the enamelled chamberstick and finger ring are not readable.
 **Change:** keep 0.13 x 0.12 x 0.15. Pan 0.12 m dish, 0.02 m deep with a rolled rim, white enamel with a blue rim line and chips showing black iron at the rim; socket 0.03 m tube 0.04 m high; finger ring 0.035 m loop on the side. Tallow candle 0.02 m, yellowish white, burnt to 0.07 m with a drip down one side and a black wick.
+**Status:** PR4 batch 6, done: blue rim line and two chips on the enamel pan, a black wick.
+![furn_candle after, 1 m](furniture-audit/furn_candle_after.jpg)
 
 ### `furn_clock`: Long-case clock
 *Rooms:* hall, sitting. *Size:* 0.5 x 0.32 m footprint, h 2.20 m.
@@ -1384,6 +1413,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Wrought iron coat stand and umbrella stand (4858064613).jpg](https://commons.wikimedia.org/wiki/File:Wrought_iron_coat_stand_and_umbrella_stand_(4858064613).jpg) (CC BY 2.0), partial match
 **KEEP: change request.** **Wrong:** the hanging coats are smooth grey slabs that hide the stand; no folds, no hooks visible, the bentwood feet do not read.
 **Change:** keep 0.56 x 0.56 x 2.00. Stand: 0.04 m pole, four bentwood feet curving out 0.25 m with brass toe caps, a 0.36 m drip ring at 0.55 m, crown of six bent hooks at 1.80 m. Coats: one greatcoat (field-grey or brown wool, 1.1 m long) hanging from a hook with 4-5 vertical folds (rounded boxes rotated ±5 degrees, normal map fold lines), collar and shoulder shape on the hook; a cap or hat on a top hook; a scarf over another. Leave 50 % of the pole and all four feet visible from the front.
+**Status:** PR4 batch 6, done: 4 cm pole, bentwood feet with brass toe caps, drip ring at 0.55 m, six hooks; a greatcoat hanging in folds, a felt hat, a scarf (soft cloth).
+![furn_coat_stand after, 1 m](furniture-audit/furn_coat_stand_after.jpg)
 
 ### `furn_crate`: Crate
 *Rooms:* attic, barn, bedroom, cellar, kitchen, office, ruin, utility, workshop. *Size:* 0.5 x 0.5 m footprint, h 0.45 m.
@@ -1439,7 +1470,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Booth seat in Kei Hing Restaurant.jpg](https://commons.wikimedia.org/wiki/File:Booth_seat_in_Kei_Hing_Restaurant.jpg) (CC0), partial match
 **KEEP: change request.** **Wrong:** reads well; vinyl too matte, channels uniform.
 **Change:** keep. Red vinyl (0.50, 0.08, 0.07) roughness 0.3 with highlights; channel tufts 0.10 m with welt seams; a scuffed lighter patch on the seat front edge; walnut base with a kick plate.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open.
+**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. PR5, done: soft cloth parts (domed / sagging / piped / tufted upholstery, draped and pleated cloth) replace the hard slabs.
 
 ### `furn_mod_booth_single`: Booth seat (single)
 *Rooms:* dining. *Size:* 1.2 x 0.64 m footprint, h 1.13 m.
@@ -1447,7 +1478,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Booth seat in Kei Hing Restaurant.jpg](https://commons.wikimedia.org/wiki/File:Booth_seat_in_Kei_Hing_Restaurant.jpg) (CC0), partial match
 **KEEP: change request.** **Wrong:** reads well; vinyl too matte, channels uniform.
 **Change:** keep. Red vinyl (0.50, 0.08, 0.07) roughness 0.3 with highlights; channel tufts 0.10 m with welt seams; a scuffed lighter patch on the seat front edge; walnut base with a kick plate.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open.
+**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. PR5, done: soft cloth parts (domed / sagging / piped / tufted upholstery, draped and pleated cloth) replace the hard slabs.
 
 ### `furn_mod_condiment_station`: Condiment station
 *Rooms:* dining. *Size:* 0.9 x 0.572 m footprint, h 1.30 m.
@@ -1588,6 +1619,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [StMartiniBremen-02a.jpg](https://commons.wikimedia.org/wiki/File:StMartiniBremen-02a.jpg) (CC BY-SA 2.0 de), partial match
 **KEEP: change request.** **Wrong:** arms are straight sticks at one height; no base drip pans, no turned stem.
 **Change:** keep 0.52 x 0.18 x 0.61. Turned stem 0.03-0.05 m with three knops, on a 0.16 m trefoil base. Five arms: centre straight up; two pairs curving out in S-curves (2 segments each) to 0.13 m and 0.25 m from centre, cups stepping down 0.04 m outward. Drip pans 0.05 m discs under each candle. Beeswax candles 0.022 m, cream-yellow, two burnt down to different heights with drips (normal). Brass: polished (0.78, 0.58, 0.28, roughness 0.18), tarnish in recesses (darker, roughness 0.5).
+**Status:** PR4 batch 6, done: trefoil base, turned stem with three knops, S-curved arms with cups stepping down outward, drip pans, candles burnt to different heights with drips and wicks.
+![furn_candelabra after, 1 m](furniture-audit/furn_candelabra_after.jpg)
 
 ### `furn_curtains`: Curtains
 *Rooms:* none in room_dressing.json. *Size:* 1.5 x 0.08 m footprint, h 1.45 m.
@@ -1595,7 +1628,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong (1 m capture, hung in the air without its wall):** two flat plaid strips hanging straight from the rod, no pleat depth, check pattern faint.
 **Change:** Pair of curtains on an iron rod (0.015 m with ball finials): checked cotton (red / white or blue / white 0.03 m check), 8-10 deep pleats each (normal + geometry wave 0.03 m), hem 0.04 m, tie-backs.
-**Status:** PR3 batch 3, done in part: red-and-white check that reads, deeper pleats. The rest of the request is still open.
+**Status:** PR3 batch 3, done in part: red-and-white check that reads, deeper pleats. The rest of the request is still open. PR5, done: soft cloth parts (domed / sagging / piped / tufted upholstery, draped and pleated cloth) replace the hard slabs.
 ![furn_curtains after, 1 m](furniture-audit/furn_curtains_after.jpg)
 
 ### `furn_curtains_half`: Curtains (half-drawn)
@@ -1604,7 +1637,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong (1 m capture, hung in the air without its wall):** as furn_curtains; the drawn curtain is a flat corrugated sheet.
 **Change:** As furn_curtains, one curtain drawn half across in deep pleats.
-**Status:** PR3 batch 3, done in part: red-and-white check, deeper pleats. The rest of the request is still open.
+**Status:** PR3 batch 3, done in part: red-and-white check, deeper pleats. The rest of the request is still open. PR5, done: soft cloth parts (domed / sagging / piped / tufted upholstery, draped and pleated cloth) replace the hard slabs.
 ![furn_curtains_half after, 1 m](furniture-audit/furn_curtains_half_after.jpg)
 
 ### `furn_debris_glass`: Broken glass
@@ -1643,6 +1676,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong (1 m capture, hung in the air without its wall):** a white blob; globe and guard wires not visible at 1 m.
 **Change:** Electric bunker lamp: cast-iron ceiling base 0.16 m, glass globe 0.12 m (frosted, emissive when lit), a steel wire guard of 4 meridians and 2 rings (0.006 m), field grey paint. (Poly Haven caged_hanging_light is a later industrial alternative.)
+**Status:** PR4 batch 6, done: wire guard of four meridians and two rings round the frosted globe.
+![furn_lamp_caged after, 1 m](furniture-audit/furn_lamp_caged_after.jpg)
 
 ### `furn_lamp_ceiling`: Ceiling lamp
 *Rooms:* none in room_dressing.json. *Size:* 0.32 x 0.32 m footprint, h 0.55 m.
@@ -1650,6 +1685,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong (1 m capture, hung in the air):** a white disc on a thin stem; the green enamel shade and the rose do not read.
 **Change:** keep 0.32 x 0.32 x 0.55. Ceiling rose 0.08 m bakelite; braided cord 0.006 m; shade: conical enamelled steel 0.30 m wide, 0.12 m tall, outside dark green (0.10, 0.25, 0.15, roughness 0.2), inside white with emissive bulb glow, a rolled rim, enamel chipped to black at two spots on the rim; a pear bulb visible from below. (Poly Haven hanging_industrial_lamp was tried and refused: too tall for the drop.)
+**Status:** PR4 batch 6, done: bakelite rose, braided cord, green enamel shade white inside with a rolled rim and two chips to black, a pear bulb.
+![furn_lamp_ceiling after, 1 m](furniture-audit/furn_lamp_ceiling_after.jpg)
 
 ### `furn_lamp_pendant_glass`: Hall pendant
 *Rooms:* none in room_dressing.json. *Size:* 0.27 x 0.27 m footprint, h 0.53 m.
@@ -1657,6 +1694,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong (1 m capture, hung in the air without its wall):** a glowing white crescent; chain, gallery and cup not legible.
 **Change:** Brass ceiling cup 0.10 m, a 0.25 m chain, a pierced brass gallery holding an opal-glass bowl 0.25 m (white translucent, emissive), polished brass with tarnish.
+**Status:** PR4 batch 6, done: already met (brass cup, chain, pierced gallery, opal bowl); confirmed close up.
+![furn_lamp_pendant_glass after, 1 m](furniture-audit/furn_lamp_pendant_glass_after.jpg)
 
 ## Check after replacement (walk-throughs and tests)
 
