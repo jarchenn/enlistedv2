@@ -1,0 +1,61 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.27000001072883606,
+  0.9001185297966003,
+  0.3027498722076416
+ ],
+ "bmin": [
+  -0.27000001072883606,
+  0.0,
+  -0.3027498722076416
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "aoInMR": true,
+   "mr": "mr_1.jpg",
+   "name": "Scene_-_Root",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.27000001072883606,
+    0.9001185297966003,
+    0.3027498722076416
+   ],
+   "bmin": [
+    -0.27000001072883606,
+    0.0,
+    -0.3027498722076416
+   ],
+   "count": 1692,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "Chair__0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "frsrc_u_chair_soviet.glb",
+ "textures": {},
+ "triangles": 564,
+ "vertices": 760
+}

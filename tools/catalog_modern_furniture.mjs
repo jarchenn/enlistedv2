@@ -151,6 +151,19 @@ class F {
   rb(mn, mx, rad, m) { return this.tag(this.A.rbox(mn, mx, rad, this.use(m), { k: 0 })); }
   wd(c, s, m, o = {}) { return this.tag(this.A.wedge(c, s, this.use(m), { k: 0, ...o })); }
   col(mn, mx) { this.cols.push([mn, mx]); }
+  // PR4 soft parts (src/assets.cpp appendSoft): "s" puff (pillows, mattresses, cushions) and "d" drape (duvets, throws,
+  // curtains); the mesh fills the box exactly. o: puff, dent, sag, tuft + tx / tz, pipe, wr (wrinkle m), fold (m),
+  // rad; drape: drop, th, sides (1 -x, 2 +x, 4 -z, 8 +z), r (euler)
+  soft(t, mn, mx, m, o = {}) { return this.softAt(t, [0, 1, 2].map((i) => (mn[i] + mx[i]) / 2), [0, 1, 2].map((i) => Math.abs(mx[i] - mn[i])), m, o); }
+  softAt(t, c, s, m, o = {}) {   // c: centre, s: size in the part's own frame (before o.r)
+    const p = { t, c: c.map(r3), s: s.map(r3), m: this.use(m), k: 0 };
+    for (const [k, v] of Object.entries(o)) if (k !== "r") p[k] = typeof v === "number" ? r3(v) : v;
+    if (o.r) p.r = o.r;
+    if (p.seed === undefined) p.seed = Math.floor(this.rand() * 1e6);
+    this.A._target.push(p); return this.tag(p);
+  }
+  puff(mn, mx, m, o = {}) { return this.soft("s", mn, mx, m, o); }
+  drape(mn, mx, m, o = {}) { return this.soft("d", mn, mx, m, o); }
   pick(list) { return list[Math.floor(this.rand() * list.length) % list.length]; }
 }
 
@@ -264,22 +277,22 @@ function sofaSection(f, x0, x1, z0, z1, { armL = true, armR = true, back = true,
   cush = cush || fab;
   f.grp("body");
   if (legs) for (const [x, z] of [[x0 + 0.07, z0 + 0.07], [x1 - 0.07, z0 + 0.07], [x1 - 0.07, z1 - 0.07], [x0 + 0.07, z1 - 0.07]]) f.cone([x, 0.06, z], [0.045, 0.12, 0.045], "walnut", { top: 0.65, n: 8 });
-  f.rb([x0, 0.12, z0], [x1, 0.4, z1], 0.03, fab);
+  // PR4 soft: upholstered base, arms and back as soft parts (rounded, piped seams, a little wrinkle in the cover)
+  f.puff([x0, 0.12, z0], [x1, 0.4, z1], fab, { puff: 0.04, rad: 0.03, pipe: 0.004, wr: 0.0015, fold: 0.3 });
   f.b([x0 + 0.01, 0.13, z1 - 0.004], [x1 - 0.01, 0.145, z1 + 0.003], "fab_charcoal", 0.002);   // welt at the base
   const xa = x0 + (armL ? 0.17 : 0), xb = x1 - (armR ? 0.17 : 0);
-  if (armL) f.rb([x0, 0.12, z0], [x0 + 0.17, 0.62, z1], 0.06, fab);
-  if (armR) f.rb([x1 - 0.17, 0.12, z0], [x1, 0.62, z1], 0.06, fab);
-  if (back) f.rb([xa - (armL ? 0.02 : 0), 0.38, z0], [xb + (armR ? 0.02 : 0), 0.86, z0 + 0.2], 0.06, fab);
+  if (armL) f.puff([x0, 0.12, z0], [x0 + 0.17, 0.62, z1], fab, { puff: 0.1, rad: 0.06, pipe: 0.005, wr: 0.002, fold: 0.2 });
+  if (armR) f.puff([x1 - 0.17, 0.12, z0], [x1, 0.62, z1], fab, { puff: 0.1, rad: 0.06, pipe: 0.005, wr: 0.002, fold: 0.2 });
+  if (back) f.puff([xa - (armL ? 0.02 : 0), 0.38, z0], [xb + (armR ? 0.02 : 0), 0.86, z0 + 0.2], fab, { puff: 0.08, rad: 0.06, pipe: 0.005, wr: 0.002, fold: 0.25 });
   f.grp("cushions");
   const zf = back ? z0 + 0.2 : z0 + 0.02, cw = (xb - xa) / seats;
   for (let i = 0; i < seats; i++) {
     const c0 = xa + i * cw + 0.004, c1 = xa + (i + 1) * cw - 0.004;
-    f.rb([c0, 0.4, zf], [c1, 0.53, z1 - 0.01], 0.045, cush);
-    f.b([c0 + 0.03, 0.465, z1 - 0.013], [c1 - 0.03, 0.47, z1 - 0.007], "fab_charcoal", 0.001);   // seam
-    if (back) f.ob([(c0 + c1) / 2, 0.68, z0 + 0.28], [c1 - c0 - 0.01, 0.36, 0.15], [-10, 0, 0], cush, 0.04);
+    f.puff([c0, 0.4, zf], [c1, 0.53, z1 - 0.01], cush, { puff: 0.35, sag: 0.08, rad: 0.04, pipe: 0.006, wr: 0.003, fold: 0.18 });   // seat cushion: domed, sat-in, piped
+    if (back) f.softAt("s", [(c0 + c1) / 2, 0.68, z0 + 0.28], [c1 - c0 - 0.01, 0.15, 0.36], cush, { r: [80, 0, 0], puff: 0.45, dent: 0.12, rad: 0.04, pipe: 0.006, wr: 0.004, fold: 0.15 });   // back cushion, its soft face forward
   }
 }
-function pillow(f, x, y, z, ry, m) { f.grp("cushions"); f.ob([x, y, z], [0.42, 0.4, 0.12], [-14, ry, 0], m, 0.04); }
+function pillow(f, x, y, z, ry, m) { f.grp("cushions"); f.softAt("s", [x, y, z], [0.42, 0.12, 0.4], m, { r: [76, ry, 0], puff: 0.8, dent: 0.2, rad: 0.03, pipe: 0.006, wr: 0.004, fold: 0.12 }); }   // a plump scatter cushion, chopped
 // potted plant: pot, soil, stems, angled leaf blades
 function plant(f, x, z, potD, potH, h, potM, n) {
   f.grp("pot");
@@ -397,30 +410,25 @@ for (const [k, W, nm] of [["single", 0.9, "Single"], ["double", 1.6, "Double"]])
       f.b([-X, 0.1, z0 + 0.05], [X, 0.2, z1], "walnut", 0.006);   // walnut rail, a 5 mm dark reveal, upper rail
       f.b([-X + 0.005, 0.2, z0 + 0.055], [X - 0.005, 0.21, z1 - 0.005], "lam_dark", 0.001);
       f.b([-X, 0.21, z0 + 0.05], [X, 0.32, z1], "walnut", 0.006);
-      // headboard: woven upholstery over a padded panel, piped round its edge
-      f.rb([-X - 0.02, 0.1, z0], [X + 0.02, 1.1, z0 + 0.08], 0.035, "fab_grey");
-      f.cy([0, 1.092, z0 + 0.04], [0.016, 2 * X + 0.02, 0.016], "fab_charcoal", { r: [0, 0, 90], n: 8 });
-      for (const sx of [-1, 1]) f.cy([sx * (X + 0.012), 0.6, z0 + 0.04], [0.016, 0.98, 0.016], "fab_charcoal", { n: 8 });
-      f.b([-X - 0.01, 0.34, z0 + 0.079], [X + 0.01, 0.35, z0 + 0.086], "fab_charcoal", 0.002);   // a piped line across, above the mattress
+      // headboard: a padded panel in woven upholstery, buttoned (tufting dimples), piped round its edge; its soft face looks +z
+      f.softAt("s", [0, 0.6, z0 + 0.04], [2 * X + 0.04, 0.08, 1.0], "fab_grey", { r: [90, 0, 0], puff: 0.3, tuft: 0.014, tx: Math.round(W * 5), tz: 4, pipe: 0.006, wr: 0.0015, rad: 0.03 });
+      for (let a = 0; a < Math.round(W * 5); a++) for (let b = 0; b < 4; b++) {   // the buttons in the dimples
+        const n = Math.round(W * 5), bu = -1 + (2 * a + 1) / n + (b & 1 ? 1 / n : 0); if (bu > 0.999) continue;
+        f.cy([bu * (X + 0.02), 0.6 + (1 - (2 * b + 1) / 4) * 0.5, z0 + 0.074], [0.02, 0.008, 0.02], "fab_charcoal", { r: [90, 0, 0], n: 8 });
+      }
       f.grp("mattress");
-      f.rb([-Hw, 0.32, z0 + 0.09], [Hw, 0.52, z1 - 0.02], 0.04, "linen");
+      f.puff([-Hw, 0.32, z0 + 0.09], [Hw, 0.52, z1 - 0.02], "linen", { puff: 0.12, rad: 0.05, pipe: 0.006, wr: 0.002, fold: 0.4 });
       f.grp("bedding");
       const duv = W > 1 ? "duvet_white" : "duvet_grey";
-      f.rb([-Hw - 0.04, 0.5, z0 + 0.5], [Hw + 0.04, 0.62, z1 + 0.03], 0.06, duv);   // duvet: soft, rounded over the edges
-      for (const sx of [-1, 1]) {   // its sides hang over the mattress with soft folds
-        f.rb([sx > 0 ? Hw - 0.005 : -Hw - 0.055, 0.36, z0 + 0.52], [sx > 0 ? Hw + 0.055 : -Hw + 0.005, 0.6, z1 + 0.02], 0.025, duv);
-        for (const [zc, len] of [[z0 + 0.95, 0.2], [z0 + 1.35, 0.17], [z0 + 1.75, 0.22]]) f.rb([sx > 0 ? Hw + 0.035 : -Hw - 0.065, 0.6 - len, zc - 0.035], [sx > 0 ? Hw + 0.065 : -Hw - 0.035, 0.59, zc + 0.035], 0.015, duv);
-      }
-      f.rb([-Hw - 0.04, 0.36, z1 - 0.01], [Hw + 0.04, 0.6, z1 + 0.03], 0.02, duv);   // foot drop
-      for (const zc of [z0 + 1.15, z0 + 1.5]) f.cy([0, 0.615, zc], [0.03, W * 0.8, 0.03], duv, { r: [0, 0, 90], n: 8 });   // shallow creases across
-      f.rb([-Hw - 0.03, 0.58, z0 + 0.5], [Hw + 0.03, 0.66, z0 + 0.78], 0.04, duv);   // turned-down top
-      // throw folded across the foot, hanging a little over both sides
+      // duvet: a filled sheet over the mattress, puffed on top, falling in folds over the sides and the foot (not the head)
+      f.drape([-Hw - 0.035, 0.34, z0 + 0.5], [Hw + 0.035, 0.62, z1 + 0.03], duv, { sides: 11, drop: 0.2, th: 0.05, puff: 0.025, wr: 0.03, fold: 0.26, rad: 0.06 });   // (inside the throw, which hangs over it)
+      f.puff([-Hw - 0.05, 0.585, z0 + 0.46], [Hw + 0.05, 0.665, z0 + 0.72], duv, { puff: 0.35, rad: 0.035, wr: 0.008, fold: 0.18 });   // turned-down top
+      // throw over the foot, its ends hanging unevenly down both sides
       const thr = W > 1 ? "throw_ochre" : "fab_grey";
-      f.rb([-Hw - 0.055, 0.6, z1 - 0.58], [Hw + 0.055, 0.64, z1 - 0.2], 0.018, thr);
-      for (const sx of [-1, 1]) f.b([sx > 0 ? Hw + 0.055 : -Hw - 0.07, 0.46, z1 - 0.58], [sx > 0 ? Hw + 0.07 : -Hw - 0.055, 0.63, z1 - 0.2], thr, 0.006);   // (the envelope stays the planner's: x to the headboard's edge)
+      f.drape([-Hw - 0.07, 0.42, z1 - 0.6], [Hw + 0.07, 0.655, z1 - 0.2], thr, { sides: 3, drop: 0.2, th: 0.012, wr: 0.014, fold: 0.17, rad: 0.04 });
       f.grp("pillows");
       const np = W > 1 ? 2 : 1, pw = W > 1 ? 0.65 : 0.6;
-      for (let i = 0; i < np; i++) { const cx = np === 1 ? 0 : (i ? 1 : -1) * 0.36; f.ob([cx, 0.64, z0 + 0.32], [pw, 0.15, 0.45], [20, 0, 0], "linen", 0.06); }
+      for (let i = 0; i < np; i++) { const cx = np === 1 ? 0 : (i ? 1 : -1) * 0.36; f.softAt("s", [cx, 0.64, z0 + 0.32], [pw, 0.15, 0.45], "linen", { r: [20, 0, 0], puff: 0.7, dent: 0.25, pipe: 0.005, rad: 0.04, wr: 0.004, fold: 0.15 }); }
     });
 }
 def("furn_mod_nightstand", "Nightstand", "0.45 m walnut nightstand: two drawers with black bar pulls, on slim steel legs.", { family: "wood", front: 0.4, surfaces: [[-0.21, -0.18, 0.21, 0.18, 0.55]] }, (f) => {
@@ -963,9 +971,9 @@ function boothSeat(f, x0, x1, zBack, dir, vinyl) {   // dir +1: faces +z
   [p0, p1] = zs(0, 0.12); f.b([x0, 0.4, p0], [x1, 1.1, p1], "walnut", 0.006);
   [p0, p1] = zs(-0.02, 0.14); f.b([x0, 1.1, p0], [x1, 1.13, p1], "walnut", 0.006);
   f.grp("cushions");
-  [p0, p1] = zs(0.12, 0.62); f.rb([x0 + 0.01, 0.4, p0], [x1 - 0.01, 0.48, p1], 0.03, vinyl);
+  [p0, p1] = zs(0.12, 0.62); f.puff([x0 + 0.01, 0.4, p0], [x1 - 0.01, 0.48, p1], vinyl, { puff: 0.25, sag: 0.06, rad: 0.03, pipe: 0.005, wr: 0.001, fold: 0.25 });
   const n = Math.max(3, Math.round((x1 - x0) / 0.2));
-  for (let i = 0; i < n; i++) { const a = x0 + 0.02 + ((x1 - x0 - 0.04) * i) / n, b = a + (x1 - x0 - 0.04) / n - 0.008; f.ob([(a + b) / 2, 0.78, z(0.165)], [b - a, 0.6, 0.09], [dir * -6, 0, 0], vinyl, 0.03); }
+  for (let i = 0; i < n; i++) { const a = x0 + 0.02 + ((x1 - x0 - 0.04) * i) / n, b = a + (x1 - x0 - 0.04) / n - 0.008; f.softAt("s", [(a + b) / 2, 0.78, z(0.165)], [b - a, 0.09, 0.6], vinyl, { r: [dir * 84, 0, 0], puff: 0.5, rad: 0.03, wr: 0.001, fold: 0.2 }); }   // channel tufting: each channel a padded roll
 }
 def("furn_mod_booth_single", "Booth seat (single)", "1.2 m wall booth bench: walnut base and tall back, channel-tufted vinyl back and a seat cushion (faces a booth table).", { family: "wood", front: 0.4, rounds: 16, blast: 34 }, (f) => {
   boothSeat(f, -0.6, 0.6, -0.31, 1, "vinyl_red");
@@ -1231,10 +1239,10 @@ def("furn_mod_hospital_bed", "Hospital bed", "Adjustable ward bed (0.95 x 2.1 m)
     f.b([-0.47, 0.22, -1.08], [0.47, 1.0, -1.02], "lam_navy", 0.01);
     f.b([-0.47, 0.22, 1.02], [0.47, 0.85, 1.08], "lam_navy", 0.01);
     f.grp("mattress");
-    f.rb([-0.44, 0.46, 0.0], [0.44, 0.6, 1.0], 0.04, "hosp_sheet");
-    f.ob([0, 0.74, -0.47], [0.88, 0.14, 1.0], [35, 0, 0], "hosp_sheet", 0.04);
-    f.ob([0, 0.97, -0.8], [0.6, 0.12, 0.38], [35, 0, 0], "linen", 0.05);
-    f.rb([-0.46, 0.55, 0.15], [0.46, 0.62, 0.99], 0.02, "linen_blue");
+    f.puff([-0.44, 0.46, 0.0], [0.44, 0.6, 1.0], "hosp_sheet", { puff: 0.1, rad: 0.04, wr: 0.003, fold: 0.3 });
+    f.softAt("s", [0, 0.74, -0.47], [0.88, 0.14, 1.0], "hosp_sheet", { r: [35, 0, 0], puff: 0.1, rad: 0.04, wr: 0.003, fold: 0.3 });
+    f.softAt("s", [0, 0.97, -0.8], [0.6, 0.12, 0.38], "linen", { r: [35, 0, 0], puff: 0.7, dent: 0.25, rad: 0.04, pipe: 0.004, wr: 0.003, fold: 0.15 });
+    f.drape([-0.46, 0.5, 0.15], [0.46, 0.625, 0.99], "linen_blue", { sides: 11, drop: 0.1, th: 0.012, wr: 0.012, fold: 0.2, rad: 0.03 });   // blanket tucked loose over the sides and foot
     f.grp("rails");
     for (const s of [-1, 1]) {
       const x = s * 0.48;
@@ -1284,8 +1292,8 @@ def("furn_mod_privacy_curtain", "Privacy curtain on track", "L-shaped ward priva
     f.b([0.98, 2.38, 0.0], [1.02, 2.41, 1.0], "steel", 0.004);
     for (const [x, z] of [[-0.95, 0], [0.0, 0], [1.0, 0.95]]) f.cy([x, 2.505, z], [0.016, 0.19, 0.016], "steel", { n: 6 });
     f.grp("curtain");
-    for (let i = 0; i < 10; i++) f.ob([-0.95 + i * 0.19 + 0.095, 1.125, ((i % 2) - 0.5) * 0.04], [0.2, 1.95, 0.012], [0, i % 2 ? 12 : -12, 0], "curtain", 0.004);
-    for (let i = 0; i < 5; i++) f.ob([1.0 + ((i % 2) - 0.5) * 0.04, 1.125, 0.1 + i * 0.19], [0.012, 1.95, 0.2], [0, i % 2 ? 12 : -12, 0], "curtain", 0.004);
+    f.softAt("d", [0, 1.125, 0], [1.96, 0.094, 1.95], "curtain", { r: [90, 0, 0], sides: 0, pleat: 0.026, fold: 0.17, wr: 0.004, th: 0.006, rad: 0.01 });   // pleated, hanging from the track
+    f.softAt("d", [1.0, 1.125, 0.52], [0.96, 0.094, 1.95], "curtain", { r: [90, 90, 0], sides: 0, pleat: 0.026, fold: 0.17, wr: 0.004, th: 0.006, rad: 0.01 });
     f.b([-0.98, 2.1, -0.01], [0.98, 2.37, 0.01], "linen", 0.002);
     f.b([0.99, 2.1, 0.02], [1.01, 2.37, 0.98], "linen", 0.002);
   });
@@ -1333,7 +1341,7 @@ def("furn_mod_waiting_row", "Waiting seats (row of four)", "2.4 m beam-mounted r
   for (let i = 0; i < 4; i++) {
     const cx = -0.9 + i * 0.6;
     f.b([cx - 0.25, 0.42, -0.22], [cx + 0.25, 0.45, 0.24], "plastic_grey", 0.008);
-    f.rb([cx - 0.23, 0.45, -0.2], [cx + 0.23, 0.48, 0.22], 0.012, "fab_blue");
+    f.puff([cx - 0.23, 0.45, -0.2], [cx + 0.23, 0.48, 0.22], "fab_blue", { puff: 0.3, rad: 0.012, pipe: 0.003, wr: 0.001 });
     f.ob([cx, 0.68, -0.26], [0.48, 0.42, 0.03], [-10, 0, 0], "plastic_grey", 0.01);
     f.ob([cx, 0.68, -0.24], [0.44, 0.36, 0.015], [-10, 0, 0], "fab_blue", 0.006);
     if (i) { f.b([cx - 0.32, 0.45, -0.18], [cx - 0.28, 0.62, -0.14], "steel_dark", 0.004); f.b([cx - 0.33, 0.62, -0.18], [cx - 0.27, 0.65, 0.18], "plastic_black", 0.008); }
@@ -1374,7 +1382,7 @@ def("furn_mod_weight_bench", "Weight bench and rack", "Flat bench press station:
   f.b([-0.14, 0.0, -0.8], [0.14, 0.04, -0.7], "blackmetal", 0.006); f.b([-0.14, 0.0, 0.3], [0.14, 0.04, 0.4], "blackmetal", 0.006);
   for (const z of [-0.75, 0.35]) f.b([-0.03, 0.04, z - 0.03], [0.03, 0.38, z + 0.03], "blackmetal", 0.006);
   f.b([-0.03, 0.34, -0.75], [0.03, 0.38, 0.35], "blackmetal", 0.006);
-  f.rb([-0.14, 0.38, -0.82], [0.14, 0.45, 0.4], 0.02, "vinyl_black");
+  f.puff([-0.14, 0.38, -0.82], [0.14, 0.45, 0.4], "vinyl_black", { puff: 0.2, rad: 0.02, pipe: 0.004, wr: 0.001 });
   f.grp("rack");
   for (const s of [-1, 1]) { f.b([s * 0.55 - 0.035, 0, 0.35], [s * 0.55 + 0.035, 1.4, 0.42], "blackmetal", 0.006); f.b([s * 0.55 - 0.05, 0, 0.1], [s * 0.55 + 0.05, 0.04, 0.7], "blackmetal", 0.006); f.b([s * 0.55 - 0.03, 1.12, 0.3], [s * 0.55 + 0.03, 1.16, 0.36], "steel", 0.004); for (let h = 0; h < 10; h++) f.cy([s * 0.55, 0.6 + h * 0.08, 0.421], [0.012, 0.004, 0.012], "steel_dark", { r: [90, 0, 0], n: 6 }); }
   f.grp("bar");

@@ -1,0 +1,61 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.4348039925098419,
+  0.7462382316589355,
+  0.9728485345840454
+ ],
+ "bmin": [
+  -0.4348039925098419,
+  1.2514647096395493e-09,
+  -0.9728482961654663
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "aoInMR": true,
+   "mr": "mr_1.jpg",
+   "name": "DefaultMaterial",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.4348039925098419,
+    0.7462382316589355,
+    0.9728485345840454
+   ],
+   "bmin": [
+    -0.4348039925098419,
+    1.2514647096395493e-09,
+    -0.9728482961654663
+   ],
+   "count": 1833,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "Bed_DefaultMaterial_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "frsrc_u_bed_rustic.glb",
+ "textures": {},
+ "triangles": 611,
+ "vertices": 566
+}

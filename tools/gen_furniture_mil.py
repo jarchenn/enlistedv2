@@ -66,15 +66,11 @@ def bunk(root):
     L = W - 0.14
     for i, y in enumerate((0.36, 1.26)):
         tier = "lower" if i == 0 else "upper"
-        x0 = -L / 2
-        for k, (frac, h) in enumerate(((0.36, 0.12), (0.34, 0.127), (0.3, 0.115))):   # a lumpy straw tick, 12 cm, sagging between three fills
-            w = L * frac; a.r([x0 + w / 2, y + 0.02 + h / 2, 0], [w + 0.03, h, D - 0.14], "straw_tick", tier, 0.05); x0 += w
-        for xs in (-L / 2 + L * 0.36, -L / 2 + L * 0.7):   # the sag lines
-            a.r([xs, y + 0.135, 0], [0.025, 0.01, D - 0.2], "tick_sag", tier, 0.004)
-        a.r([-W / 2 + 0.3, y + 0.21, 0], [0.34, 0.09, D - 0.3], "straw_tick", tier, 0.04)                 # pillow
+        a.soft("s", [0, y + 0.085, 0], [L, 0.13, D - 0.14], "straw_tick", tier, puff=0.12, sag=0.15, rad=0.04, wr=0.009, fold=0.22)   # PR4: a lumpy straw tick, sagging in the middle
+        a.soft("s", [-W / 2 + 0.3, y + 0.19, 0], [0.34, 0.09, D - 0.3], "straw_tick", tier, puff=0.5, dent=0.3, rad=0.03, wr=0.004, fold=0.12)   # pillow
         bx = 0.35
-        a.r([bx, y + 0.18, 0.02 - 0.05 * i], [0.95, 0.06, D - 0.18], "blanket_grey", "blankets", 0.025)    # folded blanket
-        a.r([0.62, y + 0.225, 0.0], [0.42, 0.035, D - 0.26], "blanket_grey", "blankets", 0.015)
+        a.soft("s", [bx, y + 0.18, 0.02 - 0.05 * i], [0.95, 0.06, D - 0.18], "blanket_grey", "blankets", puff=0.15, rad=0.025, wr=0.004, fold=0.15)    # folded blanket
+        a.soft("s", [0.62, y + 0.225, 0.0], [0.42, 0.035, D - 0.26], "blanket_grey", "blankets", puff=0.2, rad=0.015, wr=0.003, fold=0.12)
         for xs in (bx - 0.4, bx - 0.33, bx + 0.33, bx + 0.4):   # two darker stripes near each end
             a.r([xs, y + 0.181, 0.02 - 0.05 * i], [0.03, 0.062, D - 0.175], "blanket_stripe", "blankets", 0.01)
     a.col([0, H / 2, 0], [W, H, D])

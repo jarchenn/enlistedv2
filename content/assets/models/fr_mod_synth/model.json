@@ -1,0 +1,94 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.4739896059036255,
+  0.6858441829681396,
+  0.27436521649360657
+ ],
+ "bmin": [
+  -0.4739896059036255,
+  0.0003586304374039173,
+  -0.27436521649360657
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_3.jpg",
+   "aoInMR": true,
+   "mr": "mr_2.jpg",
+   "name": "Synthesizer_Piano",
+   "normal": "normal_1.jpg"
+  },
+  {
+   "albedo": "albedo_6.jpg",
+   "aoInMR": true,
+   "mr": "mr_5.jpg",
+   "name": "Synthesizer_Stand",
+   "normal": "normal_4.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.4739896059036255,
+    0.6858441829681396,
+    0.06899143755435944
+   ],
+   "bmin": [
+    -0.4739896059036255,
+    0.5973341464996338,
+    -0.25541308522224426
+   ],
+   "count": 2904,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "Synthesizer_Piano_Synthesizer_Piano_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.35888007283210754,
+    0.5966577529907227,
+    0.27436521649360657
+   ],
+   "bmin": [
+    -0.3523947596549988,
+    0.0003586304374039173,
+    -0.27436521649360657
+   ],
+   "count": 3108,
+   "first": 2904,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "Synthesizer_Piano_Synthesizer_Piano_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "frsrc_u_synth.glb",
+ "textures": {},
+ "triangles": 2004,
+ "vertices": 2373
+}

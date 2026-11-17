@@ -461,11 +461,157 @@ void partHulls(const Part& p, std::vector<std::vector<vec3>>& out) {
     std::vector<vec3> pts;
     for (auto& q : wedgeProfile(p)) for (float x : {-h.x, h.x}) pts.push_back(vec3(x, q.y, q.x));
     out.push_back(pts);
+  } else if (p.shape == Part::SOFT) {   // cloth collides as its box
+    std::vector<vec3> pts;
+    for (int c = 0; c < 8; ++c) pts.push_back(vec3(c & 1 ? h.x : -h.x, c & 2 ? h.y : -h.y, c & 4 ? h.z : -h.z));
+    out.push_back(pts);
+  }
+}
+
+// ---------------------------------------------------------------- PR4 soft parts (cloth, upholstery)
+static float softHash(int x, int y, int z, uint32_t s) {
+  uint32_t h = (uint32_t)x * 374761393u + (uint32_t)y * 668265263u + (uint32_t)z * 2246822519u + s * 3266489917u;
+  h = (h ^ (h >> 13)) * 1274126177u; return ((h ^ (h >> 16)) & 0xffffff) / 16777215.0f * 2.0f - 1.0f;
+}
+static float softNoise(vec3 q, uint32_t s) {   // value noise, smooth, about -1..1
+  vec3 i = glm::floor(q), f = q - i; f = f * f * (3.0f - 2.0f * f);
+  float r = 0;
+  for (int c = 0; c < 8; ++c) {
+    int dx = c & 1, dy = (c >> 1) & 1, dz = (c >> 2) & 1;
+    float w = (dx ? f.x : 1 - f.x) * (dy ? f.y : 1 - f.y) * (dz ? f.z : 1 - f.z);
+    r += w * softHash((int)i.x + dx, (int)i.y + dy, (int)i.z + dz, s);
+  }
+  return r;
+}
+// Puff: a point c on the box surface (half extents h) -> the soft surface (before the fit into the box).
+static vec3 softPuff(const Part& p, vec3 c, vec3 h) {
+  const auto& S = p.soft;
+  float hy0 = h.y / (1.0f + S.puff);   // the dome adds puff * hy0 at the centre: the result fills h.y
+  vec3 hb(h.x, hy0, h.z), e = glm::max(hb - vec3(p.rad), vec3(1e-4f));
+  vec3 cb(c.x, c.y / h.y * hy0, c.z);
+  vec3 in = glm::clamp(cb, -e, e), d = cb - in; float dl = glm::length(d);
+  vec3 n = dl > 1e-6f ? d / dl : vec3(0, cb.y >= 0 ? 1.0f : -1.0f, 0);
+  vec3 q = in + n * p.rad;
+  float u = std::clamp(q.x / h.x, -1.0f, 1.0f), w = std::clamp(q.z / h.z, -1.0f, 1.0f), bell = (1 - u * u) * (1 - w * w);
+  float top = std::clamp(q.y / hy0, -1.0f, 1.0f);   // -1 bottom .. 1 top
+  q.y += top * S.puff * hy0 * bell;                                                   // domed faces
+  if (top > 0) {
+    q.y -= top * S.dent * h.y * std::exp(-(u * u + w * w) / 0.12f);                   // a dent in the middle (a pillow's head hollow)
+    q.y -= top * S.sag * h.y * bell;                                                  // the middle sags
+    if (S.tuft > 0 && S.tx > 0 && S.tz > 0)                                           // buttoned tufting: dimples on a grid
+      for (int a = 0; a < S.tx; ++a) for (int b = 0; b < S.tz; ++b) {
+        float bu = -1 + (2.0f * a + 1) / S.tx + ((b & 1) ? 1.0f / S.tx : 0.0f), bw = -1 + (2.0f * b + 1) / S.tz;
+        if (bu > 0.999f) continue;
+        float du = (u - bu) * h.x, dw = (w - bw) * h.z;
+        q.y -= top * S.tuft * std::exp(-(du * du + dw * dw) / 0.0016f);
+      }
+  }
+  vec3 side(q.x, 0, q.z); float sl = glm::length(side);
+  if (S.pipe > 0 && sl > 1e-5f) q += side / sl * S.pipe * std::exp(-(q.y * q.y) / (0.0009f + 0.01f * hy0 * hy0)) * std::min(1.0f, std::fabs(n.x) + std::fabs(n.z));   // piped seam round the middle
+  if (S.wr > 0) {   // wrinkles: low-frequency noise along the surface normal, stretched across x (creases)
+    float k = 1.0f / S.fold;
+    q += n * S.wr * (softNoise(vec3(q.x * k * 0.5f, q.y * k, q.z * k), S.seed) + 0.5f * softNoise(vec3(q.x, q.y, q.z) * (k * 2.3f), S.seed + 7));
+  }
+  return q;
+}
+// Drape: (s, t) on the unfolded sheet -> the outer surface. The sheet lies on a support whose top is ytop and whose
+// half extents are (ax, az); a side in `sides` (1 -x, 2 +x, 4 -z, 8 +z) falls over a rounded edge to the hem.
+static vec3 softDrape(const Part& p, float s, float t, float ax, float az, float ytop, float drop) {
+  const auto& S = p.soft; float rb = std::max(0.01f, p.rad), arc = 1.5708f * rb;
+  auto hang = [&](float o, float& out, float& down) {
+    if (o <= 0) { out = 0; down = 0; return; }
+    if (o < arc) { float f = o / rb; out = rb * std::sin(f); down = rb * (1 - std::cos(f)); }
+    else { out = rb + 0.06f * (o - arc); down = rb + (o - arc); }
+  };
+  bool hx = s < 0 ? (S.sides & 1) : (S.sides & 2), hz = t < 0 ? (S.sides & 4) : (S.sides & 8);
+  float ox = hx ? std::max(0.0f, std::fabs(s) - ax) : 0.0f, oz = hz ? std::max(0.0f, std::fabs(t) - az) : 0.0f;
+  float wx = ox + oz > 1e-6f ? ox / (ox + oz) : 0.5f, wz = 1.0f - wx;   // through a corner the two sides blend (no seam)
+  auto hemOf = [&](float along) { return 1.0f - 0.12f * (0.5f + 0.5f * softNoise(vec3(along * 3.1f, 0.5f, 0.0f), S.seed + 3)); };
+  float k = wx * hemOf(t) + wz * hemOf(s);   // an irregular hem: the hang is shortened, not clipped (no flat rows)
+  float outx, outz, down, dd; hang(ox * k, outx, dd); hang(oz * k, outz, dd); hang(std::max(ox, oz) * k, dd, down);
+  vec3 q(std::copysign(std::min(std::fabs(s), ax), s) + std::copysign(outx, s), ytop - down, std::copysign(std::min(std::fabs(t), az), t) + std::copysign(outz, t));
+  float hangF = std::clamp(down / std::max(drop, 1e-3f), 0.0f, 1.0f);
+  if (hangF > 0 && S.wr > 0) {   // folds down the hanging sides, deeper toward the hem, at an irregular pitch
+    auto fold = [&](float along, uint32_t sd) { return S.wr * hangF * (std::sin(along / S.fold * 6.2832f + 2.0f * softNoise(vec3(along * 1.7f, 0, 0), sd)) + 0.35f * softNoise(vec3(along * 9.0f, down * 4.0f, 0), sd + 5)); };
+    q.x += std::copysign(wx * fold(t, S.seed + 11), s); q.z += std::copysign(wz * fold(s, S.seed + 17), t);
+  }
+  float topF = 1.0f - std::clamp(down / 0.04f, 0.0f, 1.0f);   // on the top (fading out over the edge)
+  if (S.wr > 0) q.y += topF * 0.7f * S.wr * (softNoise(vec3(q.x / S.fold * 1.2f, 0.3f, q.z / S.fold * 0.6f), S.seed + 13) + 0.4f * softNoise(vec3(q.x / S.fold * 3.0f, 0.7f, q.z / S.fold * 3.0f), S.seed + 19));   // rumples
+  if (S.puff > 0) { float u = std::clamp(q.x / ax, -1.0f, 1.0f), w = std::clamp(q.z / az, -1.0f, 1.0f); q.y += topF * S.puff * (1 - u * u) * (1 - w * w); }   // a filled duvet: puffed on top
+  if (S.pleat > 0) {   // curtains: pleats across x (a sheet turned upright hangs in vertical folds), uneven pitch, deeper toward local +z (the hem)
+    float w = std::clamp(0.5f + 0.5f * t / std::max(az, 1e-3f), 0.0f, 1.0f);
+    q.y += topF * S.pleat * (0.7f + 0.3f * w) * std::sin(q.x / S.fold * 6.2832f + 1.4f * softNoise(vec3(q.x * 1.3f, 0.2f, t * 0.8f), S.seed + 23));
+  }
+  return q;
+}
+static void appendSoft(MeshData& m, const Part& p, const Material& mat, const mat4& xf) {
+  vec3 h = p.size * 0.5f;
+  struct G { std::vector<vec3> P, N; int nu, nw; vec3 out; };
+  std::vector<G> grids;
+  auto steps = [](float len, float st, int lo, int hi) { return std::clamp((int)std::ceil(len / st), lo, hi); };
+  if (!p.soft.drape) {
+    for (int ax = 0; ax < 3; ++ax)
+      for (int sg = -1; sg <= 1; sg += 2) {
+        int u = (ax + 1) % 3, w = (ax + 2) % 3;
+        G g; g.nu = steps(2 * h[u], 0.035f, 4, 28); g.nw = steps(2 * h[w], 0.035f, 4, 28); g.out = vec3(0); g.out[ax] = (float)sg;
+        auto F = [&](float a, float b) { vec3 c(0); c[ax] = sg * h[ax]; c[u] = a; c[w] = b; return softPuff(p, c, h); };
+        for (int j = 0; j <= g.nw; ++j) for (int i = 0; i <= g.nu; ++i) {
+          float a = -h[u] + 2 * h[u] * i / g.nu, b = -h[w] + 2 * h[w] * j / g.nw, eu = 1e-3f * h[u], ew = 1e-3f * h[w];
+          vec3 du = F(a + eu, b) - F(a - eu, b), dw = F(a, b + ew) - F(a, b - ew), n = glm::cross(du, dw);
+          if (glm::dot(n, g.out) < 0) n = -n;
+          g.P.push_back(F(a, b)); g.N.push_back(glm::length(n) > 1e-12f ? glm::normalize(n) : g.out);
+        }
+        grids.push_back(std::move(g));
+      }
+  } else {
+    const auto& S = p.soft;
+    float drop = std::max(0.0f, S.drop > 0 ? S.drop : p.size.y - S.th), ax = std::max(0.02f, h.x - (S.sides & 3 ? p.rad + 0.02f : 0.0f)), az = std::max(0.02f, h.z - (S.sides & 12 ? p.rad + 0.02f : 0.0f));
+    float s0 = -(ax + ((S.sides & 1) ? drop + 0.6f * p.rad : 0.0f)), s1 = ax + ((S.sides & 2) ? drop + 0.6f * p.rad : 0.0f);
+    float t0 = -(az + ((S.sides & 4) ? drop + 0.6f * p.rad : 0.0f)), t1 = az + ((S.sides & 8) ? drop + 0.6f * p.rad : 0.0f);
+    G g; g.nu = steps(s1 - s0, 0.045f, 6, 40); g.nw = steps(t1 - t0, 0.045f, 6, 40); g.out = vec3(0, 1, 0);
+    auto F = [&](float a, float b) { return softDrape(p, a, b, ax, az, h.y, drop); };
+    std::vector<vec3> P, N;
+    for (int j = 0; j <= g.nw; ++j) for (int i = 0; i <= g.nu; ++i) {
+      float a = s0 + (s1 - s0) * i / g.nu, b = t0 + (t1 - t0) * j / g.nw, e = 1e-3f;
+      vec3 n = glm::cross(F(a, b + e) - F(a, b - e), F(a + e, b) - F(a - e, b));
+      P.push_back(F(a, b)); N.push_back(glm::length(n) > 1e-12f ? glm::normalize(n) : vec3(0, 1, 0));
+    }
+    G in = g; in.out = vec3(0, -1, 0);   // the underside, the cloth's thickness inward
+    for (size_t k = 0; k < P.size(); ++k) { g.P.push_back(P[k]); g.N.push_back(N[k]); in.P.push_back(P[k] - N[k] * S.th); in.N.push_back(-N[k]); }
+    grids.push_back(std::move(g)); grids.push_back(std::move(in));
+  }
+  // fit: every point mapped into the part's box (so the mesh fills it exactly: colliders and envelopes stay the box)
+  vec3 lo(1e9f), hi(-1e9f);
+  for (auto& g : grids) for (auto& q : g.P) { lo = glm::min(lo, q); hi = glm::max(hi, q); }
+  vec3 sc = (2.0f * h) / glm::max(hi - lo, vec3(1e-5f)), mid = 0.5f * (lo + hi);
+  LocalMesh L(m, p, mat, xf);
+  for (auto& g : grids) {
+    uint32_t base = (uint32_t)m.v.size();
+    for (size_t k = 0; k < g.P.size(); ++k) L.v((g.P[k] - mid) * sc, glm::normalize(g.N[k] / sc));
+    for (int j = 0; j < g.nw; ++j) for (int i = 0; i < g.nu; ++i) {
+      uint32_t a = base + j * (g.nu + 1) + i, b = a + 1, c = a + g.nu + 2, d = a + g.nu + 1;
+      vec3 out = glm::normalize(m.v[a].nrm + m.v[c].nrm);   // world-space: wind by the vertex normals
+      auto tri = [&](uint32_t x, uint32_t y, uint32_t z) { vec3 X = m.v[x].pos; if (glm::dot(glm::cross(m.v[y].pos - X, m.v[z].pos - X), out) < 0) std::swap(y, z); m.i.insert(m.i.end(), {x, y, z}); };
+      tri(a, b, c); tri(a, c, d);
+    }
+  }
+  if (p.soft.drape) {   // the hem / edges: a strip joining the outer sheet to its underside round the border
+    const G& g = grids[0]; const G& in = grids[1];
+    uint32_t bo = (uint32_t)(m.v.size() - g.P.size() - in.P.size()), bi = bo + (uint32_t)g.P.size();
+    auto edge = [&](int i0, int j0, int i1, int j1, vec3 outLocal) {
+      vec3 pa = m.v[bo + j0 * (g.nu + 1) + i0].pcoord, pb = m.v[bo + j1 * (g.nu + 1) + i1].pcoord, pc = m.v[bi + j1 * (g.nu + 1) + i1].pcoord, pd = m.v[bi + j0 * (g.nu + 1) + i0].pcoord;
+      vec3 n = glm::cross(pb - pa, pd - pa); n = glm::length(n) > 1e-12f ? glm::normalize(n) : glm::normalize(outLocal);   // part-local
+      if (glm::dot(n, outLocal) < 0) n = -n;
+      L.quad(L.v(pa, n), L.v(pb, n), L.v(pc, n), L.v(pd, n), n);
+    };
+    for (int i = 0; i < g.nu; ++i) { edge(i, 0, i + 1, 0, vec3(0, -0.3f, -1)); edge(i, g.nw, i + 1, g.nw, vec3(0, -0.3f, 1)); }
+    for (int j = 0; j < g.nw; ++j) { edge(0, j, 0, j + 1, vec3(-1, -0.3f, 0)); edge(g.nu, j, g.nu, j + 1, vec3(1, -0.3f, 0)); }
   }
 }
 
 void appendPart(MeshData& m, const Part& p, const Material& mat, const mat4& xf) {
   if (!p.visible) return;
+  if (p.shape == Part::SOFT) { appendSoft(m, p, mat, xf); return; }
   if (p.shape == Part::ROUND || (p.shape == Part::BOX && p.bv > 0)) { appendRound(m, p, mat, xf); return; }
   if (p.shape == Part::CYL || p.shape == Part::ARCH || p.shape == Part::WEDGE) { appendCurved(m, p, mat, xf); return; }
   if (p.shape == Part::BOX) {
@@ -551,6 +697,14 @@ static Part parsePart(const json& j, const std::map<std::string, int>& mats) {
     else if (t == "c" || t == "k") { p.shape = Part::CYL; p.sides = j.value("n", 0); p.top = std::clamp(j.value("top", t == "k" ? 0.0f : 1.0f), 0.0f, 1.0f); p.seg = j.value("seg", 0); }
     else if (t == "a") { p.shape = Part::ARCH; p.th = j.value("th", 0.25f); p.fill = j.value("fill", 0) != 0; p.seg = j.value("seg", 0); }
     else if (t == "w") { p.shape = Part::WEDGE; p.top = std::clamp(j.value("top", 0.0f), 0.0f, 1.0f); }
+    else if (t == "s" || t == "d") {   // PR4 soft parts
+      p.shape = Part::SOFT; auto& S = p.soft; S.drape = t == "d";
+      p.rad = std::clamp(j.value("rad", S.drape ? 0.03f : 0.25f * half), 0.0f, half);
+      S.puff = j.value("puff", 0.0f); S.dent = j.value("dent", 0.0f); S.sag = j.value("sag", 0.0f); S.tuft = j.value("tuft", 0.0f);
+      S.pipe = j.value("pipe", 0.0f); S.wr = j.value("wr", 0.0f); S.drop = j.value("drop", 0.0f); S.th = j.value("th", 0.02f);
+      S.fold = std::max(0.08f, j.value("fold", 0.3f)); S.pleat = j.value("pleat", 0.0f); S.tx = j.value("tx", 0); S.tz = j.value("tz", 0); S.sides = j.value("sides", 15);
+      S.seed = j.value("seed", (uint32_t)(std::fabs(p.center.x * 977.0f + p.center.y * 131.0f + p.center.z * 613.0f)));
+    }
     else p.bv = std::clamp(j.value("bv", 0.0f), 0.0f, half);
     if (j.contains("r")) {
       vec3 r = jvec3(j["r"]);
@@ -579,7 +733,7 @@ static void buildAssetLods(AssetDef& a, size_t fullTris, const MeshData& walls) 
     vec3 lo(1e9f), hi(-1e9f); for (auto& c : cs) { lo = glm::min(lo, c); hi = glm::max(hi, c); }
     float d = cs.empty() ? 0.0f : glm::length(hi - lo);
     Part q = p;   // simplified: plain boxes instead of bevels / rounding, few curve segments
-    q.bv = 0; if (q.shape == Part::ROUND) q.shape = Part::BOX;
+    q.bv = 0; if (q.shape == Part::ROUND || q.shape == Part::SOFT) q.shape = Part::BOX;
     if (q.shape == Part::CYL && q.sides == 0) q.sides = 8;
     if (q.shape == Part::ARCH) q.seg = std::min(q.seg > 0 ? q.seg : 6, 6);
     if (!p.lodDetail && d >= 0.35f) appendPart(m[0], q, a.materials[p.mat], mat4(1));

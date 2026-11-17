@@ -182,5 +182,140 @@
   "ph": "potted_plant_02",
   "why": "small potted plant (PR3)",
   "stretch": true
+ },
+ "furn_mod_bed_low": {
+  "user": "bed_low",
+  "why": "PR5: the user's model (Bed)",
+  "exact": true
+ },
+ "furn_mod_bed_panel": {
+  "user": "bed_panel",
+  "why": "PR5: the user's model (Bed)",
+  "exact": true
+ },
+ "furn_bed_victorian": {
+  "user": "bed_victorian",
+  "why": "PR5: the user's model (Victorian Bed)",
+  "exact": true
+ },
+ "furn_bed_rustic": {
+  "user": "bed_rustic",
+  "why": "PR5: the user's model (Old Bed)",
+  "exact": true
+ },
+ "furn_mod_bunk_pine": {
+  "user": "bunk_pine",
+  "why": "PR5: the user's model (Simple Bunk Bed)",
+  "exact": true
+ },
+ "furn_mod_sofa3": {
+  "user": "sofa_3230",
+  "why": "PR5: the user's model (Sofa_3230)",
+  "stretch": true
+ },
+ "furn_mod_sofa2": {
+  "user": "sofa_202205",
+  "why": "PR5: the user's model (Sofa 202205_001)",
+  "stretch": true
+ },
+ "furn_mod_sofa_grey": {
+  "user": "sofa_grey",
+  "why": "PR5: the user's model (Grey Sofa)",
+  "exact": true
+ },
+ "furn_mod_sofa_corner": {
+  "user": "sofa_corner",
+  "why": "PR5: the user's model (Corner Sofa)",
+  "exact": true
+ },
+ "furn_sofa_chesterfield": {
+  "user": "sofa_chesterfield",
+  "why": "PR5: the user's model (Sofa Free)",
+  "exact": true
+ },
+ "furn_armchair_wing": {
+  "user": "armchair_wing",
+  "why": "PR5: the user's model (Living room sofa / Furniture)",
+  "exact": true
+ },
+ "furn_mod_chair_tufted": {
+  "user": "chair_tufted",
+  "why": "PR5: the user's model (Modern Upholstered Armchair - 4096px²)",
+  "exact": true
+ },
+ "furn_mod_chair_white": {
+  "user": "chair_white",
+  "why": "PR5: the user's model (Old Sofa)",
+  "exact": true
+ },
+ "furn_mod_chair_egg": {
+  "user": "chair_egg",
+  "why": "PR5: the user's model (Sofa)",
+  "exact": true
+ },
+ "furn_mod_chair_bowl": {
+  "user": "chair_bowl",
+  "why": "PR5: the user's model (sofa)",
+  "exact": true
+ },
+ "furn_mod_chair_woodframe": {
+  "user": "chair_woodframe",
+  "why": "PR5: the user's model (Sofa_LowPoly)",
+  "exact": true
+ },
+ "furn_chair_soviet": {
+  "user": "chair_soviet",
+  "why": "PR5: the user's model (Old soviet chair)",
+  "exact": true
+ },
+ "furn_stool_metal": {
+  "user": "stool_metal",
+  "why": "PR5: the user's model (Old Stool)",
+  "exact": true
+ },
+ "furn_mod_tv_led": {
+  "user": "tv_led",
+  "why": "PR5: the user's model (Led Tv)",
+  "exact": true
+ },
+ "furn_mod_tv_flat": {
+  "user": "tv_flat",
+  "why": "PR5: the user's model (Tv)",
+  "exact": true
+ },
+ "furn_mod_tv_crt": {
+  "user": "tv_crt",
+  "why": "PR5: the user's model (Old TV)",
+  "exact": true
+ },
+ "furn_mod_tv_bench": {
+  "user": "tv_bench",
+  "why": "PR5: the user's model (TV Bench / TV Table / TV Stand Wood)",
+  "exact": true
+ },
+ "furn_cash_register": {
+  "user": "cash_register",
+  "why": "PR5: the user's model (cash register)",
+  "exact": true
+ },
+ "furn_mod_plant_pot": {
+  "user": "plant_pot",
+  "why": "PR5: the user's model (Plant Pot)",
+  "exact": true
+ },
+ "furn_piano": {
+  "user": "piano",
+  "why": "PR5: the user's model (Black Piano)",
+  "exact": true
+ },
+ "furn_mod_synth": {
+  "user": "synth",
+  "why": "PR5: the user's model (Synthesizer free)",
+  "exact": true
+ },
+ "furn_sacks_burlap": {
+  "user": "sacks_burlap",
+  "why": "PR5: the user's model (Burlap Bags)",
+  "exact": true
  }
 }

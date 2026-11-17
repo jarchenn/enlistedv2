@@ -57,3 +57,5 @@ content/ui/local/
 content/weapons/overrides_user.json
 content/vehicles/overrides_user.json
 content/ai/overrides_user.json
+# PR5: local-only model (its licence), see docs/credits.md
+content/assets/models/fr_stool_metal/

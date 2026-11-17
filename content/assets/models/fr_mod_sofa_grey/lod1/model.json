@@ -1,0 +1,93 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  1.3480918407440186,
+  0.7223423719406128,
+  0.4422939121723175
+ ],
+ "bmin": [
+  -1.3478537797927856,
+  0.0,
+  -0.4426877796649933
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "Mat2",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_5.jpg",
+   "aoInMR": true,
+   "mr": "mr_4.jpg",
+   "name": "Mat1",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.0330806970596313,
+    0.041775524616241455,
+    0.3688303530216217
+   ],
+   "bmin": [
+    -1.0330806970596313,
+    0.0,
+    -0.35672590136528015
+   ],
+   "count": 3024,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "defaultMaterial",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.3480918407440186,
+    0.7223423719406128,
+    0.4422939121723175
+   ],
+   "bmin": [
+    -1.3478537797927856,
+    0.029334567487239838,
+    -0.4426877796649933
+   ],
+   "count": 11952,
+   "first": 3024,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "defaultMaterial",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "frsrc_u_sofa_grey.glb",
+ "textures": {},
+ "triangles": 4992,
+ "vertices": 2983
+}

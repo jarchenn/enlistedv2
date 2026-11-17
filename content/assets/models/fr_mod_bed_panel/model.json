@@ -1,0 +1,193 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.7410351037979126,
+  0.8376395106315613,
+  1.06509530544281
+ ],
+ "bmin": [
+  -0.7416036128997803,
+  0.00017364276573061943,
+  -1.06509530544281
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "aoInMR": true,
+   "mr": "mr_1.jpg",
+   "name": "Pillow",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_5.jpg",
+   "aoInMR": true,
+   "mr": "mr_4.jpg",
+   "name": "Brown_Wood",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "albedo": "albedo_8.jpg",
+   "aoInMR": true,
+   "mr": "mr_7.jpg",
+   "name": "Blue_Wood",
+   "normal": "normal_6.jpg"
+  },
+  {
+   "albedo": "albedo_11.jpg",
+   "aoInMR": true,
+   "mr": "mr_10.jpg",
+   "name": "Blanket",
+   "normal": "normal_9.jpg"
+  },
+  {
+   "albedo": "albedo_14.jpg",
+   "aoInMR": true,
+   "mr": "mr_13.jpg",
+   "name": "Matress",
+   "normal": "normal_12.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5978172421455383,
+    0.6891345977783203,
+    -0.5743557810783386
+   ],
+   "bmin": [
+    -0.5153363943099976,
+    0.4562050402164459,
+    -0.9748857021331787
+   ],
+   "count": 2436,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "defaultMaterial",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.6654638648033142,
+    0.8376395106315613,
+    1.06509530544281
+   ],
+   "bmin": [
+    -0.6242310404777527,
+    0.38856473565101624,
+    -1.06509530544281
+   ],
+   "count": 852,
+   "first": 2436,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "defaultMaterial",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.6664372682571411,
+    0.5935962200164795,
+    1.06509530544281
+   ],
+   "bmin": [
+    -0.6245870590209961,
+    0.00017364276573061943,
+    -1.06509530544281
+   ],
+   "count": 2532,
+   "first": 3288,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "defaultMaterial",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.7410351037979126,
+    0.5404818654060364,
+    1.0097469091415405
+   ],
+   "bmin": [
+    -0.7416036128997803,
+    0.01779160648584366,
+    -0.62385493516922
+   ],
+   "count": 2769,
+   "first": 5820,
+   "mat": 3,
+   "metal": 1.0,
+   "name": "defaultMaterial",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.6373066306114197,
+    0.47733911871910095,
+    0.9442306756973267
+   ],
+   "bmin": [
+    -0.5954564213752747,
+    0.3557640016078949,
+    -0.9442306756973267
+   ],
+   "count": 36,
+   "first": 8589,
+   "mat": 4,
+   "metal": 1.0,
+   "name": "defaultMaterial",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "frsrc_u_bed_panel.glb",
+ "textures": {},
+ "triangles": 2875,
+ "vertices": 2534
+}
