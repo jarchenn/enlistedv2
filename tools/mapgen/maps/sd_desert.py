@@ -36,6 +36,9 @@ ROWS = [
     "######TTTtttt##",   # 1   t  B alley
     "###############",   # 0
 ]
+# the layout scale knob (sd_common.Plan): these original columns / rows are drawn twice; tuned with --sd-timings
+STRETCH_COLS = (6, 8)
+STRETCH_ROWS = (3, 4, 5, 13, 14)
 LINKS = {
     ((6, 2), (5, 2)): "open", ((8, 1), (9, 1)): "open", ((7, 2), (7, 3)): "open",
     ((7, 7), (7, 8)): "open",
@@ -53,7 +56,7 @@ LINKS = {
 
 def build(ctx):
     R = rng(SEED)
-    plan = Plan(ROWS, CELL, LINKS)
+    plan = Plan(ROWS, CELL, LINKS, stretch_cols=STRETCH_COLS, stretch_rows=STRETCH_ROWS)
     bad = plan.check_links()
     assert not bad, bad
     W = D = plan.nx * CELL + 2 * 30.0
@@ -74,18 +77,18 @@ def build(ctx):
     plantA, plantB = (xA + 0.5, zA - 3.0), (xB - 0.5, zB - 7.5)
     aC, bC = plan.centre("A"), plan.centre("B")
     sc.objective("A Vehicle Court", plantA[0], plantA[1], radius=1.75, capture_time=0, attack_from=plan.cc(2, 6), y_min=-1.0, y_max=1.5,
-                 slots=[{"pos": [aC[0] + 7.0, y0, aC[1] + 8.0], "yaw": 225.0, "kind": "position", "priority": 1},
-                        {"pos": [aC[0] - 8.0, y0, aC[1] + 6.0], "yaw": 135.0, "kind": "position", "priority": 2}],
+                 slots=[{"pos": [aC[0] + 6.0, y0, aC[1] - 1.0], "yaw": 225.0, "kind": "position", "priority": 1},
+                        {"pos": [aC[0] - 8.0, y0, aC[1] + 1.0], "yaw": 135.0, "kind": "position", "priority": 2}],
                  routes=[("main", [plan.cc(2, 3), plan.cc(2, 8)]), ("left", [plan.cc(7, 4), plan.cc(7, 8), plan.cc(4, 8), plan.cc(4, 9)])])
     sc.objective("B Supply Yard", plantB[0], plantB[1], radius=1.75, capture_time=0, attack_from=plan.cc(12, 6), y_min=-1.0, y_max=1.5,
-                 slots=[{"pos": [bC[0] - 7.0, y0, bC[1] + 8.0], "yaw": 135.0, "kind": "position", "priority": 1},
-                        {"pos": [bC[0] + 8.0, y0, bC[1] + 6.0], "yaw": 225.0, "kind": "position", "priority": 2}],
+                 slots=[{"pos": [bC[0] - 6.0, y0, bC[1] - 1.0], "yaw": 135.0, "kind": "position", "priority": 1},
+                        {"pos": [bC[0] + 8.0, y0, bC[1] + 1.0], "yaw": 225.0, "kind": "position", "priority": 2}],
                  routes=[("main", [plan.cc(12, 3), plan.cc(12, 8)]), ("right", [plan.cc(7, 4), plan.cc(7, 8), plan.cc(10, 8), plan.cc(10, 9)])])
     for o in sc.objectives:
         o["pos"][1] = y0
     tC, dC = plan.centre("T"), plan.centre("D")
-    tc = [plan.cc(i, j) for i, j in plan.cells("T")]
-    dc = [plan.cc(i, j) for i, j in plan.cells("D")]
+    tc = [plan._cc(i, j) for i, j in plan.cells("T")]
+    dc = [plan._cc(i, j) for i, j in plan.cells("D")]
     for k, (x, z) in enumerate(spread(tc + [(p[0] + 2.0, p[1]) for p in tc], tC, 5)):
         sc.spawn("attacker", [0, 1], x, z, label="Raiders %d" % (k + 1), face=(x, z + 10.0), rack=None)
     for k, (x, z) in enumerate(spread(dc + [(p[0] + 2.0, p[1]) for p in dc], dC, 5)):

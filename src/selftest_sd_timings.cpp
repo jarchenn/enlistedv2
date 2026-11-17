@@ -1,6 +1,8 @@
 // SD2 --sd-timings [map]: route timings of a Search and Destroy map (docs/search-and-destroy.md section 7), measured
-// as navmesh path lengths at the knife speed (the player's run speed x the knife's 1.3), against the spec's targets in
-// seconds. Spawn to site is measured from every spawn marker. Optional, in the scenario's rules.sd:
+// as navmesh path lengths, against the spec's targets in seconds. The judged time is the realistic rush: sprint (the
+// player's sprint speed) until the stamina runs out, then the jog (run speed); the jog-only time is reported too.
+// Speeds x NMK_SD_SPEED_MUL (the mode's movement multiplier, default 1) x NMK_SD_WEAPON_SPEED (the weapon in hand,
+// default 1: a rifle; the knife is 1.3). Spawn to site is measured from every spawn marker. Optional, in the scenario's rules.sd:
 //   "timingPoints": {"contest": [[x, y, z], ...]}      the attackers' first contested boundaries
 //   "timingRoutes": [{"name", "kind": "rotation" | "mid" | "fallback" | "attackMid", "points": [[x, y, z], ...]}]
 //                   a route through these points in order (A to B, or attacker spawn to a site through mid)
@@ -58,8 +60,11 @@ bool sdTimingsTest(App& app, float dt) {
     site.push_back(v3(o["pos"])); cover.emplace_back();
     for (auto& d : o.value("defenseSlots", json::array())) if (d.contains("pos")) cover.back().push_back(v3(d["pos"]));
   }
-  const float v = app.move.run * 1.3f;   // knife in hand
-  T->note("knife speed " + std::to_string(v).substr(0, 4) + " m/s (run " + std::to_string(app.move.run).substr(0, 4) + " x 1.3)");
+  auto envf = [](const char* k, float d) { const char* e = std::getenv(k); return e ? (float)std::atof(e) : d; };
+  const float mul = envf("NMK_SD_SPEED_MUL", 1.0f) * envf("NMK_SD_WEAPON_SPEED", 1.0f);
+  const float jog = app.move.run * mul, spr = app.move.sprint * mul, tSpr = app.move.staminaMax / std::max(0.1f, app.move.staminaSprint);
+  auto secs = [&](float l) { return l <= spr * tSpr ? l / spr : tSpr + (l - spr * tSpr) / jog; };   // sprint while the stamina lasts, then jog
+  T->note("rush: sprint " + std::to_string(spr).substr(0, 4) + " m/s for " + std::to_string(tSpr).substr(0, 4) + " s, then jog " + std::to_string(jog).substr(0, 4) + " m/s");
   auto len = [&](vec3 a, vec3 b, bool& ok) { std::vector<vec3> pts; float l = 0;
     ok = G.nav.pathSync(a, b, pts, nullptr, nullptr, &l) && !pts.empty() && glm::length(pts.back() - b) < 2.5f; return l; };
   auto chain = [&](const std::vector<vec3>& p, bool& ok) { float s = 0; ok = true; for (size_t k = 1; k < p.size(); ++k) { bool o; s += len(p[k - 1], p[k], o); ok = ok && o; } return s; };
@@ -76,21 +81,21 @@ bool sdTimingsTest(App& app, float dt) {
     for (size_t k = 0; k < def.size(); ++k) {   // to the nearest cover slot of the site (its centre when it has none)
       float best = 1e9f; bool any = false;
       for (const vec3& c : cover[s].empty() ? std::vector<vec3>{site[s]} : cover[s]) { bool o; float l = len(def[k], c, o); if (o) { best = std::min(best, l); any = true; } }
-      allOk = allOk && any; lo = std::min(lo, best / v); hi = std::max(hi, best / v);
-      snprintf(buf, sizeof buf, "%s -> %s cover %.0f m %.1f s", defN[k].c_str(), L, best, best / v); T->note(buf);
+      allOk = allOk && any; lo = std::min(lo, secs(best)); hi = std::max(hi, secs(best));
+      snprintf(buf, sizeof buf, "%s -> %s cover %.0f m %.1f s (jog %.1f s)", defN[k].c_str(), L, best, secs(best), best / jog); T->note(buf);
     }
     Band b = kDefCover; std::string w = std::string(b.what) + " " + L; b.what = w.c_str(); band(b, lo, hi, allOk);
     lo = 1e9f; hi = 0; allOk = true;
     for (size_t k = 0; k < att.size(); ++k) {
-      bool o; float l = len(att[k], site[s], o); allOk = allOk && o; lo = std::min(lo, l / v); hi = std::max(hi, l / v);
-      snprintf(buf, sizeof buf, "%s -> %s plant %.0f m %.1f s", attN[k].c_str(), L, l, l / v); T->note(buf);
+      bool o; float l = len(att[k], site[s], o); allOk = allOk && o; lo = std::min(lo, secs(l)); hi = std::max(hi, secs(l));
+      snprintf(buf, sizeof buf, "%s -> %s plant %.0f m %.1f s (jog %.1f s)", attN[k].c_str(), L, l, secs(l), l / jog); T->note(buf);
     }
     Band b2 = kAttPlant; std::string w2 = std::string(b2.what) + " " + L; b2.what = w2.c_str(); band(b2, lo, hi, allOk);
   }
-  { bool o; float l = len(site[0], site[1], o); snprintf(buf, sizeof buf, "A plant -> B plant, shortest: %.0f m %.1f s", l, l / v); T->check(o, buf); }
+  { bool o; float l = len(site[0], site[1], o); snprintf(buf, sizeof buf, "A plant -> B plant, shortest: %.0f m %.1f s", l, secs(l)); T->check(o, buf); }
   if (sdj.contains("timingPoints") && sdj["timingPoints"].contains("contest")) {
     float lo = 1e9f, hi = 0; bool allOk = true;
-    for (auto& a : att) { float best = 1e9f; for (auto& c : sdj["timingPoints"]["contest"]) { bool o; float l = len(a, v3(c), o); if (o) best = std::min(best, l); } allOk = allOk && best < 1e8f; lo = std::min(lo, best / v); hi = std::max(hi, best / v); }
+    for (auto& a : att) { float best = 1e9f; for (auto& c : sdj["timingPoints"]["contest"]) { bool o; float l = len(a, v3(c), o); if (o) best = std::min(best, l); } allOk = allOk && best < 1e8f; lo = std::min(lo, secs(best)); hi = std::max(hi, secs(best)); }
     band(kAttContest, lo, hi, allOk);
   }
   for (auto& r : sdj.value("timingRoutes", json::array())) {
@@ -98,8 +103,9 @@ bool sdTimingsTest(App& app, float dt) {
     std::string kind = r.value("kind", std::string()), name = r.value("name", kind);
     const Band* b = kind == "rotation" ? &kRotation : kind == "mid" ? &kMid : kind == "fallback" ? &kFallback : kind == "attackMid" ? &kAttMid : nullptr;
     bool ok; float l = chain(p, ok);
-    if (!b) { snprintf(buf, sizeof buf, "route %s: %.0f m %.1f s", name.c_str(), l, l / v); T->check(ok, buf); continue; }
-    Band bb = *b; std::string w = std::string(b->what) + " (" + name + ")"; bb.what = w.c_str(); band(bb, l / v, l / v, ok);
+    snprintf(buf, sizeof buf, "route %s: %.0f m, rush %.1f s, jog %.1f s", name.c_str(), l, secs(l), l / jog); T->note(buf);
+    if (!b) { T->check(ok, buf); continue; }
+    Band bb = *b; std::string w = std::string(b->what) + " (" + name + ")"; bb.what = w.c_str(); band(bb, secs(l), secs(l), ok);
   }
   int seen = 0;   // spawn to spawn sightlines
   for (auto& a : att) for (auto& d : def) {
