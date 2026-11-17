@@ -843,6 +843,7 @@ The hip view is framed by the firing hand: the weapon's `rightGrip` socket sits 
   - AK-12 and .50 sniper: the rule brings their scopes too close.
   - Semi-auto sniper, Uzi and Scorpion: their grip sockets don't match the visible hand.
   - Thompson: its hip view reads better as before.
+  - VSK-94 (MG12 batch 3): its grip socket sits high on the grip, so the rule drops the gun out of view. The Saiga-12 follows the rule (its firing hand was behind the eye).
   - Carried M2HB and Panzerschreck: they use their own holds.
 
 **Batch 3.** Both are Cransh GLBs. Their arms' skin is broken, as with the Makarov, so they are static guns on the game's arms (bolt and mag roles), baked posed at their idle. The VSK's idle holds it reversed and upside down, so it is turned 180 degrees about x when converted (`rotX`).
