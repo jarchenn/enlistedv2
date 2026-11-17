@@ -9,6 +9,7 @@
 #include "damage_model.h"
 #include "vm_anim.h"
 #include "character.h"
+#include "ui_flat.h"   // UI5: category tabs
 #include <map>
 #include <memory>
 #include <imgui.h>
@@ -33,6 +34,7 @@ namespace {
 struct Ed {
   int kind = 0;                 // 0 guns, 1 vehicles, 2 AI types (UI3: the Character screen's AI TYPES tab)
   std::string sel[3], search[3];
+  int group[3] = {0, 0, 0};   // UI5: the category tab of each page
   bool raw = false; std::string rawText, rawErr; std::string rawFor;
   bool dirty = false; double resetArm = -10; std::string status;
   // preview
@@ -191,13 +193,17 @@ bool field(int kind, const std::string& id, const std::string& key, const json& 
 // a JSON object's fields, its sub-objects as collapsible sections
 void fields(int kind, const std::string& id, const json& base, const json& cur, const json::json_pointer& at, int depth) {
   std::vector<std::string> sections;
+  // UI5: the plain fields flow in two columns (half the scrolling); sub-objects follow as full-width sections
+  const bool tbl = ImGui::BeginTable("##fcols", 2, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_PadOuterX);
   for (auto& [k, v] : cur.items()) {
     if (depth == 0 && hidden(k) && k != "_damage" && k != "_handling" && k != "_helicopter") continue;
     if (depth > 0 && hidden(k)) continue;
     if (v.is_object()) { sections.push_back(k); continue; }
     if (v.is_array() && (v.empty() || !v[0].is_number() || v.size() > 4)) continue;   // lists (modes, part tables): JSON view
+    if (tbl) ImGui::TableNextColumn();
     field(kind, id, k, base.is_object() && base.contains(k) ? base[k] : json(), v, at / k);
   }
+  if (tbl) ImGui::EndTable();
   for (auto& k : sections) {
     const json& v = cur[k];
     bool any = false; for (auto& [k2, v2] : v.items()) if (!hidden(k2) && (v2.is_number() || v2.is_boolean() || v2.is_string() || v2.is_object() || v2.is_array())) any = true;
@@ -274,10 +280,17 @@ void statEditorPage(App& app, int kind, ImVec2 mn, ImVec2 mx, float alpha) {
     ImGui::SetNextItemWidth(-1); if (ImGui::InputTextWithHint("##search", "Search", sb, sizeof sb)) E.search[kind] = sb;
     std::string q = E.search[kind]; for (auto& c : q) c = (char)std::tolower((unsigned char)c);
     auto match = [&](const std::string& s) { std::string l = s; for (auto& c : l) c = (char)std::tolower((unsigned char)c); return q.empty() || l.find(q) != std::string::npos; };
+    static const char* gG[3] = {"WWII", "Modern", "Blasters"}; static const char* gV[4] = {"Cars", "Trucks", "Tanks", "Aircraft"}; static const char* gA[2] = {"Soldiers", "Enemy types"};
+    const int nG = kind == 0 ? 3 : kind == 1 ? 4 : 2;
+    {   // UI5: one category at a time, picked by "//" tabs (a search looks through all of them)
+      ImGui::SetWindowFontScale(0.78f); flat::tabs(kind == 0 ? gG : kind == 1 ? gV : gA, nG, E.group[kind]); ImGui::SetWindowFontScale(1.0f);
+      E.group[kind] = std::clamp(E.group[kind], 0, nG - 1);
+    }
     ImGui::BeginChild("##items", ImVec2(0, 0), 0, ImGuiWindowFlags_NoBackground);
-    static const char* gG[3] = {"WWII", "MODERN", "BLASTERS"}; static const char* gV[4] = {"CARS", "TRUCKS", "TANKS", "AIRCRAFT"}; static const char* gA[2] = {"SOLDIERS", "ENEMY TYPES"};
-    for (int g = 0; g < (kind == 0 ? 3 : kind == 1 ? 4 : 2); ++g) {
-      ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.94f, 0.46f, 0.13f, 1)); ImGui::TextUnformatted(kind == 0 ? gG[g] : kind == 1 ? gV[g] : gA[g]); ImGui::PopStyleColor();
+    ImGui::SetWindowFontScale(1.15f); ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 7));   // UI5: larger, readable rows
+    for (int g = 0; g < nG; ++g) {
+      if (q.empty() && g != E.group[kind]) continue;
+      if (!q.empty()) { ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(flat::gold())); ImGui::TextUnformatted(kind == 0 ? gG[g] : kind == 1 ? gV[g] : gA[g]); ImGui::PopStyleColor(); }
       if (kind == 2) {   // UI3 (h): every AI type
         auto item = [&](const std::string& id, const std::string& name) {
           json& tb = overrideTable(2, id); bool ov = tb.contains(id) && tb[id].is_object() && !tb[id].empty();
@@ -298,6 +311,7 @@ void statEditorPage(App& app, int kind, ImVec2 mn, ImVec2 mx, float alpha) {
       }
       ImGui::Spacing();
     }
+    ImGui::PopStyleVar(); ImGui::SetWindowFontScale(1.0f);
     ImGui::EndChild();
     ImGui::EndChild();
     // ---- right: the item
@@ -347,6 +361,7 @@ void statEditorPage(App& app, int kind, ImVec2 mn, ImVec2 mx, float alpha) {
                           : kind == 1 ? "Vehicles are not replicated over LAN: each player's own values apply in their game."
                                       : "The AI runs on the host: in a LAN match the host's values apply. Soldier changes take effect at the next match start.");
       ImGui::BeginChild("##fields", ImVec2(0, 0), 0, ImGuiWindowFlags_NoBackground);
+      ImGui::SetWindowFontScale(1.08f); ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 6));   // UI5
       if (E.raw) {   // the item's override patch as JSON: anything without a control
         if (E.rawFor != id) { E.rawFor = id; json o = ov; if (kind == 1 && vehicleOverrides().contains("_helicopter") && app.tanks.defs.at(id)->heli) o["_helicopter"] = vehicleOverrides()["_helicopter"]; E.rawText = o.dump(2); E.rawErr.clear(); }
         static char buf[65536]; std::snprintf(buf, sizeof buf, "%s", E.rawText.c_str());
@@ -391,6 +406,7 @@ void statEditorPage(App& app, int kind, ImVec2 mn, ImVec2 mx, float alpha) {
           }
         } else fields(kind, id, base, cur, json::json_pointer(), 0);
       }
+      ImGui::PopStyleVar(); ImGui::SetWindowFontScale(1.0f);
       ImGui::EndChild();
     } else ImGui::TextDisabled("Pick an item on the left.");
     ImGui::EndChild();

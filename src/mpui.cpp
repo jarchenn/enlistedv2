@@ -5,6 +5,7 @@
 #include "sd_mode.h"
 #include "mpui.h"
 #include "ui_glass.h"   // UI2: glass panel backgrounds
+#include "ui_flat.h"   // UI5
 #include "w5.h"
 #include "game.h"
 #include "classes.h"
@@ -762,11 +763,17 @@ void Game::drawHud() {
   }
   // ---- result
   if (match.phase == MatchPhase::Ended) {
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.45f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-    ImGui::Begin("Match result", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove);
+    // UI5: a large centred panel: VICTORY / DEFEAT in the title face, the type a quarter larger
+    const float sc5 = io.DisplaySize.y / 1080.0f;
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(std::min(io.DisplaySize.x * 0.66f, 1300 * sc5), 0));
+    ImGui::Begin("Match result", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove);
+    ImGui::SetWindowFontScale(1.25f);
     bool won = ffaMode(match.mode()) ? (L && match.winnerSlot == L->slot)
              : (match.winner == Winner::Defenders) == (myRole == CombatRole::Defender);   // TDM: team 0 = Defender role
-    ImGui::TextColored(won ? ImVec4(0.6f, 0.95f, 0.6f, 1) : ImVec4(1, 0.5f, 0.45f, 1), "%s", won ? "VICTORY" : "DEFEAT");
+    { ImDrawList* dl = ImGui::GetWindowDrawList(); const ImVec2 p = ImGui::GetCursorScreenPos(); const float fs = ImGui::GetFontSize();
+      flat::text(dl, flat::titleFont(), fs * 3.6f, p, won ? flat::gold() : flat::ink(), won ? "VICTORY" : "DEFEAT", 0.01f);
+      ImGui::Dummy(ImVec2(1, fs * 3.7f)); flat::rule(dl, p.x, p.x + ImGui::GetContentRegionAvail().x, p.y + fs * 3.75f); ImGui::Dummy(ImVec2(1, fs * 0.5f)); }
     ImGui::Text("%s after %.0f s.", match.result.c_str(), match.time);
     if (match.mode() == GameMode::BattleRoyale && L && match.slots[L->slot].place > 0) ImGui::Text("You placed #%d of %zu.", match.slots[L->slot].place, match.slots.size());   // BR1
     if (assault) {
@@ -785,9 +792,10 @@ void Game::drawHud() {
     scoreboardTable(true);   // G1 / UI1: everyone, per team with totals
     if (isClient) ImGui::TextDisabled("Waiting for the host to return everyone to the lobby...");
     else {
-      if (ImGui::Button("Return to lobby", ImVec2(220, 0))) gUi.wantExit = true;
-      ImGui::SameLine();
-      if (ImGui::Button("Exit", ImVec2(160, 0))) { gUi.wantExit = true; gUi.exitToEditor = true; }   // UI1: back to the editor
+      ImGui::Spacing(); flat::rule(ImGui::GetWindowDrawList(), ImGui::GetCursorScreenPos().x, ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x, ImGui::GetCursorScreenPos().y); ImGui::Dummy(ImVec2(1, 8));
+      if (flat::action("Return to lobby")) gUi.wantExit = true;
+      ImGui::SameLine(0, 40);
+      if (flat::action("Exit")) { gUi.wantExit = true; gUi.exitToEditor = true; }   // UI1: back to the editor
     }
     ImGui::End();
     app.uiCursor = true; app.syncCursor();
