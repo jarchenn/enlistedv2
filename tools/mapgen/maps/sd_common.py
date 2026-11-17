@@ -213,3 +213,42 @@ def place_cover(b, plan, ch, items, R, y, lane=2.2, tries=400, tags=("cover",)):
                 n += 1
                 break
     return n
+
+
+def outer(plan, cell):
+    """A solid cell on (or beyond) the plan's outer ring: walls against it face the outside."""
+    i, j = cell
+    return i <= 0 or j <= 0 or i >= plan.nx - 1 or j >= plan.nz - 1
+
+
+def place_walls2(b, plan, inner, perimeter, y=0.0, tags=("wall",)):
+    """Walls with two looks: `perimeter` (razor wire) where the solid side is on the plan's outer ring, `inner` elsewhere;
+    a link's own piece (breach, culvert, gate) wins."""
+    n = {"inner": 0, "perimeter": 0, "link": 0}
+    for x, z, yaw, kind, a, c in plan.edges():
+        if kind:
+            aid, key = kind, "link"
+        else:
+            solid = a if not plan.walk(*a) else c
+            aid, key = (perimeter, "perimeter") if not plan.walk(*solid) and outer(plan, solid) else (inner, "inner")
+        b.place(aid, x, z, yaw, check=False, cls="none", y=y, tags=set(tags))
+        n[key] += 1
+    return n
+
+
+def wall_spot(plan, ch, near, inset=0.27):
+    """The plain wall of region ch nearest to `near`: (x, z, yaw) on its face, an asset's +z facing into the region."""
+    best = None
+    for x, z, yaw, kind, a, c in plan.edges():
+        if kind:
+            continue
+        ra, rc = plan.at(*a), plan.at(*c)
+        if (ra == ch) == (rc == ch):
+            continue
+        inside = a if ra == ch else c
+        ix, iz = plan._cc(*inside)
+        dx, dz = (1.0 if ix > x else -1.0, 0.0) if yaw == 90.0 else (0.0, 1.0 if iz > z else -1.0)
+        d = math.hypot(x - near[0], z - near[1])
+        if best is None or d < best[0]:
+            best = (d, x + dx * inset, z + dz * inset, math.degrees(math.atan2(dx, dz)) % 360.0)
+    return best[1:]

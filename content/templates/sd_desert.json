@@ -109,6 +109,28 @@
       "yaw": -0.0,
       "pitch": 0.0,
       "gameplay": true
+    },
+    {
+      "name": "workshop_eye",
+      "pos": [
+        -18.0,
+        11.65,
+        3.0
+      ],
+      "yaw": 135.0,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "a_main_eye",
+      "pos": [
+        -36.0,
+        11.65,
+        3.0
+      ],
+      "yaw": 180.0,
+      "pitch": 0.0,
+      "gameplay": true
     }
   ]
 }
