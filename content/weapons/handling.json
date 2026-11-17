@@ -305,6 +305,25 @@
     "back_m": 0.035,
     "pitch_deg": 0.3,
     "flash": 0.8
+   },
+   "modern_glock34": {
+    "kind": "pistol",
+    "pitch_deg": 1.0,
+    "flash": 1.1
+   },
+   "modern_makarov": {
+    "kind": "pistol"
+   },
+   "modern_fn502": {
+    "kind": "pistol",
+    "pitch_deg": 0.7,
+    "back_m": 0.025,
+    "flash": 0.6
+   },
+   "modern_mark23": {
+    "kind": "pistol",
+    "back_m": 0.045,
+    "pitch_deg": 1.9
    }
   }
  },

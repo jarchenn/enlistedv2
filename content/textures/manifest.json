@@ -2593,6 +2593,7 @@
    "ma1": true,
    "batch": "MA1",
    "slots": [
+    "dirt_path_paint",
     "imgmat:floor_earth"
    ]
   },
@@ -5678,7 +5679,8 @@
    "ma1": false,
    "batch": "TX2",
    "slots": [
-    "moss_cushion"
+    "moss_cushion",
+    "moss_floor_paint"
    ]
   },
   {

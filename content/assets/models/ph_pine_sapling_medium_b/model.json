@@ -1,0 +1,123 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  3.5942940711975098,
+  10.239957809448242,
+  3.489941358566284
+ ],
+ "bmin": [
+  -3.5942940711975098,
+  0.0,
+  -3.489941358566284
+ ],
+ "materials": [
+  {
+   "albedo": "albedoa_0.png",
+   "cutout": true,
+   "name": "ph_pine_sapling_medium_b_needles"
+  },
+  {
+   "albedo": "albedo_2.jpg",
+   "mr": "mr_3.jpg",
+   "name": "pine_sapling_medium_dead_branches",
+   "normal": "normal_1.jpg"
+  },
+  {
+   "albedo": "albedo_2.jpg",
+   "mr": "mr_3.jpg",
+   "name": "pine_sapling_medium_bark",
+   "normal": "normal_1.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    3.5942940711975098,
+    10.239957809448242,
+    3.489941358566284
+   ],
+   "bmin": [
+    -3.5942940711975098,
+    0.0,
+    -3.489941358566284
+   ],
+   "count": 15912,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "ph_pine_sapling_medium_b_cards",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.49573779106140137,
+    2.1751065254211426,
+    0.8751909136772156
+   ],
+   "bmin": [
+    -0.8057909607887268,
+    0.5697596669197083,
+    -0.7599529027938843
+   ],
+   "count": 1596,
+   "first": 15912,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "pine_sapling_medium_b_LOD0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.9763426780700684,
+    9.117059707641602,
+    2.683849334716797
+   ],
+   "bmin": [
+    -2.067030906677246,
+    1.047927737236023,
+    -2.0784761905670166
+   ],
+   "count": 8274,
+   "first": 17508,
+   "mat": 2,
+   "metal": 0.0,
+   "name": "pine_sapling_medium_b_LOD0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_pine_sapling_medium_b.glb",
+ "textures": {},
+ "triangles": 8594,
+ "vertices": 14357
+}

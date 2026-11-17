@@ -79,6 +79,48 @@ BSL Shaders v10.1.8 by Capt Tatsu (https://capttatsu.com) was the visual referen
 
 Author, licence and source for the grenade, StG 44, M3, Kar 98k ZF39 and soldier rows come from each file's own glTF `asset.extras` (Sketchfab export fields). They were read from the files, not taken from the filenames.
 
+## Pine forest and Verdant Trail: Poly Haven (CC0), NT8
+
+Outpost Woods' pine forest (NT8) uses every asset of Poly Haven's **Pine Forest** and **A Verdant Trail** collections
+(https://polyhaven.com/collections). All are **CC0 1.0 Universal**; attribution is given anyway. Downloaded through the
+public API (1K glTF models, 2K texture maps) into `incoming/nt8/<id>/` (outside the repo). The models are rebuilt for the
+game by `tools/bake_ph_forest.py` (trees and saplings: decimated wood plus needle cards rendered from the tree's own twigs;
+plants keep their alpha cards; rocks, roots and logs decimated), written as `content/assets/ph_*.json` by
+`tools/catalog_ph_forest.py` and baked into `content/assets/models/ph_*/`. The three textures are packed into
+`content/textures/ph_forest_ground_04/`, `ph_forest_leaves_04/` and `ph_pine_bark/`.
+
+| Poly Haven id | Name | Authors | Kind | Source |
+|---|---|---|---|---|
+| boulder_01 | Boulder 01 | Rico Cilliers | model | https://polyhaven.com/a/boulder_01 |
+| coast_rocks_05 | Coast Rocks 05 | Rob Tuytel | model | https://polyhaven.com/a/coast_rocks_05 |
+| coastal_cliff_02 | Coastal Cliff 02 | Rob Tuytel | model | https://polyhaven.com/a/coastal_cliff_02 |
+| coastal_cliff_04 | Coastal Cliff 04 | Rob Tuytel, Rico Cilliers | model | https://polyhaven.com/a/coastal_cliff_04 |
+| dead_tree_trunk | Dead Tree Trunk | Rob Tuytel | model | https://polyhaven.com/a/dead_tree_trunk |
+| dead_tree_trunk_02 | Dead Tree Trunk 02 | Jenelle van Heerden, Rico Cilliers | model | https://polyhaven.com/a/dead_tree_trunk_02 |
+| dry_branches_medium_01 | Dry Branches Medium 01 | Rico Cilliers | model | https://polyhaven.com/a/dry_branches_medium_01 |
+| fern_02 | Fern 02 | Rob Tuytel, Rico Cilliers | model | https://polyhaven.com/a/fern_02 |
+| fir_sapling | Fir Sapling | Rob Tuytel, Rico Cilliers | model | https://polyhaven.com/a/fir_sapling |
+| fir_sapling_medium | Fir Sapling Medium | Rob Tuytel, Rico Cilliers | model | https://polyhaven.com/a/fir_sapling_medium |
+| fir_tree_01 | Fir Tree 01 | Rob Tuytel, Rico Cilliers | model | https://polyhaven.com/a/fir_tree_01 |
+| forest_ground_04 | Forest Ground 04 | Rob Tuytel, Rico Cilliers | texture | https://polyhaven.com/a/forest_ground_04 |
+| forest_leaves_04 | Forest Leaves 04 | Rob Tuytel | texture | https://polyhaven.com/a/forest_leaves_04 |
+| grass_medium_01 | Grass Medium 01 | Rob Tuytel, Rico Cilliers | model | https://polyhaven.com/a/grass_medium_01 |
+| island_tree_01 | Island Tree 01 | Rob Tuytel, Rico Cilliers | model | https://polyhaven.com/a/island_tree_01 |
+| pine_bark | Pine Bark | Dimitrios Savva | texture | https://polyhaven.com/a/pine_bark |
+| pine_roots | Pine Roots | Rob Tuytel | model | https://polyhaven.com/a/pine_roots |
+| pine_sapling_medium | Pine Sapling Medium | Rob Tuytel, Rico Cilliers | model | https://polyhaven.com/a/pine_sapling_medium |
+| pine_sapling_small | Pine Sapling Small | Rob Tuytel, Rico Cilliers | model | https://polyhaven.com/a/pine_sapling_small |
+| pine_tree_01 | Pine Tree 01 | Rob Tuytel, Rico Cilliers | model | https://polyhaven.com/a/pine_tree_01 |
+| rock_09 | Rock 09 | Jenelle van Heerden | model | https://polyhaven.com/a/rock_09 |
+| rock_face_01 | Rock Face 01 | Dario Barresi | model | https://polyhaven.com/a/rock_face_01 |
+| rock_moss_set_01 | Rock Moss Set 01 | Kless Gyzen | model | https://polyhaven.com/a/rock_moss_set_01 |
+| rock_moss_set_02 | Rock Moss Set 02 | Kless Gyzen | model | https://polyhaven.com/a/rock_moss_set_02 |
+| root_cluster_01 | Root Cluster 01 | Jenelle van Heerden, Rico Cilliers | model | https://polyhaven.com/a/root_cluster_01 |
+| root_cluster_02 | Root Cluster 02 | Jenelle van Heerden | model | https://polyhaven.com/a/root_cluster_02 |
+| sand_rocks_small_01 | Sand Rocks Small 01 | Rob Tuytel, Rico Cilliers | model | https://polyhaven.com/a/sand_rocks_small_01 |
+| shrub_03 | Shrub 03 | Rico Cilliers | model | https://polyhaven.com/a/shrub_03 |
+| stone_01 | Stone 01 | Dario Barresi, Rico Cilliers | model | https://polyhaven.com/a/stone_01 |
+
 ## Building design references (GX6)
 
 These five models were design references for the GX6 buildings (`tools/catalog_gx_buildings.mjs`): proportions, roof pitch, window rhythm, timber layout, trim depth, material zoning, concrete weathering and earth blending. **None of their meshes or textures ships or is in this repository.** The buildings are built procedurally from the B1 kit. Author, licence and source come from each file's glTF `asset.extras`.
@@ -200,6 +242,10 @@ Supplied by the user (Downloads, copied / extracted to `incoming/mg12/<name>/`);
 | [fps smg9 animated](https://sketchfab.com/3d-models/fps-smg9-animated-e77e2cd81dc048b998fd4652da644eb0) (fps-smg9-animated.zip → arms@smg9.fbx; 22 168) | SMG-9 (`modern_smg9`) | DJMaesen | CC BY 4.0 |
 | [animated pistol](https://sketchfab.com/3d-models/animated-pistol-30d1b612b2334a8294b02692b8c10cf1) ("first person animated heavy pistol"; animated-pistol.zip → arms@talon.fbx; 13 589) | Desert Eagle (`modern_deagle`) | DJMaesen | CC BY 4.0 |
 | fps-ak-animated (2).zip | **Not used**: byte-identical to fps-ak-animated (`modern_ak`, MG1) | supplied by the user | as MG1 |
+| [fps pistol Animated](https://sketchfab.com/3d-models/fps-pistol-animated-a8cdd6c2e936484aaf67e1786c8320d9) (fps-pistol-animated.zip → arms@bpPistol.fbx; 18 526; a later re-upload by wout.uyttebroek has the same count) | Glock 34 with compensator (`modern_glock34`, batch 2) | DJMaesen | CC BY 4.0 |
+| [Makarov PM FPS animations](https://sketchfab.com/3d-models/makarov-pm-fps-animations-d02ebd58e3cf44acb7af73e3f156be28) (makarov_pm_fps_animations.glb, GLB `asset.extras`) | Makarov PM (`modern_makarov`, batch 2): the gun only (the arms' skin is broken in the file; the game's arms hold it), its suppressor / optic bracket not used | Cransh (https://sketchfab.com/ccransh) | CC BY 4.0 |
+| [FPS animations FN 502 Tactical](https://sketchfab.com/3d-models/fps-animations-fn-502-tactical-dad2ee1250054a63adaa81918887c0fe) (fps_animations_fn_502_tactical.glb, GLB `asset.extras`; its spec-gloss materials converted for import) | FN 502 Tactical (`modern_fn502`, batch 2): the gun only, as the Makarov | Cransh | CC BY 4.0 |
+| mark-23-animated-free.zip (Mark23.fbx; 7 762 triangles) = [Mark 23 Animated (Free)](https://sketchfab.com/3d-models/mark-23-animated-free-7abebe340aca4f46b36368417b3ca920) | HK Mk 23 (`modern_mark23`, batch 2): **the bake is local-only** (content/weapons/local/modern_mark23.json, models/modern_mark23_local); the committed gun shows the Springfield XD stand-in | BarcodeGames | **Sketchfab Free Standard licence, not CC** (a CC BY copy by "notatree" with the same count looks like a re-upload): to be confirmed by the user |
 
 - Backrooms / Tunnels ambience: "Backrooms Ambience 2" by godbi (file godbi_3-backrooms-ambience-2-522106.mp3, supplied by the user; licence to be confirmed).
 - Footsteps: "Footsteps cellar" (freesound_community, file ...-26890.mp3); door opening: "Opening door" (soundreality, ...-411632.mp3); zombie: "Zombie sound 2" (dragon-studio, ...-357976.mp3). Supplied by the user; licences to be confirmed.

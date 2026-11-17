@@ -225,22 +225,22 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_traffic_barrel` | not used | not used | not used | not used | not used | not used | not used | 18 | 8 | 4 | not used | not used |
 | `nat_blackthorn_low` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 41 | 20 | not used | not used | not used | not used | not used | 28 | not used |
 | `nat_boulder_granite_l` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 4 | not used | not used | not used | not used |
-| `nat_boulder_granite_s` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | 15 | not used | not used |
+| `nat_boulder_granite_s` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `nat_boulder_limestone_l` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 3 | not used | not used | not used | 33 | not used | not used | 25 |
 | `nat_boulder_limestone_m` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 5 | not used | not used | not used | 41 | not used | not used | 9 |
-| `nat_boulder_schist_m` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | 7 | not used | not used |
+| `nat_boulder_schist_m` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `nat_boulder_schist_slab` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | 4 | not used | 22 |
-| `nat_boulders_granite_group` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 4 | 26 | 1 | not used | 21 |
-| `nat_bracken_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 42 | not used | not used | not used | not used | 614 | not used | not used |
-| `nat_bramble_thicket` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 1 | not used | not used | not used | 43 | not used | 203 | 1 | not used |
+| `nat_boulders_granite_group` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 4 | 26 | 3 | not used | 21 |
+| `nat_bracken_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 42 | not used | not used | not used | not used | not used | not used | not used |
+| `nat_bramble_thicket` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 1 | not used | not used | not used | 43 | not used | 49 | 1 | not used |
 | `nat_brush_patchy` | Vegetation | not placed: V9 ground cover (patchy brush, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `nat_brush_rank` | Vegetation | not placed: V9 ground cover (rank brush, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used | not used | 116 | not used | not used |
+| `nat_brush_rank` | Vegetation | not placed: V9 ground cover (rank brush, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `nat_brush_scrub` | Vegetation | not placed: V9 ground cover (dry scrub, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | 59 | not used | not used | not used | 91 | not used | not used | not used |
 | `nat_clover_tufts` | Vegetation | not placed: V9 ground cover (clover and green tufts, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 9 | not used | not used | not used | not used | not used | not used | 7 | not used |
 | `nat_drygrass_sparse` | Vegetation | not placed: V9 ground cover (sparse dry grass, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | 113 | not used | not used | not used | 138 | not used | not used | not used |
 | `nat_drygrass_tall` | Vegetation | not placed: V9 ground cover (tall dry grass, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 3 | 419 | not used | not used | not used | 1 | not used | 3 | not used |
 | `nat_drygrass_tufts` | Vegetation | not placed: V9 ground cover (dry grass tufts, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 12 | 177 | not used | not used | 54 | 180 | not used | 11 | not used |
-| `nat_fern_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 59 | 18 | not used | not used | not used | not used | 656 | 50 | 21 |
+| `nat_fern_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 59 | 18 | not used | not used | not used | not used | not used | 50 | 21 |
 | `nat_flowers_buttercup` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 21 | 1 | not used | not used | not used | not used | not used | 26 | not used |
 | `nat_flowers_clover` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `nat_flowers_cornflower` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 56 | 7 | not used | not used | not used | not used | not used | 56 | not used |
@@ -250,18 +250,18 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `nat_flowers_meadow` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 18 | not used | not used | not used | 2 | not used | not used | 17 | not used |
 | `nat_flowers_poppy` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 110 | 39 | not used | not used | not used | not used | not used | 104 | not used |
 | `nat_gorse_shrub` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 91 | not used | not used | not used | 174 | not used | not used | not used |
-| `nat_green_tufts` | Vegetation | not placed: V9 ground cover (green grass tufts, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 23 | 42 | not used | not used | not used | not used | 18 | 27 | 19 |
+| `nat_green_tufts` | Vegetation | not placed: V9 ground cover (green grass tufts, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 23 | 42 | not used | not used | not used | not used | 33 | 27 | 19 |
 | `nat_hawthorn_bush` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 155 | 70 | not used | not used | 49 | not used | not used | 146 | not used |
-| `nat_meadow_mixed` | Vegetation | not placed: V9 ground cover (mixed meadow, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 44 | 62 | not used | not used | 35 | not used | 4 | 40 | not used |
-| `nat_nettle_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 7 | 21 | not used | not used | 122 | not used | 222 | 7 | not used |
+| `nat_meadow_mixed` | Vegetation | not placed: V9 ground cover (mixed meadow, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 44 | 62 | not used | not used | 35 | not used | 3 | 40 | not used |
+| `nat_nettle_clump` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 7 | 21 | not used | not used | 122 | not used | 76 | 7 | not used |
 | `nat_outcrop_limestone` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 2 | not used | not used | 5 | 25 | not used | not used | not used |
-| `nat_outcrop_schist` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | 6 | not used | not used |
-| `nat_sapling_ash` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 4 | not used | 247 | not used | not used |
-| `nat_sapling_oak` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | 168 | not used | not used |
+| `nat_outcrop_schist` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | 4 | not used | not used |
+| `nat_sapling_ash` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 4 | not used | 86 | not used | not used |
+| `nat_sapling_oak` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `nat_scree_patch` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 3 | not used | not used | not used | 5 | not used | not used | not used |
-| `nat_stones_granite_patch` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 107 | not used | 1 | not used | not used |
+| `nat_stones_granite_patch` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | not used | not used | not used | 107 | not used | not used | not used | not used |
 | `nat_stones_patch` | Nature | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | not used | 4 | not used | not used | 267 | 4 | not used | not used | not used |
-| `nat_tallgrass_patch` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 37 | 111 | not used | not used | 125 | not used | 40 | 41 | not used |
+| `nat_tallgrass_patch` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 37 | 111 | not used | not used | 125 | not used | 35 | 41 | not used |
 | `nat_tallgrass_verge` | Vegetation | not placed: added after the Omaha map (natural ground dressing, docs/nature.md) | terrain-only base map; for hand-dressing the cliffs, ridge and fields | 9 | 75 | not used | not used | 10 | not used | not used | 15 | not used |
 | `nat_wheat_field` | Vegetation | not placed: V9 ground cover (wheat field square, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 52 | not used | not used | not used | not used | not used | not used | 44 | not used |
 | `nat_wheat_stubble` | Vegetation | not placed: V9 ground cover (wheat stubble square, docs/nature.md#ground-cover) | for hand-dressing and Beautify (content/settings/beautify.json) | 58 | not used | not used | not used | not used | not used | not used | 58 | not used |
@@ -292,7 +292,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `scn_treeline_b` | Scenery | not used: added with D-day (far forest silhouette) | terrain-only base map | not used | 22 | not used | not used | not used | not used | not used | not used | not used |
 | `scn_treeline_c` | Scenery | not used: added with D-day (far forest silhouette) | terrain-only base map | not used | 26 | not used | not used | not used | not used | not used | not used | not used |
 | `shrub_bramble` | Vegetation | 3974: Bluff scrub (about 1 per 38 m2), draw undergrowth, dunes | terrain-only base map | 40 | 33 | not used | not used | 26 | not used | not used | 23 | not used |
-| `shrub_hazel` | Vegetation | 1070: Bluff scrub, E-1 draw undergrowth | terrain-only base map | 346 | 211 | not used | not used | 84 | not used | 145 | 318 | not used |
+| `shrub_hazel` | Vegetation | 1070: Bluff scrub, E-1 draw undergrowth | terrain-only base map | 346 | 211 | not used | not used | 84 | not used | not used | 318 | not used |
 | `small_carpenter_workshop` | Small buildings | 2: Saint-Laurent | terrain-only base map | 8 | not used | not used | not used | not used | not used | not used | 8 | not used |
 | `small_roadside_office` | Small buildings | 1: Saint-Laurent crossroads | terrain-only base map | 7 | not used | not used | not used | not used | not used | not used | 7 | not used |
 | `small_stone_dairy` | Small buildings | 2: D farm; Saint-Laurent | terrain-only base map | 8 | 1 | not used | not used | not used | not used | not used | 8 | not used |
@@ -302,7 +302,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `tank_tiger_i` | Vehicles | excluded: No Tigers at Omaha; vehicles are out of scope (SPEC 11) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `tree_apple` | Vegetation | 396: Orchards (D battery, A5, two more) | terrain-only base map | 305 | 58 | not used | not used | 13 | not used | not used | 241 | not used |
 | `tree_ash` | Vegetation | 213: Hedgerow trees; wooded E-1 draw | terrain-only base map | 368 | 283 | not used | not used | 330 | not used | not used | 327 | not used |
-| `tree_oak` | Vegetation | 316: Hedgerow trees; wooded E-1 draw | terrain-only base map | 294 | 310 | not used | not used | 276 | not used | 77 | 271 | not used |
+| `tree_oak` | Vegetation | 316: Hedgerow trees; wooded E-1 draw | terrain-only base map | 294 | 310 | not used | not used | 276 | not used | not used | 271 | not used |
 | `tree_poplar` | Vegetation | 73: Roadside poplars on the draw road; hedgerow trees | terrain-only base map | 130 | 149 | not used | not used | 114 | not used | not used | 127 | not used |
 | `utility_pole` | Dressing | 23: Telegraph line from E-1 to the village, branch to the D command post | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `vil_bakery` | Houses | excluded: GX6 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | not used | 1 | not used | not used | not used | not used | not used | not used | not used |
@@ -335,7 +335,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `wat_crater_pool` | Water | not placed: V1 water feature added after the map was built (Beautify / the user place it) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `wat_pond_irregular` | Water | not placed: V1 water feature added after the map was built | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `wat_pond_round` | Water | not placed: V1 water feature added after the map was built | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `wat_puddles` | Water | not placed: V1 water feature added after the map was built | terrain-only base map | not used | not used | not used | not used | 12 | not used | 1 | not used | not used |
+| `wat_puddles` | Water | not placed: V1 water feature added after the map was built | terrain-only base map | not used | not used | not used | not used | 12 | not used | 2 | not used | not used |
 | `wat_stream_bend` | Water | not placed: V1 stream piece (snaps with V6) added after the map was built | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `wat_stream_end` | Water | not placed: V1 stream piece added after the map was built | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `wat_stream_straight` | Water | not placed: V1 stream piece added after the map was built | terrain-only base map | 63 | not used | not used | not used | not used | not used | not used | 63 | not used |
@@ -475,7 +475,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_box_truck` | not used | not used | not used | not used | not used | not used | not used | 2 | not used | 1 | not used | not used |
 | `mod_bus_shelter` | not used | not used | not used | not used | not used | not used | not used | 7 | not used | not used | not used | not used |
 | `mod_cable_spool_large` | not used | not used | not used | not used | not used | not used | not used | 2 | not used | not used | not used | not used |
-| `mod_camo_net` | not used | not used | not used | not used | not used | not used | not used | 1 | 2 | 2 | not used | not used |
+| `mod_camo_net` | not used | not used | not used | not used | not used | not used | not used | 1 | 2 | 1 | not used | not used |
 | `mod_car_shell_burned` | not used | not used | not used | not used | not used | not used | not used | 3 | 1 | not used | not used | not used |
 | `mod_cart_corral` | not used | not used | not used | not used | not used | not used | not used | 4 | not used | not used | not used | not used |
 | `mod_cinder_wall` | not used | not used | not used | not used | not used | not used | not used | 10 | not used | not used | not used | not used |
@@ -495,7 +495,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_dumpster_frontload` | not used | not used | not used | not used | not used | not used | not used | 2 | not used | not used | not used | not used |
 | `mod_dumpster_rolloff` | not used | not used | not used | not used | not used | not used | not used | 1 | not used | not used | not used | not used |
 | `mod_excavator` | not used | not used | not used | not used | not used | not used | not used | 1 | not used | not used | not used | not used |
-| `mod_fallen_tree` | not used | not used | not used | not used | not used | not used | not used | 1 | not used | 2 | not used | not used |
+| `mod_fallen_tree` | not used | not used | not used | not used | not used | not used | not used | 1 | not used | not used | not used | not used |
 | `mod_fighting_position_oh` | not used | not used | not used | not used | not used | not used | not used | 1 | not used | not used | not used | not used |
 | `mod_fire_hydrant` | not used | not used | not used | not used | not used | not used | not used | 1 | not used | not used | not used | not used |
 | `mod_flower_bed` | not used | not used | not used | not used | not used | not used | not used | 2 | not used | not used | not used | not used |
@@ -815,7 +815,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_rubble_large` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_rubble_small` | not used | not used | not used | not used | not used | not used | not used | 45 | 1 | not used | not used | not used |
 | `mod_sawhorse_barricade` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `mod_sedan_burned` | not used | not used | not used | not used | not used | not used | not used | 3 | 1 | not used | not used | not used |
+| `mod_sedan_burned` | not used | not used | not used | not used | not used | not used | not used | 3 | 1 | 1 | not used | not used |
 | `mod_sidewalk_bay` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_sidewalk_bay_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_sidewalk_bay_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -914,7 +914,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_nt_waterfront_house_ruin` | not used | not used | not used | not used | not used | not used | not used | 4 | not used | not used | not used | not used |
 | `mod_nt_workshop_ruin` | not used | not used | not used | not used | not used | not used | not used | 6 | not used | 1 | not used | not used |
 | `mod_sapling_paving` | not used | not used | not used | not used | not used | not used | not used | 57 | not used | not used | not used | not used |
-| `mod_weeds_clump` | not used | not used | not used | not used | not used | not used | not used | 129 | not used | 169 | not used | not used |
+| `mod_weeds_clump` | not used | not used | not used | not used | not used | not used | not used | 129 | not used | 172 | not used | not used |
 | `mod_weeds_crack` | not used | not used | not used | not used | not used | not used | not used | 190 | 26 | not used | not used | not used |
 | `line_mod_road_4lane_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_bld_leisure_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -945,7 +945,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_vines_hanging_long` | not used | not used | not used | not used | not used | not used | not used | 391 | not used | not used | not used | not used |
 | `mod_mil_hut_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 | 1 | 1 | not used | not used |
 | `mod_mil_hut` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `mod_pcar_compact` | not used | not used | not used | not used | not used | not used | not used | 2 | not used | not used | not used | not used |
+| `mod_pcar_compact` | not used | not used | not used | not used | not used | not used | not used | 2 | not used | 1 | not used | not used |
 | `mod_pcar_compact_wreck` | not used | not used | not used | not used | not used | not used | not used | 3 | not used | not used | not used | not used |
 | `mod_pcar_hatchback` | not used | not used | not used | not used | not used | not used | not used | 3 | not used | not used | not used | not used |
 | `mod_pcar_hatchback_wreck` | not used | not used | not used | not used | not used | not used | not used | 1 | 1 | not used | not used | not used |
@@ -955,10 +955,10 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_pcar_offroad_wreck` | not used | not used | not used | not used | not used | not used | not used | 7 | 1 | 1 | not used | not used |
 | `mod_pcar_pickup` | not used | not used | not used | not used | not used | not used | not used | 5 | not used | not used | not used | not used |
 | `mod_pcar_pickup_wreck` | not used | not used | not used | not used | not used | not used | not used | 4 | 1 | 1 | not used | not used |
-| `mod_pcar_sedan` | not used | not used | not used | not used | not used | not used | not used | 3 | not used | 2 | not used | not used |
-| `mod_pcar_sedan_wreck` | not used | not used | not used | not used | not used | not used | not used | 1 | 1 | 1 | not used | not used |
+| `mod_pcar_sedan` | not used | not used | not used | not used | not used | not used | not used | 3 | not used | not used | not used | not used |
+| `mod_pcar_sedan_wreck` | not used | not used | not used | not used | not used | not used | not used | 1 | 1 | not used | not used | not used |
 | `mod_pcar_sport` | not used | not used | not used | not used | not used | not used | not used | 2 | not used | not used | not used | not used |
-| `mod_pcar_sport_wreck` | not used | not used | not used | not used | not used | not used | not used | 4 | not used | not used | not used | not used |
+| `mod_pcar_sport_wreck` | not used | not used | not used | not used | not used | not used | not used | 4 | not used | 1 | not used | not used |
 | `mod_pcar_suv` | not used | not used | not used | not used | not used | not used | not used | 4 | not used | not used | not used | not used |
 | `mod_pcar_suv_wreck` | not used | not used | not used | not used | not used | not used | not used | 7 | not used | not used | not used | not used |
 | `mod_pcar_wagon` | not used | not used | not used | not used | not used | not used | not used | 6 | not used | not used | not used | not used |
@@ -1063,9 +1063,9 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `nt3_tree_dead_ash` | not used | not used | not used | not used | not used | not used | not used | not used | 6 | not used | not used | not used |
 | `nt3_tree_dead_oak` | not used | not used | not used | not used | not used | not used | not used | not used | 37 | not used | not used | not used |
 | `nt3_tree_dry_ash` | not used | not used | not used | not used | not used | not used | not used | not used | 29 | not used | not used | not used |
-| `nt3_tree_forest_ash` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 152 | not used | not used |
-| `nt3_tree_forest_oak` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 203 | not used | not used |
-| `nt3_tree_forest_poplar` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 96 | not used | not used |
+| `nt3_tree_forest_ash` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 | not used | not used |
+| `nt3_tree_forest_oak` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 111 | not used | not used |
+| `nt3_tree_forest_poplar` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_ammo_crate_old` | not used | not used | not used | not used | not used | not used | not used | not used | 3 | 4 | not used | not used |
 | `mod_helipad_raised` | not used | not used | not used | not used | not used | not used | not used | not used | 1 | not used | not used | not used |
 | `mod_range_booth` | not used | not used | not used | not used | not used | not used | not used | not used | 1 | 1 | not used | not used |
@@ -1198,6 +1198,87 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `cave_lid_v0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 30 |
 | `cave_lid_v1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 25 |
 | `cave_lid_v2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 16 |
+| `ph_boulder_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 | not used | 7 |
+| `ph_dead_tree_trunk` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 | not used | 9 |
+| `ph_dead_tree_trunk_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 10 | not used | 4 |
+| `ph_dry_branches_medium_01_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 | not used | 11 |
+| `ph_dry_branches_medium_01_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 | not used | 6 |
+| `ph_dry_branches_medium_01_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 | not used | 7 |
+| `ph_fern_02_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 266 | not used | 289 |
+| `ph_fern_02_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 261 | not used | 253 |
+| `ph_fern_02_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 237 | not used | 278 |
+| `ph_fern_02_d` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 313 | not used | 283 |
+| `ph_fir_sapling_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 91 | not used | 96 |
+| `ph_fir_sapling_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 104 | not used | 106 |
+| `ph_fir_sapling_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 90 | not used | 92 |
+| `ph_fir_sapling_medium_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 30 | not used | 1 |
+| `ph_fir_sapling_medium_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 39 | not used | 5 |
+| `ph_fir_sapling_medium_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 40 | not used | 5 |
+| `ph_fir_tree_01_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 44 | not used | 48 |
+| `ph_fir_tree_01_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 72 | not used | 77 |
+| `ph_fir_tree_01_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 54 | not used | 70 |
+| `ph_grass_medium_01_large_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 58 | not used | 56 |
+| `ph_grass_medium_01_large_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 73 | not used | 56 |
+| `ph_grass_medium_01_large_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 53 | not used | 71 |
+| `ph_grass_medium_01_mid_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 77 | not used | 75 |
+| `ph_grass_medium_01_mid_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 54 | not used | 62 |
+| `ph_grass_medium_01_mid_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 70 | not used | 75 |
+| `ph_grass_medium_01_small_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 66 | not used | 69 |
+| `ph_grass_medium_01_small_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 71 | not used | 56 |
+| `ph_grass_medium_01_tall_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 63 | not used | 58 |
+| `ph_grass_medium_01_tall_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 71 | not used | 55 |
+| `ph_grass_medium_01_tall_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 60 | not used | 67 |
+| `ph_grass_medium_01_tiny_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 72 | not used | 62 |
+| `ph_grass_medium_01_tiny_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 57 | not used | 55 |
+| `ph_grass_medium_01_tiny_e` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 65 | not used | 51 |
+| `ph_island_tree_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 | not used | 1 |
+| `ph_pine_roots_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 | not used | 3 |
+| `ph_pine_roots_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 | not used | 7 |
+| `ph_pine_sapling_medium_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 35 | not used | 1 |
+| `ph_pine_sapling_medium_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 34 | not used | 4 |
+| `ph_pine_sapling_medium_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 35 | not used | 18 |
+| `ph_pine_sapling_small_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 85 | not used | 112 |
+| `ph_pine_sapling_small_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 128 | not used | 112 |
+| `ph_pine_sapling_small_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 118 | not used | 114 |
+| `ph_pine_tree_01_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 44 | not used | 31 |
+| `ph_pine_tree_01_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 49 | not used | 39 |
+| `ph_pine_tree_01_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 45 | not used | 51 |
+| `ph_rock_09` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 19 | not used | 12 |
+| `ph_rock_moss_set_01_rock01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 | not used | 12 |
+| `ph_rock_moss_set_01_rock02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 | not used | 12 |
+| `ph_rock_moss_set_01_rock03` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 | not used | 6 |
+| `ph_rock_moss_set_01_rock04` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 | not used | 8 |
+| `ph_rock_moss_set_01_rock05` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 | not used | 5 |
+| `ph_rock_moss_set_01_rock06` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 | not used | 5 |
+| `ph_rock_moss_set_02_rock08` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 | not used | 3 |
+| `ph_rock_moss_set_02_rock09` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 | not used | 6 |
+| `ph_rock_moss_set_02_rock10` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 | not used | 4 |
+| `ph_rock_moss_set_02_rock11` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 | not used | 8 |
+| `ph_rock_moss_set_02_rock12` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 | not used | 3 |
+| `ph_rock_moss_set_02_rock13` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 | not used | 1 |
+| `ph_root_cluster_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 | not used | 2 |
+| `ph_root_cluster_02_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 | not used | 4 |
+| `ph_root_cluster_02_d` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 | not used | 6 |
+| `ph_root_cluster_02_e` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 | not used | 12 |
+| `ph_root_cluster_02_f` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 | not used | 5 |
+| `ph_root_cluster_02_g` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 | not used | 2 |
+| `ph_root_cluster_02_h` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 | not used | 6 |
+| `ph_sand_rocks_small_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 | not used | 4 |
+| `ph_shrub_03_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 128 | not used | 124 |
+| `ph_shrub_03_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 123 | not used | 122 |
+| `ph_shrub_03_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 110 | not used | 112 |
+| `ph_shrub_03_d` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 114 | not used | 120 |
+| `ph_stone_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 21 | not used | 5 |
+| `ph_coast_rocks_05` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `ph_coastal_cliff_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `ph_coastal_cliff_04` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `ph_grass_medium_01_tiny_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `ph_grass_medium_01_tiny_d` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `ph_grass_medium_01_tiny_f` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `ph_rock_face_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `ph_rock_moss_set_02_rock07` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `ph_root_cluster_02_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `ph_root_cluster_02_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 
 ## Notes
 

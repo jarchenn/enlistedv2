@@ -223,6 +223,7 @@ void animVmStep(App& app, const WeaponDef& d, WeaponState& s, float dt) {
 }
 
 void animVmNotActive() { gActive = nullptr; }
+void animVmReset() { gActive = nullptr; gSt.clear(); }   // ED2: the weapon definitions are about to be rebuilt
 
 bool animVmDraw(App& app, const WeaponDef& d) {
   auto it = gSt.find(&d);

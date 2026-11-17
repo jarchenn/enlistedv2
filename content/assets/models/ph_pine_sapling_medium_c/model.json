@@ -1,0 +1,123 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  2.580894947052002,
+  7.843085289001465,
+  2.538090229034424
+ ],
+ "bmin": [
+  -2.580894947052002,
+  0.0,
+  -2.538090229034424
+ ],
+ "materials": [
+  {
+   "albedo": "albedoa_0.png",
+   "cutout": true,
+   "name": "ph_pine_sapling_medium_c_needles"
+  },
+  {
+   "albedo": "albedo_2.jpg",
+   "mr": "mr_3.jpg",
+   "name": "pine_sapling_medium_dead_branches",
+   "normal": "normal_1.jpg"
+  },
+  {
+   "albedo": "albedo_2.jpg",
+   "mr": "mr_3.jpg",
+   "name": "pine_sapling_medium_bark",
+   "normal": "normal_1.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.580894947052002,
+    7.843085289001465,
+    2.538090229034424
+   ],
+   "bmin": [
+    -2.580894947052002,
+    0.0,
+    -2.538090229034424
+   ],
+   "count": 10602,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "ph_pine_sapling_medium_c_cards",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.32155346870422363,
+    2.001862049102783,
+    0.9194291234016418
+   ],
+   "bmin": [
+    -0.9060948491096497,
+    0.7235814332962036,
+    -0.7594185471534729
+   ],
+   "count": 1953,
+   "first": 10602,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "pine_sapling_medium_c_LOD0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.1885963678359985,
+    7.333249092102051,
+    1.4405169486999512
+   ],
+   "bmin": [
+    -1.5589605569839478,
+    0.9306868314743042,
+    -1.0876638889312744
+   ],
+   "count": 5538,
+   "first": 12555,
+   "mat": 2,
+   "metal": 0.0,
+   "name": "pine_sapling_medium_c_LOD0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_pine_sapling_medium_c.glb",
+ "textures": {},
+ "triangles": 6031,
+ "vertices": 10003
+}

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.13720320165157318,
+  0.08538024872541428,
+  0.2237604260444641
+ ],
+ "bmin": [
+  -0.13720320165157318,
+  0.0,
+  -0.2237604260444641
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "root_cluster_02",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.13720320165157318,
+    0.08538024872541428,
+    0.2237604260444641
+   ],
+   "bmin": [
+    -0.13720320165157318,
+    0.0,
+    -0.2237604260444641
+   ],
+   "count": 2397,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "root_cluster_02_h.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_root_cluster_02_h_lod1.glb",
+ "textures": {},
+ "triangles": 799,
+ "vertices": 562
+}

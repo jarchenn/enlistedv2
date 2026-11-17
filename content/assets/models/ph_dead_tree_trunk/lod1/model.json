@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  1.5238947868347168,
+  0.2937399744987488,
+  0.13661091029644012
+ ],
+ "bmin": [
+  -1.5238947868347168,
+  0.0,
+  -0.13661091029644012
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "dead_tree_trunk",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.5238947868347168,
+    0.2937399744987488,
+    0.13661091029644012
+   ],
+   "bmin": [
+    -1.5238947868347168,
+    0.0,
+    -0.13661091029644012
+   ],
+   "count": 3600,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "dead_tree_trunk.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_dead_tree_trunk_lod1.glb",
+ "textures": {},
+ "triangles": 1200,
+ "vertices": 926
+}

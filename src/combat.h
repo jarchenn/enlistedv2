@@ -29,6 +29,8 @@ struct WeaponDef {
   float sway = 1;                       // MG6: JSON "sway": breathing sway x this while standing (crouched / prone: x1; the .50)
   bool modern = false;                  // MG1: JSON "modern" (side "modern"): only from the modern weapons case, never in 1944 loadouts / classes / bot pools
   bool casings = true;   // MG12: false = no case ejected per shot (revolver, break-action shotgun)
+  vec3 holdOffset{0}; float holdWeld = 1; int holdKind = -1;   // SW2 JSON "hold": third-person hold: offset (chest frame m: x left, y up, z forward) of the shouldered / low-ready weapon, cheek-weld share, kind 0 pistol / 1 rifle / 2 launcher (-1: by the grip)
+  bool dotCrosshair = false;   // SW2 JSON "crosshair": "dot": a small white dot in a thin + (hip and zoom aim)
   int blaster = 0;       // SW1: a blaster: every shot a glowing bolt, tracer kind 3 blue / 4 red ("blaster": "blue" | "red"), no drop, its colour on the flash
   int pellets = 1; float spreadDeg = 0;  // MG1: a shot fires `pellets` rounds, the extra ones inside a cone of half-angle spreadDeg (shotgun)
   float scopeMag = 1, scopeRelief = 0.07f;   // scope.relief: eye to the ocular lens in the scoped pose (m)

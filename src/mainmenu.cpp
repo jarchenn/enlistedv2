@@ -22,6 +22,8 @@
 #include <memory>
 #include <cstdlib>
 
+void statEditorPage(App& app, int kind, ImVec2 mn, ImVec2 mx, float alpha);   // ED2 (stat_editor.cpp)
+void statEditorFlush(App& app);
 namespace {
 const ImU32 kAccent = IM_COL32(240, 118, 32, 255);   // the logo orange: the one accent
 inline ImU32 rgba(int r, int g, int b, float a) { return IM_COL32(r, g, b, (int)std::clamp(a * 255.0f, 0.0f, 255.0f)); }
@@ -108,11 +110,12 @@ Img makeVignette() {
 }
 
 struct Ember { float x, y, vx, vy, age, life, size, phase; };
-enum Page { Main, Play, Character, Credits };
+enum Page { Main, Play, Character, Credits, Guns, Vehicles };
 struct Item { const char* label; const char* hint; };
 const Item kItems[] = {
   {"CREATE MAP", "Build and edit battlefields"}, {"PLAY", "Singleplayer and LAN matches"}, {"CHARACTER", "Your soldier and loadout"},
-  {"SETTINGS", "Graphics, audio, gameplay, interface"}, {"CONTROLS", "Keys and mouse"}, {"CREDITS", "Libraries, fonts and models"}, {"QUIT", "Leave Battle Foundry"}};
+  {"SETTINGS", "Graphics, audio, gameplay, interface"}, {"GUNS", "Edit every gun's stats"}, {"VEHICLES", "Edit cars, trucks, tanks and aircraft"},   // ED2
+  {"CREDITS", "Libraries, fonts and models"}, {"QUIT", "Leave Battle Foundry"}};
 const int kN = (int)(sizeof kItems / sizeof kItems[0]);
 
 struct State {
@@ -234,9 +237,10 @@ static void activate(App& app, int k) {
     case 1: S.page = Play; S.focus = 1; S.sel2 = 0; S.pageAt = ImGui::GetTime(); break;
     case 2: S.page = Character; S.focus = 1; S.sel2 = 0; S.pageAt = ImGui::GetTime(); break;
     case 3: settings().open = true; break;
-    case 4: S.showControls = true; break;
-    case 5: S.page = Credits; S.focus = 0; S.pageAt = ImGui::GetTime(); break;
-    case 6: glfwSetWindowShouldClose(app.win, GLFW_TRUE); break;
+    case 4: S.page = Guns; S.focus = 1; S.pageAt = ImGui::GetTime(); break;       // ED2 (stat_editor.cpp)
+    case 5: S.page = Vehicles; S.focus = 1; S.pageAt = ImGui::GetTime(); break;
+    case 6: S.page = Credits; S.focus = 0; S.pageAt = ImGui::GetTime(); break;
+    case 7: glfwSetWindowShouldClose(app.win, GLFW_TRUE); break;
   }
 }
 
@@ -311,7 +315,7 @@ void mainMenuFrame(App& app) {
     if (S.focus == 0) {
       if (up) S.sel = (S.sel + kN - 1) % kN;
       if (down) S.sel = (S.sel + 1) % kN;
-      if (enter || (right && (S.sel == 1 || S.sel == 2))) activate(app, S.sel);
+      if (enter || (right && (S.sel == 1 || S.sel == 2 || S.sel == 4 || S.sel == 5))) activate(app, S.sel);
       if (back && S.page != Main) S.page = Main;
     } else if (back) { S.focus = 0; S.page = Main; }
   }
@@ -343,7 +347,15 @@ void mainMenuFrame(App& app) {
   }
 
   // ---- right panel (Play / Character / Credits)
-  if (S.page != Main) {
+  if (S.page != Guns && S.page != Vehicles) statEditorFlush(app);   // ED2: edits apply when their screen is left
+  if (S.page == Guns || S.page == Vehicles) {   // ED2: the stat editors take a wider panel
+    const float pa = ease(((float)ImGui::GetTime() - (float)S.pageAt) / 0.16f) * fadeIn, off = (1 - pa) * 26 * s;
+    const ImVec2 mn(W * 0.27f + off, 120 * s), mx(W - 48 * s + off, H - 90 * s);
+    menuGlass(dl, mn, mx, pa);
+    tracked(dl, fh, 30 * s, V(mn.x + 32 * s, mn.y + 26 * s), rgba(236, 232, 224, pa), S.page == Guns ? "GUNS" : "VEHICLES", 30 * s * 0.16f);
+    dl->AddRectFilled(V(mn.x + 32 * s, mn.y + 72 * s), V(mn.x + 76 * s, mn.y + 74 * s), alphaOf(kAccent, pa));
+    statEditorPage(app, S.page == Guns ? 0 : 1, V(mn.x + 32 * s, mn.y + 90 * s), V(mx.x - 28 * s, mx.y - 24 * s), pa);
+  } else if (S.page != Main) {
     const float pa = ease(((float)ImGui::GetTime() - (float)S.pageAt) / 0.16f) * fadeIn, off = (1 - pa) * 26 * s;
     const ImVec2 mn(W * 0.555f + off, 150 * s), mx(W - 72 * s + off, S.page == Play ? 150 * s + 108 * s + 3 * 130 * s + 64 * s : H - 112 * s);   // Play: as tall as its cards
     menuGlass(dl, mn, mx, pa);

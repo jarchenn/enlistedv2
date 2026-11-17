@@ -54,3 +54,5 @@ content/vehicles/models/ural_4320/
 # UI2: the supplied city soldier (city-soldier-outdated.zip, licence unknown): its menu cut-out stays local-only; the committed
 # backdrop shows the game's own soldier instead
 content/ui/local/
+content/weapons/overrides_user.json
+content/vehicles/overrides_user.json

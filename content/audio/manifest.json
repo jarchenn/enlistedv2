@@ -8271,6 +8271,522 @@
      "peak": 0.959
     }
    ]
+  },
+  "shot_modern_glock34": {
+   "kind": "shot",
+   "gain": 0.85,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses shot_m1_carbine",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1552,
+     "name": "m1_body_1",
+     "dur": 2.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 249,
+     "name": "m1_body_2",
+     "dur": 2.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 301,
+     "name": "m1_body_3",
+     "dur": 2.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 807,
+     "name": "m1_body_4",
+     "dur": 2.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1624,
+     "name": "m1_body_5",
+     "dur": 2.0,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_modern_glock34_far": {
+   "kind": "far",
+   "gain": 0.85,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses shot_m1_carbine_far",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 314,
+     "name": "shot_rifle_far_01",
+     "dur": 5.46,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 797,
+     "name": "shot_rifle_far_02",
+     "dur": 5.47,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 112,
+     "name": "shot_rifle_far_03",
+     "dur": 6.523,
+     "peak": 0.994
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 467,
+     "name": "shot_rifle_far_04",
+     "dur": 5.48,
+     "peak": 0.928
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 768,
+     "name": "shot_rifle_far_05",
+     "dur": 6.513,
+     "peak": 0.989
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 207,
+     "name": "shot_rifle_far_06",
+     "dur": 4.512,
+     "peak": 0.786
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 640,
+     "name": "shot_rifle_far_07",
+     "dur": 4.575,
+     "peak": 0.786
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 475,
+     "name": "shot_rifle_far_08",
+     "dur": 5.485,
+     "peak": 0.934
+    }
+   ]
+  },
+  "reload_modern_glock34": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses reload_m1_carbine",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 210,
+     "name": "change_ammo_m1carbine_2",
+     "dur": 0.62,
+     "peak": 0.898
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 75,
+     "name": "change_ammo_m1carbine_3",
+     "dur": 0.46,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_modern_makarov": {
+   "kind": "shot",
+   "gain": 0.85,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses shot_m1_carbine",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1552,
+     "name": "m1_body_1",
+     "dur": 2.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 249,
+     "name": "m1_body_2",
+     "dur": 2.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 301,
+     "name": "m1_body_3",
+     "dur": 2.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 807,
+     "name": "m1_body_4",
+     "dur": 2.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1624,
+     "name": "m1_body_5",
+     "dur": 2.0,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_modern_makarov_far": {
+   "kind": "far",
+   "gain": 0.85,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses shot_m1_carbine_far",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 314,
+     "name": "shot_rifle_far_01",
+     "dur": 5.46,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 797,
+     "name": "shot_rifle_far_02",
+     "dur": 5.47,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 112,
+     "name": "shot_rifle_far_03",
+     "dur": 6.523,
+     "peak": 0.994
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 467,
+     "name": "shot_rifle_far_04",
+     "dur": 5.48,
+     "peak": 0.928
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 768,
+     "name": "shot_rifle_far_05",
+     "dur": 6.513,
+     "peak": 0.989
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 207,
+     "name": "shot_rifle_far_06",
+     "dur": 4.512,
+     "peak": 0.786
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 640,
+     "name": "shot_rifle_far_07",
+     "dur": 4.575,
+     "peak": 0.786
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 475,
+     "name": "shot_rifle_far_08",
+     "dur": 5.485,
+     "peak": 0.934
+    }
+   ]
+  },
+  "reload_modern_makarov": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses reload_m1_carbine",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 210,
+     "name": "change_ammo_m1carbine_2",
+     "dur": 0.62,
+     "peak": 0.898
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 75,
+     "name": "change_ammo_m1carbine_3",
+     "dur": 0.46,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_modern_fn502": {
+   "kind": "shot",
+   "gain": 0.85,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses shot_m1_carbine",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1552,
+     "name": "m1_body_1",
+     "dur": 2.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 249,
+     "name": "m1_body_2",
+     "dur": 2.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 301,
+     "name": "m1_body_3",
+     "dur": 2.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 807,
+     "name": "m1_body_4",
+     "dur": 2.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1624,
+     "name": "m1_body_5",
+     "dur": 2.0,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_modern_fn502_far": {
+   "kind": "far",
+   "gain": 0.85,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses shot_m1_carbine_far",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 314,
+     "name": "shot_rifle_far_01",
+     "dur": 5.46,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 797,
+     "name": "shot_rifle_far_02",
+     "dur": 5.47,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 112,
+     "name": "shot_rifle_far_03",
+     "dur": 6.523,
+     "peak": 0.994
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 467,
+     "name": "shot_rifle_far_04",
+     "dur": 5.48,
+     "peak": 0.928
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 768,
+     "name": "shot_rifle_far_05",
+     "dur": 6.513,
+     "peak": 0.989
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 207,
+     "name": "shot_rifle_far_06",
+     "dur": 4.512,
+     "peak": 0.786
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 640,
+     "name": "shot_rifle_far_07",
+     "dur": 4.575,
+     "peak": 0.786
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 475,
+     "name": "shot_rifle_far_08",
+     "dur": 5.485,
+     "peak": 0.934
+    }
+   ]
+  },
+  "reload_modern_fn502": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses reload_m1_carbine",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 210,
+     "name": "change_ammo_m1carbine_2",
+     "dur": 0.62,
+     "peak": 0.898
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 75,
+     "name": "change_ammo_m1carbine_3",
+     "dur": 0.46,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_modern_mark23": {
+   "kind": "shot",
+   "gain": 0.85,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses shot_m1_carbine",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1552,
+     "name": "m1_body_1",
+     "dur": 2.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 249,
+     "name": "m1_body_2",
+     "dur": 2.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 301,
+     "name": "m1_body_3",
+     "dur": 2.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 807,
+     "name": "m1_body_4",
+     "dur": 2.0,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1624,
+     "name": "m1_body_5",
+     "dur": 2.0,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_modern_mark23_far": {
+   "kind": "far",
+   "gain": 0.85,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses shot_m1_carbine_far",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 314,
+     "name": "shot_rifle_far_01",
+     "dur": 5.46,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 797,
+     "name": "shot_rifle_far_02",
+     "dur": 5.47,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 112,
+     "name": "shot_rifle_far_03",
+     "dur": 6.523,
+     "peak": 0.994
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 467,
+     "name": "shot_rifle_far_04",
+     "dur": 5.48,
+     "peak": 0.928
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 768,
+     "name": "shot_rifle_far_05",
+     "dur": 6.513,
+     "peak": 0.989
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 207,
+     "name": "shot_rifle_far_06",
+     "dur": 4.512,
+     "peak": 0.786
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 640,
+     "name": "shot_rifle_far_07",
+     "dur": 4.575,
+     "peak": 0.786
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 475,
+     "name": "shot_rifle_far_08",
+     "dur": 5.485,
+     "peak": 0.934
+    }
+   ]
+  },
+  "reload_modern_mark23": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses reload_m1_carbine",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 210,
+     "name": "change_ammo_m1carbine_2",
+     "dur": 0.62,
+     "peak": 0.898
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 75,
+     "name": "change_ammo_m1carbine_3",
+     "dur": 0.46,
+     "peak": 1.0
+    }
+   ]
   }
  }
 }

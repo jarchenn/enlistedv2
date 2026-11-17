@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.06389039754867554,
+  0.14089620113372803,
+  0.39003145694732666
+ ],
+ "bmin": [
+  -0.06389039754867554,
+  0.0,
+  -0.39003145694732666
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "dry_branches_medium_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.06389039754867554,
+    0.14089620113372803,
+    0.39003145694732666
+   ],
+   "bmin": [
+    -0.06389039754867554,
+    0.0,
+    -0.39003145694732666
+   ],
+   "count": 1797,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "dry_branches_medium_01_c.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_dry_branches_medium_01_c_lod1.glb",
+ "textures": {},
+ "triangles": 599,
+ "vertices": 644
+}

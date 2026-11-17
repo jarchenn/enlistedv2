@@ -2,6 +2,7 @@
 // reload state machine, recoil springs, sights/scopes, first-person view model, crate resupply.
 // HUD "loaded" counts every round in the weapon including the chambered one.
 #include "app.h"
+#include "overrides.h"
 #include "settings.h"
 #include "sight_overlay.h"
 #include "vm_anim.h"
@@ -44,11 +45,15 @@ void App::buildWeaponMeshes() {
     }
   } catch (std::exception& e) { logf("content/weapons/handling.json: %s (built-in handling)", e.what()); }
   for (auto& f : files) {
-    if (f.filename() == "handling.json") continue;
+    if (f.filename() == "handling.json" || f.filename() == "overrides_user.json") continue;   // ED2: the user's overrides patch the weapons below
     json j;
     try { j = json::parse(readTextFile(f)); } catch (...) { continue; }
     if (fs::path lp = f.parent_path() / "local" / f.filename(); fs::exists(lp)) {   // SW1: a local-only override (git-ignored content/weapons/local/<file>): names, model, sights
       try { j.merge_patch(json::parse(readTextFile(lp))); } catch (std::exception& e) { logf("weapons: %s: %s (ignored)", lp.string().c_str(), e.what()); }
+    }
+    {   // ED2: the user's stat overrides (the menu's Guns screen): the weapon keys; _damage / _handling go to their tables
+      json& ov = weaponOverrides(); auto it = ov.find(j.value("id", ""));
+      if (it != ov.end() && it->is_object()) { json p = *it; p.erase("_damage"); p.erase("_handling"); j.merge_patch(p); }
     }
     auto d = std::make_unique<WeaponDef>();
     d->id = j.value("id", ""); d->name = j.value("name", d->id); d->side = j.value("side", "");
@@ -83,6 +88,8 @@ void App::buildWeaponMeshes() {
     d->modern = j.value("modern", d->side == "modern"); d->pellets = std::max(1, j.value("pellets", 1)); d->spreadDeg = j.value("spreadDeg", 0.0f);   // MG1
     d->casings = j.value("casings", true);
     { std::string bl = j.value("blaster", std::string()); d->blaster = bl == "red" ? 4 : bl.empty() ? 0 : 3; }   // SW1
+    if (j.contains("hold")) { const json& h = j["hold"]; d->holdOffset = jvec3(h.value("offset", json()), vec3(0)); d->holdWeld = h.value("weld", 1.0f); std::string hk = h.value("kind", std::string()); d->holdKind = hk == "pistol" ? 0 : hk == "rifle" ? 1 : hk == "launcher" ? 2 : -1; }   // SW2
+    d->dotCrosshair = j.value("crosshair", std::string()) == "dot";   // SW2
     d->laterWar = j.value("laterWar", false); d->moveSpeed = j.value("moveSpeed", 1.0f); d->showArms = j.value("arms", true);
     if (j.contains("scope")) { d->hasScope = true; d->scopeMag = j["scope"].value("mag", 2.5f); d->reticle = j["scope"].value("reticle", ""); d->scopeEye = jvec3(j["scope"]["eye"]); d->scopeIrons = j["scope"].value("irons", false); d->scopeRelief = j["scope"].value("relief", 0.07f); }
     if (j.contains("boltPivot")) { d->boltPivot = vec3(j["boltPivot"][0].get<float>(), j["boltPivot"][1].get<float>(), 0); d->boltLift = j.value("boltLift", 70.0f); }
@@ -96,6 +103,7 @@ void App::buildWeaponMeshes() {
       json w = ws.value(d->id, json::object());
       std::string kind = w.value("kind", d->wclass == WC_SNIPER ? "sniper" : d->wclass == WC_LMG ? "lmg" : d->wclass == WC_AUTO ? "assault" : "rifle");
       json kd = kinds.value(kind, json::object());
+      { json& ov = weaponOverrides(); auto it = ov.find(d->id); if (it != ov.end() && it->is_object() && it->contains("_handling")) w.merge_patch((*it)["_handling"]); }   // ED2
       for (const json* src : {&kd, &w}) {
         const json& k = *src;
         d->vmBack = k.value("back_m", d->vmBack); d->vmPitch = k.value("pitch_deg", d->vmPitch); d->vmYaw = k.value("left_deg", d->vmYaw);
@@ -564,7 +572,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       if (glm::dot(dir, aimDir) < 0.5f) dir = aimDir;
       // Aimed fire: the round leaves the front sight tip F along the sight line V = normalize(F - R), where R is the
       // rear aperture, both in world space from the posed weapon (sway / breathing move the sights and the shot together).
-      if (adsT > 0.85f && !vmScoped(d) && !d.sightLineOnly) {
+      if (adsT > 0.85f && !vmScoped(d) && !d.sightLineOnly && d.adsZoom <= 0) {   // SW2: zoom aiming fires from the hip toward the dot
         vec3 Rw, Fw; vmNoRecoilRot = true; sightLineWorld(d, s, Rw, Fw); vmNoRecoilRot = false;   // WP4: the visual muzzle rise is not aim (the gameplay recoil is)
         // MG8: an animated rig's ADS puts both posed sights on the camera axis, so its line is the camera's; the axis itself
         // avoids the alignment's numeric residual (0.02 deg = 0.5 mrad on the M4 irons)

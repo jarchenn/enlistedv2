@@ -1,0 +1,20 @@
+{
+ "set": "ph_pine_bark",
+ "id": "pine_bark",
+ "family": "bark (NT8)",
+ "size": [
+  2.0,
+  2.0
+ ],
+ "source": "https://polyhaven.com/a/pine_bark",
+ "license": "CC0 1.0 Universal",
+ "credit": "Poly Haven (CC0): Dimitrios Savva",
+ "resolution": "2K-JPG (packed to the engine size)",
+ "maps": [
+  "ao.jpg",
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

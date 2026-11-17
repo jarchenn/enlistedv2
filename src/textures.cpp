@@ -70,6 +70,7 @@ Slot parseSlot(const std::string& name, const json& j) {
   std::string sp = j.value("space", "asset"); s.space = sp == "part" ? 1 : sp == "world" ? 2 : sp == "ground" ? 3 : 0;
   s.scale = j.value("scale", 1.0f); s.rot = j.value("rot", 0) & 3;
   s.kAlb = j.value("albedo", s.kAlb); s.kN = j.value("normal", s.kN); s.kR = j.value("rough", s.kR);
+  if (j.value("absolute", false)) s.kAlb = -std::max(s.kAlb, 0.01f);   // NT8: a painted slot drawn in its texture's own colour (sign = flag)
   s.kAO = j.value("ao", s.kAO); s.kH = j.value("height", s.kH);
   if (j.contains("fade") && j["fade"].is_array() && j["fade"].size() == 2) { s.fadeA = j["fade"][0]; s.fadeB = j["fade"][1]; }
   s.under = j.value("under", ""); s.expo = j.value("exposure", s.expo); s.macro = j.value("macro", 0.0f); s.contrast = j.value("contrast", 1.0f);
@@ -407,7 +408,8 @@ TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
     vec3 T = vec3(1.0, 0.0, 0.0), B = vec3(0.0, 0.0, -1.0); texFrame(rot, T, B);
     texTap(A.x, p, dpx, dpy, inv, T, B, vec3(0.0, 1.0, 0.0), n, 1.0, s); s.n = normalize(s.n);
   } else s = texTri(A.x, p, n, dpx, dpy, inv, rot);
-  o.alb = mix(vec3(1.0), clamp(s.col/max(M.rgb, vec3(0.004)), 0.0, 2.5), K.x*f);
+  o.alb = K.x < 0.0 ? mix(M.rgb, s.col, f)*(-K.x)   // NT8 "absolute": the texture's own colour (paintApply uses it as the albedo)
+                    : mix(vec3(1.0), clamp(s.col/max(M.rgb, vec3(0.004)), 0.0, 2.5), K.x*f);
   o.r = mix(1.0, s.r/max(Lp.z, 0.02), K.z*f);
   o.ao = mix(1.0, s.ao, K.w*f);
   o.dn = (s.n - n)*K.y*f;
