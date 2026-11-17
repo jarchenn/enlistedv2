@@ -12,5 +12,6 @@ void loadingProgress(const char* label, float f);   // a long stage with its own
 void loadingEnd();
 void loadingOverlay(App& app);            // every frame after NewFrame: the fade-out once a job ended
 bool loadingActive();
+int loadingJobCount();                    // UI8 tests: loading jobs begun so far
 void loadingBootMode();                   // UI5: the open job is the launch: a plain dark backdrop (no menu scene yet); its end logs the startup times
 struct LoadingJob { LoadingJob(App& a, const std::string& t, const std::string& s, int n, unsigned th = 0, const std::string& id = "") { loadingBegin(a, t, s, n, th, id); } ~LoadingJob() { loadingEnd(); } };

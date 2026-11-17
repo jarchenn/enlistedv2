@@ -435,7 +435,11 @@ void MpUi::setupWindow(App& app) {
   { static int last = -10; const int f = ImGui::GetFrameCount(); if (f > last + 1) ImGui::SetNextWindowFocus(); last = f; }   // in front of the editor's panels whenever it (re)opens
   const char* title = setupMode == 0 ? "Singleplayer setup" : "Host LAN: lobby";
   if (!ImGui::Begin(title, &showSetup, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings)) { ImGui::End(); return; }
-  ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());   // above the editor's panels while it is open
+  // UI8: kept in front of the editor's panels, but never over a popup: raising it over its own unsaved-changes question
+  // (a modal) hid the question while it blocked every click and key, the close button's question too (a dead screen)
+  { ImGuiContext& g = *ImGui::GetCurrentContext(); const ImGuiWindow* front = g.Windows.back();
+    if (ImGui::IsWindowAppearing() || !(front->RootWindow->Flags & (ImGuiWindowFlags_Popup | ImGuiWindowFlags_Modal | ImGuiWindowFlags_Tooltip))) ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow()); }
+  if (gGame && gGame->isClient) ImGui::TextColored(ImVec4(1, 0.8f, 0.45f, 1), "Connected to a LAN host: the host picks the map and starts the match.");
   ImGui::SetWindowFontScale(0.94f);
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 4)); ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6, 3));
   int humansHere = setupMode == 1 && gNet ? gNet->humanCount() : 1;
@@ -621,6 +625,33 @@ void MpUi::setupWindow(App& app) {
   }
   ImGui::PopStyleVar(2);
   ImGui::End();
+}
+
+// UI8 input watchdog (every frame, after the UI): (1) an open modal popup must be the front-most window, else it blocks
+// every click while hidden: it is raised and the culprit logged; (2) the mouse resting over a visible setup window that
+// gets no hover for 2 s: the owner of the input is logged and released (active widget cleared, cursor freed)
+void uiInputWatchdog(App& app) {
+  ImGuiContext& g = *ImGui::GetCurrentContext();
+  if (ImGuiWindow* modal = ImGui::GetTopMostPopupModal()) {
+    ImGuiWindow* front = nullptr; for (int i = g.Windows.Size - 1; i >= 0 && !front; --i) if (g.Windows[i]->Active && !(g.Windows[i]->Flags & ImGuiWindowFlags_ChildWindow)) front = g.Windows[i];
+    if (front && front != modal && !(front->Flags & (ImGuiWindowFlags_Popup | ImGuiWindowFlags_Tooltip))) {
+      logf("ui watchdog: modal \"%s\" was behind \"%s\": raised", modal->Name, front->Name);
+      ImGui::BringWindowToDisplayFront(modal);
+    }
+  }
+  static double since = -1;
+  ImGuiWindow* setup = ImGui::FindWindowByName(gUi.setupMode == 0 ? "Singleplayer setup" : "Host LAN: lobby");
+  const ImVec2 mp = ImGui::GetIO().MousePos;
+  const bool over = gUi.showSetup && setup && setup->Active && setup->Rect().Contains(mp);
+  const bool reached = g.HoveredWindow && g.HoveredWindow->RootWindow == setup;
+  if (!over || reached || ImGui::GetTopMostPopupModal()) { since = -1; return; }
+  if (since < 0) { since = ImGui::GetTime(); return; }
+  if (ImGui::GetTime() - since < 2.0) return;
+  logf("ui watchdog: the setup window gets no input: hovered %s, active id %08x in %s, uiCursor %d, cursor %s: released",
+       g.HoveredWindow ? g.HoveredWindow->Name : "-", g.ActiveId, g.ActiveIdWindow ? g.ActiveIdWindow->Name : "-", (int)app.uiCursor,
+       glfwGetInputMode(app.win, GLFW_CURSOR) == GLFW_CURSOR_DISABLED ? "captured" : "free");
+  ImGui::ClearActiveID(); ImGui::FocusWindow(setup); app.uiCursor = true; app.syncCursor();
+  since = -1;
 }
 
 void MpUi::startMatch(App& app) {
