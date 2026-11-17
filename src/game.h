@@ -28,6 +28,7 @@ struct Brain {
   int target = -1; float targetTime = 0, aimSteady = 0;
   float aimYaw = 0, aimPitch = 0;            // aim direction (turns at aimTurn), separate from the body / locomotion yaw
   float aimWantYaw = 0;                      // AI5: where the aim wants to go (the body turns toward it; the aim twists at most 50 deg off the body)
+  vec2 faceVel{0}; bool faceAim = false; float yawVel = 0;   // AN1 step 3: the travel direction the body faces (low-passed), the strafe / backpedal latch, the body's turn rate (deg/s)
   std::vector<EnemyMemory> mem;
   int lane = LANE_MAIN;
   std::vector<vec3> route; size_t routeIdx = 0;
@@ -72,6 +73,8 @@ struct Soldier {
   int cls = -1, clsPick[2] = {0, 0};          // GM1: class (classes.h index, -1 = none) and its primary / secondary choice
   float throwT = -1; int throwKind = 0; vec3 throwTarget{0}; vec3 throwVel{0}; bool throwReleased = false;
   int model = -1; CharInstance ci; bool ciReady = false; PoseResult pose; float walkPhase = 0, recoil = 0, crouchBlend = 0;
+  float anProne = 0;   // AN1 step 3: the prone blend (was a one-frame switch)
+  float anGunYaw = 0, anGunVel = 0, anGunPitch = 0, anGunPVel = 0; bool anGunInit = false;   // AN1 step 3: the gun's drawn world facing (deg), a damped follow of the brain's aim
   float anKneel = 0, anCarry = 0, anMoveAim = 0, anLow = 0, anTwist = 0, anStride = 0; vec3 anDir{0, 0, 1}; vec2 anSlope{0}; bool netEngaged = false;   // AN1 posture blends (Game::posesStep)
   uint32_t poseRev = 0, skinRev = ~0u; int poseFrom = -1;   // PF1: skin only a changed pose; a far pack follower draws its leader's skin
   mat4 world{1};

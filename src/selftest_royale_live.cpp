@@ -163,7 +163,9 @@ void build(App&) {
     a.useScripted = true; a.scriptedInput = ExploreInput{};
     T->check(ok && gGame->match.mode() == GameMode::TDM, "team deathmatch on " + a.doc.name + " starts with " + std::to_string(gGame->sold.size()) + " soldiers (" + gGame->setupError + ")");
     return true; }});
-  seq.push_back({"warm up", [](App&, float t) { if (Soldier* L = gGame->local()) { L->hp = 100; L->protectUntil = gGame->t + 5; } return t > 20.0f; }});
+  seq.push_back({"warm up", [](App& a, float t) { if (Soldier* L = gGame->local()) { L->hp = 100; L->protectUntil = gGame->t + 5; }
+    if (std::getenv("NMK_AIM_TRACE") && t > 25.0f) { a.selftest->exitCode = 0; a.selftest->done = true; }   // AN1 step 3: the trace run ends after the warm-up
+    return t > 20.0f && !std::getenv("NMK_AIM_TRACE"); }});
   seq.push_back({"spawn tour", [](App& a, float t) {
     Game& G = *gGame;
     if (Soldier* L = G.local()) { L->hp = 100; L->protectUntil = G.t + 5; }
