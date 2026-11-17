@@ -218,10 +218,21 @@ void App::syncRuntime() {
   { extern int lineSyncGates(App&); if (lineSyncGates(*this)) sig = placementSig(doc.instances, false); }   // LN2: line gates follow their spans
   syncSig_ = sig;   // taken before the pass: anything a rebuild changes is seen by the next call
   std::set<uint64_t> live;
+  static const bool memAttr = std::getenv("NMK_MEMLOG") != nullptr; std::map<std::string, std::pair<double, int>> memBy;   // MEM1: commit per asset's copies
   for (auto& i : doc.instances) {
     live.insert(i.id);
     auto& r = rt[i.id];
-    if (r.rev != i.rev || r.id != i.id) buildRT(i, r);
+    if (r.rev != i.rev || r.id != i.id) {
+      size_t c0 = memAttr ? processMemory().PrivateBytes : 0;
+      buildRT(i, r);
+      if (memAttr) { auto& e = memBy[i.assetId]; e.first += ((double)processMemory().PrivateBytes - (double)c0) / 1048576.0; ++e.second; }
+    }
+  }
+  if (memAttr && !memBy.empty()) {
+    std::vector<std::pair<double, std::string>> v; double tot = 0; for (auto& [k, e] : memBy) { v.push_back({e.first, k}); tot += e.first; }
+    std::sort(v.rbegin(), v.rend());
+    std::string s; for (size_t k = 0; k < v.size() && k < 12; ++k) { char b[96]; std::snprintf(b, sizeof b, " %s %.0f MB x%d;", v[k].second.c_str(), v[k].first, memBy[v[k].second].second); s += b; }
+    logf("memattr: buildRT %.0f MB over %zu assets:%s", tot, v.size(), s.c_str());
   }
   for (auto it = rt.begin(); it != rt.end();) {
     if (!live.count(it->first)) { destroyRT(it->second); it = rt.erase(it); } else ++it;
@@ -1098,7 +1109,9 @@ int App::run(int argc, char** argv) {
   bool confirmQuit = false;
   // NMK_FRAME_PROF=1: a frame over 150 ms logs where its time went: time per phase / crumb, summed, top 8. A mark names
   // the section that follows it (time to the next mark is charged to it), like crumb()
-  auto mark = [&](const char* w) { if (gCrumbProf) crumbMark(w); };
+  static const bool memMarks = std::getenv("NMK_MEMLOG") != nullptr; static size_t memLast = 0;   // MEM1: which frame section commits
+  auto mark = [&](const char* w) { if (gCrumbProf) crumbMark(w);
+    if (memMarks) { size_t c = processMemory().PrivateBytes; if (memLast && c > memLast + (50u << 20)) logf("memmark: +%zu MB before '%s'", (c - memLast) >> 20, w); memLast = c; } };
   while (!quit) {
     if (gCrumbProf) crumbFrameEnd();
     mark("start");
@@ -1393,8 +1406,10 @@ static std::map<std::string, std::vector<float>> gSecMs;   // section -> ms per 
 static std::vector<float> gFrameMs;
 static double gProfSince = -1;
 void crumbMark(const char* s) { gMarks.push_back({s, glfwGetTime()}); }
-LoadStep::LoadStep(const char* w) : what(w), t0(gCrumbProf ? glfwGetTime() : 0) { loadingStage(w); }   // UI2: the loading screen's stages
-LoadStep::~LoadStep() { if (gCrumbProf) logf("[loadprof] %s %.1f ms", what, (glfwGetTime() - t0) * 1000); loadingStageDone(); }
+bool gMemCrumb = std::getenv("NMK_MEMLOG") != nullptr;
+void memCrumb(const char* s) { static size_t last = 0; size_t c = processMemory().PrivateBytes; if (last && c > last + (50u << 20)) logf("memcrumb: +%zu MB before '%s'", (c - last) >> 20, s); last = c; }
+LoadStep::LoadStep(const char* w) : what(w), t0(gCrumbProf ? glfwGetTime() : 0), c0(gMemCrumb ? processMemory().PrivateBytes : 0) { loadingStage(w); }   // UI2: the loading screen's stages
+LoadStep::~LoadStep() { if (gCrumbProf) logf("[loadprof] %s %.1f ms", what, (glfwGetTime() - t0) * 1000); if (gMemCrumb) logf("memstep: %s %+.0f MB", what, ((double)processMemory().PrivateBytes - (double)c0) / 1048576.0); loadingStageDone(); }
 json crumbProfReport(const char* tag) {
   auto stat = [](std::vector<float> v) { double s = 0; for (float x : v) s += x; std::sort(v.begin(), v.end()); return std::pair<double, double>(v.empty() ? 0 : s / v.size(), v.empty() ? 0 : v[std::min(v.size() - 1, (size_t)(0.95 * v.size()))]); };
   json out = json::object();

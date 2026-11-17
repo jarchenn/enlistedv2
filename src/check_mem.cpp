@@ -11,6 +11,7 @@
 #include "mpui.h"
 #include "ai_core.h"
 #include "scenario.h"
+#include "lines.h"
 
 namespace {
 bool startMatch(App& a, int attackers, std::string& err) {   // as selftest_ai_harness.cpp's
@@ -34,6 +35,14 @@ double cpuSec() {
 #endif
 }
 double wall() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
+void cpuCopies(App& a) {   // MEM1: CPU-side mesh copies the built assets and placed lines keep
+  auto mb = [](const MeshData* m) { return m ? (m->v.capacity() * sizeof(Vertex) + m->i.capacity() * 4) / 1048576.0 : 0.0; };
+  double hl = 0, lf = 0, ln = 0; int built = 0;
+  for (auto& ap : a.lib.assets) { if (!ap->built) continue; ++built; hl += mb(ap->hlodOpaque.get()) + mb(ap->hlodGlass.get());
+    for (auto& it : ap->interactables) for (auto& l : it.leaves) lf += mb(l.cpuO.get()) + mb(l.cpuG.get()); }
+  for (auto& [id, r] : a.rt) if (r.line) ln += mb(&r.line->mesh);
+  logf("[mem]   CPU mesh copies: HLOD %.0f MB, door / window leaves %.0f MB, line meshes %.0f MB (%d assets built)", hl, lf, ln, built);
+}
 void report(const char* stage) {
   ProcMem m = processMemory(); double c = cpuSec(), w = wall();
   logf("[mem] %-26s commit %6.0f MB  working set %6.0f MB  CPU %5.1f %% of one core over %.1f s (%d frames)", stage, m.PrivateBytes / 1048576.0, m.WorkingSetSize / 1048576.0,
@@ -59,7 +68,7 @@ bool memProbeSelfTest(App& a, float dt) {
     case 1: load("blank_slate"); next(); break;
     case 2: if (t > 5) { report("small map (blank slate)"); next(); } break;
     case 3: load("chateau_town"); next(); break;
-    case 4: if (t > 5) { report("large map (chateau_town)"); next(); } break;
+    case 4: if (t > 5) { report("large map (chateau_town)"); cpuCopies(a); next(); } break;
     case 5: load("chateau_town"); next(); break;
     case 6: if (t > 5) { report("large map again"); next(); } break;
     case 7: { std::string err; if (!startMatch(a, 20, err)) { logf("[mem] match: %s", err.c_str()); phase = 9; } else next(); t = 0; } break;
