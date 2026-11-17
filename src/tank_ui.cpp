@@ -56,6 +56,14 @@ void TankSys::drawItems(App& app, const Instance& i, const InstanceRT& r) {
       for (int p = 0; p < 8; ++p) for (int k : wd.modelParts[p]) app.R.worldModels.push_back({wd.model.get(), k, W, tint});
     }
   }
+  if (d.mgPostPart >= 0 && d.model) {   // VH9: the raised pintle under the roof MG, turning with its traverse
+    const ModelPart& p = d.model->parts[d.mgPostPart];
+    vec3 pc = (p.bmin + p.bmax) * 0.5f, ps = glm::max(p.bmax - p.bmin, vec3(1e-3f));
+    float h = std::max(0.02f, d.mgPivot.y - 0.03f - d.mgPostFrom);
+    mat4 P = tu * glm::translate(mat4(1), vec3(d.mgPivot.x, d.mgPostFrom + h * 0.5f, d.mgPivot.z)) * glm::rotate(mat4(1), radians(t.mgYaw), vec3(0, 1, 0))
+           * glm::scale(mat4(1), vec3(d.mgPostW, h, d.mgPostW) / ps) * glm::translate(mat4(1), -pc);
+    app.R.worldModels.push_back({d.model.get(), d.mgPostPart, P, tint});
+  }
 }
 
 // VH1 car: body, the variant's stowage / pintle, the windshield (folded about its hinge), the steering wheel turning

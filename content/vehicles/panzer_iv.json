@@ -66,16 +66,8 @@
       2.1,
       0.75
     ],
-    "hatchEye": [
-      0.04,
-      3.3,
-      -0.86
-    ],
-    "mgPivot": [
-      0.04,
-      2.75,
-      -0.86
-    ],
+    "hatchEye": [0.04, 3.6, -0.73],
+    "mgPivot": [0.04, 3.1, -0.68],
     "engine": [
       0,
       1.2,
@@ -222,7 +214,7 @@
     "note": "87 rounds stowed (Ausf. H); muzzle velocities of the PzGr 39 and SprGr 34"
   },
   "roofMg": {
-    "name": "MG 34 on the cupola ring (drawn with the MG 42 model, MG 42 sound pack)", "elevation": [-22, 45]
+    "name": "MG 34 on a raised cupola pintle (drawn with the MG 42 model, MG 42 sound pack)", "elevation": [-22, 45], "post": {"part": "towBracket_low_hull_001_0", "from": 2.6, "width": 0.1, "note": "VH9: the mount stands 0.35 m higher (pivot y 2.75 -> 3.10, 0.18 m forward) so the gun clears the turret roof when depressed; the post is the model's tow bracket stretched"}
   },
   "bowMg": {
     "name": "MG 34 bow MG (hull ball mount)",
