@@ -87,8 +87,8 @@ def build(ctx):
     for ch, kind in (("A", "grass"), ("B", "cobbles"), ("M", "cobbles"), ("T", "cobbles"), ("D", "cobbles"), ("s", "cobbles"), ("t", "cobbles"), ("p", "cobbles"), ("f", "dirt"), ("R", "cobbles"), ("c", "cobbles"), ("w", "cobbles"), ("n", "cobbles"), ("k", "cobbles")):
         for i, j in plan.cells(ch):
             x, z = plan._cc(i, j)
-            h = CELL / 2
-            paint.poly(kind, [(x - h, z - h), (x + h, z - h), (x + h, z + h), (x - h, z + h)], weight=0.9, edge=0.6, ragged=0.4, seed=i * 31 + j)
+            h = CELL / 2 + 0.9   # overlap: the sand base showed through the cell seams as light grid lines
+            paint.poly(kind, [(x - h, z - h), (x + h, z - h), (x + h, z + h), (x - h, z + h)], weight=1.0, edge=0.6, ragged=0.4, seed=i * 31 + j)
     for ch in "stfpRc":
         for i, j in plan.cells(ch):
             x, z = plan._cc(i, j)
@@ -111,7 +111,7 @@ def build(ctx):
             x, z = plan._cc(i, j)
             b.place("sd_roof_bay_timber", x, z, 0.0, check=False, cls="none", y=y0, tags={"roof", "interior"})
             b.place("lamp_hanging_lantern", x + 0.8, z, 0.0, check=False, cls="none", y=y0 + 3.0, tags={"lamp", "interior"})
-            h = CELL / 2
+            h = CELL / 2 + 0.9   # overlap: the sand base showed through the cell seams as light grid lines
             paint.poly("cobbles", [(x - h, z - h), (x + h, z - h), (x + h, z + h), (x - h, z + h)], weight=1.0, edge=0.3)
             n_roof += 1
         n_cover += place_cover(b, plan, ch, [("ph_metal_toolbox", 0.3, 0.15, 1), ("ph_wooden_crate_01", 0.5, 0.5, 1)], R, y0, lane=1.6)

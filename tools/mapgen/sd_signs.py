@@ -105,7 +105,7 @@ def main():
     out.append(m)
     # SD2 Rue Haute: the town's walled lanes, a 6 m bay of 3.2 m rubble-stone wall (plinth, body, coping), not climbable
     # (an invisible collider to 3.9 m); a door bay with a 1.8 m opening under a stone lintel for the connector links
-    stone_mats = [{"name": "stone", "albedo": [0.62, 0.58, 0.52], "roughness": 0.9, "pattern": "stone", "metallic": 0, "grain": 1, "texture": "stone_field"},
+    stone_mats = [{"name": "stone", "albedo": [0.74, 0.69, 0.6], "roughness": 0.9, "pattern": "stone", "metallic": 0, "grain": 1, "texture": "limestone_dressed"},
                   {"name": "dressed", "albedo": [0.7, 0.67, 0.61], "roughness": 0.85, "pattern": "stone", "metallic": 0, "grain": 1, "texture": "stone_coursed"},
                   {"name": "air", "albedo": [0.5, 0.5, 0.5], "roughness": 1, "pattern": "plain", "metallic": 0, "grain": 1}]
     def wall_bay(x0, x1, top=3.05):
