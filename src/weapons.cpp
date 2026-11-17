@@ -253,6 +253,7 @@ void App::resetWeapons() {
   }
   if (activeWeapon >= (int)weaponDefs.size()) activeWeapon = 0;
   adsT = 0; weaponMsg.clear();
+  smithyRestoreFits(*this);   // SM3: parts fitted at a smithing table this match stay on (respawns, SD rounds)
   resetLoadout(); { ViewModelState keep = vm; vm = ViewModelState{}; vm.procedural = keep.procedural; vm.showArms = keep.showArms; vm.vmFov = keep.vmFov; }
   viewKickPitch = viewKickYaw = 0;
 }

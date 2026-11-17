@@ -10,6 +10,8 @@ void smithyUi(App& app);                              // each explore frame
 bool smithyApply(App& app, int weapon, int slot, const std::string& itemId, std::string* why = nullptr);   // fit (itemId) or remove (empty)
 void smithyBegin(App& app, Game& G);                  // a match starts: Battle Royale places a handful (every peer the same)
 void smithyEnd(App& app);
+void smithyRestoreFits(App& app);                     // SM3: App::resetWeapons: the free fits made this match go back on
+bool smithyFree();                                    // SM3: outside Battle Royale every fitting part is free here
 struct Instance; uint64_t smithyPlaceIn(App& app, const Instance& building);   // a table inside it (0: no room)
 const std::vector<uint64_t>& smithyPlaced();
 struct Kit; void smithyUseKit(Kit* k);

@@ -10,6 +10,8 @@
 #include "loot.h"
 #include "ui_flat.h"
 #include "crumb.h"
+#include <array>
+#include <map>
 #include <imgui.h>
 
 namespace {
@@ -19,9 +21,19 @@ int gTestHover = -1;   // the capture: the "after" column for this action
 Kit gNoKit;   // outside a match: nothing carried
 Kit* gTestKit = nullptr;   // the headless check / capture: their own carried parts
 std::vector<uint64_t> gPlaced;   // the tables Battle Royale placed this match
+std::map<std::string, std::array<int, 4>> gFits;   // SM3: free fits outside Battle Royale, by weapon id: back on after a respawn / an SD round
 
 Kit& localKit() { if (gTestKit) return *gTestKit; Soldier* L = gGame && gGame->active ? gGame->local() : nullptr; Kit* k = L ? kitOf(L->slot) : nullptr; return k ? *k : gNoKit; }
-std::vector<int> guns(App& app) { std::vector<int> v; for (int w : app.carried) if (!app.weaponDefs[w]->equipment()) v.push_back(w); return v; }
+std::vector<int> guns(App& app) { std::vector<int> v; for (int w : app.carried) { const WeaponDef& d = *app.weaponDefs[w]; if (!d.equipment() && d.action != "melee" && d.action != "grenade" && d.action != "tool") v.push_back(w); } return v; }
+// SM3: Battle Royale (and the checks' own kit) fits the parts you carry; everywhere else every fitting part is free
+bool kitRule() { return gTestKit || (gGame && gGame->active && gGame->match.mode() == GameMode::BattleRoyale); }
+const char* noFitWhy(const WeaponDef& d) {
+  if (d.action == "launcher") return "launchers take no parts";
+  if (d.flame.on) return "flamethrowers take no parts";
+  if (d.blaster) return "energy weapons take no parts";
+  if (ammoTypeOf(d) == AM_NONE) return "no parts are made for its calibre";
+  return "takes no parts";
+}
 
 // the gun and its parts, turning (yaw from the clock), rendered off screen into gTex
 void renderGun(App& app, const WeaponDef& d, const WeaponState& s, int w, int h) {
@@ -64,9 +76,23 @@ void smithyClose(App& app) { gOpen = false; gId = 0; app.syncCursor(); }
 
 // one fit / remove through the table (the screen, its number keys and the headless check)
 bool smithyApply(App& app, int weapon, int slot, const std::string& itemId, std::string* why) {
-  Kit& k = localKit();
-  return itemId.empty() ? lootTakeOff(app, k, weapon, slot, why) : lootFit(app, k, weapon, itemId, why);
+  if (kitRule()) { Kit& k = localKit(); return itemId.empty() ? lootTakeOff(app, k, weapon, slot, why) : lootFit(app, k, weapon, itemId, why); }
+  auto no = [&](const char* m) { if (why) *why = m; return false; };   // SM3: free: no bag
+  if (weapon < 0 || weapon >= (int)app.weaponDefs.size() || slot < 0 || slot > 3) return no("no such weapon");
+  const WeaponDef& d = *app.weaponDefs[weapon]; WeaponState& s = app.wstate[d.id];
+  if (itemId.empty()) { if (!s.att[slot]) return no("nothing fitted"); s.att[slot] = 0; }
+  else {
+    const ItemDef* it = lootItem(itemId);
+    if (!it || it->kind < ItemKind::Sight || it->kind > ItemKind::Stock) return no("not an attachment");
+    if (!lootAttachFits(d, *it)) return no("does not fit this weapon");
+    int sl = lootSlotOf(it->kind); if (s.att[sl] == it->value) return no("already fitted");
+    s.att[sl] = it->value;
+  }
+  std::array<int, 4> a; for (int k = 0; k < 4; ++k) a[k] = s.att[k]; gFits[d.id] = a;
+  return true;
 }
+void smithyRestoreFits(App& app) { for (auto& [id, a] : gFits) { auto it = app.wstate.find(id); if (it != app.wstate.end()) for (int k = 0; k < 4; ++k) it->second.att[k] = a[k]; } }
+bool smithyFree() { return !kitRule(); }
 
 void smithyUi(App& app) {
   if (!gOpen) return;
@@ -98,7 +124,7 @@ void smithyUi(App& app) {
     const WeaponDef& d = *app.weaponDefs[g[i]]; const WeaponState& gs = app.wstate[d.id];
     std::string parts;
     for (int sl = 0; sl < 4; ++sl) { const char* id = lootAttachItemId(sl, gs.att[sl]); if (*id) if (const ItemDef* it = lootItem(id)) parts += (parts.empty() ? "" : ", ") + it->name; }
-    if (!lootGunTakesParts(d)) parts = "no fittings"; else if (parts.empty()) parts = "nothing fitted";
+    if (!lootGunTakesParts(d)) parts = std::string("no fittings: ") + noFitWhy(d); else if (parts.empty()) parts = "nothing fitted";
     ImGui::PushID((int)i);
     ImVec2 p0 = ImGui::GetCursorScreenPos();
     if (ImGui::Selectable("##gun", (int)i == gSel, 0, ImVec2(colW - 8 * s, 58 * s))) gSel = (int)i;
@@ -128,7 +154,7 @@ void smithyUi(App& app) {
     int hover = -1;
     ImGui::SetCursorScreenPos(ImVec2(rightX, y0));
     ImGui::BeginChild("##slots", ImVec2(420 * s, H - y0 - 80 * s), false, ImGuiWindowFlags_NoBackground);
-    if (!lootGunTakesParts(d)) flat::note("no fittings: this weapon takes no parts in Battle Royale");
+    if (!lootGunTakesParts(d)) flat::note((std::string("No fittings: ") + noFitWhy(d) + ". Guns with a known calibre take parts: sights on long guns, muzzles on all but shotguns, magazines on magazine-fed guns, the recoil pad on rifles.").c_str());
     else for (int sl = 0; sl < 4; ++sl) {
       flat::section(lootSlotName(sl));
       bool builtIn = sl == ATT_SIGHT && lootBuiltInAcog(d, ws);
@@ -142,16 +168,18 @@ void smithyUi(App& app) {
         if (ImGui::IsItemHovered()) hover = (int)acts.size() - 1;
       } else ImGui::TextDisabled("-  empty");
       bool any = false;
-      for (auto& [id, n] : k.items) {
+      std::map<std::string, int> freeParts;   // SM3: outside Battle Royale every part of this slot, free
+      if (!kitRule()) for (int v = 1; v < 7; ++v) if (const char* fidv = lootAttachItemId(sl, v); *fidv) freeParts[fidv] = -1;
+      for (auto& [id, n] : kitRule() ? k.items : freeParts) {
         const ItemDef* it = lootItem(id);
-        if (!it || n <= 0 || it->kind < ItemKind::Sight || it->kind > ItemKind::Stock || lootSlotOf(it->kind) != sl || !lootAttachFits(d, *it) || ws.att[sl] == it->value) continue;
+        if (!it || n == 0 || it->kind < ItemKind::Sight || it->kind > ItemKind::Stock || lootSlotOf(it->kind) != sl || !lootAttachFits(d, *it) || ws.att[sl] == it->value) continue;
         any = true;
         acts.push_back({sl, id, "Fit " + it->name});
-        std::string b = "[" + std::to_string(acts.size()) + "]  Fit " + it->name + "  (x" + std::to_string(n) + ")";
+        std::string b = "[" + std::to_string(acts.size()) + "]  Fit " + it->name + (n > 0 ? "  (x" + std::to_string(n) + ")" : std::string("  (free)"));
         if (ImGui::Button(b.c_str())) smithyApply(app, w, sl, id);
         if (ImGui::IsItemHovered()) hover = (int)acts.size() - 1;
       }
-      if (!any && !builtIn) ImGui::TextDisabled("   no carried part fits");
+      if (!any && !builtIn) ImGui::TextDisabled(kitRule() ? "   no carried part fits" : "   no part fits this weapon");
     }
     ImGui::EndChild();
     for (int n = 0; n < 9 && n < (int)acts.size(); ++n) if (ImGui::IsKeyPressed((ImGuiKey)(ImGuiKey_1 + n), false)) smithyApply(app, w, acts[n].slot, acts[n].item);
@@ -184,11 +212,11 @@ void smithyUi(App& app) {
     row("MAGAZINE", std::to_string(b0.mag), std::to_string(b1.mag), std::to_string(b2.mag), cmp((float)b1.mag, (float)b2.mag, false));
     row("OPTIC", sightName(b0.sight), sightName(b1.sight), sightName(b2.sight), b2.sight == b1.sight ? 0 : b2.sight > b1.sight ? 1 : -1);
     row("SUPPRESSED", b0.quiet ? "yes" : "no", b1.quiet ? "yes" : "no", b2.quiet ? "yes" : "no", b2.quiet == b1.quiet ? 0 : b2.quiet ? 1 : -1);
-    if (k.items.empty()) flat::text(dl, ImGui::GetFont(), 14 * s, ImVec2(mx0, ry + 8 * s), flat::grey(), "PARTS COME FROM BATTLE ROYALE LOOT", 0.1f);
+    flat::text(dl, ImGui::GetFont(), 14 * s, ImVec2(mx0, ry + 8 * s), flat::grey(), !kitRule() ? "EVERY PART IS FREE HERE (BATTLE ROYALE: THE PARTS YOU CARRY)  //  FITS STAY ON FOR THE MATCH" : k.items.empty() ? "PARTS COME FROM BATTLE ROYALE LOOT" : "BATTLE ROYALE: THE PARTS YOU CARRY", 0.1f);
   }
   ImGui::End();
 keys:
-  if (ImGui::IsKeyPressed(ImGuiKey_E, false) || ImGui::IsKeyPressed(ImGuiKey_Escape, false)) smithyClose(app);
+  if (ImGui::IsKeyPressed(ImGuiKey_Escape, false)) smithyClose(app);   // E: updateExplore (the press that opened it no longer closes it the same frame)
 }
 
 // ---------------------------------------------------------------- Battle Royale placement
@@ -219,7 +247,7 @@ uint64_t smithyPlaceIn(App& app, const Instance& h) {
   return 0;
 }
 void smithyBegin(App& app, Game& G) {
-  gPlaced.clear();
+  gPlaced.clear(); gFits.clear();
   if (G.match.mode() != GameMode::BattleRoyale) return;
   const AssetDef* table = app.lib.find("smithing_table");
   if (!table) return;
@@ -242,6 +270,7 @@ void smithyBegin(App& app, Game& G) {
 }
 void smithyEnd(App& app) {
   if (gOpen) smithyClose(app);
+  gFits.clear();
   if (gPlaced.empty()) return;
   auto& v = app.doc.instances;
   v.erase(std::remove_if(v.begin(), v.end(), [](const Instance& i) { return std::find(gPlaced.begin(), gPlaced.end(), i.id) != gPlaced.end(); }), v.end());
