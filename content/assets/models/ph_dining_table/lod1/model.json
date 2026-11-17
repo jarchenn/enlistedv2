@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  1.0386914014816284,
+  0.8725485801696777,
+  0.6341755390167236
+ ],
+ "bmin": [
+  -1.0886516571044922,
+  1.6298145055770874e-09,
+  -0.6560697555541992
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "dining_table",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.0386914014816284,
+    0.8725485801696777,
+    0.6341755390167236
+   ],
+   "bmin": [
+    -1.0886516571044922,
+    1.6298145055770874e-09,
+    -0.6560697555541992
+   ],
+   "count": 390,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "dining_table",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_dining_table.glb",
+ "textures": {},
+ "triangles": 130,
+ "vertices": 168
+}

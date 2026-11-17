@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.27500003576278687,
+  0.5506622791290283,
+  0.22500000894069672
+ ],
+ "bmin": [
+  -0.27500003576278687,
+  0.0,
+  -0.22500000894069672
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "side_table_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.27500003576278687,
+    0.5506622791290283,
+    0.22500000894069672
+   ],
+   "bmin": [
+    -0.27500003576278687,
+    0.0,
+    -0.22500000894069672
+   ],
+   "count": 4131,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "side_table_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_side_table_01.glb",
+ "textures": {},
+ "triangles": 1377,
+ "vertices": 2050
+}

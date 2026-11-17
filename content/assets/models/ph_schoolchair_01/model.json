@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.28292664885520935,
+  1.006035566329956,
+  0.3375985622406006
+ ],
+ "bmin": [
+  -0.28292664885520935,
+  0.0,
+  -0.33762744069099426
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "SchoolChair_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.28292664885520935,
+    1.006035566329956,
+    0.3375985622406006
+   ],
+   "bmin": [
+    -0.28292664885520935,
+    0.0,
+    -0.33762744069099426
+   ],
+   "count": 7608,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "SchoolChair_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_schoolchair_01.glb",
+ "textures": {},
+ "triangles": 2536,
+ "vertices": 1753
+}
