@@ -1241,6 +1241,12 @@ int App::run(int argc, char** argv) {
       if (tanks.camera(*this, e, fv, fov)) tanks.cameraKick(*this, e, fv);   // RC2: the vehicle's firing kick on the seat view
       else if (!stationCamera(e, fv, fov)) weaponCamera(fov);
       mpaiCamera(*this, e, fv, fov);   // death / spectator camera during a match
+      {   // every mode: never render from a non-finite camera (Terrain::height indexed its grid out of range); the last good one
+        static vec3 lastE(0, 2, 0), lastF(0, 0, -1);
+        auto ok = [](vec3 v) { return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z); };
+        if (ok(e) && ok(fv) && glm::dot(fv, fv) > 1e-6f) { lastE = e; lastF = fv; }
+        else { static bool logged = false; if (!logged) { logged = true; logf("camera: non-finite (%f %f %f), the last valid one kept", e.x, e.y, e.z); } e = lastE; fv = lastF; }
+      }
       { extern bool gVh8CamOn; extern vec3 gVh8CamEye, gVh8CamAt; if (gVh8CamOn) { e = gVh8CamEye; fv = glm::normalize(gVh8CamAt - e); fov = 60; } }   // VH8 capture: outside view
       viewM = glm::lookAt(e, e + fv, viewUp(fv));   // swim.cpp: a slight roll with the stroke
       projM = glm::perspective(radians(fov), aspect, 0.03f, std::max(4000.0f, settings().renderDist() * 1.2f));   // PF2: Ultra render distance (5 km)

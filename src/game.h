@@ -63,6 +63,7 @@ struct Soldier {
   bool localPlayer = false, human = false; int peer = -1;
   int agent = -1;                            // physics agent (bots, remote humans); the local player uses the explore character
   vec3 feet{0}, vel{0}; float yaw = 0, pitch = 0; int posture = 0; float speed = 0;
+  vec3 lastGoodFeet{0};                      // the last finite feet (Game::step restores it if a NaN appears)
   bool swim = false; float swimBlend = 0;    // swimming (swim.cpp; bots: floating agents; LAN: snapshot flags 2|4, client posture 3)
   float hp = 100; double diedAt = 0; int deathStyle = 0; int killer = -1; vec3 deathDir{0};
   int weapon = -1; WeaponState ws; float reload = 0, reloadTotal = 0; int shots = 0;
