@@ -1,4 +1,5 @@
 // Phase 2 tanks: definitions, Explore simulation (driving, turret, gunner sight, hatch MG, HE/AP loading),
+#include "loading.h"
 #include "crumb.h"
 // damage rules, wrecks, effects, sound and persistence. docs/tanks.md
 #include "app.h"
@@ -32,8 +33,11 @@ void TankSys::loadDefs(App& app) {
     try { files[e.path().stem().string()] = json::parse(readTextFile(e.path())); } catch (std::exception& x) { logf("vehicle %s: %s", e.path().string().c_str(), x.what()); }
   }
   std::map<std::string, std::shared_ptr<GpuModel>> loaded;   // variants share their base's GPU model
+  size_t vk = 0;
+  prefetchModelTree(dir / "models");   // CACHE1: a cold texture cache fills in one parallel pass
   for (auto& [stem, j0] : files) {
     crumb("vehicle defs");   // UI5
+    if (gLoadingDepth) { char b[80]; std::snprintf(b, sizeof b, "Loading vehicles %zu / %zu", ++vk, files.size()); loadingProgress(b, (float)vk / files.size()); }   // CACHE1: the splash shows the real count
     json j = j0;
     json ovPatch; { json& ov = vehicleOverrides(); auto it = ov.find(stem); if (it != ov.end() && it->is_object()) ovPatch = *it; }   // ED2: applied after the base / variant merge
     if (j0.contains("base")) {

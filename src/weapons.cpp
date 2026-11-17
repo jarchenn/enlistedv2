@@ -1,4 +1,5 @@
 // Personal weapons: definitions (content/weapons/*.json), container-based ammunition accounting,
+#include "loading.h"
 #include "crumb.h"
 // reload state machine, recoil springs, sights/scopes, first-person view model, crate resupply.
 // HUD "loaded" counts every round in the weapon including the chambered one.
@@ -76,8 +77,11 @@ void App::buildWeaponMeshes() {
       F.light = jvec3(mf.value("lightColor", json()), F.light); F.radius = mf.value("lightRadius_m", F.radius); F.intensity = mf.value("lightIntensity", F.intensity);
     }
   } catch (std::exception& e) { logf("content/weapons/handling.json: %s (built-in handling)", e.what()); }
+  size_t wk = 0;
+  if (useImportedModels) prefetchModelTree(dir / "models");   // CACHE1: a cold texture cache fills in one parallel pass
   for (auto& f : files) {
     crumb("weapon defs");   // UI5
+    if (gLoadingDepth) { char b[80]; std::snprintf(b, sizeof b, "Loading weapons %zu / %zu", ++wk, files.size()); loadingProgress(b, (float)wk / files.size()); }   // CACHE1: the splash shows the real count
     if (f.filename() == "handling.json" || f.filename() == "overrides_user.json") continue;   // ED2: the user's overrides patch the weapons below
     json j;
     try { j = json::parse(readTextFile(f)); } catch (...) { continue; }
