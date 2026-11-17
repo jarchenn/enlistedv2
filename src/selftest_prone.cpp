@@ -45,6 +45,7 @@ bool proneSelfTest(App& app, float dt) {
   if (stage == 0) {   // a new point
     if (pt >= 50) { nextMap(); return true; }
     if (!pick(app, at)) { T->note("no standable point found"); ++pt; return true; }
+    app.proneToggle = false; app.postureWanted = Physics::STAND;   // a clean start at each point
     Physics::setCharacterPos(at + vec3(0, 0.05f, 0)); app.eyeYaw = std::uniform_real_distribution<float>(0, 360)(rng);
     stage = 1; st = 0; return true;
   }
