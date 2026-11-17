@@ -41,8 +41,8 @@ ROWS = [
 STRETCH_COLS = (6, 8)
 STRETCH_ROWS = (3, 4, 5, 13, 14)
 # decorative buildings on the solid ground (asset, footprint w, d); cover per region (asset, half w, half d, count)
-MASSES = [("mod_nt_barracks", 30, 12), ("mod_nt_motor_pool", 24, 14), ("mod_nt_hq", 20, 14), ("mod_nt_workshop", 18, 12),
-          ("mod_nt_armory", 16, 12), ("mod_nt_pump_station", 14, 10), ("mod_mil_hut", 11.8, 19.6), ("mod_nt_site_office", 7, 3)]
+MASSES = [("sd_warm_nt_barracks", 30, 12), ("sd_warm_nt_motor_pool", 24, 14), ("sd_warm_nt_hq", 20, 14), ("sd_warm_nt_workshop", 18, 12),
+          ("sd_warm_nt_armory", 16, 12), ("sd_warm_nt_pump_station", 14, 10), ("sd_warm_mil_hut", 11.8, 19.6), ("sd_warm_nt_site_office", 7, 3)]
 # site identity: A, the vehicle court (wrecks under camo nets); B, the supply yard (pallets, boxes, a damaged container)
 INTERIORS = "wnkc"   # Workshop, Maintenance, the defender access, the Arcade (+ the backstreet shed below)
 A_COVER = [("mod_apc_wheeled", 1.5, 3.6, 1), ("mod_mil_utility_green", 1.2, 2.6, 1), ("mod_pcar_offroad", 1.1, 2.4, 1), ("mod_guard_tower", 1.7, 3.3, 1),
@@ -53,6 +53,8 @@ B_COVER = [("mod_container_20_damaged", 1.3, 3.3, 1), ("mod_pallet_stack", 1.0, 
            ("ph_wooden_military_crate", 0.6, 0.4, 3), ("mod_jersey_barrier", 1.6, 0.4, 2), ("mod_barrel_group", 0.7, 0.7, 1), ("ph_old_military_compressor", 0.6, 0.4, 1),
            ("mod_generator_set", 1.65, 0.65, 1), ("ph_hand_truck", 0.3, 0.3, 1), ("mod_sandbag_position", 1.4, 1.1, 1), ("ph_cardboard_box_01", 0.25, 0.25, 3)]
 SITE_COVER = A_COVER
+WALL_CLUTTER = [("mod_pallet_stack", 1.0, 0.45, 1), ("furn_mil_crates", 0.8, 0.6, 1), ("mod_barrel_group", 0.7, 0.7, 1), ("mod_sandbag_position", 1.4, 1.1, 1),
+                ("ph_wooden_military_crate", 0.6, 0.4, 2), ("nat_brush_scrub", 0.8, 0.8, 1), ("mod_tyre_pile", 1.3, 1.0, 1)]
 VEHICLES = ("mod_apc_wheeled", "mod_mil_utility_green", "mod_pcar_offroad", "mod_container_20_damaged")
 SCRUB = [("nat_brush_scrub", 0.8, 0.8, 1), ("ph_dry_branches_medium_01_a", 0.8, 0.8, 1), ("ph_shrub_03_b", 0.5, 0.5, 1), ("mod_rock_small", 0.4, 0.4, 1)]
 STREET_COVER = [("ph_wooden_crate_01", 0.5, 0.5, 1), ("ph_barrel_02", 0.35, 0.35, 2), ("ph_old_tyre", 0.4, 0.4, 1), ("mod_jersey_barrier", 1.6, 0.4, 1)] + SCRUB
@@ -109,13 +111,17 @@ def build(ctx):
     masses = []
     n_mass = place_masses(b, plan, MASSES, R, y0, out=masses)
     n_roofc = roof_clutter(b, ctx.repo, masses, ["mod_hvac_unit", "ph_exterior_aircon_unit", "mod_nt_storage_tank", "mod_antenna_mast", "ph_exterior_aircon_unit"], R, y0,
-                          flat=("mod_nt_hq", "mod_nt_armory", "mod_nt_barracks", "mod_nt_motor_pool", "mod_nt_workshop", "mod_nt_pump_station", "mod_nt_site_office"))
+                          flat=("sd_warm_nt_hq", "sd_warm_nt_armory", "sd_warm_nt_barracks", "sd_warm_nt_motor_pool", "sd_warm_nt_workshop", "sd_warm_nt_pump_station", "sd_warm_nt_site_office"))
     mx, mz = plan.centre("M")
     b.place("mod_nt_radar_tower", mx, mz + 1.0, 0.0, check=False, cls="none", y=y0, tags={"landmark", "cover"})   # the parade square's landmark: splits mid
     _xa, _za = plan.cc(*PLANT_A_CELL); _xb, _zb = plan.cc(*PLANT_B_CELL)
     PADS = [(_xa + PLANT_A_OFF[0], _za + PLANT_A_OFF[1], 3.5), (_xb + PLANT_B_OFF[0], _zb + PLANT_B_OFF[1], 3.5)]
     n_cover = 0
     for ch, items in COVER.items():
+        if ch in "MTD":   # mid and the spawn yards: their clutter lines the walls too
+            extra = WALL_CLUTTER if ch != "D" else [it for it in WALL_CLUTTER if it[0] not in ("mod_sandbag_position", "mod_tyre_pile", "nat_brush_scrub")]   # the Security yard stays quick to leave
+            n_cover += place_along_walls(b, plan, ch, items + extra, R, y0, keep=PADS)
+            continue
         if ch in "AB":   # sites: vehicles stand free (narrower lanes), the rest lines the walls
             n_cover += place_cover(b, plan, ch, [it for it in items if it[0] in VEHICLES], R, y0, keep=PADS, lane=1.8)
             n_cover += place_along_walls(b, plan, ch, [it for it in items if it[0] not in VEHICLES], R, y0, keep=PADS)

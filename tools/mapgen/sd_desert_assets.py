@@ -96,6 +96,28 @@ def warm_copy(src, dst, name):
     return a
 
 
+WARM_MASSES = ["mod_nt_barracks", "mod_nt_motor_pool", "mod_nt_hq", "mod_nt_workshop", "mod_nt_armory", "mod_nt_pump_station", "mod_mil_hut", "mod_nt_site_office"]
+
+
+def warm_mass(src):
+    """A building in the desert palette: its pale, unsaturated materials (render, concrete, panels, block) turned sand /
+    tan / ochre by lightness; glass, metal, wood and dark trim kept."""
+    a = json.load(open(os.path.join(A, src + ".json"), encoding="utf-8"))
+    for k, m in enumerate(a["materials"]):
+        r, g, b_ = m["albedo"][:3]
+        l = (r + g + b_) / 3.0
+        sat = max(r, g, b_) - min(r, g, b_)
+        if m.get("metallic", 0) > 0.3 or "glass" in m["name"] or "window" in m["name"] or sat > 0.12 or l < 0.22:
+            continue
+        hue = ([1.24, 1.03, 0.78], [1.2, 0.98, 0.72], [1.16, 1.0, 0.8])[k % 3]
+        m["albedo"] = [round(min(1.0, l * hue[0]), 3), round(min(1.0, l * hue[1]), 3), round(min(1.0, l * hue[2]), 3)] + m["albedo"][3:]
+    a["id"] = "sd_warm_" + src[4:]
+    a["name"] = a["name"] + " (desert)"
+    a["description"] = a["description"] + " Desert palette (Search and Destroy, Sun Fort)."
+    a["category"] = "Modern: Military"
+    return a
+
+
 def canopy():
     p = []
     for sx in (-1, 1):
@@ -147,6 +169,7 @@ def main():
     out.append(warm_copy("mod_nt_compound_wall_plain", "sd_compound_wall_warm_plain", "Compound wall bay, inner, tan (6 m)"))
     out.append(warm_copy("mod_nt_compound_wall_breach", "sd_compound_wall_warm_breach", "Compound wall bay, breached, tan"))
     out.append(canopy())
+    out += [warm_mass(m) for m in WARM_MASSES]
     out.append(stencil("A", [0.93, 0.47, 0.09]))
     out.append(stencil("B", [0.05, 0.6, 0.62]))
     for a in out:
