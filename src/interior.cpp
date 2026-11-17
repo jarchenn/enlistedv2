@@ -7,6 +7,8 @@
 //     ordinary furniture instances tagged extra.furnish = {host, slot};
 //   * per building copy finish parameters (SurfaceParams) for the wall / floor patterns 17-22.
 #include "interior.h"
+#include "crumb.h"
+#include "loading.h"
 #include "static_decals.h"
 #include "app.h"
 #include "lights.h"   // L3: light assets, interior lighting (docs/lights.md)
@@ -167,6 +169,7 @@ const RoomInfo* InteriorSys::rooms(const AssetDef* a) {
     i0 = std::max(0, (int)std::ceil((lo - org) / C - 0.5f)); i1 = std::min(n - 1, (int)std::floor((hi - org) / C - 0.5f));
   };
   for (size_t s = 0; s < levels.size(); ++s) {
+    crumb("furnish: rooms");   // UI3: the room analysis of a new building type runs for a second or more: loading frames meanwhile
     RoomInfo::Storey S; S.y = levels[s]; S.ceil = s + 1 < levels.size() ? levels[s + 1] - 0.2f : levels[s] + 2.8f;
     if (S.ceil - S.y < 1.9f) continue;   // a landing or step, not a storey
     S.o = o; S.nx = nx; S.nz = nz;
@@ -179,6 +182,7 @@ const RoomInfo* InteriorSys::rooms(const AssetDef* a) {
       for (int j = j0; j <= j1; ++j) for (int i = i0; i <= i1; ++i) id[(size_t)j * nx + i] = 0x7FFF;
     }
     for (auto& b : solids) {
+      crumb("furnish: rooms");
       float ext = std::max(b.mx.x - b.mn.x, b.mx.z - b.mn.z);
       bool w = b.mn.y < L + 1.8f && b.mx.y > L + 0.25f, dw = !w && b.mn.y >= L + 1.8f && b.mn.y < L + 2.5f && ext <= 2.2f;   // a lintel, not a beam
       if (!w && !dw) continue;
@@ -542,10 +546,13 @@ int InteriorSys::autoFurnish(App& app, uint64_t hostId) {
 int InteriorSys::autoFurnishAll(App& app) {
   auto t0 = std::chrono::high_resolution_clock::now();
   std::vector<uint64_t> ids;
-  for (auto& i : app.doc.instances) if (autoFurnishable(app, i)) ids.push_back(i.id);
-  if (!ids.empty()) { app.syncRuntime(); Physics::optimizeBroadPhase(); }   // the planner's ray / solid queries run on a balanced tree
+  for (auto& i : app.doc.instances) { if (autoFurnishable(app, i)) ids.push_back(i.id); crumb("furnish: scan"); }   // UI3: the first sight of a building type analyses its rooms (slow on a new map)
+  if (!ids.empty()) { crumb("furnish: sync"); app.syncRuntime(); crumb("furnish: broadphase"); Physics::optimizeBroadPhase(); crumb("furnish: plan"); }   // the planner's ray / solid queries run on a balanced tree
   int pieces = 0;
-  for (uint64_t id : ids) pieces += autoFurnish(app, id);
+  for (size_t k = 0; k < ids.size(); ++k) {
+    pieces += autoFurnish(app, ids[k]);
+    loadingProgress("Furnishing buildings", (k + 1) / (float)ids.size());   // UI3: the loading screen keeps presenting (and the window answering) through the long furnish pass
+  }
   if (!ids.empty()) Physics::optimizeBroadPhase();   // the pieces' bodies
   lastAutoMs = (float)std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - t0).count();
   if (!ids.empty()) logf("interior: auto-furnished %zu buildings, %d pieces in %.0f ms", ids.size(), pieces, lastAutoMs);
@@ -2546,7 +2553,7 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
   }
   std::vector<int> order(ri->rooms.size());
   for (size_t k = 0; k < order.size(); ++k) order[k] = (int)k;
-  for (int k : order) if (!lightsOnly) P.room(k);
+  for (int k : order) if (!lightsOnly) { P.room(k); crumb("furnish: room"); }   // UI3: crumbs give the loading screen its frames
   if (ruin && !lightsOnly) P.ruinPass();   // AS1: abandoned (before the doorway rules: they still apply)
   if (!lightsOnly) P.clearPaths();   // FN1: no generated piece cuts one doorway off from another
   {   // L3 (docs/lights.md): a ceiling or table light per room, a fire on each hearth, caged lamps in bunkers
@@ -2606,6 +2613,7 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
   quat hq = yawQuat(h->yaw);
   vec3 hp = h->pos; float hy = h->yaw;
   for (auto& it : P.out) {
+    crumb("furnish: place");
     slots.push_back(it.slot);
     bool gone = removed.count(it.slot) || manual.count(it.slot);
     for (auto& r : removed) if (it.slot.rfind(r + "/", 0) == 0) gone = true;   // things on / around a deleted piece

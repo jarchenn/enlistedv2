@@ -81,7 +81,7 @@ struct Snapshot { std::vector<Instance> inst; StartMarker start; std::set<std::s
 
 void applyUiTheme();          // UI1b: the shared ImGui look (font, palette, panel style)
 float uiFontScale(int fbh);   // UI1b: FontGlobalScale for this framebuffer height and the UI scale setting
-struct ImFont; ImFont* uiFontHead(); ImFont* uiFontDisplay();   // UI2: heading (48 px) and display (112 px) faces for menus / titles / the wordmark
+struct ImFont; ImFont* uiFontHead(); ImFont* uiFontDisplay(); ImFont* uiFontTitle();   // UI4 title: Barlow Condensed Bold, 112 px   // UI2: heading (48 px) and display (112 px) faces for menus / titles / the wordmark
 struct PlaceCheck { bool ok = true; std::string reason; float y = 0; bool snapXZ = false; vec2 xz{0}; uint64_t support = 0; };   // ED1 support: the instance whose top it rests on (0 = the ground)
 // ED1: the instance a placed object rests on (extra "support"), kept with the map; 0 clears it
 inline void setSupport(Instance& i, uint64_t s) { if (s) { if (!i.extra.is_object()) i.extra = json::object(); i.extra["support"] = s; } else if (i.extra.is_object()) i.extra.erase("support"); }

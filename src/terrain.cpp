@@ -1,4 +1,5 @@
 #include "terrain.h"
+#include "crumb.h"
 #include "w5.h"
 #include <algorithm>
 
@@ -151,6 +152,7 @@ void Terrain::applyGenLayers(const TemplateInfo& t, int innerNx, int innerNz) {
 }
 
 void Terrain::generate(const TemplateInfo& t, float width, float depth) {
+  crumb("terrain: begin");
   destroy();
   cuts.clear();
   stamps.clear(); ++sculptRev;   // GX1: re-derived on the new grid (navSyncCuts)
@@ -173,7 +175,7 @@ void Terrain::generate(const TemplateInfo& t, float width, float depth) {
   size = cx * kCell; sizeZ = cz * kCell;
   org = vec2(-size * 0.5f, -sizeZ * 0.5f);
   h.assign((size_t)nx * nz, 0.0f);
-  for (int z = 0; z < nz; ++z)
+  for (int z = 0; z < nz; ++z, crumb("terrain: generate"))   // UI3: a crumb a row (a loading frame when one is due; a row of a big map takes ~0.1 s on a busy machine)
     for (int x = 0; x < nx; ++x) {
       float wx = org.x + x * kCell, wz = org.y + z * kCell;
       h[(size_t)z * nx + x] = baseFormula(wx, wz, t.seed);

@@ -11,6 +11,7 @@
 #include "mainmenu.h"
 #include "logo.h"
 #include "app.h"
+#include "crumb.h"
 #include "game.h"
 #include "platform_gfx.h"
 #include <imgui.h>
@@ -19,6 +20,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <vector>
+#include <thread>
 
 namespace {
 struct Job {
@@ -26,6 +28,8 @@ struct Job {
   std::string title, subtitle, label = "Loading";
   unsigned thumb = 0; double t0 = 0, lastPresent = -1, endedAt = -10; bool fading = false;
   int shot = 0;
+  const char* step = "";   // the internal LoadStep name (watchdog lines)
+  const char* crumbAtPresent = "-";   // the crumb when the last frame went out: a stall lies between it and the next one
 } J;
 ImGuiContext* gCtx = nullptr;   // the loading screen's own context (shares the main font atlas)
 
@@ -74,6 +78,16 @@ void drawLoading(ImDrawList* dl, float W, float H, float a, float t) {
     dl->AddCircleFilled(ImVec2(x, y), sz * 3.2f, rgba(255, 120, 30, 0.11f * al));
     dl->AddCircleFilled(ImVec2(x, y), sz, rgba(255, 180, 96, al));
   }
+  // a few faster sparks: short bright streaks rising quickly from the fire light, with a little turbulence (UI3)
+  for (int i = 0; i < 14; ++i) {
+    uint32_t h = (uint32_t)(i + 101) * 2654435761u; auto r = [&](int k) { uint32_t x = h ^ (uint32_t)(k * 0x9E3779B9u); x ^= x >> 15; x *= 2246822519u; x ^= x >> 13; return (x & 0xffff) / 65535.0f; };
+    const float life = 1.2f + 1.3f * r(1), age = std::fmod(t + life * r(2), life), k = age / life;
+    const float vy = (220 + 260 * r(3)) * s, vx = (40 + 90 * r(4)) * s * (r(5) < 0.3f ? -0.5f : 1.0f);
+    const float x = W * (0.1f + 0.85f * r(6)) + vx * age + std::sin(t * 7 + 6.28f * r(7)) * 6 * s, y = H * 1.02f - vy * age;
+    const float al = (1 - k) * std::min(1.0f, k * 8) * (0.7f + 0.3f * std::sin(t * 23 + i)) * a, len = (6 + 10 * r(8)) * s;
+    const float n = std::sqrt(vx * vx + vy * vy); const ImVec2 tail(x - vx / n * len, y + vy / n * len);
+    dl->AddLine(tail, ImVec2(x, y), rgba(255, 200, 120, al), std::max(1.0f, 1.3f * s));
+  }
   // the logo (the user's artwork, content/ui/logo.png; else the vector emblem with the wordmark between rules), map name, mode
   const float cx = W * 0.5f, top = H * 0.24f, eh = 230 * s;
   const float la = logoImageAspect();
@@ -115,9 +129,17 @@ void present(App& app, bool force) {
   const double now = glfwGetTime();
   if (!force && now - J.lastPresent < 1.0 / 30.0) return;
   if (!app.win) return;
+  {   // watchdog: a stretch of the load that presented nothing (the window stops answering and the embers freeze) is named in the log
+    static const double thr = [] { const char* e = std::getenv("NMK_LOAD_GAPS"); return e && *e ? std::atof(e) : 1.0; }();
+    if (J.lastPresent > 0 && now - J.lastPresent > thr) logf("loading: no frame for %.2f s during \"%s\" (step %s, between crumbs %s .. %s)", now - J.lastPresent, J.label.c_str(), J.step, J.crumbAtPresent, gCrumb ? gCrumb : "-");
+    J.crumbAtPresent = gCrumb ? gCrumb : "-";
+  }
   const float dt = J.lastPresent < 0 ? 1.0f / 60.0f : (float)std::min(0.1, now - J.lastPresent);
   J.lastPresent = now;
   glfwPollEvents();   // the window keeps answering ("Not responding" after 5 s otherwise)
+  // UI3: a frame can now be presented from inside any long loop (crumb / loadingTick): leave the caller's GL state as it was
+  GLint fbDraw = 0, fbRead = 0, vp[4] = {0, 0, 0, 0}; GLfloat cc[4] = {0, 0, 0, 0}; GLboolean scis = glIsEnabled(GL_SCISSOR_TEST), depthT = glIsEnabled(GL_DEPTH_TEST), blend = glIsEnabled(GL_BLEND), cull = glIsEnabled(GL_CULL_FACE);
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &fbDraw); glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &fbRead); glGetIntegerv(GL_VIEWPORT, vp); glGetFloatv(GL_COLOR_CLEAR_VALUE, cc);
   ImGuiContext* prev = ImGui::GetCurrentContext();
   ImFontAtlas* atlas = ImGui::GetIO().Fonts;
   if (!gCtx) { gCtx = ImGui::CreateContext(atlas); ImGui::SetCurrentContext(gCtx); ImGui::GetIO().IniFilename = nullptr; platformImGuiInitRenderer(); }
@@ -140,21 +162,29 @@ void present(App& app, bool force) {
   }
   platformPresent(app.win);
   ImGui::SetCurrentContext(prev);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)fbDraw); glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)fbRead); glViewport(vp[0], vp[1], vp[2], vp[3]); glClearColor(cc[0], cc[1], cc[2], cc[3]);
+  auto en = [](GLenum c, GLboolean on) { if (on) glEnable(c); else glDisable(c); }; en(GL_SCISSOR_TEST, scis); en(GL_DEPTH_TEST, depthT); en(GL_BLEND, blend); en(GL_CULL_FACE, cull);
 }
 }  // namespace
 
 void loadingBegin(App& app, const std::string& title, const std::string& sub, int expectedStages, unsigned thumbTex) {
   if (J.depth++ > 0) { J.expected = std::max(J.expected, J.done + expectedStages); return; }   // nested: the outer job grows
+  gLoadingDepth = J.depth;
   mainMenuLeaveForLoad(gGame && gGame->pendingStart);   // UI3: loading a map / starting a match from the menu leaves it (the loading screen covers the work)
   J.expected = std::max(1, expectedStages); J.done = 0; J.sub = 0; J.shown = 0; J.title = title; J.subtitle = sub; J.label = "Loading";
   J.thumb = thumbTex; J.t0 = glfwGetTime(); J.lastPresent = -1; J.fading = false;
   present(app, true);
 }
-void loadingStage(const char* what) { if (J.depth <= 0 || !gApp) return; J.label = friendly(what); J.sub = 0; present(*gApp, true); }
+void loadingStage(const char* what) { if (J.depth <= 0 || !gApp) return; J.step = what; J.label = friendly(what); J.sub = 0; present(*gApp, true); }
+int gLoadingDepth = 0;
+static const std::thread::id gMainThread = std::this_thread::get_id();   // the GL context and the window belong to it
+void loadingTick() { if (J.depth > 0 && gApp && std::this_thread::get_id() == gMainThread) present(*gApp, false); }   // from crumb() and the long loops: a frame (and the message pump) every 33 ms
 void loadingStageDone() { if (J.depth <= 0 || !gApp) return; J.done = std::min(J.done + 1, J.expected); J.sub = 0; present(*gApp, false); }
 void loadingProgress(const char* label, float f) { if (J.depth <= 0 || !gApp) return; const bool change = J.label != label; J.label = label; J.sub = std::clamp(f, 0.0f, 1.0f); present(*gApp, change); }
 void loadingEnd() {
-  if (J.depth <= 0 || --J.depth > 0) return;
+  if (J.depth <= 0) return;
+  gLoadingDepth = --J.depth;
+  if (J.depth > 0) return;
   J.done = J.expected; J.sub = 0; J.endedAt = glfwGetTime(); J.fading = true;
 }
 bool loadingActive() { return J.depth > 0; }

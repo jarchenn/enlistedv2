@@ -1,4 +1,5 @@
 #include "physics.h"
+#include "crumb.h"
 
 #include <Jolt/Jolt.h>
 #include <Jolt/RegisterTypes.h>
@@ -277,6 +278,7 @@ public:
 }
 
 bool Physics::castRay(vec3 o, vec3 d, float maxDist, float& t, uint64_t& ud) {
+  if (gLoadingDepth) loadingTick();   // UI3: long loads (the furniture planner) cast many rays: a loading frame when one is due (main thread only)
   RRayCast ray{jr(o), jv(glm::normalize(d) * maxDist)};
   RayCastResult hit;
   NoPlayerOnly nl;
@@ -287,6 +289,7 @@ bool Physics::castRay(vec3 o, vec3 d, float maxDist, float& t, uint64_t& ud) {
 }
 
 bool Physics::castRayEx(vec3 o, vec3 d, float maxDist, Hit& out, uint64_t ignoreUd) {
+  if (gLoadingDepth) loadingTick();
   vec3 dn = glm::normalize(d);
   RRayCast ray{jr(o), jv(dn * maxDist)};
   RayCastResult hit;

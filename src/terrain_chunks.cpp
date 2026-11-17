@@ -1,6 +1,7 @@
 // Chunked, streamed base terrain (SPEC 9.1): LOD meshes around the camera, one Jolt heightfield per chunk, the map
 // size rules and the New Map memory estimate. See terrain_chunks.h.
 #include "terrain.h"
+#include "crumb.h"
 #include "settings.h"   // PF2: render distance scales the far LOD rings
 #include "physics.h"
 #include "frustum.h"
@@ -343,7 +344,7 @@ void terrainPhysicsBuild(Terrain& t) {
   t.physDirty.clear();
   for (auto& [k, tl] : t.tiles) t.physDirty.insert(k);   // tiles that exist already (cuts) get patches below
   for (int z = 0; z < t.chunksZ(); ++z)
-    for (int x = 0; x < t.chunksX(); ++x) terrainPhysicsRebuildChunk(t, x, z);
+    for (int x = 0; x < t.chunksX(); ++x) { terrainPhysicsRebuildChunk(t, x, z); crumb("terrain: colliders"); }   // UI3: a loading frame when one is due
   terrainPhysicsSync(t);
 }
 

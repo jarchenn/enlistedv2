@@ -174,6 +174,15 @@ void tracked(ImDrawList* dl, ImFont* f, float px, ImVec2 p, ImU32 col, const cha
 
 // ---------------------------------------------------------------- character preview (the turning player body)
 struct Preview { std::string id; std::unique_ptr<CharModel> m; CharInstance ci; bool ok = false, humanoid = true; vec3 vlo{0}, vhi{0}; GLuint tex = 0; int w = 0, h = 0; double next = 0; float yaw = 20; int weapon = -2; } P;   // yaw 20: starts facing the viewer
+// UI3 (MEM1): the menu's models leave GPU memory when the menu closes (the live soldier alone is ~0.5 GB of 2K
+// textures); they load again when it reopens
+void menuRelease() {
+  if (LS.ok) { LS.ci.destroy(); LS.m->destroy(); }
+  LS = LiveSoldier{};
+  if (P.ok) { P.ci.destroy(); P.m->destroy(); }
+  P.ok = false; P.id.clear(); P.m.reset(); P.tex = 0;
+}
+
 std::vector<std::pair<std::string, std::string>> bodies() {   // id, label (soldier bodies only: no creatures)
   std::vector<std::pair<std::string, std::string>> v{{"", "By faction (default)"}};
   std::error_code ec;
@@ -272,7 +281,7 @@ bool mainMenuActive() { return S.open; }
 
 static void activate(App& app, int k) {
   switch (k) {
-    case 0: S.open = false; break;   // Create Map: the editor with the current (blank) map
+    case 0: S.open = false; menuRelease(); break;   // Create Map: the editor with the current (blank) map
     case 1: S.page = Play; S.focus = 1; S.sel2 = 0; S.pageAt = ImGui::GetTime(); break;
     case 2: S.page = Character; S.focus = 1; S.sel2 = 0; S.pageAt = ImGui::GetTime(); break;
     case 3: settings().open = true; break;
@@ -288,7 +297,7 @@ void mainMenuFrame(App& app) {
     if (S.launched && app.mode == Mode::Creative) { if (gUi.showSetup || gUi.showJoin) { S.open = true; S.page = Play; S.focus = 1; S.pageAt = ImGui::GetTime(); } S.launched = false; }
     return;
   }
-  if (app.mode == Mode::Explore) { S.open = false; S.launched = true; return; }   // a match / Explore session started
+  if (app.mode == Mode::Explore) { S.open = false; S.launched = true; menuRelease(); return; }   // a match / Explore session started
   ensureLoaded();
   ImGuiIO& io = ImGui::GetIO();
   S.W = io.DisplaySize.x; S.H = io.DisplaySize.y; S.s = S.H / 1080.0f;
@@ -307,7 +316,7 @@ void mainMenuFrame(App& app) {
   // ---- the supplied soldier (local-only), standing centre-left, slightly more parallax than the street
   static float soldierA = 1; soldierA += ((S.page == Character ? 0.0f : 1.0f) - soldierA) * std::min(1.0f, io.DeltaTime / 0.08f);
   if (S.soldierLocal && soldierA > 0.01f) {
-    const bool live = LS.ok;
+    const bool live = liveSoldier();   // (re)loads after menuRelease
     const float ch = H * (live ? 0.80f : 0.74f), cw = live ? ch * 0.62f : ch * (S.soldier.uv1.x - S.soldier.uv0.x) * S.soldier.w / ((S.soldier.uv1.y - S.soldier.uv0.y) * S.soldier.h);
     const float cx = W * 0.43f - (S.uvC.x - 0.5f) * W * 0.6f, fy = H * 0.965f;
     for (int i = 7; i >= 1; --i) dl->AddEllipseFilled(V(cx + 6 * s, fy - 4 * s), V(cw * (live ? 0.07f : 0.11f) * i, 7.0f * s * i * 0.5f), rgba(0, 0, 0, 0.07f * fadeIn * soldierA));   // contact shadow
@@ -519,5 +528,5 @@ void mainMenuGo(App& app, int item) {
 
 unsigned menuBackdropTex(bool blurred) { ensureLoaded(); return blurred ? S.bgBlur.tex : S.bg.tex; }
 
-void mainMenuLeaveForLoad(bool match) { if (!S.open) return; S.open = false; S.launched = match; S.page = Main; S.focus = 0; }
+void mainMenuLeaveForLoad(bool match) { if (!S.open) return; S.open = false; S.launched = match; S.page = Main; S.focus = 0; menuRelease(); }
 void mainMenuCharTab(int t) { S.charTab = t; }   // captures

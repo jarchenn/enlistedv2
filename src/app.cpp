@@ -136,7 +136,8 @@ void App::buildRT(const Instance& i, InstanceRT& r) {
 // pixel font otherwise), one palette (neutral dark greys, one amber accent; team blue / red live with the HUD), one panel
 // style (8 px corners on windows, 5 px on controls, a faint border, even padding on an 8 px rhythm).
 static float gFontPx = 13.0f;
-static ImFont *gFontHead = nullptr, *gFontDisplay = nullptr;
+static ImFont *gFontHead = nullptr, *gFontDisplay = nullptr, *gFontTitle = nullptr;
+ImFont* uiFontTitle() { return gFontTitle ? gFontTitle : uiFontHead(); }
 ImFont* uiFontHead() { return gFontHead ? gFontHead : ImGui::GetFont(); }
 ImFont* uiFontDisplay() { return gFontDisplay ? gFontDisplay : uiFontHead(); }
 void applyUiTheme() {
@@ -151,6 +152,7 @@ void applyUiTheme() {
   if (face({fd + "Barlow-Medium.ttf", "C:/Windows/Fonts/segoeui.ttf", "/System/Library/Fonts/Supplemental/Arial.ttf"}, 32.0f)) gFontPx = 32.0f;   // the first font is ImGui's default
   gFontHead = face({fd + "BarlowCondensed-SemiBold.ttf", "C:/Windows/Fonts/seguisb.ttf"}, 48.0f);
   gFontDisplay = face({fd + "BlackOpsOne-Regular.ttf", "C:/Windows/Fonts/seguibl.ttf"}, 112.0f);
+  gFontTitle = face({fd + "BarlowCondensed-Bold.ttf", "C:/Windows/Fonts/seguibl.ttf"}, 112.0f);   // UI4: the heavy condensed page titles
   ImGui::StyleColorsDark();
   ImGuiStyle& st = ImGui::GetStyle();
   // liquid glass (ui_glass.cpp draws the frosted backing, edge and shadow under each window): large radii, no ImGui
@@ -216,17 +218,21 @@ const App::ActiveSet& App::activeSet() {
 void App::syncRuntime() {
   uint64_t sig = placementSig(doc.instances, false);
   if (sig == syncSig_ && rt.size() == doc.instances.size()) return;   // nothing appeared, went away or changed revision
+  crumb("sync: gates");
   { extern int lineSyncGates(App&); if (lineSyncGates(*this)) sig = placementSig(doc.instances, false); }   // LN2: line gates follow their spans
+  crumb("sync: build");
   syncSig_ = sig;   // taken before the pass: anything a rebuild changes is seen by the next call
   std::set<uint64_t> live;
   for (auto& i : doc.instances) {
     live.insert(i.id);
     auto& r = rt[i.id];
-    if (r.rev != i.rev || r.id != i.id) buildRT(i, r);
+    if (r.rev != i.rev || r.id != i.id) { buildRT(i, r); crumb("sync: built"); }   // UI3: a crumb (a loading frame when one is due: a big map builds for seconds)
   }
+  crumb("sync: prune");
   for (auto it = rt.begin(); it != rt.end();) {
     if (!live.count(it->first)) { destroyRT(it->second); it = rt.erase(it); } else ++it;
   }
+  crumb("sync: done");
 }
 void App::clearRuntime() { for (auto& [id, r] : rt) destroyRT(r); rt.clear(); }
 void App::resetInteractStates() {
