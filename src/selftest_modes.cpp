@@ -430,6 +430,13 @@ void build(App&) {
       for (int k = 0; k < 4; ++k) if (t > 5 + k && t < 5.05f + k) { a.eyeYaw = yaw0 + 90.0f * k; a.uiShot = outDir() / ("ui2_survey_" + std::to_string(k) + ".png"); }
       for (int k = 0; k < 4; ++k) if (t > 4.5f + k && t < 5.0f + k) a.eyeYaw = yaw0 + 90.0f * k;
       if (t < 9.5f) return false;
+    } else if (std::getenv("NMK_UI2_MICRO")) {   // Settings > Microcontrast at 0 / 50 / 100 % on the same frame (no soldier moved)
+      a.hideUi = true;
+      const float lv[3] = {0.0f, 0.5f, 1.0f};
+      static int fr = 0; if (t < 6.0f) fr = 0;
+      if (t >= 6.0f && fr < 3) { a.R.q.microcontrast = lv[fr]; a.uiShot = outDir() / ("ui2_micro_" + std::to_string((int)(lv[fr] * 100)) + ".png"); ++fr; }   // three consecutive frames: the same view
+      if (fr < 3 || t < 6.2f) return false;
+      a.R.q.microcontrast = settings().s.microcontrast;
     } else {
       if (bot >= 0) {   // centre-left of the frame, 3.4 m out, turned three quarters to the camera
         Soldier& B = gGame->sold[bot]; const vec3 e = a.eyePos(); const vec3 f = App::forward(yaw0, 0), r = glm::normalize(glm::cross(f, vec3(0, 1, 0)));
