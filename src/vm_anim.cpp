@@ -220,6 +220,14 @@ bool animVmDraw(App& app, const WeaponDef& d) {
   return true;
 }
 
+bool animVmWeaponMatrix(const App& app, const WeaponDef& d, mat4& W) {   // AT2: weapon JSON space -> world for the posed rig in hand
+  auto it = gSt.find(&d);
+  if (!d.anim || it == gSt.end() || !it->second.ready) return false;
+  const St& st = it->second;
+  W = camNow(app) * st.local * st.pose.delta[d.anim->gunJoint] * weaponToRig(*d.anim, d);
+  return true;
+}
+
 bool animVmDot(const WeaponDef& d, vec3& col, float& ring) { if (!d.anim || !d.anim->hasDot) return false; col = d.anim->dotCol; ring = d.anim->dotRing; return true; }
 
 bool animVmPoint(const App& app, const WeaponDef& d, int which, vec3& world) {

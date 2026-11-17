@@ -509,6 +509,12 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   supported = hasBipod && (ch.posture == Physics::PRONE || ch.crouched) && !moving;
   int stance = supported ? STANCE_MOUNTED : ch.posture == Physics::PRONE ? STANCE_PRONE : ch.crouched ? STANCE_CROUCHED
              : !moving ? STANCE_STANDING : in.sprint && adsT < 0.5f ? STANCE_SPRINTING : STANCE_MOVING;
+  {   // AT2 watchdog: no weapon timer outlives its longest legitimate value (a stuck one would lock firing / aiming)
+    auto wd = [&](float& v, float maxV, const char* what) { if (v > maxV) { logf("weapon watchdog: %s %s %.2f s > %.2f s: cleared", d.id.c_str(), what, v, maxV); v = 0; } };
+    wd(s.cooldown, 60.0f / std::max(1.0f, d.rpm) + 2.0f, "cooldown"); wd(s.bolt, d.boltTime + 1.0f, "bolt");
+    if (s.reload > 0) wd(s.reload, std::max(s.reloadTotal, 0.0f) + 1.0f, "reload");
+    if (!std::isfinite(adsT)) { logf("weapon watchdog: %s ADS fraction not finite: reset", d.id.c_str()); adsT = 0; }
+  }
   s.cooldown = std::max(0.0f, s.cooldown - dt);
   float boltPrev = s.bolt;
   s.bolt = std::max(0.0f, s.bolt - dt);

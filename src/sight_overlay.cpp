@@ -4,6 +4,7 @@
 #include "sight_overlay.h"
 #include "app.h"
 #include "vm_anim.h"
+#include "br_models.h"
 #include <imgui.h>
 
 SightCheck sightCheck(const App& a) {
@@ -73,14 +74,21 @@ ReflexReticle reflexReticle(const App& a) {
   if (q.w <= 0) return r;
   r.pos = vec2((q.x / q.w * 0.5f + 0.5f) * W, (0.5f - q.y / q.w * 0.5f) * H);
   r.pxMoa = wP[1][1] * H * 0.5f * 2.908882e-4f;
-  if (d.anim && s.att[0] == 0) {   // the rig's own sight: the mark only through its window (about 11 mm across the lens centre)
+  // the mark only inside the sight's window: it is clipped at the frame, never drawn over the housing (the rig's own sight:
+  // 11 mm round its lens centre; a fitted red dot / holographic sight: its window on the eye line, weapon space)
+  auto window = [&](vec3 cw, float rw) {
     mat4 vP = glm::perspective(radians(a.vmFovNow()), aspect, 0.01f, 6.0f);
-    vec4 v = view * vec4(Fw, 1), c = vP * v;
-    if (c.w > 0 && -v.z > 0.01f) {
-      vec2 w((c.x / c.w * 0.5f + 0.5f) * W, (0.5f - c.y / c.w * 0.5f) * H);
-      float winR = vP[1][1] * H * 0.5f * 0.011f / -v.z;
-      r.alpha *= 1.0f - glm::smoothstep(0.8f * winR, winR, glm::length(w - r.pos));
-    }
+    vec4 v = view * vec4(cw, 1), c = vP * v;
+    if (c.w <= 0 || -v.z < 0.01f) { r.alpha = 0; return; }
+    vec2 w((c.x / c.w * 0.5f + 0.5f) * W, (0.5f - c.y / c.w * 0.5f) * H);
+    float winR = vP[1][1] * H * 0.5f * rw / -v.z;
+    r.alpha *= 1.0f - glm::smoothstep(0.8f * winR, winR, glm::length(w - r.pos));
+  };
+  if (s.att[0] == 0) { if (d.anim) window(Fw, 0.011f); }
+  else {
+    vec3 cw; float rw; mat4 Wm;
+    if (brSightWindow(d, s, cw, rw) && (d.anim ? animVmWeaponMatrix(a, d, Wm) : (Wm = a.viewModelMatrix(d, s), true)))
+      window(vec3(Wm * vec4(cw, 1)), rw * glm::length(vec3(Wm[0])));
   }
   r.ok = r.alpha > 0.01f;
   return r;
