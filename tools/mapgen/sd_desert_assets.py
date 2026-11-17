@@ -128,6 +128,22 @@ def clean_fence():
     return a
 
 
+DRY = ["mod_container_20_damaged", "mod_jersey_barrier", "mod_pallet_stack", "mod_rock_small"]
+DRY_MATS = ("weed", "leaves", "leaf", "grass", "moss", "ivy")
+
+
+def dry(src):
+    """A modern prop without its weed / leaf / moss parts (low-poly green tufts read wrong in a desert)."""
+    a = json.load(open(os.path.join(A, src + ".json"), encoding="utf-8"))
+    bad = {m["name"] for m in a["materials"] if any(t in m["name"].lower() for t in DRY_MATS)}
+    a["parts"] = [q for q in a["parts"] if q.get("m") not in bad]
+    a["materials"] = [m for m in a["materials"] if m["name"] not in bad]
+    a["id"] = "sd_dry_" + src[4:]
+    a["name"] = a["name"] + " (dry)"
+    a["description"] = a["description"] + " Without weeds or moss (Search and Destroy, Sun Fort)."
+    return a
+
+
 def canopy():
     p = []
     for sx in (-1, 1):
@@ -180,6 +196,7 @@ def main():
     out.append(warm_copy("mod_nt_compound_wall_breach", "sd_compound_wall_warm_breach", "Compound wall bay, breached, tan"))
     out.append(canopy())
     out.append(clean_fence())
+    out += [dry(m) for m in DRY]
     out += [warm_mass(m) for m in WARM_MASSES]
     out.append(stencil("A", [0.93, 0.47, 0.09]))
     out.append(stencil("B", [0.05, 0.6, 0.62]))

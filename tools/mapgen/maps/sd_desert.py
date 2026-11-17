@@ -239,6 +239,9 @@ def build(ctx):
         b.place("sd_stencil_%s" % letter, x, z, yaw, check=False, cls="none", y=y0, tags={"sign"})
         signs.append((x, z))
 
+    for e in b.inst:   # the desert props: no weed / moss tufts (sd_desert_assets.dry)
+        if e["asset"] in ("mod_container_20_damaged", "mod_jersey_barrier", "mod_pallet_stack", "mod_rock_small"):
+            e["asset"] = "sd_dry_" + e["asset"][4:]
     # ---------------------------------------------------------------- scenario: sites, spawns, timings
     sc = ScenarioBuilder(b, defending="Axis")
     xA, zA = plan.cc(*PLANT_A_CELL)
