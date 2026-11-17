@@ -273,7 +273,8 @@ void AiCore::think(Soldier& s) {
     u[A_HOLD] = std::max(u[A_HOLD], attacker ? 0.0f : 0.66f);
     if (attacker && !regroup) u[A_ADVANCE] = std::max(u[A_ADVANCE], 0.5f);
     if (sdBotHolding(G, s)) { u[A_HOLD] = 0.99f; u[A_ADVANCE] = 0; u[A_RETURN_FIRE] *= 0.5f; u[A_TAKE_COVER] *= 0.3f; }
-    if (sdMatch() && sdMatch()->carrier == s.slot) { u[A_OVERWATCH] = 0; u[A_CLEAR] = 0; u[A_SUPPRESS] = 0; }   // the carrier goes for the plant, not overwatch or room clearing
+    if (sdMatch() && sdMatch()->carrier == s.slot) { u[A_OVERWATCH] = 0; u[A_CLEAR] = 0; u[A_SUPPRESS] = 0; }
+    if (sdBotFetching(G, s)) { u[A_ADVANCE] = 0.97f; u[A_HOLD] = u[A_OVERWATCH] = u[A_CLEAR] = u[A_SUPPRESS] = u[A_TAKE_COVER] = 0; }   // SD3: the dropped bomb first   // the carrier goes for the plant, not overwatch or room clearing
   }
   // weights and inertia
   if (tactics.contains("utility")) for (int a = 0; a < A_COUNT; ++a) u[a] *= tactics["utility"].value(aiActionName(a), 1.0f);
@@ -390,7 +391,7 @@ void AiCore::act(Soldier& s, float dt) {
       b.mode = Brain::M_COVER; b.why = "overwatch: covering the moving pair"; break;
     case A_ADVANCE: {
       vec3 goal = objectiveGoal(s);
-      if (G.match.mode() == GameMode::SearchDestroy && tb.known.empty() && G.t - b.hurtAt > 5) {   // SD1: no contact yet: straight on to the site, not cover to cover
+      if (G.match.mode() == GameMode::SearchDestroy && ((tb.known.empty() && G.t - b.hurtAt > 5) || sdBotFetching(G, s))) {   // SD1: no contact yet: straight on to the site, not cover to cover
         requestPath(s, goal, 1.0f, 3.0f); m.speed = SPD_SPRINT; m.posture = Physics::STAND; b.mode = Brain::M_ADVANCE; b.why = "pushing to the site"; break;   // GP1: sprinting outside contact
       }
       float maxLen = (b.suppressed > 0.2f || G.t - b.hurtAt < 5 || !tb.known.empty()) ? diff.boundMaxUnderFire : diff.boundMax;
@@ -420,7 +421,7 @@ void AiCore::act(Soldier& s, float dt) {
         if (b.why.rfind("repositioning", 0) != 0) b.why = "holding a defense slot";
       }
       bool there = lenXZ(s.feet - goal) < 1.2f;
-      if (!there) { requestPath(s, goal, 0.8f, attacker ? 3.0f : 4.0f); m.speed = underFire || (!attacker && !tb.known.empty()) ? SPD_SPRINT : SPD_JOG; m.posture = Physics::STAND; b.mode = Brain::M_RETURN; }
+      if (!there) { requestPath(s, goal, 0.8f, attacker ? 3.0f : 4.0f); m.speed = underFire || (!attacker && !tb.known.empty()) || (sdActive() && b.target < 0 && lenXZ(s.feet - goal) > 8.0f) ? SPD_SPRINT : SPD_JOG; m.posture = Physics::STAND; b.mode = Brain::M_RETURN; }   // SD3: rotating / hunting outside contact: sprint
       else {
         m.speed = SPD_STOP; b.mode = Brain::M_HOLD;
         int kind = !attacker && m.slot >= 0 && m.slot < (int)defSlots.size() ? defSlots[m.slot].kind : 0;

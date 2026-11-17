@@ -18,11 +18,12 @@ A Search and Destroy map is an ordinary map file whose scenario (`doc.extra.scen
 ### 2. Bomb sites A and B: exactly two objectives
 
 - `objectives[0]` (order 0, label `"A"`) is Site A; `objectives[1]` (order 1, label `"B"`) is Site B. `displayName` is free text, for example "A Loading Yard". More than two objectives is a validation error.
-- The objective's shape is the plantable area, not the whole site:
-  - a circle `radius`, or a `polygon` (`captureShape: {"type": "polygon", "points": [[x, z], ...]}`);
-  - `yMin` / `yMax` set the height band, relative to `pos.y`, that the planter's feet must be in.
-  - Make it about 8-12 m across inside a site combat space of about 20-28 m, on flat, walkable, navmesh-covered ground that a defender can reach and stand on beside the bomb (the bomb must be defusable within 1.5 m).
-  - Mark the plant area readably on the floor (decals / paint).
+- The objective's shape is the **plant pad**, a small area inside the site, not the whole site (SD3):
+  - a 3.5 x 3.5 m square `polygon` (`captureShape: {"type": "polygon", "points": [[x, z], ...]}`), or a circle of `radius` 1.75 m. Keep it between 3 and 4 m across;
+  - `yMin` / `yMax` set the height band, relative to `pos.y`, that the planter's feet must be in (the temporary layouts use -1 / +1.5 m);
+  - put it on flat, walkable, navmesh-covered ground that a defender can reach and stand on beside the bomb (the bomb must be defusable within 1.5 m). `pos` must be on the navmesh: the game moves a pad whose centre is off it onto the nearest walkable point (up to 3 m) and logs it.
+  - The game draws the pad on the ground: hazard-striped border, corner brackets, the site letter (upright for attackers coming from their spawn). It glows while the bomb carrier stands inside. The drawn outline is the plant test itself, so no decals are needed.
+- The **site** is the area around the pad (about 20-28 m across) where the fight happens: the defense slots, the callouts and the bots' site positions (up to about 12 m from the pad). It needs no shape of its own.
 - `defenseSlots`: 2-4 per site, with priority. Defender bots hold these. Use positions with cover that see the plant area and are clearable by attackers.
 - `routes`: attacker approach lanes per site, optional but strongly recommended so bots split. Give two lanes per site (`left` / `main` / `right`), each a list of points from outside the attacker spawn to the site edge.
 - `captureTime_s`, `attackYaw`, `linkedStructures` are ignored by this mode. Set `attackYaw` to the main attack direction anyway, for the editor arrow.
@@ -52,7 +53,7 @@ A Search and Destroy map is an ordinary map file whose scenario (`doc.extra.scen
   - the validation "site reachable from both spawns".
 - Doors on principal routes start open, or are removed. Their state at load is restored each round.
 - Structural destruction is off in this mode: the bomb and grenades damage players only, and no crater or wall breach changes a route. Glass and small breakables are restored each round.
-- No vehicles, AT guns, weapon racks, loot spots or artillery are needed. Any that are placed are inactive in this mode.
+- No vehicles, AT guns, weapon racks, loot spots or artillery are needed. Vehicles placed on the map are removed for the match unless the match option "Vehicles" is on (SD3; off by default). The others are inactive in this mode.
 
 ### 7. Recommended size and timings (spec §12)
 
@@ -62,7 +63,7 @@ A Search and Destroy map is an ordinary map file whose scenario (`doc.extra.scen
 | Fights | short 5-15 m, medium 15-30 m, a few long 35-55 m lines; no spawn-to-spawn sightline |
 | Doors / lanes | combat doors 1.4-1.8 m; main lanes 3-6 m; secondary corridors 2-3 m |
 | Cover | low 0.9-1.1 m; full at least 2 m |
-| Site combat space | 20-28 m across; plant area 8-12 m |
+| Site combat space | 20-28 m across; plant pad 3-4 m (SD3) |
 | Defenders spawn to site cover | 6-9 s at knife speed 5.5 m/s (about 33-50 m) |
 | Attackers spawn to first contested boundary | 10-14 s (about 55-77 m) |
 | Attackers to a plant area, shortest uncontested route | 15-20 s (about 83-110 m) |
@@ -94,13 +95,15 @@ Until the dedicated maps exist, the mode runs on `templates/chateau_town.nmap.js
 
 - **Start:** Play > match setup > "Search and Destroy". The defaults are 5 v 5 soldiers on two persistent teams. Options:
   - "Short match" (MR12);
-  - "Warmup (60 s)";
+  - "Warmup (60 s)", off by default (SD3; `search_destroy.json` `"warmup"`);
+  - "Vehicles", off by default (SD3; `search_destroy.json` `"vehicles"`): off, the map's vehicles are taken out of the world for the match (and put back after it; saving the map during the match still writes them) and none spawn;
   - friendly fire (on by default, spec §11).
   Any map works: one without an authored layout gets the temporary one (§9).
 - **Round flow:** freeze 15 s (frozen; buy with **B** inside your spawn), then 1:55 live with 20 more seconds of buying.
-- **Planting:** the bomb carrier holds **E** inside a site's plant area for 3.2 s (it shows on the HUD).
+- **Buy menu (B):** "Buy Time Remaining" on top; five numbered columns (1 Equipment, 2 Pistols, 3 Mid-Tier, 4 Rifles, 5 Grenades) of numbered cards with the item's amber silhouette and its price (green; red when you cannot afford it; owned cards greyed with "OWNED"). Press a column number then an item number, or click a card; right click refunds this round's purchase; B or Esc closes it.
+- **Planting:** the bomb carrier holds **E** on a site's plant pad for 3.2 s. Attackers see each pad's letter and distance on screen; "Hold E to plant" shows only while the carrier stands on the pad.
 - **After the plant:** a 40 s fuse. Defenders hold **E** within 1.5 m of the bomb: 10 s, or 5 s with a kit.
-- **Commands:** `/sd skip` (end the warmup), `/sd timeout`, `/sd buy <id>`, `/sd state`.
+- **Commands:** `/sd skip` (end the warmup), `/sd timeout`, `/sd buy <id>`, `/sd buymenu`, `/sd state`.
 - **Data:** every rule value, reward, price and the shop are in `content/settings/search_destroy.json`.
 
 ## Implementation
@@ -126,12 +129,13 @@ Until the dedicated maps exist, the mode runs on `templates/chateau_town.nmap.js
   - bot goals and buying;
   - HUD, kill feed and buy menu;
   - LAN.
-- **LAN:** the host owns everything. Clients receive the state (`"sd"` events, on every change and at least every 0.5 s; `"sdboom"` for the blast) and send `"sdhold"` / `"sdbuy"` requests. `kNetVersion` is 17.
+- **LAN:** the host owns everything. Clients receive the state (`"sd"` events, on every change and at least every 0.5 s; `"sdboom"` for the blast) and send `"sdhold"` / `"sdbuy"` requests. `kNetVersion` is 18 (SD3: the Vehicles rule).
 - **`--selftest-sd [map]`:**
   - the logic self-check;
   - bot rounds 5 v 5, one per win condition (defenders eliminated, attackers eliminated, time, a bot plant that detonates, a bot plant a defender bot defuses);
   - halftime (sides swap, $800);
   - a free bot round.
+- **`--selftest-sd3`:** the Warmup / Vehicles defaults; a map vehicle gone for the match and back after it; the pads (3.5 m, on the navmesh, drawn outline = plant test); the carrier killed (its gun drops, the nearest attacker fetches the bomb); plant discipline (an enemy in view stops the plant, it resumes once clear); carry-over (a dead winner keeps its gun, a dead loser not); a capture of the buy menu (`selftest_out/sd_buymenu.png`).
 
 ## Deviations from the specification
 
@@ -150,7 +154,7 @@ These are changes from the spec or partial implementations, with the reason for 
    - **ADS:** still available on every gun, where the spec wants hip fire only for unscoped rifles.
    - **Menu:** no quick-buy favourites or rebuy button.
    - **Refunds:** only the last purchase can be refunded (that is always unambiguous). Use of a gun (firing) does not block a refund; thrown grenades and picked-up guns do.
-4. **Drops on death:** a bot drops the gun in its hands, the local player its primary. The kit, the secondary and grenades do not drop. Only the local player can pick guns up (existing E pickup); bots do not pick up guns.
+4. **Drops on death:** everyone, player or bot, drops the gun in their hands (SD3). Nothing else drops. Only the local player can pick guns up (existing E pickup); bots do not pick up guns.
 5. **Utility:** the game's existing frag, smoke and Molotov behaviour and timings, not the spec's HE 98 / 6 m, smoke 7 m for 18 s, or fire 40 dps. HE and fire still damage walls (only the bomb is personnel-only).
 6. **Movement:** the game's controller with sprint (stamina) and prone on (the user's choice; the spec turns both off), mantling on. Every speed is `movement.json` `infantrySpeed_x` (0.85) x `search_destroy.json` `speed_x` (1.18): jog 2.70, sprint 5.39, crouch 1.13, prone 0.56 m/s for the player; bots alike. Bots sprint when they push or rotate without contact.
 7. **Radar:** no teammate-sighting radar (enemy dots for 3 s, the dropped bomb for defenders). Attackers see the dropped bomb on screen and the carrier's name on the HUD.
@@ -159,11 +163,14 @@ These are changes from the spec or partial implementations, with the reason for 
 10. **Map validation:** the spawn and site counts only. With anything missing, the temporary layout is used and a warning is shown. Reachability and defuse-access checks are not implemented; route timings are measured by the bot test, not checked.
 11. **Explosion cover:** the bomb uses the engine's blast occlusion rather than a fixed 0.25 multiplier for full cover.
 12. **Timeouts:** `/sd timeout` (two per team) starts a 30 s pause before the next freeze. There is no UI button.
-13. **HUD:** inline panels in the current HUD style (this branch has no shared glass-panel helpers).
+13. **HUD:** inline panels in the current HUD style; the buy menu is its own glass panel after the user's reference layout (this branch has no shared glass-panel helpers). Equipment icons are silhouettes of the BR vest and helmet models; the defuse kit is a drawn glyph (there is no kit model).
 14. **Debug:** debug output is `/sd state` and the log only. There is no debug overlay of deadlines, loss indices, plant legality or timings.
 15. **LAN clocks:** clients draw the host's clocks from state updates sent at least twice a second, so a client's countdown can lag the host by up to 0.5 s. The host alone decides results.
-16. **Bots:**
-    - They buy by budget, pick a site per round and push straight to it until they meet the enemy, then fight cover to cover.
-    - Defenders split over both sites and retake a planted bomb, with the nearest one defusing.
-    - No coordinated split pushes, grenade lineups, rotations or saving decisions.
-    - Perception, smoke and visibility are the existing AI's.
+16. **Bots (SD3):**
+    - They buy by budget.
+    - **Attackers:** one site per round. Two groups (alternate attackers) take two routes (the site's authored routes, else two lanes either side of the direct line) to staging points about 16 m out, wait there until every living attacker is staged (or 30 s after the first, or under 50 s on the clock), then go in together. Outside contact they sprint; in contact they fight cover to cover.
+    - **The bomb:** if the carrier dies, the attacker nearest the bomb goes for it at once, sprinting, contact or not.
+    - **Plant discipline:** the carrier plants only with no enemy in view and not hit in the last 2 s. Engaged, it lets go (the plant resets), fights, and plants again once clear.
+    - **Defenders:** about 60 % hunt in pairs (rounded; at least two stay back): forward along the attackers' approach, the partner with its leader, onto anything the pair has seen in the last 12 s. The rest hold the two sites' defense slots. After a plant, everyone converges on the bomb and the nearest defuses. They sprint when rotating outside contact.
+    - No grenade lineups or saving decisions. Perception, smoke and visibility are the existing AI's.
+17. **Carry-over (SD3, the user's rule):** the winning side keeps its guns for the next round, its dead included; the losing side's dead lose theirs (survivors keep what they carry, as in the spec). Armor, helmet, kit and grenades are lost on death either way. The spec has every death lose everything.

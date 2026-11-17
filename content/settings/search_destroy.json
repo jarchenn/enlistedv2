@@ -1,5 +1,7 @@
 {
  "note": "SD1 Search and Destroy (docs/search-and-destroy.md, src/sd_mode.h SdConfig): every value is the user's specification default (16 Nov 2026). Shop entries name the game weapon they give (never another gun under a shop name); 'role' is the spec slot it fills. Missing from the spec's catalog (no such weapon in the game): the Raiders' high-capacity pistol (Tec-9 role), both automatic shotguns, the flashbang and the decoy. raiders / security: the price for that side (absent: not sold to it); slot 1 primary, 2 secondary, 4 grenade, 0 equipment.",
+ "warmup": false,
+ "vehicles": false,
  "warmup_s": 60,
  "ready_s": 5,
  "freeze_s": 15,

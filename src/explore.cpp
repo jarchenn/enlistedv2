@@ -18,6 +18,7 @@
 #include "royale.h"
 #include "game.h"
 #include "commands.h"   // CMD1 "/" command line
+#include "sd_game.h"   // SD3
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -422,6 +423,7 @@ void App::updateExplore(float dt) {
   else if (!selftest) {
     if ((rackOpen || build.palette) && kp(win, GLFW_KEY_ESCAPE)) { if (rackOpen) closeRack("closed"); else setBuildPalette(false); }
     else if (lootInventoryOpen() && kp(win, GLFW_KEY_ESCAPE)) { lootSetInventory(false); lootOpenCase(0); }   // BR6: Esc closes the inventory / crate first
+    else if (sdBuyMenuOpen() && kp(win, GLFW_KEY_ESCAPE)) sdCloseBuyMenu();   // SD3: Esc closes the buy menu first
     else if (kp(win, GLFW_KEY_ESCAPE)) {
       pauseMenu = !pauseMenu; syncCursor();
     }
