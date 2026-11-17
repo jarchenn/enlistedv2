@@ -190,8 +190,8 @@ def build(ctx):
     # edges: quiver trees, dry plants and the batch K rocks against the walls of the streets and yards; small stones, litter
     EDGE = [("ph_quiver_tree_01", 0.6, 0.5, 1), ("ph_quiver_tree_02", 0.6, 0.5, 1), ("ph_othonna_cerarioides", 0.4, 0.4, 2), ("ph_searsia_lucida", 0.6, 0.6, 1),
             ("ph_namaqualand_rocks_01", 0.8, 0.6, 1), ("ph_namaqualand_stones_01", 0.6, 0.5, 2), ("ph_namaqualand_boulder_03", 0.7, 0.6, 1)]
-    for ch in "stfRpAB":
-        n_space += place_along_walls(b, plan, ch, EDGE if ch in "stfRp" else EDGE[2:5], R, y0, keep=PADS)
+    for ch in "stfR":   # not in the narrow mid approach (p) nor inside the sites: their gaps made vault links the bots fail
+        n_space += place_along_walls(b, plan, ch, EDGE, R, y0, keep=PADS)
     for ch in "ABMstf":
         for i, j in plan.cells(ch):
             if R.random() < 0.5:

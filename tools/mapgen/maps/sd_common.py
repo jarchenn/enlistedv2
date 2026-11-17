@@ -363,7 +363,7 @@ def roof_clutter(b, repo, masses, items, R, y, flat=(), tags=("roof",)):
     return n
 
 
-def place_along_walls(b, plan, ch, items, R, y, keep=(), door_gap=3.0, tries=300, tags=("cover",)):
+def place_along_walls(b, plan, ch, items, R, y, keep=(), door_gap=4.5, tries=300, tags=("cover",)):
     """items [(asset, half along the wall, half depth, count)]: set against region ch's plain walls (their long side on the
     wall, `half depth` + 0.15 m off it), never within door_gap of a doorway or on a plant pad, not overlapping each other."""
     walls = []
@@ -389,7 +389,7 @@ def place_along_walls(b, plan, ch, items, R, y, keep=(), door_gap=3.0, tries=300
                     continue
                 if any(math.hypot(px - kx, pz - kz) < kr + max(ha, hd) for kx, kz, kr in keep):
                     continue
-                if any(abs(px - qx) < ha + qa + 0.3 and abs(pz - qz) < hd + qd + 0.3 or math.hypot(px - qx, pz - qz) < max(ha, hd) + max(qa, qd) + 0.2 for qx, qz, qa, qd in placed):
+                if any(abs(px - qx) < ha + qa + 1.0 and abs(pz - qz) < hd + qd + 1.0 for qx, qz, qa, qd in placed):   # a 1 m walkway between pieces (tight gaps became vault links the bots fail)
                     continue
                 yaw = math.degrees(math.atan2(-nz, nx)) % 360.0 + R.uniform(-4, 4)   # the long side (local x) along the wall
                 b.place(aid, px, pz, yaw, check=False, cls="none", y=y, tags=set(tags))
