@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.12891818583011627,
+  0.598913311958313,
+  0.10485798865556717
+ ],
+ "bmin": [
+  -0.12888821959495544,
+  0.0,
+  -0.10485798865556717
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "garden_gnome_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.12891818583011627,
+    0.598913311958313,
+    0.10485798865556717
+   ],
+   "bmin": [
+    -0.12888821959495544,
+    0.0,
+    -0.10485798865556717
+   ],
+   "count": 43284,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "garden_gnome",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_garden_gnome.glb",
+ "textures": {},
+ "triangles": 14428,
+ "vertices": 8426
+}

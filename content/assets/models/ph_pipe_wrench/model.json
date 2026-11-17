@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.041989684104919434,
+  0.40466517210006714,
+  0.017172444611787796
+ ],
+ "bmin": [
+  -0.041989684104919434,
+  0.0,
+  -0.017172444611787796
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "pipe_wrench",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.041989684104919434,
+    0.40466517210006714,
+    0.017172444611787796
+   ],
+   "bmin": [
+    -0.041989684104919434,
+    0.0,
+    -0.017172444611787796
+   ],
+   "count": 16116,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "pipe_wrench",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_pipe_wrench.glb",
+ "textures": {},
+ "triangles": 5372,
+ "vertices": 4155
+}

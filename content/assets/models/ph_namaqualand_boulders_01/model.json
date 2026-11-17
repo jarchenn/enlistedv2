@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.5290695428848267,
+  0.25161874294281006,
+  0.29331544041633606
+ ],
+ "bmin": [
+  -0.5288912057876587,
+  0.00020501762628555298,
+  -0.29331544041633606
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "namaqualand_rocks_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5290695428848267,
+    0.25161874294281006,
+    0.29331544041633606
+   ],
+   "bmin": [
+    -0.5288912057876587,
+    0.00020501762628555298,
+    -0.29331544041633606
+   ],
+   "count": 61272,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "namaqualand_rocks_01_a",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_namaqualand_boulders_01.glb",
+ "textures": {},
+ "triangles": 20424,
+ "vertices": 11167
+}

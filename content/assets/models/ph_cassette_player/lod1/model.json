@@ -1,0 +1,125 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.06473016738891602,
+  0.2355678677558899,
+  0.024439949542284012
+ ],
+ "bmin": [
+  -0.06406104564666748,
+  0.0,
+  -0.024439949542284012
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "cassette_player_body",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "cassette_player_flap",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_5.jpg",
+   "mr": "mr_6.jpg",
+   "name": "cassette_player_tape",
+   "normal": "normal_4.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.06473016738891602,
+    0.2355678677558899,
+    0.024439949542284012
+   ],
+   "bmin": [
+    -0.06406104564666748,
+    0.0,
+    -0.024439949542284012
+   ],
+   "count": 1302,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "cassette_player_body",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.05372823029756546,
+    0.12850026786327362,
+    0.023525811731815338
+   ],
+   "bmin": [
+    -0.05024174600839615,
+    0.055611755698919296,
+    0.016160625964403152
+   ],
+   "count": 120,
+   "first": 1302,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "cassette_player_body",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.0521094836294651,
+    0.12222063541412354,
+    0.02263745665550232
+   ],
+   "bmin": [
+    -0.04839054122567177,
+    0.05750144645571709,
+    0.015545065514743328
+   ],
+   "count": 384,
+   "first": 1422,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "cassette_player_body",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_cassette_player.glb",
+ "textures": {},
+ "triangles": 602,
+ "vertices": 937
+}

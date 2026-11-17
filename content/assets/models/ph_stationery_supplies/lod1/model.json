@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.15050777792930603,
+  0.1641758233308792,
+  0.04141319543123245
+ ],
+ "bmin": [
+  -0.15077665448188782,
+  1.4901161193847656e-08,
+  -0.04141319543123245
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "stationery_supplies",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.15050777792930603,
+    0.1641758233308792,
+    0.04141319543123245
+   ],
+   "bmin": [
+    -0.15077665448188782,
+    1.4901161193847656e-08,
+    -0.04141319543123245
+   ],
+   "count": 1650,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "stationery_supplies_pen_red",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_stationery_supplies.glb",
+ "textures": {},
+ "triangles": 550,
+ "vertices": 539
+}

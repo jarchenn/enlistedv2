@@ -65,7 +65,7 @@ def main():
         line = "%-26s <- %-28s turn %3d scale %.2f  axis ratios %s  worst %.0f %%" % (aid, r["ph"], t, s, [round(x / s, 2) for x in rr], err * 100)
         if err > 0.30: print("REFUSE", line); bad += 1; continue
         print("ok    ", line)
-        out[aid] = {"_ref": "%s (Poly Haven, CC0): %s" % (r["ph"], r.get("why", "")), "src": "ph_%s.glb" % r["ph"].lower(), "dir": "fr_" + aid[5:],
+        out[aid] = {"_ref": "%s (Poly Haven, CC0): %s" % (r["ph"], r.get("why", "")), "src": "frsrc_%s.glb" % r["ph"].lower(), "dir": "fr_" + aid[5:],
                     "pivot": "ground", "scale": round(s, 4), "rot": [0, t, 0], **({"axes": [round(a, 4) for a in ax]} if r.get("stretch") else {}), "offset": [round((lo[0] + hi[0]) / 2, 3), round(lo[1], 3), round((lo[2] + hi[2]) / 2, 3)],
                     "jpgMaps": True, "maxTex": p["maxTex"], "simplify": 0.5, "lod1": 0.25, "lodDist": 12, "cullDist": 60, "credit": p["credit"]}
     if "--check" not in sys.argv:

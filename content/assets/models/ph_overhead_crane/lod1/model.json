@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  6.245830059051514,
+  5.13258171081543,
+  2.000000238418579
+ ],
+ "bmin": [
+  -6.245830059051514,
+  0.0,
+  -2.000000238418579
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "overhead_crane_trim",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "overhead_crane",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    6.245830059051514,
+    5.108985424041748,
+    2.000000238418579
+   ],
+   "bmin": [
+    -6.245830059051514,
+    0.7302389144897461,
+    -2.000000238418579
+   ],
+   "count": 11961,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "overhead_crane_rails",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    6.1093668937683105,
+    5.13258171081543,
+    0.46185004711151123
+   ],
+   "bmin": [
+    -6.1093668937683105,
+    0.0,
+    -1.6123149394989014
+   ],
+   "count": 21774,
+   "first": 11961,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "overhead_crane_rails",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_overhead_crane.glb",
+ "textures": {},
+ "triangles": 11245,
+ "vertices": 13141
+}

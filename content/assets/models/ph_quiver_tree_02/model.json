@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.4358192980289459,
+  1.4688606262207031,
+  0.43923699855804443
+ ],
+ "bmin": [
+  -0.4358099699020386,
+  0.0,
+  -0.44040989875793457
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "quiver_tree_02",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.4358192980289459,
+    1.4688606262207031,
+    0.43923699855804443
+   ],
+   "bmin": [
+    -0.4358099699020386,
+    0.0,
+    -0.44040989875793457
+   ],
+   "count": 123111,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "quiver_tree_02",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_quiver_tree_02.glb",
+ "textures": {},
+ "triangles": 41037,
+ "vertices": 27222
+}

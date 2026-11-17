@@ -1,0 +1,93 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.5904560685157776,
+  2.715338945388794,
+  0.4842527210712433
+ ],
+ "bmin": [
+  -0.5904865264892578,
+  0.0,
+  -0.48400065302848816
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "quiver_tree_01_trunk",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_4.png",
+   "cutout": true,
+   "mr": "mr_5.jpg",
+   "name": "quiver_tree_01_leaf",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.25081950426101685,
+    2.434206008911133,
+    0.2368728220462799
+   ],
+   "bmin": [
+    -0.36478132009506226,
+    0.0,
+    -0.21894027292728424
+   ],
+   "count": 55452,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "quiver_tree_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5904560685157776,
+    2.715338945388794,
+    0.4842527210712433
+   ],
+   "bmin": [
+    -0.5904865264892578,
+    2.002377986907959,
+    -0.48400065302848816
+   ],
+   "count": 169731,
+   "first": 55452,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "quiver_tree_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_quiver_tree_01.glb",
+ "textures": {},
+ "triangles": 75061,
+ "vertices": 48153
+}

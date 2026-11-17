@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.5109493732452393,
+  0.08396583795547485,
+  0.055797211825847626
+ ],
+ "bmin": [
+  -0.5106454491615295,
+  0.0,
+  -0.056007493287324905
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "namaqualand_stones_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5109493732452393,
+    0.08396583795547485,
+    0.055797211825847626
+   ],
+   "bmin": [
+    -0.5106454491615295,
+    0.0,
+    -0.056007493287324905
+   ],
+   "count": 26292,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "namaqualand_stones_01_a",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_namaqualand_stones_01.glb",
+ "textures": {},
+ "triangles": 8764,
+ "vertices": 5599
+}

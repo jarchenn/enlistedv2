@@ -172,5 +172,15 @@
   "ph": "CoffeeTable_01",
   "why": "coffee table (PR3)",
   "stretch": true
+ },
+ "furn_mod_plant_tall": {
+  "ph": "potted_plant_01",
+  "why": "leafy house plant in a terracotta pot (PR3)",
+  "stretch": true
+ },
+ "furn_mod_plant_small": {
+  "ph": "potted_plant_02",
+  "why": "small potted plant (PR3)",
+  "stretch": true
  }
 }

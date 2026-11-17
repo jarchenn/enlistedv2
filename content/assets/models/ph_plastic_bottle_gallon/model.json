@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.08311192691326141,
+  0.2744927406311035,
+  0.06317563354969025
+ ],
+ "bmin": [
+  -0.0831151008605957,
+  1.0909570846706629e-05,
+  -0.06317563354969025
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "plastic_bottle_gallon",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.08311192691326141,
+    0.2744927406311035,
+    0.06317563354969025
+   ],
+   "bmin": [
+    -0.0831151008605957,
+    1.0909570846706629e-05,
+    -0.06317563354969025
+   ],
+   "count": 20592,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "plastic_bottle_gallon",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_plastic_bottle_gallon.glb",
+ "textures": {},
+ "triangles": 6864,
+ "vertices": 3770
+}

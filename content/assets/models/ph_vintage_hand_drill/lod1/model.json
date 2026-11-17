@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.06508847326040268,
+  0.4849001467227936,
+  0.060962118208408356
+ ],
+ "bmin": [
+  -0.06540059298276901,
+  0.0015376294031739235,
+  -0.06198349595069885
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "vintage_hand_drill",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.06508847326040268,
+    0.4849001467227936,
+    0.060962118208408356
+   ],
+   "bmin": [
+    -0.06540059298276901,
+    0.0015376294031739235,
+    -0.06198349595069885
+   ],
+   "count": 3123,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "vintage_hand_drill",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_vintage_hand_drill.glb",
+ "textures": {},
+ "triangles": 1041,
+ "vertices": 1527
+}

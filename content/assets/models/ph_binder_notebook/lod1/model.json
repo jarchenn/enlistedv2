@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.2919653654098511,
+  0.02429693192243576,
+  0.09983953833580017
+ ],
+ "bmin": [
+  -0.29182058572769165,
+  7.961899973452091e-05,
+  -0.09997916221618652
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "binder_notebook",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.2919653654098511,
+    0.02429693192243576,
+    0.09983953833580017
+   ],
+   "bmin": [
+    -0.29182058572769165,
+    7.961899973452091e-05,
+    -0.09997916221618652
+   ],
+   "count": 6777,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "binder_notebook",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_binder_notebook.glb",
+ "textures": {},
+ "triangles": 2259,
+ "vertices": 2652
+}

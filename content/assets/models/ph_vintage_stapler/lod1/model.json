@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.10346366465091705,
+  0.07931967079639435,
+  0.023705026134848595
+ ],
+ "bmin": [
+  -0.104232057929039,
+  0.0,
+  -0.023705026134848595
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "vintage_stapler",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.10346366465091705,
+    0.07931967079639435,
+    0.023705026134848595
+   ],
+   "bmin": [
+    -0.104232057929039,
+    0.0,
+    -0.023705026134848595
+   ],
+   "count": 1635,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "vintage_stapler_top",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_vintage_stapler.glb",
+ "textures": {},
+ "triangles": 545,
+ "vertices": 941
+}

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.10526277124881744,
+  1.1256647109985352,
+  0.154327854514122
+ ],
+ "bmin": [
+  -0.10526277124881744,
+  0.0,
+  -0.15436363220214844
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "old_gas_mask",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.10526277124881744,
+    1.1256647109985352,
+    0.154327854514122
+   ],
+   "bmin": [
+    -0.10526277124881744,
+    0.0,
+    -0.15436363220214844
+   ],
+   "count": 28347,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "old_gas_mask",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_old_gas_mask.glb",
+ "textures": {},
+ "triangles": 9449,
+ "vertices": 6800
+}

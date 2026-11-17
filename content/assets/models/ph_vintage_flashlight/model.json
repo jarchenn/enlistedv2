@@ -1,0 +1,93 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.047932423651218414,
+  0.1443331092596054,
+  0.15266764163970947
+ ],
+ "bmin": [
+  -0.047932423651218414,
+  8.881784197001252e-16,
+  -0.15273195505142212
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "vintage_flashlight",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "vintage_flashlight_glass",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.047932423651218414,
+    0.1443331092596054,
+    0.14743587374687195
+   ],
+   "bmin": [
+    -0.047932423651218414,
+    8.881784197001252e-16,
+    -0.15273195505142212
+   ],
+   "count": 15672,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "vintage_flashlight",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.03644828125834465,
+    0.1427638679742813,
+    0.15266764163970947
+   ],
+   "bmin": [
+    -0.03768829628825188,
+    0.06926938891410828,
+    0.14508622884750366
+   ],
+   "count": 168,
+   "first": 15672,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "vintage_flashlight",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_vintage_flashlight.glb",
+ "textures": {},
+ "triangles": 5280,
+ "vertices": 3966
+}

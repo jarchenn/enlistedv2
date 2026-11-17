@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.06459284573793411,
+  0.21016745269298553,
+  0.12925724685192108
+ ],
+ "bmin": [
+  -0.06459284573793411,
+  1.4901161193847656e-08,
+  -0.12935039401054382
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "brass_blowtorch",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.06459284573793411,
+    0.21016745269298553,
+    0.12925724685192108
+   ],
+   "bmin": [
+    -0.06459284573793411,
+    1.4901161193847656e-08,
+    -0.12935039401054382
+   ],
+   "count": 4401,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "brass_blowtorch",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_brass_blowtorch.glb",
+ "textures": {},
+ "triangles": 1467,
+ "vertices": 1631
+}

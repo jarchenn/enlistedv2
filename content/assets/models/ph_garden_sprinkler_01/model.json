@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.1754048615694046,
+  0.20295506715774536,
+  0.12453416734933853
+ ],
+ "bmin": [
+  -0.1754048615694046,
+  1.5962868928909302e-06,
+  -0.12453416734933853
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "garden_sprinkler_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.1754048615694046,
+    0.20295506715774536,
+    0.12453416734933853
+   ],
+   "bmin": [
+    -0.1754048615694046,
+    1.5962868928909302e-06,
+    -0.12453416734933853
+   ],
+   "count": 12288,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "garden_sprinkler_01_body_main",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_garden_sprinkler_01.glb",
+ "textures": {},
+ "triangles": 4096,
+ "vertices": 5197
+}

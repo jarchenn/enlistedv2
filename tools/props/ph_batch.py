@@ -16,6 +16,8 @@ DB = os.path.join(HERE, "ph_props.json")
 # files that ship a second (aged / rusted / "_b") copy beside the first: keep one
 DROP = {"fire_hydrant": "aged", "exterior_aircon_unit": "rusted", "metal_trash_can": "rust", "old_military_crate": "_b",
         "rollershutter_door": "graffiti"}
+# kits with assembled presets beside the loose pieces: keep one preset
+KEEP = {"modular_electricity_poles": "preset_03"}
 
 
 def drop_contained(boxes, tol=0.04):
@@ -39,7 +41,7 @@ def main():
         aid = "ph_" + pid.lower(); out = os.path.join(glbs, aid + ".glb")
         def convert(size_opt):
             r = subprocess.run([BLENDER, "-b", "--factory-startup", "--disable-autoexec", "--python", os.path.join(HERE, "convert_supplied.py"), "--",
-                                os.path.join(dl, pid, m["gltf"]), out] + size_opt + (["--drop", DROP[pid]] if pid in DROP else []), capture_output=True, text=True)
+                                os.path.join(dl, pid, m["gltf"]), out] + size_opt + (["--drop", DROP[pid]] if pid in DROP else []) + (["--keep", KEEP[pid]] if pid in KEEP else []), capture_output=True, text=True)
             if not os.path.exists(out): print("FAIL  %-32s %s" % (pid, (r.stdout + r.stderr)[-400:]))
             return os.path.exists(out)
         if not os.path.exists(out) and not convert(["--scale", "1"]): continue

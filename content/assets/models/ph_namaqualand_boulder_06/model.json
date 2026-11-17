@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.33720022439956665,
+  0.6516314744949341,
+  0.6056779623031616
+ ],
+ "bmin": [
+  -0.33735746145248413,
+  0.0,
+  -0.6059378385543823
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "namaqualand_boulder_06",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.33720022439956665,
+    0.6516314744949341,
+    0.6056779623031616
+   ],
+   "bmin": [
+    -0.33735746145248413,
+    0.0,
+    -0.6059378385543823
+   ],
+   "count": 163668,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "namaqualand_boulder_06",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_namaqualand_boulder_06.glb",
+ "textures": {},
+ "triangles": 54556,
+ "vertices": 29236
+}

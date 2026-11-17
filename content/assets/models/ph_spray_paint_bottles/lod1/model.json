@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.07908309251070023,
+  0.22863975167274475,
+  0.03282180801033974
+ ],
+ "bmin": [
+  -0.07908309251070023,
+  5.6333839893341064e-05,
+  -0.03282180801033974
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "spray_paint_bottles",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "spray_paint_bottles_dirty",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.013439647853374481,
+    0.22863975167274475,
+    0.03282162919640541
+   ],
+   "bmin": [
+    -0.07908309251070023,
+    0.00011266767978668213,
+    -0.03282180801033974
+   ],
+   "count": 942,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "spray_paint_bottles",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.07908309251070023,
+    0.22863975167274475,
+    0.03282180801033974
+   ],
+   "bmin": [
+    0.01343965157866478,
+    5.6333839893341064e-05,
+    -0.03282162919640541
+   ],
+   "count": 942,
+   "first": 942,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "spray_paint_bottles",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_spray_paint_bottles.glb",
+ "textures": {},
+ "triangles": 628,
+ "vertices": 773
+}

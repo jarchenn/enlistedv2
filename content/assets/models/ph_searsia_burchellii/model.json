@@ -1,0 +1,126 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  4.178182601928711,
+  3.2456870079040527,
+  2.524266004562378
+ ],
+ "bmin": [
+  -4.172650337219238,
+  0.0009410344064235687,
+  -2.524266004562378
+ ],
+ "materials": [
+  {
+   "albedo": "albedoa_1.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "searsia_burchellii_leaves",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_3.jpg",
+   "mr": "mr_2.jpg",
+   "name": "searsia_burchellii",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_1.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "searsia_burchellii_twigs",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    4.086091995239258,
+    3.222712755203247,
+    2.524266004562378
+   ],
+   "bmin": [
+    -4.139200687408447,
+    0.12944211065769196,
+    -2.524266004562378
+   ],
+   "count": 318915,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "searsia_burchellii_large_LOD0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    4.058717727661133,
+    3.2456870079040527,
+    2.4586734771728516
+   ],
+   "bmin": [
+    -4.172650337219238,
+    0.0009410344064235687,
+    -2.5142688751220703
+   ],
+   "count": 478962,
+   "first": 318915,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "searsia_burchellii_large_LOD0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    4.178182601928711,
+    3.2237138748168945,
+    2.495926856994629
+   ],
+   "bmin": [
+    -4.164615631103516,
+    0.03851255401968956,
+    -2.50803804397583
+   ],
+   "count": 126627,
+   "first": 797877,
+   "mat": 2,
+   "metal": 0.0,
+   "name": "searsia_burchellii_large_LOD0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_searsia_burchellii.glb",
+ "textures": {},
+ "triangles": 308168,
+ "vertices": 474368
+}

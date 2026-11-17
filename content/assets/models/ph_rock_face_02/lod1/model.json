@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  2.5959689617156982,
+  4.73062801361084,
+  2.03648042678833
+ ],
+ "bmin": [
+  -2.592411994934082,
+  0.0,
+  -2.0335166454315186
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "rock_face_02",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.5959689617156982,
+    4.73062801361084,
+    2.03648042678833
+   ],
+   "bmin": [
+    -2.592411994934082,
+    0.0,
+    -2.0335166454315186
+   ],
+   "count": 11082,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "rock_face_02",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_rock_face_02.glb",
+ "textures": {},
+ "triangles": 3694,
+ "vertices": 2712
+}

@@ -1,0 +1,93 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  1.9712193012237549,
+  1.9695868492126465,
+  0.8952029943466187
+ ],
+ "bmin": [
+  -1.9834904670715332,
+  0.0,
+  -0.8994529247283936
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "othonna_cerarioides",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "othonna_cerarioides_leaves",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.913822889328003,
+    1.9222614765167236,
+    0.8148890137672424
+   ],
+   "bmin": [
+    -1.909952163696289,
+    0.0,
+    -0.8381500840187073
+   ],
+   "count": 16974,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "othonna_cerarioides_a",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.9712193012237549,
+    1.9695868492126465,
+    0.8952029943466187
+   ],
+   "bmin": [
+    -1.9834904670715332,
+    0.06642977893352509,
+    -0.8994529247283936
+   ],
+   "count": 27327,
+   "first": 16974,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "othonna_cerarioides_a",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_othonna_cerarioides.glb",
+ "textures": {},
+ "triangles": 14767,
+ "vertices": 27946
+}

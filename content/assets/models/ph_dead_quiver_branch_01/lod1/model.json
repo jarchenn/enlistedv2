@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.12586304545402527,
+  0.43736743927001953,
+  0.11212876439094543
+ ],
+ "bmin": [
+  -0.12648649513721466,
+  0.0005693846615031362,
+  -0.11136168986558914
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "dead_quiver_branch_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.12586304545402527,
+    0.43736743927001953,
+    0.11212876439094543
+   ],
+   "bmin": [
+    -0.12648649513721466,
+    0.0005693846615031362,
+    -0.11136168986558914
+   ],
+   "count": 5562,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "dead_quiver_branch_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_dead_quiver_branch_01.glb",
+ "textures": {},
+ "triangles": 1854,
+ "vertices": 1583
+}

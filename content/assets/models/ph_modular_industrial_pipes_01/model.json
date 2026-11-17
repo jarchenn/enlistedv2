@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.7014008164405823,
+  1.9546396732330322,
+  0.15345785021781921
+ ],
+ "bmin": [
+  -0.7014008164405823,
+  0.0,
+  -0.15379780530929565
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "modular_industrial_pipes_01_group01",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "modular_industrial_pipes_01_group02",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.505704939365387,
+    1.9546396732330322,
+    0.052891507744789124
+   ],
+   "bmin": [
+    -0.7014008164405823,
+    0.0,
+    -0.15379415452480316
+   ],
+   "count": 4608,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "modular_industrial_pipes_01_pipe01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.7014008164405823,
+    1.8937650918960571,
+    0.15345785021781921
+   ],
+   "bmin": [
+    -0.40140199661254883,
+    0.08857613801956177,
+    -0.15379780530929565
+   ],
+   "count": 13902,
+   "first": 4608,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "modular_industrial_pipes_01_pipe01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_modular_industrial_pipes_01.glb",
+ "textures": {},
+ "triangles": 6170,
+ "vertices": 6287
+}
