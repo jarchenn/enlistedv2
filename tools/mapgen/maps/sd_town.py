@@ -178,12 +178,13 @@ def build(ctx):
     grid.write_png(os.path.join(tdir, TID + ".height.png"))
     a1 = sc.spawns[0]["pos"]
     cam = ([0.0, 120.0, -110.0], 0.0, -48.0)
-    thumb_cam = ([aC[0] + 14.0, y0 + 1.7, aC[1] - 14.0], look_yaw(-1.0, 1.0), -4.0)
     eye = 1.65
     views = [{"name": "overview_high", "pos": [0.0, 130.0, -100.0], "yaw": 0.0, "pitch": -55.0}]
     for name, (i, j), (ti, tj) in (("a_site", (12, 10), (12, 12)), ("b_site", (3, 6), (2, 8)), ("mid", (9, 6), (8, 8)), ("t_spawn", (12, 1), (12, 3)), ("d_spawn", (4, 15), (4, 13)), ("bakery", (6, 8), (4, 8)), ("arcade", (5, 10), (9, 10))):
         x, z = plan.cc(i, j); tx, tz = plan.cc(ti, tj)
         views.append({"name": name + "_eye", "pos": [round(x, 2), round(y0 + eye, 2), round(z, 2)], "yaw": look_yaw(tx - x, tz - z), "pitch": 0.0, "gameplay": True})
+    _v = views[1]   # the A site eye view (the old fixed offset from A looked into a wall)
+    thumb_cam = ([_v["pos"][0], _v["pos"][1] + 0.6, _v["pos"][2]], _v["yaw"], -5.0)
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sc.to_json(rules_extra=rules), explore_start=((a1[0], a1[1], a1[2]), 0.0), camera=cam, bookmarks={},
               extra={"groundPaint": paint.to_json(), "lighting": {"hour": 11.0}, "look": {"haze": 1.0, "weather": 0.75, "saturation": 0.95, "tint": [0.98, 0.99, 1.02]}})
@@ -193,11 +194,6 @@ def build(ctx):
                    width=W, depth=D, margin=MARGIN, heightmap=grid.meta(TID + ".height.png"), water_level=-1000.0,
                    map_file=TID + ".nmap.json", camera=cam, thumbnail=TID + ".thumb.png", thumb_camera=thumb_cam,
                    extra={"userMap": True, "views": views})
-    # SD2: not in the Play / New Map lists until this map reaches the game-ready bar (Sun Fort is listed)
-    _tp = os.path.join(tdir, TID + ".json")
-    import json as _json
-    _t = _json.load(open(_tp, encoding="utf-8")); _t["available"] = False
-    open(_tp, "w", encoding="utf-8", newline="\n").write(_json.dumps(_t, indent=1) + "\n")
     rep = {"instances": len(b.inst), "walls": nw, "masses": n_mass, "cover": n_cover, "plan": [plan.nx, plan.nz], "errors": err}
     write_summary(os.path.join(ctx.out, TID + ".summary.json"), rep)
     print("instances %d | walls %d, masses %d, cover %d | plan %d x %d cells of %.0f m" % (len(b.inst), n_walls, n_mass, n_cover, plan.nx, plan.nz, CELL))

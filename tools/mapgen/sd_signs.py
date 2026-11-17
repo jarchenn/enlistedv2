@@ -101,7 +101,7 @@ def main():
     m["materials"] = [{"name": "galv", "albedo": [0.55, 0.57, 0.58], "roughness": 0.5, "pattern": "metal", "metallic": 0.6, "grain": 1, "texture": "steel_scratched"},
                       {"name": "head", "albedo": [0.25, 0.26, 0.27], "roughness": 0.6, "pattern": "metal", "metallic": 0.4, "grain": 1},
                       {"name": "glow", "albedo": [1.0, 0.72, 0.38], "roughness": 0.3, "pattern": "plain", "metallic": 0, "grain": 1, "emissive": 2.0}]
-    m["light"] = {"offset": [0, 5.65, 0.9], "color": [1.0, 0.62, 0.3], "intensity": 14.0, "radius": 20.0, "cone": [75, 115], "dir": [0, -1, 0], "group": 2, "use": "street"}
+    m["light"] = {"offset": [0, 5.65, 0.9], "color": [1.0, 0.58, 0.26], "intensity": 40.0, "radius": 22.0, "cone": [75, 115], "dir": [0, -1, 0], "group": 2, "use": "street"}
     out.append(m)
     # SD2 Rue Haute: the town's walled lanes, a 6 m bay of 3.2 m rubble-stone wall (plinth, body, coping), not climbable
     # (an invisible collider to 3.9 m); a door bay with a 1.8 m opening under a stone lintel for the connector links
