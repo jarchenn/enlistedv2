@@ -1479,7 +1479,11 @@
    "corner": 0.2,
    "top": {
     "from": [
-     "furn_mod_monitor"
+     "furn_mod_monitor",
+     "furn_mod_monitor_16x9",
+     "furn_mod_monitor_4x3",
+     "furn_mod_monitor_ultrawide",
+     "furn_mod_monitor_curved"
     ],
     "n": 1
    },
@@ -1550,7 +1554,11 @@
    ],
    "top": {
     "from": [
-     "furn_mod_monitor"
+     "furn_mod_monitor",
+     "furn_mod_monitor_16x9",
+     "furn_mod_monitor_4x3",
+     "furn_mod_monitor_ultrawide",
+     "furn_mod_monitor_curved"
     ],
     "n": 1
    },
@@ -1578,7 +1586,11 @@
      "turn": 180,
      "top": {
       "from": [
-       "furn_mod_monitor"
+       "furn_mod_monitor",
+       "furn_mod_monitor_16x9",
+       "furn_mod_monitor_4x3",
+       "furn_mod_monitor_ultrawide",
+       "furn_mod_monitor_curved"
       ],
       "n": 1
      }

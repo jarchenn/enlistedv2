@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.4355034828186035,
+  1.0886759757995605,
+  0.9535305500030518
+ ],
+ "bmin": [
+  -0.4355034828186035,
+  0.0,
+  -0.9535305500030518
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "Carts",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.4355034828186035,
+    1.0886759757995605,
+    0.9535305500030518
+   ],
+   "bmin": [
+    -0.4355034828186035,
+    0.0,
+    -0.9535305500030518
+   ],
+   "count": 14028,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "Forklift_01_Carts_0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "mod_fp_platform_trolley.glb",
+ "textures": {},
+ "triangles": 4676,
+ "vertices": 3924
+}

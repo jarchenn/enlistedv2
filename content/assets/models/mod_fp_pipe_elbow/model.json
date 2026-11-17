@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.5228347778320313,
+  0.5662170052528381,
+  0.5073645114898682
+ ],
+ "bmin": [
+  -0.5228347778320313,
+  0.0,
+  -0.5073645114898682
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "pipes_02",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5228347778320313,
+    0.5662170052528381,
+    0.5073645114898682
+   ],
+   "bmin": [
+    -0.5228347778320313,
+    0.0,
+    -0.5073645114898682
+   ],
+   "count": 1728,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "Pipes_05_pipes_02_0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "mod_fp_pipe_elbow.glb",
+ "textures": {},
+ "triangles": 576,
+ "vertices": 396
+}

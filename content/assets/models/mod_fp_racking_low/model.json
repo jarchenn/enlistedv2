@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.8370991945266724,
+  1.1127489805221558,
+  0.3264451026916504
+ ],
+ "bmin": [
+  -0.8370991945266724,
+  0.0,
+  -0.3264451026916504
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "Shelves",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.8370991945266724,
+    1.1127489805221558,
+    0.3264451026916504
+   ],
+   "bmin": [
+    -0.8370991945266724,
+    0.0,
+    -0.3264451026916504
+   ],
+   "count": 17748,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "Shelves_02_Shelves_0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "mod_fp_racking_low.glb",
+ "textures": {},
+ "triangles": 5916,
+ "vertices": 6028
+}

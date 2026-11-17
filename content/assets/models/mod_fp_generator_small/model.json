@@ -1,0 +1,61 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.5308880805969238,
+  0.824246346950531,
+  0.36229443550109863
+ ],
+ "bmin": [
+  -0.5308880805969238,
+  0.0,
+  -0.36229443550109863
+ ],
+ "materials": [
+  {
+   "albedo": "albedoa_1.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "Misc_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5308880805969238,
+    0.824246346950531,
+    0.36229443550109863
+   ],
+   "bmin": [
+    -0.5308880805969238,
+    0.0,
+    -0.36229443550109863
+   ],
+   "count": 10722,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "Generator_01_Misc_01_0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "mod_fp_generator_small.glb",
+ "textures": {},
+ "triangles": 3574,
+ "vertices": 2728
+}

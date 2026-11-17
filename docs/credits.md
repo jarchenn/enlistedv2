@@ -691,3 +691,19 @@ Furniture models the user supplied (Sketchfab downloads; licence, author and sou
 | `furn_mod_synth` | Synthesizer free | Gerhald | CC-BY-4.0 | https://sketchfab.com/3d-models/synthesizer-free-2e326ce54187420c8598fa0404697bdc | yes |
 | `furn_sacks_burlap` | Burlap Bags | carlcapu9 | CC-BY-4.0 | https://sketchfab.com/3d-models/burlap-bags-5d8a0e888c1246c788669749056c03d3 | yes |
 <!-- /user_models -->
+
+<!-- pr6_assets: written by tools/props/pr6_assets.py -->
+Asset packs the user supplied (PR6; licence, author and source read from each file's own metadata). A local-only pack is not in the repository: the committed game shows box stand-ins.
+
+| File | Model | Author | Licence | Source | Assets | In the repo |
+|---|---|---|---|---|---|---|
+| sandbag_wall_-_24mb.glb | Sandbag Wall - 24MB | adventurer | CC-BY-4.0 | https://sketchfab.com/3d-models/sandbag-wall-24mb-35f39f3b391040169eb04d9a339d88a5 | 3 assets | yes |
+| wall_cement_fence_wall_building.glb | wall Cement fence Wall Building | adventurer | CC-BY-4.0 | https://sketchfab.com/3d-models/wall-cement-fence-wall-building-bdc47284bdc843fb9274efe1c5df52ee | 2 assets | yes |
+| fence_retaining_wall.glb | Fence_retaining_wall | Mehdi Shahsavan | CC-BY-4.0 | https://sketchfab.com/3d-models/fence-retaining-wall-b26ac6fb2f5441e09cc1d66594816bec | 2 assets | yes |
+| wall_door_-_19mb.glb | Wall Door - 19MB | adventurer | CC-BY-4.0 | https://sketchfab.com/3d-models/wall-door-19mb-cac51dfd82784736a726bba118e86de9 | 3 assets | yes |
+| pc_pack.glb | PC pack | That one larry | CC-BY-4.0 | https://sketchfab.com/3d-models/pc-pack-edb6d3b95bd54fb78985c909d4aa74ff | 5 assets | yes |
+| factory_props.glb | Factory Props | Thomas_Crozelon | CC-BY-4.0 | https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca | 51 assets | yes |
+| Air conditioner.fbx | Air conditioner.fbx | unknown | unknown | - | 14 assets | no (local-only) |
+| Billboard.fbx | Billboard.fbx | unknown | unknown | - | 15 assets | no (local-only) |
+| road_signs.glb | Road Signs | FrodoUndead | CC-BY-4.0 | https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592 | 95 assets | yes |
+<!-- /pr6_assets -->
