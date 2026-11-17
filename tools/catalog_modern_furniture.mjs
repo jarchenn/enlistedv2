@@ -26,8 +26,9 @@ const PAL = {
   lam_dark: [[0.13, 0.13, 0.14], 0.5, "plain"],
   lam_sage: [[0.42, 0.5, 0.42], 0.5, "plain"],
   lam_navy: [[0.12, 0.16, 0.26], 0.5, "plain"],
-  steel: [[0.62, 0.63, 0.64], 0.32, "plain", { metallic: 0.9 }],   // PR3: the "metal" pattern mottles it like stained concrete
-  steel_dark: [[0.33, 0.34, 0.35], 0.4, "plain", { metallic: 0.85 }],
+  // PR4: texture "none": textures.json maps any material named steel / steel_dark to steel_rusty / iron_old (the mottling at 1 m)
+  steel: [[0.62, 0.63, 0.64], 0.32, "plain", T("none", { metallic: 0.9 })],
+  steel_dark: [[0.33, 0.34, 0.35], 0.4, "plain", T("none", { metallic: 0.85 })],
   chrome: [[0.82, 0.83, 0.85], 0.14, "metal", { metallic: 1 }],
   blackmetal: [[0.05, 0.05, 0.055], 0.45, "metal", { metallic: 0.4 }],
   whitemetal: [[0.85, 0.86, 0.86], 0.4, "plain", { metallic: 0.2 }],
@@ -48,6 +49,9 @@ const PAL = {
   curtain: [[0.5, 0.66, 0.7], 0.9, "textile", T("cloth_grey", { grain: 0 })],
   linen: [[0.88, 0.87, 0.84], 0.95, "textile", T("cloth_grey", { grain: 0 })],
   linen_blue: [[0.55, 0.62, 0.7], 0.95, "textile", T("cloth_grey", { grain: 0 })],
+  duvet_white: [[0.86, 0.86, 0.84], 0.85, "textile", T("cloth_grey", { grain: 0 })],   // PR4 batch 5: cotton, light
+  duvet_grey: [[0.66, 0.67, 0.68], 0.85, "textile", T("cloth_grey", { grain: 0 })],
+  throw_ochre: [[0.55, 0.42, 0.2], 0.95, "textile", T("cloth_grey", { grain: 0 })],
   hosp_sheet: [[0.8, 0.86, 0.88], 0.95, "textile", T("cloth_grey", { grain: 0 })],
   leather_black: [[0.06, 0.055, 0.05], 0.5, "textile", T("leather_brown")],
   leather_tan: [[0.45, 0.27, 0.14], 0.5, "textile", T("leather_brown")],
@@ -66,10 +70,10 @@ const PAL = {
   plastic_yellow: [[0.85, 0.66, 0.08], 0.4, "plain"],
   plastic_orange: [[0.85, 0.36, 0.06], 0.4, "plain"],
   plastic_green: [[0.12, 0.45, 0.2], 0.4, "plain"],
-  ceramic: [[0.92, 0.92, 0.9], 0.12, "ceramic", { grain: 0 }],
+  ceramic: [[0.92, 0.92, 0.9], 0.08, "ceramic", { grain: 0 }],
   tile_white: [[0.9, 0.9, 0.88], 0.2, "ceramic"],
   tile_red: [[0.55, 0.12, 0.08], 0.25, "plain"],
-  quartz: [[0.82, 0.81, 0.78], 0.25, "plain"],
+  quartz: [[0.8, 0.8, 0.78], 0.2, "plain", T("concrete_speckled")],   // PR4 batch 5: light grey with a fine speckle
   granite: [[0.12, 0.12, 0.13], 0.25, "stone", T("slate_grey")],
   glass: [[0.55, 0.65, 0.68], 0.05, "glass"],
   glass_dark: [[0.05, 0.06, 0.07], 0.05, "glass"],
@@ -79,6 +83,13 @@ const PAL = {
   led_green: [[0.1, 0.8, 0.2], 0.3, "plain", { emissive: [0.2, 1.4, 0.35] }],
   led_amber: [[0.9, 0.55, 0.1], 0.3, "plain", { emissive: [1.4, 0.8, 0.15] }],
   led_red: [[0.9, 0.1, 0.08], 0.3, "plain", { emissive: [1.4, 0.15, 0.1] }],
+  led_green: [[0.1, 0.8, 0.2], 0.3, "plain", { emissive: [0.15, 1.2, 0.3] }],
+  led_warm: [[0.95, 0.9, 0.78], 0.3, "plain", { emissive: [1.1, 0.95, 0.7] }],   // under-cabinet strip
+  lam_pale: [[0.76, 0.77, 0.78], 0.5, "plain"],
+  ceramic_shade: [[0.8, 0.8, 0.79], 0.1, "ceramic", { grain: 0 }],   // the tub's well floor, a shade under the rim
+  cast_iron: [[0.06, 0.06, 0.06], 0.6, "plain", T("none", { metallic: 0.3 })],
+  steel_grease: [[0.36, 0.34, 0.31], 0.45, "plain", T("none", { metallic: 0.7 })],   // oil-darkened cooktop only
+  grout: [[0.82, 0.82, 0.8], 0.8, "plain"],
   lightpanel: [[0.95, 0.95, 0.92], 0.3, "plain", { emissive: [0.9, 0.9, 0.85] }],
   heat: [[0.7, 0.25, 0.06], 0.3, "plain", { emissive: [0.9, 0.3, 0.06] }],
   paper: [[0.92, 0.91, 0.86], 0.9, "paper"],
@@ -215,18 +226,19 @@ function handle(f, x, y, z, len, vert = false, m = H) {
 // front panel (door / drawer face) proud of z by 0.018, 3 mm reveal
 function panel(f, x0, x1, y0, y1, z, m, gap = 0.003) { return f.b([x0 + gap, y0 + gap, z], [x1 - gap, y1 - gap, z + 0.018], m, 0.004); }
 // carcass with recessed plinth; fronts: list of { x0, x1, y0, y1, h: "h" | "v" | "l" | "r" | "" } handle placement
-function cabinet(f, x0, x1, y0, y1, z0, z1, body, front, fronts, plinth = 0.1, hm = H) {
+function cabinet(f, x0, x1, y0, y1, z0, z1, body, front, fronts, plinth = 0.1, hm = H, hl = 0) {
   if (plinth > 0) f.b([x0 + 0.02, y0, z0 + 0.02], [x1 - 0.02, y0 + plinth, z1 - 0.06], "lam_dark", 0.004);
   f.b([x0, y0 + plinth, z0], [x1, y1, z1], body, 0.006);
   for (const p of fronts) {
     panel(f, p.x0, p.x1, p.y0, p.y1, z1, front);
     const cx = (p.x0 + p.x1) / 2, cy = (p.y0 + p.y1) / 2;
-    if (p.h === "h") handle(f, cx, p.y1 - 0.05, z1, Math.min(0.3, (p.x1 - p.x0) * 0.5), false, hm);
-    else if (p.h === "c") handle(f, cx, cy, z1, Math.min(0.3, (p.x1 - p.x0) * 0.5), false, hm);
-    else if (p.h === "l") handle(f, p.x0 + 0.04, p.y1 - 0.14, z1, Math.min(0.24, (p.y1 - p.y0) * 0.4), true, hm);
-    else if (p.h === "r") handle(f, p.x1 - 0.04, p.y1 - 0.14, z1, Math.min(0.24, (p.y1 - p.y0) * 0.4), true, hm);
-    else if (p.h === "rb") handle(f, p.x1 - 0.04, p.y0 + 0.14, z1, Math.min(0.24, (p.y1 - p.y0) * 0.4), true, hm);
-    else if (p.h === "lb") handle(f, p.x0 + 0.04, p.y0 + 0.14, z1, Math.min(0.24, (p.y1 - p.y0) * 0.4), true, hm);
+    const lh = hl || Math.min(0.3, (p.x1 - p.x0) * 0.5), lv = hl || Math.min(0.24, (p.y1 - p.y0) * 0.4);
+    if (p.h === "h") handle(f, cx, p.y1 - 0.05, z1, lh, false, hm);
+    else if (p.h === "c") handle(f, cx, cy, z1, lh, false, hm);
+    else if (p.h === "l") handle(f, p.x0 + 0.04, p.y1 - 0.14, z1, lv, true, hm);
+    else if (p.h === "r") handle(f, p.x1 - 0.04, p.y1 - 0.14, z1, lv, true, hm);
+    else if (p.h === "rb") handle(f, p.x1 - 0.04, p.y0 + 0.14, z1, lv, true, hm);
+    else if (p.h === "lb") handle(f, p.x0 + 0.04, p.y0 + 0.14, z1, lv, true, hm);
   }
 }
 function legsBox(f, pts, y0, y1, d, m) { for (const [x, z] of pts) f.b([x - d / 2, y0, z - d / 2], [x + d / 2, y1, z + d / 2], m, 0.003); }
@@ -379,24 +391,36 @@ def("furn_mod_floor_lamp", "Floor lamp", "1.6 m floor lamp: weighted steel base,
 for (const [k, W, nm] of [["single", 0.9, "Single"], ["double", 1.6, "Double"]]) {
   def(`furn_mod_bed_${k}`, `Modern bed (${k})`, `${nm} platform bed (${W} x 2.0 m mattress): walnut frame, upholstered headboard, mattress, duvet with a folded top, ${W > 1 ? "two pillows" : "a pillow"} and a throw.`,
     { family: "cloth", front: 0.5, cover: false }, (f) => {
-      const X = W / 2 + 0.05, z0 = -1.06, z1 = 1.04;
+      const X = W / 2 + 0.05, z0 = -1.06, z1 = 1.04, Hw = W / 2;
       f.grp("body");
       legsBox(f, [[-X + 0.08, z0 + 0.1], [X - 0.08, z0 + 0.1], [X - 0.08, z1 - 0.08], [-X + 0.08, z1 - 0.08]], 0, 0.1, 0.05, "walnut");
-      f.b([-X, 0.1, z0 + 0.05], [X, 0.32, z1], "walnut", 0.008);
-      f.rb([-X - 0.02, 0.1, z0], [X + 0.02, 1.1, z0 + 0.08], 0.03, "fab_charcoal");
-      for (let i = 1; i < Math.round(W / 0.3) + 1; i++) { const x = -X + (2 * X * i) / (Math.round(W / 0.3) + 1); f.b([x - 0.003, 0.36, z0 + 0.079], [x + 0.003, 1.06, z0 + 0.085], "fab_grey", 0.001); }   // channel seams
+      f.b([-X, 0.1, z0 + 0.05], [X, 0.2, z1], "walnut", 0.006);   // walnut rail, a 5 mm dark reveal, upper rail
+      f.b([-X + 0.005, 0.2, z0 + 0.055], [X - 0.005, 0.21, z1 - 0.005], "lam_dark", 0.001);
+      f.b([-X, 0.21, z0 + 0.05], [X, 0.32, z1], "walnut", 0.006);
+      // headboard: woven upholstery over a padded panel, piped round its edge
+      f.rb([-X - 0.02, 0.1, z0], [X + 0.02, 1.1, z0 + 0.08], 0.035, "fab_grey");
+      f.cy([0, 1.092, z0 + 0.04], [0.016, 2 * X + 0.02, 0.016], "fab_charcoal", { r: [0, 0, 90], n: 8 });
+      for (const sx of [-1, 1]) f.cy([sx * (X + 0.012), 0.6, z0 + 0.04], [0.016, 0.98, 0.016], "fab_charcoal", { n: 8 });
+      f.b([-X - 0.01, 0.34, z0 + 0.079], [X + 0.01, 0.35, z0 + 0.086], "fab_charcoal", 0.002);   // a piped line across, above the mattress
       f.grp("mattress");
-      f.rb([-W / 2, 0.32, z0 + 0.09], [W / 2, 0.54, z1 - 0.02], 0.04, "linen");
+      f.rb([-Hw, 0.32, z0 + 0.09], [Hw, 0.52, z1 - 0.02], 0.04, "linen");
       f.grp("bedding");
-      const duv = W > 1 ? "linen_blue" : "fab_sage";
-      f.rb([-W / 2 - 0.03, 0.53, z0 + 0.6], [W / 2 + 0.03, 0.6, z1], 0.03, duv);
-      for (const s of [-1, 1]) f.b([s > 0 ? W / 2 : -W / 2 - 0.035, 0.38, z0 + 0.6], [s > 0 ? W / 2 + 0.035 : -W / 2, 0.58, z1], duv, 0.01);   // duvet drop
-      f.b([-W / 2 - 0.03, 0.38, z1 - 0.005], [W / 2 + 0.03, 0.58, z1 + 0.03], duv, 0.01);
-      f.rb([-W / 2 - 0.02, 0.58, z0 + 0.58], [W / 2 + 0.02, 0.63, z0 + 0.82], 0.02, "linen");   // folded top
-      f.b([-W / 2 - 0.035, 0.58, z1 - 0.55], [W / 2 + 0.035, 0.615, z1 - 0.2], W > 1 ? "fab_mustard" : "fab_rust", 0.008);   // throw
+      const duv = W > 1 ? "duvet_white" : "duvet_grey";
+      f.rb([-Hw - 0.04, 0.5, z0 + 0.5], [Hw + 0.04, 0.62, z1 + 0.03], 0.06, duv);   // duvet: soft, rounded over the edges
+      for (const sx of [-1, 1]) {   // its sides hang over the mattress with soft folds
+        f.rb([sx > 0 ? Hw - 0.005 : -Hw - 0.055, 0.36, z0 + 0.52], [sx > 0 ? Hw + 0.055 : -Hw + 0.005, 0.6, z1 + 0.02], 0.025, duv);
+        for (const [zc, len] of [[z0 + 0.95, 0.2], [z0 + 1.35, 0.17], [z0 + 1.75, 0.22]]) f.rb([sx > 0 ? Hw + 0.035 : -Hw - 0.065, 0.6 - len, zc - 0.035], [sx > 0 ? Hw + 0.065 : -Hw - 0.035, 0.59, zc + 0.035], 0.015, duv);
+      }
+      f.rb([-Hw - 0.04, 0.36, z1 - 0.01], [Hw + 0.04, 0.6, z1 + 0.03], 0.02, duv);   // foot drop
+      for (const zc of [z0 + 1.15, z0 + 1.5]) f.cy([0, 0.615, zc], [0.03, W * 0.8, 0.03], duv, { r: [0, 0, 90], n: 8 });   // shallow creases across
+      f.rb([-Hw - 0.03, 0.58, z0 + 0.5], [Hw + 0.03, 0.66, z0 + 0.78], 0.04, duv);   // turned-down top
+      // throw folded across the foot, hanging a little over both sides
+      const thr = W > 1 ? "throw_ochre" : "fab_grey";
+      f.rb([-Hw - 0.055, 0.6, z1 - 0.58], [Hw + 0.055, 0.64, z1 - 0.2], 0.018, thr);
+      for (const sx of [-1, 1]) f.b([sx > 0 ? Hw + 0.055 : -Hw - 0.07, 0.46, z1 - 0.58], [sx > 0 ? Hw + 0.07 : -Hw - 0.055, 0.63, z1 - 0.2], thr, 0.006);   // (the envelope stays the planner's: x to the headboard's edge)
       f.grp("pillows");
-      const np = W > 1 ? 2 : 1, pw = W > 1 ? 0.66 : 0.6;
-      for (let i = 0; i < np; i++) { const cx = np === 1 ? 0 : (i ? 1 : -1) * 0.37; f.ob([cx, 0.62, z0 + 0.32], [pw, 0.13, 0.4], [18, 0, 0], "linen", 0.05); }
+      const np = W > 1 ? 2 : 1, pw = W > 1 ? 0.65 : 0.6;
+      for (let i = 0; i < np; i++) { const cx = np === 1 ? 0 : (i ? 1 : -1) * 0.36; f.ob([cx, 0.64, z0 + 0.32], [pw, 0.15, 0.45], [20, 0, 0], "linen", 0.06); }
     });
 }
 def("furn_mod_nightstand", "Nightstand", "0.45 m walnut nightstand: two drawers with black bar pulls, on slim steel legs.", { family: "wood", front: 0.4, surfaces: [[-0.21, -0.18, 0.21, 0.18, 0.55]] }, (f) => {
@@ -409,13 +433,13 @@ def("furn_mod_wardrobe", "Wardrobe", "1.2 x 2.1 m two-door wardrobe in white lam
   f.b([-0.58, 0, -0.27], [0.58, 0.08, 0.25], "oak", 0.004);
   f.b([-0.6, 0.08, -0.3], [0.6, 2.1, 0.28], "lam_white", 0.006);
   f.grp("doors");
-  for (const [a, b, h] of [[-0.6, 0, "r"], [0, 0.6, "l"]]) { panel(f, a, b, 0.08, 2.1, 0.28, "lam_white"); handle(f, h === "r" ? b - 0.05 : a + 0.05, 1.1, 0.28, 0.6, true, "blackmetal"); }
+  for (const [a, b, h] of [[-0.6, 0, "r"], [0, 0.6, "l"]]) { panel(f, a, b, 0.08, 2.1, 0.28, "lam_white"); handle(f, h === "r" ? b - 0.05 : a + 0.05, 1.1, 0.28, 0.6, true, "steel"); }
 });
 def("furn_mod_dresser", "Chest of drawers", "1.2 m six-drawer oak dresser on a recessed plinth, with recessed finger pulls.", { family: "wood", front: 0.7, surfaces: [[-0.58, -0.22, 0.58, 0.22, 0.82]] }, (f) => {
   f.b([-0.58, 0, -0.22], [0.58, 0.06, 0.2], "lam_dark", 0.004);
   f.b([-0.6, 0.06, -0.24], [0.6, 0.82, 0.22], "oak", 0.006);
   f.grp("drawers");
-  for (const [a, b] of [[-0.6, 0], [0, 0.6]]) for (const [y0, y1] of [[0.06, 0.31], [0.31, 0.56], [0.56, 0.81]]) { panel(f, a, b, y0, y1, 0.22, "oak"); f.b([(a + b) / 2 - 0.08, y1 - 0.035, 0.236], [(a + b) / 2 + 0.08, y1 - 0.012, 0.241], "lam_dark", 0.002); }
+  for (const [a, b] of [[-0.6, 0], [0, 0.6]]) for (const [y0, y1] of [[0.06, 0.31], [0.31, 0.56], [0.56, 0.81]]) { panel(f, a, b, y0, y1, 0.22, "oak"); f.b([a + 0.006, y1 - 0.023, 0.234], [b - 0.006, y1 - 0.004, 0.241], "lam_dark", 0.001); }   // a 2 cm routed finger lip (to z 0.241, the envelope the planner had)
 });
 for (const [n, L, D] of [[4, 1.4, 0.85], [6, 1.9, 0.95]]) {
   def(`furn_mod_dining_table${n}`, `Dining table (${n} seats)`, `${L} x ${D} m oak dining table on black steel sled legs with a centre rail.`,
@@ -454,15 +478,16 @@ def("furn_mod_kitchen_base", "Kitchen base run (2.4 m)", "2.4 m run of four hand
       else if (t === "doors2") { fr.push({ x0: a, x1: (a + b) / 2, y0: 0.12, y1: 0.86, h: "r" }); fr.push({ x0: (a + b) / 2, x1: b, y0: 0.12, y1: 0.86, h: "l" }); }
       else { fr.push({ x0: a, x1: b, y0: 0.7, y1: 0.86, h: "h" }); fr.push({ x0: a, x1: b, y0: 0.12, y1: 0.7, h: "r" }); }
     }
-    cabinet(f, -1.2, 1.2, 0, 0.88, -0.3, 0.27, "lam_white", "lam_sage", fr, 0.12, "steel");
+    cabinet(f, -1.2, 1.2, 0, 0.88, -0.3, 0.27, "lam_white", "lam_sage", fr, 0.12, "steel", 0.12);
     f.grp("top");
     f.b([-1.2, 0.88, -0.31], [1.2, 0.92, 0.3], "quartz", 0.004);
     f.b([-1.2, 0.92, -0.31], [1.2, 1.02, -0.29], "quartz", 0.003);
   });
 def("furn_mod_kitchen_wall", "Kitchen wall cabinets", "1.8 m run of three wall cabinets (six doors), hung with the bottom at 1.45 m, with a light pelmet under.",
   { family: "wood", wall: true, mount: 1.45, surfaces: [[-0.88, 0.02, 0.88, 0.33, 0.72]] }, (f) => {
-    f.b([-0.9, 0.0, 0.0], [0.9, 0.72, 0.33], "lam_white", 0.006);
+    f.b([-0.9, 0.004, 0.0], [0.9, 0.72, 0.33], "lam_white", 0.006);
     f.b([-0.9, -0.0, 0.33], [0.9, 0.02, 0.35], "steel", 0.002);
+    f.b([-0.86, 0.0, 0.24], [0.86, 0.004, 0.3], "led_warm", 0.001);   // LED strip under the pelmet, recessed in the carcass bottom
     f.grp("doors");
     for (let i = 0; i < 6; i++) { const a = -0.9 + i * 0.3, b = a + 0.3; panel(f, a, b, 0.02, 0.72, 0.33, "lam_sage"); handle(f, i % 2 ? a + 0.04 : b - 0.04, 0.14, 0.33, 0.12, true, "steel"); }
   });
@@ -471,11 +496,13 @@ def("furn_mod_fridge", "Fridge freezer", "0.7 m stainless fridge freezer: tall f
   f.b([-0.32, 0, -0.3], [0.32, 0.1, 0.29], "plastic_black", 0.004);
   vent(f, -0.28, 0.28, 0.02, 0.09, 0.29, 4, "steel_dark");
   f.grp("doors");
-  f.b([-0.35, 0.72, 0.3], [0.35, 1.85, 0.36], "steel", 0.012);
-  f.b([-0.35, 0.1, 0.3], [0.35, 0.715, 0.36], "steel", 0.012);
-  handle(f, -0.28, 1.25, 0.34, 0.7, true, "steel_dark");
-  handle(f, 0, 0.64, 0.34, 0.45, false, "steel_dark");
-  f.b([0.18, 1.55, 0.36], [0.3, 1.65, 0.363], "screen_on", 0.001);
+  f.b([-0.348, 0.1, 0.298], [0.348, 1.848, 0.31], "plastic_black", 0.002);   // door gaskets (a dark 1 cm line round each door)
+  f.b([-0.35, 0.725, 0.31], [0.35, 1.85, 0.343], "steel", 0.01);   // (doors 3.3 cm so the round handles end at the planner's 0.37 m)
+  f.b([-0.35, 0.1, 0.31], [0.35, 0.71, 0.343], "steel", 0.01);
+  for (const [x0, y0, y1] of [[-0.28, 0.95, 1.6]]) { f.cy([x0, (y0 + y1) / 2, 0.3575], [0.025, y1 - y0, 0.025], "chrome", { n: 12 }); for (const y of [y0 + 0.03, y1 - 0.03]) f.cy([x0, y, 0.347], [0.016, 0.012, 0.016], "chrome", { r: [90, 0, 0], n: 8 }); }
+  f.cy([0, 0.64, 0.3575], [0.025, 0.45, 0.025], "chrome", { r: [0, 0, 90], n: 12 }); for (const x of [-0.2, 0.2]) f.cy([x, 0.64, 0.347], [0.016, 0.012, 0.016], "chrome", { r: [90, 0, 0], n: 8 });
+  f.b([0.18, 1.55, 0.343], [0.3, 1.65, 0.346], "screen_on", 0.001);
+  f.b([0.2, 1.53, 0.343], [0.21, 1.54, 0.347], "led_green", 0.0005); f.b([0.23, 1.53, 0.343], [0.24, 1.54, 0.347], "led_red", 0.0005);   // status LEDs
 });
 def("furn_mod_stove", "Cooker", "0.6 m freestanding cooker: black glass hob with four rings, control knobs, oven door with a window and bar handle.", { family: "metal", front: 0.9, surfaces: [] }, (f) => {
   f.b([-0.3, 0.06, -0.3], [0.3, 0.9, 0.3], "steel", 0.008);
@@ -492,7 +519,7 @@ def("furn_mod_stove", "Cooker", "0.6 m freestanding cooker: black glass hob with
   handle(f, 0, 0.1, 0.325, 0.2, false);
 });
 def("furn_mod_sink_unit", "Sink unit", "1.2 m sink base unit: two doors, quartz worktop with an inset steel bowl and drainer, chrome mixer tap.", { family: "wood", front: 0.9, surfaces: [[0.05, -0.26, 0.58, 0.29, 0.92]] }, (f) => {
-  cabinet(f, -0.6, 0.6, 0, 0.88, -0.3, 0.27, "lam_white", "lam_sage", [{ x0: -0.6, x1: 0, y0: 0.12, y1: 0.86, h: "r" }, { x0: 0, x1: 0.6, y0: 0.12, y1: 0.86, h: "l" }], 0.12, "steel");
+  cabinet(f, -0.6, 0.6, 0, 0.88, -0.3, 0.27, "lam_white", "lam_sage", [{ x0: -0.6, x1: 0, y0: 0.12, y1: 0.86, h: "r" }, { x0: 0, x1: 0.6, y0: 0.12, y1: 0.86, h: "l" }], 0.12, "steel", 0.12);
   f.grp("top");
   f.b([-0.6, 0.88, -0.31], [0.6, 0.92, 0.3], "quartz", 0.004);
   f.b([-0.6, 0.92, -0.31], [0.6, 1.02, -0.29], "quartz", 0.003);
@@ -537,6 +564,7 @@ def("furn_mod_toilet", "Toilet", "Close-coupled ceramic toilet: pedestal, bowl w
   f.cy([0, 0.39, 0.07], [0.37, 0.02, 0.45], "plastic_white", { n: 16 });
   f.cy([0, 0.401, 0.07], [0.24, 0.003, 0.3], "steel_dark", { n: 16 });   // the bowl's shadowed well
   f.ob([0, 0.58, -0.17], [0.36, 0.42, 0.02], [-8, 0, 0], "plastic_white", 0.01);
+  for (const x of [-0.11, 0.11]) f.cy([x, 0.405, -0.14], [0.03, 0.05, 0.03], "chrome", { r: [0, 0, 90], n: 8 });   // seat hinges
   f.grp("cistern");
   f.b([-0.18, 0.38, -0.33], [0.18, 0.8, -0.16], "ceramic", 0.02);
   f.b([-0.19, 0.8, -0.34], [0.19, 0.83, -0.15], "ceramic", 0.01);
@@ -574,16 +602,21 @@ def("furn_mod_shower", "Shower enclosure", "0.9 m corner shower: low ceramic tra
     f.b([-0.43, 0.07, 0.435], [0.43, 1.97, 0.445], "glass", 0.002);
     f.b([0.435, 0.07, -0.43], [0.445, 1.97, 0.43], "glass", 0.002);
   });
-def("furn_mod_bath", "Bath", "1.7 m built-in bath: ceramic tub with a wide rim and hollow well, white front panel, chrome mixer and overflow at the tap end.", { family: "ceramic", front: 0.6, rounds: 12, blast: 30 }, (f) => {
-  f.b([-0.85, 0, 0.33], [0.85, 0.52, 0.37], "lam_white", 0.004);
+def("furn_mod_bath", "Bath", "1.7 m built-in bath: glossy ceramic tub with a 6 cm rim, a well with chamfered corners and a sloped back, white front panel with a shadow gap, chrome mixer and overflow at the tap end.", { family: "ceramic", front: 0.6, rounds: 12, blast: 30 }, (f) => {
+  f.b([-0.85, 0, 0.33], [0.85, 0.515, 0.37], "lam_white", 0.004);   // front panel, a 3 mm shadow gap under the rim
+  f.b([-0.84, 0.515, 0.334], [0.84, 0.52, 0.366], "lam_dark", 0.0005);
   f.b([-0.84, 0, -0.37], [0.84, 0.04, 0.33], "lam_dark", 0.004);
-  f.b([-0.85, 0.04, -0.37], [0.85, 0.2, 0.33], "ceramic", 0.01);   // well floor
-  for (const [a, b] of [[[-0.85, 0.2, -0.37], [0.85, 0.58, -0.28]], [[-0.85, 0.2, 0.28], [0.85, 0.58, 0.37]], [[-0.85, 0.2, -0.28], [-0.76, 0.58, 0.28]], [[0.76, 0.2, -0.28], [0.85, 0.58, 0.28]]]) f.rb(a, b, 0.02, "ceramic");
-  f.cy([0.6, 0.201, 0], [0.05, 0.002, 0.05], "chrome", { n: 12 });
+  f.b([-0.85, 0.04, -0.37], [0.85, 0.2, 0.33], "ceramic", 0.01);
+  f.b([-0.78, 0.2, -0.3], [0.78, 0.203, 0.3], "ceramic_shade", 0.001);   // the well floor, a shade darker
+  const rim = [[[-0.85, 0.2, -0.37], [0.85, 0.58, -0.31]], [[-0.85, 0.2, 0.31], [0.85, 0.58, 0.37]], [[-0.85, 0.2, -0.31], [-0.79, 0.58, 0.31]], [[0.79, 0.2, -0.31], [0.85, 0.58, 0.31]]];
+  for (const [a, b] of rim) f.rb(a, b, 0.025, "ceramic");   // 6 cm rim
+  for (const x of [-0.79, 0.79]) for (const z of [-0.31, 0.31]) f.ob([x, 0.39, z], [0.084, 0.38, 0.084], [0, 45, 0], "ceramic", 0.012);   // chamfered inner corners (inside the 6 cm rim)
+  f.ob([-0.64, 0.39, 0], [0.42, 0.03, 0.62], [0, 0, -52], "ceramic", 0.01);   // sloped back end
+  f.cy([0.6, 0.204, 0], [0.05, 0.003, 0.05], "chrome", { n: 12 });
   f.grp("tap");
   f.cy([0.8, 0.62, -0.1], [0.04, 0.08, 0.04], "chrome", { n: 10 }); f.cy([0.8, 0.62, 0.1], [0.04, 0.08, 0.04], "chrome", { n: 10 });
   f.ob([0.75, 0.66, 0], [0.12, 0.03, 0.03], [0, 0, 0], "chrome", 0.008);
-  f.cy([0.762, 0.48, 0], [0.05, 0.012, 0.05], "chrome", { r: [0, 0, 90], n: 12 });
+  f.cy([0.782, 0.48, 0], [0.05, 0.012, 0.05], "chrome", { r: [0, 0, 90], n: 12 });
 });
 def("furn_mod_rug", "Modern rug", "2.0 x 1.4 m low-pile rug with a dark border and an off-centre geometric band.", { family: "cloth", blocking: false, front: 0, rounds: 0, blast: 30 }, (f) => {
   f.b([-1.0, 0.002, -0.7], [1.0, 0.012, 0.7], "rug_main", 0.004);
@@ -850,13 +883,15 @@ def("furn_mod_checkout", "Checkout counter", "2.6 m checkout lane counter: rubbe
     f.b([-1.3, 0.8, 0.4], [1.3, 0.86, 0.42], "steel", 0.002);
     f.grp("belt");
     f.b([-1.28, 0.86, -0.3], [0.3, 0.885, 0.3], "belt", 0.004);
-    for (const x of [-1.28, 0.3]) f.cy([x, 0.872, 0], [0.05, 0.6, 0.05], "steel", { r: [90, 0, 0], n: 12 });
+    for (const x of [-1.28, 0.3]) f.cy([x, 0.872, 0], [0.05, 0.6, 0.05], "chrome", { r: [90, 0, 0], n: 12 });
+    for (let x = -1.22; x < 0.26; x += 0.075) f.b([x, 0.885, -0.29], [x + 0.012, 0.888, 0.29], "rubber", 0.001);   // transverse ribs
     for (const z of [-0.33, 0.33]) f.b([-1.3, 0.86, z - 0.03], [0.32, 0.92, z + 0.03], "steel", 0.006);
-    f.b([-0.9, 0.885, -0.25], [-0.5, 0.92, 0.25].map((v, i) => i === 1 ? 0.925 : v), "plastic_grey", 0.006);
+    f.ob([-0.7, 0.905, 0], [0.05, 0.04, 0.5], [0, 0, 0], "plastic_grey", 0.012);   // divider bar across the belt
+    f.b([-0.7 - 0.026, 0.9, -0.12], [-0.7 + 0.026, 0.915, 0.12], "pack_red", 0.002);
     f.grp("top");
     f.b([0.32, 0.86, -0.4], [1.3, 0.9, 0.4], "steel", 0.004);
     f.b([0.4, 0.9, -0.15], [0.7, 0.902, 0.15], "glass_dark", 0.001);
-    f.b([0.47, 0.902, -0.08], [0.63, 0.903, 0.08], "led_red", 0.0003);
+    f.b([0.45, 0.902, -0.0015], [0.65, 0.9025, 0.0015], "led_red", 0.0002); f.b([0.5485, 0.902, -0.1], [0.5515, 0.9025, 0.1], "led_red", 0.0002);   // laser lines in the scanner glass
     f.grp("kit");
     f.cy([0.85, 1.0, -0.3], [0.03, 0.2, 0.03], "steel", { n: 8 });
     f.ob([0.85, 1.12, -0.28], [0.09, 0.03, 0.16], [30, 0, 0], "plastic_black", 0.008);
@@ -971,7 +1006,8 @@ def("furn_mod_bar_stool", "Bar stool", "76 cm bar stool: round padded seat on a 
 def("furn_mod_service_counter", "Service counter", "2.4 m food service counter: tiled front panel with a steel kick strip, stainless top, glass sneeze guard, tray rail and a card terminal.",
   { family: "metal", front: 0.9, rounds: 34, blast: 60, surfaces: [[-1.15, -0.33, 1.15, 0.2, 1.05]] }, (f) => {
     f.b([-1.2, 0.1, -0.375], [1.2, 1.01, 0.33], "lam_white", 0.006);
-    f.b([-1.2, 0.1, 0.33], [1.2, 1.01, 0.345], "tile_red", 0.002);
+    f.b([-1.2, 0.1, 0.33], [1.2, 1.01, 0.338], "grout", 0.001);
+    for (let i = 0; i < 24; i++) for (let j = 0; j < 9; j++) { const x = -1.2 + i * 0.1, y = 0.105 + j * 0.1; f.b([x + 0.003, y + 0.003, 0.338], [x + 0.097, Math.min(1.007, y + 0.097), 0.345], "tile_red", 0.0015); }   // 10 cm tiles
     f.b([-1.2, 0, -0.37], [1.2, 0.1, 0.35], "steel", 0.004);
     f.grp("top");
     f.b([-1.2, 1.01, -0.375], [1.2, 1.05, 0.375], "steel", 0.004);
@@ -1062,6 +1098,7 @@ def("furn_mod_griddle", "Flat-top griddle", "0.9 m flat-top griddle on an open s
 def("furn_mod_range_oven", "Range with oven", "0.9 m six-burner commercial range: cast-iron grates, oven door with a bar handle, knob rail, riser shelf at the back.", { family: "metal", front: 0.9, rounds: 30, blast: 50, surfaces: [[-0.42, -0.4, 0.42, -0.32, 1.4]] }, (f) => {
   ssLegs(f, -0.41, 0.41, -0.36, 0.34);
   f.b([-0.45, 0.15, -0.4], [0.45, 0.9, 0.36], "steel", 0.006);
+  f.b([-0.44, 0.9, -0.37], [0.44, 0.903, 0.35], "steel_grease", 0.001);   // the cooking surface, darkened by oil (the rest stays clean)
   f.b([-0.45, 0.78, 0.36], [0.45, 0.9, 0.42], "steel", 0.004);
   knobs(f, -0.4, 0.4, 0.84, 0.42, 7);
   f.grp("door");
@@ -1070,10 +1107,10 @@ def("furn_mod_range_oven", "Range with oven", "0.9 m six-burner commercial range
   f.grp("grates");
   for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) {
     const x = -0.3 + i * 0.3, z = -0.17 + j * 0.34;
-    f.cy([x, 0.905, z], [0.1, 0.02, 0.1], "iron", { n: 12 });
-    f.b([x - 0.14, 0.92, z - 0.012], [x + 0.14, 0.94, z + 0.012], "iron", 0.002);
-    f.b([x - 0.012, 0.92, z - 0.15], [x + 0.012, 0.94, z + 0.15], "iron", 0.002);
-    f.b([x - 0.14, 0.92, z - 0.15], [x + 0.14, 0.94, z - 0.13], "iron", 0.002);
+    f.cy([x, 0.905, z], [0.1, 0.02, 0.1], "cast_iron", { n: 12 });
+    f.b([x - 0.14, 0.92, z - 0.012], [x + 0.14, 0.94, z + 0.012], "cast_iron", 0.002);
+    f.b([x - 0.012, 0.92, z - 0.15], [x + 0.012, 0.94, z + 0.15], "cast_iron", 0.002);
+    f.b([x - 0.14, 0.92, z - 0.15], [x + 0.14, 0.94, z - 0.13], "cast_iron", 0.002);
   }
   f.grp("riser");
   f.b([-0.45, 0.9, -0.42], [0.45, 1.36, -0.38], "steel", 0.004);
@@ -1119,14 +1156,21 @@ def("furn_mod_walkin_door", "Walk-in cooler door", "1.4 m walk-in cooler front p
 def("furn_mod_dish_sink", "Dish pit sink", "1.8 m three-bowl stainless pot sink with drainboards, splash back, pre-rinse spray arm and undershelf.", { family: "metal", front: 0.9, rounds: 26, blast: 44 }, (f) => {
   ssLegs(f, -0.86, 0.86, -0.3, 0.3, 0.75);
   f.b([-0.88, 0.2, -0.32], [0.88, 0.22, 0.32], "steel", 0.003);
+  f.grp("trays");
+  for (const [x, n] of [[-0.55, 6], [0.05, 4], [0.6, 5]]) for (let k = 0; k < n; k++) f.b([x - 0.25 + (k % 2) * 0.01, 0.22 + k * 0.022, -0.2], [x + 0.25 + (k % 2) * 0.01, 0.238 + k * 0.022, 0.18], "plastic_grey", 0.004);   // stacked trays
   f.b([-0.9, 0.62, -0.35], [0.9, 0.9, 0.35], "steel", 0.006);
   f.b([-0.9, 0.9, -0.36], [0.9, 1.2, -0.33], "steel", 0.004);
-  for (let i = 0; i < 3; i++) { const x = -0.45 + i * 0.3; f.b([x - 0.13, 0.86, -0.27], [x + 0.13, 0.905, 0.27], "steel_dark", 0.006); f.b([x - 0.12, 0.86, -0.26], [x + 0.12, 0.861, 0.26], "water", 0.001); }
+  for (let i = 0; i < 3; i++) {
+    const x = -0.45 + i * 0.3; f.b([x - 0.13, 0.86, -0.27], [x + 0.13, 0.905, 0.27], "steel_dark", 0.006);
+    if (i === 0) f.b([x - 0.12, 0.86, -0.26], [x + 0.12, 0.861, 0.26], "water", 0.001);
+    else { f.cy([x, 0.8605, 0.12], [0.09, 0.002, 0.09], "plastic_black", { n: 12 }); for (const d of [-0.025, 0, 0.025]) f.b([x - 0.04, 0.861, 0.12 + d - 0.003], [x + 0.04, 0.8625, 0.12 + d + 0.003], "steel", 0.0005); }   // drain grille
+  }
   for (const s of [-1, 1]) for (let k = 0; k < 4; k++) f.b([s * 0.75 - 0.1 + k * 0.06, 0.9, -0.3], [s * 0.75 - 0.09 + k * 0.06, 0.902, 0.3], "steel_dark", 0.0005);
   f.grp("spray");
   f.cy([0.2, 1.4, -0.34], [0.03, 0.5, 0.03], "chrome", { n: 8 });
   f.ob([0.2, 1.65, -0.2], [0.02, 0.02, 0.3], [0, 0, 0], "chrome", 0.005);
-  f.cy([0.2, 1.45, -0.05], [0.04, 0.4, 0.04], "chrome", { n: 8 });
+  f.cy([0.2, 1.43, -0.05], [0.022, 0.42, 0.022], "plastic_black", { n: 8 });   // hose inside a coiled spring
+  for (let k = 0; k < 16; k++) f.cy([0.2, 1.25 + k * 0.024, -0.05], [0.06, 0.008, 0.06], "chrome", { n: 10, r: [k % 2 ? 6 : -6, 0, 0] });
   f.cy([0.2, 1.2, -0.05], [0.06, 0.08, 0.06], "plastic_black", { n: 8 });
   for (const x of [-0.45, 0.15]) f.cy([x, 1.0, -0.3], [0.03, 0.1, 0.03], "chrome", { r: [90, 0, 0], n: 8 });
   f.col([-0.9, 0, -0.36], [0.9, 1.2, 0.35]);
@@ -1221,10 +1265,17 @@ def("furn_mod_patient_monitor", "Patient monitor on stand", "Vital-signs monitor
   f.ob([0, 1.58, -0.03], [0.2, 0.025, 0.025], [0, 0, 0], "plastic_grey", 0.008);
   f.col([-0.15, 0, -0.15], [0.15, 1.6, 0.15]);
 });
-def("furn_mod_bedside_cabinet", "Bedside locker", "Hospital bedside locker on castors: drawer, cupboard, and a swing-over side table flap.", { family: "wood", front: 0.4, rounds: 10, blast: 20, surfaces: [[-0.21, -0.2, 0.21, 0.2, 0.86]] }, (f) => {
-  for (const [x, z] of corners4(0.18, 0.18)) caster(f, x, z, 0.06);
-  cabinet(f, -0.23, 0.23, 0.08, 0.86, -0.22, 0.22, "lam_white", "lam_navy", [{ x0: -0.23, x1: 0.23, y0: 0.66, y1: 0.84, h: "c" }, { x0: -0.23, x1: 0.23, y0: 0.1, y1: 0.64, h: "r" }], 0, "plastic_grey");
-  f.b([-0.24, 0.86, -0.23], [0.24, 0.89, 0.23], "lam_white", 0.006);
+def("furn_mod_bedside_cabinet", "Bedside locker", "Hospital bedside locker on castors: white laminate, pale grey drawer and door with recessed handles, a swing-over table flap folded on top on a chrome arm.", { family: "wood", front: 0.4, rounds: 10, blast: 20, surfaces: [[-0.21, -0.2, 0.21, 0.2, 0.86]] }, (f) => {
+  for (const [x, z] of corners4(0.18, 0.18)) caster(f, x, z, 0.05);
+  cabinet(f, -0.23, 0.23, 0.08, 0.86, -0.22, 0.22, "lam_white", "lam_pale", [{ x0: -0.23, x1: 0.23, y0: 0.66, y1: 0.84, h: "" }, { x0: -0.23, x1: 0.23, y0: 0.1, y1: 0.64, h: "" }], 0);
+  f.b([-0.08, 0.805, 0.226], [0.08, 0.825, 0.2395], "lam_dark", 0.002);   // recessed handles: a dark pull slot
+  f.b([0.16, 0.42, 0.226], [0.18, 0.58, 0.2395], "lam_dark", 0.002);
+  f.b([-0.24, 0.86, -0.23], [0.24, 0.874, 0.23], "lam_white", 0.004);
+  f.grp("flap");
+  f.cy([0.215, 0.88, -0.2], [0.02, 0.02, 0.02], "chrome", { n: 8 });
+  f.b([0.2, 0.876, -0.215], [0.23, 0.882, 0.23], "chrome", 0.002);   // the arm, folded along the side
+  f.cy([0.215, 0.879, 0.24], [0.02, 0.02, 0.02], "chrome", { r: [90, 0, 0], n: 8 });   // its knob (to z 0.25, the planner's envelope)
+  f.b([-0.22, 0.876, -0.2], [0.2, 0.89, 0.2], "lam_pale", 0.004);   // table flap swung over the top
 });
 def("furn_mod_privacy_curtain", "Privacy curtain on track", "L-shaped ward privacy curtain (2.0 x 1.0 m) on a ceiling track with drop rods: pleated fabric with a mesh top band, hung from the ceiling.",
   { family: "cloth", blocking: false, hang: true, front: 0, rounds: 0, blast: 30, caster: "full" }, (f) => {

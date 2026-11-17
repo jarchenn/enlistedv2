@@ -16,6 +16,9 @@ import sys
 MATS = {
     "oak": ([0.2, 0.12, 0.065], 0.58, "joinery", -1),
     "oak_dark": ([0.12, 0.075, 0.042], 0.55, "joinery", -1),
+    "oak_aged": ([0.16, 0.1, 0.06], 0.55, "joinery", -1),        # PR4 batch 5: church oak darkened by age
+    "oak_polished": ([0.16, 0.1, 0.06], 0.35, "joinery", -1),    # the same, polished by use (pew seat and top rail)
+    "rust_iron": ([0.2, 0.1, 0.045], 0.8, "metal", 1),
     "cherry": ([0.25, 0.115, 0.06], 0.5, "joinery", -1),
     "pine": ([0.34, 0.23, 0.13], 0.68, "joinery", -1),
     "paint_green": ([0.19, 0.25, 0.19], 0.6, "paintwood", -1),
@@ -73,6 +76,7 @@ MATS = {
     "bulb": ([0.9, 0.86, 0.74], 0.1, "plain", 1),
     "flame": ([0.95, 0.62, 0.22], 0.9, "plain", 1),
     "ember": ([0.32, 0.08, 0.02], 0.95, "plain", 1),
+    "mica": ([0.45, 0.25, 0.08], 0.2, "plain", 1),   # the stove's fire-door window, lit from behind
     "ash": ([0.2, 0.19, 0.18], 0.98, "plain", 1),
     "enamel_green": ([0.12, 0.2, 0.14], 0.3, "ceramic", 0),
     "enamel_white": ([0.68, 0.67, 0.62], 0.3, "ceramic", 0),
@@ -96,6 +100,7 @@ EMISSIVE = {
     "bulb": [6.0, 4.6, 2.9],
     "flame": [7.0, 3.4, 0.9],
     "ember": [3.2, 0.9, 0.18],
+    "mica": [1.4, 0.55, 0.14],
 }
 
 
@@ -805,6 +810,11 @@ def sideboard(root):
         knob(a, cx + (W / 3 - 0.06) / 2 - 0.05, 0.46, D / 2 + 0.001, f"door{i}", 0.024)
         a.r([cx + (W / 3 - 0.06) / 2 - 0.05, 0.53, D / 2 + 0.004], [0.02, 0.06, 0.004], "brass", f"door{i}", 0.002)   # PR3: escutcheon
     a.r([0, 0.1, 0.006], [W - 0.01, 0.02, D - 0.03], w, "carcass", 0.006)   # plinth moulding
+    a.cyl([0, H - 0.015, D / 2 + 0.024], 0.032, W + 0.04, "oak", "top", seg=10, rot=[0, 0, 90])   # PR4: ovolo moulding on the top's front edge
+    for k, x in enumerate((-W / 2 + 0.02, -W / 6, W / 6, W / 2 - 0.02)):   # paint worn back to the wood on the stiles' edges
+        for sx in (-1, 1):
+            h = 0.25 + 0.2 * ((k * 2 + sx) % 3)
+            a.r([x + sx * 0.0165, 0.16 + h / 2 + 0.05 * (k % 2), D / 2 + 0.0005], [0.005, h, 0.002], "oak", "carcass", 0.001)
     for x in (-0.55, 0.0, 0.55):   # PR3: shaped apron
         a.arch([x, 0.07, D / 2 - 0.01], [0.42, 0.04, 0.02], w, "carcass", th=0.04, fill=True, rot=[180, 0, 0])
     a.col([0, H / 2, 0], [W, H, D])
@@ -865,7 +875,7 @@ def stove(root):
     a.r([0, H / 2 + 0.05, 0], [W, H - 0.1, D], "cast_iron", "body", 0.012)
     for sx in (-1, 1):
         for sz in (-1, 1):   # cast cabriole-ish feet: a tapering turned foot
-            a.cyl([sx * (W / 2 - 0.06), 0.03, sz * (D / 2 - 0.06)], 0.06, 0.06, "cast_iron", "body", top=0.65, seg=10, rot=[180, 0, 0])
+            a.cyl([sx * (W / 2 - 0.06), 0.05, sz * (D / 2 - 0.06)], 0.06, 0.1, "cast_iron", "body", top=0.65, seg=10, rot=[180, 0, 0])   # PR4: 10 cm legs up to the body
     a.r([0, H + 0.01, 0], [W + 0.02, 0.025, D + 0.02], "cast_iron", "top", 0.006)
     for x, z in ((-0.25, 0.1), (0.05, 0.1), (-0.25, -0.13)):   # hot plates: concentric lids in their rings
         a.cyl([x, H + 0.026, z], 0.22, 0.008, "iron", "top", seg=20)
@@ -1065,22 +1075,26 @@ def desk(root):
 
 
 def pew(root):
-    a = A("furn_pew", "Church pew", "Oak pew with a panelled back, book ledge and scrolled ends; seats three.", "wood", 24, 50, front=0.55)
+    a = A("furn_pew", "Church pew", "Oak pew darkened by age: scrolled and moulded ends, three raised panels under a polished top rail, book ledge and kneeler at the back; seats three.", "wood", 24, 50, front=0.55)
     W, D = 2.1, 0.55
     for i, sx in enumerate((-1, 1)):
-        a.r([sx * (W / 2 - 0.03), 0.48, 0], [0.05, 0.96, D], "oak_dark", f"end{i}", 0.012)
-        a.arch([sx * (W / 2 - 0.03), 0.95, 0.1], [0.3, 0.11, 0.05], "oak_dark", f"end{i}", th=0.4, rot=[0, 90, 0])   # rounded poppyhead
-        a.cyl([sx * (W / 2 - 0.03), 1.035, 0.1], 0.07, 0.07, "oak_dark", f"end{i}", top=0.4, seg=10)                 # finial
-        a.r([sx * (W / 2 - 0.03), 0.5, 0.0], [0.065, 0.6, D - 0.12], "oak_dark", f"end{i}", 0.01)                     # fielded panel
-    a.r([0, 0.44, 0.06], [W - 0.06, 0.04, 0.38], "oak", "seat", 0.008)
-    a.r([0, 0.36, 0.22], [W - 0.06, 0.1, 0.025], "oak", "seat", 0.004)
-    a.r([0, 0.72, -D / 2 + 0.06], [W - 0.06, 0.52, 0.03], "oak", "back", 0.006, rot=[-6, 0, 0])
-    for k in range(3):
-        a.r([-0.6 + k * 0.6, 0.72, -D / 2 + 0.078], [0.4, 0.38, 0.012], "oak_dark", "back", 0.004, rot=[-6, 0, 0])
-    a.r([0, 0.96, -D / 2 + 0.03], [W - 0.06, 0.04, 0.12], "oak", "ledge", 0.008)   # book ledge for the row behind
-    a.r([0, 0.985, -D / 2 - 0.025], [W - 0.06, 0.03, 0.02], "oak", "ledge", 0.006)   # PR3: lip of the ledge
-    a.r([0, 0.94, -D / 2 + 0.07], [W - 0.06, 0.04, 0.06], "oak_dark", "back", 0.012, rot=[-6, 0, 0])   # PR3: moulded top rail
-    a.r([0, 0.08, 0.0], [W - 0.06, 0.04, 0.06], "oak", "seat", 0.004)
+        x = sx * (W / 2 - 0.03)
+        a.r([x, 0.47, 0], [0.05, 0.94, D], "oak_aged", f"end{i}", 0.012)
+        a.r([x, 0.5, 0.0], [0.065, 0.6, D - 0.12], "oak_aged", f"end{i}", 0.01)                         # fielded panel
+        a.r([x, 0.45, D / 2 - 0.012], [0.066, 0.84, 0.026], "oak_aged", f"end{i}", 0.012)                # moulded front edge
+        a.cyl([x, 0.945, D / 2 - 0.09], 0.15, 0.054, "oak_aged", f"end{i}", seg=16, rot=[0, 0, 90])      # carved C-scroll at the top
+        a.cyl([x, 0.945, D / 2 - 0.09], 0.07, 0.062, "oak_dark", f"end{i}", seg=12, rot=[0, 0, 90])      # its eye
+        a.r([x, 0.955, -0.07], [0.05, 0.03, D - 0.22], "oak_aged", f"end{i}", 0.012)                     # moulded top edge back to the rail
+    a.r([0, 0.44, 0.06], [W - 0.06, 0.04, 0.38], "oak_polished", "seat", 0.008)
+    a.r([0, 0.36, 0.22], [W - 0.06, 0.1, 0.025], "oak_aged", "seat", 0.004)
+    a.r([0, 0.72, -D / 2 + 0.06], [W - 0.06, 0.52, 0.03], "oak_aged", "back", 0.006, rot=[-6, 0, 0])
+    for k in range(3):   # three raised panels: frame, then a raised field
+        a.r([-0.6 + k * 0.6, 0.72, -D / 2 + 0.078], [0.46, 0.4, 0.012], "oak_aged", "back", 0.004, rot=[-6, 0, 0])
+        a.r([-0.6 + k * 0.6, 0.72, -D / 2 + 0.086], [0.36, 0.3, 0.012], "oak_dark", "back", 0.006, rot=[-6, 0, 0])
+    a.r([0, 0.96, -D / 2 + 0.03], [W - 0.06, 0.04, 0.12], "oak_aged", "ledge", 0.008)   # book ledge for the row behind
+    a.r([0, 0.985, -D / 2 - 0.025], [W - 0.06, 0.03, 0.02], "oak_aged", "ledge", 0.006)
+    a.r([0, 0.94, -D / 2 + 0.07], [W - 0.06, 0.04, 0.06], "oak_polished", "back", 0.012, rot=[-6, 0, 0])   # moulded top rail
+    a.r([0, 0.1, -D / 2 + 0.07], [W - 0.06, 0.04, 0.1], "oak_aged", "seat", 0.006)   # kneeler for the row behind
     a.col([0, 0.25, 0.06], [W, 0.5, 0.42])
     a.col([0, 0.75, -D / 2 + 0.06], [W, 0.5, 0.12])
     return a.write(root, [W, D], fragments=["back", "seat", "ledge", "end0"], keep=["end1"])
@@ -1434,28 +1448,34 @@ def hearth_fire(root):
 
 
 def potbelly_stove(root):
-    a = A("furn_stove_potbelly", "Pot-bellied stove", "Small cast-iron heating stove with a glowing draught grate and a flue pipe; the Kanonenofen of dugouts, guard rooms and offices.",
+    a = A("furn_stove_potbelly", "Pot-bellied stove", "Cast-iron pot-belly on three cabriole legs: a bulging body with a mica-windowed fire door glowing behind, a draught grate under it, a top collar and a flue with one elbow to the wall; the Kanonenofen of dugouts, guard rooms and offices.",
           "metal", 0, 120, wall=True, front=0.6)
-    a.cyl([0, 0.05, 0], 0.42, 0.04, "cast_iron", "body", top=0.9, seg=20)                       # base plate
-    for k in range(4):   # cabriole-ish feet
-        ang = math.radians(45 + 90 * k)
-        a.cyl([math.cos(ang) * 0.17, 0.025, math.sin(ang) * 0.17], 0.045, 0.05, "cast_iron", "body", top=0.6, seg=8, rot=[180, 0, 0])
-    a.cyl([0, 0.12, 0], 0.3, 0.1, "cast_iron", "body", seg=20)                                    # ash pit
-    a.cyl([0, 0.27, 0], 0.38, 0.2, "cast_iron", "body", top=0.82, seg=20, rot=[180, 0, 0])        # the belly
-    a.cyl([0, 0.47, 0], 0.38, 0.2, "cast_iron", "body", top=0.8, seg=20)
-    a.cyl([0, 0.37, 0], 0.4, 0.025, "cast_iron", "body", seg=20)                                  # belly band
-    a.cyl([0, 0.6, 0], 0.3, 0.06, "cast_iron", "body", top=0.85, seg=20)                          # firebox top
-    a.cyl([0, 0.65, 0], 0.32, 0.04, "cast_iron", "body", top=0.6, seg=20)                         # domed lid
-    a.cyl([0, 0.68, 0], 0.05, 0.03, "cast_iron", "body", top=0.6, seg=10)                         # lid knob
-    a.cyl([0, 1.25, -0.05], 0.12, 1.1, "cast_iron", "flue", seg=14)
-    a.cyl([0, 0.72, -0.05], 0.15, 0.04, "cast_iron", "flue", seg=14)                              # flue collar
-    a.cyl([0, 1.1, -0.05], 0.13, 0.02, "cast_iron", "flue", seg=14)                               # damper ring
-    a.r([0, 0.42, 0.2], [0.12, 0.1, 0.02], "cast_iron", "body", 0.006)                            # fuel door
-    a.cyl([0.04, 0.42, 0.214], 0.02, 0.012, "cast_iron", "body", seg=8, rot=[90, 0, 0])
-    for y in (0.2, 0.24, 0.28):
-        a.r([0, y, 0.18], [0.16, 0.018, 0.006], "ember", "grate", 0.002)
-    a.light = {"color": [1.0, 0.46, 0.17], "intensity": 0.5, "radius": 3.5, "offset": [0, 0.26, 0.32], "flicker": 0.4, "group": "grate", "use": "fire"}
-    a.col([0, 0.35, 0], [0.42, 0.7, 0.42])
+    for k in range(3):   # three cabriole legs, splayed, on pad feet
+        ang = math.radians(90 + 120 * k)
+        cx, cz = math.cos(ang) * 0.13, math.sin(ang) * 0.13
+        a.cyl([cx, 0.07, cz], 0.045, 0.1, "cast_iron", "body", top=1.5, seg=8, rot=[math.sin(ang) * 12, 0, -math.cos(ang) * 12])
+        a.cyl([cx * 1.12, 0.012, cz * 1.12], 0.06, 0.024, "cast_iron", "body", top=0.8, seg=8)
+    a.cyl([0, 0.135, 0], 0.3, 0.03, "cast_iron", "body", seg=20)                                    # base plate
+    a.cyl([0, 0.2, 0], 0.27, 0.1, "cast_iron", "body", seg=20)                                      # ash pit
+    a.cyl([0, 0.255, 0], 0.285, 0.016, "rust_iron", "body", seg=20)                                 # rust ring near the base
+    prof = [(0.26, 0.28), (0.32, 0.32), (0.39, 0.35), (0.46, 0.36), (0.53, 0.35), (0.6, 0.32), (0.66, 0.28)]   # the belly: (y, diameter), 0.36 at mid height
+    for (y0, d0), (y1, d1) in zip(prof, prof[1:]):
+        a.cyl([0, (y0 + y1) / 2, 0], d0, y1 - y0, "cast_iron", "body", top=d1 / d0, seg=24)
+    a.cyl([0, 0.46, 0], 0.37, 0.018, "cast_iron", "body", seg=24)                                   # belly band
+    a.cyl([0, 0.675, 0], 0.3, 0.03, "cast_iron", "body", seg=20)                                    # top collar
+    a.cyl([0, 0.71, 0], 0.28, 0.04, "cast_iron", "body", top=0.55, seg=20)                          # domed lid
+    a.r([0, 0.44, 0.172], [0.2, 0.17, 0.02], "cast_iron", "body", 0.008)                            # fire door, 20 cm
+    a.r([0, 0.44, 0.181], [0.12, 0.08, 0.004], "mica", "grate", 0.002)                               # mica window, the fire behind it
+    a.cyl([0.075, 0.44, 0.19], 0.022, 0.014, "cast_iron", "body", seg=8, rot=[90, 0, 0])             # latch
+    for k in range(4):                                                                               # draught grate under the door
+        a.r([-0.045 + k * 0.03, 0.2, 0.137], [0.016, 0.05, 0.004], "ember", "grate", 0.0018)
+    a.cyl([0, 0.745, -0.04], 0.15, 0.03, "cast_iron", "flue", seg=14)                               # flue collar
+    a.cyl([0, 1.18, -0.04], 0.12, 0.84, "cast_iron", "flue", seg=14)
+    a.cyl([0, 1.25, -0.04], 0.13, 0.02, "cast_iron", "flue", seg=14)                                 # damper ring
+    a.cyl([0, 1.66, -0.07], 0.13, 0.14, "cast_iron", "flue", seg=14, rot=[-45, 0, 0])                # elbow
+    a.cyl([0, 1.7, -0.15], 0.12, 0.12, "cast_iron", "flue", seg=14, rot=[90, 0, 0])                 # into the wall
+    a.light = {"color": [1.0, 0.46, 0.17], "intensity": 0.5, "radius": 3.5, "offset": [0, 0.4, 0.3], "flicker": 0.4, "group": "grate", "use": "fire"}
+    a.col([0, 0.37, 0], [0.42, 0.74, 0.42])
     return a.write(root, [0.42, 0.42], fragments=["flue"], keep=["body", "grate"])
 
 
