@@ -92,6 +92,23 @@ MATS = {
     "rubber_orange": ([0.75, 0.32, 0.08], 0.6, "plain", 1),
     "twine": ([0.45, 0.22, 0.07], 0.9, "fabric", 1),
     "faience_plain": ([0.78, 0.75, 0.66], 0.18, "ceramic", 0),
+    "faience_blue": ([0.1, 0.17, 0.42], 0.15, "plain", 0),        # PR5: hand-painted border bands and centre flowers
+    "faience_manganese": ([0.26, 0.12, 0.17], 0.15, "plain", 0),
+    "faience_clay": ([0.6, 0.45, 0.3], 0.6, "plain", 0),           # a chip on a rim, the buff body showing
+    "salt_glaze": ([0.36, 0.3, 0.22], 0.3, "ceramic", 0),
+    "salt_glaze_dark": ([0.16, 0.12, 0.08], 0.3, "ceramic", 0),
+    "stoneware_cream": ([0.62, 0.56, 0.44], 0.4, "ceramic", 0),
+    "pine_worn": ([0.46, 0.34, 0.2], 0.7, "joinery", -1),
+    "pine_weathered": ([0.42, 0.4, 0.36], 0.8, "joinery", -1),
+    "stencil_faded": ([0.24, 0.21, 0.17], 0.8, "plain", 1),
+    "straw": ([0.62, 0.52, 0.28], 0.9, "plain", 1),
+    "parchment": ([0.6, 0.56, 0.46], 0.9, "plain", 1),            # page lines on a book's fore-edge
+    "fruit_apricot": ([0.75, 0.45, 0.1], 0.4, "plain", 1),
+    "fruit_plum": ([0.22, 0.06, 0.16], 0.4, "plain", 1),
+    "fruit_bean": ([0.25, 0.38, 0.12], 0.4, "plain", 1),
+    "dial_enamel": ([0.86, 0.84, 0.78], 0.15, "plain", 1),
+    "paint_flower_pink": ([0.62, 0.3, 0.32], 0.6, "plain", 1),
+    "paint_leaf": ([0.22, 0.34, 0.16], 0.6, "plain", 1),
     "paper_old": ([0.82, 0.78, 0.66], 0.9, "paper", 1),
 }
 # L3: linear HDR emissive multipliers (the lighting engine, L2, scales them by the light's on / time-of-day state)
@@ -194,12 +211,32 @@ class A:
         self.cols.append({"t": "b", "c": [round(v, 4) for v in c], "s": [round(v, 4) for v in s], "m": "oak", "v": 0})
 
     def plate(self, c, d, t, m, grp, axis="y", tilt=None):
-        """Round plate: one shallow frustum (the rim slopes in to the foot), 16 sides."""
+        """Round plate: one shallow frustum (the rim slopes in to the foot), 16 sides. PR5: faience is hand-painted: a
+        blue (or manganese) border band and a centre flower on the eating face."""
         if axis == "y":
-            self.cyl(c, d, t, m, grp, top=0.86, seg=16, rot=[180 + (tilt or [0, 0, 0])[0], (tilt or [0, 0, 0])[1], (tilt or [0, 0, 0])[2]])
+            rot = [180 + (tilt or [0, 0, 0])[0], (tilt or [0, 0, 0])[1], (tilt or [0, 0, 0])[2]]
         else:   # standing in a rack, face toward +z
-            rx = (tilt or [0, 0, 0])[0]
-            self.cyl(c, d, t, m, grp, top=0.86, seg=16, rot=[rx - 90, 0, 0])
+            rot = [(tilt or [0, 0, 0])[0] - 90, 0, 0]
+        self.cyl(c, d, t, m, grp, top=0.86, seg=16, rot=rot)
+        if m not in ("faience", "faience_plain"):
+            return
+        a, b, cc = (math.radians(v) for v in rot)   # the plate's axis (glm euler Rz * Ry * Rx applied to +y); the face is at -axis
+        ux, uy, uz = 0.0, 1.0, 0.0   # rotate +y: Rx, then Ry, then Rz
+        ux, uy, uz = ux, uy * math.cos(a) - uz * math.sin(a), uy * math.sin(a) + uz * math.cos(a)
+        ux, uz = ux * math.cos(b) + uz * math.sin(b), -ux * math.sin(b) + uz * math.cos(b)
+        ux, uy = ux * math.cos(cc) - uy * math.sin(cc), ux * math.sin(cc) + uy * math.cos(cc)
+        band = "faience_blue" if m == "faience" else "faience_manganese"
+        def disc(off, dd, mm, dx=0.0, dz=0.0):
+            # a thin painted disc on the face (dx, dz: offsets in the face plane, used for petals on a level plate)
+            p = [c[0] - ux * off + dx, c[1] - uy * off, c[2] - uz * off + dz]
+            self.cyl(p, dd, 0.001, mm, grp, seg=16, rot=rot)
+        disc(t / 2 + 0.0008, d * 0.9, band)                 # the border band...
+        disc(t / 2 + 0.0026, d * 0.74, m)                   # ...shown as a ring round the cream well (layers 1.8 mm apart: no fighting)
+        disc(t / 2 + 0.0044, d * 0.16, band)                # centre flower
+        if axis == "y" and not tilt:
+            for k in range(5):
+                ang = math.radians(72 * k)
+                disc(t / 2 + 0.0044, d * 0.07, "faience_manganese", math.cos(ang) * d * 0.1, math.sin(ang) * d * 0.1)
 
     def write(self, root, footprint, fragments=(), keep=(), glass=None, surfaces=(), mats=None):
         materials = []
@@ -406,8 +443,10 @@ def hutch(root, glazed):
     a.r([0, y0 + UH / 2, -D / 2 + 0.01], [W - 0.08, UH, 0.016], wood, "upper", 0.003)
     a.r([0, y0 + UH + 0.03, -D / 2 + UD / 2 + 0.02], [W - 0.02, 0.06, UD + 0.05], wood, "upper", 0.01)   # cornice
     a.r([0, y0 + UH - 0.01, -D / 2 + UD / 2 + 0.03], [W - 0.04, 0.035, UD + 0.03], wood, "upper", 0.008)
-    if not glazed:   # shaped apron under the cornice: a flat arch cut from a board
-        a.arch([0, y0 + UH - 0.075, -D / 2 + UD - 0.012], [W - 0.1, 0.09, 0.02], wood, "upper", th=0.03, fill=True)
+    if not glazed:   # PR5: a scalloped valance under the cornice (five scallops cut from one board)
+        a.r([0, y0 + UH - 0.035, -D / 2 + UD - 0.012], [W - 0.1, 0.03, 0.02], wood, "upper", 0.004)
+        for k in range(5):
+            a.arch([-(W - 0.1) / 2 + (W - 0.1) * (k + 0.5) / 5, y0 + UH - 0.09, -D / 2 + UD - 0.012], [(W - 0.1) / 5, 0.04, 0.02], wood, "upper", th=0.02, fill=True, rot=[180, 0, 0])
     shelves = [y0 + 0.36, y0 + 0.7]
     for y in shelves:
         a.r([0, y, -D / 2 + UD / 2], [W - 0.1, 0.022, UD - 0.02], wood, "upper", 0.004)
@@ -416,9 +455,16 @@ def hutch(root, glazed):
     for y in [y0 + 0.02] + shelves:   # plates standing on the shelves, a few bowls
         for i in range(5):
             x = -W / 2 + 0.17 + i * 0.24
-            m = ["faience_plain", "faience_dots"][(i + k) % 2]   # PR3: plain cream glaze and the dotted one (the banded variants read as printed labels)
+            m = ["faience", "faience_dots", "faience_plain"][(i + k) % 3]   # PR5: painted borders (geometry, not the old printed bands), the dotted glaze
             a.plate([x, y + 0.13, -D / 2 + UD - 0.06], 0.22, 0.012, m, "plates", axis="z", tilt=[-12, 0, 0])
+        if not glazed and k < 2:   # PR5: a jug and two bowls stood in front of the plates
+            bowl(a, -W / 2 + 0.29 + 0.48 * k, y + 0.02, -D / 2 + UD - 0.02, 0.12, 0.05, "faience", "plates")
         k += 1
+    if not glazed:
+        jx, jy, jz = W / 2 - 0.18, shelves[1] + 0.012, -D / 2 + UD - 0.03
+        a.cyl([jx, jy + 0.07, jz], 0.1, 0.14, "faience", "plates", top=0.7, seg=14)
+        a.cyl([jx, jy + 0.155, jz], 0.07, 0.03, "faience", "plates", top=1.25, seg=14)
+        a.arch([jx + 0.055, jy + 0.09, jz], [0.04, 0.08, 0.012], "faience", "plates", th=0.01, rot=[0, 0, -90])
     if glazed:
         for i, sx in enumerate((-1, 1)):
             framed_door(a, sx * (W / 2 - 0.05) / 2, y0 + UH / 2, -D / 2 + UD + 0.005, (W - 0.1) / 2 - 0.01, UH - 0.08, wood, f"gdoor{i}", glazed=True)
@@ -655,14 +701,23 @@ def bottle(a, x, z, m, grp, h=0.2, d=0.075):
 
 
 def bottles(root):
-    a = A("furn_bottles", "Bottles", "Three cider and wine bottles, green and brown glass.", "glass", 1, 4, blocking=False, front=0.0)
-    for i, (x, z, m) in enumerate([(-0.07, 0.0, "bottle_green"), (0.03, 0.04, "bottle_brown"), (0.08, -0.05, "bottle_green")]):
-        bottle(a, x, z, m, f"b{i}")
-    a.cyl([0.03, 0.264, 0.04], 0.024, 0.02, "log_end", "b1", seg=8)   # a cork in the cider
-    a.cyl([-0.07, 0.268, 0.0], 0.03, 0.02, "porcelain", "b0", seg=8)   # PR3: swing-top stopper
-    a.arch([-0.07, 0.255, 0.0], [0.04, 0.03, 0.003], "zinc", "b0", th=0.003)
-    for i, (x, z) in enumerate([(-0.07, 0.0), (0.08, -0.05)]):   # PR3: paper labels
-        a.cyl([x, 0.07, z], 0.078, 0.06, "paper", f"b{2 * i}", seg=14)
+    a = A("furn_bottles", "Bottles", "A green Burgundy bottle (sloping shoulders, corked, a paper label), a brown cider bottle with a swing-top stopper, a stoneware Calvados flask.", "glass", 1, 4, blocking=False, front=0.0)
+    x, z = -0.07, 0.0   # Burgundy: a long sloping shoulder into the neck, a cork, a cream label
+    a.cyl([x, 0.08, z], 0.075, 0.16, "bottle_green", "b0", seg=14)
+    a.cyl([x, 0.2, z], 0.075, 0.08, "bottle_green", "b0", top=0.36, seg=14)
+    a.cyl([x, 0.27, z], 0.028, 0.06, "bottle_green", "b0", seg=10)
+    a.cyl([x, 0.302, z], 0.024, 0.012, "log_end", "b0", seg=8)
+    a.cyl([x, 0.07, z], 0.077, 0.06, "paper", "b0", seg=14)
+    x, z = 0.035, 0.045   # cider: a rounded shoulder, the swing-top stopper with its wire
+    bottle(a, x, z, "bottle_brown", "b1", h=0.2, d=0.078)
+    a.cyl([x, 0.268, z], 0.03, 0.02, "porcelain", "b1", seg=8)
+    a.arch([x, 0.255, z], [0.04, 0.03, 0.003], "zinc", "b1", th=0.003)
+    a.cyl([x, 0.07, z], 0.08, 0.05, "paper", "b1", seg=14)
+    x, z = 0.08, -0.055   # stoneware flask: a cream body, a short neck, a loop handle
+    a.cyl([x, 0.08, z], 0.09, 0.16, "stoneware_cream", "b2", seg=14)
+    a.cyl([x, 0.17, z], 0.09, 0.03, "stoneware_cream", "b2", top=0.45, seg=14)
+    a.cyl([x, 0.195, z], 0.035, 0.03, "salt_glaze", "b2", seg=10)
+    a.arch([x + 0.03, 0.17, z], [0.04, 0.05, 0.012], "stoneware_cream", "b2", th=0.01, rot=[0, 90, 90])
     return a.write(root, [0.26, 0.2], fragments=[], keep=[])
 
 
@@ -676,8 +731,12 @@ def books(root):
         rot = [0, (i * 7) % 13 - 6, 0]
         a.r([0, y + t / 2, 0], [w, t, d], cv, f"book{i}", 0.004, rot=rot)
         a.b([0.004, y + t / 2, 0], [w - 0.012, t - 0.008, d + 0.002], "paper", f"book{i}", rot=rot)
-        for gx in (-0.06, 0.06):   # PR3: gilt bands across the spine
+        for gx in (-0.06, 0.06):   # PR3: gilt bands across the spine; PR5: raised bands beside them
             a.b([gx, y + t / 2, -d / 2 - 0.001], [0.006, t + 0.001, 0.003], "brass", f"book{i}", rot=rot)
+            a.r([gx * 1.4, y + t / 2, -d / 2 - 0.002], [0.008, t + 0.002, 0.004], cv, f"book{i}", 0.002, rot=rot)
+        a.b([0, y + t / 2, -d / 2 - 0.0015], [0.05, t * 0.5, 0.002], "brass", f"book{i}", rot=rot)   # gilt title block
+        for k in range(3):   # page lines on the fore-edge
+            a.b([0.004, y + 0.006 + k * (t - 0.012) / 2, d / 2 + 0.0012], [w - 0.016, 0.0008, 0.001], "parchment", f"book{i}", rot=rot)
         y += t
     return a.write(root, [0.26, 0.2], fragments=[], keep=[])
 
@@ -715,6 +774,14 @@ def crate(root):
         for sz in (-1, 1):
             for y in (0.07, 0.23, 0.39):
                 a.cyl([sx * (S / 2 - 0.03), y, sz * (S / 2 + 0.001)], 0.008, 0.003, "iron", f"slats{int((y - 0.07) / 0.16 + 0.5)}", seg=6, rot=[90, 0, 0])
+    for sz in (-1, 1):   # PR5: the top slats weathered grey along their upper edge
+        a.r([0, 0.385, sz * (S / 2 - 0.004)], [S - 0.02, 0.012, 0.012], "pine_weathered", "slats2", 0.002)
+    for k in range(5):   # a faded stencil mark on the front (narrow block characters, no legible text)
+        a.r([-0.1 + k * 0.05, 0.235, S / 2 + 0.001], [0.03, 0.05, 0.0015], "stencil_faded", "slats1", 0.0004)
+    a.r([0.0, 0.195, S / 2 + 0.001], [0.24, 0.012, 0.0015], "stencil_faded", "slats1", 0.0004)
+    for k in range(9):   # straw sticking out of the top
+        ang = k * 40
+        a.r([0.15 * math.cos(math.radians(ang * 1.7)), 0.46, 0.15 * math.sin(math.radians(ang * 2.3))], [0.004, 0.06, 0.004], "straw", "slats2", 0.0015, rot=[25 * math.sin(k), ang, 30 * math.cos(k)])
     a.col([0, 0.22, 0], [S, 0.44, S])
     return a.write(root, [S, S], fragments=["slats2", "slats0"], keep=["corners"], surfaces=[[-0.2, -0.2, 0.2, 0.2, 0.45]])
 
@@ -937,14 +1004,17 @@ def pantry(root):
             x = -W / 2 + 0.11 + j * 0.17
             h = 0.16 if (i + j) % 3 else 0.22
             if (i * 6 + j) % 5 == 4:   # a stoneware crock with a lid
-                a.cyl([x, y + 0.012 + 0.07, 0.0], 0.13, 0.14, "stoneware", "crocks", top=0.88, seg=16)
-                a.cyl([x, y + 0.012 + 0.145, 0.0], 0.115, 0.012, "stoneware", "crocks", seg=16)
+                a.cyl([x, y + 0.012 + 0.07, 0.0], 0.13, 0.14, "salt_glaze", "crocks", top=0.88, seg=16)   # PR5: salt glaze, a darker dipped top
+                a.cyl([x, y + 0.012 + 0.125, 0.0], 0.117, 0.03, "salt_glaze_dark", "crocks", top=0.97, seg=16)
+                a.cyl([x, y + 0.012 + 0.145, 0.0], 0.115, 0.012, "salt_glaze_dark", "crocks", seg=16)
                 continue
             jar(a, x, y + 0.012, 0.02, h, 0.1, mats[(i + j) % 3])
-    a.r([0.2, 1.5 + 0.06, -0.06], [0.24, 0.1, 0.18], "linen", "cloths", 0.03)
+    for k in range(3):   # PR5: folded linen cloths, stacked a little askew
+        a.r([0.2 + 0.006 * k, 1.512 + 0.012 + k * 0.024, -0.06], [0.24 - 0.01 * k, 0.022, 0.18], "linen", "cloths", 0.01, rot=[0, 3 * k - 3, 0])
     a.cyl([-0.3, 1.05 + 0.032, -0.08], 0.115, 0.04, "pine", "crocks", seg=16)   # PR3: a Camembert box
     for x in (0.38, 0.45):   # PR3: two corked cider bottles at the back
         bottle(a, x, -0.1, "bottle_brown", "jars", h=0.26, d=0.075)
+        a.cyl([x, 0.15 + 0.012 + 0.26 * 0.72 + 0.125, -0.1], 0.026, 0.02, "log_end", "jars", seg=8)   # PR5: corks
     a.col([0, H / 2, 0], [W, H, D])
     return a.write(root, [W, D], fragments=["jars", "crocks", "cloths"], keep=["frame"], glass="glass")
 
@@ -1185,18 +1255,27 @@ def coat_rack(root):
 
 
 def wall_clock(root):
-    a = A("furn_wall_clock", "Wall clock", "Cartel clock in a painted case with a brass pendulum.", "painted", 2, 8, blocking=False, wall=True, front=0.0, mount=1.6)
-    a.r([0, -0.02, 0.05], [0.32, 0.34, 0.1], "paint_cream", "case", 0.03)
-    a.arch([0, 0.15, 0.05], [0.32, 0.1, 0.1], "paint_cream", "case", th=0.3)                  # arched hood
-    a.cyl([0, 0.215, 0.05], 0.05, 0.04, "brass", "case", top=0.3, seg=10)                         # finial
-    a.cyl([0, 0.03, 0.103], 0.26, 0.008, "brass", "case", seg=24, rot=[90, 0, 0])                # bezel
-    a.cyl([0, 0.03, 0.106], 0.22, 0.006, "dial", "case", seg=24, rot=[90, 0, 0])
-    a.r([0, 0.055, 0.11], [0.007, 0.06, 0.003], "iron", "case", 0.001)                           # hands
-    a.r([0.025, 0.03, 0.11], [0.05, 0.006, 0.003], "iron", "case", 0.001)
-    a.cyl([0, 0.03, 0.113], 0.25, 0.004, "glass", "glass", seg=24, rot=[90, 0, 0])
-    a.r([0, -0.3, 0.04], [0.06, 0.25, 0.04], "paint_cream", "case", 0.01)
-    a.r([0, -0.27, 0.062], [0.006, 0.18, 0.004], "brass", "case", 0.002)                         # pendulum rod
-    a.cyl([0, -0.38, 0.065], 0.08, 0.01, "brass", "case", seg=16, rot=[90, 0, 0])               # bob
+    a = A("furn_wall_clock", "Wall clock", "Cartel clock: a violin-shaped cream case painted with flowers, a convex enamel dial with hour marks and hands, a pendulum window showing the brass bob.", "painted", 2, 8, blocking=False, wall=True, front=0.0, mount=1.6)
+    a.r([0, 0.02, 0.05], [0.3, 0.3, 0.1], "paint_cream", "case", 0.04)                          # the upper bout
+    a.arch([0, 0.17, 0.05], [0.3, 0.1, 0.1], "paint_cream", "case", th=0.3)                    # arched hood
+    a.cyl([0, 0.235, 0.05], 0.05, 0.04, "brass", "case", top=0.3, seg=10)                        # finial
+    a.r([0, -0.17, 0.045], [0.17, 0.12, 0.09], "paint_cream", "case", 0.03)                     # the waist
+    a.r([0, -0.33, 0.045], [0.25, 0.22, 0.09], "paint_cream", "case", 0.06)                     # the lower bout
+    a.cyl([0, -0.44, 0.045], 0.06, 0.03, "brass", "case", top=0.4, seg=10, rot=[180, 0, 0])      # bottom finial
+    a.cyl([0, 0.03, 0.101], 0.24, 0.008, "brass", "case", seg=24, rot=[90, 0, 0])               # bezel
+    a.cyl([0, 0.03, 0.108], 0.21, 0.012, "dial_enamel", "case", top=0.8, seg=24, rot=[-90, 0, 0])   # convex enamel dial
+    for k in range(12):   # hour marks
+        ang = math.radians(30 * k)
+        a.r([0.085 * math.sin(ang), 0.03 + 0.085 * math.cos(ang), 0.115], [0.006, 0.014, 0.002], "iron", "case", 0.0005, rot=[0, 0, -30 * k])
+    a.r([0, 0.055, 0.118], [0.006, 0.055, 0.002], "iron", "case", 0.0008)                       # hands
+    a.r([0.028, 0.03, 0.119], [0.06, 0.005, 0.002], "iron", "case", 0.0008)
+    a.cyl([0, 0.03, 0.124], 0.22, 0.004, "glass", "glass", seg=24, rot=[90, 0, 0])
+    for (x, y, m) in ((-0.1, 0.12, "paint_flower_pink"), (0.1, 0.12, "paint_flower_pink"), (-0.08, -0.28, "paint_flower_pink"), (0.07, -0.38, "paint_flower_pink"),
+                      (-0.11, 0.1, "paint_leaf"), (0.12, 0.1, "paint_leaf"), (-0.06, -0.3, "paint_leaf"), (0.09, -0.36, "paint_leaf")):   # painted flowers
+        a.cyl([x, y, 0.096], 0.03 if m == "paint_flower_pink" else 0.018, 0.003, m, "case", seg=8, rot=[90, 0, 0])
+    a.r([0, -0.3, 0.092], [0.1, 0.14, 0.004], "glass", "glass", 0.001)                          # pendulum window
+    a.r([0, -0.27, 0.085], [0.006, 0.12, 0.004], "brass", "case", 0.002)                        # rod
+    a.cyl([0, -0.34, 0.086], 0.07, 0.008, "brass", "case", seg=16, rot=[90, 0, 0])              # bob
     return a.write(root, [0.32, 0.11], fragments=["case"], keep=[], glass="glass")
 
 
@@ -1252,10 +1331,14 @@ def portrait(root):
 
 
 def wall_shelf(root):
-    a = A("furn_wall_shelf", "Wall shelf", "A single pine board on two shaped brackets; small things stand on it (the board is its collider).", "wood", 3, 10, wall=True, front=0.0, mount=1.45)
+    a = A("furn_wall_shelf", "Wall shelf", "A single pine board (0.9 x 0.26 m) on two ogee-cut brackets, its front edge worn pale; small things stand on it (the board is its collider).", "wood", 3, 10, wall=True, front=0.0, mount=1.45)
     a.r([0, 0.0, 0.13], [0.9, 0.025, 0.26], "pine", "board", 0.004)
-    for sx in (-1, 1):   # shaped brackets: tall at the wall, sweeping out under the board
-        a.wedge([sx * 0.36, -0.1, 0.07], [0.025, 0.18, 0.14], "pine", "brackets", top=0.2, rot=[180, 180, 0])
+    a.r([0, 0.0, 0.258], [0.88, 0.022, 0.006], "pine_worn", "board", 0.002)                         # the worn front edge
+    for sx in (-1, 1):   # ogee brackets: a convex sweep under a concave one, cut from one board
+        x = sx * 0.36
+        a.r([x, -0.09, 0.012], [0.025, 0.18, 0.024], "pine", "brackets", 0.003)
+        a.arch([x, -0.09, 0.07], [0.025, 0.09, 0.12], "pine", "brackets", th=0.05, fill=True, rot=[0, 90, 0])
+        a.arch([x, -0.15, 0.04], [0.025, 0.05, 0.06], "pine", "brackets", th=0.03, fill=True, rot=[0, 90, 180])
     a.col([0, 0.0, 0.13], [0.9, 0.025, 0.26])
     return a.write(root, [0.9, 0.26], fragments=["board"], keep=["brackets"], surfaces=[[-0.43, 0.02, 0.43, 0.25, 0.0125]])
 
@@ -1286,8 +1369,18 @@ def jars(root):
 
 
 def jar(a, x, y, z, h, d, m):
-    """P1: preserving jar standing at y: the preserve, the glass with a shoulder, a zinc screw lid with a rim."""
+    """P1: preserving jar standing at y: the preserve, the glass with a shoulder, a zinc screw lid with a rim.
+    PR5: halved fruit pressed against the glass (apricots, plums or beans by the preserve's colour)."""
     a.cyl([x, y + (h - 0.03) / 2 + 0.004, z], d * 0.88, h - 0.03, m, "jars", seg=14)
+    fruit = {"preserve_amber": "fruit_apricot", "preserve_red": "fruit_plum", "preserve_green": "fruit_bean"}.get(m)
+    if fruit:
+        for k in range(3):
+            ang = math.radians(60 + k * 100)
+            fy = y + 0.03 + k * (h - 0.07) / 3
+            if fruit == "fruit_bean":
+                a.r([x + math.cos(ang) * d * 0.4, fy, z + math.sin(ang) * d * 0.4], [0.012, 0.045, 0.012], fruit, "jars", 0.005, rot=[0, 0, 15 * (k - 1)])
+            else:
+                a.r([x + math.cos(ang) * d * 0.38, fy, z + math.sin(ang) * d * 0.38], [0.034, 0.03, 0.034], fruit, "jars", 0.014)
     a.cyl([x, y + (h - 0.02) / 2, z], d, h - 0.02, "jar_glass", "glass", seg=14)
     a.cyl([x, y + h - 0.012, z], d, 0.016, "jar_glass", "glass", top=0.82, seg=14)
     a.cyl([x, y + h + 0.002, z], d * 0.86, 0.014, "zinc", "jars", seg=14)
@@ -1339,16 +1432,20 @@ def pot(root):
 
 
 def candlesticks(root):
-    a = A("furn_candlesticks", "Candlesticks", "A pair of brass candlesticks with half-burnt candles.", "metal", 0, 6, blocking=False, front=0.0)
-    for i, x in enumerate((-0.07, 0.07)):
-        a.cyl([x, 0.012, 0], 0.09, 0.024, "brass", "sticks", top=0.6, seg=14)                       # domed foot
-        a.cyl([x, 0.09, 0], 0.022, 0.14, "brass", "sticks", top=0.8, seg=10)                         # stem
-        a.r([x, 0.07, 0], [0.034, 0.03, 0.034], "brass", "sticks", 0.014)                            # knop
-        a.r([x, 0.135, 0], [0.028, 0.024, 0.028], "brass", "sticks", 0.011)                          # PR3: upper knop
-        a.cyl([x, 0.168, 0], 0.05, 0.016, "brass", "sticks", top=1.0, seg=12)                        # drip pan
-        a.cyl([x, 0.24 - 0.03 * i, 0], 0.022, 0.12 - 0.06 * i, "wax", "sticks", seg=10)
-        top = 0.24 - 0.03 * i + (0.12 - 0.06 * i) / 2
-        a.r([x, top + 0.016, 0], [0.008, 0.026, 0.004], "flame", "flames", 0.0018)   # L3
+    a = A("furn_candlesticks", "Candlesticks", "A pair of 30 cm brass candlesticks (square feet stepping round, knopped balusters, drip pans), candles burnt to different heights with drips.", "metal", 0, 6, blocking=False, front=0.0)
+    for i, x in enumerate((-0.065, 0.065)):
+        a.r([x, 0.006, 0], [0.085, 0.012, 0.085], "brass", "sticks", 0.003)                         # square foot
+        a.cyl([x, 0.018, 0], 0.075, 0.012, "brass", "sticks", top=0.75, seg=14)                     # stepping round
+        a.cyl([x, 0.032, 0], 0.05, 0.016, "brass", "sticks", top=0.6, seg=12)
+        for y, dd in ((0.06, 0.036), (0.11, 0.03), (0.16, 0.034)):                                   # baluster with knops
+            a.cyl([x, y + 0.025, 0], 0.02, 0.05, "brass", "sticks", top=0.85, seg=10)
+            a.r([x, y, 0], [dd, 0.022, dd], "brass", "sticks", 0.01)
+        a.cyl([x, 0.2, 0], 0.045, 0.012, "brass", "sticks", top=1.0, seg=12)                        # bobeche
+        h = 0.12 if i == 0 else 0.07
+        a.cyl([x, 0.206 + h / 2, 0], 0.022, h, "wax", "sticks", seg=10)
+        a.r([x + 0.009, 0.206 + h * 0.6, 0.009], [0.007, h * 0.5, 0.005], "wax", "sticks", 0.003)  # a drip
+        a.cyl([x, 0.21 + h, 0], 0.003, 0.01, "wick", "sticks", seg=5)
+        a.r([x, 0.225 + h, 0], [0.008, 0.024, 0.004], "flame", "flames", 0.0018)
     a.light = {"color": [1.0, 0.62, 0.3], "intensity": 0.22, "radius": 3.0, "offset": [0, 0.28, 0], "flicker": 0.28, "group": "flames", "use": "interior"}
     return a.write(root, [0.24, 0.1], fragments=[], keep=[])
 

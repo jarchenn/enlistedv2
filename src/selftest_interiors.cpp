@@ -116,6 +116,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
   auto push = [&](const std::string& n, std::function<bool(App&, float)> f, float limit = 30) { seq.push_back({n, f, limit}); };
   if (stage == 2800) {
     reportName = "interiors";
+    _putenv_s("NMK_FURNISH_NOCACHE", "1");   // FUR1: the room stats checked below come from planning, not a cached replay
     const TemplateInfo* t = app.findTemplate("blank_slate");
     app.newMap(*t, "Interior checks");
     seq.clear(); cur = 0; tcur = 0;

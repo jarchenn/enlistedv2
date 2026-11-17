@@ -16,7 +16,11 @@
 #include <fstream>
 
 namespace {
-struct Shot { std::string id; bool aim = false; vec3 at{0}; uint64_t inst = 0; float near = -1; };
+struct Shot { std::string id; bool aim = false; vec3 at{0}; uint64_t inst = 0; float near = -1; bool fixed = false; vec3 eye{0}, look{0}; };
+void turnedBounds(vec3 bmin, vec3 bmax, float yaw, vec3& mn, vec3& mx) {   // the box round a piece's bounds turned by yaw
+  quat q = yawQuat(yaw); mn = vec3(1e9f); mx = vec3(-1e9f);
+  for (int k = 0; k < 8; ++k) { vec3 p = q * vec3(k & 1 ? bmax.x : bmin.x, k & 2 ? bmax.y : bmin.y, k & 4 ? bmax.z : bmin.z); mn = glm::min(mn, p); mx = glm::max(mx, p); }
+}
 bool modelBakedFor(const std::string& id) {   // a piece drawn by an imported model: furniture_models.json names one and its bake is on disk
   json f = furnitureModelFor(id); if (f.is_null()) return false;
   std::error_code ec; return fs::exists(contentDir() / "assets" / "models" / f.value("dir", id) / "mesh.bin", ec);
@@ -37,42 +41,90 @@ bool capturePropsSelfTest(App& a, float dt) {
     const TemplateInfo* t = a.findTemplate(mid); if (!t) { logf("[capture-map] no template %s", mid.c_str()); return finish(1); }
     a.newMap(*t, "Map capture");
     std::map<uint64_t, std::vector<const Instance*>> kids; int pieces = 0, byModel = 0, hand = 0, handModel = 0, user = 0;
-    std::map<std::string, int> userIds;
+    std::map<std::string, int> userIds, inHouse;   // inHouse: generated pieces still drawn in-house, by id (what to model next)
     for (auto& i : a.doc.instances) {
       bool fp = isFurnishPiece(i);
       if (!fp && i.assetId.rfind("furn_", 0) != 0) continue;
       bool m = modelBakedFor(i.assetId);
-      if (fp) { ++pieces; byModel += m; kids[i.extra["furnish"].value("host", (uint64_t)0)].push_back(&i); } else { ++hand; handModel += m; }
+      if (fp) { ++pieces; byModel += m; kids[i.extra["furnish"].value("host", (uint64_t)0)].push_back(&i); if (!m) ++inHouse[i.assetId]; } else { ++hand; handModel += m; }
       json f = furnitureModelFor(i.assetId);
       if (!f.is_null() && f.value("src", std::string()).rfind("frsrc_u_", 0) == 0) { ++user; ++userIds[i.assetId]; }
     }
-    json cj = {{"map", mid}, {"furnished_buildings", kids.size()}, {"generated_pieces", pieces}, {"generated_by_model", byModel}, {"hand_placed_furn", hand}, {"hand_placed_by_model", handModel}, {"user_model_pieces", user}, {"user_model_ids", userIds}};
+    json cj = {{"map", mid}, {"furnished_buildings", kids.size()}, {"generated_pieces", pieces}, {"generated_by_model", byModel}, {"hand_placed_furn", hand}, {"hand_placed_by_model", handModel}, {"user_model_pieces", user}, {"user_model_ids", userIds}, {"in_house_ids", inHouse}};
     logf("[capture-map] %s: %zu furnished buildings, %d generated pieces (%d drawn by an imported model, %d in-house), %d hand-placed furn_* (%d by a model), %d of the user's models", mid.c_str(), kids.size(), pieces, byModel, pieces - byModel, hand, handModel, user);
-    // three buildings: a house, an inn / cafe, the largest (most pieces)
+    a.syncRuntime();
+    // three rooms (PR5 follow-up): a bedroom with one of the user's beds, a sitting room with a sofa / armchair / piano,
+    // one more room with a replaced piece; intact buildings first, each room from a different building where possible
     auto has = [](const std::string& id, std::initializer_list<const char*> ws) { for (auto w : ws) if (id.find(w) != std::string::npos) return true; return false; };
-    std::vector<std::pair<uint64_t, std::string>> pick; std::set<uint64_t> used;
-    std::set<std::string> usedTypes;
-    auto choose = [&](std::function<bool(const std::string&)> ok, const char* why) {   // intact buildings first; a ruined town (Newtown) has only ruins
-      for (int ruins = 0; ruins < 2; ++ruins) {
-        uint64_t best = 0; size_t bn = 0;
-        for (auto& [hid, v] : kids) { Instance* h = a.doc.find(hid); if (!h || used.count(hid) || usedTypes.count(h->assetId) || !ok(h->assetId) || (!ruins && has(h->assetId, {"ruin"}))) continue; if (v.size() > bn) { bn = v.size(); best = hid; } }
-        if (best) { used.insert(best); usedTypes.insert(a.doc.find(best)->assetId); pick.push_back({best, why}); return; }
-      }
-    };
-    choose([&](const std::string& id) { return has(id, {"farmhouse", "cottage", "townhouse", "terrace", "villa_", "manor", "longhouse", "notary", "house_", "_house"}) && !has(id, {"school", "store", "ware"}); }, "house");
-    choose([&](const std::string& id) { return has(id, {"inn", "cafe", "tavern", "diner", "bistro", "restaurant", "bakery", "shop"}); }, "inn / cafe / shop");
-    choose([&](const std::string&) { return true; }, "largest");
-    for (auto& [hid, why] : pick) {
-      Instance* h = a.doc.find(hid); const AssetDef* ha = a.assetFor(*h); const RoomInfo* ri = a.interior.rooms(ha);
-      if (!ri || ri->rooms.empty()) continue;
-      const RoomInfo::Room* best = nullptr;
-      for (auto& R : ri->rooms) if (R.storey == 0 && (!best || R.area > best->area)) best = &R;
-      if (!best) best = &ri->rooms[0];
-      Shot s; s.id = ha->id + " (" + why + ")"; s.inst = hid; s.aim = true;
-      s.at = vec3((best->mn.x + best->mx.x) * 0.5f, best->y0 + 1.0f, (best->mn.y + best->mx.y) * 0.5f);
-      s.near = std::max(0.6f, 0.42f * std::min(best->mx.x - best->mn.x, best->mx.y - best->mn.y));   // inside the room
-      gShots.push_back(s);
+    auto isUser = [&](const std::string& id) { json f = furnitureModelFor(id); return !f.is_null() && f.value("src", std::string()).rfind("frsrc_u_", 0) == 0; };
+    std::map<std::pair<uint64_t, int>, std::vector<const Instance*>> rooms;
+    for (auto& [hid, v] : kids) for (const Instance* p : v) {
+      std::string sl = p->extra["furnish"].value("slot", std::string());
+      if (sl.size() < 3 || sl[0] != 'r') continue;
+      rooms[{hid, std::atoi(sl.c_str() + 1)}].push_back(p);
     }
+    std::set<uint64_t> usedHost;
+    auto pickRoom = [&](std::function<int(const std::vector<const Instance*>&)> score, const char* why, std::function<bool(const std::string&)> focus) {
+      std::pair<uint64_t, int> best{0, 0}; int bs = 0;
+      for (int pass = 0; pass < 2 && !bs; ++pass)
+        for (auto& [key, v] : rooms) {
+          Instance* h = a.doc.find(key.first); if (!h || (!pass && (usedHost.count(key.first) || has(h->assetId, {"ruin"})))) continue;
+          int sc = score(v); if (sc > bs) { bs = sc; best = key; }
+        }
+      if (!bs) return;
+      usedHost.insert(best.first);
+      Instance* h = a.doc.find(best.first); const AssetDef* ha = a.assetFor(*h); const RoomInfo* ri = a.interior.rooms(ha);
+      if (!ri || best.second >= (int)ri->rooms.size()) return;
+      const auto& R = ri->rooms[best.second]; const auto& S = ri->storeys[R.storey];
+      quat hq = yawQuat(h->yaw), iq = glm::inverse(hq);
+      // the subject: the piece the room was picked for (a user bed, the seating / piano), else the modelled pieces' centre
+      std::vector<vec3> pts, mod; std::vector<std::pair<vec3, vec3>> boxes;
+      for (const Instance* p : rooms[best]) {
+        vec3 l = iq * (p->pos - h->pos);
+        if (focus(p->assetId)) pts.push_back(l); if (modelBakedFor(p->assetId)) mod.push_back(l);
+        const AssetDef* pa = a.assetFor(*p); const PropDef* pd = pa ? a.interior.prop(pa) : nullptr;
+        if (pd && !pd->flat()) { vec3 mn, mx; turnedBounds(pd->bmin, pd->bmax, wrapDeg(p->yaw - h->yaw), mn, mx); boxes.push_back({mn + l, mx + l}); }
+      }
+      if (pts.empty()) pts = mod; if (pts.empty()) return;
+      vec3 c(0); for (auto& q : pts) c += q; c /= (float)pts.size();
+      // a standing point on the room's own floor: 0.5 m clear of its walls and 0.6 m from any piece, as far from the
+      // furniture as the room allows (looking across it, never into a wall)
+      const int rr = (int)std::ceil(0.5f / ri->cell);
+      vec2 cam(0); float bd = -1e9f;
+      for (int j0 = 0; j0 < S.nz; ++j0) for (int i0 = 0; i0 < S.nx; ++i0) {
+        if (S.id[(size_t)j0 * S.nx + i0] != best.second) continue;
+        bool clear = true;
+        for (int dj = -rr; dj <= rr && clear; ++dj) for (int di = -rr; di <= rr && clear; ++di) {
+          int i = i0 + di, j = j0 + dj; if (i < 0 || j < 0 || i >= S.nx || j >= S.nz || S.id[(size_t)j * S.nx + i] != best.second) clear = false;
+        }
+        if (!clear) continue;
+        vec2 q(S.o.x + (i0 + 0.5f) * ri->cell, S.o.y + (j0 + 0.5f) * ri->cell);
+        for (auto& b : boxes) if (q.x > b.first.x - 0.35f && q.x < b.second.x + 0.35f && q.y > b.first.z - 0.35f && q.y < b.second.z + 0.35f) clear = false;   // clear of every piece's footprint
+        if (!clear) continue;
+        float d = glm::length(q - vec2(c.x, c.z));
+        if (d < 1.4f) continue;
+        // a clear line of sight from standing height to the subject (nothing tall in between), about 3 m away
+        vec3 e = h->pos + hq * vec3(q.x, R.y0 + 1.6f, q.y), t = h->pos + hq * vec3(c.x, R.y0 + 0.7f, c.z);
+        Physics::Hit ph; float L = glm::length(t - e);
+        bool seen = !Physics::castRayEx(e, (t - e) / L, L - 0.6f, ph);
+        float sc = (seen ? 10.0f : 0.0f) - std::fabs(d - 3.0f);
+        if (sc > bd) { bd = sc; cam = q; }
+      }
+      if (bd < -1e8f) return;
+      Shot s; s.id = ha->id + " " + roomTypeKey(R.type) + " (" + why + ")"; s.inst = best.first; s.fixed = true;
+      s.eye = h->pos + hq * vec3(cam.x, R.y0 + 1.6f, cam.y); s.look = h->pos + hq * vec3(c.x, R.y0 + 0.65f, c.z);
+      gShots.push_back(s);
+    };
+    auto count = [&](const std::vector<const Instance*>& v, std::function<bool(const std::string&)> f) { int n = 0; for (auto* p : v) n += f(p->assetId); return n; };
+    pickRoom([&](const std::vector<const Instance*>& v) {   // a bedroom with one of the user's beds (else a modelled bed)
+      int ub = count(v, [&](const std::string& id) { return has(id, {"_bed", "bunk"}) && isUser(id); }), mb = count(v, [&](const std::string& id) { return has(id, {"_bed", "bunk"}) && modelBakedFor(id); });
+      return ub * 100 + mb * 10 + (ub + mb ? count(v, modelBakedFor) : 0); }, "user bed", [&](const std::string& id) { return has(id, {"_bed", "bunk"}) && modelBakedFor(id); });
+    pickRoom([&](const std::vector<const Instance*>& v) {   // a sitting room with a sofa / armchair / piano / TV by a model
+      int u = count(v, [&](const std::string& id) { return has(id, {"sofa", "armchair", "chair_", "piano", "settee", "chesterfield", "_tv", "synth"}) && isUser(id); });
+      int m = count(v, [&](const std::string& id) { return has(id, {"sofa", "armchair", "piano", "settee", "chesterfield", "_tv"}) && modelBakedFor(id); });
+      return u * 100 + m * 10 + (u + m ? count(v, modelBakedFor) : 0); }, "seating, piano", [&](const std::string& id) { return has(id, {"sofa", "armchair", "chair_", "piano", "settee", "chesterfield", "_tv", "synth"}) && modelBakedFor(id); });
+    pickRoom([&](const std::vector<const Instance*>& v) { return count(v, modelBakedFor); }, "most modelled pieces", [&](const std::string& id) { return modelBakedFor(id); });
+    a.hideEditorOverlays = true;   // no gizmos, markers or nav lines in the shots
     { std::ofstream f(out("map_counts.json")); f << cj.dump(1); }
     a.syncRuntime();
     Settings& S = settings(); S.s.hour = 14.0f; S.apply(a);
@@ -123,7 +175,10 @@ bool capturePropsSelfTest(App& a, float dt) {
   if (gK >= (int)gShots.size() * 2) { a.hideUi = false; logf("[capture-props] %d shots", nearOnly ? gK / 2 : gK); return finish(0); }
   Shot& s = gShots[gK / 2]; bool far = gK % 2;
   Instance* inst = a.doc.find(s.inst); auto rt = a.rt.find(s.inst);
-  if (inst && rt != a.rt.end() && rt->second.asset) {
+  if (s.fixed) {   // PR5: a camera placed inside a room, looking at its furniture
+    vec3 v = s.look - s.eye;
+    a.camPos = s.eye; a.camYaw = glm::degrees(std::atan2(-v.x, -v.z)); a.camPitch = glm::degrees(std::atan2(v.y, glm::length(vec2(v.x, v.z))));
+  } else if (inst && rt != a.rt.end() && rt->second.asset) {
     const AssetDef& as = *rt->second.asset;
     vec3 c = s.aim ? s.at : (as.bmin + as.bmax) * 0.5f;
     vec3 tgt = inst->pos + yawQuat(inst->yaw) * c;
