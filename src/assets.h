@@ -32,7 +32,11 @@ struct Part {
   // ROUND: a box with every edge rounded by `rad` (render and collision). CYL / ARCH / WEDGE fill their bounding box
   // (center, size, rot): CYL = cylinder, cone, frustum or spire along local y; ARCH = arch ring, vault or spandrel
   // standing on the box's bottom face, extruded along local z; WEDGE = a slope falling toward local +z (docs/asset-format.md#b1-geometry-kit)
-  enum Shape { BOX, PRISM, ROUND, CYL, ARCH, WEDGE } shape = BOX;
+  // SOFT (PR4): cloth and upholstery, filling its box exactly (so colliders and envelopes are the box's). "s" puff: a
+  // subdivided rounded box with a domed top / bottom, a centre dent, sag, tufting, a piped seam and wrinkles (pillows,
+  // mattresses, cushions); "d" drape: a sheet over a support whose sides fall in folds to an irregular hem (duvets,
+  // throws, bedspreads, curtains); docs/asset-format.md#soft-parts
+  enum Shape { BOX, PRISM, ROUND, CYL, ARCH, WEDGE, SOFT } shape = BOX;
   vec3 center{0}, size{1};
   quat rot{1, 0, 0, 0};
   int mat = 0;
@@ -50,6 +54,7 @@ struct Part {
   float th = 0.25f;  // ARCH "th": ring thickness (crown thickness when `fill`)
   bool fill = false; // ARCH "fill": the solid between the box's rectangle and the intrados (a spandrel over an opening)
   int seg = 0;     // CYL / ARCH "seg": curve segments, 0 = by size
+  struct Soft { bool drape = false; float puff = 0, dent = 0, sag = 0, tuft = 0, pipe = 0, wr = 0, drop = 0, th = 0.02f, fold = 0.3f, pleat = 0; int tx = 0, tz = 0, sides = 15; uint32_t seed = 0; } soft;
   bool lodDetail = false;   // "lod": 1 - purely visual detail (trim, relief, dressing): dropped from the asset's LOD meshes (PF2)
 };
 // Convex pieces of a CYL / ARCH / WEDGE part in its local frame (relative to center, before rot): its colliders.

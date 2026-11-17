@@ -1,0 +1,127 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.7621053457260132,
+  1.2359442710876465,
+  1.074735164642334
+ ],
+ "bmin": [
+  -0.7621053457260132,
+  2.040782055701129e-05,
+  -1.074735164642334
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "aoInMR": true,
+   "mr": "mr_1.jpg",
+   "name": "bed_wood_material",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_5.jpg",
+   "aoInMR": true,
+   "mr": "mr_4.jpg",
+   "name": "bed_mattres_material",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "albedo": "albedo_8.jpg",
+   "aoInMR": true,
+   "mr": "mr_7.jpg",
+   "name": "bed_pillow_material",
+   "normal": "normal_6.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.7621053457260132,
+    1.2359442710876465,
+    1.074735164642334
+   ],
+   "bmin": [
+    -0.7621053457260132,
+    2.040782055701129e-05,
+    -1.074735164642334
+   ],
+   "count": 25674,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "victorian_bed_wood_bed_wood_material_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.7251386046409607,
+    0.7373090386390686,
+    1.0221283435821533
+   ],
+   "bmin": [
+    -0.7225700616836548,
+    0.2814987599849701,
+    -1.0027480125427246
+   ],
+   "count": 8328,
+   "first": 25674,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "victorian_bed_wood_bed_wood_material_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.7184255123138428,
+    1.031101942062378,
+    -0.44848549365997314
+   ],
+   "bmin": [
+    -0.6582000255584717,
+    0.6756924986839294,
+    -0.9806552529335022
+   ],
+   "count": 20529,
+   "first": 34002,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "victorian_bed_wood_bed_wood_material_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "frsrc_u_bed_victorian.glb",
+ "textures": {},
+ "triangles": 18177,
+ "vertices": 10885
+}

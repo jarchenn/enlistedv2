@@ -1,0 +1,61 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.6153033971786499,
+  0.734000027179718,
+  0.10185140371322632
+ ],
+ "bmin": [
+  -0.6153033971786499,
+  0.0,
+  -0.10185140371322632
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "aoInMR": true,
+   "mr": "mr_1.jpg",
+   "name": "phong1",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.6153033971786499,
+    0.734000027179718,
+    0.10185140371322632
+   ],
+   "bmin": [
+    -0.6153033971786499,
+    0.0,
+    -0.10185140371322632
+   ],
+   "count": 534,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "led_tv_phong1_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "frsrc_u_tv_led.glb",
+ "textures": {},
+ "triangles": 178,
+ "vertices": 174
+}

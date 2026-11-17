@@ -120,6 +120,19 @@ class A:
             self.groups.append(name)
         return self.groups.index(name)
 
+    def soft(self, t, c, s, m, grp, rot=None, **o):
+        """PR4: a soft part ("s" puff: pillows, mattresses, cushions; "d" drape: sheets, blankets, curtains), src/assets.cpp appendSoft;
+        the mesh fills the box exactly. o: puff, dent, sag, tuft / tx / tz, pipe, wr, fold, rad; drape: drop, th, sides."""
+        p = {"t": t, "c": [round(v, 4) for v in c], "s": [round(v, 4) for v in s], "m": m, "k": 0, "g": self.g(grp)}
+        for k, v in o.items():
+            p[k] = round(v, 4) if isinstance(v, float) else v
+        p.setdefault("seed", int(abs(c[0] * 977 + c[1] * 131 + c[2] * 613) * 1000) % 1000003)
+        if rot:
+            p["r"] = [round(v, 3) for v in rot]
+        self.parts.append(p)
+        self.used.add(m)
+        return p
+
     def r(self, c, s, m, grp, rad=0.006, rot=None):
         rad = min(rad, 0.5 * min(s) - 1e-4)
         p = {"t": "r" if rad > 0.0015 else "b", "c": [round(v, 4) for v in c], "s": [round(v, 4) for v in s], "m": m, "k": 0, "g": self.g(grp)}
@@ -732,9 +745,7 @@ def curtains(root):
     for sx in (-1, 1):
         a.r([sx * 0.765, 1.5, 0.06], [0.036, 0.036, 0.036], "iron", "rod", 0.017)              # ball finials
         a.r([sx * 0.7, 1.5, 0.03], [0.012, 0.012, 0.06], "iron", "rod", 0.003)                # wall brackets
-        for i in range(5):   # gathered folds: flattened round pleats, deeper toward the tie-back
-            x = sx * (0.64 - i * 0.04)
-            a.cyl([x, 0.78, 0.06 + 0.016 * (i % 2)], 0.05, 1.44, "curtain", f"side{(sx + 1) // 2}", dz=0.034 + 0.006 * i, seg=8)   # PR3: deeper pleats
+        a.soft("d", [sx * 0.56, 0.78, 0.068], [0.21, 0.07, 1.44], "curtain", f"side{(sx + 1) // 2}", rot=[90, 0, 0], sides=0, pleat=0.028, fold=0.055, wr=0.004, th=0.005, rad=0.01)   # PR4: gathered cloth in deep pleats
         a.cyl([sx * 0.56, 0.62, 0.075], 0.2, 0.025, "curtain", f"side{(sx + 1) // 2}", dz=0.05, seg=10)   # tie-back band
     return a.write(root, [1.5, 0.08], fragments=[], keep=["rod"])
 
@@ -1843,14 +1854,11 @@ def curtains_half(root):
     for sx in (-1, 1):
         a.r([sx * 0.765, 1.5, 0.06], [0.036, 0.036, 0.036], "iron", "rod", 0.017)
         a.r([sx * 0.7, 1.5, 0.03], [0.012, 0.012, 0.06], "iron", "rod", 0.003)
-    for i in range(5):   # left: gathered with a tie-back
-        x = -(0.64 - i * 0.04)
-        a.cyl([x, 0.78, 0.06 + 0.01 * (i % 2)], 0.05, 1.44, "curtain", "side0", dz=0.022 + 0.004 * i, seg=8)
+    a.soft("d", [-0.56, 0.78, 0.066], [0.21, 0.06, 1.44], "curtain", "side0", rot=[90, 0, 0], sides=0, pleat=0.024, fold=0.055, wr=0.004, th=0.005, rad=0.01)   # PR4: left, gathered
     a.cyl([-0.56, 0.62, 0.075], 0.2, 0.025, "curtain", "side0", dz=0.05, seg=10)
-    for i in range(10):   # right: drawn across to the middle, loose pleats, the leading edge swinging out a little
-        x = 0.7 - i * 0.075
-        a.cyl([x, 0.775, 0.06 + 0.014 * (i % 2)], 0.085, 1.45, "curtain", "side1", dz=0.026 + 0.006 * (i % 3), seg=8, rot=[0, 0, 0.6 * (i - 5) * 0.3])
-        a.cyl([x, 1.47, 0.062], 0.02, 0.025, "iron", "rod", seg=6, rot=[0, 0, 90])                    # rod rings
+    a.soft("d", [0.36, 0.775, 0.065], [0.74, 0.07, 1.4512], "curtain", "side1", rot=[90, 0, 0], sides=0, pleat=0.024, fold=0.085, wr=0.006, th=0.005, rad=0.01)   # PR4: right, drawn across in loose pleats
+    for i in range(10):
+        a.cyl([0.7 - i * 0.075, 1.47, 0.062], 0.02, 0.025, "iron", "rod", seg=6, rot=[0, 0, 90])                    # rod rings
     return gx2_write(a, root, [1.5, 0.08], fragments=[], keep=["rod"])
 
 

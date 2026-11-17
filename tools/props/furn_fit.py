@@ -54,20 +54,26 @@ assert abs(fit(([-0.5, 0, -0.5], [0.5, 1, 0.5]), [1.2, 1, 1], stretch=True)[4][0
 def main():
     reps = json.load(open(os.path.join(HERE, "furn_replace.json"), encoding="utf-8"))
     ph = json.load(open(os.path.join(HERE, "ph_props.json"), encoding="utf-8"))
+    user = json.load(open(os.path.join(HERE, "user_models.json"), encoding="utf-8")) if os.path.exists(os.path.join(HERE, "user_models.json")) else {}   # PR5
     out = {"_doc": json.load(open(OUT, encoding="utf-8")).get("_doc", "") if os.path.exists(OUT) else ""}
     bad = 0
     for aid, r in sorted(reps.items()):
         if aid.startswith("_"): continue
-        p = ph.get("ph_" + r["ph"].lower())
-        if not p: print("skip  %-26s ph_%s not imported" % (aid, r["ph"].lower())); bad += 1; continue
+        p = user.get(r["user"]) if "user" in r else ph.get("ph_" + r["ph"].lower())
+        if not p: print("skip  %-26s %s not imported" % (aid, r.get("user") or "ph_" + r["ph"].lower())); bad += 1; continue
         env = envelope(aid); t, s, err, rr, ax = fit(env, p["size"], r.get("turn"), r.get("stretch", False))
+        if r.get("exact"): t, s, err, ax = 0, 1.0, 0.0, [1, 1, 1]   # PR5: an asset made to the model's own size
         lo, hi = env
-        line = "%-26s <- %-28s turn %3d scale %.2f  axis ratios %s  worst %.0f %%" % (aid, r["ph"], t, s, [round(x / s, 2) for x in rr], err * 100)
+        mname = r.get("user") or r["ph"]
+        line = "%-26s <- %-28s turn %3d scale %.2f  axis ratios %s  worst %.0f %%" % (aid, mname, t, s, [round(x / s, 2) for x in rr], err * 100)
         if err > 0.30: print("REFUSE", line); bad += 1; continue
         print("ok    ", line)
-        out[aid] = {"_ref": "%s (Poly Haven, CC0): %s" % (r["ph"], r.get("why", "")), "src": "frsrc_%s.glb" % r["ph"].lower(), "dir": "fr_" + aid[5:],
+        src = "frsrc_u_%s.glb" % r["user"] if "user" in r else "frsrc_%s.glb" % r["ph"].lower()
+        ref = "%s (%s): %s" % (p.get("title", mname), "Sketchfab, " + p["license"] + (", LOCAL-ONLY" if p.get("local") else "") if "user" in r else "Poly Haven, CC0", r.get("why", ""))
+        tris = p.get("tris", 0)
+        out[aid] = {"_ref": ref, "src": src, "dir": "fr_" + aid[5:],
                     "pivot": "ground", "scale": round(s, 4), "rot": [0, t, 0], **({"axes": [round(a, 4) for a in ax]} if r.get("stretch") else {}), "offset": [round((lo[0] + hi[0]) / 2, 3), round(lo[1], 3), round((lo[2] + hi[2]) / 2, 3)],
-                    "jpgMaps": True, "maxTex": p["maxTex"], "simplify": 0.5, "lod1": 0.25, "lodDist": 12, "cullDist": 60, "credit": p["credit"]}
+                    "jpgMaps": True, "maxTex": p["maxTex"], "simplify": round(min(0.5, 20000.0 / tris), 3) if tris else 0.5, "lod1": 0.25, "lodDist": 12, "cullDist": 60, "credit": p["credit"]}
     if "--check" not in sys.argv:
         json.dump(out, open(OUT, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     print("written" if "--check" not in sys.argv else "checked", len(out) - 1, "refused / missing", bad)

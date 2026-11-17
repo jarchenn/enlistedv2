@@ -147,7 +147,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
         const PropDef* pd = a.interior.prop(as.get());
         if (!pd) { check(false, as->id + ": no prop block"); continue; }
         int round = 0, cols = 0;   // P1: chamfered boxes and the B1 curved parts (turnings, casks, arches, wedges) count as soft-edged
-        for (auto& p : as->parts) { round += p.shape == Part::ROUND || (p.shape == Part::BOX && p.bv > 0) || p.shape == Part::CYL || p.shape == Part::ARCH || p.shape == Part::WEDGE; cols += (!p.visible && p.collide); }
+        for (auto& p : as->parts) { round += p.shape == Part::ROUND || (p.shape == Part::BOX && p.bv > 0) || p.shape == Part::CYL || p.shape == Part::ARCH || p.shape == Part::WEDGE || p.shape == Part::SOFT; cols += (!p.visible && p.collide); }
         if (round * 2 >= (int)as->parts.size() - cols || pd->flat()) ++bevelled;
         if (pd->blocking ? (cols >= 1 && cols <= 3 && as->shape) : ((!as->shape && cols == 0) || (lightDef(as.get()) && cols <= 1))) ++blockingOk;   // L3: a lamp keeps one invisible box so rounds can shoot it out
         cosmetic += !pd->blocking;
@@ -260,7 +260,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
           }
           if (pd->mount > 0 || c->assetId == "furn_curtains") continue;   // wall-hung: checked by its support below
           vec3 at = c->pos; PlaceCheck pc = a.interior.checkPlacement(a, ca, at, c->yaw, c->id);
-          if (!pc.ok || std::fabs(pc.y - c->pos.y) > 0.03f) { ++bad; if (why.size() < 300) why += " " + c->assetId + ":" + pc.reason + " dy " + std::to_string(pc.y - c->pos.y); }
+          if (!pc.ok || std::fabs(pc.y - c->pos.y) > 0.03f) { ++bad; if (why.size() < 300) why += " " + c->assetId + "@" + slot + ":" + pc.reason + " dy " + std::to_string(pc.y - c->pos.y); }
         }
       std::snprintf(b_, sizeof b_, "%d generated pieces re-checked with the manual placement rules: %d invalid%s", n, bad, why.c_str());
       check(bad == 0, b_);

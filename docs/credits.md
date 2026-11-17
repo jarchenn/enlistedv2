@@ -658,3 +658,36 @@ cameras dropped, scaled to 1.8 m wide, textures to 1024 px) and baked into `cont
 | Asset | Model | Author | Licence | Source | In the repo |
 |---|---|---|---|---|---|
 | `smithing_table` | Crafting Bench | Matt LeMoine (https://sketchfab.com/Matt_LeMoine) | CC-BY-4.0 (the GLB `asset.extras`) | https://sketchfab.com/3d-models/crafting-bench-80886d6fd9844a35bf78a25e31c41705 | yes |
+<!-- user_models: written by tools/props/user_models.py -->
+Furniture models the user supplied (Sketchfab downloads; licence, author and source read from each file's own metadata). A local-only model is not in the repository: the committed game shows its box stand-in.
+
+| Asset | Model | Author | Licence | Source | In the repo |
+|---|---|---|---|---|---|
+| `furn_mod_bed_low` | Bed | khanhnguyen1189 | CC-BY-4.0 | https://sketchfab.com/3d-models/bed-403c4a48e5ea4a9fbbb9a096d90973af | yes |
+| `furn_mod_bed_panel` | Bed | rerwandi | CC-BY-4.0 | https://sketchfab.com/3d-models/bed-352f853f03194e9dac551e2c8afe7d1a | yes |
+| `furn_bed_victorian` | Victorian Bed | BATRIC_18 | CC-BY-4.0 | https://sketchfab.com/3d-models/victorian-bed-c56b0776992041648ba5c1615f6e1fed | yes |
+| `furn_bed_rustic` | Old Bed | donnichols | CC-BY-4.0 | https://sketchfab.com/3d-models/old-bed-210be84bcb5449f5a9f66a923c8ae307 | yes |
+| `furn_mod_bunk_pine` | Simple Bunk Bed | Blender3D | CC-BY-4.0 | https://sketchfab.com/3d-models/simple-bunk-bed-9fb7c54715dd41b98b3dc67b367cf81d | yes |
+| `furn_mod_sofa3` | Sofa_3230 | vasycrukov | CC-BY-4.0 | https://sketchfab.com/3d-models/sofa-3230-a13c1053ff894d4fa0a6aeb1bb90e8fc | yes |
+| `furn_mod_sofa2` | Sofa 202205_001 | vegu | CC-BY-4.0 | https://sketchfab.com/3d-models/sofa-202205-001-86a1883d07c441178d4e5cc7a14bf14f | yes |
+| `furn_mod_sofa_grey` | Grey Sofa | Raphael Escamilla | CC-BY-4.0 | https://sketchfab.com/3d-models/grey-sofa-e94e15859aff4c5ebf4791c46ab8ba42 | yes |
+| `furn_mod_sofa_corner` | Corner Sofa | trystyrobot | CC-BY-4.0 | https://sketchfab.com/3d-models/corner-sofa-f22ab377c8eb434dbe99a1206a49129d | yes |
+| `furn_sofa_chesterfield` | Sofa Free | Siba Santosh Das | CC-BY-4.0 | https://sketchfab.com/3d-models/sofa-free-390569666228446497925add777257d7 | yes |
+| `furn_armchair_wing` | Living room sofa / Furniture | maxsbond.work | CC-BY-4.0 | https://sketchfab.com/3d-models/living-room-sofa-furniture-086be698bca14d7791d9032884909954 | yes |
+| `furn_mod_chair_tufted` | Modern Upholstered Armchair - 4096px² | Mark Peters | CC-BY-4.0 | https://sketchfab.com/3d-models/modern-upholstered-armchair-4096px2-fd402ff0f1654eb4b5ec20a832b6895c | yes |
+| `furn_mod_chair_white` | Old Sofa | Amad Junaid | CC-BY-4.0 | https://sketchfab.com/3d-models/old-sofa-8b29d94e25744685870d623065f48026 | yes |
+| `furn_mod_chair_egg` | Sofa | andree | CC-BY-4.0 | https://sketchfab.com/3d-models/sofa-70eee625ecd3492d93a8a8f2de5aa6c1 | yes |
+| `furn_mod_chair_bowl` | sofa | Jagguz_wrld | CC-BY-4.0 | https://sketchfab.com/3d-models/sofa-807266eec4474ea0b3c3fd6fa495876f | yes |
+| `furn_mod_chair_woodframe` | Sofa_LowPoly | LEE2021 | CC-BY-4.0 | https://sketchfab.com/3d-models/sofa-lowpoly-364c6721c1c04f39ae6b2ac2bd442425 | yes |
+| `furn_chair_soviet` | Old soviet chair | Annelida | CC-BY-4.0 | https://sketchfab.com/3d-models/old-soviet-chair-98676dcb658f432db40881f4ff39f509 | yes |
+| `furn_stool_metal` | Old Stool | MaX3Dd | SKETCHFAB Standard | https://sketchfab.com/3d-models/old-stool-12d1291f61d743829717cbfa363be474 | no (local-only) |
+| `furn_mod_tv_led` | Led Tv | Daniyal Malik | CC-BY-4.0 | https://sketchfab.com/3d-models/led-tv-014e75456b4e465b9cecd1b136a0312b | yes |
+| `furn_mod_tv_flat` | Tv | Algirdas Lalys | CC-BY-4.0 | https://sketchfab.com/3d-models/tv-928c4eb3c875463bbde6fda85b7d8b3a | yes |
+| `furn_mod_tv_crt` | Old TV | shadowowy | CC-BY-4.0 | https://sketchfab.com/3d-models/old-tv-7cef86bade2b447d841c333bcab9287c | yes |
+| `furn_mod_tv_bench` | TV Bench / TV Table / TV Stand Wood | slls666 | CC-BY-4.0 | https://sketchfab.com/3d-models/tv-bench-tv-table-tv-stand-wood-b03d3365cd604e758b49c41aa652068d | yes |
+| `furn_cash_register` | cash register | pokhodenkodana | CC-BY-4.0 | https://sketchfab.com/3d-models/cash-register-6a886e1e1bf648ae84b688261b491ebc | yes |
+| `furn_mod_plant_pot` | Plant Pot | Pixel Life | CC-BY-4.0 | https://sketchfab.com/3d-models/plant-pot-ae825dd0d3c5437a953b4236d6cef08b | yes |
+| `furn_piano` | Black Piano | Shaboldik | CC-BY-4.0 | https://sketchfab.com/3d-models/black-piano-19b494e186d0402e818254958d2fed75 | yes |
+| `furn_mod_synth` | Synthesizer free | Gerhald | CC-BY-4.0 | https://sketchfab.com/3d-models/synthesizer-free-2e326ce54187420c8598fa0404697bdc | yes |
+| `furn_sacks_burlap` | Burlap Bags | carlcapu9 | CC-BY-4.0 | https://sketchfab.com/3d-models/burlap-bags-5d8a0e888c1246c788669749056c03d3 | yes |
+<!-- /user_models -->

@@ -635,7 +635,7 @@ const InteriorSys::CpuMesh& InteriorSys::cpuMesh(const AssetDef* a) {
     if (!p.visible || p.mat < 0 || p.mat >= (int)a->materials.size()) continue;
     const Material& m = a->materials[p.mat];
     if (m.pattern == PAT_GLASS) continue;
-    Part b = p; if (b.shape == Part::ROUND) b.shape = Part::BOX;
+    Part b = p; if (b.shape == Part::ROUND || b.shape == Part::SOFT) b.shape = Part::BOX;
     b.bv = 0; if (b.shape == Part::CYL && b.sides < 3) b.sides = 6;   // P1: chamfers and smooth turnings go flat and coarse in the LOD
     vec3 e = p.size;
     if (std::max({e.x, e.y, e.z}) > 0.06f || p.size.x * p.size.y * p.size.z > 2e-5f) appendPart(slot->lod, b, m, mat4(1));   // tiny bits (handles, nails) dropped far away
@@ -1329,7 +1329,15 @@ PlaceCheck InteriorSys::checkPlacement(App& app, const AssetDef* a, vec3 pos, fl
     if (!pd->blocking) he *= 0.5f;
     vec3 cen = probe.pos + q * ((pd->bmin + pd->bmax) * 0.5f) + vec3(0, 0.02f, 0);
     if (pd->mount > 0) cen += q * vec3(0, 0, 0.02f);
-    if (Physics::boxBlocked(cen, he, q, self)) { c.ok = false; c.reason = "Intersects a wall or other solid object."; return c; }
+    // PR5: as the rule says, only blocking furniture counts: a lamp or books on this piece's own top (below its back rail)
+    // are not in the way; the refusal names what is
+    Physics::Overlap ov[8]; int nov = Physics::boxOverlaps(cen, he, q, ov, 8, self);
+    for (int o = 0; o < nov; ++o) {
+      auto it = app.rt.find(ov[o].ud >> 16); const AssetDef* oa = it != app.rt.end() ? it->second.asset : nullptr; const PropDef* op = oa ? prop(oa) : nullptr;
+      if (op && !op->blocking) continue;
+      c.ok = false; c.reason = oa ? "Intersects " + oa->name + " (" + oa->id + ")." : "Intersects a wall or other solid object.";
+      return c;
+    }
   }
   // keep-clear volumes of the building it stands in: doors, stairs, windows (above the sill)
   if (Instance* host = hostAt(app, probe.pos + vec3(0, 0.3f, 0))) {

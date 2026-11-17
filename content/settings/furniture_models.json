@@ -24,6 +24,30 @@
   "cullDist": 60,
   "credit": "Green Chair 01 by Kirill Sannikov, Poly Haven (polyhaven.com/a/GreenChair_01), CC0"
  },
+ "furn_armchair_wing": {
+  "_ref": "Living room sofa / Furniture (Sketchfab, CC-BY-4.0): PR5: the user's model (Living room sofa / Furniture)",
+  "src": "frsrc_u_armchair_wing.glb",
+  "dir": "fr_armchair_wing",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.171,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Living room sofa / Furniture by maxsbond.work, Sketchfab (https://sketchfab.com/3d-models/living-room-sofa-furniture-086be698bca14d7791d9032884909954), CC-BY-4.0"
+ },
  "furn_barrel": {
   "_ref": "wine_barrel_01 (Poly Haven, CC0): oak cask, real staves and hoops",
   "src": "frsrc_wine_barrel_01.glb",
@@ -101,6 +125,54 @@
   "cullDist": 60,
   "credit": "Old Bed Frame by Luca B, Poly Haven (polyhaven.com/a/old_bed_frame), CC0"
  },
+ "furn_bed_rustic": {
+  "_ref": "Old Bed (Sketchfab, CC-BY-4.0): PR5: the user's model (Old Bed)",
+  "src": "frsrc_u_bed_rustic.glb",
+  "dir": "fr_bed_rustic",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 2048,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Old Bed by donnichols, Sketchfab (https://sketchfab.com/3d-models/old-bed-210be84bcb5449f5a9f66a923c8ae307), CC-BY-4.0"
+ },
+ "furn_bed_victorian": {
+  "_ref": "Victorian Bed (Sketchfab, CC-BY-4.0): PR5: the user's model (Victorian Bed)",
+  "src": "frsrc_u_bed_victorian.glb",
+  "dir": "fr_bed_victorian",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 2048,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Victorian Bed by BATRIC_18, Sketchfab (https://sketchfab.com/3d-models/victorian-bed-c56b0776992041648ba5c1615f6e1fed), CC-BY-4.0"
+ },
  "furn_bookcase": {
   "_ref": "wooden_bookshelf_worn (Poly Haven, CC0): worn wooden bookcase (PR3)",
   "src": "frsrc_wooden_bookshelf_worn.glb",
@@ -154,6 +226,30 @@
   "cullDist": 60,
   "credit": "Wooden Bucket 01 by James Ray Cock, Poly Haven (polyhaven.com/a/wooden_bucket_01), CC0"
  },
+ "furn_cash_register": {
+  "_ref": "cash register (Sketchfab, CC-BY-4.0): PR5: the user's model (cash register)",
+  "src": "frsrc_u_cash_register.glb",
+  "dir": "fr_cash_register",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "cash register by pokhodenkodana, Sketchfab (https://sketchfab.com/3d-models/cash-register-6a886e1e1bf648ae84b688261b491ebc), CC-BY-4.0"
+ },
  "furn_chair_ladder": {
   "_ref": "painted_wooden_chair_02 (Poly Haven, CC0): worn painted ladder-back chair (PR3)",
   "src": "frsrc_painted_wooden_chair_02.glb",
@@ -206,6 +302,30 @@
   "lodDist": 12,
   "cullDist": 60,
   "credit": "Painted Wooden Chair 01 by Kuutti Siitonen, Poly Haven (polyhaven.com/a/painted_wooden_chair_01), CC0"
+ },
+ "furn_chair_soviet": {
+  "_ref": "Old soviet chair (Sketchfab, CC-BY-4.0): PR5: the user's model (Old soviet chair)",
+  "src": "frsrc_u_chair_soviet.glb",
+  "dir": "fr_chair_soviet",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Old soviet chair by Annelida, Sketchfab (https://sketchfab.com/3d-models/old-soviet-chair-98676dcb658f432db40881f4ff39f509), CC-BY-4.0"
  },
  "furn_chest": {
   "_ref": "treasure_chest (Poly Haven, CC0): strapped wooden trunk (PR3)",
@@ -404,6 +524,198 @@
   "cullDist": 60,
   "credit": "Bar Chair Round 01 by Dairon Sanchez, Poly Haven (polyhaven.com/a/bar_chair_round_01), CC0"
  },
+ "furn_mod_bed_low": {
+  "_ref": "Bed (Sketchfab, CC-BY-4.0): PR5: the user's model (Bed)",
+  "src": "frsrc_u_bed_low.glb",
+  "dir": "fr_mod_bed_low",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 2048,
+  "simplify": 0.383,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Bed by khanhnguyen1189, Sketchfab (https://sketchfab.com/3d-models/bed-403c4a48e5ea4a9fbbb9a096d90973af), CC-BY-4.0"
+ },
+ "furn_mod_bed_panel": {
+  "_ref": "Bed (Sketchfab, CC-BY-4.0): PR5: the user's model (Bed)",
+  "src": "frsrc_u_bed_panel.glb",
+  "dir": "fr_mod_bed_panel",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 2048,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Bed by rerwandi, Sketchfab (https://sketchfab.com/3d-models/bed-352f853f03194e9dac551e2c8afe7d1a), CC-BY-4.0"
+ },
+ "furn_mod_bunk_pine": {
+  "_ref": "Simple Bunk Bed (Sketchfab, CC-BY-4.0): PR5: the user's model (Simple Bunk Bed)",
+  "src": "frsrc_u_bunk_pine.glb",
+  "dir": "fr_mod_bunk_pine",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 2048,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Simple Bunk Bed by Blender3D, Sketchfab (https://sketchfab.com/3d-models/simple-bunk-bed-9fb7c54715dd41b98b3dc67b367cf81d), CC-BY-4.0"
+ },
+ "furn_mod_chair_bowl": {
+  "_ref": "sofa (Sketchfab, CC-BY-4.0): PR5: the user's model (sofa)",
+  "src": "frsrc_u_chair_bowl.glb",
+  "dir": "fr_mod_chair_bowl",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 2048,
+  "simplify": 0.152,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "sofa by Jagguz_wrld, Sketchfab (https://sketchfab.com/3d-models/sofa-807266eec4474ea0b3c3fd6fa495876f), CC-BY-4.0"
+ },
+ "furn_mod_chair_egg": {
+  "_ref": "Sofa (Sketchfab, CC-BY-4.0): PR5: the user's model (Sofa)",
+  "src": "frsrc_u_chair_egg.glb",
+  "dir": "fr_mod_chair_egg",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Sofa by andree, Sketchfab (https://sketchfab.com/3d-models/sofa-70eee625ecd3492d93a8a8f2de5aa6c1), CC-BY-4.0"
+ },
+ "furn_mod_chair_tufted": {
+  "_ref": "Modern Upholstered Armchair - 4096px² (Sketchfab, CC-BY-4.0): PR5: the user's model (Modern Upholstered Armchair - 4096px²)",
+  "src": "frsrc_u_chair_tufted.glb",
+  "dir": "fr_mod_chair_tufted",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Modern Upholstered Armchair - 4096px² by Mark Peters, Sketchfab (https://sketchfab.com/3d-models/modern-upholstered-armchair-4096px2-fd402ff0f1654eb4b5ec20a832b6895c), CC-BY-4.0"
+ },
+ "furn_mod_chair_white": {
+  "_ref": "Old Sofa (Sketchfab, CC-BY-4.0): PR5: the user's model (Old Sofa)",
+  "src": "frsrc_u_chair_white.glb",
+  "dir": "fr_mod_chair_white",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Old Sofa by Amad Junaid, Sketchfab (https://sketchfab.com/3d-models/old-sofa-8b29d94e25744685870d623065f48026), CC-BY-4.0"
+ },
+ "furn_mod_chair_woodframe": {
+  "_ref": "Sofa_LowPoly (Sketchfab, CC-BY-4.0): PR5: the user's model (Sofa_LowPoly)",
+  "src": "frsrc_u_chair_woodframe.glb",
+  "dir": "fr_mod_chair_woodframe",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Sofa_LowPoly by LEE2021, Sketchfab (https://sketchfab.com/3d-models/sofa-lowpoly-364c6721c1c04f39ae6b2ac2bd442425), CC-BY-4.0"
+ },
  "furn_mod_coffee_table": {
   "_ref": "CoffeeTable_01 (Poly Haven, CC0): coffee table (PR3)",
   "src": "frsrc_coffeetable_01.glb",
@@ -578,6 +890,30 @@
   "cullDist": 60,
   "credit": "Painted Wooden Nightstand by Kirill Sannikov, Poly Haven (polyhaven.com/a/painted_wooden_nightstand), CC0"
  },
+ "furn_mod_plant_pot": {
+  "_ref": "Plant Pot (Sketchfab, CC-BY-4.0): PR5: the user's model (Plant Pot)",
+  "src": "frsrc_u_plant_pot.glb",
+  "dir": "fr_mod_plant_pot",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Plant Pot by Pixel Life, Sketchfab (https://sketchfab.com/3d-models/plant-pot-ae825dd0d3c5437a953b4236d6cef08b), CC-BY-4.0"
+ },
  "furn_mod_plant_small": {
   "_ref": "potted_plant_02 (Poly Haven, CC0): small potted plant (PR3)",
   "src": "frsrc_potted_plant_02.glb",
@@ -694,6 +1030,112 @@
   "cullDist": 60,
   "credit": "Steel Frame Shelves 01 by James Ray Cock, Poly Haven (polyhaven.com/a/steel_frame_shelves_01), CC0"
  },
+ "furn_mod_sofa2": {
+  "_ref": "Sofa 202205_001 (Sketchfab, CC-BY-4.0): PR5: the user's model (Sofa 202205_001)",
+  "src": "frsrc_u_sofa_202205.glb",
+  "dir": "fr_mod_sofa2",
+  "pivot": "ground",
+  "scale": 0.9387,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "axes": [
+   0.8874,
+   1.058,
+   1.0229
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.002
+  ],
+  "jpgMaps": true,
+  "maxTex": 2048,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Sofa 202205_001 by vegu, Sketchfab (https://sketchfab.com/3d-models/sofa-202205-001-86a1883d07c441178d4e5cc7a14bf14f), CC-BY-4.0"
+ },
+ "furn_mod_sofa3": {
+  "_ref": "Sofa_3230 (Sketchfab, CC-BY-4.0): PR5: the user's model (Sofa_3230)",
+  "src": "frsrc_u_sofa_3230.glb",
+  "dir": "fr_mod_sofa3",
+  "pivot": "ground",
+  "scale": 0.7978,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "axes": [
+   0.8354,
+   1.1905,
+   0.9657
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.002
+  ],
+  "jpgMaps": true,
+  "maxTex": 2048,
+  "simplify": 0.048,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Sofa_3230 by vasycrukov, Sketchfab (https://sketchfab.com/3d-models/sofa-3230-a13c1053ff894d4fa0a6aeb1bb90e8fc), CC-BY-4.0"
+ },
+ "furn_mod_sofa_corner": {
+  "_ref": "Corner Sofa (Sketchfab, CC-BY-4.0): PR5: the user's model (Corner Sofa)",
+  "src": "frsrc_u_sofa_corner.glb",
+  "dir": "fr_mod_sofa_corner",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 2048,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Corner Sofa by trystyrobot, Sketchfab (https://sketchfab.com/3d-models/corner-sofa-f22ab377c8eb434dbe99a1206a49129d), CC-BY-4.0"
+ },
+ "furn_mod_sofa_grey": {
+  "_ref": "Grey Sofa (Sketchfab, CC-BY-4.0): PR5: the user's model (Grey Sofa)",
+  "src": "frsrc_u_sofa_grey.glb",
+  "dir": "fr_mod_sofa_grey",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 2048,
+  "simplify": 0.261,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Grey Sofa by Raphael Escamilla, Sketchfab (https://sketchfab.com/3d-models/grey-sofa-e94e15859aff4c5ebf4791c46ab8ba42), CC-BY-4.0"
+ },
  "furn_mod_stock_rack": {
   "_ref": "steel_frame_shelves_01 (Poly Haven, CC0): stock shelving (PR3)",
   "src": "frsrc_steel_frame_shelves_01.glb",
@@ -747,6 +1189,30 @@
   "cullDist": 60,
   "credit": "Electric Stove by Kuutti Siitonen, Poly Haven (polyhaven.com/a/electric_stove), CC0"
  },
+ "furn_mod_synth": {
+  "_ref": "Synthesizer free (Sketchfab, CC-BY-4.0): PR5: the user's model (Synthesizer free)",
+  "src": "frsrc_u_synth.glb",
+  "dir": "fr_mod_synth",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Synthesizer free by Gerhald, Sketchfab (https://sketchfab.com/3d-models/synthesizer-free-2e326ce54187420c8598fa0404697bdc), CC-BY-4.0"
+ },
  "furn_mod_teacher_desk": {
   "_ref": "metal_office_desk (Poly Haven, CC0): steel teacher's desk (PR3)",
   "src": "frsrc_metal_office_desk.glb",
@@ -775,6 +1241,102 @@
   "lodDist": 12,
   "cullDist": 60,
   "credit": "Metal Office Desk by Ulan Cabanilla, Poly Haven (polyhaven.com/a/metal_office_desk), CC0"
+ },
+ "furn_mod_tv_bench": {
+  "_ref": "TV Bench / TV Table / TV Stand Wood (Sketchfab, CC-BY-4.0): PR5: the user's model (TV Bench / TV Table / TV Stand Wood)",
+  "src": "frsrc_u_tv_bench.glb",
+  "dir": "fr_mod_tv_bench",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 2048,
+  "simplify": 0.404,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "TV Bench / TV Table / TV Stand Wood by slls666, Sketchfab (https://sketchfab.com/3d-models/tv-bench-tv-table-tv-stand-wood-b03d3365cd604e758b49c41aa652068d), CC-BY-4.0"
+ },
+ "furn_mod_tv_crt": {
+  "_ref": "Old TV (Sketchfab, CC-BY-4.0): PR5: the user's model (Old TV)",
+  "src": "frsrc_u_tv_crt.glb",
+  "dir": "fr_mod_tv_crt",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Old TV by shadowowy, Sketchfab (https://sketchfab.com/3d-models/old-tv-7cef86bade2b447d841c333bcab9287c), CC-BY-4.0"
+ },
+ "furn_mod_tv_flat": {
+  "_ref": "Tv (Sketchfab, CC-BY-4.0): PR5: the user's model (Tv)",
+  "src": "frsrc_u_tv_flat.glb",
+  "dir": "fr_mod_tv_flat",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 2048,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Tv by Algirdas Lalys, Sketchfab (https://sketchfab.com/3d-models/tv-928c4eb3c875463bbde6fda85b7d8b3a), CC-BY-4.0"
+ },
+ "furn_mod_tv_led": {
+  "_ref": "Led Tv (Sketchfab, CC-BY-4.0): PR5: the user's model (Led Tv)",
+  "src": "frsrc_u_tv_led.glb",
+  "dir": "fr_mod_tv_led",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 2048,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Led Tv by Daniyal Malik, Sketchfab (https://sketchfab.com/3d-models/led-tv-014e75456b4e465b9cecd1b136a0312b), CC-BY-4.0"
  },
  "furn_mod_wall_clock": {
   "_ref": "wall_clock (Poly Haven, CC0): round wall clock",
@@ -824,6 +1386,30 @@
   "cullDist": 60,
   "credit": "Wheelchair 01 by Garreth Dean, Poly Haven (polyhaven.com/a/wheelchair_01), CC0"
  },
+ "furn_piano": {
+  "_ref": "Black Piano (Sketchfab, CC-BY-4.0): PR5: the user's model (Black Piano)",
+  "src": "frsrc_u_piano.glb",
+  "dir": "fr_piano",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 2048,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Black Piano by Shaboldik, Sketchfab (https://sketchfab.com/3d-models/black-piano-19b494e186d0402e818254958d2fed75), CC-BY-4.0"
+ },
  "furn_picture": {
   "_ref": "hanging_picture_frame_02 (Poly Haven, CC0): framed print (PR3)",
   "src": "frsrc_hanging_picture_frame_02.glb",
@@ -852,6 +1438,30 @@
   "lodDist": 12,
   "cullDist": 60,
   "credit": "Hanging Picture Frame 02 by James Ray Cock, Poly Haven (polyhaven.com/a/hanging_picture_frame_02), CC0"
+ },
+ "furn_sacks_burlap": {
+  "_ref": "Burlap Bags (Sketchfab, CC-BY-4.0): PR5: the user's model (Burlap Bags)",
+  "src": "frsrc_u_sacks_burlap.glb",
+  "dir": "fr_sacks_burlap",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 2048,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Burlap Bags by carlcapu9, Sketchfab (https://sketchfab.com/3d-models/burlap-bags-5d8a0e888c1246c788669749056c03d3), CC-BY-4.0"
  },
  "furn_settee": {
   "_ref": "Sofa_01 (Poly Haven, CC0): camelback settee (PR3)",
@@ -940,6 +1550,30 @@
   "cullDist": 60,
   "credit": "Classic Nightstand 01 by Kirill Sannikov, Poly Haven (polyhaven.com/a/ClassicNightstand_01), CC0"
  },
+ "furn_sofa_chesterfield": {
+  "_ref": "Sofa Free (Sketchfab, CC-BY-4.0): PR5: the user's model (Sofa Free)",
+  "src": "frsrc_u_sofa_chesterfield.glb",
+  "dir": "fr_sofa_chesterfield",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 2048,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Sofa Free by Siba Santosh Das, Sketchfab (https://sketchfab.com/3d-models/sofa-free-390569666228446497925add777257d7), CC-BY-4.0"
+ },
  "furn_stool": {
   "_ref": "wooden_stool_01 (Poly Haven, CC0): low turned stool",
   "src": "frsrc_wooden_stool_01.glb",
@@ -963,6 +1597,30 @@
   "lodDist": 12,
   "cullDist": 60,
   "credit": "Wooden Stool 01 by Kuutti Siitonen, Poly Haven (polyhaven.com/a/wooden_stool_01), CC0"
+ },
+ "furn_stool_metal": {
+  "_ref": "Old Stool (Sketchfab, SKETCHFAB Standard, LOCAL-ONLY): PR5: the user's model (Old Stool)",
+  "src": "frsrc_u_stool_metal.glb",
+  "dir": "fr_stool_metal",
+  "pivot": "ground",
+  "scale": 1.0,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "offset": [
+   0.0,
+   0,
+   0.0
+  ],
+  "jpgMaps": true,
+  "maxTex": 1024,
+  "simplify": 0.5,
+  "lod1": 0.25,
+  "lodDist": 12,
+  "cullDist": 60,
+  "credit": "Old Stool by MaX3Dd, Sketchfab (https://sketchfab.com/3d-models/old-stool-12d1291f61d743829717cbfa363be474), SKETCHFAB Standard"
  },
  "furn_table_dining": {
   "_ref": "painted_wooden_table (Poly Haven, CC0): painted farmhouse table (PR3)",

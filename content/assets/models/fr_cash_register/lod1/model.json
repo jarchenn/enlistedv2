@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.1549999713897705,
+  0.4393412470817566,
+  0.22705292701721191
+ ],
+ "bmin": [
+  -0.1549999713897705,
+  0.0,
+  -0.22705292701721191
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "cash_m",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "mr": "mr_4.jpg",
+   "name": "glass_m"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.1549999713897705,
+    0.4393412470817566,
+    0.22705292701721191
+   ],
+   "bmin": [
+    -0.1549999713897705,
+    0.0,
+    -0.22705292701721191
+   ],
+   "count": 1956,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "polySurface875_cash_m_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    0.43123939633369446
+   ],
+   "bmax": [
+    0.12932860851287842,
+    0.40481793880462646,
+    -0.11827652156352997
+   ],
+   "bmin": [
+    -0.12913411855697632,
+    0.3457695245742798,
+    -0.21619980037212372
+   ],
+   "count": 90,
+   "first": 1956,
+   "mat": 1,
+   "metal": 0.9005741477012634,
+   "name": "polySurface875_cash_m_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "frsrc_u_cash_register.glb",
+ "textures": {},
+ "triangles": 682,
+ "vertices": 1038
+}

@@ -1,0 +1,127 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.8330023884773254,
+  0.8644837141036987,
+  0.4533287286758423
+ ],
+ "bmin": [
+  -0.8330023884773254,
+  0.0006270466255955398,
+  -0.45039692521095276
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "aoInMR": true,
+   "mr": "mr_1.jpg",
+   "name": "mat_decoration",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_5.jpg",
+   "aoInMR": true,
+   "mr": "mr_4.jpg",
+   "name": "mat_hard",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "albedo": "albedo_8.jpg",
+   "aoInMR": true,
+   "mr": "mr_7.jpg",
+   "name": "mat_soft",
+   "normal": "normal_6.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.7917179465293884,
+    0.7318651080131531,
+    0.26191169023513794
+   ],
+   "bmin": [
+    -0.6976278424263,
+    0.471366286277771,
+    -0.1567823737859726
+   ],
+   "count": 534,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "defaultMaterial",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.8330023884773254,
+    0.7031568288803101,
+    0.41377967596054077
+   ],
+   "bmin": [
+    -0.8330023884773254,
+    0.0006270466255955398,
+    -0.45039692521095276
+   ],
+   "count": 885,
+   "first": 534,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "defaultMaterial",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.7410081028938293,
+    0.8644837141036987,
+    0.4533287286758423
+   ],
+   "bmin": [
+    -0.7365590333938599,
+    0.25279057025909424,
+    -0.4321364164352417
+   ],
+   "count": 2250,
+   "first": 1419,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "defaultMaterial",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 0.9387000203132629,
+ "source": "frsrc_u_sofa_202205.glb",
+ "textures": {},
+ "triangles": 1223,
+ "vertices": 983
+}

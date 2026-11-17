@@ -69,7 +69,7 @@ def bounds():
     return lo, hi
 lo, hi = bounds()
 s = float(opt["scale"]) if "scale" in opt else (float(opt["height"]) / max(1e-6, hi.z - lo.z) if "height" in opt else 1.0)
-ob.scale = (s, s, s); ob.rotation_euler = (0, 0, math.radians(float(opt.get("yaw", 0))))
+ob.scale = (s, s, s); ob.rotation_mode = "XYZ"; ob.rotation_euler = (0, 0, math.radians(float(opt.get("yaw", 0))))   # PR5: glTF imports are in quaternion mode (an euler yaw was ignored)
 bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
 lo, hi = bounds()
 c = Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z))

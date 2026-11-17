@@ -36,7 +36,7 @@
    "satellites": [
     {
      "assets": [
-      "furn_chair_slat|furn_chair_ladder"
+      "furn_chair_slat|furn_chair_ladder|furn_chair_soviet"
      ],
      "at": [
       0,
@@ -74,7 +74,7 @@
   "reading": {
    "do": "wall",
    "assets": [
-    "furn_armchair"
+    "furn_armchair|furn_armchair_wing"
    ],
    "corner": 0.9,
    "satellites": [
@@ -185,6 +185,7 @@
     "furn_mirror"
    ]
   },
+
   "dining": {
    "do": "center",
    "assets": [
@@ -273,8 +274,8 @@
   "bedside": {
    "do": "wall",
    "assets": [
-    "furn_bed_iron|furn_bed",
-    "furn_bed_iron"
+    "furn_bed_iron|furn_bed|furn_bed_victorian",
+    "furn_bed_iron|furn_bed_rustic"
    ],
    "corner": -0.2,
    "satellites": [
@@ -654,7 +655,7 @@
    "satellites": [
     {
      "assets": [
-      "furn_chair_slat"
+      "furn_chair_slat|furn_chair_soviet"
      ],
      "at": [
       0,
@@ -726,7 +727,7 @@
     },
     {
      "assets": [
-      "furn_settee"
+      "furn_settee|furn_sofa_chesterfield"
      ],
      "at": [
       0,
@@ -741,7 +742,7 @@
     },
     {
      "assets": [
-      "furn_armchair"
+      "furn_armchair|furn_armchair_wing"
      ],
      "at": [
       1.28,
@@ -756,7 +757,7 @@
     },
     {
      "assets": [
-      "furn_armchair"
+      "furn_armchair|furn_armchair_wing"
      ],
      "at": [
       -1.28,
@@ -795,7 +796,7 @@
     },
     {
      "assets": [
-      "furn_stool|furn_basket"
+      "furn_stool|furn_basket|furn_stool_metal"
      ],
      "at": [
       0.3,
@@ -926,8 +927,8 @@
    "satellites": [
     {
      "assets": [
-      "furn_bed|furn_bed_iron",
-      "furn_bed_iron"
+      "furn_bed|furn_bed_iron|furn_bed_victorian",
+      "furn_bed_iron|furn_bed_rustic"
      ],
      "at": [
       0,
@@ -1037,8 +1038,8 @@
     },
     {
      "assets": [
-      "furn_bed|furn_bed_iron",
-      "furn_bed_iron"
+      "furn_bed|furn_bed_iron|furn_bed_victorian",
+      "furn_bed_iron|furn_bed_rustic"
      ],
      "at": [
       0.71,
@@ -1138,7 +1139,7 @@
     },
     {
      "assets": [
-      "furn_mod_sofa3|furn_mod_sofa2",
+      "furn_mod_sofa3|furn_mod_sofa2|furn_mod_sofa_grey",
       "furn_mod_sofa2"
      ],
      "at": [
@@ -1154,7 +1155,7 @@
     },
     {
      "assets": [
-      "furn_mod_armchair"
+      "furn_mod_armchair|furn_mod_chair_tufted|furn_mod_chair_white|furn_mod_chair_woodframe"
      ],
      "at": [
       1.25,
@@ -1169,7 +1170,7 @@
     },
     {
      "assets": [
-      "furn_mod_armchair"
+      "furn_mod_armchair|furn_mod_chair_tufted|furn_mod_chair_white|furn_mod_chair_woodframe"
      ],
      "at": [
       -1.25,
@@ -1216,23 +1217,24 @@
      "p": 0.5
     }
    ]
-  },
+  },
+
   "mod_tv_wall": {
    "do": "wall",
    "assets": [
-    "furn_mod_tv_stand"
+    "furn_mod_tv_stand|furn_mod_tv_bench"
    ],
    "corner": -0.4,
    "top": {
     "from": [
-     "furn_mod_tv"
+     "furn_mod_tv|furn_mod_tv_led|furn_mod_tv_flat|furn_mod_tv_crt"
     ],
     "n": 1
    },
    "satellites": [
     {
      "assets": [
-      "furn_mod_plant_tall"
+      "furn_mod_plant_tall|furn_mod_plant_pot"
      ],
      "at": [
       0.1,
@@ -1248,11 +1250,12 @@
      "p": 0.6
     }
    ]
-  },
+  },
+
   "mod_reading": {
    "do": "wall",
    "assets": [
-    "furn_mod_armchair"
+    "furn_mod_armchair|furn_mod_chair_egg|furn_mod_chair_bowl|furn_mod_chair_tufted"
    ],
    "corner": 0.9,
    "satellites": [
@@ -1296,7 +1299,8 @@
    "hangAbove": [
     "furn_mod_canvas_square|furn_mod_canvas_wide"
    ]
-  },
+  },
+
   "mod_dining": {
    "do": "center",
    "assets": [
@@ -1325,7 +1329,8 @@
     "n": 1,
     "clutter": true
    }
-  },
+  },
+
   "mod_dining_big": {
    "do": "center",
    "assets": [
@@ -1353,7 +1358,8 @@
     "n": 1,
     "clutter": true
    }
-  },
+  },
+
   "mod_kitchen_line": {
    "do": "wall",
    "assets": [
@@ -1398,12 +1404,13 @@
    "hangAbove": [
     "furn_mod_kitchen_wall"
    ]
-  },
+  },
+
   "mod_bedside": {
    "do": "wall",
    "assets": [
-    "furn_mod_bed_double",
-    "furn_mod_bed_single"
+    "furn_mod_bed_double|furn_mod_bed_panel|furn_mod_bed_low",
+    "furn_mod_bed_single|furn_mod_bunk_pine"
    ],
    "corner": -0.5,
    "satellites": [
@@ -1461,7 +1468,8 @@
    "hangAbove": [
     "furn_mod_canvas_wide|furn_mod_canvas_square"
    ]
-  },
+  },
+
   "mod_office_desk": {
    "do": "wall",
    "assets": [
@@ -1526,7 +1534,8 @@
     "furn_mod_wall_clock|furn_mod_canvas_square",
     "furn_mod_wall_clock"
    ]
-  },
+  },
+
   "mod_desk_pod": {
    "do": "center",
    "assets": [
@@ -1607,7 +1616,8 @@
      "tuck": true
     }
    ]
-  },
+  },
+
   "mod_meeting": {
    "do": "center",
    "assets": [
@@ -1635,7 +1645,8 @@
     "n": 1,
     "clutter": true
    }
-  },
+  },
+
   "mod_shop_aisle": {
    "do": "center",
    "assets": [
@@ -1674,7 +1685,8 @@
      "p": 0.6
     }
    ]
-  },
+  },
+
   "mod_display": {
    "do": "center",
    "assets": [
@@ -1713,7 +1725,8 @@
      "p": 0.6
     }
    ]
-  },
+  },
+
   "mod_booth": {
    "do": "wall",
    "assets": [
@@ -1752,7 +1765,8 @@
      "turn": 180
     }
    ]
-  },
+  },
+
   "mod_booth_island": {
    "do": "center",
    "assets": [
@@ -1825,7 +1839,8 @@
      "turn": 0
     }
    ]
-  },
+  },
+
   "mod_cafe_table": {
    "do": "center",
    "assets": [
@@ -1850,7 +1865,8 @@
     "n": 1,
     "clutter": true
    }
-  },
+  },
+
   "mod_prep_island": {
    "do": "center",
    "assets": [
@@ -1891,7 +1907,8 @@
      }
     }
    ]
-  },
+  },
+
   "mod_ward_bed": {
    "do": "wall",
    "assets": [
@@ -1961,7 +1978,8 @@
      "p": 0.9
     }
    ]
-  },
+  },
+
   "mod_waiting_island": {
    "do": "center",
    "assets": [
@@ -2003,14 +2021,16 @@
      "p": 0.7
     }
    ]
-  },
+  },
+
   "mod_cafeteria": {
    "do": "center",
    "assets": [
     "furn_mod_cafeteria_table"
    ],
    "ring": 0.9
-  },
+  },
+
   "mod_weights": {
    "do": "center",
    "assets": [
@@ -2032,7 +2052,8 @@
      "p": 0.6
     }
    ]
-  },
+  },
+
   "mod_cardio": {
    "do": "wall",
    "assets": [
@@ -2069,7 +2090,8 @@
      "p": 0.7
     }
    ]
-  },
+  },
+
   "mod_mats": {
    "do": "rug",
    "assets": [
@@ -2443,6 +2465,15 @@
     },
     {
      "do": "wall",
+     "slot": "piano",
+     "assets": [
+      "furn_piano"
+     ],
+     "corner": 0.3,
+     "p": 0.35
+    },
+    {
+     "do": "wall",
      "slot": "clock",
      "assets": [
       "furn_clock"
@@ -2466,7 +2497,7 @@
      "do": "wall",
      "slot": "armchair",
      "assets": [
-      "furn_armchair",
+      "furn_armchair|furn_armchair_wing",
       "furn_chair_slat"
      ],
      "corner": 0.9,
@@ -3166,7 +3197,7 @@
      "do": "wall",
      "slot": "sacks",
      "assets": [
-      "furn_sacks"
+      "furn_sacks|furn_sacks_burlap"
      ],
      "corner": 1.0,
      "fixed": true,
@@ -3269,7 +3300,7 @@
      "do": "wall",
      "slot": "stool",
      "assets": [
-      "furn_stool"
+      "furn_stool|furn_stool_metal"
      ],
      "corner": 0.3,
      "p": 0.5
@@ -3754,6 +3785,15 @@
     },
     {
      "do": "wall",
+     "slot": "piano",
+     "assets": [
+      "furn_piano"
+     ],
+     "corner": 0.4,
+     "p": 0.3
+    },
+    {
+     "do": "wall",
      "slot": "shelf",
      "assets": [
       "furn_shelf"
@@ -4149,6 +4189,15 @@
       ],
       "n": 2
      }
+    },
+    {
+     "do": "wall",
+     "slot": "burlap",
+     "assets": [
+      "furn_sacks_burlap"
+     ],
+     "corner": 1.0,
+     "p": 0.45
     }
    ],
    "zones": [
@@ -4818,6 +4867,15 @@
      ],
      "corner": 0.6,
      "fixed": true
+    },
+    {
+     "do": "wall",
+     "slot": "burlap",
+     "assets": [
+      "furn_sacks_burlap"
+     ],
+     "corner": 1.0,
+     "p": 0.3
     }
    ],
    "wall": {
@@ -5124,7 +5182,13 @@
      "n": [
       1,
       1
-     ]
+     ],
+     "top": {
+      "from": [
+       "furn_cash_register"
+      ],
+      "n": 1
+     }
     },
     {
      "do": "wall",
@@ -5230,7 +5294,7 @@
    "curtains": 0,
    "halfDrawn": 0,
    "debris": 0.03
-  },
+  },
   "dining": {
    "centerZones": [
     "mod_cafe_table"
@@ -5360,7 +5424,8 @@
    "curtains": 0.5,
    "halfDrawn": 0.2,
    "debris": 0.04
-  },
+  },
+
   "prokitchen": {
    "centerFloor": [
     "mod_prep_island"
@@ -5526,7 +5591,8 @@
    "curtains": 0,
    "halfDrawn": 0,
    "debris": 0.03
-  },
+  },
+
   "ward": {
    "steps": [
     {
@@ -5651,7 +5717,8 @@
    "curtains": 0.6,
    "halfDrawn": 0.3,
    "debris": 0.03
-  },
+  },
+
   "gym": {
    "centerFloor": [
     "mod_weights",
@@ -5810,7 +5877,8 @@
    "curtains": 0,
    "halfDrawn": 0,
    "debris": 0.03
-  },
+  },
+
   "lobby": {
    "centerFloor": [
     "mod_waiting_island",
@@ -5978,7 +6046,8 @@
    "curtains": 0.4,
    "halfDrawn": 0.2,
    "debris": 0.03
-  },
+  },
+
   "class_modern": {
    "steps": [
     {
@@ -6101,7 +6170,8 @@
    "curtains": 0.6,
    "halfDrawn": 0.3,
    "debris": 0.03
-  },
+  },
+
   "office_modern": {
    "centerZones": [
     "mod_meeting",
@@ -6243,7 +6313,8 @@
    "curtains": 0.8,
    "halfDrawn": 0.3,
    "debris": 0.03
-  },
+  },
+
   "kitchen_modern": {
    "centerZones": [
     "mod_dining"
@@ -6384,7 +6455,8 @@
    "curtains": 0.8,
    "halfDrawn": 0.3,
    "debris": 0.04
-  },
+  },
+
   "sitting_modern": {
    "centerZones": [
     "mod_lounge",
@@ -6415,7 +6487,7 @@
      "do": "wall",
      "slot": "sofa",
      "assets": [
-      "furn_mod_sofa_l|furn_mod_sofa3",
+      "furn_mod_sofa_l|furn_mod_sofa3|furn_mod_sofa_corner",
       "furn_mod_sofa2"
      ],
      "corner": 0.3,
@@ -6465,6 +6537,15 @@
     },
     {
      "do": "wall",
+     "slot": "piano",
+     "assets": [
+      "furn_piano|furn_mod_synth"
+     ],
+     "corner": 0.4,
+     "p": 0.18
+    },
+    {
+     "do": "wall",
      "slot": "bookshelf",
      "assets": [
       "furn_mod_bookshelf"
@@ -6497,7 +6578,7 @@
      "do": "wall",
      "slot": "plant",
      "assets": [
-      "furn_mod_plant_tall"
+      "furn_mod_plant_tall|furn_mod_plant_pot"
      ],
      "corner": 1,
      "p": 0.8
@@ -6558,7 +6639,8 @@
    "curtains": 1,
    "halfDrawn": 0.4,
    "debris": 0.03
-  },
+  },
+
   "bedroom_modern": {
    "centerFloor": [
     "mod_lounge"
@@ -6646,6 +6728,15 @@
      ],
      "corner": 0.3,
      "p": 0.4
+    },
+    {
+     "do": "wall",
+     "slot": "synth",
+     "assets": [
+      "furn_mod_synth"
+     ],
+     "corner": 0.6,
+     "p": 0.15
     }
    ],
    "zones": [
@@ -6670,7 +6761,8 @@
    "curtains": 1,
    "halfDrawn": 0.5,
    "debris": 0.03
-  },
+  },
+
   "bathroom_modern": {
    "steps": [
     {

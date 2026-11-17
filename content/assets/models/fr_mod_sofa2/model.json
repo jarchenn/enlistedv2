@@ -1,0 +1,127 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.8330023884773254,
+  0.8681215643882751,
+  0.4533287286758423
+ ],
+ "bmin": [
+  -0.8330023884773254,
+  0.0,
+  -0.45039692521095276
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "aoInMR": true,
+   "mr": "mr_1.jpg",
+   "name": "mat_decoration",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_5.jpg",
+   "aoInMR": true,
+   "mr": "mr_4.jpg",
+   "name": "mat_hard",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "albedo": "albedo_8.jpg",
+   "aoInMR": true,
+   "mr": "mr_7.jpg",
+   "name": "mat_soft",
+   "normal": "normal_6.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.7917179465293884,
+    0.7318651080131531,
+    0.2622799277305603
+   ],
+   "bmin": [
+    -0.6984692215919495,
+    0.46769559383392334,
+    -0.1567823737859726
+   ],
+   "count": 2154,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "defaultMaterial",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.8330023884773254,
+    0.7036429643630981,
+    0.41377967596054077
+   ],
+   "bmin": [
+    -0.8330023884773254,
+    0.0,
+    -0.45039692521095276
+   ],
+   "count": 3549,
+   "first": 2154,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "defaultMaterial",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.7419910430908203,
+    0.8681215643882751,
+    0.4533287286758423
+   ],
+   "bmin": [
+    -0.7424641847610474,
+    0.25279057025909424,
+    -0.4343482255935669
+   ],
+   "count": 9000,
+   "first": 5703,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "defaultMaterial",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 0.9387000203132629,
+ "source": "frsrc_u_sofa_202205.glb",
+ "textures": {},
+ "triangles": 4901,
+ "vertices": 3114
+}

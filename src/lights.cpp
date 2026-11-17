@@ -340,7 +340,7 @@ namespace {
 struct Spot { vec3 p{0}; float ceil = 0; bool ok = false; };
 // the room cell nearest its centre (L-shaped rooms) with the ceiling or beam above it: the highest of a few samples, so a
 // lamp never hangs under a bunk or a shelf
-Spot ceilingSpot(App& app, const Instance& host, const RoomInfo& ri, int k, const PropDef* pd = nullptr, float yaw = 0) {   // pd: the lamp must hang clear of beams
+Spot ceilingSpot(App& app, const Instance& host, const RoomInfo& ri, int k, const PropDef* pd = nullptr, float yaw = 0, size_t maxCells = 14) {   // pd: the lamp must hang clear of beams
   const auto& R = ri.rooms[k]; const auto& S = ri.storeys[R.storey];
   vec2 cc = (R.mn + R.mx) * 0.5f;
   quat hq = yawQuat(host.yaw);
@@ -352,7 +352,7 @@ Spot ceilingSpot(App& app, const Instance& host, const RoomInfo& ri, int k, cons
   }
   std::sort(cells.begin(), cells.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
   Spot best;
-  for (size_t n = 0; n < cells.size() && n < 14; ++n) {
+  for (size_t n = 0; n < cells.size() && n < maxCells; ++n) {
     vec2 c = cells[n].second;
     vec3 o = host.pos + hq * vec3(c.x, R.y0 + 1.25f, c.y);
     Physics::Hit h;
@@ -384,7 +384,7 @@ bool hasSurface(InteriorSys& sys, const AssetDef* a) { const PropDef* pd = a ? s
 int surfaceRank(const std::string& id) {   // tables first, then dressers and chests; a wall shelf last
   if (id.find("table") != std::string::npos || id.find("desk") != std::string::npos) return 0;
   if (id.find("commode") != std::string::npos || id.find("dresser") != std::string::npos || id.find("sideboard") != std::string::npos || id.find("washstand") != std::string::npos) return 1;
-  if (id.find("chest") != std::string::npos || id.find("side") != std::string::npos) return 2;
+  if (id.find("chest") != std::string::npos || id.find("side") != std::string::npos || id.find("nightstand") != std::string::npos) return 2;
   return 3;
 }
 }
@@ -500,9 +500,11 @@ void lightsPlanRooms(App& app, InteriorSys& sys, const Instance& host, const Ass
       if (R.area >= rule.value("ceilingMinArea", 0.0f)) ceilingAsset = rule.value("ceiling", std::string());
       tableAsset = pickOne(rule.value("table", json::array()), seed + (uint32_t)k * 31u + 7u);
     }
-    // a table light where the room has a table / dresser and no lamp yet (the church: the candelabra on the altar)
+    // a table light where the room has a table / dresser and no lamp yet (the church: the candelabra on the altar).
+    // relaxed (PR5): the last resort for a room no ceiling light can reach: any top but a wall shelf, the lamp just clear
+    // of what already stands there
     bool tablePlaced = false;
-    if (!tableAsset.empty() && (!lit || R.type == ROOM_CHURCH) && app.lib.find(tableAsset)) {
+    auto placeTable = [&](const std::string& asset, bool relaxed) {
       int bestRank = 99; int best = -1;
       for (size_t q = 0; q < planned; ++q) {
         if (!inRoom(items[q]) || items[q].slot.find("/top") != std::string::npos) continue;
@@ -512,28 +514,28 @@ void lightsPlanRooms(App& app, InteriorSys& sys, const Instance& host, const Ass
         if (R.type == ROOM_CHURCH) rk = ba->id.find("table") != std::string::npos ? 0 : 5;   // the altar
         if (rk < bestRank) { bestRank = rk; best = (int)q; }
       }
-      if (best >= 0 && bestRank < 3) {   // tables, dressers, commodes, chests: never a shelf board or a hutch top
-        const LightPlanItem base = items[best];
-        const PropDef* bp = sys.prop(app.lib.find(base.asset));
-        const PropDef* lp = sys.prop(app.lib.find(tableAsset));
-        vec4 s = bp->surfaces[0]; float sy = bp->surfY[0];
-        for (size_t si = 1; si < bp->surfaces.size(); ++si) if (bp->surfY[si] > sy) { s = bp->surfaces[si]; sy = bp->surfY[si]; }   // the top, not a shelf below it
-        vec3 he = lp ? (lp->bmax - lp->bmin) * 0.5f : vec3(0.06f);
-        quat bq = yawQuat(base.yaw);
-        // corners and centre of the top, away from what already stands on it
-        std::vector<vec2> cand = {vec2(s.x + he.x + 0.04f, s.y + he.z + 0.04f), vec2(s.z - he.x - 0.04f, s.y + he.z + 0.04f), vec2((s.x + s.z) * 0.5f, (s.y + s.w) * 0.5f),
-                                  vec2(s.x + he.x + 0.04f, s.w - he.z - 0.04f), vec2(s.z - he.x - 0.04f, s.w - he.z - 0.04f)};
-        for (auto& c : cand) {
-          if (c.x < s.x || c.x > s.z || c.y < s.y || c.y > s.w) continue;
-          vec3 p = base.p + bq * vec3(c.x, sy, c.y);
-          bool clash = false;
-          for (auto& o : items) if (o.slot.rfind(base.slot + "/top", 0) == 0 && glm::length(vec2(o.p.x - p.x, o.p.z - p.z)) < std::max(he.x, he.z) + 0.11f) clash = true;
-          if (clash) continue;
-          items.push_back({base.slot + "/light", tableAsset, p, wrapDeg(base.yaw + (h01(seed, (uint32_t)k + 91u) - 0.5f) * 40.0f)});
-          tablePlaced = true; break;
-        }
+      if (best < 0 || bestRank >= (relaxed ? 4 : 3)) return;   // tables, dressers, commodes, chests: never a shelf board or a hutch top
+      const LightPlanItem base = items[best];
+      const PropDef* bp = sys.prop(app.lib.find(base.asset));
+      const PropDef* lp = sys.prop(app.lib.find(asset));
+      vec4 s = bp->surfaces[0]; float sy = bp->surfY[0];
+      for (size_t si = 1; si < bp->surfaces.size(); ++si) if (bp->surfY[si] > sy) { s = bp->surfaces[si]; sy = bp->surfY[si]; }   // the top, not a shelf below it
+      vec3 he = lp ? (lp->bmax - lp->bmin) * 0.5f : vec3(0.06f);
+      quat bq = yawQuat(base.yaw);
+      // corners and centre of the top, away from what already stands on it
+      std::vector<vec2> cand = {vec2(s.x + he.x + 0.04f, s.y + he.z + 0.04f), vec2(s.z - he.x - 0.04f, s.y + he.z + 0.04f), vec2((s.x + s.z) * 0.5f, (s.y + s.w) * 0.5f),
+                                vec2(s.x + he.x + 0.04f, s.w - he.z - 0.04f), vec2(s.z - he.x - 0.04f, s.w - he.z - 0.04f)};
+      for (auto& c : cand) {
+        if (c.x < s.x || c.x > s.z || c.y < s.y || c.y > s.w) continue;
+        vec3 p = base.p + bq * vec3(c.x, sy, c.y);
+        bool clash = false;
+        for (auto& o : items) if (o.slot.rfind(base.slot + "/top", 0) == 0 && glm::length(vec2(o.p.x - p.x, o.p.z - p.z)) < std::max(he.x, he.z) + (relaxed ? 0.05f : 0.11f)) clash = true;
+        if (clash) continue;
+        items.push_back({base.slot + "/light", asset, p, wrapDeg(base.yaw + (h01(seed, (uint32_t)k + 91u) - 0.5f) * 40.0f)});
+        tablePlaced = true; break;
       }
-    }
+    };
+    if (!tableAsset.empty() && (!lit || R.type == ROOM_CHURCH) && app.lib.find(tableAsset)) placeTable(tableAsset, false);
     // ---- hallways: pendants every 5-6 m along the long axis, between the windows (interior_lights.json "hallway")
     const json& HW = C.contains("hallway") ? C["hallway"] : noRules;
     vec2 ext = R.mx - R.mn; int hax = ext.x >= ext.y ? 0 : 1; float hlen = hax == 0 ? ext.x : ext.y;
@@ -600,6 +602,11 @@ void lightsPlanRooms(App& app, InteriorSys& sys, const Instance& host, const Ass
         hangAt(ceilingAt(app, host, R, at[q], cp0, cyaw), q == 0 ? r + "light" : r + "light" + std::to_string(q));
       }
       if (!n) hangAt(ceilingSpot(app, host, ri, (int)k, cp0, cyaw), r + "light");
+      if (!n && !tablePlaced && !lit) hangAt(ceilingSpot(app, host, ri, (int)k, cp0, cyaw, 100000), r + "light");   // PR5: the middle of the room has no ceiling (a void, a beam): anywhere over its floor
+      if (!n && !tablePlaced && !lit && !bunker) {   // PR5: no ceiling over this room at all: a table lamp on whatever top it has
+        std::string ta = !tableAsset.empty() ? tableAsset : startsWith(ha->id, "mod_") ? "furn_mod_table_lamp" : "furn_lamp_table";
+        if (app.lib.find(ta)) placeTable(ta, true);
+      }
     }
     // ---- wall lights either side of the doorways of larger rooms and halls (interior_lights.json "sconces")
     const json& SC = C.contains("sconces") ? C["sconces"] : noRules;

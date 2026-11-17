@@ -87,6 +87,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `fire_brazier` | Lighting | not hand-placed: an editor placement for maps that want it (L3, docs/lights.md) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `fire_campfire` | Lighting | not hand-placed: an editor placement for maps that want it (L3, docs/lights.md) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_armchair` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_armchair_wing` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_armoire` | Furniture | not hand-placed: interior furnishing comes from the room templates inside the farm and Saint-Laurent houses | terrain-only base map | not used | not used | not used | 6 | not used | not used | not used | not used | not used |
 | `furn_barrel` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | 18 | 16 | 12 | not used | not used | not used | not used | 15 | not used |
 | `furn_barrel_rack` | Furniture | not hand-placed: room templates furnish every building on open / new map / placement (V4) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -1060,6 +1061,30 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `furn_art_b_56` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_art_b_57` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_art_b_58` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_bed_rustic` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_bed_victorian` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_cash_register` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_chair_soviet` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_mod_bed_low` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_mod_bed_panel` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_mod_bunk_pine` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_mod_chair_bowl` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_mod_chair_egg` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_mod_chair_tufted` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_mod_chair_white` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_mod_chair_woodframe` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_mod_plant_pot` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_mod_sofa_corner` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_mod_sofa_grey` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_mod_synth` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_mod_tv_bench` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_mod_tv_crt` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_mod_tv_flat` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_mod_tv_led` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_piano` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_sacks_burlap` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_sofa_chesterfield` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `furn_stool_metal` | not hand-placed: auto-furnish (PR5 user model) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `nt3_tree_dead_ash` | not used | not used | not used | not used | not used | not used | not used | not used | 6 | not used | not used | not used |
 | `nt3_tree_dead_oak` | not used | not used | not used | not used | not used | not used | not used | not used | 37 | not used | not used | not used |
 | `nt3_tree_dry_ash` | not used | not used | not used | not used | not used | not used | not used | not used | 29 | not used | not used | not used |
