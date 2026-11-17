@@ -15,6 +15,7 @@ import { mats, face, house, meta } from "./catalog_chateau.mjs";
 import { cover, room, corners, fire, setNav, setTour } from "./catalog_atlantic.mjs";
 import { rod } from "./defence_detail.mjs";
 import { tdTown, tdMats, tdMerge } from "./catalog_modern_buildings_a.mjs";
+import { ntMats as nt7Mats, ntLamp, ntMeter, ntBoard, ruinOnly } from "./nt7_kit.mjs";   // NT7: street detail from the references
 
 const GF = 0.3, L1 = { k: 0, lod: 1 }, K0 = { k: 0 }, HID = { v: 0 }, BV = { bv: 0.012 };
 const SIDES = ["front", "rear", "east", "west"];
@@ -447,8 +448,19 @@ export function houseSmall() {
       fbox(B, re, -0.6, 2.0, -0.02, 0.06, 0, 0.5, "paving", { bv: 0.01 });          // patio slab at the slider
       fbox(B, we, -2.6, -1.0, 0.3, 1.25, 0, 0.6, "clad_wood", { bv: 0.01 });         // bin store
       fbox(B, we, -2.6, -1.0, 1.25, 1.3, -0.01, 0.62, "metal_panel", L1);
+      // NT7 (house references): a lamp by the door, the meter cabinet on the side wall; abandoned: the street windows
+      // boarded with screwed plywood, sprayed
+      nt7Mats(B);
+      const ea = face("east", X, Z);
+      ntLamp(B, fr, -0.2, GF + 2.15, 0.0);
+      ntMeter(B, ea, -2.4, 0.5);
+      ruinOnly(B, () => {
+        ntBoard(B, fr, -3.7, -2.3, GF + 0.8, GF + 2.2, { e: 0.07, mark: "KEEP OUT" });
+        ntBoard(B, fr, 2.5, 3.7, GF + 1.0, GF + 2.1, { e: 0.07, mark: "12" });
+      });
     },
   });
+  nt7Mats(A);
   const steps = placeSub(A, B, { dz });
   A.box([0.25, -0.02, Z + dz + 0.55], [1.35, 0.05, 4.5], "paving", { bv: 0.01 });
   roomTypes(A, [[/sitting/, "sitting"], [/kitchen/, "kitchen"], [/bedroom/, "bedroom"], [/bathroom/, "bathroom"]]);
