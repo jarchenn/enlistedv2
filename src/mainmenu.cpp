@@ -384,7 +384,7 @@ void mainMenuFrame(App& app) {
       ImGui::SetNextWindowBgAlpha(0);
       ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(1, 1, 1, 0.07f)); ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(1, 1, 1, 0.10f)); ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.94f, 0.46f, 0.13f, 0.35f));
       ImGui::PushStyleVar(ImGuiStyleVar_Alpha, pa);
-      if (ImGui::Begin("##menu_character", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNav)) {
+      if (ImGui::Begin("##menu_character", nullptr, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNav)) {
         drawPreview(app, dl, cmn, V(split - 16 * s, cmx.y), pa);
         ImGui::SetCursorScreenPos(V(split + 8 * s, cmn.y));
         ImGui::BeginChild("##lists", V(cmx.x - split - 8 * s, cmx.y - cmn.y), 0, ImGuiWindowFlags_NoBackground);
@@ -421,13 +421,14 @@ void mainMenuFrame(App& app) {
     } else {   // Credits
       ImGui::SetNextWindowPos(cmn); ImGui::SetNextWindowSize(V(cmx.x - cmn.x, cmx.y - cmn.y)); ImGui::SetNextWindowBgAlpha(0);
       ImGui::PushStyleVar(ImGuiStyleVar_Alpha, pa);
-      if (ImGui::Begin("##menu_credits", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus)) {
+      if (ImGui::Begin("##menu_credits", nullptr, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus)) {
         auto head = [](const char* h) { ImGui::Spacing(); ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.94f, 0.46f, 0.13f, 1)); ImGui::TextUnformatted(h); ImGui::PopStyleColor(); };
         auto line = [](const char* a, const char* b) { ImGui::TextUnformatted(a); ImGui::SameLine(ImGui::GetContentRegionAvail().x * 0.48f); ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.8f, 0.77f, 0.7f)); ImGui::TextUnformatted(b); ImGui::PopStyleColor(); };
         head("BATTLE FOUNDRY"); ImGui::TextWrapped("A battlefield builder and combined-arms shooter.");
         head("ENGINE LIBRARIES");
         line("Dear ImGui", "MIT"); line("GLFW", "zlib"); line("GLM", "MIT"); line("Jolt Physics", "MIT"); line("nlohmann/json", "MIT"); line("stb", "MIT / public domain"); line("miniaudio", "MIT-0 / public domain");
-        head("TYPE"); line("Segoe UI (system font, not bundled)", "Microsoft");
+        head("TYPE"); line("Barlow, Barlow Condensed (The Barlow Project Authors)", "SIL OFL 1.1"); line("Black Ops One (The Black Ops One Project Authors)", "SIL OFL 1.1");
+        ImGui::TextWrapped("The font files and their licences are in content/fonts.");
         head("MODELS, TEXTURES AND SOUNDS");
         ImGui::TextWrapped("Third-party models, textures and sounds are listed with their authors and licences in docs/credits.md.");
       }

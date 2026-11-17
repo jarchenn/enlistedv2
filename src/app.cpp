@@ -1,6 +1,7 @@
 #include "app.h"
 #include "mainmenu.h"
 #include "loading.h"
+#include "ui_glass.h"
 #include "lines.h"   // MOD1: line types that clear grass (grassFootprints)
 #include "hlod.h"
 #include "abilities.h"
@@ -138,42 +139,44 @@ static ImFont *gFontHead = nullptr, *gFontDisplay = nullptr;
 ImFont* uiFontHead() { return gFontHead ? gFontHead : ImGui::GetFont(); }
 ImFont* uiFontDisplay() { return gFontDisplay ? gFontDisplay : uiFontHead(); }
 void applyUiTheme() {
+  // UI2 type (SIL OFL, bundled in content/fonts with their OFL texts, credited in docs/credits.md): Barlow for body text,
+  // Barlow Condensed for headings and menu items, Black Ops One (stencil) for the wordmark. Missing files fall back to
+  // the system UI font. Rasterised large and drawn scaled (uiFontScale / explicit pixel sizes).
   ImGuiIO& io = ImGui::GetIO();
-  for (const char* f : {"C:/Windows/Fonts/segoeui.ttf", "/System/Library/Fonts/Supplemental/Arial.ttf"}) {
-    std::error_code ec; if (!fs::exists(f, ec)) continue;
-    ImFontConfig fc; fc.OversampleH = 2; fc.OversampleV = 2;
-    if (io.Fonts->AddFontFromFileTTF(f, 32.0f, &fc, io.Fonts->GetGlyphRangesDefault())) { gFontPx = 32.0f; break; }
-  }
-  // UI2 heading / display faces (menu items, titles, the wordmark), drawn at an explicit pixel size; missing: the body font
-  auto face = [&](std::initializer_list<const char*> files, float px) -> ImFont* {
-    for (const char* f : files) { std::error_code ec; if (!fs::exists(f, ec)) continue; ImFontConfig fc; fc.OversampleH = 2; fc.OversampleV = 2; if (ImFont* r = io.Fonts->AddFontFromFileTTF(f, px, &fc, io.Fonts->GetGlyphRangesDefault())) return r; }
+  const std::string fd = (contentDir() / "fonts").string() + "/";
+  auto face = [&](std::initializer_list<std::string> files, float px) -> ImFont* {
+    for (const std::string& f : files) { std::error_code ec; if (!fs::exists(f, ec)) continue; ImFontConfig fc; fc.OversampleH = 2; fc.OversampleV = 2; if (ImFont* r = io.Fonts->AddFontFromFileTTF(f.c_str(), px, &fc, io.Fonts->GetGlyphRangesDefault())) return r; }
     return nullptr; };
-  gFontHead = face({"C:/Windows/Fonts/seguisb.ttf", "C:/Windows/Fonts/segoeui.ttf"}, 48.0f);
-  gFontDisplay = face({"C:/Windows/Fonts/seguibl.ttf", "C:/Windows/Fonts/segoeuib.ttf"}, 112.0f);
+  if (face({fd + "Barlow-Medium.ttf", "C:/Windows/Fonts/segoeui.ttf", "/System/Library/Fonts/Supplemental/Arial.ttf"}, 32.0f)) gFontPx = 32.0f;   // the first font is ImGui's default
+  gFontHead = face({fd + "BarlowCondensed-SemiBold.ttf", "C:/Windows/Fonts/seguisb.ttf"}, 48.0f);
+  gFontDisplay = face({fd + "BlackOpsOne-Regular.ttf", "C:/Windows/Fonts/seguibl.ttf"}, 112.0f);
   ImGui::StyleColorsDark();
   ImGuiStyle& st = ImGui::GetStyle();
-  st.WindowRounding = 8; st.ChildRounding = 6; st.FrameRounding = 5; st.PopupRounding = 6; st.GrabRounding = 5; st.TabRounding = 5; st.ScrollbarRounding = 6;
-  st.WindowBorderSize = 1; st.FrameBorderSize = 0; st.PopupBorderSize = 1;
-  st.WindowPadding = ImVec2(16, 12); st.FramePadding = ImVec2(8, 5); st.ItemSpacing = ImVec2(10, 7); st.ItemInnerSpacing = ImVec2(6, 5);
-  st.ScrollbarSize = 12; st.GrabMinSize = 10; st.WindowTitleAlign = ImVec2(0.0f, 0.5f); st.SeparatorTextBorderSize = 2;
+  // liquid glass (ui_glass.cpp draws the frosted backing, edge and shadow under each window): large radii, no ImGui
+  // border, translucent fills; off-white text; the logo orange is the one accent (team blue / red stay for team meaning)
+  st.WindowRounding = 14; st.ChildRounding = 10; st.FrameRounding = 7; st.PopupRounding = 10; st.GrabRounding = 6; st.TabRounding = 7; st.ScrollbarRounding = 8;
+  st.WindowBorderSize = 0; st.FrameBorderSize = 0; st.PopupBorderSize = 0; st.ChildBorderSize = 1;
+  st.WindowPadding = ImVec2(18, 14); st.FramePadding = ImVec2(10, 6); st.ItemSpacing = ImVec2(10, 8); st.ItemInnerSpacing = ImVec2(7, 5);
+  st.ScrollbarSize = 11; st.GrabMinSize = 10; st.WindowTitleAlign = ImVec2(0.0f, 0.5f); st.SeparatorTextBorderSize = 1;
   auto C = [&](ImGuiCol k, float r, float g, float b, float a = 1.0f) { st.Colors[k] = ImVec4(r, g, b, a); };
-  C(ImGuiCol_Text, 0.92f, 0.92f, 0.90f); C(ImGuiCol_TextDisabled, 0.56f, 0.57f, 0.56f);
-  C(ImGuiCol_WindowBg, 0.075f, 0.082f, 0.092f, 0.94f); C(ImGuiCol_ChildBg, 0, 0, 0, 0); C(ImGuiCol_PopupBg, 0.085f, 0.092f, 0.10f, 0.97f);
+  const float A[3] = {0.94f, 0.46f, 0.13f};   // accent
+  C(ImGuiCol_Text, 0.93f, 0.91f, 0.88f); C(ImGuiCol_TextDisabled, 0.58f, 0.58f, 0.56f);
+  C(ImGuiCol_WindowBg, 0.05f, 0.06f, 0.07f, 0.30f); C(ImGuiCol_ChildBg, 0, 0, 0, 0); C(ImGuiCol_PopupBg, 0.05f, 0.06f, 0.07f, 0.42f);
   C(ImGuiCol_Border, 1, 1, 1, 0.10f); C(ImGuiCol_BorderShadow, 0, 0, 0, 0);
-  C(ImGuiCol_FrameBg, 0.15f, 0.16f, 0.18f); C(ImGuiCol_FrameBgHovered, 0.21f, 0.22f, 0.25f); C(ImGuiCol_FrameBgActive, 0.26f, 0.27f, 0.31f);
-  C(ImGuiCol_TitleBg, 0.075f, 0.082f, 0.092f); C(ImGuiCol_TitleBgActive, 0.11f, 0.12f, 0.135f); C(ImGuiCol_TitleBgCollapsed, 0.075f, 0.082f, 0.092f, 0.8f);
-  C(ImGuiCol_MenuBarBg, 0.095f, 0.10f, 0.11f);
-  C(ImGuiCol_ScrollbarBg, 0, 0, 0, 0.15f); C(ImGuiCol_ScrollbarGrab, 0.28f, 0.29f, 0.32f); C(ImGuiCol_ScrollbarGrabHovered, 0.36f, 0.37f, 0.40f); C(ImGuiCol_ScrollbarGrabActive, 0.86f, 0.66f, 0.26f);
-  C(ImGuiCol_CheckMark, 0.92f, 0.70f, 0.28f); C(ImGuiCol_SliderGrab, 0.86f, 0.66f, 0.26f); C(ImGuiCol_SliderGrabActive, 0.98f, 0.78f, 0.36f);
-  C(ImGuiCol_Button, 0.19f, 0.20f, 0.23f); C(ImGuiCol_ButtonHovered, 0.27f, 0.29f, 0.33f); C(ImGuiCol_ButtonActive, 0.62f, 0.47f, 0.18f);
-  C(ImGuiCol_Header, 0.20f, 0.21f, 0.24f); C(ImGuiCol_HeaderHovered, 0.27f, 0.29f, 0.33f); C(ImGuiCol_HeaderActive, 0.62f, 0.47f, 0.18f);
-  C(ImGuiCol_Separator, 1, 1, 1, 0.10f); C(ImGuiCol_SeparatorHovered, 0.86f, 0.66f, 0.26f, 0.6f); C(ImGuiCol_SeparatorActive, 0.86f, 0.66f, 0.26f);
-  C(ImGuiCol_ResizeGrip, 1, 1, 1, 0.08f); C(ImGuiCol_ResizeGripHovered, 0.86f, 0.66f, 0.26f, 0.6f); C(ImGuiCol_ResizeGripActive, 0.86f, 0.66f, 0.26f);
-  C(ImGuiCol_Tab, 0.13f, 0.14f, 0.16f); C(ImGuiCol_TabHovered, 0.27f, 0.29f, 0.33f); C(ImGuiCol_TabActive, 0.22f, 0.23f, 0.27f);
-  C(ImGuiCol_TabUnfocused, 0.11f, 0.12f, 0.13f); C(ImGuiCol_TabUnfocusedActive, 0.17f, 0.18f, 0.21f);
-  C(ImGuiCol_TableHeaderBg, 0.13f, 0.14f, 0.16f); C(ImGuiCol_TableBorderStrong, 1, 1, 1, 0.10f); C(ImGuiCol_TableBorderLight, 1, 1, 1, 0.06f); C(ImGuiCol_TableRowBgAlt, 1, 1, 1, 0.03f);
-  C(ImGuiCol_TextSelectedBg, 0.86f, 0.66f, 0.26f, 0.35f); C(ImGuiCol_NavHighlight, 0.86f, 0.66f, 0.26f); C(ImGuiCol_ModalWindowDimBg, 0, 0, 0, 0.55f);
-  C(ImGuiCol_PlotHistogram, 0.86f, 0.66f, 0.26f); C(ImGuiCol_PlotLines, 0.86f, 0.66f, 0.26f);
+  C(ImGuiCol_FrameBg, 0, 0, 0, 0.28f); C(ImGuiCol_FrameBgHovered, 1, 1, 1, 0.08f); C(ImGuiCol_FrameBgActive, 1, 1, 1, 0.13f);
+  C(ImGuiCol_TitleBg, 0, 0, 0, 0.18f); C(ImGuiCol_TitleBgActive, 0, 0, 0, 0.30f); C(ImGuiCol_TitleBgCollapsed, 0, 0, 0, 0.18f);
+  C(ImGuiCol_MenuBarBg, 0, 0, 0, 0.18f);
+  C(ImGuiCol_ScrollbarBg, 0, 0, 0, 0); C(ImGuiCol_ScrollbarGrab, 1, 1, 1, 0.14f); C(ImGuiCol_ScrollbarGrabHovered, 1, 1, 1, 0.24f); C(ImGuiCol_ScrollbarGrabActive, A[0], A[1], A[2]);
+  C(ImGuiCol_CheckMark, A[0], A[1], A[2]); C(ImGuiCol_SliderGrab, A[0], A[1], A[2], 0.9f); C(ImGuiCol_SliderGrabActive, 1.0f, 0.58f, 0.25f);
+  C(ImGuiCol_Button, 1, 1, 1, 0.07f); C(ImGuiCol_ButtonHovered, 1, 1, 1, 0.14f); C(ImGuiCol_ButtonActive, A[0], A[1], A[2], 0.75f);
+  C(ImGuiCol_Header, 1, 1, 1, 0.06f); C(ImGuiCol_HeaderHovered, 1, 1, 1, 0.11f); C(ImGuiCol_HeaderActive, A[0], A[1], A[2], 0.45f);
+  C(ImGuiCol_Separator, 1, 1, 1, 0.10f); C(ImGuiCol_SeparatorHovered, A[0], A[1], A[2], 0.6f); C(ImGuiCol_SeparatorActive, A[0], A[1], A[2]);
+  C(ImGuiCol_ResizeGrip, 1, 1, 1, 0.06f); C(ImGuiCol_ResizeGripHovered, A[0], A[1], A[2], 0.6f); C(ImGuiCol_ResizeGripActive, A[0], A[1], A[2]);
+  C(ImGuiCol_Tab, 1, 1, 1, 0.04f); C(ImGuiCol_TabHovered, 1, 1, 1, 0.14f); C(ImGuiCol_TabActive, 1, 1, 1, 0.11f);
+  C(ImGuiCol_TabUnfocused, 1, 1, 1, 0.03f); C(ImGuiCol_TabUnfocusedActive, 1, 1, 1, 0.08f);
+  C(ImGuiCol_TableHeaderBg, 1, 1, 1, 0.05f); C(ImGuiCol_TableBorderStrong, 1, 1, 1, 0.10f); C(ImGuiCol_TableBorderLight, 1, 1, 1, 0.05f); C(ImGuiCol_TableRowBgAlt, 1, 1, 1, 0.025f);
+  C(ImGuiCol_TextSelectedBg, A[0], A[1], A[2], 0.35f); C(ImGuiCol_NavHighlight, A[0], A[1], A[2]); C(ImGuiCol_ModalWindowDimBg, 0, 0, 0, 0.45f);
+  C(ImGuiCol_PlotHistogram, A[0], A[1], A[2]); C(ImGuiCol_PlotLines, A[0], A[1], A[2]);
 }
 // 16 px text at 1080p (21 px at 1440p) times Settings > UI scale; the built-in pixel font only scales with the UI scale
 float uiFontScale(int fbh) {
@@ -1142,7 +1145,8 @@ int App::run(int argc, char** argv) {
 
     mark("drawlists");
     std::vector<DrawItem> op, gl, ghosts; Overlay ov;
-    { auto t0 = std::chrono::steady_clock::now(); buildDrawLists(op, gl); R.opaqueStatic = op.size(); drawListMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count(); }
+    const bool menuUp = mainMenuActive();   // UI2: the menu covers the screen with a still: no world draw lists, no 3D render
+    if (!menuUp) { auto t0 = std::chrono::steady_clock::now(); buildDrawLists(op, gl); R.opaqueStatic = op.size(); drawListMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count(); }
     mark("view");
     op.insert(op.end(), worldBoxDraws.begin(), worldBoxDraws.end());
     if (mode == Mode::Explore) {
@@ -1199,7 +1203,7 @@ int App::run(int argc, char** argv) {
     }
     audio.setUnderwater(v.underwater ? 1.0f : 0.0f);   // swim.cpp: muffled under water
     mark("mpai");
-    { size_t nBox = worldBoxDraws.size(); mpaiFrame(*this, ov); { extern void vehicleDashFrame(App&); vehicleDashFrame(*this); } op.insert(op.end(), worldBoxDraws.begin() + nBox, worldBoxDraws.end()); }   // VH6: parked cars' interiors   // soldiers, grenades, scenario overlay; BR9: its box meshes (loot, dropped weapons, worn gear) join the opaque list, which took worldBoxDraws before this ran
+    if (!menuUp) { size_t nBox = worldBoxDraws.size(); mpaiFrame(*this, ov); { extern void vehicleDashFrame(App&); vehicleDashFrame(*this); } op.insert(op.end(), worldBoxDraws.begin() + nBox, worldBoxDraws.end()); }   // VH6: parked cars' interiors   // soldiers, grenades, scenario overlay; BR9: its box meshes (loot, dropped weapons, worn gear) join the opaque list, which took worldBoxDraws before this ran
     mark("fx");
     v.view = viewM; v.proj = projM; v.dt = frameDt;
     R.fxAlpha.clear(); R.fxAdd.clear();
@@ -1244,7 +1248,8 @@ int App::run(int argc, char** argv) {
     { extern void lightingAppFrame(App&); lightingAppFrame(*this); }   // L2: the frame's lights (src/lights.h) and room volumes
     mark("render");
     { extern void weatherAppFrame(App&); weatherAppFrame(*this); }   // WX1: the shared cloud clock, the host's weather on LAN clients
-    R.render(v, terrain, op, gl, ghosts, ov);
+    if (menuUp) { glBindFramebuffer(GL_FRAMEBUFFER, 0); glViewport(0, 0, fbw, fbh); glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT); }
+    else R.render(v, terrain, op, gl, ghosts, ov);
     mark("imgui");
     if (selftest) selftest->update(*this, -1.0f);  // post-render hook (screenshots)
     if (!recCaption.empty()) {   // recording caption, over every other overlay
@@ -1261,6 +1266,7 @@ int App::run(int argc, char** argv) {
       ImVec2 ts = ImGui::GetFont()->CalcTextSizeA(fs, 1e9f, 0, t);
       ImGui::GetForegroundDrawList()->AddText(ImGui::GetFont(), fs, ImVec2(io.DisplaySize.x - ts.x - 10, 26), IM_COL32(235, 235, 225, 130), t);   // under the editor's menu bar
     }
+    if (!hideUi) { if (!mainMenuActive()) uiGlassCapture(fbw, fbh); uiGlassFrame(); }   // UI2: the frame's blur for the glass, glass under every window
     ImGui::Render();
     glViewport(0, 0, fbw, fbh);
     if (!hideUi) platformImGuiRender(ImGui::GetDrawData());

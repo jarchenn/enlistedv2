@@ -1,6 +1,7 @@
 // Tanks: drawing (supplied GLB parts on the rig), gunner sights, HUD, Enter prompt, catalog thumbnails and the
 // temporary synthesized tank sounds. docs/tanks.md
 #include "vehicle_dash.h"
+#include "ui_glass.h"   // UI2: glass panel backgrounds
 #include "app.h"
 #include "settings.h"
 #include <imgui.h>
@@ -156,7 +157,7 @@ void TankSys::drawHealthBar(App& app) {
     const float W = 240, H = 14; ImVec2 o(30, io.DisplaySize.y - (d.car || d.heli ? 60 : 230));
     float u = std::clamp(t.hp / 100.0f, 0.0f, 1.0f), fl = t.hitFlash * t.hitFlash;
     ImU32 fill = t.wrecked ? IM_COL32(90, 30, 25, 230) : u > 0.5f ? IM_COL32(120, 200, 110, 235) : u > 0.25f ? IM_COL32(235, 190, 80, 240) : IM_COL32(235, 90, 70, 245);
-    dl->AddRectFilled(ImVec2(o.x - 6, o.y - 22), ImVec2(o.x + W + 6, o.y + H + 6), IM_COL32(12, 12, 10, 190), 4);
+    uiGlassPanel(dl, ImVec2(o.x - 6, o.y - 22), ImVec2(o.x + W + 6, o.y + H + 6), std::max(8.0f, (float)4));
     dl->AddRectFilled(o, ImVec2(o.x + W, o.y + H), IM_COL32(40, 38, 34, 230));
     dl->AddRectFilled(o, ImVec2(o.x + W * u, o.y + H), fill);
     if (fl > 0.01f) dl->AddRectFilled(o, ImVec2(o.x + W, o.y + H), IM_COL32(255, 250, 235, (int)(170 * fl)));
@@ -196,7 +197,7 @@ void TankSys::drawUI(App& app) {
   ImVec2 c(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f);
   auto panel = [&](ImVec2 p, const char* txt, ImU32 col) {
     ImVec2 ts = ImGui::CalcTextSize(txt);
-    dl->AddRectFilled(ImVec2(p.x - 10, p.y - 6), ImVec2(p.x + ts.x + 10, p.y + ts.y + 6), IM_COL32(12, 12, 10, 200), 4);
+    uiGlassPanel(dl, ImVec2(p.x - 10, p.y - 6), ImVec2(p.x + ts.x + 10, p.y + ts.y + 6), std::max(8.0f, (float)4));
     dl->AddText(p, col, txt);
   };
   if (!occupied) {
@@ -406,7 +407,7 @@ void TankSys::drawCarUI(App& app, TankRT& t) {
                      d.name.c_str(), std::fabs(t.speed) * 3.6f, gear, t.handbrake ? "   HANDBRAKE" : "", t.hp, d.carGun() ? (d.rwsSight ? " | Ctrl gunner" : " | Ctrl MG") : "");
   ImVec2 ts = ImGui::CalcTextSize(b);
   ImVec2 p(io.DisplaySize.x - ts.x - 30, io.DisplaySize.y - ts.y - 30);
-  dl->AddRectFilled(ImVec2(p.x - 10, p.y - 6), ImVec2(p.x + ts.x + 10, p.y + ts.y + 6), IM_COL32(12, 12, 10, 170), 4);
+  uiGlassPanel(dl, ImVec2(p.x - 10, p.y - 6), ImVec2(p.x + ts.x + 10, p.y + ts.y + 6), std::max(8.0f, (float)4));
   dl->AddText(p, t.hp <= 50 ? IM_COL32(255, 170, 120, 255) : IM_COL32(235, 225, 190, 255), b);
   if (!t.blockedBy.empty()) dl->AddText(ImVec2(p.x, p.y - 26), IM_COL32(255, 140, 110, 255), ("blocked: " + t.blockedBy).c_str());
 }
@@ -455,7 +456,7 @@ void TankSys::drawAmmoStrip(App& app, const TankRT& t) {
   float roofW = std::max(170.0f, beltW(d.mgBelt) + 16);
   float W = gunW + (d.bowOn ? bowW + pad : 0) + roofW + pad * 2;
   float x0 = io.DisplaySize.x * 0.5f - W * 0.5f, y0 = io.DisplaySize.y - H - 12;
-  dl->AddRectFilled(ImVec2(x0 - pad, y0), ImVec2(x0 + W, y0 + H), IM_COL32(12, 12, 10, 205), 6);
+  uiGlassPanel(dl, ImVec2(x0 - pad, y0), ImVec2(x0 + W, y0 + H), std::max(8.0f, (float)6));
   float x = x0;
   // ---- main gun
   {

@@ -4,6 +4,7 @@
 // the top, numbers down the side), objectives as rhombi with their letter, spawns as flags and vehicle spawns as tank
 // icons (blue yours, red the enemy's), teammates, the player's arrow and view cone, the BR storm, a scale bar.
 #include "minimap.h"
+#include "ui_glass.h"
 #include "royale.h"
 #include "app.h"
 #include "game.h"
@@ -297,11 +298,13 @@ void minimapHud(App& app, bool large) {
     float s = std::min(io.DisplaySize.x, io.DisplaySize.y) * 0.86f;
     vec2 c(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f);
     dl->AddRectFilled(ImVec2(0, 0), io.DisplaySize, IM_COL32(0, 0, 0, 110));
+    uiGlassPanel(dl, ImVec2(c.x - s * 0.5f - 12, c.y - s * 0.5f - 12), ImVec2(c.x + s * 0.5f + 12, c.y + s * 0.5f + 12), 16);   // UI2: the glass frame
     drawMinimap(app, dl, c - vec2(s * 0.5f), c + vec2(s * 0.5f), vec2(0), 0, MM_ALL & ~MM_ROTATE);
     return;
   }
   float s = std::clamp(io.DisplaySize.y * 0.24f, 160.0f, 340.0f);   // the corner map: 220 m across around the player
   vec2 p0(io.DisplaySize.x - s - 16, 16);
   unsigned layers = MM_HUD | MM_SPAWNS | MM_GRID | MM_SCALE | (settings().s.minimapRotate ? MM_ROTATE : 0u);
+  uiGlassPanel(dl, ImVec2(p0.x - 7, p0.y - 7), ImVec2(p0.x + s + 7, p0.y + s + 7), 12);   // UI2: the glass frame
   drawMinimap(app, dl, p0, p0 + vec2(s), vec2(e.x, e.z), 220.0f, layers);
 }

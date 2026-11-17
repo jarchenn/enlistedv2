@@ -1,5 +1,6 @@
 // Creative mode: flying camera, asset browser, placement, selection, transforms, undo, start marker.
 #include "app.h"
+#include "ui_glass.h"
 #include "mainmenu.h"
 #include "thumbs.h"
 #include "mpai.h"
@@ -391,9 +392,9 @@ void App::drawCreativeUI() {
     ImDrawList* dl = ImGui::GetForegroundDrawList();
     ImVec2 ts = ImGui::CalcTextSize(notice.c_str());
     ImVec2 p(io.DisplaySize.x * 0.5f - ts.x * 0.5f, menuH + 58);
-    dl->AddRectFilled(ImVec2(p.x - 16, p.y - 9), ImVec2(p.x + ts.x + 16, p.y + ts.y + 9), IM_COL32(28, 24, 12, 235), 5);
-    dl->AddRect(ImVec2(p.x - 16, p.y - 9), ImVec2(p.x + ts.x + 16, p.y + ts.y + 9), IM_COL32(230, 190, 90, 255), 5, 0, 1.5f);
-    dl->AddText(p, IM_COL32(255, 228, 160, 255), notice.c_str());
+    uiGlassPanel(dl, ImVec2(p.x - 20, p.y - 10), ImVec2(p.x + ts.x + 18, p.y + ts.y + 10), 10);   // UI2: a glass toast with the accent bar
+    dl->AddRectFilled(ImVec2(p.x - 20, p.y - 2), ImVec2(p.x - 17, p.y + ts.y + 2), IM_COL32(240, 118, 32, 255));
+    dl->AddText(p, IM_COL32(238, 234, 226, 255), notice.c_str());
   }
 
   if (showStats) {

@@ -2,6 +2,7 @@
 // game by apply() and are saved to exeDir()/settings_user.json (same place as gore_user.json). Medium is exactly the
 // built-in defaults; self-test runs never read or write the file (persist = false) and start on Medium.
 #include "settings.h"
+#include "mainmenu.h"
 #include "app.h"
 #include "editor_nav.h"
 #include "lighting.h"
@@ -285,10 +286,10 @@ void settingsInit(App& app, bool selftest) {
 }
 
 void settingsEndFrame(App& app) {
-  (void)app;
   using clk = std::chrono::steady_clock;
   static clk::time_point last = clk::now();
   int cap = settings().s.fpsCap;
+  if (mainMenuActive()) { const int m = glfwGetWindowAttrib(app.win, GLFW_FOCUSED) ? 60 : 30; cap = cap > 0 ? std::min(cap, m) : m; }   // UI2: the menu is a still: 60 fps, 30 in the background
   if (cap > 0 && !gSelftest) {
     auto target = last + std::chrono::duration_cast<clk::duration>(std::chrono::duration<double>(1.0 / cap));
     auto now = clk::now();

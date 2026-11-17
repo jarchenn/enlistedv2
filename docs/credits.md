@@ -254,3 +254,13 @@ The petrol station's fuel dispensers (`pr1_fuel_dispenser`) are our own model, g
 | city-soldier-outdated.zip (`sity soldier for scetchfab.blend`, Blender 2.79, 36 textures) | The soldier standing in the main menu: rendered once by Blender (CPU, transparent) to `content/ui/local/menu_soldier.png` | not in the files | not in the files | not given | no, local only (git-ignored); the committed backdrop `content/ui/menu_backdrop.jpg` shows the game's own soldier instead |
 
 The menu backdrops (`content/ui/menu_backdrop*.jpg`) are stills of our own Newtown map, captured in-engine and graded; the logo (`src/logo.cpp`) is our own vector drawing after the preliminary artwork.
+
+## UI2 fonts (bundled)
+
+| File | Used for | Author | Licence | Source |
+|---|---|---|---|---|
+| `content/fonts/Barlow-Medium.ttf`, `Barlow-Regular.ttf` | body text in every window and the HUD | The Barlow Project Authors (https://github.com/jpt/barlow) | SIL Open Font License 1.1 (`content/fonts/OFL-Barlow.txt`) | https://github.com/google/fonts/tree/main/ofl/barlow |
+| `content/fonts/BarlowCondensed-SemiBold.ttf`, `BarlowCondensed-Bold.ttf` | headings, menu items | The Barlow Project Authors | SIL Open Font License 1.1 (`content/fonts/OFL-BarlowCondensed.txt`) | https://github.com/google/fonts/tree/main/ofl/barlowcondensed |
+| `content/fonts/BlackOpsOne-Regular.ttf` | the BATTLE FOUNDRY wordmark (stencil) | The Black Ops One Project Authors | SIL Open Font License 1.1 (`content/fonts/OFL-BlackOpsOne.txt`) | https://github.com/google/fonts/tree/main/ofl/blackopsone |
+
+The fonts are bundled unmodified. If they are ever subset or changed, the OFL forbids keeping any Reserved Font Name in the changed copy.

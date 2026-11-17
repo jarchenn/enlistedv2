@@ -1,5 +1,6 @@
 // Explore mode: first-person walkthrough of the same placed instances shown in Creative.
 #include "app.h"
+#include "ui_glass.h"   // UI2: glass panel backgrounds
 #include "mainmenu.h"
 #include "loading.h"
 #include "mpui.h"
@@ -605,7 +606,7 @@ void App::drawExploreUI() {
           std::string t = target.kind == 1 ? "E  -  Crew " + it->second.asset->name : target.kind == 3 ? "E  -  Open " + it->second.asset->name : "E  -  Take ammunition (" + it->second.asset->name + ")";
           ImVec2 ts = ImGui::CalcTextSize(t.c_str());
           ImVec2 p(c.x - ts.x * 0.5f, c.y + 28);
-          dl->AddRectFilled(ImVec2(p.x - 10, p.y - 5), ImVec2(p.x + ts.x + 10, p.y + ts.y + 5), IM_COL32(15, 15, 12, 170), 4);
+          uiGlassPanel(dl, ImVec2(p.x - 10, p.y - 5), ImVec2(p.x + ts.x + 10, p.y + ts.y + 5), std::max(8.0f, (float)4));
           dl->AddText(p, IM_COL32(245, 238, 210, 255), t.c_str());
         } else {
         auto& d = it->second.asset->interactables[target.idx];
@@ -613,7 +614,7 @@ void App::drawExploreUI() {
         std::string t = std::string("E  —  ") + (opening ? "Open " : "Close ") + d.label;
         ImVec2 ts = ImGui::CalcTextSize(t.c_str());
         ImVec2 p(c.x - ts.x * 0.5f, c.y + 28);
-        dl->AddRectFilled(ImVec2(p.x - 10, p.y - 5), ImVec2(p.x + ts.x + 10, p.y + ts.y + 5), IM_COL32(15, 15, 12, 170), 4);
+        uiGlassPanel(dl, ImVec2(p.x - 10, p.y - 5), ImVec2(p.x + ts.x + 10, p.y + ts.y + 5), std::max(8.0f, (float)4));
         dl->AddText(p, IM_COL32(245, 238, 210, 255), t.c_str());
         }
       }
@@ -631,7 +632,12 @@ void App::drawExploreUI() {
     else { drawCombatUI(); drawWeaponUI(); tanks.drawUI(*this); drawSwimUI(); drawStaminaUI(); }
     if ((showMinimap || mapLarge) && !gm2ArtyMapOpen()) minimapHud(*this, mapLarge);   // GM2
     gm2Hud(*this);   // GM2: suppression vignette, the artillery map
-    if (now < noticeUntil) dl->AddText(ImVec2(14, 32), IM_COL32(255, 210, 110, 230), notice.c_str());
+    if (now < noticeUntil) {   // UI2: a glass toast with the accent bar
+      ImVec2 ts = ImGui::CalcTextSize(notice.c_str());
+      uiGlassPanel(dl, ImVec2(10, 26), ImVec2(36 + ts.x, 38 + ts.y), 10);
+      dl->AddRectFilled(ImVec2(10, 34), ImVec2(13, 30 + ts.y), IM_COL32(240, 118, 32, 255));
+      dl->AddText(ImVec2(22, 32), IM_COL32(238, 234, 226, 240), notice.c_str());
+    }
   }
   drawDamageDebug();
   drawBuilderUI();

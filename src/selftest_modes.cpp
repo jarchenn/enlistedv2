@@ -366,25 +366,25 @@ void build(App&) {
   // menu, held scoreboard, the end table -> selftest_out/ui1p_*.png
   push("ui1p screens", [](App& a, float t) {
     if (!std::getenv("NMK_UI1_POLISH")) return true;
-    static int ph = 0; static float t0 = 0;
+    static int ph = 0; static float t0 = 0; static double r0 = 0;   // r0: real time of the last phase (UI fades run on real time; tests run faster)
     auto shot = [&](const char* n) { a.uiShot = outDir() / (std::string("ui1p_") + n + ".png"); };
-    auto at = [&](float d) { return t > t0 + d; };
-    if (t == 0) { ph = 0; t0 = 0; if (a.mode == Mode::Explore) a.exitExplore(); a.openMap(contentDir() / "templates" / "chateau_town.nmap.json"); a.showOpen = true; return false; }
+    auto at = [&](float d) { return t > t0 + d && glfwGetTime() > r0 + std::min(d, 0.6f); };   // sim time and real time (the UI fades)
+    if (t == 0) { ph = 0; t0 = 0; r0 = glfwGetTime(); if (a.mode == Mode::Explore) a.exitExplore(); a.openMap(contentDir() / "templates" / "chateau_town.nmap.json"); a.showOpen = true; return false; }
     switch (ph) {
-      case 0: if (at(1.5f)) { shot("1_editor_open"); ph = 1; t0 = t; } break;
-      case 1: if (at(0.3f)) { a.showOpen = false; gUi.showSetup = true; gUi.setupMode = 0; ph = 2; t0 = t; } break;
-      case 2: if (at(0.8f)) { shot("2_setup"); ph = 3; t0 = t; } break;
-      case 3: if (at(0.3f)) { gUi.showSetup = false; settings().open = true; ph = 4; t0 = t; } break;
-      case 4: if (at(0.8f)) { shot("3_settings"); ph = 5; t0 = t; } break;
-      case 5: if (at(0.3f)) { settings().open = false; startMode(a, GameMode::TDM, 24, 999, 12, 12, contentDir() / "templates" / "chateau_town.nmap.json"); ph = 6; t0 = t; } break;
+      case 0: if (at(1.5f)) { shot("1_editor_open"); ph = 1; t0 = t; r0 = glfwGetTime(); } break;
+      case 1: if (at(0.3f)) { a.showOpen = false; gUi.showSetup = true; gUi.setupMode = 0; ph = 2; t0 = t; r0 = glfwGetTime(); } break;
+      case 2: if (at(0.8f)) { shot("2_setup"); ph = 3; t0 = t; r0 = glfwGetTime(); } break;
+      case 3: if (at(0.3f)) { gUi.showSetup = false; settings().open = true; ph = 4; t0 = t; r0 = glfwGetTime(); } break;
+      case 4: if (at(0.8f)) { shot("3_settings"); ph = 5; t0 = t; r0 = glfwGetTime(); } break;
+      case 5: if (at(0.3f)) { settings().open = false; startMode(a, GameMode::TDM, 24, 999, 12, 12, contentDir() / "templates" / "chateau_town.nmap.json"); ph = 6; t0 = t; r0 = glfwGetTime(); } break;
       case 6: if (Soldier* L = gGame->local()) if (L->alive) { L->hp = 74; L->protectUntil = gGame->t + 1; }
-              if (at(7.0f)) { shot("4_hud"); ph = 7; t0 = t; } break;
-      case 7: if (at(0.3f)) { a.pauseMenu = true; ph = 8; t0 = t; } break;
-      case 8: if (at(0.6f)) { shot("5_pause"); ph = 9; t0 = t; } break;
-      case 9: if (at(0.3f)) { a.pauseMenu = false; gGame->showScoreboard = true; ph = 10; t0 = t; } break;
-      case 10: if (at(0.6f)) { shot("6_scoreboard"); ph = 11; t0 = t; } break;
-      case 11: if (at(0.3f)) { gGame->showScoreboard = false; gGame->match.phase = MatchPhase::Ended; ph = 12; t0 = t; } break;
-      case 12: if (at(0.8f)) { shot("7_end"); ph = 13; t0 = t; } break;
+              if (at(7.0f)) { shot("4_hud"); ph = 7; t0 = t; r0 = glfwGetTime(); } break;
+      case 7: if (at(0.3f)) { a.pauseMenu = true; ph = 8; t0 = t; r0 = glfwGetTime(); } break;
+      case 8: if (at(0.6f)) { shot("5_pause"); ph = 9; t0 = t; r0 = glfwGetTime(); } break;
+      case 9: if (at(0.3f)) { a.pauseMenu = false; gGame->showScoreboard = true; ph = 10; t0 = t; r0 = glfwGetTime(); } break;
+      case 10: if (at(0.6f)) { shot("6_scoreboard"); ph = 11; t0 = t; r0 = glfwGetTime(); } break;
+      case 11: if (at(0.3f)) { gGame->showScoreboard = false; gGame->match.phase = MatchPhase::Ended; ph = 12; t0 = t; r0 = glfwGetTime(); } break;
+      case 12: if (at(0.8f)) { shot("7_end"); ph = 13; t0 = t; r0 = glfwGetTime(); } break;
       case 13: if (at(0.3f)) return true; break;
     }
     return t > 60; });
@@ -453,21 +453,21 @@ void build(App&) {
   // UI2 main menu captures (NMK_UI2_MENU): the menu as launched, Play, Character, Credits, Settings over it -> ui2_menu_*.png
   push("ui2 menu", [](App& a, float t) {
     if (!std::getenv("NMK_UI2_MENU")) return true;
-    static int ph = 0; static float t0 = 0;
+    static int ph = 0; static float t0 = 0; static double r0 = 0;   // r0: real time of the last phase (UI fades run on real time; tests run faster)
     auto shot = [&](const char* n) { a.uiShot = outDir() / (std::string("ui2_menu_") + n + ".png"); };
-    auto at = [&](float d) { return t > t0 + d; };
-    if (t == 0) { ph = 0; t0 = 0; mainMenuOpen(a); return false; }
+    auto at = [&](float d) { return t > t0 + d && glfwGetTime() > r0 + std::min(d, 0.6f); };   // sim time and real time (the UI fades)
+    if (t == 0) { ph = 0; t0 = 0; r0 = glfwGetTime(); if (a.mode == Mode::Explore) a.exitExplore(); mainMenuOpen(a); return false; }
     switch (ph) {
-      case 0: if (at(2.5f)) { shot("1_main"); ph = 1; t0 = t; } break;
-      case 1: if (at(0.2f)) { mainMenuGo(a, 1); ph = 2; t0 = t; } break;
-      case 2: if (at(0.8f)) { shot("2_play"); ph = 3; t0 = t; } break;
-      case 3: if (at(0.2f)) { mainMenuGo(a, 2); ph = 4; t0 = t; } break;
-      case 4: if (at(1.5f)) { shot("3_character"); ph = 5; t0 = t; } break;
-      case 5: if (at(0.2f)) { mainMenuGo(a, 5); ph = 6; t0 = t; } break;
-      case 6: if (at(0.8f)) { shot("4_credits"); ph = 7; t0 = t; } break;
-      case 7: if (at(0.2f)) { mainMenuGo(a, -1); mainMenuGo(a, 3); ph = 8; t0 = t; } break;
-      case 8: if (at(0.8f)) { shot("5_settings"); ph = 9; t0 = t; } break;
-      case 9: if (at(0.2f)) { settings().open = false; mainMenuGo(a, 0); ph = 10; t0 = t; } break;
+      case 0: if (at(2.5f)) { shot("1_main"); ph = 1; t0 = t; r0 = glfwGetTime(); } break;
+      case 1: if (at(0.2f)) { mainMenuGo(a, 1); ph = 2; t0 = t; r0 = glfwGetTime(); } break;
+      case 2: if (at(0.8f)) { shot("2_play"); ph = 3; t0 = t; r0 = glfwGetTime(); } break;
+      case 3: if (at(0.2f)) { mainMenuGo(a, 2); ph = 4; t0 = t; r0 = glfwGetTime(); } break;
+      case 4: if (at(1.5f)) { shot("3_character"); ph = 5; t0 = t; r0 = glfwGetTime(); } break;
+      case 5: if (at(0.2f)) { mainMenuGo(a, 5); ph = 6; t0 = t; r0 = glfwGetTime(); } break;
+      case 6: if (at(0.8f)) { shot("4_credits"); ph = 7; t0 = t; r0 = glfwGetTime(); } break;
+      case 7: if (at(0.2f)) { mainMenuGo(a, -1); mainMenuGo(a, 3); ph = 8; t0 = t; r0 = glfwGetTime(); } break;
+      case 8: if (at(0.8f)) { shot("5_settings"); ph = 9; t0 = t; r0 = glfwGetTime(); } break;
+      case 9: if (at(0.2f)) { settings().open = false; mainMenuGo(a, 0); ph = 10; t0 = t; r0 = glfwGetTime(); } break;
       case 10: if (at(0.5f)) { chk(!mainMenuActive() && a.mode == Mode::Creative, "UI2: Create Map closes the menu into Creative"); return true; } break;
     }
     return t > 40; });
@@ -596,9 +596,9 @@ bool modesSelfTest(App& app, float dt) {
     started = true; T = new MpTest("modes"); build(app); cur = 0; st = 0;
     if (std::getenv("NMK_NAV_PREBAKE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "prebake templates" && s.name != "done"; }), seq.end());   // just the bake
     else if (std::getenv("NMK_MODES_ONLY_CACHE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "nav bake cache" && s.name != "done"; }), seq.end());   // just the cache round trip (with NMK_MODES_MAP: on another map)
-    else if (std::getenv("NMK_UI2_MENU")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui2 menu" && s.name != "done"; }), seq.end());
+    else if (std::getenv("NMK_UI2_MENU")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui2 menu" && s.name != "done" && !(s.name == "ui2 backdrop" && std::getenv("NMK_UI2_BACKDROP")) && !(s.name == "ui1p screens" && std::getenv("NMK_UI1_POLISH")); }), seq.end());   // with NMK_UI2_BACKDROP too: one run for both (GPU budget)
     else if (std::getenv("NMK_UI2_BACKDROP")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui2 backdrop" && s.name != "done"; }), seq.end());
-    else if (std::getenv("NMK_UI1_POLISH")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui1p screens" && s.name != "done"; }), seq.end());
+    else if (std::getenv("NMK_UI1_POLISH")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui1p screens" && s.name != "done" && !(s.name == "ui2 menu" && std::getenv("NMK_UI2_MENU")); }), seq.end());   // UI2: with the menu pages in one run
     else if (std::getenv("NMK_UI1_SHOTS")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name.rfind("ui1 ", 0) != 0 && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_AI3_SHOT")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ai3 setup" && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_MODES_ONLY_BR2")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "br2 inventory" && s.name != "done"; }), seq.end());   // BR2 inventory capture

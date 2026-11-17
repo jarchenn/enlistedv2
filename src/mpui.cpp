@@ -2,6 +2,7 @@
 // Scenario panel (ordered objectives, spawn markers, approach routes, validation) with its world overlay, and the
 // in-match HUD (objective sequence bar, counts, grenades, death screen, results).
 #include "mpui.h"
+#include "ui_glass.h"   // UI2: glass panel backgrounds
 #include "w5.h"
 #include "game.h"
 #include "classes.h"
@@ -643,7 +644,7 @@ void Game::drawHud() {
     int fr = myRole == CombatRole::Attacker ? o.A : o.D, en = myRole == CombatRole::Attacker ? o.D : o.A;
     char b[200]; std::snprintf(b, sizeof b, "%s  %s %.0f m   |   on point: friendly %d, enemy %d", arrow, ob->label.c_str(), dist, fr, en);
     ImVec2 ts = ImGui::CalcTextSize(b);
-    dl->AddRectFilled(ImVec2(io.DisplaySize.x * 0.5f - ts.x * 0.5f - 8, y0 + 56), ImVec2(io.DisplaySize.x * 0.5f + ts.x * 0.5f + 8, y0 + 76), IM_COL32(12, 12, 10, 170), 3);
+    uiGlassPanel(dl, ImVec2(io.DisplaySize.x * 0.5f - ts.x * 0.5f - 8, y0 + 56), ImVec2(io.DisplaySize.x * 0.5f + ts.x * 0.5f + 8, y0 + 76), std::max(8.0f, (float)3));
     dl->AddText(ImVec2(io.DisplaySize.x * 0.5f - ts.x * 0.5f, y0 + 58), IM_COL32(240, 235, 210, 255), b);
   }
   // ---- side panel: forces, lives, grenades, health
@@ -653,7 +654,7 @@ void Game::drawHud() {
     // UI1b: one compact line of forces over the vitals panel (defenders / attackers alive, attacker lives left)
     std::snprintf(b, sizeof b, "%s %d     %s %d  (+%d lives%s)", factionTag(match.rules.defendingFaction), match.livingDefenders(), factionTag(ef), match.livingAttackers(), match.unusedAttackerLives(), match.pendingAttackers() ? ", wave due" : "");
     { float fh = ImGui::GetTextLineHeight(); ImVec2 p(20, io.DisplaySize.y - 70 - fh - 22), ts = ImGui::CalcTextSize(b);
-      dl->AddRectFilled(ImVec2(p.x - 10, p.y - 5), ImVec2(p.x + ts.x + 10, p.y + fh + 5), IM_COL32(12, 14, 16, 150), 6);
+      uiGlassPanel(dl, ImVec2(p.x - 10, p.y - 5), ImVec2(p.x + ts.x + 10, p.y + fh + 5), std::max(8.0f, (float)6));
       dl->AddText(p, IM_COL32(225, 225, 215, 235), b); }
     (void)myFac; (void)myRole;
     drawVitals();
@@ -677,13 +678,13 @@ void Game::drawHud() {
     if (L->lifeId == 0) std::snprintf(b, sizeof b, "Deploying...");
     else std::snprintf(b, sizeof b, "You were killed%s%s.   Respawn with the next wave in %.0f s%s", L->killer >= 0 ? " by " : "", L->killer >= 0 ? match.slots[L->killer].name.c_str() : "", std::max(wave, minLeft), spectate >= 0 ? "   (watching a soldier)" : "");
     ImVec2 ts = ImGui::CalcTextSize(b);
-    dl->AddRectFilled(ImVec2(io.DisplaySize.x * 0.5f - ts.x * 0.5f - 14, io.DisplaySize.y * 0.7f - 10), ImVec2(io.DisplaySize.x * 0.5f + ts.x * 0.5f + 14, io.DisplaySize.y * 0.7f + 24), IM_COL32(10, 8, 8, 200), 5);
+    uiGlassPanel(dl, ImVec2(io.DisplaySize.x * 0.5f - ts.x * 0.5f - 14, io.DisplaySize.y * 0.7f - 10), ImVec2(io.DisplaySize.x * 0.5f + ts.x * 0.5f + 14, io.DisplaySize.y * 0.7f + 24), std::max(8.0f, (float)5));
     dl->AddText(ImVec2(io.DisplaySize.x * 0.5f - ts.x * 0.5f, io.DisplaySize.y * 0.7f), IM_COL32(255, 220, 200, 255), b);
   }
   if (!L && isClient && match.phase == MatchPhase::Running) {
     const char* m = "Joined the match: you take a defender slot when its soldier next respawns (normal respawn flow). Watching meanwhile.";
     ImVec2 ts = ImGui::CalcTextSize(m);
-    dl->AddRectFilled(ImVec2(io.DisplaySize.x * 0.5f - ts.x * 0.5f - 14, io.DisplaySize.y * 0.7f - 10), ImVec2(io.DisplaySize.x * 0.5f + ts.x * 0.5f + 14, io.DisplaySize.y * 0.7f + 24), IM_COL32(10, 8, 8, 200), 5);
+    uiGlassPanel(dl, ImVec2(io.DisplaySize.x * 0.5f - ts.x * 0.5f - 14, io.DisplaySize.y * 0.7f - 10), ImVec2(io.DisplaySize.x * 0.5f + ts.x * 0.5f + 14, io.DisplaySize.y * 0.7f + 24), std::max(8.0f, (float)5));
     dl->AddText(ImVec2(io.DisplaySize.x * 0.5f - ts.x * 0.5f, io.DisplaySize.y * 0.7f), IM_COL32(255, 220, 200, 255), m);
   }
   // ---- result
