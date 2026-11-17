@@ -996,22 +996,39 @@ void Game::posesStep(float dt) {
     PoseParams pp;
     pp.walkAmount = std::min(1.0f, s.speed / 3.0f);
     float wantCrouch = s.posture == Physics::CROUCH ? 1.0f : 0.0f;
-    s.crouchBlend += (wantCrouch - s.crouchBlend) * std::min(1.0f, dt * 8);
-    pp.crouch = s.crouchBlend; pp.prone = s.posture == Physics::PRONE ? 1.0f : 0.0f;
+    s.crouchBlend += (wantCrouch - s.crouchBlend) * (1.0f - std::exp(-dt / 0.15f));   // AN1 step 3: ~0.4 s to settle
+    s.anProne += ((s.posture == Physics::PRONE ? 1.0f : 0.0f) - s.anProne) * (1.0f - std::exp(-dt / 0.12f));   // lying down / getting up over ~0.35 s
+    { float e = s.anProne; pp.crouch = s.crouchBlend; pp.prone = e * e * (3 - 2 * e); }
     pp.aimPitch = radians(s.localPlayer ? app.eyePitch : s.br.aimPitch);
-    float yawOff = s.localPlayer ? 0.0f : std::clamp(radians(wrapDeg(s.br.aimYaw - s.yaw + 180.0f) - 180.0f), -0.9f, 0.9f);
+    // AN1 step 3: a bot's drawn gun follows the brain's aim through a critically damped spring with a turn-rate cap (the brain's aim
+    // jumps between the path and a threat, and its body turns with the path), so the weapon swings smoothly; the shots keep the brain's aim
+    float aimYawDraw = s.br.aimYaw, aimPitchDraw = s.localPlayer ? app.eyePitch : s.br.aimPitch;
+    if (!s.localPlayer && !s.zombie && !s.human) {
+      bool hot = s.br.target >= 0 || t - s.lastShot < 1.5;
+      if (!s.anGunInit || !s.alive) { s.anGunYaw = s.br.aimYaw; s.anGunPitch = s.br.aimPitch; s.anGunVel = s.anGunPVel = 0; s.anGunInit = s.alive; }
+      const float w = hot ? 11.0f : 6.0f, vmax = hot ? 400.0f : 160.0f;   // rad/s natural frequency; deg/s cap
+      auto follow = [&](float& x, float& v, float target, bool wrap) {
+        float e = wrap ? wrapDeg(target - x + 180.0f) - 180.0f : target - x;
+        v += (w * w * e - 2 * w * v) * dt; v = std::clamp(v, -vmax, vmax); x += v * dt; if (wrap) x = wrapDeg(x);
+      };
+      follow(s.anGunYaw, s.anGunVel, s.br.aimYaw, true); follow(s.anGunPitch, s.anGunPVel, s.br.aimPitch, false);
+      aimYawDraw = s.anGunYaw; aimPitchDraw = s.anGunPitch;
+    }
+    pp.aimPitch = radians(aimPitchDraw);
+    float yawOff = s.localPlayer ? 0.0f : std::clamp(radians(wrapDeg(aimYawDraw - s.yaw + 180.0f) - 180.0f), -0.9f, 0.9f);
     if (s.zombie) { s.walkPhase += s.speed * dt * 2.6f; pp.aimYawOffset = yawOff; }
     else {   // AN1: kneel (still, crouched), carry (moving, not engaged), moveAim (moving, engaged); ~0.25 s blends
-      float v = s.speed, k = 1.0f - std::exp(-dt / 0.08f);
+      float v = s.speed, k = 1.0f - std::exp(-dt / 0.18f);   // AN1 step 3: posture blends settle in ~0.5 s (0.08 s ended in a visible snap)
       float cad = advanceStride(app, s, v, dt);
       float duty = std::clamp(0.62f - 0.17f * (v - 1.5f), 0.30f, 0.62f);
-      s.anStride += (0.5f * duty * v / cad - s.anStride) * k;
+      const float kf = 1.0f - std::exp(-dt / 0.08f);   // stride, travel direction and slope stay quick (the feet are planted on them)
+      s.anStride += (0.5f * duty * v / cad - s.anStride) * kf;
       pp.gait = true; pp.stride = s.anStride; pp.duty = duty;
       float yawUse = s.localPlayer ? app.eyeYaw : s.yaw;
       quat bodyQ = glm::angleAxis(radians(yawUse) + 3.14159265f, vec3(0, 1, 0));
       vec3 mv = glm::inverse(bodyQ) * vec3(s.vel.x, 0, s.vel.z);
-      if (glm::length(mv) > 0.3f) s.anDir = glm::normalize(glm::mix(s.anDir, glm::normalize(mv), k));
-      else s.anDir = glm::normalize(glm::mix(s.anDir, vec3(0, 0, 1), k));
+      if (glm::length(mv) > 0.3f) s.anDir = glm::normalize(glm::mix(s.anDir, glm::normalize(mv), kf));
+      else s.anDir = glm::normalize(glm::mix(s.anDir, vec3(0, 0, 1), kf));
       pp.moveDir = s.anDir;
       bool moving = v > 0.5f;
       bool engaged = (s.br.target >= 0 && !s.human && !s.localPlayer) || t - s.lastShot < 1.5 || s.reload > 0 || s.throwT >= 0
@@ -1034,7 +1051,7 @@ void Game::posesStep(float dt) {
           if (float gl = glm::length(g); gl > 0.7f) g *= 0.7f / gl;
         }
         vec3 gm = glm::inverse(bodyQ) * vec3(g.x, 0, g.y);
-        s.anSlope += (vec2(gm.x, gm.z) - s.anSlope) * k;
+        s.anSlope += (vec2(gm.x, gm.z) - s.anSlope) * kf;
         pp.slope = s.anSlope;
       }
     }
@@ -1043,6 +1060,10 @@ void Game::posesStep(float dt) {
       pp.gripC = d.gripC; pp.gripAx = d.gripAx; pp.gripRad = d.gripRad; pp.guardC = d.guardC; pp.guardRad = d.guardRad; pp.sightR = d.rear; }   // AN1 step 2b
     pp.reload = s.reload > 0 && s.reloadTotal > 0 ? 1.0f - s.reload / s.reloadTotal : 0;
     pp.throwT = s.throwT; pp.recoil = s.recoil;
+    if (static const char* tr = std::getenv("NMK_AIM_TRACE"); tr && !s.human && !s.localPlayer && !s.zombie && s.alive && s.slot < 16) {   // AN1 step 3: the bots' body / gun facing per frame (aimtrace.csv)
+      static FILE* f = nullptr; if (!f) { std::error_code ec; fs::create_directories(exeDir() / "selftest_out", ec); f = std::fopen((exeDir() / "selftest_out" / "aimtrace.csv").string().c_str(), "w"); if (f) std::fprintf(f, "t,slot,bodyYaw,gunYaw,gunPitch,speed,engaged\n"); }
+      if (f) std::fprintf(f, "%.4f,%d,%.2f,%.2f,%.2f,%.2f,%d\n", t, s.slot, s.yaw, wrapDeg(s.yaw + degrees(pp.aimYawOffset)), degrees(pp.aimPitch), s.speed, s.anMoveAim > 0.5f ? 1 : 0);
+    }
     pp.lowReady = s.zombie ? 0.0f : std::max(s.anLow, !s.human && !s.localPlayer && s.speed > 4.0f ? 0.2f : 0.0f);   // AI5: a sprinting bot dips the muzzle a little, weapon still forward   // AN1: the run carry (pp.carry) replaces the lowered muzzle on the move
     if (s.localPlayer) app.mantlePose(s.feet, pp);   // hands on the ledge while mantling (mantle.cpp)
     s.swimBlend += ((s.swim && s.alive ? 1.0f : 0.0f) - s.swimBlend) * std::min(1.0f, dt * 5);
