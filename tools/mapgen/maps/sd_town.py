@@ -8,7 +8,7 @@ import os
 
 from mapgen import (GroundPaint, Grid, Frame, MapBuilder, ScenarioBuilder, write_map, write_template, write_summary, asset_usage,
                     rng, look_yaw)
-from maps.sd_common import rows_from, Plan, place_walls2, spread, place_masses, place_cover, wall_spot, site_signs
+from maps.sd_common import rows_from, Plan, place_walls2, spread, place_masses, place_cover, wall_spot, site_signs, place_along_walls
 
 TID, NAME, VERSION, SEED = "sd_town", "Rue Haute", 1, 2613
 CELL = 6.0
@@ -87,8 +87,8 @@ def build(ctx):
     for ch, kind in (("A", "grass"), ("B", "cobbles"), ("M", "cobbles"), ("T", "cobbles"), ("D", "cobbles"), ("s", "cobbles"), ("t", "cobbles"), ("p", "cobbles"), ("f", "dirt"), ("R", "cobbles"), ("c", "cobbles"), ("w", "cobbles"), ("n", "cobbles"), ("k", "cobbles")):
         for i, j in plan.cells(ch):
             x, z = plan._cc(i, j)
-            h = CELL / 2
-            paint.poly(kind, [(x - h, z - h), (x + h, z - h), (x + h, z + h), (x - h, z + h)], weight=0.9, edge=0.6, ragged=0.4, seed=i * 31 + j)
+            h = CELL / 2 + 0.9   # overlap: the sand base showed through the cell seams as light grid lines
+            paint.poly(kind, [(x - h, z - h), (x + h, z - h), (x + h, z + h), (x - h, z + h)], weight=1.0, edge=0.6, ragged=0.4, seed=i * 31 + j)
     for ch in "stfpRc":
         for i, j in plan.cells(ch):
             x, z = plan._cc(i, j)
@@ -109,14 +109,25 @@ def build(ctx):
     for ch in INTERIORS:
         for i, j in plan.cells(ch):
             x, z = plan._cc(i, j)
-            b.place("sd_roof_bay", x, z, 0.0, check=False, cls="none", y=y0, tags={"roof", "interior"})
-            b.place("tun_lamp", x + 0.8, z, 0.0, check=False, cls="none", y=y0 + 3.0, tags={"lamp", "interior"})
-            h = CELL / 2
+            b.place("sd_roof_bay_timber", x, z, 0.0, check=False, cls="none", y=y0, tags={"roof", "interior"})
+            b.place("lamp_hanging_lantern", x + 0.8, z, 0.0, check=False, cls="none", y=y0 + 3.0, tags={"lamp", "interior"})
+            h = CELL / 2 + 0.9   # overlap: the sand base showed through the cell seams as light grid lines
             paint.poly("cobbles", [(x - h, z - h), (x + h, z - h), (x + h, z + h), (x - h, z + h)], weight=1.0, edge=0.3)
             n_roof += 1
         n_cover += place_cover(b, plan, ch, [("ph_metal_toolbox", 0.3, 0.15, 1), ("ph_wooden_crate_01", 0.5, 0.5, 1)], R, y0, lane=1.6)
     # signs at every site entrance
     n_sign = site_signs(b, plan, "A", "a", y0) + site_signs(b, plan, "B", "b", y0)
+    # the town kit against the walls (4.5 m clear of doorways, 1 m walkways): the market row and stalls in the Market Hall,
+    # the cafe terrace and doorsteps on the square, a barricade and roadblock in the lanes, carts and rubble
+    n_kit = 0
+    for ch, items in (("B", [("cl_town_market_row", 4.75, 1.6, 1), ("cl_town_market_stall", 1.6, 0.9, 2)]),
+                      ("M", [("cl_town_cafe_terrace_large", 4.7, 2.3, 1), ("cl_town_doorstep", 1.6, 0.6, 1), ("cl_town_bench_corner", 1.5, 0.7, 1)]),
+                      ("A", [("cl_town_doorstep", 1.6, 0.6, 1), ("cl_town_bench_corner", 1.5, 0.7, 1)]),
+                      ("s", [("cl_town_roadblock", 2.25, 0.5, 1), ("cl_town_doorstep", 1.6, 0.6, 2)]),
+                      ("t", [("cl_town_barricade", 5.25, 1.8, 1), ("cl_town_doorstep", 1.6, 0.6, 2)]),
+                      ("f", [("cl_town_doorstep", 1.6, 0.6, 1)]), ("R", [("cl_town_doorstep", 1.6, 0.6, 2), ("cl_town_cafe_terrace", 2.8, 1.2, 1)]),
+                      ("c", [("cl_town_market_stall", 1.6, 0.9, 1)])):
+        n_kit += place_along_walls(b, plan, ch, items, R, y0, keep=PADS)
     # ---------------------------------------------------------------- scenario: sites, spawns, timings
     sc = ScenarioBuilder(b, defending="Axis")
     xA, zA = plan.cc(*PLANT_A_CELL)
@@ -167,12 +178,13 @@ def build(ctx):
     grid.write_png(os.path.join(tdir, TID + ".height.png"))
     a1 = sc.spawns[0]["pos"]
     cam = ([0.0, 120.0, -110.0], 0.0, -48.0)
-    thumb_cam = ([aC[0] + 14.0, y0 + 1.7, aC[1] - 14.0], look_yaw(-1.0, 1.0), -4.0)
     eye = 1.65
     views = [{"name": "overview_high", "pos": [0.0, 130.0, -100.0], "yaw": 0.0, "pitch": -55.0}]
     for name, (i, j), (ti, tj) in (("a_site", (12, 10), (12, 12)), ("b_site", (3, 6), (2, 8)), ("mid", (9, 6), (8, 8)), ("t_spawn", (12, 1), (12, 3)), ("d_spawn", (4, 15), (4, 13)), ("bakery", (6, 8), (4, 8)), ("arcade", (5, 10), (9, 10))):
         x, z = plan.cc(i, j); tx, tz = plan.cc(ti, tj)
         views.append({"name": name + "_eye", "pos": [round(x, 2), round(y0 + eye, 2), round(z, 2)], "yaw": look_yaw(tx - x, tz - z), "pitch": 0.0, "gameplay": True})
+    _v = views[1]   # the A site eye view (the old fixed offset from A looked into a wall)
+    thumb_cam = ([_v["pos"][0], _v["pos"][1] + 0.6, _v["pos"][2]], _v["yaw"], -5.0)
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sc.to_json(rules_extra=rules), explore_start=((a1[0], a1[1], a1[2]), 0.0), camera=cam, bookmarks={},
               extra={"groundPaint": paint.to_json(), "lighting": {"hour": 11.0}, "look": {"haze": 1.0, "weather": 0.75, "saturation": 0.95, "tint": [0.98, 0.99, 1.02]}})
@@ -182,11 +194,6 @@ def build(ctx):
                    width=W, depth=D, margin=MARGIN, heightmap=grid.meta(TID + ".height.png"), water_level=-1000.0,
                    map_file=TID + ".nmap.json", camera=cam, thumbnail=TID + ".thumb.png", thumb_camera=thumb_cam,
                    extra={"userMap": True, "views": views})
-    # SD2: not in the Play / New Map lists until this map reaches the game-ready bar (Sun Fort is listed)
-    _tp = os.path.join(tdir, TID + ".json")
-    import json as _json
-    _t = _json.load(open(_tp, encoding="utf-8")); _t["available"] = False
-    open(_tp, "w", encoding="utf-8", newline="\n").write(_json.dumps(_t, indent=1) + "\n")
     rep = {"instances": len(b.inst), "walls": nw, "masses": n_mass, "cover": n_cover, "plan": [plan.nx, plan.nz], "errors": err}
     write_summary(os.path.join(ctx.out, TID + ".summary.json"), rep)
     print("instances %d | walls %d, masses %d, cover %d | plan %d x %d cells of %.0f m" % (len(b.inst), n_walls, n_mass, n_cover, plan.nx, plan.nz, CELL))
