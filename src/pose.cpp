@@ -112,6 +112,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       needMax = std::max(needMax, a0L[leg].y - (H(leg ? CJ_RFOOT : CJ_LFOOT).y - std::fabs(gnd(vec3(0, 0, dz))) + std::sqrt(std::max(0.0f, L * L - d.x * d.x - dz * dz))));
     }
     drop = std::max(drop, glm::mix(need, needMax, mAim) + 0.015f * mAim);
+    if (p.hipFrac > 0 && !dead) drop = std::max((1 - p.hipFrac) * H(CJ_HIPS).y + 0.36f * crouch, need);   // AN3: the target height, lower only as far as this frame's feet need (a vaulting gait, no glide)
   }
   // kneel: the right knee on the ground under the hip, the right thigh near vertical
   vec3 kneeK(a0L[1].x, 0, a0L[1].z - 0.02f); kneeK.y = 0.065f + gnd(kneeK);
@@ -133,6 +134,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
   float lean = 0.22f * crouch + 0.03f * kneel;
   lean += gait ? 0.05f * walk + 0.13f * mAim + 0.06f * carry * walk : 0.10f * walk;
   lean += 0.20f * c01(p.hunch) * (1 - crouch) * (1 - kneel);   // AI5: moving ~22 deg, standing aim ~16 deg
+  if (p.leanMove >= 0 && gait && !dead) lean = p.leanMove + 0.22f * crouch;   // AN3: the moving spine pitch by speed (replaces the stacked walk / glide / hunch terms)
   lean += 0.55f * climbRoll;   // mantle: the chest rolls forward over the ledge in the second half
   float aimW = (1 - carry) * (1 - 0.7f * lowR);   // shouldered and looking down the sights
   float blade = (kind == 1 ? -0.20f : kind == 2 ? -0.12f : 0.0f) * (1 - carry) - 0.10f * carry;   // AN1 step 2: squarer to the target
