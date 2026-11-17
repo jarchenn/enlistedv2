@@ -275,6 +275,7 @@ void settingsInit(App& app, bool selftest) {
   if (selftest) {   // self-tests: Medium defaults, nothing read or written, nothing applied
     if (const char* e = std::getenv("NMK_RES_SCALE")) app.R.setResolutionScale((float)std::atof(e));   // benchmarks at a chosen scale
     if (const char* e = std::getenv("NMK_UPSCALE")) S.s.upscale = app.R.upscaleMode = e[0] == 's' ? 1 : e[0] == 'o' ? 2 : 0;   // temporal | spatial | off (kept by preset applies)
+    if (const char* e = std::getenv("NMK_SETTINGS_FILE")) if (*e && S.load(fs::path(e))) { S.apply(app); logf("settings: %s applied (self-test)", e); }   // VM1: a user's own settings, read only
     return;
   }
   if (!S.load(S.path())) {
