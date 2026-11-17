@@ -1,4 +1,5 @@
 // Personal weapons: definitions (content/weapons/*.json), container-based ammunition accounting,
+#include "smithy.h"
 #include "loading.h"
 #include "crumb.h"
 // reload state machine, recoil springs, sights/scopes, first-person view model, crate resupply.
@@ -494,7 +495,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   // bolt actions (Kar98k, ZF39): a shot drops out of ADS (adsT = 0 at the shot); aiming waits for the bolt and the
   // cooldown, then a held aim key re-enters
   bool aimBlocked = d.action == "bolt" && (s.bolt > 0 || s.cooldown > 0);
-  float adsRate = d.adsSpeed / std::max(0.05f, move.adsTime) * (s.att[ATT_STOCK] ? 1.0f / 0.75f : 1.0f);   // the only writer of adsT while a weapon is out; BR2 recoil pad: ADS time -25 %
+  float adsRate = d.adsSpeed / std::max(0.05f, move.adsTime) * (s.att[ATT_STOCK] ? 1.0f / kPadAdsTime : 1.0f);   // the only writer of adsT while a weapon is out; BR2 recoil pad: ADS time -25 %
   adsT = std::clamp(adsT + (in.aim && !modal && !aimBlocked ? adsRate : -adsRate) * dt, 0.0f, 1.0f);
   stepViewModel(dt, in, d, s);
   if (d.anim) animVmStep(*this, d, s, dt); else animVmNotActive();   // MG1: clips, pose, rig placement
@@ -596,7 +597,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       vec3 eye = eyePos();
       vec3 aimDir = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch);
       // dispersion: the class's hip / ADS cone (handling.json) x the stance (prone near laser-like, mounted near none)
-      lastStance = stance; lastSpreadDeg = handling.cone(d.wclass, adsT > 0.85f, stance) * (s.att[ATT_MUZZLE] == 2 ? 0.7f : 1.0f);   // BR2 muzzle brake: spread -30 %
+      lastStance = stance; lastSpreadDeg = handling.cone(d.wclass, adsT > 0.85f, stance) * (s.att[ATT_MUZZLE] == 2 ? kBrakeSpread : 1.0f);   // BR2 muzzle brake: spread -30 %
       float spread = radians(lastSpreadDeg);
       vec3 rt = glm::normalize(glm::cross(aimDir, vec3(0, 1, 0))), up = glm::cross(rt, aimDir);
       float a = wrand(s.seed) * 6.2831853f, r = std::sqrt(wrand(s.seed)) * std::tan(spread);
@@ -660,7 +661,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       float sc = stance != STANCE_MOUNTED ? handling.recoil[stance]
                : (ch.posture == Physics::PRONE ? 0.20f : 0.70f) * (d.rSupported < 0.999f ? d.rSupported : handling.recoil[STANCE_MOUNTED]);
       if (adsT > 0.85f) sc *= 0.85f;
-      if (s.att[ATT_MUZZLE] == 2) sc *= 0.8f;   // BR2 muzzle brake: recoil -20 %
+      if (s.att[ATT_MUZZLE] == 2) sc *= kBrakeRecoil;   // BR2 muzzle brake: recoil -20 %
       float yawK = moving ? 1 + handling.movingYaw : 1.0f;
       lastRecoilScale = sc;
       s.recoilP += sc * (d.rPitch * (0.85f + 0.3f * wrand(s.seed)) + d.rClimb * std::min(s.burst, 12));
@@ -736,7 +737,7 @@ void App::drawStackUI(ImDrawList* dl, ImVec2 ds) {
   if (!st.empty()) { ImVec2 t = f->CalcTextSizeA(smSz, 1e9f, 0, st.c_str()); shadowText(dl, f, smSz, ImVec2(right - t.x, yInfo), IM_COL32(255, 205, 130, 255), st.c_str(), 1); yInfo -= smSz + 2 * sc; }
   if (!weaponMsg.empty()) { ImVec2 t = f->CalcTextSizeA(smSz, 1e9f, 0, weaponMsg.c_str()); shadowText(dl, f, smSz, ImVec2(right - t.x, yInfo), IM_COL32(255, 210, 130, 230), weaponMsg.c_str(), 1); yInfo -= smSz + 2 * sc; }
   // ---- the list: always shown unless hidden in Settings > Gameplay
-  float a = showWeaponList ? 1.0f : 0.0f;
+  float a = showWeaponList && !smithyOpen() ? 1.0f : 0.0f;   // SM1: not over the fitting screen
   lastStackAlpha = a;
   if (a <= 0) return;
   std::vector<int> rows = lootActive() ? std::vector<int>{activeWeapon} : stackRows();   // BR2: in play only the gun in hand shows

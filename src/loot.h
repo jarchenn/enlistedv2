@@ -58,6 +58,17 @@ bool lootSightFits(const WeaponDef& d, int sight);
 int lootSight(const WeaponDef& d, const WeaponState& s);
 inline bool lootBuiltInAcog(const WeaponDef& d, const WeaponState& s) { return s.att[ATT_SIGHT] == 0 && d.hasScope && d.wclass == WC_SNIPER; }
 bool lootAttachFits(const WeaponDef& d, const ItemDef& it);
+// SM1: fitting, shared by the inventory, the smithing table and its check. Item ids per slot value (sight 1-4, muzzle 1-2,
+// mag / stock 1); fit puts a replaced part back in the bag; a sniper's own scope never comes off
+constexpr float kBrakeRecoil = 0.8f, kBrakeSpread = 0.7f, kPadAdsTime = 0.75f;   // BR2 muzzle brake / recoil pad (weapons.cpp)
+const char* lootAttachItemId(int slot, int value);
+const char* lootSlotName(int slot);
+int lootSlotOf(ItemKind k);
+bool lootGunTakesParts(const WeaponDef& d);   // any slot can take a part in Battle Royale
+bool lootFit(App& app, Kit& k, int weapon, const std::string& itemId, std::string* why = nullptr);
+bool lootTakeOff(App& app, Kit& k, int weapon, int slot, std::string* why = nullptr);
+struct GunStats { float adsTime = 0, recoil = 1, spread = 1; int mag = 0, sight = 0; bool quiet = false; };
+GunStats lootGunStats(const App& app, const WeaponDef& d, const WeaponState& s);
 
 // pure rules (headless tests)
 float kitWeight(const App* app, const Kit& k, const std::vector<int>* carried);   // carried throwables: the player's weapon list (app may be null without them)

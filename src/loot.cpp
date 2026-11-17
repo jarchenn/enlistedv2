@@ -142,6 +142,50 @@ bool lootAttachFits(const WeaponDef& d, const ItemDef& it) {
   }
 }
 
+static const char* kAttIds[4][5] = {
+  {"", "br_sight_reddot", "br_sight_acog", "br_sight_4x", "br_sight_10x"},
+  {"", "br_suppressor", "br_muzzle_brake", "", ""},
+  {"", "br_mag_ext", "", "", ""},
+  {"", "br_recoil_pad", "", "", ""}};
+const char* lootAttachItemId(int slot, int value) { return slot >= 0 && slot < 4 && value >= 0 && value < 5 ? kAttIds[slot][value] : ""; }
+const char* lootSlotName(int slot) { static const char* n[4] = {"Sight", "Muzzle", "Magazine", "Stock"}; return slot >= 0 && slot < 4 ? n[slot] : "?"; }
+int lootSlotOf(ItemKind k) { return k == ItemKind::Sight ? ATT_SIGHT : k == ItemKind::Muzzle ? ATT_MUZZLE : k == ItemKind::Mag ? ATT_MAG : ATT_STOCK; }
+bool lootGunTakesParts(const WeaponDef& d) {
+  for (int sl = 0; sl < 4; ++sl) for (int v = 1; v < 5; ++v) { const char* id = kAttIds[sl][v]; if (*id) if (const ItemDef* it = lootItem(id)) if (lootAttachFits(d, *it)) return true; }
+  return false;
+}
+bool lootFit(App& app, Kit& k, int weapon, const std::string& itemId, std::string* why) {
+  auto no = [&](const char* m) { if (why) *why = m; return false; };
+  if (weapon < 0 || weapon >= (int)app.weaponDefs.size()) return no("no such weapon");
+  const WeaponDef& d = *app.weaponDefs[weapon];
+  const ItemDef* it = lootItem(itemId);
+  if (!it || it->kind < ItemKind::Sight || it->kind > ItemKind::Stock) return no("not an attachment");
+  auto have = k.items.find(itemId); if (have == k.items.end() || have->second <= 0) return no("not carried");
+  if (!lootAttachFits(d, *it)) return no("does not fit this weapon");
+  WeaponState& s = app.wstate[d.id]; int sl = lootSlotOf(it->kind);
+  if (s.att[sl] == it->value) return no("already fitted");
+  if (s.att[sl]) { const char* old = kAttIds[sl][std::clamp(s.att[sl], 0, 4)]; if (*old) k.items[old]++; }   // the swapped part into the bag
+  s.att[sl] = it->value; if (--k.items[itemId] <= 0) k.items.erase(itemId);
+  return true;
+}
+bool lootTakeOff(App& app, Kit& k, int weapon, int slot, std::string* why) {
+  auto no = [&](const char* m) { if (why) *why = m; return false; };
+  if (weapon < 0 || weapon >= (int)app.weaponDefs.size() || slot < 0 || slot > 3) return no("no such slot");
+  const WeaponDef& d = *app.weaponDefs[weapon]; WeaponState& s = app.wstate[d.id];
+  if (!s.att[slot]) return no("nothing fitted");
+  const char* id = kAttIds[slot][std::clamp(s.att[slot], 0, 4)];
+  if (*id) k.items[id]++;
+  s.att[slot] = 0;
+  return true;
+}
+GunStats lootGunStats(const App& app, const WeaponDef& d, const WeaponState& s) {
+  GunStats g;
+  g.adsTime = d.adsSpeed > 0 ? app.move.adsTime / d.adsSpeed * (s.att[ATT_STOCK] ? kPadAdsTime : 1.0f) : 0;
+  g.recoil = s.att[ATT_MUZZLE] == 2 ? kBrakeRecoil : 1.0f; g.spread = s.att[ATT_MUZZLE] == 2 ? kBrakeSpread : 1.0f;
+  g.mag = lootMagSize(d, s); g.sight = lootSight(d, s); g.quiet = s.att[ATT_MUZZLE] == 1;
+  return g;
+}
+
 // ---------------------------------------------------------------- pure rules
 float kitCapacity(const Kit& k) { return cfg().capacity[std::clamp(k.backpack, 0, 2)]; }
 float kitWeight(const App* app, const Kit& k, const std::vector<int>* carried) {

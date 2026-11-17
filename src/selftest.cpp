@@ -176,6 +176,7 @@ void SelfTest::update(App& app, float dt) {
   { extern bool captureRc2SelfTest(App&, float); if (captureRc2SelfTest(app, dt)) return; }   // RC2: --capture-rc2
   { extern bool snd10SelfTest(App&, float); if (snd10SelfTest(app, dt)) return; }   // SND10: --check-snd10
   { extern bool memProbeSelfTest(App&, float); if (memProbeSelfTest(app, dt)) return; }   // MEM1: --mem-probe
+  { extern bool sm1SelfTest(App&, float); if (sm1SelfTest(app, dt)) return; }   // SM1: --check-sm1 / --capture-sm1
   { extern bool vehicleSpawnGenSelfTest(App&, float); if (vehicleSpawnGenSelfTest(app, dt)) return; }   // VH7: --gen-vehicle-spawns   // VH5: --capture-heli (capture_heli.cpp)
   { extern bool captureTk1SelfTest(App&, float); if (captureTk1SelfTest(app, dt)) return; }
   { extern bool tk1MatchSelfTest(App&, float); if (tk1MatchSelfTest(app, dt)) return; }   // TK1: --check-tk1-match

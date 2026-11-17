@@ -1,4 +1,5 @@
 #ifdef _WIN32
+#include "smithy.h"
 #include <malloc.h>
 #include <windows.h>
 #endif
@@ -214,7 +215,7 @@ const App::ActiveSet& App::activeSet() {
     if (!it->second.asset) continue;
     const AssetDef* a = it->second.asset;
     if (!a->interactables.empty()) s.inter.push_back({k, &it->second});
-    if (!a->station.kind.empty() || a->rack || (a->crate.is_object() && !a->crate.empty())) s.objs.push_back({k, &it->second});
+    if (!a->station.kind.empty() || a->rack || (a->crate.is_object() && !a->crate.empty()) || isSmithy(a)) s.objs.push_back({k, &it->second});   // SM1: smithing tables
     if (isVehicleAsset(a)) s.vehicles.push_back({k, &it->second});
     if (a->raw.is_object() && a->raw.contains("light")) s.lights.push_back({k, &it->second});   // lightDef (lights.cpp)
     if (a->defense.kind == "wire" && a->defense.traversal == "slow") s.slowWire.push_back({k, &it->second});   // traversalFactor (builder.cpp)
@@ -1019,7 +1020,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-render") runSelf = true;   // V1 facades, walls, water (selftest_render.cpp)
     else if (a == "--selftest-lights") runSelf = true;   // L2 lighting engine (selftest_lights.cpp)
     else if (a == "--selftest-swim") runSelf = true;     // swimming, underwater view, breath (selftest_swim.cpp)
-    else if (a == "--capture-heli" || a == "--gen-vehicle-spawns" || a == "--capture-vh7" || a == "--check-ed2" || a == "--check-vh8" || a == "--capture-vh8" || a == "--mem-probe" || a == "--capture-shade" || a == "--capture-rc2" || a == "--check-snd10") runSelf = true;   // VH5 (capture_heli.cpp)
+    else if (a == "--capture-heli" || a == "--gen-vehicle-spawns" || a == "--capture-vh7" || a == "--check-ed2" || a == "--check-vh8" || a == "--capture-vh8" || a == "--mem-probe" || a == "--check-sm1" || a == "--capture-sm1" || a == "--capture-shade" || a == "--capture-rc2" || a == "--check-snd10") runSelf = true;   // VH5 (capture_heli.cpp)
     else if (a == "--selftest-zombies" || a == "--capture-heavies" || a == "--capture-commands" || a == "--capture-ch1" || a == "--capture-ch6" || a == "--capture-ch8" || a == "--capture-fighter2" || a == "--capture-fighter2-slam") runSelf = true;
     else if (a == "--capture-tk1" || a == "--check-tk1-match" || a == "--capture-tk2" || a == "--selftest-sd" || a == "--selftest-playerdmg" || a == "--selftest-prone" || a == "--selftest-sd3" || a == "--selftest-spectate" || a == "--sd-timings") runSelf = true;   // TK1 (capture_tk1.cpp)
     else if (a == "--capture-br-models" || a == "--capture-br-worn") runSelf = true;   // BR3 / BR8: a look at the Battle Royale models and worn gear (selftest_brmodels.cpp)

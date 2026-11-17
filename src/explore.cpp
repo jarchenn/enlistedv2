@@ -1,4 +1,5 @@
 // Explore mode: first-person walkthrough of the same placed instances shown in Creative.
+#include "smithy.h"
 #include "app.h"
 #include "ui_glass.h"   // UI2: glass panel backgrounds
 #include "mainmenu.h"
@@ -227,7 +228,7 @@ InteractTarget App::findTarget(vec3 eye, vec3 dir) const {
   float tObj = 1e9f; uint64_t objId = 0; int objKind = 0;
   auto kindOf = [&](const InstanceRT& r) {
     bool isStation = !r.asset->station.kind.empty(), isCrate = r.asset->crate.is_object() && !r.asset->crate.empty();
-    return isStation ? (r.st.wrecked ? 0 : 1) : r.asset->rack ? 3 : isCrate ? 2 : 0;
+    return isStation ? (r.st.wrecked ? 0 : 1) : r.asset->rack ? 3 : isCrate ? 2 : isSmithy(r.asset) ? 4 : 0;   // SM1: 4 smithing table
   };
   if (rayHit && th <= objReach) {
     uint64_t owner = ud >> 16;
@@ -399,6 +400,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
     if (target.kind == 1) choiceFor = target.inst;
     else if (target.kind == 2) toast(crateTransaction(target.inst), 5);
     else if (target.kind == 3) openRack(target.inst);
+    else if (target.kind == 4) { if (!smithyOpen()) smithyOpenAt(*this, target.inst); }   // SM1
     else toggleInteract(target.inst, target.idx);
   }
   stepProjectiles(dt);
@@ -434,6 +436,7 @@ void App::updateExplore(float dt) {
     if ((rackOpen || build.palette) && kp(win, GLFW_KEY_ESCAPE)) { if (rackOpen) closeRack("closed"); else setBuildPalette(false); }
     else if (lootInventoryOpen() && kp(win, GLFW_KEY_ESCAPE)) { lootSetInventory(false); lootOpenCase(0); }   // BR6: Esc closes the inventory / crate first
     else if (sdBuyMenuOpen() && kp(win, GLFW_KEY_ESCAPE)) sdCloseBuyMenu();   // SD3: Esc closes the buy menu first
+    else if (smithyOpen() && kp(win, GLFW_KEY_ESCAPE)) smithyClose(*this);   // SM1: and the fitting screen
     else if (kp(win, GLFW_KEY_ESCAPE)) {
       pauseMenu = !pauseMenu; syncCursor();
     }
@@ -575,6 +578,7 @@ void App::updateExplore(float dt) {
 void App::drawExploreUI() {
   commandsFrame(*this);   // CMD1: "/" command line
   lootUi(*this);   // BR2: pick-up prompt, heal ring, inventory screen
+  smithyUi(*this);   // SM1: the smithing table's fitting screen
   if (lootInventoryOpen()) return;   // the inventory replaces the play HUD
   ImGuiIO& io = ImGui::GetIO();
   ImDrawList* dl = ImGui::GetForegroundDrawList();
@@ -619,11 +623,11 @@ void App::drawExploreUI() {
       dl->AddCircleFilled(c, 2.4f * k, dark); dl->AddCircleFilled(c, 1.5f * k, white);
     }
     // (GM1b's black aim mark in the MG 42's rear notch removed at the user's request: the gun's own sights are the reference)
-    if (target.valid && !tanks.occupied && !tanks.target) {
+    if (target.valid && !tanks.occupied && !tanks.target && !smithyOpen()) {
       auto it = rt.find(target.inst);
       if (it != rt.end()) {
         if (target.kind != 0) {
-          std::string t = target.kind == 1 ? "E  -  Crew " + it->second.asset->name : target.kind == 3 ? "E  -  Open " + it->second.asset->name : "E  -  Take ammunition (" + it->second.asset->name + ")";
+          std::string t = target.kind == 1 ? "E  -  Crew " + it->second.asset->name : target.kind == 3 ? "E  -  Open " + it->second.asset->name : target.kind == 4 ? std::string("E  -  Smithing table") : "E  -  Take ammunition (" + it->second.asset->name + ")";
           ImVec2 ts = ImGui::CalcTextSize(t.c_str());
           ImVec2 p(c.x - ts.x * 0.5f, c.y + 28);
           uiGlassPanel(dl, ImVec2(p.x - 10, p.y - 5), ImVec2(p.x + ts.x + 10, p.y + ts.y + 5), std::max(8.0f, (float)4));
@@ -650,7 +654,7 @@ void App::drawExploreUI() {
     tanks.drawWorldBars(*this);   // TK1: bars over the vehicles around
     if (tanks.occupied) { tanks.drawUI(*this); tanks.drawHealthBar(*this); }   // TK1: the bar over the sight mask
     else { drawCombatUI(); drawWeaponUI(); tanks.drawUI(*this); drawSwimUI(); drawStaminaUI(); }
-    if ((showMinimap || mapLarge) && !gm2ArtyMapOpen()) minimapHud(*this, mapLarge);   // GM2
+    if ((showMinimap || mapLarge) && !gm2ArtyMapOpen() && !smithyOpen()) minimapHud(*this, mapLarge);   // GM2; SM1: not over the fitting screen
     gm2Hud(*this);   // GM2: suppression vignette, the artillery map
     if (now < noticeUntil) {   // UI2: a glass toast with the accent bar
       ImVec2 ts = ImGui::CalcTextSize(notice.c_str());

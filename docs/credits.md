@@ -649,3 +649,12 @@ The menu backdrops (`content/ui/menu_backdrop*.jpg`) are stills of our own Newto
 | `content/fonts/BlackOpsOne-Regular.ttf` | the BATTLE FOUNDRY wordmark (stencil) | The Black Ops One Project Authors | SIL Open Font License 1.1 (`content/fonts/OFL-BlackOpsOne.txt`) | https://github.com/google/fonts/tree/main/ofl/blackopsone |
 
 The fonts are bundled unmodified. If they are ever subset or changed, the OFL forbids keeping any Reserved Font Name in the changed copy.
+
+## Smithing table (SM1)
+
+Supplied by the user (`crafting_bench.glb`), opened only through a Blender background script (meshes kept, lights and
+cameras dropped, scaled to 1.8 m wide, textures to 1024 px) and baked into `content/assets/models/smithing_table/`.
+
+| Asset | Model | Author | Licence | Source | In the repo |
+|---|---|---|---|---|---|
+| `smithing_table` | Crafting Bench | Matt LeMoine (https://sketchfab.com/Matt_LeMoine) | CC-BY-4.0 (the GLB `asset.extras`) | https://sketchfab.com/3d-models/crafting-bench-80886d6fd9844a35bf78a25e31c41705 | yes |
