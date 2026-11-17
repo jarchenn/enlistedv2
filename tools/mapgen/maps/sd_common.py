@@ -80,6 +80,10 @@ class Plan:
 
     def edges(self):
         """Every cell edge that needs a wall: (x, z, yaw, kind) at the edge's midpoint; kind None = plain wall."""
+        return [e for e in self.all_edges() if e[3] != "open"]
+
+    def all_edges(self):
+        """Every edge between different regions (or a region and solid ground), open links included."""
         out = []
         for j in range(-1, self.nz):
             for i in range(-1, self.nx):
@@ -91,8 +95,6 @@ class Plan:
                     if wa and wb and self.at(*a) == self.at(*b):
                         continue
                     kind = self.links.get(frozenset((a, b)))
-                    if kind == "open":
-                        continue
                     x, z = self._cc(*a)
                     if di:
                         out.append((x + self.cell / 2, z, 90.0, kind, a, b))
@@ -129,3 +131,85 @@ def spread(points, centre, n, min_gap=1.6, radius=9.0):
         if len(out) == n:
             break
     return out
+
+
+# ---------------------------------------------------------------- dressing
+def _seg_dist(p, a, b):
+    ax, az = b[0] - a[0], b[1] - a[1]
+    l2 = ax * ax + az * az
+    t = 0.0 if l2 < 1e-9 else max(0.0, min(1.0, ((p[0] - a[0]) * ax + (p[1] - a[1]) * az) / l2))
+    return math.hypot(p[0] - a[0] - ax * t, p[1] - a[1] - az * t)
+
+
+def rect_ok(plan, x, z, hw, hd, walkable=False, margin=0.6):
+    """The rectangle (centre, half sizes) lies in solid cells (walkable=False) or inside one walkable region (True),
+    keeping `margin` from the other kind."""
+    c = plan.cell
+    pts = [(x + sx * (hw + margin), z + sz * (hd + margin)) for sx in (-1, -0.5, 0, 0.5, 1) for sz in (-1, -0.5, 0, 0.5, 1)]
+    regs = set()
+    for px, pz in pts:
+        i, j = int(math.floor((px - plan.x0) / c)), int(math.floor((pz - plan.z0) / c))
+        regs.add(plan.at(i, j))
+    if walkable:
+        return len(regs) == 1 and "#" not in regs
+    return regs == {"#"}
+
+
+def place_masses(b, plan, cands, R, y, ring=2, tags=("mass",)):
+    """Decorative buildings on solid ground (behind the walls, seen above them): largest first, greedy on a 1 m step,
+    never within 0.6 m of a walkable cell; out to `ring` cells past the plan's edge."""
+    placed, n = [], 0
+    c = plan.cell
+    xs = [plan.x0 - ring * c + 0.5 * k for k in range(int((plan.nx + 2 * ring) * c * 2))]
+    zs = [plan.z0 - ring * c + 0.5 * k for k in range(int((plan.nz + 2 * ring) * c * 2))]
+    for aid, fw, fd in sorted(cands, key=lambda t: -t[1] * t[2]):
+        for _ in range(3):   # up to three of each
+            spots = [(x, z, yaw) for x in xs[::2] for z in zs[::2] for yaw in (0.0, 90.0)]
+            R.shuffle(spots)
+            for x, z, yaw in spots:
+                hw, hd = (fw / 2, fd / 2) if yaw == 0.0 else (fd / 2, fw / 2)
+                if not rect_ok(plan, x, z, hw, hd):
+                    continue
+                if any(abs(x - px) < hw + phw + 1.0 and abs(z - pz) < hd + phd + 1.0 for px, pz, phw, phd in placed):
+                    continue
+                b.place(aid, x, z, yaw + R.choice((0.0, 180.0)), check=False, cls="none", y=y, tags=set(tags))
+                placed.append((x, z, hw, hd))
+                n += 1
+                break
+    return n
+
+
+def door_points(plan, ch):
+    """Midpoints of the open / gated edges of region ch (its doorways)."""
+    out = []
+    for x, z, yaw, kind, a, b2 in plan.all_edges():
+        if (plan.at(*a) == ch) != (plan.at(*b2) == ch) and kind is not None:
+            out.append((x, z))
+    return out
+
+
+def place_cover(b, plan, ch, items, R, y, lane=2.2, tries=400, tags=("cover",)):
+    """items: [(asset, half w, half d, count)]: scattered in region ch, never within `lane` m of a straight line between
+    two of its doorways (the routes stay open) and 1.0 m off its walls."""
+    doors = door_points(plan, ch)
+    segs = [(doors[a], doors[k]) for a in range(len(doors)) for k in range(a + 1, len(doors))]
+    cells = plan.cells(ch)
+    placed, n = [], 0
+    for aid, hw, hd, cnt in items:
+        for _ in range(cnt):
+            for _t in range(tries):
+                i, j = R.choice(cells)
+                cx, cz = plan._cc(i, j)
+                x, z = cx + R.uniform(-plan.cell / 2, plan.cell / 2), cz + R.uniform(-plan.cell / 2, plan.cell / 2)
+                yaw = R.choice((0.0, 90.0)) + R.uniform(-8, 8)
+                if not rect_ok(plan, x, z, max(hw, hd), max(hw, hd), walkable=True, margin=1.0):
+                    continue
+                if any(_seg_dist((x, z), s0, s1) < lane + max(hw, hd) for s0, s1 in segs):
+                    continue
+                if any(math.hypot(x - px, z - pz) < max(hw, hd) + pr + 1.4 for px, pz, pr in placed):
+                    continue
+                b.place(aid, x, z, yaw, check=False, cls="none", y=y, tags=set(tags))
+                placed.append((x, z, max(hw, hd)))
+                n += 1
+                break
+    return n

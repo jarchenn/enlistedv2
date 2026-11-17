@@ -8,7 +8,7 @@ import os
 
 from mapgen import (GroundPaint, Grid, Frame, MapBuilder, ScenarioBuilder, write_map, write_template, write_summary, asset_usage,
                     rng, look_yaw)
-from maps.sd_common import Plan, place_walls, spread
+from maps.sd_common import Plan, place_walls, spread, place_masses, place_cover
 
 TID, NAME, VERSION, SEED = "sd_desert", "Sun Fort", 1, 2611
 CELL = 6.0
@@ -39,6 +39,15 @@ ROWS = [
 # the layout scale knob (sd_common.Plan): these original columns / rows are drawn twice; tuned with --sd-timings
 STRETCH_COLS = (6, 8)
 STRETCH_ROWS = (3, 4, 5, 13, 14)
+# decorative buildings on the solid ground (asset, footprint w, d); cover per region (asset, half w, half d, count)
+MASSES = [("mod_nt_barracks", 30, 12), ("mod_nt_motor_pool", 24, 14), ("mod_nt_hq", 20, 14), ("mod_nt_workshop", 18, 12),
+          ("mod_nt_armory", 16, 12), ("mod_nt_pump_station", 14, 10), ("mod_mil_hut", 11.8, 19.6), ("mod_nt_site_office", 7, 3)]
+SITE_COVER = [("mod_container_20", 1.3, 3.1, 1), ("mod_hesco_3x2", 1.6, 0.6, 2), ("mod_sandbag_position", 1.4, 1.1, 1),
+              ("ph_wooden_military_crate", 0.6, 0.4, 2), ("ph_barrel_01", 0.35, 0.35, 2), ("ph_old_military_crate", 0.5, 0.35, 1)]
+STREET_COVER = [("ph_wooden_crate_01", 0.5, 0.5, 2), ("ph_barrel_02", 0.35, 0.35, 2), ("ph_metal_jerrycan", 0.2, 0.1, 1), ("ph_old_tyre", 0.4, 0.4, 1)]
+COVER = {"A": SITE_COVER, "B": SITE_COVER, "M": [("mod_hesco_3x1", 1.6, 0.6, 2), ("ph_wooden_crate_02", 0.5, 0.5, 2), ("ph_barrel_03", 0.35, 0.35, 2)],
+         "s": STREET_COVER, "t": STREET_COVER, "f": STREET_COVER[:2], "R": STREET_COVER[:2], "D": [("ph_plastic_crate_01", 0.4, 0.3, 2), ("ph_portable_generator", 0.5, 0.35, 1)],
+         "T": [("ph_plastic_crate_02", 0.4, 0.3, 2), ("ph_metal_toolbox", 0.3, 0.15, 1)], "c": [("ph_barrel_01", 0.35, 0.35, 1)]}
 LINKS = {
     ((6, 2), (5, 2)): "open", ((8, 1), (9, 1)): "open", ((7, 2), (7, 3)): "open",
     ((7, 7), (7, 8)): "open",
@@ -69,6 +78,14 @@ def build(ctx):
     paint.poly("sand", [(-W / 2 - MARGIN, -D / 2 - MARGIN), (W / 2 + MARGIN, -D / 2 - MARGIN), (W / 2 + MARGIN, D / 2 + MARGIN), (-W / 2 - MARGIN, D / 2 + MARGIN)], weight=1.0, edge=0.5)
     y0 = b.ground(0.0, 0.0)
     n_walls = place_walls(b, plan, WALL, y=y0)
+
+    # ---------------------------------------------------------------- dressing: masses behind the walls, a mid landmark, cover
+    n_mass = place_masses(b, plan, MASSES, R, y0)
+    mx, mz = plan.centre("M")
+    b.place("mod_nt_radar_tower", mx, mz + 1.0, 0.0, check=False, cls="none", y=y0, tags={"landmark", "cover"})   # the parade square's landmark: splits mid
+    n_cover = 0
+    for ch, items in COVER.items():
+        n_cover += place_cover(b, plan, ch, items, R, y0)
 
     # ---------------------------------------------------------------- scenario: sites, spawns, timings
     sc = ScenarioBuilder(b, defending="Axis")
@@ -135,6 +152,6 @@ def build(ctx):
                    width=W, depth=D, margin=MARGIN, heightmap=grid.meta(TID + ".height.png"), water_level=-1000.0,
                    map_file=TID + ".nmap.json", camera=cam, thumbnail=TID + ".thumb.png", thumb_camera=thumb_cam,
                    extra={"userMap": True, "views": views})
-    rep = {"instances": len(b.inst), "walls": n_walls, "plan": [plan.nx, plan.nz], "errors": err}
+    rep = {"instances": len(b.inst), "walls": n_walls, "masses": n_mass, "cover": n_cover, "plan": [plan.nx, plan.nz], "errors": err}
     write_summary(os.path.join(ctx.out, TID + ".summary.json"), rep)
-    print("instances %d | walls %d | plan %d x %d cells of %.0f m" % (len(b.inst), n_walls, plan.nx, plan.nz, CELL))
+    print("instances %d | walls %d, masses %d, cover %d | plan %d x %d cells of %.0f m" % (len(b.inst), n_walls, n_mass, n_cover, plan.nx, plan.nz, CELL))
