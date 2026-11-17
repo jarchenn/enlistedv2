@@ -301,22 +301,47 @@ Poly Haven props (CC0), downloaded by `tools/props/fetch_polyhaven.py`, converte
 | `ph_barrel_03` | Barrel 03 | Serhii Khromov | CC0 (Poly Haven) | https://polyhaven.com/a/barrel_03 | yes |
 | `ph_barrel_stove` | Barrel Stove | MP | CC0 (Poly Haven) | https://polyhaven.com/a/barrel_stove | yes |
 | `ph_cardboard_box_01` | Cardboard Box 01 | Rahul Chaudhary | CC0 (Poly Haven) | https://polyhaven.com/a/cardboard_box_01 | yes |
+| `ph_cement_bag` | Cement Bag | PierreB3D | CC0 (Poly Haven) | https://polyhaven.com/a/cement_bag | yes |
+| `ph_compost_bag_02` | Compost Bag 02 | Satyaki Mandal | CC0 (Poly Haven) | https://polyhaven.com/a/compost_bag_02 | yes |
+| `ph_compost_bags` | Compost Bags | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/compost_bags | yes |
 | `ph_concrete_road_barrier` | Concrete Road Barrier | Amal Kumar | CC0 (Poly Haven) | https://polyhaven.com/a/concrete_road_barrier | yes |
 | `ph_concrete_road_barrier_02` | Concrete Road Barrier 02 | Amal Kumar | CC0 (Poly Haven) | https://polyhaven.com/a/concrete_road_barrier_02 | yes |
+| `ph_covered_car` | Covered Car | MP | CC0 (Poly Haven) | https://polyhaven.com/a/covered_car | yes |
+| `ph_drill_press_01` | Drill Press 01 | Viktor | CC0 (Poly Haven) | https://polyhaven.com/a/drill_press_01 | yes |
 | `ph_exterior_aircon_unit` | Exterior Aircon Unit | Monsta3D | CC0 (Poly Haven) | https://polyhaven.com/a/exterior_aircon_unit | yes |
 | `ph_fire_hydrant` | Fire Hydrant | Gonçalo Felício | CC0 (Poly Haven) | https://polyhaven.com/a/fire_hydrant | yes |
+| `ph_hand_truck` | Hand Truck | Mutanzom3D | CC0 (Poly Haven) | https://polyhaven.com/a/hand_truck | yes |
+| `ph_industrial_pastic_container` | Industrial Plastic Container | Galo Benivegna | CC0 (Poly Haven) | https://polyhaven.com/a/industrial_pastic_container | yes |
+| `ph_industrial_storage_cart` | Industrial Storage Cart | Jule Bielitz | CC0 (Poly Haven) | https://polyhaven.com/a/industrial_storage_cart | yes |
+| `ph_korean_fire_extinguisher_01` | Korean Fire Extinguisher 01 | UM JOORIN | CC0 (Poly Haven) | https://polyhaven.com/a/korean_fire_extinguisher_01 | yes |
 | `ph_metal_jerrycan` | Metal Jerrycan | Sean Buckley | CC0 (Poly Haven) | https://polyhaven.com/a/metal_jerrycan | yes |
+| `ph_metal_jerrycan_green` | Metal Jerrycan Green | Ulan Cabanilla | CC0 (Poly Haven) | https://polyhaven.com/a/metal_jerrycan_green | yes |
+| `ph_metal_toolbox` | Metal Toolbox | Mateusz Sadek | CC0 (Poly Haven) | https://polyhaven.com/a/metal_toolbox | yes |
 | `ph_metal_trash_can` | Metal Trash Can | GurJas Studios | CC0 (Poly Haven) | https://polyhaven.com/a/metal_trash_can | yes |
+| `ph_old_drill_press` | Old Drill Press | Harsh Vardhan Singh | CC0 (Poly Haven) | https://polyhaven.com/a/old_drill_press | yes |
+| `ph_old_military_compressor` | Old Military Compressor | Brian Speight | CC0 (Poly Haven) | https://polyhaven.com/a/old_military_compressor | yes |
 | `ph_old_military_crate` | Old Military Crate | Jack Mava | CC0 (Poly Haven) | https://polyhaven.com/a/old_military_crate | yes |
 | `ph_old_tyre` | Old Tyre | MP | CC0 (Poly Haven) | https://polyhaven.com/a/old_tyre | yes |
+| `ph_plastic_container` | Plastic Container | PierreB3D | CC0 (Poly Haven) | https://polyhaven.com/a/plastic_container | yes |
 | `ph_plastic_crate_01` | Plastic Crate 01 | PierreB3D | CC0 (Poly Haven) | https://polyhaven.com/a/plastic_crate_01 | yes |
+| `ph_plastic_crate_02` | Plastic Crate 02 | Fabi_G | CC0 (Poly Haven) | https://polyhaven.com/a/plastic_crate_02 | yes |
+| `ph_plastic_crate_03` | Plastic Crate 03 | Pacific Penguin | CC0 (Poly Haven) | https://polyhaven.com/a/plastic_crate_03 | yes |
+| `ph_plastic_jerrycan` | Plastic Jerrycan | Ulan Cabanilla | CC0 (Poly Haven) | https://polyhaven.com/a/plastic_jerrycan | yes |
 | `ph_portable_generator` | Portable Generator | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/portable_generator | yes |
+| `ph_portable_welding_cart` | Portable Welding Cart | Georgii Gorbunov | CC0 (Poly Haven) | https://polyhaven.com/a/portable_welding_cart | yes |
 | `ph_propane_tank` | Propane Tank | Slinc | CC0 (Poly Haven) | https://polyhaven.com/a/propane_tank | yes |
+| `ph_rusted_wheel_rim_01` | Rusted Wheel Rim 01 | John Hutcheson | CC0 (Poly Haven) | https://polyhaven.com/a/rusted_wheel_rim_01 | yes |
+| `ph_rusted_wheel_rim_02` | Rusted Wheel Rim 02 | John Hutcheson | CC0 (Poly Haven) | https://polyhaven.com/a/rusted_wheel_rim_02 | yes |
+| `ph_small_lpg_tank` | Small Lpg Tank | Ulan Cabanilla | CC0 (Poly Haven) | https://polyhaven.com/a/small_lpg_tank | yes |
 | `ph_street_lamp_01` | Street Lamp 01 | Josh Dean | CC0 (Poly Haven) | https://polyhaven.com/a/street_lamp_01 | yes |
+| `ph_tool_cart` | Tool Cart | Savva Zakharov | CC0 (Poly Haven) | https://polyhaven.com/a/tool_cart | yes |
 | `ph_trashbag` | Trashbag | Benny Weimer | CC0 (Poly Haven) | https://polyhaven.com/a/trashbag | yes |
 | `ph_utility_box_01` | Utility Box 01 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/utility_box_01 | yes |
 | `ph_utility_box_02` | Utility Box 02 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/utility_box_02 | yes |
 | `ph_water_manhole_cover` | Water Manhole Cover | Raunox | CC0 (Poly Haven) | https://polyhaven.com/a/water_manhole_cover | yes |
+| `ph_wetfloorsign_01` | Wet Floor Sign 01 | Fran Calvente | CC0 (Poly Haven) | https://polyhaven.com/a/WetFloorSign_01 | yes |
+| `ph_wine_barrel_01` | Wine Barrel 01 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/wine_barrel_01 | yes |
+| `ph_wooden_barrels_01` | Wooden Barrels 01 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/wooden_barrels_01 | yes |
 | `ph_wooden_crate_01` | Wooden Crate 01 | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/wooden_crate_01 | yes |
 | `ph_wooden_crate_02` | Wooden Crate 02 | James Ray Cock, Jurita Burger | CC0 (Poly Haven) | https://polyhaven.com/a/wooden_crate_02 | yes |
 | `ph_wooden_military_crate` | Wooden Military Crate | Prabhjinder Singh | CC0 (Poly Haven) | https://polyhaven.com/a/wooden_military_crate | yes |

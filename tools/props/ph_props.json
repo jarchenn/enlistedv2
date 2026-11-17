@@ -218,6 +218,163 @@
   "lodDist": 15,
   "credit": "Cardboard Box 01 by Rahul Chaudhary, Poly Haven (polyhaven.com/a/cardboard_box_01), CC0"
  },
+ "ph_cement_bag": {
+  "ph": "cement_bag",
+  "name": "Cement Bag",
+  "category": "Modern: Industrial",
+  "size": [
+   0.462,
+   0.18,
+   0.7
+  ],
+  "colliders": [
+   [
+    -0.002,
+    0.148,
+    0.0,
+    0.441,
+    0.063,
+    0.676
+   ],
+   [
+    -0.006,
+    0.007,
+    -0.003,
+    0.433,
+    0.04,
+    0.671
+   ],
+   [
+    0.213,
+    0.069,
+    0.001,
+    0.04,
+    0.134,
+    0.666
+   ],
+   [
+    -0.22,
+    0.072,
+    0.007,
+    0.04,
+    0.137,
+    0.646
+   ],
+   [
+    -0.003,
+    0.071,
+    -0.328,
+    0.441,
+    0.137,
+    0.044
+   ],
+   [
+    -0.002,
+    0.072,
+    0.336,
+    0.423,
+    0.14,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Cement Bag by PierreB3D, Poly Haven (polyhaven.com/a/cement_bag), CC0"
+ },
+ "ph_compost_bag_02": {
+  "ph": "compost_bag_02",
+  "name": "Compost Bag 02",
+  "category": "Modern: Industrial",
+  "size": [
+   0.539,
+   0.434,
+   0.471
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.193,
+    -0.087,
+    0.539,
+    0.387,
+    0.258
+   ],
+   [
+    0.0,
+    0.193,
+    0.084,
+    0.539,
+    0.387,
+    0.257
+   ],
+   [
+    0.007,
+    0.412,
+    -0.002,
+    0.419,
+    0.043,
+    0.42
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Compost Bag 02 by Satyaki Mandal, Poly Haven (polyhaven.com/a/compost_bag_02), CC0"
+ },
+ "ph_compost_bags": {
+  "ph": "compost_bags",
+  "name": "Compost Bags",
+  "category": "Modern: Industrial",
+  "size": [
+   1.828,
+   0.707,
+   0.926
+  ],
+  "colliders": [
+   [
+    0.562,
+    0.236,
+    0.064,
+    0.69,
+    0.464,
+    0.784
+   ],
+   [
+    0.071,
+    0.351,
+    0.033,
+    0.678,
+    0.696,
+    0.263
+   ],
+   [
+    0.072,
+    0.351,
+    -0.095,
+    0.681,
+    0.695,
+    0.256
+   ],
+   [
+    -0.573,
+    0.165,
+    -0.019,
+    0.668,
+    0.162,
+    0.873
+   ],
+   [
+    -0.573,
+    0.079,
+    -0.019,
+    0.634,
+    0.134,
+    0.853
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Compost Bags by James Ray Cock, Poly Haven (polyhaven.com/a/compost_bags), CC0"
+ },
  "ph_concrete_road_barrier": {
   "ph": "concrete_road_barrier",
   "name": "Concrete Road Barrier",
@@ -327,6 +484,140 @@
   "maxTex": 1024,
   "lodDist": 30,
   "credit": "Concrete Road Barrier 02 by Amal Kumar, Poly Haven (polyhaven.com/a/concrete_road_barrier_02), CC0"
+ },
+ "ph_covered_car": {
+  "ph": "covered_car",
+  "name": "Covered Car",
+  "category": "Modern: Industrial",
+  "size": [
+   1.789,
+   1.411,
+   4.38
+  ],
+  "colliders": [
+   [
+    -0.001,
+    1.098,
+    -0.046,
+    1.525,
+    0.626,
+    4.109
+   ],
+   [
+    0.718,
+    0.798,
+    -0.038,
+    0.353,
+    1.151,
+    4.103
+   ],
+   [
+    -0.728,
+    0.8,
+    -0.036,
+    0.333,
+    1.139,
+    4.107
+   ],
+   [
+    -0.009,
+    0.583,
+    -2.052,
+    1.562,
+    0.664,
+    0.276
+   ],
+   [
+    -0.01,
+    0.309,
+    1.895,
+    1.553,
+    0.275,
+    0.549
+   ],
+   [
+    0.002,
+    0.536,
+    2.046,
+    1.469,
+    0.535,
+    0.288
+   ],
+   [
+    -0.01,
+    0.428,
+    -1.436,
+    0.925,
+    0.127,
+    1.356
+   ],
+   [
+    -0.01,
+    0.347,
+    -1.889,
+    1.592,
+    0.16,
+    0.471
+   ],
+   [
+    -0.665,
+    0.465,
+    1.276,
+    0.352,
+    0.439,
+    0.768
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Covered Car by MP, Poly Haven (polyhaven.com/a/covered_car), CC0"
+ },
+ "ph_drill_press_01": {
+  "ph": "drill_press_01",
+  "name": "Drill Press 01",
+  "category": "Modern: Industrial",
+  "size": [
+   0.354,
+   0.901,
+   0.599
+  ],
+  "colliders": [
+   [
+    -0.114,
+    0.796,
+    -0.014,
+    0.103,
+    0.202,
+    0.505
+   ],
+   [
+    0.065,
+    0.146,
+    0.074,
+    0.148,
+    0.198,
+    0.248
+   ],
+   [
+    0.003,
+    0.592,
+    0.075,
+    0.133,
+    0.148,
+    0.286
+   ],
+   [
+    0.02,
+    0.689,
+    -0.006,
+    0.201,
+    0.04,
+    0.509
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Drill Press 01 by Viktor, Poly Haven (polyhaven.com/a/drill_press_01), CC0"
  },
  "ph_exterior_aircon_unit": {
   "ph": "exterior_aircon_unit",
@@ -446,6 +737,258 @@
   "lodDist": 15,
   "credit": "Fire Hydrant by Gonçalo Felício, Poly Haven (polyhaven.com/a/fire_hydrant), CC0"
  },
+ "ph_hand_truck": {
+  "ph": "hand_truck",
+  "name": "Hand Truck",
+  "category": "Modern: Industrial",
+  "size": [
+   0.593,
+   1.403,
+   0.693
+  ],
+  "colliders": [
+   [
+    -0.007,
+    0.046,
+    0.039,
+    0.428,
+    0.071,
+    0.61
+   ],
+   [
+    0.186,
+    0.073,
+    0.011,
+    0.046,
+    0.12,
+    0.562
+   ],
+   [
+    -0.199,
+    0.073,
+    0.011,
+    0.046,
+    0.12,
+    0.562
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Hand Truck by Mutanzom3D, Poly Haven (polyhaven.com/a/hand_truck), CC0"
+ },
+ "ph_industrial_pastic_container": {
+  "ph": "industrial_pastic_container",
+  "name": "Industrial Plastic Container",
+  "category": "Modern: Industrial",
+  "size": [
+   0.457,
+   0.419,
+   0.631
+  ],
+  "colliders": [
+   [
+    -0.003,
+    0.4,
+    0.001,
+    0.35,
+    0.04,
+    0.626
+   ],
+   [
+    -0.154,
+    0.224,
+    0.001,
+    0.04,
+    0.352,
+    0.581
+   ],
+   [
+    0.148,
+    0.224,
+    0.001,
+    0.04,
+    0.352,
+    0.581
+   ],
+   [
+    -0.003,
+    0.0,
+    0.001,
+    0.308,
+    0.04,
+    0.588
+   ],
+   [
+    -0.003,
+    0.048,
+    0.001,
+    0.301,
+    0.04,
+    0.547
+   ],
+   [
+    -0.195,
+    0.298,
+    -0.0,
+    0.041,
+    0.24,
+    0.631
+   ],
+   [
+    0.19,
+    0.316,
+    -0.0,
+    0.043,
+    0.204,
+    0.631
+   ],
+   [
+    -0.003,
+    0.224,
+    -0.282,
+    0.301,
+    0.352,
+    0.04
+   ],
+   [
+    -0.003,
+    0.224,
+    0.283,
+    0.301,
+    0.352,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Industrial Plastic Container by Galo Benivegna, Poly Haven (polyhaven.com/a/industrial_pastic_container), CC0"
+ },
+ "ph_industrial_storage_cart": {
+  "ph": "industrial_storage_cart",
+  "name": "Industrial Storage Cart",
+  "category": "Modern: Industrial",
+  "size": [
+   1.603,
+   1.377,
+   1.103
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.482,
+    0.023,
+    1.37,
+    0.422,
+    0.939
+   ],
+   [
+    -0.0,
+    1.326,
+    -0.0,
+    1.5,
+    0.099,
+    1.0
+   ],
+   [
+    0.0,
+    0.81,
+    -0.0,
+    1.5,
+    0.099,
+    1.0
+   ],
+   [
+    -0.0,
+    0.212,
+    -0.0,
+    1.5,
+    0.099,
+    1.0
+   ],
+   [
+    0.0,
+    0.723,
+    0.001,
+    1.45,
+    0.04,
+    0.984
+   ],
+   [
+    0.0,
+    0.451,
+    -0.491,
+    1.45,
+    0.543,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Industrial Storage Cart by Jule Bielitz, Poly Haven (polyhaven.com/a/industrial_storage_cart), CC0"
+ },
+ "ph_korean_fire_extinguisher_01": {
+  "ph": "korean_fire_extinguisher_01",
+  "name": "Korean Fire Extinguisher 01",
+  "category": "Modern: Industrial",
+  "size": [
+   0.28,
+   0.659,
+   0.367
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.305,
+    -0.031,
+    0.185,
+    0.487,
+    0.185
+   ],
+   [
+    0.0,
+    0.115,
+    -0.027,
+    0.28,
+    0.04,
+    0.314
+   ],
+   [
+    0.0,
+    0.057,
+    0.157,
+    0.279,
+    0.115,
+    0.054
+   ],
+   [
+    -0.14,
+    0.057,
+    -0.0,
+    0.04,
+    0.115,
+    0.367
+   ],
+   [
+    0.14,
+    0.057,
+    -0.0,
+    0.04,
+    0.115,
+    0.367
+   ],
+   [
+    0.0,
+    0.057,
+    -0.184,
+    0.279,
+    0.115,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Korean Fire Extinguisher 01 by UM JOORIN, Poly Haven (polyhaven.com/a/korean_fire_extinguisher_01), CC0"
+ },
  "ph_metal_jerrycan": {
   "ph": "metal_jerrycan",
   "name": "Metal Jerrycan",
@@ -525,6 +1068,164 @@
   "lodDist": 15,
   "credit": "Metal Jerrycan by Sean Buckley, Poly Haven (polyhaven.com/a/metal_jerrycan), CC0"
  },
+ "ph_metal_jerrycan_green": {
+  "ph": "metal_jerrycan_green",
+  "name": "Metal Jerrycan Green",
+  "category": "Modern: Industrial",
+  "size": [
+   0.36,
+   0.5,
+   0.171
+  ],
+  "colliders": [
+   [
+    0.008,
+    0.216,
+    0.08,
+    0.248,
+    0.248,
+    0.04
+   ],
+   [
+    0.008,
+    0.216,
+    -0.08,
+    0.248,
+    0.248,
+    0.04
+   ],
+   [
+    -0.007,
+    0.415,
+    0.029,
+    0.313,
+    0.136,
+    0.058
+   ],
+   [
+    -0.063,
+    0.19,
+    0.085,
+    0.144,
+    0.319,
+    0.04
+   ],
+   [
+    -0.006,
+    0.408,
+    -0.068,
+    0.311,
+    0.146,
+    0.04
+   ],
+   [
+    0.079,
+    0.333,
+    -0.085,
+    0.145,
+    0.241,
+    0.04
+   ],
+   [
+    0.079,
+    0.335,
+    0.085,
+    0.145,
+    0.236,
+    0.04
+   ],
+   [
+    -0.063,
+    0.307,
+    -0.085,
+    0.144,
+    0.188,
+    0.04
+   ],
+   [
+    0.151,
+    0.251,
+    -0.0,
+    0.058,
+    0.464,
+    0.04
+   ],
+   [
+    0.08,
+    0.124,
+    0.085,
+    0.141,
+    0.189,
+    0.04
+   ],
+   [
+    -0.063,
+    0.122,
+    -0.085,
+    0.144,
+    0.184,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Metal Jerrycan Green by Ulan Cabanilla, Poly Haven (polyhaven.com/a/metal_jerrycan_green), CC0"
+ },
+ "ph_metal_toolbox": {
+  "ph": "metal_toolbox",
+  "name": "Metal Toolbox",
+  "category": "Modern: Industrial",
+  "size": [
+   0.4,
+   0.305,
+   0.271
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.211,
+    -0.042,
+    0.395,
+    0.178,
+    0.146
+   ],
+   [
+    -0.0,
+    0.002,
+    0.021,
+    0.394,
+    0.04,
+    0.2
+   ],
+   [
+    0.0,
+    0.101,
+    0.021,
+    0.386,
+    0.04,
+    0.187
+   ],
+   [
+    -0.0,
+    0.06,
+    0.121,
+    0.394,
+    0.119,
+    0.04
+   ],
+   [
+    -0.0,
+    0.06,
+    -0.079,
+    0.394,
+    0.119,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Metal Toolbox by Mateusz Sadek, Poly Haven (polyhaven.com/a/metal_toolbox), CC0"
+ },
  "ph_metal_trash_can": {
   "ph": "metal_trash_can",
   "name": "Metal Trash Can",
@@ -563,6 +1264,156 @@
   "maxTex": 1024,
   "lodDist": 15,
   "credit": "Metal Trash Can by GurJas Studios, Poly Haven (polyhaven.com/a/metal_trash_can), CC0"
+ },
+ "ph_old_drill_press": {
+  "ph": "old_drill_press",
+  "name": "Old Drill Press",
+  "category": "Modern: Industrial",
+  "size": [
+   0.527,
+   1.05,
+   0.61
+  ],
+  "colliders": [
+   [
+    0.095,
+    1.001,
+    0.033,
+    0.207,
+    0.099,
+    0.475
+   ],
+   [
+    -0.076,
+    0.414,
+    0.122,
+    0.186,
+    0.726,
+    0.067
+   ],
+   [
+    0.095,
+    0.925,
+    0.033,
+    0.207,
+    0.049,
+    0.475
+   ],
+   [
+    -0.194,
+    0.203,
+    -0.139,
+    0.04,
+    0.348,
+    0.246
+   ],
+   [
+    0.095,
+    0.813,
+    -0.112,
+    0.135,
+    0.175,
+    0.135
+   ],
+   [
+    0.095,
+    0.052,
+    0.115,
+    0.205,
+    0.04,
+    0.351
+   ],
+   [
+    0.095,
+    0.0,
+    0.115,
+    0.205,
+    0.04,
+    0.351
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Old Drill Press by Harsh Vardhan Singh, Poly Haven (polyhaven.com/a/old_drill_press), CC0"
+ },
+ "ph_old_military_compressor": {
+  "ph": "old_military_compressor",
+  "name": "Old Military Compressor",
+  "category": "Modern: Industrial",
+  "size": [
+   0.598,
+   1.179,
+   1.676
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.468,
+    0.205,
+    0.466,
+    0.466,
+    0.977
+   ],
+   [
+    0.0,
+    0.807,
+    -0.408,
+    0.598,
+    0.296,
+    0.86
+   ],
+   [
+    -0.078,
+    0.893,
+    0.149,
+    0.242,
+    0.568,
+    0.515
+   ],
+   [
+    0.0,
+    0.468,
+    -0.356,
+    0.466,
+    0.466,
+    0.144
+   ],
+   [
+    0.0,
+    0.468,
+    0.766,
+    0.466,
+    0.466,
+    0.144
+   ],
+   [
+    0.0,
+    0.154,
+    -0.139,
+    0.359,
+    0.301,
+    0.154
+   ],
+   [
+    0.078,
+    0.902,
+    0.08,
+    0.174,
+    0.433,
+    0.219
+   ],
+   [
+    0.249,
+    0.827,
+    -0.02,
+    0.04,
+    0.466,
+    0.466
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Old Military Compressor by Brian Speight, Poly Haven (polyhaven.com/a/old_military_compressor), CC0"
  },
  "ph_old_military_crate": {
   "ph": "old_military_crate",
@@ -674,6 +1525,69 @@
   "lodDist": 15,
   "credit": "Old Tyre by MP, Poly Haven (polyhaven.com/a/old_tyre), CC0"
  },
+ "ph_plastic_container": {
+  "ph": "plastic_container",
+  "name": "Plastic Container",
+  "category": "Modern: Industrial",
+  "size": [
+   0.895,
+   0.43,
+   0.626
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.199,
+    0.27,
+    0.82,
+    0.399,
+    0.052
+   ],
+   [
+    0.0,
+    0.199,
+    -0.27,
+    0.82,
+    0.399,
+    0.052
+   ],
+   [
+    0.0,
+    0.419,
+    -0.0,
+    0.704,
+    0.04,
+    0.432
+   ],
+   [
+    0.399,
+    0.199,
+    -0.0,
+    0.052,
+    0.399,
+    0.559
+   ],
+   [
+    -0.399,
+    0.199,
+    -0.0,
+    0.052,
+    0.399,
+    0.559
+   ],
+   [
+    0.0,
+    0.0,
+    -0.0,
+    0.678,
+    0.04,
+    0.41
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Plastic Container by PierreB3D, Poly Haven (polyhaven.com/a/plastic_container), CC0"
+ },
  "ph_plastic_crate_01": {
   "ph": "plastic_crate_01",
   "name": "Plastic Crate 01",
@@ -728,6 +1642,211 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Plastic Crate 01 by PierreB3D, Poly Haven (polyhaven.com/a/plastic_crate_01), CC0"
+ },
+ "ph_plastic_crate_02": {
+  "ph": "plastic_crate_02",
+  "name": "Plastic Crate 02",
+  "category": "Modern: Industrial",
+  "size": [
+   0.506,
+   0.254,
+   0.406
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.008,
+    -0.0,
+    0.478,
+    0.04,
+    0.378
+   ],
+   [
+    0.0,
+    0.131,
+    -0.184,
+    0.458,
+    0.246,
+    0.04
+   ],
+   [
+    0.0,
+    0.131,
+    0.184,
+    0.458,
+    0.246,
+    0.04
+   ],
+   [
+    0.0,
+    0.055,
+    -0.101,
+    0.506,
+    0.04,
+    0.203
+   ],
+   [
+    0.0,
+    0.15,
+    -0.101,
+    0.506,
+    0.04,
+    0.203
+   ],
+   [
+    0.0,
+    0.15,
+    0.101,
+    0.506,
+    0.04,
+    0.203
+   ],
+   [
+    0.0,
+    0.055,
+    0.101,
+    0.506,
+    0.04,
+    0.203
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Plastic Crate 02 by Fabi_G, Poly Haven (polyhaven.com/a/plastic_crate_02), CC0"
+ },
+ "ph_plastic_crate_03": {
+  "ph": "plastic_crate_03",
+  "name": "Plastic Crate 03",
+  "category": "Modern: Industrial",
+  "size": [
+   0.481,
+   0.266,
+   0.265
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.148,
+    -0.117,
+    0.466,
+    0.233,
+    0.04
+   ],
+   [
+    0.0,
+    0.148,
+    0.117,
+    0.466,
+    0.233,
+    0.04
+   ],
+   [
+    0.0,
+    0.032,
+    0.0,
+    0.465,
+    0.04,
+    0.233
+   ],
+   [
+    0.24,
+    0.133,
+    -0.0,
+    0.04,
+    0.266,
+    0.264
+   ],
+   [
+    -0.24,
+    0.133,
+    0.0,
+    0.04,
+    0.265,
+    0.264
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Plastic Crate 03 by Pacific Penguin, Poly Haven (polyhaven.com/a/plastic_crate_03), CC0"
+ },
+ "ph_plastic_jerrycan": {
+  "ph": "plastic_jerrycan",
+  "name": "Plastic Jerrycan",
+  "category": "Modern: Industrial",
+  "size": [
+   0.268,
+   0.318,
+   0.341
+  ],
+  "colliders": [
+   [
+    -0.099,
+    0.132,
+    -0.006,
+    0.071,
+    0.256,
+    0.314
+   ],
+   [
+    0.099,
+    0.132,
+    -0.006,
+    0.07,
+    0.256,
+    0.314
+   ],
+   [
+    0.0,
+    0.008,
+    -0.004,
+    0.254,
+    0.04,
+    0.261
+   ],
+   [
+    -0.055,
+    0.132,
+    0.14,
+    0.111,
+    0.257,
+    0.061
+   ],
+   [
+    0.056,
+    0.132,
+    0.14,
+    0.111,
+    0.257,
+    0.061
+   ],
+   [
+    0.0,
+    0.261,
+    0.007,
+    0.144,
+    0.04,
+    0.272
+   ],
+   [
+    -0.055,
+    0.138,
+    -0.147,
+    0.111,
+    0.242,
+    0.048
+   ],
+   [
+    0.056,
+    0.138,
+    -0.147,
+    0.111,
+    0.242,
+    0.048
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Plastic Jerrycan by Ulan Cabanilla, Poly Haven (polyhaven.com/a/plastic_jerrycan), CC0"
  },
  "ph_portable_generator": {
   "ph": "portable_generator",
@@ -840,6 +1959,93 @@
   "lodDist": 15,
   "credit": "Portable Generator by James Ray Cock, Poly Haven (polyhaven.com/a/portable_generator), CC0"
  },
+ "ph_portable_welding_cart": {
+  "ph": "portable_welding_cart",
+  "name": "Portable Welding Cart",
+  "category": "Modern: Industrial",
+  "size": [
+   0.838,
+   1.563,
+   0.655
+  ],
+  "colliders": [
+   [
+    -0.002,
+    1.062,
+    -0.037,
+    0.645,
+    0.723,
+    0.211
+   ],
+   [
+    0.112,
+    0.526,
+    0.079,
+    0.277,
+    0.94,
+    0.277
+   ],
+   [
+    -0.158,
+    1.169,
+    -0.183,
+    0.317,
+    0.72,
+    0.28
+   ],
+   [
+    -0.146,
+    0.721,
+    0.058,
+    0.204,
+    1.325,
+    0.204
+   ],
+   [
+    0.0,
+    1.371,
+    -0.178,
+    0.57,
+    0.348,
+    0.217
+   ],
+   [
+    0.36,
+    0.197,
+    -0.13,
+    0.117,
+    0.394,
+    0.394
+   ],
+   [
+    -0.36,
+    0.197,
+    -0.13,
+    0.117,
+    0.394,
+    0.394
+   ],
+   [
+    0.023,
+    1.351,
+    -0.108,
+    0.093,
+    0.422,
+    0.395
+   ],
+   [
+    -0.272,
+    0.434,
+    0.041,
+    0.055,
+    0.777,
+    0.263
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Portable Welding Cart by Georgii Gorbunov, Poly Haven (polyhaven.com/a/portable_welding_cart), CC0"
+ },
  "ph_propane_tank": {
   "ph": "propane_tank",
   "name": "Propane Tank",
@@ -878,6 +2084,131 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Propane Tank by Slinc, Poly Haven (polyhaven.com/a/propane_tank), CC0"
+ },
+ "ph_rusted_wheel_rim_01": {
+  "ph": "rusted_wheel_rim_01",
+  "name": "Rusted Wheel Rim 01",
+  "category": "Modern: Industrial",
+  "size": [
+   0.405,
+   0.405,
+   0.15
+  ],
+  "colliders": [
+   [
+    -0.041,
+    0.183,
+    0.0,
+    0.319,
+    0.363,
+    0.15
+   ],
+   [
+    0.041,
+    0.222,
+    -0.0,
+    0.319,
+    0.363,
+    0.15
+   ],
+   [
+    0.0,
+    0.203,
+    0.015,
+    0.345,
+    0.344,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Rusted Wheel Rim 01 by John Hutcheson, Poly Haven (polyhaven.com/a/rusted_wheel_rim_01), CC0"
+ },
+ "ph_rusted_wheel_rim_02": {
+  "ph": "rusted_wheel_rim_02",
+  "name": "Rusted Wheel Rim 02",
+  "category": "Modern: Industrial",
+  "size": [
+   0.338,
+   0.338,
+   0.119
+  ],
+  "colliders": [
+   [
+    0.035,
+    0.185,
+    -0.0,
+    0.266,
+    0.304,
+    0.119
+   ],
+   [
+    -0.035,
+    0.153,
+    0.0,
+    0.266,
+    0.304,
+    0.119
+   ],
+   [
+    -0.0,
+    0.169,
+    0.035,
+    0.289,
+    0.289,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Rusted Wheel Rim 02 by John Hutcheson, Poly Haven (polyhaven.com/a/rusted_wheel_rim_02), CC0"
+ },
+ "ph_small_lpg_tank": {
+  "ph": "small_lpg_tank",
+  "name": "Small Lpg Tank",
+  "category": "Modern: Industrial",
+  "size": [
+   0.41,
+   0.642,
+   0.409
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.144,
+    0.0,
+    0.404,
+    0.213,
+    0.403
+   ],
+   [
+    -0.0,
+    0.369,
+    0.0,
+    0.403,
+    0.21,
+    0.402
+   ],
+   [
+    -0.0,
+    0.542,
+    -0.016,
+    0.244,
+    0.166,
+    0.208
+   ],
+   [
+    -0.0,
+    0.0,
+    -0.005,
+    0.259,
+    0.04,
+    0.247
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Small Lpg Tank by Ulan Cabanilla, Poly Haven (polyhaven.com/a/small_lpg_tank), CC0"
  },
  "ph_street_lamp_01": {
   "ph": "street_lamp_01",
@@ -965,6 +2296,53 @@
   "maxTex": 1024,
   "lodDist": 30,
   "credit": "Street Lamp 01 by Josh Dean, Poly Haven (polyhaven.com/a/street_lamp_01), CC0"
+ },
+ "ph_tool_cart": {
+  "ph": "tool_cart",
+  "name": "Tool Cart",
+  "category": "Modern: Industrial",
+  "size": [
+   1.273,
+   0.965,
+   0.754
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.933,
+    -0.014,
+    1.135,
+    0.064,
+    0.714
+   ],
+   [
+    -0.0,
+    0.23,
+    -0.014,
+    1.133,
+    0.064,
+    0.712
+   ],
+   [
+    -0.252,
+    0.788,
+    0.107,
+    0.51,
+    0.155,
+    0.469
+   ],
+   [
+    0.262,
+    0.788,
+    0.107,
+    0.51,
+    0.155,
+    0.469
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Tool Cart by Savva Zakharov, Poly Haven (polyhaven.com/a/tool_cart), CC0"
  },
  "ph_trashbag": {
   "ph": "trashbag",
@@ -1201,6 +2579,219 @@
   "maxTex": 512,
   "lodDist": 15,
   "credit": "Water Manhole Cover by Raunox, Poly Haven (polyhaven.com/a/water_manhole_cover), CC0"
+ },
+ "ph_wetfloorsign_01": {
+  "ph": "WetFloorSign_01",
+  "name": "Wet Floor Sign 01",
+  "category": "Modern: Industrial",
+  "size": [
+   0.3,
+   0.63,
+   0.359
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.317,
+    -0.098,
+    0.3,
+    0.626,
+    0.162
+   ],
+   [
+    -0.0,
+    0.317,
+    0.098,
+    0.3,
+    0.626,
+    0.162
+   ],
+   [
+    0.131,
+    0.315,
+    -0.0,
+    0.04,
+    0.63,
+    0.359
+   ],
+   [
+    -0.131,
+    0.315,
+    -0.0,
+    0.04,
+    0.63,
+    0.359
+   ],
+   [
+    -0.0,
+    0.594,
+    0.0,
+    0.111,
+    0.04,
+    0.053
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Wet Floor Sign 01 by Fran Calvente, Poly Haven (polyhaven.com/a/WetFloorSign_01), CC0"
+ },
+ "ph_wine_barrel_01": {
+  "ph": "wine_barrel_01",
+  "name": "Wine Barrel 01",
+  "category": "Modern: Industrial",
+  "size": [
+   0.742,
+   0.871,
+   0.756
+  ],
+  "colliders": [
+   [
+    -0.011,
+    0.596,
+    -0.126,
+    0.702,
+    0.042,
+    0.486
+   ],
+   [
+    0.011,
+    0.596,
+    0.112,
+    0.702,
+    0.042,
+    0.486
+   ],
+   [
+    0.011,
+    0.275,
+    0.112,
+    0.702,
+    0.042,
+    0.486
+   ],
+   [
+    -0.011,
+    0.275,
+    -0.126,
+    0.702,
+    0.042,
+    0.486
+   ],
+   [
+    0.009,
+    0.037,
+    0.096,
+    0.61,
+    0.048,
+    0.422
+   ],
+   [
+    -0.009,
+    0.037,
+    -0.11,
+    0.61,
+    0.048,
+    0.422
+   ],
+   [
+    0.009,
+    0.834,
+    0.096,
+    0.61,
+    0.048,
+    0.422
+   ],
+   [
+    -0.009,
+    0.834,
+    -0.11,
+    0.61,
+    0.048,
+    0.422
+   ],
+   [
+    -0.01,
+    0.75,
+    -0.116,
+    0.64,
+    0.04,
+    0.443
+   ],
+   [
+    0.01,
+    0.121,
+    0.102,
+    0.64,
+    0.04,
+    0.443
+   ],
+   [
+    0.01,
+    0.75,
+    0.102,
+    0.64,
+    0.04,
+    0.443
+   ],
+   [
+    -0.01,
+    0.121,
+    -0.116,
+    0.64,
+    0.04,
+    0.443
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Wine Barrel 01 by James Ray Cock, Poly Haven (polyhaven.com/a/wine_barrel_01), CC0"
+ },
+ "ph_wooden_barrels_01": {
+  "ph": "wooden_barrels_01",
+  "name": "Wooden Barrels 01",
+  "category": "Modern: Industrial",
+  "size": [
+   4.44,
+   0.957,
+   3.345
+  ],
+  "colliders": [
+   [
+    1.588,
+    0.621,
+    -1.3,
+    0.74,
+    0.04,
+    0.74
+   ],
+   [
+    -0.827,
+    0.621,
+    -1.301,
+    0.74,
+    0.04,
+    0.74
+   ],
+   [
+    -0.828,
+    0.32,
+    -1.301,
+    0.735,
+    0.04,
+    0.735
+   ],
+   [
+    1.588,
+    0.32,
+    -1.301,
+    0.735,
+    0.04,
+    0.735
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Wooden Barrels 01 by James Ray Cock, Poly Haven (polyhaven.com/a/wooden_barrels_01), CC0"
  },
  "ph_wooden_crate_01": {
   "ph": "wooden_crate_01",

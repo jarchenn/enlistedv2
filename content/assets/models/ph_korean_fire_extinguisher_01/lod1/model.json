@@ -1,0 +1,124 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.1399787962436676,
+  0.6585814952850342,
+  0.1837216317653656
+ ],
+ "bmin": [
+  -0.1399787962436676,
+  0.0,
+  -0.1837216317653656
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "korean_fire_extinguisher_01_body",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "korean_fire_extinguisher_01_glass",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "albedo": "albedo_7.jpg",
+   "mr": "mr_8.jpg",
+   "name": "korean_fire_extinguisher_01_paper",
+   "normal": "normal_6.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.1399787962436676,
+    0.6585814952850342,
+    0.1837216317653656
+   ],
+   "bmin": [
+    -0.1399787962436676,
+    0.0,
+    -0.1837216317653656
+   ],
+   "count": 3585,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "korean_fire_extinguisher_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    0.30000001192092896
+   ],
+   "bmax": [
+    0.01985676772892475,
+    0.5956730842590332,
+    0.011534318327903748
+   ],
+   "bmin": [
+    -0.02036839723587036,
+    0.5559380054473877,
+    0.005499817430973053
+   ],
+   "count": 120,
+   "first": 3585,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "korean_fire_extinguisher_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.0016376168932765722,
+    0.5324327945709229,
+    -0.053110092878341675
+   ],
+   "bmin": [
+    -0.08279980719089508,
+    0.47684016823768616,
+    -0.137725830078125
+   ],
+   "count": 96,
+   "first": 3705,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "korean_fire_extinguisher_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_korean_fire_extinguisher_01.glb",
+ "textures": {},
+ "triangles": 1267,
+ "vertices": 1256
+}

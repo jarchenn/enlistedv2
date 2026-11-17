@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.24055054783821106,
+  0.26592549681663513,
+  0.1324857473373413
+ ],
+ "bmin": [
+  -0.24055054783821106,
+  0.0,
+  -0.1324857622385025
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "plastic_crate_03",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.24055054783821106,
+    0.26592549681663513,
+    0.1324857473373413
+   ],
+   "bmin": [
+    -0.24055054783821106,
+    0.0,
+    -0.1324857622385025
+   ],
+   "count": 32610,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "plastic_crate_03",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_plastic_crate_03.glb",
+ "textures": {},
+ "triangles": 10870,
+ "vertices": 15209
+}

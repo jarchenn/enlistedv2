@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.44435709714889526,
+  0.4269754886627197,
+  0.31318169832229614
+ ],
+ "bmin": [
+  -0.445931077003479,
+  7.078629349344112e-12,
+  -0.31289833784103394
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "plastic_container",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.44435709714889526,
+    0.4269754886627197,
+    0.31318169832229614
+   ],
+   "bmin": [
+    -0.445931077003479,
+    7.078629349344112e-12,
+    -0.31289833784103394
+   ],
+   "count": 1524,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "plastic_container",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_plastic_container.glb",
+ "textures": {},
+ "triangles": 508,
+ "vertices": 907
+}
