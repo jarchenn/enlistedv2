@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.2869555652141571,
+  0.4343927800655365,
+  0.2065419852733612
+ ],
+ "bmin": [
+  -0.28697532415390015,
+  0.0,
+  -0.2065419852733612
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "vintage_radio_transceiver",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "vintage_radio_transceiver_accessories",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.19911406934261322,
+    0.13790784776210785,
+    0.05490648001432419
+   ],
+   "bmin": [
+    -0.11626797914505005,
+    0.0014888157602399588,
+    -0.2065419852733612
+   ],
+   "count": 21048,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "vintage_radio_transceiver",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.2869555652141571,
+    0.4343927800655365,
+    0.2065419852733612
+   ],
+   "bmin": [
+    -0.28697532415390015,
+    0.0,
+    -0.16076919436454773
+   ],
+   "count": 42474,
+   "first": 21048,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "vintage_radio_transceiver",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_vintage_radio_transceiver.glb",
+ "textures": {},
+ "triangles": 21174,
+ "vertices": 25646
+}

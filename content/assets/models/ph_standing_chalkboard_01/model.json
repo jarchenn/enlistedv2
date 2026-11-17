@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.45976337790489197,
+  1.5090323686599731,
+  0.379352331161499
+ ],
+ "bmin": [
+  -0.45976337790489197,
+  0.0,
+  -0.379352331161499
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "standing_chalkboard_01_frame",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "standing_chalkboard_01_board",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.45976337790489197,
+    1.5090323686599731,
+    0.379352331161499
+   ],
+   "bmin": [
+    -0.45976337790489197,
+    0.0,
+    -0.379352331161499
+   ],
+   "count": 3546,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "standing_chalkboard_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.3845946788787842,
+    1.435670256614685,
+    0.2981608808040619
+   ],
+   "bmin": [
+    -0.384594202041626,
+    0.31878191232681274,
+    -0.298161119222641
+   ],
+   "count": 24,
+   "first": 3546,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "standing_chalkboard_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_standing_chalkboard_01.glb",
+ "textures": {},
+ "triangles": 1190,
+ "vertices": 1469
+}

@@ -217,6 +217,7 @@ void drawPreview(App& app, ImDrawList* dl, ImVec2 mn, ImVec2 mx, float a) {
   P.yaw += ImGui::IsItemActive() ? ImGui::GetIO().MouseDelta.x * 0.6f : ImGui::GetIO().DeltaTime * 14.0f;   // drag to turn, else a slow spin
   const int w = std::clamp((int)(mx.x - mn.x), 16, 900), h = std::clamp((int)(mx.y - mn.y), 16, 1400);
   int wi = app.weaponIndex(settings().s.primary.empty() ? "m1_garand" : settings().s.primary);
+  if (wi < 0) wi = app.weaponIndex("m1_garand");   // WP7: a saved primary that no longer exists (the FN 502) shows the default
   {   // UI3: every frame on the GPU (renderModelLive, slot 1): a smooth turn, no read-back
     P.weapon = wi;
     PoseParams pp; pp.carry = 1; pp.holdWeapon = wi >= 0;
@@ -480,7 +481,7 @@ void mainMenuFrame(App& app) {
         heading("BODY");
         for (auto& b : B) entry(b.second, settings().s.character == b.first, [&] { settings().s.character = b.first; });
         ImGui::Spacing(); heading("PRIMARY WEAPON");
-        for (int k : Wp) { const WeaponDef& d = *app.weaponDefs[k]; entry(d.name, settings().s.primary.empty() ? d.id == "m1_garand" : settings().s.primary == d.id, [&] { settings().s.primary = d.id; }); }
+        for (int k : Wp) { const WeaponDef& d = *app.weaponDefs[k]; entry(d.name, app.weaponIndex(settings().s.primary) < 0 ? d.id == "m1_garand" : settings().s.primary == d.id, [&] { settings().s.primary = d.id; }); }
         ImGui::Spacing();
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.8f, 0.77f, 0.65f));
         ImGui::TextWrapped("Your body in every match and your first weapon in Explore and at spawn. Grenades, knife and the rest of the kit are unchanged. Drag the soldier to turn him.");

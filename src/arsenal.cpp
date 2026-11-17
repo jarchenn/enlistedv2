@@ -57,6 +57,7 @@ void App::loadMoveSettings() {
   move = MoveSettings{};
   json j; try { j = json::parse(readTextFile(contentDir() / "settings" / "movement.json")); } catch (...) { loadSwimSettings(json::object()); return; }
   move.run = j.value("run_mps", move.run); move.sprint = j.value("sprint_mps", move.sprint); move.crouch = j.value("crouch_mps", move.crouch); move.prone = j.value("prone_mps", move.prone);
+  { const float k = std::clamp(j.value("infantrySpeed_x", 1.0f), 0.3f, 2.0f); move.run *= k; move.sprint *= k; move.crouch *= k; move.prone *= k; }   // GP1: one infantry speed factor (bots: ai_core.cpp)
   move.gravity = j.value("gravity_mps2", move.gravity); move.jumpVelocity = j.value("jumpVelocity_mps", move.jumpVelocity);
   move.jumpBuffer = j.value("jumpBuffer_s", move.jumpBuffer); move.coyote = j.value("coyote_s", move.coyote);
   move.eyeStand = j.value("eyeStand_m", move.eyeStand); move.eyeCrouch = j.value("eyeCrouch_m", move.eyeCrouch); move.eyeProne = j.value("eyeProne_m", move.eyeProne);

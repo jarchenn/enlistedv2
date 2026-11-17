@@ -2,6 +2,7 @@
 // Scenario panel (ordered objectives, spawn markers, approach routes, validation) with its world overlay, and the
 // in-match HUD (objective sequence bar, counts, grenades, death screen, results).
 #include "sd_game.h"
+#include "sd_mode.h"
 #include "mpui.h"
 #include "ui_glass.h"   // UI2: glass panel backgrounds
 #include "w5.h"
@@ -440,9 +441,11 @@ void MpUi::setupWindow(App& app) {
     ImGui::RadioButton("Search and Destroy", &m, (int)GameMode::SearchDestroy);
     if (m == (int)GameMode::SearchDestroy && rules.mode != GameMode::SearchDestroy)   // SD1: 5 v 5 soldiers by default (spec §2)
       for (int t = 0; t < 2; ++t) { for (int& x : rules.aiCount[t]) x = 0; rules.aiTypes[t] = aiBit(AiType::Soldiers); rules.aiCount[t][(int)AiType::Soldiers] = t == rules.humanTeam ? 4 : 5; rules.teamPlayers[t] = 5; }
+    if (m == (int)GameMode::SearchDestroy && rules.mode != GameMode::SearchDestroy) { SdConfig c = SdConfig::load(); rules.sdWarmup = c.warmupDefault; rules.sdVehicles = c.vehiclesDefault; }   // SD3: the options' defaults (search_destroy.json)
     rules.mode = (GameMode)m;
     if (rules.mode == GameMode::SearchDestroy) {
-      ImGui::Checkbox("Short match (MR12: first to 13, swap after 12)", &rules.sdShort); ImGui::SameLine(); ImGui::Checkbox("Warmup (60 s)", &rules.sdWarmup);
+      ImGui::Checkbox("Short match (MR12: first to 13, swap after 12)", &rules.sdShort); ImGui::SameLine(); ImGui::Checkbox("Warmup (60 s)", &rules.sdWarmup); ImGui::SameLine(); ImGui::Checkbox("Vehicles", &rules.sdVehicles);
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Off: the map's vehicles are removed for the match and none spawn");
       ImGui::TextDisabled("Two bomb sites; one life a round; buy with B in your spawn; E in a site plants, E at the bomb defuses (docs/search-and-destroy.md).");
     }
   }

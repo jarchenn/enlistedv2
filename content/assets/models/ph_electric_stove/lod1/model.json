@@ -1,0 +1,93 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.2500000596046448,
+  0.8586335778236389,
+  0.322473406791687
+ ],
+ "bmin": [
+  -0.25036197900772095,
+  0.0,
+  -0.32381051778793335
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "electric_stove",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "electric_stove_glass",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.2500000596046448,
+    0.8586335778236389,
+    0.322473406791687
+   ],
+   "bmin": [
+    -0.25036197900772095,
+    0.0,
+    -0.32381051778793335
+   ],
+   "count": 5205,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "stovetop",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.18411670625209808,
+    0.6773803234100342,
+    0.26439082622528076
+   ],
+   "bmin": [
+    -0.18411661684513092,
+    0.44740617275238037,
+    0.24148975312709808
+   ],
+   "count": 84,
+   "first": 5205,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "stovetop",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_electric_stove.glb",
+ "textures": {},
+ "triangles": 1763,
+ "vertices": 2475
+}

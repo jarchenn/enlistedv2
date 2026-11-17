@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.18604961037635803,
+  0.5789150595664978,
+  0.19633765518665314
+ ],
+ "bmin": [
+  -0.18867531418800354,
+  0.00643760384991765,
+  -0.198965385556221
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "painted_wooden_stool",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.18604961037635803,
+    0.5789150595664978,
+    0.19633765518665314
+   ],
+   "bmin": [
+    -0.18867531418800354,
+    0.00643760384991765,
+    -0.198965385556221
+   ],
+   "count": 252,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "painted_wooden_stool",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_painted_wooden_stool.glb",
+ "textures": {},
+ "triangles": 84,
+ "vertices": 189
+}

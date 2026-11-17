@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  1.2258553504943848,
+  1.2810335159301758,
+  0.3936581015586853
+ ],
+ "bmin": [
+  -1.2258553504943848,
+  0.0,
+  -0.3936581015586853
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "painted_wooden_sofa",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.2258553504943848,
+    1.2810335159301758,
+    0.3936581015586853
+   ],
+   "bmin": [
+    -1.2258553504943848,
+    0.0,
+    -0.3936581015586853
+   ],
+   "count": 2184,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "painted_wooden_sofa",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_painted_wooden_sofa.glb",
+ "textures": {},
+ "triangles": 728,
+ "vertices": 1196
+}

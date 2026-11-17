@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.3618898093700409,
+  0.4699999690055847,
+  0.09323233366012573
+ ],
+ "bmin": [
+  -0.3618898093700409,
+  0.0,
+  -0.09323233366012573
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "boombox",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "mr": "mr_4.jpg",
+   "name": "boombox_speakers"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.3618898093700409,
+    0.4699999690055847,
+    0.09323233366012573
+   ],
+   "bmin": [
+    -0.3618898093700409,
+    0.0,
+    -0.09323233366012573
+   ],
+   "count": 14844,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "boombox",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.3500259220600128,
+    0.247953861951828,
+    0.09300877898931503
+   ],
+   "bmin": [
+    -0.3500259220600128,
+    0.016166947782039642,
+    0.06371274590492249
+   ],
+   "count": 405,
+   "first": 14844,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "boombox",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_boombox.glb",
+ "textures": {},
+ "triangles": 5083,
+ "vertices": 5101
+}

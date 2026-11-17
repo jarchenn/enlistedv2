@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.21230334043502808,
+  0.9558107852935791,
+  0.26991209387779236
+ ],
+ "bmin": [
+  -0.21154305338859558,
+  0.002935977652668953,
+  -0.2697845995426178
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "painted_wooden_chair_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.21230334043502808,
+    0.9558107852935791,
+    0.26991209387779236
+   ],
+   "bmin": [
+    -0.21154305338859558,
+    0.002935977652668953,
+    -0.2697845995426178
+   ],
+   "count": 1086,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "painted_wooden_chair_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_painted_wooden_chair_01.glb",
+ "textures": {},
+ "triangles": 362,
+ "vertices": 525
+}

@@ -1,0 +1,90 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.2748032510280609,
+  1.3523913621902466,
+  0.2748032212257385
+ ],
+ "bmin": [
+  -0.2748032510280609,
+  2.384185791015625e-07,
+  -0.2748032212257385
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "mr": "mr_3.jpg",
+   "name": "hanging_industrial_lamp",
+   "normal": "normal_1.jpg"
+  },
+  {
+   "name": "hanging_industrial_lamp_glass",
+   "normal": "normal_4.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.2748032510280609,
+    1.3523913621902466,
+    0.2748032212257385
+   ],
+   "bmin": [
+    -0.2748032510280609,
+    2.384185791015625e-07,
+    -0.2748032212257385
+   ],
+   "count": 13218,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "hanging_industrial_lamp",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    0.800000011920929,
+    0.800000011920929,
+    0.800000011920929,
+    1.0
+   ],
+   "bmax": [
+    0.24994589388370514,
+    0.30284440517425537,
+    0.24994610249996185
+   ],
+   "bmin": [
+    -0.2499460130929947,
+    0.010982155799865723,
+    -0.24994580447673798
+   ],
+   "count": 1074,
+   "first": 13218,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "hanging_industrial_lamp",
+   "role": "body",
+   "rough": 0.10000000149011612,
+   "textured": false
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_hanging_industrial_lamp.glb",
+ "textures": {},
+ "triangles": 4764,
+ "vertices": 4873
+}

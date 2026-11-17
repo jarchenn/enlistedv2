@@ -1,0 +1,187 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.5264699459075928,
+  0.8352597951889038,
+  0.18234117329120636
+ ],
+ "bmin": [
+  -0.5264699459075928,
+  0.0,
+  -0.18234117329120636
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "brass_candleholders_03",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_4.png",
+   "cutout": true,
+   "name": "brass_candleholders_flame"
+  },
+  {
+   "albedo": "albedo_6.jpg",
+   "mr": "mr_7.jpg",
+   "name": "brass_candleholders_02",
+   "normal": "normal_5.jpg"
+  },
+  {
+   "albedo": "albedo_9.jpg",
+   "mr": "mr_10.jpg",
+   "name": "brass_candleholders_candles",
+   "normal": "normal_8.jpg"
+  },
+  {
+   "albedo": "albedo_12.jpg",
+   "mr": "mr_13.jpg",
+   "name": "brass_candleholders_01",
+   "normal": "normal_11.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5264699459075928,
+    0.8061233162879944,
+    0.18234117329120636
+   ],
+   "bmin": [
+    0.11819320917129517,
+    0.0,
+    -0.18234117329120636
+   ],
+   "count": 48153,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "brass_candleholder_03",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5027669668197632,
+    0.8352597951889038,
+    0.15666864812374115
+   ],
+   "bmin": [
+    0.1423352211713791,
+    0.7171080112457275,
+    -0.15908391773700714
+   ],
+   "count": 132,
+   "first": 48153,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "brass_candleholder_03",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.052804723381996155,
+    0.26038891077041626,
+    0.04863152652978897
+   ],
+   "bmin": [
+    -0.20833830535411835,
+    0.0004652440547943115,
+    -0.048774756491184235
+   ],
+   "count": 9879,
+   "first": 48285,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "brass_candleholder_03",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.03790629655122757,
+    0.3797067701816559,
+    0.009094681590795517
+   ],
+   "bmin": [
+    -0.1932717114686966,
+    0.23939748108386993,
+    -0.009488607756793499
+   ],
+   "count": 1188,
+   "first": 58164,
+   "mat": 3,
+   "metal": 0.0,
+   "name": "brass_candleholder_03",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.42906367778778076,
+    0.34852904081344604,
+    0.04863152652978897
+   ],
+   "bmin": [
+    -0.5264699459075928,
+    0.0008754180744290352,
+    -0.048774756491184235
+   ],
+   "count": 3546,
+   "first": 59352,
+   "mat": 4,
+   "metal": 1.0,
+   "name": "brass_candleholder_03",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_brass_candleholders.glb",
+ "textures": {},
+ "triangles": 20966,
+ "vertices": 16533
+}

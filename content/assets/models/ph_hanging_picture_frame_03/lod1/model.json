@@ -1,0 +1,124 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.1924310326576233,
+  0.5022993683815002,
+  0.015878651291131973
+ ],
+ "bmin": [
+  -0.1924310326576233,
+  8.946657180786133e-05,
+  -0.015877868980169296
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "hanging_picture_frame_03",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "hanging_picture_frame_03_artwork",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "cutout": true,
+   "mr": "mr_6.jpg",
+   "name": "hanging_picture_frame_03_glass",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.1924310326576233,
+    0.5022993683815002,
+    0.004805481992661953
+   ],
+   "bmin": [
+    -0.1924310326576233,
+    8.946657180786133e-05,
+    -0.015877868980169296
+   ],
+   "count": 8289,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "hanging_picture_frame_03",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.12713484466075897,
+    0.4288977384567261,
+    -0.006927758455276489
+   ],
+   "bmin": [
+    -0.12726378440856934,
+    0.07477311789989471,
+    -0.006927864160388708
+   ],
+   "count": 96,
+   "first": 8289,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "hanging_picture_frame_03",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    0.0056858365423977375,
+    0.0056858365423977375,
+    0.0056858365423977375,
+    0.4000000059604645
+   ],
+   "bmax": [
+    0.13251620531082153,
+    0.43682026863098145,
+    0.015878651291131973
+   ],
+   "bmin": [
+    -0.13251635432243347,
+    0.06912434101104736,
+    -0.0011754566803574562
+   ],
+   "count": 768,
+   "first": 8385,
+   "mat": 2,
+   "metal": 0.0,
+   "name": "hanging_picture_frame_03",
+   "role": "body",
+   "rough": 1.0,
+   "textured": false
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_hanging_picture_frame_03.glb",
+ "textures": {},
+ "triangles": 3051,
+ "vertices": 2848
+}

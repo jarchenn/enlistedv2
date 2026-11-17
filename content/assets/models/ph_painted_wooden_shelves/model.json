@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.2555578351020813,
+  1.1243022680282593,
+  0.1835474669933319
+ ],
+ "bmin": [
+  -0.25546854734420776,
+  0.0004271824727766216,
+  -0.1835474669933319
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "painted_wooden_shelves",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.2555578351020813,
+    1.1243022680282593,
+    0.1835474669933319
+   ],
+   "bmin": [
+    -0.25546854734420776,
+    0.0004271824727766216,
+    -0.1835474669933319
+   ],
+   "count": 786,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "painted_wooden_shelves",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_painted_wooden_shelves.glb",
+ "textures": {},
+ "triangles": 262,
+ "vertices": 370
+}

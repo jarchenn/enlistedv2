@@ -66,6 +66,7 @@ struct InstanceRT {
 };
 
 struct PoseParams;   // character.h
+bool sdBuyMenuOpen();   // sd_game.cpp
 struct ExploreInput {
   vec2 move{0}; bool sprint = false, crouch = false, jump = false, interact = false; float dyaw = 0, dpitch = 0;
   bool fire = false, aim = false, reload = false, switchPos = false, choose1 = false, choose2 = false, nextWeapon = false, toggleAmmo = false, build = false; float wheel = 0, lookYaw = 0, lookPitch = 0;
@@ -154,7 +155,7 @@ public:
   vec3 knockVel{0};        // EN1: a brute's shove on the player (m/s, decays in updateExplore)
   bool uiCursor = false;   // set each frame by a HUD window that needs the mouse (match result)
   // GM1b: THE list of "a UI wants the mouse" conditions (Explore). Add a new menu here, never call glfwSetInputMode.
-  bool wantCursor() const { return pauseMenu || showLoadout || rackOpen || build.palette || uiCursor || artyMapOpen || commandsOpen(); }
+  bool wantCursor() const { return pauseMenu || showLoadout || rackOpen || build.palette || uiCursor || artyMapOpen || commandsOpen() || sdBuyMenuOpen(); }   // SD3: the buy menu frees the cursor the frame it opens
   int cursorWanted(bool focused = true) const;   // GLFW_CURSOR_NORMAL / _DISABLED for the current mode and UI state
   bool syncCursor();                             // the only place the cursor mode is set; each frame (main loop) and on UI changes
   int cursorSettle = 0, cursorChanges = 0;       // frames whose look delta is dropped after a mode / focus change; count

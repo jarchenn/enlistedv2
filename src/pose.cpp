@@ -160,7 +160,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
     quat qa = glm::angleAxis(p.aimYawOffset + yawIn, vec3(0, 1, 0)) * glm::angleAxis(-wp, vec3(1, 0, 0));   // +z bore, pitch up = -x rotation
     vec3 pa;
     if (kind == 1) pa = xf(chest, vec3(sh.x * 0.5f, sh.y + 0.08f, sh.z + 0.05f) + p.holdOffset);   // SW2: held out (blasters)
-    else if (kind == 0) pa = xf(chest, vec3(sh.x * 0.2f, sh.y - 0.06f, sh.z + 0.44f)) - qa * p.gripR;
+    else if (kind == 0) pa = xf(chest, vec3(sh.x * 0.2f, sh.y - 0.06f, sh.z + 0.44f) + p.holdOffset) - qa * p.gripR;
     else pa = xf(chest, vec3(sh.x * 0.8f, sh.y + 0.10f, sh.z)) - qa * vec3(0, 0, p.gripR.z - 0.30f);
     vec3 pos = pa; quat q = qa;
     if (carry > 0) {   // low ready across the body: firing hand at the right hip, muzzle down toward the left foot, swinging a little
