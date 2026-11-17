@@ -127,6 +127,25 @@ const PAL = {
   pack_purple: [[0.38, 0.18, 0.46], 0.7, "paper"],
   pack_brown: [[0.5, 0.36, 0.2], 0.8, "paper"],
   cardboard: [[0.55, 0.42, 0.26], 0.9, "paper"],
+  // PR5 retail stock: labels-free packaging
+  pack_teal: [[0.1, 0.45, 0.46], 0.7, "paper"],
+  pack_navy: [[0.08, 0.12, 0.3], 0.7, "paper"],
+  pack_cream: [[0.9, 0.85, 0.7], 0.75, "paper"],
+  pack_pink: [[0.82, 0.42, 0.52], 0.7, "paper"],
+  pack_lime: [[0.55, 0.72, 0.2], 0.7, "paper"],
+  pack_gloss_red: [[0.7, 0.08, 0.08], 0.25, "plain"],
+  pack_gloss_blue: [[0.1, 0.3, 0.7], 0.25, "plain"],
+  pack_gloss_yellow: [[0.9, 0.72, 0.1], 0.25, "plain"],
+  pack_gloss_green: [[0.12, 0.5, 0.2], 0.25, "plain"],
+  tinplate: [[0.74, 0.75, 0.76], 0.28, "plain", { metallic: 0.85 }],
+  bottle_green: [[0.08, 0.26, 0.1], 0.05, "glass"],
+  bottle_amber: [[0.38, 0.17, 0.04], 0.05, "glass"],
+  bottle_clear: [[0.66, 0.74, 0.72], 0.05, "glass"],
+  jar_jam: [[0.4, 0.05, 0.08], 0.15, "plain"],
+  jar_honey: [[0.72, 0.45, 0.08], 0.15, "plain"],
+  jar_pickle: [[0.42, 0.46, 0.16], 0.15, "plain"],
+  cap_gold: [[0.78, 0.62, 0.26], 0.3, "plain", { metallic: 0.9 }],
+  price_rail: [[0.22, 0.23, 0.24], 0.5, "plain"],
 };
 const PACKS = ["pack_red", "pack_blue", "pack_yellow", "pack_green", "pack_white", "pack_orange", "pack_purple", "pack_brown"];
 const BOOKS = ["pack_red", "pack_blue", "paint_e", "pack_white", "paint_d", "pack_brown", "paint_c", "fab_cream"];
@@ -235,6 +254,15 @@ const H = "chrome";
 function handle(f, x, y, z, len, vert = false, m = H) {
   if (vert) { f.b([x - 0.006, y - len / 2, z + 0.018], [x + 0.006, y + len / 2, z + 0.03], m, 0.003); for (const s of [-1, 1]) f.b([x - 0.004, y + s * (len / 2 - 0.015) - 0.004, z], [x + 0.004, y + s * (len / 2 - 0.015) + 0.004, z + 0.02], m, 0.001); }
   else { f.b([x - len / 2, y - 0.006, z + 0.018], [x + len / 2, y + 0.006, z + 0.03], m, 0.003); for (const s of [-1, 1]) f.b([x + s * (len / 2 - 0.015) - 0.004, y - 0.004, z], [x + s * (len / 2 - 0.015) + 0.004, y + 0.004, z + 0.02], m, 0.001); }
+}
+// PR5 batch 7: a round 25 mm bar handle on two stand-offs (vertical or horizontal), and a dark door gasket round a door face
+function barHandle(f, x, y, z, len, vert, m = "chrome") {
+  if (vert) { f.cy([x, y, z + 0.045], [0.025, len, 0.025], m, { n: 10 }); for (const s of [-1, 1]) f.cy([x, y + s * (len / 2 - 0.03), z + 0.02], [0.016, 0.05, 0.016], m, { r: [90, 0, 0], n: 8 }); }
+  else { f.cy([x, y, z + 0.045], [0.025, len, 0.025], m, { r: [0, 0, 90], n: 10 }); for (const s of [-1, 1]) f.cy([x + s * (len / 2 - 0.03), y, z + 0.02], [0.016, 0.05, 0.016], m, { r: [90, 0, 0], n: 8 }); }
+}
+function gasket(f, x0, x1, y0, y1, z, t = 0.01) {
+  f.b([x0 - t, y0 - t, z - 0.004], [x1 + t, y0, z], "rubber", 0.001); f.b([x0 - t, y1, z - 0.004], [x1 + t, y1 + t, z], "rubber", 0.001);
+  f.b([x0 - t, y0, z - 0.004], [x0, y1, z], "rubber", 0.001); f.b([x1, y0, z - 0.004], [x1 + t, y1, z], "rubber", 0.001);
 }
 // front panel (door / drawer face) proud of z by 0.018, 3 mm reveal
 function panel(f, x0, x1, y0, y1, z, m, gap = 0.003) { return f.b([x0 + gap, y0 + gap, z], [x1 - gap, y1 - gap, z + 0.018], m, 0.004); }
@@ -563,7 +591,10 @@ def("furn_mod_dishwasher", "Dishwasher", "0.6 m freestanding dishwasher: stainle
   f.b([-0.3, 0.76, 0.3], [0.3, 0.83, 0.302], "plastic_black", 0.002);
   f.b([-0.15, 0.775, 0.302], [0.05, 0.815, 0.304], "screen_on", 0.0005);
   for (let i = 0; i < 4; i++) f.b([0.1 + i * 0.045, 0.785, 0.302], [0.125 + i * 0.045, 0.805, 0.306], "plastic_grey", 0.001);
+  for (let i = 0; i < 3; i++) f.b([-0.24 + i * 0.025, 0.79, 0.302], [-0.23 + i * 0.025, 0.8, 0.3035], i === 1 ? "led_amber" : "led_green", 0.0003);   // status LEDs
+  f.b([-0.17, 0.705, 0.3], [0.17, 0.745, 0.301], "steel_dark", 0.0005);   // the recessed grip's shadow
   handle(f, 0, 0.72, 0.3, 0.3, false);
+  for (let k = 0; k < 5; k++) f.b([-0.24 + k * 0.1, 0.012, 0.24], [-0.18 + k * 0.1, 0.045, 0.242], "steel_dark", 0.0005);   // kick grille
 });
 def("furn_mod_toilet", "Toilet", "Close-coupled ceramic toilet: pedestal, bowl with seat and raised lid, cistern with a push button.", { family: "ceramic", front: 0.6, cover: false, rounds: 6, blast: 18 }, (f) => {
   f.cone([0, 0.18, 0.02], [0.22, 0.36, 0.3], "ceramic", { top: 1.35, n: 12 });
@@ -580,12 +611,14 @@ def("furn_mod_toilet", "Toilet", "Close-coupled ceramic toilet: pedestal, bowl w
   f.col([-0.19, 0, -0.34], [0.19, 0.83, 0.3]);
 });
 def("furn_mod_vanity", "Vanity unit", "0.8 m wall vanity: oak two-drawer cabinet with a ceramic basin top, recessed bowl and chrome mixer.", { family: "wood", front: 0.7, surfaces: [[-0.38, -0.22, -0.2, 0.2, 0.86]] }, (f) => {
-  cabinet(f, -0.4, 0.4, 0.1, 0.82, -0.24, 0.2, "oak", "oak", [{ x0: -0.4, x1: 0.4, y0: 0.47, y1: 0.82, h: "c" }, { x0: -0.4, x1: 0.4, y0: 0.1, y1: 0.47, h: "c" }], 0, "blackmetal");
+  cabinet(f, -0.4, 0.4, 0.1, 0.82, -0.24, 0.2, "lam_white", "lam_sage", [{ x0: -0.4, x1: 0.4, y0: 0.47, y1: 0.82, h: "c" }, { x0: -0.4, x1: 0.4, y0: 0.1, y1: 0.47, h: "c" }], 0, "steel");
   f.grp("basin");
-  f.rb([-0.41, 0.82, -0.24], [0.41, 0.87, 0.23], 0.015, "ceramic");
-  f.rb([-0.28, 0.85, -0.12], [0.28, 0.872, 0.17], 0.04, "tile_white");
-  f.cy([0, 0.873, 0.03], [0.04, 0.002, 0.04], "chrome", { n: 12 });
-  f.cy([0, 0.92, -0.19], [0.04, 0.1, 0.04], "chrome", { n: 12 });
+  f.b([-0.41, 0.82, -0.24], [0.41, 0.86, 0.23], "quartz", 0.004);
+  f.b([-0.24, 0.86, -0.12], [0.24, 0.8615, 0.15], "steel", 0.001);            // inset brushed steel bowl: rim
+  f.b([-0.22, 0.8615, -0.1], [0.22, 0.8625, 0.13], "steel_dark", 0.0005);     // its shadowed well
+  f.b([-0.2, 0.8625, -0.08], [0.2, 0.863, 0.11], "steel", 0.0003);            // the floor of the bowl, catching light
+  f.cy([0, 0.8635, 0.03], [0.04, 0.002, 0.04], "chrome", { n: 12 });
+  f.cy([0, 0.91, -0.19], [0.04, 0.1, 0.04], "chrome", { n: 12 });
   f.ob([0, 0.96, -0.13], [0.024, 0.02, 0.12], [0, 0, 0], "chrome", 0.006);
   f.ob([0, 0.985, -0.19], [0.014, 0.014, 0.07], [20, 0, 0], "chrome", 0.004);
 });
@@ -806,6 +839,9 @@ def("furn_mod_reception_desk", "Reception desk", "2.4 m reception counter: walnu
     f.b([-0.26, 0.93, -0.1], [0.26, 1.24, -0.098], "screen_on", 0.001);
     f.b([-0.18, 0.75, 0.0], [0.18, 0.765, 0.1], "plastic_grey", 0.003);
     f.b([0.5, 0.75, -0.15], [0.7, 0.8, 0.0], "plastic_black", 0.008);
+    for (let i = 0; i < 3; i++) { f.b([-0.95, 0.75 + i * 0.06, -0.3], [-0.65, 0.77 + i * 0.06, -0.05], "plastic_grey", 0.003); f.b([-0.93, 0.77 + i * 0.06, -0.28], [-0.67, 0.775 + i * 0.06, -0.07], "paper", 0.0005); }   // file trays
+    f.cy([0.85, 0.8, -0.2], [0.07, 0.1, 0.07], "plastic_black", { n: 12 });   // pen pot
+    for (let k = 0; k < 4; k++) f.cy([0.84 + (k % 2) * 0.02, 0.88, -0.21 + (k > 1 ? 0.02 : 0)], [0.008, 0.14, 0.008], ["plastic_blue", "plastic_black", "plastic_red", "plastic_blue"][k], { n: 6 });
   });
 def("furn_mod_monitor", "Desk monitor and keyboard", "24 inch monitor on a stand with a keyboard and mouse (stands on desks).", { family: "glass", blocking: false, rounds: 2, blast: 6 }, (f) => {
   f.grp("screen");
@@ -820,25 +856,117 @@ def("furn_mod_monitor", "Desk monitor and keyboard", "24 inch monitor on a stand
 });
 
 // ============================================================================ retail (shop)
+// PR5: one shelf of retail stock facing +z (back z0, front z1): facings of boxes, tins, bottles, jars, bags and small
+// packs, each a front item with a printed panel (no text) and the rows behind it; some facings pulled back (sold
+// down), a few empty with a pack fallen on its side. Returns the facing centres for the price tickets.
+const STOCK_BOX = ["pack_red", "pack_blue", "pack_yellow", "pack_green", "pack_orange", "pack_purple", "pack_brown", "pack_teal", "pack_navy", "pack_cream", "pack_pink", "pack_lime", "cardboard"];
+const STOCK_BAND = ["pack_white", "pack_cream", "pack_yellow", "pack_red", "pack_navy", "pack_green"];
+const STOCK_BAG = ["pack_gloss_red", "pack_gloss_blue", "pack_gloss_yellow", "pack_gloss_green", "pack_orange", "pack_purple"];
+function stock(f, x0, x1, y, z0, z1, hMax) {
+  const n0 = f.A.parts.length, out = []; let x = x0 + 0.012; const D = z1 - z0 - 0.015;
+  while (x < x1 - 0.07) {
+    const r = f.rand(), room = x1 - 0.01 - x;
+    const kind = r < 0.3 ? "box" : r < 0.46 ? "tin" : r < 0.6 ? "bottle" : r < 0.7 ? "jar" : r < 0.8 ? "bag" : r < 0.91 ? "small" : "gap";
+    const off = f.rand() < 0.22 ? D * (0.25 + 0.4 * f.rand()) : 0, zf = z1 - off;   // sold down: the front row gone
+    const col = f.pick(STOCK_BOX), band = f.pick(STOCK_BAND);
+    let w = 0;
+    if (kind === "box") {
+      const iw = 0.13 + 0.11 * f.rand(), n = room > iw * 2 + 0.02 && f.rand() < 0.4 ? 2 : 1, h = Math.min(hMax * (0.62 + 0.33 * f.rand()), 0.34), t = 0.05 + 0.03 * f.rand();
+      w = iw * n + 0.006 * (n - 1); if (w > room) break;
+      for (let k = 0; k < n; k++) {
+        const a = x + k * (iw + 0.006), b = a + iw;
+        if (zf - t > z0 + 0.03) f.b([a, y, z0 + 0.01], [b, y + h * 0.98, zf - t - 0.003], col, 0);   // the packs behind, as one block (plain: hidden)
+        f.b([a, y, zf - t], [b, y + h, zf - 0.004], col, 0.004);
+        f.b([a + iw * 0.14, y + h * 0.22, zf - 0.004], [b - iw * 0.14, y + h * 0.66, zf - 0.0015], band, 0);   // printed panel
+        f.b([a, y + h * 0.78, zf - 0.004], [b, y + h * 0.88, zf - 0.0015], f.pick(STOCK_BAND), 0);              // stripe
+      }
+    } else if (kind === "tin" || kind === "jar" || kind === "bottle") {
+      const d = kind === "bottle" ? 0.06 + 0.025 * f.rand() : 0.065 + 0.025 * f.rand(), n = 2 + Math.floor(f.rand() * 3);
+      w = n * (d + 0.006); if (w > room) break;
+      let h = kind === "tin" ? d * (1.15 + 0.4 * f.rand()) : kind === "jar" ? d * (1.05 + 0.25 * f.rand()) : Math.min(hMax * 0.95, 0.22 + 0.1 * f.rand());
+      const stack = kind !== "bottle" && h * 2 + 0.01 < hMax * 0.95 && f.rand() < 0.6 ? 2 : 1;
+      const glass = f.pick(["bottle_green", "bottle_amber", "bottle_clear"]), fill = f.pick(["jar_jam", "jar_honey", "jar_pickle"]), lid = f.pick(["cap_gold", "plastic_white", "plastic_red"]);
+      for (let k = 0; k < n; k++) {
+        const cx = x + d / 2 + 0.003 + k * (d + 0.006);
+        for (const [row, zc] of [[0, zf - d / 2 - 0.004], [1, zf - d * 1.5 - 0.01]]) {
+          if (zc - d / 2 < z0) continue;
+          for (let s2 = 0; s2 < (row ? 1 : stack); s2++) {
+            const yb = y + s2 * (h + 0.002);
+            if (kind === "tin") {
+              f.cy([cx, yb + h / 2, zc], [d, h, d], row ? col : "tinplate", { n: row ? 6 : 10 });
+              if (!row) f.cy([cx, yb + h / 2, zc], [d * 1.012, h * 0.72, d * 1.012], col, { n: 10 });   // paper label round the tin
+            } else if (kind === "jar") {
+              f.cy([cx, yb + h * 0.44, zc], [d, h * 0.88, d], fill, { n: row ? 6 : 10 });
+              f.cy([cx, yb + h * 0.94, zc], [d * 0.92, h * 0.12, d * 0.92], lid, { n: row ? 6 : 10 });
+              if (!row) f.cy([cx, yb + h * 0.42, zc], [d * 1.012, h * 0.4, d * 1.012], band, { n: 10 });
+            } else {
+              f.cy([cx, yb + h * 0.3, zc], [d, h * 0.6, d], glass, { n: row ? 6 : 10 });
+              f.cy([cx, yb + h * 0.86, zc], [d * 0.32, h * 0.22, d * 0.32], glass, { n: 6 });
+              if (!row) {
+                f.cone([cx, yb + h * 0.675, zc], [d, h * 0.15, d], glass, { top: 0.34, n: 10 });
+                f.cy([cx, yb + h * 0.985, zc], [d * 0.36, h * 0.04, d * 0.36], lid, { n: 6 });
+                f.cy([cx, yb + h * 0.32, zc], [d * 1.012, h * 0.3, d * 1.012], band, { n: 10 });
+              }
+            }
+          }
+        }
+      }
+    } else if (kind === "bag") {
+      const iw = 0.15 + 0.08 * f.rand(), h = Math.min(hMax * (0.65 + 0.3 * f.rand()), 0.32), t = 0.07;
+      w = iw; if (w > room) break;
+      const c2 = f.pick(STOCK_BAG);
+      for (const zz of [zf, zf - t - 0.01]) if (zz - t > z0) f.puff([x, y, zz - t], [x + iw, y + h, zz - 0.004], c2, { puff: 0.1, rad: 0.008, wr: 0.0025, fold: 0.06 });
+      f.b([x + 0.005, y + h - 0.012, zf - t * 0.7], [x + iw - 0.005, y + h, zf - t * 0.3], c2, 0);   // crimped seal
+    } else if (kind === "small") {
+      const iw = 0.06 + 0.03 * f.rand(), n = 3 + Math.floor(f.rand() * 3), h = Math.min(0.08 + 0.06 * f.rand(), hMax / 2.2), t = 0.05;
+      w = n * (iw + 0.004); if (w > room) break;
+      const lay = h * 2.1 < hMax * 0.95 ? 2 : 1;
+      for (let k = 0; k < n; k++) for (let L = 0; L < lay; L++) {
+        const a = x + k * (iw + 0.004), yb = y + L * (h + 0.001);
+        if (zf - t > z0 + 0.03) f.b([a, yb, z0 + 0.01], [a + iw, yb + h, zf - t - 0.003], col, 0);
+        f.b([a, yb, zf - t], [a + iw, yb + h, zf - 0.004], col, 0);
+        f.b([a + iw * 0.15, yb + h * 0.3, zf - 0.004], [a + iw * 0.85, yb + h * 0.7, zf - 0.0015], band, 0);
+      }
+    } else {   // empty facing, sometimes a pack fallen on its side
+      w = Math.min(room, 0.12 + 0.18 * f.rand());
+      if (w > 0.18 && f.rand() < 0.6) { const L = Math.min(w - 0.03, 0.22), T = 0.05 + 0.02 * f.rand(), H = 0.13 + 0.06 * f.rand(), zc = z1 - 0.04 - (D - H) * f.rand() * 0.6;
+        f.b([x + 0.015, y, zc - H], [x + 0.015 + L, y + T, zc], col, 0.004); f.b([x + 0.015 + L * 0.15, y + T, zc - H * 0.8], [x + 0.015 + L * 0.85, y + T + 0.0015, zc - H * 0.25], band, 0); }
+    }
+    out.push([x + w / 2, kind === "gap" ? 0 : 1]);
+    x += w + 0.012;
+  }
+  // far LOD keeps the front face of each facing: rows behind, labels, panels and caps drop out
+  for (const p of f.A.parts.slice(n0)) if (p.s && (Math.min(p.s[0], p.s[1], p.s[2]) < 0.004 || p.c[2] < z1 - 0.1 || (p.t !== "b" && p.t !== "s" && p.c[2] < z1 - 0.06))) p.lod = 1;
+  return out;
+}
 function shelfLevels(f, x0, x1, zBack, zFront, levels, m, goodsH) {
   for (let i = 0; i < levels.length; i++) {
     const y = levels[i], z0 = Math.min(zBack, zFront), z1 = Math.max(zBack, zFront), sg = zFront > zBack ? 1 : -1;
+    const lim = i + 1 < levels.length ? levels[i + 1] - y - 0.06 : goodsH;
+    const n0 = f.A.parts.length;
+    const Z0 = z0, Z1 = z1;   // built facing +z, then mirrored for the -z side
     f.grp("frame");
-    f.b([x0, y - 0.03, z0], [x1, y, z1], m, 0.003);
-    f.b([x0, y - 0.035, sg > 0 ? z1 : z0 - 0.012].map((v) => v), [x1, y + 0.01, sg > 0 ? z1 + 0.012 : z0], ["pack_white", "pack_yellow", "pack_white"][i % 3], 0.002);   // blank price strip
+    f.b([x0, y - 0.025, Z0], [x1, y, Z1], m, 0.003);                                        // shelf deck
+    f.b([x0, y - 0.045, Z1 - 0.005], [x1, y + 0.012, Z1 + 0.012], "price_rail", 0.002);      // price rail (data strip)
+    f.b([x0, y - 0.04, Z1 + 0.012], [x1, y - 0.035, Z1 + 0.014], "pack_white", 0);      // its clear lip
+    if (y > 0.2) for (const xb of [x0 + 0.004, x1 - 0.004]) f.b([xb - 0.003, y - 0.16, Z0 + 0.01], [xb + 0.003, y - 0.025, Z0 + (Z1 - Z0) * 0.85], m, 0.001);   // brackets
     f.grp("goods");
-    if (sg > 0) goods(f, x0, x1, y, z0 + 0.02, z1, goodsH);
-    else { const n0 = f.A.parts.length; goods(f, x0, x1, y, z0, z1 - 0.02, goodsH); for (const p of f.A.parts.slice(n0)) p.c[2] = r3(z0 + z1 - 0.02 - p.c[2]); }   // mirrored to face -z
+    const fac = stock(f, x0, x1, y, Z0, Z1, Math.min(lim, goodsH + 0.05));
+    f.grp("frame");
+    for (const [cx, full] of fac) f.b([cx - 0.028, y - 0.036, Z1 + 0.012], [cx + 0.028, y - 0.006, Z1 + 0.0135], full || f.rand() < 0.5 ? (f.rand() < 0.18 ? "pack_yellow" : "pack_white") : "pack_red", 0);   // price tickets
+    if (sg < 0) for (const p of f.A.parts.slice(n0)) p.c[2] = r3(z0 + z1 - p.c[2]);   // mirrored to face -z
   }
 }
+// slotted upright: rows of dark slots up its face (z = face)
+function uprightSlots(f, x, y0, y1, z) { for (let y = y0; y < y1; y += 0.1) f.cy([x, y + 0.015, z + 0.00015], [0.012, 0.03, 0.0013], "price_rail", { n: 4, r: [0, 45, 0] }); }
 def("furn_mod_gondola", "Gondola shelving (2.4 m)", "2.4 m double-sided store gondola, 1.6 m tall: steel base decks, centre back panel, four shelf levels each side stocked with plain coloured packs, blank price strips and a top header.",
   { family: "metal", front: 0.9, rounds: 40, blast: 60, keep: ["frame"] }, (f) => {
     f.grp("frame");
     f.b([-1.2, 0, -0.5], [1.2, 0.12, 0.5], "greymetal", 0.006);
     f.b([-1.2, 0.0, -0.5], [1.2, 0.12, -0.49], "blackmetal", 0.002); f.b([-1.2, 0.0, 0.49], [1.2, 0.12, 0.5], "blackmetal", 0.002);
     f.b([-1.2, 0.12, -0.03], [1.2, 1.55, 0.03], "whitemetal", 0.004);
-    for (let i = 0; i < 24; i++) for (let j = 0; j < 10; j++) if ((i + j) % 2 === 0 && j > 6) f.b([-1.15 + i * 0.1, 0.25 + j * 0.13, 0.03], [-1.14 + i * 0.1, 0.26 + j * 0.13, 0.031], "steel_dark", 0.0003);
-    for (const x of [-1.2, 0, 1.2]) f.b([x - 0.025, 0, -0.04], [x + 0.025, 1.6, 0.04], "greymetal", 0.004);
+    for (let i = 0; i < 24; i++) for (let j = 0; j < 10; j++) if ((i + j) % 2 === 0 && j > 6) f.cy([-1.145 + i * 0.1, 0.255 + j * 0.13, 0.0305], [0.01, 0.001, 0.01], "steel_dark", { n: 6, r: [90, 0, 0] });
+    for (const x of [-1.2, 0, 1.2]) { f.b([x - 0.025, 0, -0.04], [x + 0.025, 1.6, 0.04], "greymetal", 0.004); uprightSlots(f, x, 0.16, 1.52, 0.04); uprightSlots(f, x, 0.16, 1.52, -0.04); }
     f.b([-1.2, 1.55, -0.06], [1.2, 1.6, 0.06], "greymetal", 0.004);
     shelfLevels(f, -1.18, 1.18, 0.03, 0.48, [0.12, 0.48, 0.84, 1.2], "whitemetal", 0.3);
     shelfLevels(f, -1.18, 1.18, -0.03, -0.48, [0.12, 0.48, 0.84, 1.2], "whitemetal", 0.3);
@@ -851,8 +979,9 @@ def("furn_mod_shop_wall_shelf", "Wall shelving bay (1.2 m)", "1.2 m single-sided
   f.grp("frame");
   f.b([-0.6, 0, -0.25], [0.6, 0.12, 0.25], "greymetal", 0.006);
   f.b([-0.6, 0.12, -0.25], [0.6, 1.95, -0.22], "whitemetal", 0.003);
-  for (const x of [-0.6, 0.6]) f.b([x - 0.025, 0, -0.25], [x + 0.025, 2.0, -0.19], "greymetal", 0.004);
-  shelfLevels(f, -0.58, 0.58, -0.22, 0.25, [0.12, 0.48, 0.84, 1.2, 1.56], "whitemetal", 0.3);
+  for (const x of [-0.6, 0.6]) { f.b([x - 0.025, 0, -0.25], [x + 0.025, 2.0, -0.19], "greymetal", 0.004); uprightSlots(f, x, 0.16, 1.9, -0.19); }
+  for (let i = 0; i < 11; i++) for (let j = 0; j < 17; j++) if (j > 1) f.cy([-0.5475 + i * 0.1, 0.2025 + j * 0.105, -0.22015], [0.006, 0.0007, 0.006], "price_rail", { n: 6, r: [90, 0, 0] });   // pegboard holes
+  shelfLevels(f, -0.58, 0.58, -0.22, 0.248, [0.12, 0.48, 0.84, 1.2, 1.56], "whitemetal", 0.3);
   f.grp("header");
   f.b([-0.6, 1.95, -0.25], [0.6, 2.15, -0.2], "pack_blue", 0.004);
   f.b([-0.55, 1.98, -0.2], [0.55, 2.12, -0.198], "pack_white", 0.001);
@@ -955,8 +1084,11 @@ def("furn_mod_end_cap", "End cap display", "1.0 m promotional end-cap unit: stac
   f.b([-0.5, 0.45, -0.3], [0.5, 1.7, -0.26], "whitemetal", 0.003);
   for (const x of [-0.5, 0.5]) f.b([x - 0.02, 0.45, -0.3], [x + 0.02, 1.7, 0.0], "greymetal", 0.004);
   shelfLevels(f, -0.48, 0.48, -0.26, 0.05, [0.85, 1.25], "whitemetal", 0.3);
-  f.grp("goods");
-  for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) f.b([-0.46 + i * 0.23, 0.47, -0.26 + j * 0.18], [-0.25 + i * 0.23, 0.47 + 0.14 + 0.06 * f.rand(), -0.1 + j * 0.18], f.pick(PACKS), 0.006);
+  f.grp("goods");   // dump bin: a jumble of bags and tins heaped above the rim
+  for (let i = 0; i < 5; i++) for (let j = 0; j < 3; j++) { const x = -0.44 + i * 0.18 + 0.03 * f.rand(), z = -0.22 + j * 0.17 + 0.03 * f.rand(), hh = 0.1 + 0.08 * f.rand();
+    if (f.rand() < 0.55) f.puff([x, 0.47, z], [x + 0.15, 0.47 + hh, z + 0.13], f.pick(STOCK_BAG), { puff: 0.12, rad: 0.01, wr: 0.0025, fold: 0.06 });
+    else { f.cy([x + 0.05, 0.47 + 0.05, z + 0.05], [0.085, 0.1, 0.085], "tinplate", { n: 10 }); f.cy([x + 0.05, 0.47 + 0.05, z + 0.05], [0.086, 0.07, 0.086], f.pick(STOCK_BOX), { n: 10 }); } }
+  f.b([-0.49, 0.3, 0.299], [0.49, 0.42, 0.3005], "pack_yellow", 0.0005);   // bin band
   f.grp("header");
   f.b([-0.5, 1.7, -0.3], [0.5, 2.1, -0.24], "pack_yellow", 0.006);
   f.b([-0.45, 1.75, -0.24], [0.45, 2.05, -0.238], "pack_red", 0.001);
@@ -1042,18 +1174,31 @@ def("furn_mod_menu_board", "Menu board", "2.4 x 0.9 m backlit menu board: black 
   }
 });
 def("furn_mod_condiment_station", "Condiment station", "0.9 m self-serve condiment cabinet: trash flap, napkin dispensers, pump bottles, straw and lid holders.", { family: "wood", front: 0.7, rounds: 14, blast: 30, surfaces: [[-0.42, -0.25, 0.42, 0.05, 1.05]] }, (f) => {
-  f.b([-0.45, 0.05, -0.28], [0.45, 1.01, 0.27], "walnut", 0.006);
-  f.b([-0.44, 0, -0.27], [0.44, 0.05, 0.25], "lam_dark", 0.003);
-  f.b([-0.45, 1.01, -0.28], [0.45, 1.05, 0.28], "quartz", 0.004);
+  f.b([-0.45, 0.05, -0.28], [0.45, 1.01, 0.27], "lam_dark", 0.006);   // PR5 batch 7: black cabinet, brushed steel top
+  f.b([-0.44, 0, -0.27], [0.44, 0.05, 0.25], "plastic_black", 0.003);
+  f.b([-0.45, 1.01, -0.28], [0.45, 1.05, 0.28], "steel", 0.004);
   f.grp("doors");
-  panel(f, -0.45, 0.45, 0.05, 0.6, 0.27, "walnut");
-  f.b([-0.3, 0.68, 0.27], [0.3, 0.92, 0.29], "steel", 0.004);
-  f.b([-0.24, 0.72, 0.29], [0.24, 0.84, 0.292], "plastic_black", 0.001);
+  panel(f, -0.45, 0.45, 0.05, 0.6, 0.27, "lam_dark");
+  f.b([-0.15, 0.53, 0.288], [0.15, 0.545, 0.29], "steel", 0.0005);   // push-to-open: a steel touch strip
+  f.b([-0.2, 0.66, 0.27], [0.2, 0.94, 0.285], "steel", 0.004);           // trash opening surround
+  f.b([-0.125, 0.72, 0.285], [0.125, 0.87, 0.29], "plastic_black", 0.002);   // swing flap 0.25 x 0.15
+  f.b([-0.06, 0.82, 0.29], [0.06, 0.855, 0.292], "steel", 0.001);          // push plate (no text)
   f.grp("kit");
-  for (const x of [-0.32, 0.32]) { f.b([x - 0.08, 1.05, 0.08], [x + 0.08, 1.2, 0.22], "steel", 0.006); f.b([x - 0.06, 1.12, 0.22], [x + 0.06, 1.18, 0.222], "paper", 0.001); }
-  for (let i = 0; i < 4; i++) { const x = -0.18 + i * 0.12; f.cy([x, 1.13, -0.12], [0.07, 0.16, 0.07], ["pack_red", "pack_yellow", "pack_white", "pack_green"][i], { n: 12 }); f.cy([x, 1.24, -0.12], [0.025, 0.06, 0.025], "plastic_black", { n: 8 }); f.b([x - 0.005, 1.26, -0.12], [x + 0.005, 1.27, -0.07], "plastic_black", 0.001); }
-  f.cy([0, 1.13, 0.12], [0.08, 0.16, 0.08], "glass", { n: 12 });
+  for (const x of [-0.32, 0.32]) {   // chrome napkin dispensers, 0.15 m, a napkin showing
+    f.b([x - 0.075, 1.05, 0.08], [x + 0.075, 1.2, 0.22], "chrome", 0.01);
+    f.b([x - 0.05, 1.13, 0.22], [x + 0.05, 1.17, 0.222], "plastic_black", 0.001);
+    f.b([x - 0.04, 1.14, 0.222], [x + 0.04, 1.16, 0.226], "paper", 0.001);
+  }
+  for (let i = 0; i < 3; i++) {   // pump bottles 0.25 m: body, pump head, nozzle, coloured cap collar
+    const x = -0.16 + i * 0.16, cap = ["plastic_red", "plastic_yellow", "plastic_white"][i];
+    f.cy([x, 1.05 + 0.09, -0.12], [0.09, 0.18, 0.09], "plastic_white", { n: 12 });
+    f.cy([x, 1.05 + 0.19, -0.12], [0.07, 0.02, 0.07], cap, { n: 12 });
+    f.cy([x, 1.05 + 0.225, -0.12], [0.03, 0.05, 0.03], cap, { n: 8 });
+    f.b([x - 0.008, 1.05 + 0.24, -0.12], [x + 0.008, 1.05 + 0.25, -0.05], cap, 0.002);
+  }
+  f.cy([0, 1.13, 0.12], [0.08, 0.16, 0.08], "glass", { n: 12 });          // straw holder
   for (let i = 0; i < 6; i++) f.cy([(i % 3 - 1) * 0.02, 1.2, 0.12 + (i > 2 ? 0.02 : -0.02)], [0.006, 0.2, 0.006], "plastic_red", { n: 6 });
+  for (const x of [-0.16, 0.16]) for (let k = 0; k < 8; k++) f.cy([x, 1.055 + k * 0.008, 0.14], [0.09, 0.006, 0.09], "plastic_white", { n: 12, top: 0.95 });   // lid stacks
 });
 def("furn_mod_high_chair", "High chair", "Beech child's high chair: splayed legs with a footrest, moulded seat, tray and backrest.", { family: "wood", front: 0, rounds: 4, blast: 10, cover: false }, (f) => {
   for (const [x, z] of corners4(0.2, 0.2)) f.ob([x * 0.75, 0.385, z * 0.75], [0.035, 0.76, 0.035], [z > 0 ? 6 : -6, 0, x > 0 ? -6 : 6], "ply", 0.006);
@@ -1088,7 +1233,8 @@ def("furn_mod_fryer", "Deep fryer (2-basket)", "0.4 m gas deep fryer: steel cabi
   panel(f, -0.2, 0.2, 0.18, 0.75, 0.38, "steel");
   handle(f, 0, 0.7, 0.38, 0.26, false);
   f.b([-0.2, 0.76, 0.38], [0.2, 0.86, 0.4], "steel_dark", 0.003);
-  knobs(f, -0.15, 0.15, 0.81, 0.4, 2, "plastic_red");
+  knobs(f, -0.15, 0.15, 0.81, 0.4, 2);
+  f.b([-0.195, 0.9, -0.33], [0.195, 0.902, 0.37], "steel_grease", 0.0005);   // oil darkening round the tank only
 });
 def("furn_mod_griddle", "Flat-top griddle", "0.9 m flat-top griddle on an open steel stand: thick steel plate, side and back splash guards, grease trough, four knobs.", { family: "metal", front: 0.9, rounds: 28, blast: 44, surfaces: [[-0.4, -0.3, 0.4, 0.25, 0.92]] }, (f) => {
   ssLegs(f, -0.41, 0.41, -0.36, 0.34, 0.6);
@@ -1096,7 +1242,8 @@ def("furn_mod_griddle", "Flat-top griddle", "0.9 m flat-top griddle on an open s
   f.b([-0.45, 0.62, -0.4], [0.45, 0.86, 0.38], "steel", 0.006);
   knobs(f, -0.35, 0.35, 0.74, 0.38, 4);
   f.grp("plate");
-  f.b([-0.43, 0.86, -0.36], [0.43, 0.9, 0.3], "iron", 0.003);
+  f.b([-0.43, 0.86, -0.36], [0.43, 0.9, 0.3], "cast_iron", 0.003);
+  for (const [x, z, w] of [[-0.2, -0.05, 0.22], [0.15, -0.15, 0.18], [0.05, 0.12, 0.25]]) f.cy([x, 0.9005, z], [w, 0.001, w * 0.7], "steel_grease", { n: 12 });   // grease patches
   f.b([-0.43, 0.86, 0.3], [0.43, 0.9, 0.37], "steel_dark", 0.003);
   f.b([-0.45, 0.86, -0.4], [0.45, 1.12, -0.36], "steel", 0.004);
   for (const x of [-0.45, 0.43]) f.b([x, 0.86, -0.36], [x + 0.02, 1.0, 0.2], "steel", 0.003);
@@ -1153,8 +1300,10 @@ def("furn_mod_walkin_door", "Walk-in cooler door", "1.4 m walk-in cooler front p
     for (const x of [-0.69, 0.69]) f.b([x - 0.01, 0, 0], [x + 0.01, 2.3, 0.02], "steel", 0.002);
     f.grp("door");
     f.b([-0.45, 0.02, 0.0], [0.45, 2.0, 0.08], "steel", 0.008);
-    f.b([0.28, 0.9, 0.08], [0.42, 1.1, 0.12], "steel_dark", 0.008);
-    f.b([0.3, 0.95, 0.12], [0.4, 1.05, 0.13], "chrome", 0.004);
+    gasket(f, -0.45, 0.45, 0.02, 2.0, 0.004, 0.012);
+    f.b([0.28, 0.9, 0.08], [0.42, 1.1, 0.12], "steel_dark", 0.008);   // latch housing
+    barHandle(f, 0.35, 1.0, 0.0725, 0.34, false);   // bar face at 0.13 m, as before
+    for (let k = 0; k < 8; k++) f.b([-0.4 + k * 0.1, 0.06, 0.085], [-0.33 + k * 0.1, 0.2, 0.087], "rubber", 0.0005);   // kick plate grille
     for (const y of [0.3, 1.0, 1.7]) f.b([-0.5, y - 0.08, 0.0], [-0.44, y + 0.08, 0.06], "chrome", 0.004);
     f.b([-0.45, 0.02, 0.08], [0.45, 0.25, 0.085], "steel_dark", 0.002);
     f.b([-0.15, 1.45, 0.08], [0.15, 1.75, 0.084], "glass", 0.002);
@@ -1214,12 +1363,15 @@ def("furn_mod_ice_machine", "Ice machine", "Commercial ice maker on a storage bi
   for (let i = 0; i < 3; i++) f.b([0.2 + i * 0.04, 1.54, 0.34], [0.215 + i * 0.04, 1.555, 0.343], i === 1 ? "led_amber" : "led_green", 0.0005);
   f.grp("door");
   f.b([-0.32, 0.6, 0.36], [0.32, 0.95, 0.4], "steel", 0.008);
-  handle(f, 0, 0.9, 0.4, 0.36, false, "plastic_black");
+  gasket(f, -0.32, 0.32, 0.6, 0.95, 0.364);
+  barHandle(f, 0, 0.9, 0.3725, 0.36, false);   // bar face 0.43 m out, as the old handle
+  vent(f, -0.3, 0.3, 0.16, 0.4, 0.36, 6, "steel_dark");   // kick grille
 });
 def("furn_mod_warming_station", "Heated holding station", "1.2 m heated pass-through holding station: steel base, three hot wells with food pans, a lit heat-lamp gantry.", { family: "metal", front: 0.9, rounds: 24, blast: 40, surfaces: [] }, (f) => {
   cabinet(f, -0.6, 0.6, 0, 0.9, -0.35, 0.33, "steel", "steel", [{ x0: -0.6, x1: 0, y0: 0.1, y1: 0.86, h: "r" }, { x0: 0, x1: 0.6, y0: 0.1, y1: 0.86, h: "l" }], 0.1);
   f.b([-0.6, 0.86, -0.36], [0.6, 0.92, 0.36], "steel", 0.004);
   knobs(f, -0.5, -0.2, 0.89, 0.36, 3);
+  f.b([-0.58, 0.92, -0.3], [0.58, 0.9215, 0.3], "steel_grease", 0.0005);   // darkening round the wells
   f.grp("pans");
   for (let i = 0; i < 3; i++) { const x = -0.38 + i * 0.38; f.b([x - 0.17, 0.89, -0.27], [x + 0.17, 0.925, 0.27], "steel_dark", 0.004); f.b([x - 0.15, 0.9, -0.25], [x + 0.15, 0.926, 0.25], ["pack_orange", "pack_brown", "pack_yellow"][i], 0.006); }
   f.grp("gantry");
