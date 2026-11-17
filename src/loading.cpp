@@ -54,11 +54,12 @@ const int kTipN = (int)(sizeof kTips / sizeof kTips[0]);
 
 // UI6: a loading image, graded once as it loads: a contrast curve that crushes the blacks and keeps the highlights
 // (darker, moodier, the midtones still readable), so the screen needs only a light glass over it. Cached by path.
-unsigned gradedTex(const fs::path& p) {
+unsigned gradedTex(const fs::path& p, bool lift = false) {
   static std::map<std::string, unsigned> cache;
   auto it = cache.find(p.string()); if (it != cache.end()) return it->second;
   uint8_t lut[256];
   for (int i = 0; i < 256; ++i) {
+    if (lift) { lut[i] = (uint8_t)std::lround(255.0f * std::pow(i / 255.0f, 0.72f)); continue; }   // UI7: the dusk street, opened up
     float x = std::clamp((i / 255.0f - 0.05f) / 0.95f, 0.0f, 1.0f);   // black point
     float sc = x * x * (3 - 2 * x); x = 0.6f * x + 0.4f * sc;          // a gentle S: deeper shadows, highlights kept
     lut[i] = (uint8_t)std::lround(255.0f * std::pow(x, 1.12f));
@@ -73,17 +74,13 @@ unsigned gradedTex(const fs::path& p) {
 }
 unsigned streetTex() {   // the menu's street: the launch splash and maps without a still (the file only: no menu scene load)
   const fs::path ui = contentDir() / "ui";
-  return gradedTex(fs::exists(ui / "menu_backdrop_empty.jpg") ? ui / "menu_backdrop_empty.jpg" : ui / "menu_backdrop.jpg");
+  return gradedTex(fs::exists(ui / "menu_backdrop_empty.jpg") ? ui / "menu_backdrop_empty.jpg" : ui / "menu_backdrop.jpg", true);
 }
-// a soft dark patch: full alpha inside [ix0, ix1] x [iy0, iy1], fading to 0 at [ox0, ox1] x [oy0, oy1] (a 3 x 3 grid of
-// bilinear quads, no edges)
-void softPatch(ImDrawList* dl, float ox0, float ix0, float ix1, float ox1, float oy0, float iy0, float iy1, float oy1, float al) {
-  const float xs[4] = {ox0, ix0, ix1, ox1}, ys[4] = {oy0, iy0, iy1, oy1}, f[4] = {0, 1, 1, 0};
-  for (int j = 0; j < 3; ++j) for (int i = 0; i < 3; ++i) {
-    if (xs[i + 1] <= xs[i] || ys[j + 1] <= ys[j]) continue;
-    auto c = [&](int x, int y) { return rgba(0, 0, 0, al * f[x] * f[y]); };
-    dl->AddRectFilledMultiColor(ImVec2(xs[i], ys[j]), ImVec2(xs[i + 1], ys[j + 1]), c(i, j), c(i + 1, j), c(i + 1, j + 1), c(i, j + 1));
-  }
+// a soft dark glow: an ellipse whose darkness falls off radially to nothing (32 stacked ellipses, each a little smaller
+// and a little dark: no edge, no band); al is the darkness at the centre
+void softGlow(ImDrawList* dl, ImVec2 c, float rx, float ry, float al) {
+  const int N = 32; const float k = 1.0f - std::pow(1.0f - std::clamp(al, 0.0f, 0.99f), 1.0f / N);
+  for (int i = 0; i < N; ++i) { const float f = 1.0f - 0.9f * i / (N - 1.0f); dl->AddEllipseFilled(c, ImVec2(rx * f, ry * f), rgba(0, 0, 0, k), 0.0f, 64); }
 }
 
 void drawLoading(ImDrawList* dl, float W, float H, float a, float t) {
@@ -100,16 +97,15 @@ void drawLoading(ImDrawList* dl, float W, float H, float a, float t) {
     if (!still && J.thumb) { uv0.y = 0.8f - (0.8f - 0.5f) * (1 - 1 / z); uv1.y = 0.2f + (0.5f - 0.2f) * (1 - 1 / z); }   // thumbnails are stored bottom-up (as the editor draws them)
     dl->AddImage((ImTextureID)(intptr_t)tex, ImVec2(0, 0), ImVec2(W, H), uv0, uv1, rgba(255, 255, 255, a));
   }
-  dl->AddRectFilled(ImVec2(0, 0), ImVec2(W, H), rgba(0, 0, 0, (still ? 0.32f : 0.40f) * a));   // the black glass: true black, light
+  dl->AddRectFilled(ImVec2(0, 0), ImVec2(W, H), rgba(0, 0, 0, (still ? 0.32f : J.thumb ? 0.40f : 0.16f) * a));   // the black glass: true black, light (the lifted street: lighter still)
   dl->AddRectFilledMultiColor(ImVec2(0, H * 0.7f), ImVec2(W, H), rgba(255, 110, 30, 0), rgba(255, 110, 30, 0), rgba(255, 96, 24, 0.05f * a), rgba(255, 96, 24, 0.05f * a));   // a little fire light
   for (int k = 0; k < 2; ++k) {   // the side vignette in two widths, blended (no band edge)
     const float w = W * (k ? 0.40f : 0.18f), al = (k ? 0.38f : 0.30f) * a;
     dl->AddRectFilledMultiColor(ImVec2(0, 0), ImVec2(w, H), rgba(0, 0, 0, al), rgba(0, 0, 0, 0), rgba(0, 0, 0, 0), rgba(0, 0, 0, al));
     dl->AddRectFilledMultiColor(ImVec2(W - w, 0), ImVec2(W, H), rgba(0, 0, 0, 0), rgba(0, 0, 0, al), rgba(0, 0, 0, al), rgba(0, 0, 0, 0));
   }
-  softPatch(dl, W * 0.08f, W * 0.24f, W * 0.76f, W * 0.92f, H * 0.10f, H * 0.24f, H * 0.52f, H * 0.66f, 0.42f * a);   // behind the logo, map name and mode
-  dl->AddRectFilledMultiColor(ImVec2(0, 0), ImVec2(W, H * 0.24f), rgba(0, 0, 0, 0.45f * a), rgba(0, 0, 0, 0.45f * a), rgba(0, 0, 0, 0), rgba(0, 0, 0, 0));   // the sky (often haze) darker
-  dl->AddRectFilledMultiColor(ImVec2(0, H * 0.64f), ImVec2(W, H), rgba(0, 0, 0, 0), rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.66f * a), rgba(0, 0, 0, 0.66f * a));   // the bar and the tip
+  softGlow(dl, ImVec2(W * 0.5f, H * 0.40f), W * 0.50f, H * 0.34f, 0.50f * a);   // UI7: behind the logo, map name and mode (radial, edge-free)
+  dl->AddRectFilledMultiColor(ImVec2(0, H * 0.55f), ImVec2(W, H), rgba(0, 0, 0, 0), rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.62f * a), rgba(0, 0, 0, 0.62f * a));   // the bar and the tip (a long ramp)
   // embers: stateless (position from time), so presents at any rate move them correctly
   for (int i = 0; i < 90; ++i) {
     uint32_t h = (uint32_t)i * 2654435761u; auto r = [&](int k) { uint32_t x = h ^ (uint32_t)(k * 0x9E3779B9u); x ^= x >> 15; x *= 2246822519u; x ^= x >> 13; return (x & 0xffff) / 65535.0f; };

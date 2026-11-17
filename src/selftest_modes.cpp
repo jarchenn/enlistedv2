@@ -523,6 +523,47 @@ void build(App&) {
     if (ph == 1 && glfwGetTime() > r0 + 4.5) { a.uiShot = outDir() / ("ui4_still_" + ids[k] + ".png"); ph = 2; return false; }
     if (ph == 2) { ++k; ph = 0; }
     return t > 900; });
+  // UI7 loading stills: an eye-level shot inside each playable map (NMK_UI7_STILLS=1, or a comma list of map ids).
+  // The pose: NMK_UI7_POSES (tools/ui7_still_poses.json) {id: {eye:[x,y,z], at:[x,y,z], hour, weather}} where given,
+  // else the start marker (or the first spawn) at 1.7 m looking at the nearest objective (else the map centre); late
+  // afternoon sun (18:00), clear, environmental fog off; eyeG / atG: [x, z, height above the terrain], no UI / overlays -> ui7_still_<id>.png (the pose is logged)
+  push("ui7 stills", [](App& a, float t) {
+    if (!std::getenv("NMK_UI7_STILLS")) return true;
+    static std::vector<std::string> ids; static size_t k = 0; static double r0 = 0; static int ph = 0; static json poses;
+    if (t == 0) {
+      ids.clear(); k = 0; ph = 0; poses = json::object();
+      if (const char* pf = std::getenv("NMK_UI7_POSES")) { try { poses = json::parse(readTextFile(pf)); } catch (std::exception& e) { logf("ui7: poses %s: %s", pf, e.what()); } }
+      const std::string only = std::getenv("NMK_UI7_STILLS");
+      for (auto& tp : a.templates) if (tp.available && tp.raw.value("playable", false) && fs::exists(contentDir() / "templates" / (tp.id + ".nmap.json")))
+        if (only == "1" || ("," + only + ",").find("," + tp.id + ",") != std::string::npos) ids.push_back(tp.id);
+      if (a.mode == Mode::Explore) a.exitExplore();
+      gUi.showOverlay = false;
+    }
+    if (k >= ids.size()) { a.hideUi = false; a.hideEditorOverlays = false; gUi.showOverlay = true; return true; }
+    if (ph == 0) {
+      const std::string& id = ids[k];
+      a.openMap(contentDir() / "templates" / (id + ".nmap.json"));
+      a.hideUi = true; a.hideEditorOverlays = true; gUi.showOverlay = false;
+      const json p = poses.contains(id) ? poses[id] : json::object();
+      auto v3 = [](const json& j, vec3 d) { return j.is_array() && j.size() == 3 ? vec3(j[0].get<float>(), j[1].get<float>(), j[2].get<float>()) : d; };
+      Scenario& sc = gUi.scenario(a);
+      vec3 eye = a.doc.start.set ? a.doc.start.pos : !sc.spawns.empty() ? sc.spawns[0].pos : vec3(0);
+      eye.y = a.terrain.height(eye.x, eye.z) > eye.y - 0.5f ? std::max(eye.y, a.terrain.height(eye.x, eye.z)) : eye.y;
+      eye.y += 1.7f;
+      vec3 at = vec3(0, eye.y, 0); float best = 1e9f;
+      for (auto& o : sc.objectives) { float d = glm::length(vec2(o.pos.x - eye.x, o.pos.z - eye.z)); if (d > 30 && d < best) { best = d; at = o.pos + vec3(0, 2, 0); } }
+      eye = v3(p.value("eye", json()), eye); at = v3(p.value("at", json()), at);
+      auto g3 = [&](const json& j, vec3 d) { return j.is_array() && j.size() == 3 ? vec3(j[0].get<float>(), a.terrain.height(j[0].get<float>(), j[1].get<float>()) + j[2].get<float>(), j[1].get<float>()) : d; };
+      eye = g3(p.value("eyeG", json()), eye); at = g3(p.value("atG", json()), at);   // [x, z, metres above the terrain]
+      vec3 d = glm::normalize(at - eye);
+      a.camPos = eye; a.camYaw = glm::degrees(std::atan2(-d.x, -d.z)); a.camPitch = glm::degrees(std::asin(std::clamp(d.y, -1.0f, 1.0f)));
+      a.R.lt.hour = p.value("hour", 18.0f); a.R.wx.target = p.value("weather", 0); a.R.wx.fog = 0; a.R.wx.userSet = true;
+      logf("ui7 still %s: eye %.1f %.1f %.1f at %.1f %.1f %.1f (yaw %.1f pitch %.1f) hour %.1f", id.c_str(), eye.x, eye.y, eye.z, at.x, at.y, at.z, a.camYaw, a.camPitch, a.R.lt.hour);
+      r0 = glfwGetTime(); ph = 1; return false;
+    }
+    if (ph == 1 && glfwGetTime() > r0 + 5.0) { a.uiShot = outDir() / ("ui7_still_" + ids[k] + ".png"); ph = 2; return false; }
+    if (ph == 2) { ++k; ph = 0; }
+    return t > 1200; });
   push("ai3 setup", [](App& a, float t) {
     if (!std::getenv("NMK_AI3_SHOT")) return true;
     if (t == 0) {
@@ -648,6 +689,7 @@ bool modesSelfTest(App& app, float dt) {
     started = true; T = new MpTest("modes"); build(app); cur = 0; st = 0;
     if (std::getenv("NMK_NAV_PREBAKE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "prebake templates" && s.name != "done"; }), seq.end());   // just the bake
     else if (std::getenv("NMK_MODES_ONLY_CACHE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "nav bake cache" && s.name != "done"; }), seq.end());   // just the cache round trip (with NMK_MODES_MAP: on another map)
+    else if (std::getenv("NMK_UI7_STILLS")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui7 stills" && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_UI4_STILLS")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui4 stills" && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_UI2_MENU")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui2 menu" && s.name != "done" && !(s.name == "ui2 backdrop" && std::getenv("NMK_UI2_BACKDROP")) && !(s.name == "ui1p screens" && std::getenv("NMK_UI1_POLISH")); }), seq.end());   // with NMK_UI2_BACKDROP too: one run for both (GPU budget)
     else if (std::getenv("NMK_UI2_BACKDROP")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui2 backdrop" && s.name != "done"; }), seq.end());
