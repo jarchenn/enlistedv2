@@ -29,6 +29,10 @@ struct CharModel {
   std::vector<int> jointParent;             // skin joint -> parent skin joint (-1 root)
   std::vector<vec3> jointHead;              // rest head position (model space)
   int semantic[CJ_COUNT];                   // CharJoint -> skin joint (-1 missing)
+  // AN1 step 2: per skin joint under a hand, which finger (0 thumb, 1 index .. 4 little; -1 not a classified finger),
+  // its segment (1 proximal .. 3 distal) and its rest curl axis (bone x rest palm normal, so + curls toward the palm)
+  std::vector<signed char> finger, fingerSeg;
+  std::vector<vec3> fingerAx;
   std::vector<int> nodeOrder;               // parents before children
   mat4 rootFix{1};                          // applied above the root nodes (load with a height: scale / recentre)
   std::vector<AnimClip> clips;              // G2: the GLB's own clips (anim_clip.h), empty for the soldiers

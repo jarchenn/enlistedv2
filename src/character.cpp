@@ -167,6 +167,35 @@ bool CharModel::load(const fs::path& path, std::string& err, float height, bool 
   if (semantic[CJ_SPINE1] < 0) semantic[CJ_SPINE1] = semantic[CJ_SPINE2] >= 0 ? semantic[CJ_SPINE2] : semantic[CJ_SPINE];   // a two-bone spine (zombie)
   if (body) for (int s : {CJ_HIPS, CJ_SPINE2, CJ_HEAD, CJ_LARM, CJ_LFOREARM, CJ_LHAND, CJ_RARM, CJ_RFOREARM, CJ_RHAND, CJ_LUPLEG, CJ_LLEG, CJ_LFOOT, CJ_RUPLEG, CJ_RLEG, CJ_RFOOT})
     if (semantic[s] < 0) { err = std::string("skeleton has no ") + kSemanticNames[s] + " joint"; return false; }
+  // AN1 step 2: classify the finger joints by name (Mixamo Thumb / Index / Middle / Ring / Pinky, Biped and NPC FingerN digits, Finger_A..D)
+  finger.assign(nj, -1); fingerSeg.assign(nj, 0); fingerAx.assign(nj, vec3(0, 0, 1));
+  auto fingerOf = [&](int k) -> int {
+    std::string n = nodeName[jointNode[k]]; for (auto& c : n) c = (char)std::tolower((unsigned char)c);
+    if (n.find("palm") != std::string::npos || n.find("metacarpal") != std::string::npos) return -1;
+    if (n.find("thumb") != std::string::npos) return 0;
+    if (n.find("index") != std::string::npos) return 1;
+    if (n.find("middle") != std::string::npos) return 2;
+    if (n.find("ring") != std::string::npos) return 3;
+    if (n.find("pinky") != std::string::npos || n.find("little") != std::string::npos) return 4;
+    size_t f = n.rfind("finger"); if (f == std::string::npos) return -1;
+    f += 6; if (f < n.size() && n[f] == '_') ++f;
+    if (f >= n.size()) return -1;
+    if (n[f] >= '0' && n[f] <= '4') return n[f] - '0';
+    if (n[f] >= 'a' && n[f] <= 'd') return 1 + (n[f] - 'a');
+    return -1;
+  };
+  for (int k = 0; k < nj; ++k) {
+    bool underHand = false;
+    for (int a = jointParent[k], d = 0; a >= 0 && d < 5; a = jointParent[a], ++d) if (a == semantic[CJ_LHAND] || a == semantic[CJ_RHAND]) { underHand = semantic[CJ_LHAND] >= 0; break; }
+    if (!underHand) continue;
+    int f = fingerOf(k); if (f < 0) continue;
+    int seg = 1; for (int a = jointParent[k]; a >= 0 && fingerOf(a) == f; a = jointParent[a]) ++seg;
+    finger[k] = (signed char)f; fingerSeg[k] = (signed char)std::min(seg, 4);
+    vec3 bone(0); for (int c = 0; c < nj; ++c) if (jointParent[c] == k) { bone = jointHead[c] - jointHead[k]; break; }
+    if (glm::length(bone) < 1e-5f && jointParent[k] >= 0) bone = jointHead[k] - jointHead[jointParent[k]];
+    vec3 ax = glm::cross(bone, vec3(0, -1, 0));   // rest palms face down (T / A pose)
+    if (glm::length(ax) > 1e-6f) fingerAx[k] = glm::normalize(ax);
+  }
   // ---- geometry: every mesh primitive (skinned: model space; unskinned: node world, bound to its nearest joint)
   std::vector<uint32_t> I;
   bmin = vec3(1e9f); bmax = vec3(-1e9f);

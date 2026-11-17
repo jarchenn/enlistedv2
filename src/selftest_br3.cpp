@@ -239,9 +239,10 @@ bool poseShots(App& app, float dt) {
   vec3 cd = vn == "side" ? -left : vn == "front" ? face : vn == "back" ? -face : glm::normalize(left * 0.7f + face);   // side: from its right; three-quarter: front left
   vec3 e = B + cd * 3.2f; e.y = H(e.x, e.z) - 0.45f;   // eye ~1.2 m above the ground
   if (vn == "top") e = B + face * 0.6f + vec3(0, 2.4f, 0);   // from above, a little ahead
+  if (vn == "hands") { e = B + glm::normalize(-left * 0.8f + face * 0.7f) * 1.1f; e.y = H(e.x, e.z) - 0.25f; }   // AN1 step 2: close on the hands from the front right
   Physics::setCharacterPos(e);
   if (Soldier* L = G.local()) { L->feet = e; L->hp = 100; }
-  vec3 v = (B + vec3(0, 0.85f, 0)) - (e + vec3(0, 1.62f, 0));
+  vec3 v = (B + (vn == "hands" ? vec3(0, 1.25f, 0) + face * 0.3f : vec3(0, 0.85f, 0))) - (e + vec3(0, 1.62f, 0));
   app.eyeYaw = degrees(std::atan2(-v.x, -v.z)); app.eyePitch = degrees(std::atan2(v.y, glm::length(vec2(v.x, v.z))));
   G.posesStep(dt > 0 ? dt : 1.0f / 60);
   if (t > 0.6f) {   // settled: the joints over the ground (feet at the ankle's rest height when planted, the knee on the ground)

@@ -84,6 +84,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       T = c0 + vec3(off.x, y, off.z + 0.10f * crouch);
     } else
       T = c0 + vec3(0, std::max(0.0f, std::cos(ph)) * 0.11f * walk, 0.30f * walk * std::sin(ph) + 0.10f * crouch);
+    if (gait && kind == 1 && p.holdWeapon) { float st = 1 - sA; T.z += (leg ? -0.07f : 0.11f) * st; T.x += (leg ? -0.02f : 0.03f) * st; }   // AN1 step 2: still with a rifle: support foot forward
     if (crouch > 0.01f) T.x += (leg ? -0.04f : 0.04f) * crouch;
     if (mAim > 0) T.x += (leg ? -0.03f : 0.03f) * mAim;   // a slightly wider base for the glide
     if (climb >= 0 && leg) T += vec3(0, 0.55f, 0.30f) * climbRoll;   // the right knee comes up onto the ledge
@@ -115,6 +116,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
     drop = glm::mix(drop, dropK, kneel);
   }
   mat4 root = glm::translate(mat4(1), vec3(0, -drop, 0.06f * crouch));
+  if (prone > 0) footPitch[0] = footPitch[1] = 1.1f * prone;   // AN1 step 2: lying down, insteps on the ground
   if (kneel > 0) {   // left foot forward and planted, shin near vertical; right shin back along the ground, toes tucked
     vec3 cl = H(CJ_LFOOT), cr = H(CJ_RFOOT);
     vec3 Tl(cl.x + 0.05f, 0, a0L[0].z + 0.40f); Tl.y = cl.y + gnd(Tl);
@@ -129,12 +131,18 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
   lean += 0.20f * c01(p.hunch) * (1 - crouch) * (1 - kneel);   // AI5: moving ~22 deg, standing aim ~16 deg
   lean += 0.55f * climbRoll;   // mantle: the chest rolls forward over the ledge in the second half
   float aimW = (1 - carry) * (1 - 0.7f * lowR);   // shouldered and looking down the sights
-  float blade = (kind == 1 ? -0.30f : kind == 2 ? -0.12f : 0.0f) * (1 - carry) - 0.10f * carry;
-  lean += (kind == 1 ? 0.08f : 0.0f) * aimW;   // into the rifle   // firing shoulder back (the chest turns right)
+  float blade = (kind == 1 ? -0.20f : kind == 2 ? -0.12f : 0.0f) * (1 - carry) - 0.10f * carry;   // AN1 step 2: squarer to the target
+  lean += (kind == 1 ? 0.08f : 0.0f) * aimW * (1 - 0.6f * kneel);   // into the rifle (kneeling: torso nearly upright)
   float twist = p.aimYawOffset + blade + 0.08f * std::sin(p.walkPhase) * walk * carry;
+  if (p.throwT >= 0 && !dead) {   // AN1 step 2: the throw turns the chest right on the wind-up, then through to the left, weight onto the front foot
+    float t = p.throwT;
+    twist += t < 0.45f ? -0.45f * ease(t / 0.45f) : t < 0.7f ? glm::mix(-0.45f, 0.35f, ease((t - 0.45f) / 0.25f)) : glm::mix(0.35f, 0.15f, ease((t - 0.7f) / 0.3f));
+    lean += t < 0.45f ? -0.08f * ease(t / 0.45f) : t < 0.7f ? glm::mix(-0.08f, 0.22f, ease((t - 0.45f) / 0.25f)) : 0.22f;
+  }
+  lean *= 1 - prone;
   float side = -c01(std::fabs(p.lean)) * (p.lean < 0 ? -1.0f : 1.0f) * p.leanBend;   // MV3: the sideways bend through the waist and spine (hips stay)
   for (int s : {CJ_SPINE, CJ_SPINE1, CJ_SPINE2}) if (J(s) >= 0)
-    D[J(s)] = glm::angleAxis(twist / 3.0f, vec3(0, 1, 0)) * glm::angleAxis(side / 3.0f, vec3(0, 0, 1)) * glm::angleAxis(lean / 3.0f - pitch * 0.12f, vec3(1, 0, 0));
+    D[J(s)] = glm::angleAxis(twist / 3.0f, vec3(0, 1, 0)) * glm::angleAxis(side / 3.0f, vec3(0, 0, 1)) * glm::angleAxis(lean / 3.0f - pitch * 0.20f, vec3(1, 0, 0));   // AN1 step 2: the spine takes 60 % of the look
   // shoulders protract to reach the handguard (left clavicle forward, the right a little)
   if (p.holdWeapon && !dead) {
     float pr = (kind == 1 ? 1.0f : 0.6f) * (1 - swim);
@@ -143,8 +151,8 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
   }
   float headYaw = -(twist - p.aimYawOffset) * 0.5f;   // the head stays on the aim line while the chest blades / swings
   float weld = kind == 1 ? aimW * p.holdWeld : 0.0f;   // cheek on the stock (SW2: a weapon held out in front welds less)
-  if (J(CJ_NECK) >= 0) D[J(CJ_NECK)] = glm::angleAxis(headYaw, vec3(0, 1, 0)) * glm::angleAxis(-pitch * 0.25f - lean * 0.4f + 0.16f * weld, vec3(1, 0, 0));
-  if (J(CJ_HEAD) >= 0) D[J(CJ_HEAD)] = glm::angleAxis(headYaw, vec3(0, 1, 0)) * glm::angleAxis(0.20f * weld, vec3(0, 0, 1)) * glm::angleAxis(-pitch * 0.25f - lean * 0.3f + 0.12f * weld, vec3(1, 0, 0));
+  if (J(CJ_NECK) >= 0) D[J(CJ_NECK)] = glm::angleAxis(headYaw, vec3(0, 1, 0)) * glm::angleAxis(-pitch * 0.15f - lean * 0.4f + 0.16f * weld - 0.55f * prone, vec3(1, 0, 0));   // prone: head up
+  if (J(CJ_HEAD) >= 0) D[J(CJ_HEAD)] = glm::angleAxis(headYaw, vec3(0, 1, 0)) * glm::angleAxis(0.20f * weld, vec3(0, 0, 1)) * glm::angleAxis(-pitch * 0.15f - lean * 0.3f + 0.12f * weld - 0.40f * prone, vec3(1, 0, 0));
   // ---- evaluate in topological order; arms and legs are solved when their chain root is reached
   std::vector<mat4>& Dl = out.delta;
   quat preArm[2], preFore[2]; bool armSolved[2] = {false, false};
@@ -179,7 +187,17 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       }
       pos = glm::mix(pa, pc, carry); q = glm::slerp(qa, qc, carry);
     }
-    if (p.throwT >= 0) { pos = xf(chest, vec3(0.10f, H(CJ_HIPS).y + 0.18f, 0.22f)); q = glm::angleAxis(-0.5f, vec3(0, 1, 0)) * glm::angleAxis(1.0f, vec3(1, 0, 0)); }
+    if (prone > 0) {   // AN1 step 2: in the upright frame before the body tips forward (+y becomes forward, +z down): the bore along +y, butt in the shoulder, raised on the elbows
+      quat qp = glm::angleAxis(-(p.aimYawOffset + yawIn), vec3(0, 0, 1)) * glm::angleAxis(-0.5f * kPi - pitch, vec3(1, 0, 0));
+      vec3 pp = kind == 1 ? xf(chest, vec3(sh.x * 0.5f, sh.y + 0.04f, sh.z - 0.10f))
+              : kind == 0 ? xf(chest, vec3(sh.x * 0.2f, sh.y + 0.40f, sh.z - 0.06f)) - qp * p.gripR
+              : xf(chest, vec3(sh.x * 0.8f, sh.y, sh.z - 0.14f)) - qp * vec3(0, 0, p.gripR.z - 0.30f);
+      pos = glm::mix(pos, pp, prone); q = glm::slerp(q, qp, prone);
+    }
+    if (p.throwT >= 0) {   // AN1 step 2: the rifle in the left hand at the chest, muzzle up past the left shoulder
+      q = glm::angleAxis(0.35f, vec3(0, 1, 0)) * glm::angleAxis(-1.15f, vec3(1, 0, 0));
+      pos = xf(chest, vec3(0.16f, sh.y - 0.22f, sh.z + 0.28f)) - q * p.gripL;
+    }
     weapon = glm::translate(mat4(1), pos) * glm::mat4_cast(q);
     if (p.recoil > 0) weapon = weapon * glm::translate(mat4(1), vec3(0, 0, -0.035f * p.recoil)) * glm::mat4_cast(glm::angleAxis(-0.06f * p.recoil, vec3(1, 0, 0)));
     if (p.reload > 0 && p.reload < 1) weapon = weapon * glm::mat4_cast(glm::angleAxis(0.35f * std::sin(p.reload * kPi), vec3(0, 0, 1)));
@@ -195,6 +213,24 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
     vec3 rd = glm::normalize(H(h ? CJ_RHAND : CJ_LHAND) - H(h ? CJ_RFOREARM : CJ_LFOREARM)), rp = vec3(0, -1, 0) - rd * glm::dot(vec3(0, -1, 0), rd);
     curlAx[h] = glm::length(rp) > 1e-3f ? glm::normalize(glm::cross(rd, glm::normalize(rp))) : vec3(0, 0, 1);
   }
+  // AN1 step 2: per-finger curls (rad per segment: proximal, middle, distal). Firing hand: middle / ring / little wrapped round the grip,
+  // the thumb round the other side, the index on the trigger when aimed (else straight along the frame); support hand: fingers up the
+  // side of the handguard, thumb along the other side; a free hand rests half closed, a throwing hand closes on the grenade
+  float trig = std::max(c01(p.recoil * 4), (1 - carry) * (1 - lowR) * (p.throwT >= 0 ? 0.0f : 1.0f));
+  auto fingerCurl = [&](int h, int f, int seg) -> float {
+    int s = std::clamp(seg, 1, 3) - 1;
+    if (seg > 3) return 0.0f;
+    static const float relaxed[5][3] = {{0.15f, 0.20f, 0.10f}, {0.25f, 0.35f, 0.20f}, {0.30f, 0.40f, 0.25f}, {0.35f, 0.45f, 0.25f}, {0.40f, 0.50f, 0.30f}};
+    static const float fist[5][3] = {{0.45f, 0.50f, 0.40f}, {0.95f, 1.10f, 0.60f}, {1.05f, 1.15f, 0.65f}, {1.10f, 1.15f, 0.65f}, {1.15f, 1.10f, 0.60f}};
+    static const float fireG[5][3] = {{0.35f, 0.45f, 0.35f}, {0.15f, 0.10f, 0.05f}, {1.05f, 1.15f, 0.65f}, {1.10f, 1.15f, 0.65f}, {1.15f, 1.10f, 0.60f}};
+    static const float support[5][3] = {{0.25f, 0.30f, 0.20f}, {0.75f, 0.90f, 0.50f}, {0.80f, 0.95f, 0.55f}, {0.90f, 0.95f, 0.55f}, {0.95f, 0.95f, 0.55f}};
+    static const float cup[5][3] = {{0.20f, 0.25f, 0.15f}, {1.00f, 1.10f, 0.60f}, {1.00f, 1.10f, 0.60f}, {1.05f, 1.10f, 0.60f}, {1.10f, 1.05f, 0.60f}};
+    if (dead || !armSolved[h]) return relaxed[f][s];
+    if (h == 1 && p.throwT >= 0) return fist[f][s];
+    float held = h == 1 ? (f == 1 ? glm::mix(fireG[1][s], s == 0 ? 0.75f : s == 1 ? 0.85f : 0.40f, trig) : fireG[f][s]) : kind == 0 ? cup[f][s] : support[f][s];
+    float free = h == 0 && p.reload > 0 && p.reload < 1 ? fist[f][s] * 0.7f : relaxed[f][s];   // reloading: the hand closes on the magazine
+    return glm::mix(free, held, handW[h]);
+  };
   quat footTilt = dead || prone >= 0.5f ? quat(1, 0, 0, 0) : between(vec3(0, 1, 0), vec3(-p.slope.x, 1, -p.slope.y));   // soles along the slope
   for (int j : order) {
     int par = m.jointParent[j];
@@ -226,7 +262,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       }
       if (side == 1 && p.throwT >= 0) {   // right arm throws: wind-up behind the head, release forward-up, follow through
         mat4 C = J(CJ_SPINE2) >= 0 ? Dl[J(CJ_SPINE2)] : Pd;
-        vec3 back = xf(C, vec3(-0.22f, 1.78f - drop, -0.22f)), rel = xf(C, vec3(-0.12f, 1.70f - drop, 0.55f)), fol = xf(C, vec3(0.05f, 1.15f - drop, 0.45f));
+        vec3 back = xf(C, vec3(-0.40f, 1.60f - drop, -0.26f)), rel = xf(C, vec3(-0.18f, 1.76f - drop, 0.45f)), fol = xf(C, vec3(0.12f, 1.10f - drop, 0.42f));   // AN1 step 2: wind-up beside and behind the shoulder
         float t = p.throwT;
         T = t < 0.45f ? glm::mix(xf(weapon, p.gripR), back, ease(t / 0.45f)) : t < 0.7f ? glm::mix(back, rel, ease((t - 0.45f) / 0.25f)) : glm::mix(rel, fol, ease((t - 0.7f) / 0.3f));
       }
@@ -249,7 +285,9 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
         T -= (handDir[side] * 0.075f + palmDir[side] * (side ? 0.03f : 0.04f)) * w;   // the palm's surface (not the bones) against the weapon
       }
       // elbows hang down and in (not winged out)
-      vec3 pole = side ? vec3(-0.25f, -1, -0.15f) : vec3(0.30f, -1, -0.05f);
+      vec3 pole = side ? vec3(-0.25f, -1, -0.15f) : vec3(0.12f, -1, -0.05f);   // AN1 step 2: the support elbow under the handguard
+      if (side == 0 && kneel > 0) pole = glm::mix(pole, vec3(0.10f, -1, 0.35f), kneel);   // toward the raised left knee
+      if (prone > 0) pole = glm::mix(pole, side ? vec3(-0.5f, 0.3f, 1) : vec3(0.5f, 0.3f, 1), prone);   // elbows planted (upright +z is down)
       vec3 E = solve2(Ash, l1, l2, T, pole);
       T = E + glm::normalize(T - E) * std::min(l2, glm::length(T - E));
       quat Rp = rotOf(Pd);
@@ -262,7 +300,11 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       if (j == J(CJ_LFOREARM) && armSolved[0]) D[j] = preFore[0];
       if (j == J(CJ_RFOREARM) && armSolved[1]) D[j] = preFore[1];
       int hs = j == J(CJ_LHAND) ? 0 : j == J(CJ_RHAND) ? 1 : -1;
-      if (int fh = hs < 0 ? handOf(j) : -1; fh >= 0 && armSolved[fh] && handW[fh] > 0) D[j] = glm::angleAxis(0.4f * handW[fh], curlAx[fh]);
+      if (int fh = hs < 0 ? handOf(j) : -1; fh >= 0) {
+        int f = j < (int)m.finger.size() ? m.finger[j] : -1;
+        if (f >= 0) D[j] = glm::angleAxis(fingerCurl(fh, f, m.fingerSeg[j]), m.fingerAx[j]);
+        else if (armSolved[fh] && handW[fh] > 0) D[j] = glm::angleAxis(0.4f * handW[fh], curlAx[fh]);   // unnamed finger joints: one curl
+      }
       if (hs >= 0 && armSolved[hs] && handW[hs] > 0 && par >= 0) {
         vec3 rest = H(hs ? CJ_RHAND : CJ_LHAND) - H(hs ? CJ_RFOREARM : CJ_LFOREARM);
         // rest palms face down (T- or A-pose rigs): turn the fingers onto handDir, then roll the palm about them onto palmDir
@@ -291,6 +333,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       legSolved[leg] = true;
       D[j] = preLeg[leg];
     }
+    if (leg >= 0 && !dead && prone >= 0.5f) D[j] = glm::angleAxis(leg ? -0.18f : 0.18f, vec3(0, 0, 1));   // AN1 step 2: prone legs a little apart
     if (j == J(CJ_LLEG) && legSolved[0]) D[j] = preKnee[0];
     if (j == J(CJ_RLEG) && legSolved[1]) D[j] = preKnee[1];
     if ((j == J(CJ_LFOOT) || j == J(CJ_RFOOT)) && par >= 0)   // the foot flat, or rolled heel to toe (+ = toes down)
