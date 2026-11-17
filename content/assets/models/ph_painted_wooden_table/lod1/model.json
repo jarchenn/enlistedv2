@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  1.1907479763031006,
+  0.9586371183395386,
+  0.5681565999984741
+ ],
+ "bmin": [
+  -1.1962449550628662,
+  0.000985264778137207,
+  -0.5682780742645264
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "painted_wooden_table",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.1907479763031006,
+    0.9586371183395386,
+    0.5681565999984741
+   ],
+   "bmin": [
+    -1.1962449550628662,
+    0.000985264778137207,
+    -0.5682780742645264
+   ],
+   "count": 225,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "painted_wooden_table",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_painted_wooden_table.glb",
+ "textures": {},
+ "triangles": 75,
+ "vertices": 161
+}

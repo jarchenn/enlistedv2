@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.9862775802612305,
+  1.1273465156555176,
+  0.427388072013855
+ ],
+ "bmin": [
+  -0.9862775802612305,
+  9.002663432511326e-07,
+  -0.41155561804771423
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "vintage_day_bed",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.9862775802612305,
+    1.1273465156555176,
+    0.427388072013855
+   ],
+   "bmin": [
+    -0.9862775802612305,
+    9.002663432511326e-07,
+    -0.41155561804771423
+   ],
+   "count": 1014,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "vintage_day_bed",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_vintage_day_bed.glb",
+ "textures": {},
+ "triangles": 338,
+ "vertices": 404
+}

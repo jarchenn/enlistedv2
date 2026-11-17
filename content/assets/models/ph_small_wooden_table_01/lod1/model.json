@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.45809391140937805,
+  0.5330857634544373,
+  0.21998131275177002
+ ],
+ "bmin": [
+  -0.45809391140937805,
+  0.002233929466456175,
+  -0.21998131275177002
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "small_wooden_table_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.45809391140937805,
+    0.5330857634544373,
+    0.21998131275177002
+   ],
+   "bmin": [
+    -0.45809391140937805,
+    0.002233929466456175,
+    -0.21998131275177002
+   ],
+   "count": 1278,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "small_wooden_table_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_small_wooden_table_01.glb",
+ "textures": {},
+ "triangles": 426,
+ "vertices": 552
+}

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.8558422327041626,
+  1.0908392667770386,
+  0.4991750717163086
+ ],
+ "bmin": [
+  -0.8556041717529297,
+  0.003491310402750969,
+  -0.5014738440513611
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "vintage_wooden_drawer_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.8558422327041626,
+    1.0908392667770386,
+    0.4991750717163086
+   ],
+   "bmin": [
+    -0.8556041717529297,
+    0.003491310402750969,
+    -0.5014738440513611
+   ],
+   "count": 1941,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "vintage_wooden_drawer_01_body",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_vintage_wooden_drawer_01.glb",
+ "textures": {},
+ "triangles": 647,
+ "vertices": 1283
+}

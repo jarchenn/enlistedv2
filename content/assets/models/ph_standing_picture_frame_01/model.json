@@ -1,0 +1,125 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.0501384362578392,
+  0.24965810775756836,
+  0.1003999263048172
+ ],
+ "bmin": [
+  -0.0501384362578392,
+  0.0,
+  -0.1003999263048172
+ ],
+ "materials": [
+  {
+   "albedo": "albedoa_1.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "standing_picture_frame_01_glass",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "standing_picture_frame_01_artwork",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "albedo": "albedo_6.jpg",
+   "mr": "mr_2.jpg",
+   "name": "standing_picture_frame_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.04232379049062729,
+    0.23792728781700134,
+    0.08932866156101227
+   ],
+   "bmin": [
+    -0.0014247223734855652,
+    0.01286054402589798,
+    -0.08932866156101227
+   ],
+   "count": 6,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "standing_picture_frame_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.03623348847031593,
+    0.21814924478530884,
+    0.06587035208940506
+   ],
+   "bmin": [
+    0.00021208077669143677,
+    0.03283502161502838,
+    -0.06587035208940506
+   ],
+   "count": 6,
+   "first": 6,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "standing_picture_frame_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.0501384362578392,
+    0.24965810775756836,
+    0.1003999263048172
+   ],
+   "bmin": [
+    -0.0501384362578392,
+    0.0,
+    -0.1003999263048172
+   ],
+   "count": 2442,
+   "first": 12,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "standing_picture_frame_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_standing_picture_frame_01.glb",
+ "textures": {},
+ "triangles": 818,
+ "vertices": 833
+}

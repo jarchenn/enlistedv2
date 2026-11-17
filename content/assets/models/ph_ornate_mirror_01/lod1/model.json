@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.2432478666305542,
+  0.7441554069519043,
+  0.012978989630937576
+ ],
+ "bmin": [
+  -0.2432478666305542,
+  0.0,
+  -0.012979167513549328
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "ornate_mirror_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.2432478666305542,
+    0.7441554069519043,
+    0.012978989630937576
+   ],
+   "bmin": [
+    -0.2432478666305542,
+    0.0,
+    -0.012979167513549328
+   ],
+   "count": 5337,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "ornate_mirror_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_ornate_mirror_01.glb",
+ "textures": {},
+ "triangles": 1779,
+ "vertices": 1835
+}

@@ -1,0 +1,124 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.296999990940094,
+  0.840999960899353,
+  0.007874658331274986
+ ],
+ "bmin": [
+  -0.296999990940094,
+  0.0,
+  -0.006854675244539976
+ ],
+ "materials": [
+  {
+   "albedo": "albedoa_1.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "hanging_picture_frame_01_glass",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_3.jpg",
+   "mr": "mr_4.jpg",
+   "name": "hanging_picture_frame_01_artwork"
+  },
+  {
+   "albedo": "albedo_6.jpg",
+   "mr": "mr_2.jpg",
+   "name": "hanging_picture_frame_01",
+   "normal": "normal_5.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.28592872619628906,
+    0.8299582004547119,
+    0.001931606326252222
+   ],
+   "bmin": [
+    -0.28592872619628906,
+    0.011041730642318726,
+    0.0019315513782203197
+   ],
+   "count": 6,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "hanging_picture_frame_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.25658878684043884,
+    0.8012816905975342,
+    -0.00023549236357212067
+   ],
+   "bmin": [
+    -0.25658878684043884,
+    0.039718300104141235,
+    -0.0002355421893298626
+   ],
+   "count": 6,
+   "first": 6,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "hanging_picture_frame_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.296999990940094,
+    0.840999960899353,
+    0.007874658331274986
+   ],
+   "bmin": [
+    -0.296999990940094,
+    0.0,
+    -0.006854675244539976
+   ],
+   "count": 960,
+   "first": 12,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "hanging_picture_frame_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_hanging_picture_frame_01.glb",
+ "textures": {},
+ "triangles": 324,
+ "vertices": 374
+}

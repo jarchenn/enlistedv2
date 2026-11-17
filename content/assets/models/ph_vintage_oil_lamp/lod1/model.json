@@ -1,0 +1,124 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.10894318670034409,
+  0.8016371726989746,
+  0.10820916295051575
+ ],
+ "bmin": [
+  -0.1072431430220604,
+  3.2157210227978794e-10,
+  -0.10827699303627014
+ ],
+ "materials": [
+  {
+   "albedo": "albedoa_1.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "vintage_oil_lamp_glass",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "vintage_oil_lamp",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "albedo": "albedoa_7.png",
+   "cutout": true,
+   "name": "vintage_oil_lamp_flame"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.02132159285247326,
+    0.8016371726989746,
+    0.022614724934101105
+   ],
+   "bmin": [
+    -0.022614531219005585,
+    0.42623433470726013,
+    -0.02261456474661827
+   ],
+   "count": 504,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "vintage_oil_lamp_glass",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.10894318670034409,
+    0.4711333215236664,
+    0.10820916295051575
+   ],
+   "bmin": [
+    -0.1072431430220604,
+    3.2157210227978794e-10,
+    -0.10827699303627014
+   ],
+   "count": 2193,
+   "first": 504,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "vintage_oil_lamp_glass",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.012247998267412186,
+    0.5270751714706421,
+    0.012247992679476738
+   ],
+   "bmin": [
+    -0.01224793866276741,
+    0.4677365720272064,
+    -0.012247941456735134
+   ],
+   "count": 24,
+   "first": 2697,
+   "mat": 2,
+   "metal": 0.0,
+   "name": "vintage_oil_lamp_glass",
+   "role": "body",
+   "rough": 0.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_vintage_oil_lamp.glb",
+ "textures": {},
+ "triangles": 907,
+ "vertices": 792
+}

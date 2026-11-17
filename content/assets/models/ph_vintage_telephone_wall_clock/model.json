@@ -1,0 +1,93 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.17140275239944458,
+  0.5012321472167969,
+  0.096281498670578
+ ],
+ "bmin": [
+  -0.1713717132806778,
+  0.0,
+  -0.096281498670578
+ ],
+ "materials": [
+  {
+   "albedo": "albedoa_1.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "vintage_telephone_wall_clock_glass",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_3.jpg",
+   "mr": "mr_2.jpg",
+   "name": "vintage_telephone_wall_clock",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.07146868109703064,
+    0.34571826457977295,
+    0.015678811818361282
+   ],
+   "bmin": [
+    -0.061833955347537994,
+    0.21235032379627228,
+    0.013692941516637802
+   ],
+   "count": 576,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "vintage_telephone_wall_clock",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.17140275239944458,
+    0.5012321472167969,
+    0.096281498670578
+   ],
+   "bmin": [
+    -0.1713717132806778,
+    0.0,
+    -0.096281498670578
+   ],
+   "count": 23220,
+   "first": 576,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "vintage_telephone_wall_clock",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_vintage_telephone_wall_clock.glb",
+ "textures": {},
+ "triangles": 7932,
+ "vertices": 7962
+}

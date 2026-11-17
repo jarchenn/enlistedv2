@@ -1,0 +1,93 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.11052404344081879,
+  0.5297636985778809,
+  0.11685985326766968
+ ],
+ "bmin": [
+  -0.11052404344081879,
+  0.0,
+  -0.11736220866441727
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "wooden_lantern_01",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_4.png",
+   "cutout": true,
+   "mr": "mr_5.jpg",
+   "name": "wooden_lantern_01_glass",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.11052404344081879,
+    0.5297636985778809,
+    0.11685985326766968
+   ],
+   "bmin": [
+    -0.11052404344081879,
+    0.0,
+    -0.11736220866441727
+   ],
+   "count": 12408,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "wooden_lantern_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.08996786177158356,
+    0.3060349225997925,
+    0.08349452912807465
+   ],
+   "bmin": [
+    -0.08786265552043915,
+    0.0651187002658844,
+    -0.09470891207456589
+   ],
+   "count": 144,
+   "first": 12408,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "wooden_lantern_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_wooden_lantern_01.glb",
+ "textures": {},
+ "triangles": 4184,
+ "vertices": 4127
+}
