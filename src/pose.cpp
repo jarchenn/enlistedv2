@@ -446,7 +446,9 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
     if (j == J(CJ_LLEG) && legSolved[0]) D[j] = preKnee[0];
     if (j == J(CJ_RLEG) && legSolved[1]) D[j] = preKnee[1];
     if ((j == J(CJ_LFOOT) || j == J(CJ_RFOOT)) && par >= 0)   // the foot flat, or rolled heel to toe (+ = toes down)
-      D[j] = glm::inverse(rotOf(Pd)) * footTilt * glm::angleAxis(dead ? 0.0f : footPitch[j == J(CJ_RFOOT)], vec3(1, 0, 0));
+      { int fl = j == J(CJ_RFOOT); quat tilt = footTilt;
+        if (!dead && prone < 0.5f && p.footN[fl] != vec3(0)) tilt = glm::slerp(footTilt, between(vec3(0, 1, 0), p.footN[fl]), c01(p.footPinW[fl]));   // AN1 step 3c: the sole on its own ground
+        D[j] = glm::inverse(rotOf(Pd)) * tilt * glm::angleAxis(dead ? 0.0f : footPitch[fl], vec3(1, 0, 0)); }
     if (dead && (j == J(CJ_LLEG) || j == J(CJ_RLEG))) D[j] = glm::angleAxis(0.25f * ease(p.death), vec3(1, 0, 0));
     if (kneel > 0 && j == J(CJ_RTOE)) D[j] = glm::angleAxis(-1.0f * kneel, vec3(1, 0, 0));   // toes bent flat on the ground
     Dl[j] = Pd * about(m.jointHead[j], D[j]);

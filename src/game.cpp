@@ -1100,8 +1100,16 @@ void Game::posesStep(float dt) {
             s.anFootLock[leg] = false; s.anFootRel[leg] = 0; s.anFootFrom[leg] = s.anFootW[leg]; s.anFootStep[leg] = !moving && !over;
             s.anFootDur[leg] = moving ? std::max(0.08f, 0.35f * (1 - du) / cadN) : 0.32f;
           }
-        } else if (stance && s.anFootRel[leg] < 0) { s.anFootLock[leg] = true; s.anFootW[leg] = cur; }
-        if (s.anFootLock[leg]) { pp.footPin[leg] = vec3(Wi * vec4(s.anFootW[leg], 1)); pp.footPinW[leg] = 1; }
+        } else if (stance && s.anFootRel[leg] < 0) {
+          s.anFootLock[leg] = true; s.anFootW[leg] = cur; s.anFootN[leg] = vec3(0);
+          // AN1 step 3c: touchdown probe: the anchor on the real ground under it (a stair tread, a slope), the ankle its rest height above
+          Physics::Hit h;
+          static const bool probeOff = std::getenv("NMK_NO_FOOTPROBE") != nullptr;   // captures: the before measurement
+          if (!probeOff && Physics::castRayEx(cur + vec3(0, 0.45f, 0), vec3(0, -1, 0), 0.9f, h) && h.normal.y > 0.5f) {
+            s.anFootW[leg].y = h.pos.y + m.jointHead[sf].y; s.anFootN[leg] = h.normal;
+          }
+        }
+        if (s.anFootLock[leg]) { pp.footPin[leg] = vec3(Wi * vec4(s.anFootW[leg], 1)); pp.footPinW[leg] = 1; if (s.anFootN[leg] != vec3(0)) pp.footN[leg] = glm::normalize(vec3(Wi * vec4(s.anFootN[leg], 0))); }
         else if (s.anFootRel[leg] >= 0) {
           s.anFootRel[leg] += dt; float k = s.anFootRel[leg] / s.anFootDur[leg];
           if (k >= 1) s.anFootRel[leg] = -1;
@@ -1117,10 +1125,11 @@ void Game::posesStep(float dt) {
       if (s.eScale != 1) s.world = glm::scale(s.world, vec3(s.eScale));
       aiZombieFeet(*this, s); }
     if (static const char* ft = std::getenv("NMK_FOOT_TRACE"); ft && !s.localPlayer && !s.zombie && s.alive && s.slot < 24 && !s.pose.delta.empty()) {   // AN1 step 3b: planted-foot slip (foottrace.csv)
-      static FILE* f = nullptr; if (!f) { std::error_code ec; fs::create_directories(exeDir() / "selftest_out", ec); f = std::fopen((exeDir() / "selftest_out" / "foottrace.csv").string().c_str(), "w"); if (f) std::fprintf(f, "t,slot,model,speed,stanceL,stanceR,lx,lz,rx,rz\n"); }
+      static FILE* f = nullptr; if (!f) { std::error_code ec; fs::create_directories(exeDir() / "selftest_out", ec); f = std::fopen((exeDir() / "selftest_out" / "foottrace.csv").string().c_str(), "w"); if (f) std::fprintf(f, "t,slot,model,speed,stanceL,stanceR,lx,lz,rx,rz,gapL,gapR\n"); }
       auto st = [&](int leg) { float u = (pp.walkPhase + (leg ? 3.14159265f : 0.0f)) / 6.2831853f; u -= std::floor(u); float du = std::clamp(pp.duty, 0.2f, 0.8f); return u > 0.1f * du && u < 0.9f * du ? 1 : 0; };
       vec3 L = vec3(s.world * vec4(s.pose.joint[CJ_LFOOT], 1)), R = vec3(s.world * vec4(s.pose.joint[CJ_RFOOT], 1));
-      if (f) std::fprintf(f, "%.4f,%d,%s,%.2f,%d,%d,%.4f,%.4f,%.4f,%.4f\n", t, s.slot, m.id.c_str(), s.speed, st(0), st(1), L.x, L.z, R.x, R.z);
+      auto gap = [&](vec3 F, int sf) { Physics::Hit h; return Physics::castRayEx(F + vec3(0, 0.6f, 0), vec3(0, -1, 0), 1.5f, h) ? F.y - m.jointHead[sf].y - h.pos.y : 9.0f; };   // ankle over the ground minus its rest height (+ hover, - sink)
+      if (f) std::fprintf(f, "%.4f,%d,%s,%.2f,%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f\n", t, s.slot, m.id.c_str(), s.speed, st(0), st(1), L.x, L.z, R.x, R.z, gap(L, m.semantic[CJ_LFOOT]), gap(R, m.semantic[CJ_RFOOT]));
     }
     if (s.flat && !s.alive) {   // squashed: the whole body pressed into a thin, slightly spread layer on the ground, within 0.12 s
       float k = std::min(1.0f, (float)(t - s.diedAt) / 0.12f);
