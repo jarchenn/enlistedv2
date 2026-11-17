@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.27564871311187744,
+  0.23741818964481354,
+  0.08153116703033447
+ ],
+ "bmin": [
+  -0.27564871311187744,
+  0.0,
+  -0.08153116703033447
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "book_encyclopedia_set_01_cover",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "book_encyclopedia_set_01_paper",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.27564871311187744,
+    0.23741818964481354,
+    0.08153116703033447
+   ],
+   "bmin": [
+    -0.27564871311187744,
+    0.0,
+    -0.08153116703033447
+   ],
+   "count": 16944,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "book_encyclopedia_set_01_book01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.2729567289352417,
+    0.23354822397232056,
+    0.08062218874692917
+   ],
+   "bmin": [
+    -0.2727336883544922,
+    0.006047459784895182,
+    -0.07789328694343567
+   ],
+   "count": 8286,
+   "first": 16944,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "book_encyclopedia_set_01_book01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_book_encyclopedia_set_01.glb",
+ "textures": {},
+ "triangles": 8410,
+ "vertices": 10302
+}

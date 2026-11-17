@@ -24,3 +24,10 @@ Main menu > **GUNS** (where Controls was) and **VEHICLES** (`src/stat_editor.cpp
 - **Applying.** Edits are saved when a field is released. Leaving the screen or **Apply now** runs `App::reloadGameplayDefs`: weapons, damage table, helicopter tuning, vehicles, loadout. The pointer-keyed caches (animated viewmodels, BR optic rails) are cleared first. Run it from the menu only, not mid-match.
 - **LAN.** The host's values rule damage, which the host computes. Fire rate, recoil and handling come from each player's own file. Vehicles are not replicated, so each player's own values apply.
 - Check: `--check-ed2` (`src/check_ed2.cpp`).
+
+## UI3: AI types (Main menu > Character > AI TYPES)
+
+- The same editor (kind 2 in `src/stat_editor.cpp`): **Soldiers** (a patch on `content/ai/combat.json`: health, damage per calibre, corpses, models ...) and every **enemy type** from `content/ai/zombie.json` plus the local-only `zombie_local.json` (hp, damage, reach, speeds, attacks ...).
+- Overrides: `content/ai/overrides_user.json` `{ "types": { "<type id>": {patch} }, "_soldier": {patch} }`, git-ignored. Enemy types are patched in `zcfg()` (zombie.cpp, reloaded by `App::reloadGameplayDefs`), the soldier data in `Game::loadData` (each match start). `zombie.json` and `zombie_local.json` are never written.
+- LAN: the AI runs on the host, so the host's values apply.
+- Previews (here and on the YOUR SOLDIER tab) are framed by the body's own extent (posed joints for soldiers, the bind-pose mesh for bodies with their own clips), so big enemies fit whole.

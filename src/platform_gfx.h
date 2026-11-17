@@ -17,6 +17,8 @@ inline void platformWindowHints() {
 inline bool platformInitContext(GLFWwindow* w) { glfwMakeContextCurrent(w); return gladLoadGL((GLADloadfunc)glfwGetProcAddress) != 0; }
 inline void platformSwapInterval(int n) { glfwSwapInterval(n); }
 inline void platformImGuiInit(GLFWwindow* w) { ImGui_ImplGlfw_InitForOpenGL(w, true); ImGui_ImplOpenGL3_Init("#version 450 core"); }
+inline void platformImGuiInitRenderer() { ImGui_ImplOpenGL3_Init("#version 450 core"); }   // UI2: a second ImGui context (the loading screen) draws with the renderer only
+inline void platformImGuiRendererNewFrame() { ImGui_ImplOpenGL3_NewFrame(); }
 inline void platformImGuiNewFrame() { ImGui_ImplOpenGL3_NewFrame(); ImGui_ImplGlfw_NewFrame(); }
 inline void platformImGuiRender(ImDrawData* d) { ImGui_ImplOpenGL3_RenderDrawData(d); }
 inline void platformImGuiShutdown() { ImGui_ImplOpenGL3_Shutdown(); ImGui_ImplGlfw_Shutdown(); }

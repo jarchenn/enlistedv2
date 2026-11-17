@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.32983845472335815,
+  0.7710452079772949,
+  0.043896906077861786
+ ],
+ "bmin": [
+  -0.3300051987171173,
+  0.00035731494426727295,
+  -0.044521577656269073
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "fancy_picture_frame_02",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "fancy_picture_frame_02_canvas",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.32983845472335815,
+    0.7710452079772949,
+    0.043896906077861786
+   ],
+   "bmin": [
+    -0.3300051987171173,
+    0.00035731494426727295,
+    -0.044521577656269073
+   ],
+   "count": 13161,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "fancy_picture_frame_02",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.1979900449514389,
+    0.6366574764251709,
+    -0.03650703281164169
+   ],
+   "bmin": [
+    -0.194053053855896,
+    0.13711494207382202,
+    -0.03650707006454468
+   ],
+   "count": 6,
+   "first": 13161,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "fancy_picture_frame_02",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_fancy_picture_frame_02.glb",
+ "textures": {},
+ "triangles": 4389,
+ "vertices": 2877
+}

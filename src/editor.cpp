@@ -1,5 +1,6 @@
 // Creative mode: flying camera, asset browser, placement, selection, transforms, undo, start marker.
 #include "app.h"
+#include "ui_glass.h"
 #include "mainmenu.h"
 #include "thumbs.h"
 #include "mpai.h"
@@ -250,9 +251,21 @@ void App::drawCreativeUI() {
     terrainMenus(*this);   // V8: Terrain menu (sculpt, Generate hills) (terrain_brush.cpp); UI2: no Beautify, no Explore button (F5 play-tests)
     mpaiMenus(*this);   // Play (Singleplayer / Host LAN / Join LAN) and Scenario menus
     { extern void autopathMenu(App&); autopathMenu(*this); }   // Paths > Connect houses (autopath.cpp)
-    ImGui::SameLine(ImGui::GetWindowWidth() - 360);
+    const float mmW = ImGui::CalcTextSize("Main Menu").x + ImGui::GetStyle().FramePadding.x * 2;   // UI3: right-aligned, after the map name
+    ImGui::SameLine(ImGui::GetWindowWidth() - 360 - mmW - 16);
     ImGui::TextDisabled("%s%s  |  %s", doc.name.c_str(), dirty ? " *" : "", docPath.empty() ? "unsaved" : docPath.filename().string().c_str());
+    ImGui::SameLine(ImGui::GetWindowWidth() - mmW - 12);
+    static bool askLeave = false;
+    if (ImGui::Button("Main Menu")) { if (dirty) askLeave = true; else mainMenuOpen(*this); }
     ImGui::EndMainMenuBar();
+    if (askLeave) { ImGui::OpenPopup("Leave for the main menu?"); askLeave = false; }
+  }
+  if (ImGui::BeginPopupModal("Leave for the main menu?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {   // UI3: the map stays open behind the menu (Create Map returns to it)
+    ImGui::Text("\"%s\" has unsaved changes. Save before going to the main menu?", doc.name.c_str());
+    if (ImGui::Button("Save")) { if (!docPath.empty() && saveMapTo(docPath)) mainMenuOpen(*this); else showSaveAs = true; ImGui::CloseCurrentPopup(); }
+    ImGui::SameLine(); if (ImGui::Button("Don't save")) { mainMenuOpen(*this); ImGui::CloseCurrentPopup(); }
+    ImGui::SameLine(); if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+    ImGui::EndPopup();
   }
   // ---- toolbar
   ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, menuH + 6), ImGuiCond_Always, ImVec2(0.5f, 0));
@@ -391,9 +404,9 @@ void App::drawCreativeUI() {
     ImDrawList* dl = ImGui::GetForegroundDrawList();
     ImVec2 ts = ImGui::CalcTextSize(notice.c_str());
     ImVec2 p(io.DisplaySize.x * 0.5f - ts.x * 0.5f, menuH + 58);
-    dl->AddRectFilled(ImVec2(p.x - 16, p.y - 9), ImVec2(p.x + ts.x + 16, p.y + ts.y + 9), IM_COL32(28, 24, 12, 235), 5);
-    dl->AddRect(ImVec2(p.x - 16, p.y - 9), ImVec2(p.x + ts.x + 16, p.y + ts.y + 9), IM_COL32(230, 190, 90, 255), 5, 0, 1.5f);
-    dl->AddText(p, IM_COL32(255, 228, 160, 255), notice.c_str());
+    uiGlassPanel(dl, ImVec2(p.x - 20, p.y - 10), ImVec2(p.x + ts.x + 18, p.y + ts.y + 10), 10);   // UI2: a glass toast with the accent bar
+    dl->AddRectFilled(ImVec2(p.x - 20, p.y - 2), ImVec2(p.x - 17, p.y + ts.y + 2), IM_COL32(240, 118, 32, 255));
+    dl->AddText(p, IM_COL32(238, 234, 226, 255), notice.c_str());
   }
 
   if (showStats) {

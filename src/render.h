@@ -42,6 +42,7 @@ struct Overlay {
   void box(const mat4& m, vec3 mn, vec3 mx, vec4 c, bool top = false);
   void capsule(vec3 feet, float h, float r, vec4 c);
 };
+extern Overlay gWorldMarks;    // SD3: in-game ground markings (the bomb plant pads): drawn in Explore, depth tested
 extern Overlay gAnnotOverlay;   // capture annotations (capture.cpp: the D-day overview), drawn with the editor overlay
 
 struct RenderView {
@@ -133,6 +134,7 @@ public:
     float hazeDensity = 0.0010f, hazeHeight = 70.0f;   // aerial perspective (1/m at ground level, scale height m)
     bool ssao = true; float ssaoStrength = 0.95f, ssaoRadius = 0.5f;   // GX5: 0.85 / 0.6 -> 0.95 / 0.5 (contact shadows tuned for interiors, brief §8)
     bool bloom = true; float bloomStrength = 0.045f;
+    float microcontrast = 0.0f;   // UI2 Settings > Microcontrast 0..1: unsharp mask on luminance against HDR mip 3 (0: off, the branch is skipped)
     bool ssr = true; float ssrStrength = 1.0f;
     bool taa = true; float taaSharpen = 0.30f, taaJitter = 0.5f;   // V1: sharpen 0.40 -> 0.30 (facade shimmer A/B, docs/rendering.md 9.5)
     int taaPhases = 8;          // Halton (2,3) jitter phases (settings: High uses 16)
@@ -260,7 +262,11 @@ public:
   int upscaleMode = 0;
   GLuint progMotion = 0, progDepthUp = 0, motionTex = 0, motionFbo = 0; int motionW = 0, motionH = 0;
   // offscreen orthographic/perspective render of textured parts (weapon calibration sheets, tests)
-  bool renderModelSheet(const std::vector<ModelDraw>& items, const std::vector<DrawItem>& boxes, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, std::vector<uint8_t>& rgba, bool transparent = false);   // transparent: alpha 0 where nothing was drawn (UI2 Character screen)
+  bool renderModelSheet(const std::vector<ModelDraw>& items, const std::vector<DrawItem>& boxes, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, std::vector<uint8_t>& rgba, bool transparent = false);
+  // UI3: the same lit model render kept on the GPU (no read-back), for live UI use (the menu soldier, the Character
+  // preview): 2x supersampled, tonemapped as renderModelSheet, alpha from coverage; returns an RGBA8 texture (bottom-up),
+  // valid until the next call with another size. saturation: 1 = as lit, below 1 toward grey.
+  GLuint renderModelLive(const std::vector<ModelDraw>& items, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, float saturation = 1.0f, int slot = 0);   // slot 0 / 1: independent targets (menu soldier, Character preview)   // transparent: alpha 0 where nothing was drawn (UI2 Character screen)
   vec3 sunDir = glm::normalize(vec3(-0.45f, 0.62f, 0.38f));   // the Day sun; inside render() the key light of the time of day (lighting.cpp)
   // ---- lighting engine (src/lighting.cpp, docs/lighting.md): time of day, clustered local lights, light shadows, probe GI
   struct LightQ {

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.5047608017921448,
+  0.5699740648269653,
+  0.2646474242210388
+ ],
+ "bmin": [
+  -0.5047608017921448,
+  5.00835710681713e-07,
+  -0.25458547472953796
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "treasure_chest",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5047608017921448,
+    0.5699740648269653,
+    0.2646474242210388
+   ],
+   "bmin": [
+    -0.5047608017921448,
+    5.00835710681713e-07,
+    -0.25458547472953796
+   ],
+   "count": 154995,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "treasure_chest_bottom",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0008000135421753,
+ "source": "ph_treasure_chest.glb",
+ "textures": {},
+ "triangles": 51665,
+ "vertices": 39094
+}

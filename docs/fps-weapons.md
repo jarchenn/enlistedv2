@@ -822,12 +822,28 @@ Sources: `incoming/mg12/<name>/` (credits: [MG12](credits.md#modern-guns-mg12)).
 |---|---|---|
 | Glock 34 with compensator (`modern_glock34`) | DJMaesen `fps pistol Animated`, its own arms and clips; fire 226-235 (the slide cycles; the source's other fire clip 1-10 leaves it locked back), reload_empty 10-66 (from the slide lock), reload 66-132, idle 180-206 | 9x19 mm, 17 rounds, 450 rpm, 375 m/s; DMG1 pistol 32 / 20, `headMax` 80 |
 | Makarov PM (`modern_makarov`) | Cransh GLB: **the gun only**, static on the game's arms (slide -> bolt, mag -> mag) | 9x18 mm, 8 rounds, 400 rpm, 315 m/s; pistol 30 / 18, `headMax` 75; the Axis operators' sidearm |
-| FN 502 Tactical (`modern_fn502`) | Cransh GLB: the gun only, static on the game's arms | .22 LR, 15 rounds, 450 rpm, 330 m/s; pistol 26 / 15, `headMax` 70 |
 | HK Mk 23 (`modern_mark23`) | BarcodeGames FBX, its own arms and clips (named actions: Idle, Shoot, Reload); **local-only** (licence) | .45 ACP, 12 rounds, 350 rpm, 260 m/s; pistol 36 / 22, `headMax` 80 |
 
-- **The two Cransh GLBs:** their arms' skin is broken: the arms explode to thousands of units even in Blender's own glTF import, whatever its bind-pose options (as the MG7 SCAR-H). Their static guns are baked posed at the first frame of their idle / shot (their rest pose is taken apart; `poseFrame` / `poseAction`). The FN 502 GLB's `KHR_materials_pbrSpecularGlossiness` materials crash Blender's importer, so a copy with plain materials is converted first (base colour from the diffuse).
+- **The Cransh GLB (Makarov):** its arms' skin is broken: the arms explode to thousands of units even in Blender's own glTF import, whatever its bind-pose options (as the MG7 SCAR-H). Its static gun is baked posed at the first frame of its idle (its rest pose is taken apart; `poseFrame` / `poseAction`). WP7: the FN 502 Tactical (a second Cransh GLB) was removed from the game at the user's request; its shot sound moved to the Desert Eagle and the .357 revolver.
 - **The Mk 23:** the committed `modern_mark23.json` shows the Springfield XD's model and rig. The real model, rig and sights come from `content/weapons/local/modern_mark23.json` (merged by the weapon loader; `modern_guns_anim_config.cjs` reads it too) and `models/modern_mark23_local/`, both git-ignored.
-- **Crate:** `9mm_mag17`, `9x18_mag8`, `22lr_mag15`, `45_mag12`. Sounds are borrowed and pitched apart (`audio.cpp` MG12 batch 2).
+- **Crate:** `9mm_mag17`, `9x18_mag8`, `45_mag12`. Sounds are borrowed and pitched apart (`audio.cpp` MG12 batch 2).
+
+### WP8: hip framing (the HK Mk 23 as the reference)
+
+The hip view is framed by the firing hand: the weapon's `rightGrip` socket sits at a fixed camera-space point, measured at the hip by `--selftest-weapons` with `NMK_MG_LOOK` (the `[mg11hip]` log line: rear sight, front sight, muzzle and grip, camera space, x right, y up, -z ahead). The viewmodel FOV is the same 60 deg for every gun at the hip.
+
+| Class | Firing grip (m) | Notes |
+|---|---|---|
+| Pistols | (0.072, -0.191, -0.300) | the Mk 23's own framing. The Glock 34 sits on the same line of sight 4 cm closer, (0.062, -0.166, -0.26), so its slimmer slide reads the same size. The static Luger, M1911 and Makarov sit 4.5 cm higher, because their socket is above the visible hand. |
+| Rifles, SMGs, LMGs, shotguns, snipers, launchers, blasters | (0.12, -0.235, -0.16) | the modern rifle rigs' cluster (M4, M16, FAL, MP7, SCAR, RPG-7); longer guns extend further forward |
+
+- **How the shift is applied:** rigs take it as `animated.hipShift` and static models as `ads.hipOffset`. Both apply only at the hip and fade out in ADS, so every iron-sight and optic sight picture is unchanged (ADS captures compared before / after).
+- **Blasters:** their zoom-aim keeps the hip pose, so their aimed view moves with the hip framing. The zoom and the dot crosshair are unchanged.
+- **Kept on their own framing:**
+  - AK-12 and .50 sniper: the rule brings their scopes too close.
+  - Semi-auto sniper, Uzi and Scorpion: their grip sockets don't match the visible hand.
+  - Thompson: its hip view reads better as before.
+  - Carried M2HB and Panzerschreck: they use their own holds.
 
 ### SW1: blasters, blaster troopers and robot commandos
 

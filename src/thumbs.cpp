@@ -390,6 +390,7 @@ ThumbStats makeAssetThumbnails(App& app) {
     fs::path file = dir / (a->id + "-" + info.key + ".png");
     if (a->thumbnail) { glDeleteTextures(1, &a->thumbnail); a->thumbnail = 0; }
     if (fs::exists(file, ec) && loadTile(file, a->thumbnail)) { info.cached = true; ++st.loaded; gThumbInfo[a->id] = info; continue; }
+    app.lib.build(*a);   // MEM1: an uncached tile is rendered from the built asset
     std::vector<DrawItem> op{{&a->opaque, mat4(1)}, {&a->panelsIntact, mat4(1)}}, gl;
     if (a->glass.count) gl.push_back({&a->glass, mat4(1)});
     for (auto& d : a->interactables)

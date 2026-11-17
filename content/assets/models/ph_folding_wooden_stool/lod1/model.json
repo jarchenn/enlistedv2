@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.26278480887413025,
+  0.4412205219268799,
+  0.2735418975353241
+ ],
+ "bmin": [
+  -0.26265138387680054,
+  0.0013020634651184082,
+  -0.2735418975353241
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "folding_wooden_stool",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.26278480887413025,
+    0.4412205219268799,
+    0.2735418975353241
+   ],
+   "bmin": [
+    -0.26265138387680054,
+    0.0013020634651184082,
+    -0.2735418975353241
+   ],
+   "count": 2367,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "folding_wooden_stool",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_folding_wooden_stool.glb",
+ "textures": {},
+ "triangles": 789,
+ "vertices": 1171
+}

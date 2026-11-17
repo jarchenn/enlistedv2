@@ -367,3 +367,14 @@ did not frame. Visual only (k: 0), in the same part list as the plaster (bay sta
 bedstead, gramophone, wireless set, wall sconce, candle sconce, wall oil lamp, candlestick, hall pendant, coat
 stand, coat hooks with coats, suitcases, half-drawn curtains, pan rail, broken glass, plaster debris, hall runner,
 five framed paintings (landscape, seascape, evening, portrait, small).
+
+## PR2: furniture drawn by imported models (2026-11-16)
+
+`content/settings/furniture_models.json` (written by `tools/props/furn_fit.py` from `tools/props/furn_replace.json`)
+gives a furniture asset an imported model in place of its look: at load (`src/assets.cpp` furnitureModelFor) the
+asset gets that `model` block and every part becomes a stand-in (`mf`: hidden once the bake exists, `Part::standIn`).
+The parts stay the colliders, the furnishing envelope (`PropDef` bounds), the broken remains and the fragments, so
+placement, cover, nav and damage do not change. Model pieces draw in `InteriorSys::propDraw` with the same distance,
+room and Low-preset culling as box furniture (also the DEC1 wall art), and not at all once broken. The importer bakes
+them like any model (`--import-weapon-models <glb folder>`, reading the override file from the run's content/). The
+audit that chose them and the change requests for the rest: `docs/furniture-change-requests.md`.

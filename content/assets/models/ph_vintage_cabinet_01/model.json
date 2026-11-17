@@ -1,0 +1,123 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  1.0108802318572998,
+  2.2350516319274902,
+  0.33490189909935
+ ],
+ "bmin": [
+  -1.0108802318572998,
+  0.0,
+  -0.33490189909935
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "vintage_cabinet_01_a",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "vintage_cabinet_01_b",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "mr": "mr_6.jpg",
+   "name": "vintage_cabinet_01_glass",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.0108802318572998,
+    2.2350516319274902,
+    0.33490189909935
+   ],
+   "bmin": [
+    -1.0108802318572998,
+    0.0,
+    -0.33490189909935
+   ],
+   "count": 79941,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "vintage_cabinet_01_body",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.959721565246582,
+    2.163892984390259,
+    0.2812477946281433
+   ],
+   "bmin": [
+    -0.9644455313682556,
+    0.08577880263328552,
+    -0.33268502354621887
+   ],
+   "count": 11670,
+   "first": 79941,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "vintage_cabinet_01_body",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    0.029999999329447746,
+    0.029999999329447746,
+    0.029999999329447746,
+    0.30000001192092896
+   ],
+   "bmax": [
+    0.8176214694976807,
+    2.0049219131469727,
+    0.057688817381858826
+   ],
+   "bmin": [
+    -0.8176217079162598,
+    1.3766437768936157,
+    0.05768880248069763
+   ],
+   "count": 54,
+   "first": 91611,
+   "mat": 2,
+   "metal": 0.0,
+   "name": "vintage_cabinet_01_body",
+   "role": "body",
+   "rough": 1.0,
+   "textured": false
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_vintage_cabinet_01.glb",
+ "textures": {},
+ "triangles": 30555,
+ "vertices": 21820
+}

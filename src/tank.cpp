@@ -54,9 +54,11 @@ void TankSys::loadDefs(App& app) {
       }
     };
     // baked model (a car whose supplied model is local-only falls back to its committed part-built stand-in)
+    bool fellBack = false;   // VH8: the stand-in mesh is drawn: its own rig points (model.fallbackRig) replace the supplied model's
     for (const char* key : {"dir", "fallbackDir"}) {
       std::string mdir = j.contains("model") ? j["model"].value(key, "") : "";
       if (mdir.empty() || d->model) continue;
+      fellBack = std::string(key) == "fallbackDir";
       if (loaded.count(mdir)) { d->model = loaded[mdir]; continue; }
       auto gm = std::make_shared<GpuModel>(); std::string err;
       if (gm->load(dir / "models" / mdir, err)) { d->model = loaded[mdir] = gm; if (std::string(key) == "dir") loadLods(mdir); if (std::string(key) == "fallbackDir") logf("vehicle %s: supplied model missing, part-built fallback %s", d->id.c_str(), mdir.c_str()); }
@@ -102,7 +104,8 @@ void TankSys::loadDefs(App& app) {
         if (!d->steerParts.empty()) d->steerC = (slo + shi) * 0.5f;
       }
     }
-    const json rg = j.value("rig", json::object());
+    json rg = j.value("rig", json::object());
+    if (fellBack && d->model && j["model"].contains("fallbackRig")) rg.update(j["model"]["fallbackRig"]);
     d->turretPivot = jv(rg, "turretPivot"); d->gunPivot = jv(rg, "gunPivot"); d->muzzle = jv(rg, "muzzle"); d->optic = jv(rg, "optic");
     d->hatchEye = jv(rg, "hatchEye"); d->towMuzzle = jv(rg, "towMuzzle"); d->mgPivot = jv(rg, "mgPivot"); d->mgMuzzle = jv(rg, "mgMuzzle"); d->engine = jv(rg, "engine");
     for (auto& x : rg.value("exhausts", json::array())) d->exhausts.push_back(jvec3(x));
@@ -127,6 +130,12 @@ void TankSys::loadDefs(App& app) {
     const json m = j.value("roofMg", json::object());
     d->mgWeapon = m.value("model", ""); d->mgName = m.value("name", ""); d->mgSound = m.value("sound", "shot_m2hb");
     d->mgModelOffset = jv(m, "modelOffset");
+    if (m.contains("post") && d->model) {
+      const json& ps = m["post"]; const std::string pn = ps.value("part", "");
+      for (size_t k = 0; k < d->model->parts.size(); ++k) if (d->model->parts[k].name == pn) { d->mgPostPart = (int)k; break; }
+      if (d->mgPostPart < 0) logf("vehicle %s: roofMg.post part '%s' not in the model (no post drawn)", d->id.c_str(), pn.c_str());
+      d->mgPostFrom = ps.value("from", 0.0f); d->mgPostW = ps.value("width", 0.07f);
+    }
     if (m.contains("yaw")) { d->mgYawMin = m["yaw"][0]; d->mgYawMax = m["yaw"][1]; }
     if (m.contains("elevation")) { d->mgElevMin = m["elevation"][0]; d->mgElevMax = m["elevation"][1]; }
     d->mgRpm = m.value("rpm", d->mgRpm); d->mgVel = m.value("velocity", d->mgVel); d->mgSpread = m.value("spreadDeg", d->mgSpread);

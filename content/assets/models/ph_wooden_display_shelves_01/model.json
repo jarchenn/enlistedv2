@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.18575482070446014,
+  1.5561838150024414,
+  0.5380547046661377
+ ],
+ "bmin": [
+  -0.18575482070446014,
+  0.0,
+  -0.5380547046661377
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "wooden_display_shelves_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.18575482070446014,
+    1.5561838150024414,
+    0.5380547046661377
+   ],
+   "bmin": [
+    -0.18575482070446014,
+    0.0,
+    -0.5380547046661377
+   ],
+   "count": 4758,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "wooden_display_shelves_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_wooden_display_shelves_01.glb",
+ "textures": {},
+ "triangles": 1586,
+ "vertices": 1733
+}

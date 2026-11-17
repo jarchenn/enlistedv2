@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.29039958119392395,
+  1.0336045026779175,
+  0.30194100737571716
+ ],
+ "bmin": [
+  -0.29039958119392395,
+  0.0,
+  -0.30194100737571716
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "gallinera_chair",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.29039958119392395,
+    1.0336045026779175,
+    0.30194100737571716
+   ],
+   "bmin": [
+    -0.29039958119392395,
+    0.0,
+    -0.30194100737571716
+   ],
+   "count": 17340,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "gallinera_chair",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_gallinera_chair.glb",
+ "textures": {},
+ "triangles": 5780,
+ "vertices": 5642
+}

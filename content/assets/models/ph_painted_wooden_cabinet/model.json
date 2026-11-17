@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.5973372459411621,
+  1.1818697452545166,
+  0.3080085515975952
+ ],
+ "bmin": [
+  -0.5973372459411621,
+  0.0,
+  -0.3082515299320221
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "painted_wooden_cabinet",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5973372459411621,
+    1.1818697452545166,
+    0.3080085515975952
+   ],
+   "bmin": [
+    -0.5973372459411621,
+    0.0,
+    -0.3082515299320221
+   ],
+   "count": 3339,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "painted_wooden_cabinet",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_painted_wooden_cabinet.glb",
+ "textures": {},
+ "triangles": 1113,
+ "vertices": 1259
+}

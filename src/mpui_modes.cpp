@@ -1,5 +1,6 @@
 // G1: Solo / Team Deathmatch HUD - the persistent mode banner, the scoreboard (held Tab and the end screen).
 #include "game.h"
+#include "ui_glass.h"   // UI2: glass panel backgrounds
 #include "settings.h"
 #include "app.h"
 #include "mpui.h"
@@ -28,7 +29,7 @@ void Game::drawModeBanner() {
     std::snprintf(b, sizeof b, "SOLO  -  first to %d kills   |   Leader: %s %d / %d   |   You: %d", match.rules.killCap,
                   ls >= 0 ? match.slots[ls].name.c_str() : "-", top, match.rules.killCap, mine);
     ImVec2 ts = ImGui::CalcTextSize(b);
-    dl->AddRectFilled(ImVec2(cx - ts.x * 0.5f - 12, y), ImVec2(cx + ts.x * 0.5f + 12, y + 28), IM_COL32(12, 12, 10, 200), 5);
+    uiGlassPanel(dl, ImVec2(cx - ts.x * 0.5f - 12, y), ImVec2(cx + ts.x * 0.5f + 12, y + 28), std::max(8.0f, (float)5));
     dl->AddText(ImVec2(cx - ts.x * 0.5f, y + 6), IM_COL32(245, 235, 200, 255), b);
     float f = std::clamp(top / (float)std::max(1, match.rules.killCap), 0.0f, 1.0f);   // leader progress bar
     dl->AddRectFilled(ImVec2(cx - 150, y + 31), ImVec2(cx + 150, y + 35), IM_COL32(60, 60, 55, 220), 2);
@@ -40,7 +41,7 @@ void Game::drawModeBanner() {
   Faction f0 = match.rules.teamFaction[0], f1 = match.rules.teamFaction[1];
   std::snprintf(b, sizeof b, "TEAM DEATHMATCH  -  FIRST TO %d", match.rules.killCap);
   ImVec2 ts = ImGui::CalcTextSize(b);
-  dl->AddRectFilled(ImVec2(cx - 190, y), ImVec2(cx + 190, y + 50), IM_COL32(12, 12, 10, 205), 5);
+  uiGlassPanel(dl, ImVec2(cx - 190, y), ImVec2(cx + 190, y + 50), std::max(8.0f, (float)5));
   dl->AddText(ImVec2(cx - ts.x * 0.5f, y + 4), IM_COL32(245, 235, 200, 255), b);
   char l[64], r[64];
   std::snprintf(l, sizeof l, "%s (A)  %d", factionName(f0), k0);
@@ -124,7 +125,7 @@ void Game::drawVitals() {
   const Soldier* L = local(); if (!L || !L->alive) return;
   ImGuiIO& io = ImGui::GetIO(); ImDrawList* dl = ImGui::GetForegroundDrawList();
   const float w = 230, x = 20, y = io.DisplaySize.y - 70, fh = ImGui::GetTextLineHeight();
-  dl->AddRectFilled(ImVec2(x - 10, y - 8), ImVec2(x + w + 10, y + fh * 2 + 18), IM_COL32(12, 14, 16, 165), 6);
+  uiGlassPanel(dl, ImVec2(x - 10, y - 8), ImVec2(x + w + 10, y + fh * 2 + 18), std::max(8.0f, (float)6));
   float hp = std::clamp(L->hp / 100.0f, 0.0f, 1.0f); char b[64];
   dl->AddText(ImVec2(x, y), IM_COL32(190, 192, 185, 230), "HEALTH");
   std::snprintf(b, sizeof b, "%.0f", std::max(0.0f, L->hp)); ImVec2 ts = ImGui::CalcTextSize(b);
@@ -154,7 +155,7 @@ void Game::drawModePanel() {
       if (L->lifeId == 0) std::snprintf(b, sizeof b, "Deploying...");
       else std::snprintf(b, sizeof b, "You were killed%s%s.   Respawning in %.0f s", L->killer >= 0 ? " by " : "", L->killer >= 0 ? match.slots[L->killer].name.c_str() : "", left);
       ImVec2 ts = ImGui::CalcTextSize(b);
-      dl->AddRectFilled(ImVec2(io.DisplaySize.x * 0.5f - ts.x * 0.5f - 14, io.DisplaySize.y * 0.7f - 10), ImVec2(io.DisplaySize.x * 0.5f + ts.x * 0.5f + 14, io.DisplaySize.y * 0.7f + 24), IM_COL32(10, 8, 8, 200), 5);
+      uiGlassPanel(dl, ImVec2(io.DisplaySize.x * 0.5f - ts.x * 0.5f - 14, io.DisplaySize.y * 0.7f - 10), ImVec2(io.DisplaySize.x * 0.5f + ts.x * 0.5f + 14, io.DisplaySize.y * 0.7f + 24), std::max(8.0f, (float)5));
       dl->AddText(ImVec2(io.DisplaySize.x * 0.5f - ts.x * 0.5f, io.DisplaySize.y * 0.7f), IM_COL32(255, 220, 200, 255), b);
     }
   }

@@ -1,0 +1,408 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.33814573287963867,
+  0.3313671946525574,
+  0.04028145223855972
+ ],
+ "bmin": [
+  -0.338162362575531,
+  1.1641532182693481e-10,
+  -0.040262430906295776
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "wine_bottles_01_glass_orange",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "wine_bottles_01_seal_cork",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "name": "wine_bottles_01_wine_red"
+  },
+  {
+   "albedo": "albedoa_5.png",
+   "cutout": true,
+   "mr": "mr_6.jpg",
+   "name": "wine_bottles_01_ftero_vinea_02",
+   "normal": "normal_4.jpg"
+  },
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "wine_bottles_01_glass_yellow",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "name": "wine_bottles_01_wine_clear"
+  },
+  {
+   "albedo": "albedoa_7.png",
+   "cutout": true,
+   "mr": "mr_8.jpg",
+   "name": "wine_bottles_01_clearwater",
+   "normal": "normal_4.jpg"
+  },
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "wine_bottles_01_glass_clear",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "name": "wine_bottles_01_wine_light_red"
+  },
+  {
+   "albedo": "albedoa_9.png",
+   "cutout": true,
+   "mr": "mr_10.jpg",
+   "name": "wine_bottles_01_intertwine",
+   "normal": "normal_4.jpg"
+  },
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "wine_bottles_01_glass_green",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_11.png",
+   "cutout": true,
+   "mr": "mr_12.jpg",
+   "name": "wine_bottles_01_ftero_vinea_01",
+   "normal": "normal_4.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.05486510694026947,
+    0.29801344871520996,
+    0.0372539684176445
+   ],
+   "bmin": [
+    -0.1293952763080597,
+    0.00014235536218620837,
+    -0.03727618604898453
+   ],
+   "count": 5400,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "wine_bottles_01_bordeaux",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.31474733352661133,
+    0.3313671946525574,
+    0.01686636544764042
+   ],
+   "bmin": [
+    -0.3158860206604004,
+    0.22351884841918945,
+    -0.01688859425485134
+   ],
+   "count": 10872,
+   "first": 5400,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "wine_bottles_01_bordeaux",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    0.5224650502204895,
+    0.04925941303372383,
+    0.024301469326019287,
+    1.0
+   ],
+   "bmax": [
+    0.33570927381515503,
+    0.26677387952804565,
+    0.03782833367586136
+   ],
+   "bmin": [
+    -0.12788870930671692,
+    0.0034497338347136974,
+    -0.037850551307201385
+   ],
+   "count": 3672,
+   "first": 16272,
+   "mat": 2,
+   "metal": 0.0,
+   "name": "wine_bottles_01_bordeaux",
+   "role": "body",
+   "rough": 0.12820515036582947,
+   "textured": false
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.060296475887298584,
+    0.14261208474636078,
+    0.03674502670764923
+   ],
+   "bmin": [
+    -0.12396390736103058,
+    0.036919496953487396,
+    -0.03676724433898926
+   ],
+   "count": 96,
+   "first": 19944,
+   "mat": 3,
+   "metal": 1.0,
+   "name": "wine_bottles_01_bordeaux",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.26610374450683594,
+    0.33120813965797424,
+    0.0360153391957283
+   ],
+   "bmin": [
+    -0.33815670013427734,
+    5.820766091346741e-10,
+    -0.03603757172822952
+   ],
+   "count": 6264,
+   "first": 20040,
+   "mat": 4,
+   "metal": 1.0,
+   "name": "wine_bottles_01_bordeaux",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    0.9324522614479065,
+    0.7874122262001038,
+    1.0
+   ],
+   "bmax": [
+    -0.26771676540374756,
+    0.27285483479499817,
+    0.03440234810113907
+   ],
+   "bmin": [
+    -0.3365436792373657,
+    0.001655230182223022,
+    -0.03442457690834999
+   ],
+   "count": 2880,
+   "first": 26304,
+   "mat": 5,
+   "metal": 0.0,
+   "name": "wine_bottles_01_bordeaux",
+   "role": "body",
+   "rough": 0.20512822270393372,
+   "textured": false
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.2660980820655823,
+    0.1362089216709137,
+    0.03602103143930435
+   ],
+   "bmin": [
+    -0.338162362575531,
+    0.0404684953391552,
+    -0.009336244314908981
+   ],
+   "count": 168,
+   "first": 29184,
+   "mat": 6,
+   "metal": 1.0,
+   "name": "wine_bottles_01_bordeaux",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.14791341125965118,
+    0.3055212199687958,
+    0.04003249108791351
+   ],
+   "bmin": [
+    0.06782622635364532,
+    0.000326544075505808,
+    -0.04005470871925354
+   ],
+   "count": 5112,
+   "first": 29352,
+   "mat": 7,
+   "metal": 1.0,
+   "name": "wine_bottles_01_bordeaux",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    0.08782617002725601,
+    0.04163853079080582,
+    1.0
+   ],
+   "bmax": [
+    0.14654017984867096,
+    0.26182740926742554,
+    0.038659244775772095
+   ],
+   "bmin": [
+    0.06919945776462555,
+    0.002987534273415804,
+    -0.03868146985769272
+   ],
+   "count": 1512,
+   "first": 34464,
+   "mat": 8,
+   "metal": 0.0,
+   "name": "wine_bottles_01_bordeaux",
+   "role": "body",
+   "rough": 0.12820515036582947,
+   "textured": false
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.1478647142648697,
+    0.17431800067424774,
+    0.03998381644487381
+   ],
+   "bmin": [
+    0.06787486374378204,
+    0.0111548425629735,
+    -0.04000605642795563
+   ],
+   "count": 576,
+   "first": 35976,
+   "mat": 9,
+   "metal": 1.0,
+   "name": "wine_bottles_01_bordeaux",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.33812111616134644,
+    0.2959907650947571,
+    0.04024021327495575
+   ],
+   "bmin": [
+    0.2576184868812561,
+    1.1641532182693481e-10,
+    -0.040262430906295776
+   ],
+   "count": 6552,
+   "first": 36552,
+   "mat": 10,
+   "metal": 1.0,
+   "name": "wine_bottles_01_bordeaux",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.33814573287963867,
+    0.11345026642084122,
+    0.04028145223855972
+   ],
+   "bmin": [
+    0.25759387016296387,
+    0.031121786683797836,
+    -0.010443290695548058
+   ],
+   "count": 165,
+   "first": 43104,
+   "mat": 11,
+   "metal": 1.0,
+   "name": "wine_bottles_01_bordeaux",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_wine_bottles_01.glb",
+ "textures": {},
+ "triangles": 14423,
+ "vertices": 8604
+}

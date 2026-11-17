@@ -1,0 +1,122 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.289585143327713,
+  0.8765602111816406,
+  0.2873183488845825
+ ],
+ "bmin": [
+  -0.289585143327713,
+  0.0022436976432800293,
+  -0.2873183488845825
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "lantern_chandelier_01",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_5.png",
+   "cutout": true,
+   "mr": "mr_6.jpg",
+   "name": "lantern_chandelier_01_glass",
+   "normal": "normal_4.jpg"
+  },
+  {
+   "name": "lantern_chandelier_01_lamp"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.289585143327713,
+    0.8765602111816406,
+    0.2873183488845825
+   ],
+   "bmin": [
+    -0.289585143327713,
+    0.0022436976432800293,
+    -0.2873183488845825
+   ],
+   "count": 8634,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "lantern_chandelier_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.21969176828861237,
+    0.33626365661621094,
+    0.25719255208969116
+   ],
+   "bmin": [
+    -0.26573607325553894,
+    0.0832909345626831,
+    -0.2532004714012146
+   ],
+   "count": 30,
+   "first": 8634,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "lantern_chandelier_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    0.8000000715255737,
+    0.7333472371101379,
+    0.5533292889595032,
+    1.0
+   ],
+   "bmax": [
+    0.04360779747366905,
+    0.4031229019165039,
+    0.04628788307309151
+   ],
+   "bmin": [
+    -0.05099734663963318,
+    0.29558658599853516,
+    -0.048317186534404755
+   ],
+   "count": 300,
+   "first": 8664,
+   "mat": 2,
+   "metal": 0.0,
+   "name": "lantern_chandelier_01",
+   "role": "body",
+   "rough": 0.1664227843284607,
+   "textured": false
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_lantern_chandelier_01.glb",
+ "textures": {},
+ "triangles": 2988,
+ "vertices": 3661
+}

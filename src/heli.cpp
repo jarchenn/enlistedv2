@@ -243,6 +243,10 @@ void TankSys::stepHeli(App& app, TankRT& t, float dt, const ExploreInput* in) {
   }
   if (occupied == t.id) heliCameraStep(app, *this, t, dt); else if (!occupied) gHeliViewRoll = 0;
   updateBody(app, t, false);
+  if (!t.wrecked && t.hp < 40 && app.fx.rnd() < dt * (6.0f + 0.3f * (40 - t.hp))) {   // VH8: shot up: the engines smoke, thicker as it weakens
+    vec3 e = vec3(hullMatrix(t) * vec4(t.def->engine, 1));
+    app.fx.smoke(e, vec3(0, 0.8f, 0) - t.vel * 0.2f, 0.5f + 0.01f * (40 - t.hp), 3.0f, vec4(0.12f, 0.12f, 0.12f, 0.5f), 1.0f, 0.5f);
+  }
   effects(app, t, dt);
 }
 

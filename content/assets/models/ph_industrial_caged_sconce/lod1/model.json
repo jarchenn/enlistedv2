@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.6040809750556946,
+  0.9128422737121582,
+  0.193732351064682
+ ],
+ "bmin": [
+  -0.6040809750556946,
+  0.0010096430778503418,
+  -0.19433845579624176
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "mr": "mr_3.jpg",
+   "name": "industrial_caged_sconce",
+   "normal": "normal_1.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.6040809750556946,
+    0.9128422737121582,
+    0.193732351064682
+   ],
+   "bmin": [
+    -0.6040809750556946,
+    0.0010096430778503418,
+    -0.19433845579624176
+   ],
+   "count": 9963,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "industrial_caged_sconce_b",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_industrial_caged_sconce.glb",
+ "textures": {},
+ "triangles": 3321,
+ "vertices": 5465
+}

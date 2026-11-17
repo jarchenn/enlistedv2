@@ -1,6 +1,11 @@
 // Explore mode: first-person walkthrough of the same placed instances shown in Creative.
 #include "app.h"
+#include "ui_glass.h"   // UI2: glass panel backgrounds
 #include "mainmenu.h"
+#include "editor_nav.h"
+#include "loading.h"
+#include "mpui.h"
+#include "scenario.h"
 #include "minimap.h"
 #include "abilities.h"
 #include "crumb.h"
@@ -14,6 +19,7 @@
 #include "royale.h"
 #include "game.h"
 #include "commands.h"   // CMD1 "/" command line
+#include "sd_game.h"   // SD3
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -76,6 +82,8 @@ void App::stepLean(float dt, const ExploreInput& in, bool sprinting) {
 
 bool App::enterExplore() {
   if (mode == Mode::Explore) return true;
+  std::unique_ptr<LoadingJob> lj;   // UI2: a match start gets the loading screen (a plain play-test is quick)
+  if (gGame && gGame->pendingStart) { Scenario sc = Scenario::fromJson(gUi.matchScenario); const TemplateInfo* tp = findTemplate(doc.templateId); lj = std::make_unique<LoadingJob>(*this, doc.name, std::string(gameModeName(sc.rules.mode)), 2, tp ? tp->thumbnail : 0u); }
   { LoadStep ls("enterExplore syncRuntime"); syncRuntime(); Physics::optimizeBroadPhase(); }   // bodies added since load: balanced tree for play
   if (!doc.start.set) {
     // No marker yet: start on the ground at the centre of the view (or under the camera), facing the same way.
@@ -285,7 +293,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   //   Z out of prone requests crouch if Ctrl is held, else standing; a request that does not fit stays pending
   //   (the current posture is kept) and resolves when space frees up. Explicit Z overrides pending requests.
   auto before = Physics::character();
-  if (in.prone) proneToggle = !(before.posture == Physics::PRONE || proneToggle);
+  if (in.prone) proneToggle = before.posture != Physics::PRONE;   // GP1: Z always asks for prone when not prone (it no longer cancels a pending request), and gets up when prone
   // Space while prone gets up (to a crouch if Ctrl is held) instead of jumping, like Z
   bool spaceUp = in.jump && before.posture == Physics::PRONE && postureWanted == Physics::PRONE;
   if (spaceUp) proneToggle = false;
@@ -322,6 +330,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
     Physics::flyCharacter(dt, d * (in.sprint ? 30.0f : 9.0f));
   }
   bool jumped = !occupied && !flying && Physics::updateCharacter(dt, wish * speed + knockVel, jump, postureWanted, eyeYaw);
+  if (in.prone && proneToggle && !occupied && !flying && Physics::character().posture != Physics::PRONE) { toast("No room to lie down here", 1.5); proneToggle = false; postureWanted = in.crouch ? Physics::CROUCH : Physics::STAND; }   // GP1: only a space smaller than a prone body refuses; the request does not linger (no surprise prone later)
   knockVel *= std::exp(-5.0f * dt);
   if (jumped) spendStamina(move.staminaJump);   // buffered and coyote jumps too
   { int pp = Physics::character().posture; tickStamina(dt, sprinting && glm::length(wish) > 0.1f, pp == Physics::CROUCH || pp == Physics::PRONE ? move.staminaLowRegen : 1.0f); }   // crouched / prone: faster recovery
@@ -409,12 +418,13 @@ bool App::syncCursor() {
 
 void App::updateExplore(float dt) {
   ImGuiIO& io = ImGui::GetIO();
-  if (w3ExploreKeys(*this)) return;   // creative sessions: Esc back to the editor, P pause (dropin.cpp)
+  if (w3ExploreKeys(*this)) return;   // creative sessions: P pause (dropin.cpp); Esc opens the pause menu below (UI3)
   if (commandsTakeCreative()) { exitExplore(); return; }   // CMD1 /creative: as F5
   if (!selftest && commandsOwnKeys()) (void)kp(win, GLFW_KEY_ESCAPE);   // CMD1: the command line has the keyboard (its Esc must not open the pause menu)
   else if (!selftest) {
     if ((rackOpen || build.palette) && kp(win, GLFW_KEY_ESCAPE)) { if (rackOpen) closeRack("closed"); else setBuildPalette(false); }
     else if (lootInventoryOpen() && kp(win, GLFW_KEY_ESCAPE)) { lootSetInventory(false); lootOpenCase(0); }   // BR6: Esc closes the inventory / crate first
+    else if (sdBuyMenuOpen() && kp(win, GLFW_KEY_ESCAPE)) sdCloseBuyMenu();   // SD3: Esc closes the buy menu first
     else if (kp(win, GLFW_KEY_ESCAPE)) {
       pauseMenu = !pauseMenu; syncCursor();
     }
@@ -429,6 +439,7 @@ void App::updateExplore(float dt) {
   // the cursor is captured unless a menu needs it: every look delta below assumes GLFW_CURSOR_DISABLED (a free cursor
   // stops at the screen edge and look then stops in that direction). syncCursor is the only place that sets the mode.
   syncCursor();
+  const bool panelCursor = uiCursor;   // a HUD panel that wanted the cursor last frame (deploy, inventory, buy menu...): no look while it is open
   uiCursor = false;
   if (pauseMenu) return;
   ExploreInput in;
@@ -441,7 +452,7 @@ void App::updateExplore(float dt) {
     if (!occupied) { eyeYaw = wrapDeg(eyeYaw + in.dyaw); eyePitch = std::clamp(eyePitch + in.dpitch, -85.0f, 85.0f); }
   } else if (!commandsOwnKeys()) {   // CMD1: while the command line is open no key, button or look reaches the game
     double mx, my; glfwGetCursorPos(win, &mx, &my);
-    if (haveLast && !wantCursor()) {   // not io.WantCaptureMouse: the hidden cursor can sit over a HUD window
+    if (haveLast && !wantCursor() && !panelCursor) {   // not io.WantCaptureMouse: the hidden cursor can sit over a HUD window
       StationRT* gs = station(occupied);
       bool mgMount = gs && (rt[occupied].asset->station.kind == "m2hb" || rt[occupied].asset->station.kind == "mg42");
       // a mounted MG aims like the carried gun (the player's look sensitivity and ADS scale; stepStation drops the rates);
@@ -606,7 +617,7 @@ void App::drawExploreUI() {
           std::string t = target.kind == 1 ? "E  -  Crew " + it->second.asset->name : target.kind == 3 ? "E  -  Open " + it->second.asset->name : "E  -  Take ammunition (" + it->second.asset->name + ")";
           ImVec2 ts = ImGui::CalcTextSize(t.c_str());
           ImVec2 p(c.x - ts.x * 0.5f, c.y + 28);
-          dl->AddRectFilled(ImVec2(p.x - 10, p.y - 5), ImVec2(p.x + ts.x + 10, p.y + ts.y + 5), IM_COL32(15, 15, 12, 170), 4);
+          uiGlassPanel(dl, ImVec2(p.x - 10, p.y - 5), ImVec2(p.x + ts.x + 10, p.y + ts.y + 5), std::max(8.0f, (float)4));
           dl->AddText(p, IM_COL32(245, 238, 210, 255), t.c_str());
         } else {
         auto& d = it->second.asset->interactables[target.idx];
@@ -614,7 +625,7 @@ void App::drawExploreUI() {
         std::string t = std::string("E  —  ") + (opening ? "Open " : "Close ") + d.label;
         ImVec2 ts = ImGui::CalcTextSize(t.c_str());
         ImVec2 p(c.x - ts.x * 0.5f, c.y + 28);
-        dl->AddRectFilled(ImVec2(p.x - 10, p.y - 5), ImVec2(p.x + ts.x + 10, p.y + ts.y + 5), IM_COL32(15, 15, 12, 170), 4);
+        uiGlassPanel(dl, ImVec2(p.x - 10, p.y - 5), ImVec2(p.x + ts.x + 10, p.y + ts.y + 5), std::max(8.0f, (float)4));
         dl->AddText(p, IM_COL32(245, 238, 210, 255), t.c_str());
         }
       }
@@ -632,7 +643,12 @@ void App::drawExploreUI() {
     else { drawCombatUI(); drawWeaponUI(); tanks.drawUI(*this); drawSwimUI(); drawStaminaUI(); }
     if ((showMinimap || mapLarge) && !gm2ArtyMapOpen()) minimapHud(*this, mapLarge);   // GM2
     gm2Hud(*this);   // GM2: suppression vignette, the artillery map
-    if (now < noticeUntil) dl->AddText(ImVec2(14, 32), IM_COL32(255, 210, 110, 230), notice.c_str());
+    if (now < noticeUntil) {   // UI2: a glass toast with the accent bar
+      ImVec2 ts = ImGui::CalcTextSize(notice.c_str());
+      uiGlassPanel(dl, ImVec2(10, 26), ImVec2(36 + ts.x, 38 + ts.y), 10);
+      dl->AddRectFilled(ImVec2(10, 34), ImVec2(13, 30 + ts.y), IM_COL32(240, 118, 32, 255));
+      dl->AddText(ImVec2(22, 32), IM_COL32(238, 234, 226, 240), notice.c_str());
+    }
   }
   drawDamageDebug();
   drawBuilderUI();
@@ -660,7 +676,7 @@ void App::drawExploreUI() {
     if (ImGui::Button("Settings", ImVec2(bw, 0))) settings().open = true;
     ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
     if (ImGui::Button("Return to start marker", ImVec2(bw, 0))) { returnToStart(); pauseMenu = false; syncCursor(); }
-    if (ImGui::Button("Return to Creative", ImVec2(bw, 0))) exitExplore();
+    if (ImGui::Button("Return to Creator", ImVec2(bw, 0))) { if (navState().creativeSession) dropinReturn(*this); else exitExplore(); }   // UI3: the editor camera where it was
     if (ImGui::Button("Main menu", ImVec2(bw, 0))) { exitExplore(); mainMenuOpen(*this); }   // UI2
     if (ImGui::Button("Keep session changes and return", ImVec2(bw, 0))) { applyDamageToMap(); exitExplore(); }
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Keeps the current wall damage and craters in the map as one undoable edit.\nTanks keep their damage, wreck and ammunition (not their position).\nWeapons, ammunition, moved guns and doors are not kept.");

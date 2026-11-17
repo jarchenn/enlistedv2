@@ -1,0 +1,124 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.22669732570648193,
+  0.27337783575057983,
+  0.14880698919296265
+ ],
+ "bmin": [
+  -0.22644340991973877,
+  0.0,
+  -0.14880698919296265
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "brass_goblets_01",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "brass_goblets_02",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "albedo": "albedo_7.jpg",
+   "mr": "mr_8.jpg",
+   "name": "brass_goblets_03",
+   "normal": "normal_6.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.06790551543235779,
+    0.27198946475982666,
+    0.14880698919296265
+   ],
+   "bmin": [
+    -0.0817563459277153,
+    0.0,
+    -0.0008548684418201447
+   ],
+   "count": 4608,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "brass_goblet_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.08584096282720566,
+    0.26667076349258423,
+    -0.006828512996435165
+   ],
+   "bmin": [
+    -0.22644340991973877,
+    0.0008968040347099304,
+    -0.14729011058807373
+   ],
+   "count": 4896,
+   "first": 4608,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "brass_goblet_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.22669732570648193,
+    0.27337783575057983,
+    0.0004487670958042145
+   ],
+   "bmin": [
+    0.07744158059358597,
+    0.0012726690620183945,
+    -0.14880698919296265
+   ],
+   "count": 4896,
+   "first": 9504,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "brass_goblet_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_brass_goblets.glb",
+ "textures": {},
+ "triangles": 4800,
+ "vertices": 3595
+}

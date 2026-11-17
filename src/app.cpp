@@ -1,5 +1,8 @@
 #include "app.h"
+#include "sd_game.h"   // SD3
 #include "mainmenu.h"
+#include "loading.h"
+#include "ui_glass.h"
 #include "lines.h"   // MOD1: line types that clear grass (grassFootprints)
 #include "hlod.h"
 #include "abilities.h"
@@ -137,42 +140,44 @@ static ImFont *gFontHead = nullptr, *gFontDisplay = nullptr;
 ImFont* uiFontHead() { return gFontHead ? gFontHead : ImGui::GetFont(); }
 ImFont* uiFontDisplay() { return gFontDisplay ? gFontDisplay : uiFontHead(); }
 void applyUiTheme() {
+  // UI2 type (SIL OFL, bundled in content/fonts with their OFL texts, credited in docs/credits.md): Barlow for body text,
+  // Barlow Condensed for headings and menu items, Black Ops One (stencil) for the wordmark. Missing files fall back to
+  // the system UI font. Rasterised large and drawn scaled (uiFontScale / explicit pixel sizes).
   ImGuiIO& io = ImGui::GetIO();
-  for (const char* f : {"C:/Windows/Fonts/segoeui.ttf", "/System/Library/Fonts/Supplemental/Arial.ttf"}) {
-    std::error_code ec; if (!fs::exists(f, ec)) continue;
-    ImFontConfig fc; fc.OversampleH = 2; fc.OversampleV = 2;
-    if (io.Fonts->AddFontFromFileTTF(f, 32.0f, &fc, io.Fonts->GetGlyphRangesDefault())) { gFontPx = 32.0f; break; }
-  }
-  // UI2 heading / display faces (menu items, titles, the wordmark), drawn at an explicit pixel size; missing: the body font
-  auto face = [&](std::initializer_list<const char*> files, float px) -> ImFont* {
-    for (const char* f : files) { std::error_code ec; if (!fs::exists(f, ec)) continue; ImFontConfig fc; fc.OversampleH = 2; fc.OversampleV = 2; if (ImFont* r = io.Fonts->AddFontFromFileTTF(f, px, &fc, io.Fonts->GetGlyphRangesDefault())) return r; }
+  const std::string fd = (contentDir() / "fonts").string() + "/";
+  auto face = [&](std::initializer_list<std::string> files, float px) -> ImFont* {
+    for (const std::string& f : files) { std::error_code ec; if (!fs::exists(f, ec)) continue; ImFontConfig fc; fc.OversampleH = 2; fc.OversampleV = 2; if (ImFont* r = io.Fonts->AddFontFromFileTTF(f.c_str(), px, &fc, io.Fonts->GetGlyphRangesDefault())) return r; }
     return nullptr; };
-  gFontHead = face({"C:/Windows/Fonts/seguisb.ttf", "C:/Windows/Fonts/segoeui.ttf"}, 48.0f);
-  gFontDisplay = face({"C:/Windows/Fonts/seguibl.ttf", "C:/Windows/Fonts/segoeuib.ttf"}, 112.0f);
+  if (face({fd + "Barlow-Medium.ttf", "C:/Windows/Fonts/segoeui.ttf", "/System/Library/Fonts/Supplemental/Arial.ttf"}, 32.0f)) gFontPx = 32.0f;   // the first font is ImGui's default
+  gFontHead = face({fd + "BarlowCondensed-SemiBold.ttf", "C:/Windows/Fonts/seguisb.ttf"}, 48.0f);
+  gFontDisplay = face({fd + "BlackOpsOne-Regular.ttf", "C:/Windows/Fonts/seguibl.ttf"}, 112.0f);
   ImGui::StyleColorsDark();
   ImGuiStyle& st = ImGui::GetStyle();
-  st.WindowRounding = 8; st.ChildRounding = 6; st.FrameRounding = 5; st.PopupRounding = 6; st.GrabRounding = 5; st.TabRounding = 5; st.ScrollbarRounding = 6;
-  st.WindowBorderSize = 1; st.FrameBorderSize = 0; st.PopupBorderSize = 1;
-  st.WindowPadding = ImVec2(16, 12); st.FramePadding = ImVec2(8, 5); st.ItemSpacing = ImVec2(10, 7); st.ItemInnerSpacing = ImVec2(6, 5);
-  st.ScrollbarSize = 12; st.GrabMinSize = 10; st.WindowTitleAlign = ImVec2(0.0f, 0.5f); st.SeparatorTextBorderSize = 2;
+  // liquid glass (ui_glass.cpp draws the frosted backing, edge and shadow under each window): large radii, no ImGui
+  // border, translucent fills; off-white text; the logo orange is the one accent (team blue / red stay for team meaning)
+  st.WindowRounding = 14; st.ChildRounding = 10; st.FrameRounding = 7; st.PopupRounding = 10; st.GrabRounding = 6; st.TabRounding = 7; st.ScrollbarRounding = 8;
+  st.WindowBorderSize = 0; st.FrameBorderSize = 0; st.PopupBorderSize = 0; st.ChildBorderSize = 1;
+  st.WindowPadding = ImVec2(18, 14); st.FramePadding = ImVec2(10, 6); st.ItemSpacing = ImVec2(10, 8); st.ItemInnerSpacing = ImVec2(7, 5);
+  st.ScrollbarSize = 11; st.GrabMinSize = 10; st.WindowTitleAlign = ImVec2(0.0f, 0.5f); st.SeparatorTextBorderSize = 1;
   auto C = [&](ImGuiCol k, float r, float g, float b, float a = 1.0f) { st.Colors[k] = ImVec4(r, g, b, a); };
-  C(ImGuiCol_Text, 0.92f, 0.92f, 0.90f); C(ImGuiCol_TextDisabled, 0.56f, 0.57f, 0.56f);
-  C(ImGuiCol_WindowBg, 0.075f, 0.082f, 0.092f, 0.94f); C(ImGuiCol_ChildBg, 0, 0, 0, 0); C(ImGuiCol_PopupBg, 0.085f, 0.092f, 0.10f, 0.97f);
+  const float A[3] = {0.94f, 0.46f, 0.13f};   // accent
+  C(ImGuiCol_Text, 0.93f, 0.91f, 0.88f); C(ImGuiCol_TextDisabled, 0.58f, 0.58f, 0.56f);
+  C(ImGuiCol_WindowBg, 0.05f, 0.06f, 0.07f, 0.30f); C(ImGuiCol_ChildBg, 0, 0, 0, 0); C(ImGuiCol_PopupBg, 0.05f, 0.06f, 0.07f, 0.42f);
   C(ImGuiCol_Border, 1, 1, 1, 0.10f); C(ImGuiCol_BorderShadow, 0, 0, 0, 0);
-  C(ImGuiCol_FrameBg, 0.15f, 0.16f, 0.18f); C(ImGuiCol_FrameBgHovered, 0.21f, 0.22f, 0.25f); C(ImGuiCol_FrameBgActive, 0.26f, 0.27f, 0.31f);
-  C(ImGuiCol_TitleBg, 0.075f, 0.082f, 0.092f); C(ImGuiCol_TitleBgActive, 0.11f, 0.12f, 0.135f); C(ImGuiCol_TitleBgCollapsed, 0.075f, 0.082f, 0.092f, 0.8f);
-  C(ImGuiCol_MenuBarBg, 0.095f, 0.10f, 0.11f);
-  C(ImGuiCol_ScrollbarBg, 0, 0, 0, 0.15f); C(ImGuiCol_ScrollbarGrab, 0.28f, 0.29f, 0.32f); C(ImGuiCol_ScrollbarGrabHovered, 0.36f, 0.37f, 0.40f); C(ImGuiCol_ScrollbarGrabActive, 0.86f, 0.66f, 0.26f);
-  C(ImGuiCol_CheckMark, 0.92f, 0.70f, 0.28f); C(ImGuiCol_SliderGrab, 0.86f, 0.66f, 0.26f); C(ImGuiCol_SliderGrabActive, 0.98f, 0.78f, 0.36f);
-  C(ImGuiCol_Button, 0.19f, 0.20f, 0.23f); C(ImGuiCol_ButtonHovered, 0.27f, 0.29f, 0.33f); C(ImGuiCol_ButtonActive, 0.62f, 0.47f, 0.18f);
-  C(ImGuiCol_Header, 0.20f, 0.21f, 0.24f); C(ImGuiCol_HeaderHovered, 0.27f, 0.29f, 0.33f); C(ImGuiCol_HeaderActive, 0.62f, 0.47f, 0.18f);
-  C(ImGuiCol_Separator, 1, 1, 1, 0.10f); C(ImGuiCol_SeparatorHovered, 0.86f, 0.66f, 0.26f, 0.6f); C(ImGuiCol_SeparatorActive, 0.86f, 0.66f, 0.26f);
-  C(ImGuiCol_ResizeGrip, 1, 1, 1, 0.08f); C(ImGuiCol_ResizeGripHovered, 0.86f, 0.66f, 0.26f, 0.6f); C(ImGuiCol_ResizeGripActive, 0.86f, 0.66f, 0.26f);
-  C(ImGuiCol_Tab, 0.13f, 0.14f, 0.16f); C(ImGuiCol_TabHovered, 0.27f, 0.29f, 0.33f); C(ImGuiCol_TabActive, 0.22f, 0.23f, 0.27f);
-  C(ImGuiCol_TabUnfocused, 0.11f, 0.12f, 0.13f); C(ImGuiCol_TabUnfocusedActive, 0.17f, 0.18f, 0.21f);
-  C(ImGuiCol_TableHeaderBg, 0.13f, 0.14f, 0.16f); C(ImGuiCol_TableBorderStrong, 1, 1, 1, 0.10f); C(ImGuiCol_TableBorderLight, 1, 1, 1, 0.06f); C(ImGuiCol_TableRowBgAlt, 1, 1, 1, 0.03f);
-  C(ImGuiCol_TextSelectedBg, 0.86f, 0.66f, 0.26f, 0.35f); C(ImGuiCol_NavHighlight, 0.86f, 0.66f, 0.26f); C(ImGuiCol_ModalWindowDimBg, 0, 0, 0, 0.55f);
-  C(ImGuiCol_PlotHistogram, 0.86f, 0.66f, 0.26f); C(ImGuiCol_PlotLines, 0.86f, 0.66f, 0.26f);
+  C(ImGuiCol_FrameBg, 0, 0, 0, 0.28f); C(ImGuiCol_FrameBgHovered, 1, 1, 1, 0.08f); C(ImGuiCol_FrameBgActive, 1, 1, 1, 0.13f);
+  C(ImGuiCol_TitleBg, 0, 0, 0, 0.18f); C(ImGuiCol_TitleBgActive, 0, 0, 0, 0.30f); C(ImGuiCol_TitleBgCollapsed, 0, 0, 0, 0.18f);
+  C(ImGuiCol_MenuBarBg, 0, 0, 0, 0.18f);
+  C(ImGuiCol_ScrollbarBg, 0, 0, 0, 0); C(ImGuiCol_ScrollbarGrab, 1, 1, 1, 0.14f); C(ImGuiCol_ScrollbarGrabHovered, 1, 1, 1, 0.24f); C(ImGuiCol_ScrollbarGrabActive, A[0], A[1], A[2]);
+  C(ImGuiCol_CheckMark, A[0], A[1], A[2]); C(ImGuiCol_SliderGrab, A[0], A[1], A[2], 0.9f); C(ImGuiCol_SliderGrabActive, 1.0f, 0.58f, 0.25f);
+  C(ImGuiCol_Button, 1, 1, 1, 0.07f); C(ImGuiCol_ButtonHovered, 1, 1, 1, 0.14f); C(ImGuiCol_ButtonActive, A[0], A[1], A[2], 0.75f);
+  C(ImGuiCol_Header, 1, 1, 1, 0.06f); C(ImGuiCol_HeaderHovered, 1, 1, 1, 0.11f); C(ImGuiCol_HeaderActive, A[0], A[1], A[2], 0.45f);
+  C(ImGuiCol_Separator, 1, 1, 1, 0.10f); C(ImGuiCol_SeparatorHovered, A[0], A[1], A[2], 0.6f); C(ImGuiCol_SeparatorActive, A[0], A[1], A[2]);
+  C(ImGuiCol_ResizeGrip, 1, 1, 1, 0.06f); C(ImGuiCol_ResizeGripHovered, A[0], A[1], A[2], 0.6f); C(ImGuiCol_ResizeGripActive, A[0], A[1], A[2]);
+  C(ImGuiCol_Tab, 1, 1, 1, 0.04f); C(ImGuiCol_TabHovered, 1, 1, 1, 0.14f); C(ImGuiCol_TabActive, 1, 1, 1, 0.11f);
+  C(ImGuiCol_TabUnfocused, 1, 1, 1, 0.03f); C(ImGuiCol_TabUnfocusedActive, 1, 1, 1, 0.08f);
+  C(ImGuiCol_TableHeaderBg, 1, 1, 1, 0.05f); C(ImGuiCol_TableBorderStrong, 1, 1, 1, 0.10f); C(ImGuiCol_TableBorderLight, 1, 1, 1, 0.05f); C(ImGuiCol_TableRowBgAlt, 1, 1, 1, 0.025f);
+  C(ImGuiCol_TextSelectedBg, A[0], A[1], A[2], 0.35f); C(ImGuiCol_NavHighlight, A[0], A[1], A[2]); C(ImGuiCol_ModalWindowDimBg, 0, 0, 0, 0.45f);
+  C(ImGuiCol_PlotHistogram, A[0], A[1], A[2]); C(ImGuiCol_PlotLines, A[0], A[1], A[2]);
 }
 // 16 px text at 1080p (21 px at 1440p) times Settings > UI scale; the built-in pixel font only scales with the UI scale
 float uiFontScale(int fbh) {
@@ -379,7 +384,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
         else R.worldModels.push_back({gm, (int)k, L});
       }
     }
-    if (r.asset->model) {   // supplied model: LOD by distance, cut wire sections hidden; collider boxes are not drawn
+    if (r.asset->model && !interior.prop(r.asset)) {   // supplied model: LOD by distance, cut wire sections hidden; collider boxes are not drawn (PR2: furniture models draw in propDraw)
       if (camDist > r.asset->modelCull) continue;
       const GpuModel* gm = (r.asset->modelLod && camDist > r.asset->modelLodDist) ? r.asset->modelLod.get() : r.asset->model.get();
       if (r.asset->modelFoliage) { R.folModels.push_back({gm, M, r.asset->modelWind}); continue; }   // NT8: instanced, alpha tested
@@ -557,6 +562,7 @@ void App::applyTemplate(const std::string& id) {
   ++groundRev;
 }
 bool App::newMap(const TemplateInfo& t, const std::string& name) {
+  LoadingJob lj(*this, t.name, "Generating map", 3, t.thumbnail);   // UI2: terrain, content, furniture
   if (mode == Mode::Explore) exitExplore();
   clearRuntime();
   doc = MapDoc();
@@ -574,6 +580,9 @@ bool App::newMap(const TemplateInfo& t, const std::string& name) {
 }
 bool App::openMap(const fs::path& p) {
   MapDoc d; std::string err;
+  std::string title = p.filename().string(); title = title.substr(0, title.find('.')); for (auto& c : title) if (c == '_') c = ' ';
+  const TemplateInfo* tp = findTemplate(p.filename().string().substr(0, p.filename().string().find('.')));
+  LoadingJob lj(*this, title, "Loading map", 3, tp ? tp->thumbnail : 0);   // UI2: read, build, furnish
   LoadStep lsAll("openMap");
   if (!loadMap(p, d, err)) { toast("Could not open map: " + err, 8); return false; }
   if (mode == Mode::Explore) exitExplore();
@@ -622,7 +631,8 @@ bool App::saveMapTo(const fs::path& p) {
   doc.camera.set = true; doc.camera.pos = camPos; doc.camera.yaw = camYaw; doc.camera.pitch = camPitch;
   if (mode == Mode::Explore) { doc.camera.pos = savedCam.pos; doc.camera.yaw = savedCam.yaw; doc.camera.pitch = savedCam.pitch; }
   std::string err;
-  if (!saveMap(p, doc, err)) { toast("Save failed: " + err, 8); return false; }
+  MapDoc withParked; const MapDoc& out = sdDocToSave(doc, withParked);   // SD3: vehicles parked for a match are saved too
+  if (!saveMap(p, out, err)) { toast("Save failed: " + err, 8); return false; }
   aiNavSidecarSave(*this, navSidecar, navSidecarOf(p));   // PF1: the navmesh bakes that still match the map
   docPath = p; navSidecar = navSidecarOf(p); dirty = false;
   toast("Saved " + p.filename().string());
@@ -976,9 +986,9 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-render") runSelf = true;   // V1 facades, walls, water (selftest_render.cpp)
     else if (a == "--selftest-lights") runSelf = true;   // L2 lighting engine (selftest_lights.cpp)
     else if (a == "--selftest-swim") runSelf = true;     // swimming, underwater view, breath (selftest_swim.cpp)
-    else if (a == "--capture-heli" || a == "--gen-vehicle-spawns" || a == "--capture-vh7" || a == "--check-ed2") runSelf = true;   // VH5 (capture_heli.cpp)
+    else if (a == "--capture-heli" || a == "--gen-vehicle-spawns" || a == "--capture-vh7" || a == "--check-ed2" || a == "--check-vh8" || a == "--capture-vh8" || a == "--mem-probe") runSelf = true;   // VH5 (capture_heli.cpp)
     else if (a == "--selftest-zombies" || a == "--capture-heavies" || a == "--capture-commands" || a == "--capture-ch1" || a == "--capture-ch6" || a == "--capture-ch8" || a == "--capture-fighter2" || a == "--capture-fighter2-slam") runSelf = true;
-    else if (a == "--capture-tk1" || a == "--check-tk1-match" || a == "--capture-tk2" || a == "--selftest-sd") runSelf = true;   // TK1 (capture_tk1.cpp)
+    else if (a == "--capture-tk1" || a == "--check-tk1-match" || a == "--capture-tk2" || a == "--selftest-sd" || a == "--selftest-playerdmg" || a == "--selftest-prone" || a == "--selftest-sd3" || a == "--selftest-spectate") runSelf = true;   // TK1 (capture_tk1.cpp)
     else if (a == "--capture-br-models" || a == "--capture-br-worn") runSelf = true;   // BR3 / BR8: a look at the Battle Royale models and worn gear (selftest_brmodels.cpp)
     else if (a == "--capture-jeep" || a == "--capture-abrams") runSelf = true;
     else if (a == "--selftest-tdm-live") runSelf = true;   // CV1: a big TDM, spawn tour shots (selftest_royale_live.cpp)
@@ -1051,6 +1061,7 @@ int App::run(int argc, char** argv) {
   for (auto& f : rqOff) { if (f == "taa") R.q.taa = false; else if (f == "ssr") R.q.ssr = false; else if (f == "ssao") R.q.ssao = false; else if (f == "bloom") R.q.bloom = false; else if (f == "shafts") R.q.shafts = false; else if (f == "cascade") R.q.farCascade = false; else if (f == "cloudshadow") R.q.cloudShadows = false; else if (f == "wind") grass.wind = false; else if (!R.perf.set(f, false)) logf("--rq-off: unknown feature %s", f.c_str()); }
   for (auto& f : rqOn) if (!R.perf.set(f, true)) logf("--rq-on: unknown feature %s", f.c_str());
   templates = loadTemplates(contentDir() / "templates");
+  { bool probe = false; for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--mem-probe") probe = true; lib.lazy = !runSelf || probe || std::getenv("NMK_LAZY_ASSETS"); }   // MEM1: full self-tests walk every asset built
   if (!lib.loadAll(contentDir() / "assets")) logf("warning: no assets found in %s", (contentDir() / "assets").string().c_str());
   tex::flushPending();   // TX2: lazy library texture sets the assets name (textures.json "lazy" slots)
   makeThumbnails();
@@ -1076,6 +1087,7 @@ int App::run(int argc, char** argv) {
   tanks.loadDefs(*this); tanks.makeThumbnails(*this);
   if (!tankPreviewDir.empty()) { tanks.writePreview(*this, tankPreviewDir); glfwTerminate(); return 0; }
   {
+    LoadingJob boot(*this, "", "Starting", 3);   // UI2: launch shows the loading screen (the first map joins this job)
     const TemplateInfo* t = findTemplate("blank_slate");
     TemplateInfo fb; fb.id = "blank_slate"; fb.name = "Blank Slate";
     newMap(t ? *t : fb, "My Normandy map");
@@ -1109,6 +1121,7 @@ int App::run(int argc, char** argv) {
     platformImGuiNewFrame(); ImGui::NewFrame();
     if (selftest) { selftest->update(*this, frameDt); if (selftest->done) quit = true; }
     mark("update");
+    loadingOverlay(*this);   // UI2: the loading screen fading into the first frames
     mainMenuFrame(*this);   // UI2: the main menu (no-op while closed; it hands back when a match starts)
     if (mainMenuActive()) {}
     else if (mode == Mode::Creative) { updateCreative(frameDt); drawCreativeUI(); }
@@ -1136,7 +1149,8 @@ int App::run(int argc, char** argv) {
 
     mark("drawlists");
     std::vector<DrawItem> op, gl, ghosts; Overlay ov;
-    { auto t0 = std::chrono::steady_clock::now(); buildDrawLists(op, gl); R.opaqueStatic = op.size(); drawListMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count(); }
+    const bool menuUp = mainMenuActive();   // UI2: the menu covers the screen with a still: no world draw lists, no 3D render
+    if (!menuUp) { auto t0 = std::chrono::steady_clock::now(); buildDrawLists(op, gl); R.opaqueStatic = op.size(); drawListMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count(); }
     mark("view");
     op.insert(op.end(), worldBoxDraws.begin(), worldBoxDraws.end());
     if (mode == Mode::Explore) {
@@ -1170,6 +1184,7 @@ int App::run(int argc, char** argv) {
       float fov = settings().fov();   // 72 unless changed in Settings
       if (!tanks.camera(*this, e, fv, fov) && !stationCamera(e, fv, fov)) weaponCamera(fov);
       mpaiCamera(*this, e, fv, fov);   // death / spectator camera during a match
+      { extern bool gVh8CamOn; extern vec3 gVh8CamEye, gVh8CamAt; if (gVh8CamOn) { e = gVh8CamEye; fv = glm::normalize(gVh8CamAt - e); fov = 60; } }   // VH8 capture: outside view
       viewM = glm::lookAt(e, e + fv, viewUp(fv));   // swim.cpp: a slight roll with the stroke
       projM = glm::perspective(radians(fov), aspect, 0.03f, std::max(4000.0f, settings().renderDist() * 1.2f));   // PF2: Ultra render distance (5 km)
       worldFov = fov;
@@ -1194,7 +1209,7 @@ int App::run(int argc, char** argv) {
     }
     audio.setUnderwater(v.underwater ? 1.0f : 0.0f);   // swim.cpp: muffled under water
     mark("mpai");
-    { size_t nBox = worldBoxDraws.size(); mpaiFrame(*this, ov); { extern void vehicleDashFrame(App&); vehicleDashFrame(*this); } op.insert(op.end(), worldBoxDraws.begin() + nBox, worldBoxDraws.end()); }   // VH6: parked cars' interiors   // soldiers, grenades, scenario overlay; BR9: its box meshes (loot, dropped weapons, worn gear) join the opaque list, which took worldBoxDraws before this ran
+    if (!menuUp) { size_t nBox = worldBoxDraws.size(); mpaiFrame(*this, ov); { extern void vehicleDashFrame(App&); vehicleDashFrame(*this); } op.insert(op.end(), worldBoxDraws.begin() + nBox, worldBoxDraws.end()); }   // VH6: parked cars' interiors   // soldiers, grenades, scenario overlay; BR9: its box meshes (loot, dropped weapons, worn gear) join the opaque list, which took worldBoxDraws before this ran
     mark("fx");
     v.view = viewM; v.proj = projM; v.dt = frameDt;
     R.fxAlpha.clear(); R.fxAdd.clear();
@@ -1241,7 +1256,8 @@ int App::run(int argc, char** argv) {
     mark("render");
     { extern void weatherAppFrame(App&); weatherAppFrame(*this); }   // WX1: the shared cloud clock, the host's weather on LAN clients
     tanks.grassBoxes(*this, v.camPos, R.grassVeh);   // TK3: no grass through the vehicles
-    R.render(v, terrain, op, gl, ghosts, ov);
+    if (menuUp) { glBindFramebuffer(GL_FRAMEBUFFER, 0); glViewport(0, 0, fbw, fbh); glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT); }
+    else R.render(v, terrain, op, gl, ghosts, ov);
     mark("imgui");
     if (selftest) selftest->update(*this, -1.0f);  // post-render hook (screenshots)
     if (!recCaption.empty()) {   // recording caption, over every other overlay
@@ -1258,6 +1274,7 @@ int App::run(int argc, char** argv) {
       ImVec2 ts = ImGui::GetFont()->CalcTextSizeA(fs, 1e9f, 0, t);
       ImGui::GetForegroundDrawList()->AddText(ImGui::GetFont(), fs, ImVec2(io.DisplaySize.x - ts.x - 10, 26), IM_COL32(235, 235, 225, 130), t);   // under the editor's menu bar
     }
+    if (!hideUi) { if (!mainMenuActive()) uiGlassCapture(fbw, fbh); uiGlassFrame(); }   // UI2: the frame's blur for the glass, glass under every window
     ImGui::Render();
     glViewport(0, 0, fbw, fbh);
     if (!hideUi) platformImGuiRender(ImGui::GetDrawData());
@@ -1269,7 +1286,7 @@ int App::run(int argc, char** argv) {
       glReadPixels(0, 0, fbw, fbh, GL_RGBA, GL_UNSIGNED_BYTE, recPx.data());
       rec.frame(recPx.data(), fbw, fbh);
     }
-    if (!uiShot.empty()) {
+    if (!uiShot.empty() && fbw > 0 && fbh > 0) {   // PR2: a minimised / zero-size window keeps the shot pending (no empty PNG)
       std::vector<uint8_t> px((size_t)fbw * fbh * 4), fl(px.size());
       glReadBuffer(GL_BACK); glReadPixels(0, 0, fbw, fbh, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
       for (int y = 0; y < fbh; ++y) std::memcpy(&fl[(size_t)y * fbw * 4], &px[(size_t)(fbh - 1 - y) * fbw * 4], (size_t)fbw * 4);
@@ -1378,8 +1395,8 @@ static std::map<std::string, std::vector<float>> gSecMs;   // section -> ms per 
 static std::vector<float> gFrameMs;
 static double gProfSince = -1;
 void crumbMark(const char* s) { gMarks.push_back({s, glfwGetTime()}); }
-LoadStep::LoadStep(const char* w) : what(w), t0(gCrumbProf ? glfwGetTime() : 0) {}
-LoadStep::~LoadStep() { if (gCrumbProf) logf("[loadprof] %s %.1f ms", what, (glfwGetTime() - t0) * 1000); }
+LoadStep::LoadStep(const char* w) : what(w), t0(gCrumbProf ? glfwGetTime() : 0) { loadingStage(w); }   // UI2: the loading screen's stages
+LoadStep::~LoadStep() { if (gCrumbProf) logf("[loadprof] %s %.1f ms", what, (glfwGetTime() - t0) * 1000); loadingStageDone(); }
 json crumbProfReport(const char* tag) {
   auto stat = [](std::vector<float> v) { double s = 0; for (float x : v) s += x; std::sort(v.begin(), v.end()); return std::pair<double, double>(v.empty() ? 0 : s / v.size(), v.empty() ? 0 : v[std::min(v.size() - 1, (size_t)(0.95 * v.size()))]); };
   json out = json::object();

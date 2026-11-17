@@ -149,6 +149,10 @@ void SelfTest::update(App& app, float dt) {
   { extern bool swimSelfTest(App&, float); if (swimSelfTest(app, dt)) return; }   // --selftest-swim (selftest_swim.cpp)
   { extern bool zombiesSelfTest(App&, float); if (zombiesSelfTest(app, dt)) return; }
   { extern bool sdSelfTest(App&, float); if (sdSelfTest(app, dt)) return; }   // --selftest-sd (selftest_sd.cpp)
+  { extern bool playerDmgSelfTest(App&, float); if (playerDmgSelfTest(app, dt)) return; }   // --selftest-playerdmg (selftest_playerdmg.cpp)
+  { extern bool proneSelfTest(App&, float); if (proneSelfTest(app, dt)) return; }   // --selftest-prone (selftest_prone.cpp)
+  { extern bool sd3SelfTest(App&, float); if (sd3SelfTest(app, dt)) return; }   // --selftest-sd3 (selftest_sd3.cpp)
+  { extern bool spectateSelfTest(App&, float); if (spectateSelfTest(app, dt)) return; }   // --selftest-spectate (selftest_spectate.cpp)
   { extern bool vehicleAiSelfTest(App&, float); if (vehicleAiSelfTest(app, dt)) return; }   // --check-vehicle-ai (selftest_vehicle_ai.cpp)
   { extern bool turnEngageSelfTest(App&, float); if (turnEngageSelfTest(app, dt)) return; }   // AI5: --check-turn-engage (selftest_turn.cpp)
   { extern bool leanCapture(App&, float); if (leanCapture(app, dt)) return; }   // MV3: --capture-lean (selftest_lean.cpp)
@@ -164,7 +168,10 @@ void SelfTest::update(App& app, float dt) {
   { extern bool perfSelfTest(App&, float); if (perfSelfTest(app, dt)) return; }   // PF3: --profile-map <id> <ai> <s> (selftest_perf.cpp)   // G2: --selftest-zombies (selftest_zombies.cpp)
   { extern bool captureHeliSelfTest(App&, float); if (captureHeliSelfTest(app, dt)) return; }
   { extern bool ed2SelfTest(App&, float); if (ed2SelfTest(app, dt)) return; }   // ED2: --check-ed2 (check_ed2.cpp)
+  { extern bool vh8SelfTest(App&, float); if (vh8SelfTest(app, dt)) return; }   // VH8: --check-vh8 (check_vh8.cpp)
   { extern bool captureVh7SelfTest(App&, float); if (captureVh7SelfTest(app, dt)) return; }   // VH7: --capture-vh7
+  { extern bool captureVh8SelfTest(App&, float); if (captureVh8SelfTest(app, dt)) return; }   // VH8: --capture-vh8
+  { extern bool memProbeSelfTest(App&, float); if (memProbeSelfTest(app, dt)) return; }   // MEM1: --mem-probe
   { extern bool vehicleSpawnGenSelfTest(App&, float); if (vehicleSpawnGenSelfTest(app, dt)) return; }   // VH7: --gen-vehicle-spawns   // VH5: --capture-heli (capture_heli.cpp)
   { extern bool captureTk1SelfTest(App&, float); if (captureTk1SelfTest(app, dt)) return; }
   { extern bool tk1MatchSelfTest(App&, float); if (tk1MatchSelfTest(app, dt)) return; }   // TK1: --check-tk1-match

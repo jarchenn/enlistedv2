@@ -1,0 +1,124 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.22632119059562683,
+  0.27337783575057983,
+  0.14696872234344482
+ ],
+ "bmin": [
+  -0.22517670691013336,
+  0.0,
+  -0.14843085408210754
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "brass_goblets_01",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "brass_goblets_02",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "albedo": "albedo_7.jpg",
+   "mr": "mr_8.jpg",
+   "name": "brass_goblets_03",
+   "normal": "normal_6.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.06681226193904877,
+    0.27198946475982666,
+    0.14696872234344482
+   ],
+   "bmin": [
+    -0.07991807162761688,
+    0.0,
+    0.0009102150797843933
+   ],
+   "count": 1152,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "brass_goblet_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.08697746694087982,
+    0.26667076349258423,
+    -0.00753358006477356
+   ],
+   "bmin": [
+    -0.22517670691013336,
+    0.0024504847824573517,
+    -0.1458061933517456
+   ],
+   "count": 1224,
+   "first": 1152,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "brass_goblet_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.22632119059562683,
+    0.27337783575057983,
+    7.26357102394104e-05
+   ],
+   "bmin": [
+    0.07853107154369354,
+    0.0012726690620183945,
+    -0.14843085408210754
+   ],
+   "count": 1224,
+   "first": 2376,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "brass_goblet_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_brass_goblets.glb",
+ "textures": {},
+ "triangles": 1200,
+ "vertices": 1152
+}

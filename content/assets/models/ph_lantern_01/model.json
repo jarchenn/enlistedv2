@@ -1,0 +1,93 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.06093248724937439,
+  0.2941584587097168,
+  0.048591554164886475
+ ],
+ "bmin": [
+  -0.06093457713723183,
+  0.0,
+  -0.04854057356715202
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "Lantern_01_brass",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "Lantern_01_glass",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.06093248724937439,
+    0.2941584587097168,
+    0.048591554164886475
+   ],
+   "bmin": [
+    -0.06093457713723183,
+    0.0,
+    -0.04854057356715202
+   ],
+   "count": 46245,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "Lantern_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.035274118185043335,
+    0.12966422736644745,
+    0.03525782749056816
+   ],
+   "bmin": [
+    -0.03527417778968811,
+    0.06138340383768082,
+    -0.03529047593474388
+   ],
+   "count": 4608,
+   "first": 46245,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "Lantern_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_lantern_01.glb",
+ "textures": {},
+ "triangles": 16951,
+ "vertices": 11430
+}

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.30766332149505615,
+  0.35042548179626465,
+  0.3081517219543457
+ ],
+ "bmin": [
+  -0.30766332149505615,
+  0.0,
+  -0.3081517219543457
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "wooden_bucket_02",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.30766332149505615,
+    0.35042548179626465,
+    0.3081517219543457
+   ],
+   "bmin": [
+    -0.30766332149505615,
+    0.0,
+    -0.3081517219543457
+   ],
+   "count": 10878,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "wooden_bucket_02",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_wooden_bucket_02.glb",
+ "textures": {},
+ "triangles": 3626,
+ "vertices": 3575
+}

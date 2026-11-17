@@ -2,6 +2,7 @@
 // game by apply() and are saved to exeDir()/settings_user.json (same place as gore_user.json). Medium is exactly the
 // built-in defaults; self-test runs never read or write the file (persist = false) and start on Medium.
 #include "settings.h"
+#include "mainmenu.h"
 #include "app.h"
 #include "editor_nav.h"
 #include "lighting.h"
@@ -59,11 +60,11 @@ json UserSettings::toJson() const {
     {"graphics", {{"preset", presetName(preset())}, {"resolutionScale", g.resScale}, {"shadowQuality", g.shadowQuality}, {"farCascade", g.farCascade},
                   {"cloudShadows", g.cloudShadows}, {"lightShafts", g.shafts}, {"ssr", g.ssr}, {"ssao", g.ssao}, {"ssaoFullRes", g.ssaoFull},
                   {"bloom", g.bloom}, {"taa", g.taa}, {"taaPhases", g.taaPhases}, {"clouds", g.clouds}, {"cloudQuality", g.cloudQuality}, {"grass", g.grass}, {"grassWind", g.grassWind},
-                  {"renderDistance", g.renderDist}, {"particleBudget", g.particles}, {"fov", fov}, {"gamma", gamma}, {"vsync", vsync}, {"fpsCap", fpsCap}, {"upscaling", upscale == 0 ? "temporal" : upscale == 1 ? "spatial" : "off"},
+                  {"renderDistance", g.renderDist}, {"particleBudget", g.particles}, {"fov", fov}, {"gamma", gamma}, {"microcontrast", microcontrast}, {"vsync", vsync}, {"fpsCap", fpsCap}, {"upscaling", upscale == 0 ? "temporal" : upscale == 1 ? "spatial" : "off"},
                   {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi}, {"msaa", g.msaa}, {"ivy", g.ivy}, {"materialDetail", g.materials}, {"dustMotes", g.dustMotes},
                   {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}, {"weather", weather == 1 ? "Cloudy" : "Clear"}, {"envFog", envFog}}},
     {"gameplay", {{"mouseSensitivity", mouseSens}, {"adsSensitivity", adsSens}, {"invertY", invertY}, {"reducedMotion", reducedMotion},
-                  {"showArms", showArms}, {"sightMarkers", sightMarkers}, {"weaponList", weaponList}, {"friendlyMarkers", friendlyMarkers}, {"heliCameraMotion", heliCamMotion}, {"vehicleHealthBars", vehicleBars}}},
+                  {"showArms", showArms}, {"sightMarkers", sightMarkers}, {"weaponList", weaponList}, {"friendlyMarkers", friendlyMarkers}, {"heliCameraMotion", heliCamMotion}, {"vehicleWorldBars", vehicleBars}}},
     {"audio", {{"master", master}, {"effects", effects}, {"ui", ui}, {"ambience", ambience}, {"gunfire", gunfire}}},
     {"controls", k},
     {"player", {{"character", character}, {"primary", primary}}},
@@ -89,7 +90,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     if (q.contains("drawDistance") && !q.contains("renderDistance")) g.renderDist = 1200.0f * q.value("drawDistance", 1.0f);   // migration: the old multiplier of 1200 m
     g.renderDist = std::clamp(q.value("renderDistance", g.renderDist), 300.0f, 5000.0f); g.particles = std::clamp(q.value("particleBudget", g.particles), 0.25f, 4.0f);
     { std::string m = q.value("upscaling", std::string()); if (m == "temporal") u.upscale = 0; else if (m == "spatial") u.upscale = 1; else if (m == "off") u.upscale = 2; }
-    u.fov = std::clamp(q.value("fov", u.fov), 55.0f, 100.0f); u.gamma = std::clamp(q.value("gamma", u.gamma), 0.5f, 2.0f); u.vsync = q.value("vsync", u.vsync); u.fpsCap = std::clamp(q.value("fpsCap", u.fpsCap), 0, 500);
+    u.fov = std::clamp(q.value("fov", u.fov), 55.0f, 100.0f); u.gamma = std::clamp(q.value("gamma", u.gamma), 0.5f, 2.0f); u.microcontrast = std::clamp(q.value("microcontrast", u.microcontrast), 0.0f, 1.0f); u.vsync = q.value("vsync", u.vsync); u.fpsCap = std::clamp(q.value("fpsCap", u.fpsCap), 0, 500);
     g.lightCount = std::clamp(q.value("lightCount", g.lightCount), 0, 4096); g.shadowLights = std::clamp(q.value("shadowedLights", g.shadowLights), 0, 8);
     g.gi = std::clamp(q.value("gi", g.gi), 0, 2);
     g.msaa = q.value("msaa", g.msaa) >= 2 ? 4 : 0; g.ivy = q.value("ivy", g.ivy); g.dustMotes = std::clamp(q.value("dustMotes", g.dustMotes), 0, 2);
@@ -105,7 +106,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     u.showArms = q.value("showArms", u.showArms); u.sightMarkers = q.value("sightMarkers", u.sightMarkers);
     u.weaponList = q.value("weaponList", u.weaponList); u.friendlyMarkers = q.value("friendlyMarkers", u.friendlyMarkers);
     u.heliCamMotion = std::clamp(q.value("heliCameraMotion", u.heliCamMotion), 0.0f, 3.0f);
-    u.vehicleBars = q.value("vehicleHealthBars", u.vehicleBars);
+    u.vehicleBars = q.value("vehicleWorldBars", u.vehicleBars);   // GP1: was "vehicleHealthBars" (default on); the new key starts off
   }
   if (j.contains("audio") && j["audio"].is_object()) {
     const json& q = j["audio"];
@@ -226,6 +227,7 @@ void Settings::apply(App& app) {
   R.q.probeHalf = !old && g.gi == 1;                                    // near-probe GI (Medium): half the capture budget
   R.setSsaoFull(g.ssaoFull);
   R.q.farCascade = g.farCascade; R.q.cloudShadows = g.cloudShadows; R.q.shafts = g.shafts; R.q.ssr = g.ssr; R.q.ssao = g.ssao; R.q.bloom = g.bloom;
+  R.q.microcontrast = s.microcontrast;   // UI2
   if (R.q.taa != g.taa || R.q.taaPhases != g.taaPhases) R.resetTemporal();
   R.q.taa = g.taa; R.q.taaPhases = g.taaPhases;
   R.setMsaa(g.msaa);
@@ -284,10 +286,14 @@ void settingsInit(App& app, bool selftest) {
 }
 
 void settingsEndFrame(App& app) {
-  (void)app;
   using clk = std::chrono::steady_clock;
   static clk::time_point last = clk::now();
   int cap = settings().s.fpsCap;
+  auto lim = [&](int m) { cap = cap > 0 ? std::min(cap, m) : m; };
+  const bool focused = glfwGetWindowAttrib(app.win, GLFW_FOCUSED);
+  if (mainMenuActive()) lim(focused ? 60 : 30);   // UI2: the menu is a still: 60 fps, 30 in the background
+  if (!focused) lim(30);                                       // MEM1: a background game does not need a full core
+  if (glfwGetWindowAttrib(app.win, GLFW_ICONIFIED)) lim(10);   // vsync does not hold a minimised window: it would spin
   if (cap > 0 && !gSelftest) {
     auto target = last + std::chrono::duration_cast<clk::duration>(std::chrono::duration<double>(1.0 / cap));
     auto now = clk::now();
@@ -421,6 +427,9 @@ void settingsWindow(App& app) {
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Field of view", &u.fov, 55.0f, 100.0f, "%.0f deg");
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Gamma", &u.gamma, 0.5f, 2.0f, "%.2f");
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Above 1 brightens the dark tones, below 1 darkens them. 1.00 is the default.");
+      { float pc = u.microcontrast * 100.0f; ImGui::SetNextItemWidth(200);   // UI2: live (no Apply needed), like Weather
+        if (ImGui::SliderFloat("Microcontrast", &pc, 0.0f, 100.0f, "%.0f %%")) { u.microcontrast = std::clamp(pc / 100.0f, 0.0f, 1.0f); gApplied.microcontrast = u.microcontrast; app.R.q.microcontrast = u.microcontrast; gPendingSave = true; } }
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Local contrast (clarity): brings out surface detail and depth in flat, hazy light without sharpening edges or dark noise. 0 %% is off.");
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Vertical field of view on foot (72 standard). Aiming and gun sights narrow from it.");
       ImGui::Checkbox("Vsync", &u.vsync); ImGui::SameLine(220);
       { int caps[] = {0, 30, 60, 90, 120, 144, 165, 240}; const char* cn[] = {"Unlimited", "30", "60", "90", "120", "144", "165", "240"};
@@ -439,7 +448,7 @@ void settingsWindow(App& app) {
       ImGui::SetNextItemWidth(200); ImGui::SliderFloat("Helicopter camera motion", &u.heliCamMotion, 0.0f, 3.0f, "x %.2f");
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Camera banking, rotor vibration and landing shake while flying a helicopter (0 = none, 1 = default, up to 3x more).");
       ImGui::Checkbox("Minimap turns with you (heading up)", &u.minimapRotate);
-      ImGui::Checkbox("Vehicle health bars", &u.vehicleBars);
+      ImGui::Checkbox("Health bars over other vehicles", &u.vehicleBars);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("A health bar floating over every vehicle within about 90 m.");
       ImGui::Checkbox("Show arms", &u.showArms);
       ImGui::Checkbox("Sight calibration markers", &u.sightMarkers);
