@@ -6,7 +6,7 @@ Ready-made groups of the imported Poly Haven props for dressing the three Search
 
 **Two ways to use them.**
 - **One placeable asset** (`cl_*`, editor categories *Clusters: Desert compound / Container yard / Town quarter*): the members' baked models attached at their offsets (with tilt), collider boxes turned into place, and nav cover points in front of and behind every member a body can hide behind (marked *stand* when it is at least 1.3 m tall, *crouch* from 0.8 m). Turn the whole asset with the instance yaw; nav carves it.
-- **Member list** in `tools/props/clusters.json` (for mapgen): `members[]` with `asset`, `pos` [x, y, z] (y = standing height), `yaw`, optional `tilt` [pitch, roll] and `cover` (stand / crouch / null); plus `footprint` [x, z] m, `height`, `cover`, `count`. Members with a tilt only keep it inside the cluster asset (map instances have a yaw only), so place the large clusters as their asset. Clusters marked *prefab* mix in-house pieces (sandbag walls, the guard tower, cable reels, the farm cart, brick rubble) and exist only as member lists.
+- **Member list** in `tools/props/clusters.json` (for mapgen): `members[]` with `asset`, `pos` [x, y, z] (y = standing height), `yaw`, optional `tilt` [pitch, roll] and `cover` (stand / crouch / null); plus `footprint` [x, z] m, `height`, `cover`, `count`. Members with a tilt only keep it inside the cluster asset (map instances have a yaw only), so place the large clusters as their asset. Clusters marked *prefab* mix in-house pieces (sandbag walls, the guard tower, cable reels, the farm cart, brick rubble) and exist only as member lists. A few in-house part assets (`mod_pallet`, `mod_cable_spool_large` / `_small`, listed in `INLINE`) are copied part by part into a cluster asset, and a canvas tarp (`Lay.tarp`) is drawn as cluster parts, so the supply dump and the pipe yard stay placeable assets.
 
 Member list to instances: world = cluster position + R(cluster yaw) * pos, member yaw + cluster yaw (yaw turns +x toward -z, as `yawQuat`).
 
@@ -28,7 +28,7 @@ Member list to instances: world = cluster position + R(cluster yaw) * pos, membe
 | Rocks and deadwood | small | A boulder pile with a dead quiver trunk and branches: low and high cover. | `cl_desert_rocks_deadwood` | 6.0 x 4.7 | 2.0 m | 6 | 2 / 1 |
 | Sandbag position (prefab) | small | Curved sandbag wall with ammunition and a jerrycan behind it. | prefab | - | 0.5 m | 3 | 0 / 0 |
 | Guard post (prefab) | small | The steel guard tower with a supply stack and a work light at its foot. | prefab | - | 1.8 m | 3 | 1 / 0 |
-| Supply dump (large) | large | Crate stacks two and three high, sacks and loose boxes round a hand truck: standing cover behind the stacks, crouch cover behind the rows. | `cl_desert_supply_dump` | 7.1 x 4.6 | 1.6 m | 32 | 3 / 4 |
+| Supply dump (large) | large | Crates three high on pallets, one block under a tarp, empty pallets stacked and loose, cement sacks and boxes in front: standing cover behind the pallet stacks (1.5 m), crouch cover behind the sacks and the empty pallets. | `cl_desert_supply_dump` | 7.4 x 4.4 | 1.6 m | 43 | 4 / 5 |
 | Fuel dump (large) | large | Three rows of drums behind a barrier bund, jerrycan rows, a fuel pump and gas bottles: crouch cover along the drums, standing cover at the pump. | `cl_desert_fuel_dump` | 8.2 x 5.5 | 1.9 m | 43 | 1 / 19 |
 | Motor-pool corner (large) | large | Tyre stacks, a tool cart and chests, a generator and compressor, oil drums and a work table: crouch cover at the tyre stacks, standing cover at the compressor. | `cl_desert_motor_pool` | 7.2 x 4.1 | 1.3 m | 40 | 1 / 10 |
 | Guard point (large) | large | An L of concrete barriers with crate seats, a radio, water cans and a lantern: standing cover along the L. | `cl_desert_guard_point` | 5.9 x 5.0 | 1.1 m | 24 | 0 / 6 |
@@ -43,7 +43,7 @@ Member list to instances: world = cluster position + R(cluster yaw) * pos, membe
 | Barrel stack | small | Drums two deep with a plastic tote: low cover. | `cl_yard_barrel_stack` | 1.9 x 1.5 | 0.9 m | 5 | 0 / 3 |
 | Workshop corner | small | Drill presses, a compressor and a storage cart: medium cover in a shed or under a lamp. | `cl_yard_workshop_corner` | 3.2 x 2.0 | 1.4 m | 4 | 1 / 2 |
 | Cable drums (prefab) | small | Cable reels with barrels and a tote. | prefab | - | 0.9 m | 4 | 0 / 1 |
-| Pipe yard (large) | large | Two steel racks with pyramids of pipe in front, loose pipe runs, the pipe manifold, crates and drums: standing cover behind the racks. | `cl_yard_pipe_yard` | 7.8 x 4.3 | 2.3 m | 51 | 3 / 2 |
+| Pipe yard (large) | large | Two steel racks loaded with pipe on every shelf and across the top, some lengths poking out, a pipe pyramid, two cable drums, the pipe manifold, crates and drums: standing cover behind the racks and the big drum. | `cl_yard_pipe_yard` | 9.6 x 4.9 | 2.4 m | 87 | 4 / 2 |
 | Workshop bay (large) | large | Steel shelving along the back, a compressor, welding cart, drill presses, a tool cart with a vice, storage cart and bins: standing cover at the shelving and compressor. | `cl_yard_workshop_bay` | 7.6 x 4.5 | 2.1 m | 25 | 7 / 4 |
 | Loading area (large) | large | Crate and tote stacks three high, hand trucks, a barrier line, a floodlight and loose boxes: standing cover behind the stacks, crouch cover at the barriers. | `cl_yard_loading_area` | 9.7 x 4.9 | 1.5 m | 35 | 3 / 12 |
 

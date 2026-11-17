@@ -1324,342 +1324,448 @@
    "id": "desert_supply_dump",
    "theme": "desert",
    "name": "Supply dump (large)",
-   "purpose": "Crate stacks two and three high, sacks and loose boxes round a hand truck: standing cover behind the stacks, crouch cover behind the rows.",
+   "purpose": "Crates three high on pallets, one block under a tarp, empty pallets stacked and loose, cement sacks and boxes in front: standing cover behind the pallet stacks (1.5 m), crouch cover behind the sacks and the empty pallets.",
    "asset": "cl_desert_supply_dump",
    "cover": "high",
-   "height": 1.55,
+   "height": 1.56,
    "footprint": [
-    7.07,
-    4.63
+    7.36,
+    4.38
    ],
-   "count": 32,
+   "count": 43,
    "members": [
     {
-     "asset": "ph_wooden_military_crate",
+     "asset": "mod_pallet",
      "pos": [
-      -2.204,
+      -2.6,
       0,
-      -0.595
+      -1.3
      ],
-     "yaw": 5.1,
+     "yaw": -0.1,
      "cover": null
     },
     {
      "asset": "ph_wooden_military_crate",
      "pos": [
-      -2.203,
-      0.465,
-      -0.599
+      -2.598,
+      0.144,
+      -1.283
      ],
-     "yaw": 1.0,
+     "yaw": -0.1,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_military_crate",
+     "pos": [
+      -2.6,
+      0.609,
+      -1.297
+     ],
+     "yaw": -1.3,
      "cover": "crouch"
     },
     {
      "asset": "ph_wooden_military_crate",
      "pos": [
-      -2.225,
-      0.93,
-      -0.599
+      -2.6,
+      1.074,
+      -1.295
      ],
-     "yaw": 1.6,
+     "yaw": 1.2,
      "cover": "stand"
     },
     {
-     "asset": "ph_wooden_military_crate",
+     "asset": "mod_pallet",
      "pos": [
-      -0.877,
+      -1.35,
       0,
-      -0.632
+      -1.3
      ],
-     "yaw": -2.4,
+     "yaw": -0.8,
      "cover": null
     },
     {
      "asset": "ph_wooden_military_crate",
      "pos": [
-      -0.933,
-      0.465,
-      -0.575
+      -1.358,
+      0.144,
+      -1.316
      ],
-     "yaw": 2.3,
+     "yaw": 1.2,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_military_crate",
+     "pos": [
+      -1.342,
+      0.609,
+      -1.318
+     ],
+     "yaw": 1.9,
      "cover": "crouch"
+    },
+    {
+     "asset": "ph_wooden_military_crate",
+     "pos": [
+      -1.331,
+      1.074,
+      -1.294
+     ],
+     "yaw": 0.5,
+     "cover": "stand"
+    },
+    {
+     "asset": "mod_pallet",
+     "pos": [
+      0.0,
+      0,
+      -1.3
+     ],
+     "yaw": -1.4,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_02",
+     "pos": [
+      -0.039,
+      0.144,
+      -1.298
+     ],
+     "yaw": 86.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_02",
+     "pos": [
+      -0.025,
+      0.608,
+      -1.321
+     ],
+     "yaw": 86.2,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_wooden_crate_02",
+     "pos": [
+      -0.003,
+      1.072,
+      -1.305
+     ],
+     "yaw": 92.7,
+     "cover": "stand"
+    },
+    {
+     "asset": "mod_pallet",
+     "pos": [
+      1.3,
+      0,
+      -1.3
+     ],
+     "yaw": 0.1,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      1.311,
+      0.144,
+      -1.3
+     ],
+     "yaw": 1.3,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      1.297,
+      0.494,
+      -1.318
+     ],
+     "yaw": 4.0,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_cardboard_box_01",
+     "pos": [
+      1.24,
+      0.844,
+      -1.273
+     ],
+     "yaw": 26.2,
+     "cover": null
+    },
+    {
+     "asset": "ph_cardboard_box_01",
+     "pos": [
+      1.185,
+      1.186,
+      -1.322
+     ],
+     "yaw": 13.7,
+     "cover": null
+    },
+    {
+     "asset": "mod_pallet",
+     "pos": [
+      2.6,
+      0,
+      -1.25
+     ],
+     "yaw": 87.4,
+     "cover": null
     },
     {
      "asset": "ph_old_military_crate",
      "pos": [
-      -2.237,
-      0,
-      0.639
+      2.621,
+      0.144,
+      -1.258
      ],
-     "yaw": 95.6,
+     "yaw": 93.5,
      "cover": null
     },
     {
      "asset": "ph_old_military_crate",
      "pos": [
-      -2.188,
-      0.301,
-      0.609
+      2.591,
+      0.445,
+      -1.213
      ],
-     "yaw": 85.9,
+     "yaw": 93.5,
      "cover": null
     },
     {
-     "asset": "ph_wooden_crate_02",
+     "asset": "ph_old_military_crate",
      "pos": [
-      0.461,
-      0,
-      -0.698
-     ],
-     "yaw": 84.7,
-     "cover": null
-    },
-    {
-     "asset": "ph_wooden_crate_02",
-     "pos": [
-      0.475,
-      0.464,
-      -0.721
-     ],
-     "yaw": 84.4,
-     "cover": "crouch"
-    },
-    {
-     "asset": "ph_wooden_crate_02",
-     "pos": [
-      0.497,
-      0.928,
-      -0.705
+      2.56,
+      0.746,
+      -1.273
      ],
      "yaw": 94.1,
-     "cover": "stand"
-    },
-    {
-     "asset": "ph_wooden_crate_01",
-     "pos": [
-      1.502,
-      0,
-      -0.689
-     ],
-     "yaw": -0.0,
-     "cover": null
-    },
-    {
-     "asset": "ph_wooden_crate_01",
-     "pos": [
-      1.513,
-      0.35,
-      -0.703
-     ],
-     "yaw": -2.7,
-     "cover": null
-    },
-    {
-     "asset": "ph_wooden_crate_01",
-     "pos": [
-      2.54,
-      0,
-      -0.56
-     ],
-     "yaw": 9.1,
-     "cover": null
-    },
-    {
-     "asset": "ph_wooden_crate_01",
-     "pos": [
-      2.517,
-      0.35,
-      -0.615
-     ],
-     "yaw": 1.8,
-     "cover": null
-    },
-    {
-     "asset": "ph_wooden_crate_01",
-     "pos": [
-      2.483,
-      0.7,
-      -0.634
-     ],
-     "yaw": 8.2,
      "cover": "crouch"
-    },
-    {
-     "asset": "ph_cement_bag",
-     "pos": [
-      -1.61,
-      0,
-      1.635
-     ],
-     "yaw": 85.5,
-     "cover": null
-    },
-    {
-     "asset": "ph_cement_bag",
-     "pos": [
-      -1.004,
-      0,
-      1.635
-     ],
-     "yaw": 70.0,
-     "cover": null
-    },
-    {
-     "asset": "ph_cement_bag",
-     "pos": [
-      -0.529,
-      0,
-      1.641
-     ],
-     "yaw": 88.8,
-     "cover": null
-    },
-    {
-     "asset": "ph_cement_bag",
-     "pos": [
-      0.098,
-      0,
-      1.59
-     ],
-     "yaw": 72.9,
-     "cover": null
-    },
-    {
-     "asset": "ph_compost_bags",
-     "pos": [
-      1.2,
-      0,
-      1.4
-     ],
-     "yaw": 22.1,
-     "cover": null
-    },
-    {
-     "asset": "ph_cardboard_box_01",
-     "pos": [
-      0.222,
-      0,
-      0.882
-     ],
-     "yaw": 13.5,
-     "cover": null
-    },
-    {
-     "asset": "ph_cardboard_box_01",
-     "pos": [
-      0.187,
-      0.342,
-      0.937
-     ],
-     "yaw": 40.3,
-     "cover": null
-    },
-    {
-     "asset": "ph_hand_truck",
-     "pos": [
-      -0.166,
-      0.095,
-      -0.218
-     ],
-     "yaw": 178.0,
-     "tilt": [
-      -14,
-      -2.292049923482695
-     ],
-     "cover": "stand"
-    },
-    {
-     "asset": "ph_cardboard_box_01",
-     "pos": [
-      3.171,
-      0.053,
-      0.291
-     ],
-     "yaw": 266.5,
-     "tilt": [
-      -10,
-      -2.3937221462597695
-     ],
-     "cover": null
     },
     {
      "asset": "ph_plastic_crate_01",
      "pos": [
       2.6,
-      0,
-      1.0
+      1.047,
+      -1.2
      ],
-     "yaw": 44.8,
+     "yaw": 74.5,
      "cover": null
     },
     {
-     "asset": "ph_wooden_military_crate",
+     "asset": "mod_pallet",
      "pos": [
-      3.4,
+      3.048,
       0,
-      -1.6
+      0.49
      ],
-     "yaw": 64.8,
+     "yaw": 74.9,
      "cover": null
     },
     {
-     "asset": "ph_rusted_wheel_rim_02",
+     "asset": "mod_pallet",
      "pos": [
-      -2.081,
-      0,
-      0.141
+      3.013,
+      0.144,
+      0.528
      ],
-     "yaw": 354.7,
+     "yaw": 77.2,
+     "cover": null
+    },
+    {
+     "asset": "mod_pallet",
+     "pos": [
+      2.959,
+      0.288,
+      0.483
+     ],
+     "yaw": 85.6,
+     "cover": null
+    },
+    {
+     "asset": "mod_pallet",
+     "pos": [
+      3.026,
+      0.432,
+      0.462
+     ],
+     "yaw": 77.0,
+     "cover": null
+    },
+    {
+     "asset": "mod_pallet",
+     "pos": [
+      -3.1,
+      0,
+      0.6
+     ],
+     "yaw": 7.0,
+     "cover": null
+    },
+    {
+     "asset": "ph_cement_bag",
+     "pos": [
+      -2.044,
+      0,
+      0.93
+     ],
+     "yaw": 77.1,
+     "cover": null
+    },
+    {
+     "asset": "ph_cement_bag",
+     "pos": [
+      -1.444,
+      0,
+      0.895
+     ],
+     "yaw": 77.6,
+     "cover": null
+    },
+    {
+     "asset": "ph_cement_bag",
+     "pos": [
+      -0.877,
+      0,
+      0.863
+     ],
+     "yaw": 95.7,
+     "cover": null
+    },
+    {
+     "asset": "ph_cement_bag",
+     "pos": [
+      -0.388,
+      0,
+      0.892
+     ],
+     "yaw": 78.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_compost_bags",
+     "pos": [
+      1.4,
+      0,
+      1.2
+     ],
+     "yaw": 16.3,
      "cover": null
     },
     {
      "asset": "ph_cardboard_box_01",
      "pos": [
-      1.106,
+      -0.253,
       0,
-      -1.664
+      0.63
      ],
-     "yaw": 151.5,
+     "yaw": 20.2,
      "cover": null
     },
     {
-     "asset": "ph_plastic_bottle_gallon",
+     "asset": "ph_cardboard_box_01",
      "pos": [
-      2.65,
+      0.238,
       0,
-      2.284
+      0.571
      ],
-     "yaw": 213.4,
+     "yaw": 24.7,
      "cover": null
     },
     {
-     "asset": "ph_can_rusted",
+     "asset": "ph_hand_truck",
      "pos": [
-      -1.925,
-      0,
-      -0.386
+      0.621,
+      0.094,
+      -0.819
      ],
-     "yaw": 307.6,
+     "yaw": 181.1,
+     "tilt": [
+      -14,
+      2.126261410207383
+     ],
+     "cover": "stand"
+    },
+    {
+     "asset": "ph_wooden_military_crate",
+     "pos": [
+      0.6,
+      0,
+      1.5
+     ],
+     "yaw": 63.6,
      "cover": null
     },
     {
-     "asset": "ph_can_rusted",
+     "asset": "ph_plastic_crate_01",
      "pos": [
-      -3.105,
+      2.2,
       0,
-      -1.527
+      1.6
      ],
-     "yaw": 159.0,
+     "yaw": 47.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_oil_tin",
+     "pos": [
+      -0.309,
+      0,
+      1.41
+     ],
+     "yaw": 219.7,
+     "cover": null
+    },
+    {
+     "asset": "ph_cardboard_box_01",
+     "pos": [
+      -2.886,
+      0,
+      1.49
+     ],
+     "yaw": 209.8,
      "cover": null
     },
     {
      "asset": "ph_rusted_wheel_rim_02",
      "pos": [
-      -1.097,
+      -0.819,
       0,
-      -0.837
+      2.022
      ],
-     "yaw": 26.4,
+     "yaw": 45.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_rusted_wheel_rim_02",
+     "pos": [
+      -2.45,
+      0,
+      1.786
+     ],
+     "yaw": 225.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_oil_tin",
+     "pos": [
+      2.325,
+      0,
+      1.649
+     ],
+     "yaw": 68.3,
+     "cover": null
+    },
+    {
+     "asset": "ph_rusted_wheel_rim_02",
+     "pos": [
+      -2.024,
+      0,
+      2.35
+     ],
+     "yaw": 317.6,
      "cover": null
     }
    ]
@@ -2854,32 +2960,32 @@
    "id": "yard_pipe_yard",
    "theme": "yard",
    "name": "Pipe yard (large)",
-   "purpose": "Two steel racks with pyramids of pipe in front, loose pipe runs, the pipe manifold, crates and drums: standing cover behind the racks.",
+   "purpose": "Two steel racks loaded with pipe on every shelf and across the top, some lengths poking out, a pipe pyramid, two cable drums, the pipe manifold, crates and drums: standing cover behind the racks and the big drum.",
    "asset": "cl_yard_pipe_yard",
    "cover": "high",
-   "height": 2.31,
+   "height": 2.41,
    "footprint": [
-    7.82,
-    4.26
+    9.56,
+    4.91
    ],
-   "count": 51,
+   "count": 87,
    "members": [
     {
      "asset": "ph_steel_frame_shelves_03",
      "pos": [
-      -3.0,
+      -3.4,
       0,
       -1.5
      ],
-     "yaw": -1.3,
+     "yaw": 0.0,
      "cover": "stand"
     },
     {
-     "asset": "ph_modular_pipes_straight_2m",
+     "asset": "ph_modular_pipes_straight_1m",
      "pos": [
-      -1.97,
-      0.05,
-      -0.955
+      -3.531,
+      0.672,
+      -1.702
      ],
      "yaw": 0.3,
      "tilt": [
@@ -2889,11 +2995,11 @@
      "cover": null
     },
     {
-     "asset": "ph_modular_pipes_straight_2m",
+     "asset": "ph_modular_pipes_straight_1m",
      "pos": [
-      -2.003,
-      0.05,
-      -0.84
+      -3.548,
+      0.672,
+      -1.565
      ],
      "yaw": -0.6,
      "tilt": [
@@ -2903,11 +3009,11 @@
      "cover": null
     },
     {
-     "asset": "ph_modular_pipes_straight_2m",
+     "asset": "ph_modular_pipes_straight_1m",
      "pos": [
-      -1.953,
-      0.05,
-      -0.761
+      -3.523,
+      0.672,
+      -1.445
      ],
      "yaw": 0.6,
      "tilt": [
@@ -2917,11 +3023,11 @@
      "cover": null
     },
     {
-     "asset": "ph_modular_pipes_straight_2m",
+     "asset": "ph_modular_pipes_straight_1m",
      "pos": [
-      -1.998,
-      0.05,
-      -0.65
+      -3.545,
+      0.672,
+      -1.31
      ],
      "yaw": 0.0,
      "tilt": [
@@ -2931,11 +3037,11 @@
      "cover": null
     },
     {
-     "asset": "ph_modular_pipes_straight_2m",
+     "asset": "ph_modular_pipes_straight_1m",
      "pos": [
-      -2.042,
-      0.05,
-      -0.533
+      -3.567,
+      1.375,
+      -1.691
      ],
      "yaw": -1.0,
      "tilt": [
@@ -2945,11 +3051,11 @@
      "cover": null
     },
     {
-     "asset": "ph_modular_pipes_straight_2m",
+     "asset": "ph_modular_pipes_straight_1m",
      "pos": [
-      -2.021,
-      0.137,
-      -0.903
+      -3.556,
+      1.375,
+      -1.571
      ],
      "yaw": 0.2,
      "tilt": [
@@ -2959,11 +3065,193 @@
      "cover": null
     },
     {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      -3.58,
+      1.375,
+      -1.445
+     ],
+     "yaw": 0.6,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      -3.567,
+      1.375,
+      -1.305
+     ],
+     "yaw": -0.5,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      -2.427,
+      0.727,
+      -1.709
+     ],
+     "yaw": 1.0,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      -2.371,
+      0.727,
+      -1.577
+     ],
+     "yaw": 0.8,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      -2.381,
+      0.727,
+      -1.432
+     ],
+     "yaw": -0.9,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      -2.404,
+      0.727,
+      -1.31
+     ],
+     "yaw": -0.0,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
      "asset": "ph_modular_pipes_straight_2m",
      "pos": [
-      -2.069,
-      0.137,
-      -0.81
+      -1.331,
+      1.142,
+      -1.716
+     ],
+     "yaw": 0.9,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -1.311,
+      1.142,
+      -1.558
+     ],
+     "yaw": -0.7,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -1.275,
+      1.142,
+      -1.427
+     ],
+     "yaw": -0.8,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -1.266,
+      1.142,
+      -1.308
+     ],
+     "yaw": -0.1,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      -2.386,
+      1.822,
+      -1.697
+     ],
+     "yaw": -0.3,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      -2.391,
+      1.822,
+      -1.565
+     ],
+     "yaw": -0.6,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      -2.427,
+      1.822,
+      -1.446
+     ],
+     "yaw": 0.7,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      -2.411,
+      1.822,
+      -1.315
      ],
      "yaw": 0.6,
      "tilt": [
@@ -2975,11 +3263,77 @@
     {
      "asset": "ph_modular_pipes_straight_2m",
      "pos": [
-      -2.043,
-      0.137,
-      -0.691
+      -4.133,
+      2.358,
+      -2.558
      ],
-     "yaw": -0.5,
+     "yaw": 1.9,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -3.618,
+      2.358,
+      -2.421
+     ],
+     "yaw": 1.0,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -3.106,
+      2.358,
+      -2.447
+     ],
+     "yaw": 0.3,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -2.574,
+      2.358,
+      -2.454
+     ],
+     "yaw": -1.5,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_steel_frame_shelves_03",
+     "pos": [
+      0.4,
+      0,
+      -1.5
+     ],
+     "yaw": 0.0,
+     "cover": "stand"
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      0.28,
+      0.672,
+      -1.695
+     ],
+     "yaw": -0.6,
      "tilt": [
       0,
       90
@@ -2987,11 +3341,263 @@
      "cover": null
     },
     {
-     "asset": "ph_modular_pipes_straight_2m",
+     "asset": "ph_modular_pipes_straight_1m",
      "pos": [
-      -2.073,
-      0.137,
-      -0.617
+      0.288,
+      0.672,
+      -1.577
+     ],
+     "yaw": 0.8,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      0.247,
+      0.672,
+      -1.438
+     ],
+     "yaw": -0.3,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      0.25,
+      0.672,
+      -1.308
+     ],
+     "yaw": -0.2,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      0.294,
+      1.375,
+      -1.698
+     ],
+     "yaw": -0.2,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      0.216,
+      1.375,
+      -1.563
+     ],
+     "yaw": -0.8,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      0.271,
+      1.375,
+      -1.449
+     ],
+     "yaw": 1.0,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      0.254,
+      1.375,
+      -1.31
+     ],
+     "yaw": -0.0,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      1.414,
+      0.727,
+      -1.704
+     ],
+     "yaw": 0.5,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      1.388,
+      0.727,
+      -1.572
+     ],
+     "yaw": 0.2,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      1.415,
+      0.727,
+      -1.442
+     ],
+     "yaw": 0.2,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      1.384,
+      0.727,
+      -1.304
+     ],
+     "yaw": -0.7,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      1.398,
+      1.142,
+      -1.707
+     ],
+     "yaw": 0.9,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      1.398,
+      1.142,
+      -1.572
+     ],
+     "yaw": 0.2,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      1.394,
+      1.142,
+      -1.433
+     ],
+     "yaw": -0.8,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      1.375,
+      1.142,
+      -1.315
+     ],
+     "yaw": 0.6,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      1.432,
+      1.822,
+      -1.698
+     ],
+     "yaw": -0.3,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      1.425,
+      1.822,
+      -1.573
+     ],
+     "yaw": 0.4,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      1.442,
+      1.822,
+      -1.448
+     ],
+     "yaw": 0.9,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      1.402,
+      1.822,
+      -1.319
      ],
      "yaw": 1.0,
      "tilt": [
@@ -3003,91 +3609,67 @@
     {
      "asset": "ph_modular_pipes_straight_2m",
      "pos": [
-      -1.962,
-      0.224,
-      -0.863
+      -0.306,
+      2.358,
+      -2.408
      ],
-     "yaw": 0.8,
+     "yaw": 0.4,
      "tilt": [
-      0,
-      90
+      90,
+      0
      ],
      "cover": null
     },
     {
      "asset": "ph_modular_pipes_straight_2m",
      "pos": [
-      -1.982,
-      0.224,
-      -0.734
-     ],
-     "yaw": -0.9,
-     "tilt": [
-      0,
-      90
-     ],
-     "cover": null
-    },
-    {
-     "asset": "ph_modular_pipes_straight_2m",
-     "pos": [
-      -2.027,
-      0.224,
-      -0.65
+      0.201,
+      2.358,
+      -2.423
      ],
      "yaw": -0.0,
      "tilt": [
-      0,
-      90
+      90,
+      0
      ],
      "cover": null
     },
     {
      "asset": "ph_modular_pipes_straight_2m",
      "pos": [
-      -2.062,
-      0.311,
-      -0.816
+      0.718,
+      2.358,
+      -2.525
      ],
-     "yaw": 0.9,
+     "yaw": -1.0,
      "tilt": [
-      0,
-      90
+      90,
+      0
      ],
      "cover": null
     },
     {
      "asset": "ph_modular_pipes_straight_2m",
      "pos": [
-      -2.021,
-      0.311,
-      -0.688
+      1.224,
+      2.358,
+      -2.424
      ],
-     "yaw": -0.7,
+     "yaw": -1.4,
      "tilt": [
-      0,
-      90
+      90,
+      0
      ],
      "cover": null
     },
     {
-     "asset": "ph_steel_frame_shelves_03",
-     "pos": [
-      0.2,
-      0,
-      -1.5
-     ],
-     "yaw": 1.3,
-     "cover": "stand"
-    },
-    {
      "asset": "ph_modular_pipes_straight_2m",
      "pos": [
-      1.14,
+      -2.469,
       0.05,
-      -0.965
+      -0.961
      ],
-     "yaw": 0.9,
+     "yaw": 0.6,
      "tilt": [
       0,
       90
@@ -3097,120 +3679,8 @@
     {
      "asset": "ph_modular_pipes_straight_2m",
      "pos": [
-      1.192,
+      -2.356,
       0.05,
-      -0.852
-     ],
-     "yaw": 0.1,
-     "tilt": [
-      0,
-      90
-     ],
-     "cover": null
-    },
-    {
-     "asset": "ph_modular_pipes_straight_2m",
-     "pos": [
-      1.175,
-      0.05,
-      -0.749
-     ],
-     "yaw": -0.0,
-     "tilt": [
-      0,
-      90
-     ],
-     "cover": null
-    },
-    {
-     "asset": "ph_modular_pipes_straight_2m",
-     "pos": [
-      1.15,
-      0.05,
-      -0.634
-     ],
-     "yaw": -0.9,
-     "tilt": [
-      0,
-      90
-     ],
-     "cover": null
-    },
-    {
-     "asset": "ph_modular_pipes_straight_2m",
-     "pos": [
-      1.258,
-      0.05,
-      -0.541
-     ],
-     "yaw": -0.5,
-     "tilt": [
-      0,
-      90
-     ],
-     "cover": null
-    },
-    {
-     "asset": "ph_modular_pipes_straight_2m",
-     "pos": [
-      1.245,
-      0.137,
-      -0.89
-     ],
-     "yaw": -0.6,
-     "tilt": [
-      0,
-      90
-     ],
-     "cover": null
-    },
-    {
-     "asset": "ph_modular_pipes_straight_2m",
-     "pos": [
-      1.275,
-      0.137,
-      -0.814
-     ],
-     "yaw": 0.8,
-     "tilt": [
-      0,
-      90
-     ],
-     "cover": null
-    },
-    {
-     "asset": "ph_modular_pipes_straight_2m",
-     "pos": [
-      1.241,
-      0.137,
-      -0.709
-     ],
-     "yaw": 0.5,
-     "tilt": [
-      0,
-      90
-     ],
-     "cover": null
-    },
-    {
-     "asset": "ph_modular_pipes_straight_2m",
-     "pos": [
-      1.213,
-      0.137,
-      -0.608
-     ],
-     "yaw": 0.5,
-     "tilt": [
-      0,
-      90
-     ],
-     "cover": null
-    },
-    {
-     "asset": "ph_modular_pipes_straight_2m",
-     "pos": [
-      1.14,
-      0.224,
       -0.849
      ],
      "yaw": -0.0,
@@ -3223,7 +3693,119 @@
     {
      "asset": "ph_modular_pipes_straight_2m",
      "pos": [
-      1.252,
+      -2.346,
+      0.05,
+      -0.734
+     ],
+     "yaw": -0.9,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -2.439,
+      0.05,
+      -0.643
+     ],
+     "yaw": -0.4,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -2.413,
+      0.05,
+      -0.539
+     ],
+     "yaw": -0.7,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -2.469,
+      0.137,
+      -0.894
+     ],
+     "yaw": -0.3,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -2.336,
+      0.137,
+      -0.817
+     ],
+     "yaw": 1.0,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -2.361,
+      0.137,
+      -0.699
+     ],
+     "yaw": -0.0,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -2.44,
+      0.137,
+      -0.616
+     ],
+     "yaw": 0.9,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -2.396,
+      0.224,
+      -0.858
+     ],
+     "yaw": 0.5,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -2.476,
       0.224,
       -0.74
      ],
@@ -3237,11 +3819,11 @@
     {
      "asset": "ph_modular_pipes_straight_2m",
      "pos": [
-      1.268,
+      -2.346,
       0.224,
-      -0.664
+      -0.66
      ],
-     "yaw": 0.8,
+     "yaw": 0.6,
      "tilt": [
       0,
       90
@@ -3251,11 +3833,11 @@
     {
      "asset": "ph_modular_pipes_straight_2m",
      "pos": [
-      1.186,
+      -2.339,
       0.311,
-      -0.795
+      -0.804
      ],
-     "yaw": -0.3,
+     "yaw": 0.2,
      "tilt": [
       0,
       90
@@ -3265,85 +3847,111 @@
     {
      "asset": "ph_modular_pipes_straight_2m",
      "pos": [
-      1.192,
+      -2.412,
       0.311,
-      -0.696
+      -0.703
      ],
-     "yaw": -0.2,
+     "yaw": 0.2,
      "tilt": [
       0,
       90
      ],
+     "cover": null
+    },
+    {
+     "asset": "mod_cable_spool_large",
+     "pos": [
+      -5.3,
+      0,
+      -0.9
+     ],
+     "yaw": 2.8,
+     "cover": "stand"
+    },
+    {
+     "asset": "mod_cable_spool_small",
+     "pos": [
+      -4.6,
+      0,
+      0.9
+     ],
+     "yaw": 26.2,
      "cover": null
     },
     {
      "asset": "ph_modular_industrial_pipes_01",
      "pos": [
-      2.8,
+      2.9,
       0,
       -1.4
      ],
-     "yaw": 7.9,
+     "yaw": 0.5,
      "cover": "stand"
     },
     {
      "asset": "ph_modular_pipes_straight_1m",
      "pos": [
-      -3.011,
-      0,
-      0.553
+      -2.893,
+      0.05,
+      0.663
      ],
-     "yaw": -8.1,
+     "yaw": 70.4,
+     "tilt": [
+      90,
+      0
+     ],
      "cover": null
     },
     {
      "asset": "ph_modular_pipes_straight_1m",
      "pos": [
-      -2.728,
-      0,
-      0.649
+      -2.714,
+      0.05,
+      0.723
      ],
-     "yaw": -0.1,
+     "yaw": 70.9,
+     "tilt": [
+      90,
+      0
+     ],
      "cover": null
     },
     {
      "asset": "ph_modular_pipes_straight_1m",
      "pos": [
-      -2.501,
-      0,
-      0.605
+      -2.596,
+      0.05,
+      0.915
      ],
-     "yaw": 5.0,
+     "yaw": 104.1,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      -2.47,
+      0.05,
+      0.644
+     ],
+     "yaw": 86.2,
+     "tilt": [
+      90,
+      0
+     ],
      "cover": null
     },
     {
      "asset": "ph_modular_pipes_straight_1m",
      "pos": [
       -2.278,
-      0,
-      0.611
-     ],
-     "yaw": 1.1,
-     "cover": null
-    },
-    {
-     "asset": "ph_modular_pipes_straight_1m",
-     "pos": [
-      -1.988,
-      0,
-      0.568
-     ],
-     "yaw": -6.6,
-     "cover": null
-    },
-    {
-     "asset": "ph_modular_pipes_straight_2m",
-     "pos": [
-      -0.694,
       0.05,
-      -0.194
+      0.745
      ],
-     "yaw": -6.1,
+     "yaw": 75.3,
      "tilt": [
       90,
       0
@@ -3353,11 +3961,11 @@
     {
      "asset": "ph_modular_pipes_straight_2m",
      "pos": [
-      -0.914,
+      -0.321,
       0.05,
-      -0.156
+      -0.16
      ],
-     "yaw": 17.1,
+     "yaw": -16.2,
      "tilt": [
       90,
       0
@@ -3367,11 +3975,11 @@
     {
      "asset": "ph_modular_pipes_straight_2m",
      "pos": [
-      -0.333,
+      -0.14,
       0.05,
-      -0.194
+      -0.16
      ],
-     "yaw": -6.1,
+     "yaw": -16.2,
      "tilt": [
       90,
       0
@@ -3381,11 +3989,25 @@
     {
      "asset": "ph_modular_pipes_straight_2m",
      "pos": [
-      -0.328,
+      0.085,
       0.05,
-      -0.198
+      -0.146
      ],
-     "yaw": 3.9,
+     "yaw": -19.0,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -0.023,
+      0.05,
+      -0.199
+     ],
+     "yaw": -2.1,
      "tilt": [
       90,
       0
@@ -3395,41 +4017,41 @@
     {
      "asset": "ph_wooden_crate_01",
      "pos": [
-      1.585,
+      1.571,
       0,
-      0.868
+      0.929
      ],
-     "yaw": -5.2,
+     "yaw": 1.9,
      "cover": null
     },
     {
      "asset": "ph_wooden_crate_01",
      "pos": [
-      1.625,
+      1.57,
       0.35,
-      0.922
+      0.903
      ],
-     "yaw": -1.5,
+     "yaw": -2.1,
      "cover": null
     },
     {
      "asset": "ph_barrel_01",
      "pos": [
-      2.618,
+      2.599,
       0,
-      0.618
+      0.572
      ],
-     "yaw": 23.9,
+     "yaw": -20.0,
      "cover": "crouch"
     },
     {
      "asset": "ph_barrel_01",
      "pos": [
-      3.266,
+      3.188,
       0,
-      0.591
+      0.588
      ],
-     "yaw": 29.3,
+     "yaw": 12.6,
      "cover": "crouch"
     },
     {
@@ -3439,67 +4061,67 @@
       0,
       1.5
      ],
-     "yaw": 27.4,
-     "cover": null
-    },
-    {
-     "asset": "ph_crowbar_01",
-     "pos": [
-      -3.5,
-      0,
-      1.681
-     ],
-     "yaw": 182.2,
-     "cover": null
-    },
-    {
-     "asset": "ph_oil_tin",
-     "pos": [
-      -2.464,
-      0,
-      1.376
-     ],
-     "yaw": 289.9,
-     "cover": null
-    },
-    {
-     "asset": "ph_pipe_wrench",
-     "pos": [
-      -3.198,
-      0,
-      1.617
-     ],
-     "yaw": 307.2,
+     "yaw": 20.8,
      "cover": null
     },
     {
      "asset": "ph_can_rusted",
      "pos": [
-      -0.663,
+      -0.165,
       0,
-      1.488
+      1.905
      ],
-     "yaw": 25.0,
+     "yaw": 268.4,
      "cover": null
     },
     {
-     "asset": "ph_oil_tin",
+     "asset": "ph_can_rusted",
      "pos": [
-      3.284,
+      -2.111,
       0,
-      2.12
+      2.264
      ],
-     "yaw": 172.4,
+     "yaw": 143.3,
      "cover": null
     },
     {
-     "asset": "ph_cardboard_box_01",
+     "asset": "ph_lubricant_spray",
      "pos": [
-      0.079,
+      0.803,
       0,
-      2.101
+      1.653
      ],
-     "yaw": 10.2,
+     "yaw": 250.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_can_rusted",
+     "pos": [
+      -3.398,
+      0,
+      1.556
+     ],
+     "yaw": 261.4,
+     "cover": null
+    },
+    {
+     "asset": "ph_lubricant_spray",
+     "pos": [
+      -1.072,
+      0,
+      1.949
+     ],
+     "yaw": 341.4,
+     "cover": null
+    },
+    {
+     "asset": "ph_crowbar_01",
+     "pos": [
+      -5.06,
+      0,
+      1.995
+     ],
+     "yaw": 116.6,
      "cover": null
     }
    ]
