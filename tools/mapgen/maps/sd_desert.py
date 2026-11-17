@@ -83,7 +83,7 @@ LINKS = {
 
 
 def build(ctx):
-    R = rng(SEED)
+    R = rng(int(os.environ.get("NMK_SD_SEED", SEED)))   # SD5 harness: another clutter seed (default: the map's)
     plan = Plan(ROWS, CELL, LINKS, stretch_cols=STRETCH_COLS, stretch_rows=STRETCH_ROWS)
     bad = plan.check_links()
     assert not bad, bad
@@ -174,6 +174,12 @@ def build(ctx):
                                                  ("cl_desert_scrap_pile", 0.9, 0.7, 1)], R, y0, PADS, taken)
     n_space += barrier_line(b, plan, "M", "mod_jersey_barrier", 2, 3.2, 0.8, R, y0, PADS, taken)
     n_space += place_in_space(b, plan, "M", [("cl_desert_supply_stack", 1.45, 0.7, 1), ("cl_desert_rocks_deadwood", 3.0, 2.35, 1)], R, y0, PADS, taken)
+    if os.environ.get("NMK_SD_BIG"):   # SD5 harness: the large clusters against the site / mid walls and the edge dressing inside the sites (what broke the bots)
+        for ch, big in (("A", [("cl_desert_supply_dump", 3.6, 2.4, 1), ("cl_desert_fuel_dump", 4.2, 2.8, 1)]), ("B", [("cl_desert_motor_pool", 3.6, 2.1, 1), ("cl_desert_guard_point", 3.0, 2.6, 1)]),
+                        ("M", [("cl_desert_supply_dump", 3.6, 2.4, 1)])):
+            n_space += place_along_walls(b, plan, ch, big, R, y0, keep=PADS)
+        for ch in "AB":
+            n_space += place_along_walls(b, plan, ch, [("ph_namaqualand_rocks_01", 0.8, 0.6, 2), ("ph_namaqualand_boulder_03", 0.7, 0.6, 2), ("mod_pallet_stack", 1.0, 0.45, 2), ("mod_barrel_group", 0.7, 0.7, 2)], R, y0, keep=PADS)
     # the radar tower's base: a chain-link compound (gate to the south) with a generator corner and cable drums
     tx, tz = mx, mz + 1.0
     for side in range(4):

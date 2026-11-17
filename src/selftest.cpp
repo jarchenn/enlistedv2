@@ -154,6 +154,7 @@ void SelfTest::update(App& app, float dt) {
   { extern bool proneSelfTest(App&, float); if (proneSelfTest(app, dt)) return; }   // --selftest-prone (selftest_prone.cpp)
   { extern bool sd3SelfTest(App&, float); if (sd3SelfTest(app, dt)) return; }   // --selftest-sd3 (selftest_sd3.cpp)
   { extern bool spectateSelfTest(App&, float); if (spectateSelfTest(app, dt)) return; }   // --selftest-spectate (selftest_spectate.cpp)
+  { extern bool sdPlantSelfTest(App&, float); if (sdPlantSelfTest(app, dt)) return; }   // --selftest-sd-plant (selftest_sdplant.cpp)
   { extern bool vehicleAiSelfTest(App&, float); if (vehicleAiSelfTest(app, dt)) return; }   // --check-vehicle-ai (selftest_vehicle_ai.cpp)
   { extern bool turnEngageSelfTest(App&, float); if (turnEngageSelfTest(app, dt)) return; }   // AI5: --check-turn-engage (selftest_turn.cpp)
   { extern bool leanCapture(App&, float); if (leanCapture(app, dt)) return; }   // MV3: --capture-lean (selftest_lean.cpp)
