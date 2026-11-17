@@ -980,7 +980,7 @@ void Game::posesStep(float dt) {
       bool bot = !s.human && !s.localPlayer;
       s.anCarry += ((moving && !engaged && !bot ? 1.0f : 0.0f) - s.anCarry) * k;
       s.anMoveAim += ((moving && (engaged || bot) ? 1.0f : 0.0f) - s.anMoveAim) * k;
-      pp.hunch = bot ? 1.0f : 0.0f;
+      pp.hunch = bot ? (s.kit == 2 ? 0.5f : 1.0f) : 0.0f;   // SW3: blaster troopers aim and fire half as hunched (taller stance); cover crouching unchanged
       s.anLow += ((!moving && !engaged ? (s.posture == Physics::CROUCH ? 0.25f : 0.45f) : 0.0f) - s.anLow) * k;   // relaxed ready: shouldered low
       s.anTwist += (yawOff - s.anTwist) * (1.0f - std::exp(-dt / 0.12f));   // no snapping torso twist
       pp.kneel = s.anKneel; pp.carry = s.anCarry; pp.moveAim = s.anMoveAim; pp.aimYawOffset = s.anTwist;
