@@ -1,0 +1,126 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  2.370967388153076,
+  2.3290657997131348,
+  1.418977975845337
+ ],
+ "bmin": [
+  -2.3771941661834717,
+  0.0,
+  -1.4071261882781982
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "searsia_lucida",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "searsia_lucida_leaves",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "searsia_lucida_twigs",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.289882183074951,
+    2.2111504077911377,
+    1.334963321685791
+   ],
+   "bmin": [
+    -2.3438570499420166,
+    0.0,
+    -1.4009418487548828
+   ],
+   "count": 92949,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "searsia_lucida_a_LOD0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.3444416522979736,
+    2.3290657997131348,
+    1.418977975845337
+   ],
+   "bmin": [
+    -2.3771941661834717,
+    0.06710612773895264,
+    -1.4071261882781982
+   ],
+   "count": 39558,
+   "first": 92949,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "searsia_lucida_a_LOD0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.370967388153076,
+    2.286045789718628,
+    1.3520457744598389
+   ],
+   "bmin": [
+    -2.2222094535827637,
+    0.06522105634212494,
+    -1.284156084060669
+   ],
+   "count": 8937,
+   "first": 132507,
+   "mat": 2,
+   "metal": 0.0,
+   "name": "searsia_lucida_a_LOD0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_searsia_lucida.glb",
+ "textures": {},
+ "triangles": 47148,
+ "vertices": 64185
+}

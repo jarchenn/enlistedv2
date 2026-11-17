@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.06206411123275757,
+  0.15137778222560883,
+  0.062097154557704926
+ ],
+ "bmin": [
+  -0.06226646155118942,
+  0.0,
+  -0.062337860465049744
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "can_rusted",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.06206411123275757,
+    0.15137778222560883,
+    0.062097154557704926
+   ],
+   "bmin": [
+    -0.06226646155118942,
+    0.0,
+    -0.062337860465049744
+   ],
+   "count": 5280,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "can_rusted",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_can_rusted.glb",
+ "textures": {},
+ "triangles": 1760,
+ "vertices": 974
+}

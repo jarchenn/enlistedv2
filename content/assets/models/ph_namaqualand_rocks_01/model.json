@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.7241179347038269,
+  0.15248534083366394,
+  0.10847987979650497
+ ],
+ "bmin": [
+  -0.7241179347038269,
+  0.0,
+  -0.10847987979650497
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "namaqualand_rocks_02",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.7241179347038269,
+    0.15248534083366394,
+    0.10847987979650497
+   ],
+   "bmin": [
+    -0.7241179347038269,
+    0.0,
+    -0.10847987979650497
+   ],
+   "count": 128574,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "namaqualand_rocks_02_a",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_namaqualand_rocks_01.glb",
+ "textures": {},
+ "triangles": 42858,
+ "vertices": 23589
+}

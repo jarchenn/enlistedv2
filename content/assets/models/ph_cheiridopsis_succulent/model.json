@@ -1,0 +1,93 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  1.080728530883789,
+  0.2707609534263611,
+  0.4793242812156677
+ ],
+ "bmin": [
+  -1.080728530883789,
+  0.0,
+  -0.4793242812156677
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "cheiridopsis_succulent",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "cheiridopsis_succulent_flower",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.080728530883789,
+    0.24145260453224182,
+    0.4793242812156677
+   ],
+   "bmin": [
+    -1.080728530883789,
+    0.0,
+    -0.4793242812156677
+   ],
+   "count": 121281,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "cheiridopsis_succulent_a_LOD0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.9291362166404724,
+    0.2707609534263611,
+    0.47931450605392456
+   ],
+   "bmin": [
+    -0.523271381855011,
+    0.08129523694515228,
+    -0.43981117010116577
+   ],
+   "count": 2376,
+   "first": 121281,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "cheiridopsis_succulent_a_LOD0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_cheiridopsis_succulent.glb",
+ "textures": {},
+ "triangles": 41219,
+ "vertices": 39637
+}
