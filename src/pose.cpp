@@ -384,7 +384,9 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
         if ((onGrip ? p.gripRad : p.guardRad) > 0) {   // AN1 step 2b: the palm on the measured surface: the axis point at the socket, out by the radius and the palm's half thickness
           vec3 c = xf(weapon, onGrip ? p.gripC : p.guardC), ax = onGrip ? glm::normalize(glm::mat3(weapon) * p.gripAx) : glm::normalize(vec3(weapon[2]));
           vec3 onAx = c + ax * glm::dot(T - c, ax);
-          T = glm::mix(T, onAx - palmDir[side] * (cr + m.palmThick[side]) - handDir[side] * (5.0f * 0.009f * m.handScale), w);   // the rig's own palm thickness   // the palm's centre (half the hand length from the wrist) on the axis line
+          vec3 Tn = m.fingerless ? onAx - handDir[side] * m.fistF[side] - palmDir[side] * m.fistN[side]   // AN1 step 2d: the modelled fist's centre on the axis
+                                 : onAx - palmDir[side] * (cr + m.palmThick[side]) - handDir[side] * (5.0f * 0.009f * m.handScale);   // the rig's own palm thickness
+          T = glm::mix(T, Tn, w);   // the palm's centre (half the hand length from the wrist) on the axis line
         } else T -= (handDir[side] * 0.075f + palmDir[side] * (side ? 0.03f : 0.04f)) * w;   // the palm's surface (not the bones) against the weapon
       }
       // elbows hang down and in (not winged out)
@@ -407,7 +409,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       if (int fh = hs < 0 ? handOf(j) : -1; fh >= 0) {
         int f = j < (int)m.finger.size() ? m.finger[j] : -1;
         if (f >= 0) {
-          if (m.fingerSeg[j] == 1) solveFinger(j, fh, Pd);
+          if (m.fingerSeg[j] == 1 && !m.fingerless) solveFinger(j, fh, Pd);
           D[j] = glm::angleAxis(solved[j] > -9 ? solved[j] : fingerCurl(fh, f, m.fingerSeg[j]), spreadQ[j] * m.fingerAx[j]) * spreadQ[j];
         }
         else if (armSolved[fh] && handW[fh] > 0) D[j] = glm::angleAxis(0.4f * handW[fh], curlAx[fh]);   // unnamed finger joints: one curl
