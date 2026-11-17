@@ -637,10 +637,9 @@ void AiCore::move(Soldier& s, float dt) {
   float off = std::fabs(angDiff(aimWant, bodyWant));
   b.faceAim = moving && m.speed != SPD_SPRINT && (b.faceAim ? off > 35.0f : off > 55.0f);
   if (b.faceAim) bodyWant = aimWant;
-  if (s.zombie) { float turn = 300.0f * dt; s.yaw = wrapDeg(s.yaw + std::clamp(angDiff(bodyWant, s.yaw), -turn, turn)); }
-  else {
-    const float w = 9.0f; float e = angDiff(bodyWant, s.yaw);
-    b.yawVel += (w * w * e - 2 * w * b.yawVel) * dt; b.yawVel = std::clamp(b.yawVel, -300.0f, 300.0f);
+  {   // AN1 step 7: zombie types too (was a flat 300 deg/s clamp); a bigger body turns slower
+    const float big = s.zombie ? std::max(1.0f, s.eScale) : 1.0f, w = 9.0f / std::sqrt(big); float e = angDiff(bodyWant, s.yaw);
+    b.yawVel += (w * w * e - 2 * w * b.yawVel) * dt; b.yawVel = std::clamp(b.yawVel, -300.0f / big, 300.0f / big);
     s.yaw = wrapDeg(s.yaw + b.yawVel * dt);
   }
   int posture = m.posture;

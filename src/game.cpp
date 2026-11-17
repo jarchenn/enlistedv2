@@ -1064,7 +1064,7 @@ void Game::posesStep(float dt) {
       pp.gripC = d.gripC; pp.gripAx = d.gripAx; pp.gripRad = d.gripRad; pp.guardC = d.guardC; pp.guardRad = d.guardRad; pp.sightR = d.rear; }   // AN1 step 2b
     pp.reload = s.reload > 0 && s.reloadTotal > 0 ? 1.0f - s.reload / s.reloadTotal : 0;
     pp.throwT = s.throwT; pp.recoil = s.recoil;
-    if (static const char* tr = std::getenv("NMK_AIM_TRACE"); tr && !s.human && !s.localPlayer && !s.zombie && s.alive && s.slot < 16) {   // AN1 step 3: the bots' body / gun facing per frame (aimtrace.csv)
+    if (static const char* tr = std::getenv("NMK_AIM_TRACE"); tr && !s.human && !s.localPlayer && s.alive && s.slot < 16) {   // AN1 step 3: the bots' body / gun facing per frame (aimtrace.csv; step 7: zombie types too)
       static FILE* f = nullptr; if (!f) { std::error_code ec; fs::create_directories(exeDir() / "selftest_out", ec); f = std::fopen((exeDir() / "selftest_out" / "aimtrace.csv").string().c_str(), "w"); if (f) std::fprintf(f, "t,slot,bodyYaw,gunYaw,gunPitch,speed,engaged\n"); }
       if (f) std::fprintf(f, "%.4f,%d,%.2f,%.2f,%.2f,%.2f,%d\n", t, s.slot, s.yaw, wrapDeg(s.yaw + degrees(pp.aimYawOffset)), degrees(pp.aimPitch), s.speed, s.anMoveAim > 0.5f ? 1 : 0);
     }
