@@ -1,0 +1,75 @@
+{
+ "_doc": "PR2: furniture asset -> Poly Haven model replacing its look (tools/props/furn_fit.py writes content/settings/furniture_models.json). Chosen in the PR2 audit (docs/furniture-change-requests.md): the in-house piece read poorly at 1 m next to its reference photo and a scanned model of the same object, era and size exists.",
+ "furn_armchair": {
+  "ph": "GreenChair_01",
+  "why": "upholstered fauteuil with show-wood frame"
+ },
+ "furn_barrel": {
+  "ph": "wine_barrel_01",
+  "why": "oak cask, real staves and hoops"
+ },
+ "furn_bed": {
+  "ph": "GothicBed_01",
+  "why": "carved oak bed with posts, made up"
+ },
+ "furn_bucket": {
+  "ph": "wooden_bucket_01",
+  "why": "coopered pail with handle"
+ },
+ "furn_chair_slat": {
+  "ph": "painted_wooden_chair_01",
+  "why": "painted farmhouse chair, slatted back"
+ },
+ "furn_clock": {
+  "ph": "vintage_grandfather_clock_01",
+  "why": "long-case clock with hood, dial and pendulum trunk"
+ },
+ "furn_commode": {
+  "ph": "GothicCommode_01",
+  "why": "three-drawer chest with pulls"
+ },
+ "furn_dresser": {
+  "ph": "WoodenTable_03",
+  "why": "low buffet: drawers over doors"
+ },
+ "furn_lamp": {
+  "ph": "vintage_oil_lamp",
+  "why": "brass oil lamp with glass chimney"
+ },
+ "furn_mirror": {
+  "ph": "ornate_mirror_01",
+  "why": "gilt-framed looking glass"
+ },
+ "furn_stool": {
+  "ph": "wooden_stool_01",
+  "why": "low turned stool"
+ },
+ "furn_table_low": {
+  "ph": "small_wooden_table_01",
+  "why": "low oak table"
+ },
+ "furn_mod_armchair": {
+  "ph": "modern_arm_chair_01",
+  "why": "upholstered lounge armchair"
+ },
+ "furn_mod_bar_stool": {
+  "ph": "bar_chair_round_01",
+  "why": "round bar stool"
+ },
+ "furn_mod_stove": {
+  "ph": "electric_stove",
+  "why": "freestanding electric cooker"
+ },
+ "furn_mod_wheelchair": {
+  "ph": "wheelchair_01",
+  "why": "folding steel wheelchair"
+ },
+ "furn_mod_wall_clock": {
+  "ph": "wall_clock",
+  "why": "round wall clock"
+ },
+ "furn_settee": {
+  "ph": "sofa_03",
+  "why": "buttoned leather settee with show-wood frame"
+ }
+}

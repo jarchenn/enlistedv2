@@ -748,6 +748,7 @@ mat4 GpuModel::animAt(int part, float u) const {
   return m;
 }
 
+json furnitureModelFor(const std::string& id);   // assets.cpp (PR2)
 bool importWeaponModels(const fs::path& srcDir, const fs::path& contentRoot) {
   std::map<std::string, json> done;   // output dir -> the model block that baked it
   int ok = 0, bad = 0;
@@ -760,6 +761,7 @@ bool importWeaponModels(const fs::path& srcDir, const fs::path& contentRoot) {
   for (auto& f : files) {
     fs::path wdir = f.parent_path();
     json j; try { j = json::parse(readTextFile(f)); } catch (...) { continue; }
+    if (j.is_object() && !j.contains("model")) { json fm = furnitureModelFor(j.value("id", f.stem().string())); if (!fm.is_null()) j["model"] = fm; }   // PR2 replaced furniture
     if (j.contains("models") && j["models"].is_array()) for (auto& mj : j["models"]) {   // PR1 attached modelled pieces: <dir>.glb, ground pivot, metres
       json b = mj.value("bake", json::object());
       std::string d = mj.value("dir", std::string());

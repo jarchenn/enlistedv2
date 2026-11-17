@@ -501,6 +501,7 @@ static Part parsePart(const json& j, const std::map<std::string, int>& mats) {
   auto mit = mats.find(j.value("m", ""));
   p.mat = mit == mats.end() ? 0 : mit->second;
   p.visible = j.value("v", 1) != 0 && !(gModelBaked && j.value("mf", 0) != 0);
+  p.standIn = j.value("v", 1) != 0 && !p.visible;
   if (j.contains("q")) p.rot = glm::normalize(quat(j["q"][3].get<float>(), j["q"][0].get<float>(), j["q"][1].get<float>(), j["q"][2].get<float>()));   // explicit quaternion (x, y, z, w)
   p.collide = j.value("k", 1) != 0; p.playerOnly = j.value("k", 1) == 2; p.sec = j.value("sec", -1); p.grp = j.value("g", -1);
   p.lodDetail = j.value("lod", 0) >= 1;
@@ -773,13 +774,27 @@ static void extractTrim(AssetDef& a, const json& j, std::vector<Panel>& out, vec
   a.parts.swap(keep);
 }
 
+json furnitureModelFor(const std::string& id) {   // PR2: content/settings/furniture_models.json, id -> model block ("_ref": notes, dropped)
+  static json over = [] { json o; try { o = json::parse(readTextFile(contentDir() / "settings" / "furniture_models.json")); } catch (...) {} return o.is_object() ? o : json::object(); }();
+  auto f = over.find(id);
+  if (f == over.end() || !f->is_object()) return json();
+  json m = *f; m.erase("_ref"); return m;
+}
+
 bool AssetLibrary::loadOne(const fs::path& path) {
   json j;
   try { j = json::parse(readTextFile(path)); } catch (std::exception& e) { logf("asset %s: parse error %s", path.string().c_str(), e.what()); return false; }
   auto a = std::make_unique<AssetDef>();
   a->file = path.filename().string();
+  a->id = j.is_object() ? j.value("id", path.stem().string()) : path.stem().string();
+  {   // PR2: content/settings/furniture_models.json: furniture drawn by an imported model, its parts kept as stand-ins
+    json f = furnitureModelFor(a->id);
+    if (!f.is_null() && j.is_object() && !j.contains("model") && j.contains("parts")) {
+      j["model"] = f;
+      for (auto& pj : j["parts"]) pj["mf"] = 1;
+    }
+  }
   a->raw = j; a->vehicle = j.is_object() && j.contains("vehicle");
-  a->id = j.value("id", path.stem().string());
   a->version = j.value("version", 1);
   a->name = j.value("name", a->id);
   a->category = j.value("category", "Misc");

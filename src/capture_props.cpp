@@ -1,7 +1,7 @@
 // --capture-props: no suite, close-up shots of props (PR1): each asset of NMK_PROPS (ids separated by ";"; an entry
 // "id@x,y,z" aims at that asset-space point instead of the bounds' centre, e.g. one fuel dispenser of the petrol
 // station) placed alone on a blank map by day, shot from 1.5 m and 4 m at standing eye height (1.62 m), 35 degrees off
-// its +z face, into selftest_out/prop_<k>_<n|f>.png; selftest_out/props.txt lists them (tools/props/sheet.py stitches
+// its +z face (NMK_PROPS_NEAR: the near distance; NMK_PROPS_NEAR_ONLY: no far shot), into selftest_out/prop_<k>_<n|f>.png; selftest_out/props.txt lists them (tools/props/sheet.py stitches
 // the labelled contact sheet). The editor camera, no UI.
 #include "selftest.h"
 #include "settings.h"
@@ -31,8 +31,18 @@ bool capturePropsSelfTest(App& a, float dt) {
       if (p != std::string::npos) { s.aim = true; std::sscanf(tok.c_str() + p + 1, "%f,%f,%f", &s.at.x, &s.at.y, &s.at.z); }
       const AssetDef* as = a.lib.find(s.id);
       if (!as) { logf("[capture-props] no asset %s", s.id.c_str()); continue; }
-      float x = -175.0f + (n % 8) * 50.0f, z = -175.0f + (n / 8) * 50.0f; ++n;   // a grid inside the blank map
+      // rows across the blank map, each piece its own footprint + 8 m apart (props ~ 20 m: up to ~400 in one run; PR2: whole buildings too)
+      static float cx = -190.0f, cz = -190.0f, rowD = 0.0f;
+      float w = std::max(12.0f, std::max(as->bmax.x - as->bmin.x, as->bmax.z - as->bmin.z) + 8.0f);
+      if (cx + w > 190.0f) { cx = -190.0f; cz += rowD; rowD = 0.0f; }
+      float x = cx + w * 0.5f, z = cz + w * 0.5f; cx += w; rowD = std::max(rowD, w); ++n;
       s.inst = a.placeInstance(as, vec3(x, a.terrain.height(x, z), z), 0);
+      if (!s.inst && as->raw.is_object() && as->raw.contains("prop")) {   // PR2: a wall / ceiling piece with nothing to hang on: put it in the air at its height
+        const json& pj = as->raw["prop"];
+        Instance i; i.id = a.doc.newId(); i.assetId = as->id; i.assetVersion = as->version;
+        i.pos = vec3(x, a.terrain.height(x, z) + (pj.value("hang", false) ? 2.6f : pj.value("mount", 1.2f)), z);
+        a.doc.instances.push_back(i); s.inst = i.id;
+      }
       if (!s.inst) { logf("[capture-props] %s could not be placed", s.id.c_str()); continue; }
       gShots.push_back(s);
     }
@@ -43,14 +53,17 @@ bool capturePropsSelfTest(App& a, float dt) {
     std::ofstream f(out("props.txt")); for (auto& s : gShots) f << s.id << "\n";
     return true;
   }
-  if (gK >= (int)gShots.size() * 2) { a.hideUi = false; logf("[capture-props] %d shots", gK); return finish(0); }
+  static const bool nearOnly = std::getenv("NMK_PROPS_NEAR_ONLY") != nullptr;   // PR2 audit: the near shot alone (half the GPU time)
+  if (nearOnly && gK % 2) ++gK;
+  if (gK >= (int)gShots.size() * 2) { a.hideUi = false; logf("[capture-props] %d shots", nearOnly ? gK / 2 : gK); return finish(0); }
   Shot& s = gShots[gK / 2]; bool far = gK % 2;
   Instance* inst = a.doc.find(s.inst); auto rt = a.rt.find(s.inst);
   if (inst && rt != a.rt.end() && rt->second.asset) {
     const AssetDef& as = *rt->second.asset;
     vec3 c = s.aim ? s.at : (as.bmin + as.bmax) * 0.5f;
     vec3 tgt = inst->pos + yawQuat(inst->yaw) * c;
-    float d = far ? 4.0f : 1.5f, ang = glm::radians(35.0f);
+    static const float nearD = std::getenv("NMK_PROPS_NEAR") ? (float)std::atof(std::getenv("NMK_PROPS_NEAR")) : 1.5f;   // PR2 audit: 1 m
+    float d = far ? 4.0f : nearD, ang = glm::radians(35.0f);
     vec3 dir = yawQuat(inst->yaw) * vec3(std::sin(ang), 0, std::cos(ang));
     vec3 eye = tgt + dir * (d + (s.aim ? 0.0f : 0.5f * std::max(as.bmax.x - as.bmin.x, as.bmax.z - as.bmin.z) * 0.5f));
     eye.y = inst->pos.y + 1.62f;
@@ -59,6 +72,6 @@ bool capturePropsSelfTest(App& a, float dt) {
   }
   gT += dt;
   if (gT > 1.2f && gT < 1.2f + dt * 1.5f) a.uiShot = out("prop_" + std::to_string(gK / 2) + (far ? "_f" : "_n") + ".png");
-  if (gT > 1.5f) { ++gK; gT = 0; }
+  if (gT > 1.5f && a.uiShot.empty()) { ++gK; gT = 0; }   // PR2: wait while the shot is still pending (window minimised)
   return true;
 }
