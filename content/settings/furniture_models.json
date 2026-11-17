@@ -308,35 +308,6 @@
   "cullDist": 60,
   "credit": "Wooden Table 03 by Gabriel Radić, Poly Haven (polyhaven.com/a/WoodenTable_03), CC0"
  },
- "furn_hutch_glazed": {
-  "_ref": "vintage_cabinet_01 (Poly Haven, CC0): glazed dresser cabinet (PR3)",
-  "src": "ph_vintage_cabinet_01.glb",
-  "dir": "fr_hutch_glazed",
-  "pivot": "ground",
-  "scale": 0.7718,
-  "rot": [
-   0,
-   0,
-   0
-  ],
-  "axes": [
-   0.8415,
-   1.1363,
-   1.0044
-  ],
-  "offset": [
-   0.0,
-   0,
-   0.01
-  ],
-  "jpgMaps": true,
-  "maxTex": 1024,
-  "simplify": 0.5,
-  "lod1": 0.25,
-  "lodDist": 12,
-  "cullDist": 60,
-  "credit": "Vintage Cabinet 01 by Rico Cilliers, Poly Haven (polyhaven.com/a/vintage_cabinet_01), CC0"
- },
  "furn_lamp": {
   "_ref": "vintage_oil_lamp (Poly Haven, CC0): brass oil lamp with glass chimney",
   "src": "ph_vintage_oil_lamp.glb",
