@@ -306,7 +306,8 @@ public:
   bool loadAll(const fs::path& dir);
   const AssetDef* find(const std::string& id) const;
   void build(AssetDef& a) const;
-  void release(AssetDef& a) const;   // MEM2: back to the header (an asset built only for its palette tile)   // MEM1: geometry / GPU / collision of a catalogue asset, once (find calls it)
+  void release(AssetDef& a) const;
+  int releaseAll() const;            // MEM2: every built asset but the eager ones (a map load: the old map's go, the new one builds its own)   // MEM2: back to the header (an asset built only for its palette tile)   // MEM1: geometry / GPU / collision of a catalogue asset, once (find calls it)
   bool lazy = false;               // MEM1: loadAll leaves assets unbuilt until first use (the game; full self-tests build all)
   AssetDef* placeholder() { return &placeholder_; }
   std::vector<std::unique_ptr<AssetDef>> assets;
