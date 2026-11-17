@@ -1,4 +1,5 @@
 #include "app.h"
+#include "sd_game.h"   // SD3
 #include "mainmenu.h"
 #include "loading.h"
 #include "ui_glass.h"
@@ -630,7 +631,8 @@ bool App::saveMapTo(const fs::path& p) {
   doc.camera.set = true; doc.camera.pos = camPos; doc.camera.yaw = camYaw; doc.camera.pitch = camPitch;
   if (mode == Mode::Explore) { doc.camera.pos = savedCam.pos; doc.camera.yaw = savedCam.yaw; doc.camera.pitch = savedCam.pitch; }
   std::string err;
-  if (!saveMap(p, doc, err)) { toast("Save failed: " + err, 8); return false; }
+  MapDoc withParked; const MapDoc& out = sdDocToSave(doc, withParked);   // SD3: vehicles parked for a match are saved too
+  if (!saveMap(p, out, err)) { toast("Save failed: " + err, 8); return false; }
   aiNavSidecarSave(*this, navSidecar, navSidecarOf(p));   // PF1: the navmesh bakes that still match the map
   docPath = p; navSidecar = navSidecarOf(p); dirty = false;
   toast("Saved " + p.filename().string());
@@ -986,7 +988,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-swim") runSelf = true;     // swimming, underwater view, breath (selftest_swim.cpp)
     else if (a == "--capture-heli" || a == "--gen-vehicle-spawns" || a == "--capture-vh7" || a == "--check-ed2" || a == "--check-vh8" || a == "--capture-vh8") runSelf = true;   // VH5 (capture_heli.cpp)
     else if (a == "--selftest-zombies" || a == "--capture-heavies" || a == "--capture-commands" || a == "--capture-ch1" || a == "--capture-ch6" || a == "--capture-ch8" || a == "--capture-fighter2" || a == "--capture-fighter2-slam") runSelf = true;
-    else if (a == "--capture-tk1" || a == "--check-tk1-match" || a == "--capture-tk2" || a == "--selftest-sd" || a == "--selftest-playerdmg") runSelf = true;   // TK1 (capture_tk1.cpp)
+    else if (a == "--capture-tk1" || a == "--check-tk1-match" || a == "--capture-tk2" || a == "--selftest-sd" || a == "--selftest-playerdmg" || a == "--selftest-prone" || a == "--selftest-sd3") runSelf = true;   // TK1 (capture_tk1.cpp)
     else if (a == "--capture-br-models" || a == "--capture-br-worn") runSelf = true;   // BR3 / BR8: a look at the Battle Royale models and worn gear (selftest_brmodels.cpp)
     else if (a == "--capture-jeep" || a == "--capture-abrams") runSelf = true;
     else if (a == "--selftest-tdm-live") runSelf = true;   // CV1: a big TDM, spawn tour shots (selftest_royale_live.cpp)

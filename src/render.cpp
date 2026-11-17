@@ -4859,8 +4859,9 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   }
   glDrawArrays(GL_TRIANGLES, 0, 3);
 
-  // ---- editor overlays (separate pass; never drawn in Explore)
-  if (v.editor && (!ov.lines.empty() || !ov.tris.empty() || !ov.linesTop.empty())) {
+  // ---- editor overlays (separate pass); in Explore only the game's ground markings (gWorldMarks)
+  const Overlay& ovD = v.editor ? ov : gWorldMarks;
+  if ((v.editor || !thumbMode) && (!ovD.lines.empty() || !ovD.tris.empty() || !ovD.linesTop.empty())) {
     glUseProgram(progLine);
     glUniformMatrix4fv(U(progLine, "uVP"), 1, GL_FALSE, glm::value_ptr(vpU));
     glBindVertexArray(lineVao);
@@ -4872,9 +4873,9 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       glDrawArrays(mode, 0, (GLsizei)vv.size());
     };
     glDepthMask(GL_FALSE);
-    drawV(ov.tris, GL_TRIANGLES, true);
-    drawV(ov.lines, GL_LINES, true);
-    drawV(ov.linesTop, GL_LINES, false);
+    drawV(ovD.tris, GL_TRIANGLES, true);
+    drawV(ovD.lines, GL_LINES, true);
+    drawV(ovD.linesTop, GL_LINES, false);
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
   }

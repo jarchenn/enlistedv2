@@ -23,13 +23,13 @@ SdConfig SdConfig::load() {
   json j; try { j = json::parse(readTextFile(contentDir() / "settings" / "search_destroy.json")); } catch (...) { logf("sd: content/settings/search_destroy.json missing or unreadable: the spec defaults, no shop"); return c; }
   auto F = [&](const char* k, float& v) { if (j.contains(k) && j[k].is_number()) v = j[k].get<float>(); };
   auto I = [&](const char* k, int& v) { if (j.contains(k) && j[k].is_number()) v = j[k].get<int>(); };
-  F("warmup_s", c.warmup); F("ready_s", c.ready); F("freeze_s", c.freeze); F("liveBuy_s", c.liveBuy); F("round_s", c.roundTime); F("plant_s", c.plantTime);
+  F("warmup_s", c.warmup); c.warmupDefault = j.value("warmup", c.warmupDefault); c.vehiclesDefault = j.value("vehicles", c.vehiclesDefault); F("ready_s", c.ready); F("freeze_s", c.freeze); F("liveBuy_s", c.liveBuy); F("round_s", c.roundTime); F("plant_s", c.plantTime);
   F("fuse_s", c.fuse); F("defuseKit_s", c.defuseKit); F("defuse_s", c.defuseNoKit); F("roundEnd_s", c.roundEnd); F("halftime_s", c.halftime); F("timeout_s", c.timeout);
   I("timeouts", c.timeouts); I("halfRounds", c.halfRounds); I("winRounds", c.winRounds); I("otHalfRounds", c.otHalf); I("otWinRounds", c.otWin); I("otCash", c.otCash); I("teamSize", c.teamSize);
   I("startCash", c.startCash); I("maxCash", c.maxCash); I("winElimination", c.winElim); I("winTime", c.winTime); I("winDetonation", c.winDetonate); I("winDefuse", c.winDefuse);
   I("plantReward", c.plantBonus); I("defuseReward", c.defuseBonus); I("plantedLossBonus", c.plantedLossBonus); I("lossBase", c.lossBase); I("lossStep", c.lossStep); I("lossMax", c.lossMax); I("lossStart", c.lossStart);
   I("teamKillPenalty", c.teamKillPenalty);
-  F("defuseRange_m", c.defuseRange); F("bombDamage", c.bombDamage); F("bombRadius_m", c.bombRadius); F("bombCoverMult", c.bombCoverMult); F("buyRadius_m", c.buyRadius);
+  F("defuseRange_m", c.defuseRange); F("bombDamage", c.bombDamage); F("bombRadius_m", c.bombRadius); F("bombCoverMult", c.bombCoverMult); F("buyRadius_m", c.buyRadius); F("speed_x", c.speedX);
   if (j.contains("friendlyFire")) c.friendlyFire = j.value("friendlyFire", true);
   if (j.contains("killReward") && j["killReward"].is_object()) {
     const char* k[8] = {"firearm", "smg", "shotgun", "sniperHeavy", "knife", "grenade", "bomb", "world"};
@@ -140,6 +140,7 @@ void SdMatch::endRound(int win, SdReason why) {
       if (attackersLost && planted) pay(p.slot, cfg.plantedLossBonus, "planted, lost");
     }
   }
+  for (auto& p : players) if (p.team == lt && !p.alive) { p.gear.primary.clear(); p.gear.secondary.clear(); }   // SD3: the losers' dead lose their guns, the winners' dead keep theirs
   lossIdx[lt] = std::min(cfg.lossMax, lossIdx[lt] + 1); lossIdx[wt] = std::max(0, lossIdx[wt] - 1);
   phase = SdPhase::RoundEnd; phaseEnd = t + cfg.roundEnd;
   SdEvent e{SdEvent::RoundEnd}; e.team = wt; e.reason = why; e.amount = round;
@@ -236,7 +237,8 @@ void SdMatch::onKill(int v, int k, SdKill kind, bool teamKill) {
   if (planter == v) { planter = -1; plantProgress = 0; }
   p.alive = false;
   if (phase == SdPhase::Warmup) return;
-  ++p.deaths; p.gear.clear();   // spec §6: death loses inventory (the next round grants the defaults)
+  ++p.deaths; p.gear.armor = 0; p.gear.helmet = p.gear.kit = false; p.gear.grenades.clear();   // death loses armor, kit and grenades (spec §6)
+  if (roundWinner >= 0 && p.team != roundWinner) { p.gear.primary.clear(); p.gear.secondary.clear(); }   // SD3: the guns wait for the result: the winning side keeps them (deviation 17)
   if (roundWinner >= 0 || phase == SdPhase::MatchEnd) return;   // latched: no more cash
   if (k < 0 || k >= (int)players.size() || k == v) return;
   if (teamKill) { pay(k, -cfg.teamKillPenalty, "team kill"); return; }
@@ -435,6 +437,15 @@ std::vector<std::string> sdLogicSelfCheck() {
     fail(!m.canBuy(2, "kit", true).empty() && m.canBuy(0, "kit", true).empty(), "kits are for the defenders only");
     m.buy(2, "flash", true); m.buy(2, "flash", true); fail(!m.buy(2, "flash", true), "two flashes per round");
     fail(m.refund(2, "flash", true) && m.players[2].cash == 5000 - 200, "a refund restores the price");
+  }
+  {   // SD3: the winning side keeps its guns, its dead too; the losing side's dead lose theirs; armor goes with a death either way
+    SdMatch m; fresh(m); auto in = everyone(4); toLive(m, in);
+    for (int s : {0, 2, 3}) { m.players[s].gear.primary = "modern_ak"; m.players[s].gear.armor = 100; }
+    in[0].alive = false; m.onKill(0, 2, SdKill::Firearm, false);   // a defender dies first
+    in[2].alive = in[3].alive = false; m.onKill(2, 1, SdKill::Firearm, false); m.onKill(3, 1, SdKill::Firearm, false); m.update(0.05f, in);
+    fail(m.roundWinner == 0, "carry-over: the defenders win by elimination");
+    fail(m.players[0].gear.primary == "modern_ak" && m.players[0].gear.armor == 0, "carry-over: a dead winner keeps its gun, not its armor");
+    fail(m.players[2].gear.primary.empty() && m.players[3].gear.primary.empty(), "carry-over: the losers' dead lose their guns");
   }
   return bad;
 }

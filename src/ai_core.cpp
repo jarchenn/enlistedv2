@@ -166,6 +166,7 @@ void AiCore::begin(vec3 lo, vec3 hi) {
   vSprint = mv.value("sprint_mps", vSprint); vJog = mv.value("run_mps", vJog); vCrouch = mv.value("crouch_mps", vCrouch); vProne = mv.value("prone_mps", vProne);
   gravity = mv.value("gravity_mps2", gravity); jumpV = mv.value("jumpVelocity_mps", jumpV);
   vWalk = tj("movement", "walk_mps", 1.6f);
+  { const float k = std::clamp(mv.value("infantrySpeed_x", 1.0f), 0.3f, 2.0f); vSprint *= k; vJog *= k; vCrouch *= k; vProne *= k; vWalk *= k; }   // GP1: the player's infantry factor (movement.json); zombies keep their own speeds
   diff = AiDifficulty::load(diffj, aiDifficultySetting());
   rayBudget = (int)tj("budget", "raysPerFrame", 200); pathStartsPerFrame = (int)tj("budget", "pathStartsPerFrame", 4);
   mapName = app.doc.name.empty() ? std::string("untitled") : app.doc.name;

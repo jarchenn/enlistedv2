@@ -18,6 +18,7 @@
 #include "royale.h"
 #include "game.h"
 #include "commands.h"   // CMD1 "/" command line
+#include "sd_game.h"   // SD3
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -328,6 +329,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
     Physics::flyCharacter(dt, d * (in.sprint ? 30.0f : 9.0f));
   }
   bool jumped = !occupied && !flying && Physics::updateCharacter(dt, wish * speed + knockVel, jump, postureWanted, eyeYaw);
+  if (in.prone && proneToggle && !occupied && !flying && Physics::character().posture != Physics::PRONE) toast("No room to lie down here", 1.5);   // GP1: only a space smaller than a prone body refuses
   knockVel *= std::exp(-5.0f * dt);
   if (jumped) spendStamina(move.staminaJump);   // buffered and coyote jumps too
   { int pp = Physics::character().posture; tickStamina(dt, sprinting && glm::length(wish) > 0.1f, pp == Physics::CROUCH || pp == Physics::PRONE ? move.staminaLowRegen : 1.0f); }   // crouched / prone: faster recovery
@@ -421,6 +423,7 @@ void App::updateExplore(float dt) {
   else if (!selftest) {
     if ((rackOpen || build.palette) && kp(win, GLFW_KEY_ESCAPE)) { if (rackOpen) closeRack("closed"); else setBuildPalette(false); }
     else if (lootInventoryOpen() && kp(win, GLFW_KEY_ESCAPE)) { lootSetInventory(false); lootOpenCase(0); }   // BR6: Esc closes the inventory / crate first
+    else if (sdBuyMenuOpen() && kp(win, GLFW_KEY_ESCAPE)) sdCloseBuyMenu();   // SD3: Esc closes the buy menu first
     else if (kp(win, GLFW_KEY_ESCAPE)) {
       pauseMenu = !pauseMenu; syncCursor();
     }

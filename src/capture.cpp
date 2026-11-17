@@ -20,6 +20,7 @@
 #include <functional>
 
 Overlay gAnnotOverlay;
+Overlay gWorldMarks;
 namespace {
 struct Cam { const char* name; vec3 pos, target; };
 std::vector<Cam> cams;

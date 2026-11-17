@@ -9,6 +9,7 @@
 #include "mpui.h"
 #include "mptest.h"
 #include "physics.h"
+#include "render.h"
 #include "sd_mode.h"
 #include "sd_game.h"
 #include <cstdlib>
@@ -87,14 +88,15 @@ bool playerDmgSelfTest(App& app, float dt) {
     vec3 f(-std::sin(radians(app.eyeYaw)), 0, -std::cos(radians(app.eyeYaw)));
     vec3 p = L->feet + f * 9.0f; p.y = app.terrain.height(p.x, p.z) + 0.05f;
     { Physics::Hit h; if (Physics::castRayEx(vec3(p.x, L->feet.y + 1.5f, p.z), vec3(0, -1, 0), 4.0f, h)) p.y = h.pos.y + 0.05f; }   // the player's floor (an SD spawn on a terrace), not the terrain under it
-    if (frames == 0 || glm::length(e->feet - L->feet) > 15.0f) { Physics::setAgentPos(e->agent, p); e->feet = p; }   // placed once (and again only if it wanders off): then it acts on its own
+    if (frames == 0 || glm::length(e->feet - L->feet) > 25.0f) { Physics::setAgentPos(e->agent, p); e->feet = p; e->yaw = degrees(std::atan2(-(L->feet.x - p.x), -(L->feet.z - p.z))); }   // placed once, facing the player (and again only if it wanders off): then it acts on its own
+    e->br.aimYaw = degrees(std::atan2(-(L->feet.x - e->feet.x), -(L->feet.z - e->feet.z)));   // test scaffolding: its look held on the player (bots see in a cone along their look; one running to cover elsewhere never turns): the case tests the damage path, not perception
     ++frames; onMe += e->br.target == L->slot;
     { int mem = (int)e->br.mem.size(), vis = 0; for (auto& x : e->br.mem) vis += x.enemy == L->slot && x.visible;
-      bool los = g.lineOfSight(g.eye(*e), g.chest(*L), nullptr); vec3 cp = Physics::character().pos;
+      float Tm = -1; bool los = g.lineOfSight(g.eye(*e), g.chest(*L), &Tm); float aw = 0; for (auto& x : e->br.mem) if (x.enemy == L->slot) aw = x.awareness; vec3 cp = Physics::character().pos;
       vec3 hj = vec3(L->world * vec4(L->pose.joint[CJ_HEAD], 1)), hip = vec3(L->world * vec4(L->pose.joint[CJ_HIPS], 1));
       if (frames == 200) T->note("player body model " + std::to_string(L->model) + ": posed head at " + std::to_string(hj.y - L->feet.y) + " m over the feet, " + std::to_string(glm::length(vec2(hj.x - L->feet.x, hj.z - L->feet.z))) + " m off to the side; hips at " + std::to_string(hip.y - L->feet.y) + " m");
-      char b[400]; std::snprintf(b, sizeof b, "held bot %d team %d role %d (player team %d role %d), target %d, why '%s', %.1f m; LOS %d, memory %d (player visible %d); player feet y %.1f, terrain %.1f, character y %.1f; SD phase %s, frozen %d, bot speed %.1f",
-        e->slot, e->team, (int)e->role, L->team, (int)L->role, e->br.target, e->br.why.c_str(), glm::length(e->feet - L->feet), (int)los, mem, vis, L->feet.y, app.terrain.height(L->feet.x, L->feet.z), cp.y,
+      char b[400]; std::snprintf(b, sizeof b, "held bot %d team %d role %d (player team %d role %d), target %d, why '%s', %.1f m; LOS %d (smoke T %.2f, fog T %.2f, awareness %.2f, next perceive in %.1f s), memory %d (player visible %d); player feet y %.1f, terrain %.1f, character y %.1f; SD phase %s, frozen %d, bot speed %.1f",
+        e->slot, e->team, (int)e->role, L->team, (int)L->role, e->br.target, e->br.why.c_str(), glm::length(e->feet - L->feet), (int)los, Tm, g.app.R.fogT(g.eye(*e), g.chest(*L)), aw, (float)(e->br.nextPerceive - g.t), mem, vis, L->feet.y, app.terrain.height(L->feet.x, L->feet.z), cp.y,
         sdMatch() ? sdPhaseName(sdMatch()->phase) : "-", (int)sdFrozen(), e->speed); heldInfo = b; }
   }
   return true;
