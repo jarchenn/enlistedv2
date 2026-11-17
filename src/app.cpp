@@ -1248,6 +1248,7 @@ int App::run(int argc, char** argv) {
         auto ok = [](vec3 v) { return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z); };
         if (ok(e) && ok(fv) && glm::dot(fv, fv) > 1e-6f) { lastE = e; lastF = fv; }
         else { static bool logged = false; if (!logged) { logged = true; logf("camera: non-finite (%f %f %f), the last valid one kept", e.x, e.y, e.z); } e = lastE; fv = lastF; }
+        if (std::fabs(fv.y) > 0.999f) fv = glm::normalize(vec3(std::fabs(lastF.y) < 0.999f ? lastF.x : 0.0f, fv.y > 0 ? 0.999f : -0.999f, std::fabs(lastF.y) < 0.999f ? lastF.z : 1.0f) * vec3(0.045f, 1, 0.045f) + vec3(0, 0, 0));   // straight up / down: lookAt's matrix is NaN along the up axis (it reached Terrain::height in the render): a hair off vertical
       }
       { extern bool gVh8CamOn; extern vec3 gVh8CamEye, gVh8CamAt; if (gVh8CamOn) { e = gVh8CamEye; fv = glm::normalize(gVh8CamAt - e); fov = 60; } }   // VH8 capture: outside view
       viewM = glm::lookAt(e, e + fv, viewUp(fv));   // swim.cpp: a slight roll with the stroke

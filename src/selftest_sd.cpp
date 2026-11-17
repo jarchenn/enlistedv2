@@ -98,6 +98,13 @@ bool sdSelfTest(App& app, float dt) {
   if (!shotPlanted && m.round == 4 && m.phase == SdPhase::LivePlanted) {   // the HUD with the bomb planted (spectating a teammate)
     shotPlanted = true; app.uiShot = exeDir() / "selftest_out" / "sd_planted.png";
   }
+  if ((m.round == 4 || m.round == 5) && forcedThisRound && m.phase == SdPhase::LiveUnplanted) {   // the plant is scripted by setup, not left to a race
+    // (the bots' pace changed with AN2: on Sun Fort the defenders reached the carrier first and won on elimination): the defenders
+    // are held 70 m from site A and the carrier is sturdy until the bot carrier has planted on the pad by itself
+    const vec3 a = g.match.sc.objectives[0].pos;
+    if (m.carrier >= 0) g.sold[m.carrier].hp = std::max(g.sold[m.carrier].hp, 1000.0f);
+    for (auto& s : g.sold) if (s.alive && m.sideOf(s.slot) == 1 && glm::length(s.feet - a) < 60.0f) { vec3 far = a + glm::normalize(s.feet - a + vec3(0.01f, 0, 0)) * 70.0f; far.y = g.app.terrain.height(far.x, far.z) + 0.1f; put(g, s, far); }
+  }
   if (m.round == 4 && m.phase == SdPhase::LivePlanted)   // nobody comes to defuse: it detonates
     for (auto& s : g.sold) if (s.alive && m.sideOf(s.slot) == 1 && glm::length(s.feet - m.bombPos) < 60.0f) { vec3 far = m.bombPos + glm::normalize(s.feet - m.bombPos + vec3(0.01f, 0, 0)) * 70.0f; far.y = g.app.terrain.height(far.x, far.z) + 0.1f; put(g, s, far); }
   if (m.round == 5 && m.phase == SdPhase::LivePlanted && stage == 0) {   // the attackers fall; a defender bot comes to defuse

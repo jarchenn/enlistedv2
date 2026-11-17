@@ -1290,7 +1290,7 @@ bool Game::cameraOrbit(vec3& e, vec3& f, float& fov) {
   if (Physics::castRayEx(target + nb * L0, nb, glm::length(back) - L0, h)) {
     float d = L0 + h.t - 0.2f;
     if (d >= 1.0f) cpos = target + nb * d;
-    else { vec3 up = target + vec3(0, 1.4f, 0) + nb * 0.6f; Physics::Hit h2; cpos = Physics::castRayEx(target, glm::normalize(up - target), glm::length(up - target), h2) ? target + vec3(0, 1.0f, 0) : up; }
+    else { vec3 up = target + vec3(0, 1.4f, 0) + nb * 0.6f; Physics::Hit h2; cpos = Physics::castRayEx(target, glm::normalize(up - target), glm::length(up - target), h2) ? target + vec3(0, 1.0f, 0) + nb * 0.3f : up; }   // never straight above the head: a view along the up axis made lookAt NaN (the terrain-guard hits)
   }
   e = cpos; f = glm::normalize(target - cpos); fov = 70;
   return true;
