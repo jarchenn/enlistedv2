@@ -1,0 +1,124 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.06179799884557724,
+  0.4503597617149353,
+  0.06179799884557724
+ ],
+ "bmin": [
+  -0.06179799884557724,
+  0.0,
+  -0.06179799884557724
+ ],
+ "materials": [
+  {
+   "albedo": "albedoa_1.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "vintage_oil_lamp_glass",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "vintage_oil_lamp",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "albedo": "albedoa_7.png",
+   "cutout": true,
+   "name": "vintage_oil_lamp_flame"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.012890751473605633,
+    0.4503597617149353,
+    0.012766873463988304
+   ],
+   "bmin": [
+    -0.012766767293214798,
+    0.23945845663547516,
+    -0.012766790576279163
+   ],
+   "count": 2016,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "vintage_oil_lamp_glass",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.06179799884557724,
+    0.26468271017074585,
+    0.06179799884557724
+   ],
+   "bmin": [
+    -0.06179799884557724,
+    0.0,
+    -0.06179799884557724
+   ],
+   "count": 8781,
+   "first": 2016,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "vintage_oil_lamp_glass",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.006880925502628088,
+    0.2961108386516571,
+    0.006880922242999077
+   ],
+   "bmin": [
+    -0.006880891975015402,
+    0.26277440786361694,
+    -0.006880893371999264
+   ],
+   "count": 24,
+   "first": 10797,
+   "mat": 2,
+   "metal": 0.0,
+   "name": "vintage_oil_lamp_glass",
+   "role": "body",
+   "rough": 0.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 0.5618000030517578,
+ "source": "ph_vintage_oil_lamp.glb",
+ "textures": {},
+ "triangles": 3607,
+ "vertices": 2450
+}

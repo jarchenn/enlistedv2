@@ -26,7 +26,7 @@ namespace fs = std::filesystem;
 using glm::vec2; using glm::vec3; using glm::vec4; using glm::mat4; using glm::quat;
 
 void logf(const char* fmt, ...);
-struct ProcMem { size_t WorkingSetSize = 0, PeakWorkingSetSize = 0; };   // bytes resident now / at peak
+struct ProcMem { size_t WorkingSetSize = 0, PeakWorkingSetSize = 0, PrivateBytes = 0; };   // PrivateBytes: committed (Windows; 0 elsewhere)   // bytes resident now / at peak
 ProcMem processMemory();   // assets.cpp: psapi on Windows, Mach task_info on macOS
 #ifndef _WIN32
 // shortcut: the selftests read the command line through MSVCRT's __argc / __argv; elsewhere main.cpp sets these

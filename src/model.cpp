@@ -19,7 +19,7 @@ ImportSpec importSpecFromJson(const json& j) {
   s.src = j.value("src", ""); s.dir = j.value("dir", "");
   s.rot = jvec3(j.value("rot", json()), vec3(0));
   s.realLength = j.value("realLength", 1.0f);
-  s.scale = j.value("scale", 0.0f); s.pivot = j.value("pivot", std::string("weapon"));
+  s.scale = j.value("scale", 0.0f); s.axes = jvec3(j.value("axes", json()), vec3(1)); s.pivot = j.value("pivot", std::string("weapon"));
   s.lengthNode = j.value("lengthNode", "");
   s.offset = jvec3(j.value("offset", json()), vec3(0));
   json np = j.value("nodeParts", json::object()), hd = j.value("hide", json::array());   // keep the temporaries alive
@@ -332,9 +332,10 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
   if (lmax.z <= lmin.z) { err = "length node '" + spec.lengthNode + "' has no extent"; return false; }
   float S = spec.scale > 0 ? spec.scale : spec.realLength / (lmax.z - lmin.z);
   vec3 c = (lmin + lmax) * 0.5f;
-  vec3 T = spec.pivot == "ground" ? vec3(-c.x * S, -lmin.y * S, -c.z * S) + spec.offset   // map asset: on the ground, centred
-                                  : vec3(-c.x * S, -c.y * S, -lmin.z * S) + spec.offset;
-  mat4 X = glm::translate(mat4(1), T) * glm::scale(mat4(1), vec3(S)) * glm::mat4_cast(R);
+  const vec3 SA = vec3(S) * spec.axes;   // PR3: per-axis stretch (1 for everything else)
+  vec3 T = spec.pivot == "ground" ? vec3(-c.x, -lmin.y, -c.z) * SA + spec.offset   // map asset: on the ground, centred
+                                  : vec3(-c.x, -c.y, -lmin.z) * SA + spec.offset;
+  mat4 X = glm::translate(mat4(1), T) * glm::scale(mat4(1), SA) * glm::mat4_cast(R);
   mat4 Xi = glm::inverse(X);
 
   // ---- animation (first clip): weapon-space delta per sample for every part under an animated node
@@ -394,7 +395,7 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
     uint32_t base = (uint32_t)V.size();
     vec3 pmin(1e9f), pmax(-1e9f);
     std::vector<TexVertex> qv = q.v;
-    for (auto& v : qv) { v.pos = vec3(X * vec4(v.pos, 1)); v.nrm = glm::normalize(R * v.nrm); v.tan = vec4(glm::normalize(R * vec3(v.tan)), v.tan.w); }
+    for (auto& v : qv) { v.pos = vec3(X * vec4(v.pos, 1)); v.nrm = glm::normalize((R * v.nrm) / spec.axes); v.tan = vec4(glm::normalize((R * vec3(v.tan)) * spec.axes), v.tan.w); }   // PR3: normals by the inverse stretch
     std::vector<uint8_t> dropV(qv.size(), 0);
     if (!spec.meshEdits.empty()) {
       // islands: union-find over vertices, joined by triangles and by coincident positions (split UV seams)
@@ -586,7 +587,7 @@ static void cutoutMips(GLuint t, int w, int h, int levels, const stbi_uc* d) {
     px.swap(q); raw.swap(r2); w = w2; h = h2;
   }
 }
-// TK2: a map of 2048 px or more is block-compressed on load (CPU mips, stb_dxt): albedo BC1 sRGB (BC3 with alpha),
+// TK2: a map of 2048 px (MEM1: 1024) or more is block-compressed on load (CPU mips, stb_dxt): albedo BC1 sRGB (BC3 with alpha),
 // metal-rough / AO BC1, normal BC5 (RG; the shader rebuilds z when the blue channel reads 0). A 4096 RGBA8 map with mips
 // is 85 MB of VRAM, BC1 11 MB, BC5 22 MB. kind: 0 albedo, 1 linear data, 2 normal
 static GLuint loadTexBC(const uint8_t* d, int w, int h, int kind, size_t& bytes) {
@@ -594,7 +595,7 @@ static GLuint loadTexBC(const uint8_t* d, int w, int h, int kind, size_t& bytes)
   if (s3tc < 0) { s3tc = 0; GLint n = 0; glGetIntegerv(GL_NUM_EXTENSIONS, &n); int got = 0;
     for (GLint i = 0; i < n; ++i) { const char* e = (const char*)glGetStringi(GL_EXTENSIONS, i); if (!std::strcmp(e, "GL_EXT_texture_compression_s3tc")) got |= 1; if (!std::strcmp(e, "GL_EXT_texture_sRGB")) got |= 2; }
     s3tc = got == 3; }
-  if (!s3tc || w < 2048 || h < 2048 || (w & 3) || (h & 3)) return 0;
+  if (!s3tc || w < 1024 || h < 1024 || (w & 3) || (h & 3)) return 0;   // MEM1: 1024 maps too (RGBA8 + mips 5.6 MB each, BC1 0.7 MB): weapons, vehicles, props
   bool alpha = false; if (kind == 0) for (size_t k = 0; k < (size_t)w * h && !alpha; ++k) alpha = d[k * 4 + 3] < 250;
   const GLenum fmt = kind == 2 ? 0x8DBD /* RG_RGTC2 */ : kind == 0 ? (alpha ? 0x8C4F /* SRGB_ALPHA_S3TC_DXT5 */ : 0x8C4C /* SRGB_S3TC_DXT1 */) : 0x83F0 /* RGB_S3TC_DXT1 */;
   const int bsz = kind == 2 || alpha ? 16 : 8;
@@ -748,6 +749,7 @@ mat4 GpuModel::animAt(int part, float u) const {
   return m;
 }
 
+json furnitureModelFor(const std::string& id);   // assets.cpp (PR2)
 bool importWeaponModels(const fs::path& srcDir, const fs::path& contentRoot) {
   std::map<std::string, json> done;   // output dir -> the model block that baked it
   int ok = 0, bad = 0;
@@ -760,6 +762,7 @@ bool importWeaponModels(const fs::path& srcDir, const fs::path& contentRoot) {
   for (auto& f : files) {
     fs::path wdir = f.parent_path();
     json j; try { j = json::parse(readTextFile(f)); } catch (...) { continue; }
+    if (j.is_object() && !j.contains("model")) { json fm = furnitureModelFor(j.value("id", f.stem().string())); if (!fm.is_null()) j["model"] = fm; }   // PR2 replaced furniture
     if (j.contains("models") && j["models"].is_array()) for (auto& mj : j["models"]) {   // PR1 attached modelled pieces: <dir>.glb, ground pivot, metres
       json b = mj.value("bake", json::object());
       std::string d = mj.value("dir", std::string());

@@ -1,0 +1,176 @@
+{
+ "_doc": "PR2: furniture asset -> Poly Haven model replacing its look (tools/props/furn_fit.py writes content/settings/furniture_models.json). Chosen in the PR2 audit (docs/furniture-change-requests.md): the in-house piece read poorly at 1 m next to its reference photo and a scanned model of the same object, era and size exists.",
+ "furn_armchair": {
+  "ph": "GreenChair_01",
+  "why": "upholstered fauteuil with show-wood frame"
+ },
+ "furn_barrel": {
+  "ph": "wine_barrel_01",
+  "why": "oak cask, real staves and hoops"
+ },
+ "furn_bed": {
+  "ph": "GothicBed_01",
+  "why": "carved oak bed with posts, made up"
+ },
+ "furn_bucket": {
+  "ph": "wooden_bucket_01",
+  "why": "coopered pail with handle"
+ },
+ "furn_chair_slat": {
+  "ph": "painted_wooden_chair_01",
+  "why": "painted farmhouse chair, slatted back"
+ },
+ "furn_clock": {
+  "ph": "vintage_grandfather_clock_01",
+  "why": "long-case clock with hood, dial and pendulum trunk"
+ },
+ "furn_commode": {
+  "ph": "GothicCommode_01",
+  "why": "three-drawer chest with pulls"
+ },
+ "furn_dresser": {
+  "ph": "WoodenTable_03",
+  "why": "low buffet: drawers over doors"
+ },
+ "furn_lamp": {
+  "ph": "vintage_oil_lamp",
+  "why": "brass oil lamp with glass chimney"
+ },
+ "furn_mirror": {
+  "ph": "ornate_mirror_01",
+  "why": "gilt-framed looking glass"
+ },
+ "furn_stool": {
+  "ph": "wooden_stool_01",
+  "why": "low turned stool"
+ },
+ "furn_table_low": {
+  "ph": "small_wooden_table_01",
+  "why": "low oak table"
+ },
+ "furn_mod_armchair": {
+  "ph": "modern_arm_chair_01",
+  "why": "upholstered lounge armchair"
+ },
+ "furn_mod_bar_stool": {
+  "ph": "bar_chair_round_01",
+  "why": "round bar stool"
+ },
+ "furn_mod_stove": {
+  "ph": "electric_stove",
+  "why": "freestanding electric cooker"
+ },
+ "furn_mod_wheelchair": {
+  "ph": "wheelchair_01",
+  "why": "folding steel wheelchair"
+ },
+ "furn_mod_wall_clock": {
+  "ph": "wall_clock",
+  "why": "round wall clock"
+ },
+ "furn_settee": {
+  "ph": "Sofa_01",
+  "why": "camelback settee (PR3)",
+  "stretch": true
+ },
+ "furn_bed_iron": {
+  "ph": "old_bed_frame",
+  "why": "iron bedstead (PR3)",
+  "stretch": true
+ },
+ "furn_chair_ladder": {
+  "ph": "painted_wooden_chair_02",
+  "why": "worn painted ladder-back chair (PR3)",
+  "stretch": true
+ },
+ "furn_chest": {
+  "ph": "treasure_chest",
+  "why": "strapped wooden trunk (PR3)",
+  "stretch": true
+ },
+ "furn_table_dining": {
+  "ph": "painted_wooden_table",
+  "why": "painted farmhouse table (PR3)",
+  "stretch": true
+ },
+ "furn_table_small": {
+  "ph": "wooden_table_02",
+  "why": "farmhouse kitchen table (PR3)",
+  "stretch": true
+ },
+ "furn_side_table": {
+  "ph": "ClassicNightstand_01",
+  "why": "side table with drawer (PR3)",
+  "stretch": true
+ },
+ "furn_picture": {
+  "ph": "hanging_picture_frame_02",
+  "why": "framed print (PR3)",
+  "stretch": true
+ },
+ "furn_bookcase": {
+  "ph": "wooden_bookshelf_worn",
+  "why": "worn wooden bookcase (PR3)",
+  "stretch": true
+ },
+ "furn_shelf": {
+  "ph": "Shelf_01",
+  "why": "tall wooden shelf (PR3)",
+  "stretch": true
+ },
+ "furn_armoire": {
+  "ph": "GothicCabinet_01",
+  "why": "carved oak armoire (PR3)",
+  "stretch": true
+ },
+ "furn_mod_microwave": {
+  "ph": "vintage_microwave",
+  "why": "countertop microwave (PR3)",
+  "stretch": true
+ },
+ "furn_mod_shop_wall_shelf": {
+  "ph": "steel_frame_shelves_01",
+  "why": "shop shelving (PR3)",
+  "stretch": true
+ },
+ "furn_mod_stock_rack": {
+  "ph": "steel_frame_shelves_01",
+  "why": "stock shelving (PR3)",
+  "stretch": true
+ },
+ "furn_mod_rest_table": {
+  "ph": "round_wooden_table_02",
+  "why": "café table (PR3)",
+  "stretch": true
+ },
+ "furn_mod_dining_chair": {
+  "ph": "dining_chair_02",
+  "why": "dining chair (PR3)",
+  "stretch": true
+ },
+ "furn_mod_desk": {
+  "ph": "metal_office_desk",
+  "why": "steel office desk (PR3)",
+  "stretch": true
+ },
+ "furn_mod_teacher_desk": {
+  "ph": "metal_office_desk",
+  "why": "steel teacher's desk (PR3)",
+  "stretch": true
+ },
+ "furn_mod_dining_table6": {
+  "ph": "WoodenTable_01",
+  "why": "wooden dining table (PR3)",
+  "stretch": true
+ },
+ "furn_mod_nightstand": {
+  "ph": "painted_wooden_nightstand",
+  "why": "nightstand (PR3)",
+  "stretch": true
+ },
+ "furn_mod_coffee_table": {
+  "ph": "CoffeeTable_01",
+  "why": "coffee table (PR3)",
+  "stretch": true
+ }
+}

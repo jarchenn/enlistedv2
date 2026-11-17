@@ -20,6 +20,7 @@
 // default 3/4 view's crop is used whenever it fills at least 1.25x the best whole view, otherwise the searched
 // view's crop under the same bar; with neither, the whole view stays. Thickened box wire is rebuilt at 1.5 px
 // of the zoomed tile so it does not grow with the zoom.
+#include <unordered_set>
 #include "thumbs.h"
 #include "textures.h"
 #include "app.h"
@@ -62,8 +63,13 @@ std::string footprintLabel(vec2 fp) {
   return b;
 }
 
-fs::path thumbCacheDir() {
+fs::path thumbCacheDir() {   // MEM2: one per-user cache, keyed by content (assetThumbKey): every build folder reuses it
   if (const char* e = std::getenv("NMK_THUMB_CACHE")) if (*e) return fs::path(e);
+#ifdef _WIN32
+  if (const char* e = std::getenv("LOCALAPPDATA")) if (*e) return fs::path(e) / "BattleFoundry" / "thumbs";
+#else
+  if (const char* e = std::getenv("HOME")) if (*e) return fs::path(e) / ".cache" / "BattleFoundry" / "thumbs";
+#endif
   return exeDir() / "cache" / "thumbs";
 }
 
@@ -373,8 +379,8 @@ void saveTile(const fs::path& p, GLuint tex) {
 std::vector<uint8_t> gBg;   // the empty tile (background + vignette), for the blank-tile measure
 }
 
-ThumbStats makeAssetThumbnails(App& app) {
-  ThumbStats st;
+// one asset's tile: from the cache (0), rendered (1, when render), or not now (-1: uncached, render not allowed)
+static int thumbOne(App& app, AssetDef* a, ThumbStats& st, bool render) {
   Renderer& R = app.R;
   fs::path dir = thumbCacheDir();
   std::error_code ec; fs::create_directories(dir, ec);
@@ -383,13 +389,12 @@ ThumbStats makeAssetThumbnails(App& app) {
     GLuint t = R.renderAssetThumbnail({}, {}, vec3(-1), vec3(1), 0, {}, nullptr);
     gBg = readTile(t); glDeleteTextures(1, &t);
   }
-  for (auto& a : app.lib.assets) {
-    // vehicles: their tile is drawn by TankSys::makeThumbnails (tank_ui.cpp) from the baked hull / turret / tracks
-    if (a->raw.is_object() && a->raw.contains("vehicle")) { ++st.external; continue; }
     ThumbInfo info; info.key = assetThumbKey(*a);
     fs::path file = dir / (a->id + "-" + info.key + ".png");
     if (a->thumbnail) { glDeleteTextures(1, &a->thumbnail); a->thumbnail = 0; }
-    if (fs::exists(file, ec) && loadTile(file, a->thumbnail)) { info.cached = true; ++st.loaded; gThumbInfo[a->id] = info; continue; }
+    if (fs::exists(file, ec) && loadTile(file, a->thumbnail)) { info.cached = true; ++st.loaded; gThumbInfo[a->id] = info; return 0; }
+    if (!render) return -1;
+    app.lib.build(*a);   // MEM1: an uncached tile is rendered from the built asset
     std::vector<DrawItem> op{{&a->opaque, mat4(1)}, {&a->panelsIntact, mat4(1)}}, gl;
     if (a->glass.count) gl.push_back({&a->glass, mat4(1)});
     for (auto& d : a->interactables)
@@ -426,15 +431,31 @@ ThumbStats makeAssetThumbnails(App& app) {
     if (fatLive) fatMesh.destroy();
     R.worldModels.clear(); R.foliage.clear();
     ++st.rendered; st.searched += info.searched;
-    for (auto& e : fs::directory_iterator(dir, ec)) {   // drop this asset's stale tiles (older keys)
-      std::string n = e.path().filename().string();
-      if (n.rfind(a->id + "-", 0) == 0 && n.size() == a->id.size() + 1 + 16 + 4 && e.path() != file) fs::remove(e.path(), ec);
-    }
     saveTile(file, a->thumbnail);
     gThumbInfo[a->id] = info;
+    return 1;
+}
+
+ThumbStats makeAssetThumbnails(App& app) {   // every catalogue tile now (self-tests); the game uses assetThumbOnDemand
+  ThumbStats st;
+  for (auto& a : app.lib.assets) {
+    // vehicles: their tile is drawn by TankSys::makeThumbnails (tank_ui.cpp) from the baked hull / turret / tracks
+    if (a->raw.is_object() && a->raw.contains("vehicle")) { ++st.external; continue; }
+    thumbOne(app, a.get(), st, true);
   }
-  logf("thumbnails: %d rendered (%d with a view search), %d from the cache %s, %d vehicles drawn by TankSys", st.rendered, st.searched, st.loaded, dir.string().c_str(), st.external);
+  logf("thumbnails: %d rendered (%d with a view search), %d from the cache %s, %d vehicles drawn by TankSys", st.rendered, st.searched, st.loaded, thumbCacheDir().string().c_str(), st.external);
   return st;
+}
+// MEM2: the build palette asks for each tile it shows: from the cache, else rendered (a few per frame), and an asset
+// built only for its tile is released again, so browsing the palette never pins the catalogue in memory
+void assetThumbOnDemand(App& app, AssetDef& a, int& budget) {
+  static std::unordered_set<const AssetDef*> done;
+  if (a.thumbnail || a.vehicle || done.count(&a)) return;
+  ThumbStats st; const bool wasBuilt = a.built;
+  int r = thumbOne(app, &a, st, budget > 0);
+  if (r < 0) return;   // later: this frame's renders are spent
+  done.insert(&a);
+  if (r == 1) { --budget; if (!wasBuilt) app.lib.release(a); }
 }
 
 float thumbBackgroundShare(App& app, GLuint tex) {

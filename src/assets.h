@@ -27,6 +27,7 @@ struct Material {
 };
 
 // A primitive part. Boxes and triangular prisms, in a parent space.
+json furnitureModelFor(const std::string& id);   // PR2: an imported model replacing a furniture asset's parts (null: none)
 struct Part {
   // ROUND: a box with every edge rounded by `rad` (render and collision). CYL / ARCH / WEDGE fill their bounding box
   // (center, size, rot): CYL = cylinder, cone, frustum or spire along local y; ARCH = arch ring, vault or spandrel
@@ -36,6 +37,7 @@ struct Part {
   quat rot{1, 0, 0, 0};
   int mat = 0;
   bool visible = true, collide = true;
+  bool standIn = false;   // PR2: a visible part hidden because an imported model replaces it (prop bounds, broken remains)
   bool playerOnly = false;   // "k": 2 - traversal volume only the player meets (barbed wire), ignored by rays and bodies
   int sec = -1;              // "sec": destruction section it belongs to (wire obstacles), -1 = always present
   // PRISM: triangle in (u,v) plane extruded along `axis` from a0..a1.
@@ -62,6 +64,10 @@ struct Vertex {
 };
 
 struct MeshData { std::vector<Vertex> v; std::vector<uint32_t> i; };
+// MEM1: GpuMesh vertex as stored on the GPU (64 B instead of Vertex's 88): normals signed 10:10:10, albedo / emission
+// half floats; the attribute fetch converts, the shaders read the same vec3s. Position first (the instanced depth VAO).
+struct GpuVertex { vec3 pos; uint32_t nrm; uint16_t albedo[4]; vec4 params; vec3 pcoord; uint32_t pnrm; uint16_t emis[4]; };
+static_assert(sizeof(GpuVertex) == 64, "GpuVertex packing");
 
 struct GpuMesh {
   GLuint vao = 0, vbo = 0, ebo = 0; int count = 0;
@@ -291,6 +297,7 @@ struct AssetDef {
   json raw;
   bool vehicle = false;   // raw has "vehicle" (isVehicleAsset, per instance per frame): set with raw at load
   bool placeholder = false;
+  bool built = false;     // MEM1: geometry built (AssetLibrary::build)
   int findInteract(const std::string& id) const;
 };
 
@@ -298,6 +305,9 @@ class AssetLibrary {
 public:
   bool loadAll(const fs::path& dir);
   const AssetDef* find(const std::string& id) const;
+  void build(AssetDef& a) const;
+  void release(AssetDef& a) const;   // MEM2: back to the header (an asset built only for its palette tile)   // MEM1: geometry / GPU / collision of a catalogue asset, once (find calls it)
+  bool lazy = false;               // MEM1: loadAll leaves assets unbuilt until first use (the game; full self-tests build all)
   AssetDef* placeholder() { return &placeholder_; }
   std::vector<std::unique_ptr<AssetDef>> assets;
 private:

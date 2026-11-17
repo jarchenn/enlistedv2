@@ -119,6 +119,7 @@ bool lineBuildRT(App& app, const Instance& i, InstanceRT& r) {
   r.secHp.assign(out->sections, hp); r.secCut.assign(out->sections, 0);
   r.lineMesh.destroy();
   if (!out->mesh.i.empty()) r.lineMesh.upload(out->mesh);
+  if (out->secIdx.empty()) out->mesh = MeshData();   // MEM1: on the GPU now; only a line whose bays can be cut re-uploads from it
   out->cutSig = lineCutSig(r.secCut);
   r.lineGround = app.groundRev;
   return true;

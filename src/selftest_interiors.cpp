@@ -22,6 +22,10 @@ std::vector<std::string> firstLayout;
 json perf = json::object();
 std::vector<double> frameMs; std::chrono::high_resolution_clock::time_point lastT;
 char b_[600]; float dt_ = 1.0f / 60.0f; std::string scratch_;
+// PR3: buildings the lighting / dressing gates do not treat as intact furnished houses: the modern "*_ruin" variants
+// (ruin_kit: lit only where a ceiling is left, so partly or wholly dark by design) and the backrooms cells (lit by their
+// own ceiling panels, no lamp pieces). Both were added after these gates were written.
+static bool notIntactHouse(const std::string& id) { return (id.size() > 5 && id.compare(id.size() - 5, 5, "_ruin") == 0) || id.rfind("brm_", 0) == 0; }
 fs::path outDirI() { fs::path p = exeDir() / "selftest_out"; std::error_code ec; fs::create_directories(p, ec); return p; }
 vec3 W(App& a, uint64_t id, vec3 l) { Instance* i = a.doc.find(id); return i ? i->pos + yawQuat(i->yaw) * l : l; }
 std::vector<Instance*> childrenOf(App& a, uint64_t host) {
@@ -712,14 +716,19 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
         {"small_stone_dairy", 4}, {"small_storehouse", 4}, {"vil_church", 5}, {"vil_norman_farmhouse", 31}};   // vil_chateau_keep (7) is left bare now
       json all = json::object(); int k = 0, total = 0, was = 0, skippedOk = 0, skipped = 0, furnished = 0, eligible = 0, vilRooms = 0, vils = 0, pews = 0, fixed = 0;
       std::string bad, lowest; float worst = 1e9f;
+      float px = -290.0f, pz = 105.0f, rowD = 0.0f, side = 1.0f;   // rows packed by footprint in the two bands |z| 105..295 of the 600 m Blank Slate
       for (auto& as : a.lib.assets) {
         if (!as->enterable || as->category == "Furniture") continue;
-        vec3 at(-245.0f + (k % 8) * 70.0f, 0, (k / 8 % 2 ? -1.0f : 1.0f) * (105.0f + (k / 16) * 50.0f)); ++k;   // 64 slots inside the 600 m Blank Slate (65 m rows ran off it past 48 buildings)
+        // PR3: a fixed 64-slot grid ran off the map once there were more enterable assets (every vil_* went unplaced: "0 of 0")
+        float w = as->footprint.x + 6.0f, d = as->footprint.y + 6.0f;
+        if (px + w > 290.0f) { px = -290.0f; pz += rowD; rowD = 0.0f; }
+        if (pz + d > 295.0f && side > 0) { side = -1.0f; pz = 105.0f; px = -290.0f; rowD = 0.0f; }
+        vec3 at(px + w * 0.5f, 0, side * (pz + d * 0.5f)); px += w; rowD = std::max(rowD, d); ++k;
         uint64_t id = a.placeInstance(as.get(), at, 0.0f);
         if (!id) { all[as->id] = {{"placed", false}}; bad += " " + as->id + "(not placed)"; continue; }
         const RoomInfo* ri = a.interior.rooms(as.get());
         int n = (int)childrenOf(a, id).size();
-        bool skip = as->id.rfind("bunker_", 0) == 0 || as->id.rfind("aw_", 0) == 0 || as->id.rfind("bch_", 0) == 0 || isRuinedAsset(as->id);
+        bool skip = as->id.rfind("bunker_", 0) == 0 || as->id.rfind("aw_", 0) == 0 || as->id.rfind("bch_", 0) == 0 || as->id.rfind("tun_", 0) == 0 || isRuinedAsset(as->id);   // PR3: tunnels keep their authored props
         if (as->id.rfind("vil_", 0) == 0) { ++vils; vilRooms += !ri->rooms.empty(); if (ri->rooms.empty()) bad += " " + as->id + "(no rooms)"; }
         int lamps = 0; for (auto* c : childrenOf(a, id)) lamps += lightDef(a.assetFor(*c)) != nullptr;   // L3: bunkers get caged lamps only
         if (skip) { ++skipped; skippedOk += n - lamps == 0 && !a.interior.hideBuiltin(*a.doc.find(id)); }
@@ -824,7 +833,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       std::vector<uint64_t> hosts;   // the copies the step before placed (the latest of each building), never the fixtures
       for (auto it = a.doc.instances.rbegin(); it != a.doc.instances.rend(); ++it) {
         const AssetDef* as = a.lib.find(it->assetId);
-        if (!as || !as->enterable || as->category == "Furniture" || done.count(as->id) || lightsOnlyHost(as) || isRuinedAsset(as->id)) continue;
+        if (!as || !as->enterable || as->category == "Furniture" || done.count(as->id) || lightsOnlyHost(as) || isRuinedAsset(as->id) || notIntactHouse(as->id)) continue;
         if (!it->extra.is_object() || !it->extra.contains("interior") || !it->extra["interior"].value("on", false)) continue;
         done.insert(as->id); hosts.push_back(it->id);
       }
@@ -869,10 +878,13 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
         int n = lightsOf[i.id];
         if (lightsRuinedAsset(as)) { ++ruins; ruinsDark += n == 0; if (n) ruinBad += " " + as->id; continue; }
         if (as->id.rfind("bch_", 0) == 0) { ++crafts; craftsDark += n == 0; continue; }
+        if (notIntactHouse(as->id)) continue;
         bool gen = i.extra.is_object() && i.extra.contains("interior") && i.extra["interior"].value("on", false);
         const RoomInfo* ri = a.interior.rooms(as);
         if (!gen || !lightsLitBuilding(as) || ri->rooms.empty()) continue;   // authored bare (auto-furnish off, decor, removed)
-        if (!lightsRoofed(a, i)) { if (open.find(as->id) == std::string::npos) open += " " + as->id; openLit += n > 0; continue; }   // open-topped pits: nothing to hang a lamp from
+        // open-topped pits: nothing to hang a lamp from. PR3: emplacements only; lightsRoofed probes 14 cells round each room centre
+        // up to the room's nominal height, which misses the roof of a tall hall (big-box store, station, steel barn) that is lit
+        if (!lightsRoofed(a, i) && (as->id.rfind("aw_", 0) == 0 || as->id.rfind("bunker_", 0) == 0)) { if (open.find(as->id) == std::string::npos) open += " " + as->id; openLit += n > 0; continue; }
         ++eligible; lit += n > 0;
         if (!n) {   // why: the first light of the building
           std::string why = "no light pieces";

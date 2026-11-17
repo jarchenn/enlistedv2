@@ -537,7 +537,13 @@ bool Physics::updateCharacter(float dt, vec3 hv, bool jump, int want, float yawW
     if (fits) {
       if (want == PRONE) c->SetRotation(Quat::sRotation(Vec3::sAxisY(), DegreesToRadians(y)));
       const Shape* sh = want == PRONE ? W->proneShape.GetPtr() : want == CROUCH ? W->crouchShape.GetPtr() : W->standShape.GetPtr();
-      if (c->SetShape(sh, 1.5f * 0.02f, bpf, olf, bf, sf, *W->temp)) {
+      bool set = c->SetShape(sh, 1.5f * 0.02f, bpf, olf, bf, sf, *W->temp);
+      if (!set && want == PRONE) {   // GP1: the fit test passed but SetShape (its own filters, a sliver of penetration) refused: once more 8 cm up (it settles)
+        const RVec3 p0 = c->GetPosition(); c->SetPosition(p0 + Vec3(0, 0.08f, 0));
+        set = c->SetShape(sh, 1.5f * 0.02f, bpf, olf, bf, sf, *W->temp);
+        if (!set) c->SetPosition(p0);
+      }
+      if (set) {
         W->posture = want; W->crouched = want != STAND; W->bodyYaw = y;
         if (want != PRONE) c->SetRotation(Quat::sIdentity());
       } else if (W->posture != PRONE) c->SetRotation(Quat::sIdentity());

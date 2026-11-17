@@ -104,7 +104,7 @@ const PropDef* InteriorSys::prop(const AssetDef* a) {
   d.glass = pj.value("glass", -1);
   for (auto& s : pj.value("surfaces", json::array())) { d.surfaces.push_back(vec4(s[0].get<float>(), s[1].get<float>(), s[2].get<float>(), s[3].get<float>())); d.surfY.push_back(s[4].get<float>()); }
   d.bmin = vec3(1e9f); d.bmax = vec3(-1e9f);
-  for (auto& p : a->parts) if (p.visible) { vec3 mn, mx; partAabb(p, mn, mx); d.bmin = glm::min(d.bmin, mn); d.bmax = glm::max(d.bmax, mx); }
+  for (auto& p : a->parts) if (p.visible || p.standIn) { vec3 mn, mx; partAabb(p, mn, mx); d.bmin = glm::min(d.bmin, mn); d.bmax = glm::max(d.bmax, mx); }   // PR2: a replaced piece keeps its envelope
   if (d.bmin.x > d.bmax.x) { d.bmin = vec3(-0.2f); d.bmax = vec3(0.2f); }
   if (pj.contains("bounds")) { d.bmin = jvec3(pj["bounds"][0]); d.bmax = jvec3(pj["bounds"][1]); }   // P1: the furnishing envelope, fixed when the look changes
   d.hang = pj.value("hang", false);   // L3 lights (docs/lights.md)
@@ -115,7 +115,7 @@ const PropDef* InteriorSys::prop(const AssetDef* a) {
   // broken state: the keep groups stay (static), with one collider box over them when the prop blocks
   MeshData bm; std::vector<Part> kb;
   for (auto& p : a->parts) {
-    if (!p.visible || std::find(d.keep.begin(), d.keep.end(), p.grp) == d.keep.end() || p.grp == d.glass) continue;
+    if (!(p.visible || p.standIn) || std::find(d.keep.begin(), d.keep.end(), p.grp) == d.keep.end() || p.grp == d.glass) continue;   // PR2: a replaced piece breaks to its old remains
     appendPart(bm, p, a->materials[p.mat], mat4(1));
     if (p.size.x * p.size.y * p.size.z > 2e-4f) { Part b = p; b.shape = Part::BOX; b.collide = true; b.visible = false; kb.push_back(b); }   // each kept piece collides on its own
   }
@@ -126,12 +126,12 @@ const PropDef* InteriorSys::prop(const AssetDef* a) {
   for (size_t fi = 0; fi < d.fragments.size() && fi < 6; ++fi) {
     int g = d.fragments[fi];
     vec3 mn(1e9f), mx(-1e9f); float vol = 0;
-    for (auto& p : a->parts) if (p.visible && p.grp == g) { vec3 a0, a1; partAabb(p, a0, a1); mn = glm::min(mn, a0); mx = glm::max(mx, a1); vol += p.size.x * p.size.y * p.size.z; }
+    for (auto& p : a->parts) if ((p.visible || p.standIn) && p.grp == g) { vec3 a0, a1; partAabb(p, a0, a1); mn = glm::min(mn, a0); mx = glm::max(mx, a1); vol += p.size.x * p.size.y * p.size.z; }
     if (mn.x > mx.x) continue;
     auto f = std::make_unique<PropDef::Frag>();
     f->center = (mn + mx) * 0.5f; f->half = glm::max((mx - mn) * 0.5f, vec3(0.012f));
     MeshData fm; mat4 off = glm::translate(mat4(1), -f->center);
-    for (auto& p : a->parts) if (p.visible && p.grp == g) appendPart(fm, p, a->materials[p.mat], off);
+    for (auto& p : a->parts) if ((p.visible || p.standIn) && p.grp == g) appendPart(fm, p, a->materials[p.mat], off);   // PR2: fragments of a replaced piece from its stand-in parts
     f->mesh.upload(fm);
     Part b; b.center = vec3(0); b.size = f->half * 2.0f; f->shape = Physics::buildShape({b});
     f->mass = std::clamp(vol * density, 0.4f, 60.0f);
@@ -688,6 +688,11 @@ void InteriorSys::updateBatches(App& app) {
     else { curSmall = cullSmall; curBig = cullBig; }
     lowClutter_ = app.R.perf.furnClutter && (ps == GfxPreset::Low || ps == GfxPreset::UltraLow);
   }
+  // MEM1: a building's merged furniture batch exists only while its furniture can be drawn (within curBig, 1.2 / 1.5 x
+  // hysteresis): every batch of a large map at once committed ~1.2 GB, while furniture past curBig is not drawn at all
+  const vec3 eye = app.mode == Mode::Explore ? app.eyePos() : app.camPos;
+  auto batchNear = [&](const Batch& b) { float d = std::max(0.0f, glm::length(eye - b.c) - b.r); return d < curBig * (b.built ? 1.5f : 1.2f); };
+  for (auto& [h, b] : batches_) if (b.built != batchNear(b)) { batchSig_ = 0; break; }   // one crossed the band: re-run the pass
   uint64_t sig = ((uint64_t)app.revCounter << 32) ^ ((uint64_t)app.doc.instances.size() << 8) ^ (app.selected * 0x9E3779B97F4A7C15ull) ^ (epoch_ * 0xC2B2AE3D27D4EB4Full) ^ (lowClutter_ ? 0x5bd1e995ull : 0);
   if (sig == batchSig_) return;
   batchSig_ = sig; ++batchPasses;
@@ -720,6 +725,14 @@ void InteriorSys::updateBatches(App& app) {
   for (auto& [host, w] : want) {
     if (w.second.size() < 2) continue;   // a lone piece draws on its own
     Batch& b = batches_[host];
+    if (!b.built) {   // where it would stand (rebuildBatch sets the same centre / radius)
+      vec3 mn(1e9f), mx(-1e9f); for (auto* pi : w.second) { mn = glm::min(mn, pi->pos); mx = glm::max(mx, pi->pos + vec3(0, 2, 0)); }
+      b.c = (mn + mx) * 0.5f; b.r = glm::length(mx - mn) * 0.5f + 1.0f;
+    }
+    if (!batchNear(b)) {   // MEM1: too far to draw its furniture: no batch (its pieces are culled by distance)
+      if (b.built) { b.lop.destroy(); b.slop.destroy(); b.built = false; b.verts = 0; }
+      continue;
+    }
     if (!b.built || b.sig != w.first) { b.sig = w.first; b.members.clear(); for (auto* pi : w.second) b.members.push_back(pi->id); rebuildBatch(app, host, b, w.second); }
     for (uint64_t id : b.members) member_[id] = host;
     if (!b.members.empty()) batchLeads.insert(b.members.front());   // P2: the piece that draws its batch (never skipped by distance)
@@ -787,6 +800,14 @@ bool InteriorSys::propDraw(App& app, const Instance& i, const InstanceRT& r, con
       op.push_back({&pd->brokenMesh, F});
     } else op.push_back({&pd->brokenMesh, M});
     return true;
+  }
+  if (r.asset->model) {   // PR2: an imported model in place of the box parts (wall art, replaced furniture); a broken one shows its keep groups only
+    if (hidden || d > r.asset->modelCull) return true;
+    const GpuModel* gm = (r.asset->modelLod && d > r.asset->modelLodDist) ? r.asset->modelLod.get() : r.asset->model.get();
+    for (size_t k = 0; k < gm->parts.size(); ++k) {
+      if (gm->parts[k].glass) { if (!s.glassBroken) app.R.worldModelsGlass.push_back({gm, (int)k, M, vec4(1), 0.0f, 1}); }
+      else app.R.worldModels.push_back({gm, (int)k, M, vec4(1), r.asset->modelThinPx});
+    }
   }
   op.push_back({&r.asset->opaque, M});
   if (r.asset->glass.count && !s.glassBroken) gl.push_back({&r.asset->glass, M});

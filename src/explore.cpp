@@ -293,7 +293,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   //   Z out of prone requests crouch if Ctrl is held, else standing; a request that does not fit stays pending
   //   (the current posture is kept) and resolves when space frees up. Explicit Z overrides pending requests.
   auto before = Physics::character();
-  if (in.prone) proneToggle = !(before.posture == Physics::PRONE || proneToggle);
+  if (in.prone) proneToggle = before.posture != Physics::PRONE;   // GP1: Z always asks for prone when not prone (it no longer cancels a pending request), and gets up when prone
   // Space while prone gets up (to a crouch if Ctrl is held) instead of jumping, like Z
   bool spaceUp = in.jump && before.posture == Physics::PRONE && postureWanted == Physics::PRONE;
   if (spaceUp) proneToggle = false;
@@ -330,7 +330,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
     Physics::flyCharacter(dt, d * (in.sprint ? 30.0f : 9.0f));
   }
   bool jumped = !occupied && !flying && Physics::updateCharacter(dt, wish * speed + knockVel, jump, postureWanted, eyeYaw);
-  if (in.prone && proneToggle && !occupied && !flying && Physics::character().posture != Physics::PRONE) toast("No room to lie down here", 1.5);   // GP1: only a space smaller than a prone body refuses
+  if (in.prone && proneToggle && !occupied && !flying && Physics::character().posture != Physics::PRONE) { toast("No room to lie down here", 1.5); proneToggle = false; postureWanted = in.crouch ? Physics::CROUCH : Physics::STAND; }   // GP1: only a space smaller than a prone body refuses; the request does not linger (no surprise prone later)
   knockVel *= std::exp(-5.0f * dt);
   if (jumped) spendStamina(move.staminaJump);   // buffered and coyote jumps too
   { int pp = Physics::character().posture; tickStamina(dt, sprinting && glm::length(wish) > 0.1f, pp == Physics::CROUCH || pp == Physics::PRONE ? move.staminaLowRegen : 1.0f); }   // crouched / prone: faster recovery

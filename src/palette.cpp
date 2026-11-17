@@ -50,7 +50,7 @@ const AssetDef* drawAssetPalette(App& app, AssetPalette& st, const AssetDef* act
   float avail = ImGui::GetContentRegionAvail().x;
   int cols = std::max(1, (int)(avail / (st.thumb + 12)));
   std::string lf = st.filter; std::transform(lf.begin(), lf.end(), lf.begin(), ::tolower);
-  int n = 0;
+  int n = 0, thumbBudget = 2;   // MEM2: tiles rendered per frame (cached ones load freely)
   for (auto& a : app.lib.assets) {
     if (hidden(a.get())) continue;
     if (st.category > 0 && (a->id.rfind("mod_bld_", 0) == 0 ? std::string(a->floors >= 3 || a->footprint.x * a->footprint.y >= 400.0f ? "Large Buildings" : "Small Buildings") : assetGroup(a->category)) != cats[st.category]) continue;   // modern buildings by size
@@ -63,6 +63,7 @@ const AssetDef* drawAssetPalette(App& app, AssetPalette& st, const AssetDef* act
     ImGui::PushID(a->id.c_str());
     bool on = active == a.get();
     if (on) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.6f, 0.2f, 1));
+    if (!a->thumbnail && ImGui::IsRectVisible(ImVec2(st.thumb, st.thumb))) { extern void assetThumbOnDemand(App&, AssetDef&, int&); assetThumbOnDemand(app, *a, thumbBudget); }
     if (ImGui::ImageButton("##thumb", texId(a->thumbnail), ImVec2(st.thumb, st.thumb), ImVec2(0, 1), ImVec2(1, 0))) picked = a.get();
     if (on) ImGui::PopStyleColor();
     std::string foot = assetFootText(a.get());
