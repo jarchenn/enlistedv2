@@ -10,6 +10,7 @@
 //   albedo.jpg / mr.png / normal.png / ao.png (only those the source has)
 // Runtime: GpuModel::load() reads that folder; nothing is decoded from the original .glb at startup.
 #include "common.h"
+#include <set>
 
 struct TexVertex { vec3 pos, nrm; vec4 tan; vec2 uv; };
 
@@ -74,7 +75,8 @@ struct GpuModel {
   bool aoInMR = false;              // AO packed in the red channel of the MR map
   float aoStrength = 1;             // TK3: how much of the baked occlusion shows (vehicle JSON model.aoStrength)
   struct MatTex { GLuint alb = 0, mr = 0, n = 0, ao = 0; bool aoInMR = false; bool cutout = false; std::string name; };
-  std::vector<MatTex> mats;         // one texture set per source material (multi-material models: FG42, M2, Tommy gun)
+  std::vector<MatTex> mats;
+  std::set<GLuint> borrowed;        // FOL1: textures owned by another model (a LOD1 drawing its LOD0's needle atlas): not deleted here         // one texture set per source material (multi-material models: FG42, M2, Tommy gun)
   int textureCount = 0;
   std::vector<ModelPart> parts;
   float animDuration = 0;
