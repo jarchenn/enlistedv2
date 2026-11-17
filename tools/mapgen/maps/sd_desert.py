@@ -65,6 +65,8 @@ COVER = {"A": A_COVER, "B": B_COVER, "M": [("mod_jersey_barrier", 1.6, 0.4, 2), 
          "T": [("ph_plastic_crate_02", 0.4, 0.3, 2), ("ph_metal_toolbox", 0.3, 0.15, 1), ("mod_jersey_barrier", 1.6, 0.4, 1)], "c": [("ph_barrel_01", 0.35, 0.35, 1)]}
 PLANT_A_CELL, PLANT_A_OFF = (2, 10), (0.5, -3.0)   # plant pads: an original cell and an offset (m)
 PLANT_B_CELL, PLANT_B_OFF = (12, 11), (-0.5, -7.5)
+VIEW_CELLS = (("a_site", (3, 9), (2, 11)), ("b_site", (11, 9), (12, 11)), ("mid", (7, 7), (7, 9)), ("t_spawn", (7, 1), (7, 3)), ("d_spawn", (7, 15), (7, 13)),
+              ("workshop", (5, 8), (4, 9)), ("a_main", (2, 8), (2, 11)))
 LINKS = {
     ((6, 2), (5, 2)): "open", ((8, 1), (9, 1)): "open", ((7, 2), (7, 3)): "open",
     ((7, 7), (7, 8)): "open",
@@ -116,6 +118,7 @@ def build(ctx):
     b.place("mod_nt_radar_tower", mx, mz + 1.0, 0.0, check=False, cls="none", y=y0, tags={"landmark", "cover"})   # the parade square's landmark: splits mid
     _xa, _za = plan.cc(*PLANT_A_CELL); _xb, _zb = plan.cc(*PLANT_B_CELL)
     PADS = [(_xa + PLANT_A_OFF[0], _za + PLANT_A_OFF[1], 3.5), (_xb + PLANT_B_OFF[0], _zb + PLANT_B_OFF[1], 3.5)]
+    PADS += [(plan.cc(i, j)[0], plan.cc(i, j)[1], 1.6) for _n, (i, j), _t in VIEW_CELLS]   # the audit eyes stand clear of the dressing
     n_cover = 0
     for ch, items in COVER.items():
         if ch in "MTD":   # mid and the spawn yards: their clutter lines the walls too
@@ -291,7 +294,7 @@ def build(ctx):
     thumb_cam = ([_tx + 1.5, y0 + 2.4, _tz - 1.5], look_yaw(_ax - _tx, _az - _tz), -6.0)   # A Vehicle Court across from its south-east corner
     eye = 1.65
     views = [{"name": "overview_high", "pos": [0.0, 130.0, -100.0], "yaw": 0.0, "pitch": -55.0}]
-    for name, (i, j), (ti, tj) in (("a_site", (3, 9), (2, 11)), ("b_site", (11, 9), (12, 11)), ("mid", (7, 7), (7, 9)), ("t_spawn", (7, 1), (7, 3)), ("d_spawn", (7, 15), (7, 13)), ("workshop", (5, 8), (4, 9)), ("a_main", (2, 8), (2, 11))):
+    for name, (i, j), (ti, tj) in VIEW_CELLS:
         x, z = plan.cc(i, j); tx, tz = plan.cc(ti, tj)
         views.append({"name": name + "_eye", "pos": [round(x, 2), round(y0 + eye, 2), round(z, 2)], "yaw": look_yaw(tx - x, tz - z), "pitch": 0.0, "gameplay": True})
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
