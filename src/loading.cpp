@@ -11,6 +11,7 @@
 #include "mainmenu.h"
 #include "logo.h"
 #include "app.h"
+#include "game.h"
 #include "platform_gfx.h"
 #include <imgui.h>
 #include <stb_image_write.h>
@@ -140,6 +141,7 @@ void present(App& app, bool force) {
 
 void loadingBegin(App& app, const std::string& title, const std::string& sub, int expectedStages, unsigned thumbTex) {
   if (J.depth++ > 0) { J.expected = std::max(J.expected, J.done + expectedStages); return; }   // nested: the outer job grows
+  mainMenuLeaveForLoad(gGame && gGame->pendingStart);   // UI3: loading a map / starting a match from the menu leaves it (the loading screen covers the work)
   J.expected = std::max(1, expectedStages); J.done = 0; J.sub = 0; J.shown = 0; J.title = title; J.subtitle = sub; J.label = "Loading";
   J.thumb = thumbTex; J.t0 = glfwGetTime(); J.lastPresent = -1; J.fading = false;
   present(app, true);

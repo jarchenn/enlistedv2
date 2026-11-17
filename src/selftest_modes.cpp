@@ -14,6 +14,7 @@
 #include "settings.h"
 #include "ai_core.h"
 #include "mainmenu.h"
+#include "editor_nav.h"
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <set>
@@ -468,9 +469,15 @@ void build(App&) {
       case 7: if (at(0.2f)) { mainMenuGo(a, -1); mainMenuGo(a, 3); ph = 8; t0 = t; r0 = glfwGetTime(); } break;
       case 8: if (at(0.8f)) { shot("5_settings"); ph = 9; t0 = t; r0 = glfwGetTime(); } break;
       case 9: if (at(0.2f)) { settings().open = false; mainMenuGo(a, 0); ph = 10; t0 = t; r0 = glfwGetTime(); } break;
-      case 10: if (at(0.5f)) { chk(!mainMenuActive() && a.mode == Mode::Creative, "UI2: Create Map closes the menu into Creative"); return true; } break;
+      case 10: if (at(0.5f)) { chk(!mainMenuActive() && a.mode == Mode::Creative, "UI2: Create Map closes the menu into Creative"); mainMenuOpen(a); mainMenuGo(a, 1); gUi.showSetup = true; gUi.setupMode = 0; ph = 11; t0 = t; r0 = glfwGetTime(); } break;
+      case 11: if (at(0.3f)) {   // UI3 (a): Play > Singleplayer setup > a default map picked, as w5PlayMapPicker does it
+                 const TemplateInfo* tp = a.findTemplate("newtown");
+                 chk(tp && mainMenuActive(), "UI3: menu up on Play with the setup window before the load");
+                 if (tp) { navNewMapSized(a, *tp, tp->name, vec2(tp->width, tp->depth)); }
+                 chk(!mainMenuActive() && a.mode == Mode::Creative && a.doc.templateId == "newtown" && gUi.showSetup, "UI3: loading a map from Play leaves the menu: the editor shows the map, the setup window stays to start it (%s)", a.doc.templateId.c_str());
+                 gUi.showSetup = false; return true; } break;
     }
-    return t > 40; });
+    return t > 600; });   // sim time races ahead under the menu (no 3D render); the phases wait on real time too
   push("ai3 setup", [](App& a, float t) {
     if (!std::getenv("NMK_AI3_SHOT")) return true;
     if (t == 0) {
