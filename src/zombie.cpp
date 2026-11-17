@@ -656,10 +656,11 @@ void aiZombiePose(Game& G, Soldier& s, float dt) {
   else if (A.key == K_ATTACK && playing(1e9f)) {}   // the swing plays out
   else if (hurt) A.play(K_DAMAGE, pickAt(ce.damageClips, s.slot + (int)s.hp), -1, 0, 1, false, true);   // EN2: a hit reaction of the list
   else if (A.key == K_DAMAGE && playing(c.flinch)) {}
-  else if (s.speed > std::max(0.3f, 0.05f * s.eScale) && walk >= 0) {   // a giant shuffling slower than that stands (its stride would freeze mid-step)
+  else if (s.speed > std::max(0.3f, 0.05f * s.eScale) * (A.key == K_LOCO ? 0.7f : 1.3f) && walk >= 0) {   // AN1 step 7: hysteresis (no idle / walk flicker at the threshold); a giant shuffling slower than that stands (its stride would freeze mid-step)
     float w = run >= 0 ? std::clamp((s.speed - vw) / (vr - vw), 0.0f, 1.0f) : 0.0f;
     A.play(K_LOCO, walk, run, w, std::clamp(s.speed / glm::mix(vw, vr, w), 0.5f / std::max(1.0f, s.eScale), 2.0f) * enemyType(s.etype).locoRate, true);   // a giant's long strides play slowly (no foot slide); walk_rate speeds the legs up
   } else A.play(K_IDLE, idle, -1, 0, 1, true);
+  if (A.key != key0) A.fadeLen = A.key == K_ATTACK ? 0.12f : A.key == K_DAMAGE ? 0.1f : A.key == K_DEATH ? 0.25f : 0.3f * std::sqrt(std::max(1.0f, s.eScale));   // AN1 step 7: per transition (idle / walk / climb settle; hits snap; giants ease longer)
   s.poseFrom = -1;
   A.lodAcc += dt;
   bool changed = A.key != key0 || A.a != a0 || A.fade < 1 || s.pose.skin.empty();
