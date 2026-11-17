@@ -182,6 +182,7 @@ void SelfTest::update(App& app, float dt) {
   { extern bool memProbeSelfTest(App&, float); if (memProbeSelfTest(app, dt)) return; }   // MEM1: --mem-probe
   { extern bool rm1SelfTest(App&, float); if (rm1SelfTest(app, dt)) return; }   // RM1: --check-rm1
   { extern bool sm1SelfTest(App&, float); if (sm1SelfTest(app, dt)) return; }   // SM1: --check-sm1 / --capture-sm1
+  { extern bool sm3Check(App&, float); if (sm3Check(app, dt)) return; }   // SM3: --check-sm3 (check_sm3.cpp)
   { extern bool vehicleSpawnGenSelfTest(App&, float); if (vehicleSpawnGenSelfTest(app, dt)) return; }   // VH7: --gen-vehicle-spawns   // VH5: --capture-heli (capture_heli.cpp)
   { extern bool captureTk1SelfTest(App&, float); if (captureTk1SelfTest(app, dt)) return; }
   { extern bool tk1MatchSelfTest(App&, float); if (tk1MatchSelfTest(app, dt)) return; }   // TK1: --check-tk1-match

@@ -388,6 +388,8 @@ void App::exploreStep(float dt, const ExploreInput& in) {
   stepRack(in);
   if (in.packUp && !occupied && !rackOpen) packUpHeavy();
   if (occupied) { if (in.interact) { logf("station: leave on interact"); leaveStation(); } }
+  else if (smithyOpen()) { if (in.interact) smithyClose(*this); }   // SM3: E closes the fitting screen (it used to see the opening press too and shut at once)
+  else if (in.interact && target.valid && target.kind == 4 && target.t <= kInteractReach && !showLoadout && !rackOpen && !choiceFor) smithyOpenAt(*this, target.inst);   // SM3: a table looked at within reach comes before floor loot, dropped guns and vehicles
   else if (in.interact && !showLoadout && !rackOpen && !choiceFor && lootInteract(*this)) {}   // BR2: floor loot
   else if (in.interact && !showLoadout && !rackOpen && !choiceFor && mpaiPickupWeapon(*this)) {}   // GM1: E on a weapon an AI dropped
   else if (!showLoadout && !rackOpen && !choiceFor && tanks.handleInteract(*this, in)) {}   // E on a tank: enter
@@ -553,6 +555,10 @@ void App::updateExplore(float dt) {
     in.move = vec2(0); in.fire = in.aim = in.reload = in.jump = in.sprint = false; in.interact = in.nextWeapon = in.fireMode = in.prone = in.build = in.packUp = false;
     in.dyaw = in.dpitch = in.lookYaw = in.lookPitch = 0;
   }
+  if (smithyOpen()) {   // SM3: the fitting screen owns the keys (1-9 fit parts); E (interact) still closes it
+    in.move = vec2(0); in.fire = in.aim = in.reload = in.jump = in.sprint = false; in.nextWeapon = in.fireMode = in.prone = in.build = in.packUp = in.quickGrenade = false;
+    in.choose1 = in.choose2 = in.slot3 = in.slot4 = false; in.leanL = in.leanR = false; in.dyaw = in.dpitch = in.lookYaw = in.lookPitch = 0; in.wheel = 0;
+  }
   mpaiInput(*this, in);   // match: dead / ended input, grenade keys
   physAccum += dt;
   int steps = 0;
@@ -627,11 +633,15 @@ void App::drawExploreUI() {
       auto it = rt.find(target.inst);
       if (it != rt.end()) {
         if (target.kind != 0) {
-          std::string t = target.kind == 1 ? "E  -  Crew " + it->second.asset->name : target.kind == 3 ? "E  -  Open " + it->second.asset->name : target.kind == 4 ? std::string("E  -  Smithing table") : "E  -  Take ammunition (" + it->second.asset->name + ")";
+          std::string t = target.kind == 1 ? "E  -  Crew " + it->second.asset->name : target.kind == 3 ? "E  -  Open " + it->second.asset->name : target.kind == 4 ? std::string("E  -  Use smithing table") : "E  -  Take ammunition (" + it->second.asset->name + ")";
           ImVec2 ts = ImGui::CalcTextSize(t.c_str());
           ImVec2 p(c.x - ts.x * 0.5f, c.y + 28);
           uiGlassPanel(dl, ImVec2(p.x - 10, p.y - 5), ImVec2(p.x + ts.x + 10, p.y + ts.y + 5), std::max(8.0f, (float)4));
           dl->AddText(p, IM_COL32(245, 238, 210, 255), t.c_str());
+          if (target.kind == 4) {   // SM3: what it is for
+            const char* h = smithyFree() ? "Fit sights, muzzles, magazines and stocks to your guns (free)" : "Fit the parts you carry to your guns";
+            ImVec2 hs = ImGui::CalcTextSize(h); dl->AddText(ImVec2(c.x - hs.x * 0.5f, p.y + ts.y + 10), IM_COL32(205, 200, 185, 220), h);
+          }
         } else {
         auto& d = it->second.asset->interactables[target.idx];
         bool opening = it->second.dir[target.idx] != 0 ? it->second.dir[target.idx] < 0 : it->second.progress[target.idx] < 0.5f;
