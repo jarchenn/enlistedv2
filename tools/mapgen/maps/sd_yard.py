@@ -116,7 +116,7 @@ def build(ctx):
         n_cover += place_cover(b, plan, ch, [("ph_metal_toolbox", 0.3, 0.15, 1), ("ph_wooden_crate_01", 0.5, 0.5, 1)], R, y0, lane=1.6)
     # signs at every site entrance; sodium street lights against the walls; the sheds lit by caged lamps (INTERIORS above)
     n_sign = site_signs(b, plan, "A", "a", y0) + site_signs(b, plan, "B", "b", y0)
-    n_lamp = wall_lamps(b, plan, "AB", "mod_streetlight_double", y0, every=4) + wall_lamps(b, plan, "MstpfRcTD", "mod_streetlight", y0, every=6)
+    n_lamp = wall_lamps(b, plan, "AB", "sd_sodium_light", y0, every=3) + wall_lamps(b, plan, "MstpfRcTD", "sd_sodium_light", y0, every=5)
     # ---------------------------------------------------------------- scenario: sites, spawns, timings
     sc = ScenarioBuilder(b, defending="Axis")
     xA, zA = plan.cc(*PLANT_A_CELL)
@@ -170,7 +170,7 @@ def build(ctx):
     thumb_cam = ([aC[0] + 14.0, y0 + 1.7, aC[1] - 14.0], look_yaw(-1.0, 1.0), -4.0)
     eye = 1.65
     views = [{"name": "overview_high", "pos": [0.0, 130.0, -100.0], "yaw": 0.0, "pitch": -55.0}]
-    for name, (i, j), (ti, tj) in (("a_site", (12, 10), (12, 12)), ("b_site", (3, 6), (2, 8)), ("mid", (9, 6), (8, 8)), ("t_spawn", (12, 1), (12, 3)), ("d_spawn", (4, 15), (4, 13)), ("reefer", (6, 8), (4, 8)), ("rail", (5, 10), (9, 10))):
+    for name, (i, j), (ti, tj) in (("a_site", (2, 10), (2, 12)), ("b_site", (11, 6), (12, 8)), ("mid", (5, 6), (6, 8)), ("t_spawn", (2, 1), (2, 3)), ("d_spawn", (10, 15), (10, 13)), ("reefer", (8, 8), (10, 8)), ("rail", (9, 10), (5, 10))):
         x, z = plan.cc(i, j); tx, tz = plan.cc(ti, tj)
         views.append({"name": name + "_eye", "pos": [round(x, 2), round(y0 + eye, 2), round(z, 2)], "yaw": look_yaw(tx - x, tz - z), "pitch": 0.0, "gameplay": True})
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,

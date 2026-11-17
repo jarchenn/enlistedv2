@@ -80,6 +80,19 @@ def main():
     r = asset("sd_roof_bay", "Roof slab (6 m bay)", "Search and Destroy: a 6.6 m precast concrete roof slab on two steel beams, resting on 3 m compound walls to roof one 6 m bay (a connector room).", [6.6, 6.6], roof, [0.5, 0.5, 0.5])
     r["materials"] = roof_mats
     out.append(r)
+    # SD2 Night Yard: a sodium yard light, a 6 m galvanised mast on a base plate with an arm and a lantern; its +z faces
+    # the lane (the arm reaches 0.9 m out), the light warm orange, wide enough to pool on the asphalt
+    mast = [{"t": "c", "c": [0, 3.0, 0], "s": [0.12, 6.0, 0.12], "m": "galv", "seg": 8},
+            {"t": "b", "c": [0, 0.02, 0], "s": [0.4, 0.04, 0.4], "m": "galv"},
+            {"t": "b", "c": [0, 5.95, 0.45], "s": [0.06, 0.06, 0.95], "m": "galv", "k": 0},
+            {"t": "b", "c": [0, 5.85, 0.9], "s": [0.32, 0.14, 0.5], "m": "head", "k": 0},
+            {"t": "b", "c": [0, 5.77, 0.9], "s": [0.26, 0.02, 0.42], "m": "glow", "k": 0, "lod": 1}]
+    m = asset("sd_sodium_light", "Sodium yard light", "Search and Destroy: a 6 m galvanised mast with a sodium lantern on a short arm, lighting the lane in warm orange.", [0.5, 1.3], mast, [0.5, 0.5, 0.5])
+    m["materials"] = [{"name": "galv", "albedo": [0.55, 0.57, 0.58], "roughness": 0.5, "pattern": "metal", "metallic": 0.6, "grain": 1, "texture": "steel_scratched"},
+                      {"name": "head", "albedo": [0.25, 0.26, 0.27], "roughness": 0.6, "pattern": "metal", "metallic": 0.4, "grain": 1},
+                      {"name": "glow", "albedo": [1.0, 0.72, 0.38], "roughness": 0.3, "pattern": "plain", "metallic": 0, "grain": 1, "emissive": 2.0}]
+    m["light"] = {"offset": [0, 5.7, 0.9], "color": [1.0, 0.62, 0.3], "intensity": 8.0, "radius": 18.0, "use": "electric"}
+    out.append(m)
     for a in out:
         with open(os.path.join(ROOT, "content", "assets", a["id"] + ".json"), "w", encoding="utf-8", newline="\n") as f:
             json.dump(a, f, separators=(",", ":"))
