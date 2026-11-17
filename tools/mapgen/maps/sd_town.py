@@ -8,7 +8,7 @@ import os
 
 from mapgen import (GroundPaint, Grid, Frame, MapBuilder, ScenarioBuilder, write_map, write_template, write_summary, asset_usage,
                     rng, look_yaw)
-from maps.sd_common import rows_from, Plan, place_walls2, spread, place_masses, place_cover, wall_spot, site_signs
+from maps.sd_common import rows_from, Plan, place_walls2, spread, place_masses, place_cover, wall_spot, site_signs, place_along_walls
 
 TID, NAME, VERSION, SEED = "sd_town", "Rue Haute", 1, 2613
 CELL = 6.0
@@ -109,14 +109,25 @@ def build(ctx):
     for ch in INTERIORS:
         for i, j in plan.cells(ch):
             x, z = plan._cc(i, j)
-            b.place("sd_roof_bay", x, z, 0.0, check=False, cls="none", y=y0, tags={"roof", "interior"})
-            b.place("tun_lamp", x + 0.8, z, 0.0, check=False, cls="none", y=y0 + 3.0, tags={"lamp", "interior"})
+            b.place("sd_roof_bay_timber", x, z, 0.0, check=False, cls="none", y=y0, tags={"roof", "interior"})
+            b.place("lamp_hanging_lantern", x + 0.8, z, 0.0, check=False, cls="none", y=y0 + 3.0, tags={"lamp", "interior"})
             h = CELL / 2
             paint.poly("cobbles", [(x - h, z - h), (x + h, z - h), (x + h, z + h), (x - h, z + h)], weight=1.0, edge=0.3)
             n_roof += 1
         n_cover += place_cover(b, plan, ch, [("ph_metal_toolbox", 0.3, 0.15, 1), ("ph_wooden_crate_01", 0.5, 0.5, 1)], R, y0, lane=1.6)
     # signs at every site entrance
     n_sign = site_signs(b, plan, "A", "a", y0) + site_signs(b, plan, "B", "b", y0)
+    # the town kit against the walls (4.5 m clear of doorways, 1 m walkways): the market row and stalls in the Market Hall,
+    # the cafe terrace and doorsteps on the square, a barricade and roadblock in the lanes, carts and rubble
+    n_kit = 0
+    for ch, items in (("B", [("cl_town_market_row", 4.75, 1.6, 1), ("cl_town_market_stall", 1.6, 0.9, 2)]),
+                      ("M", [("cl_town_cafe_terrace_large", 4.7, 2.3, 1), ("cl_town_doorstep", 1.6, 0.6, 1), ("cl_town_bench_corner", 1.5, 0.7, 1)]),
+                      ("A", [("cl_town_doorstep", 1.6, 0.6, 1), ("cl_town_bench_corner", 1.5, 0.7, 1)]),
+                      ("s", [("cl_town_roadblock", 2.25, 0.5, 1), ("cl_town_doorstep", 1.6, 0.6, 2)]),
+                      ("t", [("cl_town_barricade", 5.25, 1.8, 1), ("cl_town_doorstep", 1.6, 0.6, 2)]),
+                      ("f", [("cl_town_doorstep", 1.6, 0.6, 1)]), ("R", [("cl_town_doorstep", 1.6, 0.6, 2), ("cl_town_cafe_terrace", 2.8, 1.2, 1)]),
+                      ("c", [("cl_town_market_stall", 1.6, 0.9, 1)])):
+        n_kit += place_along_walls(b, plan, ch, items, R, y0, keep=PADS)
     # ---------------------------------------------------------------- scenario: sites, spawns, timings
     sc = ScenarioBuilder(b, defending="Axis")
     xA, zA = plan.cc(*PLANT_A_CELL)

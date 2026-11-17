@@ -300,7 +300,7 @@ def place_container_walls(b, plan, perimeter, between, R, y=0.0, boxes=("mod_con
     return n
 
 
-def site_signs(b, plan, ch, letter, y, tags=("sign",)):
+def site_signs(b, plan, ch, letter, y, tags=("sign",), asset="sd_stencil_%s", inset=0.27):
     """The site's letter board on the wall beside each of its entrances, inside and outside (sd_sign_<a|b>_wall)."""
     n = 0
     seen = []
@@ -313,11 +313,11 @@ def site_signs(b, plan, ch, letter, y, tags=("sign",)):
         other = rc if ra == ch else ra
         for reg in (ch, other):
             try:
-                sx, sz, syaw = wall_spot(plan, reg, (x, z))
+                sx, sz, syaw = wall_spot(plan, reg, (x, z), inset=inset)
             except TypeError:
                 continue
             if all(math.hypot(sx - p, sz - q) > 3.0 for p, q in seen) and math.hypot(sx - x, sz - z) < 9.0:
-                b.place("sd_sign_%s_wall" % letter, sx, sz, syaw, check=False, cls="none", y=y, tags=set(tags))
+                b.place(asset % letter, sx, sz, syaw, check=False, cls="none", y=y, tags=set(tags))   # stencil-painted letters (the pixel boards read low-res)
                 seen.append((sx, sz))
                 n += 1
     return n
