@@ -510,16 +510,17 @@ void build(App&) {
   // selftest_out/ui4_still_<id>.png (made into content/templates/<id>.loading.jpg for the loading screen)
   push("ui4 stills", [](App& a, float t) {
     if (!std::getenv("NMK_UI4_STILLS")) return true;
-    static std::vector<std::string> ids; static size_t k = 0; static double r0 = 0; static int ph = 0;
+    static std::vector<std::string> ids; static size_t k = 0; static double r0 = 0; static int ph = 0; static bool all = false;
     if (t == 0) {
       ids.clear(); k = 0; ph = 0;
-      for (auto& tp : a.templates) if (tp.available && tp.raw.value("playable", false) && fs::exists(contentDir() / "templates" / (tp.id + ".nmap.json"))) ids.push_back(tp.id);
+      all = std::string(std::getenv("NMK_UI4_STILLS")) == "all";   // UI6: else only the maps still missing one
+      for (auto& tp : a.templates) if (tp.available && tp.raw.value("playable", false) && fs::exists(contentDir() / "templates" / (tp.id + ".nmap.json")) && (all || !fs::exists(contentDir() / "templates" / (tp.id + ".loading.jpg")))) ids.push_back(tp.id);
       if (a.mode == Mode::Explore) a.exitExplore();
       gUi.showOverlay = false;   // no scenario lines / markers in the stills
     }
     if (k >= ids.size()) { a.hideUi = false; gUi.showOverlay = true; return true; }
-    if (ph == 0) { a.openMap(contentDir() / "templates" / (ids[k] + ".nmap.json")); a.hideUi = true; r0 = glfwGetTime(); ph = 1; return false; }
-    if (ph == 1 && glfwGetTime() > r0 + 3.0) { a.uiShot = outDir() / ("ui4_still_" + ids[k] + ".png"); ph = 2; return false; }
+    if (ph == 0) { a.openMap(contentDir() / "templates" / (ids[k] + ".nmap.json")); a.hideUi = true; r0 = glfwGetTime(); ph = 1; if (!all) navFrameMap(a); return false; }   // UI6: new maps from the Home view (some saved cameras face the haze)
+    if (ph == 1 && glfwGetTime() > r0 + 4.5) { a.uiShot = outDir() / ("ui4_still_" + ids[k] + ".png"); ph = 2; return false; }
     if (ph == 2) { ++k; ph = 0; }
     return t > 900; });
   push("ai3 setup", [](App& a, float t) {
