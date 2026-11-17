@@ -6,8 +6,8 @@
   "available": true,
   "seed": 2612,
   "description": "Search and Destroy: a desert compound of precast concrete walls and courtyards in hard noon light. A: the west vehicle court; B: the east supply yard; Mid: the parade square. 5 v 5.",
-  "width": 162.0,
-  "depth": 162.0,
+  "width": 150.0,
+  "depth": 150.0,
   "margin": 60,
   "camera": {
     "pos": [
@@ -36,9 +36,9 @@
   "thumbnail": "sd_yard.thumb.png",
   "thumbnailCamera": {
     "pos": [
-      -19.0,
+      -13.0,
       11.700015259021896,
-      -11.0
+      25.0
     ],
     "yaw": 135.0,
     "pitch": -4.0
@@ -58,42 +58,42 @@
     {
       "name": "a_site_eye",
       "pos": [
-        -30.0,
-        11.65,
-        -6.0
-      ],
-      "yaw": 153.434948822922,
-      "pitch": 0.0,
-      "gameplay": true
-    },
-    {
-      "name": "b_site_eye",
-      "pos": [
         30.0,
         11.65,
-        12.0
-      ],
-      "yaw": -153.434948822922,
-      "pitch": 0.0,
-      "gameplay": true
-    },
-    {
-      "name": "mid_eye",
-      "pos": [
-        -6.0,
-        11.65,
-        -24.0
+        24.0
       ],
       "yaw": 180.0,
       "pitch": 0.0,
       "gameplay": true
     },
     {
+      "name": "b_site_eye",
+      "pos": [
+        -24.0,
+        11.65,
+        0.0
+      ],
+      "yaw": 153.434948822922,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "mid_eye",
+      "pos": [
+        12.0,
+        11.65,
+        0.0
+      ],
+      "yaw": 153.434948822922,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
       "name": "t_spawn_eye",
       "pos": [
-        0.0,
+        30.0,
         11.65,
-        -42.0
+        -54.0
       ],
       "yaw": 180.0,
       "pitch": 0.0,
@@ -102,9 +102,9 @@
     {
       "name": "d_spawn_eye",
       "pos": [
-        0.0,
+        -18.0,
         11.65,
-        36.0
+        54.0
       ],
       "yaw": -0.0,
       "pitch": 0.0,
@@ -113,22 +113,22 @@
     {
       "name": "reefer_eye",
       "pos": [
-        -12.0,
+        -6.0,
         11.65,
-        -12.0
+        12.0
       ],
-      "yaw": 116.56505117707799,
+      "yaw": 90.0,
       "pitch": 0.0,
       "gameplay": true
     },
     {
-      "name": "b_main_eye",
+      "name": "rail_eye",
       "pos": [
-        36.0,
+        -12.0,
         11.65,
-        0.0
+        24.0
       ],
-      "yaw": 180.0,
+      "yaw": -90.0,
       "pitch": 0.0,
       "gameplay": true
     }

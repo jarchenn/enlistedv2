@@ -1,4 +1,4 @@
-"""SD2 map 2: Night Yard, a Search and Destroy map: a desert military compound of precast concrete walls, courtyards and
+"""SD2 map 2: Night Yard (Rue Haute's timed layout mirrored east-west), a Search and Destroy map: a desert military compound of precast concrete walls, courtyards and
 huts in hard noon light. Laid out on the 6 m bay of the compound wall (sd_common.Plan). Raiders spawn at the south
 gate, Security in the north yard. A: the west vehicle court; B: the east supply yard; Mid: the parade square.
 
@@ -18,25 +18,25 @@ BREACH = "mod_nt_compound_wall_breach"
 CULVERT = "mod_nt_compound_wall_culvert"
 
 # north at the top; column i from the west, row j from the south (the last row is j = 0)
-ROWS = rows_from(17, 17, [
-    ("D", 7, 13, 9, 14),                       # Security spawn (the gatehouse yard)
-    ("R", 3, 12, 11, 12), ("R", 3, 11, 3, 11),  # the quay road behind both sites (defender rotation)
-    ("A", 1, 7, 4, 10),                        # A Loading Dock (west, low)
-    ("B", 12, 10, 15, 13),                     # B Crane Yard (east, high)
-    ("M", 6, 5, 9, 7),                         # the container stacks (mid)
-    ("T", 7, 1, 9, 2),                         # Raider spawn (the truck gate)
-    ("s", 3, 2, 6, 2), ("s", 3, 3, 3, 6),      # A road
-    ("t", 10, 1, 14, 1), ("t", 14, 2, 14, 9),  # B alley (the long fence road)
-    ("p", 7, 3, 7, 4),                         # mid approach
-    ("c", 5, 8, 11, 8), ("c", 11, 9, 11, 10),  # the rail passage A - B, past mid
-    ("k", 8, 9, 8, 11),                        # defender access to mid
-    ("w", 5, 6, 5, 7),                         # the reefer shed to A
-    ("n", 10, 6, 12, 6), ("n", 12, 7, 12, 9),  # the pump house run to B
-    ("f", 4, 4, 6, 4), ("f", 8, 4, 13, 4),     # attacker fallback (the back lane)
+ROWS = rows_from(15, 17, [
+    ("D", 9, 14, 11, 15),                       # Security spawn (the gendarmerie yard)
+    ("R", 5, 13, 12, 13), ("R", 12, 11, 12, 12),  # the back lanes behind both sites (defender rotation)
+    ("A", 1, 11, 4, 14),                     # A Church Yard (north-east)
+    ("B", 10, 7, 13, 10),                        # B Market Hall (west)
+    ("M", 5, 7, 8, 9),                         # the market square (mid)
+    ("T", 1, 1, 3, 2),                       # Raider spawn (the station yard)
+    ("s", 2, 3, 2, 10),                      # Rue de l'Eglise to A
+    ("t", 4, 1, 11, 1), ("t", 11, 2, 11, 6),     # Rue du Moulin to B
+    ("p", 4, 2, 5, 2), ("p", 5, 3, 5, 6),     # mid approach
+    ("c", 5, 10, 9, 10), ("c", 5, 11, 5, 11),  # the arcade A - B, along the square's north side
+    ("k", 7, 11, 7, 12),                       # defender access to the square
+    ("w", 9, 8, 9, 8),                         # the bakery passage to B
+    ("n", 4, 8, 4, 10),                      # the cafe passage to A
+    ("f", 6, 5, 10, 5), ("f", 3, 5, 4, 5),    # attacker fallback (the river lane)
 ])
 # the layout scale knob (sd_common.Plan): these original columns / rows are drawn twice; tuned with --sd-timings
 STRETCH_COLS = ()
-STRETCH_ROWS = ()
+STRETCH_ROWS = (2, 3, 4, 5)
 # decorative buildings on the solid ground (asset, footprint w, d); cover per region (asset, half w, half d, count)
 MASSES = [("mod_nt_barracks", 30, 12), ("mod_nt_motor_pool", 24, 14), ("mod_nt_hq", 20, 14), ("mod_nt_workshop", 18, 12),
           ("mod_nt_armory", 16, 12), ("mod_nt_pump_station", 14, 10), ("mod_mil_hut", 11.8, 19.6), ("mod_nt_site_office", 7, 3)]
@@ -52,17 +52,19 @@ STREET_COVER = [("ph_wooden_crate_01", 0.5, 0.5, 2), ("ph_barrel_02", 0.35, 0.35
 COVER = {"A": A_COVER, "B": B_COVER, "M": [("mod_hesco_3x1", 1.6, 0.6, 2), ("ph_wooden_crate_02", 0.5, 0.5, 2), ("ph_barrel_03", 0.35, 0.35, 2)],
          "s": STREET_COVER, "t": STREET_COVER, "f": STREET_COVER[:2], "R": STREET_COVER[:2], "D": [("ph_plastic_crate_01", 0.4, 0.3, 2), ("ph_portable_generator", 0.5, 0.35, 1)],
          "T": [("ph_plastic_crate_02", 0.4, 0.3, 2), ("ph_metal_toolbox", 0.3, 0.15, 1)], "c": [("ph_barrel_01", 0.35, 0.35, 1)]}
+PLANT_A_CELL, PLANT_A_OFF = (2, 12), (0.0, 0.0)   # plant pads: an original cell and an offset (m)
+PLANT_B_CELL, PLANT_B_OFF = (12, 8), (0.0, 0.0)
 LINKS = {
-    ((7, 2), (6, 2)): "open", ((9, 1), (10, 1)): "open", ((7, 2), (7, 3)): "open", ((7, 4), (7, 5)): "open",
-    ((3, 6), (3, 7)): "open", ((14, 9), (14, 10)): "open",
-    ((3, 4), (4, 4)): "open", ((6, 4), (7, 4)): "open", ((7, 4), (8, 4)): "open", ((13, 4), (14, 4)): "open",
-    ((6, 6), (5, 6)): "open", ((5, 7), (4, 7)): BREACH,
-    ((9, 6), (10, 6)): "open", ((12, 9), (12, 10)): BREACH,
-    ((6, 7), (6, 8)): "open", ((9, 7), (9, 8)): "open",
-    ((4, 8), (5, 8)): "open", ((11, 10), (12, 10)): "open",
-    ((8, 8), (8, 9)): "open", ((8, 11), (8, 12)): "open",
-    ((3, 11), (3, 10)): "open", ((11, 12), (12, 12)): "open",
-    ((7, 13), (7, 12)): "open", ((9, 13), (9, 12)): "open",
+    ((3, 1), (4, 1)): "open", ((3, 2), (4, 2)): "open", ((2, 2), (2, 3)): "open",
+    ((5, 6), (5, 7)): "open", ((11, 6), (11, 7)): "open", ((2, 10), (2, 11)): "open",
+    ((11, 5), (10, 5)): "open", ((6, 5), (5, 5)): "open", ((5, 5), (4, 5)): "open", ((3, 5), (2, 5)): "open",
+    ((8, 8), (9, 8)): "open", ((9, 8), (10, 8)): BREACH,
+    ((5, 8), (4, 8)): "open", ((4, 10), (4, 11)): BREACH,
+    ((8, 9), (8, 10)): "open", ((6, 9), (6, 10)): "open",
+    ((10, 10), (9, 10)): "open", ((5, 11), (4, 11)): "open",
+    ((7, 10), (7, 11)): "open", ((7, 12), (7, 13)): "open",
+    ((12, 11), (12, 10)): "open", ((5, 13), (4, 13)): "open",
+    ((11, 14), (11, 13)): "open", ((9, 14), (9, 13)): "open",
 }
 
 
@@ -97,9 +99,11 @@ def build(ctx):
     n_mass = place_masses(b, plan, MASSES, R, y0)
     mx, mz = plan.centre("M")
     b.place("mod_nt_radar_tower", mx, mz + 1.0, 0.0, check=False, cls="none", y=y0, tags={"landmark", "cover"})   # the parade square's landmark: splits mid
+    _xa, _za = plan.cc(*PLANT_A_CELL); _xb, _zb = plan.cc(*PLANT_B_CELL)
+    PADS = [(_xa + PLANT_A_OFF[0], _za + PLANT_A_OFF[1], 3.5), (_xb + PLANT_B_OFF[0], _zb + PLANT_B_OFF[1], 3.5)]
     n_cover = 0
     for ch, items in COVER.items():
-        n_cover += place_cover(b, plan, ch, items, R, y0)
+        n_cover += place_cover(b, plan, ch, items, R, y0, keep=PADS)
     # interiors: the Workshop, Maintenance and the defender access are roofed rooms between the lanes (a slab on the walls,
     # a caged lamp per bay, a concrete floor, some clutter off the route)
     n_roof = 0
@@ -124,25 +128,25 @@ def build(ctx):
             if all(abs(x - q[0]) + abs(z - q[1]) > 4.0 for q in signs):
                 b.place("sd_sign_%s_wall" % letter, x, z, yaw, check=False, cls="none", y=y0, tags={"sign"})
                 signs.append((x, z))
-    for ch, letter, near in (("s", "a", plan.cc(2, 8)), ("t", "b", plan.cc(12, 8)), ("f", "a", plan.cc(3, 7)), ("f", "b", plan.cc(11, 7)), ("R", "a", plan.cc(4, 13)), ("R", "b", plan.cc(10, 13))):
+    for ch, letter, near in (("s", "a", plan.cc(12, 8)), ("t", "b", plan.cc(2, 8)), ("f", "a", plan.cc(11, 7)), ("f", "b", plan.cc(3, 7)), ("R", "a", plan.cc(10, 13)), ("R", "b", plan.cc(4, 13))):
         x, z, yaw = wall_spot(plan, ch, near)
         b.place("sd_sign_%s_arrow" % letter, x, z, yaw, check=False, cls="none", y=y0, tags={"sign"})
         signs.append((x, z))
 
     # ---------------------------------------------------------------- scenario: sites, spawns, timings
     sc = ScenarioBuilder(b, defending="Axis")
-    xA, zA = plan.cc(2, 9)
-    xB, zB = plan.cc(14, 12)
-    plantA, plantB = (xA, zA), (xB, zB)
+    xA, zA = plan.cc(*PLANT_A_CELL)
+    xB, zB = plan.cc(*PLANT_B_CELL)
+    plantA, plantB = (xA + PLANT_A_OFF[0], zA + PLANT_A_OFF[1]), (xB + PLANT_B_OFF[0], zB + PLANT_B_OFF[1])
     aC, bC = plan.centre("A"), plan.centre("B")
-    sc.objective("A Loading Dock", plantA[0], plantA[1], radius=1.75, capture_time=0, attack_from=plan.cc(3, 5), y_min=-1.0, y_max=1.5,
+    sc.objective("A Loading Dock", plantA[0], plantA[1], radius=1.75, capture_time=0, attack_from=plan.cc(2, 8), y_min=-1.0, y_max=1.5,
                  slots=[{"pos": [aC[0] + 6.0, y0, aC[1] - 1.0], "yaw": 225.0, "kind": "position", "priority": 1},
                         {"pos": [aC[0] - 8.0, y0, aC[1] + 1.0], "yaw": 135.0, "kind": "position", "priority": 2}],
-                 routes=[("main", [plan.cc(3, 3), plan.cc(3, 6)]), ("left", [plan.cc(7, 3), plan.cc(7, 6), plan.cc(5, 6), plan.cc(5, 7)])])
-    sc.objective("B Crane Yard", plantB[0], plantB[1], radius=1.75, capture_time=0, attack_from=plan.cc(14, 7), y_min=-1.0, y_max=1.5,
+                 routes=[("main", [plan.cc(2, 3), plan.cc(2, 10)]), ("right", [plan.cc(5, 3), plan.cc(5, 7), plan.cc(4, 8), plan.cc(4, 10)])])
+    sc.objective("B Crane Yard", plantB[0], plantB[1], radius=1.75, capture_time=0, attack_from=plan.cc(11, 5), y_min=-1.0, y_max=1.5,
                  slots=[{"pos": [bC[0] - 6.0, y0, bC[1] - 1.0], "yaw": 135.0, "kind": "position", "priority": 1},
                         {"pos": [bC[0] + 8.0, y0, bC[1] + 1.0], "yaw": 225.0, "kind": "position", "priority": 2}],
-                 routes=[("main", [plan.cc(14, 3), plan.cc(14, 9)]), ("right", [plan.cc(7, 3), plan.cc(7, 6), plan.cc(10, 6), plan.cc(12, 6), plan.cc(12, 9)])])
+                 routes=[("main", [plan.cc(9, 1), plan.cc(11, 6)]), ("left", [plan.cc(5, 3), plan.cc(5, 7), plan.cc(8, 8), plan.cc(9, 8)])])
     for o in sc.objectives:
         o["pos"][1] = y0
     tC, dC = plan.centre("T"), plan.centre("D")
@@ -158,17 +162,17 @@ def build(ctx):
     P = lambda i, j, dx=0.0, dz=0.0: [round(plan.cc(i, j)[0] + dx, 2), round(y0, 2), round(plan.cc(i, j)[1] + dz, 2)]
     sd = {
         "callouts": [{"name": n, "x": round(c[0], 1), "z": round(c[1], 1), "r": r} for n, c, r in (
-            ("A Loading Dock", aC, 12), ("B Crane Yard", bC, 12), ("Container Stacks", plan.centre("M"), 12), ("A Road", plan.cc(3, 4), 9),
-            ("B Fence Road", plan.cc(14, 5), 12), ("Reefer Shed", plan.centre("w"), 6), ("Pump House", plan.centre("n"), 8), ("Rail Passage", plan.centre("c"), 10),
-            ("Quay Road", plan.centre("R"), 14), ("Back Lane", plan.cc(10, 4), 10), ("Raider Spawn", tC, 10), ("Security Spawn", dC, 10))],
+            ("A Loading Dock", aC, 12), ("B Crane Yard", bC, 12), ("Container Stacks", plan.centre("M"), 12), ("Dock Road", plan.cc(2, 6), 12),
+            ("Fence Road", plan.cc(11, 3), 10), ("Reefer Shed", plan.centre("w"), 5), ("Pump House", plan.centre("n"), 7), ("Rail Passage", plan.centre("c"), 10),
+            ("Quay Road", plan.centre("R"), 14), ("Back Lane", plan.cc(8, 5), 10), ("Raider Spawn", tC, 10), ("Security Spawn", dC, 10))],
         "bounds": [[round(plan.x0, 1), round(plan.z0, 1)], [round(-plan.x0, 1), round(plan.z0, 1)], [round(-plan.x0, 1), round(-plan.z0, 1)], [round(plan.x0, 1), round(-plan.z0, 1)]],
-        "timingPoints": {"contest": [P(7, 5), P(3, 6), P(14, 8)]},
+        "timingPoints": {"contest": [P(5, 7), P(2, 8), P(11, 6)]},
         "timingRoutes": [
-            {"name": "quay road", "kind": "rotation", "points": [P(3, 10), P(3, 11), P(11, 12), P(12, 12)]},
-            {"name": "rail passage", "kind": "mid", "points": [P(4, 8), P(5, 8), P(11, 8), P(11, 10), P(12, 10)]},
-            {"name": "back lane", "kind": "fallback", "points": [P(3, 7), P(3, 4), P(14, 4), P(14, 10)]},
-            {"name": "mid to A via reefer shed", "kind": "attackMid", "points": [P(7, 2), P(7, 5), P(5, 6), P(4, 7), [round(plantA[0], 2), round(y0, 2), round(plantA[1], 2)]]},
-            {"name": "mid to B via pump house", "kind": "attackMid", "points": [P(7, 2), P(7, 5), P(10, 6), P(12, 9), P(12, 10), [round(plantB[0], 2), round(y0, 2), round(plantB[1], 2)]]},
+            {"name": "quay road", "kind": "rotation", "points": [P(12, 10), P(12, 11), P(5, 13), P(4, 13)]},
+            {"name": "rail passage", "kind": "mid", "points": [P(10, 10), P(9, 10), P(5, 10), P(5, 11), P(4, 11)]},
+            {"name": "back lane", "kind": "fallback", "points": [P(2, 11), P(2, 5), P(11, 5), P(11, 7)]},
+            {"name": "mid to A via pump house", "kind": "attackMid", "points": [P(2, 2), P(4, 2), P(5, 7), P(4, 8), P(4, 11), [round(plantA[0], 2), round(y0, 2), round(plantA[1], 2)]]},
+            {"name": "mid to B via reefer shed", "kind": "attackMid", "points": [P(2, 2), P(4, 2), P(5, 7), P(9, 8), P(10, 8), [round(plantB[0], 2), round(y0, 2), round(plantB[1], 2)]]},
         ],
     }
     rules = {"mode": "snd", "sd": sd}
@@ -182,7 +186,7 @@ def build(ctx):
     thumb_cam = ([aC[0] + 14.0, y0 + 1.7, aC[1] - 14.0], look_yaw(-1.0, 1.0), -4.0)
     eye = 1.65
     views = [{"name": "overview_high", "pos": [0.0, 130.0, -100.0], "yaw": 0.0, "pitch": -55.0}]
-    for name, (i, j), (ti, tj) in (("a_site", (3, 7), (2, 9)), ("b_site", (13, 10), (14, 12)), ("mid", (7, 4), (7, 6)), ("t_spawn", (8, 1), (8, 3)), ("d_spawn", (8, 14), (8, 12)), ("reefer", (6, 6), (4, 7)), ("b_main", (14, 8), (14, 11))):
+    for name, (i, j), (ti, tj) in (("a_site", (12, 10), (12, 12)), ("b_site", (3, 6), (2, 8)), ("mid", (9, 6), (8, 8)), ("t_spawn", (12, 1), (12, 3)), ("d_spawn", (4, 15), (4, 13)), ("reefer", (6, 8), (4, 8)), ("rail", (5, 10), (9, 10))):
         x, z = plan.cc(i, j); tx, tz = plan.cc(ti, tj)
         views.append({"name": name + "_eye", "pos": [round(x, 2), round(y0 + eye, 2), round(z, 2)], "yaw": look_yaw(tx - x, tz - z), "pitch": 0.0, "gameplay": True})
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,

@@ -188,7 +188,7 @@ def door_points(plan, ch):
     return out
 
 
-def place_cover(b, plan, ch, items, R, y, lane=2.2, tries=400, tags=("cover",)):
+def place_cover(b, plan, ch, items, R, y, lane=2.2, tries=400, tags=("cover",), keep=()):
     """items: [(asset, half w, half d, count)]: scattered in region ch, never within `lane` m of a straight line between
     two of its doorways (the routes stay open) and 1.0 m off its walls."""
     doors = door_points(plan, ch)
@@ -205,6 +205,8 @@ def place_cover(b, plan, ch, items, R, y, lane=2.2, tries=400, tags=("cover",)):
                 if not rect_ok(plan, x, z, max(hw, hd), max(hw, hd), walkable=True, margin=1.0):
                     continue
                 if any(_seg_dist((x, z), s0, s1) < lane + max(hw, hd) for s0, s1 in segs):
+                    continue
+                if any(math.hypot(x - kx, z - kz) < kr + max(hw, hd) for kx, kz, kr in keep):   # plant pads stay clear
                     continue
                 if any(math.hypot(x - px, z - pz) < max(hw, hd) + pr + 1.4 for px, pz, pr in placed):
                     continue

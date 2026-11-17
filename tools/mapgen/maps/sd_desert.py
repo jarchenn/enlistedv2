@@ -55,6 +55,8 @@ STREET_COVER = [("ph_wooden_crate_01", 0.5, 0.5, 2), ("ph_barrel_02", 0.35, 0.35
 COVER = {"A": A_COVER, "B": B_COVER, "M": [("mod_hesco_3x1", 1.6, 0.6, 2), ("ph_wooden_crate_02", 0.5, 0.5, 2), ("ph_barrel_03", 0.35, 0.35, 2)],
          "s": STREET_COVER, "t": STREET_COVER, "f": STREET_COVER[:2], "R": STREET_COVER[:2], "D": [("ph_plastic_crate_01", 0.4, 0.3, 2), ("ph_portable_generator", 0.5, 0.35, 1)],
          "T": [("ph_plastic_crate_02", 0.4, 0.3, 2), ("ph_metal_toolbox", 0.3, 0.15, 1)], "c": [("ph_barrel_01", 0.35, 0.35, 1)]}
+PLANT_A_CELL, PLANT_A_OFF = (2, 10), (0.5, -3.0)   # plant pads: an original cell and an offset (m)
+PLANT_B_CELL, PLANT_B_OFF = (12, 11), (-0.5, -7.5)
 LINKS = {
     ((6, 2), (5, 2)): "open", ((8, 1), (9, 1)): "open", ((7, 2), (7, 3)): "open",
     ((7, 7), (7, 8)): "open",
@@ -101,9 +103,11 @@ def build(ctx):
     n_mass = place_masses(b, plan, MASSES, R, y0)
     mx, mz = plan.centre("M")
     b.place("mod_nt_radar_tower", mx, mz + 1.0, 0.0, check=False, cls="none", y=y0, tags={"landmark", "cover"})   # the parade square's landmark: splits mid
+    _xa, _za = plan.cc(*PLANT_A_CELL); _xb, _zb = plan.cc(*PLANT_B_CELL)
+    PADS = [(_xa + PLANT_A_OFF[0], _za + PLANT_A_OFF[1], 3.5), (_xb + PLANT_B_OFF[0], _zb + PLANT_B_OFF[1], 3.5)]
     n_cover = 0
     for ch, items in COVER.items():
-        n_cover += place_cover(b, plan, ch, items, R, y0)
+        n_cover += place_cover(b, plan, ch, items, R, y0, keep=PADS)
     # interiors: the Workshop, Maintenance and the defender access are roofed rooms between the lanes (a slab on the walls,
     # a caged lamp per bay, a concrete floor, some clutter off the route)
     n_roof = 0
@@ -135,9 +139,9 @@ def build(ctx):
 
     # ---------------------------------------------------------------- scenario: sites, spawns, timings
     sc = ScenarioBuilder(b, defending="Axis")
-    xA, zA = plan.cc(2, 10)
-    xB, zB = plan.cc(12, 11)
-    plantA, plantB = (xA + 0.5, zA - 3.0), (xB - 0.5, zB - 7.5)
+    xA, zA = plan.cc(*PLANT_A_CELL)
+    xB, zB = plan.cc(*PLANT_B_CELL)
+    plantA, plantB = (xA + PLANT_A_OFF[0], zA + PLANT_A_OFF[1]), (xB + PLANT_B_OFF[0], zB + PLANT_B_OFF[1])
     aC, bC = plan.centre("A"), plan.centre("B")
     sc.objective("A Vehicle Court", plantA[0], plantA[1], radius=1.75, capture_time=0, attack_from=plan.cc(2, 6), y_min=-1.0, y_max=1.5,
                  slots=[{"pos": [aC[0] + 6.0, y0, aC[1] - 1.0], "yaw": 225.0, "kind": "position", "priority": 1},
