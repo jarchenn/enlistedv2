@@ -167,9 +167,6 @@ const A = {
   modern_makarov: { abs: true, src: M12 + "makarov_pm_fps_animations/makarov_pm_fps_animations.glb", tex: M12 + "makarov_pm_fps_animations", stat: "modern_makarov", hipRear: [0.07, 0.3, -0.09], staticPoseFrame: 0, staticPoseAction: "Rig|MK_Idle",   // the static bake is posed (its rest is taken apart)
     keep: ["Object_9", "Object_96"], gun: "Object_9", gunBone: "Body_015",   // its attachments mesh (suppressor, optic bracket, parked off the gun) is left out
     clips: { idle: "Rig|MK_Idle", fire: "Rig|MK_Shot", reload: "Rig|MK_ReloadFast", reload_empty: "Rig|MK_ReloadFull" } },
-  modern_fn502: { abs: true, src: "E:/nmk/mg12/fn502fixed/fn502.glb", tex: M12 + "fps_animations_fn_502_tactical", stat: "modern_fn502", hipRear: [0.07, 0.3, -0.09], staticPoseFrame: 0, staticPoseAction: "Armature|FN_Shot",
-    keep: ["Object_73", "Object_9"], gun: "Object_73", gunBone: "Main_057",
-    clips: { idle: { action: "Armature|FN_Shot", range: [0, 1] }, fire: "Armature|FN_Shot", reload: "Armature|FN_Reload", reload_empty: "Armature|FN_ReloadFull" } },   // no idle clip: the shot's first frame, held
   modern_mark23: { abs: true, src: M12 + "mark-23-animated-free/source/Mark23.fbx", tex: M12 + "mark-23-animated-free", stat: "modern_mark23", hipRear: [0.07, 0.3, -0.09], gun: "main", gunBone: "main_j",   // LOCAL-ONLY bake (Sketchfab Standard licence)
     keep: ["Hand_Mesh", "main", "Side", "mag"],
     clips: { idle: "Armature|Idle|BaseLayer", fire: "Armature|Shoot|BaseLayer", reload: "Armature|Reload|BaseLayer" },
