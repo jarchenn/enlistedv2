@@ -989,7 +989,7 @@ void Net::update(App& app, float dt) {
         for (auto& m : msgs) {
           json j; try { j = json::parse(m); } catch (...) { continue; }
           std::string t = j.value("t", "");
-          if (t == "lobby") { players.clear(); for (auto& p : j["players"]) players.push_back({p["id"], p["name"], p["ready"]}); lobbyRules = j["rules"]; hostMapName = j.value("map", ""); matchRunning = j.value("running", false); app.R.wx.forced = j.value("weather", app.R.wx.forced); app.R.wx.fogForced = j.value("fog", app.R.wx.fogForced); }
+          if (t == "lobby") { players.clear(); for (auto& p : j["players"]) players.push_back({p["id"], p["name"], p["ready"]}); lobbyRules = j["rules"]; hostMapName = j.value("map", ""); matchRunning = j.value("running", false); app.R.wx.forced = j.value("weather", app.R.wx.forced); app.R.wx.fogForced = j.value("fog", app.R.wx.fogForced); app.R.lt.forcedHour = j.value("hour", -1.0f); }
           else if (t == "start") d->pendingStart = j;
           else if (t == "world") d->pendingWorld.push_back(j);
           else if (t == "lobbyReturn") d->wantLobbyReturn = true;
@@ -1012,11 +1012,11 @@ void Net::update(App& app, float dt) {
       }
       ++k;
     }
-    { static int lastWx = -2; int wx = app.R.wx.want() * 8 + app.R.wx.fogWant(); if (role == HOST && wx != lastWx) { lastWx = wx; d->lobbyDirty = true; } }   // WX1: the host's weather is match state
+    { static int lastWx = -2; int wx = app.R.wx.want() * 8 + app.R.wx.fogWant() + 64 * (int)std::lround(app.R.lt.hour * 10.0f); if (role == HOST && wx != lastWx) { lastWx = wx; d->lobbyDirty = true; } }   // WX1: the host's weather is match state
     if (d->lobbyDirty) {
       d->lobbyDirty = false;
       json pl = json::array(); for (auto& p : players) pl.push_back({{"id", p.peer}, {"name", p.name}, {"ready", p.ready}});
-      std::string m = json{{"t", "lobby"}, {"players", pl}, {"rules", gUi.rules.toJson()}, {"map", app.doc.name}, {"running", matchRunning}, {"weather", app.R.wx.want()}, {"fog", app.R.wx.fogWant()}}.dump();
+      std::string m = json{{"t", "lobby"}, {"players", pl}, {"rules", gUi.rules.toJson()}, {"map", app.doc.name}, {"running", matchRunning}, {"weather", app.R.wx.want()}, {"fog", app.R.wx.fogWant()}, {"hour", app.R.lt.hour}}.dump();
       for (auto& p : d->peers) p.ch.send(m);
     }
     if (gGame && gGame->active && !gGame->isClient) hostGuns(app, *this, app.frameDt);
@@ -1159,7 +1159,7 @@ void MpUi::netJoin(App& app) {
 // client, so the clouds and their shadows sit alike); a LAN client shows the host's weather (lobby "weather")
 void weatherAppFrame(App& app) {
   app.R.wx.clock = gGame && gGame->active ? gGame->t : -1.0;
-  if (!gNet || gNet->role != Net::CLIENT) app.R.wx.forced = app.R.wx.fogForced = -1;
+  if (!gNet || gNet->role != Net::CLIENT) { app.R.wx.forced = app.R.wx.fogForced = -1; app.R.lt.forcedHour = -1.0f; }
   static const char* ew = std::getenv("NMK_WEATHER");   // tests / A/B: force clear | cloudy, no ramp
   if (ew) { app.R.wx.target = std::string(ew) == "cloudy" ? 1 : 0; app.R.wx.userSet = true; app.R.wx.snap(); }
   static const char* ef = std::getenv("NMK_FOG");   // tests / A/B: 0..3

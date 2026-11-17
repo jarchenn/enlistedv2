@@ -284,7 +284,7 @@ def build(ctx):
     thumb_cam = ([_v["pos"][0], _v["pos"][1] + 0.6, _v["pos"][2]], _v["yaw"], -5.0)
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sc.to_json(rules_extra=rules), explore_start=((a1[0], a1[1], a1[2]), 0.0), camera=cam, bookmarks={},
-              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 22.5, "fill": 0.15}, "look": {"haze": 1.35, "clouds": 0.95, "saturation": 1.0, "tint": [1.03, 0.97, 0.9], "bloom": 1.7, "paintSets": {"rock": "yard_asphalt_paint", "gravel": "gravel_mixed", "pebbles": "yard_apron_paint"}}})
+              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 22.5, "fill": 0.15, "enclosed": False}, "look": {"haze": 1.35, "weather": 0.0, "clouds": 0.95, "saturation": 1.0, "tint": [1.03, 0.97, 0.9], "bloom": 1.7, "paintSets": {"rock": "yard_asphalt_paint", "gravel": "gravel_mixed", "pebbles": "yard_apron_paint"}}})
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=20, version=VERSION, seed=SEED,
                    description="Search and Destroy: a desert compound of precast concrete walls and courtyards in hard noon light. "
                                "A: the west vehicle court; B: the east supply yard; Mid: the parade square. 5 v 5.",

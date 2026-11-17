@@ -698,6 +698,10 @@ void App::drawExploreUI() {
     if (act("Main menu")) { exitExplore(); mainMenuOpen(*this); }   // UI2
     const bool keepHover = [&] { const bool hit = act("Keep session changes and return"); if (hit) { applyDamageToMap(); exitExplore(); } return ImGui::IsItemHovered(); }();
     if (keepHover) ImGui::SetTooltip("Keeps the current wall damage and craters in the map as one undoable edit.\nTanks keep their damage, wreck and ammunition (not their position).\nWeapons, ammunition, moved guns and doors are not kept.");
+    if (gGame && gGame->active && sdActive() && !gGame->isClient) {   // SD8: solo / host: the round clocks, from the next round
+      ImGui::SetCursorScreenPos(ImVec2(W * 0.5f, ry + 40 * sc));
+      ImGui::BeginChild("##sdclocks", ImVec2(W * 0.5f - X0, 300 * sc), 0, ImGuiWindowFlags_NoBackground); sdPauseTimingUI(*gGame); ImGui::EndChild();
+    }
     flat::rule(pdl, X0, W - X0, H - 104 * sc);
     flat::text(pdl, uiFontHead(), 15 * sc, ImVec2(X0, H - 132 * sc), flat::grey(), "ESC  RESUME", 0.1f);
     ImGui::End();

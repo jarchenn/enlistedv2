@@ -32,6 +32,10 @@ bool sdInBuyZone(Game& g, int slot);
 std::vector<vec2> sdPadOutline(Game& g, int site);   // SD3: the outline drawn on the ground (the objective's own plant shape)
 bool sdBuyMenuOpen();                                 // SD3: Esc closes it (before the pause menu)
 void sdCloseBuyMenu();
+// SD8: the round clocks (rules sdRoundTime / sdFreeze / sdBuy / sdFuse / sdWarmupTime): sliders for match setup (ImGui) or the
+// host's pause menu (flat, midMatch: no warmup; a change takes effect next round); true when one changed
+struct ScenarioRules; bool sdTimingUI(ScenarioRules& r, bool midMatch);
+void sdPauseTimingUI(Game& g);   // the pause menu's section (SD host / solo only)
 // SD3: with the Vehicles option off the map's vehicles leave the doc for the match (restored by sdEnd); a save in the
 // meantime writes them back in (the doc to save gets them appended)
 struct MapDoc; const MapDoc& sdDocToSave(const MapDoc& doc, MapDoc& scratch);

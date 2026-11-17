@@ -14,6 +14,8 @@
 #include "ui_glass.h"
 #include "assets.h"
 #include "model.h"
+#include "mpui.h"
+#include "ui_flat.h"
 #include <map>
 #include <imgui.h>
 #include <GLFW/glfw3.h>
@@ -305,11 +307,33 @@ void drawPads(Game& g) {   // this frame's colours into gWorldMarks (the render 
     }
   }
 }
+static void sdTiming(SdConfig& c, const ScenarioRules& r) {   // SD8: the match's round clocks over search_destroy.json's
+  if (r.sdRoundTime >= 0) c.roundTime = r.sdRoundTime; if (r.sdFreeze >= 0) c.freeze = r.sdFreeze; if (r.sdBuy >= 0) c.liveBuy = r.sdBuy;
+  if (r.sdFuse >= 0) c.fuse = r.sdFuse; if (r.sdWarmupTime >= 0) c.warmup = r.sdWarmupTime;
+}
+bool sdTimingUI(ScenarioRules& r, bool midMatch) {
+  static const SdConfig def = SdConfig::load();
+  struct Row { const char* label; float* v; float d, lo, hi; };
+  const Row rows[] = {{"Round length", &r.sdRoundTime, def.roundTime, 30, 600}, {"Freeze time", &r.sdFreeze, def.freeze, 0, 60},
+                      {"Buy time into the round", &r.sdBuy, def.liveBuy, 0, 120}, {"Bomb timer", &r.sdFuse, def.fuse, 10, 120}, {"Warmup length", &r.sdWarmupTime, def.warmup, 10, 300}};
+  bool changed = false;
+  for (const Row& w : rows) {
+    if (midMatch && w.v == &r.sdWarmupTime) continue;
+    float v = *w.v >= 0 ? *w.v : w.d; char f[24]; std::snprintf(f, sizeof f, "%d:%02d", (int)v / 60, (int)v % 60);
+    if (midMatch ? flat::sliderFloat(w.label, &v, w.lo, w.hi, f) : ImGui::SliderFloat(w.label, &v, w.lo, w.hi, f)) { *w.v = std::round(v); changed = true; }
+  }
+  return changed;
+}
+void sdPauseTimingUI(Game& g) {
+  if (!gSd || g.isClient) return;
+  flat::section("Round clocks (from the next round)");
+  if (sdTimingUI(g.match.rules, true)) gUi.rules = g.match.rules;   // kept for the next match / the lobby
+}
 static void sdClear() { if (gSdApp && gSdSpeed) gSdApp->move = gSdMove; gSdSpeed = false; delete gSd; gSd = nullptr; }
 void sdBegin(Game& g) {
   sdEnd();
   if (g.match.mode() != GameMode::SearchDestroy) return;
-  gSd = new SdMatch(); gSd->cfg = SdConfig::load();
+  gSd = new SdMatch(); gSd->cfg = SdConfig::load(); sdTiming(gSd->cfg, g.match.rules);   // SD8
   std::vector<int> team; for (auto& rs : g.match.slots) team.push_back(rs.team);
   if (g.match.rules.sdShort) { gSd->cfg.halfRounds = 12; gSd->cfg.winRounds = 13; }   // the MR12 preset (spec §2)
   gSd->cfg.friendlyFire = g.match.rules.friendlyFire;
@@ -382,7 +406,7 @@ void sdStep(Game& g, float dt) {
         g.app.blastShake = std::max(g.app.blastShake, std::max(0.0f, 1.0f - glm::length(p - g.app.eyePos()) / 60.0f));
         if (gNet && gNet->role == Net::HOST) gNet->hostWorldEvent(json{{"t", "sdboom"}, {"p", tojson(p)}});
         break; }
-      case SdEvent::RoundEnd: say(e.text, g); addFeed("Round " + std::to_string(e.amount) + ": " + e.text, g); break;
+      case SdEvent::RoundEnd: sdTiming(m.cfg, g.match.rules); say(e.text, g); addFeed("Round " + std::to_string(e.amount) + ": " + e.text, g); break;
       case SdEvent::Halftime: applySides(g); say(e.text == "overtime" ? "Overtime: $10,000 each" : "Halftime: the teams swap sides", g); break;
       case SdEvent::MatchEnd: {
         g.match.phase = MatchPhase::Ended; g.match.winner = e.team == 0 ? Winner::Defenders : Winner::Attackers;

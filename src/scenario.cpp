@@ -52,6 +52,7 @@ json ScenarioRules::toJson() const {
           {"captureModel", captureModel == CaptureModel::Contest ? "contest" : "timed"}, {"captureSpeedCap", captureSpeedCap},
           {"captureBase", captureBase}, {"capturePresenceFull", capturePresenceFull},
           {"lanes", {laneLeft, laneMain, laneRight}}, {"friendlyFire", friendlyFire}, {"sdShort", sdShort}, {"sdWarmup", sdWarmup}, {"sdVehicles", sdVehicles},
+          {"sdRoundTime", sdRoundTime}, {"sdFreeze", sdFreeze}, {"sdBuy", sdBuy}, {"sdFuse", sdFuse}, {"sdWarmupTime", sdWarmupTime},
           {"mode", mode == GameMode::Solo ? "solo" : mode == GameMode::TDM ? "tdm" : mode == GameMode::BattleRoyale ? "royale" : mode == GameMode::SearchDestroy ? "snd" : "assault"}, {"killCap", killCap},
           {"royalePlayers", royalePlayers}, {"lootModern", lootModern},
           {"soloPlayers", soloPlayers}, {"teamPlayers", {teamPlayers[0], teamPlayers[1]}}, {"aiTypes", {aiTypes[0], aiTypes[1]}},
@@ -80,6 +81,7 @@ ScenarioRules ScenarioRules::fromJson(const json& j, int version) {
   if (j.contains("lanes") && j["lanes"].is_array() && j["lanes"].size() == 3) { r.laneLeft = j["lanes"][0]; r.laneMain = j["lanes"][1]; r.laneRight = j["lanes"][2]; }
   r.friendlyFire = j.value("friendlyFire", r.friendlyFire);
   r.sdShort = j.value("sdShort", r.sdShort); r.sdWarmup = j.value("sdWarmup", r.sdWarmup); r.sdVehicles = j.value("sdVehicles", r.sdVehicles);
+  r.sdRoundTime = j.value("sdRoundTime", -1.0f); r.sdFreeze = j.value("sdFreeze", -1.0f); r.sdBuy = j.value("sdBuy", -1.0f); r.sdFuse = j.value("sdFuse", -1.0f); r.sdWarmupTime = j.value("sdWarmupTime", -1.0f);
   { std::string m = j.value("mode", std::string("assault")); r.mode = m == "solo" ? GameMode::Solo : m == "tdm" ? GameMode::TDM : m == "royale" ? GameMode::BattleRoyale : m == "snd" ? GameMode::SearchDestroy : GameMode::Assault; }
   r.royalePlayers = std::clamp(j.value("royalePlayers", r.royalePlayers), 10, kMaxCombatants);
   r.lootModern = j.value("lootModern", r.lootModern);

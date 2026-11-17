@@ -1022,7 +1022,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-swim") runSelf = true;     // swimming, underwater view, breath (selftest_swim.cpp)
     else if (a == "--capture-heli" || a == "--gen-vehicle-spawns" || a == "--capture-vh7" || a == "--check-ed2" || a == "--check-vh8" || a == "--capture-vh8" || a == "--mem-probe" || a == "--check-sm1" || a == "--capture-sm1" || a == "--check-sm1-br" || a == "--capture-shade" || a == "--capture-rc2" || a == "--check-snd10") runSelf = true;   // VH5 (capture_heli.cpp)
     else if (a == "--selftest-zombies" || a == "--capture-heavies" || a == "--capture-commands" || a == "--capture-ch1" || a == "--capture-ch6" || a == "--capture-ch8" || a == "--capture-fighter2" || a == "--capture-fighter2-slam") runSelf = true;
-    else if (a == "--capture-tk1" || a == "--check-tk1-match" || a == "--capture-tk2" || a == "--selftest-sd" || a == "--selftest-playerdmg" || a == "--selftest-prone" || a == "--selftest-sd3" || a == "--selftest-spectate" || a == "--sd-timings" || a == "--selftest-sd-plant" || a == "--capture-th1") runSelf = true;   // TK1 (capture_tk1.cpp)
+    else if (a == "--capture-tk1" || a == "--check-tk1-match" || a == "--capture-tk2" || a == "--selftest-sd" || a == "--selftest-playerdmg" || a == "--selftest-prone" || a == "--selftest-sd3" || a == "--selftest-spectate" || a == "--sd-timings" || a == "--selftest-sd-plant" || a == "--capture-th1" || a == "--selftest-sd-freeze" || a == "--selftest-sd-time") runSelf = true;   // TK1 (capture_tk1.cpp)
     else if (a == "--capture-br-models" || a == "--capture-br-worn") runSelf = true;   // BR3 / BR8: a look at the Battle Royale models and worn gear (selftest_brmodels.cpp)
     else if (a == "--capture-jeep" || a == "--capture-abrams") runSelf = true;
     else if (a == "--selftest-tdm-live") runSelf = true;   // CV1: a big TDM, spawn tour shots (selftest_royale_live.cpp)
@@ -1295,11 +1295,17 @@ int App::run(int argc, char** argv) {
     R.grass = &grass;
     {   // UG1: a map may fix its hour (extra.lighting.hour: the underground map is always night, so any leak is dark);
         // the previous hour comes back when another map is open
-      static float saved = -1.0f;
-      const bool fixedHour = doc.extra.is_object() && doc.extra.contains("lighting") && doc.extra["lighting"].is_object() && doc.extra["lighting"].contains("hour");
-      if (fixedHour) { if (saved < 0) saved = R.lt.hour; R.lt.hour = doc.extra["lighting"]["hour"].get<float>(); }
-      else if (saved >= 0) { R.lt.hour = saved; saved = -1.0f; }
+      // SD8: under the open sky ("enclosed": false) the map's hour is only its default: the user's hour (Settings, /time)
+      // wins until "Map default" or another map; a LAN client follows the host's hour
+      static float saved = -1.0f; static std::string lastMap;
       const json* lj = doc.extra.is_object() && doc.extra.contains("lighting") && doc.extra["lighting"].is_object() ? &doc.extra["lighting"] : nullptr;
+      const bool fixedHour = lj && lj->contains("hour") && (*lj)["hour"].is_number();
+      const bool enclosedMap = fixedHour && lj->value("enclosed", true);
+      if (doc.name != lastMap) { lastMap = doc.name; R.lt.userHour = false; }   // each map opens at its own hour
+      R.lt.mapHour = fixedHour ? (*lj)["hour"].get<float>() : -1.0f;
+      if (R.lt.forcedHour >= 0 && !enclosedMap) R.lt.hour = R.lt.forcedHour;
+      else if (fixedHour && (enclosedMap || !R.lt.userHour)) { if (saved < 0) saved = R.lt.hour; R.lt.hour = R.lt.mapHour; }
+      else if (!fixedHour && saved >= 0) { R.lt.hour = saved; saved = -1.0f; }
       const json* lk = doc.extra.is_object() && doc.extra.contains("look") && doc.extra["look"].is_object() ? &doc.extra["look"] : nullptr;   // BR2: a map's own look
       R.lt.mapClean = lk && lk->value("clean", false);
       R.lt.mapBloom = lk ? std::clamp(lk->value("bloom", 1.0f), 0.0f, 6.0f) : 1.0f;
@@ -1325,7 +1331,7 @@ int App::run(int argc, char** argv) {
       R.lt.mapTint = lk && lk->contains("tint") && (*lk)["tint"].is_array() && (*lk)["tint"].size() == 3 ? vec3((*lk)["tint"][0].get<float>(), (*lk)["tint"][1].get<float>(), (*lk)["tint"][2].get<float>()) : vec3(1.0f);
       R.wx.mapFog = lk && lk->contains("envFog") ? std::clamp(lk->value("envFog", 1), 0, 3) : -1;
       { static int prev = -9; int cur = R.wx.mapWx * 8 + R.wx.mapFog + (int)(R.wx.mapCloud * 1000.0f) * 64; if (cur != prev) { R.wx.snap(); R.wx.fogNow = R.wx.fogDens(); prev = cur; } }   // a map opens under its own sky
-      R.wx.enclosed = (fixedHour && !(lj && !lj->value("enclosed", true))) || R.lt.mapNoFog;   // NT8: "enclosed": false: a fixed hour under the open sky (golden-hour Woods)   // WX2: Tunnels / Backrooms keep their own light
+      R.wx.enclosed = enclosedMap || R.lt.mapNoFog;   // NT8: "enclosed": false: a fixed hour under the open sky (golden-hour Woods)   // WX2: Tunnels / Backrooms keep their own light
       R.lt.mapGamma = lj && lj->contains("gamma") && (*lj)["gamma"].is_number() ? std::clamp((*lj)["gamma"].get<float>(), 0.5f, 4.0f) : 1.0f;   // BR1c: a map may lift its gamma
     }
     { extern void lightingAppFrame(App&); lightingAppFrame(*this); }   // L2: the frame's lights (src/lights.h) and room volumes

@@ -128,15 +128,19 @@ const std::vector<Cmd>& table() {
        if (who.size() > 1) out = "Gave " + d.name + " to you and every bot soldier (LAN players and enemies skipped)";
        return out.empty() ? "Nobody to give it to (enemies carry no guns)" : out;
      }},
-    {"time", "/time set <day|noon|night|dawn|dusk|HH:MM|0-24>", "the time of day, live (on this machine only: LAN clients keep theirs)",
+    {"time", "/time set <day|noon|night|dawn|dusk|HH:MM|0-24|default>", "the time of day, live (a LAN host's reaches the clients)",
      [](App& app, Args& a) -> std::string {
        char b[64];
        if (a.empty() || lower(a[0]) == "query") { std::snprintf(b, sizeof b, "Time %02d:%02d", (int)app.R.lt.hour, (int)(std::fmod(app.R.lt.hour, 1.0f) * 60)); return b; }
        if (lower(a[0]) == "set") a.erase(a.begin());
-       float h; if (a.empty() || !parseHour(a[0], h)) return "usage: /time set <day|noon|night|dawn|dusk|HH:MM|0-24>";
-       if (app.doc.extra.is_object() && app.doc.extra.contains("lighting") && app.doc.extra["lighting"].is_object() && app.doc.extra["lighting"].contains("hour"))
-         return "This map fixes its hour (extra.lighting.hour)";
-       app.R.lt.hour = std::fmod(h, 24.0f);
+       const bool fixed = app.R.lt.mapHour >= 0 && app.R.wx.enclosed;   // SD8: only an enclosed map (Tunnels, Backrooms) keeps its hour
+       if (!a.empty() && lower(a[0]) == "default") {
+         if (app.R.lt.mapHour < 0) return "This map has no hour of its own";
+         app.R.lt.userHour = false; return "Time: the map's default";
+       }
+       float h; if (a.empty() || !parseHour(a[0], h)) return "usage: /time set <day|noon|night|dawn|dusk|HH:MM|0-24|default>";
+       if (fixed) return "This map fixes its hour (extra.lighting.hour)";
+       app.R.lt.hour = std::fmod(h, 24.0f); app.R.lt.userHour = true;
        std::snprintf(b, sizeof b, "Time set to %02d:%02d", (int)app.R.lt.hour, (int)(std::fmod(app.R.lt.hour, 1.0f) * 60)); return b;
      }},
     {"weather", "/weather <clear|cloudy>", "the weather (8 s transition; a LAN host's reaches the clients)",
