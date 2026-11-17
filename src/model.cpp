@@ -1,4 +1,5 @@
 // glTF binary import (offline bake) and the runtime textured model. No third-party glTF library: the GLB
+#include "user_cache.h"
 #include "crumb.h"
 // container is a 12-byte header, a JSON chunk and a BIN chunk, and accessors are read directly.
 #include <chrono>
@@ -664,14 +665,7 @@ static fs::path texCacheFile(const fs::path& p, int kind) {
   auto mt = fs::last_write_time(p, ec); if (ec) return {};
   std::string key = "bc1|" + p.lexically_normal().string() + "|" + std::to_string(sz) + "|" + std::to_string((long long)mt.time_since_epoch().count()) + "|" + std::to_string(kind);
   uint64_t x = 1469598103934665603ull; for (unsigned char c : key) { x ^= c; x *= 1099511628211ull; }
-  fs::path dir;
-  if (const char* e = std::getenv("NMK_TEXBC_CACHE")) { if (*e) dir = e; }
-#ifdef _WIN32
-  if (dir.empty()) if (const char* e = std::getenv("LOCALAPPDATA")) if (*e) dir = fs::path(e) / "BattleFoundry" / "texbc";
-#else
-  if (dir.empty()) if (const char* e = std::getenv("HOME")) if (*e) dir = fs::path(e) / ".cache" / "BattleFoundry" / "texbc";
-#endif
-  if (dir.empty()) dir = exeDir() / "cache" / "texbc";
+  fs::path dir = userCacheDir("texbc", "NMK_TEXBC_CACHE");
   char nm[32]; std::snprintf(nm, sizeof nm, "%016llx.bc", (unsigned long long)x);
   return dir / nm;
 }
@@ -694,7 +688,7 @@ static GLuint texFromCache(const fs::path& f, size_t& bytes) {
 static GLuint loadTex(const fs::path& p, bool srgb, size_t& bytes, int kind = -1, bool cutout = false) {
   int w, h, c;
   fs::path cf = kind >= 0 || cutout ? texCacheFile(p, cutout ? 3 : kind) : fs::path();
-  if (!cf.empty()) if (GLuint ct = texFromCache(cf, bytes)) return ct;
+  if (!cf.empty()) if (GLuint ct = texFromCache(cf, bytes)) { userCacheTouch(cf); return ct; }
   stbi_set_flip_vertically_on_load(0);
   stbi_uc* d = stbi_load(p.string().c_str(), &w, &h, &c, 4);
   if (!d) return 0;

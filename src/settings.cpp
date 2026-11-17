@@ -1,6 +1,7 @@
 // User settings and the Settings window (docs/settings.md). Values live in Settings::s, are pushed into the running
 // game by apply() and are saved to exeDir()/settings_user.json (same place as gore_user.json). Medium is exactly the
 // built-in defaults; self-test runs never read or write the file (persist = false) and start on Medium.
+#include "user_cache.h"
 #include "settings.h"
 #include "ui_flat.h"
 #include "mainmenu.h"
@@ -529,6 +530,12 @@ void settingsWindow(App& app) {
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Also Alt+wheel in the editor.");
       flat::sliderFloat("Orbit speed", &u.editorOrbit, 0.25f, 4.0f, "x %.2f", ImGuiSliderFlags_Logarithmic);
       flat::sliderFloat("Zoom step", &u.editorZoom, 0.25f, 4.0f, "x %.2f", ImGuiSliderFlags_Logarithmic);
+      flat::section("Caches");   // CACHE1 (user_cache.h): thumbnails, furnishing plans, compressed textures
+      static double scanned = -1; if (scanned < 0 || ImGui::GetTime() - scanned > 5) { userCacheBytes(true); scanned = ImGui::GetTime(); }   // recount every 5 s while the tab is open
+      ImGui::TextDisabled("Thumbnails, furnishing plans and compressed textures: %.0f MB of %.0f MB (oldest pruned at launch)", userCacheBytes(false) / 1048576.0, userCacheCapBytes() / 1048576.0);
+      ImGui::TextDisabled("%s", userCacheDir("texbc", nullptr).parent_path().string().c_str());
+      if (flat::action("Clear caches")) { userCacheClear(); scanned = -1; }
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Frees the disk space. They fill again as needed: the next launch and first map loads are slower.");
     }
   }
   ImGui::EndTable(); ImGui::PopStyleVar(2);
