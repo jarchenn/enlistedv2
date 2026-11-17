@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.04423609375953674,
+  0.22856293618679047,
+  0.04487574100494385
+ ],
+ "bmin": [
+  -0.04423609375953674,
+  0.0,
+  -0.04487574100494385
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "multi_cleaner_bottle",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.04423609375953674,
+    0.22856293618679047,
+    0.04487574100494385
+   ],
+   "bmin": [
+    -0.04423609375953674,
+    0.0,
+    -0.04487574100494385
+   ],
+   "count": 10188,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "multi_cleaner_bottle",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_multi_cleaner_bottle.glb",
+ "textures": {},
+ "triangles": 3396,
+ "vertices": 2128
+}

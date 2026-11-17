@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.642296314239502,
+  6.130000591278076,
+  0.4261208474636078
+ ],
+ "bmin": [
+  -0.643463134765625,
+  0.0,
+  -0.4261208474636078
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "modular_electricity_poles_pieces",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "modular_electricity_poles",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.642296314239502,
+    6.130000591278076,
+    0.4261208474636078
+   ],
+   "bmin": [
+    -0.643463134765625,
+    0.0,
+    -0.4261208474636078
+   ],
+   "count": 51975,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "preset_03_bolt_small_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.2765369415283203,
+    6.000000476837158,
+    0.07000008970499039
+   ],
+   "bmin": [
+    0.1365365982055664,
+    2.812594175338745e-07,
+    -0.06999991089105606
+   ],
+   "count": 540,
+   "first": 51975,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "preset_03_bolt_small_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_modular_electricity_poles.glb",
+ "textures": {},
+ "triangles": 17505,
+ "vertices": 21298
+}

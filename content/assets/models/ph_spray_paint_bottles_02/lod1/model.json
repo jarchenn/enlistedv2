@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.09661179780960083,
+  0.21845605969429016,
+  0.038495227694511414
+ ],
+ "bmin": [
+  -0.09684952348470688,
+  2.9489921871572733e-05,
+  -0.03776220232248306
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "spray_paint_bottles_02",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.09661179780960083,
+    0.21845605969429016,
+    0.038495227694511414
+   ],
+   "bmin": [
+    -0.09684952348470688,
+    2.9489921871572733e-05,
+    -0.03776220232248306
+   ],
+   "count": 2466,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "spray_paint_bottles_02",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_spray_paint_bottles_02.glb",
+ "textures": {},
+ "triangles": 822,
+ "vertices": 679
+}

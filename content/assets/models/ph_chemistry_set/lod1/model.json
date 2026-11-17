@@ -1,0 +1,93 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.538952112197876,
+  0.42817574739456177,
+  0.17696279287338257
+ ],
+ "bmin": [
+  -0.5383815765380859,
+  0.0,
+  -0.17696279287338257
+ ],
+ "materials": [
+  {
+   "albedo": "albedoa_1.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "chemistry_set_glass",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_3.jpg",
+   "mr": "mr_2.jpg",
+   "name": "chemistry_set",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.538952112197876,
+    0.3209546208381653,
+    0.17696279287338257
+   ],
+   "bmin": [
+    -0.5383815765380859,
+    0.009104023687541485,
+    -0.17060819268226624
+   ],
+   "count": 7248,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "chemistry_set_beaker_large",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5332990884780884,
+    0.42817574739456177,
+    0.16588550806045532
+   ],
+   "bmin": [
+    -0.5370609760284424,
+    0.0,
+    -0.17696279287338257
+   ],
+   "count": 8481,
+   "first": 7248,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "chemistry_set_beaker_large",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_chemistry_set.glb",
+ "textures": {},
+ "triangles": 5243,
+ "vertices": 6883
+}

@@ -1,0 +1,93 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.0847758948802948,
+  0.28604644536972046,
+  0.27683591842651367
+ ],
+ "bmin": [
+  -0.0847758948802948,
+  0.0,
+  -0.27683591842651367
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "security_camera_01",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "security_camera_01_glass",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.0847758948802948,
+    0.28604644536972046,
+    0.27683591842651367
+   ],
+   "bmin": [
+    -0.0847758948802948,
+    0.0,
+    -0.27683591842651367
+   ],
+   "count": 20352,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "security_camera_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.047160565853118896,
+    0.26003503799438477,
+    0.22540408372879028
+   ],
+   "bmin": [
+    -0.04558402672410011,
+    0.16534188389778137,
+    0.2254040539264679
+   ],
+   "count": 6,
+   "first": 20352,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "security_camera_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_security_camera_01.glb",
+ "textures": {},
+ "triangles": 6786,
+ "vertices": 5733
+}

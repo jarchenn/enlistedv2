@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.03331320732831955,
+  0.1648753583431244,
+  0.03229549899697304
+ ],
+ "bmin": [
+  -0.03349292278289795,
+  0.00011266767978668213,
+  -0.03229549899697304
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "lubricant_spray",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.03331320732831955,
+    0.1648753583431244,
+    0.03229549899697304
+   ],
+   "bmin": [
+    -0.03349292278289795,
+    0.00011266767978668213,
+    -0.03229549899697304
+   ],
+   "count": 2049,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "lubricant_spray_pipe",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_lubricant_spray.glb",
+ "textures": {},
+ "triangles": 683,
+ "vertices": 865
+}

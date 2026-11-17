@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.034172095358371735,
+  0.25408077239990234,
+  0.015295172110199928
+ ],
+ "bmin": [
+  -0.034172095358371735,
+  0.0,
+  -0.015295172110199928
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "adjustable_wrench",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.034172095358371735,
+    0.25408077239990234,
+    0.015295172110199928
+   ],
+   "bmin": [
+    -0.034172095358371735,
+    0.0,
+    -0.015295172110199928
+   ],
+   "count": 8085,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "adjustable_wrench_jaw",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_adjustable_wrench.glb",
+ "textures": {},
+ "triangles": 2695,
+ "vertices": 3103
+}
