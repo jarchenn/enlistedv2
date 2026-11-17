@@ -85,6 +85,11 @@ bool memProbeSelfTest(App& a, float dt) {
     case 6: if (t > 5) { report("large map again"); next(); } break;
     case 7: { std::string err; if (!startMatch(a, 20, err)) { logf("[mem] match: %s", err.c_str()); phase = 9; } else next(); t = 0; } break;
     case 8: if (t > 60) { report("match, 20 bots, 60 s"); a.exitExplore(); next(); } break;
+    case 9: load("blank_slate"); next(); break;   // MEM2: the old map's assets go with it
+    case 10: if (t > 5) { report("back to a small map"); next(); } break;
+    case 11: load("chateau_town"); next(); break;
+    case 12: if (t > 4.5f && t - dt <= 4.5f) { fs::path d = exeDir() / "selftest_out"; std::error_code ec; fs::create_directories(d, ec); gShot = d / "mem2_reload.png"; }
+      if (t > 5) { report("large map rebuilt"); next(); } break;
     default: { ProcMem m = processMemory(); logf("[mem] done (peak working set %.0f MB)", m.PeakWorkingSetSize / 1048576.0); a.selftest->exitCode = 0; a.selftest->done = true; } break;
   }
   return true;

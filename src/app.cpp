@@ -1,3 +1,7 @@
+#ifdef _WIN32
+#include <malloc.h>
+#include <windows.h>
+#endif
 #include "app.h"
 #include "sd_game.h"   // SD3
 #include "mainmenu.h"
@@ -572,10 +576,16 @@ void App::applyTemplate(const std::string& id) {
   w3ApplyTerrain(*this, *t);   // map size + chunked terrain + chunk colliders (editor_nav.cpp)
   ++groundRev;
 }
+static void trimHeap() {   // MEM2: freed map memory goes back to Windows (the CRT heap keeps it committed otherwise)
+#ifdef _WIN32
+  _heapmin(); HeapCompact(GetProcessHeap(), 0);
+#endif
+}
 bool App::newMap(const TemplateInfo& t, const std::string& name) {
   LoadingJob lj(*this, t.name, "Generating map", 3, t.thumbnail);   // UI2: terrain, content, furniture
   if (mode == Mode::Explore) exitExplore();
   clearRuntime();
+  placing = nullptr; { double c0 = processMemory().PrivateBytes / 1048576.0; int n = lib.releaseAll(); if (n) { glFinish(); trimHeap(); } if (n) logf("assets: %d released with the old map (commit %.0f -> %.0f MB)", n, c0, processMemory().PrivateBytes / 1048576.0); }   // MEM2: the new map builds what it uses
   doc = MapDoc();
   doc.name = name; doc.templateId = t.id; doc.templateVersion = t.version; doc.seed = t.seed;
   applyTemplate(t.id);
@@ -598,6 +608,7 @@ bool App::openMap(const fs::path& p) {
   if (!loadMap(p, d, err)) { toast("Could not open map: " + err, 8); return false; }
   if (mode == Mode::Explore) exitExplore();
   clearRuntime();
+  placing = nullptr; { double c0 = processMemory().PrivateBytes / 1048576.0; int n = lib.releaseAll(); if (n) { glFinish(); trimHeap(); } if (n) logf("assets: %d released with the old map (commit %.0f -> %.0f MB)", n, c0, processMemory().PrivateBytes / 1048576.0); }   // MEM2: the new map builds what it uses
   doc = std::move(d);
   { extern int lineMigrateTrenches(App&); lineMigrateTrenches(*this); }   // LN1: trench pieces become trench lines
   { extern int lineMigratePieces(App&); lineMigratePieces(*this); }   // LN2: fence / wire / wall / hedge pieces become lines
