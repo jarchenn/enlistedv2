@@ -13,5 +13,5 @@ for k, pid in enumerate(ids):
         p = os.path.join(d, "prop_%d_%s.png" % (k, s))
         try: sheet.paste(Image.open(p).convert("RGB").resize((W, H)), (x + j * W, y + 22))
         except OSError: print("unreadable or missing", p)   # a shot cut short leaves its cell blank
-    dr.text((x + 6, y + 4), "%d  %s   (1.5 m | 4 m)" % (k, pid), fill=(235, 235, 200))
+    dr.text((x + 6, y + 4), "%d  %s   (near | far)" % (k, pid), fill=(235, 235, 200))
 sheet.save(out); print(out, sheet.size)

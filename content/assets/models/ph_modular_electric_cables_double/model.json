@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.02781456708908081,
+  0.20725207030773163,
+  0.01296842098236084
+ ],
+ "bmin": [
+  -0.02781456708908081,
+  0.0,
+  -0.01296842098236084
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "modular_electric_cables",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.02781456708908081,
+    0.20725207030773163,
+    0.01296842098236084
+   ],
+   "bmin": [
+    -0.02781456708908081,
+    0.0,
+    -0.01296842098236084
+   ],
+   "count": 618,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "cable_double",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_modular_electric_cables_double.glb",
+ "textures": {},
+ "triangles": 206,
+ "vertices": 269
+}

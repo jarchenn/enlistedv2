@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.8000001311302185,
+  1.560868263244629,
+  0.08194965869188309
+ ],
+ "bmin": [
+  -0.8000001311302185,
+  0.0,
+  -0.08403534442186356
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "rollershutter_shutter_02",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.8000001311302185,
+    1.560868263244629,
+    0.08194965869188309
+   ],
+   "bmin": [
+    -0.8000001311302185,
+    0.0,
+    -0.08403534442186356
+   ],
+   "count": 210,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "rollershutter_window_02 ",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_rollershutter_window_02.glb",
+ "textures": {},
+ "triangles": 70,
+ "vertices": 132
+}

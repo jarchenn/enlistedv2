@@ -356,7 +356,7 @@ Spot ceilingSpot(App& app, const Instance& host, const RoomInfo& ri, int k, cons
     vec2 c = cells[n].second;
     vec3 o = host.pos + hq * vec3(c.x, R.y0 + 1.25f, c.y);
     Physics::Hit h;
-    if (!Physics::castRayEx(o, vec3(0, 1, 0), std::max(1.0f, R.y1 - R.y0 + 1.5f), h)) continue;
+    if (!Physics::castRayEx(o, vec3(0, 1, 0), std::max(12.0f, R.y1 - R.y0 + 1.5f), h)) continue;   // PR4: a stair void or a tall hall reaches its roof (the ray stops at the first ceiling anyway)
     float cy = R.y0 + 1.25f + h.t;
     if (cy < R.y0 + 1.9f) continue;   // a shelf or a bunk, not the ceiling
     if (pd) {   // the editor's solid check for a hung piece: no beam or wall inside it
@@ -399,7 +399,7 @@ Spot ceilingAt(App& app, const Instance& host, const RoomInfo::Room& R, vec2 c, 
       vec2 q = c + (ax == 0 ? vec2(d, 0) : vec2(0, d));
       vec3 o = host.pos + hq * vec3(q.x, R.y0 + 1.25f, q.y);
       Physics::Hit h;
-      if (!Physics::castRayEx(o, vec3(0, 1, 0), std::max(1.0f, R.y1 - R.y0 + 1.5f), h)) continue;
+      if (!Physics::castRayEx(o, vec3(0, 1, 0), std::max(12.0f, R.y1 - R.y0 + 1.5f), h)) continue;   // PR4: a stair void or a tall hall reaches its roof (the ray stops at the first ceiling anyway)
       float cy = R.y0 + 1.25f + h.t;
       if (cy < R.y0 + 1.9f) continue;
       if (pd) {

@@ -1,0 +1,93 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.5570724010467529,
+  2.522132396697998,
+  0.5546291470527649
+ ],
+ "bmin": [
+  -0.5546309947967529,
+  1.2452597729861736e-05,
+  -0.5545706748962402
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "modular_chainlink_fence_posts",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_4.png",
+   "cutout": true,
+   "mr": "mr_5.jpg",
+   "name": "modular_chainlink_fence_wire",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5570724010467529,
+    2.522132396697998,
+    0.5546291470527649
+   ],
+   "bmin": [
+    -0.5546309947967529,
+    1.2452597729861736e-05,
+    -0.5545706748962402
+   ],
+   "count": 5454,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "modular_chainlink_fence_corner_outer",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.4502756595611572,
+    2.419999837875366,
+    0.5044199228286743
+   ],
+   "bmin": [
+    -0.5044252872467041,
+    0.06999998539686203,
+    -0.44707486033439636
+   ],
+   "count": 120,
+   "first": 5454,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "modular_chainlink_fence_corner_outer",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_modular_chainlink_fence_corner.glb",
+ "textures": {},
+ "triangles": 1858,
+ "vertices": 3213
+}

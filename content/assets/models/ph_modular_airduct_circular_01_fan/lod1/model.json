@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.26730942726135254,
+  0.5381763577461243,
+  0.07205920666456223
+ ],
+ "bmin": [
+  -0.2664000689983368,
+  0.004992775619029999,
+  -0.0755375325679779
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "modular_airduct_circular_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.26730942726135254,
+    0.5381763577461243,
+    0.07205920666456223
+   ],
+   "bmin": [
+    -0.2664000689983368,
+    0.004992775619029999,
+    -0.0755375325679779
+   ],
+   "count": 1251,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "modular_airduct_circular_fan",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_modular_airduct_circular_01_fan.glb",
+ "textures": {},
+ "triangles": 417,
+ "vertices": 470
+}

@@ -427,8 +427,36 @@ Poly Haven props (CC0), downloaded by `tools/props/fetch_polyhaven.py`, converte
 | `ph_modern_coffee_table_01` | Modern Coffee Table 01 | Amin | CC0 (Poly Haven) | https://polyhaven.com/a/modern_coffee_table_01 | yes |
 | `ph_modern_coffee_table_02` | Modern Coffee Table 02 | Amin | CC0 (Poly Haven) | https://polyhaven.com/a/modern_coffee_table_02 | yes |
 | `ph_modern_wooden_cabinet` | Modern Wooden Cabinet | Patrik Pangerl | CC0 (Poly Haven) | https://polyhaven.com/a/modern_wooden_cabinet | yes |
+| `ph_modular_airduct_circular_01_bend` | Modular Airduct Circular 01 - bend | Riley Queen | CC0 (Poly Haven) | https://polyhaven.com/a/modular_airduct_circular_01 | yes |
+| `ph_modular_airduct_circular_01_fan` | Modular Airduct Circular 01 - fan | Riley Queen | CC0 (Poly Haven) | https://polyhaven.com/a/modular_airduct_circular_01 | yes |
+| `ph_modular_airduct_circular_01_straight` | Modular Airduct Circular 01 - straight | Riley Queen | CC0 (Poly Haven) | https://polyhaven.com/a/modular_airduct_circular_01 | yes |
+| `ph_modular_airduct_rectangular_01_corner` | Modular Airduct Rectangular 01 - corner | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/modular_airduct_rectangular_01 | yes |
+| `ph_modular_airduct_rectangular_01_straight` | Modular Airduct Rectangular 01 - straight | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/modular_airduct_rectangular_01 | yes |
+| `ph_modular_airduct_rectangular_01_vent` | Modular Airduct Rectangular 01 - vent | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/modular_airduct_rectangular_01 | yes |
+| `ph_modular_chainlink_fence_corner` | Modular Chainlink Fence - corner | Amal Kumar, James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/modular_chainlink_fence | yes |
+| `ph_modular_chainlink_fence_gate` | Modular Chainlink Fence - gate | Amal Kumar, James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/modular_chainlink_fence | yes |
+| `ph_modular_chainlink_fence_panel` | Modular Chainlink Fence - panel | Amal Kumar, James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/modular_chainlink_fence | yes |
+| `ph_modular_chainlink_fence_post` | Modular Chainlink Fence - post | Amal Kumar, James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/modular_chainlink_fence | yes |
+| `ph_modular_electric_cables_box_4way` | Modular Electric Cables - box 4way | Kuutti Siitonen | CC0 (Poly Haven) | https://polyhaven.com/a/modular_electric_cables | yes |
+| `ph_modular_electric_cables_double` | Modular Electric Cables - double | Kuutti Siitonen | CC0 (Poly Haven) | https://polyhaven.com/a/modular_electric_cables | yes |
+| `ph_modular_electric_cables_straight` | Modular Electric Cables - straight | Kuutti Siitonen | CC0 (Poly Haven) | https://polyhaven.com/a/modular_electric_cables | yes |
+| `ph_modular_electric_cables_turn` | Modular Electric Cables - turn | Kuutti Siitonen | CC0 (Poly Haven) | https://polyhaven.com/a/modular_electric_cables | yes |
 | `ph_modular_electricity_poles` | Modular Electricity Poles | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/modular_electricity_poles | yes |
+| `ph_modular_fire_escape_ladder` | Modular Fire Escape - ladder | Juniix | CC0 (Poly Haven) | https://polyhaven.com/a/modular_fire_escape | yes |
+| `ph_modular_fire_escape_platform` | Modular Fire Escape - platform | Juniix | CC0 (Poly Haven) | https://polyhaven.com/a/modular_fire_escape | yes |
+| `ph_modular_fire_escape_platform_bottom` | Modular Fire Escape - platform bottom | Juniix | CC0 (Poly Haven) | https://polyhaven.com/a/modular_fire_escape | yes |
+| `ph_modular_fire_escape_railing` | Modular Fire Escape - railing | Juniix | CC0 (Poly Haven) | https://polyhaven.com/a/modular_fire_escape | yes |
+| `ph_modular_fire_escape_stairs` | Modular Fire Escape - stairs | Juniix | CC0 (Poly Haven) | https://polyhaven.com/a/modular_fire_escape | yes |
 | `ph_modular_industrial_pipes_01` | Modular Industrial Pipes 01 | Jorge Camacho | CC0 (Poly Haven) | https://polyhaven.com/a/modular_industrial_pipes_01 | yes |
+| `ph_modular_metal_gutter_corner` | Modular Metal Gutter - corner | Maxim Domnin | CC0 (Poly Haven) | https://polyhaven.com/a/modular_metal_gutter | yes |
+| `ph_modular_metal_gutter_downpipe` | Modular Metal Gutter - downpipe | Maxim Domnin | CC0 (Poly Haven) | https://polyhaven.com/a/modular_metal_gutter | yes |
+| `ph_modular_metal_gutter_section` | Modular Metal Gutter - section | Maxim Domnin | CC0 (Poly Haven) | https://polyhaven.com/a/modular_metal_gutter | yes |
+| `ph_modular_pipes_s_curve` | Modular Pipes - s curve | Kuutti Siitonen | CC0 (Poly Haven) | https://polyhaven.com/a/modular_pipes | yes |
+| `ph_modular_pipes_straight_1m` | Modular Pipes - straight 1m | Kuutti Siitonen | CC0 (Poly Haven) | https://polyhaven.com/a/modular_pipes | yes |
+| `ph_modular_pipes_straight_2m` | Modular Pipes - straight 2m | Kuutti Siitonen | CC0 (Poly Haven) | https://polyhaven.com/a/modular_pipes | yes |
+| `ph_modular_pipes_support` | Modular Pipes - support | Kuutti Siitonen | CC0 (Poly Haven) | https://polyhaven.com/a/modular_pipes | yes |
+| `ph_modular_pipes_tee` | Modular Pipes - tee | Kuutti Siitonen | CC0 (Poly Haven) | https://polyhaven.com/a/modular_pipes | yes |
+| `ph_modular_pipes_valve_chamber` | Modular Pipes - valve chamber | Kuutti Siitonen | CC0 (Poly Haven) | https://polyhaven.com/a/modular_pipes | yes |
 | `ph_mounted_fluorescent_lights` | Mounted Fluorescent Lights | Ulan Cabanilla | CC0 (Poly Haven) | https://polyhaven.com/a/mounted_fluorescent_lights | yes |
 | `ph_multi_cleaner_5_litre` | Multi Cleaner 5 Litre | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/multi_cleaner_5_litre | yes |
 | `ph_multi_cleaner_bottle` | Multi Cleaner Bottle | James Ray Cock | CC0 (Poly Haven) | https://polyhaven.com/a/multi_cleaner_bottle | yes |
@@ -496,6 +524,9 @@ Poly Haven props (CC0), downloaded by `tools/props/fetch_polyhaven.py`, converte
 | `ph_rock_face_02` | Rock Face 02 | Dario Barresi, Rico Cilliers | CC0 (Poly Haven) | https://polyhaven.com/a/rock_face_02 | yes |
 | `ph_rockingchair_01` | Rockingchair 01 | Jorge Camacho | CC0 (Poly Haven) | https://polyhaven.com/a/Rockingchair_01 | yes |
 | `ph_rollershutter_door` | Rollershutter Door | MP | CC0 (Poly Haven) | https://polyhaven.com/a/rollershutter_door | yes |
+| `ph_rollershutter_window_01` | Rollershutter Window 01 | MP | CC0 (Poly Haven) | https://polyhaven.com/a/rollershutter_window_01 | yes |
+| `ph_rollershutter_window_02` | Rollershutter Window 02 | MP | CC0 (Poly Haven) | https://polyhaven.com/a/rollershutter_window_02 | yes |
+| `ph_rollershutter_window_03` | Rollershutter Window 03 | MP | CC0 (Poly Haven) | https://polyhaven.com/a/rollershutter_window_03 | yes |
 | `ph_round_wooden_table_01` | Round Wooden Table 01 | Ulan Cabanilla | CC0 (Poly Haven) | https://polyhaven.com/a/round_wooden_table_01 | yes |
 | `ph_round_wooden_table_02` | Round Wooden Table 02 | Ulan Cabanilla | CC0 (Poly Haven) | https://polyhaven.com/a/round_wooden_table_02 | yes |
 | `ph_rubber_boots` | Rubber Boots | L | CC0 (Poly Haven) | https://polyhaven.com/a/rubber_boots | yes |

@@ -1138,6 +1138,7 @@ void AssetLibrary::build(AssetDef& ad) const {
       if (!it->second.first) continue;
       AssetDef::Attached at; at.model = it->second.first; at.lod = it->second.second;
       at.local = glm::translate(mat4(1), jvec3(mj["pos"], vec3(0))) * glm::mat4_cast(yawQuat(mj.value("yaw", 0.0f)));
+      if (mj.contains("tilt") && mj["tilt"].is_array() && mj["tilt"].size() >= 2) { vec2 t(mj["tilt"][0].get<float>(), mj["tilt"][1].get<float>()); at.local = at.local * glm::rotate(mat4(1), glm::radians(t.x), vec3(1, 0, 0)) * glm::rotate(mat4(1), glm::radians(t.y), vec3(0, 0, 1)); }   // PR4: [pitch about x, roll about z] (a drum on its side, a tipped table)
       at.lodDist = mj.value("lodDist", 15.0f);
       a->attached.push_back(at);
     }

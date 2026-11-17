@@ -85,6 +85,7 @@ MATS = {
     "rubber_orange": ([0.75, 0.32, 0.08], 0.6, "plain", 1),
     "twine": ([0.45, 0.22, 0.07], 0.9, "fabric", 1),
     "faience_plain": ([0.78, 0.75, 0.66], 0.18, "ceramic", 0),
+    "paper_old": ([0.82, 0.78, 0.66], 0.9, "paper", 1),
 }
 # L3: linear HDR emissive multipliers (the lighting engine, L2, scales them by the light's on / time-of-day state)
 # P1: each piece's furnishing envelope (placement, keep-clear, ceiling spots, culling) as its version 1 parts gave it,
@@ -701,10 +702,10 @@ def papers(root):
     for i, (x, z, yaw, curl) in enumerate(sheets):
         y = 0.002 + i * 0.0012
         if curl:   # a curled corner: the sheet in two parts, the corner lifted
-            a.b([x - 0.02, y, z], [0.17, 0.0015, 0.297], "paper", "sheets", rot=[0, yaw, 0])
-            a.b([x + 0.08, y + 0.011, z + 0.11], [0.06, 0.0015, 0.08], "paper", "sheets", rot=[15, yaw, 0])   # lifted corner, resting on its edge
+            a.b([x - 0.02, y, z], [0.17, 0.0015, 0.297], "paper_old", "sheets", rot=[0, yaw, 0])
+            a.b([x + 0.08, y + 0.011, z + 0.11], [0.06, 0.0015, 0.08], "paper_old", "sheets", rot=[15, yaw, 0])   # lifted corner, resting on its edge
         else:
-            a.b([x, y, z], [0.21, 0.0015, 0.297], "paper", "sheets", rot=[0, yaw, 0])
+            a.b([x, y, z], [0.21, 0.0015, 0.297], "paper_old" if i % 2 else "paper", "sheets", rot=[0, yaw, 0])   # PR3: some sheets yellowed
     a.b([0.0, 0.01, 0.26], [0.29, 0.004, 0.2], "paper", "sheets", rot=[0, 4, 0])   # folded newspaper
     return a.write(root, [0.6, 0.6], fragments=[], keep=[])
 
@@ -733,7 +734,7 @@ def curtains(root):
     return a.write(root, [1.5, 0.08], fragments=[], keep=["rod"])
 
 
-def rug(root, id, name, W, D, variant, col):
+def rug(root, id, name, W, D, variant, col):   # PR3: saturated base colours (madder, indigo, navy): the pattern is drawn from this colour
     a = A(id, name, f"Woven wool rug, {W:.1f} x {D:.1f} m: border bands, " + ("kilim stripes and lozenges." if variant == 1 else "a muted medallion field.") +
           " Lies flat 2 mm above the floor (no z-fighting); no collision.", "cloth", 0, 30, blocking=False, front=0.0)
     grain = variant + 4 * (int(round(W * 50)) + 256 * int(round(D * 50)))
@@ -914,6 +915,9 @@ def pantry(root):
                 continue
             jar(a, x, y + 0.012, 0.02, h, 0.1, mats[(i + j) % 3])
     a.r([0.2, 1.5 + 0.06, -0.06], [0.24, 0.1, 0.18], "linen", "cloths", 0.03)
+    a.cyl([-0.3, 1.05 + 0.032, -0.08], 0.115, 0.04, "pine", "crocks", seg=16)   # PR3: a Camembert box
+    for x in (0.38, 0.45):   # PR3: two corked cider bottles at the back
+        bottle(a, x, -0.1, "bottle_brown", "jars", h=0.26, d=0.075)
     a.col([0, H / 2, 0], [W, H, D])
     return a.write(root, [W, D], fragments=["jars", "crocks", "cloths"], keep=["frame"], glass="glass")
 
@@ -1114,8 +1118,9 @@ def wood_pile(root):
             grp, y, z = "logs" if row < 2 else "top", 0.08 + row * 0.14, -0.02 * (i % 2)
             split = (k * 7) % 3 == 0   # every third log split: a hexagonal billet turned at random about its axis
             roll = (k * 53) % 60
-            a.cyl([x, y, z], 0.15, 0.42, "bark", grp, dz=0.14, n=6 if split else 0, seg=12, rot=[90, 0, roll])
-            a.cyl([x, y, z + 0.211], 0.125, 0.004, "log_end", grp, dz=0.115, n=6 if split else 0, seg=12, rot=[90, 0, roll])
+            dd = 0.12 + 0.012 * ((k * 37) % 5)   # PR3: log diameters 0.12 - 0.17 m
+            a.cyl([x, y, z], dd, 0.42, "bark", grp, dz=dd * 0.93, n=6 if split else 0, seg=12, rot=[90, 0, roll])
+            a.cyl([x, y, z + 0.211], dd * 0.83, 0.004, "log_end", grp, dz=dd * 0.77, n=6 if split else 0, seg=12, rot=[90, 0, roll])
             k += 1
     for i in range(3):
         a.cyl([-0.1 + i * 0.12, 0.63, 0.02], 0.03, 0.4, "pine", "top", seg=6, rot=[90, 10 * i - 10, 0])
@@ -1861,7 +1866,9 @@ def debris_glass(root):
               (0.25, -0.05, 35, 0.05), (-0.05, 0.22, 190, 0.06), (0.3, 0.15, 260, 0.04), (-0.28, 0.18, 110, 0.05)]
     for x, z, yaw, s in shards:
         a.wedge([x, 0.005 + 0.0025 * (len(a.parts) % 3), z], [s, s * 0.7, 0.002], "shard", "glass", top=0.1, rot=[90, yaw, 0])
-    a.r([0.05, 0.012, -0.02], [0.32, 0.022, 0.03], "pine", "bar", 0.004, rot=[0, 28, 0])
+    for x, z, yaw, s in [(0.1, 0.2, 50, 0.03), (-0.22, 0.02, 170, 0.035), (0.22, 0.2, 300, 0.025), (-0.08, -0.2, 20, 0.04), (0.02, 0.12, 250, 0.02), (-0.15, -0.16, 95, 0.03)]:
+        a.wedge([x, 0.004, z], [s * 2.5, s * 0.5, 0.002], "shard", "glass", top=0.05, rot=[90, yaw, 0])   # PR3: slivers
+    a.r([0.05, 0.012, -0.02], [0.32, 0.022, 0.03], "paint_cream", "bar", 0.004, rot=[0, 28, 0])   # PR3: the glazing bar painted
     return gx2_write(a, root, [0.6, 0.5], fragments=[], keep=[])
 
 
@@ -2030,8 +2037,8 @@ def main():
         stool(root), hutch(root, False), hutch(root, True), armoire(root), commode(root), blanket_chest(root), bed(root),
         etagere(root), bench(root), fireplace(root), clock(root),
         crockery(root), jug(root), bottles(root), books(root), lamp(root), crate(root), papers(root), picture(root), curtains(root),
-        rug(root, "furn_rug_medallion", "Rug (medallion)", 2.2, 1.5, 0, [0.3, 0.1, 0.07]),
-        rug(root, "furn_rug_kilim", "Rug (kilim)", 1.6, 0.9, 1, [0.36, 0.25, 0.14]),
+        rug(root, "furn_rug_medallion", "Rug (medallion)", 2.2, 1.5, 0, [0.1, 0.1, 0.22]),
+        rug(root, "furn_rug_kilim", "Rug (kilim)", 1.6, 0.9, 1, [0.45, 0.12, 0.08]),
         # V4 second set
         dresser(root), sideboard(root), bookcase(root), washstand(root), stove(root), pantry(root), sacks(root),
         barrel(root, "furn_barrel", "Cask", False), barrel(root, "furn_barrel_rack", "Casks on a cradle", True),
@@ -2045,8 +2052,8 @@ def main():
         bed_iron(root), gramophone(root), radio(root), sconce(root), sconce_candle(root), wall_oil_lamp(root), candlestick(root),
         hall_pendant(root), coat_stand(root), coat_hooks(root), suitcases(root), curtains_half(root), pan_rail(root),
         debris_glass(root), debris_plaster(root),
-        rug(root, "furn_rug_runner", "Hall runner", 0.85, 3.2, 1, [0.32, 0.11, 0.07]),
-        rug(root, "furn_rug_large", "Rug (large)", 4.0, 3.0, 0, [0.26, 0.13, 0.09]), settee(root), low_table(root), folding_screen(root),
+        rug(root, "furn_rug_runner", "Hall runner", 0.85, 3.2, 1, [0.42, 0.1, 0.07]),
+        rug(root, "furn_rug_large", "Rug (large)", 4.0, 3.0, 0, [0.38, 0.08, 0.07]), settee(root), low_table(root), folding_screen(root),
         framed_painting(root, "furn_frame_landscape", "Painting (landscape)", 0.9, 0.62, 1.27, "field"),
         framed_painting(root, "furn_frame_seascape", "Painting (seascape)", 0.7, 0.5, 1.33, "sea"),
         framed_painting(root, "furn_frame_dusk", "Painting (evening)", 0.5, 0.75, 1.2, "dusk", "walnut"),

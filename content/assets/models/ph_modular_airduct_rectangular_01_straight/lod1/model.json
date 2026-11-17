@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.33146417140960693,
+  0.5126131772994995,
+  0.3000001311302185
+ ],
+ "bmin": [
+  -0.33171582221984863,
+  2.9802322387695313e-08,
+  -0.3000001311302185
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "modular_airduct_rectangular_01_parts02",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "modular_airduct_rectangular_01_parts01",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.3000001907348633,
+    0.48130661249160767,
+    0.30000007152557373
+   ],
+   "bmin": [
+    -0.2999999523162842,
+    0.03130662441253662,
+    -0.3000001311302185
+   ],
+   "count": 168,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "modular_airduct_rectangular_01_single_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.33146417140960693,
+    0.5126131772994995,
+    0.3000001311302185
+   ],
+   "bmin": [
+    -0.33171582221984863,
+    2.9802322387695313e-08,
+    -0.30000001192092896
+   ],
+   "count": 1149,
+   "first": 168,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "modular_airduct_rectangular_01_single_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_modular_airduct_rectangular_01_straight.glb",
+ "textures": {},
+ "triangles": 439,
+ "vertices": 827
+}

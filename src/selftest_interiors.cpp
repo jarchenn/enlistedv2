@@ -143,6 +143,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       for (auto& as : a.lib.assets) {
         if (as->category != "Furniture") continue;
         ++n;
+        a.lib.find(as->id);   // MEM1: catalogue assets build on first use; this walk reads their parts, meshes and thumbnail
         const PropDef* pd = a.interior.prop(as.get());
         if (!pd) { check(false, as->id + ": no prop block"); continue; }
         int round = 0, cols = 0;   // P1: chamfered boxes and the B1 curved parts (turnings, casks, arches, wedges) count as soft-edged
@@ -153,6 +154,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
         frags += (int)pd->frags.size();
         int tris = (as->opaque.count + as->glass.count) / 3;
         if (tris > maxTris) { maxTris = tris; worst = as->id; }
+        if (!as->thumbnail) { extern void assetThumbOnDemand(App&, AssetDef&, int&); int b = 2; assetThumbOnDemand(a, *as, b); }   // MEM2: tiles are made when the palette shows them
         check(as->thumbnail != 0, as->id + ": catalogue thumbnail");
       }
       std::snprintf(b_, sizeof b_, "%d furniture assets in the Furniture category (tables, chairs, stool, hutches, armoire, commode, chest, bed, shelf, bench, fireplace, clock, small props, rugs)", n);
@@ -842,7 +844,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
         a.interior.furnish(a, hid, 0);
         for (auto& s : a.interior.lastStats) {
           if (s.type == ROOM_RUIN || s.area < 4.0f) continue;
-          ++rooms; dressed += s.pieces > 0; litR += s.lights > 0;
+          ++rooms; dressed += s.pieces > 0 || s.free < 2.0f; litR += s.lights > 0;   // PR4: a stair hall whose floor is all kept clear has nothing to dress
           if (!s.pieces && empty.size() < 300) empty += " " + as->id + "/r" + std::to_string(s.room);
           if (!s.lights && dark.size() < 300) dark += " " + as->id + "/r" + std::to_string(s.room);
           if (s.type != ROOM_CHURCH && s.type != ROOM_BARN) { ++roomsWall; if (s.bare > 4.0f) { ++bareOver; if (bare.size() < 400) { char t[96]; std::snprintf(t, sizeof t, " %s/r%d %.1fm", as->id.c_str(), s.room, s.bare); bare += t; } } }

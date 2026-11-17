@@ -6936,6 +6936,499 @@
   "lodDist": 30,
   "credit": "Modern Wooden Cabinet by Patrik Pangerl, Poly Haven (polyhaven.com/a/modern_wooden_cabinet), CC0"
  },
+ "ph_modular_airduct_circular_01_bend": {
+  "ph": "modular_airduct_circular_01",
+  "name": "Modular Airduct Circular 01 - bend",
+  "category": "Industrial: Yard kits",
+  "size": [
+   0.371,
+   0.377,
+   0.178
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.186,
+    0.007,
+    0.357,
+    0.36,
+    0.162
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Modular Airduct Circular 01 by Riley Queen, Poly Haven (polyhaven.com/a/modular_airduct_circular_01), CC0"
+ },
+ "ph_modular_airduct_circular_01_fan": {
+  "ph": "modular_airduct_circular_01",
+  "name": "Modular Airduct Circular 01 - fan",
+  "category": "Industrial: Yard kits",
+  "size": [
+   0.543,
+   0.543,
+   0.151
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.272,
+    -0.026,
+    0.543,
+    0.543,
+    0.099
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Modular Airduct Circular 01 by Riley Queen, Poly Haven (polyhaven.com/a/modular_airduct_circular_01), CC0"
+ },
+ "ph_modular_airduct_circular_01_straight": {
+  "ph": "modular_airduct_circular_01",
+  "name": "Modular Airduct Circular 01 - straight",
+  "category": "Industrial: Yard kits",
+  "size": [
+   0.37,
+   0.371,
+   0.474
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.185,
+    -0.0,
+    0.37,
+    0.371,
+    0.474
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Modular Airduct Circular 01 by Riley Queen, Poly Haven (polyhaven.com/a/modular_airduct_circular_01), CC0"
+ },
+ "ph_modular_airduct_rectangular_01_corner": {
+  "ph": "modular_airduct_rectangular_01",
+  "name": "Modular Airduct Rectangular 01 - corner",
+  "category": "Industrial: Yard kits",
+  "size": [
+   0.663,
+   0.631,
+   0.631
+  ],
+  "colliders": [
+   [
+    0.299,
+    0.332,
+    -0.017,
+    0.04,
+    0.598,
+    0.598
+   ],
+   [
+    -0.299,
+    0.332,
+    -0.017,
+    0.04,
+    0.598,
+    0.598
+   ],
+   [
+    0.0,
+    0.034,
+    -0.017,
+    0.595,
+    0.04,
+    0.597
+   ],
+   [
+    0.0,
+    0.333,
+    0.282,
+    0.595,
+    0.597,
+    0.04
+   ],
+   [
+    0.0,
+    0.482,
+    -0.241,
+    0.595,
+    0.04,
+    0.149
+   ],
+   [
+    0.0,
+    0.557,
+    -0.166,
+    0.595,
+    0.149,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Modular Airduct Rectangular 01 by James Ray Cock, Poly Haven (polyhaven.com/a/modular_airduct_rectangular_01), CC0"
+ },
+ "ph_modular_airduct_rectangular_01_straight": {
+  "ph": "modular_airduct_rectangular_01",
+  "name": "Modular Airduct Rectangular 01 - straight",
+  "category": "Industrial: Yard kits",
+  "size": [
+   0.663,
+   0.513,
+   0.6
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.033,
+    -0.0,
+    0.595,
+    0.04,
+    0.6
+   ],
+   [
+    0.0,
+    0.48,
+    -0.0,
+    0.595,
+    0.04,
+    0.6
+   ],
+   [
+    -0.299,
+    0.256,
+    0.0,
+    0.04,
+    0.445,
+    0.6
+   ],
+   [
+    0.299,
+    0.256,
+    -0.0,
+    0.04,
+    0.445,
+    0.6
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Modular Airduct Rectangular 01 by James Ray Cock, Poly Haven (polyhaven.com/a/modular_airduct_rectangular_01), CC0"
+ },
+ "ph_modular_airduct_rectangular_01_vent": {
+  "ph": "modular_airduct_rectangular_01",
+  "name": "Modular Airduct Rectangular 01 - vent",
+  "category": "Industrial: Yard kits",
+  "size": [
+   0.552,
+   0.42,
+   0.06
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.397,
+    -0.0,
+    0.486,
+    0.04,
+    0.06
+   ],
+   [
+    -0.0,
+    0.023,
+    -0.0,
+    0.486,
+    0.04,
+    0.06
+   ],
+   [
+    -0.253,
+    0.21,
+    0.0,
+    0.04,
+    0.354,
+    0.06
+   ],
+   [
+    0.253,
+    0.21,
+    0.0,
+    0.04,
+    0.354,
+    0.06
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Modular Airduct Rectangular 01 by James Ray Cock, Poly Haven (polyhaven.com/a/modular_airduct_rectangular_01), CC0"
+ },
+ "ph_modular_chainlink_fence_corner": {
+  "ph": "modular_chainlink_fence",
+  "name": "Modular Chainlink Fence - corner",
+  "category": "Industrial: Yard kits",
+  "foliage": true,
+  "size": [
+   1.114,
+   2.523,
+   1.114
+  ],
+  "colliders": [
+   [
+    0.019,
+    1.245,
+    0.504,
+    0.863,
+    2.35,
+    0.04
+   ],
+   [
+    -0.504,
+    1.245,
+    -0.015,
+    0.04,
+    2.35,
+    0.863
+   ],
+   [
+    -0.483,
+    1.255,
+    0.483,
+    0.07,
+    2.41,
+    0.07
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Modular Chainlink Fence by Amal Kumar, James Ray Cock, Poly Haven (polyhaven.com/a/modular_chainlink_fence), CC0"
+ },
+ "ph_modular_chainlink_fence_gate": {
+  "ph": "modular_chainlink_fence",
+  "name": "Modular Chainlink Fence - gate",
+  "category": "Industrial: Yard kits",
+  "foliage": true,
+  "size": [
+   1.911,
+   2.523,
+   0.148
+  ],
+  "colliders": [
+   [
+    -0.772,
+    1.245,
+    0.021,
+    0.312,
+    2.35,
+    0.04
+   ],
+   [
+    0.778,
+    1.245,
+    0.021,
+    0.312,
+    2.35,
+    0.04
+   ],
+   [
+    0.001,
+    0.6,
+    -0.0,
+    0.801,
+    0.84,
+    0.04
+   ],
+   [
+    0.001,
+    1.472,
+    -0.0,
+    0.801,
+    0.785,
+    0.04
+   ],
+   [
+    -0.548,
+    1.255,
+    -0.0,
+    0.07,
+    2.41,
+    0.07
+   ],
+   [
+    0.552,
+    1.255,
+    -0.0,
+    0.07,
+    2.41,
+    0.07
+   ],
+   [
+    0.001,
+    2.195,
+    -0.0,
+    0.801,
+    0.33,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Modular Chainlink Fence by Amal Kumar, James Ray Cock, Poly Haven (polyhaven.com/a/modular_chainlink_fence), CC0"
+ },
+ "ph_modular_chainlink_fence_panel": {
+  "ph": "modular_chainlink_fence",
+  "name": "Modular Chainlink Fence - panel",
+  "category": "Industrial: Yard kits",
+  "foliage": true,
+  "size": [
+   0.934,
+   2.37,
+   0.049
+  ],
+  "colliders": [
+   [
+    -0.003,
+    1.185,
+    0.021,
+    0.863,
+    2.35,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Modular Chainlink Fence by Amal Kumar, James Ray Cock, Poly Haven (polyhaven.com/a/modular_chainlink_fence), CC0"
+ },
+ "ph_modular_chainlink_fence_post": {
+  "ph": "modular_chainlink_fence",
+  "name": "Modular Chainlink Fence - post",
+  "category": "Industrial: Yard kits",
+  "foliage": true,
+  "size": [
+   0.149,
+   2.523,
+   0.149
+  ],
+  "colliders": [
+   [
+    0.0,
+    1.255,
+    -0.0,
+    0.07,
+    2.41,
+    0.07
+   ],
+   [
+    0.0,
+    0.01,
+    -0.0,
+    0.149,
+    0.04,
+    0.149
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Modular Chainlink Fence by Amal Kumar, James Ray Cock, Poly Haven (polyhaven.com/a/modular_chainlink_fence), CC0"
+ },
+ "ph_modular_electric_cables_box_4way": {
+  "ph": "modular_electric_cables",
+  "name": "Modular Electric Cables - box 4way",
+  "category": "Industrial: Yard kits",
+  "size": [
+   0.2,
+   0.2,
+   0.037
+  ],
+  "colliders": [],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Modular Electric Cables by Kuutti Siitonen, Poly Haven (polyhaven.com/a/modular_electric_cables), CC0"
+ },
+ "ph_modular_electric_cables_double": {
+  "ph": "modular_electric_cables",
+  "name": "Modular Electric Cables - double",
+  "category": "Industrial: Yard kits",
+  "size": [
+   0.056,
+   0.207,
+   0.026
+  ],
+  "colliders": [
+   [
+    -0.01,
+    0.1,
+    -0.003,
+    0.04,
+    0.2,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Modular Electric Cables by Kuutti Siitonen, Poly Haven (polyhaven.com/a/modular_electric_cables), CC0"
+ },
+ "ph_modular_electric_cables_straight": {
+  "ph": "modular_electric_cables",
+  "name": "Modular Electric Cables - straight",
+  "category": "Industrial: Yard kits",
+  "size": [
+   0.042,
+   0.607,
+   0.026
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.448,
+    -0.003,
+    0.04,
+    0.304,
+    0.04
+   ],
+   [
+    -0.0,
+    0.148,
+    -0.003,
+    0.04,
+    0.296,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Modular Electric Cables by Kuutti Siitonen, Poly Haven (polyhaven.com/a/modular_electric_cables), CC0"
+ },
+ "ph_modular_electric_cables_turn": {
+  "ph": "modular_electric_cables",
+  "name": "Modular Electric Cables - turn",
+  "category": "Industrial: Yard kits",
+  "size": [
+   0.221,
+   0.213,
+   0.026
+  ],
+  "colliders": [
+   [
+    -0.023,
+    0.027,
+    -0.001,
+    0.175,
+    0.053,
+    0.04
+   ],
+   [
+    0.079,
+    0.126,
+    -0.001,
+    0.041,
+    0.16,
+    0.04
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Modular Electric Cables by Kuutti Siitonen, Poly Haven (polyhaven.com/a/modular_electric_cables), CC0"
+ },
  "ph_modular_electricity_poles": {
   "ph": "modular_electricity_poles",
   "name": "Modular Electricity Poles",
@@ -7047,6 +7540,297 @@
   "lodDist": 30,
   "credit": "Modular Electricity Poles by James Ray Cock, Poly Haven (polyhaven.com/a/modular_electricity_poles), CC0"
  },
+ "ph_modular_fire_escape_ladder": {
+  "ph": "modular_fire_escape",
+  "name": "Modular Fire Escape - ladder",
+  "category": "Industrial: Yard kits",
+  "size": [
+   0.775,
+   6.466,
+   0.064
+  ],
+  "colliders": [
+   [
+    -0.376,
+    4.178,
+    -0.002,
+    0.04,
+    4.576,
+    0.04
+   ],
+   [
+    0.356,
+    4.178,
+    0.007,
+    0.04,
+    4.576,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Modular Fire Escape by Juniix, Poly Haven (polyhaven.com/a/modular_fire_escape), CC0"
+ },
+ "ph_modular_fire_escape_platform": {
+  "ph": "modular_fire_escape",
+  "name": "Modular Fire Escape - platform",
+  "category": "Industrial: Yard kits",
+  "size": [
+   4.793,
+   0.772,
+   1.364
+  ],
+  "colliders": [
+   [
+    -2.366,
+    0.348,
+    -0.165,
+    0.061,
+    0.697,
+    1.013
+   ],
+   [
+    2.366,
+    0.348,
+    -0.165,
+    0.061,
+    0.697,
+    1.013
+   ],
+   [
+    -2.338,
+    0.377,
+    -0.165,
+    0.04,
+    0.754,
+    1.013
+   ],
+   [
+    2.338,
+    0.377,
+    -0.165,
+    0.04,
+    0.754,
+    1.013
+   ],
+   [
+    0.0,
+    0.697,
+    0.673,
+    4.672,
+    0.143,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Modular Fire Escape by Juniix, Poly Haven (polyhaven.com/a/modular_fire_escape), CC0"
+ },
+ "ph_modular_fire_escape_platform_bottom": {
+  "ph": "modular_fire_escape",
+  "name": "Modular Fire Escape - platform bottom",
+  "category": "Industrial: Yard kits",
+  "size": [
+   4.793,
+   0.772,
+   1.364
+  ],
+  "colliders": [
+   [
+    -2.366,
+    0.348,
+    -0.165,
+    0.061,
+    0.697,
+    1.013
+   ],
+   [
+    2.366,
+    0.348,
+    -0.165,
+    0.061,
+    0.697,
+    1.013
+   ],
+   [
+    -2.338,
+    0.377,
+    -0.165,
+    0.04,
+    0.754,
+    1.013
+   ],
+   [
+    2.338,
+    0.377,
+    -0.165,
+    0.04,
+    0.754,
+    1.013
+   ],
+   [
+    0.0,
+    0.697,
+    0.673,
+    4.672,
+    0.143,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Modular Fire Escape by Juniix, Poly Haven (polyhaven.com/a/modular_fire_escape), CC0"
+ },
+ "ph_modular_fire_escape_railing": {
+  "ph": "modular_fire_escape",
+  "name": "Modular Fire Escape - railing",
+  "category": "Industrial: Yard kits",
+  "size": [
+   4.711,
+   0.984,
+   1.387
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.974,
+    0.67,
+    4.562,
+    0.04,
+    0.046
+   ],
+   [
+    -2.326,
+    0.974,
+    -0.063,
+    0.044,
+    0.04,
+    1.225
+   ],
+   [
+    2.326,
+    0.974,
+    -0.063,
+    0.044,
+    0.04,
+    1.225
+   ],
+   [
+    -2.325,
+    0.487,
+    0.469,
+    0.04,
+    0.974,
+    0.04
+   ],
+   [
+    -2.325,
+    0.487,
+    0.247,
+    0.04,
+    0.974,
+    0.04
+   ],
+   [
+    -2.325,
+    0.487,
+    0.026,
+    0.04,
+    0.974,
+    0.04
+   ],
+   [
+    -2.325,
+    0.487,
+    -0.196,
+    0.04,
+    0.974,
+    0.04
+   ],
+   [
+    -2.325,
+    0.487,
+    -0.417,
+    0.04,
+    0.974,
+    0.04
+   ],
+   [
+    -2.32,
+    0.487,
+    0.671,
+    0.04,
+    0.974,
+    0.04
+   ],
+   [
+    2.325,
+    0.487,
+    0.469,
+    0.04,
+    0.974,
+    0.04
+   ],
+   [
+    2.325,
+    0.487,
+    0.247,
+    0.04,
+    0.974,
+    0.04
+   ],
+   [
+    2.325,
+    0.487,
+    0.026,
+    0.04,
+    0.974,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Modular Fire Escape by Juniix, Poly Haven (polyhaven.com/a/modular_fire_escape), CC0"
+ },
+ "ph_modular_fire_escape_stairs": {
+  "ph": "modular_fire_escape",
+  "name": "Modular Fire Escape - stairs",
+  "category": "Industrial: Yard kits",
+  "size": [
+   2.995,
+   4.006,
+   1.372
+  ],
+  "colliders": [
+   [
+    -0.026,
+    2.448,
+    0.655,
+    2.185,
+    2.365,
+    0.04
+   ],
+   [
+    -0.539,
+    1.246,
+    -0.029,
+    1.917,
+    2.492,
+    0.04
+   ],
+   [
+    -0.554,
+    1.224,
+    0.643,
+    1.886,
+    2.448,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Modular Fire Escape by Juniix, Poly Haven (polyhaven.com/a/modular_fire_escape), CC0"
+ },
  "ph_modular_industrial_pipes_01": {
   "ph": "modular_industrial_pipes_01",
   "name": "Modular Industrial Pipes 01",
@@ -7141,6 +7925,309 @@
   "maxTex": 1024,
   "lodDist": 30,
   "credit": "Modular Industrial Pipes 01 by Jorge Camacho, Poly Haven (polyhaven.com/a/modular_industrial_pipes_01), CC0"
+ },
+ "ph_modular_metal_gutter_corner": {
+  "ph": "modular_metal_gutter",
+  "name": "Modular Metal Gutter - corner",
+  "category": "Industrial: Yard kits",
+  "size": [
+   1.508,
+   0.137,
+   1.515
+  ],
+  "colliders": [
+   [
+    0.556,
+    0.07,
+    -0.004,
+    0.396,
+    0.135,
+    1.506
+   ],
+   [
+    -0.004,
+    0.07,
+    0.559,
+    1.501,
+    0.135,
+    0.396
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Modular Metal Gutter by Maxim Domnin, Poly Haven (polyhaven.com/a/modular_metal_gutter), CC0"
+ },
+ "ph_modular_metal_gutter_downpipe": {
+  "ph": "modular_metal_gutter",
+  "name": "Modular Metal Gutter - downpipe",
+  "category": "Industrial: Yard kits",
+  "size": [
+   0.157,
+   1.0,
+   0.161
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.5,
+    -0.0,
+    0.157,
+    1.0,
+    0.161
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Modular Metal Gutter by Maxim Domnin, Poly Haven (polyhaven.com/a/modular_metal_gutter), CC0"
+ },
+ "ph_modular_metal_gutter_section": {
+  "ph": "modular_metal_gutter",
+  "name": "Modular Metal Gutter - section",
+  "category": "Industrial: Yard kits",
+  "size": [
+   1.511,
+   0.137,
+   0.389
+  ],
+  "colliders": [
+   [
+    0.001,
+    0.07,
+    -0.0,
+    1.51,
+    0.135,
+    0.389
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Modular Metal Gutter by Maxim Domnin, Poly Haven (polyhaven.com/a/modular_metal_gutter), CC0"
+ },
+ "ph_modular_pipes_s_curve": {
+  "ph": "modular_pipes",
+  "name": "Modular Pipes - s curve",
+  "category": "Industrial: Yard kits",
+  "size": [
+   0.202,
+   0.2,
+   0.106
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.1,
+    -0.0,
+    0.202,
+    0.2,
+    0.106
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Modular Pipes by Kuutti Siitonen, Poly Haven (polyhaven.com/a/modular_pipes), CC0"
+ },
+ "ph_modular_pipes_straight_1m": {
+  "ph": "modular_pipes",
+  "name": "Modular Pipes - straight 1m",
+  "category": "Industrial: Yard kits",
+  "size": [
+   0.1,
+   1.0,
+   0.1
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.833,
+    -0.0,
+    0.1,
+    0.333,
+    0.1
+   ],
+   [
+    0.0,
+    0.167,
+    -0.0,
+    0.1,
+    0.333,
+    0.1
+   ],
+   [
+    -0.0,
+    0.5,
+    -0.0,
+    0.1,
+    0.333,
+    0.1
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 15,
+  "credit": "Modular Pipes by Kuutti Siitonen, Poly Haven (polyhaven.com/a/modular_pipes), CC0"
+ },
+ "ph_modular_pipes_straight_2m": {
+  "ph": "modular_pipes",
+  "name": "Modular Pipes - straight 2m",
+  "category": "Industrial: Yard kits",
+  "size": [
+   0.1,
+   2.0,
+   0.1
+  ],
+  "colliders": [
+   [
+    0.0,
+    1.5,
+    -0.0,
+    0.1,
+    0.333,
+    0.1
+   ],
+   [
+    0.0,
+    1.167,
+    -0.0,
+    0.1,
+    0.333,
+    0.1
+   ],
+   [
+    0.0,
+    0.5,
+    -0.0,
+    0.1,
+    0.333,
+    0.1
+   ],
+   [
+    0.0,
+    0.833,
+    -0.0,
+    0.1,
+    0.333,
+    0.1
+   ],
+   [
+    0.0,
+    0.167,
+    -0.0,
+    0.1,
+    0.333,
+    0.1
+   ],
+   [
+    -0.0,
+    1.833,
+    -0.0,
+    0.1,
+    0.333,
+    0.1
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Modular Pipes by Kuutti Siitonen, Poly Haven (polyhaven.com/a/modular_pipes), CC0"
+ },
+ "ph_modular_pipes_support": {
+  "ph": "modular_pipes",
+  "name": "Modular Pipes - support",
+  "category": "Industrial: Yard kits",
+  "size": [
+   0.111,
+   0.032,
+   0.156
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.031,
+    0.022,
+    0.111,
+    0.04,
+    0.111
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Modular Pipes by Kuutti Siitonen, Poly Haven (polyhaven.com/a/modular_pipes), CC0"
+ },
+ "ph_modular_pipes_tee": {
+  "ph": "modular_pipes",
+  "name": "Modular Pipes - tee",
+  "category": "Industrial: Yard kits",
+  "size": [
+   0.2,
+   0.15,
+   0.1
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.099,
+    -0.0,
+    0.2,
+    0.101,
+    0.1
+   ],
+   [
+    -0.0,
+    0.044,
+    -0.025,
+    0.109,
+    0.089,
+    0.05
+   ],
+   [
+    -0.0,
+    0.044,
+    0.025,
+    0.109,
+    0.089,
+    0.05
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Modular Pipes by Kuutti Siitonen, Poly Haven (polyhaven.com/a/modular_pipes), CC0"
+ },
+ "ph_modular_pipes_valve_chamber": {
+  "ph": "modular_pipes",
+  "name": "Modular Pipes - valve chamber",
+  "category": "Industrial: Yard kits",
+  "size": [
+   0.2,
+   0.6,
+   0.2
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.3,
+    -0.0,
+    0.197,
+    0.421,
+    0.197
+   ],
+   [
+    -0.0,
+    0.042,
+    -0.0,
+    0.1,
+    0.084,
+    0.1
+   ],
+   [
+    0.0,
+    0.558,
+    -0.0,
+    0.1,
+    0.084,
+    0.1
+   ]
+  ],
+  "maxTex": 512,
+  "lodDist": 15,
+  "credit": "Modular Pipes by Kuutti Siitonen, Poly Haven (polyhaven.com/a/modular_pipes), CC0"
  },
  "ph_mounted_fluorescent_lights": {
   "ph": "mounted_fluorescent_lights",
@@ -11337,6 +12424,251 @@
   "maxTex": 1024,
   "lodDist": 30,
   "credit": "Rollershutter Door by MP, Poly Haven (polyhaven.com/a/rollershutter_door), CC0"
+ },
+ "ph_rollershutter_window_01": {
+  "ph": "rollershutter_window_01",
+  "name": "Rollershutter Window 01",
+  "category": "Industrial: Yard kits",
+  "size": [
+   2.1,
+   1.851,
+   0.3
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.8,
+    -0.136,
+    2.0,
+    1.501,
+    0.04
+   ],
+   [
+    0.0,
+    1.701,
+    -0.15,
+    2.1,
+    0.3,
+    0.04
+   ],
+   [
+    0.0,
+    1.851,
+    -0.001,
+    2.1,
+    0.04,
+    0.298
+   ],
+   [
+    0.0,
+    1.601,
+    0.098,
+    2.1,
+    0.1,
+    0.1
+   ],
+   [
+    0.0,
+    1.751,
+    0.148,
+    2.1,
+    0.2,
+    0.04
+   ],
+   [
+    0.0,
+    1.551,
+    -0.051,
+    2.1,
+    0.04,
+    0.198
+   ],
+   [
+    -1.05,
+    1.701,
+    -0.001,
+    0.04,
+    0.3,
+    0.298
+   ],
+   [
+    1.05,
+    1.701,
+    -0.001,
+    0.04,
+    0.3,
+    0.298
+   ],
+   [
+    -0.0,
+    0.025,
+    -0.147,
+    2.02,
+    0.043,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Rollershutter Window 01 by MP, Poly Haven (polyhaven.com/a/rollershutter_window_01), CC0"
+ },
+ "ph_rollershutter_window_02": {
+  "ph": "rollershutter_window_02",
+  "name": "Rollershutter Window 02",
+  "category": "Industrial: Yard kits",
+  "size": [
+   1.6,
+   1.561,
+   0.168
+  ],
+  "colliders": [
+   [
+    0.0,
+    0.723,
+    -0.07,
+    1.5,
+    1.346,
+    0.04
+   ],
+   [
+    0.0,
+    1.561,
+    -0.001,
+    1.6,
+    0.04,
+    0.166
+   ],
+   [
+    0.0,
+    1.479,
+    -0.084,
+    1.6,
+    0.164,
+    0.04
+   ],
+   [
+    0.0,
+    1.509,
+    0.082,
+    1.6,
+    0.104,
+    0.04
+   ],
+   [
+    0.0,
+    1.396,
+    -0.033,
+    1.6,
+    0.04,
+    0.101
+   ],
+   [
+    0.0,
+    1.427,
+    0.05,
+    1.6,
+    0.06,
+    0.065
+   ],
+   [
+    0.775,
+    0.698,
+    -0.084,
+    0.05,
+    1.396,
+    0.04
+   ],
+   [
+    -0.775,
+    0.698,
+    -0.084,
+    0.05,
+    1.396,
+    0.04
+   ],
+   [
+    0.0,
+    0.025,
+    -0.067,
+    1.524,
+    0.043,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Rollershutter Window 02 by MP, Poly Haven (polyhaven.com/a/rollershutter_window_02), CC0"
+ },
+ "ph_rollershutter_window_03": {
+  "ph": "rollershutter_window_03",
+  "name": "Rollershutter Window 03",
+  "category": "Industrial: Yard kits",
+  "size": [
+   0.976,
+   1.546,
+   0.153
+  ],
+  "colliders": [
+   [
+    -0.0,
+    0.725,
+    -0.063,
+    0.896,
+    1.35,
+    0.04
+   ],
+   [
+    0.0,
+    1.546,
+    -0.001,
+    0.976,
+    0.04,
+    0.151
+   ],
+   [
+    0.0,
+    1.473,
+    -0.077,
+    0.976,
+    0.146,
+    0.04
+   ],
+   [
+    0.0,
+    1.492,
+    0.074,
+    0.976,
+    0.108,
+    0.04
+   ],
+   [
+    0.0,
+    1.4,
+    -0.023,
+    0.976,
+    0.04,
+    0.107
+   ],
+   [
+    0.463,
+    0.7,
+    -0.077,
+    0.05,
+    1.4,
+    0.04
+   ],
+   [
+    -0.463,
+    0.7,
+    -0.077,
+    0.05,
+    1.4,
+    0.04
+   ]
+  ],
+  "maxTex": 1024,
+  "lodDist": 30,
+  "credit": "Rollershutter Window 03 by MP, Poly Haven (polyhaven.com/a/rollershutter_window_03), CC0"
  },
  "ph_round_wooden_table_01": {
   "ph": "round_wooden_table_01",

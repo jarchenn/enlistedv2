@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.09700804948806763,
+  0.5999999046325684,
+  0.09868942201137543
+ ],
+ "bmin": [
+  -0.09700801968574524,
+  0.0,
+  -0.09700804948806763
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "modular_pipes_metal",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.09700804948806763,
+    0.5999999046325684,
+    0.09868942201137543
+   ],
+   "bmin": [
+    -0.09700801968574524,
+    0.0,
+    -0.09700804948806763
+   ],
+   "count": 342,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "pipe_chamber_large_metal",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_modular_pipes_valve_chamber.glb",
+ "textures": {},
+ "triangles": 114,
+ "vertices": 161
+}

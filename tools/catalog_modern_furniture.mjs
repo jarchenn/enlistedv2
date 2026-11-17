@@ -834,7 +834,11 @@ def("furn_mod_fridge_case", "Glass-door drinks fridge", "1.5 m upright chiller c
       goods(f, -0.7, 0.7, y, -0.32, 0.12, 0.26, ["pack_red", "pack_blue", "pack_green", "pack_orange"], 0.07, 0.07, 0.006);
     }
     f.grp("doors");
-    for (const [a, b] of [[-0.72, 0], [0, 0.72]]) { f.b([a, 0.2, 0.36], [b, 1.8, 0.4], "plastic_black", 0.004); handle(f, a < 0 ? b - 0.05 : a + 0.05, 1.0, 0.4, 0.9, true, "steel"); }
+    for (const [a, b] of [[-0.72, 0], [0, 0.72]]) {   // PR3: door frames as rails round the glass (a solid box hid the stock)
+      f.b([a, 0.2, 0.36], [a + 0.04, 1.8, 0.4], "plastic_black", 0.003); f.b([b - 0.04, 0.2, 0.36], [b, 1.8, 0.4], "plastic_black", 0.003);
+      f.b([a, 0.2, 0.36], [b, 0.25, 0.4], "plastic_black", 0.003); f.b([a, 1.75, 0.36], [b, 1.8, 0.4], "plastic_black", 0.003);
+      handle(f, a < 0 ? b - 0.05 : a + 0.05, 1.0, 0.4, 0.9, true, "steel");
+    }
     f.grp("glass");
     for (const [a, b] of [[-0.68, -0.04], [0.04, 0.68]]) f.b([a, 0.25, 0.39], [b, 1.75, 0.395], "glass", 0.001);
     f.col([-0.78, 0, -0.4], [0.78, 2.05, 0.4]);
@@ -885,7 +889,10 @@ def("furn_mod_clothes_rack", "Clothing rail", "1.2 m chrome garment rail on cast
     const x = -0.52 + i * 0.08, m = f.pick(CLOTHES), L = 0.6 + 0.4 * f.rand();
     f.ob([x, 1.56, 0], [0.006, 0.06, 0.006], [0, 0, 0], "chrome", 0.001);
     f.ob([x, 1.5, 0], [0.01, 0.03, 0.42], [0, 0, 0], "plastic_black", 0.003);
-    f.ob([x, 1.5 - L / 2, 0], [0.025, L, 0.48], [0, 0, (f.rand() - 0.5) * 6], m, 0.008);
+    const tilt = (f.rand() - 0.5) * 6;   // PR3: a garment, not a plank: rounded shoulders, a body narrowing a little, sleeves hanging at the sides
+    f.ob([x, 1.46, 0], [0.04, 0.08, 0.44], [0, 0, tilt], m, 0.018);
+    f.ob([x, 1.42 - L / 2, 0], [0.025, L, 0.4], [0, 0, tilt], m, 0.008);
+    for (const sz of [-1, 1]) f.ob([x, 1.38 - L * 0.3, sz * 0.2], [0.022, L * 0.6, 0.07], [sz * 4, 0, tilt], m, 0.008);
   }
   f.col([-0.62, 0, -0.26], [0.62, 1.62, 0.26]);
 });
@@ -1076,6 +1083,7 @@ def("furn_mod_hood", "Extraction hood", "2.0 m wall-hung kitchen canopy (bottom 
   { family: "metal", blocking: true, wall: true, mount: 2.0, rounds: 30, blast: 50 }, (f) => {
     f.b([-1.0, 0.25, 0], [1.0, 0.6, 1.1], "steel", 0.006);
     f.b([-1.0, 0, 0.9], [1.0, 0.25, 1.1], "steel", 0.006);   // front skirt
+    f.ob([0, 0.42, 1.0], [2.0, 0.38, 0.02], [-32, 0, 0], "steel", 0.004);   // PR3: the sloped front back to the wall
     for (const x of [-1.0, 0.98]) f.b([x, 0, 0], [x + 0.02, 0.25, 0.9], "steel", 0.003);
     f.b([-0.98, 0.0, 0.88], [0.98, 0.04, 0.9], "steel_dark", 0.002);   // grease gutter
     f.grp("filters");
@@ -1447,7 +1455,10 @@ def("furn_mod_notice_board", "Notice board", "1.2 x 0.9 m cork notice board in a
 });
 def("furn_mod_vending", "Vending machine", "Snack vending machine: glass front over six spiral rows of coloured packs, keypad and coin panel, lit header, collection flap.", { family: "metal", front: 0.9, rounds: 40, blast: 60 }, (f) => {
   f.grp("body");
-  f.b([-0.45, 0, -0.42], [0.45, 1.83, 0.38], "blackmetal", 0.01);
+  // PR3: a shell round the window (a solid block hid the spirals of stock behind the glass)
+  f.b([-0.45, 0, -0.42], [0.45, 1.83, -0.38], "blackmetal", 0.006); f.b([-0.45, 0, -0.42], [-0.41, 1.83, 0.38], "blackmetal", 0.006);
+  f.b([0.15, 0, -0.42], [0.45, 1.83, 0.38], "blackmetal", 0.008); f.b([-0.45, 1.66, -0.42], [0.45, 1.83, 0.38], "blackmetal", 0.008);
+  f.b([-0.45, 0, -0.42], [0.45, 0.36, 0.38], "blackmetal", 0.008); f.b([-0.41, 0.36, -0.379], [0.15, 1.66, -0.375], "whitemetal", 0.001);
   f.b([-0.45, 0, 0.38], [0.45, 0.08, 0.4], "plastic_black", 0.003);
   f.b([-0.43, 1.7, 0.38], [0.43, 1.8, 0.385], "lightpanel", 0.001);
   f.b([0.17, 0.12, 0.38], [0.43, 1.65, 0.4], "steel_dark", 0.004);

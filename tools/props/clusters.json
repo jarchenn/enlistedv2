@@ -13,6 +13,7 @@
     2.86,
     1.37
    ],
+   "count": 6,
    "members": [
     {
      "asset": "ph_wooden_military_crate",
@@ -21,7 +22,8 @@
       0,
       0
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": null
     },
     {
      "asset": "ph_wooden_military_crate",
@@ -30,7 +32,8 @@
       0.47,
       0.02
      ],
-     "yaw": 4
+     "yaw": 4,
+     "cover": "crouch"
     },
     {
      "asset": "ph_old_military_crate",
@@ -39,7 +42,8 @@
       0,
       0.1
      ],
-     "yaw": 85
+     "yaw": 85,
+     "cover": null
     },
     {
      "asset": "ph_wooden_crate_02",
@@ -48,7 +52,8 @@
       0,
       0.05
      ],
-     "yaw": 90
+     "yaw": 90,
+     "cover": null
     },
     {
      "asset": "ph_cardboard_box_01",
@@ -57,7 +62,8 @@
       0,
       0.75
      ],
-     "yaw": 20
+     "yaw": 20,
+     "cover": null
     },
     {
      "asset": "ph_plastic_crate_01",
@@ -66,7 +72,8 @@
       0,
       0.75
      ],
-     "yaw": -15
+     "yaw": -15,
+     "cover": null
     }
    ]
   },
@@ -82,6 +89,7 @@
     2.57,
     1.59
    ],
+   "count": 9,
    "members": [
     {
      "asset": "ph_barrel_01",
@@ -90,7 +98,8 @@
       0,
       0
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "crouch"
     },
     {
      "asset": "ph_barrel_02",
@@ -99,7 +108,8 @@
       0,
       0.05
      ],
-     "yaw": 30
+     "yaw": 30,
+     "cover": null
     },
     {
      "asset": "ph_barrel_03",
@@ -108,7 +118,8 @@
       0,
       -0.55
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "crouch"
     },
     {
      "asset": "ph_barrel_03",
@@ -117,7 +128,8 @@
       0,
       -0.1
      ],
-     "yaw": 50
+     "yaw": 50,
+     "cover": "crouch"
     },
     {
      "asset": "ph_metal_jerrycan_green",
@@ -126,7 +138,8 @@
       0,
       0.3
      ],
-     "yaw": 90
+     "yaw": 90,
+     "cover": null
     },
     {
      "asset": "ph_metal_jerrycan_green",
@@ -135,7 +148,8 @@
       0,
       -0.05
      ],
-     "yaw": 85
+     "yaw": 85,
+     "cover": null
     },
     {
      "asset": "ph_metal_jerrycan",
@@ -144,7 +158,8 @@
       0,
       0.6
      ],
-     "yaw": 10
+     "yaw": 10,
+     "cover": null
     },
     {
      "asset": "ph_propane_tank",
@@ -153,7 +168,8 @@
       0,
       0.3
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": null
     },
     {
      "asset": "ph_small_lpg_tank",
@@ -162,7 +178,8 @@
       0,
       -0.3
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": null
     }
    ]
   },
@@ -178,6 +195,7 @@
     2.5,
     1.11
    ],
+   "count": 6,
    "members": [
     {
      "asset": "ph_portable_generator",
@@ -186,7 +204,8 @@
       0,
       0
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": null
     },
     {
      "asset": "ph_metal_jerrycan",
@@ -195,7 +214,8 @@
       0,
       0.1
      ],
-     "yaw": 80
+     "yaw": 80,
+     "cover": null
     },
     {
      "asset": "ph_metal_toolbox",
@@ -204,7 +224,8 @@
       0,
       0.15
      ],
-     "yaw": -20
+     "yaw": -20,
+     "cover": null
     },
     {
      "asset": "ph_power_box_01",
@@ -213,7 +234,8 @@
       0,
       -0.55
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": null
     },
     {
      "asset": "ph_old_tyre",
@@ -222,7 +244,8 @@
       0,
       -0.45
      ],
-     "yaw": 70
+     "yaw": 70,
+     "cover": null
     },
     {
      "asset": "ph_barrel_01",
@@ -231,7 +254,8 @@
       0,
       -0.35
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "crouch"
     }
    ]
   },
@@ -247,24 +271,35 @@
     1.81,
     1.41
    ],
+   "count": 7,
    "members": [
     {
      "asset": "ph_old_tyre",
      "pos": [
-      0,
-      0,
+      0.0,
+      0.083,
+      -0.3
+     ],
+     "yaw": 0,
+     "tilt": [
+      90,
       0
      ],
-     "yaw": 0
+     "cover": null
     },
     {
      "asset": "ph_old_tyre",
      "pos": [
-      0.05,
-      0.17,
-      0.03
+      -0.002,
+      0.247,
+      -0.265
      ],
-     "yaw": 10
+     "yaw": 10,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
     },
     {
      "asset": "ph_old_tyre",
@@ -273,7 +308,8 @@
       0,
       0.3
      ],
-     "yaw": 80
+     "yaw": 80,
+     "cover": null
     },
     {
      "asset": "ph_rusted_wheel_rim_01",
@@ -282,7 +318,8 @@
       0,
       0.25
      ],
-     "yaw": 20
+     "yaw": 20,
+     "cover": null
     },
     {
      "asset": "ph_rusted_wheel_rim_02",
@@ -291,7 +328,8 @@
       0,
       -0.35
      ],
-     "yaw": 70
+     "yaw": 70,
+     "cover": null
     },
     {
      "asset": "ph_barrel_stove",
@@ -300,7 +338,8 @@
       0,
       -0.45
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "crouch"
     },
     {
      "asset": "ph_can_rusted",
@@ -309,7 +348,8 @@
       0,
       0.6
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": null
     }
    ]
   },
@@ -325,6 +365,7 @@
     4.36,
     3.3
    ],
+   "count": 5,
    "members": [
     {
      "asset": "ph_namaqualand_boulder_03",
@@ -333,7 +374,8 @@
       0,
       0
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "stand"
     },
     {
      "asset": "ph_namaqualand_boulder_06",
@@ -342,7 +384,8 @@
       0,
       0.6
      ],
-     "yaw": 40
+     "yaw": 40,
+     "cover": null
     },
     {
      "asset": "ph_namaqualand_boulders_01",
@@ -351,7 +394,8 @@
       0,
       0.9
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": null
     },
     {
      "asset": "ph_quiver_tree_01",
@@ -360,7 +404,8 @@
       0,
       -1.4
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "stand"
     },
     {
      "asset": "ph_cheiridopsis_succulent",
@@ -369,7 +414,8 @@
       0,
       -1.3
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": null
     }
    ]
   },
@@ -385,6 +431,7 @@
     5.99,
     4.66
    ],
+   "count": 6,
    "members": [
     {
      "asset": "ph_namaqualand_boulder_02",
@@ -393,7 +440,8 @@
       0,
       0
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "crouch"
     },
     {
      "asset": "ph_namaqualand_boulder_04",
@@ -402,7 +450,8 @@
       0,
       0.4
      ],
-     "yaw": 60
+     "yaw": 60,
+     "cover": "stand"
     },
     {
      "asset": "ph_namaqualand_rocks_01",
@@ -411,7 +460,8 @@
       0,
       0.9
      ],
-     "yaw": 20
+     "yaw": 20,
+     "cover": null
     },
     {
      "asset": "ph_dead_quiver_trunk",
@@ -420,7 +470,8 @@
       0,
       -0.9
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": null
     },
     {
      "asset": "ph_dead_quiver_branch_01",
@@ -429,7 +480,8 @@
       0,
       1.2
      ],
-     "yaw": 40
+     "yaw": 40,
+     "cover": null
     },
     {
      "asset": "ph_othonna_cerarioides",
@@ -438,7 +490,8 @@
       0,
       -1.8
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "stand"
     }
    ]
   },
@@ -451,6 +504,7 @@
    "cover": "none",
    "height": 0.5,
    "footprint": null,
+   "count": 3,
    "members": [
     {
      "asset": "def_sandbag_curved",
@@ -459,7 +513,8 @@
       0,
       0
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": null
     },
     {
      "asset": "ph_wooden_military_crate",
@@ -468,7 +523,8 @@
       0,
       -1.3
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": null
     },
     {
      "asset": "ph_metal_jerrycan_green",
@@ -477,7 +533,8 @@
       0,
       -1.2
      ],
-     "yaw": 80
+     "yaw": 80,
+     "cover": null
     }
    ]
   },
@@ -490,6 +547,7 @@
    "cover": "high",
    "height": 1.81,
    "footprint": null,
+   "count": 3,
    "members": [
     {
      "asset": "mod_guard_tower",
@@ -498,7 +556,8 @@
       0,
       0
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": null
     },
     {
      "asset": "ph_wooden_military_crate",
@@ -507,7 +566,8 @@
       0,
       0.2
      ],
-     "yaw": 90
+     "yaw": 90,
+     "cover": null
     },
     {
      "asset": "ph_flood_lights",
@@ -516,7 +576,8 @@
       0,
       1.0
      ],
-     "yaw": 30
+     "yaw": 30,
+     "cover": "stand"
     }
    ]
   },
@@ -532,6 +593,7 @@
     2.51,
     0.74
    ],
+   "count": 4,
    "members": [
     {
      "asset": "ph_modular_industrial_pipes_01",
@@ -540,7 +602,8 @@
       0,
       0
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "stand"
     },
     {
      "asset": "ph_metal_toolbox",
@@ -549,7 +612,8 @@
       0,
       0.4
      ],
-     "yaw": 20
+     "yaw": 20,
+     "cover": null
     },
     {
      "asset": "ph_crowbar_01",
@@ -558,7 +622,8 @@
       0,
       0.6
      ],
-     "yaw": 70
+     "yaw": 70,
+     "cover": null
     },
     {
      "asset": "ph_barrel_01",
@@ -567,7 +632,8 @@
       0,
       0.3
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "crouch"
     }
    ]
   },
@@ -583,6 +649,7 @@
     1.37,
     1.14
    ],
+   "count": 3,
    "members": [
     {
      "asset": "ph_modular_electricity_poles",
@@ -591,7 +658,8 @@
       0,
       0
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "stand"
     },
     {
      "asset": "ph_security_camera_01",
@@ -600,7 +668,8 @@
       4.4,
       0.25
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": null
     },
     {
      "asset": "ph_utility_box_01",
@@ -609,7 +678,8 @@
       0,
       -0.4
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": null
     }
    ]
   },
@@ -625,6 +695,7 @@
     3.11,
     1.6
    ],
+   "count": 4,
    "members": [
     {
      "asset": "ph_tool_cart",
@@ -633,7 +704,8 @@
       0,
       0
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "crouch"
     },
     {
      "asset": "ph_metal_tool_chest",
@@ -642,7 +714,8 @@
       0,
       0.05
      ],
-     "yaw": -10
+     "yaw": -10,
+     "cover": null
     },
     {
      "asset": "ph_portable_welding_cart",
@@ -651,7 +724,8 @@
       0,
       0.1
      ],
-     "yaw": 15
+     "yaw": 15,
+     "cover": "stand"
     },
     {
      "asset": "ph_hand_truck",
@@ -660,7 +734,8 @@
       0,
       0.9
      ],
-     "yaw": 160
+     "yaw": 160,
+     "cover": "stand"
     }
    ]
   },
@@ -676,6 +751,7 @@
     1.86,
     1.48
    ],
+   "count": 5,
    "members": [
     {
      "asset": "ph_barrel_01",
@@ -684,7 +760,8 @@
       0,
       0
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "crouch"
     },
     {
      "asset": "ph_barrel_01",
@@ -693,7 +770,8 @@
       0,
       0
      ],
-     "yaw": 20
+     "yaw": 20,
+     "cover": "crouch"
     },
     {
      "asset": "ph_barrel_02",
@@ -702,7 +780,8 @@
       0,
       0.55
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": null
     },
     {
      "asset": "ph_barrel_03",
@@ -711,7 +790,8 @@
       0,
       0.1
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "crouch"
     },
     {
      "asset": "ph_industrial_pastic_container",
@@ -720,7 +800,8 @@
       0,
       0.75
      ],
-     "yaw": 30
+     "yaw": 30,
+     "cover": null
     }
    ]
   },
@@ -736,6 +817,7 @@
     3.19,
     1.98
    ],
+   "count": 4,
    "members": [
     {
      "asset": "ph_drill_press_01",
@@ -744,7 +826,8 @@
       0,
       0
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": null
     },
     {
      "asset": "ph_old_drill_press",
@@ -753,7 +836,8 @@
       0,
       0.05
      ],
-     "yaw": -10
+     "yaw": -10,
+     "cover": "crouch"
     },
     {
      "asset": "ph_old_military_compressor",
@@ -762,7 +846,8 @@
       0,
       0.2
      ],
-     "yaw": 90
+     "yaw": 90,
+     "cover": "crouch"
     },
     {
      "asset": "ph_industrial_storage_cart",
@@ -771,7 +856,8 @@
       0,
       1.2
      ],
-     "yaw": 180
+     "yaw": 180,
+     "cover": "stand"
     }
    ]
   },
@@ -784,6 +870,7 @@
    "cover": "low",
    "height": 0.93,
    "footprint": null,
+   "count": 4,
    "members": [
     {
      "asset": "tun_cable_reel",
@@ -792,7 +879,8 @@
       0,
       0
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": null
     },
     {
      "asset": "tun_cable_reel",
@@ -801,7 +889,8 @@
       0,
       0.3
      ],
-     "yaw": 30
+     "yaw": 30,
+     "cover": null
     },
     {
      "asset": "ph_barrel_03",
@@ -810,7 +899,8 @@
       0,
       0.2
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "crouch"
     },
     {
      "asset": "ph_plastic_container",
@@ -819,7 +909,8 @@
       0,
       1.2
      ],
-     "yaw": 10
+     "yaw": 10,
+     "cover": null
     }
    ]
   },
@@ -835,6 +926,7 @@
     5.61,
     2.35
    ],
+   "count": 5,
    "members": [
     {
      "asset": "ph_outdoor_table_chair_set_01",
@@ -843,7 +935,8 @@
       0,
       0
      ],
-     "yaw": 90
+     "yaw": 90,
+     "cover": "crouch"
     },
     {
      "asset": "ph_outdoor_table_chair_set_01",
@@ -852,7 +945,8 @@
       0,
       0.1
      ],
-     "yaw": 90
+     "yaw": 90,
+     "cover": "crouch"
     },
     {
      "asset": "ph_standing_chalkboard_01",
@@ -861,7 +955,8 @@
       0,
       0.6
      ],
-     "yaw": 30
+     "yaw": 30,
+     "cover": "stand"
     },
     {
      "asset": "ph_planter_box_01",
@@ -870,7 +965,8 @@
       0,
       -1.0
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": null
     },
     {
      "asset": "ph_plastic_monobloc_chair_01",
@@ -879,7 +975,8 @@
       0,
       0.6
      ],
-     "yaw": -40
+     "yaw": -40,
+     "cover": "crouch"
     }
    ]
   },
@@ -895,6 +992,7 @@
     3.17,
     1.73
    ],
+   "count": 6,
    "members": [
     {
      "asset": "ph_painted_wooden_table",
@@ -903,7 +1001,8 @@
       0,
       0
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "crouch"
     },
     {
      "asset": "ph_wicker_basket_01",
@@ -912,7 +1011,8 @@
       0.96,
       0.1
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": null
     },
     {
      "asset": "ph_wicker_basket_02",
@@ -921,7 +1021,8 @@
       0.96,
       0.0
      ],
-     "yaw": 30
+     "yaw": 30,
+     "cover": null
     },
     {
      "asset": "ph_wooden_crate_01",
@@ -930,7 +1031,8 @@
       0,
       0.9
      ],
-     "yaw": 10
+     "yaw": 10,
+     "cover": null
     },
     {
      "asset": "ph_wooden_crate_01",
@@ -939,7 +1041,8 @@
       0,
       0.95
      ],
-     "yaw": -5
+     "yaw": -5,
+     "cover": null
     },
     {
      "asset": "ph_wine_barrel_01",
@@ -948,7 +1051,8 @@
       0,
       0.4
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "crouch"
     }
    ]
   },
@@ -964,6 +1068,7 @@
     3.13,
     1.16
    ],
+   "count": 5,
    "members": [
     {
      "asset": "ph_metal_trash_can",
@@ -972,7 +1077,8 @@
       0,
       0
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "crouch"
     },
     {
      "asset": "ph_trashbag",
@@ -981,7 +1087,8 @@
       0,
       0.2
      ],
-     "yaw": 30
+     "yaw": 30,
+     "cover": null
     },
     {
      "asset": "ph_plastic_crate_02",
@@ -990,7 +1097,8 @@
       0,
       0.2
      ],
-     "yaw": 10
+     "yaw": 10,
+     "cover": null
     },
     {
      "asset": "ph_watering_can_metal_01",
@@ -999,7 +1107,8 @@
       0,
       -0.3
      ],
-     "yaw": 60
+     "yaw": 60,
+     "cover": null
     },
     {
      "asset": "ph_potted_plant_02",
@@ -1008,7 +1117,8 @@
       0,
       -0.3
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "crouch"
     }
    ]
   },
@@ -1024,6 +1134,7 @@
     2.91,
     1.33
    ],
+   "count": 4,
    "members": [
     {
      "asset": "ph_painted_wooden_bench",
@@ -1032,7 +1143,8 @@
       0,
       0
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "crouch"
     },
     {
      "asset": "ph_street_lamp_01",
@@ -1041,7 +1153,8 @@
       0,
       -0.2
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "stand"
     },
     {
      "asset": "ph_metal_trash_can",
@@ -1050,7 +1163,8 @@
       0,
       0.1
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "crouch"
     },
     {
      "asset": "ph_fire_hydrant",
@@ -1059,7 +1173,8 @@
       0,
       0.8
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": null
     }
    ]
   },
@@ -1075,6 +1190,7 @@
     4.48,
     0.99
    ],
+   "count": 4,
    "members": [
     {
      "asset": "ph_concrete_road_barrier",
@@ -1083,7 +1199,8 @@
       0,
       0
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "crouch"
     },
     {
      "asset": "ph_concrete_road_barrier_02",
@@ -1092,7 +1209,8 @@
       0,
       0.1
      ],
-     "yaw": 5
+     "yaw": 5,
+     "cover": "crouch"
     },
     {
      "asset": "ph_barrel_01",
@@ -1101,7 +1219,8 @@
       0,
       0.4
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "crouch"
     },
     {
      "asset": "ph_barrel_03",
@@ -1110,7 +1229,8 @@
       0,
       0.3
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "crouch"
     }
    ]
   },
@@ -1123,6 +1243,7 @@
    "cover": "low",
    "height": 1.11,
    "footprint": null,
+   "count": 3,
    "members": [
     {
      "asset": "rub_brick_pile_m",
@@ -1131,7 +1252,8 @@
       0,
       0
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": null
     },
     {
      "asset": "ph_old_tyre",
@@ -1140,7 +1262,8 @@
       0,
       0.6
      ],
-     "yaw": 30
+     "yaw": 30,
+     "cover": null
     },
     {
      "asset": "ph_concrete_road_barrier_02",
@@ -1149,7 +1272,8 @@
       0,
       0.3
      ],
-     "yaw": 70
+     "yaw": 70,
+     "cover": "crouch"
     }
    ]
   },
@@ -1162,6 +1286,7 @@
    "cover": "low",
    "height": 0.87,
    "footprint": null,
+   "count": 3,
    "members": [
     {
      "asset": "drs_cart",
@@ -1170,7 +1295,8 @@
       0,
       0
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": null
     },
     {
      "asset": "ph_cement_bag",
@@ -1179,7 +1305,8 @@
       0,
       0.6
      ],
-     "yaw": 20
+     "yaw": 20,
+     "cover": null
     },
     {
      "asset": "ph_wine_barrel_01",
@@ -1188,7 +1315,3730 @@
       0,
       0.5
      ],
-     "yaw": 0
+     "yaw": 0,
+     "cover": "crouch"
+    }
+   ]
+  },
+  {
+   "id": "desert_supply_dump",
+   "theme": "desert",
+   "name": "Supply dump (large)",
+   "purpose": "Crate stacks two and three high, sacks and loose boxes round a hand truck: standing cover behind the stacks, crouch cover behind the rows.",
+   "asset": "cl_desert_supply_dump",
+   "cover": "high",
+   "height": 1.55,
+   "footprint": [
+    7.07,
+    4.63
+   ],
+   "count": 32,
+   "members": [
+    {
+     "asset": "ph_wooden_military_crate",
+     "pos": [
+      -2.204,
+      0,
+      -0.595
+     ],
+     "yaw": 5.1,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_military_crate",
+     "pos": [
+      -2.203,
+      0.465,
+      -0.599
+     ],
+     "yaw": 1.0,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_wooden_military_crate",
+     "pos": [
+      -2.225,
+      0.93,
+      -0.599
+     ],
+     "yaw": 1.6,
+     "cover": "stand"
+    },
+    {
+     "asset": "ph_wooden_military_crate",
+     "pos": [
+      -0.877,
+      0,
+      -0.632
+     ],
+     "yaw": -2.4,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_military_crate",
+     "pos": [
+      -0.933,
+      0.465,
+      -0.575
+     ],
+     "yaw": 2.3,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_old_military_crate",
+     "pos": [
+      -2.237,
+      0,
+      0.639
+     ],
+     "yaw": 95.6,
+     "cover": null
+    },
+    {
+     "asset": "ph_old_military_crate",
+     "pos": [
+      -2.188,
+      0.301,
+      0.609
+     ],
+     "yaw": 85.9,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_02",
+     "pos": [
+      0.461,
+      0,
+      -0.698
+     ],
+     "yaw": 84.7,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_02",
+     "pos": [
+      0.475,
+      0.464,
+      -0.721
+     ],
+     "yaw": 84.4,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_wooden_crate_02",
+     "pos": [
+      0.497,
+      0.928,
+      -0.705
+     ],
+     "yaw": 94.1,
+     "cover": "stand"
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      1.502,
+      0,
+      -0.689
+     ],
+     "yaw": -0.0,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      1.513,
+      0.35,
+      -0.703
+     ],
+     "yaw": -2.7,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      2.54,
+      0,
+      -0.56
+     ],
+     "yaw": 9.1,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      2.517,
+      0.35,
+      -0.615
+     ],
+     "yaw": 1.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      2.483,
+      0.7,
+      -0.634
+     ],
+     "yaw": 8.2,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_cement_bag",
+     "pos": [
+      -1.61,
+      0,
+      1.635
+     ],
+     "yaw": 85.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_cement_bag",
+     "pos": [
+      -1.004,
+      0,
+      1.635
+     ],
+     "yaw": 70.0,
+     "cover": null
+    },
+    {
+     "asset": "ph_cement_bag",
+     "pos": [
+      -0.529,
+      0,
+      1.641
+     ],
+     "yaw": 88.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_cement_bag",
+     "pos": [
+      0.098,
+      0,
+      1.59
+     ],
+     "yaw": 72.9,
+     "cover": null
+    },
+    {
+     "asset": "ph_compost_bags",
+     "pos": [
+      1.2,
+      0,
+      1.4
+     ],
+     "yaw": 22.1,
+     "cover": null
+    },
+    {
+     "asset": "ph_cardboard_box_01",
+     "pos": [
+      0.222,
+      0,
+      0.882
+     ],
+     "yaw": 13.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_cardboard_box_01",
+     "pos": [
+      0.187,
+      0.342,
+      0.937
+     ],
+     "yaw": 40.3,
+     "cover": null
+    },
+    {
+     "asset": "ph_hand_truck",
+     "pos": [
+      -0.166,
+      0.095,
+      -0.218
+     ],
+     "yaw": 178.0,
+     "tilt": [
+      -14,
+      -2.292049923482695
+     ],
+     "cover": "stand"
+    },
+    {
+     "asset": "ph_cardboard_box_01",
+     "pos": [
+      3.171,
+      0.053,
+      0.291
+     ],
+     "yaw": 266.5,
+     "tilt": [
+      -10,
+      -2.3937221462597695
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_plastic_crate_01",
+     "pos": [
+      2.6,
+      0,
+      1.0
+     ],
+     "yaw": 44.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_military_crate",
+     "pos": [
+      3.4,
+      0,
+      -1.6
+     ],
+     "yaw": 64.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_rusted_wheel_rim_02",
+     "pos": [
+      -2.081,
+      0,
+      0.141
+     ],
+     "yaw": 354.7,
+     "cover": null
+    },
+    {
+     "asset": "ph_cardboard_box_01",
+     "pos": [
+      1.106,
+      0,
+      -1.664
+     ],
+     "yaw": 151.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_plastic_bottle_gallon",
+     "pos": [
+      2.65,
+      0,
+      2.284
+     ],
+     "yaw": 213.4,
+     "cover": null
+    },
+    {
+     "asset": "ph_can_rusted",
+     "pos": [
+      -1.925,
+      0,
+      -0.386
+     ],
+     "yaw": 307.6,
+     "cover": null
+    },
+    {
+     "asset": "ph_can_rusted",
+     "pos": [
+      -3.105,
+      0,
+      -1.527
+     ],
+     "yaw": 159.0,
+     "cover": null
+    },
+    {
+     "asset": "ph_rusted_wheel_rim_02",
+     "pos": [
+      -1.097,
+      0,
+      -0.837
+     ],
+     "yaw": 26.4,
+     "cover": null
+    }
+   ]
+  },
+  {
+   "id": "desert_fuel_dump",
+   "theme": "desert",
+   "name": "Fuel dump (large)",
+   "purpose": "Three rows of drums behind a barrier bund, jerrycan rows, a fuel pump and gas bottles: crouch cover along the drums, standing cover at the pump.",
+   "asset": "cl_desert_fuel_dump",
+   "cover": "high",
+   "height": 1.9,
+   "footprint": [
+    8.25,
+    5.47
+   ],
+   "count": 43,
+   "members": [
+    {
+     "asset": "ph_concrete_road_barrier",
+     "pos": [
+      -3.603,
+      0,
+      -2.384
+     ],
+     "yaw": 1.0,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_concrete_road_barrier",
+     "pos": [
+      -2.086,
+      0,
+      -2.449
+     ],
+     "yaw": -0.8,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_concrete_road_barrier",
+     "pos": [
+      -0.523,
+      0,
+      -2.369
+     ],
+     "yaw": 1.1,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_concrete_road_barrier",
+     "pos": [
+      1.06,
+      0,
+      -2.394
+     ],
+     "yaw": 1.0,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_concrete_road_barrier",
+     "pos": [
+      2.565,
+      0,
+      -2.406
+     ],
+     "yaw": -2.0,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_concrete_road_barrier_02",
+     "pos": [
+      -4.559,
+      0,
+      -0.644
+     ],
+     "yaw": 91.9,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_concrete_road_barrier_02",
+     "pos": [
+      -4.643,
+      0,
+      1.019
+     ],
+     "yaw": 89.0,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_barrel_01",
+     "pos": [
+      -3.41,
+      0,
+      -1.166
+     ],
+     "yaw": -38.5,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_barrel_01",
+     "pos": [
+      -2.824,
+      0,
+      -1.158
+     ],
+     "yaw": 0.7,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_barrel_01",
+     "pos": [
+      -2.201,
+      0,
+      -1.151
+     ],
+     "yaw": 35.7,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_barrel_01",
+     "pos": [
+      -1.579,
+      0,
+      -1.208
+     ],
+     "yaw": -29.2,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_barrel_01",
+     "pos": [
+      -0.939,
+      0,
+      -1.188
+     ],
+     "yaw": -26.9,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_barrel_01",
+     "pos": [
+      -0.28,
+      0,
+      -1.245
+     ],
+     "yaw": -26.3,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_barrel_02",
+     "pos": [
+      -3.368,
+      0,
+      -0.59
+     ],
+     "yaw": -6.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_barrel_02",
+     "pos": [
+      -2.77,
+      0,
+      -0.582
+     ],
+     "yaw": -9.2,
+     "cover": null
+    },
+    {
+     "asset": "ph_barrel_02",
+     "pos": [
+      -2.207,
+      0,
+      -0.557
+     ],
+     "yaw": 37.4,
+     "cover": null
+    },
+    {
+     "asset": "ph_barrel_02",
+     "pos": [
+      -1.492,
+      0,
+      -0.564
+     ],
+     "yaw": -11.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_barrel_02",
+     "pos": [
+      -0.934,
+      0,
+      -0.561
+     ],
+     "yaw": 13.9,
+     "cover": null
+    },
+    {
+     "asset": "ph_barrel_02",
+     "pos": [
+      -0.339,
+      0,
+      -0.607
+     ],
+     "yaw": -10.9,
+     "cover": null
+    },
+    {
+     "asset": "ph_barrel_03",
+     "pos": [
+      -3.399,
+      0,
+      0.071
+     ],
+     "yaw": 0.0,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_barrel_03",
+     "pos": [
+      -2.827,
+      0,
+      0.072
+     ],
+     "yaw": -5.6,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_barrel_03",
+     "pos": [
+      -2.158,
+      0,
+      0.012
+     ],
+     "yaw": -5.8,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_barrel_03",
+     "pos": [
+      -1.551,
+      0,
+      0.067
+     ],
+     "yaw": -31.8,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_barrel_03",
+     "pos": [
+      -0.915,
+      0,
+      0.008
+     ],
+     "yaw": 15.7,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_barrel_03",
+     "pos": [
+      -0.346,
+      0,
+      0.018
+     ],
+     "yaw": -12.5,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_barrel_01",
+     "pos": [
+      0.561,
+      0.281,
+      1.265
+     ],
+     "yaw": 85.5,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_barrel_03",
+     "pos": [
+      2.365,
+      0.317,
+      1.783
+     ],
+     "yaw": 2.1,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_metal_jerrycan_green",
+     "pos": [
+      -3.204,
+      0,
+      1.171
+     ],
+     "yaw": 87.4,
+     "cover": null
+    },
+    {
+     "asset": "ph_metal_jerrycan_green",
+     "pos": [
+      -2.842,
+      0,
+      1.246
+     ],
+     "yaw": 89.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_metal_jerrycan_green",
+     "pos": [
+      -2.434,
+      0,
+      1.167
+     ],
+     "yaw": 95.1,
+     "cover": null
+    },
+    {
+     "asset": "ph_metal_jerrycan_green",
+     "pos": [
+      -2.134,
+      0,
+      1.169
+     ],
+     "yaw": 93.0,
+     "cover": null
+    },
+    {
+     "asset": "ph_metal_jerrycan_green",
+     "pos": [
+      -1.719,
+      0,
+      1.151
+     ],
+     "yaw": 87.2,
+     "cover": null
+    },
+    {
+     "asset": "ph_metal_jerrycan_green",
+     "pos": [
+      -1.373,
+      0,
+      1.184
+     ],
+     "yaw": 86.9,
+     "cover": null
+    },
+    {
+     "asset": "ph_metal_jerrycan_green",
+     "pos": [
+      -1.089,
+      0,
+      1.154
+     ],
+     "yaw": 91.4,
+     "cover": null
+    },
+    {
+     "asset": "pr1_fuel_dispenser",
+     "pos": [
+      2.8,
+      0,
+      -0.6
+     ],
+     "yaw": 270.0,
+     "cover": "stand"
+    },
+    {
+     "asset": "ph_propane_tank",
+     "pos": [
+      2.25,
+      0,
+      1.0
+     ],
+     "yaw": -7.6,
+     "cover": null
+    },
+    {
+     "asset": "ph_propane_tank",
+     "pos": [
+      2.582,
+      0,
+      1.029
+     ],
+     "yaw": 5.3,
+     "cover": null
+    },
+    {
+     "asset": "ph_small_lpg_tank",
+     "pos": [
+      3.0,
+      0,
+      1.1
+     ],
+     "yaw": 2.2,
+     "cover": null
+    },
+    {
+     "asset": "ph_oil_tin",
+     "pos": [
+      1.96,
+      0,
+      2.102
+     ],
+     "yaw": 176.3,
+     "cover": null
+    },
+    {
+     "asset": "ph_metal_jerrycan",
+     "pos": [
+      3.195,
+      0,
+      2.494
+     ],
+     "yaw": 58.4,
+     "cover": null
+    },
+    {
+     "asset": "ph_can_rusted",
+     "pos": [
+      -1.885,
+      0,
+      2.544
+     ],
+     "yaw": 185.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_metal_jerrycan",
+     "pos": [
+      2.02,
+      0,
+      2.334
+     ],
+     "yaw": 187.6,
+     "cover": null
+    },
+    {
+     "asset": "ph_can_rusted",
+     "pos": [
+      1.275,
+      0,
+      1.732
+     ],
+     "yaw": 319.1,
+     "cover": null
+    }
+   ]
+  },
+  {
+   "id": "desert_motor_pool",
+   "theme": "desert",
+   "name": "Motor-pool corner (large)",
+   "purpose": "Tyre stacks, a tool cart and chests, a generator and compressor, oil drums and a work table: crouch cover at the tyre stacks, standing cover at the compressor.",
+   "asset": "cl_desert_motor_pool",
+   "cover": "high",
+   "height": 1.27,
+   "footprint": [
+    7.15,
+    4.09
+   ],
+   "count": 40,
+   "members": [
+    {
+     "asset": "ph_old_tyre",
+     "pos": [
+      -3.072,
+      0.083,
+      -1.878
+     ],
+     "yaw": 9.2,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_old_tyre",
+     "pos": [
+      -2.895,
+      0.248,
+      -1.923
+     ],
+     "yaw": -13.5,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_old_tyre",
+     "pos": [
+      -3.096,
+      0.413,
+      -1.921
+     ],
+     "yaw": 11.7,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_old_tyre",
+     "pos": [
+      -2.963,
+      0.578,
+      -1.888
+     ],
+     "yaw": -14.3,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_old_tyre",
+     "pos": [
+      -3.108,
+      0.743,
+      -1.894
+     ],
+     "yaw": 16.9,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_old_tyre",
+     "pos": [
+      -2.931,
+      0.908,
+      -1.943
+     ],
+     "yaw": -11.2,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_old_tyre",
+     "pos": [
+      -2.415,
+      0.083,
+      -1.952
+     ],
+     "yaw": 15.5,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_old_tyre",
+     "pos": [
+      -2.333,
+      0.248,
+      -1.961
+     ],
+     "yaw": 12.2,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_old_tyre",
+     "pos": [
+      -2.192,
+      0.413,
+      -1.964
+     ],
+     "yaw": -12.2,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_old_tyre",
+     "pos": [
+      -2.331,
+      0.578,
+      -1.994
+     ],
+     "yaw": 12.8,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_old_tyre",
+     "pos": [
+      -2.258,
+      0.743,
+      -2.005
+     ],
+     "yaw": -6.8,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_old_tyre",
+     "pos": [
+      -2.507,
+      0.083,
+      -1.298
+     ],
+     "yaw": -19.1,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_old_tyre",
+     "pos": [
+      -2.698,
+      0.248,
+      -1.25
+     ],
+     "yaw": 24.3,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_old_tyre",
+     "pos": [
+      -2.649,
+      0.413,
+      -1.289
+     ],
+     "yaw": 12.4,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_old_tyre",
+     "pos": [
+      -1.709,
+      0.036,
+      -1.807
+     ],
+     "yaw": 1.4,
+     "tilt": [
+      -18,
+      -2.190877432806209
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_rusted_wheel_rim_01",
+     "pos": [
+      -3.106,
+      0,
+      -0.232
+     ],
+     "yaw": -23.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_rusted_wheel_rim_01",
+     "pos": [
+      -2.648,
+      0,
+      -0.225
+     ],
+     "yaw": -3.2,
+     "cover": null
+    },
+    {
+     "asset": "ph_rusted_wheel_rim_01",
+     "pos": [
+      -2.189,
+      0,
+      -0.21
+     ],
+     "yaw": -29.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_tool_cart",
+     "pos": [
+      0.0,
+      0,
+      -1.7
+     ],
+     "yaw": -0.1,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_metal_tool_chest",
+     "pos": [
+      1.4,
+      0,
+      -1.8
+     ],
+     "yaw": 0.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_metal_toolbox",
+     "pos": [
+      0.1,
+      0.97,
+      -1.7
+     ],
+     "yaw": 10.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_portable_generator",
+     "pos": [
+      2.6,
+      0,
+      -1.6
+     ],
+     "yaw": -14.9,
+     "cover": null
+    },
+    {
+     "asset": "ph_old_military_compressor",
+     "pos": [
+      2.9,
+      0,
+      0.2
+     ],
+     "yaw": 87.9,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_barrel_01",
+     "pos": [
+      -0.843,
+      0,
+      1.615
+     ],
+     "yaw": 36.3,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_barrel_01",
+     "pos": [
+      -0.191,
+      0,
+      1.622
+     ],
+     "yaw": 34.6,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_barrel_01",
+     "pos": [
+      0.394,
+      0,
+      1.564
+     ],
+     "yaw": 24.5,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_barrel_stove",
+     "pos": [
+      1.4,
+      0,
+      1.4
+     ],
+     "yaw": 5.4,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_painted_wooden_table",
+     "pos": [
+      -1.4,
+      0,
+      0.3
+     ],
+     "yaw": 92.2,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_metal_toolbox",
+     "pos": [
+      -1.5,
+      0.96,
+      0.0
+     ],
+     "yaw": 64.6,
+     "cover": null
+    },
+    {
+     "asset": "ph_hand_truck",
+     "pos": [
+      0.6,
+      0,
+      0.5
+     ],
+     "yaw": 198.6,
+     "cover": "stand"
+    },
+    {
+     "asset": "ph_metal_jerrycan",
+     "pos": [
+      2.237,
+      0,
+      1.539
+     ],
+     "yaw": 94.9,
+     "cover": null
+    },
+    {
+     "asset": "ph_metal_jerrycan",
+     "pos": [
+      2.53,
+      0,
+      1.535
+     ],
+     "yaw": 88.0,
+     "cover": null
+    },
+    {
+     "asset": "ph_metal_jerrycan",
+     "pos": [
+      2.942,
+      0,
+      1.464
+     ],
+     "yaw": 97.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_cardboard_box_01",
+     "pos": [
+      1.514,
+      0,
+      -1.268
+     ],
+     "yaw": 222.2,
+     "cover": null
+    },
+    {
+     "asset": "ph_can_rusted",
+     "pos": [
+      -0.956,
+      0,
+      1.002
+     ],
+     "yaw": 122.9,
+     "cover": null
+    },
+    {
+     "asset": "ph_plastic_bottle_gallon",
+     "pos": [
+      1.954,
+      0,
+      0.243
+     ],
+     "yaw": 324.2,
+     "cover": null
+    },
+    {
+     "asset": "ph_pipe_wrench",
+     "pos": [
+      0.976,
+      0,
+      0.247
+     ],
+     "yaw": 195.6,
+     "cover": null
+    },
+    {
+     "asset": "ph_crowbar_01",
+     "pos": [
+      2.212,
+      0,
+      0.638
+     ],
+     "yaw": 189.6,
+     "cover": null
+    },
+    {
+     "asset": "ph_rusted_wheel_rim_02",
+     "pos": [
+      -2.574,
+      0,
+      -0.873
+     ],
+     "yaw": 96.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_oil_tin",
+     "pos": [
+      2.981,
+      0,
+      0.097
+     ],
+     "yaw": 306.6,
+     "cover": null
+    }
+   ]
+  },
+  {
+   "id": "desert_guard_point",
+   "theme": "desert",
+   "name": "Guard point (large)",
+   "purpose": "An L of concrete barriers with crate seats, a radio, water cans and a lantern: standing cover along the L.",
+   "asset": "cl_desert_guard_point",
+   "cover": "low",
+   "height": 1.13,
+   "footprint": [
+    5.9,
+    5.02
+   ],
+   "count": 24,
+   "members": [
+    {
+     "asset": "ph_concrete_road_barrier_02",
+     "pos": [
+      -2.439,
+      0,
+      2.02
+     ],
+     "yaw": 0.6,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_concrete_road_barrier_02",
+     "pos": [
+      -0.776,
+      0,
+      1.977
+     ],
+     "yaw": -1.0,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_concrete_road_barrier_02",
+     "pos": [
+      0.783,
+      0,
+      2.016
+     ],
+     "yaw": -0.8,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_concrete_road_barrier_02",
+     "pos": [
+      -3.182,
+      0,
+      1.19
+     ],
+     "yaw": 91.1,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_concrete_road_barrier_02",
+     "pos": [
+      -3.238,
+      0,
+      -0.408
+     ],
+     "yaw": 91.6,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_concrete_road_barrier_02",
+     "pos": [
+      -3.214,
+      0,
+      -1.984
+     ],
+     "yaw": 91.2,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_wooden_military_crate",
+     "pos": [
+      -0.8,
+      0,
+      1.0
+     ],
+     "yaw": 2.1,
+     "cover": null
+    },
+    {
+     "asset": "ph_vintage_radio_transceiver",
+     "pos": [
+      -0.8,
+      0.465,
+      1.0
+     ],
+     "yaw": 174.4,
+     "cover": null
+    },
+    {
+     "asset": "ph_old_military_crate",
+     "pos": [
+      0.8,
+      0,
+      0.9
+     ],
+     "yaw": 10.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      -2.0,
+      0,
+      -0.4
+     ],
+     "yaw": 92.6,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      -2.0,
+      0,
+      0.6
+     ],
+     "yaw": 79.6,
+     "cover": null
+    },
+    {
+     "asset": "ph_metal_jerrycan_green",
+     "pos": [
+      1.615,
+      0,
+      1.262
+     ],
+     "yaw": 87.4,
+     "cover": null
+    },
+    {
+     "asset": "ph_metal_jerrycan_green",
+     "pos": [
+      1.918,
+      0,
+      1.27
+     ],
+     "yaw": 97.6,
+     "cover": null
+    },
+    {
+     "asset": "ph_metal_jerrycan_green",
+     "pos": [
+      2.31,
+      0,
+      1.349
+     ],
+     "yaw": 89.0,
+     "cover": null
+    },
+    {
+     "asset": "ph_lantern_01",
+     "pos": [
+      0.8,
+      0.3,
+      0.9
+     ],
+     "yaw": 1.7,
+     "cover": null
+    },
+    {
+     "asset": "ph_medical_box",
+     "pos": [
+      -1.1,
+      0,
+      -0.6
+     ],
+     "yaw": 36.0,
+     "cover": null
+    },
+    {
+     "asset": "ph_old_gas_mask",
+     "pos": [
+      0.2,
+      0,
+      -0.5
+     ],
+     "yaw": 63.0,
+     "cover": null
+    },
+    {
+     "asset": "ph_plastic_bottle_gallon",
+     "pos": [
+      1.9,
+      0,
+      0.4
+     ],
+     "yaw": -6.2,
+     "cover": null
+    },
+    {
+     "asset": "ph_binoculars",
+     "pos": [
+      -0.6,
+      0.465,
+      1.2
+     ],
+     "yaw": 41.4,
+     "cover": null
+    },
+    {
+     "asset": "ph_metal_jerrycan",
+     "pos": [
+      -0.652,
+      0,
+      0.649
+     ],
+     "yaw": 268.9,
+     "cover": null
+    },
+    {
+     "asset": "ph_metal_jerrycan",
+     "pos": [
+      -1.47,
+      0,
+      -0.423
+     ],
+     "yaw": 78.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_rusted_wheel_rim_02",
+     "pos": [
+      -1.178,
+      0,
+      -1.285
+     ],
+     "yaw": 359.7,
+     "cover": null
+    },
+    {
+     "asset": "ph_can_rusted",
+     "pos": [
+      -2.266,
+      0,
+      0.325
+     ],
+     "yaw": 41.0,
+     "cover": null
+    },
+    {
+     "asset": "ph_can_rusted",
+     "pos": [
+      -0.359,
+      0,
+      0.932
+     ],
+     "yaw": 60.6,
+     "cover": null
+    }
+   ]
+  },
+  {
+   "id": "yard_pipe_yard",
+   "theme": "yard",
+   "name": "Pipe yard (large)",
+   "purpose": "Two steel racks with pyramids of pipe in front, loose pipe runs, the pipe manifold, crates and drums: standing cover behind the racks.",
+   "asset": "cl_yard_pipe_yard",
+   "cover": "high",
+   "height": 2.31,
+   "footprint": [
+    7.82,
+    4.26
+   ],
+   "count": 51,
+   "members": [
+    {
+     "asset": "ph_steel_frame_shelves_03",
+     "pos": [
+      -3.0,
+      0,
+      -1.5
+     ],
+     "yaw": -1.3,
+     "cover": "stand"
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -1.97,
+      0.05,
+      -0.955
+     ],
+     "yaw": 0.3,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -2.003,
+      0.05,
+      -0.84
+     ],
+     "yaw": -0.6,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -1.953,
+      0.05,
+      -0.761
+     ],
+     "yaw": 0.6,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -1.998,
+      0.05,
+      -0.65
+     ],
+     "yaw": 0.0,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -2.042,
+      0.05,
+      -0.533
+     ],
+     "yaw": -1.0,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -2.021,
+      0.137,
+      -0.903
+     ],
+     "yaw": 0.2,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -2.069,
+      0.137,
+      -0.81
+     ],
+     "yaw": 0.6,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -2.043,
+      0.137,
+      -0.691
+     ],
+     "yaw": -0.5,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -2.073,
+      0.137,
+      -0.617
+     ],
+     "yaw": 1.0,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -1.962,
+      0.224,
+      -0.863
+     ],
+     "yaw": 0.8,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -1.982,
+      0.224,
+      -0.734
+     ],
+     "yaw": -0.9,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -2.027,
+      0.224,
+      -0.65
+     ],
+     "yaw": -0.0,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -2.062,
+      0.311,
+      -0.816
+     ],
+     "yaw": 0.9,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -2.021,
+      0.311,
+      -0.688
+     ],
+     "yaw": -0.7,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_steel_frame_shelves_03",
+     "pos": [
+      0.2,
+      0,
+      -1.5
+     ],
+     "yaw": 1.3,
+     "cover": "stand"
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      1.14,
+      0.05,
+      -0.965
+     ],
+     "yaw": 0.9,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      1.192,
+      0.05,
+      -0.852
+     ],
+     "yaw": 0.1,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      1.175,
+      0.05,
+      -0.749
+     ],
+     "yaw": -0.0,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      1.15,
+      0.05,
+      -0.634
+     ],
+     "yaw": -0.9,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      1.258,
+      0.05,
+      -0.541
+     ],
+     "yaw": -0.5,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      1.245,
+      0.137,
+      -0.89
+     ],
+     "yaw": -0.6,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      1.275,
+      0.137,
+      -0.814
+     ],
+     "yaw": 0.8,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      1.241,
+      0.137,
+      -0.709
+     ],
+     "yaw": 0.5,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      1.213,
+      0.137,
+      -0.608
+     ],
+     "yaw": 0.5,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      1.14,
+      0.224,
+      -0.849
+     ],
+     "yaw": -0.0,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      1.252,
+      0.224,
+      -0.74
+     ],
+     "yaw": -0.6,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      1.268,
+      0.224,
+      -0.664
+     ],
+     "yaw": 0.8,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      1.186,
+      0.311,
+      -0.795
+     ],
+     "yaw": -0.3,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      1.192,
+      0.311,
+      -0.696
+     ],
+     "yaw": -0.2,
+     "tilt": [
+      0,
+      90
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_industrial_pipes_01",
+     "pos": [
+      2.8,
+      0,
+      -1.4
+     ],
+     "yaw": 7.9,
+     "cover": "stand"
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      -3.011,
+      0,
+      0.553
+     ],
+     "yaw": -8.1,
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      -2.728,
+      0,
+      0.649
+     ],
+     "yaw": -0.1,
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      -2.501,
+      0,
+      0.605
+     ],
+     "yaw": 5.0,
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      -2.278,
+      0,
+      0.611
+     ],
+     "yaw": 1.1,
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_1m",
+     "pos": [
+      -1.988,
+      0,
+      0.568
+     ],
+     "yaw": -6.6,
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -0.694,
+      0.05,
+      -0.194
+     ],
+     "yaw": -6.1,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -0.914,
+      0.05,
+      -0.156
+     ],
+     "yaw": 17.1,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -0.333,
+      0.05,
+      -0.194
+     ],
+     "yaw": -6.1,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_modular_pipes_straight_2m",
+     "pos": [
+      -0.328,
+      0.05,
+      -0.198
+     ],
+     "yaw": 3.9,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      1.585,
+      0,
+      0.868
+     ],
+     "yaw": -5.2,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      1.625,
+      0.35,
+      0.922
+     ],
+     "yaw": -1.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_barrel_01",
+     "pos": [
+      2.618,
+      0,
+      0.618
+     ],
+     "yaw": 23.9,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_barrel_01",
+     "pos": [
+      3.266,
+      0,
+      0.591
+     ],
+     "yaw": 29.3,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_plastic_container",
+     "pos": [
+      2.9,
+      0,
+      1.5
+     ],
+     "yaw": 27.4,
+     "cover": null
+    },
+    {
+     "asset": "ph_crowbar_01",
+     "pos": [
+      -3.5,
+      0,
+      1.681
+     ],
+     "yaw": 182.2,
+     "cover": null
+    },
+    {
+     "asset": "ph_oil_tin",
+     "pos": [
+      -2.464,
+      0,
+      1.376
+     ],
+     "yaw": 289.9,
+     "cover": null
+    },
+    {
+     "asset": "ph_pipe_wrench",
+     "pos": [
+      -3.198,
+      0,
+      1.617
+     ],
+     "yaw": 307.2,
+     "cover": null
+    },
+    {
+     "asset": "ph_can_rusted",
+     "pos": [
+      -0.663,
+      0,
+      1.488
+     ],
+     "yaw": 25.0,
+     "cover": null
+    },
+    {
+     "asset": "ph_oil_tin",
+     "pos": [
+      3.284,
+      0,
+      2.12
+     ],
+     "yaw": 172.4,
+     "cover": null
+    },
+    {
+     "asset": "ph_cardboard_box_01",
+     "pos": [
+      0.079,
+      0,
+      2.101
+     ],
+     "yaw": 10.2,
+     "cover": null
+    }
+   ]
+  },
+  {
+   "id": "yard_workshop_bay",
+   "theme": "yard",
+   "name": "Workshop bay (large)",
+   "purpose": "Steel shelving along the back, a compressor, welding cart, drill presses, a tool cart with a vice, storage cart and bins: standing cover at the shelving and compressor.",
+   "asset": "cl_yard_workshop_bay",
+   "cover": "high",
+   "height": 2.14,
+   "footprint": [
+    7.61,
+    4.46
+   ],
+   "count": 25,
+   "members": [
+    {
+     "asset": "ph_steel_frame_shelves_01",
+     "pos": [
+      -3.354,
+      0,
+      -1.936
+     ],
+     "yaw": -1.9,
+     "cover": "stand"
+    },
+    {
+     "asset": "ph_steel_frame_shelves_01",
+     "pos": [
+      -2.2,
+      0,
+      -1.932
+     ],
+     "yaw": -1.5,
+     "cover": "stand"
+    },
+    {
+     "asset": "ph_steel_frame_shelves_01",
+     "pos": [
+      -1.085,
+      0,
+      -1.915
+     ],
+     "yaw": 1.6,
+     "cover": "stand"
+    },
+    {
+     "asset": "ph_worn_metal_rack",
+     "pos": [
+      0.4,
+      0,
+      -1.9
+     ],
+     "yaw": -1.1,
+     "cover": "stand"
+    },
+    {
+     "asset": "ph_old_military_compressor",
+     "pos": [
+      2.2,
+      0,
+      -1.6
+     ],
+     "yaw": 97.4,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_portable_welding_cart",
+     "pos": [
+      3.2,
+      0,
+      -0.4
+     ],
+     "yaw": 197.1,
+     "cover": "stand"
+    },
+    {
+     "asset": "ph_drill_press_01",
+     "pos": [
+      -3.0,
+      0,
+      0.3
+     ],
+     "yaw": 91.6,
+     "cover": null
+    },
+    {
+     "asset": "ph_old_drill_press",
+     "pos": [
+      -3.0,
+      0,
+      1.2
+     ],
+     "yaw": 86.9,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_tool_cart",
+     "pos": [
+      -0.8,
+      0,
+      0.2
+     ],
+     "yaw": 3.0,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_bench_vice_01",
+     "pos": [
+      -0.5,
+      0.965,
+      0.2
+     ],
+     "yaw": 6.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_metal_tool_chest",
+     "pos": [
+      0.6,
+      0,
+      0.0
+     ],
+     "yaw": -1.7,
+     "cover": null
+    },
+    {
+     "asset": "ph_industrial_storage_cart",
+     "pos": [
+      1.4,
+      0,
+      1.3
+     ],
+     "yaw": 172.8,
+     "cover": "stand"
+    },
+    {
+     "asset": "ph_metal_trash_can",
+     "pos": [
+      2.6,
+      0,
+      1.6
+     ],
+     "yaw": 6.1,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_plastic_crate_03",
+     "pos": [
+      -1.791,
+      0,
+      1.681
+     ],
+     "yaw": -9.3,
+     "cover": null
+    },
+    {
+     "asset": "ph_plastic_crate_03",
+     "pos": [
+      -1.265,
+      0,
+      1.708
+     ],
+     "yaw": 13.1,
+     "cover": null
+    },
+    {
+     "asset": "ph_plastic_crate_03",
+     "pos": [
+      -0.773,
+      0,
+      1.746
+     ],
+     "yaw": 2.0,
+     "cover": null
+    },
+    {
+     "asset": "ph_barrel_02",
+     "pos": [
+      3.3,
+      0,
+      1.0
+     ],
+     "yaw": 3.2,
+     "cover": null
+    },
+    {
+     "asset": "ph_hand_truck",
+     "pos": [
+      0.4,
+      0,
+      1.6
+     ],
+     "yaw": 151.8,
+     "cover": "stand"
+    },
+    {
+     "asset": "ph_spray_paint_bottles",
+     "pos": [
+      -2.146,
+      0,
+      0.38
+     ],
+     "yaw": 324.3,
+     "cover": null
+    },
+    {
+     "asset": "ph_cardboard_box_01",
+     "pos": [
+      0.104,
+      0,
+      0.039
+     ],
+     "yaw": 97.4,
+     "cover": null
+    },
+    {
+     "asset": "ph_pipe_wrench",
+     "pos": [
+      -3.066,
+      0,
+      0.795
+     ],
+     "yaw": 11.6,
+     "cover": null
+    },
+    {
+     "asset": "ph_crowbar_01",
+     "pos": [
+      -1.467,
+      0,
+      1.847
+     ],
+     "yaw": 143.0,
+     "cover": null
+    },
+    {
+     "asset": "ph_oil_tin",
+     "pos": [
+      -1.31,
+      0,
+      0.321
+     ],
+     "yaw": 209.7,
+     "cover": null
+    },
+    {
+     "asset": "ph_crowbar_01",
+     "pos": [
+      0.417,
+      0,
+      0.781
+     ],
+     "yaw": 272.7,
+     "cover": null
+    },
+    {
+     "asset": "ph_pipe_wrench",
+     "pos": [
+      -2.801,
+      0,
+      2.189
+     ],
+     "yaw": 128.1,
+     "cover": null
+    }
+   ]
+  },
+  {
+   "id": "yard_loading_area",
+   "theme": "yard",
+   "name": "Loading area (large)",
+   "purpose": "Crate and tote stacks three high, hand trucks, a barrier line, a floodlight and loose boxes: standing cover behind the stacks, crouch cover at the barriers.",
+   "asset": "cl_yard_loading_area",
+   "cover": "high",
+   "height": 1.54,
+   "footprint": [
+    9.7,
+    4.91
+   ],
+   "count": 35,
+   "members": [
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      -2.966,
+      0,
+      -1.764
+     ],
+     "yaw": 4.7,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      -3.033,
+      0.35,
+      -1.793
+     ],
+     "yaw": -0.9,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      -2.998,
+      0.7,
+      -1.83
+     ],
+     "yaw": -3.7,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      -2.104,
+      0,
+      -1.822
+     ],
+     "yaw": 4.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      -2.138,
+      0.35,
+      -1.833
+     ],
+     "yaw": 7.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      -2.106,
+      0.7,
+      -1.799
+     ],
+     "yaw": 7.8,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      -3.011,
+      0,
+      -1.035
+     ],
+     "yaw": 3.4,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      -2.993,
+      0.35,
+      -0.987
+     ],
+     "yaw": 1.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_military_crate",
+     "pos": [
+      -0.362,
+      0,
+      -1.811
+     ],
+     "yaw": 3.1,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_military_crate",
+     "pos": [
+      -0.411,
+      0.465,
+      -1.794
+     ],
+     "yaw": 1.9,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_industrial_pastic_container",
+     "pos": [
+      0.985,
+      0,
+      -1.733
+     ],
+     "yaw": -0.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_industrial_pastic_container",
+     "pos": [
+      1.017,
+      0.419,
+      -1.693
+     ],
+     "yaw": -1.1,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_industrial_pastic_container",
+     "pos": [
+      1.011,
+      0.838,
+      -1.725
+     ],
+     "yaw": -6.4,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_plastic_container",
+     "pos": [
+      1.986,
+      0,
+      -1.675
+     ],
+     "yaw": -6.1,
+     "cover": null
+    },
+    {
+     "asset": "ph_plastic_container",
+     "pos": [
+      1.969,
+      0.43,
+      -1.732
+     ],
+     "yaw": -9.2,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_concrete_road_barrier",
+     "pos": [
+      -3.422,
+      0,
+      2.207
+     ],
+     "yaw": 1.9,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_concrete_road_barrier",
+     "pos": [
+      -1.817,
+      0,
+      2.187
+     ],
+     "yaw": -1.3,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_concrete_road_barrier",
+     "pos": [
+      -0.22,
+      0,
+      2.228
+     ],
+     "yaw": 0.3,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_concrete_road_barrier",
+     "pos": [
+      1.376,
+      0,
+      2.161
+     ],
+     "yaw": 1.7,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_hand_truck",
+     "pos": [
+      -1.423,
+      0.09,
+      -1.269
+     ],
+     "yaw": 182.6,
+     "tilt": [
+      -14,
+      1.2428607253021458
+     ],
+     "cover": "stand"
+    },
+    {
+     "asset": "ph_hand_truck",
+     "pos": [
+      1.5,
+      0,
+      0.2
+     ],
+     "yaw": 55.8,
+     "cover": "stand"
+    },
+    {
+     "asset": "ph_flood_lights",
+     "pos": [
+      3.4,
+      0,
+      -0.8
+     ],
+     "yaw": 230.0,
+     "cover": "stand"
+    },
+    {
+     "asset": "ph_cardboard_box_01",
+     "pos": [
+      -0.558,
+      0,
+      0.409
+     ],
+     "yaw": 37.3,
+     "cover": null
+    },
+    {
+     "asset": "ph_cardboard_box_01",
+     "pos": [
+      -0.133,
+      0,
+      0.448
+     ],
+     "yaw": -7.2,
+     "cover": null
+    },
+    {
+     "asset": "ph_cardboard_box_01",
+     "pos": [
+      0.392,
+      0,
+      0.352
+     ],
+     "yaw": 30.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_cardboard_box_01",
+     "pos": [
+      0.615,
+      0,
+      0.638
+     ],
+     "yaw": 32.2,
+     "cover": null
+    },
+    {
+     "asset": "ph_cardboard_box_01",
+     "pos": [
+      0.636,
+      0.342,
+      0.603
+     ],
+     "yaw": 39.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_barrel_03",
+     "pos": [
+      2.625,
+      0,
+      0.985
+     ],
+     "yaw": 28.5,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_barrel_03",
+     "pos": [
+      3.238,
+      0,
+      0.969
+     ],
+     "yaw": -25.4,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_pipe_wrench",
+     "pos": [
+      0.328,
+      0,
+      1.257
+     ],
+     "yaw": 165.2,
+     "cover": null
+    },
+    {
+     "asset": "ph_can_rusted",
+     "pos": [
+      -2.696,
+      0,
+      0.941
+     ],
+     "yaw": 61.1,
+     "cover": null
+    },
+    {
+     "asset": "ph_lubricant_spray",
+     "pos": [
+      -1.777,
+      0,
+      0.34
+     ],
+     "yaw": 59.4,
+     "cover": null
+    },
+    {
+     "asset": "ph_lubricant_spray",
+     "pos": [
+      -1.069,
+      0,
+      1.449
+     ],
+     "yaw": 293.0,
+     "cover": null
+    },
+    {
+     "asset": "ph_cardboard_box_01",
+     "pos": [
+      2.111,
+      0,
+      0.297
+     ],
+     "yaw": 345.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_cardboard_box_01",
+     "pos": [
+      -1.779,
+      0,
+      0.613
+     ],
+     "yaw": 147.5,
+     "cover": null
+    }
+   ]
+  },
+  {
+   "id": "town_market_row",
+   "theme": "town",
+   "name": "Market row (large)",
+   "purpose": "Four stalls of tables with baskets, pots and crates, barrels and a chalkboard: crouch cover behind the tables and crates. (No awning model exists yet.)",
+   "asset": "cl_town_market_row",
+   "cover": "high",
+   "height": 1.44,
+   "footprint": [
+    9.46,
+    3.21
+   ],
+   "count": 30,
+   "members": [
+    {
+     "asset": "ph_painted_wooden_table",
+     "pos": [
+      -3.4,
+      0,
+      0
+     ],
+     "yaw": -3.9,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_wicker_basket_01",
+     "pos": [
+      -3.7,
+      0.959,
+      0.05
+     ],
+     "yaw": 4.2,
+     "cover": null
+    },
+    {
+     "asset": "ph_wicker_basket_02",
+     "pos": [
+      -3.05,
+      0.959,
+      0.0
+     ],
+     "yaw": 2.9,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      -3.829,
+      0,
+      0.919
+     ],
+     "yaw": 6.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_wine_barrel_01",
+     "pos": [
+      -2.8,
+      0,
+      1.0
+     ],
+     "yaw": -5.6,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_woodentable_01",
+     "pos": [
+      -0.9,
+      0,
+      0
+     ],
+     "yaw": 1.9,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_bowl_01",
+     "pos": [
+      -1.2,
+      0.549,
+      0.05
+     ],
+     "yaw": -7.0,
+     "cover": null
+    },
+    {
+     "asset": "ph_wicker_basket_02",
+     "pos": [
+      -0.55,
+      0.549,
+      0.0
+     ],
+     "yaw": 0.6,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      -1.304,
+      0,
+      0.943
+     ],
+     "yaw": 16.0,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      -1.333,
+      0.35,
+      0.912
+     ],
+     "yaw": 15.3,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_bucket_02",
+     "pos": [
+      -0.3,
+      0,
+      1.0
+     ],
+     "yaw": -2.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_table_02",
+     "pos": [
+      1.4,
+      0,
+      0
+     ],
+     "yaw": -2.4,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_wicker_basket_02",
+     "pos": [
+      1.1,
+      0.8,
+      0.05
+     ],
+     "yaw": -2.2,
+     "cover": null
+    },
+    {
+     "asset": "ph_wicker_basket_02",
+     "pos": [
+      1.75,
+      0.8,
+      0.0
+     ],
+     "yaw": -4.6,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      0.977,
+      0,
+      0.957
+     ],
+     "yaw": 10.6,
+     "cover": null
+    },
+    {
+     "asset": "ph_wine_barrel_01",
+     "pos": [
+      2.0,
+      0,
+      1.0
+     ],
+     "yaw": 5.4,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_gallinera_table",
+     "pos": [
+      3.3,
+      0,
+      0
+     ],
+     "yaw": -1.2,
+     "cover": null
+    },
+    {
+     "asset": "ph_wicker_basket_01",
+     "pos": [
+      3.0,
+      0.488,
+      0.05
+     ],
+     "yaw": -5.6,
+     "cover": null
+    },
+    {
+     "asset": "ph_brass_pot_01",
+     "pos": [
+      3.65,
+      0.488,
+      0.0
+     ],
+     "yaw": -7.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      2.919,
+      0,
+      0.979
+     ],
+     "yaw": 11.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_01",
+     "pos": [
+      2.877,
+      0.35,
+      0.974
+     ],
+     "yaw": 12.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_wine_barrel_01",
+     "pos": [
+      3.9,
+      0,
+      1.0
+     ],
+     "yaw": -2.7,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_standing_chalkboard_01",
+     "pos": [
+      -4.6,
+      0,
+      0.7
+     ],
+     "yaw": 35.1,
+     "cover": "stand"
+    },
+    {
+     "asset": "ph_planter_box_02",
+     "pos": [
+      0.3,
+      0,
+      1.8
+     ],
+     "yaw": -0.3,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_barrels_01",
+     "pos": [
+      4.6,
+      0,
+      1.4
+     ],
+     "yaw": 88.1,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_cardboard_box_01",
+     "pos": [
+      -1.725,
+      0,
+      1.796
+     ],
+     "yaw": 232.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_can_rusted",
+     "pos": [
+      3.797,
+      0,
+      2.394
+     ],
+     "yaw": 284.3,
+     "cover": null
+    },
+    {
+     "asset": "ph_can_rusted",
+     "pos": [
+      0.215,
+      0,
+      2.336
+     ],
+     "yaw": 301.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_can_rusted",
+     "pos": [
+      -2.942,
+      0,
+      2.321
+     ],
+     "yaw": 216.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_trashbag",
+     "pos": [
+      1.158,
+      0,
+      1.685
+     ],
+     "yaw": 110.0,
+     "cover": null
+    }
+   ]
+  },
+  {
+   "id": "town_cafe_terrace_large",
+   "theme": "town",
+   "name": "Cafe terrace (large)",
+   "purpose": "Four table-and-chair sets and two round tables, chairs knocked over, planters along the kerb, a signboard: crouch cover behind the planters, little else.",
+   "asset": "cl_town_cafe_terrace_large",
+   "cover": "high",
+   "height": 1.44,
+   "footprint": [
+    9.35,
+    4.54
+   ],
+   "count": 22,
+   "members": [
+    {
+     "asset": "ph_outdoor_table_chair_set_01",
+     "pos": [
+      -3.0,
+      0,
+      -0.8
+     ],
+     "yaw": 68.5,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_outdoor_table_chair_set_01",
+     "pos": [
+      -1.0,
+      0,
+      -0.6
+     ],
+     "yaw": 88.5,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_outdoor_table_chair_set_01",
+     "pos": [
+      1.0,
+      0,
+      -0.9
+     ],
+     "yaw": 93.4,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_outdoor_table_chair_set_01",
+     "pos": [
+      3.0,
+      0,
+      -0.7
+     ],
+     "yaw": 74.2,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_round_wooden_table_02",
+     "pos": [
+      -2.0,
+      0,
+      1.0
+     ],
+     "yaw": 5.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_round_wooden_table_02",
+     "pos": [
+      2.0,
+      0,
+      1.1
+     ],
+     "yaw": 0.4,
+     "cover": null
+    },
+    {
+     "asset": "ph_plastic_monobloc_chair_01",
+     "pos": [
+      -1.572,
+      0.314,
+      1.165
+     ],
+     "yaw": 57.8,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_plastic_monobloc_chair_01",
+     "pos": [
+      -2.6,
+      0,
+      1.6
+     ],
+     "yaw": 206.1,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_plastic_monobloc_chair_01",
+     "pos": [
+      1.2,
+      0,
+      1.8
+     ],
+     "yaw": 157.9,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_plastic_monobloc_chair_01",
+     "pos": [
+      3.233,
+      0.314,
+      1.823
+     ],
+     "yaw": 280.0,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_planter_box_01",
+     "pos": [
+      -3.574,
+      0,
+      -2.037
+     ],
+     "yaw": -2.0,
+     "cover": null
+    },
+    {
+     "asset": "ph_planter_box_01",
+     "pos": [
+      -1.177,
+      0,
+      -1.966
+     ],
+     "yaw": 1.3,
+     "cover": null
+    },
+    {
+     "asset": "ph_planter_box_01",
+     "pos": [
+      1.245,
+      0,
+      -2.03
+     ],
+     "yaw": -1.7,
+     "cover": null
+    },
+    {
+     "asset": "ph_planter_box_01",
+     "pos": [
+      3.562,
+      0,
+      -1.952
+     ],
+     "yaw": -1.6,
+     "cover": null
+    },
+    {
+     "asset": "ph_standing_chalkboard_01",
+     "pos": [
+      4.2,
+      0,
+      0.6
+     ],
+     "yaw": 244.6,
+     "cover": "stand"
+    },
+    {
+     "asset": "ph_potted_plant_02",
+     "pos": [
+      4.0,
+      0,
+      -1.8
+     ],
+     "yaw": -7.7,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_metal_trash_can",
+     "pos": [
+      -4.2,
+      0,
+      0.9
+     ],
+     "yaw": -7.2,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_trashbag",
+     "pos": [
+      0.444,
+      0,
+      0.699
+     ],
+     "yaw": 168.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_plastic_crate_02",
+     "pos": [
+      -2.66,
+      0,
+      1.992
+     ],
+     "yaw": 265.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_bowl_01",
+     "pos": [
+      -3.341,
+      0,
+      0.273
+     ],
+     "yaw": 104.5,
+     "cover": null
+    },
+    {
+     "asset": "ph_trashbag",
+     "pos": [
+      -2.048,
+      0,
+      1.081
+     ],
+     "yaw": 355.4,
+     "cover": null
+    },
+    {
+     "asset": "ph_trashbag",
+     "pos": [
+      2.346,
+      0,
+      0.22
+     ],
+     "yaw": 64.9,
+     "cover": null
+    }
+   ]
+  },
+  {
+   "id": "town_barricade",
+   "theme": "town",
+   "name": "Street barricade (large)",
+   "purpose": "A street-wide barricade of barriers, a tipped table, cabinet and sofa, drums, tyres and sandbag-like cement sacks: standing and crouch cover along its length.",
+   "asset": "cl_town_barricade",
+   "cover": "low",
+   "height": 1.14,
+   "footprint": [
+    10.5,
+    3.62
+   ],
+   "count": 29,
+   "members": [
+    {
+     "asset": "ph_concrete_road_barrier",
+     "pos": [
+      -4.193,
+      0,
+      0.013
+     ],
+     "yaw": 3.8,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_concrete_road_barrier",
+     "pos": [
+      -2.622,
+      0,
+      0.015
+     ],
+     "yaw": 4.7,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_concrete_road_barrier",
+     "pos": [
+      -0.959,
+      0,
+      -0.031
+     ],
+     "yaw": 1.8,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_painted_wooden_table",
+     "pos": [
+      0.861,
+      0.569,
+      -0.378
+     ],
+     "yaw": 4.7,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_gothiccabinet_01",
+     "pos": [
+      2.597,
+      0.558,
+      -1.28
+     ],
+     "yaw": 0.1,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_sofa_01",
+     "pos": [
+      4.382,
+      0.285,
+      0.535
+     ],
+     "yaw": 13.7,
+     "tilt": [
+      -60,
+      0
+     ],
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_metal_trash_can",
+     "pos": [
+      -0.634,
+      0.278,
+      0.512
+     ],
+     "yaw": 31.1,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_barrel_01",
+     "pos": [
+      -0.005,
+      0,
+      -0.756
+     ],
+     "yaw": 10.8,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_barrel_01",
+     "pos": [
+      0.6,
+      0,
+      -0.819
+     ],
+     "yaw": -0.3,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_barrel_01",
+     "pos": [
+      1.195,
+      0,
+      -0.789
+     ],
+     "yaw": 18.9,
+     "cover": "crouch"
+    },
+    {
+     "asset": "ph_old_tyre",
+     "pos": [
+      -4.715,
+      0.083,
+      -1.252
+     ],
+     "yaw": 21.4,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_old_tyre",
+     "pos": [
+      -4.497,
+      0.248,
+      -1.269
+     ],
+     "yaw": -19.1,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_old_tyre",
+     "pos": [
+      -4.579,
+      0.413,
+      -1.256
+     ],
+     "yaw": -10.8,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_old_tyre",
+     "pos": [
+      -4.688,
+      0.578,
+      -1.261
+     ],
+     "yaw": 12.5,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_cement_bag",
+     "pos": [
+      -3.638,
+      0,
+      -0.918
+     ],
+     "yaw": -12.9,
+     "cover": null
+    },
+    {
+     "asset": "ph_cement_bag",
+     "pos": [
+      -3.073,
+      0,
+      -0.949
+     ],
+     "yaw": 1.2,
+     "cover": null
+    },
+    {
+     "asset": "ph_cement_bag",
+     "pos": [
+      -2.52,
+      0,
+      -0.911
+     ],
+     "yaw": -15.7,
+     "cover": null
+    },
+    {
+     "asset": "ph_cement_bag",
+     "pos": [
+      -1.989,
+      0,
+      -0.947
+     ],
+     "yaw": 18.6,
+     "cover": null
+    },
+    {
+     "asset": "ph_trashbag",
+     "pos": [
+      1.825,
+      0,
+      0.906
+     ],
+     "yaw": -30.1,
+     "cover": null
+    },
+    {
+     "asset": "ph_trashbag",
+     "pos": [
+      2.465,
+      0,
+      0.862
+     ],
+     "yaw": -14.7,
+     "cover": null
+    },
+    {
+     "asset": "ph_trashbag",
+     "pos": [
+      3.156,
+      0,
+      0.878
+     ],
+     "yaw": -23.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_crate_02",
+     "pos": [
+      3.6,
+      0,
+      -0.9
+     ],
+     "yaw": 75.1,
+     "cover": null
+    },
+    {
+     "asset": "ph_plastic_monobloc_chair_01",
+     "pos": [
+      4.573,
+      0.314,
+      0.895
+     ],
+     "yaw": 76.1,
+     "tilt": [
+      90,
+      0
+     ],
+     "cover": null
+    },
+    {
+     "asset": "ph_plastic_crate_02",
+     "pos": [
+      1.138,
+      0,
+      1.948
+     ],
+     "yaw": 212.3,
+     "cover": null
+    },
+    {
+     "asset": "ph_old_tyre",
+     "pos": [
+      -1.643,
+      0,
+      1.084
+     ],
+     "yaw": 173.2,
+     "cover": null
+    },
+    {
+     "asset": "ph_old_tyre",
+     "pos": [
+      -1.129,
+      0,
+      1.801
+     ],
+     "yaw": 87.8,
+     "cover": null
+    },
+    {
+     "asset": "ph_bleach_bottle",
+     "pos": [
+      -0.341,
+      0,
+      1.378
+     ],
+     "yaw": 320.0,
+     "cover": null
+    },
+    {
+     "asset": "ph_can_rusted",
+     "pos": [
+      4.135,
+      0,
+      1.875
+     ],
+     "yaw": 174.0,
+     "cover": null
+    },
+    {
+     "asset": "ph_wooden_bowl_01",
+     "pos": [
+      4.33,
+      0,
+      1.338
+     ],
+     "yaw": 100.7,
+     "cover": null
     }
    ]
   }
