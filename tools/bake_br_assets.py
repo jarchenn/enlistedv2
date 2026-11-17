@@ -470,6 +470,42 @@ def bake_sights():
         bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.material_index in li], context='FACES'); bm.to_mesh(o.data); bm.free()
         export(o, 'br_sight_reddot', 512)
         write_asset('br_sight_reddot', 'Red dot sight', 'sight', gl_size(o), sight_block(o, eye_z=ez))
+    if want('br_sight_holo'):   # AT1: a compact hooded holographic sight (source: <br_assets>/at1, an FBX + its texture sets; licence unknown: local-only)
+        tx = J('at1', 'textures')
+        def m(mo):
+            n = mo.material_slots[0].material.name if mo.material_slots and mo.material_slots[0].material else ''
+            if n.startswith('Holo'): return [mat_col('holo_plate', (0.1, 0.1, 0.1), 0.1, 0.0)]   # the reticle plate (its own image): cut below; the game draws the reticle
+            if n.startswith('Bolts'): return [mat_tex('holo_bolts', os.path.join(tx, 'Boltsnstuff_Base_color.png'), 0.45, 0.6)]
+            return [mat_tex('holo_body', os.path.join(tx, 'Main_Base_color.png'), 0.55, 0.35)]
+        o = item('br_sight_holo', J('at1', 'source', 'exps3_done.fbx'), mats=m, tris_max=6000)
+        long_to_y(o); big_end_forward(o); place_ground(o); size_to(o, 1, 0.096); place_ground(o)
+        li = [i for i, s in enumerate(o.material_slots) if s.material and s.material.name.startswith('holo_plate')]
+        pz = [o.data.vertices[v].co.z for p in o.data.polygons if p.material_index in li for v in p.vertices]
+        py = [o.data.vertices[v].co.y for p in o.data.polygons if p.material_index in li for v in p.vertices]
+        ez = (min(pz) + max(pz)) / 2 if pz else None   # the window's centre height: the eye line
+        px_ = [o.data.vertices[v].co.x for p in o.data.polygons if p.material_index in li for v in p.vertices]
+        # AT1: the model's own holographic reticle: the plate's rectangle (glTF: x, y = Blender z, z = -Blender y) and its image
+        # (copied beside the local bake, 256 px); the game draws that image's lit texels as emissive quads on the plate
+        reticle = {'image': 'reticle.png', 'center': r4(((min(px_) + max(px_)) / 2, ez, -(min(py) + max(py)) / 2)), 'size': r4((max(px_) - min(px_), max(pz) - min(pz)))} if pz else None
+        rimg = bpy.data.images.load(os.path.join(tx, 'EotechEXPS.png')); rimg.scale(256, 256)
+        # beside the GLB: after --import-weapon-models, copy <glb out>/br/br_sight_holo_reticle.png to content/assets/models/br_sight_holo/reticle.png
+        rimg.filepath_raw = os.path.join(OUT, 'br', 'br_sight_holo_reticle.png'); rimg.file_format = 'PNG'; rimg.save()
+        print('holo plate: z', round(min(pz), 4) if pz else None, '..', round(max(pz), 4) if pz else None, 'y', round(min(py), 4) if py else None)
+        import bmesh
+        bm = bmesh.new(); bm.from_mesh(o.data)
+        bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.material_index in li], context='FACES'); bm.to_mesh(o.data); bm.free()
+        if ez is not None: clear_glass(o, ez, probe=0.008)   # the front and rear window panes (the game draws no glass: they would block the view)
+        export(o, 'br_sight_holo', 512)
+        write_asset('br_sight_holo', 'Holographic sight', 'sight', gl_size(o), sight_block(o, eye_z=ez))
+        # the committed stand-in is the red dot's (an open frame, not a solid box that would block the view): its parts and eye
+        # point; the real bake's eye point is kept as "modelSight" (used when the local model is loaded)
+        p = os.path.join(CONTENT, 'assets', 'br_sight_holo.json'); hj = json.load(open(p, encoding='utf-8'))
+        rj = json.load(open(os.path.join(CONTENT, 'assets', 'br_sight_reddot.json'), encoding='utf-8'))
+        hj['modelSight'] = hj['sight']; hj['sight'] = rj['sight']
+        if reticle: hj['modelSight']['reticle'] = reticle; hj['modelSight']['ownReticle'] = True   # the model's own reticle is the only one drawn
+        for k in ('parts', 'materials', 'footprint'): hj[k] = rj[k]
+        hj['description'] = "AT1 Battle Royale optic. Stand-in: the red dot sight's part-built frame; the real model is local-only (licence unknown): bake it with tools/bake_br_assets.py."
+        json.dump(hj, open(p, 'w', encoding='utf-8'), indent=1)
     if want('br_sight_acog'):
         tx = J('acog-scope', 'textures')
         o = item('br_sight_acog', J('acog-scope', 'source', 'unzipped', 'ACOG Scope.obj'), tris_max=6000,

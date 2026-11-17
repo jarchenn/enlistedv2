@@ -113,7 +113,7 @@ int ammoTypeOf(const WeaponDef& d) {
   if (contains(c, "7.62") || contains(c, "7.92x57") || contains(c, ".30-06")) return AM_762;
   return AM_NONE;
 }
-bool lootIsPistol(const WeaponDef& d) { int t = ammoTypeOf(d); return d.action == "semi" && (t == AM_9MM || t == AM_45) && d.cap <= 16; }   // MG12: any feed (the revolver loads round by round)
+bool lootIsPistol(const WeaponDef& d) { int t = ammoTypeOf(d); return d.action == "semi" && (t == AM_9MM || t == AM_45) && d.cap <= 20; }   // AT1: the Glock 34's 17 rounds (it took rifle optics)   // MG12: any feed (the revolver loads round by round)
 static bool isShotgun(const WeaponDef& d) { return ammoTypeOf(d) == AM_12GA; }
 static bool isSmg(const WeaponDef& d) { int t = ammoTypeOf(d); return d.action == "auto" && (t == AM_9MM || t == AM_45); }
 int lootMagSize(const WeaponDef& d, const WeaponState& s) {
@@ -124,7 +124,7 @@ int lootSight(const WeaponDef& d, const WeaponState& s) { return lootBuiltInAcog
 bool lootSightFits(const WeaponDef& d, int sight) {
   bool pistol = lootIsPistol(d), sniper = d.wclass == WC_SNIPER, shotgun = isShotgun(d);
   switch (sight) {
-    case 1: return !pistol && !sniper;               // red dot: SMG, rifle, shotgun
+    case 1: case 5: return !pistol && !sniper;       // red dot, holographic (AT1): SMG, rifle, shotgun, LMG
     case 2: return !pistol;                          // ACOG: all but pistols
     case 3: return !pistol && !shotgun;              // 4x
     case 4: return sniper;                           // 10x: snipers only
