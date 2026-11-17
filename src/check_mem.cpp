@@ -42,6 +42,7 @@ void cpuCopies(App& a) {   // MEM1: CPU-side mesh copies the built assets and pl
     for (auto& it : ap->interactables) for (auto& l : it.leaves) lf += mb(l.cpuO.get()) + mb(l.cpuG.get()); }
   for (auto& [id, r] : a.rt) if (r.line) ln += mb(&r.line->mesh);
   logf("[mem]   CPU mesh copies: HLOD %.0f MB, door / window leaves %.0f MB, line meshes %.0f MB (%d assets built)", hl, lf, ln, built);
+  logf("[mem]   furniture batches: %zu MB of vertices on the GPU (%d pieces batched)", a.interior.batchVerts * sizeof(Vertex) >> 20, a.interior.batchedPieces);
 }
 void report(const char* stage) {
   ProcMem m = processMemory(); double c = cpuSec(), w = wall();
