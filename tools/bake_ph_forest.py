@@ -24,10 +24,10 @@ os.makedirs(OUT, exist_ok=True)
 SPEC = {
     "pine_tree_01":        {"kind": "tree", "voxel": (0.33, 1.4), "wood": (5000, 900), "atlas": (3072, 6), "sprig": 0.4, "trueColour": True},   # FOL2: real sprigs, own colours   # FOL1: 36 tiles of 512 px
     "fir_tree_01":         {"kind": "tree", "voxel": (0.3, 1.3), "wood": (5000, 900), "atlas": (3072, 6), "sprig": 0.4, "trueColour": True},
-    "pine_sapling_medium": {"kind": "tree", "voxel": (0.35, 0.9), "wood": (2500, 500)},
-    "fir_sapling_medium":  {"kind": "tree", "voxel": (0.3, 0.8), "wood": (2000, 400)},
-    "fir_sapling":         {"kind": "tree", "voxel": (0.16, 0.4), "wood": (800, 200)},
-    "pine_sapling_small":  {"kind": "tree", "voxel": (0.12, 0.3), "wood": (500, 150)},
+    "pine_sapling_medium": {"kind": "tree", "voxel": (0.35, 0.9), "wood": (2500, 500), "sprig": 0.25, "trueColour": True},   # FOL3: real sprigs
+    "fir_sapling_medium":  {"kind": "tree", "voxel": (0.3, 0.8), "wood": (2000, 400), "sprig": 0.25, "trueColour": True},
+    "fir_sapling":         {"kind": "tree", "voxel": (0.16, 0.4), "wood": (800, 200), "sprig": 0.15, "trueColour": True},
+    "pine_sapling_small":  {"kind": "tree", "voxel": (0.12, 0.3), "wood": (500, 150), "sprig": 0.15, "trueColour": True},
     "island_tree_01":      {"kind": "tree", "voxel": (0.6, 1.5), "wood": (5000, 900)},
     "fern_02":             {"kind": "plant"},
     "shrub_03":            {"kind": "plant"},
@@ -328,6 +328,16 @@ def sprig_clusters(twig, max_size, axis_c):
     return out
 
 
+def sprig_lod1(lod0, keep=8, grow=2.4):
+    """FOL3: the distance LOD of a sprig tree: every keep-th LOD0 sprig card (by hash), grown x grow, one plane, its LOD0
+    tile and flips (the same look and colour as LOD0: no pop to the old voxel plates at the LOD distance)."""
+    out = []
+    for k, c in enumerate(lod0):
+        if ((k * 2654435761) >> 12) % keep: continue
+        d = dict(c); d["ext"] = (c["ext"][0] * grow, c["ext"][1] * grow, c["ext"][2]); out.append(d)
+    return out
+
+
 def card_mesh(name, clusters, mat, axis_xy, crossed, rect=False):
     """One quad (two crossed quads when crossed) per cluster, UVs into an atlas tile, normals leaning out from the trunk."""
     verts, faces, uvs, nrms = [], [], [], []
@@ -337,13 +347,15 @@ def card_mesh(name, clusters, mat, axis_xy, crossed, rect=False):
         # same 16 blobs, stretched onto clusters of any shape)
         h = (k * 2654435761) & 0xffffffff
         n_t = max(1, min(len(TILE_ASPECT), TILES * TILES))
-        if crossed != 2 and k < n_t: t = k   # LOD0 (crossed / sprig cards): a rendered cluster shows its own tile
+        if "tile" in c: t = c["tile"]   # FOL3: a LOD1 sprig card keeps its LOD0 card's tile
+        elif crossed != 2 and k < n_t: t = k   # LOD0 (crossed / sprig cards): a rendered cluster shows its own tile
         else:
             a = c["ext"][0] / max(1e-6, c["ext"][1])
             pool = [i for i in range(n_t) if i < len(TILE_COVER) and TILE_COVER[i] > 0.12] or list(range(n_t))
             best = sorted(pool, key=lambda i: abs(math.log(max(1e-6, a) / max(1e-6, TILE_ASPECT[i] if i < len(TILE_ASPECT) else 1.0))))[:3]
             t = best[(h >> 8) % len(best)]
         flip_u, flip_v = bool((h >> 4) & 1), bool((h >> 5) & 1) and bool((h >> 4) & 1)   # mirror, or mirror + flip = 180 deg
+        c["tile"] = t
         tx, ty = t % TILES, t // TILES
         u0, v0 = tx / TILES, 1 - (ty + 1) / TILES
         ctr = Vector(c["c"]); u = Vector(c["u"]); v = Vector(c["v"]); nrm = Vector(c["n"])
@@ -455,7 +467,8 @@ def bake(pid, spec):
         atlas = render_tiles(twig, lod0, atlas_path)
         mat = card_material(aid + "_needles", atlas)
         cards0 = card_mesh(aid + "_cards", lod0, mat, axis, crossed="sprig" if spec.get("sprig") else True, rect=bool(spec.get("sprig")))   # FOL2: a sprig: two planes crossed along its stem
-        cards1 = card_mesh(aid + "_cards1", lod1, mat, axis, crossed=2)
+        if spec.get("sprig"): lod1 = sprig_lod1(lod0)
+        cards1 = card_mesh(aid + "_cards1", lod1, mat, axis, crossed=False if spec.get("sprig") else 2, rect=bool(spec.get("sprig")))
         bpy.data.objects.remove(twig)
         w0 = []
         w1 = []
@@ -497,7 +510,9 @@ def bake_rest(pid, spec, todo):
         lod0 = sprig_clusters(twig, spec["sprig"], (0, 0)) if spec.get("sprig") else clusters_of(twig, spec["voxel"][0], (0, 0)); lod1 = clusters_of(twig, spec["voxel"][1], (0, 0))
         atlas = render_tiles(twig, lod0, os.path.join(OUT, aid + "_atlas.png"))
         mat = card_material(aid + "_needles", atlas)
-        cards0 = card_mesh(aid + "_cards", lod0, mat, (0, 0), "sprig" if spec.get("sprig") else True, rect=bool(spec.get("sprig"))); cards1 = card_mesh(aid + "_cards1", lod1, mat, (0, 0), 2)
+        cards0 = card_mesh(aid + "_cards", lod0, mat, (0, 0), "sprig" if spec.get("sprig") else True, rect=bool(spec.get("sprig")))
+        if spec.get("sprig"): lod1 = sprig_lod1(lod0)
+        cards1 = card_mesh(aid + "_cards1", lod1, mat, (0, 0), False if spec.get("sprig") else 2, rect=bool(spec.get("sprig")))
         bpy.data.objects.remove(twig)
         total = sum(tri_count(p) for p in wood) or 1; w0, w1 = [], []
         for p in wood:
