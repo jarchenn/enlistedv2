@@ -66,6 +66,18 @@ unsigned gradedTex(const fs::path& p, bool lift = false) {
   }
   unsigned tex = 0; int w, h, c;
   if (stbi_uc* d = stbi_load(p.string().c_str(), &w, &h, &c, 4)) {
+    if (!lift) {   // UI7: auto exposure: the image's median luminance lifted to ~33 % (a gamma: blacks and highlights kept)
+      int hist[256] = {}; size_t n = 0;
+      for (size_t k = 0; k < (size_t)w * h; k += 7, ++n) hist[std::min(255, (int)(0.2126f * d[k * 4] + 0.7152f * d[k * 4 + 1] + 0.0722f * d[k * 4 + 2]))]++;
+      int med = 0; for (size_t acc = 0; med < 255 && (acc += hist[med]) < n / 2; ++med) {}
+      const float g = std::clamp(std::log(0.33f) / std::log(std::max(med, 4) / 255.0f), 0.35f, 1.0f);
+      for (int i = 0; i < 256; ++i) {
+        float x = std::pow(i / 255.0f, g);
+        x = std::clamp((x - 0.03f) / 0.97f, 0.0f, 1.0f);                   // black point
+        float sc = x * x * (3 - 2 * x); x = 0.65f * x + 0.35f * sc;          // a gentle S
+        lut[i] = (uint8_t)std::lround(255.0f * x);
+      }
+    }
     for (size_t k = 0; k < (size_t)w * h * 4; ++k) if (k % 4 != 3) d[k] = lut[d[k]];
     glCreateTextures(GL_TEXTURE_2D, 1, &tex); glTextureStorage2D(tex, 1, GL_RGBA8, w, h); glTextureSubImage2D(tex, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, d);
     glTextureParameteri(tex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(tex, GL_TEXTURE_MAG_FILTER, GL_LINEAR); stbi_image_free(d);
@@ -97,7 +109,7 @@ void drawLoading(ImDrawList* dl, float W, float H, float a, float t) {
     if (!still && J.thumb) { uv0.y = 0.8f - (0.8f - 0.5f) * (1 - 1 / z); uv1.y = 0.2f + (0.5f - 0.2f) * (1 - 1 / z); }   // thumbnails are stored bottom-up (as the editor draws them)
     dl->AddImage((ImTextureID)(intptr_t)tex, ImVec2(0, 0), ImVec2(W, H), uv0, uv1, rgba(255, 255, 255, a));
   }
-  dl->AddRectFilled(ImVec2(0, 0), ImVec2(W, H), rgba(0, 0, 0, (still ? 0.32f : J.thumb ? 0.40f : 0.16f) * a));   // the black glass: true black, light (the lifted street: lighter still)
+  dl->AddRectFilled(ImVec2(0, 0), ImVec2(W, H), rgba(0, 0, 0, (still ? 0.26f : J.thumb ? 0.40f : 0.16f) * a));   // the black glass: true black, light (the lifted street: lighter still)
   dl->AddRectFilledMultiColor(ImVec2(0, H * 0.7f), ImVec2(W, H), rgba(255, 110, 30, 0), rgba(255, 110, 30, 0), rgba(255, 96, 24, 0.05f * a), rgba(255, 96, 24, 0.05f * a));   // a little fire light
   for (int k = 0; k < 2; ++k) {   // the side vignette in two widths, blended (no band edge)
     const float w = W * (k ? 0.40f : 0.18f), al = (k ? 0.38f : 0.30f) * a;

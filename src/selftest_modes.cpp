@@ -561,6 +561,12 @@ void build(App&) {
       logf("ui7 still %s: eye %.1f %.1f %.1f at %.1f %.1f %.1f (yaw %.1f pitch %.1f) hour %.1f", id.c_str(), eye.x, eye.y, eye.z, at.x, at.y, at.z, a.camYaw, a.camPitch, a.R.lt.hour);
       r0 = glfwGetTime(); ph = 1; return false;
     }
+    if (ph == 1 && glfwGetTime() > r0 + 1.5 && poses.contains(ids[k]) && poses[ids[k]].contains("faceSun")) {   // UI7: turn relative to the sun (0: into it, 90: side light)
+      const vec3 s = a.R.sunDir; const float off = poses[ids[k]]["faceSun"].get<float>();
+      a.camYaw = glm::degrees(std::atan2(-s.x, -s.z)) + off; a.camPitch = poses[ids[k]].value("pitch", 3.0f);
+      logf("ui7 still %s: facing the sun %+.0f deg (yaw %.1f, sun %.2f %.2f %.2f)", ids[k].c_str(), off, a.camYaw, s.x, s.y, s.z);
+      poses[ids[k]].erase("faceSun");
+    }
     if (ph == 1 && glfwGetTime() > r0 + 5.0) { a.uiShot = outDir() / ("ui7_still_" + ids[k] + ".png"); ph = 2; return false; }
     if (ph == 2) { ++k; ph = 0; }
     return t > 1200; });
