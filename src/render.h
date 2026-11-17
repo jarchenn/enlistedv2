@@ -91,6 +91,7 @@ public:
   float exposure() const { float e = 0; glGetTextureImage(expoTex[expoIdx], 0, GL_RED, GL_FLOAT, sizeof e, &e); return e; }   // debug / tests (stalls)
   bool readPixels(std::vector<uint8_t>& rgba, int& w, int& h);
   bool readVmDist(std::vector<float>& d, int& w, int& h);   // first-person eye distance per pixel (0 = world), rows bottom-up
+  int vmOnly = 0;   // VM2 self-test: draw only the first-person arms (1) or only the gun (2); 3: the world black under the weapon
   FrameStats stats;
   vec4 fogNow{0};   // fog colour (rgb) and density of the last frame's world pass (tests)
   std::vector<FxVert> fxAlpha, fxAdd;   // set by the game each frame (smoke / flashes, streaks)

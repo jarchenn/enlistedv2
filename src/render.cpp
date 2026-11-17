@@ -3236,7 +3236,7 @@ void main(){
 static const char* kToneFS = R"GLSL(
 #version 450 core
 in vec2 vUV;
-uniform sampler2D uHdr, uExpo, uBloom; uniform float uFixedExpo, uBloomAmt, uEyeR, uAspect, uRectVig, uMicro; uniform int uTonemap;
+uniform sampler2D uHdr, uExpo, uBloom, uVmDist; uniform float uFixedExpo, uBloomAmt, uEyeR, uAspect, uRectVig, uMicro; uniform int uTonemap;
 uniform float uUnderTone;   // 1: under water (swim.cpp): blue-green tint, stronger vignette
 // GX5 grade (content/settings/grade.json, docs/graphics-overhaul.md#gx5-grade): saturation, cool shadows / warm
 // highlights, a gentle S-curve, vignette, chromatic aberration (0 = off), and an edge-aware sharpen of the image
@@ -3285,6 +3285,7 @@ void main(){
 
   float bAmt = uBloomAmt;   // optic eyepiece: no bloom over its dark surround (the bloom is taken from the whole lit view)
   if (uEyeR > 0.0) bAmt *= 1.0 - smoothstep(0.98*uEyeR, 1.02*uEyeR, length((vUV - 0.5)*vec2(uAspect, 1.0)));
+  if (texture(uVmDist, vUV).r > 0.0) bAmt = 0.0;   // VM2: the bloom is the world's, taken before the first-person weapon was drawn: blended over the dark gun it showed the ground through it
   if (bAmt > 0.0) c = mix(c, texture(uBloom, vUV).rgb/6.0, bAmt);   // chain sums 6 levels; energy-preserving blend, not an add
   float e = uFixedExpo > 0.0 ? uFixedExpo : texelFetch(uExpo, ivec2(0), 0).r;
   c = uTonemap == 0 ? aces(c*e*0.8) : filmic(c*e*1.22);
@@ -4819,6 +4820,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   if (!thumbMode && !q.legacy) { RenderView vj = v; vj.proj = projJ; worldComposite(vj, vp); }
   gpuMark(GP_Taa);
   if (taaOn) taaResolve(vp, vpU, v);
+  if (vmOnly == 3) { float z[4] = {0, 0, 0, 0}; glClearTexImage(hdrColor, 0, GL_RGBA, GL_FLOAT, z); }   // VM2 self-test: the world black from here on (bloom, effects, the weapon over it)
   // bloom is taken from the lit world *before* effects are drawn, so muzzle flashes, tracers and impact sparks
   // look as they did before this pass (no glow)
   gpuMark(GP_Bloom);
@@ -4904,7 +4906,12 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       setLighting(progModel, v);
       glUniform1f(U(progModel, "uVmVel"), 1.0f);
       glUniformMatrix4fv(U(progModel, "uVP"), 1, GL_FALSE, glm::value_ptr(vvp));
-      drawModels(viewModelTex);
+      bool fpsArmsIsModel(const GpuModel* g);
+      auto vmArmMaterial = [](std::string n) { for (auto& c : n) c = (char)std::tolower((unsigned char)c); for (const char* k : {"arms", "hand", "glove", "sleeve", "cloth", "body", "manny"}) if (n.find(k) != std::string::npos) return true; return false; };   // the rigs' arm, glove and sleeve materials
+      if (vmOnly) {   // VM2 self-test: the arms alone (1) or the gun alone (2)
+        std::vector<ModelDraw> keep; for (auto& d : viewModelTex) { const auto& pt = d.model->parts[d.part]; bool arm = fpsArmsIsModel(d.model) || (pt.mat >= 0 && pt.mat < (int)d.model->mats.size() && vmArmMaterial(d.model->mats[pt.mat].name)); if (arm == (vmOnly == 1)) keep.push_back(d); }
+        drawModels(keep);
+      } else drawModels(viewModelTex);
       glUniform1f(U(progModel, "uVmVel"), 0.0f);
       glEnable(GL_CULL_FACE);
     }
@@ -4970,6 +4977,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   }
   glUniform1i(U(progTone, "uTonemap"), q.legacy ? 0 : 1);
   glBindTextureUnit(2, bloomTex[0]); glUniform1i(U(progTone, "uBloom"), 2);
+  glBindTextureUnit(3, vmDistTex); glUniform1i(U(progTone, "uVmDist"), 3);   // VM2: no world bloom on the first-person weapon
   glUniform1f(U(progTone, "uMicro"), thumbMode || q.legacy || eyepiece ? 0.0f : q.microcontrast);   // UI2 (the eyepiece view has no fresh mips)
   glUniform1f(U(progTone, "uBloomAmt"), !q.legacy && q.bloom ? std::min(1.0f, q.bloomStrength * lt.mapBloom) : 0.0f);   // BR3: x the map's bloom
   glUniform1f(U(progTone, "uRectVig"), v.rectVignette && !thumbMode ? 1.0f : 0.0f);   // TK3
