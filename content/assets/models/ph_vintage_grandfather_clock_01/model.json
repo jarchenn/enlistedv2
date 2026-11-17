@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.31281235814094543,
+  2.190591812133789,
+  0.21330827474594116
+ ],
+ "bmin": [
+  -0.31281235814094543,
+  0.0,
+  -0.21330827474594116
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "vintage_grandfather_clock_01",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_3.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "vintage_grandfather_clock_01_glass"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.31281235814094543,
+    2.190591812133789,
+    0.21330827474594116
+   ],
+   "bmin": [
+    -0.31281235814094543,
+    0.0,
+    -0.21330827474594116
+   ],
+   "count": 12840,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "vintage_grandfather_clock_01_Body",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.1870325803756714,
+    2.0462117195129395,
+    0.11972878873348236
+   ],
+   "bmin": [
+    -0.1870330274105072,
+    1.5594358444213867,
+    0.11972874402999878
+   ],
+   "count": 57,
+   "first": 12840,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "vintage_grandfather_clock_01_Body",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_vintage_grandfather_clock_01.glb",
+ "textures": {},
+ "triangles": 4299,
+ "vertices": 4924
+}

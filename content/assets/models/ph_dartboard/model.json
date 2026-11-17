@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.2253481149673462,
+  0.4506962299346924,
+  0.019889280200004578
+ ],
+ "bmin": [
+  -0.2253481149673462,
+  0.0,
+  -0.01988927088677883
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "dartboard",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.2253481149673462,
+    0.4506962299346924,
+    0.019889280200004578
+   ],
+   "bmin": [
+    -0.2253481149673462,
+    0.0,
+    -0.01988927088677883
+   ],
+   "count": 10200,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "dartboard",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_dartboard.glb",
+ "textures": {},
+ "triangles": 3400,
+ "vertices": 2657
+}

@@ -1,0 +1,125 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.37590670585632324,
+  0.4999999701976776,
+  0.01653757318854332
+ ],
+ "bmin": [
+  -0.37590670585632324,
+  0.0,
+  -0.01653757318854332
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "hanging_picture_frame_02_artwork",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "hanging_picture_frame_02",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "albedo": "albedoa_6.png",
+   "cutout": true,
+   "mr": "mr_5.jpg",
+   "name": "hanging_picture_frame_02_glass",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.3032428026199341,
+    0.42430585622787476,
+    -0.0091756796464324
+   ],
+   "bmin": [
+    -0.30081838369369507,
+    0.07029226422309875,
+    -0.009175865910947323
+   ],
+   "count": 6,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "hanging_picture_frame_02",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.37590670585632324,
+    0.4999999701976776,
+    0.01653757318854332
+   ],
+   "bmin": [
+    -0.37590670585632324,
+    0.0,
+    -0.01653757318854332
+   ],
+   "count": 5511,
+   "first": 6,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "hanging_picture_frame_02",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.2997467517852783,
+    0.42550086975097656,
+    -0.007910007610917091
+   ],
+   "bmin": [
+    -0.3015240430831909,
+    0.07449907064437866,
+    -0.007910196669399738
+   ],
+   "count": 6,
+   "first": 5517,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "hanging_picture_frame_02",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_hanging_picture_frame_02.glb",
+ "textures": {},
+ "triangles": 1841,
+ "vertices": 1705
+}

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.7314585447311401,
+  0.516343355178833,
+  0.7314585447311401
+ ],
+ "bmin": [
+  -0.7314585447311401,
+  0.0,
+  -0.7314585447311401
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_3.jpg",
+   "mr": "mr_4.jpg",
+   "name": "ceiling_fan",
+   "normal": "normal_2.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.7314585447311401,
+    0.516343355178833,
+    0.7314585447311401
+   ],
+   "bmin": [
+    -0.7314585447311401,
+    0.0,
+    -0.7314585447311401
+   ],
+   "count": 24534,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "ceiling_fan",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_ceiling_fan.glb",
+ "textures": {},
+ "triangles": 8178,
+ "vertices": 6671
+}

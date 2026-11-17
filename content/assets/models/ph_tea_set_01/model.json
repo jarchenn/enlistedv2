@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.4592342674732208,
+  0.16480542719364166,
+  0.2415948361158371
+ ],
+ "bmin": [
+  -0.45922666788101196,
+  0.0,
+  -0.2419234961271286
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "tea_set_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.4592342674732208,
+    0.16480542719364166,
+    0.2415948361158371
+   ],
+   "bmin": [
+    -0.45922666788101196,
+    0.0,
+    -0.2419234961271286
+   ],
+   "count": 60444,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "tea_set_01_plate_large_square_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_tea_set_01.glb",
+ "textures": {},
+ "triangles": 20148,
+ "vertices": 11644
+}

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.048608046025037766,
+  0.2196158915758133,
+  0.049334004521369934
+ ],
+ "bmin": [
+  -0.04860904812812805,
+  3.859235775394154e-08,
+  -0.049334846436977386
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "wooden_candlestick",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.048608046025037766,
+    0.2196158915758133,
+    0.049334004521369934
+   ],
+   "bmin": [
+    -0.04860904812812805,
+    3.859235775394154e-08,
+    -0.049334846436977386
+   ],
+   "count": 79869,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "wooden_candlestick",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_wooden_candlestick.glb",
+ "textures": {},
+ "triangles": 26623,
+ "vertices": 14277
+}

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.3426942229270935,
+  0.651835560798645,
+  0.20357662439346313
+ ],
+ "bmin": [
+  -0.3426942229270935,
+  0.0,
+  -0.20357662439346313
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "metal_tool_chest",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.3426942229270935,
+    0.651835560798645,
+    0.20357662439346313
+   ],
+   "bmin": [
+    -0.3426942229270935,
+    0.0,
+    -0.20357662439346313
+   ],
+   "count": 20040,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "metal_tool_chest_chest",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_metal_tool_chest.glb",
+ "textures": {},
+ "triangles": 6680,
+ "vertices": 6160
+}

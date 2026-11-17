@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.5786241292953491,
+  2.3604822158813477,
+  0.6613661646842957
+ ],
+ "bmin": [
+  -0.356225848197937,
+  7.974449545145035e-09,
+  -0.6610643267631531
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "scandinavian_masonry_heater",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5786241292953491,
+    2.3604822158813477,
+    0.6613661646842957
+   ],
+   "bmin": [
+    -0.356225848197937,
+    7.974449545145035e-09,
+    -0.6610643267631531
+   ],
+   "count": 3504,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "scandinavian_masonry_heater",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_scandinavian_masonry_heater.glb",
+ "textures": {},
+ "triangles": 1168,
+ "vertices": 880
+}

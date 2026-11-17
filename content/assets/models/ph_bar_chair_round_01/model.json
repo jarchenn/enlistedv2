@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.24157512187957764,
+  0.7498822212219238,
+  0.2429978847503662
+ ],
+ "bmin": [
+  -0.24157512187957764,
+  0.0,
+  -0.2429978847503662
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "Bar Chair",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.24157512187957764,
+    0.7498822212219238,
+    0.2429978847503662
+   ],
+   "bmin": [
+    -0.24157512187957764,
+    0.0,
+    -0.2429978847503662
+   ],
+   "count": 21558,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "bar_chair_round_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_bar_chair_round_01.glb",
+ "textures": {},
+ "triangles": 7186,
+ "vertices": 5963
+}
