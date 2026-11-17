@@ -14,6 +14,8 @@
 #include "crumb.h"
 #include <optional>
 #include <future>
+#include <atomic>
+#include <thread>
 #include "terrain_tools.h"   // V8 decor exception / draw (beautify.cpp)
 #include "editor_nav.h"     // V8: navSyncCuts after an undo that regenerates the terrain
 #include "settings.h"
@@ -992,6 +994,36 @@ void App::screenshot(const fs::path& p) {
 }
 
 // ============================================================ main loop
+// UI8: a hang watchdog and a guaranteed way out. The main loop and every loading-screen frame beat; a thread logs where
+// the main thread is (its crumb and the loading stage) when nothing has beaten for 5 s. Ctrl+Shift+Q, or the window's
+// close button pressed again while its question is up (or during a load), quits at once after saving the settings.
+static std::atomic<double> gBeat{0};
+static double wallNow() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
+void hangBeat() { gBeat = wallNow(); }
+void forceQuit(const char* why) {
+  logf("quit: %s: settings saved, exiting now", why);
+  settings().save(); std::fflush(nullptr);
+  std::_Exit(0);
+}
+void forceQuitCheck(GLFWwindow* w, bool closeQuits) {
+  const bool ctrl = glfwGetKey(w, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS || glfwGetKey(w, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS;
+  const bool shift = glfwGetKey(w, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || glfwGetKey(w, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
+  if (ctrl && shift && glfwGetKey(w, GLFW_KEY_Q) == GLFW_PRESS) forceQuit("Ctrl+Shift+Q");
+  if (closeQuits && glfwWindowShouldClose(w)) forceQuit("window closed during a load");
+}
+static void startHangWatchdog() {
+  hangBeat();
+  std::thread([] {
+    bool told = false;
+    for (;;) {
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+      const double gap = wallNow() - gBeat.load();
+      if (gap > 5.0 && !told) { told = true; const char* c = gCrumb; logf("hang watchdog: no frame for %.0f s; main thread at crumb \"%s\"%s", gap, c ? c : "-", loadingActive() ? " (inside a loading job)" : ""); }
+      if (gap < 1.0) told = false;
+    }
+  }).detach();
+}
+void (*gTestImGuiInput)() = nullptr;   // UI8: self-tests queue ImGui mouse events here (after the platform backend's cursor)
 int App::run(int argc, char** argv) {
   bool runSelf = false, bench = false, legacyLook = false; std::vector<std::string> rqOff, rqOn; fs::path openPath, sheetsDir, previewGlb, previewOut, previewSpec, tankPreviewDir;
   for (int k = 1; k < argc; ++k) {
@@ -1154,7 +1186,8 @@ int App::run(int argc, char** argv) {
   else if (openPath.empty()) mainMenuOpen(*this);   // UI2: launch into the main menu (a map given on the command line opens the editor)
 
   double last = glfwGetTime();
-  bool confirmQuit = false;
+  bool confirmQuit = false, quitAsked = false;
+  startHangWatchdog();   // UI8
   // NMK_FRAME_PROF=1: a frame over 150 ms logs where its time went: time per phase / crumb, summed, top 8. A mark names
   // the section that follows it (time to the next mark is charged to it), like crumb()
   static const bool memMarks = std::getenv("NMK_MEMLOG") != nullptr; static size_t memLast = 0;   // MEM1: which frame section commits
@@ -1166,9 +1199,10 @@ int App::run(int argc, char** argv) {
     glfwPollEvents();
     tex::flushPending();   // TX2: a lazy texture set a newly used material named (one reload, then nothing)
     syncCursor();   // GM1b: one per-frame rule for the cursor mode (explore.cpp)
+    hangBeat(); forceQuitCheck(win, false);   // UI8
     if (glfwWindowShouldClose(win)) {
-      if (dirty && !selftest) { confirmQuit = true; glfwSetWindowShouldClose(win, GLFW_FALSE); }
-      else break;
+      if (dirty && !selftest && !quitAsked) { confirmQuit = true; quitAsked = true; glfwSetWindowShouldClose(win, GLFW_FALSE); }
+      else break;   // UI8: closed again while the question is up: quit (unsaved edits are lost, as the question warned)
     }
     double t = glfwGetTime();
     frameDt = (float)std::min(0.1, t - last); last = t; now = t;
@@ -1177,7 +1211,7 @@ int App::run(int argc, char** argv) {
     if (fbw > 0 && fbh > 0) R.resize(fbw, fbh);
 
     ImGui::GetIO().FontGlobalScale = uiFontScale(fbh);   // UI1b: the type scale follows the resolution and Settings > UI scale
-    platformImGuiNewFrame(); ImGui::NewFrame();
+    platformImGuiNewFrame(); if (gTestImGuiInput) gTestImGuiInput(); ImGui::NewFrame();   // UI8: scripted mouse input after the backend's own
     if (selftest) { selftest->update(*this, frameDt); if (selftest->done) quit = true; }
     mark("update");
     loadingOverlay(*this);   // UI2: the loading screen fading into the first frames
@@ -1188,6 +1222,7 @@ int App::run(int argc, char** argv) {
     mark("ui+sync");
     mpaiUI(*this);   // Play menu, scenario panel, match HUD
     settingsWindow(*this);   // Settings window (Creative menu, pause menu, Loadout)
+    { extern void uiInputWatchdog(App&); uiInputWatchdog(*this); }   // UI8: a hidden modal raised, a dead setup window released
     crumb("syncRuntime");
     syncRuntime();
     crumb("tanks sync");
@@ -1204,7 +1239,7 @@ int App::run(int argc, char** argv) {
       ImGui::SameLine(); if (ImGui::Button("Discard")) quit = true;
       ImGui::SameLine(); if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
       ImGui::EndPopup();
-    }
+    } else quitAsked = false;   // UI8: the question closed (Cancel / Save): a later close asks again
 
     mark("drawlists");
     std::vector<DrawItem> op, gl, ghosts; Overlay ov;

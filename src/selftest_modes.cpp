@@ -15,6 +15,9 @@
 #include "ai_core.h"
 #include "mainmenu.h"
 #include "editor_nav.h"
+#include "loading.h"
+#include <imgui_internal.h>
+extern void (*gTestImGuiInput)();
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <set>
@@ -527,6 +530,73 @@ void build(App&) {
   // The pose: NMK_UI7_POSES (tools/ui7_still_poses.json) {id: {eye:[x,y,z], at:[x,y,z], hour, weather}} where given,
   // else the start marker (or the first spawn) at 1.7 m looking at the nearest objective (else the map centre); late
   // afternoon sun (18:00), clear, environmental fog off; eyeG / atG: [x, z, height above the terrain], no UI / overlays -> ui7_still_<id>.png (the pose is logged)
+  // UI8: "the map selection freezes": start a match in every mode (and a plain play-test from the editor), play a
+  // moment, leave through Pause > Main menu to the setup window, sometimes with unsaved changes, and click a map with
+  // injected mouse input: the click must land (a load, or the unsaved-changes question in front and answerable)
+  push("ui8 map picker", [](App& a, float t) {
+    const char* ev = std::getenv("NMK_UI8_PICKER"); if (!ev) return true;
+    static int it = 0, ph = 0, frames = 0, row = 0, attempt = 0, fails = 0; static float t0 = 0, wait = 0; static std::string before; static bool dirtyRun = false; static int jobs0 = 0;
+    static ImVec2 mpos(-1, -1); static int mdown = 0;   // the injected cursor and a press (frames left down)
+    const int N = std::max(1, std::atoi(ev) > 1 ? std::atoi(ev) : 50);
+    if (t == 0) { it = 0; ph = 0; fails = 0; gTestImGuiInput = [] { ImGuiIO& io = ImGui::GetIO(); if (mpos.x >= 0) io.AddMousePosEvent(mpos.x, mpos.y); io.AddMouseButtonEvent(0, mdown > 0); if (mdown > 0) --mdown; }; }
+    auto state = [&](const char* what) {
+      ImGuiContext& g = *ImGui::GetCurrentContext(); ImGuiWindow* modal = ImGui::GetTopMostPopupModal();
+      logf("ui8 %d %s: hovered %s, front %s, modal %s, active id %08x (%s), uiCursor %d, cursor %s, loading %d, match %d, mode %d, dirty %d, setup %d menu %d", it, what,
+           g.HoveredWindow ? g.HoveredWindow->Name : "-", g.Windows.empty() ? "-" : g.Windows.back()->Name, modal ? modal->Name : "-", g.ActiveId, g.ActiveIdWindow ? g.ActiveIdWindow->Name : "-",
+           (int)a.uiCursor, glfwGetInputMode(a.win, GLFW_CURSOR) == GLFW_CURSOR_DISABLED ? "captured" : "free", (int)loadingActive(), gGame && gGame->active ? 1 : 0, (int)a.mode, (int)a.dirty, (int)gUi.showSetup, (int)mainMenuActive());
+    };
+    auto finish = [&](bool ok, const char* why) { if (!ok) { ++fails; state(why); } chk(ok, "ui8 %d (%s): %s", it, gUi.setupMode == 0 ? "setup" : "lobby", why); ph = 9; };
+    if (it >= N || t > 560) { gTestImGuiInput = nullptr; mpos = ImVec2(-1, -1); chk(fails == 0, "ui8 map picker: %d of %d map changes failed", fails, it); gUi.showSetup = false; return true; }
+    ImGuiContext& g = *ImGui::GetCurrentContext();
+    ImGuiWindow* setup = ImGui::FindWindowByName("Singleplayer setup");
+    switch (ph) {
+      case 0: {   // the map and mode of this round: Solo / TDM / Assault on Village Assault, SD on Sun Fort, BR on Outpost Woods; every 6th a plain play-test
+        const int m = it % 6; const char* map = m < 3 || m == 5 ? "village_assault" : m == 3 ? "sd_desert" : "outpost_woods";
+        mainMenuLeaveForLoad(false); gUi.showSetup = false;
+        if (a.doc.templateId != map) a.openMap(contentDir() / "templates" / (std::string(map) + ".nmap.json"));
+        ph = 1; return false; }
+      case 1: {
+        const int m = it % 6;
+        if (m == 5) { if (gGame) gGame->pendingStart = false; a.enterExplore(); }   // Explore out of the editor
+        else if (a.doc.extra.is_object() && a.doc.extra.contains("scenario")) {
+          Scenario sc = Scenario::fromJson(a.doc.extra["scenario"]);
+          if (m < 3) sc.rules.mode = m == 0 ? GameMode::Solo : m == 1 ? GameMode::TDM : GameMode::Assault;
+          gUi.matchScenario = sc.toJson(); gUi.loaded = false; if (!gGame) gGame = new Game(a); gGame->pendingStart = true; a.enterExplore();
+        }
+        t0 = t; wait = 1.0f + (float)((it * 37) % 20) / 10.0f; ph = 2; return false; }
+      case 2: if (t - t0 < wait) return false; if (a.mode == Mode::Explore) a.pauseMenu = true; ph = 3; return false;
+      case 3:   // Pause > Main menu > Play > Singleplayer
+        if (a.mode == Mode::Explore) a.exitExplore();
+        mainMenuOpen(a); gUi.showSetup = true; gUi.setupMode = 0;
+        dirtyRun = it % 2 == 0; if (dirtyRun) a.dirty = true;
+        before = a.doc.templateId; jobs0 = loadingJobCount(); frames = 0; row = 1 + it % 5; attempt = 0; ph = 4; return false;
+      case 4:   // a click on a map row in the setup's list
+        if (++frames < 4) return false;
+        if (!setup || !setup->WasActive) { finish(false, "setup window not shown"); return false; }
+        mpos = ImVec2(setup->Pos.x + setup->Size.x * 0.12f, setup->Pos.y + 107 * (setup->Size.y / 928.0f) + (row + attempt) * 43 * (setup->Size.y / 928.0f) + 20);
+        frames = 0; ph = 5; return false;
+      case 5: if (++frames == 2) mdown = 1; if (frames < 3) return false; frames = 0; ph = 6; return false;
+      case 6: {
+        if (a.doc.templateId != before || loadingJobCount() != jobs0) { finish(true, "map loaded"); return false; }
+        if (ImGuiWindow* modal = ImGui::GetTopMostPopupModal()) { mpos = ImVec2(modal->Pos.x + modal->Size.x * 0.5f, modal->Pos.y + modal->Size.y * 0.5f); frames = 0; ph = 7; return false; }
+        if (++frames < 40) return false;
+        if (attempt == 0) { attempt = 1; frames = 0; ph = 4; frames = 3; return false; }   // the row was the open map: the next one
+        finish(false, "the click on a map row did nothing"); return false; }
+      case 7: {   // the unsaved-changes question must be in front and take the click
+        ImGuiWindow* modal = ImGui::GetTopMostPopupModal(); if (!modal) { finish(false, "question vanished"); return false; }
+        mpos = ImVec2(modal->Pos.x + modal->Size.x * 0.5f, modal->Pos.y + modal->Size.y * 0.5f);   // it sizes itself over its first frames
+        if (++frames < 5) return false;
+        const bool front = g.HoveredWindow && g.HoveredWindow->RootWindow == modal;
+        if (!front) { finish(false, "the unsaved-changes question is hidden behind another window (clicks go nowhere)"); a.dirty = false; ImGui::ClosePopupToLevel(0, false); return false; }
+        mpos = ImVec2(modal->Pos.x + ImGui::GetStyle().WindowPadding.x + 40, modal->Pos.y + modal->Size.y - ImGui::GetStyle().WindowPadding.y - ImGui::GetFrameHeight() * 0.5f);
+        frames = 0; ph = 8; return false; }
+      case 8: if (++frames == 2) mdown = 1;
+        if (a.doc.templateId != before || loadingJobCount() != jobs0) { finish(true, "map loaded after the unsaved-changes question"); return false; }
+        if (frames > 60) finish(false, "Load default map did not load");
+        return false;
+      case 9: ++it; ph = 0; mpos = ImVec2(-1, -1); return false;
+    }
+    return false; });
   push("ui7 stills", [](App& a, float t) {
     if (!std::getenv("NMK_UI7_STILLS")) return true;
     static std::vector<std::string> ids; static size_t k = 0; static double r0 = 0; static int ph = 0; static json poses;
@@ -695,6 +765,7 @@ bool modesSelfTest(App& app, float dt) {
     started = true; T = new MpTest("modes"); build(app); cur = 0; st = 0;
     if (std::getenv("NMK_NAV_PREBAKE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "prebake templates" && s.name != "done"; }), seq.end());   // just the bake
     else if (std::getenv("NMK_MODES_ONLY_CACHE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "nav bake cache" && s.name != "done"; }), seq.end());   // just the cache round trip (with NMK_MODES_MAP: on another map)
+    else if (std::getenv("NMK_UI8_PICKER")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui8 map picker" && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_UI7_STILLS")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui7 stills" && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_UI4_STILLS")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui4 stills" && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_UI2_MENU")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui2 menu" && s.name != "done" && !(s.name == "ui2 backdrop" && std::getenv("NMK_UI2_BACKDROP")) && !(s.name == "ui1p screens" && std::getenv("NMK_UI1_POLISH")); }), seq.end());   // with NMK_UI2_BACKDROP too: one run for both (GPU budget)
