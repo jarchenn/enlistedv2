@@ -1001,35 +1001,6 @@
   "cullDist": 60,
   "credit": "Round Wooden Table 02 by Ulan Cabanilla, Poly Haven (polyhaven.com/a/round_wooden_table_02), CC0"
  },
- "furn_mod_shop_wall_shelf": {
-  "_ref": "steel_frame_shelves_01 (Poly Haven, CC0): shop shelving (PR3)",
-  "src": "frsrc_steel_frame_shelves_01.glb",
-  "dir": "fr_mod_shop_wall_shelf",
-  "pivot": "ground",
-  "scale": 1.0528,
-  "rot": [
-   0,
-   0,
-   0
-  ],
-  "axes": [
-   1.0606,
-   0.9538,
-   0.9494
-  ],
-  "offset": [
-   0.0,
-   0,
-   0.006
-  ],
-  "jpgMaps": true,
-  "maxTex": 1024,
-  "simplify": 0.5,
-  "lod1": 0.25,
-  "lodDist": 12,
-  "cullDist": 60,
-  "credit": "Steel Frame Shelves 01 by James Ray Cock, Poly Haven (polyhaven.com/a/steel_frame_shelves_01), CC0"
- },
  "furn_mod_sofa2": {
   "_ref": "Sofa 202205_001 (Sketchfab, CC-BY-4.0): PR5: the user's model (Sofa 202205_001)",
   "src": "frsrc_u_sofa_202205.glb",
