@@ -30,7 +30,13 @@ public:
   vec3 listenerPos() const { return listener_; }   // SND10: where setListener last put the ears
   vec3 listener_{0};
   void setAmbience(float wind, float leaves);
-  void setBed(int slot, const fs::path& file, float volume);   // a looping music / room-tone file under everything, two slots that mix (empty path: none); cheap to call every frame
+  void setBed(int slot, const fs::path& file, float volume);
+  // SND13: the low-health heartbeat (custom/fx/heartbeat.mp3, trimmed to whole beats): in the head, Effects bus; level
+  // 0..1 (ramped: in over 0.4 s, out over 0.8 s), rate = pitch / tempo. Call every frame (0 to stop)
+  void setHeartbeat(float level, float rate);
+  float heartbeatNow = 0;            // the ramped level (tests)
+  float heartbeatGain = 1, hurtGain = 1;   // mix.json "heartbeat" / "hurt"
+  int hurtPlays = 0;                 // tests: hurt sounds started (the player's)   // a looping music / room-tone file under everything, two slots that mix (empty path: none); cheap to call every frame
   // volume settings (settings.cpp): master on the engine; effects on every spatial play / loop; UI on events whose
   // name starts with "ui_" or whose manifest kind is "ui"; ambience on the wind / leaf beds
   void setGains(float master, float effects, float ui, float ambience);

@@ -772,6 +772,13 @@ void Game::drawHud() {
     float r0 = kill ? 5.0f : 4.0f, r1 = kill ? 11.0f : 8.0f; int al = (int)(255 * std::min(1.0f, kill ? killMarker * 4 : hitMarker * 4));
     for (int k = 0; k < 4; ++k) { float a = 0.785f + k * 1.5708f; dl->AddLine(ImVec2(c.x + std::cos(a) * r0, c.y + std::sin(a) * r0), ImVec2(c.x + std::cos(a) * r1, c.y + std::sin(a) * r1), kill ? IM_COL32(235, 30, 30, al) : IM_COL32(255, 255, 255, al), kill ? 2.0f : 1.5f); }
   }
+  if (L && L->alive && app.audio.heartbeatNow > 0.01f) {   // SND13: a faint red vignette with the heartbeat (steady with reduced motion)
+    const float beat = app.reducedMotion ? 0.5f : std::pow(0.5f + 0.5f * std::cos((float)ImGui::GetTime() * 6.2832f * 1.15f * (1.0f + 0.1f * std::max(0.0f, app.audio.heartbeatNow - 1.0f) / 0.26f)), 4.0f);
+    const int al = (int)(255 * std::min(1.0f, app.audio.heartbeatNow) * (0.10f + 0.10f * beat)); const float W = io.DisplaySize.x, H = io.DisplaySize.y, e = H * 0.22f;
+    const ImU32 c0 = IM_COL32(150, 10, 8, al), c1 = IM_COL32(150, 10, 8, 0);
+    dl->AddRectFilledMultiColor(ImVec2(0, 0), ImVec2(e, H), c0, c1, c1, c0); dl->AddRectFilledMultiColor(ImVec2(W - e, 0), ImVec2(W, H), c1, c0, c0, c1);
+    dl->AddRectFilledMultiColor(ImVec2(0, 0), ImVec2(W, e), c0, c0, c1, c1); dl->AddRectFilledMultiColor(ImVec2(0, H - e), ImVec2(W, H), c1, c1, c0, c0);
+  }
   if (hurtFlash > 0 && L && L->alive) {
     vec3 d = lastHurtDir; float rel = wrapDeg(degrees(std::atan2(-d.x, -d.z)) - app.eyeYaw + 180.0f) - 180.0f;
     ImVec2 c(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f); float a = radians(-rel) - 1.5708f;

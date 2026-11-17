@@ -1323,6 +1323,7 @@ int App::run(int argc, char** argv) {
       }
     }
     audio.setUnderwater(v.underwater ? 1.0f : 0.0f);   // swim.cpp: muffled under water
+    { extern void playerAudioFrame(App&); playerAudioFrame(*this); }   // SND13: low-health heartbeat, hurt grunt
     mark("mpai");
     if (R.thermalWanted && mode == Mode::Explore) {   // TH1: hot spots for a thermal scope: muzzle flashes, flames and fireballs, burning ground
       for (auto& ml : fx.mlights) if (ml.age < ml.life * 4) R.heatSpots.push_back(vec4(ml.p, 0.45f));

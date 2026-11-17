@@ -67,7 +67,7 @@ json UserSettings::toJson() const {
                   {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}, {"weather", weather == 1 ? "Cloudy" : "Clear"}, {"envFog", envFog}}},
     {"gameplay", {{"mouseSensitivity", mouseSens}, {"adsSensitivity", adsSens}, {"invertY", invertY}, {"reducedMotion", reducedMotion},
                   {"showArms", showArms}, {"sightMarkers", sightMarkers}, {"weaponList", weaponList}, {"friendlyMarkers", friendlyMarkers}, {"heliCameraMotion", heliCamMotion}, {"vehicleWorldBars", vehicleBars}}},
-    {"audio", {{"master", master}, {"effects", effects}, {"ui", ui}, {"ambience", ambience}, {"gunfire", gunfire}}},
+    {"audio", {{"master", master}, {"effects", effects}, {"ui", ui}, {"ambience", ambience}, {"gunfire", gunfire}, {"heartbeat", heartbeat}}},
     {"controls", k},
     {"player", {{"character", character}, {"primary", primary}}},
     {"interface", {{"uiScale", uiScale}, {"minimapRotate", minimapRotate}, {"developerOverlay", devOverlay}, {"editorFlySpeed", editorFly}, {"editorOrbitSpeed", editorOrbit}, {"editorZoomSpeed", editorZoom}}},
@@ -115,6 +115,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     u.master = std::clamp(q.value("master", u.master), 0.0f, 1.0f); u.effects = std::clamp(q.value("effects", u.effects), 0.0f, 1.0f);
     u.ui = std::clamp(q.value("ui", u.ui), 0.0f, 1.0f); u.ambience = std::clamp(q.value("ambience", u.ambience), 0.0f, 1.0f);
     u.gunfire = std::clamp(q.value("gunfire", u.gunfire), 0.0f, 2.0f);
+    u.heartbeat = q.value("heartbeat", u.heartbeat);   // SND13
   }
   if (j.contains("controls") && j["controls"].is_object())
     for (auto it = j["controls"].begin(); it != j["controls"].end(); ++it) if (it->is_string()) u.keys[it.key()] = it->get<std::string>();
@@ -503,6 +504,8 @@ void settingsWindow(App& app) {
       { int p = (int)std::lround(u.gunfire * 100); if (flat::sliderInt("Gunfire", &p, 0, 200, "%d %%")) u.gunfire = p / 100.0f; }   // UI1b: guns, cannons, shell blasts
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Gunshots, cannon fire and shell explosions, on top of Effects (100 %% = as mixed, up to 200 %%).");
       vol("Interface", u.ui); vol("Ambience (wind, leaves)", u.ambience);
+      flat::checkbox("Low-health heartbeat", &u.heartbeat);   // SND13
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("A heartbeat while your health is under 30 %%, faster and a little louder toward 10 %%.");
       if (!app.audio.ok()) ImGui::TextDisabled("No audio device.");
     }
     // ------------------------------------------------ controls

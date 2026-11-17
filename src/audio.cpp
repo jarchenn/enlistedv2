@@ -150,6 +150,7 @@ struct Audio::Impl {
   std::map<int, double> casingAt;   // SND4: per shooter, when its last case sound was scheduled
   std::map<std::string, double> rapidAt;   // SND9: rapid-fire event + 4 m cell -> when it last sounded
   float casingGain = 2.0f;           // SND6: x on the case sound (content/audio/custom/mix.json casing_gain)
+  ma_audio_buffer hbAB; ma_sound hb; bool hbOn = false, hbPlaying = false; Buf hbBuf; double hbT = -1;   // SND13 heartbeat loop
   float reloadGain = 2.24f; std::map<std::string, float> reloadTrim;   // WP6: x on reload / magazine / clip / bolt / pump foley (mix.json "reload": gain_db, trim_db per weapon id)
   Voice voices[48];
   Buf windBuf, leafBuf; float windVol = 0.0f, leafVol = 0.0f;   // the wind bed gave way to the battlefield recording (setBed)
@@ -310,6 +311,7 @@ void Audio::shutdown() {
   for (auto& v : p->voices) if (v.used) { ma_sound_uninit(&v.snd); ma_audio_buffer_uninit(&v.buf); }
   for (auto& v : p->loops) if (v.used) { ma_sound_uninit(&v.snd); ma_audio_buffer_uninit(&v.buf); }
   for (int k = 0; k < 2; ++k) if (p->bedOn[k]) { ma_sound_uninit(&p->bed[k]); ma_audio_buffer_uninit(&p->bedAB[k]); }
+  if (p->hbOn) { ma_sound_uninit(&p->hb); ma_audio_buffer_uninit(&p->hbAB); p->hbOn = false; }
   ma_sound_uninit(&p->wind); ma_sound_uninit(&p->leaves);
   if (p->lpfOk) ma_lpf_node_uninit(&p->lpf, nullptr);
   ma_audio_buffer_uninit(&p->windAB); ma_audio_buffer_uninit(&p->leafAB);
@@ -795,6 +797,39 @@ int Audio::loadCustom(const fs::path& dir) {
       { static const bool lg = std::getenv("NMK_AUDIO_LOG") != nullptr; if (lg) logf("audio: bomb beeps: %d found, long %.3f s, short %.3f s", (int)beeps.size(), L.size() / (float)SR, S.size() / (float)SR); }   // diagnostics
     }
   }
+  // SND13: the low-health heartbeat: cut to whole beat cycles (a cycle starts at an onset after a gap of 0.42 s or more:
+  // the lub-dub pair is closer), 8 ms fades at the seam; and the player's hurt grunts (one event; several grunts in the
+  // file become its variants, played in turn with the event's random pick)
+  heartbeatGain = std::clamp(mx.value("heartbeat", 1.0f), 0.0f, 4.0f); hurtGain = std::clamp(mx.value("hurt", 1.0f), 0.0f, 4.0f);
+  if (decode("fx/heartbeat.mp3", b) && b.size() > (size_t)SR) {
+    const int W = SR / 100; size_t nW = b.size() / W; std::vector<float> env(nW, 0.0f); float pk = 1e-6f;
+    for (size_t k = 0; k < nW; ++k) { for (int j = 0; j < W; ++j) env[k] = std::max(env[k], std::fabs(b[k * W + j])); pk = std::max(pk, env[k]); }
+    std::vector<size_t> on; for (size_t k = 1; k < nW; ++k) if (env[k] > 0.35f * pk && env[k - 1] <= 0.35f * pk && (on.empty() || k - on.back() > 8)) on.push_back(k);
+    std::vector<size_t> cyc; for (size_t k = 0; k < on.size(); ++k) if (k == 0 || (on[k] - on[k - 1]) * W >= (size_t)(0.42f * SR)) cyc.push_back(on[k]);
+    size_t a = 0, e = b.size();
+    if (cyc.size() >= 3) { a = (cyc.front() > 2 ? cyc.front() - 2 : 0) * W; e = (cyc.back() - 2) * W; }   // first cycle .. the start of the last (whole cycles only)
+    Buf s(b.begin() + a, b.begin() + e); const size_t f = std::min(s.size() / 4, (size_t)(0.008f * SR));
+    for (size_t j = 0; j < f; ++j) { const float g = j / (float)f; s[j] *= g; s[s.size() - 1 - j] *= g; }
+    for (float& x : s) x *= 0.8f / pk;
+    p->hbBuf = std::move(s);
+    ma_audio_buffer_config c = ma_audio_buffer_config_init(ma_format_f32, 1, p->hbBuf.size(), p->hbBuf.data(), nullptr); c.sampleRate = SR;
+    if (ma_audio_buffer_init(&c, &p->hbAB) == MA_SUCCESS) {
+      if (ma_sound_init_from_data_source(&p->engine, &p->hbAB, MA_SOUND_FLAG_NO_SPATIALIZATION, nullptr, &p->hb) == MA_SUCCESS) { p->hbOn = true; p->route(p->hb); ma_sound_set_looping(&p->hb, MA_TRUE); ma_sound_set_volume(&p->hb, 0); ++used; }
+      else ma_audio_buffer_uninit(&p->hbAB);
+    }
+    logf("audio: heartbeat loop %.2f s, %zu beat cycles (%zu onsets)", p->hbBuf.size() / (float)SR, cyc.size() >= 3 ? cyc.size() - 1 : 0, on.size());
+  }
+  if (decode("fx/player_hurt.mp3", b)) {
+    const int W = SR / 200; size_t nW = b.size() / W; std::vector<float> env(nW, 0.0f); float pk = 1e-6f;
+    for (size_t k = 0; k < nW; ++k) { for (int j = 0; j < W; ++j) env[k] = std::max(env[k], std::fabs(b[k * W + j])); pk = std::max(pk, env[k]); }
+    std::vector<std::pair<size_t, size_t>> seg;   // loud stretches (over 0.12 of the peak), gaps under 120 ms bridged
+    for (size_t k = 0; k < nW; ++k) if (env[k] > 0.12f * pk) { if (!seg.empty() && k - seg.back().second <= 24) seg.back().second = k; else seg.push_back({k, k}); }
+    Impl::Event ev;
+    for (auto& r : seg) { if ((r.second - r.first + 1) * W < (size_t)(0.12f * SR)) continue; size_t a = r.first > 2 ? (r.first - 2) * W : 0; ev.v.push_back(clip(b, a, (r.second - r.first + 6) * W, 0.004f, 0.06f, 0.8f)); }
+    if (ev.v.empty()) ev.v.push_back(clip(b, 0, b.size(), 0.004f, 0.06f, 0.8f));
+    ev.gain = hurtGain; p->events["player_hurt"] = ev; ++used;
+    logf("audio: player hurt: %zu grunt(s)", ev.v.size());
+  }
   // SND1: any other mp3 here plays as an event named after its file (knightattack.mp3 -> "knightattack"): leading
   // silence trimmed, levelled, at most 6 s. A type's "sounds" (content/ai/zombie*.json) name them.
   std::error_code ec;
@@ -962,6 +997,17 @@ void Audio::setBed(int slot, const fs::path& file, float volume) {
     float duck = 1.0f - 0.3f * (float)std::clamp(1.0 - (now - p->duckT) / 1.5, 0.0, 1.0);
     if (p->bedOn[slot]) ma_sound_set_volume(&p->bed[slot], volume * ambienceGain * duck);
   }
+}
+void Audio::setHeartbeat(float level, float rate) {
+  if (!p || !p->hbOn) return;
+  const double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+  const float dt = p->hbT < 0 ? 0.0f : (float)std::min(0.25, now - p->hbT); p->hbT = now;
+  level = std::clamp(level, 0.0f, 1.5f);
+  heartbeatNow = level > heartbeatNow ? std::min(level, heartbeatNow + dt / 0.4f) : std::max(level, heartbeatNow - dt / 0.8f);   // in 0.4 s, out 0.8 s
+  if (heartbeatNow > 0.001f && !p->hbPlaying) { ma_sound_seek_to_pcm_frame(&p->hb, 0); ma_sound_start(&p->hb); p->hbPlaying = true; }
+  if (heartbeatNow <= 0.001f && p->hbPlaying) { ma_sound_stop(&p->hb); p->hbPlaying = false; }
+  ma_sound_set_volume(&p->hb, heartbeatNow * heartbeatGain * effectsGain);
+  ma_sound_set_pitch(&p->hb, std::clamp(rate, 0.8f, 1.3f));
 }
 void Audio::setUnderwater(float k) {
   k = std::clamp(k, 0.0f, 1.0f);

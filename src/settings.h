@@ -62,6 +62,7 @@ struct UserSettings {
   float heliCamMotion = 1.0f;  // VH5: helicopter camera roll / vibration / shake (0 none, 1 default .. 3)
   // audio (linear gains 0..1)
   float master = 1.0f, effects = 1.0f, ui = 1.0f, ambience = 1.0f, gunfire = 1.0f;   // gunfire: UI1b gun / cannon / shell bus, 0..2
+  bool heartbeat = true;       // SND13: the low-health heartbeat (under 30 % health)
   // controls: action -> key name overrides of content/settings/bindings.json (only the ones the user changed)
   std::map<std::string, std::string> keys;
   // interface

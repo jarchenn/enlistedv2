@@ -704,6 +704,11 @@ void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
   }
   drop(7);
   s.hp -= dmg;
+  if (!s.localPlayer && !s.zombie && s.hp > 0 && !isClient) {   // SND13: soldiers had no pain sound: the hurt grunt at their head, quieter, at most one per 0.6 s each
+    static std::unordered_map<int, double> last; static std::mt19937 rng{1313};
+    double& l = last[i];
+    if (t - l >= 0.6 || t < l) { l = t; std::uniform_real_distribution<float> u(-1, 1); app.audio.play("player_hurt", eye(s), 0.45f * (1.0f + 0.15f * u(rng)), 1.0f + 0.04f * u(rng)); }
+  }
   if (s.zombie) { const EnemyType& e = enemyType(s.etype); if (e.staggerS > 0 && dmg >= e.staggerMin) s.staggerUntil = t + e.staggerS; }   // EN1: only a heavy hit staggers
   s.br.hurtFrom = attacker >= 0 ? sold[attacker].feet : s.feet - dir * 10.0f; s.br.hurtAt = t;
   s.br.suppressed = std::min(1.0f, s.br.suppressed + 0.5f);
@@ -1302,4 +1307,32 @@ bool Game::cameraOrbit(vec3& e, vec3& f, float& fov) {
   }
   e = cpos; f = glm::normalize(target - cpos); fov = 70;
   return true;
+}
+
+// SND13: the local player's low-health heartbeat and hurt grunt, every frame (host and LAN client alike: from the
+// player's health, so bullets, melee, blasts, fire, falls, drowning and the storm all count). The heartbeat loops under 30 %
+// of 100 health (faster and up to +2 dB toward 10 %), stops on death, at respawn and outside a match; the grunt plays on
+// each hit (the killing blow too: no death sound exists), at most one per 0.6 s unless a much bigger hit lands (0.2 s)
+void playerAudioFrame(App& app) {
+  static float lastHp = -1; static int lastLife = -1; static bool lastAlive = false; static double lastHurt = -10; static float lastAmt = 0;
+  static std::mt19937 rng{4242}; std::uniform_real_distribution<float> u(-1, 1);
+  Soldier* L = gGame && gGame->active && app.mode == Mode::Explore ? gGame->local() : nullptr;
+  float level = 0, rate = 1;
+  if (L && L->alive && settings().s.heartbeat) {
+    const float f = L->hp / 100.0f;
+    if (f < 0.30f) { const float k = std::clamp((0.30f - f) / 0.20f, 0.0f, 1.0f); level = 1.0f + 0.26f * k; rate = 1.0f + 0.10f * k; }
+  }
+  app.audio.setHeartbeat(level, rate);
+  if (!L) { lastHp = -1; lastLife = -1; lastAlive = false; return; }
+  const double now = glfwGetTime();
+  if (L->lifeId != lastLife || lastHp < 0) { lastLife = L->lifeId; lastHp = L->hp; lastAlive = L->alive; return; }   // a new life: no grunt for the respawn
+  const float drop = lastHp - L->hp;
+  if (drop > 0.5f && (lastAlive || L->alive)) {
+    const bool big = drop >= 25.0f || drop > 2.0f * lastAmt;
+    if (now - lastHurt >= 0.6 || (big && now - lastHurt >= 0.2)) {
+      app.audio.play("player_hurt", app.audio.listenerPos(), 1.0f + 0.15f * u(rng), 1.0f + 0.04f * u(rng)); ++app.audio.hurtPlays;
+      lastHurt = now; lastAmt = drop;
+    }
+  }
+  lastHp = L->hp; lastAlive = L->alive;
 }

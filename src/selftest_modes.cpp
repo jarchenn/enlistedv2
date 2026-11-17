@@ -533,6 +533,54 @@ void build(App&) {
   // UI8: "the map selection freezes": start a match in every mode (and a plain play-test from the editor), play a
   // moment, leave through Pause > Main menu to the setup window, sometimes with unsaved changes, and click a map with
   // injected mouse input: the click must land (a load, or the unsaved-changes question in front and answerable)
+  // SND13: the low-health heartbeat and the hurt grunt (NMK_SND13): damage to 25 % starts the loop, healing to 40 %
+  // stops it, death stops it; three quick small hits give one grunt, another 0.7 s later a second, a big hit 0.3 s after
+  // a grunt retriggers
+  push("snd13 heartbeat", [](App& a, float t) {
+    if (!std::getenv("NMK_SND13")) return true;
+    static int ph = 0; static double w0 = 0; static int h0 = 0;
+    auto L = [&]() -> Soldier* { return gGame ? gGame->local() : nullptr; };
+    auto idx = [&]() { return (int)(L() - &gGame->sold[0]); };
+    auto hit = [&](float d) { if (Soldier* s = L()) { s->protectUntil = -1; gGame->damage(idx(), d, -1, vec3(0, 0, 1), "test"); } };
+    const double now = glfwGetTime();
+    switch (ph) {
+      case 0: { if (a.doc.templateId != "village_assault") a.openMap(contentDir() / "templates" / "village_assault.nmap.json");
+        Scenario sc = Scenario::fromJson(a.doc.extra["scenario"]); sc.rules.mode = GameMode::Solo;
+        gUi.matchScenario = sc.toJson(); gUi.loaded = false; if (!gGame) gGame = new Game(a); gGame->pendingStart = true; a.enterExplore();
+        ph = 1; w0 = now; return false; }
+      case 1: if (now - w0 < 1.0) return false;
+        if (!L() || !L()->alive) { chk(false, "snd13: no live local player"); return true; }
+        L()->hp = 100; ph = 2; w0 = now; return false;
+      case 2: if (now - w0 < 0.8) return false;   // full health: no heartbeat
+        chk(a.audio.heartbeatNow < 0.01f, "snd13: no heartbeat at full health (%.2f)", a.audio.heartbeatNow);
+        h0 = a.audio.hurtPlays; hit(5); ph = 3; w0 = now; return false;
+      case 3: if (now - w0 < 0.1) return false; hit(5); ph = 4; w0 = now; return false;
+      case 4: if (now - w0 < 0.1) return false; hit(5); ph = 5; w0 = now; return false;
+      case 5: if (now - w0 < 0.2) return false;
+        chk(a.audio.hurtPlays - h0 == 1, "snd13: three hits within 0.2 s give one grunt (%d)", a.audio.hurtPlays - h0);
+        ph = 6; w0 = now; return false;
+      case 6: if (now - w0 < 0.7) return false; hit(5); ph = 7; w0 = now; return false;
+      case 7: if (now - w0 < 0.1) return false;
+        chk(a.audio.hurtPlays - h0 == 2, "snd13: a hit 0.7 s later gives a second grunt (%d)", a.audio.hurtPlays - h0);
+        ph = 8; w0 = now; return false;
+      case 8: if (now - w0 < 0.3) return false; hit(L()->hp - 25.0f); ph = 9; w0 = now; return false;   // a big hit (to 25 %) 0.3 s after a grunt
+      case 9: if (now - w0 < 0.1) return false;
+        chk(a.audio.hurtPlays - h0 == 3, "snd13: a big hit 0.3 s after a grunt retriggers (%d)", a.audio.hurtPlays - h0);
+        ph = 10; w0 = now; return false;
+      case 10: if (now - w0 < 0.8) return false;
+        chk(a.audio.heartbeatNow > 0.9f, "snd13: at 25 %% health the heartbeat plays (level %.2f)", a.audio.heartbeatNow);
+        L()->hp = 40; ph = 11; w0 = now; return false;
+      case 11: if (now - w0 < 1.2) return false;
+        chk(a.audio.heartbeatNow < 0.01f, "snd13: healed to 40 %% the heartbeat stops (level %.2f)", a.audio.heartbeatNow);
+        hit(15); ph = 12; w0 = now; return false;
+      case 12: if (now - w0 < 0.8) return false;
+        chk(a.audio.heartbeatNow > 0.9f, "snd13: back to 25 %% it plays again (level %.2f)", a.audio.heartbeatNow);
+        hit(500); ph = 13; w0 = now; return false;
+      case 13: if (now - w0 < 1.2) return false;
+        chk(!L()->alive && a.audio.heartbeatNow < 0.01f, "snd13: dead: the heartbeat stops (alive %d, level %.2f)", (int)L()->alive, a.audio.heartbeatNow);
+        a.exitExplore(); return true;
+    }
+    return false; });
   push("ui8 map picker", [](App& a, float t) {
     const char* ev = std::getenv("NMK_UI8_PICKER"); if (!ev) return true;
     static int it = 0, ph = 0, frames = 0, row = 0, attempt = 0, fails = 0; static float t0 = 0, wait = 0; static std::string before; static bool dirtyRun = false; static int jobs0 = 0;
@@ -765,6 +813,7 @@ bool modesSelfTest(App& app, float dt) {
     started = true; T = new MpTest("modes"); build(app); cur = 0; st = 0;
     if (std::getenv("NMK_NAV_PREBAKE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "prebake templates" && s.name != "done"; }), seq.end());   // just the bake
     else if (std::getenv("NMK_MODES_ONLY_CACHE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "nav bake cache" && s.name != "done"; }), seq.end());   // just the cache round trip (with NMK_MODES_MAP: on another map)
+    else if (std::getenv("NMK_SND13")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "snd13 heartbeat" && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_UI8_PICKER")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui8 map picker" && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_UI7_STILLS")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui7 stills" && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_UI4_STILLS")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui4 stills" && s.name != "done"; }), seq.end());
