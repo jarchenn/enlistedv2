@@ -11,6 +11,7 @@
 #include "physics.h"
 #include "ai_core.h"
 #include "render.h"
+#include "ui_glass.h"
 #include "assets.h"
 #include "model.h"
 #include <map>
@@ -442,8 +443,10 @@ void sdInput(App& app, ExploreInput& in) {
     }
     gWas = gk; }
   bool b = glfwGetKey(app.win, GLFW_KEY_B) == GLFW_PRESS;
-  if (b && !bWas && !app.selftest) { buyMenu = !buyMenu; buyCol = -1; }
+  static int menuRound = -1;
+  if (b && !bWas && !app.selftest) { buyMenu = !buyMenu; buyCol = -1; menuRound = m.round; }
   bWas = b;
+  if (buyMenu && !app.selftest && (!m.buyOpen() || m.round != menuRound || !g.local() || !g.local()->alive)) { buyMenu = false; buyCol = -1; }   // buy time over, a new round, dead: the menu closes (the cursor is captured again)
   if (buyMenu) {   // SD3: the menu has the number keys (a column, then an item) and the mouse; no weapon switching or firing
     static bool was[7] = {};
     for (int k = 0; k < 7; ++k) {
@@ -621,7 +624,7 @@ std::string sdCommand(Game& g, const std::string& args) {
 // ---------------------------------------------------------------- SD3 the buy menu
 // After the user's reference (layout only): a wide dark glass panel, "Buy Time Remaining 00:19" on top, five numbered
 // columns (1 Equipment, 2 Pistols, 3 Mid-Tier, 4 Rifles, 5 Grenades) of numbered cards: name, an amber silhouette of
-// the item (the weapon silhouettes; armor rendered from the BR vest / helmet models; the kit a drawn glyph), the price in
+// the item (the weapon silhouettes; armor, the kit and the Molotov drawn glyphs), the price in
 // green (red: not enough money). Owned items are greyed with "OWNED" (unaffordable ones keep their colours, red price).
 // Keys: a column number, then the item number; the mouse clicks a card (right click refunds this round's purchase);
 // B or Esc closes it.
@@ -646,35 +649,12 @@ bool buyOwned(SdMatch& m, int me, const SdItem& it) {
   if (it.id == "kit") return gr.kit;
   return false;
 }
-GLuint modelSilhouette(App& app, const std::string& asset) {   // a white silhouette of an asset's model (alpha = coverage), cached
-  static std::map<std::string, GLuint> cache;
-  auto f = cache.find(asset); if (f != cache.end()) return f->second;
-  GLuint& tex = cache[asset];
-  const AssetDef* a = app.lib.find(asset);
-  std::vector<ModelDraw> md; std::vector<DrawItem> bx; vec3 bmin(0), bmax(0);   // the baked model, else its mesh (as the BR inventory icons)
-  if (a && a->model) { for (int k = 0; k < (int)a->model->parts.size(); ++k) md.push_back({a->model.get(), k, mat4(1)}); bmin = a->model->bmin; bmax = a->model->bmax; }
-  else if (a && a->opaque.count) { bx.push_back({&a->opaque, mat4(1)}); bmin = a->opaque.bmin; bmax = a->opaque.bmax; }
-  else return tex = 0;
-  const vec3 c = (bmin + bmax) * 0.5f; const float r = std::max(0.02f, glm::length(bmax - bmin) * 0.5f);
-  const vec3 eye = c + glm::normalize(vec3(0.35f, 0.15f, 1.0f)) * r * 4.0f;
-  const int S = 128; std::vector<uint8_t> px;
-  if (!app.R.renderModelSheet(md, bx, glm::lookAt(eye, c, vec3(0, 1, 0)), glm::ortho(-r, r, -r, r, 0.01f, r * 8), eye, S, S, px) || px.size() < (size_t)S * S * 4) return tex = 0;
-  const uint8_t bg[3] = {px[0], px[1], px[2]};   // the corner: the clear colour; what differs from it is the item
-  for (size_t k = 0; k < (size_t)S * S; ++k) {
-    int d = 0; for (int q = 0; q < 3; ++q) d = std::max(d, std::abs((int)px[k * 4 + q] - (int)bg[q]));
-    px[k * 4] = px[k * 4 + 1] = px[k * 4 + 2] = 255; px[k * 4 + 3] = (uint8_t)std::clamp((d - 4) * 12, 0, 255);
-  }
-  glCreateTextures(GL_TEXTURE_2D, 1, &tex); glTextureStorage2D(tex, 1, GL_RGBA8, S, S);
-  glTextureParameteri(tex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(tex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glPixelStorei(GL_UNPACK_ALIGNMENT, 4); glTextureSubImage2D(tex, 0, 0, 0, S, S, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
-  return tex;
-}
 void drawItemIcon(App& app, ImDrawList* dl, ImVec2 a, ImVec2 b, const SdItem& it, ImU32 col) {   // fitted inside a..b
   const float w = b.x - a.x, h = b.y - a.y, cx = (a.x + b.x) * 0.5f, cy = (a.y + b.y) * 0.5f;
   auto img = [&](GLuint t, float iw, float ih, ImVec2 uv0, ImVec2 uv1) { if (t) dl->AddImage((ImTextureID)(intptr_t)t, ImVec2(cx - iw * 0.5f, cy - ih * 0.5f), ImVec2(cx + iw * 0.5f, cy + ih * 0.5f), uv0, uv1, col); };
   if (!it.weapon.empty()) {
     auto f = app.weaponSilhouette.find(it.weapon); GLuint t = f == app.weaponSilhouette.end() ? 0 : f->second;
-    if (!t && it.slot == 4) {   // a throwable without a silhouette (the Molotov): a bottle with a rag
+    if (!t || it.weapon == "molotov") {   // a throwable without a usable silhouette (the Molotov's is blank): a bottle with a rag
       const float k = std::min(h, w) * 0.42f;
       dl->AddRectFilled(ImVec2(cx - k * 0.32f, cy - k * 0.15f), ImVec2(cx + k * 0.32f, cy + k), col, k * 0.18f);
       dl->AddRectFilled(ImVec2(cx - k * 0.12f, cy - k * 0.65f), ImVec2(cx + k * 0.12f, cy - k * 0.1f), col);
@@ -687,13 +667,22 @@ void drawItemIcon(App& app, ImDrawList* dl, ImVec2 a, ImVec2 b, const SdItem& it
     return;
   }
   const float s = std::min(h, w) * 0.98f;
-  if (it.id == "vest") img(modelSilhouette(app, "br_vest_2"), s, s, ImVec2(0, 0), ImVec2(1, 1));
-  else if (it.id == "helmet") img(modelSilhouette(app, "br_helmet_2"), s, s, ImVec2(0, 0), ImVec2(1, 1));
-  else if (it.id == "vesthelmet") {
-    GLuint v = modelSilhouette(app, "br_vest_2"), hm = modelSilhouette(app, "br_helmet_2");
-    if (v) dl->AddImage((ImTextureID)(intptr_t)v, ImVec2(cx - s * 0.62f, cy - s * 0.5f), ImVec2(cx + s * 0.38f, cy + s * 0.5f), ImVec2(0, 0), ImVec2(1, 1), col);
-    if (hm) dl->AddImage((ImTextureID)(intptr_t)hm, ImVec2(cx + s * 0.05f, cy - s * 0.05f), ImVec2(cx + s * 0.6f, cy + s * 0.5f), ImVec2(0, 0), ImVec2(1, 1), col);
-  } else {   // the defuse kit: wire cutters
+  // armor: drawn glyphs (the BR vest / helmet models are local-only: without them the asset is a stand-in box)
+  auto vest = [&](float x, float y, float k) {   // a plate carrier: shoulders, neck cut-out, body
+    const ImVec2 P[] = {{x - k * 0.5f, y - k * 0.3f}, {x - k * 0.3f, y - k * 0.5f}, {x - k * 0.12f, y - k * 0.5f}, {x, y - k * 0.32f}, {x + k * 0.12f, y - k * 0.5f},
+                        {x + k * 0.3f, y - k * 0.5f}, {x + k * 0.5f, y - k * 0.3f}, {x + k * 0.42f, y + k * 0.5f}, {x - k * 0.42f, y + k * 0.5f}};
+    dl->AddConvexPolyFilled(P + 6, 3, col); dl->AddConvexPolyFilled(P, 4, col);   // shoulders
+    dl->AddRectFilled(ImVec2(x - k * 0.44f, y - k * 0.3f), ImVec2(x + k * 0.44f, y + k * 0.5f), col, k * 0.06f);
+    dl->AddLine(ImVec2(x - k * 0.3f, y + k * 0.12f), ImVec2(x + k * 0.3f, y + k * 0.12f), IM_COL32(30, 32, 34, 200), std::max(1.5f, k * 0.04f));
+  };
+  auto helmet = [&](float x, float y, float k) {   // a dome with a brim
+    dl->PathArcTo(ImVec2(x, y + k * 0.15f), k * 0.42f, 3.14159f, 6.28318f, 24); dl->PathFillConvex(col);
+    dl->AddRectFilled(ImVec2(x - k * 0.52f, y + k * 0.12f), ImVec2(x + k * 0.52f, y + k * 0.24f), col, k * 0.05f);
+  };
+  if (it.id == "vest") vest(cx, cy, s * 0.9f);
+  else if (it.id == "helmet") helmet(cx, cy, s * 0.9f);
+  else if (it.id == "vesthelmet") { vest(cx - s * 0.22f, cy + s * 0.04f, s * 0.8f); helmet(cx + s * 0.38f, cy + s * 0.12f, s * 0.55f); }
+  else {   // the defuse kit: wire cutters
     const float k = s * 0.5f, t = std::max(2.0f, s * 0.07f);
     dl->AddLine(ImVec2(cx - k * 0.9f, cy + k * 0.8f), ImVec2(cx + k * 0.15f, cy - k * 0.1f), col, t * 1.6f); dl->AddLine(ImVec2(cx + k * 0.9f, cy + k * 0.8f), ImVec2(cx - k * 0.15f, cy - k * 0.1f), col, t * 1.6f);
     dl->AddLine(ImVec2(cx + k * 0.15f, cy - k * 0.1f), ImVec2(cx - k * 0.2f, cy - k * 0.85f), col, t); dl->AddLine(ImVec2(cx - k * 0.15f, cy - k * 0.1f), ImVec2(cx + k * 0.2f, cy - k * 0.85f), col, t);
@@ -722,7 +711,8 @@ void drawBuyMenu(Game& g, int me, int side) {
   auto T = [&](float x, float y, ImU32 c, const std::string& s, float sc = 1.0f) { dl->AddText(ImGui::GetFont(), ImGui::GetFontSize() * sc, ImVec2(x, y), c, s.c_str()); };
   auto TW = [&](const std::string& s, float sc = 1.0f) { return ImGui::CalcTextSize(s.c_str()).x * sc; };
   // the glass panel
-  dl->AddRectFilledMultiColor(ImVec2(x0, y0), ImVec2(x0 + PW, y0 + PH), IM_COL32(34, 38, 42, 228), IM_COL32(34, 38, 42, 228), IM_COL32(14, 16, 18, 236), IM_COL32(14, 16, 18, 236));
+  uiGlassPanel(dl, ImVec2(x0, y0), ImVec2(x0 + PW, y0 + PH), 8);   // UI2 glass
+  dl->AddRectFilled(ImVec2(x0, y0), ImVec2(x0 + PW, y0 + PH), IM_COL32(10, 12, 14, 110), 8);   // a darker glass under the cards
   dl->AddRect(ImVec2(x0, y0), ImVec2(x0 + PW, y0 + PH), IM_COL32(255, 255, 255, 46), 8, 0, 1.2f);
   dl->AddLine(ImVec2(x0 + 8, y0 + 1), ImVec2(x0 + PW - 8, y0 + 1), IM_COL32(255, 255, 255, 60));
   // header: the buy clock, money, side
@@ -804,7 +794,7 @@ void sdDrawHud(Game& g) {
   const ImU32 cMine = IM_COL32(120, 190, 255, 255), cThem = IM_COL32(255, 150, 110, 255), cWhite = IM_COL32(235, 235, 235, 255), cRed = IM_COL32(255, 80, 70, 255), cGrey = IM_COL32(195, 195, 195, 255), cGold = IM_COL32(255, 220, 120, 255);
   // top: score, sides with alive counts, the round clock
   const float pw = 440, ph = 64, px = W * 0.5f - pw * 0.5f, py = 8;
-  dl->AddRectFilled(ImVec2(px, py), ImVec2(px + pw, py + ph), IM_COL32(12, 14, 16, 165), 6);
+  uiGlassPanel(dl, ImVec2(px, py), ImVec2(px + pw, py + ph), 6);
   char b[200];
   std::snprintf(b, sizeof b, "Team A  %d", m.score[0]); text(vec2(px + 12, py + 6), myTeam == 0 ? cMine : cThem, b, 1.2f);
   std::snprintf(b, sizeof b, "%d  Team B", m.score[1]); text(vec2(px + pw - 12 - width(b, 1.2f), py + 6), myTeam == 1 ? cMine : cThem, b, 1.2f);
@@ -822,7 +812,7 @@ void sdDrawHud(Game& g) {
   if (me >= 0) {
     SdPlayer& p = m.players[me];
     const float bx = 16, by = H - 150;
-    dl->AddRectFilled(ImVec2(bx - 6, by - 6), ImVec2(bx + 330, by + 74), IM_COL32(12, 14, 16, 165), 6);
+    uiGlassPanel(dl, ImVec2(bx - 6, by - 6), ImVec2(bx + 330, by + 74), 6);
     std::snprintf(b, sizeof b, "$%d", p.cash); text(vec2(bx, by), IM_COL32(120, 230, 120, 255), b, 1.4f);
     std::snprintf(b, sizeof b, "%s   armor %d%s%s", sideName(mySide), p.gear.armor, p.gear.helmet ? " + helmet" : "", p.gear.kit ? "   kit" : ""); text(vec2(bx, by + 30), cWhite, b);
     std::string bomb;

@@ -6,6 +6,7 @@
 #include "mptest.h"
 #include "physics.h"
 #include <random>
+#include <cstring>
 
 namespace {
 MpTest* T = nullptr;
@@ -51,8 +52,10 @@ bool proneSelfTest(App& app, float dt) {
   if (stage == 2 && st > 0.8f) {
     bool prone = Physics::character().posture == Physics::PRONE;
     if (prone) ++ok; else {
-      ++refused; char b[200]; Physics::Hit h; float ny = Physics::castRayEx(at + vec3(0, 1, 0), vec3(0, -1, 0), 3, h) ? h.normal.y : -1;
+      ++refused; char b[400]; Physics::Hit h; float ny = Physics::castRayEx(at + vec3(0, 1, 0), vec3(0, -1, 0), 3, h) ? h.normal.y : -1;
       std::snprintf(b, sizeof b, "refused at (%.1f %.1f %.1f), facing %.0f, ground normal y %.2f, terrain %.1f m below; within 1.5 m:", at.x, at.y, at.z, app.eyeYaw, ny, at.y - app.terrain.height(at.x, at.z));
+      { auto cs = Physics::character(); int fy = 0; for (int k = 0; k < 12; ++k) fy += Physics::postureFits(Physics::PRONE, k * 30.0f);
+        char c2[160]; std::snprintf(c2, sizeof c2, " [now: posture %d, grounded %d, ground body %llx, %d of 12 headings fit here]", cs.posture, (int)cs.grounded, (unsigned long long)cs.groundUser, fy); std::strncat(b, c2, sizeof b - std::strlen(b) - 1); }
       std::string m = b; int n = 0;
       for (auto& i : app.doc.instances) if (glm::length(vec2(i.pos.x - at.x, i.pos.z - at.z)) < 1.5f && n++ < 6) m += " " + i.assetId;
       if (!n) m += " (no instance origin; a larger object, terrain or a line)";

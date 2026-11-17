@@ -82,6 +82,7 @@ void Game::syncGrenadeView() {
 static float bodyScale(const Soldier& s) { return s.zombie ? s.eBody : 1.0f; }   // EN1: a troll stands taller, a spider lower
 void Game::renderView(vec3& e, vec3& f) const {
   e = app.eyePos(); f = App::forward(app.eyeYaw, app.eyePitch); float fov = 70;
+  if (specCam) { e = specEye; f = specFwd; return; }   // dead: the spectate orbit renders the frame (the body watched was culled as "behind" the dead eye)
   vec3 e2 = e, f2 = f;
   if (app.tanks.camera(app, e2, f2, fov) || app.stationCamera(e2, f2, fov)) { e = e2; f = f2; }
 }
@@ -197,7 +198,7 @@ bool Game::begin(std::string& err) {
   }
   pool.clear(); poolBuilt = false;
   sounds.clear(); gren.clear(); grenadeReserve.clear(); smokeReserve.clear(); defSpots.clear(); defSpotsStage = -1;
-  t = 0; steps = 0; spectate = -1; hitMarker = killMarker = hurtFlash = 0;
+  t = 0; steps = 0; spectate = -1; specCam = false; hitMarker = killMarker = hurtFlash = 0;
   shotsByBots = hitsOnSoldiers = kills = doorOpens = smokeThrows = fragThrows = navRebuilds = 0;
   if (!isClient) match.start(); else { match.phase = MatchPhase::Running; for (auto& o : match.obj) o.state = ObjState::Locked; if (!match.obj.empty()) match.obj[0].state = ObjState::Active; }
   ghosts.clear(); doorSeen.clear();
@@ -1078,6 +1079,7 @@ void Game::drawItems() {
     float dist = glm::length(c - cam);
     if (dist > 300 + 2 * bs) continue;
     if (dist > 4 * bs && glm::dot(glm::normalize(c - cam), fwd) < -0.2f) continue;   // behind the camera (shadows of close ones kept)
+    s.drawnAt = t;
     // PF1: a far pack follower in step with its leader draws the leader's skinned mesh (zombie.cpp aiZombiePose)
     Soldier* src = s.poseFrom >= 0 && s.poseFrom < (int)sold.size() && sold[s.poseFrom].ciReady && sold[s.poseFrom].ci.frameSkinned >= 0 ? &sold[s.poseFrom] : &s;
     if (src != &s || (!s.alive && t - s.diedAt > (s.zombie ? 3.5 : 2.0) && s.ciReady && s.ci.frameSkinned >= 0)) {}   // settled corpse: keep the last skin
@@ -1111,6 +1113,11 @@ void Game::drawItems() {
 }
 
 bool Game::camera(vec3& e, vec3& f, float& fov) {
+  specCam = cameraOrbit(e, f, fov);
+  if (specCam) { specEye = e; specFwd = f; }
+  return specCam;
+}
+bool Game::cameraOrbit(vec3& e, vec3& f, float& fov) {
   if (active && aiDebugCamera(*this, e, f, fov)) return true;   // W6: AI debug follow camera
   Soldier* L = local();
   if (!active || (L && L->alive)) return false;
@@ -1131,8 +1138,15 @@ bool Game::camera(vec3& e, vec3& f, float& fov) {
   vec3 target = w >= 0 ? sold[w].feet + vec3(0, 1.6f, 0) : L->feet + vec3(0, 1.0f, 0);
   float yaw = w >= 0 ? sold[w].yaw : L->yaw;
   vec3 back = vec3(std::sin(radians(yaw)), 0.45f, std::cos(radians(yaw))) * 3.2f;
+  // the wall test starts outside the watched body (from its head it hit its own capsule and put the camera inside the
+  // model: an invisible body); never closer than 1 m to the head: a wall that close lifts the camera over the shoulder
+  const vec3 nb = glm::normalize(back); const float L0 = 0.6f;
   Physics::Hit h; vec3 cpos = target + back;
-  if (Physics::castRayEx(target, back, glm::length(back), h)) cpos = target + glm::normalize(back) * std::max(0.3f, h.t - 0.2f);
+  if (Physics::castRayEx(target + nb * L0, nb, glm::length(back) - L0, h)) {
+    float d = L0 + h.t - 0.2f;
+    if (d >= 1.0f) cpos = target + nb * d;
+    else { vec3 up = target + vec3(0, 1.4f, 0) + nb * 0.6f; Physics::Hit h2; cpos = Physics::castRayEx(target, glm::normalize(up - target), glm::length(up - target), h2) ? target + vec3(0, 1.0f, 0) : up; }
+  }
   e = cpos; f = glm::normalize(target - cpos); fov = 70;
   return true;
 }
