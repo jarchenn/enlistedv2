@@ -64,7 +64,7 @@ void brWornDraws(App& app, Game& G, const Soldier& s, const mat4& world, std::ve
 bool brHidePart(const Soldier& s, const std::string& partName) { return s.helmetLvl > 0 && partName.find("Hats") != std::string::npos; }
 
 // ---------------------------------------------------------------- optics
-static const char* sightId(int k) { static const char* ids[6] = {"", "br_sight_reddot", "br_sight_acog", "br_sight_4x", "br_sight_10x", "br_sight_holo"}; return ids[std::clamp(k, 0, 5)]; }   // AT1: 5 the holographic sight
+static const char* sightId(int k) { static const char* ids[7] = {"", "br_sight_reddot", "br_sight_acog", "br_sight_4x", "br_sight_10x", "br_sight_holo", "br_sight_thermal"}; return ids[std::clamp(k, 0, 6)]; }   // AT1: 5 the holographic sight; TH1: 6 the thermal scope
 // AT1: an optic's sight block: the local bake's own ("modelSight") when its model is loaded, else the committed stand-in's
 static const json& sightOf(const AssetDef& a) { return a.model && a.raw.contains("modelSight") ? a.raw["modelSight"] : a.raw["sight"]; }
 

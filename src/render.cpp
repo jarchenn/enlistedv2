@@ -1934,10 +1934,25 @@ void main(){
 //   rim from 0.86 R out with a soft inner vignette, and beyond it the same (magnified) frame lightly blurred and dimmed, not black.
 // uMode 1 (after the weapon, blended ONE / SRC_ALPHA into hdrColor): the inside comes back from the composite, so the
 //   weapon shows only around the eyepiece; outside, the weapon is shaded by uShade (out of focus, in the eye's shadow).
+// TH1 thermal: the heat of the warm things (soldiers, engines) into an R16F target, depth-tested against the scene (walls
+// hide them; smoke, which writes no depth, does not). The eyepiece shader maps it over a cold monochrome of the scene.
+static const char* kHeatVS = R"GLSL(
+#version 450 core
+layout(location=0) in vec3 aPos;
+uniform mat4 uVP, uModel; out float vY;
+void main(){ vec4 w = uModel*vec4(aPos, 1.0); vY = w.y; gl_Position = uVP*w; }
+)GLSL";
+static const char* kHeatFS = R"GLSL(
+#version 450 core
+uniform float uHeat, uHeadY; in float vY; out float oHeat;
+void main(){ oHeat = uHeat + (vY > uHeadY ? 0.22 : vY > uHeadY - 0.55 ? 0.1 : 0.0); }   // head hottest, the chest warmer than the limbs
+)GLSL";
+
 static const char* kEyepieceFS = R"GLSL(
 #version 450 core
 in vec2 vUV;
 uniform sampler2D uSrc; uniform vec2 uRes; uniform float uR, uDark, uShade; uniform int uReticle, uMode;
+uniform int uThermal, uNSpots; uniform sampler2D uHeat, uDepthT; uniform vec4 uSpots[16]; uniform float uSpotZ[16], uTime;   // TH1
 out vec4 oColor;
 float segD(vec2 p, vec2 a, vec2 b){ vec2 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba)/dot(ba, ba), 0.0, 1.0); return length(pa - ba*h); }
 float cov(float d){ return clamp(0.5 - d, 0.0, 1.0); }   // ink coverage at signed distance d (px, < 0 inside)
@@ -1985,6 +2000,11 @@ float reticleInk(vec2 q, float R){
     redInk = cov(dch - 2.2*t);
     if (q.y < -1.4*u && q.y > -6.0*u) ink = cov(abs(q.x) - t);       // the drop post
     for (int k = 0; k < 4; ++k) { float y = -(2.0 + 1.1*float(k))*u, hw = (0.9 - 0.18*float(k))*u; ink = max(ink, cov(max(abs(q.y - y) - t, abs(q.x) - hw))); }
+  } else if (uReticle == 8) {   // TH1 thermal: thin cross with an open centre, a small red dot, range ticks down the lower post
+    float t = max(0.6, R*0.0014), gap = R*0.06; vec2 a = abs(q);
+    ink = max(cov(max(a.y - t, gap - a.x)), cov(max(a.x - t, gap - a.y)));
+    for (int k = 1; k <= 5; ++k) ink = max(ink, cov(max(abs(q.y + gap + float(k)*R*0.075) - t, a.x - R*((k % 2 == 0) ? 0.032 : 0.018))));
+    redInk = cov(length(q) - max(1.4, R*0.0055));
   } else if (uReticle == 3) {   // TZF: big chevron (aim point at its tip), a row of small range chevrons, a post, dotted range arcs
     float u = R*0.25, lw = max(1.0, R*0.0035), d = 1e9;
     d = min(d, segD(q, vec2(0.0), vec2(-0.45*u, -0.63*u)));
@@ -2012,7 +2032,25 @@ void main(){
   float Ri = rifle ? 0.86*R : R;
   if (rifle) f = clamp(Ri + 0.5 - r, 0.0, 1.0);
   if (uMode == 1) { vec3 c = textureLod(uSrc, vUV, 0.0).rgb; oColor = vec4(c*f, (1.0 - f)*uShade*mix(1.0, 0.55, outer)); return; }
-  vec3 sharp = textureLod(uSrc, vUV, 0.0).rgb * (rifle ? mix(1.0, 0.25, smoothstep(0.62*R, Ri, r)) : mix(1.0, 0.6, smoothstep(0.8*R, R, r)));
+  vec3 sharp = textureLod(uSrc, vUV, 0.0).rgb;
+  if (uThermal == 1) {   // TH1: cold surroundings in deep blue / teal by the scene's own relative brightness (sky coldest), heat over it
+    const vec3 lw = vec3(0.2126, 0.7152, 0.0722);
+    float avg = max(dot(textureLod(uSrc, vec2(0.5), 12.0).rgb, lw), 1e-4), L = dot(sharp, lw), d = textureLod(uDepthT, vUV, 0.0).r;
+    float loc = max(dot(textureLod(uSrc, vUV, 5.0).rgb, lw), 1e-5);   // local contrast: surfaces against their surroundings (the sensor's detail)
+    float cold = d <= 0.0 ? 0.03 : clamp(0.08 + 0.3*L/(L + 1.6*avg) + 0.12*clamp(L/loc - 1.0, -0.6, 0.6), 0.02, 0.42);
+    float heat = textureLod(uHeat, vUV, 0.0).r;
+    for (int i = 0; i < uNSpots; ++i) {
+      vec2 dd = (vUV - uSpots[i].xy)*vec2(uRes.x/uRes.y, 1.0); float rr = length(dd)/max(uSpots[i].z, 1e-4);
+      if (rr < 1.0 && d <= uSpotZ[i]*1.002 + 1e-6) heat = max(heat, uSpots[i].w*(1.0 - rr*rr));
+    }
+    float T = max(cold, heat);
+    vec3 c = T < 0.4 ? mix(vec3(0.004, 0.012, 0.035), vec3(0.03, 0.16, 0.22), T/0.4)
+           : T < 0.8 ? mix(vec3(0.03, 0.16, 0.22), vec3(0.75, 0.97, 1.0), (T - 0.4)/0.4)
+                     : mix(vec3(0.75, 0.97, 1.0), vec3(1.0, 0.35, 0.45), clamp((T - 0.8)/0.35, 0.0, 1.0));
+    float g = fract(sin(dot(floor(vUV*uRes*0.5) + floor(uTime*12.0), vec2(12.9898, 78.233)))*43758.5453);   // sensor grain, a low refresh
+    sharp = c*(1.0 + 0.06*(g - 0.5))*max(avg, 0.05)*4.0;   // the sensor's own gain: as bright at night as by day
+  }
+  sharp *= (rifle ? mix(1.0, 0.25, smoothstep(0.62*R, Ri, r)) : mix(1.0, 0.6, smoothstep(0.8*R, R, r)));
   sharp = mix(sharp, vec3(0.0015), reticleInk(q, Ri));
   sharp = mix(sharp, vec3(4.0, 0.12, 0.06), redInk);   // illuminated parts glow red
   float bl = R*(rifle ? 0.035 : 0.09), lod = log2(max(1.0, bl/3.0));   // SC1: the rifle surround only a little blurred
@@ -3463,6 +3501,7 @@ bool Renderer::init(int w, int h) {
   progFolModel = compile(kFolVS, kModelFS, "fol_model"); progFolDepth = compile(kFolVS, kFolDepthFS, "fol_depth");   // NT8
   progDof = compile(kFullVS, kDofFS, "dof");
   progEyepiece = compile(kFullVS, kEyepieceFS, "eyepiece");
+  progHeat = compile(kHeatVS, kHeatFS, "thermal heat");   // TH1
   progShaft = compile(kFullVS, kShaftFS, "shafts");
   progSsao = compile(kFullVS, kSsaoFS, "ssao");
   progBloomDown = compile(kFullVS, kBloomDownFS, "bloom_down");
@@ -4650,6 +4689,30 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glEnable(GL_CULL_FACE);
   }
   if (!folModels.empty()) { setLighting(progFolModel, v); drawFolModels(false, vp, &frMain); }   // NT8 model foliage
+  if (v.thermal && progHeat) {   // TH1: the warm bodies into the heat target, against the scene depth (no depth writes)
+    if (!heatTex || heatW != width || heatH != height || heatDepthOf != depthTex) {
+      if (heatTex) glDeleteTextures(1, &heatTex); if (heatFbo) glDeleteFramebuffers(1, &heatFbo);
+      glCreateTextures(GL_TEXTURE_2D, 1, &heatTex); glTextureStorage2D(heatTex, 1, GL_R16F, width, height);
+      glTextureParameteri(heatTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(heatTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glCreateFramebuffers(1, &heatFbo); glNamedFramebufferTexture(heatFbo, GL_COLOR_ATTACHMENT0, heatTex, 0); glNamedFramebufferTexture(heatFbo, GL_DEPTH_ATTACHMENT, depthTex, 0);
+      heatW = width; heatH = height; heatDepthOf = depthTex;
+    }
+    GLint prevFbo = 0, df = GL_GREATER; glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevFbo); glGetIntegerv(GL_DEPTH_FUNC, &df);
+    const float zero[4] = {0, 0, 0, 0}; glClearNamedFramebufferfv(heatFbo, GL_COLOR, 0, zero);
+    glBindFramebuffer(GL_FRAMEBUFFER, heatFbo);
+    glDepthFunc(df == GL_GREATER ? GL_GEQUAL : df == GL_LESS ? GL_LEQUAL : (GLenum)df); glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE);
+    glEnable(GL_BLEND); glBlendEquation(GL_MAX);
+    glUseProgram(progHeat); glUniformMatrix4fv(U(progHeat, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+    const GLint lM = U(progHeat, "uModel"), lH = U(progHeat, "uHeat"), lY = U(progHeat, "uHeadY");
+    for (auto& h : heatDraws) {
+      const GpuModel* m = h.md.model; if (!m || !m->vao || h.md.part < 0 || h.md.part >= (int)m->parts.size()) continue;
+      const auto& pt = m->parts[h.md.part];
+      glBindVertexArray(m->vao); glUniformMatrix4fv(lM, 1, GL_FALSE, glm::value_ptr(h.md.m)); glUniform1f(lH, h.heat); glUniform1f(lY, h.headY);
+      glDrawElements(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u));
+    }
+    glBlendEquation(GL_FUNC_ADD); glDisable(GL_BLEND); glDepthMask(GL_TRUE); glDepthFunc((GLenum)df);
+    glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFbo);
+  }
   gpuMark(GP_Trees);
   // tree canopies (double sided, alpha tested)
   if (!foliage.empty()) {
@@ -4768,7 +4831,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glUseProgram(progFx);
     glUniformMatrix4fv(U(progFx, "uVP"), 1, GL_FALSE, glm::value_ptr(vpU));   // after the TAA resolve: unjittered
     glBindVertexArray(fxVao);
-    if (!fxAlpha.empty()) {
+    if (!fxAlpha.empty() && !v.thermal) {   // TH1: smoke and dust do not block a thermal view (fires and flashes, additive, stay)
       glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); glUniform1i(U(progFx, "uAdd"), 0);
       glNamedBufferData(fxVbo, fxAlpha.size() * sizeof(FxVert), fxAlpha.data(), GL_STREAM_DRAW);
       glDrawArrays(GL_TRIANGLES, 0, (GLsizei)fxAlpha.size());
@@ -4794,6 +4857,22 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glUniform1f(U(progEyepiece, "uDark"), v.reticle == 3 ? 0.006f : 0.7f);   // linear: gunner sight soft black; SC1 rifle scopes: the blurred view, a little darker
     glUniform1f(U(progEyepiece, "uShade"), 0.6f);
     glUniform1i(U(progEyepiece, "uReticle"), v.reticle); glUniform1i(U(progEyepiece, "uMode"), mode);
+    glUniform1i(U(progEyepiece, "uThermal"), v.thermal && mode == 0 && heatTex ? 1 : 0);
+    if (v.thermal && mode == 0 && heatTex) {   // TH1: the heat target, the scene depth, the hot spots (fires, blasts, muzzle flashes) projected
+      glBindTextureUnit(5, heatTex); glUniform1i(U(progEyepiece, "uHeat"), 5); glBindTextureUnit(6, depthTex); glUniform1i(U(progEyepiece, "uDepthT"), 6);
+      static double clock = 0; clock = std::fmod(clock + v.dt, 1000.0); glUniform1f(U(progEyepiece, "uTime"), (float)clock);
+      vec4 sp[16]; float sz[16]; int n = 0; const mat4 P = v.proj * v.view;
+      std::sort(heatSpots.begin(), heatSpots.end(), [&](const vec4& a, const vec4& b) { return glm::length(vec3(a) - v.camPos) < glm::length(vec3(b) - v.camPos); });   // the nearest 16
+      for (auto& h : heatSpots) {
+        if (n >= 16) break;
+        vec4 c = P * vec4(vec3(h), 1.0f); if (c.w <= 0.05f) continue;
+        vec3 ndc = vec3(c) / c.w; float rad = std::fabs(h.w) * v.proj[1][1] / c.w * 0.5f;
+        if (std::fabs(ndc.x) > 1.2f || std::fabs(ndc.y) > 1.2f) continue;
+        sp[n] = vec4(ndc.x * 0.5f + 0.5f, ndc.y * 0.5f + 0.5f, rad, h.w > 0 ? 1.15f : 0.75f); sz[n] = ndc.z; ++n;
+      }
+      glUniform1i(U(progEyepiece, "uNSpots"), n);
+      if (n) { glUniform4fv(U(progEyepiece, "uSpots"), n, glm::value_ptr(sp[0])); glUniform1fv(U(progEyepiece, "uSpotZ"), n, sz); }
+    }
     glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
     glEnable(GL_DEPTH_TEST);
   };
@@ -4942,6 +5021,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   if (upActive) swapUp();   // P1: back to the internal set for the next frame (upActive stays: readPixels reads the output set)
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE); glClearDepth(1.0); glDepthFunc(GL_LESS);   // back to standard GL
+  thermalWanted = v.thermal; heatDraws.clear(); heatSpots.clear();   // TH1: the game collects heat next frame only while a thermal view is up
   water.clear();
   lightingEnd(*this);
   gpuMark(GP_UI);   // ends at the app's GP_Count mark after ImGui

@@ -43,6 +43,7 @@
     {"id": "br_sight_acog", "name": "ACOG", "kind": "sight", "value": 2, "weight": 15, "rarity": 2},
     {"id": "br_sight_4x", "name": "4x scope", "kind": "sight", "value": 3, "weight": 15, "rarity": 2},
     {"id": "br_sight_10x", "name": "10x scope", "kind": "sight", "value": 4, "weight": 15, "rarity": 1},
+    {"id": "br_sight_thermal", "name": "Thermal scope", "kind": "sight", "value": 6, "weight": 20, "rarity": 0.5, "military": true},
     {"id": "br_mag_ext", "name": "Extended magazine", "kind": "mag", "value": 1, "weight": 10, "rarity": 3},
     {"id": "br_suppressor", "name": "Suppressor", "kind": "muzzle", "value": 1, "weight": 15, "rarity": 2},
     {"id": "br_muzzle_brake", "name": "Muzzle brake", "kind": "muzzle", "value": 2, "weight": 15, "rarity": 3},

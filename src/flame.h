@@ -34,6 +34,7 @@ public:
   int emitted = 0, wallStops = 0, groundPatches = 0, soldierHits = 0;
   size_t parcelCount() const { return parcels_.size(); }
   size_t patchCount() const { return patches_.size(); }
+  const std::vector<FlamePatch>& patches() const { return patches_; }   // TH1: burning ground reads hot through a thermal scope
   bool open(int key) const { auto it = nz_.find(key); return it != nz_.end() && it->second.lastOn >= t_ - 0.12; }
   bool anyOpen() const { for (auto& [k, n] : nz_) if (n.lastOn >= t_ - 0.12) return true; return false; }
 private:
