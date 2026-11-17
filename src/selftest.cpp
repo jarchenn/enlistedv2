@@ -150,6 +150,10 @@ void SelfTest::update(App& app, float dt) {
   { extern bool zombiesSelfTest(App&, float); if (zombiesSelfTest(app, dt)) return; }
   { extern bool sdSelfTest(App&, float); if (sdSelfTest(app, dt)) return; }   // --selftest-sd (selftest_sd.cpp)
   { extern bool sdTimingsTest(App&, float); if (sdTimingsTest(app, dt)) return; }   // SD2 --sd-timings (selftest_sd_timings.cpp)
+  { extern bool playerDmgSelfTest(App&, float); if (playerDmgSelfTest(app, dt)) return; }   // --selftest-playerdmg (selftest_playerdmg.cpp)
+  { extern bool proneSelfTest(App&, float); if (proneSelfTest(app, dt)) return; }   // --selftest-prone (selftest_prone.cpp)
+  { extern bool sd3SelfTest(App&, float); if (sd3SelfTest(app, dt)) return; }   // --selftest-sd3 (selftest_sd3.cpp)
+  { extern bool spectateSelfTest(App&, float); if (spectateSelfTest(app, dt)) return; }   // --selftest-spectate (selftest_spectate.cpp)
   { extern bool vehicleAiSelfTest(App&, float); if (vehicleAiSelfTest(app, dt)) return; }   // --check-vehicle-ai (selftest_vehicle_ai.cpp)
   { extern bool turnEngageSelfTest(App&, float); if (turnEngageSelfTest(app, dt)) return; }   // AI5: --check-turn-engage (selftest_turn.cpp)
   { extern bool leanCapture(App&, float); if (leanCapture(app, dt)) return; }   // MV3: --capture-lean (selftest_lean.cpp)

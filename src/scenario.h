@@ -118,7 +118,7 @@ struct ScenarioRules {
   float captureBase = 5.0f, capturePresenceFull = 5.0f;   // contest model: %/s at full advantage; attackers for full presence
   float laneLeft = 0.2f, laneMain = 0.6f, laneRight = 0.2f;
   bool friendlyFire = false;      // explosive / bullet damage to own side (default off; exposed in setup)
-  bool sdShort = false, sdWarmup = true;   // SD1 Search and Destroy: the MR12 preset (first to 13) instead of MR15; a warmup before round 1
+  bool sdShort = false, sdWarmup = false, sdVehicles = false;   // SD1 Search and Destroy: the MR12 preset (first to 13) instead of MR15; a warmup before round 1 (SD3: off by default); SD3 vehicles in the rounds (off: none exist)
   // ---- G1 modes (Solo / TDM); Assault ignores these
   GameMode mode = GameMode::Assault;
   int killCap = 25;               // Solo: the top player's kills; TDM: a team's kills

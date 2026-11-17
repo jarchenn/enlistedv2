@@ -1,4 +1,5 @@
-// UI2 Battle Foundry logo: the emblem (an off-white shield outline round an anvil, a flame above it with an orange core)
+// UI2 Battle Foundry logo. content/ui/logo.png (the user's artwork, keyed to alpha; logo_mark.png = the shield alone)
+// is drawn when present; otherwise this vector recreation: the emblem (an off-white shield outline round an anvil, a flame above it with an orange core)
 // and the wordmark between two thin rules. This file is the whole logo: swap it, or drop the artwork in as
 // content/ui/logo.png (transparent, emblem + wordmark side by side) and that image is drawn instead.
 #include "logo.h"
@@ -9,16 +10,18 @@
 namespace {
 const ImU32 kInk = IM_COL32(236, 232, 224, 255);   // off-white
 
-GLuint gPng = 0; int gPngW = 0, gPngH = 0; bool gPngTried = false;
-bool pngLogo() {
-  if (gPngTried) return gPng != 0;
-  gPngTried = true;
-  int w, h, c; stbi_uc* p = stbi_load((contentDir() / "ui" / "logo.png").string().c_str(), &w, &h, &c, 4);
-  if (!p) return false;
-  glCreateTextures(GL_TEXTURE_2D, 1, &gPng); glTextureStorage2D(gPng, 1, GL_RGBA8, w, h);
-  glTextureSubImage2D(gPng, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, p);
-  glTextureParameteri(gPng, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(gPng, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  stbi_image_free(p); gPngW = w; gPngH = h;
+struct Png { GLuint tex = 0; int w = 0, h = 0; bool tried = false; };
+Png gFull, gMark;
+bool loadPng(Png& p, const char* file) {
+  if (p.tried) return p.tex != 0;
+  p.tried = true;
+  int w, h, c; stbi_uc* d = stbi_load((contentDir() / "ui" / file).string().c_str(), &w, &h, &c, 4);
+  if (!d) return false;
+  glCreateTextures(GL_TEXTURE_2D, 1, &p.tex); glTextureStorage2D(p.tex, 1, GL_RGBA8, w, h);
+  glTextureSubImage2D(p.tex, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, d);
+  glTextureParameteri(p.tex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(p.tex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTextureParameteri(p.tex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(p.tex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  stbi_image_free(d); p.w = w; p.h = h;
   return true;
 }
 ImU32 fade(ImU32 c, float a) { return (c & 0x00ffffffu) | ((ImU32)((float)(c >> 24) * a) << 24); }
@@ -60,9 +63,10 @@ static void emblem(ImDrawList* dl, ImVec2 p, float h, float a) {
 }
 
 float drawLogo(ImDrawList* dl, ImVec2 p, float h, float a, bool wordmark) {
-  if (pngLogo()) {
-    float w = h * gPngW / (float)gPngH * (wordmark ? 1.0f : 1.0f);
-    dl->AddImage((ImTextureID)(intptr_t)gPng, p, ImVec2(p.x + w, p.y + h), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, (int)(255 * a)));
+  Png& img = wordmark ? gFull : gMark;
+  if (loadPng(img, wordmark ? "logo.png" : "logo_mark.png")) {   // the user's artwork (keyed to alpha) replaces the vector logo
+    const float w = h * img.w / (float)img.h;
+    dl->AddImage((ImTextureID)(intptr_t)img.tex, p, ImVec2(p.x + w, p.y + h), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, (int)(255 * a)));
     return w;
   }
   emblem(dl, p, h, a);
@@ -88,3 +92,5 @@ float drawLogo(ImDrawList* dl, ImVec2 p, float h, float a, bool wordmark) {
   }
   return cx - p.x;
 }
+
+float logoImageAspect() { return loadPng(gFull, "logo.png") ? gFull.w / (float)gFull.h : 0.0f; }

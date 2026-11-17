@@ -3,6 +3,7 @@
 // in the match) or a player name from the match roster; an omitted target is you. Outside a match only you exist.
 #include "sd_game.h"
 #include "commands.h"
+#include "ui_glass.h"   // UI2: glass panel backgrounds
 #include "app.h"
 #include "game.h"
 #include "enemy_types.h"
@@ -290,7 +291,7 @@ void commandsFrame(App& app) {
     std::string tag = gAdmin.on ? "ADMIN" : ""; auto add = [&](bool b, const char* s) { if (b) tag += (tag.empty() ? "" : "  ") + std::string(s); };
     add(gAdmin.fly, "FLY"); add(gAdmin.peace, "PEACE"); add(!gAdmin.on && gAdmin.build, "BUILD");
     ImVec2 ts = ImGui::CalcTextSize(tag.c_str()), p(io.DisplaySize.x * 0.5f - ts.x * 0.5f, 96);
-    ImDrawList* dl = ImGui::GetForegroundDrawList(); dl->AddRectFilled(ImVec2(p.x - 8, p.y - 3), ImVec2(p.x + ts.x + 8, p.y + ts.y + 3), IM_COL32(0, 0, 0, 140), 4);
+    ImDrawList* dl = ImGui::GetForegroundDrawList(); uiGlassPanel(dl, ImVec2(p.x - 8, p.y - 3), ImVec2(p.x + ts.x + 8, p.y + ts.y + 3), std::max(8.0f, (float)4));
     dl->AddText(p, IM_COL32(255, 170, 40, 255), tag.c_str());
   }
   if (!st.result.empty() && ImGui::GetTime() < st.resultUntil) {

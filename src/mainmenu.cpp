@@ -120,7 +120,7 @@ const int kN = (int)(sizeof kItems / sizeof kItems[0]);
 
 struct State {
   bool open = false, loaded = false, launched = false, showControls = false, soldierLocal = false;
-  int sel = 0, sel2 = 0, focus = 0; Page page = Main;
+  int sel = 0, sel2 = 0, focus = 0, charTab = 0; Page page = Main;
   double openedAt = 0, pageAt = -10; float hl[kN] = {};
   Img bg, bgBlur, soldier, fog, vig;
   std::vector<Ember> embers; uint32_t rng = 12345;
@@ -144,7 +144,7 @@ void tracked(ImDrawList* dl, ImFont* f, float px, ImVec2 p, ImU32 col, const cha
 }
 
 // ---------------------------------------------------------------- character preview (the turning player body)
-struct Preview { std::string id; std::unique_ptr<CharModel> m; CharInstance ci; bool ok = false; GLuint tex = 0; int w = 0, h = 0; double next = 0; float yaw = 20; int weapon = -2; } P;   // yaw 20: starts facing the viewer
+struct Preview { std::string id; std::unique_ptr<CharModel> m; CharInstance ci; bool ok = false, humanoid = true; vec3 vlo{0}, vhi{0}; GLuint tex = 0; int w = 0, h = 0; double next = 0; float yaw = 20; int weapon = -2; } P;   // yaw 20: starts facing the viewer
 std::vector<std::pair<std::string, std::string>> bodies() {   // id, label (soldier bodies only: no creatures)
   std::vector<std::pair<std::string, std::string>> v{{"", "By faction (default)"}};
   std::error_code ec;
@@ -171,7 +171,15 @@ void drawPreview(App& app, ImDrawList* dl, ImVec2 mn, ImVec2 mx, float a) {
   if (P.id != id) {
     if (P.ok) P.ci.destroy();
     P.ok = false; P.id = id; P.m = std::make_unique<CharModel>(); std::string e;
-    if (initSkinning(e) && P.m->load(contentDir() / "characters" / (id + ".glb"), e) && P.ci.create(*P.m)) P.ok = true;
+    const fs::path gp = contentDir() / "characters" / (id + ".glb");
+    P.humanoid = initSkinning(e) && P.m->load(gp, e);
+    if (!P.humanoid) { P.m = std::make_unique<CharModel>(); std::string e2; if (P.m->load(gp, e2, 0, false)) e.clear(); }   // UI3: a body without the soldier joints shows in its bind pose
+    if (P.humanoid && !P.m->clips.empty()) P.humanoid = false;   // an enemy body with its own clips: its bind pose, not the soldier's procedural one
+    if ((P.humanoid || e.empty()) && P.ci.create(*P.m)) P.ok = true;
+    if (P.ok) {   // the drawn bind-pose mesh's extent (1st..99th percentile per axis: a stray vertex does not shrink the framing)
+      std::vector<float> ax[3]; for (auto& v : P.m->verts) for (int k = 0; k < 3; ++k) ax[k].push_back(v.pos[k]);
+      for (int k = 0; k < 3; ++k) if (!ax[k].empty()) { std::sort(ax[k].begin(), ax[k].end()); P.vlo[k] = ax[k][ax[k].size() / 100]; P.vhi[k] = ax[k][ax[k].size() - 1 - ax[k].size() / 100]; }
+    }
     else logf("menu: character preview %s: %s", id.c_str(), e.c_str());
     P.next = 0;
   }
@@ -180,20 +188,30 @@ void drawPreview(App& app, ImDrawList* dl, ImVec2 mn, ImVec2 mx, float a) {
   P.yaw += ImGui::IsItemActive() ? ImGui::GetIO().MouseDelta.x * 0.6f : ImGui::GetIO().DeltaTime * 14.0f;   // drag to turn, else a slow spin
   const int w = std::clamp((int)(mx.x - mn.x), 16, 900), h = std::clamp((int)(mx.y - mn.y), 16, 1400);
   int wi = app.weaponIndex(settings().s.primary.empty() ? "m1_garand" : settings().s.primary);
+  if (wi < 0) wi = app.weaponIndex("m1_garand");   // WP7: a saved primary that no longer exists (the FN 502) shows the default
   if (ImGui::GetTime() >= P.next || w != P.w || h != P.h || wi != P.weapon) {
     P.next = ImGui::GetTime() + 0.05; P.weapon = wi;
     PoseParams pp; pp.carry = 1; pp.holdWeapon = wi >= 0;
-    const WeaponDef* d = wi >= 0 ? app.weaponDefs[wi].get() : nullptr;
+    const WeaponDef* d = wi >= 0 && P.humanoid ? app.weaponDefs[wi].get() : nullptr;
     if (d) { pp.gripR = d->gripR; pp.gripL = d->gripL; pp.magPos = d->gripL + vec3(0, -0.1f, -0.12f); }
-    PoseResult pr; poseCharacter(*P.m, pp, pr); P.ci.skin(pr.skin);
+    PoseResult pr;
+    if (P.humanoid) { poseCharacter(*P.m, pp, pr); P.ci.skin(pr.skin); } else { P.ci.skin(std::vector<mat4>(P.m->joints(), mat4(1))); d = nullptr; }
     std::vector<ModelDraw> md; std::vector<DrawItem> boxes;
     mat4 world = glm::rotate(mat4(1), glm::radians(P.yaw), vec3(0, 1, 0));
     for (int k = 0; k < (int)P.ci.view.parts.size(); ++k) md.push_back({&P.ci.view, k, world});
     if (d && d->useModel()) { mat4 W = world * pr.weapon; for (int p = 0; p < 8; ++p) for (int k : d->worldParts()[p]) md.push_back({d->worldModel(), k, W}); }
-    float tv = std::tan(glm::radians(15.0f)), dist = std::max(1.08f / tv, 0.45f / (tv * (float)w / h)) + 0.4f;
-    vec3 c(0, 0.93f, 0), eye(0, 1.05f, dist);
+    // UI3 (h): framed by the body's own bounds (a 4 m golem fills the box like a 1.8 m soldier); a little room for the rifle
+    vec3 bmn = P.vlo, bmx = P.vhi;
+    if (P.humanoid) {   // the posed joints (head to feet, hands), padded for the head top, the soles and the flesh round them
+      vec3 lo(1e9f), hi(-1e9f); for (int k = 0; k < CJ_COUNT; ++k) if (P.m->semantic[k] >= 0) { lo = glm::min(lo, pr.joint[k]); hi = glm::max(hi, pr.joint[k]); }
+      if (hi.y > lo.y) { const float t = hi.y - lo.y; bmn = lo - vec3(0.12f * t, 0.06f * t, 0.12f * t); bmx = hi + vec3(0.12f * t, 0.10f * t, 0.12f * t); }
+    }
+    if (!(bmx.y > bmn.y)) { bmn = vec3(-0.4f, 0, -0.4f); bmx = vec3(0.4f, 1.85f, 0.4f); }
+    const float hh = bmx.y - bmn.y, rad = 0.5f * std::max({bmx.x - bmn.x, bmx.z - bmn.z, hh * (d ? 0.5f : 0.3f)});   // turning: the widest horizontal extent
+    float tv = std::tan(glm::radians(15.0f)), dist = std::max(0.56f * hh / tv, 1.08f * rad / (tv * (float)w / h)) + rad;
+    vec3 c(0.5f * (bmn.x + bmx.x), bmn.y + 0.5f * hh, 0.5f * (bmn.z + bmx.z)), eye = c + vec3(0, 0.06f * hh, dist);
     std::vector<uint8_t> px;
-    if (app.R.renderModelSheet(md, boxes, glm::lookAt(eye, c, vec3(0, 1, 0)), glm::perspective(glm::radians(30.0f), (float)w / h, 0.1f, 40.0f), eye, w, h, px, true)) {
+    if (app.R.renderModelSheet(md, boxes, glm::lookAt(eye, c, vec3(0, 1, 0)), glm::perspective(glm::radians(30.0f), (float)w / h, 0.05f * dist, dist + 4 * rad + 40.0f), eye, w, h, px, true)) {
       if (!P.tex || w != P.w || h != P.h) {
         if (P.tex) glDeleteTextures(1, &P.tex);
         glCreateTextures(GL_TEXTURE_2D, 1, &P.tex); glTextureStorage2D(P.tex, 1, GL_RGBA8, w, h);
@@ -303,7 +321,7 @@ void mainMenuFrame(App& app) {
   dl->AddRectFilledMultiColor(V(0, H * 0.80f), V(W, H), rgba(4, 6, 7, 0), rgba(4, 6, 7, 0), rgba(4, 6, 7, 0.70f), rgba(4, 6, 7, 0.70f));
 
   // ---- logo
-  drawLogo(dl, V(72 * s, 56 * s), 128 * s, fadeIn);
+  drawLogo(dl, V(72 * s, 56 * s), (logoImageAspect() > 0 ? 88.0f : 128.0f) * s, fadeIn);   // UI3: the artwork is a wide lock-up
 
   // ---- input
   const bool overlay = settings().open || S.showControls || gUi.showSetup || gUi.showJoin;   // their own windows take the keys
@@ -335,7 +353,6 @@ void mainMenuFrame(App& app) {
     const float tx = x0 + 22 * s + 8 * s * h;
     if (h > 0.01f) dl->AddRectFilled(V(x0, y + px * 0.12f), V(x0 + 3 * s, y + px * 0.98f), alphaOf(kAccent, h * a));
     tracked(dl, fh, px, V(tx, y), rgba(236, 232, 224, (0.50f + 0.50f * h) * a), kItems[k].label, track);
-    if (h > 0.02f) dl->AddText(fb, 15 * s, V(tx, y + px * 1.22f), rgba(200, 200, 194, 0.62f * h * a), kItems[k].hint);
   }
   // ---- footer: version, key hints
   {
@@ -347,14 +364,32 @@ void mainMenuFrame(App& app) {
   }
 
   // ---- right panel (Play / Character / Credits)
-  if (S.page != Guns && S.page != Vehicles) statEditorFlush(app);   // ED2: edits apply when their screen is left
-  if (S.page == Guns || S.page == Vehicles) {   // ED2: the stat editors take a wider panel
+  int& charTab = S.charTab;   // UI3 (h): Character > YOUR SOLDIER / AI TYPES
+  if (S.page != Character) charTab = 0;
+  if (S.page != Guns && S.page != Vehicles && !(S.page == Character && charTab == 1)) statEditorFlush(app);   // ED2: edits apply when their screen is left
+  // the Character tabs (clickable labels on the panel's title row; Tab switches)
+  auto charTabs = [&](ImVec2 at, float pa) {
+    const char* names[2] = {"YOUR SOLDIER", "AI TYPES"}; float x = at.x;
+    if (!io.WantCaptureKeyboard && ImGui::IsKeyPressed(ImGuiKey_Tab, false)) charTab ^= 1;
+    for (int k = 0; k < 2; ++k) {
+      const float tw = trackedW(fh, 18 * s, names[k], 18 * s * 0.16f);
+      const ImVec2 a0(x - 10 * s, at.y - 8 * s), a1(x + tw + 10 * s, at.y + 28 * s);
+      const bool hov = !io.WantCaptureMouse && ImGui::IsMouseHoveringRect(a0, a1, false);
+      if (hov && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) { charTab = k; S.pageAt = ImGui::GetTime(); }
+      tracked(dl, fh, 18 * s, V(x, at.y), rgba(236, 232, 224, (charTab == k ? 1.0f : hov ? 0.75f : 0.5f) * pa), names[k], 18 * s * 0.16f);
+      if (charTab == k) dl->AddRectFilled(V(x, at.y + 26 * s), V(x + tw, at.y + 28 * s), alphaOf(kAccent, pa));
+      x += tw + 34 * s;
+    }
+  };
+  if (S.page == Guns || S.page == Vehicles || (S.page == Character && charTab == 1)) {   // ED2: the stat editors take a wider panel (UI3: the AI types too)
     const float pa = ease(((float)ImGui::GetTime() - (float)S.pageAt) / 0.16f) * fadeIn, off = (1 - pa) * 26 * s;
     const ImVec2 mn(W * 0.27f + off, 120 * s), mx(W - 48 * s + off, H - 90 * s);
     menuGlass(dl, mn, mx, pa);
-    tracked(dl, fh, 30 * s, V(mn.x + 32 * s, mn.y + 26 * s), rgba(236, 232, 224, pa), S.page == Guns ? "GUNS" : "VEHICLES", 30 * s * 0.16f);
+    const char* ttl = S.page == Guns ? "GUNS" : S.page == Vehicles ? "VEHICLES" : "CHARACTER";
+    tracked(dl, fh, 30 * s, V(mn.x + 32 * s, mn.y + 26 * s), rgba(236, 232, 224, pa), ttl, 30 * s * 0.16f);
     dl->AddRectFilled(V(mn.x + 32 * s, mn.y + 72 * s), V(mn.x + 76 * s, mn.y + 74 * s), alphaOf(kAccent, pa));
-    statEditorPage(app, S.page == Guns ? 0 : 1, V(mn.x + 32 * s, mn.y + 90 * s), V(mx.x - 28 * s, mx.y - 24 * s), pa);
+    if (S.page == Character) charTabs(V(mn.x + 32 * s + trackedW(fh, 30 * s, ttl, 30 * s * 0.16f) + 48 * s, mn.y + 34 * s), pa);
+    statEditorPage(app, S.page == Guns ? 0 : S.page == Vehicles ? 1 : 2, V(mn.x + 32 * s, mn.y + 90 * s), V(mx.x - 28 * s, mx.y - 24 * s), pa);
   } else if (S.page != Main) {
     const float pa = ease(((float)ImGui::GetTime() - (float)S.pageAt) / 0.16f) * fadeIn, off = (1 - pa) * 26 * s;
     const ImVec2 mn(W * 0.555f + off, 150 * s), mx(W - 72 * s + off, S.page == Play ? 150 * s + 108 * s + 3 * 130 * s + 64 * s : H - 112 * s);   // Play: as tall as its cards
@@ -362,6 +397,7 @@ void mainMenuFrame(App& app) {
     const char* title = S.page == Play ? "PLAY" : S.page == Character ? "CHARACTER" : "CREDITS";
     tracked(dl, fh, 30 * s, V(mn.x + 40 * s, mn.y + 34 * s), rgba(236, 232, 224, pa), title, 30 * s * 0.16f);
     dl->AddRectFilled(V(mn.x + 40 * s, mn.y + 82 * s), V(mn.x + 84 * s, mn.y + 84 * s), alphaOf(kAccent, pa));
+    if (S.page == Character) charTabs(V(mn.x + 40 * s + trackedW(fh, 30 * s, title, 30 * s * 0.16f) + 48 * s, mn.y + 42 * s), pa);
     const ImVec2 cmn(mn.x + 40 * s, mn.y + 108 * s), cmx(mx.x - 40 * s, mx.y - 36 * s);
     if (S.page == Play) {
       struct Card { const char* t; const char* d; };
@@ -396,7 +432,7 @@ void mainMenuFrame(App& app) {
       ImGui::SetNextWindowBgAlpha(0);
       ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(1, 1, 1, 0.07f)); ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(1, 1, 1, 0.10f)); ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.94f, 0.46f, 0.13f, 0.35f));
       ImGui::PushStyleVar(ImGuiStyleVar_Alpha, pa);
-      if (ImGui::Begin("##menu_character", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNav)) {
+      if (ImGui::Begin("##menu_character", nullptr, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNav)) {
         drawPreview(app, dl, cmn, V(split - 16 * s, cmx.y), pa);
         ImGui::SetCursorScreenPos(V(split + 8 * s, cmn.y));
         ImGui::BeginChild("##lists", V(cmx.x - split - 8 * s, cmx.y - cmn.y), 0, ImGuiWindowFlags_NoBackground);
@@ -420,7 +456,7 @@ void mainMenuFrame(App& app) {
         heading("BODY");
         for (auto& b : B) entry(b.second, settings().s.character == b.first, [&] { settings().s.character = b.first; });
         ImGui::Spacing(); heading("PRIMARY WEAPON");
-        for (int k : Wp) { const WeaponDef& d = *app.weaponDefs[k]; entry(d.name, settings().s.primary.empty() ? d.id == "m1_garand" : settings().s.primary == d.id, [&] { settings().s.primary = d.id; }); }
+        for (int k : Wp) { const WeaponDef& d = *app.weaponDefs[k]; entry(d.name, app.weaponIndex(settings().s.primary) < 0 ? d.id == "m1_garand" : settings().s.primary == d.id, [&] { settings().s.primary = d.id; }); }
         ImGui::Spacing();
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.8f, 0.77f, 0.65f));
         ImGui::TextWrapped("Your body in every match and your first weapon in Explore and at spawn. Grenades, knife and the rest of the kit are unchanged. Drag the soldier to turn him.");
@@ -433,13 +469,15 @@ void mainMenuFrame(App& app) {
     } else {   // Credits
       ImGui::SetNextWindowPos(cmn); ImGui::SetNextWindowSize(V(cmx.x - cmn.x, cmx.y - cmn.y)); ImGui::SetNextWindowBgAlpha(0);
       ImGui::PushStyleVar(ImGuiStyleVar_Alpha, pa);
-      if (ImGui::Begin("##menu_credits", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus)) {
+      if (ImGui::Begin("##menu_credits", nullptr, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus)) {
         auto head = [](const char* h) { ImGui::Spacing(); ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.94f, 0.46f, 0.13f, 1)); ImGui::TextUnformatted(h); ImGui::PopStyleColor(); };
         auto line = [](const char* a, const char* b) { ImGui::TextUnformatted(a); ImGui::SameLine(ImGui::GetContentRegionAvail().x * 0.48f); ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.8f, 0.77f, 0.7f)); ImGui::TextUnformatted(b); ImGui::PopStyleColor(); };
-        head("BATTLE FOUNDRY"); ImGui::TextWrapped("A battlefield builder and combined-arms shooter.");
+        { const ImVec2 p = ImGui::GetCursorScreenPos(); const float lh = 64 * S.s; ImGui::Dummy(V(drawLogo(ImGui::GetWindowDrawList(), p, lh, 1.0f, logoImageAspect() > 0), lh)); }   // UI3: the logo
+        ImGui::TextWrapped("A battlefield builder and combined-arms shooter.");
         head("ENGINE LIBRARIES");
         line("Dear ImGui", "MIT"); line("GLFW", "zlib"); line("GLM", "MIT"); line("Jolt Physics", "MIT"); line("nlohmann/json", "MIT"); line("stb", "MIT / public domain"); line("miniaudio", "MIT-0 / public domain");
-        head("TYPE"); line("Segoe UI (system font, not bundled)", "Microsoft");
+        head("TYPE"); line("Barlow, Barlow Condensed (The Barlow Project Authors)", "SIL OFL 1.1"); line("Black Ops One (The Black Ops One Project Authors)", "SIL OFL 1.1");
+        ImGui::TextWrapped("The font files and their licences are in content/fonts.");
         head("MODELS, TEXTURES AND SOUNDS");
         ImGui::TextWrapped("Third-party models, textures and sounds are listed with their authors and licences in docs/credits.md.");
       }
@@ -453,3 +491,8 @@ void mainMenuGo(App& app, int item) {
   if (item < 0) { S.page = Main; S.focus = 0; return; }
   S.sel = item; S.focus = 0; activate(app, item);
 }
+
+unsigned menuBackdropTex(bool blurred) { ensureLoaded(); return blurred ? S.bgBlur.tex : S.bg.tex; }
+
+void mainMenuLeaveForLoad(bool match) { if (!S.open) return; S.open = false; S.launched = match; S.page = Main; S.focus = 0; }
+void mainMenuCharTab(int t) { S.charTab = t; }   // captures

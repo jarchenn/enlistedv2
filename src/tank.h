@@ -57,6 +57,7 @@ struct TankDef {
   // roof MG (hatch mode)
   std::string mgWeapon, mgName, mgSound;         // mgWeapon: registry weapon whose supplied GLB is drawn on the mount
   vec3 mgModelOffset{0};
+  int mgPostPart = -1; float mgPostFrom = 0, mgPostW = 0.07f;   // VH9 raised mount: a model part stretched into a post from y mgPostFrom up to the pivot
   float mgYawMin = -180, mgYawMax = 180, mgElevMin = -10, mgElevMax = 45, mgRpm = 500, mgVel = 890, mgSpread = 0.25f;
   int mgBelt = 100, mgReserve = 400; float mgReload = 5.0f, mgBulletMass = 0.012f;
   std::string mgTail, mgReloadSound;            // bank events: tail on release, belt change

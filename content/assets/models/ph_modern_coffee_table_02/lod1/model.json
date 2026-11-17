@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.5995555520057678,
+  0.3688536286354065,
+  0.5998282432556152
+ ],
+ "bmin": [
+  -0.5991312861442566,
+  5.960464477539063e-08,
+  -0.5998282432556152
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "modern_coffee_table_02_base",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "modern_coffee_table_02_wood",
+   "normal": "normal_3.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5995555520057678,
+    0.3676289916038513,
+    0.599205732345581
+   ],
+   "bmin": [
+    -0.5984911322593689,
+    5.960464477539063e-08,
+    -0.5998282432556152
+   ],
+   "count": 1752,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "modern_coffee_table_02",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.44832342863082886,
+    0.3688536286354065,
+    0.5998282432556152
+   ],
+   "bmin": [
+    -0.5991312861442566,
+    0.06735403835773468,
+    -0.447513222694397
+   ],
+   "count": 3354,
+   "first": 1752,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "modern_coffee_table_02",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_modern_coffee_table_02.glb",
+ "textures": {},
+ "triangles": 1702,
+ "vertices": 1913
+}

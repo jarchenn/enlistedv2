@@ -79,6 +79,8 @@ struct Soldier {
   int lifeId = 0;                            // increments per spawn (net / tests)
   double lastShot = -100;
   std::string lastHow;                       // SD1: the last damage kind (kill rewards: knife, grenade, firearm)
+  double drawnAt = -100;                    // GP1 spectate check: the last time the draw pass drew this body (not culled)
+  bool genericHits = false;                  // GP1: hit zones from the feet / posture / facing, not the posed body (a non-soldier body picked on the Character screen)
   float burnT = 0, burnDps = 0, burnTick = 0; int burnBy = -1;   // FT1: on fire (s left, damage per s, tick timer, who lit it)
   double protectUntil = -1;                  // spawn protection (SPEC 2.2): Game::t until which damage is ignored (W1 sets it)
   bool isProtected(double now) const { return alive && now < protectUntil; }
@@ -125,6 +127,7 @@ public:
   struct Ghost { vec3 p, v; float life; int tracer; };   // tracer: tracerKindFor()   // visual-only rounds (client tracers)
   std::vector<Ghost> ghosts;
   std::map<uint64_t, int> doorSeen;          // door direction last replicated ((inst << 8) | idx)
+  vec3 specEye{0}, specFwd{0, 0, -1}; bool specCam = false;   // the death / spectate camera this frame (renderView culls against it)
   int spectate = -1;                          // soldier the dead local player watches
   float hitMarker = 0, killMarker = 0, hurtFlash = 0; vec3 lastHurtDir{0};
   std::vector<int> markedSlots;              // G4: the soldiers that got an ally head marker on the last HUD frame (tests)
@@ -212,6 +215,7 @@ public:
   void drawModeBanner(); void drawModePanel(); void drawVitals(); void drawScoreboardOverlay(); void scoreboardTable(bool full = false);   // UI1: full = the end screen (every row, scrollable)
   bool showScoreboard = false;               // tests: hold the Tab scoreboard open
   bool camera(vec3& eye, vec3& fwd, float& fov);
+  bool cameraOrbit(vec3& eye, vec3& fwd, float& fov);   // camera()'s choice (camera() records it for renderView)
   Soldier* local() { return localSlot >= 0 && localSlot < (int)sold.size() ? &sold[localSlot] : nullptr; }
   vec3 soldierFeet(int s) const;
   // nav maintenance after destruction

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.17345842719078064,
+  0.2004578560590744,
+  0.12702883780002594
+ ],
+ "bmin": [
+  -0.17345842719078064,
+  0.0,
+  -0.12722527980804443
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "wicker_basket_02",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.17345842719078064,
+    0.2004578560590744,
+    0.12702883780002594
+   ],
+   "bmin": [
+    -0.17345842719078064,
+    0.0,
+    -0.12722527980804443
+   ],
+   "count": 26772,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "wicker_basket_02_base",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_wicker_basket_02.glb",
+ "textures": {},
+ "triangles": 8924,
+ "vertices": 5642
+}

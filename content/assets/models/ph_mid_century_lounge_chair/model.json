@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.5043071508407593,
+  1.1690561771392822,
+  0.5947955846786499
+ ],
+ "bmin": [
+  -0.5041985511779785,
+  0.0006425197934731841,
+  -0.5951553583145142
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "mid_century_lounge_chair",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5043071508407593,
+    1.1690561771392822,
+    0.5947955846786499
+   ],
+   "bmin": [
+    -0.5041985511779785,
+    0.0006425197934731841,
+    -0.5951553583145142
+   ],
+   "count": 9222,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "mid_century_lounge_chair",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_mid_century_lounge_chair.glb",
+ "textures": {},
+ "triangles": 3074,
+ "vertices": 2466
+}

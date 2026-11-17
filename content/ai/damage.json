@@ -475,16 +475,6 @@
    "headMax": 75,
    "class": "pistol"
   },
-  "modern_fn502": {
-   "near": 26,
-   "far": 15,
-   "falloffStart_m": 12,
-   "falloffEnd_m": 35,
-   "rpm": 450,
-   "note": "MG12 .22 LR pistol",
-   "headMax": 70,
-   "class": "pistol"
-  },
   "modern_mark23": {
    "near": 36,
    "far": 22,

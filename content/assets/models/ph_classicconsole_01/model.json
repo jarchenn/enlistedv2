@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.7703370451927185,
+  0.9490714073181152,
+  0.2929549813270569
+ ],
+ "bmin": [
+  -0.7703370451927185,
+  0.0,
+  -0.2946377098560333
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "ClassicConsole_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.7703370451927185,
+    0.9490714073181152,
+    0.2929549813270569
+   ],
+   "bmin": [
+    -0.7703370451927185,
+    0.0,
+    -0.2946377098560333
+   ],
+   "count": 11346,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "ClassicConsole_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_classicconsole_01.glb",
+ "textures": {},
+ "triangles": 3782,
+ "vertices": 3214
+}

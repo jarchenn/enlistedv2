@@ -1,6 +1,7 @@
 // BR1 Battle royale: the drop (bomber line, free fall, parachute), the storm (four shrinking circles), placement and
 // the HUD. See royale.h for the hooks; numbers in content/settings/royale.json.
 #include "royale.h"
+#include "ui_glass.h"   // UI2: glass panel backgrounds
 #include "app.h"
 #include "game.h"
 #include <DetourNavMeshQuery.h>
@@ -642,7 +643,7 @@ void royaleHud(App& app, Game& G) {
   else std::snprintf(b, sizeof b, "BATTLE ROYALE   |   Alive %d / %zu   |   %s %s   |   Circle %d / 4", std::max(alive, stillIn), G.sold.size(), at.shrinking ? "Closing" : "Storm closes in", tm, at.stage + 1);
   float cx = io.DisplaySize.x * 0.5f, y = 10;
   ImVec2 ts = ImGui::CalcTextSize(b);
-  dl->AddRectFilled(ImVec2(cx - ts.x * 0.5f - 12, y), ImVec2(cx + ts.x * 0.5f + 12, y + 28), IM_COL32(12, 12, 20, 205), 5);
+  uiGlassPanel(dl, ImVec2(cx - ts.x * 0.5f - 12, y), ImVec2(cx + ts.x * 0.5f + 12, y + 28), std::max(8.0f, (float)5));
   dl->AddText(ImVec2(cx - ts.x * 0.5f, y + 6), at.shrinking ? IM_COL32(150, 190, 255, 255) : IM_COL32(235, 235, 220, 255), b);
   Soldier* L = G.local();
   if (L && L->alive && royaleAirborne(L->slot))   // BR1b: on the drop (aboard, falling, under the canopy) the districts are named in the view
@@ -652,7 +653,7 @@ void royaleHud(App& app, Game& G) {
       char t[96]; std::snprintf(t, sizeof t, "%s  %.0f m", d.name.c_str(), glm::length(w - eye));
       label(dl, sp, t, 17.0f, IM_COL32(255, 238, 190, 240));
     }
-  auto centre = [&](const char* t, float yy, ImU32 col) { ImVec2 s2 = ImGui::CalcTextSize(t); dl->AddRectFilled(ImVec2(cx - s2.x * 0.5f - 12, yy - 6), ImVec2(cx + s2.x * 0.5f + 12, yy + s2.y + 6), IM_COL32(10, 10, 14, 200), 5); dl->AddText(ImVec2(cx - s2.x * 0.5f, yy), col, t); };
+  auto centre = [&](const char* t, float yy, ImU32 col) { ImVec2 s2 = ImGui::CalcTextSize(t); uiGlassPanel(dl, ImVec2(cx - s2.x * 0.5f - 12, yy - 6), ImVec2(cx + s2.x * 0.5f + 12, yy + s2.y + 6), std::max(8.0f, (float)5)); dl->AddText(ImVec2(cx - s2.x * 0.5f, yy), col, t); };
   if (L && L->alive) {
     int st = royaleAirState(L->slot);
     if (st == RA_ABOARD) centre(S.time < S.tIn ? "Aboard the bomber - Space to jump once it is over the area" : "Aboard the bomber - SPACE to jump", io.DisplaySize.y * 0.78f, IM_COL32(255, 230, 150, 255));

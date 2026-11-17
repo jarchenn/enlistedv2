@@ -3197,7 +3197,7 @@ void main(){
 static const char* kToneFS = R"GLSL(
 #version 450 core
 in vec2 vUV;
-uniform sampler2D uHdr, uExpo, uBloom; uniform float uFixedExpo, uBloomAmt, uEyeR, uAspect, uRectVig; uniform int uTonemap;
+uniform sampler2D uHdr, uExpo, uBloom; uniform float uFixedExpo, uBloomAmt, uEyeR, uAspect, uRectVig, uMicro; uniform int uTonemap;
 uniform float uUnderTone;   // 1: under water (swim.cpp): blue-green tint, stronger vignette
 // GX5 grade (content/settings/grade.json, docs/graphics-overhaul.md#gx5-grade): saturation, cool shadows / warm
 // highlights, a gentle S-curve, vignette, chromatic aberration (0 = off), and an edge-aware sharpen of the image
@@ -3237,6 +3237,13 @@ void main(){
     float ys = clamp(y + dy*uGradeSharpen*(1.0 - smoothstep(0.03, 0.18, abs(dy))), 0.0, 0.999);
     c *= (ys/(1.0 - ys))/max(L, 1e-5);
   }
+  if (uMicro > 0.0) {   // UI2 microcontrast: an unsharp mask on luminance against the HDR mip 3 (1/8 size, ~8 px; made for the exposure anyway), before the tone curve
+    float L = dot(c, vec3(0.2126, 0.7152, 0.0722)), Lb = dot(textureLod(uHdr, vUV, 3.0).rgb, vec3(0.2126, 0.7152, 0.0722));
+    float r = clamp((L - Lb)/(Lb + 1e-4), -0.5, 0.5);   // relative difference from the local mean, clamped: no halos round strong edges or the sky line
+    float e0 = uFixedExpo > 0.0 ? uFixedExpo : texelFetch(uExpo, ivec2(0), 0).r;
+    c *= max(1.0 + r*uMicro*0.9*smoothstep(0.004, 0.03, L*e0), 0.0);   // linear: the local mean (and so the overall brightness) stays put; nothing in the deep shadows (no lifted noise)
+  }
+
   float bAmt = uBloomAmt;   // optic eyepiece: no bloom over its dark surround (the bloom is taken from the whole lit view)
   if (uEyeR > 0.0) bAmt *= 1.0 - smoothstep(0.98*uEyeR, 1.02*uEyeR, length((vUV - 0.5)*vec2(uAspect, 1.0)));
   if (bAmt > 0.0) c = mix(c, texture(uBloom, vUV).rgb/6.0, bAmt);   // chain sums 6 levels; energy-preserving blend, not an add
@@ -4834,6 +4841,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   }
   glUniform1i(U(progTone, "uTonemap"), q.legacy ? 0 : 1);
   glBindTextureUnit(2, bloomTex[0]); glUniform1i(U(progTone, "uBloom"), 2);
+  glUniform1f(U(progTone, "uMicro"), thumbMode || q.legacy || eyepiece ? 0.0f : q.microcontrast);   // UI2 (the eyepiece view has no fresh mips)
   glUniform1f(U(progTone, "uBloomAmt"), !q.legacy && q.bloom ? std::min(1.0f, q.bloomStrength * lt.mapBloom) : 0.0f);   // BR3: x the map's bloom
   glUniform1f(U(progTone, "uRectVig"), v.rectVignette && !thumbMode ? 1.0f : 0.0f);   // TK3
   glUniform1f(U(progTone, "uEyeR"), eyepiece ? v.eyepieceR : 0.0f); glUniform1f(U(progTone, "uAspect"), (float)width / std::max(1, height));
@@ -4851,8 +4859,9 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   }
   glDrawArrays(GL_TRIANGLES, 0, 3);
 
-  // ---- editor overlays (separate pass; never drawn in Explore)
-  if (v.editor && (!ov.lines.empty() || !ov.tris.empty() || !ov.linesTop.empty())) {
+  // ---- editor overlays (separate pass); in Explore only the game's ground markings (gWorldMarks)
+  const Overlay& ovD = v.editor ? ov : gWorldMarks;
+  if ((v.editor || !thumbMode) && (!ovD.lines.empty() || !ovD.tris.empty() || !ovD.linesTop.empty())) {
     glUseProgram(progLine);
     glUniformMatrix4fv(U(progLine, "uVP"), 1, GL_FALSE, glm::value_ptr(vpU));
     glBindVertexArray(lineVao);
@@ -4864,9 +4873,9 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       glDrawArrays(mode, 0, (GLsizei)vv.size());
     };
     glDepthMask(GL_FALSE);
-    drawV(ov.tris, GL_TRIANGLES, true);
-    drawV(ov.lines, GL_LINES, true);
-    drawV(ov.linesTop, GL_LINES, false);
+    drawV(ovD.tris, GL_TRIANGLES, true);
+    drawV(ovD.lines, GL_LINES, true);
+    drawV(ovD.linesTop, GL_LINES, false);
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
   }

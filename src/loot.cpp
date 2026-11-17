@@ -1,5 +1,6 @@
 // BR2 Battle Royale loot (loot.h): data, floor spawner, pick-up, pooled ammo, armour, healing, molotov, bots.
 #include "loot.h"
+#include "ui_glass.h"   // UI2: glass panel backgrounds
 #include "app.h"
 #include "game.h"
 #include "damage_model.h"
@@ -1082,7 +1083,7 @@ void lootUi(App& app) {
   std::string prompt = gL.caseTarget >= 0 ? "[E]  Open " + crateName(gL.cases[gL.caseTarget]) : gL.target >= 0 ? "[E]  " + lootItemName(app, gL.floor[gL.target]) : "";
   if (!prompt.empty()) {
     ImVec2 ts = ImGui::CalcTextSize(prompt.c_str());
-    dl->AddRectFilled(ImVec2(c.x + 40, c.y + 30), ImVec2(c.x + 56 + ts.x, c.y + 56), IM_COL32(10, 10, 10, 180), 4);
+    uiGlassPanel(dl, ImVec2(c.x + 40, c.y + 30), ImVec2(c.x + 56 + ts.x, c.y + 56), std::max(8.0f, (float)4));
     dl->AddText(ImVec2(c.x + 48, c.y + 35), IM_COL32(245, 240, 220, 255), prompt.c_str());
   }
   // heal progress ring

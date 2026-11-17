@@ -445,17 +445,17 @@ int Audio::loadCustom(const fs::path& dir) {
     // tight) and the Apache's 30 mm chain gun (shot_cannon30: lower, heavier); "rapid" below
     {"guns/gun_shot_1.mp3", false, {"minigun"}, -1, 1.15f, 0, 0.3f, 1.5f},
     {"guns/gun_shot_1.mp3", false, {"cannon30"}, -1, 0.85f, 0, 0.6f, 3.0f},
-    // MG12 (borrowed, derived): the .357 and .50 AE on the M1911 / Luger shots, lower, darker and heavier; the sawn-off on the
-    // 870's shot a little lower; the SMG-9 on the MP 40's, lower and darker
-    {"guns/pistol_b.mp3", false, {"modern_revolver"}, -1, 0.86f, -0.3f, 2.2f, 1.5f},
-    {"guns/pistol_a.mp3", false, {"modern_deagle"}, -1, 0.8f, -0.4f, 2.2f, 2.0f},
+    // MG12 (borrowed, derived): the sawn-off on the 870's shot a little lower; the SMG-9 on the MP 40's, lower and darker
+    // WP7 (user request): the .50 AE and the .357 take the shot the FN 502 Tactical had (the suppressed .22's recording, 12 % higher,
+    // brighter, short tail); the revolver 4 % under the Desert Eagle so the two stay apart
+    {"guns/pistol_c.mp3", false, {"modern_deagle"}, -1, 1.12f, 0.2f, 1.6f},
+    {"guns/pistol_c.mp3", false, {"modern_revolver"}, -1, 1.075f, 0.2f, 1.6f},
     {"guns/shotgun.mp3", false, {"modern_sawnoff"}, -1, 0.93f, -0.2f},
     {"guns/smg_a.mp3", false, {"modern_smg9"}, -1, 0.94f, -0.2f, 1.1f},
     // MG12 batch 2 (borrowed, derived): the compensated Glock on the 9 mm shot, higher and brighter; the Makarov on the Luger's,
-    // higher; the FN 502 on the suppressed .22's, higher and shorter; the Mk 23 on the M1911's, a little lower
+    // higher; the Mk 23 on the M1911's, a little lower
     {"guns/pistol_9mm.mp3", false, {"modern_glock34"}, -1, 1.06f, 0.3f},
     {"guns/pistol_a.mp3", false, {"modern_makarov"}, -1, 1.08f, 0.1f},
-    {"guns/pistol_c.mp3", false, {"modern_fn502"}, -1, 1.12f, 0.2f, 1.6f},
     {"guns/pistol_b.mp3", false, {"modern_mark23"}, -1, 0.95f, -0.1f},
     // SW1: synthesised blaster shots (tools: sweep + FM + odd harmonics + spring tail; no recordings): carbine, long rifle, robot blaster
     {"guns/blaster_a.wav", false, {"blaster_carbine"}, -1, 1, 0, 0.6f},
@@ -607,7 +607,6 @@ int Audio::loadCustom(const fs::path& dir) {
       // MG12 batch 2 (borrowed, pitched apart): the pistol reload
       {"reload/reload_b.mp3", {"modern_glock34"}, 1.9f, 0, 1.08f},
       {"reload/reload_b.mp3", {"modern_makarov"}, 2.2f, 0, 0.95f},
-      {"reload/reload_b.mp3", {"modern_fn502"}, 2.0f, 0, 1.15f},
       {"reload/reload_b.mp3", {"modern_mark23"}, 3.0f, 0, 0.85f},
       {"reload/reload_m4.mp3", {"blaster_rifle"}, 2.4f, 0, 0.92f},
       {"reload/reload_m4.mp3", {"blaster_robot"}, 2.1f, 0, 1.2f},

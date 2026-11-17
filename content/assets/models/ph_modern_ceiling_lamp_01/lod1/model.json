@@ -1,0 +1,124 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.21073755621910095,
+  0.9515514969825745,
+  0.21073201298713684
+ ],
+ "bmin": [
+  -0.2116759568452835,
+  0.0003292858600616455,
+  -0.21230289340019226
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "modern_ceiling_lamp_01_glass",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "modern_ceiling_lamp_01",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "modern_ceiling_globe",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.21073755621910095,
+    0.30718815326690674,
+    0.21073201298713684
+   ],
+   "bmin": [
+    -0.2116759568452835,
+    0.0003292858600616455,
+    -0.21230289340019226
+   ],
+   "count": 1101,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "modern_ceiling_lamp_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.1470244824886322,
+    0.9515514969825745,
+    0.1456507444381714
+   ],
+   "bmin": [
+    -0.14462703466415405,
+    0.2368927001953125,
+    -0.14564785361289978
+   ],
+   "count": 882,
+   "first": 1101,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "modern_ceiling_lamp_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.03302560746669769,
+    0.241463303565979,
+    0.03144771605730057
+   ],
+   "bmin": [
+    -0.03302542120218277,
+    0.16205798089504242,
+    -0.033711157739162445
+   ],
+   "count": 111,
+   "first": 1983,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "modern_ceiling_lamp_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_modern_ceiling_lamp_01.glb",
+ "textures": {},
+ "triangles": 698,
+ "vertices": 636
+}
