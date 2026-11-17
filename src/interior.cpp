@@ -681,6 +681,11 @@ void InteriorSys::updateBatches(App& app) {
     else { curSmall = cullSmall; curBig = cullBig; }
     lowClutter_ = app.R.perf.furnClutter && (ps == GfxPreset::Low || ps == GfxPreset::UltraLow);
   }
+  // MEM1: a building's merged furniture batch exists only while its furniture can be drawn (within curBig, 1.2 / 1.5 x
+  // hysteresis): every batch of a large map at once committed ~1.2 GB, while furniture past curBig is not drawn at all
+  const vec3 eye = app.mode == Mode::Explore ? app.eyePos() : app.camPos;
+  auto batchNear = [&](const Batch& b) { float d = std::max(0.0f, glm::length(eye - b.c) - b.r); return d < curBig * (b.built ? 1.5f : 1.2f); };
+  for (auto& [h, b] : batches_) if (b.built != batchNear(b)) { batchSig_ = 0; break; }   // one crossed the band: re-run the pass
   uint64_t sig = ((uint64_t)app.revCounter << 32) ^ ((uint64_t)app.doc.instances.size() << 8) ^ (app.selected * 0x9E3779B97F4A7C15ull) ^ (epoch_ * 0xC2B2AE3D27D4EB4Full) ^ (lowClutter_ ? 0x5bd1e995ull : 0);
   if (sig == batchSig_) return;
   batchSig_ = sig; ++batchPasses;
@@ -713,6 +718,14 @@ void InteriorSys::updateBatches(App& app) {
   for (auto& [host, w] : want) {
     if (w.second.size() < 2) continue;   // a lone piece draws on its own
     Batch& b = batches_[host];
+    if (!b.built) {   // where it would stand (rebuildBatch sets the same centre / radius)
+      vec3 mn(1e9f), mx(-1e9f); for (auto* pi : w.second) { mn = glm::min(mn, pi->pos); mx = glm::max(mx, pi->pos + vec3(0, 2, 0)); }
+      b.c = (mn + mx) * 0.5f; b.r = glm::length(mx - mn) * 0.5f + 1.0f;
+    }
+    if (!batchNear(b)) {   // MEM1: too far to draw its furniture: no batch (its pieces are culled by distance)
+      if (b.built) { b.lop.destroy(); b.slop.destroy(); b.built = false; b.verts = 0; }
+      continue;
+    }
     if (!b.built || b.sig != w.first) { b.sig = w.first; b.members.clear(); for (auto* pi : w.second) b.members.push_back(pi->id); rebuildBatch(app, host, b, w.second); }
     for (uint64_t id : b.members) member_[id] = host;
     if (!b.members.empty()) batchLeads.insert(b.members.front());   // P2: the piece that draws its batch (never skipped by distance)

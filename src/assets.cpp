@@ -121,6 +121,29 @@ float segOBBDist2(vec3 a, vec3 b, vec3 c, vec3 he, const quat& q) {
 }
 
 // ---------------------------------------------------------------- GPU mesh
+namespace {   // MEM1: GpuVertex packing (the bundled GLM lacks gtc/packing's sources)
+uint16_t toHalf(float f) {
+  uint32_t x; std::memcpy(&x, &f, 4);
+  uint32_t sign = (x >> 16) & 0x8000u; int e = (int)((x >> 23) & 0xff) - 127 + 15; uint32_t m = x & 0x7fffffu;
+  if (((x >> 23) & 0xff) == 0xff) return (uint16_t)(sign | 0x7c00u | (m ? 0x200u : 0));   // inf / nan
+  if (e >= 31) return (uint16_t)(sign | 0x7c00u);                                         // overflow: inf
+  if (e <= 0) { if (e < -10) return (uint16_t)sign; m |= 0x800000u; uint32_t sh = (uint32_t)(14 - e); return (uint16_t)(sign | ((m + (1u << (sh - 1))) >> sh)); }   // subnormal
+  uint32_t h = sign | ((uint32_t)e << 10) | (m >> 13);
+  if (m & 0x1000u) ++h;   // round half up (carries into the exponent correctly)
+  return (uint16_t)h;
+}
+uint32_t snorm10x3(vec3 n) {   // GL_INT_2_10_10_10_REV, normalized: x bits 0-9, y 10-19, z 20-29, w 0
+  auto c = [](float v) { int q = (int)std::lround(std::clamp(v, -1.0f, 1.0f) * 511.0f); return (uint32_t)q & 0x3ffu; };
+  return c(n.x) | (c(n.y) << 10) | (c(n.z) << 20);
+}
+}
+bool gpuVertexPackCheck(std::string& why) {   // MEM1: known half / snorm encodings (the probe runs it)
+  struct H { float f; uint16_t h; } hs[] = {{0.0f, 0}, {1.0f, 0x3C00}, {-2.0f, 0xC000}, {0.5f, 0x3800}, {65504.0f, 0x7BFF}, {1e6f, 0x7C00}, {5.9604645e-8f, 0x0001}, {0.333333f, 0x3555}, {8.0f, 0x4800}};
+  for (auto& x : hs) if (toHalf(x.f) != x.h) { char b[96]; std::snprintf(b, sizeof b, "half(%g) = %04x, want %04x", x.f, toHalf(x.f), x.h); why = b; return false; }
+  uint32_t n = snorm10x3(vec3(1, -1, 0));
+  if ((n & 0x3ff) != 511 || ((n >> 10) & 0x3ff) != (uint32_t)(-511 & 0x3ff) || (n >> 20) != 0) { why = "snorm10 packing"; return false; }
+  return true;
+}
 void GpuMesh::upload(const MeshData& m) {
   destroy();
   count = (int)m.i.size();
@@ -130,16 +153,23 @@ void GpuMesh::upload(const MeshData& m) {
   if (bmin.x > bmax.x) bmin = bmax = vec3(0);
   glCreateVertexArrays(1, &vao);
   glCreateBuffers(1, &vbo); glCreateBuffers(1, &ebo);
-  glNamedBufferData(vbo, m.v.size() * sizeof(Vertex), m.v.data(), GL_STATIC_DRAW);
+  std::vector<GpuVertex> pv(m.v.size());
+  auto h3 = [](uint16_t* o, vec3 c) { o[0] = toHalf(c.x); o[1] = toHalf(c.y); o[2] = toHalf(c.z); o[3] = 0; };
+  for (size_t k = 0; k < m.v.size(); ++k) {
+    const Vertex& v = m.v[k]; GpuVertex& g = pv[k];
+    g.pos = v.pos; g.nrm = snorm10x3(v.nrm); h3(g.albedo, v.albedo); g.params = v.params;
+    g.pcoord = v.pcoord; g.pnrm = snorm10x3(v.pnrm); h3(g.emis, v.emis);
+  }
+  glNamedBufferData(vbo, pv.size() * sizeof(GpuVertex), pv.data(), GL_STATIC_DRAW);
   glNamedBufferData(ebo, m.i.size() * sizeof(uint32_t), m.i.data(), GL_STATIC_DRAW);
-  glVertexArrayVertexBuffer(vao, 0, vbo, 0, sizeof(Vertex));
+  glVertexArrayVertexBuffer(vao, 0, vbo, 0, sizeof(GpuVertex));
   glVertexArrayElementBuffer(vao, ebo);
-  struct A { int n; size_t off; } attrs[] = {
-    {3, offsetof(Vertex, pos)}, {3, offsetof(Vertex, nrm)}, {3, offsetof(Vertex, albedo)},
-    {4, offsetof(Vertex, params)}, {3, offsetof(Vertex, pcoord)}, {3, offsetof(Vertex, pnrm)}, {3, offsetof(Vertex, emis)}};
+  struct A { int n; GLenum type; GLboolean norm; size_t off; } attrs[] = {
+    {3, GL_FLOAT, GL_FALSE, offsetof(GpuVertex, pos)}, {4, GL_INT_2_10_10_10_REV, GL_TRUE, offsetof(GpuVertex, nrm)}, {3, GL_HALF_FLOAT, GL_FALSE, offsetof(GpuVertex, albedo)},
+    {4, GL_FLOAT, GL_FALSE, offsetof(GpuVertex, params)}, {3, GL_FLOAT, GL_FALSE, offsetof(GpuVertex, pcoord)}, {4, GL_INT_2_10_10_10_REV, GL_TRUE, offsetof(GpuVertex, pnrm)}, {3, GL_HALF_FLOAT, GL_FALSE, offsetof(GpuVertex, emis)}};
   for (int k = 0; k < 7; ++k) {
     glEnableVertexArrayAttrib(vao, k);
-    glVertexArrayAttribFormat(vao, k, attrs[k].n, GL_FLOAT, GL_FALSE, (GLuint)attrs[k].off);
+    glVertexArrayAttribFormat(vao, k, attrs[k].n, attrs[k].type, attrs[k].norm, (GLuint)attrs[k].off);
     glVertexArrayAttribBinding(vao, k, 0);
   }
 }

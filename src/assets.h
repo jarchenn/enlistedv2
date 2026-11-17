@@ -64,6 +64,10 @@ struct Vertex {
 };
 
 struct MeshData { std::vector<Vertex> v; std::vector<uint32_t> i; };
+// MEM1: GpuMesh vertex as stored on the GPU (64 B instead of Vertex's 88): normals signed 10:10:10, albedo / emission
+// half floats; the attribute fetch converts, the shaders read the same vec3s. Position first (the instanced depth VAO).
+struct GpuVertex { vec3 pos; uint32_t nrm; uint16_t albedo[4]; vec4 params; vec3 pcoord; uint32_t pnrm; uint16_t emis[4]; };
+static_assert(sizeof(GpuVertex) == 64, "GpuVertex packing");
 
 struct GpuMesh {
   GLuint vao = 0, vbo = 0, ebo = 0; int count = 0;
