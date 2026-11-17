@@ -1051,7 +1051,8 @@ void Game::posesStep(float dt) {
       s.anCarry += ((moving && !engaged && !bot ? 1.0f : 0.0f) - s.anCarry) * k;
       s.anMoveAim += ((moving && (engaged || bot) ? 1.0f : 0.0f) - s.anMoveAim) * k;
       pp.hunch = bot ? (s.kit == 2 ? 0.25f : 1.0f) : 0.0f;   // AN1 step 2b: troopers as upright as the soldiers look (their armour reads deeper)   // SW3: blaster troopers aim and fire half as hunched (taller stance); cover crouching unchanged
-      s.anLow += ((!moving && !engaged ? (s.posture == Physics::CROUCH ? 0.6f : 1.0f) : 0.0f) - s.anLow) * k;   // relaxed ready: butt in the shoulder, muzzle ~35 deg down (AN1 step 2)
+      const bool frozenBot = bot && sdFrozen();   // SD7: buy time: shouldered, muzzle level and forward (as on the move), not the relaxed low ready
+      s.anLow += ((!moving && !engaged && !frozenBot ? (s.posture == Physics::CROUCH ? 0.6f : 1.0f) : 0.0f) - s.anLow) * k;   // relaxed ready: butt in the shoulder, muzzle ~35 deg down (AN1 step 2)
       s.anTwist += (yawOff - s.anTwist) * (1.0f - std::exp(-dt / 0.12f));   // no snapping torso twist
       pp.kneel = s.anKneel; pp.carry = s.anCarry; pp.moveAim = s.anMoveAim; pp.aimYawOffset = s.anTwist;
       pp.lean = s.alive ? s.lean : 0.0f; pp.leanBend = radians(app.leanCfg.bend);   // MV3
