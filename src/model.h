@@ -92,3 +92,5 @@ struct GpuModel {
 
 // --import-weapon-models: bake every content/weapons/*.json "model" block whose source .glb is in srcDir.
 bool importWeaponModels(const fs::path& srcDir, const fs::path& contentRoot);
+void prefetchModelTextures(const std::vector<fs::path>& dirs);   // CACHE1 (model.cpp): fill the texture cache for these bakes in parallel
+void prefetchModelTree(const fs::path& modelsRoot);              // every bake under it (and its lod1 / lod2)

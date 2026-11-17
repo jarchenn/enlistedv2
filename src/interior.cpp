@@ -6,6 +6,7 @@
 //   * seeded room templates (kitchen / dining, sitting room, bedroom, utility / storage, workshop, hall) placing
 //     ordinary furniture instances tagged extra.furnish = {host, slot};
 //   * per building copy finish parameters (SurfaceParams) for the wall / floor patterns 17-22.
+#include "user_cache.h"
 #include "interior.h"
 #include "crumb.h"
 #include "loading.h"
@@ -2532,15 +2533,7 @@ static const std::string& furnContentHash() {
   }();
   return h;
 }
-static fs::path furnCacheDir() {
-  if (const char* e = std::getenv("NMK_FURNISH_CACHE")) if (*e) return fs::path(e);
-#ifdef _WIN32
-  if (const char* e = std::getenv("LOCALAPPDATA")) if (*e) return fs::path(e) / "BattleFoundry" / "furnish";
-#else
-  if (const char* e = std::getenv("HOME")) if (*e) return fs::path(e) / ".cache" / "BattleFoundry" / "furnish";
-#endif
-  return exeDir() / "cache" / "furnish";
-}
+static fs::path furnCacheDir() { return userCacheDir("furnish", "NMK_FURNISH_CACHE"); }
 int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
   auto t0 = std::chrono::high_resolution_clock::now();
   Instance* h = app.doc.find(hostId); if (!h) return 0;
@@ -2609,7 +2602,7 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
     if (fs::exists(cacheFile, ec)) try {
       json c = json::parse(readTextFile(cacheFile));
       for (auto& e : c["out"]) { PlanItem it; it.slot = e[0]; it.asset = e[1]; it.p = vec3(e[2].get<float>(), e[3].get<float>(), e[4].get<float>()); it.yaw = e[5]; P.out.push_back(it); }
-      cached = true;
+      cached = true; userCacheTouch(cacheFile);
     } catch (...) { P.out.clear(); }
   }
   std::vector<int> order(ri->rooms.size());

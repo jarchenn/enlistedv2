@@ -1,4 +1,7 @@
 // glTF binary import (offline bake) and the runtime textured model. No third-party glTF library: the GLB
+#include <set>
+#include <atomic>
+#include "user_cache.h"
 #include "crumb.h"
 // container is a 12-byte header, a JSON chunk and a BIN chunk, and accessors are read directly.
 #include <chrono>
@@ -594,22 +597,24 @@ static void cutoutMips(GLuint t, int w, int h, int levels, const stbi_uc* d) {
 // is 85 MB of VRAM, BC1 11 MB, BC5 22 MB. kind: 0 albedo, 1 linear data, 2 normal
 // FOL1: a cutout albedo (cut) compresses too, BC3, its mips' alpha scaled to keep level 0's coverage at the 0.5 cutoff
 // (as cutoutMips): the 2048 needle atlases cost less than the old 1024 RGBA8 ones
-static GLuint loadTexBC(const uint8_t* d, int w, int h, int kind, size_t& bytes, bool cut = false, std::vector<std::vector<uint8_t>>* keep = nullptr, GLenum* fmtOut = nullptr) {
-  static int s3tc = -1;
-  if (s3tc < 0) { s3tc = 0; GLint n = 0; glGetIntegerv(GL_NUM_EXTENSIONS, &n); int got = 0;
+static int gBc = -1;   // s3tc + sRGB support: asked once on the GL thread (bcSupported)
+static bool bcSupported() {
+  if (gBc < 0) { gBc = 0; GLint n = 0; glGetIntegerv(GL_NUM_EXTENSIONS, &n); int got = 0;
     for (GLint i = 0; i < n; ++i) { const char* e = (const char*)glGetStringi(GL_EXTENSIONS, i); if (!std::strcmp(e, "GL_EXT_texture_compression_s3tc")) got |= 1; if (!std::strcmp(e, "GL_EXT_texture_sRGB")) got |= 2; }
-    s3tc = got == 3; }
-  if (!s3tc || w < 1024 || h < 1024 || (w & 3) || (h & 3)) return 0;   // MEM1: 1024 maps too (RGBA8 + mips 5.6 MB each, BC1 0.7 MB): weapons, vehicles, props
+    gBc = got == 3; }
+  return gBc == 1;
+}
+// CACHE1: the CPU half (no GL: worker threads may run it; threads: the row workers of one map)
+static bool compressBC(const uint8_t* d, int w, int h, int kind, bool cut, std::vector<std::vector<uint8_t>>& lvOut, GLenum& fmtOut, unsigned threads) {
+  if (!bcSupported() || w < 1024 || h < 1024 || (w & 3) || (h & 3)) return false;   // MEM1: 1024 maps too (RGBA8 + mips 5.6 MB each, BC1 0.7 MB): weapons, vehicles, props
   bool alpha = cut; if (kind == 0) for (size_t k = 0; k < (size_t)w * h && !alpha; ++k) alpha = d[k * 4 + 3] < 250;
   std::vector<float> raw; float frac0 = 0;   // cut: the unscaled alpha of the current level, level 0's coverage
   if (cut) { raw.resize((size_t)w * h); size_t c0 = 0; for (size_t k = 0; k < raw.size(); ++k) { raw[k] = d[k * 4 + 3] / 255.0f; c0 += d[k * 4 + 3] > 127; } frac0 = (float)c0 / raw.size(); }
   const GLenum fmt = kind == 2 ? 0x8DBD /* RG_RGTC2 */ : kind == 0 ? (alpha ? 0x8C4F /* SRGB_ALPHA_S3TC_DXT5 */ : 0x8C4C /* SRGB_S3TC_DXT1 */) : 0x83F0 /* RGB_S3TC_DXT1 */;
   const int bsz = kind == 2 || alpha ? 16 : 8;
   int levels = 1 + (int)std::floor(std::log2((float)std::max(w, h)));
-  GLuint t; glCreateTextures(GL_TEXTURE_2D, 1, &t);
-  glTextureStorage2D(t, levels, fmt, w, h);
   std::vector<uint8_t> cur(d, d + (size_t)w * h * 4), next, out;
-  unsigned nt = std::clamp(std::thread::hardware_concurrency(), 1u, 16u);
+  unsigned nt = std::max(1u, threads);
   for (int L = 0, lw = w, lh = h; L < levels; ++L) {
     int bw = (lw + 3) / 4, bh = (lh + 3) / 4;
     out.assign((size_t)bw * bh * bsz, 0);
@@ -627,9 +632,7 @@ static GLuint loadTexBC(const uint8_t* d, int w, int h, int kind, size_t& bytes,
     std::vector<std::thread> th; int per = (bh + (int)nt - 1) / (int)nt;
     for (unsigned k = 0; k < nt; ++k) { int b0 = (int)k * per, b1 = std::min(bh, b0 + per); if (b0 < b1) th.emplace_back(rows, b0, b1); }
     for (auto& x : th) x.join();
-    glCompressedTextureSubImage2D(t, L, 0, 0, lw, lh, fmt, (GLsizei)out.size(), out.data());
-    bytes += out.size();
-    if (keep) keep->push_back(out);   // MEM3: the levels go to the disk cache
+    lvOut.push_back(out);
     if (L + 1 < levels) {   // the next mip: a 2x2 box
       int nw = std::max(1, lw / 2), nh = std::max(1, lh / 2); next.assign((size_t)nw * nh * 4, 0);
       for (int y = 0; y < nh; ++y) for (int x = 0; x < nw; ++x) for (int c = 0; c < 4; ++c) {
@@ -651,9 +654,23 @@ static GLuint loadTexBC(const uint8_t* d, int w, int h, int kind, size_t& bytes,
       cur.swap(next); lw = nw; lh = nh;
     }
   }
+  fmtOut = fmt;
+  return true;
+}
+static GLuint uploadBC(int w, int h, GLenum fmt, const std::vector<std::vector<uint8_t>>& lv, size_t& bytes) {
+  GLuint t; glCreateTextures(GL_TEXTURE_2D, 1, &t);
+  glTextureStorage2D(t, (GLsizei)lv.size(), fmt, w, h);
+  for (int L = 0, lw = w, lh = h; L < (int)lv.size(); ++L, lw = std::max(1, lw / 2), lh = std::max(1, lh / 2)) { glCompressedTextureSubImage2D(t, L, 0, 0, lw, lh, fmt, (GLsizei)lv[L].size(), lv[L].data()); bytes += lv[L].size(); }
   glTextureParameteri(t, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTextureParameteri(t, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTextureParameterf(t, 0x84FE /* GL_TEXTURE_MAX_ANISOTROPY */, 8.0f);
+  return t;
+}
+static GLuint loadTexBC(const uint8_t* d, int w, int h, int kind, size_t& bytes, bool cut = false, std::vector<std::vector<uint8_t>>* keep = nullptr, GLenum* fmtOut = nullptr) {
+  std::vector<std::vector<uint8_t>> lv; GLenum fmt = 0;
+  if (!compressBC(d, w, h, kind, cut, lv, fmt, std::clamp(std::thread::hardware_concurrency(), 1u, 16u))) return 0;
+  GLuint t = uploadBC(w, h, fmt, lv, bytes);
   if (fmtOut) *fmtOut = fmt;
+  if (keep) *keep = std::move(lv);
   return t;
 }
 
@@ -664,16 +681,16 @@ static fs::path texCacheFile(const fs::path& p, int kind) {
   auto mt = fs::last_write_time(p, ec); if (ec) return {};
   std::string key = "bc1|" + p.lexically_normal().string() + "|" + std::to_string(sz) + "|" + std::to_string((long long)mt.time_since_epoch().count()) + "|" + std::to_string(kind);
   uint64_t x = 1469598103934665603ull; for (unsigned char c : key) { x ^= c; x *= 1099511628211ull; }
-  fs::path dir;
-  if (const char* e = std::getenv("NMK_TEXBC_CACHE")) { if (*e) dir = e; }
-#ifdef _WIN32
-  if (dir.empty()) if (const char* e = std::getenv("LOCALAPPDATA")) if (*e) dir = fs::path(e) / "BattleFoundry" / "texbc";
-#else
-  if (dir.empty()) if (const char* e = std::getenv("HOME")) if (*e) dir = fs::path(e) / ".cache" / "BattleFoundry" / "texbc";
-#endif
-  if (dir.empty()) dir = exeDir() / "cache" / "texbc";
+  fs::path dir = userCacheDir("texbc", "NMK_TEXBC_CACHE");
   char nm[32]; std::snprintf(nm, sizeof nm, "%016llx.bc", (unsigned long long)x);
   return dir / nm;
+}
+static void writeTexCache(const fs::path& cf, int w, int h, GLenum fmt, const std::vector<std::vector<uint8_t>>& lv) {   // via a temp name: a half-written file never reads as a hit
+  std::error_code ec; fs::create_directories(cf.parent_path(), ec);
+  fs::path tmp = cf; tmp += "." + std::to_string((unsigned long long)(uintptr_t)&lv ^ (unsigned long long)std::chrono::steady_clock::now().time_since_epoch().count()) + ".tmp";   // unique per writer (threads, several game instances)
+  { std::ofstream o(tmp, std::ios::binary); uint32_t hd[4] = {0x31434258u, (uint32_t)w, (uint32_t)h, (uint32_t)fmt}; o.write((const char*)hd, sizeof hd);
+    for (auto& l : lv) { uint32_t n = (uint32_t)l.size(); o.write((const char*)&n, 4); o.write((const char*)l.data(), n); } }
+  fs::rename(tmp, cf, ec);
 }
 static GLuint texFromCache(const fs::path& f, size_t& bytes) {
   std::ifstream in(f, std::ios::binary); if (!in) return 0;
@@ -694,20 +711,14 @@ static GLuint texFromCache(const fs::path& f, size_t& bytes) {
 static GLuint loadTex(const fs::path& p, bool srgb, size_t& bytes, int kind = -1, bool cutout = false) {
   int w, h, c;
   fs::path cf = kind >= 0 || cutout ? texCacheFile(p, cutout ? 3 : kind) : fs::path();
-  if (!cf.empty()) if (GLuint ct = texFromCache(cf, bytes)) return ct;
+  if (!cf.empty()) if (GLuint ct = texFromCache(cf, bytes)) { userCacheTouch(cf); return ct; }
   stbi_set_flip_vertically_on_load(0);
   stbi_uc* d = stbi_load(p.string().c_str(), &w, &h, &c, 4);
   if (!d) return 0;
   std::vector<std::vector<uint8_t>> lv; GLenum fmt = 0;
   if (kind >= 0 || cutout) if (GLuint bt = loadTexBC(d, w, h, cutout ? 0 : kind, bytes, cutout, cf.empty() ? nullptr : &lv, &fmt)) {
     stbi_image_free(d);
-    if (!lv.empty()) {   // written under a temp name: a half-written file never reads as a hit
-      std::error_code ec; fs::create_directories(cf.parent_path(), ec);
-      fs::path tmp = cf; tmp += "." + std::to_string((unsigned long long)(uintptr_t)&lv ^ (unsigned long long)std::chrono::steady_clock::now().time_since_epoch().count()) + ".tmp";   // unique per writer (several game instances)
-      { std::ofstream o(tmp, std::ios::binary); uint32_t hd[4] = {0x31434258u, (uint32_t)w, (uint32_t)h, (uint32_t)fmt}; o.write((const char*)hd, sizeof hd);
-        for (auto& l : lv) { uint32_t n = (uint32_t)l.size(); o.write((const char*)&n, 4); o.write((const char*)l.data(), n); } }
-      fs::rename(tmp, cf, ec);
-    }
+    if (!lv.empty()) writeTexCache(cf, w, h, fmt, lv);
     return bt;
   }
   GLuint t; glCreateTextures(GL_TEXTURE_2D, 1, &t);
@@ -723,6 +734,48 @@ static GLuint loadTex(const fs::path& p, bool srgb, size_t& bytes, int kind = -1
   return t;
 }
 
+// CACHE1: a cold cache: every block-compressed map of these baked models decoded and compressed in parallel (one map per
+// worker) into the texture cache; their loads then read the cache. Callers with many models (weapons, vehicles) pass them
+// all at once so the workers have enough to share.
+void prefetchModelTextures(const std::vector<fs::path>& dirs) {
+  struct Job { fs::path f, cf; int kind; bool cut; };
+  std::vector<Job> jobs; std::set<std::string> seen;
+  if (!bcSupported()) return;
+  for (const fs::path& dir : dirs) {
+    json j; try { j = json::parse(readTextFile(dir / "model.json")); } catch (...) { continue; }
+    if (!j.is_object()) continue;
+    auto want = [&](const json& mj, const char* key, bool srgb) {
+      if (!mj.contains(key) || !mj[key].is_string()) return;
+      fs::path full = dir / mj[key].get<std::string>(); if (!seen.insert(full.lexically_normal().string()).second) return;
+      const bool cut = srgb && mj.value("cutout", false); const int kind = srgb ? 0 : std::string(key) == "normal" ? 2 : 1;
+      fs::path cf = texCacheFile(full, cut ? 3 : kind); std::error_code ec;
+      if (!cf.empty() && !fs::exists(cf, ec)) jobs.push_back({full, cf, kind, cut});
+    };
+    if (j.contains("materials")) { for (auto& mj : j["materials"]) for (auto [k, sr] : {std::pair{"albedo", true}, {"mr", false}, {"normal", false}, {"ao", false}}) want(mj, k, sr); }
+    else if (j.contains("textures")) for (auto [k, sr] : {std::pair{"albedo", true}, {"mr", false}, {"normal", false}, {"ao", false}}) want(j["textures"], k, sr);
+  }
+  if (jobs.size() < 2) return;
+  stbi_set_flip_vertically_on_load(0);
+  std::atomic<size_t> next{0}; std::vector<std::thread> th;
+  unsigned nt = std::clamp(std::thread::hardware_concurrency(), 1u, 16u);
+  for (unsigned t = 0; t < nt && t < jobs.size(); ++t) th.emplace_back([&] {
+    for (size_t i; (i = next++) < jobs.size();) {
+      int w, h, c; stbi_uc* d = stbi_load(jobs[i].f.string().c_str(), &w, &h, &c, 4); if (!d) continue;
+      std::vector<std::vector<uint8_t>> lv; GLenum fmt = 0;
+      if (compressBC(d, w, h, jobs[i].kind, jobs[i].cut, lv, fmt, 1)) writeTexCache(jobs[i].cf, w, h, fmt, lv);
+      stbi_image_free(d);
+    }
+  });
+  for (auto& t : th) t.join();
+  logf("textures: %zu model maps compressed into the cache on %u threads", jobs.size(), std::min<unsigned>(nt, (unsigned)jobs.size()));
+}
+
+void prefetchModelTree(const fs::path& root) {
+  std::vector<fs::path> dirs; std::error_code ec;
+  for (auto it = fs::recursive_directory_iterator(root, ec); !ec && it != fs::recursive_directory_iterator(); it.increment(ec))
+    if (it->path().filename() == "model.json") dirs.push_back(it->path().parent_path());
+  prefetchModelTextures(dirs);
+}
 bool GpuModel::load(const fs::path& dir, std::string& err, bool turn180) {
   destroy();
   json j;
@@ -774,6 +827,7 @@ bool GpuModel::load(const fs::path& dir, std::string& err, bool turn180) {
     GLuint t = loadTex(dir / f, srgb, gpuBytes, cut ? -1 : srgb ? 0 : std::string(key) == "normal" ? 2 : 1, cut); if (t) ++textureCount;
     return cache[f] = t;
   };
+  prefetchModelTextures({dir});   // CACHE1: a cold cache fills in parallel (every map of this model)
   if (j.contains("materials")) {
     for (auto& mj : j["materials"]) {
       MatTex m; m.name = mj.value("name", ""); m.cutout = mj.value("cutout", false);
