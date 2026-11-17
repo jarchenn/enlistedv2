@@ -334,6 +334,51 @@ def market_lean_to():
             "furniture": [], "interactables": [], "panels": []}
 
 
+def memorial_railing():
+    """Iron railings round the memorial: a 3.6 m square, 0.95 m high, spear-topped bars, a gate on one side (closed)."""
+    p = []
+    h = 1.8
+    for sx, sz, along in ((0, -h, "x"), (0, h, "x"), (-h, 0, "z"), (h, 0, "z")):
+        L = 2 * h
+        sz_ = [L, 0.04, 0.04] if along == "x" else [0.04, 0.04, L]
+        for y in (0.15, 0.85):
+            B(p, [sx, y, sz], sz_, "iron", k=1 if y > 0.5 else 0)
+        for k in range(15):
+            t = -h + 0.1 + k * (L - 0.2) / 14
+            c = [t, 0.5, sz] if along == "x" else [sx, 0.5, t]
+            B(p, c, [0.022, 0.95, 0.022], "iron", k=1, lod=1)
+    for sx in (-h, h):
+        for sz in (-h, h):
+            B(p, [sx, 0.55, sz], [0.09, 1.1, 0.09], "iron", k=1)
+    return {"id": "sd_memorial_railing", "version": 1, "name": "Memorial railings", "category": "Modern: Military",
+            "description": "Search and Destroy (Rue Haute): iron railings round the square's memorial (3.6 m).",
+            "footprint": [3.7, 3.7], "floors": 0, "enterable": False, "plinthDepth": 0, "maxGrade": 3, "noAutoPanels": True, "materials": MATS, "parts": p,
+            "nav": {"effect": "none", "rooms": [], "doors": [], "entrances": [], "corners": [], "firingPoints": [], "cover": [], "areas": []},
+            "furniture": [], "interactables": [], "panels": []}
+
+
+def stall_awning(n, a, b):
+    """A market stall's canvas canopy: four ash poles and a striped, slightly ridged awning 3.4 x 2.0 m at 2.3 m; only
+    the poles collide."""
+    p = []
+    for sx in (-1.6, 1.6):
+        for sz in (-0.9, 0.9):
+            B(p, [sx, 1.15, sz], [0.06, 2.3, 0.06], "oak", k=1)
+    import math as _m
+    for half in (-1, 1):
+        for k in range(7):
+            x = -1.7 + (k + 0.5) * 3.4 / 7
+            B(p, [x, 2.38, half * 0.52], [3.4 / 7, 0.02, 1.08], a if k % 2 == 0 else b, r=[half * -9.0, 0, 0])
+        for k in range(7):
+            x = -1.7 + (k + 0.5) * 3.4 / 7
+            B(p, [x, 2.2, half * 1.05], [3.4 / 7, 0.24, 0.02], a if k % 2 == 0 else b, lod=1)
+    return {"id": "sd_stall_awning_%d" % n, "version": 1, "name": "Market stall awning", "category": "Modern: Military",
+            "description": "Search and Destroy (Rue Haute): a striped canvas canopy on four poles over a market stall.",
+            "footprint": [3.5, 2.1], "floors": 0, "enterable": False, "plinthDepth": 0, "maxGrade": 3, "noAutoPanels": True, "materials": MATS, "parts": p,
+            "nav": {"effect": "none", "rooms": [], "doors": [], "entrances": [], "corners": [], "firingPoints": [], "cover": [], "areas": []},
+            "furniture": [], "interactables": [], "panels": []}
+
+
 def washing_line():
     """A washing line across a 6 m lane between two house fronts (5.3 m, its origin on the line): an iron bracket at each
     end, linen, shirts and a blanket pegged along it, sagging a little. Nothing collides."""
@@ -366,7 +411,7 @@ def washing_line():
 def main():
     n = 0
     out = [house(aid, name, "Search and Destroy (Rue Haute): a 6 m Norman town-house frontage on a lane edge, not enterable; " + name.lower() + ".", **kw)
-           for aid, name, kw in VARIANTS] + [monument(), washing_line(), market_lean_to()]
+           for aid, name, kw in VARIANTS] + [monument(), washing_line(), market_lean_to(), memorial_railing(), stall_awning(1, "canvas_red", "canvas_cream"), stall_awning(2, "canvas_navy", "canvas_cream"), stall_awning(3, "canvas_green", "canvas_cream")]
     for a in out:
         with open(os.path.join(ROOT, "content", "assets", a["id"] + ".json"), "w", encoding="utf-8", newline="\n") as f:
             json.dump(a, f, separators=(",", ":"))
