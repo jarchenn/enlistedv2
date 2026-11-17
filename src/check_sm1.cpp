@@ -72,14 +72,14 @@ bool sm1SelfTest(App& a, float dt) {
       int gun = -1;
       for (int w = 0; w < (int)a.weaponDefs.size() && gun < 0; ++w) {
         const WeaponDef& d = *a.weaponDefs[w]; bool all = true;
-        for (int sl = 0; sl < 4 && all; ++sl) { bool any = false; for (int v = 1; v < 5; ++v) { const char* id = lootAttachItemId(sl, v); if (*id) if (const ItemDef* it = lootItem(id)) any |= lootAttachFits(d, *it); } all = any; }
+        for (int sl = 0; sl < 4 && all; ++sl) { bool any = false; for (int v = 1; v < 7; ++v) { const char* id = lootAttachItemId(sl, v); if (*id) if (const ItemDef* it = lootItem(id)) any |= lootAttachFits(d, *it); } all = any; }
         if (all) gun = w;
       }
       chk(gun >= 0, std::string("a weapon taking all four slots: ") + (gun >= 0 ? a.weaponDefs[gun]->id : "none"));
       if (gun >= 0) {
         const WeaponDef& d = *a.weaponDefs[gun]; WeaponState& s = a.wstate[d.id]; for (int& x : s.att) x = 0;
         int fitted = 0, removed = 0;
-        for (int sl = 0; sl < 4; ++sl) for (int v = 1; v < 5; ++v) {
+        for (int sl = 0; sl < 4; ++sl) for (int v = 1; v < 7; ++v) {
           const char* id = lootAttachItemId(sl, v); if (!*id) continue;
           const ItemDef* it = lootItem(id); if (!it || !lootAttachFits(d, *it)) continue;
           kit.items[id] = 1; std::string why;

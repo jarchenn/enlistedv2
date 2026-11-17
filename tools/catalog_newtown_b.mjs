@@ -15,6 +15,7 @@ import { wall, partition, hinged, aabb, fbox, railing } from "./parts.mjs";
 import { mats as baseMats, comp } from "./catalog_chateau.mjs";
 import { cover, fire, room, corners, setNav, setTour } from "./catalog_atlantic.mjs";
 import { tdTown, tdAwning, tdRoof, tdPilaster, tdBars, tdMats, tdMerge, tdCornice } from "./catalog_modern_buildings_a.mjs";
+import { ntMats, ntText, ntShutter, ntPosters, ntCctv, ntAlarm, ntMeter, ntDish, ntLamp, ntBoard, ruinOnly } from "./nt7_kit.mjs";   // NT7: street detail from the references
 const GF = 0.3, SLAB = 0.25, PT = 0.03, CW = 1.25, SP = 0.12, ENC = 0.15, LAND = 1.4, LT = 0.2;
 const SIDES = ["front", "rear", "east", "west"];
 const K0 = { k: 0 }, L1 = { k: 0, lod: 1 };
@@ -1113,6 +1114,27 @@ export function shopSmall() {
       A.box([5.0, 3.0, -1.0], [5.45, 3.06, -0.96], "alu", L1);
       A.cyl([5.3, 2.75, -0.98], [0.5, 0.05, 0.5], "sign_red", { k: 0, seg: 24, r: [0, 0, 90] });
       for (const s of SIDES) { const G = sideF(w, s), isX = G.axis === "x"; fbox(A, G, isX ? -5.03 : -5.995, isX ? 5.03 : 5.995, -0.3, 0.7, -0.01, 0.04, "precast", { k: 0, bv: 0.01 }); }
+      // NT7 (convenience-store references): lettered fascias, shutter boxes over the glazing, posters and price cards on
+      // the glass, a CCTV camera, an alarm box and a meter cabinet; abandoned: one shutter part down, one shut and tagged
+      ntMats(A);
+      const Wf = sideF(w, "west");
+      ntText(A, F, -0.2, 3.8, "MINI MARKET", 0.36, 0.14, "nt_letter_dk");
+      ntText(A, E, 3.45, 3.8, "OPEN 7 DAYS", 0.3, 0.14, "nt_letter_dk");
+      ntShutter(A, F, -4.4, 1.4, 0.4, 3.0, 0);
+      ntShutter(A, E, 1.6, 5.4, 0.4, 3.0, 0);
+      ntPosters(A, F, -4.4, 1.4, 0.45, 2.9, 3);
+      ntPosters(A, E, 1.6, 5.4, 0.45, 2.9, 7);
+      ntCctv(A, F, 4.45, 3.15);
+      ntAlarm(A, E, -1.2, 3.0);
+      ntMeter(A, Wf, 4.2, 0.55);
+      ruinOnly(A, () => {
+        ntShutter(A, F, -4.4, 1.4, 0.4, 3.0, 0.7, { box: false });
+        ntShutter(A, E, 1.6, 5.4, 0.4, 3.0, 1.0, { box: false });
+        ntText(A, E, 3.5, 1.6, "KEEP OUT", 0.32, 0.075, "nt_spray");
+        ntText(A, F, -2.9, 2.35, "ZEPH", 0.5, 0.075, "nt_poster_b");   // tags on the shutters
+        ntText(A, F, -0.6, 1.9, "KRS", 0.42, 0.075, "nt_poster_r");
+        ntText(A, E, 2.6, 2.4, "DOZE", 0.4, 0.075, "nt_poster_y");
+      });
       // TD1: a sound awning over the street glazing, a bent and torn one round the corner
       tdAwning(A, F, -4.5, 1.5, 3.38, { dep: 1.3, drop: 0.5, m: "awn_green" });
       tdAwning(A, E, 1.5, 5.5, 3.38, { dep: 1.2, drop: 0.5, m: "awn_green", sag: 0.55, torn: [1], hang: [2] });
@@ -1246,6 +1268,20 @@ export function cafe() {
       for (const s of [-1, 1]) { A.box([s * 5.5 - 0.35, GF, 2.55], [s * 5.5 + 0.35, GF + 0.6, 3.25], "precast", { bv: 0.02 }); A.box([s * 5.5 - 0.3, GF + 0.6, 2.6], [s * 5.5 + 0.3, GF + 0.62, 3.2], "soil", K0); A.cone([s * 5.5, GF + 1.1, 2.9], [0.6, 1.0, 0.6], "leaf", { k: 0, top: 0.3, n: 8 }); }
       for (const x of [-3.8, 3.8]) A.box([x - 0.5, 3.0, 2.6], [x + 0.5, 3.12, 2.75], "lift_steel", L1);
       for (const s of SIDES) { const G = sideF(w, s), isX = G.axis === "x"; fbox(A, G, isX ? -6.03 : -4.995, isX ? 6.03 : 2.495, -0.3, 0.6, -0.01, 0.04, "precast", { k: 0, bv: 0.01 }); }
+      // NT7 (cafe references): the name on the canopy fascia, an A-frame menu board at the terrace gap, bulkhead lamps
+      // either side of the door, an alarm box and a meter cabinet; abandoned: the side windows boarded and sprayed
+      ntMats(A);
+      const Fc = { axis: "x", d: 5.02, out: 1 }, Ff = sideF(w, "front"), Fe = sideF(w, "east"), Fw = sideF(w, "west");
+      ntText(A, Fc, 0, 3.31, "CAFE", 0.2, 0.0, "nt_letter");
+      for (const [sx, rx] of [[-1, 14], [1, -14]]) A.box([-0.85, GF, 5.38 + sx * 0.13], [-0.35, GF + 0.95, 5.42 + sx * 0.13], "nt_letter_dk", { k: 0, r: [rx, 0, 0], bv: 0.01 });
+      A.box([-0.88, GF + 0.92, 5.36], [-0.32, GF + 0.98, 5.44], "timber", { k: 0, lod: 1 });
+      for (const a of [-4.3, 0.2]) ntLamp(A, Ff, a, 2.75, 0.0);
+      ntAlarm(A, Fe, -3.6, 3.0);
+      ntMeter(A, Fw, -3.8, 0.55);
+      ruinOnly(A, () => {
+        ntBoard(A, Fe, -1.4, 1.8, 0.9, 2.8, { mark: "CLOSED" });
+        ntBoard(A, Fw, -1.4, 1.8, 0.9, 2.8, { mark: "07" });
+      });
     },
   });
   wingAprons(A, w, [["rear", 4.0, 1.0]]);

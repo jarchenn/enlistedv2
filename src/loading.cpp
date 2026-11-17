@@ -24,6 +24,9 @@
 #include <vector>
 #include <thread>
 
+static int gJobCount = 0;
+void hangBeat();                              // UI8 (app.cpp)
+void forceQuitCheck(GLFWwindow* w, bool closeQuits);
 namespace {
 struct Job {
   int depth = 0, expected = 1, done = 0; float sub = 0, shown = 0;
@@ -189,6 +192,7 @@ void present(App& app, bool force) {
   const float dt = J.lastPresent < 0 ? 1.0f / 60.0f : (float)std::min(0.1, now - J.lastPresent);
   J.lastPresent = now;
   glfwPollEvents();   // the window keeps answering ("Not responding" after 5 s otherwise)
+  { hangBeat(); if (!app.selftest) forceQuitCheck(app.win, true); }   // UI8: the way out works during a load too
   // UI3: a frame can now be presented from inside any long loop (crumb / loadingTick): leave the caller's GL state as it was
   GLint fbDraw = 0, fbRead = 0, vp[4] = {0, 0, 0, 0}; GLfloat cc[4] = {0, 0, 0, 0}; GLboolean scis = glIsEnabled(GL_SCISSOR_TEST), depthT = glIsEnabled(GL_DEPTH_TEST), blend = glIsEnabled(GL_BLEND), cull = glIsEnabled(GL_CULL_FACE);
   glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &fbDraw); glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &fbRead); glGetIntegerv(GL_VIEWPORT, vp); glGetFloatv(GL_COLOR_CLEAR_VALUE, cc);
@@ -225,6 +229,7 @@ void present(App& app, bool force) {
 unsigned stillFor(const std::string& id) { return id.empty() ? 0 : fs::exists(contentDir() / "templates" / (id + ".loading.jpg")) ? gradedTex(contentDir() / "templates" / (id + ".loading.jpg")) : 0; }
 void loadingBegin(App& app, const std::string& title, const std::string& sub, int expectedStages, unsigned thumbTex, const std::string& mapId) {
   if (J.depth++ > 0) { J.expected = std::max(J.expected, J.done + expectedStages); return; }   // nested: the outer job grows
+  ++gJobCount;
   gLoadingDepth = J.depth;
   mainMenuLeaveForLoad(gGame && gGame->pendingStart);   // UI3: loading a map / starting a match from the menu leaves it (the loading screen covers the work)
   J.expected = std::max(1, expectedStages); J.done = 0; J.sub = 0; J.shown = 0; J.title = title; J.subtitle = sub; J.label = "Loading";
@@ -249,6 +254,7 @@ void loadingEnd() {
 }
 void loadingBootMode() { J.boot = true; }
 bool loadingActive() { return J.depth > 0; }
+int loadingJobCount() { return gJobCount; }
 
 void loadingOverlay(App& app) {
   if (!J.fading) return;
