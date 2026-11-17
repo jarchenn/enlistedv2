@@ -78,6 +78,7 @@ struct Soldier {
   // the release blend's clock (-1 none) and length (s)
   vec3 anFootW[2] = {vec3(0), vec3(0)}, anFootFrom[2] = {vec3(0), vec3(0)}; bool anFootLock[2] = {false, false}, anFootStep[2] = {false, false};
   float anFootRel[2] = {-1, -1}, anFootDur[2] = {0.3f, 0.3f};
+  vec3 anFootN[2] = {vec3(0), vec3(0)};   // AN1 step 3c: the ground normal (world) under a planted foot, from its touchdown probe
   float anGunYaw = 0, anGunVel = 0, anGunPitch = 0, anGunPVel = 0; bool anGunInit = false;   // AN1 step 3: the gun's drawn world facing (deg), a damped follow of the brain's aim
   float anKneel = 0, anCarry = 0, anMoveAim = 0, anLow = 0, anTwist = 0, anStride = 0; vec3 anDir{0, 0, 1}; vec2 anSlope{0}; bool netEngaged = false;   // AN1 posture blends (Game::posesStep)
   uint32_t poseRev = 0, skinRev = ~0u; int poseFrom = -1;   // PF1: skin only a changed pose; a far pack follower draws its leader's skin
