@@ -22,8 +22,8 @@ os.makedirs(OUT, exist_ok=True)
 # id -> how to bake. kind: tree (cards), plant (keep), solid (decimate). split: one game asset per object (variant).
 #   voxel: card cluster size (m) LOD0 / LOD1; wood: target triangles LOD0 / LOD1; tris: solid target LOD0 / LOD1
 SPEC = {
-    "pine_tree_01":        {"kind": "tree", "voxel": (0.55, 1.4), "wood": (5000, 900)},
-    "fir_tree_01":         {"kind": "tree", "voxel": (0.5, 1.3), "wood": (5000, 900)},
+    "pine_tree_01":        {"kind": "tree", "voxel": (0.33, 1.4), "wood": (5000, 900), "atlas": (3072, 6)},   # FOL1: 36 tiles of 512 px
+    "fir_tree_01":         {"kind": "tree", "voxel": (0.3, 1.3), "wood": (5000, 900), "atlas": (3072, 6)},
     "pine_sapling_medium": {"kind": "tree", "voxel": (0.35, 0.9), "wood": (2500, 500)},
     "fir_sapling_medium":  {"kind": "tree", "voxel": (0.3, 0.8), "wood": (2000, 400)},
     "fir_sapling":         {"kind": "tree", "voxel": (0.16, 0.4), "wood": (800, 200)},
@@ -50,7 +50,9 @@ SPEC = {
     "sand_rocks_small_01": {"kind": "solid", "tris": (8000, 1600)},
 }
 TWIG = ("twig", "leaves")          # material name parts that hold the foliage
-ATLAS, TILES = 2048, 4             # 4 x 4 tiles of 512 px
+ATLAS, TILES = 2048, 4             # 4 x 4 tiles of 512 px (a SPEC "atlas": (size, tiles) overrides it per tree)
+TILE_ASPECT = []                   # FOL1: the rendered tiles' cluster aspect (u / v extent), for card_mesh's tile choice
+TILE_COVER = []                    # FOL1: each tile's alpha coverage (near-empty tiles are never borrowed by other cards)
 report = {}
 
 
@@ -198,6 +200,7 @@ def render_tiles(twig, clusters, atlas_path):
     cam_d = bpy.data.cameras.new("tile"); cam_d.type = 'ORTHO'
     cam = bpy.data.objects.new("tile", cam_d); sc.collection.objects.link(cam); sc.camera = cam
     T = ATLAS // TILES
+    TILE_COVER.clear(); TILE_ASPECT.clear(); TILE_ASPECT.extend(c["ext"][0] / max(1e-6, c["ext"][1]) for c in clusters[:TILES * TILES])
     atlas = np.zeros((ATLAS, ATLAS, 4), np.float32)
     tmp = os.path.join(OUT, "_tile.png")
     for k, c in enumerate(clusters[:TILES * TILES]):
@@ -223,6 +226,7 @@ def render_tiles(twig, clusters, atlas_path):
         px[..., 3] = np.where(px[..., 3] > 0.35, 1.0, px[..., 3] * 0.6)      # crisp needles (alpha-tested at 0.5)
         tx, ty = k % TILES, k // TILES
         atlas[ty * T:(ty + 1) * T, tx * T:(tx + 1) * T] = px
+        TILE_COVER.append(float((px[..., 3] > 0.5).mean()))
     # bleed colour into the transparent texels (no dark fringe on the mips)
     a = atlas[..., 3] > 0.01
     if a.any():
@@ -262,7 +266,19 @@ def card_mesh(name, clusters, mat, axis_xy, crossed):
     """One quad (two crossed quads when crossed) per cluster, UVs into an atlas tile, normals leaning out from the trunk."""
     verts, faces, uvs, nrms = [], [], [], []
     for k, c in enumerate(clusters):
-        t = k % (TILES * TILES); tx, ty = t % TILES, t // TILES
+        # FOL1: a rendered cluster shows its own tile; any other card the tile of a cluster shaped like it (aspect), one of
+        # the three closest by a per-card hash, mirrored / turned 180 deg by the hash (was tile k % 16 for every card: the
+        # same 16 blobs, stretched onto clusters of any shape)
+        h = (k * 2654435761) & 0xffffffff
+        n_t = max(1, min(len(TILE_ASPECT), TILES * TILES))
+        if crossed is True and k < n_t: t = k
+        else:
+            a = c["ext"][0] / max(1e-6, c["ext"][1])
+            pool = [i for i in range(n_t) if i < len(TILE_COVER) and TILE_COVER[i] > 0.12] or list(range(n_t))
+            best = sorted(pool, key=lambda i: abs(math.log(max(1e-6, a) / max(1e-6, TILE_ASPECT[i] if i < len(TILE_ASPECT) else 1.0))))[:3]
+            t = best[(h >> 8) % len(best)]
+        flip_u, flip_v = bool((h >> 4) & 1), bool((h >> 5) & 1) and bool((h >> 4) & 1)   # mirror, or mirror + flip = 180 deg
+        tx, ty = t % TILES, t // TILES
         u0, v0 = tx / TILES, 1 - (ty + 1) / TILES
         ctr = Vector(c["c"]); u = Vector(c["u"]); v = Vector(c["v"]); nrm = Vector(c["n"])
         hu, hv = c["ext"][0] * 0.5 * 1.15, c["ext"][1] * 0.5 * 1.15
@@ -274,7 +290,8 @@ def card_mesh(name, clusters, mat, axis_xy, crossed):
             b = len(verts)
             for su, sv in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
                 verts.append(ctr + pu * (su * hs) + pv * (sv * hs))
-                uvs.append((u0 + (su + 1) / 2 / TILES, v0 + (sv + 1) / 2 / TILES))
+                fu, fv = (-su if flip_u else su), (-sv if flip_v else sv)
+                uvs.append((u0 + (fu + 1) / 2 / TILES, v0 + (fv + 1) / 2 / TILES))
                 pn = pu.cross(pv).normalized(); pn = pn if pn.dot(out) >= 0 else -pn
                 nrms.append((pn * 0.35 + out * 0.65).normalized())
             faces.append((b, b + 1, b + 2, b + 3))
@@ -426,6 +443,7 @@ def bake_rest(pid, spec, todo):
 for pid, spec in SPEC.items():
     if ONLY and pid not in ONLY: continue
     if not os.path.exists(os.path.join(SRC, pid, pid + "_1k.gltf")): print("BAKE", pid, "missing"); continue
+    ATLAS, TILES = spec.get("atlas", (2048, 4))
     try:
         bake(pid, spec)
     except Exception as e:

@@ -590,13 +590,17 @@ static void cutoutMips(GLuint t, int w, int h, int levels, const stbi_uc* d) {
 // TK2: a map of 2048 px (MEM1: 1024) or more is block-compressed on load (CPU mips, stb_dxt): albedo BC1 sRGB (BC3 with alpha),
 // metal-rough / AO BC1, normal BC5 (RG; the shader rebuilds z when the blue channel reads 0). A 4096 RGBA8 map with mips
 // is 85 MB of VRAM, BC1 11 MB, BC5 22 MB. kind: 0 albedo, 1 linear data, 2 normal
-static GLuint loadTexBC(const uint8_t* d, int w, int h, int kind, size_t& bytes) {
+// FOL1: a cutout albedo (cut) compresses too, BC3, its mips' alpha scaled to keep level 0's coverage at the 0.5 cutoff
+// (as cutoutMips): the 2048 needle atlases cost less than the old 1024 RGBA8 ones
+static GLuint loadTexBC(const uint8_t* d, int w, int h, int kind, size_t& bytes, bool cut = false) {
   static int s3tc = -1;
   if (s3tc < 0) { s3tc = 0; GLint n = 0; glGetIntegerv(GL_NUM_EXTENSIONS, &n); int got = 0;
     for (GLint i = 0; i < n; ++i) { const char* e = (const char*)glGetStringi(GL_EXTENSIONS, i); if (!std::strcmp(e, "GL_EXT_texture_compression_s3tc")) got |= 1; if (!std::strcmp(e, "GL_EXT_texture_sRGB")) got |= 2; }
     s3tc = got == 3; }
   if (!s3tc || w < 1024 || h < 1024 || (w & 3) || (h & 3)) return 0;   // MEM1: 1024 maps too (RGBA8 + mips 5.6 MB each, BC1 0.7 MB): weapons, vehicles, props
-  bool alpha = false; if (kind == 0) for (size_t k = 0; k < (size_t)w * h && !alpha; ++k) alpha = d[k * 4 + 3] < 250;
+  bool alpha = cut; if (kind == 0) for (size_t k = 0; k < (size_t)w * h && !alpha; ++k) alpha = d[k * 4 + 3] < 250;
+  std::vector<float> raw; float frac0 = 0;   // cut: the unscaled alpha of the current level, level 0's coverage
+  if (cut) { raw.resize((size_t)w * h); size_t c0 = 0; for (size_t k = 0; k < raw.size(); ++k) { raw[k] = d[k * 4 + 3] / 255.0f; c0 += d[k * 4 + 3] > 127; } frac0 = (float)c0 / raw.size(); }
   const GLenum fmt = kind == 2 ? 0x8DBD /* RG_RGTC2 */ : kind == 0 ? (alpha ? 0x8C4F /* SRGB_ALPHA_S3TC_DXT5 */ : 0x8C4C /* SRGB_S3TC_DXT1 */) : 0x83F0 /* RGB_S3TC_DXT1 */;
   const int bsz = kind == 2 || alpha ? 16 : 8;
   int levels = 1 + (int)std::floor(std::log2((float)std::max(w, h)));
@@ -629,6 +633,18 @@ static GLuint loadTexBC(const uint8_t* d, int w, int h, int kind, size_t& bytes)
         int x0 = std::min(2 * x, lw - 1), x1 = std::min(2 * x + 1, lw - 1), y0 = std::min(2 * y, lh - 1), y1 = std::min(2 * y + 1, lh - 1);
         next[((size_t)y * nw + x) * 4 + c] = (uint8_t)((cur[((size_t)y0 * lw + x0) * 4 + c] + cur[((size_t)y0 * lw + x1) * 4 + c] + cur[((size_t)y1 * lw + x0) * 4 + c] + cur[((size_t)y1 * lw + x1) * 4 + c] + 2) / 4);
       }
+      if (cut) {   // coverage-preserving alpha (the box-filtered raw alpha, scaled so the share over 0.5 stays level 0's)
+        std::vector<float> r2((size_t)nw * nh);
+        for (int y = 0; y < nh; ++y) for (int x = 0; x < nw; ++x) {
+          int x0 = std::min(2 * x, lw - 1), x1 = std::min(2 * x + 1, lw - 1), y0 = std::min(2 * y, lh - 1), y1 = std::min(2 * y + 1, lh - 1);
+          r2[(size_t)y * nw + x] = 0.25f * (raw[(size_t)y0 * lw + x0] + raw[(size_t)y0 * lw + x1] + raw[(size_t)y1 * lw + x0] + raw[(size_t)y1 * lw + x1]);
+        }
+        float lo = 1, hi = 16;
+        for (int it = 0; it < 14; ++it) { float m = (lo + hi) * 0.5f; size_t n = 0; for (float a : r2) n += a * m > 0.5f; if ((float)n / r2.size() < frac0) lo = m; else hi = m; }
+        const float k = (lo + hi) * 0.5f;
+        for (size_t o = 0; o < r2.size(); ++o) next[o * 4 + 3] = (uint8_t)std::min(255.0f, r2[o] * k * 255.0f + 0.5f);
+        raw.swap(r2);
+      }
       cur.swap(next); lw = nw; lh = nh;
     }
   }
@@ -642,7 +658,7 @@ static GLuint loadTex(const fs::path& p, bool srgb, size_t& bytes, int kind = -1
   stbi_set_flip_vertically_on_load(0);
   stbi_uc* d = stbi_load(p.string().c_str(), &w, &h, &c, 4);
   if (!d) return 0;
-  if (kind >= 0) if (GLuint bt = loadTexBC(d, w, h, kind, bytes)) { stbi_image_free(d); return bt; }
+  if (kind >= 0 || cutout) if (GLuint bt = loadTexBC(d, w, h, cutout ? 0 : kind, bytes, cutout)) { stbi_image_free(d); return bt; }
   GLuint t; glCreateTextures(GL_TEXTURE_2D, 1, &t);
   int levels = 1 + (int)std::floor(std::log2((float)std::max(w, h)));
   glTextureStorage2D(t, levels, srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8, w, h);
@@ -728,7 +744,8 @@ void GpuModel::destroy() {
   if (vao) { glDeleteVertexArrays(1, &vao); glDeleteBuffers(1, &vbo); glDeleteBuffers(1, &ebo); }
   std::set<GLuint> ts;
   for (auto& m : mats) for (GLuint x : {m.alb, m.mr, m.n, m.ao}) if (x) ts.insert(x);
-  for (GLuint x : ts) glDeleteTextures(1, &x);
+  for (GLuint x : ts) if (!borrowed.count(x)) glDeleteTextures(1, &x);
+  borrowed.clear();
   mats.clear(); textureCount = 0;
   vao = vbo = ebo = texAlb = texMR = texN = texAO = 0;
   parts.clear(); gpuBytes = 0;

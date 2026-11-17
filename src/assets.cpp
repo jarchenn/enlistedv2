@@ -1127,7 +1127,13 @@ void AssetLibrary::build(AssetDef& ad) const {
       a->model = gm;
       pts.push_back(gm->bmin); pts.push_back(gm->bmax);
       auto lod = std::make_shared<GpuModel>(); std::string e2;
-      if (fs::exists(dir / "lod1" / "mesh.bin") && lod->load(dir / "lod1", e2, turn)) a->modelLod = lod;
+      if (fs::exists(dir / "lod1" / "mesh.bin") && lod->load(dir / "lod1", e2, turn)) {
+        // FOL1: the LOD1 cards sample the same atlas layout as LOD0 (one bake): they draw LOD0's full-size cutout albedo
+        // instead of their own (512, 128 px tiles on 1.3 m cards: the blurred, blocky canopy overhead); no extra memory
+        for (auto& lm : lod->mats) if (lm.cutout) for (auto& m0 : gm->mats)
+          if (m0.cutout && m0.alb && m0.name == lm.name && lm.alb != m0.alb) { if (lm.alb) glDeleteTextures(1, &lm.alb); lm.alb = m0.alb; lod->borrowed.insert(m0.alb); }
+        a->modelLod = lod;
+      }
       if (mj.contains("stationRoles")) {   // part-name prefix -> station role: base / traverse / elevation / recoil
         static const std::map<std::string, int> rn = {{"base", 0}, {"traverse", 1}, {"elevation", 2}, {"recoil", 3}};
         for (auto& p : gm->parts) {
