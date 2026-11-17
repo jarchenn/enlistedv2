@@ -288,9 +288,9 @@ def place_container_walls(b, plan, perimeter, between, R, y=0.0, boxes=("mod_con
         px, pz = x + dx * 1.3, z + dz * 1.3
         cyaw = 0.0 if yaw == 90.0 else 90.0   # the container's length (local z) along the edge
         aid = R.choice(boxes)
-        b.place(aid, px, pz, cyaw + R.choice((0.0, 180.0)), check=False, cls="none", y=y, tags=set(tags))
-        if R.random() < stack:
-            b.place(R.choice(boxes), px, pz, cyaw + R.choice((0.0, 180.0)), check=False, cls="none", y=y + 2.6, tags=set(tags) | {"stacked"})
+        low = b.place(aid, px, pz, cyaw + R.choice((0.0, 180.0)), check=False, cls="none", y=y, tags=set(tags))
+        if low is not None and R.random() < stack:   # stacked: rests on the box below (ED1 support, never seated on the ground)
+            b.place(R.choice(boxes), px, pz, cyaw + R.choice((0.0, 180.0)), check=False, cls="none", y=y + 2.6, tags=set(tags) | {"stacked"}, support=low)
         n["container"] += 1
     return n
 

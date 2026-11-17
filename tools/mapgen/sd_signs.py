@@ -91,8 +91,28 @@ def main():
     m["materials"] = [{"name": "galv", "albedo": [0.55, 0.57, 0.58], "roughness": 0.5, "pattern": "metal", "metallic": 0.6, "grain": 1, "texture": "steel_scratched"},
                       {"name": "head", "albedo": [0.25, 0.26, 0.27], "roughness": 0.6, "pattern": "metal", "metallic": 0.4, "grain": 1},
                       {"name": "glow", "albedo": [1.0, 0.72, 0.38], "roughness": 0.3, "pattern": "plain", "metallic": 0, "grain": 1, "emissive": 2.0}]
-    m["light"] = {"offset": [0, 5.7, 0.9], "color": [1.0, 0.62, 0.3], "intensity": 8.0, "radius": 18.0, "use": "electric"}
+    m["light"] = {"offset": [0, 5.65, 0.9], "color": [1.0, 0.62, 0.3], "intensity": 6.0, "radius": 18.0, "cone": [75, 115], "dir": [0, -1, 0], "group": 2, "use": "street"}
     out.append(m)
+    # SD2 Rue Haute: the town's walled lanes, a 6 m bay of 3.2 m rubble-stone wall (plinth, body, coping), not climbable
+    # (an invisible collider to 3.9 m); a door bay with a 1.8 m opening under a stone lintel for the connector links
+    stone_mats = [{"name": "stone", "albedo": [0.62, 0.58, 0.52], "roughness": 0.9, "pattern": "stone", "metallic": 0, "grain": 1, "texture": "stone_field"},
+                  {"name": "dressed", "albedo": [0.7, 0.67, 0.61], "roughness": 0.85, "pattern": "stone", "metallic": 0, "grain": 1, "texture": "stone_coursed"},
+                  {"name": "air", "albedo": [0.5, 0.5, 0.5], "roughness": 1, "pattern": "plain", "metallic": 0, "grain": 1}]
+    def wall_bay(x0, x1, top=3.05):
+        return [{"t": "b", "c": [(x0 + x1) / 2, 0.15, 0], "s": [x1 - x0, 0.3, 0.62], "m": "dressed", "bv": 0.02},
+                {"t": "b", "c": [(x0 + x1) / 2, (0.3 + top) / 2, 0], "s": [x1 - x0, top - 0.3, 0.52], "m": "stone"},
+                {"t": "b", "c": [(x0 + x1) / 2, top + 0.08, 0], "s": [x1 - x0 + 0.04, 0.16, 0.62], "m": "dressed", "bv": 0.03}]
+    w = wall_bay(-3.0, 3.0) + [{"t": "b", "c": [0, 3.55, 0], "s": [6.0, 0.7, 0.5], "m": "air", "v": 0}]
+    a1 = asset("sd_town_wall", "Town wall bay (6 m)", "Search and Destroy: a 6 m bay of 3.2 m rubble-stone wall with a dressed plinth and coping, the walled lanes of Rue Haute. Not climbable.", [6.0, 0.62], w, [0.5, 0.5, 0.5])
+    a1["materials"] = stone_mats
+    out.append(a1)
+    d = wall_bay(-3.0, -0.9) + wall_bay(0.9, 3.0) + [{"t": "b", "c": [0, 2.75, 0], "s": [1.8, 0.6, 0.52], "m": "stone"},
+         {"t": "b", "c": [0, 2.32, 0], "s": [2.2, 0.26, 0.6], "m": "dressed", "bv": 0.02},
+         {"t": "b", "c": [0, 3.13, 0], "s": [1.84, 0.16, 0.62], "m": "dressed"},
+         {"t": "b", "c": [0, 3.55, 0], "s": [6.0, 0.7, 0.5], "m": "air", "v": 0}]
+    a2 = asset("sd_town_wall_door", "Town wall bay with a doorway", "Search and Destroy: the 6 m town wall bay with a 1.8 m doorway under a dressed stone lintel (2.2 m clear).", [6.0, 0.62], d, [0.5, 0.5, 0.5])
+    a2["materials"] = stone_mats
+    out.append(a2)
     for a in out:
         with open(os.path.join(ROOT, "content", "assets", a["id"] + ".json"), "w", encoding="utf-8", newline="\n") as f:
             json.dump(a, f, separators=(",", ":"))
