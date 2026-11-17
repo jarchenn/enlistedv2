@@ -1147,7 +1147,7 @@ int App::run(int argc, char** argv) {
   if (!openPath.empty()) openMap(openPath);
   if (!runSelf && openPath.empty()) { stage("Preparing the menu"); menuBackdropTex(false); }   // the menu scene and soldier load under the splash
   boot.reset();   // UI5: fades into the menu (loadingOverlay)
-  { extern void userCachePruneAsync(); userCachePruneAsync(); }   // CACHE1: after loading (what this launch used is now the newest): back under the cap, off the main thread
+  { extern void userCachePruneAsync(); userCachePruneAsync(); extern void aiNavWarmup(); if (!runSelf || std::getenv("NMK_NAV_CACHE")) aiNavWarmup(); }   // CACHE1   // CACHE1: after loading (what this launch used is now the newest): back under the cap, off the main thread
   if (runSelf) selftest = new SelfTest(bench);
   else if (openPath.empty()) mainMenuOpen(*this);   // UI2: launch into the main menu (a map given on the command line opens the editor)
 

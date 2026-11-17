@@ -1,6 +1,8 @@
 // AI core lifecycle and shared services: navmesh setup (asset nav metadata -> area costs), per-step services (tile
 // commits, path dispatch, world-change polling for live rebuilds), team knowledge with the sharing delay, threat
 // viewsheds, route claims, metrics and the stuck-event log. See ai_core.h.
+#include <thread>
+#include <chrono>
 #include "ai_core.h"
 #include "loading.h"
 #include "app.h"
@@ -108,8 +110,14 @@ static std::string aiNavKeyPrefix(const App& app, const json& navj) {
     char b[96]; std::snprintf(b, sizeof b, "|%ld %ld %ld %ld", std::lround(in.pos.x * 100), std::lround(in.pos.y * 100), std::lround(in.pos.z * 100), std::lround(in.yaw));
     tpl += in.assetId + b;
   }
-  return Net::mapHash(app) + "|" + Net::contentHashOf(contentDir(), {"assets"}, "nmk-nav-" + std::to_string(kNavBakeVersion)) + "|" + std::to_string(fnv64(tpl)) + "|" + navj.dump();
+  auto t0 = std::chrono::steady_clock::now(); std::string mh = Net::mapHash(app);
+  auto t1 = std::chrono::steady_clock::now(); std::string ch = Net::contentHashOf(contentDir(), {"assets"}, "nmk-nav-" + std::to_string(kNavBakeVersion));   // remembered (aiNavWarmup)
+  logf("ai: nav key: map hash %.0f ms, content hash %.0f ms", std::chrono::duration<double, std::milli>(t1 - t0).count(), std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t1).count());
+  return mh + "|" + ch + "|" + std::to_string(fnv64(tpl)) + "|" + navj.dump();
 }
+// CACHE1: the assets' content hash of the nav key, computed once on a thread after loading (it took ~2.8 s inside the
+// first match start's "ai: navmesh bake"); Net::contentHashOf remembers it while no asset file changes
+void aiNavWarmup() { std::thread([] { Net::contentHashOf(contentDir(), {"assets"}, "nmk-nav-" + std::to_string(kNavBakeVersion)); }).detach(); }
 static uint64_t aiNavKey(const std::string& pre, vec3 lo, vec3 hi) {
   char b[120]; std::snprintf(b, sizeof b, "|%.2f %.2f %.2f %.2f %.2f %.2f", lo.x, lo.y, lo.z, hi.x, hi.y, hi.z);
   return fnv64(pre + b);
