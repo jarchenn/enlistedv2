@@ -15,8 +15,10 @@ from gen_furniture import A  # noqa: E402  (the shared builder; MATS covers the 
 MIL = {
     "field_grey": ([0.17, 0.18, 0.16], 0.58, "metal", 1),        # painted steel (dielectric paint)
     "olive_paint": ([0.12, 0.13, 0.07], 0.62, "paintwood", -1),
-    "blanket_grey": ([0.22, 0.22, 0.2], 0.97, "textile", 0),
-    "straw_tick": ([0.46, 0.4, 0.27], 0.95, "textile", 1),
+    "blanket_grey": ([0.2, 0.2, 0.19], 0.97, "textile", 0),
+    "blanket_stripe": ([0.09, 0.09, 0.085], 0.97, "textile", 0),
+    "straw_tick": ([0.55, 0.46, 0.3], 0.95, "textile", 2),       # PR4 batch 5: coarse jute with a faint check, not ticking stripes
+    "tick_sag": ([0.4, 0.33, 0.21], 0.95, "textile", 0),
     "map_paper": ([0.56, 0.55, 0.42], 0.9, "paper", 1),
     "bakelite": ([0.05, 0.035, 0.025], 0.35, "plain", 1),
     "dial_face": ([0.7, 0.66, 0.52], 0.4, "paper", 1),
@@ -45,28 +47,36 @@ def tube(a, p0, p1, d, m, grp, seg=10):
 
 
 def bunk(root):
-    a = mk("furn_mil_bunk", "Steel bunk (two-tier)", "Two-tier steel-tube bunk, 2.0 x 0.86 m: field-grey frame with a foot ladder, straw ticks and folded grey wool blankets, a pillow on each tier.",
+    a = mk("furn_mil_bunk", "Steel bunk (two-tier)", "Two-tier steel-tube bunk, 2.0 x 0.86 m: field-grey 3 cm tube frame with a four-rung foot ladder, lumpy jute straw ticks, folded grey wool blankets striped at the ends, a pillow on each tier.",
            "metal", 24, 55, wall=True, front=0.7)
     W, D, H = 2.0, 0.86, 1.78
     for sx in (-1, 1):
         for sz in (-1, 1):
-            tube(a, [sx * (W / 2 - 0.03), 0, sz * (D / 2 - 0.03)], [sx * (W / 2 - 0.03), H, sz * (D / 2 - 0.03)], 0.042, "field_grey", "frame")
+            tube(a, [sx * (W / 2 - 0.03), 0, sz * (D / 2 - 0.03)], [sx * (W / 2 - 0.03), H, sz * (D / 2 - 0.03)], 0.034, "field_grey", "frame")
     for y in (0.36, 1.26):
         for sz in (-1, 1):
-            tube(a, [-W / 2 + 0.03, y, sz * (D / 2 - 0.03)], [W / 2 - 0.03, y, sz * (D / 2 - 0.03)], 0.036, "field_grey", "frame")
+            tube(a, [-W / 2 + 0.03, y, sz * (D / 2 - 0.03)], [W / 2 - 0.03, y, sz * (D / 2 - 0.03)], 0.03, "field_grey", "frame")
         for sx in (-1, 1):
-            tube(a, [sx * (W / 2 - 0.03), y, -D / 2 + 0.03], [sx * (W / 2 - 0.03), y, D / 2 - 0.03], 0.036, "field_grey", "frame")
+            tube(a, [sx * (W / 2 - 0.03), y, -D / 2 + 0.03], [sx * (W / 2 - 0.03), y, D / 2 - 0.03], 0.03, "field_grey", "frame")
         a.r([0, y + 0.012, 0], [W - 0.1, 0.012, D - 0.1], "steel_bare", "frame", 0.004)                 # sprung base
     for sz in (-1, 1):
         tube(a, [-W / 2 + 0.03, H - 0.06, sz * (D / 2 - 0.03)], [W / 2 - 0.03, H - 0.06, sz * (D / 2 - 0.03)], 0.03, "field_grey", "frame")
-    for y in (0.62, 0.92):   # ladder rungs at the foot end
-        tube(a, [W / 2 - 0.03, y, -D / 2 + 0.03], [W / 2 - 0.03, y, D / 2 - 0.03], 0.03, "field_grey", "frame")
+    for y in (0.56, 0.76, 0.96, 1.16):   # four ladder rungs at the foot end
+        tube(a, [W / 2 - 0.03, y, -D / 2 + 0.03], [W / 2 - 0.03, y, D / 2 - 0.03], 0.026, "field_grey", "frame")
+    L = W - 0.14
     for i, y in enumerate((0.36, 1.26)):
         tier = "lower" if i == 0 else "upper"
-        a.r([0, y + 0.085, 0], [W - 0.14, 0.13, D - 0.14], "straw_tick", tier, 0.05)
-        a.r([-W / 2 + 0.3, y + 0.19, 0], [0.34, 0.09, D - 0.3], "ticking", tier, 0.04)                   # pillow
-        a.r([0.35, y + 0.17, 0.02 - 0.05 * i], [0.95, 0.06, D - 0.18], "blanket_grey", "blankets", 0.025)  # folded blanket
-        a.r([0.62, y + 0.215, 0.0], [0.42, 0.035, D - 0.26], "blanket_grey", "blankets", 0.015)
+        x0 = -L / 2
+        for k, (frac, h) in enumerate(((0.36, 0.12), (0.34, 0.127), (0.3, 0.115))):   # a lumpy straw tick, 12 cm, sagging between three fills
+            w = L * frac; a.r([x0 + w / 2, y + 0.02 + h / 2, 0], [w + 0.03, h, D - 0.14], "straw_tick", tier, 0.05); x0 += w
+        for xs in (-L / 2 + L * 0.36, -L / 2 + L * 0.7):   # the sag lines
+            a.r([xs, y + 0.135, 0], [0.025, 0.01, D - 0.2], "tick_sag", tier, 0.004)
+        a.r([-W / 2 + 0.3, y + 0.21, 0], [0.34, 0.09, D - 0.3], "straw_tick", tier, 0.04)                 # pillow
+        bx = 0.35
+        a.r([bx, y + 0.18, 0.02 - 0.05 * i], [0.95, 0.06, D - 0.18], "blanket_grey", "blankets", 0.025)    # folded blanket
+        a.r([0.62, y + 0.225, 0.0], [0.42, 0.035, D - 0.26], "blanket_grey", "blankets", 0.015)
+        for xs in (bx - 0.4, bx - 0.33, bx + 0.33, bx + 0.4):   # two darker stripes near each end
+            a.r([xs, y + 0.181, 0.02 - 0.05 * i], [0.03, 0.062, D - 0.175], "blanket_stripe", "blankets", 0.01)
     a.col([0, H / 2, 0], [W, H, D])
     return a.write(root, [W, D], fragments=["blankets"], keep=["frame", "lower", "upper"])
 

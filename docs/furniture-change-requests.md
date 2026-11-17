@@ -63,7 +63,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Oak pews in Broomfield Church - geograph.org.uk - 1086535.jpg](https://commons.wikimedia.org/wiki/File:Oak_pews_in_Broomfield_Church_-_geograph.org.uk_-_1086535.jpg) (CC BY-SA 2.0)
 **KEEP: change request.** **Wrong:** panelled back pew reads, but the ends are plain boards and the back panels are flat recesses.
 **Change:** keep 2.1 x 0.55 x 1.02. Ends: 0.05 m oak boards with a scrolled top (carved C-scroll, 0.15 m) and a moulded edge; back: three raised panels with a 0.04 m moulded top rail; book ledge 0.12 m on the back with a 0.02 m lip; kneeler 0.10 m board. Oak darkened by age (0.16, 0.10, 0.06), polished seat and top rail (roughness 0.35).
-**Status:** PR3 batch 2, done in part: moulded top rail and ledge lip. The rest of the request is still open.
+**Status:** PR4 batch 5, done: oak darkened by age with a polished seat and top rail, scrolled (C-scroll) and moulded ends, three raised panels, book ledge with lip, kneeler board.
 ![furn_pew after, 1 m](furniture-audit/furn_pew_after.jpg)
 
 ### `furn_picture`: Picture frame
@@ -182,6 +182,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 **KEEP: change request.** **Wrong:** fine at 1 m; sheets are pure white and perfectly flat.
 **Change:** keep 0.60 x 0.60 x 0.03. Off-white / yellowed paper (0.85, 0.82, 0.72), 2 sheets with a 0.01 m curl at a corner, printed text texture (generic, unreadable) on a folded newspaper, one envelope; slight dirt.
 **Status:** PR4 batch 4, done in part: some sheets yellowed with age. The rest of the request is still open.
+![furn_papers after, 1 m](furniture-audit/furn_papers_after.jpg)
 
 ### `furn_portrait`: Portrait
 *Rooms:* attic, bedroom, bedroom_modern, class, hall, mil_command, office, office_modern, sitting. *Size:* 0.3 x 0.03 m footprint, h 0.36 m.
@@ -213,7 +214,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** black box with white oven doors; the cuisinière has a brass rail, enamelled doors with nickel trim, hot plate rings and a flue.
 **Change:** keep 1.02 x 0.65 x 1.82 (with flue). Body: cast iron black (roughness 0.5) on 0.10 m legs; two oven doors in cream enamel (0.85, 0.80, 0.68, roughness 0.15) with nickel frames and handles; a 0.02 m brass towel rail along the front; top with 3 concentric hot plate rings (0.20 m, removable centre discs in the normal); a 0.12 m flue rising and bending into the wall; a marmite on top.
-**Status:** PR3 batch 2, done in part: cream enamel doors in nickel frames, flue elbow into the wall. The rest of the request is still open.
+**Status:** PR4 batch 5, done: legs lengthened to 0.10 m so the body stands on them (it floated 4 cm); cream enamel doors in nickel frames, brass rail, hot plate rings, flue elbow and pot as before.
 ![furn_stove after, 1 m](furniture-audit/furn_stove_after.jpg)
 
 ### `furn_stove_potbelly`: Pot-bellied stove
@@ -222,6 +223,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Romesse pot belly stove in Leasowe Lighthouse.jpg](https://commons.wikimedia.org/wiki/File:Romesse_pot_belly_stove_in_Leasowe_Lighthouse.jpg) (CC BY-SA 4.0)
 **KEEP: change request.** **Wrong:** thin black cylinder with a glowing slot; the reference pot-belly is a fat round body on legs.
 **Change:** keep 0.42 x 0.42 x 1.80. Body: bulging cylinder 0.36 m max diameter at mid height (5-6 ring frustums), a 0.20 m fire door with a mica window (orange emissive behind), a draught grate below, 3 cabriole legs 0.12 m, a top collar and a 0.12 m flue pipe with one elbow. Cast iron black, roughness 0.55, rust ring near the base.
+**Status:** PR4 batch 5, done: bulging body (six frustums, 0.36 m at mid height) on three splayed cabriole legs, 0.20 m fire door with a glowing mica window, draught grate, top collar, flue with one elbow into the wall, a rust ring near the base.
+![furn_stove_potbelly after, 1 m](furniture-audit/furn_stove_potbelly_after.jpg)
 
 ### `furn_wall_clock`: Wall clock
 *Rooms:* bedroom, bedroom_modern, class, kitchen, mil_command, mil_radio, office, office_modern, sitting, tavern. *Size:* 0.32 x 0.11 m footprint, h 0.61 m.
@@ -342,7 +345,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** reads; scanner and belt too plain.
 **Change:** keep. Rubber belt black with transverse ribs (normal), end rollers chrome; scanner glass window (dark, roughness 0.05, red laser line emissive); a card terminal 0.08 x 0.16 m on a post; a divider bar on the belt.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open.
+**Status:** PR4 batch 5, done: black belt with transverse ribs, chrome end rollers, divider bar across the belt, red laser lines in the dark scanner glass, card terminal on a post.
+![furn_mod_checkout after, 1 m](furniture-audit/furn_mod_checkout_after.jpg)
 
 ### `furn_mod_clothes_rack`: Clothing rail
 *Rooms:* shop. *Size:* 1.24 x 0.52 m footprint, h 1.61 m.
@@ -351,6 +355,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 **KEEP: change request.** **Wrong:** garments are flat coloured planks; no hangers, sleeves or folds.
 **Change:** keep 1.24 x 0.52 x 1.61. 10-12 garments: shirts and jackets each as a shoulder shape (0.45 m wide) + body with 3-5 vertical folds (normal + slight geometric wave), sleeves hanging at the sides, muted colours (navy, grey, olive, white, denim); visible hangers (0.003 m wire hook over the rail).
 **Status:** PR4 batch 4, done in part: garments with shoulders and sleeves instead of flat boards. The rest of the request is still open.
+![furn_mod_clothes_rack after, 1 m](furniture-audit/furn_mod_clothes_rack_after.jpg)
 
 ### `furn_mod_display_table`: Display table
 *Rooms:* shop. *Size:* 1.5 x 0.9 m footprint, h 1.01 m.
@@ -420,7 +425,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** painted doors with a three-board top read as a kitchen unit; the enfilade lacks mouldings and handles.
 **Change:** keep 1.84 x 0.51 x 0.90. Three doors with raised fields and brass escutcheons, a drawer row (three drawers with brass bail pulls) under a 0.03 m moulded top, a 0.08 m plinth with a shaped apron. Paint: grey-blue (0.40, 0.46, 0.48) worn to wood on edges, or polished oak.
-**Status:** PR3 batch 2, done in part: grey-blue paint, escutcheons, shaped apron. The rest of the request is still open.
+**Status:** PR4 batch 5, done: ovolo moulding on the top's edge, grey-blue paint worn back to the wood on the stiles' edges; raised-field doors, escutcheons, bail-pull drawers, plinth and shaped apron as before.
 ![furn_sideboard after, 1 m](furniture-audit/furn_sideboard_after.jpg)
 
 ### `furn_table_small`: Kitchen table
@@ -464,6 +469,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Bunks in the USS Pampanito.jpg](https://commons.wikimedia.org/wiki/File:Bunks_in_the_USS_Pampanito.jpg) (CC BY-SA 4.0), partial match
 **KEEP: change request.** **Wrong:** frame reads; straw ticks are striped like modern mattresses and too thin.
 **Change:** keep 2.0 x 0.86 x 1.8. Straw ticks 0.12 m thick, lumpy (2-3 sag lines in the normal), coarse jute / hessian (0.55, 0.46, 0.30) with a faint check, not stripes; folded grey wool blankets (0.20, 0.20, 0.19) with two darker stripes at the ends; a foot ladder with 4 rungs on one end. Frame: field-grey steel tube 0.03 m, chipped.
+**Status:** PR4 batch 5, done: 12 cm lumpy straw ticks in coarse jute with a faint check (three fills with sag lines), grey wool blankets with two dark stripes at each end, four ladder rungs, 3 cm field-grey tube frame.
+![furn_mil_bunk after, 1 m](furniture-audit/furn_mil_bunk_after.jpg)
 
 ### `furn_mil_crates`: Ammunition crates
 *Rooms:* mil_ammo, mil_command, mil_fighting, mil_passage, mil_plant, mil_quarters, mil_radio. *Size:* 1.64 x 0.44 m footprint.
@@ -595,7 +602,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Antique bedside table - Casa Loma.jpg](https://commons.wikimedia.org/wiki/File:Antique_bedside_table_-_Casa_Loma.jpg) (CC BY 2.0), partial match
 **KEEP: change request.** **Wrong:** white box with blue doors; reads as a kitchen unit.
 **Change:** keep 0.48 x 0.48 x 0.89. Hospital locker: white laminate (shared fix) with a pale grey drawer front and door, recessed handles, a swing-over table flap on a chrome arm, 4 castors 0.05 m.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open.
+**Status:** PR4 batch 5, done: white laminate with pale grey drawer and door, recessed pull slots, swing-over table flap folded on top on a chrome arm, 5 cm castors.
 ![furn_mod_bedside_cabinet after, 1 m](furniture-audit/furn_mod_bedside_cabinet_after.jpg)
 
 ### `furn_mod_bleachers`: Bleacher section
@@ -701,7 +708,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** reads; steel blotchy.
 **Change:** keep. Brushed stainless (shared fix); drain grilles; pre-rinse spray arm with a coiled spring hose; undershelf with stacked trays.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. Stainless switched to a flat metallic finish (PR3); it still shows some mottling from reflections at 1 m: open.
+**Status:** PR4 batch 5, done: clean brushed stainless, drain grilles in two bowls, pre-rinse arm with a coiled spring round the hose, stacked trays on the undershelf.
 ![furn_mod_dish_sink after, 1 m](furniture-audit/furn_mod_dish_sink_after.jpg)
 
 ### `furn_mod_dumbbell_rack`: Dumbbell rack
@@ -726,7 +733,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Macey Vertical Filing Cabinet 1903.jpg](https://commons.wikimedia.org/wiki/File:Macey_Vertical_Filing_Cabinet_1903.jpg) (Public domain), partial match
 **KEEP: change request.** **Wrong:** blotchy marbled grey.
 **Change:** keep 0.47 x 0.63 x 1.32. Painted steel (shared fix) light grey (0.62, 0.63, 0.62); 4 drawers with recessed pull bars and label holders (chrome, blank cards).
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. Stainless switched to a flat metallic finish (PR3); it still shows some mottling from reflections at 1 m: open.
+**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. Stainless mottling fixed in PR4 batch 5 (the material name "steel" pulled the rusty steel texture set through textures.json; modern steel now has no texture set).
 ![furn_mod_filing_cabinet after, 1 m](furniture-audit/furn_mod_filing_cabinet_after.jpg)
 
 ### `furn_mod_floor_lamp`: Floor lamp
@@ -743,7 +750,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Namche Bazaar, Deep frying, Deep fryer, Nepal.jpg](https://commons.wikimedia.org/wiki/File:Namche_Bazaar,_Deep_frying,_Deep_fryer,_Nepal.jpg) (CC BY 4.0)
 **KEEP: change request.** **Wrong:** read correctly; steel blotchy.
 **Change:** keep sizes. Brushed stainless (shared fix); burners / grates cast-iron black (roughness 0.6); knobs black bakelite with white index lines; oil and grease darkening on the cooking surfaces only.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. Stainless switched to a flat metallic finish (PR3); it still shows some mottling from reflections at 1 m: open.
+**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. Stainless mottling fixed in PR4 batch 5 (the material name "steel" pulled the rusty steel texture set through textures.json; modern steel now has no texture set).
 ![furn_mod_fryer after, 1 m](furniture-audit/furn_mod_fryer_after.jpg)
 
 ### `furn_mod_griddle`: Flat-top griddle
@@ -752,7 +759,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Potato pancake batter being ladled onto a hot griddle, Bremen Christmas market 2025.jpg](https://commons.wikimedia.org/wiki/File:Potato_pancake_batter_being_ladled_onto_a_hot_griddle,_Bremen_Christmas_market_2025.jpg) (CC BY 4.0)
 **KEEP: change request.** **Wrong:** read correctly; steel blotchy.
 **Change:** keep sizes. Brushed stainless (shared fix); burners / grates cast-iron black (roughness 0.6); knobs black bakelite with white index lines; oil and grease darkening on the cooking surfaces only.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. Stainless switched to a flat metallic finish (PR3); it still shows some mottling from reflections at 1 m: open.
+**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. Stainless mottling fixed in PR4 batch 5 (the material name "steel" pulled the rusty steel texture set through textures.json; modern steel now has no texture set).
 ![furn_mod_griddle after, 1 m](furniture-audit/furn_mod_griddle_after.jpg)
 
 ### `furn_mod_gym_mat`: Rubber gym mat
@@ -770,6 +777,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 **KEEP: change request.** **Wrong (1 m capture):** a dark blue-grey slab with a box on top: no sloped front, no filters, colour wrong.
 **Change:** keep 2.0 x 1.1 x 0.70 (bottom at 2.0 m). Canopy: brushed stainless (shared fix), front face sloped 30 degrees back to the wall, 0.10 m vertical lip at the bottom; underside: a row of 4-5 baffle filters (0.5 x 0.4 m, chevron louvres in the normal) in a recessed channel, a grease gutter along the front with a drain cup at one end, two recessed light panels (emissive); a 0.35 x 0.35 m duct rising to the ceiling.
 **Status:** PR4 batch 4, done in part: sloped front on the cooker hood. The rest of the request is still open.
+![furn_mod_hood after, 1 m](furniture-audit/furn_mod_hood_after.jpg)
 
 ### `furn_mod_hoop`: Basketball hoop (wall)
 *Rooms:* gym. *Size:* 1.8 x 1.189 m footprint, h 1.18 m.
@@ -794,7 +802,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** stainless reads as stained concrete.
 **Change:** keep sizes. Brushed stainless (shared fix); door gaskets (dark 0.01 m); bar handles chrome round 0.025 m; a kick grille; status LEDs emissive.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. Stainless switched to a flat metallic finish (PR3); it still shows some mottling from reflections at 1 m: open.
+**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. Stainless mottling fixed in PR4 batch 5 (the material name "steel" pulled the rusty steel texture set through textures.json; modern steel now has no texture set).
 ![furn_mod_ice_machine after, 1 m](furniture-audit/furn_mod_ice_machine_after.jpg)
 
 ### `furn_mod_iv_stand`: IV drip stand
@@ -910,7 +918,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [DSCF1203 A small bustling backalley kitchen - a cook works at the stainless steel prep area while scooters and storage bins sit parked just outside.jpg](https://commons.wikimedia.org/wiki/File:DSCF1203_A_small_bustling_backalley_kitchen_-_a_cook_works_at_the_stainless_steel_prep_area_while_scooters_and_storage_bins_sit_parked_just_outside.jpg) (CC BY-SA 4.0), partial match
 **KEEP: change request.** **Wrong:** steel top tinted blue-grey.
 **Change:** keep. Brushed stainless (shared fix), a white polyethylene cutting board, stock boxes on the undershelf.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. Stainless switched to a flat metallic finish (PR3); it still shows some mottling from reflections at 1 m: open.
+**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. Stainless mottling fixed in PR4 batch 5 (the material name "steel" pulled the rusty steel texture set through textures.json; modern steel now has no texture set).
 ![furn_mod_prep_table after, 1 m](furniture-audit/furn_mod_prep_table_after.jpg)
 
 ### `furn_mod_privacy_curtain`: Privacy curtain on track
@@ -927,7 +935,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** read correctly; steel blotchy.
 **Change:** keep sizes. Brushed stainless (shared fix); burners / grates cast-iron black (roughness 0.6); knobs black bakelite with white index lines; oil and grease darkening on the cooking surfaces only.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. Stainless switched to a flat metallic finish (PR3); it still shows some mottling from reflections at 1 m: open.
+**Status:** PR4 batch 5, done: clean brushed stainless, cast-iron black grates (roughness 0.6), black knobs with white index lines, oil darkening on the cooktop only.
 ![furn_mod_range_oven after, 1 m](furniture-audit/furn_mod_range_oven_after.jpg)
 
 ### `furn_mod_reception_desk`: Reception desk
@@ -1027,6 +1035,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 **KEEP: change request.** **Wrong:** read; vending glass front opaque.
 **Change:** keep sizes. Vending: glass front alpha 0.3 showing spiral rows of coloured packs (packaging atlas), lit header (emissive, blank graphic), keypad; soda: coloured valve badges (abstract), drip tray grille.
 **Status:** PR4 batch 4, done in part: a cabinet shell around the front. The rest of the request is still open.
+![furn_mod_vending after, 1 m](furniture-audit/furn_mod_vending_after.jpg)
 
 ### `furn_mod_waiting_row`: Waiting seats (row of four)
 *Rooms:* lobby, ward. *Size:* 2.4 x 0.591 m footprint, h 0.89 m.
@@ -1042,7 +1051,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** stainless reads as stained concrete.
 **Change:** keep sizes. Brushed stainless (shared fix); door gaskets (dark 0.01 m); bar handles chrome round 0.025 m; a kick grille; status LEDs emissive.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. Stainless switched to a flat metallic finish (PR3); it still shows some mottling from reflections at 1 m: open.
+**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. Stainless mottling fixed in PR4 batch 5 (the material name "steel" pulled the rusty steel texture set through textures.json; modern steel now has no texture set).
 ![furn_mod_walkin_door after, 1 m](furniture-audit/furn_mod_walkin_door_after.jpg)
 
 ### `furn_mod_warming_station`: Heated holding station
@@ -1051,7 +1060,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** read correctly; steel blotchy.
 **Change:** keep sizes. Brushed stainless (shared fix); burners / grates cast-iron black (roughness 0.6); knobs black bakelite with white index lines; oil and grease darkening on the cooking surfaces only.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. Stainless switched to a flat metallic finish (PR3); it still shows some mottling from reflections at 1 m: open.
+**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. Stainless mottling fixed in PR4 batch 5 (the material name "steel" pulled the rusty steel texture set through textures.json; modern steel now has no texture set).
 ![furn_mod_warming_station after, 1 m](furniture-audit/furn_mod_warming_station_after.jpg)
 
 ### `furn_mod_water_cooler`: Water cooler
@@ -1108,7 +1117,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** box tub with a blue rim band; no rounded inner well, no taps legible.
 **Change:** keep 1.70 x 0.74 x 0.68. Tub: white glossy ceramic (0.92, 0.92, 0.90, roughness 0.08) with a 0.06 m rim and an inner well with 0.10 m radius corners (rounded box subtracted look: an inner rounded box in a darker shade), sloped back end; chrome mixer and overflow (metallic, roughness 0.1); white front panel with a 0.003 m shadow gap; no blue band.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open.
+**Status:** PR4 batch 5, done: glossy white ceramic (roughness 0.08), 6 cm rim, well with chamfered corners and a sloped back end, a darker well floor, chrome mixer and overflow, front panel with a 3 mm shadow gap, no blue band.
+![furn_mod_bath after, 1 m](furniture-audit/furn_mod_bath_after.jpg)
 
 ### `furn_mod_bed_double`: Modern bed (double)
 *Rooms:* bedroom_modern. *Size:* 1.74 x 2.13 m footprint, h 1.10 m.
@@ -1116,7 +1126,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Canopy bed of Amantaka Suite in Amantaka luxury Resort & Hotel in Luang Prabang Laos.jpg](https://commons.wikimedia.org/wiki/File:Canopy_bed_of_Amantaka_Suite_in_Amantaka_luxury_Resort_%26_Hotel_in_Luang_Prabang_Laos.jpg) (CC BY-SA 4.0), partial match
 **KEEP: change request.** **Wrong:** flat saturated colours (yellow throw band), mattress stripes, no fabric softness.
 **Change:** keep 1.74 x 2.13 x 1.10. Duvet: rounded box radius 0.06 with 3-4 soft folds over the edges (normal), white or light grey cotton (roughness 0.85); folded throw in a muted tone (ochre 0.55, 0.42, 0.20 or grey); two pillows 0.65 x 0.45 x 0.15 rounded; headboard upholstered in a woven fabric (normal) with piping; walnut frame (0.25, 0.15, 0.09) with a 0.005 m reveal.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open.
+**Status:** PR4 batch 5, done: soft white duvet (rounded, sides hanging in folds, creases, turned-down top), muted ochre throw folded over the foot, two 0.65 x 0.45 x 0.15 rounded pillows, woven upholstered headboard with piping, walnut frame with a 5 mm reveal.
 ![furn_mod_bed_double after, 1 m](furniture-audit/furn_mod_bed_double_after.jpg)
 
 ### `furn_mod_bed_single`: Modern bed (single)
@@ -1124,7 +1134,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 ![furn_mod_bed_single at 1 m](furniture-audit/furn_mod_bed_single.jpg)
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong / change:** as furn_mod_bed_double at 1.04 x 2.13 x 1.10 with one pillow.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open.
+**Status:** PR4 batch 5, done: as the double at its size: light grey duvet in folds, grey throw, one pillow, piped woven headboard, walnut frame with a reveal.
 ![furn_mod_bed_single after, 1 m](furniture-audit/furn_mod_bed_single_after.jpg)
 
 ### `furn_mod_dining_chair`: Modern dining chair
@@ -1149,7 +1159,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Loading Dishwasher with Detergent.jpg](https://commons.wikimedia.org/wiki/File:Loading_Dishwasher_with_Detergent.jpg) (CC BY-SA 4.0), partial match
 **KEEP: change request.** **Wrong:** steel blotchy.
 **Change:** keep. Brushed stainless door (shared fix), black control strip with 3 emissive LEDs, recessed handle shadow.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. Stainless switched to a flat metallic finish (PR3); it still shows some mottling from reflections at 1 m: open.
+**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. Stainless mottling fixed in PR4 batch 5 (the material name "steel" pulled the rusty steel texture set through textures.json; modern steel now has no texture set).
 ![furn_mod_dishwasher after, 1 m](furniture-audit/furn_mod_dishwasher_after.jpg)
 
 ### `furn_mod_dresser`: Chest of drawers
@@ -1158,7 +1168,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Chest of Drawers MET 85J ACF3111R7.jpg](https://commons.wikimedia.org/wiki/File:Chest_of_Drawers_MET_85J_ACF3111R7.jpg) (CC0), partial match
 **KEEP: change request.** **Wrong:** reads.
 **Change:** keep. Oak veneer (fine straight grain), finger pulls as a 0.02 m routed lip shadow on each drawer top, recessed plinth shadow.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open.
+**Status:** PR4 batch 5, done: oak veneer, a 2 cm routed finger lip across each drawer top, recessed plinth shadow.
+![furn_mod_dresser after, 1 m](furniture-audit/furn_mod_dresser_after.jpg)
 
 ### `furn_mod_fridge`: Fridge freezer
 *Rooms:* kitchen_modern. *Size:* 0.7 x 0.71 m footprint, h 1.85 m.
@@ -1166,7 +1177,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** stainless reads as stained concrete.
 **Change:** keep sizes. Brushed stainless (shared fix); door gaskets (dark 0.01 m); bar handles chrome round 0.025 m; a kick grille; status LEDs emissive.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. Stainless switched to a flat metallic finish (PR3); it still shows some mottling from reflections at 1 m: open.
+**Status:** PR4 batch 5, done: clean brushed stainless, dark door gaskets, round chrome bar handles 0.025 m on stand-offs, kick grille, status LEDs.
 ![furn_mod_fridge after, 1 m](furniture-audit/furn_mod_fridge_after.jpg)
 
 ### `furn_mod_kitchen_base`: Kitchen base run (2.4 m)
@@ -1175,7 +1186,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Kitchen, ‘Iolani Palace, King Street, Honolulu, HI - 52223584370.jpg](https://commons.wikimedia.org/wiki/File:Kitchen,_%E2%80%98Iolani_Palace,_King_Street,_Honolulu,_HI_-_52223584370.jpg) (CC BY-SA 2.0), partial match
 **KEEP: change request.** **Wrong:** doors and worktop in a stained grey stone texture; no handles; reads as concrete.
 **Change:** keep 2.4 x 0.61 x 1.02. Doors: matt white or sage-green laminate (shared fix) with 0.003 m shadow gaps and slim bar handles (brushed steel 0.12 m); worktop: quartz 0.03 m (light grey with fine speckle, roughness 0.2); plinth recessed 0.05 m dark.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. Stainless switched to a flat metallic finish (PR3); it still shows some mottling from reflections at 1 m: open.
+**Status:** PR4 batch 5, done: sage laminate doors with 3 mm shadow gaps, slim 0.12 m brushed steel bars, light grey quartz with a fine speckle (roughness 0.2), recessed dark plinth.
 ![furn_mod_kitchen_base after, 1 m](furniture-audit/furn_mod_kitchen_base_after.jpg)
 
 ### `furn_mod_kitchen_wall`: Kitchen wall cabinets
@@ -1184,7 +1195,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong (1 m capture, hung in the air without its wall):** doors in the stained grey stone texture, no handles.
 **Change:** As furn_mod_kitchen_base doors; an under-cabinet light strip (emissive) in the pelmet.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open.
+**Status:** PR4 batch 5, done: doors as the base run, warm LED strip under the pelmet.
 ![furn_mod_kitchen_wall after, 1 m](furniture-audit/furn_mod_kitchen_wall_after.jpg)
 
 ### `furn_mod_microwave`: Microwave
@@ -1217,7 +1228,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Bathroom sink, New Orleans, December 2024.jpg](https://commons.wikimedia.org/wiki/File:Bathroom_sink,_New_Orleans,_December_2024.jpg) (CC BY-SA 4.0), partial match
 **KEEP: change request.** **Wrong:** sink unit doors and top in stained stone; vanity reads.
 **Change:** keep sizes. As furn_mod_kitchen_base (laminate doors, quartz top), inset steel bowl brushed, chrome mixer.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open. Stainless switched to a flat metallic finish (PR3); it still shows some mottling from reflections at 1 m: open.
+**Status:** PR4 batch 5, done: laminate doors, speckled quartz top, clean brushed steel bowl, chrome mixer.
 ![furn_mod_sink_unit after, 1 m](furniture-audit/furn_mod_sink_unit_after.jpg)
 
 ### `furn_mod_sofa_l`: L-shaped sectional sofa
@@ -1242,7 +1253,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** blue cistern lid.
 **Change:** keep. All white glossy ceramic, a chrome push button on the cistern, a white plastic seat and lid with hinges.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open.
+**Status:** PR4 batch 5, done: all white glossy ceramic, chrome push button, white seat and lid on chrome hinges.
+![furn_mod_toilet after, 1 m](furniture-audit/furn_mod_toilet_after.jpg)
 
 ### `furn_mod_tv`: Flat-screen TV
 *Rooms:* sitting_modern. *Size:* 1.1 x 0.2 m footprint, h 0.72 m.
@@ -1275,7 +1287,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* [Infinity mirror, hand-washing sink and wardrobes in the spa of Amantaka luxury Resort & Hotel in Luang Prabang Laos.jpg](https://commons.wikimedia.org/wiki/File:Infinity_mirror,_hand-washing_sink_and_wardrobes_in_the_spa_of_Amantaka_luxury_Resort_%26_Hotel_in_Luang_Prabang_Laos.jpg) (CC BY-SA 4.0), partial match
 **KEEP: change request.** **Wrong:** white laminate reads as weathered planks (stains, vertical grain).
 **Change:** keep 1.2 x 0.61 x 2.10. White laminate (shared fix), oak plinth 0.08 m, long bar handles brushed steel 0.6 m.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open.
+**Status:** PR4 batch 5, done: white laminate, oak plinth, 0.6 m brushed steel bar handles.
 ![furn_mod_wardrobe after, 1 m](furniture-audit/furn_mod_wardrobe_after.jpg)
 
 ### `furn_rug_kilim`: Rug (kilim)
@@ -1285,6 +1297,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 **KEEP: change request.** **Wrong:** pale beige with faint stripes; kilims are saturated reds, ochres and indigos with geometric lozenges.
 **Change:** keep 1.6 x 0.9. Albedo: madder red field (0.45, 0.10, 0.07), ochre (0.65, 0.45, 0.15) and indigo (0.12, 0.13, 0.30) lozenge rows, 0.10 m border of hooks, flat weave normal (fine horizontal ribs), fringes at both ends (alpha cards 0.04 m). Slight wear lighter in the middle.
 **Status:** PR4 batch 4, done in part: saturated colours that read at 2 m. The rest of the request is still open.
+![furn_rug_kilim after, 1 m](furniture-audit/furn_rug_kilim_after.jpg)
 
 ### `furn_rug_large`: Rug (large)
 *Rooms:* bedroom, kitchen, office, sitting, sitting_modern. *Size:* 4.0 x 3.0 m footprint, h 0.01 m.
@@ -1293,6 +1306,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 **KEEP: change request.** **Wrong:** low-contrast brown with a muddy medallion; reads as a stain.
 **Change:** keep 4.0 x 3.0. Persian-style: deep red field (0.40, 0.08, 0.07), navy main border (0.08, 0.10, 0.22) with a floral running pattern, ivory guard stripes, a large central medallion in ivory / navy / gold with corner spandrels; pile normal (fine noise), worn path lighter.
 **Status:** PR4 batch 4, done in part: saturated colours that read at 2 m. The rest of the request is still open.
+![furn_rug_large after, 1 m](furniture-audit/furn_rug_large_after.jpg)
 
 ### `furn_sconce`: Wall sconce
 *Rooms:* bedroom, bedroom_modern, office, sitting, sitting_modern. *Size:* 0.15 x 0.2 m footprint, h 0.23 m.
@@ -1401,6 +1415,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 **KEEP: change request.** **Wrong:** plates show stripes like stamped labels; the plate rack has no rails; lower cupboard plain; no cornice.
 **Change:** keep 1.34 x 0.53 x 1.96. Upper: open rack with three shelves, each with a 0.02 m plate rail 0.06 m above the shelf; a 0.10 m shaped cornice with a scalloped valance. Plates: faience as in furn_crockery (cream glaze, blue / manganese border and centre motif, no stripes), tilted 12 degrees against the back, 4-5 per shelf, a jug and two bowls between. Lower: two framed doors with raised fields and brass escutcheons over two drawers with brass pulls, top 0.03 m overhanging 0.03 m. Oak or cherry polished (as furn_armoire).
 **Status:** PR4 batch 4, done in part: plates in plain faience and a dotted glaze. The rest of the request is still open.
+![furn_hutch after, 1 m](furniture-audit/furn_hutch_after.jpg)
 
 ### `furn_hutch_glazed`: Glazed hutch
 *Rooms:* kitchen. *Size:* 1.34 x 0.53 m footprint, h 1.96 m.
@@ -1409,6 +1424,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 **KEEP: change request.** **Wrong:** as furn_hutch: plates read as striped labels; the glazed doors are clear sheets without glazing bars.
 **Change:** keep 1.34 x 0.53 x 1.96. Upper cabinet: two doors with 0.025 m glazing bars making 3 x 2 panes each, old glass (slight green tint, waves in the normal, roughness 0.05); faience inside as furn_hutch. Lower and cornice as furn_hutch. (PR3: Poly Haven vintage_cabinet_01 was fitted and reverted: its glazing is not a glass material, so the panes could no longer be seen to break.)
 **Status:** PR4 batch 4, done in part: plates in plain faience and a dotted glaze. The rest of the request is still open.
+![furn_hutch_glazed after, 1 m](furniture-audit/furn_hutch_glazed_after.jpg)
 
 ### `furn_mod_bar_stool`: Bar stool
 *Rooms:* dining. *Size:* 0.42 x 0.42 m footprint, h 0.80 m.
@@ -1479,7 +1495,8 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 *Reference:* no usable reference photo found automatically; the request is written from the real object.
 **KEEP: change request.** **Wrong:** reads.
 **Change:** keep. Tiled front (0.10 m tiles with grout lines in red or white), brushed top, glass sneeze guard alpha 0.2 with reflections, tray slide rails.
-**Status:** PR3 batch 2, shared material fix applied (clean laminate and stainless, plain-weave fabric, plain white ceramic and boards; no weathered-plank / scratched / concrete texture sets). The geometry items of the request are still open.
+**Status:** PR4 batch 5, done: front in 10 cm red tiles with white grout, brushed top, glass sneeze guard, tray slide rails.
+![furn_mod_service_counter after, 1 m](furniture-audit/furn_mod_service_counter_after.jpg)
 
 ### `furn_pan_rail`: Pan rail
 *Rooms:* kitchen. *Size:* 1.2 x 0.14 m footprint, h 0.62 m.
@@ -1495,6 +1512,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 **KEEP: change request.** **Wrong:** jars read as green and brown cylinders, all one size; crocks, cheese and cloths are not legible.
 **Change:** keep 1.1 x 0.36 x 1.85. Shelves 4, pine 0.025 m. Contents per shelf: jars as furn_jars (glass with contents), stoneware crocks (0.15-0.25 m, salt-glaze grey-brown with a darker top), a round cheese (Camembert box 0.11 m), folded linen cloths, two bottles of cider (corked). Vary heights and leave gaps.
 **Status:** PR4 batch 4, done in part: Camembert boxes and cider bottles on the shelves. The rest of the request is still open.
+![furn_pantry after, 1 m](furniture-audit/furn_pantry_after.jpg)
 
 ### `furn_rug_medallion`: Rug (medallion)
 *Rooms:* attic, bedroom, kitchen, office, sitting. *Size:* 2.2 x 1.5 m footprint, h 0.01 m.
@@ -1503,6 +1521,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 **KEEP: change request.** **Wrong:** flat terracotta field with a faint lozenge; reference medallion rugs are dense floral patterns.
 **Change:** keep 2.2 x 1.5. As furn_rug_large at smaller scale: navy field, ivory and red medallion, floral infill, three borders.
 **Status:** PR4 batch 4, done in part: saturated colours that read at 2 m. The rest of the request is still open.
+![furn_rug_medallion after, 1 m](furniture-audit/furn_rug_medallion_after.jpg)
 
 ### `furn_rug_runner`: Hall runner
 *Rooms:* hall. *Size:* 0.85 x 3.2 m footprint, h 0.01 m.
@@ -1511,6 +1530,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 **KEEP: change request.** **Wrong:** reads; field motifs are plain bars.
 **Change:** keep 0.85 x 3.2. Red field with a repeating boteh / lozenge pattern, navy border with a running floral, ivory guards, fringed ends.
 **Status:** PR4 batch 4, done in part: saturated colours that read at 2 m. The rest of the request is still open.
+![furn_rug_runner after, 1 m](furniture-audit/furn_rug_runner_after.jpg)
 
 ### `furn_sacks`: Grain sacks
 *Rooms:* attic, barn, cellar, kitchen, office, ruin, utility, workshop. *Size:* 0.9 x 0.7 m footprint, h 0.75 m.
@@ -1558,6 +1578,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 **KEEP: change request.** **Wrong:** reads well; logs are too uniform.
 **Change:** keep 0.92 x 0.46 x 0.64. Vary log diameters 0.08-0.15 m, split faces (pale 0.70, 0.55, 0.35 with radial cracks) vs bark faces, a few small kindling sticks on top.
 **Status:** PR4 batch 4, done in part: logs of varied diameter, staggered ends. The rest of the request is still open.
+![furn_wood_pile after, 1 m](furniture-audit/furn_wood_pile_after.jpg)
 
 ## Placed by hand or by map scripts only (not in room_dressing.json)
 
@@ -1593,6 +1614,7 @@ Every in-house furniture asset (`content/assets/furn_*.json`, built by `tools/ge
 **KEEP: change request.** **Wrong:** at 1 m almost invisible: a few dark specks; the reference shows bright shards catching light.
 **Change:** keep 0.60 x 0.50 x 0.02. 15-25 shards, triangles / slivers 0.02-0.15 m, 0.003 m thick, scattered denser toward one side, three larger pieces still attached to a 0.40 m split glazing bar (0.03 x 0.04 m painted white, paint flaking). Glass: slight green tint (0.80, 0.86, 0.82), roughness 0.05, alpha 0.3 with strong specular so they sparkle; a light dust patch (decal) under them.
 **Status:** PR4 batch 4, done in part: thin glass slivers and a broken painted glazing bar (subtle at 1 m by design). The rest of the request is still open.
+![furn_debris_glass after, 1 m](furniture-audit/furn_debris_glass_after.jpg)
 
 ### `furn_debris_plaster`: Plaster debris
 *Rooms:* none in room_dressing.json. *Size:* 1.1 x 0.8 m footprint, h 0.07 m.

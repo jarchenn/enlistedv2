@@ -1508,7 +1508,7 @@ struct Planner {
     // first: no floor piece in a portal's walking corridor (0.56 m wide, 1.08 m out either side: doorwayReport's capsule)
     for (auto& P : ri.portals) {   // every portal, as doorwayReport: a ruin's opening may have no storey
       float y = P.c.y; vec3 ax = P.axis == 0 ? vec3(1, 0, 0) : vec3(0, 0, 1), lat = P.axis == 0 ? vec3(0, 0, 1) : vec3(1, 0, 0);   // PR4: the portal's own height, as doorwayReport (a portal off its storey's floor slipped through)
-      const float CA = 1.10f, CL = 0.30f;   // 2 cm past doorwayReport's capsule: a piece that only touches its edge is dropped here, not left to rounding
+      const float CA = 1.082f, CL = 0.282f;   // 2 mm past doorwayReport's capsule: a piece that only touches its edge is dropped here, not left to rounding (2 cm dropped ranges and beds by doors)
       vec3 cmn = glm::min(P.c - ax * CA - lat * CL, P.c + ax * CA + lat * CL), cmx = glm::max(P.c - ax * CA - lat * CL, P.c + ax * CA + lat * CL);
       cmn.y = y + 0.15f; cmx.y = y + 1.7f;
       for (size_t q = 0; q < out.size();) {
