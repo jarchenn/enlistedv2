@@ -182,6 +182,13 @@ def build(ctx):
                    width=W, depth=D, margin=MARGIN, heightmap=grid.meta(TID + ".height.png"), water_level=-1000.0,
                    map_file=TID + ".nmap.json", camera=cam, thumbnail=TID + ".thumb.png", thumb_camera=thumb_cam,
                    extra={"userMap": True, "views": views})
+    # SD2: not in the Play / New Map lists until this map reaches the game-ready bar (Sun Fort is listed)
+    _tp = os.path.join(tdir, TID + ".json")
+    import json as _json
+    _t = _json.load(open(_tp, encoding="utf-8")); _t["available"] = False
+    open(_tp, "w", encoding="utf-8", newline="
+").write(_json.dumps(_t, indent=1) + "
+")
     rep = {"instances": len(b.inst), "walls": nw, "masses": n_mass, "cover": n_cover, "plan": [plan.nx, plan.nz], "errors": err}
     write_summary(os.path.join(ctx.out, TID + ".summary.json"), rep)
     print("instances %d | walls %d, masses %d, cover %d | plan %d x %d cells of %.0f m" % (len(b.inst), n_walls, n_mass, n_cover, plan.nx, plan.nz, CELL))
