@@ -1,0 +1,114 @@
+{
+  "id": "sd_desert",
+  "version": 1,
+  "order": 20,
+  "name": "Sun Fort",
+  "available": true,
+  "seed": 2611,
+  "description": "Search and Destroy: a desert compound of precast concrete walls and courtyards in hard noon light. A: the west vehicle court; B: the east supply yard; Mid: the parade square. 5 v 5.",
+  "width": 150.0,
+  "depth": 150.0,
+  "margin": 60,
+  "camera": {
+    "pos": [
+      0.0,
+      120.0,
+      -110.0
+    ],
+    "yaw": 0.0,
+    "pitch": -48.0
+  },
+  "heightmap": {
+    "file": "sd_desert.height.png",
+    "nx": 91,
+    "nz": 91,
+    "min": 9,
+    "max": 11,
+    "org": [
+      -141.1765,
+      -141.1765
+    ],
+    "cell": 3.1372549019607843
+  },
+  "waterLevel": -1000.0,
+  "map": "sd_desert.nmap.json",
+  "playable": true,
+  "thumbnail": "sd_desert.thumb.png",
+  "thumbnailCamera": {
+    "pos": [
+      -13.0,
+      11.700015259021896,
+      1.0
+    ],
+    "yaw": 135.0,
+    "pitch": -4.0
+  },
+  "userMap": true,
+  "views": [
+    {
+      "name": "overview_high",
+      "pos": [
+        0.0,
+        130.0,
+        -100.0
+      ],
+      "yaw": 0.0,
+      "pitch": -55.0
+    },
+    {
+      "name": "a_site_eye",
+      "pos": [
+        -24.0,
+        11.65,
+        6.0
+      ],
+      "yaw": 153.434948822922,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "b_site_eye",
+      "pos": [
+        24.0,
+        11.65,
+        6.0
+      ],
+      "yaw": -153.434948822922,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "mid_eye",
+      "pos": [
+        0.0,
+        11.65,
+        -6.0
+      ],
+      "yaw": 180.0,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "t_spawn_eye",
+      "pos": [
+        0.0,
+        11.65,
+        -42.0
+      ],
+      "yaw": 180.0,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "d_spawn_eye",
+      "pos": [
+        0.0,
+        11.65,
+        42.0
+      ],
+      "yaw": -0.0,
+      "pitch": 0.0,
+      "gameplay": true
+    }
+  ]
+}
