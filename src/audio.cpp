@@ -412,8 +412,8 @@ int Audio::loadCustom(const fs::path& dir) {
     for (auto& [k, v] : rl.value("trim_db", json::object()).items()) if (v.is_number()) p->reloadTrim[k] = std::pow(10.0f, v.get<float>() / 20.0f);
   }
   int used = 0; Buf b;
-  struct StepSet { const char* file; std::vector<const char*> names; };   // fighter_steps.mp3: the Fighters' heavy tread (zombie.cpp)
-  for (auto& ss : {StepSet{"footsteps.mp3", {"step", "step_stone", "step_wood"}}, StepSet{"grass_steps.mp3", {"step_grass"}}, StepSet{"fighter_steps.mp3", {"step_fighter"}}, StepSet{"spider_steps.mp3", {"step_spider"}}}) if (decode(ss.file, b)) {
+  struct StepSet { const char* file; std::vector<const char*> names; };
+  for (auto& ss : {StepSet{"footsteps.mp3", {"step", "step_stone", "step_wood"}}, StepSet{"grass_steps.mp3", {"step_grass"}}, StepSet{"spider_steps.mp3", {"step_spider"}}}) if (decode(ss.file, b)) {
     const int W = SR / 100; std::vector<float> env(b.size() / W, 0.0f); float peak = 0;   // 10 ms loudness windows
     for (size_t k = 0; k < env.size(); ++k) { float e = 0; for (int j = 0; j < W; ++j) e = std::max(e, std::fabs(b[k * W + j])); env[k] = e; peak = std::max(peak, e); }
     std::vector<size_t> on;   // onsets: loud after a quiet window, at least 0.25 s apart
@@ -427,7 +427,7 @@ int Audio::loadCustom(const fs::path& dir) {
       for (size_t j = 0; j < s.size(); ++j) s[j] *= 0.5f / pk * (j + f >= s.size() ? (float)(s.size() - j) / f : 1.0f);   // even level, 30 ms fade-out
       ev.v.push_back(std::move(s));
     }
-    if (!ev.v.empty()) { ++used; for (const char* n : ss.names) { p->events[n] = ev; if (std::string(n) == "step_fighter") p->events[n].minDist = 60.0f; } }
+    if (!ev.v.empty()) { ++used; for (const char* n : ss.names) { p->events[n] = ev; } }
   }
   if (decode("door_open.mp3", b)) { ++used; Impl::Event ev; ev.v.push_back(b); ev.gain = 0.5f; for (const char* n : {"wood_open", "glass_open", "shutter_open", "steel_open"}) p->events[n] = ev; }
   // gun shots (guns/*.mp3): one recording per weapon group. A burst recording gives its last shot (the one with the tail);
@@ -605,8 +605,8 @@ int Audio::loadCustom(const fs::path& dir) {
     for (const char* n : g.events) { p->events[n] = ev; p->events.erase(std::string(n) + "_far"); }
   }
   if (decode("headshot.mp3", b)) { ++used; float pk = 1e-4f; for (float x : b) pk = std::max(pk, std::fabs(x)); for (float& x : b) x *= 0.8f / pk; Impl::Event ev; ev.kind = "ui"; ev.v.push_back(b); p->events["ui_headshot"] = ev; }
-  if (decode("fighter_laugh.mp3", b)) { ++used; Impl::Event ev; ev.v.push_back(b); p->events["fighter_laugh"] = ev; }
-  if (decode("fighter_stomp.mp3", b)) { ++used; Impl::Event ev; ev.gain = 1.5f; ev.minDist = 60.0f; ev.v.push_back(b); p->events["fighter_stomp"] = ev; }
+  // RM1: the heavies' stomp / slam (stomp_area: the golem, the abomination); an older install's copy keeps its old file name
+  if (decode("heavy_stomp.mp3", b) || decode("fighter_stomp.mp3", b)) { ++used; Impl::Event ev; ev.gain = 1.5f; ev.minDist = 60.0f; ev.v.push_back(b); p->events["heavy_stomp"] = ev; }
   { Impl::Event ev; for (const char* f : {"spider_attack_1.mp3", "spider_attack_2.mp3", "spider_attack_3.mp3"}) if (decode(f, b)) ev.v.push_back(b);   // the spider's strike: a random one each time
     if (!ev.v.empty()) { ++used; p->events["spider_attack"] = ev; } }
   for (const char* n : {"troll_attack", "troll_idle"}) if (decode((std::string(n) + ".mp3").c_str(), b)) { ++used; if (b.size() > (size_t)(5 * SR)) { b.resize(5 * SR); for (int j = 0; j < SR / 5; ++j) b[b.size() - 1 - j] *= j / (SR / 5.0f); } Impl::Event ev; ev.v.push_back(b); p->events[n] = ev; }

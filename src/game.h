@@ -54,10 +54,10 @@ struct Soldier {
   bool zombie = false;
   bool op = false;
   uint8_t kit = 0; float kitSpeed = 1; bool kitSparks = false;   // SW1: 2 blaster trooper, 3 robot commando (combat.json kits: body, blasters, pace, hit sparks)
-  float lean = 0;                            // MV3: the player's Q / E lean (-1 .. 1; local from App::lean, LAN in the snapshot)                           // AI5: an Operator bot (AiType::Operators): modern weapons (combat.json loadouts_operator)                       // G2: the melee brain (zombie.cpp: Zombies, heavies, Fighters): no weapon
+  float lean = 0;                            // MV3: the player's Q / E lean (-1 .. 1; local from App::lean, LAN in the snapshot)                           // AI5: an Operator bot (AiType::Operators): modern weapons (combat.json loadouts_operator)                       // G2: the melee brain (zombie.cpp: Zombies, heavies): no weapon
   int etype = 0; double staggerUntil = 0;    // EN1: enemy type (enemy_types.h; LAN snapshot), stopped by a heavy hit until
   int evariant = 0;                          // the type's model variant (Game::begin, in turn per type; clients compute the same)
-  bool flat = false;   // crushed by a Fighter's stomp: the body is drawn pressed flat into the ground
+  bool flat = false;   // crushed by a heavy's stomp (stomp_area): the body is drawn pressed flat into the ground
   float eScale = 1, eLean = 0, eBody = 1; bool eFallback = false;   // EN1 (aiZombieAssign): draw scale, lean, body size vs a 1.85 m zombie, on the zombie rig
   float meleeWind = -1; double meleeReady = 0;   // G2: zombie strike wind-up (s, < 0 = none), next strike allowed at Game::t
   int meleeCount = 0, meleeClip = 0; AnimPlayer anim;   // G2: strikes started, attack clip of the current one; clip state (zombie.cpp)

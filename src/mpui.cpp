@@ -453,8 +453,9 @@ void MpUi::setupWindow(App& app) {
     ImGui::PushID(label);
     ImGui::Text("%s %d AI", label, R.aiSum(side));
     if (ImGui::BeginTable("types", 6, ImGuiTableFlags_SizingStretchProp)) {   // UI4: three type / count pairs a row
-      for (int k = 0; k < kAiTypeCount; ++k) {
-        if (k % 3 == 0) ImGui::TableNextRow();
+      for (int k = 0, col = 0; k < kAiTypeCount; ++k) {
+        if (aiTypeRetired(k)) continue;   // RM1
+        if (col++ % 3 == 0) ImGui::TableNextRow();
         ImGui::TableNextColumn(); ImGui::TextUnformatted(aiTypeName((AiType)k));
         ImGui::TableNextColumn(); ImGui::PushID(k); ImGui::SetNextItemWidth(-1);
         intField("##n", c[k], 0, c[k] + std::max(0, ScenarioRules::kMaxAI - aiTotal()), false);

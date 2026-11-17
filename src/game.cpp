@@ -197,9 +197,7 @@ bool Game::begin(std::string& err) {
             : ait == AiType::Knights ? std::max(0, enemyTypeIndex("knight")) : ait == AiType::Animatronics ? std::max(0, enemyTypeIndex("animatronic"))
             : ait == AiType::Aliens ? std::max(0, enemyTypeIndex("alien")) : ait == AiType::AlienQueens ? std::max(0, enemyTypeIndex("alien_queen"))
             : ait == AiType::Abominations ? std::max(0, enemyTypeIndex("abomination")) : ait == AiType::Golems ? std::max(0, enemyTypeIndex("golem"))
-            : ait == AiType::Boglords ? std::max(0, enemyTypeIndex("boglord"))
-            : ait == AiType::Fighters ? std::max(0, enemyTypeIndex("fighter"))
-            : ait == AiType::Fighters2 ? std::max(0, enemyTypeIndex("fighter2")) : 0;
+            : ait == AiType::Boglords ? std::max(0, enemyTypeIndex("boglord")) : 0;
     s.evariant = kindSeen[(int)ait]++;
     s.rng = 0x9E3779B9u ^ (uint32_t)(rs.id * 2654435761u);
     const json& a = arr[rs.id % arr.size()];
@@ -218,7 +216,7 @@ bool Game::begin(std::string& err) {
       const std::string& id = settings().s.character;
       if (!modelIdx.count(id)) { auto cm = std::make_unique<CharModel>(); std::string e; if (cm->load(contentDir() / "characters" / (id + ".glb"), e)) { modelIdx[id] = (int)models.size(); models.push_back(std::move(cm)); } else logf("character %s: %s (faction body kept)", id.c_str(), e.c_str()); }
       if (modelIdx.count(id)) s.model = modelIdx[id];
-      // GP1: a body that is not a soldier rig (creatures, fighters, the alien...) is posed by the soldier pose code with its own
+      // GP1: a body that is not a soldier rig (creatures, the alien...) is posed by the soldier pose code with its own
       // skeleton, so its joints (and the hit zones built from them) end up where no bullet goes: the player was unhittable.
       // Such a body keeps its look; its hits use the standard soldier volumes (hitTest)
       static const char* kSoldierBodies[] = {"allied_", "axis_", "operator_", "trooper_", "br_marine", "robot_commando"};
@@ -574,7 +572,6 @@ void Game::killSoldier(int i, int killer, vec3 dir) {
     if (!(s.weapon >= 0 && s.weapon < (int)app.weaponDefs.size() && app.weaponDefs[s.weapon]->locked)) drops.push_back({s.feet + vec3(0, 0.06f, 0), s.yaw, s.weapon, s.ws, t});   // GM3: never a locked weapon
     if (drops.size() > 24) drops.erase(drops.begin());
   }
-  if (killer >= 0 && killer != i && killer < (int)sold.size() && sold[killer].zombie && enemyType(sold[killer].etype).id.rfind("fighter", 0) == 0) app.audio.play("fighter_laugh", sold[killer].feet + vec3(0, 2, 0), 1.0f);   // shortcut: host / single player only
   if (killer == localSlot && killer != i && hostile(sold[killer], s)) killMarker = 0.6f;   // red marker: enemy down
   match.onDeath(i, killer);
   if (match.mode() == GameMode::SearchDestroy) sdOnKill(*this, i, killer, s.lastHow);   // SD1: rewards, the dropped bomb
@@ -684,13 +681,6 @@ void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
   auto drop = [&](int k) { if (s.localPlayer) ++gPlayerDmgBlock[k]; };
   if (rulesIgnoreDamage(*this, i)) { drop(0); return; }
   if (gAdmin.god && s.localPlayer) { drop(1); return; }   // CMD2 /admin: nothing hurts you (bullets, blasts, melee, flame, falls, drowning, storm)
-  if (s.zombie && enemyType(s.etype).shellKills > 0) {   // a fixed number of direct shell hits kills it
-    static std::map<int, double> shellAt; const bool shell = how && std::strcmp(how, "shell") == 0, blast = how && std::strcmp(how, "blast") == 0;
-    if (shell) { shellAt[i] = t; s.hp -= enemyType(s.etype).hp / enemyType(s.etype).shellKills - 0.01f; dmg = 0.01f; how = "blast"; }   // applied here; the rest of the function sees a token blast
-    else if (blast && shellAt.count(i) && std::fabs(t - shellAt[i]) < 0.05) return;   // that shell's own blast
-  }
-  if (s.zombie && (!how || std::strcmp(how, "blast") != 0)) { if (enemyType(s.etype).blastOnly || (enemyType(s.etype).nonBlastMult < 1 && how && std::strcmp(how, "shell") == 0)) return; dmg *= enemyType(s.etype).nonBlastMult;   // a direct shell hit is not an instant kill on a resistant type: its blast does the damage
-  if (dmg <= 0) return; }   // immune to all but explosions   // W1: spawn-protected (bullets, blasts, falls)
   // TK1: melee on the crew of an armoured tank lands on the tank: a heavy's blow wears it down (1/15 each), the rest do
   // nothing; the crew is hurt only once the tank is destroyed
   if (s.localPlayer && app.tanks.occupied && how && std::strcmp(how, "melee") == 0) {
@@ -1131,7 +1121,7 @@ void Game::posesStep(float dt) {
     if (s.zombie) {   // EN1: the type's draw scale, and a forward lean about the feet (the stalker on the zombie rig)
       if (s.eLean != 0 && s.alive) s.world = glm::rotate(s.world, radians(s.eLean), vec3(1, 0, 0));
       if (s.eScale != 1) s.world = glm::scale(s.world, vec3(s.eScale));
-      aiZombieFeet(*this, s); }
+    }
     if (static const char* ft = std::getenv("NMK_FOOT_TRACE"); ft && !s.localPlayer && !s.zombie && s.alive && s.slot < 24 && !s.pose.delta.empty()) {   // AN1 step 3b: planted-foot slip (foottrace.csv)
       static FILE* f = nullptr; if (!f) { std::error_code ec; fs::create_directories(exeDir() / "selftest_out", ec); f = std::fopen((exeDir() / "selftest_out" / "foottrace.csv").string().c_str(), "w"); if (f) std::fprintf(f, "t,slot,model,speed,stanceL,stanceR,lx,lz,rx,rz,gapL,gapR\n"); }
       auto st = [&](int leg) { float u = (pp.walkPhase + (leg ? 3.14159265f : 0.0f)) / 6.2831853f; u -= std::floor(u); float du = std::clamp(pp.duty, 0.2f, 0.8f); return u > 0.1f * du && u < 0.9f * du ? 1 : 0; };
@@ -1197,7 +1187,7 @@ void Game::drawItems() {
     if (!s.inUse || s.lifeId == 0) continue;
     if (!s.alive && t - s.diedAt > combat["corpses"].value("seconds", 40.0)) continue;
     if (s.localPlayer && s.alive) continue;                 // first person: the viewmodel is drawn instead
-    float bs = bodyScale(s);   // giants (the fighters at scale 20) reach far above and around their feet
+    float bs = bodyScale(s);   // giants (large draw scales) reach far above and around their feet
     vec3 c = s.feet + vec3(0, 0.9f * bs, 0);
     float dist = glm::length(c - cam);
     if (dist > 300 + 2 * bs) continue;

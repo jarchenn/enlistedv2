@@ -21,12 +21,8 @@ struct EnemyType {
   float weight = 1, zoneScale = 1;                        // share in a horde; hit-capsule radii x (on top of scale)
   float knock = 0;                                        // m/s shove on the player hit
   float staggerMin = 0, staggerS = 0;                     // a single hit of at least staggerMin flinches it (and stops it staggerS)
-  float kickCrater = 0;                                   // each strike digs a crater of this scale where the blow lands (the Fighter)
-  float stepCrater = 0;                                   // > 0: every footfall stamps a foot-sized oval crater (three stamps of this scale along the heading)
   float blockR = 0;                                       // > 0: the local player cannot stand within blockR x height x scale of its feet (pushed out)
-  int shellKills = 0;                                     // > 0: a direct tank / cannon shell or rocket hit takes exactly hp / shellKills (that round's blast adds nothing)
   float locoRate = 1;                                     // walk / run clip speed x (legs move faster than the ground speed alone gives)
-  float nonBlastMult = 1;                                 // damage x from everything but explosions (the Fighters: 0.1)
   float groundShake = 0;                                  // CH3 json "ground_shake" 0-1: each landing blow shakes the player's view (App::blastShake), fading out by 30 m
   // CH6 json "attacks": [{clip, joint, extend, radius, damage, range [min, max], leap, victims, weight, swing, window [pre, post]}]:
   // the strike of an attack clip. joint: the semantic joint that lands it (default: the clip's fastest hand); extend: metres
@@ -39,7 +35,6 @@ struct EnemyType {
   bool tankDamage = false;                                // TK1 json "tank_damage" (default: hp >= 500): its landed blows wear down a tank, 1/15 of its durability each
   float headMult = 0;                                     // CH7 json "head_mult": damage x on a head hit instead of the global head multiplier (0: the global one)
   float stompArea = 0;                                    // a strike hurts every hostile within stompArea x height x scale of where it lands
-  bool blastOnly = false;                                 // only blast damage hurts it (the Fighter)
   float explosiveMult = 1;                                // EN2: blast damage x (Game::explosionDamage: grenades, rockets, shells, packs, artillery)
   float capsuleH = 0, capsuleR = 0;                       // EN2: physics capsule height / radius (0: the soldier's)
   float climbM = 0, stepGap = 0;                          // EN4: takes the heavies-only climb links (lips up to the nav pass's 2.2 m) / gap links; stuck in a pit, climbs a lip up to climbM
