@@ -1,5 +1,6 @@
 // L4 texture layer (docs/textures.md): ambientCG CC0 sets, triplanar sampling hooks for kMainFS / kTerrainFS,
 // the --pack-texture packer used by tools/fetch_ambientcg.py and placeholder sets for bring-up / tests.
+#include "user_cache.h"
 #include "textures.h"
 #include <stb_image.h>
 #include <stb_image_write.h>
@@ -186,7 +187,7 @@ void encodeLevel(const std::vector<uint8_t>& src, int n, int comp, bool bc, int 
   }
 }
 
-void buildSet(const fs::path& dir, bool bc, Cpu& o) {
+void buildSetRaw(const fs::path& dir, bool bc, Cpu& o) {
   initLut();
   Img col, nrm, rma;
   if (!loadImg(dir / "color.jpg", 3, col) && !loadImg(dir / "color.png", 3, col)) { o.err = "no color"; return; }
@@ -233,6 +234,40 @@ void buildSet(const fs::path& dir, bool bc, Cpu& o) {
   } catch (...) {}
   o.info.size = glm::max(sz, vec2(0.05f));
   o.ok = true;
+}
+// CACHE1: a built set (compressed levels and its means) cached per user next to the model maps (texbc, "set-*"): the
+// decode, resample, mip and compression of 90+ sets took ~1.6 s every start. Keyed by the folder, its files' sizes / times
+fs::path setCacheFile(const fs::path& dir, bool bc) {
+  std::string key = "set1|" + dir.lexically_normal().string() + "|" + std::to_string(bc) + "|" + std::to_string(kSize) + "|" + std::to_string(kLevels);
+  std::error_code ec;
+  for (const char* f : {"color.jpg", "color.png", "normal.jpg", "normal.png", "rma.jpg", "rma.png", "meta.json"}) {
+    fs::path q = dir / f; if (!fs::exists(q, ec)) continue;
+    key += std::string("|") + f + ":" + std::to_string(fs::file_size(q, ec)) + ":" + std::to_string((long long)fs::last_write_time(q, ec).time_since_epoch().count());
+  }
+  uint64_t x = 1469598103934665603ull; for (unsigned char c : key) { x ^= c; x *= 1099511628211ull; }
+  char nm[48]; std::snprintf(nm, sizeof nm, "set-%016llx.bin", (unsigned long long)x);
+  return userCacheDir("texbc", "NMK_TEXBC_CACHE") / nm;
+}
+void buildSet(const fs::path& dir, bool bc, Cpu& o) {
+  fs::path cf = setCacheFile(dir, bc);
+  {
+    std::ifstream in(cf, std::ios::binary); uint32_t magic = 0;
+    if (in && in.read((char*)&magic, 4) && magic == 0x31535458u) {   // "XTS1"
+      bool good = true;
+      for (int k = 0; k < 3 && good; ++k) for (int L = 0; L < kLevels && good; ++L) { uint32_t n = 0; good = (bool)in.read((char*)&n, 4) && n <= (64u << 20); if (good) { o.lv[k][L].resize(n); good = (bool)in.read((char*)o.lv[k][L].data(), n); } }
+      float f[9]; if (good) good = (bool)in.read((char*)f, sizeof f);
+      if (good) { o.info.meanLin = vec3(f[0], f[1], f[2]); o.info.meanAO = f[3]; o.info.meanR = f[4]; o.info.meanH = f[5]; o.info.size = vec2(f[6], f[7]); o.ok = true; userCacheTouch(cf); return; }
+      for (auto& a : o.lv) for (auto& l : a) l.clear();
+    }
+  }
+  buildSetRaw(dir, bc, o);
+  if (!o.ok) return;
+  std::error_code ec; fs::create_directories(cf.parent_path(), ec);
+  fs::path tmp = cf; tmp += "." + std::to_string((unsigned long long)(uintptr_t)&o) + ".tmp";   // several builder threads / game instances
+  { std::ofstream out(tmp, std::ios::binary); uint32_t magic = 0x31535458u; out.write((const char*)&magic, 4);
+    for (auto& a : o.lv) for (auto& l : a) { uint32_t n = (uint32_t)l.size(); out.write((const char*)&n, 4); out.write((const char*)l.data(), n); }
+    float f[9] = {o.info.meanLin.x, o.info.meanLin.y, o.info.meanLin.z, o.info.meanAO, o.info.meanR, o.info.meanH, o.info.size.x, o.info.size.y, 0}; out.write((const char*)f, sizeof f); }
+  fs::rename(tmp, cf, ec);
 }
 
 bool hasExt(const char* e) {

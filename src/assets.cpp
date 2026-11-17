@@ -1,3 +1,4 @@
+#include "user_cache.h"
 #include <chrono>
 #include "assets.h"
 #include "crumb.h"
@@ -848,9 +849,10 @@ int AssetLibrary::releaseAll() const {
   int n = 0; for (auto& a : assets) if (a->built && !a->vehicle && !a->raw.contains("rack")) { crumb("asset release"); release(*a); n += !a->built; }   // UI5: the loading screen presents between them
   return n;
 }
-bool AssetLibrary::loadOne(const fs::path& path) {
+bool AssetLibrary::loadOne(const fs::path& path, const json* parsed) {
   json j;
-  try { j = json::parse(readTextFile(path)); } catch (std::exception& e) { logf("asset %s: parse error %s", path.string().c_str(), e.what()); return false; }
+  if (parsed) j = *parsed;
+  else try { j = json::parse(readTextFile(path)); } catch (std::exception& e) { logf("asset %s: parse error %s", path.string().c_str(), e.what()); return false; }
   auto a = std::make_unique<AssetDef>();
   a->file = path.filename().string();
   a->id = j.is_object() ? j.value("id", path.stem().string()) : path.stem().string();
@@ -1196,7 +1198,32 @@ bool AssetLibrary::loadAll(const fs::path& dir) {
   std::vector<fs::path> files;
   for (auto& e : fs::directory_iterator(dir)) if (e.path().extension() == ".json") files.push_back(e.path());
   std::sort(files.begin(), files.end());
-  for (size_t k = 0; k < files.size(); ++k) { crumb("asset catalogue"); loadOne(files[k]); if (gLoadingDepth && k % 16 == 0) loadingProgress("Scanning the asset catalogue", (float)k / files.size()); }   // UI5: the boot splash keeps presenting
+  // CACHE1: the parsed catalogue in one CBOR file (texbc cache folder, pruned with it): parsing 1600 JSON texts took ~1.8 s
+  // a start; an entry is reused while its file's size and time match, and the file is rewritten when any changed
+  uint64_t dh = 1469598103934665603ull; for (unsigned char c : dir.lexically_normal().string()) { dh ^= c; dh *= 1099511628211ull; }
+  char cn[48]; std::snprintf(cn, sizeof cn, "catalog-%016llx.cbor", (unsigned long long)dh);
+  const fs::path cf = userCacheDir("texbc", "NMK_TEXBC_CACHE") / cn;
+  json cache = json::object(), fresh = json::object(); bool miss = false;
+  try { std::ifstream in(cf, std::ios::binary); if (in) { std::vector<uint8_t> b((std::istreambuf_iterator<char>(in)), {}); cache = json::from_cbor(b); userCacheTouch(cf); } } catch (...) { cache = json::object(); }
+  for (size_t k = 0; k < files.size(); ++k) {
+    crumb("asset catalogue");
+    if (gLoadingDepth && k % 16 == 0) loadingProgress("Scanning the asset catalogue", (float)k / files.size());   // UI5: the boot splash keeps presenting
+    const fs::path& f = files[k];
+    std::error_code ec; std::string key = f.filename().string();
+    std::string stamp = std::to_string(fs::file_size(f, ec)) + ":" + std::to_string((long long)fs::last_write_time(f, ec).time_since_epoch().count());
+    auto it = cache.find(key);
+    if (it != cache.end() && it->is_object() && it->value("s", std::string()) == stamp && it->contains("j")) { loadOne(f, &(*it)["j"]); fresh[key] = std::move(*it); continue; }
+    miss = true;
+    json j; try { j = json::parse(readTextFile(f)); } catch (std::exception& e) { logf("asset %s: parse error %s", f.string().c_str(), e.what()); continue; }
+    loadOne(f, &j);
+    fresh[key] = {{"s", stamp}, {"j", std::move(j)}};
+  }
+  if (miss || fresh.size() != cache.size()) {
+    std::error_code ec; fs::create_directories(cf.parent_path(), ec);
+    fs::path tmp = cf; tmp += "." + std::to_string((unsigned long long)(uintptr_t)&fresh) + ".tmp";
+    { std::vector<uint8_t> b = json::to_cbor(fresh); std::ofstream o(tmp, std::ios::binary); o.write((const char*)b.data(), (std::streamsize)b.size()); }
+    fs::rename(tmp, cf, ec);
+  }
   buildPlaceholder(placeholder_);
   { int b = 0; for (auto& a : assets) b += a->built; logf("assets: %zu in the catalogue, %d built now (lazy %d)", assets.size(), b, (int)lazy); }
   return !assets.empty();

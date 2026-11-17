@@ -312,7 +312,7 @@ public:
   AssetDef* placeholder() { return &placeholder_; }
   std::vector<std::unique_ptr<AssetDef>> assets;
 private:
-  bool loadOne(const fs::path& p);
+  bool loadOne(const fs::path& p, const json* parsed = nullptr);   // parsed: the file's JSON already read (CACHE1 catalogue cache)
   AssetDef placeholder_;
   std::unordered_map<std::string, const AssetDef*> index_;   // id -> asset, filled by loadOne (assets only grow)
 };
