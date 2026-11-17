@@ -98,6 +98,10 @@ float advanceStride(App& app, Soldier& s, float v, float dt) {
   float cad = std::min(1.75f, 0.75f + 0.25f * v);
   const float ph0 = s.walkPhase;
   s.walkPhase += v * dt > 0 ? 6.2831853f * cad * dt : 0.0f;
+  if (v * dt <= 0 && s.anStride > 0.01f && !s.zombie) {   // AN1 step 3b: stopping mid-stride finishes the step: on until both feet are down
+    float u = s.walkPhase / 6.2831853f; u -= std::floor(u);
+    if (!(u < 0.12f || (u >= 0.5f && u < 0.62f))) s.walkPhase += 6.2831853f * 1.0f * dt;
+  }
   if (!s.localPlayer && s.alive && std::floor(s.walkPhase / 3.14159265f) != std::floor(ph0 / 3.14159265f)) botFootstep(app, s, v);   // SND10
   return cad;
 }
@@ -1079,6 +1083,39 @@ void Game::posesStep(float dt) {
     if (!s.alive) { pp.death = std::min(1.0f, (float)(t - s.diedAt) / 0.8f); pp.deathStyle = s.deathStyle; }
     float camD = poseLod ? glm::length(s.feet - cam) : 0.0f; int every = camD > 150 ? 4 : camD > 80 ? 2 : 1;
     bool skipPose = poseLod && !s.localPlayer && s.alive && every > 1 && (steps + s.slot) % every != 0;
+    // AN1 step 3b: foot planting. A foot that comes down is held at its world point for its stance (turns, speed changes, strafes and
+    // stops no longer drag it); it lets go at lift-off, when the leg would overreach, or (standing) when it ends 14 cm off its rest spot
+    // (turning in place), blending from that point to its stepping path over a third of the swing (a standing re-step lifts it)
+    if (!noFootLock && !s.zombie && s.alive && pp.gait && pp.prone < 0.5f && pp.kneel < 0.5f && pp.swim < 0.5f && pp.climb < 0 && !s.pose.delta.empty() && !skipPose) {
+      float yawNow = s.localPlayer ? app.eyeYaw : s.yaw;
+      mat4 Wn = glm::translate(mat4(1), s.feet) * glm::mat4_cast(glm::angleAxis(radians(yawNow) + 3.14159265f, vec3(0, 1, 0))), Wi = glm::inverse(Wn);
+      bool moving = s.speed > 0.3f; float du = std::clamp(pp.duty, 0.2f, 0.8f), cadN = std::min(1.75f, 0.75f + 0.25f * s.speed);
+      for (int leg = 0; leg < 2; ++leg) {
+        int sf = m.semantic[leg ? CJ_RFOOT : CJ_LFOOT], su = m.semantic[leg ? CJ_RUPLEG : CJ_LUPLEG], sk = m.semantic[leg ? CJ_RLEG : CJ_LLEG];
+        if (sf < 0 || su < 0 || sk < 0) continue;
+        float u = (pp.walkPhase + (leg ? 3.14159265f : 0.0f)) / 6.2831853f; u -= std::floor(u);
+        bool stance = u < du;
+        vec3 cur = vec3(s.world * vec4(s.pose.joint[leg ? CJ_RFOOT : CJ_LFOOT], 1));
+        float reach = 0.97f * (glm::length(m.jointHead[sk] - m.jointHead[su]) + glm::length(m.jointHead[sf] - m.jointHead[sk]));
+        if (s.anFootLock[leg]) {
+          vec3 pin = vec3(Wi * vec4(s.anFootW[leg], 1)), rest = m.jointHead[sf];
+          bool over = glm::length(vec2(pin.x - rest.x, pin.z - rest.z)) > std::min(reach * 0.75f, 2.2f * pp.stride + 0.16f);   // left behind beyond a stride (or the leg's reach)
+          bool other = s.anFootRel[1 - leg] >= 0;   // one standing re-step at a time
+          float ang = std::fabs(std::atan2(pin.x * rest.z - pin.z * rest.x, pin.x * rest.x + pin.z * rest.z));   // turned in place about the body's centre
+          bool far = !moving && !other && (glm::length(vec2(pin.x - rest.x, pin.z - rest.z)) > 0.10f || ang > 0.5f);
+          if (over || far || (moving && !stance)) {
+            s.anFootLock[leg] = false; s.anFootRel[leg] = 0; s.anFootFrom[leg] = s.anFootW[leg]; s.anFootStep[leg] = !moving && !over;
+            s.anFootDur[leg] = moving ? std::max(0.08f, 0.35f * (1 - du) / cadN) : 0.32f;
+          }
+        } else if (stance && s.anFootRel[leg] < 0) { s.anFootLock[leg] = true; s.anFootW[leg] = cur; }
+        if (s.anFootLock[leg]) { pp.footPin[leg] = vec3(Wi * vec4(s.anFootW[leg], 1)); pp.footPinW[leg] = 1; }
+        else if (s.anFootRel[leg] >= 0) {
+          s.anFootRel[leg] += dt; float k = s.anFootRel[leg] / s.anFootDur[leg];
+          if (k >= 1) s.anFootRel[leg] = -1;
+          else { float e = k * k * (3 - 2 * k); pp.footPin[leg] = vec3(Wi * vec4(s.anFootFrom[leg], 1)); pp.footPinW[leg] = 1 - e; if (s.anFootStep[leg]) pp.footLift[leg] = 0.07f * std::sin(3.14159265f * k); }
+        }
+      }
+    } else if (!s.alive || pp.prone >= 0.5f || pp.kneel >= 0.5f || pp.swim >= 0.5f) { s.anFootLock[0] = s.anFootLock[1] = false; s.anFootRel[0] = s.anFootRel[1] = -1; }
     if (s.zombie && !m.clips.empty()) aiZombiePose(*this, s, dt); else if (!skipPose) { poseCharacter(m, pp, s.pose); s.poseFrom = -1; ++s.poseRev; }   // G2: clips
     float yawUse = s.localPlayer ? app.eyeYaw : s.yaw;
     s.world = glm::translate(mat4(1), s.feet) * glm::mat4_cast(glm::angleAxis(radians(yawUse) + 3.14159265f, vec3(0, 1, 0)));
@@ -1086,6 +1123,12 @@ void Game::posesStep(float dt) {
       if (s.eLean != 0 && s.alive) s.world = glm::rotate(s.world, radians(s.eLean), vec3(1, 0, 0));
       if (s.eScale != 1) s.world = glm::scale(s.world, vec3(s.eScale));
       aiZombieFeet(*this, s); }
+    if (static const char* ft = std::getenv("NMK_FOOT_TRACE"); ft && !s.localPlayer && !s.zombie && s.alive && s.slot < 24 && !s.pose.delta.empty()) {   // AN1 step 3b: planted-foot slip (foottrace.csv)
+      static FILE* f = nullptr; if (!f) { std::error_code ec; fs::create_directories(exeDir() / "selftest_out", ec); f = std::fopen((exeDir() / "selftest_out" / "foottrace.csv").string().c_str(), "w"); if (f) std::fprintf(f, "t,slot,model,speed,stanceL,stanceR,lx,lz,rx,rz\n"); }
+      auto st = [&](int leg) { float u = (pp.walkPhase + (leg ? 3.14159265f : 0.0f)) / 6.2831853f; u -= std::floor(u); float du = std::clamp(pp.duty, 0.2f, 0.8f); return u > 0.1f * du && u < 0.9f * du ? 1 : 0; };
+      vec3 L = vec3(s.world * vec4(s.pose.joint[CJ_LFOOT], 1)), R = vec3(s.world * vec4(s.pose.joint[CJ_RFOOT], 1));
+      if (f) std::fprintf(f, "%.4f,%d,%s,%.2f,%d,%d,%.4f,%.4f,%.4f,%.4f\n", t, s.slot, m.id.c_str(), s.speed, st(0), st(1), L.x, L.z, R.x, R.z);
+    }
     if (s.flat && !s.alive) {   // squashed: the whole body pressed into a thin, slightly spread layer on the ground, within 0.12 s
       float k = std::min(1.0f, (float)(t - s.diedAt) / 0.12f);
       s.world = glm::translate(mat4(1), s.feet) * glm::scale(mat4(1), vec3(1.0f + 0.25f * k, 1.0f - 0.96f * k, 1.0f + 0.25f * k)) * glm::translate(mat4(1), -s.feet) * s.world;

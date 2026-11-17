@@ -95,6 +95,8 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       T = glm::mix(T, c0 + vec3((leg ? -0.16f : 0.16f) * k, 0.38f * k, -0.22f * k), swim);
     }
     if (!dead && prone < 0.5f) T.y += gnd(T) * (1 - swim);
+    if (gait && !dead && p.footPinW[leg] > 0) T = glm::mix(T, p.footPin[leg], c01(p.footPinW[leg]) * (1 - swim) * (1 - prone));   // AN1 step 3b: planted where it landed
+    if (!dead) T.y += p.footLift[leg];
     legT[leg] = T;
   }
   // ---- body root: hips drop for crouch / glide / kneel, and as far as the stepping feet need to stay reachable
