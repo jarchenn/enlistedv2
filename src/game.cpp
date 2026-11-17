@@ -753,7 +753,7 @@ bool Game::soldierFire(Soldier& s, vec3 dir) {
     dd = glm::normalize(dir + vec3(0, dr / std::max(1.0f, d.zero), 0));
     app.fireProjectile(start, dd, d.velocity, PROJ_ROCKET, d.rocketDmg, ~0ull, false, d.container);
     Projectile& rp = app.projectiles.back();
-    rp.blastDmg = d.rocketDmg; rp.blastR = d.rocketR; rp.craterScale = d.rocketCrater; rp.splashGun = d.rocketSplashGun; rp.atKill = d.rocketAtKill; rp.gravScale = d.rocketGrav; rp.owner = s.slot;
+    rp.blastDmg = d.rocketDmg; rp.blastR = d.rocketR; rp.craterScale = d.rocketCrater; rp.splashGun = d.rocketSplashGun; rp.atKill = d.rocketAtKill; rp.gravScale = d.rocketGrav; rp.armourMult = d.rocketArmour; rp.owner = s.slot;
     if (d.rocketBackblast) app.fx.backblast(muzzle - dd * 1.4f, -dd);
     tracer = 0;
   } else

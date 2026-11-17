@@ -776,6 +776,7 @@ int Audio::loadCustom(const fs::path& dir) {
   return used;
 }
 bool Audio::hasEvent(const std::string& name) const { return p && p->events.count(name); }
+bool Audio::hasSound(const std::string& name) const { return p && (p->events.count(name) || p->bufs.count(name)); }
 int Audio::eventVariant(const std::string& name) const { if (!p) return -1; auto it = p->events.find(name); return it == p->events.end() ? -1 : it->second.last; }
 
 void Audio::play(const std::string& name, vec3 pos, float volume, float pitch, float delay) {

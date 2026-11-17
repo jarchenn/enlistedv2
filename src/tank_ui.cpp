@@ -435,15 +435,18 @@ void TankSys::drawUI(App& app) {
     }
   }
   // ---- status panel (ammunition: the strip at the bottom)
+  // VH8: the keys this vehicle really has (no bow MG on the Abrams / M4, no roof gun on the Bradley)
+  const std::string bowK = d.bowOn ? std::string(" | Space ") + (d.bowCoax ? "coax" : "bow MG") : std::string();
+  std::string keys;
+  if (t.station == TS_HATCH) keys = d.mgName.empty() ? "Head out: look around | RMB main gun" + bowK + " | Ctrl duck back in | E get out"
+                                                     : std::string("LMB roof MG | Space roof") + (d.bowOn ? " + bow" : "") + " MG | RMB main gun | Ctrl back to the sight | R next shell | E get out";
+  else if (d.towCount) keys = "LMB 25 mm (hold) | R AP / HE" + bowK + " | Q TOW | RMB zoom | Ctrl pop out of the hatch | E get out";
+  else keys = "LMB main gun" + bowK + " | RMB zoom | Ctrl open hatch | R next shell | E get out";
   char b[480];
   std::snprintf(b, sizeof b,
     "%s  [%s]\nSPEED %3.0f km/h   TURRET %+4.0f   GUN %+4.1f\nDURABILITY %d/100   (front hits %d, side/rear hits %d)\n%s",
     d.name.c_str(), t.station == TS_HATCH ? "HATCH" : "GUNNER",
-    std::fabs(t.speed) * 3.6f, t.tYaw, t.gElev, t.hp, t.hitsFront, t.hitsSide,
-    t.station == TS_HATCH ? (d.mgName.empty() ? "Head out: look around | RMB main gun | Ctrl duck back in | E get out"
-                                              : "LMB roof MG | Space roof + bow MG | RMB main gun | Ctrl back to the sight | R next shell | E get out")
-                          : d.towCount ? "LMB 25 mm (hold) | R AP / HE | Space coax | Q TOW | RMB zoom | Ctrl pop out of the hatch | E get out"
-                                       : "LMB main gun | Space bow MG | RMB zoom | Ctrl open hatch | R next shell | E get out");
+    std::fabs(t.speed) * 3.6f, t.tYaw, t.gElev, t.hp, t.hitsFront, t.hitsSide, keys.c_str());
   ImVec2 ts = ImGui::CalcTextSize(b);
   ImVec2 p(io.DisplaySize.x - ts.x - 30, io.DisplaySize.y - ts.y - 30 - 108);   // above the ammunition strip
   panel(p, b, t.hp <= 50 ? IM_COL32(255, 170, 120, 255) : IM_COL32(235, 225, 190, 255));
@@ -551,7 +554,9 @@ void TankSys::drawAmmoStrip(App& app, const TankRT& t) {
   const float gunW = 230;
   float bowW = d.bowOn ? std::max(170.0f, beltW(d.bowBelt) + 16) : 0;
   float roofW = std::max(170.0f, beltW(d.mgBelt) + 16);
-  float W = gunW + (d.bowOn ? bowW + pad : 0) + roofW + pad * 2;
+  const bool roofOn = !d.mgName.empty();   // VH8: a vehicle without a roof gun (the Bradley) shows none
+  if (!roofOn) roofW = 0;
+  float W = gunW + (d.bowOn ? bowW + pad : 0) + (roofOn ? roofW + pad : 0) + pad;
   float x0 = io.DisplaySize.x * 0.5f - W * 0.5f, y0 = io.DisplaySize.y - H - 12;
   dl->AddRectFilled(ImVec2(x0 - pad, y0), ImVec2(x0 + W, y0 + H), IM_COL32(12, 12, 10, 205), 6);
   float x = x0;
@@ -603,7 +608,7 @@ void TankSys::drawAmmoStrip(App& app, const TankRT& t) {
   if (d.bowOn) mgGroup(d.bowShort.c_str(), "[Space]", true, d.bowBelt, t.bowLoaded, t.bowReserve, t.bowReloadT, d.bowReload, bowW);
   std::string roofName = d.mgName.substr(0, d.mgName.find(" ("));
   if (roofName.size() > 18) roofName = "Roof MG";
-  mgGroup(roofName.c_str(), hatch ? "[LMB / Space]" : "[hatch]", hatch, d.mgBelt, t.mgLoaded, t.mgReserve, t.mgReloadT, d.mgReload, roofW);
+  if (roofOn) mgGroup(roofName.c_str(), hatch ? "[LMB / Space]" : "[hatch]", hatch, d.mgBelt, t.mgLoaded, t.mgReserve, t.mgReloadT, d.mgReload, roofW);
 }
 
 // ============================================================ Creative selection panel
