@@ -1,4 +1,5 @@
 // glTF binary import (offline bake) and the runtime textured model. No third-party glTF library: the GLB
+#include "crumb.h"
 // container is a 12-byte header, a JSON chunk and a BIN chunk, and accessors are read directly.
 #include "model.h"
 #include "simplify.h"
@@ -701,6 +702,7 @@ bool GpuModel::load(const fs::path& dir, std::string& err, bool turn180) {
     if (!mj.contains(key)) return 0;
     std::string f = mj[key].get<std::string>();
     auto it = cache.find(f); if (it != cache.end()) return it->second;
+    crumb("model textures");   // UI5: the launch splash presents between texture loads
     const bool cut = srgb && mj.value("cutout", false);   // NT8: cutout albedo keeps its coverage mips (no BC: box mips thin the needles)
     GLuint t = loadTex(dir / f, srgb, gpuBytes, cut ? -1 : srgb ? 0 : std::string(key) == "normal" ? 2 : 1, cut); if (t) ++textureCount;
     return cache[f] = t;

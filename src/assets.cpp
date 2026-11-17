@@ -1,4 +1,6 @@
 #include "assets.h"
+#include "crumb.h"
+#include "loading.h"
 #include "model.h"
 #include "textures.h"
 int blendPartMode(const json& asset, const json& pj);   // GX1 (terrain_blend.cpp)
@@ -842,7 +844,7 @@ void AssetLibrary::release(AssetDef& a) const {
   readHeader(a);
 }
 int AssetLibrary::releaseAll() const {
-  int n = 0; for (auto& a : assets) if (a->built && !a->vehicle && !a->raw.contains("rack")) { release(*a); n += !a->built; }
+  int n = 0; for (auto& a : assets) if (a->built && !a->vehicle && !a->raw.contains("rack")) { crumb("asset release"); release(*a); n += !a->built; }   // UI5: the loading screen presents between them
   return n;
 }
 bool AssetLibrary::loadOne(const fs::path& path) {
@@ -1187,7 +1189,7 @@ bool AssetLibrary::loadAll(const fs::path& dir) {
   std::vector<fs::path> files;
   for (auto& e : fs::directory_iterator(dir)) if (e.path().extension() == ".json") files.push_back(e.path());
   std::sort(files.begin(), files.end());
-  for (auto& f : files) loadOne(f);
+  for (size_t k = 0; k < files.size(); ++k) { crumb("asset catalogue"); loadOne(files[k]); if (gLoadingDepth && k % 16 == 0) loadingProgress("Scanning the asset catalogue", (float)k / files.size()); }   // UI5: the boot splash keeps presenting
   buildPlaceholder(placeholder_);
   { int b = 0; for (auto& a : assets) b += a->built; logf("assets: %zu in the catalogue, %d built now (lazy %d)", assets.size(), b, (int)lazy); }
   return !assets.empty();

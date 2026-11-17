@@ -1,4 +1,5 @@
 // Personal weapons: definitions (content/weapons/*.json), container-based ammunition accounting,
+#include "crumb.h"
 // reload state machine, recoil springs, sights/scopes, first-person view model, crate resupply.
 // HUD "loaded" counts every round in the weapon including the chambered one.
 #include "app.h"
@@ -45,6 +46,7 @@ void App::buildWeaponMeshes() {
     }
   } catch (std::exception& e) { logf("content/weapons/handling.json: %s (built-in handling)", e.what()); }
   for (auto& f : files) {
+    crumb("weapon defs");   // UI5
     if (f.filename() == "handling.json" || f.filename() == "overrides_user.json") continue;   // ED2: the user's overrides patch the weapons below
     json j;
     try { j = json::parse(readTextFile(f)); } catch (...) { continue; }
@@ -844,6 +846,7 @@ void App::makeWeaponSilhouettes() {
   fs::path dir = exeDir() / "cache" / "weapon_silhouettes";
   std::error_code ec; fs::create_directories(dir, ec);
   for (auto& dp : weaponDefs) {
+    crumb("weapon silhouettes");   // UI5
     const WeaponDef& d = *dp;
     std::string key = d.id;   // MG10: an imported model's part count and bounds in the name, so a re-baked model draws a fresh icon
     if (d.useModel()) { char b[96]; std::snprintf(b, sizeof b, "_m%zu_%.3f_%.3f_%.3f", d.model->parts.size(), d.model->bmax.x, d.model->bmax.y, d.model->bmax.z); key += b; }

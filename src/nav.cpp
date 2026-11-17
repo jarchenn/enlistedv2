@@ -272,10 +272,11 @@ void Nav::clear() {
   {
     std::unique_lock<std::mutex> l(impl_->qm);
     impl_->queue.clear();
-    impl_->cv.wait(l, [&] { return impl_->running.load() == 0; });   // a worker may still finish one tile
+    while (!impl_->cv.wait_for(l, std::chrono::milliseconds(20), [&] { return impl_->running.load() == 0; })) { l.unlock(); crumb("nav: clear: tile worker"); l.lock(); }   // a worker may still finish one tile (UI5: the loading screen presents meanwhile)
     impl_->done.clear();
   }
-  auto wl = writeLock();
+  std::unique_lock<std::shared_mutex> wl(mtx_, std::defer_lock);   // path workers pause between slices; UI5: present while they do
+  ++writers_; while (!wl.try_lock()) { crumb("nav: clear: path workers"); std::this_thread::sleep_for(std::chrono::milliseconds(2)); } --writers_;
   if (query_) { dtFreeNavMeshQuery(query_); query_ = nullptr; }
   if (mesh_) { dtFreeNavMesh(mesh_); mesh_ = nullptr; }
   impl_->genIssued.clear(); impl_->genCommitted.clear(); impl_->stamps.clear(); impl_->tileLinks.clear(); impl_->linkById.clear();
