@@ -264,3 +264,72 @@ def rows_from(nx, nz, rects):
             for i in range(i0, i1 + 1):
                 g[j][i] = ch
     return ["".join(g[j]) for j in range(nz - 1, -1, -1)]
+
+
+def place_container_walls(b, plan, perimeter, between, R, y=0.0, boxes=("mod_container_20",), stack=0.35, tags=("wall",)):
+    """Night Yard walls: a 20 ft container along every inner edge that has solid ground on one side, pushed half its
+    depth into the solid side (the lane keeps its 6 m), some stacked two high; `perimeter` where the solid side is on
+    the plan's outer ring; `between` (a thin wall) between two walkable regions; a link's own piece wins."""
+    n = {"container": 0, "perimeter": 0, "between": 0, "link": 0}
+    for x, z, yaw, kind, a, c in plan.edges():
+        if kind:
+            b.place(kind, x, z, yaw, check=False, cls="none", y=y, tags=set(tags)); n["link"] += 1
+            continue
+        wa, wc = plan.walk(*a), plan.walk(*c)
+        if wa and wc:
+            b.place(between, x, z, yaw, check=False, cls="none", y=y, tags=set(tags)); n["between"] += 1
+            continue
+        solid = c if wa else a
+        if outer(plan, solid):
+            b.place(perimeter, x, z, yaw, check=False, cls="none", y=y, tags=set(tags)); n["perimeter"] += 1
+            continue
+        sx, sz = plan._cc(*solid)
+        dx, dz = (math.copysign(1.0, sx - x), 0.0) if yaw == 90.0 else (0.0, math.copysign(1.0, sz - z))
+        px, pz = x + dx * 1.3, z + dz * 1.3
+        cyaw = 0.0 if yaw == 90.0 else 90.0   # the container's length (local z) along the edge
+        aid = R.choice(boxes)
+        b.place(aid, px, pz, cyaw + R.choice((0.0, 180.0)), check=False, cls="none", y=y, tags=set(tags))
+        if R.random() < stack:
+            b.place(R.choice(boxes), px, pz, cyaw + R.choice((0.0, 180.0)), check=False, cls="none", y=y + 2.6, tags=set(tags) | {"stacked"})
+        n["container"] += 1
+    return n
+
+
+def site_signs(b, plan, ch, letter, y, tags=("sign",)):
+    """The site's letter board on the wall beside each of its entrances, inside and outside (sd_sign_<a|b>_wall)."""
+    n = 0
+    seen = []
+    for x, z, yaw, kind, a, c in plan.all_edges():
+        if kind is None:
+            continue
+        ra, rc = plan.at(*a), plan.at(*c)
+        if (ra == ch) == (rc == ch) or "#" in (ra, rc):
+            continue
+        other = rc if ra == ch else ra
+        for reg in (ch, other):
+            try:
+                sx, sz, syaw = wall_spot(plan, reg, (x, z))
+            except TypeError:
+                continue
+            if all(math.hypot(sx - p, sz - q) > 3.0 for p, q in seen) and math.hypot(sx - x, sz - z) < 9.0:
+                b.place("sd_sign_%s_wall" % letter, sx, sz, syaw, check=False, cls="none", y=y, tags=set(tags))
+                seen.append((sx, sz))
+                n += 1
+    return n
+
+
+def wall_lamps(b, plan, regions, aid, y, every=3, inset=0.6, tags=("lamp",)):
+    """A lamp standard against a wall of each region, about one per `every` cells."""
+    n = 0
+    for ch in regions:
+        cells = plan.cells(ch)
+        for k, (i, j) in enumerate(cells):
+            if k % every:
+                continue
+            try:
+                x, z, yaw = wall_spot(plan, ch, plan._cc(i, j), inset=inset)
+            except TypeError:
+                continue
+            b.place(aid, x, z, yaw, check=False, cls="none", y=y, tags=set(tags))
+            n += 1
+    return n

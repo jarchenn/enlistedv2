@@ -8,7 +8,7 @@ import os
 
 from mapgen import (GroundPaint, Grid, Frame, MapBuilder, ScenarioBuilder, write_map, write_template, write_summary, asset_usage,
                     rng, look_yaw)
-from maps.sd_common import rows_from, Plan, place_walls2, spread, place_masses, place_cover, wall_spot
+from maps.sd_common import rows_from, Plan, place_walls2, spread, place_masses, place_cover, wall_spot, place_container_walls, site_signs, wall_lamps
 
 TID, NAME, VERSION, SEED = "sd_yard", "Night Yard", 1, 2612
 CELL = 6.0
@@ -38,20 +38,18 @@ ROWS = rows_from(15, 17, [
 STRETCH_COLS = ()
 STRETCH_ROWS = (2, 3, 4, 5)
 # decorative buildings on the solid ground (asset, footprint w, d); cover per region (asset, half w, half d, count)
-MASSES = [("mod_nt_barracks", 30, 12), ("mod_nt_motor_pool", 24, 14), ("mod_nt_hq", 20, 14), ("mod_nt_workshop", 18, 12),
-          ("mod_nt_armory", 16, 12), ("mod_nt_pump_station", 14, 10), ("mod_mil_hut", 11.8, 19.6), ("mod_nt_site_office", 7, 3)]
-# site identity: A, the vehicle court (wrecks under camo nets); B, the supply yard (pallets, boxes, a damaged container)
+MASSES = [("mod_nt_warehouse", 36, 24), ("mod_nt_barn_steel", 20, 14), ("mod_nt_workshop", 18, 12), ("mod_nt_pump_station", 14, 10),
+          ("mod_container_40_stack", 2.6, 12.4), ("mod_nt_site_office", 7, 3)]
 INTERIORS = "wnk"
-A_COVER = [("mod_pcar_pickup_wreck", 1.2, 2.9, 1), ("mod_car_shell_burned", 1.2, 2.6, 1), ("mod_tyre_pile", 1.3, 1.0, 1), ("mod_hesco_3x2", 1.6, 0.6, 2),
-           ("mod_sandbag_position", 1.4, 1.1, 1), ("ph_barrel_01", 0.35, 0.35, 2), ("ph_metal_jerrycan", 0.2, 0.1, 2)]
-B_COVER = [("mod_container_20_damaged", 1.3, 3.3, 1), ("mod_pallet_stack", 1.0, 0.45, 3), ("mod_hesco_3x2", 1.6, 0.6, 1), ("ph_wooden_crate_02", 0.5, 0.6, 3),
-           ("ph_cardboard_box_01", 0.25, 0.25, 3), ("mod_barrel_group", 0.7, 0.7, 1), ("mod_generator_set", 1.65, 0.65, 1)]
-SITE_COVER = [("mod_container_20", 1.3, 3.1, 1), ("mod_hesco_3x2", 1.6, 0.6, 2), ("mod_sandbag_position", 1.4, 1.1, 1),
-              ("ph_wooden_military_crate", 0.6, 0.4, 2), ("ph_barrel_01", 0.35, 0.35, 2), ("ph_old_military_crate", 0.5, 0.35, 1)]
-STREET_COVER = [("ph_wooden_crate_01", 0.5, 0.5, 2), ("ph_barrel_02", 0.35, 0.35, 2), ("ph_metal_jerrycan", 0.2, 0.1, 1), ("ph_old_tyre", 0.4, 0.4, 1)]
-COVER = {"A": A_COVER, "B": B_COVER, "M": [("mod_hesco_3x1", 1.6, 0.6, 2), ("ph_wooden_crate_02", 0.5, 0.5, 2), ("ph_barrel_03", 0.35, 0.35, 2)],
-         "s": STREET_COVER, "t": STREET_COVER, "f": STREET_COVER[:2], "R": STREET_COVER[:2], "D": [("ph_plastic_crate_01", 0.4, 0.3, 2), ("ph_portable_generator", 0.5, 0.35, 1)],
-         "T": [("ph_plastic_crate_02", 0.4, 0.3, 2), ("ph_metal_toolbox", 0.3, 0.15, 1)], "c": [("ph_barrel_01", 0.35, 0.35, 1)]}
+A_COVER = [("mod_pallet_stack", 1.0, 0.45, 3), ("mod_container_20", 1.3, 3.1, 1), ("ph_wooden_crate_02", 0.5, 0.6, 3), ("tun_cable_reel", 0.6, 0.4, 2),
+           ("ph_cardboard_box_01", 0.25, 0.25, 3), ("mod_lumber_stack", 1.9, 0.65, 1)]
+B_COVER = [("mod_container_20_damaged", 1.3, 3.3, 1), ("mod_container_20", 1.3, 3.1, 1), ("mod_concrete_pipe_stack", 1.35, 1.5, 1), ("mod_barrel_group", 0.7, 0.7, 2),
+           ("tun_cable_reel", 0.6, 0.4, 2), ("ph_barrel_01", 0.35, 0.35, 2)]
+SITE_COVER = A_COVER
+STREET_COVER = [("ph_wooden_crate_01", 0.5, 0.5, 2), ("ph_barrel_02", 0.35, 0.35, 2), ("mod_pallet_stack", 1.0, 0.45, 1), ("ph_old_tyre", 0.4, 0.4, 1)]
+COVER = {"A": A_COVER, "B": B_COVER, "M": [("mod_container_20", 1.3, 3.1, 2), ("mod_pallet_stack", 1.0, 0.45, 2), ("ph_barrel_03", 0.35, 0.35, 2)],
+         "s": STREET_COVER, "t": STREET_COVER, "f": STREET_COVER[:2], "R": STREET_COVER[:2], "D": [("ph_plastic_crate_01", 0.4, 0.3, 2)],
+         "T": [("ph_plastic_crate_02", 0.4, 0.3, 2)], "c": [("ph_barrel_01", 0.35, 0.35, 1)]}
 PLANT_A_CELL, PLANT_A_OFF = (2, 12), (0.0, 0.0)   # plant pads: an original cell and an offset (m)
 PLANT_B_CELL, PLANT_B_OFF = (12, 8), (0.0, 0.0)
 LINKS = {
@@ -82,10 +80,10 @@ def build(ctx):
     paint = GroundPaint()
     paint.poly("sand", [(-W / 2 - MARGIN, -D / 2 - MARGIN), (W / 2 + MARGIN, -D / 2 - MARGIN), (W / 2 + MARGIN, D / 2 + MARGIN), (-W / 2 - MARGIN, D / 2 + MARGIN)], weight=1.0, edge=0.5)
     y0 = b.ground(0.0, 0.0)
-    nw = place_walls2(b, plan, WALL_IN, WALL, y=y0)
+    nw = place_container_walls(b, plan, WALL, WALL_IN, R, y=y0, boxes=("mod_container_20", "mod_container_20_damaged"))
     n_walls = sum(nw.values())
     # ground: the sites, mid and the spawns are paved aprons; gravel tracks along the streets; sand drifts elsewhere
-    for ch, kind in (("A", "rock"), ("B", "rock"), ("M", "rock"), ("T", "gravel"), ("D", "gravel")):
+    for ch, kind in (("A", "rock"), ("B", "rock"), ("M", "rock"), ("T", "rock"), ("D", "rock"), ("s", "rock"), ("t", "rock"), ("p", "rock"), ("f", "rock"), ("R", "rock"), ("c", "rock")):
         for i, j in plan.cells(ch):
             x, z = plan._cc(i, j)
             h = CELL / 2
@@ -116,23 +114,9 @@ def build(ctx):
             paint.poly("rock", [(x - h, z - h), (x + h, z - h), (x + h, z + h), (x - h, z + h)], weight=1.0, edge=0.3)
             n_roof += 1
         n_cover += place_cover(b, plan, ch, [("ph_metal_toolbox", 0.3, 0.15, 1), ("ph_wooden_crate_01", 0.5, 0.5, 1)], R, y0, lane=1.6)
-    # camo nets over the A vehicle court (walk-under, no collision of note)
-    ax, az = plan.centre("A")
-    b.place("mod_camo_net", ax - 4.0, az - 3.0, 10.0, check=False, cls="none", y=y0, tags={"dress"})
-    # signs: each site's letter on its walls facing the main entries, arrows at the street ends
-    signs = []
-    for ch, letter in (("A", "a"), ("B", "b")):
-        cx, cz = plan.centre(ch)
-        for near in ((cx, cz - 30.0), (cx, cz + 30.0), (cx + (25.0 if ch == "A" else -25.0), cz)):
-            x, z, yaw = wall_spot(plan, ch, near)
-            if all(abs(x - q[0]) + abs(z - q[1]) > 4.0 for q in signs):
-                b.place("sd_sign_%s_wall" % letter, x, z, yaw, check=False, cls="none", y=y0, tags={"sign"})
-                signs.append((x, z))
-    for ch, letter, near in (("s", "a", plan.cc(12, 8)), ("t", "b", plan.cc(2, 8)), ("f", "a", plan.cc(11, 7)), ("f", "b", plan.cc(3, 7)), ("R", "a", plan.cc(10, 13)), ("R", "b", plan.cc(4, 13))):
-        x, z, yaw = wall_spot(plan, ch, near)
-        b.place("sd_sign_%s_arrow" % letter, x, z, yaw, check=False, cls="none", y=y0, tags={"sign"})
-        signs.append((x, z))
-
+    # signs at every site entrance; sodium street lights against the walls; the sheds lit by caged lamps (INTERIORS above)
+    n_sign = site_signs(b, plan, "A", "a", y0) + site_signs(b, plan, "B", "b", y0)
+    n_lamp = wall_lamps(b, plan, "AB", "mod_streetlight_double", y0, every=4) + wall_lamps(b, plan, "MstpfRcTD", "mod_streetlight", y0, every=6)
     # ---------------------------------------------------------------- scenario: sites, spawns, timings
     sc = ScenarioBuilder(b, defending="Axis")
     xA, zA = plan.cc(*PLANT_A_CELL)
@@ -191,7 +175,7 @@ def build(ctx):
         views.append({"name": name + "_eye", "pos": [round(x, 2), round(y0 + eye, 2), round(z, 2)], "yaw": look_yaw(tx - x, tz - z), "pitch": 0.0, "gameplay": True})
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sc.to_json(rules_extra=rules), explore_start=((a1[0], a1[1], a1[2]), 0.0), camera=cam, bookmarks={},
-              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 15.5}, "look": {"haze": 0.6, "saturation": 1.05, "tint": [1.06, 1.0, 0.9], "paintSets": {"rock": "apron_concrete_paint", "gravel": "gravel_mixed"}}})
+              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 22.5, "fill": 1.0}, "look": {"haze": 0.9, "saturation": 0.95, "tint": [0.94, 0.98, 1.06], "bloom": 1.3, "paintSets": {"rock": "yard_asphalt_paint", "gravel": "gravel_mixed"}}})
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=20, version=VERSION, seed=SEED,
                    description="Search and Destroy: a desert compound of precast concrete walls and courtyards in hard noon light. "
                                "A: the west vehicle court; B: the east supply yard; Mid: the parade square. 5 v 5.",

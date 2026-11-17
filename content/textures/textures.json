@@ -86,6 +86,7 @@
     "paint_dry_grass":       {"set": "grass_lawn",        "space": "ground", "albedo": 0.75, "normal": 0.6, "rough": 0.35, "ao": 0.4, "fade": [50, 160]},
     "paint_ploughed":        {"set": "soil_ploughed",     "space": "ground", "albedo": 0.75, "normal": 0.6, "rough": 0.35, "ao": 0.4, "fade": [50, 160]},
     "paint_leaf_litter":     {"set": "leaves_forest",     "space": "ground", "albedo": 0.75, "normal": 0.6, "rough": 0.35, "ao": 0.4, "fade": [50, 160]},
+    "yard_asphalt_paint":    {"absolute": true, "set": "asphalt_worn", "space": "ground", "albedo": 0.9, "normal": 0.6, "rough": 0.4, "ao": 0.45, "fade": [60, 180]},
     "apron_concrete_paint":  {"absolute": true, "set": "concrete_cracked_white", "space": "ground", "albedo": 0.92, "normal": 0.6, "rough": 0.4, "ao": 0.45, "fade": [60, 180]},
     "ph_needle_floor":       {"absolute": true, "set": "ph_forest_ground_04", "space": "ground", "albedo": 1.0, "normal": 0.75, "rough": 0.4, "ao": 0.5, "fade": [60, 180]},
     "ph_leaf_floor":         {"absolute": true, "set": "ph_forest_leaves_04", "space": "ground", "albedo": 1.0, "normal": 0.7, "rough": 0.4, "ao": 0.45, "fade": [50, 160]},
