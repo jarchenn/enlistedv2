@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.17671866714954376,
+  0.899911642074585,
+  0.2983769476413727
+ ],
+ "bmin": [
+  -0.1767505258321762,
+  0.0,
+  -0.29905009269714355
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "drill_press_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.17671866714954376,
+    0.899911642074585,
+    0.2983769476413727
+   ],
+   "bmin": [
+    -0.1767505258321762,
+    0.0,
+    -0.29905009269714355
+   ],
+   "count": 21945,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "drill_press_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_drill_press_01.glb",
+ "textures": {},
+ "triangles": 7315,
+ "vertices": 9468
+}

@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.6367126703262329,
+  0.964644730091095,
+  0.3768153190612793
+ ],
+ "bmin": [
+  -0.6367126703262329,
+  0.0,
+  -0.3768153190612793
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "tool_cart",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.6367126703262329,
+    0.964644730091095,
+    0.3768153190612793
+   ],
+   "bmin": [
+    -0.6367126703262329,
+    0.0,
+    -0.3768153190612793
+   ],
+   "count": 44088,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "tool_cart",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_tool_cart.glb",
+ "textures": {},
+ "triangles": 14696,
+ "vertices": 10173
+}

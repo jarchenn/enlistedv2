@@ -1,0 +1,124 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  2.2202160358428955,
+  0.9533608555793762,
+  1.6709543466567993
+ ],
+ "bmin": [
+  -2.2176694869995117,
+  0.0005946457386016846,
+  -1.6722679138183594
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "wooden_barrels_01_barrel01",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "wooden_barrels_01_barrel02",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "albedo": "albedo_7.jpg",
+   "mr": "mr_8.jpg",
+   "name": "wooden_barrels_01_pieces",
+   "normal": "normal_6.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.9592750072479248,
+    0.9533608555793762,
+    -0.9290782809257507
+   ],
+   "bmin": [
+    1.2162748575210571,
+    0.03992510214447975,
+    -1.6720759868621826
+   ],
+   "count": 16773,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "wooden_barrels_01_barrel01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.4560025930404663,
+    0.9533608555793762,
+    -0.9293157458305359
+   ],
+   "bmin": [
+    -1.199002742767334,
+    0.036836203187704086,
+    -1.6722679138183594
+   ],
+   "count": 16917,
+   "first": 16773,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "wooden_barrels_01_barrel01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.2202160358428955,
+    0.3901292681694031,
+    1.6709543466567993
+   ],
+   "bmin": [
+    -2.2176694869995117,
+    0.0005946457386016846,
+    -0.2145836055278778
+   ],
+   "count": 16020,
+   "first": 33690,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "wooden_barrels_01_barrel01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_wooden_barrels_01.glb",
+ "textures": {},
+ "triangles": 16570,
+ "vertices": 21156
+}

@@ -1,0 +1,92 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.8939286470413208,
+  1.4111130237579346,
+  2.19012713432312
+ ],
+ "bmin": [
+  -0.8944814801216125,
+  0.0,
+  -2.19012713432312
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "covered_car",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "covered_car.001",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.7903569936752319,
+    0.5999999642372131,
+    1.555912971496582
+   ],
+   "bmin": [
+    0.6193294525146484,
+    0.0,
+    -1.623211145401001
+   ],
+   "count": 6048,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "covered_car_wheel_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.8939286470413208,
+    1.4111130237579346,
+    2.19012713432312
+   ],
+   "bmin": [
+    -0.8944814801216125,
+    0.0,
+    -2.19012713432312
+   ],
+   "count": 12837,
+   "first": 6048,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "covered_car_wheel_01",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_covered_car.glb",
+ "textures": {},
+ "triangles": 6295,
+ "vertices": 6204
+}
