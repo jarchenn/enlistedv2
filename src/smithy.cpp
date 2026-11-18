@@ -171,7 +171,7 @@ void smithyUi(App& app) {
       } else ImGui::TextDisabled("-  empty");
       bool any = false;
       std::map<std::string, int> freeParts;   // SM3: outside Battle Royale every part of this slot, free
-      if (!kitRule()) for (int v = 1; v < 7; ++v) if (const char* fidv = lootAttachItemId(sl, v); *fidv) freeParts[fidv] = -1;
+      if (!kitRule()) for (int v = 1; v < 8; ++v) if (const char* fidv = lootAttachItemId(sl, v); *fidv) freeParts[fidv] = -1;
       for (auto& [id, n] : kitRule() ? k.items : freeParts) {
         const ItemDef* it = lootItem(id);
         if (!it || n == 0 || it->kind < ItemKind::Sight || it->kind > ItemKind::Stock || lootSlotOf(it->kind) != sl || !lootAttachFits(d, *it) || ws.att[sl] == it->value) continue;
