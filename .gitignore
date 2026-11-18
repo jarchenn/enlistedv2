@@ -47,12 +47,9 @@ content/vehicles/models/humvee/
 content/vehicles/models/boxer_apc/
 # NT4: the paper shooting target (shooting-target.zip names no author or licence): its bake stays local-only
 content/assets/models/range_target_paper/
-# VH4: the supplied M4 Sherman (m4-sherman.zip, a Sketchfab source .blend with no author or licence inside) stays
-# local-only; clones draw the committed Firefly mesh (content/vehicles/models/sherman) for sherman_m4
-content/vehicles/models/sherman_m4/
+# LIC3: the M4 Sherman ("M4 Sherman" by barking_dogo, CC-BY-4.0) is committed
 # LIC3: the Bradley ("M2 Bradley IFV" by 42manako, CC-BY-4.0) is committed
-# VH6 Ural-4320: supplied model of unknown licence, local-only; clones draw the committed part-built fallback (content/vehicles/models/ural_4320_fallback)
-content/vehicles/models/ural_4320/
+# LIC3: the Ural-4320 ("URAL-4320 (soviet-army truck)" by zhe_kan, CC-BY-4.0) is committed
 # UI2: the supplied city soldier (city-soldier-outdated.zip, licence unknown): its menu cut-out stays local-only; the committed
 # backdrop shows the game's own soldier instead
 content/ui/local/

@@ -3,7 +3,7 @@
  "version": 1,
  "name": "Ural-4320 army truck",
  "category": "Vehicles",
- "description": "Drivable Ural-4320 6x6 army truck (Explore: E to enter). Driver's view from the cab with a lit military dash: gauges, switches, warning lights, radio; W/S throttle, A/D steer, Space handbrake. Supplied model is local-only; the committed build shows a part-built stand-in.",
+ "description": "Drivable Ural-4320 6x6 army truck (Explore: E to enter). Driver's view from the cab with a lit military dash: gauges, switches, warning lights, radio; W/S throttle, A/D steer, Space handbrake.",
  "floors": 0,
  "enterable": false,
  "footprint": [

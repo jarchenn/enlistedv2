@@ -2,7 +2,7 @@
   "id": "ural_4320",
   "name": "Ural-4320 (6x6 army truck)",
   "faction": "Modern",
-  "identity": "Supplied ural-4320-soviet-army-truck.zip (source/URAL-4320 Army.glb; no author or licence in the archive or the GLB): scaled x0.934 to the real 7.37 m, glass dropped, the six wheels split by axle, the steering wheel cut out of the cab by tools/vehicles/convert_vehicles.py ural. The baked model is local-only (git-ignored, licence unknown); without it the committed part-built fallback (models/ural_4320_fallback) is drawn.",
+  "identity": "Supplied ural-4320-soviet-army-truck.zip (source/URAL-4320 Army.glb): \"URAL-4320 (soviet-army truck)\" by zhe_kan, CC-BY-4.0, https://skfb.ly/pPRBQ (LIC3): scaled x0.934 to the real 7.37 m, glass dropped, the six wheels split by axle, the steering wheel cut out of the cab by tools/vehicles/convert_vehicles.py ural. The baked model is committed (models/ural_4320); without it the committed part-built fallback (models/ural_4320_fallback) is drawn.",
   "car": true,
   "model": {
     "src": "ural_4320.glb",

@@ -3,7 +3,7 @@
  "version": 1,
  "name": "M4 Sherman (75 mm)",
  "category": "Vehicles",
- "description": "Drivable tank (Explore: E to enter). Supplied M4 Sherman model (local-only; the committed build draws the Firefly mesh); 75 mm M3 game data. Gunner sight, roof .50, bow .30, HE/AP.",
+ "description": "Drivable tank (Explore: E to enter). 75 mm M3 game data. Gunner sight, roof .50, bow .30, HE/AP.",
  "floors": 0,
  "enterable": false,
  "footprint": [

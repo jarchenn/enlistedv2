@@ -3,7 +3,7 @@
   "id": "sherman_m4",
   "name": "M4 Sherman (75 mm)",
   "faction": "Allied",
-  "identity": "Supplied m4-sherman.zip (a Sketchfab source .blend, no author or licence inside; most likely barking_dogo's M4 Sherman): 75 mm M4 with the roof .50. Converted by tools/vehicles/convert_vehicles.py sherman_m4; local-only, clones draw the committed Firefly stand-in mesh.",
+  "identity": "Supplied m4-sherman.zip (a Sketchfab source .blend): \"M4 Sherman\" by barking_dogo, CC-BY-4.0, https://skfb.ly/oBwKW (LIC3): 75 mm M4 with the roof .50. Converted by tools/vehicles/convert_vehicles.py sherman_m4; the bake is committed (models/sherman_m4); without it the Firefly mesh stands in.",
   "model": {
     "src": "sherman_m4.glb",
     "dir": "sherman_m4",
