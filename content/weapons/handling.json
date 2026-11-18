@@ -325,6 +325,9 @@
    "modern_smg45": {
     "kind": "smg"
    },
+   "modern_mp5": {
+    "kind": "smg"
+   },
    "modern_mark23": {
     "kind": "pistol",
     "back_m": 0.045,

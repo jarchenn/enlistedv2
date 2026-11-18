@@ -145,6 +145,17 @@
    "name": ".45 SMG"
   },
   {
+   "id": "mp5",
+   "weapon": "modern_mp5",
+   "cat": "smg",
+   "slot": 1,
+   "kill": "smg",
+   "role": "9 mm SMG (MP5 role)",
+   "raiders": 1500,
+   "security": 1500,
+   "name": "MP5"
+  },
+  {
    "id": "uzi",
    "weapon": "modern_uzi",
    "cat": "smg",

@@ -363,6 +363,12 @@ for mname, m in cfg.get("mats", {}).items():
     rough = chan("rough") if "rough" in m else chan("smooth", 0, True) if "smooth" in m else chan("gloss", 4, True) if "gloss" in m else None
     metal = chan("metal") if "metal" in m else None
     if "spec" in m: sp = chan("spec", 4); metal = (sp > 0.5).astype(np.float32) if sp is not None else None
+    if m.get("dull"):   # NG4: a gun's own finish less glossy: roughness into a range per surface (bare metal by the metallic map, else
+        # polymer / coated parts), metallic scaled (a pack with one metallic factor for the whole gun)
+        _d = m["dull"]; _n = W_ * H_; _r = rough if rough is not None else np.full(_n, m.get("rough_f", 0.5), np.float32)
+        _m = (metal if metal is not None else np.full(_n, m.get("metal_f", 0.0), np.float32)) * _d.get("metalScale", 1.0)
+        _ml, _mh = _d.get("metal", [0.55, 0.7]); _ol, _oh = _d.get("other", [0.7, 0.85])
+        rough = np.where(_m >= 0.5, _ml + (_mh - _ml) * _r, _ol + (_oh - _ol) * _r).astype(np.float32); metal = _m.astype(np.float32)
     if m.get("matte"):   # NG2: cloth / skin: the source's roughness (or rough_f) into [lo, hi], never metallic (the arm maps ran 0.3-0.8: a sheen on sleeves)
         lo, hi = m["matte"]; rough = lo + (hi - lo) * (rough if rough is not None else np.full(W_ * H_, m.get("rough_f", 0.9), np.float32)); metal = None; m = dict(m, metal_f=0.0)
     if rough is None and metal is None:   # NG2: no maps: the material's own factors (Blender's 0.5 default was exported)

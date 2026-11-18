@@ -139,6 +139,12 @@ for mname, m in cfg.get("mats", {}).items():
     if "spec" in m:
         s = chan("spec", 4); metal = (s > 0.5).astype(np.float32) if s is not None else None
     ao = chan("ao") if "ao" in m else None
+    if m.get("dull"):   # NG4: a gun's own finish less glossy: roughness into a range per surface (bare metal by the metallic map, else
+        # polymer / coated parts), metallic scaled (a pack with one metallic factor for the whole gun)
+        _d = m["dull"]; _n = W * H; _r = rough if rough is not None else np.full(_n, m.get("rough_f", 0.5), np.float32)
+        _m = (metal if metal is not None else np.full(_n, m.get("metal_f", 0.0), np.float32)) * _d.get("metalScale", 1.0)
+        _ml, _mh = _d.get("metal", [0.55, 0.7]); _ol, _oh = _d.get("other", [0.7, 0.85])
+        rough = np.where(_m >= 0.5, _ml + (_mh - _ml) * _r, _ol + (_oh - _ol) * _r).astype(np.float32); metal = _m.astype(np.float32)
     if rough is not None or metal is not None or ao is not None:
         orm = np.ones((W * H, 4), np.float32)
         orm[:, 0] = ao if ao is not None else 1

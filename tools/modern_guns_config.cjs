@@ -6,7 +6,8 @@ const k = (...n) => Object.fromEntries(n.map(x => [x, x]));
 const X = path.resolve(process.argv[5] || G + "_extracted") + "/";
 const M12 = path.resolve(process.env.MG12_SRC || "E:/nmk/incoming/mg12") + "/";   // MG12 sources (moved off C: to E:, user disk policy)
 const NG1 = path.resolve(process.env.NG1_SRC || "E:/nmk/incoming/ng1") + "/";   // NG1 sources (licences unknown: the bakes are local-only)
-const NG3 = path.resolve(process.env.NG3_SRC || "E:/nmk/incoming/ng3") + "/";   // NG3 sources (licences unknown: the bakes are local-only)
+const NG3 = path.resolve(process.env.NG3_SRC || "E:/nmk/incoming/ng3") + "/";
+const NG4 = path.resolve(process.env.NG4_SRC || "E:/nmk/incoming/ng4") + "/";   // NG4 sources   // NG3 sources (licences unknown: the bakes are local-only)
 const C = {
   ak: { src: G + "fps-ak-animated/source/arms@ak.fbx", tex: "fps-ak-animated", keep: k("base", "bolt", "bullet", "mag", "release", "trigger"),
         mats: { ak74: { albedo: "ak74Color.png", normal: "ak74Normal.png", metal: "akMetallic.png", smooth: "aksmoothness.png", ao: "akAO.png" } } },
@@ -27,7 +28,7 @@ const C = {
         mats: { Rifle: { albedo: "Rifle_albedo.jpg", normal: "Rifle_normal.png", metal: "Rifle_metallic.jpg", rough: "Rifle_roughness.jpg", ao: "Rifle_AO.jpg" },
                 Other: { albedo: "Other_albedo.jpg", normal: "Other_normal.png", metal: "Other_metallic.jpg", rough: "Other_roughness.jpg" } } },
   pistol: { src: G + "animatedpistol/source/rig.blend", tex: "animatedpistol", keep: { xd_grip_safe: "frame", xd_mag: "mag", xd_slide: "slide" },
-        mats: { "None.001": { albedo: "for_texturing_None.001_Diffuse.png", normal: "for_texturing_None.001_Normal.png", gloss: "for_texturing_None.001_Glossiness.png", spec: "for_texturing_None.001_Specular.png" } } },
+        mats: { "None.001": { albedo: "for_texturing_None.001_Diffuse.png", normal: "for_texturing_None.001_Normal.png", gloss: "for_texturing_None.001_Glossiness.png", spec: "for_texturing_None.001_Specular.png", dull: { metal: [0.55, 0.7], other: [0.65, 0.85] } } } },   // NG4: less glossy
   // ---- MG2
   ar15: { src: G + "ar-15-animations-miniset/source/Base_Rig_Test_Scetc.fbx", tex: "ar-15-animations-miniset", keep: { AR_15: "base" },
         split: { AR_15: { mag: "mag", mag_2: "mag2", bolt: "bolt", charging_handle: "handle" } },
@@ -112,7 +113,7 @@ const C = {
         mats: { SCAR_Body_Mat: { albedo: "ScarH_Body_D.png", normal: "ScarH_Body_N.png", metal: "ScarH_Body_M.png", rough: "ScarH_Body_R.png" },
                 SCAR_Buttock_Mat: { albedo: "ScarH_Buttock_D.png", normal: "ScarH_Buttock_N.png", metal: "ScarH_Buttock_M.png", rough: "ScarH_Buttock_R.png" } } },
   m4a4: { src: NG3 + "animated-fps-m4a4/source/rig.fbx", tex: NG3 + "animated-fps-m4a4", keep: { M4A4_CS2: "base", "M4A4_CS2.001": "mag" },
-        mats: { weapon_rif_m4a4: { albedo: "m4a4_default_color_psd_3b0b391e.png", normal: "m4a4_default_normal_png_d39c4b9a.png", rough: "m4a4_default_rough.png", metal_f: 0.6 } } },
+        mats: { weapon_rif_m4a4: { albedo: "m4a4_default_color_psd_3b0b391e.png", normal: "m4a4_default_normal_png_d39c4b9a.png", rough: "m4a4_default_rough.png", metal_f: 0.25, dull: { other: [0.6, 0.8] } } } },   // NG4: less glossy (it was metallic 0.6 all over)
   vsk3: { src: NG3 + "fps-animations-vsk/source/FPS_VSK.fbx", tex: NG3 + "fps-animations-vsk", keep: { "VSK-94": "base" }, split: { "VSK-94": { Slider: "bolt", Mag: "mag", Trigger: "trigger" } },
         mats: { "Main body": { albedo: "Main_body_Base_color.png", normal: "Main_body_Normal_OpenGL2.png", metal: "Main_body_Metallic.png", rough: "Main_body_Roughness.png" },
                 "Mag+cover": { albedo: "Mag+cover_Base_color.png", normal: "Mag+cover_Normal_OpenGL.png", metal: "Mag+cover_Metallic.png", rough: "Mag+cover_Roughness.png" },
@@ -127,6 +128,9 @@ const C = {
         keep: { "SK_AK-47": "base", "SM-CARGADOR": "mag" }, split: { "SK_AK-47": { gun_bolt: "bolt", gun_Trigger: "trigger" } },
         mats: { "Material.000": { albedo: "Material.000_albedo.jpeg", normal: "Material.000_normal.jpeg", metal: "Material.000_metallic.jpeg", rough: "Material.000_roughness.jpeg" },
                 "Material.007": { albedo: "Material.007_albedo.jpeg", normal: "Material.007_normal.jpeg", metal: "Material.007_metallic.jpeg", rough: "Material.007_roughness.jpeg" } } },
+  mp5: { src: NG4 + "animated-mp5/source/AnimatedMP5.fbx", tex: NG4 + "animated-mp5", poseFrame: 1, poseAction: "Armature|Armature|Idle", keep: { "MP5_1_Low.010": "base", "MP5_1_Low.011": "mag", "MP5_1_Low.013": "trigger" },
+        mats: { M_LayeredMaterial: { albedo: "M_LayeredMaterial_Base_color.png", normal: "M_LayeredMaterial_Normal_OpenGL.png", metal: "M_LayeredMaterial_Metallic.png", rough: "M_LayeredMaterial_Roughness.png",
+                                     dull: { metal: [0.55, 0.7], other: [0.7, 0.85] } } } },   // NG4: its roughness map ran ~0.24 (mirror-like): parkerised steel / polymer
   case: { src: G + "hardcase_for_weapons.glb", tex: "", scale: 1.27,
         keep: k("CaseLower_low_Hardcase_0", "CaseUpped_low_Hardcase_0", "Foam_low_Hardcase_0", "Handle_low_Hardcase_0", "HandleRods_low_Hardcase_0", "HingesLower_low_Hardcase_0", "HingesUpper_low_Hardcase_0", "Knob_low_Hardcase_0", "LockRods_low_Hardcase_0", "Locks_low_Hardcase_0") },
 };

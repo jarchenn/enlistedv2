@@ -33,6 +33,7 @@
     "modern_m4_irons": {"gripZ": 0.47, "shoulder": [-0.08, 0.02, -0.04]},
     "modern_ak12": {"gripZ": 0.6, "shoulder": [-0.08, 0.02, -0.04]},
     "modern_sawnoff": {"gripZ": 0.7, "shoulder": [-0.08, 0.02, -0.04]},
-    "modern_smg9": {"gripZ": 0.7, "shoulder": [-0.08, 0.02, -0.04]}
+    "modern_smg9": {"gripZ": 0.7, "shoulder": [-0.08, 0.02, -0.04]},
+    "modern_mp5": {"gripZ": 0.55, "shoulder": [-0.08, 0.02, -0.04]}
   }
 }

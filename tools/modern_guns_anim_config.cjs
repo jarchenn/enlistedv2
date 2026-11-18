@@ -10,7 +10,8 @@ const G = path.resolve(process.argv[2]) + "/", O = path.resolve(process.argv[3])
 const WDIR = path.resolve(__dirname, "../content/weapons") + "/";
 const X = path.resolve(process.argv[5] || G + "_extracted") + "/";
 const M12 = path.resolve(process.env.MG12_SRC || "E:/nmk/incoming/mg12") + "/";   // MG12 sources (moved off C: to E:, user disk policy)
-const NG3 = path.resolve(process.env.NG3_SRC || "E:/nmk/incoming/ng3") + "/";   // NG3 sources (licences unknown: local-only bakes)
+const NG3 = path.resolve(process.env.NG3_SRC || "E:/nmk/incoming/ng3") + "/";
+const NG4 = path.resolve(process.env.NG4_SRC || "E:/nmk/incoming/ng4") + "/";   // NG4 sources   // NG3 sources (licences unknown: local-only bakes)
 const NG1 = path.resolve(process.env.NG1_SRC || "E:/nmk/incoming/ng1") + "/";   // NG1 sources (licences unknown: local-only bakes into models/<id>_local)
 // MG2: Unreal mannequin arms (AR-15, MP7, RPG-7) and the Rigify agent's arms (Scorpion, Uzi)
 const manny = { MI_Manny_01: { albedo: "T_Manny_01_D.png", rough_f: 0.6 }, MI_Manny_02: { albedo: "T_Manny_02_D.png", rough_f: 0.6 } };
@@ -64,11 +65,12 @@ const A = {
     clips: { idle: "Rig|Rig|SRifle_Idle", fire: "Rig|Rig|FPS_Pistol_Fire", fire_bolt: "Rig|Rig|SRifle_Shot_nosight", ads_fire: "Rig|Rig|SRifle_Shot_sight", reload: "Rig|Rig|SRifle_Reload", reload_empty: "Rig|Rig|SRifle_Reload_Full", walk: "Rig|Rig|SRifle_Walk" },
     mats: { Rifle: { albedo: "Rifle_albedo.jpg", metal: "Rifle_metallic.jpg", rough: "Rifle_roughness.jpg" }, Other: { albedo: "Other_albedo.jpg", metal: "Other_metallic.jpg", rough: "Other_roughness.jpg" },
             arms: { albedo: "armColor.png", rough: "armRoughness.png" } } },
-  modern_pistol: { src: "animatedpistol/source/rig.blend", tex: "animatedpistol", stat: "modern_pistol", camera: "A_Camera", cameraAction: "Idle",
+  modern_pistol: { maxTex: 1024, src: "animatedpistol/source/rig.blend",   // NG4: rig textures at 1024 (was 2048, 26 MB)
+    tex: "animatedpistol", stat: "modern_pistol", camera: "A_Camera", cameraAction: "Idle",
     keep: ["xd_grip_safe", "xd_mag", "xd_slide", "DMC5_Soldier_Gloves", "DMC5_Soldier_Skin", "DMC5_Soldier_Shirt", "DMC5_Soldier_Gear"], gun: "xd_grip_safe", hipRear: [0.07, 0.3, -0.09],
     clips: { idle: "Idle", fire: "Shoot", reload: "Reload", draw: "Take", holster: "Hide", run: "Run" },
     dropBones: { DMC5_Soldier_Shirt: ["UpperArm.L", "UpperArm.R"], DMC5_Soldier_Gear: ["UpperArm.R"] },   // NG2: the shirt's upper arms (across the eye in the reload)
-    mats: { "None.001": { albedo: "for_texturing_None.001_Diffuse.png", gloss: "for_texturing_None.001_Glossiness.png", spec: "for_texturing_None.001_Specular.png" },
+    mats: { "None.001": { albedo: "for_texturing_None.001_Diffuse.png", gloss: "for_texturing_None.001_Glossiness.png", spec: "for_texturing_None.001_Specular.png", dull: { metal: [0.55, 0.7], other: [0.65, 0.85] } },   // NG4: less glossy (roughness ran 0.23-0.4)
             // NG2: the shirt / gear on their own textures and normal maps (they were flat colours: a plastic sheen on the sleeves), all matte
             DMC5_Soldier_Hands_Mat: { albedo: "soldierhand_d.png", normal: "soldierhand_n.png", rough_f: 0.8, matte: [0.8, 0.8] },
             DMC5_Soldier_Shirt_Mat: { albedo: "pl2000_main3_d.png", normal: "pl2000_main3_n.png", rough_f: 0.92, matte: [0.92, 0.92] },
@@ -224,7 +226,7 @@ const A = {
     keep: ["M4A4_CS2", "M4A4_CS2.001", "DMC5_Soldier_Gloves", "DMC5_Soldier_Skin", "DMC5_Soldier_Shirt", "DMC5_Soldier_Gear"], gun: "M4A4_CS2",
     clips: { idle: "Armature|Armature|Idle", fire: "Armature|Armature|Shoot", reload: "Armature|Armature|Reload" },   // Take / Hide not used
     ironsSplit: { M4A4_CS2: 0.04 }, normals: true,   // the upper arms kept: cut, the left sleeve's open end showed in ADS (the XD's cut does not show)
-    mats: { weapon_rif_m4a4: { albedo: "m4a4_default_color_psd_3b0b391e.png", normal: "m4a4_default_normal_png_d39c4b9a.png", rough: "m4a4_default_rough.png", metal_f: 0.6 },
+    mats: { weapon_rif_m4a4: { albedo: "m4a4_default_color_psd_3b0b391e.png", normal: "m4a4_default_normal_png_d39c4b9a.png", rough: "m4a4_default_rough.png", metal_f: 0.25, dull: { other: [0.6, 0.8] } },   // NG4: less glossy (metallic 0.6 all over)
             DMC5_Soldier_Hands_Mat: { albedo: "soldierhand_d.png", normal: "soldierhand_n.png", rough_f: 0.8, matte: [0.8, 0.8] },
             DMC5_Soldier_Shirt_Mat: { albedo: "pl2000_main3_d.png", normal: "pl2000_main3_n.png", rough_f: 0.92, matte: [0.92, 0.92] },
             DMC5_Soldier_Gear_Mat: { albedo: "pl2000_main2_d.png", normal: "pl2000_main2_n.png", rough_f: 0.85, matte: [0.85, 0.85] } } },
@@ -251,6 +253,12 @@ const A = {
             "Material.007": { albedo: "Material.007_albedo.jpeg", metal: "Material.007_metallic.jpeg", rough: "Material.007_roughness.jpeg" },
             M_Gloves_Black: { ...ng2Arms, albedo: "T_Glove_Black_color.png", normal: "T_Glove_normal.png", rough: "T_Glove_roughness.png" },
             M_Shirt_BlackCamo2: { ...ng2Arms, albedo: "T_Shirt_BlackCamo2_4k_color.png", normal: "T_Shirt_4k_normal.png", rough: "T_TShirt_roughness.png" } } },
+  modern_mp5: { abs: true, maxTex: 1024, src: NG4 + "animated-mp5/source/AnimatedMP5.fbx", tex: NG4 + "animated-mp5", stat: "modern_mp5", hipRear: [0.12, 0.15, -0.07],   // NG4: JUST's soldier rig (as the XD / M4A4)
+    keep: ["MP5_1_Low.010", "MP5_1_Low.011", "MP5_1_Low.013", "DMC5_Nero_ArmR"], gun: "MP5_1_Low.010", gunBone: "Base", staticPoseFrame: 1, staticPoseAction: "Armature|Armature|Idle",   // the static bake is posed at the idle
+    clips: { idle: "Armature|Armature|Idle", fire: "Armature|Armature|Shoot", reload: "Armature|Armature|Reload" },   // Take not used
+    ironsSplit: { "MP5_1_Low.010": 0.04 }, normals: true,
+    mats: { M_LayeredMaterial: { albedo: "M_LayeredMaterial_Base_color.png", metal: "M_LayeredMaterial_Metallic.png", rough: "M_LayeredMaterial_Roughness.png", dull: { metal: [0.55, 0.7], other: [0.7, 0.85] } },
+            DMC5_Nero_BareArm: { ...ng2Arms, albedo: "pl0000_handr_d.png", normal: "pl0000_handr_n.png", rough_f: 0.75, matte: [0.72, 0.8] } } },
   // ---- MG7: the first-person knife (knife_animated.glb, Sketchfab; one 0-116 timeline at 24 fps); framed by its camera: the eye
   // at the scene origin looking along -y in the exported frame (found by a test export), centimetres
   knife_bayonet: { src: "../mg7/knife_animated/knife_animated.glb", tex: "../mg7/knife_animated", frame: { rear: [0, 0, 0], front: [0, -100, 0], up: [0, 0, 1], scale: 0.01 }, hipRear: [0, 0, 0],
