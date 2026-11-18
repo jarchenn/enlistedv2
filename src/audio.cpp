@@ -603,9 +603,9 @@ int Audio::loadCustom(const fs::path& dir) {
     {"snd18/stg44_single.mp3", false, {"stg44_semi"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.20f},
     {"snd18/stg44_auto_%d.mp3", false, {"stg44"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.27f, 5},
     {"snd18/fg42_single.mp3", false, {"fg42_semi"}, -1, 1.03f, 0, 2.0f, 0.0f, 1.20f},
-    {"snd18/fg42_auto_%d.mp3", false, {"fg42"}, -1, 1.03f, 0, 2.0f, 0.0f, 1.40f, 5},
+    {"snd18/fg42_auto_%d.mp3", false, {"fg42"}, -1, 1.03f, 0, 2.0f, 0.0f, 1.57f, 5},   // SND19: re-cut, re-levelled on sustained fire
     {"snd18/bar_single.mp3", false, {"m1918a2_bar_semi"}, -1, 0.97f, 0, 2.0f, 0.0f, 1.20f},
-    {"snd18/bar_auto_%d.mp3", false, {"m1918a2_bar"}, -1, 0.97f, 0, 2.0f, 0.0f, 1.44f, 5},
+    {"snd18/bar_auto_%d.mp3", false, {"m1918a2_bar"}, -1, 0.97f, 0, 2.0f, 0.0f, 1.51f, 5},   // SND19: re-cut, re-levelled
     {"snd18/m4_single.mp3", false, {"modern_m4_irons_semi"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.11f},
     {"snd18/m4_auto_%d.mp3", false, {"modern_m4_irons"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.45f, 5},
     {"snd18/m16_single.mp3", false, {"modern_m16_semi"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.22f},
@@ -614,18 +614,23 @@ int Audio::loadCustom(const fs::path& dir) {
     {"snd18/scar_h_auto_%d.mp3", false, {"modern_scar"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.52f, 5},
     {"snd18/shotgun_remington870_single.mp3", false, {"modern_shotgun"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.03f},
     {"snd18/shotgun_spas12_single.mp3", false, {"modern_shotgun2"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.18f},
-    {"snd18/mg42_single.mp3", false, {"mg42_semi"}, -1, 1.00f, 0, 1.6f, 0.0f, 1.83f},
-    {"snd18/mg42_auto_%d.mp3", false, {"mg42"}, -1, 1.00f, 0, 1.6f, 0.0f, 2.20f, 5},
-    {"snd18/m249_single.mp3", false, {"modern_lmg_semi"}, -1, 1.00f, 0, 1.6f, 0.0f, 1.50f},
-    {"snd18/m249_auto_%d.mp3", false, {"modern_lmg"}, -1, 1.00f, 0, 1.6f, 0.0f, 2.20f, 5},
+    {"snd18/mg42_auto_%d.mp3", false, {"mg42"}, -1, 1.00f, 0, 1.6f, 0.0f, 1.44f, 5},   // SND19: re-cut, re-levelled; the fallback (snd16 below)
+    {"snd18/m249_auto_%d.mp3", false, {"modern_lmg"}, -1, 1.00f, 0, 1.6f, 0.0f, 1.50f, 5},   // SND19: re-cut, re-levelled; the fallback (snd16 below)
     {"snd18/m2_browning_single.mp3", false, {"m2hb_carry_semi"}, -1, 1.00f, 0, 1.6f, 0.0f, 2.04f},
     {"snd18/m2_browning_auto_%d.mp3", false, {"m2hb_carry"}, -1, 1.00f, 0, 1.6f, 0.0f, 2.08f, 5},
     {"snd18/m2_browning_single.mp3", false, {"m2hb_semi"}, -1, 1.00f, 0, 1.6f, 0.0f, 2.04f},
     {"snd18/m2_browning_auto_%d.mp3", false, {"m2hb"}, -1, 1.00f, 0, 1.6f, 0.0f, 2.08f, 5},
-    {"snd18/30mm_cannon_auto_%d.mp3", false, {"cannon30"}, -1, 1.00f, 0, 1.6f, 0.0f, 1.82f, 5},
+    {"snd18/30mm_cannon_auto_%d.mp3", false, {"cannon30"}, -1, 1.00f, 0, 1.6f, 0.0f, 1.95f, 5},   // SND19: re-cut, re-levelled to the M2
     // SWAP (user request: "suppressed 22 pistol and glock 43 should trade sounds"): the suppressed .22 takes the shot the Glock 43
     // had before SND18 (SND14's SMGShot1 at its settings); the Glock 43 plays the pack's glock file (above)
     {"snd14/smg_shot_2.wav", false, {"modern_pistol2"}, -1, 1.00f, 0, 1.0f, 4.0f, 1.20f},
+    // SND19 (user: "the m249 sounds really weird"): the pack's bursts were cut into the single's ring-out at up to 4x its level, so on the
+    // MG 42 / M249 the ring-out outweighed the round: the onset search started 2-3 of 5 variants inside it (no shot, 10 dB down: a
+    // gallop), and every burst ended on a loud tail. Re-cut (the ring-out scaled by the round's attack; tools/snd18_prep.py) for the
+    // five guns that had it (MG 42, M249, FG 42, BAR, 30 mm); the MG 42 and M249 go back to the user's own SND16 sets (local-only), auto
+    // and semi alike (the pack singles are 10 dB hotter and another tone), the re-cut pack bursts their committed fallback
+    {"snd16/mg_shot_%d.wav", false, {"mg42"}, -1, 0.95f, 0, 0.3f, 3.0f, 1.11f, 13},
+    {"snd16/m249_shot_%d.wav", false, {"modern_lmg"}, -1, 1.00f, 0, 0.6f, 4.0f, 1.23f, 13},
   };
   std::deque<std::string> varFile; std::vector<std::pair<GunSet, int>> sets;   // SND16: the variant sets expanded, second = its variant group (0: none)
   for (auto& g : guns) { if (g.vars <= 0) { sets.push_back({g, 0}); continue; }

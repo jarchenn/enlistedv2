@@ -43,7 +43,8 @@ for g in sorted(sp):
             head = b[max(0, ons[i] - pre):nxt - int(0.003 * SR)]; H = len(head)
             r = single[H - fx:]
             if len(r) <= fx: continue
-            gm = min(4.0, (np.sqrt(np.mean(head[-fx:] ** 2)) + 1e-9) / (np.sqrt(np.mean(r[:fx] ** 2)) + 1e-9))
+            A = int(0.03 * SR)   # SND19: the ring-out as the single's own, scaled by this round's attack against the single's (was: matched at the cut, up to 4x)
+            gm = min(1.5, (np.sqrt(np.mean(head[:A] ** 2)) + 1e-9) / (np.sqrt(np.mean(single[:A] ** 2)) + 1e-9))
             w = np.linspace(0, 1, fx)[:, None]
             v = np.concatenate([head[:-fx], head[-fx:] * (1 - w) + r[:fx] * gm * w, r[fx:] * gm])
             v = fin(v, 2.6); sf.write(OUT + '/%s_auto_%d.mp3' % (g, n), v, SR, format='MP3', subtype='MPEG_LAYER_III', compression_level=0.1); vl.append(lvl(v))
