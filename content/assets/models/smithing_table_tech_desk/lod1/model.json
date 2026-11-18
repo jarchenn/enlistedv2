@@ -1,0 +1,61 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.7442628741264343,
+  1.024709939956665,
+  0.3568810224533081
+ ],
+ "bmin": [
+  -0.7442628741264343,
+  0.0,
+  -0.35972845554351807
+ ],
+ "materials": [
+  {
+   "albedo": "albedoa_1.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "Tech_Desk",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    0.0
+   ],
+   "bmax": [
+    0.7442628741264343,
+    1.024709939956665,
+    0.3568810224533081
+   ],
+   "bmin": [
+    -0.7442628741264343,
+    0.0,
+    -0.35972845554351807
+   ],
+   "count": 1215,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "Tech_Desk_01.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "smithing_table_tech_desk.glb",
+ "textures": {},
+ "triangles": 405,
+ "vertices": 563
+}

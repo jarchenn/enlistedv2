@@ -25,6 +25,36 @@ if job.get("tex"):   # the FBX packs ship their texture beside the model, unlink
             bs = next((n for n in N if n.type == "BSDF_PRINCIPLED"), None) or N.new("ShaderNodeBsdfPrincipled")
             t = N.new("ShaderNodeTexImage"); t.image = img; L.new(t.outputs[0], bs.inputs["Base Color"])
             if img.channels == 4: L.new(t.outputs[1], bs.inputs["Alpha"])
+if job.get("matmap"):   # PR7: {material name: {"Base Color": file, "Normal": file}} in the texture folder
+    td = job["texfolder"]
+    for o in SRC:
+        for s_ in o.material_slots:
+            m = s_.material
+            if not m or m.name not in job["matmap"]: continue
+            m.use_nodes = True; N, L = m.node_tree.nodes, m.node_tree.links
+            bs = next((n for n in N if n.type == "BSDF_PRINCIPLED"), None) or N.new("ShaderNodeBsdfPrincipled")
+            for inp, f in job["matmap"][m.name].items():
+                t = N.new("ShaderNodeTexImage"); t.image = bpy.data.images.load(os.path.join(td, f), check_existing=True)
+                t.image.colorspace_settings.name = "sRGB" if inp == "Base Color" else "Non-Color"
+                if inp == "Normal":
+                    nm = N.new("ShaderNodeNormalMap"); L.new(t.outputs[0], nm.inputs["Color"]); L.new(nm.outputs[0], bs.inputs["Normal"])
+                else: L.new(t.outputs[0], bs.inputs[inp])
+if job.get("texdir"):   # PR7: a full PBR set beside the FBX (base colour / roughness / metallic / normal, by file name)
+    td = job["texdir"]; files = os.listdir(td)
+    def find(*keys):
+        return next((os.path.join(td, f) for f in files if any(k in f.lower() for k in keys)), None)
+    maps = {"Base Color": find("base_color", "basecolor", "albedo"), "Roughness": find("rough"), "Metallic": find("metal"), "Normal": find("normal")}
+    for o in SRC:
+        for s in o.material_slots:
+            m = s.material; m.use_nodes = True; N, L = m.node_tree.nodes, m.node_tree.links
+            bs = next((n for n in N if n.type == "BSDF_PRINCIPLED"), None) or N.new("ShaderNodeBsdfPrincipled")
+            for inp, p in maps.items():
+                if not p: continue
+                t = N.new("ShaderNodeTexImage"); t.image = bpy.data.images.load(p, check_existing=True)
+                t.image.colorspace_settings.name = "sRGB" if inp == "Base Color" else "Non-Color"
+                if inp == "Normal":
+                    nm = N.new("ShaderNodeNormalMap"); L.new(t.outputs[0], nm.inputs["Color"]); L.new(nm.outputs[0], bs.inputs["Normal"])
+                else: L.new(t.outputs[0], bs.inputs[inp])
 bpy.context.view_layer.update()
 MW = {o.name: o.matrix_world.copy() for o in SRC}   # world transforms (the Sketchfab root's turn and unit scale included)
 for o in SRC: o.parent = None; o.matrix_world = MW[o.name]   # no parents, so a piece can be cut from anywhere in the scene
@@ -128,6 +158,11 @@ for P in job["pieces"]:
             c = copy_of(byname[name]); lo, hi = bounds([c])
             c.location += Vector((x - lo.x, -(lo.y + hi.y) / 2, -lo.z)); bpy.context.view_layer.update()
             x += (hi.x - lo.x) + gap; objs.append(c)
+    elif "multi" in P:   # PR7: clusters from several meshes (a pump: its box from one mesh, its details from another)
+        for mname, idx in P["multi"]:
+            o = byname[mname]
+            if o.name not in CL: CL[o.name] = clusters(o)
+            objs.append(copy_of(o, set().union(*[CL[o.name][i] for i in idx])))
     elif "clusters" in P:
         o = byname[P["mesh"]]
         if o.name not in CL: CL[o.name] = clusters(o)
@@ -146,6 +181,13 @@ for P in job["pieces"]:
     bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
     lo, hi = bounds([ob]); c = Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z))
     for v in ob.data.vertices: v.co -= c
+    src_boxes = []
+    if P.get("boxes"):   # PR7: collision boxes measured in the source ([x0, x1, y0, y1, z0, z1], Blender axes): same scale, turn, recentring
+        R = Matrix.Rotation(math.radians(P.get("yaw", 0)), 3, "Z")
+        for x0, x1, y0, y1, z0, z1 in P["boxes"]:
+            cs = [R @ (Vector((x, y, z)) * s) - c for x in (x0, x1) for y in (y0, y1) for z in (z0, z1)]
+            l = Vector([min(q[k] for q in cs) for k in range(3)]); h = Vector([max(q[k] for q in cs) for k in range(3)])
+            src_boxes.append([(l.x + h.x) / 2, (l.z + h.z) / 2, -(l.y + h.y) / 2, h.x - l.x, h.z - l.z, h.y - l.y])
     for dzf, yaw in P.get("stack", []):   # a second course on top (the high sandbag wall), turned for variety
         h = hi.z - lo.z
         c2 = ob.copy(); c2.data = ob.data.copy(); bpy.context.scene.collection.objects.link(c2)
@@ -155,7 +197,8 @@ for P in job["pieces"]:
     size = [hi.x - lo.x, hi.z - lo.z, hi.y - lo.y]
     tris = sum(len(p.vertices) - 2 for p in ob.data.polygons)
     boxes = []
-    if P.get("colliders") == "post":   # a sign: the post only (the vertices in the lower half), up to the plate
+    if src_boxes: boxes = src_boxes
+    elif P.get("colliders") == "post":   # a sign: the post only (the vertices in the lower half), up to the plate
         low = [v.co for v in ob.data.vertices if v.co.z < (hi.z - lo.z) * 0.45]
         if low:
             px = [v.x for v in low]; py = [v.y for v in low]; ph = (hi.z - lo.z) * 0.9

@@ -1,0 +1,425 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  1.996678352355957,
+  5.191628932952881,
+  3.1594011783599854
+ ],
+ "bmin": [
+  -1.996678352355957,
+  0.0,
+  -3.1594011783599854
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "aoInMR": true,
+   "mr": "mr_1.jpg",
+   "name": "Boru",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_5.jpg",
+   "aoInMR": true,
+   "mr": "mr_4.jpg",
+   "name": "material.001",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "albedo": "albedo_8.jpg",
+   "aoInMR": true,
+   "mr": "mr_7.jpg",
+   "name": "Wire",
+   "normal": "normal_6.jpg"
+  },
+  {
+   "albedo": "albedo_11.jpg",
+   "aoInMR": true,
+   "mr": "mr_10.jpg",
+   "name": "Pervazlar",
+   "normal": "normal_9.jpg"
+  },
+  {
+   "albedo": "albedo_14.jpg",
+   "aoInMR": true,
+   "mr": "mr_13.jpg",
+   "name": "Metal_Door",
+   "normal": "normal_12.jpg"
+  },
+  {
+   "albedo": "albedo_17.jpg",
+   "aoInMR": true,
+   "mr": "mr_16.jpg",
+   "name": "Bunker",
+   "normal": "normal_15.jpg"
+  },
+  {
+   "albedo": "albedo_20.jpg",
+   "aoInMR": true,
+   "mr": "mr_19.jpg",
+   "name": "Metals",
+   "normal": "normal_18.jpg"
+  },
+  {
+   "albedo": "albedoa_23.png",
+   "aoInMR": true,
+   "cutout": true,
+   "mr": "mr_22.jpg",
+   "name": "Glass",
+   "normal": "normal_21.jpg"
+  },
+  {
+   "albedo": "albedo_26.jpg",
+   "aoInMR": true,
+   "mr": "mr_25.jpg",
+   "name": "Varil",
+   "normal": "normal_24.jpg"
+  },
+  {
+   "albedo": "albedo_29.jpg",
+   "aoInMR": true,
+   "mr": "mr_28.jpg",
+   "name": "Kaldirim",
+   "normal": "normal_27.jpg"
+  },
+  {
+   "albedo": "albedo_32.jpg",
+   "aoInMR": true,
+   "mr": "mr_31.jpg",
+   "name": "cZeminb.001",
+   "normal": "normal_30.jpg"
+  },
+  {
+   "albedo": "albedo_35.jpg",
+   "aoInMR": true,
+   "mr": "mr_34.jpg",
+   "name": "Ground",
+   "normal": "normal_33.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.9549543261528015,
+    5.191628932952881,
+    1.3215616941452026
+   ],
+   "bmin": [
+    0.8795962333679199,
+    3.1397716999053955,
+    1.246200442314148
+   ],
+   "count": 84,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "defaultMaterial.012",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.4971548318862915,
+    3.0234079360961914,
+    1.6012730598449707
+   ],
+   "bmin": [
+    1.4435241222381592,
+    2.639185667037964,
+    1.3128101825714111
+   ],
+   "count": 30,
+   "first": 84,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "defaultMaterial.012",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.5545170307159424,
+    2.7001986503601074,
+    1.5287426710128784
+   ],
+   "bmin": [
+    1.4380266666412354,
+    0.8192578554153442,
+    1.3814481496810913
+   ],
+   "count": 144,
+   "first": 114,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "defaultMaterial.012",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.308589220046997,
+    2.6833949089050293,
+    1.1313468217849731
+   ],
+   "bmin": [
+    -1.308589220046997,
+    1.1032501459121704,
+    -0.8170464634895325
+   ],
+   "count": 96,
+   "first": 258,
+   "mat": 3,
+   "metal": 1.0,
+   "name": "defaultMaterial.012",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.3759033679962158,
+    2.6833949089050293,
+    2.055361270904541
+   ],
+   "bmin": [
+    -0.4186427593231201,
+    0.2921435832977295,
+    1.5527287721633911
+   ],
+   "count": 99,
+   "first": 354,
+   "mat": 4,
+   "metal": 1.0,
+   "name": "defaultMaterial.012",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.583536148071289,
+    3.4360098838806152,
+    1.9465733766555786
+   ],
+   "bmin": [
+    -1.583536148071289,
+    0.2921435832977295,
+    -1.6322730779647827
+   ],
+   "count": 333,
+   "first": 453,
+   "mat": 5,
+   "metal": 1.0,
+   "name": "defaultMaterial.012",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.06989258527755737,
+    0.3692786693572998,
+    2.541076421737671
+   ],
+   "bmin": [
+    -1.4302325248718262,
+    0.265474796295166,
+    -2.5317814350128174
+   ],
+   "count": 96,
+   "first": 786,
+   "mat": 6,
+   "metal": 1.0,
+   "name": "defaultMaterial.012",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.2534798383712769,
+    2.8234641551971436,
+    1.0553853511810303
+   ],
+   "bmin": [
+    -1.2812888622283936,
+    1.1307274103164673,
+    -1.355679988861084
+   ],
+   "count": 18,
+   "first": 882,
+   "mat": 7,
+   "metal": 1.0,
+   "name": "defaultMaterial.012",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.3147705793380737,
+    1.356858491897583,
+    -1.5126864910125732
+   ],
+   "bmin": [
+    -0.41313594579696655,
+    0.2542083263397217,
+    -2.7678518295288086
+   ],
+   "count": 510,
+   "first": 900,
+   "mat": 8,
+   "metal": 1.0,
+   "name": "defaultMaterial.012",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.996678352355957,
+    0.31600332260131836,
+    3.1594011783599854
+   ],
+   "bmin": [
+    -1.996678352355957,
+    0.0,
+    -3.1594011783599854
+   ],
+   "count": 324,
+   "first": 1410,
+   "mat": 9,
+   "metal": 1.0,
+   "name": "defaultMaterial.012",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.056680679321289,
+    0.2921435832977295,
+    1.4197180271148682
+   ],
+   "bmin": [
+    -1.056680679321289,
+    0.2921435832977295,
+    -1.1054176092147827
+   ],
+   "count": 54,
+   "first": 1734,
+   "mat": 10,
+   "metal": 1.0,
+   "name": "defaultMaterial.012",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.712490200996399,
+    0.2921435832977295,
+    2.8752129077911377
+   ],
+   "bmin": [
+    -1.712490200996399,
+    0.0,
+    -2.8752129077911377
+   ],
+   "count": 117,
+   "first": 1788,
+   "mat": 11,
+   "metal": 1.0,
+   "name": "defaultMaterial.012",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "mod_security_hut.glb",
+ "textures": {},
+ "triangles": 635,
+ "vertices": 1044
+}

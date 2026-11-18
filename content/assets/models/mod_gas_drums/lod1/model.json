@@ -1,0 +1,61 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.6343648433685303,
+  0.9262288808822632,
+  0.7425899505615234
+ ],
+ "bmin": [
+  -0.6351306438446045,
+  3.3527612686157227e-08,
+  -0.7420132160186768
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "aoInMR": true,
+   "mr": "mr_1.jpg",
+   "name": "Atributs.002",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.6343648433685303,
+    0.9262288808822632,
+    0.7425899505615234
+   ],
+   "bmin": [
+    -0.6351306438446045,
+    3.3527612686157227e-08,
+    -0.7420132160186768
+   ],
+   "count": 2166,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "Abandoned Soviet gas station_Atributs.002_0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "mod_gas_drums.glb",
+ "textures": {},
+ "triangles": 722,
+ "vertices": 875
+}
