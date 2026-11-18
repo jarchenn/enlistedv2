@@ -655,7 +655,9 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
           gKickRoll = (d.rocketBackblast ? 2.2f : 1.4f) * (fx.rnd() < 0.5f ? -1.0f : 1.0f);
         }
       } else {
+        size_t n0 = projectiles.size();
         fireRounds(d, start, dir, tracer, s.seed ^ (uint32_t)s.shotIdx * 7919u, -1);   // MG1: a shotgun's pellets
+        { vec3 off = vmApparent(muzzle) - start; if (glm::length(off) < 1.5f) for (size_t i = n0; i < projectiles.size(); ++i) projectiles[i].visOff = off; }   // AT4: the rounds leave the drawn barrel; the ballistic start (the sight line when aimed) is unchanged
       }
       lastShotStart = start; lastShotDir = dir; lastShotMuzzle = muzzle;
       vec3 fxm = vmApparent(muzzle);   // effects are drawn with the world projection
