@@ -44,10 +44,6 @@
       "gain": 1.5,
       "body": 3.0
     },
-    "modern_makarov": {
-      "gain": 1.2,
-      "body": 3.0
-    },
     "luger": {
       "gain": 1.2,
       "body": 3.0
@@ -69,10 +65,6 @@
       "body": 4.0
     },
     "modern_m4_irons": {
-      "gain": 1.0,
-      "body": 3.0
-    },
-    "modern_m4": {
       "gain": 1.0,
       "body": 3.0
     },

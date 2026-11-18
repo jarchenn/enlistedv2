@@ -114,7 +114,7 @@ bool sm1SelfTest(App& a, float dt) {
     if (at(1.2f)) pend = out("table");
     if (t > 1.5f) {
       a.enterExplore(); a.useScripted = true;
-      int rifle = -1; for (const char* id : {"modern_m4", "modern_ak", "stg44", "m1_garand"}) if ((rifle = a.weaponIndex(id)) >= 0 && lootGunTakesParts(*a.weaponDefs[rifle])) break;
+      int rifle = -1; for (const char* id : {"modern_m4_irons", "modern_ak", "stg44", "m1_garand"}) if ((rifle = a.weaponIndex(id)) >= 0 && lootGunTakesParts(*a.weaponDefs[rifle])) break;
       std::string msg; if (rifle >= 0) a.equipWeapon(rifle, msg);
       if (rifle >= 0) {
         for (const char* id : {"br_sight_acog", "br_suppressor", "br_mag_ext", "br_sight_reddot", "br_muzzle_brake", "br_recoil_pad"}) kit.items[id] = 1;

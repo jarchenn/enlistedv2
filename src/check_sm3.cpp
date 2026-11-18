@@ -64,7 +64,7 @@ bool sm3Check(App& a, float dt) {
   if (stage == 0) {   // standing on the ground: a gun in hand, a table 2 m ahead, looked at
     if (st < 2.0f || !Physics::character().grounded) return true;
     if (mi == 3 || mi == 2) {   // BR starts empty-handed, SD with a pistol: a rifle for the fits and the capture
-      int r = a.weaponIndex("modern_m4"); if (r < 0) r = a.weaponIndex("m1_garand");
+      int r = a.weaponIndex("modern_m4_irons"); if (r < 0) r = a.weaponIndex("m1_garand");
       if (r >= 0 && std::find(a.carried.begin(), a.carried.end(), r) == a.carried.end()) a.carried.push_back(r);
       if (r >= 0) a.selectWeapon(r);
     }

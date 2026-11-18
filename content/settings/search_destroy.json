@@ -203,7 +203,7 @@
   },
   {
    "id": "m4",
-   "weapon": "modern_m4",
+   "weapon": "modern_m4_irons",
    "cat": "rifle",
    "slot": 1,
    "kill": "firearm",

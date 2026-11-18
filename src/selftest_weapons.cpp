@@ -530,7 +530,7 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
     // ---- GM2 (docs/abilities.md, docs/minimap.md): explosion pack, artillery, suppression vignette, minimap mapping
     // ---- MG1: each modern gun's animated rig (its own arms + clips): draw -> idle, ADS puts the posed sights on the view
     // axis, a shot plays the fire clip, a reload plays its clip and moves the rounds, the generated arm is not drawn
-    for (const char* mid : {"modern_ak", "modern_m4", "modern_m16", "modern_lmg", "modern_shotgun", "modern_sniper_bolt", "modern_sniper_semi", "modern_pistol",
+    for (const char* mid : {"modern_ak", "modern_m4_irons", "modern_m16", "modern_lmg", "modern_shotgun", "modern_sniper_bolt", "modern_sniper_semi", "modern_pistol",
                             "modern_ar15", "modern_mp7", "modern_scorpion", "modern_uzi", "modern_rpg7", "modern_shotgun2", "modern_fal", "modern_pistol2", "modern_glauncher", "modern_sniper_50", "modern_sniper_3", "modern_pistol3", "modern_ak12", "modern_m4_irons"}) {
       const std::string id = mid;
       push(("mg1 rig " + id).c_str(), [this, id](App& a, float t) {
@@ -555,7 +555,7 @@ void SelfTest::weaponsUpdate(App& app, float dt) {
             axisDeg = degrees(std::atan2(glm::length(vec2(f)), -f.z));
             if (r.z < 0) axisDeg = std::max(axisDeg, degrees(std::atan2(glm::length(vec2(r)), -r.z)));   // MG2: the M249's eye is ahead of its rear sight
           }
-          if (id == "modern_ak" || id == "modern_scar" || id == "modern_m4") shotQueue.push_back("mg1_" + id + "_ads");
+          if (id == "modern_ak" || id == "modern_scar" || id == "modern_m4_irons") shotQueue.push_back("mg1_" + id + "_ads");
           shots0 = a.shotsFired; a.scriptedInput.fire = true;
         }
         if (phase[2] && !phase[3] && a.shotsFired > shots0) { phase[3] = true; tShot = t; a.scriptedInput.fire = false; a.scriptedInput.aim = false; }

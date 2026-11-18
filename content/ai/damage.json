@@ -214,15 +214,6 @@
    "class": "assault",
    "pen": 0.775
   },
-  "modern_m4": {
-   "near": 32,
-   "far": 24,
-   "falloffStart_m": 100,
-   "falloffEnd_m": 220,
-   "rpm": 800,
-   "note": "MG1 modern gun",
-   "class": "assault"
-  },
   "modern_m4_irons": {
    "near": 32,
    "far": 24,
@@ -465,16 +456,6 @@
    "headMax": 80,
    "class": "pistol"
   },
-  "modern_makarov": {
-   "near": 30,
-   "far": 18,
-   "falloffStart_m": 12,
-   "falloffEnd_m": 35,
-   "rpm": 400,
-   "note": "MG12 9x18 mm pistol",
-   "headMax": 75,
-   "class": "pistol"
-  },
   "modern_mark23": {
    "near": 36,
    "far": 22,
@@ -484,15 +465,6 @@
    "note": "MG12 .45 ACP pistol",
    "headMax": 80,
    "class": "pistol"
-  },
-  "modern_saiga": {
-   "near": 27,
-   "far": 6,
-   "falloffStart_m": 10,
-   "falloffEnd_m": 40,
-   "rpm": 300,
-   "note": "MG12 12 gauge per pellet (8 per shell; DMG1 pellets 26-30)",
-   "class": "shotgun"
   },
   "modern_vsk": {
    "near": 48,

@@ -101,7 +101,7 @@ bool sd3SelfTest(App& app, float dt) {
       if (live < 1.0 || m.carrier < 0) break;
       carrier0 = m.carrier; m.players[carrier0].gear.primary = "modern_ak";
       for (auto& s : g.sold) if (s.alive && m.sideOf(s.slot) == 1) { defender0 = s.slot; break; }
-      if (defender0 >= 0) { m.players[defender0].gear.primary = "modern_m4"; g.killSoldier(defender0, -1, vec3(0, 0, 1)); }
+      if (defender0 >= 0) { m.players[defender0].gear.primary = "modern_m4_irons"; g.killSoldier(defender0, -1, vec3(0, 0, 1)); }
       { float bd = 1e9f; for (auto& s : g.sold) if (s.alive && s.slot != carrier0 && m.sideOf(s.slot) == 0) { float d = glm::length(s.feet - g.sold[carrier0].feet); if (d < bd) { bd = d; nearest = s.slot; } } }
       drops0 = g.drops.size(); drop0 = g.sold[carrier0].feet;
       g.killSoldier(carrier0, -1, vec3(0, 0, 1));

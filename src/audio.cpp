@@ -470,7 +470,6 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/rifle_b.mp3", false, {"stg44"}, -1, 1.02f},   // SND5: the AK-74 shot, 2 % higher
     {"guns/rifle_b.mp3", false, {"modern_lmg"}, -1, 0.97f, 0, 2.5f, 2.2f},   // SND5: the M249 on the AK-74 single shot (automatic fire re-triggers it per round), heavier
     {"guns/rifle_c.mp3", false, {"modern_m16"}, 0, 1, 0, 2.5f, 3.0f},   // Rifle3.mp3 holds four shots: one each; SND7: thin and quiet: body (mix.json)
-    {"guns/rifle_c.mp3", false, {"modern_m4"}, 1, 1, 0, 2.5f, 3.0f},
     {"guns/rifle_c.mp3", false, {"modern_m4_irons"}, 2, 1, 0, 2.5f, 3.0f},
     {"guns/rifle_c.mp3", false, {"modern_fal"}, 3, 1, 0, 2.5f, 3.0f},
     {"guns/shotgun.mp3", false, {"modern_shotgun", "modern_shotgun2"}},
@@ -496,11 +495,9 @@ int Audio::loadCustom(const fs::path& dir) {
     // MG12 batch 2 (borrowed, derived): the compensated Glock on the 9 mm shot, higher and brighter; the Makarov on the Luger's,
     // higher; the Mk 23 on the M1911's, a little lower
     {"guns/pistol_9mm.mp3", false, {"modern_glock34"}, -1, 1.06f, 0.3f},
-    {"guns/pistol_a.mp3", false, {"modern_makarov"}, -1, 1.08f, 0.1f},
     {"guns/pistol_b.mp3", false, {"modern_mark23"}, -1, 0.95f, -0.1f},
     // MG12 batch 3 (borrowed, derived; both suppressed): the Saiga on the 870's shot, higher, much darker and shorter; the VSK on the
     // suppressed .22's, lower and darker (heavier)
-    {"guns/shotgun.mp3", false, {"modern_saiga"}, -1, 1.12f, -0.7f, 1.0f},
     {"guns/pistol_c.mp3", false, {"modern_vsk"}, -1, 0.78f, -0.4f, 1.2f, 1.0f},
     // SW1: synthesised blaster shots (tools: sweep + FM + odd harmonics + spring tail; no recordings): carbine, long rifle, robot blaster
     {"guns/blaster_a.wav", false, {"blaster_carbine"}, -1, 1, 0, 0.6f},
@@ -510,7 +507,6 @@ int Audio::loadCustom(const fs::path& dir) {
     // the ones above for these guns when the file is there; without it the old shot stays. Each set's gain / body bring the
     // first 200 ms to the level the gun had (measured offline through this pipeline): the new recordings are peakier
     {"snd14/ar15_shot.wav", false, {"modern_ar15"}, -1, 1.00f, 0, 1.0f, 0.0f, 1.17f},   // AR15Shot: the AR pattern
-    {"snd14/ar15_shot.wav", false, {"modern_m4"}, -1, 1.02f, 0, 1.0f, 1.5f, 1.24f},
     {"snd14/ar15_shot.wav", false, {"modern_m4_irons"}, -1, 1.04f, 0, 1.0f, 1.5f, 1.18f},
     {"snd14/ar15_shot.wav", false, {"modern_m16"}, -1, 0.97f, 0, 1.0f, 1.5f, 1.18f},
     {"snd14/rifle_shot_1.wav", false, {"modern_fal"}, -1, 1.00f, 0, 1.6f, 2.5f, 1.14f},   // rifleshot (the darkest): battle rifles
@@ -652,7 +648,7 @@ int Audio::loadCustom(const fs::path& dir) {
       {"reload/reload_rifle.mp3", {"mg42", "m2hb_carry"}},   // belt guns keep the generic rifle recording
       {"reload/reload_ak.mp3", {"modern_ak", "modern_ak12"}, 2.4f, 3.5f},   // rock-in magazines (jigokukarano_sisya)
       {"reload/reload_ak.mp3", {"stg44"}, 2.7f, 3.5f},
-      {"reload/reload_m4.mp3", {"modern_m4", "modern_m4_irons"}, 2.2f},   // AR pattern and the other magazine rifles (squarebun)
+      {"reload/reload_m4.mp3", {"modern_m4_irons"}, 2.2f},   // AR pattern and the other magazine rifles (squarebun)
       {"reload/reload_m4.mp3", {"modern_m16", "modern_scar"}, 2.3f},
       {"reload/reload_m4.mp3", {"modern_ar15", "modern_fal"}, 2.4f},
       {"reload/reload_m4.mp3", {"modern_sniper_semi"}, 2.5f},
@@ -674,9 +670,7 @@ int Audio::loadCustom(const fs::path& dir) {
       {"reload/reload_m4.mp3", {"blaster_carbine"}, 1.9f, 0, 1.12f},
       // MG12 batch 2 (borrowed, pitched apart): the pistol reload
       {"reload/reload_b.mp3", {"modern_glock34"}, 1.9f, 0, 1.08f},
-      {"reload/reload_b.mp3", {"modern_makarov"}, 2.2f, 0, 0.95f},
       {"reload/reload_b.mp3", {"modern_mark23"}, 3.0f, 0, 0.85f},
-      {"reload/reload_ak.mp3", {"modern_saiga"}, 2.6f, 3.5f, 0.9f},   // MG12 batch 3: rock-in box magazines
       {"reload/reload_ak.mp3", {"modern_vsk"}, 2.5f, 3.5f, 1.08f},
       {"reload/reload_m4.mp3", {"blaster_rifle"}, 2.4f, 0, 0.92f},
       {"reload/reload_m4.mp3", {"blaster_robot"}, 2.1f, 0, 1.2f},
@@ -1134,7 +1128,7 @@ void Audio::fidelityReport(const fs::path& dir) {
     {"shot_kar98k", "guns/sniper_m24.mp3", 0, 0.6f}, {"shot_kar98k_zf39", "guns/sniper_m24.mp3", 0, 0.6f}, {"shot_modern_sniper_3", "guns/sniper_m24.mp3", 0, 0.6f}, {"shot_m1_garand", "guns/rifle_a.mp3", 0, 0.6f}, {"shot_modern_ak", "guns/rifle_b.mp3", 0, 0.6f},
     {"shot_modern_ak12", "guns/rifle_b.mp3", 0, 0.6f}, {"shot_stg44", "guns/rifle_b.mp3", 0, 0.6f}, {"shot_modern_lmg", "guns/rifle_b.mp3", 0, 0.6f},
     {"shot_mg42", "guns/rifle_a.mp3", 0, 0.6f},
-    {"shot_modern_m16", "guns/rifle_c.mp3", 0, 0.6f}, {"shot_modern_m4", "guns/rifle_c.mp3", 1, 0.6f}, {"shot_modern_m4_irons", "guns/rifle_c.mp3", 2, 0.6f}, {"shot_modern_fal", "guns/rifle_c.mp3", 3, 0.6f},
+    {"shot_modern_m16", "guns/rifle_c.mp3", 0, 0.6f}, {"shot_modern_m4_irons", "guns/rifle_c.mp3", 2, 0.6f}, {"shot_modern_fal", "guns/rifle_c.mp3", 3, 0.6f},
     {"shot_modern_sniper_bolt", "guns/sniper_m24.mp3", 0, 0.6f}, {"shot_modern_sniper_50", "guns/sniper_heavy.mp3", 0, 0.6f}, {"shot_modern_sniper_50", "guns/sniper_heavy.mp3", 0, 20.0f}, {"shot_m2hb_carry", "guns/hmg_burst.mp3", 0, 0.6f}, {"shot_m2hb", "guns/hmg_burst.mp3", 0, 0.6f}, {"shot_mp40", "guns/smg_a.mp3", 0, 0.6f}, {"shot_luger", "guns/pistol_a.mp3", 0, 0.6f},
     {"shot_modern_shotgun", "guns/shotgun.mp3", 0, 0.6f}, {"shot_kar98k", "guns/sniper_m24.mp3", 0, 20.0f}, {"step", "footsteps.mp3", 0, 1.6f},
     {"tank_88_before", "guns/tank_shot.mp3", 0, 4.0f}, {"tank_88", "guns/tank_shot.mp3", 0, 4.0f}, {"tank_88_before", "guns/tank_shot.mp3", 0, 100.0f}, {"tank_88", "guns/tank_shot.mp3", 0, 100.0f},
@@ -1188,7 +1182,7 @@ void Audio::fidelityReport(const fs::path& dir) {
     logf("fidelity ambience bed battlefield.mp3 x0.7: peak %6.1f  rms %6.1f dB", 20 * std::log10(pk + 1e-9f), 10 * std::log10(q / m.size() + 1e-20));
     setBed(1, {}, 0);
   }
-  for (const char* ev : {"shot_modern_ak", "shot_modern_m4_irons", "shot_modern_m4", "shot_modern_m16", "shot_modern_fal", "shot_modern_lmg", "shot_mg42"}) {   // SND7: sustained fire, 13 rounds 80 ms apart (750 rpm), as the player
+  for (const char* ev : {"shot_modern_ak", "shot_modern_m4_irons", "shot_modern_m16", "shot_modern_fal", "shot_modern_lmg", "shot_mg42"}) {   // SND7: sustained fire, 13 rounds 80 ms apart (750 rpm), as the player
     if (!hasEvent(ev)) continue;
     for (auto& c : p->voices) if (c.used) ma_sound_stop(&c.snd);
     std::vector<float> st(SR * 2); for (int k = 0; k < 20; ++k) ma_engine_read_pcm_frames(&p->engine, st.data(), SR / 10, nullptr);
