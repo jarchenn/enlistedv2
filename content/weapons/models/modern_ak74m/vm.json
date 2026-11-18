@@ -1,0 +1,57 @@
+{
+ "gunJoint": "PBody",
+ "clips": {
+  "idle": 1.9817,
+  "fire": 0.315,
+  "reload": 2.6483,
+  "reload_empty": 3.4983
+ },
+ "fps": 60.0,
+ "points": {
+  "rear": [
+   0.09664,
+   -0.06089,
+   -0.12695
+  ],
+  "front": [
+   0.10528,
+   -0.06136,
+   -0.47785
+  ],
+  "muzzle": [
+   0.10276,
+   -0.10641,
+   -0.57517
+  ]
+ },
+ "log": {
+  "warn": [],
+  "gunRestBlender": [
+   -0.062,
+   -0.9583,
+   -0.1824,
+   0.0346,
+   0.4261,
+   0.2031
+  ],
+  "staticGunBlender": null,
+  "idleFrame": 1.0,
+  "bakedMeshTransforms": [
+   "Mag_2"
+  ],
+  "scaledImages": [
+   [
+    "armNormal.png",
+    [
+     4096,
+     4096
+    ],
+    [
+     1024,
+     1024
+    ]
+   ]
+  ]
+ },
+ "tris": 40024
+}

@@ -1,0 +1,94 @@
+{
+ "gunJoint": "Base",
+ "clips": {
+  "idle": 0.0417,
+  "fire": 0.4167,
+  "reload": 2.0833
+ },
+ "fps": 24.0,
+ "points": {
+  "rear": [
+   0.14379,
+   -0.06997,
+   -0.52957
+  ],
+  "front": [
+   0.14384,
+   -0.06997,
+   -0.92758
+  ],
+  "muzzle": [
+   0.14041,
+   -0.14123,
+   -1.0254
+  ]
+ },
+ "log": {
+  "warn": [],
+  "gunRestBlender": [
+   -0.1156,
+   -1.1223,
+   1.358,
+   -0.0243,
+   -0.2259,
+   1.6178
+  ],
+  "staticGunBlender": null,
+  "idleFrame": 1.0,
+  "ironsSplit": {
+   "M4A4_CS2": 9
+  },
+  "bakedMeshTransforms": [
+   "M4A4_CS2",
+   "M4A4_CS2.001",
+   "M4A4_CS2_irons"
+  ],
+  "scaledImages": [
+   [
+    "m4a4_default_normal_png_d39c4b9a.png",
+    [
+     4096,
+     4096
+    ],
+    [
+     768,
+     768
+    ]
+   ],
+   [
+    "pl2000_main2_n.png",
+    [
+     4096,
+     2048
+    ],
+    [
+     768,
+     384
+    ]
+   ],
+   [
+    "pl2000_main3_n.png",
+    [
+     4096,
+     2048
+    ],
+    [
+     768,
+     384
+    ]
+   ],
+   [
+    "soldierhand_n.png",
+    [
+     2048,
+     2048
+    ],
+    [
+     768,
+     768
+    ]
+   ]
+  ]
+ },
+ "tris": 66144
+}
