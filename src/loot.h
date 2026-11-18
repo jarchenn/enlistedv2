@@ -52,7 +52,8 @@ int ammoTypeOf(const WeaponDef& d);
 const char* ammoName(int type);
 int ammoBox(int type);
 bool lootIsPistol(const WeaponDef& d);
-int lootMagSize(const WeaponDef& d, const WeaponState& s);   // the magazine with an extended magazine fitted
+int lootMagSize(const WeaponDef& d, const WeaponState& s);
+bool lootSuppressedShot(const WeaponDef& d, const WeaponState& s);   // SND15: a fitted suppressor on a rifle / carbine / SMG / LMG / sniper fires "shot_suppressed_rifle"   // the magazine with an extended magazine fitted
 bool lootSightFits(const WeaponDef& d, int sight);
 // the sight in use: the fitted one, else a scoped sniper rifle's own scope, which counts as the ACOG (2)
 int lootSight(const WeaponDef& d, const WeaponState& s);

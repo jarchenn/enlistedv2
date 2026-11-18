@@ -116,6 +116,9 @@ int ammoTypeOf(const WeaponDef& d) {
 bool lootIsPistol(const WeaponDef& d) { int t = ammoTypeOf(d); return d.action == "semi" && (t == AM_9MM || t == AM_45) && d.cap <= 20; }   // AT1: the Glock 34's 17 rounds (it took rifle optics)   // MG12: any feed (the revolver loads round by round)
 static bool isShotgun(const WeaponDef& d) { return ammoTypeOf(d) == AM_12GA; }
 static bool isSmg(const WeaponDef& d) { int t = ammoTypeOf(d); return d.action == "auto" && (t == AM_9MM || t == AM_45); }
+bool lootSuppressedShot(const WeaponDef& d, const WeaponState& s) {
+  return s.att[ATT_MUZZLE] == 1 && !d.suppressed && !d.blaster && d.action != "launcher" && !lootIsPistol(d) && !isShotgun(d);   // integrally suppressed guns keep their own
+}
 int lootMagSize(const WeaponDef& d, const WeaponState& s) {
   if (!s.att[ATT_MAG]) return d.cap;
   return (int)std::lround(d.cap * (lootIsPistol(d) || isSmg(d) ? 2.0f : 1.5f));

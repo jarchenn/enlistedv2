@@ -465,10 +465,12 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/sniper_m24.mp3", false, {"modern_sniper_3"}, -1, 1.12f, 0.3f, 1.8f},   // derived: scout rifle, higher, shorter (SND8: 1.08 -> 1.12, clear of the Kar98k)
     {"guns/sniper_m24.mp3", false, {"kar98k"}, -1, 1.06f},   // SND8: the M24 recording 6 % higher (user request), full level, no tone change
     {"guns/sniper_m24.mp3", false, {"kar98k_zf39"}, -1, 0.96f},   // SND8: the M24 recording 4 % lower
-    {"guns/rifle_b.mp3", false, {"modern_ak"}},   // Rifle2.mp3: AK-74
-    {"guns/rifle_b.mp3", false, {"modern_ak12"}, -1, 0.98f},   // SND5: the AK-74 shot (user request), 2 % lower
-    {"guns/rifle_b.mp3", false, {"stg44"}, -1, 1.02f},   // SND5: the AK-74 shot, 2 % higher
-    {"guns/rifle_b.mp3", false, {"modern_lmg"}, -1, 0.97f, 0, 2.5f, 2.2f},   // SND5: the M249 on the AK-74 single shot (automatic fire re-triggers it per round), heavier
+    // SND15 (user request): the AK recording (Rifle2.mp3) is gone; every gun that fired with it takes the CZ Scorpion's recording
+    // (SMG.mp3), levelled as the rifle it is (own gain / body, measured offline to the AK shot's level), a few per cent apart
+    {"guns/smg_a.mp3", false, {"modern_ak"}, -1, 1.00f, 0, 2.5f, 2.5f, 1.21f},
+    {"guns/smg_a.mp3", false, {"modern_ak12"}, -1, 0.98f, 0, 2.5f, 2.5f, 1.23f},
+    {"guns/smg_a.mp3", false, {"stg44"}, -1, 1.03f, 0, 2.5f, 2.5f, 1.22f},
+    {"guns/smg_a.mp3", false, {"modern_lmg"}, -1, 0.96f, 0, 2.5f, 3.0f, 1.24f},   // the M249, heavier
     {"guns/rifle_c.mp3", false, {"modern_m16"}, 0, 1, 0, 2.5f, 3.0f},   // Rifle3.mp3 holds four shots: one each; SND7: thin and quiet: body (mix.json)
     {"guns/rifle_c.mp3", false, {"modern_m4_irons"}, 2, 1, 0, 2.5f, 3.0f},
     {"guns/rifle_c.mp3", false, {"modern_fal"}, 3, 1, 0, 2.5f, 3.0f},
@@ -529,6 +531,26 @@ int Audio::loadCustom(const fs::path& dir) {
     {"snd14/smg_shot_3.wav", false, {"m1_thompson"}, -1, 0.94f, 0, 1.0f, 2.0f, 1.10f},   // SMGShot2
     {"snd14/smg_shot_3.wav", false, {"modern_smg9"}, -1, 1.03f, 0, 1.0f, 2.0f, 1.14f},
     {"snd14/smg_shot_3.wav", false, {"modern_smg45"}, -1, 0.88f, 0, 1.0f, 2.0f, 1.12f},   // NG1: SMGShot2 (the Thompson / SMG-9 file) lower: the .45 SMG
+    // SND15 (user request; local-only content/audio/custom/snd15/, licence being asked): four pistol takes spread so neighbours differ
+    // (A pistol.mp3, B pistol (2).mp3 = SND14's SMGShot1, C pistol(3).mp3 the heavy one, D Pistol(4).mp3 the thin crack); the
+    // Desert Eagle / .357 keep the FN 502's old shot (WP7); the shotguns on Shotgun.mp3; suppressedRifle on the integrally
+    // suppressed MP7 / VSK and, as "shot_suppressed_rifle", on any rifle / carbine / SMG / LMG / sniper with a suppressor fitted
+    {"snd15/pistol_1.wav", false, {"modern_pistol"}, -1, 1.00f, 0, 1.2f, 1.5f, 1.15f},   // A
+    {"snd15/pistol_1.wav", false, {"modern_glock34"}, -1, 1.05f, 0, 1.2f, 1.5f, 1.13f},
+    {"snd15/pistol_1.wav", false, {"modern_makarov"}, -1, 0.92f, 0, 1.2f, 1.0f, 1.24f},
+    {"snd14/smg_shot_2.wav", false, {"luger"}, -1, 1.04f, 0, 1.0f, 4.0f, 1.24f},   // B (committed: SND14)
+    {"snd14/smg_shot_2.wav", false, {"modern_pistol3"}, -1, 1.00f, 0, 1.0f, 4.0f, 1.20f},
+    {"snd14/smg_shot_2.wav", false, {"modern_pistol4"}, -1, 0.95f, 0, 1.0f, 4.0f, 1.20f},
+    {"snd15/pistol_3.wav", false, {"m1911a1"}, -1, 1.00f, 0, 1.2f, 1.5f, 1.22f},   // C (.45)
+    {"snd15/pistol_3.wav", false, {"modern_mark23"}, -1, 0.95f, 0, 1.2f, 1.5f, 1.20f},
+    {"snd15/pistol_4.wav", false, {"modern_fn502"}, -1, 1.00f, 0, 1.0f, 0.0f, 0.83f},   // D (.22)
+    {"snd15/pistol_4.wav", false, {"modern_scorpion"}, -1, 1.15f, 0, 1.0f, 0.0f, 1.16f},   // D higher: the Scorpion (its old recording went to the AKs)
+    {"snd15/shotgun.wav", false, {"modern_shotgun"}, -1, 1.00f, 0, 2.4f, 0.0f, 0.53f},
+    {"snd15/shotgun.wav", false, {"modern_shotgun2"}, -1, 0.96f, 0, 2.4f, 0.0f, 0.54f},
+    {"snd15/shotgun.wav", false, {"modern_sawnoff"}, -1, 0.92f, 0, 2.4f, 0.0f, 0.55f},
+    {"snd15/suppressed_rifle.wav", false, {"modern_mp7"}, -1, 1.05f, 0, 1.4f, 1.0f, 0.99f},
+    {"snd15/suppressed_rifle.wav", false, {"modern_vsk"}, -1, 0.92f, 0, 1.4f, 2.5f, 1.14f},
+    {"snd15/suppressed_rifle.wav", false, {"suppressed_rifle"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.18f},   // a fitted suppressor: 6 dB under the rifle class
     {"snd14/bolt_rifle.wav", false, {"kar98k"}, -1, 1.00f, 0, 1.8f, 4.5f, 1.23f},   // BoltActionRifle: the WW2 bolt guns (the modern snipers keep the M24 / .50)
     {"snd14/bolt_rifle.wav", false, {"kar98k_zf39"}, -1, 0.96f, 0, 1.8f, 4.0f, 1.23f},
   };
@@ -1137,8 +1159,8 @@ Measure measure(const std::vector<float>& x, float fs, size_t from = 0) {
 void Audio::fidelityReport(const fs::path& dir) {
   if (!p) { logf("fidelity: no audio engine"); return; }
   struct Pair { const char* ev; const char* file; int take; float dist; } pairs[] = {   // take: which shot of the source (onsets 1 s apart); dist: m ahead (0.6: the player's muzzle)
-    {"shot_kar98k", "guns/sniper_m24.mp3", 0, 0.6f}, {"shot_kar98k_zf39", "guns/sniper_m24.mp3", 0, 0.6f}, {"shot_modern_sniper_3", "guns/sniper_m24.mp3", 0, 0.6f}, {"shot_m1_garand", "guns/rifle_a.mp3", 0, 0.6f}, {"shot_modern_ak", "guns/rifle_b.mp3", 0, 0.6f},
-    {"shot_modern_ak12", "guns/rifle_b.mp3", 0, 0.6f}, {"shot_stg44", "guns/rifle_b.mp3", 0, 0.6f}, {"shot_modern_lmg", "guns/rifle_b.mp3", 0, 0.6f},
+    {"shot_kar98k", "guns/sniper_m24.mp3", 0, 0.6f}, {"shot_kar98k_zf39", "guns/sniper_m24.mp3", 0, 0.6f}, {"shot_modern_sniper_3", "guns/sniper_m24.mp3", 0, 0.6f}, {"shot_m1_garand", "guns/rifle_a.mp3", 0, 0.6f}, {"shot_modern_ak", "guns/smg_a.mp3", 0, 0.6f},
+    {"shot_modern_ak12", "guns/smg_a.mp3", 0, 0.6f}, {"shot_stg44", "guns/smg_a.mp3", 0, 0.6f}, {"shot_modern_lmg", "guns/smg_a.mp3", 0, 0.6f},
     {"shot_mg42", "guns/rifle_a.mp3", 0, 0.6f},
     {"shot_modern_m16", "guns/rifle_c.mp3", 0, 0.6f}, {"shot_modern_m4_irons", "guns/rifle_c.mp3", 2, 0.6f}, {"shot_modern_fal", "guns/rifle_c.mp3", 3, 0.6f},
     {"shot_modern_sniper_bolt", "guns/sniper_m24.mp3", 0, 0.6f}, {"shot_modern_sniper_50", "guns/sniper_heavy.mp3", 0, 0.6f}, {"shot_modern_sniper_50", "guns/sniper_heavy.mp3", 0, 20.0f}, {"shot_m2hb_carry", "guns/hmg_burst.mp3", 0, 0.6f}, {"shot_m2hb", "guns/hmg_burst.mp3", 0, 0.6f}, {"shot_mp40", "guns/smg_a.mp3", 0, 0.6f}, {"shot_luger", "guns/pistol_a.mp3", 0, 0.6f},
