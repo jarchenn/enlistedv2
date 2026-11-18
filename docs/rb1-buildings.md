@@ -149,3 +149,12 @@ stays reference-only, on library and ambientCG sets.
 - **All three:**
   - The windows are house() casements, boarded with solid planks where the reference is boarded.
   - Graffiti and grime come from the engine's GX5 decals (urban ruin), not from the reference's own images.
+
+## User feedback pass (shop sample)
+
+The user's notes on the shop, applied to all three:
+- **Doorway:** no stray boards in the doorway. The replaced-board strips and the damp band keep clear of every door and window.
+- **Sign:** the WEAPON sign shows whole. Decal-sized crops (sign, door leaf) are shifted half a tile, because a part samples its texture from its centre.
+- **Windows:** see-through from inside. Boarding has no opaque cavity panel: each plank is solid and the gaps between them stay open. The shop's hatches are open bays, as in the reference.
+- **Gate:** the mesh gate has an invisible collider.
+- **Small details removed:** the user will supply models for these. The ruin furnishing is off (`"ruin"` removed: no debris piles or broken glass), and so are the crates, drum, tyre, leaning planks and shelf boxes. The plinth board-joint strips are gone too: they read as a black railing.

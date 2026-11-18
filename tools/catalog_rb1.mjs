@@ -47,9 +47,8 @@ function boarded(A, F, a0, a1, y0, y1, { e = 0.0, frame = "rb_board_frame", plan
   const ph = (y1 - y0 - 0.02 * (n - 1)) / n;
   for (let i = 0; i < n; i++) {
     const yb = y0 + i * (ph + 0.02);
-    fbox(A, F, a0 + 0.005, a1 - 0.005, yb, yb + ph, e + 0.01, e + 0.04, plank, { bv: 0.006, k: solid && i === 0 ? 1 : 0 });
+    fbox(A, F, a0 + 0.005, a1 - 0.005, yb, yb + ph, e + 0.01, e + 0.04, plank, { bv: 0.006, k: solid ? 1 : 0 });   // each plank solid: the gaps stay see-through
   }
-  if (solid) fbox(A, F, a0, a1, y0, y1, e - 0.004, e + 0.008, "rb_dark", { k: 1 });   // the dark cavity behind the gaps; closes the opening
 }
 
 // ============================================================================ 1. the container cabin
@@ -59,7 +58,7 @@ function boarded(A, F, a0, a1, y0, y1, { e = 0.0, frame = "rb_board_frame", plan
 // front, two rear); a slatted vent in the west gable; skirt boards in 1.76 m bays between posts; rust run-off from the roof.
 export function containerCabin() {
   const X = 3.92, Z = 1.67, T = 0.12;
-  const A = meta("rb1_container_cabin", "Abandoned site cabin", "Small buildings", "A sheet-steel site cabin on a timber skirt, painted olive and streaked with rust from the roof edge, its windows boarded with weathered planks, an open-framed doorway with a timber step and a slatted vent in the west end. Two rooms: an office and the entry store.", 1, [8.2, 3.8], { plinthDepth: 0.4, maxGrade: 0.6, noAutoPanels: true, ruin: true });
+  const A = meta("rb1_container_cabin", "Abandoned site cabin", "Small buildings", "A sheet-steel site cabin on a timber skirt, painted olive and streaked with rust from the roof edge, its windows boarded with weathered planks, an open-framed doorway with a timber step and a slatted vent in the west end. Two rooms: an office and the entry store.", 1, [8.2, 3.8], { plinthDepth: 0.4, maxGrade: 0.6, noAutoPanels: true });
   mats(A);
   rbMats(A, [
     ["rb_cab_ext", [0.264, 0.226, 0.135], 0.62, "rb_ref_cab_wall", "metal"],   // the reference's own paint (CC BY 4.0, YadroGames)
@@ -168,7 +167,7 @@ function nalichnik(A, F, c, w, y0, y1, { shutters = true } = {}) {
 }
 export function logHouse() {
   const X = 3.76, Z = 2.66, T = 0.26;
-  const A = meta("rb1_log_house", "Abandoned log house", "Houses", "An old Russian log house (izba): round-log walls with notched corners on a board-clad plinth, a steep weathered board roof, a rendered chimney, carved white window surrounds with board shutters, a low front door under a small porch. Three rooms: the stove room, the entry kitchen and a store.", 1, [8.6, 7.6], { plinthDepth: 0.6, maxGrade: 0.6, noAutoPanels: true, ruin: true });
+  const A = meta("rb1_log_house", "Abandoned log house", "Houses", "An old Russian log house (izba): round-log walls with notched corners on a board-clad plinth, a steep weathered board roof, a rendered chimney, carved white window surrounds with board shutters, a low front door under a small porch. Three rooms: the stove room, the entry kitchen and a store.", 1, [8.6, 7.6], { plinthDepth: 0.6, maxGrade: 0.6, noAutoPanels: true });
   mats(A);
   rbMats(A, [
     ["rb_log_wall", [0.38, 0.3, 0.24], 0.85, "rb_log", "wood"],
@@ -221,7 +220,6 @@ export function logHouse() {
       for (const s of ["front", "rear", "east", "west"]) {
         const F = face(s, X, Z), L = s === "front" || s === "rear" ? X : Z;
         fbox(A, F, -L - 0.08, L + 0.08, -0.05, 0.76, 0.07, 0.1, "rb_plinth", { bv: 0.006, k: 0 });
-        for (let a = -L; a < L; a += 0.18) fbox(A, F, a, a + 0.012, -0.03, 0.74, 0.1, 0.104, "rb_dark", L1);   // board joints
       }
       // carved surrounds and shutters
       for (const s of ["front", "rear", "east", "west"]) for (const c of winC[s]) nalichnik(A, face(s, X, Z), c, WW, y1, y2, { shutters: s !== "rear" });
@@ -270,7 +268,7 @@ function meshPanel(A, F, a0, a1, y0, y1, e, sp = 0.12, back = true) {
 }
 export function weaponShop() {
   const X = 3.5, Z = 5.0, T = 0.15, HI = 4.85;
-  const A = meta("rb1_weapon_shop", "Abandoned weapon shop", "Small buildings", "An abandoned weatherboard weapon shop under a corrugated skillion roof: a band of wire-mesh clerestory panels and a timber verandah on rusted steel posts over green steel counters with boarded hatches along the high side, an orange double door under a WEAPONS sign in the front gable, two white double windows in the low side. Inside: the shop floor between a store and the counter room.", 1, [13.4, 14.6], { plinthDepth: 0.5, maxGrade: 0.6, noAutoPanels: true, ruin: true });
+  const A = meta("rb1_weapon_shop", "Abandoned weapon shop", "Small buildings", "An abandoned weatherboard weapon shop under a corrugated skillion roof: a band of wire-mesh clerestory panels and a timber verandah on rusted steel posts over green steel counters with boarded hatches along the high side, an orange double door under a WEAPONS sign in the front gable, two white double windows in the low side. Inside: the shop floor between a store and the counter room.", 1, [13.4, 14.6], { plinthDepth: 0.5, maxGrade: 0.6, noAutoPanels: true });
   mats(A);
   rbMats(A, [
     ["rb_siding", [0.366, 0.293, 0.205], 0.85, "rb_ref_shop_wall", "wood"],    // the reference's own weatherboard (CC BY 4.0, YadroGames)
@@ -322,7 +320,6 @@ export function weaponShop() {
       for (let i = 0; i < 5; i++) { const a0 = -Z + i * 2.0; meshPanel(A, Fe, a0 + 0.02, a0 + 1.98, EAVE, HI - 0.05, 0.0); }
       // green steel counter panelling below the hatches, the hatches boarded
       fbox(A, Fe, -Z, Z, 0.0, 1.0, 0.0, 0.04, "rb_green", { bv: 0.008, k: 0 });
-      for (const c of hatches) boarded(A, Fe, c - 0.8, c + 0.8, GF + 1.05, GF + 1.95, { n: 4 });
       for (const c of hatches) fbox(A, Fe, c - 1.0, c + 1.0, 0.95, 1.02, 0.0, 0.55, "rb_frame_wood", { bv: 0.01 });   // counter boards
       // the verandah: rusted steel posts 3 m out, a plank lean-to from the clerestory sill down to them, wrapping the front corner
       const vx = X + 3.0, vy0 = EAVE - 0.5, vy1 = 2.46;
@@ -337,6 +334,7 @@ export function weaponShop() {
       A.box([gx0, 0, Z + 1.95], [gx0 + 0.12, vy1, Z + 2.07], "rb_post", { bv: 0.008 });
       A.obox([(gx0 + vx) / 2, vy1 + 0.25, Z + 1.0], [vx - gx0, 0.05, 2.3], [16, 0, 0], "rb_ver_roof", { bv: 0.005 });
       meshPanel(A, { axis: "x", d: Z + 2.0, out: 1 }, gx0 + 0.14, vx - 0.08, 0.1, 1.9, 0.0, 0.1, false);
+      A.box([gx0 + 0.12, 0.0, Z + 1.96], [vx - 0.06, 1.95, Z + 2.04], "rb_dark", { v: 0 });   // the mesh gate is solid (an invisible collider)
       // the door: orange leaves (house() door, re-skinned below), a frame, the WEAPONS sign board above
       fbox(A, Ff, -1.0, 1.0, GF + 2.2, GF + 2.65, 0.02, 0.07, "rb_sign", { bv: 0.01, k: 0 });
       for (const a of [-0.88, 0.88]) fbox(A, Ff, a - 0.06, a + 0.06, GF, GF + 2.2, 0.0, 0.06, "rb_frame_wood", { bv: 0.008, k: 0 });
@@ -362,10 +360,13 @@ export function weaponShop() {
       }
       for (const [x0, x1, y] of [[-X - 0.12, -X + 0.02, EAVE - 0.05], [X - 0.02, X + 0.12, HI - 0.05]]) A.box([x0, y - 0.22, -Z - 0.3], [x1, y, Z + 0.3], "rb_frame_wood", { bv: 0.01, k: 0 });
       // the damp band at the wall foot, ragged on top; a few replaced boards in another tone; mould under the hatches
-      for (const [F, L, seed] of [[Ff, X, 3], [Fr, X, 5], [Fw, Z, 7], [Fe, Z, 9]]) {
-        for (let a = -L; a < L - 0.05; a += 0.5) { const h = 0.25 + rnd(seed, Math.round(a * 10 + 100)) * 0.45; fbox(A, F, a, Math.min(a + 0.5, L), 0.02, h, 0.003, 0.006, "rb_damp", L1); }
-        for (let k = 0; k < 4; k++) { const a = -L + 0.6 + rnd(seed + 11, k) * (2 * L - 1.6), y = 0.9 + rnd(seed + 13, k) * 2.0, w = 0.8 + rnd(seed + 17, k) * 1.4;
-          fbox(A, F, a, Math.min(a + w, L - 0.1), y, y + 0.19, 0.004, 0.008, k % 2 ? "rb_board_new" : "rb_board_old", L1); }
+      const wo = { front: [[-1.15, 1.15, 0.0, GF + 2.6], [-2.15, -1.85, 0.0, 3.0], [1.85, 2.15, 0.0, 3.0]], rear: [],
+        west: [[-2.7, -1.06, GF + 0.75, GF + 2.25], [1.3, 2.94, GF + 0.75, GF + 2.25]], east: hatches.map((c) => [c - 0.95, c + 0.95, GF + 0.95, GF + 2.05]) };
+      const ok = (o, a0, a1, y0, y1) => [a0, (a0 + a1) / 2, a1].every((a) => clear(o, a, y0, y1, 0.05));
+      for (const [F, L, seed, o] of [[Ff, X, 3, wo.front], [Fr, X, 5, wo.rear], [Fw, Z, 7, wo.west], [Fe, Z, 9, wo.east]]) {
+        for (let a = -L; a < L - 0.05; a += 0.5) { const h = 0.25 + rnd(seed, Math.round(a * 10 + 100)) * 0.45, a1 = Math.min(a + 0.5, L); if (ok(o, a, a1, 0.02, h)) fbox(A, F, a, a1, 0.02, h, 0.003, 0.006, "rb_damp", L1); }
+        for (let k = 0; k < 4; k++) { const a = -L + 0.6 + rnd(seed + 11, k) * (2 * L - 1.6), y = 0.9 + rnd(seed + 13, k) * 2.0, w = 0.8 + rnd(seed + 17, k) * 1.4, a1 = Math.min(a + w, L - 0.1);
+          if (ok(o, a, a1, y, y + 0.19)) fbox(A, F, a, a1, y, y + 0.19, 0.004, 0.008, k % 2 ? "rb_board_new" : "rb_board_old", L1); }
       }
       for (const c of hatches) fbox(A, Fe, c - 0.7, c + 0.7, 1.02, 1.32, 0.045, 0.048, "rb_damp", L1);
       // the roof: sheets of different weathering laid over the deck, one lifted at the low eave
@@ -374,15 +375,9 @@ export function weaponShop() {
         A.obox([0.0, (EAVE + HI) / 2 + 0.105, z], [L * 0.98, 0.012, 1.0 + rnd(31, k) * 0.15], [0, 0, ang], m, { k: 0, lod: 1 });
       }
       A.obox([-X + 0.4, EAVE + 0.32, 1.3], [1.5, 0.015, 1.0], [0, 0, ang + 9], "rb_roof_c", { k: 0 });
-      // clutter round the shed: crates under the verandah, a rusted drum, a tyre, planks leaning on the low side
-      for (const [x, z, h, r] of [[X + 1.2, -3.8, 0.0, 8], [X + 1.25, -3.75, 0.5, -6], [X + 2.1, -3.6, 0.0, 21], [X + 0.9, 1.6, 0.0, -14]]) A.obox([x, h + 0.25, z], [0.6, 0.5, 0.6], [0, r, 0], "rb_crate", { bv: 0.012 });
-      A.cyl([X + 2.3, 0.45, -1.9], [0.58, 0.9, 0.58], "rb_drum", { seg: 14 });
-      A.cyl([X + 2.2, 0.12, 3.6], [0.72, 0.24, 0.72], "rb_tyre", { seg: 16, k: 0 });
-      for (let k = 0; k < 4; k++) A.obox([-X - 0.35, 1.2, -1.0 + k * 0.28], [0.04, 2.4, 0.22], [0, 0, -14 + k * 2], "rb_board_old", { bv: 0.005, k: 0 });
       // inside: board shelving on the low side with a few boxes, a gun rack board with pegs on the rear wall
-      for (const y of [GF + 0.35, GF + 1.05, GF + 1.75]) A.box([-X + T, y, -2.6], [-X + T + 0.45, y + 0.04, 2.6], "rb_board", { bv: 0.006 });
-      for (const z of [-2.6, 0.0, 2.6]) A.box([-X + T, GF, z - 0.03], [-X + T + 0.45, GF + 2.0, z + 0.03], "rb_frame_wood", { bv: 0.006 });
-      for (const [y, z] of [[GF + 0.39, -1.8], [GF + 0.39, 0.9], [GF + 1.09, -0.6], [GF + 1.79, 1.7]]) A.box([-X + T + 0.05, y, z - 0.22], [-X + T + 0.4, y + 0.3, z + 0.22], "rb_crate", { bv: 0.01, k: 0 });
+      for (const y of [GF + 0.35, GF + 1.05, GF + 1.75]) A.box([-X + T, y, -0.9], [-X + T + 0.45, y + 0.04, 1.1], "rb_board", { bv: 0.006 });   // between the windows
+      for (const z of [-0.9, 0.1, 1.1]) A.box([-X + T, GF, z - 0.03], [-X + T + 0.45, GF + 2.0, z + 0.03], "rb_frame_wood", { bv: 0.006 });
       A.box([-1.6, GF + 1.0, -Z + T], [1.6, GF + 1.9, -Z + T + 0.04], "rb_board", { bv: 0.006, k: 0 });
       for (let i = 0; i < 9; i++) A.box([-1.45 + i * 0.36, GF + 1.25, -Z + T + 0.04], [-1.42 + i * 0.36, GF + 1.31, -Z + T + 0.16], "rb_post", { k: 0, lod: 1 });
       // stains: rust run-off under the clerestory and from the counters
