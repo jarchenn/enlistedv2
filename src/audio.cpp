@@ -631,6 +631,12 @@ int Audio::loadCustom(const fs::path& dir) {
     // and semi alike (the pack singles are 10 dB hotter and another tone), the re-cut pack bursts their committed fallback
     {"snd16/mg_shot_%d.wav", false, {"mg42"}, -1, 0.95f, 0, 0.3f, 3.0f, 1.11f, 13},
     {"snd16/m249_shot_%d.wav", false, {"modern_lmg"}, -1, 1.00f, 0, 0.6f, 4.0f, 1.23f, 13},
+    // SND20: the MP5 on the pack's mp40 set (an MP5 recording) 6 % higher than the MP 40; the AK-47 on its stg44 set (an AKM, 7.62x39)
+    // 6 % lower than the StG 44; levelled on sustained fire (SMG -8.5, rifle -7.0 dB), no late-cut variant at 800 / 600 rpm
+    {"snd18/mp40_single.mp3", false, {"modern_mp5_semi"}, -1, 1.06f, 0, 1.4f, 0.0f, 1.22f},
+    {"snd18/mp40_auto_%d.mp3", false, {"modern_mp5"}, -1, 1.06f, 0, 1.4f, 0.0f, 1.38f, 5},
+    {"snd18/stg44_single.mp3", false, {"modern_ak47_semi"}, -1, 0.94f, 0, 2.0f, 0.0f, 1.29f},
+    {"snd18/stg44_auto_%d.mp3", false, {"modern_ak47"}, -1, 0.94f, 0, 2.0f, 0.0f, 1.36f, 5},
   };
   std::deque<std::string> varFile; std::vector<std::pair<GunSet, int>> sets;   // SND16: the variant sets expanded, second = its variant group (0: none)
   for (auto& g : guns) { if (g.vars <= 0) { sets.push_back({g, 0}); continue; }
@@ -682,8 +688,9 @@ int Audio::loadCustom(const fs::path& dir) {
         if (m.is_object()) { e2.minGap = std::clamp(m.value("min_gap_ms", e2.minGap * 1000) / 1000.0f, 0.0f, 0.5f); e2.maxVoices = std::clamp(m.value("max_voices", e2.maxVoices), 1, 16); if (m.contains("rolloff")) e2.rolloff = std::clamp(m.value("rolloff", 1.2f), 0.1f, 2.0f); } }
     }
   }
-  if (n18) logf("audio: SND18 pack: %d shot files (shot_mg42 %zu variants, shot_mg42_semi %zu, shot_sten %zu)", n18, p->events.count("shot_mg42") ? p->events["shot_mg42"].v.size() : 0,
-                p->events.count("shot_mg42_semi") ? p->events["shot_mg42_semi"].v.size() : 0, p->events.count("shot_sten") ? p->events["shot_sten"].v.size() : 0);
+  if (n18) logf("audio: SND18 pack: %d shot files (shot_mg42 %zu variants, shot_mg42_semi %zu, shot_modern_mp5 %zu, shot_modern_ak47 %zu)", n18, p->events.count("shot_mg42") ? p->events["shot_mg42"].v.size() : 0,
+                p->events.count("shot_mg42_semi") ? p->events["shot_mg42_semi"].v.size() : 0, p->events.count("shot_modern_mp5") ? p->events["shot_modern_mp5"].v.size() : 0,
+                p->events.count("shot_modern_ak47") ? p->events["shot_modern_ak47"].v.size() : 0);
   // SND4: the bolt action cycle after each shot of a bolt rifle: the recording's open / close (0.36-0.90 s) twice back to back,
   // sped up (resampled) so both, from 0.06 s after the shot, end 0.05 s before the bolt time is up (at least 1.25x)
   // SND17 (user request): the user's bolt recording (local-only content/audio/custom/snd17/bolt_cycle.wav: E:/nmk/refs/bolt_user.mp3
@@ -770,6 +777,7 @@ int Audio::loadCustom(const fs::path& dir) {
       {"reload/reload_rifle.mp3", {"mg42", "m2hb_carry"}},   // belt guns keep the generic rifle recording
       {"reload/reload_ak.mp3", {"modern_ak", "modern_ak12"}, 2.4f, 3.5f},   // rock-in magazines (jigokukarano_sisya)
       {"reload/reload_ak.mp3", {"stg44"}, 2.7f, 3.5f},
+      {"reload/reload_ak.mp3", {"modern_ak47"}, 2.5f, 3.5f, 0.96f},   // SND20: a little lower than the AK-74M's
       {"reload/reload_m4.mp3", {"modern_m4_irons"}, 2.2f},   // AR pattern and the other magazine rifles (squarebun)
       {"reload/reload_m4.mp3", {"modern_m16", "modern_scar"}, 2.3f},
       {"reload/reload_m4.mp3", {"modern_ar15", "modern_fal"}, 2.4f},
@@ -787,6 +795,7 @@ int Audio::loadCustom(const fs::path& dir) {
       // sawn-off's two shells on the shell recording (the revolver loads round by round: clip_in per round)
       {"reload/reload_b.mp3", {"modern_deagle"}, 1.8f, 0, 0.9f},
       {"reload/reload_a.mp3", {"modern_smg9"}, 1.8f, 0, 1.06f},
+      {"reload/reload_a.mp3", {"modern_mp5"}, 2.4f, 0, 0.97f},   // SND20
       {"reload/shotgun_shells.mp3", {"modern_sawnoff"}, 2.9f, 0, 1.05f},
       // SW1 (borrowed, pitched apart): the energy-cell swaps on the AR magazine reload
       {"reload/reload_m4.mp3", {"blaster_carbine"}, 1.9f, 0, 1.12f},
