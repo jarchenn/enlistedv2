@@ -283,7 +283,7 @@ void App::hitFlinch(uint32_t seed) {
 int App::weaponIndex(const std::string& id) const {
   for (size_t k = 0; k < weaponDefs.size(); ++k) if (weaponDefs[k]->id == id) return (int)k;
   // WR1 (user request): removed guns; old maps, racks, kits and saved loadouts naming them get the nearest kept one
-  static const std::pair<const char*, const char*> kRemoved[] = {{"modern_m4", "modern_m4_irons"}, {"modern_makarov", "modern_pistol3"}, {"modern_saiga", "modern_shotgun"}};
+  static const std::pair<const char*, const char*> kRemoved[] = {{"modern_m4", "modern_m4_irons"}, {"modern_saiga", "modern_shotgun"}};   // NG1: the Makarov is back
   for (auto& r : kRemoved) if (id == r.first) return weaponIndex(r.second);
   return -1;
 }

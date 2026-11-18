@@ -44,6 +44,10 @@
       "gain": 1.5,
       "body": 3.0
     },
+    "modern_makarov": {
+      "gain": 1.2,
+      "body": 3.0
+    },
     "luger": {
       "gain": 1.2,
       "body": 3.0

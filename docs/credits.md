@@ -278,6 +278,19 @@ Supplied by the user (Downloads, copied / extracted to `incoming/mg12/<name>/`);
   by TampaJoey (https://sketchfab.com/TampaJoey), supplied by the user; no licence stated in the download, so the
   bake (content/assets/models/mod_mil_hut*) is git-ignored and local only; the committed asset shows a part-built stand-in.
 
+## New guns (NG1)
+
+User-supplied FPS packs (Downloads, 2026-11-17). No licence file came with them, so every bake is **local-only** (`content/weapons/local/<id>.json`, `content/weapons/models/<id>_local/`, git-ignored); the committed guns show stand-ins. The Makarov PM and FN 502 Tactical packs look like the FBX downloads of the Sketchfab items by Cransh that MG12 recorded as CC BY 4.0 (from their GLB metadata); the user can confirm that before any bake is committed.
+
+| Source | Used for | Author | Licence |
+|---|---|---|---|
+| fps-ak-74m-animations.zip (FpsAnims.fbx) | AK-74M (`modern_ak`, local override) | not stated | **unknown**: local-only |
+| makarov-pm-fps-animations.zip (Arms_Mak.fbx) | Makarov PM (`modern_makarov`, local override) | not stated (Cransh's item?) | **unknown**: local-only |
+| fps-animations-fn-502-tactical.zip (FPS_Anims.fbx) | .22 tactical pistol (`modern_fn502`, local override) | not stated (Cransh's item?) | **unknown**: local-only |
+| fps-animated-smg.zip (arms@smg45.fbx) | .45 SMG (`modern_smg45`, local override) | not stated | **unknown**: local-only |
+| animated-pistol (1).zip (arms@beretta.fbx) | 9 mm service pistol (`modern_pistol4`, local override) | not stated | **unknown**: local-only |
+| pistol.zip (rig.blend) | **Not used**: byte-identical to the Springfield XD source already in the game (animatedpistol) | supplied by the user | as the XD |
+
 ## Close-up props (PR1)
 
 Supplied by the user (`incoming/pr1/<name>/`, converted by `tools/props/convert_supplied.py`, baked into

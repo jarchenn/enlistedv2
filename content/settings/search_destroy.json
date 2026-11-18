@@ -112,6 +112,39 @@
    "name": "Desert Eagle (.50 AE)"
   },
   {
+   "id": "pistol9s",
+   "weapon": "modern_pistol4",
+   "cat": "pistol",
+   "slot": 2,
+   "kill": "firearm",
+   "role": "service pistol, shared",
+   "raiders": 300,
+   "security": 300,
+   "name": "9 mm service pistol"
+  },
+  {
+   "id": "pistol22t",
+   "weapon": "modern_fn502",
+   "cat": "pistol",
+   "slot": 2,
+   "kill": "firearm",
+   "role": "rimfire pistol, shared",
+   "raiders": 250,
+   "security": 250,
+   "name": ".22 tactical pistol"
+  },
+  {
+   "id": "smg45",
+   "weapon": "modern_smg45",
+   "cat": "smg",
+   "slot": 1,
+   "kill": "smg",
+   "role": ".45 SMG (UMP role)",
+   "raiders": 1200,
+   "security": 1200,
+   "name": ".45 SMG"
+  },
+  {
    "id": "uzi",
    "weapon": "modern_uzi",
    "cat": "smg",

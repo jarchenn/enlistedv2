@@ -130,11 +130,15 @@
     [
      "modern_smg9",
      1
+    ],
+    [
+     "modern_smg45",
+     1
     ]
    ],
    "lmg": "modern_lmg",
    "lmgEvery": 5,
-   "sidearm": "modern_pistol3",
+   "sidearm": "modern_makarov",
    "launcher": "modern_rpg7",
    "launcherEvery": 4
   },

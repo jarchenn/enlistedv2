@@ -500,6 +500,13 @@ int Audio::loadCustom(const fs::path& dir) {
     // suppressed .22's, lower and darker (heavier)
     {"guns/pistol_c.mp3", false, {"modern_vsk"}, -1, 0.78f, -0.4f, 1.2f, 1.0f},
     // SW1: synthesised blaster shots (tools: sweep + FM + odd harmonics + spring tail; no recordings): carbine, long rifle, robot blaster
+    // NG1: the returning Makarov (its MG12 set), the .22 tactical pistol's own shot (the 9 mm recording raised to a rimfire crack:
+    // the Desert Eagle / .357 keep the FN 502's old one), the 9 mm service pistol on the 9 mm shot a little lower and darker,
+    // the .45 SMG on the Thompson's (SMG1.mp3) lower; snd14 sets below take over where present
+    {"guns/pistol_a.mp3", false, {"modern_makarov"}, -1, 1.08f, 0.1f},
+    {"guns/pistol_9mm.mp3", false, {"modern_fn502"}, -1, 1.22f, 0.4f, 0.9f},
+    {"guns/pistol_9mm.mp3", false, {"modern_pistol4"}, -1, 0.95f, -0.15f},
+    {"guns/smg_b.mp3", false, {"modern_smg45"}, -1, 0.92f, -0.2f, 2.0f},
     {"guns/blaster_a.wav", false, {"blaster_carbine"}, -1, 1, 0, 0.6f},
     {"guns/blaster_b.wav", false, {"blaster_rifle"}, -1, 1, 0, 0.8f},
     {"guns/blaster_c.wav", false, {"blaster_robot"}, -1, 1, 0, 0.7f},
@@ -521,6 +528,7 @@ int Audio::loadCustom(const fs::path& dir) {
     {"snd14/smg_shot_2.wav", false, {"modern_uzi"}, -1, 1.00f, 0, 1.0f, 5.0f, 1.24f},   // SMGShot1 (bright, as its old burst)
     {"snd14/smg_shot_3.wav", false, {"m1_thompson"}, -1, 0.94f, 0, 1.0f, 2.0f, 1.10f},   // SMGShot2
     {"snd14/smg_shot_3.wav", false, {"modern_smg9"}, -1, 1.03f, 0, 1.0f, 2.0f, 1.14f},
+    {"snd14/smg_shot_3.wav", false, {"modern_smg45"}, -1, 0.88f, 0, 1.0f, 2.0f, 1.12f},   // NG1: SMGShot2 (the Thompson / SMG-9 file) lower: the .45 SMG
     {"snd14/bolt_rifle.wav", false, {"kar98k"}, -1, 1.00f, 0, 1.8f, 4.5f, 1.23f},   // BoltActionRifle: the WW2 bolt guns (the modern snipers keep the M24 / .50)
     {"snd14/bolt_rifle.wav", false, {"kar98k_zf39"}, -1, 0.96f, 0, 1.8f, 4.0f, 1.23f},
   };
@@ -674,6 +682,10 @@ int Audio::loadCustom(const fs::path& dir) {
       {"reload/reload_ak.mp3", {"modern_vsk"}, 2.5f, 3.5f, 1.08f},
       {"reload/reload_m4.mp3", {"blaster_rifle"}, 2.4f, 0, 0.92f},
       {"reload/reload_m4.mp3", {"blaster_robot"}, 2.1f, 0, 1.2f},
+      {"reload/reload_b.mp3", {"modern_makarov"}, 2.2f, 0, 0.95f},   // NG1: back (MG12's)
+      {"reload/reload_b.mp3", {"modern_fn502"}, 2.0f, 0, 1.12f},   // NG1
+      {"reload/reload_b.mp3", {"modern_pistol4"}, 2.0f, 0, 1.0f},
+      {"reload/reload_a.mp3", {"modern_smg45"}, 2.2f, 0, 0.94f},
       {"snd14/mg_reload.wav", {"mg42"}, 4.6f},   // SND14 (user request): machinegunreload on the belt guns' box / belt change (local-only; the rifle recording without it)
       {"snd14/mg_reload.wav", {"modern_lmg"}, 5.2f},
     };
