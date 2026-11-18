@@ -1113,6 +1113,12 @@ int App::run(int argc, char** argv) {
   if (!glfwInit()) { logf("glfwInit failed"); return 1; }
   platformWindowHints();
   glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);   // UI5: shown after the first splash frame (no white window)
+  // TST1: a non-interactive run (self-tests, checks, captures, probes, sheets / previews) is silent and does not take the
+  // focus from whatever the user is doing; NMK_AUDIO=on forces real sound, NMK_MUTE=1 silences an interactive launch
+  const bool testRun = runSelf || !sheetsDir.empty() || !previewGlb.empty() || !tankPreviewDir.empty();
+  { const char* ae = std::getenv("NMK_AUDIO"); const char* mu = std::getenv("NMK_MUTE");
+    audio.silent = (testRun || (mu && *mu && std::strcmp(mu, "0") != 0)) && !(ae && std::strcmp(ae, "on") == 0); }
+  if (testRun) { glfwWindowHint(GLFW_FOCUSED, GLFW_FALSE); glfwWindowHint(GLFW_FOCUS_ON_SHOW, GLFW_FALSE); }
   int W = runSelf ? 1920 : 1600, H = runSelf ? 1080 : 900;
   win = glfwCreateWindow(W, H, "Battle Foundry", nullptr, nullptr);   // UI2: the game's name (repo / exe keep theirs)
   if (!win) { logf("Could not create an OpenGL 4.5 core window. Update your graphics driver."); glfwTerminate(); return 1; }
