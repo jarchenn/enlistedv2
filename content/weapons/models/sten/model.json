@@ -1,0 +1,152 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.2126137912273407,
+  0.10395478457212448,
+  0.7620000243186951
+ ],
+ "bmin": [
+  -0.05682694911956787,
+  -0.10395479202270508,
+  0.0
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "name": "mg1_Frame:0_material",
+   "normal": "normal_0.png"
+  },
+  {
+   "albedo": "albedo_1.jpg",
+   "name": "mg1_##riotMechanism:0_material",
+   "normal": "normal_0.png"
+  },
+  {
+   "albedo": "albedo_1.jpg",
+   "name": "mg1_##PowerCellAssembly:0_material",
+   "normal": "normal_0.png"
+  },
+  {
+   "albedo": "albedo_1.jpg",
+   "name": "mg1_Trigger:0_material",
+   "normal": "normal_0.png"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.04787313565611839,
+    0.10395478457212448,
+    0.7620000243186951
+   ],
+   "bmin": [
+    -0.047873131930828094,
+    -0.10395479202270508,
+    0.0
+   ],
+   "count": 21876,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "base",
+   "role": "body",
+   "rough": 0.5,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.0067742615938186646,
+    0.08640123903751373,
+    0.557463526725769
+   ],
+   "bmin": [
+    -0.05682694911956787,
+    0.04954997077584267,
+    0.45588040351867676
+   ],
+   "count": 903,
+   "first": 21876,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "bolt",
+   "role": "bolt",
+   "rough": 0.5,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.2126137912273407,
+    0.07714760303497314,
+    0.5579363107681274
+   ],
+   "bmin": [
+    -0.017107445746660233,
+    0.05595649406313896,
+    0.5225570201873779
+   ],
+   "count": 2004,
+   "first": 22779,
+   "mat": 2,
+   "metal": 0.0,
+   "name": "mag",
+   "role": "mag",
+   "rough": 0.5,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.019683292135596275,
+    0.022951174527406693,
+    0.312100350856781
+   ],
+   "bmin": [
+    -0.027872242033481598,
+    -0.017582295462489128,
+    0.3001596927642822
+   ],
+   "count": 138,
+   "first": 24783,
+   "mat": 3,
+   "metal": 0.0,
+   "name": "trigger",
+   "role": "trigger",
+   "rough": 0.5,
+   "textured": true
+  }
+ ],
+ "realLength": 0.7620000243186951,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 0.013766853138804436,
+ "source": "modern_sten.glb",
+ "textures": {},
+ "triangles": 8307,
+ "vertices": 6616
+}
