@@ -3,7 +3,7 @@
  "version": 1,
  "name": "M2 Bradley IFV",
  "category": "Vehicles",
- "description": "Drivable modern IFV (Explore: E to enter). 25 mm Bushmaster (AP / HE, automatic), coax 7.62, two TOW missiles (Q), commander pops out of the hatch (Ctrl). Supplied model is local-only; clones show a stand-in.",
+ "description": "Drivable modern IFV (Explore: E to enter). 25 mm Bushmaster (AP / HE, automatic), coax 7.62, two TOW missiles (Q), commander pops out of the hatch (Ctrl).",
  "floors": 0,
  "enterable": false,
  "footprint": [
