@@ -36,13 +36,13 @@ const char* noFitWhy(const WeaponDef& d) {
   return "takes no parts";
 }
 
-// the gun and its parts, turning (yaw from the clock), rendered off screen into gTex
+// the gun and its parts, a still side view, rendered off screen into gTex
 void renderGun(App& app, const WeaponDef& d, const WeaponState& s, int w, int h) {
   uint64_t sig = std::hash<std::string>()(d.id); for (int a : s.att) sig = sig * 31 + (uint64_t)a;
-  if (gTex && sig == gTexSig && ImGui::GetTime() - gTexAt < 0.05) return;   // ~20 Hz: a full read-back each time
+  if (gTex && sig == gTexSig && gTw == w && gTh == h) return;   // a still image (user request): drawn once per gun / parts / size
   gTexSig = sig; gTexAt = ImGui::GetTime();
   std::vector<ModelDraw> md; std::vector<DrawItem> bx;
-  float yaw = (float)ImGui::GetTime() * 25.0f;
+  float yaw = 75.0f;   // side on, muzzle to the right, turned a little toward the viewer
   vec3 lo0 = d.useModel() ? d.model->bmin : vec3(-0.1f, -0.1f, 0), hi0 = d.useModel() ? d.model->bmax : vec3(0.1f, 0.1f, 1);
   mat4 W = glm::rotate(mat4(1), glm::radians(yaw), vec3(0, 1, 0)) * glm::translate(mat4(1), -(lo0 + hi0) * 0.5f);   // about the gun's own centre
   if (d.useModel()) for (int p = 0; p < 8; ++p) for (int k : d.modelParts[p]) md.push_back({d.model.get(), k, W});
