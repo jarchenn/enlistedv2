@@ -8,7 +8,7 @@
 #include "overrides.h"
 #include "settings.h"
 #include "sight_overlay.h"
-#include "vm_anim.h"
+#include "vm_anim.h"
 #include "br_models.h"
 #include "loot.h"   // BR2 Battle Royale loot
 #include <GLFW/glfw3.h>
@@ -165,7 +165,7 @@ void App::buildWeaponMeshes() {
     }
     for (int p = 0; p < WP_COUNT; ++p) {
       MeshData m;
-      for (auto& pj : j["parts"].value(kPartNames[p], json::array())) {
+      for (auto& pj : j.value("parts", json::object()).value(kPartNames[p], json::array())) {   // a gun with no box "parts" (NG1 stand-ins) must not throw
         Part q;
         q.center = jvec3(pj["c"]); q.size = jvec3(pj["s"], vec3(0.01f));
         if (pj.contains("r")) q.rot = glm::quat(glm::radians(jvec3(pj["r"])));
