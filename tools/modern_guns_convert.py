@@ -34,6 +34,11 @@ for sname, pname in keep.items():
     if not o or o.type != "MESH": missing.append(sname); continue
     me = bpy.data.meshes.new_from_object(o.evaluated_get(dg), preserve_all_data_layers=False, depsgraph=dg)
     me.transform(R @ o.matrix_world)
+    dm = cfg.get("dropMats", {}).get(sname)   # NG1: faces of these materials left out (the Makarov pack's parked suppressor / optic bracket)
+    if dm:
+        import bmesh
+        bm = bmesh.new(); bm.from_mesh(me); drop = [f for f in bm.faces if f.material_index < len(me.materials) and me.materials[f.material_index] and me.materials[f.material_index].name.split(".")[0] in dm]
+        bmesh.ops.delete(bm, geom=drop, context="FACES_ONLY"); bm.to_mesh(me); bm.free()
     # split by dominant vertex group (one skinned mesh holding the bolt / mag on their own bones)
     nob = bpy.data.objects.new(pname, me); newobjs.append((nob, o))
 scene = bpy.data.scenes.new("MG1"); scene.collection.children.link(col)

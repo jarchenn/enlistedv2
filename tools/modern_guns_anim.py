@@ -242,6 +242,12 @@ for name, ratio in cfg.get("decimate", {}).items():
     md = ob.modifiers.new("mg2_dec", "DECIMATE"); md.ratio = ratio
     while ob.modifiers[0] != md: bpy.ops.object.modifier_move_up(modifier=md.name)
     n0 = len(ob.data.polygons); bpy.ops.object.modifier_apply(modifier=md.name); log.setdefault("decimated", {})[name] = [n0, len(ob.data.polygons)]
+# ---------------------------------------------------------------- NG1: faces of these materials left out of a kept mesh ("dropMats": {mesh: [material]})
+for _mn, _ml in cfg.get("dropMats", {}).items():
+    import bmesh
+    _o = bpy.data.objects[_mn]; _o.data = _o.data.copy(); _bm = bmesh.new(); _bm.from_mesh(_o.data)
+    _dr = [f for f in _bm.faces if f.material_index < len(_o.data.materials) and _o.data.materials[f.material_index] and _o.data.materials[f.material_index].name.split(".")[0] in _ml]
+    bmesh.ops.delete(_bm, geom=_dr, context="FACES_ONLY"); _bm.to_mesh(_o.data); _bm.free(); log.setdefault("droppedFaces", {})[_mn] = len(_dr)
 # ---------------------------------------------------------------- drop everything else, move the rig
 for ob in [arm] + keep:   # MG2: a parent about to go (the Unreal sets' armature under an empty) must not move the rig
     if ob.parent is not None and ob.parent != arm and ob.parent not in keep:

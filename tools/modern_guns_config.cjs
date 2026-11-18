@@ -5,6 +5,7 @@ const path = require("path"), G = path.resolve(process.argv[2]) + "/", O = path.
 const k = (...n) => Object.fromEntries(n.map(x => [x, x]));
 const X = path.resolve(process.argv[5] || G + "_extracted") + "/";
 const M12 = path.resolve(process.env.MG12_SRC || "E:/nmk/incoming/mg12") + "/";   // MG12 sources (moved off C: to E:, user disk policy)
+const NG1 = path.resolve(process.env.NG1_SRC || "E:/nmk/incoming/ng1") + "/";   // NG1 sources (licences unknown: the bakes are local-only)
 const C = {
   ak: { src: G + "fps-ak-animated/source/arms@ak.fbx", tex: "fps-ak-animated", keep: k("base", "bolt", "bullet", "mag", "release", "trigger"),
         mats: { ak74: { albedo: "ak74Color.png", normal: "ak74Normal.png", metal: "akMetallic.png", smooth: "aksmoothness.png", ao: "akAO.png" } } },
@@ -92,6 +93,18 @@ const C = {
         keep: { Object_95: "frame", Object_96: "device" }, split: { Object_95: { Rif_059: "bolt", Pmag_062: "mag" } } },
   vsk: { src: M12 + "fps_animations_vsk/fps_animations_vsk.glb", tex: "", poseFrame: 0, poseAction: "Rig|VSK_Idle", rotX: 180,   // its idle pose holds it reversed and upside down
         keep: { Object_69: "frame", Object_68: "stock", Object_67: "magcover" }, split: { Object_69: { Slider_052: "bolt", Mag_055: "mag" } } },
+  // ---- NG1 (user-supplied packs; the guns are one skinned mesh split by their bones, or C4D object parts)
+  ak74m: { src: NG1 + "ak74m/source/FpsAnims.fbx", tex: NG1 + "ak74m", keep: { Ak: "base" }, split: { Ak: { Rif: "bolt", Pmag: "mag" } },
+        mats: { ak74m: { albedo: "ak74m_AlbedoTransparency.png", normal: "ak74m_Normal.png", metal: "ak74m_Metallic.png", rough: "ak74m_Roughness.png", ao: "ak74m_AO.png" } } },
+  makarovpm: { src: NG1 + "makarov_pm/source/Arms_Mak.fbx", tex: NG1 + "makarov_pm", keep: { Makarov_base: "frame" }, split: { Makarov_base: { Slide: "slide", Mag: "mag" } },
+        dropMats: { Makarov_base: ["makarov_attachments_material"] },   // its parked suppressor / optic bracket
+        mats: { makarov_material: { albedo: "Makarov_main_Base_Color.png", normal: "Makarov_main_Normal_OpenGL.png", metal: "Makarov_main_Metallic_png-Makarov_main_Rou.png", rough_f: 0.5 } } },
+  fn502: { src: NG1 + "fn502/source/FPS_Anims.fbx", tex: NG1 + "fn502", keep: { "502_1_low.001": "frame" }, split: { "502_1_low.001": { Slide: "slide", Mag: "mag" } },
+        mats: { gun: { albedo: "material_diffuse.png", normal: "material_normal.png", smooth: "material_specularGlossiness.png", smoothCh: 3, spec: "material_specularGlossiness.png" } } },
+  smg45: { src: NG1 + "smg/source/arms@smg45.fbx", tex: NG1 + "smg", keep: { base: "base", bolt: "bolt", carrier: "bolt", clip: "mag", bullet: "mag", trigger: "trigger" },
+        mats: { smg45: { albedo: "smg45Color.png", normal: "smg45Normal.png", metal: "smg45Metallic.png", ao: "smg45Ao.png", rough_f: 0.5 } } },
+  beretta: { src: NG1 + "animated_pistol_1/source/arms@beretta.fbx", tex: NG1 + "animated_pistol_1", keep: { base: "frame", slide: "slide", mag: "mag", hammer: "frame", trigger: "trigger", stopper: "frame" },
+        mats: { beretta: { albedo: "berettaColor.png", normal: "berettaNormal.png", metal: "berettaMetallic.png", rough: "berettaRoughness.png", ao: "berettaAO.png" } } },
   case: { src: G + "hardcase_for_weapons.glb", tex: "", scale: 1.27,
         keep: k("CaseLower_low_Hardcase_0", "CaseUpped_low_Hardcase_0", "Foam_low_Hardcase_0", "Handle_low_Hardcase_0", "HandleRods_low_Hardcase_0", "HingesLower_low_Hardcase_0", "HingesUpper_low_Hardcase_0", "Knob_low_Hardcase_0", "LockRods_low_Hardcase_0", "Locks_low_Hardcase_0") },
 };
