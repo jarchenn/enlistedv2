@@ -1957,6 +1957,11 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `smithing_table_tech_pegboard` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `smithing_table_tech_saw` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `tank_bradley_m2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_gas_drums` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_gas_station_soviet` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_lpg_dispenser` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_lpg_dispensers_pair` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_old_garage` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 
 ## Notes
 

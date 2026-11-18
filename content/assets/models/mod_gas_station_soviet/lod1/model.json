@@ -1,0 +1,193 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  4.651976585388184,
+  4.573222637176514,
+  4.195404052734375
+ ],
+ "bmin": [
+  -4.851423263549805,
+  0.0,
+  -3.788276195526123
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "aoInMR": true,
+   "mr": "mr_1.jpg",
+   "name": "Bilding_LPG_ON",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_5.jpg",
+   "aoInMR": true,
+   "mr": "mr_4.jpg",
+   "name": "Bilding_LPG_IN",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "albedo": "albedo_8.jpg",
+   "aoInMR": true,
+   "mr": "mr_7.jpg",
+   "name": "Atributs.002",
+   "normal": "normal_6.jpg"
+  },
+  {
+   "albedo": "albedo_11.jpg",
+   "aoInMR": true,
+   "mr": "mr_10.jpg",
+   "name": "LPG_DETAILS.001",
+   "normal": "normal_9.jpg"
+  },
+  {
+   "albedo": "albedo_14.jpg",
+   "aoInMR": true,
+   "mr": "mr_13.jpg",
+   "name": "Lpg_box.001",
+   "normal": "normal_12.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    4.651976585388184,
+    3.275434970855713,
+    -0.08876967430114746
+   ],
+   "bmin": [
+    -3.2524828910827637,
+    0.0,
+    -3.788276195526123
+   ],
+   "count": 96,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "Abandoned Soviet gas station_Bilding_LPG_ON_0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    4.398412704467773,
+    3.2754359245300293,
+    -0.2923341989517212
+   ],
+   "bmin": [
+    -3.0489187240600586,
+    0.08019427210092545,
+    -3.6882758140563965
+   ],
+   "count": 96,
+   "first": 96,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "Abandoned Soviet gas station_Bilding_LPG_ON_0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    4.490952968597412,
+    4.573222637176514,
+    0.9597479104995728
+   ],
+   "bmin": [
+    -4.851423263549805,
+    0.04468410834670067,
+    -2.3928282260894775
+   ],
+   "count": 3165,
+   "first": 192,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "Abandoned Soviet gas station_Bilding_LPG_ON_0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    3.5765795707702637,
+    2.0832300186157227,
+    4.138704776763916
+   ],
+   "bmin": [
+    -1.4240683317184448,
+    0.1993599832057953,
+    3.6114871501922607
+   ],
+   "count": 7494,
+   "first": 3357,
+   "mat": 3,
+   "metal": 1.0,
+   "name": "Abandoned Soviet gas station_Bilding_LPG_ON_0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    3.451420783996582,
+    2.3364486694335938,
+    4.195404052734375
+   ],
+   "bmin": [
+    -1.5990747213363647,
+    0.08285081386566162,
+    3.2082724571228027
+   ],
+   "count": 759,
+   "first": 10851,
+   "mat": 4,
+   "metal": 1.0,
+   "name": "Abandoned Soviet gas station_Bilding_LPG_ON_0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "mod_gas_station_soviet.glb",
+ "textures": {},
+ "triangles": 3870,
+ "vertices": 4635
+}

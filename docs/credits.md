@@ -746,7 +746,7 @@ Asset packs the user supplied (PR6; licence, author and source read from each fi
 `content/audio/custom/snd14/`: eleven recordings supplied by the project owner (rocket launch, AR-15, rifle x3, SMG x3, bolt-action, machine-gun reload, bullet fly-by from SoundEffectsFactory.com), cut and levelled. The owner states they are free to use.
 
 <!-- pr7_assets: written by tools/props/pr7_assets.py -->
-PR7: the user's crafting tables (three smithing tables) and security hut.
+PR7: the user's crafting tables (three smithing tables), security hut, old garage and Soviet gas station.
 
 | Asset | Model | Author | Licence | Source | Changes | In the repo |
 |---|---|---|---|---|---|---|
@@ -754,4 +754,9 @@ PR7: the user's crafting tables (three smithing tables) and security hut.
 | `smithing_table_tech_pegboard` | Crafting table - Tech Desk | IDALGAME | CC-BY-4.0 | https://skfb.ly/osTKB | modified: split / baked / textures resized | yes |
 | `smithing_table_tech_saw` | Crafting table - Tech Desk | IDALGAME | CC-BY-4.0 | https://skfb.ly/osTKB | modified: split / baked / textures resized | yes |
 | `mod_security_hut` | Abandoned Security Hut (Low Poly) | Berk Gedik | CC-BY-4.0 | https://skfb.ly/6TANP | modified: split / baked / textures resized | yes |
+| `mod_old_garage` | Old garage | Yury Misiyuk | CC-BY-4.0 | https://skfb.ly/6QSUn | modified: baked / decimated / textures resized | yes |
+| `mod_gas_station_soviet` | Abandoned Soviet gas station | olegolegperepelica | CC-BY-4.0 | https://skfb.ly/pzuX8 | modified: baked / decimated / textures resized | yes |
+| `mod_lpg_dispenser` | Abandoned Soviet gas station | olegolegperepelica | CC-BY-4.0 | https://skfb.ly/pzuX8 | modified: baked / decimated / textures resized | yes |
+| `mod_lpg_dispensers_pair` | Abandoned Soviet gas station | olegolegperepelica | CC-BY-4.0 | https://skfb.ly/pzuX8 | modified: baked / decimated / textures resized | yes |
+| `mod_gas_drums` | Abandoned Soviet gas station | olegolegperepelica | CC-BY-4.0 | https://skfb.ly/pzuX8 | modified: baked / decimated / textures resized | yes |
 <!-- /pr7_assets -->
