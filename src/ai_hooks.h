@@ -10,7 +10,9 @@ void aiZombieStep(Game& g, struct Soldier& s, float dt);
 void aiZombieLoopsStop(class App& app);   // SND2: stop every enemy "loop" sound (Game::end)  // Game::aiStep: a zombie's whole brain (zombie.cpp)
 int aiZombieModel(Game& g, int type = 0, int variant = 0);  // the character of enemy type `type`, its variant-th model (EN1; -1: none)
 void aiZombieAssign(Game& g, Soldier& s);                  // EN1: model, draw scale, lean and body size for s.etype (the zombie rig when its own model is unusable)
-void aiZombiePose(Game& g, struct Soldier& s, float dt);  // Game::posesStep: clip-driven pose instead of poseCharacter
+void aiZombiePose(Game& g, struct Soldier& s, float dt);
+void gasmaskPose(Game& g, struct Soldier& s, float dt);   // GM1 gasmask.cpp: the gas-mask soldier's clips (Game::posesStep)
+//  // Game::posesStep: clip-driven pose instead of poseCharacter
 void aiForget(Game& g, int slot);                         // the slot died, respawned or jumped: drop it from every bot's knowledge / targets (ai_core.cpp)
 void aiDifficultyCombo();                                 // MpUi::setupWindow: Recruit / Regular / Veteran
 class App;

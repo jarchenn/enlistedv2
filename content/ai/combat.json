@@ -228,6 +228,7 @@
   ]
  },
  "operator_models_note": "AI type Operators: soldiers (the same brain, weapons and procedural pose) wearing these bodies, one per AI in turn; a missing file leaves the faction's soldier body (tools/bake_ai_characters.py operators, docs/credits.md)",
+ "gasmask_models": [["gasmask_ak47", "modern_ak47"], ["gasmask_mp7", "modern_mp7"], ["gasmask_fal", "modern_fal"], ["gasmask_ump45", "modern_smg45"], ["gasmask_m249", "modern_lmg"], ["gasmask_r870", "modern_shotgun"], ["gasmask_pistol", "modern_pistol"], ["gasmask_m24", "modern_sniper_bolt"], ["gasmask_rpg7", "modern_rpg7"]],
  "operator_models": {
   "Allies": [
    "operator_allied"

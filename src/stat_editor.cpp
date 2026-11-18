@@ -296,7 +296,7 @@ void statEditorPage(App& app, int kind, ImVec2 mn, ImVec2 mx, float alpha) {
           json& tb = overrideTable(2, id); bool ov = tb.contains(id) && tb[id].is_object() && !tb[id].empty();
           if (ImGui::Selectable(((ov ? "* " : "  ") + name + "##" + id).c_str(), E.sel[2] == id)) { E.sel[2] = id; E.raw = false; }
           if (E.sel[2].empty()) E.sel[2] = id; };
-        if (g == 0) { if (match("soldiers") || match("operators") || match("troopers")) item("_soldier", "Soldiers (every soldier AI)"); }
+        if (g == 0) { if (match("soldiers") || match("operators") || match("troopers") || match("gas")) item("_soldier", "Soldiers (every soldier AI)"); }
         else for (const json& e : aiTypeEntries()) { std::string id = e.value("id", std::string("zombie")), nm = e.value("name", id); if (match(nm) || match(id)) item(id, nm); }
       } else if (kind == 0) {
         for (auto& dp : app.weaponDefs) { const WeaponDef& d = *dp; if (!isGun(d) || gunGroup(d) != g || !(match(d.name) || match(d.id))) continue;
