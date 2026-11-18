@@ -222,6 +222,16 @@
    "class": "assault",
    "pen": 0.775
   },
+  "modern_ak47": {
+   "near": 42,
+   "far": 31,
+   "falloffStart_m": 120,
+   "falloffEnd_m": 250,
+   "rpm": 600,
+   "note": "LIC2: the AK-47 (7.62x39)",
+   "class": "assault",
+   "pen": 0.775
+  },
   "modern_m4_irons": {
    "near": 32,
    "far": 24,

@@ -123,6 +123,10 @@ const C = {
         keep: { "Frame:0": "base", "##PowerCellAssembly:0": "mag", "##riotMechanism:0": "bolt", "Trigger:0": "trigger" },
         mats: { "Frame:0_material": { albedo: "sten_d.dds_0.png", normal: "sten_n.dds_1.png", rough_f: 0.55, metal_f: 0.6 }, "Trigger:0_material": { albedo: "sten_d.dds_0.png", normal: "sten_n.dds_1.png", rough_f: 0.55, metal_f: 0.6 },
                 "##PowerCellAssembly:0_material": { albedo: "sten_d.dds_0.png", normal: "sten_n.dds_1.png", rough_f: 0.55, metal_f: 0.6 }, "##riotMechanism:0_material": { albedo: "sten_d.dds_0.png", normal: "sten_n.dds_1.png", rough_f: 0.55, metal_f: 0.6 } } },
+  ak47: { src: "E:/nmk/ng3/ak47_merged.blend", tex: NG3 + "AK47Replace",   // the UE5 pack merged into one skeleton first (E:/nmk/ng3/prep_ak47.py)
+        keep: { "SK_AK-47": "base", "SM-CARGADOR": "mag" }, split: { "SK_AK-47": { gun_bolt: "bolt", gun_Trigger: "trigger" } },
+        mats: { "Material.000": { albedo: "Material.000_albedo.jpeg", normal: "Material.000_normal.jpeg", metal: "Material.000_metallic.jpeg", rough: "Material.000_roughness.jpeg" },
+                "Material.007": { albedo: "Material.007_albedo.jpeg", normal: "Material.007_normal.jpeg", metal: "Material.007_metallic.jpeg", rough: "Material.007_roughness.jpeg" } } },
   case: { src: G + "hardcase_for_weapons.glb", tex: "", scale: 1.27,
         keep: k("CaseLower_low_Hardcase_0", "CaseUpped_low_Hardcase_0", "Foam_low_Hardcase_0", "Handle_low_Hardcase_0", "HandleRods_low_Hardcase_0", "HingesLower_low_Hardcase_0", "HingesUpper_low_Hardcase_0", "Knob_low_Hardcase_0", "LockRods_low_Hardcase_0", "Locks_low_Hardcase_0") },
 };

@@ -241,6 +241,14 @@ const A = {
             glove_hardknuckle: { ...ng2Arms, albedo: "glove_hardknuckle_Base_color.png", normal: "glove_hardknuckle_Normal_OpenGL.png", rough_f: 0.8 },
             sleeve_st6_generalist: { ...ng2Arms, albedo: "sleeve_st6_generalist_Base_color.png", normal: "sleeve_st6_generalist_Normal_OpenGL.png", rough_f: 0.9 },
             v_l_skin: { ...ng2Arms, factor: [0.42, 0.27, 0.19], rough_f: 0.75 } } },
+  modern_ak47: { abs: true, maxTex: 768, src: "E:/nmk/ng3/ak47_merged.blend", tex: NG3 + "AK47Replace", stat: "modern_ak47",   // LIC2: the UE5 pack merged into one skeleton (E:/nmk/ng3/prep_ak47.py)
+    keep: ["SK_AK-47", "SM-CARGADOR", "SKM_Comando"], gun: "SK_AK-47", gunBone: "gun_Grip",
+    clips: { idle: "AK47_Idle", fire: "AK47_Fire", reload: "AK47_Reload" },   // Aim / Hold / Walk / Run / Equip not used
+    ironsSplit: { "SK_AK-47": 0.04 }, normals: true,
+    mats: { "Material.000": { albedo: "Material.000_albedo.jpeg", metal: "Material.000_metallic.jpeg", rough: "Material.000_roughness.jpeg" },
+            "Material.007": { albedo: "Material.007_albedo.jpeg", metal: "Material.007_metallic.jpeg", rough: "Material.007_roughness.jpeg" },
+            M_Gloves_Black: { ...ng2Arms, albedo: "T_Glove_Black_color.png", normal: "T_Glove_normal.png", rough: "T_Glove_roughness.png" },
+            M_Shirt_BlackCamo2: { ...ng2Arms, albedo: "T_Shirt_BlackCamo2_4k_color.png", normal: "T_Shirt_4k_normal.png", rough: "T_TShirt_roughness.png" } } },
   // ---- MG7: the first-person knife (knife_animated.glb, Sketchfab; one 0-116 timeline at 24 fps); framed by its camera: the eye
   // at the scene origin looking along -y in the exported frame (found by a test export), centimetres
   knife_bayonet: { src: "../mg7/knife_animated/knife_animated.glb", tex: "../mg7/knife_animated", frame: { rear: [0, 0, 0], front: [0, -100, 0], up: [0, 0, 1], scale: 0.01 }, hipRear: [0, 0, 0],
