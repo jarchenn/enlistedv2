@@ -69,15 +69,122 @@ static const char* sightId(int k) { static const char* ids[8] = {"", "br_sight_r
 static const json& sightOf(const AssetDef& a) { return a.model && a.raw.contains("modelSight") ? a.raw["modelSight"] : a.raw["sight"]; }
 
 struct Rail { vec3 p{0}; float scale = 1; };
-static std::map<const WeaponDef*, Rail> gRailCache;   // keyed by definition: cleared when the weapons reload (ED2)
-void brRailCacheClear() { gRailCache.clear(); }
-static const Rail& railOf(const WeaponDef& d) {   // the gun JSON "rail" / "railScale" (read once); none: just under the rear sight
-  auto& cache = gRailCache;
-  auto it = cache.find(&d);
-  if (it != cache.end()) return it->second;
-  Rail r; r.p = d.rear + vec3(0, -0.012f, 0.05f);
-  try { json j = json::parse(readTextFile(d.file)); if (j.contains("rail")) r.p = jvec3(j["rail"], r.p); r.scale = j.value("railScale", 1.0f); } catch (...) {}
-  return cache[&d] = r;
+// AT7: the gun's top surface (weapon space): per 2 mm x / z cell the highest point of its drawn model's triangles
+struct TopMap { float x0 = 0, z0 = 0; int nx = 0, nz = 0; std::vector<float> y; float at(int i, int k) const { return y[(size_t)k * nx + i]; } };
+struct Riser { float x, z0, z1, y0, w; };   // AT7: a steel block from the gun's surface up to a foot over a lower part of the top
+struct Seat { vec3 base{0}; float s = 1; std::vector<Riser> risers; };
+static std::map<const WeaponDef*, TopMap> gTopCache;
+static std::map<std::pair<const WeaponDef*, int>, Seat> gSeatCache;
+void brRailCacheClear() { gTopCache.clear(); gSeatCache.clear(); }   // keyed by definition: cleared when the weapons reload (ED2)
+static Rail railOf(const WeaponDef& d) {   // the gun JSON "rail" / "railScale" (AT7: as loaded, local overrides included); none: just under the rear sight
+  Rail r; r.p = d.hasRail ? d.rail : d.rear + vec3(0, -0.012f, 0.05f); r.scale = d.railScale; return r;
+}
+static const TopMap& topOf(const WeaponDef& d) {
+  auto it = gTopCache.find(&d); if (it != gTopCache.end()) return it->second;
+  TopMap& t = gTopCache[&d];
+  if (!d.useModel() || d.model->cpuIdx.empty()) return t;
+  const GpuModel& g = *d.model; const float C = 0.002f;
+  t.x0 = g.bmin.x - C; t.z0 = g.bmin.z - C; t.nx = (int)((g.bmax.x - g.bmin.x) / C) + 3; t.nz = (int)((g.bmax.z - g.bmin.z) / C) + 3;
+  t.y.assign((size_t)t.nx * t.nz, -1e9f);
+  for (int r = 0; r < 8; ++r) for (int pk : d.modelParts[r]) {   // the parts the gun draws (hidden ones out: AT5's SMG-9 sight)
+    const ModelPart& p = g.parts[pk];
+    for (uint32_t q = p.first; q + 2 < p.first + p.count; q += 3) {
+      vec3 A = g.cpuPos[g.cpuIdx[q]], B = g.cpuPos[g.cpuIdx[q + 1]], Cc = g.cpuPos[g.cpuIdx[q + 2]];
+      float den = (B.z - Cc.z) * (A.x - Cc.x) + (Cc.x - B.x) * (A.z - Cc.z);
+      int i0 = std::max(0, (int)((std::min({A.x, B.x, Cc.x}) - t.x0) / C)), i1 = std::min(t.nx - 1, (int)((std::max({A.x, B.x, Cc.x}) - t.x0) / C));
+      int k0 = std::max(0, (int)((std::min({A.z, B.z, Cc.z}) - t.z0) / C)), k1 = std::min(t.nz - 1, (int)((std::max({A.z, B.z, Cc.z}) - t.z0) / C));
+      for (int k = k0; k <= k1; ++k) for (int i = i0; i <= i1; ++i) {
+        float x = t.x0 + (i + 0.5f) * C, z = t.z0 + (k + 0.5f) * C, y;
+        if (std::fabs(den) < 1e-12f) {   // seen edge-on from above: its highest corner in the cell
+          if (glm::length(vec2(x, z) - vec2(A.x, A.z)) > C && glm::length(vec2(x, z) - vec2(B.x, B.z)) > C && glm::length(vec2(x, z) - vec2(Cc.x, Cc.z)) > C) continue;
+          y = std::max({A.y, B.y, Cc.y});
+        } else {
+          float a = ((B.z - Cc.z) * (x - Cc.x) + (Cc.x - B.x) * (z - Cc.z)) / den, b = ((Cc.z - A.z) * (x - Cc.x) + (A.x - Cc.x) * (z - Cc.z)) / den, c = 1 - a - b;
+          if (a < -1e-4f || b < -1e-4f || c < -1e-4f) continue;
+          y = a * A.y + b * B.y + c * Cc.y;
+        }
+        float& m = t.y[(size_t)k * t.nx + i]; m = std::max(m, y);
+      }
+    }
+  }
+  return t;
+}
+// AT7: the optic's mount feet (asset space): its lowest vertices (within 3 mm of the bottom) in runs along z, each with its half width
+struct Foot { float z0, z1, hw; };
+static std::vector<Foot> feetOf(const AssetDef& a) {
+  std::vector<Foot> f;
+  if (a.model && !a.model->cpuPos.empty()) {
+    std::vector<vec3> b; for (const vec3& p : a.model->cpuPos) if (p.y < a.model->bmin.y + 0.003f) b.push_back(p);
+    std::sort(b.begin(), b.end(), [](const vec3& u, const vec3& v) { return u.z < v.z; });
+    for (const vec3& p : b) {
+      if (f.empty() || p.z > f.back().z1 + 0.005f) f.push_back({p.z, p.z, std::fabs(p.x)});
+      else { f.back().z1 = p.z; f.back().hw = std::max(f.back().hw, std::fabs(p.x)); }
+    }
+  }
+  if (f.empty()) { vec3 lo = a.model ? a.model->bmin : a.opaque.bmin, hi = a.model ? a.model->bmax : a.opaque.bmax; f.push_back({lo.z, hi.z, 0.5f * (hi.x - lo.x)}); }   // the stand-in box: its whole bottom
+  return f;
+}
+// AT7: optic k seated on the gun: every foot over the gun's top surface (TopMap, within +-8 mm of the rail's centre line), slid up to
+// 4 cm along the rail to where the feet's surfaces are most even (a flat dust cover or rail rather than a sight block), its base on
+// the highest surface under its feet (none sinks into the gun; on a stepped top the lower foot stands off by the step);
+// "scale" in the optic's sight block sizes the model
+static const Seat& seatOf(const WeaponDef& d, int k, const AssetDef& a) {
+  auto key = std::make_pair(&d, k); auto it = gSeatCache.find(key); if (it != gSeatCache.end()) return it->second;
+  Seat& st = gSeatCache[key]; const Rail r = railOf(d);
+  st.s = r.scale * sightOf(a).value("scale", 1.0f); st.base = r.p;
+  const TopMap& t = topOf(d); if (t.nx == 0) return st;
+  const std::vector<Foot> feet = feetOf(a); const float C = 0.002f;
+  float best = 1e9f, bestY = r.p.y, bestDz = 0, bestSpread = 0; int bestUns = 0; std::vector<float> bestH;
+  for (float dz = -0.04f; dz <= 0.0401f; dz += C) {
+    float hmax = -1e9f, hmin = 1e9f; int uns = 0; std::vector<float> hs;
+    for (const Foot& f : feet) {
+      float za = r.p.z + dz + f.z0 * st.s, zb = r.p.z + dz + f.z1 * st.s, hw = std::min(f.hw * st.s, 0.008f), h = -1e9f; int cells = 0, hit = 0;
+      for (int kk = std::max(0, (int)((za - t.z0) / C)); kk <= std::min(t.nz - 1, (int)((zb - t.z0) / C)); ++kk)
+        for (int i = std::max(0, (int)((r.p.x - hw - t.x0) / C)); i <= std::min(t.nx - 1, (int)((r.p.x + hw - t.x0) / C)); ++i) { ++cells; if (t.at(i, kk) > -1e8f) { ++hit; h = std::max(h, t.at(i, kk)); } }
+      hs.push_back(hit * 3 < cells || hit == 0 ? -1e9f : h);
+      if (hit * 3 < cells || hit == 0) { ++uns; continue; }   // no gun under this foot
+      hmax = std::max(hmax, h); hmin = std::min(hmin, h);
+    }
+    if (hmax < -1e8f) continue;
+    float cost = (hmax - hmin) + 0.04f * uns + 0.01f * std::fabs(dz);   // 1 cm of slide costs as much as 0.1 mm of step
+    if (cost < best) { best = cost; bestY = hmax; bestDz = dz; bestSpread = hmax - hmin; bestUns = uns; bestH = hs; }
+  }
+  if (best < 1e8f) {
+    st.base.y = bestY; st.base.z = r.p.z + bestDz;
+    for (size_t i = 0; i < feet.size(); ++i) if (bestH[i] > -1e8f && bestY - bestH[i] > 0.0008f)   // a foot standing off a lower part of the top: a riser under it
+      st.risers.push_back({r.p.x, st.base.z + feet[i].z0 * st.s, st.base.z + feet[i].z1 * st.s, bestH[i] - 0.001f, std::min(2 * feet[i].hw * st.s, 0.022f)});
+  }
+  logf("optic seat: %-20s %-18s rail (%.4f %.4f) -> (%.4f %.4f), %d feet, step under them %.1f mm, %d unsupported", d.id.c_str(), a.id.c_str(), r.p.y, r.p.z, st.base.y, st.base.z, (int)feet.size(), bestSpread * 1000, bestUns);
+  return st;
+}
+
+// AT7 audit (selftest NMK_OPTIC_DUMP): each foot against the gun's top at a mount; BEFORE = the committed JSON rail as railOf
+// read it (no seat), the ACOG as baked before (half a turn: its feet mirrored), the thermal at full size; AFTER = the seat
+json brOpticAudit(const WeaponDef& d, int k) {
+  const AssetDef* a = k > 0 ? gApp->lib.find(sightId(k)) : nullptr;
+  if (!a || !a->raw.contains("sight") || d.hasScope) return json();
+  const TopMap& t = topOf(d); const float C = 0.002f;
+  auto eval = [&](vec3 base, float s, const std::vector<Foot>& feet) {
+    float hover = -1e9f, clip = 0, step = 0, hmax = -1e9f, hmin = 1e9f; int uns = 0;
+    for (const Foot& f : feet) {
+      float za = base.z + f.z0 * s, zb = base.z + f.z1 * s, hw = std::min(f.hw * s, 0.008f), h = -1e9f; int cells = 0, hit = 0;
+      for (int kk = std::max(0, (int)((za - t.z0) / C)); kk <= std::min(t.nz - 1, (int)((zb - t.z0) / C)); ++kk)
+        for (int i = std::max(0, (int)((base.x - hw - t.x0) / C)); i <= std::min(t.nx - 1, (int)((base.x + hw - t.x0) / C)); ++i) { ++cells; if (t.at(i, kk) > -1e8f) { ++hit; h = std::max(h, t.at(i, kk)); } }
+      if (hit * 3 < cells || hit == 0) { ++uns; continue; }
+      hover = std::max(hover, base.y - h); clip = std::max(clip, h - base.y); hmax = std::max(hmax, h); hmin = std::min(hmin, h);
+    }
+    if (hmax > -1e8f) step = hmax - hmin;
+    vec3 lo = a->model ? a->model->bmin : a->opaque.bmin, hi = a->model ? a->model->bmax : a->opaque.bmax;
+    return json{{"hover_mm", hover > -1e8f ? hover * 1000 : -1}, {"clip_mm", clip * 1000}, {"step_mm", step * 1000}, {"feet", feet.size()}, {"unsupported", uns}, {"len_cm", (hi.z - lo.z) * s * 100}, {"y", base.y}, {"z", base.z}};
+  };
+  std::vector<Foot> feet = feetOf(*a), fb = feet;
+  if (k == 2) for (Foot& f : fb) { float z0 = f.z0; f.z0 = -f.z1; f.z1 = -z0; }
+  Rail rb; rb.p = d.rear + vec3(0, -0.012f, 0.05f);
+  try { json j = json::parse(readTextFile(d.file)); if (j.contains("rail")) rb.p = jvec3(j["rail"], rb.p); rb.scale = j.value("railScale", 1.0f); } catch (...) {}
+  const Seat& st = seatOf(d, k, *a);
+  json after = eval(st.base, st.s, feet); after["risers"] = st.risers.size();
+  float gl = d.useModel() ? d.model->bmax.z - d.model->bmin.z : 0;
+  return json{{"before", eval(rb.p, rb.scale * (k == 6 ? 1.0f : sightOf(*a).value("scale", 1.0f)), fb)}, {"after", after}, {"gunLen_cm", gl * 100}, {"acogTurned", k == 2}};
 }
 
 // weapon-space mount of optic k (asset space -> weapon space)
@@ -85,11 +192,10 @@ static bool sightMount(const WeaponDef& d, int k, const AssetDef*& a, mat4& M, v
   if (d.hasScope) return false;   // scoped rifles keep their own model: a fitted optic changes only the magnification and reticle (loot.cpp lootScope)
   a = k > 0 ? gApp->lib.find(sightId(k)) : nullptr;
   if (!a || !a->raw.contains("sight")) return false;
-  const Rail& r = railOf(d);
-  vec3 eye = jvec3(sightOf(*a)["eye"], vec3(0, 0.04f, 0)) * r.scale;
-  vec3 base = r.p;
-  M = glm::translate(mat4(1), base) * glm::scale(mat4(1), vec3(r.scale));
-  eyeW = base + eye;
+  const Seat& st = seatOf(d, k, *a);
+  vec3 eye = jvec3(sightOf(*a)["eye"], vec3(0, 0.04f, 0)) * st.s;
+  M = glm::translate(mat4(1), st.base) * glm::scale(mat4(1), vec3(st.s));
+  eyeW = st.base + eye;
   return true;
 }
 
@@ -101,6 +207,11 @@ void brSightDraws(App& app, const WeaponDef& d, const WeaponState& ws, const mat
   if (!sightMount(d, fittedSight(d, ws), a, M, e)) return;   // AT5: a gun's default optic too
   size_t n0 = md.size(); addAsset(a, W * M, md, boxes);
   for (size_t i = n0; i < md.size(); ++i) md[i].optic = true;   // AT6: the window clip leaves the optic itself whole
+  static GpuMesh riser;   // AT7: a unit block (standing on y = 0), dark parkerized steel
+  if (!riser.count) { MeshData m; Part p; p.center = vec3(0, 0.5f, 0); p.size = vec3(1); Material mt; mt.albedo = vec3(0.05f, 0.05f, 0.048f); mt.roughness = 0.6f; mt.metallic = 0.6f; mt.pattern = PAT_METAL; appendPart(m, p, mt, mat4(1)); riser.upload(m); }
+  const vec3 base = vec3(M[3]);
+  for (const Riser& rs : seatOf(d, fittedSight(d, ws), *a).risers)
+    boxes.push_back({&riser, W * glm::translate(mat4(1), vec3(rs.x, rs.y0, 0.5f * (rs.z0 + rs.z1))) * glm::scale(mat4(1), vec3(rs.w, base.y - rs.y0, std::max(0.004f, rs.z1 - rs.z0)))});
 }
 
 // AT2: the fitted red dot / holographic sight's window (weapon space): its centre on the eye line, its radius; the mount

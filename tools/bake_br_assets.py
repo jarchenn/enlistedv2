@@ -528,10 +528,9 @@ def bake_sights():
         tx = J('acog-scope', 'textures')
         o = item('br_sight_acog', J('acog-scope', 'source', 'unzipped', 'ACOG Scope.obj'), tris_max=6000,
                  mats=lambda mo: [mat_tex('acog', os.path.join(tx, 'ACOG_Scope_ACOG_Scope_BaseColor.png'), 0.5, 0.3)])
-        long_to_y(o); big_end_forward(o); xform(o, Matrix.Rotation(math.pi, 4, 'Z'))   # its eyepiece housing is the larger end
+        long_to_y(o); big_end_forward(o)   # AT7: the flared housing (the red fibre on top) is the objective: forward (it was turned back)
         place_ground(o); size_to(o, 1, 0.15); place_ground(o)
-        # eye: the ocular sits above the centre of the rear housing (its mount hangs below): +8 mm, measured in the ADS capture
-        ez = eye_height(o) + 0.008; clear_glass(o, ez)
+        ez = eye_height(o); clear_glass(o, ez)   # the eye: the round ocular's centre (no mount under the rear end now)
         export(o, 'br_sight_acog', 512); write_asset('br_sight_acog', 'ACOG', 'sight', gl_size(o), sight_block(o, eye_z=ez))
     if want('br_sight_4x'):
         o = item('br_sight_4x', J('4x', 'source', 'm24Sniper.fbx'), keep=['Scope'], tris_max=6000,
@@ -552,6 +551,7 @@ def bake_sights():
         p = os.path.join(CONTENT, 'assets', 'br_sight_thermal.json'); tj = json.load(open(p, encoding='utf-8'))
         fj = json.load(open(os.path.join(CONTENT, 'assets', 'br_sight_4x.json'), encoding='utf-8'))
         tj['modelSight'] = tj['sight']; tj['sight'] = fj['sight']
+        tj['modelSight']['scale'] = 0.8   # AT7: drawn 24 cm long (a clip-on thermal's size; the 30 cm bake read as half the AK's length)
         for k in ('parts', 'materials', 'footprint'): tj[k] = fj[k]
         tj['description'] = "TH1 Battle Royale optic: a thermal scope (loot.json br_sight_thermal). Stand-in: the 4x scope's part-built tube; the real model is local-only (licence unknown): bake it with tools/bake_br_assets.py (NMK_TH1_SRC)."
         json.dump(tj, open(p, 'w', encoding='utf-8'), indent=1)

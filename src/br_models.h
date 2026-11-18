@@ -18,6 +18,7 @@ bool brHidePart(const Soldier& s, const std::string& partName);   // the marine'
 // the fitted optic on a gun drawn with weapon -> world W
 void brSightDraws(App& app, const WeaponDef& d, const WeaponState& ws, const mat4& W, std::vector<ModelDraw>& md, std::vector<DrawItem>& boxes);
 // weapon-space eye line of the fitted optic (no optic, or a scoped rifle keeping its own scope: false)
+json brOpticAudit(const WeaponDef& d, int k);   // AT7: the optic seat audit (selftest_reticles NMK_OPTIC_DUMP)
 bool brSightLine(const WeaponDef& d, const WeaponState& ws, vec3& R, vec3& F, float& relief);
 bool brSightLineActive(const WeaponDef& d, vec3& R, vec3& F, float& relief);   // the local player's state of d
 // AT2: the fitted red dot / holographic sight's window (weapon space centre, radius), its mount and the asset's bounds

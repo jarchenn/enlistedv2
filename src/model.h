@@ -83,7 +83,7 @@ struct GpuModel {
   vec3 bmin{0}, bmax{0};
   size_t gpuBytes = 0;
   int tris = 0;
-  bool keepPos = false; std::vector<vec3> cpuPos;   // AN1 step 2b: weapons keep their vertex positions (grip / handguard cross-sections)
+  bool keepPos = false; std::vector<vec3> cpuPos; std::vector<uint32_t> cpuIdx;   // AT7: and the triangles (the optic seat on the receiver)   // AN1 step 2b: weapons keep their vertex positions (grip / handguard cross-sections)
   bool load(const fs::path& dir, std::string& err, bool turn180 = false);   // turn180: half a turn about y (a bake whose front is -z)
   void destroy();
   int find(const std::string& name) const;

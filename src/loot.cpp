@@ -917,7 +917,7 @@ void lootRailFit(App& app, const fs::path& out) {
     if (d.hasScope || d.action == "launcher" || !lootSightFits(d, 2)) continue;
     WeaponState ws; ws.att[ATT_SIGHT] = 2;
     vec3 R, F; float rl; if (!brSightLine(d, ws, R, F, rl)) continue;
-    float sc = 1; try { json j = json::parse(readTextFile(d.file)); sc = j.value("railScale", 1.0f); } catch (...) {}
+    float sc = d.railScale;
     vec3 base = R - eye * sc;   // where the optic's bottom sits now
     std::vector<ModelDraw> md; std::vector<DrawItem> bx;
     if (d.useModel()) { for (int q = 0; q < 8; ++q) for (int k : d.modelParts[q]) md.push_back({d.model.get(), k, mat4(1)}); }

@@ -175,6 +175,7 @@ void App::buildWeaponMeshes() {
       d->mesh[p].upload(m);
     }
     d->file = f;
+    if (j.contains("rail")) { d->rail = jvec3(j["rail"], d->rail); d->hasRail = true; } d->railScale = j.value("railScale", 1.0f);   // AT7: with the local override (railOf re-read only the committed file)
     d->bulletMass = j.value("bulletMass", 10.0f);
     for (auto& m : j.value("modes", json::array())) d->modes.push_back(m.get<std::string>());
     d->deploys = j.value("deploys", "");

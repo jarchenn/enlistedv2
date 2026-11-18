@@ -1311,7 +1311,7 @@ void AssetLibrary::build(AssetDef& ad) const {
     const fs::path base = mj.value("root", std::string()) == "vehicles" ? contentDir() / "vehicles" / "models" : contentDir() / "assets" / "models";
     fs::path dir = base / mj.value("dir", a->id);
     if (mj.contains("fallbackDir") && !fs::exists(dir / "mesh.bin")) dir = base / mj["fallbackDir"].get<std::string>();
-    auto gm = std::make_shared<GpuModel>(); std::string err;
+    auto gm = std::make_shared<GpuModel>(); std::string err; gm->keepPos = j.contains("sight");   // AT7: an optic keeps its vertices (its mount feet seat it on the gun)
     bool turn = mj.value("yaw", 0.0f) == 180.0f;   // "yaw": 180 - the bake faces -z (the car pack), the asset's parts +z
     if (gm->load(dir, err, turn)) {
       a->model = gm;

@@ -787,7 +787,7 @@ bool GpuModel::load(const fs::path& dir, std::string& err, bool turn180) {
   if (!f) { err = "truncated mesh.bin"; return false; }
   auto turn = [&](vec3 v) { return turn180 ? vec3(-v.x, v.y, -v.z) : v; };
   if (turn180) for (auto& v : V) { v.pos = turn(v.pos); v.nrm = turn(v.nrm); v.tan = vec4(turn(vec3(v.tan)), v.tan.w); }
-  if (keepPos) { cpuPos.resize(V.size()); for (size_t k = 0; k < V.size(); ++k) cpuPos[k] = V[k].pos; }
+  if (keepPos) { cpuPos.resize(V.size()); for (size_t k = 0; k < V.size(); ++k) cpuPos[k] = V[k].pos; cpuIdx = I; }
   for (auto& pj : j["parts"]) {
     ModelPart p;
     p.name = pj.value("name", ""); p.role = pj.value("role", "body");

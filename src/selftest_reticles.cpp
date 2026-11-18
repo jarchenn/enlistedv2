@@ -14,6 +14,7 @@
 #include <functional>
 #include <set>
 #include <GLFW/glfw3.h>
+#include <stb_image_write.h>
 
 namespace {
 struct Step { std::string name; std::function<bool(App&, float)> fn; };
@@ -51,7 +52,45 @@ const Case kCases[] = {
   {"shotgun_own_hip", "modern_shotgun", 0, true}, {"smg9_own_hip", "modern_smg9", 0, true}, {"ak_reddot_hip", "modern_ak", 1, true},
 };
 
-void build(App&) {
+void build(App& app) {
+  if (const char* dump = std::getenv("NMK_OPTIC_DUMP")) {   // AT7: every gun x optic it takes, its seated mount (weapon space): the offline audit's input
+    json out = json::array();
+    for (auto& dp : app.weaponDefs) {
+      const WeaponDef& d = *dp; json g = {{"id", d.id}, {"file", d.file.string()}, {"rail", {d.rail.x, d.rail.y, d.rail.z}}, {"hasRail", d.hasRail}, {"railScale", d.railScale}, {"hasScope", d.hasScope}, {"useModel", d.useModel()}, {"muzzle", {d.muzzle.x, d.muzzle.y, d.muzzle.z}}, {"optics", json::object()}};
+      for (int k = 1; k <= 7; ++k) {
+        const ItemDef* it = lootItem(lootAttachItemId(0, k)); if (!it || !lootAttachFits(d, *it)) continue;
+        WeaponState ws; ws.att[0] = k; vec3 c; float r; mat4 M;
+        if (!brSightWindow(d, ws, c, r, &M)) continue;
+        g["optics"][std::to_string(k)] = {{"base", {M[3].x, M[3].y, M[3].z}}, {"scale", glm::length(vec3(M[0]))}, {"audit", brOpticAudit(d, k)}};
+      }
+      out.push_back(g);
+    }
+    std::ofstream(dump) << out.dump(1); logf("[ret] optic dump: %s", dump);
+  }
+  if (const char* pv = std::getenv("NMK_OPTIC_PREVIEW")) {   // AT7: the smithing preview's draws (gun, parts, optic), side-on and from the rear quarter: preview_<gun>_<sight>.png
+    push("previews", [l = std::string(pv)](App& a, float t) {
+      if (t < 0.5f) return false;
+      size_t p = 0;
+      while (p < l.size()) {
+        size_t q = l.find(',', p); if (q == std::string::npos) q = l.size(); std::string e = l.substr(p, q - p); p = q + 1;
+        size_t c = e.find(':'); if (c == std::string::npos) continue;
+        int w = a.weaponIndex(e.substr(0, c)), k = std::atoi(e.c_str() + c + 1); if (w < 0) continue;
+        const WeaponDef& d = *a.weaponDefs[w]; WeaponState ws; ws.att[0] = k;
+        for (int view = 0; view < 2; ++view) {
+          std::vector<ModelDraw> md; std::vector<DrawItem> bx;
+          vec3 lo0 = d.useModel() ? d.model->bmin : vec3(-0.1f, -0.1f, 0), hi0 = d.useModel() ? d.model->bmax : vec3(0.1f, 0.1f, 1);
+          mat4 W = glm::rotate(mat4(1), glm::radians(view == 0 ? -90.0f : -140.0f), vec3(0, 1, 0)) * glm::translate(mat4(1), -(lo0 + hi0) * 0.5f);
+          if (d.useModel()) for (int r = 0; r < 8; ++r) for (int pk : d.modelParts[r]) md.push_back({d.model.get(), pk, W});
+          brSightDraws(a, d, ws, W, md, bx);
+          float r = std::max(0.2f, glm::length(hi0 - lo0) * 0.5f); vec3 eye(0, r * 0.15f, r * 2.2f); const int PW = 960, PH = 400;
+          std::vector<uint8_t> px;
+          if (!a.R.renderModelSheet(md, bx, glm::lookAt(eye, vec3(0), vec3(0, 1, 0)), glm::perspective(glm::radians(24.0f), (float)PW / PH, 0.02f, r * 10), eye, PW, PH, px)) continue;
+          fs::path f = outDir() / ("preview_" + d.id + "_" + std::to_string(k) + (view ? "_q" : "") + ".png");
+          stbi_write_png(f.string().c_str(), PW, PH, 4, px.data(), PW * 4);
+        }
+      }
+      return true; });
+  }
   push("start", [](App& a, float t) {
     if (t == 0) {
       if (a.mode == Mode::Explore) a.exitExplore();

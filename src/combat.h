@@ -81,6 +81,7 @@ struct WeaponDef {
                    bool hasLed = false; vec3 led{0}; } pack;   // MG10: the model's LED (weapon space) blinks while the fuse runs
   bool equipment() const { return grenade.on || melee.on || pack.on; }
   bool useModel() const { return model && model->vao; }
+  vec3 rail{0}; bool hasRail = false; float railScale = 1;   // AT7: the optic rail (JSON "rail" / "railScale", local overrides merged)
   int wclass = WC_RIFLE;                // handling.json "classes" (else derived from action / feed / scope)
   std::string category;                 // UI11: JSON "category" (pistol / smg / rifle / sniper / special) overrides the rack filter class derived from the data
   float adsSpeed = 1;                   // JSON ads.speed: ADS blend rate x this
