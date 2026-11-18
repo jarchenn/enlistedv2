@@ -34,20 +34,20 @@ void holdBot() {
 std::set<std::string>& skipped() { static std::set<std::string> s; return s; }
 struct Case { const char* tag; const char* gun; int att; bool hip = false; };
 const Case kCases[] = {
-  {"m4_own", "modern_m4", 0}, {"ak12_own", "modern_ak12", 0}, {"glauncher_own", "modern_glauncher", 0}, {"mp7_own", "modern_mp7", 0},
+  {"ak12_own", "modern_ak12", 0}, {"glauncher_own", "modern_glauncher", 0}, {"mp7_own", "modern_mp7", 0},
   {"shotgun_own", "modern_shotgun", 0}, {"smg9_own", "modern_smg9", 0},
   {"ak_reddot", "modern_ak", 1}, {"ak_holo", "modern_ak", 5}, {"ak_acog", "modern_ak", 2}, {"ak_4x", "modern_ak", 3}, {"ak_10x", "modern_ak", 4},
   {"ak_thermal", "modern_ak", 6},
   {"sniper_bolt_mil", "modern_sniper_bolt", 0}, {"sniper_50_bmg", "modern_sniper_50", 0}, {"sniper_semi_acog", "modern_sniper_semi", 0},
   {"ar15_plus", "modern_ar15", 0}, {"kar98k_zf39", "kar98k_zf39", 0}, {"m1c", "m1c_garand", 0}, {"blaster_rifle", "blaster_rifle", 0},
   // AT2 sheet: each fitted optic on four guns (animated rigs and static models), and every red dot from the hip
-  {"m4_reddot", "modern_m4", 1}, {"scar_reddot", "modern_scar", 1}, {"kar98k_reddot", "kar98k", 1},
-  {"m4_holo", "modern_m4", 5}, {"scar_holo", "modern_scar", 5}, {"kar98k_holo", "kar98k", 5},
-  {"m4_acog", "modern_m4", 2}, {"scar_acog", "modern_scar", 2}, {"kar98k_acog", "kar98k", 2},
-  {"m4_4x", "modern_m4", 3}, {"scar_4x", "modern_scar", 3}, {"kar98k_4x", "kar98k", 3},
-  {"m4_thermal", "modern_m4", 6}, {"scar_thermal", "modern_scar", 6}, {"kar98k_thermal", "kar98k", 6},
+  {"m4_reddot", "modern_m4_irons", 1}, {"scar_reddot", "modern_scar", 1}, {"kar98k_reddot", "kar98k", 1},
+  {"m4_holo", "modern_m4_irons", 5}, {"scar_holo", "modern_scar", 5}, {"kar98k_holo", "kar98k", 5},
+  {"m4_acog", "modern_m4_irons", 2}, {"scar_acog", "modern_scar", 2}, {"kar98k_acog", "kar98k", 2},
+  {"m4_4x", "modern_m4_irons", 3}, {"scar_4x", "modern_scar", 3}, {"kar98k_4x", "kar98k", 3},
+  {"m4_thermal", "modern_m4_irons", 6}, {"scar_thermal", "modern_scar", 6}, {"kar98k_thermal", "kar98k", 6},
   {"sniper_bolt_10x", "modern_sniper_bolt", 4}, {"sniper_semi_10x", "modern_sniper_semi", 4}, {"sniper_50_10x", "modern_sniper_50", 4}, {"vsk_10x", "modern_vsk", 4},
-  {"m4_own_hip", "modern_m4", 0, true}, {"ak12_own_hip", "modern_ak12", 0, true}, {"glauncher_own_hip", "modern_glauncher", 0, true}, {"mp7_own_hip", "modern_mp7", 0, true},
+  {"ak12_own_hip", "modern_ak12", 0, true}, {"glauncher_own_hip", "modern_glauncher", 0, true}, {"mp7_own_hip", "modern_mp7", 0, true},
   {"shotgun_own_hip", "modern_shotgun", 0, true}, {"smg9_own_hip", "modern_smg9", 0, true}, {"ak_reddot_hip", "modern_ak", 1, true},
 };
 
@@ -91,7 +91,7 @@ void build(App&) {
   for (int pass = 0; pass < 2; ++pass) {
   if (pass == 1) push("battle royale", [](App&, float) { gGame->match.rules.mode = GameMode::BattleRoyale; lootBegin(*gGame); return true; });   // BR2
   // AT2: a fitted ACOG / 4x / 10x / thermal gives the scoped view at its zoom, outside Battle Royale (SM3's free fits) and in it
-  for (const char* g : {"modern_ak", "modern_m4", "modern_scar", "modern_fal", "modern_sniper_bolt"}) for (int k : {2, 3, 4, 6}) {
+  for (const char* g : {"modern_ak", "modern_m4_irons", "modern_scar", "modern_fal", "modern_sniper_bolt"}) for (int k : {2, 3, 4, 6}) {
     std::string gun = g; int sight = k, ps = pass;
     push("scope " + gun, [gun, sight, ps](App& a, float t) {
       int w = a.weaponIndex(gun); const ItemDef* it = lootItem(lootAttachItemId(0, sight));
@@ -204,7 +204,7 @@ bool fzAim(int variant, int sight, float t) {   // the ADS key over the first 2 
   return false;
 }
 void buildFreeze(App&) {
-  const char* guns[10] = {"modern_ak", "modern_m4", "modern_fal", "modern_lmg", "modern_smg9", "modern_shotgun", "modern_sniper_bolt", "modern_scar", "kar98k", "modern_vsk"};
+  const char* guns[10] = {"modern_ak", "modern_m4_irons", "modern_fal", "modern_lmg", "modern_smg9", "modern_shotgun", "modern_sniper_bolt", "modern_scar", "kar98k", "modern_vsk"};
   push("start", [](App& a, float t) {
     if (t == 0) {
       if (a.mode == Mode::Explore) a.exitExplore();
@@ -256,7 +256,7 @@ void buildFreeze(App&) {
     float pt = t - fzPhaseT;
     if (fzPhase == 1) {   // settle (variant 1: aiming before the fit)
       if (pt < 0.6f) return false;
-      if (r.variant == 2) { int other = a.weaponIndex(r.gun == "modern_ak" ? "modern_m4" : "modern_ak"); if (k) { std::string why; lootFit(a, *k, w, lootAttachItemId(0, r.sight), &why); } a.selectWeapon(other); }
+      if (r.variant == 2) { int other = a.weaponIndex(r.gun == "modern_ak" ? "modern_m4_irons" : "modern_ak"); if (k) { std::string why; lootFit(a, *k, w, lootAttachItemId(0, r.sight), &why); } a.selectWeapon(other); }
       else if (k) { std::string why; T->check(lootFit(a, *k, w, lootAttachItemId(0, r.sight), &why) || true, ""); if (!why.empty()) logf("[fz] fit %s sight %d: %s", r.gun.c_str(), r.sight, why.c_str()); }
       fzPhase = 2; fzPhaseT = t; return false;
     }
@@ -294,7 +294,7 @@ void buildFreeze(App&) {
     if (fzPhase == 7) {   // the reload ends, then a switch
       if (s.reload > 0 && pt < 8.0f) return false;
       if (s.reload > 0) { fail("reload never ends"); return false; }
-      a.selectWeapon(a.weaponIndex(r.gun == "modern_ak" ? "modern_m4" : "modern_ak"));
+      a.selectWeapon(a.weaponIndex(r.gun == "modern_ak" ? "modern_m4_irons" : "modern_ak"));
       fzPhase = 8; fzPhaseT = t; return false;
     }
     if (fzPhase == 8) { if (a.activeWeapon == w && pt > 0.5f) { fail("does not switch away"); return false; } if (pt < 0.2f) return false; }

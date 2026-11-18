@@ -30,7 +30,7 @@ struct TreeDef;
 struct FoliageDraw { const TreeDef* tree; mat4 m; uint8_t* lod = nullptr; uint8_t cur = 2; uint64_t id = 0; bool batched = false; };   // id: a standing tree copy (P2 folbatch); batched: drawn from its cell this frame
 // thinPx > 0: keep sub-pixel geometry (barbed wire) visible - vertices move out along their normals by thinPx pixels'
 // worth of angle at their distance (capped at 3 cm), so a 2 mm strand stays about a pixel wide at range
-struct ModelDraw { const GpuModel* model; int part; mat4 m; vec4 tint{1, 1, 1, 1}; float thinPx = 0; int glass = 0; float albFloor = 0; };   // glass: 1 dusty, 2 crazed (a wreck), 3 clean; albFloor: least albedo (a car-pack cabin seen from its seat)
+struct ModelDraw { const GpuModel* model; int part; mat4 m; vec4 tint{1, 1, 1, 1}; float thinPx = 0; int glass = 0; float albFloor = 0; bool optic = false; };   // AT6 optic: a fitted sight's own part (never cut by the window clip)   // glass: 1 dusty, 2 crazed (a wreck), 3 clean; albFloor: least albedo (a car-pack cabin seen from its seat)
 struct OverlayVert { vec3 p; vec4 c; };
 struct NatPatchDraw { GLuint vbo = 0; int count = 0; vec3 mn{0}, mx{0}; float reach = 1; };   // plant patch (nature.cpp); reach x the grass radius
 
@@ -56,6 +56,7 @@ struct RenderView {
   // 1 German post with side bars (ZF39), 2 crosshair with a lower post (M1C), 3 TZF gunner sight (PaK 40)
   float eyepieceR = 0; int reticle = 0;
   float reticleSize = 1, reticleBright = 1;   // AT2: Settings > Gameplay
+  vec3 vmClip{0};   // AT6: aimed through a fitted optic: its window (screen uv, top-left origin; radius in frame heights): the gun's own parts inside it are not drawn
   bool thermal = false;   // TH1: the eyepiece shows the thermal image (heatDraws / heatSpots; no smoke)
   bool rectVignette = false;   // TK3: the Abrams' full-screen gunner view: a soft rounded-rectangle vignette (tone pass)
   bool underwater = false;             // camera below the water surface (swim.cpp): dense fog, tint, vignette

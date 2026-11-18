@@ -93,11 +93,7 @@
    "ai": [
     [
      "modern_m4_irons",
-     4
-    ],
-    [
-     "modern_m4",
-     3
+     7
     ],
     [
      "modern_scar",
@@ -134,11 +130,15 @@
     [
      "modern_smg9",
      1
+    ],
+    [
+     "modern_smg45",
+     1
     ]
    ],
    "lmg": "modern_lmg",
    "lmgEvery": 5,
-   "sidearm": "modern_pistol3",
+   "sidearm": "modern_makarov",
    "launcher": "modern_rpg7",
    "launcherEvery": 4
   },
@@ -177,7 +177,7 @@
      1
     ],
     [
-     "modern_saiga",
+     "modern_shotgun",
      1
     ],
     [
@@ -199,7 +199,7 @@
    ],
    "lmg": "modern_lmg",
    "lmgEvery": 5,
-   "sidearm": "modern_makarov",
+   "sidearm": "modern_pistol3",
    "launcher": "modern_rpg7",
    "launcherEvery": 4
   }

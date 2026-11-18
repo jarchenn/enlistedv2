@@ -57,6 +57,7 @@ bool lootIsPistol(const WeaponDef& d);
 enum GunFilter : int { GF_ALL = 0, GF_PISTOL, GF_SMG, GF_RIFLE, GF_SNIPER, GF_SPECIAL, GF_COUNT };
 int weaponFilterClass(const WeaponDef& d);
 int lootMagSize(const WeaponDef& d, const WeaponState& s);   // the magazine with an extended magazine fitted
+bool lootSuppressedShot(const WeaponDef& d, const WeaponState& s);   // SND15: a fitted suppressor on a rifle / carbine / SMG / LMG / sniper fires "shot_suppressed_rifle"   // the magazine with an extended magazine fitted
 bool lootSightFits(const WeaponDef& d, int sight);
 // the sight in use: the fitted one, else a scoped sniper rifle's own scope, which counts as the ACOG (2)
 int lootSight(const WeaponDef& d, const WeaponState& s);

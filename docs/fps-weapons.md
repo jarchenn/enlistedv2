@@ -898,3 +898,27 @@ Two AI types, selectable per side in the AI rows: **Blaster troopers** (`AiType:
   - Zoom-aimed shots go from the muzzle to the camera ray's hit point, not along a sight line.
   - `"crosshair": "dot"` draws a white dot in a thin outlined +, tighter when aimed.
   - The dev look also writes `mg2_<id>_hip_ui.png` / `_ads_ui.png` with the HUD.
+
+### NG1: user-supplied FPS packs (local-only)
+
+Sources: `E:/nmk/incoming/ng1/<name>/` (credits: [NG1](credits.md#new-guns-ng1)). Same pipeline as MG12 (`modern_guns_config.cjs` + `modern_guns_convert.py`, `--import-weapon-models`, `modern_guns_anim_config.cjs` + `modern_guns_anim.py`); the bakes go to `models/<id>_local/` and the real model / sights / rig to `content/weapons/local/<id>.json`; the committed JSONs carry the stats on a stand-in (the XD for the pistols, the SMG-9 for the .45 SMG; the AK keeps its MG1 model).
+
+| Weapon (`id`) | Source, clips | Stats |
+|---|---|---|
+| AK-74M (`modern_ak`, replaces the AK-74's model and rig) | FpsAnims.fbx: AK_Idle / AK_Shot / AK_Reload / AK_Reload_full (60 fps; AK_Draw, Run, Walk not used); its spare magazine kept | the AK-74's (5.45x39, 30, 650 rpm) |
+| Makarov PM (`modern_makarov`, back after WR1) | Arms_Mak.fbx: MK_Idle / MK_Shot / MK_ReloadFast / MK_ReloadFull; its parked suppressor / optic bracket dropped (`dropMats`) | MG12's (9x18, 8 rounds) |
+| .22 tactical pistol (`modern_fn502`, back after WP7) | FPS_Anims.fbx: FN_DefPose (idle), FN_Shot, FN_Reload, FN_ReloadFull | MG12's (.22 LR, 15); its own shot (the 9 mm recording raised to a rimfire crack) |
+| .45 SMG (`modern_smg45`, new) | arms@smg45.fbx, one 235-frame timeline at 30 fps: fire 1-9, reload_empty 9-81, reload 81-130, inspect 130-177, idle 177-216 | .45 ACP, 25 rounds, 600 rpm, 285 m/s, auto / semi |
+| 9 mm service pistol (`modern_pistol4`, new) | arms@beretta.fbx, 265 frames: fire 1-12, reload 12-84, reload_empty 96-177 (from the slide lock), inspect 177-234, idle 234-265 | 9x19, 15 rounds, 400 rpm, 375 m/s |
+
+- **Sights** from each static mesh (front post tip; rear notch shoulders, the .45 SMG's aperture centre), checked in offline sight-picture renders from behind the rear sight (the post tip level with the shoulders).
+- **Hip framing:** the pistols by `hipRear` (no `hipShift`, as the Desert Eagle / Mk 23); the .45 SMG's grip socket at the rifle-class hip point (computed offline); the AK-74M as the FAL.
+- **Not checked in the game** (no game instance for this task): the ADS sight picture on the rigs and the hip framing; the user tests them.
+- `pistol.zip` is the Springfield XD source again (identical): nothing new; its missing hands were XD1.
+
+### PS1: the pistol red dot (sight value 7)
+
+The only optic a pistol takes, and no other gun takes it (`loot.cpp` `lootSightFits` case 7; the red dot, holographic, ACOG, 4x, 10x and thermal stay refused on pistols). Item `br_sight_pistol` (`content/settings/loot.json`, weight 10, rarity 4, like the red dot); the smithing table, the inventory and Battle Royale loot list it like the other optics.
+- **Model:** the user's `vortex_viper_red_dot.glb`, baked by `tools/bake_br_assets.py` (`br_sight_pistol`: no mount adapter, 46 mm, 2 434 triangles, 512 px textures, the lens removed: no glass in the view); licence unknown: local-only (`content/assets/models/br_sight_pistol/`). Without it the committed asset shows a part-built frame with an open window (`tools/br_standins.py`).
+- **Mount:** each pistol's `rail` (its base on the slide top, 34 mm ahead of the rear sight; measured on the triangles of the model the JSON uses, so the local overrides carry their own). In first person it rides the slide: `animated.slideJoint` (the XD `Up`, the .22 `gun_bolt`, the Glock 43, Makarov, .22 tactical `Slide`, the Glock 34, Desert Eagle, 9 mm service pistol `gun_slide`, the Mk 23 `side_j`; the revolver and the static WW2 pistols: the frame).
+- **Picture:** the 2 MOA HUD dot (AT2) on the shot line at the zero, clipped to this sight's 7 mm window; AT6 keeps the pistol's own sights out of the window. Eye relief 0.35 m (the pistol at arm's length).

@@ -64,7 +64,7 @@ void brWornDraws(App& app, Game& G, const Soldier& s, const mat4& world, std::ve
 bool brHidePart(const Soldier& s, const std::string& partName) { return s.helmetLvl > 0 && partName.find("Hats") != std::string::npos; }
 
 // ---------------------------------------------------------------- optics
-static const char* sightId(int k) { static const char* ids[7] = {"", "br_sight_reddot", "br_sight_acog", "br_sight_4x", "br_sight_10x", "br_sight_holo", "br_sight_thermal"}; return ids[std::clamp(k, 0, 6)]; }   // AT1: 5 the holographic sight; TH1: 6 the thermal scope
+static const char* sightId(int k) { static const char* ids[8] = {"", "br_sight_reddot", "br_sight_acog", "br_sight_4x", "br_sight_10x", "br_sight_holo", "br_sight_thermal", "br_sight_pistol"}; return ids[std::clamp(k, 0, 7)]; }   // AT1: 5 the holographic sight; TH1: 6 the thermal scope
 // AT1: an optic's sight block: the local bake's own ("modelSight") when its model is loaded, else the committed stand-in's
 static const json& sightOf(const AssetDef& a) { return a.model && a.raw.contains("modelSight") ? a.raw["modelSight"] : a.raw["sight"]; }
 
@@ -98,19 +98,21 @@ static bool sightMount(const WeaponDef& d, int k, const AssetDef*& a, mat4& M, v
 
 void brSightDraws(App& app, const WeaponDef& d, const WeaponState& ws, const mat4& W, std::vector<ModelDraw>& md, std::vector<DrawItem>& boxes) {
   (void)app; const AssetDef* a; mat4 M; vec3 e;
-  if (!sightMount(d, ws.att[0], a, M, e)) return;
-  addAsset(a, W * M, md, boxes);
+  if (!sightMount(d, fittedSight(d, ws), a, M, e)) return;   // AT5: a gun's default optic too
+  size_t n0 = md.size(); addAsset(a, W * M, md, boxes);
+  for (size_t i = n0; i < md.size(); ++i) md[i].optic = true;   // AT6: the window clip leaves the optic itself whole
 }
 
 // AT2: the fitted red dot / holographic sight's window (weapon space): its centre on the eye line, its radius; the mount
 // (asset -> weapon space) and the asset's bounds for the scale check
 bool brSightWindow(const WeaponDef& d, const WeaponState& ws, vec3& centre, float& radius, mat4* mount, vec3* bmin, vec3* bmax) {
   const AssetDef* a; mat4 M; vec3 e;
-  if (!sightMount(d, ws.att[0], a, M, e)) return false;
+  if (!sightMount(d, fittedSight(d, ws), a, M, e)) return false;
   const json& s = sightOf(*a);
   vec3 eye = jvec3(s["eye"], vec3(0, 0.035f, -0.04f)); float L = s.value("length", 0.085f);
   centre = vec3(M * vec4(eye.x, eye.y, eye.z + 0.6f * L, 1));
-  radius = (ws.att[0] == 5 ? 0.013f : 0.010f) * glm::length(vec3(M[0]));   // the open window around the eye line
+  radius = (fittedSight(d, ws) == 5 ? 0.013f : fittedSight(d, ws) == 7 ? 0.007f : 0.010f)   // PS1: the pistol dot's small window
+           * glm::length(vec3(M[0]));   // the open window around the eye line
   if (mount) *mount = M;
   if (bmin && bmax) { if (a->model) { *bmin = a->model->bmin; *bmax = a->model->bmax; } else { *bmin = a->opaque.bmin; *bmax = a->opaque.bmax; } }
   return true;
@@ -118,9 +120,9 @@ bool brSightWindow(const WeaponDef& d, const WeaponState& ws, vec3& centre, floa
 
 bool brSightLine(const WeaponDef& d, const WeaponState& ws, vec3& R, vec3& F, float& relief) {
   const AssetDef* a; mat4 M; vec3 e;
-  if (!sightMount(d, ws.att[0], a, M, e)) return false;
+  if (!sightMount(d, fittedSight(d, ws), a, M, e)) return false;
   R = e; F = e + vec3(0, 0, 0.25f);
-  relief = ws.att[0] == 1 || ws.att[0] == 5 ? 0.16f : 0.09f;   // red dot / holographic: held further back; magnified optics: at the eyepiece
+  relief = fittedSight(d, ws) == 7 ? 0.35f : fittedSight(d, ws) == 1 || fittedSight(d, ws) == 5 ? 0.16f : 0.09f;   // PS1: a pistol dot at arm's length   // red dot / holographic: held further back; magnified optics: at the eyepiece
   return true;
 }
 

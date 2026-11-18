@@ -72,7 +72,7 @@ void SelfTest::rulesUpdate(App& app, float dt) {
       {"mg42", {3, 3, 3, 4}, {4, 4}, 1, false}, {"fg42", {3, 3, 3, 4}, {4, 4}, 1, false}, {"m1919a6", {3, 3, 3, 4}, {4, 4}, 1, true},
       {"m2hb_carry", {1, 1, 1, 2}, {2, 2}, 1, false}, {"m1911a1", {3, 5, 5, 5}, {4, 7}, 2, false}, {"luger", {3, 5, 5, 5}, {4, 7}, 2, false},
       {"walther_p38", {3, 5, 5, 5}, {4, 7}, 2, true}, {"modern_scar", {3, 3, 3, 3}, {4, 4}, 1, false}, {"modern_ak", {3, 3, 3, 4}, {4, 4}, 1, false},
-      {"modern_m4", {4, 4, 4, 5}, {5, 5}, 1, false}, {"modern_m4_irons", {4, 4, 4, 5}, {5, 5}, 1, false}, {"modern_m16", {4, 4, 4, 4}, {5, 5}, 1, false},
+      {"modern_m4_irons", {4, 4, 4, 5}, {5, 5}, 1, false}, {"modern_m16", {4, 4, 4, 4}, {5, 5}, 1, false},
       {"modern_lmg", {4, 4, 4, 4}, {5, 5}, 1, false}, {"modern_shotgun", {4, 17, 17, 17}, {5, 23}, 1, false}, {"modern_sniper_bolt", {1, 1, 1, 1}, {2, 2}, 1, false},
       {"modern_sniper_semi", {2, 2, 2, 2}, {2, 2}, 1, false}, {"modern_pistol", {3, 5, 5, 5}, {4, 7}, 2, false}, {"modern_ar15", {4, 4, 4, 5}, {5, 5}, 1, false},
       {"modern_mp7", {4, 4, 6, 6}, {5, 8}, 2, false}, {"modern_scorpion", {4, 5, 7, 7}, {6, 9}, 2, false}, {"modern_uzi", {4, 5, 7, 7}, {5, 9}, 2, false},

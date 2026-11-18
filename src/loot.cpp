@@ -125,11 +125,14 @@ int weaponFilterClass(const WeaponDef& d) {
   if (lootIsPistol(d)) return GF_PISTOL;
   return isSmg(d) ? GF_SMG : GF_RIFLE;
 }
+bool lootSuppressedShot(const WeaponDef& d, const WeaponState& s) {
+  return s.att[ATT_MUZZLE] == 1 && !d.suppressed && !d.blaster && d.action != "launcher" && !lootIsPistol(d) && !isShotgun(d);   // integrally suppressed guns keep their own
+}
 int lootMagSize(const WeaponDef& d, const WeaponState& s) {
   if (!s.att[ATT_MAG]) return d.cap;
   return (int)std::lround(d.cap * (lootIsPistol(d) || isSmg(d) ? 2.0f : 1.5f));
 }
-int lootSight(const WeaponDef& d, const WeaponState& s) { return lootBuiltInAcog(d, s) ? 2 : s.att[ATT_SIGHT]; }
+int lootSight(const WeaponDef& d, const WeaponState& s) { return lootBuiltInAcog(d, s) ? 2 : fittedSight(d, s); }   // AT5: a default optic counts
 bool lootSightFits(const WeaponDef& d, int sight) {
   bool pistol = lootIsPistol(d), sniper = d.wclass == WC_SNIPER, shotgun = isShotgun(d);
   switch (sight) {
@@ -138,6 +141,7 @@ bool lootSightFits(const WeaponDef& d, int sight) {
     case 3: return !pistol && !shotgun;              // 4x
     case 4: return sniper;                           // 10x: snipers only
     case 6: return !pistol && !shotgun && !isSmg(d) && d.wclass != WC_LMG;   // TH1 thermal: rifles (assault, battle, semi-auto, bolt) and snipers
+    case 7: return pistol;                            // PS1 pistol red dot: pistols only, and the only sight a pistol takes
     default: return false;
   }
 }
@@ -152,16 +156,16 @@ bool lootAttachFits(const WeaponDef& d, const ItemDef& it) {
   }
 }
 
-static const char* kAttIds[4][7] = {
-  {"", "br_sight_reddot", "br_sight_acog", "br_sight_4x", "br_sight_10x", "br_sight_holo", "br_sight_thermal"},   // TH1: 6 the thermal scope
-  {"", "br_suppressor", "br_muzzle_brake", "", "", "", ""},
-  {"", "br_mag_ext", "", "", "", "", ""},
-  {"", "br_recoil_pad", "", "", "", "", ""}};
-const char* lootAttachItemId(int slot, int value) { return slot >= 0 && slot < 4 && value >= 0 && value < 7 ? kAttIds[slot][value] : ""; }
+static const char* kAttIds[4][8] = {
+  {"", "br_sight_reddot", "br_sight_acog", "br_sight_4x", "br_sight_10x", "br_sight_holo", "br_sight_thermal", "br_sight_pistol"},   // TH1: 6 the thermal scope; PS1: 7 the pistol red dot
+  {"", "br_suppressor", "br_muzzle_brake", "", "", "", "", ""},
+  {"", "br_mag_ext", "", "", "", "", "", ""},
+  {"", "br_recoil_pad", "", "", "", "", "", ""}};
+const char* lootAttachItemId(int slot, int value) { return slot >= 0 && slot < 4 && value >= 0 && value < 8 ? kAttIds[slot][value] : ""; }
 const char* lootSlotName(int slot) { static const char* n[4] = {"Sight", "Muzzle", "Magazine", "Stock"}; return slot >= 0 && slot < 4 ? n[slot] : "?"; }
 int lootSlotOf(ItemKind k) { return k == ItemKind::Sight ? ATT_SIGHT : k == ItemKind::Muzzle ? ATT_MUZZLE : k == ItemKind::Mag ? ATT_MAG : ATT_STOCK; }
 bool lootGunTakesParts(const WeaponDef& d) {
-  for (int sl = 0; sl < 4; ++sl) for (int v = 1; v < 7; ++v) { const char* id = kAttIds[sl][v]; if (*id) if (const ItemDef* it = lootItem(id)) if (lootAttachFits(d, *it)) return true; }
+  for (int sl = 0; sl < 4; ++sl) for (int v = 1; v < 8; ++v) { const char* id = kAttIds[sl][v]; if (*id) if (const ItemDef* it = lootItem(id)) if (lootAttachFits(d, *it)) return true; }
   return false;
 }
 bool lootFit(App& app, Kit& k, int weapon, const std::string& itemId, std::string* why) {
@@ -174,7 +178,7 @@ bool lootFit(App& app, Kit& k, int weapon, const std::string& itemId, std::strin
   if (!lootAttachFits(d, *it)) return no("does not fit this weapon");
   WeaponState& s = app.wstate[d.id]; int sl = lootSlotOf(it->kind);
   if (s.att[sl] == it->value) return no("already fitted");
-  if (s.att[sl]) { const char* old = kAttIds[sl][std::clamp(s.att[sl], 0, 6)]; if (*old) k.items[old]++; }   // the swapped part into the bag
+  if (s.att[sl]) { const char* old = kAttIds[sl][std::clamp(s.att[sl], 0, 7)]; if (*old) k.items[old]++; }   // the swapped part into the bag
   s.att[sl] = it->value; if (--k.items[itemId] <= 0) k.items.erase(itemId);
   return true;
 }
@@ -183,7 +187,7 @@ bool lootTakeOff(App& app, Kit& k, int weapon, int slot, std::string* why) {
   if (weapon < 0 || weapon >= (int)app.weaponDefs.size() || slot < 0 || slot > 3) return no("no such slot");
   const WeaponDef& d = *app.weaponDefs[weapon]; WeaponState& s = app.wstate[d.id];
   if (!s.att[slot]) return no("nothing fitted");
-  const char* id = kAttIds[slot][std::clamp(s.att[slot], 0, 6)];
+  const char* id = kAttIds[slot][std::clamp(s.att[slot], 0, 7)];
   if (*id) k.items[id]++;
   s.att[slot] = 0;
   return true;
@@ -952,7 +956,7 @@ void lootAttachSheetUi(App& app, bool zoom) {
       const WeaponDef& d = *app.weaponDefs[w];
       if (d.action == "launcher") continue;   // no attachments fit (lootAttachFits)
       WeaponState ws;
-      for (int k : {2, 1, 3, 4}) if (!d.hasScope && lootSightFits(d, k)) { ws.att[ATT_SIGHT] = k; break; }
+      for (int k : {2, 1, 3, 4, 7}) if (!d.hasScope && lootSightFits(d, k)) { ws.att[ATT_SIGHT] = k; break; }   // PS1: a pistol shows its red dot
       auto fits = [&](const char* id) { const ItemDef* it = lootItem(id); return it && lootAttachFits(d, *it); };   // what play allows
       if (fits("br_muzzle_brake")) ws.att[ATT_MUZZLE] = 2;
       if (fits("br_mag_ext")) ws.att[ATT_MAG] = 1;

@@ -31,6 +31,7 @@ struct WeaponDef {
   bool casings = true;   // MG12: false = no case ejected per shot (revolver, break-action shotgun)
   vec3 holdOffset{0}; float holdWeld = 1; int holdKind = -1;   // SW2 JSON "hold": third-person hold: offset (chest frame m: x left, y up, z forward) of the shouldered / low-ready weapon, cheek-weld share, kind 0 pistol / 1 rifle / 2 launcher (-1: by the grip)
   bool dotCrosshair = false;   // SW2 JSON "crosshair": "dot": a small white dot in a thin + (hip and zoom aim)
+  int defaultSight = 0;         // AT5 JSON "defaultSight": the optic it carries with nothing fitted (5: the SMG-9's holographic sight); a fitted one replaces it
   int blaster = 0;       // SW1: a blaster: every shot a glowing bolt, tracer kind 3 blue / 4 red ("blaster": "blue" | "red"), no drop, its colour on the flash
   int pellets = 1; float spreadDeg = 0;  // MG1: a shot fires `pellets` rounds, the extra ones inside a cone of half-angle spreadDeg (shotgun)
   float scopeMag = 1, scopeRelief = 0.07f;   // scope.relief: eye to the ocular lens in the scoped pose (m)
@@ -117,6 +118,8 @@ struct WeaponState {
   uint32_t seed = 1;
   int reserveRounds() const;
 };
+// AT5: the sight in use: the fitted one, else the gun's own default optic (0: iron sights / its built-in sight)
+inline int fittedSight(const WeaponDef& d, const WeaponState& s) { return s.att[0] ? s.att[0] : d.defaultSight; }
 
 // ---------------------------------------------------------------- projectiles & effects (pooled)
 enum ProjKind : int { PROJ_BULLET = 0, PROJ_HE = 1, PROJ_ROCKET = 2 };

@@ -103,6 +103,7 @@ void App::buildWeaponMeshes() {
     d->caliber = j.value("caliber", ""); d->note = j.value("note", "");
     d->cap = j.value("cap", 1); d->loaded = j.value("loaded", 1); d->reserve = j.value("reserve", 0); d->containerSize = j.value("containerSize", 1);
     d->tracerEvery = j.value("tracerEvery", 0);
+    d->defaultSight = std::clamp(j.value("defaultSight", 0), 0, 6);   // AT5
     d->sway = j.value("sway", 1.0f); d->rpm = j.value("rpm", 60.0f); d->velocity = j.value("velocity", 800.0f); d->zero = j.value("zero", 100.0f);
     d->boltTime = j.value("boltTime", 0.0f);
     d->reloadEmpty = j["reload"].value("empty", 2.5f); d->reloadPartial = j["reload"].value("partial", d->reloadEmpty); d->reloadRound = j["reload"].value("round", 0.5f);
@@ -195,7 +196,9 @@ void App::buildWeaponMeshes() {
       }
       d->model = it->second;
       auto roles = [&](const GpuModel& gm, std::vector<int>* parts) {
+        json hn = j["model"].value("hideNames", json::array());   // AT5: parts by name never drawn (the SMG-9's own sight)
         for (size_t k = 0; k < gm.parts.size(); ++k) {
+          if (std::find(hn.begin(), hn.end(), json(gm.parts[k].name)) != hn.end()) continue;
           const std::string& r = gm.parts[k].role;
           int role = WP_BODY;
           for (int p = 0; p < WP_COUNT; ++p) if (r == kPartNames[p]) role = p;
@@ -281,7 +284,13 @@ void App::hitFlinch(uint32_t seed) {
   lastFlinch = m;
 }
 
-int App::weaponIndex(const std::string& id) const { for (size_t k = 0; k < weaponDefs.size(); ++k) if (weaponDefs[k]->id == id) return (int)k; return -1; }
+int App::weaponIndex(const std::string& id) const {
+  for (size_t k = 0; k < weaponDefs.size(); ++k) if (weaponDefs[k]->id == id) return (int)k;
+  // WR1 (user request): removed guns; old maps, racks, kits and saved loadouts naming them get the nearest kept one
+  static const std::pair<const char*, const char*> kRemoved[] = {{"modern_m4", "modern_m4_irons"}, {"modern_saiga", "modern_shotgun"}};   // NG1: the Makarov is back
+  for (auto& r : kRemoved) if (id == r.first) return weaponIndex(r.second);
+  return -1;
+}
 
 void App::selectWeapon(int idx) {
   if (idx < 0 || idx >= (int)weaponDefs.size()) return;
@@ -667,7 +676,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
         fx.muzzleFlash(fxm, bore, d.flashScale * (adsT > 0.85f ? 0.6f : 1.0f), d.suppressed || s.att[ATT_MUZZLE] == 1, muzzle, d.blaster ? blasterColour(d.blaster) : vec3(-1));
       }
       fx.smoke(fxm, aimDir * 2.0f + vec3(0, 0.3f, 0), 0.05f, 0.7f + 0.5f * fx.rnd(), vec4(0.6f, 0.58f, 0.55f, 0.16f), 0.6f, 0.2f); fx.parts.back().fade = 1.6f;   // thin, short-lived, eroded wisp
-      audio.play("shot_" + d.id, muzzle, 1.0f);
+      audio.play(lootSuppressedShot(d, s) && audio.hasEvent("shot_suppressed_rifle") ? std::string("shot_suppressed_rifle") : "shot_" + d.id, muzzle, 1.0f);   // SND15
       if (d.pellets > 1 && d.feed == "single") audio.play("shotgun_pump", eyePos(), 0.8f);   // MG12: tube-fed pumps only (not the break-action sawn-off)   // the pump cycling the next shell (the recording starts 0.3 s in)
       shotCasing(d, ch.pos, -1);   // SND4
       // recoil per shot = profile x stance (handling.json: crouched 0.85, prone 0.6) x 0.85 in ADS. Mounted keeps the

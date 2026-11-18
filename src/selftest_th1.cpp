@@ -29,7 +29,7 @@ bool th1Capture(App& app, float dt) {
   if (!started) {
     started = true;
     {   // the fitting rule
-      const char* fits[] = {"m1_garand", "kar98k", "modern_m4", "modern_sniper_bolt"}; const char* nofit[] = {"m1911a1", "mp40", "modern_shotgun", "mg42"};
+      const char* fits[] = {"m1_garand", "kar98k", "modern_m4_irons", "modern_sniper_bolt"}; const char* nofit[] = {"m1911a1", "mp40", "modern_shotgun", "mg42"};
       const ItemDef* th = lootItem("br_sight_thermal");
       T->check(th && th->value == 6, "loot.json: br_sight_thermal (sight value 6, rarity 0.5, military)");
       std::string yes, no;

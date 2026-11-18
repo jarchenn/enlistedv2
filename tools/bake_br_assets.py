@@ -470,6 +470,24 @@ def bake_sights():
         bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.material_index in li], context='FACES'); bm.to_mesh(o.data); bm.free()
         export(o, 'br_sight_reddot', 512)
         write_asset('br_sight_reddot', 'Red dot sight', 'sight', gl_size(o), sight_block(o, eye_z=ez))
+    if want('br_sight_pistol'):   # PS1: a pistol red dot (the user's vortex_viper_red_dot.glb, Sketchfab; licence unknown: local-only):
+        # no mount adapter (it sits on the slide), ~46 mm long; the lens' centre is the eye line, the lens itself goes (no glass)
+        o = item('br_sight_pistol', J('ps1', 'viper', 'vortex_viper_red_dot.glb'), drop=('adapter',), tris_max=2500)
+        long_to_y(o); place_ground(o); size_to(o, 1, 0.046); place_ground(o)
+        li = [i for i, s in enumerate(o.material_slots) if s.material and s.material.name.startswith('glass')]
+        lz = [o.data.vertices[v].co.z for p in o.data.polygons if p.material_index in li for v in p.vertices]
+        ly = [o.data.vertices[v].co.y for p in o.data.polygons if p.material_index in li for v in p.vertices]
+        lo_, hi_ = bbox([o])
+        if ly and (sum(ly) / len(ly)) > (lo_.y + hi_.y) / 2: xform(o, Matrix.Rotation(math.pi, 4, 'Z')); lz = None   # the lens (objective) toward Blender -y (glTF +z)
+        if lz is None:
+            lz = [o.data.vertices[v].co.z for p in o.data.polygons if p.material_index in li for v in p.vertices]
+        ez = (min(lz) + max(lz)) / 2
+        import bmesh
+        bm = bmesh.new(); bm.from_mesh(o.data)
+        bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.material_index in li], context='FACES'); bm.to_mesh(o.data); bm.free()
+        export(o, 'br_sight_pistol', 512)
+        write_asset('br_sight_pistol', 'Pistol red dot', 'sight', gl_size(o), sight_block(o, eye_z=ez))
+        print('pistol dot: eye z', round(ez, 4), 'size', [round(v, 4) for v in gl_size(o)])
     if want('br_sight_holo'):   # AT1: a compact hooded holographic sight (source: <br_assets>/at1, an FBX + its texture sets; licence unknown: local-only)
         tx = J('at1', 'textures')
         def m(mo):

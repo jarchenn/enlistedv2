@@ -826,7 +826,7 @@ bool Game::soldierFire(Soldier& s, vec3 dir) {
   app.fireRounds(d, start, dd, tracer, (uint32_t)s.slot * 131u + (uint32_t)w.shotIdx * 7919u, s.slot);   // MG1: a shotgun's pellets
   app.fx.muzzleFlash(muzzle + dd * 0.02f, dd, d.flashScale * 1.2f, d.suppressed, muzzle, d.blaster ? blasterColour(d.blaster) : vec3(-1));   // WP4: the same flash and light as the player's
   app.fx.smoke(muzzle, dd * 2.0f + vec3(0, 0.3f, 0), 0.05f, 1.2f, vec4(0.6f, 0.58f, 0.55f, 0.35f), 0.6f, 0.2f);
-  app.audio.play("shot_" + d.id, muzzle, 1.0f);
+  app.audio.play(lootSuppressedShot(d, w) && app.audio.hasEvent("shot_suppressed_rifle") ? std::string("shot_suppressed_rifle") : "shot_" + d.id, muzzle, 1.0f);   // SND15
   if (!s.localPlayer) app.shotCasing(d, s.feet, s.slot);   // SND4
   s.recoil = d.action == "launcher" ? 3.0f : 1.0f; s.lastShot = t;   // RC2: a launcher rocks the shooter's arms and weapon back (pose.cpp)
   hearSound(muzzle, (int)s.role, archetypes["perception"].value("hearShot_m", 70.0f), s.slot, 0);

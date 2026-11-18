@@ -242,6 +242,12 @@ for name, ratio in cfg.get("decimate", {}).items():
     md = ob.modifiers.new("mg2_dec", "DECIMATE"); md.ratio = ratio
     while ob.modifiers[0] != md: bpy.ops.object.modifier_move_up(modifier=md.name)
     n0 = len(ob.data.polygons); bpy.ops.object.modifier_apply(modifier=md.name); log.setdefault("decimated", {})[name] = [n0, len(ob.data.polygons)]
+# ---------------------------------------------------------------- NG1: faces of these materials left out of a kept mesh ("dropMats": {mesh: [material]})
+for _mn, _ml in cfg.get("dropMats", {}).items():
+    import bmesh
+    _o = bpy.data.objects[_mn]; _o.data = _o.data.copy(); _bm = bmesh.new(); _bm.from_mesh(_o.data)
+    _dr = [f for f in _bm.faces if f.material_index < len(_o.data.materials) and _o.data.materials[f.material_index] and _o.data.materials[f.material_index].name.split(".")[0] in _ml]
+    bmesh.ops.delete(_bm, geom=_dr, context="FACES_ONLY"); _bm.to_mesh(_o.data); _bm.free(); log.setdefault("droppedFaces", {})[_mn] = len(_dr)
 # ---------------------------------------------------------------- drop everything else, move the rig
 for ob in [arm] + keep:   # MG2: a parent about to go (the Unreal sets' armature under an empty) must not move the rig
     if ob.parent is not None and ob.parent != arm and ob.parent not in keep:
@@ -357,7 +363,10 @@ ad.action = None
 # ---------------------------------------------------------------- export
 for ob in bpy.context.view_layer.objects: ob.select_set(False)
 arm.select_set(True); rootObj.select_set(True)
-for ob in keep: ob.select_set(True)
+for ob in keep:   # XD1: a source may lock its meshes against selection (hide_select): select_set then does nothing and the
+    ob.hide_select = False; ob.hide_set(False); ob.select_set(True)   # selection-only export drops them (the XD's arms were lost this way)
+missed = [ob.name for ob in keep if not ob.select_get()]
+if missed: raise SystemExit("MG1 kept meshes not selected for export: " + ", ".join(missed))
 bpy.ops.export_scene.gltf(filepath=out, export_format="GLB", use_selection=True, export_skins=True, export_animations=True,
                           export_animation_mode="NLA_TRACKS", export_force_sampling=True, export_apply=False,
                           export_cameras=False, export_lights=False, export_image_format="AUTO", export_def_bones=cfg.get("defOnly", False))   # MG2: Rigify rigs keep only their deform bones

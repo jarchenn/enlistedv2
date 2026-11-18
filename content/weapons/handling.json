@@ -189,9 +189,6 @@
    "modern_m16": {
     "kind": "assault"
    },
-   "modern_m4": {
-    "kind": "assault"
-   },
    "modern_m4_irons": {
     "kind": "assault"
    },
@@ -312,14 +309,19 @@
    "modern_makarov": {
     "kind": "pistol"
    },
+   "modern_fn502": {
+    "kind": "pistol"
+   },
+   "modern_pistol4": {
+    "kind": "pistol"
+   },
+   "modern_smg45": {
+    "kind": "smg"
+   },
    "modern_mark23": {
     "kind": "pistol",
     "back_m": 0.045,
     "pitch_deg": 1.9
-   },
-   "modern_saiga": {
-    "kind": "shotgun",
-    "suppressed": true
    },
    "modern_vsk": {
     "kind": "assault",

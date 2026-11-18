@@ -24,4 +24,5 @@ void drawSightOverlay(const App& app, ImDrawList* dl, float sx, float sy);
 // where the shot line meets the zero range, pixels per MOA there, kind 1 dot / 2 holographic, ring in dot radii (AK-12)
 struct ReflexReticle { bool ok = false; int kind = 0; vec2 pos{0}; float pxMoa = 0, alpha = 0, ring = 0; vec3 col{1, 0, 0}; };
 ReflexReticle reflexReticle(const App& app);
-void drawReflexReticle(const App& app, ImDrawList* dl, float sx, float sy);   // after TAA, sized in angle (Settings > Gameplay)
+void drawReflexReticle(const App& app, ImDrawList* dl, float sx, float sy);
+vec3 opticClipWindow(const App& app);   // AT6: the fitted optic's window on screen (uv, radius in frame heights; z 0: none)   // after TAA, sized in angle (Settings > Gameplay)
