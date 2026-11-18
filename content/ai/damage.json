@@ -222,6 +222,16 @@
    "class": "assault",
    "pen": 0.775
   },
+  "modern_ak47": {
+   "near": 42,
+   "far": 31,
+   "falloffStart_m": 120,
+   "falloffEnd_m": 250,
+   "rpm": 600,
+   "note": "LIC2: the AK-47 (7.62x39)",
+   "class": "assault",
+   "pen": 0.775
+  },
   "modern_m4_irons": {
    "near": 32,
    "far": 24,
@@ -430,6 +440,7 @@
   "modern_makarov": {"near": 30, "far": 18, "falloffStart_m": 12, "falloffEnd_m": 35, "rpm": 400, "note": "MG12 9x18 mm pistol", "headMax": 75, "class": "pistol"},
   "modern_fn502": {"near": 22, "far": 13, "falloffStart_m": 15, "falloffEnd_m": 40, "rpm": 450, "note": "NG1 .22 LR pistol (as the suppressed .22)", "class": "pistol", "pen": 0.4},
   "modern_pistol4": {"near": 32, "far": 20, "falloffStart_m": 15, "falloffEnd_m": 40, "rpm": 400, "note": "NG1 9 mm service pistol", "headMax": 80, "class": "pistol"},
+  "modern_mp5": {"near": 28, "far": 17, "falloffStart_m": 20, "falloffEnd_m": 55, "rpm": 800, "note": "NG4 MP5 (9 mm)", "class": "smg"},
   "modern_smg45": {"near": 32, "far": 18, "falloffStart_m": 15, "falloffEnd_m": 50, "rpm": 600, "note": "NG1 .45 SMG (DMG1 SMG 26-33)", "headMax": 75, "class": "smg"},
   "blaster_carbine": {
    "near": 31,

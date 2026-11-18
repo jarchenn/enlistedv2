@@ -187,6 +187,9 @@
    "modern_ak": {
     "kind": "assault"
    },
+   "modern_ak47": {
+    "kind": "assault"
+   },
    "modern_ak12": {
     "kind": "assault"
    },
@@ -320,6 +323,9 @@
     "kind": "pistol"
    },
    "modern_smg45": {
+    "kind": "smg"
+   },
+   "modern_mp5": {
     "kind": "smg"
    },
    "modern_mark23": {

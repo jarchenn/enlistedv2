@@ -87,7 +87,7 @@ static const TopMap& topOf(const WeaponDef& d) {
   t.x0 = g.bmin.x - C; t.z0 = g.bmin.z - C; t.nx = (int)((g.bmax.x - g.bmin.x) / C) + 3; t.nz = (int)((g.bmax.z - g.bmin.z) / C) + 3;
   t.y.assign((size_t)t.nx * t.nz, -1e9f);
   for (int r = 0; r < 8; ++r) for (int pk : d.modelParts[r]) {   // the parts the gun draws (hidden ones out: AT5's SMG-9 sight)
-    if (std::find(g.ironParts.begin(), g.ironParts.end(), pk) != g.ironParts.end()) continue;   // its sights fold away under the optic
+    if (std::find(g.ironParts.begin(), g.ironParts.end(), pk) != g.ironParts.end() || std::find(g.opticParts.begin(), g.opticParts.end(), pk) != g.opticParts.end()) continue;   // its sights fold away, its factory optic comes off (AT8)
     const ModelPart& p = g.parts[pk];
     for (uint32_t q = p.first; q + 2 < p.first + p.count; q += 3) {
       vec3 A = g.cpuPos[g.cpuIdx[q]], B = g.cpuPos[g.cpuIdx[q + 1]], Cc = g.cpuPos[g.cpuIdx[q + 2]];
@@ -206,8 +206,8 @@ static bool sightMount(const WeaponDef& d, int k, const AssetDef*& a, mat4& M, v
 void brSightDraws(App& app, const WeaponDef& d, const WeaponState& ws, const mat4& W, std::vector<ModelDraw>& md, std::vector<DrawItem>& boxes) {
   (void)app; const AssetDef* a; mat4 M; vec3 e;
   if (!sightMount(d, fittedSight(d, ws), a, M, e)) return;   // AT5: a gun's default optic too
-  for (const GpuModel* g : {d.model.get(), d.modelLod.get()}) if (g && !g->ironParts.empty())   // AT7: the gun's own sights fold away under an optic (whole pieces)
-    md.erase(std::remove_if(md.begin(), md.end(), [&](const ModelDraw& x) { return x.model == g && std::find(g->ironParts.begin(), g->ironParts.end(), x.part) != g->ironParts.end(); }), md.end());
+  for (const GpuModel* g : {d.model.get(), d.modelLod.get()}) if (g && (!g->ironParts.empty() || (ws.att[0] && !g->opticParts.empty())))   // AT7: the gun's own sights fold away under an optic (whole pieces); AT8: a fitted sight replaces the factory optic
+    md.erase(std::remove_if(md.begin(), md.end(), [&](const ModelDraw& x) { return x.model == g && (std::find(g->ironParts.begin(), g->ironParts.end(), x.part) != g->ironParts.end() || (ws.att[0] && std::find(g->opticParts.begin(), g->opticParts.end(), x.part) != g->opticParts.end())); }), md.end());
   size_t n0 = md.size(); addAsset(a, W * M, md, boxes);
   for (size_t i = n0; i < md.size(); ++i) md[i].optic = true;   // AT6: the window clip leaves the optic itself whole
   static GpuMesh riser;   // AT7: a unit block (standing on y = 0), dark parkerized steel

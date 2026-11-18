@@ -7,7 +7,7 @@
   "reload_end": 0.4,
   "idle": 0.6667
  },
- "fps": 30,
+ "fps": 30.0,
  "points": {
   "rear": [
    0.12103,
@@ -23,6 +23,32 @@
    0.12325,
    -0.13072,
    -0.7801
+  ]
+ },
+ "log": {
+  "warn": [
+   "untextured material 07 - Default on attach_RedDotSight_mesh",
+   "untextured material 08 - Default on attach_RedDotSight_mesh"
+  ],
+  "gunRestBlender": [
+   -0.0239,
+   -0.7743,
+   -0.1553,
+   0.026,
+   0.3754,
+   0.0793
+  ],
+  "staticGunBlender": null,
+  "attached": "RedDotSight_mesh",
+  "idleFrame": 106,
+  "bakedMeshTransforms": [
+   "armmesh",
+   "remington870_base",
+   "remington870_lid",
+   "remington870_pump",
+   "remington870_slug",
+   "remington870_trigger",
+   "attach_RedDotSight_mesh"
   ]
  },
  "tris": 22361

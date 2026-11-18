@@ -6,7 +6,7 @@
   "reload": 2.3167,
   "reload_empty": 2.7167
  },
- "fps": 60,
+ "fps": 60.0,
  "points": {
   "rear": [
    -0.09605,
@@ -22,6 +22,51 @@
    -0.10444,
    -1.57497,
    -0.21594
+  ]
+ },
+ "log": {
+  "warn": [],
+  "gunRestBlender": [
+   -0.0257,
+   -0.4471,
+   -0.2231,
+   0.028,
+   0.3317,
+   0.0995
+  ],
+  "staticGunBlender": null,
+  "idleFrame": 1.0,
+  "lensFaces": [
+   [
+    "mp7a1_Object",
+    104
+   ]
+  ],
+  "blackFaces": [
+   [
+    "mp7a1_Object",
+    191
+   ],
+   [
+    "SK_Mannequin_Arms",
+    0
+   ]
+  ],
+  "widened": [
+   [
+    "mp7a1_Object",
+    212
+   ],
+   [
+    "SK_Mannequin_Arms",
+    0
+   ]
+  ],
+  "opticSplit": {
+   "mp7a1_Object": 7
+  },
+  "bakedMeshTransforms": [
+   "SK_Mannequin_Arms"
   ]
  },
  "tris": 64288
