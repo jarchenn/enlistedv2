@@ -445,7 +445,7 @@ int Audio::loadCustom(const fs::path& dir) {
   // SND4: every rifle its own shot. take: which shot of a recording holding several (Rifle3: four), -1 the first;
   // pitch / tilt / tail: a variant derived from a recording another rifle uses (resampled x pitch; tilt < 0 darker, > 0
   // brighter; tail: seconds kept)
-  struct GunSet { const char* file; bool burst; std::vector<const char*> ids; int take = -1; float pitch = 1, tilt = 0, tail = 2.5f; float body = 0; };   // SND5 body: low-mid weight and density (M249, MG 42)
+  struct GunSet { const char* file; bool burst; std::vector<const char*> ids; int take = -1; float pitch = 1, tilt = 0, tail = 2.5f; float body = 0; float gain = -1; };   // SND5 body: low-mid weight and density (M249, MG 42); SND14 gain >= 0: the set's own level and body (mix.json's per-gun trims are for the older recordings)
   const GunSet guns[] = {
     {"guns/pistol_a.mp3", false, {"luger"}},
     {"guns/pistol_c.mp3", false, {"modern_pistol2"}},
@@ -506,6 +506,27 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/blaster_a.wav", false, {"blaster_carbine"}, -1, 1, 0, 0.6f},
     {"guns/blaster_b.wav", false, {"blaster_rifle"}, -1, 1, 0, 0.8f},
     {"guns/blaster_c.wav", false, {"blaster_robot"}, -1, 1, 0, 0.7f},
+    // SND14 (user request: the user's new recordings, local-only content/audio/custom/snd14/, licence unknown): later sets replace
+    // the ones above for these guns when the file is there; without it the old shot stays. Each set's gain / body bring the
+    // first 200 ms to the level the gun had (measured offline through this pipeline): the new recordings are peakier
+    {"snd14/ar15_shot.wav", false, {"modern_ar15"}, -1, 1.00f, 0, 1.0f, 0.0f, 1.17f},   // AR15Shot: the AR pattern
+    {"snd14/ar15_shot.wav", false, {"modern_m4"}, -1, 1.02f, 0, 1.0f, 1.5f, 1.24f},
+    {"snd14/ar15_shot.wav", false, {"modern_m4_irons"}, -1, 1.04f, 0, 1.0f, 1.5f, 1.18f},
+    {"snd14/ar15_shot.wav", false, {"modern_m16"}, -1, 0.97f, 0, 1.0f, 1.5f, 1.18f},
+    {"snd14/rifle_shot_1.wav", false, {"modern_fal"}, -1, 1.00f, 0, 1.6f, 2.5f, 1.14f},   // rifleshot (the darkest): battle rifles
+    {"snd14/rifle_shot_1.wav", false, {"modern_scar"}, -1, 1.05f, 0, 1.6f, 2.5f, 1.21f},
+    {"snd14/rifle_shot_2.wav", false, {"m1_garand"}, -1, 1.00f, 0, 1.6f, 3.0f, 1.19f},   // rifleshot2: the Garand family and the BAR
+    {"snd14/rifle_shot_2.wav", false, {"m1c_garand"}, -1, 0.97f, 0, 1.6f, 3.0f, 1.19f},
+    {"snd14/rifle_shot_2.wav", false, {"m1918a2_bar"}, -1, 0.94f, 0, 1.6f, 3.0f, 1.18f},
+    {"snd14/rifle_shot_3.wav", false, {"modern_sniper_semi"}, -1, 1.00f, 0, 1.6f, 3.0f, 1.23f},   // rifleshot3 (the brightest): marksman / FG 42
+    {"snd14/rifle_shot_3.wav", false, {"fg42"}, -1, 1.04f, 0, 1.6f, 3.5f, 1.23f},
+    {"snd14/smg_shot_1.wav", false, {"mp40"}, -1, 1.00f, 0, 1.0f, 5.5f, 1.23f},   // SMGShot
+    {"snd14/smg_shot_1.wav", false, {"m3_grease_gun"}, -1, 0.90f, 0, 1.0f, 5.5f, 1.23f},
+    {"snd14/smg_shot_2.wav", false, {"modern_uzi"}, -1, 1.00f, 0, 1.0f, 5.0f, 1.24f},   // SMGShot1 (bright, as its old burst)
+    {"snd14/smg_shot_3.wav", false, {"m1_thompson"}, -1, 0.94f, 0, 1.0f, 2.0f, 1.10f},   // SMGShot2
+    {"snd14/smg_shot_3.wav", false, {"modern_smg9"}, -1, 1.03f, 0, 1.0f, 2.0f, 1.14f},
+    {"snd14/bolt_rifle.wav", false, {"kar98k"}, -1, 1.00f, 0, 1.8f, 4.5f, 1.23f},   // BoltActionRifle: the WW2 bolt guns (the modern snipers keep the M24 / .50)
+    {"snd14/bolt_rifle.wav", false, {"kar98k_zf39"}, -1, 0.96f, 0, 1.8f, 4.0f, 1.23f},
   };
   // SND5: each cut, resample and tone step runs on the mono mix and on both channels alike; levels: quieter recordings up to
   // 0.95 peak (the stereo pair by its louder channel), full-scale ones unchanged; the cut starts where the shot rises out of the quiet before its onset (no fade-in)
@@ -532,7 +553,7 @@ int Audio::loadCustom(const fs::path& dir) {
       return s;
     };
     Buf s = shape(b), sl = shape(gL), sr = shape(gR);
-    float body = g.body; for (const char* id : g.ids) if (mixGuns.contains(id) && mixGuns[id].is_object()) body = std::clamp(mixGuns[id].value("body", body), 0.0f, 6.0f);   // SND7: mix.json override
+    float body = g.body; if (g.gain < 0) for (const char* id : g.ids) if (mixGuns.contains(id) && mixGuns[id].is_object()) body = std::clamp(mixGuns[id].value("body", body), 0.0f, 6.0f);   // SND7: mix.json override
     if (body > 0) for (Buf* c : {&s, &sl, &sr}) {   // SND5: +low-mid (a 450 Hz low-pass mixed in), then saturation (drive g.body): denser at the same peak
       float lp = 0, al = 1 - std::exp(-2 * 3.14159f * 450.0f / SR), pk = 1e-4f; for (float& x : *c) { lp += al * (x - lp); x += 0.8f * lp; pk = std::max(pk, std::fabs(x)); }
       for (float& x : *c) x = std::tanh(body * x / pk) / std::tanh(body);
@@ -546,7 +567,8 @@ int Audio::loadCustom(const fs::path& dir) {
       Impl::Event& e2 = p->events[std::string("shot_") + id] = ev; p->events.erase(std::string("shot_") + id + "_far");
       const bool mini = std::string(id) == "minigun", c30 = std::string(id) == "cannon30";
       if (mini || c30) { e2.minGap = mini ? 0.04f : 0.045f; e2.maxVoices = mini ? 6 : 4; e2.rolloff = 0.8f; e2.gain = mini ? 0.7f : 0.85f; }   // SND9: rapid fire, carries far
-      if (mixGuns.contains(id)) { const json& m = mixGuns[id]; e2.gain = std::clamp(m.is_number() ? m.get<float>() : m.is_object() ? m.value("gain", e2.gain) : e2.gain, 0.0f, 2.0f);   // SND7: per-gun trim
+      if (g.gain >= 0) e2.gain = g.gain;   // SND14: the set's own level
+      else if (mixGuns.contains(id)) { const json& m = mixGuns[id]; e2.gain = std::clamp(m.is_number() ? m.get<float>() : m.is_object() ? m.value("gain", e2.gain) : e2.gain, 0.0f, 2.0f);   // SND7: per-gun trim
         if (m.is_object()) { e2.minGap = std::clamp(m.value("min_gap_ms", e2.minGap * 1000) / 1000.0f, 0.0f, 0.5f); e2.maxVoices = std::clamp(m.value("max_voices", e2.maxVoices), 1, 16); if (m.contains("rolloff")) e2.rolloff = std::clamp(m.value("rolloff", 1.2f), 0.1f, 2.0f); } }
     }
   }
@@ -597,6 +619,7 @@ int Audio::loadCustom(const fs::path& dir) {
   struct FxSet { const char* file; std::vector<const char*> events; float from = 0; };   // from: seconds into the recording to start at
   const FxSet fxs[] = {
     {"guns/rocket_launch.mp3", {"shot_bazooka_m9", "shot_panzerschreck", "shot_modern_rpg7"}, 3.0f},
+    {"snd14/rocket_launch.wav", {"shot_bazooka_m9", "shot_panzerschreck", "shot_modern_rpg7"}},   // SND14 (user request): RocketLaunch, every launcher (and the heli pods / TOW, which play these); local-only, the old one without it
     {"guns/glauncher_fire.mp3", {"shot_modern_glauncher"}},   // SND4: the six-shot launcher's own
     {"guns/launcher_fire.mp3", {"explosion_rocket"}},
     {"guns/cannon_fire.mp3", {"pak_fire", "flak_fire"}},
@@ -657,6 +680,8 @@ int Audio::loadCustom(const fs::path& dir) {
       {"reload/reload_ak.mp3", {"modern_vsk"}, 2.5f, 3.5f, 1.08f},
       {"reload/reload_m4.mp3", {"blaster_rifle"}, 2.4f, 0, 0.92f},
       {"reload/reload_m4.mp3", {"blaster_robot"}, 2.1f, 0, 1.2f},
+      {"snd14/mg_reload.wav", {"mg42"}, 4.6f},   // SND14 (user request): machinegunreload on the belt guns' box / belt change (local-only; the rifle recording without it)
+      {"snd14/mg_reload.wav", {"modern_lmg"}, 5.2f},
     };
     auto norm = [&](Buf& s, float secs) { if (s.size() > (size_t)(secs * SR)) s.resize((size_t)(secs * SR)); float pk = 1e-4f; for (float x : s) pk = std::max(pk, std::fabs(x)); size_t f = std::min(s.size(), (size_t)(0.05f * SR)); for (size_t j = 0; j < s.size(); ++j) s[j] *= 0.7f / pk * (j + f >= s.size() ? (float)(s.size() - j) / f : 1.0f); };
     // SND3: a reload longer than the weapon's reload is shortened in its quiet gaps (each kept at least 0.1 s, 20 ms equal-power
@@ -837,6 +862,12 @@ int Audio::loadCustom(const fs::path& dir) {
     if (ev.v.empty()) ev.v.push_back(clip(b, 0, b.size(), 0.004f, 0.06f, 0.8f));
     ev.gain = hurtGain; p->events["player_hurt"] = ev; ++used;
     logf("audio: player hurt: %zu grunt(s)", ev.v.size());
+  }
+  {   // SND14 (user request): the near-miss whiz from the user's fly-by recording, a clean pass per variant (local-only snd14/flyby_N.wav;
+      // bulletwhiz.mp3 without them)
+    Impl::Event ev; char fn[40];
+    for (int k = 1; k <= 8; ++k) { std::snprintf(fn, sizeof fn, "snd14/flyby_%d.wav", k); if (!decode(fn, b)) break; float pk = peakOf(b); for (float& x : b) x *= 0.8f / pk; ev.v.push_back(b); }
+    if (!ev.v.empty()) { ++used; p->events["bulletwhiz"] = ev; }
   }
   // SND1: any other mp3 here plays as an event named after its file (knightattack.mp3 -> "knightattack"): leading
   // silence trimmed, levelled, at most 6 s. A type's "sounds" (content/ai/zombie*.json) name them.
