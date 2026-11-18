@@ -319,6 +319,10 @@ for mname, m in cfg.get("mats", {}).items():
     rough = chan("rough") if "rough" in m else chan("smooth", 0, True) if "smooth" in m else chan("gloss", 4, True) if "gloss" in m else None
     metal = chan("metal") if "metal" in m else None
     if "spec" in m: sp = chan("spec", 4); metal = (sp > 0.5).astype(np.float32) if sp is not None else None
+    if m.get("matte"):   # NG2: cloth / skin: the source's roughness (or rough_f) into [lo, hi], never metallic (the arm maps ran 0.3-0.8: a sheen on sleeves)
+        lo, hi = m["matte"]; rough = lo + (hi - lo) * (rough if rough is not None else np.full(W_ * H_, m.get("rough_f", 0.9), np.float32)); metal = None; m = dict(m, metal_f=0.0)
+    if rough is None and metal is None:   # NG2: no maps: the material's own factors (Blender's 0.5 default was exported)
+        bsdf.inputs["Roughness"].default_value = m.get("rough_f", 0.75); bsdf.inputs["Metallic"].default_value = m.get("metal_f", 0.0)
     if rough is not None or metal is not None:
         orm = np.ones((W_ * H_, 4), np.float32)
         orm[:, 1] = rough if rough is not None else m.get("rough_f", 0.6); orm[:, 2] = metal if metal is not None else m.get("metal_f", 0.0)
