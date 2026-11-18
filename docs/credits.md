@@ -708,3 +708,7 @@ Asset packs the user supplied (PR6; licence, author and source read from each fi
 | Billboard.fbx | Billboard.fbx | unknown | unknown | - | 15 assets | no (local-only) |
 | road_signs.glb | Road Signs | FrodoUndead | CC-BY-4.0 | https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592 | 95 assets | yes |
 <!-- /pr6_assets -->
+
+## SND14 weapon recordings
+
+`content/audio/custom/snd14/`: eleven recordings supplied by the project owner (rocket launch, AR-15, rifle x3, SMG x3, bolt-action, machine-gun reload, bullet fly-by from SoundEffectsFactory.com), cut and levelled. The owner states they are free to use.
