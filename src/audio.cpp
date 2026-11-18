@@ -620,6 +620,9 @@ int Audio::loadCustom(const fs::path& dir) {
     {"snd18/m2_browning_single.mp3", false, {"m2hb_semi"}, -1, 1.00f, 0, 1.6f, 0.0f, 2.04f},
     {"snd18/m2_browning_auto_%d.mp3", false, {"m2hb"}, -1, 1.00f, 0, 1.6f, 0.0f, 2.08f, 5},
     {"snd18/30mm_cannon_auto_%d.mp3", false, {"cannon30"}, -1, 1.00f, 0, 1.6f, 0.0f, 1.82f, 5},
+    // SWAP (user request: "suppressed 22 pistol and glock 43 should trade sounds"): the suppressed .22 takes the shot the Glock 43
+    // had before SND18 (SND14's SMGShot1 at its settings); the Glock 43 plays the pack's glock file (above)
+    {"snd14/smg_shot_2.wav", false, {"modern_pistol2"}, -1, 1.00f, 0, 1.0f, 4.0f, 1.20f},
   };
   std::deque<std::string> varFile; std::vector<std::pair<GunSet, int>> sets;   // SND16: the variant sets expanded, second = its variant group (0: none)
   for (auto& g : guns) { if (g.vars <= 0) { sets.push_back({g, 0}); continue; }
