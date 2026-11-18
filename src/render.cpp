@@ -647,6 +647,7 @@ float crackPath(vec2 q, float seed, float w){   // q: x across (m), y along the 
   float fw = max(w, gPix*0.7);
   return max(1.0 - smoothstep(0.0, fw, d), (1.0 - smoothstep(0.0, fw*0.7, br))*0.8)*(w/fw);
 }
+uniform int uGrafLayer1;   // the graffiti atlas's layer in uTexCol + 1 (slot decal_graffiti); 0 = none, also where it is never set (probe captures)
 void sdecals(vec3 an, inout vec3 alb, inout float rough, inout float ao){
   vec4 r = gRoom >= 0 && gIn == 1 ? roomDec(gRoom) : uExtDec;
   int first = int(r.x + 0.5), n = int(r.y + 0.5);
@@ -718,31 +719,15 @@ void sdecals(vec3 an, inout vec3 alb, inout float rough, inout float ao){
       alb = mix(alb, vec3(0.62, 0.6, 0.55)*mix(1.0, 0.85, sd), max(m, ring*0.5)*k);
       alb *= 1.0 - 0.75*hole*k;
       gDecH -= (0.006*m + 0.001*ring)*k; ao *= 1.0 - 0.5*hole*k; rough = mix(rough, 0.98, m*k);
-    } else if (type == 8) { // NT3 graffiti: generated bubble lettering (no real tags), outlined, faded, dripping
-      float nl = 3.0 + floor(sd*4.0);
-      float cx = (u.x*0.5 + 0.5)*nl, cell = floor(cx), fx = fract(cx) - 0.5;
-      float hl = hash12(vec2(cell, sd*7.0));
-      vec2 p = vec2(fx*1.7, u.y*(1.05 + 0.35*hl) + 0.14*sin(cell*1.7 + sd*6.0));
-      float n = fbm(vec3(u*vec2(2.5, 1.6), sd*19.0));
-      float dd = 9.0;   // a glyph = three fat strokes between points of a 3 x 3 grid (a main upright, two random)
-      for (int j = 0; j < 3; ++j) {
-        float h1 = hash12(vec2(cell*5.0 + float(j), sd*13.0)), h2 = hash12(vec2(float(j)*7.0 + cell, sd*29.0));
-        vec2 a = (vec2(floor(h1*3.0), floor(fract(h1*7.0)*3.0)) - 1.0)*vec2(0.32, 0.72);
-        vec2 b = (vec2(floor(h2*3.0), floor(fract(h2*7.0)*3.0)) - 1.0)*vec2(0.32, 0.72);
-        if (j == 0) { a = vec2(-0.32 + 0.3*hl, -0.72); b = vec2(-0.32 + 0.64*h1, 0.72); }
-        vec2 pa = p - a, ba = b - a; float hh = clamp(dot(pa, ba)/max(dot(ba, ba), 1e-4), 0.0, 1.0);
-        dd = min(dd, length(pa - ba*hh) - 0.17);
-      }
-      dd += (n - 0.5)*0.08;
-      float fill = 1.0 - smoothstep(0.0, 0.03, dd);
-      float ol = (1.0 - smoothstep(0.07, 0.11, dd))*(1.0 - fill);
-      float drip = (1.0 - smoothstep(0.0, 0.03, abs(fract(fx*3.0 + hl) - 0.5)*0.33))*step(hash12(vec2(cell*3.0 + floor(fx*3.0 + hl), sd)), 0.35)*smoothstep(0.1, -0.2, p.y)*smoothstep(-1.0, -0.6, u.y);
-      int vr = int(D.c.w + 0.5);
-      vec3 col = vr == 0 ? vec3(0.62, 0.14, 0.12) : vr == 1 ? vec3(0.12, 0.34, 0.62) : vr == 2 ? vec3(0.72, 0.58, 0.1) : vec3(0.2, 0.5, 0.26);
-      float fade = 0.55 + 0.45*vnoise(vec3(q*3.0, sd*5.0));
-      alb = mix(alb, col*(0.8 + 0.3*n), max(fill, drip*0.7)*k*fade*edgeF);
-      alb = mix(alb, vec3(0.05, 0.05, 0.06), ol*k*fade*0.9*edgeF);
-      rough = mix(rough, 0.7, fill*k*0.5);
+    } else if (type == 8) { // graffiti: one tag of the GraffitiSet001 atlas (ambientCG, CC0; 4 x 4 tags, opacity in alpha), over the wall's own material
+      if (uGrafLayer1 <= 0) continue;
+      vec2 cu = vec2(u.x*0.5 + 0.5, q.y/(2.0*hs.x) + 0.5);   // a square cell as wide as the decal
+      if (cu.y < 0.0 || cu.y > 1.0) continue;
+      int tile = int(sd*16.0) & 15;
+      vec2 tuv = (vec2(float(tile & 3), float(3 - (tile >> 2))) + clamp(cu, 0.004, 0.996))*0.25;   // row 0 = the image's top
+      vec4 tg = textureLod(uTexCol, vec3(tuv, float(uGrafLayer1 - 1)), max(0.0, log2(gPix*256.0/(2.0*hs.x))));   // inside a divergent loop: no implicit derivatives
+      float m = clamp(tg.a, 0.0, 1.0)*k*(0.7 + 0.3*vnoise(vec3(q*3.0, sd*5.0)));   // weathered: patchy
+      alb = mix(alb, tg.rgb*0.85, m); rough = mix(rough, 0.75, m*0.6);   // paint only: the wall's relief stays
     } else if (type == 9) { // NT3 torn poster: paper with a coloured header, an image block, text lines; ragged, sun-faded
       float tear = fbm(vec3(u*4.0, sd*5.0));
       float m = (1.0 - smoothstep(0.84, 0.92, abs(u.x) + 0.18*(tear - 0.5)))*(1.0 - smoothstep(0.84, 0.92, abs(u.y) + 0.18*(tear - 0.5)));
@@ -4710,6 +4695,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1i(U(progMain, "uMatLod"), !thumbMode && perf.matLod ? 1 : 0);
   tex::setImgMat(perf.imgMat);   // MA1: the image-material slot table (re-uploads only when it flips)
   static const std::string abOff = std::getenv("NMK_AB_OFF") ? std::getenv("NMK_AB_OFF") : "";   // NT3 dev A/B: decals,layer,grime
+  glUniform1i(U(progMain, "uGrafLayer1"), tex::slotLayer(tex::slotIndex("decal_graffiti")) + 1);
   glUniform1i(U(progMain, "uMatLayer"), thumbMode || q.legacy || !perf.matLayer || abOff.find("layer") != std::string::npos ? 0 : q.matLayer);
   // PERF1 matfar: Medium / Low (material detail 0-1) from 25 m (x the zoom, so scopes keep the detail); High keeps its look
   glUniform1f(U(progMain, "uMatFar"), thumbMode || q.legacy || !perf.matFar || q.matLayer >= 2 ? 0.0f : 25.0f * std::max(1.0f, 1.43f / std::max(0.1f, v.proj[1][1])));

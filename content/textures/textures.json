@@ -114,6 +114,7 @@
     "rb_ref_cab_boards":    {"set": "rb_ref_cab_boards", "mode": "replace", "albedo": 0.9, "normal": 1.0, "rough": 0.5, "ao": 0.8, "relief": 0.008, "crevice": 0.3, "edge": 0.5},
     "rb_ref_shop_door":     {"set": "rb_ref_shop_door", "mode": "replace", "albedo": 0.9, "normal": 1.0, "rough": 0.5, "ao": 0.8, "relief": 0.008, "crevice": 0.3, "edge": 0.5},
     "rb_ref_shop_sign":     {"set": "rb_ref_shop_sign", "mode": "replace", "albedo": 0.9, "normal": 1.0, "rough": 0.5, "ao": 0.8, "relief": 0.008, "crevice": 0.3, "edge": 0.5},
+    "decal_graffiti":       {"set": "graffiti_set001", "mode": "detail"},
     "rb_ref_shop_green":    {"set": "rb_ref_shop_green", "mode": "replace", "albedo": 0.9, "normal": 1.0, "rough": 0.5, "ao": 0.8, "relief": 0.008, "crevice": 0.3, "edge": 0.5},
     "rb_ref_shop_wall":     {"set": "rb_ref_shop_wall", "mode": "replace", "albedo": 0.9, "normal": 1.0, "rough": 0.5, "ao": 0.8, "relief": 0.008, "crevice": 0.3, "edge": 0.5},
     "rb_ref_shop_roof":     {"set": "rb_ref_shop_roof", "mode": "replace", "albedo": 0.9, "normal": 1.0, "rough": 0.5, "ao": 0.8, "relief": 0.008, "crevice": 0.3, "edge": 0.5},

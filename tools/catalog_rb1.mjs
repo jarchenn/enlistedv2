@@ -58,7 +58,7 @@ function boarded(A, F, a0, a1, y0, y1, { e = 0.0, frame = "rb_board_frame", plan
 // front, two rear); a slatted vent in the west gable; skirt boards in 1.76 m bays between posts; rust run-off from the roof.
 export function containerCabin() {
   const X = 3.92, Z = 1.67, T = 0.12;
-  const A = meta("rb1_container_cabin", "Abandoned site cabin", "Small buildings", "A sheet-steel site cabin on a timber skirt, painted olive and streaked with rust from the roof edge, its windows boarded with weathered planks, an open-framed doorway with a timber step and a slatted vent in the west end. Two rooms: an office and the entry store.", 1, [8.2, 3.8], { plinthDepth: 0.4, maxGrade: 0.6, noAutoPanels: true });
+  const A = meta("rb1_container_cabin", "Abandoned site cabin", "Small buildings", "A sheet-steel site cabin on a timber skirt, painted olive and streaked with rust from the roof edge, its windows boarded with weathered planks, an open-framed doorway with a timber step and a slatted vent in the west end. Two rooms: an office and the entry store.", 1, [8.2, 3.8], { plinthDepth: 0.4, maxGrade: 0.6, noAutoPanels: true, graffiti: true });
   mats(A);
   rbMats(A, [
     ["rb_cab_ext", [0.264, 0.226, 0.135], 0.62, "rb_ref_cab_wall", "metal"],   // the reference's own paint (CC BY 4.0, YadroGames)
@@ -167,7 +167,7 @@ function nalichnik(A, F, c, w, y0, y1, { shutters = true } = {}) {
 }
 export function logHouse() {
   const X = 3.76, Z = 2.66, T = 0.26;
-  const A = meta("rb1_log_house", "Abandoned log house", "Houses", "An old Russian log house (izba): round-log walls with notched corners on a board-clad plinth, a steep weathered board roof, a rendered chimney, carved white window surrounds with board shutters, a low front door under a small porch. Three rooms: the stove room, the entry kitchen and a store.", 1, [8.6, 7.6], { plinthDepth: 0.6, maxGrade: 0.6, noAutoPanels: true });
+  const A = meta("rb1_log_house", "Abandoned log house", "Houses", "An old Russian log house (izba): round-log walls with notched corners on a board-clad plinth, a steep weathered board roof, a rendered chimney, carved white window surrounds with board shutters, a low front door under a small porch. Three rooms: the stove room, the entry kitchen and a store.", 1, [8.6, 7.6], { plinthDepth: 0.6, maxGrade: 0.6, noAutoPanels: true, graffiti: true });
   mats(A);
   rbMats(A, [
     ["rb_log_wall", [0.38, 0.3, 0.24], 0.85, "rb_log", "wood"],
@@ -268,7 +268,7 @@ function meshPanel(A, F, a0, a1, y0, y1, e, sp = 0.12, back = true) {
 }
 export function weaponShop() {
   const X = 3.5, Z = 5.0, T = 0.15, HI = 4.85;
-  const A = meta("rb1_weapon_shop", "Abandoned weapon shop", "Small buildings", "An abandoned weatherboard weapon shop under a corrugated skillion roof: a band of wire-mesh clerestory panels and a timber verandah on rusted steel posts over green steel counters with boarded hatches along the high side, an orange double door under a WEAPONS sign in the front gable, two white double windows in the low side. Inside: the shop floor between a store and the counter room.", 1, [13.4, 14.6], { plinthDepth: 0.5, maxGrade: 0.6, noAutoPanels: true });
+  const A = meta("rb1_weapon_shop", "Abandoned weapon shop", "Small buildings", "An abandoned weatherboard weapon shop under a corrugated skillion roof: a band of wire-mesh clerestory panels and a timber verandah on rusted steel posts over green steel counters with boarded hatches along the high side, an orange double door under a WEAPONS sign in the front gable, two white double windows in the low side. Inside: the shop floor between a store and the counter room.", 1, [13.4, 14.6], { plinthDepth: 0.5, maxGrade: 0.6, noAutoPanels: true, graffiti: true });
   mats(A);
   rbMats(A, [
     ["rb_siding", [0.366, 0.293, 0.205], 0.85, "rb_ref_shop_wall", "wood"],    // the reference's own weatherboard (CC BY 4.0, YadroGames)

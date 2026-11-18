@@ -169,7 +169,8 @@ void staticDecalsFor(Renderer& R, uint64_t instId, const RoomInfo& ri, SurfacePa
           for (int q = 0; q < n; ++q) {
             float r = g.f(), at = g.r(0.8f, std::max(0.9f, s.len - 0.8f));
             vec3 c = s.p0 + s.along * at;
-            if (r < 0.38f) out.push_back(mk(SD_GRAFFITI, c + vec3(0, y0 + g.r(0.9f, 1.7f), 0), s.n, g.r(1.2f, 2.6f), g.r(0.5f, 0.95f), g.r(0.85f, 1.0f), g));   // NT4: big enough to read at 30 m
+            if (r < 0.38f) { float hw = g.r(0.9f, 1.6f), hh = hw * 0.8f;   // the atlas's square cells; tags fill ~65% of the height
+              out.push_back(mk(SD_GRAFFITI, c + vec3(0, y0 + 0.25f + hh * 0.7f + g.r(0.0f, 0.4f), 0), s.n, hw, hh, g.r(0.85f, 1.0f), g)); }
             else if (r < 0.58f) out.push_back(mk(SD_POSTER, c + vec3(0, y0 + g.r(1.2f, 1.7f), 0), s.n, g.r(0.28f, 0.42f), g.r(0.4f, 0.58f), g.r(0.8f, 1.0f), g));
             else if (r < 0.82f) out.push_back(mk(SD_STAIN, c + vec3(0, y0 + g.r(0.6f, 2.2f), 0), s.n, g.r(0.6f, 1.5f), g.r(0.6f, 1.3f), g.r(0.7f, 1.0f), g));
             else if (r < 0.9f) out.push_back(mk(SD_CRACK, c + vec3(0, y0 + g.r(1.0f, 2.4f), 0), s.n, g.r(0.3f, 0.6f), g.r(0.6f, 1.2f), g.r(0.8f, 1.0f), g));

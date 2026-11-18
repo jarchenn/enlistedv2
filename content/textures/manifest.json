@@ -6163,6 +6163,32 @@
    ]
   },
   {
+   "set": "graffiti_set001",
+   "id": "GraffitiSet001",
+   "url": "https://ambientcg.com/a/GraffitiSet001",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg (the Opacity map)",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "L4 curation",
+   "family": "16 spray-paint tags in a 4 x 4 atlas, opacity map as the alpha (the graffiti decals, render.cpp sdecals type 8)",
+   "ma1": false,
+   "batch": "L4",
+   "slots": [
+    "decal_graffiti"
+   ]
+  },
+  {
    "set": "rb_rust_patch",
    "id": "Rust009",
    "url": "https://ambientcg.com/a/Rust009",

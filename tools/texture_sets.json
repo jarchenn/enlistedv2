@@ -2319,6 +2319,15 @@
    ]
   },
   {
+   "set": "graffiti_set001",
+   "id": "GraffitiSet001",
+   "family": "16 spray-paint tags in a 4 x 4 atlas, opacity map as the alpha (the graffiti decals, render.cpp sdecals type 8)",
+   "size": [
+    2.0,
+    2.0
+   ]
+  },
+  {
    "set": "rb_rust_patch",
    "id": "Rust009",
    "family": "brown rust, damaged (RB1 rust patches)",

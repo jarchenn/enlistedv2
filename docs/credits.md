@@ -174,6 +174,7 @@ The photo texture sets in `content/textures/` (L4, `docs/textures.md`) come from
 - Each set's `meta.json` names its ambientCG asset and source URL (`https://ambientcg.com/a/<id>`).
 - Fetched with `tools/fetch_ambientcg.py` through the official API.
 - NT4: five 2K-JPG zips supplied by the user (Rock022, Rocks011, Bricks061, Gravel015, Ground110; CC0, ambientCG): Rock022, Rocks011 and Ground110 were already in the library (`rock_wall`, `rock_slate_layers`, `ground_rubble`); Gravel015 (`gravel_mixed`) and Bricks061 (`brick_grey_footing`) were added, packed to 1K.
+- GR1: GraffitiSet001 (2K-JPG zip supplied by the user; CC0, ambientCG, named in the zip's .usdc / .blend metadata): `graffiti_set001`, 16 tags in a 4 x 4 atlas, its Opacity map packed as the alpha; the graffiti decals (slot `decal_graffiti`).
 
 ## Grass plant atlas: Poly Haven (CC0)
 

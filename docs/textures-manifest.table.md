@@ -239,6 +239,7 @@
 | rb_planks_old | [Planks039](https://ambientcg.com/a/Planks039) | large old dirty planks (RB1 log house roof boards, plinth) | ao, color, height, normal, roughness | 2 x 2 | rb_planks | L4 |
 | rb_painted_wood_old | [PaintedWood009C](https://ambientcg.com/a/PaintedWood009C) | old light painted wood (RB1 carved window surrounds, shutters) | ao, color, height, normal, roughness | 1 x 1 | rb_wood_paint_old | L4 |
 | rb_floor_dirty | [WoodFloor067B](https://ambientcg.com/a/WoodFloor067B) | dark dirty floorboards (RB1 shop and cabin floors) | ao, color, height, normal, roughness | 2 x 2 | rb_floor_dirty | L4 |
+| graffiti_set001 | [GraffitiSet001](https://ambientcg.com/a/GraffitiSet001) | 16 spray-paint tags in a 4 x 4 atlas, opacity map as the alpha (the graffiti decals, render.cpp sdecals type 8) | ao (the Opacity map), color, height, normal, roughness | 2 x 2 | decal_graffiti | L4 |
 | rb_rust_patch | [Rust009](https://ambientcg.com/a/Rust009) | brown rust, damaged (RB1 rust patches) | ao, color, height, normal, roughness | 1.5 x 1.5 | rb_rust | L4 |
 | rb_ref_cab_wall | [rb_ref_cab_wall](https://skfb.ly/osPME) | the cabin's olive sheet-steel paint (reference atlas crop, turned upright) | color | 4 x 2.8 | rb_ref_cab_wall | L4 |
 | rb_ref_cab_boards | [rb_ref_cab_boards](https://skfb.ly/osPME) | the cabin's weathered window boarding (reference atlas crop, planks horizontal) | color | 2 x 1 | rb_ref_cab_boards | L4 |
