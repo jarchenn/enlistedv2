@@ -48,9 +48,9 @@
  },
  "lean": {
   "note": "MV3 Q / E lean (explore.cpp stepLean, docs/movement.md#lean): the head and shoulders swing about a waist pivot radius_m below the eye, out to sideways_m (the drop follows the arc: ~7 cm at 0.45 m on radius 1.5); the view and the weapon roll roll_deg; in / out times are the spring settling times; the lean shrinks where the head or shoulders would meet geometry (clearance_m); a lean key that is also Interact / Next weapon leans from the press; released under tap_s it was a tap (the action, the small lean springs back); bodyBend_deg: the third-person spine bend",
-  "sideways_m": 0.45,
+  "sideways_m": 0.55,
   "radius_m": 1.5,
-  "roll_deg": 14,
+  "roll_deg": 17,
   "in_s": 0.24,
   "out_s": 0.2,
   "clearance_m": 0.2,
