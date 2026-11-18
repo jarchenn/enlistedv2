@@ -4310,13 +4310,23 @@ bool Renderer::renderModelSheet(const std::vector<ModelDraw>& items, const std::
   glGetTextureImage(col, 0, GL_RGBA, GL_FLOAT, (GLsizei)(px.size() * 4), px.data());
   if (transparent) { dz.resize((size_t)w * h); glGetTextureImage(dep, 0, GL_DEPTH_COMPONENT, GL_FLOAT, (GLsizei)(dz.size() * 4), dz.data()); }
   rgba.resize((size_t)w * h * 4);
-  for (int y = 0; y < h; ++y) for (int x = 0; x < w; ++x)
-    for (int c = 0; c < 4; ++c) {
-      float f = px[((size_t)(h - 1 - y) * w + x) * 4 + c];
-      if (c == 3 && transparent) { rgba[((size_t)y * w + x) * 4 + c] = dz[(size_t)(h - 1 - y) * w + x] < 1.0f ? 255 : 0; continue; }   // depth written = covered
-      if (c < 3) { f = std::clamp(f * 0.9f, 0.0f, 4.0f); f = f / (1.0f + f * 0.25f) * 1.25f; f = std::pow(std::clamp(f, 0.0f, 1.0f), 1.0f / 2.2f); } else f = 1;
-      rgba[((size_t)y * w + x) * 4 + c] = (uint8_t)std::lround(f * 255);
+  // SM4: a transparent sheet is a live UI preview of a gun (smithing table, Guns editor): it takes the game's own display
+  // transform (kToneFS filmic at the fixed Day exposure, sRGB), so it reads as the first-person gun. The old icon curve
+  // below clips at ~1.1 linear (every sky glint on metal a flat white) and has no toe (milky darks).
+  auto shoulder = [](float x) { return x / std::pow(1.0f + std::pow(x, 1.7f), 1.0f / 1.7f); };
+  auto srgb = [](float c) { return c <= 0.0031308f ? c * 12.92f : 1.055f * std::pow(c, 1.0f / 2.4f) - 0.055f; };
+  for (int y = 0; y < h; ++y) for (int x = 0; x < w; ++x) {
+    const float* s = &px[((size_t)(h - 1 - y) * w + x) * 4]; uint8_t* o = &rgba[((size_t)y * w + x) * 4];
+    if (transparent) {
+      vec3 c = glm::max(vec3(s[0], s[1], s[2]) * 1.22f, vec3(0));   // x the Day exposure (lightingFixedExposure: 1)
+      float L = glm::dot(c, vec3(0.2126f, 0.7152f, 0.0722f)), k = shoulder(L) / std::max(L, 1e-5f);
+      for (int i = 0; i < 3; ++i) { float f = glm::mix(shoulder(c[i]), c[i] * k, 0.45f); f = std::pow(std::clamp(f, 0.0f, 1.0f), 1.10f); o[i] = (uint8_t)std::lround(srgb(f) * 255); }
+      o[3] = dz[(size_t)(h - 1 - y) * w + x] < 1.0f ? 255 : 0;   // depth written = covered
+      continue;
     }
+    for (int c = 0; c < 3; ++c) { float f = std::clamp(s[c] * 0.9f, 0.0f, 4.0f); f = f / (1.0f + f * 0.25f) * 1.25f; f = std::pow(std::clamp(f, 0.0f, 1.0f), 1.0f / 2.2f); o[c] = (uint8_t)std::lround(f * 255); }
+    o[3] = 255;
+  }
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glDeleteFramebuffers(1, &fbo); glDeleteTextures(1, &col); glDeleteTextures(1, &dep);
   return true;
