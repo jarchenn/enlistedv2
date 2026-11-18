@@ -6,6 +6,8 @@
 #include <random>
 #include <cmath>
 #include <map>
+#include <deque>
+#include <set>
 #include <algorithm>
 #include <fstream>
 #include <chrono>
@@ -445,7 +447,7 @@ int Audio::loadCustom(const fs::path& dir) {
   // SND4: every rifle its own shot. take: which shot of a recording holding several (Rifle3: four), -1 the first;
   // pitch / tilt / tail: a variant derived from a recording another rifle uses (resampled x pitch; tilt < 0 darker, > 0
   // brighter; tail: seconds kept)
-  struct GunSet { const char* file; bool burst; std::vector<const char*> ids; int take = -1; float pitch = 1, tilt = 0, tail = 2.5f; float body = 0; float gain = -1; };   // SND5 body: low-mid weight and density (M249, MG 42); SND14 gain >= 0: the set's own level and body (mix.json's per-gun trims are for the older recordings)
+  struct GunSet { const char* file; bool burst; std::vector<const char*> ids; int take = -1; float pitch = 1, tilt = 0, tail = 2.5f; float body = 0; float gain = -1; int vars = 0; };   // SND16 vars > 0: file is a printf pattern of vars variants (mg_shot_%d.wav), one event picking a different one each round   // SND5 body: low-mid weight and density (M249, MG 42); SND14 gain >= 0: the set's own level and body (mix.json's per-gun trims are for the older recordings)
   const GunSet guns[] = {
     {"guns/pistol_a.mp3", false, {"luger"}},
     {"guns/pistol_c.mp3", false, {"modern_pistol2"}},
@@ -470,7 +472,7 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/smg_a.mp3", false, {"modern_ak"}, -1, 1.00f, 0, 2.5f, 2.5f, 1.21f},
     {"guns/smg_a.mp3", false, {"modern_ak12"}, -1, 0.98f, 0, 2.5f, 2.5f, 1.23f},
     {"guns/smg_a.mp3", false, {"stg44"}, -1, 1.03f, 0, 2.5f, 2.5f, 1.22f},
-    {"guns/smg_a.mp3", false, {"modern_lmg"}, -1, 0.96f, 0, 2.5f, 3.0f, 1.24f},   // the M249, heavier
+    {"guns/smg_a.mp3", false, {"modern_lmg"}, -1, 0.96f, 0, 2.5f, 3.0f, 1.24f},   // the M249, heavier (SND16: its fallback when snd16/ is missing)
     {"guns/rifle_c.mp3", false, {"modern_m16"}, 0, 1, 0, 2.5f, 3.0f},   // Rifle3.mp3 holds four shots: one each; SND7: thin and quiet: body (mix.json)
     {"guns/rifle_c.mp3", false, {"modern_m4_irons"}, 2, 1, 0, 2.5f, 3.0f},
     {"guns/rifle_c.mp3", false, {"modern_fal"}, 3, 1, 0, 2.5f, 3.0f},
@@ -553,11 +555,21 @@ int Audio::loadCustom(const fs::path& dir) {
     {"snd15/suppressed_rifle.wav", false, {"suppressed_rifle"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.18f},   // a fitted suppressor: 6 dB under the rifle class
     {"snd14/bolt_rifle.wav", false, {"kar98k"}, -1, 1.00f, 0, 1.8f, 4.5f, 1.23f},   // BoltActionRifle: the WW2 bolt guns (the modern snipers keep the M24 / .50)
     {"snd14/bolt_rifle.wav", false, {"kar98k_zf39"}, -1, 0.96f, 0, 1.8f, 4.0f, 1.23f},
+    // SND16 (user request; local-only content/audio/custom/snd16/, freesound community upload, licence not stated): the MG 42 (carried
+    // and emplaced) and the M249 on 13 single rounds cut from one clean burst (tools: E:/nmk/snd16/prep16.py), each its round up to
+    // the next and then the burst's last ring-out, so automatic fire (each body cut at the next round) varies round to round and the
+    // last shot rings out; levelled on sustained fire at each gun's rate to the old sets (a lone round is drier than the old shots)
+    {"snd16/mg_shot_%d.wav", false, {"mg42"}, -1, 0.95f, 0, 0.3f, 3.0f, 1.11f, 13},   // 7.92 mm: a little lower, 1200 rpm
+    {"snd16/mg_shot_%d.wav", false, {"modern_lmg"}, -1, 1.03f, 0, 0.3f, 4.5f, 1.24f, 13},   // 5.56 mm: a little higher, 800 rpm (replaces SND15's Scorpion recording)
   };
+  std::deque<std::string> varFile; std::vector<std::pair<GunSet, bool>> sets;   // SND16: the variant sets expanded, second = one of a variant group
+  for (auto& g : guns) { if (g.vars <= 0) { sets.push_back({g, false}); continue; }
+    for (int k = 1; k <= g.vars; ++k) { char nb[160]; std::snprintf(nb, sizeof nb, g.file, k); GunSet h = g; h.file = varFile.emplace_back(nb).c_str(); sets.push_back({h, true}); } }
+  std::set<std::string> varStarted;   // a variant group's first decoded file replaces the old event, the rest add to it (a missing file: the old set stays)
   // SND5: each cut, resample and tone step runs on the mono mix and on both channels alike; levels: quieter recordings up to
   // 0.95 peak (the stereo pair by its louder channel), full-scale ones unchanged; the cut starts where the shot rises out of the quiet before its onset (no fade-in)
   Buf gL, gR;
-  for (auto& g : guns) {
+  for (auto& [g, isVar] : sets) {
     if (!decodeSt(g.file, b, &gL, &gR)) continue;
     const int W = SR / 200; size_t nW = b.size() / W; float peak = 1e-4f; std::vector<float> env(nW, 0.0f);   // 5 ms windows
     for (size_t k = 0; k < nW; ++k) { for (int j = 0; j < W; ++j) env[k] = std::max(env[k], std::fabs(b[k * W + j])); peak = std::max(peak, env[k]); }
@@ -590,6 +602,7 @@ int Audio::loadCustom(const fs::path& dir) {
     Buf st(sl.size() * 2); for (size_t j = 0; j < sl.size(); ++j) { st[2 * j] = sl[j] * g2; st[2 * j + 1] = sr[j] * g2; }
     ++used; Impl::Event ev; ev.kind = "shot"; ev.v.push_back(std::move(s)); ev.st.push_back(std::move(st));
     for (const char* id : g.ids) {
+      if (isVar && !varStarted.insert(id).second) { Impl::Event& ex = p->events[std::string("shot_") + id]; ex.v.push_back(ev.v[0]); ex.st.push_back(ev.st[0]); continue; }   // SND16: another variant
       Impl::Event& e2 = p->events[std::string("shot_") + id] = ev; p->events.erase(std::string("shot_") + id + "_far");
       const bool mini = std::string(id) == "minigun", c30 = std::string(id) == "cannon30";
       if (mini || c30) { e2.minGap = mini ? 0.04f : 0.045f; e2.maxVoices = mini ? 6 : 4; e2.rolloff = 0.8f; e2.gain = mini ? 0.7f : 0.85f; }   // SND9: rapid fire, carries far
@@ -1160,8 +1173,8 @@ void Audio::fidelityReport(const fs::path& dir) {
   if (!p) { logf("fidelity: no audio engine"); return; }
   struct Pair { const char* ev; const char* file; int take; float dist; } pairs[] = {   // take: which shot of the source (onsets 1 s apart); dist: m ahead (0.6: the player's muzzle)
     {"shot_kar98k", "guns/sniper_m24.mp3", 0, 0.6f}, {"shot_kar98k_zf39", "guns/sniper_m24.mp3", 0, 0.6f}, {"shot_modern_sniper_3", "guns/sniper_m24.mp3", 0, 0.6f}, {"shot_m1_garand", "guns/rifle_a.mp3", 0, 0.6f}, {"shot_modern_ak", "guns/smg_a.mp3", 0, 0.6f},
-    {"shot_modern_ak12", "guns/smg_a.mp3", 0, 0.6f}, {"shot_stg44", "guns/smg_a.mp3", 0, 0.6f}, {"shot_modern_lmg", "guns/smg_a.mp3", 0, 0.6f},
-    {"shot_mg42", "guns/rifle_a.mp3", 0, 0.6f},
+    {"shot_modern_ak12", "guns/smg_a.mp3", 0, 0.6f}, {"shot_stg44", "guns/smg_a.mp3", 0, 0.6f}, {"shot_modern_lmg", "snd16/mg_shot_1.wav", 0, 0.6f},
+    {"shot_mg42", "snd16/mg_shot_1.wav", 0, 0.6f},
     {"shot_modern_m16", "guns/rifle_c.mp3", 0, 0.6f}, {"shot_modern_m4_irons", "guns/rifle_c.mp3", 2, 0.6f}, {"shot_modern_fal", "guns/rifle_c.mp3", 3, 0.6f},
     {"shot_modern_sniper_bolt", "guns/sniper_m24.mp3", 0, 0.6f}, {"shot_modern_sniper_50", "guns/sniper_heavy.mp3", 0, 0.6f}, {"shot_modern_sniper_50", "guns/sniper_heavy.mp3", 0, 20.0f}, {"shot_m2hb_carry", "guns/hmg_burst.mp3", 0, 0.6f}, {"shot_m2hb", "guns/hmg_burst.mp3", 0, 0.6f}, {"shot_mp40", "guns/smg_a.mp3", 0, 0.6f}, {"shot_luger", "guns/pistol_a.mp3", 0, 0.6f},
     {"shot_modern_shotgun", "guns/shotgun.mp3", 0, 0.6f}, {"shot_kar98k", "guns/sniper_m24.mp3", 0, 20.0f}, {"step", "footsteps.mp3", 0, 1.6f},
