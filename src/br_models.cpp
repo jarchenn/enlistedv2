@@ -99,7 +99,8 @@ static bool sightMount(const WeaponDef& d, int k, const AssetDef*& a, mat4& M, v
 void brSightDraws(App& app, const WeaponDef& d, const WeaponState& ws, const mat4& W, std::vector<ModelDraw>& md, std::vector<DrawItem>& boxes) {
   (void)app; const AssetDef* a; mat4 M; vec3 e;
   if (!sightMount(d, fittedSight(d, ws), a, M, e)) return;   // AT5: a gun's default optic too
-  addAsset(a, W * M, md, boxes);
+  size_t n0 = md.size(); addAsset(a, W * M, md, boxes);
+  for (size_t i = n0; i < md.size(); ++i) md[i].optic = true;   // AT6: the window clip leaves the optic itself whole
 }
 
 // AT2: the fitted red dot / holographic sight's window (weapon space): its centre on the eye line, its radius; the mount

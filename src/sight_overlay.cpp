@@ -128,3 +128,20 @@ void drawReflexReticle(const App& a, ImDrawList* dl, float sx, float sy) {
       if (k > 0.01f) dl->AddRectFilled(p0, p1, IM_COL32(cr, cg, cb, (int)(255 * aInk * k)));
     }
 }
+
+// AT6: aimed through a fitted optic (or a gun's default one): its window on screen (uv, top-left origin) and radius (frame heights,
+// 15 % over the window), else z = 0. The first-person pass leaves the gun's own parts there undrawn (render.cpp uVmClip): its irons,
+// posts and risers never stand in the optic's view; removing the optic brings them back
+vec3 opticClipWindow(const App& a) {
+  if (a.occupied || a.weaponDefs.empty() || a.mode != Mode::Explore || a.R.width <= 0 || a.scopeView() || a.adsT < 0.6f) return vec3(0);
+  const WeaponDef& d = *a.weaponDefs[a.activeWeapon];
+  auto it = a.wstate.find(d.id); if (it == a.wstate.end() || !fittedSight(d, it->second)) return vec3(0);
+  const WeaponState& s = it->second;
+  vec3 cw; float rw; mat4 Wm;
+  if (!brSightWindow(d, s, cw, rw) || !(d.anim ? animVmWeaponMatrix(a, d, Wm) : (Wm = a.viewModelMatrix(d, s), true))) return vec3(0);
+  mat4 view; float wf; a.fpCamera(view, wf);
+  mat4 vP = glm::perspective(radians(a.vmFovNow()), (float)a.R.width / std::max(1, a.R.height), 0.01f, 6.0f);
+  vec4 v = view * vec4(vec3(Wm * vec4(cw, 1)), 1), c = vP * v;
+  if (c.w <= 0 || -v.z < 0.01f) return vec3(0);
+  return vec3(c.x / c.w * 0.5f + 0.5f, 0.5f - c.y / c.w * 0.5f, 1.15f * vP[1][1] * 0.5f * rw * glm::length(vec3(Wm[0])) / -v.z);
+}
