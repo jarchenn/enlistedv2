@@ -4,7 +4,7 @@
  "name": "Pistol red dot",
  "category": "Battle Royale",
  "hidden": true,
- "description": "BR3 Battle Royale item. Part-built stand-in (tools/br_standins.py); the real model is local-only (licence unknown): bake it with tools/bake_br_assets.py.",
+ "description": "PS1 Battle Royale optic: the pistol red dot (Vortex Viper Red Dot by epavlenko, CC-BY-4.0; LIC1: its bake is committed, content/assets/models/br_sight_pistol). The part-built stand-in boxes remain for a missing bake.",
  "floors": 0,
  "enterable": false,
  "footprint": [
@@ -114,7 +114,7 @@
   "pivot": "ground",
   "scale": 1,
   "maxTex": 1024,
-  "credit": "supplied by the user (Downloads); licence unknown: local-only"
+  "credit": "'Vortex Viper Red Dot' by epavlenko (sketchfab.com/epavlenko), CC-BY-4.0 per its GLB metadata; baked (adapter dropped, lens removed, 46 mm, 512 px textures)"
  },
  "nav": {
   "effect": "none"

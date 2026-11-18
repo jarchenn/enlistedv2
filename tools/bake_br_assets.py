@@ -470,7 +470,7 @@ def bake_sights():
         bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.material_index in li], context='FACES'); bm.to_mesh(o.data); bm.free()
         export(o, 'br_sight_reddot', 512)
         write_asset('br_sight_reddot', 'Red dot sight', 'sight', gl_size(o), sight_block(o, eye_z=ez))
-    if want('br_sight_pistol'):   # PS1: a pistol red dot (the user's vortex_viper_red_dot.glb, Sketchfab; licence unknown: local-only):
+    if want('br_sight_pistol'):   # PS1: a pistol red dot (the user's vortex_viper_red_dot.glb, Sketchfab; LIC1: epavlenko, CC-BY-4.0 per its GLB, the bake is committed):
         # no mount adapter (it sits on the slide), ~46 mm long; the lens' centre is the eye line, the lens itself goes (no glass)
         o = item('br_sight_pistol', J('ps1', 'viper', 'vortex_viper_red_dot.glb'), drop=('adapter',), tris_max=2500)
         long_to_y(o); place_ground(o); size_to(o, 1, 0.046); place_ground(o)

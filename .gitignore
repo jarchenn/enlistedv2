@@ -22,6 +22,8 @@ content/assets/models/mod_traffic_barrel/
 # the committed content/assets/br_*.json boxes stand in without them
 content/characters/br_marine.glb
 content/assets/models/br_*/
+# LIC1: the pistol red dot (Vortex Viper, epavlenko, CC-BY-4.0 in its GLB) is committed
+!content/assets/models/br_sight_pistol/
 # MOD2: the military hut bake (TampaJoey, licence not stated): local only
 content/assets/models/mod_mil_hut/
 content/assets/models/mod_mil_hut_ruin/
