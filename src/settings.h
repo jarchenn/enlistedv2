@@ -56,12 +56,14 @@ struct UserSettings {
   float mouseSens = 0.1f;      // deg per mouse count at the 72 deg reference view (matched across FOVs, explore.cpp)
   float adsSens = 1.0f;        // extra factor while aiming (blended with the ADS state)
   bool invertY = false, reducedMotion = false, showArms = true, sightMarkers = false, weaponList = true, friendlyMarkers = true;
+  int reticleSize = 100, reticleBright = 100;   // AT2: Settings > Gameplay, percent (50-200 / 25-200)
   bool vehicleBars = false;    // TK1: a health bar floating over every other vehicle in the world (GP1: off by default; your own vehicle's bar is the HUD's)
   bool minimapRotate = false;  // UI1b: the corner map turns with the player (heading up) instead of north up
   bool devOverlay = false;     // UI1b: developer overlay (FPS / perf lines, key strip, debug text); also the F12 key
   float heliCamMotion = 1.0f;  // VH5: helicopter camera roll / vibration / shake (0 none, 1 default .. 3)
   // audio (linear gains 0..1)
   float master = 1.0f, effects = 1.0f, ui = 1.0f, ambience = 1.0f, gunfire = 1.0f;   // gunfire: UI1b gun / cannon / shell bus, 0..2
+  bool heartbeat = true;       // SND13: the low-health heartbeat (under 30 % health)
   // controls: action -> key name overrides of content/settings/bindings.json (only the ones the user changed)
   std::map<std::string, std::string> keys;
   // interface

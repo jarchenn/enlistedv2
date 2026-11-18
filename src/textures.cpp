@@ -1,4 +1,5 @@
 // L4 texture layer (docs/textures.md): ambientCG CC0 sets, triplanar sampling hooks for kMainFS / kTerrainFS,
+#include "crumb.h"
 // the --pack-texture packer used by tools/fetch_ambientcg.py and placeholder sets for bring-up / tests.
 #include "user_cache.h"
 #include "textures.h"
@@ -652,7 +653,9 @@ void loadSets() {   // TX2: the sets on the GPU (re-run by flushPending; the slo
   std::atomic<size_t> next{0};
   unsigned nt = std::clamp(std::thread::hardware_concurrency(), 1u, 12u);
   std::vector<std::thread> th;
-  for (unsigned t = 0; t < nt && t < dirs.size(); ++t) th.emplace_back([&] { for (size_t i; (i = next++) < dirs.size();) buildSet(dirs[i], bc, cpu[i]); });
+  std::atomic<unsigned> running{0};
+  for (unsigned t = 0; t < nt && t < dirs.size(); ++t) { ++running; th.emplace_back([&] { for (size_t i; (i = next++) < dirs.size();) buildSet(dirs[i], bc, cpu[i]); --running; }); }
+  while (running.load() > 0) { crumb("texture sets"); std::this_thread::sleep_for(std::chrono::milliseconds(5)); }   // UI9: a loading screen keeps presenting meanwhile
   for (auto& t : th) t.join();
   sets.clear();
   int n = 0;

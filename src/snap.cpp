@@ -315,12 +315,14 @@ void snapDraw(App& app, const Instance& i, DrawItem& d) {
   if (m && d.mesh == &a->opaque) if (const GpuMesh* v = snapMesh(app, a, m)) d.mesh = v;
 }
 
+std::unordered_map<const AssetDef*, std::unordered_map<uint32_t, ShapePtr>>& snapShapeCache() { static std::unordered_map<const AssetDef*, std::unordered_map<uint32_t, ShapePtr>> c; return c; }
+size_t snapCacheShapes() { size_t n = 0; for (auto& [a, m] : snapShapeCache()) n += m.size(); return n; }   // UI9: memory reports
 ShapePtr snapShape(App& app, const Instance& i, const AssetDef* a) {
   if (!a || a->path.on) return nullptr;
   const AssetSnap& s = assetSnap(a);
   uint32_t m = snapMask(i);
   if (!s.anyCap || !m) return nullptr;
-  static std::unordered_map<const AssetDef*, std::unordered_map<uint32_t, ShapePtr>> cache;
+  auto& cache = snapShapeCache();
   ShapePtr& sh = cache[a][m];
   if (!sh) {
     std::vector<Part> col;

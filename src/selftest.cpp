@@ -158,12 +158,14 @@ void SelfTest::update(App& app, float dt) {
   { extern bool th2Check(App&, float); if (th2Check(app, dt)) return; }   // TH2: --check-th2 (check_th2.cpp)
   { extern bool sdFreezeSelfTest(App&, float); if (sdFreezeSelfTest(app, dt)) return; }   // --selftest-sd-freeze (selftest_sdfreeze.cpp)
   { extern bool sdTimeSelfTest(App&, float); if (sdTimeSelfTest(app, dt)) return; }   // --selftest-sd-time (selftest_sdtime.cpp)
+  { extern bool sd9Capture(App&, float); if (sd9Capture(app, dt)) return; }   // --capture-sd9 (selftest_sd9.cpp)
   { extern bool sdPlantSelfTest(App&, float); if (sdPlantSelfTest(app, dt)) return; }   // --selftest-sd-plant (selftest_sdplant.cpp)
   { extern bool vehicleAiSelfTest(App&, float); if (vehicleAiSelfTest(app, dt)) return; }   // --check-vehicle-ai (selftest_vehicle_ai.cpp)
   { extern bool turnEngageSelfTest(App&, float); if (turnEngageSelfTest(app, dt)) return; }   // AI5: --check-turn-engage (selftest_turn.cpp)
   { extern bool leanCapture(App&, float); if (leanCapture(app, dt)) return; }   // MV3: --capture-lean (selftest_lean.cpp)
   { extern bool recoilCapture(App&, float); if (recoilCapture(app, dt)) return; }   // WP4: --capture-recoil (selftest_recoil.cpp)
   { extern bool brModelsSelfTest(App&, float); if (brModelsSelfTest(app, dt)) return; }
+  { extern bool reticlesSelfTest(App&, float); if (reticlesSelfTest(app, dt)) return; }   // AT2: --capture-reticles (selftest_reticles.cpp)
   { extern bool commandsSelfTest(App&, float); if (commandsSelfTest(app, dt)) return; }   // CMD1: --capture-commands (commands.cpp)   // BR3: --capture-br-models (selftest_brmodels.cpp)
   { extern bool vehiclesSelfTest(App&, float); if (vehiclesSelfTest(app, dt)) return; }
   { extern bool captureVehicleSelfTest(App&, float); if (captureVehicleSelfTest(app, dt)) return; }
@@ -182,6 +184,7 @@ void SelfTest::update(App& app, float dt) {
   { extern bool snd10SelfTest(App&, float); if (snd10SelfTest(app, dt)) return; }   // SND10: --check-snd10
   { extern bool memProbeSelfTest(App&, float); if (memProbeSelfTest(app, dt)) return; }   // MEM1: --mem-probe
   { extern bool rm1SelfTest(App&, float); if (rm1SelfTest(app, dt)) return; }   // RM1: --check-rm1
+  { extern bool vm1SelfTest(App&, float); if (vm1SelfTest(app, dt)) return; }   // VM1: --check-vm1
   { extern bool sm1SelfTest(App&, float); if (sm1SelfTest(app, dt)) return; }   // SM1: --check-sm1 / --capture-sm1
   { extern bool sm3Check(App&, float); if (sm3Check(app, dt)) return; }   // SM3: --check-sm3 (check_sm3.cpp)
   { extern bool vehicleSpawnGenSelfTest(App&, float); if (vehicleSpawnGenSelfTest(app, dt)) return; }   // VH7: --gen-vehicle-spawns   // VH5: --capture-heli (capture_heli.cpp)

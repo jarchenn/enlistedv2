@@ -158,9 +158,15 @@ void App::stepViewModel(float dt, const ExploreInput& in, const WeaponDef& d, co
   // ---- ADS spring: critically damped, x'' = w^2 (target - x) - 2 w x'
   vec3 tgt = vmTarget(d);
   if (vm.snap) { vm.pos = tgt; vm.vel = vec3(0); vm.snap = false; }
-  else {
-    vec3 acc = kAdsOmega * kAdsOmega * (tgt - vm.pos) - 2.0f * kAdsOmega * vm.vel;
-    vm.vel += acc * dt; vm.pos += vm.vel * dt;
+  else {   // AT2: the exact critically damped step (WP4's recoil springs). The explicit Euler step it replaces diverged
+    // whenever a frame ran over 2 / w = 0.11 s .. 0.056 s (the damping factor 1 - 2 w dt below -1): a few slow frames while
+    // aiming (the first fit of an optic loads its model) threw the weapon to inf / NaN for good: the "frozen" gun
+    float e = std::exp(-kAdsOmega * dt);
+    vec3 x = vm.pos - tgt, c = vm.vel + kAdsOmega * x;
+    vm.pos = tgt + (x + c * dt) * e; vm.vel = (vm.vel - kAdsOmega * c * dt) * e;
+  }
+  if (!std::isfinite(vm.pos.x + vm.pos.y + vm.pos.z + vm.vel.x + vm.vel.y + vm.vel.z)) {   // watchdog: never stay broken
+    logf("viewmodel watchdog: %s ADS spring not finite: snapped to its target", d.id.c_str()); vm.pos = tgt; vm.vel = vec3(0);
   }
   if (!vm.procedural) {
     vm.swayP = vm.swayPv = vm.bob = vec3(0); vm.swayR = vm.swayRv = vec2(0);

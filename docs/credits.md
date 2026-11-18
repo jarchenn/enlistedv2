@@ -265,6 +265,7 @@ Supplied by the user (Downloads, copied / extracted to `incoming/mg12/<name>/`);
 - Reloads (SND3), content/audio/custom/reload/: reload_ak.mp3 = jigokukarano_sisya-ak47-168856.mp3 (Pixabay, jigokukarano_sisya; its first 3.5 s), reload_m4.mp3 = squarebun-m4a1-reload-sound-316890.mp3 (Pixabay, squarebun), reload_bolt.mp3 = freesound_community-rifle-or-shotgun-reload-6787.mp3 (Freesound community via Pixabay); Pixabay content licence, to be confirmed. reload_sniper.mp3 = "m24 and 50cal.mp3", supplied by the user; source and licence to be confirmed.
 - Gun sounds (SND4): guns/rifle_a.mp3 = Rifle.mp3, guns/rifle_b.mp3 = Rifle2.mp3, guns/rifle_c.mp3 = Rifle3.mp3 (four shots), guns/sniper_m24.mp3 = Sniper.mp3, guns/bolt_cycle.mp3 = "Bolt action cycle.mp3", guns/tank_shot.mp3 = "Tank Shooting Sound.mp3", bullet_hit.mp3 = "Bullet Hit.mp3". Supplied by the user; licence to be confirmed.
 - More SND4 sounds: guns/smg_a.mp3 = SMG.mp3, guns/smg_b.mp3 = SMG1.mp3 (supplied by the user; source and licence to be confirmed). guns/casings.mp3 = freesound_community-shells-hitting-ground-9-39787.mp3, fx/bomb_beeps.mp3 = freesound_community-bomb-countdown-beeps-6868.mp3, guns/glauncher_fire.mp3 = freesound_community-grenade-launcher-106342.mp3, creature_screech.mp3 = freesound_community-high-quality-monster-screech-65012.mp3 (Freesound community via Pixabay); monster_growl.mp3 = rickworm-monster-growl-251374.mp3 (rickworm via Pixabay). Pixabay content licence, to be confirmed.
+- SND13: fx/heartbeat.mp3 = soundreality-heartbeat-549797.mp3 (SoundReality via Pixabay; Pixabay content licence), the low-health heartbeat; fx/player_hurt.mp3 = freesound_community-male_hurt7-48124.mp3 (Freesound community via Pixabay; licence to be confirmed), the hurt grunt.
 - Vehicle rapid-fire guns (SND9): guns/gun_shot_1.mp3 = freesound_community-gun-shot-1-7069.mp3 (Freesound community via Pixabay), the Abrams roof minigun and the Apache's 30 mm. Licence to be confirmed.
 - Reload sounds (content/audio/custom/reload): reloading-weapon1, stalker-gun-reload, ak-74-eft-reload-full, 12g-pumpfull, shotgun-reload-sfx-36524 (freesound_community). Supplied by the user; sources and licences to be confirmed.
 - Sniper shot: heavy-sniper-shot.mp3. Supplied by the user; source and licence to be confirmed.
@@ -691,3 +692,19 @@ Furniture models the user supplied (Sketchfab downloads; licence, author and sou
 | `furn_mod_synth` | Synthesizer free | Gerhald | CC-BY-4.0 | https://sketchfab.com/3d-models/synthesizer-free-2e326ce54187420c8598fa0404697bdc | yes |
 | `furn_sacks_burlap` | Burlap Bags | carlcapu9 | CC-BY-4.0 | https://sketchfab.com/3d-models/burlap-bags-5d8a0e888c1246c788669749056c03d3 | yes |
 <!-- /user_models -->
+
+<!-- pr6_assets: written by tools/props/pr6_assets.py -->
+Asset packs the user supplied (PR6; licence, author and source read from each file's own metadata). A local-only pack is not in the repository: the committed game shows box stand-ins.
+
+| File | Model | Author | Licence | Source | Assets | In the repo |
+|---|---|---|---|---|---|---|
+| sandbag_wall_-_24mb.glb | Sandbag Wall - 24MB | adventurer | CC-BY-4.0 | https://sketchfab.com/3d-models/sandbag-wall-24mb-35f39f3b391040169eb04d9a339d88a5 | 3 assets | yes |
+| wall_cement_fence_wall_building.glb | wall Cement fence Wall Building | adventurer | CC-BY-4.0 | https://sketchfab.com/3d-models/wall-cement-fence-wall-building-bdc47284bdc843fb9274efe1c5df52ee | 2 assets | yes |
+| fence_retaining_wall.glb | Fence_retaining_wall | Mehdi Shahsavan | CC-BY-4.0 | https://sketchfab.com/3d-models/fence-retaining-wall-b26ac6fb2f5441e09cc1d66594816bec | 2 assets | yes |
+| wall_door_-_19mb.glb | Wall Door - 19MB | adventurer | CC-BY-4.0 | https://sketchfab.com/3d-models/wall-door-19mb-cac51dfd82784736a726bba118e86de9 | 3 assets | yes |
+| pc_pack.glb | PC pack | That one larry | CC-BY-4.0 | https://sketchfab.com/3d-models/pc-pack-edb6d3b95bd54fb78985c909d4aa74ff | 5 assets | yes |
+| factory_props.glb | Factory Props | Thomas_Crozelon | CC-BY-4.0 | https://sketchfab.com/3d-models/factory-props-ee08d29bc6cd411e845e50903e4060ca | 51 assets | yes |
+| Air conditioner.fbx | Air conditioner.fbx | unknown | unknown | - | 14 assets | no (local-only) |
+| Billboard.fbx | Billboard.fbx | unknown | unknown | - | 15 assets | no (local-only) |
+| road_signs.glb | Road Signs | FrodoUndead | CC-BY-4.0 | https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592 | 95 assets | yes |
+<!-- /pr6_assets -->

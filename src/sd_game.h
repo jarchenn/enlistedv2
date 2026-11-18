@@ -25,6 +25,11 @@ bool sdBotHolding(Game& g, const Soldier& s);
 bool sdBotFetching(Game& g, const Soldier& s);
 bool sdBotPushing(Game& g, const Soldier& s);        // SD5: the carrier near a pad / late, or an attacker stalled: straight for the goal       // SD3: the attacker nearest the dropped bomb (it goes straight for it)        // AI: planting / defusing / at its post: hold still
 void sdDrawHud(Game& g);
+// SD9: the bomb on the minimap / M map: grey carried (at the carrier), blue dropped, red planted (pulsing, the site
+// letter). Attackers always see it; defenders only once it is planted. The same colours on the world marker.
+enum class SdBombMark : int { None = -1, Carried = 0, Dropped = 1, Planted = 2 };
+SdBombMark sdBombMarkFor(Game& g, vec3& pos);   // what the local player sees, and where
+struct ImDrawList; struct MinimapView; void sdMinimap(ImDrawList* dl, const MinimapView& v);
 bool sdClientEvent(App& app, const json& ev);
 bool sdHostRequest(Game& g, int slot, const json& req);
 std::string sdCommand(Game& g, const std::string& args);   // /sd skip | buy <item> | timeout | state

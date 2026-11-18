@@ -171,11 +171,11 @@ void build(App&) {
       ++n; WeaponState ws; ws.att[0] = 5; vec3 R, F; float rel;
       bool m = brSightLine(d, ws, R, F, rel);
       std::vector<ModelDraw> md; std::vector<DrawItem> bx; brSightDraws(a, d, ws, mat4(1), md, bx);
-      bool drew = !bx.empty() && (!md.empty() || bx.size() >= 2);
+      bool drew = !md.empty() || !bx.empty();   // AT2: the reticle is the HUD's (sight_overlay.cpp), the sight's model is drawn
       if (m && drew) ++ok; list += d.id + (m && drew ? "" : "(FAIL)") + " ";
     }
     logf("[at1] holographic sight on %d / %d guns: %s", ok, n, list.c_str());
-    T->check(n > 0 && ok == n, "the holographic sight mounts and draws its reticle on every gun it fits (" + std::to_string(ok) + " / " + std::to_string(n) + ")");
+    T->check(n > 0 && ok == n, "the holographic sight mounts and draws on every gun it fits (" + std::to_string(ok) + " / " + std::to_string(n) + ")");
     return true; });
   push("inventory", [](App& a, float t) {   // the inventory screen with the sniper and the AK carried
     if (t == 0) {

@@ -107,8 +107,10 @@ export class Asset {
     this._target = this.parts;
     this._furn = null;
   }
-  json() {
-    return { ...this.meta, materials: this.materials, parts: this.parts, furniture: this.furniture, interactables: this.interactables, panels: this.panels, walkthrough: this.walkthrough };
+  json({ ruin = false } = {}) {
+    // NT7: parts tagged ru (shutters down, boarding, graffiti) belong to the abandoned variant only
+    const parts = ruin ? this.parts : this.parts.some((p) => p.ru) ? this.parts.filter((p) => !p.ru) : this.parts;
+    return { ...this.meta, materials: this.materials, parts, furniture: this.furniture, interactables: this.interactables, panels: this.panels, walkthrough: this.walkthrough };
   }
 }
 

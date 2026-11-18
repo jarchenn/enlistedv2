@@ -112,7 +112,11 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       needMax = std::max(needMax, a0L[leg].y - (H(leg ? CJ_RFOOT : CJ_LFOOT).y - std::fabs(gnd(vec3(0, 0, dz))) + std::sqrt(std::max(0.0f, L * L - d.x * d.x - dz * dz))));
     }
     drop = std::max(drop, glm::mix(need, needMax, mAim) + 0.015f * mAim);
-    if (p.hipFrac > 0 && !dead) drop = std::max((1 - p.hipFrac) * H(CJ_HIPS).y + 0.36f * crouch, need);   // AN3: the target height, lower only as far as this frame's feet need (a vaulting gait, no glide)
+    if (p.hipFrac > 0 && !dead) {   // AN4: a fixed height per speed (the stride is capped to the leg's reach from it; need is only a guard)
+      float du = std::clamp(p.duty, 0.2f, 0.8f), u = p.walkPhase / (2 * kPi); u -= std::floor(u);
+      float bob = glm::mix(0.025f, 0.015f, std::clamp((du - 0.32f) / 0.30f, 0.0f, 1.0f)) * 0.5f * (1 + std::cos(4 * kPi * (u - 0.5f * du)));   // a small smooth rise over each mid-stance: 1.5 cm walking .. 2.5 cm sprinting
+      drop = std::max((1 - p.hipFrac) * H(CJ_HIPS).y + 0.36f * crouch - bob, need);
+    }
   }
   // kneel: the right knee on the ground under the hip, the right thigh near vertical
   vec3 kneeK(a0L[1].x, 0, a0L[1].z - 0.02f); kneeK.y = 0.065f + gnd(kneeK);

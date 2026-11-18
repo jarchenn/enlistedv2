@@ -27,7 +27,7 @@ function weatherMat(m, seed) {
   }
   if (/plinth|footing|foundation|socle/.test(n)) t = pick(["footing_brick", "footing_rock", "footing_brick"]);   // NT4: exposed footing (Bricks061 / Rock022)
   else if (/brick/.test(n + tex) || pat === "brick" || pat === "brickwork") t = pick(["brick_worn", "brick_damaged", "brick_worn"]);
-  else if (/render|plaster|stucco/.test(n + tex) || ["plaster", "limewash", "interior"].includes(pat)) t = pick(["plaster_flaking", "render_stained", "plaster_flaking_b", "render_aged"]);
+  else if (/render|plaster|stucco/.test(n + tex) || ["plaster", "limewash", "interior"].includes(pat)) t = pick(["render_stained", "render_aged", "render_stained"]);   // NT7: no plaster_flaking (it read as camouflage blotches at building scale)
   else if (/asphalt|tarmac/.test(n + tex)) { t = pick(["asphalt_worn", "asphalt_patched", "asphalt_light"]); o.texture = t; o.albedo = [0.34, 0.33, 0.31]; o.roughness = 0.97; return o; }   // sun-bleached, dusty
   else if (/membrane|roof_mem/.test(n + tex)) t = pick(["asphalt_worn", "asphalt_patched"]);
   else if (/corrug/.test(n + tex)) t = "corrugated_blue_rusty";
@@ -57,6 +57,7 @@ export function ruinify(j, opts = {}) {
   out.name = (j.name || j.id) + " (abandoned)";
   out.description = "Abandoned and overgrown: " + (j.description || "");
   out.ruin = true;
+  for (const p of out.parts) delete p.ru;   // NT7: the ruin-only parts are ordinary parts here
   if (j.model) out.model = { ...j.model, dir: (j.model.dir || j.id) + "_ruin", tint: [0.74, 0.71, 0.66] };   // MOD2: an imported model: its own darker, dustier bake
   out.materials = j.materials.map((m) => weatherMat(m, seed));
   const glassIdx = new Set(out.materials.map((m, i) => (m.pattern === "glass" ? i : -1)).filter((i) => i >= 0));
@@ -254,7 +255,7 @@ function damage(out, seed) {
 }
 
 // an Asset-like wrapper for build_mpu_assets.mjs: { json() } of the ruined variant
-export function ruinVariant(A, opts) { return { json: () => ruinify(A.json(), opts) }; }
+export function ruinVariant(A, opts) { return { json: () => ruinify(A.json({ ruin: true }), opts) }; }
 
 // the assets that get an abandoned variant: enterable buildings, road / sidewalk bays (the "_ruin" line types), lots
 export const RUIN_PIECES = /^mod_(road_|sidewalk_bay|parking_|crosswalk)/;

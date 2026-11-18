@@ -55,6 +55,7 @@ struct RenderView {
   // optic eyepiece (W2): radius of the clear circle (fraction of the frame height; 0 = none) and its reticle:
   // 1 German post with side bars (ZF39), 2 crosshair with a lower post (M1C), 3 TZF gunner sight (PaK 40)
   float eyepieceR = 0; int reticle = 0;
+  float reticleSize = 1, reticleBright = 1;   // AT2: Settings > Gameplay
   bool thermal = false;   // TH1: the eyepiece shows the thermal image (heatDraws / heatSpots; no smoke)
   bool rectVignette = false;   // TK3: the Abrams' full-screen gunner view: a soft rounded-rectangle vignette (tone pass)
   bool underwater = false;             // camera below the water surface (swim.cpp): dense fog, tint, vignette
@@ -91,6 +92,7 @@ public:
   float exposure() const { float e = 0; glGetTextureImage(expoTex[expoIdx], 0, GL_RED, GL_FLOAT, sizeof e, &e); return e; }   // debug / tests (stalls)
   bool readPixels(std::vector<uint8_t>& rgba, int& w, int& h);
   bool readVmDist(std::vector<float>& d, int& w, int& h);   // first-person eye distance per pixel (0 = world), rows bottom-up
+  int vmOnly = 0;   // VM2 self-test: draw only the first-person arms (1) or only the gun (2); 3: the world black under the weapon
   FrameStats stats;
   vec4 fogNow{0};   // fog colour (rgb) and density of the last frame's world pass (tests)
   std::vector<FxVert> fxAlpha, fxAdd;   // set by the game each frame (smoke / flashes, streaks)

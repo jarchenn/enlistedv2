@@ -16,6 +16,7 @@
 #include "model.h"
 #include "mpui.h"
 #include "ui_flat.h"
+#include "minimap.h"
 #include <map>
 #include <imgui.h>
 #include <GLFW/glfw3.h>
@@ -622,6 +623,40 @@ bool sdBotGoal(Game& g, const Soldier& s, vec3& goal) {
   goal = ring(hold->pos, 9.0f); return true;
 }
 
+SdBombMark sdBombMarkFor(Game& g, vec3& pos) {
+  if (!gSd) return SdBombMark::None;
+  SdMatch& m = *gSd;
+  const int me = g.localSlot >= 0 && g.localSlot < (int)m.players.size() ? g.localSlot : -1;
+  const bool attacker = me < 0 || m.sideOf(me) == 0;   // no local slot (spectating tests): the attackers' view
+  if (m.bomb == SdBomb::Planted) { pos = m.bombPos; return SdBombMark::Planted; }
+  if (!attacker) return SdBombMark::None;   // defenders: the planted bomb only
+  if (m.bomb == SdBomb::Dropped) { pos = m.bombPos; return SdBombMark::Dropped; }
+  if (m.carrier >= 0 && m.carrier < (int)g.sold.size() && g.sold[m.carrier].alive) { pos = g.sold[m.carrier].feet; return SdBombMark::Carried; }
+  return SdBombMark::None;
+}
+void sdMinimap(ImDrawList* dl, const MinimapView& v) {
+  if (!gSd || !gGame || !gGame->active) return;
+  vec3 p; const SdBombMark k = sdBombMarkFor(*gGame, p);
+  if (k == SdBombMark::None) return;
+  const vec2 c = v.toScreen(vec2(p.x, p.z));
+  if (!v.contains(c)) return;
+  const double now = ImGui::GetTime();
+  ImU32 col = k == SdBombMark::Carried ? IM_COL32(175, 178, 182, 255) : k == SdBombMark::Dropped ? IM_COL32(70, 150, 255, 255) : IM_COL32(235, 70, 60, 255);
+  const ImU32 ink = IM_COL32(12, 14, 16, 235);
+  if (k == SdBombMark::Planted) {   // a pulsing ring
+    const float ph = (float)std::fmod(now, 1.0), r = 7.0f + 10.0f * ph;
+    dl->AddCircle(ImVec2(c.x, c.y), r, (col & 0x00FFFFFFu) | ((uint32_t)(220 * (1.0f - ph)) << 24), 24, 2.0f);
+  }
+  // the bomb: a round charge with a fuse stub (the site rhombi's vector style: a fill, an ink outline)
+  // larger than a teammate's dot, with a white rim
+  dl->AddLine(ImVec2(c.x + 5.0f, c.y - 5.0f), ImVec2(c.x + 10.0f, c.y - 11.0f), ink, 3.5f); dl->AddLine(ImVec2(c.x + 5.0f, c.y - 5.0f), ImVec2(c.x + 9.5f, c.y - 10.5f), IM_COL32(245, 240, 225, 255), 1.8f);
+  dl->AddCircleFilled(ImVec2(c.x, c.y), 9.0f, ink, 20); dl->AddCircleFilled(ImVec2(c.x, c.y), 7.5f, IM_COL32(245, 240, 225, 255), 20); dl->AddCircleFilled(ImVec2(c.x, c.y), 6.0f, col, 20);
+  if (k == SdBombMark::Planted && gSd->bombSite >= 0) {
+    const char L[2] = {(char)('A' + gSd->bombSite), 0};
+    dl->AddText(ImVec2(c.x + 12, c.y - 2), ink, L); dl->AddText(ImVec2(c.x + 11, c.y - 3), col, L);
+  }
+}
+
 // ---------------------------------------------------------------- LAN
 bool sdHostRequest(Game& g, int slot, const json& req) {
   if (!gSd) return false;
@@ -895,13 +930,16 @@ void sdDrawHud(Game& g) {
     }
   if (me >= 0 && m.carrier == me && m.players[me].alive && m.planter != me && siteAt(g, g.sold[me].feet) >= 0 && m.phase == SdPhase::LiveUnplanted)
     centered(H * 0.66f, cGold, "Hold E to plant", 1.3f);   // SD3: only inside the pad (the exact plant test)
-  // the dropped bomb, for the attackers (spec §5: carrier and dropped bomb shown to attackers)
-  if (m.bomb == SdBomb::Dropped && mySide == 0) {
-    vec4 c = g.app.projM * g.app.viewM * vec4(m.bombPos + vec3(0, 0.6f, 0), 1);
-    if (c.w > 0.1f) { vec2 sp((c.x / c.w * 0.5f + 0.5f) * W, (0.5f - c.y / c.w * 0.5f) * H);
-      dl->AddCircle(ImVec2(sp.x, sp.y), 9, IM_COL32(255, 200, 80, 230), 16, 2.5f);
-      std::snprintf(b, sizeof b, "BOMB %.0f m", glm::length(m.bombPos - g.app.eyePos())); text(vec2(sp.x - width(b) * 0.5f, sp.y + 12), IM_COL32(255, 200, 80, 230), b); }
-  }
+  // the bomb, for the attackers (spec §5: carrier and dropped bomb shown to attackers); SD9: the minimap's colours (grey
+  // carried, over a teammate carrying it; blue dropped); planted: the site marker above turns red
+  { vec3 bp; const SdBombMark bk = sdBombMarkFor(g, bp);
+    if ((bk == SdBombMark::Dropped || (bk == SdBombMark::Carried && m.carrier != me)) && mySide == 0) {
+      const ImU32 bc = bk == SdBombMark::Dropped ? IM_COL32(70, 150, 255, 235) : IM_COL32(175, 178, 182, 225);
+      vec4 c = g.app.projM * g.app.viewM * vec4(bp + vec3(0, bk == SdBombMark::Carried ? 2.2f : 0.6f, 0), 1);
+      if (c.w > 0.1f) { vec2 sp((c.x / c.w * 0.5f + 0.5f) * W, (0.5f - c.y / c.w * 0.5f) * H);
+        dl->AddCircle(ImVec2(sp.x, sp.y), 9, bc, 16, 2.5f);
+        std::snprintf(b, sizeof b, "BOMB %.0f m", glm::length(bp - g.app.eyePos())); text(vec2(sp.x - width(b) * 0.5f, sp.y + 12), bc, b); }
+    } }
   // kill feed, top right under the minimap
   float fy = 300;
   for (auto& f : feed) if (g.t - f.at < 8.0) { float w = width(f.text); dl->AddRectFilled(ImVec2(W - w - 22, fy - 2), ImVec2(W - 8, fy + ImGui::GetFontSize() + 2), IM_COL32(12, 14, 16, 150), 4); text(vec2(W - w - 15, fy), cWhite, f.text); fy += ImGui::GetFontSize() + 8; }
