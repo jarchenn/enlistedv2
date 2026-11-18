@@ -744,3 +744,14 @@ Asset packs the user supplied (PR6; licence, author and source read from each fi
 ## SND14 weapon recordings
 
 `content/audio/custom/snd14/`: eleven recordings supplied by the project owner (rocket launch, AR-15, rifle x3, SMG x3, bolt-action, machine-gun reload, bullet fly-by from SoundEffectsFactory.com), cut and levelled. The owner states they are free to use.
+
+<!-- pr7_assets: written by tools/props/pr7_assets.py -->
+PR7: the user's crafting tables (three smithing tables) and security hut.
+
+| Asset | Model | Author | Licence | Source | Changes | In the repo |
+|---|---|---|---|---|---|---|
+| `smithing_table_tech_desk` | Crafting table - Tech Desk | IDALGAME | CC-BY-4.0 | https://skfb.ly/osTKB | modified: split / baked / textures resized | yes |
+| `smithing_table_tech_pegboard` | Crafting table - Tech Desk | IDALGAME | CC-BY-4.0 | https://skfb.ly/osTKB | modified: split / baked / textures resized | yes |
+| `smithing_table_tech_saw` | Crafting table - Tech Desk | IDALGAME | CC-BY-4.0 | https://skfb.ly/osTKB | modified: split / baked / textures resized | yes |
+| `mod_security_hut` | Abandoned Security Hut (Low Poly) | Berk Gedik | CC-BY-4.0 | https://skfb.ly/6TANP | modified: split / baked / textures resized | yes |
+<!-- /pr7_assets -->

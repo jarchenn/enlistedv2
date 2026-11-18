@@ -25,6 +25,22 @@ if job.get("tex"):   # the FBX packs ship their texture beside the model, unlink
             bs = next((n for n in N if n.type == "BSDF_PRINCIPLED"), None) or N.new("ShaderNodeBsdfPrincipled")
             t = N.new("ShaderNodeTexImage"); t.image = img; L.new(t.outputs[0], bs.inputs["Base Color"])
             if img.channels == 4: L.new(t.outputs[1], bs.inputs["Alpha"])
+if job.get("texdir"):   # PR7: a full PBR set beside the FBX (base colour / roughness / metallic / normal, by file name)
+    td = job["texdir"]; files = os.listdir(td)
+    def find(*keys):
+        return next((os.path.join(td, f) for f in files if any(k in f.lower() for k in keys)), None)
+    maps = {"Base Color": find("base_color", "basecolor", "albedo"), "Roughness": find("rough"), "Metallic": find("metal"), "Normal": find("normal")}
+    for o in SRC:
+        for s in o.material_slots:
+            m = s.material; m.use_nodes = True; N, L = m.node_tree.nodes, m.node_tree.links
+            bs = next((n for n in N if n.type == "BSDF_PRINCIPLED"), None) or N.new("ShaderNodeBsdfPrincipled")
+            for inp, p in maps.items():
+                if not p: continue
+                t = N.new("ShaderNodeTexImage"); t.image = bpy.data.images.load(p, check_existing=True)
+                t.image.colorspace_settings.name = "sRGB" if inp == "Base Color" else "Non-Color"
+                if inp == "Normal":
+                    nm = N.new("ShaderNodeNormalMap"); L.new(t.outputs[0], nm.inputs["Color"]); L.new(nm.outputs[0], bs.inputs["Normal"])
+                else: L.new(t.outputs[0], bs.inputs[inp])
 bpy.context.view_layer.update()
 MW = {o.name: o.matrix_world.copy() for o in SRC}   # world transforms (the Sketchfab root's turn and unit scale included)
 for o in SRC: o.parent = None; o.matrix_world = MW[o.name]   # no parents, so a piece can be cut from anywhere in the scene
