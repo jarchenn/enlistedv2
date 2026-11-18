@@ -91,6 +91,12 @@ def bandage(sx, sy, sz):
             {'t': 'c', 'c': [0, sy / 2, 0], 's': [sy * 0.35, sx * 1.02, sy * 0.35], 'r': [0, 0, 90], 'n': 12, 'm': 'black', 'k': 0},
             box([0, sy * 0.02, sz * 0.35], [sx * 0.9, 0.003, sz * 0.4], 'cloth')]        # the loose end
 
+def pistol_dot(sx, sy, sz):   # PS1: base, the hood round an open window (no lens: nothing in the view), the emitter block behind
+    return [box([0, sy * 0.08, 0], [sx, sy * 0.16, sz], 'black'),
+            box([sx * 0.42, sy * 0.58, sz * 0.1], [sx * 0.16, sy * 0.84, sz * 0.5], 'black'),
+            box([-sx * 0.42, sy * 0.58, sz * 0.1], [sx * 0.16, sy * 0.84, sz * 0.5], 'black'),
+            box([0, sy * 0.95, sz * 0.1], [sx, sy * 0.1, sz * 0.5], 'black'),
+            box([0, sy * 0.3, -sz * 0.32], [sx * 0.7, sy * 0.3, sz * 0.32], 'black')]
 def size_of(a):
     p = a['parts'][0] if a.get('parts') else {'s': [0.1, 0.1, 0.1]}
     return p['s'] if not a.get('standinParts') else a['standinSize']
@@ -122,6 +128,7 @@ rewrite('br_muzzle_brake', brake, ['steel', 'black'])
 for m in ('br_mag_ext', 'br_mag_ext_rifle', 'br_mag_ext_pistol', 'br_mag_ext_sniper'): rewrite(m, magazine, ['black', 'steel'])
 rewrite('br_mag_ext_smg', drum, ['black', 'steel'])
 rewrite('br_sight_reddot', reddot, ['black', 'lens', 'steel'])
+rewrite('br_sight_pistol', pistol_dot, ['black'])   # PS1
 rewrite('br_sight_acog', acog, ['black', 'lens', 'steel'], extra_eye=True)
 rewrite('br_sight_4x', lambda sx, sy, sz, e: scope(sx, sy, sz, e, 1.5), ['black', 'lens', 'steel'], extra_eye=True)
 rewrite('br_sight_10x', lambda sx, sy, sz, e: scope(sx, sy, sz, e, 1.9), ['black', 'lens', 'steel'], extra_eye=True)

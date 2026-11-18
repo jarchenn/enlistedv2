@@ -915,3 +915,10 @@ Sources: `E:/nmk/incoming/ng1/<name>/` (credits: [NG1](credits.md#new-guns-ng1))
 - **Hip framing:** the pistols by `hipRear` (no `hipShift`, as the Desert Eagle / Mk 23); the .45 SMG's grip socket at the rifle-class hip point (computed offline); the AK-74M as the FAL.
 - **Not checked in the game** (no game instance for this task): the ADS sight picture on the rigs and the hip framing; the user tests them.
 - `pistol.zip` is the Springfield XD source again (identical): nothing new; its missing hands were XD1.
+
+### PS1: the pistol red dot (sight value 7)
+
+The only optic a pistol takes, and no other gun takes it (`loot.cpp` `lootSightFits` case 7; the red dot, holographic, ACOG, 4x, 10x and thermal stay refused on pistols). Item `br_sight_pistol` (`content/settings/loot.json`, weight 10, rarity 4, like the red dot); the smithing table, the inventory and Battle Royale loot list it like the other optics.
+- **Model:** the user's `vortex_viper_red_dot.glb`, baked by `tools/bake_br_assets.py` (`br_sight_pistol`: no mount adapter, 46 mm, 2 434 triangles, 512 px textures, the lens removed: no glass in the view); licence unknown: local-only (`content/assets/models/br_sight_pistol/`). Without it the committed asset shows a part-built frame with an open window (`tools/br_standins.py`).
+- **Mount:** each pistol's `rail` (its base on the slide top, 34 mm ahead of the rear sight; measured on the triangles of the model the JSON uses, so the local overrides carry their own). In first person it rides the slide: `animated.slideJoint` (the XD `Up`, the .22 `gun_bolt`, the Glock 43, Makarov, .22 tactical `Slide`, the Glock 34, Desert Eagle, 9 mm service pistol `gun_slide`, the Mk 23 `side_j`; the revolver and the static WW2 pistols: the frame).
+- **Picture:** the 2 MOA HUD dot (AT2) on the shot line at the zero, clipped to this sight's 7 mm window; AT6 keeps the pistol's own sights out of the window. Eye relief 0.35 m (the pistol at arm's length).

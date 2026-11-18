@@ -59,7 +59,7 @@ ReflexReticle reflexReticle(const App& a) {
   const WeaponState& s = it->second;
   vec3 col(1, 0.03f, 0.015f); float ring = 0;
   const int fs = fittedSight(d, s);   // AT5: a default optic (the SMG-9's holographic sight) as a fitted one
-  if (fs == 1) r.kind = 1; else if (fs == 5) r.kind = 2;
+  if (fs == 1 || fs == 7) r.kind = 1; else if (fs == 5) r.kind = 2;   // PS1: the pistol red dot draws the 2 MOA dot
   else if (fs == 0 && animVmDot(d, col, ring)) r.kind = 1;
   if (!r.kind) return r;
   r.col = col; r.ring = ring;

@@ -40,6 +40,7 @@
     {"id": "br_backpack_mil", "name": "Military backpack", "kind": "backpack", "level": 2, "rarity": 2, "military": true},
     {"id": "br_sight_reddot", "name": "Red dot sight", "kind": "sight", "value": 1, "weight": 15, "rarity": 4},
     {"id": "br_sight_holo", "name": "Holographic sight", "kind": "sight", "value": 5, "weight": 15, "rarity": 3},
+    {"id": "br_sight_pistol", "name": "Pistol red dot", "kind": "sight", "value": 7, "weight": 10, "rarity": 4},
     {"id": "br_sight_acog", "name": "ACOG", "kind": "sight", "value": 2, "weight": 15, "rarity": 2},
     {"id": "br_sight_4x", "name": "4x scope", "kind": "sight", "value": 3, "weight": 15, "rarity": 2},
     {"id": "br_sight_10x", "name": "10x scope", "kind": "sight", "value": 4, "weight": 15, "rarity": 1},
