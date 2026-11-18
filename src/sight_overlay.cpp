@@ -58,8 +58,9 @@ ReflexReticle reflexReticle(const App& a) {
   auto it = a.wstate.find(d.id); if (it == a.wstate.end() || d.hasScope) return r;
   const WeaponState& s = it->second;
   vec3 col(1, 0.03f, 0.015f); float ring = 0;
-  if (s.att[0] == 1) r.kind = 1; else if (s.att[0] == 5) r.kind = 2;
-  else if (s.att[0] == 0 && animVmDot(d, col, ring)) r.kind = 1;
+  const int fs = fittedSight(d, s);   // AT5: a default optic (the SMG-9's holographic sight) as a fitted one
+  if (fs == 1) r.kind = 1; else if (fs == 5) r.kind = 2;
+  else if (fs == 0 && animVmDot(d, col, ring)) r.kind = 1;
   if (!r.kind) return r;
   r.col = col; r.ring = ring;
   r.alpha = glm::smoothstep(0.85f, 0.97f, a.adsT);
@@ -84,7 +85,7 @@ ReflexReticle reflexReticle(const App& a) {
     float winR = vP[1][1] * H * 0.5f * rw / -v.z;
     r.alpha *= 1.0f - glm::smoothstep(0.8f * winR, winR, glm::length(w - r.pos));
   };
-  if (s.att[0] == 0) { if (d.anim) window(Fw, 0.011f); }
+  if (fs == 0) { if (d.anim) window(Fw, 0.011f); }
   else {
     vec3 cw; float rw; mat4 Wm;
     if (brSightWindow(d, s, cw, rw) && (d.anim ? animVmWeaponMatrix(a, d, Wm) : (Wm = a.viewModelMatrix(d, s), true)))

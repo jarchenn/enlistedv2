@@ -8,6 +8,7 @@
 #include "app.h"
 #include "game.h"
 #include "loot.h"
+#include "br_models.h"
 #include "ui_flat.h"
 #include "crumb.h"
 #include <array>
@@ -46,6 +47,7 @@ void renderGun(App& app, const WeaponDef& d, const WeaponState& s, int w, int h)
   mat4 W = glm::rotate(mat4(1), glm::radians(yaw), vec3(0, 1, 0)) * glm::translate(mat4(1), -(lo0 + hi0) * 0.5f);   // about the gun's own centre
   if (d.useModel()) for (int p = 0; p < 8; ++p) for (int k : d.modelParts[p]) md.push_back({d.model.get(), k, W});
   lootAttachDraws(app, d, s, W, md, bx);
+  brSightDraws(app, d, s, W, md, bx);   // AT5: the optic (fitted, or the gun's default one) in the preview too
   if (md.empty() && bx.empty()) return;
   vec3 c(0); float r = std::max(0.2f, glm::length(hi0 - lo0) * 0.5f);
   vec3 eye = c + vec3(0, r * 0.35f, r * 2.4f);

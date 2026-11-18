@@ -103,6 +103,7 @@ void App::buildWeaponMeshes() {
     d->caliber = j.value("caliber", ""); d->note = j.value("note", "");
     d->cap = j.value("cap", 1); d->loaded = j.value("loaded", 1); d->reserve = j.value("reserve", 0); d->containerSize = j.value("containerSize", 1);
     d->tracerEvery = j.value("tracerEvery", 0);
+    d->defaultSight = std::clamp(j.value("defaultSight", 0), 0, 6);   // AT5
     d->sway = j.value("sway", 1.0f); d->rpm = j.value("rpm", 60.0f); d->velocity = j.value("velocity", 800.0f); d->zero = j.value("zero", 100.0f);
     d->boltTime = j.value("boltTime", 0.0f);
     d->reloadEmpty = j["reload"].value("empty", 2.5f); d->reloadPartial = j["reload"].value("partial", d->reloadEmpty); d->reloadRound = j["reload"].value("round", 0.5f);
@@ -194,7 +195,9 @@ void App::buildWeaponMeshes() {
       }
       d->model = it->second;
       auto roles = [&](const GpuModel& gm, std::vector<int>* parts) {
+        json hn = j["model"].value("hideNames", json::array());   // AT5: parts by name never drawn (the SMG-9's own sight)
         for (size_t k = 0; k < gm.parts.size(); ++k) {
+          if (std::find(hn.begin(), hn.end(), json(gm.parts[k].name)) != hn.end()) continue;
           const std::string& r = gm.parts[k].role;
           int role = WP_BODY;
           for (int p = 0; p < WP_COUNT; ++p) if (r == kPartNames[p]) role = p;
