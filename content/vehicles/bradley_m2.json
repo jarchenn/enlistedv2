@@ -2,7 +2,7 @@
  "id": "bradley_m2",
  "name": "M2 Bradley IFV",
  "faction": "Modern",
- "identity": "Supplied m2-bradley-ifv.zip (m2_bradley.FBX + 2K TGA maps; no author or licence inside): M2 Bradley with the 25 mm M242 Bushmaster, coax M240C and the TOW launcher. Converted by E:/nmk/vh7scripts/convert_bradley.py (hull / turret / gun / track; the barrel split off the turret by its loose parts). Local-only (no confirmed licence): clones draw the committed Abrams mesh as a stand-in.",
+ "identity": "Supplied m2-bradley-ifv.zip (m2_bradley.FBX + 2K maps): \"M2 Bradley IFV\" by 42manako, CC-BY-4.0, https://skfb.ly/py7tV (LIC3): M2 Bradley with the 25 mm M242 Bushmaster, coax M240C and the TOW launcher. Converted by E:/nmk/vh7scripts/convert_bradley.py (hull / turret / gun / track; the barrel split off the turret by its loose parts). The bake is committed (models/bradley); without it the Abrams mesh stands in.",
  "model": {
   "src": "bradley_m2.glb",
   "dir": "bradley",

@@ -20,7 +20,7 @@ content/assets/models/mod_hydrant_cast/
 content/assets/models/mod_traffic_barrel/
 # BR3 Battle Royale models: licences of the supplied downloads unknown, so the bakes stay local-only (tools/bake_br_assets.py);
 # the committed content/assets/br_*.json boxes stand in without them
-content/characters/br_marine.glb
+# LIC3: the marine ("US Marine" by doctortex, CC-BY-4.0) is committed
 content/assets/models/br_*/
 # LIC1: the pistol red dot (Vortex Viper, epavlenko, CC-BY-4.0 in its GLB) is committed
 !content/assets/models/br_sight_pistol/
@@ -50,7 +50,7 @@ content/assets/models/range_target_paper/
 # VH4: the supplied M4 Sherman (m4-sherman.zip, a Sketchfab source .blend with no author or licence inside) stays
 # local-only; clones draw the committed Firefly mesh (content/vehicles/models/sherman) for sherman_m4
 content/vehicles/models/sherman_m4/
-content/vehicles/models/bradley/
+# LIC3: the Bradley ("M2 Bradley IFV" by 42manako, CC-BY-4.0) is committed
 # VH6 Ural-4320: supplied model of unknown licence, local-only; clones draw the committed part-built fallback (content/vehicles/models/ural_4320_fallback)
 content/vehicles/models/ural_4320/
 # UI2: the supplied city soldier (city-soldier-outdated.zip, licence unknown): its menu cut-out stays local-only; the committed
