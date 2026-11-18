@@ -32,7 +32,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 def load_sets(path, only):
     with open(path, encoding="utf-8") as f:
         cfg = json.load(f)
-    sets = cfg["sets"]
+    sets = [x for x in cfg["sets"] if not x.get("local")]   # RB1: local sets (cropped from licensed references) are not ambientCG's
     names = [s["set"] for s in sets]
     if len(set(names)) != len(names):
         sys.exit("texture_sets.json: duplicate set names")

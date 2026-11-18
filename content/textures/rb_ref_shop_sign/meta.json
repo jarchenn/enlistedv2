@@ -1,0 +1,16 @@
+{
+ "set": "rb_ref_shop_sign",
+ "id": "rb_ref_shop_sign",
+ "family": "the shop's WEAPON sign board (reference atlas crop, turned and unmirrored)",
+ "size": [
+  2.0,
+  0.45
+ ],
+ "source": "https://skfb.ly/o7pvZ",
+ "license": "CC-BY-4.0",
+ "credit": "\"Abandoned | Building | Shop | Old | House\" by YadroGames, CC BY 4.0 (modified: textures extracted / resized, building rebuilt for the game)",
+ "resolution": "crop, <= 1024 px",
+ "maps": [
+  "color.jpg"
+ ]
+}

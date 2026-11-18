@@ -1,0 +1,20 @@
+{
+ "set": "rb_planks_old",
+ "id": "Planks039",
+ "family": "large old dirty planks (RB1 log house roof boards, plinth)",
+ "size": [
+  2.0,
+  2.0
+ ],
+ "source": "https://ambientcg.com/a/Planks039",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "ao.jpg",
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

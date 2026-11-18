@@ -2218,6 +2218,205 @@
     1.8
    ],
    "batch": "NT4"
+  },
+  {
+   "set": "rb_siding_weathered",
+   "id": "WoodSiding008",
+   "family": "weatherboard siding, weathered grey with moss (RB1 shop)",
+   "size": [
+    2.4,
+    2.4
+   ]
+  },
+  {
+   "set": "rb_siding_grey",
+   "id": "WoodSiding009",
+   "family": "weatherboard siding, plain old boards (RB1 shop)",
+   "size": [
+    2.4,
+    2.4
+   ]
+  },
+  {
+   "set": "rb_metal_leaks",
+   "id": "Metal024",
+   "family": "painted sheet steel with rust run-off streaks (RB1 container cabin)",
+   "size": [
+    2.0,
+    2.0
+   ]
+  },
+  {
+   "set": "rb_metal_leaks_b",
+   "id": "Metal025",
+   "family": "painted sheet steel with rust run-off streaks, heavier (RB1 container cabin)",
+   "size": [
+    2.0,
+    2.0
+   ]
+  },
+  {
+   "set": "rb_paint_green_rust",
+   "id": "PaintedMetal006",
+   "family": "green painted steel, rusting through (RB1 shop counters)",
+   "size": [
+    2.0,
+    2.0
+   ]
+  },
+  {
+   "set": "rb_paint_orange",
+   "id": "PaintedMetal008",
+   "family": "orange painted steel (RB1 shop door)",
+   "size": [
+    2.0,
+    2.0
+   ]
+  },
+  {
+   "set": "rb_log_end",
+   "id": "TreeEnd002",
+   "family": "cut log end grain, rings and cracks (RB1 log house corners)",
+   "size": [
+    0.35,
+    0.35
+   ]
+  },
+  {
+   "set": "rb_wood_rough_old",
+   "id": "Wood035",
+   "family": "old rough dark wood, long grain (RB1 log walls)",
+   "size": [
+    1.6,
+    1.6
+   ]
+  },
+  {
+   "set": "rb_planks_old",
+   "id": "Planks039",
+   "family": "large old dirty planks (RB1 log house roof boards, plinth)",
+   "size": [
+    2.0,
+    2.0
+   ]
+  },
+  {
+   "set": "rb_painted_wood_old",
+   "id": "PaintedWood009C",
+   "family": "old light painted wood (RB1 carved window surrounds, shutters)",
+   "size": [
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "set": "rb_floor_dirty",
+   "id": "WoodFloor067B",
+   "family": "dark dirty floorboards (RB1 shop and cabin floors)",
+   "size": [
+    2.0,
+    2.0
+   ]
+  },
+  {
+   "set": "rb_rust_patch",
+   "id": "Rust009",
+   "family": "brown rust, damaged (RB1 rust patches)",
+   "size": [
+    1.5,
+    1.5
+   ]
+  },
+  {
+   "set": "rb_ref_cab_wall",
+   "id": "rb_ref_cab_wall",
+   "family": "the cabin's olive sheet-steel paint (reference atlas crop, turned upright)",
+   "size": [
+    4.0,
+    2.8
+   ],
+   "local": true,
+   "source": "https://skfb.ly/osPME",
+   "license": "CC-BY-4.0",
+   "credit": "\"Building | Container | Metal\" by YadroGames, CC BY 4.0 (modified: textures extracted / resized, building rebuilt for the game)"
+  },
+  {
+   "set": "rb_ref_cab_boards",
+   "id": "rb_ref_cab_boards",
+   "family": "the cabin's weathered window boarding (reference atlas crop, planks horizontal)",
+   "size": [
+    2.0,
+    1.0
+   ],
+   "local": true,
+   "source": "https://skfb.ly/osPME",
+   "license": "CC-BY-4.0",
+   "credit": "\"Building | Container | Metal\" by YadroGames, CC BY 4.0 (modified: textures extracted / resized, building rebuilt for the game)"
+  },
+  {
+   "set": "rb_ref_shop_door",
+   "id": "rb_ref_shop_door",
+   "family": "the shop's orange rusted door leaf with its letterbox (reference atlas crop)",
+   "size": [
+    0.8,
+    2.15
+   ],
+   "local": true,
+   "source": "https://skfb.ly/o7pvZ",
+   "license": "CC-BY-4.0",
+   "credit": "\"Abandoned | Building | Shop | Old | House\" by YadroGames, CC BY 4.0 (modified: textures extracted / resized, building rebuilt for the game)"
+  },
+  {
+   "set": "rb_ref_shop_sign",
+   "id": "rb_ref_shop_sign",
+   "family": "the shop's WEAPON sign board (reference atlas crop, turned and unmirrored)",
+   "size": [
+    2.0,
+    0.45
+   ],
+   "local": true,
+   "source": "https://skfb.ly/o7pvZ",
+   "license": "CC-BY-4.0",
+   "credit": "\"Abandoned | Building | Shop | Old | House\" by YadroGames, CC BY 4.0 (modified: textures extracted / resized, building rebuilt for the game)"
+  },
+  {
+   "set": "rb_ref_shop_green",
+   "id": "rb_ref_shop_green",
+   "family": "the shop's green painted counter panelling (reference atlas crop)",
+   "size": [
+    1.8,
+    1.0
+   ],
+   "local": true,
+   "source": "https://skfb.ly/o7pvZ",
+   "license": "CC-BY-4.0",
+   "credit": "\"Abandoned | Building | Shop | Old | House\" by YadroGames, CC BY 4.0 (modified: textures extracted / resized, building rebuilt for the game)"
+  },
+  {
+   "set": "rb_ref_shop_wall",
+   "id": "rb_ref_shop_wall",
+   "family": "the shop's weatherboard (reference atlas crop, boards horizontal)",
+   "size": [
+    3.0,
+    3.0
+   ],
+   "local": true,
+   "source": "https://skfb.ly/o7pvZ",
+   "license": "CC-BY-4.0",
+   "credit": "\"Abandoned | Building | Shop | Old | House\" by YadroGames, CC BY 4.0 (modified: textures extracted / resized, building rebuilt for the game)"
+  },
+  {
+   "set": "rb_ref_shop_roof",
+   "id": "rb_ref_shop_roof",
+   "family": "the shop's corrugated roof sheets (reference atlas crop)",
+   "size": [
+    4.0,
+    4.0
+   ],
+   "local": true,
+   "source": "https://skfb.ly/o7pvZ",
+   "license": "CC-BY-4.0",
+   "credit": "\"Abandoned | Building | Shop | Old | House\" by YadroGames, CC BY 4.0 (modified: textures extracted / resized, building rebuilt for the game)"
   }
  ],
  "polyhaven": [

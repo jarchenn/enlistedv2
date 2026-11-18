@@ -32,6 +32,7 @@ import { modernPropsAssets } from "./catalog_modern_props.mjs";
 import { newtownAssetsA } from "./catalog_newtown_a.mjs";   // BR4: Newtown (tools/mapgen/maps/newtown.py)
 import { newtownAssetsB } from "./catalog_newtown_b.mjs";
 import { newtownAssetsC } from "./catalog_newtown_c.mjs";
+import { rb1Assets } from "./catalog_rb1.mjs";   // RB1: the three reference buildings (docs/rb1-buildings.md)
 import { ruinVariants } from "./ruin_kit.mjs";
 import { artAssets } from "./catalog_art.mjs";
 import { nt3Assets } from "./catalog_nt3.mjs";
@@ -124,7 +125,7 @@ const BACKFILL = {
 };
 // ---------------------------------------------------------------- new assets (after the backfill table: B2's legacy houses use houseNav)
 const ids = new Set();
-for (const A of [...modernFurnitureAssets(), ...modernModelAssets(), ...modernOutdoorAssets(), ...modernBuildingsA(), ...modernBuildingsB(), ...modernPropsAssets(), ...newtownAssetsA(), ...newtownAssetsB(), ...newtownAssetsC(), ...mod2Assets(), ...artAssets(), ...nt2CarAssets(), ...nt3Assets(), ...nt4HelipadAssets(), ...nt4RangeAssets(), ...nt4TentAssets(), ...ruinVariants([...mod2Assets(), ...modernOutdoorAssets(), ...modernBuildingsA(), ...modernBuildingsB(), ...newtownAssetsA(), ...newtownAssetsB(), ...newtownAssetsC()]), ...backroomsAssets(), ...tunnelAssets(), ...atlanticAssets(), ...beachAssets(), ...bocageAssets(), ...villageAssets(), ...ruinAssets(), ...waterAssets(), ...kitDemoAssets(), ...ordnanceAssets(), ...props2Assets(), ...chateauAssets().map((A) => exterior(A)), ...houses2Assets().map((A) => exterior(A)), ...dressingAssets(), ...gxHouseAssets().map((A) => exterior(A))]) {
+for (const A of [...rb1Assets(), ...modernFurnitureAssets(), ...modernModelAssets(), ...modernOutdoorAssets(), ...modernBuildingsA(), ...modernBuildingsB(), ...modernPropsAssets(), ...newtownAssetsA(), ...newtownAssetsB(), ...newtownAssetsC(), ...mod2Assets(), ...artAssets(), ...nt2CarAssets(), ...nt3Assets(), ...nt4HelipadAssets(), ...nt4RangeAssets(), ...nt4TentAssets(), ...ruinVariants([...mod2Assets(), ...modernOutdoorAssets(), ...modernBuildingsA(), ...modernBuildingsB(), ...newtownAssetsA(), ...newtownAssetsB(), ...newtownAssetsC()]), ...backroomsAssets(), ...tunnelAssets(), ...atlanticAssets(), ...beachAssets(), ...bocageAssets(), ...villageAssets(), ...ruinAssets(), ...waterAssets(), ...kitDemoAssets(), ...ordnanceAssets(), ...props2Assets(), ...chateauAssets().map((A) => exterior(A)), ...houses2Assets().map((A) => exterior(A)), ...dressingAssets(), ...gxHouseAssets().map((A) => exterior(A))]) {
   const j = A.json();
   if (ids.has(j.id)) throw new Error("duplicate asset id " + j.id);
   ids.add(j.id);

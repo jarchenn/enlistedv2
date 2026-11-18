@@ -720,8 +720,10 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       json all = json::object(); int k = 0, total = 0, was = 0, skippedOk = 0, skipped = 0, furnished = 0, eligible = 0, vilRooms = 0, vils = 0, pews = 0, fixed = 0;
       std::string bad, lowest; float worst = 1e9f;
       float px = -290.0f, pz = 105.0f, rowD = 0.0f, side = 1.0f;   // rows packed by footprint in the two bands |z| 105..295 of the 600 m Blank Slate
+      const char* onlyIds = std::getenv("NMK_STRUCTURES_ONLY");   // RB1: comma-separated asset ids: furnish only those (dev runs)
       for (auto& as : a.lib.assets) {
         if (!as->enterable || as->category == "Furniture") continue;
+        if (onlyIds && ("," + std::string(onlyIds) + ",").find("," + as->id + ",") == std::string::npos) continue;
         // PR3: a fixed 64-slot grid ran off the map once there were more enterable assets (every vil_* went unplaced: "0 of 0")
         float w = as->footprint.x + 6.0f, d = as->footprint.y + 6.0f;
         if (px + w > 290.0f) { px = -290.0f; pz += rowD; rowD = 0.0f; }

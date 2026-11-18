@@ -76,7 +76,8 @@
    "ma1": false,
    "batch": "L4",
    "slots": [
-    "plaster"
+    "plaster",
+    "rb_render"
    ]
   },
   {
@@ -735,6 +736,7 @@
    "ma1": false,
    "batch": "L4",
    "slots": [
+    "rb_steel_rusty",
     "steel_rusty"
    ]
   },
@@ -785,7 +787,8 @@
    "ma1": false,
    "batch": "L4",
    "slots": [
-    "iron"
+    "iron",
+    "rb_iron_rust"
    ]
   },
   {
@@ -1851,7 +1854,8 @@
    "ma1": true,
    "batch": "MA1",
    "slots": [
-    "imgmat:plaster"
+    "imgmat:plaster",
+    "sd_render_aged"
    ]
   },
   {
@@ -1877,7 +1881,8 @@
    "ma1": true,
    "batch": "MA1",
    "slots": [
-    "imgmat:render_flaking"
+    "imgmat:render_flaking",
+    "sd_plaster_flaking"
    ]
   },
   {
@@ -1951,7 +1956,8 @@
    "ma1": true,
    "batch": "MA1",
    "slots": [
-    "imgmat:render_stained"
+    "imgmat:render_stained",
+    "sd_render_stained"
    ]
   },
   {
@@ -2209,7 +2215,8 @@
    "ma1": true,
    "batch": "MA1",
    "slots": [
-    "imgmat:beam"
+    "imgmat:beam",
+    "rb_beam"
    ]
   },
   {
@@ -2262,7 +2269,8 @@
    "ma1": true,
    "batch": "MA1",
    "slots": [
-    "imgmat:wood_raw"
+    "imgmat:wood_raw",
+    "rb_boards_grey"
    ]
   },
   {
@@ -2365,7 +2373,8 @@
    "ma1": true,
    "batch": "MA1",
    "slots": [
-    "imgmat:floor_boards"
+    "imgmat:floor_boards",
+    "rb_floor_old"
    ]
   },
   {
@@ -2541,7 +2550,8 @@
    "ma1": true,
    "batch": "MA1",
    "slots": [
-    "imgmat:galvanized"
+    "imgmat:galvanized",
+    "rb_corr_galv"
    ]
   },
   {
@@ -3014,7 +3024,8 @@
    "ma1": false,
    "batch": "TX2",
    "slots": [
-    "asphalt_worn"
+    "asphalt_worn",
+    "yard_asphalt_paint"
    ]
   },
   {
@@ -3066,7 +3077,9 @@
    "ma1": false,
    "batch": "TX2",
    "slots": [
-    "concrete_beige_smooth"
+    "apron_concrete_paint",
+    "concrete_beige_smooth",
+    "yard_apron_paint"
    ]
   },
   {
@@ -3526,7 +3539,8 @@
    "ma1": false,
    "batch": "TX2",
    "slots": [
-    "corrugated_blue_rusty"
+    "corrugated_blue_rusty",
+    "rb_corr_rust"
    ]
   },
   {
@@ -5236,7 +5250,8 @@
    "ma1": false,
    "batch": "TX2",
    "slots": [
-    "setts_grey"
+    "setts_grey",
+    "setts_paint"
    ]
   },
   {
@@ -5863,6 +5878,478 @@
    "batch": "NT4",
    "slots": [
     "footing_brick"
+   ]
+  },
+  {
+   "set": "rb_siding_weathered",
+   "id": "WoodSiding008",
+   "url": "https://ambientcg.com/a/WoodSiding008",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2.4,
+    2.4
+   ],
+   "sizeSource": "L4 curation",
+   "family": "weatherboard siding, weathered grey with moss (RB1 shop)",
+   "ma1": false,
+   "batch": "L4",
+   "slots": [
+    "rb_siding"
+   ]
+  },
+  {
+   "set": "rb_siding_grey",
+   "id": "WoodSiding009",
+   "url": "https://ambientcg.com/a/WoodSiding009",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2.4,
+    2.4
+   ],
+   "sizeSource": "L4 curation",
+   "family": "weatherboard siding, plain old boards (RB1 shop)",
+   "ma1": false,
+   "batch": "L4",
+   "slots": [
+    "rb_siding_b"
+   ]
+  },
+  {
+   "set": "rb_metal_leaks",
+   "id": "Metal024",
+   "url": "https://ambientcg.com/a/Metal024",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "L4 curation",
+   "family": "painted sheet steel with rust run-off streaks (RB1 container cabin)",
+   "ma1": false,
+   "batch": "L4",
+   "slots": [
+    "rb_cab_paint"
+   ]
+  },
+  {
+   "set": "rb_metal_leaks_b",
+   "id": "Metal025",
+   "url": "https://ambientcg.com/a/Metal025",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "L4 curation",
+   "family": "painted sheet steel with rust run-off streaks, heavier (RB1 container cabin)",
+   "ma1": false,
+   "batch": "L4",
+   "slots": [
+    "rb_cab_paint_b"
+   ]
+  },
+  {
+   "set": "rb_paint_green_rust",
+   "id": "PaintedMetal006",
+   "url": "https://ambientcg.com/a/PaintedMetal006",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "L4 curation",
+   "family": "green painted steel, rusting through (RB1 shop counters)",
+   "ma1": false,
+   "batch": "L4",
+   "slots": [
+    "rb_green_rust"
+   ]
+  },
+  {
+   "set": "rb_paint_orange",
+   "id": "PaintedMetal008",
+   "url": "https://ambientcg.com/a/PaintedMetal008",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "L4 curation",
+   "family": "orange painted steel (RB1 shop door)",
+   "ma1": false,
+   "batch": "L4",
+   "slots": [
+    "rb_orange"
+   ]
+  },
+  {
+   "set": "rb_log_end",
+   "id": "TreeEnd002",
+   "url": "https://ambientcg.com/a/TreeEnd002",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    0.35,
+    0.35
+   ],
+   "sizeSource": "L4 curation",
+   "family": "cut log end grain, rings and cracks (RB1 log house corners)",
+   "ma1": false,
+   "batch": "L4",
+   "slots": [
+    "rb_log_end"
+   ]
+  },
+  {
+   "set": "rb_wood_rough_old",
+   "id": "Wood035",
+   "url": "https://ambientcg.com/a/Wood035",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1.6,
+    1.6
+   ],
+   "sizeSource": "L4 curation",
+   "family": "old rough dark wood, long grain (RB1 log walls)",
+   "ma1": false,
+   "batch": "L4",
+   "slots": [
+    "rb_log"
+   ]
+  },
+  {
+   "set": "rb_planks_old",
+   "id": "Planks039",
+   "url": "https://ambientcg.com/a/Planks039",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "L4 curation",
+   "family": "large old dirty planks (RB1 log house roof boards, plinth)",
+   "ma1": false,
+   "batch": "L4",
+   "slots": [
+    "rb_planks"
+   ]
+  },
+  {
+   "set": "rb_painted_wood_old",
+   "id": "PaintedWood009C",
+   "url": "https://ambientcg.com/a/PaintedWood009C",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "L4 curation",
+   "family": "old light painted wood (RB1 carved window surrounds, shutters)",
+   "ma1": false,
+   "batch": "L4",
+   "slots": [
+    "rb_wood_paint_old"
+   ]
+  },
+  {
+   "set": "rb_floor_dirty",
+   "id": "WoodFloor067B",
+   "url": "https://ambientcg.com/a/WoodFloor067B",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "L4 curation",
+   "family": "dark dirty floorboards (RB1 shop and cabin floors)",
+   "ma1": false,
+   "batch": "L4",
+   "slots": [
+    "rb_floor_dirty"
+   ]
+  },
+  {
+   "set": "rb_rust_patch",
+   "id": "Rust009",
+   "url": "https://ambientcg.com/a/Rust009",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "L4 curation",
+   "family": "brown rust, damaged (RB1 rust patches)",
+   "ma1": false,
+   "batch": "L4",
+   "slots": [
+    "rb_rust"
+   ]
+  },
+  {
+   "set": "rb_ref_cab_wall",
+   "id": "rb_ref_cab_wall",
+   "url": "https://skfb.ly/osPME",
+   "license": "CC-BY-4.0",
+   "resolution": "crop",
+   "credit": "\"Building | Container | Metal\" by YadroGames, CC BY 4.0 (modified: textures extracted / resized, building rebuilt for the game)",
+   "downloaded": true,
+   "maps": [
+    "color.jpg"
+   ],
+   "sizeM": [
+    4,
+    2.8
+   ],
+   "sizeSource": "L4 curation",
+   "family": "the cabin's olive sheet-steel paint (reference atlas crop, turned upright)",
+   "ma1": false,
+   "batch": "L4",
+   "slots": [
+    "rb_ref_cab_wall"
+   ]
+  },
+  {
+   "set": "rb_ref_cab_boards",
+   "id": "rb_ref_cab_boards",
+   "url": "https://skfb.ly/osPME",
+   "license": "CC-BY-4.0",
+   "resolution": "crop",
+   "credit": "\"Building | Container | Metal\" by YadroGames, CC BY 4.0 (modified: textures extracted / resized, building rebuilt for the game)",
+   "downloaded": true,
+   "maps": [
+    "color.jpg"
+   ],
+   "sizeM": [
+    2,
+    1
+   ],
+   "sizeSource": "L4 curation",
+   "family": "the cabin's weathered window boarding (reference atlas crop, planks horizontal)",
+   "ma1": false,
+   "batch": "L4",
+   "slots": [
+    "rb_ref_cab_boards"
+   ]
+  },
+  {
+   "set": "rb_ref_shop_door",
+   "id": "rb_ref_shop_door",
+   "url": "https://skfb.ly/o7pvZ",
+   "license": "CC-BY-4.0",
+   "resolution": "crop",
+   "credit": "\"Abandoned | Building | Shop | Old | House\" by YadroGames, CC BY 4.0 (modified: textures extracted / resized, building rebuilt for the game)",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "normal.jpg"
+   ],
+   "sizeM": [
+    0.8,
+    2.15
+   ],
+   "sizeSource": "L4 curation",
+   "family": "the shop's orange rusted door leaf with its letterbox (reference atlas crop)",
+   "ma1": false,
+   "batch": "L4",
+   "slots": [
+    "rb_ref_shop_door"
+   ]
+  },
+  {
+   "set": "rb_ref_shop_sign",
+   "id": "rb_ref_shop_sign",
+   "url": "https://skfb.ly/o7pvZ",
+   "license": "CC-BY-4.0",
+   "resolution": "crop",
+   "credit": "\"Abandoned | Building | Shop | Old | House\" by YadroGames, CC BY 4.0 (modified: textures extracted / resized, building rebuilt for the game)",
+   "downloaded": true,
+   "maps": [
+    "color.jpg"
+   ],
+   "sizeM": [
+    2,
+    0.45
+   ],
+   "sizeSource": "L4 curation",
+   "family": "the shop's WEAPON sign board (reference atlas crop, turned and unmirrored)",
+   "ma1": false,
+   "batch": "L4",
+   "slots": [
+    "rb_ref_shop_sign"
+   ]
+  },
+  {
+   "set": "rb_ref_shop_green",
+   "id": "rb_ref_shop_green",
+   "url": "https://skfb.ly/o7pvZ",
+   "license": "CC-BY-4.0",
+   "resolution": "crop",
+   "credit": "\"Abandoned | Building | Shop | Old | House\" by YadroGames, CC BY 4.0 (modified: textures extracted / resized, building rebuilt for the game)",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "normal.jpg"
+   ],
+   "sizeM": [
+    1.8,
+    1
+   ],
+   "sizeSource": "L4 curation",
+   "family": "the shop's green painted counter panelling (reference atlas crop)",
+   "ma1": false,
+   "batch": "L4",
+   "slots": [
+    "rb_ref_shop_green"
+   ]
+  },
+  {
+   "set": "rb_ref_shop_wall",
+   "id": "rb_ref_shop_wall",
+   "url": "https://skfb.ly/o7pvZ",
+   "license": "CC-BY-4.0",
+   "resolution": "crop",
+   "credit": "\"Abandoned | Building | Shop | Old | House\" by YadroGames, CC BY 4.0 (modified: textures extracted / resized, building rebuilt for the game)",
+   "downloaded": true,
+   "maps": [
+    "color.jpg"
+   ],
+   "sizeM": [
+    3,
+    3
+   ],
+   "sizeSource": "L4 curation",
+   "family": "the shop's weatherboard (reference atlas crop, boards horizontal)",
+   "ma1": false,
+   "batch": "L4",
+   "slots": [
+    "rb_ref_shop_wall"
+   ]
+  },
+  {
+   "set": "rb_ref_shop_roof",
+   "id": "rb_ref_shop_roof",
+   "url": "https://skfb.ly/o7pvZ",
+   "license": "CC-BY-4.0",
+   "resolution": "crop",
+   "credit": "\"Abandoned | Building | Shop | Old | House\" by YadroGames, CC BY 4.0 (modified: textures extracted / resized, building rebuilt for the game)",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "normal.jpg"
+   ],
+   "sizeM": [
+    4,
+    4
+   ],
+   "sizeSource": "L4 curation",
+   "family": "the shop's corrugated roof sheets (reference atlas crop)",
+   "ma1": false,
+   "batch": "L4",
+   "slots": [
+    "rb_ref_shop_roof"
    ]
   }
  ]

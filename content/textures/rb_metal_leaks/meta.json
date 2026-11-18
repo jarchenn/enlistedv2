@@ -1,0 +1,19 @@
+{
+ "set": "rb_metal_leaks",
+ "id": "Metal024",
+ "family": "painted sheet steel with rust run-off streaks (RB1 container cabin)",
+ "size": [
+  2.0,
+  2.0
+ ],
+ "source": "https://ambientcg.com/a/Metal024",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

@@ -1,0 +1,16 @@
+{
+ "set": "rb_ref_cab_boards",
+ "id": "rb_ref_cab_boards",
+ "family": "the cabin's weathered window boarding (reference atlas crop, planks horizontal)",
+ "size": [
+  2.0,
+  1.0
+ ],
+ "source": "https://skfb.ly/osPME",
+ "license": "CC-BY-4.0",
+ "credit": "\"Building | Container | Metal\" by YadroGames, CC BY 4.0 (modified: textures extracted / resized, building rebuilt for the game)",
+ "resolution": "crop, <= 1024 px",
+ "maps": [
+  "color.jpg"
+ ]
+}

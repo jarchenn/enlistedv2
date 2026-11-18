@@ -1,0 +1,20 @@
+{
+ "set": "rb_siding_grey",
+ "id": "WoodSiding009",
+ "family": "weatherboard siding, plain old boards (RB1 shop)",
+ "size": [
+  2.4,
+  2.4
+ ],
+ "source": "https://ambientcg.com/a/WoodSiding009",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "ao.jpg",
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

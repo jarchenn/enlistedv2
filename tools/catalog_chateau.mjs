@@ -190,8 +190,9 @@ export function house(A, c) {
   }
 
   // ---- doors, windows, walls
-  const doorList = [{ id: "front_door", side: "front", c: fdx, w: c.doorW ?? 1.1, h: 2.25, room: G.ids[hall], double: !!c.frontDouble },
-    { id: "rear_door", side: "rear", c: rdx, w: 1.0, h: 2.15, room: multi ? "c0" : roomAt(G, rdx) }, ...(c.doors ?? [])];
+  // RB1: doorH (the front door's height), noRear (a single-door house: no rear door; the tour leaves by the front)
+  const doorList = [{ id: "front_door", side: "front", c: fdx, w: c.doorW ?? 1.1, h: c.doorH ?? 2.25, room: G.ids[hall], double: !!c.frontDouble },
+    ...(c.noRear ? [] : [{ id: "rear_door", side: "rear", c: rdx, w: 1.0, h: 2.15, room: multi ? "c0" : roomAt(G, rdx) }]), ...(c.doors ?? [])];
   const nav = { rooms: [], doors: [], entrances: [], corners: [], firingPoints: [] };
   const winInfo = [];
   for (const lv of levels) {
@@ -327,8 +328,11 @@ export function house(A, c) {
     S.push({ look: [G.cx[order.at(-1) ?? hall], GF + 1.0, ZI], hold: 0.4 }, { shot: sh + "_b_room" });
     S.push({ goto: [rdx, zD], expectY: GF });
   }
-  S.push({ interact: "rear_door", aim: [rdx - 0.2, GF + 1.1, -ZI - 0.05], expectOpen: true });
-  S.push({ goto: [rdx, -Z - 1.6], note: "leave by the rear door" });
+  if (c.noRear) S.push({ goto: [fdx, zD], expectY: GF }, { goto: [fdx, Z + 1.6], note: "leave by the front door" });
+  else {
+    S.push({ interact: "rear_door", aim: [rdx - 0.2, GF + 1.1, -ZI - 0.05], expectOpen: true });
+    S.push({ goto: [rdx, -Z - 1.6], note: "leave by the rear door" });
+  }
   setTour(A, { pos: [fdx, 0, Zr + (c.startOut ?? 5.5)], yaw: 0 }, S, c.tourExtra ?? {});
 
   const ctx = { X, Z, T, XI, ZI, EAVE, RIDGE, Zr, yAt, jet, L, h, zA, zEnd, xL, xR, fdx, rdx, levels, plinth, cores };

@@ -13,10 +13,11 @@ import { mod2Assets } from "./catalog_mod2.mjs";
 import { modernOutdoorAssets } from "./catalog_modern_outdoor.mjs";
 import { modernBuildingsB } from "./catalog_modern_buildings_b.mjs";
 import { dezfight } from "./audit_zfight.mjs";
+import { rb1Assets } from "./catalog_rb1.mjs";
 
 const out = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "content", "assets");
 // the full build runs newtownAssetsB() etc., which add tdMerge and a check; find each builder's finished asset there
-const lists = [B.newtownAssetsB, C.newtownAssetsC, NA.newtownAssetsA, MA.modernBuildingsA].filter(Boolean);
+const lists = [B.newtownAssetsB, C.newtownAssetsC, NA.newtownAssetsA, MA.modernBuildingsA, rb1Assets].filter(Boolean);
 const want = new Set(process.argv.slice(2));
 // --all-ruins: every abandoned variant, from the same lists as the full build (it stops early on the range kit's
 // missing nav blocks, before it reaches the ruins)
@@ -37,7 +38,7 @@ for (const list of lists) {
     const j = A.json();
     const fn = [...want].find((w) => j.id === w || j.id === w + "_ruin");
     if (!fn) continue;
-    for (const v of [A, ruinVariant(A)]) {
+    for (const v of j.id.startsWith("rb1_") ? [A] : [A, ruinVariant(A)]) {   // RB1 buildings are abandoned already: no _ruin variant
       const z = JSON.parse(JSON.stringify(v.json()));
       dezfight(z);
       fs.writeFileSync(path.join(out, z.id + ".json"), JSON.stringify(z));

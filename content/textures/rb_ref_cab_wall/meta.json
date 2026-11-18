@@ -1,0 +1,16 @@
+{
+ "set": "rb_ref_cab_wall",
+ "id": "rb_ref_cab_wall",
+ "family": "the cabin's olive sheet-steel paint (reference atlas crop, turned upright)",
+ "size": [
+  4.0,
+  2.8
+ ],
+ "source": "https://skfb.ly/osPME",
+ "license": "CC-BY-4.0",
+ "credit": "\"Building | Container | Metal\" by YadroGames, CC BY 4.0 (modified: textures extracted / resized, building rebuilt for the game)",
+ "resolution": "crop, <= 1024 px",
+ "maps": [
+  "color.jpg"
+ ]
+}

@@ -1,0 +1,17 @@
+{
+ "set": "rb_ref_shop_roof",
+ "id": "rb_ref_shop_roof",
+ "family": "the shop's corrugated roof sheets (reference atlas crop)",
+ "size": [
+  4.0,
+  4.0
+ ],
+ "source": "https://skfb.ly/o7pvZ",
+ "license": "CC-BY-4.0",
+ "credit": "\"Abandoned | Building | Shop | Old | House\" by YadroGames, CC BY 4.0 (modified: textures extracted / resized, building rebuilt for the game)",
+ "resolution": "crop, <= 1024 px",
+ "maps": [
+  "color.jpg",
+  "normal.jpg"
+ ]
+}

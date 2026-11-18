@@ -15,7 +15,7 @@ const out = [];
 for (const s of L.sets) {
   const dir = root + 'content/textures/' + s.set + '/';
   let meta = null; try { meta = JSON.parse(fs.readFileSync(dir + 'meta.json', 'utf8')); } catch {}
-  out.push({set: s.set, id: s.id, url: `https://ambientcg.com/a/${s.id}`, license: 'CC0 1.0 Universal', resolution: L.resolution,
+  out.push({set: s.set, id: s.id, url: s.local ? s.source : `https://ambientcg.com/a/${s.id}`, license: s.local ? s.license : 'CC0 1.0 Universal', resolution: s.local ? 'crop' : L.resolution, ...(s.local ? {credit: s.credit} : {}),
     downloaded: !!meta && fs.existsSync(dir + 'color.jpg'), maps: meta ? meta.maps : [], sizeM: (meta && meta.size) || s.size,
     sizeSource: s.ma1 || s.batch ? 'estimated from the preview (ambientCG lists no dimensions)' : 'L4 curation', family: s.family, ma1: !!s.ma1, batch: s.batch || (s.ma1 ? 'MA1' : 'L4'),
     slots: [...(useBy[s.set] || [])].sort()});
