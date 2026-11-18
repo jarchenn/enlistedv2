@@ -53,7 +53,6 @@ void renderGun(App& app, const WeaponDef& d, const WeaponState& s, int w, int h)
   vec3 eye = c + vec3(0, r * 0.35f, r * 2.4f);
   std::vector<uint8_t> px;
   if (!app.R.renderModelSheet(md, bx, glm::lookAt(eye, c, vec3(0, 1, 0)), glm::perspective(glm::radians(30.0f), (float)w / h, 0.02f, r * 10), eye, w, h, px, true)) return;   // transparent: over the page
-  for (size_t i = 0; i < px.size(); i += 4) for (int k = 0; k < 3; ++k) px[i + k] = (uint8_t)std::min(255.0f, px[i + k] * 1.35f + 14.0f);   // lifted: black guns still read on the dark page
   if (!gTex || gTw != w || gTh != h) {
     if (gTex) glDeleteTextures(1, &gTex);
     glCreateTextures(GL_TEXTURE_2D, 1, &gTex); glTextureStorage2D(gTex, 1, GL_RGBA8, w, h);
