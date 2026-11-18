@@ -154,7 +154,7 @@ bool mpaiProjectile(App& app, Projectile& p, vec3 seg, float len, float tWorld) 
   if (gGame->isClient) {
     // a LAN client never resolves rounds itself: its own shots become requests, drawn as visual tracers meanwhile
     if (p.owner == -1 && p.life == 0 && gNet && !app.occupied && !p.extraPellet) gNet->clientFire(p.p, glm::normalize(p.v), app.activeWeapon, p.tracerKind);   // a gun's rounds are gfire requests (stationShoot)
-    gGame->ghosts.push_back({p.p, p.v, 0, p.tracerKind});
+    gGame->ghosts.push_back({p.p, p.v, 0, p.tracerKind, p.visOff});   // AT4: drawn from our muzzle
     return true;
   }
   if (p.owner == -1 && p.life == 0 && gNet && gNet->role == Net::HOST && !app.occupied && !p.extraPellet)   // the host's own shots: tracers / sound on clients (a gun's: gshot)

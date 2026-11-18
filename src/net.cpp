@@ -588,8 +588,13 @@ void netApplyEvent(App& app, const json& ev, bool replay) {
     int w = ev.value("w", 0); vec3 p = jvec3(ev["p"]), dir = jvec3(ev["d"]);
     if (w >= 0 && w < (int)app.weaponDefs.size()) {
       const WeaponDef& d = *app.weaponDefs[w];
-      g.ghosts.push_back({p, glm::normalize(dir) * d.velocity, 0, ev.value("tr", 0)});
-      app.fx.flash(p + dir * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
+      vec3 off(0);   // AT4: the round and its flash leave the shooter's barrel (the shot's start is on the sight line when aimed)
+      { int by = ev.value("by", -1);
+        if (by == g.localSlot && app.activeWeapon == w) off = app.vmApparent(app.weaponMuzzleWorld(d, app.wstate[d.id])) - p;   // our own shot echoed back: our drawn barrel
+        else if (by >= 0 && by < (int)g.sold.size() && !g.sold[by].pose.delta.empty()) off = vec3(g.sold[by].world * g.sold[by].pose.weapon * vec4(d.muzzle, 1)) - p;
+        if (glm::length(off) > 1.5f) off = vec3(0); }
+      g.ghosts.push_back({p, glm::normalize(dir) * d.velocity, 0, ev.value("tr", 0), off});
+      app.fx.flash(p + off + dir * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
       app.audio.play("shot_" + d.id, p, 1.0f);
       { int by = ev.value("by", -1); if (by >= 0 && by < (int)g.sold.size() && by != g.localSlot) app.shotCasing(d, g.sold[by].feet, by); }   // SND4; SND6: not our own shot echoed back by the host (weapons.cpp played its case)
     }
@@ -677,7 +682,11 @@ static void hostRequest(App& app, Net& n, Peer& p, json& m) {   // m is mutable:
       if (ok) {
         s.ws.loaded--; s.lastShot = g.t; s.lastShotReal = n.d->now;
         if (d.action == "launcher") app.fireProjectile(from, dir, d.velocity, PROJ_ROCKET, d.rocketDmg, ~0ull, m.value("tr", 0), d.container);
-        else app.fireRounds(d, from, dir, m.value("tr", 0), (uint32_t)slot * 131u + (uint32_t)n.acceptedShots * 7919u, slot);   // MG1: a shotgun's pellets
+        else {
+          size_t n0 = app.projectiles.size();
+          app.fireRounds(d, from, dir, m.value("tr", 0), (uint32_t)slot * 131u + (uint32_t)n.acceptedShots * 7919u, slot);   // MG1: a shotgun's pellets
+          if (!s.pose.delta.empty()) { vec3 off = vec3(s.world * s.pose.weapon * vec4(d.muzzle, 1)) - from; if (glm::length(off) < 1.5f) for (size_t i = n0; i < app.projectiles.size(); ++i) app.projectiles[i].visOff = off; }   // AT4: drawn from the client soldier's barrel
+        }
         Projectile& pr = app.projectiles.back(); pr.owner = slot; pr.mass = d.bulletMass * 0.001f;
         if (d.action == "launcher") { pr.blastDmg = d.rocketDmg; pr.blastR = d.rocketR; pr.craterScale = d.rocketCrater; pr.splashGun = d.rocketSplashGun; pr.atKill = d.rocketAtKill; pr.gravScale = d.rocketGrav; }
         g.hearSound(from, (int)s.role, 70, slot, 0);

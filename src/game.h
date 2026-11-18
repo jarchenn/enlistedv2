@@ -134,7 +134,7 @@ public:
   // LAN (net.cpp)
   json clientStart;                          // client: START message (slots, scenario)
   std::vector<std::pair<int, std::string>> humanPeers;   // host: lobby players -> defender slots
-  struct Ghost { vec3 p, v; float life; int tracer; };   // tracer: tracerKindFor()   // visual-only rounds (client tracers)
+  struct Ghost { vec3 p, v; float life; int tracer; vec3 off{0}; float trav = 0; };   // tracer: tracerKindFor()   // visual-only rounds (client tracers); AT4 off / trav: drawn from the muzzle (visFade)
   std::vector<Ghost> ghosts;
   std::map<uint64_t, int> doorSeen;          // door direction last replicated ((inst << 8) | idx)
   vec3 specEye{0}, specFwd{0, 0, -1}; bool specCam = false;   // the death / spectate camera this frame (renderView culls against it)

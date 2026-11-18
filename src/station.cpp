@@ -311,7 +311,7 @@ void App::stepProjectiles(float dt) {
       // visible travel feedback along the actual path
       if (p.kind == PROJ_HE) fx.streak(p.p, end, 0.045f, 0.05f, vec4(2.2f, 1.6f, 1.0f, 1));
       else if (p.kind == PROJ_ROCKET) { fx.streak(p.p, end, 0.06f, 0.06f, vec4(6.0f, 3.0f, 1.0f, 1)); if (fx.rnd() < 0.5f) fx.smoke(p.p, vec3(0, 0.2f, 0), 0.12f, 1.4f, vec4(0.62f, 0.6f, 0.57f, 0.45f), 1.4f, 0.2f); }
-      else fx.bullet(p.p, end, p.tracerKind);
+      else { float L = glm::length(end - p.p); fx.bullet(p.p + p.visOff * visFade(p.visTrav), end + p.visOff * visFade(p.visTrav + L), p.tracerKind); p.visTrav += L; }   // AT4: drawn from the muzzle onto the path
       if (impact && (p.kind == PROJ_HE || p.kind == PROJ_ROCKET) && shellThroughGlass(*this, p, hit.pos, hit.ud)) continue;   // T7: thin glass breaks, the shell flies on
       if (impact) {
         // tanks (tank_sim.cpp): the damage matrix decides; small arms ricochet, a launcher on the front armour makes a

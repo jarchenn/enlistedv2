@@ -119,6 +119,9 @@ struct WeaponState {
 
 // ---------------------------------------------------------------- projectiles & effects (pooled)
 enum ProjKind : int { PROJ_BULLET = 0, PROJ_HE = 1, PROJ_ROCKET = 2 };
+// AT4: a round leaves the barrel on screen while its ballistic path starts on the sight line: the drawn offset fades out over
+// the first metres (squared, 20 m)
+inline float visFade(float travelled) { float u = glm::clamp(1.0f - travelled / 20.0f, 0.0f, 1.0f); return u * u; }
 struct Projectile {
   vec3 p{0}, v{0};
   float life = 0, dmg = 0;
@@ -132,6 +135,7 @@ struct Projectile {
   int owner = -1;               // firing soldier's roster slot (multiplayer + AI); -1 = the local player
   int tracerKind = 0;           // tracerKindFor(): 0 none, 1 red tracer, 2 white-yellow streak
   bool extraPellet = false;     // MG1: a shotgun's 2nd..nth pellet (a LAN client sends one request per shot; the host fires them all)
+  vec3 visOff{0}; float visTrav = 0;   // AT4: where the round is drawn: from the muzzle (visOff from p at the start), onto p over kVisConverge m
   std::string ammo;
   float travelled = 0;          // m flown so far (W1 damage falloff: the true range)
   bool cannon30 = false;        // VH5 helicopter chin gun: an HE round that counts as small arms on tanks, as a launcher on cars

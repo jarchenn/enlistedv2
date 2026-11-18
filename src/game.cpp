@@ -939,7 +939,8 @@ void Game::clientStep(float dt) {
     Ghost& g = ghosts[k]; vec3 seg = g.v * dt; Physics::Hit h;
     bool hit = Physics::castRayEx(g.p, seg, glm::length(seg), h);
     vec3 e = hit ? h.pos : g.p + seg;
-    if (g.tracer) app.fx.bullet(g.p, e, g.tracer); else app.fx.streak(g.p, e, 0.007f, 0.025f, vec4(0.7f, 0.68f, 0.62f, 1));
+    float gl = glm::length(e - g.p); vec3 da = g.off * visFade(g.trav), db = g.off * visFade(g.trav + gl); g.trav += gl;   // AT4: from the shooter's muzzle onto the path
+    if (g.tracer) app.fx.bullet(g.p + da, e + db, g.tracer); else app.fx.streak(g.p + da, e + db, 0.007f, 0.025f, vec4(0.7f, 0.68f, 0.62f, 1));
     g.p = e; g.v.y -= 9.81f * dt; g.life += dt;
     if (hit || g.life > 3) { ghosts.erase(ghosts.begin() + k); continue; }
     ++k;
