@@ -1939,13 +1939,23 @@ void main(){
 static const char* kHeatVS = R"GLSL(
 #version 450 core
 layout(location=0) in vec3 aPos;
-uniform mat4 uVP, uModel; out float vY;
-void main(){ vec4 w = uModel*vec4(aPos, 1.0); vY = w.y; gl_Position = uVP*w; }
+uniform mat4 uVP, uModel; out vec3 vW;
+void main(){ vec4 w = uModel*vec4(aPos, 1.0); vW = w.xyz; gl_Position = uVP*w; }
 )GLSL";
 static const char* kHeatFS = R"GLSL(
 #version 450 core
-uniform float uHeat, uHeadY; in float vY; out float oHeat;
-void main(){ oHeat = uHeat + (vY > uHeadY ? 0.22 : vY > uHeadY - 0.55 ? 0.1 : 0.0); }   // head hottest, the chest warmer than the limbs
+uniform float uHeat; uniform vec3 uCam; uniform vec4 uObj; in vec3 vW; out float oHeat;
+// TH2: a depth map of the figure: across the object's own depth extent (its centre +- reach from the camera) the nearest
+// surface 1.0, the farthest ~0.45; far objects a little dimmer overall; one even heat (no head / chest bands)
+void main(){
+  float shade = 1.0, fall = 1.0;
+  if (uObj.w > 0.0) {
+    float zc = length(uObj.xyz - uCam), z = length(vW - uCam);
+    shade = mix(1.0, 0.45, smoothstep(0.0, 1.0, clamp((z - (zc - uObj.w))/(2.0*uObj.w), 0.0, 1.0)));
+    fall = mix(1.0, 0.8, smoothstep(10.0, 150.0, zc));
+  }
+  oHeat = uHeat*shade*fall;
+}
 )GLSL";
 
 static const char* kEyepieceFS = R"GLSL(
@@ -2044,9 +2054,11 @@ void main(){
       if (rr < 1.0 && d <= uSpotZ[i]*1.002 + 1e-6) heat = max(heat, uSpots[i].w*(1.0 - rr*rr));
     }
     float T = max(cold, heat);
+    // TH2: one hue: the cold scene deep blue / teal, heat from a pale teal-grey to white by its value (bodies carry their
+    // own depth shading); only true emitters (fire, flashes) go past 1: overexposed white
     vec3 c = T < 0.4 ? mix(vec3(0.004, 0.012, 0.035), vec3(0.03, 0.16, 0.22), T/0.4)
-           : T < 0.8 ? mix(vec3(0.03, 0.16, 0.22), vec3(0.75, 0.97, 1.0), (T - 0.4)/0.4)
-                     : mix(vec3(0.75, 0.97, 1.0), vec3(1.0, 0.35, 0.45), clamp((T - 0.8)/0.35, 0.0, 1.0));
+           : T < 1.0 ? mix(vec3(0.16, 0.30, 0.34), vec3(0.97, 1.0, 1.0), smoothstep(0.4, 1.0, T))
+                     : vec3(0.97, 1.0, 1.0)*(1.0 + 0.6*clamp(T - 1.0, 0.0, 1.0));
     float g = fract(sin(dot(floor(vUV*uRes*0.5) + floor(uTime*12.0), vec2(12.9898, 78.233)))*43758.5453);   // sensor grain, a low refresh
     sharp = c*(1.0 + 0.06*(g - 0.5))*max(avg, 0.05)*4.0;   // the sensor's own gain: as bright at night as by day
   }
@@ -4689,30 +4701,6 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glEnable(GL_CULL_FACE);
   }
   if (!folModels.empty()) { setLighting(progFolModel, v); drawFolModels(false, vp, &frMain); }   // NT8 model foliage
-  if (v.thermal && progHeat) {   // TH1: the warm bodies into the heat target, against the scene depth (no depth writes)
-    if (!heatTex || heatW != width || heatH != height || heatDepthOf != depthTex) {
-      if (heatTex) glDeleteTextures(1, &heatTex); if (heatFbo) glDeleteFramebuffers(1, &heatFbo);
-      glCreateTextures(GL_TEXTURE_2D, 1, &heatTex); glTextureStorage2D(heatTex, 1, GL_R16F, width, height);
-      glTextureParameteri(heatTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(heatTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      glCreateFramebuffers(1, &heatFbo); glNamedFramebufferTexture(heatFbo, GL_COLOR_ATTACHMENT0, heatTex, 0); glNamedFramebufferTexture(heatFbo, GL_DEPTH_ATTACHMENT, depthTex, 0);
-      heatW = width; heatH = height; heatDepthOf = depthTex;
-    }
-    GLint prevFbo = 0, df = GL_GREATER; glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevFbo); glGetIntegerv(GL_DEPTH_FUNC, &df);
-    const float zero[4] = {0, 0, 0, 0}; glClearNamedFramebufferfv(heatFbo, GL_COLOR, 0, zero);
-    glBindFramebuffer(GL_FRAMEBUFFER, heatFbo);
-    glDepthFunc(df == GL_GREATER ? GL_GEQUAL : df == GL_LESS ? GL_LEQUAL : (GLenum)df); glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE);
-    glEnable(GL_BLEND); glBlendEquation(GL_MAX);
-    glUseProgram(progHeat); glUniformMatrix4fv(U(progHeat, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
-    const GLint lM = U(progHeat, "uModel"), lH = U(progHeat, "uHeat"), lY = U(progHeat, "uHeadY");
-    for (auto& h : heatDraws) {
-      const GpuModel* m = h.md.model; if (!m || !m->vao || h.md.part < 0 || h.md.part >= (int)m->parts.size()) continue;
-      const auto& pt = m->parts[h.md.part];
-      glBindVertexArray(m->vao); glUniformMatrix4fv(lM, 1, GL_FALSE, glm::value_ptr(h.md.m)); glUniform1f(lH, h.heat); glUniform1f(lY, h.headY);
-      glDrawElements(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u));
-    }
-    glBlendEquation(GL_FUNC_ADD); glDisable(GL_BLEND); glDepthMask(GL_TRUE); glDepthFunc((GLenum)df);
-    glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFbo);
-  }
   gpuMark(GP_Trees);
   // tree canopies (double sided, alpha tested)
   if (!foliage.empty()) {
@@ -4735,6 +4723,34 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glEnable(GL_CULL_FACE);
   }
   if (perf.terrainLast) drawTerrain();   // PF2: after solids / models / canopies, so the ground they hide is never shaded
+  if (v.thermal && progHeat) {   // TH1: the warm bodies into the heat target, against the scene depth (no depth writes)
+    // TH2: here, after the terrain (drawn last: it hid nothing before) and with MSAA its depth resolved first (the world
+    // draws into msFbo: depthTex was last frame's / cleared, so walls hid nothing). Grass comes after: it never hides heat
+    if (ms) glBlitNamedFramebuffer(msFbo, hdrFbo, 0, 0, width, height, 0, 0, width, height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+    if (!heatTex || heatW != width || heatH != height || heatDepthOf != depthTex) {
+      if (heatTex) glDeleteTextures(1, &heatTex); if (heatFbo) glDeleteFramebuffers(1, &heatFbo);
+      glCreateTextures(GL_TEXTURE_2D, 1, &heatTex); glTextureStorage2D(heatTex, 1, GL_R16F, width, height);
+      glTextureParameteri(heatTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(heatTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glCreateFramebuffers(1, &heatFbo); glNamedFramebufferTexture(heatFbo, GL_COLOR_ATTACHMENT0, heatTex, 0); glNamedFramebufferTexture(heatFbo, GL_DEPTH_ATTACHMENT, depthTex, 0);
+      heatW = width; heatH = height; heatDepthOf = depthTex;
+    }
+    GLint prevFbo = 0, df = GL_GREATER; glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevFbo); glGetIntegerv(GL_DEPTH_FUNC, &df);
+    const float zero[4] = {0, 0, 0, 0}; glClearNamedFramebufferfv(heatFbo, GL_COLOR, 0, zero);
+    glBindFramebuffer(GL_FRAMEBUFFER, heatFbo);
+    glDepthFunc(df == GL_GREATER ? GL_GEQUAL : df == GL_LESS ? GL_LEQUAL : (GLenum)df); glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE);
+    glEnable(GL_BLEND); glBlendEquation(GL_MAX);
+    glUseProgram(progHeat); glUniformMatrix4fv(U(progHeat, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+    const GLint lM = U(progHeat, "uModel"), lH = U(progHeat, "uHeat"), lO = U(progHeat, "uObj");
+    glUniform3fv(U(progHeat, "uCam"), 1, glm::value_ptr(v.camPos));
+    for (auto& h : heatDraws) {
+      const GpuModel* m = h.md.model; if (!m || !m->vao || h.md.part < 0 || h.md.part >= (int)m->parts.size()) continue;
+      const auto& pt = m->parts[h.md.part];
+      glBindVertexArray(m->vao); glUniformMatrix4fv(lM, 1, GL_FALSE, glm::value_ptr(h.md.m)); glUniform1f(lH, h.heat); glUniform4fv(lO, 1, glm::value_ptr(h.obj));
+      glDrawElements(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u));
+    }
+    glBlendEquation(GL_FUNC_ADD); glDisable(GL_BLEND); glDepthMask(GL_TRUE); glDepthFunc((GLenum)df);
+    glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFbo);
+  }
   gpuMark(GP_Grass);
   // grass after opaque so buildings reject hidden blades early; double sided
   if (grass && !thumbMode) {
@@ -5297,4 +5313,16 @@ float Renderer::fogT(vec3 a, vec3 b) const {
   const vec4& F = fogCpu[(size_t)j * N + i];
   float hm = std::max(m.y - F.z, 0.0f);
   return std::exp(-dens * F.x * glm::length(b - a) * std::exp(-hm / 22.0f));
+}
+
+// TH2: the last thermal frame's heat target read back (tests): hot pixels and their box, rows counted from the top
+Renderer::HeatStats Renderer::heatStats(float thr) const {
+  HeatStats st; if (!heatTex || heatW <= 0) return st;
+  st.w = heatW; st.h = heatH;
+  std::vector<float> px((size_t)heatW * heatH);
+  glGetTextureImage(heatTex, 0, GL_RED, GL_FLOAT, (GLsizei)(px.size() * sizeof(float)), px.data());
+  for (int y = 0; y < heatH; ++y) for (int x = 0; x < heatW; ++x) if (px[(size_t)y * heatW + x] > thr) {
+    const int r = heatH - 1 - y; ++st.hot; st.x0 = std::min(st.x0, x); st.x1 = std::max(st.x1, x); st.y0 = std::min(st.y0, r); st.y1 = std::max(st.y1, r);
+  }
+  return st;
 }
