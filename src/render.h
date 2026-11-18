@@ -107,8 +107,10 @@ public:
   struct FolModelDraw { const GpuModel* model; mat4 m; float wind; };   // NT8: model foliage (pines, ferns, grass), instanced
   std::vector<FolModelDraw> folModels;
   std::vector<vec4> grassVeh;   // TK3: vehicle footprints that flatten the grass: per box (centre x, z, cos yaw, sin yaw), (half x, half z, 0, 0); 16 at most
-  struct HeatDraw { ModelDraw md; float heat; float headY = 1e9f; };   // headY: a body's head height (world y): hotter above it, the torso below a little   // TH1: a warm body for the thermal pass (0 ambient .. 1 a living man; > 1 fire)
+  struct HeatDraw { ModelDraw md; float heat; vec4 obj{0.0f}; };   // TH1: a warm body for the thermal pass (0 ambient .. 1 a living man; > 1 fire); TH2 obj: the whole object's centre and radius (its own depth extent: the nearest part brightest)
   std::vector<HeatDraw> heatDraws; std::vector<vec4> heatSpots;   // spots: world xyz, w = radius (m) x heat sign (fires, blasts, muzzles: w > 0)
+  struct HeatStats { int hot = 0, x0 = 1 << 30, y0 = 1 << 30, x1 = -1, y1 = -1, w = 0, h = 0; };   // TH2 tests: pixels over thr (top-down rows)
+  HeatStats heatStats(float thr) const;
   bool thermalWanted = false;   // TH1: the last frame drew a thermal eyepiece: the game collects heat this frame
   std::vector<ModelDraw> worldModels;   // imported models in the world (rack displays, the M2HB station)     // tree leaf cards (alpha-tested, wind sway, shadow casting)
   float wind = 1.0f;

@@ -155,6 +155,7 @@ void SelfTest::update(App& app, float dt) {
   { extern bool sd3SelfTest(App&, float); if (sd3SelfTest(app, dt)) return; }   // --selftest-sd3 (selftest_sd3.cpp)
   { extern bool spectateSelfTest(App&, float); if (spectateSelfTest(app, dt)) return; }   // --selftest-spectate (selftest_spectate.cpp)
   { extern bool th1Capture(App&, float); if (th1Capture(app, dt)) return; }   // --capture-th1 (selftest_th1.cpp)
+  { extern bool th2Check(App&, float); if (th2Check(app, dt)) return; }   // TH2: --check-th2 (check_th2.cpp)
   { extern bool sdFreezeSelfTest(App&, float); if (sdFreezeSelfTest(app, dt)) return; }   // --selftest-sd-freeze (selftest_sdfreeze.cpp)
   { extern bool sdTimeSelfTest(App&, float); if (sdTimeSelfTest(app, dt)) return; }   // --selftest-sd-time (selftest_sdtime.cpp)
   { extern bool sd9Capture(App&, float); if (sd9Capture(app, dt)) return; }   // --capture-sd9 (selftest_sd9.cpp)
