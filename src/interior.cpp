@@ -319,7 +319,9 @@ const RoomInfo* InteriorSys::rooms(const AssetDef* a) {
           if (isW(i - ni * Nn, j - nj * Nn) || isW(i + ni * Nn, j + nj * Nn)) continue;
           if (!walk(i - ni * Nn, j - nj * Nn) && !walk(i + ni * Nn, j + nj * Nn)) continue;
           auto thin = [&](int a, int b) { return !isW(a - ni * Nn, b - nj * Nn) && !isW(a + ni * Nn, b + nj * Nn); };
-          if (!thin(i - ui * ka, j - uj * ka) && !thin(i + ui * kb, j + uj * kb)) continue;
+          // PR8: both ends of the gap in a thin wall line. One was enough before, so in a small room (the 2.1 x 2.5 m guard hut)
+          // the span from front wall to back wall read as an opening wherever the door's hole thinned the front wall
+          if (!thin(i - ui * ka, j - uj * ka) || !thin(i + ui * kb, j + uj * kb)) continue;
           op[(size_t)j * S.nx + i] |= (uint8_t)(1 << ax);
         }
       }
