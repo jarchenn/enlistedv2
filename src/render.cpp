@@ -2006,12 +2006,32 @@ float reticleInk(vec2 q, float R){
       float stp = 0.058*R, yy = mod(-q.y - 0.18*R, stp);
       if (a.x < w) ink = max(ink, cov(min(yy, stp - yy) - t));
     }
-  } else if (uReticle == 7) {   // SC1 ACOG-style: red chevron, its tip the aim point, and a bullet-drop ladder below
-    float t = 0.5*max(1.0, uRetSize), u = R*0.07, uc = max(5.0, 6.0*uPxMoa)*uRetSize;   // AT2: the chevron about 6 MOA, 1.2 px strokes
-    float dch = min(segD(q, vec2(0.0), vec2(-uc, -0.9*uc)), segD(q, vec2(0.0), vec2(uc, -0.9*uc)));
-    redInk = cov(dch - 0.6*max(1.0, uRetSize));
-    if (q.y < -1.4*u && q.y > -6.0*u) ink = cov(abs(q.x) - t);       // the drop post
-    for (int k = 0; k < 4; ++k) { float y = -(2.0 + 1.1*float(k))*u, hw = (0.9 - 0.18*float(k))*u; ink = max(ink, cov(max(abs(q.y - y) - t, abs(q.x) - hw))); }
+  } else if (uReticle == 7) {   // AT3 ACOG (the user's reference picture, its layout in clear-field radii from the chevron tip): a small red
+    // chevron, its tip the aim point (the shot line at the zero); below it a stadia to the rim with range ticks and 4 / 6 / 8 / 10
+    // to its right; each side a bar well clear of the centre with end caps and two ticks. No ring, dot or full crosshair
+    float t = 0.5*max(1.0, uRetSize), S = uRetSize;   // 1 px lines
+    float uc = 0.026*R*S, dch = min(segD(q, vec2(0.0), vec2(-uc, -1.27*uc)), segD(q, vec2(0.0), vec2(uc, -1.27*uc)));
+    redInk = cov(dch - 0.6*max(1.0, S));
+    vec2 a = abs(q);
+    if (q.y < -0.051*R && q.y > -0.99*R) ink = cov(a.x - t);   // the stadia
+    const float num[4] = float[4](0.093, 0.228, 0.414, 0.670);
+    const float sml[6] = float[6](0.153, 0.31, 0.363, 0.53, 0.823, 0.95);
+    for (int k = 0; k < 6; ++k) ink = max(ink, cov(max(abs(q.y + sml[k]*R) - t, a.x - (k == 0 ? 0.023 : 0.013)*R)));
+    const int glyph[5] = int[5](31599, 11415, 23497, 31215, 31727);   // 3 x 5 cells, top row first: 0 1 4 6 8
+    float cs = max(1.5, 0.0095*R);   // a digit's cell (px): about 0.03 R wide, 0.047 R tall as drawn
+    for (int k = 0; k < 4; ++k) {
+      float y = -num[k]*R; ink = max(ink, cov(max(abs(q.y - y) - t, a.x - 0.028*R)));
+      int d0 = k == 0 ? 2 : k == 1 ? 3 : k == 2 ? 4 : 1, nd = k == 3 ? 2 : 1;   // 4, 6, 8, 10
+      for (int j = 0; j < nd; ++j) {
+        vec2 c = vec2((q.x - 0.04*R - float(j)*4.0*cs)/cs, (y + 2.5*cs - q.y)/cs);   // cell coordinates from the digit's top left
+        if (c.x >= 0.0 && c.x < 3.0 && c.y >= 0.0 && c.y < 5.0) { int g = glyph[j == 0 ? d0 : 0], bit = 14 - (int(c.y)*3 + int(c.x)); if (((g >> bit) & 1) == 1) ink = 1.0; }
+      }
+    }
+    float yb = -0.044*R;   // the side bars, 0.33 - 0.83 R out: a tall cap inside, a short one outside, a tall tick at 0.66, a short one at 0.50
+    if (a.x > 0.33*R && a.x < 0.83*R) ink = max(ink, cov(abs(q.y - yb) - t));
+    const float bx[4] = float[4](0.33, 0.498, 0.66, 0.83);
+    const float bh[4] = float[4](0.06, 0.03, 0.058, 0.028);
+    for (int k = 0; k < 4; ++k) ink = max(ink, cov(max(abs(a.x - bx[k]*R) - t, abs(q.y - yb) - bh[k]*R)));
   } else if (uReticle == 8) {   // TH1 thermal: thin cross with an open centre, a small red dot, range ticks down the lower post
     float t = 0.5*max(1.0, uRetSize), gap = R*0.06; vec2 a = abs(q);
     ink = max(cov(max(a.y - t, gap - a.x)), cov(max(a.x - t, gap - a.y)));
@@ -2064,7 +2084,8 @@ void main(){
     float g = fract(sin(dot(floor(vUV*uRes*0.5) + floor(uTime*12.0), vec2(12.9898, 78.233)))*43758.5453);   // sensor grain, a low refresh
     sharp = c*(1.0 + 0.06*(g - 0.5))*max(avg, 0.05)*4.0;   // the sensor's own gain: as bright at night as by day
   }
-  sharp *= (rifle ? mix(1.0, 0.25, smoothstep(0.62*R, Ri, r)) : mix(1.0, 0.6, smoothstep(0.8*R, R, r)));
+  sharp *= (rifle ? mix(1.0, uReticle == 7 ? 0.7 : 0.25, smoothstep(uReticle == 7 ? 0.8*R : 0.62*R, Ri, r)) :   // AT3: the ACOG's field clear to its rim
+              mix(1.0, 0.6, smoothstep(0.8*R, R, r)));
   sharp = mix(sharp, vec3(0.0015), reticleInk(q, Ri));
   sharp = mix(sharp, vec3(4.0, 0.12, 0.06)*uRetBright, redInk);   // illuminated parts glow red (AT2: Settings > Gameplay brightness)
   float bl = R*(rifle ? 0.035 : 0.09), lod = log2(max(1.0, bl/3.0));   // SC1: the rifle surround only a little blurred
