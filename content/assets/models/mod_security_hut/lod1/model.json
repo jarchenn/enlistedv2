@@ -43,58 +43,43 @@
    "albedo": "albedo_14.jpg",
    "aoInMR": true,
    "mr": "mr_13.jpg",
-   "name": "Metal_Door",
+   "name": "Bunker",
    "normal": "normal_12.jpg"
   },
   {
    "albedo": "albedo_17.jpg",
    "aoInMR": true,
    "mr": "mr_16.jpg",
-   "name": "Bunker",
+   "name": "Metals",
    "normal": "normal_15.jpg"
   },
   {
    "albedo": "albedo_20.jpg",
    "aoInMR": true,
    "mr": "mr_19.jpg",
-   "name": "Metals",
+   "name": "Varil",
    "normal": "normal_18.jpg"
   },
   {
-   "albedo": "albedoa_23.png",
+   "albedo": "albedo_23.jpg",
    "aoInMR": true,
-   "cutout": true,
    "mr": "mr_22.jpg",
-   "name": "Glass",
+   "name": "Kaldirim",
    "normal": "normal_21.jpg"
   },
   {
    "albedo": "albedo_26.jpg",
    "aoInMR": true,
    "mr": "mr_25.jpg",
-   "name": "Varil",
+   "name": "cZeminb.001",
    "normal": "normal_24.jpg"
   },
   {
    "albedo": "albedo_29.jpg",
    "aoInMR": true,
    "mr": "mr_28.jpg",
-   "name": "Kaldirim",
-   "normal": "normal_27.jpg"
-  },
-  {
-   "albedo": "albedo_32.jpg",
-   "aoInMR": true,
-   "mr": "mr_31.jpg",
-   "name": "cZeminb.001",
-   "normal": "normal_30.jpg"
-  },
-  {
-   "albedo": "albedo_35.jpg",
-   "aoInMR": true,
-   "mr": "mr_34.jpg",
    "name": "Ground",
-   "normal": "normal_33.jpg"
+   "normal": "normal_27.jpg"
   }
  ],
  "parts": [
@@ -210,32 +195,6 @@
     1.0
    ],
    "bmax": [
-    1.3759033679962158,
-    2.6833949089050293,
-    2.055361270904541
-   ],
-   "bmin": [
-    -0.4186427593231201,
-    0.2921435832977295,
-    1.5527287721633911
-   ],
-   "count": 99,
-   "first": 354,
-   "mat": 4,
-   "metal": 1.0,
-   "name": "defaultMaterial.012",
-   "role": "body",
-   "rough": 1.0,
-   "textured": true
-  },
-  {
-   "base": [
-    1.0,
-    1.0,
-    1.0,
-    1.0
-   ],
-   "bmax": [
     1.583536148071289,
     3.4360098838806152,
     1.9465733766555786
@@ -246,8 +205,8 @@
     -1.6322730779647827
    ],
    "count": 333,
-   "first": 453,
-   "mat": 5,
+   "first": 354,
+   "mat": 4,
    "metal": 1.0,
    "name": "defaultMaterial.012",
    "role": "body",
@@ -272,34 +231,8 @@
     -2.5317814350128174
    ],
    "count": 96,
-   "first": 786,
-   "mat": 6,
-   "metal": 1.0,
-   "name": "defaultMaterial.012",
-   "role": "body",
-   "rough": 1.0,
-   "textured": true
-  },
-  {
-   "base": [
-    1.0,
-    1.0,
-    1.0,
-    1.0
-   ],
-   "bmax": [
-    1.2534798383712769,
-    2.8234641551971436,
-    1.0553853511810303
-   ],
-   "bmin": [
-    -1.2812888622283936,
-    1.1307274103164673,
-    -1.355679988861084
-   ],
-   "count": 18,
-   "first": 882,
-   "mat": 7,
+   "first": 687,
+   "mat": 5,
    "metal": 1.0,
    "name": "defaultMaterial.012",
    "role": "body",
@@ -324,8 +257,8 @@
     -2.7678518295288086
    ],
    "count": 510,
-   "first": 900,
-   "mat": 8,
+   "first": 783,
+   "mat": 6,
    "metal": 1.0,
    "name": "defaultMaterial.012",
    "role": "body",
@@ -350,8 +283,8 @@
     -3.1594011783599854
    ],
    "count": 324,
-   "first": 1410,
-   "mat": 9,
+   "first": 1293,
+   "mat": 7,
    "metal": 1.0,
    "name": "defaultMaterial.012",
    "role": "body",
@@ -376,8 +309,8 @@
     -1.1054176092147827
    ],
    "count": 54,
-   "first": 1734,
-   "mat": 10,
+   "first": 1617,
+   "mat": 8,
    "metal": 1.0,
    "name": "defaultMaterial.012",
    "role": "body",
@@ -402,8 +335,8 @@
     -2.8752129077911377
    ],
    "count": 117,
-   "first": 1788,
-   "mat": 11,
+   "first": 1671,
+   "mat": 9,
    "metal": 1.0,
    "name": "defaultMaterial.012",
    "role": "body",
@@ -420,6 +353,6 @@
  "scale": 1.0,
  "source": "mod_security_hut.glb",
  "textures": {},
- "triangles": 635,
- "vertices": 1044
+ "triangles": 596,
+ "vertices": 968
 }

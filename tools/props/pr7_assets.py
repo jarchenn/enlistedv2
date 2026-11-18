@@ -6,9 +6,11 @@ then bake: NormandyMapmaker --import-weapon-models <glb dir> content.
 
 Both are CC BY 4.0 (the user's statement; the hut's GLB metadata says the same): bakes committed.
 Scale: the tables' worktops (0.965 units in the FBX) to 0.9 m; the hut's door (0.757 units) to 2.05 m.
-The hut is a closed shell: its door is a panel on a solid wall (no opening), so it is solid, with cover round it.
+PR8: the hut, garage and gas-station kiosk are enterable, with the game's openable doors and windows (pr8_openings.py).
 """
 import json, os, subprocess, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # (python -I leaves the script's folder off the path)
+import pr8_openings
 
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 BLENDER = r"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe"
@@ -48,30 +50,62 @@ GARAGE_MATS = {"Material #2100603827": WALLS, "Material #2100603822": WALLS, "Ma
                "Material #2100603818": {"Base Color": "rusted_metal_door_from_venice_4_20131018_1.jpg", "Normal": "rusted_metal_door_from_venice_4.jpg"},
                "Material #2100603821": {"Base Color": "2.jpg", "Normal": "222.jpg"}, "Material #2100603824": {"Base Color": "шифер_23.jpg"}}
 # collision boxes measured off the models (raycast; source axes, metres: [x0, x1, y0, y1, z0, z1])
-GARAGE_BOXES = [[-2.22, 4.16, -4.14, 6.54, 0.0, 3.96], [-2.59, 4.56, -4.45, 6.85, 3.96, 4.39]]   # closed: both doors are shut panels
+# PR8: the garage's walls are single-sided: the bake gives them 0.2 m inside faces (solidify) and deletes the door panels
+# (the wall already has the holes behind them); its doors become the game's openable doors; walls as hollow boxes + floor
+GARAGE_BOXES = [[-2.22, -2.02, -4.14, 6.54, 0.0, 3.96], [3.96, 4.16, -4.14, 6.54, 0.0, 3.96],     # side walls
+                [-2.22, 4.16, -4.14, -3.78, 0.0, 3.96], [-2.22, 4.16, 6.18, 6.54, 0.0, 3.96],      # gable walls
+                [-2.59, 4.56, -4.45, 6.85, 3.96, 4.39]]                                             # roof
+GARAGE_DOORS = {   # name: (kind, leaf material, leaves, the opening on its door plane [x0, x1, y0, y1, z0, z1])
+    "door_w_person": ("door", "door_steel", 1, [-2.07, -2.01, 1.63, 2.73, 0.0, 2.04]),
+    "door_w_big": ("door", "door_steel", 1, [-2.07, -2.01, -2.46, -0.59, 0.0, 2.83]),
+    "door_e_person": ("door", "door_steel", 1, [3.95, 4.01, -0.32, 0.77, 0.0, 2.04]),
+    "door_e_big": ("door", "door_steel", 1, [3.95, 4.01, 2.99, 4.86, 0.0, 2.83]),
+    "door_front_a": ("door", "door_wood", 2, [-1.6, 0.6, -3.84, -3.78, 0.0, 2.41]), "door_front_b": ("door", "door_wood", 2, [1.3, 3.53, -3.84, -3.78, 0.0, 2.41]),
+    "door_back_a": ("door", "door_wood", 2, [-1.6, 0.63, 6.19, 6.25, 0.0, 2.41]), "door_back_b": ("door", "door_wood", 2, [1.34, 3.53, 6.19, 6.25, 0.0, 2.41]),
+}
+GARAGE_FLOOR = [-2.02, 3.96, -3.78, 6.18, 0.0, 0.04]
 GO, GA, GD, GB = ("Abandoned Soviet gas station_" + n for n in ("Bilding_LPG_ON_0", "Atributs.002_0", "LPG_DETAILS.001_0", "Lpg_box.001_0"))
 GAS_ALL = [GO, "Abandoned Soviet gas station_Bilding_LPG_IN_0", GA, GD, GB]
-GAS_BOXES = [   # the kiosk is open: a 1.0 m doorway in its +x wall (the door leaf stands open outside it); windows closed
+PUMP_K = 1.5 / 2.254   # PR8: the dispensers were 2.25 m tall: 1.5 m (scaled about their feet)
+PUMP_SHRINK = [[4.9, 6.1, 0.9, 2.25, PUMP_K], [4.9, 6.1, -3.2, -1.85, PUMP_K]]
+GAS_BOXES = [   # the kiosk: walls (the doorway and windows are cut out by their apertures), roof, dispensers, drums
     [-2.41, -1.9, -4.91, 3.41, 0.0, 3.2], [-2.41, 1.91, -4.91, -4.5, 0.0, 3.2], [-2.41, 1.91, 3.0, 3.41, 0.0, 3.2],   # back and end walls
-    [1.5, 1.91, -4.5, -1.5, 0.0, 3.2], [1.5, 1.91, -0.4, 3.0, 0.0, 3.2], [1.5, 1.91, -1.5, -0.4, 2.6, 3.2],          # front wall, door gap, lintel
+    [1.5, 1.91, -4.5, 3.0, 0.0, 3.2],                                                                                 # front wall
     [-2.41, 1.91, -4.91, 3.41, 3.2, 3.58],                                                                            # roof
-    [1.91, 2.75, -0.46, -0.03, 0.0, 2.9],                                                                             # the open door leaf
-    [5.0, 5.99, 1.02, 2.0, 0.0, 2.26], [5.0, 5.99, -3.05, -2.06, 0.0, 2.26],                                          # the two dispensers
+    [5.495 - 0.329, 5.495 + 0.329, 1.51 - 0.329, 1.51 + 0.329, 0.0, 1.5], [5.495 - 0.329, 5.495 + 0.329, -2.555 - 0.329, -2.555 + 0.329, 0.0, 1.5],   # dispensers
     [-0.28, 0.29, -6.3, -5.73, 0.0, 0.93], [-0.05, 0.52, -5.59, -5.02, 0.0, 0.93], [0.65, 1.22, -5.85, -5.28, 0.0, 0.93]]   # three drums
+GAS_OPEN = {
+    "door": ("door", "door_wood", 1, [1.68, 1.74, -1.45, -0.45, 0.0, 2.6]),
+    "window_back": ("window", None, 2, [-0.41, 1.21, 2.99, 3.05, 0.97, 2.43], True),
+    "window_front_a": ("window", None, 2, [1.41, 1.47, -4.23, -1.62, 0.88, 2.45], True),
+    "window_front_b": ("window", None, 2, [1.41, 1.47, 0.92, 2.73, 0.97, 2.43], True),
+}
+GAS_FLOOR = [-1.9, 1.5, -4.5, 3.0, 0.0, 0.03]
 EXTRA = [   # id, name, category, source, selection / options, credit, maxTex
-    ("mod_old_garage", "Old garage", "Small buildings", "garage", {"objects": ["Box001"], "boxes": GARAGE_BOXES}, GARAGE_CREDIT, 2048),
-    ("mod_gas_station_soviet", "Abandoned Soviet gas station", "Small buildings", "gas", {"objects": GAS_ALL, "yaw": -90, "boxes": GAS_BOXES}, GAS_CREDIT, 2048),
-    ("mod_lpg_dispenser", "LPG dispenser (model)", "Modern: Urban", "gas", {"multi": [[GB, [0]], [GD, [0, 2, 4, 6, 8]]], "yaw": -90, "colliders": "box"}, GAS_CREDIT, 1024),
-    ("mod_lpg_dispensers_pair", "LPG dispensers, pair (model)", "Modern: Urban", "gas", {"objects": [GB, GD], "yaw": -90, "colliders": "parts"}, GAS_CREDIT, 1024),
+    ("mod_old_garage", "Old garage", "Small buildings", "garage", {"objects": ["Box001"], "boxes": GARAGE_BOXES, "solidify": 0.2,
+        "delete_mats": ["Material #2100603818", "Material #2100603819", "Material #26"],
+        "marks": {**{k: v[3] for k, v in GARAGE_DOORS.items()}, "floor": GARAGE_FLOOR}}, GARAGE_CREDIT, 4096),
+    ("mod_gas_station_soviet", "Abandoned Soviet gas station", "Small buildings", "gas", {"objects": GAS_ALL, "yaw": -90, "boxes": GAS_BOXES,
+        "delete_clusters": [[GA, [5]]], "shrink": PUMP_SHRINK, "marks": {**{k: v[3] for k, v in GAS_OPEN.items()}, "floor": GAS_FLOOR}}, GAS_CREDIT, 2048),
+    ("mod_lpg_dispenser", "LPG dispenser (model)", "Modern: Urban", "gas", {"multi": [[GB, [0]], [GD, [0, 2, 4, 6, 8]]], "yaw": -90, "colliders": "box", "shrink": PUMP_SHRINK}, GAS_CREDIT, 1024),
+    ("mod_lpg_dispensers_pair", "LPG dispensers, pair (model)", "Modern: Urban", "gas", {"objects": [GB, GD], "yaw": -90, "colliders": "parts", "shrink": PUMP_SHRINK}, GAS_CREDIT, 1024),
     ("mod_gas_drums", "Oil drums, three (model)", "Modern: Industrial", "gas", {"mesh": GA, "clusters": [7, 8, 9], "yaw": -90, "colliders": "parts"}, GAS_CREDIT, 1024),
 ]
 HUT_ID, HUT_NAME = "mod_security_hut", "Abandoned security hut"
+HUT_OPEN = {   # PR8, measured on the baked hut (its own frame, Blender axes): the doorway and three windows
+    "door": ("door", "door_steel", 1, [-0.35, 0.34, -1.65, -1.59, 0.29, 2.63]),
+    "window_left": ("window", None, 2, [-1.28, -1.22, -1.05, 0.70, 1.2, 2.6]),
+    "window_right": ("window", None, 2, [1.22, 1.28, -1.05, 0.70, 1.2, 2.6]),
+    "window_back": ("window", None, 2, [-0.30, 0.30, 1.27, 1.33, 1.2, 2.6]),
+}
+HUT_FLOOR = [-1.058, 1.058, -1.423, 1.107, 0.29, 0.31]
+GAME = lambda b: [round(v, 3) for v in ((b[0] + b[1]) / 2, (b[4] + b[5]) / 2, -(b[2] + b[3]) / 2, b[1] - b[0], b[5] - b[4], b[3] - b[2])]   # Blender box -> game [c, s]
 
 
 def convert(dl, glbs):
     os.makedirs(glbs, exist_ok=True)
     for (src, texdir, scale), pieces in ((DESK, [{"id": a, "objects": [o], "colliders": "parts", "yaw": y} for a, _, o, y in TABLES]),
-                                         (HUT, [{"id": HUT_ID, "objects": None, "colliders": "parts"}])):
+                                         (HUT, [{"id": HUT_ID, "objects": None, "colliders": "parts", "delete_mats": ["Metal_Door", "Glass"]}])):
         if pieces[0]["objects"] is None:   # the hut: every mesh in the file
             pieces[0]["objects"] = ["defaultMaterial"] + ["defaultMaterial.%03d" % k for k in range(1, 12)]
         job = {"src": os.path.join(dl, src), "texdir": os.path.join(dl, texdir) if texdir else None, "scale": scale, "out": glbs, "pieces": pieces}
@@ -118,18 +152,22 @@ def write(dl, glbs):
     side["colliders"] = [[round(v, 3) for v in c] for c in side["colliders"]]
     cov = [{"p": [round(x, 2), 0, round(s * (sz / 2 + 0.5), 2)], "yaw": 180 if s > 0 else 0, "height": "high", "peek": ["left", "right"]} for x in (-sx / 4, sx / 4) for s in (1, -1)]
     A = asset(HUT_ID, HUT_NAME, "Small buildings",
-              "A small concrete guard hut on a kerbed pad (%.1f x %.1f m, %.1f m to the antenna tip), its metal door standing open: walk in through the 0.7 m doorway; the windows are closed." % (sx, sz, sy),
-              side, {"maxTex": 1024, "lodDist": 40, "cullDist": 600, "credit": HUT_CREDIT}, {"maxGrade": 2})
+              "A small concrete guard hut on a kerbed pad (%.1f x %.1f m, %.1f m to the antenna tip): a steel door and three casement windows that open (E)." % (sx, sz, sy),
+              side, {"maxTex": 1024, "maxTexBy": {"Bunker": 4096, "Pervazlar": 2048, "Metals": 2048}, "lodDist": 40, "cullDist": 600, "credit": HUT_CREDIT}, {"maxGrade": 2})
     A["nav"]["cover"] = cov
+    pr8_openings.apply(A, {**{k: GAME(v[3]) for k, v in HUT_OPEN.items()}, "floor": GAME(HUT_FLOOR)}, {k: v[:3] + v[4:] for k, v in HUT_OPEN.items()}, room_type="office")
     open(os.path.join(ROOT, "content", "assets", HUT_ID + ".json"), "w", encoding="utf-8", newline="").write(json.dumps(A, separators=(",", ":")))
     for aid, name, cat, key, sel, credit, mt in EXTRA:
         side = json.load(open(os.path.join(glbs, aid + ".json"))); sx, sy, sz = side["size"]
         building = cat == "Small buildings"
-        desc = {"mod_old_garage": "A corrugated-roofed brick garage (%.1f x %.1f m, %.1f m to the ridge) with a vehicle door and a person door; both doors are shut: a closed shell, solid cover.",
-                "mod_gas_station_soviet": "A derelict Soviet roadside LPG station (%.1f x %.1f m, %.1f m to the lamp post): a kiosk with an open doorway and empty window frames, two dispensers and three drums. The model has no canopy.",
+        desc = {"mod_old_garage": "A corrugated-roofed brick garage (%.1f x %.1f m, %.1f m to the ridge), enterable: four double wooden vehicle doors on the gables, two steel doors and two person doors on the sides, all opening (E).",
+                "mod_gas_station_soviet": "A derelict Soviet roadside LPG station (%.1f x %.1f m, %.1f m to the lamp post): an enterable kiosk with a door and three casement windows that open (E), two dispensers and three drums. The model has no canopy.",
                 }.get(aid, name.replace(" (model)", "") + ", %.2f x %.2f x %.2f m (Abandoned Soviet gas station by olegolegperepelica).")
-        A = asset(aid, name, cat, desc % (sx, sz, sy), side, {"maxTex": mt, "lodDist": 40 if building else 15, "cullDist": 600 if building else 300, "credit": credit},
-                  {"maxGrade": 2 if building else 5})
+        model = {"maxTex": mt, "lodDist": 40 if building else 15, "cullDist": 600 if building else 300, "credit": credit}
+        if aid == "mod_gas_station_soviet": model["maxTexBy"] = {"Bilding_LPG_ON": 4096}   # PR8: the outer walls at full size (all three at 4096 would be 58 MB)
+        A = asset(aid, name, cat, desc % (sx, sz, sy), side, model, {"maxGrade": 2 if building else 5})
+        opens = {"mod_old_garage": GARAGE_DOORS, "mod_gas_station_soviet": GAS_OPEN}.get(aid)
+        if opens: pr8_openings.apply(A, side["marks"], {k: v[:3] + v[4:] for k, v in opens.items()}, room_type={"mod_old_garage": "workshop", "mod_gas_station_soviet": "shop"}[aid])
         if building:
             A["nav"]["cover"] = [{"p": [round(x, 2), 0, round(sg * (sz / 2 + 0.5), 2)], "yaw": 180 if sg > 0 else 0, "height": "high", "peek": ["left", "right"]} for x in (-sx / 4, sx / 4) for sg in (1, -1)]
         else:

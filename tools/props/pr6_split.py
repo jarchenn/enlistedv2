@@ -14,7 +14,7 @@ bpy.ops.wm.read_factory_settings(use_empty=True)
 src = job["src"]
 if src.lower().endswith((".glb", ".gltf")): bpy.ops.import_scene.gltf(filepath=src)
 else: bpy.ops.import_scene.fbx(filepath=src)
-SRC = [o for o in bpy.context.scene.objects if o.type == "MESH"]
+SRC =[o for o in bpy.context.scene.objects if o.type == "MESH"]
 if job.get("tex"):   # the FBX packs ship their texture beside the model, unlinked
     img = bpy.data.images.load(job["tex"])
     for o in SRC:
@@ -169,7 +169,28 @@ for P in job["pieces"]:
         objs = [copy_of(o, CL[o.name][i]) for i in P["clusters"]]
     else:
         objs = [copy_of(byname[n]) for n in P["objects"]]
+    for mname, idx in P.get("delete_clusters", []):   # PR8: a model's own door leaf / glass goes (the game fits openable ones)
+        o = byname[mname]
+        if o.name not in CL: CL[o.name] = clusters(o)
+        gone = set().union(*[CL[o.name][i] for i in idx])
+        for c in objs:
+            if c.data.name.startswith(o.data.name) and len(c.data.vertices) == len(o.data.vertices):
+                bm = bmesh.new(); bm.from_mesh(c.data); bm.verts.ensure_lookup_table()
+                bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.index in gone], context="VERTS"); bm.to_mesh(c.data); bm.free()
     ob = join(objs)
+    if P.get("delete_mats"):   # PR8: faces of these materials removed (door panels, window glass): the openings behind them open up
+        bm = bmesh.new(); bm.from_mesh(ob.data)
+        kill = {i for i, sl in enumerate(ob.material_slots) if sl.material and any(sl.material.name.startswith(n) for n in P["delete_mats"])}
+        bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.material_index in kill], context="FACES"); bm.to_mesh(ob.data); bm.free()
+    if P.get("shrink"):   # PR8: scale the vertices inside a footprint about its foot (the gas station's dispensers)
+        for x0, x1, y0, y1, f in P["shrink"]:
+            vs = [v for v in ob.data.vertices if x0 <= v.co.x <= x1 and y0 <= v.co.y <= y1]
+            if not vs: continue
+            cx, cy, cz = (x0 + x1) / 2, (y0 + y1) / 2, min(v.co.z for v in vs)
+            for v in vs: v.co = Vector((cx + (v.co.x - cx) * f, cy + (v.co.y - cy) * f, cz + (v.co.z - cz) * f))
+    if P.get("solidify"):   # PR8: single-sided walls get their inside faces (walk-in), thickness inward
+        md = ob.modifiers.new("sol", "SOLIDIFY"); md.thickness = P["solidify"]; md.offset = -1; md.use_rim = True
+        bpy.context.view_layer.objects.active = ob; bpy.ops.object.modifier_apply(modifier=md.name)
     if P.get("decimate"):
         md = ob.modifiers.new("dec", "DECIMATE"); md.ratio = P["decimate"]
         bpy.context.view_layer.objects.active = ob; bpy.ops.object.modifier_apply(modifier=md.name)
@@ -181,13 +202,17 @@ for P in job["pieces"]:
     bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
     lo, hi = bounds([ob]); c = Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z))
     for v in ob.data.vertices: v.co -= c
+    def xform(bx):
+        R = Matrix.Rotation(math.radians(P.get("yaw", 0)), 3, "Z"); x0, x1, y0, y1, z0, z1 = bx
+        cs = [R @ (Vector((x, y, z)) * s) - c for x in (x0, x1) for y in (y0, y1) for z in (z0, z1)]
+        l = Vector([min(q[k] for q in cs) for k in range(3)]); h = Vector([max(q[k] for q in cs) for k in range(3)])
+        return [(l.x + h.x) / 2, (l.z + h.z) / 2, -(l.y + h.y) / 2, h.x - l.x, h.z - l.z, h.y - l.y]
+    marks = {k: xform(bx) for k, bx in P.get("marks", {}).items()}   # PR8: openings, in game axes like the colliders
     src_boxes = []
     if P.get("boxes"):   # PR7: collision boxes measured in the source ([x0, x1, y0, y1, z0, z1], Blender axes): same scale, turn, recentring
         R = Matrix.Rotation(math.radians(P.get("yaw", 0)), 3, "Z")
         for x0, x1, y0, y1, z0, z1 in P["boxes"]:
-            cs = [R @ (Vector((x, y, z)) * s) - c for x in (x0, x1) for y in (y0, y1) for z in (z0, z1)]
-            l = Vector([min(q[k] for q in cs) for k in range(3)]); h = Vector([max(q[k] for q in cs) for k in range(3)])
-            src_boxes.append([(l.x + h.x) / 2, (l.z + h.z) / 2, -(l.y + h.y) / 2, h.x - l.x, h.z - l.z, h.y - l.y])
+            src_boxes.append(xform([x0, x1, y0, y1, z0, z1]))
     for dzf, yaw in P.get("stack", []):   # a second course on top (the high sandbag wall), turned for variety
         h = hi.z - lo.z
         c2 = ob.copy(); c2.data = ob.data.copy(); bpy.context.scene.collection.objects.link(c2)
@@ -236,6 +261,6 @@ for P in job["pieces"]:
     ob.select_set(True)
     out = os.path.join(job["out"], P["id"] + ".glb")
     bpy.ops.export_scene.gltf(filepath=out, export_format="GLB", use_selection=True, export_apply=True, export_yup=True)
-    json.dump({"size": [round(v, 3) for v in size], "tris": tris, "colliders": [[round(x, 3) for x in b] for b in boxes]}, open(out[:-4] + ".json", "w"))
+    json.dump({"size": [round(v, 3) for v in size], "tris": tris, "colliders": [[round(x, 3) for x in b] for b in boxes], "marks": {k: [round(x, 3) for x in v] for k, v in marks.items()}}, open(out[:-4] + ".json", "w"))
     print("PR6 %-34s size %.2f x %.2f x %.2f  tris %d  boxes %d" % (P["id"], size[0], size[1], size[2], tris, len(boxes)))
     bpy.data.objects.remove(ob, do_unlink=True)
