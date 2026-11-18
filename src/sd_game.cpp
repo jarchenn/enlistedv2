@@ -535,22 +535,29 @@ int fetcher(SdMatch& m, Game& g) {
 }
 }   // namespace
 
-bool sdBotFetching(Game& g, const Soldier& s) { return gSd && s.alive && fetcher(*gSd, g) == s.slot; }
+bool sdContact(Game& g, const Soldier& s, double lostFor) {
+  if (g.t - s.br.hurtAt < 2.0) return true;
+  for (auto& x : s.br.mem) if (!x.heardOnly && x.enemy >= 0 && x.enemy < (int)g.sold.size() && g.sold[x.enemy].alive && (x.visible || g.t - x.lastSeen < lostFor)) return true;
+  return false;
+}
+bool sdBotFetching(Game& g, const Soldier& s) { return gSd && s.alive && fetcher(*gSd, g) == s.slot && !sdContact(g, s); }   // SD9: a fight first, then the bomb
 
 // SD5: the attacker execute must not stall (the plant-rate harness, --selftest-sd-plant on Sun Fort clutter variants: in
 // the rounds lost on time the carrier sat 5-13 m from a pad in a firefight from cover for 45 s+, and flankers stood
 // "cover to cover" for 20-50 s with no target). A pushing attacker drops cover-to-cover and goes straight for its goal:
 //  - the carrier within 30 m of a pad, or with under 35 s on the clock;
 //  - any attacker without a target that has moved under 1.5 m in 8 s (for the next 6 s).
-namespace { std::map<int, std::pair<vec3, double>> gStill; std::map<int, double> gUnstickUntil, gOnPadSince; }
+// SD9: they ran past enemies that way. Kill on sight comes first: a bot in contact (sdContact) never pushes; the carrier
+// pushes for the pad only out of contact, or as a final rush in the last 15 s.
+namespace { std::map<int, std::pair<vec3, double>> gStill; std::map<int, double> gUnstickUntil; }
 bool sdBotPushing(Game& g, const Soldier& s) {
   if (!gSd || !s.alive) return false;
   SdMatch& m = *gSd;
   if (m.phase != SdPhase::LiveUnplanted || m.sideOf(s.slot) != 0) { gStill.erase(s.slot); return false; }
-  if (m.carrier == s.slot) {
-    if (m.clock() < 35.0f) return true;
+  if (m.carrier == s.slot && m.clock() < 15.0f) return true;   // the final rush
+  if (sdContact(g, s)) { gUnstickUntil.erase(s.slot); gStill[s.slot] = {s.feet, g.t}; return false; }
+  if (m.carrier == s.slot)
     for (int k = 0; k < 2; ++k) if (const Objective* o = site(g, k); o && glm::length(s.feet - o->pos) < 30.0f) return true;
-  }
   auto& st = gStill[s.slot];
   if (glm::length(s.feet - st.first) > 1.5f) st = {s.feet, g.t};
   else if (s.br.target < 0 && g.t - st.second > 8.0) { gUnstickUntil[s.slot] = g.t + 6.0; st = {s.feet, g.t}; }
@@ -560,12 +567,8 @@ bool sdBotPushing(Game& g, const Soldier& s) {
 bool sdBotHolding(Game& g, const Soldier& s) {
   if (!gSd || !s.alive) return false;
   SdMatch& m = *gSd;
-  if (m.carrier == s.slot && siteAt(g, s.feet) >= 0) {   // on the pad: plant, unless engaged (SD5: discipline times out: 3 s on the pad and not hit for 1 s, or under 35 s left)
-    auto it = gOnPadSince.find(s.slot); if (it == gOnPadSince.end() || g.t - it->second > 1e6) it = gOnPadSince.insert_or_assign(s.slot, g.t).first;
-    const bool clear = !enemyInView(s) && g.t - s.br.hurtAt > 2.0;
-    return clear || (g.t - it->second > 3.0 && g.t - s.br.hurtAt > 1.0) || m.clock() < 35.0f;
-  }
-  if (m.carrier == s.slot) gOnPadSince.erase(s.slot);
+  if (m.carrier == s.slot && siteAt(g, s.feet) >= 0)   // on the pad: plant, unless engaged (SD9: no enemy in view and not hit for 1.5 s, or the last 15 s)
+    return (!enemyInView(s) && g.t - s.br.hurtAt > 1.5) || m.clock() < 15.0f;
   if (m.bomb == SdBomb::Planted && m.sideOf(s.slot) == 1 && glm::length(s.feet - m.bombPos) <= m.cfg.defuseRange) return true;
   return false;
 }
@@ -596,7 +599,15 @@ bool sdBotGoal(Game& g, const Soldier& s, vec3& goal) {
       if (any && gBots.stagedAt < 0) gBots.stagedAt = g.t;
       if (all || (gBots.stagedAt >= 0 && g.t - gBots.stagedAt > 30) || m.clock() < 50) gBots.exec = true;
     }
-    if (gBots.exec || leg >= 3) { leg = 3; goal = m.carrier == s.slot ? tgt->pos : ring(tgt->pos, 3.0f + (s.slot % 4) * 2.0f); return true; }
+    if (gBots.exec || leg >= 3) {
+      leg = 3;
+      if (m.carrier == s.slot) { goal = tgt->pos; return true; }
+      if (m.carrier >= 0 && m.carrier < (int)g.sold.size() && g.sold[m.carrier].alive && glm::length(g.sold[m.carrier].feet - tgt->pos) > 18.0f) {   // SD9: escorts cover the carrier, not run ahead
+        const Soldier& c = g.sold[m.carrier]; vec3 d = tgt->pos - c.feet; d.y = 0; d = glm::length(d) > 1 ? glm::normalize(d) : vec3(0);
+        goal = ring(c.feet + d * 3.0f, 3.0f + (s.slot % 3) * 1.5f); return true;
+      }
+      goal = ring(tgt->pos, 3.0f + (s.slot % 4) * 2.0f); return true;
+    }
     goal = leg == 0 ? gBots.way[grp] : ring(gBots.stage[grp], 2.0f); return true;
   }
   if (m.bomb == SdBomb::Planted) {   // Security: everyone converges; the nearest one to the bomb defuses, the rest cover it

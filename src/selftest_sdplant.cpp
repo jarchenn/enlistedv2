@@ -21,6 +21,9 @@ double rPlantAt = -1, nextSample = 0; float total = 0;
 struct Sample { vec3 p{0}; std::string why; float speed = 0; int ladder = 0; float pathFails = 0; double stillSince = 0; vec3 anchor{0}; bool alive = false; double diedAt = -1; };
 std::map<int, Sample> last;
 std::vector<int> noPlantSeeds;
+// SD9: "ran past": a bot moved more than 3 m while a visible enemy was within 25 m and it did not fire (per side)
+struct Pass { float acc = 0; vec3 last{0}; bool on = false; };
+std::map<int, Pass> passes; int passBy[2] = {0, 0}, timeouts = 0, attWins = 0;
 
 int padAt(Game& g, vec3 p) { for (int k = 0; k < 2 && k < (int)g.match.sc.objectives.size(); ++k) if (g.match.sc.objectives[k].contains(p)) return k; return -1; }
 }   // namespace
@@ -57,7 +60,8 @@ bool sdPlantSelfTest(App& app, float dt) {
   total += dt;
   Game& g = *gGame; SdMatch* mp = sdMatch();
   auto finish = [&]() {
-    char b[260]; std::snprintf(b, sizeof b, "plant rate: a plant started in %d of %d rounds (%.0f %%); an attacker reached a pad in %d", planted, done, done ? 100.0 * planted / done : 0.0, reached);
+    char b[360]; std::snprintf(b, sizeof b, "plant rate: a plant started in %d of %d rounds (%.0f %%); an attacker reached a pad in %d; lost on time %d; attacker wins %d; ran past a visible enemy (3 m, 25 m, no shot): attackers %d, defenders %d",
+                                planted, done, done ? 100.0 * planted / done : 0.0, reached, timeouts, attWins, passBy[0], passBy[1]);
     T->note(b);
     T->check(done >= rounds, "played " + std::to_string(done) + " of " + std::to_string(rounds) + " rounds");
     if (app.mode == Mode::Explore) app.exitExplore();
@@ -70,6 +74,16 @@ bool sdPlantSelfTest(App& app, float dt) {
   if (m.round != lastRound && m.phase == SdPhase::Freeze) { lastRound = m.round; rPlanted = rReached = false; rPlantAt = -1; last.clear(); }
   const bool live = m.phase == SdPhase::LiveUnplanted || m.phase == SdPhase::LivePlanted;
   if (live) {
+    for (auto& s : g.sold) {   // SD9: the run-past measure
+      Pass& p = passes[s.slot];
+      if (!s.alive || s.human || s.localPlayer) { p.on = false; continue; }
+      bool near = false;
+      for (auto& x : s.br.mem) if (x.visible && !x.heardOnly && x.enemy >= 0 && x.enemy < (int)g.sold.size() && g.sold[x.enemy].alive && glm::length(g.sold[x.enemy].feet - s.feet) < 25.0f) near = true;
+      if (!near || g.t - s.lastShot < 0.5) { p.acc = 0; p.on = near; p.last = s.feet; continue; }
+      if (p.on) p.acc += glm::length(vec2(s.feet.x - p.last.x, s.feet.z - p.last.z));
+      p.on = true; p.last = s.feet;
+      if (p.acc > 3.0f) { ++passBy[std::clamp(m.sideOf(s.slot), 0, 1)]; p.acc = 0; }
+    }
     if (!rPlanted && (m.planter >= 0 || m.bomb == SdBomb::Planted)) { rPlanted = true; rPlantAt = m.t - m.liveStart; }
     for (auto& s : g.sold) {
       if (m.sideOf(s.slot) != 0) continue;
@@ -84,6 +98,7 @@ bool sdPlantSelfTest(App& app, float dt) {
   if (m.phase == SdPhase::RoundEnd && m.round > 0 && done < m.round) {
     done = m.round; planted += rPlanted; reached += rReached;
     const bool attWin = m.roundWinner == m.attackerTeam;
+    timeouts += m.reason == SdReason::Time; attWins += attWin; passes.clear();
     char b[300]; std::snprintf(b, sizeof b, "round %d: %s win (%s), plant %s, pad reached %d", m.round, attWin ? "attackers" : "defenders", sdReasonName(m.reason),
                                 rPlanted ? ("started at " + std::to_string((int)rPlantAt) + " s").c_str() : "NONE", (int)rReached);
     T->note(b);

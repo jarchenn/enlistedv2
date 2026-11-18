@@ -274,7 +274,13 @@ void AiCore::think(Soldier& s) {
     if (attacker && !regroup) u[A_ADVANCE] = std::max(u[A_ADVANCE], 0.5f);
     if (sdBotHolding(G, s)) { u[A_HOLD] = 0.99f; u[A_ADVANCE] = 0; u[A_RETURN_FIRE] *= 0.5f; u[A_TAKE_COVER] *= 0.3f; }
     if (sdMatch() && sdMatch()->carrier == s.slot) { u[A_OVERWATCH] = 0; u[A_CLEAR] = 0; u[A_SUPPRESS] = 0; }
-    if (sdBotFetching(G, s) || sdBotPushing(G, s)) { u[A_ADVANCE] = 0.97f; u[A_HOLD] = u[A_OVERWATCH] = u[A_CLEAR] = u[A_SUPPRESS] = u[A_TAKE_COVER] = 0; }   // SD3: the dropped bomb first   // the carrier goes for the plant, not overwatch or room clearing
+    const bool push = sdBotFetching(G, s) || sdBotPushing(G, s);
+    if (push) { u[A_ADVANCE] = 0.97f; u[A_HOLD] = u[A_OVERWATCH] = u[A_CLEAR] = u[A_SUPPRESS] = u[A_TAKE_COVER] = 0; }   // SD3: the dropped bomb first   // the carrier goes for the plant, not overwatch or room clearing
+    else if (!sdBotHolding(G, s) && sdContact(G, s)) {   // SD9: kill on sight first: fight from here / the nearest cover; the objective once the enemy is dead or lost ~2 s
+      if (visible) u[A_RETURN_FIRE] = std::max(u[A_RETURN_FIRE], 0.9f);
+      else u[A_SUPPRESS] = std::max(u[A_SUPPRESS], 0.7f);
+      u[A_ADVANCE] = std::min(u[A_ADVANCE], 0.3f); u[A_HOLD] = std::min(u[A_HOLD], 0.6f);
+    }
   }
   // weights and inertia
   if (tactics.contains("utility")) for (int a = 0; a < A_COUNT; ++a) u[a] *= tactics["utility"].value(aiActionName(a), 1.0f);
@@ -487,6 +493,9 @@ void AiCore::act(Soldier& s, float dt) {
       }
       b.mode = Brain::M_INVESTIGATE; break; }
   }
+  // SD9: no sprinting in contact (an enemy in view or seen within 3 s): sprinting cannot shoot and turns the back (the
+  // carrier's final rush excepted)
+  if (m.speed == SPD_SPRINT && G.match.mode() == GameMode::SearchDestroy && sdContact(G, s, 3.0) && !sdBotPushing(G, s)) m.speed = SPD_JOG;
   // route exposure during the current bound (AI_SPEC 12.3 metric)
   if (m.boundStart > 0 && !m.set && attacker && exposure((int)s.role, s.feet + vec3(0, 1.2f, 0)) > 0.2f) m.exposedThisBound += dt;
 }
