@@ -678,18 +678,23 @@ int Audio::loadCustom(const fs::path& dir) {
                 p->events.count("shot_mg42_semi") ? p->events["shot_mg42_semi"].v.size() : 0, p->events.count("shot_sten") ? p->events["shot_sten"].v.size() : 0);
   // SND4: the bolt action cycle after each shot of a bolt rifle: the recording's open / close (0.36-0.90 s) twice back to back,
   // sped up (resampled) so both, from 0.06 s after the shot, end 0.05 s before the bolt time is up (at least 1.25x)
-  if (decode("guns/bolt_cycle.mp3", b) && b.size() > (size_t)(0.90f * SR)) {
-    Buf seg(b.begin() + (size_t)(0.36f * SR), b.begin() + (size_t)(0.90f * SR)); float pk = 1e-4f; for (float x : seg) pk = std::max(pk, std::fabs(x)); for (float& x : seg) x *= 0.8f / pk;
+  // SND17 (user request): the user's bolt recording (local-only content/audio/custom/snd17/bolt_cycle.wav: E:/nmk/refs/bolt_user.mp3
+  // trimmed offline (the weapons session, bf30536f) to its one full cycle, lift / back / forward / close, 0.70-1.48 s) played once, sped up only as far as the bolt
+  // time needs (Kar98k 1.05x, the others 1.0x), at the old pair's 0.8 peak; without it the old recording's slice twice, as before
+  const bool one = decode("snd17/bolt_cycle.wav", b) && b.size() > (size_t)(0.2f * SR);
+  if (one || (decode("guns/bolt_cycle.mp3", b) && b.size() > (size_t)(0.90f * SR))) {
+    Buf seg = one ? b : Buf(b.begin() + (size_t)(0.36f * SR), b.begin() + (size_t)(0.90f * SR)); float pk = 1e-4f; for (float x : seg) pk = std::max(pk, std::fabs(x)); for (float& x : seg) x *= 0.8f / pk;
+    const int reps = one ? 1 : 2;
     struct BoltSet { const char* id; float bolt; };
     for (auto& bs : {BoltSet{"kar98k", 0.85f}, BoltSet{"kar98k_zf39", 1.0f}, BoltSet{"modern_sniper_bolt", 1.0f}, BoltSet{"modern_sniper_3", 1.0f}, BoltSet{"modern_sniper_50", 1.4f}}) {   // content/weapons boltTime
-      const float lead = 0.06f, len = seg.size() / (float)SR, speed = std::max(1.25f, 2 * len / (bs.bolt - 0.05f - lead));
+      const float lead = 0.06f, len = seg.size() / (float)SR, speed = std::max(one ? 1.0f : 1.25f, reps * len / (bs.bolt - 0.05f - lead));
       Buf r((size_t)(seg.size() / speed)); for (size_t j = 0; j < r.size(); ++j) { float x = j * speed; size_t i0 = (size_t)x; float u = x - i0; r[j] = i0 + 1 < seg.size() ? seg[i0] * (1 - u) + seg[i0 + 1] * u : seg.back(); }
-      Buf out((size_t)(lead * SR), 0.0f); out.insert(out.end(), r.begin(), r.end()); out.insert(out.end(), r.begin(), r.end());
+      Buf out((size_t)(lead * SR), 0.0f); for (int q = 0; q < reps; ++q) out.insert(out.end(), r.begin(), r.end());
       size_t f = std::min(out.size(), (size_t)(SR / 100)); for (size_t j = 0; j < f; ++j) out[out.size() - 1 - j] *= (float)j / f;
       Impl::Event ev; ev.gain = 0.8f; ev.v.push_back(std::move(out)); p->events[std::string("bolt_cycle_") + bs.id] = ev;
-      { static const bool lg = std::getenv("NMK_AUDIO_LOG") != nullptr; if (lg) logf("audio: bolt cycle for %s: %.2fx, ends %.2f s after the shot (bolt %.2f s)", bs.id, speed, lead + 2 * len / speed, bs.bolt); }   // diagnostics
+      { static const bool lg = std::getenv("NMK_AUDIO_LOG") != nullptr; if (lg) logf("audio: bolt cycle for %s: %.2fx, ends %.2f s after the shot (bolt %.2f s)", bs.id, speed, lead + reps * len / speed, bs.bolt); }   // diagnostics
     }
-    ++used;
+    ++used; logf("audio: bolt cycle: %s", one ? "SND17 recording, once" : "old recording, twice");
   }
   // SND4: tank main guns (every tank: tank_sim plays tank_88 for the Tiger, tank_17pdr otherwise; both were procedural)
   // SND9: big one-shot recordings (the tank gun, the shell hit): from the onset, low-mid body and saturation (drive), levelled
