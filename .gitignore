@@ -119,3 +119,19 @@ content/assets/models/mod_billboard_15/
 content/audio/custom/snd15/
 content/audio/custom/snd16/
 content/audio/custom/snd17/
+# PR9: local-only debris models (no licence in the packs)
+content/assets/models/mod_debris_soda_can/
+content/assets/models/mod_tool_hammer_club/
+content/assets/models/mod_tool_hammer_claw/
+content/assets/models/mod_tool_hatchet/
+content/assets/models/mod_tool_clamp/
+content/assets/models/mod_tool_pincers/
+content/assets/models/mod_tool_screwdriver/
+content/assets/models/mod_tool_prybar/
+content/assets/models/mod_tool_wrench/
+content/assets/models/mod_tool_adjustable_wrench/
+content/assets/models/mod_tool_socket_wrench/
+content/assets/models/mod_debris_stove/
+# PR9: local-only debris models (no licence in the packs)
+content/assets/models/mod_debris_papers_scattered/
+content/assets/models/mod_debris_papers_pile/

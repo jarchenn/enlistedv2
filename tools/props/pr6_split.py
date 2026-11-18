@@ -13,6 +13,7 @@ job = json.load(open(sys.argv[sys.argv.index("--") + 1:][0]))
 bpy.ops.wm.read_factory_settings(use_empty=True)
 src = job["src"]
 if src.lower().endswith((".glb", ".gltf")): bpy.ops.import_scene.gltf(filepath=src)
+elif src.lower().endswith(".obj"): bpy.ops.wm.obj_import(filepath=src)   # PR9: a Collada source converted first (Blender 5 has no .dae importer)
 else: bpy.ops.import_scene.fbx(filepath=src)
 SRC =[o for o in bpy.context.scene.objects if o.type == "MESH"]
 if job.get("tex"):   # the FBX packs ship their texture beside the model, unlinked
@@ -188,6 +189,11 @@ for P in job["pieces"]:
             if not vs: continue
             cx, cy, cz = (x0 + x1) / 2, (y0 + y1) / 2, min(v.co.z for v in vs)
             for v in vs: v.co = Vector((cx + (v.co.x - cx) * f, cy + (v.co.y - cy) * f, cz + (v.co.z - cz) * f))
+    if P.get("cut_above") is not None:   # PR9: everything above this source height cut off and the cut capped (a stove's long flue)
+        bm = bmesh.new(); bm.from_mesh(ob.data)
+        r = bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=(0, 0, P["cut_above"]), plane_no=(0, 0, 1), clear_outer=True)
+        bmesh.ops.holes_fill(bm, edges=[e for e in r["geom_cut"] if isinstance(e, bmesh.types.BMEdge)], sides=0)
+        bm.to_mesh(ob.data); bm.free()
     if P.get("solidify"):   # PR8: single-sided walls get their inside faces (walk-in), thickness inward
         md = ob.modifiers.new("sol", "SOLIDIFY"); md.thickness = P["solidify"]; md.offset = -1; md.use_rim = True
         bpy.context.view_layer.objects.active = ob; bpy.ops.object.modifier_apply(modifier=md.name)
@@ -197,6 +203,7 @@ for P in job["pieces"]:
     lo, hi = bounds([ob])
     s = P.get("scale", job.get("scale", 1.0))
     if P.get("height"): s = P["height"] / max(1e-6, hi.z - lo.z)
+    if P.get("length"): s = P["length"] / max(1e-6, max(hi - lo))   # PR9: a hand tool lying flat, by its real overall length
     ob.rotation_mode = "XYZ"; ob.scale = (s, s, s); ob.rotation_euler = (0, 0, math.radians(P.get("yaw", 0)))
     bpy.context.view_layer.objects.active = ob; ob.select_set(True)
     bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)

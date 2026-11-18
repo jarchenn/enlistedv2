@@ -1966,6 +1966,20 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_lpg_dispenser` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_lpg_dispensers_pair` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_old_garage` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_debris_soda_can` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_debris_stove` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_tool_adjustable_wrench` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_tool_clamp` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_tool_hammer_claw` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_tool_hammer_club` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_tool_hatchet` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_tool_pincers` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_tool_prybar` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_tool_screwdriver` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_tool_socket_wrench` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_tool_wrench` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_debris_papers_pile` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `mod_debris_papers_scattered` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 
 ## Notes
 
