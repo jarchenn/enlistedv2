@@ -735,6 +735,9 @@ Asset packs the user supplied (PR6; licence, author and source read from each fi
 | Air conditioner.fbx | Air conditioner.fbx | unknown | unknown | - | 14 assets | no (local-only) |
 | Billboard.fbx | Billboard.fbx | unknown | unknown | - | 15 assets | no (local-only) |
 | road_signs.glb | Road Signs | FrodoUndead | CC-BY-4.0 | https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592 | 95 assets | yes |
+| "Abandoned \| Building \| Shop \| Old \| House" (abandoned__building__shop__old__house.glb) | RB1 reference for `rb1_weapon_shop`: textures extracted from its atlases (door, sign, counter panels, weatherboard, roof sheets: `rb_ref_shop_*`); the building rebuilt for the game, the mesh not imported | (GLB) | YadroGames | CC-BY-4.0 (modified: textures extracted / resized, building rebuilt for the game) | https://skfb.ly/o7pvZ |
+| "Building \| Container \| Metal" (building-container-metal.zip) | RB1 reference for `rb1_container_cabin`: textures extracted from its atlas (wall paint, window boards: `rb_ref_cab_*`); the building rebuilt for the game, the mesh not imported | (FBX) | YadroGames | CC-BY-4.0 (modified: textures extracted / resized, building rebuilt for the game) | https://skfb.ly/osPME |
+| "Abandoned \| Building \| Shop \| Old \| House" (abandoned__building__shop__old__house.glb) | `rb1_ref_shop`: the reference model itself as static scenery beside its recreation on rb1_test (ground plane removed, turned, scaled x0.5, textures resized by the bake to 2048 px; baked to `content/assets/models/rb1_ref_shop`, committed) | (GLB) | YadroGames | CC-BY-4.0 (modified: textures extracted / resized, building rebuilt for the game) | https://skfb.ly/o7pvZ |
 <!-- /pr6_assets -->
 
 ## SND18 gun sound pack

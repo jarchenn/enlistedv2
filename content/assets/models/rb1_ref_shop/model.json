@@ -1,0 +1,258 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  5.398996829986572,
+  4.9327569007873535,
+  6.03326940536499
+ ],
+ "bmin": [
+  -5.398996829986572,
+  0.0,
+  -6.03326940536499
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "aoInMR": true,
+   "mr": "mr_1.jpg",
+   "name": "Environments",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedoa_4.png",
+   "cutout": true,
+   "mr": "mr_5.jpg",
+   "name": "glass",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "albedo": "albedo_8.jpg",
+   "aoInMR": true,
+   "mr": "mr_7.jpg",
+   "name": "Irons",
+   "normal": "normal_6.jpg"
+  },
+  {
+   "albedo": "albedo_11.jpg",
+   "aoInMR": true,
+   "mr": "mr_10.jpg",
+   "name": "Roof",
+   "normal": "normal_9.jpg"
+  },
+  {
+   "albedo": "albedoa_13.png",
+   "cutout": true,
+   "mr": "mr_14.jpg",
+   "name": "Tiles",
+   "normal": "normal_12.jpg"
+  },
+  {
+   "albedo": "albedo_17.jpg",
+   "aoInMR": true,
+   "mr": "mr_16.jpg",
+   "name": "Wall",
+   "normal": "normal_15.jpg"
+  },
+  {
+   "albedo": "albedo_19.jpg",
+   "mr": "mr_20.jpg",
+   "name": "Wood",
+   "normal": "normal_18.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    5.09925651550293,
+    3.6130828857421875,
+    6.031418800354004
+   ],
+   "bmin": [
+    -4.94339656829834,
+    0.0036020278930664063,
+    -5.780449390411377
+   ],
+   "count": 13218,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "Environments_Environments_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -4.876454830169678,
+    2.421116590499878,
+    1.844827651977539
+   ],
+   "bmin": [
+    -4.884924411773682,
+    1.169524073600769,
+    -3.5790348052978516
+   ],
+   "count": 48,
+   "first": 13218,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "Glass_glass_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    5.315464973449707,
+    3.392554998397827,
+    6.03326940536499
+   ],
+   "bmin": [
+    -3.650134563446045,
+    0.0,
+    -5.965932369232178
+   ],
+   "count": 6936,
+   "first": 13266,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "Irons_Irons_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    5.398996829986572,
+    4.9327569007873535,
+    5.978011608123779
+   ],
+   "bmin": [
+    -5.398996829986572,
+    0.007049620151519775,
+    -6.03326940536499
+   ],
+   "count": 14328,
+   "first": 20202,
+   "mat": 3,
+   "metal": 1.0,
+   "name": "Roof_Roof_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    5.005263328552246,
+    4.590565204620361,
+    3.9706621170043945
+   ],
+   "bmin": [
+    -1.7094485759735107,
+    0.21162939071655273,
+    -5.922837734222412
+   ],
+   "count": 84,
+   "first": 34530,
+   "mat": 4,
+   "metal": 0.0,
+   "name": "Tiles_Tiles_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.092963933944702,
+    4.638232707977295,
+    4.015141010284424
+   ],
+   "bmin": [
+    -4.907040596008301,
+    0.003601646050810814,
+    -5.98485803604126
+   ],
+   "count": 222,
+   "first": 34614,
+   "mat": 5,
+   "metal": 0.0,
+   "name": "Wall_Wall_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.461944341659546,
+    4.839724063873291,
+    4.0922322273254395
+   ],
+   "bmin": [
+    -5.268360137939453,
+    0.007869956083595753,
+    -5.98485803604126
+   ],
+   "count": 3390,
+   "first": 34836,
+   "mat": 6,
+   "metal": 1.0,
+   "name": "Woods_Wood_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "rb1_ref_shop.glb",
+ "textures": {},
+ "triangles": 12742,
+ "vertices": 28476
+}

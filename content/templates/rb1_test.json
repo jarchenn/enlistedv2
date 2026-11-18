@@ -1,0 +1,104 @@
+{
+  "id": "rb1_test",
+  "version": 1,
+  "order": 31,
+  "name": "RB1 Reference Buildings",
+  "available": true,
+  "seed": 4401,
+  "description": "RB1: the weapon shop recreation (left) beside the reference model itself (right, by YadroGames, CC BY 4.0), same orientation, a spawn in front of both; the site cabin and log house recreations further back.",
+  "width": 160.0,
+  "depth": 160.0,
+  "margin": 40,
+  "camera": {
+    "pos": [
+      0.0,
+      40.0,
+      70.0
+    ],
+    "yaw": 180.0,
+    "pitch": -28.0
+  },
+  "heightmap": {
+    "file": "rb1_test.height.png",
+    "nx": 81,
+    "nz": 81,
+    "min": 9,
+    "max": 11,
+    "org": [
+      -125.4902,
+      -125.4902
+    ],
+    "cell": 3.1372549019607843
+  },
+  "waterLevel": -1000.0,
+  "map": "rb1_test.nmap.json",
+  "playable": true,
+  "thumbnail": "rb1_test.thumb.png",
+  "thumbnailCamera": {
+    "pos": [
+      0.0,
+      9.0,
+      30.0
+    ],
+    "yaw": 180.0,
+    "pitch": -12.0
+  },
+  "userMap": true,
+  "selftest": "authored",
+  "views": [
+    {
+      "name": "overview",
+      "pos": [
+        0.0,
+        30.0,
+        55.0
+      ],
+      "yaw": 180.0,
+      "pitch": -25.0
+    },
+    {
+      "name": "rb1_weapon_shop_front",
+      "pos": [
+        -7.0,
+        11.700015259021896,
+        13.0
+      ],
+      "yaw": 8.74616226255521,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "rb1_ref_shop_front",
+      "pos": [
+        11.0,
+        11.700015259021896,
+        13.0
+      ],
+      "yaw": 8.74616226255521,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "rb1_container_cabin_front",
+      "pos": [
+        -26.0,
+        11.700015259021896,
+        -27.0
+      ],
+      "yaw": 8.74616226255521,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "rb1_log_house_front",
+      "pos": [
+        18.0,
+        11.700015259021896,
+        -27.0
+      ],
+      "yaw": 8.74616226255521,
+      "pitch": 0.0,
+      "gameplay": true
+    }
+  ]
+}

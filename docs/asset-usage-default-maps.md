@@ -1304,6 +1304,10 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `ph_rock_moss_set_02_rock07` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_root_cluster_02_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_root_cluster_02_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rb1_container_cabin` | Small buildings | not used: RB1 reference building (the rb1_test map, docs/rb1-buildings.md) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rb1_log_house` | Houses | not used: RB1 reference building (the rb1_test map, docs/rb1-buildings.md) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rb1_ref_shop` | Small buildings | not used: RB1 comparison, the reference model beside its recreation (rb1_test, docs/rb1-buildings.md) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rb1_weapon_shop` | Small buildings | not used: RB1 reference building (the rb1_test map, docs/rb1-buildings.md) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 
 ## Notes
 
