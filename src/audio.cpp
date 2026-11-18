@@ -150,6 +150,7 @@ struct Audio::Impl {
   std::map<int, double> casingAt;   // SND4: per shooter, when its last case sound was scheduled
   std::map<std::string, double> rapidAt;   // SND9: rapid-fire event + 4 m cell -> when it last sounded
   float casingGain = 2.0f;           // SND6: x on the case sound (content/audio/custom/mix.json casing_gain)
+  ma_context ctx; bool ctxOn = false;   // TST1: the null backend for test runs
   ma_audio_buffer hbAB; ma_sound hb; bool hbOn = false, hbPlaying = false; Buf hbBuf; double hbT = -1;   // SND13 heartbeat loop
   float reloadGain = 2.24f; std::map<std::string, float> reloadTrim;   // WP6: x on reload / magazine / clip / bolt / pump foley (mix.json "reload": gain_db, trim_db per weapon id)
   Voice voices[48];
@@ -207,7 +208,13 @@ bool Audio::init() {
   ma_engine_config cfg = ma_engine_config_init();
   cfg.sampleRate = SR;
   if (std::getenv("NMK_AUDIO_FIDELITY")) { cfg.noDevice = MA_TRUE; cfg.channels = 2; }   // SND5 diagnostics: the mix is read back
-  if (ma_engine_init(&cfg, &p->engine) != MA_SUCCESS) { logf("audio: no device, sound disabled"); delete p; p = nullptr; return false; }
+  else if (silent) {   // TST1: a test run: miniaudio's null device (a thread consumes the mix in real time); no sound card output
+    ma_backend be[1] = {ma_backend_null}; ma_context_config cc = ma_context_config_init();
+    if (ma_context_init(be, 1, &cc, &p->ctx) == MA_SUCCESS) { p->ctxOn = true; cfg.pContext = &p->ctx; logf("audio: null device (test run)"); }
+    else { cfg.noDevice = MA_TRUE; cfg.channels = 2; logf("audio: null device unavailable: no device (test run)"); }
+  }
+  if (ma_engine_init(&cfg, &p->engine) != MA_SUCCESS) { logf("audio: no device, sound disabled"); if (p->ctxOn) ma_context_uninit(&p->ctx); delete p; p = nullptr; return false; }
+  if (!silent && !cfg.noDevice) if (ma_device* d = ma_engine_get_device(&p->engine)) logf("audio: output device \"%s\"", d->playback.name);   // TST1
   {   // muffle stage (swim.cpp): open at 20 kHz until the camera goes under water
     ma_lpf_node_config lc = ma_lpf_node_config_init(ma_engine_get_channels(&p->engine), ma_engine_get_sample_rate(&p->engine), 20000.0, 2);
     {   // SND5: the limiter in front of the endpoint
@@ -316,6 +323,7 @@ void Audio::shutdown() {
   if (p->lpfOk) ma_lpf_node_uninit(&p->lpf, nullptr);
   ma_audio_buffer_uninit(&p->windAB); ma_audio_buffer_uninit(&p->leafAB);
   ma_engine_uninit(&p->engine);
+  if (p->ctxOn) ma_context_uninit(&p->ctx);
   delete p; p = nullptr; ok_ = false;
 }
 

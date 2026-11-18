@@ -9,6 +9,7 @@
 class Audio {
 public:
   bool init();
+  bool silent = false;   // TST1: set before init: the null backend (mixing, events and timing as usual; nothing reaches the speakers)
   int loadEvents(const fs::path& dir);   // manifest + samples; returns the number of events with audio
   bool hasEvent(const std::string& name) const;
   bool hasSound(const std::string& name) const;   // VH8: an event or a procedural buffer (what play() can resolve)
