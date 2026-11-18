@@ -126,6 +126,25 @@ void build(App& app) {
     aimPitch = degrees(std::atan2(botAt.y + 1.3f - eye.y, glm::length(vec2(botAt.x - eye.x, botAt.z - eye.z))));   // the chest
     logf("[ret] target 100 m: clear line %s, yaw %.1f pitch %.2f, frame %dx%d", found ? "yes" : "NO", aimYaw, aimPitch, a.R.width, a.R.height);
     return true; });
+  if (const char* only = std::getenv("NMK_RET_GUNS")) {   // NG2: just these guns' first-person views (hip, ADS, ADS 0.1 s after a shot): ret_view_<gun>_<view>.png
+    std::string l = only; size_t p = 0;
+    while (p <= l.size()) {
+      size_t q = l.find(',', p); if (q == std::string::npos) q = l.size();
+      std::string gun = l.substr(p, q - p); p = q + 1; if (gun.empty()) continue;
+      for (int v = 0; v < 3; ++v) push("view " + gun, [gun, v](App& a, float t) {
+        holdBot();
+        int w = a.weaponIndex(gun); if (w < 0) { T->check(false, gun + " exists"); return true; }
+        if (t == 0) { std::string m; if (a.activeWeapon != w) a.equipWeapon(w, m); WeaponState& s = a.wstate[gun]; s.loaded = std::max(s.loaded, 5); a.vm.procedural = false; a.scriptedInput = ExploreInput{}; a.scriptedInput.aim = v > 0; }
+        a.eyeYaw = aimYaw; a.eyePitch = aimPitch; a.viewKickYaw = a.viewKickPitch = 0;
+        if (t < 1.8f || (v > 0 && a.adsT < 0.999f && t < 6.0f)) return false;
+        static float shotAt = -1;
+        if (v == 2) { if (shotAt < 0 || shotAt > t) { shotAt = t; a.scriptedInput.fire = true; return false; } a.scriptedInput.fire = false; if (t - shotAt < 0.1f) return false; shotAt = -1; }
+        a.uiShot = outDir() / ("ret_view_" + gun + (v == 0 ? "_hip" : v == 1 ? "_ads" : "_fire") + ".png");
+        return true; });
+    }
+    push("done", [](App& a, float t) { if (t < 0.5f) return false; a.vm.procedural = true; a.scriptedInput = ExploreInput{}; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
+    return;
+  }
   // the guns' own sights first (Battle Royale turns a sniper's own scope into its ACOG), then the fitted optics
   for (int pass = 0; pass < 2; ++pass) {
   if (pass == 1) push("battle royale", [](App&, float) { gGame->match.rules.mode = GameMode::BattleRoyale; lootBegin(*gGame); return true; });   // BR2

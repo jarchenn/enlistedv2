@@ -38,11 +38,39 @@
   ],
   "staticGunBlender": null,
   "idleFrame": 0.0,
+  "droppedBoneFaces": {
+   "DMC5_Soldier_Shirt": 2962,
+   "DMC5_Soldier_Gear": 439
+  },
   "bakedMeshTransforms": [
    "xd_grip_safe",
    "xd_mag",
    "xd_slide"
+  ],
+  "scaledImages": [
+   [
+    "pl2000_main2_n.png.001",
+    [
+     4096,
+     2048
+    ],
+    [
+     2048,
+     1024
+    ]
+   ],
+   [
+    "pl2000_main3_n.png.001",
+    [
+     4096,
+     2048
+    ],
+    [
+     2048,
+     1024
+    ]
+   ]
   ]
  },
- "tris": 39106
+ "tris": 35705
 }

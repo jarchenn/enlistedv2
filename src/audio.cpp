@@ -541,7 +541,8 @@ int Audio::loadCustom(const fs::path& dir) {
     {"snd15/pistol_1.wav", false, {"modern_glock34"}, -1, 1.05f, 0, 1.2f, 1.5f, 1.13f},
     {"snd15/pistol_1.wav", false, {"modern_makarov"}, -1, 0.92f, 0, 1.2f, 1.0f, 1.24f},
     {"snd14/smg_shot_2.wav", false, {"luger"}, -1, 1.04f, 0, 1.0f, 4.0f, 1.24f},   // B (committed: SND14)
-    {"snd14/smg_shot_2.wav", false, {"modern_pistol3"}, -1, 1.00f, 0, 1.0f, 4.0f, 1.20f},
+    {"snd14/smg_shot_2.wav", false, {"modern_pistol2"}, -1, 1.00f, 0, 1.0f, 4.0f, 1.20f},   // SND17 (user request): the suppressed .22 and the Glock 43 trade shots, exactly
+    {"guns/pistol_c.mp3", false, {"modern_pistol3"}},   // (the .22's set; the swap leaves the suppressed gun the quieter by 4 dB, so no re-level)
     {"snd14/smg_shot_2.wav", false, {"modern_pistol4"}, -1, 0.95f, 0, 1.0f, 4.0f, 1.20f},
     {"snd15/pistol_3.wav", false, {"m1911a1"}, -1, 1.00f, 0, 1.2f, 1.5f, 1.22f},   // C (.45)
     {"snd15/pistol_3.wav", false, {"modern_mark23"}, -1, 0.95f, 0, 1.2f, 1.5f, 1.20f},
