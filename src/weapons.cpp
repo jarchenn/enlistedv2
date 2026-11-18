@@ -718,7 +718,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
         fx.muzzleFlash(fxm, bore, d.flashScale * (adsT > 0.85f ? 0.6f : 1.0f), d.suppressed || s.att[ATT_MUZZLE] == 1, muzzle, d.blaster ? blasterColour(d.blaster) : vec3(-1));
       }
       fx.smoke(fxm, aimDir * 2.0f + vec3(0, 0.3f, 0), 0.05f, 0.7f + 0.5f * fx.rnd(), vec4(0.6f, 0.58f, 0.55f, 0.16f), 0.6f, 0.2f); fx.parts.back().fade = 1.6f;   // thin, short-lived, eroded wisp
-      audio.play(lootSuppressedShot(d, s) && audio.hasEvent("shot_suppressed_rifle") ? std::string("shot_suppressed_rifle") : "shot_" + d.id, muzzle, 1.0f);   // SND15
+      audio.play(lootSuppressedShot(d, s) && audio.hasEvent("shot_suppressed_rifle") ? std::string("shot_suppressed_rifle") : "shot_" + d.id + (d.action == "auto" && semi ? "_semi" : ""), muzzle, 1.0f);   // SND15; SND18: SEMI on an automatic plays its single (else falls back to shot_<id>)
       if (d.pellets > 1 && d.feed == "single") audio.play("shotgun_pump", eyePos(), 0.8f);   // MG12: tube-fed pumps only (not the break-action sawn-off)   // the pump cycling the next shell (the recording starts 0.3 s in)
       shotCasing(d, ch.pos, -1);   // SND4
       // recoil per shot = profile x stance (handling.json: crouched 0.85, prone 0.6) x 0.85 in ADS. Mounted keeps the
