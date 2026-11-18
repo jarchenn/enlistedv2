@@ -1,0 +1,72 @@
+{
+ "gunJoint": "gun_Grip",
+ "clips": {
+  "idle": 2.5,
+  "fire": 0.6667,
+  "reload": 4.5833
+ },
+ "fps": 24.0,
+ "points": {
+  "rear": [
+   0.12,
+   -0.07,
+   -0.15
+  ],
+  "front": [
+   0.12,
+   -0.07,
+   -0.5
+  ],
+  "muzzle": [
+   0.1251,
+   -0.1225,
+   -0.56
+  ]
+ },
+ "log": {
+  "warn": [],
+  "gunRestBlender": [
+   -0.161,
+   -0.8404,
+   1.3409,
+   -0.0972,
+   0.026,
+   1.5202
+  ],
+  "staticGunBlender": null,
+  "idleFrame": 1.0,
+  "ironsSplit": {
+   "SK_AK-47": 2
+  },
+  "bakedMeshTransforms": [
+   "SK_AK-47",
+   "SM-CARGADOR",
+   "SK_AK-47_irons"
+  ],
+  "scaledImages": [
+   [
+    "T_Glove_normal.png",
+    [
+     4096,
+     4096
+    ],
+    [
+     768,
+     768
+    ]
+   ],
+   [
+    "T_Shirt_4k_normal.png",
+    [
+     4096,
+     4096
+    ],
+    [
+     768,
+     768
+    ]
+   ]
+  ]
+ },
+ "tris": 46785
+}

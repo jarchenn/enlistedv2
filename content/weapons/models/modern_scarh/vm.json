@@ -1,0 +1,68 @@
+{
+ "gunJoint": "Weapon",
+ "clips": {
+  "idle": 1.25,
+  "fire": 0.2083,
+  "reload": 3.3333,
+  "reload_empty": 4.1667
+ },
+ "fps": 24.0,
+ "points": {
+  "rear": [
+   0.12,
+   -0.07011,
+   -0.14998
+  ],
+  "front": [
+   0.12,
+   -0.07011,
+   -0.58498
+  ],
+  "muzzle": [
+   0.12,
+   -0.15401,
+   -0.84688
+  ]
+ },
+ "log": {
+  "warn": [],
+  "gunRestBlender": [
+   -0.3374,
+   -2.6944,
+   -1.8553,
+   0.4509,
+   2.7115,
+   1.4105
+  ],
+  "staticGunBlender": null,
+  "idleFrame": 47,
+  "droppedBoneFaces": {
+   "FPS_Hands": 470
+  },
+  "ironsSplit": {
+   "BODY_MAG": 9,
+   "BUTTSTOCK_BARREL": 5
+  },
+  "bakedMeshTransforms": [
+   "BODY_MAG",
+   "BUTTSTOCK_BARREL",
+   "FPS_Hands",
+   "BODY_MAG_irons",
+   "BUTTSTOCK_BARREL_irons"
+  ],
+  "scaledImages": [
+   [
+    "FPS_Hands_N.png",
+    [
+     2048,
+     2048
+    ],
+    [
+     1024,
+     1024
+    ]
+   ]
+  ]
+ },
+ "tris": 30837
+}

@@ -1,0 +1,62 @@
+{
+ "gunJoint": "Body",
+ "clips": {
+  "idle": 1.9817,
+  "fire": 0.315,
+  "reload": 2.2317,
+  "reload_empty": 2.9817
+ },
+ "fps": 60.0,
+ "points": {
+  "rear": [
+   0.04591,
+   -0.1562,
+   -0.0928
+  ],
+  "front": [
+   0.04873,
+   -0.15658,
+   -0.21676
+  ],
+  "muzzle": [
+   0.04796,
+   -0.16975,
+   -0.22578
+  ]
+ },
+ "log": {
+  "warn": [
+   "untextured material makarov_attachments_material on Makarov_base"
+  ],
+  "gunRestBlender": [
+   -0.0165,
+   -0.2541,
+   -0.1211,
+   0.0174,
+   0.1015,
+   0.0968
+  ],
+  "staticGunBlender": null,
+  "idleFrame": 1.0,
+  "droppedFaces": {
+   "Makarov_base": 2830
+  },
+  "bakedMeshTransforms": [
+   "mesh"
+  ],
+  "scaledImages": [
+   [
+    "armCNormal.png",
+    [
+     2048,
+     2048
+    ],
+    [
+     1024,
+     1024
+    ]
+   ]
+  ]
+ },
+ "tris": 15328
+}

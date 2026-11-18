@@ -1,0 +1,65 @@
+{
+ "gunJoint": "Body",
+ "clips": {
+  "idle": 2.9817,
+  "fire": 0.815,
+  "reload": 3.315,
+  "reload_empty": 4.6483
+ },
+ "fps": 60.0,
+ "points": {
+  "rear": [
+   0.07825,
+   -0.23236,
+   0.21771
+  ],
+  "front": [
+   0.07782,
+   -0.23377,
+   0.08272
+  ],
+  "muzzle": [
+   0.07358,
+   -0.27082,
+   -0.25703
+  ]
+ },
+ "log": {
+  "warn": [
+   "untextured material Bullet on VSK-94",
+   "untextured material Bullet on VSK-94_irons"
+  ],
+  "gunRestBlender": [
+   -0.0412,
+   -0.4576,
+   -0.1245,
+   0.0217,
+   0.4906,
+   0.0624
+  ],
+  "staticGunBlender": null,
+  "idleFrame": 1.0,
+  "ironsSplit": {
+   "VSK-94": 7
+  },
+  "bakedMeshTransforms": [
+   "VSK-94",
+   "Male_04_Animation_Ready",
+   "VSK-94_irons"
+  ],
+  "scaledImages": [
+   [
+    "Body_Normal.jpg.001",
+    [
+     8192,
+     8192
+    ],
+    [
+     1024,
+     1024
+    ]
+   ]
+  ]
+ },
+ "tris": 28449
+}
