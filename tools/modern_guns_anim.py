@@ -258,6 +258,39 @@ for _mn, _bl in cfg.get("dropBones", {}).items():
     _bm = bmesh.new(); _bm.from_mesh(_o.data); _dr = [f for f in _bm.faces if any(v.index in _hit for v in f.verts)]
     bmesh.ops.delete(_bm, geom=_dr, context="FACES"); _bm.to_mesh(_o.data); _bm.free(); log.setdefault("droppedBoneFaces", {})[_mn] = len(_dr)
     if not _dr: log["warn"].append("dropBones: nothing on " + _mn)
+# ---------------------------------------------------------------- AT7: the gun's own sights as their own mesh ("ironsSplit": {mesh: radius m}): the
+# connected pieces (vertices welded by position) lying wholly within the radius of the rear or front sight point (rest pose,
+# real metres) and under 8 cm across go to "<mesh>_irons", hidden in the game while an optic is fitted (folded irons)
+for _mn, _r in cfg.get("ironsSplit", {}).items():
+    import bmesh
+    _o = bpy.data.objects[_mn]; _mw = _o.matrix_world; _c = [pts["rear"], pts["front"]]; _rr = _r / s
+    _bm = bmesh.new(); _bm.from_mesh(_o.data); _bm.verts.ensure_lookup_table(); _bm.faces.ensure_lookup_table()
+    _par = list(range(len(_bm.verts)))
+    def _f(x):
+        while _par[x] != x: _par[x] = _par[_par[x]]; x = _par[x]
+        return x
+    _weld = {}
+    for _v in _bm.verts:
+        _k = tuple(round(c * 1e4 * s) for c in _v.co)
+        if _k in _weld: _par[_f(_v.index)] = _f(_weld[_k])
+        else: _weld[_k] = _v.index
+    for _e in _bm.edges: _par[_f(_e.verts[0].index)] = _f(_e.verts[1].index)
+    _isl = {}
+    for _v in _bm.verts: _isl.setdefault(_f(_v.index), []).append(_v)
+    _take = set()
+    for _rt, _vs in _isl.items():
+        _w = [_mw @ _v.co for _v in _vs]
+        if all(min((_p - _cc).length for _cc in _c) <= _rr for _p in _w):
+            _lo = Vector([min(p[i] for p in _w) for i in range(3)]); _hi = Vector([max(p[i] for p in _w) for i in range(3)])
+            if (_hi - _lo).length * s < 0.08: _take.add(_rt)
+    _bm.free()
+    if not _take: log["warn"].append("ironsSplit: no separate sight pieces on " + _mn); continue
+    _io = _o.copy(); _io.data = _o.data.copy(); _io.name = _mn + "_irons"; _io.data.name = _mn + "_irons"; bpy.context.scene.collection.objects.link(_io)
+    for _ob, _keep in ((_o, False), (_io, True)):
+        _b2 = bmesh.new(); _b2.from_mesh(_ob.data); _b2.verts.ensure_lookup_table()
+        _del = [f for f in _b2.faces if (_f(f.verts[0].index) in _take) != _keep]
+        bmesh.ops.delete(_b2, geom=_del, context="FACES"); _b2.to_mesh(_ob.data); _b2.free()
+    keep.append(_io); log.setdefault("ironsSplit", {})[_mn] = len(_take)
 # ---------------------------------------------------------------- drop everything else, move the rig
 for ob in [arm] + keep:   # MG2: a parent about to go (the Unreal sets' armature under an empty) must not move the rig
     if ob.parent is not None and ob.parent != arm and ob.parent not in keep:

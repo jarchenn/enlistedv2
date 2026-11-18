@@ -126,20 +126,45 @@ void build(App& app) {
     aimPitch = degrees(std::atan2(botAt.y + 1.3f - eye.y, glm::length(vec2(botAt.x - eye.x, botAt.z - eye.z))));   // the chest
     logf("[ret] target 100 m: clear line %s, yaw %.1f pitch %.2f, frame %dx%d", found ? "yes" : "NO", aimYaw, aimPitch, a.R.width, a.R.height);
     return true; });
+  if (std::getenv("NMK_ARMS_AUDIT")) push("arms audit", [](App& a, float t) {   // AT7: every gun in first person, hip then fully aimed: its hand parts (the rig's own arms or the generated one)
+    static size_t k = 0; static int phase = 0, bad = 0; static float t0 = 0; static std::string line;
+    auto count = [&](const WeaponDef& d, std::string& ms) {
+      a.R.viewModelTex.clear(); a.R.viewModel.clear(); std::vector<DrawItem> tmp; a.weaponDrawItems(tmp);
+      int n = 0; std::set<std::string> mats;
+      for (auto& it : a.R.viewModelTex) {
+        if (fpsArmsIsModel(it.model)) { ++n; mats.insert("generated"); continue; }
+        if (!d.anim) continue;
+        const auto& pt = it.model->parts[it.part]; std::string m = pt.mat >= 0 && pt.mat < (int)it.model->mats.size() ? it.model->mats[pt.mat].name : "?";
+        std::string l = m; for (auto& c : l) c = (char)std::tolower((unsigned char)c);
+        bool arm = false; for (const char* w : {"arm", "hand", "glove", "sleeve", "skin", "shirt", "cloth", "body_", "manny", "male", "gear", "mg1_mat"}) arm = arm || l.find(w) != std::string::npos;
+        if (arm) { ++n; mats.insert(m); }
+      }
+      for (auto& x : mats) ms += x + " "; return n;
+    };
+    while (k < a.weaponDefs.size() && (a.weaponDefs[k]->equipment() || a.weaponDefs[k]->action == "heavy" || a.weaponDefs[k]->melee.on || a.weaponDefs[k]->tool)) ++k;
+    if (k >= a.weaponDefs.size()) { a.scriptedInput = ExploreInput{}; T->check(bad == 0, "every gun draws hands at the hip (" + std::to_string(bad) + " without)"); return true; }
+    const WeaponDef& d = *a.weaponDefs[k];
+    if (phase == 0) { std::string m; a.equipWeapon((int)k, m); a.scriptedInput = ExploreInput{}; t0 = t; phase = 1; line.clear(); return false; }
+    if (phase == 1) { if (t - t0 < 0.6f) return false; std::string ms; int n = count(d, ms); line = " hip " + std::to_string(n) + " (" + ms + ")"; if (n == 0) ++bad; a.scriptedInput.aim = true; t0 = t; phase = 2; return false; }
+    if (a.adsT < 0.999f && t - t0 < 3.0f) return false;
+    std::string ms; int n = count(d, ms); line += " | ADS " + std::to_string(n) + " (" + ms + ")";
+    logf("[arms] %-20s %s%s", d.id.c_str(), d.anim ? "rig   " : "static", line.c_str());
+    a.scriptedInput = ExploreInput{}; phase = 0; ++k; return false; });
   if (const char* only = std::getenv("NMK_RET_GUNS")) {   // NG2: just these guns' first-person views (hip, ADS, ADS 0.1 s after a shot): ret_view_<gun>_<view>.png
     std::string l = only; size_t p = 0;
     while (p <= l.size()) {
       size_t q = l.find(',', p); if (q == std::string::npos) q = l.size();
       std::string gun = l.substr(p, q - p); p = q + 1; if (gun.empty()) continue;
-      for (int v = 0; v < 3; ++v) push("view " + gun, [gun, v](App& a, float t) {
+      int sight = 0; if (size_t at = gun.find('@'); at != std::string::npos) { sight = std::atoi(gun.c_str() + at + 1); gun = gun.substr(0, at); }   // AT7: gun@sight fits that optic
+      for (int v = 0; v < 3; ++v) push("view " + gun, [gun, v, sight](App& a, float t) {
         holdBot();
         int w = a.weaponIndex(gun); if (w < 0) { T->check(false, gun + " exists"); return true; }
-        if (t == 0) { std::string m; if (a.activeWeapon != w) a.equipWeapon(w, m); WeaponState& s = a.wstate[gun]; s.loaded = std::max(s.loaded, 5); a.vm.procedural = false; a.scriptedInput = ExploreInput{}; a.scriptedInput.aim = v > 0; }
+        if (t == 0) { std::string m; if (a.activeWeapon != w) a.equipWeapon(w, m); WeaponState& s = a.wstate[gun]; s.loaded = std::max(s.loaded, 5); s.att[0] = sight; a.vm.procedural = false; a.scriptedInput = ExploreInput{}; a.scriptedInput.aim = v > 0; }
         a.eyeYaw = aimYaw; a.eyePitch = aimPitch; a.viewKickYaw = a.viewKickPitch = 0;
         if (t < 1.8f || (v > 0 && a.adsT < 0.999f && t < 6.0f)) return false;
         static float shotAt = -1;
         if (v == 2) { if (shotAt < 0 || shotAt > t) { shotAt = t; a.scriptedInput.fire = true; return false; } a.scriptedInput.fire = false; if (t - shotAt < 0.1f) return false; shotAt = -1; }
-        a.uiShot = outDir() / ("ret_view_" + gun + (v == 0 ? "_hip" : v == 1 ? "_ads" : "_fire") + ".png");
+        a.uiShot = outDir() / ("ret_view_" + gun + (sight ? "@" + std::to_string(sight) : std::string()) + (v == 0 ? "_hip" : v == 1 ? "_ads" : "_fire") + ".png");
         return true; });
     }
     push("done", [](App& a, float t) { if (t < 0.5f) return false; a.vm.procedural = true; a.scriptedInput = ExploreInput{}; if (a.mode == Mode::Explore) a.exitExplore(); return true; });
