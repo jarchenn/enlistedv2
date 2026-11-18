@@ -154,6 +154,7 @@ struct Audio::Impl {
   float casingGain = 2.0f;           // SND6: x on the case sound (content/audio/custom/mix.json casing_gain)
   ma_context ctx; bool ctxOn = false;   // TST1: the null backend for test runs
   ma_audio_buffer hbAB; ma_sound hb; bool hbOn = false, hbPlaying = false; Buf hbBuf; double hbT = -1;   // SND13 heartbeat loop
+  ma_sound music; bool musicOn = false, musicPlaying = false;   // SND21 menu track (streamed)
   float reloadGain = 2.24f; std::map<std::string, float> reloadTrim;   // WP6: x on reload / magazine / clip / bolt / pump foley (mix.json "reload": gain_db, trim_db per weapon id)
   Voice voices[48];
   Buf windBuf, leafBuf; float windVol = 0.0f, leafVol = 0.0f;   // the wind bed gave way to the battlefield recording (setBed)
@@ -321,6 +322,7 @@ void Audio::shutdown() {
   for (auto& v : p->loops) if (v.used) { ma_sound_uninit(&v.snd); ma_audio_buffer_uninit(&v.buf); }
   for (int k = 0; k < 2; ++k) if (p->bedOn[k]) { ma_sound_uninit(&p->bed[k]); ma_audio_buffer_uninit(&p->bedAB[k]); }
   if (p->hbOn) { ma_sound_uninit(&p->hb); ma_audio_buffer_uninit(&p->hbAB); p->hbOn = false; }
+  if (p->musicOn) { ma_sound_uninit(&p->music); p->musicOn = false; }
   ma_sound_uninit(&p->wind); ma_sound_uninit(&p->leaves);
   if (p->lpfOk) ma_lpf_node_uninit(&p->lpf, nullptr);
   ma_audio_buffer_uninit(&p->windAB); ma_audio_buffer_uninit(&p->leafAB);
@@ -391,6 +393,7 @@ int Audio::loadCustom(const fs::path& dir) {
   {
     std::error_code ec; std::vector<fs::path> fl;
     for (auto it = fs::recursive_directory_iterator(dir, ec); !ec && it != fs::recursive_directory_iterator(); it.increment(ec)) {
+      if (it->is_directory(ec) && it->path().filename() == "music") { it.disable_recursion_pending(); continue; }   // SND21: streamed, never pre-decoded
       std::string x = it->path().extension().string(); if (x == ".mp3" || x == ".wav" || x == ".ogg" || x == ".flac") fl.push_back(it->path());
     }
     for (auto& f : fl) pre[fs::relative(f, dir, ec).generic_string()];
@@ -963,6 +966,11 @@ int Audio::loadCustom(const fs::path& dir) {
   // the lub-dub pair is closer), 8 ms fades at the seam; and the player's hurt grunts (one event; several grunts in the
   // file become its variants, played in turn with the event's random pick)
   heartbeatGain = std::clamp(mx.value("heartbeat", 1.0f), 0.0f, 4.0f); hurtGain = std::clamp(mx.value("hurt", 1.0f), 0.0f, 4.0f);
+  musicGain = std::clamp(mx.value("music", 0.6f), 0.0f, 2.0f);
+  if (!p->musicOn) { const fs::path mf = dir / "music" / "menu_title.mp3";   // SND21: local-only (Pixabay licence: not redistributed)
+    if (fs::exists(mf) && ma_sound_init_from_file(&p->engine, mf.string().c_str(), MA_SOUND_FLAG_STREAM | MA_SOUND_FLAG_NO_SPATIALIZATION, nullptr, nullptr, &p->music) == MA_SUCCESS) {
+      p->musicOn = true; p->route(p->music); ma_sound_set_looping(&p->music, MA_TRUE); ma_sound_set_volume(&p->music, musicGain); logf("audio: menu music %s (streamed, gain %.2f)", mf.filename().string().c_str(), musicGain);
+    } else logf("audio: no menu music (%s)", mf.generic_string().c_str()); }
   if (decode("fx/heartbeat.mp3", b) && b.size() > (size_t)SR) {
     const int W = SR / 100; size_t nW = b.size() / W; std::vector<float> env(nW, 0.0f); float pk = 1e-6f;
     for (size_t k = 0; k < nW; ++k) { for (int j = 0; j < W; ++j) env[k] = std::max(env[k], std::fabs(b[k * W + j])); pk = std::max(pk, env[k]); }
@@ -1165,6 +1173,12 @@ void Audio::setBed(int slot, const fs::path& file, float volume) {
     float duck = 1.0f - 0.3f * (float)std::clamp(1.0 - (now - p->duckT) / 1.5, 0.0, 1.0);
     if (p->bedOn[slot]) ma_sound_set_volume(&p->bed[slot], volume * ambienceGain * duck);
   }
+}
+void Audio::setMenuMusic(bool on) {
+  if (!p || !p->musicOn || on == p->musicPlaying) return;
+  p->musicPlaying = on;
+  if (on) { ma_sound_set_stop_time_in_pcm_frames(&p->music, ~(ma_uint64)0); ma_sound_set_fade_in_milliseconds(&p->music, 0, 1, 1000); ma_sound_start(&p->music); logf("audio: menu music starts"); }   // resumes where it stopped
+  else { ma_sound_stop_with_fade_in_milliseconds(&p->music, 1000); logf("audio: menu music fades out"); }
 }
 void Audio::setHeartbeat(float level, float rate) {
   if (!p || !p->hbOn) return;

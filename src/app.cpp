@@ -1236,6 +1236,7 @@ int App::run(int argc, char** argv) {
     mark("update");
     loadingOverlay(*this);   // UI2: the loading screen fading into the first frames
     mainMenuFrame(*this);   // UI2: the main menu (no-op while closed; it hands back when a match starts)
+    audio.setMenuMusic(mainMenuActive());   // SND21
     if (mainMenuActive()) {}
     else if (mode == Mode::Creative) { updateCreative(frameDt); drawCreativeUI(); }
     else { updateExplore(frameDt); crumb("explore ui"); drawExploreUI(); }

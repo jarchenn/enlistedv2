@@ -743,6 +743,10 @@ Asset packs the user supplied (PR6; licence, author and source read from each fi
 | "Abandoned \| Building \| Shop \| Old \| House" (abandoned__building__shop__old__house.glb) | `rb1_ref_shop`: the reference model itself as static scenery beside its recreation on rb1_test (ground plane removed, turned, scaled x0.5, textures resized by the bake to 2048 px; baked to `content/assets/models/rb1_ref_shop`, committed) | (GLB) | YadroGames | CC-BY-4.0 (modified: textures extracted / resized, building rebuilt for the game) | https://skfb.ly/o7pvZ |
 <!-- /pr6_assets -->
 
+## SND21 menu music
+
+`content/audio/custom/music/menu_title.mp3` (local-only, git-ignored): "Stealth Breacher (Tense Title Screen)" by nickpanek via Pixabay (track 218087, nickpanek-stealth-breacher-tense-title-screen-218087.mp3), Pixabay Content License: used in the game, the file itself not redistributed. Loops in the main menu.
+
 ## SND18 gun sound pack
 
 `content/audio/custom/snd18/`: the per-gun pack gun_sounds_single_and_burst.zip (single shots and 5-round bursts for 33 guns, cut from the Weapon Sounds Tweaks and Fixes pack), supplied by the project owner, stated free to use; trimmed, cut into single rounds and levelled (tools/snd18_prep.py).

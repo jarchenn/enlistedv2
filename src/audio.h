@@ -35,6 +35,10 @@ public:
   // SND13: the low-health heartbeat (custom/fx/heartbeat.mp3, trimmed to whole beats): in the head, Effects bus; level
   // 0..1 (ramped: in over 0.4 s, out over 0.8 s), rate = pitch / tempo. Call every frame (0 to stop)
   void setHeartbeat(float level, float rate);
+  // SND21: the main-menu track (content/audio/custom/music/menu_title.mp3, streamed, looping): true while the menu shows (cheap to
+  // call every frame); in over 1 s, out over 1 s (the fade runs on the audio thread, so it finishes while a load blocks the frame)
+  void setMenuMusic(bool on);
+  float musicGain = 0.6f;            // mix.json "music" (x master)
   float heartbeatNow = 0;            // the ramped level (tests)
   float heartbeatGain = 1, hurtGain = 1;   // mix.json "heartbeat" / "hurt"
   int hurtPlays = 0;                 // tests: hurt sounds started (the player's)   // a looping music / room-tone file under everything, two slots that mix (empty path: none); cheap to call every frame
