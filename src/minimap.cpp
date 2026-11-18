@@ -6,6 +6,7 @@
 #include "minimap.h"
 #include "ui_glass.h"
 #include "royale.h"
+#include "sd_game.h"
 #include "app.h"
 #include "game.h"
 #include "editor_nav.h"
@@ -257,6 +258,7 @@ MinimapView drawMinimap(App& app, ImDrawList* dl, vec2 p0, vec2 p1, vec2 centre,
     shape(dl, c, 2, 6.5f, degrees(std::atan2(f.x, -f.y)), kWhite);
   }
   royaleMinimap(dl, v);   // BR1: the storm's current and next ring, the bomber
+  if (layers & MM_OBJECTIVES) sdMinimap(dl, v);   // SD9: the bomb (sd_game.cpp)
   for (auto& mk : markers) {
     vec2 c = v.toScreen(mk.pos);
     shape(dl, c, mk.shape, mk.size, mk.yaw, mk.col);
