@@ -120,7 +120,7 @@ int lootMagSize(const WeaponDef& d, const WeaponState& s) {
   if (!s.att[ATT_MAG]) return d.cap;
   return (int)std::lround(d.cap * (lootIsPistol(d) || isSmg(d) ? 2.0f : 1.5f));
 }
-int lootSight(const WeaponDef& d, const WeaponState& s) { return lootBuiltInAcog(d, s) ? 2 : s.att[ATT_SIGHT]; }
+int lootSight(const WeaponDef& d, const WeaponState& s) { return lootBuiltInAcog(d, s) ? 2 : fittedSight(d, s); }   // AT5: a default optic counts
 bool lootSightFits(const WeaponDef& d, int sight) {
   bool pistol = lootIsPistol(d), sniper = d.wclass == WC_SNIPER, shotgun = isShotgun(d);
   switch (sight) {

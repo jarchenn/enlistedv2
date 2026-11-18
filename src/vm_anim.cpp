@@ -23,6 +23,7 @@ struct AnimVM {
   bool shells = false;                 // reload_start / reload_insert (once per round) / reload_end
   float fireRate = 1, reloadRate = 1;  // MG4: clips played faster (the shotguns' pump and shell loop); the timing follows
   vec3 dot{0}; bool hasDot = false;    // red-dot sight: the dot at this rig point (the front lens centre), seen along the sight line
+  std::vector<std::string> hideMeshes;   // AT5 "hideMeshes": mesh nodes never drawn (the SMG-9's own sight under its holographic one)
   vec3 dotCol{1, 0.03f, 0.015f}; float dotRing = 0;   // AT2: the mark's colour; a ring around it (in dot radii, 0 none)
   mat4 w2r{1}; bool w2rOk = false;     // BR3: weapon JSON space -> rest rig space (fitted optics), from the shared sight points
   ~AnimVM() { model.destroy(); }
@@ -83,6 +84,7 @@ std::shared_ptr<AnimVM> animVmLoad(const fs::path& dir, const json& block, std::
   a->shells = a->dur.count("reload_insert") > 0;
   a->fireRate = std::max(0.1f, block.value("fireRate", 1.0f)); a->reloadRate = std::max(0.1f, block.value("reloadRate", 1.0f));
   for (auto& [k, len] : a->dur) len /= k == "fire" ? a->fireRate : k.rfind("reload", 0) == 0 ? a->reloadRate : 1.0f;   // the weapon's pump / reload times
+  for (auto& h : block.value("hideMeshes", json::array())) a->hideMeshes.push_back(h.get<std::string>());   // AT5
   if (block.contains("redDot")) {   // AT2: the mark itself is drawn on the HUD at its angular size (sight_overlay.cpp drawReflexReticle)
     a->hasDot = true; a->dot = jv(block["redDot"]);
     a->dotCol = block.contains("dotColor") ? jv(block["dotColor"]) : vec3(1, 0.03f, 0.015f);   // MG7: the AK-12's mark is green
@@ -213,9 +215,12 @@ bool animVmDraw(App& app, const WeaponDef& d) {
   if (it == gSt.end() || !it->second.ready || gActive != &d) return false;
   St& st = it->second;
   mat4 rig = camNow(app) * st.local;
-  for (size_t k = 0; k < st.inst.view.parts.size(); ++k) app.R.viewModelTex.push_back({&st.inst.view, (int)k, rig});
+  for (size_t k = 0; k < st.inst.view.parts.size(); ++k) {
+    if (std::find(d.anim->hideMeshes.begin(), d.anim->hideMeshes.end(), st.inst.view.parts[k].name) != d.anim->hideMeshes.end()) continue;   // AT5
+    app.R.viewModelTex.push_back({&st.inst.view, (int)k, rig});
+  }
   const WeaponState& ws = app.wstate[d.id];
-  if (ws.att[0]) brSightDraws(app, d, ws, rig * st.pose.delta[d.anim->gunJoint] * weaponToRig(*d.anim, d), app.R.viewModelTex, app.R.viewModel);   // BR3
+  if (fittedSight(d, ws)) brSightDraws(app, d, ws, rig * st.pose.delta[d.anim->gunJoint] * weaponToRig(*d.anim, d), app.R.viewModelTex, app.R.viewModel);   // BR3
   lootAttachDraws(app, d, ws, rig * st.pose.delta[d.anim->gunJoint] * weaponToRig(*d.anim, d), app.R.viewModelTex, app.R.viewModel);   // BR10: muzzle, magazine, recoil pad
   return true;
 }

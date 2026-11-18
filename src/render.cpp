@@ -1814,7 +1814,9 @@ layout(location=4) out vec4 oVel; uniform float uVmVel;
 uniform float uAlbFloor;
 uniform int uCutout;   // NT8: alpha-tested foliage (needles, blades, fronds): discard under 0.5, sun through the thin side
 uniform int uGlass;   // 0 opaque; 1 window glass (dusty); 2 a wreck's glass (crazed, grimy); 3 clean (the car you sit in: no film to catch the cabin light at night)
+uniform vec4 uVmClip; uniform int uClipMe;   // AT6: the fitted optic's window (px, bottom-left origin; radius px): the gun's own parts there are not drawn
 void main(){
+  if (uClipMe == 1 && uVmClip.z > 0.0 && length(gl_FragCoord.xy - uVmClip.xy) < uVmClip.z) discard;
   vec4 base = uBase;
   if (uHasAlb == 1) base *= texture(uAlb, vUV);
   if (uCutout == 1 && base.a < 0.5) discard;
@@ -4284,6 +4286,7 @@ void Renderer::drawModels(const std::vector<ModelDraw>& items, const Frustum* fr
     glUniform4fv(lt, 1, glm::value_ptr(it.tint));
     glUniform1f(lth, it.thinPx * pxAngle);
     glUniform1i(U(p, "uGlass"), it.glass); glUniform1f(U(p, "uAlbFloor"), it.albFloor);
+    glUniform1i(U(p, "uClipMe"), it.optic ? 0 : 1);   // AT6 (uVmClip is set only in the first-person pass)
     glDrawElements(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u));
     stats.draws++; stats.tris += (int)pt.count / 3;
   }
@@ -4947,6 +4950,10 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       setLighting(progModel, v);
       glUniform1f(U(progModel, "uVmVel"), 1.0f);
       glUniformMatrix4fv(U(progModel, "uVP"), 1, GL_FALSE, glm::value_ptr(vvp));
+      {   // AT6: the fitted optic's window, in this pass's pixels
+        GLint vpt[4]; glGetIntegerv(GL_VIEWPORT, vpt);
+        glUniform4f(U(progModel, "uVmClip"), vpt[0] + v.vmClip.x * vpt[2], vpt[1] + (1 - v.vmClip.y) * vpt[3], v.vmClip.z * vpt[3], 0);
+      }
       bool fpsArmsIsModel(const GpuModel* g);
       auto vmArmMaterial = [](std::string n) { for (auto& c : n) c = (char)std::tolower((unsigned char)c); for (const char* k : {"arms", "hand", "glove", "sleeve", "cloth", "body", "manny"}) if (n.find(k) != std::string::npos) return true; return false; };   // the rigs' arm, glove and sleeve materials
       if (vmOnly) {   // VM2 self-test: the arms alone (1) or the gun alone (2)
@@ -4954,6 +4961,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
         drawModels(keep);
       } else drawModels(viewModelTex);
       glUniform1f(U(progModel, "uVmVel"), 0.0f);
+      glUniform4f(U(progModel, "uVmClip"), 0, 0, 0, 0);   // AT6: off for every other pass
       glEnable(GL_CULL_FACE);
     }
     glNamedFramebufferDrawBuffer(hdrFbo, GL_COLOR_ATTACHMENT0);

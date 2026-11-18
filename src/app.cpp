@@ -4,6 +4,7 @@
 #include <windows.h>
 #endif
 #include "app.h"
+#include "sight_overlay.h"
 #include "sd_game.h"   // SD3
 #include "mainmenu.h"
 #include "loading.h"
@@ -1315,6 +1316,7 @@ int App::run(int argc, char** argv) {
         v.eyepieceR *= 1 - 1.5f * std::min(wstate[weaponDefs[activeWeapon]->id].kick, 0.15f); }   // WP4c: a shot drives the scope back at the eye: the eye box closes in briefly
       else if (gunnerOptic()) { v.eyepieceR = kGunnerEyepieceR; v.reticle = 3; }
       v.reticleSize = reticleSize; v.reticleBright = reticleBright;   // AT2
+      v.vmClip = opticClipWindow(*this);   // AT6
       if (const TankRT* gt = tanks.occupied ? tanks.get(tanks.occupied) : nullptr; gt && gt->def && gt->def->reticle == "abrams" && gt->hatchT < 0.5f) v.rectVignette = true;   // TK3
       v.editor = false; v.autoExposure = true; v.camPos = e;
       v.underwater = underwaterAt(*this, e); v.underFogCol = swimCfg.fogColor; v.underFogDens = swimCfg.fogDensity;   // swim.cpp
