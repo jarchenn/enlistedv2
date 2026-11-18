@@ -561,16 +561,76 @@ int Audio::loadCustom(const fs::path& dir) {
     // last shot rings out; levelled on sustained fire at each gun's rate to the old sets (a lone round is drier than the old shots)
     {"snd16/mg_shot_%d.wav", false, {"mg42"}, -1, 0.95f, 0, 0.3f, 3.0f, 1.11f, 13},   // 7.92 mm: a little lower, 1200 rpm
     {"snd16/m249_shot_%d.wav", false, {"modern_lmg"}, -1, 1.00f, 0, 0.6f, 4.0f, 1.23f, 13},   // 800 rpm (its recording ~750); replaces SND15's Scorpion recording, the fallback
+    // SND18 (user request; content/audio/custom/snd18/, supplied by the project owner, stated free to use; tools/snd18_prep.py, tools/snd18_gen.py):
+    // the per-gun pack replaces every set above for the guns it covers. <gun>_single: the single shot, lead-in trimmed; a gun that
+    // fires automatic plays it as "shot_<id>_semi" in SEMI (weapons.cpp / game.cpp) and the distinct rounds of its 5-round burst
+    // (each up to the next round, then the single's ring-out) as "shot_<id>", so vehicles, mounts and LAN echoes get them too.
+    // Levelled by class on the first 150 ms (pistols -5 dB, SMGs -3, rifles / shotguns 0, MGs +1.5, .50 / 30 mm +3; gain capped at
+    // 2.2, the MG bursts 1 dB short); no body. Shared recordings pitch-stepped: glock = beretta (Glock 43 1.00, Glock 34 1.05,
+    // service pistol 0.94), bar_single = fg42_single (BAR 0.97, FG 42 1.03; their bursts differ)
+    {"snd18/luger_single.mp3", false, {"luger"}, -1, 1.00f, 0, 1.6f, 0.0f, 0.84f},
+    {"snd18/m1911_single.mp3", false, {"m1911a1"}, -1, 1.00f, 0, 1.6f, 0.0f, 0.64f},
+    {"snd18/makarov_single.mp3", false, {"modern_makarov"}, -1, 1.00f, 0, 1.6f, 0.0f, 0.80f},
+    {"snd18/hk_mk23_single.mp3", false, {"modern_mark23"}, -1, 1.00f, 0, 1.6f, 0.0f, 0.98f},
+    {"snd18/deagle_single.mp3", false, {"modern_deagle"}, -1, 1.00f, 0, 1.6f, 0.0f, 0.85f},
+    {"snd18/glock_single.mp3", false, {"modern_pistol3"}, -1, 1.00f, 0, 1.6f, 0.0f, 1.50f},
+    {"snd18/glock_single.mp3", false, {"modern_glock34"}, -1, 1.05f, 0, 1.6f, 0.0f, 1.50f},
+    {"snd18/beretta_single.mp3", false, {"modern_pistol4"}, -1, 0.94f, 0, 1.6f, 0.0f, 1.50f},
+    {"snd18/mp40_single.mp3", false, {"mp40_semi"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.34f},
+    {"snd18/mp40_auto_%d.mp3", false, {"mp40"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.51f, 5},
+    {"snd18/thompson_single.mp3", false, {"m1_thompson_semi"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.52f},
+    {"snd18/thompson_auto_%d.mp3", false, {"m1_thompson"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.69f, 4},
+    {"snd18/m3_grease_gun_single.mp3", false, {"m3_grease_gun_semi"}, -1, 1.00f, 0, 1.4f, 0.0f, 2.00f},
+    {"snd18/m3_grease_gun_auto_%d.mp3", false, {"m3_grease_gun"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.97f, 4},
+    {"snd18/sten_single.mp3", false, {"sten_semi"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.62f},
+    {"snd18/sten_auto_%d.mp3", false, {"sten"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.59f, 4},
+    {"snd18/cz_scorpion_single.mp3", false, {"modern_scorpion_semi"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.49f},
+    {"snd18/cz_scorpion_auto_%d.mp3", false, {"modern_scorpion"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.64f, 4},
+    {"snd18/hk_mp7_single.mp3", false, {"modern_mp7_semi"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.81f},
+    {"snd18/hk_mp7_auto_%d.mp3", false, {"modern_mp7"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.84f, 5},
+    {"snd18/ump_single.mp3", false, {"modern_smg45_semi"}, -1, 1.00f, 0, 1.4f, 0.0f, 2.01f},
+    {"snd18/ump_auto_%d.mp3", false, {"modern_smg45"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.97f, 3},
+    {"snd18/uzi_single.mp3", false, {"modern_uzi_semi"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.81f},
+    {"snd18/uzi_auto_%d.mp3", false, {"modern_uzi"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.83f, 4},
+    {"snd18/m1_carbine_single.mp3", false, {"m1_carbine"}, -1, 1.00f, 0, 2.0f, 0.0f, 0.97f},
+    {"snd18/m1_garand_single.mp3", false, {"m1_garand"}, -1, 1.00f, 0, 2.0f, 0.0f, 0.93f},
+    {"snd18/m1_garand_single.mp3", false, {"m1c_garand"}, -1, 0.97f, 0, 2.0f, 0.0f, 0.93f},
+    {"snd18/kar98k_single.mp3", false, {"kar98k"}, -1, 1.00f, 0, 2.5f, 0.0f, 1.48f},
+    {"snd18/kar98k_single.mp3", false, {"kar98k_zf39"}, -1, 0.96f, 0, 2.5f, 0.0f, 1.48f},
+    {"snd18/stg44_single.mp3", false, {"stg44_semi"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.20f},
+    {"snd18/stg44_auto_%d.mp3", false, {"stg44"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.27f, 5},
+    {"snd18/fg42_single.mp3", false, {"fg42_semi"}, -1, 1.03f, 0, 2.0f, 0.0f, 1.20f},
+    {"snd18/fg42_auto_%d.mp3", false, {"fg42"}, -1, 1.03f, 0, 2.0f, 0.0f, 1.40f, 5},
+    {"snd18/bar_single.mp3", false, {"m1918a2_bar_semi"}, -1, 0.97f, 0, 2.0f, 0.0f, 1.20f},
+    {"snd18/bar_auto_%d.mp3", false, {"m1918a2_bar"}, -1, 0.97f, 0, 2.0f, 0.0f, 1.44f, 5},
+    {"snd18/m4_single.mp3", false, {"modern_m4_irons_semi"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.11f},
+    {"snd18/m4_auto_%d.mp3", false, {"modern_m4_irons"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.45f, 5},
+    {"snd18/m16_single.mp3", false, {"modern_m16_semi"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.22f},
+    {"snd18/m16_auto_%d.mp3", false, {"modern_m16"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.55f, 5},
+    {"snd18/scar_h_single.mp3", false, {"modern_scar_semi"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.46f},
+    {"snd18/scar_h_auto_%d.mp3", false, {"modern_scar"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.52f, 5},
+    {"snd18/shotgun_remington870_single.mp3", false, {"modern_shotgun"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.03f},
+    {"snd18/shotgun_spas12_single.mp3", false, {"modern_shotgun2"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.18f},
+    {"snd18/mg42_single.mp3", false, {"mg42_semi"}, -1, 1.00f, 0, 1.6f, 0.0f, 1.83f},
+    {"snd18/mg42_auto_%d.mp3", false, {"mg42"}, -1, 1.00f, 0, 1.6f, 0.0f, 2.20f, 5},
+    {"snd18/m249_single.mp3", false, {"modern_lmg_semi"}, -1, 1.00f, 0, 1.6f, 0.0f, 1.50f},
+    {"snd18/m249_auto_%d.mp3", false, {"modern_lmg"}, -1, 1.00f, 0, 1.6f, 0.0f, 2.20f, 5},
+    {"snd18/m2_browning_single.mp3", false, {"m2hb_carry_semi"}, -1, 1.00f, 0, 1.6f, 0.0f, 2.04f},
+    {"snd18/m2_browning_auto_%d.mp3", false, {"m2hb_carry"}, -1, 1.00f, 0, 1.6f, 0.0f, 2.08f, 5},
+    {"snd18/m2_browning_single.mp3", false, {"m2hb_semi"}, -1, 1.00f, 0, 1.6f, 0.0f, 2.04f},
+    {"snd18/m2_browning_auto_%d.mp3", false, {"m2hb"}, -1, 1.00f, 0, 1.6f, 0.0f, 2.08f, 5},
+    {"snd18/30mm_cannon_auto_%d.mp3", false, {"cannon30"}, -1, 1.00f, 0, 1.6f, 0.0f, 1.82f, 5},
   };
-  std::deque<std::string> varFile; std::vector<std::pair<GunSet, bool>> sets;   // SND16: the variant sets expanded, second = one of a variant group
-  for (auto& g : guns) { if (g.vars <= 0) { sets.push_back({g, false}); continue; }
-    for (int k = 1; k <= g.vars; ++k) { char nb[160]; std::snprintf(nb, sizeof nb, g.file, k); GunSet h = g; h.file = varFile.emplace_back(nb).c_str(); sets.push_back({h, true}); } }
-  std::set<std::string> varStarted;   // a variant group's first decoded file replaces the old event, the rest add to it (a missing file: the old set stays)
+  std::deque<std::string> varFile; std::vector<std::pair<GunSet, int>> sets;   // SND16: the variant sets expanded, second = its variant group (0: none)
+  for (auto& g : guns) { if (g.vars <= 0) { sets.push_back({g, 0}); continue; }
+    for (int k = 1; k <= g.vars; ++k) { char nb[160]; std::snprintf(nb, sizeof nb, g.file, k); GunSet h = g; h.file = varFile.emplace_back(nb).c_str(); sets.push_back({h, (int)(&g - guns) + 1}); } }
+  std::set<std::string> varStarted;   // a variant group's first decoded file replaces the old event, the rest add to it (a missing file: the old set stays); SND18: per group, so a later group replaces an earlier one
   // SND5: each cut, resample and tone step runs on the mono mix and on both channels alike; levels: quieter recordings up to
   // 0.95 peak (the stereo pair by its louder channel), full-scale ones unchanged; the cut starts where the shot rises out of the quiet before its onset (no fade-in)
-  Buf gL, gR;
+  Buf gL, gR; int n18 = 0;
   for (auto& [g, isVar] : sets) {
     if (!decodeSt(g.file, b, &gL, &gR)) continue;
+    n18 += std::strncmp(g.file, "snd18/", 6) == 0;
     const int W = SR / 200; size_t nW = b.size() / W; float peak = 1e-4f; std::vector<float> env(nW, 0.0f);   // 5 ms windows
     for (size_t k = 0; k < nW; ++k) { for (int j = 0; j < W; ++j) env[k] = std::max(env[k], std::fabs(b[k * W + j])); peak = std::max(peak, env[k]); }
     size_t first = nW, last = nW, prev = 0; std::vector<size_t> shots;   // shots: onsets at least 1 s apart (a recording of several)
@@ -602,7 +662,7 @@ int Audio::loadCustom(const fs::path& dir) {
     Buf st(sl.size() * 2); for (size_t j = 0; j < sl.size(); ++j) { st[2 * j] = sl[j] * g2; st[2 * j + 1] = sr[j] * g2; }
     ++used; Impl::Event ev; ev.kind = "shot"; ev.v.push_back(std::move(s)); ev.st.push_back(std::move(st));
     for (const char* id : g.ids) {
-      if (isVar && !varStarted.insert(id).second) { Impl::Event& ex = p->events[std::string("shot_") + id]; ex.v.push_back(ev.v[0]); ex.st.push_back(ev.st[0]); continue; }   // SND16: another variant
+      if (isVar && !varStarted.insert(std::to_string(isVar) + id).second) { Impl::Event& ex = p->events[std::string("shot_") + id]; ex.v.push_back(ev.v[0]); ex.st.push_back(ev.st[0]); continue; }   // SND16: another variant
       Impl::Event& e2 = p->events[std::string("shot_") + id] = ev; p->events.erase(std::string("shot_") + id + "_far");
       const bool mini = std::string(id) == "minigun", c30 = std::string(id) == "cannon30";
       if (mini || c30) { e2.minGap = mini ? 0.04f : 0.045f; e2.maxVoices = mini ? 6 : 4; e2.rolloff = 0.8f; e2.gain = mini ? 0.7f : 0.85f; }   // SND9: rapid fire, carries far
@@ -611,6 +671,8 @@ int Audio::loadCustom(const fs::path& dir) {
         if (m.is_object()) { e2.minGap = std::clamp(m.value("min_gap_ms", e2.minGap * 1000) / 1000.0f, 0.0f, 0.5f); e2.maxVoices = std::clamp(m.value("max_voices", e2.maxVoices), 1, 16); if (m.contains("rolloff")) e2.rolloff = std::clamp(m.value("rolloff", 1.2f), 0.1f, 2.0f); } }
     }
   }
+  if (n18) logf("audio: SND18 pack: %d shot files (shot_mg42 %zu variants, shot_mg42_semi %zu, shot_sten %zu)", n18, p->events.count("shot_mg42") ? p->events["shot_mg42"].v.size() : 0,
+                p->events.count("shot_mg42_semi") ? p->events["shot_mg42_semi"].v.size() : 0, p->events.count("shot_sten") ? p->events["shot_sten"].v.size() : 0);
   // SND4: the bolt action cycle after each shot of a bolt rifle: the recording's open / close (0.36-0.90 s) twice back to back,
   // sped up (resampled) so both, from 0.06 s after the shot, end 0.05 s before the bolt time is up (at least 1.25x)
   if (decode("guns/bolt_cycle.mp3", b) && b.size() > (size_t)(0.90f * SR)) {
@@ -657,8 +719,9 @@ int Audio::loadCustom(const fs::path& dir) {
   // launchers, cannon and explosions: whole recordings from their first loud moment (up to 6 s), far layers dropped
   struct FxSet { const char* file; std::vector<const char*> events; float from = 0; };   // from: seconds into the recording to start at
   const FxSet fxs[] = {
-    {"guns/rocket_launch.mp3", {"shot_bazooka_m9", "shot_panzerschreck", "shot_modern_rpg7"}, 3.0f},
-    {"snd14/rocket_launch.wav", {"shot_bazooka_m9", "shot_panzerschreck", "shot_modern_rpg7"}},   // SND14 (user request): RocketLaunch, every launcher (and the heli pods / TOW, which play these); local-only, the old one without it
+    {"guns/rocket_launch.mp3", {"shot_bazooka_m9", "shot_panzerschreck", "shot_modern_rpg7", "shot_rocket_pod", "shot_tow"}, 3.0f},
+    {"snd14/rocket_launch.wav", {"shot_bazooka_m9", "shot_panzerschreck", "shot_modern_rpg7", "shot_rocket_pod", "shot_tow"}},   // SND14 (user request): RocketLaunch, every launcher (and the heli pods / TOW, which play these); local-only, the old one without it
+    {"snd18/bazooka_single.mp3", {"shot_bazooka_m9"}}, {"snd18/panzerschreck_single.mp3", {"shot_panzerschreck"}}, {"snd18/rpg7_single.mp3", {"shot_modern_rpg7"}},   // SND18: the three launchers' own (the heli pods / TOW keep RocketLaunch)
     {"guns/glauncher_fire.mp3", {"shot_modern_glauncher"}},   // SND4: the six-shot launcher's own
     {"guns/launcher_fire.mp3", {"explosion_rocket"}},
     {"guns/cannon_fire.mp3", {"pak_fire", "flak_fire"}},

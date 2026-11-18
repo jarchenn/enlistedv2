@@ -44,7 +44,7 @@ bool vh8SelfTest(App& a, float dt) {
       a.tanks.fireBow(a, *bt); std::string s1 = a.audio.lastPlayed;
       a.tanks.fireTow(a, *bt); std::string s2 = a.audio.lastPlayed;
       chk(s1 == "shot_modern_lmg" && a.audio.hasEvent(s1), "the Bradley's coax plays " + s1);
-      chk(s2 == "shot_modern_rpg7" && a.audio.hasEvent(s2), "the TOW plays " + s2);
+      chk((s2 == "shot_tow" || s2 == "shot_modern_rpg7") && a.audio.hasEvent(s2), "the TOW plays " + s2);   // SND18: its own RocketLaunch event
       a.tanks.exitTank(a, true);
     }
     {   // VH8 Apache small arms / 40 mm grenade on armour: hits to destroy a fresh one each (placed apart, out of the way)

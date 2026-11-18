@@ -229,7 +229,7 @@ void TankSys::stepHeli(App& app, TankRT& t, float dt, const ExploreInput* in) {
         rp.blastDmg = d.rocketDmg; rp.blastR = d.rocketR; rp.craterScale = d.rocketCrater; rp.splashGun = d.rocketSplashGun; rp.atKill = true; rp.gravScale = d.rocketGrav;
         app.fx.backblast(pod - dir * 0.9f, -dir);
         app.fx.flash(pod + dir * 0.3f, 0.9f, 0.08f, vec4(9, 6, 3, 1));
-        app.audio.play("shot_panzerschreck", pod, 1.0f);
+        app.audio.play(app.audio.hasEvent("shot_rocket_pod") ? "shot_rocket_pod" : "shot_panzerschreck", pod, 1.0f);   // SND18: RocketLaunch (the Panzerschreck has its own now)
         --t.rockets; ++t.rocketsFired; t.rocketSide = (t.rocketSide + 1) % std::max<int>(1, (int)d.pods.size()); t.rocketCool = d.rocketCooldown;
       }
     }

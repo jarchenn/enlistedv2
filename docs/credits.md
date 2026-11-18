@@ -720,6 +720,10 @@ Asset packs the user supplied (PR6; licence, author and source read from each fi
 | road_signs.glb | Road Signs | FrodoUndead | CC-BY-4.0 | https://sketchfab.com/3d-models/road-signs-c39bf97110494b5db3de84165211f592 | 95 assets | yes |
 <!-- /pr6_assets -->
 
+## SND18 gun sound pack
+
+`content/audio/custom/snd18/`: the per-gun pack gun_sounds_single_and_burst.zip (single shots and 5-round bursts for 33 guns, cut from the Weapon Sounds Tweaks and Fixes pack), supplied by the project owner, stated free to use; trimmed, cut into single rounds and levelled (tools/snd18_prep.py).
+
 ## SND14 weapon recordings
 
 `content/audio/custom/snd14/`: eleven recordings supplied by the project owner (rocket launch, AR-15, rifle x3, SMG x3, bolt-action, machine-gun reload, bullet fly-by from SoundEffectsFactory.com), cut and levelled. The owner states they are free to use.
