@@ -987,7 +987,7 @@ static void readHeader(AssetDef& a) {
 // Only for an asset nothing uses (the palette's tile renders): placed copies, the placing ghost and caches hold its parts.
 void AssetLibrary::release(AssetDef& a) const {
   if (!a.built || a.vehicle || a.placeholder || a.raw.contains("rack")) return;
-  if (a.tree.on || a.modelFoliage || !a.ivy.blocks.empty()) return;   // foliage: its leaf cards are set up once by the foliage system (a rebuild came back bare)
+  if (a.tree.on || !a.ivy.blocks.empty()) return;   // card foliage: a rebuild came back bare (shortcut: the leaf cards are a few MB; find what keeps the old cards before releasing them). Model foliage (NT8) is released: 586 MB on Outpost Woods
   for (GpuMesh* m : {&a.opaque, &a.glass, &a.colliderGhost, &a.defBrokenMesh, &a.panelsIntact, &a.panelsLod[0], &a.panelsLod[1], &a.noFurnOpaque, &a.noFurnGlass,
                      &a.lodMesh[0], &a.lodMesh[1], &a.station.yawMesh, &a.station.elevMesh, &a.station.recoilMesh, &a.tree.stumpMesh, &a.tree.trunkMesh}) m->destroy();
   for (auto& it : a.interactables) for (auto& l : it.leaves) { l.opaque.destroy(); l.glass.destroy(); }
