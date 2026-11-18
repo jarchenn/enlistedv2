@@ -248,6 +248,16 @@ for _mn, _ml in cfg.get("dropMats", {}).items():
     _o = bpy.data.objects[_mn]; _o.data = _o.data.copy(); _bm = bmesh.new(); _bm.from_mesh(_o.data)
     _dr = [f for f in _bm.faces if f.material_index < len(_o.data.materials) and _o.data.materials[f.material_index] and _o.data.materials[f.material_index].name.split(".")[0] in _ml]
     bmesh.ops.delete(_bm, geom=_dr, context="FACES_ONLY"); _bm.to_mesh(_o.data); _bm.free(); log.setdefault("droppedFaces", {})[_mn] = len(_dr)
+# ---------------------------------------------------------------- NG2: faces skinned to these bones left out ("dropBones": {mesh: [bone]}): the upper
+# arms / shoulders, which a pistol rig made for a closer camera puts across the aimed view (a face goes when any of its
+# vertices' strongest bone is listed); the forearms end at the elbow, below the view
+for _mn, _bl in cfg.get("dropBones", {}).items():
+    import bmesh
+    _o = bpy.data.objects[_mn]; _o.data = _o.data.copy(); _gi = {g.index for g in _o.vertex_groups if g.name in _bl}
+    _hit = {v.index for v in _o.data.vertices if v.groups and max(v.groups, key=lambda g: g.weight).group in _gi}
+    _bm = bmesh.new(); _bm.from_mesh(_o.data); _dr = [f for f in _bm.faces if any(v.index in _hit for v in f.verts)]
+    bmesh.ops.delete(_bm, geom=_dr, context="FACES"); _bm.to_mesh(_o.data); _bm.free(); log.setdefault("droppedBoneFaces", {})[_mn] = len(_dr)
+    if not _dr: log["warn"].append("dropBones: nothing on " + _mn)
 # ---------------------------------------------------------------- drop everything else, move the rig
 for ob in [arm] + keep:   # MG2: a parent about to go (the Unreal sets' armature under an empty) must not move the rig
     if ob.parent is not None and ob.parent != arm and ob.parent not in keep:

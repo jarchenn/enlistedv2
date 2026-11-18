@@ -64,6 +64,7 @@ const A = {
   modern_pistol: { src: "animatedpistol/source/rig.blend", tex: "animatedpistol", stat: "modern_pistol", camera: "A_Camera", cameraAction: "Idle",
     keep: ["xd_grip_safe", "xd_mag", "xd_slide", "DMC5_Soldier_Gloves", "DMC5_Soldier_Skin", "DMC5_Soldier_Shirt", "DMC5_Soldier_Gear"], gun: "xd_grip_safe", hipRear: [0.07, 0.3, -0.09],
     clips: { idle: "Idle", fire: "Shoot", reload: "Reload", draw: "Take", holster: "Hide", run: "Run" },
+    dropBones: { DMC5_Soldier_Shirt: ["UpperArm.L", "UpperArm.R"], DMC5_Soldier_Gear: ["UpperArm.R"] },   // NG2: the shirt's upper arms (across the eye in the reload)
     mats: { "None.001": { albedo: "for_texturing_None.001_Diffuse.png", gloss: "for_texturing_None.001_Glossiness.png", spec: "for_texturing_None.001_Specular.png" },
             DMC5_Soldier_Hands_Mat: { albedo: "soldierhand_d.png", rough_f: 0.7 }, DMC5_Soldier_Shirt_Mat: { factor: [0.09, 0.1, 0.07], rough_f: 0.9 }, DMC5_Soldier_Gear_Mat: { factor: [0.05, 0.05, 0.05], rough_f: 0.7 } } },
   // ---- MG2 (no draw clips, no movement clips; still idles)
@@ -183,7 +184,10 @@ const A = {
     clips: { idle: "Rig|Rig|MK_Idle", fire: "Rig|Rig|MK_Shot", reload: "Rig|Rig|MK_ReloadFast", reload_empty: "Rig|Rig|MK_ReloadFull" },
     mats: { makarov_material: { albedo: "Makarov_main_Base_Color.png", metal: "Makarov_main_Metallic_png-Makarov_main_Rou.png", rough_f: 0.5 }, Mat: { albedo: "armCcolor.png", rough: "armcRoughness.png" } } },
   modern_fn502: { abs: true, src: NG1 + "fn502/source/FPS_Anims.fbx", tex: NG1 + "fn502", stat: "modern_fn502", hipRear: [0.07, 0.3, -0.09], keep: ["502_1_low.001", "arms"], gun: "502_1_low.001", gunBone: "Main",
-    clips: { idle: "Armature|Armature|FN_DefPose", fire: "Armature|Armature|FN_Shot", reload: "Armature|Armature|FN_Reload", reload_empty: "Armature|Armature|FN_ReloadFull" },   // no idle clip: the default pose
+    // NG2: no idle clip: the default pose's frame 2 (its frame 1 is a different pose: the left hand up by the face holding the spare
+    // magazine, which the engine held as the idle); the upper arms out (the eye sits behind the shoulders at the engine's eye relief)
+    clips: { idle: { action: "Armature|Armature|FN_DefPose", range: [2, 3] }, fire: "Armature|Armature|FN_Shot", reload: "Armature|Armature|FN_Reload", reload_empty: "Armature|Armature|FN_ReloadFull" },
+    dropBones: { arms: ["Arm_L", "Arm_R", "UpArm_L", "UpArm_R"] },
     mats: { gun: { albedo: "material_diffuse.png", smooth: "material_specularGlossiness.png", spec: "material_specularGlossiness.png" }, arms: { albedo: "armColor.png", rough: "armRoughness.png" } } },
   modern_smg45: { abs: true, src: NG1 + "smg/source/arms@smg45.fbx", tex: NG1 + "smg", stat: "modern_smg45", keep: ["armmesh", "base", "bolt", "bullet", "carrier", "clip", "trigger"],
     rigidify: ["base", "bolt", "bullet", "carrier", "clip", "trigger"], gun: "base", timeline: [1, 235],

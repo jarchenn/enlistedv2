@@ -296,6 +296,7 @@ void App::selectWeapon(int idx) {
   if (idx < 0 || idx >= (int)weaponDefs.size()) return;
   if (strictDDay && weaponDefs[idx]->laterWar) { toast(weaponDefs[idx]->name + " is hidden by the strict 6 June 1944 preset."); return; }
   WeaponState& cur = wstate[weaponDefs[activeWeapon]->id];
+  if (idx != activeWeapon) weaponMsg.clear();   // NG2: the last gun's note ("4 rounds in the partial 50ae_mag7 kept") stayed up under the next gun
   settleRecoil(cur);   // the old weapon's climb stays in the aim (no snap back on the swap)
   if (cur.reload > 0) { if (cur.reloadKind != 4 && cur.reloadKind != 5) weaponMsg = "Reload interrupted (no rounds moved)"; cur.reload = 0; cur.reloadKind = 0; }   // MG1 kind 4: rounds already in   // nothing is committed until a reload completes
   if (cur.throwT >= 0 && weaponDefs[activeWeapon]->equipment()) { cur.throwT = -1; cur.struck = false; }   // wind-up cancelled: nothing thrown, nothing used

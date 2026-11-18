@@ -38,11 +38,15 @@
   ],
   "staticGunBlender": null,
   "idleFrame": 0.0,
+  "droppedBoneFaces": {
+   "DMC5_Soldier_Shirt": 2962,
+   "DMC5_Soldier_Gear": 439
+  },
   "bakedMeshTransforms": [
    "xd_grip_safe",
    "xd_mag",
    "xd_slide"
   ]
  },
- "tris": 39106
+ "tris": 35705
 }
