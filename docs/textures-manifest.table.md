@@ -25,7 +25,7 @@
 | paint_wood_scratched | [PaintedWood009B](https://ambientcg.com/a/PaintedWood009B) | painted wood | ao, color, height, normal, roughness | 1 x 1 | painted_wood, paintwood | L4 |
 | bark_fir | [Bark014](https://ambientcg.com/a/Bark014) | planks | ao, color, height, normal, roughness | 1.2 x 1.2 | bark | L4 |
 | concrete_bunker | [Concrete028](https://ambientcg.com/a/Concrete028) | concrete | ao, color, height, normal, roughness | 2 x 2 | bunker | L4 |
-| concrete_bunker_mold | [Concrete032](https://ambientcg.com/a/Concrete032) | concrete | ao, color, height, normal, roughness | 2 x 2 | bunker_wash | L4 |
+| concrete_bunker_mold | [Concrete032](https://ambientcg.com/a/Concrete032) | concrete | ao, color, height, normal, roughness | 2 x 2 | bunker_wash, pillar_concrete_032 | L4 |
 | concrete_rough | [Concrete037](https://ambientcg.com/a/Concrete037) | concrete | ao, color, height, normal, roughness | 2 x 2 | concrete | L4 |
 | concrete_light | [Concrete025](https://ambientcg.com/a/Concrete025) | concrete | ao, color, height, normal, roughness | 2 x 2 | concrete_light, path_concrete | L4 |
 | steel_rusty | [Metal021](https://ambientcg.com/a/Metal021) | rusty steel | color, height, normal, roughness | 1 x 1 | rb_steel_rusty, steel_rusty | L4 |
@@ -71,16 +71,16 @@
 | brick_muted | [Bricks101](https://ambientcg.com/a/Bricks101) | brick (MA1) | ao, color, height, normal, roughness | 2 x 2 | imgmat:brick | MA1 |
 | brick_worn | [Bricks074](https://ambientcg.com/a/Bricks074) | brick (MA1) | ao, color, height, normal, roughness | 3.3 x 3.3 | imgmat:brickwork, imgmat:sub_brick | MA1 |
 | render_lime | [Concrete034](https://ambientcg.com/a/Concrete034) | plaster (MA1) | color, height, normal, roughness | 2.5 x 2.5 | imgmat:limewash | MA1 |
-| render_aged | [PaintedPlaster006](https://ambientcg.com/a/PaintedPlaster006) | plaster (MA1) | ao, color, height, normal, roughness | 2.5 x 2.5 | imgmat:plaster, sd_render_aged | MA1 |
-| plaster_flaking | [PaintedPlaster016](https://ambientcg.com/a/PaintedPlaster016) | plaster (MA1) | ao, color, height, normal, roughness | 2 x 2 | imgmat:render_flaking, sd_plaster_flaking | MA1 |
-| plaster_flaking_b | [PaintedPlaster014](https://ambientcg.com/a/PaintedPlaster014) | plaster (MA1) | ao, color, height, normal, roughness | 2 x 2 | (unused) | MA1 |
+| render_aged | [PaintedPlaster006](https://ambientcg.com/a/PaintedPlaster006) | plaster (MA1) | ao, color, height, normal, roughness | 2.5 x 2.5 | imgmat:plaster, sd_render_aged, wall_pp006 | MA1 |
+| plaster_flaking | [PaintedPlaster016](https://ambientcg.com/a/PaintedPlaster016) | plaster (MA1) | ao, color, height, normal, roughness | 2 x 2 | imgmat:render_flaking, sd_plaster_flaking, wall_pp016 | MA1 |
+| plaster_flaking_b | [PaintedPlaster014](https://ambientcg.com/a/PaintedPlaster014) | plaster (MA1) | ao, color, height, normal, roughness | 2 x 2 | wall_pp014 | MA1 |
 | plaster_old_b | [Plaster006](https://ambientcg.com/a/Plaster006) | plaster (MA1) | color, height, normal, roughness | 2.5 x 2.5 | imgmat:interior_wall | MA1 |
 | render_stained | [Concrete036](https://ambientcg.com/a/Concrete036) | plaster (MA1) | color, height, normal, roughness | 2.5 x 2.5 | imgmat:render_stained, sd_render_stained | MA1 |
 | concrete_aggregate | [Concrete049](https://ambientcg.com/a/Concrete049) | concrete (MA1) | ao, color, height, normal, roughness | 2 x 2 | imgmat:concrete_core | MA1 |
 | bunker_weathered | [Concrete044B](https://ambientcg.com/a/Concrete044B) | concrete (MA1) | ao, color, height, normal, roughness | 2.5 x 2.5 | imgmat:bunker | MA1 |
 | concrete_stained | [Concrete044D](https://ambientcg.com/a/Concrete044D) | concrete (MA1) | ao, color, height, normal, roughness | 2.5 x 2.5 | imgmat:bunker_wash, imgmat:path_concrete | MA1 |
 | concrete_aged | [Concrete047A](https://ambientcg.com/a/Concrete047A) | concrete (MA1) | ao, color, height, normal, roughness | 2.5 x 2.5 | imgmat:concrete, tun_floor_slab | MA1 |
-| concrete_formwork | [Concrete031](https://ambientcg.com/a/Concrete031) | concrete (MA1) | ao, color, height, normal, roughness | 2.5 x 2.5 | imgmat:formwork | MA1 |
+| concrete_formwork | [Concrete031](https://ambientcg.com/a/Concrete031) | concrete (MA1) | ao, color, height, normal, roughness | 2.5 x 2.5 | floor_concrete_031, imgmat:formwork | MA1 |
 | slate_weathered | [RoofingTiles013C](https://ambientcg.com/a/RoofingTiles013C) | roof (MA1) | ao, color, height, normal, roughness | 2 x 2 | imgmat:slate | MA1 |
 | slate_grey | [RoofingTiles015B](https://ambientcg.com/a/RoofingTiles015B) | roof (MA1) | ao, color, height, normal, roughness | 2 x 2 | (unused) | MA1 |
 | clay_tile_aged | [RoofingTiles012C](https://ambientcg.com/a/RoofingTiles012C) | roof (MA1) | ao, color, height, normal, roughness | 2 x 2 | imgmat:roof_tile | MA1 |
@@ -126,7 +126,7 @@
 | concrete_speckled | [Concrete040](https://ambientcg.com/a/Concrete040) | concrete (TX2) | ao, color, height, normal, roughness | 3 x 3 | concrete_speckled | TX2 |
 | concrete_rough_grey | [Concrete044C](https://ambientcg.com/a/Concrete044C) | concrete (TX2) | ao, color, height, normal, roughness | 3 x 3 | concrete_rough_grey | TX2 |
 | concrete_pale | [Concrete024](https://ambientcg.com/a/Concrete024) | concrete (TX2) | color, height, normal, roughness | 3 x 3 | concrete_pale | TX2 |
-| concrete_cracked_white | [Concrete023](https://ambientcg.com/a/Concrete023) | concrete (TX2) | color, height, normal, roughness | 3 x 3 | concrete_cracked_white | TX2 |
+| concrete_cracked_white | [Concrete023](https://ambientcg.com/a/Concrete023) | concrete (TX2) | color, height, normal, roughness | 3 x 3 | concrete_cracked_white, wall_concrete_023 | TX2 |
 | concrete_panel_bolted | [Concrete008](https://ambientcg.com/a/Concrete008) | concrete panels (TX2) | ao, color, height, normal, roughness | 4 x 4 | concrete_panel_bolted | TX2 |
 | concrete_stained_blue | [Concrete019](https://ambientcg.com/a/Concrete019) | concrete (TX2) | color, height, normal, roughness | 3 x 3 | concrete_stained_blue | TX2 |
 | concrete_dirty_wet | [Concrete035](https://ambientcg.com/a/Concrete035) | concrete (TX2) | color, height, normal, roughness | 3 x 3 | concrete_dirty_wet | TX2 |
@@ -239,6 +239,27 @@
 | rb_planks_old | [Planks039](https://ambientcg.com/a/Planks039) | large old dirty planks (RB1 log house roof boards, plinth) | ao, color, height, normal, roughness | 2 x 2 | rb_planks | L4 |
 | rb_painted_wood_old | [PaintedWood009C](https://ambientcg.com/a/PaintedWood009C) | old light painted wood (RB1 carved window surrounds, shutters) | ao, color, height, normal, roughness | 1 x 1 | rb_wood_paint_old | L4 |
 | rb_floor_dirty | [WoodFloor067B](https://ambientcg.com/a/WoodFloor067B) | dark dirty floorboards (RB1 shop and cabin floors) | ao, color, height, normal, roughness | 2 x 2 | rb_floor_dirty | L4 |
+| plaster_paint_009 | [PaintedPlaster009](https://ambientcg.com/a/PaintedPlaster009) | grey-green painted plaster, small flakes to brick | ao, color, height, normal, roughness | 2.5 x 2.5 | wall_pp009 | TX3 |
+| plaster_paint_010 | [PaintedPlaster010](https://ambientcg.com/a/PaintedPlaster010) | white painted plaster heavily flaked to red brick | ao, color, height, normal, roughness | 2.5 x 2.5 | wall_pp010 | TX3 |
+| plaster_paint_011 | [PaintedPlaster011](https://ambientcg.com/a/PaintedPlaster011) | green-grey painted plaster, mossy, few flakes | ao, color, height, normal, roughness | 2.5 x 2.5 | wall_pp011 | TX3 |
+| brick_037 | [Bricks037](https://ambientcg.com/a/Bricks037) | rough pale red brick, wide sandy mortar | ao, color, height, normal, roughness | 1.45 x 1.45 | brick_037 | TX3 |
+| brick_042 | [Bricks042](https://ambientcg.com/a/Bricks042) | mixed red / buff / grey brick | ao, color, height, normal, roughness | 1 x 1 | brick_042 | TX3 |
+| brick_054 | [Bricks054](https://ambientcg.com/a/Bricks054) | dark red brick, white mortar | ao, color, height, normal, roughness | 1.2 x 1.2 | brick_054 | TX3 |
+| brick_059 | [Bricks059](https://ambientcg.com/a/Bricks059) | red brick, pale mortar | ao, color, height, normal, roughness | 1.2 x 1.2 | brick_059 | TX3 |
+| brick_077 | [Bricks077](https://ambientcg.com/a/Bricks077) | old orange-red brick, worn | ao, color, height, normal, roughness | 1.1 x 1.1 | brick_077 | TX3 |
+| brick_082b | [Bricks082B](https://ambientcg.com/a/Bricks082B) | red brick, clean white mortar | ao, color, height, normal, roughness | 1.8 x 1.8 | brick_082b | TX3 |
+| planks_023b | [Planks023B](https://ambientcg.com/a/Planks023B) | weathered grey-brown planks | ao, color, height, normal, roughness | 1 x 1 | planks_023b | TX3 |
+| planks_024a | [Planks024A](https://ambientcg.com/a/Planks024A) | dark weathered planks, nail heads | ao, color, height, normal, roughness | 1.4 x 1.4 | planks_024a | TX3 |
+| planks_024b | [Planks024B](https://ambientcg.com/a/Planks024B) | dark weathered planks, nail heads (B) | ao, color, height, normal, roughness | 1.4 x 1.4 | planks_024b | TX3 |
+| planks_024c | [Planks024C](https://ambientcg.com/a/Planks024C) | dark weathered planks, nail heads (C) | ao, color, height, normal, roughness | 1.4 x 1.4 | planks_024c | TX3 |
+| planks_025b | [Planks025B](https://ambientcg.com/a/Planks025B) | very dark old planks | ao, color, height, normal, roughness | 1.4 x 1.4 | planks_025b | TX3 |
+| planks_026c | [Planks026C](https://ambientcg.com/a/Planks026C) | yellow-brown worn painted planks | ao, color, height, normal, roughness | 2 x 2 | planks_026c | TX3 |
+| planks_027c | [Planks027C](https://ambientcg.com/a/Planks027C) | green-stained worn planks | ao, color, height, normal, roughness | 1 x 1 | planks_027c | TX3 |
+| road_008a | [Road008A](https://ambientcg.com/a/Road008A) | asphalt carriageway, yellow dashed centre and edge lines (rolled: centre line on the origin) | ao, color, height, normal, roughness | 7.5 x 7.5 | road_008a | TX3 |
+| road_009a | [Road009A](https://ambientcg.com/a/Road009A) | asphalt carriageway, solid yellow centre line (rolled) | ao, color, height, normal, roughness | 7.5 x 7.5 | road_009a | TX3 |
+| road_009b | [Road009B](https://ambientcg.com/a/Road009B) | worn asphalt carriageway, solid yellow centre line, cracks (rolled) | ao, color, height, normal, roughness | 7.5 x 7.5 | road_009b | TX3 |
+| bark_001 | [Bark001](https://ambientcg.com/a/Bark001) | grey deeply furrowed bark (oak) | color, height, normal, roughness | 1.2 x 1.2 | bark_001 | TX3 |
+| bark_015 | [Bark015](https://ambientcg.com/a/Bark015) | pale fibrous stringy bark / weathered log | ao, color, height, normal, roughness | 1.2 x 1.2 | bark_015 | TX3 |
 | graffiti_set001 | [GraffitiSet001](https://ambientcg.com/a/GraffitiSet001) | 16 spray-paint tags in a 4 x 4 atlas, opacity map as the alpha (the graffiti decals, render.cpp sdecals type 8) | ao (the Opacity map), color, height, normal, roughness | 2 x 2 | decal_graffiti | L4 |
 | rb_rust_patch | [Rust009](https://ambientcg.com/a/Rust009) | brown rust, damaged (RB1 rust patches) | ao, color, height, normal, roughness | 1.5 x 1.5 | rb_rust | L4 |
 | rb_ref_cab_wall | [rb_ref_cab_wall](https://skfb.ly/osPME) | the cabin's olive sheet-steel paint (reference atlas crop, turned upright) | color | 4 x 2.8 | rb_ref_cab_wall | L4 |

@@ -14,6 +14,8 @@ import { modernOutdoorAssets } from "./catalog_modern_outdoor.mjs";
 import { modernBuildingsB } from "./catalog_modern_buildings_b.mjs";
 import { dezfight } from "./audit_zfight.mjs";
 import { rb1Assets } from "./catalog_rb1.mjs";
+import { nt3Assets } from "./catalog_nt3.mjs";
+import { bocageAssets } from "./catalog_bocage.mjs";
 
 const out = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "content", "assets");
 // the full build runs newtownAssetsB() etc., which add tdMerge and a check; find each builder's finished asset there
@@ -31,6 +33,20 @@ if (want.has("--all-ruins")) {
     if (!fs.existsSync(f) || fs.readFileSync(f, "utf8") !== text) { fs.writeFileSync(f, text); n++; }
   }
   console.log("ruins written:", n);
+  process.exit(0);
+}
+// --all (TX3): every asset of these lists, the outdoor / nt3 / bocage ones and the modern ruin variants, written only where
+// the JSON changed (the full build stops at the range kit before writing anything)
+if (want.has("--all")) {
+  const mod = [...mod2Assets(), ...modernOutdoorAssets(), ...MA.modernBuildingsA(), ...modernBuildingsB(), ...NA.newtownAssetsA(), ...B.newtownAssetsB(), ...C.newtownAssetsC()];
+  let n = 0;
+  for (const v of [...rb1Assets(), ...modernOutdoorAssets(), ...MA.modernBuildingsA(), ...modernBuildingsB(), ...NA.newtownAssetsA(), ...B.newtownAssetsB(), ...C.newtownAssetsC(), ...mod2Assets(), ...nt3Assets(), ...bocageAssets(), ...ruinVariants(mod)]) {
+    const z = JSON.parse(JSON.stringify(v.json()));
+    dezfight(z);
+    const f = path.join(out, z.id + ".json"), text = JSON.stringify(z);
+    if (!fs.existsSync(f) || fs.readFileSync(f, "utf8") !== text) { fs.writeFileSync(f, text); n++; }
+  }
+  console.log("written:", n);
   process.exit(0);
 }
 for (const list of lists) {

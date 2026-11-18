@@ -1,0 +1,20 @@
+{
+ "set": "road_009a",
+ "id": "Road009A",
+ "family": "asphalt carriageway, solid yellow centre line (rolled)",
+ "size": [
+  7.5,
+  7.5
+ ],
+ "source": "https://ambientcg.com/a/Road009A",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "2K (supplied by the user), packed to 1K",
+ "maps": [
+  "ao.jpg",
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

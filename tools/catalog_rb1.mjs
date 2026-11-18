@@ -63,12 +63,12 @@ export function containerCabin() {
   rbMats(A, [
     ["rb_cab_ext", [0.264, 0.226, 0.135], 0.62, "rb_ref_cab_wall", "metal"],   // the reference's own paint (CC BY 4.0, YadroGames)
     ["plaster", [0.32, 0.28, 0.17], 0.7, "rb_ref_cab_wall", "metal"],
-    ["door_paint", [0.5, 0.47, 0.43], 0.85, "rb_planks", "wood"],         // the door leaf: weathered planks           // the painted steel lining (walls, ceiling, partition)
-    ["terracotta", [0.42, 0.4, 0.37], 0.75, "rb_floor_old", "wood"],         // the plank floor
-    ["stone_plinth", [0.42, 0.4, 0.36], 0.85, "rb_boards_grey", "wood"],     // the skirt's backing
-    ["rb_skirt", [0.48, 0.45, 0.4], 0.85, "rb_boards_grey", "wood"],
+    ["door_paint", [0.5, 0.47, 0.43], 0.85, "planks_024c", "wood"],         // the door leaf: weathered planks           // the painted steel lining (walls, ceiling, partition)
+    ["terracotta", [0.42, 0.4, 0.37], 0.75, "planks_024b", "wood"],         // the plank floor
+    ["stone_plinth", [0.42, 0.4, 0.36], 0.85, "planks_023b", "wood"],     // the skirt's backing
+    ["rb_skirt", [0.48, 0.45, 0.4], 0.85, "planks_023b", "wood"],
     ["rb_board", [0.279, 0.232, 0.197], 0.85, "rb_ref_cab_boards", "wood"],   // the reference's window boarding
-    ["rb_board_frame", [0.46, 0.44, 0.4], 0.85, "rb_boards_grey", "wood"],
+    ["rb_board_frame", [0.46, 0.44, 0.4], 0.85, "planks_023b", "wood"],
     ["rb_iron", [0.45, 0.3, 0.2], 0.7, "rb_iron_rust", "metal"],
     ["rb_roof", [0.35, 0.34, 0.3], 0.6, "rb_cab_paint_b", "metal"],
     ["rb_rust_streak", [0.42, 0.22, 0.1], 0.8, "rb_rust", "metal"],
@@ -170,19 +170,19 @@ export function logHouse() {
   const A = meta("rb1_log_house", "Abandoned log house", "Houses", "An old Russian log house (izba): round-log walls with notched corners on a board-clad plinth, a steep weathered board roof, a rendered chimney, carved white window surrounds with board shutters, a low front door under a small porch. Three rooms: the stove room, the entry kitchen and a store.", 1, [8.6, 7.6], { plinthDepth: 0.6, maxGrade: 0.6, noAutoPanels: true, graffiti: true });
   mats(A);
   rbMats(A, [
-    ["rb_log_wall", [0.38, 0.3, 0.24], 0.85, "rb_log", "wood"],
-    ["rb_log", [0.42, 0.34, 0.27], 0.85, "rb_log", "wood"],
+    ["rb_log_wall", [0.38, 0.3, 0.24], 0.85, "bark_015", "wood"],
+    ["rb_log", [0.42, 0.34, 0.27], 0.85, "bark_015", "wood"],
     ["rb_log_end", [0.62, 0.55, 0.45], 0.9, "rb_log_end", "wood"],
     ["rb_log_in", [0.48, 0.39, 0.31], 0.85, "rb_log", "wood"],
     ["plaster", [0.46, 0.38, 0.3], 0.85, "rb_log", "wood"],             // the log walls and the board ceiling inside
-    ["terracotta", [0.4, 0.36, 0.31], 0.8, "rb_floor_old", "wood"],
-    ["stone_plinth", [0.36, 0.33, 0.29], 0.85, "rb_planks", "wood"],
-    ["rb_plinth", [0.4, 0.37, 0.33], 0.85, "rb_planks", "wood"],
-    ["rb_roof_boards", [0.2, 0.16, 0.12], 0.85, "rb_planks", "wood"],
-    ["rb_roof_boards_b", [0.3, 0.26, 0.21], 0.85, "rb_boards_grey", "wood"],
-    ["rb_gable_boards", [0.42, 0.4, 0.37], 0.85, "rb_boards_grey", "wood"],
+    ["terracotta", [0.4, 0.36, 0.31], 0.8, "planks_026c", "wood"],
+    ["stone_plinth", [0.36, 0.33, 0.29], 0.85, "planks_027c", "wood"],
+    ["rb_plinth", [0.4, 0.37, 0.33], 0.85, "planks_027c", "wood"],
+    ["rb_roof_boards", [0.2, 0.16, 0.12], 0.85, "planks_025b", "wood"],
+    ["rb_roof_boards_b", [0.3, 0.26, 0.21], 0.85, "planks_024a", "wood"],
+    ["rb_gable_boards", [0.42, 0.4, 0.37], 0.85, "planks_024c", "wood"],
     ["rb_trim", [0.78, 0.77, 0.73], 0.7, "rb_wood_paint_old", "wood"],
-    ["rb_shutter", [0.3, 0.27, 0.24], 0.85, "rb_planks", "wood"],
+    ["rb_shutter", [0.3, 0.27, 0.24], 0.85, "planks_023b", "wood"],
     ["rb_chimney", [0.7, 0.69, 0.66], 0.9, "rb_render", "plaster"],
     ["rb_post", [0.4, 0.34, 0.27], 0.85, "rb_beam", "wood"],
     ["rb_dark", [0.03, 0.03, 0.03], 0.9, null],
@@ -272,27 +272,27 @@ export function weaponShop() {
   mats(A);
   rbMats(A, [
     ["rb_siding", [0.366, 0.293, 0.205], 0.85, "rb_ref_shop_wall", "wood"],    // the reference's own weatherboard (CC BY 4.0, YadroGames)
-    ["plaster", [0.62, 0.58, 0.5], 0.85, "rb_siding_b", "wood"],
-    ["terracotta", [0.36, 0.3, 0.25], 0.8, "rb_floor_dirty", "wood"],
+    ["plaster", [0.62, 0.58, 0.5], 0.85, "planks_024a", "wood"],
+    ["terracotta", [0.36, 0.3, 0.25], 0.8, "planks_025b", "wood"],
     ["stone_plinth", [0.42, 0.4, 0.37], 0.9, "rb_render", "plaster"],
     ["rb_roof", [0.329, 0.299, 0.241], 0.6, "rb_ref_shop_roof", "metal"],
     ["rb_roof_patch", [0.46, 0.27, 0.15], 0.75, "rb_rust", "metal"],
-    ["rb_ver_roof", [0.4, 0.36, 0.3], 0.85, "rb_planks", "wood"],
+    ["rb_ver_roof", [0.4, 0.36, 0.3], 0.85, "planks_023b", "wood"],
     ["rb_post", [0.42, 0.3, 0.22], 0.7, "rb_steel_rusty", "metal"],
     ["rb_green", [0.24, 0.299, 0.143], 0.7, "rb_ref_shop_green", "metal"],  // the reference's counter panels (their own colour: a neutral tint)
     ["rb_orange", [0.78, 0.78, 0.78], 0.7, "rb_orange", "metal"],
     ["rb_frame_wood", [0.42, 0.37, 0.3], 0.85, "rb_beam", "wood"],
     ["rb_mesh", [0.3, 0.29, 0.27], 0.6, "rb_iron_rust", "metal"],
     ["rb_trim", [0.78, 0.77, 0.73], 0.7, "rb_wood_paint_old", "wood"],
-    ["rb_board", [0.5, 0.47, 0.43], 0.85, "rb_planks", "wood"],
-    ["rb_board_frame", [0.46, 0.44, 0.4], 0.85, "rb_boards_grey", "wood"],
+    ["rb_board", [0.5, 0.47, 0.43], 0.85, "planks_024b", "wood"],
+    ["rb_board_frame", [0.46, 0.44, 0.4], 0.85, "planks_027c", "wood"],
     ["rb_sign", [0.324, 0.209, 0.17], 0.6, "rb_ref_shop_sign", "plain"],      // the reference's WEAPON sign board
     ["rb_sign_red", [0.6, 0.08, 0.06], 0.6, null],
     ["rb_rust_streak", [0.42, 0.22, 0.1], 0.8, "rb_rust", "metal"],
     ["rb_dark", [0.03, 0.03, 0.03], 0.9, null],
     ["rb_damp", [0.13, 0.11, 0.08], 0.95, "rb_boards_grey", "wood"],
-    ["rb_board_new", [0.46, 0.38, 0.27], 0.85, "rb_siding_b", "wood"],
-    ["rb_board_old", [0.24, 0.21, 0.17], 0.9, "rb_planks", "wood"],
+    ["rb_board_new", [0.46, 0.38, 0.27], 0.85, "planks_026c", "wood"],
+    ["rb_board_old", [0.24, 0.21, 0.17], 0.9, "planks_024c", "wood"],
     ["rb_roof_b", [0.38, 0.24, 0.14], 0.7, "rb_ref_shop_roof", "metal"],
     ["rb_roof_c", [0.27, 0.27, 0.26], 0.6, "rb_ref_shop_roof", "metal"],
     ["rb_crate", [0.36, 0.29, 0.2], 0.85, "rb_planks", "wood"],

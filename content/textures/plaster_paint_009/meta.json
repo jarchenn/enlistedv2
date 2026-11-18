@@ -1,0 +1,20 @@
+{
+ "set": "plaster_paint_009",
+ "id": "PaintedPlaster009",
+ "family": "grey-green painted plaster, small flakes to brick",
+ "size": [
+  2.5,
+  2.5
+ ],
+ "source": "https://ambientcg.com/a/PaintedPlaster009",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "2K (supplied by the user), packed to 1K",
+ "maps": [
+  "ao.jpg",
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

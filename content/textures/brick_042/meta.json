@@ -1,0 +1,20 @@
+{
+ "set": "brick_042",
+ "id": "Bricks042",
+ "family": "mixed red / buff / grey brick",
+ "size": [
+  1.0,
+  1.0
+ ],
+ "source": "https://ambientcg.com/a/Bricks042",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "2K (supplied by the user), packed to 1K",
+ "maps": [
+  "ao.jpg",
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

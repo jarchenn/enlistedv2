@@ -15,6 +15,7 @@
 // shortcut: copied framework; dedupe by exporting it from catalog_modern_buildings_b.mjs when that file is next touched.
 // Material rule (MOD1 review): "painted" is the painted-wood-plank shader, so painted steel is "metal", flat colour is
 // "plain", and no paint_metal_* set is used (they carry rust). Signs are blank coloured panels.
+import { variedWalls } from "./wall_variety.mjs";
 import { Asset, cutRect, wbox, P, swingSign } from "./kit.mjs";
 import { wall, partition, hinged, aabb, fbox, railing } from "./parts.mjs";
 import { mats as baseMats } from "./catalog_chateau.mjs";
@@ -86,6 +87,7 @@ function modMats(A, accent = [0.08, 0.30, 0.38]) {
   A.mat("pool_tile", [0.18, 0.42, 0.52], 0.25, "tile", { texture: "tiles_pool_cyan" });
   A.mat("soil", [0.12, 0.09, 0.06], 1.0, "plain", { texture: "soil_brown" });
   A.mat("leaf", [0.05, 0.11, 0.03], 0.85, "plain");
+  variedWalls(A);   // TX3: the user's plaster / brick / concrete sets by building (tools/wall_variety.mjs)
 }
 
 function mk(id, name, description, floors, footprint, accent) {
@@ -593,6 +595,7 @@ function ntMats(A) {
   A.mat("shrink", [0.70, 0.72, 0.72], 0.25, "glass");
   A.mat("lamp_r", [0.6, 0.05, 0.03], 0.3, "plain", { emissive: [1.6, 0.1, 0.05] });
   A.mat("lamp_w", [0.9, 0.9, 0.85], 0.2, "plain", { emissive: [2.0, 1.95, 1.8] });
+  variedWalls(A);   // TX3: the user's plaster / brick / concrete sets by building (tools/wall_variety.mjs)
 }
 function mkN(id, name, description, floors, footprint, accent) { const A = mk(id, name, description, floors, footprint, accent); ntMats(A); return A; }
 function mkP(id, name, cat, description, footprint, o = {}) {

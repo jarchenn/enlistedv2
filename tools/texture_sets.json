@@ -2319,6 +2319,216 @@
    ]
   },
   {
+   "set": "plaster_paint_009",
+   "id": "PaintedPlaster009",
+   "family": "grey-green painted plaster, small flakes to brick",
+   "batch": "TX3",
+   "size": [
+    2.5,
+    2.5
+   ]
+  },
+  {
+   "set": "plaster_paint_010",
+   "id": "PaintedPlaster010",
+   "family": "white painted plaster heavily flaked to red brick",
+   "batch": "TX3",
+   "size": [
+    2.5,
+    2.5
+   ]
+  },
+  {
+   "set": "plaster_paint_011",
+   "id": "PaintedPlaster011",
+   "family": "green-grey painted plaster, mossy, few flakes",
+   "batch": "TX3",
+   "size": [
+    2.5,
+    2.5
+   ]
+  },
+  {
+   "set": "brick_037",
+   "id": "Bricks037",
+   "family": "rough pale red brick, wide sandy mortar",
+   "batch": "TX3",
+   "size": [
+    1.45,
+    1.45
+   ]
+  },
+  {
+   "set": "brick_042",
+   "id": "Bricks042",
+   "family": "mixed red / buff / grey brick",
+   "batch": "TX3",
+   "size": [
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "set": "brick_054",
+   "id": "Bricks054",
+   "family": "dark red brick, white mortar",
+   "batch": "TX3",
+   "size": [
+    1.2,
+    1.2
+   ]
+  },
+  {
+   "set": "brick_059",
+   "id": "Bricks059",
+   "family": "red brick, pale mortar",
+   "batch": "TX3",
+   "size": [
+    1.2,
+    1.2
+   ]
+  },
+  {
+   "set": "brick_077",
+   "id": "Bricks077",
+   "family": "old orange-red brick, worn",
+   "batch": "TX3",
+   "size": [
+    1.1,
+    1.1
+   ]
+  },
+  {
+   "set": "brick_082b",
+   "id": "Bricks082B",
+   "family": "red brick, clean white mortar",
+   "batch": "TX3",
+   "size": [
+    1.8,
+    1.8
+   ]
+  },
+  {
+   "set": "planks_023b",
+   "id": "Planks023B",
+   "family": "weathered grey-brown planks",
+   "batch": "TX3",
+   "size": [
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "set": "planks_024a",
+   "id": "Planks024A",
+   "family": "dark weathered planks, nail heads",
+   "batch": "TX3",
+   "size": [
+    1.4,
+    1.4
+   ]
+  },
+  {
+   "set": "planks_024b",
+   "id": "Planks024B",
+   "family": "dark weathered planks, nail heads (B)",
+   "batch": "TX3",
+   "size": [
+    1.4,
+    1.4
+   ]
+  },
+  {
+   "set": "planks_024c",
+   "id": "Planks024C",
+   "family": "dark weathered planks, nail heads (C)",
+   "batch": "TX3",
+   "size": [
+    1.4,
+    1.4
+   ]
+  },
+  {
+   "set": "planks_025b",
+   "id": "Planks025B",
+   "family": "very dark old planks",
+   "batch": "TX3",
+   "size": [
+    1.4,
+    1.4
+   ]
+  },
+  {
+   "set": "planks_026c",
+   "id": "Planks026C",
+   "family": "yellow-brown worn painted planks",
+   "batch": "TX3",
+   "size": [
+    2.0,
+    2.0
+   ]
+  },
+  {
+   "set": "planks_027c",
+   "id": "Planks027C",
+   "family": "green-stained worn planks",
+   "batch": "TX3",
+   "size": [
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "set": "road_008a",
+   "id": "Road008A",
+   "family": "asphalt carriageway, yellow dashed centre and edge lines (rolled: centre line on the origin)",
+   "batch": "TX3",
+   "size": [
+    7.5,
+    7.5
+   ]
+  },
+  {
+   "set": "road_009a",
+   "id": "Road009A",
+   "family": "asphalt carriageway, solid yellow centre line (rolled)",
+   "batch": "TX3",
+   "size": [
+    7.5,
+    7.5
+   ]
+  },
+  {
+   "set": "road_009b",
+   "id": "Road009B",
+   "family": "worn asphalt carriageway, solid yellow centre line, cracks (rolled)",
+   "batch": "TX3",
+   "size": [
+    7.5,
+    7.5
+   ]
+  },
+  {
+   "set": "bark_001",
+   "id": "Bark001",
+   "family": "grey deeply furrowed bark (oak)",
+   "batch": "TX3",
+   "size": [
+    1.2,
+    1.2
+   ]
+  },
+  {
+   "set": "bark_015",
+   "id": "Bark015",
+   "family": "pale fibrous stringy bark / weathered log",
+   "batch": "TX3",
+   "size": [
+    1.2,
+    1.2
+   ]
+  },
+  {
    "set": "graffiti_set001",
    "id": "GraffitiSet001",
    "family": "16 spray-paint tags in a 4 x 4 atlas, opacity map as the alpha (the graffiti decals, render.cpp sdecals type 8)",

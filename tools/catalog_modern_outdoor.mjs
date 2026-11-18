@@ -12,6 +12,9 @@ import { setNav, cover, rng, r3 } from "./catalog_atlantic.mjs";
 const T = (texture, more = {}) => ({ texture, ...more });
 const MATS = {
   asphalt: [[0.12, 0.12, 0.12], 0.92, "concrete", T("asphalt_plain")],
+  road_a: [[0.13, 0.13, 0.13], 0.92, "concrete", T("road_009a")],   // TX3: the user's road sets (ambientCG), the image across the 7.5 m carriageway, its centre line on z = 0
+  road_b: [[0.13, 0.13, 0.13], 0.92, "concrete", T("road_009b")],
+  road_c: [[0.13, 0.13, 0.13], 0.92, "concrete", T("road_008a")],
   asphalt_patch: [[0.085, 0.085, 0.09], 0.9, "concrete", T("paving_worn")],
   asphalt_light: [[0.17, 0.17, 0.165], 0.9, "concrete", T("paving_worn")],
   sealant: [[0.03, 0.03, 0.03], 0.6, "plain"],
@@ -33,7 +36,7 @@ const MATS = {
   leaf_red: [[0.32, 0.08, 0.06], 0.85, "plain", T("leaves")],
   blossom: [[0.78, 0.45, 0.55], 0.8, "plain", T("leaves")],
   grass_blade: [[0.32, 0.36, 0.14], 0.85, "plain"],
-  bark: [[0.22, 0.17, 0.12], 0.95, "wood", T("bark_fir")],
+  bark: [[0.22, 0.17, 0.12], 0.95, "wood", T("bark_001")],   // TX3: the fallen tree, logs and stumps
   bark_tree: [[0.17, 0.14, 0.11], 0.95, "plain", T("bark")],
   bark_pale: [[0.3, 0.28, 0.25], 0.9, "plain", T("bark")],
   bark_cherry: [[0.27, 0.15, 0.12], 0.85, "plain", T("bark")],
@@ -413,14 +416,13 @@ function manhole(A, u, z) {
   for (let i = -2; i <= 2; i++) A.box([u - 0.25, 0.026, z + i * 0.1 - 0.012], [u + 0.25, 0.029, z + i * 0.1 + 0.012], "iron", D);
 }
 function roadBay2(id, v) {
-  const L = 6, { HW, KW } = RD, A = piece(id, "Road bay, 2-lane", L, "6 m bay of a 7.5 m two-lane asphalt carriageway with white edge lines, a dashed centre line, concrete drainage channels and kerbs both sides (the mod_road_2lane line piece).");
-  strip(A, L, 3, -HW, HW, -0.3, 0.02, "asphalt");
+  const L = 6, { HW, KW } = RD, A = piece(id, "Road bay, 2-lane", L, "6 m bay of a 7.5 m two-lane asphalt carriageway with white edge lines, the road texture's yellow centre line (solid or dashed by bay), concrete drainage channels and kerbs both sides (the mod_road_2lane line piece).");
+  strip(A, L, 3, -HW, HW, -0.3, 0.02, ["road_a", "road_b", "road_c"][v]);   // TX3: 009A / 009B / 008A mixed along a road
   for (const s of [-1, 1]) {
     strip(A, L, 3, s > 0 ? HW - 0.3 : -HW, s > 0 ? HW : -HW + 0.3, -0.1, 0.024, "channel", K);
     strip(A, L, 6, s > 0 ? HW : -HW - KW, s > 0 ? HW + KW : -HW, -0.25, 0.15, "kerb", { bv: 0.015 });
     strip(A, L, 3, s * (HW - 0.45) - 0.06, s * (HW - 0.45) + 0.06, 0.016, 0.026, "line_white", K);
   }
-  A.box([-1.5, 0.016, -0.06], [1.5, 0.026, 0.06], "line_white", K);
   const R = rng(9100 + v);
   if (v === 1) { gully(A, 1.8, HW - 0.15); gully(A, 1.8, -HW + 0.15); manhole(A, -1.2, 1.8); }
   if (v >= 1) for (let i = 0; i < 2 + v; i++) {   // patch repairs and sealed cracks

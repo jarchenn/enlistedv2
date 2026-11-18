@@ -9,6 +9,7 @@
 // the house() switchback (catalog_chateau.mjs) with solid precast steps, lift shafts carry doors at every stop, and a core
 // marked `roof` rises into a bulkhead with a door onto the roof. Rooms carry A.meta.roomTypes for the furnisher; only
 // fixed fittings (counters, bleachers, lockers, gondolas, checkouts, ticket barriers, the pool) are modelled here.
+import { variedWalls } from "./wall_variety.mjs";
 import { Asset, cutRect, wbox, P, swingSign } from "./kit.mjs";
 import { wall, partition, hinged, aabb, fbox, railing } from "./parts.mjs";
 import { mats as baseMats, comp } from "./catalog_chateau.mjs";
@@ -80,6 +81,7 @@ function modMats(A, accent = [0.08, 0.30, 0.38]) {
   A.mat("pool_tile", [0.18, 0.42, 0.52], 0.25, "tile", { texture: "tiles_pool_cyan" });
   A.mat("soil", [0.12, 0.09, 0.06], 1.0, "plain", { texture: "soil_brown" });
   A.mat("leaf", [0.05, 0.11, 0.03], 0.85, "plain");
+  variedWalls(A);   // TX3: the user's plaster / brick / concrete sets by building (tools/wall_variety.mjs)
 }
 
 function mk(id, name, description, floors, footprint, accent) {

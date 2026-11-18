@@ -175,6 +175,7 @@ The photo texture sets in `content/textures/` (L4, `docs/textures.md`) come from
 - Fetched with `tools/fetch_ambientcg.py` through the official API.
 - NT4: five 2K-JPG zips supplied by the user (Rock022, Rocks011, Bricks061, Gravel015, Ground110; CC0, ambientCG): Rock022, Rocks011 and Ground110 were already in the library (`rock_wall`, `rock_slate_layers`, `ground_rubble`); Gravel015 (`gravel_mixed`) and Bricks061 (`brick_grey_footing`) were added, packed to 1K.
 - GR1: GraffitiSet001 (2K-JPG zip supplied by the user; CC0, ambientCG, named in the zip's .usdc / .blend metadata): `graffiti_set001`, 16 tags in a 4 x 4 atlas, its Opacity map packed as the alpha; the graffiti decals (slot `decal_graffiti`).
+- TX3: 28 2K zips supplied by the user (CC0, ambientCG, named in each zip's .usdc / .blend metadata). Already in the library, so skipped: Concrete023, Concrete031 ("Concrete_floor.zip"), Concrete032 ("Concrete_pillar.zip"), PaintedPlaster006 / 014 / 016 and Bark014. Added and packed to 1K: PaintedPlaster009 / 010 / 011, Bricks037 / 042 / 054 / 059 / 077 / 082B, Planks023B / 024A / 024B / 024C / 025B / 026C / 027C, Road008A / 009A / 009B and Bark001 / 015 (see `docs/textures.md#tx3`).
 
 ## Grass plant atlas: Poly Haven (CC0)
 

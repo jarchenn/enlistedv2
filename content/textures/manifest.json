@@ -658,7 +658,8 @@
    "ma1": false,
    "batch": "L4",
    "slots": [
-    "bunker_wash"
+    "bunker_wash",
+    "pillar_concrete_032"
    ]
   },
   {
@@ -1855,7 +1856,8 @@
    "batch": "MA1",
    "slots": [
     "imgmat:plaster",
-    "sd_render_aged"
+    "sd_render_aged",
+    "wall_pp006"
    ]
   },
   {
@@ -1882,7 +1884,8 @@
    "batch": "MA1",
    "slots": [
     "imgmat:render_flaking",
-    "sd_plaster_flaking"
+    "sd_plaster_flaking",
+    "wall_pp016"
    ]
   },
   {
@@ -1907,7 +1910,9 @@
    "family": "plaster (MA1)",
    "ma1": true,
    "batch": "MA1",
-   "slots": []
+   "slots": [
+    "wall_pp014"
+   ]
   },
   {
    "set": "plaster_old_b",
@@ -2089,6 +2094,7 @@
    "ma1": true,
    "batch": "MA1",
    "slots": [
+    "floor_concrete_031",
     "imgmat:formwork"
    ]
   },
@@ -3284,7 +3290,8 @@
    "ma1": false,
    "batch": "TX2",
    "slots": [
-    "concrete_cracked_white"
+    "concrete_cracked_white",
+    "wall_concrete_023"
    ]
   },
   {
@@ -6160,6 +6167,551 @@
    "batch": "L4",
    "slots": [
     "rb_floor_dirty"
+   ]
+  },
+  {
+   "set": "plaster_paint_009",
+   "id": "PaintedPlaster009",
+   "url": "https://ambientcg.com/a/PaintedPlaster009",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2.5,
+    2.5
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "grey-green painted plaster, small flakes to brick",
+   "ma1": false,
+   "batch": "TX3",
+   "slots": [
+    "wall_pp009"
+   ]
+  },
+  {
+   "set": "plaster_paint_010",
+   "id": "PaintedPlaster010",
+   "url": "https://ambientcg.com/a/PaintedPlaster010",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2.5,
+    2.5
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "white painted plaster heavily flaked to red brick",
+   "ma1": false,
+   "batch": "TX3",
+   "slots": [
+    "wall_pp010"
+   ]
+  },
+  {
+   "set": "plaster_paint_011",
+   "id": "PaintedPlaster011",
+   "url": "https://ambientcg.com/a/PaintedPlaster011",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2.5,
+    2.5
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "green-grey painted plaster, mossy, few flakes",
+   "ma1": false,
+   "batch": "TX3",
+   "slots": [
+    "wall_pp011"
+   ]
+  },
+  {
+   "set": "brick_037",
+   "id": "Bricks037",
+   "url": "https://ambientcg.com/a/Bricks037",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1.45,
+    1.45
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "rough pale red brick, wide sandy mortar",
+   "ma1": false,
+   "batch": "TX3",
+   "slots": [
+    "brick_037"
+   ]
+  },
+  {
+   "set": "brick_042",
+   "id": "Bricks042",
+   "url": "https://ambientcg.com/a/Bricks042",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "mixed red / buff / grey brick",
+   "ma1": false,
+   "batch": "TX3",
+   "slots": [
+    "brick_042"
+   ]
+  },
+  {
+   "set": "brick_054",
+   "id": "Bricks054",
+   "url": "https://ambientcg.com/a/Bricks054",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1.2,
+    1.2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "dark red brick, white mortar",
+   "ma1": false,
+   "batch": "TX3",
+   "slots": [
+    "brick_054"
+   ]
+  },
+  {
+   "set": "brick_059",
+   "id": "Bricks059",
+   "url": "https://ambientcg.com/a/Bricks059",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1.2,
+    1.2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "red brick, pale mortar",
+   "ma1": false,
+   "batch": "TX3",
+   "slots": [
+    "brick_059"
+   ]
+  },
+  {
+   "set": "brick_077",
+   "id": "Bricks077",
+   "url": "https://ambientcg.com/a/Bricks077",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1.1,
+    1.1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "old orange-red brick, worn",
+   "ma1": false,
+   "batch": "TX3",
+   "slots": [
+    "brick_077"
+   ]
+  },
+  {
+   "set": "brick_082b",
+   "id": "Bricks082B",
+   "url": "https://ambientcg.com/a/Bricks082B",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1.8,
+    1.8
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "red brick, clean white mortar",
+   "ma1": false,
+   "batch": "TX3",
+   "slots": [
+    "brick_082b"
+   ]
+  },
+  {
+   "set": "planks_023b",
+   "id": "Planks023B",
+   "url": "https://ambientcg.com/a/Planks023B",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "weathered grey-brown planks",
+   "ma1": false,
+   "batch": "TX3",
+   "slots": [
+    "planks_023b"
+   ]
+  },
+  {
+   "set": "planks_024a",
+   "id": "Planks024A",
+   "url": "https://ambientcg.com/a/Planks024A",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1.4,
+    1.4
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "dark weathered planks, nail heads",
+   "ma1": false,
+   "batch": "TX3",
+   "slots": [
+    "planks_024a"
+   ]
+  },
+  {
+   "set": "planks_024b",
+   "id": "Planks024B",
+   "url": "https://ambientcg.com/a/Planks024B",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1.4,
+    1.4
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "dark weathered planks, nail heads (B)",
+   "ma1": false,
+   "batch": "TX3",
+   "slots": [
+    "planks_024b"
+   ]
+  },
+  {
+   "set": "planks_024c",
+   "id": "Planks024C",
+   "url": "https://ambientcg.com/a/Planks024C",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1.4,
+    1.4
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "dark weathered planks, nail heads (C)",
+   "ma1": false,
+   "batch": "TX3",
+   "slots": [
+    "planks_024c"
+   ]
+  },
+  {
+   "set": "planks_025b",
+   "id": "Planks025B",
+   "url": "https://ambientcg.com/a/Planks025B",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1.4,
+    1.4
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "very dark old planks",
+   "ma1": false,
+   "batch": "TX3",
+   "slots": [
+    "planks_025b"
+   ]
+  },
+  {
+   "set": "planks_026c",
+   "id": "Planks026C",
+   "url": "https://ambientcg.com/a/Planks026C",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    2,
+    2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "yellow-brown worn painted planks",
+   "ma1": false,
+   "batch": "TX3",
+   "slots": [
+    "planks_026c"
+   ]
+  },
+  {
+   "set": "planks_027c",
+   "id": "Planks027C",
+   "url": "https://ambientcg.com/a/Planks027C",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1,
+    1
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "green-stained worn planks",
+   "ma1": false,
+   "batch": "TX3",
+   "slots": [
+    "planks_027c"
+   ]
+  },
+  {
+   "set": "road_008a",
+   "id": "Road008A",
+   "url": "https://ambientcg.com/a/Road008A",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    7.5,
+    7.5
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "asphalt carriageway, yellow dashed centre and edge lines (rolled: centre line on the origin)",
+   "ma1": false,
+   "batch": "TX3",
+   "slots": [
+    "road_008a"
+   ]
+  },
+  {
+   "set": "road_009a",
+   "id": "Road009A",
+   "url": "https://ambientcg.com/a/Road009A",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    7.5,
+    7.5
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "asphalt carriageway, solid yellow centre line (rolled)",
+   "ma1": false,
+   "batch": "TX3",
+   "slots": [
+    "road_009a"
+   ]
+  },
+  {
+   "set": "road_009b",
+   "id": "Road009B",
+   "url": "https://ambientcg.com/a/Road009B",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    7.5,
+    7.5
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "worn asphalt carriageway, solid yellow centre line, cracks (rolled)",
+   "ma1": false,
+   "batch": "TX3",
+   "slots": [
+    "road_009b"
+   ]
+  },
+  {
+   "set": "bark_001",
+   "id": "Bark001",
+   "url": "https://ambientcg.com/a/Bark001",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1.2,
+    1.2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "grey deeply furrowed bark (oak)",
+   "ma1": false,
+   "batch": "TX3",
+   "slots": [
+    "bark_001"
+   ]
+  },
+  {
+   "set": "bark_015",
+   "id": "Bark015",
+   "url": "https://ambientcg.com/a/Bark015",
+   "license": "CC0 1.0 Universal",
+   "resolution": "1K-JPG",
+   "downloaded": true,
+   "maps": [
+    "ao.jpg",
+    "color.jpg",
+    "height.jpg",
+    "normal.jpg",
+    "roughness.jpg"
+   ],
+   "sizeM": [
+    1.2,
+    1.2
+   ],
+   "sizeSource": "estimated from the preview (ambientCG lists no dimensions)",
+   "family": "pale fibrous stringy bark / weathered log",
+   "ma1": false,
+   "batch": "TX3",
+   "slots": [
+    "bark_015"
    ]
   },
   {

@@ -25,6 +25,7 @@ function weatherMat(m, seed) {
     o.albedo = m.albedo.map((v) => v * 0.55 + 0.04); o.roughness = Math.min(1, (m.roughness || 0.1) + 0.35);
     return o;
   }
+  if (/^(wall_pp|brick_0|road_0|planks_0|wall_concrete|pillar_concrete|floor_concrete|bark_0)/.test(tex)) return o;   // TX3: the user's sets (tools/wall_variety.mjs) are weathered already: the abandoned variant keeps them
   if (/plinth|footing|foundation|socle/.test(n)) t = pick(["footing_brick", "footing_rock", "footing_brick"]);   // NT4: exposed footing (Bricks061 / Rock022)
   else if (/brick/.test(n + tex) || pat === "brick" || pat === "brickwork") t = pick(["brick_worn", "brick_damaged", "brick_worn"]);
   else if (/render|plaster|stucco/.test(n + tex) || ["plaster", "limewash", "interior"].includes(pat)) t = pick(["render_stained", "render_aged", "render_stained"]);   // NT7: no plaster_flaking (it read as camouflage blotches at building scale)

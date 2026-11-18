@@ -10,6 +10,7 @@
 // copy of the one in catalog_gx_buildings.mjs, which does not export it). Commercial fittings that define a building
 // (counters, booths, fryer line, hoods, pumps, benches, ticket desk) are fixed parts; the auto-furnisher dresses the
 // rest by A.meta.roomTypes. Signs are blank coloured panels only.
+import { variedWalls } from "./wall_variety.mjs";
 import { Asset, wbox, P, cutRect } from "./kit.mjs";
 import { partition, door, fbox, fpart } from "./parts.mjs";
 import { mats, face, house, meta } from "./catalog_chateau.mjs";
@@ -72,6 +73,7 @@ function modMats(A) {
   A.mat("ceiling", [0.82, 0.81, 0.78], 0.9, "plaster", { texture: "plaster_painted" });   // AS1: ceilings under upper floors
   A.mat("door_frame", [0.80, 0.80, 0.78], 0.45, "metal", { metallic: 0.15 });   // AS1: light painted-steel door frames
   tdMats(A);   // TD1: facade kit (the outer asset of a placeSub build needs them too)
+  variedWalls(A);   // TX3: the user's plaster / brick / concrete sets by building (tools/wall_variety.mjs)
 }
 function mmeta(id, name, category, desc, floors, footprint) {
   const A = meta(id, name, category, desc, floors, footprint, { version: 1, plinthDepth: 0, noAutoPanels: true, maxGrade: 0.5 });

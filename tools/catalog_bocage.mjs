@@ -16,7 +16,7 @@ function bocageMats(A) {
   A.materials.push({ ...SOIL });
   mats(A, "spoil", "mud", "rock", "rock_dark", "log_raw", "bark_grey", "water", "reed", "reed_green");
   // NT pass: bark is the L4 bark set along each part's axis over a plain base (the wood pattern drew plank seams)
-  for (const m of A.materials) if (m.name === "bark" || m.name === "bark_grey") Object.assign(m, { pattern: "plain", texture: "bark", grain: 1 });
+  for (const m of A.materials) if (m.name === "bark" || m.name === "bark_grey") Object.assign(m, { pattern: "plain", texture: m.name === "bark_grey" ? "bark_001" : "bark", grain: 1 });   // TX3: felled logs and stumps in Bark001
   // quarry rock: the natural-rock pattern (limestone lithology, as the slope rock and boulders; its albedo multiplies
   // that palette) instead of coursed masonry, which made the face and talus read as brickwork
   for (const m of A.materials) if (m.name === "rock" || m.name === "rock_dark") Object.assign(m, { albedo: m.name === "rock" ? [0.95, 0.92, 0.86] : [0.7, 0.68, 0.64], pattern: "rock", texture: "rock" });

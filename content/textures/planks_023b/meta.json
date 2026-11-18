@@ -1,0 +1,20 @@
+{
+ "set": "planks_023b",
+ "id": "Planks023B",
+ "family": "weathered grey-brown planks",
+ "size": [
+  1.0,
+  1.0
+ ],
+ "source": "https://ambientcg.com/a/Planks023B",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "2K (supplied by the user), packed to 1K",
+ "maps": [
+  "ao.jpg",
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

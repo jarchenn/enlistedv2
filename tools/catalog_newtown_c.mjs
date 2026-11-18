@@ -9,6 +9,7 @@
 // construction frames carry nav rooms but no floor-material slabs, so the interior system finds no rooms there and
 // never furnishes or finishes them. Walkable props (pier, pontoon, bridges, channel steps) are non-enterable with
 // effect "block" (the navmesh walks their colliders); the pier and pontoon also carry nav rooms.
+import { variedWalls } from "./wall_variety.mjs";
 import { Asset, wbox, cutRect, P } from "./kit.mjs";
 import { wall, partition, door, window, stairs, railing, fbox, fpart, hinged, aabb, chimney } from "./parts.mjs";
 import { mats, face, house, meta } from "./catalog_chateau.mjs";
@@ -114,6 +115,7 @@ function ntMats(A) {
   A.mat("ceiling", [0.82, 0.81, 0.78], 0.9, "plaster", { texture: "plaster_painted" });   // AS1: ceilings under upper floors
   A.mat("door_frame", [0.80, 0.80, 0.78], 0.45, "metal", { metallic: 0.15 });   // AS1: light painted-steel door frames
   tdMats(A);   // TD1 facade kit
+  variedWalls(A);   // TX3: the user's plaster / brick / concrete sets by building (tools/wall_variety.mjs)
 }
 // TD1 town pass on a house() build under a flatRoof (parapet 0.25 thick, coping underside yt)
 const hTown = (A, k, yt, o = {}) => tdTown(A, { x0: -k.X, x1: k.X, z0: -k.Z, z1: k.Z }, { yW: k.EAVE, yd: k.EAVE + 0.16, yt, t: 0.25, ...o });

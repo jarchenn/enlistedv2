@@ -189,3 +189,17 @@ Perf switch `relief` (`Renderer::Perf::relief`, `--rq-off relief`, `NMK_PERF_AB=
 - **Plaster flaking.** Under relief, the step from render down to the substrate is deeper (14 mm) and its lip shadow darker.
 - **Scale fix.** `brick_worn` (Bricks074) was declared 2 m, but it holds about 46 courses: about 3.3 m of brickwork. Chimneys and the checkerwork drew bricks at 60 % size, about 4 px tall at 5 m on Medium.
 - **Shots.** `NMK_MA1B_SHOTS=1 --selftest-render` writes the chimney and roof at 3 / 15 / 35 m, then stone, brick, timber, rock, sandbags and bark at 1 and 5 m, side-lit, to `selftest_out/ma1b_*.png`.
+
+## TX3: the user's wall, road, plank and bark sets
+
+21 ambientCG sets added from the user's zips (`docs/credits.md`); their slots are in `textures.json` after `decal_graffiti`.
+
+- **Walls, mixed by building.** `tools/wall_variety.mjs` gives each modern building's render, brick and cast-concrete materials a slot chosen by a hash of the asset id and material name, so neighbouring buildings differ and one building mixes several:
+  - render: `wall_pp009` / `010` / `011` / `006` / `014` / `016` (PaintedPlaster009 / 010 / 011 / 006 / 014 / 016) or the old `render_lime`. Each painted plaster has a brick substrate (`under`: Bricks054 / 059 / 037 / 077 / 082B / 042) showing where the macro mask breaks the paint;
+  - brick: `brick_037` / `042` / `054` / `059` / `077` / `082b` or the old `brick_muted` / `brick_factory`;
+  - cast concrete: `wall_concrete_023`, `pillar_concrete_032` or `concrete_formwork`. Concrete floors: `floor_concrete_031`.
+  The abandoned variants keep these sets (`tools/ruin_kit.mjs`); the GR1 graffiti decals draw over them.
+- **Roads.** The 2-lane bays take Road009A, 009B and 008A (bays a / b / c, mixed along a line) in asset space across the 7.5 m carriageway. The images are rolled half a tile, so the yellow centre line falls on the road centre; the bays' white centre dash is gone.
+- **Boards.** Planks023B to 027C on the rb1 buildings: floors, doors, shutters, plinths, gables, the shop lining and verandah. They map in asset space, so the boards run horizontally on every wall.
+- **Bark.** Bark001 on the oak (and the nt3 oaks), on felled logs, stumps and the fallen tree; Bark015 on the poplar and the rb1 log house's round logs; ash and apple keep Bark014 (`bark`).
+- **Limits.** The slot table went from 320 to 448 and the layer table from 192 to 256 (`kMaxSlots`, `kMaxLayers`; a 44 KB uniform block). Alias and `set:` slots had already passed 320 before TX3, and those materials fell back to procedural.

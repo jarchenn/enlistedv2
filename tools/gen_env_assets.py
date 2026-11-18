@@ -175,7 +175,7 @@ def branch_tree(id_, name, desc, seed, trunk_h, r0, n_primary, prim_len, prim_pi
 #   clump3(canopy, c, r, rng, sats, out) a leaf cluster: a main sphere and smaller satellites pushed outward (lumpy)
 # Foliage assets split their parts at the stump cut by the part's own y extent (foliage.cpp), so anything meant to stay
 # on the stump must end below it; round parts never split, they go whole to the side their extent says.
-def mat3(name, albedo, rough=0.95):   # bark: the L4 bark set along the part's axis over a plain base (no plank seams)
+def mat3(name, albedo, rough=0.95):   # TX3: tree3 swaps the slot per species (bark_set: oak Bark001, poplar Bark015). bark: the L4 bark set along the part's axis over a plain base (no plank seams)
     return {"name": name, "albedo": albedo, "roughness": rough, "pattern": "plain", "texture": "bark", "metallic": 0, "grain": 1}
 
 
@@ -249,7 +249,7 @@ def cards3(canopy, dens):   # leaf cards the engine builds for this canopy (foli
 
 
 def tree3(id_, name, desc, seed, trunk_h, r0, n_primary, prim_len, prim_pitch, sec_per, sec_len, cluster_r, leaf_col, leaf_size,
-          height, lean=(0.0, 0.0), columnar=False, extra_inner=3, density=34, mat="bark", hp=30, bend=-14, roots=5, nseg=3, low=0.25):
+          height, lean=(0.0, 0.0), columnar=False, extra_inner=3, density=34, mat="bark", hp=30, bend=-14, roots=5, nseg=3, low=0.25, bark_set="bark"):
     rng = random.Random(seed)
     parts = []
     for i in range(6):   # colliders: the v2 trunk boxes, unchanged, invisible
@@ -286,7 +286,7 @@ def tree3(id_, name, desc, seed, trunk_h, r0, n_primary, prim_len, prim_pitch, s
     print(f"{id_}: {len(parts)} parts, {len(canopy)} clusters, {cards3(canopy, density)} leaf cards")
     return {"id": id_, "version": 3, "name": name, "category": "Vegetation", "description": desc,
             "floors": 0, "enterable": False, "footprint": [1.2, 1.2], "plinthDepth": 0, "maxGrade": 1.5,
-            "materials": BARK3, "parts": parts, "furniture": [], "interactables": [], "panels": [],
+            "materials": [dict(m, texture=bark_set) for m in BARK3], "parts": parts, "furniture": [], "interactables": [], "panels": [],
             "tree": {"hpBullet": hp, "hpAT": 1, "stumpHeight": 0.4, "trunkRadius": r0, "mass": round(math.pi * r0 * r0 * height * 0.5 * 700),
                      "canopy": canopy, "cardsPerSphere": density, "cardDensity": density, "leafSize": leaf_size, "leafColor": leaf_col, "seed": seed,
                      "note": "Hit points are game tuning: small-arms hits, or one AT / HE strike within 1.5 m of the trunk."}}
@@ -295,9 +295,9 @@ def tree3(id_, name, desc, seed, trunk_h, r0, n_primary, prim_len, prim_pitch, s
 save(tree3("tree_apple", "Apple tree (orchard)", "Low Normandy cider-orchard apple: short leaning bole, spreading crooked limbs, clustered crown (~4.5 m).",
            11, 1.4, 0.14, 5, 1.5, 34, 2, 0.9, 0.85, [0.17, 0.25, 0.09], 0.19, 4.5, lean=(0.05, 0.02), extra_inner=3, density=56, bend=-18, roots=4))
 save(tree3("tree_oak", "Hedgerow oak", "Pedunculate oak of the bocage: thick flared bole, wide irregular crown of many leaf clusters (~11 m).",
-           13, 3.6, 0.38, 6, 3.2, 26, 3, 2.0, 1.35, [0.13, 0.2, 0.07], 0.22, 11.0, lean=(0.02, -0.03), extra_inner=7, density=60, bend=-16, roots=6, low=0.45))
+           13, 3.6, 0.38, 6, 3.2, 26, 3, 2.0, 1.35, [0.13, 0.2, 0.07], 0.22, 11.0, lean=(0.02, -0.03), extra_inner=7, density=60, bend=-16, roots=6, low=0.45, bark_set="bark_001"))
 save(tree3("tree_poplar", "Lombardy poplar", "Tall columnar poplar used as a windbreak along lanes (~16 m).",
-           17, 12.0, 0.26, 12, 2.0, 76, 2, 1.2, 1.1, [0.19, 0.27, 0.1], 0.17, 16.0, columnar=True, extra_inner=8, density=40, mat="bark_pale", bend=6, nseg=5))
+           17, 12.0, 0.26, 12, 2.0, 76, 2, 1.2, 1.1, [0.19, 0.27, 0.1], 0.17, 16.0, columnar=True, extra_inner=8, density=40, mat="bark_pale", bend=6, nseg=5, bark_set="bark_015"))
 save(tree3("tree_ash", "Ash tree", "Young field ash: slender grey bole, open upswept crown (~8 m).",
            23, 2.8, 0.2, 5, 2.2, 45, 2, 1.4, 1.0, [0.18, 0.26, 0.09], 0.19, 8.0, lean=(-0.03, 0.03), extra_inner=3, density=50, mat="bark_pale", bend=10))
 
