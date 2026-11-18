@@ -268,7 +268,8 @@
       }
     },
     {
-      "id": "mod_road_2lane", "clearGrass": 7.8,
+      "id": "mod_road_2lane",
+      "clearGrass": 7.8,
       "name": "Road, 2-lane (modern)",
       "asset": "line_mod_road_2lane",
       "builder": "bays",
@@ -290,7 +291,8 @@
       "params": {}
     },
     {
-      "id": "mod_road_4lane", "clearGrass": 16.3,
+      "id": "mod_road_4lane",
+      "clearGrass": 16.3,
       "name": "Road, dual carriageway (modern)",
       "asset": "line_mod_road_4lane",
       "builder": "bays",
@@ -312,7 +314,8 @@
       "params": {}
     },
     {
-      "id": "mod_sidewalk", "clearGrass": 2.5,
+      "id": "mod_sidewalk",
+      "clearGrass": 2.5,
       "name": "Sidewalk (concrete flags)",
       "asset": "line_mod_sidewalk",
       "builder": "bays",
@@ -494,6 +497,81 @@
         ]
       ],
       "params": {}
+    },
+    {
+      "id": "mod_wall_cement",
+      "name": "Cement fence wall (model)",
+      "asset": "line_mod_wall_cement",
+      "builder": "bays",
+      "spacing": 3.444,
+      "pieces": [
+        [
+          "mod_wall_cement_bay",
+          1
+        ]
+      ],
+      "params": {}
+    },
+    {
+      "id": "mod_wall_brick_rail",
+      "name": "Brick wall with railing (model)",
+      "asset": "line_mod_wall_brick_rail",
+      "builder": "bays",
+      "spacing": 4.6,
+      "pieces": [
+        [
+          "mod_wall_brick_rail_bay",
+          1
+        ]
+      ],
+      "params": {}
+    },
+    {
+      "id": "mod_wall_compound",
+      "name": "Compound wall, 2.8 m (model)",
+      "asset": "line_mod_wall_compound",
+      "builder": "bays",
+      "spacing": 6.823,
+      "pieces": [
+        [
+          "mod_wall_compound_bay",
+          1
+        ]
+      ],
+      "params": {},
+      "gates": [
+        "mod_wall_compound_doorway"
+      ]
+    },
+    {
+      "id": "def_sandbag_bags_low",
+      "name": "Sandbag wall, low (model)",
+      "asset": "line_def_sandbag_bags_low",
+      "builder": "bays",
+      "spacing": 2.072,
+      "pieces": [
+        [
+          "def_sandbag_bags_low",
+          1
+        ]
+      ],
+      "params": {},
+      "sectionHp": 360
+    },
+    {
+      "id": "def_sandbag_bags_high",
+      "name": "Sandbag wall, high (model)",
+      "asset": "line_def_sandbag_bags_high",
+      "builder": "bays",
+      "spacing": 2.072,
+      "pieces": [
+        [
+          "def_sandbag_bags_high",
+          1
+        ]
+      ],
+      "params": {},
+      "sectionHp": 360
     }
   ]
 }

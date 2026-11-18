@@ -1952,6 +1952,7 @@ static const char* kEyepieceFS = R"GLSL(
 #version 450 core
 in vec2 vUV;
 uniform sampler2D uSrc; uniform vec2 uRes; uniform float uR, uDark, uShade; uniform int uReticle, uMode;
+uniform float uPxMoa, uRetSize, uRetBright;   // AT2: px per MOA in the magnified view; Settings > Gameplay reticle size / brightness
 uniform int uThermal, uNSpots; uniform sampler2D uHeat, uDepthT; uniform vec4 uSpots[16]; uniform float uSpotZ[16], uTime;   // TH1
 out vec4 oColor;
 float segD(vec2 p, vec2 a, vec2 b){ vec2 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba)/dot(ba, ba), 0.0, 1.0); return length(pa - ba*h); }
@@ -1965,25 +1966,26 @@ float reticleInk(vec2 q, float R){
     if (q.y <= 0.0) ink = cov(abs(q.x) - hw*min(1.0, -q.y/tip));
     ink = max(ink, cov(max(abs(q.y) - max(1.0, R*0.007), R*0.18 - abs(q.x))));
   } else if (uReticle == 2) {   // US M81 / M82 (M1C): fine crosshair, tapered lower post
-    float t = max(0.8, R*0.002);
+    float t = 0.5*max(1.0, uRetSize);   // AT2: 1 px lines
     ink = cov(abs(q.y) - t);
     ink = max(ink, cov(abs(q.x) - (q.y > 0.0 ? t : max(t, 0.012*(-q.y)))));
   } else if (uReticle == 4) {   // MG3 plain "+": fine full-width crosshair (the AR-15's 3x scope)
-    float t = max(0.8, R*0.0025);
+    float t = 0.5*max(1.0, uRetSize);
     ink = cov(min(abs(q.x), abs(q.y)) - t);
   } else if (uReticle == 5) {   // SC1 M24 mil-dot style: thick outer posts tapering to a fine cross, mil ticks, red dotted centre, holdover dots
-    float t = max(0.7, R*0.0016), m = R*0.06;   // line half width, one mil
+    float t = 0.5*max(1.0, uRetSize), m = R*0.06;   // line half width (AT2: 1 px), one mil
+    float cd = max(0.75*max(0.67, uRetSize), 0.375*uPxMoa*uRetSize);   // AT2: the red centre dots 0.75 MOA across, never under ~1.5 px
     vec2 a = abs(q); float post = smoothstep(0.62*R, 0.72*R, max(a.x, a.y)) * max(2.5, R*0.012);
     ink = max(cov(a.y - (a.x > a.y ? max(t, post) : t)), cov(a.x - (a.y > a.x ? max(t, post) : t)));
     for (int k = 1; k <= 9; ++k) {
       float h = (k % 5 == 0 ? 0.35 : 0.2)*m;
       ink = max(ink, max(cov(max(abs(a.x - float(k)*m) - t, a.y - h)), cov(max(abs(a.y - float(k)*m) - t, a.x - h))));
     }
-    for (int k = -3; k <= 3; ++k) if (k != 0) redInk = max(redInk, max(cov(length(q - vec2(float(k)*0.33*m, 0.0)) - 1.6*t), cov(length(q - vec2(0.0, float(k)*0.33*m)) - 1.6*t)));
+    for (int k = -3; k <= 3; ++k) if (k != 0) redInk = max(redInk, max(cov(length(q - vec2(float(k)*0.33*m, 0.0)) - cd), cov(length(q - vec2(0.0, float(k)*0.33*m)) - cd)));
     for (int s = -1; s <= 1; s += 2) for (int i = 0; i < 2; ++i) for (int j = 0; j < 2; ++j)   // holdover dot clusters, lower left / right
-      ink = max(ink, cov(length(q - vec2(float(s)*(2.6 + 0.5*float(i))*m, -(2.6 + 0.5*float(j))*m)) - 1.6*t));
+      ink = max(ink, cov(length(q - vec2(float(s)*(2.6 + 0.5*float(i))*m, -(2.6 + 0.5*float(j))*m)) - max(1.0, uRetSize)));
   } else if (uReticle == 6) {   // SC1 .50: thick side / bottom posts, thin top line, fine centre cross with mil ticks, range funnel below
-    float t = max(0.7, R*0.0016), m = R*0.05, pw = max(2.5, R*0.012);
+    float t = 0.5*max(1.0, uRetSize), m = R*0.05, pw = max(2.5, R*0.012);
     vec2 a = abs(q);
     ink = cov(a.y - (a.x > 0.32*R ? pw : t));                       // horizontal: thick posts from 0.32 R out
     ink = max(ink, cov(a.x - (q.y < -0.78*R ? pw : t)));            // vertical: thin, thick post at the bottom
@@ -1995,16 +1997,16 @@ float reticleInk(vec2 q, float R){
       if (a.x < w) ink = max(ink, cov(min(yy, stp - yy) - t));
     }
   } else if (uReticle == 7) {   // SC1 ACOG-style: red chevron, its tip the aim point, and a bullet-drop ladder below
-    float t = max(0.8, R*0.0022), u = R*0.07;
-    float dch = min(segD(q, vec2(0.0), vec2(-u, -0.9*u)), segD(q, vec2(0.0), vec2(u, -0.9*u)));
-    redInk = cov(dch - 2.2*t);
+    float t = 0.5*max(1.0, uRetSize), u = R*0.07, uc = max(5.0, 6.0*uPxMoa)*uRetSize;   // AT2: the chevron about 6 MOA, 1.2 px strokes
+    float dch = min(segD(q, vec2(0.0), vec2(-uc, -0.9*uc)), segD(q, vec2(0.0), vec2(uc, -0.9*uc)));
+    redInk = cov(dch - 0.6*max(1.0, uRetSize));
     if (q.y < -1.4*u && q.y > -6.0*u) ink = cov(abs(q.x) - t);       // the drop post
     for (int k = 0; k < 4; ++k) { float y = -(2.0 + 1.1*float(k))*u, hw = (0.9 - 0.18*float(k))*u; ink = max(ink, cov(max(abs(q.y - y) - t, abs(q.x) - hw))); }
   } else if (uReticle == 8) {   // TH1 thermal: thin cross with an open centre, a small red dot, range ticks down the lower post
-    float t = max(0.6, R*0.0014), gap = R*0.06; vec2 a = abs(q);
+    float t = 0.5*max(1.0, uRetSize), gap = R*0.06; vec2 a = abs(q);
     ink = max(cov(max(a.y - t, gap - a.x)), cov(max(a.x - t, gap - a.y)));
     for (int k = 1; k <= 5; ++k) ink = max(ink, cov(max(abs(q.y + gap + float(k)*R*0.075) - t, a.x - R*((k % 2 == 0) ? 0.032 : 0.018))));
-    redInk = cov(length(q) - max(1.4, R*0.0055));
+    redInk = cov(length(q) - uRetSize);   // AT2: a 2 px dot
   } else if (uReticle == 3) {   // TZF: big chevron (aim point at its tip), a row of small range chevrons, a post, dotted range arcs
     float u = R*0.25, lw = max(1.0, R*0.0035), d = 1e9;
     d = min(d, segD(q, vec2(0.0), vec2(-0.45*u, -0.63*u)));
@@ -2052,7 +2054,7 @@ void main(){
   }
   sharp *= (rifle ? mix(1.0, 0.25, smoothstep(0.62*R, Ri, r)) : mix(1.0, 0.6, smoothstep(0.8*R, R, r)));
   sharp = mix(sharp, vec3(0.0015), reticleInk(q, Ri));
-  sharp = mix(sharp, vec3(4.0, 0.12, 0.06), redInk);   // illuminated parts glow red
+  sharp = mix(sharp, vec3(4.0, 0.12, 0.06)*uRetBright, redInk);   // illuminated parts glow red (AT2: Settings > Gameplay brightness)
   float bl = R*(rifle ? 0.035 : 0.09), lod = log2(max(1.0, bl/3.0));   // SC1: the rifle surround only a little blurred
   vec3 s = vec3(0.0);
   for (int i = 0; i < 16; ++i) {
@@ -3236,7 +3238,7 @@ void main(){
 static const char* kToneFS = R"GLSL(
 #version 450 core
 in vec2 vUV;
-uniform sampler2D uHdr, uExpo, uBloom; uniform float uFixedExpo, uBloomAmt, uEyeR, uAspect, uRectVig, uMicro; uniform int uTonemap;
+uniform sampler2D uHdr, uExpo, uBloom, uVmDist; uniform float uFixedExpo, uBloomAmt, uEyeR, uAspect, uRectVig, uMicro; uniform int uTonemap;
 uniform float uUnderTone;   // 1: under water (swim.cpp): blue-green tint, stronger vignette
 // GX5 grade (content/settings/grade.json, docs/graphics-overhaul.md#gx5-grade): saturation, cool shadows / warm
 // highlights, a gentle S-curve, vignette, chromatic aberration (0 = off), and an edge-aware sharpen of the image
@@ -3285,6 +3287,7 @@ void main(){
 
   float bAmt = uBloomAmt;   // optic eyepiece: no bloom over its dark surround (the bloom is taken from the whole lit view)
   if (uEyeR > 0.0) bAmt *= 1.0 - smoothstep(0.98*uEyeR, 1.02*uEyeR, length((vUV - 0.5)*vec2(uAspect, 1.0)));
+  if (texture(uVmDist, vUV).r > 0.0) bAmt = 0.0;   // VM2: the bloom is the world's, taken before the first-person weapon was drawn: blended over the dark gun it showed the ground through it
   if (bAmt > 0.0) c = mix(c, texture(uBloom, vUV).rgb/6.0, bAmt);   // chain sums 6 levels; energy-preserving blend, not an add
   float e = uFixedExpo > 0.0 ? uFixedExpo : texelFetch(uExpo, ivec2(0), 0).r;
   c = uTonemap == 0 ? aces(c*e*0.8) : filmic(c*e*1.22);
@@ -4819,6 +4822,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   if (!thumbMode && !q.legacy) { RenderView vj = v; vj.proj = projJ; worldComposite(vj, vp); }
   gpuMark(GP_Taa);
   if (taaOn) taaResolve(vp, vpU, v);
+  if (vmOnly == 3) { float z[4] = {0, 0, 0, 0}; glClearTexImage(hdrColor, 0, GL_RGBA, GL_FLOAT, z); }   // VM2 self-test: the world black from here on (bloom, effects, the weapon over it)
   // bloom is taken from the lit world *before* effects are drawn, so muzzle flashes, tracers and impact sparks
   // look as they did before this pass (no glow)
   gpuMark(GP_Bloom);
@@ -4857,6 +4861,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glUniform1f(U(progEyepiece, "uDark"), v.reticle == 3 ? 0.006f : 0.7f);   // linear: gunner sight soft black; SC1 rifle scopes: the blurred view, a little darker
     glUniform1f(U(progEyepiece, "uShade"), 0.6f);
     glUniform1i(U(progEyepiece, "uReticle"), v.reticle); glUniform1i(U(progEyepiece, "uMode"), mode);
+    glUniform1f(U(progEyepiece, "uPxMoa"), v.proj[1][1] * height * 0.5f * 2.908882e-4f);   // AT2: reticle parts sized in angle
+    glUniform1f(U(progEyepiece, "uRetSize"), v.reticleSize); glUniform1f(U(progEyepiece, "uRetBright"), v.reticleBright);
     glUniform1i(U(progEyepiece, "uThermal"), v.thermal && mode == 0 && heatTex ? 1 : 0);
     if (v.thermal && mode == 0 && heatTex) {   // TH1: the heat target, the scene depth, the hot spots (fires, blasts, muzzle flashes) projected
       glBindTextureUnit(5, heatTex); glUniform1i(U(progEyepiece, "uHeat"), 5); glBindTextureUnit(6, depthTex); glUniform1i(U(progEyepiece, "uDepthT"), 6);
@@ -4904,7 +4910,12 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       setLighting(progModel, v);
       glUniform1f(U(progModel, "uVmVel"), 1.0f);
       glUniformMatrix4fv(U(progModel, "uVP"), 1, GL_FALSE, glm::value_ptr(vvp));
-      drawModels(viewModelTex);
+      bool fpsArmsIsModel(const GpuModel* g);
+      auto vmArmMaterial = [](std::string n) { for (auto& c : n) c = (char)std::tolower((unsigned char)c); for (const char* k : {"arms", "hand", "glove", "sleeve", "cloth", "body", "manny"}) if (n.find(k) != std::string::npos) return true; return false; };   // the rigs' arm, glove and sleeve materials
+      if (vmOnly) {   // VM2 self-test: the arms alone (1) or the gun alone (2)
+        std::vector<ModelDraw> keep; for (auto& d : viewModelTex) { const auto& pt = d.model->parts[d.part]; bool arm = fpsArmsIsModel(d.model) || (pt.mat >= 0 && pt.mat < (int)d.model->mats.size() && vmArmMaterial(d.model->mats[pt.mat].name)); if (arm == (vmOnly == 1)) keep.push_back(d); }
+        drawModels(keep);
+      } else drawModels(viewModelTex);
       glUniform1f(U(progModel, "uVmVel"), 0.0f);
       glEnable(GL_CULL_FACE);
     }
@@ -4970,6 +4981,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   }
   glUniform1i(U(progTone, "uTonemap"), q.legacy ? 0 : 1);
   glBindTextureUnit(2, bloomTex[0]); glUniform1i(U(progTone, "uBloom"), 2);
+  glBindTextureUnit(3, vmDistTex); glUniform1i(U(progTone, "uVmDist"), 3);   // VM2: no world bloom on the first-person weapon
   glUniform1f(U(progTone, "uMicro"), thumbMode || q.legacy || eyepiece ? 0.0f : q.microcontrast);   // UI2 (the eyepiece view has no fresh mips)
   glUniform1f(U(progTone, "uBloomAmt"), !q.legacy && q.bloom ? std::min(1.0f, q.bloomStrength * lt.mapBloom) : 0.0f);   // BR3: x the map's bloom
   glUniform1f(U(progTone, "uRectVig"), v.rectVignette && !thumbMode ? 1.0f : 0.0f);   // TK3

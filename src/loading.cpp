@@ -11,6 +11,7 @@
 #include "mainmenu.h"
 #include "logo.h"
 #include "app.h"
+#include "textures.h"
 #include "crumb.h"
 #include "game.h"
 #include "platform_gfx.h"
@@ -24,6 +25,9 @@
 #include <vector>
 #include <thread>
 
+static int gJobCount = 0;
+void hangBeat();                              // UI8 (app.cpp)
+void forceQuitCheck(GLFWwindow* w, bool closeQuits);
 namespace {
 struct Job {
   int depth = 0, expected = 1, done = 0; float sub = 0, shown = 0;
@@ -189,6 +193,7 @@ void present(App& app, bool force) {
   const float dt = J.lastPresent < 0 ? 1.0f / 60.0f : (float)std::min(0.1, now - J.lastPresent);
   J.lastPresent = now;
   glfwPollEvents();   // the window keeps answering ("Not responding" after 5 s otherwise)
+  { hangBeat(); if (!app.selftest) forceQuitCheck(app.win, true); }   // UI8: the way out works during a load too
   // UI3: a frame can now be presented from inside any long loop (crumb / loadingTick): leave the caller's GL state as it was
   GLint fbDraw = 0, fbRead = 0, vp[4] = {0, 0, 0, 0}; GLfloat cc[4] = {0, 0, 0, 0}; GLboolean scis = glIsEnabled(GL_SCISSOR_TEST), depthT = glIsEnabled(GL_DEPTH_TEST), blend = glIsEnabled(GL_BLEND), cull = glIsEnabled(GL_CULL_FACE);
   glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &fbDraw); glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &fbRead); glGetIntegerv(GL_VIEWPORT, vp); glGetFloatv(GL_COLOR_CLEAR_VALUE, cc);
@@ -225,6 +230,7 @@ void present(App& app, bool force) {
 unsigned stillFor(const std::string& id) { return id.empty() ? 0 : fs::exists(contentDir() / "templates" / (id + ".loading.jpg")) ? gradedTex(contentDir() / "templates" / (id + ".loading.jpg")) : 0; }
 void loadingBegin(App& app, const std::string& title, const std::string& sub, int expectedStages, unsigned thumbTex, const std::string& mapId) {
   if (J.depth++ > 0) { J.expected = std::max(J.expected, J.done + expectedStages); return; }   // nested: the outer job grows
+  ++gJobCount;
   gLoadingDepth = J.depth;
   mainMenuLeaveForLoad(gGame && gGame->pendingStart);   // UI3: loading a map / starting a match from the menu leaves it (the loading screen covers the work)
   J.expected = std::max(1, expectedStages); J.done = 0; J.sub = 0; J.shown = 0; J.title = title; J.subtitle = sub; J.label = "Loading";
@@ -237,8 +243,26 @@ static const std::thread::id gMainThread = std::this_thread::get_id();   // the 
 void loadingTick() { if (J.depth > 0 && gApp && std::this_thread::get_id() == gMainThread) present(*gApp, false); }   // from crumb() and the long loops: a frame (and the message pump) every 33 ms
 void loadingStageDone() { if (J.depth <= 0 || !gApp) return; J.done = std::min(J.done + 1, J.expected); J.sub = 0; present(*gApp, false); }
 void loadingProgress(const char* label, float f) { if (J.depth <= 0 || !gApp) return; const bool change = J.label != label; J.label = label; J.sub = std::clamp(f, 0.0f, 1.0f); present(*gApp, change); }
+// UI9: wait for the GPU to finish what is queued (the released map's memory goes back, the new map's uploads land) while
+// the window keeps answering: a fence polled every 2 ms with the message pump, instead of glFinish's silent block (5-6 s
+// behind a busy GPU). Up to 20 s, then it carries on.
+void gpuDrain(const char* why) {
+  const double t0 = glfwGetTime();
+  GLsync f = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0); if (!f) { glFinish(); return; }
+  GLenum r = glClientWaitSync(f, GL_SYNC_FLUSH_COMMANDS_BIT, 0);
+  while (r == GL_TIMEOUT_EXPIRED && glfwGetTime() - t0 < 20.0) {
+    glfwPollEvents(); hangBeat(); if (gApp && !gApp->selftest) forceQuitCheck(gApp->win, true);
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    r = glClientWaitSync(f, 0, 0);
+  }
+  glDeleteSync(f);
+  const double ms = (glfwGetTime() - t0) * 1000.0;
+  if (ms > 250) logf("gpu drain (%s): %.0f ms", why, ms);
+}
 void loadingEnd() {
   if (J.depth <= 0) return;
+  if (J.depth == 1) {   // UI9: the new map's texture sets and GPU work done under the loading screen, not in the first frames after it
+    loadingStage("Loading textures"); tex::flushPending(); gpuDrain("end of load"); }
   gLoadingDepth = --J.depth;
   if (J.depth > 0) return;
   J.done = J.expected; J.sub = 0; J.endedAt = glfwGetTime(); J.fading = true;
@@ -249,6 +273,7 @@ void loadingEnd() {
 }
 void loadingBootMode() { J.boot = true; }
 bool loadingActive() { return J.depth > 0; }
+int loadingJobCount() { return gJobCount; }
 
 void loadingOverlay(App& app) {
   if (!J.fading) return;

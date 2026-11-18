@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.2952343225479126,
+  2.2936317920684814,
+  0.2997165322303772
+ ],
+ "bmin": [
+  -0.2952343225479126,
+  0.0,
+  -0.2997165322303772
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "Scene_-_Root.001",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.2952343225479126,
+    2.2936317920684814,
+    0.2997165322303772
+   ],
+   "bmin": [
+    -0.2952343225479126,
+    0.0,
+    -0.2997165322303772
+   ],
+   "count": 972,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "02__0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "mod_wall_brick_rail_pillar.glb",
+ "textures": {},
+ "triangles": 324,
+ "vertices": 268
+}

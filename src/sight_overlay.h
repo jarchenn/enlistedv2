@@ -18,3 +18,10 @@ struct SightCheck {
 SightCheck sightCheck(const App& app);
 // HUD layer: centre crosshair, lines from the centre to the projected rear / front points, roll and pixel readout
 void drawSightOverlay(const App& app, ImDrawList* dl, float sx, float sy);
+
+#define AT2_HUD_RETICLE 1
+// AT2: the reflex (red dot) / holographic reticle of the weapon in hand: framebuffer pixel (sub-pixel, origin top-left)
+// where the shot line meets the zero range, pixels per MOA there, kind 1 dot / 2 holographic, ring in dot radii (AK-12)
+struct ReflexReticle { bool ok = false; int kind = 0; vec2 pos{0}; float pxMoa = 0, alpha = 0, ring = 0; vec3 col{1, 0, 0}; };
+ReflexReticle reflexReticle(const App& app);
+void drawReflexReticle(const App& app, ImDrawList* dl, float sx, float sy);   // after TAA, sized in angle (Settings > Gameplay)

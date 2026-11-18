@@ -14,6 +14,8 @@
 #include "crumb.h"
 #include <optional>
 #include <future>
+#include <atomic>
+#include <thread>
 #include "terrain_tools.h"   // V8 decor exception / draw (beautify.cpp)
 #include "editor_nav.h"     // V8: navSyncCuts after an undo that regenerates the terrain
 #include "settings.h"
@@ -588,14 +590,27 @@ void App::applyTemplate(const std::string& id) {
 }
 static void trimHeap() {   // MEM2: freed map memory goes back to Windows (the CRT heap keeps it committed otherwise)
 #ifdef _WIN32
-  _heapmin(); HeapCompact(GetProcessHeap(), 0);
+  static const bool prof = std::getenv("NMK_TRIM_PROF") != nullptr;   // UI9: what each part costs and returns
+  auto ms = [] { return glfwGetTime() * 1000.0; }; auto mb = [] { return processMemory().PrivateBytes / 1048576.0; };
+  // UI9 measured (10 map changes): the GPU wait returns 37-1205 MB (the driver frees the released meshes once the GPU
+  // is done with them) and took up to 5-6 s behind a busy GPU; _heapmin ~0 ms / ~0 MB; HeapCompact 0 ms / 0 MB: dropped
+  double t0 = ms(), m0 = prof ? mb() : 0; gpuDrain("released map"); double t1 = ms(), m1 = prof ? mb() : 0;
+  _heapmin(); double t2 = ms(), m2 = prof ? mb() : 0;
+  if (prof) logf("trimprof: GPU drain %.0f ms (%+.0f MB), _heapmin %.0f ms (%+.0f MB)", t1 - t0, m1 - m0, t2 - t1, m2 - m1);
+  if (prof && gApp) {   // UI9: what stays built after the release
+    extern size_t snapCacheShapes(); int nb[4] = {}; double mb4[4] = {};
+    for (auto& a : gApp->lib.assets) if (a->built) { int k = a->vehicle ? 0 : a->raw.contains("rack") ? 1 : (a->tree.on || a->modelFoliage || !a->ivy.blocks.empty()) ? 2 : 3; ++nb[k];
+      for (auto* m : {&a->model, &a->modelLod}) if (*m) mb4[k] += (*m)->gpuBytes / 1048576.0; }
+    logf("trimprof: kept built: vehicles %d (%.0f MB models), racks %d (%.0f), foliage %d (%.0f), other %d (%.0f); physics bodies %d; snap shapes %zu",
+         nb[0], mb4[0], nb[1], mb4[1], nb[2], mb4[2], nb[3], mb4[3], Physics::bodyCount(), snapCacheShapes());
+  }
 #endif
 }
 bool App::newMap(const TemplateInfo& t, const std::string& name) {
   LoadingJob lj(*this, t.name, "Generating map", 3, t.thumbnail, t.id);   // UI2: terrain, content, furniture
   if (mode == Mode::Explore) exitExplore();
   clearRuntime();
-  placing = nullptr; { double c0 = processMemory().PrivateBytes / 1048576.0; int n = lib.releaseAll(); crumb("heap trim"); if (n) { glFinish(); trimHeap(); } if (n) logf("assets: %d released with the old map (commit %.0f -> %.0f MB)", n, c0, processMemory().PrivateBytes / 1048576.0); }   // MEM2: the new map builds what it uses
+  placing = nullptr; { double c0 = processMemory().PrivateBytes / 1048576.0; int n = lib.releaseAll(); crumb("heap trim"); if (n) trimHeap(); if (n) logf("assets: %d released with the old map (commit %.0f -> %.0f MB)", n, c0, processMemory().PrivateBytes / 1048576.0); }   // MEM2: the new map builds what it uses
   doc = MapDoc();
   doc.name = name; doc.templateId = t.id; doc.templateVersion = t.version; doc.seed = t.seed;
   applyTemplate(t.id);
@@ -619,7 +634,7 @@ bool App::openMap(const fs::path& p) {
   if (!loadMap(p, d, err)) { toast("Could not open map: " + err, 8); return false; }
   if (mode == Mode::Explore) exitExplore();
   clearRuntime();
-  placing = nullptr; { double c0 = processMemory().PrivateBytes / 1048576.0; int n = lib.releaseAll(); crumb("heap trim"); if (n) { glFinish(); trimHeap(); } if (n) logf("assets: %d released with the old map (commit %.0f -> %.0f MB)", n, c0, processMemory().PrivateBytes / 1048576.0); }   // MEM2: the new map builds what it uses
+  placing = nullptr; { double c0 = processMemory().PrivateBytes / 1048576.0; int n = lib.releaseAll(); crumb("heap trim"); if (n) trimHeap(); if (n) logf("assets: %d released with the old map (commit %.0f -> %.0f MB)", n, c0, processMemory().PrivateBytes / 1048576.0); }   // MEM2: the new map builds what it uses
   doc = std::move(d);
   { extern int lineMigrateTrenches(App&); lineMigrateTrenches(*this); }   // LN1: trench pieces become trench lines
   { extern int lineMigratePieces(App&); lineMigratePieces(*this); }   // LN2: fence / wire / wall / hedge pieces become lines
@@ -992,6 +1007,36 @@ void App::screenshot(const fs::path& p) {
 }
 
 // ============================================================ main loop
+// UI8: a hang watchdog and a guaranteed way out. The main loop and every loading-screen frame beat; a thread logs where
+// the main thread is (its crumb and the loading stage) when nothing has beaten for 5 s. Ctrl+Shift+Q, or the window's
+// close button pressed again while its question is up (or during a load), quits at once after saving the settings.
+static std::atomic<double> gBeat{0};
+static double wallNow() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
+void hangBeat() { gBeat = wallNow(); }
+void forceQuit(const char* why) {
+  logf("quit: %s: settings saved, exiting now", why);
+  settings().save(); std::fflush(nullptr);
+  std::_Exit(0);
+}
+void forceQuitCheck(GLFWwindow* w, bool closeQuits) {
+  const bool ctrl = glfwGetKey(w, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS || glfwGetKey(w, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS;
+  const bool shift = glfwGetKey(w, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || glfwGetKey(w, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
+  if (ctrl && shift && glfwGetKey(w, GLFW_KEY_Q) == GLFW_PRESS) forceQuit("Ctrl+Shift+Q");
+  if (closeQuits && glfwWindowShouldClose(w)) forceQuit("window closed during a load");
+}
+static void startHangWatchdog() {
+  hangBeat();
+  std::thread([] {
+    bool told = false;
+    for (;;) {
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+      const double gap = wallNow() - gBeat.load();
+      if (gap > 5.0 && !told) { told = true; const char* c = gCrumb; logf("hang watchdog: no frame for %.0f s; main thread at crumb \"%s\"%s", gap, c ? c : "-", loadingActive() ? " (inside a loading job)" : ""); }
+      if (gap < 1.0) told = false;
+    }
+  }).detach();
+}
+void (*gTestImGuiInput)() = nullptr;   // UI8: self-tests queue ImGui mouse events here (after the platform backend's cursor)
 int App::run(int argc, char** argv) {
   bool runSelf = false, bench = false, legacyLook = false; std::vector<std::string> rqOff, rqOn; fs::path openPath, sheetsDir, previewGlb, previewOut, previewSpec, tankPreviewDir;
   for (int k = 1; k < argc; ++k) {
@@ -1021,10 +1066,10 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-render") runSelf = true;   // V1 facades, walls, water (selftest_render.cpp)
     else if (a == "--selftest-lights") runSelf = true;   // L2 lighting engine (selftest_lights.cpp)
     else if (a == "--selftest-swim") runSelf = true;     // swimming, underwater view, breath (selftest_swim.cpp)
-    else if (a == "--capture-heli" || a == "--gen-vehicle-spawns" || a == "--capture-vh7" || a == "--check-ed2" || a == "--check-vh8" || a == "--capture-vh8" || a == "--mem-probe" || a == "--check-sm1" || a == "--capture-sm1" || a == "--check-sm1-br" || a == "--check-sm3" || a == "--capture-shade" || a == "--capture-rc2" || a == "--check-snd10" || a == "--check-rm1") runSelf = true;   // VH5 (capture_heli.cpp)
+    else if (a == "--capture-heli" || a == "--gen-vehicle-spawns" || a == "--capture-vh7" || a == "--check-ed2" || a == "--check-vh8" || a == "--capture-vh8" || a == "--mem-probe" || a == "--check-sm1" || a == "--capture-sm1" || a == "--check-sm1-br" || a == "--check-sm3" || a == "--capture-shade" || a == "--capture-rc2" || a == "--check-snd10" || a == "--check-rm1" || a == "--check-vm1") runSelf = true;   // VH5 (capture_heli.cpp)
     else if (a == "--selftest-zombies" || a == "--capture-heavies" || a == "--capture-commands" || a == "--capture-ch1" || a == "--capture-ch6" || a == "--capture-ch8") runSelf = true;
     else if (a == "--capture-tk1" || a == "--check-tk1-match" || a == "--capture-tk2" || a == "--selftest-sd" || a == "--selftest-playerdmg" || a == "--selftest-prone" || a == "--selftest-sd3" || a == "--selftest-spectate" || a == "--sd-timings" || a == "--selftest-sd-plant" || a == "--capture-th1" || a == "--selftest-sd-freeze" || a == "--selftest-sd-time" || a == "--capture-sd9") runSelf = true;   // TK1 (capture_tk1.cpp)
-    else if (a == "--capture-br-models" || a == "--capture-br-worn") runSelf = true;   // BR3 / BR8: a look at the Battle Royale models and worn gear (selftest_brmodels.cpp)
+    else if (a == "--capture-br-models" || a == "--capture-br-worn" || a == "--capture-reticles" || a == "--check-sight-freeze") runSelf = true;   // BR3 / BR8: a look at the Battle Royale models and worn gear (selftest_brmodels.cpp)
     else if (a == "--capture-jeep" || a == "--capture-abrams") runSelf = true;
     else if (a == "--selftest-tdm-live") runSelf = true;   // CV1: a big TDM, spawn tour shots (selftest_royale_live.cpp)
     else if (a == "--selftest-royale-live") runSelf = true;   // BR7: 20 bots on Newtown (selftest_royale_live.cpp)   // VH1: a look at the jeeps (selftest_vehicles.cpp)   // EN2: a look at the heavies (selftest_zombies.cpp)
@@ -1068,6 +1113,12 @@ int App::run(int argc, char** argv) {
   if (!glfwInit()) { logf("glfwInit failed"); return 1; }
   platformWindowHints();
   glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);   // UI5: shown after the first splash frame (no white window)
+  // TST1: a non-interactive run (self-tests, checks, captures, probes, sheets / previews) is silent and does not take the
+  // focus from whatever the user is doing; NMK_AUDIO=on forces real sound, NMK_MUTE=1 silences an interactive launch
+  const bool testRun = runSelf || !sheetsDir.empty() || !previewGlb.empty() || !tankPreviewDir.empty();
+  { const char* ae = std::getenv("NMK_AUDIO"); const char* mu = std::getenv("NMK_MUTE");
+    audio.silent = (testRun || (mu && *mu && std::strcmp(mu, "0") != 0)) && !(ae && std::strcmp(ae, "on") == 0); }
+  if (testRun) { glfwWindowHint(GLFW_FOCUSED, GLFW_FALSE); glfwWindowHint(GLFW_FOCUS_ON_SHOW, GLFW_FALSE); }
   int W = runSelf ? 1920 : 1600, H = runSelf ? 1080 : 900;
   win = glfwCreateWindow(W, H, "Battle Foundry", nullptr, nullptr);   // UI2: the game's name (repo / exe keep theirs)
   if (!win) { logf("Could not create an OpenGL 4.5 core window. Update your graphics driver."); glfwTerminate(); return 1; }
@@ -1154,7 +1205,8 @@ int App::run(int argc, char** argv) {
   else if (openPath.empty()) mainMenuOpen(*this);   // UI2: launch into the main menu (a map given on the command line opens the editor)
 
   double last = glfwGetTime();
-  bool confirmQuit = false;
+  bool confirmQuit = false, quitAsked = false;
+  startHangWatchdog();   // UI8
   // NMK_FRAME_PROF=1: a frame over 150 ms logs where its time went: time per phase / crumb, summed, top 8. A mark names
   // the section that follows it (time to the next mark is charged to it), like crumb()
   static const bool memMarks = std::getenv("NMK_MEMLOG") != nullptr; static size_t memLast = 0;   // MEM1: which frame section commits
@@ -1166,9 +1218,10 @@ int App::run(int argc, char** argv) {
     glfwPollEvents();
     tex::flushPending();   // TX2: a lazy texture set a newly used material named (one reload, then nothing)
     syncCursor();   // GM1b: one per-frame rule for the cursor mode (explore.cpp)
+    hangBeat(); forceQuitCheck(win, false);   // UI8
     if (glfwWindowShouldClose(win)) {
-      if (dirty && !selftest) { confirmQuit = true; glfwSetWindowShouldClose(win, GLFW_FALSE); }
-      else break;
+      if (dirty && !selftest && !quitAsked) { confirmQuit = true; quitAsked = true; glfwSetWindowShouldClose(win, GLFW_FALSE); }
+      else break;   // UI8: closed again while the question is up: quit (unsaved edits are lost, as the question warned)
     }
     double t = glfwGetTime();
     frameDt = (float)std::min(0.1, t - last); last = t; now = t;
@@ -1177,7 +1230,7 @@ int App::run(int argc, char** argv) {
     if (fbw > 0 && fbh > 0) R.resize(fbw, fbh);
 
     ImGui::GetIO().FontGlobalScale = uiFontScale(fbh);   // UI1b: the type scale follows the resolution and Settings > UI scale
-    platformImGuiNewFrame(); ImGui::NewFrame();
+    platformImGuiNewFrame(); if (gTestImGuiInput) gTestImGuiInput(); ImGui::NewFrame();   // UI8: scripted mouse input after the backend's own
     if (selftest) { selftest->update(*this, frameDt); if (selftest->done) quit = true; }
     mark("update");
     loadingOverlay(*this);   // UI2: the loading screen fading into the first frames
@@ -1188,6 +1241,7 @@ int App::run(int argc, char** argv) {
     mark("ui+sync");
     mpaiUI(*this);   // Play menu, scenario panel, match HUD
     settingsWindow(*this);   // Settings window (Creative menu, pause menu, Loadout)
+    { extern void uiInputWatchdog(App&); uiInputWatchdog(*this); }   // UI8: a hidden modal raised, a dead setup window released
     crumb("syncRuntime");
     syncRuntime();
     crumb("tanks sync");
@@ -1204,7 +1258,7 @@ int App::run(int argc, char** argv) {
       ImGui::SameLine(); if (ImGui::Button("Discard")) quit = true;
       ImGui::SameLine(); if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
       ImGui::EndPopup();
-    }
+    } else quitAsked = false;   // UI8: the question closed (Cancel / Save): a later close asks again
 
     mark("drawlists");
     std::vector<DrawItem> op, gl, ghosts; Overlay ov;
@@ -1260,6 +1314,7 @@ int App::run(int argc, char** argv) {
       if (scopeView()) { v.eyepieceR = kScopeEyepieceR; { const std::string& rt = weaponDefs[activeWeapon]->reticle; v.reticle = rt == "de_absehen1" ? 1 : rt == "plus" ? 4 : rt == "mil" ? 5 : rt == "bmg" ? 6 : rt == "acog" ? 7 : 2; } { float m; int r; if (lootScope(*this, m, r)) { v.reticle = r; v.thermal = r == 8; } }
         v.eyepieceR *= 1 - 1.5f * std::min(wstate[weaponDefs[activeWeapon]->id].kick, 0.15f); }   // WP4c: a shot drives the scope back at the eye: the eye box closes in briefly
       else if (gunnerOptic()) { v.eyepieceR = kGunnerEyepieceR; v.reticle = 3; }
+      v.reticleSize = reticleSize; v.reticleBright = reticleBright;   // AT2
       if (const TankRT* gt = tanks.occupied ? tanks.get(tanks.occupied) : nullptr; gt && gt->def && gt->def->reticle == "abrams" && gt->hatchT < 0.5f) v.rectVignette = true;   // TK3
       v.editor = false; v.autoExposure = true; v.camPos = e;
       v.underwater = underwaterAt(*this, e); v.underFogCol = swimCfg.fogColor; v.underFogDens = swimCfg.fogDensity;   // swim.cpp
@@ -1275,6 +1330,7 @@ int App::run(int argc, char** argv) {
       }
     }
     audio.setUnderwater(v.underwater ? 1.0f : 0.0f);   // swim.cpp: muffled under water
+    { extern void playerAudioFrame(App&); playerAudioFrame(*this); }   // SND13: low-health heartbeat, hurt grunt
     mark("mpai");
     if (R.thermalWanted && mode == Mode::Explore) {   // TH1: hot spots for a thermal scope: muzzle flashes, flames and fireballs, burning ground
       for (auto& ml : fx.mlights) if (ml.age < ml.life * 4) R.heatSpots.push_back(vec4(ml.p, 0.45f));

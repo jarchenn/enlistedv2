@@ -237,7 +237,8 @@ bool poseShots(App& app, float dt) {
   s.posture = ps == 0 || pn == "crouchwalk" ? Physics::CROUCH : pn == "prone" ? Physics::PRONE : Physics::STAND;
   static float runV = [] { const char* e = std::getenv("NMK_POSE_SPEED"); return e && *e ? (float)std::atof(e) : 2.69f; }();   // jog by default
   vec3 left = glm::cross(vec3(0, 1, 0), face);   // the bot's left
-  s.speed = pn == "walk" ? 1.2f : pn == "jog" ? 2.01f : pn == "sprint" ? 4.02f : pn == "strafe" ? 2.0f : pn == "crouchwalk" ? 1.06f : (pn == "carry" || pn == "moveaim") ? runV : 0.0f;   // AN3: the AN2 bot speeds
+  static vec3 gv = [] { vec3 g(1.2f, 2.01f, 4.02f); if (const char* e = std::getenv("NMK_POSE_GAITV")) std::sscanf(e, "%f,%f,%f", &g.x, &g.y, &g.z); return g; }();   // AN4: walk / jog / sprint test speeds
+  s.speed = pn == "walk" ? gv.x : pn == "jog" ? gv.y : pn == "sprint" ? gv.z : pn == "strafe" ? 2.0f : pn == "crouchwalk" ? 1.06f : (pn == "carry" || pn == "moveaim") ? runV : 0.0f;   // AN3: the AN2 bot speeds
   s.vel = (pn == "strafe" ? left : face) * s.speed;
   s.br.target = ps == 1 ? -1 : G.localSlot; s.lastShot = -100;
   vec3 cd = vn == "side" ? -left : vn == "front" ? face : vn == "back" ? -face : glm::normalize(left * 0.7f + face);   // side: from its right; three-quarter: front left
@@ -276,8 +277,8 @@ bool poseShots(App& app, float dt) {
     auto knee = [&](int u, int k, int f) { vec3 a = glm::normalize(P(k) - P(u)), b = glm::normalize(P(f) - P(k)); return glm::degrees(std::acos(std::clamp(glm::dot(a, b), -1.0f, 1.0f))); };
     float duty = std::clamp(0.62f - 0.30f * (s.speed - 1.4f), 0.32f, 0.62f);
     auto st = [&](int leg) { float u = (s.walkPhase + (leg ? 3.14159265f : 0.0f)) / 6.2831853f; u -= std::floor(u); return u < duty ? std::fabs(u / duty - 0.5f) : 9.0f; };   // 0 = mid-stance
-    logf("[gait] %s %s v %.2f hip %.3f spine %.1f kneeL %.1f kneeR %.1f midL %.2f midR %.2f stride %.3f", bodies[bi].c_str(), pn.c_str(), s.speed, hf, spine,
-         knee(CJ_LUPLEG, CJ_LLEG, CJ_LFOOT), knee(CJ_RUPLEG, CJ_RLEG, CJ_RFOOT), st(0), st(1), s.anStride);
+    logf("[gait] %s %s v %.2f hip %.3f spine %.1f kneeL %.1f kneeR %.1f midL %.2f midR %.2f stride %.3f head %.4f pelvis %.4f phase %.4f t %.4f", bodies[bi].c_str(), pn.c_str(), s.speed, hf, spine,
+         knee(CJ_LUPLEG, CJ_LLEG, CJ_LFOOT), knee(CJ_RUPLEG, CJ_RLEG, CJ_RFOOT), st(0), st(1), s.anStride, P(CJ_HEAD).y, P(CJ_HIPS).y, s.walkPhase, t);   // AN4: head / pelvis heights (model space) per frame
   }
   const float shotT = 1.6f + 0.1f * fk;
   if (pn == "fire" && t > shotT - 0.015f && t - dt <= shotT - 0.015f && s.weapon >= 0) {   // a frame before the shot: bolt and flash at the muzzle   // SW1: one shot, its bolt / tracer and flash in the picture

@@ -618,15 +618,17 @@ void App::drawExploreUI() {
       }
     }
     if (!occupied && !tanks.occupied && !weaponDefs.empty() && !scopeView() && weaponDefs[activeWeapon]->dotCrosshair) {   // SW2: blasters: a white dot in a thin +, a little tighter when aimed
-      float k = std::max(1.0f, io.DisplaySize.y / 1080.0f), t = adsT * adsT * (3 - 2 * adsT);
-      float gap = (7.0f - 2.5f * t) * k, len = 5.0f * k, w = 1.4f * k;
-      ImU32 white = IM_COL32(250, 250, 250, 235), dark = IM_COL32(0, 0, 0, 150);
+      // AT2: about a 2 px dot, 1 px ticks, shorter (Settings > Gameplay: reticle size / brightness)
+      float k = std::max(1.0f, io.DisplaySize.y / 1080.0f) * reticleSize, t = adsT * adsT * (3 - 2 * adsT);
+      float gap = (5.0f - 2.0f * t) * k, len = 3.5f * k, w = std::max(1.0f, k);
+      int al = (int)std::lround(235 * std::min(1.0f, reticleBright));
+      ImU32 white = IM_COL32(250, 250, 250, al), dark = IM_COL32(0, 0, 0, 90);
       for (int q = 0; q < 4; ++q) {
         ImVec2 dv(q == 0 ? 1.0f : q == 1 ? -1.0f : 0.0f, q == 2 ? 1.0f : q == 3 ? -1.0f : 0.0f);
         ImVec2 a(c.x + dv.x * gap, c.y + dv.y * gap), b(c.x + dv.x * (gap + len), c.y + dv.y * (gap + len));
-        dl->AddLine(a, b, dark, w + 2.0f * k); dl->AddLine(a, b, white, w);
+        dl->AddLine(a, b, dark, w + 2.0f); dl->AddLine(a, b, white, w);
       }
-      dl->AddCircleFilled(c, 2.4f * k, dark); dl->AddCircleFilled(c, 1.5f * k, white);
+      dl->AddCircleFilled(c, 1.0f * k + 1.0f, dark); dl->AddCircleFilled(c, 1.0f * k, white);
     }
     // (GM1b's black aim mark in the MG 42's rear notch removed at the user's request: the gun's own sights are the reference)
     if (target.valid && !tanks.occupied && !tanks.target && !smithyOpen()) {

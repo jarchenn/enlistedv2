@@ -66,8 +66,8 @@ json UserSettings::toJson() const {
                   {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi}, {"msaa", g.msaa}, {"ivy", g.ivy}, {"materialDetail", g.materials}, {"dustMotes", g.dustMotes},
                   {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}, {"weather", weather == 1 ? "Cloudy" : "Clear"}, {"envFog", envFog}}},
     {"gameplay", {{"mouseSensitivity", mouseSens}, {"adsSensitivity", adsSens}, {"invertY", invertY}, {"reducedMotion", reducedMotion},
-                  {"showArms", showArms}, {"sightMarkers", sightMarkers}, {"weaponList", weaponList}, {"friendlyMarkers", friendlyMarkers}, {"heliCameraMotion", heliCamMotion}, {"vehicleWorldBars", vehicleBars}}},
-    {"audio", {{"master", master}, {"effects", effects}, {"ui", ui}, {"ambience", ambience}, {"gunfire", gunfire}}},
+                  {"showArms", showArms}, {"sightMarkers", sightMarkers}, {"weaponList", weaponList}, {"friendlyMarkers", friendlyMarkers}, {"heliCameraMotion", heliCamMotion}, {"vehicleWorldBars", vehicleBars}, {"reticleSize", reticleSize}, {"reticleBright", reticleBright}}},
+    {"audio", {{"master", master}, {"effects", effects}, {"ui", ui}, {"ambience", ambience}, {"gunfire", gunfire}, {"heartbeat", heartbeat}}},
     {"controls", k},
     {"player", {{"character", character}, {"primary", primary}}},
     {"interface", {{"uiScale", uiScale}, {"minimapRotate", minimapRotate}, {"developerOverlay", devOverlay}, {"editorFlySpeed", editorFly}, {"editorOrbitSpeed", editorOrbit}, {"editorZoomSpeed", editorZoom}}},
@@ -107,6 +107,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     u.invertY = q.value("invertY", u.invertY); u.reducedMotion = q.value("reducedMotion", u.reducedMotion);
     u.showArms = q.value("showArms", u.showArms); u.sightMarkers = q.value("sightMarkers", u.sightMarkers);
     u.weaponList = q.value("weaponList", u.weaponList); u.friendlyMarkers = q.value("friendlyMarkers", u.friendlyMarkers);
+    u.reticleSize = std::clamp(q.value("reticleSize", u.reticleSize), 50, 200); u.reticleBright = std::clamp(q.value("reticleBright", u.reticleBright), 25, 200);
     u.heliCamMotion = std::clamp(q.value("heliCameraMotion", u.heliCamMotion), 0.0f, 3.0f);
     u.vehicleBars = q.value("vehicleWorldBars", u.vehicleBars);   // GP1: was "vehicleHealthBars" (default on); the new key starts off
   }
@@ -115,6 +116,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     u.master = std::clamp(q.value("master", u.master), 0.0f, 1.0f); u.effects = std::clamp(q.value("effects", u.effects), 0.0f, 1.0f);
     u.ui = std::clamp(q.value("ui", u.ui), 0.0f, 1.0f); u.ambience = std::clamp(q.value("ambience", u.ambience), 0.0f, 1.0f);
     u.gunfire = std::clamp(q.value("gunfire", u.gunfire), 0.0f, 2.0f);
+    u.heartbeat = q.value("heartbeat", u.heartbeat);   // SND13
   }
   if (j.contains("controls") && j["controls"].is_object())
     for (auto it = j["controls"].begin(); it != j["controls"].end(); ++it) if (it->is_string()) u.keys[it.key()] = it->get<std::string>();
@@ -244,6 +246,7 @@ void Settings::apply(App& app) {
   app.fx.setBudget(g.particles);
   if (!gSelftest) platformSwapInterval(s.vsync ? 1 : 0);
   app.reducedMotion = s.reducedMotion; app.vm.showArms = s.showArms; app.sightMarkers = s.sightMarkers; app.showWeaponList = s.weaponList; app.friendlyMarkers = s.friendlyMarkers;
+  app.reticleSize = s.reticleSize / 100.0f; app.reticleBright = s.reticleBright / 100.0f;
   app.audio.setGains(s.master, s.effects, s.ui, s.ambience); app.audio.gunfireGain = std::clamp(s.gunfire, 0.0f, 2.0f);   // UI1b
   // UI1b: the font scale is set every frame (app.cpp uiFontScale: resolution x UI scale)
   // editor camera: fly speed is the Alt+wheel multiplier; orbit / zoom scale the content/settings/editor.json values
@@ -264,6 +267,7 @@ void Settings::capture(const App& app) {
   g.grass = (int)app.grass.quality; g.grassWind = app.grass.nearWind;
   g.msaa = R.msaa(); g.ivy = app.ivyOn; g.materials = R.q.matLayer;
   s.reducedMotion = app.reducedMotion; s.showArms = app.vm.showArms; s.sightMarkers = app.sightMarkers; s.weaponList = app.showWeaponList; s.friendlyMarkers = app.friendlyMarkers;
+  s.reticleSize = (int)std::lround(app.reticleSize * 100); s.reticleBright = (int)std::lround(app.reticleBright * 100);
   s.editorFly = navState().speedMult;
 }
 
@@ -275,6 +279,7 @@ void settingsInit(App& app, bool selftest) {
   if (selftest) {   // self-tests: Medium defaults, nothing read or written, nothing applied
     if (const char* e = std::getenv("NMK_RES_SCALE")) app.R.setResolutionScale((float)std::atof(e));   // benchmarks at a chosen scale
     if (const char* e = std::getenv("NMK_UPSCALE")) S.s.upscale = app.R.upscaleMode = e[0] == 's' ? 1 : e[0] == 'o' ? 2 : 0;   // temporal | spatial | off (kept by preset applies)
+    if (const char* e = std::getenv("NMK_SETTINGS_FILE")) if (*e && S.load(fs::path(e))) { S.apply(app); logf("settings: %s applied (self-test)", e); }   // VM1: a user's own settings, read only
     return;
   }
   if (!S.load(S.path())) {
@@ -493,6 +498,9 @@ void settingsWindow(App& app) {
       flat::checkbox("Sight calibration markers", &u.sightMarkers);
       flat::checkbox("Show weapon list", &u.weaponList);
       flat::checkbox("Friendly markers over teammates", &u.friendlyMarkers);
+      flat::sliderInt("Reticle size", &u.reticleSize, 50, 200, "%d %%");
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Sight dots, holographic and scope reticles and the blaster crosshair (100 %% = a 2 MOA red dot).");
+      flat::sliderInt("Reticle brightness", &u.reticleBright, 25, 200, "%d %%");
       { extern void goreOptionsUI(); goreOptionsUI(); }   // gore_user.json (gore.cpp)
     }
     // ------------------------------------------------ audio
@@ -502,6 +510,8 @@ void settingsWindow(App& app) {
       { int p = (int)std::lround(u.gunfire * 100); if (flat::sliderInt("Gunfire", &p, 0, 200, "%d %%")) u.gunfire = p / 100.0f; }   // UI1b: guns, cannons, shell blasts
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Gunshots, cannon fire and shell explosions, on top of Effects (100 %% = as mixed, up to 200 %%).");
       vol("Interface", u.ui); vol("Ambience (wind, leaves)", u.ambience);
+      flat::checkbox("Low-health heartbeat", &u.heartbeat);   // SND13
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("A heartbeat while your health is under 30 %%, faster and a little louder toward 10 %%.");
       if (!app.audio.ok()) ImGui::TextDisabled("No audio device.");
     }
     // ------------------------------------------------ controls

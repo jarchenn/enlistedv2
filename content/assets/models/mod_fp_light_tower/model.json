@@ -1,0 +1,61 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.3291745185852051,
+  1.7146432399749756,
+  0.3113725185394287
+ ],
+ "bmin": [
+  -0.3291745185852051,
+  0.0,
+  -0.3113725185394287
+ ],
+ "materials": [
+  {
+   "albedo": "albedoa_1.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "Misc_01",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.3291745185852051,
+    1.7146432399749756,
+    0.3113725185394287
+   ],
+   "bmin": [
+    -0.3291745185852051,
+    0.0,
+    -0.3113725185394287
+   ],
+   "count": 9324,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "IndusLight_01_Misc_01_0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "mod_fp_light_tower.glb",
+ "textures": {},
+ "triangles": 3108,
+ "vertices": 2922
+}

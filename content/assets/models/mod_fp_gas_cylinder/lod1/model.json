@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.15619754791259766,
+  1.0911171436309814,
+  0.15619778633117676
+ ],
+ "bmin": [
+  -0.15619754791259766,
+  0.0,
+  -0.15619778633117676
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "Barrel__tools",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.15619754791259766,
+    1.0911171436309814,
+    0.15619778633117676
+   ],
+   "bmin": [
+    -0.15619754791259766,
+    0.0,
+    -0.15619778633117676
+   ],
+   "count": 1686,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "Cylinder.017_Barrel + tools_0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "mod_fp_gas_cylinder.glb",
+ "textures": {},
+ "triangles": 562,
+ "vertices": 543
+}

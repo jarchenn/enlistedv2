@@ -57,6 +57,18 @@ C = {
    ("ph_industrial_storage_cart", 0.3, 1.2, 180, 0)]),
  "yard_cable_drums": ("yard", "Cable drums (prefab)", "Cable reels with barrels and a tote.", [
    ("tun_cable_reel", 0, 0, 0, 0), ("tun_cable_reel", 1.6, 0.3, 30, 0), ("ph_barrel_03", -1.2, 0.2, 0, 0), ("ph_plastic_container", 0.8, 1.2, 10, 0)]),
+ # PR6: the user's factory props and sandbag walls (tools/props/pr6_assets.py)
+ "yard_generator_bay": ("yard", "Generator bay (PR6)", "The large generator set with drums, a gas cylinder and a work light: high cover by a container.", [
+   ("mod_fp_generator_big", 0, 0, 0, 0), ("mod_fp_drum_a", 2.6, 0.3, 0, 0), ("mod_fp_drum_b", 2.6, -0.4, 30, 0), ("mod_fp_gas_cylinder", -2.5, 0.5, 0, 0),
+   ("mod_fp_light_tower", -2.6, -0.6, 40, 0)]),
+ "yard_workbench_corner": ("yard", "Workbench corner (PR6)", "A steel work table with a tool chest, toolboxes, tools on the floor and a stepladder: low cover.", [
+   ("mod_fp_worktable_a", 0, 0, 0, 0), ("mod_fp_box_open", 1.7, 0.1, -10, 0), ("mod_fp_box_closed", -0.4, 0.1, 15, 0.93), ("mod_fp_tools_scatter", 0.4, 0.9, 0, 0),
+   ("mod_fp_stepladder", -1.6, 0.3, 20, 0)]),
+ "yard_pallet_stack": ("yard", "Pallet stack (PR6)", "Pallets with a wooden crate and a steel box, planks leaning by them: low and crouch cover.", [
+   ("mod_fp_pallet", 0, 0, 0, 0), ("mod_fp_crate_wood", 0, 0.2, 5, 0.19), ("mod_fp_pallet", 1.6, 0.1, 85, 0), ("mod_fp_crate_steel", 1.6, 0.1, -10, 0.19),
+   ("mod_fp_planks", -1.1, 0.4, 10, 0)]),
+ "desert_sandbag_post": ("desert", "Sandbag post (PR6)", "A high sandbag breastwork with a crate and drums behind it.", [
+   ("def_sandbag_bags_high", 0, 0, 0, 0), ("mod_fp_crate_wood", 0.2, -1.2, 10, 0), ("mod_fp_drum_a", -0.8, -1.1, 0, 0), ("def_sandbag_single", 1.3, 0.6, 30, 0)]),
  # ---------------------------------------------------------------- town quarter (Normandy)
  "town_cafe_terrace": ("town", "Cafe terrace", "Two table-and-chair sets, a chalkboard and a planter on the pavement.", [
    ("ph_outdoor_table_chair_set_01", 0, 0, 90, 0), ("ph_outdoor_table_chair_set_01", 2.0, 0.1, 90, 0), ("ph_standing_chalkboard_01", -1.4, 0.6, 30, 0),

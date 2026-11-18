@@ -20,4 +20,6 @@ void brSightDraws(App& app, const WeaponDef& d, const WeaponState& ws, const mat
 // weapon-space eye line of the fitted optic (no optic, or a scoped rifle keeping its own scope: false)
 bool brSightLine(const WeaponDef& d, const WeaponState& ws, vec3& R, vec3& F, float& relief);
 bool brSightLineActive(const WeaponDef& d, vec3& R, vec3& F, float& relief);   // the local player's state of d
+// AT2: the fitted red dot / holographic sight's window (weapon space centre, radius), its mount and the asset's bounds
+bool brSightWindow(const WeaponDef& d, const WeaponState& ws, vec3& centre, float& radius, mat4* mount = nullptr, vec3* bmin = nullptr, vec3* bmax = nullptr);
 void drawInventoryCharacter(ImVec2 mn, ImVec2 mx);   // the local character with what it wears, turnable by dragging

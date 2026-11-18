@@ -28,6 +28,7 @@ Member list to instances: world = cluster position + R(cluster yaw) * pos, membe
 | Rocks and deadwood | small | A boulder pile with a dead quiver trunk and branches: low and high cover. | `cl_desert_rocks_deadwood` | 6.0 x 4.7 | 2.0 m | 6 | 2 / 1 |
 | Sandbag position (prefab) | small | Curved sandbag wall with ammunition and a jerrycan behind it. | prefab | - | 0.5 m | 3 | 0 / 0 |
 | Guard post (prefab) | small | The steel guard tower with a supply stack and a work light at its foot. | prefab | - | 1.8 m | 3 | 1 / 0 |
+| Sandbag post (PR6) | small | A high sandbag breastwork with a crate and drums behind it. | `cl_desert_sandbag_post` | 2.7 x 2.6 | 1.3 m | 4 | 0 / 2 |
 | Supply dump (large) | large | Crates three high on pallets, one block under a tarp, empty pallets stacked and loose, cement sacks and boxes in front: standing cover behind the pallet stacks (1.5 m), crouch cover behind the sacks and the empty pallets. | `cl_desert_supply_dump` | 7.4 x 4.4 | 1.6 m | 43 | 4 / 5 |
 | Fuel dump (large) | large | Three rows of drums behind a barrier bund, jerrycan rows, a fuel pump and gas bottles: crouch cover along the drums, standing cover at the pump. | `cl_desert_fuel_dump` | 8.2 x 5.5 | 1.9 m | 43 | 1 / 19 |
 | Motor-pool corner (large) | large | Tyre stacks, a tool cart and chests, a generator and compressor, oil drums and a work table: crouch cover at the tyre stacks, standing cover at the compressor. | `cl_desert_motor_pool` | 7.2 x 4.1 | 1.3 m | 40 | 1 / 10 |
@@ -43,6 +44,9 @@ Member list to instances: world = cluster position + R(cluster yaw) * pos, membe
 | Barrel stack | small | Drums two deep with a plastic tote: low cover. | `cl_yard_barrel_stack` | 1.9 x 1.5 | 0.9 m | 5 | 0 / 3 |
 | Workshop corner | small | Drill presses, a compressor and a storage cart: medium cover in a shed or under a lamp. | `cl_yard_workshop_corner` | 3.2 x 2.0 | 1.4 m | 4 | 1 / 2 |
 | Cable drums (prefab) | small | Cable reels with barrels and a tote. | prefab | - | 0.9 m | 4 | 0 / 1 |
+| Generator bay (PR6) | small | The large generator set with drums, a gas cylinder and a work light: high cover by a container. | `cl_yard_generator_bay` | 6.0 x 2.0 | 1.8 m | 5 | 2 / 0 |
+| Workbench corner (PR6) | small | A steel work table with a tool chest, toolboxes, tools on the floor and a stepladder: low cover. | prefab | - | 0.0 m | 5 | 0 / 0 |
+| Pallet stack (PR6) | small | Pallets with a wooden crate and a steel box, planks leaning by them: low and crouch cover. | `cl_yard_pallet_stack` | 4.0 x 2.0 | 1.1 m | 5 | 0 / 2 |
 | Pipe yard (large) | large | Two steel racks loaded with pipe on every shelf and across the top, some lengths poking out, a pipe pyramid, two cable drums, the pipe manifold, crates and drums: standing cover behind the racks and the big drum. | `cl_yard_pipe_yard` | 9.6 x 4.9 | 2.4 m | 87 | 4 / 2 |
 | Workshop bay (large) | large | Steel shelving along the back, a compressor, welding cart, drill presses, a tool cart with a vice, storage cart and bins: standing cover at the shelving and compressor. | `cl_yard_workshop_bay` | 7.6 x 4.5 | 2.1 m | 25 | 7 / 4 |
 | Loading area (large) | large | Crate and tote stacks three high, hand trucks, a barrier line, a floodlight and loose boxes: standing cover behind the stacks, crouch cover at the barriers. | `cl_yard_loading_area` | 9.7 x 4.9 | 1.5 m | 35 | 3 / 12 |
