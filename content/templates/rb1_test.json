@@ -12,10 +12,10 @@
   "camera": {
     "pos": [
       0.0,
-      40.0,
-      70.0
+      30.0,
+      52.0
     ],
-    "yaw": 180.0,
+    "yaw": -0.0,
     "pitch": -28.0
   },
   "heightmap": {
@@ -37,11 +37,11 @@
   "thumbnailCamera": {
     "pos": [
       0.0,
-      9.0,
-      30.0
+      14.0,
+      40.0
     ],
-    "yaw": 180.0,
-    "pitch": -12.0
+    "yaw": -0.0,
+    "pitch": -16.0
   },
   "userMap": true,
   "selftest": "authored",
@@ -50,11 +50,11 @@
       "name": "overview",
       "pos": [
         0.0,
-        30.0,
-        55.0
+        26.0,
+        46.0
       ],
-      "yaw": 180.0,
-      "pitch": -25.0
+      "yaw": -0.0,
+      "pitch": -24.0
     },
     {
       "name": "rb1_weapon_shop_front",

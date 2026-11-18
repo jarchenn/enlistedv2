@@ -38,17 +38,17 @@ def build(ctx):
         s["pos"][1] = y0
     tdir = os.path.join(ctx.repo, "content", "templates")
     grid.write_png(os.path.join(tdir, TID + ".height.png"))
-    cam = ([0.0, 40.0, 70.0], 180.0, -28.0)
-    views = [{"name": "overview", "pos": [0.0, 30.0, 55.0], "yaw": 180.0, "pitch": -25.0}]
+    cam = ([0.0, 30.0, 52.0], look_yaw(0.0, -1.0), -28.0)   # yaw 0 faces -z: towards the building fronts
+    views = [{"name": "overview", "pos": [0.0, 26.0, 46.0], "yaw": look_yaw(0.0, -1.0), "pitch": -24.0}]
     for aid, x, z in BUILDINGS:
         views.append({"name": aid + "_front", "pos": [x + 2.0, y0 + 1.7, z + 13.0], "yaw": look_yaw(-2.0, -13.0), "pitch": 0.0, "gameplay": True})
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=1, seed=SEED, width=W, depth=D,
-              builder=b, scenario_json=sc.to_json(rules_extra={"mode": "tdm"}), explore_start=((0.0, y0, 16.0), 180.0), camera=cam, bookmarks={},
+              builder=b, scenario_json=sc.to_json(rules_extra={"mode": "tdm"}), explore_start=((0.0, y0, 16.0), look_yaw(0.0, -1.0)), camera=cam, bookmarks={},
               extra={"groundPaint": paint.to_json(), "lighting": {"hour": 15.0}, "look": {"paintSets": {"rock": "yard_asphalt_paint"}}})
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=31, version=1, seed=SEED,
                    description="RB1: the weapon shop recreation (left) beside the reference model itself (right, by YadroGames, CC BY 4.0), same orientation, a spawn in front of both; the site cabin and log house recreations further back.",
                    width=W, depth=D, margin=40, heightmap=grid.meta(TID + ".height.png"), water_level=-1000.0, map_file=TID + ".nmap.json",
-                   camera=cam, thumbnail=TID + ".thumb.png", thumb_camera=([0.0, 9.0, 30.0], 180.0, -12.0), playable=True,
+                   camera=cam, thumbnail=TID + ".thumb.png", thumb_camera=([0.0, 14.0, 40.0], look_yaw(0.0, -1.0), -16.0), playable=True,
                    extra={"userMap": True, "selftest": "authored", "views": views})
     write_summary(os.path.join(ctx.out, TID + ".summary.json"), {"instances": len(b.inst)})
     print("instances %d" % len(b.inst))
