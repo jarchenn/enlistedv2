@@ -41,14 +41,15 @@ const A = {
     rigidify: ["base", "bolt", "bulletfirst", ...Array.from({ length: 12 }, (_, i) => "bulletholder" + i), "ejectorplate", "handle", "lid", "loader", "loaderplate", "mag", "trigger"], gun: "base", timeline: [1, 468], hipRear: [0.12, 0.32, -0.1],
     clips: { fire: [1, 13], reload: [13, 165], reload_empty: [165, 317], inspect: [317, 381], idle: [381, 425], draw: [425, 453] },
     mats: { LMG: { albedo: "LMGcolor.png", normal: "LMGnormal.png", metal: "LMGmetallic.png", rough: "LMGroughness.png" }, arms: { albedo: "armColor.png", normal: "armNormal.png", metal: "armMetallic.png", rough: "armRoughness.png" } } },
-  modern_shotgun: { src: "remington-870-shotgun-animated/source/Remington 870 - Animated.fbx", tex: "remington-870-shotgun-animated", stat: "modern_shotgun", restFrame: 2,
+  modern_shotgun: { maxTex: 1024, src: "remington-870-shotgun-animated/source/Remington 870 - Animated.fbx",   // AT8: re-baked at 1024 px (was 2048, 33 MB)
+    tex: "remington-870-shotgun-animated", stat: "modern_shotgun", restFrame: 2,
     keep: ["armmesh", "remington870_base", "remington870_lid", "remington870_pump", "remington870_slug", "remington870_trigger"], rigidify: ["remington870_base", "remington870_lid", "remington870_pump", "remington870_slug", "remington870_trigger"], gun: "remington870_base", timeline: [2, 144],
     // MG2 shell loop (frames at 30 fps): start = the support hand leaves the pump; insert = hand out of view -> a shell
     // pushed into the port -> hand out of view again (loops); end = the hand back on the pump. 74-106 (a drop out of
     // view, then a pump stroke) and the draw are not used.
     clips: { fire: [2, 30], reload_start: [30, 38], reload_insert: [38, 62], reload_end: [62, 74], idle: [106, 126] },
     // MG3: the user's reflex sight (red-dot-sight/rds_low.fbx) on the receiver top, its blue lens dropped (the window is open)
-    attach: { src: G + "red-dot-sight/source/rds_low.fbx", mesh: "RedDotSight_mesh", dropMats: ["08 - Default"], anchor: [-0.002, 0, -0.0133], at: [-0.0015, 0.094, 0.47] },
+    attach: { separate: true, src: G + "red-dot-sight/source/rds_low.fbx", mesh: "RedDotSight_mesh", dropMats: ["08 - Default"], anchor: [-0.002, 0, -0.0133], at: [-0.0015, 0.094, 0.47] },
     mats: { "01 - Default": { albedo: G + "red-dot-sight/textures/rds_low_DefaultMaterial_BaseColor.tga.png", rough: G + "red-dot-sight/textures/rds_low_DefaultMaterial_Roughness.tga.png", metal: G + "red-dot-sight/textures/rds_low_DefaultMaterial_Metallic.tga.png" },
             "Material.001": { albedo: "Material.001_Base_color.png", metal: "Material.001_Metallic.png", rough: "Material.001_Roughness.png" },
             shotgun: { albedo: "shotgunColor.png", metal: "shotgunmetallic.png", smooth: "shotgunsmoothness.png" }, Mat: c4dArms() } },
@@ -77,7 +78,8 @@ const A = {
     // the set has no idle and no fire clip: the idle is the draw's last frame (held), a shot is a procedural kick
     clips: { idle: { action: "root|Draw", range: [117, 118] }, reload: "root|Reload", reload_empty: "root|Full_Reload" },
     mats: { "texture set 1": { albedo: "texture_set_1_Base_color.png", rough: "texture_set_1_Roughness.png" }, "texture set 2": { albedo: "texture_set_2_Base_color.png", rough: "texture_set_2_Roughness.png", metal: "texture_set_2_Metallic.png" }, ...manny } },
-  modern_mp7: { src: X + "mp7/MP7A1_Animations/model/MP7A1.fbx", abs: true, tex: "mp7a1-animations", stat: "modern_mp7", keep: ["mp7a1_Object", "SK_Mannequin_Arms"], gun: "mp7a1_Object", cutLens: [{ a: [0.002, 0.141, 0.27], b: [0.002, 0.141, 0.39], r: 0.016, islands: true, black: true, blackR: 0.017, widen: 1.2, widenMax: 0.0165 }],
+  modern_mp7: { src: X + "mp7/MP7A1_Animations/model/MP7A1.fbx", abs: true, opticSplit: { mp7a1_Object: [[-0.03, 0.1035, 0.285], [0.03, 0.17, 0.372]] },   // AT8: its Aimpoint off under another sight
+    tex: "mp7a1-animations", stat: "modern_mp7", keep: ["mp7a1_Object", "SK_Mannequin_Arms"], gun: "mp7a1_Object", cutLens: [{ a: [0.002, 0.141, 0.27], b: [0.002, 0.141, 0.39], r: 0.016, islands: true, black: true, blackR: 0.017, widen: 1.2, widenMax: 0.0165 }],
     clips: { idle: "root|root|MC_MP7_static_pose", fire: "root|root|MC_MP7_shoot", reload: "root|root|MC_MP7_reload", reload_empty: "root|root|MC_MP7_full_reload" },
     mats: { ...Object.fromEntries([["Slot_1", "Slot_1"], ["slot_2", "slot_2"], ["slot_3", "slot_3"]].map(([m, f]) => [m, { albedo: `mp7_low_${f}_BaseColor.png`, rough: `mp7_low_${f}_Roughness.png`, metal: `mp7_low_${f}_Metallic.png` }])), ...manny } },
   modern_rpg7: { src: X + "rpg7/RPG7_Animations/model/RPG_7.fbx", abs: true, tex: "rpg-7-animations", stat: "modern_rpg7", keep: ["rpg_low", "SK_Mannequin_Arms"], gun: "rpg_low",

@@ -136,8 +136,11 @@ if cfg.get("attach"):
     vg = acc.vertex_groups.new(name=gunBone); vg.add(list(range(len(acc.data.vertices))), 1.0, "REPLACE")
     for o in new:
         if o != acc: bpy.data.objects.remove(o, do_unlink=True)
-    for o in bpy.context.view_layer.objects: o.select_set(False)
-    acc.select_set(True); gun.select_set(True); bpy.context.view_layer.objects.active = gun; bpy.ops.object.join()
+    if at_.get("separate"):   # AT8: its own mesh ("attach_<mesh>", skinned to the gun joint): JSON animated.opticMeshes hides it under another sight
+        acc.name = "attach_" + at_["mesh"]; md_ = acc.modifiers.new("Armature", "ARMATURE"); md_.object = arm; keep.append(acc)   # parented to the rig in place below
+    else:
+        for o in bpy.context.view_layer.objects: o.select_set(False)
+        acc.select_set(True); gun.select_set(True); bpy.context.view_layer.objects.active = gun; bpy.ops.object.join()
     log["attached"] = at_["mesh"]
 
 # ---------------------------------------------------------------- hip framing -> rig space (+ metres)
@@ -261,9 +264,9 @@ for _mn, _bl in cfg.get("dropBones", {}).items():
 # ---------------------------------------------------------------- AT7: the gun's own sights as their own mesh ("ironsSplit": {mesh: radius m}): the
 # connected pieces (vertices welded by position) lying wholly within the radius of the rear or front sight point (rest pose,
 # real metres) and under 8 cm across go to "<mesh>_irons", hidden in the game while an optic is fitted (folded irons)
-for _mn, _r in cfg.get("ironsSplit", {}).items():
+def _split_islands(_mn, _inside, _maxd, _suffix, _logkey):   # pieces (welded by position) of a kept mesh wholly passing _inside (world, rest) and under _maxd m across -> "<mesh><suffix>"
     import bmesh
-    _o = bpy.data.objects[_mn]; _mw = _o.matrix_world; _c = [pts["rear"], pts["front"]]; _rr = _r / s
+    _o = bpy.data.objects[_mn]; _mw = _o.matrix_world
     _bm = bmesh.new(); _bm.from_mesh(_o.data); _bm.verts.ensure_lookup_table(); _bm.faces.ensure_lookup_table()
     _par = list(range(len(_bm.verts)))
     def _f(x):
@@ -280,17 +283,25 @@ for _mn, _r in cfg.get("ironsSplit", {}).items():
     _take = set()
     for _rt, _vs in _isl.items():
         _w = [_mw @ _v.co for _v in _vs]
-        if all(min((_p - _cc).length for _cc in _c) <= _rr for _p in _w):
+        if all(_inside(_p) for _p in _w):
             _lo = Vector([min(p[i] for p in _w) for i in range(3)]); _hi = Vector([max(p[i] for p in _w) for i in range(3)])
-            if (_hi - _lo).length * s < 0.08: _take.add(_rt)
+            if (_hi - _lo).length * s < _maxd: _take.add(_rt)
     _bm.free()
-    if not _take: log["warn"].append("ironsSplit: no separate sight pieces on " + _mn); continue
-    _io = _o.copy(); _io.data = _o.data.copy(); _io.name = _mn + "_irons"; _io.data.name = _mn + "_irons"; bpy.context.scene.collection.objects.link(_io)
+    if not _take: log["warn"].append("%s: nothing split off %s" % (_logkey, _mn)); return
+    _io = _o.copy(); _io.data = _o.data.copy(); _io.name = _mn + _suffix; _io.data.name = _mn + _suffix; bpy.context.scene.collection.objects.link(_io)
     for _ob, _keep in ((_o, False), (_io, True)):
         _b2 = bmesh.new(); _b2.from_mesh(_ob.data); _b2.verts.ensure_lookup_table()
         _del = [f for f in _b2.faces if (_f(f.verts[0].index) in _take) != _keep]
         bmesh.ops.delete(_b2, geom=_del, context="FACES"); _b2.to_mesh(_ob.data); _b2.free()
-    keep.append(_io); log.setdefault("ironsSplit", {})[_mn] = len(_take)
+    keep.append(_io); log.setdefault(_logkey, {})[_mn] = len(_take)
+for _mn, _r in cfg.get("ironsSplit", {}).items():
+    _c = [pts["rear"], pts["front"]]; _rr = _r / s
+    _split_islands(_mn, lambda p, _c=_c, _rr=_rr: min((p - c).length for c in _c) <= _rr, 0.08, "_irons", "ironsSplit")
+# AT8: a factory optic merged into the gun mesh ("opticSplit": {mesh: [[lo], [hi]]}, static weapon space): its pieces wholly inside
+# the box go to "<mesh>_optic" (JSON animated.opticMeshes: not drawn while another sight is fitted)
+for _mn, _bx in cfg.get("opticSplit", {}).items():
+    _a, _b = w2b(_bx[0]), w2b(_bx[1]); _lo = Vector([min(_a[i], _b[i]) for i in range(3)]); _hi = Vector([max(_a[i], _b[i]) for i in range(3)])
+    _split_islands(_mn, lambda p, _lo=_lo, _hi=_hi: all(_lo[i] <= p[i] <= _hi[i] for i in range(3)), 1.0, "_optic", "opticSplit")
 # ---------------------------------------------------------------- drop everything else, move the rig
 for ob in [arm] + keep:   # MG2: a parent about to go (the Unreal sets' armature under an empty) must not move the rig
     if ob.parent is not None and ob.parent != arm and ob.parent not in keep:

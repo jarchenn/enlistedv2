@@ -50,8 +50,9 @@ static float fitCapsule(const std::vector<vec3>& P, vec3& c, vec3& a, bool fitAx
 // of the window clip cutting them in half: the connected pieces (vertices welded by position) lying entirely within
 // `radius` of the rear or front sight point and under 8 cm across, moved to the end of their part's index range as a new
 // part. A piece welded to the receiver stays (the window clip covers it). JSON "ironsWithOptic": true (or a radius in m).
-static void splitIrons(GpuModel& g, const std::vector<vec3>& at, float radius, const std::string& id) {
-  if (!g.ironParts.empty() || g.cpuIdx.empty() || at.empty()) return;
+// AT8: the same split for a factory optic ("factoryOptic": {"box": [[x, y, z], [x, y, z]]}): the pieces wholly inside the box
+static void splitPieces(GpuModel& g, std::function<bool(const vec3&)> inside, float maxDiag, std::vector<int>& out, const char* suffix, const std::string& id, const char* what) {
+  if (!out.empty() || g.cpuIdx.empty()) return;
   const size_t nv = g.cpuPos.size(); std::vector<uint32_t> up(nv); for (size_t i = 0; i < nv; ++i) up[i] = (uint32_t)i;
   std::function<uint32_t(uint32_t)> find = [&](uint32_t x) { while (up[x] != x) { up[x] = up[up[x]]; x = up[x]; } return x; };
   auto join = [&](uint32_t a, uint32_t b) { a = find(a); b = find(b); if (a != b) up[a] = b; };
@@ -62,22 +63,32 @@ static void splitIrons(GpuModel& g, const std::vector<vec3>& at, float radius, c
   for (size_t i = 0; i < nv; ++i) {
     uint32_t r = find((uint32_t)i); auto it = box.find(r); const vec3& p = g.cpuPos[i];
     if (it == box.end()) { box[r] = {p, p}; near[r] = true; } else { it->second.first = glm::min(it->second.first, p); it->second.second = glm::max(it->second.second, p); }
-    bool in = false; for (const vec3& c : at) in = in || glm::length(p - c) <= radius;
-    if (!in) near[r] = false;
+    if (!inside(p)) near[r] = false;
   }
-  std::set<uint32_t> irons; for (auto& [r, b] : box) if (near[r] && glm::length(b.second - b.first) < 0.08f) irons.insert(r);
-  if (irons.empty()) { logf("weapon %s: no separate sight pieces near its sights (the window clip covers them)", id.c_str()); return; }
+  std::set<uint32_t> irons; for (auto& [r, b] : box) if (near[r] && glm::length(b.second - b.first) < maxDiag) irons.insert(r);
+  if (irons.empty()) { logf("weapon %s: no separate %s pieces found", id.c_str(), what); return; }
   const size_t np = g.parts.size(); int moved = 0;
   for (size_t pk = 0; pk < np; ++pk) {
     ModelPart& p = g.parts[pk]; std::vector<uint32_t> keep, iron;
     for (uint32_t q = p.first; q + 2 < p.first + p.count; q += 3) (irons.count(find(g.cpuIdx[q])) ? iron : keep).insert((irons.count(find(g.cpuIdx[q])) ? iron : keep).end(), {g.cpuIdx[q], g.cpuIdx[q + 1], g.cpuIdx[q + 2]});
     if (iron.empty()) continue;
     std::copy(keep.begin(), keep.end(), g.cpuIdx.begin() + p.first); std::copy(iron.begin(), iron.end(), g.cpuIdx.begin() + p.first + keep.size());
-    ModelPart ip = p; ip.name = p.name + "_irons"; ip.first = p.first + (uint32_t)keep.size(); ip.count = (uint32_t)iron.size(); p.count = (uint32_t)keep.size();
-    g.ironParts.push_back((int)g.parts.size()); g.parts.push_back(ip); moved += (int)iron.size() / 3;
+    ModelPart ip = p; ip.name = p.name + suffix; ip.first = p.first + (uint32_t)keep.size(); ip.count = (uint32_t)iron.size(); p.count = (uint32_t)keep.size();
+    out.push_back((int)g.parts.size()); g.parts.push_back(ip); moved += (int)iron.size() / 3;
   }
   GLuint nb = 0; glCreateBuffers(1, &nb); glNamedBufferStorage(nb, g.cpuIdx.size() * 4, g.cpuIdx.data(), 0); glVertexArrayElementBuffer(g.vao, nb); glDeleteBuffers(1, &g.ebo); g.ebo = nb;
-  logf("weapon %s: %d sight piece(s), %d triangles, split off: hidden with an optic fitted", id.c_str(), (int)irons.size(), moved);
+  logf("weapon %s: %d %s piece(s), %d triangles, split off: hidden with an optic fitted", id.c_str(), (int)irons.size(), what, moved);
+}
+static void splitIrons(GpuModel& g, const std::vector<vec3>& at, float radius, const std::string& id) {
+  splitPieces(g, [&](const vec3& p) { for (const vec3& c : at) if (glm::length(p - c) <= radius) return true; return false; }, 0.08f, g.ironParts, "_irons", id, "sight");
+}
+// AT8: a gun's factory optic as parts of their own (GpuModel::opticParts): JSON "factoryOptic": {"names": [part names]} or
+// {"box": [[lo], [hi]]} (weapon space: the pieces wholly inside); hidden whenever another sight is fitted
+static void factoryOptic(GpuModel& g, const json& fo, const std::string& id) {
+  if (!g.opticParts.empty()) return;
+  for (auto& n : fo.value("names", json::array())) for (size_t k = 0; k < g.parts.size(); ++k) if (g.parts[k].name == n.get<std::string>()) g.opticParts.push_back((int)k);
+  if (fo.contains("box")) { vec3 lo = jvec3(fo["box"][0]), hi = jvec3(fo["box"][1]);
+    splitPieces(g, [=](const vec3& p) { return glm::all(glm::greaterThanEqual(p, lo)) && glm::all(glm::lessThanEqual(p, hi)); }, 1.0f, g.opticParts, "_optic", id, "factory optic"); }
 }
 static void measureHold(WeaponDef& d, const std::vector<vec3>& P) {
   if (P.empty()) return;
@@ -247,6 +258,7 @@ void App::buildWeaponMeshes() {
       if (d->model) {
         measureHold(*d, d->model->cpuPos);
         const float ir = j.contains("ironsWithOptic") ? (j["ironsWithOptic"].is_number() ? j["ironsWithOptic"].get<float>() : 0.045f) : 0.0f;
+        if (j.contains("factoryOptic")) factoryOptic(*d->model, j["factoryOptic"], d->id);   // AT8 (before the irons: the optic's pieces are not sights)
         if (ir > 0) splitIrons(*d->model, {d->rear, d->front}, ir, d->id);   // AT7
         roles(*d->model, d->modelParts);   // the split-off sights among them (brSightDraws drops them under an optic)
         fs::path ld = dir / "models" / dirName / "lod1";   // MG4: the reduced bake for third person and the world
@@ -254,6 +266,7 @@ void App::buildWeaponMeshes() {
           auto lit = modelCache.find(dirName + "/lod1");
           if (lit == modelCache.end()) { auto gl = std::make_shared<GpuModel>(); gl->keepPos = true; std::string e2; if (!gl->load(ld, e2)) gl.reset(); lit = modelCache.emplace(dirName + "/lod1", gl).first; }
           d->modelLod = lit->second;
+          if (d->modelLod && j.contains("factoryOptic")) factoryOptic(*d->modelLod, j["factoryOptic"], d->id + " (lod1)");
           if (d->modelLod) { if (j.contains("ironsWithOptic")) splitIrons(*d->modelLod, {d->rear, d->front}, j["ironsWithOptic"].is_number() ? j["ironsWithOptic"].get<float>() : 0.045f, d->id + " (lod1)");
             roles(*d->modelLod, d->modelPartsLod); }
         }

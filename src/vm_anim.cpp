@@ -24,6 +24,7 @@ struct AnimVM {
   float fireRate = 1, reloadRate = 1;  // MG4: clips played faster (the shotguns' pump and shell loop); the timing follows
   vec3 dot{0}; bool hasDot = false;    // red-dot sight: the dot at this rig point (the front lens centre), seen along the sight line
   std::string slideName; int slideJoint = -1;   // PS1 "slideJoint": the rig joint the slide rides on (a pistol red dot moves with it)
+  std::vector<std::string> opticMeshes;  // AT8 "opticMeshes": the factory optic (the bake's opticSplit / a kept attach): not drawn while another sight is fitted
   std::vector<std::string> ironMeshes;   // AT7 "ironMeshes": the gun's own sights (the bake's ironsSplit): not drawn while an optic is fitted
   std::vector<std::string> hideMeshes;   // AT5 "hideMeshes": mesh nodes never drawn (the SMG-9's own sight under its holographic one)
   vec3 dotCol{1, 0.03f, 0.015f}; float dotRing = 0;   // AT2: the mark's colour; a ring around it (in dot radii, 0 none)
@@ -88,6 +89,7 @@ std::shared_ptr<AnimVM> animVmLoad(const fs::path& dir, const json& block, std::
   for (auto& [k, len] : a->dur) len /= k == "fire" ? a->fireRate : k.rfind("reload", 0) == 0 ? a->reloadRate : 1.0f;   // the weapon's pump / reload times
   for (auto& h : block.value("hideMeshes", json::array())) a->hideMeshes.push_back(h.get<std::string>());   // AT5
   for (auto& h : block.value("ironMeshes", json::array())) a->ironMeshes.push_back(h.get<std::string>());   // AT7
+  for (auto& h : block.value("opticMeshes", json::array())) a->opticMeshes.push_back(h.get<std::string>());   // AT8
   a->slideName = block.value("slideJoint", std::string());   // PS1
   if (block.contains("redDot")) {   // AT2: the mark itself is drawn on the HUD at its angular size (sight_overlay.cpp drawReflexReticle)
     a->hasDot = true; a->dot = jv(block["redDot"]);
@@ -224,6 +226,7 @@ bool animVmDraw(App& app, const WeaponDef& d) {
   for (size_t k = 0; k < st.inst.view.parts.size(); ++k) {
     if (std::find(d.anim->hideMeshes.begin(), d.anim->hideMeshes.end(), st.inst.view.parts[k].name) != d.anim->hideMeshes.end()) continue;   // AT5
     if (optic && std::find(d.anim->ironMeshes.begin(), d.anim->ironMeshes.end(), st.inst.view.parts[k].name) != d.anim->ironMeshes.end()) continue;   // AT7: folded under the optic
+    if (app.wstate[d.id].att[0] && std::find(d.anim->opticMeshes.begin(), d.anim->opticMeshes.end(), st.inst.view.parts[k].name) != d.anim->opticMeshes.end()) continue;   // AT8: the factory optic off
     app.R.viewModelTex.push_back({&st.inst.view, (int)k, rig});
   }
   const WeaponState& ws = app.wstate[d.id];
