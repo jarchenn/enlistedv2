@@ -8,7 +8,7 @@
   "holster": 0.4167,
   "run": 2.0833
  },
- "fps": 24,
+ "fps": 24.0,
  "points": {
   "rear": [
    0.10785,
@@ -24,6 +24,24 @@
    0.09741,
    -0.0209,
    -0.51072
+  ]
+ },
+ "log": {
+  "warn": [],
+  "gunRestBlender": [
+   -0.0226,
+   -0.4591,
+   1.5362,
+   0.0125,
+   -0.2926,
+   1.6528
+  ],
+  "staticGunBlender": null,
+  "idleFrame": 0.0,
+  "bakedMeshTransforms": [
+   "xd_grip_safe",
+   "xd_mag",
+   "xd_slide"
   ]
  },
  "tris": 39106

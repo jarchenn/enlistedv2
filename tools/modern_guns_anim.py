@@ -357,7 +357,10 @@ ad.action = None
 # ---------------------------------------------------------------- export
 for ob in bpy.context.view_layer.objects: ob.select_set(False)
 arm.select_set(True); rootObj.select_set(True)
-for ob in keep: ob.select_set(True)
+for ob in keep:   # XD1: a source may lock its meshes against selection (hide_select): select_set then does nothing and the
+    ob.hide_select = False; ob.hide_set(False); ob.select_set(True)   # selection-only export drops them (the XD's arms were lost this way)
+missed = [ob.name for ob in keep if not ob.select_get()]
+if missed: raise SystemExit("MG1 kept meshes not selected for export: " + ", ".join(missed))
 bpy.ops.export_scene.gltf(filepath=out, export_format="GLB", use_selection=True, export_skins=True, export_animations=True,
                           export_animation_mode="NLA_TRACKS", export_force_sampling=True, export_apply=False,
                           export_cameras=False, export_lights=False, export_image_format="AUTO", export_def_bones=cfg.get("defOnly", False))   # MG2: Rigify rigs keep only their deform bones
