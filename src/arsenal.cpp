@@ -16,6 +16,7 @@
 
 
 #include "loot.h"   // BR2 Battle Royale loot
+#include "ui_flat.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -296,6 +297,15 @@ void App::layoutRackDisplays() {
   }
 }
 
+// UI11: the case's class filter. rackSel stays an index into the whole list (weapons, then deploy items, which always show)
+static bool rackShows(const App& a, const std::vector<int>& ars, int k) {
+  return k >= (int)ars.size() || a.rackFilter == GF_ALL || weaponFilterClass(*a.weaponDefs[ars[k]]) == a.rackFilter;
+}
+static int rackStep(const App& a, const std::vector<int>& ars, int n, int sel, int dir) {   // the next shown row (dir 0: sel itself if shown)
+  for (int s = dir ? 1 : 0; s <= n; ++s) { int k = ((sel + dir * s) % n + n) % n; if (rackShows(a, ars, k)) return k; if (!dir) dir = 1; }
+  return sel;
+}
+
 void App::openRack(uint64_t id) {
   Instance* i = doc.find(id);
   if (!i) return;
@@ -303,6 +313,7 @@ void App::openRack(uint64_t id) {
   const AssetDef* a = assetFor(*i);
   auto ars = rackArsenal(a->rackFaction);
   for (size_t k = 0; k < ars.size(); ++k) if (ars[k] == activeWeapon) rackSel = (int)k;
+  if (int n = (int)ars.size() + (int)a->rackDeploy.size()) rackSel = rackStep(*this, ars, n, rackSel, 0);
   syncCursor();
   ++rackOpens;
 }
@@ -323,8 +334,8 @@ void App::stepRack(const ExploreInput& in) {
   const AssetDef* a = assetFor(*i);
   auto ars = rackArsenal(a->rackFaction);
   int n = (int)ars.size() + (int)a->rackDeploy.size();
-  if (in.rackUp) rackSel = (rackSel + n - 1) % std::max(1, n);
-  if (in.rackDown) rackSel = (rackSel + 1) % std::max(1, n);
+  if (n && in.rackUp) rackSel = rackStep(*this, ars, n, rackSel, -1);
+  if (n && in.rackDown) rackSel = rackStep(*this, ars, n, rackSel, 1);
   if (in.rackEquip) rackActivate();
   if (in.rackClose) closeRack("closed");
 }
@@ -333,6 +344,7 @@ void App::rackActivate() {
   Instance* i = doc.find(rackId); if (!i) return;
   const AssetDef* a = assetFor(*i);
   auto ars = rackArsenal(a->rackFaction);
+  if (!rackShows(*this, ars, rackSel)) return;   // UI11: the filter shows nothing
   if (rackSel < (int)ars.size()) {
     if (mpaiRackRequest(*this, rackId, ars[rackSel])) { closeRack("requested"); return; }   // LAN client: the host swaps the loadout
     std::string msg; bool ok = equipWeapon(ars[rackSel], msg);
@@ -360,8 +372,12 @@ void App::drawRackUI() {
   bool open = true;
   ImGui::Begin(title.c_str(), &open, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings);
   ImGui::TextDisabled("%s arsenal from the weapon registry. Up/Down or click to select, Enter / Equip, Esc closes.", a->rackFaction == "US" ? "Allied" : a->rackFaction == "modern" ? "Modern" : "Axis");
+  { static const char* kTabs[GF_COUNT] = {"All", "Pistols", "SMGs", "Rifles", "Snipers", "Special"};
+    int n = (int)ars.size() + (int)a->rackDeploy.size();
+    if (flat::tabs(kTabs, GF_COUNT, rackFilter, 1.25f) && n) rackSel = rackStep(*this, ars, n, rackSel, 0); }
   ImGui::Separator();
   for (size_t k = 0; k < ars.size(); ++k) {
+    if (!rackShows(*this, ars, (int)k)) continue;
     const WeaponDef& d = *weaponDefs[ars[k]];
     const WeaponState& s = wstate[d.id];
     bool carriedNow = std::find(carried.begin(), carried.end(), ars[k]) != carried.end();
@@ -381,7 +397,7 @@ void App::drawRackUI() {
     }
   }
   ImGui::Separator();
-  if (rackSel < (int)ars.size()) {
+  if (rackSel < (int)ars.size() && rackShows(*this, ars, rackSel)) {
     const WeaponDef& d = *weaponDefs[ars[rackSel]];
     const WeaponState& s = wstate[d.id];
     ImGui::Text("%s - %s, %s feed, fire mode %s", d.name.c_str(), d.action.c_str(), d.feed.c_str(), fireModeName(d, s));

@@ -52,6 +52,10 @@ int ammoTypeOf(const WeaponDef& d);
 const char* ammoName(int type);
 int ammoBox(int type);
 bool lootIsPistol(const WeaponDef& d);
+// UI11: the weapon case filter. Exactly one per weapon: JSON "category" if set, else from the data (blasters, launchers, flame,
+// heavy, belt-fed / LMG, shotguns and equipment are special; scoped rifles and the .50 snipers; then pistols, SMGs, rifles)
+enum GunFilter : int { GF_ALL = 0, GF_PISTOL, GF_SMG, GF_RIFLE, GF_SNIPER, GF_SPECIAL, GF_COUNT };
+int weaponFilterClass(const WeaponDef& d);
 int lootMagSize(const WeaponDef& d, const WeaponState& s);   // the magazine with an extended magazine fitted
 bool lootSightFits(const WeaponDef& d, int sight);
 // the sight in use: the fitted one, else a scoped sniper rifle's own scope, which counts as the ACOG (2)

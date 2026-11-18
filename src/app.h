@@ -332,7 +332,7 @@ public:
   bool isAtGun(const AssetDef* a) const;
   struct WreckInfo { uint64_t id = 0; std::string why; float time = -100; } lastWreck;
   int stationsWrecked = 0, equips = 0, deploys = 0, packs = 0, rackOpens = 0;
-  bool rackOpen = false; uint64_t rackId = 0; int rackSel = 0; std::string lastRackClose;
+  bool rackOpen = false; uint64_t rackId = 0; int rackSel = 0; std::string lastRackClose; int rackFilter = 0;   // UI11: loot.h GunFilter, kept while the game runs
   std::vector<int> rackArsenal(const std::string& faction) const;
   void rackDrawItems(const Instance& i, const InstanceRT& r);
   void layoutRackDisplays();

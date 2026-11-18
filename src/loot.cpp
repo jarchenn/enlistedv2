@@ -108,14 +108,23 @@ int ammoTypeOf(const WeaponDef& d) {
   if (contains(c, "9x39")) return AM_762;   // MG12: the VSK's subsonic rifle round
   if (contains(c, ".50") || contains(c, "12.7")) return AM_50;
   if (contains(c, "9x19") || contains(c, "4.6x30") || contains(c, ".22") || contains(c, "7.65")) return AM_9MM;
+  if (contains(c, "5.56") || contains(c, "5.45") || contains(c, "7.92x33") || contains(c, "Carbine")) return AM_556;   // plan: Kurz and .30 Carbine count as 5.56 (UI11: before ".45", which 5.45x39 contains)
   if (contains(c, ".45") || contains(c, "ACP")) return AM_45;
-  if (contains(c, "5.56") || contains(c, "5.45") || contains(c, "7.92x33") || contains(c, "Carbine")) return AM_556;   // plan: Kurz and .30 Carbine count as 5.56
   if (contains(c, "7.62") || contains(c, "7.92x57") || contains(c, ".30-06")) return AM_762;
   return AM_NONE;
 }
 bool lootIsPistol(const WeaponDef& d) { int t = ammoTypeOf(d); return d.action == "semi" && (t == AM_9MM || t == AM_45) && d.cap <= 20; }   // AT1: the Glock 34's 17 rounds (it took rifle optics)   // MG12: any feed (the revolver loads round by round)
 static bool isShotgun(const WeaponDef& d) { return ammoTypeOf(d) == AM_12GA; }
 static bool isSmg(const WeaponDef& d) { int t = ammoTypeOf(d); return d.action == "auto" && (t == AM_9MM || t == AM_45); }
+int weaponFilterClass(const WeaponDef& d) {
+  static const char* kNames[GF_COUNT] = {"", "pistol", "smg", "rifle", "sniper", "special"};
+  for (int k = 1; k < GF_COUNT; ++k) if (d.category == kNames[k]) return k;
+  const int t = ammoTypeOf(d);
+  if (d.blaster || d.equipment() || d.action == "launcher" || d.action == "flame" || d.action == "heavy" || d.wclass == WC_LMG || t == AM_12GA || t == AM_NONE) return GF_SPECIAL;
+  if (d.hasScope || d.wclass == WC_SNIPER || t == AM_50) return GF_SNIPER;
+  if (lootIsPistol(d)) return GF_PISTOL;
+  return isSmg(d) ? GF_SMG : GF_RIFLE;
+}
 int lootMagSize(const WeaponDef& d, const WeaponState& s) {
   if (!s.att[ATT_MAG]) return d.cap;
   return (int)std::lround(d.cap * (lootIsPistol(d) || isSmg(d) ? 2.0f : 1.5f));

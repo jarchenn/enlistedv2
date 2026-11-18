@@ -73,8 +73,8 @@ float text(ImDrawList* dl, ImFont* f, float px, ImVec2 p, ImU32 c, const char* s
 }
 void rule(ImDrawList* dl, float x0, float x1, float y) { dl->AddRectFilled(ImVec2(x0, y), ImVec2(x1, y + 1.0f), rust(0.85f)); }
 
-bool tabs(const char* const* names, int n, int& cur) {
-  ImDrawList* dl = ImGui::GetWindowDrawList(); ImFont* f = uiFontHead(); const float px = ImGui::GetFontSize() * 1.9f;   // UI5: ~30 px at 1080p
+bool tabs(const char* const* names, int n, int& cur, float scale) {
+  ImDrawList* dl = ImGui::GetWindowDrawList(); ImFont* f = uiFontHead(); const float px = ImGui::GetFontSize() * scale;   // UI5: ~30 px at 1080p
   ImVec2 p = ImGui::GetCursorScreenPos(); const float h = px * 1.5f; bool changed = false;
   for (int k = 0; k < n; ++k) {
     std::string t = upper(names[k]); const float w = textW(f, px, t.c_str(), 0.06f);

@@ -81,6 +81,7 @@ struct WeaponDef {
   bool equipment() const { return grenade.on || melee.on || pack.on; }
   bool useModel() const { return model && model->vao; }
   int wclass = WC_RIFLE;                // handling.json "classes" (else derived from action / feed / scope)
+  std::string category;                 // UI11: JSON "category" (pistol / smg / rifle / sniper / special) overrides the rack filter class derived from the data
   float adsSpeed = 1;                   // JSON ads.speed: ADS blend rate x this
   bool magReload = false;               // JSON "reloadStyle":"magazine": an en-bloc rifle reloads with the magazine-style hand motion (support hand to the magwell, no handle pull)
   float moveSpeed = 1;                  // GM1: JSON "moveSpeed": player speed x this while the weapon is in hand (knife 1.3)

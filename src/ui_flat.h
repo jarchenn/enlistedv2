@@ -17,7 +17,7 @@ void backdrop(ImDrawList* dl, ImVec2 mn, ImVec2 mx);   // the page's dark, blurr
 float text(ImDrawList* dl, ImFont* f, float px, ImVec2 p, ImU32 c, const char* s, float trackEm);   // tracked uppercase; returns the width
 float textW(ImFont* f, float px, const char* s, float trackEm);
 void rule(ImDrawList* dl, float x0, float x1, float y);   // a thin copper rule
-bool tabs(const char* const* names, int n, int& cur);   // at the cursor; true when it changed
+bool tabs(const char* const* names, int n, int& cur, float scale = 1.9f);   // at the cursor; true when it changed (scale: text px / font size)
 void section(const char* name);                          // a small grey heading over a group of rows
 bool combo(const char* label, int* cur, const char* const items[], int n);
 bool checkbox(const char* label, bool* v);
