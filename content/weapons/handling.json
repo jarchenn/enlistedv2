@@ -39,6 +39,7 @@
   "mp40": "auto",
   "m1_thompson": "auto",
   "m3_grease_gun": "auto",
+  "sten": "auto",
   "fg42": "auto",
   "blaster_carbine": "auto",
   "blaster_rifle": "rifle",
@@ -162,6 +163,9 @@
     "kind": "smg"
    },
    "m3_grease_gun": {
+    "kind": "smg"
+   },
+   "sten": {
     "kind": "smg"
    },
    "mp40": {

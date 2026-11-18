@@ -125,6 +125,14 @@
    "rpm": 450,
    "class": "smg"
   },
+  "sten": {
+   "near": 30,
+   "far": 18,
+   "falloffStart_m": 20,
+   "falloffEnd_m": 60,
+   "rpm": 550,
+   "class": "smg"
+  },
   "mp40": {
    "near": 28,
    "far": 17,

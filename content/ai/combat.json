@@ -32,7 +32,8 @@
     "m1_thompson",
     "m1_carbine",
     "m1918a2_bar",
-    "m3_grease_gun"
+    "m3_grease_gun",
+    "sten"
    ],
    "ai": [
     [
@@ -53,6 +54,10 @@
     ],
     [
      "m3_grease_gun",
+     1
+    ],
+    [
+     "sten",
      1
     ]
    ]

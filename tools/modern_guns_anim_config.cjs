@@ -10,6 +10,7 @@ const G = path.resolve(process.argv[2]) + "/", O = path.resolve(process.argv[3])
 const WDIR = path.resolve(__dirname, "../content/weapons") + "/";
 const X = path.resolve(process.argv[5] || G + "_extracted") + "/";
 const M12 = path.resolve(process.env.MG12_SRC || "E:/nmk/incoming/mg12") + "/";   // MG12 sources (moved off C: to E:, user disk policy)
+const NG3 = path.resolve(process.env.NG3_SRC || "E:/nmk/incoming/ng3") + "/";   // NG3 sources (licences unknown: local-only bakes)
 const NG1 = path.resolve(process.env.NG1_SRC || "E:/nmk/incoming/ng1") + "/";   // NG1 sources (licences unknown: local-only bakes into models/<id>_local)
 // MG2: Unreal mannequin arms (AR-15, MP7, RPG-7) and the Rigify agent's arms (Scorpion, Uzi)
 const manny = { MI_Manny_01: { albedo: "T_Manny_01_D.png", rough_f: 0.6 }, MI_Manny_02: { albedo: "T_Manny_02_D.png", rough_f: 0.6 } };
@@ -202,6 +203,38 @@ const A = {
     rigidify: ["base", "bullet", "bullet_2", "bullet_2_2", "hammer", "mag", "shell", "shell_1", "shell_1_2", "slide", "stopper", "trigger"], gun: "base", timeline: [1, 265],
     clips: { fire: [1, 12], reload: [12, 84], reload_empty: [96, 177], inspect: [177, 234], idle: [234, 265] },   // NG1: 84-96 a last shot (slide locked back) not used
     mats: { beretta: { albedo: "berettaColor.png", metal: "berettaMetallic.png", rough: "berettaRoughness.png" }, arms: { ...ng2Arms, albedo: "armsColor.png", rough: "armsRoughness.png", normal: "armsNormal.png" } }, normals: true },
+  // ---- NG3 (user-supplied packs): local-only bakes
+  modern_scar: { abs: true, src: NG3 + "Scar_animation/source/FP_ScarH.fbx", tex: NG3 + "Scar_animation", stat: "modern_scarh3", keep: ["BODY_MAG", "BUTTSTOCK_BARREL", "FPS_Hands"], gun: "BODY_MAG", gunBone: "Weapon",
+    staticPoseFrame: 61, staticPoseAction: "Dragunov_FP_Rig|Dragunov_FP_Rig|Dragunov_FP_RigAction",   // the static bake was posed at the idle
+    // one 1-281 timeline at 24 fps (as MG7's GLB of the same rig, one frame later): equip 1-46 (not used), idle 47-77, four shots from 78, reload 101-181, from empty 181-281
+    clips: { idle: { action: "Dragunov_FP_Rig|Dragunov_FP_Rig|Dragunov_FP_RigAction", range: [47, 77] }, fire: { action: "Dragunov_FP_Rig|Dragunov_FP_Rig|Dragunov_FP_RigAction", range: [78, 83] },
+             reload: { action: "Dragunov_FP_Rig|Dragunov_FP_Rig|Dragunov_FP_RigAction", range: [101, 181] }, reload_empty: { action: "Dragunov_FP_Rig|Dragunov_FP_Rig|Dragunov_FP_RigAction", range: [181, 281] } },
+    ironsSplit: { BODY_MAG: 0.05, BUTTSTOCK_BARREL: 0.05 }, normals: true, dropBones: { FPS_Hands: ["upper_arm.L", "upper_arm.R", "shoulder.L", "shoulder.R"] },
+    mats: { SCAR_Body_Mat: { albedo: "ScarH_Body_D.png", metal: "ScarH_Body_M.png", rough: "ScarH_Body_R.png" }, SCAR_Buttock_Mat: { albedo: "ScarH_Buttock_D.png", metal: "ScarH_Buttock_M.png", rough: "ScarH_Buttock_R.png" },
+            Hands_Mat: { ...ng2Arms, albedo: "FPS_Hands_D.png", normal: "FPS_Hands_N.png", rough_f: 0.75 } } },
+  modern_m4_irons: { abs: true, src: NG3 + "animated-fps-m4a4/source/rig.fbx", tex: NG3 + "animated-fps-m4a4", stat: "modern_m4a4", hipRear: [0.12, 0.15, -0.07],
+    keep: ["M4A4_CS2", "M4A4_CS2.001", "DMC5_Soldier_Gloves", "DMC5_Soldier_Skin", "DMC5_Soldier_Shirt", "DMC5_Soldier_Gear"], gun: "M4A4_CS2",
+    clips: { idle: "Armature|Armature|Idle", fire: "Armature|Armature|Shoot", reload: "Armature|Armature|Reload" },   // Take / Hide not used
+    ironsSplit: { M4A4_CS2: 0.04 }, normals: true,   // the upper arms kept: cut, the left sleeve's open end showed in ADS (the XD's cut does not show)
+    mats: { weapon_rif_m4a4: { albedo: "m4a4_default_color_psd_3b0b391e.png", normal: "m4a4_default_normal_png_d39c4b9a.png", rough: "m4a4_default_rough.png", metal_f: 0.6 },
+            DMC5_Soldier_Hands_Mat: { albedo: "soldierhand_d.png", normal: "soldierhand_n.png", rough_f: 0.8, matte: [0.8, 0.8] },
+            DMC5_Soldier_Shirt_Mat: { albedo: "pl2000_main3_d.png", normal: "pl2000_main3_n.png", rough_f: 0.92, matte: [0.92, 0.92] },
+            DMC5_Soldier_Gear_Mat: { albedo: "pl2000_main2_d.png", normal: "pl2000_main2_n.png", rough_f: 0.85, matte: [0.85, 0.85] } } },
+  modern_vsk: { abs: true, src: NG3 + "fps-animations-vsk/source/FPS_VSK.fbx", tex: NG3 + "fps-animations-vsk", stat: "modern_vsk3", keep: ["VSK-94", "Male_04_Animation_Ready"], gun: "VSK-94", gunBone: "Body", maxTex: 1024,
+    clips: { idle: "Rig|Rig|VSK_Idle", fire: "Rig|Rig|VSK_Fire", reload: "Rig|Rig|VSK_ReloadNotFull", reload_empty: "Rig|Rig|VSK_ReloadFull" },   // run / sprint / walk not used
+    ironsSplit: { "VSK-94": 0.04 }, normals: true,
+    mats: { "Main body": { albedo: "Main_body_Base_color.png", metal: "Main_body_Metallic.png", rough: "Main_body_Roughness.png" },
+            "Mag+cover": { albedo: "Mag+cover_Base_color.png", metal: "Mag+cover_Metallic.png", rough: "Mag+cover_Roughness.png" },
+            "Stock-silencer": { albedo: "Stock-silencer_Base_color.png", metal: "Stock-silencer_Metallic.png", rough: "Stock-silencer_Roughness.png" },
+            Male_04_Animation_Ready: { ...ng2Arms, albedo: "Body_Colour.jpg", normal: "Body_Normal.jpg", rough: "Body_Roughness.jpg" } } },
+  modern_revolver: { abs: true, src: NG3 + "revovlerReplace/source/AnimatedMagnum.fbx", tex: NG3 + "revovlerReplace", stat: "modern_ragingbull", hipRear: [0.07, 0.3, -0.09],
+    keep: ["Magnum.002", "Object002", "Object003", "Charger", "hardknuckle", "sleeve"], gun: "Magnum.002", dropBones: { sleeve: ["upperarm_L.L", "upperarm_L.R"], hardknuckle: ["upperarm_L.L", "upperarm_L.R"] },   // the upper arms (across the aimed view)
+    clips: { idle: "Armature|Armature|Idle", fire: "Armature|Armature|Shoot", reload: "Armature|Armature|Reload" },   // Take / Hide / Watch not used
+    normals: true,
+    mats: { "Default_OBJ.001": { albedo: "weapon_raging_D.png", rough_f: 0.4, metal_f: 0.7 },
+            glove_hardknuckle: { ...ng2Arms, albedo: "glove_hardknuckle_Base_color.png", normal: "glove_hardknuckle_Normal_OpenGL.png", rough_f: 0.8 },
+            sleeve_st6_generalist: { ...ng2Arms, albedo: "sleeve_st6_generalist_Base_color.png", normal: "sleeve_st6_generalist_Normal_OpenGL.png", rough_f: 0.9 },
+            v_l_skin: { ...ng2Arms, factor: [0.42, 0.27, 0.19], rough_f: 0.75 } } },
   // ---- MG7: the first-person knife (knife_animated.glb, Sketchfab; one 0-116 timeline at 24 fps); framed by its camera: the eye
   // at the scene origin looking along -y in the exported frame (found by a test export), centimetres
   knife_bayonet: { src: "../mg7/knife_animated/knife_animated.glb", tex: "../mg7/knife_animated", frame: { rear: [0, 0, 0], front: [0, -100, 0], up: [0, 0, 1], scale: 0.01 }, hipRear: [0, 0, 0],

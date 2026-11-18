@@ -16,7 +16,7 @@
     {"id": "mg", "US": {"name": "Machine Gunner", "primary": ["m2hb_carry", "m1918a2_bar"]},
                  "DE": {"name": "Machine Gunner", "primary": ["mg42"]},
      "smokes": 2, "botWeight": 1.5},
-    {"id": "assault", "US": {"name": "Assaulter", "primary": ["m3_grease_gun", "m1_thompson"]},
+    {"id": "assault", "US": {"name": "Assaulter", "primary": ["m3_grease_gun", "m1_thompson", "sten"]},
                       "DE": {"name": "Assaulter", "primary": ["mp40", "stg44"]},
      "frags": 4, "smokes": 2, "hpMul": 1.25, "staminaMul": 1.5, "botWeight": 2},
     {"id": "tanker", "US": {"name": "Tanker", "pistol": "m1911a1"},

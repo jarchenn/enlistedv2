@@ -485,6 +485,7 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/smg_a.mp3", false, {"modern_scorpion"}, -1, 1.12f, 0.4f, 1.0f},   // derived: the Scorpion, higher and brighter
     {"guns/smg_b.mp3", false, {"m1_thompson"}},   // SMG1.mp3
     {"guns/smg_b.mp3", false, {"m3_grease_gun"}, -1, 0.88f, -0.5f, 2.5f},   // derived: the grease gun, lower and darker
+    {"guns/smg_b.mp3", false, {"sten"}, -1, 1.04f},   // NG3: the Sten's fallback (snd14 missing)
     // SND9: gun-shot-1 (user request) for the vehicle rapid-fire guns: the Abrams roof minigun (shot_minigun: higher, short and
     // tight) and the Apache's 30 mm chain gun (shot_cannon30: lower, heavier); "rapid" below
     {"guns/gun_shot_1.mp3", false, {"minigun"}, -1, 1.15f, 0, 0.3f, 1.5f},
@@ -529,6 +530,7 @@ int Audio::loadCustom(const fs::path& dir) {
     {"snd14/rifle_shot_3.wav", false, {"fg42"}, -1, 1.04f, 0, 1.6f, 3.5f, 1.23f},
     {"snd14/smg_shot_1.wav", false, {"mp40"}, -1, 1.00f, 0, 1.0f, 5.5f, 1.23f},   // SMGShot
     {"snd14/smg_shot_1.wav", false, {"m3_grease_gun"}, -1, 0.90f, 0, 1.0f, 5.5f, 1.23f},
+    {"snd14/smg_shot_1.wav", false, {"sten"}, -1, 1.06f, 0, 1.0f, 5.5f, 1.23f},   // NG3: the Sten (9 mm): the MP40's take a little higher
     {"snd14/smg_shot_2.wav", false, {"modern_uzi"}, -1, 1.00f, 0, 1.0f, 5.0f, 1.24f},   // SMGShot1 (bright, as its old burst)
     {"snd14/smg_shot_3.wav", false, {"m1_thompson"}, -1, 0.94f, 0, 1.0f, 2.0f, 1.10f},   // SMGShot2
     {"snd14/smg_shot_3.wav", false, {"modern_smg9"}, -1, 1.03f, 0, 1.0f, 2.0f, 1.14f},
@@ -703,7 +705,7 @@ int Audio::loadCustom(const fs::path& dir) {
       {"reload/reload_sniper.mp3", {"modern_sniper_bolt", "modern_sniper_3"}, 2.8f},   // bolt magazine snipers (the user's "m24 and 50cal")
       {"reload/reload_sniper.mp3", {"modern_sniper_50"}, 4.2f},
       {"reload/reload_bolt.mp3", {"kar98k"}, 2.2f},   // the stripper-clip reload (freesound_community "rifle or shotgun reload")
-      {"reload/reload_a.mp3", {"mp40", "m1_thompson", "m3_grease_gun", "modern_uzi", "modern_mp7", "modern_scorpion", "m1_garand", "m1c_garand", "kar98k_zf39"}},
+      {"reload/reload_a.mp3", {"mp40", "m1_thompson", "m3_grease_gun", "sten", "modern_uzi", "modern_mp7", "modern_scorpion", "m1_garand", "m1c_garand", "kar98k_zf39"}},
       {"reload/reload_b.mp3", {"luger", "m1911a1", "modern_pistol", "modern_pistol2", "modern_pistol3"}},
       // MG12 (borrowed, pitched apart): the Desert Eagle on the pistol reload, lower; the SMG-9 on the SMG reload, higher; the
       // sawn-off's two shells on the shell recording (the revolver loads round by round: clip_in per round)

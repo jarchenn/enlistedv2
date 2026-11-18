@@ -6,6 +6,7 @@ const k = (...n) => Object.fromEntries(n.map(x => [x, x]));
 const X = path.resolve(process.argv[5] || G + "_extracted") + "/";
 const M12 = path.resolve(process.env.MG12_SRC || "E:/nmk/incoming/mg12") + "/";   // MG12 sources (moved off C: to E:, user disk policy)
 const NG1 = path.resolve(process.env.NG1_SRC || "E:/nmk/incoming/ng1") + "/";   // NG1 sources (licences unknown: the bakes are local-only)
+const NG3 = path.resolve(process.env.NG3_SRC || "E:/nmk/incoming/ng3") + "/";   // NG3 sources (licences unknown: the bakes are local-only)
 const C = {
   ak: { src: G + "fps-ak-animated/source/arms@ak.fbx", tex: "fps-ak-animated", keep: k("base", "bolt", "bullet", "mag", "release", "trigger"),
         mats: { ak74: { albedo: "ak74Color.png", normal: "ak74Normal.png", metal: "akMetallic.png", smooth: "aksmoothness.png", ao: "akAO.png" } } },
@@ -105,6 +106,23 @@ const C = {
         mats: { smg45: { albedo: "smg45Color.png", normal: "smg45Normal.png", metal: "smg45Metallic.png", ao: "smg45Ao.png", rough_f: 0.5 } } },
   beretta: { src: NG1 + "animated_pistol_1/source/arms@beretta.fbx", tex: NG1 + "animated_pistol_1", keep: { base: "frame", slide: "slide", mag: "mag", hammer: "frame", trigger: "trigger", stopper: "frame" },
         mats: { beretta: { albedo: "berettaColor.png", normal: "berettaNormal.png", metal: "berettaMetallic.png", rough: "berettaRoughness.png", ao: "berettaAO.png" } } },
+  // ---- NG3 (user-supplied packs, local-only bakes)
+  scarh3: { src: NG3 + "Scar_animation/source/FP_ScarH.fbx", tex: NG3 + "Scar_animation", poseFrame: 61, poseAction: "Dragunov_FP_Rig|Dragunov_FP_Rig|Dragunov_FP_RigAction",   // the idle (the rest pose is not assembled)
+        keep: { BODY_MAG: "base", BUTTSTOCK_BARREL: "stock" }, split: { BODY_MAG: { Magazine: "mag", Slide: "handle" } },
+        mats: { SCAR_Body_Mat: { albedo: "ScarH_Body_D.png", normal: "ScarH_Body_N.png", metal: "ScarH_Body_M.png", rough: "ScarH_Body_R.png" },
+                SCAR_Buttock_Mat: { albedo: "ScarH_Buttock_D.png", normal: "ScarH_Buttock_N.png", metal: "ScarH_Buttock_M.png", rough: "ScarH_Buttock_R.png" } } },
+  m4a4: { src: NG3 + "animated-fps-m4a4/source/rig.fbx", tex: NG3 + "animated-fps-m4a4", keep: { M4A4_CS2: "base", "M4A4_CS2.001": "mag" },
+        mats: { weapon_rif_m4a4: { albedo: "m4a4_default_color_psd_3b0b391e.png", normal: "m4a4_default_normal_png_d39c4b9a.png", rough: "m4a4_default_rough.png", metal_f: 0.6 } } },
+  vsk3: { src: NG3 + "fps-animations-vsk/source/FPS_VSK.fbx", tex: NG3 + "fps-animations-vsk", keep: { "VSK-94": "base" }, split: { "VSK-94": { Slider: "bolt", Mag: "mag", Trigger: "trigger" } },
+        mats: { "Main body": { albedo: "Main_body_Base_color.png", normal: "Main_body_Normal_OpenGL2.png", metal: "Main_body_Metallic.png", rough: "Main_body_Roughness.png" },
+                "Mag+cover": { albedo: "Mag+cover_Base_color.png", normal: "Mag+cover_Normal_OpenGL.png", metal: "Mag+cover_Metallic.png", rough: "Mag+cover_Roughness.png" },
+                "Stock-silencer": { albedo: "Stock-silencer_Base_color.png", normal: "Stock-silencer_Normal_OpenGL2.png", metal: "Stock-silencer_Metallic.png", rough: "Stock-silencer_Roughness.png" } } },
+  ragingbull: { src: NG3 + "revovlerReplace/source/AnimatedMagnum.fbx", tex: NG3 + "revovlerReplace", keep: { "Magnum.002": "frame", Object002: "mag", Object003: "mag" },   // Object002 the cylinder, 003 its rounds (the speed loader "Charger" is a reload prop)
+        mats: { "Default_OBJ.001": { albedo: "weapon_raging_D.png", normal: "weapon_raging_N.png", rough_f: 0.4, metal_f: 0.7 } } },
+  sten: { src: "E:/nmk/ng3/sten_gun.blend", tex: NG3 + "sten-gunWW2Model", rotZ: -90,   // the GLB re-framed on its AssaultRifle node first (E:/nmk/ng3/sten_prep.py: the parts hang off the animated hand)
+        keep: { "Frame:0": "base", "##PowerCellAssembly:0": "mag", "##riotMechanism:0": "bolt", "Trigger:0": "trigger" },
+        mats: { "Frame:0_material": { albedo: "sten_d.dds_0.png", normal: "sten_n.dds_1.png", rough_f: 0.55, metal_f: 0.6 }, "Trigger:0_material": { albedo: "sten_d.dds_0.png", normal: "sten_n.dds_1.png", rough_f: 0.55, metal_f: 0.6 },
+                "##PowerCellAssembly:0_material": { albedo: "sten_d.dds_0.png", normal: "sten_n.dds_1.png", rough_f: 0.55, metal_f: 0.6 }, "##riotMechanism:0_material": { albedo: "sten_d.dds_0.png", normal: "sten_n.dds_1.png", rough_f: 0.55, metal_f: 0.6 } } },
   case: { src: G + "hardcase_for_weapons.glb", tex: "", scale: 1.27,
         keep: k("CaseLower_low_Hardcase_0", "CaseUpped_low_Hardcase_0", "Foam_low_Hardcase_0", "Handle_low_Hardcase_0", "HandleRods_low_Hardcase_0", "HingesLower_low_Hardcase_0", "HingesUpper_low_Hardcase_0", "Knob_low_Hardcase_0", "LockRods_low_Hardcase_0", "Locks_low_Hardcase_0") },
 };
