@@ -69,6 +69,7 @@ static std::string paletteGroup(const AssetDef* a) {
   const std::string& c = a->category; const std::string& id = a->id;
   auto pre = [&](const char* p) { return id.rfind(p, 0) == 0; };
   auto has = [&](const char* w) { return id.find(w) != std::string::npos; };
+  if (a->raw.is_object() && a->raw.contains("group") && a->raw["group"].is_string()) return a->raw["group"].get<std::string>();   // PR10: an asset may name its group
   if (pre("mod_bld_")) return a->floors >= 3 || a->footprint.x * a->footprint.y >= 400.0f ? "Large Buildings" : "Small Buildings";   // modern buildings by size
   const json* pr = a->raw.is_object() && a->raw.contains("prop") ? &a->raw["prop"] : nullptr;
   bool hung = pr && pr->contains("mount") && (*pr)["mount"].is_number() && (*pr)["mount"].get<float>() > 0.0f;   // furnisher pieces hung at a height

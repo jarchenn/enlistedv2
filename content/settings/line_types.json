@@ -572,6 +572,20 @@
       ],
       "params": {},
       "sectionHp": 360
+    },
+    {
+      "id": "pa_fence_picket",
+      "name": "Old picket fence (model)",
+      "asset": "line_pa_fence_picket",
+      "builder": "bays",
+      "spacing": 3.35,
+      "pieces": [
+        [
+          "pa_fence_picket_bay",
+          1
+        ]
+      ],
+      "params": {}
     }
   ]
 }

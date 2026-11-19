@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.20999997854232788,
+  0.3094000518321991,
+  0.30500006675720215
+ ],
+ "bmin": [
+  -0.20999997854232788,
+  0.0,
+  -0.30500006675720215
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "mr": "mr_3.jpg",
+   "name": "wooden_box_mat",
+   "normal": "normal_1.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.20999997854232788,
+    0.3094000518321991,
+    0.30500006675720215
+   ],
+   "bmin": [
+    -0.20999997854232788,
+    0.0,
+    -0.30500006675720215
+   ],
+   "count": 714,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "wooden_box1_wooden_box_mat_0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "pa_fruit_crate_high.glb",
+ "textures": {},
+ "triangles": 238,
+ "vertices": 296
+}

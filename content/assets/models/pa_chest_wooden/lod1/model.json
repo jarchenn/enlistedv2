@@ -1,0 +1,60 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  0.5,
+  0.5257141590118408,
+  0.2805434465408325
+ ],
+ "bmin": [
+  -0.5,
+  0.0,
+  -0.28122594952583313
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "mr": "mr_3.jpg",
+   "name": "material",
+   "normal": "normal_1.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5,
+    0.5257141590118408,
+    0.2805434465408325
+   ],
+   "bmin": [
+    -0.5,
+    0.0,
+    -0.28122594952583313
+   ],
+   "count": 2700,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "metal_Mat_0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "pa_chest_wooden.glb",
+ "textures": {},
+ "triangles": 900,
+ "vertices": 1379
+}

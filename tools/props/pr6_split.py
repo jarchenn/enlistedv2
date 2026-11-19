@@ -169,7 +169,7 @@ for P in job["pieces"]:
         if o.name not in CL: CL[o.name] = clusters(o)
         objs = [copy_of(o, CL[o.name][i]) for i in P["clusters"]]
     else:
-        objs = [copy_of(byname[n]) for n in P["objects"]]
+        objs = [copy_of(o) for o in SRC] if P.get("objects") is None else [copy_of(byname[n]) for n in P["objects"]]   # PR10: None = every mesh
     for mname, idx in P.get("delete_clusters", []):   # PR8: a model's own door leaf / glass goes (the game fits openable ones)
         o = byname[mname]
         if o.name not in CL: CL[o.name] = clusters(o)
@@ -183,6 +183,27 @@ for P in job["pieces"]:
         bm = bmesh.new(); bm.from_mesh(ob.data)
         kill = {i for i, sl in enumerate(ob.material_slots) if sl.material and any(sl.material.name.startswith(n) for n in P["delete_mats"])}
         bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.material_index in kill], context="FACES"); bm.to_mesh(ob.data); bm.free()
+    if P.get("keep_box"):   # PR10: crop to a box (one bay of a fence run): bisect on its four sides, the outside dropped
+        x0, x1, y0, y1 = P["keep_box"][:4]
+        bm = bmesh.new(); bm.from_mesh(ob.data)
+        for co, no in (((x0, 0, 0), (-1, 0, 0)), ((x1, 0, 0), (1, 0, 0)), ((0, y0, 0), (0, -1, 0)), ((0, y1, 0), (0, 1, 0))):
+            bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=co, plane_no=no, clear_outer=True)
+        bm.to_mesh(ob.data); bm.free()
+    for pfx, x0, x1, y0, y1, z0, z1 in P.get("delete_in", []):   # PR10: one material's faces inside a box (the boards across a doorway)
+        bm = bmesh.new(); bm.from_mesh(ob.data)
+        mi = {i for i, sl in enumerate(ob.material_slots) if sl.material and sl.material.name.startswith(pfx)}
+        gone = [f for f in bm.faces if f.material_index in mi and x0 <= f.calc_center_median().x <= x1 and y0 <= f.calc_center_median().y <= y1 and z0 <= f.calc_center_median().z <= z1]
+        bmesh.ops.delete(bm, geom=gone, context="FACES"); bm.to_mesh(ob.data); bm.free()
+    if P.get("double_mats"):   # PR10: one-sided boards read black from inside: a flipped copy of their faces, 4 mm behind
+        bm = bmesh.new(); bm.from_mesh(ob.data)
+        mi = {i for i, sl in enumerate(ob.material_slots) if sl.material and any(sl.material.name.startswith(n) for n in P["double_mats"])}
+        src_f = [f for f in bm.faces if f.material_index in mi]
+        dup = bmesh.ops.duplicate(bm, geom=src_f)["geom"]
+        nf = [g for g in dup if isinstance(g, bmesh.types.BMFace)]; nset = set(nf)
+        for v in {v for f in nf for v in f.verts}:   # each new vertex once, along its faces' mean normal
+            n = sum((f.normal for f in v.link_faces if f in nset), Vector()); v.co -= n.normalized() * 0.004 if n.length else n
+        bmesh.ops.reverse_faces(bm, faces=nf)
+        bm.to_mesh(ob.data); bm.free()
     if P.get("shrink"):   # PR8: scale the vertices inside a footprint about its foot (the gas station's dispensers)
         for x0, x1, y0, y1, f in P["shrink"]:
             vs = [v for v in ob.data.vertices if x0 <= v.co.x <= x1 and y0 <= v.co.y <= y1]
@@ -235,6 +256,11 @@ for P in job["pieces"]:
         if low:
             px = [v.x for v in low]; py = [v.y for v in low]; ph = (hi.z - lo.z) * 0.9
             boxes = [[(min(px) + max(px)) / 2, ph / 2, -(min(py) + max(py)) / 2, max(max(px) - min(px), 0.05), ph, max(max(py) - min(py), 0.05)]]
+    elif P.get("colliders") == "trunk":   # PR10: a tree: the trunk only (the vertices in its lowest 1.2 m), up to 3 m
+        low = [v.co for v in ob.data.vertices if v.co.z < 1.2]
+        if low:
+            px = [v.x for v in low]; py = [v.y for v in low]; th = min(3.0, hi.z - lo.z)
+            boxes = [[(min(px) + max(px)) / 2, th / 2, -(min(py) + max(py)) / 2, max(min(max(px) - min(px), 1.2), 0.15), th, max(min(max(py) - min(py), 1.2), 0.15)]]
     elif P.get("colliders", "parts") == "box":
         boxes = [[(lo.x + hi.x) / 2, (lo.z + hi.z) / 2, -(lo.y + hi.y) / 2, size[0], size[1], size[2]]]
     else:   # one box per connected piece (the largest 12; specks dropped)
