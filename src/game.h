@@ -55,6 +55,7 @@ struct Soldier {
   bool op = false;
   uint8_t kit = 0; float kitSpeed = 1; bool kitSparks = false;
   mat4 dfMagK{1}; bool dfMagHeld = false;   // DF1: a Delta Force reload: the magazine in the left hand (its offset from the hand at the grab)
+  vec2 dfMagWin{0}; float dfBoltBack = 0, dfPumpBack = 0, dfPrevYaw = 0, dfYawRate = 0;   // DF1 gunbody.cpp: the reload span the magazine is out; the bolt / pump travel (m); the body's turn rate (deg/s)
   bool gunBody = false; int gmWeapon = -1; double gmShotAt = -100; float gmFireT = 1;   // GM1 / GM2: a body with its gun built in (gas-mask / desert soldiers, the Axis bots: combat.json gunbody_models): its weapon, the clip state of its shots (gunbody.cpp)   // SW1: 2 blaster trooper, 3 robot commando (combat.json kits: body, blasters, pace, hit sparks)
   float lean = 0;                            // MV3: the player's Q / E lean (-1 .. 1; local from App::lean, LAN in the snapshot)                           // AI5: an Operator bot (AiType::Operators): modern weapons (combat.json loadouts_operator)                       // G2: the melee brain (zombie.cpp: Zombies, heavies): no weapon
   int etype = 0; double staggerUntil = 0;    // EN1: enemy type (enemy_types.h; LAN snapshot), stopped by a heavy hit until

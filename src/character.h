@@ -104,6 +104,13 @@ struct PoseParams {
   vec2 slope{0};                            // AN1b: ground gradient under the body in model space (rise per metre along x, z); feet and the kneel follow it
   vec3 footPin[2] = {vec3(0), vec3(0)};     // AN1 step 3b: model-space ankle pins (a planted foot held where it landed, in the world) and their weights;
   float footPinW[2] = {0, 0}, footLift[2] = {0, 0};
+  // DF1 (Delta Force; 0 / -1 elsewhere): the reload by family and the action cycled between shots (weapon-space points)
+  int reloadStyle = 0;                      // 0 box magazine (magPos), 1 rounds / a clip / a rocket into portPos, 2 belt: the top cover (portPos) up, the box (magPos) out and in
+  int reloadRounds = 1;                     // style 1: hand trips from the pouch to the port
+  vec3 portPos{0}, boltPos{0};              // the loading port / top cover; the bolt handle (0: none)
+  bool boltReload = false;                  // the right hand opens the bolt at the start of the reload and closes it at the end
+  float cycle = -1; int cycleKind = 0;      // 0..1 through the cycle after a shot (< 0 none); 1 bolt (right hand), 2 pump (the support hand slides back)
+  bool rightArmClip = false;                // the right arm from base too (a clip's grenade throw)
   const std::vector<mat4>* base = nullptr;   // DF1: clip deltas (model space, per skin joint): every joint outside the arms takes these; the arms, hands and weapon stay procedural on the clip's chest
   vec3 footN[2] = {vec3(0), vec3(0)};       // AN1 step 3c: model-space ground normal under a planted foot (0: the body's slope plane)   // footLift: extra ankle height (m) of a standing re-step
 };

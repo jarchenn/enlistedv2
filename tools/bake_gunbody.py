@@ -184,93 +184,133 @@ def bake(srcs, out_path, skip=()):
     print(os.path.basename(out_path), '%.1f MB' % (total / 1e6), ', '.join(report))
 
 
-# DF1: one body, clips from separate files matched by node NAME (Mixamo exports: the clip files carry the skeleton only).
-#   python -I tools/bake_gunbody.py --named <character.glb> <out.glb> <clip.glb>...   (clip name = file stem, '_' -> ' ')
-#   The Hips translation of the locomotion clips (walk / run / sprint / strafe in the name) loses its horizontal drift (the
-#   straight line from the first key to the last, in model space): the clip plays in place, the sway stays.
+# DF1: Mixamo-rig clips (skeleton + keys only, one file each) retargeted onto a body already in the game.
+#   python -I tools/bake_gunbody.py --retarget <body.glb> <out.glb> <clip.glb>...   (clip name = file stem, '_' -> ' ')
+#   Joints are matched by name (the part after ':'). Each matched joint takes the clip's model-space rotation change from its
+#   own rest (world delta = posed world x rest world^-1, applied over the body's rest world), so bone axes and rest poses may
+#   differ; joints the clips do not have keep their rest. The Hips travel is scaled by the hip heights (body / clip). The
+#   locomotion clips (walk / run / sprint / strafe in the name) lose their horizontal drift (the straight line from the first
+#   key to the last): they play in place, the sway stays. Output: the body's mesh, skin, materials and textures untouched,
+#   plus the clips. Both files: metres, y up, +z forward, left +x (checked on the hips / legs).
+def _qm(a, b):
+    ax, ay, az, aw = a; bx, by, bz, bw = b
+    return (aw * bx + ax * bw + ay * bz - az * by, aw * by - ax * bz + ay * bw + az * bx, aw * bz + ax * by - ay * bx + az * bw, aw * bw - ax * bx - ay * by - az * bz)
+def _qi(q): return (-q[0], -q[1], -q[2], q[3])
+def _qn(q):
+    n = sum(c * c for c in q) ** 0.5 or 1.0
+    return tuple(c / n for c in q)
 def _q2m(q):
     x, y, z, w = q
     return [[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)], [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)], [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]]
-def _lin(n):   # node -> its parent-space linear part (3x3) and translation
-    r = _q2m(n.get('rotation', [0, 0, 0, 1])); s = n.get('scale', [1, 1, 1])
-    return [[r[i][k] * s[k] for k in range(3)] for i in range(3)], list(n.get('translation', [0, 0, 0]))
-def _mul(a, b): return [[sum(a[i][k] * b[k][j] for k in range(3)) for j in range(3)] for i in range(3)]
-def _inv(m):
+def _mv(m, v): return [sum(m[i][k] * v[k] for k in range(3)) for i in range(3)]
+def _mm(a, b): return [[sum(a[i][k] * b[k][j] for k in range(3)) for j in range(3)] for i in range(3)]
+def _inv3(m):
     a, b, c = m[0]; d, e, f = m[1]; g, h, i = m[2]
     det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
     return [[(e * i - f * h) / det, (c * h - b * i) / det, (b * f - c * e) / det], [(f * g - d * i) / det, (a * i - c * g) / det, (c * d - a * f) / det], [(d * h - e * g) / det, (b * g - a * h) / det, (a * e - b * d) / det]]
 
-def bake_named(base_path, clip_paths, out_path):
+class _Skel:
+    def __init__(self, j):
+        self.N = j['nodes']; self.par = {c: i for i, n in enumerate(self.N) for c in n.get('children', [])}
+        self.order = []; seen = set()
+        def visit(i):
+            if i in seen: return
+            if i in self.par: visit(self.par[i])
+            seen.add(i); self.order.append(i)
+        for i in range(len(self.N)): visit(i)
+        self.name = [n.get('name', '').split(':')[-1] for n in self.N]
+        self.rq = [_qn(tuple(n.get('rotation', [0, 0, 0, 1]))) for n in self.N]
+        self.rt = [list(n.get('translation', [0, 0, 0])) for n in self.N]
+        self.wq0 = self.world_rot(self.rq)
+    def world_rot(self, loc):
+        w = [None] * len(self.N)
+        for i in self.order: w[i] = _qm(w[self.par[i]], loc[i]) if i in self.par else loc[i]
+        return w
+    def affine(self, i):   # rest: node -> model (3x3 with scale, translation)
+        n = self.N[i]; R = _q2m(self.rq[i]); s = n.get('scale', [1, 1, 1]); L = [[R[r][c] * s[c] for c in range(3)] for r in range(3)]; t = self.rt[i]
+        if i in self.par: PL, Pt = self.affine(self.par[i]); return _mm(PL, L), [a + b for a, b in zip(_mv(PL, t), Pt)]
+        return L, list(t)
+
+def bake_retarget(base_path, clip_paths, out_path):
     base, bbin = load(base_path)
-    names = [n.get('name', '') for n in base['nodes']]
-    parent = {c: i for i, n in enumerate(base['nodes']) for c in n.get('children', [])}
-    tmp = os.path.join(os.path.dirname(out_path), '_named_tmp'); os.makedirs(tmp, exist_ok=True)
+    B = _Skel(base)
     O = Out()
-    j = {'asset': {'version': '2.0', 'generator': 'NormandyMapmaker tools/bake_gunbody.py --named'}, 'scene': 0, 'scenes': base['scenes'], 'nodes': base['nodes']}
+    j = {'asset': {'version': '2.0', 'generator': 'NormandyMapmaker tools/bake_gunbody.py --retarget'}, 'scene': 0, 'scenes': base['scenes'], 'nodes': base['nodes']}
     meshes = []
     for m in base['meshes']:
         m = json.loads(json.dumps(m))
         for pr in m['primitives']:
-            pr['attributes'] = {k: O.acc('b', base, bbin, a) for k, a in pr['attributes'].items() if k not in ('TEXCOORD_1', 'TEXCOORD_2', 'TANGENT')}
+            pr['attributes'] = {k: O.acc('b', base, bbin, a) for k, a in pr['attributes'].items()}
             if 'indices' in pr: pr['indices'] = O.acc('b', base, bbin, pr['indices'])
-            pr.pop('targets', None)
         meshes.append(m)
     j['meshes'] = meshes
     j['skins'] = []
     for s in base['skins']:
         s = dict(s); s['inverseBindMatrices'] = O.acc('b', base, bbin, s['inverseBindMatrices']); j['skins'].append(s)
-    j['materials'] = json.loads(json.dumps(base.get('materials', [])))
-    for m in j['materials']: m.pop('normalTexture', None); m.pop('occlusionTexture', None); m.pop('alphaMode', None); m.pop('alphaCutoff', None)
-    used_t = sorted({d[k]['index'] for m in j['materials'] for d in (m, m.get('pbrMetallicRoughness', {})) for k in ('baseColorTexture', 'metallicRoughnessTexture', 'emissiveTexture') if k in d})
-    tmap = {t: k for k, t in enumerate(used_t)}
-    for m in j['materials']:
-        for d in (m, m.get('pbrMetallicRoughness', {})):
-            for k in ('baseColorTexture', 'metallicRoughnessTexture', 'emissiveTexture'):
-                if k in d: d[k]['index'] = tmap[d[k]['index']]
-    j['samplers'] = base.get('samplers', [])
-    j['textures'] = [dict(base['textures'][t]) for t in used_t]
-    used_i = sorted({t['source'] for t in j['textures']}); imap = {i: k for k, i in enumerate(used_i)}
-    for t in j['textures']: t['source'] = imap[t['source']]
+    for k in ('materials', 'samplers', 'textures'):
+        if k in base: j[k] = base[k]
     j['images'] = []
-    for i in used_i:
-        im = dict(base['images'][i]); v = base['bufferViews'][im['bufferView']]; o = v.get('byteOffset', 0)
-        data, im['mimeType'] = jpeg_if_opaque(bytes(bbin[o:o + v['byteLength']]), im.get('mimeType', ''), False)
+    for im in base.get('images', []):
+        im = dict(im); im['bufferView'] = O.view('b', base, bbin, im['bufferView']); j['images'].append(im)
+    joints = set(base['skins'][0]['joints'])
+    bh = B.name.index('Hips'); BhL, BhT = B.affine(bh); BpL, BpT = B.affine(B.par[bh]) if bh in B.par else ([[1, 0, 0], [0, 1, 0], [0, 0, 1]], [0, 0, 0]); BpLi = _inv3(BpL)
+    def raw(vals, typ):
+        data = b''.join(struct.pack('<%df' % len(v), *v) for v in vals)
         while len(O.bin) % 4: O.bin += b'\0'
         O.views.append({'buffer': 0, 'byteOffset': len(O.bin), 'byteLength': len(data)}); O.bin += data
-        im['bufferView'] = len(O.views) - 1; j['images'].append(im)
-    hips = next(i for i, n in enumerate(names) if n.split(':')[-1] == 'Hips')
-    P = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]; k = parent.get(hips)
-    while k is not None: P = _mul(_lin(base['nodes'][k])[0], P); k = parent.get(k)
-    Pi = _inv(P)
+        nc = len(vals[0])
+        O.accs.append({'bufferView': len(O.views) - 1, 'componentType': 5126, 'count': len(vals), 'type': typ, 'min': [min(v[c] for v in vals) for c in range(nc)], 'max': [max(v[c] for v in vals) for c in range(nc)]})
+        return len(O.accs) - 1
     anims, report = [], []
     for f in clip_paths:
         clip = os.path.basename(f)[:-4].replace('_', ' ')
-        cj, cbin = load(f); cn = [n.get('name', '') for n in cj['nodes']]
+        cj, cbin = load(f); S = _Skel(cj); a = cj['animations'][0]
+        ch = {}; times = None; tin = None
+        for c in a['channels']:
+            smp = a['samplers'][c['sampler']]; tv = [t[0] for t in floats(cj, cbin, smp['input'])]
+            if times is None or len(tv) > len(times): times, tin = tv, smp['input']
+            ch[(c['target']['node'], c['target']['path'])] = (tv, floats(cj, cbin, smp['output']))
+        def at(key, t, n):   # linear sample (rotations nlerp)
+            tv, vv = ch[key]
+            if t <= tv[0]: return vv[0]
+            if t >= tv[-1]: return vv[-1]
+            k = max(0, min(len(tv) - 2, next(i for i in range(len(tv) - 1) if tv[i + 1] >= t))); u = (t - tv[k]) / ((tv[k + 1] - tv[k]) or 1)
+            v0, v1 = vv[k], vv[k + 1]
+            if n == 4 and sum(x * y for x, y in zip(v0, v1)) < 0: v1 = tuple(-x for x in v1)
+            v = tuple(x + (y - x) * u for x, y in zip(v0, v1))
+            return _qn(v) if n == 4 else v
+        sh = S.name.index('Hips'); ShL, ShT = S.affine(sh); SpL, SpT = S.affine(S.par[sh]) if sh in S.par else ([[1, 0, 0], [0, 1, 0], [0, 0, 1]], [0, 0, 0])
+        k_h = BhT[1] / ShT[1]
+        smap = {S.name[i]: i for i in range(len(S.N))}
+        mapped = [i for i in B.order if i in joints and B.name[i] in smap]
+        rot = {i: [] for i in mapped}; hipT = []
+        for t in times:
+            sl = [at((i, 'rotation'), t, 4) if (i, 'rotation') in ch else S.rq[i] for i in range(len(S.N))]
+            sw = S.world_rot(sl)
+            bl = list(B.rq); bw = [None] * len(B.N)
+            for i in B.order:
+                pw = bw[B.par[i]] if i in B.par else (0, 0, 0, 1)
+                if i in rot:
+                    si = smap[B.name[i]]
+                    w = _qn(_qm(_qm(sw[si], _qi(S.wq0[si])), B.wq0[i]))
+                    bl[i] = _qn(_qm(_qi(pw), w)); rot[i].append(bl[i])
+                bw[i] = _qm(pw, bl[i])
+            st = at((sh, 'translation'), t, 3) if (sh, 'translation') in ch else S.rt[sh]
+            sp = [x + y for x, y in zip(_mv(SpL, st), SpT)]
+            hipT.append([BhT[c] + (sp[c] - ShT[c]) * k_h for c in range(3)])
         loco = any(w in clip for w in ('walk', 'run', 'sprint', 'strafe'))
-        for a in cj.get('animations', [])[:1]:
-            na = {'name': clip, 'channels': [], 'samplers': []}; dur = 0.0; drift = 0.0
-            for ch in a['channels']:
-                t = ch['target']; nm = cn[t['node']]
-                if nm not in names or t['path'] == 'scale': continue
-                bi = names.index(nm); s = a['samplers'][ch['sampler']]
-                dur = max(dur, cj['accessors'][s['input']].get('max', [0])[0])
-                vals = floats(cj, cbin, s['output'])
-                if at_rest(base['nodes'][bi], t['path'], vals): continue
-                outa = O.acc(f, cj, cbin, s['output'], True)
-                if bi == hips and t['path'] == 'translation' and loco:
-                    w = [[sum(P[r][c] * v[c] for c in range(3)) for r in range(3)] for v in vals]
-                    n = len(w) - 1 or 1; d0 = [(w[-1][0] - w[0][0]) / n, (w[-1][2] - w[0][2]) / n]; drift = (d0[0] ** 2 + d0[1] ** 2) ** 0.5 * n
-                    for i, v in enumerate(w): v[0] -= d0[0] * i; v[2] -= d0[1] * i
-                    back = [tuple(sum(Pi[r][c] * v[c] for c in range(3)) for r in range(3)) for v in w]
-                    data = b''.join(struct.pack('<3f', *v) for v in back)
-                    while len(O.bin) % 4: O.bin += b'\0'
-                    O.views.append({'buffer': 0, 'byteOffset': len(O.bin), 'byteLength': len(data)}); O.bin += data
-                    acc = dict(cj['accessors'][s['output']]); acc['bufferView'] = len(O.views) - 1; acc.pop('byteOffset', None)
-                    acc['min'] = [min(v[c] for v in back) for c in range(3)]; acc['max'] = [max(v[c] for v in back) for c in range(3)]
-                    O.accs.append(acc); outa = len(O.accs) - 1
-                na['samplers'].append({'input': O.acc(f, cj, cbin, s['input'], True), 'output': outa, 'interpolation': s.get('interpolation', 'LINEAR')})
-                na['channels'].append({'sampler': len(na['samplers']) - 1, 'target': {'node': bi, 'path': t['path']}})
-            anims.append(na); report.append('%s %.2fs%s' % (clip, dur, ' drift %.2f' % drift if loco else ''))
+        drift = 0.0
+        if loco and len(hipT) > 1:
+            n = len(hipT) - 1; d0 = [(hipT[-1][0] - hipT[0][0]) / n, (hipT[-1][2] - hipT[0][2]) / n]; drift = (d0[0] ** 2 + d0[1] ** 2) ** 0.5 * n
+            for i, v in enumerate(hipT): v[0] -= d0[0] * i; v[2] -= d0[1] * i
+        hipL = [tuple(_mv(BpLi, [v[c] - BpT[c] for c in range(3)])) for v in hipT]
+        na = {'name': clip, 'channels': [], 'samplers': []}
+        tacc = O.acc(f, cj, cbin, tin, True)
+        for i in mapped:
+            if at_rest(base['nodes'][i], 'rotation', rot[i]): continue
+            na['samplers'].append({'input': tacc, 'output': raw(rot[i], 'VEC4'), 'interpolation': 'LINEAR'}); na['channels'].append({'sampler': len(na['samplers']) - 1, 'target': {'node': i, 'path': 'rotation'}})
+        na['samplers'].append({'input': tacc, 'output': raw(hipL, 'VEC3'), 'interpolation': 'LINEAR'}); na['channels'].append({'sampler': len(na['samplers']) - 1, 'target': {'node': bh, 'path': 'translation'}})
+        anims.append(na); report.append('%s %.2fs %d joints%s' % (clip, times[-1], len(mapped), ' drift %.2f' % drift if loco else ''))
     j['animations'] = anims
     j['accessors'] = O.accs; j['bufferViews'] = O.views
     while len(O.bin) % 4: O.bin += b'\0'
@@ -282,11 +322,11 @@ def bake_named(base_path, clip_paths, out_path):
         fo.write(struct.pack('<III', 0x46546C67, 2, total))
         fo.write(struct.pack('<II', len(js), 0x4E4F534A)); fo.write(js)
         fo.write(struct.pack('<II', len(O.bin), 0x004E4942)); fo.write(O.bin)
-    print(os.path.basename(out_path), '%.1f MB' % (total / 1e6)); print('\n'.join(report))
+    print(os.path.basename(out_path), '%.1f MB' % (total / 1e6), 'hips x %.3f' % k_h); print('\n'.join(report))
 
 if __name__ == '__main__':
     args = sys.argv[1:]; skip = ()
-    if args and args[0] == '--named': bake_named(args[1], args[3:], args[2]); sys.exit(0)
+    if args and args[0] == '--retarget': bake_retarget(args[1], args[3:], args[2]); sys.exit(0)
     if '--skip' in args: k = args.index('--skip'); skip = tuple(args[k + 1].split(',')); del args[k:k + 2]   # clips the game does not play
     char, out, srcs = args[0], args[1], args[2:]
     os.makedirs(out, exist_ok=True)

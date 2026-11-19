@@ -177,17 +177,22 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
     float yawIn = kind == 1 ? 0.05f : 0.0f;   // stock in the shoulder, muzzle slightly toward the centre line
     quat qa = glm::angleAxis(p.aimYawOffset + yawIn, vec3(0, 1, 0)) * glm::angleAxis(-wp, vec3(1, 0, 0));   // +z bore, pitch up = -x rotation
     vec3 pa;
+    // DF1: on a clip body the posed right shoulder and head are the clip's own (its chest is bladed and turned): the pocket and
+    // the eye come from them, in model space, not from the rest shoulder carried by the chest
+    const bool cb = p.base && J(CJ_RSHOULDER) >= 0 && J(CJ_HEAD) >= 0;
+    const vec3 shP = cb ? xf((*p.base)[J(CJ_RSHOULDER)], sh) : vec3(0);
     if (kind == 1) {
-      pa = xf(chest, vec3(sh.x * 0.5f - 0.02f * lowR, sh.y + 0.08f - 0.03f * lowR, sh.z + 0.05f + 0.10f * lowR) + p.holdOffset);   // SW2: held out (blasters); low ready clear of the chest
+      pa = cb ? shP + vec3(-0.5f * sh.x - 0.02f * lowR, 0.08f - 0.03f * lowR, 0.05f + 0.10f * lowR) + p.holdOffset
+              : xf(chest, vec3(sh.x * 0.5f - 0.02f * lowR, sh.y + 0.08f - 0.03f * lowR, sh.z + 0.05f + 0.10f * lowR) + p.holdOffset);   // SW2: held out (blasters); low ready clear of the chest
       float wb = (1 - carry) * (1 - lowR) * c01(p.holdWeld);
       if (wb > 0 && p.sightR != vec3(0)) {   // AN1 step 2b: cheek weld: the rear sight 10 cm ahead of the right eye on the line of sight (the head tilts onto the comb)
         vec3 eye = H(CJ_HEAD) + vec3(-0.032f, 0.055f, 0.10f);
-        vec3 pe = xf(chest, eye) + qa * vec3(0, 0, 0.10f) - qa * p.sightR;
+        vec3 pe = (cb ? xf((*p.base)[J(CJ_HEAD)], eye) : xf(chest, eye)) + qa * vec3(0, 0, 0.10f) - qa * p.sightR;
         pa = glm::mix(pa, pe, wb);
       }
     }
-    else if (kind == 0) pa = xf(chest, vec3(sh.x * 0.2f, sh.y - 0.06f, sh.z + 0.44f) + p.holdOffset) - qa * p.gripR;
-    else pa = xf(chest, vec3(sh.x * 0.8f, sh.y + 0.10f, sh.z)) - qa * vec3(0, 0, p.gripR.z - 0.30f);
+    else if (kind == 0) pa = (cb ? vec3(sh.x * 0.2f, shP.y - 0.06f, shP.z + 0.44f) + p.holdOffset : xf(chest, vec3(sh.x * 0.2f, sh.y - 0.06f, sh.z + 0.44f) + p.holdOffset)) - qa * p.gripR;
+    else pa = (cb ? shP + vec3(-0.2f * sh.x, 0.10f, 0) : xf(chest, vec3(sh.x * 0.8f, sh.y + 0.10f, sh.z))) - qa * vec3(0, 0, p.gripR.z - 0.30f);
     vec3 pos = pa; quat q = qa;
     if (carry > 0) {   // low ready across the body: firing hand at the right hip, muzzle down toward the left foot, swinging a little
       float ph = p.walkPhase;
@@ -335,7 +340,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
   };
   quat footTilt = dead || prone >= 0.5f ? quat(1, 0, 0, 0) : between(vec3(0, 1, 0), vec3(-p.slope.x, 1, -p.slope.y));   // soles along the slope
   std::vector<char> armSub(nj, 0);   // DF1: the arm chains (upper arm down to the fingertips)
-  if (p.base) for (int j : order) armSub[j] = j == J(CJ_LARM) || j == J(CJ_RARM) || (m.jointParent[j] >= 0 && armSub[m.jointParent[j]]);
+  if (p.base) for (int j : order) armSub[j] = j == J(CJ_LARM) || (j == J(CJ_RARM) && !p.rightArmClip) || (m.jointParent[j] >= 0 && armSub[m.jointParent[j]]);
   for (int j : order) {
     int par = m.jointParent[j];
     mat4 Pd = par >= 0 ? Dl[par] : root;
@@ -362,9 +367,34 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       if (side == 0 && p.reload > 0 && p.reload < 1) {   // left hand: grip -> magazine -> pouch -> magazine -> grip
         vec3 mag = xf(weapon, p.magPos), pouch = xf(Pd, vec3(0.14f, hipsY + 0.05f, 0.16f));
         float r = p.reload;
+        if (p.reloadStyle == 1) {   // DF1: rounds / a clip / a rocket: grip -> pouch, pouch -> port trips (the last one stays), port -> grip
+          vec3 port = xf(weapon, p.portPos); int n = std::max(1, p.reloadRounds);
+          if (r < 0.15f) T = glm::mix(T, pouch, ease(r / 0.15f));
+          else if (r < 0.85f) { float u = (r - 0.15f) / 0.7f * n; int i = std::min(n - 1, (int)u); float k = u - i;
+            T = k < 0.5f ? glm::mix(pouch, port, ease(k * 2)) : i == n - 1 ? port : glm::mix(port, pouch, ease((k - 0.5f) * 2)); }
+          else T = glm::mix(port, T, ease((r - 0.85f) / 0.15f));
+        } else if (p.reloadStyle == 2) {   // DF1: belt: the top cover up, the box out to the pouch and a new one in, the cover shut
+          vec3 cov = xf(weapon, p.portPos), up = cov + vec3(weapon[1]) * 0.09f;
+          T = r < 0.12f ? glm::mix(T, cov, ease(r / 0.12f)) : r < 0.25f ? glm::mix(cov, up, ease((r - 0.12f) / 0.13f))
+            : r < 0.35f ? glm::mix(up, mag, ease((r - 0.25f) / 0.1f)) : r < 0.5f ? glm::mix(mag, pouch, ease((r - 0.35f) / 0.15f))
+            : r < 0.65f ? glm::mix(pouch, mag, ease((r - 0.5f) / 0.15f)) : r < 0.78f ? glm::mix(mag, up, ease((r - 0.65f) / 0.13f))
+            : r < 0.88f ? glm::mix(up, cov, ease((r - 0.78f) / 0.1f)) : glm::mix(cov, T, ease((r - 0.88f) / 0.12f));
+        } else
         T = r < 0.25f ? glm::mix(T, mag, ease(r / 0.25f)) : r < 0.5f ? glm::mix(mag, pouch, ease((r - 0.25f) / 0.25f))
           : r < 0.8f ? glm::mix(pouch, mag, ease((r - 0.5f) / 0.3f)) : glm::mix(mag, T, ease((r - 0.8f) / 0.2f));
       }
+      float boltW = 0;   // DF1: the right hand on the bolt handle (cycling after a shot, or opening / closing it for a reload)
+      if (side == 1 && p.boltPos != vec3(0)) {
+        float c = -1;   // 0..1 over grip -> handle -> back -> forward -> grip
+        if (p.cycleKind == 1 && p.cycle > 0 && p.cycle < 1) c = p.cycle;
+        else if (p.boltReload && p.reload > 0 && p.reload < 1) c = p.reload < 0.15f ? p.reload / 0.15f * 0.55f : p.reload < 0.85f ? 0.55f : 0.55f + (p.reload - 0.85f) / 0.15f * 0.45f;
+        if (c >= 0) {
+          vec3 h = xf(weapon, p.boltPos), hb = h - vec3(weapon[2]) * 0.09f;
+          T = c < 0.3f ? glm::mix(T, h, ease(c / 0.3f)) : c < 0.55f ? glm::mix(h, hb, ease((c - 0.3f) / 0.25f)) : c < 0.75f ? glm::mix(hb, h, ease((c - 0.55f) / 0.2f)) : glm::mix(h, T, ease((c - 0.75f) / 0.25f));
+          boltW = std::sin(3.14159265f * c);
+        }
+      }
+      if (side == 0 && p.cycleKind == 2 && p.cycle > 0 && p.cycle < 1) T -= vec3(weapon[2]) * (0.09f * std::sin(3.14159265f * p.cycle));   // DF1: pump back and forward
       if (side == 1 && p.throwT >= 0) {   // right arm throws: wind-up behind the head, release forward-up, follow through
         mat4 C = J(CJ_SPINE2) >= 0 ? Dl[J(CJ_SPINE2)] : Pd;
         // wind-up: with the chest turned right this lands beside and behind the right ear, clear of the helmet
@@ -384,7 +414,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       {
         vec3 wx = glm::normalize(vec3(weapon[0])), wy = glm::normalize(vec3(weapon[1])), wz = glm::normalize(vec3(weapon[2]));
         vec3 hd = side ? wy * -0.72f + wz * 0.69f : kind == 0 ? wx * -0.55f + wy * -0.45f + wz * 0.70f : wx * -0.88f + wz * 0.47f;   // AN1 step 2b: support fingers across under the handguard (they close up its far side)
-        float w = (1 - climbW) * (1 - swim) * (side == 1 && p.throwT >= 0 ? 0.0f : 1.0f) * (side == 0 && p.reload > 0 && p.reload < 1 ? 0.0f : 1.0f);
+        float w = (1 - climbW) * (1 - swim) * (side == 1 && p.throwT >= 0 ? 0.0f : 1.0f) * (side == 0 && p.reload > 0 && p.reload < 1 ? 0.0f : 1.0f) * (1 - boltW);
         // palms: the firing hand against the grip's right side, the support palm up under the handguard (pistols: cupping the right hand)
         vec3 pn = side ? wx : kind == 0 ? -wx * 0.8f + wy * 0.3f : wy * 0.9f - wx * 0.45f;   // AN1 step 2b: the support palm up under the handguard, cupping from the outboard side
         hd = glm::normalize(hd); pn -= hd * glm::dot(pn, hd);   // the palm normal square to the fingers (the hand roll makes it so; the placement must agree)

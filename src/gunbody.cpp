@@ -129,8 +129,9 @@ void gunBodyPose(Game& G, Soldier& s, float dt) {
   }
 }
 
-// DF1: Delta Force (AiType::Delta, combat.json kits.delta): the user's Mixamo rifle / pistol / grenade packs in one body
-// (content/characters/delta_force.glb, tools/bake_gunbody.py --named; local-only) and the game's own guns. The clips pose the
+// DF1: Delta Force (AiType::Delta, combat.json kits.delta): the user's Mixamo rifle / pistol / grenade clips retargeted onto
+// the US Marine body (br_marine, CC-BY-4.0; content/characters/delta_force.glb, tools/bake_gunbody.py --retarget; local-only:
+// the clips' licence is not stated) and the game's own guns. The clips pose the
 // body (hips, legs, spine, head); pose.cpp then puts the arms, hands and fingers on the held gun's own measured grip and
 // handguard (WeaponDef gripR / gripL / grip and guard capsules), so every gun is held by its own geometry, and runs the
 // reload hand (to the magazine and a pouch), the recoil and the grenade arm as for any soldier. The clips by state:

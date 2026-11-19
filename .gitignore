@@ -35,7 +35,7 @@ content/weapons/local/
 content/weapons/models/*_local/
 content/characters/trooper_*.glb
 content/characters/robot_*.glb
-# DF1: Delta Force, the user's Mixamo rifle / pistol / grenade packs (no licence supplied): the bake stays local-only (the soldier body without it)
+# DF1: Delta Force: the user's Mixamo rifle / pistol / grenade clips (no licence supplied) on the US Marine body: the bake stays local-only (the soldier body without it)
 content/characters/delta_force.glb
 
 
