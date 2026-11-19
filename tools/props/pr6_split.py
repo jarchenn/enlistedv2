@@ -233,6 +233,10 @@ for P in job["pieces"]:
             if not vs: continue
             cx, cy, cz = (x0 + x1) / 2, (y0 + y1) / 2, min(v.co.z for v in vs)
             for v in vs: v.co = Vector((cx + (v.co.x - cx) * f, cy + (v.co.y - cy) * f, cz + (v.co.z - cz) * f))
+    if P.get("cut_below") is not None:   # PR10: a scan's ground dips below its base: everything under this height dropped
+        bm = bmesh.new(); bm.from_mesh(ob.data)
+        bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=(0, 0, P["cut_below"]), plane_no=(0, 0, 1), clear_inner=True)
+        bm.to_mesh(ob.data); bm.free()
     if P.get("cut_above") is not None:   # PR9: everything above this source height cut off and the cut capped (a stove's long flue)
         bm = bmesh.new(); bm.from_mesh(ob.data)
         r = bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=(0, 0, P["cut_above"]), plane_no=(0, 0, 1), clear_outer=True)

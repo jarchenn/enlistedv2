@@ -88,6 +88,20 @@ BUILDINGS = {
         floor=[-7.95, 7.95, 4.0, 16.0, -1.0, -0.97],
         furnish=[("ph_worn_metal_rack", -4.0, 15.35, 0), ("ph_wooden_bookshelf_worn", 3.5, 15.4, 0), ("furn_debris_glass", -5.2, 5.0, 0),
                  ("mod_debris_papers_scattered", -1.0, 9.0, 20), ("ph_old_tyre", 3.0, 8.5, 0)]),
+    # a photo-scan of a caboose with its interior (plank floor 0.64 m up, blue board walls, beams): turned to run along x
+    # (rail_rot/rail.glb, E:/nmk/pr10scripts/rotate.py: PCA of the roof, -139.1 deg); its open side doorway gets a game
+    # door, the scanned ballast ledge outside it a step collider (0.33 + 0.31 m steps), the windows are the scan's holes
+    "pa_rail_caboose": dict(
+        name="Abandoned railroad caboose", lic="glb", src="rail_rot/rail.glb", meta_src="union_pacific_railroad_car_rhyolite/union_pacific_railroad_car_rhyolite.glb",
+        maxTex=4096, cut_below=0.0, decimate=0.5,
+        desc="A weathered wooden Union Pacific caboose on a patch of ballast, its blue-painted plank interior intact: enterable through the side door (E).",
+        walls=[[-4.6, 4.15, -1.24, -1.12, 0.0, 2.8], [-4.6, 4.15, 1.29, 1.41, 0.0, 2.8], [-4.6, -4.46, -1.24, 1.41, 0.0, 2.8], [3.96, 4.15, -1.24, 1.41, 0.0, 2.8],
+               [-4.6, 4.15, -1.3, 1.45, 2.78, 3.0], [0.1, 1.0, -1.75, -1.24, 0.0, 0.33]],
+        doors={"door_side": ("door", "door_wood", 1, [0.15, 0.95, -1.24, -1.18, 0.64, 2.55])},
+        holes={"win_a": [-3.55, -3.05, 1.2, 1.5, 1.5, 2.05], "win_b": [-2.05, -1.55, 1.2, 1.5, 1.5, 2.05]},
+        floor=[-4.46, 3.96, -1.24, 1.29, 0.0, 0.64],
+        furnish=[("mod_debris_stove", 2.4, 0.75, 0), ("pa_chest_wooden", -3.75, 0.75, 0), ("furn_chair_soviet", -1.0, 0.7, 200),
+                 ("mod_debris_papers_pile", -2.2, -0.5, 30), ("pa_fruit_crate_mid", 3.35, -0.6, 90)]),
 }
 
 # props: piece = pr6_split options; group = the palette group; extra = asset JSON fields
@@ -129,7 +143,7 @@ def glb_meta(p):
 def licence(dl, E):
     """(committed, credit text, credits row cells: model, author, licence, source)"""
     if E["lic"] == "glb":
-        x = glb_meta(os.path.join(dl, E["src"]))
+        x = glb_meta(os.path.join(dl, E.get("meta_src", E["src"])))   # a turned copy keeps no metadata: the original's
         title, author, lic, url = x.get("title", ""), x.get("author", ""), x.get("license", ""), x.get("source", "")
         committed = lic.startswith("CC-BY") or lic.startswith("CC0")
         return committed, "%s by %s, %s (%s)%s" % (title, author.split(" (")[0], lic.split(" (")[0], url, "" if committed else ": local only"), (title, author, lic, url)
@@ -155,7 +169,7 @@ def convert(dl, glbs):
         if os.path.exists(os.path.join(glbs, bid + ".glb")): continue
         marks = {**{k: v[3] for k, v in B["doors"].items()}, **B["holes"], "floor": B["floor"],
                  **{"f%d" % i: mark(x, y, B["floor"][5]) for i, (_, x, y, _) in enumerate(B["furnish"])}}
-        piece = {"id": bid, "objects": None, "boxes": B["walls"], "marks": marks, "delete_mats": B.get("delete_mats", []), "delete_in": B.get("delete_in", []), "double_mats": B.get("double_mats", []),
+        piece = {"id": bid, "objects": None, "boxes": B["walls"], "marks": marks, "delete_mats": B.get("delete_mats", []), "delete_in": B.get("delete_in", []), "double_mats": B.get("double_mats", []), "cut_below": B.get("cut_below"), "decimate": B.get("decimate"),
                  "add_boxes": [{**b, "tex": os.path.join(ROOT, "content", "textures", b["tex"])} for b in B.get("add_boxes", [])],
                  "scale": B.get("scale", 1.0), "yaw": B.get("yaw", 0)}
         job = {"src": os.path.join(dl, B["src"]), "out": glbs, "pieces": [piece]}

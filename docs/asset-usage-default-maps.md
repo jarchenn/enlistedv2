@@ -1996,6 +1996,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `pa_tree_dead_e` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `pa_tree_fallen` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `pa_abandoned_shop` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `pa_rail_caboose` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 
 ## Notes
 
