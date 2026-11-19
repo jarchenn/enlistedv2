@@ -42,6 +42,7 @@ import { nt4TentAssets } from "./catalog_nt4_tents.mjs";   // NT4: military tent
 import { nt2CarAssets } from "./catalog_nt2_cars.mjs";   // NT2: the user's car pack (local-only bakes)   // DEC1: wall paintings / posters (imported, CC-BY-4.0)
 import { mod2Assets } from "./catalog_mod2.mjs";   // MOD2: the military hut (imported model, local-only bake)   // AS1: the abandoned variants (<id>_ruin) of the modern buildings, roads, sidewalks, lots
 import { dezfight } from "./audit_zfight.mjs";   // ZF1: coplanar faces of different parts (z-fighting) resolved on every generated asset
+import { mp1Assets } from "./catalog_mp1.mjs";   // MP1: Hollow Village watchtower and footbridge
 import { tunnelAssets } from "./catalog_tunnels.mjs";   // UG1: the underground tunnel kit (docs/tunnels.md)   // GX6: new houses, large houses, mil_stronghold
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -125,7 +126,7 @@ const BACKFILL = {
 };
 // ---------------------------------------------------------------- new assets (after the backfill table: B2's legacy houses use houseNav)
 const ids = new Set();
-for (const A of [...rb1Assets(), ...modernFurnitureAssets(), ...modernModelAssets(), ...modernOutdoorAssets(), ...modernBuildingsA(), ...modernBuildingsB(), ...modernPropsAssets(), ...newtownAssetsA(), ...newtownAssetsB(), ...newtownAssetsC(), ...mod2Assets(), ...artAssets(), ...nt2CarAssets(), ...nt3Assets(), ...nt4HelipadAssets(), ...nt4RangeAssets(), ...nt4TentAssets(), ...ruinVariants([...mod2Assets(), ...modernOutdoorAssets(), ...modernBuildingsA(), ...modernBuildingsB(), ...newtownAssetsA(), ...newtownAssetsB(), ...newtownAssetsC()]), ...backroomsAssets(), ...tunnelAssets(), ...atlanticAssets(), ...beachAssets(), ...bocageAssets(), ...villageAssets(), ...ruinAssets(), ...waterAssets(), ...kitDemoAssets(), ...ordnanceAssets(), ...props2Assets(), ...chateauAssets().map((A) => exterior(A)), ...houses2Assets().map((A) => exterior(A)), ...dressingAssets(), ...gxHouseAssets().map((A) => exterior(A))]) {
+for (const A of [...rb1Assets(), ...modernFurnitureAssets(), ...modernModelAssets(), ...modernOutdoorAssets(), ...modernBuildingsA(), ...modernBuildingsB(), ...modernPropsAssets(), ...newtownAssetsA(), ...newtownAssetsB(), ...newtownAssetsC(), ...mod2Assets(), ...artAssets(), ...nt2CarAssets(), ...nt3Assets(), ...nt4HelipadAssets(), ...nt4RangeAssets(), ...nt4TentAssets(), ...ruinVariants([...mod2Assets(), ...modernOutdoorAssets(), ...modernBuildingsA(), ...modernBuildingsB(), ...newtownAssetsA(), ...newtownAssetsB(), ...newtownAssetsC()]), ...backroomsAssets(), ...tunnelAssets(), ...mp1Assets(), ...atlanticAssets(), ...beachAssets(), ...bocageAssets(), ...villageAssets(), ...ruinAssets(), ...waterAssets(), ...kitDemoAssets(), ...ordnanceAssets(), ...props2Assets(), ...chateauAssets().map((A) => exterior(A)), ...houses2Assets().map((A) => exterior(A)), ...dressingAssets(), ...gxHouseAssets().map((A) => exterior(A))]) {
   const j = A.json();
   if (ids.has(j.id)) throw new Error("duplicate asset id " + j.id);
   ids.add(j.id);
