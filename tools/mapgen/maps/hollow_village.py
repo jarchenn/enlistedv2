@@ -49,7 +49,7 @@ MAX_HOUSES = 10   # + 3 farm buildings + the lone house = 14 houses and barns
 BUILDING_CATS = ("Houses", "Landmarks", "Large buildings", "Small buildings", "Ruins")
 DECOR = {"decor": True}
 # imported dressing pools (every id has a committed model: checked in build())
-LANE = ["ph_wooden_barrels_01", "ph_barrel_01", "ph_barrel_02", "ph_barrel_03", "pa_crate_slatted", "pa_fruit_crate_low", "pa_fruit_crate_mid",
+LANE = ["ph_wooden_barrels_01", "ph_wine_barrel_01", "pa_crate_slatted", "pa_fruit_crate_low", "pa_fruit_crate_mid",
         "pa_fruit_crate_high", "ph_wooden_crate_01", "ph_wooden_crate_02", "ph_wicker_basket_01", "ph_wicker_basket_02", "ph_wooden_bucket_01",
         "ph_wooden_bucket_02", "ph_old_tyre", "ph_rusted_wheel_rim_01", "ph_rusted_wheel_rim_02", "ph_wooden_ladder", "ph_wine_barrel_01",
         "ph_dead_tree_trunk", "ph_dry_branches_medium_01_a", "ph_dry_branches_medium_01_b", "ph_root_cluster_01", "pa_chest_wooden"]
@@ -283,6 +283,21 @@ def populate(ctx, grid, pads=None):
     for st, half, s0, side in ((g["LB"], 2.1, 14.0, 1), (g["LA"], 1.8, 10.0, -1), (g["LB"], 2.1, 30.0, -1), (g["LA"], 1.8, 18.0, 1)):
         frontage(st, half, side, s0, 1e9, tags={"LB" if st is g["LB"] else "LA"})
     lone = building("pa_military_house", LONE[0], LONE[1], asset_yaw_facing(1.0, 0.3), tags={"lone"}, check=False, wear=1.8)
+    # the PR10 derelicts (imported models): an abandoned stone house and log house on the outskirts, a shack by the back
+    # path, the long shed behind the farmyard; enterable, looted like the houses
+    derelicts = []
+    for aid, (tx, tz) in (("pa_stone_house_ruin", (22.0, -62.0)), ("pa_log_house_ruin", (-34.0, 34.0)), ("pa_shack_ruin", (-30.0, -22.0)),
+                          ("pa_shed_ruin_long", (FARM[0] + 2.0, FARM[1] - 34.0))):
+        for k in range(30):
+            x, z = (tx, tz) if k == 0 else (tx + R.uniform(-1, 1) * (3 + k), tz + R.uniform(-1, 1) * (3 + k))
+            (d_, s_, _), ln = min(((polyline_dist((x, z), l_), l_) for l_ in lanes), key=lambda r: r[0][0])
+            yaw = asset_yaw_facing(*(lambda p_: (p_[0] - x, p_[1] - z))(point_at(ln, s_)[0])) + R.uniform(-12, 12)
+            if clear(aid, x, z, yaw, pad=1.5):
+                e = building(aid, x, z, yaw, tags={"derelict"}, wear=1.9)
+                if e:
+                    derelicts.append(e)
+                    break
+    rep["derelicts"] = [e["asset"] for e in derelicts]
     rep["houses"] = len(houses)
     # back yards 7 m behind every house: a picket fence (gap at the back gate), props by the door
     for e in houses:
@@ -305,7 +320,7 @@ def populate(ctx, grid, pads=None):
             b.place(R.choice(DEAD), q[0], q[1], R.uniform(0, 360), tags={"yard"}, **TREEKW)
         for k in range(2):   # by the front door: a barrel, a crate, a bench
             q = Lw(R.uniform(-hx + 0.8, hx - 0.8), hz + R.uniform(0.6, 1.1))
-            b.try_place(R.choice(["ph_barrel_02", "pa_crate_slatted", "ph_painted_wooden_bench", "ph_wooden_bucket_02", "ph_wicker_basket_01",
+            b.try_place(R.choice(["ph_wine_barrel_01", "pa_crate_slatted", "ph_painted_wooden_bench", "ph_wooden_bucket_02", "ph_wicker_basket_01",
                                   "pa_fruit_crate_low", "ph_wooden_broom"]), q[0], q[1], yaw, R, tags={"door", "dressing"}, radius=0.8)
 
     # ------------------------------------------------------------------ 5. the square: well, bonfire pile, market leftovers
@@ -345,7 +360,7 @@ def populate(ctx, grid, pads=None):
         b.try_place(aid, TOWER[0] + R.uniform(-5, 5), TOWER[1] + R.uniform(-6, -3), R.uniform(0, 360), R, tags={"tower", "dressing"})
     for q in resample_pts(g["gully"], 9.0):   # the gully: fallen trunks, roots, mossy rocks on its floor and banks
         if R.random() < 0.6:
-            b.place(R.choice(["ph_rock_moss_set_01_rock01", "ph_rock_moss_set_02_rock07", "ph_root_cluster_02_e", "pa_tree_fallen", "ph_dead_tree_trunk_02",
+            b.place(R.choice(["ph_rock_moss_set_01_rock01", "ph_rock_moss_set_02_rock07", "ph_root_cluster_02_e", "ph_dead_tree_trunk_02",
                               "ph_fern_02_b"]), q[0] + R.uniform(-3, 3), q[1] + R.uniform(-3, 3), R.uniform(0, 360), tags={"gully"}, check=False)
 
     # ------------------------------------------------------------------ 7. lane edges: something every few metres
@@ -419,7 +434,7 @@ def populate(ctx, grid, pads=None):
 
     # ------------------------------------------------------------------ 8. interiors: imported household things in every room
     nint = 0
-    for e in houses + farm + [x for x in (church, lone) if x]:
+    for e in houses + farm + derelicts + [x for x in (church, lone) if x]:
         a = cat[e["asset"]]
         corners = list((a.nav or {}).get("corners", []))
         if not corners:   # rooms without corner points: 0.6 m in from each room corner, on its floor
@@ -447,7 +462,7 @@ def populate(ctx, grid, pads=None):
     ndead = b.scatter([(t, 1) for t in DEAD] + [("ph_fir_sapling_medium_b", 1), ("ph_pine_sapling_medium_b", 1)], village, 1 / 420.0, R,
                       bounds=(-HX, -HZ, HX, HZ), tags={"village_trees"}, min_dist=12.0, **TREEKW)
     b.scatter([("ph_grass_medium_01_large_a", 2), ("ph_grass_medium_01_tall_b", 2), ("ph_fern_02_c", 1), ("ph_dry_branches_medium_01_c", 1),
-               ("ph_root_cluster_02_f", 1), ("ph_rock_moss_set_01_rock06", 1), ("ph_rock_09", 1), ("ph_dead_tree_trunk_02", 1), ("pa_tree_fallen", 0.3)],
+               ("ph_root_cluster_02_f", 1), ("ph_rock_moss_set_01_rock06", 1), ("ph_rock_09", 1), ("ph_dead_tree_trunk_02", 1)],
               village, 1 / 40.0, R, bounds=(-HX, -HZ, HX, HZ), tags={"village_ground"},
               cls="flat", ok_with={"flat", "none", "veg", "wire"})
     paint.poly("leaf_litter", rect(-HX, -HZ, HX, HZ), weight=0.35, edge=1.0, ragged=4.0, seed=77, mask=lambda x, z: fbm(x / 14.0, z / 14.0, 5, 3) > 0.15)
@@ -553,7 +568,10 @@ def connectivity(b, grid, points, step=2.0, max_slope=40.0):
                 continue
             seen.add(n)
             q.append(n)
-    return [lab for lab, p in points if cell(p) not in seen], len(seen) * step * step
+    def reached(p):   # the point, or free ground within 4 m of it (a cart parked on an objective's centre)
+        ci, cj = cell(p)
+        return any((ci + di, cj + dj) in seen for di in range(-2, 3) for dj in range(-2, 3))
+    return [lab for lab, p in points if not reached(p)], len(seen) * step * step
 
 
 def build(ctx):
@@ -619,7 +637,7 @@ def build(ctx):
     ]
     look = {"style": "abandoned", "season": "autumn", "haze": 2.6, "weather": 0.9, "clouds": 0.95, "envFog": 2, "bloom": 0.7, "saturation": 0.68,
             "tint": [0.94, 0.97, 1.0], "grime": 1.6, "shafts": 0.4,
-            "paintSets": {"leaf_litter": "ph_leaf_floor", "dirt": "dirt_path_paint", "ploughed": "moss_floor_paint"}}
+            "paintSets": {"dirt": "dirt_path_paint", "ploughed": "moss_floor_paint"}}
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sj, explore_start=((views[1]["pos"][0], views[1]["pos"][1] - 1.7, views[1]["pos"][2]), views[1]["yaw"]), camera=cam,
               bookmarks={str(k): {"position": [c[0], b.ground(*c) + 45.0, c[1] - 55.0], "yaw": 180.0, "pitch": -35} for k, (n, c) in DISTRICTS.items()},
