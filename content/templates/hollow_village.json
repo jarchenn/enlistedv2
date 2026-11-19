@@ -1,0 +1,113 @@
+{
+  "id": "hollow_village",
+  "version": 1,
+  "order": 32,
+  "name": "Hollow Village",
+  "available": true,
+  "seed": 1031,
+  "description": "A poor farming village on a hillside in grey late-autumn light, woods closing in on every side: a muddy square with a well and a bonfire pile, two crooked lanes of stone cottages, barns and ruins, a farmyard with pens, the stone church in its walled graveyard at the top, a plank footbridge over the gully, and a cliff path up to a timber watchtower on the bluff. Assault (square, farmyard, church), Team Deathmatch, Solo and Battle Royale. 250 x 250 m.",
+  "width": 250,
+  "depth": 250,
+  "margin": 80,
+  "camera": {
+    "pos": [
+      0.0,
+      120.0,
+      -205.0
+    ],
+    "yaw": 180.0,
+    "pitch": -30.0
+  },
+  "heightmap": {
+    "file": "hollow_village.height.png",
+    "nx": 136,
+    "nz": 136,
+    "min": -4,
+    "max": 51,
+    "org": [
+      -211.7647,
+      -211.7647
+    ],
+    "cell": 3.1372549019607843
+  },
+  "waterLevel": -1000.0,
+  "map": "hollow_village.nmap.json",
+  "playable": true,
+  "thumbnail": "hollow_village.thumb.png",
+  "thumbnailCamera": {
+    "pos": [
+      -60.0,
+      70.0,
+      -150.0
+    ],
+    "yaw": -158.19859051364818,
+    "pitch": -18.0
+  },
+  "userMap": true,
+  "views": [
+    {
+      "name": "overview_high",
+      "pos": [
+        10.0,
+        125.0,
+        -175.0
+      ],
+      "yaw": 180.0,
+      "pitch": -36.0
+    },
+    {
+      "name": "square_eye",
+      "pos": [
+        -10.0,
+        19.73,
+        -14.0
+      ],
+      "yaw": -139.39870535499554,
+      "pitch": 2.0,
+      "gameplay": true
+    },
+    {
+      "name": "lane_eye",
+      "pos": [
+        -9.3,
+        13.64,
+        -77.14
+      ],
+      "yaw": -147.56594041912655,
+      "pitch": 1.0,
+      "gameplay": true
+    },
+    {
+      "name": "church_eye",
+      "pos": [
+        10.0,
+        28.32,
+        70.0
+      ],
+      "yaw": -175.42607874009914,
+      "pitch": 9.0,
+      "gameplay": true
+    },
+    {
+      "name": "preview",
+      "pos": [
+        -60.0,
+        70.0,
+        -150.0
+      ],
+      "yaw": -158.19859051364818,
+      "pitch": -18.0
+    },
+    {
+      "name": "bridge_eye",
+      "pos": [
+        -51.95,
+        22.82,
+        1.68
+      ],
+      "yaw": 72.89727103094764,
+      "pitch": -2.0,
+      "gameplay": true
+    }
+  ]
+}
