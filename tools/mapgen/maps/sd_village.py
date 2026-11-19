@@ -19,48 +19,50 @@ B0 = 74.0               # playable half size (sd bounds)
 BASE = 10.0
 
 # ---------------------------------------------------------------- the plan (x east, z north; an asset's +z is its front)
-KNOLL = (-44.0, 34.0)                      # the churchyard knoll (A), 2.6 m above the square
+KNOLL = (-28.0, 27.0)                      # the churchyard knoll (A), 2.6 m above the square
 KNOLL_H = 2.6
 SQUARE = (-16.0, -11.0, 16.0, 13.0)        # the village square (mid)
 MAIN = catmull_rom([(1.0, -70.0), (2.0, -56.0), (3.5, -42.0), (-1.5, -27.0), (0.0, -12.0)])
-GRAVE = catmull_rom([(-6.0, -64.0), (-30.0, -58.0), (-50.0, -44.0), (-56.0, -22.0), (-56.0, 0.0), (-54.0, 14.0), (-48.0, 24.0)])
-HOLLOW = catmull_rom([(8.0, -64.0), (30.0, -58.0), (47.0, -44.0), (55.0, -22.0), (54.0, -2.0), (50.0, 12.0), (46.0, 20.0)])
+GRAVE = catmull_rom([(-6.0, -64.0), (-30.0, -58.0), (-50.0, -44.0), (-56.0, -22.0), (-56.0, 0.0), (-54.0, 14.0), (-44.0, 21.0), (-33.0, 24.0)])
+HOLLOW = catmull_rom([(8.0, -64.0), (30.0, -58.0), (47.0, -44.0), (55.0, -22.0), (54.0, -2.0), (50.0, 12.0), (44.0, 16.0), (34.0, 19.0)])
 HOLLOW_DEPTH = 2.2
-NORTH = catmull_rom([(-30.0, 30.0), (-20.0, 35.0), (0.0, 35.5), (14.0, 36.0), (28.0, 35.5), (36.0, 32.0)])   # the wardens' track behind the square
-CHURCH_LANE = catmull_rom([(-14.0, 12.0), (-17.0, 22.0), (-22.0, 30.0), (-32.0, 32.0)])
-GAP = catmull_rom([(1.0, 13.0), (2.5, 24.0), (4.0, 36.0), (8.0, 48.0), (14.0, 58.0)])    # the rectory gap: wardens to mid
-EAST_ALLEY = catmull_rom([(16.0, 2.0), (27.0, 2.0), (34.0, 8.0), (40.0, 18.0)])           # through the gatehouse arch to B
+NORTH = catmull_rom([(-21.0, 29.0), (-10.0, 34.0), (4.0, 35.0), (14.0, 34.0), (21.0, 31.5), (23.0, 25.0)])   # the wardens' track behind the square
+CHURCH_LANE = catmull_rom([(-14.0, 12.0), (-18.0, 19.0), (-24.0, 23.0)])
+GAP = catmull_rom([(8.0, 13.0), (8.0, 24.0), (6.0, 34.0), (-4.0, 40.0), (-4.0, 52.0), (5.0, 59.0)])    # the rectory gap: wardens to mid
+WARD_EAST = catmull_rom([(14.0, 62.0), (21.0, 54.0), (21.5, 40.0), (22.0, 27.0)])            # wardens down the barn side to B
+FARM_GATE = catmull_rom([(15.0, 12.0), (21.0, 16.0), (26.0, 20.0)])                        # the square to the farmyard
+EAST_ALLEY = catmull_rom([(16.0, 2.0), (27.0, 2.0), (34.0, 8.0), (44.0, 10.0), (50.0, 12.0)])   # through the gatehouse arch to the Hollow Lane
 WELL_ALLEY = catmull_rom([(-2.0, -40.0), (-20.0, -41.0), (-36.0, -38.0), (-51.0, -36.0)])  # south cross: main street - Grave Path
 BAKERS = catmull_rom([(-16.0, 2.6), (-28.0, 2.6), (-40.0, 4.0), (-56.0, 5.0)])           # mid cross: square - Grave Path
 ORCHARD = catmull_rom([(6.0, -26.0), (22.0, -26.0), (38.0, -28.0), (50.0, -30.0)])        # south-east cross: main street - Hollow Lane
-LANES = [MAIN, GRAVE, HOLLOW, NORTH, CHURCH_LANE, GAP, EAST_ALLEY, WELL_ALLEY, BAKERS, ORCHARD]
+LANES = [MAIN, GRAVE, HOLLOW, NORTH, CHURCH_LANE, GAP, WARD_EAST, FARM_GATE, EAST_ALLEY, WELL_ALLEY, BAKERS, ORCHARD]
 
 SPAWN_T = (1.0, -64.0)    # Raiders: the woodcutters' road clearing
-SPAWN_D = (16.0, 62.0)    # Wardens: the mill yard
-SITE_A = (-39.0, 29.0)    # the churchyard
-SITE_B = (40.0, 25.0)     # the farmyard
+SPAWN_D = (6.0, 58.0)    # Wardens: the mill yard
+SITE_A = (-26.0, 24.0)    # the churchyard
+SITE_B = (26.0, 20.0)     # the farmyard
 
 # (asset, x, z, yaw): buildings; yaw 180 = front to the south
 BUILDINGS = [
     # the square
-    ("vil_bakery", -24.0, -6.0, 90.0), ("vil_merchant_house", -26.0, 13.5, 90.0), ("vil_townhouse_jettied", -7.5, 26.0, 180.0),
-    ("vil_relais_inn", 18.0, 24.5, 180.0), ("vil_gatehouse_chapel", 21.0, 2.0, 90.0), ("vil_cafe_corner", 24.0, -14.5, 270.0),
+    ("vil_bakery", -24.0, -6.0, 90.0), ("vil_merchant_house", -29.0, 12.5, 0.0), ("vil_townhouse_jettied", -3.0, 25.0, 180.0),
+    ("house_stone_cottage", 15.0, 24.0, 90.0), ("vil_gatehouse_chapel", 21.0, 2.0, 90.0), ("vil_cafe_corner", 24.0, -14.5, 270.0),
     ("ruin_house_shelled", -10.0, -16.5, 0.0), ("vil_corner_shop", 10.5, -17.5, 0.0),
     # the main street
     ("vil_norman_farmhouse", -13.5, -30.0, 90.0), ("house_stone_cottage", -11.5, -49.0, 90.0),
     ("vil_colombage_auge", 13.5, -37.5, 270.0), ("house_farmhouse_2story", 13.0, -53.0, 270.0),
     # between the Grave Path and the square
-    ("pa_stone_house_ruin", -43.0, -8.0, 90.0), ("vil_longhouse_thatched", -38.0, 15.0, 90.0),
+    ("pa_stone_house_ruin", -43.0, -8.0, 90.0), ("vil_longhouse_thatched", -58.0, 40.0, 90.0),
     # the church and the knoll
-    ("vil_church", -44.0, 45.0, 180.0),
+    ("vil_church", -30.0, 40.0, 180.0),
     # the farm
-    ("vil_stone_barn", 47.0, 44.0, 180.0), ("ruin_barn_burnt", 63.0, 27.0, 270.0), ("pa_shed_ruin_long", 42.0, -4.0, 90.0),
-    ("small_storehouse", 60.0, 50.0, 90.0),
+    ("vil_stone_barn", 36.0, 34.0, 180.0), ("ruin_barn_burnt", 52.0, 30.0, 270.0), ("pa_shed_ruin_long", 42.0, -4.0, 90.0),
+    ("small_storehouse", 66.0, 40.0, 90.0), ("vil_relais_inn", 52.0, 52.0, 180.0),
     # east of the main street, west of the Hollow Lane
     ("pa_log_house_ruin", 34.0, -44.0, 300.0), ("ruin_farmhouse_gutted", 38.5, -17.0, 0.0),
     # infill: the village closes round its lanes (enterable houses give the short, indoor sightlines)
     ("house_farmhouse_2story", -27.0, -49.0, 180.0), ("vil_granite_longere", -30.0, -22.0, 0.0), ("house_stone_cottage", -46.0, -26.0, 90.0),
-    ("vil_rectory", -8.0, 46.0, 180.0), ("house_stone_cottage", 22.0, 46.0, 270.0), ("small_storehouse", 26.0, -52.0, 330.0),
+    ("vil_rectory", 8.0, 47.0, 180.0), ("house_stone_cottage", -24.0, 56.0, 180.0), ("small_storehouse", 26.0, -52.0, 330.0),
     ("ruin_house_shelled", 24.0, -38.0, 270.0),
     # the wardens' side
     ("vil_mill_house", -10.0, 70.0, 180.0), ("pa_shack_ruin", 36.0, 64.0, 200.0), ("ruin_cottage_corner", -30.0, 64.0, 160.0),
@@ -79,7 +81,7 @@ def height(x, z):
     h = BASE + 0.9 * fbm(x / 45.0, z / 45.0, 3, 4) + 0.25 * fbm(x / 9.0, z / 9.0, 7, 2)
     kx, kz = KNOLL
     r = math.hypot((x - kx) / 1.15, z - kz)
-    h += KNOLL_H * (1.0 - smoothstep(15.0, 27.0, r))                 # the church knoll
+    h += KNOLL_H * (1.0 - smoothstep(10.0, 20.0, r))                 # the church knoll
     h -= HOLLOW_DEPTH * (1.0 - lane_k(x, z))                          # the Hollow Lane
     e = max(abs(x), abs(z)) - B0
     h += 7.0 * smoothstep(0.0, 40.0, e) + 3.0 * smoothstep(10.0, 40.0, e) * fbm(x / 25.0, z / 25.0, 9, 3)   # the wooded slopes
@@ -114,7 +116,7 @@ def build(ctx):
     paint.poly("dirt", [(-B0, -B0), (B0, -B0), (B0, B0), (-B0, B0)], weight=0.62, edge=6.0, ragged=4.0, seed=2)
     paint.poly("dry_grass", [(-B0, -B0), (B0, -B0), (B0, B0), (-B0, B0)], weight=0.38, edge=6.0, ragged=4.0, seed=3)
     for pts, w, kind in ((MAIN, 6.5, "mud"), (GRAVE, 4.0, "dirt"), (HOLLOW, 5.0, "mud"), (NORTH, 4.0, "dirt"), (CHURCH_LANE, 3.2, "dirt"),
-                         (GAP, 3.5, "dirt"), (EAST_ALLEY, 3.5, "mud"), (WELL_ALLEY, 3.0, "dirt"), (BAKERS, 3.0, "dirt"), (ORCHARD, 3.0, "dirt")):
+                         (GAP, 3.5, "dirt"), (WARD_EAST, 3.5, "dirt"), (FARM_GATE, 3.5, "mud"), (EAST_ALLEY, 3.5, "mud"), (WELL_ALLEY, 3.0, "dirt"), (BAKERS, 3.0, "dirt"), (ORCHARD, 3.0, "dirt")):
         paint.line(kind, pts, w, weight=0.9, edge=1.4)
     paint.poly("mud", [(sq[0], sq[1]), (sq[2], sq[1]), (sq[2], sq[3]), (sq[0], sq[3])], weight=0.85, edge=2.0, ragged=1.5, seed=7)
     paint.poly("pebbles", [(-7, -5), (6, -6), (7, 7), (-6, 8)], weight=0.6, edge=2.5, ragged=1.5, seed=8)
@@ -225,11 +227,11 @@ def build(ctx):
                     n_dress += put(aid, x, z, look_yaw(tx_, tz_) + R.uniform(-25, 25)) is not None
                 side = -side
             last = p
-    for x, z in ((-2.0, -40.0), (-51.0, -36.0), (-54.0, 14.0), (-17.0, 22.0), (34.0, 8.0), (50.0, -30.0), (14.0, 37.0), (-20.0, 37.0), (28.0, 38.0)):
+    for x, z in ((-2.0, -40.0), (-51.0, -36.0), (-44.0, 21.0), (-18.0, 19.0), (34.0, 8.0), (50.0, -30.0), (4.0, 35.0), (-4.0, 46.0), (21.5, 44.0)):
         n_dress += put("lamp_lantern_post", x + 3.6, z + 1.0, R.uniform(0, 360)) is not None
     # garden fences and dead orchards between the lanes
     n_fence = 0
-    for x0, z0, x1, z1 in ((-50.0, -30.0, -24.0, -30.0), (-50.0, -4.0, -32.0, -4.0), (-30.0, 22.0, -30.0, 36.0), (20.0, -30.0, 46.0, -34.0),
+    for x0, z0, x1, z1 in ((-50.0, -30.0, -24.0, -30.0), (-50.0, -4.0, -32.0, -4.0), (20.0, -30.0, 46.0, -34.0),
                            (24.0, 40.0, 24.0, 52.0), (-62.0, -50.0, -62.0, 20.0), (62.0, -40.0, 62.0, 4.0)):
         L = math.hypot(x1 - x0, z1 - z0)
         n = int(L / 3.0)
@@ -310,14 +312,14 @@ def build(ctx):
 
     # ---------------------------------------------------------------- scenario: two sites, five spawns a side, S&D timings
     sc = ScenarioBuilder(b, defending="Axis")
-    sc.objective("A Churchyard", SITE_A[0], SITE_A[1], radius=1.75, capture_time=0, attack_from=(-55.0, 10.0), y_min=-1.0, y_max=2.0,
+    sc.objective("A Churchyard", SITE_A[0], SITE_A[1], radius=1.75, capture_time=0, attack_from=(-44.0, 21.0), y_min=-1.0, y_max=2.0,
                  slots=[{"pos": [ax + 6.0, G(ax + 6.0, az + 5.0), az + 5.0], "yaw": 225.0, "kind": "position", "priority": 1},
                         {"pos": [ax - 7.0, G(ax - 7.0, az + 4.0), az + 4.0], "yaw": 135.0, "kind": "position", "priority": 2}],
-                 routes=[("west", [(-50.0, -44.0), (-56.0, 0.0), (-48.0, 24.0)]), ("mid", [(0.0, -40.0), (-14.0, 12.0), (-32.0, 32.0)])])
-    sc.objective("B Farmyard", SITE_B[0], SITE_B[1], radius=1.75, capture_time=0, attack_from=(52.0, 6.0), y_min=-1.0, y_max=2.0,
+                 routes=[("west", [(-50.0, -44.0), (-56.0, 0.0), (-44.0, 21.0)]), ("mid", [(0.0, -40.0), (-14.0, 12.0), (-24.0, 23.0)])])
+    sc.objective("B Farmyard", SITE_B[0], SITE_B[1], radius=1.75, capture_time=0, attack_from=(44.0, 16.0), y_min=-1.0, y_max=2.0,
                  slots=[{"pos": [bx - 6.0, G(bx - 6.0, bz + 4.0), bz + 4.0], "yaw": 135.0, "kind": "position", "priority": 1},
                         {"pos": [bx + 6.0, G(bx + 6.0, bz + 8.0), bz + 8.0], "yaw": 225.0, "kind": "position", "priority": 2}],
-                 routes=[("hollow", [(30.0, -58.0), (55.0, -22.0), (46.0, 20.0)]), ("mid", [(0.0, -40.0), (16.0, 2.0), (40.0, 18.0)])])
+                 routes=[("hollow", [(30.0, -58.0), (55.0, -22.0), (44.0, 16.0)]), ("mid", [(0.0, -40.0), (15.0, 12.0), (26.0, 20.0)])])
     T = [(SPAWN_T[0] + dx, SPAWN_T[1] + dz) for dx, dz in ((0, 0), (-3.5, 1.0), (3.5, 1.0), (-2.0, -3.0), (2.0, -3.0))]
     Dp = [(SPAWN_D[0] + dx, SPAWN_D[1] + dz) for dx, dz in ((0, 0), (-3.5, -1.0), (3.5, -1.0), (-2.0, 3.0), (2.0, 3.0))]
     for k, (x, z) in enumerate(T):
@@ -330,17 +332,17 @@ def build(ctx):
     sd = {
         "callouts": [{"name": n, "x": c[0], "z": c[1], "r": r} for n, c, r in (
             ("A Churchyard", SITE_A, 12), ("B Farmyard", SITE_B, 12), ("Square", (0.0, 1.0), 14), ("Grave Path", (-56.0, -12.0), 12),
-            ("Main Street", (1.0, -38.0), 10), ("Hollow Lane", (53.0, -24.0), 12), ("Church Lane", (-18.0, 24.0), 6), ("Gatehouse", (21.0, 2.0), 6),
-            ("Rectory Gap", (3.0, 32.0), 7), ("Well Alley", (-22.0, -41.0), 8), ("Orchard", (24.0, -27.0), 8), ("Bakers' Passage", (-34.0, 3.0), 7),
+            ("Main Street", (1.0, -38.0), 10), ("Hollow Lane", (53.0, -24.0), 12), ("Church Lane", (-18.0, 18.0), 6), ("Farm Gate", (20.0, 15.0), 5), ("Back Track", (-2.0, 35.0), 7), ("Gatehouse", (21.0, 2.0), 6),
+            ("Rectory Gap", (7.0, 30.0), 6), ("Well Alley", (-22.0, -41.0), 8), ("Orchard", (24.0, -27.0), 8), ("Bakers' Passage", (-34.0, 3.0), 7),
             ("Woodcutters' Road", SPAWN_T, 10), ("Mill Yard", SPAWN_D, 10))],
         "bounds": [[-B0, -B0], [B0, -B0], [B0, B0], [-B0, B0]],
-        "timingPoints": {"contest": [P(0.0, -12.0), P(-56.0, -10.0), P(54.0, -10.0)]},
+        "timingPoints": {"contest": [P(0.0, -6.0), P(-56.0, -6.0), P(54.0, -6.0)]},
         "timingRoutes": [
-            {"name": "wardens rotation", "kind": "rotation", "points": [P(*SITE_A), P(-20.0, 35.0), P(14.0, 36.0), P(36.0, 32.0), P(*SITE_B)]},
-            {"name": "through the square", "kind": "mid", "points": [P(*SITE_A), P(-22.0, 30.0), P(-14.0, 12.0), P(16.0, 2.0), P(34.0, 8.0), P(*SITE_B)]},
-            {"name": "raiders fallback", "kind": "fallback", "points": [P(*SITE_A), P(-56.0, 0.0), P(-51.0, -36.0), P(-2.0, -40.0), P(6.0, -26.0), P(50.0, -30.0), P(54.0, -2.0), P(*SITE_B)]},
-            {"name": "mid to A via church lane", "kind": "attackMid", "points": [P(*T[0]), P(0.0, -12.0), P(-14.0, 12.0), P(-32.0, 32.0), P(*SITE_A)]},
-            {"name": "mid to B via gatehouse", "kind": "attackMid", "points": [P(*T[0]), P(0.0, -12.0), P(16.0, 2.0), P(40.0, 18.0), P(*SITE_B)]},
+            {"name": "wardens rotation", "kind": "rotation", "points": [P(*SITE_A), P(-21.0, 29.0), P(4.0, 35.0), P(22.0, 26.0), P(*SITE_B)]},
+            {"name": "through the square", "kind": "mid", "points": [P(*SITE_A), P(-18.0, 19.0), P(-14.0, 12.0), P(15.0, 12.0), P(*SITE_B)]},
+            {"name": "raiders fallback", "kind": "fallback", "points": [P(*SITE_A), P(-40.0, 4.0), P(-16.0, 2.6), P(0.0, -8.0), P(16.0, 2.0), P(27.0, 2.0), P(34.0, 8.0), P(34.0, 19.0), P(*SITE_B)]},
+            {"name": "mid to A via church lane", "kind": "attackMid", "points": [P(*T[0]), P(0.0, -12.0), P(-14.0, 12.0), P(-24.0, 23.0), P(*SITE_A)]},
+            {"name": "mid to B via the farm gate", "kind": "attackMid", "points": [P(*T[0]), P(0.0, -12.0), P(15.0, 12.0), P(*SITE_B)]},
             {"name": "raiders to mid", "kind": "note", "points": [P(*T[0]), P(0.0, 1.0)]},
             {"name": "wardens to mid", "kind": "note", "points": [P(*Dp[0]), P(0.0, 1.0)]},
         ],
@@ -351,7 +353,7 @@ def build(ctx):
     tdir = os.path.join(ctx.repo, "content", "templates")
     grid.write_png(os.path.join(tdir, TID + ".height.png"))
     eye = 1.65
-    VIEWS = [("square_eye", (0.0, -10.0), (0.0, 10.0)), ("a_site_eye", (-34.0, 26.0), SITE_A), ("b_site_eye", (36.0, 14.0), SITE_B),
+    VIEWS = [("square_eye", (0.0, -10.0), (0.0, 10.0)), ("a_site_eye", (-15.0, 13.0), SITE_A), ("b_site_eye", (16.0, 13.0), SITE_B),
              ("grave_path_eye", (-55.0, -36.0), (-55.0, 10.0)), ("hollow_lane_eye", (48.0, -44.0), (55.0, -14.0)), ("main_street_eye", (2.0, -58.0), (0.0, -20.0))]
     views = [{"name": "overview_high", "pos": [0.0, 62.0, -92.0], "yaw": 0.0, "pitch": -32.0}]
     for name, (x, z), (tx_, tz_) in VIEWS:
