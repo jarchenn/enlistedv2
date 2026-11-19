@@ -1,33 +1,51 @@
-# Normandy Mapmaker
+# Battle Foundry
 
-A first-person WWII map editor and shooter, set in Normandy in 1944. Build a battlefield in **Creative** mode, press **F5** to walk it in first person, then fight over it alone against bots or with friends over LAN. Written from scratch in C++20 on OpenGL 4.5 (Windows), with a Metal port for macOS.
+Battle Foundry is a first-person shooter with a full map editor built in. Build a battlefield in **Creative** mode, press **F5** to walk it in first person, then fight over it alone against bots or with friends over LAN. It began as a Normandy 1944 map maker and now covers WWII and modern-day settings. Written from scratch in C++20 on OpenGL 4.5 (Windows), with a Metal port for macOS. The executable is still named `NormandyMapmaker`.
+
+![D-day beach](content/templates/dday.loading.jpg)
+
+| Newtown (battle royale) | Chateau town | Search and Destroy town |
+|---|---|---|
+| ![](content/templates/newtown.loading.jpg) | ![](content/templates/chateau_town.loading.jpg) | ![](content/templates/sd_town.loading.jpg) |
+
+| Desert outpost | Caverns | Tunnels |
+|---|---|---|
+| ![](content/templates/outpost_desert.loading.jpg) | ![](content/templates/caverns.loading.jpg) | ![](content/templates/tunnels.loading.jpg) |
+
+The editor:
 
 ![Creative](docs/screenshots/00_creative_ui.png)
 
-| Explore: front door | Furnished kitchen | Upper-floor view |
-|---|---|---|
-| ![](docs/screenshots/03_explore_front_door.png) | ![](docs/screenshots/05_furnished_kitchen.png) | ![](docs/screenshots/06_upper_floor_view.png) |
-
 ## Main features
+
+**Game modes**
+- **Assault** (attack and defend objectives), **Team Deathmatch**, **Solo** (free-for-all), **Search and Destroy** (plant or defuse, round based) and **Battle royale** (parachute in from a bomber, loot buildings, outlast a shrinking storm).
+- Play alone against up to 200 bots or with friends over LAN.
+- Pick the enemy type per side: soldiers of several factions (WWII Allied and German, modern, desert, special forces), zombies, and creature types such as brutes, spiders and mechs.
+
+**Maps**
+- Ready-made maps: D-day, Omaha Easy Red, Chateau town, Village Assault, Battle 1, Normandy forest, Hollow village, Newtown (nine-district modern town), woodland and desert outposts, four Search and Destroy maps (town, yard, desert, Ashwood Hollow village), plus Caverns, Tunnels and Backrooms.
+- Every map opens in the editor and can be changed or used as a starting point.
 
 **Map editor**
 - Hundreds of placeable assets: enterable, furnished houses and large buildings, bunkers, ruins, vehicles, field guns and scenery.
 - Terrain sculpting, hills and biome generators, ground paint, water, and a lasso tool for selecting, moving and painting regions.
 - Trenches, fences, barbed wire, walls and hedgerows are drawn as lines; trenches are dug into the terrain.
-- Ready-made maps, including a D-day beach landing and a Chateau town.
 
 **Combat**
-- Game modes: Assault (objectives), Team Deathmatch and Solo, against bots or over LAN, with a zombie AI option.
-- Seven soldier classes (Ranger, Recon, Heavy, Engineer, Machine Gunner, Assaulter, Tanker) with their own weapons and abilities, chosen on a deploy screen with a choice of spawn point.
-- Period weapons with calibrated iron sights and scopes, launchers, a flamethrower, grenades, sticky explosion packs and called-in artillery.
-- Drivable tanks, crewed anti-tank guns and machine-gun emplacements.
+- More than 60 weapons, WWII and modern: rifles, submachine guns, machine guns, shotguns, sniper rifles, pistols, launchers, a flamethrower, grenades and melee, with calibrated iron sights and scopes.
+- Battle royale loot: limited-weight inventory, backpacks, three levels of armour and helmets, healing items, and attachments (sights, suppressors, muzzle brakes, extended magazines).
+- Seven soldier classes with their own weapons and abilities, chosen on a deploy screen with a choice of spawn point.
+- Drivable tanks and jeeps, crewed anti-tank guns and machine-gun emplacements, called-in artillery.
 - Destructible walls, roofs, doors and windows; craters; barbed wire that slows you down.
-- Bots that use cover, flank, suppress and clear buildings.
+- Bots that use cover, flank, suppress, clear buildings, loot and move with the storm.
 
 **Rendering**
-- Image-based materials, time of day with a moon and night lighting, cloudy weather with moving cloud shadows, environmental fog and light shafts.
+- Image-based materials with 2K ground textures, time of day with a moon and night lighting, cloudy weather with moving cloud shadows, fog and light shafts.
 - Dense grass and foliage, global illumination from light probes, temporal upscaling.
 - Graphics presets from Ultra Low to Ultra.
+
+Third-party models, textures and sounds are listed with their authors and licences in [docs/credits.md](docs/credits.md).
 
 ## Download and install
 
