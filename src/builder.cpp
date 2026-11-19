@@ -13,8 +13,10 @@
 // First-person building (docs/builder.md): B opens build mode with the full Assets palette (palette.cpp: the
 // editor's categories, search and thumbnails; Tab shows / hides it, picking an asset puts it in hand). The ghost
 // sits where the view meets open ground (or a floor, for furniture) within 12 m, pushed forward if its footprint
-// would contain the player. Wheel / Z / X / R rotate, LMB places through the editor's checkPlacement, Del removes
-// the aimed placement, Ctrl+Z undoes the last place / remove, 1 / 2 / Q pick the quick defences, RMB or B leaves.
+// would contain the player. UI12: a 10-slot hotbar (keys 1-9, 0; a palette click fills the current slot; saved in the user
+// settings) holds the asset in hand; RMB places it through the editor's checkPlacement, LMB selects the placement under the
+// centre dot, Del removes the selected one (else the aimed one), wheel / Z / X / R rotate, Ctrl+Z undoes the last place /
+// remove, B or Esc leaves. (The Engineer's match menu keeps its own keys: 1-5, hold LMB, RMB or B leaves.)
 // In a session entered from Creative (drop-in, Explore from start) placements and removals are real map edits
 // (placeInstance, the editor's undo stack, the map marked dirty); otherwise they stay a session overlay.
 #include "app.h"
@@ -25,11 +27,11 @@
 #include "snap.h"
 #include "mpai.h"
 #include "engineer.h"
+#include "settings.h"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
 
-static const char* kBuildItems[3] = {"def_tank_trap", "def_sandbag_straight", "def_sandbag_curved"};
 static constexpr float kBuildReach = 12.0f, kSnapR = 0.6f;
 
 // Snapping for the asset in hand: the editor's one snap API (snap.cpp: sockets, sandbag runs, path ends).
@@ -112,6 +114,7 @@ void App::builderKeys(ExploreInput& in) {
     in.choose1 = in.choose2 = in.prone = in.toggleAmmo = in.fireMode = in.packUp = in.quickGrenade = in.switchPos = false;
     return;
   }
+  if (!build.engineer) for (int d = 0; d < 10; ++d) if (edge(d == 9 ? GLFW_KEY_0 : GLFW_KEY_1 + d)) { build.slot = d; build.forceAsset.clear(); }   // UI12: the hotbar
   bool ctrl = glfwGetKey(win, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS || glfwGetKey(win, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS;
   if (z && ctrl) build.pendUndo = true; else if (z) build.pendRot -= 15.0f;
   if (x) build.pendRot += 15.0f;
@@ -124,7 +127,7 @@ void App::builderKeys(ExploreInput& in) {
 
 bool App::buildRemoveAimed() {
   if (mpaiBuildClient(*this)) { toast("Removing placements is host-only in LAN matches.", 3); return false; }
-  Instance* t = doc.find(build.aimId);
+  Instance* t = doc.find(build.selId); if (!t) t = doc.find(build.aimId);   // UI12: the LMB selection, else the aimed piece
   if (!t || !buildRemovable(*this, *t)) { toast(build.realEdits ? "Nothing to remove under the crosshair." : "Only pieces built in this session can be removed (drop in from Creative to edit the map).", 3); return false; }
   BuildAction act; act.real = !isSession(*t);
   bool wasDirty = dirty;
@@ -138,9 +141,13 @@ bool App::buildRemoveAimed() {
   syncRuntime();
   dirty = act.real ? true : wasDirty;
   mpaiBuildChanged(*this, {}, {id});   // LAN host: every PC removes it
-  build.history.push_back(std::move(act)); ++build.removed; build.aimId = 0;
+  build.history.push_back(std::move(act)); ++build.removed; build.aimId = build.selId = 0;
   audio.play("crate", build.pos, 0.5f);
   return true;
+}
+
+void App::buildAssign(const std::string& assetId) {
+  settings().s.hotbar[build.slot] = assetId; build.forceAsset.clear(); settings().save();
 }
 
 bool App::buildUndo() {
@@ -165,7 +172,7 @@ void App::stepBuilder(const ExploreInput& in) {
   auto enterEngineer = [&]() {
     build.active = build.engineer = true; build.realEdits = false;
     build.pendDel = build.pendUndo = build.pendPalette = false; build.pendRot = 0; build.holdT = build.dismT = 0;
-    build.pick.clear(); build.forceAsset.clear(); setBuildPalette(false);
+    build.forceAsset.clear(); setBuildPalette(false);
     if (hammerCarried && activeWeapon != hw) selectWeapon(hw);
     toast("Engineer: 1-5 pick, hold LMB to build, hold Del on your outpost / AT gun to dismantle, wheel / Z / X rotate, RMB or B leave", 5);
   };
@@ -184,27 +191,25 @@ void App::stepBuilder(const ExploreInput& in) {
     build.active = !build.active;
     if (build.active) {
       build.realEdits = navState().creativeSession;
-      build.pendDel = build.pendUndo = build.pendPalette = false; build.pendRot = 0;
+      build.pendDel = build.pendUndo = build.pendPalette = false; build.pendRot = 0; build.fireHeld = build.aimHeld = true; build.selId = 0;   // UI12: a button still down from before is not a click
       setBuildPalette(!useScripted);
-      toast(std::string(build.realEdits ? "Build mode (map edits)" : "Build mode") + ": Tab assets, 1 tank trap, 2 sandbags, wheel / Z / X rotate, LMB place, Del remove, Ctrl+Z undo, RMB or B leave", 5);
+      toast(std::string(build.realEdits ? "Build mode (map edits)" : "Build mode") + ": Tab assets (fills the hotbar slot), 1-0 hotbar, RMB place, LMB select, Del remove, wheel / Z / X rotate, Ctrl+Z undo, B or Esc leave", 6);
     } else setBuildPalette(false);
     build.engineer = false;
   }
   if (!build.active) { build.aimId = 0; return; }
-  if (in.aim && !build.palette) { build.active = false; build.forceAsset.clear(); setBuildPalette(false); return; }
+  if (build.engineer && in.aim && !build.palette) { build.active = false; build.forceAsset.clear(); setBuildPalette(false); return; }
+  const bool lmbPress = in.fire && !build.fireHeld, rmbPress = in.aim && !build.aimHeld;   // UI12: LMB selects, RMB places
+  if (!build.engineer) { build.fireHeld = in.fire; build.aimHeld = in.aim; }
   if (build.pendPalette) { build.pendPalette = false; setBuildPalette(!build.palette); }
-  bool quick = in.choose1 || in.choose2 || in.nextWeapon;
-  if (build.engineer) quick = false;   // GM3: digits pick the Engineer item (builderKeys)
-  if (in.choose1 && !build.engineer) build.item = 0;
-  if (in.choose2 && !build.engineer) build.item = build.item == 1 ? 2 : 1;
-  if (in.nextWeapon && !build.engineer) build.item = (build.item + 1) % 3;
-  if (quick) { build.pick.clear(); build.forceAsset.clear(); }
   if (in.reload) build.yaw += 15.0f;
   build.yaw += in.wheel * 15.0f + build.pendRot; build.pendRot = 0;
   if (build.pendUndo) { build.pendUndo = false; buildUndo(); }
   vec3 eye = eyePos(), f = forward(eyeYaw, eyePitch);
   build.aimId = 0;   // Del target: the instance under the crosshair
   { Physics::Hit h; if (Physics::castRayEx(eye, f, kBuildReach, h) && h.ud != 0 && (h.ud >> 60) != 0xF) if (const Instance* t = doc.find(h.ud >> 16); t && buildRemovable(*this, *t)) build.aimId = t->id; }
+  if (build.selId && !doc.find(build.selId)) build.selId = 0;
+  if (lmbPress && !build.engineer && !build.palette) build.selId = build.aimId;   // UI12: LMB selects what is under the dot (nothing: clears)
   if (build.pendDel) { build.pendDel = false; if (!build.engineer) buildRemoveAimed(); }
   if (build.engineer) {   // GM3: hold Del on your own outpost / AT gun to dismantle it (so a new one can be built)
     const Instance* ai = build.aimId ? doc.find(build.aimId) : nullptr;
@@ -213,10 +218,10 @@ void App::stepBuilder(const ExploreInput& in) {
   }
   // the asset in hand: a rack deployment, the palette pick, or a quick defence
   const AssetDef* a = build.engineer ? (build.engItem < (int)engItems().size() ? lib.find(engItems()[build.engItem].asset) : nullptr)
-                     : lib.find(!build.forceAsset.empty() ? build.forceAsset : !build.pick.empty() ? build.pick : std::string(kBuildItems[build.item]));
+                     : lib.find(!build.forceAsset.empty() ? build.forceAsset : settings().s.hotbar[build.slot]);
   build.asset = a;
   build.valid = false; build.snapped = false;
-  if (!a) { build.reason = "missing asset"; return; }
+  if (!a) { build.reason = settings().s.hotbar[build.slot].empty() ? "Empty slot: Tab, then pick an asset" : "missing asset"; return; }
   bool defence = !a->defense.kind.empty() || !a->station.kind.empty(), prop = interior.isProp(a);
   Physics::Hit h;
   bool hit = Physics::castRayEx(eye, f, kBuildReach, h);
@@ -260,11 +265,7 @@ void App::stepBuilder(const ExploreInput& in) {
     build.holdT += build.dt;
     if (build.holdT < it.time) return;
     build.holdT = 0; build.fireHeld = true;
-  } else {
-    bool firePress = in.fire && !build.fireHeld;
-    build.fireHeld = in.fire;
-    if (!firePress || build.palette) return;
-  }
+  } else if (!rmbPress || build.palette) return;   // UI12: RMB places
   if (mpaiBuildRequest(*this, a, build.pos, build.ghostYaw)) {   // LAN client: the host re-checks and places it on every PC
     if (!build.forceAsset.empty()) { build.active = false; build.forceAsset.clear(); setBuildPalette(false); }
     return;
@@ -337,6 +338,8 @@ void App::builderGhosts(std::vector<DrawItem>& ghosts) {
   if (!build.active) return;
   if (const Instance* t = doc.find(build.aimId)) if (const AssetDef* ta = assetFor(*t))   // the Del target, tinted
     ghosts.push_back({&ta->opaque, instanceMatrix(*t), vec4(1.0f, 0.55f, 0.15f, 0.18f)});
+  if (build.selId != build.aimId) if (const Instance* t = doc.find(build.selId)) if (const AssetDef* ta = assetFor(*t))   // UI12: the LMB selection
+    ghosts.push_back({&ta->opaque, instanceMatrix(*t), vec4(0.3f, 0.7f, 1.0f, 0.22f)});
   if (!build.asset) return;
   const AssetDef* a = build.asset;
   mat4 M = glm::translate(mat4(1), build.pos) * glm::mat4_cast(yawQuat(build.ghostYaw));
@@ -508,19 +511,40 @@ void App::drawBuilderUI() {
     ImGui::SetNextWindowSize(ImVec2(340, std::max(300.0f, io.DisplaySize.y - 140)), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Build: assets", nullptr, ImGuiWindowFlags_NoCollapse)) {
       ImGui::TextDisabled("%s", build.realEdits ? "Placements are map edits (Ctrl+Z undoes)." : "Placements are a playtest overlay (this session).");
-      ImGui::TextDisabled("Pick an asset to hold it. Tab / Esc: back to the view.");
+      ImGui::TextDisabled("Pick an asset: it fills hotbar slot %d. Tab / Esc: back to the view.", build.slot == 9 ? 0 : build.slot + 1);
       static AssetPalette pal; pal.thumb = 96;
-      if (const AssetDef* pk = drawAssetPalette(*this, pal, build.asset)) { build.pick = pk->id; build.forceAsset.clear(); setBuildPalette(false); }
+      if (const AssetDef* pk = drawAssetPalette(*this, pal, build.asset)) { buildAssign(pk->id); setBuildPalette(false); }
     }
     ImGui::End();
   }
   if (build.active && build.asset) {
-    char b[320]; std::snprintf(b, sizeof b, "BUILD%s: %s  |  %s  |  slope %.0f deg  |  Tab assets, 1/2/Q defences, wheel/Z/X rotate, LMB place, Del remove%s, Ctrl+Z undo, RMB leave",
-                               build.realEdits ? " (map)" : "", build.asset->name.c_str(), build.reason.c_str(), build.slopeDeg, build.aimId ? " (aimed)" : "");
+    char b[320]; std::snprintf(b, sizeof b, "BUILD%s: %s  |  %s  |  slope %.0f deg  |  Tab assets, 1-0 hotbar, RMB place, LMB select, Del remove%s, wheel/Z/X rotate, Ctrl+Z undo, B leave",
+                               build.realEdits ? " (map)" : "", build.asset->name.c_str(), build.reason.c_str(), build.slopeDeg, build.selId ? " (selected)" : build.aimId ? " (aimed)" : "");
     ImVec2 ts = ImGui::CalcTextSize(b);
     ImVec2 pp(io.DisplaySize.x * 0.5f - ts.x * 0.5f, io.DisplaySize.y * 0.78f);
     dl->AddRectFilled(ImVec2(pp.x - 10, pp.y - 6), ImVec2(pp.x + ts.x + 10, pp.y + ts.y + 6), IM_COL32(10, 10, 8, 190), 5);
     dl->AddText(pp, build.valid ? IM_COL32(120, 240, 140, 255) : IM_COL32(255, 120, 100, 255), b);
+  }
+  if (build.active && !pauseMenu) {   // UI12: the centre dot (what LMB selects and RMB aims at)
+    ImVec2 c(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f);
+    dl->AddCircleFilled(c, 5.0f, IM_COL32(10, 10, 8, 200)); dl->AddCircleFilled(c, 3.2f, build.aimId ? IM_COL32(255, 170, 70, 255) : IM_COL32(245, 245, 240, 255));
+  }
+  if (build.active && !build.engineer && !pauseMenu) {   // UI12: the hotbar, bottom centre (thumbnails; the current slot outlined)
+    const float s = std::round(std::clamp(io.DisplaySize.y * 0.06f, 44.0f, 84.0f)), gap = 4;
+    float x0 = std::round(io.DisplaySize.x * 0.5f - (10 * s + 9 * gap) * 0.5f), y0 = std::round(io.DisplaySize.y - s - 18);
+    int thumbBudget = 1;   // at most one on-demand thumbnail render a frame (MEM2)
+    for (int k = 0; k < 10; ++k) {
+      ImVec2 mn(x0 + k * (s + gap), y0), mx(mn.x + s, mn.y + s);
+      dl->AddRectFilled(mn, mx, IM_COL32(12, 12, 10, 175));
+      if (AssetDef* ha = const_cast<AssetDef*>(lib.find(settings().s.hotbar[k]))) {
+        if (!ha->thumbnail) { extern void assetThumbOnDemand(App&, AssetDef&, int&); assetThumbOnDemand(*this, *ha, thumbBudget); }
+        if (ha->thumbnail) dl->AddImage((ImTextureID)(intptr_t)ha->thumbnail, ImVec2(mn.x + 3, mn.y + 3), ImVec2(mx.x - 3, mx.y - 3), ImVec2(0, 1), ImVec2(1, 0));
+        else dl->AddText(ImVec2(mn.x + 4, mn.y + s * 0.4f), IM_COL32(220, 220, 210, 220), ha->name.substr(0, 6).c_str());
+      }
+      char n[4]; std::snprintf(n, sizeof n, "%d", k == 9 ? 0 : k + 1); dl->AddText(ImVec2(mn.x + 4, mn.y + 2), IM_COL32(235, 235, 225, 230), n);
+      const bool cur = k == build.slot && build.forceAsset.empty();
+      dl->AddRect(mn, mx, cur ? IM_COL32(232, 200, 120, 255) : IM_COL32(200, 200, 190, 70), 0, 0, cur ? 3.0f : 1.0f);
+    }
   }
   if (build.active && build.engineer) {   // GM3: the Engineer menu (items, time, used / limit) and the progress bar
     const auto& its = engItems();

@@ -355,7 +355,7 @@ void App::rackActivate() {
     if (k < (int)a->rackDeploy.size()) {
       closeRack("deploy");
       build.active = true; build.forceAsset = a->rackDeploy[k];
-      toast("Deploy " + a->rackDeploy[k] + ": aim at the ground, LMB to place, RMB to cancel", 4);
+      toast("Deploy " + a->rackDeploy[k] + ": aim at the ground, RMB to place, B or Esc to cancel", 4);
     }
   }
 }

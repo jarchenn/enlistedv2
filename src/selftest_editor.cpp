@@ -11,6 +11,7 @@
 #include "editor_nav.h"
 #include "scenario.h"
 #include "snap.h"
+#include "settings.h"
 #include <imgui_internal.h>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -403,21 +404,23 @@ void SelfTest::editorUpdate(App& app, float dt) {
     }
     if (f == 2) {
       check(app.build.active && app.build.realEdits, "B opens build mode; placements are map edits in a Creative drop-in");
-      app.build.pick = crateA->id;   // what clicking its thumbnail in the Assets palette does (palette.cpp)
+      app.build.slot = 3; app.buildAssign(crateA->id);   // UI12: key 4, then a thumbnail click in the Assets palette fills that hotbar slot
+      check(settings().s.hotbar[3] == crateA->id, "UI12: a palette pick fills the current hotbar slot");
       app.eyeYaw = 0; app.eyePitch = -28;
     }
     if (f == 6) {
       vec3 feet = Physics::character().pos;
       float d = glm::length(vec2(app.build.pos.x - feet.x, app.build.pos.z - feet.z));
       check(app.build.asset == crateA && app.build.valid && d > 1.0f && d < 12.0f, fmt("crate ghost in front of the player, %.1f m away, valid (%s)", d, app.build.reason.c_str()));
-      app.scriptedInput.fire = true;   // LMB
+      app.scriptedInput.aim = true;   // UI12: RMB places
     }
+    if (f == 7 || f == 13 || f == 31 || f == 39) app.scriptedInput.aim = false;   // release RMB
     if (f == 8) {
       crate = app.doc.instances.size() > n0 ? app.doc.instances.back().id : 0;
       const Instance* ci = app.doc.find(crate);
       bool real = ci && ci->assetId == crateA->id && !(ci->extra.is_object() && ci->extra.value("session", false));
-      check(real && app.dirty && app.undoStack.size() == u0 + 1, fmt("LMB places it as a real map edit (no session flag, map dirty, one editor undo step: %d)", (int)(app.undoStack.size() - u0)));
-      app.build.pick = houseA->id; app.build.pendRot = 90.0f;   // Z / X / wheel: rotate
+      check(real && app.dirty && app.undoStack.size() == u0 + 1, fmt("RMB places it as a real map edit (no session flag, map dirty, one editor undo step: %d)", (int)(app.undoStack.size() - u0)));
+      app.buildAssign(houseA->id); app.build.pendRot = 90.0f;   // Z / X / wheel: rotate
       app.eyeYaw = 90; app.eyePitch = -14;
     }
     if (f == 12) {
@@ -426,22 +429,24 @@ void SelfTest::editorUpdate(App& app, float dt) {
       bool outside = std::fabs(lp.x) > houseA->footprint.x * 0.5f || std::fabs(lp.z) > houseA->footprint.y * 0.5f;
       check(app.build.asset == houseA && app.build.valid && outside && std::fabs(wrapDeg(app.build.ghostYaw - app.eyeYaw - 90.0f)) < 0.5f,
             fmt("house ghost: valid (%s), rotated 90 deg off the view, its footprint kept off the player", app.build.reason.c_str()));
-      app.scriptedInput.fire = true;
+      app.scriptedInput.aim = true;
     }
     if (f == 14) {
       house = 0; for (size_t k = n0; k < app.doc.instances.size(); ++k) if (app.doc.instances[k].assetId == houseA->id && !isFurnishPiece(app.doc.instances[k])) house = app.doc.instances[k].id;   // its furniture follows it (V4)
       check(has(house) && app.doc.find(house)->assetId == houseA->id, "the house is placed through checkPlacement / placeInstance");
       if (const Instance* ci = app.doc.find(crate)) aimAt(ci->pos + vec3(0, 0.3f, 0));
     }
-    if (f == 18) { check(app.build.aimId == crate, fmt("aiming at the crate targets it for Del (aimed #%llu)", (unsigned long long)app.build.aimId)); removed0 = app.build.removed; app.build.pendDel = true; }
-    if (f == 20) { check(!has(crate) && app.build.removed == removed0 + 1, "Del removes the aimed placement"); app.build.pendUndo = true; }
+    if (f == 16) { check(app.build.aimId == crate, fmt("aiming at the crate targets it (aimed #%llu)", (unsigned long long)app.build.aimId)); app.scriptedInput.fire = true; }   // UI12: LMB selects
+    if (f == 17) app.scriptedInput.fire = false;
+    if (f == 18) { check(app.build.selId == crate, fmt("UI12: LMB selects the crate (selected #%llu)", (unsigned long long)app.build.selId)); app.eyePitch = 60; removed0 = app.build.removed; app.build.pendDel = true; }   // looking away: Del takes the selection
+    if (f == 20) { check(!has(crate) && app.build.removed == removed0 + 1 && app.build.selId == 0, "UI12: Del removes the selected placement (looking away from it)"); app.build.pendUndo = true; }
     if (f == 22) { check(has(crate), "Ctrl+Z brings it back"); app.build.pendUndo = true; }
     if (f == 24) { check(!has(house) && has(crate), "Ctrl+Z again takes the house away"); app.build.pendUndo = true; }
     if (f == 26) {
       check(!has(crate) && app.doc.instances.size() == n0 && app.undoStack.size() == u0, fmt("and once more the crate: map and editor undo stack back where they started (%d instances, %d undo steps)", (int)(app.doc.instances.size() - n0), (int)(app.undoStack.size() - u0)));
-      app.build.pick = crateA->id; app.eyeYaw = 0; app.eyePitch = -28;
+      app.buildAssign(crateA->id); app.eyeYaw = 0; app.eyePitch = -28;
     }
-    if (f == 30) app.scriptedInput.fire = true;
+    if (f == 30) app.scriptedInput.aim = true;
     if (f == 32) {
       crate = app.doc.instances.size() > n0 ? app.doc.instances.back().id : 0;
       app.scriptedInput = ExploreInput{}; app.useScripted = false;
@@ -453,8 +458,8 @@ void SelfTest::editorUpdate(App& app, float dt) {
       check(app.enterExplore(), "F5 playtest");
       app.useScripted = true; app.scriptedInput = ExploreInput{}; app.scriptedInput.build = true;
     }
-    if (f == 34) { app.build.pick = crateA->id; app.eyeYaw = 0; app.eyePitch = -28; check(app.build.active && !app.build.realEdits, "in a playtest build mode is a session overlay"); }
-    if (f == 38) app.scriptedInput.fire = true;
+    if (f == 34) { app.buildAssign(crateA->id); app.eyeYaw = 0; app.eyePitch = -28; check(app.build.active && !app.build.realEdits, "in a playtest build mode is a session overlay"); }
+    if (f == 38) app.scriptedInput.aim = true;
     if (f == 40) {
       const Instance* ci = app.doc.instances.empty() ? nullptr : &app.doc.instances.back();
       bool sess = ci && ci->assetId == crateA->id && ci->extra.is_object() && ci->extra.value("session", false);
@@ -462,6 +467,7 @@ void SelfTest::editorUpdate(App& app, float dt) {
       app.scriptedInput = ExploreInput{}; app.useScripted = false;
       app.exitExplore();
       check(sess && !has(sid), "...placed with the session flag and discarded on the way back to Creative");
+      settings().s.hotbar = UserSettings{}.hotbar; app.build.slot = 1;   // UI12: the default hotbar for the tests after
       gRuns.clear(); gPerfIdx = 0; gPerfFrame = 0;
       gPerfFrame = 0;
       go(3390);   // V6 gestures + zoom buttons next

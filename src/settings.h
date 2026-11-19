@@ -5,6 +5,7 @@
 // every self-test run (which never reads or writes the user file), renders as before.
 #include "common.h"
 #include <map>
+#include <array>
 #include <algorithm>
 
 class App;
@@ -70,6 +71,8 @@ struct UserSettings {
   float uiScale = 1.0f, editorFly = 1.0f, editorOrbit = 1.0f, editorZoom = 1.0f;
   // player (UI2 Character screen): body model id (content/characters/<id>.glb, "" = by faction) and the first carried weapon id ("" = M1 Garand)
   std::string character, primary;
+  // UI12: the build-mode hotbar (keys 1-9, 0): asset ids, "" = empty
+  std::array<std::string, 10> hotbar = {"def_tank_trap", "def_sandbag_straight", "def_sandbag_curved"};
 
   GfxPreset preset() const;    // Low / Medium / High when gfx matches one exactly, else Custom
   json toJson() const;

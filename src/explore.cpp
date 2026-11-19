@@ -435,7 +435,7 @@ void App::updateExplore(float dt) {
   if (commandsTakeCreative()) { exitExplore(); return; }   // CMD1 /creative: as F5
   if (!selftest && commandsOwnKeys()) (void)kp(win, GLFW_KEY_ESCAPE);   // CMD1: the command line has the keyboard (its Esc must not open the pause menu)
   else if (!selftest) {
-    if ((rackOpen || build.palette) && kp(win, GLFW_KEY_ESCAPE)) { if (rackOpen) closeRack("closed"); else setBuildPalette(false); }
+    if ((rackOpen || build.palette || (build.active && !build.engineer && !pauseMenu)) && kp(win, GLFW_KEY_ESCAPE)) { if (rackOpen) closeRack("closed"); else if (build.palette) setBuildPalette(false); else { build.active = false; build.forceAsset.clear(); } }   // UI12: Esc leaves build mode
     else if (lootInventoryOpen() && kp(win, GLFW_KEY_ESCAPE)) { lootSetInventory(false); lootOpenCase(0); }   // BR6: Esc closes the inventory / crate first
     else if (sdBuyMenuOpen() && kp(win, GLFW_KEY_ESCAPE)) sdCloseBuyMenu();   // SD3: Esc closes the buy menu first
     else if (smithyOpen() && kp(win, GLFW_KEY_ESCAPE)) smithyClose(*this);   // SM1: and the fitting screen
@@ -536,7 +536,7 @@ void App::updateExplore(float dt) {
     in.slot3 = kp(win, bk("slot3")); in.slot4 = kp(win, bk("slot4"));   // G4: knife, grenades
     if (bk("leanLeft") != bk("nextWeapon") && bk("leanRight") != bk("nextWeapon")) in.nextWeapon = kp(win, bk("nextWeapon"));   // MV3: else decided by the lean arbitration above
     if (kp(win, bk("map"))) mapLarge = !mapLarge;   // GM2: the large map (rebindable, UI1)
-    if (kp(win, bk("artillery"))) gm2ToggleArtyMap(*this);   // GM2: artillery (ability; rebindable, default 7)
+    if (kp(win, bk("artillery")) && !(build.active && !build.engineer)) gm2ToggleArtyMap(*this);   // UI12: 7 is a hotbar slot while building   // GM2: artillery (ability; rebindable, default 7)
     if (kp(win, GLFW_KEY_BACKSPACE)) returnToStart();
   }
   // Edge presses (kp: Space, E, R, ...) and station hand-wheel deltas seen on a frame that runs no fixed step (any

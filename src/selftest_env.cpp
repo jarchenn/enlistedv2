@@ -293,12 +293,12 @@ void SelfTest::envUpdate(App& app, float dt) {
         Physics::setCharacterPos(stand); a.eyeYaw = 0; a.eyePitch = -25; a.scriptedInput = ExploreInput{}; a.scriptedInput.build = true;
         return false;
       }
-      a.scriptedInput.build = false; a.scriptedInput.fire = false;
-      if (phase == 0 && t > 0.3f) { check(a.build.active && a.build.valid, "build mode: sandbag hologram green on flat ground (" + a.build.reason + ")"); a.scriptedInput.fire = true; phase = 1; return false; }
+      a.scriptedInput.build = false; a.scriptedInput.aim = false;   // UI12: RMB places (one-frame presses)
+      if (phase == 0 && t > 0.3f) { check(a.build.active && a.build.valid, "build mode: sandbag hologram green on flat ground (" + a.build.reason + ")"); a.scriptedInput.aim = true; phase = 1; return false; }
       if (phase == 1 && t > 0.5f) {
         first = a.doc.instances.back().id;
         Instance* i = a.doc.find(first);
-        check(i && i->assetId == "def_sandbag_straight" && i->extra.value("session", false), "LMB places the sandbag run (session overlay)");
+        check(i && i->assetId == "def_sandbag_straight" && i->extra.value("session", false), "RMB places the sandbag run (session overlay)");
         // aim 0.4 m off its +x end socket
         const AssetDef* ad = a.assetFor(*i);
         vec3 s = i->pos + yawQuat(i->yaw) * ad->defense.sockets[1].p + vec3(0.25f, 0, 0.3f);
@@ -314,10 +314,10 @@ void SelfTest::envUpdate(App& app, float dt) {
         float gap = glm::length(vec2(nw.x - sw.x, nw.z - sw.z)), cont = glm::dot(-nt, st);
         char b[200]; std::snprintf(b, sizeof b, "aim within 0.6 m of a free socket snaps: joint gap %.1f mm, tangent continuity %.5f", gap * 1000, cont);
         check(a.build.snapped && gap < 0.01f && cont > 0.999f, b);
-        a.scriptedInput.fire = true; phase = 3; return false;
+        a.scriptedInput.aim = true; phase = 3; return false;
       }
       if (phase == 3 && t > 1.0f) {
-        a.scriptedInput.choose2 = true;   // switch to the curved piece and chain it too (one-frame press)
+        a.build.slot = 2;   // UI12: hotbar key 3, the curved piece; chain it too
         phase = 35; return false;
       }
       if (phase == 35) { a.scriptedInput.choose2 = false; phase = 4; return false; }
@@ -331,14 +331,15 @@ void SelfTest::envUpdate(App& app, float dt) {
         phase = 5; return false;
       }
       if (phase == 5 && t > 1.5f) {
+        a.uiShot = exeDir() / "selftest_out" / "env_build_ui.png";   // UI12: the build-mode frame with its UI (centre dot, hotbar)
         check(a.build.asset && a.build.asset->id == "def_sandbag_curved" && a.build.snapped && a.build.valid, "curved 45 deg piece chains onto the run (" + a.build.reason + ")");
-        a.scriptedInput.fire = true; phase = 6; return false;
+        a.scriptedInput.aim = true; phase = 6; return false;
       }
       if (phase == 6 && t > 1.7f) {
         int sess = 0; for (auto& i : a.doc.instances) sess += i.extra.is_object() && i.extra.value("session", false);
         check(sess == 3, "three session pieces placed (" + std::to_string(sess) + ")");
         shotQueue.push_back("env_sandbag_chain");
-        a.scriptedInput.build = true; phase = 7; return false;
+        a.build.slot = 1; a.scriptedInput.build = true; phase = 7; return false;
       }
       return phase == 7 && t > 1.9f; });
     push("apply + discard", [this](App& a, float t) {

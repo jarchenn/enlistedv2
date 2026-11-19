@@ -7,16 +7,17 @@ In first person, **B** opens build mode, and you can place anything from the Ass
 | Key | Action |
 |---|---|
 | B | Enter / leave build mode. Entering opens the Assets palette and frees the cursor. |
-| Tab | Show / hide the palette. Picking a thumbnail puts that asset in hand and returns to the view. |
-| Esc | Close the palette (a second Esc does the usual thing: back to the editor in a drop-in, the pause menu otherwise). |
-| 1 / 2 / Q | Quick defences: tank trap, straight / curved sandbags (as before) |
+| Tab | Show / hide the palette. Picking a thumbnail puts that asset in the current hotbar slot (saved in the user settings) and returns to the view. |
+| Esc | Close the palette; with the palette closed, leave build mode. |
+| 1-9, 0 | Hotbar slot (10 slots along the bottom; defaults: 1 tank trap, 2 straight sandbags, 3 curved sandbags). The current slot is outlined. |
 | Wheel, Z / X, R | Rotate the ghost 15° (Z: −15°, X and R: +15°). While building, Z is not prone and X is not the ammo toggle. |
-| LMB | Place |
-| Del | Remove the aimed placement (tinted orange while aimed) |
+| RMB | Place the hotbar asset at the ghost |
+| LMB | Select the placement under the centre dot (tinted blue; LMB on nothing clears it) |
+| Del | Remove the selected placement, else the aimed one (tinted orange while aimed) |
 | Ctrl+Z | Undo the last first-person place or remove |
-| RMB | Leave build mode |
+| B, Esc | Leave build mode |
 
-While the palette is open, the view does not turn. LMB clicks the palette rather than placing, and typing in the search box does not move the player. The weapon is lowered and holds fire while building.
+While the palette is open, the view does not turn. Mouse clicks go to the palette, and typing in the search box does not move the player. The weapon is lowered and holds fire while building.
 
 ## Placement
 
@@ -39,10 +40,10 @@ Rack deployments (the M2HB tripod and the PaK 40 from a weapons rack) always sta
 
 `--selftest-editor`, stage 3346:
 1. Drop in from Creative and press B: build mode, with map edits.
-2. A palette pick puts a crate in hand. Its ghost is valid 1–12 m ahead.
-3. LMB places it as a real edit: no session flag, the map dirty, one editor undo step.
+2. A palette pick puts a crate in hotbar slot 4. Its ghost is valid 1–12 m ahead.
+3. RMB places it as a real edit: no session flag, the map dirty, one editor undo step.
 4. Pick a house and rotate it 90°. It is valid, and its footprint stays off the player.
-5. Del on the aimed crate removes it.
+5. LMB selects the aimed crate; looking away, Del removes the selection.
 6. Ctrl+Z three times: the crate comes back, then the house goes, then the crate goes. The map and the editor's undo stack end exactly where they started.
 7. Place a crate again and return to the editor. The crate is still there, and the editor's Undo removes it.
 8. In an F5 playtest, a placement is a session piece and is discarded on exit.
