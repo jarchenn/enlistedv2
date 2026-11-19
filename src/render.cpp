@@ -1744,6 +1744,7 @@ void main(){
 static const char* kGlassFS = R"GLSL(
 in vec3 vW, vN, vAlb, vPc, vPn, vAp, vAn, vEmi; in vec4 vPar;
 uniform float uGlow, uEmissiveK;
+uniform float uGlassOpacity = 1.0, uGlassRefl = 1.0;   // GL1: content/settings/glass.json "opacity", "reflection" (1 = the pre-GL1 look)
 out vec4 oColor;
 void main(){
   vec3 N = normalize(vN); vec3 V = normalize(uCamPos - vW);
@@ -1751,7 +1752,7 @@ void main(){
   // old cylinder glass: slight waviness
   N = normalize(N + 0.025*vec3(vnoise(vAp*18.0)-0.5, vnoise(vAp*18.0+7.0)-0.5, vnoise(vAp*18.0+3.0)-0.5));
   float NdV = max(dot(N, V), 0.0);
-  float F = 0.04 + 0.96*pow(1.0-NdV, 5.0);
+  float F = (0.04 + 0.96*pow(1.0-NdV, 5.0))*uGlassRefl;
   vec3 R = reflect(-V, N);
   float sv = skyVis(vW, N);
   vec3 refl = skyColor(R) * mix(0.25, 1.0, sv);
@@ -1765,9 +1766,9 @@ void main(){
   vec3 tint = vec3(0.82,0.88,0.84);
   vec3 c = refl*F + uSunCol*spec*F + tint*0.03*dirt;
   if (uLightCount > 0) { vec3 ld, ls; localLights(vW, N, N, V, 0.05, vec3(0.04), ld, ls); c += ls + tint*ld*0.02; }   // lamp highlights on the panes
-  float a = clamp(0.10 + F*0.85*mix(0.35, 1.0, smoothstep(0.05, 0.6, dot(uSunCol, vec3(0.3, 0.5, 0.2)))) + dirt*0.08, 0.0, 0.95);   // VH6d: a faint night reflection, not a milky pane
+  float a = clamp((0.10 + dirt*0.08)*uGlassOpacity + F*0.85*mix(0.35, 1.0, smoothstep(0.05, 0.6, dot(uSunCol, vec3(0.3, 0.5, 0.2)))), 0.0, 0.95);   // GL1: the reflection keeps full strength   // VH6d: a faint night reflection, not a milky pane
   vec3 emi = vEmi*(uGlow*uEmissiveK);   // lit lamp glass: added in full whatever the pane alpha
-  c = applyFog(c, vW);
+  c = applyFog(c, vW) - applyFog(vec3(0.0), vW)*(1.0 - a);   // GL1: the fog behind the pane is already in the background: add only the covered share (was a full second fog layer: a milky pane in haze)
   oColor = vec4((c + emi) / max(a, 0.05), a);
 }
 )GLSL";
@@ -1798,6 +1799,7 @@ layout(location=3) out vec4 oNR;
 layout(location=4) out vec4 oVel; uniform float uVmVel;
 uniform float uAlbFloor;
 uniform int uCutout;   // NT8: alpha-tested foliage (needles, blades, fronds): discard under 0.5, sun through the thin side
+uniform float uGlassOpacity = 1.0, uGlassFilm = 1.0, uGlassRefl = 1.0;   // GL1: content/settings/glass.json "opacity", "film", "reflection" (1 = the pre-GL1 look)
 uniform int uGlass;   // 0 opaque; 1 window glass (dusty); 2 a wreck's glass (crazed, grimy); 3 clean (the car you sit in: no film to catch the cabin light at night)
 uniform vec4 uVmClip; uniform int uClipMe;   // AT6: the fitted optic's window (px, bottom-left origin; radius px): the gun's own parts there are not drawn
 void main(){
@@ -1810,14 +1812,15 @@ void main(){
     vec3 N = normalize(vN); if (!gl_FrontFacing) N = -N;
     vec3 V = normalize(uCamPos - vW);
     float dust = 0.35 + 0.4*smoothstep(0.3, 0.8, fract(sin(dot(floor(vW.xz*7.0 + vW.y*5.0), vec2(12.9898, 78.233)))*43758.5453)*0.3 + 0.5*clamp(-N.y + 0.5, 0.0, 1.0));
+    dust *= uGlassFilm;
     if (uGlass == 2) dust = min(1.0, dust + 0.15);   // a wreck's glass: crazed and grimy (VH6d: no punched-out cells, they read as a checker pattern)
     if (uGlass == 3) dust = 0.0;
     dust *= mix(0.2, 1.0, smoothstep(0.05, 0.6, dot(uSunCol, vec3(0.3, 0.5, 0.2))));   // VH6d: an unlit film at night: the pane stays see-through, not a milky sheet
-    float fr = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 4.0);
+    float fr = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 4.0)*(uGlass == 3 ? 1.0 : uGlassRefl);
     vec3 tint = vec3(0.16, 0.19, 0.19);
     vec3 c = shade(vW, N, mix(tint, vec3(0.42, 0.39, 0.33), dust*0.6), mix(0.06, 0.7, dust), 0.0, 1.0);
     c = applyFog(c, vW);
-    oColor = vec4(c, uGlass == 3 ? clamp(0.06 + 0.3*fr, 0.0, 0.5) : clamp(0.22 + 0.28*dust + 0.5*fr, 0.0, 0.92));
+    oColor = vec4(c, uGlass == 3 ? clamp(0.06 + 0.3*fr, 0.0, 0.5) : clamp((0.22 + 0.28*dust)*uGlassOpacity + 0.5*fr, 0.0, 0.92));
     oDist = length(vW - uCamPos); oAmb = vec4(0.0); oNR = vec4(0.0, 1.0, 0.0, 1.0); oVel = vec4(0.0);
     return;
   }
@@ -3533,6 +3536,12 @@ bool Renderer::init(int w, int h) {
   progGrassShadow = compile(kGrassVS, kGrassShadowFS, "grass_shadow");
   { extern bool grassAtlasInit(GLuint, GLuint); grassAtlasReady = grassAtlasInit(progGrass, progGrassShadow); }   // GT1 (grass.cpp)
   progModel = compile(kModelVS, kModelFS, "model");
+  {   // GL1 window glass clarity (content/settings/glass.json)
+    json g; try { g = json::parse(readTextFile(contentDir() / "settings" / "glass.json")); } catch (...) { logf("glass.json: missing or invalid, the old look"); }
+    float op = std::clamp(g.value("opacity", 1.0f), 0.0f, 2.0f), film = std::clamp(g.value("film", 1.0f), 0.0f, 2.0f), refl = std::clamp(g.value("reflection", 1.0f), 0.0f, 2.0f);
+    for (GLuint p : {progGlass, progModel}) { glProgramUniform1f(p, glGetUniformLocation(p, "uGlassOpacity"), op); glProgramUniform1f(p, glGetUniformLocation(p, "uGlassRefl"), refl); }
+    glProgramUniform1f(progModel, glGetUniformLocation(progModel, "uGlassFilm"), film);
+  }
   progFolModel = compile(kFolVS, kModelFS, "fol_model"); progFolDepth = compile(kFolVS, kFolDepthFS, "fol_depth");   // NT8
   progDof = compile(kFullVS, kDofFS, "dof");
   progEyepiece = compile(kFullVS, kEyepieceFS, "eyepiece");
