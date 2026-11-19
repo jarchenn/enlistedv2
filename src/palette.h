@@ -17,3 +17,7 @@ struct AssetPalette {
 // Returns the asset clicked this frame (nullptr if none); `active` is highlighted as the asset in hand.
 const AssetDef* drawAssetPalette(App& app, AssetPalette& st, const AssetDef* active);
 std::string assetFootText(const AssetDef* a);   // "6.0 x 8.0 m | 2 floors | enterable"
+// TH1: asset themes, bits in kThemeKeys order (an asset's "themes" array, else derived: palette.cpp)
+enum : unsigned { TH_WWII = 1, TH_POSTAPOC = 2, TH_MODERN = 4, TH_DESERT = 8, TH_ALL = 15 };
+extern const char* const kThemeKeys[4];   // "wwii", "postapoc", "modern", "desert"
+unsigned assetThemes(const AssetDef* a);

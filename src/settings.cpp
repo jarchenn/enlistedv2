@@ -54,6 +54,8 @@ GfxPreset UserSettings::preset() const {
 }
 
 // ---------------------------------------------------------------- file
+static const char* const kThemeNames[4] = {"wwii", "postapoc", "modern", "desert"};   // TH1: as palette.cpp kThemeKeys
+
 json UserSettings::toJson() const {
   const GraphicsOpts& g = gfx;
   json k = json::object(); for (auto& [a, n] : keys) k[a] = n;
@@ -70,7 +72,7 @@ json UserSettings::toJson() const {
     {"audio", {{"master", master}, {"effects", effects}, {"ui", ui}, {"ambience", ambience}, {"gunfire", gunfire}, {"heartbeat", heartbeat}}},
     {"controls", k},
     {"player", {{"character", character}, {"primary", primary}}},
-    {"build", {{"hotbar", hotbar}}},   // UI12
+    {"build", {{"hotbar", hotbar}, {"themes", [&] { json t = json::array(); for (int k = 0; k < 4; ++k) if (themes & (1u << k)) t.push_back(kThemeNames[k]); return t; }()}}},   // UI12; TH1
     {"interface", {{"uiScale", uiScale}, {"minimapRotate", minimapRotate}, {"developerOverlay", devOverlay}, {"editorFlySpeed", editorFly}, {"editorOrbitSpeed", editorOrbit}, {"editorZoomSpeed", editorZoom}}},
   };
 }
@@ -122,6 +124,9 @@ UserSettings UserSettings::fromJson(const json& j) {
   if (j.contains("controls") && j["controls"].is_object())
     for (auto it = j["controls"].begin(); it != j["controls"].end(); ++it) if (it->is_string()) u.keys[it.key()] = it->get<std::string>();
   if (j.contains("player") && j["player"].is_object()) { u.character = j["player"].value("character", std::string()); u.primary = j["player"].value("primary", std::string()); }
+  if (j.contains("build") && j["build"].is_object() && j["build"].contains("themes") && j["build"]["themes"].is_array()) {   // TH1
+    u.themes = 0; for (auto& t : j["build"]["themes"]) for (int k = 0; k < 4; ++k) if (t.is_string() && t.get<std::string>() == kThemeNames[k]) u.themes |= 1u << k;
+  }
   if (j.contains("build") && j["build"].is_object() && j["build"].contains("hotbar") && j["build"]["hotbar"].is_array()) {   // UI12
     const json& h = j["build"]["hotbar"]; for (size_t k = 0; k < u.hotbar.size() && k < h.size(); ++k) if (h[k].is_string()) u.hotbar[k] = h[k].get<std::string>();
   }
