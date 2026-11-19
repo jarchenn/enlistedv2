@@ -3,7 +3,7 @@
  "bmax": [
   0.9794962406158447,
   1.5216306447982788,
-  2.2244033813476563
+  2.2244033813476562
  ],
  "bmin": [
   -0.9794965386390686,
@@ -12,9 +12,13 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_0.jpg",
-   "mr": "mr_1.png",
-   "name": "Body.002"
+   "albedo": "albedo_0_g.jpg",
+   "mr": "mr_1_g.jpg",
+   "name": "Body.002",
+   "grungeSrc": {
+    "albedo": "albedo_0.jpg",
+    "mr": "mr_1.png"
+   }
   },
   {
    "albedo": "albedo_2.jpg",
@@ -24,9 +28,13 @@
    "name": "Glass.002"
   },
   {
-   "albedo": "albedo_3.jpg",
-   "mr": "mr_4.png",
-   "name": "Wheek"
+   "albedo": "albedo_3_g.jpg",
+   "mr": "mr_4_g.jpg",
+   "name": "Wheek",
+   "grungeSrc": {
+    "albedo": "albedo_3.jpg",
+    "mr": "mr_4.png"
+   }
   }
  ],
  "parts": [
@@ -40,7 +48,7 @@
    "bmax": [
     0.9794962406158447,
     1.5216306447982788,
-    2.2244033813476563
+    2.2244033813476562
    ],
    "bmin": [
     -0.9794965386390686,
@@ -223,5 +231,14 @@
  "source": "car_hatchback.glb",
  "textures": {},
  "triangles": 4079,
- "vertices": 3376
+ "vertices": 3376,
+ "grunge": {
+  "strength": 0.8,
+  "kinds": {
+   "Body.002": "metal",
+   "Optics.002": "skip",
+   "Wheek": "generic"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

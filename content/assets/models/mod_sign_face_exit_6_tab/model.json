@@ -12,22 +12,34 @@
  ],
  "materials": [
   {
-   "albedo": "albedoa_1.png",
+   "albedo": "albedoa_1_g.png",
    "cutout": true,
-   "mr": "mr_2.jpg",
-   "name": "Dirty.298"
+   "mr": "mr_2_g.jpg",
+   "name": "Dirty.298",
+   "grungeSrc": {
+    "albedo": "albedoa_1.png",
+    "mr": "mr_2.jpg"
+   }
   },
   {
-   "albedo": "albedoa_4.png",
+   "albedo": "albedoa_4_g.png",
    "cutout": true,
-   "mr": "mr_5.jpg",
-   "name": "Dirty.299"
+   "mr": "mr_5_g.jpg",
+   "name": "Dirty.299",
+   "grungeSrc": {
+    "albedo": "albedoa_4.png",
+    "mr": "mr_5.jpg"
+   }
   },
   {
-   "albedo": "albedoa_7.png",
+   "albedo": "albedoa_7_g.png",
    "cutout": true,
-   "mr": "mr_8.jpg",
-   "name": "Dirty.300"
+   "mr": "mr_8_g.jpg",
+   "name": "Dirty.300",
+   "grungeSrc": {
+    "albedo": "albedoa_7.png",
+    "mr": "mr_8.jpg"
+   }
   }
  ],
  "parts": [
@@ -120,5 +132,14 @@
  "source": "mod_sign_face_exit_6_tab.glb",
  "textures": {},
  "triangles": 44,
- "vertices": 74
+ "vertices": 74,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "Dirty.298": "metal",
+   "Dirty.299": "metal",
+   "Dirty.300": "metal"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

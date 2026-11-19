@@ -12,9 +12,12 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
+   "albedo": "albedo_1_g.jpg",
    "name": "fusta_beta",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg"
+   }
   },
   {
    "name": "interior_lamas"
@@ -113,5 +116,12 @@
  "source": "frsrc_u_tv_bench.glb",
  "textures": {},
  "triangles": 19978,
- "vertices": 13763
+ "vertices": 13763,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "fusta_beta": "generic"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

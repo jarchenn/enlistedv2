@@ -12,22 +12,34 @@
  ],
  "materials": [
   {
-   "albedo": "albedoa_1.png",
+   "albedo": "albedoa_1_g.png",
    "cutout": true,
-   "mr": "mr_2.jpg",
-   "name": "Dirty.383"
+   "mr": "mr_2_g.jpg",
+   "name": "Dirty.383",
+   "grungeSrc": {
+    "albedo": "albedoa_1.png",
+    "mr": "mr_2.jpg"
+   }
   },
   {
-   "albedo": "albedoa_4.png",
+   "albedo": "albedoa_4_g.png",
    "cutout": true,
-   "mr": "mr_5.jpg",
-   "name": "Dirty.384"
+   "mr": "mr_5_g.jpg",
+   "name": "Dirty.384",
+   "grungeSrc": {
+    "albedo": "albedoa_4.png",
+    "mr": "mr_5.jpg"
+   }
   },
   {
-   "albedo": "albedoa_7.png",
+   "albedo": "albedoa_7_g.png",
    "cutout": true,
-   "mr": "mr_8.jpg",
-   "name": "Dirty.385"
+   "mr": "mr_8_g.jpg",
+   "name": "Dirty.385",
+   "grungeSrc": {
+    "albedo": "albedoa_7.png",
+    "mr": "mr_8.jpg"
+   }
   }
  ],
  "parts": [
@@ -120,5 +132,14 @@
  "source": "mod_sign_face_bicycle_crossing.glb",
  "textures": {},
  "triangles": 44,
- "vertices": 78
+ "vertices": 78,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "Dirty.383": "metal",
+   "Dirty.384": "metal",
+   "Dirty.385": "metal"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

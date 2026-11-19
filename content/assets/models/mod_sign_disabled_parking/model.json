@@ -12,22 +12,34 @@
  ],
  "materials": [
   {
-   "albedo": "albedoa_1.png",
+   "albedo": "albedoa_1_g.png",
    "cutout": true,
-   "mr": "mr_2.jpg",
-   "name": "Dirty.123"
+   "mr": "mr_2_g.jpg",
+   "name": "Dirty.123",
+   "grungeSrc": {
+    "albedo": "albedoa_1.png",
+    "mr": "mr_2.jpg"
+   }
   },
   {
-   "albedo": "albedoa_4.png",
+   "albedo": "albedoa_4_g.png",
    "cutout": true,
-   "mr": "mr_5.jpg",
-   "name": "Dirty.124"
+   "mr": "mr_5_g.jpg",
+   "name": "Dirty.124",
+   "grungeSrc": {
+    "albedo": "albedoa_4.png",
+    "mr": "mr_5.jpg"
+   }
   },
   {
-   "albedo": "albedoa_7.png",
+   "albedo": "albedoa_7_g.png",
    "cutout": true,
-   "mr": "mr_8.jpg",
-   "name": "Dirty.125"
+   "mr": "mr_8_g.jpg",
+   "name": "Dirty.125",
+   "grungeSrc": {
+    "albedo": "albedoa_7.png",
+    "mr": "mr_8.jpg"
+   }
   }
  ],
  "parts": [
@@ -120,5 +132,14 @@
  "source": "mod_sign_disabled_parking.glb",
  "textures": {},
  "triangles": 96,
- "vertices": 175
+ "vertices": 175,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "Dirty.123": "metal",
+   "Dirty.124": "metal",
+   "Dirty.125": "metal"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

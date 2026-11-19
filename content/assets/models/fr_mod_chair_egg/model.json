@@ -24,10 +24,14 @@
    "normal": "normal_3.jpg"
   },
   {
-   "albedo": "albedo_7.jpg",
-   "mr": "mr_8.jpg",
+   "albedo": "albedo_7_g.jpg",
+   "mr": "mr_8_g.jpg",
    "name": "wood",
-   "normal": "normal_6.jpg"
+   "normal": "normal_6.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_7.jpg",
+    "mr": "mr_8.jpg"
+   }
   }
  ],
  "parts": [
@@ -120,5 +124,14 @@
  "source": "frsrc_u_chair_egg.glb",
  "textures": {},
  "triangles": 1030,
- "vertices": 674
+ "vertices": 674,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "sofa": "skip",
+   "leather": "skip",
+   "wood": "wood"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

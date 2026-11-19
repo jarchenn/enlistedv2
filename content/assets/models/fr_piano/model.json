@@ -12,34 +12,54 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_2.jpg",
-   "mr": "mr_3.jpg",
+   "albedo": "albedo_2_g.jpg",
+   "mr": "mr_3_g.jpg",
    "name": "Material",
-   "normal": "normal_1.jpg"
+   "normal": "normal_1.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_2.jpg",
+    "mr": "mr_3.jpg"
+   }
   },
   {
-   "albedo": "albedo_5.jpg",
-   "mr": "mr_6.jpg",
+   "albedo": "albedo_5_g.jpg",
+   "mr": "mr_6_g.jpg",
    "name": "Material.001",
-   "normal": "normal_4.jpg"
+   "normal": "normal_4.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_5.jpg",
+    "mr": "mr_6.jpg"
+   }
   },
   {
-   "albedo": "albedo_8.jpg",
-   "mr": "mr_9.jpg",
+   "albedo": "albedo_8_g.jpg",
+   "mr": "mr_9_g.jpg",
    "name": "Material.004",
-   "normal": "normal_7.jpg"
+   "normal": "normal_7.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_8.jpg",
+    "mr": "mr_9.jpg"
+   }
   },
   {
-   "albedo": "albedo_12.jpg",
-   "mr": "mr_13.jpg",
+   "albedo": "albedo_12_g.jpg",
+   "mr": "mr_13_g.jpg",
    "name": "Material.002",
-   "normal": "normal_11.jpg"
+   "normal": "normal_11.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_12.jpg",
+    "mr": "mr_13.jpg"
+   }
   },
   {
-   "albedo": "albedo_15.jpg",
-   "mr": "mr_16.jpg",
+   "albedo": "albedo_15_g.jpg",
+   "mr": "mr_16_g.jpg",
    "name": "Material.003",
-   "normal": "normal_14.jpg"
+   "normal": "normal_14.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_15.jpg",
+    "mr": "mr_16.jpg"
+   }
   }
  ],
  "parts": [
@@ -184,5 +204,16 @@
  "source": "frsrc_u_piano.glb",
  "textures": {},
  "triangles": 6270,
- "vertices": 5426
+ "vertices": 5426,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "Material": "wood",
+   "Material.001": "wood",
+   "Material.004": "wood",
+   "Material.002": "wood",
+   "Material.003": "wood"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

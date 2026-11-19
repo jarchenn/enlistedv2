@@ -12,11 +12,15 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_2.jpg",
+   "albedo": "albedo_2_g.jpg",
    "aoInMR": true,
-   "mr": "mr_1.jpg",
+   "mr": "mr_1_g.jpg",
    "name": "bed_wood_material",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_2.jpg",
+    "mr": "mr_1.jpg"
+   }
   },
   {
    "albedo": "albedo_5.jpg",
@@ -123,5 +127,14 @@
  "source": "frsrc_u_bed_victorian.glb",
  "textures": {},
  "triangles": 18177,
- "vertices": 10885
+ "vertices": 10885,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "bed_wood_material": "wood",
+   "bed_mattres_material": "skip",
+   "bed_pillow_material": "skip"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

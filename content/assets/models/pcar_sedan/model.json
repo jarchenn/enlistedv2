@@ -233,7 +233,7 @@
  "triangles": 4267,
  "vertices": 3673,
  "grunge": {
-  "strength": 0.8,
+  "strength": 0.6,
   "kinds": {
    "Body.006": "metal",
    "Optics.006": "skip",

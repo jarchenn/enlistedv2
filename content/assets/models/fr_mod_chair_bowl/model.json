@@ -55,5 +55,12 @@
  "source": "frsrc_u_chair_bowl.glb",
  "textures": {},
  "triangles": 19980,
- "vertices": 10832
+ "vertices": 10832,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "sofa": "skip"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

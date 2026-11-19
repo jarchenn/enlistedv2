@@ -56,5 +56,12 @@
  "source": "frsrc_u_chair_tufted.glb",
  "textures": {},
  "triangles": 8865,
- "vertices": 5045
+ "vertices": 5045,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "Chair_MTL": "skip"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

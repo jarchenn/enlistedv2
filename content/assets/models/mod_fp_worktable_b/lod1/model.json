@@ -7,15 +7,19 @@
  ],
  "bmin": [
   -1.1059894561767578,
-  2.9802322387695313e-08,
+  2.9802322387695312e-08,
   -0.5480607748031616
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "Tables",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   }
  ],
  "parts": [
@@ -33,7 +37,7 @@
    ],
    "bmin": [
     -1.1059894561767578,
-    2.9802322387695313e-08,
+    2.9802322387695312e-08,
     -0.5480607748031616
    ],
    "count": 2802,

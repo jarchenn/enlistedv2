@@ -56,5 +56,12 @@
  "source": "frsrc_greenchair_01.glb",
  "textures": {},
  "triangles": 2106,
- "vertices": 1690
+ "vertices": 1690,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "GreenChair_01": "skip"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

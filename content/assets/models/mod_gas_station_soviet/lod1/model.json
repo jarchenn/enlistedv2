@@ -12,39 +12,59 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_2.jpg",
+   "albedo": "albedo_2_g.jpg",
    "aoInMR": true,
-   "mr": "mr_1.jpg",
+   "mr": "mr_1_g.jpg",
    "name": "Bilding_LPG_ON",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_2.jpg",
+    "mr": "mr_1.jpg"
+   }
   },
   {
-   "albedo": "albedo_5.jpg",
+   "albedo": "albedo_5_g.jpg",
    "aoInMR": true,
-   "mr": "mr_4.jpg",
+   "mr": "mr_4_g.jpg",
    "name": "Bilding_LPG_IN",
-   "normal": "normal_3.jpg"
+   "normal": "normal_3.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_5.jpg",
+    "mr": "mr_4.jpg"
+   }
   },
   {
-   "albedo": "albedo_8.jpg",
+   "albedo": "albedo_8_g.jpg",
    "aoInMR": true,
-   "mr": "mr_7.jpg",
+   "mr": "mr_7_g.jpg",
    "name": "Atributs.002",
-   "normal": "normal_6.jpg"
+   "normal": "normal_6.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_8.jpg",
+    "mr": "mr_7.jpg"
+   }
   },
   {
-   "albedo": "albedo_11.jpg",
+   "albedo": "albedo_11_g.jpg",
    "aoInMR": true,
-   "mr": "mr_10.jpg",
+   "mr": "mr_10_g.jpg",
    "name": "LPG_DETAILS.001",
-   "normal": "normal_9.jpg"
+   "normal": "normal_9.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_11.jpg",
+    "mr": "mr_10.jpg"
+   }
   },
   {
-   "albedo": "albedo_14.jpg",
+   "albedo": "albedo_14_g.jpg",
    "aoInMR": true,
-   "mr": "mr_13.jpg",
+   "mr": "mr_13_g.jpg",
    "name": "Lpg_box.001",
-   "normal": "normal_12.jpg"
+   "normal": "normal_12.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_14.jpg",
+    "mr": "mr_13.jpg"
+   }
   }
  ],
  "parts": [
@@ -134,7 +154,7 @@
     1.0
    ],
    "bmax": [
-    3.3916091918945313,
+    3.3916091918945312,
     1.4140702486038208,
     4.076449394226074
    ],

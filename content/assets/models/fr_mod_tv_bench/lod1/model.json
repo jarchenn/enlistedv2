@@ -12,9 +12,12 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
+   "albedo": "albedo_1_g.jpg",
    "name": "fusta_beta",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg"
+   }
   },
   {
    "name": "interior_lamas"

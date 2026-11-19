@@ -134,7 +134,7 @@
  "triangles": 80,
  "vertices": 143,
  "grunge": {
-  "strength": 0.7,
+  "strength": 0.5,
   "kinds": {
    "Dirty.128": "metal",
    "Dirty.129": "metal",

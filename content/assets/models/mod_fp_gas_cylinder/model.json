@@ -62,7 +62,7 @@
  "triangles": 1878,
  "vertices": 1739,
  "grunge": {
-  "strength": 0.9,
+  "strength": 1.4,
   "kinds": {
    "Barrel__tools": "metal"
   },

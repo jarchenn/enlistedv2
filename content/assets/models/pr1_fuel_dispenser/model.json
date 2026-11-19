@@ -15,10 +15,14 @@
    "name": "glass"
   },
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "pr1_fuel_dispenser",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   }
  ],
  "parts": [
@@ -111,5 +115,12 @@
  "source": "pr1_fuel_dispenser.glb",
  "textures": {},
  "triangles": 39082,
- "vertices": 42860
+ "vertices": 42860,
+ "grunge": {
+  "strength": 1.0,
+  "kinds": {
+   "pr1_fuel_dispenser": "metal"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

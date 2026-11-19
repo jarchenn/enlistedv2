@@ -12,22 +12,34 @@
  ],
  "materials": [
   {
-   "albedo": "albedoa_1.png",
+   "albedo": "albedoa_1_g.png",
    "cutout": true,
-   "mr": "mr_2.jpg",
-   "name": "Dirty.233"
+   "mr": "mr_2_g.jpg",
+   "name": "Dirty.233",
+   "grungeSrc": {
+    "albedo": "albedoa_1.png",
+    "mr": "mr_2.jpg"
+   }
   },
   {
-   "albedo": "albedoa_4.png",
+   "albedo": "albedoa_4_g.png",
    "cutout": true,
-   "mr": "mr_5.jpg",
-   "name": "Dirty.234"
+   "mr": "mr_5_g.jpg",
+   "name": "Dirty.234",
+   "grungeSrc": {
+    "albedo": "albedoa_4.png",
+    "mr": "mr_5.jpg"
+   }
   },
   {
-   "albedo": "albedoa_7.png",
+   "albedo": "albedoa_7_g.png",
    "cutout": true,
-   "mr": "mr_8.jpg",
-   "name": "Dirty.235"
+   "mr": "mr_8_g.jpg",
+   "name": "Dirty.235",
+   "grungeSrc": {
+    "albedo": "albedoa_7.png",
+    "mr": "mr_8.jpg"
+   }
   }
  ],
  "parts": [
@@ -45,7 +57,7 @@
    ],
    "bmin": [
     -0.4284076690673828,
-    1.9824600219726563,
+    1.9824600219726562,
     0.0272444486618042
    ],
    "count": 27,
@@ -71,7 +83,7 @@
    ],
    "bmin": [
     -0.4284076690673828,
-    1.9824600219726563,
+    1.9824600219726562,
     0.02145683765411377
    ],
    "count": 27,
@@ -120,5 +132,14 @@
  "source": "mod_sign_yield.glb",
  "textures": {},
  "triangles": 92,
- "vertices": 169
+ "vertices": 169,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "Dirty.233": "metal",
+   "Dirty.234": "metal",
+   "Dirty.235": "metal"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

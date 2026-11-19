@@ -62,7 +62,7 @@
  "triangles": 552,
  "vertices": 590,
  "grunge": {
-  "strength": 1.0,
+  "strength": 1.5,
   "kinds": {
    "wall": "masonry"
   },

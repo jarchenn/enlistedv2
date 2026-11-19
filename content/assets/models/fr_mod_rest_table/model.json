@@ -12,10 +12,14 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "round_wooden_table_02",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   }
  ],
  "parts": [
@@ -56,5 +60,12 @@
  "source": "frsrc_round_wooden_table_02.glb",
  "textures": {},
  "triangles": 2126,
- "vertices": 2340
+ "vertices": 2340,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "round_wooden_table_02": "wood"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

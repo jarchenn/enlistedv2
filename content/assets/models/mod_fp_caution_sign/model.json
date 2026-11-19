@@ -12,10 +12,14 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "Misc_02",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   }
  ],
  "parts": [
@@ -56,5 +60,12 @@
  "source": "mod_fp_caution_sign.glb",
  "textures": {},
  "triangles": 320,
- "vertices": 383
+ "vertices": 383,
+ "grunge": {
+  "strength": 0.9,
+  "kinds": {
+   "Misc_02": "generic"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

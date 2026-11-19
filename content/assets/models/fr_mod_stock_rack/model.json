@@ -12,10 +12,14 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "steel_frame_shelves_01",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   }
  ],
  "parts": [
@@ -56,5 +60,12 @@
  "source": "frsrc_steel_frame_shelves_01.glb",
  "textures": {},
  "triangles": 2174,
- "vertices": 2350
+ "vertices": 2350,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "steel_frame_shelves_01": "metal"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

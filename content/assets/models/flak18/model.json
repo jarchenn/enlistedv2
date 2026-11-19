@@ -12,11 +12,15 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_0.jpg",
+   "albedo": "albedo_0_g.jpg",
    "aoInMR": true,
-   "mr": "mr_1.png",
+   "mr": "mr_1_g.jpg",
    "name": "material",
-   "normal": "normal_2.png"
+   "normal": "normal_2.png",
+   "grungeSrc": {
+    "albedo": "albedo_0.jpg",
+    "mr": "mr_1.png"
+   }
   }
  ],
  "parts": [
@@ -82,7 +86,7 @@
    "bmax": [
     0.042782049626111984,
     2.3972744941711426,
-    -0.43717914819717407
+    -0.4371791481971741
    ],
    "bmin": [
     -0.04130150377750397,
@@ -2940,7 +2944,7 @@
     1.0
    ],
    "bmax": [
-    0.37890583276748657,
+    0.3789058327674866,
     1.4703787565231323,
     0.004275709390640259
    ],
@@ -3311,7 +3315,7 @@
    "bmin": [
     -0.645111620426178,
     1.2705457210540771,
-    -0.6610183715820313
+    -0.6610183715820312
    ],
    "count": 102,
    "first": 20337,
@@ -4009,5 +4013,12 @@
  "source": "anti-aircraft_gun_8.8_cm_flak_18(1).glb",
  "textures": {},
  "triangles": 7933,
- "vertices": 10466
+ "vertices": 10466,
+ "grunge": {
+  "strength": 0.8,
+  "kinds": {
+   "material": "metal"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

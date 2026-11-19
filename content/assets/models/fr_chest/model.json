@@ -12,10 +12,14 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "treasure_chest",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   }
  ],
  "parts": [
@@ -56,5 +60,12 @@
  "source": "frsrc_treasure_chest.glb",
  "textures": {},
  "triangles": 51665,
- "vertices": 39094
+ "vertices": 39094,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "treasure_chest": "wood"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

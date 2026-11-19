@@ -12,10 +12,14 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "wall_clock",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   },
   {
    "cutout": true,
@@ -87,5 +91,12 @@
  "source": "frsrc_wall_clock.glb",
  "textures": {},
  "triangles": 1828,
- "vertices": 2006
+ "vertices": 2006,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "wall_clock": "wood"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }
