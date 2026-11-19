@@ -1657,7 +1657,10 @@ void main(){
     vec3 alb0 = alb;
     int mc = pat == 11 || pat == 15 ? 3 : pat == 9 || pat == 18 ? 2 : pat == 1 || pat == 19 || pat == 22 ? 1 : 0;   // render / wood, stone, brick, concrete
     float matK = mc == 2 ? 0.9 : mc == 1 ? 0.95 : 1.0;   // brick and dressed stone shed water better than render
-    vec3 dampC = mc == 0 ? vec3(0.45, 0.34, 0.22) : mc == 1 ? vec3(0.34, 0.40, 0.29) : mc == 2 ? vec3(0.40, 0.33, 0.28) : vec3(0.33, 0.35, 0.38);   // brown soil, green-grey, dark wet
+    vec3 dampC = mc == 0 ? vec3(0.45, 0.34, 0.22) : mc == 1 ? vec3(0.50, 0.50, 0.46) : mc == 2 ? vec3(0.40, 0.33, 0.28) : vec3(0.33, 0.35, 0.38);   // brown soil, dark wet stone (GR2: was green-grey, a continuous green band), dark wet
+    // GR2: the grunge dirt channel along the wall (1 = dirty): damp and moss come in patches, not as one band
+    float gD = uGrungeK > 0.0 ? textureLod(uGrunge, vec2(dot(vAp.xz, vec2(0.7071)), vAp.y)/3.0 + vec2(sd*5.3, sd*2.9), max(0.0, log2(max(gPix*1024.0/3.0, 1e-4)))).g : 1.0;
+    float gPatch = mix(1.0, smoothstep(0.12, 0.55, gD), 0.75*uGrungeK);
     float dug = vert * step(-0.05, vAp.y);   // GX1: nothing below the asset's ground line (dug-in trench timber)
     // value noise sits near 0.5: remap so the zone really spans its range along the wall
     float lv = smoothstep(0.25, 0.75, vnL(vec3(vAp.x*0.22, sd*17.0, vAp.z*0.22), 0.22));   // zone height along the wall, ~4 m
@@ -1666,7 +1669,7 @@ void main(){
     float on = max(smoothstep(0.3, 0.38, lc), cornerK);
     float zh = clamp((0.35 + 0.65*lv + 0.3*(edge - 0.5) + 0.3*cornerK + 0.12*shadeF)*matK, 0.2, 1.2);
     float k = 0.85 + 0.1*shadeF + 0.05*sd;
-    float damp = (1.0 - smoothstep(zh - 0.12, zh + 0.04, hg)) * dug * on;
+    float damp = (1.0 - smoothstep(zh - 0.12, zh + 0.04, hg)) * dug * on * gPatch;
     float tide = smoothstep(zh - 0.2, zh - 0.05, hg) * damp;                // the darker tide line at the top of the damp
     alb *= mix(vec3(1.0), dampC, min(damp*k + tide*0.2, 1.0));
     rough = mix(rough, rough*0.94, damp*k);   // only a little: a shinier foot reflects the sky at grazing views and cancels the darkening
@@ -1679,7 +1682,7 @@ void main(){
     // small exposed-substrate patches just above the ground: the finish is gone and the core shows, darker and rough
     float sub = uFoundWx == 1 ? (1.0 - smoothstep(0.1, 0.45 + 0.2*nn, hg)) * dug * smoothstep(0.78, 0.86, sn*0.4 + nn*0.6 + 0.08*cornerK) * (pat == 17 || pat == 3 || pat == 11 ? 1.0 : 0.5) : 0.0;
     alb = mix(alb, alb*vec3(0.6, 0.56, 0.5), sub); rough = mix(rough, 0.96, sub);
-    float moss = dug * on * (1.0 - smoothstep(0.0, zh*0.8 + 0.25*cornerK, hg)) * smoothstep(0.52 - 0.15*shadeF - 0.15*cornerK, 0.66, vnL(vAp*1.6 + sd*11.0, 1.6)) * (0.2 + 0.8*shadeF) * (mc == 1 ? 1.0 : mc == 3 ? 0.8 : 0.6);
+    float moss = dug * on * mix(1.0, smoothstep(0.35, 0.75, gD), 0.85*uGrungeK) * (1.0 - smoothstep(0.0, zh*0.8 + 0.25*cornerK, hg)) * smoothstep(0.52 - 0.15*shadeF - 0.15*cornerK, 0.66, vnL(vAp*1.6 + sd*11.0, 1.6)) * (0.2 + 0.8*shadeF) * (mc == 1 ? 1.0 : mc == 3 ? 0.8 : 0.6);
     alb = mix(alb, (mc == 0 ? vec3(0.36, 0.38, 0.24) : vec3(0.30, 0.34, 0.22))*(0.8 + 0.4*vnL(vAp*9.0, 9.0)), clamp(moss, 0.0, 1.0)*0.7);
     rough = mix(rough, 0.95, moss*0.5);
     if (uSills > 0 && vert > 0.5 && hg < 3.4) {   // run-off under the ground-storey sills
@@ -1689,6 +1692,14 @@ void main(){
     gWxDbg = vec3(damp*k, moss, spl);
     float streak = smoothstep(0.66, 0.92, vnoise(vec3(dot(vAp.xz, vec2(3.1, 2.7)), vAp.y*0.22, 2.0))) * vert * smoothstep(0.6, 2.0, hg);
     alb *= 1.0 - 0.14*streak;
+    if (dot(vPn, vPn) > 2.0 && abs(vPn.y) < 1.0 && vert > 0.5) {   // GR2: run-off below the top edge of box faces (copings, sills, eaves): a few
+      // irregular streaks fading down ~1 m, not every metre
+      float dTop = abs(vPcF.y) - vPc.y;
+      float al = dot(vAp.xz, normalize(vec2(-nW.z, nW.x) + 1e-4));
+      float rcol = smoothstep(0.6, 0.88, vnoise(vec3(al*3.3, dTop*0.5, sd*13.0 + 4.0))) * smoothstep(0.35, 0.65, vnoise(vec3(al*0.7, 1.7, sd*7.0)));
+      float ro2 = rcol * (1.0 - smoothstep(0.02, 0.6 + 0.6*vnoise(vec3(al*1.9, 3.3, sd)), dTop)) * step(0.0, dTop);
+      alb *= mix(vec3(1.0), dampC*vec3(0.95, 0.95, 1.0), ro2*0.55); rough = mix(rough, rough*0.9, ro2);
+    }
     float l0 = dot(alb0, vec3(0.3, 0.59, 0.11)), l1 = dot(alb, vec3(0.3, 0.59, 0.11));
     if (l1 < 0.4*l0) alb *= 0.4*l0/max(l1, 1e-4);   // the cap: 0.4 linear = ~35 % darker on screen (sRGB), never near-black
     if (pat == 15) {   // earth packed against the bunker concrete (a different surface, so past the cap)
@@ -1752,7 +1763,9 @@ void main(){
   // old cylinder glass: slight waviness
   N = normalize(N + 0.025*vec3(vnoise(vAp*18.0)-0.5, vnoise(vAp*18.0+7.0)-0.5, vnoise(vAp*18.0+3.0)-0.5));
   float NdV = max(dot(N, V), 0.0);
-  float F = (0.04 + 0.96*pow(1.0-NdV, 5.0))*uGlassRefl;
+  // GR2: per-window variety (the part's centre in asset space): reflection strength, a few curtained panes, darker rooms
+  float wid = fract(sin(dot(floor((vAp - vPc)*2.0 + 0.5), vec3(12.99, 78.23, 37.71)))*43758.55);
+  float F = (0.04 + 0.96*pow(1.0-NdV, 5.0))*uGlassRefl*(0.75 + 0.5*fract(wid*13.7));
   vec3 R = reflect(-V, N);
   float sv = skyVis(vW, N);
   vec3 refl = skyColor(R) * mix(0.25, 1.0, sv);
@@ -1766,7 +1779,17 @@ void main(){
   vec3 tint = vec3(0.82,0.88,0.84);
   vec3 c = refl*F + uSunCol*spec*F + tint*0.03*dirt;
   if (uLightCount > 0) { vec3 ld, ls; localLights(vW, N, N, V, 0.05, vec3(0.04), ld, ls); c += ls + tint*ld*0.02; }   // lamp highlights on the panes
-  float a = clamp((0.10 + dirt*0.08)*uGlassOpacity + F*0.85*mix(0.35, 1.0, smoothstep(0.05, 0.6, dot(uSunCol, vec3(0.3, 0.5, 0.2)))), 0.0, 0.95);   // GL1: the reflection keeps full strength   // VH6d: a faint night reflection, not a milky pane
+  float a = clamp((0.10 + dirt*0.08)*uGlassOpacity + F*0.85*mix(0.35, 1.0, smoothstep(0.05, 0.6, dot(uSunCol, vec3(0.3, 0.5, 0.2)))), 0.0, 0.95);
+  if (abs(N.y) < 0.5) {
+    vec3 Nh = normalize(vec3(N.x, 0.0, N.z) + 1e-4);
+    float al = dot(vAp.xz, vec2(-Nh.z, Nh.x));
+    if (wid < 0.27) {   // linen / net curtains behind about a quarter of the windows, drawn part-way, lit by the daylight through the pane
+      float cov = 0.3 + 0.5*fract(wid*7.3);
+      float cur = smoothstep(cov, cov - 0.05, fract(al*1.25 + wid*3.1)) * (0.82 + 0.18*sin(al*85.0 + wid*40.0));
+      vec3 lin = vec3(0.60, 0.58, 0.53)*(skyColor(vec3(0.0, 1.0, 0.0))*0.45 + uSunCol*0.08);
+      c = mix(c, lin*(1.0 - a) + c, cur*0.8); a = max(a, cur*0.8);
+    } else if (wid > 0.72) a = min(a + 0.14, 0.95);   // a darker, unlit room
+  }   // GL1: the reflection keeps full strength   // VH6d: a faint night reflection, not a milky pane
   vec3 emi = vEmi*(uGlow*uEmissiveK);   // lit lamp glass: added in full whatever the pane alpha
   c = applyFog(c, vW) - applyFog(vec3(0.0), vW)*(1.0 - a);   // GL1: the fog behind the pane is already in the background: add only the covered share (was a full second fog layer: a milky pane in haze)
   oColor = vec4((c + emi) / max(a, 0.05), a);

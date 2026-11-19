@@ -508,6 +508,19 @@ TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
   o.r = mix(1.0, s.r/max(Lp.z, 0.02), K.z*f);
   o.ao = mix(1.0, s.ao, K.w*f);
   o.dn = (s.n - n)*K.y*f;
+  vec4 Uu = uTexU[slot];
+  if (uImgMat == 1 && K.x >= 0.0 && Uu.z != 1.0) {   // GR2: per-set contrast on the ground too (contrast < 1: softer seams between paving stones)
+    float l = max(dot(o.alb, vec3(0.2126, 0.7152, 0.0722)), 1e-3); o.alb *= pow(l, Uu.z - 1.0);
+  }
+  if (uImgMat == 1 && Uu.w > 0.0) {   // GR2: patches of tone and roughness a few metres across (variation that reads at a sprint),
+    // and darker, glossier damp lows (the macro damp channel): one macro tap, no derivatives
+    vec3 a = abs(n); vec2 uv = a.y > max(a.x, a.z) ? p.xz : a.x > a.z ? p.zy : p.xy;
+    vec4 mac = textureLod(uTexMacro, uv/32.0, max(0.0, log2(max(max(length(dpx), length(dpy)), 1e-4)*256.0/32.0)));
+    o.alb *= mix(vec3(1.0), vec3(0.82, 0.81, 0.79) + vec3(0.34, 0.35, 0.36)*mac.r, Uu.w*f);
+    o.r *= 1.0 + (mac.g - 0.5)*0.45*Uu.w*f;
+    float wetP = smoothstep(0.58, 0.76, mac.b)*Uu.w*f;
+    o.alb *= 1.0 - 0.2*wetP; o.r *= 1.0 - 0.55*wetP;
+  }
   return o;
 }
 // MA1 imgmat: a slot with an "under" set alternates with it by the world macro mask (A), patches of a few metres, so
