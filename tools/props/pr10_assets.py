@@ -166,6 +166,20 @@ BUILDINGS = {
         walls=[], doors={}, holes={}, floor=[-4.0, -3.0, -1.0, 0.0, -0.05, 0.0],
         furnish=[("pa_crate_slatted", -10.0, 4.0, 15), ("mod_barrel_steel_rust", -11.5, -5.0, 0), ("pa_chest_wooden", 8.0, 5.0, 180),
                  ("ph_old_tyre", 4.0, -3.0, 0), ("pa_fruit_crate_high", -8.0, 4.6, 70)]),
+    # YN14R's destroyed building (part 2): a gabled plank shack with an open lean-to shed beside it, x0.6. The shack's
+    # torn-out front (y -8.86) closed with a weathered-plank wall (a 1 m doorway); its back opening and a gap in its +x
+    # side are its other doorways; the lean-to stays open; its ground plate and the debris under it cut away
+    "pa_shack_ruin": dict(
+        name="Ruined plank shack", lic="glb", src="old_destroyed_building_part2/old_destroyed_building_part2.glb", scale=0.6, maxTex=2048,
+        delete_mats=["Plane.001__0"], cut_below=-0.02,
+        add_boxes=[{"box": [-4.95, -1.6, -8.86, -8.66, 0.0, 4.6], "tex": "boards_weathered", "tile": 2.5},
+                   {"box": [0.0, 2.1, -8.86, -8.66, 0.0, 4.6], "tex": "boards_weathered", "tile": 2.5},
+                   {"box": [-1.6, 0.0, -8.86, -8.66, 3.4, 4.6], "tex": "boards_weathered", "tile": 2.5}],
+        auto_colliders={"cell": 0.5, "min_wall": 2.0, "min_rect": 1.2, "min_floor": 0.5, "min_rect_floor": 0.25, "exclude": ["fabric"]},
+        desc="A sagging plank shack under a holed corrugated roof, with an open lean-to of rusted drums beside it, its torn-out front boarded up again: enterable through three doorways.",
+        walls=[], doors={}, holes={}, floor=[-4.0, -3.0, -1.0, 0.0, -0.05, 0.0],
+        furnish=[("pa_chest_wooden", -4.5, 2.5, 90), ("mod_debris_stove", 0.5, 2.6, 0), ("furn_chair_soviet", -2.0, -3.0, 20),
+                 ("mod_debris_papers_pile", 0.5, -5.0, 0), ("pa_fruit_crate_mid", -4.5, -7.5, 0)]),
     "pa_log_house_ruin": dict(
         name="Ruined log house", lic="glb", src="old_destroyed_home_part_1/old_destroyed_home_part_1.glb", scale=0.6, maxTex=2048,
         auto_colliders={"cell": 0.5, "min_wall": 2.0, "min_rect": 0.75, "min_floor": 0.5, "min_rect_floor": 0.25},

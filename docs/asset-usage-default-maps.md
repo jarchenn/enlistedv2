@@ -2001,6 +2001,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `pa_log_house_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `pa_stone_house_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `pa_shed_ruin_long` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `pa_shack_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 
 ## Notes
 
