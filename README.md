@@ -24,7 +24,7 @@ The editor:
 - Pick the enemy type per side: soldiers of several factions (WWII Allied and German, modern, desert, special forces), zombies, and creature types such as brutes, spiders and mechs.
 
 **Maps**
-- Ready-made maps: D-day, Omaha Easy Red, Chateau town, Village Assault, Battle 1, Normandy forest, Hollow village, Newtown (nine-district modern town), woodland and desert outposts, four Search and Destroy maps (town, yard, desert, Ashwood Hollow village), plus Caverns, Tunnels and Backrooms.
+- Ready-made maps: D-day, Omaha Easy Red, Chateau town, Village Assault, Battle 1, Hollow village, Newtown (nine-district modern town), woodland and desert outposts, four Search and Destroy maps (town, yard, desert, Ashwood Hollow village), plus Caverns, Tunnels and Backrooms.
 - Every map opens in the editor and can be changed or used as a starting point.
 
 **Map editor**
@@ -33,7 +33,7 @@ The editor:
 - Trenches, fences, barbed wire, walls and hedgerows are drawn as lines; trenches are dug into the terrain.
 
 **Combat**
-- More than 60 weapons, WWII and modern: rifles, submachine guns, machine guns, shotguns, sniper rifles, pistols, launchers, a flamethrower, grenades and melee, with calibrated iron sights and scopes.
+- More than 60 weapons, WWII and modern: rifles, submachine guns, machine guns, shotguns, sniper rifles, pistols, launchers, flamethrowers, grenades and melee, with calibrated iron sights and scopes.
 - Battle royale loot: limited-weight inventory, backpacks, three levels of armour and helmets, healing items, and attachments (sights, suppressors, muzzle brakes, extended magazines).
 - Seven soldier classes with their own weapons and abilities, chosen on a deploy screen with a choice of spawn point.
 - Drivable tanks and jeeps, crewed anti-tank guns and machine-gun emplacements, called-in artillery.
