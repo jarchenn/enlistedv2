@@ -1,0 +1,6 @@
+{
+ "_doc": "GL1 window glass (src/render.cpp kGlassFS, kModelFS uGlass 1/2). opacity: how much a pane hides what is behind it, x the pre-GL1 amount (1 = the old look, 0 = only the reflection). reflection: the sky / sun / lamp reflection, x the old strength (keep it above 0 so a pane still reads as glass; the car you sit in keeps its own). film: the dust film on imported models' glass (modern buildings, vehicles), x the old amount. Rendering only: bullets and AI sight are unchanged.",
+ "opacity": 0.45,
+ "reflection": 0.5,
+ "film": 0.35
+}
