@@ -1980,6 +1980,8 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_tool_wrench` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_debris_papers_pile` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_debris_papers_scattered` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `pa_concrete_outbuilding` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `pa_crate_slatted` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 
 ## Notes
 

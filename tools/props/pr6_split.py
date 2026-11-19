@@ -169,7 +169,7 @@ for P in job["pieces"]:
         if o.name not in CL: CL[o.name] = clusters(o)
         objs = [copy_of(o, CL[o.name][i]) for i in P["clusters"]]
     else:
-        objs = [copy_of(byname[n]) for n in P["objects"]]
+        objs = [copy_of(o) for o in SRC] if P.get("objects") is None else [copy_of(byname[n]) for n in P["objects"]]   # PR10: None = every mesh
     for mname, idx in P.get("delete_clusters", []):   # PR8: a model's own door leaf / glass goes (the game fits openable ones)
         o = byname[mname]
         if o.name not in CL: CL[o.name] = clusters(o)

@@ -159,7 +159,8 @@ bool capturePropsSelfTest(App& a, float dt) {
     std::string tok; int n = 0;
     while (std::getline(ss, tok, ';')) {
       if (tok.empty()) continue;
-      Shot s; size_t p = tok.find('@'); s.id = tok.substr(0, p);
+      Shot s; size_t p = tok.find('@'), hsh = tok.find('#'); s.id = tok.substr(0, std::min(p, hsh));
+      if (hsh != std::string::npos) { s.fixed = std::sscanf(tok.c_str() + hsh + 1, "%f,%f,%f>%f,%f,%f", &s.eye.x, &s.eye.y, &s.eye.z, &s.look.x, &s.look.y, &s.look.z) == 6; }   // PR10: "id#eye>look" in asset space (a shot from inside)
       if (p != std::string::npos) { s.aim = true; std::sscanf(tok.c_str() + p + 1, "%f,%f,%f", &s.at.x, &s.at.y, &s.at.z); }
       const AssetDef* as = a.lib.find(s.id);
       if (!as) { logf("[capture-props] no asset %s", s.id.c_str()); continue; }
@@ -176,6 +177,7 @@ bool capturePropsSelfTest(App& a, float dt) {
         a.doc.instances.push_back(i); s.inst = i.id;
       }
       if (!s.inst) { logf("[capture-props] %s could not be placed", s.id.c_str()); continue; }
+      if (Instance* hi = a.doc.find(s.inst)) { if (s.fixed) { s.eye += hi->pos; s.look += hi->pos; } a.placeCompanions(s.inst); }   // PR10: a building's authored furniture
       if (const char* gid = std::getenv("NMK_PROPS_GROUND")) if (const AssetDef* ga = a.lib.find(gid)) {   // PR4: a hard pad under the piece (scale reads on concrete / dirt, not in long grass)
         Instance g; g.id = a.doc.newId(); g.assetId = ga->id; g.assetVersion = ga->version; g.pos = vec3(x, a.terrain.height(x, z) - 0.01f, z);
         a.doc.instances.push_back(g);

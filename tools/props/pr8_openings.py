@@ -76,10 +76,15 @@ def subtract(b, h):
     return [o for o in out if all(o[1][k] - o[0][k] > 0.01 for k in range(3))]
 
 
-def apply(A, marks, openings, floor_key="floor", room_type=None):
+def col(p): return p.get("v") == 0 or bool(p.get("mf"))   # a static collider: invisible, or a local-only model's stand-in (PR10)
+
+
+def apply(A, marks, openings, floor_key="floor", room_type=None, holes=(), floor_visible=True):
     """Fit the openings (marks: game-axis boxes by name; openings: name -> (kind, material, leaves)), cut them out of the
     collision parts, add the visible floor, make the building enterable with nav from its colliders. room_type names the
-    one room's furnishing recipe (interior.cpp roomTypes: a guard hut is an office, not the default kitchen)."""
+    one room's furnishing recipe (interior.cpp roomTypes: a guard hut is an office, not the default kitchen).
+    PR10: holes = mark names of open bays (windows without leaves: boxes through the wall, cut like the doors);
+    floor_visible False: the floor is a collider only (the model has its own; no visible floor part = no auto-furnish)."""
     if room_type and floor_key in marks:
         cx, cy, cz, sx, sy, sz = marks[floor_key]
         A["nav"]["rooms"] = [{"id": "main", "min": r3([cx - sx / 2, cy, cz - sz / 2]), "max": r3([cx + sx / 2, cy + 2.4, cz + sz / 2])}]
@@ -92,27 +97,29 @@ def apply(A, marks, openings, floor_key="floor", room_type=None):
         m = marks[it["id"]]; n = 2 if m[3] >= m[5] else 0   # through the wall: across the thin mark (as interactable())
         mid = (lo[n] + hi[n]) / 2; a, b = mid - 0.06, mid + 0.06
         for p in A["parts"]:
-            if p.get("v") != 0: continue
+            if not col(p): continue
             pl = [p["c"][k] - p["s"][k] / 2 for k in range(3)]; ph = [p["c"][k] + p["s"][k] / 2 for k in range(3)]
             if ph[n] - pl[n] < 1.0 and all(ph[k] > lo[k] and pl[k] < hi[k] for k in range(3)): a, b = min(a, pl[n] - 0.02), max(b, ph[n] + 0.02)
         lo[n], hi[n] = round(max(lo[n], a), 3), round(min(hi[n], b), 3)
-    holes =[(it["aperture"]["min"], it["aperture"]["max"]) for it in A["interactables"]]
+    bays = [([marks[h][k] - marks[h][3 + k] / 2 for k in range(3)], [marks[h][k] + marks[h][3 + k] / 2 for k in range(3)]) for h in holes]
+    holes = [(it["aperture"]["min"], it["aperture"]["max"]) for it in A["interactables"]] + bays
     parts = []
     for p in A["parts"]:
-        if p.get("v") != 0: parts.append(p); continue
+        if not col(p): parts.append(p); continue
+        flag = {"v": 0} if p.get("v") == 0 else {"mf": 1}
         boxes = [([p["c"][k] - p["s"][k] / 2 for k in range(3)], [p["c"][k] + p["s"][k] / 2 for k in range(3)])]
         for h in holes: boxes = [q for b in boxes for q in subtract(b, h)]
-        parts += [{"t": "b", "c": r3([(lo[k] + hi[k]) / 2 for k in range(3)]), "s": r3([hi[k] - lo[k] for k in range(3)]), "m": p["m"], "v": 0} for lo, hi in boxes]
+        parts += [{"t": "b", "c": r3([(lo[k] + hi[k]) / 2 for k in range(3)]), "s": r3([hi[k] - lo[k] for k in range(3)]), "m": p["m"], **flag} for lo, hi in boxes]
     if floor_key in marks:
         cx, cy, cz, sx, sy, sz = marks[floor_key]
-        parts.append({"t": "b", "c": r3([cx, cy, cz]), "s": r3([sx, max(sy, 0.02), sz]), "m": "concrete_floor", "k": 0})
+        parts.append({"t": "b", "c": r3([cx, cy, cz]), "s": r3([sx, max(sy, 0.02), sz]), "m": "concrete_floor", **({"k": 0} if floor_visible else {"v": 0})})
     A["parts"] = parts
-    for it in A["interactables"]:   # no static collider may cross an opening (player and bullets pass where the leaf is open)
-        lo = [it["aperture"]["min"][k] + 0.02 for k in range(3)]; hi = [it["aperture"]["max"][k] - 0.02 for k in range(3)]
+    for amin, amax in holes:   # no static collider may cross an opening (player and bullets pass where the leaf is open)
+        lo = [amin[k] + 0.02 for k in range(3)]; hi = [amax[k] - 0.02 for k in range(3)]
         for p in parts:
-            if p.get("collide") is False or p.get("v") != 0: continue   # the static colliders (the walkable floor is under the threshold)
+            if p.get("collide") is False or not col(p): continue   # the static colliders (the walkable floor is under the threshold)
             pl = [p["c"][k] - p["s"][k] / 2 for k in range(3)]; ph = [p["c"][k] + p["s"][k] / 2 for k in range(3)]
-            assert any(ph[k] <= lo[k] or pl[k] >= hi[k] for k in range(3)), (A["id"], it["id"], p)
+            assert any(ph[k] <= lo[k] or pl[k] >= hi[k] for k in range(3)), (A["id"], amin, p)
     A["enterable"] = True
     A["nav"]["effect"] = "block"   # nav from the colliders: the doorways stay walkable
 
@@ -122,4 +129,7 @@ if __name__ == "__main__":   # self-check: a hole through the middle of a wall l
     assert len(w) == 3 and sum((b[1][0] - b[0][0]) * (b[1][1] - b[0][1]) for b in w) == 4 * 3 - 1 * 2, w
     it = interactable("d", "door", "door_steel", [0, 1, 0, 1.0, 2.0, 0.06], 1)
     assert it["leaves"][0]["hinge"] == [-0.5, 0, 0] and it["aperture"]["min"][2] < 0 < it["aperture"]["max"][2]
+    B = {"id": "t", "materials": [], "nav": {}, "parts": [{"t": "b", "c": [0, 1.5, 0], "s": [4, 3, 0.3], "m": "w", "mf": 1}]}
+    apply(B, {"win": [0, 1.5, 0, 1.0, 1.0, 0.4], "floor": [0, 0.1, 1, 4, 0.02, 2]}, {}, holes=["win"], floor_visible=False)
+    assert len([q for q in B["parts"] if q.get("mf")]) == 4 and B["parts"][-1].get("v") == 0, B["parts"]   # jambs, sill, lintel stay stand-ins; the floor a collider
     print("pr8_openings ok")

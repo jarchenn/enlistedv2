@@ -773,3 +773,12 @@ PR7: the user's crafting tables (three smithing tables), security hut, old garag
 | `mod_lpg_dispensers_pair` | Abandoned Soviet gas station | olegolegperepelica | CC-BY-4.0 | https://skfb.ly/pzuX8 | modified: baked / decimated / textures resized | yes |
 | `mod_gas_drums` | Abandoned Soviet gas station | olegolegperepelica | CC-BY-4.0 | https://skfb.ly/pzuX8 | modified: baked / decimated / textures resized | yes |
 <!-- /pr7_assets -->
+
+<!-- pr10_assets: written by tools/props/pr10_assets.py -->
+PR10: the user's post-apocalyptic batch. Licences to be confirmed: local-only until then.
+
+| Asset | Model | Author | Licence | Source | Changes | In the repo |
+|---|---|---|---|---|---|---|
+| `pa_concrete_outbuilding` | abounded-house.zip (Sketchfab.rar: LittleBuilding.fbx) | to be confirmed | to be confirmed | - | modified: openings cut, colliders, baked / textures resized | no (local-only) |
+| `pa_crate_slatted` | box.zip (Cinema 4D export) | to be confirmed | to be confirmed | - | modified: scaled / baked / textures resized | no (local-only) |
+<!-- /pr10_assets -->
