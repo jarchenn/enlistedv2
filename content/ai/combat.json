@@ -228,7 +228,12 @@
   ]
  },
  "operator_models_note": "AI type Operators: soldiers (the same brain, weapons and procedural pose) wearing these bodies, one per AI in turn; a missing file leaves the faction's soldier body (tools/bake_ai_characters.py operators, docs/credits.md)",
- "gasmask_models": [["gasmask_ak47", "modern_ak47"], ["gasmask_mp7", "modern_mp7"], ["gasmask_fal", "modern_fal"], ["gasmask_ump45", "modern_smg45"], ["gasmask_m249", "modern_lmg"], ["gasmask_r870", "modern_shotgun"], ["gasmask_pistol", "modern_pistol"], ["gasmask_m24", "modern_sniper_bolt"], ["gasmask_rpg7", "modern_rpg7"]],
+ "gunbody_models_note": "GM1 / GM2: bodies with the gun built in (tools/bake_gunbody.py; gunbody.cpp drives their clips), [model, weapon] taken in turn: gasmask (AI type Gas-mask soldiers), desert (AI type Desert soldiers), german (the Axis side's plain soldier bots, not in Battle royale; the weighted order stands in for the class mix). The weapon gives the ballistics and sound; desert_vector fires as the UMP-45 (no Vector), desert_scar as the SCAR-H. A missing file or weapon: the soldier body as before",
+ "gunbody_models": {
+  "gasmask": [["gasmask_ak47", "modern_ak47"], ["gasmask_mp7", "modern_mp7"], ["gasmask_fal", "modern_fal"], ["gasmask_ump45", "modern_smg45"], ["gasmask_m249", "modern_lmg"], ["gasmask_r870", "modern_shotgun"], ["gasmask_pistol", "modern_pistol"], ["gasmask_m24", "modern_sniper_bolt"], ["gasmask_rpg7", "modern_rpg7"]],
+  "desert": [["desert_m4", "modern_m4_irons"], ["desert_mp5", "modern_mp5"], ["desert_scar", "modern_scar"], ["desert_ar15", "modern_ar15"], ["desert_m249", "modern_lmg"], ["desert_vector", "modern_smg45"], ["desert_r870", "modern_shotgun"], ["desert_scorpion", "modern_scorpion"], ["desert_m24", "modern_sniper_bolt"], ["desert_pistol", "modern_pistol"], ["desert_rpg7", "modern_rpg7"]],
+  "german": [["german_kar98k", "kar98k"], ["german_mp40", "mp40"], ["german_kar98k", "kar98k"], ["german_stg44", "stg44"], ["german_kar98k", "kar98k"], ["german_mg42", "mg42"], ["german_mp40", "mp40"], ["german_fg42", "fg42"], ["german_kar98k", "kar98k"], ["german_panzerschreck", "panzerschreck"], ["german_stg44", "stg44"], ["german_luger", "luger"]]
+ },
  "operator_models": {
   "Allies": [
    "operator_allied"

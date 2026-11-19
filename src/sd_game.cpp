@@ -116,6 +116,8 @@ void applyGear(Game& g, int slot) {
     if (!pool.empty()) g.app.selectWeapon(pool[0]);
     s.weapon = g.app.activeWeapon;
     g.localGrenadeCounts(s, true);
+  } else if (s.gunBody && s.gmWeapon >= 0) {   // GM1 / GM2: a body with its gun built in keeps that gun (bought guns are not drawn or fired)
+    s.wsBy.clear(); s.weapon = s.gmWeapon; s.ws = fullAmmo(*g.app.weaponDefs[s.weapon], s.rng); s.carried = {s.weapon};
   } else {
     s.wsBy.clear(); s.weapon = pri >= 0 ? pri : sec >= 0 ? sec : knife;
     if (s.weapon >= 0) s.ws = fullAmmo(*g.app.weaponDefs[s.weapon], s.rng);
