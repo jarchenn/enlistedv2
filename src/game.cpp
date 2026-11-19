@@ -125,6 +125,17 @@ void Game::syncGrenadeView() {
     gren.live.push_back(v);
   }
 }
+// DF1: the centre of a gun's magazine parts (weapon space; from the kept vertex positions), else under the support hand
+static vec3 magCentre(const WeaponDef& d) {
+  static std::map<const WeaponDef*, vec3> memo;
+  if (auto it = memo.find(&d); it != memo.end()) return it->second;
+  vec3 c = d.gripL + vec3(0, -0.1f, -0.12f), sum(0); int n = 0;
+  if (d.model && !d.model->cpuPos.empty())
+    for (int k : d.modelParts[2]) { const ModelPart& p = d.model->parts[k]; for (uint32_t i = p.first; i < p.first + p.count && i < d.model->cpuIdx.size(); ++i) { sum += d.model->cpuPos[d.model->cpuIdx[i]]; ++n; } }
+  if (n) c = sum / (float)n;
+  return memo[&d] = c;
+}
+static const char* kitName(int kit) { return kit == 2 ? "trooper" : kit == 3 ? "robot" : "delta"; }   // combat.json kits.<name> (SW1; DF1 4: Delta Force)
 static float bodyScale(const Soldier& s) { return s.zombie ? s.eBody : 1.0f; }   // EN1: a troll stands taller, a spider lower
 void Game::renderView(vec3& e, vec3& f) const {
   e = app.eyePos(); f = App::forward(app.eyeYaw, app.eyePitch); float fov = 70;
@@ -188,7 +199,7 @@ bool Game::begin(std::string& err) {
     s.human = rs.human; s.peer = rs.peer; s.localPlayer = rs.id == localSlot;
     int side = ffaMode(match.mode()) ? 0 : std::clamp(rs.team, 0, 1);
     AiType ait = rs.human ? AiType::Soldiers : aiTypeNext(match.rules.aiCount[side], match.rules.aiTypes[side], aiGiven[side]);   // AI3: the typed counts per type
-    s.zombie = ait != AiType::Soldiers && ait != AiType::Operators && ait != AiType::Troopers && ait != AiType::Robots && ait != AiType::GasMask && ait != AiType::Desert;   // G2 melee brain
+    s.zombie = ait != AiType::Soldiers && ait != AiType::Operators && ait != AiType::Troopers && ait != AiType::Robots && ait != AiType::GasMask && ait != AiType::Desert && ait != AiType::Delta;   // G2 melee brain
     s.gmWeapon = -1;
     // GM1 / GM2: bodies with the gun built in: the gas-mask and desert types, and the Axis side's plain soldier bots (not in Battle
     // royale, where bots loot and change guns; never a human: the player's own body and first person are unchanged)
@@ -196,7 +207,7 @@ bool Game::begin(std::string& err) {
                             : !rs.human && ait == AiType::Soldiers && rs.faction == Faction::Axis && match.mode() != GameMode::BattleRoyale ? "german" : nullptr;
     s.gunBody = gunBodyKind != nullptr;
     s.op = ait == AiType::Operators;
-    s.kit = ait == AiType::Troopers ? 2 : ait == AiType::Robots ? 3 : s.op ? 1 : 0;   // SW1
+    s.kit = ait == AiType::Troopers ? 2 : ait == AiType::Robots ? 3 : ait == AiType::Delta ? 4 : s.op ? 1 : 0;   // SW1; DF1: 4 Delta Force
     s.etype = !s.zombie ? 0 : ait == AiType::ZombiesHeavies ? enemyTypePick((uint32_t)rs.id)   // EN1: the mix by weight, per slot
             : ait == AiType::Brutes ? std::max(0, enemyTypeIndex("brute")) : ait == AiType::Spiders ? std::max(0, enemyTypeIndex("stalker"))
             : ait == AiType::Creatures ? std::max(0, enemyTypeIndex("creature"))
@@ -230,7 +241,7 @@ bool Game::begin(std::string& err) {
       s.genericHits = modelIdx.count(id) && !soldierRig;
       if (s.genericHits) logf("player body %s: not a soldier rig, hits use the standard soldier volumes", id.c_str());
     }
-    const json kitj = s.kit >= 2 ? combat.value("kits", json::object()).value(s.kit == 2 ? "trooper" : "robot", json::object()) : json::object();   // SW1
+    const json kitj = s.kit >= 2 ? combat.value("kits", json::object()).value(kitName(s.kit), json::object()) : json::object();   // SW1
     if (s.kit >= 2) { s.kitSpeed = kitj.value("speed", 1.0f); s.kitSparks = kitj.value("sparks", false); b.aimTurn *= kitj.value("aimTurn", 1.0f); }
     if (ait == AiType::Operators || s.kit >= 2) {   // a soldier in the faction's operator body (combat.json operator_models; SW1: the kit's models, either side; missing: the soldier body stays)
       json ol = s.kit >= 2 ? kitj.value("models", json::array()) : combat.value("operator_models", json::object()).value(fac, json::array());
@@ -341,7 +352,7 @@ void Game::applyLoadout(Soldier& s, bool newLife) {
     return;
   }
   if (s.kit >= 2 && !s.human && !s.localPlayer) {
-    const json& kj = combat.value("kits", json::object()).value(s.kit == 2 ? "trooper" : "robot", json::object());
+    const json& kj = combat.value("kits", json::object()).value(kitName(s.kit), json::object());
     std::vector<std::pair<int, int>> pool; int tot = 0;
     for (auto& e : kj.value("ai", json::array())) { int w = app.weaponIndex(e[0].get<std::string>()); if (w >= 0) { pool.push_back({w, e[1].get<int>()}); tot += e[1].get<int>(); } }
     if (!pool.empty()) {
@@ -352,7 +363,10 @@ void Game::applyLoadout(Soldier& s, bool newLife) {
       for (int r = d.reserve; r > 0; r -= d.containerSize) s.ws.containers.push_back(std::min(r, d.containerSize));
       s.ws.seed = s.rng | 1;
       s.carried = {w};
-      if (newLife) { s.frags = 0; s.smokes = 0; s.hp *= kj.value("hp", 1.0f); }
+      if (const json sa = kj.value("sidearms", json::array()); !sa.empty()) {   // DF1: a sidearm (in turn per slot), drawn when the primary runs dry
+        int p = app.weaponIndex(sa[(size_t)(s.slot + s.lifeId) % sa.size()][0].get<std::string>()); if (p >= 0 && p != w) s.carried.push_back(p);
+      }
+      if (newLife) { s.frags = kj.value("frags", 0); s.smokes = kj.value("smokes", 0); s.hp *= kj.value("hp", 1.0f); }
       s.reload = 0; s.throwT = -1; s.throwReleased = false;
       return;
     }
@@ -859,7 +873,8 @@ bool Game::soldierFire(Soldier& s, vec3 dir) {
     tracer = 0;
   } else
   app.fireRounds(d, start, dd, tracer, (uint32_t)s.slot * 131u + (uint32_t)w.shotIdx * 7919u, s.slot);   // MG1: a shotgun's pellets
-  app.fx.muzzleFlash(muzzle + dd * 0.02f, dd, d.flashScale * 1.2f, d.suppressed, muzzle, d.blaster ? blasterColour(d.blaster) : vec3(-1));   // WP4: the same flash and light as the player's
+  if (s.kit == 4 && !d.blaster) app.fx.muzzleFireball(muzzle + dd * 0.01f, dd, d.flashScale * std::clamp(0.45f + 0.6f * d.muzzle.z, 0.55f, 1.3f), d.suppressed || lootSuppressedShot(d, w), muzzle);   // DF1: the fireball flash (fx.cpp)
+  else app.fx.muzzleFlash(muzzle + dd * 0.02f, dd, d.flashScale * 1.2f, d.suppressed, muzzle, d.blaster ? blasterColour(d.blaster) : vec3(-1));   // WP4: the same flash and light as the player's
   app.fx.smoke(muzzle, dd * 2.0f + vec3(0, 0.3f, 0), 0.05f, 1.2f, vec4(0.6f, 0.58f, 0.55f, 0.35f), 0.6f, 0.2f);
   app.audio.play(lootSuppressedShot(d, w) && app.audio.hasEvent("shot_suppressed_rifle") ? std::string("shot_suppressed_rifle") : "shot_" + d.id + (d.action == "auto" && std::string(app.fireModeName(d, w)) == "SEMI" ? "_semi" : ""), muzzle, 1.0f);   // SND15; SND18: as weapons.cpp
   if (!s.localPlayer) app.shotCasing(d, s.feet, s.slot);   // SND4
@@ -1034,7 +1049,7 @@ void Game::posesStep(float dt) {
   // AI2 crowds (over 200 combatants): far soldiers re-pose every 2nd step beyond 80 m, every 4th beyond 150 m (staggered)
   const bool poseLod = sold.size() > 200; vec3 cam, camF; renderView(cam, camF);   // the actual camera (vehicle chase / sight cameras too)
   for (auto& s : sold) {
-    if (!s.inUse || (!s.alive && t - s.diedAt > (s.zombie || s.gunBody ? 3.5 : 2.0))) continue;   // G2: the zombie death clip runs ~3 s (GM1: 2.4 s)
+    if (!s.inUse || (!s.alive && t - s.diedAt > (s.zombie || s.gunBody || s.kit == 4 ? 3.5 : 2.0))) continue;   // G2: the zombie death clip runs ~3 s (GM1: 2.4 s)
     const CharModel& m = *models[s.model];
     PoseParams pp;
     pp.walkAmount = std::min(1.0f, s.speed / 3.0f);
@@ -1118,7 +1133,7 @@ void Game::posesStep(float dt) {
       }
     }
     pp.walkPhase = s.walkPhase;
-    if (s.weapon >= 0) { const WeaponDef& d = *app.weaponDefs[s.weapon]; pp.gripR = d.gripR; pp.gripL = d.gripL; pp.magPos = d.gripL + vec3(0, -0.1f, -0.12f); pp.holdOffset = d.holdOffset; pp.holdWeld = d.holdWeld; pp.holdKind = d.holdKind;
+    if (s.weapon >= 0) { const WeaponDef& d = *app.weaponDefs[s.weapon]; pp.gripR = d.gripR; pp.gripL = d.gripL; pp.magPos = s.kit == 4 ? magCentre(d) : d.gripL + vec3(0, -0.1f, -0.12f); pp.holdOffset = d.holdOffset; pp.holdWeld = d.holdWeld; pp.holdKind = d.holdKind;
       pp.gripC = d.gripC; pp.gripAx = d.gripAx; pp.gripRad = d.gripRad; pp.guardC = d.guardC; pp.guardRad = d.guardRad; pp.sightR = d.rear; }   // AN1 step 2b
     pp.reload = s.reload > 0 && s.reloadTotal > 0 ? 1.0f - s.reload / s.reloadTotal : 0;
     pp.throwT = s.throwT; pp.recoil = s.recoil;
@@ -1176,8 +1191,9 @@ void Game::posesStep(float dt) {
       }
     } else if (!s.alive || pp.prone >= 0.5f || pp.kneel >= 0.5f || pp.swim >= 0.5f) { s.anFootLock[0] = s.anFootLock[1] = false; s.anFootRel[0] = s.anFootRel[1] = -1; }
     if (s.gunBody) gunBodyPose(*this, s, dt);   // GM1: its own clips, the gun in its hands
+    else if (s.kit == 4 && !skipPose && deltaBodyPose(*this, s, dt, pp)) {}   // DF1: the clips' body, the arms on the held gun
     else if (s.zombie && !m.clips.empty()) aiZombiePose(*this, s, dt); else if (!skipPose) { poseCharacter(m, pp, s.pose); s.poseFrom = -1; ++s.poseRev; }   // G2: clips
-    float yawUse = s.localPlayer ? app.eyeYaw : s.gunBody && s.alive && (s.br.target >= 0 || t - s.lastShot < 1.5) ? aimYawDraw : s.yaw;   // GM1: the clips cannot twist to the aim: engaged, the whole body turns to it
+    float yawUse = s.localPlayer ? app.eyeYaw : (s.gunBody || s.kit == 4) && s.alive && (s.br.target >= 0 || t - s.lastShot < 1.5) ? aimYawDraw : s.yaw;   // GM1: the clips cannot twist to the aim: engaged, the whole body turns to it
     s.world = glm::translate(mat4(1), s.feet) * glm::mat4_cast(glm::angleAxis(radians(yawUse) + 3.14159265f, vec3(0, 1, 0)));
     if (s.zombie) {   // EN1: the type's draw scale, and a forward lean about the feet (the stalker on the zombie rig)
       if (s.eLean != 0 && s.alive) s.world = glm::rotate(s.world, radians(s.eLean), vec3(1, 0, 0));
@@ -1280,8 +1296,16 @@ void Game::drawItems() {
     if (s.alive && s.weapon >= 0 && !s.gunBody) {   // GM1: the gas-mask soldier's gun is part of its body
       const WeaponDef& d = *app.weaponDefs[s.weapon];
       if (d.useModel()) {
-        mat4 W = s.world * s.pose.weapon;
-        for (int p = 0; p < 8; ++p) for (int k : d.worldParts()[p]) app.R.worldModels.push_back({d.worldModel(), k, W});
+        mat4 W = s.world * s.pose.weapon, magW = W;
+        {   // DF1: a Delta Force reload: the magazine leaves the gun in the left hand (reload 25 %) and goes back in (80 %)
+          const float r = s.kit == 4 && s.reload > 0 && s.reloadTotal > 0 ? 1.0f - s.reload / s.reloadTotal : 0.0f;
+          const int lh = models[s.model]->semantic[CJ_LHAND];
+          if (r > 0.25f && r < 0.8f && lh >= 0 && lh < (int)s.pose.delta.size()) {
+            if (!s.dfMagHeld) { s.dfMagK = glm::inverse(s.pose.delta[lh]) * s.pose.weapon; s.dfMagHeld = true; }
+            magW = s.world * s.pose.delta[lh] * s.dfMagK;
+          } else s.dfMagHeld = false;
+        }
+        for (int p = 0; p < 8; ++p) for (int k : d.worldParts()[p]) app.R.worldModels.push_back({d.worldModel(), k, p == 2 ? magW : W});   // 2: the "mag" parts (weapons.cpp WPart)
         if (app.R.thermalWanted) {   // TH1: a gun warms with firing and cools over ~15 s
           const float gh = 0.18f + 0.6f * std::exp(-(float)(t - s.lastShot) / 15.0f);
           for (int p = 0; p < 8; ++p) for (int k : d.worldParts()[p]) app.R.heatDraws.push_back({{d.worldModel(), k, W}, gh, heatObj});   // TH2: shaded with its holder

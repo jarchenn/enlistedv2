@@ -334,9 +334,12 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
     }
   };
   quat footTilt = dead || prone >= 0.5f ? quat(1, 0, 0, 0) : between(vec3(0, 1, 0), vec3(-p.slope.x, 1, -p.slope.y));   // soles along the slope
+  std::vector<char> armSub(nj, 0);   // DF1: the arm chains (upper arm down to the fingertips)
+  if (p.base) for (int j : order) armSub[j] = j == J(CJ_LARM) || j == J(CJ_RARM) || (m.jointParent[j] >= 0 && armSub[m.jointParent[j]]);
   for (int j : order) {
     int par = m.jointParent[j];
     mat4 Pd = par >= 0 ? Dl[par] : root;
+    if (p.base && !armSub[j]) { Dl[j] = (*p.base)[j]; continue; }   // DF1: the clip's body
     int side = j == J(CJ_LARM) ? 0 : j == J(CJ_RARM) ? 1 : -1;
     if (side >= 0 && p.holdWeapon && !dead) {
       if (!weaponSet) placeWeapon(J(CJ_SPINE2) >= 0 ? Dl[J(CJ_SPINE2)] : Pd);

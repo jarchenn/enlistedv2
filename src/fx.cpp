@@ -41,6 +41,43 @@ void Fx::muzzleFlash(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light,
   MuzzleLight L; L.p = light; L.life = life + 0.01f; L.k = scale; L.id = 0xF1A50100u + (++mlightSerial & 0xFF); if (tint.x >= 0) L.col = tint; mlights.push_back(L);
 }
 
+// DF1: the side view of a rifle shot: a pinpoint white-hot core at the crown, a big soft warm ball a ball's radius ahead, then
+// a ragged orange-tan tongue of burning gas some three balls long, narrowing; all noise-eroded sprites (fireball sprite: flame
+// id + 1000, its colour kept, the tongue's stretched along the bore on screen), gone in one or two frames, each shot rolled and
+// sized afresh. Suppressed: a dim core only. The muzzle light as the standard flash.
+void Fx::muzzleFireball(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light) {
+  dir = glm::length(dir) > 1e-4f ? glm::normalize(dir) : vec3(0, 0, -1);
+  vec3 up = std::fabs(dir.y) > 0.95f ? vec3(1, 0, 0) : vec3(0, 1, 0), s1 = glm::normalize(glm::cross(dir, up)), s2 = glm::cross(s1, dir);
+  const float life = 0.022f + 0.018f * rnd(), D = (0.15f + 0.05f * rnd()) * scale;   // the ball's diameter (rifle ~17 cm)
+  const float roll = rnd() * 6.2831853f;
+  auto put = [&](vec3 q, float size, vec3 col, float stretch) {
+    if (parts.size() >= maxParts) parts.erase(parts.begin());
+    Particle a; a.p = q; a.size = size; a.life = a.maxLife = life; a.col = vec4(col, 1); a.additive = true; a.grow = size * 0.8f;
+    a.flame = 1000.0f + (float)(int)(rnd() * 255.0f); a.v = dir * (0.001f + stretch); a.drag = 0; parts.push_back(a);
+  };
+  if (suppressed) { put(p + dir * 0.01f * scale, 0.02f * scale, vec3(2.2f, 1.5f, 0.6f), 0); return; }
+  put(p + dir * 0.006f * scale, 0.022f * scale, vec3(9.0f, 7.5f, 4.8f), 0);   // the crown: a pinpoint, white-hot
+  vec3 ball = p + dir * (0.55f * D);
+  put(ball, 0.55f * D, vec3(5.2f, 3.9f, 2.3f), 0);   // the ball: pale yellow-tan, the brightest body
+  for (int k = 0; k < 3; ++k) {   // its ragged rim: three lobes round it
+    float a = roll + k * 2.094f; vec3 o = (s1 * std::cos(a) + s2 * std::sin(a)) * (0.22f * D * (0.7f + 0.6f * rnd()));
+    put(ball + o + dir * (0.1f * D * (rnd() - 0.5f)), 0.36f * D * (0.8f + 0.4f * rnd()), vec3(3.2f, 2.0f, 0.95f), 0);
+  }
+  const float tongue = D * (2.6f + 1.2f * rnd());   // the tongue: from the ball's front some three balls on, narrowing, wandering off the bore
+  const int n = 6 + (int)(rnd() * 3.0f);
+  vec2 wob(0);
+  for (int k = 0; k < n; ++k) {
+    float u = (k + 0.5f) / n, along = 0.9f * D + tongue * u;
+    wob += vec2(rnd() - 0.5f, rnd() - 0.5f) * (0.10f * D);
+    vec3 q = p + dir * along + s1 * wob.x + s2 * wob.y;
+    float sz = D * (0.40f - 0.20f * u) * (0.75f + 0.5f * rnd());
+    float heat = 1.0f - 0.55f * u;
+    put(q, sz, vec3(3.0f, 1.75f, 0.70f) * heat * (0.8f + 0.4f * rnd()), 0.6f);
+  }
+  if (mlights.size() >= 8) mlights.erase(mlights.begin());
+  MuzzleLight L; L.p = light + dir * (0.5f * D); L.life = life + 0.012f; L.k = scale * 1.15f; L.id = 0xF1A50100u + (++mlightSerial & 0xFF); mlights.push_back(L);
+}
+
 void Fx::streak(vec3 a, vec3 b, float width, float life, vec4 col) {
   if (streaks.size() >= maxStreaks) streaks.erase(streaks.begin());
   streaks.push_back({a, b, life, life, width, col});
@@ -218,6 +255,15 @@ void Fx::build(const mat4& view, std::vector<FxVert>& alpha, std::vector<FxVert>
     static const bool noFade = std::getenv("NMK_FX_NONEARFADE") != nullptr;   // dev A/B: the old behaviour
     const float nearK = q.additive && !noFade ? glm::smoothstep(0.6f * q.size, 2.2f * q.size + 0.15f, glm::length(q.p - eye)) : 1.0f;
     if (nearK <= 0.001f) continue;
+    if (q.flame >= 1000 && q.additive) {   // DF1 fireball sprite: its own colour, fading over its life; the tongue's stretched along its travel on screen
+      float u = 1.0f - f;
+      vec4 cc = vec4(vec3(q.col) * std::clamp(f * 1.6f, 0.0f, 1.0f) * nearK, 200.0f + std::floor(q.flame - 1000.0f) + 0.99f * u);
+      float a = glm::dot(q.v, right), b = glm::dot(q.v, up), l = std::sqrt(a * a + b * b);
+      vec3 ax = l > 1e-4f ? (right * a + up * b) / l : right, pr = l > 1e-4f ? (up * a - right * b) / l : up;
+      float st = 1.0f + std::min(0.8f, glm::length(q.v)) * (l / std::max(1e-4f, glm::length(q.v)));
+      quad(add, q.p, ax * (q.size * st), pr * q.size, cc);
+      continue;
+    }
     if (q.flame >= 0 && q.additive) {   // flame sprite: white-yellow -> orange -> dark red along its life; a >= 100 tells the shader (id + age)
       float u = 1.0f - f;
       vec3 g = u < 0.25f ? glm::mix(vec3(1.0f, 0.96f, 0.75f), vec3(1.0f, 0.72f, 0.2f), u / 0.25f)

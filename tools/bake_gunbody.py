@@ -183,8 +183,110 @@ def bake(srcs, out_path, skip=()):
         fo.write(struct.pack('<II', len(O.bin), 0x004E4942)); fo.write(O.bin)
     print(os.path.basename(out_path), '%.1f MB' % (total / 1e6), ', '.join(report))
 
+
+# DF1: one body, clips from separate files matched by node NAME (Mixamo exports: the clip files carry the skeleton only).
+#   python -I tools/bake_gunbody.py --named <character.glb> <out.glb> <clip.glb>...   (clip name = file stem, '_' -> ' ')
+#   The Hips translation of the locomotion clips (walk / run / sprint / strafe in the name) loses its horizontal drift (the
+#   straight line from the first key to the last, in model space): the clip plays in place, the sway stays.
+def _q2m(q):
+    x, y, z, w = q
+    return [[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)], [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)], [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]]
+def _lin(n):   # node -> its parent-space linear part (3x3) and translation
+    r = _q2m(n.get('rotation', [0, 0, 0, 1])); s = n.get('scale', [1, 1, 1])
+    return [[r[i][k] * s[k] for k in range(3)] for i in range(3)], list(n.get('translation', [0, 0, 0]))
+def _mul(a, b): return [[sum(a[i][k] * b[k][j] for k in range(3)) for j in range(3)] for i in range(3)]
+def _inv(m):
+    a, b, c = m[0]; d, e, f = m[1]; g, h, i = m[2]
+    det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
+    return [[(e * i - f * h) / det, (c * h - b * i) / det, (b * f - c * e) / det], [(f * g - d * i) / det, (a * i - c * g) / det, (c * d - a * f) / det], [(d * h - e * g) / det, (b * g - a * h) / det, (a * e - b * d) / det]]
+
+def bake_named(base_path, clip_paths, out_path):
+    base, bbin = load(base_path)
+    names = [n.get('name', '') for n in base['nodes']]
+    parent = {c: i for i, n in enumerate(base['nodes']) for c in n.get('children', [])}
+    tmp = os.path.join(os.path.dirname(out_path), '_named_tmp'); os.makedirs(tmp, exist_ok=True)
+    O = Out()
+    j = {'asset': {'version': '2.0', 'generator': 'NormandyMapmaker tools/bake_gunbody.py --named'}, 'scene': 0, 'scenes': base['scenes'], 'nodes': base['nodes']}
+    meshes = []
+    for m in base['meshes']:
+        m = json.loads(json.dumps(m))
+        for pr in m['primitives']:
+            pr['attributes'] = {k: O.acc('b', base, bbin, a) for k, a in pr['attributes'].items() if k not in ('TEXCOORD_1', 'TEXCOORD_2', 'TANGENT')}
+            if 'indices' in pr: pr['indices'] = O.acc('b', base, bbin, pr['indices'])
+            pr.pop('targets', None)
+        meshes.append(m)
+    j['meshes'] = meshes
+    j['skins'] = []
+    for s in base['skins']:
+        s = dict(s); s['inverseBindMatrices'] = O.acc('b', base, bbin, s['inverseBindMatrices']); j['skins'].append(s)
+    j['materials'] = json.loads(json.dumps(base.get('materials', [])))
+    for m in j['materials']: m.pop('normalTexture', None); m.pop('occlusionTexture', None); m.pop('alphaMode', None); m.pop('alphaCutoff', None)
+    used_t = sorted({d[k]['index'] for m in j['materials'] for d in (m, m.get('pbrMetallicRoughness', {})) for k in ('baseColorTexture', 'metallicRoughnessTexture', 'emissiveTexture') if k in d})
+    tmap = {t: k for k, t in enumerate(used_t)}
+    for m in j['materials']:
+        for d in (m, m.get('pbrMetallicRoughness', {})):
+            for k in ('baseColorTexture', 'metallicRoughnessTexture', 'emissiveTexture'):
+                if k in d: d[k]['index'] = tmap[d[k]['index']]
+    j['samplers'] = base.get('samplers', [])
+    j['textures'] = [dict(base['textures'][t]) for t in used_t]
+    used_i = sorted({t['source'] for t in j['textures']}); imap = {i: k for k, i in enumerate(used_i)}
+    for t in j['textures']: t['source'] = imap[t['source']]
+    j['images'] = []
+    for i in used_i:
+        im = dict(base['images'][i]); v = base['bufferViews'][im['bufferView']]; o = v.get('byteOffset', 0)
+        data, im['mimeType'] = jpeg_if_opaque(bytes(bbin[o:o + v['byteLength']]), im.get('mimeType', ''), False)
+        while len(O.bin) % 4: O.bin += b'\0'
+        O.views.append({'buffer': 0, 'byteOffset': len(O.bin), 'byteLength': len(data)}); O.bin += data
+        im['bufferView'] = len(O.views) - 1; j['images'].append(im)
+    hips = next(i for i, n in enumerate(names) if n.split(':')[-1] == 'Hips')
+    P = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]; k = parent.get(hips)
+    while k is not None: P = _mul(_lin(base['nodes'][k])[0], P); k = parent.get(k)
+    Pi = _inv(P)
+    anims, report = [], []
+    for f in clip_paths:
+        clip = os.path.basename(f)[:-4].replace('_', ' ')
+        cj, cbin = load(f); cn = [n.get('name', '') for n in cj['nodes']]
+        loco = any(w in clip for w in ('walk', 'run', 'sprint', 'strafe'))
+        for a in cj.get('animations', [])[:1]:
+            na = {'name': clip, 'channels': [], 'samplers': []}; dur = 0.0; drift = 0.0
+            for ch in a['channels']:
+                t = ch['target']; nm = cn[t['node']]
+                if nm not in names or t['path'] == 'scale': continue
+                bi = names.index(nm); s = a['samplers'][ch['sampler']]
+                dur = max(dur, cj['accessors'][s['input']].get('max', [0])[0])
+                vals = floats(cj, cbin, s['output'])
+                if at_rest(base['nodes'][bi], t['path'], vals): continue
+                outa = O.acc(f, cj, cbin, s['output'], True)
+                if bi == hips and t['path'] == 'translation' and loco:
+                    w = [[sum(P[r][c] * v[c] for c in range(3)) for r in range(3)] for v in vals]
+                    n = len(w) - 1 or 1; d0 = [(w[-1][0] - w[0][0]) / n, (w[-1][2] - w[0][2]) / n]; drift = (d0[0] ** 2 + d0[1] ** 2) ** 0.5 * n
+                    for i, v in enumerate(w): v[0] -= d0[0] * i; v[2] -= d0[1] * i
+                    back = [tuple(sum(Pi[r][c] * v[c] for c in range(3)) for r in range(3)) for v in w]
+                    data = b''.join(struct.pack('<3f', *v) for v in back)
+                    while len(O.bin) % 4: O.bin += b'\0'
+                    O.views.append({'buffer': 0, 'byteOffset': len(O.bin), 'byteLength': len(data)}); O.bin += data
+                    acc = dict(cj['accessors'][s['output']]); acc['bufferView'] = len(O.views) - 1; acc.pop('byteOffset', None)
+                    acc['min'] = [min(v[c] for v in back) for c in range(3)]; acc['max'] = [max(v[c] for v in back) for c in range(3)]
+                    O.accs.append(acc); outa = len(O.accs) - 1
+                na['samplers'].append({'input': O.acc(f, cj, cbin, s['input'], True), 'output': outa, 'interpolation': s.get('interpolation', 'LINEAR')})
+                na['channels'].append({'sampler': len(na['samplers']) - 1, 'target': {'node': bi, 'path': t['path']}})
+            anims.append(na); report.append('%s %.2fs%s' % (clip, dur, ' drift %.2f' % drift if loco else ''))
+    j['animations'] = anims
+    j['accessors'] = O.accs; j['bufferViews'] = O.views
+    while len(O.bin) % 4: O.bin += b'\0'
+    j['buffers'] = [{'byteLength': len(O.bin)}]
+    js = json.dumps(j, separators=(',', ':')).encode()
+    while len(js) % 4: js += b' '
+    total = 12 + 8 + len(js) + 8 + len(O.bin)
+    with open(out_path, 'wb') as fo:
+        fo.write(struct.pack('<III', 0x46546C67, 2, total))
+        fo.write(struct.pack('<II', len(js), 0x4E4F534A)); fo.write(js)
+        fo.write(struct.pack('<II', len(O.bin), 0x004E4942)); fo.write(O.bin)
+    print(os.path.basename(out_path), '%.1f MB' % (total / 1e6)); print('\n'.join(report))
+
 if __name__ == '__main__':
     args = sys.argv[1:]; skip = ()
+    if args and args[0] == '--named': bake_named(args[1], args[3:], args[2]); sys.exit(0)
     if '--skip' in args: k = args.index('--skip'); skip = tuple(args[k + 1].split(',')); del args[k:k + 2]   # clips the game does not play
     char, out, srcs = args[0], args[1], args[2:]
     os.makedirs(out, exist_ok=True)

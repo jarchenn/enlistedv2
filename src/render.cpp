@@ -3369,6 +3369,18 @@ float fxH(vec2 p){ p = fract(p*vec2(123.34, 456.21)); p += dot(p, p + 45.32); re
 float fxN(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0 - 2.0*f);
   return mix(mix(fxH(i), fxH(i + vec2(1,0)), f.x), mix(fxH(i + vec2(0,1)), fxH(i + vec2(1,1)), f.x), f.y); }
 void main(){
+  if (uAdd == 1 && vC.a > 150.0) {   // DF1 muzzle fireball sprite: alpha carries 200 + id + age; a soft, noise-ragged puff, its colour as given
+    float id = floor(vC.a - 200.0), u = fract(vC.a - 200.0);
+    vec2 p = vUV*2.0 - 1.0; float ang = id*2.399, cs = cos(ang), sn = sin(ang);
+    p = vec2(cs*p.x - sn*p.y, sn*p.x + cs*p.y);
+    float d = length(p);
+    float n = fxN(p*2.2 + id*1.3)*0.55 + fxN(p*4.6 - id*0.7 + u*1.5)*0.30 + fxN(p*9.0 + id*2.1)*0.15;
+    float body = 1.0 - d + (n - 0.5)*0.85;
+    float a = smoothstep(0.0, 0.6, body)*smoothstep(1.0, 0.65, d);
+    float core = pow(clamp(1.0 - d, 0.0, 1.0), 2.0);
+    o = vec4(vC.rgb*a*(0.55 + 0.9*core), 1.0);
+    return;
+  }
   if (uAdd == 1 && vC.a > 50.0) {   // FT1 flame sprite: alpha carries 100 + id + age; a noise-eroded, rotated body, hot core
     float id = floor(vC.a - 100.0), u = fract(vC.a - 100.0);
     vec2 p = vUV*2.0 - 1.0; float ang = id*2.399, cs = cos(ang), sn = sin(ang);

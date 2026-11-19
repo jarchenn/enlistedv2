@@ -104,6 +104,7 @@ struct PoseParams {
   vec2 slope{0};                            // AN1b: ground gradient under the body in model space (rise per metre along x, z); feet and the kneel follow it
   vec3 footPin[2] = {vec3(0), vec3(0)};     // AN1 step 3b: model-space ankle pins (a planted foot held where it landed, in the world) and their weights;
   float footPinW[2] = {0, 0}, footLift[2] = {0, 0};
+  const std::vector<mat4>* base = nullptr;   // DF1: clip deltas (model space, per skin joint): every joint outside the arms takes these; the arms, hands and weapon stay procedural on the clip's chest
   vec3 footN[2] = {vec3(0), vec3(0)};       // AN1 step 3c: model-space ground normal under a planted foot (0: the body's slope plane)   // footLift: extra ankle height (m) of a standing re-step
 };
 

@@ -175,7 +175,8 @@ struct Fx {
   // WP4 small-arms muzzle flash, once per shot: a yellow-orange core and 4-6 orange flame petals along the bore
   // (20-40 ms, randomised), plus a warm point light at `light` (world muzzle; the player's flash is drawn at the
   // viewmodel's apparent muzzle). suppressed: a faint core, no light
-  void muzzleFlash(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light, vec3 tint = vec3(-1));   // SW1 tint: a blaster's colour (x < 0: the flash look)
+  void muzzleFlash(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light, vec3 tint = vec3(-1));
+  void muzzleFireball(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light);   // DF1: a small hot core, a warm ball just ahead, a long ragged tongue along the bore (one or two frames)   // SW1 tint: a blaster's colour (x < 0: the flash look)
   struct MuzzleLight { vec3 p{0}; float age = 0, life = 0.035f, k = 1; uint32_t id = 0; vec3 col{-1}; };   // SW1 col: own colour (x < 0: the flash look's)
   std::vector<MuzzleLight> mlights; uint32_t mlightSerial = 0;
   // WP4b: handling.json "muzzleFlash" (HDR linear colours; the light's radius m and intensity)
