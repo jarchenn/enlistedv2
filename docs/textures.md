@@ -107,6 +107,19 @@ Photo detail near the pixel frequency flickers under the TAA jitter. Three measu
 
 With the layer on, the farmhouse and the moving strip get *less* shimmer than procedural alone (−2 to −3 %).
 
+### Ground: 2K sets and a lower bias (TX2K)
+
+The ground (terrain layers and painted ground) uses its own gradient scale, ×1.5 (`uTexLodG`; `NMK_TEX_LOD_GROUND` overrides it). At ×3 the lane and square at eye height were blurred: switching the ground to 2K sets alone changed nothing, because the bias chose the same mips. `NMK_GS_SHOTS=1 --selftest-render` measures the ground's still shimmer (Blank Slate, grass off, TAA on), on the same index as the facades (about 2.0 at 20 m):
+
+| Ground gradient scale | Near (2-8 m) | Mid (8-25 m) |
+|---|---|---|
+| ×3 (as before) | 0.226 | 0.230 |
+| ×2 | 0.290 | 0.242 |
+| **×1.5 (shipped)** | **0.347** | **0.296** |
+| ×1 | 0.477 | 0.336 |
+
+A set whose colour map is 2048 wide or more is loaded into a second array of 2K layers (units 29-31, `uTexHiBase` and up); everything else stays 1K. The 23 ground sets of the terrain and paint slots (both tables) are packed at 2K: `tools/fetch_ambientcg.py --res 2K` and `tools/fetch_polyhaven_tex.py`. That is about 240 MB more texture memory. `NMK_TEX_HI=0` loads them at 1K.
+
 ## Sets not mapped yet
 
 Nine of the 57 approved sets have no slot. On disk they cost nothing on the GPU: only sets a slot references are loaded. They are: `brick_factory`, `brick_damaged`, `rock_grey`, `cobbles_grey`, `cobbles_old`, `slate_roof`, `roof_clay`, `paint_wood_old` and `rock_mossy`. No surface in the game is cobbled yet. Adding a slot makes a set live.

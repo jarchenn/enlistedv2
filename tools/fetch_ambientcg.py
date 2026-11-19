@@ -10,6 +10,8 @@ Python standard library only. Run it isolated:  $TEMP/nmk/py/python.exe -I tools
                           Displacement, then pack each set into content/textures/<set>/{color,normal,rma}.jpg + meta.json.
   --pack-only             skip the network: pack from the raw folder that a previous --download filled.
   --only a,b              restrict to these set names (or ambientCG ids).
+  --res 2K                fetch and pack at 2K (TX2K: the ground sets; the engine puts 2K sets in a second array).
+                          Use its own --raw folder: the raw files of both resolutions share names.
   --packer EXE            NormandyMapmaker.exe used for the pixel work (`--pack-texture <src> <dst>`): the standard
                           library has no JPEG codec, the engine has stb_image / stb_image_write. Default: the newest
                           build found in %TEMP%/nmk/build-*/NormandyMapmaker.exe.
@@ -130,17 +132,20 @@ def main():
     ap.add_argument("--raw", default=os.path.join(os.environ.get("TEMP", "."), "nmk", "ambientcg_raw"))
     ap.add_argument("--only", default="")
     ap.add_argument("--packer", default="")
+    ap.add_argument("--res", choices=["1K", "2K"], default="1K")
     g = ap.add_mutually_exclusive_group()
     g.add_argument("--dry-run", action="store_true")
     g.add_argument("--download", action="store_true")
     g.add_argument("--pack-only", action="store_true")
     a = ap.parse_args()
+    global ATTRIBUTE
+    ATTRIBUTE = a.res + "-JPG"
 
     cfg, sets = load_sets(a.sets, a.only)
     if not sets:
         sys.exit("no sets selected")
     raw = os.path.abspath(a.raw)
-    if os.path.commonpath([raw, ROOT]) == ROOT:
+    if os.path.splitdrive(raw)[0].lower() == os.path.splitdrive(ROOT)[0].lower() and os.path.commonpath([raw, ROOT]) == ROOT:
         sys.exit("the raw folder must be outside the repository")
 
     meta = {}
@@ -168,7 +173,7 @@ def main():
                 raise RuntimeError("no color map in the raw folder")
             dst = os.path.join(a.out, s["set"])
             os.makedirs(dst, exist_ok=True)
-            r = subprocess.run([packer, "--pack-texture", src, dst], capture_output=True, text=True)
+            r = subprocess.run([packer, "--pack-texture", src, dst, "2048" if a.res == "2K" else "1024"], capture_output=True, text=True)
             if r.returncode != 0:
                 raise RuntimeError(f"packer failed: {r.stdout[-400:]} {r.stderr[-400:]}")
             info = {"set": s["set"], "id": s["id"], "family": s["family"], "size": s["size"],

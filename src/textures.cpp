@@ -22,6 +22,8 @@ namespace {
 
 constexpr int kSize = 1024;            // every layer is resampled to 1024^2 (1K everywhere)
 constexpr int kLevels = 9;             // 1024 .. 4: the smallest level is one BC block
+constexpr int kSizeHi = 2048, kLevelsHi = 10;   // TX2K: sets packed at 2K or more (the ground sets) go to a second array, units 29-31
+int levelsFor(int n) { return n == kSizeHi ? kLevelsHi : kLevels; }
 #ifndef GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT
 #define GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT 0x8C4F
 #endif
@@ -57,7 +59,8 @@ int paintSlotEff[kPaintTypes];   // NT4: after the open map's look.paintSets ove
 std::string gPaintKey = "";
 std::vector<SetInfo> sets;             // loaded layers
 std::vector<GLuint> progs;
-GLuint arr[3] = {0, 0, 0};
+GLuint arr[3] = {0, 0, 0}, arrHi[3] = {0, 0, 0};
+int hiBase = 1 << 20;                  // TX2K: layers from here on live in arrHi (layer - hiBase)
 bool gpuOn = false, wantOn = true;
 Info gInfo;
 fs::path root;
@@ -170,7 +173,7 @@ uint8_t l2s(float l) { l = std::clamp(l, 0.0f, 1.0f); float s = l <= 0.0031308f 
 void initLut() { static bool done = false; if (done) return; done = true; for (int i = 0; i < 256; ++i) { float s = i / 255.0f; s2l[i] = s <= 0.04045f ? s / 12.92f : std::pow((s + 0.055f) / 1.055f, 2.4f); } }
 
 // one set on the CPU: compressed (or raw RGBA8 / RG8) mip chains of the three layers, and its means
-struct Cpu { bool ok = false; std::vector<uint8_t> lv[3][kLevels]; SetInfo info; std::string err; };
+struct Cpu { bool ok = false; int n = kSize; std::vector<uint8_t> lv[3][kLevelsHi]; SetInfo info; std::string err; };   // n: the array size it is built for
 
 void encodeLevel(const std::vector<uint8_t>& src, int n, int comp, bool bc, int kind, std::vector<uint8_t>& out) {
   // kind 0: RGBA -> BC3; 1, 2: RG -> BC5
@@ -195,8 +198,9 @@ void buildSetRaw(const fs::path& dir, bool bc, Cpu& o) {
   if (!loadImg(dir / "color.jpg", 3, col) && !loadImg(dir / "color.png", 3, col)) { o.err = "no color"; return; }
   if (!loadImg(dir / "normal.jpg", 3, nrm) && !loadImg(dir / "normal.png", 3, nrm)) { nrm.w = nrm.h = 1; nrm.c = 3; nrm.px = {128, 128, 255}; }
   if (!loadImg(dir / "rma.jpg", 3, rma) && !loadImg(dir / "rma.png", 3, rma)) { rma.w = rma.h = 1; rma.c = 3; rma.px = {200, 255, 128}; }
-  col = resample(col, kSize); nrm = resample(nrm, kSize); rma = resample(rma, kSize);
-  const size_t N = (size_t)kSize * kSize;
+  const int sn = o.n, levels = levelsFor(sn);
+  col = resample(col, sn); nrm = resample(nrm, sn); rma = resample(rma, sn);
+  const size_t N = (size_t)sn * sn;
   // level 0
   std::vector<uint8_t> a(N * 4), b(N * 2), c(N * 2);
   double mr = 0, mg = 0, mb = 0, mao = 0, mR = 0, mH = 0;
@@ -209,10 +213,10 @@ void buildSetRaw(const fs::path& dir, bool bc, Cpu& o) {
   }
   o.info.meanLin = vec3((float)(mr / N), (float)(mg / N), (float)(mb / N));
   o.info.meanAO = (float)(mao / N / 255.0); o.info.meanR = (float)(mR / N / 255.0); o.info.meanH = (float)(mH / N / 255.0);
-  int n = kSize;
-  for (int L = 0; L < kLevels; ++L) {
+  int n = sn;
+  for (int L = 0; L < levels; ++L) {
     encodeLevel(a, n, 4, bc, 0, o.lv[0][L]); encodeLevel(b, n, 2, bc, 1, o.lv[1][L]); encodeLevel(c, n, 2, bc, 2, o.lv[2][L]);
-    if (L + 1 == kLevels) break;
+    if (L + 1 == levels) break;
     int m = n / 2;
     std::vector<uint8_t> a2((size_t)m * m * 4), b2((size_t)m * m * 2), c2((size_t)m * m * 2);
     for (int y = 0; y < m; ++y) for (int x = 0; x < m; ++x) {
@@ -239,8 +243,8 @@ void buildSetRaw(const fs::path& dir, bool bc, Cpu& o) {
 }
 // CACHE1: a built set (compressed levels and its means) cached per user next to the model maps (texbc, "set-*"): the
 // decode, resample, mip and compression of 90+ sets took ~1.6 s every start. Keyed by the folder, its files' sizes / times
-fs::path setCacheFile(const fs::path& dir, bool bc) {
-  std::string key = "set2|" + std::to_string(bc) + "|" + std::to_string(kSize) + "|" + std::to_string(kLevels);   // CACHE2: by content, not by folder or time
+fs::path setCacheFile(const fs::path& dir, bool bc, int n) {
+  std::string key = "set2|" + std::to_string(bc) + "|" + std::to_string(n) + "|" + std::to_string(levelsFor(n));   // CACHE2: by content, not by folder or time
   std::error_code ec;
   for (const char* f : {"color.jpg", "color.png", "normal.jpg", "normal.png", "rma.jpg", "rma.png", "meta.json"}) {
     fs::path q = dir / f; if (!fs::exists(q, ec)) continue;
@@ -251,12 +255,13 @@ fs::path setCacheFile(const fs::path& dir, bool bc) {
   return userCacheDir("texbc", "NMK_TEXBC_CACHE") / nm;
 }
 void buildSet(const fs::path& dir, bool bc, Cpu& o) {
-  fs::path cf = setCacheFile(dir, bc);
+  fs::path cf = setCacheFile(dir, bc, o.n);
+  const int levels = levelsFor(o.n);
   {
     std::ifstream in(cf, std::ios::binary); uint32_t magic = 0;
     if (in && in.read((char*)&magic, 4) && magic == 0x31535458u) {   // "XTS1"
       bool good = true;
-      for (int k = 0; k < 3 && good; ++k) for (int L = 0; L < kLevels && good; ++L) { uint32_t n = 0; good = (bool)in.read((char*)&n, 4) && n <= (64u << 20); if (good) { o.lv[k][L].resize(n); good = (bool)in.read((char*)o.lv[k][L].data(), n); } }
+      for (int k = 0; k < 3 && good; ++k) for (int L = 0; L < levels && good; ++L) { uint32_t n = 0; good = (bool)in.read((char*)&n, 4) && n <= (64u << 20); if (good) { o.lv[k][L].resize(n); good = (bool)in.read((char*)o.lv[k][L].data(), n); } }
       float f[9]; if (good) good = (bool)in.read((char*)f, sizeof f);
       if (good) { o.info.meanLin = vec3(f[0], f[1], f[2]); o.info.meanAO = f[3]; o.info.meanR = f[4]; o.info.meanH = f[5]; o.info.size = vec2(f[6], f[7]); o.ok = true; userCacheTouch(cf); return; }
       for (auto& a : o.lv) for (auto& l : a) l.clear();
@@ -267,7 +272,7 @@ void buildSet(const fs::path& dir, bool bc, Cpu& o) {
   std::error_code ec; fs::create_directories(cf.parent_path(), ec);
   fs::path tmp = cf; tmp += "." + std::to_string((unsigned long long)(uintptr_t)&o) + ".tmp";   // several builder threads / game instances
   { std::ofstream out(tmp, std::ios::binary); uint32_t magic = 0x31535458u; out.write((const char*)&magic, 4);
-    for (auto& a : o.lv) for (auto& l : a) { uint32_t n = (uint32_t)l.size(); out.write((const char*)&n, 4); out.write((const char*)l.data(), n); }
+    for (auto& a : o.lv) for (int L = 0; L < levels; ++L) { uint32_t n = (uint32_t)a[L].size(); out.write((const char*)&n, 4); out.write((const char*)a[L].data(), n); }
     float f[9] = {o.info.meanLin.x, o.info.meanLin.y, o.info.meanLin.z, o.info.meanAO, o.info.meanR, o.info.meanH, o.info.size.x, o.info.size.y, 0}; out.write((const char*)f, sizeof f); }
   fs::rename(tmp, cf, ec);
 }
@@ -281,6 +286,8 @@ bool hasExt(const char* e) {
 void upload(GLuint p) {
   auto U = [&](const char* n) { return glGetUniformLocation(p, n); };
   glProgramUniform1i(p, U("uTexCol"), kUnitBase + 0); glProgramUniform1i(p, U("uTexNrm"), kUnitBase + 1); glProgramUniform1i(p, U("uTexRH"), kUnitBase + 2);
+  glProgramUniform1i(p, U("uTexColH"), kUnitBase + 9); glProgramUniform1i(p, U("uTexNrmH"), kUnitBase + 10); glProgramUniform1i(p, U("uTexRHH"), kUnitBase + 11);   // TX2K: units 29-31
+  glProgramUniform1i(p, U("uTexHiBase"), hiBase);
   glProgramUniform1i(p, U("uTexOn"), gpuOn && wantOn ? 1 : 0);
   glProgramUniform1i(p, U("uImgMat"), wantImg ? 1 : 0); glProgramUniform1i(p, U("uTexSkipFar"), wantImg ? 1 : 0);
   glProgramUniform1iv(p, U("uFloorSlot"), 8, floorSlotImg);
@@ -289,6 +296,9 @@ void upload(GLuint p) {
   vec4 lod(3.0f, 2.0f, 16.0f, 0.95f), lod2(8.0f, 48.0f, 0.7f, 1.6f);   // lod2.w (MA1b): replace sets' gradient scale under relief   // tuned on --selftest-render (docs/textures.md#shimmer); NMK_TEX_LOD="a,b,c,d" overrides (A/B)
   if (const char* e = std::getenv("NMK_TEX_LOD")) std::sscanf(e, "%f,%f,%f,%f", &lod.x, &lod.y, &lod.z, &lod.w);
   if (const char* e = std::getenv("NMK_TEX_LOD2")) std::sscanf(e, "%f,%f,%f,%f", &lod2.x, &lod2.y, &lod2.z, &lod2.w);
+  float lodG = 1.5f;   // TX2K: less bias on the ground (×3 blurred it at the eye); tuned on --selftest-render, NMK_TEX_LOD_GROUND overrides
+  if (const char* e = std::getenv("NMK_TEX_LOD_GROUND")) lodG = (float)std::atof(e);
+  glProgramUniform1f(p, U("uTexLodG"), lodG > 0 ? lodG : lod.x);
   glProgramUniform4fv(p, U("uTexLod"), 1, &lod.x); glProgramUniform4fv(p, U("uTexLod2"), 1, &lod2.x);
   glProgramUniform1iv(p, U("uPatSlot"), 32, wantImg ? patSlotImg : patSlot); glProgramUniform1iv(p, U("uTerrSlot"), 8, terrSlot); glProgramUniform1iv(p, U("uPaintSlot"), kPaintTypes, paintSlotEff);
 }
@@ -394,6 +404,12 @@ void resolveLayers() {
 const char* kCommonGLSL = R"GLSL(
 // ---- L4 texture layer (src/textures.cpp, docs/textures.md): ambientCG sets in three 2D arrays (units 20-22)
 uniform sampler2DArray uTexCol, uTexNrm, uTexRH;   // colour (sRGB) + ao, normal xy, roughness + height
+uniform sampler2DArray uTexColH, uTexNrmH, uTexRHH;   // TX2K: the same for the 2K sets (units 29-31), layers uTexHiBase and up
+uniform int uTexHiBase;
+bool texHi(float L){ return L > float(uTexHiBase) - 0.5; }
+vec4 texGCol(vec3 q, vec2 gx, vec2 gy){ return texHi(q.z) ? textureGrad(uTexColH, vec3(q.xy, q.z - float(uTexHiBase)), gx, gy) : textureGrad(uTexCol, q, gx, gy); }
+vec4 texGNrm(vec3 q, vec2 gx, vec2 gy){ return texHi(q.z) ? textureGrad(uTexNrmH, vec3(q.xy, q.z - float(uTexHiBase)), gx, gy) : textureGrad(uTexNrm, q, gx, gy); }
+vec4 texGRH(vec3 q, vec2 gx, vec2 gy){ return texHi(q.z) ? textureGrad(uTexRHH, vec3(q.xy, q.z - float(uTexHiBase)), gx, gy) : textureGrad(uTexRH, q, gx, gy); }
 uniform int uTexOn;
 uniform int uTexSkipFar;
 uniform int uImgMat;       // MA1 imgmat table active (render.cpp: room floor finishes take uFloorSlot; terrain layers alternate sets)
@@ -414,6 +430,7 @@ layout(std140, binding = 3) uniform NmkTexTables {
 uniform int uTerrSlot[8]; // terrain layers: grass, soil, mud, gravel, sand, rock, scree, crater
 #define NMK_TEX_PAINT 1   // painted ground: uPaintSlot[k] for marsh, dirt, mud, gravel, sand, cobbles, rock, dry_grass, ploughed, leaf_litter, scorched, pebbles
 uniform int uPaintSlot[12];
+uniform float uTexLodG;   // TX2K: the ground's gradient scale (terrain layers, painted ground; uTexLod.x for everything else)
 uniform vec4 uTexLod;     // gradient scale (LOD bias against TAA-jitter shimmer), normal fade start / end (texels per pixel), fade depth
 uniform vec4 uTexLod2;    // albedo / roughness detail fade start / end (texels per pixel), fade depth
 struct TexS { vec3 col; float ao, r, h; vec3 n; float d; };   // d: MA1b detail height (0-centred) near the eye
@@ -433,23 +450,23 @@ void texTap(float L, vec3 p, vec3 dpx, vec3 dpy, vec2 inv, vec3 T, vec3 B, vec3 
   vec2 gx = vec2(dot(dpx, T), dot(dpx, B))*inv*gs, gy = vec2(dot(dpy, T), dot(dpy, B))*inv*gs;
   if (gPomK > 0.0 && w > 0.3) {   // GX5 POM: march from the top of the relief down until the height map is above the ray
     vec3 Vt = vec3(dot(gPomV, T), dot(gPomV, B), max(dot(gPomV, Nf), 0.2));
-    if (gPomN == 1) q.xy -= Vt.xy*gPomK*(1.0 - textureGrad(uTexRH, q, gx, gy).g);   // MA1b Medium: single offset, offset limiting (one tap; a 4-step march cost +1.6 ms in chateau_town)
+    if (gPomN == 1) q.xy -= Vt.xy*gPomK*(1.0 - texGRH(q, gx, gy).g);   // MA1b Medium: single offset, offset limiting (one tap; a 4-step march cost +1.6 ms in chateau_town)
     else {
       float n = float(gPomN);
       vec2 step = Vt.xy/Vt.z*gPomK/n;
-      float depth = 0.0, hd = 1.0 - textureGrad(uTexRH, q, gx, gy).g, pd = 0.0, ph = hd; vec2 pq = q.xy;
-      for (int i = 0; i < 10 && i < gPomN && depth < hd; ++i) { pq = q.xy; pd = depth; ph = hd; q.xy -= step; depth += 1.0/n; hd = 1.0 - textureGrad(uTexRH, q, gx, gy).g; }
+      float depth = 0.0, hd = 1.0 - texGRH(q, gx, gy).g, pd = 0.0, ph = hd; vec2 pq = q.xy;
+      for (int i = 0; i < 10 && i < gPomN && depth < hd; ++i) { pq = q.xy; pd = depth; ph = hd; q.xy -= step; depth += 1.0/n; hd = 1.0 - texGRH(q, gx, gy).g; }
       float a = depth - hd, b = ph - pd;   // MA1b: refine linearly between the last two steps (no stair lines)
       if (a >= 0.0 && a + b > 1e-4) q.xy = mix(q.xy, pq, a/(a + b));
     }
   }
-  if (gDetF > 0.0 && w > 0.3) s.d += (textureGrad(uTexRH, vec3(q.xy*3.7 + vec2(0.37, 0.61), q.z), gx*3.7, gy*3.7).g - 0.5)*w;   // MA1b: the set's own grain / pores at 3.7x
-  vec4 c = textureGrad(uTexCol, q, gx, gy);
+  if (gDetF > 0.0 && w > 0.3) s.d += (texGRH(vec3(q.xy*3.7 + vec2(0.37, 0.61), q.z), gx*3.7, gy*3.7).g - 0.5)*w;   // MA1b: the set's own grain / pores at 3.7x
+  vec4 c = texGCol(q, gx, gy);
   // normal detail near the pixel frequency flickers under the TAA jitter: fade it with the footprint (texels per pixel)
-  float fp = max(length(gx), length(gy))*1024.0/max(gs, 1e-3);
+  float fp = max(length(gx), length(gy))*(texHi(L) ? 2048.0 : 1024.0)/max(gs, 1e-3);
   float nfk = 1.0 - uTexLod.w*gTexNFade*smoothstep(uTexLod.y, uTexLod.z, fp);
-  vec2 nx = (uTexSkipFar == 1 && nfk < 0.06) ? vec2(0.0) : (textureGrad(uTexNrm, q, gx, gy).rg*2.0 - 1.0)*nfk;   // MA1 imgmat: far, no normal tap
-  vec2 rh = textureGrad(uTexRH, q, gx, gy).rg;
+  vec2 nx = (uTexSkipFar == 1 && nfk < 0.06) ? vec2(0.0) : (texGNrm(q, gx, gy).rg*2.0 - 1.0)*nfk;   // MA1 imgmat: far, no normal tap
+  vec2 rh = texGRH(q, gx, gy).rg;
   float nz = sqrt(max(1.0 - dot(nx, nx), 0.0));
   vec3 wn = vec3(nx + vec2(dot(ns, T), dot(ns, B)), nz*max(dot(ns, Nf), 0.0));
   s.col += c.rgb*w; s.ao += c.a*w; s.r += rh.x*w; s.h += rh.y*w; s.n += (T*wn.x + B*wn.y + Nf*wn.z)*w;
@@ -480,10 +497,12 @@ TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
   if (f <= 0.0) return o;
   vec2 inv = Lp.xy*A.w; int rot = int(C.y + 0.5);
   TexS s = TexS(vec3(0.0), 0.0, 0.0, 0.0, vec3(0.0), 0.0);
+  float gs0 = gTexGS; gTexGS = uTexLodG;
   if (int(A.z + 0.5) == 3) {
     vec3 T = vec3(1.0, 0.0, 0.0), B = vec3(0.0, 0.0, -1.0); texFrame(rot, T, B);
     texTap(A.x, p, dpx, dpy, inv, T, B, vec3(0.0, 1.0, 0.0), n, 1.0, s); s.n = normalize(s.n);
   } else s = texTri(A.x, p, n, dpx, dpy, inv, rot);
+  gTexGS = gs0;
   o.alb = K.x < 0.0 ? mix(M.rgb, s.col, f)*(-K.x)   // NT8 "absolute": the texture's own colour (paintApply uses it as the albedo)
                     : mix(vec3(1.0), clamp(s.col/max(M.rgb, vec3(0.004)), 0.0, 2.5), K.x*f);
   o.r = mix(1.0, s.r/max(Lp.z, 0.02), K.z*f);
@@ -704,7 +723,17 @@ void loadSets() {   // TX2: the sets on the GPU (re-run by flushPending; the slo
   if ((int)dirs.size() > kMaxLayers) { logf("textures: %d sets, only the first %d load", (int)dirs.size(), kMaxLayers); dirs.resize(kMaxLayers); }
   bool bc = hasExt("GL_EXT_texture_compression_s3tc") && hasExt("GL_EXT_texture_sRGB");
   gInfo.compressed = bc;
+  // TX2K: a set packed at 2K or more (colour map width) goes to the 2K array, after the 1K layers; NMK_TEX_HI=0 keeps all at 1K
+  GLint units = 0; glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &units);
+  const char* he = std::getenv("NMK_TEX_HI");
+  bool hiOk = units >= kUnitBase + 12 && !(he && *he == '0');
+  auto isHi = [&](const fs::path& d) {
+    int w = 0, h = 0, c = 0;
+    return hiOk && (stbi_info((d / "color.jpg").string().c_str(), &w, &h, &c) || stbi_info((d / "color.png").string().c_str(), &w, &h, &c)) && w >= kSizeHi;
+  };
+  std::stable_partition(dirs.begin(), dirs.end(), [&](const fs::path& d) { return !isHi(d); });
   std::vector<Cpu> cpu(dirs.size());
+  for (size_t i = 0; i < dirs.size(); ++i) cpu[i].n = isHi(dirs[i]) ? kSizeHi : kSize;
   std::atomic<size_t> next{0};
   unsigned nt = std::clamp(std::thread::hardware_concurrency(), 1u, 12u);
   std::vector<std::thread> th;
@@ -713,30 +742,36 @@ void loadSets() {   // TX2: the sets on the GPU (re-run by flushPending; the slo
   while (running.load() > 0) { crumb("texture sets"); std::this_thread::sleep_for(std::chrono::milliseconds(5)); }   // UI9: a loading screen keeps presenting meanwhile
   for (auto& t : th) t.join();
   sets.clear();
-  int n = 0;
-  for (size_t i = 0; i < dirs.size(); ++i) if (cpu[i].ok) ++n; else logf("textures: %s skipped (%s)", dirs[i].filename().string().c_str(), cpu[i].err.c_str());
+  int n = 0, nHi = 0;
+  for (size_t i = 0; i < dirs.size(); ++i) if (cpu[i].ok) { if (cpu[i].n == kSizeHi) ++nHi; else ++n; } else logf("textures: %s skipped (%s)", dirs[i].filename().string().c_str(), cpu[i].err.c_str());
   gpuOn = false;
   for (GLuint& a : arr) if (a) { glDeleteTextures(1, &a); a = 0; }
-  gInfo.bytes = 0;
-  if (n > 0) {
+  for (GLuint& a : arrHi) if (a) { glDeleteTextures(1, &a); a = 0; }
+  gInfo.bytes = 0; hiBase = n;
+  if (n + nHi > 0) {
     GLenum fmt[3] = {bc ? (GLenum)GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT : (GLenum)GL_SRGB8_ALPHA8, bc ? (GLenum)GL_COMPRESSED_RG_RGTC2 : (GLenum)GL_RG8, bc ? (GLenum)GL_COMPRESSED_RG_RGTC2 : (GLenum)GL_RG8};
-    for (int k = 0; k < 3; ++k) {
-      glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &arr[k]);
-      glTextureStorage3D(arr[k], kLevels, fmt[k], kSize, kSize, n);
-      glTextureParameteri(arr[k], GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTextureParameteri(arr[k], GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      glTextureParameteri(arr[k], GL_TEXTURE_WRAP_S, GL_REPEAT); glTextureParameteri(arr[k], GL_TEXTURE_WRAP_T, GL_REPEAT);
-      glTextureParameterf(arr[k], 0x84FE /* GL_TEXTURE_MAX_ANISOTROPY */, 8.0f);
-    }
+    auto mk = [&](GLuint* a, int sz, int layers) {   // an empty array still gets one layer: its samplers stay complete
+      for (int k = 0; k < 3; ++k) {
+        glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &a[k]);
+        glTextureStorage3D(a[k], levelsFor(sz), fmt[k], sz, sz, std::max(layers, 1));
+        glTextureParameteri(a[k], GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTextureParameteri(a[k], GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTextureParameteri(a[k], GL_TEXTURE_WRAP_S, GL_REPEAT); glTextureParameteri(a[k], GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTextureParameterf(a[k], 0x84FE /* GL_TEXTURE_MAX_ANISOTROPY */, 8.0f);
+      }
+    };
+    mk(arr, kSize, n);
+    if (nHi > 0) mk(arrHi, kSizeHi, nHi);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     int layer = 0;
     for (size_t i = 0; i < dirs.size(); ++i) {
       if (!cpu[i].ok) continue;
+      bool hi = cpu[i].n == kSizeHi; GLuint* a = hi ? arrHi : arr; int z = hi ? layer - hiBase : layer;
       for (int k = 0; k < 3; ++k) {
-        int s = kSize;
-        for (int L = 0; L < kLevels; ++L, s /= 2) {
+        int s = cpu[i].n;
+        for (int L = 0; L < levelsFor(cpu[i].n); ++L, s /= 2) {
           auto& d = cpu[i].lv[k][L];
-          if (bc) glCompressedTextureSubImage3D(arr[k], L, 0, 0, layer, s, s, 1, fmt[k], (GLsizei)d.size(), d.data());
-          else glTextureSubImage3D(arr[k], L, 0, 0, layer, s, s, 1, k == 0 ? GL_RGBA : GL_RG, GL_UNSIGNED_BYTE, d.data());
+          if (bc) glCompressedTextureSubImage3D(a[k], L, 0, 0, z, s, s, 1, fmt[k], (GLsizei)d.size(), d.data());
+          else glTextureSubImage3D(a[k], L, 0, 0, z, s, s, 1, k == 0 ? GL_RGBA : GL_RG, GL_UNSIGNED_BYTE, d.data());
           gInfo.bytes += d.size();
         }
       }
@@ -744,8 +779,11 @@ void loadSets() {   // TX2: the sets on the GPU (re-run by flushPending; the slo
       sets.push_back(si);
     }
     glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-    GLint units = 0; glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &units);
-    if (units >= kUnitBase + 3) { for (int k = 0; k < 3; ++k) glBindTextureUnit(kUnitBase + k, arr[k]); gpuOn = true; }
+    if (units >= kUnitBase + 3) {
+      for (int k = 0; k < 3; ++k) glBindTextureUnit(kUnitBase + k, arr[k]);
+      if (nHi > 0) for (int k = 0; k < 3; ++k) glBindTextureUnit(kUnitBase + 9 + k, arrHi[k]);
+      gpuOn = true;
+    }
     else logf("textures: GL_MAX_TEXTURE_IMAGE_UNITS = %d, units %d-%d unavailable: procedural only", units, kUnitBase, kUnitBase + 2);
   }
   gInfo.sets = (int)sets.size();
@@ -754,6 +792,7 @@ void loadSets() {   // TX2: the sets on the GPU (re-run by flushPending; the slo
   resolveLayers();
   invalidateKey();
   gInfo.ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+  if (nHi > 0) logf("textures: %d of them 2K (TX2K, units %d-%d)", nHi, kUnitBase + 9, kUnitBase + 11);
   logf("textures: %d sets (%s, %.0f MB), %d/%d slots live, %d sets on disk not used by a slot, %.0f ms", gInfo.sets, bc ? "BC3/BC5" : "RGBA8/RG8", gInfo.bytes / 1048576.0,
        gInfo.slotsLive, gInfo.slots, gInfo.unused, gInfo.ms);
   for (auto& m : gInfo.missing) logf("textures: set '%s' not found (its slots stay procedural)", m.c_str());
@@ -821,7 +860,7 @@ int slotLayer(int s) { const auto& t = wantImg ? slotsImg : slots; return s >= 0
 int patternSlot(int p) { return p >= 0 && p < 32 ? (wantImg ? patSlotImg : patSlot)[p] : -1; }
 
 // ------------------------------------------------------------------ offline
-int packSet(const fs::path& src, const fs::path& dst) {
+int packSet(const fs::path& src, const fs::path& dst, int kSize) {   // kSize: the packed size (1024, or 2048 for TX2K)
   Img col, nrm, r, ao, h;
   if (!loadImg(src / "color.jpg", 3, col)) { std::printf("pack: no color.jpg in %s\n", src.string().c_str()); return 1; }
   bool hasN = loadImg(src / "normal.jpg", 3, nrm), hasR = loadImg(src / "roughness.jpg", 1, r), hasA = loadImg(src / "ao.jpg", 1, ao), hasH = loadImg(src / "height.jpg", 1, h);

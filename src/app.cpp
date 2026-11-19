@@ -1084,7 +1084,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--legacy-look") legacyLook = true;   // the pre-BSL-pass lighting / tonemap (A/B and fallback)
     else if (a == "--no-textures") tex::setEnabled(false);   // L4 A/B: procedural patterns only (textures.cpp)
     else if (a == "--selftest-textures") runSelf = true;   // L4 texture layer + missing-texture fallback (selftest_textures.cpp)
-    else if (a == "--pack-texture" && k + 2 < argc) { fs::path s = argv[k + 1], d = argv[k + 2]; return tex::packSet(s, d); }   // tools/fetch_ambientcg.py
+    else if (a == "--pack-texture" && k + 2 < argc) { fs::path s = argv[k + 1], d = argv[k + 2]; int n = k + 3 < argc ? std::atoi(argv[k + 3]) : 1024; return tex::packSet(s, d, n == 2048 ? 2048 : 1024); }   // tools/fetch_ambientcg.py
     else if (a == "--texture-placeholders" && k + 1 < argc) { std::vector<std::string> v; std::string l = argv[++k]; for (size_t b = 0, e; b <= l.size(); b = e + 1) { e = l.find(',', b); if (e == std::string::npos) e = l.size(); if (e > b) v.push_back(l.substr(b, e - b)); } return tex::writePlaceholders(k + 1 < argc ? fs::path(argv[k + 1]) : contentDir() / "textures", v); }
     else if (a == "--rq-off" && k + 1 < argc) rqOff.push_back(argv[++k]);   // switch one render feature off (A/B): taa ssr ssao bloom shafts cascade cloudshadow, or a Renderer::perf switch
     else if (a == "--rq-on" && k + 1 < argc) rqOn.push_back(argv[++k]);   // PF2: switch one Renderer::perf feature on (A/B)
