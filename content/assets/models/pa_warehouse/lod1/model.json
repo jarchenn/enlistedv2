@@ -1,0 +1,314 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  20.590404510498047,
+  8.55855655670166,
+  23.784957885742188
+ ],
+ "bmin": [
+  -20.590320587158203,
+  0.0,
+  -23.784881591796875
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "Walkway",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "Rubber.001",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "albedo": "albedo_7.jpg",
+   "mr": "mr_8.jpg",
+   "name": "factory_wall",
+   "normal": "normal_6.jpg"
+  },
+  {
+   "albedo": "albedo_10.jpg",
+   "mr": "mr_11.jpg",
+   "name": "rusty metal plate corrugated",
+   "normal": "normal_9.jpg"
+  },
+  {
+   "albedo": "albedo_13.jpg",
+   "mr": "mr_14.jpg",
+   "name": "WarehouseMainConcrete",
+   "normal": "normal_12.jpg"
+  },
+  {
+   "albedo": "albedo_16.jpg",
+   "mr": "mr_17.jpg",
+   "name": "Office_Floor.001",
+   "normal": "normal_15.jpg"
+  },
+  {
+   "albedo": "albedo_19.jpg",
+   "mr": "mr_20.jpg",
+   "name": "MetalRusted.001",
+   "normal": "normal_18.jpg"
+  },
+  {
+   "albedo": "albedo_22.jpg",
+   "name": "MetalWalkway.001",
+   "normal": "normal_21.jpg"
+  },
+  {
+   "albedo": "albedo_23.jpg",
+   "mr": "mr_24.jpg",
+   "name": "GateRail.001"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    20.38149642944336,
+    8.55855655670166,
+    23.54476547241211
+   ],
+   "bmin": [
+    -18.69161605834961,
+    0.0024221763014793396,
+    -20.611007690429688
+   ],
+   "count": 5193,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "MainSupportBeam.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    18.862213134765625,
+    8.330769538879395,
+    9.258905410766602
+   ],
+   "bmin": [
+    -17.480112075805664,
+    4.02046537399292,
+    -18.665891647338867
+   ],
+   "count": 11439,
+   "first": 5193,
+   "mat": 1,
+   "metal": 1.0,
+   "name": "MainSupportBeam.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    20.280696868896484,
+    8.416358947753906,
+    23.428985595703125
+   ],
+   "bmin": [
+    -18.56390380859375,
+    0.006043088622391224,
+    -20.488609313964844
+   ],
+   "count": 300,
+   "first": 16632,
+   "mat": 2,
+   "metal": 1.0,
+   "name": "MainSupportBeam.001",
+   "role": "body",
+   "rough": 0.5,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    20.280696868896484,
+    8.461756706237793,
+    23.54476547241211
+   ],
+   "bmin": [
+    -18.69161605834961,
+    7.091213226318359,
+    -20.488609313964844
+   ],
+   "count": 153,
+   "first": 16932,
+   "mat": 3,
+   "metal": 1.0,
+   "name": "MainSupportBeam.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    20.590404510498047,
+    1.0133212804794312,
+    23.784957885742188
+   ],
+   "bmin": [
+    -20.590320587158203,
+    0.004213089123368263,
+    -23.784881591796875
+   ],
+   "count": 15795,
+   "first": 17085,
+   "mat": 4,
+   "metal": 0.0,
+   "name": "MainSupportBeam.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    20.100318908691406,
+    4.695106029510498,
+    23.232166290283203
+   ],
+   "bmin": [
+    8.80007266998291,
+    4.695104122161865,
+    12.084856033325195
+   ],
+   "count": 6,
+   "first": 32880,
+   "mat": 5,
+   "metal": 1.0,
+   "name": "MainSupportBeam.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    20.100318908691406,
+    5.655694484710693,
+    23.31320571899414
+   ],
+   "bmin": [
+    -20.428508758544922,
+    0.0,
+    -23.668663024902344
+   ],
+   "count": 5688,
+   "first": 32886,
+   "mat": 6,
+   "metal": 1.0,
+   "name": "MainSupportBeam.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    20.0614013671875,
+    4.630743980407715,
+    23.222087860107422
+   ],
+   "bmin": [
+    -0.06922435760498047,
+    0.3021092414855957,
+    9.000006675720215
+   ],
+   "count": 174,
+   "first": 38574,
+   "mat": 7,
+   "metal": 1.0,
+   "name": "MainSupportBeam.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    18.562705993652344,
+    4.475313186645508,
+    9.20328426361084
+   ],
+   "bmin": [
+    -17.612781524658203,
+    0.008199751377105713,
+    -20.530593872070313
+   ],
+   "count": 5214,
+   "first": 38748,
+   "mat": 8,
+   "metal": 1.0,
+   "name": "MainSupportBeam.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "pa_warehouse.glb",
+ "textures": {},
+ "triangles": 14654,
+ "vertices": 10832
+}

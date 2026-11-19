@@ -29,6 +29,27 @@ def pbr(folder, stem):   # the rar pack's per-material folders: <Mat>/LittleBuil
     return {"Base Color": f + "BaseColor.jpg", "Normal": f + "Normal.jpg", "Roughness": f + "Rough.png"}
 
 
+def wmap(base, rough=None, normal=None, metal=None):   # the warehouse's maps by their names on disk (the FBX's own names differ)
+    return {k: v for k, v in (("Base Color", base), ("Roughness", rough), ("Normal", normal), ("Metallic", metal)) if v}
+
+
+WH_MATS = {
+    "Walkway": wmap("Walkway_Diffuse.jpg", "Walkway_Roughness.jpg", "Walkway_Normal.jpg"),
+    "Rubber": wmap("synth-rubber-albedo.jpg", "synth-rubber-roughness.jpg", "synth-rubber-normal.jpg"),
+    "factory_wall": wmap("Substance_graph_basecolor.jpg", None, "Substance_graph_normal.jpg"),
+    "rusty metal plate corrugated": wmap("rusty_metal_plate_corrugated_albedo.jpg", "rusty_metal_plate_corrugated_roughness.jpg", "rusty_metal_plate_corrugated_normal.jpg", "rusty_metal_plate_corrugated_metallic.jpg"),
+    "WarehouseMainConcrete": wmap("viyjde3_2K_Albedo.jpg", "viyjde3_2K_Roughness.jpg", "viyjde3_2K_Normal.jpg"),
+    "WarehouseWindow": wmap("windowpaint_WarehouseWindow_BaseColor.jpg", "windowpaint_WarehouseWindow_Roughness.jpg"),
+    "Office_Floor": wmap("office-carpet-fabric_albedo.jpg", "office-carpet-fabric_roughness.jpg", "office-carpet-fabric_normal-ogl.jpg"),
+    "MetalRusted": wmap("Metal_iron_4_baseColor.jpeg", "Metal_iron_4_roughness.jpeg", "Metal_iron_4_normal.jpeg", "Metal_iron_4_metallic.jpeg"),
+    "MetalWalkway": wmap("Substance_graph_basecolor.jpg", None, "Substance_graph_normal.jpg"),
+    "GateRail": wmap("gatepaint_GateRail_BaseColor.jpg", "gatepaint_GateRail_Roughness.jpg"),
+    "DoorMetal": wmap("DoorMetal_BaseColor.jpg", "DoorMetal_Roughness.jpg"),
+    "OfficeDoorMaterial": wmap("officedoorpaint_OfficeDoorMaterial_BaseCol.jpg", "officedoorpaint_OfficeDoorMaterial_Roughne.jpg", "officedoorpaint_OfficeDoorMaterial_Normal.jpg"),
+    "OfficeWindow": wmap("officewindowpaint_OfficeWindow_BaseColor.jpg", "officewindowpaint_OfficeWindow_Roughness.jpg"),
+}
+
+
 # buildings: walls / roof / floors / openings as boxes in the source ([x0, x1, y0, y1, z0, z1]); the door front is -y.
 # "walls" are every static collider (floor slabs too); "floor" is the main floor (the threshold height of the doors).
 BUILDINGS = {
@@ -51,6 +72,7 @@ BUILDINGS = {
     "pa_military_house": dict(
         name="Abandoned military house", lic="glb", src="abounded_military_house/abounded_military_house.glb", scale=1.15, maxTex=2048,
         # the boards across the wing's doorway and the five ground-floor windows go (solid panels, black from inside): open bays
+        add_boxes=[{"box": [1.15, 2.25, -0.3, 0.4, 0.36, 0.375], "tex": "floor_boards_old", "tile": 2.0}],   # the inner doorway's threshold
         delete_in=[["BigBuilding_Wood", -4.8, -4.0, 2.1, 3.6, 0.3, 2.3], ["BigBuilding_Wood", -3.0, -0.9, -0.3, 0.6, 1.0, 2.3],
                    ["BigBuilding_Wood", -4.8, -3.9, 0.55, 1.65, 1.0, 2.3], ["BigBuilding_Wood", -4.8, -3.9, 4.05, 5.15, 1.0, 2.3],
                    ["BigBuilding_Wood", -0.4, 0.7, -2.35, -0.65, 1.0, 2.3], ["BigBuilding_Wood", 3.0, 4.0, -2.35, -0.65, 1.0, 2.3]],                                 # the X-braced boards across the wing's doorway
@@ -67,8 +89,110 @@ BUILDINGS = {
                "win_end_a": [-4.5, -4.07, 0.65, 1.55, 1.1, 2.15], "win_end_b": [-4.5, -4.07, 4.15, 5.05, 1.1, 2.15],
                "win_block_l": [0.0, 0.45, -2.25, -0.75, 1.1, 2.15], "win_block_r": [3.25, 3.7, -2.25, -0.75, 1.1, 2.15]},
         floor=[-4.44, 3.62, 0.36, 5.33, 0.0, 0.36],
+        # its inside read as a dark untextured shell over bare ground: lined (boards, flaking plaster, old plaster ceiling)
+        lining={"rooms": [{"box": [-4.13, 3.62, 0.36, 5.33, 0.36, 2.66], "floor": "floor_boards_old", "walls": "plaster_flaking", "ceil": "plaster_old_b"},
+                          {"box": [0.38, 3.31, -2.82, -0.27, 0.36, 2.66], "floor": "floor_boards_old", "walls": "plaster_flaking", "ceil": "plaster_old_b"}]},
         furnish=[("ph_worn_metal_rack", -1.0, 5.0, 0), ("ph_old_military_crate", -3.55, 4.75, 15), ("mod_barrel_steel_rust", 3.15, 4.85, 0),
-                 ("pa_crate_slatted", 2.8, -2.3, 10), ("mod_debris_papers_scattered", 0.0, 2.6, 0)]),
+                 ("pa_crate_slatted", 2.8, -2.3, 10), ("furn_candle", -3.55, 4.75, 0, 0.47)]),   # a stub of candle on the crate: the one weak light
+    # an exterior shell (one-sided brick box; the shopfront glass and doors were faces of a fake interior box,
+    # "store_building_inside", facing out): that box deleted (broken-out shopfront bays, open doorways), the brick
+    # given inner faces, a concrete floor added. Its ground is z -1 (a foundation below the file's zero).
+    "pa_abandoned_shop": dict(
+        name="Abandoned shop", lic="glb", src="game-ready_an_abandoned_shop/game-ready_an_abandoned_shop.glb", maxTex=2048,
+        delete_mats=["store_building_inside"], double_mats=["store_building"],
+        add_boxes=[{"box": [-7.95, 7.95, 4.0, 16.0, -1.0, -0.97], "tex": "concrete_stained", "tile": 3.0}],
+        desc="A gutted brick corner shop: broken-out shopfront, three side doors, an empty sales floor under a flat roof; enterable (E on the doors).",
+        walls=[[-8.0, 8.0, 4.0, 4.25, -1.0, 6.0], [-8.0, 8.0, 15.75, 16.0, -1.0, 6.0], [-8.0, -7.75, 4.0, 16.0, -1.0, 6.0], [7.75, 8.0, 4.0, 16.0, -1.0, 6.0],
+               [-8.0, 8.0, 4.0, 16.0, 5.38, 5.7]],
+        doors={"door_front": ("door", "door_steel", 1, [-0.7, 0.7, 4.0, 4.06, -0.97, 1.45]),
+               "door_west_a": ("door", "door_steel", 1, [-8.0, -7.94, 7.05, 8.05, -0.97, 1.45]),
+               "door_west_b": ("door", "door_steel", 1, [-8.0, -7.94, 11.95, 12.95, -0.97, 1.45]),
+               "door_east": ("door", "door_steel", 1, [7.94, 8.0, 7.05, 8.05, -0.97, 1.45])},
+        holes={"bay_a": [-7.85, -3.7, 3.9, 4.35, -0.97, 1.45], "bay_b": [-3.6, -0.8, 3.9, 4.35, -0.97, 1.45],
+               "bay_c": [0.8, 3.6, 3.9, 4.35, -0.97, 1.45], "bay_d": [3.7, 7.85, 3.9, 4.35, -0.97, 1.45]},
+        floor=[-7.95, 7.95, 4.0, 16.0, -1.0, -0.97],
+        furnish=[("ph_worn_metal_rack", -4.0, 15.35, 0), ("ph_wooden_bookshelf_worn", 3.5, 15.4, 0), ("furn_debris_glass", -5.2, 5.0, 0),
+                 ("mod_debris_papers_scattered", -1.0, 9.0, 20), ("ph_old_tyre", 3.0, 8.5, 0)]),
+    # a photo-scan of a caboose with its interior (plank floor 0.64 m up, blue board walls, beams): turned to run along x
+    # (rail_rot/rail.glb, E:/nmk/pr10scripts/rotate.py: PCA of the roof, -139.1 deg); its open side doorway gets a game
+    # door, the scanned ballast ledge outside it a step collider (0.33 + 0.31 m steps), the windows are the scan's holes
+    "pa_rail_caboose": dict(
+        name="Abandoned railroad caboose", lic="glb", src="rail_rot/rail.glb", meta_src="union_pacific_railroad_car_rhyolite/union_pacific_railroad_car_rhyolite.glb",
+        maxTex=4096, cut_below=0.0, decimate=0.5,
+        desc="A weathered wooden Union Pacific caboose on a patch of ballast, its blue-painted plank interior intact: enterable through the side door (E).",
+        walls=[[-4.6, 4.15, -1.24, -1.12, 0.0, 2.8], [-4.6, 4.15, 1.29, 1.41, 0.0, 2.8], [-4.6, -4.46, -1.24, 1.41, 0.0, 2.8], [3.96, 4.15, -1.24, 1.41, 0.0, 2.8],
+               [-4.6, 4.15, -1.3, 1.45, 2.78, 3.0], [0.1, 1.0, -1.75, -1.24, 0.0, 0.33]],
+        doors={"door_side": ("door", "door_wood", 1, [0.15, 0.95, -1.24, -1.18, 0.64, 2.55])},
+        holes={"win_a": [-3.55, -3.05, 1.2, 1.5, 1.5, 2.05], "win_b": [-2.05, -1.55, 1.2, 1.5, 1.5, 2.05]},
+        floor=[-4.46, 3.96, -1.24, 1.29, 0.0, 0.64],
+        furnish=[("mod_debris_stove", 2.4, 0.75, 0), ("pa_chest_wooden", -3.75, 0.75, 0), ("furn_chair_soviet", -1.0, 0.7, 200),
+                 ("mod_debris_papers_pile", -2.2, -0.5, 30), ("pa_fruit_crate_mid", 3.35, -0.6, 90)]),
+    # a game-ready warehouse (T plan, 41 x 48 m, trusses, walkways, a mezzanine office): colliders from its own walls and
+    # floors (pr6_split auto_colliders), its closed door panels and painted window panes removed (open doorways: the
+    # walls have real openings behind them; broken-out windows); docks at 1 m outside, the halls at ground level
+    "pa_warehouse": dict(
+        name="Abandoned warehouse", lic="free", pack="abandoned-warehouse.zip", src="abandoned-warehouse/source/warehouseupload2.fbx",
+        texfolder="abandoned-warehouse/textures", matmap=WH_MATS, maxTex=2048, decimate=0.5,
+        delete_mats=["DoorMetal", "OfficeDoorMaterial", "WarehouseWindow", "OfficeWindow"],
+        auto_colliders={"exclude": ["GateRail", "Rubber"], "cell": 0.5, "min_wall": 4.0, "min_rect": 1.5, "min_floor": 1.0, "min_rect_floor": 0.25},   # (1112 boxes at 0.25 m stalled the asset load)
+        desc="A derelict T-plan steel warehouse: two halls under a broken roof, trusses, walkways and a mezzanine office, loading docks; enterable through its open doorways and loading bay.",
+        walls=[], doors={}, holes={}, floor=[-5.0, 5.0, 5.0, 10.0, -0.12, 0.0],
+        furnish=[("pa_crate_slatted", -18.0, -18.0, 20), ("mod_barrel_steel_rust", -22.0, -10.0, 0), ("pa_chest_wooden", 3.0, -14.0, 90),
+                 ("pa_fruit_crate_high", -17.2, -16.9, 35), ("mod_debris_papers_scattered", 1.0, 8.0, 0)]),
+    # YN14R's destroyed log house (part 1; its "part2" is a separate house, they do not join): x0.6 (the storey 4.2 units:
+    # doors 2 m, rooms 2.5 m). Closed all round on the ground storey (scanned at 0.75 / 1.5 / 2.3 m: walls but for a
+    # front doorway, a side doorway and windows); colliders from its own geometry; the upper floor has no stair
+    # YN14R's destroyed home (part 2; a different house from part 1): an L-plan stone-and-log house on a 0.75-unit plinth.
+    # x0.62 (storey 3.9 units: 2.4 m). Its ground plate and the dead trees grown into it removed (the batch has its own
+    # dead trees); colliders from its own geometry; a concrete step at the side door (the plinth is 0.47 m)
+    "pa_stone_house_ruin": dict(
+        name="Ruined stone-and-log house", lic="glb", src="old_destroyed_home_part2/old_destroyed_home_part2.glb", scale=0.62, maxTex=2048,
+        delete_mats=["Plane__0", "bark"],
+        add_boxes=[{"box": [9.14, 10.1, -8.7, -7.0, 0.0, 0.4], "tex": "concrete_aged", "tile": 2.0}],
+        auto_colliders={"cell": 0.5, "min_wall": 2.0, "min_rect": 0.75, "min_floor": 0.5, "min_rect_floor": 0.25, "exclude": ["glass"]},
+        desc="A wrecked L-plan house of stone and logs on a high plinth: a rusted iron roof, broken windows and a collapsing upper floor; enterable by the step at its side door.",
+        walls=[], doors={}, holes={}, floor=[-4.0, -3.0, -1.0, 0.0, 0.7, 0.75],
+        furnish=[("ph_old_bed_frame", -4.0, -1.0, 90), ("mod_barrel_steel_rust", 5.0, -3.0, 0), ("furn_debris_glass", 0.0, 0.0, 0),
+                 ("pa_fruit_crate_low", 2.0, 1.0, 25), ("furn_chair_soviet", -1.0, -2.0, 140)]),
+    # YN14R's destroyed building (part 1): a long concrete-and-plank shed, x0.6, its front torn out (x -6.6..6.7) and its
+    # back missing beyond x -3.9: closed with weathered-plank walls to the eaves (a doorway left in the front); its
+    # ground plate removed (the terrain is the floor); colliders from its own geometry and the added walls
+    "pa_shed_ruin_long": dict(
+        name="Ruined long shed", lic="glb", src="old_destroyed_building_part_1/old_destroyed_building_part_1.glb", scale=0.6, maxTex=2048,
+        delete_mats=["Plane__0"],
+        cut_below=-0.02,   # debris modelled down to -2.5 under its ground plate
+        add_boxes=[{"box": [-6.6, 1.9, -7.08, -6.88, 0.0, 4.8], "tex": "boards_weathered", "tile": 2.5},
+                   {"box": [3.6, 6.75, -7.08, -6.88, 0.0, 4.8], "tex": "boards_weathered", "tile": 2.5},
+                   {"box": [1.9, 3.6, -7.08, -6.88, 3.4, 4.8], "tex": "boards_weathered", "tile": 2.5},
+                   {"box": [-3.95, 13.55, 6.22, 6.42, 0.0, 4.8], "tex": "boards_weathered", "tile": 2.5},
+                   {"box": [-13.2, 13.2, -6.88, 6.22, 0.0, 0.02], "tex": "concrete_dirty_wet", "tile": 3.0}],   # a visible floor: the terrain showed through
+        auto_colliders={"cell": 0.5, "min_wall": 2.0, "min_rect": 1.2, "min_floor": 0.5, "min_rect_floor": 0.25},
+        desc="A long, half-collapsed shed of concrete and weathered planks under a holed corrugated roof, its torn-out front and back boarded up again: enterable through the front doorway.",
+        walls=[], doors={}, holes={}, floor=[-4.0, -3.0, -1.0, 0.0, -0.05, 0.0],
+        furnish=[("pa_crate_slatted", -10.0, 4.0, 15), ("mod_barrel_steel_rust", -11.5, -5.0, 0), ("pa_chest_wooden", 8.0, 5.0, 180),
+                 ("ph_old_tyre", 4.0, -3.0, 0), ("pa_fruit_crate_high", -8.0, 4.6, 70)]),
+    # YN14R's destroyed building (part 2): a gabled plank shack with an open lean-to shed beside it, x0.6. The shack's
+    # torn-out front (y -8.86) closed with a weathered-plank wall (a 1 m doorway); its back opening and a gap in its +x
+    # side are its other doorways; the lean-to stays open; its ground plate and the debris under it cut away
+    "pa_shack_ruin": dict(
+        name="Ruined plank shack", lic="glb", src="old_destroyed_building_part2/old_destroyed_building_part2.glb", scale=0.6, maxTex=2048,
+        delete_mats=["Plane.001__0"], cut_below=-0.02,
+        add_boxes=[{"box": [-4.95, -1.6, -8.86, -8.66, 0.0, 4.6], "tex": "boards_weathered", "tile": 2.5},
+                   {"box": [0.0, 2.1, -8.86, -8.66, 0.0, 4.6], "tex": "boards_weathered", "tile": 2.5},
+                   {"box": [-1.6, 0.0, -8.86, -8.66, 3.4, 4.6], "tex": "boards_weathered", "tile": 2.5},
+                   {"box": [-5.6, 2.7, -8.66, 3.87, 0.0, 0.02], "tex": "floor_boards_worn", "tile": 2.0}],   # a visible floor
+        auto_colliders={"cell": 0.5, "min_wall": 2.0, "min_rect": 1.2, "min_floor": 0.5, "min_rect_floor": 0.25, "exclude": ["fabric"]},
+        desc="A sagging plank shack under a holed corrugated roof, with an open lean-to of rusted drums beside it, its torn-out front boarded up again: enterable through three doorways.",
+        walls=[], doors={}, holes={}, floor=[-4.0, -3.0, -1.0, 0.0, -0.05, 0.0],
+        furnish=[("pa_chest_wooden", -4.5, 2.5, 90), ("mod_debris_stove", 0.5, 2.6, 0), ("furn_chair_soviet", -2.0, -3.0, 20),
+                 ("mod_debris_papers_pile", 0.5, -5.0, 0), ("pa_fruit_crate_mid", -4.5, -7.5, 0)]),
+    "pa_log_house_ruin": dict(
+        name="Ruined log house", lic="glb", src="old_destroyed_home_part_1/old_destroyed_home_part_1.glb", scale=0.6, maxTex=2048,
+        auto_colliders={"cell": 0.5, "min_wall": 2.0, "min_rect": 0.75, "min_floor": 0.5, "min_rect_floor": 0.25},
+        desc="A collapsing two-storey log house with a lean-to: plank and log walls, broken windows, a holed roof and an unreachable upper floor; enterable through its open doorways.",
+        walls=[], doors={}, holes={}, floor=[-4.0, -3.0, -1.0, 0.0, 0.2, 0.25],
+        furnish=[("ph_old_bed_frame", -6.5, 1.5, 0), ("furn_chair_soviet", -2.5, -0.5, 30), ("mod_debris_stove", 0.6, 3.1, 0),
+                 ("furn_debris_plaster", -4.0, -2.0, 0), ("ph_wooden_bookshelf_worn", -3.0, 3.45, 180)]),
 }
 
 # props: piece = pr6_split options; group = the palette group; extra = asset JSON fields
@@ -95,9 +219,7 @@ PROPS = {
            ("pa_tree_dead_c", "Dead tree C", "dead_tree_2/dead_tree (2).glb", ["dead_tree_1_Mat.1_0", "dead_tree_1_Mat.1_0.001"], 9.0, 0.4),
            ("pa_tree_dead_d", "Dead tree D", "dead_tree_2/dead_tree (2).glb", ["dead_tree_2_Mat.1_0", "dead_tree_2_Mat.1_0.001"], 11.0, 0.35),
            ("pa_tree_dead_e", "Dead tree E", "dead_tree_3/dead_tree (3).glb", None, 10.0, 0.25))},
-    "pa_tree_fallen": dict(name="Fallen tree", lic="glb", src="tree_part13/tree_part13.glb", objects=["Sweep_NURBS_17_bark17_0"], piece={"length": 11.0, "colliders": "parts"},
-                           group=None, category="Trees", themes=ALL, maxTex=1024, nav="carve", lodDist=60, cullDist=900,
-                           desc="A fallen tree on its side, roots in the air (the model's leaf cards left out: their cut-out did not carry over)"),
+    # (the fallen tree from tree_part13.glb was dropped: without its leaf cards it read as a grey lump)
 }
 LINE = ("pa_fence_picket", "Old picket fence (model)", "pa_fence_picket_bay")
 
@@ -110,13 +232,37 @@ def glb_meta(p):
 def licence(dl, E):
     """(committed, credit text, credits row cells: model, author, licence, source)"""
     if E["lic"] == "glb":
-        x = glb_meta(os.path.join(dl, E["src"]))
+        x = glb_meta(os.path.join(dl, E.get("meta_src", E["src"])))   # a turned copy keeps no metadata: the original's
         title, author, lic, url = x.get("title", ""), x.get("author", ""), x.get("license", ""), x.get("source", "")
         committed = lic.startswith("CC-BY") or lic.startswith("CC0")
         return committed, "%s by %s, %s (%s)%s" % (title, author.split(" (")[0], lic.split(" (")[0], url, "" if committed else ": local only"), (title, author, lic, url)
     if E["lic"] == "free":
         return True, "%s supplied by the user; %s" % (E["pack"], FREE), (E["pack"], FREE, "free to use per the project owner", "-")
     return False, "%s supplied by the user; licence to be confirmed: local only" % E["pack"], (E["pack"], "to be confirmed", "to be confirmed", "-")
+
+
+def lining(B):
+    """Visible floor / ceiling / inner wall panels for each room (source units): models whose own inside reads as a dark
+    untextured shell. Wall panels 2 cm inside the room box, the building's doors and holes cut through them along their
+    thin axis; the floor 1.5 cm over the model's (no z-fight), the ceiling 1.5 cm under."""
+    L = B.get("lining")
+    if not L: return []
+    cuts = []
+    for b in [v[3] for v in B["doors"].values()] + list(B["holes"].values()):
+        lo, hi = [b[0], b[2], b[4]], [b[1], b[3], b[5]]
+        k = 0 if (b[1] - b[0]) < (b[3] - b[2]) else 1   # through the wall: the thin horizontal axis
+        lo[k] -= 0.6; hi[k] += 0.6; cuts.append((lo, hi))
+    out = []
+    for R in L["rooms"]:
+        x0, x1, y0, y1, z0, z1 = R["box"]; t = 0.02
+        if R.get("floor"): out.append({"box": [x0, x1, y0, y1, z0, z0 + 0.015], "tex": R["floor"], "tile": 2.0})
+        if R.get("ceil"): out.append({"box": [x0, x1, y0, y1, z1 - 0.015, z1], "tex": R["ceil"], "tile": 2.0})
+        if R.get("walls"):
+            for w in ([x0, x1, y0, y0 + t], [x0, x1, y1 - t, y1], [x0, x0 + t, y0, y1], [x1 - t, x1, y0, y1]):
+                boxes = [([w[0], w[2], z0], [w[1], w[3], z1])]
+                for c in cuts: boxes = [q for b in boxes for q in pr8_openings.subtract(b, c)]
+                out += [{"box": [lo[0], hi[0], lo[1], hi[1], lo[2], hi[2]], "tex": R["walls"], "tile": 2.0} for lo, hi in boxes]
+    return out
 
 
 def mark(x, y, z=0.2):
@@ -135,8 +281,9 @@ def convert(dl, glbs):
     for bid, B in BUILDINGS.items():
         if os.path.exists(os.path.join(glbs, bid + ".glb")): continue
         marks = {**{k: v[3] for k, v in B["doors"].items()}, **B["holes"], "floor": B["floor"],
-                 **{"f%d" % i: mark(x, y, B["floor"][5]) for i, (_, x, y, _) in enumerate(B["furnish"])}}
-        piece = {"id": bid, "objects": None, "boxes": B["walls"], "marks": marks, "delete_mats": B.get("delete_mats", []), "delete_in": B.get("delete_in", []), "double_mats": B.get("double_mats", []),
+                 **{"f%d" % i: mark(f[1], f[2], B["floor"][5] + (f[4] if len(f) > 4 else 0)) for i, f in enumerate(B["furnish"])}}   # f[4]: on a top, this high
+        piece = {"id": bid, "objects": None, "boxes": B["walls"], "marks": marks, "delete_mats": B.get("delete_mats", []), "delete_in": B.get("delete_in", []), "double_mats": B.get("double_mats", []), "cut_below": B.get("cut_below"), "decimate": B.get("decimate"), "auto_colliders": B.get("auto_colliders"),
+                 "add_boxes": [{**b, "tex": os.path.join(ROOT, "content", "textures", b["tex"])} for b in B.get("add_boxes", []) + lining(B)],
                  "scale": B.get("scale", 1.0), "yaw": B.get("yaw", 0)}
         job = {"src": os.path.join(dl, B["src"]), "out": glbs, "pieces": [piece]}
         if B.get("matmap"): job.update(texfolder=os.path.join(dl, B["texfolder"]), matmap=B["matmap"])
@@ -167,11 +314,12 @@ def write(dl, glbs):
         B.setdefault("changes", "openings cut, colliders, baked / textures resized")
         committed, A = common(bid, B, side, "%s %.1f x %.1f m, %.1f m high." % (B["desc"], sx, sz, sy), {"lodDist": 40, "cullDist": 600})
         A["maxGrade"] = 2; A["nav"]["effect"] = "carve"
+        if B.get("auto_colliders"): A["dressing"] = "none"   # foundation dressing stalls on hundreds of collider parts (foundation.cpp)
         flag = {"v": 0} if committed else {"mf": 1}
         A["parts"] = [{"t": "b", "c": c[:3], "s": c[3:], "m": "collider", **flag} for c in side["colliders"]]
         pr8_openings.apply(A, m, {k: v[:3] + v[4:] for k, v in B["doors"].items()}, holes=list(B["holes"]), floor_visible=False)
         A["companions"] = [{"asset": a, "pos": [round(m["f%d" % i][0], 3), round(m["f%d" % i][1] - 0.005, 3), round(m["f%d" % i][2], 3)], "yaw": yaw}
-                           for i, (a, _, _, yaw) in enumerate(B["furnish"])]
+                           for i, (a, _, _, yaw, *_) in enumerate(B["furnish"])]
         assert len(A["companions"]) <= 5
         A["nav"]["cover"] = [{"p": [round(x, 2), 0, round(s * (sz / 2 + 0.5), 2)], "yaw": 180 if s > 0 else 0, "height": "high", "peek": ["left", "right"]} for x in (-sx / 4, sx / 4) for s in (1, -1)]
         open(os.path.join(ROOT, "content", "assets", bid + ".json"), "w", encoding="utf-8", newline="").write(json.dumps(A, separators=(",", ":")))

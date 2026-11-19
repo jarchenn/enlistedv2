@@ -38,6 +38,21 @@
    "mr": "mr_10.jpg",
    "name": "BigBuilding_Roof",
    "normal": "normal_9.jpg"
+  },
+  {
+   "albedo": "albedo_13.jpg",
+   "name": "pr10_floor_boards_old",
+   "normal": "normal_12.jpg"
+  },
+  {
+   "albedo": "albedo_15.jpg",
+   "name": "pr10_plaster_old_b",
+   "normal": "normal_14.jpg"
+  },
+  {
+   "albedo": "albedo_17.jpg",
+   "name": "pr10_plaster_flaking",
+   "normal": "normal_16.jpg"
   }
  ],
  "parts": [
@@ -144,6 +159,84 @@
    "role": "body",
    "rough": 1.0,
    "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    5.021800994873047,
+    0.43126845359802246,
+    4.050100326538086
+   ],
+   "bmin": [
+    -3.890698194503784,
+    0.4140184819698334,
+    -5.322399139404297
+   ],
+   "count": 108,
+   "first": 1878,
+   "mat": 4,
+   "metal": 0.0,
+   "name": "BigBuilding_BigBuilding_Metal_0.001",
+   "role": "body",
+   "rough": 0.8500000238418579,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    5.021800994873047,
+    3.059018611907959,
+    4.050100326538086
+   ],
+   "bmin": [
+    -3.890698194503784,
+    3.0417685508728027,
+    -5.322399139404297
+   ],
+   "count": 72,
+   "first": 1986,
+   "mat": 5,
+   "metal": 0.0,
+   "name": "BigBuilding_BigBuilding_Metal_0.001",
+   "role": "body",
+   "rough": 0.8500000238418579,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    5.016051292419434,
+    3.059018611907959,
+    4.044350624084473
+   ],
+   "bmin": [
+    -3.884948253631592,
+    0.4140184819698334,
+    -5.310899257659912
+   ],
+   "count": 330,
+   "first": 2058,
+   "mat": 6,
+   "metal": 0.0,
+   "name": "BigBuilding_BigBuilding_Metal_0.001",
+   "role": "body",
+   "rough": 0.8500000238418579,
+   "textured": true
   }
  ],
  "realLength": 1.0,
@@ -155,6 +248,6 @@
  "scale": 1.0,
  "source": "pa_military_house.glb",
  "textures": {},
- "triangles": 626,
- "vertices": 1015
+ "triangles": 796,
+ "vertices": 1225
 }
