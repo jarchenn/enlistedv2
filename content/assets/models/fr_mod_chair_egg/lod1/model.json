@@ -24,10 +24,14 @@
    "normal": "normal_3.jpg"
   },
   {
-   "albedo": "albedo_7.jpg",
-   "mr": "mr_8.jpg",
+   "albedo": "albedo_7_g.jpg",
+   "mr": "mr_8_g.jpg",
    "name": "wood",
-   "normal": "normal_6.jpg"
+   "normal": "normal_6.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_7.jpg",
+    "mr": "mr_8.jpg"
+   }
   }
  ],
  "parts": [

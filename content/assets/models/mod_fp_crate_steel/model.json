@@ -12,10 +12,14 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "Crate",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   }
  ],
  "parts": [
@@ -56,5 +60,12 @@
  "source": "mod_fp_crate_steel.glb",
  "textures": {},
  "triangles": 593,
- "vertices": 407
+ "vertices": 407,
+ "grunge": {
+  "strength": 0.9,
+  "kinds": {
+   "Crate": "metal"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

@@ -12,10 +12,14 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "metal_office_desk",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   }
  ],
  "parts": [
@@ -56,5 +60,12 @@
  "source": "frsrc_metal_office_desk.glb",
  "textures": {},
  "triangles": 3448,
- "vertices": 3880
+ "vertices": 3880,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "metal_office_desk": "metal"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

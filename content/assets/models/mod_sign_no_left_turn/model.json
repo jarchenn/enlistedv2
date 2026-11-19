@@ -3,31 +3,43 @@
  "bmax": [
   0.3186511993408203,
   2.839752435684204,
-  0.026834487915039063
+  0.026834487915039062
  ],
  "bmin": [
   -0.3186511993408203,
   0.0,
-  -0.026834487915039063
+  -0.026834487915039062
  ],
  "materials": [
   {
-   "albedo": "albedoa_1.png",
+   "albedo": "albedoa_1_g.png",
    "cutout": true,
-   "mr": "mr_2.jpg",
-   "name": "Dirty.208"
+   "mr": "mr_2_g.jpg",
+   "name": "Dirty.208",
+   "grungeSrc": {
+    "albedo": "albedoa_1.png",
+    "mr": "mr_2.jpg"
+   }
   },
   {
-   "albedo": "albedoa_4.png",
+   "albedo": "albedoa_4_g.png",
    "cutout": true,
-   "mr": "mr_5.jpg",
-   "name": "Dirty.209"
+   "mr": "mr_5_g.jpg",
+   "name": "Dirty.209",
+   "grungeSrc": {
+    "albedo": "albedoa_4.png",
+    "mr": "mr_5.jpg"
+   }
   },
   {
-   "albedo": "albedoa_7.png",
+   "albedo": "albedoa_7_g.png",
    "cutout": true,
-   "mr": "mr_8.jpg",
-   "name": "Dirty.210"
+   "mr": "mr_8_g.jpg",
+   "name": "Dirty.210",
+   "grungeSrc": {
+    "albedo": "albedoa_7.png",
+    "mr": "mr_8.jpg"
+   }
   }
  ],
  "parts": [
@@ -41,12 +53,12 @@
    "bmax": [
     0.3186511993408203,
     2.7079665660858154,
-    0.026834487915039063
+    0.026834487915039062
    ],
    "bmin": [
     -0.3186511993408203,
     2.071373701095581,
-    0.026834487915039063
+    0.026834487915039062
    ],
    "count": 30,
    "first": 0,
@@ -93,12 +105,12 @@
    "bmax": [
     0.3186511993408203,
     2.839752435684204,
-    0.026834487915039063
+    0.026834487915039062
    ],
    "bmin": [
     -0.3186511993408203,
     0.0,
-    -0.026834487915039063
+    -0.026834487915039062
    ],
    "count": 228,
    "first": 60,
@@ -120,5 +132,14 @@
  "source": "mod_sign_no_left_turn.glb",
  "textures": {},
  "triangles": 96,
- "vertices": 168
+ "vertices": 168,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "Dirty.208": "metal",
+   "Dirty.209": "metal",
+   "Dirty.210": "metal"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

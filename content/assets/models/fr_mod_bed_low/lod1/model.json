@@ -12,9 +12,13 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_0.jpg",
-   "mr": "mr_1.jpg",
-   "name": "Material_0"
+   "albedo": "albedo_0_g.jpg",
+   "mr": "mr_1_g.jpg",
+   "name": "Material_0",
+   "grungeSrc": {
+    "albedo": "albedo_0.jpg",
+    "mr": "mr_1.jpg"
+   }
   }
  ],
  "parts": [

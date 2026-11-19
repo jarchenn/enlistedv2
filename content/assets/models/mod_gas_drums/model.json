@@ -12,11 +12,15 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_2.jpg",
+   "albedo": "albedo_2_g.jpg",
    "aoInMR": true,
-   "mr": "mr_1.jpg",
+   "mr": "mr_1_g.jpg",
    "name": "Atributs.002",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_2.jpg",
+    "mr": "mr_1.jpg"
+   }
   }
  ],
  "parts": [
@@ -57,5 +61,12 @@
  "source": "mod_gas_drums.glb",
  "textures": {},
  "triangles": 2412,
- "vertices": 2346
+ "vertices": 2346,
+ "grunge": {
+  "strength": 1.0,
+  "kinds": {
+   "Atributs.002": "metal"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

@@ -12,10 +12,14 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.png",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "Hardcase",
-   "normal": "normal_0.png"
+   "normal": "normal_0.png",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.png"
+   }
   }
  ],
  "parts": [
@@ -290,5 +294,12 @@
  "source": "modern_case.glb",
  "textures": {},
  "triangles": 14343,
- "vertices": 13402
+ "vertices": 13402,
+ "grunge": {
+  "strength": 1.0,
+  "kinds": {
+   "Hardcase": "generic"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

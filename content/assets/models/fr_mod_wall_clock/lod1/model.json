@@ -12,10 +12,14 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "wall_clock",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   },
   {
    "cutout": true,

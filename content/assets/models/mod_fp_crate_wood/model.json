@@ -62,7 +62,7 @@
  "triangles": 192,
  "vertices": 356,
  "grunge": {
-  "strength": 1.0,
+  "strength": 1.4,
   "kinds": {
    "Crate": "wood"
   },

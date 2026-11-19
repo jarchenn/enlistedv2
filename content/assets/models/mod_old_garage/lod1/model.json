@@ -12,40 +12,64 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
+   "albedo": "albedo_1_g.jpg",
    "name": "Material #2100603827",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg"
+   }
   },
   {
-   "albedo": "albedo_2.jpg",
-   "name": "Material #2100603823"
+   "albedo": "albedo_2_g.jpg",
+   "name": "Material #2100603823",
+   "grungeSrc": {
+    "albedo": "albedo_2.jpg"
+   }
   },
   {
-   "albedo": "albedo_3.jpg",
-   "name": "Material #2100603825"
+   "albedo": "albedo_3_g.jpg",
+   "name": "Material #2100603825",
+   "grungeSrc": {
+    "albedo": "albedo_3.jpg"
+   }
   },
   {
-   "albedo": "albedo_4.jpg",
-   "name": "Material #2100603826"
+   "albedo": "albedo_4_g.jpg",
+   "name": "Material #2100603826",
+   "grungeSrc": {
+    "albedo": "albedo_4.jpg"
+   }
   },
   {
-   "albedo": "albedo_1.jpg",
+   "albedo": "albedo_1_g.jpg",
    "name": "Material #2100603822",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg"
+   }
   },
   {
-   "albedo": "albedo_6.jpg",
+   "albedo": "albedo_6_g.jpg",
    "name": "Material #2100603820",
-   "normal": "normal_5.jpg"
+   "normal": "normal_5.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_6.jpg"
+   }
   },
   {
-   "albedo": "albedo_8.jpg",
+   "albedo": "albedo_8_g.jpg",
    "name": "Material #2100603821",
-   "normal": "normal_7.jpg"
+   "normal": "normal_7.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_8.jpg"
+   }
   },
   {
-   "albedo": "albedo_9.jpg",
-   "name": "Material #2100603824"
+   "albedo": "albedo_9_g.jpg",
+   "name": "Material #2100603824",
+   "grungeSrc": {
+    "albedo": "albedo_9.jpg"
+   }
   }
  ],
  "parts": [

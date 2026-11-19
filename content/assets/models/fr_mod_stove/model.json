@@ -12,10 +12,14 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "electric_stove",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   },
   {
    "albedo": "albedoa_3.png",
@@ -89,5 +93,13 @@
  "source": "frsrc_electric_stove.glb",
  "textures": {},
  "triangles": 6971,
- "vertices": 6790
+ "vertices": 6790,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "electric_stove": "generic",
+   "electric_stove_glass": "skip"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

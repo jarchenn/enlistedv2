@@ -12,74 +12,114 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_2.jpg",
+   "albedo": "albedo_2_g.jpg",
    "aoInMR": true,
-   "mr": "mr_1.jpg",
+   "mr": "mr_1_g.jpg",
    "name": "Boru",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_2.jpg",
+    "mr": "mr_1.jpg"
+   }
   },
   {
-   "albedo": "albedo_5.jpg",
+   "albedo": "albedo_5_g.jpg",
    "aoInMR": true,
-   "mr": "mr_4.jpg",
+   "mr": "mr_4_g.jpg",
    "name": "material.001",
-   "normal": "normal_3.jpg"
+   "normal": "normal_3.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_5.jpg",
+    "mr": "mr_4.jpg"
+   }
   },
   {
-   "albedo": "albedo_8.jpg",
+   "albedo": "albedo_8_g.jpg",
    "aoInMR": true,
-   "mr": "mr_7.jpg",
+   "mr": "mr_7_g.jpg",
    "name": "Wire",
-   "normal": "normal_6.jpg"
+   "normal": "normal_6.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_8.jpg",
+    "mr": "mr_7.jpg"
+   }
   },
   {
-   "albedo": "albedo_11.jpg",
+   "albedo": "albedo_11_g.jpg",
    "aoInMR": true,
-   "mr": "mr_10.jpg",
+   "mr": "mr_10_g.jpg",
    "name": "Pervazlar",
-   "normal": "normal_9.jpg"
+   "normal": "normal_9.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_11.jpg",
+    "mr": "mr_10.jpg"
+   }
   },
   {
-   "albedo": "albedo_14.jpg",
+   "albedo": "albedo_14_g.jpg",
    "aoInMR": true,
-   "mr": "mr_13.jpg",
+   "mr": "mr_13_g.jpg",
    "name": "Bunker",
-   "normal": "normal_12.jpg"
+   "normal": "normal_12.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_14.jpg",
+    "mr": "mr_13.jpg"
+   }
   },
   {
-   "albedo": "albedo_17.jpg",
+   "albedo": "albedo_17_g.jpg",
    "aoInMR": true,
-   "mr": "mr_16.jpg",
+   "mr": "mr_16_g.jpg",
    "name": "Metals",
-   "normal": "normal_15.jpg"
+   "normal": "normal_15.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_17.jpg",
+    "mr": "mr_16.jpg"
+   }
   },
   {
-   "albedo": "albedo_20.jpg",
+   "albedo": "albedo_20_g.jpg",
    "aoInMR": true,
-   "mr": "mr_19.jpg",
+   "mr": "mr_19_g.jpg",
    "name": "Varil",
-   "normal": "normal_18.jpg"
+   "normal": "normal_18.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_20.jpg",
+    "mr": "mr_19.jpg"
+   }
   },
   {
-   "albedo": "albedo_23.jpg",
+   "albedo": "albedo_23_g.jpg",
    "aoInMR": true,
-   "mr": "mr_22.jpg",
+   "mr": "mr_22_g.jpg",
    "name": "Kaldirim",
-   "normal": "normal_21.jpg"
+   "normal": "normal_21.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_23.jpg",
+    "mr": "mr_22.jpg"
+   }
   },
   {
-   "albedo": "albedo_26.jpg",
+   "albedo": "albedo_26_g.jpg",
    "aoInMR": true,
-   "mr": "mr_25.jpg",
+   "mr": "mr_25_g.jpg",
    "name": "cZeminb.001",
-   "normal": "normal_24.jpg"
+   "normal": "normal_24.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_26.jpg",
+    "mr": "mr_25.jpg"
+   }
   },
   {
-   "albedo": "albedo_29.jpg",
+   "albedo": "albedo_29_g.jpg",
    "aoInMR": true,
-   "mr": "mr_28.jpg",
+   "mr": "mr_28_g.jpg",
    "name": "Ground",
-   "normal": "normal_27.jpg"
+   "normal": "normal_27.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_29.jpg",
+    "mr": "mr_28.jpg"
+   }
   }
  ],
  "parts": [
@@ -354,5 +394,21 @@
  "source": "mod_security_hut.glb",
  "textures": {},
  "triangles": 1700,
- "vertices": 2176
+ "vertices": 2176,
+ "grunge": {
+  "strength": 1.0,
+  "kinds": {
+   "Boru": "generic",
+   "material.001": "generic",
+   "Wire": "generic",
+   "Pervazlar": "generic",
+   "Bunker": "generic",
+   "Metals": "metal",
+   "Varil": "generic",
+   "Kaldirim": "generic",
+   "cZeminb.001": "generic",
+   "Ground": "generic"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

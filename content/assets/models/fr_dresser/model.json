@@ -12,10 +12,14 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "WoodenTable_03",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   }
  ],
  "parts": [
@@ -56,5 +60,12 @@
  "source": "frsrc_woodentable_03.glb",
  "textures": {},
  "triangles": 1149,
- "vertices": 1591
+ "vertices": 1591,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "WoodenTable_03": "wood"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

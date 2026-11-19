@@ -19,18 +19,26 @@
    "normal": "normal_0.jpg"
   },
   {
-   "albedo": "albedo_5.jpg",
+   "albedo": "albedo_5_g.jpg",
    "aoInMR": true,
-   "mr": "mr_4.jpg",
+   "mr": "mr_4_g.jpg",
    "name": "Brown_Wood",
-   "normal": "normal_3.jpg"
+   "normal": "normal_3.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_5.jpg",
+    "mr": "mr_4.jpg"
+   }
   },
   {
-   "albedo": "albedo_8.jpg",
+   "albedo": "albedo_8_g.jpg",
    "aoInMR": true,
-   "mr": "mr_7.jpg",
+   "mr": "mr_7_g.jpg",
    "name": "Blue_Wood",
-   "normal": "normal_6.jpg"
+   "normal": "normal_6.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_8.jpg",
+    "mr": "mr_7.jpg"
+   }
   },
   {
    "albedo": "albedo_11.jpg",

@@ -12,9 +12,13 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_0.jpg",
-   "mr": "mr_1.png",
-   "name": "Body.008"
+   "albedo": "albedo_0_g.jpg",
+   "mr": "mr_1_g.jpg",
+   "name": "Body.008",
+   "grungeSrc": {
+    "albedo": "albedo_0.jpg",
+    "mr": "mr_1.png"
+   }
   },
   {
    "albedo": "albedo_2.jpg",
@@ -24,9 +28,13 @@
    "name": "Glass.008"
   },
   {
-   "albedo": "albedo_3.jpg",
-   "mr": "mr_4.png",
-   "name": "Wheel.007"
+   "albedo": "albedo_3_g.jpg",
+   "mr": "mr_4_g.jpg",
+   "name": "Wheel.007",
+   "grungeSrc": {
+    "albedo": "albedo_3.jpg",
+    "mr": "mr_4.png"
+   }
   }
  ],
  "parts": [
@@ -327,5 +335,14 @@
  "source": "car_suv.glb",
  "textures": {},
  "triangles": 4821,
- "vertices": 4122
+ "vertices": 4122,
+ "grunge": {
+  "strength": 0.8,
+  "kinds": {
+   "Body.008": "metal",
+   "Optics.008": "skip",
+   "Wheel.007": "generic"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

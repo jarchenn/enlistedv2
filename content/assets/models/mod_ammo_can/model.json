@@ -12,11 +12,15 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_0.jpg",
+   "albedo": "albedo_0_g.jpg",
    "aoInMR": true,
-   "mr": "mr_1.png",
+   "mr": "mr_1_g.jpg",
    "name": "lambert1",
-   "normal": "normal_2.png"
+   "normal": "normal_2.png",
+   "grungeSrc": {
+    "albedo": "albedo_0.jpg",
+    "mr": "mr_1.png"
+   }
   }
  ],
  "parts": [
@@ -317,5 +321,12 @@
  "source": "ammo_box.glb",
  "textures": {},
  "triangles": 3205,
- "vertices": 3318
+ "vertices": 3318,
+ "grunge": {
+  "strength": 1.0,
+  "kinds": {
+   "lambert1": "metal"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

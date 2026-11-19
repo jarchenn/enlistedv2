@@ -62,7 +62,7 @@
  "triangles": 1364,
  "vertices": 1470,
  "grunge": {
-  "strength": 0.6,
+  "strength": 1.2,
   "kinds": {
    "Tables": "metal"
   },

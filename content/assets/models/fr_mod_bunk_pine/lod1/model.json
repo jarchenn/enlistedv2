@@ -12,9 +12,12 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
+   "albedo": "albedo_1_g.jpg",
    "ao": "ao_0.jpg",
-   "name": "None"
+   "name": "None",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg"
+   }
   },
   {
    "albedo": "albedo_3.jpg",
@@ -42,9 +45,12 @@
    "name": "None_Pillows_Top_Diffuse"
   },
   {
-   "albedo": "albedo_13.jpg",
+   "albedo": "albedo_13_g.jpg",
    "ao": "ao_12.jpg",
-   "name": "None_Untitled"
+   "name": "None_Untitled",
+   "grungeSrc": {
+    "albedo": "albedo_13.jpg"
+   }
   }
  ],
  "parts": [

@@ -12,28 +12,44 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "Body",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   },
   {
-   "albedo": "albedo_4.jpg",
-   "mr": "mr_5.jpg",
+   "albedo": "albedo_4_g.jpg",
+   "mr": "mr_5_g.jpg",
    "name": "Foot_1",
-   "normal": "normal_3.jpg"
+   "normal": "normal_3.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_4.jpg",
+    "mr": "mr_5.jpg"
+   }
   },
   {
-   "albedo": "albedo_7.jpg",
-   "mr": "mr_8.jpg",
+   "albedo": "albedo_7_g.jpg",
+   "mr": "mr_8_g.jpg",
    "name": "Foot_2",
-   "normal": "normal_6.jpg"
+   "normal": "normal_6.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_7.jpg",
+    "mr": "mr_8.jpg"
+   }
   },
   {
-   "albedo": "albedo_10.jpg",
-   "mr": "mr_11.jpg",
+   "albedo": "albedo_10_g.jpg",
+   "mr": "mr_11_g.jpg",
    "name": "material",
-   "normal": "normal_9.jpg"
+   "normal": "normal_9.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_10.jpg",
+    "mr": "mr_11.jpg"
+   }
   }
  ],
  "parts": [
@@ -152,5 +168,15 @@
  "source": "frsrc_u_chair_white.glb",
  "textures": {},
  "triangles": 9328,
- "vertices": 5578
+ "vertices": 5578,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "Body": "metal",
+   "Foot_1": "generic",
+   "Foot_2": "generic",
+   "material": "generic"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

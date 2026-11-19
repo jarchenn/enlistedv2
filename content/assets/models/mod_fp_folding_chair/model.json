@@ -12,10 +12,14 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "Vent__chair",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   }
  ],
  "parts": [
@@ -56,5 +60,12 @@
  "source": "mod_fp_folding_chair.glb",
  "textures": {},
  "triangles": 1702,
- "vertices": 1457
+ "vertices": 1457,
+ "grunge": {
+  "strength": 0.9,
+  "kinds": {
+   "Vent__chair": "metal"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

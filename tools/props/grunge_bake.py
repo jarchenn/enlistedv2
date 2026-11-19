@@ -10,7 +10,9 @@
 # written next to the originals (and into lod1/ when it has the same files). model.json then names the baked files and
 # keeps the originals in "grungeSrc", so a re-run starts from the originals again (repeatable).
 #   blender -b --factory-startup --python tools/props/grunge_bake.py -- --masks <dir> [--strength S] [--res-cap N] id [id ...]
-#   --config tools/props/grunge_assets.json (default): per-asset {"strength": s, "kinds": {material: kind}, "skip": bool}
+#   --config tools/props/grunge_assets.json (default): per-asset {"strength": s, "kinds": {material: kind}, "skip": bool};
+#   "materialKinds" (material name -> kind, every asset), "prefixes" (id prefix -> {"strength"}), "skipAssets" (id regexes)
+#   --list <file>: bake the ids in a file (one per line) instead of the config's assets
 #   --restore: put the originals back (model.json only; the baked files stay on disk)
 # Masks: Texturelabs grunge images (local only, never committed: docs/credits.md). Kinds: metal, wood, masonry, generic, skip.
 import bpy, sys, os, json, struct, array, math, re, shutil
@@ -29,12 +31,13 @@ while i < len(argv):
     else: ids.append(a)
     i += 1
 cfg = json.load(open(opt["config"], encoding="utf-8")) if os.path.exists(opt["config"]) else {}
+if opt.get("list"): ids += [l.strip() for l in open(opt["list"], encoding="utf-8") if l.strip() and not l.startswith("#")]
 if not ids: ids = [k for k in cfg.get("assets", {})]
 
 CHIP = {"metal": ["293", "331", "338i"], "wood": ["342", "293", "338i"], "generic": ["331", "338i", "293"]}
 DIRT = ["308", "327", "348", "323"]
-SKIP_RE = re.compile(r"glass|window|optic|lamp|light|emiss|leaf|leaves|foliage|plant|grass|cloth|fabric|curtain|sack|cushion|tyre_side|decal|screen", re.I)
-KIND_RE = [("wood", re.compile(r"wood|plank|crate|pallet|timber|board|ladder", re.I)),
+SKIP_RE = re.compile(r"glass|window|optic|lamp|light|emiss|flame|leaf|leaves|foliage|plant|grass|cloth|fabric|curtain|sack|juta|cushion|pillow|mattres|matress|blanket|sofa|soft|leather|tyre_side|decal|screen|artwork|mirror", re.I)
+KIND_RE = [("wood", re.compile(r"wood|plank|crate|pallet|timber|board|ladder|wine_barrel|bucket|chest|shelf|stool|commode|dresser|nightstand|piano|clock|gothic", re.I)),
            ("masonry", re.compile(r"wall|brick|concrete|cement|plaster|stone|render|block", re.I)),
            ("metal", re.compile(r"metal|steel|iron|locker|barrel|drum|container|generator|shel|rack|pipe|door|body|tank|cylinder|vent|lpg|sign|post|table", re.I))]
 
@@ -92,6 +95,8 @@ def load_mesh(d):
 
 def kind_of(mname, mj, a_id, over):
     if mname in over: return over[mname]
+    gk = cfg.get("materialKinds", {})
+    if mname in gk: return gk[mname]
     if not mj.get("albedo"): return "skip"
     if SKIP_RE.search(mname): return "skip"
     for k, rx in KIND_RE:
@@ -166,13 +171,13 @@ def build(mat, kind, alb, mr, aoInMR, seed, strength):
     if kind in ("metal", "wood", "generic"):
         codes = CHIP[kind]; ccode = codes[fnv(seed + "c") % len(codes)]
         lo = 0.75 - 0.3 * s
-        raw = g.mask(ccode, 0.55, seed, "c")
+        raw = g.mask(ccode, 0.45 + 0.55 * rnd(seed, "cs"), seed, "c")   # chip size varies by asset (mask tile ~1-2 m)
         chip = g.ramp(raw, lo, lo + 0.3)
         edgeB = g.math("MULTIPLY", edge, g.ramp(raw, lo - 0.3, lo))   # edges wear only where the mask already leans to a chip (thin parts are all "edge")
         worn = g.math("MAXIMUM", g.math("MULTIPLY", edgeB, 0.9 if kind != "generic" else 0.6), chip)
         if kind == "metal":   # paint chipped to rust, two rust tones by a slow noise
             rn = N.new("ShaderNodeTexNoise"); g.L.new(g.tc.outputs["Object"], rn.inputs["Vector"]); rn.inputs["Scale"].default_value = 3.0
-            bare = g.mix(rn.outputs["Fac"], g.rgb((0.20, 0.10, 0.06)), g.rgb((0.11, 0.065, 0.045)))
+            bare = g.mix(rn.outputs["Fac"], g.rgb((0.14, 0.085, 0.06)), g.rgb((0.075, 0.055, 0.045)))   # muted rust (reads as rust, not orange paint)
         elif kind == "wood":
             bare = g.rgb((0.30, 0.21, 0.13))
         else:   # scuffed: the surface lighter and greyer
@@ -180,9 +185,9 @@ def build(mat, kind, alb, mr, aoInMR, seed, strength):
         col = g.mix(worn, col, bare)
     else:   # masonry: cracks and run-off streaks, no chips
         cr = g.ramp(g.mask("312", 0.4, seed, "k"), 0.55, 0.25)   # black hairlines -> 1
-        col = g.mix(g.math("MULTIPLY", cr, 0.5 * s), col, g.math("MULTIPLY", base, 0.45))
+        col = g.mix(g.math("MULTIPLY", cr, 0.7 * s, clamp=True), col, g.math("MULTIPLY", base, 0.4))
         st = g.ramp(g.mask("293", 0.3, seed, "s"), 0.35, 0.8)   # vertical streaks
-        dirt = g.math("MAXIMUM", dirt, g.math("MULTIPLY", st, 0.45 * s), clamp=True)
+        dirt = g.math("MAXIMUM", dirt, g.math("MULTIPLY", st, 0.75 * s), clamp=True)
     col = g.mix(dirt, col, g.rgb((0.03, 0.024, 0.018)))
     g.L.new(col, em.inputs["Color"])
     nodes = {"col": col}
@@ -218,8 +223,11 @@ def do_asset(a_id):
             if src: m.update(src)
         j.pop("grunge", None)
         json.dump(j, open(jp, "w", encoding="utf-8"), indent=1); restore_lod(d, j); print(a_id, "restored"); return
+    for pat in cfg.get("skipAssets", []):
+        if re.fullmatch(pat, a_id): print(a_id, "skipped (skipAssets %s)" % pat); return
     if ac.get("skip"): print(a_id, "skipped (config)"); return
-    strength = float(opt["strength"]) if opt["strength"] is not None else float(ac.get("strength", 1.0))
+    pdef = next((v for k, v in cfg.get("prefixes", {}).items() if a_id.startswith(k)), {})
+    strength = float(opt["strength"]) if opt["strength"] is not None else float(ac.get("strength", pdef.get("strength", 1.0)))
     over = ac.get("kinds", {})
     clear_scene()
     f, I = load_mesh(d)

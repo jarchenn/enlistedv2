@@ -12,9 +12,13 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_0.jpg",
-   "mr": "mr_1.jpg",
-   "name": "Material_0"
+   "albedo": "albedo_0_g.jpg",
+   "mr": "mr_1_g.jpg",
+   "name": "Material_0",
+   "grungeSrc": {
+    "albedo": "albedo_0.jpg",
+    "mr": "mr_1.jpg"
+   }
   }
  ],
  "parts": [
@@ -55,5 +59,12 @@
  "source": "frsrc_u_bed_low.glb",
  "textures": {},
  "triangles": 19982,
- "vertices": 10341
+ "vertices": 10341,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "Material_0": "generic"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

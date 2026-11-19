@@ -12,10 +12,14 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "modern_arm_chair_01_legs",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   },
   {
    "albedo": "albedo_4.jpg",
@@ -88,5 +92,13 @@
  "source": "frsrc_modern_arm_chair_01.glb",
  "textures": {},
  "triangles": 4458,
- "vertices": 3349
+ "vertices": 3349,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "modern_arm_chair_01_legs": "generic",
+   "modern_arm_chair_01_pillow": "skip"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

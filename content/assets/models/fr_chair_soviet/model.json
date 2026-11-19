@@ -12,11 +12,15 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_2.jpg",
+   "albedo": "albedo_2_g.jpg",
    "aoInMR": true,
-   "mr": "mr_1.jpg",
+   "mr": "mr_1_g.jpg",
    "name": "Scene_-_Root",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_2.jpg",
+    "mr": "mr_1.jpg"
+   }
   }
  ],
  "parts": [
@@ -57,5 +61,12 @@
  "source": "frsrc_u_chair_soviet.glb",
  "textures": {},
  "triangles": 564,
- "vertices": 760
+ "vertices": 760,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "Scene_-_Root": "wood"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

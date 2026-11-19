@@ -12,11 +12,15 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_2.jpg",
+   "albedo": "albedo_2_g.jpg",
    "aoInMR": true,
-   "mr": "mr_1.jpg",
+   "mr": "mr_1_g.jpg",
    "name": "phong1",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_2.jpg",
+    "mr": "mr_1.jpg"
+   }
   }
  ],
  "parts": [
@@ -57,5 +61,12 @@
  "source": "frsrc_u_tv_led.glb",
  "textures": {},
  "triangles": 178,
- "vertices": 174
+ "vertices": 174,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "phong1": "generic"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

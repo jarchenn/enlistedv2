@@ -12,10 +12,14 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "vintage_microwave",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   },
   {
    "albedo": "albedoa_3.png",
@@ -89,5 +93,13 @@
  "source": "frsrc_vintage_microwave.glb",
  "textures": {},
  "triangles": 4059,
- "vertices": 3408
+ "vertices": 3408,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "vintage_microwave": "generic",
+   "vintage_microwave_glass": "skip"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

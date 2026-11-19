@@ -62,7 +62,7 @@
  "triangles": 8912,
  "vertices": 9316,
  "grunge": {
-  "strength": 1.0,
+  "strength": 1.5,
   "kinds": {
    "Scene_-_Root": "masonry"
   },

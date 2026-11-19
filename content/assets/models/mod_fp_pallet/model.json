@@ -63,7 +63,7 @@
  "triangles": 348,
  "vertices": 639,
  "grunge": {
-  "strength": 1.0,
+  "strength": 1.4,
   "kinds": {
    "Misc_01": "wood"
   },

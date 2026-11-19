@@ -12,18 +12,26 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_3.jpg",
+   "albedo": "albedo_3_g.jpg",
    "aoInMR": true,
-   "mr": "mr_2.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "Synthesizer_Piano",
-   "normal": "normal_1.jpg"
+   "normal": "normal_1.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_3.jpg",
+    "mr": "mr_2.jpg"
+   }
   },
   {
-   "albedo": "albedo_6.jpg",
+   "albedo": "albedo_6_g.jpg",
    "aoInMR": true,
-   "mr": "mr_5.jpg",
+   "mr": "mr_5_g.jpg",
    "name": "Synthesizer_Stand",
-   "normal": "normal_4.jpg"
+   "normal": "normal_4.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_6.jpg",
+    "mr": "mr_5.jpg"
+   }
   }
  ],
  "parts": [
@@ -90,5 +98,13 @@
  "source": "frsrc_u_synth.glb",
  "textures": {},
  "triangles": 2004,
- "vertices": 2373
+ "vertices": 2373,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "Synthesizer_Piano": "wood",
+   "Synthesizer_Stand": "generic"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

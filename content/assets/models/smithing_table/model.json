@@ -12,60 +12,92 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_2.jpg",
+   "albedo": "albedo_2_g.jpg",
    "aoInMR": true,
-   "mr": "mr_1.jpg",
+   "mr": "mr_1_g.jpg",
    "name": "Cabinet",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_2.jpg",
+    "mr": "mr_1.jpg"
+   }
   },
   {
-   "albedo": "albedo_5.jpg",
+   "albedo": "albedo_5_g.jpg",
    "aoInMR": true,
-   "mr": "mr_4.jpg",
+   "mr": "mr_4_g.jpg",
    "name": "Chisel",
-   "normal": "normal_3.jpg"
+   "normal": "normal_3.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_5.jpg",
+    "mr": "mr_4.jpg"
+   }
   },
   {
-   "albedo": "albedo_8.jpg",
+   "albedo": "albedo_8_g.jpg",
    "aoInMR": true,
-   "mr": "mr_7.jpg",
+   "mr": "mr_7_g.jpg",
    "name": "Hammer",
-   "normal": "normal_6.jpg"
+   "normal": "normal_6.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_8.jpg",
+    "mr": "mr_7.jpg"
+   }
   },
   {
-   "albedo": "albedo_11.jpg",
+   "albedo": "albedo_11_g.jpg",
    "aoInMR": true,
-   "mr": "mr_10.jpg",
+   "mr": "mr_10_g.jpg",
    "name": "material_0",
-   "normal": "normal_9.jpg"
+   "normal": "normal_9.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_11.jpg",
+    "mr": "mr_10.jpg"
+   }
   },
   {
-   "albedo": "albedo_14.jpg",
+   "albedo": "albedo_14_g.jpg",
    "aoInMR": true,
-   "mr": "mr_13.jpg",
+   "mr": "mr_13_g.jpg",
    "name": "HandAxe",
-   "normal": "normal_12.jpg"
+   "normal": "normal_12.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_14.jpg",
+    "mr": "mr_13.jpg"
+   }
   },
   {
-   "albedo": "albedo_17.jpg",
+   "albedo": "albedo_17_g.jpg",
    "aoInMR": true,
-   "mr": "mr_16.jpg",
+   "mr": "mr_16_g.jpg",
    "name": "Mallet",
-   "normal": "normal_15.jpg"
+   "normal": "normal_15.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_17.jpg",
+    "mr": "mr_16.jpg"
+   }
   },
   {
-   "albedo": "albedo_20.jpg",
+   "albedo": "albedo_20_g.jpg",
    "aoInMR": true,
-   "mr": "mr_19.jpg",
+   "mr": "mr_19_g.jpg",
    "name": "Right_Edge",
-   "normal": "normal_18.jpg"
+   "normal": "normal_18.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_20.jpg",
+    "mr": "mr_19.jpg"
+   }
   },
   {
-   "albedo": "albedo_23.jpg",
+   "albedo": "albedo_23_g.jpg",
    "aoInMR": true,
-   "mr": "mr_22.jpg",
+   "mr": "mr_22_g.jpg",
    "name": "material",
-   "normal": "normal_21.jpg"
+   "normal": "normal_21.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_23.jpg",
+    "mr": "mr_22.jpg"
+   }
   }
  ],
  "parts": [
@@ -288,5 +320,19 @@
  "source": "smithing_table.glb",
  "textures": {},
  "triangles": 8268,
- "vertices": 18128
+ "vertices": 18128,
+ "grunge": {
+  "strength": 1.0,
+  "kinds": {
+   "Cabinet": "metal",
+   "Chisel": "metal",
+   "Hammer": "metal",
+   "material_0": "metal",
+   "HandAxe": "metal",
+   "Mallet": "metal",
+   "Right_Edge": "metal",
+   "material": "generic"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

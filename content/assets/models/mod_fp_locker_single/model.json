@@ -12,9 +12,13 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_0.jpg",
-   "mr": "mr_1.jpg",
-   "name": "Lockers"
+   "albedo": "albedo_0_g.jpg",
+   "mr": "mr_1_g.jpg",
+   "name": "Lockers",
+   "grungeSrc": {
+    "albedo": "albedo_0.jpg",
+    "mr": "mr_1.jpg"
+   }
   }
  ],
  "parts": [
@@ -55,5 +59,12 @@
  "source": "mod_fp_locker_single.glb",
  "textures": {},
  "triangles": 820,
- "vertices": 1089
+ "vertices": 1089,
+ "grunge": {
+  "strength": 0.9,
+  "kinds": {
+   "Lockers": "metal"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

@@ -62,7 +62,7 @@
  "triangles": 860,
  "vertices": 984,
  "grunge": {
-  "strength": 0.6,
+  "strength": 1.0,
   "kinds": {
    "Ladders": "metal"
   },

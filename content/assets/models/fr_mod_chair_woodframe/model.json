@@ -88,5 +88,13 @@
  "source": "frsrc_u_chair_woodframe.glb",
  "textures": {},
  "triangles": 1414,
- "vertices": 1314
+ "vertices": 1314,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "Sofa2": "skip",
+   "Sofa1": "skip"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

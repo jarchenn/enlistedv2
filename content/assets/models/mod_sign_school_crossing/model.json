@@ -12,22 +12,34 @@
  ],
  "materials": [
   {
-   "albedo": "albedoa_1.png",
+   "albedo": "albedoa_1_g.png",
    "cutout": true,
-   "mr": "mr_2.jpg",
-   "name": "Dirty.113"
+   "mr": "mr_2_g.jpg",
+   "name": "Dirty.113",
+   "grungeSrc": {
+    "albedo": "albedoa_1.png",
+    "mr": "mr_2.jpg"
+   }
   },
   {
-   "albedo": "albedoa_4.png",
+   "albedo": "albedoa_4_g.png",
    "cutout": true,
-   "mr": "mr_5.jpg",
-   "name": "Dirty.114"
+   "mr": "mr_5_g.jpg",
+   "name": "Dirty.114",
+   "grungeSrc": {
+    "albedo": "albedoa_4.png",
+    "mr": "mr_5.jpg"
+   }
   },
   {
-   "albedo": "albedoa_7.png",
+   "albedo": "albedoa_7_g.png",
    "cutout": true,
-   "mr": "mr_8.jpg",
-   "name": "Dirty.115"
+   "mr": "mr_8_g.jpg",
+   "name": "Dirty.115",
+   "grungeSrc": {
+    "albedo": "albedoa_7.png",
+    "mr": "mr_8.jpg"
+   }
   }
  ],
  "parts": [
@@ -120,5 +132,14 @@
  "source": "mod_sign_school_crossing.glb",
  "textures": {},
  "triangles": 96,
- "vertices": 175
+ "vertices": 175,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "Dirty.113": "metal",
+   "Dirty.114": "metal",
+   "Dirty.115": "metal"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

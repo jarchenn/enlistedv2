@@ -12,10 +12,14 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "Bar Chair",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   }
  ],
  "parts": [
@@ -56,5 +60,12 @@
  "source": "frsrc_bar_chair_round_01.glb",
  "textures": {},
  "triangles": 7186,
- "vertices": 5962
+ "vertices": 5962,
+ "grunge": {
+  "strength": 0.5,
+  "kinds": {
+   "Bar Chair": "metal"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }
