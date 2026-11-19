@@ -106,6 +106,9 @@ bool isHost(const App& app, const Instance& i) {
   return hostAsset(a) && a->footprint.x > 1.5f && a->footprint.y > 1.5f;
 }
 int styleOf(const App& app, const Instance& h, const AssetDef* a, uint64_t seed) {
+  // PR10: an asset may opt out ("dressing": "none"): the imported ruins with hundreds of collider parts stalled placement
+  // for minutes in the dressing pass (cause not found yet; NMK_NO_DRESSING showed it)
+  if (a->raw.is_object() && a->raw.value("dressing", std::string()) == "none") return -1;
   if (h.extra.is_object() && h.extra.contains("dressingStyle")) {
     std::string s = h.extra.value("dressingStyle", std::string());
     for (int k = 0; k < FS_COUNT; ++k) if (s == kStyleNames[k]) return k;

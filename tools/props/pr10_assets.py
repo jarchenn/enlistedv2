@@ -135,6 +135,16 @@ BUILDINGS = {
         walls=[], doors={}, holes={}, floor=[-5.0, 5.0, 5.0, 10.0, -0.12, 0.0],
         furnish=[("pa_crate_slatted", -18.0, -18.0, 20), ("mod_barrel_steel_rust", -22.0, -10.0, 0), ("pa_chest_wooden", 3.0, -14.0, 90),
                  ("pa_fruit_crate_high", -17.2, -16.9, 35), ("mod_debris_papers_scattered", 1.0, 8.0, 0)]),
+    # YN14R's destroyed log house (part 1; its "part2" is a separate house, they do not join): x0.6 (the storey 4.2 units:
+    # doors 2 m, rooms 2.5 m). Closed all round on the ground storey (scanned at 0.75 / 1.5 / 2.3 m: walls but for a
+    # front doorway, a side doorway and windows); colliders from its own geometry; the upper floor has no stair
+    "pa_log_house_ruin": dict(
+        name="Ruined log house", lic="glb", src="old_destroyed_home_part_1/old_destroyed_home_part_1.glb", scale=0.6, maxTex=2048,
+        auto_colliders={"cell": 0.5, "min_wall": 2.0, "min_rect": 0.75, "min_floor": 0.5, "min_rect_floor": 0.25},
+        desc="A collapsing two-storey log house with a lean-to: plank and log walls, broken windows, a holed roof and an unreachable upper floor; enterable through its open doorways.",
+        walls=[], doors={}, holes={}, floor=[-4.0, -3.0, -1.0, 0.0, 0.2, 0.25],
+        furnish=[("ph_old_bed_frame", -6.5, 1.5, 0), ("furn_chair_soviet", -2.5, -0.5, 30), ("mod_debris_stove", 0.6, 3.1, 0),
+                 ("furn_debris_plaster", -4.0, -2.0, 0), ("ph_wooden_bookshelf_worn", -3.0, 3.45, 180)]),
 }
 
 # props: piece = pr6_split options; group = the palette group; extra = asset JSON fields
@@ -234,6 +244,7 @@ def write(dl, glbs):
         B.setdefault("changes", "openings cut, colliders, baked / textures resized")
         committed, A = common(bid, B, side, "%s %.1f x %.1f m, %.1f m high." % (B["desc"], sx, sz, sy), {"lodDist": 40, "cullDist": 600})
         A["maxGrade"] = 2; A["nav"]["effect"] = "carve"
+        if B.get("auto_colliders"): A["dressing"] = "none"   # foundation dressing stalls on hundreds of collider parts (foundation.cpp)
         flag = {"v": 0} if committed else {"mf": 1}
         A["parts"] = [{"t": "b", "c": c[:3], "s": c[3:], "m": "collider", **flag} for c in side["colliders"]]
         pr8_openings.apply(A, m, {k: v[:3] + v[4:] for k, v in B["doors"].items()}, holes=list(B["holes"]), floor_visible=False)

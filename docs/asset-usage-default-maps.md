@@ -1998,6 +1998,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `pa_abandoned_shop` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `pa_rail_caboose` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `pa_warehouse` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `pa_log_house_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 
 ## Notes
 
