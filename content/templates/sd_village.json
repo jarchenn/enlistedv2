@@ -1,0 +1,125 @@
+{
+  "id": "sd_village",
+  "version": 1,
+  "order": 21,
+  "name": "Ashwood Hollow",
+  "available": true,
+  "seed": 4417,
+  "description": "Search and Destroy: a decaying hill village in a ring of dead pine forest, under a low sky at dusk. A: the churchyard on its knoll; B: the farmyard by the stone barn; Mid: the village square. 5 v 5.",
+  "width": 230.0,
+  "depth": 230.0,
+  "margin": 60,
+  "camera": {
+    "pos": [
+      0.0,
+      62.0,
+      -92.0
+    ],
+    "yaw": 0.0,
+    "pitch": -32.0
+  },
+  "heightmap": {
+    "file": "sd_village.height.png",
+    "nx": 116,
+    "nz": 116,
+    "min": 6,
+    "max": 21,
+    "org": [
+      -180.3922,
+      -180.3922
+    ],
+    "cell": 3.1372549019607843
+  },
+  "waterLevel": -1000.0,
+  "map": "sd_village.nmap.json",
+  "playable": true,
+  "thumbnail": "sd_village.thumb.png",
+  "thumbnailCamera": {
+    "pos": [
+      6.0,
+      13.061134668475301,
+      -8.0
+    ],
+    "yaw": 155.55604521958347,
+    "pitch": -4.0
+  },
+  "userMap": true,
+  "views": [
+    {
+      "name": "overview_high",
+      "pos": [
+        0.0,
+        62.0,
+        -92.0
+      ],
+      "yaw": 0.0,
+      "pitch": -32.0
+    },
+    {
+      "name": "square_eye",
+      "pos": [
+        0.0,
+        11.68,
+        -10.0
+      ],
+      "yaw": 180.0,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "a_site_eye",
+      "pos": [
+        -34.0,
+        12.25,
+        26.0
+      ],
+      "yaw": 120.96375653207352,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "b_site_eye",
+      "pos": [
+        36.0,
+        11.67,
+        14.0
+      ],
+      "yaw": -160.01689347810003,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "grave_path_eye",
+      "pos": [
+        -55.0,
+        11.31,
+        -36.0
+      ],
+      "yaw": 180.0,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "hollow_lane_eye",
+      "pos": [
+        48.0,
+        9.35,
+        -44.0
+      ],
+      "yaw": -166.8659776936037,
+      "pitch": 0.0,
+      "gameplay": true
+    },
+    {
+      "name": "main_street_eye",
+      "pos": [
+        2.0,
+        11.71,
+        -58.0
+      ],
+      "yaw": 176.98721249581666,
+      "pitch": 0.0,
+      "gameplay": true
+    }
+  ]
+}
