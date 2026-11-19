@@ -138,6 +138,18 @@ BUILDINGS = {
     # YN14R's destroyed log house (part 1; its "part2" is a separate house, they do not join): x0.6 (the storey 4.2 units:
     # doors 2 m, rooms 2.5 m). Closed all round on the ground storey (scanned at 0.75 / 1.5 / 2.3 m: walls but for a
     # front doorway, a side doorway and windows); colliders from its own geometry; the upper floor has no stair
+    # YN14R's destroyed home (part 2; a different house from part 1): an L-plan stone-and-log house on a 0.75-unit plinth.
+    # x0.62 (storey 3.9 units: 2.4 m). Its ground plate and the dead trees grown into it removed (the batch has its own
+    # dead trees); colliders from its own geometry; a concrete step at the side door (the plinth is 0.47 m)
+    "pa_stone_house_ruin": dict(
+        name="Ruined stone-and-log house", lic="glb", src="old_destroyed_home_part2/old_destroyed_home_part2.glb", scale=0.62, maxTex=2048,
+        delete_mats=["Plane__0", "bark"],
+        add_boxes=[{"box": [9.14, 10.1, -8.7, -7.0, 0.0, 0.4], "tex": "concrete_aged", "tile": 2.0}],
+        auto_colliders={"cell": 0.5, "min_wall": 2.0, "min_rect": 0.75, "min_floor": 0.5, "min_rect_floor": 0.25, "exclude": ["glass"]},
+        desc="A wrecked L-plan house of stone and logs on a high plinth: a rusted iron roof, broken windows and a collapsing upper floor; enterable by the step at its side door.",
+        walls=[], doors={}, holes={}, floor=[-4.0, -3.0, -1.0, 0.0, 0.7, 0.75],
+        furnish=[("ph_old_bed_frame", -4.0, -1.0, 90), ("mod_barrel_steel_rust", 5.0, -3.0, 0), ("furn_debris_glass", 0.0, 0.0, 0),
+                 ("pa_fruit_crate_low", 2.0, 1.0, 25), ("furn_chair_soviet", -1.0, -2.0, 140)]),
     "pa_log_house_ruin": dict(
         name="Ruined log house", lic="glb", src="old_destroyed_home_part_1/old_destroyed_home_part_1.glb", scale=0.6, maxTex=2048,
         auto_colliders={"cell": 0.5, "min_wall": 2.0, "min_rect": 0.75, "min_floor": 0.5, "min_rect_floor": 0.25},
