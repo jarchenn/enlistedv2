@@ -1,0 +1,6 @@
+{
+ "_doc": "TX3 draw distances per graphics preset (src/interior.cpp cullTier; Ultra Low uses Low, Custom uses Medium). furnSmall / furnBig: m from the eye past which a building's small / big furniture and room contents stop drawing (x the scope zoom; each piece +-15 % so a row never cuts at once). propPx: a small decorative (non-blocking) prop draws while its size spans at least this many pixels on screen (0 = off). casterR: m within which small props cast sun shadows. Pre-TX3: Low 24 / 50 / 0 / 14, Medium and High 32 / 75 / 0 / 14.",
+ "Low":    {"furnSmall": 18, "furnBig": 40, "propPx": 6, "casterR": 8},
+ "Medium": {"furnSmall": 26, "furnBig": 60, "propPx": 4, "casterR": 10},
+ "High":   {"furnSmall": 32, "furnBig": 75, "propPx": 2, "casterR": 14}
+}

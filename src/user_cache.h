@@ -10,5 +10,5 @@ enum UserCache { UC_THUMBS = 0, UC_FURNISH, UC_TEXBC, UC_COUNT };   // CACHE2: e
 const char* userCacheName(int c);
 void userCachePruneAsync();                                          // after loading: each cache back under its cap (unused 30 days first) on a thread
 uint64_t userCacheBytes(int c, bool rescan);                          // one cache's size (the last scan; rescan: count now)
-uint64_t userCacheCapBytes(int c);                                    // NMK_CACHE_CAP_<THUMBS|FURNISH|TEXBC>_MB; 300 / 300 / 3072 MB
+uint64_t userCacheCapBytes(int c);                                    // NMK_CACHE_CAP_<THUMBS|FURNISH|TEXBC>_MB; 300 / 300 / 6144 MB (TX3: 2K sets, was 3072)
 void userCacheClear();                                                // every cached file (each regenerates when next needed)

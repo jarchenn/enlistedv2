@@ -9,9 +9,8 @@
  "source": "https://ambientcg.com/a/GraffitiSet001",
  "license": "CC0 1.0 Universal",
  "credit": "ambientCG.com (CC0)",
- "resolution": "2K-JPG (supplied by the user), packed to 1K",
+ "resolution": "2K-JPG",
  "maps": [
-  "ao.jpg (the Opacity map)",
   "color.jpg",
   "height.jpg",
   "normal.jpg",

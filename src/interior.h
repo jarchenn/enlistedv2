@@ -110,6 +110,7 @@ public:
   void beginFrame() { ++visFrame_; roomHidden = roomTested = propDistCulled = 0; }   // App::buildDrawLists
   int roomHidden = 0, roomTested = 0, propDistCulled = 0;   // this frame (tests / reports)
   float lodDist = 18.0f, cullBig = 75.0f, cullSmall = 32.0f;
+  float curPropPx = 0, curCasterR = 14.0f;   // TX3: this frame's cull.json prop pixel limit (0 = off) and small-caster radius
   // P2 furniture rules. Furniture and interior props take no damage: rounds and blasts change nothing (ballistics still
   // stop at / pass through a piece as before); a piece whose floor or wall is destroyed, or that a tank drives over, is
   // removed (PropRT::gone). Tests of the old break machinery turn furnDestructible on.

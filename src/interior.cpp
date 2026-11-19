@@ -684,6 +684,25 @@ void InteriorSys::rebuildBatch(App& app, uint64_t host, Batch& b, const std::vec
   (void)host;
 }
 
+// TX3: per-preset distances (content/settings/cull.json): furniture small / big (m), small decorative props drawn while
+// they span propPx pixels (0 = off), small props' sun shadows within casterR m. Missing keys keep the pre-TX3 values
+struct CullTier { float furnSmall, furnBig, propPx, casterR; };
+static const CullTier& cullTier(GfxPreset ps) {
+  static CullTier t[3] = {{24, 50, 0, 14}, {32, 75, 0, 14}, {32, 75, 0, 14}};   // Low (and Ultra Low), Medium (and Custom), High
+  static bool loaded = false;
+  if (!loaded) {
+    loaded = true;
+    json j; try { j = json::parse(readTextFile(contentDir() / "settings" / "cull.json")); } catch (...) { logf("cull.json: missing or invalid, the pre-TX3 distances"); }
+    const char* nm[3] = {"Low", "Medium", "High"};
+    for (int k = 0; k < 3; ++k) if (j.contains(nm[k]) && j[nm[k]].is_object()) {
+      const json& c = j[nm[k]];
+      t[k].furnSmall = std::clamp(c.value("furnSmall", t[k].furnSmall), 4.0f, 400.0f); t[k].furnBig = std::clamp(c.value("furnBig", t[k].furnBig), t[k].furnSmall, 600.0f);
+      t[k].propPx = std::clamp(c.value("propPx", t[k].propPx), 0.0f, 32.0f); t[k].casterR = std::clamp(c.value("casterR", t[k].casterR), 0.0f, 200.0f);
+    }
+  }
+  return t[ps == GfxPreset::Low || ps == GfxPreset::UltraLow ? 0 : ps == GfxPreset::High ? 2 : 1];
+}
+
 void InteriorSys::updateBatches(App& app) {
   batchDraws = soloDraws = culledPieces = 0;
   if (!batching) {
@@ -695,8 +714,10 @@ void InteriorSys::updateBatches(App& app) {
     GfxPreset ps = settings().s.preset();
     float zoom = app.R.height > 0 ? std::clamp(app.lodPxPerM / (app.R.height * 0.5f * 1.43f), 1.0f, 8.0f) : 1.0f;   // 1 at a 70 degree FOV
     // High keeps Medium's distances: 45 / 100 m measured +1.4 ms of buildDrawLists on chateau_town for no visible gain
-    if (app.R.perf.furnDist) { curSmall = (ps == GfxPreset::Low || ps == GfxPreset::UltraLow ? 24.0f : cullSmall) * zoom; curBig = (ps == GfxPreset::Low || ps == GfxPreset::UltraLow ? 50.0f : cullBig) * zoom; }
+    const CullTier& ct = cullTier(ps);
+    if (app.R.perf.furnDist) { curSmall = ct.furnSmall * zoom; curBig = ct.furnBig * zoom; }
     else { curSmall = cullSmall; curBig = cullBig; }
+    curPropPx = ct.propPx > 0 ? ct.propPx : app.R.perf.propDist ? 3.0f : 0.0f; curCasterR = ct.casterR;
     lowClutter_ = app.R.perf.furnClutter && (ps == GfxPreset::Low || ps == GfxPreset::UltraLow);
   }
   // MEM1: a building's merged furniture batch exists only while its furniture can be drawn (within curBig, 1.2 / 1.5 x
@@ -791,14 +812,14 @@ bool InteriorSys::propDraw(App& app, const Instance& i, const InstanceRT& r, con
   // a stable per-piece factor 0.85..1.15: the distance limits below never cut a synchronised ring
   const float jit = 0.85f + 0.3f * (float)((i.id * 0x9E3779B97F4A7C15ull) >> 40 & 0xFFFF) / 65535.0f;
   // R2 propdist: a small decorative piece (non-blocking: never cover) is drawn while it spans >= ~3 px
-  if (app.R.perf.propDist && !pd->blocking && app.lodPxPerM > 0 && glm::length(pd->bmax - pd->bmin) * app.lodPxPerM < 3.0f * jit * std::max(d, 1.0f)) { ++culledPieces; ++propDistCulled; return true; }
+  if (curPropPx > 0 && !pd->blocking && app.lodPxPerM > 0 && glm::length(pd->bmax - pd->bmin) * app.lodPxPerM < curPropPx * jit * std::max(d, 1.0f)) { ++culledPieces; ++propDistCulled; return true; }
   bool hidden = false;   // R2 roomcull: furnished pieces only (their host is known)
   if (app.R.perf.roomCull && furnished && !s.broken) {
     auto& ho = hostOf_[i.id];
     if (ho.first != i.rev || !ho.second) { ho.first = i.rev; auto f = i.extra.find("furnish"); ho.second = f != i.extra.end() && f->is_object() ? f->value("host", (uint64_t)0) : 0; }
     hidden = ho.second && interiorHidden(app, ho.second, eye, *pd, M);
   }
-  const float castR = pd->smallCaster ? 14.0f * jit : 0.0f;   // R2 castercull: small props cast within ~14 m of the eye
+  const float castR = pd->smallCaster ? curCasterR * jit : 0.0f;   // R2 castercull: small props cast near the eye (TX3: cull.json casterR, was 14 m)
   struct Tag {   // stamps the items this piece pushes below (every return path)
     std::vector<DrawItem>& op; std::vector<DrawItem>& gl; size_t o, g; float c; bool h, n;
     ~Tag() { for (size_t k = o; k < op.size(); ++k) { op[k].castR = c; op[k].mainHidden = h; op[k].noFarCast = n; } for (size_t k = g; k < gl.size(); ++k) gl[k].mainHidden = h; }
