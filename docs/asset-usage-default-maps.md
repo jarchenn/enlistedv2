@@ -72,13 +72,13 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `drs_flower_bed` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 233 | 22 | not used | not used | not used | not used | not used | 233 | not used | not used |
 | `drs_garden_wall` | Dressing | as `line_garden_wall` | terrain-only base map | as `line_garden_wall` | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `drs_gate_piers` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 17 | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `drs_gravestone_cross` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 34 | 8 | not used | not used | not used | not used | not used | 33 | not used | 11 |
-| `drs_gravestone_round` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 64 | 15 | not used | not used | not used | not used | not used | 62 | not used | 16 |
+| `drs_gravestone_cross` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 34 | 8 | not used | not used | not used | not used | not used | 33 | not used | 7 |
+| `drs_gravestone_round` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 64 | 15 | not used | not used | not used | not used | not used | 62 | not used | 14 |
 | `drs_hay_bale_stack` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 77 | 13 | not used | not used | 1 | not used | not used | 84 | not used | not used |
 | `drs_picket_fence` | Dressing | as `line_picket_fence` | terrain-only base map | as `line_picket_fence` | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `drs_sandbag_ring` | Defences | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 7 | not used | not used | not used | not used | not used | not used | 6 | not used | not used |
 | `drs_sandbag_wall` | Defences | as `line_sandbag_wall` | terrain-only base map | as `line_sandbag_wall` | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `drs_tomb_chest` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 22 | 7 | not used | not used | not used | not used | not used | 23 | not used | 6 |
+| `drs_tomb_chest` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 22 | 7 | not used | not used | not used | not used | not used | 23 | not used | 7 |
 | `drs_well` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 19 | 3 | not used | not used | not used | not used | not used | 17 | not used | 1 |
 | `drs_wooden_x_obstacle` | Defences | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 32 | 30 | not used | not used | not used | not used | not used | 32 | not used | not used |
 | `drs_woodpile` | Dressing | excluded: B2 dressing (tools/catalog_dressing.mjs), the reworked buildings' companions in the editor; laid out on the chateau-town map (M1), not on Omaha | terrain-only base map | 86 | 11 | not used | not used | not used | not used | not used | 85 | not used | not used |
@@ -196,8 +196,8 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `gun_mg42_embrasure` | Field guns | 16: Every sandbag MG nest | terrain-only base map | not used | 10 | not used | not used | not used | not used | not used | not used | not used | not used |
 | `gun_pak40` | Field guns | 1: A: in the R667 (stands in for the 5 cm gun) | terrain-only base map | not used | 2 | not used | not used | not used | not used | not used | not used | not used | not used |
 | `hedgerow_bocage` | Vegetation | as `line_hedgerow` | terrain-only base map | as `line_hedgerow` | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `house_farmhouse_2story` | Houses | 4: Saint-Laurent | terrain-only base map | 9 | not used | not used | not used | not used | not used | not used | 9 | not used | 2 |
-| `house_stone_cottage` | Houses | 7: Saint-Laurent; the beach house on the sand shelf | terrain-only base map | 11 | 1 | not used | not used | not used | not used | not used | 11 | not used | 2 |
+| `house_farmhouse_2story` | Houses | 4: Saint-Laurent | terrain-only base map | 9 | not used | not used | not used | not used | not used | not used | 9 | not used | 4 |
+| `house_stone_cottage` | Houses | 7: Saint-Laurent; the beach house on the sand shelf | terrain-only base map | 11 | 1 | not used | not used | not used | not used | not used | 11 | not used | 5 |
 | `kit_demo_folly` | Landmarks | excluded: the B1 geometry-kit demonstration piece (docs/asset-format.md#b1-geometry-kit), not a period building | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `lamp_gas_street` | Lighting | not hand-placed: an editor placement for maps that want it (L3, docs/lights.md); the Beautify street_lamps role lines roads with it | terrain-only base map | 10 | 4 | not used | not used | not used | not used | not used | 10 | not used | not used |
 | `lamp_hanging_lantern` | Lighting | not hand-placed: generated with the room templates (L3 interior lighting, docs/lights.md): barns, workshops, stores, church naves | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -212,9 +212,9 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `line_concertina` | Lines | 5 | terrain-only base map | not used | 8 | not used | not used | not used | not used | not used | not used | not used | not used |
 | `line_knife_rest` | Lines | not used | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `line_minefield_fence` | Lines | 11 | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `line_post_wire_fence` | Lines | 4 | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used | 9 |
+| `line_post_wire_fence` | Lines | 4 | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used | 13 |
 | `line_picket_fence` | Lines | 16 | terrain-only base map | 177 | 30 | not used | not used | not used | not used | not used | 179 | not used | not used |
-| `line_stone_wall` | Lines | 6 | terrain-only base map | 126 | 25 | not used | not used | 9 | not used | not used | 107 | not used | 5 |
+| `line_stone_wall` | Lines | 6 | terrain-only base map | 126 | 25 | not used | not used | 9 | not used | not used | 107 | not used | 10 |
 | `line_garden_wall` | Lines | 7 | terrain-only base map | 23 | 10 | not used | not used | not used | not used | not used | 23 | not used | 1 |
 | `line_sandbag_wall` | Lines | not used | terrain-only base map | 12 | 9 | not used | not used | not used | 2 | not used | 11 | not used | not used |
 | `line_sandbag_low` | Lines | 99 | terrain-only base map | 8 | 21 | not used | not used | not used | 6 | 8 | 8 | not used | not used |
@@ -285,9 +285,9 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `rub_stone_pile_m` | Rubble | not placed: V3 rubble (Stone rubble pile (medium), docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | 1 | 2 | not used | not used | not used | not used | not used | not used | not used |
 | `rub_stone_pile_s` | Rubble | not placed: V3 rubble (Stone rubble pile (small), docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | 3 | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ruin_barn_burnt` | Ruins | not placed: V3 ruin (Burnt-out barn, docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `ruin_cottage_corner` | Ruins | not placed: V3 ruin (Ruined cottage corner, docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `ruin_cottage_corner` | Ruins | not placed: V3 ruin (Ruined cottage corner, docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
 | `ruin_farmhouse_gutted` | Ruins | not placed: V3 ruin (Gutted farmhouse shell, docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `ruin_house_shelled` | Ruins | not placed: V3 ruin (Shelled house (two storeys, roof collapsed), docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `ruin_house_shelled` | Ruins | not placed: V3 ruin (Shelled house (two storeys, roof collapsed), docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
 | `ruin_shop_row` | Ruins | not placed: V3 ruin (Half-collapsed shop terrace, docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ruin_townhouse_facade` | Ruins | not placed: V3 ruin (Bombed townhouse (facade only), docs/assets-mpu.md) | for hand-dressing and Beautify (content/settings/beautify.json) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `scn_treeline_a` | Scenery | not used: added with D-day (far forest silhouette) | terrain-only base map | not used | 25 | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -295,10 +295,10 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `scn_treeline_c` | Scenery | not used: added with D-day (far forest silhouette) | terrain-only base map | not used | 26 | not used | not used | not used | not used | not used | not used | not used | not used |
 | `shrub_bramble` | Vegetation | 3974: Bluff scrub (about 1 per 38 m2), draw undergrowth, dunes | terrain-only base map | 40 | 33 | not used | not used | 26 | not used | not used | 23 | not used | not used |
 | `shrub_hazel` | Vegetation | 1070: Bluff scrub, E-1 draw undergrowth | terrain-only base map | 346 | 211 | not used | not used | 84 | not used | not used | 318 | not used | not used |
-| `small_carpenter_workshop` | Small buildings | 2: Saint-Laurent | terrain-only base map | 8 | not used | not used | not used | not used | not used | not used | 8 | not used | 1 |
+| `small_carpenter_workshop` | Small buildings | 2: Saint-Laurent | terrain-only base map | 8 | not used | not used | not used | not used | not used | not used | 8 | not used | 2 |
 | `small_roadside_office` | Small buildings | 1: Saint-Laurent crossroads | terrain-only base map | 7 | not used | not used | not used | not used | not used | not used | 7 | not used | not used |
-| `small_stone_dairy` | Small buildings | 2: D farm; Saint-Laurent | terrain-only base map | 8 | 1 | not used | not used | not used | not used | not used | 8 | not used | 1 |
-| `small_storehouse` | Small buildings | 2: D farm; Saint-Laurent | terrain-only base map | 14 | 1 | not used | not used | not used | not used | not used | 14 | not used | 1 |
+| `small_stone_dairy` | Small buildings | 2: D farm; Saint-Laurent | terrain-only base map | 8 | 1 | not used | not used | not used | not used | not used | 8 | not used | 2 |
+| `small_storehouse` | Small buildings | 2: D farm; Saint-Laurent | terrain-only base map | 14 | 1 | not used | not used | not used | not used | not used | 14 | not used | 2 |
 | `stone_wall_low` | Dressing | as `line_stone_wall` | terrain-only base map | as `line_stone_wall` | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `tank_sherman_firefly` | Vehicles | excluded: The Firefly (17-pdr) was British, not at Omaha; no DD Sherman asset exists; player vehicles are out of scope (SPEC 11) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `tank_tiger_i` | Vehicles | excluded: No Tigers at Omaha; vehicles are out of scope (SPEC 11) | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -319,12 +319,12 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `vil_cottage_barn` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 3 | 1 | not used | not used | not used | not used | not used | 3 | not used | 1 |
 | `vil_farm_courtyard` | Houses | excluded: GX6 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `vil_gatehouse_chapel` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 7 | not used | not used | not used | not used | not used | not used | 7 | not used | not used |
-| `vil_granite_longere` | Houses | excluded: GX6 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | not used | 1 | not used | not used | not used | not used | not used | not used | not used | not used |
+| `vil_granite_longere` | Houses | excluded: GX6 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | not used | 1 | not used | not used | not used | not used | not used | not used | not used | 2 |
 | `vil_longhouse_thatched` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 8 | not used | not used | not used | not used | not used | not used | 8 | not used | 1 |
 | `vil_manor_turret` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 7 | not used | not used | not used | not used | not used | not used | 7 | not used | not used |
 | `vil_merchant_house` | Houses | excluded: GX6 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | not used | 1 | not used | not used | not used | not used | not used | not used | not used | not used |
 | `vil_mill_house` | Houses | excluded: B3 house for the Chateau-town map (M1); no mill stream on the E-1 plateau | terrain-only base map | 4 | not used | not used | not used | not used | not used | not used | 4 | not used | not used |
-| `vil_norman_farmhouse` | Houses | 2: D: farm HQ; Saint-Laurent | terrain-only base map | 6 | 1 | not used | not used | not used | not used | not used | 6 | not used | not used |
+| `vil_norman_farmhouse` | Houses | 2: D: farm HQ; Saint-Laurent | terrain-only base map | 6 | 1 | not used | not used | not used | not used | not used | 6 | not used | 1 |
 | `vil_notary_house` | Houses | excluded: GX6 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `vil_pension_hotel` | Houses | excluded: GX6 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `vil_rectory` | Houses | excluded: B3 house for the Chateau-town map (M1) and the Beautify ring | terrain-only base map | 8 | 1 | not used | not used | not used | not used | not used | 8 | not used | not used |
@@ -958,7 +958,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_pcar_pickup` | not used | not used | not used | not used | not used | not used | not used | 5 | not used | not used | not used | not used | not used |
 | `mod_pcar_pickup_wreck` | not used | not used | not used | not used | not used | not used | not used | 4 | 1 | 1 | not used | not used | not used |
 | `mod_pcar_sedan` | not used | not used | not used | not used | not used | not used | not used | 3 | not used | not used | not used | not used | not used |
-| `mod_pcar_sedan_wreck` | not used | not used | not used | not used | not used | not used | not used | 1 | 1 | not used | not used | not used | 1 |
+| `mod_pcar_sedan_wreck` | not used | not used | not used | not used | not used | not used | not used | 1 | 1 | not used | not used | not used | not used |
 | `mod_pcar_sport` | not used | not used | not used | not used | not used | not used | not used | 2 | not used | not used | not used | not used | not used |
 | `mod_pcar_sport_wreck` | not used | not used | not used | not used | not used | not used | not used | 4 | not used | 1 | not used | not used | not used |
 | `mod_pcar_suv` | not used | not used | not used | not used | not used | not used | not used | 4 | not used | not used | not used | not used | not used |
@@ -1224,26 +1224,26 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `cave_lid_v0` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 30 | not used |
 | `cave_lid_v1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 25 | not used |
 | `cave_lid_v2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 16 | not used |
-| `ph_boulder_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 | not used | 7 | 2 |
-| `ph_dead_tree_trunk` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 | not used | 9 | 63 |
-| `ph_dead_tree_trunk_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 10 | not used | 4 | 38 |
-| `ph_dry_branches_medium_01_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 | not used | 11 | 165 |
-| `ph_dry_branches_medium_01_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 | not used | 6 | 25 |
-| `ph_dry_branches_medium_01_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 | not used | 7 | 206 |
-| `ph_fern_02_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 266 | not used | 289 | 194 |
-| `ph_fern_02_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 261 | not used | 253 | 202 |
-| `ph_fern_02_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 237 | not used | 278 | 192 |
-| `ph_fern_02_d` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 313 | not used | 283 | 132 |
+| `ph_boulder_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 | not used | 7 | 3 |
+| `ph_dead_tree_trunk` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 | not used | 9 | 113 |
+| `ph_dead_tree_trunk_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 10 | not used | 4 | 41 |
+| `ph_dry_branches_medium_01_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 | not used | 11 | 285 |
+| `ph_dry_branches_medium_01_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 | not used | 6 | 15 |
+| `ph_dry_branches_medium_01_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 | not used | 7 | 313 |
+| `ph_fern_02_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 266 | not used | 289 | 482 |
+| `ph_fern_02_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 261 | not used | 253 | 435 |
+| `ph_fern_02_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 237 | not used | 278 | 356 |
+| `ph_fern_02_d` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 313 | not used | 283 | 305 |
 | `ph_fir_sapling_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 91 | not used | 96 | not used |
 | `ph_fir_sapling_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 104 | not used | 106 | not used |
 | `ph_fir_sapling_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 90 | not used | 92 | not used |
-| `ph_fir_sapling_medium_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 30 | not used | 1 | 42 |
-| `ph_fir_sapling_medium_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 39 | not used | 5 | 9 |
-| `ph_fir_sapling_medium_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 40 | not used | 5 | not used |
-| `ph_fir_tree_01_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 44 | not used | 48 | 25 |
-| `ph_fir_tree_01_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 72 | not used | 77 | 50 |
-| `ph_fir_tree_01_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 54 | not used | 70 | 92 |
-| `ph_grass_medium_01_large_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 58 | not used | 56 | 120 |
+| `ph_fir_sapling_medium_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 30 | not used | 1 | 93 |
+| `ph_fir_sapling_medium_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 39 | not used | 5 | 3 |
+| `ph_fir_sapling_medium_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 40 | not used | 5 | 72 |
+| `ph_fir_tree_01_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 44 | not used | 48 | not used |
+| `ph_fir_tree_01_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 72 | not used | 77 | 59 |
+| `ph_fir_tree_01_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 54 | not used | 70 | 194 |
+| `ph_grass_medium_01_large_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 58 | not used | 56 | not used |
 | `ph_grass_medium_01_large_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 73 | not used | 56 | not used |
 | `ph_grass_medium_01_large_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 53 | not used | 71 | not used |
 | `ph_grass_medium_01_mid_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 77 | not used | 75 | not used |
@@ -1251,42 +1251,42 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `ph_grass_medium_01_mid_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 70 | not used | 75 | not used |
 | `ph_grass_medium_01_small_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 66 | not used | 69 | not used |
 | `ph_grass_medium_01_small_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 71 | not used | 56 | not used |
-| `ph_grass_medium_01_tall_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 63 | not used | 58 | 152 |
-| `ph_grass_medium_01_tall_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 71 | not used | 55 | 113 |
-| `ph_grass_medium_01_tall_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 60 | not used | 67 | 11 |
+| `ph_grass_medium_01_tall_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 63 | not used | 58 | not used |
+| `ph_grass_medium_01_tall_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 71 | not used | 55 | not used |
+| `ph_grass_medium_01_tall_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 60 | not used | 67 | 9 |
 | `ph_grass_medium_01_tiny_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 72 | not used | 62 | not used |
 | `ph_grass_medium_01_tiny_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 57 | not used | 55 | not used |
 | `ph_grass_medium_01_tiny_e` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 65 | not used | 51 | not used |
 | `ph_island_tree_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 | not used | 1 | not used |
-| `ph_pine_roots_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 | not used | 3 | 51 |
+| `ph_pine_roots_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 | not used | 3 | 116 |
 | `ph_pine_roots_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 | not used | 7 | not used |
-| `ph_pine_sapling_medium_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 35 | not used | 1 | 45 |
+| `ph_pine_sapling_medium_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 35 | not used | 1 | 53 |
 | `ph_pine_sapling_medium_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 34 | not used | 4 | 9 |
-| `ph_pine_sapling_medium_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 35 | not used | 18 | not used |
+| `ph_pine_sapling_medium_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 35 | not used | 18 | 65 |
 | `ph_pine_sapling_small_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 85 | not used | 112 | not used |
 | `ph_pine_sapling_small_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 128 | not used | 112 | not used |
 | `ph_pine_sapling_small_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 118 | not used | 114 | not used |
-| `ph_pine_tree_01_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 44 | not used | 31 | 26 |
-| `ph_pine_tree_01_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 49 | not used | 39 | 72 |
-| `ph_pine_tree_01_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 45 | not used | 51 | 56 |
-| `ph_rock_09` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 19 | not used | 12 | 64 |
+| `ph_pine_tree_01_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 44 | not used | 31 | not used |
+| `ph_pine_tree_01_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 49 | not used | 39 | 83 |
+| `ph_pine_tree_01_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 45 | not used | 51 | 31 |
+| `ph_rock_09` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 19 | not used | 12 | 118 |
 | `ph_rock_moss_set_01_rock01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 | not used | 12 | 4 |
-| `ph_rock_moss_set_01_rock02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 | not used | 12 | 75 |
-| `ph_rock_moss_set_01_rock03` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 | not used | 6 | not used |
+| `ph_rock_moss_set_01_rock02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 | not used | 12 | 132 |
+| `ph_rock_moss_set_01_rock03` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 | not used | 6 | 8 |
 | `ph_rock_moss_set_01_rock04` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 | not used | 8 | 2 |
-| `ph_rock_moss_set_01_rock05` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 | not used | 5 | 1 |
-| `ph_rock_moss_set_01_rock06` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 | not used | 5 | 25 |
-| `ph_rock_moss_set_02_rock08` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 | not used | 3 | 67 |
+| `ph_rock_moss_set_01_rock05` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 | not used | 5 | 7 |
+| `ph_rock_moss_set_01_rock06` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 | not used | 5 | 17 |
+| `ph_rock_moss_set_02_rock08` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 | not used | 3 | 122 |
 | `ph_rock_moss_set_02_rock09` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 | not used | 6 | not used |
-| `ph_rock_moss_set_02_rock10` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 | not used | 4 | 4 |
+| `ph_rock_moss_set_02_rock10` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 | not used | 4 | 5 |
 | `ph_rock_moss_set_02_rock11` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 | not used | 8 | not used |
-| `ph_rock_moss_set_02_rock12` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 | not used | 3 | 3 |
+| `ph_rock_moss_set_02_rock12` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 | not used | 3 | 1 |
 | `ph_rock_moss_set_02_rock13` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 | not used | 1 | not used |
-| `ph_root_cluster_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 | not used | 2 | 8 |
-| `ph_root_cluster_02_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 | not used | 4 | 80 |
-| `ph_root_cluster_02_d` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 | not used | 6 | 1 |
-| `ph_root_cluster_02_e` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 | not used | 12 | 5 |
-| `ph_root_cluster_02_f` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 | not used | 5 | 78 |
+| `ph_root_cluster_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 | not used | 2 | 1 |
+| `ph_root_cluster_02_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 | not used | 4 | 164 |
+| `ph_root_cluster_02_d` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 | not used | 6 | not used |
+| `ph_root_cluster_02_e` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 | not used | 12 | 2 |
+| `ph_root_cluster_02_f` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 | not used | 5 | 51 |
 | `ph_root_cluster_02_g` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 | not used | 2 | not used |
 | `ph_root_cluster_02_h` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 | not used | 6 | not used |
 | `ph_sand_rocks_small_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 | not used | 4 | not used |
@@ -1303,8 +1303,8 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `ph_grass_medium_01_tiny_f` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_rock_face_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
 | `ph_rock_moss_set_02_rock07` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 |
-| `ph_root_cluster_02_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 48 |
-| `ph_root_cluster_02_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
+| `ph_root_cluster_02_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 99 |
+| `ph_root_cluster_02_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `rb1_container_cabin` | Small buildings | not used: RB1 reference building (the rb1_test map, docs/rb1-buildings.md) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `rb1_log_house` | Houses | not used: RB1 reference building (the rb1_test map, docs/rb1-buildings.md) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `rb1_ref_shop` | Small buildings | not used: RB1 comparison, the reference model beside its recreation (rb1_test, docs/rb1-buildings.md) | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -1561,7 +1561,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `ph_brass_candleholders` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_brass_goblets` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_brass_pan_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_brass_pot_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 |
+| `ph_brass_pot_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 |
 | `ph_brass_pot_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_brass_vase_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_brass_vase_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -1574,7 +1574,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `ph_cassette_player` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_ceiling_fan` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_cement_bag` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_ceramic_pot` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `ph_ceramic_pot` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 11 |
 | `ph_ceramic_vase_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_ceramic_vase_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_ceramic_vase_03` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
@@ -1596,7 +1596,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `ph_compost_bags` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `ph_concrete_road_barrier` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_concrete_road_barrier_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_covered_car` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `ph_covered_car` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_crowbar_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_dartboard` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_dead_quiver_branch_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -1617,10 +1617,10 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `ph_fire_alarm` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_fire_hydrant` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_flood_lights` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_folding_wooden_stool` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 |
+| `ph_folding_wooden_stool` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 |
 | `ph_gallinera_chair` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_gallinera_table` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_garden_gnome` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `ph_garden_gnome` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 |
 | `ph_garden_hose_wall_mounted_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_garden_sprinkler_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `ph_gothicbed_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -1634,7 +1634,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `ph_hanging_picture_frame_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_hanging_picture_frame_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_hanging_picture_frame_03` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_hatchet` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
+| `ph_hatchet` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 9 |
 | `ph_industrial_caged_sconce` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_industrial_coffee_table` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_industrial_pastic_container` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -1642,7 +1642,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `ph_industrial_storage_cart` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_industrial_wall_lamp` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_industrial_wall_sconce` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_jug_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
+| `ph_jug_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 18 |
 | `ph_korean_fire_extinguisher_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_ladder_sectioned_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_lantern_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
@@ -1658,7 +1658,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `ph_metal_detector` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_metal_jerrycan` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `ph_metal_jerrycan_green` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_metal_jug` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `ph_metal_jug` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 |
 | `ph_metal_office_desk` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_metal_stool_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_metal_stool_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -1714,33 +1714,33 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `ph_namaqualand_stones_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_ocean_buoy` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_oil_tin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_old_bed_frame` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 |
+| `ph_old_bed_frame` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
 | `ph_old_drill_press` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_old_gas_mask` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_old_military_compressor` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_old_military_crate` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `ph_old_tyre` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 9 |
+| `ph_old_tyre` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 11 |
 | `ph_ornate_mirror_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_othonna_cerarioides` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_ottoman_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_outdoor_table_chair_set_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_overhead_crane` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_painted_wooden_bench` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 |
+| `ph_painted_wooden_bench` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 13 |
 | `ph_painted_wooden_cabinet` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_painted_wooden_cabinet_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_painted_wooden_chair_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `ph_painted_wooden_chair_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 14 |
 | `ph_painted_wooden_chair_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_painted_wooden_nightstand` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_painted_wooden_shelves` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_painted_wooden_sofa` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_painted_wooden_stool` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 |
+| `ph_painted_wooden_stool` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 21 |
 | `ph_painted_wooden_table` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_picke_dirty_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
+| `ph_picke_dirty_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 |
 | `ph_pipe_wrench` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_planter_box_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_planter_box_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_planter_box_03` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_planter_pot_clay` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
+| `ph_planter_pot_clay` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 |
 | `ph_plastic_bottle_gallon` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_plastic_broom` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_plastic_container` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -1753,7 +1753,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `ph_portable_generator` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_portable_searchlight` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_portable_welding_cart` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_pot_enamel_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
+| `ph_pot_enamel_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 |
 | `ph_potted_plant_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_potted_plant_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_potted_plant_04` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -1767,7 +1767,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `ph_ratchet_wrench` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_retro_multimeter` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_rock_face_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_rockingchair_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `ph_rockingchair_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 |
 | `ph_rollershutter_door` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_rollershutter_window_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_rollershutter_window_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -1776,9 +1776,9 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `ph_round_wooden_table_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_rubber_boots` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 |
 | `ph_rusted_hacksaw` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_rusted_spade_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
-| `ph_rusted_wheel_rim_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 |
-| `ph_rusted_wheel_rim_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 |
+| `ph_rusted_spade_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 |
+| `ph_rusted_wheel_rim_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 |
+| `ph_rusted_wheel_rim_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 |
 | `ph_scandinavian_masonry_heater` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_schoolchair_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_schooldesk_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -1787,7 +1787,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `ph_security_camera_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_security_camera_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_security_light` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_seeding_tray_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 |
+| `ph_seeding_tray_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 |
 | `ph_shelf_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_side_table_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_side_table_tall_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -1798,16 +1798,16 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `ph_sofa_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_sofa_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_sofa_03` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_spinning_wheel_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 |
+| `ph_spinning_wheel_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_spray_paint_bottles` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_spray_paint_bottles_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_standing_chalkboard_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `ph_standing_chalkboard_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `ph_standing_picture_frame_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_stationery_supplies` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_steel_frame_shelves_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_steel_frame_shelves_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_steel_frame_shelves_03` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_stone_fire_pit` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
+| `ph_stone_fire_pit` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 |
 | `ph_street_lamp_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_street_lamp_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_tea_set_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -1834,37 +1834,37 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `ph_vintage_oil_lamp` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_vintage_radio_transceiver` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_vintage_stapler` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_vintage_suitcase` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `ph_vintage_suitcase` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 12 |
 | `ph_vintage_telephone_wall_clock` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_vintage_wooden_drawer_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 |
+| `ph_vintage_wooden_drawer_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 12 |
 | `ph_wall_clock` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_water_manhole_cover` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_watering_can_metal_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 |
+| `ph_watering_can_metal_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 |
 | `ph_wetfloorsign_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_wheelchair_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_wicker_basket_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 12 |
-| `ph_wicker_basket_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 15 |
-| `ph_wine_barrel_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 |
-| `ph_wine_bottles_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 |
+| `ph_wicker_basket_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 16 |
+| `ph_wicker_basket_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 12 |
+| `ph_wine_barrel_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 36 |
+| `ph_wine_bottles_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 15 |
 | `ph_wooden_axe` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `ph_wooden_barrels_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 |
+| `ph_wooden_barrels_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 |
 | `ph_wooden_bookshelf_worn` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `ph_wooden_bowl_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
+| `ph_wooden_bowl_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 12 |
 | `ph_wooden_bowl_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_wooden_broom` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 14 |
-| `ph_wooden_bucket_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 9 |
-| `ph_wooden_bucket_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 12 |
+| `ph_wooden_broom` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 25 |
+| `ph_wooden_bucket_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 11 |
+| `ph_wooden_bucket_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 25 |
 | `ph_wooden_candlestick` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_wooden_crate_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 |
-| `ph_wooden_crate_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 |
+| `ph_wooden_crate_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 14 |
+| `ph_wooden_crate_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 |
 | `ph_wooden_cutting_board` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_wooden_display_shelves_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_wooden_ladder` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 2 |
-| `ph_wooden_ladder_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `ph_wooden_ladder` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 8 |
+| `ph_wooden_ladder_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 |
 | `ph_wooden_lantern_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_wooden_military_crate` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `ph_wooden_picnic_table` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 4 |
-| `ph_wooden_stool_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `ph_wooden_picnic_table` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 |
+| `ph_wooden_stool_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 14 |
 | `ph_wooden_table_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_woodenchair_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `ph_woodentable_01` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -1941,7 +1941,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `sd_static_boxer` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `sd_static_humvee` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `sd_static_truck_canopy` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `sd_static_truck_cargo` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `sd_static_truck_cargo` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `sd_static_ural` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `sd_stencil_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `sd_stencil_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -1982,19 +1982,19 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_debris_papers_pile` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_debris_papers_scattered` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `pa_concrete_outbuilding` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `pa_crate_slatted` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 21 |
-| `line_pa_fence_picket` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 12 |
-| `pa_chest_wooden` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 11 |
+| `pa_crate_slatted` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 36 |
+| `line_pa_fence_picket` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 20 |
+| `pa_chest_wooden` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 21 |
 | `pa_fence_picket_bay` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `pa_fruit_crate_high` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 9 |
-| `pa_fruit_crate_low` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 5 |
-| `pa_fruit_crate_mid` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 6 |
+| `pa_fruit_crate_high` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 12 |
+| `pa_fruit_crate_low` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 20 |
+| `pa_fruit_crate_mid` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 15 |
 | `pa_military_house` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
-| `pa_tree_dead_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 3 |
-| `pa_tree_dead_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 74 |
-| `pa_tree_dead_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 56 |
-| `pa_tree_dead_d` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 54 |
-| `pa_tree_dead_e` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 7 |
+| `pa_tree_dead_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 43 |
+| `pa_tree_dead_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 95 |
+| `pa_tree_dead_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 100 |
+| `pa_tree_dead_d` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 98 |
+| `pa_tree_dead_e` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 41 |
 | `pa_abandoned_shop` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `pa_rail_caboose` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `pa_warehouse` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |

@@ -45,7 +45,8 @@ HOUSES = [("house_stone_cottage", 3), ("house_farmhouse_2story", 2), ("vil_norma
           ("ruin_cottage_corner", 1), ("ruin_house_shelled", 1), ("ruin_farmhouse_gutted", 1), ("small_storehouse", 1),
           ("small_stone_dairy", 1), ("small_carpenter_workshop", 1), ("vil_granite_longere", 1)]
 GEN_DECOR = ("drs_", "nat_", "shrub_", "tree_", "furn_", "mod_barrel", "mod_crate", "fx_")   # generated decoration ids (companions dropped)
-MAX_HOUSES = 10   # + 3 farm buildings + the lone house = 14 houses and barns
+MAX_HOUSES = 24   # MP1b: the core built up wall to wall (+ 3 farm buildings, the lone house, 4 derelicts)
+SQUARE_R, CORE_R0, CORE_R = 13.0, 10.0, 78.0
 BUILDING_CATS = ("Houses", "Landmarks", "Large buildings", "Small buildings", "Ruins")
 DECOR = {"decor": True}
 # imported dressing pools (every id has a committed model: checked in build())
@@ -57,16 +58,16 @@ YARD_PROPS = ["ph_wooden_barrels_01", "ph_wine_barrel_01", "pa_crate_slatted", "
               "ph_watering_can_metal_01", "ph_rusted_spade_01", "ph_picke_dirty_01", "ph_wooden_axe", "ph_hatchet", "ph_wooden_ladder_02",
               "ph_wooden_broom", "ph_rubber_boots", "ph_old_tyre", "ph_seeding_tray_01", "ph_trowel_01", "ph_painted_wooden_bench",
               "ph_wooden_picnic_table", "ph_dead_tree_trunk_02", "ph_stone_fire_pit", "ph_worn_metal_rack", "ph_garden_gnome"]
-ROOM = ["ph_wooden_bucket_02", "ph_wicker_basket_01", "ph_wicker_basket_02", "pa_chest_wooden", "pa_crate_slatted", "ph_wooden_stool_01",
-        "ph_folding_wooden_stool", "ph_rockingchair_01", "ph_spinning_wheel_01", "ph_jug_01", "ph_ceramic_pot", "ph_metal_jug",
+ROOM = ["ph_wooden_bucket_02", "pa_chest_wooden", "pa_crate_slatted", "ph_wooden_stool_01",
+        "ph_folding_wooden_stool", "ph_rockingchair_01", "ph_jug_01", "ph_ceramic_pot", "ph_metal_jug",
         "ph_pot_enamel_01", "ph_wooden_broom", "ph_painted_wooden_chair_01", "ph_painted_wooden_stool", "ph_vintage_suitcase",
-        "ph_wooden_bowl_01", "ph_brass_pot_01", "ph_wine_bottles_01", "ph_wooden_crate_01", "ph_old_bed_frame", "ph_vintage_wooden_drawer_01"]
-WOOD_TREES = [("ph_pine_tree_01_b", 3), ("ph_pine_tree_01_c", 2), ("ph_fir_tree_01_c", 4), ("ph_fir_tree_01_b", 2), ("ph_pine_tree_01_a", 1),
-              ("ph_fir_tree_01_a", 1), ("pa_tree_dead_b", 2), ("pa_tree_dead_c", 2), ("pa_tree_dead_d", 2), ("ph_fir_sapling_medium_a", 2),
-              ("ph_pine_sapling_medium_a", 2)]
+        "ph_wooden_bowl_01", "ph_brass_pot_01", "ph_wine_bottles_01", "ph_wooden_crate_01", "ph_vintage_wooden_drawer_01"]
+WOOD_TREES = [("ph_pine_tree_01_b", 3), ("ph_pine_tree_01_c", 1), ("ph_fir_tree_01_c", 6), ("ph_fir_tree_01_b", 2), ("pa_tree_dead_a", 1),
+              ("pa_tree_dead_b", 3), ("pa_tree_dead_c", 3), ("pa_tree_dead_d", 3), ("pa_tree_dead_e", 1), ("ph_fir_sapling_medium_a", 3),
+              ("ph_fir_sapling_medium_c", 2), ("ph_pine_sapling_medium_a", 2), ("ph_pine_sapling_medium_c", 2)]   # MP1b: light firs, bare trees, saplings
 UNDER = [("ph_fern_02_a", 3), ("ph_fern_02_b", 3), ("ph_fern_02_c", 2), ("ph_fern_02_d", 2), ("ph_dry_branches_medium_01_a", 2),
          ("ph_dry_branches_medium_01_c", 2), ("ph_root_cluster_02_a", 1), ("ph_root_cluster_02_c", 1), ("ph_rock_moss_set_01_rock02", 1),
-         ("ph_rock_moss_set_02_rock08", 1), ("ph_pine_roots_a", 1), ("ph_dead_tree_trunk", 1), ("ph_grass_medium_01_tall_a", 2)]
+         ("ph_rock_moss_set_02_rock08", 1), ("ph_pine_roots_a", 1), ("ph_dead_tree_trunk", 1)]
 DEAD = ["pa_tree_dead_a", "pa_tree_dead_b", "pa_tree_dead_c", "pa_tree_dead_d", "pa_tree_dead_e"]
 TREEKW = dict(cls="veg", ok_with={"flat", "none", "veg", "wire"})
 
@@ -246,7 +247,7 @@ def populate(ctx, grid, pads=None):
             b.try_place(aid, cx + R.uniform(-2.5, 2.5), cz + R.uniform(-2.5, 2.5), R.uniform(0, 360), R, tags={"farm", "pen"}, radius=2.0)
     paint.poly("mud", circle_poly(FARM[0], FARM[1], 16.0, 20), weight=0.9, edge=4.0, ragged=3.0, seed=4)
     paint.poly("dirt", circle_poly(FARM[0], FARM[1], 22.0, 20), weight=0.6, edge=4.0, ragged=3.0, seed=5)
-    for aid in ("ph_wooden_barrels_01", "ph_wooden_barrels_01", "mod_pcar_pickup_wreck", "ph_covered_car", "ph_wooden_ladder", "ph_rusted_wheel_rim_01",
+    for aid in ("ph_wooden_barrels_01", "ph_wooden_barrels_01", "sd_static_truck_cargo", "ph_wooden_ladder", "ph_rusted_wheel_rim_01",
                 "ph_rusted_wheel_rim_02", "pa_chest_wooden", "ph_wooden_picnic_table", "pa_fruit_crate_mid", "pa_fruit_crate_high", "ph_hand_truck",
                 "ph_metal_jerrycan", "ph_wooden_crate_02", "ph_dead_tree_trunk_02", "ph_compost_bags"):
         b.try_place(aid, FARM[0] + R.uniform(-13, 13), FARM[1] + R.uniform(-9, 9), R.uniform(0, 360), R, tags={"farm", "dressing"})
@@ -255,9 +256,12 @@ def populate(ctx, grid, pads=None):
     deck = Deck(HOUSES, R)
     houses = []
 
-    def frontage(street, half, side, s0, s1, tags=(), setback=(1.5, 3.5), gap=(6.0, 14.0)):
+    def frontage(street, half, side, s0, s1, tags=(), setback=(1.4, 2.0), gap=(0.2, 1.6), region=None):
         s, s1 = s0, min(s1, polyline_length(street))
         while s < s1 and len(houses) < MAX_HOUSES:
+            if region and not region(*point_at(street, s)[0]):
+                s += 2.0
+                continue
             done = None
             for k in range(6):
                 aid = deck.peek(k)
@@ -270,7 +274,7 @@ def populate(ctx, grid, pads=None):
                 off = half + R.uniform(*setback) + a.fd * 0.5
                 x, z = px + nx * off, pz + nz * off
                 yaw = asset_yaw_facing(-nx, -nz) + R.uniform(-7.0, 7.0)
-                if not clear(aid, x, z, yaw):
+                if not clear(aid, x, z, yaw, pad=0.3):
                     continue
                 e = building(aid, x, z, yaw, tags=set(tags) | {"house"})
                 if e:
@@ -280,8 +284,14 @@ def populate(ctx, grid, pads=None):
                     break
             s += (done.fw + R.uniform(*gap)) if done else 3.0
 
-    for st, half, s0, side in ((g["LB"], 2.1, 14.0, 1), (g["LA"], 1.8, 10.0, -1), (g["LB"], 2.1, 30.0, -1), (g["LA"], 1.8, 18.0, 1)):
-        frontage(st, half, side, s0, 1e9, tags={"LB" if st is g["LB"] else "LA"})
+    core = lambda x, z: CORE_R0 < math.hypot(x - SQUARE[0], z - SQUARE[1]) < CORE_R   # the village core: terraces along the lanes
+    sqr = circle_poly(SQUARE[0], SQUARE[1], SQUARE_R + 2.0, 40)
+    sqr = sqr + [sqr[0]]
+    (px, pz), t = point_at(sqr, 3.0)
+    out = 1 if (-t[1]) * (px - SQUARE[0]) + t[0] * (pz - SQUARE[1]) > 0 else -1
+    frontage(sqr, 0.0, out, 0.0, 1e9, tags={"square"}, setback=(0.2, 0.7), gap=(0.2, 0.9))
+    for st, half, side in ((g["LB"], 2.1, 1), (g["LB"], 2.1, -1), (g["LA"], 1.8, 1), (g["LA"], 1.8, -1)):
+        frontage(st, half, side, 0.0, 1e9, tags={"LB" if st is g["LB"] else "LA"}, region=core)
     lone = building("pa_military_house", LONE[0], LONE[1], asset_yaw_facing(1.0, 0.3), tags={"lone"}, check=False, wear=1.8)
     # the PR10 derelicts (imported models): an abandoned stone house and log house on the outskirts, a shack by the back
     # path, the long shed behind the farmyard; enterable, looted like the houses
@@ -311,33 +321,58 @@ def populate(ctx, grid, pads=None):
         if not any(b.in_keepout(*q) for q in fence):
             Lf = polyline_length(fence)
             line(R.choice(["pa_fence_picket", "pa_fence_picket", "post_wire_fence"]), fence, spans=[{"s": Lf * 0.5 + R.uniform(-1.5, 1.5), "w": 1.4, "kind": "gap"}], tags={"yard"})
-        paint.poly(R.choice(["mud", "dirt", "dirt"]), p, weight=0.8, edge=1.2, ragged=0.8, seed=int(x * 3 + z))
+        paint.poly("mud", p, weight=0.7, edge=1.2, ragged=0.8, seed=int(x * 3 + z))
         for aid in R.sample(YARD_PROPS, 4):
             q = Lw(R.uniform(-hx + 1.2, hx - 1.2), -hz - R.uniform(1.0, 5.8))
             b.try_place(aid, q[0], q[1], yaw + R.uniform(-40, 40), R, tags={"yard", "dressing"}, radius=1.5)
         if R.random() < 0.5:
             q = Lw(R.choice((-1, 1)) * (hx - 1.8), -hz - 4.5)
             b.place(R.choice(DEAD), q[0], q[1], R.uniform(0, 360), tags={"yard"}, **TREEKW)
-        for k in range(2):   # by the front door: a barrel, a crate, a bench
+        for k in range(3):   # by the front door: a barrel, a crate, a bench
             q = Lw(R.uniform(-hx + 0.8, hx - 0.8), hz + R.uniform(0.6, 1.1))
             b.try_place(R.choice(["ph_wine_barrel_01", "pa_crate_slatted", "ph_painted_wooden_bench", "ph_wooden_bucket_02", "ph_wicker_basket_01",
                                   "pa_fruit_crate_low", "ph_wooden_broom"]), q[0], q[1], yaw, R, tags={"door", "dressing"}, radius=0.8)
 
     # ------------------------------------------------------------------ 5. the square: well, bonfire pile, market leftovers
     sx, sz = SQUARE
-    paint.poly("mud", circle_poly(sx, sz, 14.0, 26), weight=1.0, edge=3.0, ragged=2.5, seed=1)
-    b.place("drs_well", sx + 3.0, sz + 2.0, 20.0, tags={"square"})
-    bon = (sx - 5.0, sz - 3.5)
+    # levelled (build() flattens it), cobbles with a hard edge and a kerb of pebbles, the well in the middle
+    paint.poly("mud", circle_poly(sx, sz, SQUARE_R, 40), weight=0.8, edge=0.5, ragged=0.5, seed=1)   # packed earth (MP1b: paving read modern)
+    paint.line("pebbles", circle_poly(sx, sz, SQUARE_R + 0.4, 40) + [circle_poly(sx, sz, SQUARE_R + 0.4, 40)[0]], 0.9, weight=0.9, edge=0.3)
+    for k in range(6):   # puddles in the hollows
+        a, r = R.uniform(0, 2 * math.pi), R.uniform(4, SQUARE_R - 2)
+        paint.poly("mud", circle_poly(sx + r * math.cos(a), sz + r * math.sin(a), R.uniform(0.8, 1.6), 10), weight=0.9, edge=0.4, ragged=0.3, seed=60 + k)
+    b.place("drs_well", sx, sz, 20.0, tags={"square"}, check=False)
+    bon = (sx - 6.5, sz - 4.0)
     b.place("ph_stone_fire_pit", bon[0], bon[1], 0.0, tags={"square", "bonfire"}, check=False)
-    for k in range(9):   # the pile: trunks and branches leaning in over the pit
-        a = 2 * math.pi * k / 9
-        aid = ["ph_dead_tree_trunk", "ph_dead_tree_trunk_02", "ph_dry_branches_medium_01_a", "ph_dry_branches_medium_01_b", "ph_dry_branches_medium_01_c"][k % 5]
-        b.place(aid, bon[0] + 1.3 * math.cos(a), bon[1] + 1.3 * math.sin(a), math.degrees(-a) + 90, tags={"square", "bonfire"}, check=False)
-    for k in range(14):
-        a = 2 * math.pi * k / 14 + 0.3
-        b.try_place(R.choice(LANE + ["ph_wooden_picnic_table", "ph_painted_wooden_bench", "pa_chest_wooden"]), sx + 11.5 * math.cos(a), sz + 11.5 * math.sin(a),
-                    math.degrees(-a), R, tags={"square", "dressing"}, radius=2.0)
-    b.try_place("mod_pcar_sedan_wreck", sx + 9.0, sz - 8.0, 35.0, R, tags={"square"})
+    for ring, n, rr in ((0, 10, 1.0), (1, 14, 1.9)):   # the pile: two rings of trunks and branches round the pit, stones at its foot
+        for k in range(n):
+            a = 2 * math.pi * (k + 0.5 * ring) / n
+            aid = (["ph_dead_tree_trunk", "ph_dry_branches_medium_01_a", "ph_dry_branches_medium_01_c"] if ring == 0 else
+                   ["ph_dead_tree_trunk_02", "ph_dry_branches_medium_01_b", "ph_dead_tree_trunk", "ph_rock_09"])[k % (3 if ring == 0 else 4)]
+            b.place(aid, bon[0] + rr * math.cos(a), bon[1] + rr * math.sin(a), math.degrees(-a) + 90 + R.uniform(-15, 15), tags={"square", "bonfire"}, check=False)
+    for k, (aid, ang, r) in enumerate((("ph_wooden_picnic_table", 0.4, 8.5), ("ph_wooden_picnic_table", 1.5, 8.5), ("ph_wooden_picnic_table", 4.6, 8.0))):
+        q = (sx + r * math.cos(ang), sz + r * math.sin(ang))   # stalls: trestle tables with crates of rotten fruit, baskets on and under them
+        tb = b.place(aid, q[0], q[1], math.degrees(-ang), tags={"square", "stall"}, check=False)
+        if tb:
+            for j in range(3):
+                b.place(R.choice(["pa_fruit_crate_low", "pa_fruit_crate_mid", "pa_fruit_crate_high", "ph_wicker_basket_01"]), q[0] + R.uniform(-0.6, 0.6),
+                        q[1] + R.uniform(-0.6, 0.6), R.uniform(0, 360), check=False, cls="none", y=tb["pos"][1] + 0.76, tags={"square", "stall"}, support=tb)
+            for j in range(3):
+                b.try_place(R.choice(["pa_fruit_crate_high", "pa_crate_slatted", "ph_wicker_basket_02", "ph_wooden_bucket_02"]), q[0] + R.uniform(-2.2, 2.2),
+                            q[1] + R.uniform(-2.2, 2.2), R.uniform(0, 360), R, tags={"square", "stall"}, radius=1.0)
+    for ang in (2.3, 3.2, 5.6):   # benches facing the well
+        b.try_place("ph_painted_wooden_bench", sx + 5.5 * math.cos(ang), sz + 5.5 * math.sin(ang), math.degrees(-ang) - 90, R, tags={"square"}, radius=0.8)
+    b.try_place("ph_standing_chalkboard_01", sx + 3.0, sz - 5.5, 160.0, R, tags={"square", "notice"}, radius=1.0)   # the notice board
+    for k in range(10):   # barrels, crates, a ladder round the edge
+        a = 2 * math.pi * k / 10 + 0.15
+        b.try_place(R.choice(["ph_wooden_barrels_01", "ph_wine_barrel_01", "pa_crate_slatted", "ph_wooden_ladder", "pa_chest_wooden", "ph_wooden_crate_02"]),
+                    sx + (SQUARE_R - 1.0) * math.cos(a), sz + (SQUARE_R - 1.0) * math.sin(a), math.degrees(-a), R, tags={"square", "dressing"}, radius=1.2)
+    for e in [e for e in houses if "square" in e["tags"]]:   # firewood stacked against the house fronts
+        a = cat[e["asset"]]
+        for j in range(3):
+            q = local_to_world((e["pos"][0], e["pos"][2]), e["yaw"], R.uniform(-a.half[0] + 1.0, a.half[0] - 1.0), a.half[1] + 0.5)
+            b.place(R.choice(["ph_dead_tree_trunk", "ph_dead_tree_trunk_02", "ph_dry_branches_medium_01_a"]), q[0], q[1], e["yaw"] + 90 + R.uniform(-6, 6),
+                    tags={"square", "firewood"}, check=False)
 
     # ------------------------------------------------------------------ 6. gully, footbridge, cliff, watchtower
     d, s, p, t = crossing(g["BP"], g["gully"])
@@ -363,6 +398,18 @@ def populate(ctx, grid, pads=None):
             b.place(R.choice(["ph_rock_moss_set_01_rock01", "ph_rock_moss_set_02_rock07", "ph_root_cluster_02_e", "ph_dead_tree_trunk_02",
                               "ph_fern_02_b"]), q[0] + R.uniform(-3, 3), q[1] + R.uniform(-3, 3), R.uniform(0, 360), tags={"gully"}, check=False)
 
+    lanes_all = [g["LB"], g["LA"], g["BP"], g["CP"]]
+
+    def on_solid(q, pad):   # q inside a solid footprint grown by pad
+        for e in b.near(q[0], q[1], 16.0, classes={"solid"}):
+            a = cat[e["asset"]]
+            r = math.radians(-e["yaw"])
+            dx, dz = q[0] - e["pos"][0], q[1] - e["pos"][2]
+            lx, lz = dx * math.cos(r) + dz * math.sin(r), -dx * math.sin(r) + dz * math.cos(r)
+            if abs(lx) <= a.half[0] + pad and abs(lz) <= a.half[1] + pad:
+                return True
+        return False
+
     # ------------------------------------------------------------------ 7. lane edges: something every few metres
     nlane = 0
     for ln, half in ((g["LB"], 2.1), (g["LA"], 1.8), (g["BP"], 1.2), (g["CP"], 1.1)):
@@ -372,17 +419,47 @@ def populate(ctx, grid, pads=None):
             (px, pz), t = point_at(ln, s)
             side = R.choice((-1, 1))
             q = (px - t[1] * side * (half + R.uniform(0.9, 1.8)), pz + t[0] * side * (half + R.uniform(0.9, 1.8)))
-            if math.hypot(q[0] - SQUARE[0], q[1] - SQUARE[1]) > 15:
+            if math.hypot(q[0] - SQUARE[0], q[1] - SQUARE[1]) > SQUARE_R + 2:
                 nlane += b.try_place(R.choice(LANE), q[0], q[1], asset_yaw_along(*t) + R.uniform(-30, 30), R, tags={"lane_edge", "dressing"}, radius=1.2) is not None
-            s += R.uniform(4.0, 8.0)
+            s += R.uniform(2.5, 4.5) if math.hypot(px - SQUARE[0], pz - SQUARE[1]) < CORE_R else R.uniform(6.0, 10.0)
     rep["laneProps"] = nlane
-    for ln in (g["LB"], g["LA"]):   # ruts and puddles down the lanes
-        paint.line("mud", ln, 3.2, weight=0.85, edge=1.0)
+    # the lanes: packed earth with a crisp edge, two wheel ruts, puddles, a pebble margin; low walls and fences along the
+    # open stretches (not in front of houses), gaps every ~15 m; loose stones along the verge
+    nedge = 0
+    for ln, half in ((g["LB"], 2.1), (g["LA"], 1.8)):
+        paint.line("mud", ln, 2 * half + 0.4, weight=0.8, edge=0.25)
+        for o in (-0.75, 0.75):
+            paint.line("mud", offset_polyline(ln, o), 0.5, weight=1.0, edge=0.15)
+        for side in (-1, 1):
+            paint.line("pebbles", offset_polyline(ln, side * (half + 0.45)), 0.55, weight=0.8, edge=0.2)
+        for q in resample_pts(ln, 8.5)[1:]:
+            paint.poly("mud", circle_poly(q[0] + R.uniform(-0.6, 0.6), q[1] + R.uniform(-0.6, 0.6), R.uniform(0.6, 1.3), 10), weight=0.95, edge=0.3, ragged=0.3,
+                       seed=int(q[0] * 13 + q[1]))
+        for side in (-1, 1):
+            edge_ln = offset_polyline(ln, side * (half + 1.1))
+            run = []
+            for q in resample_pts(edge_ln, 1.5) + [None]:
+                ok = q is not None and grid.in_build(*q) and not on_solid(q, 1.2) and math.hypot(q[0] - SQUARE[0], q[1] - SQUARE[1]) > SQUARE_R + 4 \
+                    and not in_poly(q, rect(*YARD)) and min(polyline_dist(q, o_)[0] for o_ in lanes_all if o_ is not ln) > 3.5 \
+                    and all(math.hypot(q[0] - sp[0], q[1] - sp[1]) > 9 for sp in spawn_pts.values()) and polyline_dist(q, g["gully"])[0] > 8
+                if ok:
+                    run.append(q)
+                    continue
+                if len(run) >= 5:
+                    Lr = polyline_length(run)
+                    spans = [{"s": s_, "w": 1.8, "kind": "gap"} for s_ in [x_ * 15.0 + 7.0 for x_ in range(int(Lr // 15.0))]]
+                    line(R.choice(["stone_wall", "stone_wall", "pa_fence_picket", "post_wire_fence"]), run, spans=spans, tags={"lane_wall"})
+                    nedge += 1
+                run = []
+            for q in resample_pts(offset_polyline(ln, side * (half + 0.55)), 3.2)[1:]:
+                if math.hypot(q[0] - SQUARE[0], q[1] - SQUARE[1]) > SQUARE_R + 1 and R.random() < 0.6:
+                    b.place(R.choice(["ph_rock_09", "ph_rock_09", "ph_rock_moss_set_01_rock05", "ph_rock_moss_set_01_rock03"]), q[0] + R.uniform(-0.2, 0.2),
+                            q[1] + R.uniform(-0.2, 0.2), R.uniform(0, 360), tags={"verge"}, cls="flat", ok_with={"flat", "none", "veg", "wire"})
+    rep["laneWalls"] = nedge
     paint.line("dirt", g["BP"], 2.2, weight=0.8, edge=0.8)
     paint.line("dirt", g["CP"], 2.0, weight=0.8, edge=0.8)
 
     # ------------------------------------------------------------------ 7b. the hillside: dry-stone field walls, paddocks, kitchen gardens
-    lanes_all = [g["LB"], g["LA"], g["BP"], g["CP"]]
     nwall = 0
     for k in range(40):   # walls along the contour (east-west, gently bent), broken where a lane crosses and at gateways
         if nwall >= 11:
@@ -443,7 +520,7 @@ def populate(ctx, grid, pads=None):
                 if bx - ax > 1.6 and bz - az > 1.6:
                     corners += [{"p": [x, ay, z]} for x in (ax + 0.6, bx - 0.6) for z in (az + 0.6, bz - 0.6)]
         R.shuffle(corners)
-        for c in corners[:max(3, min(9, len(corners) // 2))]:
+        for c in corners[:max(4, min(16, len(corners)))]:
             lx, ly, lz = c["p"]
             wx, wz = local_to_world((e["pos"][0], e["pos"][2]), e["yaw"], lx, lz)
             nint += b.place(R.choice(ROOM), wx, wz, e["yaw"] + R.uniform(-30, 30), check=False, cls="none", y=e["pos"][1] + ly,
@@ -453,31 +530,32 @@ def populate(ctx, grid, pads=None):
     # ------------------------------------------------------------------ 9. woods on every side, dead trees in the village
     def wood(x, z):   # the forest edge: 70-95 m out (wavy), and the gully banks
         r = max(abs(x) / HX, abs(z) / HZ)
-        edge = 0.7 + 0.09 * fbm(x / 30.0, z / 30.0, 3, 2)
+        edge = 0.64 + 0.08 * fbm(x / 30.0, z / 30.0, 3, 2)
         return r > edge and not in_poly((x, z), rect(*YARD))
-    nwood = b.scatter(WOOD_TREES, wood, 1 / 95.0, R, bounds=(-HX, -HZ, HX, HZ), tags={"woods"}, min_dist=5.5, **TREEKW)
-    b.scatter(UNDER, wood, 1 / 22.0, R, bounds=(-HX, -HZ, HX, HZ), tags={"woods", "under"}, cls="flat", ok_with={"flat", "none", "veg", "wire"})
+    nwood = b.scatter(WOOD_TREES, wood, 1 / 55.0, R, bounds=(-HX, -HZ, HX, HZ), tags={"woods"}, min_dist=4.2, **TREEKW)
+    b.scatter(UNDER, wood, 1 / 14.0, R, bounds=(-HX, -HZ, HX, HZ), tags={"woods", "under"}, cls="flat", ok_with={"flat", "none", "veg", "wire"})
     paint.poly("leaf_litter", rect(-HX, -HZ, HX, HZ), weight=0.65, edge=1.0, mask=lambda x, z: wood(x, z) or max(abs(x) / HX, abs(z) / HZ) > 0.7)
     village = lambda x, z: not wood(x, z) and not b.in_keepout(x, z) and not in_yard(x, z)
     ndead = b.scatter([(t, 1) for t in DEAD] + [("ph_fir_sapling_medium_b", 1), ("ph_pine_sapling_medium_b", 1)], village, 1 / 420.0, R,
                       bounds=(-HX, -HZ, HX, HZ), tags={"village_trees"}, min_dist=12.0, **TREEKW)
-    b.scatter([("ph_grass_medium_01_large_a", 2), ("ph_grass_medium_01_tall_b", 2), ("ph_fern_02_c", 1), ("ph_dry_branches_medium_01_c", 1),
+    lived = lambda x, z: village(x, z) and (min(polyline_dist((x, z), l_)[0] for l_ in lanes_all) < 9.0 or bool(b.near(x, z, 11.0, classes={"solid"})))
+    b.scatter([("ph_fern_02_c", 2), ("ph_fern_02_a", 1), ("ph_dry_branches_medium_01_c", 1),
                ("ph_root_cluster_02_f", 1), ("ph_rock_moss_set_01_rock06", 1), ("ph_rock_09", 1), ("ph_dead_tree_trunk_02", 1)],
-              village, 1 / 40.0, R, bounds=(-HX, -HZ, HX, HZ), tags={"village_ground"},
+              lived, 1 / 22.0, R, bounds=(-HX, -HZ, HX, HZ), tags={"village_ground"},
               cls="flat", ok_with={"flat", "none", "veg", "wire"})
     paint.poly("leaf_litter", rect(-HX, -HZ, HX, HZ), weight=0.35, edge=1.0, ragged=4.0, seed=77, mask=lambda x, z: fbm(x / 14.0, z / 14.0, 5, 3) > 0.15)
     rep["woodTrees"], rep["villageTrees"] = len(nwood), len(ndead)
     # beyond the border: the forest closes in (decor, outside the navmesh)
     nt = 0
     for _ in range(3000):
-        x, z = R.uniform(-HX - 60, HX + 60), R.uniform(-HZ - 60, HZ + 60)
-        if abs(x) < HX + 4 and abs(z) < HZ + 4:
+        x, z = R.uniform(-HX - 45, HX + 45), R.uniform(-HZ - 45, HZ + 45)
+        if abs(x) < HX + 3 and abs(z) < HZ + 3:
             continue
         aid = R.choice([t for t, w in WOOD_TREES for _ in range(w)])
         if b.overlaps(cat[aid], x, z, 0.0, {"flat", "none", "veg"}):
             continue
         nt += b.place(aid, x, z, R.uniform(0, 360), check=False, extra=DECOR, tags={"decor"}, cls="veg") is not None
-        if nt >= 220:
+        if nt >= 320:
             break
     rep["decorTrees"] = nt
 
@@ -521,8 +599,8 @@ def resample_pts(pts, step):
 
 
 def committed_dirs(repo):
-    out = subprocess.run(["git", "-C", repo, "ls-files", "content/assets/models"], capture_output=True, text=True, check=True).stdout
-    return {p.split("/")[3] for p in out.splitlines() if p.count("/") >= 4}
+    out = subprocess.run(["git", "-C", repo, "ls-files", "content/assets/models", "content/vehicles/models"], capture_output=True, text=True, check=True).stdout
+    return {("vehicles/" if p.startswith("content/vehicles/") else "") + p.split("/")[3] for p in out.splitlines() if p.count("/") >= 4}
 
 
 def connectivity(b, grid, points, step=2.0, max_slope=40.0):
@@ -590,6 +668,8 @@ def build(ctx):
     for k in (-1, 1):
         cx, cz = p[0] + t[0] * 8.0 * k, p[1] + t[1] * 8.0 * k
         stamp_flatten_poly(grid, [(cx - 2.5, cz - 2.5), (cx + 2.5, cz - 2.5), (cx + 2.5, cz + 2.5), (cx - 2.5, cz + 2.5)], height=BRIDGE_Y[0], falloff=3.0)
+    sq_h = grid.sample(*SQUARE)
+    stamp_flatten_poly(grid, circle_poly(SQUARE[0], SQUARE[1], SQUARE_R + 3.0, 32), height=sq_h, falloff=7.0)   # the square: level
     pads = []
     populate(ctx, grid, pads)
     for aid, x, z, yaw in pads:
@@ -597,6 +677,7 @@ def build(ctx):
         hx, hz = a.half[0] + 1.2, a.half[1] + 1.2
         poly = [local_to_world((x, z), yaw, lx, lz) for lx, lz in ((-hx, -hz), (hx, -hz), (hx, hz), (-hx, hz))]
         stamp_flatten_poly(grid, poly, height=grid.sample(x, z), falloff=4.0)
+    stamp_flatten_poly(grid, circle_poly(SQUARE[0], SQUARE[1], SQUARE_R + 1.0, 32), height=sq_h, falloff=2.0)   # again: the house pads bled into it
     grid.quantise()
     b, sc, g, rep = populate(ctx, grid)
     err, warn = sc.validate()
@@ -605,13 +686,13 @@ def build(ctx):
 
     # ------------------------------------------------------------------ self-checks
     dirs = committed_dirs(ctx.repo)
-    model_dir = lambda aid: (cat[aid].raw.get("model") or {}).get("dir")
+    model_dir = lambda aid: (lambda m: m.get("dir") and (("vehicles/" if m.get("root") == "vehicles" else "") + m["dir"]))(cat[aid].raw.get("model") or {})
     for e in [e for e in b.inst if "companion" in e["tags"] and model_dir(e["asset"]) and model_dir(e["asset"]) not in dirs]:
         b.remove(e)   # a ruin's local-only debris companion (a box stand-in in a clean checkout)
     for e in [e for e in b.inst if "companion" in e["tags"] and not model_dir(e["asset"]) and e["asset"].startswith(GEN_DECOR)]:
         b.remove(e)   # the houses' own generated garden dressing: decoration on this map is imported models only
     imported = {e["asset"] for e in b.inst if model_dir(e["asset"])}
-    local_only = sorted(a for a in imported if cat[a].raw["model"]["dir"] not in dirs)
+    local_only = sorted(a for a in imported if model_dir(a) not in dirs)
     assert not local_only, "imported models that are not committed: %s" % local_only
     pts = [(m["label"], (m["pos"][0], m["pos"][2])) for m in sc.spawns] + [(o["displayName"], (o["pos"][0], o["pos"][2])) for o in sc.objectives]
     pts += [("watchtower", TOWER_IN), ("lone house", (LONE[0] + 3, LONE[1] + 7))]
@@ -626,18 +707,19 @@ def build(ctx):
     cam = ([0.0, 120.0, -205.0], 180.0, -30.0)
     thumb_cam = ([-60.0, 70.0, -150.0], look_yaw(60.0, 150.0), -18.0)
     lb, lbt = point_at(g["LB"], 52.0)
+    la = point_at(g["LA"], polyline_length(g["LA"]) - 12.0)[0]
     br = b.tagged("bridge")[0]
     views = [
         {"name": "overview_high", "pos": [10.0, 125.0, -175.0], "yaw": 180.0, "pitch": -36.0},
-        {"name": "square_eye", "pos": eye(-10.0, -14.0), "yaw": look_yaw(12.0, 14.0), "pitch": 2.0, "gameplay": True},
+        {"name": "square_eye", "pos": eye(-8.0, -8.5), "yaw": look_yaw(8.0, 9.0), "pitch": 2.0, "gameplay": True},
         {"name": "lane_eye", "pos": eye(lb[0] - lbt[1] * 1.0, lb[1] + lbt[0] * 1.0), "yaw": look_yaw(*lbt), "pitch": 1.0, "gameplay": True},
-        {"name": "church_eye", "pos": eye(CHURCH[0] - 4.0, 70.0), "yaw": look_yaw(2.0, CHURCH[1] - 70.0), "pitch": 9.0, "gameplay": True},
+        {"name": "church_eye", "pos": eye(*la), "yaw": look_yaw(CHURCH[0] - la[0], CHURCH[1] - la[1]), "pitch": 9.0, "gameplay": True},
         {"name": "preview", "pos": thumb_cam[0], "yaw": thumb_cam[1], "pitch": thumb_cam[2]},   # the New Map thumbnail (copied from this capture)
         {"name": "bridge_eye", "pos": eye(br["pos"][0] + 13.0, br["pos"][2] + 4.0), "yaw": look_yaw(-13.0, -4.0), "pitch": -2.0, "gameplay": True},
     ]
     look = {"style": "abandoned", "season": "autumn", "haze": 2.6, "weather": 0.9, "clouds": 0.95, "envFog": 2, "bloom": 0.7, "saturation": 0.68,
             "tint": [0.94, 0.97, 1.0], "grime": 1.6, "shafts": 0.4,
-            "paintSets": {"dirt": "dirt_path_paint", "ploughed": "moss_floor_paint"}}
+            "paintSets": {"ploughed": "moss_floor_paint"}}
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sj, explore_start=((views[1]["pos"][0], views[1]["pos"][1] - 1.7, views[1]["pos"][2]), views[1]["yaw"]), camera=cam,
               bookmarks={str(k): {"position": [c[0], b.ground(*c) + 45.0, c[1] - 55.0], "yaw": 180.0, "pitch": -35} for k, (n, c) in DISTRICTS.items()},
