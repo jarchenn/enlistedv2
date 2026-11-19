@@ -20,7 +20,7 @@ The editor:
 
 **Game modes**
 - **Assault** (attack and defend objectives), **Team Deathmatch**, **Solo** (free-for-all), **Search and Destroy** (plant or defuse, round based) and **Battle royale** (parachute in from a bomber, loot buildings, outlast a shrinking storm).
-- Play alone against up to 200 bots or with friends over LAN.
+- Play alone against hundreds of bots or with friends over LAN.
 - Pick the enemy type per side: soldiers of several factions (WWII Allied and German, modern, desert, special forces), zombies, and creature types such as brutes, spiders and mechs.
 
 **Maps**
