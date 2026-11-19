@@ -245,6 +245,51 @@ for P in job["pieces"]:
     if P.get("solidify"):   # PR8: single-sided walls get their inside faces (walk-in), thickness inward
         md = ob.modifiers.new("sol", "SOLIDIFY"); md.thickness = P["solidify"]; md.offset = -1; md.use_rim = True
         bpy.context.view_layer.objects.active = ob; bpy.ops.object.modifier_apply(modifier=md.name)
+    auto_boxes = []
+    if P.get("auto_colliders"):   # PR10: colliders from the model's own walls and floors (source units): its axis-aligned faces
+        # grouped by plane, rasterised on a grid and merged into rectangles; vertical faces -> thin walls, up-facing ->
+        # slabs under them (floors, treads, walkways); down-facing and sloped faces ignored. Holes in the faces (doorways,
+        # windows, breaches) stay open by construction; materials in "exclude" (glass, boards, debris) give none.
+        AC = P["auto_colliders"]; cell = AC.get("cell", 0.25); th = AC.get("thick", 0.12)
+        excl = {i for i, sl in enumerate(ob.material_slots) if sl.material and any(sl.material.name.startswith(n) for n in AC.get("exclude", []))}
+        planes = {}
+        me = ob.data
+        for p in me.polygons:
+            if p.material_index in excl: continue
+            n = p.normal; k = max(range(3), key=lambda a: abs(n[a]))
+            if abs(n[k]) < 0.97 or (k == 2 and n[2] < 0): continue
+            u, v = [a for a in range(3) if a != k]
+            d = round(p.center[k] / 0.05) * 0.05
+            pts = [(me.vertices[i].co[u], me.vertices[i].co[v]) for i in p.vertices]
+            us = [q[0] for q in pts]; vs = [q[1] for q in pts]
+            cells = planes.setdefault((k, d), set())
+            for i in range(int(min(us) // cell), int(max(us) // cell) + 1):
+                cu = (i + 0.5) * cell
+                if cu < min(us) or cu > max(us): continue
+                for j in range(int(min(vs) // cell), int(max(vs) // cell) + 1):
+                    cv = (j + 0.5) * cell; inside = False
+                    if cv < min(vs) or cv > max(vs): continue
+                    for a in range(len(pts)):   # point in polygon (even-odd)
+                        (x1, y1), (x2, y2) = pts[a], pts[a - 1]
+                        if (y1 > cv) != (y2 > cv) and cu < (x2 - x1) * (cv - y1) / (y2 - y1) + x1: inside = not inside
+                    if inside: cells.add((i, j))
+        for (k, d), cells in planes.items():
+            if len(cells) * cell * cell < (AC.get("min_floor", 0.25) if k == 2 else AC.get("min_wall", 1.0)): continue
+            left = set(cells)
+            while left:   # greedy rectangles: the lowest cell, run along u, then whole rows along v
+                i0, j0 = min(left, key=lambda c: (c[1], c[0])); i1 = i0
+                while (i1 + 1, j0) in left: i1 += 1
+                j1 = j0
+                while all((i, j1 + 1) in left for i in range(i0, i1 + 1)): j1 += 1
+                for i in range(i0, i1 + 1):
+                    for j in range(j0, j1 + 1): left.discard((i, j))
+                if (i1 - i0 + 1) * (j1 - j0 + 1) * cell * cell < (AC.get("min_rect_floor", 0.12) if k == 2 else AC.get("min_rect", 0.12)): continue
+                lo3, hi3 = [0, 0, 0], [0, 0, 0]
+                u, v = [a for a in range(3) if a != k]
+                lo3[u], hi3[u] = i0 * cell, (i1 + 1) * cell; lo3[v], hi3[v] = j0 * cell, (j1 + 1) * cell
+                lo3[k], hi3[k] = (d - th, d) if k == 2 else (d - th / 2, d + th / 2)
+                auto_boxes.append([lo3[0], hi3[0], lo3[1], hi3[1], lo3[2], hi3[2]])
+        print("AUTO colliders", len(auto_boxes), "from", len(planes), "planes")
     if P.get("decimate"):
         md = ob.modifiers.new("dec", "DECIMATE"); md.ratio = P["decimate"]
         bpy.context.view_layer.objects.active = ob; bpy.ops.object.modifier_apply(modifier=md.name)
@@ -268,6 +313,7 @@ for P in job["pieces"]:
         R = Matrix.Rotation(math.radians(P.get("yaw", 0)), 3, "Z")
         for x0, x1, y0, y1, z0, z1 in P["boxes"]:
             src_boxes.append(xform([x0, x1, y0, y1, z0, z1]))
+    src_boxes += [xform(b) for b in auto_boxes]   # PR10
     for dzf, yaw in P.get("stack", []):   # a second course on top (the high sandbag wall), turned for variety
         h = hi.z - lo.z
         c2 = ob.copy(); c2.data = ob.data.copy(); bpy.context.scene.collection.objects.link(c2)

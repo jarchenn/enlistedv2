@@ -29,6 +29,27 @@ def pbr(folder, stem):   # the rar pack's per-material folders: <Mat>/LittleBuil
     return {"Base Color": f + "BaseColor.jpg", "Normal": f + "Normal.jpg", "Roughness": f + "Rough.png"}
 
 
+def wmap(base, rough=None, normal=None, metal=None):   # the warehouse's maps by their names on disk (the FBX's own names differ)
+    return {k: v for k, v in (("Base Color", base), ("Roughness", rough), ("Normal", normal), ("Metallic", metal)) if v}
+
+
+WH_MATS = {
+    "Walkway": wmap("Walkway_Diffuse.jpg", "Walkway_Roughness.jpg", "Walkway_Normal.jpg"),
+    "Rubber": wmap("synth-rubber-albedo.jpg", "synth-rubber-roughness.jpg", "synth-rubber-normal.jpg"),
+    "factory_wall": wmap("Substance_graph_basecolor.jpg", None, "Substance_graph_normal.jpg"),
+    "rusty metal plate corrugated": wmap("rusty_metal_plate_corrugated_albedo.jpg", "rusty_metal_plate_corrugated_roughness.jpg", "rusty_metal_plate_corrugated_normal.jpg", "rusty_metal_plate_corrugated_metallic.jpg"),
+    "WarehouseMainConcrete": wmap("viyjde3_2K_Albedo.jpg", "viyjde3_2K_Roughness.jpg", "viyjde3_2K_Normal.jpg"),
+    "WarehouseWindow": wmap("windowpaint_WarehouseWindow_BaseColor.jpg", "windowpaint_WarehouseWindow_Roughness.jpg"),
+    "Office_Floor": wmap("office-carpet-fabric_albedo.jpg", "office-carpet-fabric_roughness.jpg", "office-carpet-fabric_normal-ogl.jpg"),
+    "MetalRusted": wmap("Metal_iron_4_baseColor.jpeg", "Metal_iron_4_roughness.jpeg", "Metal_iron_4_normal.jpeg", "Metal_iron_4_metallic.jpeg"),
+    "MetalWalkway": wmap("Substance_graph_basecolor.jpg", None, "Substance_graph_normal.jpg"),
+    "GateRail": wmap("gatepaint_GateRail_BaseColor.jpg", "gatepaint_GateRail_Roughness.jpg"),
+    "DoorMetal": wmap("DoorMetal_BaseColor.jpg", "DoorMetal_Roughness.jpg"),
+    "OfficeDoorMaterial": wmap("officedoorpaint_OfficeDoorMaterial_BaseCol.jpg", "officedoorpaint_OfficeDoorMaterial_Roughne.jpg", "officedoorpaint_OfficeDoorMaterial_Normal.jpg"),
+    "OfficeWindow": wmap("officewindowpaint_OfficeWindow_BaseColor.jpg", "officewindowpaint_OfficeWindow_Roughness.jpg"),
+}
+
+
 # buildings: walls / roof / floors / openings as boxes in the source ([x0, x1, y0, y1, z0, z1]); the door front is -y.
 # "walls" are every static collider (floor slabs too); "floor" is the main floor (the threshold height of the doors).
 BUILDINGS = {
@@ -102,6 +123,18 @@ BUILDINGS = {
         floor=[-4.46, 3.96, -1.24, 1.29, 0.0, 0.64],
         furnish=[("mod_debris_stove", 2.4, 0.75, 0), ("pa_chest_wooden", -3.75, 0.75, 0), ("furn_chair_soviet", -1.0, 0.7, 200),
                  ("mod_debris_papers_pile", -2.2, -0.5, 30), ("pa_fruit_crate_mid", 3.35, -0.6, 90)]),
+    # a game-ready warehouse (T plan, 41 x 48 m, trusses, walkways, a mezzanine office): colliders from its own walls and
+    # floors (pr6_split auto_colliders), its closed door panels and painted window panes removed (open doorways: the
+    # walls have real openings behind them; broken-out windows); docks at 1 m outside, the halls at ground level
+    "pa_warehouse": dict(
+        name="Abandoned warehouse", lic="free", pack="abandoned-warehouse.zip", src="abandoned-warehouse/source/warehouseupload2.fbx",
+        texfolder="abandoned-warehouse/textures", matmap=WH_MATS, maxTex=2048, decimate=0.5,
+        delete_mats=["DoorMetal", "OfficeDoorMaterial", "WarehouseWindow", "OfficeWindow"],
+        auto_colliders={"exclude": ["GateRail", "Rubber"], "cell": 0.5, "min_wall": 4.0, "min_rect": 1.5, "min_floor": 1.0, "min_rect_floor": 0.25},   # (1112 boxes at 0.25 m stalled the asset load)
+        desc="A derelict T-plan steel warehouse: two halls under a broken roof, trusses, walkways and a mezzanine office, loading docks; enterable through its open doorways and loading bay.",
+        walls=[], doors={}, holes={}, floor=[-5.0, 5.0, 5.0, 10.0, -0.12, 0.0],
+        furnish=[("pa_crate_slatted", -18.0, -18.0, 20), ("mod_barrel_steel_rust", -22.0, -10.0, 0), ("pa_chest_wooden", 3.0, -14.0, 90),
+                 ("pa_fruit_crate_high", -17.2, -16.9, 35), ("mod_debris_papers_scattered", 1.0, 8.0, 0)]),
 }
 
 # props: piece = pr6_split options; group = the palette group; extra = asset JSON fields
@@ -169,7 +202,7 @@ def convert(dl, glbs):
         if os.path.exists(os.path.join(glbs, bid + ".glb")): continue
         marks = {**{k: v[3] for k, v in B["doors"].items()}, **B["holes"], "floor": B["floor"],
                  **{"f%d" % i: mark(x, y, B["floor"][5]) for i, (_, x, y, _) in enumerate(B["furnish"])}}
-        piece = {"id": bid, "objects": None, "boxes": B["walls"], "marks": marks, "delete_mats": B.get("delete_mats", []), "delete_in": B.get("delete_in", []), "double_mats": B.get("double_mats", []), "cut_below": B.get("cut_below"), "decimate": B.get("decimate"),
+        piece = {"id": bid, "objects": None, "boxes": B["walls"], "marks": marks, "delete_mats": B.get("delete_mats", []), "delete_in": B.get("delete_in", []), "double_mats": B.get("double_mats", []), "cut_below": B.get("cut_below"), "decimate": B.get("decimate"), "auto_colliders": B.get("auto_colliders"),
                  "add_boxes": [{**b, "tex": os.path.join(ROOT, "content", "textures", b["tex"])} for b in B.get("add_boxes", [])],
                  "scale": B.get("scale", 1.0), "yaw": B.get("yaw", 0)}
         job = {"src": os.path.join(dl, B["src"]), "out": glbs, "pieces": [piece]}
