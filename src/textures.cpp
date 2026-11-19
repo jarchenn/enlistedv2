@@ -299,6 +299,9 @@ void upload(GLuint p) {
   float lodG = 1.5f;   // TX2K: less bias on the ground (×3 blurred it at the eye); tuned on --selftest-render, NMK_TEX_LOD_GROUND overrides
   if (const char* e = std::getenv("NMK_TEX_LOD_GROUND")) lodG = (float)std::atof(e);
   glProgramUniform1f(p, U("uTexLodG"), lodG > 0 ? lodG : lod.x);
+  vec2 nearR(3.0f, 10.0f);   // TX3: bias-free within 3 m, full bias from 10 m (NMK_TEX_NEAR="a,b")
+  if (const char* e = std::getenv("NMK_TEX_NEAR")) std::sscanf(e, "%f,%f", &nearR.x, &nearR.y);
+  glProgramUniform2f(p, U("uTexNear"), nearR.x, std::max(nearR.y, nearR.x + 0.1f));
   glProgramUniform4fv(p, U("uTexLod"), 1, &lod.x); glProgramUniform4fv(p, U("uTexLod2"), 1, &lod2.x);
   glProgramUniform1iv(p, U("uPatSlot"), 32, wantImg ? patSlotImg : patSlot); glProgramUniform1iv(p, U("uTerrSlot"), 8, terrSlot); glProgramUniform1iv(p, U("uPaintSlot"), kPaintTypes, paintSlotEff);
 }
@@ -438,6 +441,8 @@ struct TexS { vec3 col; float ao, r, h; vec3 n; float d; };   // d: MA1b detail 
 // texMaterial for slots with a height, near the eye; the taps march the height map before sampling (docs/textures.md)
 vec3 gPomV = vec3(0.0); float gPomK = 0.0;
 int gPomN = 10;          // MA1b: parallax steps (High 10, Medium 4 under Perf relief)
+uniform vec2 uTexNear;    // TX3: the LOD bias fades in between these eye distances (m): near the eye the surface is magnified, so
+float gEyeD = 1e9;        //   there is no shimmer to bias against and the 2K sets show their detail (gEyeD: set by each caller)
 float gTexGS = 0.0;      // MA1b: gradient scale for this slot's taps (0 = uTexLod.x); replace sets under relief: uTexLod2.w
 float gDetF = 0.0;       // MA1b: detail height tap near the eye (0 = off)
 bool texOn(){ return uTexOn == 1 && uLook == 1; }
@@ -447,6 +452,7 @@ void texFrame(int q, inout vec3 T, inout vec3 B){ vec3 t = T; if (q == 1) { T = 
 void texTap(float L, vec3 p, vec3 dpx, vec3 dpy, vec2 inv, vec3 T, vec3 B, vec3 Nf, vec3 ns, float w, inout TexS s){
   vec3 q = vec3(dot(p, T)*inv.x, dot(p, B)*inv.y, L);
   float gs = gTexGS > 0.0 ? gTexGS : uTexLod.x;
+  gs = mix(min(gs, 1.0), gs, smoothstep(uTexNear.x, uTexNear.y, gEyeD));   // TX3: no bias up close
   vec2 gx = vec2(dot(dpx, T), dot(dpx, B))*inv*gs, gy = vec2(dot(dpy, T), dot(dpy, B))*inv*gs;
   if (gPomK > 0.0 && w > 0.3) {   // GX5 POM: march from the top of the relief down until the height map is above the ray
     vec3 Vt = vec3(dot(gPomV, T), dot(gPomV, B), max(dot(gPomV, Nf), 0.2));
@@ -495,6 +501,7 @@ TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
   int li = int(A.x + 0.5); vec4 K = uTexB[slot], C = uTexC[slot], Lp = uTexL[li], M = uTexM[li];
   float f = C.w > 0.0 ? 1.0 - smoothstep(C.z, C.w, dist) : 1.0;
   if (f <= 0.0) return o;
+  gEyeD = dist;
   vec2 inv = Lp.xy*A.w; int rot = int(C.y + 0.5);
   TexS s = TexS(vec3(0.0), 0.0, 0.0, 0.0, vec3(0.0), 0.0);
   float gs0 = gTexGS; gTexGS = uTexLodG;
@@ -608,6 +615,7 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
   vec2 inv = Lp.xy*A.w; int sp = int(A.z + 0.5);
   vec3 ng = normalize(nW);
   float eyeD = length(w - uCamPos);
+  gEyeD = eyeD;
   gPomK = 0.0;
   vec4 R = uTexR[slot];
   bool rel = uRelief == 1 && R.x + R.y + R.z > 0.0;   // MA1b: this slot's family has relief (textures.json "relief" / "crevice" / "edge")

@@ -120,6 +120,10 @@ The ground (terrain layers and painted ground) uses its own gradient scale, ×1.
 
 A set whose colour map is 2048 wide or more is loaded into a second array of 2K layers (units 29-31, `uTexHiBase` and up); everything else stays 1K. The 23 ground sets of the terrain and paint slots (both tables) are packed at 2K: `tools/fetch_ambientcg.py --res 2K` and `tools/fetch_polyhaven_tex.py`. That is about 240 MB more texture memory. `NMK_TEX_HI=0` loads them at 1K.
 
+### TX3: 2K walls, roofs, roads, props and interiors; no bias near the eye
+
+The 99 always-loaded ambientCG slot sets and two Poly Haven sets are packed at 2K too (124 sets in all; the 407 lazy library sets and the 7 local sets stay 1K). With the ×3 bias, 2K changed nothing: the biased mip has the same texel density at either size until a surface is magnified more than ×3. Near the eye a surface is magnified, so there is no shimmer to bias against: the bias now fades in between 3 and 10 m (`uTexNear`, `NMK_TEX_NEAR="a,b"`). Hollow Village edge sharpness: close wall 3.45 → 4.43, close crate 3.97 → 4.24, lane 3.34 → 4.41. Ground still shimmer at 2-8 m: 0.35 → 0.48 (facades ~2.0). Texture memory there: 814 MB (all 1K) → 2266 MB. The per-user BC cache cap went from 3072 to 6144 MB.
+
 ## Sets not mapped yet
 
 Nine of the 57 approved sets have no slot. On disk they cost nothing on the GPU: only sets a slot references are loaded. They are: `brick_factory`, `brick_damaged`, `rock_grey`, `cobbles_grey`, `cobbles_old`, `slate_roof`, `roof_clay`, `paint_wood_old` and `rock_mossy`. No surface in the game is cobbled yet. Adding a slot makes a set live.
