@@ -278,10 +278,18 @@ void terrainRegenerate(App& app) {
 
 void terrainGenerateHills(App& app, const HillsParams& p) {
   app.pushUndo();
-  json st = {{"amp", p.amp}, {"scale", p.scale}, {"seed", p.seed}, {"pad", p.pad}, {"feather", p.feather}, {"protect", terrainProtectShapes(app)}};
+  json st = {{"amp", p.amp}, {"scale", p.scale}, {"seed", p.seed}, {"pad", p.pad}, {"feather", p.feather}};
   if (!app.doc.terrainGen.is_object()) app.doc.terrainGen = json::object();
   if (!app.doc.terrainGen.contains("hills") || !app.doc.terrainGen["hills"].is_array()) app.doc.terrainGen["hills"] = json::array();
-  app.doc.terrainGen["hills"].push_back(st);
+  json& hills = app.doc.terrainGen["hills"];
+  // TG1: the protected shapes (every footprint, route and objective) rarely change between applies; a layer whose shapes
+  // equal an earlier layer's points at it ("protectRef") instead of a copy. Each undo snapshot copies every layer: with a
+  // copy per layer a big map grew by ~100 MB an apply (17 GB of private memory after 80 applies on newtown)
+  json prot = terrainProtectShapes(app);
+  int ref = -1;
+  for (int k = (int)hills.size() - 1; k >= 0 && ref < 0; --k) if (hills[k].is_object() && hills[k].contains("protect") && hills[k]["protect"] == prot) ref = k;
+  if (ref >= 0) st["protectRef"] = ref; else st["protect"] = std::move(prot);
+  hills.push_back(std::move(st));
   terrainRegenerate(app);
   app.toast("Generated hills (Ctrl+Z to undo).", 4);
 }

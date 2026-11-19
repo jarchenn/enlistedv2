@@ -13,6 +13,7 @@
 #include "scenario.h"
 #include "terrain_blend.h"
 #include <cstdarg>
+#include <cstring>
 #include <numeric>
 #include <functional>
 #include <chrono>
@@ -166,6 +167,24 @@ struct InstRec { vec3 pos; float yaw; std::string asset; };
 std::map<uint64_t, InstRec> gInst; size_t gUndo0 = 0, gN0 = 0; int gTilesX0 = 0;
 
 void build(App& app) {
+  // TG1: NMK_HILLS_STRESS=N[,template]: only Generate hills N times in a row (one a frame, as the editor), large amplitude, on a
+  // populated map (default newtown: buildings, trenches, lines); logs each apply's time and the process memory
+  if (const char* e = std::getenv("NMK_HILLS_STRESS")) {
+    static int n = std::max(1, std::atoi(e)); static std::string tid = std::strchr(e, ',') ? std::string(std::strchr(e, ',') + 1) : std::string("newtown");
+    push("hills stress: open", [](App& app, float) { const TemplateInfo* t = tpl(app, tid.c_str()); chk(t != nullptr, "template %s", tid.c_str()); if (t) app.newMap(*t, "Hills stress"); return true; });
+    push("hills stress: apply", [](App& app, float) {
+      static int k = 0;
+      HillsParams hp; hp.amp = 6.0f + 3.0f * (k % 5); hp.scale = 60.0f + 20.0f * (k % 4); hp.seed = 100 + k;
+      auto t0 = std::chrono::steady_clock::now();
+      terrainGenerateHills(app, hp);
+      double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+      ProcMem m = processMemory();
+      logf("[hills stress] apply %d: %.0f ms, %d layers, undo %d, private %.0f MB, working set %.0f MB", k + 1, ms, (int)app.doc.terrainGen["hills"].size(), (int)app.undoStack.size(), m.PrivateBytes / 1048576.0, m.WorkingSetSize / 1048576.0);
+      return ++k >= n;
+    });
+    push("hills stress: done", [](App& app, float) { chk(true, "%d hills applies without a crash", n); return true; });
+    return;
+  }
   // ================================================================ brushes on Blank Slate
   push("blank map", [](App& app, float) { const TemplateInfo* t = tpl(app, "blank_slate"); if (t) app.newMap(*t, "Terrain selftest"); return true; });
   push("every brush mode", [](App& app, float) {
@@ -443,7 +462,7 @@ bool terrainSelfTest(App& app, float dt) {
     try { done = seq[cur].fn(app, st); } catch (std::exception& e) { T->check(false, "step '" + seq[cur].name + "' threw: " + e.what()); done = true; }
     st += dt; total += dt;
     if (done) { logf("[terrain] step done: %s (%.1f s)", seq[cur].name.c_str(), total); ++cur; st = 0; }
-    if (total > 600) { T->check(false, "terrain test timed out in step '" + seq[std::min(cur, seq.size() - 1)].name + "'"); cur = seq.size(); }
+    if (total > 600 && !std::getenv("NMK_HILLS_STRESS")) { T->check(false, "terrain test timed out in step '" + seq[std::min(cur, seq.size() - 1)].name + "'"); cur = seq.size(); }
   }
   if (cur >= seq.size() && !app.selftest->done) {
     std::ofstream(outDir() / "terrain_perf.json") << perf.dump(2);

@@ -346,6 +346,7 @@ void terrainPhysicsBuild(Terrain& t) {
   for (int z = 0; z < t.chunksZ(); ++z)
     for (int x = 0; x < t.chunksX(); ++x) { terrainPhysicsRebuildChunk(t, x, z); crumb("terrain: colliders"); }   // UI3: a loading frame when one is due
   terrainPhysicsSync(t);
+  Physics::optimizeBroadPhase();   // TG1: every patch was just replaced (see terrainPhysicsSync)
 }
 
 void terrainPhysicsSync(Terrain& t) {
@@ -371,6 +372,11 @@ void terrainPhysicsSync(Terrain& t) {
   t.physDirty.clear();
   if (t.chunkBodies.empty()) return;   // no physics world for this terrain yet (thumbnails)
   for (int c : chunks) terrainPhysicsRebuildChunk(t, c % t.chunksX(), c / t.chunksX());
+  // TG1: Jolt's broad-phase quadtree frees a removed body's nodes only when the tree is rebuilt (the physics update or
+  // OptimizeBroadPhase) and aborts ("QuadTree: Out of nodes!") when its fixed pool runs dry. A bulk swap of the height
+  // patches (Generate / Clear hills, their undo, a regenerated map) leaves the old patches' nodes behind; repeated back to
+  // back in the editor it exhausted the pool. Rebuild after any bulk swap; a brush dab touches a few chunks and skips it.
+  if (chunks.size() >= 32) Physics::optimizeBroadPhase();
 }
 
 void terrainPhysicsRemovePatches(Terrain& t) {

@@ -77,3 +77,46 @@ struct Install {
 } gInstall;
 }   // namespace
 #endif
+
+// TG1: std::terminate (an uncaught C++ exception, a joinable std::thread destroyed, ...) ends in abort() / a fast fail that
+// the exception filter above never sees: log what was thrown, the last breadcrumb and the return addresses first
+#include "crumb.h"
+#include <exception>
+#include <cstdlib>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <execinfo.h>
+#include <dlfcn.h>
+#endif
+namespace {
+[[noreturn]] void onTerminate() {
+  static bool once = false;
+  if (!once) {
+    once = true;
+    const char* what = "no active exception";
+    std::string msg;
+    if (std::exception_ptr e = std::current_exception()) {
+      try { std::rethrow_exception(e); }
+      catch (const std::exception& x) { msg = x.what(); what = msg.c_str(); }
+      catch (...) { what = "a non-std exception"; }
+    }
+    logf("[crash] terminate: %s (last stage: %s)", what, gCrumb ? gCrumb : "?");
+#ifdef _WIN32
+    void* fr[48]; USHORT n = RtlCaptureStackBackTrace(0, 48, fr, nullptr);
+    HMODULE exe = GetModuleHandleW(nullptr);
+    for (USHORT k = 0; k < n; ++k) {
+      HMODULE hm = nullptr; char mod[MAX_PATH] = "?";
+      if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)fr[k], &hm) && hm) { GetModuleFileNameA(hm, mod, sizeof mod); const char* s = strrchr(mod, '\\'); if (s) memmove(mod, s + 1, strlen(s)); }
+      logf("[crash]   #%02d %s+0x%llx", (int)k, hm == exe ? "exe" : mod, (unsigned long long)((uintptr_t)fr[k] - (uintptr_t)(hm ? hm : exe)));
+    }
+#else
+    void* fr[48]; int n = backtrace(fr, 48); Dl_info self{}; dladdr((void*)&onTerminate, &self);
+    for (int k = 0; k < n; ++k) { Dl_info d{}; bool ex = dladdr(fr[k], &d) && d.dli_fbase == self.dli_fbase; logf("[crash]   #%02d %s+0x%llx", k, ex ? "exe" : "?", (unsigned long long)((uintptr_t)fr[k] - (uintptr_t)(d.dli_fbase ? d.dli_fbase : self.dli_fbase))); }
+#endif
+    logf("[crash] end of backtrace");
+  }
+  std::abort();
+}
+struct InstallTerminate { InstallTerminate() { std::set_terminate(onTerminate); } } gInstallTerminate;
+}   // namespace
