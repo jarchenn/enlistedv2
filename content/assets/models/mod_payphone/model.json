@@ -12,10 +12,14 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "korean_public_payphone_01",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   }
  ],
  "parts": [
@@ -56,5 +60,12 @@
  "source": "ph_korean_public_payphone_01.glb",
  "textures": {},
  "triangles": 24065,
- "vertices": 16642
+ "vertices": 16642,
+ "grunge": {
+  "strength": 0.9,
+  "kinds": {
+   "korean_public_payphone_01": "metal"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

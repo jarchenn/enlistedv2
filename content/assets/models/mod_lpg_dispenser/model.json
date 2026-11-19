@@ -12,18 +12,26 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_2.jpg",
+   "albedo": "albedo_2_g.jpg",
    "aoInMR": true,
-   "mr": "mr_1.jpg",
+   "mr": "mr_1_g.jpg",
    "name": "Lpg_box.001",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_2.jpg",
+    "mr": "mr_1.jpg"
+   }
   },
   {
-   "albedo": "albedo_5.jpg",
+   "albedo": "albedo_5_g.jpg",
    "aoInMR": true,
-   "mr": "mr_4.jpg",
+   "mr": "mr_4_g.jpg",
    "name": "LPG_DETAILS.001",
-   "normal": "normal_3.jpg"
+   "normal": "normal_3.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_5.jpg",
+    "mr": "mr_4.jpg"
+   }
   }
  ],
  "parts": [
@@ -90,5 +98,13 @@
  "source": "mod_lpg_dispenser.glb",
  "textures": {},
  "triangles": 4586,
- "vertices": 3804
+ "vertices": 3804,
+ "grunge": {
+  "strength": 1.0,
+  "kinds": {
+   "Lpg_box.001": "metal",
+   "LPG_DETAILS.001": "metal"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

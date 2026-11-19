@@ -1592,7 +1592,7 @@ void main(){
   } else {
     alb *= 0.94 + 0.08*vnL(vAp*7.0, 7.0);
   }
-  gTexWear = uInst.y;   // MA1: worn copies show more substrate
+  gTexWear = uInst.y; gTexSeed = uInst.x;   // MA1: worn copies show more substrate; TX6: the grunge mask offset
   texMaterial(tslot, vW, vN, vAp, vAn, vPc, vPn, grain, gPix, alb, rough, ao);   // L4: ambientCG layer under the weathering (textures.cpp)
   {   // PERF1 matfar: both GX5 layers fade out over the far band and are skipped beyond it
     vec3 a0 = alb; float r0 = rough, o0 = ao;

@@ -141,3 +141,7 @@ content/assets/models/mod_debris_papers_pile/
 # PR10: local-only models (the rar outbuilding: no licence metadata; the shop: Sketchfab Standard)
 content/assets/models/pa_concrete_outbuilding/
 content/assets/models/pa_abandoned_shop/
+# PR10: local-only models (licences to be confirmed)
+
+# TX6: Texturelabs grunge masks may be used, not passed on: the local mask image stays out of the repository
+content/textures/grunge_masks/local.png

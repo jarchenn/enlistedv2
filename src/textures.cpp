@@ -45,6 +45,7 @@ int patSlotImg[32], floorSlotImg[8];   // imgmat pattern -> slot; room floor fin
 bool wantImg = true;
 GLuint tableUbo = 0;                   // MA1: the active slot / layer tables (NmkTexTables, uniform buffer binding 3)
 bool loadedImg = true, loadedBoth = false;   // which table's sets are on the GPU (NMK_TEX_ALL=1: both, for the imgmat A/B)
+GLuint grungeTex = 0; float grungeK = 0;   // TX6: grunge masks (unit 28): R paint chips, G dirt, B cracks (content/textures/grunge_masks)
 GLuint macroTex = 0;                   // MA1: world-space macro variation (unit 25): R tint, G roughness, B damp, A substrate exposure
 std::map<std::string, int> slotByName;
 std::map<std::string, int> matSlot;    // material name -> slot, -2 = none
@@ -284,6 +285,7 @@ void upload(GLuint p) {
   glProgramUniform1i(p, U("uImgMat"), wantImg ? 1 : 0); glProgramUniform1i(p, U("uTexSkipFar"), wantImg ? 1 : 0);
   glProgramUniform1iv(p, U("uFloorSlot"), 8, floorSlotImg);
   glProgramUniform1i(p, U("uTexMacro"), kUnitBase + 5);   // unit 25 (23 ground paint, 24 terrain cache)
+  glProgramUniform1i(p, U("uGrunge"), kUnitBase + 8); glProgramUniform1f(p, U("uGrungeK"), grungeK);   // TX6: unit 28 (26 leaves, 27 grass / fog)
   vec4 lod(3.0f, 2.0f, 16.0f, 0.95f), lod2(8.0f, 48.0f, 0.7f, 1.6f);   // lod2.w (MA1b): replace sets' gradient scale under relief   // tuned on --selftest-render (docs/textures.md#shimmer); NMK_TEX_LOD="a,b,c,d" overrides (A/B)
   if (const char* e = std::getenv("NMK_TEX_LOD")) std::sscanf(e, "%f,%f,%f,%f", &lod.x, &lod.y, &lod.z, &lod.w);
   if (const char* e = std::getenv("NMK_TEX_LOD2")) std::sscanf(e, "%f,%f,%f,%f", &lod2.x, &lod2.y, &lod2.z, &lod2.w);
@@ -317,6 +319,39 @@ void uploadAll() { uploadTables(); for (GLuint p : progs) upload(p); }
 
 // MA1 macro variation: 256^2 RGBA8, tileable value-noise fBm (one tile = 32 m in the shader), mipmapped, unit 25.
 // R broad tint, G roughness, B damp / weathering (broadest), A substrate exposure (patches of ~2-3 m, ragged edges)
+// TX6: the wall wear masks, one tileable RGBA image (R paint chips: 1 = paint gone, G dirt, B cracks), 2.5 m a tile.
+// local.png (built from the user's Texturelabs grunge images; git-ignored, never committed) wins over cc0.png (built from
+// ambientCG CC0 sets, committed). Neither: uGrungeK = 0 and the walls break by the procedural macro mask as before.
+void loadGrunge() {
+  if (grungeTex) { glDeleteTextures(1, &grungeTex); grungeTex = 0; }
+  grungeK = 0;
+  for (const char* f : {"local.png", "cc0.png"}) {
+    fs::path p = root / "grunge_masks" / f; std::error_code ec;
+    if (!fs::exists(p, ec)) continue;
+    int w = 0, h = 0, c = 0;
+    unsigned char* px = stbi_load(p.string().c_str(), &w, &h, &c, 4);
+    if (!px) { logf("textures: grunge mask %s unreadable", p.string().c_str()); continue; }
+    int lv = 1; while ((std::max(w, h) >> lv) > 0) ++lv;
+    glCreateTextures(GL_TEXTURE_2D, 1, &grungeTex);
+    glTextureStorage2D(grungeTex, lv, GL_RGBA8, w, h);
+    glTextureSubImage2D(grungeTex, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, px);
+    stbi_image_free(px);
+    glGenerateTextureMipmap(grungeTex);
+    glTextureParameteri(grungeTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTextureParameteri(grungeTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(grungeTex, GL_TEXTURE_WRAP_S, GL_REPEAT); glTextureParameteri(grungeTex, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTextureParameterf(grungeTex, 0x84FE /* GL_TEXTURE_MAX_ANISOTROPY */, 8.0f);
+    grungeK = std::getenv("NMK_NO_GRUNGE") ? 0.0f : 1.0f;
+    gInfo.bytes += (double)w * h * 4 * 4 / 3;
+    logf("textures: grunge masks %s (%dx%d)", f, w, h);
+    break;
+  }
+  if (!grungeTex) {   // a neutral 1x1 so the sampler is always complete
+    const unsigned char z[4] = {0, 0, 0, 0};
+    glCreateTextures(GL_TEXTURE_2D, 1, &grungeTex); glTextureStorage2D(grungeTex, 1, GL_RGBA8, 1, 1); glTextureSubImage2D(grungeTex, 0, 0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, z);
+  }
+  glBindTextureUnit(kUnitBase + 8, grungeTex);
+}
+
 void makeMacro() {
   const int N = 256;
   auto h = [](int x, int y, int s) { uint32_t v = (uint32_t)x * 374761393u + (uint32_t)y * 668265263u + (uint32_t)s * 2246822519u; v = (v ^ (v >> 13)) * 1274126177u; return ((v ^ (v >> 16)) & 0xffffff) / 16777216.0f; };
@@ -362,6 +397,7 @@ uniform sampler2DArray uTexCol, uTexNrm, uTexRH;   // colour (sRGB) + ao, normal
 uniform int uTexOn;
 uniform int uTexSkipFar;
 uniform int uImgMat;       // MA1 imgmat table active (render.cpp: room floor finishes take uFloorSlot; terrain layers alternate sets)
+uniform sampler2D uGrunge; uniform float uGrungeK;   // TX6: wall wear masks (unit 28): R chips, G dirt, B cracks; 4 m a tile
 uniform sampler2D uTexMacro;   // MA1 macro variation (unit 25): R tint, G roughness, B damp, A substrate / alternate-set mask; one tile = 32 m
 float gTexNFade = 1.0;     // MA1: share of the far normal fade (texSlotTaps: 0.5 for replace sets under imgmat)   // MA1 imgmat: 1 = skip normal taps whose detail is faded out (far)
 // MA1: the slot / layer tables live in one uniform buffer (binding 3, 14 KB): as plain uniforms they passed the 1024
@@ -483,6 +519,7 @@ vec3 gTexDN = vec3(0.0); float gTexH = 0.0; bool gTexBump = false;   // world no
 uniform int uFloorSlot[8]; // MA1: room floor finish code -> slot (imgmat)
 uniform int uRelief;       // MA1b (Perf relief): parallax on Medium, per-family depth, crevices, detail grain, worn edges
 layout(location=11) flat in vec3 vPcF;         // MA1b: the triangle's provoking vertex part coordinate: a corner of a box face (edge distance)
+float gTexSeed = 0.0;      // TX6: the copy's seed (uInst.x): its grunge mask offset
 float gTexWear = 1.0;      // the copy's wear (kMainFS sets uInst.y before texMaterial): more substrate on worn buildings
 int texSlot(float code, int pat){ int c = int(code + 0.5)/100; return c == 0 ? (pat >= 0 && pat < 32 ? uPatSlot[pat] : -1) : c - 2; }
 bool texReplace(int slot){ return texOn() && slot >= 0 && slot < 704 && uTexA[slot].x >= 0.0 && uTexA[slot].y > 0.5; }
@@ -603,7 +640,21 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
       a2 *= 1.0 - 0.16*Uu.w*smoothstep(0.58, 0.82, mac.b);
     }
     int u = int(Uu.x + 0.5);
-    float m = Uu.x >= 0.0 ? smoothstep(Uu.y, Uu.y + 0.08, mac.a + (gTexWear - 1.0)*0.12) : 0.0;
+    float wa = mac.a, wk = clamp(gTexWear, 0.0, 2.0);
+    if (uGrungeK > 0.0) {   // TX6: the paint breaks along a grunge mask's flakes and cracks (one tap), more at box edges (corners,
+      // openings), dirt low down and in the mask's stains; the macro mask keeps whole walls apart
+      vec3 ga = abs(ng); bool gf = ga.y > max(ga.x, ga.z), gx = ga.x > ga.z;
+      vec2 guv = (gf ? w.xz : gx ? w.zy : w.xy)/4.0, gdx = (gf ? dwx.xz : gx ? dwx.zy : dwx.xy)/4.0, gdy = (gf ? dwy.xz : gx ? dwy.zy : dwy.xy)/4.0;
+      vec4 gm = textureGrad(uGrunge, guv + vec2(fract(gTexSeed*7.13), fract(gTexSeed*3.71)), gdx, gdy);
+      float edgeW = 0.0;
+      if (dot(pn, pn) > 2.0) { vec3 g3 = abs(vPcF) - abs(pc); vec3 gp = abs(pn); int gn = gp.x >= gp.y && gp.x >= gp.z ? 0 : gp.y >= gp.z ? 1 : 2; g3[gn] = 1e3;
+        edgeW = 1.0 - smoothstep(0.02, 0.4, min(min(g3.x, g3.y), g3.z)); }
+      wa = mac.a + ((gm.r - 0.5)*0.32 + edgeW*gm.r*0.3)*uGrungeK;   // the macro mask keeps the big peeled patches; the grunge mask breaks their edges into flakes and cracks
+      float low = 1.0 - smoothstep(0.25, 1.8 + 0.6*mac.r, ap.y);
+      float dirt = clamp(gm.g*(0.18 + 0.55*low) + gm.b*0.35, 0.0, 1.0)*wk*0.5*uGrungeK*f;
+      a2 *= 1.0 - 0.6*dirt; r2 = mix(r2, 0.95, dirt);
+    }
+    float m = Uu.x >= 0.0 ? smoothstep(Uu.y, Uu.y + 0.08, wa + (gTexWear - 1.0)*0.12) : 0.0;
     if (m > 0.001 && uTexA[u].x >= 0.0) {   // the substrate (masonry under render, brick behind plaster): its own image colour
       vec3 dnu; TexS su = texSlotTaps(u, w, ng, ap, an, pc, pn, grain, dwx, dwy, dax, day, dcx, dcy, dnu);
       float rim = m*(1.0 - m)*4.0;   // the broken render edge: a thin shadowed lip
@@ -699,6 +750,7 @@ void loadSets() {   // TX2: the sets on the GPU (re-run by flushPending; the slo
   }
   gInfo.sets = (int)sets.size();
   makeMacro(); gInfo.bytes += 256 * 256 * 4 * 4 / 3;
+  loadGrunge();
   resolveLayers();
   invalidateKey();
   gInfo.ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
