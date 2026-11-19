@@ -296,7 +296,8 @@ def build(ctx):
     thumb_cam = ([_v["pos"][0], _v["pos"][1] + 0.6, _v["pos"][2]], _v["yaw"], -5.0)
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sc.to_json(rules_extra=rules), explore_start=((a1[0], a1[1], a1[2]), 0.0), camera=cam, bookmarks={},
-              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 11.0, "enclosed": False}, "look": {"haze": 1.0, "weather": 0.0, "saturation": 0.95, "tint": [0.98, 0.99, 1.02], "paintSets": {"pebbles": "setts_paint"}}})
+              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 9.6, "enclosed": False, "fill": 1.3},   # GR2: a bright clouded morning sky as the main light, a low soft sun raking the street, shade lifted
+                     "look": {"haze": 0.7, "weather": 0.45, "clouds": 0.75, "saturation": 0.92, "tint": [1.0, 0.99, 0.97], "paintSets": {"pebbles": "setts_paint"}}})
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=20, version=VERSION, seed=SEED,
                    description="Search and Destroy: a Norman town quarter on an overcast morning, its lanes between house fronts. "
                                "A: the churchyard; B: the market hall; Mid: the market square. 5 v 5.",

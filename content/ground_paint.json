@@ -7,7 +7,7 @@
     {"id": "mud",         "name": "Mud",                   "grass": 0.0,  "natureOk": false, "navArea": 4,  "step": "step_mud",    "swatch": [0.14, 0.11, 0.08]},
     {"id": "gravel",      "name": "Gravel",                "grass": 0.0,  "natureOk": false, "navArea": -1, "step": "step_gravel", "swatch": [0.42, 0.38, 0.30]},
     {"id": "sand",        "name": "Sand",                  "grass": 0.0,  "natureOk": false, "navArea": -1, "step": "step_sand",   "swatch": [0.62, 0.55, 0.40]},
-    {"id": "cobbles",     "name": "Cobbles",               "grass": 0.0,  "natureOk": false, "navArea": -1, "step": "step_stone",  "swatch": [0.29, 0.28, 0.26]},
+    {"id": "cobbles",     "name": "Cobbles",               "grass": 0.02, "natureOk": false, "navArea": -1, "step": "step_stone",  "swatch": [0.29, 0.28, 0.26]},
     {"id": "rock",        "name": "Rock",                  "grass": 0.0,  "natureOk": false, "navArea": -1, "step": "step_stone",  "swatch": [0.58, 0.57, 0.53]},
     {"id": "dry_grass",   "name": "Dry grass",             "grass": 0.55, "natureOk": true,  "navArea": -1, "step": "",            "swatch": [0.44, 0.38, 0.20]},
     {"id": "ploughed",    "name": "Ploughed farmland",     "grass": 0.0,  "natureOk": false, "navArea": -1, "step": "step_dirt",   "swatch": [0.22, 0.16, 0.10]},

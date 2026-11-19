@@ -6,6 +6,7 @@ pointing to its +x) for junctions.
 
     <python> -I tools/mapgen/sd_signs.py"""
 import json
+import random
 import os
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
@@ -105,15 +106,27 @@ def main():
     out.append(m)
     # SD2 Rue Haute: the town's walled lanes, a 6 m bay of 3.2 m rubble-stone wall (plinth, body, coping), not climbable
     # (an invisible collider to 3.9 m); a door bay with a 1.8 m opening under a stone lintel for the connector links
-    stone_mats = [{"name": "stone", "albedo": [0.74, 0.69, 0.6], "roughness": 0.9, "pattern": "stone", "metallic": 0, "grain": 1, "texture": "limestone_dressed"},
-                  {"name": "dressed", "albedo": [0.7, 0.67, 0.61], "roughness": 0.85, "pattern": "stone", "metallic": 0, "grain": 1, "texture": "stone_coursed"},
+    stone_mats = [{"name": "stone", "albedo": [0.74, 0.69, 0.6], "roughness": 0.9, "pattern": "stone", "metallic": 0, "grain": 1, "texture": "town_wall_stone"},   # GR2: its own slot (textures.json): softer relief, block tones varied
+                  {"name": "dressed", "albedo": [0.7, 0.67, 0.61], "roughness": 0.85, "pattern": "stone", "metallic": 0, "grain": 1, "texture": "town_wall_dressed"},
                   {"name": "air", "albedo": [0.5, 0.5, 0.5], "roughness": 1, "pattern": "plain", "metallic": 0, "grain": 1},
                   {"name": "tile", "albedo": [0.6, 0.33, 0.22], "roughness": 0.75, "pattern": "slate", "metallic": 0, "grain": 2, "texture": "roof_tile"}]
+    def coping(x0, x1, top):   # GR2: a tiled coping laid in 0.5 m lengths, each a little proud or sunk and wider or narrower, so
+        # the overhang casts a thin broken shadow, not one ruled line
+        rr = random.Random(int((x0 + 7.0) * 1000))
+        n = max(1, int(round((x1 - x0 + 0.04) / 0.5)))
+        L = (x1 - x0 + 0.04) / n
+        out_ = []
+        for k in range(n):
+            a = x0 - 0.02 + k * L
+            hw, dy = 0.42 + rr.uniform(-0.025, 0.02), rr.uniform(-0.008, 0.008)
+            out_.append({"t": "p", "axis": 0, "a": [round(a, 4), round(a + L + 0.004, 4)], "tri": [[-hw, top + 0.1 + dy], [hw, top + 0.1 + dy], [0.0, top + 0.42 + dy]], "m": "tile", "k": 0})
+        return out_
+
     def wall_bay(x0, x1, top=3.05):
         return [{"t": "b", "c": [(x0 + x1) / 2, 0.15, 0], "s": [x1 - x0, 0.3, 0.62], "m": "dressed", "bv": 0.02},
                 {"t": "b", "c": [(x0 + x1) / 2, (0.3 + top) / 2, 0], "s": [x1 - x0, top - 0.3, 0.52], "m": "stone"},
                 {"t": "b", "c": [(x0 + x1) / 2, top + 0.05, 0], "s": [x1 - x0 + 0.04, 0.1, 0.62], "m": "dressed", "bv": 0.02},
-                {"t": "p", "axis": 0, "a": [x0 - 0.02, x1 + 0.02], "tri": [[-0.42, top + 0.1], [0.42, top + 0.1], [0.0, top + 0.42]], "m": "tile", "k": 0}]   # a tiled coping
+               ] + coping(x0, x1, top)
     w = wall_bay(-3.0, 3.0) + [{"t": "b", "c": [0, 3.55, 0], "s": [6.0, 0.7, 0.5], "m": "air", "v": 0}]
     a1 = asset("sd_town_wall", "Town wall bay (6 m)", "Search and Destroy: a 6 m bay of 3.2 m rubble-stone wall with a dressed plinth and coping, the walled lanes of Rue Haute. Not climbable.", [6.0, 0.62], w, [0.5, 0.5, 0.5])
     a1["materials"] = stone_mats

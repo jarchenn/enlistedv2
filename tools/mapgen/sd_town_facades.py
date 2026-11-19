@@ -10,6 +10,7 @@ so nothing adds a ledge, a step or a vault to the navmesh.
     <python> -I tools/mapgen/sd_town_facades.py"""
 import json
 import math
+import random
 import os
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
@@ -33,9 +34,10 @@ MATS = [M("render_cream", [0.74, 0.68, 0.55], "limewash", "render_cream"), M("re
         M("stone", [0.74, 0.69, 0.6], "stone", "limestone_dressed"), M("dressing", [0.78, 0.74, 0.66], "stone", "limestone_smooth", 0.85),
         M("plinth", [0.42, 0.4, 0.36], "stone", "stone_coursed"),
         M("brick", [0.5, 0.27, 0.19], "brickwork", "brick_old", 0.88),
-        M("oak", [0.17, 0.11, 0.07], "wood", "oak_aged", 0.75, grain=1), M("oak_v", [0.17, 0.11, 0.07], "wood", "oak_aged", 0.75, grain=1),
+        M("oak", [0.17, 0.11, 0.07], "wood", "town_oak", 0.75, grain=0), M("oak_v", [0.17, 0.11, 0.07], "wood", "town_oak", 0.75, grain=1),   # GR2: weathered oak, grain along each beam
         M("tile", [0.6, 0.33, 0.22], "slate", "roof_tile", 0.75, grain=2), M("slate", [0.26, 0.28, 0.31], "slate", "slate", 0.6, grain=2),
-        M("pane", [0.09, 0.11, 0.13], "plain", None, 0.08, 0.25), M("frame", [0.82, 0.8, 0.74], "painted", "window_paint", 0.55),
+        M("pane", [0.045, 0.045, 0.05], "plain", None, 0.95), M("frame", [0.82, 0.8, 0.74], "painted", "window_paint", 0.55),   # GR2: pane = the dark room behind the glass
+        M("glass", [0.8, 0.85, 0.82], "glass", None, 0.05),
         M("sh_blue", [0.3, 0.42, 0.5], "painted", "shutter_paint", 0.66), M("sh_green", [0.2, 0.34, 0.27], "painted", "shutter_paint", 0.66),
         M("sh_red", [0.42, 0.13, 0.09], "painted", "shutter_paint", 0.66), M("sh_cream", [0.72, 0.68, 0.56], "painted", "shutter_paint", 0.66),
         M("door_green", [0.09, 0.17, 0.13], "painted", "paint_wood_scratched", 0.6), M("door_red", [0.3, 0.07, 0.05], "painted", "paint_wood_scratched", 0.6),
@@ -43,7 +45,7 @@ MATS = [M("render_cream", [0.74, 0.68, 0.55], "limewash", "render_cream"), M("re
         M("iron", [0.05, 0.048, 0.046], "metal", None, 0.55, 0.15), M("zinc", [0.5, 0.52, 0.54], "metal", None, 0.5, 0.8),
         M("canvas_red", [0.5, 0.09, 0.07], "fabric"), M("canvas_cream", [0.78, 0.74, 0.62], "fabric"), M("canvas_green", [0.13, 0.3, 0.2], "fabric"),
         M("gilt", [0.72, 0.56, 0.22], "metal", None, 0.4, 0.7), M("pot", [0.55, 0.28, 0.17], "plain", None, 0.9),
-        M("canvas_navy", [0.06, 0.1, 0.24], "fabric"), M("canvas_wine", [0.3, 0.05, 0.08], "fabric"),
+        M("seam", [0.12, 0.03, 0.03], "fabric"), M("canvas_navy", [0.06, 0.1, 0.24], "fabric"), M("canvas_wine", [0.3, 0.05, 0.08], "fabric"),
         M("flower_red", [0.7, 0.06, 0.06], "plain", None, 0.8), M("flower_pink", [0.8, 0.3, 0.45], "plain", None, 0.8), M("leaf", [0.12, 0.26, 0.08], "plain", None, 0.85),
         M("slate_hung", [0.24, 0.26, 0.29], "slate", "slate_square", 0.55, grain=1), M("sign_board", [0.62, 0.55, 0.4], "painted", "paint_wood_scratched", 0.6)]
 
@@ -78,20 +80,29 @@ def bracket_sign(p, x, front, board, seed):
     B(p, [x, 2.95, front + 0.62], [0.05, 0.36, 0.5], "gilt" if seed % 2 else "canvas_cream", lod=1)
 
 
+def glazed(p, c, s):
+    """GR2: a glazed opening: the dark room (a card on the wall face) behind a real pane (the glass shader: sky reflection,
+    the odd curtain, darker rooms), 1 cm in front of it."""
+    B(p, [c[0], c[1], c[2] - s[2] / 2 + 0.003], [s[0], s[1], 0.006], "pane")
+    B(p, [c[0], c[1], c[2] - s[2] / 2 + 0.014], [s[0] - 0.01, s[1] - 0.01, 0.004], "glass")
+
+
 def window(p, x, y0, w, h, front, shutter, surround, balcony=False, frame="frame"):
-    """A French casement: dark panes, a centre mullion and two transoms, a raised surround, a sill, open shutters."""
+    """A French casement: glass over a dark room, a centre mullion and two transoms, set back in a 14 cm reveal of the
+    surround (GR2: was flush with the wall), a projecting sill and a drip-moulded head, open shutters."""
     yc = y0 + h / 2
-    B(p, [x, yc, front + 0.01], [w, h, 0.02], "pane")
+    glazed(p, [x, yc, front + 0.01], [w, h, 0.02])
     for dx in (-w / 2 + 0.035, w / 2 - 0.035, 0.0):
         B(p, [x + dx, yc, front + 0.03], [0.06, h, 0.03], frame, lod=1)
     for fy in (1 / 3, 2 / 3):
         B(p, [x, y0 + h * fy, front + 0.03], [w, 0.04, 0.03], frame, lod=1)
     B(p, [x, y0 + h - 0.035, front + 0.03], [w, 0.06, 0.03], frame, lod=1)
     s = 0.14
-    B(p, [x - w / 2 - s / 2, yc, front + 0.035], [s, h + 0.02, 0.07], surround)
-    B(p, [x + w / 2 + s / 2, yc, front + 0.035], [s, h + 0.02, 0.07], surround)
-    B(p, [x, y0 + h + 0.11, front + 0.045], [w + 2 * s + 0.08, 0.22, 0.09], surround)
-    B(p, [x, y0 - 0.05, front + 0.09], [w + 0.34, 0.08, 0.18], "dressing")
+    B(p, [x - w / 2 - s / 2, yc, front + 0.07], [s, h + 0.02, 0.14], surround)   # GR2: 14 cm deep: the reveal round the glass
+    B(p, [x + w / 2 + s / 2, yc, front + 0.07], [s, h + 0.02, 0.14], surround)
+    B(p, [x, y0 + h + 0.11, front + 0.08], [w + 2 * s + 0.08, 0.22, 0.16], surround)
+    B(p, [x, y0 + h + 0.245, front + 0.1], [w + 2 * s + 0.16, 0.05, 0.2], surround, lod=1)   # GR2: a drip mould on the head
+    B(p, [x, y0 - 0.05, front + 0.12], [w + 0.34, 0.08, 0.24], "dressing")   # GR2: the sill projects 10 cm past the surround (a shadow under it)
     if shutter:
         for sx in (-1, 1):
             cx = x + sx * (w / 2 + s + w / 4 + 0.02)
@@ -117,7 +128,7 @@ def door(p, x, front, paint, surround, w=1.1, h=2.35, step=True):
         for px in (-w / 4, w / 4):
             B(p, [x + px, py, front + 0.035], [w / 2 - 0.16, 0.7, 0.02], paint, lod=1)
     B(p, [x + w * 0.36, 1.05, front + 0.06], [0.05, 0.05, 0.05], "gilt", lod=1)
-    B(p, [x, h + 0.25, front + 0.01], [w, 0.4, 0.02], "pane")
+    glazed(p, [x, h + 0.25, front + 0.01], [w, 0.4, 0.02])
     B(p, [x, h + 0.04, front + 0.03], [w, 0.06, 0.03], paint, lod=1)
     B(p, [x, h + 0.25, front + 0.03], [0.04, 0.4, 0.03], paint, lod=1)
     s = 0.17
@@ -144,7 +155,7 @@ def shopfront(p, x0, x1, front, paint, awning, sign=True):
     dw = 1.0
     gx0, gx1 = x0 + 0.28, x1 - 0.28 - dw - 0.1
     B(p, [(gx0 + gx1) / 2, 0.3, front + 0.05], [gx1 - gx0, 0.6, 0.1], paint)   # stall riser
-    B(p, [(gx0 + gx1) / 2, 1.5, front + 0.01], [gx1 - gx0, 1.8, 0.02], "pane")
+    glazed(p, [(gx0 + gx1) / 2, 1.5, front + 0.01], [gx1 - gx0, 1.8, 0.02])
     n = max(2, int((gx1 - gx0) / 0.8))
     for k in range(n + 1):
         B(p, [gx0 + k * (gx1 - gx0) / n, 1.5, front + 0.04], [0.06, 1.8, 0.05], paint, lod=1)
@@ -152,7 +163,7 @@ def shopfront(p, x0, x1, front, paint, awning, sign=True):
     B(p, [(gx0 + gx1) / 2, 0.62, front + 0.06], [gx1 - gx0 + 0.04, 0.05, 0.12], paint, lod=1)
     dx = x1 - 0.28 - dw / 2 - 0.05
     B(p, [dx, 1.2, front + 0.015], [dw, 2.4, 0.03], paint)                      # glazed shop door
-    B(p, [dx, 1.5, front + 0.035], [dw - 0.24, 1.2, 0.01], "pane")
+    glazed(p, [dx, 1.5, front + 0.035], [dw - 0.24, 1.2, 0.01])
     B(p, [dx, 0.08, front + 0.2], [dw + 0.3, 0.16, 0.4], "plinth", bv=0.02)
     if awning:
         a, b = awning
@@ -160,12 +171,17 @@ def shopfront(p, x0, x1, front, paint, awning, sign=True):
         y = 2.45 - math.sin(math.radians(ang)) * depth / 2
         z = front + 0.2 + math.cos(math.radians(ang)) * depth / 2
         n = int(w / 0.45)
+        rr = random.Random(int(x0 * 100) + 7)   # GR2: sewn widths that sag a little differently, a valance with an uneven hanging edge
+        sw = (w - 0.2) / n
         for k in range(n):
-            B(p, [x0 + 0.1 + (k + 0.5) * (w - 0.2) / n, y, z], [(w - 0.2) / n, 0.025, depth], a if k % 2 == 0 else b, r=[ang, 0, 0])
+            ak = ang + rr.uniform(-1.6, 1.6)
+            B(p, [x0 + 0.1 + (k + 0.5) * sw, y, z], [sw - 0.008, 0.025, depth], a if k % 2 == 0 else b, r=[ak, 0, 0])
+            B(p, [x0 + 0.1 + (k + 1) * sw, y - 0.006, z], [0.012, 0.02, depth], "seam", r=[ang, 0, 0], lod=1)   # the seam between widths
         zf = front + 0.2 + math.cos(math.radians(ang)) * depth
         yf = 2.45 - math.sin(math.radians(ang)) * depth
         for k in range(n):
-            B(p, [x0 + 0.1 + (k + 0.5) * (w - 0.2) / n, yf - 0.12, zf], [(w - 0.2) / n, 0.24, 0.02], a if k % 2 == 0 else b, lod=1)
+            vh = 0.24 + rr.uniform(-0.04, 0.03)
+            B(p, [x0 + 0.1 + (k + 0.5) * sw, yf - vh / 2, zf + rr.uniform(-0.01, 0.01)], [sw, vh, 0.02], a if k % 2 == 0 else b, lod=1, r=[rr.uniform(-3, 3), 0, 0])
         for sx in (x0 + 0.12, x1 - 0.12):   # the iron arms
             B(p, [sx, (2.45 + yf) / 2, (front + 0.2 + zf) / 2], [0.025, 0.025, depth], "iron", r=[ang, 0, 0], lod=1)
 
