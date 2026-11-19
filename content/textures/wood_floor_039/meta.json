@@ -1,0 +1,20 @@
+{
+ "set": "wood_floor_039",
+ "id": "WoodFloor039",
+ "family": "wood floor (TX4)",
+ "size": [
+  1.9,
+  1.9
+ ],
+ "source": "https://ambientcg.com/a/WoodFloor039",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "ao.jpg",
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

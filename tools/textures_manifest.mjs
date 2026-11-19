@@ -17,7 +17,7 @@ for (const s of L.sets) {
   let meta = null; try { meta = JSON.parse(fs.readFileSync(dir + 'meta.json', 'utf8')); } catch {}
   out.push({set: s.set, id: s.id, url: s.local ? s.source : `https://ambientcg.com/a/${s.id}`, license: s.local ? s.license : 'CC0 1.0 Universal', resolution: s.local ? 'crop' : L.resolution, ...(s.local ? {credit: s.credit} : {}),
     downloaded: !!meta && fs.existsSync(dir + 'color.jpg'), maps: meta ? meta.maps : [], sizeM: (meta && meta.size) || s.size,
-    sizeSource: s.ma1 || s.batch ? 'estimated from the preview (ambientCG lists no dimensions)' : 'L4 curation', family: s.family, ma1: !!s.ma1, batch: s.batch || (s.ma1 ? 'MA1' : 'L4'),
+    sizeSource: s.sizeSource || (s.ma1 || s.batch ? 'estimated from the preview (ambientCG lists no dimensions)' : 'L4 curation'), family: s.family, ma1: !!s.ma1, batch: s.batch || (s.ma1 ? 'MA1' : 'L4'),
     slots: [...(useBy[s.set] || [])].sort()});
 }
 fs.writeFileSync(root + 'content/textures/manifest.json', JSON.stringify({source: 'https://ambientcg.com', api: 'https://ambientcg.com/api/v2/full_json', license: 'CC0 1.0 Universal', sets: out}, null, 1) + '\n');

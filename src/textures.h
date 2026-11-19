@@ -14,7 +14,7 @@
 
 namespace tex {
 
-constexpr int kMaxSlots = 448, kMaxLayers = 256, kUnitBase = 20;   // TX3: 320 -> 448 slots, 192 -> 256 layers (the TX3 sets; aliases and set: slots had already passed 320; a 44 KB uniform block)   // TX2: 160 -> 320 slots (226 sets; lazy library slots), 128 -> 192 layers   // MA1: 64 -> 128 layers (111 sets on disk), 80 -> 160 slots (imgmat)
+constexpr int kMaxSlots = 704, kMaxLayers = 256, kUnitBase = 20;   // TX4: 448 -> 704 slots (the TX4 library sets; 63 KB of the 64 KB GL_MAX_UNIFORM_BLOCK_SIZE minimum)   // TX3: 320 -> 448 slots, 192 -> 256 layers (the TX3 sets; aliases and set: slots had already passed 320; a 44 KB uniform block)   // TX2: 160 -> 320 slots (226 sets; lazy library slots), 128 -> 192 layers   // MA1: 64 -> 128 layers (111 sets on disk), 80 -> 160 slots (imgmat)
 // painted ground types (lasso ground paint, ground_paint.cpp): uPaintSlot[k] in the terrain shader, "paint" in textures.json
 constexpr int kPaintTypes = 12;
 inline const char* const kPaintTypeNames[kPaintTypes] = {"marsh", "dirt", "mud", "gravel", "sand", "cobbles", "rock", "dry_grass", "ploughed", "leaf_litter", "scorched", "pebbles"};
@@ -42,7 +42,9 @@ bool imgMat();
 struct Info { int sets = 0, slots = 0, slotsLive = 0, unused = 0; size_t bytes = 0; double ms = 0; bool compressed = false; std::vector<std::string> missing; };
 const Info& info();
 int slotIndex(const std::string& slotName);   // -1 if unknown
-void mapPaintSets(const json* look);   // NT4: the open map's look.paintSets override of the painted-ground slots
+void mapPaintSets(const json* look);
+std::vector<std::string> groundSlots();   // TX4: slots a painted ground type may draw (space ground / world), for the paint panel
+   // NT4: the open map's look.paintSets override of the painted-ground slots
 int slotLayer(int slot);                      // -1: the slot's set is not loaded
 int patternSlot(int pattern);
 std::string stateKey();                       // what the rendered look depends on (thumbnail cache keys)

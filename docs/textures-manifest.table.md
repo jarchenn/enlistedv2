@@ -269,3 +269,285 @@
 | rb_ref_shop_green | [rb_ref_shop_green](https://skfb.ly/o7pvZ) | the shop's green painted counter panelling (reference atlas crop) | color, normal | 1.8 x 1 | rb_ref_shop_green | L4 |
 | rb_ref_shop_wall | [rb_ref_shop_wall](https://skfb.ly/o7pvZ) | the shop's weatherboard (reference atlas crop, boards horizontal) | color | 3 x 3 | rb_ref_shop_wall | L4 |
 | rb_ref_shop_roof | [rb_ref_shop_roof](https://skfb.ly/o7pvZ) | the shop's corrugated roof sheets (reference atlas crop) | color, normal | 4 x 4 | rb_ref_shop_roof | L4 |
+| bricks_104 | [Bricks104](https://ambientcg.com/a/Bricks104) | brick (TX4) | ao, color, height, normal, roughness | 2 x 2 | bricks_104 | TX4 |
+| bricks_102 | [Bricks102](https://ambientcg.com/a/Bricks102) | brick (TX4) | ao, color, height, normal, roughness | 2 x 2 | bricks_102 | TX4 |
+| bricks_075a | [Bricks075A](https://ambientcg.com/a/Bricks075A) | brick (TX4) | ao, color, height, normal, roughness | 2 x 1 | bricks_075a | TX4 |
+| bricks_092 | [Bricks092](https://ambientcg.com/a/Bricks092) | brick (TX4) | ao, color, height, normal, roughness | 1.1 x 1.1 | bricks_092 | TX4 |
+| bricks_100 | [Bricks100](https://ambientcg.com/a/Bricks100) | brick (TX4) | ao, color, height, normal, roughness | 2 x 2 | bricks_100 | TX4 |
+| bricks_089 | [Bricks089](https://ambientcg.com/a/Bricks089) | brick (TX4) | ao, color, height, normal, roughness | 2.2 x 1.1 | bricks_089 | TX4 |
+| bricks_091 | [Bricks091](https://ambientcg.com/a/Bricks091) | brick (TX4) | ao, color, height, normal, roughness | 2 x 2 | bricks_091 | TX4 |
+| bricks_051 | [Bricks051](https://ambientcg.com/a/Bricks051) | brick (TX4) | color, height, normal, roughness | 1.25 x 1.25 | bricks_051 | TX4 |
+| bricks_090 | [Bricks090](https://ambientcg.com/a/Bricks090) | brick (TX4) | ao, color, height, normal, roughness | 1.5 x 1.5 | bricks_090 | TX4 |
+| bricks_093 | [Bricks093](https://ambientcg.com/a/Bricks093) | brick (TX4) | ao, color, height, normal, roughness | 2.1 x 1.05 | bricks_093 | TX4 |
+| bricks_103 | [Bricks103](https://ambientcg.com/a/Bricks103) | brick (TX4) | ao, color, height, normal, roughness | 2 x 2 | bricks_103 | TX4 |
+| bricks_086 | [Bricks086](https://ambientcg.com/a/Bricks086) | brick (TX4) | ao, color, height, normal, roughness | 2.6 x 1.3 | bricks_086 | TX4 |
+| bricks_038 | [Bricks038](https://ambientcg.com/a/Bricks038) | brick (TX4) | ao, color, height, normal, roughness | 1.1 x 1.1 | bricks_038 | TX4 |
+| bricks_095 | [Bricks095](https://ambientcg.com/a/Bricks095) | brick (TX4) | ao, color, height, normal, roughness | 2 x 2 | bricks_095 | TX4 |
+| bricks_088 | [Bricks088](https://ambientcg.com/a/Bricks088) | brick (TX4) | ao, color, height, normal, roughness | 1.8 x 1.8 | bricks_088 | TX4 |
+| bricks_078 | [Bricks078](https://ambientcg.com/a/Bricks078) | brick (TX4) | ao, color, height, normal, roughness | 2 x 2 | bricks_078 | TX4 |
+| bricks_098 | [Bricks098](https://ambientcg.com/a/Bricks098) | brick (TX4) | ao, color, height, normal, roughness | 2 x 2 | bricks_098 | TX4 |
+| bricks_023 | [Bricks023](https://ambientcg.com/a/Bricks023) | brick (TX4) | ao, color, height, normal, roughness | 2 x 2 | bricks_023 | TX4 |
+| bricks_087 | [Bricks087](https://ambientcg.com/a/Bricks087) | brick (TX4) | ao, color, height, normal, roughness | 1.3 x 1.3 | bricks_087 | TX4 |
+| bricks_053 | [Bricks053](https://ambientcg.com/a/Bricks053) | brick (TX4) | ao, color, height, normal, roughness | 1.3 x 1.3 | bricks_053 | TX4 |
+| bricks_052 | [Bricks052](https://ambientcg.com/a/Bricks052) | brick (TX4) | ao, color, height, normal, roughness | 1.25 x 1.25 | bricks_052 | TX4 |
+| bricks_072 | [Bricks072](https://ambientcg.com/a/Bricks072) | brick (TX4) | ao, color, height, normal, roughness | 1.5 x 0.75 | bricks_072 | TX4 |
+| bricks_022 | [Bricks022](https://ambientcg.com/a/Bricks022) | brick (TX4) | ao, color, height, normal, roughness | 2 x 2 | bricks_022 | TX4 |
+| painted_bricks_004 | [PaintedBricks004](https://ambientcg.com/a/PaintedBricks004) | painted brick (TX4) | ao, color, height, normal, roughness | 1.55 x 1.55 | painted_bricks_004 | TX4 |
+| painted_bricks_001 | [PaintedBricks001](https://ambientcg.com/a/PaintedBricks001) | painted brick (TX4) | ao, color, height, normal, roughness | 1.55 x 1.55 | painted_bricks_001 | TX4 |
+| painted_bricks_003 | [PaintedBricks003](https://ambientcg.com/a/PaintedBricks003) | painted brick (TX4) | ao, color, height, normal, roughness | 1.55 x 1.55 | painted_bricks_003 | TX4 |
+| painted_bricks_002 | [PaintedBricks002](https://ambientcg.com/a/PaintedBricks002) | painted brick (TX4) | ao, color, height, normal, roughness | 1.55 x 1.55 | painted_bricks_002 | TX4 |
+| painted_plaster_018 | [PaintedPlaster018](https://ambientcg.com/a/PaintedPlaster018) | painted plaster (TX4) | ao, color, height, normal, roughness | 2 x 2 | painted_plaster_018 | TX4 |
+| painted_plaster_015 | [PaintedPlaster015](https://ambientcg.com/a/PaintedPlaster015) | painted plaster (TX4) | ao, color, height, normal, roughness | 2 x 2 | painted_plaster_015 | TX4 |
+| painted_plaster_013 | [PaintedPlaster013](https://ambientcg.com/a/PaintedPlaster013) | painted plaster (TX4) | ao, color, height, normal, roughness | 2 x 2 | painted_plaster_013 | TX4 |
+| painted_plaster_001 | [PaintedPlaster001](https://ambientcg.com/a/PaintedPlaster001) | painted plaster (TX4) | color, height, normal, roughness | 2 x 2 | painted_plaster_001 | TX4 |
+| painted_plaster_012 | [PaintedPlaster012](https://ambientcg.com/a/PaintedPlaster012) | painted plaster (TX4) | ao, color, height, normal, roughness | 2 x 2 | painted_plaster_012 | TX4 |
+| painted_plaster_007 | [PaintedPlaster007](https://ambientcg.com/a/PaintedPlaster007) | painted plaster (TX4) | ao, color, height, normal, roughness | 2 x 2 | painted_plaster_007 | TX4 |
+| painted_plaster_008 | [PaintedPlaster008](https://ambientcg.com/a/PaintedPlaster008) | painted plaster (TX4) | ao, color, height, normal, roughness | 2 x 2 | painted_plaster_008 | TX4 |
+| plaster_002 | [Plaster002](https://ambientcg.com/a/Plaster002) | plaster (TX4) | color, height, normal, roughness | 2 x 2 | plaster_002 | TX4 |
+| plaster_004 | [Plaster004](https://ambientcg.com/a/Plaster004) | plaster (TX4) | color, height, normal, roughness | 2 x 2 | plaster_004 | TX4 |
+| facade_020a | [Facade020A](https://ambientcg.com/a/Facade020A) | facade (TX4) | ao, color, height, normal, roughness | 13 x 13 | facade_020a | TX4 |
+| facade_005 | [Facade005](https://ambientcg.com/a/Facade005) | facade (TX4) | color, height, normal, roughness | 4 x 4 | facade_005 | TX4 |
+| facade_013 | [Facade013](https://ambientcg.com/a/Facade013) | facade (TX4) | color, height, normal, roughness | 4 x 4 | facade_013 | TX4 |
+| facade_002 | [Facade002](https://ambientcg.com/a/Facade002) | facade (TX4) | color, height, normal, roughness | 4 x 4 | facade_002 | TX4 |
+| concrete_039 | [Concrete039](https://ambientcg.com/a/Concrete039) | concrete (TX4) | ao, color, height, normal, roughness | 1.9 x 1.9 | concrete_039 | TX4 |
+| concrete_013 | [Concrete013](https://ambientcg.com/a/Concrete013) | concrete (TX4) | ao, color, height, normal, roughness | 2 x 2 | concrete_013 | TX4 |
+| concrete_018 | [Concrete018](https://ambientcg.com/a/Concrete018) | concrete (TX4) | color, height, normal, roughness | 2 x 2 | concrete_018 | TX4 |
+| concrete_038 | [Concrete038](https://ambientcg.com/a/Concrete038) | concrete (TX4) | color, height, normal, roughness | 0.6 x 0.6 | concrete_038 | TX4 |
+| concrete_033 | [Concrete033](https://ambientcg.com/a/Concrete033) | concrete (TX4) | ao, color, height, normal, roughness | 2 x 2 | concrete_033 | TX4 |
+| concrete_016 | [Concrete016](https://ambientcg.com/a/Concrete016) | concrete (TX4) | color, height, normal, roughness | 2 x 2 | concrete_016 | TX4 |
+| concrete_017 | [Concrete017](https://ambientcg.com/a/Concrete017) | concrete (TX4) | color, height, normal, roughness | 2 x 2 | concrete_017 | TX4 |
+| concrete_020 | [Concrete020](https://ambientcg.com/a/Concrete020) | concrete (TX4) | color, height, normal, roughness | 2 x 2 | concrete_020 | TX4 |
+| concrete_010 | [Concrete010](https://ambientcg.com/a/Concrete010) | concrete (TX4) | ao, color, height, normal, roughness | 2 x 2 | concrete_010 | TX4 |
+| concrete_026 | [Concrete026](https://ambientcg.com/a/Concrete026) | concrete (TX4) | color, height, normal, roughness | 2 x 2 | concrete_026 | TX4 |
+| concrete_041a | [Concrete041A](https://ambientcg.com/a/Concrete041A) | concrete (TX4) | ao, color, height, normal, roughness | 2 x 2 | concrete_041a | TX4 |
+| concrete_007 | [Concrete007](https://ambientcg.com/a/Concrete007) | concrete (TX4) | ao, color, height, normal, roughness | 2 x 2 | concrete_007 | TX4 |
+| concrete_029 | [Concrete029](https://ambientcg.com/a/Concrete029) | concrete (TX4) | ao, color, height, normal, roughness | 2 x 2 | concrete_029 | TX4 |
+| concrete_014 | [Concrete014](https://ambientcg.com/a/Concrete014) | concrete (TX4) | color, height, normal, roughness | 2 x 2 | concrete_014 | TX4 |
+| concrete_015 | [Concrete015](https://ambientcg.com/a/Concrete015) | concrete (TX4) | color, height, normal, roughness | 2 x 2 | concrete_015 | TX4 |
+| metal_064 | [Metal064](https://ambientcg.com/a/Metal064) | metal (TX4) | color, height, normal, roughness | 1 x 1 | metal_064 | TX4 |
+| metal_063 | [Metal063](https://ambientcg.com/a/Metal063) | metal (TX4) | color, height, normal, roughness | 1 x 1 | metal_063 | TX4 |
+| metal_049a | [Metal049A](https://ambientcg.com/a/Metal049A) | metal (TX4) | color, height, normal, roughness | 1 x 1 | metal_049a | TX4 |
+| metal_055a | [Metal055A](https://ambientcg.com/a/Metal055A) | metal (TX4) | color, height, normal, roughness | 1 x 1 | metal_055a | TX4 |
+| metal_046b | [Metal046B](https://ambientcg.com/a/Metal046B) | metal (TX4) | color, height, normal, roughness | 1 x 1 | metal_046b | TX4 |
+| metal_048a | [Metal048A](https://ambientcg.com/a/Metal048A) | metal (TX4) | color, height, normal, roughness | 1 x 1 | metal_048a | TX4 |
+| metal_032 | [Metal032](https://ambientcg.com/a/Metal032) | metal (TX4) | color, height, normal, roughness | 1 x 1 | metal_032 | TX4 |
+| metal_061b | [Metal061B](https://ambientcg.com/a/Metal061B) | metal (TX4) | color, height, normal, roughness | 1 x 1 | metal_061b | TX4 |
+| metal_050a | [Metal050A](https://ambientcg.com/a/Metal050A) | metal (TX4) | color, height, normal, roughness | 1 x 1 | metal_050a | TX4 |
+| metal_009 | [Metal009](https://ambientcg.com/a/Metal009) | metal (TX4) | color, height, normal, roughness | 1 x 1 | metal_009 | TX4 |
+| metal_034 | [Metal034](https://ambientcg.com/a/Metal034) | metal (TX4) | color, height, normal, roughness | 1 x 1 | metal_034 | TX4 |
+| metal_042a | [Metal042A](https://ambientcg.com/a/Metal042A) | metal (TX4) | color, height, normal, roughness | 1 x 1 | metal_042a | TX4 |
+| painted_metal_013 | [PaintedMetal013](https://ambientcg.com/a/PaintedMetal013) | painted metal (TX4) | ao, color, height, normal, roughness | 1.5 x 1.5 | painted_metal_013 | TX4 |
+| painted_metal_009 | [PaintedMetal009](https://ambientcg.com/a/PaintedMetal009) | painted metal (TX4) | ao, color, height, normal, roughness | 1.5 x 1.5 | painted_metal_009 | TX4 |
+| painted_metal_011 | [PaintedMetal011](https://ambientcg.com/a/PaintedMetal011) | painted metal (TX4) | ao, color, height, normal, roughness | 1.5 x 1.5 | painted_metal_011 | TX4 |
+| painted_metal_001 | [PaintedMetal001](https://ambientcg.com/a/PaintedMetal001) | painted metal (TX4) | color, height, normal, roughness | 1.5 x 1.5 | painted_metal_001 | TX4 |
+| painted_metal_010 | [PaintedMetal010](https://ambientcg.com/a/PaintedMetal010) | painted metal (TX4) | ao, color, height, normal, roughness | 1.5 x 1.5 | painted_metal_010 | TX4 |
+| painted_metal_002 | [PaintedMetal002](https://ambientcg.com/a/PaintedMetal002) | painted metal (TX4) | color, height, normal, roughness | 1.5 x 1.5 | painted_metal_002 | TX4 |
+| rust_007 | [Rust007](https://ambientcg.com/a/Rust007) | rust (TX4) | ao, color, height, normal, roughness | 1 x 1 | rust_007 | TX4 |
+| rust_008 | [Rust008](https://ambientcg.com/a/Rust008) | rust (TX4) | ao, color, height, normal, roughness | 1 x 1 | rust_008 | TX4 |
+| rust_004 | [Rust004](https://ambientcg.com/a/Rust004) | rust (TX4) | color, height, normal, roughness | 1 x 1 | rust_004 | TX4 |
+| rust_006 | [Rust006](https://ambientcg.com/a/Rust006) | rust (TX4) | color, height, normal, roughness | 1 x 1 | rust_006 | TX4 |
+| rust_003 | [Rust003](https://ambientcg.com/a/Rust003) | rust (TX4) | color, height, normal, roughness | 1 x 1 | rust_003 | TX4 |
+| corrugated_steel_002 | [CorrugatedSteel002](https://ambientcg.com/a/CorrugatedSteel002) | corrugated metal (TX4) | ao, color, height, normal, roughness | 2 x 2 | corrugated_steel_002 | TX4 |
+| corrugated_steel_004 | [CorrugatedSteel004](https://ambientcg.com/a/CorrugatedSteel004) | corrugated metal (TX4) | ao, color, height, normal, roughness | 2 x 2 | corrugated_steel_004 | TX4 |
+| corrugated_steel_003 | [CorrugatedSteel003](https://ambientcg.com/a/CorrugatedSteel003) | corrugated metal (TX4) | ao, color, height, normal, roughness | 2 x 2 | corrugated_steel_003 | TX4 |
+| corrugated_steel_001 | [CorrugatedSteel001](https://ambientcg.com/a/CorrugatedSteel001) | corrugated metal (TX4) | ao, color, height, normal, roughness | 2 x 2 | corrugated_steel_001 | TX4 |
+| diamond_plate_007d | [DiamondPlate007D](https://ambientcg.com/a/DiamondPlate007D) | diamond plate (TX4) | ao, color, height, normal, roughness | 1 x 1 | diamond_plate_007d | TX4 |
+| diamond_plate_001 | [DiamondPlate001](https://ambientcg.com/a/DiamondPlate001) | diamond plate (TX4) | color, height, normal, roughness | 1 x 1 | diamond_plate_001 | TX4 |
+| diamond_plate_005c | [DiamondPlate005C](https://ambientcg.com/a/DiamondPlate005C) | diamond plate (TX4) | ao, color, height, normal, roughness | 1 x 1 | diamond_plate_005c | TX4 |
+| diamond_plate_003 | [DiamondPlate003](https://ambientcg.com/a/DiamondPlate003) | diamond plate (TX4) | color, height, normal, roughness | 1 x 1 | diamond_plate_003 | TX4 |
+| metal_plates_008 | [MetalPlates008](https://ambientcg.com/a/MetalPlates008) | metal plates (TX4) | color, height, normal, roughness | 2 x 2 | metal_plates_008 | TX4 |
+| metal_plates_004 | [MetalPlates004](https://ambientcg.com/a/MetalPlates004) | metal plates (TX4) | color, height, normal, roughness | 2 x 2 | metal_plates_004 | TX4 |
+| metal_plates_014 | [MetalPlates014](https://ambientcg.com/a/MetalPlates014) | metal plates (TX4) | ao, color, height, normal, roughness | 1.6 x 1.6 | metal_plates_014 | TX4 |
+| metal_plates_009 | [MetalPlates009](https://ambientcg.com/a/MetalPlates009) | metal plates (TX4) | color, height, normal, roughness | 2 x 2 | metal_plates_009 | TX4 |
+| metal_plates_005 | [MetalPlates005](https://ambientcg.com/a/MetalPlates005) | metal plates (TX4) | color, height, normal, roughness | 2 x 2 | metal_plates_005 | TX4 |
+| sheet_metal_001 | [SheetMetal001](https://ambientcg.com/a/SheetMetal001) | sheet metal (TX4) | color, height, normal, roughness | 1.5 x 1.5 | sheet_metal_001 | TX4 |
+| sheet_metal_002 | [SheetMetal002](https://ambientcg.com/a/SheetMetal002) | sheet metal (TX4) | color, height, normal, roughness | 1.5 x 1.5 | sheet_metal_002 | TX4 |
+| wood_033 | [Wood033](https://ambientcg.com/a/Wood033) | wood (TX4) | ao, color, height, normal, roughness | 1 x 1 | wood_033 | TX4 |
+| wood_086 | [Wood086](https://ambientcg.com/a/Wood086) | wood (TX4) | ao, color, height, normal, roughness | 1 x 1 | wood_086 | TX4 |
+| wood_095 | [Wood095](https://ambientcg.com/a/Wood095) | wood (TX4) | color, height, normal, roughness | 1 x 1 | wood_095 | TX4 |
+| wood_094 | [Wood094](https://ambientcg.com/a/Wood094) | wood (TX4) | color, height, normal, roughness | 1 x 1 | wood_094 | TX4 |
+| wood_058 | [Wood058](https://ambientcg.com/a/Wood058) | wood (TX4) | color, height, normal, roughness | 0.4 x 0.4 | wood_058 | TX4 |
+| wood_067 | [Wood067](https://ambientcg.com/a/Wood067) | wood (TX4) | color, height, normal, roughness | 0.4 x 0.4 | wood_067 | TX4 |
+| wood_048 | [Wood048](https://ambientcg.com/a/Wood048) | wood (TX4) | color, height, normal, roughness | 0.8 x 0.8 | wood_048 | TX4 |
+| wood_026 | [Wood026](https://ambientcg.com/a/Wood026) | wood (TX4) | color, height, normal, roughness | 1 x 1 | wood_026 | TX4 |
+| planks_040 | [Planks040](https://ambientcg.com/a/Planks040) | planks (TX4) | ao, color, height, normal, roughness | 1.2 x 1.2 | planks_040 | TX4 |
+| planks_029s | [Planks029S](https://ambientcg.com/a/Planks029S) | planks (TX4) | ao, color, height, normal, roughness | 2.4 x 2.4 | planks_029s | TX4 |
+| planks_009 | [Planks009](https://ambientcg.com/a/Planks009) | planks (TX4) | ao, color, height, normal, roughness | 2 x 2 | planks_009 | TX4 |
+| planks_028 | [Planks028](https://ambientcg.com/a/Planks028) | planks (TX4) | ao, color, height, normal, roughness | 0.8 x 0.8 | planks_028 | TX4 |
+| planks_022 | [Planks022](https://ambientcg.com/a/Planks022) | planks (TX4) | ao, color, height, normal, roughness | 1.1 x 1.1 | planks_022 | TX4 |
+| planks_032 | [Planks032](https://ambientcg.com/a/Planks032) | planks (TX4) | ao, color, height, normal, roughness | 2 x 2 | planks_032 | TX4 |
+| planks_037a | [Planks037A](https://ambientcg.com/a/Planks037A) | planks (TX4) | ao, color, height, normal, roughness | 2 x 2 | planks_037a | TX4 |
+| planks_033b | [Planks033B](https://ambientcg.com/a/Planks033B) | planks (TX4) | ao, color, height, normal, roughness | 2 x 2 | planks_033b | TX4 |
+| planks_020 | [Planks020](https://ambientcg.com/a/Planks020) | planks (TX4) | ao, color, height, normal, roughness | 2 x 2 | planks_020 | TX4 |
+| planks_036b | [Planks036B](https://ambientcg.com/a/Planks036B) | planks (TX4) | ao, color, height, normal, roughness | 2 x 2 | planks_036b | TX4 |
+| painted_wood_006c | [PaintedWood006C](https://ambientcg.com/a/PaintedWood006C) | painted wood (TX4) | ao, color, height, normal, roughness | 2 x 2 | painted_wood_006c | TX4 |
+| painted_wood_003 | [PaintedWood003](https://ambientcg.com/a/PaintedWood003) | painted wood (TX4) | color, height, normal, roughness | 2 x 2 | painted_wood_003 | TX4 |
+| painted_wood_001 | [PaintedWood001](https://ambientcg.com/a/PaintedWood001) | painted wood (TX4) | color, height, normal, roughness | 2 x 2 | painted_wood_001 | TX4 |
+| painted_wood_004 | [PaintedWood004](https://ambientcg.com/a/PaintedWood004) | painted wood (TX4) | color, height, normal, roughness | 2 x 2 | painted_wood_004 | TX4 |
+| painted_wood_002 | [PaintedWood002](https://ambientcg.com/a/PaintedWood002) | painted wood (TX4) | color, height, normal, roughness | 2 x 2 | painted_wood_002 | TX4 |
+| wood_floor_064 | [WoodFloor064](https://ambientcg.com/a/WoodFloor064) | wood floor (TX4) | color, height, normal, roughness | 2 x 2 | wood_floor_064 | TX4 |
+| wood_floor_062 | [WoodFloor062](https://ambientcg.com/a/WoodFloor062) | wood floor (TX4) | color, height, normal, roughness | 2 x 2 | wood_floor_062 | TX4 |
+| wood_floor_052 | [WoodFloor052](https://ambientcg.com/a/WoodFloor052) | wood floor (TX4) | ao, color, height, normal, roughness | 1.8 x 1.8 | wood_floor_052 | TX4 |
+| wood_floor_007 | [WoodFloor007](https://ambientcg.com/a/WoodFloor007) | wood floor (TX4) | ao, color, height, normal, roughness | 2 x 2 | wood_floor_007 | TX4 |
+| wood_floor_069 | [WoodFloor069](https://ambientcg.com/a/WoodFloor069) | wood floor (TX4) | color, height, normal, roughness | 2 x 2 | wood_floor_069 | TX4 |
+| wood_floor_039 | [WoodFloor039](https://ambientcg.com/a/WoodFloor039) | wood floor (TX4) | ao, color, height, normal, roughness | 1.9 x 1.9 | wood_floor_039 | TX4 |
+| wood_floor_044 | [WoodFloor044](https://ambientcg.com/a/WoodFloor044) | wood floor (TX4) | ao, color, height, normal, roughness | 1.3 x 0.65 | wood_floor_044 | TX4 |
+| wood_floor_068 | [WoodFloor068](https://ambientcg.com/a/WoodFloor068) | wood floor (TX4) | color, height, normal, roughness | 2 x 2 | wood_floor_068 | TX4 |
+| wood_siding_005 | [WoodSiding005](https://ambientcg.com/a/WoodSiding005) | wood siding (TX4) | ao, color, height, normal, roughness | 2 x 2 | wood_siding_005 | TX4 |
+| wood_siding_007 | [WoodSiding007](https://ambientcg.com/a/WoodSiding007) | wood siding (TX4) | ao, color, height, normal, roughness | 2 x 2 | wood_siding_007 | TX4 |
+| wood_siding_013 | [WoodSiding013](https://ambientcg.com/a/WoodSiding013) | wood siding (TX4) | ao, color, height, normal, roughness | 1.4 x 1.4 | wood_siding_013 | TX4 |
+| wood_siding_006 | [WoodSiding006](https://ambientcg.com/a/WoodSiding006) | wood siding (TX4) | ao, color, height, normal, roughness | 2 x 2 | wood_siding_006 | TX4 |
+| wood_siding_001 | [WoodSiding001](https://ambientcg.com/a/WoodSiding001) | wood siding (TX4) | ao, color, height, normal, roughness | 2 x 2 | wood_siding_001 | TX4 |
+| roofing_tiles_006 | [RoofingTiles006](https://ambientcg.com/a/RoofingTiles006) | roofing (TX4) | ao, color, height, normal, roughness | 3.2 x 3.2 | roofing_tiles_006 | TX4 |
+| roofing_tiles_011a | [RoofingTiles011A](https://ambientcg.com/a/RoofingTiles011A) | roofing (TX4) | ao, color, height, normal, roughness | 2.9 x 2.9 | roofing_tiles_011a | TX4 |
+| roofing_tiles_008 | [RoofingTiles008](https://ambientcg.com/a/RoofingTiles008) | roofing (TX4) | ao, color, height, normal, roughness | 3.2 x 3.2 | roofing_tiles_008 | TX4 |
+| roofing_tiles_007 | [RoofingTiles007](https://ambientcg.com/a/RoofingTiles007) | roofing (TX4) | ao, color, height, normal, roughness | 3.2 x 3.2 | roofing_tiles_007 | TX4 |
+| roofing_tiles_009 | [RoofingTiles009](https://ambientcg.com/a/RoofingTiles009) | roofing (TX4) | ao, color, height, normal, roughness | 3.2 x 3.2 | roofing_tiles_009 | TX4 |
+| roofing_tiles_002 | [RoofingTiles002](https://ambientcg.com/a/RoofingTiles002) | roofing (TX4) | color, height, normal, roughness | 2 x 2 | roofing_tiles_002 | TX4 |
+| roofing_tiles_010 | [RoofingTiles010](https://ambientcg.com/a/RoofingTiles010) | roofing (TX4) | ao, color, height, normal, roughness | 3.2 x 3.2 | roofing_tiles_010 | TX4 |
+| thatched_roof_002a | [ThatchedRoof002A](https://ambientcg.com/a/ThatchedRoof002A) | thatch (TX4) | ao, color, height, normal, roughness | 2 x 2 | thatched_roof_002a | TX4 |
+| tiles_098 | [Tiles098](https://ambientcg.com/a/Tiles098) | tiles (TX4) | ao, color, height, normal, roughness | 1.85 x 1.85 | tiles_098 | TX4 |
+| tiles_038 | [Tiles038](https://ambientcg.com/a/Tiles038) | tiles (TX4) | ao, color, height, normal, roughness | 1.1 x 0.55 | tiles_038 | TX4 |
+| tiles_027 | [Tiles027](https://ambientcg.com/a/Tiles027) | tiles (TX4) | ao, color, height, normal, roughness | 1.5 x 1.5 | tiles_027 | TX4 |
+| tiles_028 | [Tiles028](https://ambientcg.com/a/Tiles028) | tiles (TX4) | ao, color, height, normal, roughness | 1.5 x 1.5 | tiles_028 | TX4 |
+| tiles_073 | [Tiles073](https://ambientcg.com/a/Tiles073) | tiles (TX4) | ao, color, height, normal, roughness | 0.75 x 0.75 | tiles_073 | TX4 |
+| tiles_115 | [Tiles115](https://ambientcg.com/a/Tiles115) | tiles (TX4) | ao, color, height, normal, roughness | 1.5 x 1.5 | tiles_115 | TX4 |
+| tiles_039 | [Tiles039](https://ambientcg.com/a/Tiles039) | tiles (TX4) | ao, color, height, normal, roughness | 1.5 x 1.5 | tiles_039 | TX4 |
+| tiles_117 | [Tiles117](https://ambientcg.com/a/Tiles117) | tiles (TX4) | ao, color, height, normal, roughness | 1.5 x 1.5 | tiles_117 | TX4 |
+| tiles_116 | [Tiles116](https://ambientcg.com/a/Tiles116) | tiles (TX4) | ao, color, height, normal, roughness | 1.5 x 1.5 | tiles_116 | TX4 |
+| tiles_026 | [Tiles026](https://ambientcg.com/a/Tiles026) | tiles (TX4) | ao, color, height, normal, roughness | 1.5 x 1.5 | tiles_026 | TX4 |
+| tiles_143 | [Tiles143](https://ambientcg.com/a/Tiles143) | tiles (TX4) | color, height, normal, roughness | 2 x 2 | tiles_143 | TX4 |
+| tiles_139 | [Tiles139](https://ambientcg.com/a/Tiles139) | tiles (TX4) | color, height, normal, roughness | 2 x 2 | tiles_139 | TX4 |
+| tiles_142 | [Tiles142](https://ambientcg.com/a/Tiles142) | tiles (TX4) | color, height, normal, roughness | 2 x 2 | tiles_142 | TX4 |
+| carpet_001 | [Carpet001](https://ambientcg.com/a/Carpet001) | carpet (TX4) | color, height, normal, roughness | 1.5 x 1.5 | carpet_001 | TX4 |
+| carpet_014 | [Carpet014](https://ambientcg.com/a/Carpet014) | carpet (TX4) | color, height, normal, roughness | 1.5 x 1.5 | carpet_014 | TX4 |
+| carpet_011 | [Carpet011](https://ambientcg.com/a/Carpet011) | carpet (TX4) | ao, color, height, normal, roughness | 1.5 x 1.5 | carpet_011 | TX4 |
+| carpet_013 | [Carpet013](https://ambientcg.com/a/Carpet013) | carpet (TX4) | ao, color, height, normal, roughness | 1.5 x 1.5 | carpet_013 | TX4 |
+| paving_stones_151 | [PavingStones151](https://ambientcg.com/a/PavingStones151) | paving (TX4) | ao, color, height, normal, roughness | 5.4 x 5.4 | paving_stones_151 | TX4 |
+| paving_stones_146 | [PavingStones146](https://ambientcg.com/a/PavingStones146) | paving (TX4) | ao, color, height, normal, roughness | 2 x 2 | paving_stones_146 | TX4 |
+| paving_stones_149 | [PavingStones149](https://ambientcg.com/a/PavingStones149) | paving (TX4) | ao, color, height, normal, roughness | 2 x 2 | paving_stones_149 | TX4 |
+| paving_stones_147 | [PavingStones147](https://ambientcg.com/a/PavingStones147) | paving (TX4) | ao, color, height, normal, roughness | 2 x 2 | paving_stones_147 | TX4 |
+| paving_stones_131 | [PavingStones131](https://ambientcg.com/a/PavingStones131) | paving (TX4) | ao, color, height, normal, roughness | 2 x 2 | paving_stones_131 | TX4 |
+| paving_stones_141 | [PavingStones141](https://ambientcg.com/a/PavingStones141) | paving (TX4) | ao, color, height, normal, roughness | 2 x 2 | paving_stones_141 | TX4 |
+| paving_stones_122 | [PavingStones122](https://ambientcg.com/a/PavingStones122) | paving (TX4) | ao, color, height, normal, roughness | 3 x 1.5 | paving_stones_122 | TX4 |
+| paving_stones_111 | [PavingStones111](https://ambientcg.com/a/PavingStones111) | paving (TX4) | ao, color, height, normal, roughness | 2 x 2 | paving_stones_111 | TX4 |
+| paving_stones_148 | [PavingStones148](https://ambientcg.com/a/PavingStones148) | paving (TX4) | ao, color, height, normal, roughness | 2 x 2 | paving_stones_148 | TX4 |
+| paving_stones_144 | [PavingStones144](https://ambientcg.com/a/PavingStones144) | paving (TX4) | ao, color, height, normal, roughness | 2 x 2 | paving_stones_144 | TX4 |
+| paving_stones_143 | [PavingStones143](https://ambientcg.com/a/PavingStones143) | paving (TX4) | ao, color, height, normal, roughness | 2 x 2 | paving_stones_143 | TX4 |
+| paving_stones_099 | [PavingStones099](https://ambientcg.com/a/PavingStones099) | paving (TX4) | color, height, normal, roughness | 2 x 2 | paving_stones_099 | TX4 |
+| paving_stones_109 | [PavingStones109](https://ambientcg.com/a/PavingStones109) | paving (TX4) | ao, color, height, normal, roughness | 2 x 2 | paving_stones_109 | TX4 |
+| paving_stones_053 | [PavingStones053](https://ambientcg.com/a/PavingStones053) | paving (TX4) | ao, color, height, normal, roughness | 2 x 2 | paving_stones_053 | TX4 |
+| paving_stones_114 | [PavingStones114](https://ambientcg.com/a/PavingStones114) | paving (TX4) | ao, color, height, normal, roughness | 1.6 x 1.6 | paving_stones_114 | TX4 |
+| tactile_paving_006 | [TactilePaving006](https://ambientcg.com/a/TactilePaving006) | tactile paving (TX4) | ao, color, height, normal, roughness | 0.9 x 0.9 | tactile_paving_006 | TX4 |
+| tactile_paving_007 | [TactilePaving007](https://ambientcg.com/a/TactilePaving007) | tactile paving (TX4) | ao, color, height, normal, roughness | 0.9 x 0.9 | tactile_paving_007 | TX4 |
+| asphalt_023s | [Asphalt023S](https://ambientcg.com/a/Asphalt023S) | asphalt (TX4) | ao, color, height, normal, roughness | 1.25 x 1.25 | asphalt_023s | TX4 |
+| asphalt_032 | [Asphalt032](https://ambientcg.com/a/Asphalt032) | asphalt (TX4) | color, height, normal, roughness | 2 x 2 | asphalt_032 | TX4 |
+| asphalt_020l | [Asphalt020L](https://ambientcg.com/a/Asphalt020L) | asphalt (TX4) | ao, color, height, normal, roughness | 4.6 x 4.6 | asphalt_020l | TX4 |
+| asphalt_015 | [Asphalt015](https://ambientcg.com/a/Asphalt015) | asphalt (TX4) | color, height, normal, roughness | 2 x 2 | asphalt_015 | TX4 |
+| asphalt_030 | [Asphalt030](https://ambientcg.com/a/Asphalt030) | asphalt (TX4) | ao, color, height, normal, roughness | 2.2 x 2.2 | asphalt_030 | TX4 |
+| asphalt_025c | [Asphalt025C](https://ambientcg.com/a/Asphalt025C) | asphalt (TX4) | ao, color, height, normal, roughness | 2 x 2 | asphalt_025c | TX4 |
+| asphalt_026c | [Asphalt026C](https://ambientcg.com/a/Asphalt026C) | asphalt (TX4) | ao, color, height, normal, roughness | 2 x 2 | asphalt_026c | TX4 |
+| asphalt_019 | [Asphalt019](https://ambientcg.com/a/Asphalt019) | asphalt (TX4) | color, height, normal, roughness | 2 x 2 | asphalt_019 | TX4 |
+| road_007 | [Road007](https://ambientcg.com/a/Road007) | road (TX4) | color, height, normal, roughness | 7.5 x 7.5 | road_007 | TX4 |
+| road_011a | [Road011A](https://ambientcg.com/a/Road011A) | road (TX4) | ao, color, height, normal, roughness | 4 x 4 | road_011a | TX4 |
+| road_014a | [Road014A](https://ambientcg.com/a/Road014A) | road (TX4) | ao, color, height, normal, roughness | 4 x 4 | road_014a | TX4 |
+| road_010a | [Road010A](https://ambientcg.com/a/Road010A) | road (TX4) | ao, color, height, normal, roughness | 4 x 4 | road_010a | TX4 |
+| road_006 | [Road006](https://ambientcg.com/a/Road006) | road (TX4) | color, height, normal, roughness | 7.5 x 7.5 | road_006 | TX4 |
+| road_003 | [Road003](https://ambientcg.com/a/Road003) | road (TX4) | color, height, normal, roughness | 7.5 x 7.5 | road_003 | TX4 |
+| road_001 | [Road001](https://ambientcg.com/a/Road001) | road (TX4) | color, height, normal, roughness | 7.5 x 7.5 | road_001 | TX4 |
+| ground_106 | [Ground106](https://ambientcg.com/a/Ground106) | ground (TX4) | ao, color, height, normal, roughness | 2.5 x 2.5 | ground_106 | TX4 |
+| ground_107 | [Ground107](https://ambientcg.com/a/Ground107) | ground (TX4) | ao, color, height, normal, roughness | 2.8 x 2.8 | ground_107 | TX4 |
+| ground_086 | [Ground086](https://ambientcg.com/a/Ground086) | ground (TX4) | ao, color, height, normal, roughness | 2 x 2 | ground_086 | TX4 |
+| ground_105 | [Ground105](https://ambientcg.com/a/Ground105) | ground (TX4) | ao, color, height, normal, roughness | 2 x 2 | ground_105 | TX4 |
+| ground_102 | [Ground102](https://ambientcg.com/a/Ground102) | ground (TX4) | ao, color, height, normal, roughness | 2 x 2 | ground_102 | TX4 |
+| ground_067 | [Ground067](https://ambientcg.com/a/Ground067) | ground (TX4) | ao, color, height, normal, roughness | 2 x 2 | ground_067 | TX4 |
+| ground_078 | [Ground078](https://ambientcg.com/a/Ground078) | ground (TX4) | ao, color, height, normal, roughness | 2 x 2 | ground_078 | TX4 |
+| ground_088 | [Ground088](https://ambientcg.com/a/Ground088) | ground (TX4) | ao, color, height, normal, roughness | 2 x 2 | ground_088 | TX4 |
+| ground_091 | [Ground091](https://ambientcg.com/a/Ground091) | ground (TX4) | ao, color, height, normal, roughness | 2 x 2 | ground_091 | TX4 |
+| ground_087 | [Ground087](https://ambientcg.com/a/Ground087) | ground (TX4) | ao, color, height, normal, roughness | 2 x 2 | ground_087 | TX4 |
+| ground_090 | [Ground090](https://ambientcg.com/a/Ground090) | ground (TX4) | ao, color, height, normal, roughness | 2 x 2 | ground_090 | TX4 |
+| ground_082s | [Ground082S](https://ambientcg.com/a/Ground082S) | ground (TX4) | ao, color, height, normal, roughness | 2 x 2 | ground_082s | TX4 |
+| ground_089 | [Ground089](https://ambientcg.com/a/Ground089) | ground (TX4) | ao, color, height, normal, roughness | 2 x 2 | ground_089 | TX4 |
+| ground_072 | [Ground072](https://ambientcg.com/a/Ground072) | ground (TX4) | ao, color, height, normal, roughness | 1.75 x 1.75 | ground_072 | TX4 |
+| ground_062s | [Ground062S](https://ambientcg.com/a/Ground062S) | ground (TX4) | ao, color, height, normal, roughness | 1.6 x 1.6 | ground_062s | TX4 |
+| ground_076 | [Ground076](https://ambientcg.com/a/Ground076) | ground (TX4) | ao, color, height, normal, roughness | 2 x 2 | ground_076 | TX4 |
+| ground_074 | [Ground074](https://ambientcg.com/a/Ground074) | ground (TX4) | ao, color, height, normal, roughness | 1.8 x 1.8 | ground_074 | TX4 |
+| ground_084 | [Ground084](https://ambientcg.com/a/Ground084) | ground (TX4) | ao, color, height, normal, roughness | 2 x 2 | ground_084 | TX4 |
+| ground_061 | [Ground061](https://ambientcg.com/a/Ground061) | ground (TX4) | ao, color, height, normal, roughness | 2 x 2 | ground_061 | TX4 |
+| gravel_042 | [Gravel042](https://ambientcg.com/a/Gravel042) | gravel (TX4) | ao, color, height, normal, roughness | 1.5 x 1.5 | gravel_042 | TX4 |
+| gravel_035 | [Gravel035](https://ambientcg.com/a/Gravel035) | gravel (TX4) | ao, color, height, normal, roughness | 1.9 x 1.9 | gravel_035 | TX4 |
+| gravel_032 | [Gravel032](https://ambientcg.com/a/Gravel032) | gravel (TX4) | ao, color, height, normal, roughness | 1.5 x 1.5 | gravel_032 | TX4 |
+| gravel_038 | [Gravel038](https://ambientcg.com/a/Gravel038) | gravel (TX4) | ao, color, height, normal, roughness | 1.5 x 1.5 | gravel_038 | TX4 |
+| gravel_037 | [Gravel037](https://ambientcg.com/a/Gravel037) | gravel (TX4) | ao, color, height, normal, roughness | 1.5 x 1.5 | gravel_037 | TX4 |
+| gravel_039 | [Gravel039](https://ambientcg.com/a/Gravel039) | gravel (TX4) | ao, color, height, normal, roughness | 2.4 x 2.4 | gravel_039 | TX4 |
+| gravel_033 | [Gravel033](https://ambientcg.com/a/Gravel033) | gravel (TX4) | ao, color, height, normal, roughness | 2 x 2 | gravel_033 | TX4 |
+| rock_063 | [Rock063](https://ambientcg.com/a/Rock063) | rock (TX4) | ao, color, height, normal, roughness | 3 x 3 | rock_063 | TX4 |
+| rock_050 | [Rock050](https://ambientcg.com/a/Rock050) | rock (TX4) | ao, color, height, normal, roughness | 3 x 3 | rock_050 | TX4 |
+| rock_041 | [Rock041](https://ambientcg.com/a/Rock041) | rock (TX4) | ao, color, height, normal, roughness | 3 x 3 | rock_041 | TX4 |
+| rock_054 | [Rock054](https://ambientcg.com/a/Rock054) | rock (TX4) | ao, color, height, normal, roughness | 1.4 x 1.4 | rock_054 | TX4 |
+| rock_053 | [Rock053](https://ambientcg.com/a/Rock053) | rock (TX4) | ao, color, height, normal, roughness | 3 x 3 | rock_053 | TX4 |
+| rock_048 | [Rock048](https://ambientcg.com/a/Rock048) | rock (TX4) | ao, color, height, normal, roughness | 3 x 3 | rock_048 | TX4 |
+| rock_055 | [Rock055](https://ambientcg.com/a/Rock055) | rock (TX4) | ao, color, height, normal, roughness | 3 x 3 | rock_055 | TX4 |
+| rock_018 | [Rock018](https://ambientcg.com/a/Rock018) | rock (TX4) | ao, color, height, normal, roughness | 3 x 3 | rock_018 | TX4 |
+| rock_049 | [Rock049](https://ambientcg.com/a/Rock049) | rock (TX4) | ao, color, height, normal, roughness | 3 x 3 | rock_049 | TX4 |
+| rocks_025 | [Rocks025](https://ambientcg.com/a/Rocks025) | rocks (TX4) | ao, color, height, normal, roughness | 1.9 x 1.9 | rocks_025 | TX4 |
+| rocks_006 | [Rocks006](https://ambientcg.com/a/Rocks006) | rocks (TX4) | ao, color, height, normal, roughness | 2 x 2 | rocks_006 | TX4 |
+| rocks_023 | [Rocks023](https://ambientcg.com/a/Rocks023) | rocks (TX4) | ao, color, height, normal, roughness | 2 x 2 | rocks_023 | TX4 |
+| rocks_024s | [Rocks024S](https://ambientcg.com/a/Rocks024S) | rocks (TX4) | ao, color, height, normal, roughness | 1.8 x 1.8 | rocks_024s | TX4 |
+| rocks_005 | [Rocks005](https://ambientcg.com/a/Rocks005) | rocks (TX4) | ao, color, height, normal, roughness | 2 x 2 | rocks_005 | TX4 |
+| snow_015 | [Snow015](https://ambientcg.com/a/Snow015) | snow (TX4) | ao, color, height, normal, roughness | 2 x 2 | snow_015 | TX4 |
+| snow_014 | [Snow014](https://ambientcg.com/a/Snow014) | snow (TX4) | ao, color, height, normal, roughness | 2 x 2 | snow_014 | TX4 |
+| snow_013 | [Snow013](https://ambientcg.com/a/Snow013) | snow (TX4) | ao, color, height, normal, roughness | 2 x 2 | snow_013 | TX4 |
+| snow_012 | [Snow012](https://ambientcg.com/a/Snow012) | snow (TX4) | ao, color, height, normal, roughness | 2 x 2 | snow_012 | TX4 |
+| snow_011 | [Snow011](https://ambientcg.com/a/Snow011) | snow (TX4) | ao, color, height, normal, roughness | 2 x 2 | snow_011 | TX4 |
+| snow_006 | [Snow006](https://ambientcg.com/a/Snow006) | snow (TX4) | ao, color, height, normal, roughness | 2.5 x 2.5 | snow_006 | TX4 |
+| snow_005 | [Snow005](https://ambientcg.com/a/Snow005) | snow (TX4) | color, height, normal, roughness | 2 x 2 | snow_005 | TX4 |
+| fabric_067 | [Fabric067](https://ambientcg.com/a/Fabric067) | fabric (TX4) | color, height, normal, roughness | 1 x 1 | fabric_067 | TX4 |
+| fabric_043 | [Fabric043](https://ambientcg.com/a/Fabric043) | fabric (TX4) | color, height, normal, roughness | 1 x 1 | fabric_043 | TX4 |
+| fabric_086 | [Fabric086](https://ambientcg.com/a/Fabric086) | fabric (TX4) | color, height, normal, roughness | 1 x 1 | fabric_086 | TX4 |
+| fabric_082a | [Fabric082A](https://ambientcg.com/a/Fabric082A) | fabric (TX4) | ao, color, height, normal, roughness | 1 x 1 | fabric_082a | TX4 |
+| fabric_036 | [Fabric036](https://ambientcg.com/a/Fabric036) | fabric (TX4) | ao, color, height, normal, roughness | 1 x 1 | fabric_036 | TX4 |
+| fabric_062 | [Fabric062](https://ambientcg.com/a/Fabric062) | fabric (TX4) | ao, color, height, normal, roughness | 0.4 x 0.4 | fabric_062 | TX4 |
+| fabric_048 | [Fabric048](https://ambientcg.com/a/Fabric048) | fabric (TX4) | ao, color, height, normal, roughness | 0.4 x 0.4 | fabric_048 | TX4 |
+| fabric_079 | [Fabric079](https://ambientcg.com/a/Fabric079) | fabric (TX4) | color, height, normal, roughness | 0.2 x 0.2 | fabric_079 | TX4 |
+| bark_016 | [Bark016](https://ambientcg.com/a/Bark016) | bark (TX4) | ao, color, height, normal, roughness | 0.8 x 0.8 | bark_016 | TX4 |
+| bark_012 | [Bark012](https://ambientcg.com/a/Bark012) | bark (TX4) | ao, color, height, normal, roughness | 1 x 1 | bark_012 | TX4 |
+| bark_013 | [Bark013](https://ambientcg.com/a/Bark013) | bark (TX4) | ao, color, height, normal, roughness | 1 x 1 | bark_013 | TX4 |
+| bark_007 | [Bark007](https://ambientcg.com/a/Bark007) | bark (TX4) | ao, color, height, normal, roughness | 1 x 1 | bark_007 | TX4 |
+| moss_001 | [Moss001](https://ambientcg.com/a/Moss001) | moss (TX4) | ao, color, height, normal, roughness | 0.45 x 0.45 | moss_001 | TX4 |
+| moss_003 | [Moss003](https://ambientcg.com/a/Moss003) | moss (TX4) | ao, color, height, normal, roughness | 1 x 1 | moss_003 | TX4 |
+| clay_006 | [Clay006](https://ambientcg.com/a/Clay006) | clay (TX4) | color, height, normal, roughness | 0.2 x 0.2 | clay_006 | TX4 |
+| clay_007 | [Clay007](https://ambientcg.com/a/Clay007) | clay (TX4) | color, height, normal, roughness | 0.2 x 0.2 | clay_007 | TX4 |
+| marble_021 | [Marble021](https://ambientcg.com/a/Marble021) | marble (TX4) | color, height, normal, roughness | 2 x 2 | marble_021 | TX4 |
+| marble_006 | [Marble006](https://ambientcg.com/a/Marble006) | marble (TX4) | color, height, normal, roughness | 2 x 2 | marble_006 | TX4 |
+| terrazzo_005 | [Terrazzo005](https://ambientcg.com/a/Terrazzo005) | terrazzo (TX4) | color, height, normal, roughness | 1.5 x 1.5 | terrazzo_005 | TX4 |
+| terrazzo_004 | [Terrazzo004](https://ambientcg.com/a/Terrazzo004) | terrazzo (TX4) | color, height, normal, roughness | 1.5 x 1.5 | terrazzo_004 | TX4 |
+| granite_002a | [Granite002A](https://ambientcg.com/a/Granite002A) | granite (TX4) | color, height, normal, roughness | 2 x 2 | granite_002a | TX4 |
+| granite_001a | [Granite001A](https://ambientcg.com/a/Granite001A) | granite (TX4) | color, height, normal, roughness | 2 x 2 | granite_001a | TX4 |
+| leather_038 | [Leather038](https://ambientcg.com/a/Leather038) | leather (TX4) | color, height, normal, roughness | 1 x 1 | leather_038 | TX4 |
+| leather_027 | [Leather027](https://ambientcg.com/a/Leather027) | leather (TX4) | color, height, normal, roughness | 1 x 1 | leather_027 | TX4 |
+| chipboard_004 | [Chipboard004](https://ambientcg.com/a/Chipboard004) | chipboard (TX4) | color, height, normal, roughness | 1.2 x 1.2 | chipboard_004 | TX4 |
+| chipboard_005 | [Chipboard005](https://ambientcg.com/a/Chipboard005) | chipboard (TX4) | color, height, normal, roughness | 1.2 x 1.2 | chipboard_005 | TX4 |
+| cardboard_002 | [Cardboard002](https://ambientcg.com/a/Cardboard002) | cardboard (TX4) | color, height, normal, roughness | 1 x 1 | cardboard_002 | TX4 |
+| cardboard_004 | [Cardboard004](https://ambientcg.com/a/Cardboard004) | cardboard (TX4) | color, height, normal, roughness | 1 x 1 | cardboard_004 | TX4 |
+| paper_006 | [Paper006](https://ambientcg.com/a/Paper006) | paper (TX4) | color, height, normal, roughness | 0.5 x 0.5 | paper_006 | TX4 |
+| paper_001 | [Paper001](https://ambientcg.com/a/Paper001) | paper (TX4) | color, height, normal, roughness | 0.5 x 0.5 | paper_001 | TX4 |
+| wicker_013 | [Wicker013](https://ambientcg.com/a/Wicker013) | wicker (TX4) | ao, color, height, normal, roughness | 0.5 x 0.5 | wicker_013 | TX4 |
+| wicker_008a | [Wicker008A](https://ambientcg.com/a/Wicker008A) | wicker (TX4) | ao, color, height, normal, roughness | 1 x 1 | wicker_008a | TX4 |
+| scattered_leaves_001 | [ScatteredLeaves001](https://ambientcg.com/a/ScatteredLeaves001) | leaf litter (TX4) | color, height, normal, roughness | 2 x 2 | scattered_leaves_001 | TX4 |
+| scattered_leaves_006 | [ScatteredLeaves006](https://ambientcg.com/a/ScatteredLeaves006) | leaf litter (TX4) | color, height, normal, roughness | 2 x 2 | scattered_leaves_006 | TX4 |
+| pathway_004 | [Pathway004](https://ambientcg.com/a/Pathway004) | pathway (TX4) | ao, color, height, normal, roughness | 2 x 2 | pathway_004 | TX4 |
+| pathway_002 | [Pathway002](https://ambientcg.com/a/Pathway002) | pathway (TX4) | ao, color, height, normal, roughness | 3 x 1.5 | pathway_002 | TX4 |
+| tree_end_005 | [TreeEnd005](https://ambientcg.com/a/TreeEnd005) | log end (TX4) | color, normal, roughness | 0.45 x 0.45 | tree_end_005 | TX4 |
+| office_ceiling_002 | [OfficeCeiling002](https://ambientcg.com/a/OfficeCeiling002) | ceiling tiles (TX4) | ao, color, height, normal, roughness | 3.85 x 3.85 | office_ceiling_002 | TX4 |
+| office_ceiling_003 | [OfficeCeiling003](https://ambientcg.com/a/OfficeCeiling003) | ceiling tiles (TX4) | ao, color, height, normal, roughness | 5.15 x 5.15 | office_ceiling_003 | TX4 |
+| travertine_005 | [Travertine005](https://ambientcg.com/a/Travertine005) | travertine (TX4) | ao, color, height, normal, roughness | 1.2 x 1.2 | travertine_005 | TX4 |
+| travertine_004 | [Travertine004](https://ambientcg.com/a/Travertine004) | travertine (TX4) | ao, color, height, normal, roughness | 1.2 x 1.2 | travertine_004 | TX4 |
+| ice_003 | [Ice003](https://ambientcg.com/a/Ice003) | ice (TX4) | color, height, normal, roughness | 2 x 2 | ice_003 | TX4 |
+| ice_002 | [Ice002](https://ambientcg.com/a/Ice002) | ice (TX4) | color, height, normal, roughness | 2 x 2 | ice_002 | TX4 |
+| surface_imperfections_015 | [SurfaceImperfections015](https://ambientcg.com/a/SurfaceImperfections015) | damage overlay (TX4) | color, height, normal, roughness | 0.65 x 0.65 | surface_imperfections_015 | TX4 |
+| surface_imperfections_017 | [SurfaceImperfections017](https://ambientcg.com/a/SurfaceImperfections017) | damage overlay (TX4) | color, height, normal, roughness | 0.4 x 0.4 | surface_imperfections_017 | TX4 |
+| surface_imperfections_003 | [SurfaceImperfections003](https://ambientcg.com/a/SurfaceImperfections003) | damage overlay (TX4) | color, normal | 2 x 2 | surface_imperfections_003 | TX4 |
+| surface_imperfections_014 | [SurfaceImperfections014](https://ambientcg.com/a/SurfaceImperfections014) | damage overlay (TX4) | color, height, normal, roughness | 0.65 x 0.65 | surface_imperfections_014 | TX4 |
+| surface_imperfections_020 | [SurfaceImperfections020](https://ambientcg.com/a/SurfaceImperfections020) | damage overlay (TX4) | color, height, normal, roughness | 0.4 x 0.4 | surface_imperfections_020 | TX4 |
+| smear_008 | [Smear008](https://ambientcg.com/a/Smear008) | smear overlay (TX4) | color, height, normal, roughness | 0.2 x 0.2 | smear_008 | TX4 |

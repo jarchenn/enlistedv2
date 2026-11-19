@@ -1,0 +1,19 @@
+{
+ "set": "metal_048a",
+ "id": "Metal048A",
+ "family": "metal (TX4)",
+ "size": [
+  1,
+  1
+ ],
+ "source": "https://ambientcg.com/a/Metal048A",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

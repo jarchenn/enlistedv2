@@ -1,0 +1,19 @@
+{
+ "set": "scattered_leaves_001",
+ "id": "ScatteredLeaves001",
+ "family": "leaf litter (TX4)",
+ "size": [
+  2,
+  2
+ ],
+ "source": "https://ambientcg.com/a/ScatteredLeaves001",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

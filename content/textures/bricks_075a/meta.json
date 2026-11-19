@@ -1,0 +1,20 @@
+{
+ "set": "bricks_075a",
+ "id": "Bricks075A",
+ "family": "brick (TX4)",
+ "size": [
+  2.0,
+  1.0
+ ],
+ "source": "https://ambientcg.com/a/Bricks075A",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "ao.jpg",
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

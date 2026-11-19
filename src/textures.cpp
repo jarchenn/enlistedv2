@@ -305,6 +305,10 @@ void uploadTables() {   // the active table into NmkTexTables (std140: vec4 arra
     R[i] = vec4(s.relD, s.crev, s.edge, s.lumps);
   }
   for (auto& s : sets) if (s.layer >= 0 && s.layer < kMaxLayers) { Ly[s.layer] = vec4(1.0f / s.size.x, 1.0f / s.size.y, s.meanR, s.meanH); M[s.layer] = vec4(s.meanLin, s.meanAO); }
+  if (!tableUbo) {   // TX4: the block is near the 64 KB minimum every GL 4.x driver guarantees
+    GLint mx = 0; glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &mx);
+    if (mx < (GLint)(d.size() * sizeof(vec4))) logf("textures: GL_MAX_UNIFORM_BLOCK_SIZE %d < the %d-byte slot tables", mx, (int)(d.size() * sizeof(vec4)));
+  }
   if (!tableUbo) { glCreateBuffers(1, &tableUbo); glNamedBufferStorage(tableUbo, (GLsizeiptr)(d.size() * sizeof(vec4)), nullptr, GL_DYNAMIC_STORAGE_BIT); }
   glNamedBufferSubData(tableUbo, 0, (GLsizeiptr)(d.size() * sizeof(vec4)), d.data());
   glBindBufferBase(GL_UNIFORM_BUFFER, 3, tableUbo);
@@ -361,15 +365,15 @@ uniform int uImgMat;       // MA1 imgmat table active (render.cpp: room floor fi
 uniform sampler2D uTexMacro;   // MA1 macro variation (unit 25): R tint, G roughness, B damp, A substrate / alternate-set mask; one tile = 32 m
 float gTexNFade = 1.0;     // MA1: share of the far normal fade (texSlotTaps: 0.5 for replace sets under imgmat)   // MA1 imgmat: 1 = skip normal taps whose detail is faded out (far)
 // MA1: the slot / layer tables live in one uniform buffer (binding 3, 14 KB): as plain uniforms they passed the 1024
-// constant registers of a fragment program once the tables grew (160 slots, 128 layers; TX2: 320 / 192, 32 KB; TX3: 448 / 256, 44 KB)
+// constant registers of a fragment program once the tables grew (160 slots, 128 layers; TX2: 320 / 192, 32 KB; TX3: 448 / 256, 44 KB; TX4: 704 / 256, 63 KB)
 layout(std140, binding = 3) uniform NmkTexTables {
-  vec4 uTexA[448];   // per slot: layer (-1 none), mode (0 detail, 1 replace), space (0 asset, 1 part, 2 world, 3 ground), scale
-  vec4 uTexB[448];   // per slot: albedo, normal, roughness, ao strength
-  vec4 uTexC[448];   // per slot: height (m), quarter turns, distance fade start, end (m; end 0 = no fade)
-  vec4 uTexU[448];   // MA1 per slot: substrate ("under") slot (-1 none), exposure threshold, contrast (replace sets), macro variation strength
+  vec4 uTexA[704];   // per slot: layer (-1 none), mode (0 detail, 1 replace), space (0 asset, 1 part, 2 world, 3 ground), scale
+  vec4 uTexB[704];   // per slot: albedo, normal, roughness, ao strength
+  vec4 uTexC[704];   // per slot: height (m), quarter turns, distance fade start, end (m; end 0 = no fade)
+  vec4 uTexU[704];   // MA1 per slot: substrate ("under") slot (-1 none), exposure threshold, contrast (replace sets), macro variation strength
   vec4 uTexL[256];   // per layer: 1/size u, 1/size v (1/m), mean roughness, mean height
   vec4 uTexM[256];   // per layer: mean linear colour, mean ao
-  vec4 uTexR[448];   // MA1b per slot: relief depth (m), crevice darkening, edge wear, fill lumps (m) (Perf relief)
+  vec4 uTexR[704];   // MA1b per slot: relief depth (m), crevice darkening, edge wear, fill lumps (m) (Perf relief)
 };
 uniform int uTerrSlot[8]; // terrain layers: grass, soil, mud, gravel, sand, rock, scree, crater
 #define NMK_TEX_PAINT 1   // painted ground: uPaintSlot[k] for marsh, dirt, mud, gravel, sand, cobbles, rock, dry_grass, ploughed, leaf_litter, scorched, pebbles
@@ -433,7 +437,7 @@ struct TerrT { vec3 alb; float r, ao; vec3 dn; };
 // uniform control flow (kTerrainFS: tdx, tdy), dist = eye distance (tDist)
 TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
   TerrT o = TerrT(vec3(1.0), 1.0, 1.0, vec3(0.0));
-  if (!texOn() || slot < 0 || slot >= 448) return o;
+  if (!texOn() || slot < 0 || slot >= 704) return o;
   vec4 A = uTexA[slot]; if (A.x < 0.0) return o;
   int li = int(A.x + 0.5); vec4 K = uTexB[slot], C = uTexC[slot], Lp = uTexL[li], M = uTexM[li];
   float f = C.w > 0.0 ? 1.0 - smoothstep(C.z, C.w, dist) : 1.0;
@@ -454,7 +458,7 @@ TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
 // MA1 imgmat: a slot with an "under" set alternates with it by the world macro mask (A), patches of a few metres, so
 // two ground sets break each other's tiling; both are sampled only in the narrow transition band
 TerrT terrTexSlot(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
-  if (uImgMat == 1 && slot >= 0 && slot < 448 && uTexU[slot].x >= 0.0) {
+  if (uImgMat == 1 && slot >= 0 && slot < 704 && uTexU[slot].x >= 0.0) {
     vec3 a = abs(n); bool fl = a.y > max(a.x, a.z), xw = a.x > a.z;
     vec2 uv = fl ? p.xz : xw ? p.zy : p.xy;
     float lod = log2(max(max(length(dpx), length(dpy)), 1e-4)*256.0/32.0);
@@ -481,7 +485,7 @@ uniform int uRelief;       // MA1b (Perf relief): parallax on Medium, per-family
 layout(location=11) flat in vec3 vPcF;         // MA1b: the triangle's provoking vertex part coordinate: a corner of a box face (edge distance)
 float gTexWear = 1.0;      // the copy's wear (kMainFS sets uInst.y before texMaterial): more substrate on worn buildings
 int texSlot(float code, int pat){ int c = int(code + 0.5)/100; return c == 0 ? (pat >= 0 && pat < 32 ? uPatSlot[pat] : -1) : c - 2; }
-bool texReplace(int slot){ return texOn() && slot >= 0 && slot < 448 && uTexA[slot].x >= 0.0 && uTexA[slot].y > 0.5; }
+bool texReplace(int slot){ return texOn() && slot >= 0 && slot < 704 && uTexA[slot].x >= 0.0 && uTexA[slot].y > 0.5; }
 // sample the slot's set and layer it on the material: albedo and roughness multiplied by the sample against the set's
 // means (the material colour, per-stone tint and room finishes stay), ao, the normal (applied after the bump) and the
 // height (into the derivative bump, faded by the detail filter like the procedural relief)
@@ -540,7 +544,7 @@ float macroDamp(vec3 w, vec3 n, float pix){
 void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, int grain, float pix,
                  inout vec3 alb, inout float rough, inout float ao){
   vec3 dwx = dFdx(w), dwy = dFdy(w), dax = dFdx(ap), day = dFdy(ap), dcx = dFdx(pc), dcy = dFdy(pc);
-  if (!texOn() || slot < 0 || slot >= 448) return;
+  if (!texOn() || slot < 0 || slot >= 704) return;
   vec4 A = uTexA[slot]; if (A.x < 0.0) return;
   int li = int(A.x + 0.5); vec4 K = uTexB[slot], C = uTexC[slot], Lp = uTexL[li], M = uTexM[li];
   float f = C.w > 0.0 ? 1.0 - smoothstep(C.z, C.w, length(w - uCamPos)) : 1.0;
@@ -565,7 +569,7 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
   float fa = (uImgMat == 1 && A.y > 0.5) ? f : f*(1.0 - uTexLod2.z*smoothstep(uTexLod2.x, uTexLod2.y, pix*1024.0*max(inv.x, inv.y)));
   vec3 ratio = clamp(s.col/max(M.rgb, vec3(0.004)), 0.0, 2.5);
   if (uImgMat == 1 && uTexU[slot].z != 1.0) { float l = max(dot(ratio, vec3(0.2126, 0.7152, 0.0722)), 1e-3); ratio *= pow(l, uTexU[slot].z - 1.0); }   // MA1: per-set contrast
-  vec3 a2 = alb*mix(vec3(1.0), ratio, K.x*fa);
+  vec3 a2 = alb*mix(vec3(1.0), ratio, abs(K.x)*fa);   // TX4: an "absolute" (ground) slot named by an asset material: its strength, not a negative mix
   float r2 = rough*mix(1.0, s.r/max(Lp.z, 0.02), K.z*fa), ao2 = mix(1.0, s.ao, K.w*f);
   vec3 dn2 = dn*(rel && A.y > 0.5 ? max(K.y, 1.0) : K.y)*f*(rel ? 1.5 - 0.5*smoothstep(6.0, 16.0, eyeD) : 1.0);   // MA1b: replace sets at full strength, x1.5 near the eye
   float fr = 128.0*max(inv.x, inv.y);   // the height map's features: ~8 texels
@@ -874,12 +878,25 @@ void mapPaintSets(const json* look) {
   if (key == gPaintKey) return;
   gPaintKey = key;
   std::copy(std::begin(paintSlot), std::end(paintSlot), std::begin(paintSlotEff));
+  bool load = false;   // TX4: reload only for a picked set not on the GPU (a reload is seconds)
   if (!key.empty()) for (int k = 0; k < kPaintTypes; ++k) {
     const json& ps = (*look)["paintSets"];
     if (!ps.contains(kPaintTypeNames[k]) || !ps[kPaintTypeNames[k]].is_string()) continue;
     auto it = slotByName.find(ps[kPaintTypeNames[k]].get<std::string>());
-    if (it != slotByName.end()) paintSlotEff[k] = it->second; else logf("textures: look.paintSets: unknown slot '%s'", ps[kPaintTypeNames[k]].get<std::string>().c_str());
+    if (it != slotByName.end()) {
+      paintSlotEff[k] = it->second;
+      const std::string& set = slots[it->second].set;   // TX4: a lazy library set picked for the ground loads now
+      std::error_code ec;
+      if (!set.empty() && findSet(set) < 0 && !gLazyWant.count(set) && fs::exists(root / set / "color.jpg", ec)) { gLazyWant.insert(set); gPending = load = true; }
+    } else logf("textures: look.paintSets: unknown slot '%s'", ps[kPaintTypeNames[k]].get<std::string>().c_str());
   }
+  if (load) flushPending();
   uploadAll();
+}
+std::vector<std::string> groundSlots() {
+  std::vector<std::string> v;
+  for (auto& s : slots) if ((s.space == 2 || s.space == 3) && !s.set.empty() && s.name.find('@') == std::string::npos && s.name.rfind("set:", 0) != 0) v.push_back(s.name);
+  std::sort(v.begin(), v.end());
+  return v;
 }
 }  // namespace tex

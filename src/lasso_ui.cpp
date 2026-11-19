@@ -6,6 +6,7 @@
 #include <imgui.h>
 #if __has_include("ground_paint.h")
 #include "ground_paint.h"
+#include "textures.h"
 #define LASSO_HAS_PAINT 1
 #endif
 #if __has_include("lasso_land.h")
@@ -296,6 +297,28 @@ void lassoEditorUI(App& app) {
   } else if (P.mode == LM_PAINT) {
 #ifdef LASSO_HAS_PAINT
     groundPaintPicker(P.paintType);
+    if (P.paintType >= 1 && P.paintType <= tex::kPaintTypes) {   // TX4: which texture set this map draws for the type (look.paintSets)
+      const char* key = tex::kPaintTypeNames[P.paintType - 1];
+      json& ex = app.doc.extra;
+      std::string cur = ex.is_object() && ex.contains("look") && ex["look"].is_object() && ex["look"].contains("paintSets") && ex["look"]["paintSets"].is_object()
+                        ? ex["look"]["paintSets"].value(key, std::string()) : std::string();
+      static std::vector<std::string> names; static char filter[48] = "";
+      if (names.empty()) names = tex::groundSlots();
+      if (ImGui::BeginCombo("Texture", cur.empty() ? "(default)" : cur.c_str(), ImGuiComboFlags_HeightLarge)) {
+        ImGui::InputTextWithHint("##f", "filter", filter, sizeof filter);
+        std::string pick; bool chosen = false;
+        if (ImGui::Selectable("(default)", cur.empty())) chosen = true;
+        for (auto& n : names) if ((!filter[0] || n.find(filter) != std::string::npos) && ImGui::Selectable(n.c_str(), n == cur)) { pick = n; chosen = true; }
+        ImGui::EndCombo();
+        if (chosen) {
+          if (!ex.is_object()) ex = json::object();
+          if (!ex.contains("look") || !ex["look"].is_object()) ex["look"] = json::object();
+          json& ps = ex["look"]["paintSets"]; if (!ps.is_object()) ps = json::object();
+          if (pick.empty()) ps.erase(key); else ps[key] = pick;
+          app.dirty = true;
+        }
+      }
+    }
     ImGui::SliderFloat("Strength", &P.paintStrength, 0.05f, 1.0f, "%.2f");
     ImGui::SliderFloat("Edge blend (m)", &P.paintFeather, 0.0f, 10.0f, "%.1f");
     ImGui::BeginDisabled(!has);

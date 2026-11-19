@@ -1,0 +1,19 @@
+{
+ "set": "surface_imperfections_015",
+ "id": "SurfaceImperfections015",
+ "family": "damage overlay (TX4)",
+ "size": [
+  0.65,
+  0.65
+ ],
+ "source": "https://ambientcg.com/a/SurfaceImperfections015",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}
