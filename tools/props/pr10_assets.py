@@ -72,7 +72,7 @@ BUILDINGS = {
     "pa_military_house": dict(
         name="Abandoned military house", lic="glb", src="abounded_military_house/abounded_military_house.glb", scale=1.15, maxTex=2048,
         # the boards across the wing's doorway and the five ground-floor windows go (solid panels, black from inside): open bays
-        add_boxes=[{"box": [1.15, 2.25, -0.3, 0.4, 0.36, 0.375], "tex": "floor_boards_old", "tile": 2.0}],   # the inner doorway's threshold
+        add_boxes=[{"box": [1.15, 2.25, -0.3, 0.4, 0.36, 0.375], "tex": "planks_024a", "tile": 2.0}],   # the inner doorway's threshold
         delete_in=[["BigBuilding_Wood", -4.8, -4.0, 2.1, 3.6, 0.3, 2.3], ["BigBuilding_Wood", -3.0, -0.9, -0.3, 0.6, 1.0, 2.3],
                    ["BigBuilding_Wood", -4.8, -3.9, 0.55, 1.65, 1.0, 2.3], ["BigBuilding_Wood", -4.8, -3.9, 4.05, 5.15, 1.0, 2.3],
                    ["BigBuilding_Wood", -0.4, 0.7, -2.35, -0.65, 1.0, 2.3], ["BigBuilding_Wood", 3.0, 4.0, -2.35, -0.65, 1.0, 2.3]],                                 # the X-braced boards across the wing's doorway
@@ -90,8 +90,8 @@ BUILDINGS = {
                "win_block_l": [0.0, 0.45, -2.25, -0.75, 1.1, 2.15], "win_block_r": [3.25, 3.7, -2.25, -0.75, 1.1, 2.15]},
         floor=[-4.44, 3.62, 0.36, 5.33, 0.0, 0.36],
         # its inside read as a dark untextured shell over bare ground: lined (boards, flaking plaster, old plaster ceiling)
-        lining={"rooms": [{"box": [-4.13, 3.62, 0.36, 5.33, 0.36, 2.66], "floor": "floor_boards_old", "walls": "plaster_flaking", "ceil": "plaster_old_b"},
-                          {"box": [0.38, 3.31, -2.82, -0.27, 0.36, 2.66], "floor": "floor_boards_old", "walls": "plaster_flaking", "ceil": "plaster_old_b"}]},
+        lining={"rooms": [{"box": [-4.13, 3.62, 0.36, 5.33, 0.36, 2.66], "floor": "planks_024a", "walls": "plaster_flaking", "ceil": "plaster_old_b"},
+                          {"box": [0.38, 3.31, -2.82, -0.27, 0.36, 2.66], "floor": "planks_024a", "walls": "plaster_flaking", "ceil": "plaster_old_b"}]},
         furnish=[("ph_worn_metal_rack", -1.0, 5.0, 0), ("ph_old_military_crate", -3.55, 4.75, 15), ("mod_barrel_steel_rust", 3.15, 4.85, 0),
                  ("pa_crate_slatted", 2.8, -2.3, 10), ("furn_candle", -3.55, 4.75, 0, 0.47)]),   # a stub of candle on the crate: the one weak light
     # an exterior shell (one-sided brick box; the shopfront glass and doors were faces of a fake interior box,
@@ -180,7 +180,7 @@ BUILDINGS = {
         add_boxes=[{"box": [-4.95, -1.6, -8.86, -8.66, 0.0, 4.6], "tex": "boards_weathered", "tile": 2.5},
                    {"box": [0.0, 2.1, -8.86, -8.66, 0.0, 4.6], "tex": "boards_weathered", "tile": 2.5},
                    {"box": [-1.6, 0.0, -8.86, -8.66, 3.4, 4.6], "tex": "boards_weathered", "tile": 2.5},
-                   {"box": [-5.6, 2.7, -8.66, 3.87, 0.0, 0.02], "tex": "floor_boards_worn", "tile": 2.0}],   # a visible floor
+                   {"box": [-5.6, 2.7, -8.66, 3.87, 0.0, 0.02], "tex": "planks_024a", "tile": 2.0}],   # a visible floor
         auto_colliders={"cell": 0.5, "min_wall": 2.0, "min_rect": 1.2, "min_floor": 0.5, "min_rect_floor": 0.25, "exclude": ["fabric"]},
         desc="A sagging plank shack under a holed corrugated roof, with an open lean-to of rusted drums beside it, its torn-out front boarded up again: enterable through three doorways.",
         walls=[], doors={}, holes={}, floor=[-4.0, -3.0, -1.0, 0.0, -0.05, 0.0],
