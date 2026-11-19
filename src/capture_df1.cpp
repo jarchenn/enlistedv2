@@ -73,14 +73,18 @@ bool df1Capture(App& app, float dt) {
     vec3 mz = vec3(s.world * s.pose.weapon * vec4(d.muzzle, 1));
     look(mz - r * dist + f * 0.35f - vec3(0, 1.6f, 0), mz + f * 0.35f);
   };
+  auto palm = [&](int h) {   // the palm centre (the wrist + the hand's turn x its rest wrist -> palm offset)
+    const CharModel& cm = *G.models[s.model]; int k = cm.semantic[h ? CJ_RHAND : CJ_LHAND];
+    return s.pose.joint[h ? CJ_RHAND : CJ_LHAND] + (k >= 0 ? glm::mat3(s.pose.delta[k]) * (cm.fingerDir[h] * 0.05f + cm.palmN[h] * 0.025f) : vec3(0));
+  };
   auto aimAhead = [&]() { s.br.aimYaw = s.yaw; s.anGunYaw = s.yaw; s.br.aimPitch = 0; s.anGunPitch = 0; s.br.target = L->slot; };
   auto handsCheck = [&](const char* what) {
     const CharModel& m = *G.models[s.model]; const WeaponDef& d = *app.weaponDefs[s.weapon];
-    vec3 hr = s.pose.joint[CJ_RHAND], hl = s.pose.joint[CJ_LHAND];
+    vec3 hr = palm(1), hl = palm(0);
     vec3 gr = vec3(s.pose.weapon * vec4(d.gripR, 1)), gl = vec3(s.pose.weapon * vec4(d.gripL, 1));
-    char b[300]; std::snprintf(b, sizeof b, "%s: hands on %s's sockets: right hand %.3f m from the grip, left %.3f m from the handguard (fingers on %d / %d)", what, d.id.c_str(),
-                               glm::length(hr - gr), glm::length(hl - gl), s.pose.fingersOn[1], s.pose.fingersOn[0]);
-    T->check(glm::length(hr - gr) < 0.12f && glm::length(hl - gl) < 0.14f, b); (void)m;
+    char b[300]; std::snprintf(b, sizeof b, "%s: palms on %s: right palm %.3f m from the grip socket, left palm %.3f m from the handguard socket", what, d.id.c_str(),
+                               glm::length(hr - gr), glm::length(hl - gl));
+    T->check(glm::length(hr - gr) < 0.06f && (d.holdKind == 0 || d.gripR.z < 0.12f || glm::length(hl - gl) < 0.07f), b); (void)m;
   };
   auto fire = [&]() { int n0 = s.shots; s.ws.cooldown = 0; s.ws.bolt = 0; if (s.ws.loaded <= 0) s.ws.loaded = 5; G.soldierFire(s, f + vec3(0, -0.01f, 0)); return s.shots > n0; };
   char b[300];
@@ -106,11 +110,12 @@ bool df1Capture(App& app, float dt) {
     if (frames == 16) {
       const WeaponDef& d = *app.weaponDefs[s.weapon];
       vec3 gr = vec3(s.pose.weapon * vec4(d.gripR, 1)), gl = vec3(s.pose.weapon * vec4(d.gripL, 1));
-      float er = glm::length(s.pose.joint[CJ_RHAND] - gr), el = glm::length(s.pose.joint[CJ_LHAND] - gl);
+      float er = glm::length(palm(1) - gr), el = glm::length(palm(0) - gl);
+      const bool pist = d.holdKind == 0 || (d.holdKind < 0 && d.gripR.z < 0.12f && d.gripL.z - d.gripR.z <= 0.2f);
       bool drawn = false; for (auto& md : app.R.worldModels) if (d.useModel() && md.model == d.worldModel()) drawn = true;
-      bool ok = er < 0.12f && el < 0.16f && drawn; handsBad += !ok;
-      std::snprintf(b, sizeof b, "%-20s right %.3f m, left %.3f m from its sockets, fingers %d / %d, model %s, grip %.2f -> handguard %.2f m", d.id.c_str(), er, el,
-                    s.pose.fingersOn[1], s.pose.fingersOn[0], drawn ? "drawn" : "MISSING", d.gripR.z, d.gripL.z);
+      bool ok = er < 0.06f && (pist || el < 0.07f) && drawn; handsBad += !ok;
+      std::snprintf(b, sizeof b, "%-20s right palm %.3f m, left palm %.3f m from its sockets%s, model %s, grip %.2f -> handguard %.2f m", d.id.c_str(), er, el, pist ? " (pistol: the support hand on the firing hand)" : "",
+                    drawn ? "drawn" : "MISSING", d.gripR.z, d.gripL.z);
       T->note(std::string(ok ? "ok    " : "OFF   ") + b);
       app.uiShot = exeDir() / "selftest_out" / ("df_gun_" + d.id + ".png");
     }
@@ -118,7 +123,7 @@ bool df1Capture(App& app, float dt) {
     return true;
   }
   if (stage == 30) {   // the families: reloads held part way, the bolt / pump cycle, the throw, a turn in place
-    if (fi >= sizeof(kFam) / sizeof(kFam[0])) { stage = 7; frames = 0; return true; }
+    if (fi >= sizeof(kFam) / sizeof(kFam[0])) { stage = 1; frames = 0; return true; }   // then the stage A frames
     const Fam& F = kFam[fi]; const std::string what = F.what;
     if (frames == 1) { int w = app.weaponIndex(F.gun); if (w >= 0) setGun(w); if (what == "cycle_bolt") s.ws.loaded = 3; s.frags = 2; }
     if (what.rfind("turn", 0) == 0) { s.yaw = std::remainder(s.yaw + 130.0f * dt, 360.0f); s.br.aimYaw = s.anGunYaw = s.yaw; s.br.aimPitch = s.anGunPitch = 0; s.br.target = L->slot; }
@@ -203,18 +208,18 @@ bool df1Capture(App& app, float dt) {
     if (frames > 50) { stage = 6; frames = 0; }
     return true;
   }
-  auto close = [&](float sd) { look(s.feet + r * (1.05f * sd) + f * 0.55f - vec3(0, 0.25f, 0), s.feet + f * 0.35f + vec3(0, 1.35f, 0)); };   // at the hands: sd 1 the firing (right) side, -1 the support (left) side
+  auto close = [&](float sd) { look(s.feet + glm::normalize(f * 0.75f + r * (0.66f * sd)) * 1.3f - vec3(0, 0.2f, 0), s.feet + f * 0.35f + vec3(0, 1.35f, 0)); };   // at the hands: sd 1 the front-right (firing side), -1 the front-left
   if (stage == 8) {   // the pistol's hands, close from the support side
     aimAhead(); close(frames < 48 ? 1.0f : -1.0f);
-    if (frames == 40) app.uiShot = shot("hands_pistol_right");
-    if (frames == 88) app.uiShot = shot("hands_pistol_left");
+    if (frames == 40) app.uiShot = shot("hands_pistol_frontright");
+    if (frames == 88) app.uiShot = shot("hands_pistol_frontleft");
     if (frames > 92) { if (int w = app.weaponIndex("modern_m4_irons"); w >= 0) { s.weapon = w; s.ws = WeaponState{}; s.ws.loaded = app.weaponDefs[w]->loaded; } stage = 9; frames = 0; }
     return true;
   }
   if (stage == 9) {   // the rifle's hands, close from the support side
     aimAhead(); close(frames < 48 ? 1.0f : -1.0f);
-    if (frames == 40) app.uiShot = shot("hands_rifle_right");
-    if (frames == 88) app.uiShot = shot("hands_rifle_left");
+    if (frames == 40) app.uiShot = shot("hands_rifle_frontright");
+    if (frames == 88) app.uiShot = shot("hands_rifle_frontleft");
     if (frames > 92) { stage = 10; frames = 0; }
     return true;
   }

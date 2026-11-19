@@ -204,7 +204,7 @@ bool deltaBodyPose(Game& G, Soldier& s, float dt, PoseParams& pp) {
   const bool crouch = s.posture == Physics::CROUCH;
   const bool pistol = s.weapon >= 0 && (pp.holdKind >= 0 ? pp.holdKind == 0 : pp.gripR.z < 0.12f);
   const bool hot = s.br.target >= 0 || G.t - s.lastShot < 1.5 || s.reload > 0;
-  const float bodyYaw = hot && !s.localPlayer ? s.anGunYaw : s.yaw;
+  const float bodyYaw = (hot && !s.localPlayer ? s.anGunYaw : s.yaw) - s.dfYawOff;   // the body as drawn: turned so the clip's gun points at the aim (game.cpp)
   const vec3 fwd = App::forward(bodyYaw, 0), left(-std::cos(radians(bodyYaw)), 0, std::sin(radians(bodyYaw)));
   const float vf = glm::dot(s.vel, fwd), vl = glm::dot(s.vel, left);
   auto gs = [&](int k, float def) { return k >= 0 && m.clips[k].groundSpeed > 0.2f ? m.clips[k].groundSpeed : def; };
@@ -258,9 +258,21 @@ bool deltaBodyPose(Game& G, Soldier& s, float dt, PoseParams& pp) {
   s.poseFrom = -1; ++s.poseRev;
   if (!s.alive) { s.pose = base; return true; }
   const int sp = m.semantic[CJ_SPINE1] >= 0 ? m.semantic[CJ_SPINE1] : m.semantic[CJ_SPINE];
-  if (sp >= 0) {   // the chest leans into the aim (the weapon and the arms take the rest)
+  // the clip's gun line (model space): rifles the right -> left wrist line, a pistol shoulders -> hands; the body is drawn turned by
+  // its yaw so that line points at the aim (game.cpp yawUse), and the whole chest pitches with the aim about the line's side axis
+  vec3 gun(0, 0, 1);
+  {
+    auto at = [&](int c) { int k = m.semantic[c]; return k >= 0 ? vec3(base.delta[k] * vec4(m.jointHead[k], 1)) : vec3(0); };
+    vec3 g = pistol ? 0.5f * (at(CJ_LHAND) + at(CJ_RHAND)) - 0.5f * (at(CJ_LARM) + at(CJ_RARM)) : at(CJ_LHAND) - at(CJ_RHAND);
+    g.y = 0; if (glm::length(g) > 0.05f && s.throwT < 0) gun = glm::normalize(g);
+    const bool tube = s.weapon >= 0 && G.app.weaponDefs[s.weapon]->action == "launcher";   // launchers ride the shoulder (the soldier placement), along the body
+    const float want = s.throwT >= 0 ? s.dfYawOff : tube ? 0.0f : glm::degrees(std::atan2(gun.x, gun.z));
+    pp.clipGun = !tube; pp.pistolRaise = pistol && hot && s.reload <= 0 ? 1.0f : 0.0f;
+    s.dfYawOff += (want - s.dfYawOff) * (1.0f - std::exp(-dt / 0.2f));
+  }
+  if (sp >= 0) {   // the chest pitches with the aim (the clip's arms and the gun with it)
     const vec3 piv = vec3(base.delta[sp] * vec4(m.jointHead[sp], 1));
-    const mat4 R = glm::translate(mat4(1), piv) * glm::mat4_cast(glm::angleAxis(-0.45f * pp.aimPitch, vec3(1, 0, 0))) * glm::translate(mat4(1), -piv);
+    const mat4 R = glm::translate(mat4(1), piv) * glm::mat4_cast(glm::angleAxis(-pp.aimPitch, vec3(gun.z, 0, -gun.x))) * glm::translate(mat4(1), -piv);
     std::vector<char> sub(m.joints(), 0); sub[sp] = 1;
     for (int k = 0; k < m.joints(); ++k) { int a = m.jointParent[k]; while (a >= 0 && !sub[k]) { if (a == sp) sub[k] = 1; a = m.jointParent[a]; } }
     for (int k = 0; k < m.joints(); ++k) if (sub[k]) base.delta[k] = R * base.delta[k];
@@ -283,7 +295,7 @@ bool deltaBodyPose(Game& G, Soldier& s, float dt, PoseParams& pp) {
     if (bolt && d.boltTime > 0 && s.ws.bolt > 0) { pp.cycleKind = 1; pp.cycle = 1.0f - s.ws.bolt / d.boltTime; }
     else if (pump && G.t - s.lastShot < 0.55) { pp.cycleKind = 2; pp.cycle = (float)(G.t - s.lastShot) / 0.55f; }
     pp.recoil *= std::clamp(d.vmBack / 0.035f, 0.6f, 2.5f);
-    if (pp.reload > 0 && pp.reload < 1) pp.lowReady = std::max(pp.lowReady, std::min(1.0f, std::min(pp.reload, 1 - pp.reload) / 0.1f));   // off the cheek to reload: the relaxed low ready (muzzle ~35 deg down), back up at the end
+    pp.lowReady = pp.reload > 0 && pp.reload < 1 ? std::min(1.0f, std::min(pp.reload, 1 - pp.reload) / 0.1f) : 0.0f;   // the clips hold their own ready / aim   // off the cheek to reload: the relaxed low ready (muzzle ~35 deg down), back up at the end
     // what the draw moves (game.cpp): the magazine's span out of the gun; the bolt's / pump's travel
     if (s.reload > 0) s.dfMagWin = pp.reloadStyle == 0 ? vec2(0.25f, 0.8f) : pp.reloadStyle == 2 ? vec2(0.35f, 0.65f) : vec2(0);
     auto open = [](float c) { return c < 0.3f ? 0.0f : c < 0.55f ? (c - 0.3f) / 0.25f : c < 0.75f ? 1.0f - (c - 0.55f) / 0.2f : 0.0f; };
@@ -292,7 +304,7 @@ bool deltaBodyPose(Game& G, Soldier& s, float dt, PoseParams& pp) {
     if (pp.cycleKind == 2) s.dfPumpBack = 0.09f * std::sin(3.14159265f * pp.cycle);
   }
   pp.crouch = pp.kneel = pp.prone = pp.hunch = pp.lean = pp.swim = 0; pp.gait = false; pp.climb = -1; pp.aimYawOffset = 0;
-  pp.carry = 0; pp.moveAim = 0;
+  pp.carry = 0; pp.moveAim = 0; pp.clipHold = true;
   poseCharacter(m, pp, s.pose);
   return true;
 }

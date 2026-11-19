@@ -111,6 +111,8 @@ struct PoseParams {
   bool boltReload = false;                  // the right hand opens the bolt at the start of the reload and closes it at the end
   float cycle = -1; int cycleKind = 0;      // 0..1 through the cycle after a shot (< 0 none); 1 bolt (right hand), 2 pump (the support hand slides back)
   bool rightArmClip = false;                // the right arm from base too (a clip's grenade throw)
+  bool clipGun = true; float pistolRaise = 0;   // clipHold: the gun placed from the clip's hands (false: the soldier placement, launchers on the shoulder); an aimed pistol raised toward the eyes (0..1)
+  bool clipHold = false;                    // the gun in the clip's own hands: the grip in its right palm, the grip -> handguard line along its hands (a pistol: shoulders -> hands), the elbows, hands and fingers the clip's; the support hand slides to the gun's own handguard
   const std::vector<mat4>* base = nullptr;   // DF1: clip deltas (model space, per skin joint): every joint outside the arms takes these; the arms, hands and weapon stay procedural on the clip's chest
   vec3 footN[2] = {vec3(0), vec3(0)};       // AN1 step 3c: model-space ground normal under a planted foot (0: the body's slope plane)   // footLift: extra ankle height (m) of a standing re-step
 };
