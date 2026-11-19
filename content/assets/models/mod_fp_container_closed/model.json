@@ -12,10 +12,14 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "Container_02",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   }
  ],
  "parts": [
@@ -56,5 +60,12 @@
  "source": "mod_fp_container_closed.glb",
  "textures": {},
  "triangles": 8782,
- "vertices": 9236
+ "vertices": 9236,
+ "grunge": {
+  "strength": 1.0,
+  "kinds": {
+   "Container_02": "metal"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

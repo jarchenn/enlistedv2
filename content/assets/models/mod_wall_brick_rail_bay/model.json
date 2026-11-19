@@ -12,10 +12,14 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "Scene_-_Root",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   }
  ],
  "parts": [
@@ -56,5 +60,12 @@
  "source": "mod_wall_brick_rail_bay.glb",
  "textures": {},
  "triangles": 8912,
- "vertices": 9316
+ "vertices": 9316,
+ "grunge": {
+  "strength": 1.0,
+  "kinds": {
+   "Scene_-_Root": "masonry"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

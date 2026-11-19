@@ -1,0 +1,122 @@
+{
+ "_doc": "TX6 grunge bake (tools/props/grunge_bake.py): the assets baked and their settings. strength 1 = the piloted recipe; kinds override the name-based guess per material (metal, wood, masonry, generic, skip).",
+ "assets": {
+  "mod_fp_container_closed": {
+   "strength": 1.0
+  },
+  "mod_fp_locker_tall": {
+   "strength": 0.6,
+   "kinds": {
+    "Lockers": "metal"
+   }
+  },
+  "mod_fp_drum_a": {
+   "strength": 1.0,
+   "kinds": {
+    "Barrel__tools": "metal"
+   }
+  },
+  "mod_fp_generator_big": {
+   "strength": 1.0,
+   "kinds": {
+    "Big_Generator": "metal"
+   }
+  },
+  "mod_fp_gas_cylinder": {
+   "strength": 0.9,
+   "kinds": {
+    "Barrel__tools": "metal"
+   }
+  },
+  "mod_fp_racking_tall": {
+   "strength": 0.6,
+   "kinds": {
+    "Shelves": "metal"
+   }
+  },
+  "mod_fp_worktable_a": {
+   "strength": 0.6,
+   "kinds": {
+    "Tables": "metal"
+   }
+  },
+  "mod_fp_door_a": {
+   "strength": 0.9,
+   "kinds": {
+    "WC_02": "metal"
+   }
+  },
+  "mod_lpg_dispenser": {
+   "strength": 1.0,
+   "kinds": {
+    "Lpg_box.001": "metal",
+    "LPG_DETAILS.001": "metal"
+   }
+  },
+  "mod_payphone": {
+   "strength": 0.9,
+   "kinds": {
+    "korean_public_payphone_01": "metal"
+   }
+  },
+  "mod_fp_vent_fan": {
+   "strength": 0.6,
+   "kinds": {
+    "Vent__chair": "metal"
+   }
+  },
+  "mod_fp_crate_wood": {
+   "strength": 1.0,
+   "kinds": {
+    "Crate": "wood"
+   }
+  },
+  "mod_fp_pallet": {
+   "strength": 1.0,
+   "kinds": {
+    "Misc_01": "wood"
+   }
+  },
+  "mod_fp_ladder": {
+   "strength": 0.6,
+   "kinds": {
+    "Ladders": "metal"
+   }
+  },
+  "mod_wall_cement_bay": {
+   "strength": 1.0,
+   "kinds": {
+    "material": "masonry"
+   }
+  },
+  "mod_wall_brick_rail_bay": {
+   "strength": 1.0,
+   "kinds": {
+    "Scene_-_Root": "masonry"
+   }
+  },
+  "mod_wall_compound_bay": {
+   "strength": 1.0,
+   "kinds": {
+    "wall": "masonry"
+   }
+  },
+  "pcar_sedan": {
+   "strength": 0.8,
+   "kinds": {
+    "Body.006": "metal",
+    "Wheel.005": "generic"
+   }
+  },
+  "pcar_pickup": {
+   "strength": 0.8,
+   "kinds": {
+    "Body.005": "metal",
+    "Wheel.004": "generic"
+   }
+  },
+  "mod_sign_stop": {
+   "strength": 0.7
+  }
+ }
+}

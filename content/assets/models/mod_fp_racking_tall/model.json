@@ -12,10 +12,14 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "Shelves",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   }
  ],
  "parts": [
@@ -56,5 +60,12 @@
  "source": "mod_fp_racking_tall.glb",
  "textures": {},
  "triangles": 14360,
- "vertices": 14573
+ "vertices": 14573,
+ "grunge": {
+  "strength": 0.6,
+  "kinds": {
+   "Shelves": "metal"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

@@ -12,10 +12,14 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "Barrel__tools",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   }
  ],
  "parts": [
@@ -56,5 +60,12 @@
  "source": "mod_fp_drum_a.glb",
  "textures": {},
  "triangles": 2888,
- "vertices": 2244
+ "vertices": 2244,
+ "grunge": {
+  "strength": 1.0,
+  "kinds": {
+   "Barrel__tools": "metal"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }

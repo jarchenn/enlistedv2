@@ -182,6 +182,10 @@ The photo texture sets in `content/textures/` (L4, `docs/textures.md`) come from
 - TX3: 28 2K zips supplied by the user (CC0, ambientCG, named in each zip's .usdc / .blend metadata). Already in the library, so skipped: Concrete023, Concrete031 ("Concrete_floor.zip"), Concrete032 ("Concrete_pillar.zip"), PaintedPlaster006 / 014 / 016 and Bark014. Added and packed to 1K: PaintedPlaster009 / 010 / 011, Bricks037 / 042 / 054 / 059 / 077 / 082B, Planks023B / 024A / 024B / 024C / 025B / 026C / 027C, Road008A / 009A / 009B and Bark001 / 015 (see `docs/textures.md#tx3`).
 - TX4: 282 more sets fetched through the API (1K-JPG, CC0, batch "TX4" in `tools/texture_sets.json`; ids, URLs and sizes in `content/textures/manifest.json`).
 
+## Grunge masks: Texturelabs (TX6)
+
+Twelve grunge images (Texturelabs Grunge 293, 300, 301, 308, 312, 323, 327, 331, 338, 342, 348, 350 and Stone 164; texturelabs.org) supplied by the user. Texturelabs allows their use in a project but not passing the files on, so the raw images and the shader mask built from them (`content/textures/grunge_masks/local.png`, git-ignored) are never committed. What is committed was made with them: the grunge-baked textures of imported models (`tools/props/grunge_bake.py`; `*_g.jpg` / `*_g.png` next to the originals). A clone without the local mask uses `content/textures/grunge_masks/cc0.png`, built from ambientCG CC0 sets (PaintedPlaster013, SurfaceImperfections003 and 015).
+
 ## Grass plant atlas: Poly Haven (CC0)
 
 The pasture grass cards (GT1, `docs/grass-atlas.md`) draw plants from two **[Poly Haven](https://polyhaven.com)** atlases. Both are released under **CC0 1.0 Universal**; attribution is given anyway.

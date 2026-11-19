@@ -12,10 +12,14 @@
  ],
  "materials": [
   {
-   "albedo": "albedo_1.jpg",
-   "mr": "mr_2.jpg",
+   "albedo": "albedo_1_g.jpg",
+   "mr": "mr_2_g.jpg",
    "name": "Barrel__tools",
-   "normal": "normal_0.jpg"
+   "normal": "normal_0.jpg",
+   "grungeSrc": {
+    "albedo": "albedo_1.jpg",
+    "mr": "mr_2.jpg"
+   }
   }
  ],
  "parts": [
@@ -56,5 +60,12 @@
  "source": "mod_fp_gas_cylinder.glb",
  "textures": {},
  "triangles": 1878,
- "vertices": 1739
+ "vertices": 1739,
+ "grunge": {
+  "strength": 0.9,
+  "kinds": {
+   "Barrel__tools": "metal"
+  },
+  "tool": "tools/props/grunge_bake.py"
+ }
 }
