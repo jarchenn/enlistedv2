@@ -1,6 +1,6 @@
 # Battle Foundry
 
-Battle Foundry is a first-person shooter with a full map editor built in. Build a battlefield in **Creative** mode, press **F5** to walk it in first person, then fight over it alone against bots or with friends over LAN. It began as a Normandy 1944 map maker and now covers WWII and modern-day settings. Written from scratch in C++20 on OpenGL 4.5 (Windows), with a Metal port for macOS. The executable is still named `NormandyMapmaker`.
+Battle Foundry is a first-person shooter with a full map editor built in. Build a battlefield in **Creative** mode, press **F5** to walk it in first person, then fight over it alone against bots or with friends over LAN. It began as a Normandy 1944 map maker and now covers WWII and modern-day settings. Written from scratch in C++20 on OpenGL 4.5 (Windows); a Metal port for macOS lives in a separate fork. The executable is still named `NormandyMapmaker`.
 
 ![D-day beach](content/templates/dday.loading.jpg)
 
@@ -43,7 +43,7 @@ The editor:
 **Rendering**
 - Image-based materials with 2K ground textures, time of day with a moon and night lighting, cloudy weather with moving cloud shadows, fog and light shafts.
 - Dense grass and foliage, global illumination from light probes, temporal upscaling.
-- Graphics presets from Ultra Low to Ultra.
+- Graphics presets from Ultra Low to High.
 
 Third-party models, textures and sounds are listed with their authors and licences in [docs/credits.md](docs/credits.md).
 
@@ -60,7 +60,7 @@ There are no packaged releases yet, so you build the game from source. It takes 
    git clone https://github.com/jarchenn/enlistedv2.git
    ```
 
-3. Configure and build from the project folder (all libraries are downloaded by CMake):
+3. Configure and build from the project folder. CMake downloads every library itself.
 
    ```bash
    cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
@@ -70,97 +70,156 @@ There are no packaged releases yet, so you build the game from source. It takes 
    cmake --build build
    ```
 
-4. Run `build/NormandyMapmaker.exe`. The `content/` folder is copied next to it; keep them together if you move the game.
+4. Run `build/NormandyMapmaker.exe`. The build copies `content/` next to it; keep the two together if you move the game.
 
-**macOS** (Apple silicon): the game runs through a Metal layer kept in a separate repository; it is built the same way with CMake and packaged as an app bundle with `tools/package_mac.sh`.
+**macOS:** the Metal version lives in a separate fork; this repository builds the Windows (OpenGL) game.
 
-**First steps:** the game opens in the editor. Use **File > Open** to load D-day or Chateau town, or **File > New** for a blank map; pick an asset and click the ground to place it; press **F5** to walk around; use the **Play** menu to start a match. Saved maps go in `maps/` next to the executable. More build details are under [Build from source](#build-from-source).
+## First steps
+
+The game opens on the **main menu**:
+
+| Entry | What it does |
+|---|---|
+| CREATE MAP | Opens the editor (Creative) on a blank map |
+| PLAY | Singleplayer, Host LAN or Join LAN |
+| CHARACTER | Your soldier's body and primary weapon, and the AI types |
+| SETTINGS | The settings window (below) |
+| GUNS / VEHICLES | Stat editors for weapons and vehicles |
+| CREDITS / QUIT | |
+
+Menu keys: Up/Down (or W/S) to choose, Enter to open, Esc to go back.
+
+**Start a match.** **PLAY > Singleplayer** (or **Play > Singleplayer...** in the editor) opens the setup window: pick a map, then a mode: Solo (free-for-all), Team Deathmatch, Assault (objectives), Battle royale or Search and Destroy. Each mode has its own rules (kill cap, respawns, rounds, loot era for battle royale), the bot counts and enemy types per side, and a bot difficulty (Recruit, Regular, Veteran). Press **START MATCH**.
+
+**LAN.** One PC chooses **Host LAN**, sets up the match and opens the lobby; the others choose **Join LAN**, then **Search LAN** or type the host's address. The game uses UDP port 27960. Every PC needs the same build, content and map file; internet play is not supported.
+
+**Edit a map.** **CREATE MAP** starts a blank map. In the editor, **File > Open** loads a built-in map (D-day, Chateau town, Newtown, Tunnels, Backrooms, Caverns, Outpost Woods, Outpost Desert) as an editable copy, or one of your own. Click a thumbnail in the **Assets** panel and left-click the ground to place it. Press **F5** to walk the map in first person, or drag the soldier icon from the toolbar onto the ground to start from that spot. Maps are saved as `.nmap.json` in `maps/` next to the executable. You can also pass a map file on the command line to open it in the editor.
+
+## Settings
+
+**SETTINGS** (main menu, the editor's **Settings...** menu, or the pause menu) has five tabs. Your choices are saved in `settings_user.json` next to the executable.
+
+| Tab | Contains |
+|---|---|
+| Video | Preset (Ultra Low, Low, Medium, High, Custom), resolution scale and upscaling, shadows, ambient occlusion, reflections, bloom, light shafts, anti-aliasing, grass (Off to Ultra), render distance, time of day and weather, field of view (55-100), gamma, V-sync, FPS cap |
+| Gameplay | Mouse and aiming sensitivity, invert Y, reduced motion, minimap, markers, reticle, gore |
+| Audio | Master, effects, gunfire, interface, ambience |
+| Keybindings | Rebind the first-person keys (defaults below); fixed keys cannot be rebound. **Reset keys** restores the defaults |
+| Interface | UI scale, developer overlay, editor camera speeds, caches |
+
+The game runs in a 1600x900 window; there is no fullscreen option yet.
 
 ## Controls
 
-**Creative**
+**Editor (Creative)**
 
 | Action | Control |
 |---|---|
-| Orbit | Hold the right mouse button and drag: orbits the ground point under the cursor (turns in place over the sky) |
-| Pan | Hold the middle mouse button and drag: the ground follows the cursor |
-| Zoom | Mouse wheel toward the cursor (when nothing is being placed or dragged) |
-| Fly | WASD; Q/E to go down/up; speed follows the height above ground; Shift faster; Alt+wheel sets a speed multiplier |
-| Frame | F frames the selection; Home frames the whole map |
-| Overview map | M: top-down map with objectives, spawns and the attack path; wheel zoom, drag pan, click to move the camera there |
-| Camera bookmarks | Ctrl+1-9 saves the view, 1-9 returns to it (saved with the map) |
-| Place asset | Click a thumbnail, then left-click the ground. Placement repeats until you press Esc |
-| Rotate | Mouse wheel while placing or dragging. Z/X rotate the selection. Toolbar toggles 15° snap or free rotation |
-| Select / move | Left-click a building, including through a window, then drag. One drag is one undo step |
-| Precise transform | X/Z position and rotation fields in the **Selection** panel |
+| Orbit | Drag with the right mouse button (or the left, starting off the selection) |
+| Pan | Drag with the middle mouse button |
+| Zoom | Mouse wheel, toward the cursor |
+| Fly | WASD; Q or Ctrl down, E or Space up; Shift faster; Alt+wheel sets the speed |
+| Frame selection / whole map | F / Home |
+| Overview map | M |
+| Camera bookmarks | Ctrl+1-9 saves, 1-9 returns (saved with the map) |
+| Place an asset | Click its thumbnail, then left-click the ground (repeats until Esc). The wheel rotates it |
+| Select / move | Click an object; drag it to move it |
+| Rotate selection | Z / X (15° steps, or smooth with **Rotate: free** on the toolbar) |
 | Duplicate / delete | Ctrl+D / Del |
-| Lasso | L or the toolbar button: draw a freehand loop or a circle on the map (Shift adds, Alt cuts). **Objects**: select everything inside, drag one to move the group, Z/X turn it about its centre, Ctrl+D / Del. **Elevation**: raise or lower the region with a falloff ring, optionally fill the hollow with water up to its lip. **Paint**: 12 ground types (marsh, dirt, mud, gravel, sand, cobbles, rock, dry grass, ploughed field, leaf litter, scorched earth, pebbles). **Move land**: drag inside the region to slide the ground and what is on it. See [docs/lasso.md](docs/lasso.md) |
 | Undo / redo | Ctrl+Z / Ctrl+Y |
 | Grid snap / grid overlay | G / H |
-| Door & window defaults | Checkboxes in the Selection panel, or the **Doors & windows** toolbar view (click labels in 3D) |
-| Drop in | Drag the soldier from the toolbar onto the terrain; the drag direction sets the facing. Release to walk from there in first person; Esc returns the editor camera to where it was, P pauses. The drop point becomes the map's explore start |
-| Explore from start | F5 or the toolbar button |
-| Map size | New map (Ctrl+N): width and depth 400-4000 m in 100 m steps, presets 600x600 to 2000x4000, with a memory estimate |
-| Save / open / new | Ctrl+S / Ctrl+O / Ctrl+N |
+| Lasso | L: select, raise or lower, paint ground or move land inside a drawn region, or draw lines. See [docs/lasso.md](docs/lasso.md) |
+| Terrain brush | **Terrain** on the toolbar: raise, lower, smooth, flatten, hills, cliffs |
+| New / open / save | Ctrl+N / Ctrl+O / Ctrl+S |
+| Play-test | F5 |
 | Stats | F3 |
 
-**Explore**
+A new blank map can be 100-4000 m on each side in 100 m steps.
+
+**First person** (rebindable keys show their default)
 
 | Action | Control |
 |---|---|
-| Walk | WASD (run 2.875 m/s); Shift to sprint (5.75 m/s); hold Left Ctrl (or C) to crouch; Z toggles prone; Space to jump, or to get up when prone (Ctrl held: into a crouch). Getting up takes time: prone to standing 1.1 s, prone to crouch 0.75 s, crouch to standing 0.45 s, at the lower posture's pace with no sprint or jump until done. Hold Space at a 0.6–1.35 m obstacle (wall, sandbags, fence) to vault it; a tap is still a normal jump. Recoil climbs with every shot until you pull down or stop firing (crouched ×0.7, prone ×0.2; a bipod helps only when deployed). Interaction reach is 2.5 m (guns, crates, racks 3.0 m). Settings: `content/settings/movement.json` |
-| Interact | E (aim within about 2 m; the prompt reads, e.g., `E — Open window`). Also crews a gun, leaves it, and draws ammunition from a crate |
-| Fire / aim down sights | Left mouse / right mouse. A fresh press is needed after switching position, weapon or fire mode |
-| Fire mode | F: AUTO / SEMI on the Thompson, MP 40, MG 42, FG 42 and the M2HB (AUTO default) |
-| Weapon racks | E at an Allied or Axis rack opens its arsenal (Up/Down or mouse, Enter to equip, Esc to close). Launchers and the carried M2 come from racks |
-| Carried M2HB | LMB deploys it on its tripod where you look and crews it; G beside your deployed M2 packs it up |
-| Reload | R |
-| Next weapon / loadout panel | Q / L (the panel holds the strict 6 June 1944 preset, range presentation, reduced motion and the grass preset) |
-| Iron sights on a scoped rifle | V (M1C only) |
-| At a gun | E then 1 (Aim, gunner at the sight) or 2 (Move, handler). T switches position. As handler, WASD rolls and turns the carriage; T again deploys it |
-| Hold breath | Left Shift while aiming down the sights (5 s, then a 3 s recovery) |
-| PaK 40 ammunition | X at the gun: next round HE / AT (takes effect at the next reload) |
-| Build defences | B: 1 tank trap, 2 sandbags (again for the curved piece), Q cycle, R or wheel rotate, LMB place, RMB / B cancel. Green = valid, red = too steep (> 35°), in water or blocked. Sandbags snap end to end within 0.6 m |
-| Damage debug | F4 (panel outlines and states) |
-| Return to start | Backspace, or from the Esc menu |
-| Menu | Esc (Resume / Return to start / Return to Creative). F5 also returns to Creative |
+| Move / sprint | WASD / Shift |
+| Crouch (hold) / prone | Ctrl or C / Z |
+| Jump / climb | Space / hold Space at a wall or obstacle |
+| Lean | Hold Q / E (a tap is next weapon / interact) |
+| Fire / aim | Left / right mouse button |
+| Reload / fire mode | R / F |
+| Weapons | 1, 2 guns; 3 knife; 4 grenades; Q or wheel cycles |
+| Throw frag / smoke | H / J (smoke in matches) |
+| Hold breath | Shift while aiming |
+| Scope / iron sights | V (guns with both) |
+| Interact | E: doors, windows, crates, weapon racks, guns, vehicles, loot |
+| Flashlight | N |
+| Map / scoreboard | M / hold Tab |
+| Loadout panel | L |
+| Artillery | 7 (classes that have it): click a target, then **Call in** |
+| Pause menu | Esc (Resume, Controls, Settings, Return to start marker, Return to Creator, Main menu, Keep session changes) |
+| Back to the editor | F5 |
+| Return to start | Backspace |
 
-Every walkthrough is a playtest. Doors and windows start in their authored state each time you enter Explore, and returning to Creative throws away what you changed while exploring: breached walls, craters, moved guns, spent ammunition and emptied crates all reset. Defences built with B, broken windows, doors and shutters, and felled trees are part of the same overlay. To keep it, use **Esc → Apply session changes to map + return** (one undo step); **Edit → Clear applied damage** removes applied damage again.
+**Vehicles and guns** (E to get in or out)
 
-**Grass** has four presets, Off, Low, Medium (default) and High, under **View → Grass** in Creative or in the loadout panel (L) in Explore. `--grass off|low|medium|high` sets it at launch.
+| Vehicle | Controls |
+|---|---|
+| Tank | WASD drive, mouse aims; LMB main gun; RMB zoom; Ctrl sight / open hatch; Space machine gun; R next shell (HE / AP) |
+| Car / jeep | W/S throttle and brake, A/D steer, Space handbrake; Ctrl to the mounted gun and back |
+| Helicopter | Space up, Ctrl down; W/S tilt; Shift+W/S fly forward / back; A/D strafe; LMB cannon, R rocket |
+| Field gun | E, then 1 (aim) or 2 (move); LMB fire, R reload, X next round (HE / AT), T switch position |
 
-**Render quality** (shadow cascades and softness, cloud shadows, ambient occlusion, light shafts, bloom, reflections, temporal AA, haze) is under **Render quality** in the loadout panel (L). `--legacy-look` restores the previous look, and `--rq-off taa|ssr|ssao|bloom|shafts|cascade|cloudshadow|wind` turns one feature off at launch. See [docs/rendering.md](docs/rendering.md). Sight blur (ADS depth of field) has been removed.
+**Battle royale**
 
-**Weapons and environment.** Five of the personal weapons (Garand / M1C, Thompson, BAR, MP 40, MG 42) use the supplied GLB models, aligned so ADS puts the real rear sight and front post on the screen centre; aimed shots leave the front sight along the sight line. The Kar98k, Carbine, Thompson, Garand, BAR (rear leaf folded, front sight only) and Panzerschreck (seen from its right side, shield to the left) have per-weapon sight calibration, and aiming in and out takes 0.25 s (`adsTime_s` in `content/settings/movement.json`).
+| Action | Control |
+|---|---|
+| Jump from the bomber | Space |
+| Free fall | Mouse steers (look down to dive), W/S/A/D, hold Left Alt to look around |
+| Parachute | Space opens it; A/D turn, W faster, S or Space brake |
+| Pick up / open a case | E |
+| Inventory | Tab or I (drop, use, fit attachments) |
+| Bandage / medkit | 7 / 8 |
 
-**Grenades and knife.** Mk 2 / M24 grenades and a knife are in the roster: LMB throws or strikes, and **H** throws your side's grenade from any weapon.
+**Search and Destroy**
 
-**New placeables:**
-- three barbed-wire obstacles;
-- gravel, dirt and concrete paths (length and width in the Selection panel; they join end to end);
-- an 8.8 cm Flak 18 emplacement.
+| Action | Control |
+|---|---|
+| Plant / defuse | Hold E (plant 3.2 s; defuse 10 s, 5 s with a kit) |
+| Drop the bomb | G |
+| Buy menu | B |
 
-See [docs/entities.md](docs/entities.md). Glass breaks, shutters and doors are shot off, and rounds penetrate them with an energy budget. HE and the PaK 40 AT round dig craters by the formula in [docs/fps-weapons.md](docs/fps-weapons.md). Trees (apple, oak, poplar) sway and can be felled; the sky has procedural clouds (View → Sky). View → First person toggles the sight blur and the arms.
+**Build mode** (B, in the editor's play-test or a drop-in)
 
-**Range example.** Open **content/examples → Range: walls, bunker, ordnance**. It is a copy of Blank Slate with a masonry dairy, an MG casemate rotated 155°, an open grassy plot, a PaK 40, an M2HB on its tripod, and two crates.
+| Action | Control |
+|---|---|
+| Asset palette | Tab (a pick fills the current hotbar slot) |
+| Hotbar slot | 1-9, 0 |
+| Place / select / remove | Right mouse / left mouse / Del |
+| Rotate | Wheel, Z / X, R |
+| Undo | Ctrl+Z |
+| Leave | B or Esc |
+
+In a match, B gives the **Engineer** class a fixed menu instead: 1-5 pick an outpost, AT gun, barbed wire, sandbags or an ammo box, and holding the left mouse button builds it. See [docs/builder.md](docs/builder.md).
+
+**Play-tests are not saved.** Everything you change while walking a map from the editor (breached walls, craters, built defences, opened doors) is thrown away when you go back, unless you choose **Keep session changes** in the pause menu.
 
 ## Build from source
 
-You need CMake 3.24 or newer, Ninja, and a C++20 compiler. The reference toolchain is LLVM-MinGW clang 23 (UCRT). MSVC 2022 should also work but hasn't been tested. All dependencies are pinned and fetched by CMake:
+CMake 3.24 or newer, Ninja and a C++20 compiler (reference: LLVM-MinGW clang, UCRT; MSVC has a project setup but is untested). Dependencies are pinned and fetched by CMake:
 
-GLFW 3.4, GLAD (GL 4.5 core, pre-generated in `third_party/glad`), GLM 1.0.1, Dear ImGui 1.91.5, Jolt Physics 5.6.0, nlohmann/json 3.11.3, stb_image_write, miniaudio 0.11.21, Recast & Detour 1.6.0 (zlib, bot navigation; see docs/credits.md).
+| Library | Version |
+|---|---|
+| GLFW | 3.4 |
+| GLM | 1.0.1 |
+| Dear ImGui | 1.91.5 |
+| Jolt Physics | 5.6.0 |
+| nlohmann/json | 3.11.3 |
+| miniaudio | 0.11.21 |
+| Recast & Detour | 1.6.0 |
+| stb | pinned commit |
 
-```bash
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-```
+The OpenGL loader (GLAD, GL 4.5 core) is in `third_party/glad`. The build commands are under [Download and install](#download-and-install). If a path gets longer than Windows' 260-character limit, use a short build directory such as `C:\nmk\build`.
 
-```bash
-cmake --build build
-```
-
-The executable and a copy of `content/` end up in `build/`. With some toolchains the full path can exceed Windows' 260-character limit; if it does, use a short build directory (for example `C:\nmk\build`).
-
-**Content** is generated by `tools/build_assets.mjs` with Node 18 or newer. The generated JSON is committed, so you only need Node if you change an asset:
+Assets are defined by `tools/build_assets.mjs` (Node.js). The generated JSON in `content/assets/` is committed, so you only need Node if you change an asset:
 
 ```bash
 node tools/build_assets.mjs
@@ -168,50 +227,44 @@ node tools/build_assets.mjs
 
 ## Tests
 
-The self-test drives the real editor operations, physics and character controller. It has two phases with a full process restart between them:
+The self-tests drive the real game: editor operations, physics, weapons, AI and matches. Each writes a report to `build/selftest_out/`. To run every suite and print each tally:
 
 ```bash
-build/NormandyMapmaker.exe --selftest
+bash tools/run_all_tests.sh build
 ```
+
+Add `--bench` for the benchmarks or `--net` for the LAN test. A single suite runs with its own flag, for example:
 
 ```bash
-build/NormandyMapmaker.exe --selftest-reopen build/maps/selftest_regression.nmap.json
+build/NormandyMapmaker.exe --selftest-editor
 ```
 
-```bash
-build/NormandyMapmaker.exe --benchmark
-```
+Main suites:
 
-The destruction / ordnance / environment suites and tools:
-
-| Command | What it does |
+| Flag | Covers |
 |---|---|
-| `--selftest-damage` | Wall panels on all 14 assets and ground deformation (impacts injected through `App::explode`) |
-| `--selftest-pak` | PaK 40 with real fired shells: breach, stops, reposition, crater, crate |
-| `--selftest-weapons` | The eight weapon entries: ammunition accounting, reloads, sights, recoil, resupply |
-| `--selftest-grass` | Grass determinism, exclusion masks, rebuild on crater / reset / undo / apply |
-| `--benchmark-stress` | Dense-grass flyover (Off, High, Medium on one path) and 40 HE impacts with smoke |
-| `--build-range-map` | Regenerates `maps/range_example.nmap.json` (shipped as `content/examples/range.nmap.json`) |
-| `--record-range` | Scripted run of the range example, written to `selftest_out/range_recording.avi` (MJPEG). Add `--no-video` for checks only |
-| `--capture-materials <tag>` | Five fixed-camera material shots, `selftest_out/mat_<tag>_*.png` |
-| `--selftest-fps` | Imported weapons, ADS alignment at three FOVs, sight-origin shots, sway / bob / breathing, IK arms, depth of field, hip and ADS stills |
-| `--selftest-env` | Glass / shutter / door damage and penetration, crater formula, climbing out, PaK AT round, trees, clouds, tank trap, sandbags, blast occlusion, builder slope and snapping, Apply and undo |
-| `--import-weapon-models <glb dir> [content dir]` | Bakes the GLB weapon models (`assets_src/weapons/` is not in git) into `content/weapons/models/` |
-| `--weapon-sheets <dir>` | Orthographic side / rear calibration sheets of every weapon with sights and hand sockets marked |
-| `--box-weapons` | Draw the procedural box weapons instead of the imported models |
+| `--selftest`, then `--selftest-reopen maps/selftest_regression.nmap.json` | Editing, saving and reopening a map |
+| `--selftest-editor`, `--selftest-terrain`, `--selftest-lasso`, `--selftest-snap`, `--selftest-autopath` | The editor's tools |
+| `--selftest-damage`, `--selftest-pak`, `--selftest-env` | Destruction, ordnance, craters, building |
+| `--selftest-weapons`, `--selftest-fps`, `--selftest-sights`, `--selftest-arsenal` | Weapons, sights, racks |
+| `--selftest-move`, `--selftest-swim`, `--selftest-prone` | Movement |
+| `--selftest-tanks`, `--selftest-interiors`, `--selftest-structures` | Vehicles and buildings |
+| `--selftest-modes`, `--selftest-match`, `--selftest-rules`, `--selftest-royale`, `--selftest-sd` | Game modes |
+| `--selftest-ai`, `--selftest-ai-course` | Bots and navigation |
+| `--selftest-maps`, `--selftest-render`, `--selftest-lights`, `--selftest-textures`, `--selftest-grass`, `--selftest-settings` | Maps, rendering, settings |
+| `--benchmark`, `--benchmark-stress` | Frame-time benchmarks |
 
-`bash tools/run_all_tests.sh build` runs every functional suite and prints each tally.
-
-Reports and screenshots are written to `build/selftest_out/`. The latest results are in [docs/report_A.txt](docs/report_A.txt) (212/212 passed), [docs/report_B.txt](docs/report_B.txt) (68/68 passed) and [docs/benchmarks.md](docs/benchmarks.md). [docs/testing.md](docs/testing.md) describes what each check covers.
+Set `NMK_MUTE=1` to silence a normal launch (test runs are silent by default). [docs/testing.md](docs/testing.md) describes what the checks cover.
 
 ## Layout
 
 ```
-src/            engine + game (renderer, physics wrapper, assets, map format, editor, explore, self-test)
-tools/          asset authoring kit (Node) that emits content/assets/*.json
+src/            engine and game (renderer, physics, assets, map format, editor, first person, modes, AI, self-tests)
+tools/          asset authoring kit (Node), test scripts and helpers
 content/assets  asset definitions (data only; adding a file adds a catalog entry)
-content/templates  terrain templates
-content/examples   example / regression map
-docs/           status, formats, testing, benchmarks, research plans, screenshots
+content/templates  built-in maps
+content/examples   example and regression maps
+content/settings   tuning data (movement, classes, bindings, modes)
+docs/           design notes, formats, testing, credits, screenshots
 third_party/glad   generated GL 4.5 core loader
 ```

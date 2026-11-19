@@ -109,6 +109,21 @@ bool paletteShots(App& app, float dt) {
   fs::path map = contentDir() / (mp && *mp ? mp : "templates/backrooms.nmap.json");
   if (stage == 0) if (const char* th = std::getenv("NMK_SHOTS_THEMES")) settings().s.themes = (unsigned)std::atoi(th);   // TH1: the palette's ticked themes (bits wwii 1, postapoc 2, modern 4, desert 8)
   if (stage == 0) { bool ok = app.openMap(map); logf("[palette] open %s: %s", map.string().c_str(), ok ? "ok" : "FAILED"); stage = 1; t = 0; return true; }
+  static bool posed = false;
+  if (stage == 1 && t > 0.5f && !posed && std::getenv("NMK_SHOTS_CREATIVE")) { posed = true;   // RD1: the README's editor shot
+    // High preset, 2 pm; a three-quarter view over the densest cluster of enterable buildings, the one nearest its centre selected
+    settings().applyPreset(app, GfxPreset::High); app.R.lt.hour = 14.0f; app.R.resetTemporal();
+    const Instance* best = nullptr; int bestN = 0;
+    for (auto& i : app.doc.instances) { const AssetDef* a = app.assetFor(i); if (!a || !a->enterable) continue;
+      int n = 0; for (auto& o : app.doc.instances) { const AssetDef* b = app.assetFor(o); n += b && b->enterable && glm::length(o.pos - i.pos) < 60.0f; }
+      if (n > bestN) { bestN = n; best = &i; } }
+    if (best) {
+      const float y = 35.0f, D = 75.0f, H = 42.0f;
+      app.camPos = best->pos + vec3(std::sin(radians(y)) * D, H, std::cos(radians(y)) * D); app.camYaw = y; app.camPitch = -degrees(std::atan2(H, D));
+      app.selected = best->id;
+      logf("[palette] creative view over #%llu (%d buildings within 60 m)", (unsigned long long)best->id, bestN);
+    }
+  }
   if (stage == 1 && t > 8.0f) { app.uiShot = exeDir() / "selftest_out" / ("palette_" + map.stem().stem().string() + ".png"); stage = 2; t = 0; return true; }
   if (stage == 2 && t > 1.0f) { app.selftest->exitCode = 0; app.selftest->done = true; }
   return true;
