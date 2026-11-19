@@ -1,0 +1,160 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  5.675444602966309,
+  6.632178783416748,
+  5.9892425537109375
+ ],
+ "bmin": [
+  -5.675444602966309,
+  0.0,
+  -5.9892425537109375
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_2.jpg",
+   "aoInMR": true,
+   "mr": "mr_1.jpg",
+   "name": "BigBuilding_Metal",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_5.jpg",
+   "aoInMR": true,
+   "mr": "mr_4.jpg",
+   "name": "BigBuilding_Concrete.001",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "albedo": "albedo_8.jpg",
+   "aoInMR": true,
+   "mr": "mr_7.jpg",
+   "name": "BigBuilding_Wood",
+   "normal": "normal_6.jpg"
+  },
+  {
+   "albedo": "albedo_11.jpg",
+   "aoInMR": true,
+   "mr": "mr_10.jpg",
+   "name": "BigBuilding_Roof",
+   "normal": "normal_9.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    5.675444602966309,
+    4.279269218444824,
+    5.9892425537109375
+   ],
+   "bmin": [
+    -4.48061466217041,
+    0.3744247555732727,
+    -5.9892425537109375
+   ],
+   "count": 1362,
+   "first": 0,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "BigBuilding_BigBuilding_Metal_0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    5.4619340896606445,
+    6.632178783416748,
+    5.76957893371582
+   ],
+   "bmin": [
+    -5.675444602966309,
+    0.0,
+    -5.76414680480957
+   ],
+   "count": 3987,
+   "first": 1362,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "BigBuilding_BigBuilding_Metal_0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    5.675444602966309,
+    5.512176513671875,
+    5.949028015136719
+   ],
+   "bmin": [
+    -4.48061466217041,
+    0.3829984962940216,
+    -5.9892425537109375
+   ],
+   "count": 894,
+   "first": 5349,
+   "mat": 2,
+   "metal": 0.0,
+   "name": "BigBuilding_BigBuilding_Metal_0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    5.397747039794922,
+    4.070735931396484,
+    0.7469190955162048
+   ],
+   "bmin": [
+    -4.20291805267334,
+    3.065988779067993,
+    -5.9892425537109375
+   ],
+   "count": 12,
+   "first": 6243,
+   "mat": 3,
+   "metal": 0.0,
+   "name": "BigBuilding_BigBuilding_Metal_0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "pa_military_house.glb",
+ "textures": {},
+ "triangles": 2085,
+ "vertices": 3117
+}

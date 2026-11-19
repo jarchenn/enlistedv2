@@ -775,10 +775,22 @@ PR7: the user's crafting tables (three smithing tables), security hut, old garag
 <!-- /pr7_assets -->
 
 <!-- pr10_assets: written by tools/props/pr10_assets.py -->
-PR10: the user's post-apocalyptic batch. Licences to be confirmed: local-only until then.
+PR10: the user's post-apocalyptic batch (title, author, licence and source as each file's own metadata gives them).
 
 | Asset | Model | Author | Licence | Source | Changes | In the repo |
 |---|---|---|---|---|---|---|
 | `pa_concrete_outbuilding` | abounded-house.zip (Sketchfab.rar: LittleBuilding.fbx) | to be confirmed | to be confirmed | - | modified: openings cut, colliders, baked / textures resized | no (local-only) |
-| `pa_crate_slatted` | box.zip (Cinema 4D export) | to be confirmed | to be confirmed | - | modified: scaled / baked / textures resized | no (local-only) |
+| `pa_military_house` | Abounded military house | _NotyGuy_ (https://sketchfab.com/_NotyGuy_) | CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) | https://sketchfab.com/3d-models/abounded-military-house-55da3c3054ca47a79aad95938cf6e02e | modified: openings cut, colliders, baked / textures resized | yes |
+| `pa_crate_slatted` | box.zip (Cinema 4D export) | author not stated; free to use per the project owner | free to use per the project owner | - | modified: baked / textures resized | yes |
+| `pa_chest_wooden` | Chest (part2) | YN14R (https://sketchfab.com/YN14R) | CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) | https://sketchfab.com/3d-models/chest-part2-ab11b5d865054177a550ab31bd168f62 | modified: baked / textures resized | yes |
+| `pa_fruit_crate_low` | Wooden box | YN14R (https://sketchfab.com/YN14R) | CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) | https://sketchfab.com/3d-models/wooden-box-8cb38147d04849f391f582703e86781c | modified: baked / textures resized | yes |
+| `pa_fruit_crate_mid` | Wooden box | YN14R (https://sketchfab.com/YN14R) | CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) | https://sketchfab.com/3d-models/wooden-box-8cb38147d04849f391f582703e86781c | modified: baked / textures resized | yes |
+| `pa_fruit_crate_high` | Wooden box | YN14R (https://sketchfab.com/YN14R) | CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) | https://sketchfab.com/3d-models/wooden-box-8cb38147d04849f391f582703e86781c | modified: baked / textures resized | yes |
+| `pa_fence_picket_bay` | Old wood fence | YN14R (https://sketchfab.com/YN14R) | CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) | https://sketchfab.com/3d-models/old-wood-fence-7e1c772959ad4ca4bf3b36aaf68a5288 | modified: baked / textures resized | yes |
+| `pa_tree_dead_a` | Dead tree | YN14R (https://sketchfab.com/YN14R) | CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) | https://sketchfab.com/3d-models/dead-tree-3db412498aec432da8687afe37cc32bb | modified: baked / textures resized | yes |
+| `pa_tree_dead_b` | Dead tree | YN14R (https://sketchfab.com/YN14R) | CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) | https://sketchfab.com/3d-models/dead-tree-ec6a65e8a9c9440d94927a6c15ef4bf5 | modified: baked / textures resized | yes |
+| `pa_tree_dead_c` | Dead tree | YN14R (https://sketchfab.com/YN14R) | CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) | https://sketchfab.com/3d-models/dead-tree-a0081da148294fb4bec1a0a91cbfd308 | modified: baked / textures resized | yes |
+| `pa_tree_dead_d` | Dead tree | YN14R (https://sketchfab.com/YN14R) | CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) | https://sketchfab.com/3d-models/dead-tree-a0081da148294fb4bec1a0a91cbfd308 | modified: baked / textures resized | yes |
+| `pa_tree_dead_e` | Dead tree | YN14R (https://sketchfab.com/YN14R) | CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) | https://sketchfab.com/3d-models/dead-tree-c9698601629b4eb2ae52265b2ca8699d | modified: baked / textures resized | yes |
+| `pa_tree_fallen` | Tree (part13) | YN14R (https://sketchfab.com/YN14R) | CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) | https://sketchfab.com/3d-models/tree-part13-a3c43e1c505b47b4a10cf3a6f80bf7d4 | modified: baked / textures resized | yes |
 <!-- /pr10_assets -->

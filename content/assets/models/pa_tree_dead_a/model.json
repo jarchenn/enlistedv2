@@ -1,0 +1,90 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  4.631669521331787,
+  10.0,
+  4.036257743835449
+ ],
+ "bmin": [
+  -4.631669521331787,
+  0.0,
+  -4.036257743835449
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "name": "dead_tree_mat",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_1.jpg",
+   "name": "dead_tree_mat.1",
+   "normal": "normal_0.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    4.209602355957031,
+    9.833121299743652,
+    3.9239437580108643
+   ],
+   "bmin": [
+    -3.7250757217407227,
+    0.0,
+    -2.8582379817962646
+   ],
+   "count": 25815,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "dead_tree_dead_tree_mat_0.001",
+   "role": "body",
+   "rough": 0.6000000238418579,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    4.631669521331787,
+    10.0,
+    4.036257743835449
+   ],
+   "bmin": [
+    -4.631669521331787,
+    2.5869948863983154,
+    -4.036257743835449
+   ],
+   "count": 78759,
+   "first": 25815,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "dead_tree_dead_tree_mat_0.001",
+   "role": "body",
+   "rough": 0.6000000238418579,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "pa_tree_dead_a.glb",
+ "textures": {},
+ "triangles": 34858,
+ "vertices": 33862
+}

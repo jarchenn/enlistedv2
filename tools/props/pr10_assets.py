@@ -1,22 +1,27 @@
-"""PR10: post-apocalyptic buildings and props from the user's batch (stage A: the concrete outbuilding).
+"""PR10: post-apocalyptic buildings and props from the user's batch.
 
     python -I tools/props/pr10_assets.py convert <incoming dir> <glb dir>   # Blender (pr6_split.py): one GLB + side JSON per asset
-    python -I tools/props/pr10_assets.py write <incoming dir> <glb dir>     # asset JSONs, credits rows, .gitignore
+    python -I tools/props/pr10_assets.py write <incoming dir> <glb dir>     # asset JSONs, line type, credits rows, .gitignore
 then bake: NormandyMapmaker --import-weapon-models <glb dir> content.
 
-Every building is enterable the PR8 way (pr8_openings.py): the model's door panel deleted and a game door fitted, window
-bays cut through the collision boxes, a walkable floor collider; the floor is a collider only, so the auto-furnisher
-leaves the building to its five authored post-apocalyptic pieces ("companions", removable like any placed piece).
-Licences not confirmed: the models are LOCAL-ONLY (bakes git-ignored, the committed game shows box stand-ins, "mf").
-Measurements: E:/nmk/pr10scripts walls.py / zscan.py / down.py / inside.py (raycasts on the source), source units, z up.
+Every building is enterable the PR8 way (pr8_openings.py): door panels / boards in doorways deleted and game doors fitted,
+window bays cut through the collision boxes, walkable floor colliders. The floors are colliders only, so the
+auto-furnisher leaves each building to its five authored post-apocalyptic pieces ("companions", removable like any
+placed piece). Measurements: E:/nmk/pr10scripts walls.py / zscan.py / down.py / inside.py (raycasts on the source),
+source units, z up; a building's "scale" applies to its boxes too.
+
+Licences (the coordinator, 2026-11-19): a GLB's own metadata (CC-BY-4.0, title / author / source) -> committed with a
+credits row; the Sketchfab Standard shop -> local-only; the warehouse and box packs -> committed, "author not stated;
+free to use per the project owner"; the rar house (no metadata) -> local-only, to be confirmed.
 """
-import json, os, subprocess, sys
+import json, os, struct, subprocess, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import pr8_openings
 
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 BLENDER = r"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe"
-THEMES = ["postapoc"]
+POSTAPOC, ALL = ["postapoc"], ["wwii", "postapoc", "modern", "desert"]
+FREE = "author not stated; free to use per the project owner"
 
 
 def pbr(folder, stem):   # the rar pack's per-material folders: <Mat>/LittleBuilding_LittleBuilding_<Mat>_<map>
@@ -24,10 +29,11 @@ def pbr(folder, stem):   # the rar pack's per-material folders: <Mat>/LittleBuil
     return {"Base Color": f + "BaseColor.jpg", "Normal": f + "Normal.jpg", "Roughness": f + "Rough.png"}
 
 
-# buildings: walls / roof / floor / openings as boxes in the source ([x0, x1, y0, y1, z0, z1]); the door front is -y
+# buildings: walls / roof / floors / openings as boxes in the source ([x0, x1, y0, y1, z0, z1]); the door front is -y.
+# "walls" are every static collider (floor slabs too); "floor" is the main floor (the threshold height of the doors).
 BUILDINGS = {
     "pa_concrete_outbuilding": dict(
-        name="Abandoned concrete outbuilding", pack="abounded-house.zip (Sketchfab.rar: LittleBuilding.fbx)",
+        name="Abandoned concrete outbuilding", lic="local", pack="abounded-house.zip (Sketchfab.rar: LittleBuilding.fbx)",
         src="abounded-house/source/rar_x/Sketchfab/LittleBuilding.fbx", texfolder="abounded-house/source/rar_x/Sketchfab",
         matmap={"LittleBuilding_" + m: pbr(m, m) for m in ("Concrete", "Door", "Metal", "Roof", "Wood")},
         delete_mats=["LittleBuilding_Door"], maxTex=2048,
@@ -40,19 +46,88 @@ BUILDINGS = {
         floor=[-3.88, 3.88, -2.17, 1.96, 0.0, 0.2],
         furnish=[("ph_worn_metal_rack", 3.45, 0.2, 90), ("ph_old_bed_frame", -3.38, 0.6, 0), ("mod_debris_stove", 2.9, -1.3, 0),
                  ("furn_chair_soviet", 0.3, -0.6, 30), ("furn_debris_plaster", 1.3, 0.9, 0)]),
+    # a single-storey wing (gable roof) and a two-storey block in front of it, joined by an inner doorway; the block's
+    # upper floor has no stair (closed off). Doors 1.8 m in the source: x1.15 (doors 2.05 m, ceiling 3.05 m)
+    "pa_military_house": dict(
+        name="Abandoned military house", lic="glb", src="abounded_military_house/abounded_military_house.glb", scale=1.15, maxTex=2048,
+        # the boards across the wing's doorway and the five ground-floor windows go (solid panels, black from inside): open bays
+        delete_in=[["BigBuilding_Wood", -4.8, -4.0, 2.1, 3.6, 0.3, 2.3], ["BigBuilding_Wood", -3.0, -0.9, -0.3, 0.6, 1.0, 2.3],
+                   ["BigBuilding_Wood", -4.8, -3.9, 0.55, 1.65, 1.0, 2.3], ["BigBuilding_Wood", -4.8, -3.9, 4.05, 5.15, 1.0, 2.3],
+                   ["BigBuilding_Wood", -0.4, 0.7, -2.35, -0.65, 1.0, 2.3], ["BigBuilding_Wood", 3.0, 4.0, -2.35, -0.65, 1.0, 2.3]],                                 # the X-braced boards across the wing's doorway
+        desc="A derelict two-part military house: a gabled wing and a two-storey block, broken-out windows below and boarded ones above, rusted roof; enterable through two doors (E), the wing and the block joined inside.",
+        walls=[[-4.44, 3.93, 5.33, 5.64, 0.0, 2.75], [-4.44, -4.13, 0.05, 5.64, 0.0, 2.75], [3.62, 3.93, 0.05, 5.64, 0.0, 2.75],   # wing back, ends
+               [-4.44, 3.93, 0.05, 0.36, 0.0, 2.75], [-4.44, 3.93, 0.05, 5.64, 2.66, 3.0],                                      # wing front, ceiling
+               [0.07, 3.62, -3.13, -2.82, 0.0, 5.6], [0.07, 0.38, -3.13, 0.05, 0.0, 5.6], [3.31, 3.62, -3.13, 0.05, 0.0, 5.6],   # block front, sides
+               [0.07, 3.62, -0.27, 0.12, 0.0, 5.6], [0.07, 3.62, -3.13, 0.12, 2.66, 2.87],                                      # block back (the shared wall), ceiling
+               [0.38, 3.31, -3.13, 0.36, 0.0, 0.36]],                                                                           # the block's floor (to the doors)
+        doors={"door_block": ("door", "door_steel", 1, [1.2, 2.3, -3.13, -3.07, 0.36, 2.15]),
+               "door_wing": ("door", "door_wood", 1, [-4.44, -4.38, 2.15, 3.55, 0.36, 2.15])},
+        double_mats=[],
+        holes={"inner": [1.15, 2.25, -0.35, 0.45, 0.36, 2.15], "win_front": [-2.85, -1.05, 0.0, 0.42, 1.1, 2.15],
+               "win_end_a": [-4.5, -4.07, 0.65, 1.55, 1.1, 2.15], "win_end_b": [-4.5, -4.07, 4.15, 5.05, 1.1, 2.15],
+               "win_block_l": [0.0, 0.45, -2.25, -0.75, 1.1, 2.15], "win_block_r": [3.25, 3.7, -2.25, -0.75, 1.1, 2.15]},
+        floor=[-4.44, 3.62, 0.36, 5.33, 0.0, 0.36],
+        furnish=[("ph_worn_metal_rack", -1.0, 5.0, 0), ("ph_old_military_crate", -3.55, 4.75, 15), ("mod_barrel_steel_rust", 3.15, 4.85, 0),
+                 ("pa_crate_slatted", 2.8, -2.3, 10), ("mod_debris_papers_scattered", 0.0, 2.6, 0)]),
 }
 
-# props: id -> name, pack, source, selection, scale rule, colliders, palette group, maxTex, description
+# props: piece = pr6_split options; group = the palette group; extra = asset JSON fields
 PROPS = {
-    "pa_crate_slatted": dict(name="Slatted crate", pack="box.zip (Cinema 4D export)", src="box/source/box.zip_x/box/box.fbx",
+    "pa_crate_slatted": dict(name="Slatted crate", lic="free", pack="box.zip (Cinema 4D export)", src="box/source/box.zip_x/box/box.fbx",
                              texfolder="box/textures", matmap={"box_mat": {"Base Color": "wood97.jpeg", "Normal": "wood97_normal.jpeg"}},
                              piece={"height": 0.9, "colliders": "box"}, group="Small objects", maxTex=1024,
                              desc="A weathered slatted wooden crate with X-braced sides and a loose lid"),
+    "pa_chest_wooden": dict(name="Wooden chest", lic="glb", src="chest_part2/chest_part2.glb", piece={"length": 1.0, "colliders": "box"},
+                            group="Small objects", maxTex=1024, desc="A weathered plank chest with an iron hasp"),
+    **{"pa_fruit_crate_" + k: dict(name="Fruit crate, " + n, lic="glb", src="wooden_box/wooden_box.glb", objects=[o], piece={"colliders": "box"},
+                                   group="Small objects", maxTex=512, desc="An empty slatted fruit crate, " + n)
+       for k, n, o in (("low", "shallow", "wooden_box3_wooden_box_mat_0"), ("mid", "medium", "wooden_box2_wooden_box_mat_0"), ("high", "deep", "wooden_box1_wooden_box_mat_0"))},
+    # one bay of the old picket fence, post to post (posts 9 units apart): the line type repeats it
+    "pa_fence_picket_bay": dict(name="Old picket fence, bay", lic="glb", src="old_wood_fence/old_wood_fence.glb",
+                                objects=["Cube_1_3_wood_mat1_0", "Cube_2_2_wood_mat2_0", "Cylinder_4_2_wood_bark_mat_0", "Cylinder_4_2_wood_top_mat_0"],
+                                piece={"keep_box": [-6.0, -4.9, -3.35, 5.66], "height": 1.6, "yaw": 90, "colliders": "box"}, group=None, category="Modern: Fences",
+                                maxTex=1024, part={"k": 2}, nav="carve", desc="One 3.4 m bay of a weathered picket fence with its post (draw it as a line: Lasso, Line)"),
+    **{tid: dict(name=n, lic="glb", src=f, objects=objs, piece={"height": h, "decimate": dec, "colliders": "trunk"}, group=None, category="Trees",
+                 themes=ALL, maxTex=1024, nav="carve", lodDist=60, cullDist=900, desc="A dead, leafless tree, about %.0f m tall" % h)
+       for tid, n, f, objs, h, dec in (
+           ("pa_tree_dead_a", "Dead tree A", "dead_tree/dead_tree.glb", None, 10.0, 0.15),
+           ("pa_tree_dead_b", "Dead tree B", "dead_tree_1/dead_tree (1).glb", None, 12.0, 0.35),
+           ("pa_tree_dead_c", "Dead tree C", "dead_tree_2/dead_tree (2).glb", ["dead_tree_1_Mat.1_0", "dead_tree_1_Mat.1_0.001"], 9.0, 0.4),
+           ("pa_tree_dead_d", "Dead tree D", "dead_tree_2/dead_tree (2).glb", ["dead_tree_2_Mat.1_0", "dead_tree_2_Mat.1_0.001"], 11.0, 0.35),
+           ("pa_tree_dead_e", "Dead tree E", "dead_tree_3/dead_tree (3).glb", None, 10.0, 0.25))},
+    "pa_tree_fallen": dict(name="Fallen tree", lic="glb", src="tree_part13/tree_part13.glb", objects=["Sweep_NURBS_17_bark17_0"], piece={"length": 11.0, "colliders": "parts"},
+                           group=None, category="Trees", themes=ALL, maxTex=1024, nav="carve", lodDist=60, cullDist=900,
+                           desc="A fallen tree on its side, roots in the air (the model's leaf cards left out: their cut-out did not carry over)"),
 }
+LINE = ("pa_fence_picket", "Old picket fence (model)", "pa_fence_picket_bay")
+
+
+def glb_meta(p):
+    with open(p, "rb") as f:
+        f.read(12); n, _ = struct.unpack("<II", f.read(8)); return json.loads(f.read(n)).get("asset", {}).get("extras", {}) or {}
+
+
+def licence(dl, E):
+    """(committed, credit text, credits row cells: model, author, licence, source)"""
+    if E["lic"] == "glb":
+        x = glb_meta(os.path.join(dl, E["src"]))
+        title, author, lic, url = x.get("title", ""), x.get("author", ""), x.get("license", ""), x.get("source", "")
+        committed = lic.startswith("CC-BY") or lic.startswith("CC0")
+        return committed, "%s by %s, %s (%s)%s" % (title, author.split(" (")[0], lic.split(" (")[0], url, "" if committed else ": local only"), (title, author, lic, url)
+    if E["lic"] == "free":
+        return True, "%s supplied by the user; %s" % (E["pack"], FREE), (E["pack"], FREE, "free to use per the project owner", "-")
+    return False, "%s supplied by the user; licence to be confirmed: local only" % E["pack"], (E["pack"], "to be confirmed", "to be confirmed", "-")
 
 
 def mark(x, y, z=0.2):
     return [x - 0.01, x + 0.01, y - 0.01, y + 0.01, z, z + 0.01]
+
+
+def run(job, glbs, key):
+    jp = os.path.join(glbs, "_job_%s.json" % key); json.dump(job, open(jp, "w"))
+    r = subprocess.run([BLENDER, "-b", "--factory-startup", "--disable-autoexec", "--python", os.path.join(HERE, "pr6_split.py"), "--", jp], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    out = [l for l in r.stdout.splitlines() if l.startswith("PR6")]
+    print("\n".join(out) if out else key + " FAILED " + (r.stdout + r.stderr)[-1500:])
 
 
 def convert(dl, glbs):
@@ -61,7 +136,8 @@ def convert(dl, glbs):
         if os.path.exists(os.path.join(glbs, bid + ".glb")): continue
         marks = {**{k: v[3] for k, v in B["doors"].items()}, **B["holes"], "floor": B["floor"],
                  **{"f%d" % i: mark(x, y, B["floor"][5]) for i, (_, x, y, _) in enumerate(B["furnish"])}}
-        piece = {"id": bid, "objects": None, "boxes": B["walls"], "marks": marks, "delete_mats": B["delete_mats"], "scale": B.get("scale", 1.0), "yaw": B.get("yaw", 0)}
+        piece = {"id": bid, "objects": None, "boxes": B["walls"], "marks": marks, "delete_mats": B.get("delete_mats", []), "delete_in": B.get("delete_in", []), "double_mats": B.get("double_mats", []),
+                 "scale": B.get("scale", 1.0), "yaw": B.get("yaw", 0)}
         job = {"src": os.path.join(dl, B["src"]), "out": glbs, "pieces": [piece]}
         if B.get("matmap"): job.update(texfolder=os.path.join(dl, B["texfolder"]), matmap=B["matmap"])
         run(job, glbs, bid)
@@ -72,57 +148,67 @@ def convert(dl, glbs):
         run(job, glbs, pid)
 
 
-def run(job, glbs, key):
-    jp = os.path.join(glbs, "_job_%s.json" % key); json.dump(job, open(jp, "w"))
-    r = subprocess.run([BLENDER, "-b", "--factory-startup", "--disable-autoexec", "--python", os.path.join(HERE, "pr6_split.py"), "--", jp], capture_output=True, text=True, encoding="utf-8", errors="replace")
-    out = [l for l in r.stdout.splitlines() if l.startswith("PR6")]
-    print("\n".join(out) if out else key + " FAILED " + (r.stdout + r.stderr)[-1500:])
-
-
 def write(dl, glbs):
     gi_add, rows = [], []
+    def common(aid, E, side, desc, model):
+        committed, credit, cells = licence(dl, E)
+        sx, sy, sz = side["size"]
+        if not committed: gi_add.append("content/assets/models/%s/" % aid)
+        rows.append("| `%s` | %s | %s | %s | %s | modified: %s | %s |" % ((aid,) + cells + (E.get("changes", "baked / textures resized"), "yes" if committed else "no (local-only)")))
+        return committed, {"id": aid, "version": 1, "name": E["name"], "category": E.get("category", "Small buildings"), "themes": E.get("themes", POSTAPOC),
+                           "description": desc + ("" if committed else " (local only: the committed game shows box stand-ins)"),
+                           "footprint": [round(sx, 3), round(sz, 3)], "floors": 0, "enterable": False, "plinthDepth": 0, "noAutoPanels": True,
+                           "model": {"pivot": "ground", "scale": 1, "jpgMaps": True, "lod1": 0.3, "src": aid + ".glb", "dir": aid, "maxTex": E["maxTex"], "credit": credit, **model},
+                           "nav": {"effect": E.get("nav", "none"), "rooms": [], "doors": [], "entrances": [], "corners": [], "firingPoints": [], "areas": [], "cover": []},
+                           "materials": [{"name": "collider", "albedo": [0.4, 0.4, 0.38], "roughness": 0.9, "pattern": "concrete", "metallic": 0, "grain": 1, "texture": "concrete_aged"}],
+                           "furniture": [], "interactables": [], "panels": []}
     for bid, B in BUILDINGS.items():
         side = json.load(open(os.path.join(glbs, bid + ".json"))); sx, sy, sz = side["size"]; m = side["marks"]
-        A = {"id": bid, "version": 1, "name": B["name"], "category": "Small buildings", "themes": THEMES,
-             "description": "%s %.1f x %.1f m, %.1f m high (local only: the committed game shows box stand-ins)." % (B["desc"], sx, sz, sy),
-             "footprint": [round(sx, 3), round(sz, 3)], "floors": 0, "enterable": False, "plinthDepth": 0, "maxGrade": 2, "noAutoPanels": True,
-             "model": {"pivot": "ground", "scale": 1, "jpgMaps": True, "lod1": 0.3, "src": bid + ".glb", "dir": bid, "maxTex": B["maxTex"], "lodDist": 40, "cullDist": 600,
-                       "credit": "%s supplied by the user; licence to be confirmed: local only" % B["pack"]},
-             "nav": {"effect": "carve", "rooms": [], "doors": [], "entrances": [], "corners": [], "firingPoints": [], "areas": [], "cover": []},
-             "materials": [{"name": "collider", "albedo": [0.4, 0.4, 0.38], "roughness": 0.9, "pattern": "concrete", "metallic": 0, "grain": 1, "texture": "concrete_aged"}],
-             "parts": [{"t": "b", "c": c[:3], "s": c[3:], "m": "collider", "mf": 1} for c in side["colliders"]], "furniture": [], "interactables": [], "panels": []}
+        B.setdefault("changes", "openings cut, colliders, baked / textures resized")
+        committed, A = common(bid, B, side, "%s %.1f x %.1f m, %.1f m high." % (B["desc"], sx, sz, sy), {"lodDist": 40, "cullDist": 600})
+        A["maxGrade"] = 2; A["nav"]["effect"] = "carve"
+        flag = {"v": 0} if committed else {"mf": 1}
+        A["parts"] = [{"t": "b", "c": c[:3], "s": c[3:], "m": "collider", **flag} for c in side["colliders"]]
         pr8_openings.apply(A, m, {k: v[:3] + v[4:] for k, v in B["doors"].items()}, holes=list(B["holes"]), floor_visible=False)
         A["companions"] = [{"asset": a, "pos": [round(m["f%d" % i][0], 3), round(m["f%d" % i][1] - 0.005, 3), round(m["f%d" % i][2], 3)], "yaw": yaw}
                            for i, (a, _, _, yaw) in enumerate(B["furnish"])]
         assert len(A["companions"]) <= 5
         A["nav"]["cover"] = [{"p": [round(x, 2), 0, round(s * (sz / 2 + 0.5), 2)], "yaw": 180 if s > 0 else 0, "height": "high", "peek": ["left", "right"]} for x in (-sx / 4, sx / 4) for s in (1, -1)]
         open(os.path.join(ROOT, "content", "assets", bid + ".json"), "w", encoding="utf-8", newline="").write(json.dumps(A, separators=(",", ":")))
-        gi_add.append("content/assets/models/%s/" % bid)
-        rows.append("| `%s` | %s | to be confirmed | to be confirmed | - | modified: openings cut, colliders, baked / textures resized | no (local-only) |" % (bid, B["pack"]))
-        print("%-28s %.2f x %.2f x %.2f m  tris %d  parts %d  doors %d  holes %d  furnish %d" % (bid, sx, sz, sy, side["tris"], len(A["parts"]), len(A["interactables"]), len(B["holes"]), len(A["companions"])))
+        print("%-28s %.2f x %.2f x %.2f m  tris %d  parts %d  doors %d  holes %d  furnish %d  %s" % (bid, sx, sz, sy, side["tris"], len(A["parts"]), len(A["interactables"]), len(B["holes"]), len(A["companions"]), "committed" if committed else "local"))
     for pid, P in PROPS.items():
         side = json.load(open(os.path.join(glbs, pid + ".json"))); sx, sy, sz = side["size"]
-        A = {"id": pid, "version": 1, "name": P["name"] + " (model)", "category": P.get("category", "Town clutter"), "themes": P.get("themes", THEMES), "group": P["group"],
-             "description": "%s, %.2f x %.2f x %.2f m (local only: the committed game shows a box stand-in)." % (P["desc"], sx, sz, sy),
-             "footprint": [round(sx, 3), round(sz, 3)], "floors": 0, "enterable": False, "plinthDepth": 0, "maxGrade": 5, "noAutoPanels": True,
-             "model": {"pivot": "ground", "maxTex": P["maxTex"], "simplify": 1, "lod1": 0.3, "lodDist": P.get("lodDist", 15), "cullDist": P.get("cullDist", 300),
-                       "src": pid + ".glb", "dir": pid, "jpgMaps": True, "scale": 1, "credit": "%s supplied by the user; licence to be confirmed: local only" % P["pack"]},
-             "nav": {"effect": P.get("nav", "none"), "rooms": [], "doors": [], "entrances": [], "corners": [], "firingPoints": [], "areas": [], "cover": []},
-             "materials": [{"name": "collider", "albedo": [0.4, 0.4, 0.38], "roughness": 0.9, "pattern": "concrete", "metallic": 0, "grain": 1, "texture": "concrete_aged"}],
-             "parts": [{"t": "b", "c": c[:3], "s": c[3:], "m": "collider", "mf": 1, **P.get("part", {})} for c in (side["colliders"] or [[0, sy / 2, 0, sx, sy, sz]])],
-             "furniture": [], "interactables": [], "panels": []}
-        A.update(P.get("extra", {}))
+        committed, A = common(pid, P, side, "%s, %.2f x %.2f x %.2f m." % (P["desc"], sx, sz, sy),
+                              {"simplify": 1, "lodDist": P.get("lodDist", 15), "cullDist": P.get("cullDist", 300)})
+        A["category"] = P.get("category", "Town clutter"); A["name"] = P["name"] + " (model)"; A["maxGrade"] = 5
+        if P.get("group"): A["group"] = P["group"]
+        flag = {"v": 0} if committed else {"mf": 1}
+        cols = [c for c in (side["colliders"] or [[0, sy / 2, 0, sx, sy, sz]]) if c[1] + c[4] / 2 <= P.get("col_max_top", 1e9)]   # the fallen tree: trunk and roots, not its leaf clumps
+        A["parts"] = [{"t": "b", "c": c[:3], "s": c[3:], "m": "collider", **flag, **P.get("part", {})} for c in cols]
+        if pid == LINE[2]:   # snaps end to end; drawn as a line (lasso Line mode) by the line type below
+            A["snap"] = [{"p": [round(-sx / 2, 3), 0, 0], "dir": [-1, 0], "kind": LINE[0]}, {"p": [round(sx / 2, 3), 0, 0], "dir": [1, 0], "kind": LINE[0]}]
+            bay = sx
         open(os.path.join(ROOT, "content", "assets", pid + ".json"), "w", encoding="utf-8", newline="").write(json.dumps(A, separators=(",", ":")))
-        gi_add.append("content/assets/models/%s/" % pid)
-        rows.append("| `%s` | %s | to be confirmed | to be confirmed | - | modified: scaled / baked / textures resized | no (local-only) |" % (pid, P["pack"]))
-        print("%-28s %.2f x %.2f x %.2f m  tris %d  colliders %d" % (pid, sx, sz, sy, side["tris"], len(A["parts"])))
+        print("%-28s %.2f x %.2f x %.2f m  tris %d  colliders %d  %s" % (pid, sx, sz, sy, side["tris"], len(A["parts"]), "committed" if committed else "local"))
+    # the fence as a line type (lasso Line mode): bays of the fence piece end to end
+    lt_path = os.path.join(ROOT, "content", "settings", "line_types.json"); LT = json.load(open(lt_path, encoding="utf-8"))
+    LT["types"] = [t for t in LT["types"] if t["id"] != LINE[0]] + [{"id": LINE[0], "name": LINE[1], "asset": "line_" + LINE[0], "builder": "bays", "spacing": round(bay, 3), "pieces": [[LINE[2], 1]], "params": {}}]
+    open(lt_path, "w", encoding="utf-8", newline="").write(json.dumps(LT, indent=2, ensure_ascii=False) + "\n")
+    L = {"id": "line_" + LINE[0], "version": 1, "name": LINE[1] + " (line)", "category": "Lines", "hidden": True, "themes": POSTAPOC,
+         "description": "%s drawn as a line (lasso Line mode): bays of %s along the line; gates and gaps as spans." % (LINE[1], LINE[2]),
+         "floors": 0, "enterable": False, "footprint": [1, 1], "plinthDepth": 0, "maxGrade": 3, "noAutoPanels": True, "line": {"type": LINE[0]},
+         "materials": [], "parts": [], "furniture": [], "interactables": [], "panels": [], "nav": {"effect": "carve"}}
+    open(os.path.join(ROOT, "content", "assets", "line_" + LINE[0] + ".json"), "w", encoding="utf-8", newline="").write(json.dumps(L, separators=(",", ":")))
     gi = os.path.join(ROOT, ".gitignore"); g = open(gi, encoding="utf-8").read()
-    new = [l for l in gi_add if l not in g]
-    if new: g = g.rstrip("\n") + "\n# PR10: local-only models (licences to be confirmed)\n" + "\n".join(new) + "\n"
+    keep = {"content/assets/models/%s/" % k for k in list(BUILDINGS) + list(PROPS)}
+    lines = [l for l in g.split("\n") if l not in keep or l in gi_add]   # committed ones leave the ignore list
+    g = "\n".join(lines); new = [l for l in gi_add if l not in g]
+    if new: g = g.rstrip("\n") + "\n# PR10: local-only models\n" + "\n".join(new) + "\n"
     open(gi, "w", encoding="utf-8", newline="").write(g)
     cp = os.path.join(ROOT, "docs", "credits.md"); doc = open(cp, encoding="utf-8", newline="").read(); nl = "\r\n" if "\r\n" in doc else "\n"
     a, b = "<!-- pr10_assets: written by tools/props/pr10_assets.py -->", "<!-- /pr10_assets -->"
-    table = a + "\nPR10: the user's post-apocalyptic batch. Licences to be confirmed: local-only until then.\n\n| Asset | Model | Author | Licence | Source | Changes | In the repo |\n|---|---|---|---|---|---|---|\n" + "\n".join(rows) + "\n" + b
+    table = (a + "\nPR10: the user's post-apocalyptic batch (title, author, licence and source as each file's own metadata gives them).\n\n"
+             "| Asset | Model | Author | Licence | Source | Changes | In the repo |\n|---|---|---|---|---|---|---|\n" + "\n".join(rows) + "\n" + b)
     doc = doc.replace("\r\n", "\n")
     doc = doc[:doc.index(a)] + table + doc[doc.index(b) + len(b):] if a in doc else doc.rstrip() + "\n\n" + table + "\n"
     open(cp, "w", encoding="utf-8", newline="").write(doc.replace("\n", nl))

@@ -1982,6 +1982,19 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_debris_papers_scattered` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `pa_concrete_outbuilding` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `pa_crate_slatted` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `line_pa_fence_picket` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `pa_chest_wooden` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `pa_fence_picket_bay` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `pa_fruit_crate_high` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `pa_fruit_crate_low` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `pa_fruit_crate_mid` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `pa_military_house` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `pa_tree_dead_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `pa_tree_dead_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `pa_tree_dead_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `pa_tree_dead_d` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `pa_tree_dead_e` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `pa_tree_fallen` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 
 ## Notes
 
