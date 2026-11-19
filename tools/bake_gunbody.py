@@ -391,7 +391,11 @@ RIGS = {'robotx': {   # RobotExpressive (Tomas Laulhe / Quaternius, CC0): legs h
                'LowerArm.L': 'LeftForeArm', 'Palm2.L': 'LeftHand', 'Shoulder.R': 'RightShoulder', 'UpperArm.R': 'RightArm', 'LowerArm.R': 'RightForeArm',
                'Palm2.R': 'RightHand', 'UpperLeg.L': 'LeftUpLeg', 'LowerLeg.L': 'LeftLeg', 'Foot.L': 'LeftFoot', 'UpperLeg.R': 'RightUpLeg',
                'LowerLeg.R': 'RightLeg', 'Foot.R': 'RightFoot'},
-    'follow': {'LeftFoot': 'LeftLeg', 'RightFoot': 'RightLeg'}, 'keep': ['Death']}}
+    'follow': {'LeftFoot': 'LeftLeg', 'RightFoot': 'RightLeg'}, 'keep': ['Death'], 'rigid': 'bind'},
+    # DSD1: a FigRig gun body (desert_<weapon>.glb) as a plain body: its hands and feet are root-level IK bones (carried by the
+    # forearms / lower legs), its built-in gun (the rigid parts) dropped: the game's guns are drawn in its hands
+    'figrig': {'rename': {}, 'follow': {'LeftHand': 'LeftForeArm', 'RightHand': 'RightForeArm', 'LeftFoot': 'LeftLeg', 'RightFoot': 'RightLeg'},
+               'keep': [], 'rigid': 'drop'}}
 
 def bake_retarget(base_path, clip_paths, out_path, names_mode=None, rig=None):
     base, bbin = load(base_path)
@@ -431,7 +435,15 @@ def bake_retarget(base_path, clip_paths, out_path, names_mode=None, rig=None):
     j['skins'] = []
     for s in base['skins']:
         s = dict(s); s['inverseBindMatrices'] = O.acc('b', base, bbin, s['inverseBindMatrices']); j['skins'].append(s)
-    if R:   # rigid parts on bones, a rig whose inverse binds are not its rest (RobotExpressive: x100): each becomes a skinned part,
+    if R and R.get('rigid') == 'drop':   # the rigid parts (a built-in gun) out
+        for n in base['nodes']:
+            if 'mesh' in n and 'skin' not in n: n.pop('mesh', None)
+        keep_m = sorted({n['mesh'] for n in base['nodes'] if 'mesh' in n})
+        if len(keep_m) < len(base['meshes']):
+            remap = {m: k for k, m in enumerate(keep_m)}; meshes = [meshes[m] for m in keep_m]; j['meshes'] = meshes
+            for n in base['nodes']:
+                if 'mesh' in n: n['mesh'] = remap[n['mesh']]
+    if R and R.get('rigid') == 'bind':   # rigid parts on bones, a rig whose inverse binds are not its rest (RobotExpressive: x100): each becomes a skinned part,
         # weight 1 on its bone, its vertices in that bone's bind space (the game skins a rigid part with the bone's inverse bind)
         ib = _ibms(base, bbin); jl = base['skins'][0]['joints']; nodes2 = json.loads(json.dumps(base['nodes']))
         def w4(i): L, P = B.affine(i); return [L[0] + [P[0]], L[1] + [P[1]], L[2] + [P[2]], [0, 0, 0, 1]]

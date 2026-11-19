@@ -515,6 +515,12 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
     Dl[j] = Pd * about(m.jointHead[j], D[j]);
   }
   if (!weaponSet) placeWeapon(J(CJ_SPINE2) >= 0 ? Dl[J(CJ_SPINE2)] : root);
+  if (p.base) for (int side = 0; side < 2; ++side) {   // DSD1: a hand that is not the forearm's child (FigRig: root-level IK hands): it and its fingers follow the solved forearm as they sat in the clip
+    const int fa = J(side ? CJ_RFOREARM : CJ_LFOREARM), hd = J(side ? CJ_RHAND : CJ_LHAND);
+    if (fa < 0 || hd < 0 || m.jointParent[hd] == fa || (side == 1 && p.rightArmClip)) continue;
+    const mat4 C = Dl[fa] * glm::inverse((*p.base)[fa]);
+    for (int k : order) { bool under = k == hd; for (int a = m.jointParent[k]; a >= 0 && !under; a = m.jointParent[a]) under = a == hd; if (under) Dl[k] = C * (*p.base)[k]; }
+  }
   // ---- whole-body transforms: prone (lying forward, head at the capsule origin), death fall about the feet
   mat4 body(1);
   if (prone > 0) body = glm::translate(mat4(1), vec3(0, 0.16f * prone, -1.45f * prone)) * glm::mat4_cast(glm::angleAxis(1.5707963f * prone, vec3(1, 0, 0)));

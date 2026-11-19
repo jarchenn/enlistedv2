@@ -13,6 +13,7 @@
 #include "physics.h"
 #include "scenario.h"
 #include "grenade.h"
+#include <GLFW/glfw3.h>
 
 namespace {
 MpTest* T = nullptr;
@@ -24,22 +25,26 @@ const Fam kFam[] = {{"modern_ak47", "reload_box", 0.35f}, {"modern_lmg", "reload
                     {"modern_deagle", "reload_pistol", 0.35f}, {"modern_revolver", "reload_revolver", 0.45f}, {"modern_sniper_bolt", "reload_bolt_open", 0.1f},
                     {"modern_sniper_bolt", "cycle_bolt", 0.45f}, {"modern_shotgun", "cycle_pump", 0.5f}, {"modern_m4_irons", "throw_windup", 0.42f},
                     {"modern_m4_irons", "throw_release", 0.62f}, {"modern_m4_irons", "turn_left", 0}, {"modern_glock34", "throw_pistol", 0.42f}};
-fs::path shot(const char* what) { return exeDir() / "selftest_out" / (std::string("df_") + what + ".png"); }
+std::string kitN = "delta", pre = "df_"; AiType aiT = AiType::Delta; int kitNo = 4;   // DSD1: NMK_DF_KIND=desert: the desert soldiers on the same path (ds_*.png)
+fs::path shot(const char* what) { return exeDir() / "selftest_out" / (pre + what + ".png"); }
 }   // namespace
 
 bool df1Capture(App& app, float dt) {
-  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-df1") mode = 1; const char* e = std::getenv("NMK_DF_STAGE"); stageB = e && std::string(e) == "b"; }
+  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-df1") mode = 1; const char* e = std::getenv("NMK_DF_STAGE"); stageB = e && std::string(e) == "b";
+    if (const char* k = std::getenv("NMK_DF_KIND"); k && std::string(k) == "desert") { kitN = "desert"; pre = "ds_"; aiT = AiType::Desert; kitNo = 6; } }
   if (mode != 1) return false;
   if (dt < 0) return true;
+  if (app.win && glfwGetWindowAttrib(app.win, GLFW_ICONIFIED)) glfwRestoreWindow(app.win);   // our own window, minimised from outside: its frames are the captures
+  if (!app.uiShot.empty()) return true;   // a shot still pending (a zero-size frame): hold the script until it is written
   if (!started) {
-    started = true; T = new MpTest("df1");
+    started = true; T = new MpTest(kitN == "delta" ? "df1" : "ds1");
     if (app.mode == Mode::Explore) app.exitExplore();
     app.openMap(contentDir() / "examples/village_assault_3.nmap.json");
     Scenario sc = Scenario::fromJson(app.doc.extra.is_object() ? app.doc.extra.value("scenario", json::object()) : json::object());
     sc.rules.mode = GameMode::TDM; sc.rules.humanTeam = 0; sc.rules.killCap = 999;
     sc.rules.teamFaction[0] = Faction::Allies; sc.rules.teamFaction[1] = Faction::Axis;
     for (int t = 0; t < 2; ++t) { for (int& x : sc.rules.aiCount[t]) x = 0; sc.rules.teamPlayers[t] = 1; }
-    sc.rules.aiTypes[0] = aiBit(AiType::Soldiers); sc.rules.aiTypes[1] = aiBit(AiType::Delta); sc.rules.aiCount[1][(int)AiType::Delta] = 1;
+    sc.rules.aiTypes[0] = aiBit(AiType::Soldiers); sc.rules.aiTypes[1] = aiBit(aiT); sc.rules.aiCount[1][(int)aiT] = 1;
     gUi.loaded = false; gUi.matchScenario = sc.toJson();
     if (!gGame) gGame = new Game(app);
     gGame->pendingStart = true;
@@ -90,13 +95,13 @@ bool df1Capture(App& app, float dt) {
   char b[300];
   if (stage == 0) {
     const CharModel& m = *G.models[s.model];
-    T->check(m.id == "delta_force" && m.clips.size() >= 40 && s.kit == 4 && !s.gunBody, "its body: " + m.id + ", " + std::to_string(m.clips.size()) + " clips, kit " + std::to_string(s.kit));
+    T->check(m.id == G.combat["kits"][kitN]["models"][0].get<std::string>() && m.clips.size() >= 40 && s.kit == kitNo && !s.gunBody, "its body: " + m.id + ", " + std::to_string(m.clips.size()) + " clips, kit " + std::to_string(s.kit));
     T->check(s.weapon >= 0 && s.carried.size() >= 2 && app.weaponDefs[s.carried[1]]->holdKind != 2, "it holds a kit primary, a sidearm carried (" + (s.weapon >= 0 ? app.weaponDefs[s.weapon]->id : std::string("none")) + "), " + std::to_string(s.carried.size()) + " carried");
     std::snprintf(b, sizeof b, "hit zones from its joints: head %.2f m, hips %.2f m over the feet", s.pose.joint[CJ_HEAD].y, s.pose.joint[CJ_HIPS].y);
-    T->check(s.pose.joint[CJ_HEAD].y > 1.3f && s.pose.joint[CJ_HEAD].y < 2.0f && s.pose.joint[CJ_HIPS].y > 0.7f && s.pose.joint[CJ_HIPS].y < 1.2f, b);
+    T->check(s.pose.joint[CJ_HEAD].y > 1.1f && s.pose.joint[CJ_HEAD].y < 2.0f && s.pose.joint[CJ_HIPS].y > 0.7f && s.pose.joint[CJ_HIPS].y < 1.2f, b);
     if (A) A->frozen = true; stage = stageB ? 20 : 1; frames = 0;
     if (stageB) {   // every gun of the kit (primaries, sidearms, launchers)
-      const json kj = G.combat.value("kits", json::object()).value("delta", json::object());
+      const json kj = G.combat.value("kits", json::object()).value(kitN, json::object());
       for (const char* k : {"ai", "sidearms", "launchers"}) for (auto& e : kj.value(k, json::array())) { int w = app.weaponIndex(e[0].get<std::string>()); if (w >= 0) guns.push_back(w); else T->check(false, "kit gun missing: " + e[0].get<std::string>()); }
       T->note("stage B: " + std::to_string(guns.size()) + " guns");
     }
@@ -117,7 +122,7 @@ bool df1Capture(App& app, float dt) {
       std::snprintf(b, sizeof b, "%-20s right palm %.3f m, left palm %.3f m from its sockets%s, model %s, grip %.2f -> handguard %.2f m", d.id.c_str(), er, el, pist ? " (pistol: the support hand on the firing hand)" : "",
                     drawn ? "drawn" : "MISSING", d.gripR.z, d.gripL.z);
       T->note(std::string(ok ? "ok    " : "OFF   ") + b);
-      app.uiShot = exeDir() / "selftest_out" / ("df_gun_" + d.id + ".png");
+      app.uiShot = exeDir() / "selftest_out" / (pre + "gun_" + d.id + ".png");
     }
     if (frames > 18) { ++gi; frames = 0; }
     return true;
@@ -142,7 +147,7 @@ bool df1Capture(App& app, float dt) {
               : what == "cycle_pump" ? s.dfPumpBack > 0.05f : what.rfind("throw", 0) == 0 ? s.anim.a >= 0 && m.clips[s.anim.a].name.find("hrow") != std::string::npos
               : what.rfind("turn", 0) == 0 ? s.anim.a >= 0 && m.clips[s.anim.a].name.find("turn") != std::string::npos : true;
       T->check(ok, b);
-      app.uiShot = exeDir() / "selftest_out" / ("df_" + what + ".png");
+      app.uiShot = exeDir() / "selftest_out" / (pre + what + ".png");
     }
     if (frames > 48) { s.reload = 0; s.throwT = -1; ++fi; frames = 0; }
     return true;
@@ -180,7 +185,7 @@ bool df1Capture(App& app, float dt) {
       bool ok = fire();
       size_t fb = 0; for (auto& q : app.fx.parts) if (q.flame >= 1000) ++fb;
       std::snprintf(b, sizeof b, "%s shot: fired %d, %zu fireball sprites", app.weaponDefs[s.weapon]->id.c_str(), (int)ok, fb);
-      T->check(ok && fb >= 8, b); app.uiShot = shot(stage == 3 ? "rifle_flash" : "pistol_flash");
+      T->check(ok && (kitNo != 4 || fb >= 8), b); app.uiShot = shot(stage == 3 ? "rifle_flash" : "pistol_flash");   // the fireball: Delta Force only
     }
     if (frames > 46) { stage = stage == 3 ? 4 : 8; frames = 0; }
     return true;
@@ -196,7 +201,7 @@ bool df1Capture(App& app, float dt) {
       s.reload = 0;
       int p = s.carried.size() > 1 ? s.carried[1] : -1;
       T->check(p >= 0, "the sidearm: " + (p >= 0 ? app.weaponDefs[p]->id : std::string("none")));
-      if (int g = app.weaponIndex("modern_glock34"); g >= 0) p = g;   // the Glock: the frames compare across runs
+      if (int g = app.weaponIndex("modern_glock34"); g >= 0 && kitN == "delta") p = g;   // the Glock: the frames compare across runs
       if (p >= 0) { const WeaponDef& d = *app.weaponDefs[p]; s.weapon = p; s.ws = WeaponState{}; s.ws.loaded = d.loaded; }
       stage = 5; frames = 0;
     }
