@@ -69,6 +69,25 @@ BUILDINGS = {
         floor=[-4.44, 3.62, 0.36, 5.33, 0.0, 0.36],
         furnish=[("ph_worn_metal_rack", -1.0, 5.0, 0), ("ph_old_military_crate", -3.55, 4.75, 15), ("mod_barrel_steel_rust", 3.15, 4.85, 0),
                  ("pa_crate_slatted", 2.8, -2.3, 10), ("mod_debris_papers_scattered", 0.0, 2.6, 0)]),
+    # an exterior shell (one-sided brick box; the shopfront glass and doors were faces of a fake interior box,
+    # "store_building_inside", facing out): that box deleted (broken-out shopfront bays, open doorways), the brick
+    # given inner faces, a concrete floor added. Its ground is z -1 (a foundation below the file's zero).
+    "pa_abandoned_shop": dict(
+        name="Abandoned shop", lic="glb", src="game-ready_an_abandoned_shop/game-ready_an_abandoned_shop.glb", maxTex=2048,
+        delete_mats=["store_building_inside"], double_mats=["store_building"],
+        add_boxes=[{"box": [-7.95, 7.95, 4.0, 16.0, -1.0, -0.97], "tex": "concrete_stained", "tile": 3.0}],
+        desc="A gutted brick corner shop: broken-out shopfront, three side doors, an empty sales floor under a flat roof; enterable (E on the doors).",
+        walls=[[-8.0, 8.0, 4.0, 4.25, -1.0, 6.0], [-8.0, 8.0, 15.75, 16.0, -1.0, 6.0], [-8.0, -7.75, 4.0, 16.0, -1.0, 6.0], [7.75, 8.0, 4.0, 16.0, -1.0, 6.0],
+               [-8.0, 8.0, 4.0, 16.0, 5.38, 5.7]],
+        doors={"door_front": ("door", "door_steel", 1, [-0.7, 0.7, 4.0, 4.06, -0.97, 1.45]),
+               "door_west_a": ("door", "door_steel", 1, [-8.0, -7.94, 7.05, 8.05, -0.97, 1.45]),
+               "door_west_b": ("door", "door_steel", 1, [-8.0, -7.94, 11.95, 12.95, -0.97, 1.45]),
+               "door_east": ("door", "door_steel", 1, [7.94, 8.0, 7.05, 8.05, -0.97, 1.45])},
+        holes={"bay_a": [-7.85, -3.7, 3.9, 4.35, -0.97, 1.45], "bay_b": [-3.6, -0.8, 3.9, 4.35, -0.97, 1.45],
+               "bay_c": [0.8, 3.6, 3.9, 4.35, -0.97, 1.45], "bay_d": [3.7, 7.85, 3.9, 4.35, -0.97, 1.45]},
+        floor=[-7.95, 7.95, 4.0, 16.0, -1.0, -0.97],
+        furnish=[("ph_worn_metal_rack", -4.0, 15.35, 0), ("ph_wooden_bookshelf_worn", 3.5, 15.4, 0), ("furn_debris_glass", -5.2, 5.0, 0),
+                 ("mod_debris_papers_scattered", -1.0, 9.0, 20), ("ph_old_tyre", 3.0, 8.5, 0)]),
 }
 
 # props: piece = pr6_split options; group = the palette group; extra = asset JSON fields
@@ -137,6 +156,7 @@ def convert(dl, glbs):
         marks = {**{k: v[3] for k, v in B["doors"].items()}, **B["holes"], "floor": B["floor"],
                  **{"f%d" % i: mark(x, y, B["floor"][5]) for i, (_, x, y, _) in enumerate(B["furnish"])}}
         piece = {"id": bid, "objects": None, "boxes": B["walls"], "marks": marks, "delete_mats": B.get("delete_mats", []), "delete_in": B.get("delete_in", []), "double_mats": B.get("double_mats", []),
+                 "add_boxes": [{**b, "tex": os.path.join(ROOT, "content", "textures", b["tex"])} for b in B.get("add_boxes", [])],
                  "scale": B.get("scale", 1.0), "yaw": B.get("yaw", 0)}
         job = {"src": os.path.join(dl, B["src"]), "out": glbs, "pieces": [piece]}
         if B.get("matmap"): job.update(texfolder=os.path.join(dl, B["texfolder"]), matmap=B["matmap"])

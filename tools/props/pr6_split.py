@@ -194,6 +194,29 @@ for P in job["pieces"]:
         mi = {i for i, sl in enumerate(ob.material_slots) if sl.material and sl.material.name.startswith(pfx)}
         gone = [f for f in bm.faces if f.material_index in mi and x0 <= f.calc_center_median().x <= x1 and y0 <= f.calc_center_median().y <= y1 and z0 <= f.calc_center_median().z <= z1]
         bmesh.ops.delete(bm, geom=gone, context="FACES"); bm.to_mesh(ob.data); bm.free()
+    if P.get("add_boxes"):   # PR10: walls / floors / ceilings a model lacks: textured boxes (source units), UVs at world scale
+        add = []
+        for i, B in enumerate(P["add_boxes"]):
+            x0, x1, y0, y1, z0, z1 = B["box"]; t = B.get("tile", 2.0)
+            mat = bpy.data.materials.get("pr10_" + os.path.basename(B["tex"]))
+            if not mat:
+                mat = bpy.data.materials.new("pr10_" + os.path.basename(B["tex"])); mat.use_nodes = True; N, L = mat.node_tree.nodes, mat.node_tree.links
+                bs = next(n for n in N if n.type == "BSDF_PRINCIPLED"); bs.inputs["Roughness"].default_value = 0.85
+                im = N.new("ShaderNodeTexImage"); im.image = bpy.data.images.load(os.path.join(B["tex"], "color.jpg"), check_existing=True); L.new(im.outputs[0], bs.inputs["Base Color"])
+                if os.path.exists(os.path.join(B["tex"], "normal.jpg")):
+                    nt = N.new("ShaderNodeTexImage"); nt.image = bpy.data.images.load(os.path.join(B["tex"], "normal.jpg"), check_existing=True); nt.image.colorspace_settings.name = "Non-Color"
+                    nm = N.new("ShaderNodeNormalMap"); L.new(nt.outputs[0], nm.inputs["Color"]); L.new(nm.outputs[0], bs.inputs["Normal"])
+            me = bpy.data.meshes.new("pr10box%d" % i); bm = bmesh.new()
+            V = [bm.verts.new((x, y, z)) for z in (z0, z1) for y in (y0, y1) for x in (x0, x1)]   # index = x + 2y + 4z
+            for q in ((0, 2, 3, 1), (4, 5, 7, 6), (0, 1, 5, 4), (2, 6, 7, 3), (0, 4, 6, 2), (1, 3, 7, 5)):   # -z, +z, -y, +y, -x, +x (outward)
+                bm.faces.new([V[k] for k in q])
+            uv = bm.loops.layers.uv.new(ob.data.uv_layers.active.name if ob.data.uv_layers.active else "UVMap"); bm.normal_update()   # the model's UV name: join keeps one layer
+            for f in bm.faces:
+                n = f.normal; ax = max(range(3), key=lambda k: abs(n[k])); u, v = [k for k in range(3) if k != ax]
+                for l in f.loops: l[uv].uv = (l.vert.co[u] / t, l.vert.co[v] / t)
+            bm.to_mesh(me); bm.free(); o = bpy.data.objects.new("pr10box%d" % i, me); o.data.materials.append(mat)
+            bpy.context.scene.collection.objects.link(o); add.append(o)
+        if add: ob = join([ob] + add)
     if P.get("double_mats"):   # PR10: one-sided boards read black from inside: a flipped copy of their faces, 4 mm behind
         bm = bmesh.new(); bm.from_mesh(ob.data)
         mi = {i for i, sl in enumerate(ob.material_slots) if sl.material and any(sl.material.name.startswith(n) for n in P["double_mats"])}
