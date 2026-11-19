@@ -118,7 +118,11 @@ void Terrain::applyGenLayers(const TemplateInfo& t, int innerNx, int innerNz) {
       float amp = st.value("amp", 4.0f), scale = std::max(10.0f, st.value("scale", 120.0f)), pad = st.value("pad", 4.0f), feather = std::max(0.5f, st.value("feather", 18.0f));
       uint32_t seed = st.value("seed", 1u);
       std::vector<HillShape> shapes;
-      const json pr = st.value("protect", json::object());
+      static const json kNoShapes = json::object();
+      const json& hl = gen["hills"];
+      int ref = st.value("protectRef", -1);   // TG1: the shapes of an earlier layer (terrainGenerateHills)
+      const json& src = ref >= 0 && ref < (int)hl.size() && hl[ref].is_object() ? hl[ref] : st;
+      const json& pr = src.contains("protect") && src["protect"].is_object() ? src["protect"] : kNoShapes;
       for (auto& o : pr.value("o", json::array())) if (o.size() >= 5) { HillShape s; s.type = 0; s.c = vec2(o[0].get<float>(), o[1].get<float>()); s.h = vec2(o[2].get<float>(), o[3].get<float>()); s.yaw = o[4].get<float>(); float rr = glm::length(s.h); s.lo = s.c - vec2(rr); s.hi = s.c + vec2(rr); shapes.push_back(s); }
       for (auto& o : pr.value("c", json::array())) if (o.size() >= 3) { HillShape s; s.type = 1; s.c = vec2(o[0].get<float>(), o[1].get<float>()); s.r = o[2].get<float>(); s.lo = s.c - vec2(s.r); s.hi = s.c + vec2(s.r); shapes.push_back(s); }
       for (auto& o : pr.value("l", json::array())) if (o.size() >= 3) {

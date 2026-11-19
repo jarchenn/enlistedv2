@@ -109,7 +109,7 @@ public:
   // ---- V8 generator layers (terrain_brush.cpp / beautify.cpp): MapDoc::terrainGen, applied by generate()
   //   {"ring": {"tiles": k, "seed": s, "amp": m}}   outer ring: k whole tiles of extra margin on every side (the inner
   //                                                 grid keeps its world positions, so tile keys remap exactly)
-  //   {"hills": [{"amp", "scale", "seed", "pad", "feather", "protect": [...]}]}   rolling-hill stamps on the base grid
+  //   {"hills": [{"amp", "scale", "seed", "pad", "feather", "protect": [...] or "protectRef": i}]}   rolling-hill stamps on the base grid (TG1: protectRef = layer i's shapes)
   json gen = json::object();
   int ringTiles() const;          // of `gen`
   static int remapKey(int key, int oldTilesX, int shift, int newTilesX) { int tx = key % oldTilesX, tz = key / oldTilesX; return (tz + shift) * newTilesX + (tx + shift); }
