@@ -1,7 +1,7 @@
 // NA1 --capture-na1: the four new AI types in one match (Team Deathmatch on village_assault_3, the player alone on side 0, one
 // each of Allied soldiers, Gas-mask soldiers 2, SS soldiers and Mechs on side 1, the AI frozen). For each gun type: its body
-// and its clip set present, every gun of its list held aimed (the body per gun: kits.allied.bodies / gunbody_models), palms on
-// the sockets (Allied: the game's gun in the clips' hands) or the built-in gun's muzzle ahead; one shot and one reload frame.
+// and its clip set present, every gun of its list held aimed (a body per gun: combat.json gunbody_models), the built-in gun's
+// muzzle ahead; one shot and one reload frame.
 // The mech: its body and clips, idle, then the AI on to a move and a blow. selftest_out/na_<type>_<what>.png, report_na1.txt.
 #include "selftest.h"
 #include "game.h"
@@ -68,13 +68,13 @@ bool na1Capture(App& app, float dt) {
     for (auto& s : G.sold) if (s.inUse && s.alive && !s.localPlayer && s.team != L->team) {
       const std::string& id = G.models[s.model]->id;
       if (s.zombie) mechSlot = s.slot;
-      else if (s.kit == 5) kinds.push_back({"allied", s.slot});
+      else if (id.rfind("allied_", 0) == 0) kinds.push_back({"allied", s.slot});
       else if (id.rfind("gasmask2_", 0) == 0) kinds.push_back({"gasmask2", s.slot});
       else if (id.rfind("ss_", 0) == 0) kinds.push_back({"ss", s.slot});
       else T->note("other bot: model " + id);
     }
     for (auto& k : kinds) {
-      json list = std::string(k.name) == "allied" ? G.combat["kits"]["allied"].value("bodies", json::array()) : G.combat["gunbody_models"].value(k.name, json::array());
+      json list = G.combat["gunbody_models"].value(k.name, json::array());
       std::set<std::string> seen;
       for (auto& e : list) { std::string m = e[0], w = e[1]; if (seen.insert(m).second) k.guns.push_back({m, app.weaponIndex(w)}); }
       const Soldier& s = G.sold[k.slot]; const CharModel& m = *G.models[s.model];
