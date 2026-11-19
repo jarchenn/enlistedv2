@@ -3,13 +3,13 @@
  "id": "Rock051",
  "family": "rock",
  "size": [
-  3.0,
-  3.0
+  3,
+  3
  ],
  "source": "https://ambientcg.com/a/Rock051",
  "license": "CC0 1.0 Universal",
  "credit": "ambientCG.com (CC0)",
- "resolution": "1K-JPG",
+ "resolution": "2K-JPG",
  "maps": [
   "ao.jpg",
   "color.jpg",

@@ -215,6 +215,40 @@ void build(App& app) {
     push("ma1b: back to native", [](App& a, float t) { a.R.setResolutionScale(1.0f); a.hideEditorOverlays = false; return t > 0.2f; });
     return;
   }
+  // TX2K ground shimmer (NMK_GS_SHOTS=1 runs only this): first person over bare ground (grass off), 24 still frames with
+  // TAA; shimmer / detail of the ground at 2-8 m and 8-25 m -> selftest_out/gs_ground.png, render_shimmer.json "gs".
+  // Run once per NMK_TEX_LOD_GROUND value to tune the ground's gradient scale (docs/textures.md#shimmer)
+  if (std::getenv("NMK_GS_SHOTS")) {
+    static const vec3 G(60.0f, 0, 80.0f);   // clear of the facades, the kit folly and the ponds
+    push("gs: ground", [](App& a, float t) {
+      if (t == 0) {
+        settings().s.gfx.grass = 0; settings().apply(a);
+        firstPerson(a, G, 0.0f, -14.0f);
+        regions.clear();
+        float y = a.terrain.height(G.x, G.z);
+        regions.push_back({"near", vec3(G.x - 2.0f, y, G.z - 8.0f), vec3(G.x + 2.0f, y, G.z - 2.0f)});
+        regions.push_back({"mid", vec3(G.x - 5.0f, y, G.z - 25.0f), vec3(G.x + 5.0f, y, G.z - 8.0f)});
+      }
+      a.eyeYaw = 0.0f; a.eyePitch = -14.0f;
+      if (t > 2.5f && captureLeft == 0 && regions[0].frames == 0) { captureLeft = 24; projectRegions(a, a.R.width, a.R.height); }
+      if (regions[0].frames < 24) return false;
+      const char* e = std::getenv("NMK_TEX_LOD_GROUND");
+      for (auto& r : regions) {
+        double s = shimmer(r), dt = detail(r), rel = dt > 0 ? s / dt : -1;
+        report["gs"][r.name] = {{"shimmer", s}, {"detail", dt}, {"relative", rel}, {"px", (r.x1 - r.x0) * (r.y1 - r.y0)}, {"lodGround", e ? e : "default"}};
+        chk(s >= 0, "ground %s (gradient scale %s): shimmer %.3f, detail %.2f, relative %.4f", r.name.c_str(), e ? e : "default", s, dt, rel);
+      }
+      pendingShot = outDir() / "gs_ground.png";
+      return true;
+    });
+    push("finish", [](App& a, float t) {
+      if (t < 0.3f) return false;
+      std::ofstream(outDir() / "render_shimmer.json") << report.dump(2);
+      chk(a.R.shaderErrors == 0, "shader errors at the end: %d", a.R.shaderErrors);
+      return true;
+    });
+    return;
+  }
   // ZF1 z-fight capture (NMK_ZF1_SHOTS=id[@x:y:z:nx:ny:nz],... runs only this): each asset alone on a 110 m grid, grass off. With a
   // point (asset space) and face normal (tools/audit_zfight.mjs: the worst pair's overlap) the eye looks at that point at
   // a grazing ~30 degrees from 4.5 m; without one, from 3 m past the +x / +z corner. Two frames 5 cm apart with TAA

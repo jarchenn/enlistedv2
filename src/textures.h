@@ -51,7 +51,7 @@ std::string stateKey();                       // what the rendered look depends 
 
 // offline tools (no GL): pack one raw ambientCG folder (color/normal/roughness/ao/height.jpg) into a set folder,
 // and write simple procedural placeholder sets (engine bring-up and the fallback test)
-int packSet(const fs::path& src, const fs::path& dst);
+int packSet(const fs::path& src, const fs::path& dst, int size = 1024);
 int writePlaceholders(const fs::path& texRoot, const std::vector<std::string>& sets);
 
 }  // namespace tex
