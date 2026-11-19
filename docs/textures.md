@@ -212,3 +212,11 @@ Perf switch `relief` (`Renderer::Perf::relief`, `--rq-off relief`, `NMK_PERF_AB=
 - **Walls.** `tools/wall_variety.mjs` adds 27 of them to the modern buildings' pools: 9 plasters, 10 coursed bricks and 2 painted bricks, 6 concretes.
 - **Ground paint.** The lasso paint panel has a Texture picker for the selected paint type: any ground / world slot, written to the map's `look.paintSets` (per map; a lazy set loads when picked).
 - **Limits.** 448 -> 704 slots (`kMaxSlots`; the uniform block is 63 KB of the 64 KB every GL 4 driver guarantees, logged at start if smaller). Layers stay at 256.
+
+## TX5: walls worn, not colourful
+
+The user preferred the farmhouse before TX4 and asked for more paint chips and dirt over anything else.
+
+- **Pools.** `tools/wall_variety.mjs` weights its pools by repetition. Render: `wall_pp010` (white paint flaked to red brick) x4, `wall_pp014` / `wall_pp016` (grey plaster flaking) x2 each, `painted_plaster_015` x2, `wall_pp009` / `011` / `006` and, rarely, `painted_plaster_008`. Brick: stained `brick_077`, faded `bricks_090` and whitewashed `bricks_022` x2 each, then the TX3 bricks, `bricks_023`, `brick_muted` and `brick_factory`. Concrete: mouldy `pillar_concrete_032` x2, cracked `wall_concrete_023`, streaked `concrete_029`, lichen `concrete_026`, blotched `concrete_039` and `concrete_formwork`. Out of the pools (still in the library and the paint picker): the tidy TX4 bricks, plain, white or loud plasters (`painted_plaster_018` / `012` / `013` / `007`, `plaster_002` / `004`, `painted_bricks_002` / `003` / `004`), the clean TX4 concretes, `render_lime` and `brick_082b`.
+- **Pinned.** `mod_nt_farmhouse` (and its ruin) keeps its pre-TX4 sets exactly (`PINNED`).
+- **Wear.** The varied-wall buildings carry `"wear": 1.0` (`WALL_WEAR`), read by `src/interior.cpp` `defaultWear` when a copy has no finish of its own: more substrate through the paint, soot and worn edges than the 0.2 other modern buildings get. On an "abandoned" map every modern building is already a ruin at 1.85, so there the sets do the work.

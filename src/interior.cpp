@@ -575,6 +575,14 @@ ShapePtr InteriorSys::staticShape(App& app, const Instance& i, const AssetDef* a
   return a->shape;
 }
 
+// TX5: a building's default wear (dirt, chipped paint, soot) when the copy has no "finish" of its own: ruins 1.85; an
+// asset's own "wear" (tools/wall_variety.mjs: the varied-wall buildings); other modern buildings almost clean
+static float defaultWear(App& app, const AssetDef* a) {
+  if (ruinHost(app, a)) return 1.85f;
+  if (a && a->raw.is_object() && a->raw.contains("wear") && a->raw["wear"].is_number()) return std::clamp(a->raw["wear"].get<float>(), 0.0f, 2.0f);
+  return a && a->id.rfind("mod_", 0) == 0 ? 0.2f : 1.0f;
+}
+
 const SurfaceParams* InteriorSys::surfaceFor(App& app, const Instance& i, const AssetDef* a) {
   if (!a || (a->panels.empty() && !a->enterable)) return nullptr;
   SurfEntry& e = surf_[i.id];
@@ -584,7 +592,7 @@ const SurfaceParams* InteriorSys::surfaceFor(App& app, const Instance& i, const 
   json fin = i.extra.is_object() && i.extra.contains("finish") ? i.extra["finish"] : json::object();
   float seed = h01((uint32_t)i.id, 77u);
   const bool cleanMap = app.doc.extra.is_object() && app.doc.extra.contains("look") && app.doc.extra["look"].is_object() && app.doc.extra["look"].value("clean", false);   // BR2
-  sp.inst = vec4(seed, cleanMap ? 0.0f : std::clamp(fin.value("wear", ruinHost(app, a) ? 1.85f : a->id.rfind("mod_", 0) == 0 ? 0.2f : 1.0f), 0.0f, 2.0f), std::clamp(fin.value("palette", 1.0f), 0.0f, 1.0f), 0.0f);
+  sp.inst = vec4(seed, cleanMap ? 0.0f : std::clamp(fin.value("wear", defaultWear(app, a)), 0.0f, 2.0f), std::clamp(fin.value("palette", 1.0f), 0.0f, 1.0f), 0.0f);
   const RoomInfo* ri = rooms(a);
   int n = (int)ri->rooms.size();   // GX5: every room (the first 16 in uniforms, the rest in the decal buffer)
   std::vector<vec4> xA, xB;
@@ -2569,7 +2577,7 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
   if (lightsOnly) in["lightsOnly"] = true; else in.erase("lightsOnly");
   float density = std::clamp(in.value("density", 1.0f), 0.0f, 2.0f), clutter = std::clamp(in.value("clutter", 0.7f), 0.0f, 2.0f);   // V4: 1.0 is a lived-in house (3x the first templates), 2.0 crowded
   const bool ruin = ruinHost(app, ha);   // AS1
-  const float wear0 = ruin ? 1.85f : ha && ha->id.rfind("mod_", 0) == 0 ? 0.2f : 1.0f;   // MOD1: modern buildings start almost clean
+  const float wear0 = defaultWear(app, ha);   // MOD1: modern buildings start almost clean (TX5: unless the asset says otherwise)
   float wear = h->extra.contains("finish") ? h->extra["finish"].value("wear", wear0) : wear0;
   std::set<std::string> removed;
   for (auto& s : in.value("removed", json::array())) removed.insert(s.get<std::string>());
@@ -2790,7 +2798,7 @@ void InteriorSys::editorPanel(App& app, Instance& s) {
   if (!ImGui::CollapsingHeader("Interior: rooms, finishes and furniture")) return;
   ImGui::TextDisabled("%zu rooms detected, %zu keep-clear volumes (doors, stairs, windows)", ri->rooms.size(), ri->keep.size());
   for (size_t k = 0; k < ri->rooms.size(); ++k) ImGui::BulletText("%s, %.1f m2 (storey %d)%s", roomTypeName(ri->rooms[k].type), ri->rooms[k].area, ri->rooms[k].storey, ri->rooms[k].hearth ? ", hearth" : "");
-  float wear = fin.value("wear", a && a->id.rfind("mod_", 0) == 0 ? 0.2f : 1.0f), pal = fin.value("palette", 1.0f);
+  float wear = fin.value("wear", defaultWear(app, a)), pal = fin.value("palette", 1.0f);
   bool act = false, ed = false;
   ImGui::SliderFloat("Wear", &wear, 0.0f, 2.0f, "%.2f"); act |= ImGui::IsItemActivated(); ed |= ImGui::IsItemEdited();
   ImGui::SliderFloat("Palette variation", &pal, 0.0f, 1.0f, "%.2f"); act |= ImGui::IsItemActivated(); ed |= ImGui::IsItemEdited();
