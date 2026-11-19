@@ -22,7 +22,8 @@ SEM = {'Bone': 'Hips', 'spine1': 'Spine', 'spine2': 'Spine1', 'spine3': 'Spine2'
        'arm1.R': 'RightShoulder', 'arm2.R': 'RightArm', 'arm3.R': 'RightForeArm', 'wrist.R': 'RightHand',
        'leg1.L': 'LeftUpLeg', 'leg2.L': 'LeftLeg', 'leg3.L': 'LeftFoot', 'leg4.L': 'LeftToeBase',
        'leg1.R': 'RightUpLeg', 'leg2.R': 'RightLeg', 'leg3.R': 'RightFoot', 'leg4.R': 'RightToeBase'}
-SHORT = {'FN_FAL': 'fal', 'Pistol_9mm': 'pistol', 'Remington870': 'r870', 'P08_Luger': 'luger', 'CZ_Scorpion_Evo': 'scorpion', 'SCAR_L': 'scar'}
+SHORT = {'FN_FAL': 'fal', 'Pistol_9mm': 'pistol', 'Remington870': 'r870', 'P08_Luger': 'luger', 'CZ_Scorpion_Evo': 'scorpion', 'SCAR_L': 'scar',
+         'BAR_M1918A2': 'bar', 'M1Garand': 'garand', 'M3_GreaseGun': 'm3', 'M1911': 'm1911'}
 def short(folder): return SHORT.get(folder) or ''.join(c for c in folder.lower() if c.isalnum())
 
 def strip_num(n):
