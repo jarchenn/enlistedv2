@@ -1,0 +1,19 @@
+{
+ "set": "wood_095",
+ "id": "Wood095",
+ "family": "wood (TX4)",
+ "size": [
+  1,
+  1
+ ],
+ "source": "https://ambientcg.com/a/Wood095",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

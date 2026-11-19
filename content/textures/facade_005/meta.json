@@ -1,0 +1,19 @@
+{
+ "set": "facade_005",
+ "id": "Facade005",
+ "family": "facade (TX4)",
+ "size": [
+  4,
+  4
+ ],
+ "source": "https://ambientcg.com/a/Facade005",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

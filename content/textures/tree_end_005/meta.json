@@ -1,0 +1,18 @@
+{
+ "set": "tree_end_005",
+ "id": "TreeEnd005",
+ "family": "log end (TX4)",
+ "size": [
+  0.45,
+  0.45
+ ],
+ "source": "https://ambientcg.com/a/TreeEnd005",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "color.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

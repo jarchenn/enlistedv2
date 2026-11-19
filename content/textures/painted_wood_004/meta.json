@@ -1,0 +1,19 @@
+{
+ "set": "painted_wood_004",
+ "id": "PaintedWood004",
+ "family": "painted wood (TX4)",
+ "size": [
+  2,
+  2
+ ],
+ "source": "https://ambientcg.com/a/PaintedWood004",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

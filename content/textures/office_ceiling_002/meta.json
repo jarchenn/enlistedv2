@@ -1,0 +1,20 @@
+{
+ "set": "office_ceiling_002",
+ "id": "OfficeCeiling002",
+ "family": "ceiling tiles (TX4)",
+ "size": [
+  3.85,
+  3.85
+ ],
+ "source": "https://ambientcg.com/a/OfficeCeiling002",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "ao.jpg",
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

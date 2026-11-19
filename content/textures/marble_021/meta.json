@@ -1,0 +1,19 @@
+{
+ "set": "marble_021",
+ "id": "Marble021",
+ "family": "marble (TX4)",
+ "size": [
+  2,
+  2
+ ],
+ "source": "https://ambientcg.com/a/Marble021",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "1K-JPG",
+ "maps": [
+  "color.jpg",
+  "height.jpg",
+  "normal.jpg",
+  "roughness.jpg"
+ ]
+}

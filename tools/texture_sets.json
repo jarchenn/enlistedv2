@@ -2636,6 +2636,3108 @@
    "source": "https://skfb.ly/o7pvZ",
    "license": "CC-BY-4.0",
    "credit": "\"Abandoned | Building | Shop | Old | House\" by YadroGames, CC BY 4.0 (modified: textures extracted / resized, building rebuilt for the game)"
+  },
+  {
+   "set": "bricks_104",
+   "id": "Bricks104",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "bricks_102",
+   "id": "Bricks102",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "bricks_075a",
+   "id": "Bricks075A",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    2.0,
+    1.0
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "bricks_092",
+   "id": "Bricks092",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.1,
+    1.1
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "bricks_100",
+   "id": "Bricks100",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "bricks_089",
+   "id": "Bricks089",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    2.2,
+    1.1
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "bricks_091",
+   "id": "Bricks091",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "bricks_051",
+   "id": "Bricks051",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.25,
+    1.25
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "bricks_090",
+   "id": "Bricks090",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "bricks_093",
+   "id": "Bricks093",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    2.1,
+    1.05
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "bricks_103",
+   "id": "Bricks103",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "bricks_086",
+   "id": "Bricks086",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    2.6,
+    1.3
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "bricks_038",
+   "id": "Bricks038",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.1,
+    1.1
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "bricks_095",
+   "id": "Bricks095",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "bricks_088",
+   "id": "Bricks088",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.8,
+    1.8
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "bricks_078",
+   "id": "Bricks078",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "bricks_098",
+   "id": "Bricks098",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "bricks_023",
+   "id": "Bricks023",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "bricks_087",
+   "id": "Bricks087",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.3,
+    1.3
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "bricks_053",
+   "id": "Bricks053",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.3,
+    1.3
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "bricks_052",
+   "id": "Bricks052",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.25,
+    1.25
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "bricks_072",
+   "id": "Bricks072",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    0.75
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "bricks_022",
+   "id": "Bricks022",
+   "family": "brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "painted_bricks_004",
+   "id": "PaintedBricks004",
+   "family": "painted brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.55,
+    1.55
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "painted_bricks_001",
+   "id": "PaintedBricks001",
+   "family": "painted brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.55,
+    1.55
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "painted_bricks_003",
+   "id": "PaintedBricks003",
+   "family": "painted brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.55,
+    1.55
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "painted_bricks_002",
+   "id": "PaintedBricks002",
+   "family": "painted brick (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.55,
+    1.55
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "painted_plaster_018",
+   "id": "PaintedPlaster018",
+   "family": "painted plaster (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "painted_plaster_015",
+   "id": "PaintedPlaster015",
+   "family": "painted plaster (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "painted_plaster_013",
+   "id": "PaintedPlaster013",
+   "family": "painted plaster (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "painted_plaster_001",
+   "id": "PaintedPlaster001",
+   "family": "painted plaster (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "painted_plaster_012",
+   "id": "PaintedPlaster012",
+   "family": "painted plaster (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "painted_plaster_007",
+   "id": "PaintedPlaster007",
+   "family": "painted plaster (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "painted_plaster_008",
+   "id": "PaintedPlaster008",
+   "family": "painted plaster (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "plaster_002",
+   "id": "Plaster002",
+   "family": "plaster (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "plaster_004",
+   "id": "Plaster004",
+   "family": "plaster (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "facade_020a",
+   "id": "Facade020A",
+   "family": "facade (TX4)",
+   "batch": "TX4",
+   "size": [
+    13.0,
+    13.0
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "facade_005",
+   "id": "Facade005",
+   "family": "facade (TX4)",
+   "batch": "TX4",
+   "size": [
+    4,
+    4
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "facade_013",
+   "id": "Facade013",
+   "family": "facade (TX4)",
+   "batch": "TX4",
+   "size": [
+    4,
+    4
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "facade_002",
+   "id": "Facade002",
+   "family": "facade (TX4)",
+   "batch": "TX4",
+   "size": [
+    4,
+    4
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "concrete_039",
+   "id": "Concrete039",
+   "family": "concrete (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.9,
+    1.9
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "concrete_013",
+   "id": "Concrete013",
+   "family": "concrete (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "concrete_018",
+   "id": "Concrete018",
+   "family": "concrete (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "concrete_038",
+   "id": "Concrete038",
+   "family": "concrete (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.6,
+    0.6
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "concrete_033",
+   "id": "Concrete033",
+   "family": "concrete (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "concrete_016",
+   "id": "Concrete016",
+   "family": "concrete (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "concrete_017",
+   "id": "Concrete017",
+   "family": "concrete (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "concrete_020",
+   "id": "Concrete020",
+   "family": "concrete (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "concrete_010",
+   "id": "Concrete010",
+   "family": "concrete (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "concrete_026",
+   "id": "Concrete026",
+   "family": "concrete (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "concrete_041a",
+   "id": "Concrete041A",
+   "family": "concrete (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "concrete_007",
+   "id": "Concrete007",
+   "family": "concrete (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "concrete_029",
+   "id": "Concrete029",
+   "family": "concrete (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "concrete_014",
+   "id": "Concrete014",
+   "family": "concrete (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "concrete_015",
+   "id": "Concrete015",
+   "family": "concrete (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "metal_064",
+   "id": "Metal064",
+   "family": "metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "metal_063",
+   "id": "Metal063",
+   "family": "metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "metal_049a",
+   "id": "Metal049A",
+   "family": "metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "metal_055a",
+   "id": "Metal055A",
+   "family": "metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "metal_046b",
+   "id": "Metal046B",
+   "family": "metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "metal_048a",
+   "id": "Metal048A",
+   "family": "metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "metal_032",
+   "id": "Metal032",
+   "family": "metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "metal_061b",
+   "id": "Metal061B",
+   "family": "metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "metal_050a",
+   "id": "Metal050A",
+   "family": "metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "metal_009",
+   "id": "Metal009",
+   "family": "metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "metal_034",
+   "id": "Metal034",
+   "family": "metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "metal_042a",
+   "id": "Metal042A",
+   "family": "metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "painted_metal_013",
+   "id": "PaintedMetal013",
+   "family": "painted metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "painted_metal_009",
+   "id": "PaintedMetal009",
+   "family": "painted metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "painted_metal_011",
+   "id": "PaintedMetal011",
+   "family": "painted metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "painted_metal_001",
+   "id": "PaintedMetal001",
+   "family": "painted metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "painted_metal_010",
+   "id": "PaintedMetal010",
+   "family": "painted metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "painted_metal_002",
+   "id": "PaintedMetal002",
+   "family": "painted metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "rust_007",
+   "id": "Rust007",
+   "family": "rust (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "rust_008",
+   "id": "Rust008",
+   "family": "rust (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "rust_004",
+   "id": "Rust004",
+   "family": "rust (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "rust_006",
+   "id": "Rust006",
+   "family": "rust (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "rust_003",
+   "id": "Rust003",
+   "family": "rust (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "corrugated_steel_002",
+   "id": "CorrugatedSteel002",
+   "family": "corrugated metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "corrugated_steel_004",
+   "id": "CorrugatedSteel004",
+   "family": "corrugated metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "corrugated_steel_003",
+   "id": "CorrugatedSteel003",
+   "family": "corrugated metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "corrugated_steel_001",
+   "id": "CorrugatedSteel001",
+   "family": "corrugated metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "diamond_plate_007d",
+   "id": "DiamondPlate007D",
+   "family": "diamond plate (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "diamond_plate_001",
+   "id": "DiamondPlate001",
+   "family": "diamond plate (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "diamond_plate_005c",
+   "id": "DiamondPlate005C",
+   "family": "diamond plate (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "diamond_plate_003",
+   "id": "DiamondPlate003",
+   "family": "diamond plate (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "metal_plates_008",
+   "id": "MetalPlates008",
+   "family": "metal plates (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "metal_plates_004",
+   "id": "MetalPlates004",
+   "family": "metal plates (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "metal_plates_014",
+   "id": "MetalPlates014",
+   "family": "metal plates (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.6,
+    1.6
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "metal_plates_009",
+   "id": "MetalPlates009",
+   "family": "metal plates (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "metal_plates_005",
+   "id": "MetalPlates005",
+   "family": "metal plates (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "sheet_metal_001",
+   "id": "SheetMetal001",
+   "family": "sheet metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "sheet_metal_002",
+   "id": "SheetMetal002",
+   "family": "sheet metal (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "wood_033",
+   "id": "Wood033",
+   "family": "wood (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "wood_086",
+   "id": "Wood086",
+   "family": "wood (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "wood_095",
+   "id": "Wood095",
+   "family": "wood (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "wood_094",
+   "id": "Wood094",
+   "family": "wood (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "wood_058",
+   "id": "Wood058",
+   "family": "wood (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.4,
+    0.4
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "wood_067",
+   "id": "Wood067",
+   "family": "wood (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.4,
+    0.4
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "wood_048",
+   "id": "Wood048",
+   "family": "wood (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.8,
+    0.8
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "wood_026",
+   "id": "Wood026",
+   "family": "wood (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "planks_040",
+   "id": "Planks040",
+   "family": "planks (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.2,
+    1.2
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "planks_029s",
+   "id": "Planks029S",
+   "family": "planks (TX4)",
+   "batch": "TX4",
+   "size": [
+    2.4,
+    2.4
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "planks_009",
+   "id": "Planks009",
+   "family": "planks (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "planks_028",
+   "id": "Planks028",
+   "family": "planks (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.8,
+    0.8
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "planks_022",
+   "id": "Planks022",
+   "family": "planks (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.1,
+    1.1
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "planks_032",
+   "id": "Planks032",
+   "family": "planks (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "planks_037a",
+   "id": "Planks037A",
+   "family": "planks (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "planks_033b",
+   "id": "Planks033B",
+   "family": "planks (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "planks_020",
+   "id": "Planks020",
+   "family": "planks (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "planks_036b",
+   "id": "Planks036B",
+   "family": "planks (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "painted_wood_006c",
+   "id": "PaintedWood006C",
+   "family": "painted wood (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "painted_wood_003",
+   "id": "PaintedWood003",
+   "family": "painted wood (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "painted_wood_001",
+   "id": "PaintedWood001",
+   "family": "painted wood (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "painted_wood_004",
+   "id": "PaintedWood004",
+   "family": "painted wood (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "painted_wood_002",
+   "id": "PaintedWood002",
+   "family": "painted wood (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "wood_floor_064",
+   "id": "WoodFloor064",
+   "family": "wood floor (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "wood_floor_062",
+   "id": "WoodFloor062",
+   "family": "wood floor (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "wood_floor_052",
+   "id": "WoodFloor052",
+   "family": "wood floor (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.8,
+    1.8
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "wood_floor_007",
+   "id": "WoodFloor007",
+   "family": "wood floor (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "wood_floor_069",
+   "id": "WoodFloor069",
+   "family": "wood floor (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "wood_floor_039",
+   "id": "WoodFloor039",
+   "family": "wood floor (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.9,
+    1.9
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "wood_floor_044",
+   "id": "WoodFloor044",
+   "family": "wood floor (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.3,
+    0.65
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "wood_floor_068",
+   "id": "WoodFloor068",
+   "family": "wood floor (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "wood_siding_005",
+   "id": "WoodSiding005",
+   "family": "wood siding (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "wood_siding_007",
+   "id": "WoodSiding007",
+   "family": "wood siding (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "wood_siding_013",
+   "id": "WoodSiding013",
+   "family": "wood siding (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.4,
+    1.4
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "wood_siding_006",
+   "id": "WoodSiding006",
+   "family": "wood siding (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "wood_siding_001",
+   "id": "WoodSiding001",
+   "family": "wood siding (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "roofing_tiles_006",
+   "id": "RoofingTiles006",
+   "family": "roofing (TX4)",
+   "batch": "TX4",
+   "size": [
+    3.2,
+    3.2
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "roofing_tiles_011a",
+   "id": "RoofingTiles011A",
+   "family": "roofing (TX4)",
+   "batch": "TX4",
+   "size": [
+    2.9,
+    2.9
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "roofing_tiles_008",
+   "id": "RoofingTiles008",
+   "family": "roofing (TX4)",
+   "batch": "TX4",
+   "size": [
+    3.2,
+    3.2
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "roofing_tiles_007",
+   "id": "RoofingTiles007",
+   "family": "roofing (TX4)",
+   "batch": "TX4",
+   "size": [
+    3.2,
+    3.2
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "roofing_tiles_009",
+   "id": "RoofingTiles009",
+   "family": "roofing (TX4)",
+   "batch": "TX4",
+   "size": [
+    3.2,
+    3.2
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "roofing_tiles_002",
+   "id": "RoofingTiles002",
+   "family": "roofing (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "roofing_tiles_010",
+   "id": "RoofingTiles010",
+   "family": "roofing (TX4)",
+   "batch": "TX4",
+   "size": [
+    3.2,
+    3.2
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "thatched_roof_002a",
+   "id": "ThatchedRoof002A",
+   "family": "thatch (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "tiles_098",
+   "id": "Tiles098",
+   "family": "tiles (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.85,
+    1.85
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "tiles_038",
+   "id": "Tiles038",
+   "family": "tiles (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.1,
+    0.55
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "tiles_027",
+   "id": "Tiles027",
+   "family": "tiles (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "tiles_028",
+   "id": "Tiles028",
+   "family": "tiles (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "tiles_073",
+   "id": "Tiles073",
+   "family": "tiles (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.75,
+    0.75
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "tiles_115",
+   "id": "Tiles115",
+   "family": "tiles (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "tiles_039",
+   "id": "Tiles039",
+   "family": "tiles (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "tiles_117",
+   "id": "Tiles117",
+   "family": "tiles (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "tiles_116",
+   "id": "Tiles116",
+   "family": "tiles (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "tiles_026",
+   "id": "Tiles026",
+   "family": "tiles (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "tiles_143",
+   "id": "Tiles143",
+   "family": "tiles (TX4)",
+   "batch": "TX4",
+   "size": [
+    2.0,
+    2.0
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "tiles_139",
+   "id": "Tiles139",
+   "family": "tiles (TX4)",
+   "batch": "TX4",
+   "size": [
+    2.0,
+    2.0
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "tiles_142",
+   "id": "Tiles142",
+   "family": "tiles (TX4)",
+   "batch": "TX4",
+   "size": [
+    2.0,
+    2.0
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "carpet_001",
+   "id": "Carpet001",
+   "family": "carpet (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "carpet_014",
+   "id": "Carpet014",
+   "family": "carpet (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "carpet_011",
+   "id": "Carpet011",
+   "family": "carpet (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "carpet_013",
+   "id": "Carpet013",
+   "family": "carpet (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "paving_stones_151",
+   "id": "PavingStones151",
+   "family": "paving (TX4)",
+   "batch": "TX4",
+   "size": [
+    5.4,
+    5.4
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "paving_stones_146",
+   "id": "PavingStones146",
+   "family": "paving (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "paving_stones_149",
+   "id": "PavingStones149",
+   "family": "paving (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "paving_stones_147",
+   "id": "PavingStones147",
+   "family": "paving (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "paving_stones_131",
+   "id": "PavingStones131",
+   "family": "paving (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "paving_stones_141",
+   "id": "PavingStones141",
+   "family": "paving (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "paving_stones_122",
+   "id": "PavingStones122",
+   "family": "paving (TX4)",
+   "batch": "TX4",
+   "size": [
+    3.0,
+    1.5
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "paving_stones_111",
+   "id": "PavingStones111",
+   "family": "paving (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "paving_stones_148",
+   "id": "PavingStones148",
+   "family": "paving (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "paving_stones_144",
+   "id": "PavingStones144",
+   "family": "paving (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "paving_stones_143",
+   "id": "PavingStones143",
+   "family": "paving (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "paving_stones_099",
+   "id": "PavingStones099",
+   "family": "paving (TX4)",
+   "batch": "TX4",
+   "size": [
+    2.0,
+    2.0
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "paving_stones_109",
+   "id": "PavingStones109",
+   "family": "paving (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "paving_stones_053",
+   "id": "PavingStones053",
+   "family": "paving (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "paving_stones_114",
+   "id": "PavingStones114",
+   "family": "paving (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.6,
+    1.6
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "tactile_paving_006",
+   "id": "TactilePaving006",
+   "family": "tactile paving (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.9,
+    0.9
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "tactile_paving_007",
+   "id": "TactilePaving007",
+   "family": "tactile paving (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.9,
+    0.9
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "asphalt_023s",
+   "id": "Asphalt023S",
+   "family": "asphalt (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.25,
+    1.25
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "asphalt_032",
+   "id": "Asphalt032",
+   "family": "asphalt (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "asphalt_020l",
+   "id": "Asphalt020L",
+   "family": "asphalt (TX4)",
+   "batch": "TX4",
+   "size": [
+    4.6,
+    4.6
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "asphalt_015",
+   "id": "Asphalt015",
+   "family": "asphalt (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "asphalt_030",
+   "id": "Asphalt030",
+   "family": "asphalt (TX4)",
+   "batch": "TX4",
+   "size": [
+    2.2,
+    2.2
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "asphalt_025c",
+   "id": "Asphalt025C",
+   "family": "asphalt (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "asphalt_026c",
+   "id": "Asphalt026C",
+   "family": "asphalt (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "asphalt_019",
+   "id": "Asphalt019",
+   "family": "asphalt (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "road_007",
+   "id": "Road007",
+   "family": "road (TX4)",
+   "batch": "TX4",
+   "size": [
+    7.5,
+    7.5
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "road_011a",
+   "id": "Road011A",
+   "family": "road (TX4)",
+   "batch": "TX4",
+   "size": [
+    4,
+    4
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "road_014a",
+   "id": "Road014A",
+   "family": "road (TX4)",
+   "batch": "TX4",
+   "size": [
+    4,
+    4
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "road_010a",
+   "id": "Road010A",
+   "family": "road (TX4)",
+   "batch": "TX4",
+   "size": [
+    4,
+    4
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "road_006",
+   "id": "Road006",
+   "family": "road (TX4)",
+   "batch": "TX4",
+   "size": [
+    7.5,
+    7.5
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "road_003",
+   "id": "Road003",
+   "family": "road (TX4)",
+   "batch": "TX4",
+   "size": [
+    7.5,
+    7.5
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "road_001",
+   "id": "Road001",
+   "family": "road (TX4)",
+   "batch": "TX4",
+   "size": [
+    7.5,
+    7.5
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "ground_106",
+   "id": "Ground106",
+   "family": "ground (TX4)",
+   "batch": "TX4",
+   "size": [
+    2.5,
+    2.5
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "ground_107",
+   "id": "Ground107",
+   "family": "ground (TX4)",
+   "batch": "TX4",
+   "size": [
+    2.8,
+    2.8
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "ground_086",
+   "id": "Ground086",
+   "family": "ground (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "ground_105",
+   "id": "Ground105",
+   "family": "ground (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "ground_102",
+   "id": "Ground102",
+   "family": "ground (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "ground_067",
+   "id": "Ground067",
+   "family": "ground (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "ground_078",
+   "id": "Ground078",
+   "family": "ground (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "ground_088",
+   "id": "Ground088",
+   "family": "ground (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "ground_091",
+   "id": "Ground091",
+   "family": "ground (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "ground_087",
+   "id": "Ground087",
+   "family": "ground (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "ground_090",
+   "id": "Ground090",
+   "family": "ground (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "ground_082s",
+   "id": "Ground082S",
+   "family": "ground (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "ground_089",
+   "id": "Ground089",
+   "family": "ground (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "ground_072",
+   "id": "Ground072",
+   "family": "ground (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.75,
+    1.75
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "ground_062s",
+   "id": "Ground062S",
+   "family": "ground (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.6,
+    1.6
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "ground_076",
+   "id": "Ground076",
+   "family": "ground (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "ground_074",
+   "id": "Ground074",
+   "family": "ground (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.8,
+    1.8
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "ground_084",
+   "id": "Ground084",
+   "family": "ground (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "ground_061",
+   "id": "Ground061",
+   "family": "ground (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "gravel_042",
+   "id": "Gravel042",
+   "family": "gravel (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "gravel_035",
+   "id": "Gravel035",
+   "family": "gravel (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.9,
+    1.9
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "gravel_032",
+   "id": "Gravel032",
+   "family": "gravel (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "gravel_038",
+   "id": "Gravel038",
+   "family": "gravel (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "gravel_037",
+   "id": "Gravel037",
+   "family": "gravel (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "gravel_039",
+   "id": "Gravel039",
+   "family": "gravel (TX4)",
+   "batch": "TX4",
+   "size": [
+    2.4,
+    2.4
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "gravel_033",
+   "id": "Gravel033",
+   "family": "gravel (TX4)",
+   "batch": "TX4",
+   "size": [
+    2.0,
+    2.0
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "rock_063",
+   "id": "Rock063",
+   "family": "rock (TX4)",
+   "batch": "TX4",
+   "size": [
+    3,
+    3
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "rock_050",
+   "id": "Rock050",
+   "family": "rock (TX4)",
+   "batch": "TX4",
+   "size": [
+    3,
+    3
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "rock_041",
+   "id": "Rock041",
+   "family": "rock (TX4)",
+   "batch": "TX4",
+   "size": [
+    3,
+    3
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "rock_054",
+   "id": "Rock054",
+   "family": "rock (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.4,
+    1.4
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "rock_053",
+   "id": "Rock053",
+   "family": "rock (TX4)",
+   "batch": "TX4",
+   "size": [
+    3,
+    3
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "rock_048",
+   "id": "Rock048",
+   "family": "rock (TX4)",
+   "batch": "TX4",
+   "size": [
+    3,
+    3
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "rock_055",
+   "id": "Rock055",
+   "family": "rock (TX4)",
+   "batch": "TX4",
+   "size": [
+    3,
+    3
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "rock_018",
+   "id": "Rock018",
+   "family": "rock (TX4)",
+   "batch": "TX4",
+   "size": [
+    3,
+    3
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "rock_049",
+   "id": "Rock049",
+   "family": "rock (TX4)",
+   "batch": "TX4",
+   "size": [
+    3,
+    3
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "rocks_025",
+   "id": "Rocks025",
+   "family": "rocks (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.9,
+    1.9
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "rocks_006",
+   "id": "Rocks006",
+   "family": "rocks (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "rocks_023",
+   "id": "Rocks023",
+   "family": "rocks (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "rocks_024s",
+   "id": "Rocks024S",
+   "family": "rocks (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.8,
+    1.8
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "rocks_005",
+   "id": "Rocks005",
+   "family": "rocks (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "snow_015",
+   "id": "Snow015",
+   "family": "snow (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "snow_014",
+   "id": "Snow014",
+   "family": "snow (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "snow_013",
+   "id": "Snow013",
+   "family": "snow (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "snow_012",
+   "id": "Snow012",
+   "family": "snow (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "snow_011",
+   "id": "Snow011",
+   "family": "snow (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "snow_006",
+   "id": "Snow006",
+   "family": "snow (TX4)",
+   "batch": "TX4",
+   "size": [
+    2.5,
+    2.5
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "snow_005",
+   "id": "Snow005",
+   "family": "snow (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "fabric_067",
+   "id": "Fabric067",
+   "family": "fabric (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "fabric_043",
+   "id": "Fabric043",
+   "family": "fabric (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "fabric_086",
+   "id": "Fabric086",
+   "family": "fabric (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "fabric_082a",
+   "id": "Fabric082A",
+   "family": "fabric (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "fabric_036",
+   "id": "Fabric036",
+   "family": "fabric (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "fabric_062",
+   "id": "Fabric062",
+   "family": "fabric (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.4,
+    0.4
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "fabric_048",
+   "id": "Fabric048",
+   "family": "fabric (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.4,
+    0.4
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "fabric_079",
+   "id": "Fabric079",
+   "family": "fabric (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.2,
+    0.2
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "bark_016",
+   "id": "Bark016",
+   "family": "bark (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.8,
+    0.8
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "bark_012",
+   "id": "Bark012",
+   "family": "bark (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "bark_013",
+   "id": "Bark013",
+   "family": "bark (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "bark_007",
+   "id": "Bark007",
+   "family": "bark (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "moss_001",
+   "id": "Moss001",
+   "family": "moss (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.45,
+    0.45
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "moss_003",
+   "id": "Moss003",
+   "family": "moss (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "clay_006",
+   "id": "Clay006",
+   "family": "clay (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.2,
+    0.2
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "clay_007",
+   "id": "Clay007",
+   "family": "clay (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.2,
+    0.2
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "marble_021",
+   "id": "Marble021",
+   "family": "marble (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "marble_006",
+   "id": "Marble006",
+   "family": "marble (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "terrazzo_005",
+   "id": "Terrazzo005",
+   "family": "terrazzo (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "terrazzo_004",
+   "id": "Terrazzo004",
+   "family": "terrazzo (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.5,
+    1.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "granite_002a",
+   "id": "Granite002A",
+   "family": "granite (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "granite_001a",
+   "id": "Granite001A",
+   "family": "granite (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "leather_038",
+   "id": "Leather038",
+   "family": "leather (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "leather_027",
+   "id": "Leather027",
+   "family": "leather (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "chipboard_004",
+   "id": "Chipboard004",
+   "family": "chipboard (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.2,
+    1.2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "chipboard_005",
+   "id": "Chipboard005",
+   "family": "chipboard (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.2,
+    1.2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "cardboard_002",
+   "id": "Cardboard002",
+   "family": "cardboard (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "cardboard_004",
+   "id": "Cardboard004",
+   "family": "cardboard (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "paper_006",
+   "id": "Paper006",
+   "family": "paper (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.5,
+    0.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "paper_001",
+   "id": "Paper001",
+   "family": "paper (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.5,
+    0.5
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "wicker_013",
+   "id": "Wicker013",
+   "family": "wicker (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.5,
+    0.5
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "wicker_008a",
+   "id": "Wicker008A",
+   "family": "wicker (TX4)",
+   "batch": "TX4",
+   "size": [
+    1,
+    1
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "scattered_leaves_001",
+   "id": "ScatteredLeaves001",
+   "family": "leaf litter (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "scattered_leaves_006",
+   "id": "ScatteredLeaves006",
+   "family": "leaf litter (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "pathway_004",
+   "id": "Pathway004",
+   "family": "pathway (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "pathway_002",
+   "id": "Pathway002",
+   "family": "pathway (TX4)",
+   "batch": "TX4",
+   "size": [
+    3.0,
+    1.5
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "tree_end_005",
+   "id": "TreeEnd005",
+   "family": "log end (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.45,
+    0.45
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "office_ceiling_002",
+   "id": "OfficeCeiling002",
+   "family": "ceiling tiles (TX4)",
+   "batch": "TX4",
+   "size": [
+    3.85,
+    3.85
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "office_ceiling_003",
+   "id": "OfficeCeiling003",
+   "family": "ceiling tiles (TX4)",
+   "batch": "TX4",
+   "size": [
+    5.15,
+    5.15
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "travertine_005",
+   "id": "Travertine005",
+   "family": "travertine (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.2,
+    1.2
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "travertine_004",
+   "id": "Travertine004",
+   "family": "travertine (TX4)",
+   "batch": "TX4",
+   "size": [
+    1.2,
+    1.2
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "ice_003",
+   "id": "Ice003",
+   "family": "ice (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "ice_002",
+   "id": "Ice002",
+   "family": "ice (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "surface_imperfections_015",
+   "id": "SurfaceImperfections015",
+   "family": "damage overlay (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.65,
+    0.65
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "surface_imperfections_017",
+   "id": "SurfaceImperfections017",
+   "family": "damage overlay (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.4,
+    0.4
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "surface_imperfections_003",
+   "id": "SurfaceImperfections003",
+   "family": "damage overlay (TX4)",
+   "batch": "TX4",
+   "size": [
+    2,
+    2
+   ],
+   "sizeSource": "category default (ambientCG lists no dimensions)"
+  },
+  {
+   "set": "surface_imperfections_014",
+   "id": "SurfaceImperfections014",
+   "family": "damage overlay (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.65,
+    0.65
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "surface_imperfections_020",
+   "id": "SurfaceImperfections020",
+   "family": "damage overlay (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.4,
+    0.4
+   ],
+   "sizeSource": "ambientCG dimensions"
+  },
+  {
+   "set": "smear_008",
+   "id": "Smear008",
+   "family": "smear overlay (TX4)",
+   "batch": "TX4",
+   "size": [
+    0.2,
+    0.2
+   ],
+   "sizeSource": "ambientCG dimensions"
   }
  ],
  "polyhaven": [
