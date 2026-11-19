@@ -6,6 +6,7 @@ through the square, the Hollow Lane (a sunken cart track) in the east. An origin
 user's reference village.
 
     <python> -I tools/mapgen/build.py sd_village"""
+import json
 import math
 import os
 
@@ -46,24 +47,24 @@ SITE_B = (26.0, 20.0)     # the farmyard
 BUILDINGS = [
     # the square
     ("vil_bakery", -24.0, -6.0, 90.0), ("vil_merchant_house", -29.0, 12.5, 0.0), ("vil_townhouse_jettied", -3.0, 25.0, 180.0),
-    ("house_stone_cottage", 15.0, 24.0, 90.0), ("vil_gatehouse_chapel", 21.0, 2.0, 90.0), ("vil_cafe_corner", 24.0, -14.5, 270.0),
-    ("ruin_house_shelled", -10.0, -16.5, 0.0), ("vil_corner_shop", 10.5, -17.5, 0.0),
+    ("house_stone_cottage", 15.0, 24.0, 90.0), ("vil_gatehouse_chapel", 21.0, 2.0, 90.0), ("vil_cafe_corner", 25.5, -14.5, 270.0),
+    ("ruin_house_shelled", -10.0, -16.5, 0.0), ("vil_corner_shop", 10.0, -17.5, 0.0),
     # the main street
-    ("vil_norman_farmhouse", -13.5, -30.0, 90.0), ("house_stone_cottage", -11.5, -49.0, 90.0),
-    ("vil_colombage_auge", 13.5, -37.5, 270.0), ("house_farmhouse_2story", 13.0, -53.0, 270.0),
+    ("vil_norman_farmhouse", -12.5, -30.0, 90.0), ("house_stone_cottage", -11.5, -49.0, 90.0),
+    ("vil_colombage_auge", 12.0, -37.5, 270.0), ("house_farmhouse_2story", 13.0, -53.0, 270.0),
     # between the Grave Path and the square
     ("pa_stone_house_ruin", -43.0, -8.0, 90.0), ("vil_longhouse_thatched", -58.0, 40.0, 90.0),
     # the church and the knoll
     ("vil_church", -30.0, 40.0, 180.0),
     # the farm
-    ("vil_stone_barn", 36.0, 34.0, 180.0), ("ruin_barn_burnt", 52.0, 30.0, 270.0), ("pa_shed_ruin_long", 42.0, -4.0, 90.0),
+    ("vil_stone_barn", 36.0, 34.0, 180.0), ("ruin_barn_burnt", 52.0, 30.0, 270.0), ("pa_shed_ruin_long", 42.0, -2.5, 90.0),
     ("small_storehouse", 66.0, 40.0, 90.0), ("vil_relais_inn", 52.0, 52.0, 180.0),
     # east of the main street, west of the Hollow Lane
-    ("pa_log_house_ruin", 34.0, -44.0, 300.0), ("ruin_farmhouse_gutted", 38.5, -17.0, 0.0),
+    ("pa_log_house_ruin", 37.5, -40.0, 0.0), ("ruin_farmhouse_gutted", 41.0, -18.0, 180.0),
     # infill: the village closes round its lanes (enterable houses give the short, indoor sightlines)
-    ("house_farmhouse_2story", -27.0, -49.0, 180.0), ("vil_granite_longere", -30.0, -22.0, 0.0), ("house_stone_cottage", -46.0, -26.0, 90.0),
+    ("house_farmhouse_2story", -27.0, -49.0, 180.0), ("vil_granite_longere", -31.5, -22.0, 0.0), ("house_stone_cottage", -47.0, -26.0, 270.0),
     ("vil_rectory", 8.0, 47.0, 180.0), ("house_stone_cottage", -24.0, 56.0, 180.0), ("small_storehouse", 26.0, -52.0, 330.0),
-    ("ruin_house_shelled", 24.0, -38.0, 270.0),
+    ("ruin_house_shelled", 24.5, -38.0, 90.0),
     # the wardens' side
     ("vil_mill_house", -10.0, 70.0, 180.0), ("pa_shack_ruin", 36.0, 64.0, 200.0), ("ruin_cottage_corner", -30.0, 64.0, 160.0),
 ]
@@ -158,6 +159,51 @@ def build(ctx):
                 if in_poly(q, grow):
                     bad.append("lane %d through %s(%g,%g) at (%.0f,%.0f)" % (li, ai, xi, zi, q[0], q[1]))
                     break
+    # the houses' companions (front garden walls, picket fences, gate piers, sheds) keep 2 m clear of every lane: placed
+    # with their host, they ran down Main Street and across the churchyard (IW1)
+    def rect_pts(e):
+        a = cat[e["asset"]]
+        hx, hz = a.half
+        nx, nz = max(1, int(2 * hx / 0.5)), max(1, int(2 * hz / 0.5))
+        return [local_to_world((e["pos"][0], e["pos"][2]), e["yaw"], -hx + 2 * hx * i / nx, -hz + 2 * hz * k / nz)
+                for i in range(nx + 1) for k in range(nz + 1)]
+
+    def lane_gap(e):
+        return min(polyline_dist(q, pts)[0] for q in rect_pts(e) for pts in LANES)
+
+    comp_cut = [e for e in b.inst if "companion" in e["tags"] and not cat[e["asset"]].tree and lane_gap(e) < 2.0]
+    for e in comp_cut:
+        print("IW1 cut companion %s at (%.1f, %.1f), host %s" % (e["asset"], e["pos"][0], e["pos"][2], e.get("host")))
+        b.remove(e)
+    for e in b.inst:   # self-check: no companion within 1.5 m of a lane
+        if "companion" in e["tags"] and not cat[e["asset"]].tree and lane_gap(e) < 1.5:
+            bad.append("companion %s(%.0f,%.0f) on a lane" % (e["asset"], e["pos"][0], e["pos"][2]))
+    # every ground-floor door keeps a clear way in: 3 m out from the entrance, 1.4 m wide (IW1: doors opened onto a
+    # neighbour's wall, a porch post, a woodpile, a lane wall)
+    doors = []   # (host id, corridor polygon)
+    for e in b.inst:
+        if "building" not in e["tags"] or "companion" in e["tags"]:
+            continue
+        for en in cat[e["asset"]].nav.get("entrances") or []:
+            if en["p"][1] > 1.0:
+                continue
+            px, pz = en["p"][0], en["p"][2]
+            ox, oz = -en["dir"][0], -en["dir"][2]
+            n = math.hypot(ox, oz) or 1.0
+            ox, oz = ox / n, oz / n
+            for depth in (3.0, 1.8):
+                q = [(px + ox * a_ - oz * w_, pz + oz * a_ + ox * w_) for a_, w_ in ((-0.2, -0.7), (depth, -0.7), (depth, 0.7), (-0.2, 0.7))]
+                doors.append((e["id"], depth, [local_to_world((e["pos"][0], e["pos"][2]), e["yaw"], lx, lz) for lx, lz in q]))
+
+    def in_door(e, own=None, depth=3.0):
+        pts = rect_pts(e)
+        return next((h for h, dp, poly in doors if dp == depth and h != own and h != e["id"] and any(in_poly(p, poly) for p in pts)), None)
+
+    for e in b.inst:   # a building leaves a neighbour's door 1.8 m to step out into
+        if "building" in e["tags"] and "companion" not in e["tags"]:
+            h = in_door(e, depth=1.8)
+            if h is not None:
+                bad.append("building %s(%.0f,%.0f) in front of %s's door" % (e["asset"], e["pos"][0], e["pos"][2], b.by_id[h]["asset"]))
     for m in bad:
         print("LAYOUT:", m)
 
@@ -234,7 +280,7 @@ def build(ctx):
     for x0, z0, x1, z1 in ((-50.0, -30.0, -24.0, -30.0), (-50.0, -4.0, -32.0, -4.0), (20.0, -30.0, 46.0, -34.0),
                            (24.0, 40.0, 24.0, 52.0), (-62.0, -50.0, -62.0, 20.0), (62.0, -40.0, 62.0, 4.0)):
         L = math.hypot(x1 - x0, z1 - z0)
-        n = int(L / 3.0)
+        n = max(1, math.ceil(L / cat["mod_palisade_fence" if abs(x0) > 60 else "drs_picket_fence"].fw))   # bays end to end: no slits (IW1)
         for k in range(n):
             if R.random() < 0.18:   # broken bays
                 continue
@@ -261,6 +307,9 @@ def build(ctx):
                     if abs(x) > B0 - 1.5 or abs(z) > B0 - 1.5 or (sq[0] - 3 < x < sq[2] + 3 and sq[1] - 3 < z < sq[3] + 3):
                         continue
                     if min(polyline_dist((x, z), q)[0] for q in LANES) < off - 0.6 or not clear(x, z, 3.0) or R.random() < 0.12:
+                        continue
+                    hl = cat[aid].half[0]   # the piece's ends keep 2 m off a crossing lane too (IW1)
+                    if min(polyline_dist((x + tx_ * hl * sg, z + tz_ * hl * sg), q)[0] for q in LANES for sg in (-1, 1)) < 2.0:
                         continue
                     if b.overlaps(cat[aid], x, z, look_yaw(tx_, tz_) + 90.0, {"flat", "none"}):
                         continue
@@ -309,6 +358,82 @@ def build(ctx):
         elif a.startswith("nat_flowers_") or a in ("drs_flower_bed", "shrub_hazel", "nat_hawthorn_bush"):
             b.remove(e)
             n_green += 1
+
+    # no slots: a placed piece either touches its neighbour or leaves a real way through (1 m; the player is 0.6 m wide).
+    # A 0.15-1.0 m gap between a wall end and the next, a fence beside a wall, a cart off a house wall reads as passable
+    # and is not (IW1). The later piece goes; a building's own authored set (the church's graves) is left as authored.
+    def solid(e):
+        a = cat[e["asset"]]
+        return not a.tree and "forest" not in e["tags"] and a.fw * a.fd > 0.04 and not a.raw.get("nature") and (
+            a.raw.get("parts") or a.raw.get("model")) and not e["asset"].startswith("nat_")
+
+    col_box = {}
+
+    def col_half(aid):   # the walking-height collider bounds (asset space): a stated footprint can be smaller than the walls
+        if aid not in col_box:
+            ps = cat[aid].raw.get("parts") or []
+            ps = json.loads(ps) if isinstance(ps, str) else ps
+            bx = [(q["c"][0] - q["s"][0] / 2, q["c"][0] + q["s"][0] / 2, q["c"][2] - q["s"][2] / 2, q["c"][2] + q["s"][2] / 2) for q in ps
+                  if q.get("k", 1) != 0 and "c" in q and "s" in q and q["c"][1] + q["s"][1] / 2 > 0.35 and q["c"][1] - q["s"][1] / 2 < 1.8]
+            if bx:
+                x0, x1, z0, z1 = min(v[0] for v in bx), max(v[1] for v in bx), min(v[2] for v in bx), max(v[3] for v in bx)
+                col_box[aid] = ((x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2, (z1 - z0) / 2)
+            else:
+                col_box[aid] = (0.0, 0.0) + cat[aid].half
+        return col_box[aid]
+
+    def frame(e):
+        ox, oz, hx, hz = col_half(e["asset"])
+        yw = math.radians(e["yaw"])
+        c, s_ = math.cos(yw), math.sin(yw)
+        return e["pos"][0] + ox * c + oz * s_, e["pos"][2] - ox * s_ + oz * c, c, s_, hx, hz
+
+    def rect_gap(ea, eb):
+        x, z, c, s_, hx, hz = frame(eb)
+        best = 9.0
+        for q in rect_edge(ea):
+            dx, dz = q[0] - x, q[1] - z
+            lx, lz = dx * c - dz * s_, dx * s_ + dz * c
+            best = min(best, math.hypot(max(0.0, abs(lx) - hx), max(0.0, abs(lz) - hz)))
+        return best
+
+    def rect_edge(e):
+        x, z, c, s_, hx, hz = frame(e)
+        out = []
+        for (ax_, az_), (bx_, bz_) in (((-hx, -hz), (hx, -hz)), ((hx, -hz), (hx, hz)), ((hx, hz), (-hx, hz)), ((-hx, hz), (-hx, -hz))):
+            n = max(1, int(math.hypot(bx_ - ax_, bz_ - az_) / 0.1))
+            for t in range(n + 1):
+                lx, lz = ax_ + (bx_ - ax_) * t / n, az_ + (bz_ - az_) * t / n
+                out.append((x + lx * c + lz * s_, z - lx * s_ + lz * c))
+        return out
+
+    solids = [e for e in b.inst if abs(e["pos"][0]) < B0 + 2 and abs(e["pos"][2]) < B0 + 2 and solid(e)]
+    movable = lambda e: "building" not in e["tags"] or "companion" in e["tags"]
+    slot_cut = []
+    for e in sorted(solids, key=lambda e: -e["id"]):
+        if not movable(e) or e in slot_cut:
+            continue
+        r_e = math.hypot(*col_half(e["asset"])[2:]) + math.hypot(*col_half(e["asset"])[:2])
+        for o in solids:
+            if o is e or o in slot_cut:
+                continue
+            if e.get("host") is not None and (e.get("host") == o.get("host") or e["host"] == o["id"]):
+                continue   # the same building's authored set
+            if math.hypot(o["pos"][0] - e["pos"][0], o["pos"][2] - e["pos"][2]) > r_e + math.hypot(*col_half(o["asset"])[2:]) + math.hypot(*col_half(o["asset"])[:2]) + 1.0:
+                continue
+            g = min(rect_gap(e, o), rect_gap(o, e))
+            if 0.15 < g < 1.0:
+                slot_cut.append(e)
+                print("IW1 cut %s at (%.1f, %.1f): a %.2f m slot beside %s" % (e["asset"], e["pos"][0], e["pos"][2], g, o["asset"]))
+                break
+    for e in slot_cut:
+        b.remove(e)
+
+    door_cut = [e for e in b.inst if ("building" not in e["tags"] or "companion" in e["tags"]) and cat[e["asset"]].fw * cat[e["asset"]].fd > 0.01
+                and in_door(e, e.get("host")) is not None]
+    for e in door_cut:   # nothing stands in a doorway's way (dressing, lane walls, fences, companions, trees)
+        print("IW1 cut %s at (%.1f, %.1f): in front of a door" % (e["asset"], e["pos"][0], e["pos"][2]))
+        b.remove(e)
 
     # ---------------------------------------------------------------- scenario: two sites, five spawns a side, S&D timings
     sc = ScenarioBuilder(b, defending="Axis")
@@ -372,6 +497,6 @@ def build(ctx):
                    width=W, depth=D, margin=MARGIN, heightmap=grid.meta(TID + ".height.png"), water_level=-1000.0,
                    map_file=TID + ".nmap.json", camera=cam, thumbnail=TID + ".thumb.png", thumb_camera=thumb_cam,
                    extra={"userMap": True, "views": views})
-    rep = {"instances": len(b.inst), "buildings": n_bld, "dress": n_dress, "fence": n_fence, "walls": n_wall, "layout_issues": len(bad), "trees_in": n_tree_in, "forest": n_forest, "rejects": dict(b.rejects)}
+    rep = {"instances": len(b.inst), "buildings": n_bld, "companions_cut": len(comp_cut), "door_cut": len(door_cut), "slot_cut": len(slot_cut), "dress": n_dress, "fence": n_fence, "walls": n_wall, "layout_issues": len(bad), "trees_in": n_tree_in, "forest": n_forest, "rejects": dict(b.rejects)}
     write_summary(os.path.join(ctx.out, TID + ".summary.json"), rep)
     print(rep)

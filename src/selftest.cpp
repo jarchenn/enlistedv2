@@ -150,6 +150,7 @@ void SelfTest::update(App& app, float dt) {
   { extern bool zombiesSelfTest(App&, float); if (zombiesSelfTest(app, dt)) return; }
   { extern bool sdSelfTest(App&, float); if (sdSelfTest(app, dt)) return; }   // --selftest-sd (selftest_sd.cpp)
   { extern bool sdTimingsTest(App&, float); if (sdTimingsTest(app, dt)) return; }   // SD2 --sd-timings (selftest_sd_timings.cpp)
+  { extern bool blockerScan(App&, float); if (blockerScan(app, dt)) return; }   // IW1 --blocker-scan (selftest_blockers.cpp)
   { extern bool playerDmgSelfTest(App&, float); if (playerDmgSelfTest(app, dt)) return; }   // --selftest-playerdmg (selftest_playerdmg.cpp)
   { extern bool proneSelfTest(App&, float); if (proneSelfTest(app, dt)) return; }   // --selftest-prone (selftest_prone.cpp)
   { extern bool sd3SelfTest(App&, float); if (sd3SelfTest(app, dt)) return; }   // --selftest-sd3 (selftest_sd3.cpp)
