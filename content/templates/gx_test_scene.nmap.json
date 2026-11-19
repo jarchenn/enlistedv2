@@ -413,8 +413,8 @@
     },
     {
       "asset": {
-        "id": "tree_oak",
-        "version": 3
+        "id": "tr_oak_b",
+        "version": 1
       },
       "id": 371,
       "overrides": {
@@ -429,8 +429,8 @@
     },
     {
       "asset": {
-        "id": "tree_ash",
-        "version": 3
+        "id": "tr_ash_a",
+        "version": 1
       },
       "id": 372,
       "overrides": {
@@ -738,8 +738,8 @@
     },
     {
       "asset": {
-        "id": "tree_poplar",
-        "version": 3
+        "id": "tr_poplar_a",
+        "version": 1
       },
       "id": 493,
       "overrides": {

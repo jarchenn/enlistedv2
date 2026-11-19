@@ -4,11 +4,31 @@ import json
 import os
 
 
+_TREE_ALIASES = None
+
+
+def tree_alias(aid, iid):
+    """TR1: a generated tree id -> one of its model-tree variants (content/settings/tree_aliases.json), picked by the
+    instance id exactly as the engine does on load (mapdoc.cpp treeAlias)."""
+    global _TREE_ALIASES
+    if _TREE_ALIASES is None:
+        import json, os
+        p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "content", "settings", "tree_aliases.json")
+        _TREE_ALIASES = json.load(open(p, encoding="utf-8")).get("aliases", {}) if os.path.exists(p) else {}
+    al = _TREE_ALIASES.get(aid)
+    if not al:
+        return aid
+    h = (iid * 0x9E3779B97F4A7C15) & 0xFFFFFFFFFFFFFFFF
+    h ^= h >> 29
+    return al[h % len(al)]
+
+
 def instance_json(e, cat):
-    a = cat[e["asset"]]
+    aid = tree_alias(e["asset"], e["id"])   # TR1: model trees for the generated ones
+    a = cat[aid]
     o = dict(e.get("extra") or {})
     o["id"] = e["id"]
-    o["asset"] = {"id": e["asset"], "version": a.version}
+    o["asset"] = {"id": aid, "version": a.version}
     o["position"] = [round(e["pos"][0], 3), round(e["pos"][1], 3), round(e["pos"][2], 3)]
     o["yaw"] = round(e["yaw"], 2)
     o["overrides"] = {"interactables": {}}

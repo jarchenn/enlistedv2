@@ -2004,6 +2004,29 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `pa_shack_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mp1_footbridge` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
 | `mp1_watchtower` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | 1 |
+| `ph_island_tree_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `ph_island_tree_03` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `ph_tree_small_02` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `tr_apple_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `tr_apple_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `tr_apple_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `tr_ash_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `tr_ash_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `tr_ash_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `tr_dead_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `tr_dead_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `tr_dead_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `tr_dead_d` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `tr_oak_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `tr_oak_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `tr_oak_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `tr_poplar_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `tr_poplar_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `tr_sapling_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `tr_sapling_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `tr_street_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `tr_street_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `tr_street_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 
 ## Notes
 

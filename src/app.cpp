@@ -415,7 +415,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     if (r.asset->model && !interior.prop(r.asset)) {   // supplied model: LOD by distance, cut wire sections hidden; collider boxes are not drawn (PR2: furniture models draw in propDraw)
       if (camDist > r.asset->modelCull) continue;
       const GpuModel* gm = (r.asset->modelLod && camDist > r.asset->modelLodDist) ? r.asset->modelLod.get() : r.asset->model.get();
-      if (r.asset->modelFoliage) { R.folModels.push_back({gm, M, r.asset->modelWind}); continue; }   // NT8: instanced, alpha tested
+      if (r.asset->modelFoliage) { R.folModels.push_back({gm, M * glm::scale(mat4(1), vec3(r.asset->modelScale)), r.asset->modelWind}); continue; }   // NT8: instanced, alpha tested (TR1: sized)
       for (size_t k = 0; k < gm->parts.size(); ++k) {
         int s = gm->parts[k].section;
         if (s >= 0 && s < (int)r.secCut.size() && r.secCut[s]) continue;

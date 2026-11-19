@@ -1,0 +1,123 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  2.8665449619293213,
+  6.205630779266357,
+  2.8954851627349854
+ ],
+ "bmin": [
+  -2.8665449619293213,
+  0.0,
+  -2.8954851627349854
+ ],
+ "materials": [
+  {
+   "albedo": "albedoa_0.png",
+   "cutout": true,
+   "name": "ph_tree_small_02_needles"
+  },
+  {
+   "albedo": "albedo_2.jpg",
+   "mr": "mr_3.jpg",
+   "name": "tree_small_02_trunk",
+   "normal": "normal_1.jpg"
+  },
+  {
+   "albedo": "albedo_5.jpg",
+   "mr": "mr_6.jpg",
+   "name": "tree_small_02_branches",
+   "normal": "normal_4.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.8665449619293213,
+    6.205630779266357,
+    2.8954851627349854
+   ],
+   "bmin": [
+    -2.8665449619293213,
+    0.16455350816249847,
+    -2.8954851627349854
+   ],
+   "count": 4806,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "ph_tree_small_02_cards",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.40005987882614136,
+    3.6914236545562744,
+    1.2714678049087524
+   ],
+   "bmin": [
+    -1.1240057945251465,
+    0.0,
+    -1.013758659362793
+   ],
+   "count": 2067,
+   "first": 4806,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "tree_small_02_LOD0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.9735321998596191,
+    4.385684490203857,
+    2.0746781826019287
+   ],
+   "bmin": [
+    -1.2522609233856201,
+    1.7072486877441406,
+    -1.8552310466766357
+   ],
+   "count": 6930,
+   "first": 6873,
+   "mat": 2,
+   "metal": 0.0,
+   "name": "tree_small_02_LOD0.001",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_tree_small_02.glb",
+ "textures": {},
+ "triangles": 4601,
+ "vertices": 7479
+}

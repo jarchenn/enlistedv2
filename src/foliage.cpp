@@ -483,6 +483,18 @@ GLuint leafInstVao(GLuint inst) {
 void App::treeDrawItems(const Instance& i, const InstanceRT& r, std::vector<DrawItem>& op) {
   const TreeDef& t = r.asset->tree;
   mat4 M = instanceMatrix(i);
+  if (r.asset->model && r.asset->modelFoliage) {   // TR1: a model tree (Poly Haven bake): drawn instanced with wind; felled, the
+    // whole model rides the trunk body (a topple about the cut) over the procedural stump; its trunk box only collides
+    float cd = glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos));
+    if (cd > r.asset->modelCull) return;
+    const GpuModel* gm = (r.asset->modelLod && cd > r.asset->modelLodDist) ? r.asset->modelLod.get() : r.asset->model.get();
+    mat4 S = glm::scale(mat4(1), vec3(r.asset->modelScale));
+    if (!r.treeFelled) { R.folModels.push_back({gm, M * S, r.asset->modelWind}); return; }
+    op.push_back({&t.stumpMesh, M});
+    vec3 p; quat q;
+    if (Physics::getTransform(r.trunkBody, p, q)) R.folModels.push_back({gm, glm::translate(mat4(1), p) * glm::mat4_cast(q) * glm::translate(mat4(1), vec3(0, -t.stumpH, 0)) * S, 0.0f});
+    return;
+  }
   if (!r.treeFelled) {
     op.push_back({&r.asset->opaque, M}); snapDraw(*this, i, op.back());   // V6: hedgerow banks: joined ends without caps (snap.cpp)
     R.foliage.push_back({&t, M, &r.leafLod, 2, i.id});   // id: a standing copy (P2 folbatch may draw it from its cell)

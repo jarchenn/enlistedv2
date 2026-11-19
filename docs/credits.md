@@ -132,6 +132,9 @@ plants keep their alpha cards; rocks, roots and logs decimated), written as `con
 | forest_leaves_04 | Forest Leaves 04 | Rob Tuytel | texture | https://polyhaven.com/a/forest_leaves_04 |
 | grass_medium_01 | Grass Medium 01 | Rob Tuytel, Rico Cilliers | model | https://polyhaven.com/a/grass_medium_01 |
 | island_tree_01 | Island Tree 01 | Rob Tuytel, Rico Cilliers | model | https://polyhaven.com/a/island_tree_01 |
+| island_tree_02 | Island Tree 02 | Rico Cilliers, Rob Tuytel | model (TR1) | https://polyhaven.com/a/island_tree_02 |
+| island_tree_03 | Island Tree 03 | Rico Cilliers, Rob Tuytel | model (TR1) | https://polyhaven.com/a/island_tree_03 |
+| tree_small_02 | Tree Small 02 | Rico Cilliers | model (TR1) | https://polyhaven.com/a/tree_small_02 |
 | pine_bark | Pine Bark | Dimitrios Savva | texture | https://polyhaven.com/a/pine_bark |
 | pine_roots | Pine Roots | Rob Tuytel | model | https://polyhaven.com/a/pine_roots |
 | pine_sapling_medium | Pine Sapling Medium | Rob Tuytel, Rico Cilliers | model | https://polyhaven.com/a/pine_sapling_medium |
