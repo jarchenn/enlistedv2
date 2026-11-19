@@ -189,7 +189,7 @@ def bake(srcs, out_path, skip=()):
 #   Joints are matched by name (the part after ':'). Each matched joint takes the clip's model-space rotation change from its
 #   own rest (world delta = posed world x rest world^-1, applied over the body's rest world), so bone axes and rest poses may
 #   differ; joints the clips do not have keep their rest. The Hips travel is scaled by the hip heights (body / clip). The
-#   locomotion clips (walk / run / sprint / strafe in the name) lose their horizontal drift (the straight line from the first
+#   locomotion clips (walk / run / sprint / strafe in the name; the standing throw) lose their horizontal drift (the straight line from the first
 #   key to the last): they play in place, the sway stays. Output: the body's mesh, skin, materials and textures untouched,
 #   plus the clips. Both files: metres, y up, +z forward, left +x (checked on the hips / legs).
 def _qm(a, b):
@@ -298,7 +298,7 @@ def bake_retarget(base_path, clip_paths, out_path):
             st = at((sh, 'translation'), t, 3) if (sh, 'translation') in ch else S.rt[sh]
             sp = [x + y for x, y in zip(_mv(SpL, st), SpT)]
             hipT.append([BhT[c] + (sp[c] - ShT[c]) * k_h for c in range(3)])
-        loco = any(w in clip for w in ('walk', 'run', 'sprint', 'strafe'))
+        loco = any(w in clip for w in ('walk', 'run', 'sprint', 'strafe', 'Throwstand'))   # the standing throw walks 2.7 m forward
         drift = 0.0
         if loco and len(hipT) > 1:
             n = len(hipT) - 1; d0 = [(hipT[-1][0] - hipT[0][0]) / n, (hipT[-1][2] - hipT[0][2]) / n]; drift = (d0[0] ** 2 + d0[1] ** 2) ** 0.5 * n

@@ -125,16 +125,6 @@ void Game::syncGrenadeView() {
     gren.live.push_back(v);
   }
 }
-// DF1: the centre of a gun's magazine parts (weapon space; from the kept vertex positions), else under the support hand
-static vec3 magCentre(const WeaponDef& d) {
-  static std::map<const WeaponDef*, vec3> memo;
-  if (auto it = memo.find(&d); it != memo.end()) return it->second;
-  vec3 c = d.gripL + vec3(0, -0.1f, -0.12f), sum(0); int n = 0;
-  if (d.model && !d.model->cpuPos.empty())
-    for (int k : d.modelParts[2]) { const ModelPart& p = d.model->parts[k]; for (uint32_t i = p.first; i < p.first + p.count && i < d.model->cpuIdx.size(); ++i) { sum += d.model->cpuPos[d.model->cpuIdx[i]]; ++n; } }
-  if (n) c = sum / (float)n;
-  return memo[&d] = c;
-}
 static const char* kitName(int kit) { return kit == 2 ? "trooper" : kit == 3 ? "robot" : "delta"; }   // combat.json kits.<name> (SW1; DF1 4: Delta Force)
 static float bodyScale(const Soldier& s) { return s.zombie ? s.eBody : 1.0f; }   // EN1: a troll stands taller, a spider lower
 void Game::renderView(vec3& e, vec3& f) const {
@@ -365,6 +355,9 @@ void Game::applyLoadout(Soldier& s, bool newLife) {
       s.carried = {w};
       if (const json sa = kj.value("sidearms", json::array()); !sa.empty()) {   // DF1: a sidearm (in turn per slot), drawn when the primary runs dry
         int p = app.weaponIndex(sa[(size_t)(s.slot + s.lifeId) % sa.size()][0].get<std::string>()); if (p >= 0 && p != w) s.carried.push_back(p);
+      }
+      if (const json la = kj.value("launchers", json::array()); !la.empty() && (s.slot + s.lifeId) % std::max(1, kj.value("launcherEvery", 4)) == 0) {   // DF1: one in launcherEvery also carries a launcher (in turn)
+        int l = app.weaponIndex(la[(size_t)(s.slot / std::max(1, kj.value("launcherEvery", 4))) % la.size()][0].get<std::string>()); if (l >= 0 && l != w) s.carried.push_back(l);
       }
       if (newLife) { s.frags = kj.value("frags", 0); s.smokes = kj.value("smokes", 0); s.hp *= kj.value("hp", 1.0f); }
       s.reload = 0; s.throwT = -1; s.throwReleased = false;
@@ -1133,7 +1126,7 @@ void Game::posesStep(float dt) {
       }
     }
     pp.walkPhase = s.walkPhase;
-    if (s.weapon >= 0) { const WeaponDef& d = *app.weaponDefs[s.weapon]; pp.gripR = d.gripR; pp.gripL = d.gripL; pp.magPos = s.kit == 4 ? magCentre(d) : d.gripL + vec3(0, -0.1f, -0.12f); pp.holdOffset = d.holdOffset; pp.holdWeld = d.holdWeld; pp.holdKind = d.holdKind;
+    if (s.weapon >= 0) { const WeaponDef& d = *app.weaponDefs[s.weapon]; pp.gripR = d.gripR; pp.gripL = d.gripL; pp.magPos = s.kit == 4 ? weaponPartCentre(d, 2, d.gripL + vec3(0, -0.1f, -0.12f)) : d.gripL + vec3(0, -0.1f, -0.12f); pp.holdOffset = d.holdOffset; pp.holdWeld = d.holdWeld; pp.holdKind = d.holdKind;
       pp.gripC = d.gripC; pp.gripAx = d.gripAx; pp.gripRad = d.gripRad; pp.guardC = d.guardC; pp.guardRad = d.guardRad; pp.sightR = d.rear; }   // AN1 step 2b
     pp.reload = s.reload > 0 && s.reloadTotal > 0 ? 1.0f - s.reload / s.reloadTotal : 0;
     pp.throwT = s.throwT; pp.recoil = s.recoil;
@@ -1300,12 +1293,14 @@ void Game::drawItems() {
         {   // DF1: a Delta Force reload: the magazine leaves the gun in the left hand (reload 25 %) and goes back in (80 %)
           const float r = s.kit == 4 && s.reload > 0 && s.reloadTotal > 0 ? 1.0f - s.reload / s.reloadTotal : 0.0f;
           const int lh = models[s.model]->semantic[CJ_LHAND];
-          if (r > 0.25f && r < 0.8f && lh >= 0 && lh < (int)s.pose.delta.size()) {
+          if (r > s.dfMagWin.x && r < s.dfMagWin.y && lh >= 0 && lh < (int)s.pose.delta.size()) {   // the span by its feed (gunbody.cpp: box 25-80 %, belt 35-65 %)
             if (!s.dfMagHeld) { s.dfMagK = glm::inverse(s.pose.delta[lh]) * s.pose.weapon; s.dfMagHeld = true; }
             magW = s.world * s.pose.delta[lh] * s.dfMagK;
           } else s.dfMagHeld = false;
         }
-        for (int p = 0; p < 8; ++p) for (int k : d.worldParts()[p]) app.R.worldModels.push_back({d.worldModel(), k, p == 2 ? magW : W});   // 2: the "mag" parts (weapons.cpp WPart)
+        const mat4 boltW = s.kit == 4 && s.dfBoltBack > 0 ? W * glm::translate(mat4(1), vec3(0, 0, -s.dfBoltBack)) : W;   // DF1: the bolt drawn back / the pump slid back
+        const mat4 pumpW = s.kit == 4 && s.dfPumpBack > 0 ? W * glm::translate(mat4(1), vec3(0, 0, -s.dfPumpBack)) : W;
+        for (int p = 0; p < 8; ++p) for (int k : d.worldParts()[p]) app.R.worldModels.push_back({d.worldModel(), k, p == 2 ? magW : p == 1 ? boltW : p == 7 && d.action != "launcher" ? pumpW : W});   // WPart (weapons.cpp): 1 bolt, 2 mag, 7 handle
         if (app.R.thermalWanted) {   // TH1: a gun warms with firing and cools over ~15 s
           const float gh = 0.18f + 0.6f * std::exp(-(float)(t - s.lastShot) / 15.0f);
           for (int p = 0; p < 8; ++p) for (int k : d.worldParts()[p]) app.R.heatDraws.push_back({{d.worldModel(), k, W}, gh, heatObj});   // TH2: shaded with its holder

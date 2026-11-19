@@ -182,7 +182,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
     const bool cb = p.base && J(CJ_RSHOULDER) >= 0 && J(CJ_HEAD) >= 0;
     const vec3 shP = cb ? xf((*p.base)[J(CJ_RSHOULDER)], sh) : vec3(0);
     if (kind == 1) {
-      pa = cb ? shP + vec3(-0.5f * sh.x - 0.02f * lowR, 0.08f - 0.03f * lowR, 0.05f + 0.10f * lowR) + p.holdOffset
+      pa = cb ? shP + vec3(-0.5f * sh.x - 0.02f * lowR, 0.08f - 0.03f * lowR, 0.05f + 0.10f * lowR) + p.holdOffset + qa * vec3(0, 0, std::max(0.0f, 0.24f - p.gripR.z))   // a grip at the butt end: the gun forward, the hand where a rifle's grip would be
               : xf(chest, vec3(sh.x * 0.5f - 0.02f * lowR, sh.y + 0.08f - 0.03f * lowR, sh.z + 0.05f + 0.10f * lowR) + p.holdOffset);   // SW2: held out (blasters); low ready clear of the chest
       float wb = (1 - carry) * (1 - lowR) * c01(p.holdWeld);
       if (wb > 0 && p.sightR != vec3(0)) {   // AN1 step 2b: cheek weld: the rear sight 10 cm ahead of the right eye on the line of sight (the head tilts onto the comb)

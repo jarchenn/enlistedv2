@@ -141,7 +141,7 @@ void gunBodyPose(Game& G, Soldier& s, float dt) {
 //   still: idle aiming (engaged) / idle; crouched: idle crouching aiming / idle crouching; a pistol: pistol idle / kneeling.
 // The chest pitches with the aim (Spine1, 45 % of it), the arms and the weapon take the rest.
 namespace {
-struct DRig { int walk[8], run[8], sprint[8], cwalk[8]; int idle = -1, aim = -1, cidle = -1, caim = -1, pIdle = -1, pKneel = -1, pWalk = -1, pRun = -1, pWalkB = -1, pRunB = -1; int death[6]; int cdeath = -1; };
+struct DRig { int walk[8], run[8], sprint[8], cwalk[8]; int throwS[2] = {-1, -1}, throwC = -1, turnL = -1, turnR = -1, cturnL = -1, cturnR = -1; int idle = -1, aim = -1, cidle = -1, caim = -1, pIdle = -1, pKneel = -1, pWalk = -1, pRun = -1, pWalkB = -1, pRunB = -1; int death[6]; int cdeath = -1; };
 std::map<const CharModel*, DRig> gDRigs;
 const DRig& dRigOf(const CharModel& m) {
   auto it = gDRigs.find(&m); if (it != gDRigs.end()) return it->second;
@@ -158,16 +158,46 @@ const DRig& dRigOf(const CharModel& m) {
   static const char* deaths[6] = {"death from the front", "death from the back", "death from right", "death from front headshot", "death from back headshot", "death from the front"};
   for (int k = 0; k < 6; ++k) r.death[k] = findClip(m, deaths[k]);
   r.cdeath = findClip(m, "death crouching headshot front");
+  // the pack's "Throw Grenade" is a prone throw (hips 15 cm up): prone Delta soldiers take the procedural prone pose instead
+  r.throwS[0] = r.throwS[1] = findClip(m, "Grenade Throwstand"); r.throwC = findClip(m, "Throw Grenadecrouch");
+  if (r.throwC < 0) r.throwC = r.throwS[0];
+  r.turnL = findClip(m, "turn 90 left"); r.turnR = findClip(m, "turn 90 right"); r.cturnL = findClip(m, "crouching turn 90 left"); r.cturnR = findClip(m, "crouching turn 90 right");
+  if (r.cturnL < 0) r.cturnL = r.turnL; if (r.cturnR < 0) r.cturnR = r.turnR;
   return gDRigs[&m] = r;
 }
 }   // namespace
 
+// the centre of a gun's parts of one role (weapons.cpp WPart: 1 bolt, 2 mag, 3 cover, 4 clip, 7 handle), weapon space, from the
+// kept vertex positions; `def` when it has none
+vec3 weaponPartCentre(const WeaponDef& d, int role, vec3 def) {
+  static std::map<std::pair<const WeaponDef*, int>, std::pair<bool, vec3>> memo;
+  auto key = std::make_pair(&d, role);
+  if (auto it = memo.find(key); it != memo.end()) return it->second.first ? it->second.second : def;
+  vec3 sum(0); int n = 0;
+  if (d.model && !d.model->cpuPos.empty() && role >= 0 && role < 8)
+    for (int k : d.modelParts[role]) { const ModelPart& p = d.model->parts[k]; for (uint32_t i = p.first; i < p.first + p.count && i < d.model->cpuIdx.size(); ++i) { sum += d.model->cpuPos[d.model->cpuIdx[i]]; ++n; } }
+  memo[key] = {n > 0, n ? sum / (float)n : vec3(0)};
+  return n ? sum / (float)n : def;
+}
+
+namespace {
+// the hip's turn about the vertical in a pose (rad, + = turned toward +x from +z, as the body's yaw)
+float hipsYaw(const CharModel& m, const PoseResult& P) {
+  const int h = m.semantic[CJ_HIPS]; if (h < 0) return 0;
+  vec3 f = glm::mat3(P.delta[h]) * vec3(0, 0, 1);
+  return std::atan2(f.x, f.z);
+}
+}   // namespace
+
 bool deltaBodyPose(Game& G, Soldier& s, float dt, PoseParams& pp) {
-  enum { K_IDLE, K_AIM, K_LOCO = 3, K_DEATH = 6 };
+  enum { K_IDLE, K_AIM, K_LOCO = 3, K_DEATH = 6, K_THROW = 7, K_TURN = 8 };
   const CharModel& m = *G.models[s.model];
   if (m.clips.empty()) return false;
   const DRig& r = dRigOf(m);
   if (r.walk[0] < 0 || r.idle < 0) return false;
+  if (s.alive && s.posture == Physics::PRONE) { s.anim.key = -1; return false; }   // no prone clips in the packs: the soldier's procedural prone
+  // a long gun whose pistol grip sits at its butt end (sawn-off, the revolving grenade launcher): held as a long gun, not a pistol
+  if (pp.holdKind < 0 && pp.gripR.z < 0.12f && pp.gripL.z - pp.gripR.z > 0.2f) pp.holdKind = 1;
   AnimPlayer& A = s.anim;
   if (A.life != s.lifeId) { A = AnimPlayer{}; A.life = s.lifeId; }
   const int key0 = A.key;
@@ -179,7 +209,17 @@ bool deltaBodyPose(Game& G, Soldier& s, float dt, PoseParams& pp) {
   const float vf = glm::dot(s.vel, fwd), vl = glm::dot(s.vel, left);
   auto gs = [&](int k, float def) { return k >= 0 && m.clips[k].groundSpeed > 0.2f ? m.clips[k].groundSpeed : def; };
   const bool moving = s.speed > (A.key >= K_LOCO * 10 ? 0.3f : 0.6f);
-  if (!s.alive) {
+  const float yawNow = bodyYaw; float dy = std::remainder(yawNow - s.dfPrevYaw, 360.0f); s.dfPrevYaw = yawNow;
+  if (dt > 0) s.dfYawRate += (std::clamp(dy / dt, -720.0f, 720.0f) - s.dfYawRate) * (1.0f - std::exp(-dt / 0.15f));
+  int turnClip = -1; float hold = -1;
+  const int thr = crouch ? r.throwC : r.throwS[(s.slot + s.lifeId) % 2];
+  if (s.alive && s.throwT >= 0 && thr >= 0) {   // the clip's throw, its fastest hand (the release) on the game's release at 55 %
+    const AnimClip& c = m.clips[thr]; const float sw = c.swing > 0 ? c.swing : c.dur * 0.55f;
+    const float a0 = std::max(0.0f, sw - 1.1f), a1 = std::min(c.dur, sw + 0.8f), u = std::clamp(s.throwT, 0.0f, 1.0f);
+    hold = u < 0.55f ? glm::mix(a0, sw, u / 0.55f) : glm::mix(sw, a1, (u - 0.55f) / 0.45f);
+    A.play(K_THROW, thr, -1, 0, 0, false);
+    pp.rightArmClip = true;
+  } else if (!s.alive) {
     int d = crouch && r.cdeath >= 0 ? r.cdeath : r.death[(s.slot + s.lifeId) % 6];
     if (d < 0) d = r.death[0];
     if (d >= 0) A.play(K_DEATH, d, -1, 0, 1, false);
@@ -196,12 +236,25 @@ bool deltaBodyPose(Game& G, Soldier& s, float dt, PoseParams& pp) {
       if (v <= b || r.sprint[sec] == r.run[sec]) { float w = std::clamp((v - a) / (b - a), 0.0f, 1.0f); A.play(K_LOCO * 10 + sec, r.walk[sec], r.run[sec], w, std::clamp(v / glm::mix(a, b, w), 0.4f, 2.0f), true); }
       else { float w = std::clamp((v - b) / (c - b), 0.0f, 1.0f); A.play(K_LOCO * 10 + 30 + sec, r.run[sec], r.sprint[sec], w, std::clamp(v / glm::mix(b, c, w), 0.4f, 2.0f), true); }
     }
+  } else if (std::fabs(s.dfYawRate) > 50.0f && (s.dfYawRate > 0 ? (crouch ? r.cturnL : r.turnL) : (crouch ? r.cturnR : r.turnR)) >= 0) {   // turning in place: the turn clip's feet, its hip turn taken out (the body turns by its yaw)
+    turnClip = s.dfYawRate > 0 ? (crouch ? r.cturnL : r.turnL) : (crouch ? r.cturnR : r.turnR);
+    const float clipRate = 90.0f / std::max(0.3f, m.clips[turnClip].dur);
+    A.play(K_TURN + 10 * crouch + (s.dfYawRate > 0 ? 0 : 1), turnClip, -1, 0, std::clamp(std::fabs(s.dfYawRate) / clipRate, 0.6f, 2.0f), true);
   } else if (pistol && r.pIdle >= 0) A.play(K_IDLE + 20 + crouch, crouch && r.pKneel >= 0 ? r.pKneel : r.pIdle, -1, 0, 1, true);
   else if (hot) A.play(K_AIM + 10 * crouch, crouch ? r.caim : r.aim, -1, 0, 1, true);
   else A.play(K_IDLE + 10 * crouch, crouch ? r.cidle : r.idle, -1, 0, 1, true);
   if (A.key != key0) A.fadeLen = A.key == K_DEATH ? 0.15f : 0.22f;
+  if (hold >= 0) A.time = hold;
   static thread_local PoseResult base;
   A.update(m, dt, base);
+  if (turnClip >= 0 && A.a == turnClip && m.semantic[CJ_HIPS] >= 0) {   // take the clip's hip turn (since its first frame) out about the hips' vertical
+    static std::map<std::pair<const CharModel*, int>, float> yaw0;
+    auto k0 = std::make_pair(&m, turnClip);
+    if (!yaw0.count(k0)) { NodeLocals L; restLocals(m, L); sampleClip(m, turnClip, 0, true, L); PoseResult P0; poseFromLocals(m, L, P0); yaw0[k0] = hipsYaw(m, P0); }
+    const float yw = hipsYaw(m, base) - yaw0[k0]; const vec3 piv = vec3(base.delta[m.semantic[CJ_HIPS]] * vec4(m.jointHead[m.semantic[CJ_HIPS]], 1));
+    const mat4 R = glm::translate(mat4(1), vec3(piv.x, 0, piv.z)) * glm::mat4_cast(glm::angleAxis(-yw, vec3(0, 1, 0))) * glm::translate(mat4(1), -vec3(piv.x, 0, piv.z));
+    for (auto& d : base.delta) d = R * d;
+  }
   s.poseFrom = -1; ++s.poseRev;
   if (!s.alive) { s.pose = base; return true; }
   const int sp = m.semantic[CJ_SPINE1] >= 0 ? m.semantic[CJ_SPINE1] : m.semantic[CJ_SPINE];
@@ -213,6 +266,31 @@ bool deltaBodyPose(Game& G, Soldier& s, float dt, PoseParams& pp) {
     for (int k = 0; k < m.joints(); ++k) if (sub[k]) base.delta[k] = R * base.delta[k];
   }
   pp.base = &base.delta;
+  s.dfMagWin = vec2(0); s.dfBoltBack = s.dfPumpBack = 0;
+  if (s.weapon >= 0) {   // the gun's family: its reload, the action it cycles, its kick
+    const WeaponDef& d = *G.app.weaponDefs[s.weapon];
+    const bool launcher = d.action == "launcher", bolt = d.action == "bolt";
+    const bool pump = !launcher && d.feed == "single" && !d.modelParts[7].empty();
+    const vec3 top = vec3(0, d.gripR.y + 0.10f, d.gripR.z + 0.06f);
+    pp.reloadStyle = d.feed == "belt" ? 2 : d.feed == "magazine" ? 0 : 1;
+    pp.portPos = launcher ? d.muzzle : pump ? vec3(0, d.gripR.y + 0.03f, d.gripR.z + 0.12f)
+               : d.feed == "belt" ? weaponPartCentre(d, 3, top) : pistol ? vec3(0, d.gripR.y + 0.05f, d.gripR.z + 0.03f)
+               : weaponPartCentre(d, 1, top) + vec3(0, 0.03f, 0.02f);
+    const int need = std::max(1, d.cap - s.ws.loaded);
+    pp.reloadRounds = launcher || d.feed == "stripper" || d.feed == "enbloc" ? 1 : std::min(4, need);
+    pp.boltPos = bolt ? weaponPartCentre(d, 1, vec3(-0.03f, d.gripR.y + 0.07f, d.gripR.z + 0.02f)) : vec3(0);
+    pp.boltReload = bolt;
+    if (bolt && d.boltTime > 0 && s.ws.bolt > 0) { pp.cycleKind = 1; pp.cycle = 1.0f - s.ws.bolt / d.boltTime; }
+    else if (pump && G.t - s.lastShot < 0.55) { pp.cycleKind = 2; pp.cycle = (float)(G.t - s.lastShot) / 0.55f; }
+    pp.recoil *= std::clamp(d.vmBack / 0.035f, 0.6f, 2.5f);
+    if (pp.reload > 0 && pp.reload < 1) pp.lowReady = std::max(pp.lowReady, std::min(1.0f, std::min(pp.reload, 1 - pp.reload) / 0.1f));   // off the cheek to reload: the relaxed low ready (muzzle ~35 deg down), back up at the end
+    // what the draw moves (game.cpp): the magazine's span out of the gun; the bolt's / pump's travel
+    if (s.reload > 0) s.dfMagWin = pp.reloadStyle == 0 ? vec2(0.25f, 0.8f) : pp.reloadStyle == 2 ? vec2(0.35f, 0.65f) : vec2(0);
+    auto open = [](float c) { return c < 0.3f ? 0.0f : c < 0.55f ? (c - 0.3f) / 0.25f : c < 0.75f ? 1.0f - (c - 0.55f) / 0.2f : 0.0f; };
+    if (pp.cycleKind == 1) s.dfBoltBack = 0.08f * open(pp.cycle);
+    else if (bolt && pp.reload > 0 && pp.reload < 1) s.dfBoltBack = 0.08f * std::clamp(std::min(pp.reload / 0.12f, (1 - pp.reload) / 0.12f), 0.0f, 1.0f);
+    if (pp.cycleKind == 2) s.dfPumpBack = 0.09f * std::sin(3.14159265f * pp.cycle);
+  }
   pp.crouch = pp.kneel = pp.prone = pp.hunch = pp.lean = pp.swim = 0; pp.gait = false; pp.climb = -1; pp.aimYawOffset = 0;
   pp.carry = 0; pp.moveAim = 0;
   poseCharacter(m, pp, s.pose);

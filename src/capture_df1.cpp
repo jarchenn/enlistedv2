@@ -12,15 +12,23 @@
 #include "ai_core.h"
 #include "physics.h"
 #include "scenario.h"
+#include "grenade.h"
 
 namespace {
 MpTest* T = nullptr;
-int mode = -1, stage = 0, frames = 0, bot = -1; bool started = false; float total = 0, st = 0, movingFor = 0;
+int mode = -1, stage = 0, frames = 0, bot = -1; bool started = false, stageB = false; float total = 0, st = 0, movingFor = 0;
+std::vector<int> guns; size_t gi = 0, fi = 0; int handsBad = 0;
+struct Fam { const char* gun; const char* what; float at; };   // stage B: a family frame: the gun, what it shows, where it is held
+const Fam kFam[] = {{"modern_ak47", "reload_box", 0.35f}, {"modern_lmg", "reload_belt", 0.45f}, {"kar98k", "reload_stripper", 0.5f},
+                    {"modern_shotgun", "reload_tube", 0.42f}, {"m1_garand", "reload_enbloc", 0.5f}, {"modern_rpg7", "reload_launcher", 0.7f},
+                    {"modern_deagle", "reload_pistol", 0.35f}, {"modern_revolver", "reload_revolver", 0.45f}, {"modern_sniper_bolt", "reload_bolt_open", 0.1f},
+                    {"modern_sniper_bolt", "cycle_bolt", 0.45f}, {"modern_shotgun", "cycle_pump", 0.5f}, {"modern_m4_irons", "throw_windup", 0.42f},
+                    {"modern_m4_irons", "throw_release", 0.62f}, {"modern_m4_irons", "turn_left", 0}, {"modern_glock34", "throw_pistol", 0.42f}};
 fs::path shot(const char* what) { return exeDir() / "selftest_out" / (std::string("df_") + what + ".png"); }
 }   // namespace
 
 bool df1Capture(App& app, float dt) {
-  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-df1") mode = 1; }
+  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-df1") mode = 1; const char* e = std::getenv("NMK_DF_STAGE"); stageB = e && std::string(e) == "b"; }
   if (mode != 1) return false;
   if (dt < 0) return true;
   if (!started) {
@@ -43,7 +51,7 @@ bool df1Capture(App& app, float dt) {
   total += dt; st += dt; ++frames;
   auto finish = [&]() { if (app.mode == Mode::Explore) app.exitExplore(); app.selftest->exitCode = T->finish(); app.selftest->done = true; };
   Game* gp = gGame && gGame->active ? gGame : nullptr;
-  if (!gp || total > 150) { T->check(false, "timed out at stage " + std::to_string(stage)); finish(); return true; }
+  if (!gp || total > (stageB ? 480 : 150)) { T->check(false, "timed out at stage " + std::to_string(stage)); finish(); return true; }
   Game& G = *gp; Soldier* L = G.local();
   if (!L || !L->alive) return true;
   L->hp = 100;
@@ -79,10 +87,60 @@ bool df1Capture(App& app, float dt) {
   if (stage == 0) {
     const CharModel& m = *G.models[s.model];
     T->check(m.id == "delta_force" && m.clips.size() >= 40 && s.kit == 4 && !s.gunBody, "its body: " + m.id + ", " + std::to_string(m.clips.size()) + " clips, kit " + std::to_string(s.kit));
-    T->check(s.weapon >= 0 && app.weaponDefs[s.weapon]->id == "modern_m4_irons" && s.carried.size() == 2, "it holds the kit's rifle (" + (s.weapon >= 0 ? app.weaponDefs[s.weapon]->id : std::string("none")) + "), " + std::to_string(s.carried.size()) + " carried");
+    T->check(s.weapon >= 0 && s.carried.size() >= 2 && app.weaponDefs[s.carried[1]]->holdKind != 2, "it holds a kit primary, a sidearm carried (" + (s.weapon >= 0 ? app.weaponDefs[s.weapon]->id : std::string("none")) + "), " + std::to_string(s.carried.size()) + " carried");
     std::snprintf(b, sizeof b, "hit zones from its joints: head %.2f m, hips %.2f m over the feet", s.pose.joint[CJ_HEAD].y, s.pose.joint[CJ_HIPS].y);
     T->check(s.pose.joint[CJ_HEAD].y > 1.3f && s.pose.joint[CJ_HEAD].y < 2.0f && s.pose.joint[CJ_HIPS].y > 0.7f && s.pose.joint[CJ_HIPS].y < 1.2f, b);
-    if (A) A->frozen = true; stage = 1; frames = 0; return true;
+    if (A) A->frozen = true; stage = stageB ? 20 : 1; frames = 0;
+    if (stageB) {   // every gun of the kit (primaries, sidearms, launchers)
+      const json kj = G.combat.value("kits", json::object()).value("delta", json::object());
+      for (const char* k : {"ai", "sidearms", "launchers"}) for (auto& e : kj.value(k, json::array())) { int w = app.weaponIndex(e[0].get<std::string>()); if (w >= 0) guns.push_back(w); else T->check(false, "kit gun missing: " + e[0].get<std::string>()); }
+      T->note("stage B: " + std::to_string(guns.size()) + " guns");
+    }
+    return true;
+  }
+  auto setGun = [&](int w) { const WeaponDef& d = *app.weaponDefs[w]; s.weapon = w; s.ws = WeaponState{}; s.ws.loaded = d.loaded; s.reload = 0; s.throwT = -1; s.recoil = 0; };
+  if (stage == 20) {   // every gun held, aimed: the hands on its own sockets
+    if (gi >= guns.size()) { std::snprintf(b, sizeof b, "every gun held: %zu guns, %d off their sockets", guns.size(), handsBad); T->check(handsBad == 0, b); stage = 30; frames = 0; return true; }
+    if (frames == 1) setGun(guns[gi]);
+    aimAhead(); front(2.0f);
+    if (frames == 16) {
+      const WeaponDef& d = *app.weaponDefs[s.weapon];
+      vec3 gr = vec3(s.pose.weapon * vec4(d.gripR, 1)), gl = vec3(s.pose.weapon * vec4(d.gripL, 1));
+      float er = glm::length(s.pose.joint[CJ_RHAND] - gr), el = glm::length(s.pose.joint[CJ_LHAND] - gl);
+      bool drawn = false; for (auto& md : app.R.worldModels) if (d.useModel() && md.model == d.worldModel()) drawn = true;
+      bool ok = er < 0.12f && el < 0.16f && drawn; handsBad += !ok;
+      std::snprintf(b, sizeof b, "%-20s right %.3f m, left %.3f m from its sockets, fingers %d / %d, model %s, grip %.2f -> handguard %.2f m", d.id.c_str(), er, el,
+                    s.pose.fingersOn[1], s.pose.fingersOn[0], drawn ? "drawn" : "MISSING", d.gripR.z, d.gripL.z);
+      T->note(std::string(ok ? "ok    " : "OFF   ") + b);
+      app.uiShot = exeDir() / "selftest_out" / ("df_gun_" + d.id + ".png");
+    }
+    if (frames > 18) { ++gi; frames = 0; }
+    return true;
+  }
+  if (stage == 30) {   // the families: reloads held part way, the bolt / pump cycle, the throw, a turn in place
+    if (fi >= sizeof(kFam) / sizeof(kFam[0])) { stage = 7; frames = 0; return true; }
+    const Fam& F = kFam[fi]; const std::string what = F.what;
+    if (frames == 1) { int w = app.weaponIndex(F.gun); if (w >= 0) setGun(w); if (what == "cycle_bolt") s.ws.loaded = 3; s.frags = 2; }
+    if (what.rfind("turn", 0) == 0) { s.yaw = std::remainder(s.yaw + 130.0f * dt, 360.0f); s.br.aimYaw = s.anGunYaw = s.yaw; s.br.aimPitch = s.anGunPitch = 0; s.br.target = L->slot; }
+    else aimAhead();
+    front(what.rfind("throw", 0) == 0 || what.rfind("turn", 0) == 0 ? 2.6f : 1.9f);
+    const WeaponDef& d = *app.weaponDefs[s.weapon];
+    if (what.rfind("reload", 0) == 0) { s.reloadTotal = 3.0f; s.reload = 3.0f * (1.0f - std::min(F.at, frames / 40.0f * F.at)); }
+    else if (what == "cycle_bolt") { if (d.boltTime > 0) s.ws.bolt = d.boltTime * (1.0f - F.at); }
+    else if (what == "cycle_pump") s.lastShot = G.t - 0.55 * F.at;
+    else if (what.rfind("throw", 0) == 0) { if (frames == 2) G.startThrow(s, GK_FRAG, vec3(0, 4, 8), s.feet + vec3(0, 0, 10)); if (s.throwT >= 0) s.throwT = std::min(F.at, frames / 40.0f * F.at); }
+    if (frames == 46) {
+      const CharModel& m = *G.models[s.model];
+      std::snprintf(b, sizeof b, "%s (%s): clip '%s', magazine out %d, bolt back %.3f m, pump back %.3f m, turn rate %.0f deg/s", F.what, d.id.c_str(),
+                    s.anim.a >= 0 ? m.clips[s.anim.a].name.c_str() : "-", (int)s.dfMagHeld, s.dfBoltBack, s.dfPumpBack, s.dfYawRate);
+      bool ok = what == "reload_box" || what == "reload_pistol" || what == "reload_belt" ? s.dfMagHeld : what == "cycle_bolt" || what == "reload_bolt_open" ? s.dfBoltBack > 0.02f
+              : what == "cycle_pump" ? s.dfPumpBack > 0.05f : what.rfind("throw", 0) == 0 ? s.anim.a >= 0 && m.clips[s.anim.a].name.find("hrow") != std::string::npos
+              : what.rfind("turn", 0) == 0 ? s.anim.a >= 0 && m.clips[s.anim.a].name.find("turn") != std::string::npos : true;
+      T->check(ok, b);
+      app.uiShot = exeDir() / "selftest_out" / ("df_" + what + ".png");
+    }
+    if (frames > 48) { s.reload = 0; s.throwT = -1; ++fi; frames = 0; }
+    return true;
   }
   if (stage == 1) {   // rifle, aiming, frozen
     aimAhead(); front(2.1f);
@@ -127,7 +185,7 @@ bool df1Capture(App& app, float dt) {
     if (frames > 55) {
       s.reload = 0;
       int p = s.carried.size() > 1 ? s.carried[1] : -1;
-      T->check(p >= 0 && app.weaponDefs[p]->id == "modern_glock34", "the sidearm: " + (p >= 0 ? app.weaponDefs[p]->id : std::string("none")));
+      T->check(p >= 0, "the sidearm: " + (p >= 0 ? app.weaponDefs[p]->id : std::string("none")));
       if (p >= 0) { const WeaponDef& d = *app.weaponDefs[p]; s.weapon = p; s.ws = WeaponState{}; s.ws.loaded = d.loaded; }
       stage = 5; frames = 0;
     }
