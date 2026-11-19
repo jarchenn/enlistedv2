@@ -63,9 +63,30 @@ unsigned assetThemes(const AssetDef* a) {
   return memo[a->id] = t ? t : deriveThemes(a);
 }
 
+// TH1: one asset's palette group: four groups sorted by what the piece is (hung on a wall, debris, hand-sized,
+// furniture) before its category's group; the asset files keep their categories
+static std::string paletteGroup(const AssetDef* a) {
+  const std::string& c = a->category; const std::string& id = a->id;
+  auto pre = [&](const char* p) { return id.rfind(p, 0) == 0; };
+  auto has = [&](const char* w) { return id.find(w) != std::string::npos; };
+  if (pre("mod_bld_")) return a->floors >= 3 || a->footprint.x * a->footprint.y >= 400.0f ? "Large Buildings" : "Small Buildings";   // modern buildings by size
+  const json* pr = a->raw.is_object() && a->raw.contains("prop") ? &a->raw["prop"] : nullptr;
+  bool hung = pr && pr->contains("mount") && (*pr)["mount"].is_number() && (*pr)["mount"].get<float>() > 0.0f;   // furnisher pieces hung at a height
+  if (hung || has("_face_") || has("wall_clock") || has("hanging_picture") || has("sconce") || has("wall_lantern") || has("ornate_mirror") || pre("mod_ac_rack") || pre("mod_vent_grille"))
+    return "Wall mountables";
+  if (c == "Rubble" || c == "Modern: Destruction" || has("rubble") || pre("furn_debris") || has("glass_pile") || has("papers")) return "Debris";
+  bool natural = false;
+  for (const char* n : {"Nature", "Vegetation", "Trees", "Water", "Paths", "Ground pads", "Cave", "Cave roof", "Lines", "Lighting"}) natural |= c == n;
+  float h = a->bmax.y - a->bmin.y;
+  if (!a->enterable && !natural && std::max(a->footprint.x, a->footprint.y) <= 0.6f && h <= 0.6f) return "Small objects";   // tools, cans, books
+  if (pre("mod_debris_")) return "Debris";
+  if (c == "Furniture" || c.rfind("Interior", 0) == 0 || c == "Modern: Interior") return "Furniture";
+  return assetGroup(c);
+}
+
 const AssetDef* drawAssetPalette(App& app, AssetPalette& st, const AssetDef* active) {
   const AssetDef* picked = nullptr;
-  const std::vector<std::string> cats = {"All", "Scenery", "Large Buildings", "Small Buildings", "Bunkers", "Ruins", "Vehicles", "Terrain"};
+  const std::vector<std::string> cats = {"All", "Scenery", "Large Buildings", "Small Buildings", "Bunkers", "Ruins", "Vehicles", "Terrain", "Debris", "Small objects", "Furniture", "Wall mountables"};
   extern bool lineReplacedPiece(const std::string&);
   auto hidden = [](const AssetDef* a) { return (a->raw.is_object() && a->raw.value("hidden", false)) || lineReplacedPiece(a->id)   // LN2: pieces now drawn as lines   // LN1: lines and the pieces they replace
                                                || a->category == "Water"; };   // UI1: ponds, puddles and streams come from the water lasso
@@ -87,6 +108,11 @@ const AssetDef* drawAssetPalette(App& app, AssetPalette& st, const AssetDef* act
       logged = true; int n[4] = {}, all = 0, shown = 0;
       for (auto& a : app.lib.assets) { if (hidden(a.get())) continue; unsigned t = assetThemes(a.get()); ++shown; all += t == TH_ALL; for (int k = 0; k < 4; ++k) n[k] += (t >> k) & 1; }
       logf("palette themes: %d listed assets: wwii %d, postapoc %d, modern %d, desert %d (all four %d)", shown, n[0], n[1], n[2], n[3], all);
+      for (size_t g = 1; g < cats.size(); ++g) {
+        int m = 0, q[4] = {};
+        for (auto& a : app.lib.assets) if (!hidden(a.get()) && paletteGroup(a.get()) == cats[g]) { ++m; unsigned t = assetThemes(a.get()); for (int k = 0; k < 4; ++k) q[k] += (t >> k) & 1; }
+        logf("palette group %s: %d (wwii %d, postapoc %d, modern %d, desert %d)", cats[g].c_str(), m, q[0], q[1], q[2], q[3]);
+      }
     }
   }
   ImGui::InputTextWithHint("##search", "Search...", st.filter, sizeof st.filter);
@@ -102,7 +128,7 @@ const AssetDef* drawAssetPalette(App& app, AssetPalette& st, const AssetDef* act
   int n = 0, thumbBudget = 2;   // MEM2: tiles rendered per frame (cached ones load freely)
   for (auto& a : app.lib.assets) {
     if (hidden(a.get())) continue;
-    if (st.category > 0 && (a->id.rfind("mod_bld_", 0) == 0 ? std::string(a->floors >= 3 || a->footprint.x * a->footprint.y >= 400.0f ? "Large Buildings" : "Small Buildings") : assetGroup(a->category)) != cats[st.category]) continue;   // modern buildings by size
+    if (st.category > 0 && paletteGroup(a.get()) != cats[st.category]) continue;
     if (!(assetThemes(a.get()) & settings().s.themes)) continue;   // TH1
     if (st.buildingFilters && st.enterableOnly && !a->enterable) continue;
     if (st.buildingFilters && a->floors < st.minFloors) continue;
