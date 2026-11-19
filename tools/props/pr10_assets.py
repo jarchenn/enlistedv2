@@ -150,6 +150,22 @@ BUILDINGS = {
         walls=[], doors={}, holes={}, floor=[-4.0, -3.0, -1.0, 0.0, 0.7, 0.75],
         furnish=[("ph_old_bed_frame", -4.0, -1.0, 90), ("mod_barrel_steel_rust", 5.0, -3.0, 0), ("furn_debris_glass", 0.0, 0.0, 0),
                  ("pa_fruit_crate_low", 2.0, 1.0, 25), ("furn_chair_soviet", -1.0, -2.0, 140)]),
+    # YN14R's destroyed building (part 1): a long concrete-and-plank shed, x0.6, its front torn out (x -6.6..6.7) and its
+    # back missing beyond x -3.9: closed with weathered-plank walls to the eaves (a doorway left in the front); its
+    # ground plate removed (the terrain is the floor); colliders from its own geometry and the added walls
+    "pa_shed_ruin_long": dict(
+        name="Ruined long shed", lic="glb", src="old_destroyed_building_part_1/old_destroyed_building_part_1.glb", scale=0.6, maxTex=2048,
+        delete_mats=["Plane__0"],
+        cut_below=-0.02,   # debris modelled down to -2.5 under its ground plate
+        add_boxes=[{"box": [-6.6, 1.9, -7.08, -6.88, 0.0, 4.8], "tex": "boards_weathered", "tile": 2.5},
+                   {"box": [3.6, 6.75, -7.08, -6.88, 0.0, 4.8], "tex": "boards_weathered", "tile": 2.5},
+                   {"box": [1.9, 3.6, -7.08, -6.88, 3.4, 4.8], "tex": "boards_weathered", "tile": 2.5},
+                   {"box": [-3.95, 13.55, 6.22, 6.42, 0.0, 4.8], "tex": "boards_weathered", "tile": 2.5}],
+        auto_colliders={"cell": 0.5, "min_wall": 2.0, "min_rect": 1.2, "min_floor": 0.5, "min_rect_floor": 0.25},
+        desc="A long, half-collapsed shed of concrete and weathered planks under a holed corrugated roof, its torn-out front and back boarded up again: enterable through the front doorway.",
+        walls=[], doors={}, holes={}, floor=[-4.0, -3.0, -1.0, 0.0, -0.05, 0.0],
+        furnish=[("pa_crate_slatted", -10.0, 4.0, 15), ("mod_barrel_steel_rust", -11.5, -5.0, 0), ("pa_chest_wooden", 8.0, 5.0, 180),
+                 ("ph_old_tyre", 4.0, -3.0, 0), ("pa_fruit_crate_high", -8.0, 4.6, 70)]),
     "pa_log_house_ruin": dict(
         name="Ruined log house", lic="glb", src="old_destroyed_home_part_1/old_destroyed_home_part_1.glb", scale=0.6, maxTex=2048,
         auto_colliders={"cell": 0.5, "min_wall": 2.0, "min_rect": 0.75, "min_floor": 0.5, "min_rect_floor": 0.25},
