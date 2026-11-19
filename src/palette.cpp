@@ -3,8 +3,10 @@
 #include "palette.h"
 #include "app.h"
 #include "thumbs.h"
+#include "settings.h"
 #include <imgui.h>
 #include <algorithm>
+#include <unordered_map>
 
 static ImTextureID texId(GLuint t) { return (ImTextureID)(intptr_t)t; }
 
@@ -29,6 +31,38 @@ std::string assetGroup(const std::string& c) {
   return "Scenery";
 }
 
+// TH1: themes for the palette's theme checkboxes. An asset's own "themes": ["wwii", "postapoc", "modern", "desert"] wins;
+// otherwise derived from its category, id and wording, so nothing is untagged (plain 1944 content is WWII).
+const char* const kThemeKeys[4] = {"wwii", "postapoc", "modern", "desert"};
+static unsigned deriveThemes(const AssetDef* a) {
+  const std::string& c = a->category; const std::string& id = a->id;
+  auto pre = [&](const char* p) { return id.rfind(p, 0) == 0; };
+  std::string d = id + " " + a->name + " " + a->description; std::transform(d.begin(), d.end(), d.begin(), ::tolower);
+  auto says = [&](const char* w) { return d.find(w) != std::string::npos; };
+  // ground, plants, water, caves, fires, benches: fit every setting
+  for (const char* any : {"Nature", "Vegetation", "Trees", "Water", "Paths", "Ground pads", "Scenery", "Cave", "Cave roof", "Gameplay", "Lighting", "Lines"})
+    if (c == any) return TH_ALL;
+  unsigned t = 0;
+  if (c.find("Desert") != std::string::npos || pre("sd_") || says("desert")) t |= TH_DESERT;   // sd_: the Sun Fort desert map's set
+  if (pre("mod_") || pre("sd_") || pre("cl_") || pre("br_") || pre("brm_") || pre("rb1_") || pre("furn_mod_") || pre("smithing_table_tech") || pre("car_humvee") || pre("car_boxer") || pre("heli")
+      || id == "rack_modern" || c.rfind("Modern", 0) == 0 || c == "Interior: Modern" || c.rfind("Industrial", 0) == 0 || c == "Battle Royale" || c == "Backrooms") t |= TH_MODERN;
+  // Poly Haven household and yard props of no particular decade: both eras
+  if (c == "Town clutter" || c == "Interior: Tableware & Decor" || c == "Interior: Decor & Lighting" || c == "Industrial: Yard") t |= TH_WWII | TH_MODERN;
+  if (!(t & (TH_MODERN | TH_DESERT))) t |= TH_WWII;   // the 1944 catalogue
+  if (c == "Ruins" || c == "Rubble" || c == "Modern: Destruction" || pre("rub_") || pre("ruin_") || pre("mod_debris_") || pre("mod_tool_")
+      || says("_ruin") || says("ruined") || says("burnt") || says("burned") || says("wreck") || says("rubble") || says("derelict") || says("abandoned")
+      || says("collapsed") || says("rusted") || says("rusty") || says("debris") || says("graffiti") || says("scrap") || says("damaged") || says("gutted")) t |= TH_POSTAPOC;
+  return t;
+}
+unsigned assetThemes(const AssetDef* a) {
+  static std::unordered_map<std::string, unsigned> memo;   // shortcut: by id for the session, so an edited "themes" shows after a restart
+  auto it = memo.find(a->id); if (it != memo.end()) return it->second;
+  unsigned t = 0;
+  if (a->raw.is_object() && a->raw.contains("themes") && a->raw["themes"].is_array())
+    for (auto& v : a->raw["themes"]) for (int k = 0; k < 4; ++k) if (v.is_string() && v.get<std::string>() == kThemeKeys[k]) t |= 1u << k;
+  return memo[a->id] = t ? t : deriveThemes(a);
+}
+
 const AssetDef* drawAssetPalette(App& app, AssetPalette& st, const AssetDef* active) {
   const AssetDef* picked = nullptr;
   const std::vector<std::string> cats = {"All", "Scenery", "Large Buildings", "Small Buildings", "Bunkers", "Ruins", "Vehicles", "Terrain"};
@@ -39,6 +73,21 @@ const AssetDef* drawAssetPalette(App& app, AssetPalette& st, const AssetDef* act
   if (ImGui::BeginCombo("Category", cats[st.category].c_str())) {
     for (int k = 0; k < (int)cats.size(); ++k) if (ImGui::Selectable(cats[k].c_str(), k == st.category)) st.category = k;
     ImGui::EndCombo();
+  }
+  {   // TH1: theme checkboxes (an asset shows when one of its themes is ticked), kept in settings_user.json
+    static const char* const kThemeLabels[4] = {"WWII", "Post-apocalyptic", "Modern", "Desert"};
+    unsigned& th = settings().s.themes;
+    for (int k = 0; k < 4; ++k) {
+      bool on = th & (1u << k);
+      if (k % 2) ImGui::SameLine(150);   // two per row: the Assets window is ~300 px wide
+      if (ImGui::Checkbox(kThemeLabels[k], &on)) { th = on ? th | (1u << k) : th & ~(1u << k); settings().save(); }
+    }
+    static bool logged = false;
+    if (!logged) {
+      logged = true; int n[4] = {}, all = 0, shown = 0;
+      for (auto& a : app.lib.assets) { if (hidden(a.get())) continue; unsigned t = assetThemes(a.get()); ++shown; all += t == TH_ALL; for (int k = 0; k < 4; ++k) n[k] += (t >> k) & 1; }
+      logf("palette themes: %d listed assets: wwii %d, postapoc %d, modern %d, desert %d (all four %d)", shown, n[0], n[1], n[2], n[3], all);
+    }
   }
   ImGui::InputTextWithHint("##search", "Search...", st.filter, sizeof st.filter);
   if (st.buildingFilters) {
@@ -54,6 +103,7 @@ const AssetDef* drawAssetPalette(App& app, AssetPalette& st, const AssetDef* act
   for (auto& a : app.lib.assets) {
     if (hidden(a.get())) continue;
     if (st.category > 0 && (a->id.rfind("mod_bld_", 0) == 0 ? std::string(a->floors >= 3 || a->footprint.x * a->footprint.y >= 400.0f ? "Large Buildings" : "Small Buildings") : assetGroup(a->category)) != cats[st.category]) continue;   // modern buildings by size
+    if (!(assetThemes(a.get()) & settings().s.themes)) continue;   // TH1
     if (st.buildingFilters && st.enterableOnly && !a->enterable) continue;
     if (st.buildingFilters && a->floors < st.minFloors) continue;
     std::string lname = a->name; std::transform(lname.begin(), lname.end(), lname.begin(), ::tolower);

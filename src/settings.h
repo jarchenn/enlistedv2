@@ -73,6 +73,7 @@ struct UserSettings {
   std::string character, primary;
   // UI12: the build-mode hotbar (keys 1-9, 0): asset ids, "" = empty
   std::array<std::string, 10> hotbar = {"def_tank_trap", "def_sandbag_straight", "def_sandbag_curved"};
+  unsigned themes = 15;          // TH1: the asset palette's ticked themes (bits: wwii, postapoc, modern, desert)
 
   GfxPreset preset() const;    // Low / Medium / High when gfx matches one exactly, else Custom
   json toJson() const;

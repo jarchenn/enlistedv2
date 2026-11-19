@@ -8,6 +8,7 @@
 #include "mpui.h"
 #include "physics.h"
 #include "ai_hooks.h"
+#include "settings.h"
 #include "br_models.h"
 #include <cstdlib>
 #include <cmath>
@@ -106,6 +107,7 @@ bool paletteShots(App& app, float dt) {
   t += dt;
   const char* mp = std::getenv("NMK_SHOTS_MAP");
   fs::path map = contentDir() / (mp && *mp ? mp : "templates/backrooms.nmap.json");
+  if (stage == 0) if (const char* th = std::getenv("NMK_SHOTS_THEMES")) settings().s.themes = (unsigned)std::atoi(th);   // TH1: the palette's ticked themes (bits wwii 1, postapoc 2, modern 4, desert 8)
   if (stage == 0) { bool ok = app.openMap(map); logf("[palette] open %s: %s", map.string().c_str(), ok ? "ok" : "FAILED"); stage = 1; t = 0; return true; }
   if (stage == 1 && t > 8.0f) { app.uiShot = exeDir() / "selftest_out" / ("palette_" + map.stem().stem().string() + ".png"); stage = 2; t = 0; return true; }
   if (stage == 2 && t > 1.0f) { app.selftest->exitCode = 0; app.selftest->done = true; }
