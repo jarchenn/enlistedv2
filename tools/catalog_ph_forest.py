@@ -17,6 +17,10 @@ KIND = {
     "pine_tree_01": ("Trees", "tree", 1.0, 32, 420, "Scots pine"),
     "fir_tree_01": ("Trees", "tree", 1.0, 32, 420, "Fir"),
     "island_tree_01": ("Trees", "tree", 1.2, 45, 420, "Broadleaf tree"),
+    "island_tree_02": ("Trees", "tree", 1.2, 45, 420, "Broadleaf tree, tall"),   # TR1
+    "island_tree_03": ("Trees", "tree", 1.2, 45, 420, "Broadleaf tree, spreading"),
+    "jacaranda_tree": ("Trees", "tree", 1.2, 45, 420, "Ornamental tree"),
+    "tree_small_02": ("Trees", "tree", 1.3, 40, 380, "Small tree"),
     "pine_sapling_medium": ("Trees", "sapling", 1.2, 30, 260, "Young pine"),
     "fir_sapling_medium": ("Trees", "sapling", 1.2, 30, 260, "Young fir"),
     "fir_sapling": ("Nature", "sapling", 1.4, 12, 80, "Fir sapling"),

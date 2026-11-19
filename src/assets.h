@@ -257,6 +257,7 @@ struct AssetDef {
   std::vector<Attached> attached;
   float modelLodDist = 30, modelCull = 400;   // m
   float modelThinPx = 0;                       // thin-line widening (wire), pixels
+  float modelScale = 1;          // TR1: "model": {"drawScale": s}: the bake drawn s times its size (one bake, several sized variants)
   bool modelFoliage = false; float modelWind = 0;   // NT8: "model": {"foliage": true, "wind": k}: instanced, alpha-tested cards, sway k
   ShapePtr playerShape;                        // union of "k": 2 parts (no sections)
   GpuMesh colliderGhost;                       // every collider as a box: placement preview of model assets

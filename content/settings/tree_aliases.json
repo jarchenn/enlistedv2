@@ -1,0 +1,81 @@
+{
+ "_doc": "TR1 (tools/tr1_trees.py): generated tree ids -> model-tree variants; a map placing an old id loads each such tree as one of its variants, picked by the instance id.",
+ "aliases": {
+  "tree_oak": [
+   "tr_oak_a",
+   "tr_oak_b",
+   "tr_oak_c"
+  ],
+  "nt3_tree_forest_oak": [
+   "tr_oak_a",
+   "tr_oak_b",
+   "tr_oak_c"
+  ],
+  "tree_ash": [
+   "tr_ash_a",
+   "tr_ash_b",
+   "tr_ash_c"
+  ],
+  "nt3_tree_forest_ash": [
+   "tr_ash_a",
+   "tr_ash_b",
+   "tr_ash_c"
+  ],
+  "tree_apple": [
+   "tr_apple_a",
+   "tr_apple_b",
+   "tr_apple_c"
+  ],
+  "tree_poplar": [
+   "tr_poplar_a",
+   "tr_poplar_b"
+  ],
+  "nt3_tree_forest_poplar": [
+   "tr_poplar_a",
+   "tr_poplar_b"
+  ],
+  "nat_sapling_oak": [
+   "tr_sapling_a",
+   "tr_sapling_b"
+  ],
+  "nat_sapling_ash": [
+   "tr_sapling_a",
+   "tr_sapling_b"
+  ],
+  "mod_sapling_paving": [
+   "tr_sapling_a",
+   "tr_sapling_b"
+  ],
+  "mod_tree_ornamental": [
+   "tr_street_a",
+   "tr_street_b",
+   "tr_street_c"
+  ],
+  "mod_tree_columnar": [
+   "tr_street_c",
+   "tr_street_a"
+  ],
+  "mod_tree_blossom": [
+   "tr_street_b",
+   "tr_street_a"
+  ],
+  "nt3_tree_dead_oak": [
+   "tr_dead_a",
+   "tr_dead_b",
+   "tr_dead_c",
+   "tr_dead_d"
+  ],
+  "nt3_tree_dead_ash": [
+   "tr_dead_a",
+   "tr_dead_b",
+   "tr_dead_c",
+   "tr_dead_d"
+  ],
+  "nt3_tree_dry_ash": [
+   "tr_dead_a",
+   "tr_dead_b",
+   "tr_dead_c",
+   "tr_dead_d"
+  ]
+ }
+}

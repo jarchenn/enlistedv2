@@ -1,0 +1,123 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  3.5536670684814453,
+  5.084668159484863,
+  3.550506353378296
+ ],
+ "bmin": [
+  -3.5536670684814453,
+  0.0,
+  -3.550506353378296
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "mr": "mr_2.jpg",
+   "name": "island_tree_02_branches",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "island_tree_02",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "albedo": "albedoa_6.png",
+   "cutout": true,
+   "name": "ph_island_tree_02_needles"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.5203039646148682,
+    2.891314744949341,
+    1.6876060962677002
+   ],
+   "bmin": [
+    -2.0398616790771484,
+    1.6872177124023438,
+    -1.5652427673339844
+   ],
+   "count": 381,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "island_tree_02_LOD0.002",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.8641319274902344,
+    2.5246829986572266,
+    0.9495803713798523
+   ],
+   "bmin": [
+    -1.4417616128921509,
+    0.0,
+    -1.009977102279663
+   ],
+   "count": 186,
+   "first": 381,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "island_tree_02_LOD0.003",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    3.5536670684814453,
+    5.084668159484863,
+    3.550506353378296
+   ],
+   "bmin": [
+    -3.5536670684814453,
+    0.4222359359264374,
+    -3.550506353378296
+   ],
+   "count": 780,
+   "first": 567,
+   "mat": 2,
+   "metal": 0.0,
+   "name": "ph_island_tree_02_cards1",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "ph_island_tree_02_lod1.glb",
+ "textures": {},
+ "triangles": 449,
+ "vertices": 855
+}

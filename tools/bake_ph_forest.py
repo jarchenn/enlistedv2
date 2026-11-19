@@ -28,7 +28,11 @@ SPEC = {
     "fir_sapling_medium":  {"kind": "tree", "voxel": (0.3, 0.8), "wood": (2000, 400), "sprig": 0.25, "trueColour": True},
     "fir_sapling":         {"kind": "tree", "voxel": (0.16, 0.4), "wood": (800, 200), "sprig": 0.15, "trueColour": True},
     "pine_sapling_small":  {"kind": "tree", "voxel": (0.12, 0.3), "wood": (500, 150), "sprig": 0.15, "trueColour": True},
-    "island_tree_01":      {"kind": "tree", "voxel": (0.6, 1.5), "wood": (5000, 900)},
+    "island_tree_01":      {"kind": "tree", "voxel": (0.6, 0.85), "wood": (5000, 900)},   # TR1: LOD1 0.85 (at 1.5 the far crowns thinned to a few cards)
+    "island_tree_02":      {"kind": "tree", "voxel": (0.6, 0.85), "wood": (5000, 900)},   # TR1: broadleaf trees for the generated ones
+    "island_tree_03":      {"kind": "tree", "voxel": (0.5, 0.6), "wood": (5000, 900)},
+    "jacaranda_tree":      {"kind": "tree", "voxel": (1.3, 3.2), "wood": (5000, 900)},   # 19 m: coarse clusters (84k tris at 0.5 m)
+    "tree_small_02":       {"kind": "tree", "voxel": (0.4, 0.7), "wood": (3000, 600)},
     "fern_02":             {"kind": "plant"},
     "shrub_03":            {"kind": "plant"},
     "grass_medium_01":     {"kind": "plant"},

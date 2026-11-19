@@ -152,7 +152,7 @@ void App::drawCreativeOverlay(Overlay& ov, std::vector<DrawItem>& ghosts) {
     ghosts.push_back({&placing->opaque, M, tint});
     ghosts.push_back({&placing->panelsIntact, M, tint});
     if (placing->model) {
-      for (size_t k = 0; k < placing->model->parts.size(); ++k) R.worldModels.push_back({placing->model.get(), (int)k, M});
+      for (size_t k = 0; k < placing->model->parts.size(); ++k) R.worldModels.push_back({placing->model.get(), (int)k, M * glm::scale(mat4(1), vec3(placing->modelScale))});   // TR1: sized variants
       ghosts.push_back({&placing->colliderGhost, M, vec4(vec3(tint), 0.22f)});
     }
     if (isVehicleAsset(placing)) tanks.ghostItems(*this, placing, M, tint);   // tank_ui.cpp: the baked tank model as the preview

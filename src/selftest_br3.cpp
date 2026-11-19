@@ -36,7 +36,7 @@ void hold(App& app, const Spot& sp) {
   vec3 e(sp.eye.x, fy, sp.eye.y), t(sp.at.x, fy, sp.at.y), d = glm::normalize(t - e), side = glm::normalize(glm::cross(d, vec3(0, 1, 0)));
   Physics::setCharacterPos(e);
   if (Soldier* L = G.local()) { L->feet = e; L->hp = 100; }
-  vec3 eye = e + vec3(0, 1.62f, 0), look = sp.ly >= 0 ? t + vec3(0, sp.ly, 0) : e + d * 6.0f + vec3(0, 1.3f, 0), v = look - eye;
+  vec3 eye = e + vec3(0, 1.62f, 0), look = sp.ly > -1e8f ? t + vec3(0, sp.ly, 0) : e + d * 6.0f + vec3(0, 1.3f, 0), v = look - eye;
   app.eyeYaw = yawToward(v); app.eyePitch = degrees(std::atan2(v.y, glm::length(vec2(v.x, v.z))));
   if (std::getenv("NMK_SHOTS_NOBOTS")) {   // L2 scenery shots: every bot far behind the camera
     for (auto& s : G.sold) if (s.alive && !s.localPlayer) { vec3 p = e - d * (300.0f + 3.0f * s.slot); p.y = gGame->app.terrain.height(p.x, p.z); place(s, p, e); }
@@ -58,7 +58,7 @@ bool br3Shots(App& app, float dt) {
       while (std::getline(ss, item, ';')) {
         std::stringstream is(item); std::string f[7]; for (auto& x : f) std::getline(is, x, ':');
         auto n = [&](int i) { return (float)std::atof(f[i].c_str()); };
-        if (!f[5].empty()) spots.push_back({f[0], vec2(n(1), n(3)), vec2(n(4), n(5)), n(2), f[6].empty() ? -1.0f : n(6)});   // UG3: name:x:y:z:tx:tz[:look height] (y = the floor)
+        if (!f[5].empty()) spots.push_back({f[0], vec2(n(1), n(3)), vec2(n(4), n(5)), n(2), f[6].empty() ? -1e9f : n(6)});   // UG3: name:x:y:z:tx:tz[:look height] (y = the floor)
         else if (!f[4].empty()) spots.push_back({f[0], vec2(n(1), n(2)), vec2(n(3), n(4))});
       }
     }
@@ -91,7 +91,13 @@ bool br3Shots(App& app, float dt) {
     if (shotIdx >= (int)spots.size()) { app.selftest->exitCode = 0; app.selftest->done = true; return true; }
     hold(app, spots[shotIdx]);
     G.posesStep(dt > 0 ? dt : 1.0f / 60);
-    if (st > 2.5f) { pending = exeDir() / "selftest_out" / ("br3_" + spots[shotIdx].name + ".png"); ++shotIdx; st = 0; app.R.resetTemporal(); }
+    static double gsum = 0, fsum = 0; static int nf = 0;   // TR1: the spot's frame cost over the second before its shot
+    if (st > 1.5f && dt > 0) { gsum += app.R.stats.gpuMs; fsum += dt * 1000.0; ++nf; }
+    if (st > 2.5f) {
+      logf("[br3] spot %s: gpu %.2f ms, frame %.2f ms over %d frames (preset %s)", spots[shotIdx].name.c_str(), nf ? gsum / nf : 0.0, nf ? fsum / nf : 0.0, nf, presetName(settings().s.preset()));
+      gsum = fsum = 0; nf = 0;
+      pending = exeDir() / "selftest_out" / ("br3_" + spots[shotIdx].name + ".png"); ++shotIdx; st = 0; app.R.resetTemporal();
+    }
     return true;
   }
   return true;

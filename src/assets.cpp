@@ -1306,6 +1306,7 @@ void AssetLibrary::build(AssetDef& ad) const {
     auto& mj = j["model"];
     a->modelLodDist = mj.value("lodDist", 30.0f); a->modelCull = mj.value("cullDist", 400.0f); a->modelThinPx = mj.value("thinLinesPx", 0.0f);
     a->modelFoliage = mj.value("foliage", false); a->modelWind = mj.value("wind", 0.0f);   // NT8: instanced model foliage
+    a->modelScale = mj.value("drawScale", 1.0f);
     // SD2: "root": "vehicles" reads a vehicle's bake (content/vehicles/models) for a static prop of it; "fallbackDir" is
     // tried when the main bake is missing (a licence-restricted bake kept local: the public tree shows the box fallback)
     const fs::path base = mj.value("root", std::string()) == "vehicles" ? contentDir() / "vehicles" / "models" : contentDir() / "assets" / "models";
@@ -1313,9 +1314,13 @@ void AssetLibrary::build(AssetDef& ad) const {
     if (mj.contains("fallbackDir") && !fs::exists(dir / "mesh.bin")) dir = base / mj["fallbackDir"].get<std::string>();
     auto gm = std::make_shared<GpuModel>(); std::string err; gm->keepPos = j.contains("sight");   // AT7: an optic keeps its vertices (its mount feet seat it on the gun)
     bool turn = mj.value("yaw", 0.0f) == 180.0f;   // "yaw": 180 - the bake faces -z (the car pack), the asset's parts +z
-    if (gm->load(dir, err, turn)) {
+    // TR1: model foliage loads once per bake (the sized tree variants share it: one GPU copy, one instanced batch)
+    static std::map<std::string, std::pair<std::shared_ptr<GpuModel>, std::shared_ptr<GpuModel>>> folCache;
+    auto fc = a->modelFoliage ? folCache.find(dir.string() + (turn ? "|t" : "")) : folCache.end();
+    if (fc != folCache.end()) { a->model = fc->second.first; a->modelLod = fc->second.second; pts.push_back(a->model->bmin * a->modelScale); pts.push_back(a->model->bmax * a->modelScale); }
+    else if (gm->load(dir, err, turn)) {
       a->model = gm;
-      pts.push_back(gm->bmin); pts.push_back(gm->bmax);
+      pts.push_back(gm->bmin * a->modelScale); pts.push_back(gm->bmax * a->modelScale);
       auto lod = std::make_shared<GpuModel>(); std::string e2;
       if (fs::exists(dir / "lod1" / "mesh.bin") && lod->load(dir / "lod1", e2, turn)) {
         // FOL1: the LOD1 cards sample the same atlas layout as LOD0 (one bake): they draw LOD0's full-size cutout albedo
@@ -1324,6 +1329,7 @@ void AssetLibrary::build(AssetDef& ad) const {
           if (m0.cutout && m0.alb && m0.name == lm.name && lm.alb != m0.alb) { if (lm.alb) glDeleteTextures(1, &lm.alb); lm.alb = m0.alb; lod->borrowed.insert(m0.alb); }
         a->modelLod = lod;
       }
+      if (a->modelFoliage) folCache[dir.string() + (turn ? "|t" : "")] = {a->model, a->modelLod};
       if (mj.contains("stationRoles")) {   // part-name prefix -> station role: base / traverse / elevation / recoil
         static const std::map<std::string, int> rn = {{"base", 0}, {"traverse", 1}, {"elevation", 2}, {"recoil", 3}};
         for (auto& p : gm->parts) {

@@ -2,6 +2,22 @@
 #include <fstream>
 #include <cstring>
 
+// TR1: the generated trees replaced by model trees (content/settings/tree_aliases.json: old id -> model variants). A map
+// (template or saved) that places an old id loads each such tree as one of its variants, picked by the instance id
+// (the same tree every load, a mix across a wood); the old ids stay hidden from the palette (palette.cpp)
+const std::vector<std::string>* treeAlias(const std::string& id) {
+  static const std::map<std::string, std::vector<std::string>> table = [] {
+    std::map<std::string, std::vector<std::string>> t;
+    try {
+      json j = json::parse(readTextFile(contentDir() / "settings" / "tree_aliases.json"));
+      for (auto& [k, v] : j.value("aliases", json::object()).items()) for (auto& x : v) t[k].push_back(x.get<std::string>());
+    } catch (...) {}
+    return t;
+  }();
+  auto it = table.find(id);
+  return it == table.end() || it->second.empty() ? nullptr : &it->second;
+}
+
 // ground paint chunks: run-length (count, r, g, b, a) then base64 (docs/lasso.md#map-format)
 static const char* kB64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 static std::string paintEncode(const std::vector<uint8_t>& t) {
@@ -176,6 +192,7 @@ bool loadMap(const fs::path& path, MapDoc& d, std::string& err) {
     i.id = o.value("id", 0ull);
     i.assetId = o["asset"].value("id", "");
     i.assetVersion = o["asset"].value("version", 1);
+    if (const auto* al = treeAlias(i.assetId)) { uint64_t h = i.id * 0x9E3779B97F4A7C15ull; h ^= h >> 29; i.assetId = (*al)[(size_t)(h % al->size())]; i.assetVersion = 1; }   // TR1
     i.pos = jvec3(o["position"]);
     i.yaw = o.value("yaw", 0.0f);
     if (o.contains("overrides") && o["overrides"].contains("interactables"))

@@ -376,7 +376,7 @@ void App::builderGhosts(std::vector<DrawItem>& ghosts) {
   ghosts.push_back({&a->opaque, M, tint});   // same preview as the editor's Place tool
   ghosts.push_back({&a->panelsIntact, M, tint});
   if (a->model) {
-    for (size_t k = 0; k < a->model->parts.size(); ++k) R.worldModels.push_back({a->model.get(), (int)k, M});
+    for (size_t k = 0; k < a->model->parts.size(); ++k) R.worldModels.push_back({a->model.get(), (int)k, M * glm::scale(mat4(1), vec3(a->modelScale))});   // TR1: sized variants
     ghosts.push_back({&a->colliderGhost, M, vec4(vec3(tint), 0.22f)});
   }
   if (isVehicleAsset(a)) tanks.ghostItems(*this, a, M, tint);
