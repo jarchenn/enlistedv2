@@ -3376,7 +3376,7 @@ void main(){
     float d = length(p);
     float n = fxN(p*2.2 + id*1.3)*0.55 + fxN(p*4.6 - id*0.7 + u*1.5)*0.30 + fxN(p*9.0 + id*2.1)*0.15;
     float body = 1.0 - d + (n - 0.5)*0.85;
-    float a = smoothstep(0.0, 0.6, body)*smoothstep(1.0, 0.65, d);
+    float a = smoothstep(-0.1, 0.75, body)*smoothstep(1.0, 0.55, d);   // soft edges
     float core = pow(clamp(1.0 - d, 0.0, 1.0), 2.0);
     o = vec4(vC.rgb*a*(0.55 + 0.9*core), 1.0);
     return;

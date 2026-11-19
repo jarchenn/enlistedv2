@@ -140,6 +140,7 @@ struct Projectile {
   int owner = -1;               // firing soldier's roster slot (multiplayer + AI); -1 = the local player
   int tracerKind = 0;           // tracerKindFor(): 0 none, 1 red tracer, 2 white-yellow streak
   bool extraPellet = false;     // MG1: a shotgun's 2nd..nth pellet (a LAN client sends one request per shot; the host fires them all)
+  float trailSkip = 0;   // DF1: the trail is not drawn over the first trailSkip m (past the muzzle fireball's tongue)
   vec3 visOff{0}; float visTrav = 0;   // AT4: where the round is drawn: from the muzzle (visOff from p at the start), onto p over kVisConverge m
   std::string ammo;
   float travelled = 0;          // m flown so far (W1 damage falloff: the true range)

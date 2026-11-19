@@ -866,6 +866,7 @@ bool Game::soldierFire(Soldier& s, vec3 dir) {
     tracer = 0;
   } else
   app.fireRounds(d, start, dd, tracer, (uint32_t)s.slot * 131u + (uint32_t)w.shotIdx * 7919u, s.slot);   // MG1: a shotgun's pellets
+  if (s.kit == 4) for (size_t k = 0, n = std::min(app.projectiles.size(), (size_t)std::max(1, d.pellets)); k < n; ++k) app.projectiles[app.projectiles.size() - 1 - k].trailSkip = 0.9f * d.flashScale * std::clamp(0.45f + 0.6f * d.muzzle.z, 0.55f, 1.3f);   // DF1: the trail starts past the fireball
   if (s.kit == 4 && !d.blaster) app.fx.muzzleFireball(muzzle + dd * 0.01f, dd, d.flashScale * std::clamp(0.45f + 0.6f * d.muzzle.z, 0.55f, 1.3f), d.suppressed || lootSuppressedShot(d, w), muzzle);   // DF1: the fireball flash (fx.cpp)
   else app.fx.muzzleFlash(muzzle + dd * 0.02f, dd, d.flashScale * 1.2f, d.suppressed, muzzle, d.blaster ? blasterColour(d.blaster) : vec3(-1));   // WP4: the same flash and light as the player's
   app.fx.smoke(muzzle, dd * 2.0f + vec3(0, 0.3f, 0), 0.05f, 1.2f, vec4(0.6f, 0.58f, 0.55f, 0.35f), 0.6f, 0.2f);

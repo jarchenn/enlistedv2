@@ -57,11 +57,11 @@ void Fx::muzzleFireball(vec3 p, vec3 dir, float scale, bool suppressed, vec3 lig
   };
   if (suppressed) { put(p + dir * 0.01f * scale, 0.02f * scale, vec3(2.2f, 1.5f, 0.6f), 0); return; }
   put(p + dir * 0.006f * scale, 0.022f * scale, vec3(9.0f, 7.5f, 4.8f), 0);   // the crown: a pinpoint, white-hot
-  vec3 ball = p + dir * (0.55f * D);
-  put(ball, 0.55f * D, vec3(5.2f, 3.9f, 2.3f), 0);   // the ball: pale yellow-tan, the brightest body
+  vec3 ball = p + dir * (0.62f * D);
+  put(ball, 0.66f * D, vec3(5.2f, 3.9f, 2.3f), 0);   // round and large against the tongue (the reference)   // the ball: pale yellow-tan, the brightest body
   for (int k = 0; k < 3; ++k) {   // its ragged rim: three lobes round it
     float a = roll + k * 2.094f; vec3 o = (s1 * std::cos(a) + s2 * std::sin(a)) * (0.22f * D * (0.7f + 0.6f * rnd()));
-    put(ball + o + dir * (0.1f * D * (rnd() - 0.5f)), 0.36f * D * (0.8f + 0.4f * rnd()), vec3(3.2f, 2.0f, 0.95f), 0);
+    put(ball + o + dir * (0.1f * D * (rnd() - 0.5f)), 0.42f * D * (0.8f + 0.4f * rnd()), vec3(3.2f, 2.0f, 0.95f), 0);
   }
   const float tongue = D * (2.6f + 1.2f * rnd());   // the tongue: from the ball's front some three balls on, narrowing, wandering off the bore
   const int n = 6 + (int)(rnd() * 3.0f);
@@ -70,7 +70,7 @@ void Fx::muzzleFireball(vec3 p, vec3 dir, float scale, bool suppressed, vec3 lig
     float u = (k + 0.5f) / n, along = 0.9f * D + tongue * u;
     wob += vec2(rnd() - 0.5f, rnd() - 0.5f) * (0.10f * D);
     vec3 q = p + dir * along + s1 * wob.x + s2 * wob.y;
-    float sz = D * (0.40f - 0.20f * u) * (0.75f + 0.5f * rnd());
+    float sz = D * (0.48f - 0.20f * u) * (0.75f + 0.5f * rnd()) * (scale > 0.8f ? 1.15f : 1.0f);   // a rifle's tongue wider
     float heat = 1.0f - 0.55f * u;
     put(q, sz, vec3(3.0f, 1.75f, 0.70f) * heat * (0.8f + 0.4f * rnd()), 0.6f);
   }

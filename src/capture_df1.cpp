@@ -142,12 +142,17 @@ bool df1Capture(App& app, float dt) {
     if (frames > 48) { s.reload = 0; s.throwT = -1; ++fi; frames = 0; }
     return true;
   }
-  if (stage == 1) {   // rifle, aiming, frozen
+  if (stage == 1) {   // rifle, aiming, frozen (the M4: the frames compare across runs)
+    if (frames == 1) if (int w = app.weaponIndex("modern_m4_irons"); w >= 0) { s.weapon = w; s.ws = WeaponState{}; s.ws.loaded = app.weaponDefs[w]->loaded; }
     aimAhead(); front(2.1f);
     if (frames == 45) {
       handsCheck("rifle aimed");
       bool drawn = false; const WeaponDef& d = *app.weaponDefs[s.weapon]; for (auto& md : app.R.worldModels) if (d.useModel() && md.model == d.worldModel()) drawn = true;
       T->check(drawn, "the gun model is drawn in its hands");
+      { const CharModel& cm = *G.models[s.model]; char q[400];
+        for (int h = 0; h < 2; ++h) { std::snprintf(q, sizeof q, "hand %d: palmN (%.2f %.2f %.2f) fingerDir (%.2f %.2f %.2f) palmThick %.3f gap %.3f pen %.3f; per finger angle / gap: %.2f/%.3f %.2f/%.3f %.2f/%.3f %.2f/%.3f %.2f/%.3f", h,
+            cm.palmN[h].x, cm.palmN[h].y, cm.palmN[h].z, cm.fingerDir[h].x, cm.fingerDir[h].y, cm.fingerDir[h].z, cm.palmThick[h], s.pose.fingerGap[h], s.pose.fingerPen[h],
+            s.pose.fingerDiag[h][0][0], s.pose.fingerDiag[h][0][1], s.pose.fingerDiag[h][1][0], s.pose.fingerDiag[h][1][1], s.pose.fingerDiag[h][2][0], s.pose.fingerDiag[h][2][1], s.pose.fingerDiag[h][3][0], s.pose.fingerDiag[h][3][1], s.pose.fingerDiag[h][4][0], s.pose.fingerDiag[h][4][1]); T->note(q); } }
       vec3 mz = vec3(s.world * s.pose.weapon * vec4(d.muzzle, 1));
       std::snprintf(b, sizeof b, "the muzzle %.2f m ahead, %.2f m up (clip %d '%s')", glm::dot(mz - s.feet, f), mz.y - s.feet.y, s.anim.a, s.anim.a >= 0 ? G.models[s.model]->clips[s.anim.a].name.c_str() : "-");
       T->check(glm::dot(mz - s.feet, f) > 0.3f && mz.y - s.feet.y > 1.0f, b);
@@ -172,7 +177,7 @@ bool df1Capture(App& app, float dt) {
       std::snprintf(b, sizeof b, "%s shot: fired %d, %zu fireball sprites", app.weaponDefs[s.weapon]->id.c_str(), (int)ok, fb);
       T->check(ok && fb >= 8, b); app.uiShot = shot(stage == 3 ? "rifle_flash" : "pistol_flash");
     }
-    if (frames > 46) { stage = stage == 3 ? 4 : 7; frames = 0; }
+    if (frames > 46) { stage = stage == 3 ? 4 : 8; frames = 0; }
     return true;
   }
   if (stage == 4) {   // the reload, held at half way
@@ -186,6 +191,7 @@ bool df1Capture(App& app, float dt) {
       s.reload = 0;
       int p = s.carried.size() > 1 ? s.carried[1] : -1;
       T->check(p >= 0, "the sidearm: " + (p >= 0 ? app.weaponDefs[p]->id : std::string("none")));
+      if (int g = app.weaponIndex("modern_glock34"); g >= 0) p = g;   // the Glock: the frames compare across runs
       if (p >= 0) { const WeaponDef& d = *app.weaponDefs[p]; s.weapon = p; s.ws = WeaponState{}; s.ws.loaded = d.loaded; }
       stage = 5; frames = 0;
     }
@@ -195,6 +201,27 @@ bool df1Capture(App& app, float dt) {
     aimAhead(); front(1.6f);
     if (frames == 45) { handsCheck("pistol aimed"); app.uiShot = shot("pistol_idle"); }
     if (frames > 50) { stage = 6; frames = 0; }
+    return true;
+  }
+  auto close = [&](float sd) { look(s.feet + r * (1.05f * sd) + f * 0.55f - vec3(0, 0.25f, 0), s.feet + f * 0.35f + vec3(0, 1.35f, 0)); };   // at the hands: sd 1 the firing (right) side, -1 the support (left) side
+  if (stage == 8) {   // the pistol's hands, close from the support side
+    aimAhead(); close(frames < 48 ? 1.0f : -1.0f);
+    if (frames == 40) app.uiShot = shot("hands_pistol_right");
+    if (frames == 88) app.uiShot = shot("hands_pistol_left");
+    if (frames > 92) { if (int w = app.weaponIndex("modern_m4_irons"); w >= 0) { s.weapon = w; s.ws = WeaponState{}; s.ws.loaded = app.weaponDefs[w]->loaded; } stage = 9; frames = 0; }
+    return true;
+  }
+  if (stage == 9) {   // the rifle's hands, close from the support side
+    aimAhead(); close(frames < 48 ? 1.0f : -1.0f);
+    if (frames == 40) app.uiShot = shot("hands_rifle_right");
+    if (frames == 88) app.uiShot = shot("hands_rifle_left");
+    if (frames > 92) { stage = 10; frames = 0; }
+    return true;
+  }
+  if (stage == 10) {   // the relaxed low ready: no target, no shot for a while
+    s.br.target = -1; s.lastShot = G.t - 10; s.br.aimYaw = s.anGunYaw = s.yaw; s.br.aimPitch = s.anGunPitch = 0; front(2.1f);
+    if (frames == 70) { std::snprintf(b, sizeof b, "low ready: the support hand %.3f m from the handguard socket, fingers on %d", glm::length(s.pose.joint[CJ_LHAND] - vec3(s.pose.weapon * vec4(app.weaponDefs[s.weapon]->gripL, 1))), s.pose.fingersOn[0]); T->note(b); app.uiShot = shot("rifle_lowready"); }
+    if (frames > 74) { stage = 7; frames = 0; }
     return true;
   }
   if (stage == 7 && frames > 6) finish();
