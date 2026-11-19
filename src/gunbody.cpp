@@ -45,6 +45,18 @@ float borePitch(const CharModel& m, int clip, int flash) {   // degrees, + up: t
   return glm::degrees(std::asin(std::clamp(z.y, -1.0f, 1.0f)));
 }
 
+// the muzzle frame at a body's flash joint (bore = its rest +z): pose.weapon x the weapon's muzzle lands on it
+void flashMuzzle(Game& G, Soldier& s, const CharModel& m, int flash) {
+  if (flash < 0 || s.weapon < 0 || s.pose.delta.empty()) return;
+  const mat4 F = s.pose.delta[flash] * m.nodeWorld[m.jointNode[flash]];
+  const glm::mat3 R = glm::mat3(s.pose.delta[flash]);
+  vec3 z = glm::normalize(R * vec3(0, 0, 1)), y = R * vec3(0, 1, 0);
+  vec3 x = glm::normalize(glm::cross(y, z)); y = glm::cross(z, x);
+  mat4 W(1); W[0] = vec4(x, 0); W[1] = vec4(y, 0); W[2] = vec4(z, 0);
+  W[3] = vec4(vec3(F[3]) - glm::mat3(W) * G.app.weaponDefs[s.weapon]->muzzle, 1);
+  s.pose.weapon = W;
+}
+
 const Rig& rigOf(const CharModel& m) {
   auto it = gRigs.find(&m); if (it != gRigs.end()) return it->second;
   Rig r;
@@ -118,15 +130,7 @@ void gunBodyPose(Game& G, Soldier& s, float dt) {
   if (A.key != key0) A.fadeLen = A.key == K_DEATH ? 0.2f : A.key == K_FIRE || key0 == K_FIRE ? 0.06f : A.key == K_HIT ? 0.08f : A.key == K_AIM ? 0.15f : 0.25f;
   s.poseFrom = -1;
   A.update(m, dt, s.pose); ++s.poseRev;
-  if (r.flash >= 0 && s.weapon >= 0 && !s.pose.delta.empty()) {   // the muzzle frame at the flash joint (bore = its rest +z)
-    const mat4 F = s.pose.delta[r.flash] * m.nodeWorld[m.jointNode[r.flash]];
-    const glm::mat3 R = glm::mat3(s.pose.delta[r.flash]);
-    vec3 z = glm::normalize(R * vec3(0, 0, 1)), y = R * vec3(0, 1, 0);
-    vec3 x = glm::normalize(glm::cross(y, z)); y = glm::cross(z, x);
-    mat4 W(1); W[0] = vec4(x, 0); W[1] = vec4(y, 0); W[2] = vec4(z, 0);
-    W[3] = vec4(vec3(F[3]) - glm::mat3(W) * G.app.weaponDefs[s.weapon]->muzzle, 1);
-    s.pose.weapon = W;
-  }
+  flashMuzzle(G, s, m, r.flash);
 }
 
 // DF1: Delta Force (AiType::Delta, combat.json kits.delta): the user's Mixamo rifle / pistol / grenade clips retargeted onto
@@ -141,7 +145,7 @@ void gunBodyPose(Game& G, Soldier& s, float dt) {
 //   still: idle aiming (engaged) / idle; crouched: idle crouching aiming / idle crouching; a pistol: pistol idle / kneeling.
 // The chest pitches with the aim (Spine1, 45 % of it), the arms and the weapon take the rest.
 namespace {
-struct DRig { int walk[8], run[8], sprint[8], cwalk[8]; int throwS[2] = {-1, -1}, throwC = -1, turnL = -1, turnR = -1, cturnL = -1, cturnR = -1; int idle = -1, aim = -1, cidle = -1, caim = -1, pIdle = -1, pKneel = -1, pWalk = -1, pRun = -1, pWalkB = -1, pRunB = -1; int death[6]; int cdeath = -1; };
+struct DRig { int walk[8], run[8], sprint[8], cwalk[8]; int flash = -1, shot = -1, cshot = -1, reload = -1, creload = -1; float shotAt = 0.1f, cshotAt = 0.1f; int throwS[2] = {-1, -1}, throwC = -1, turnL = -1, turnR = -1, cturnL = -1, cturnR = -1; int idle = -1, aim = -1, cidle = -1, caim = -1, pIdle = -1, pKneel = -1, pWalk = -1, pRun = -1, pWalkB = -1, pRunB = -1; int death[6]; int cdeath = -1; };
 std::map<const CharModel*, DRig> gDRigs;
 const DRig& dRigOf(const CharModel& m) {
   auto it = gDRigs.find(&m); if (it != gDRigs.end()) return it->second;
@@ -158,8 +162,25 @@ const DRig& dRigOf(const CharModel& m) {
   static const char* deaths[6] = {"death from the front", "death from the back", "death from right", "death from front headshot", "death from back headshot", "death from the front"};
   for (int k = 0; k < 6; ++k) r.death[k] = findClip(m, deaths[k]);
   r.cdeath = findClip(m, "death crouching headshot front");
+  if (r.death[0] < 0) {   // NA1: a pistol set's deaths
+    const int d0 = findClip(m, "falling back death"), d1 = findClip(m, "flying back death"), d2 = findClip(m, "standing react death forward"), d3 = d0 >= 0 ? d0 : d1 >= 0 ? d1 : d2;
+    const int dd[6] = {d0, d1, d2, d0, d1, d2}; for (int k = 0; k < 6; ++k) r.death[k] = dd[k] >= 0 ? dd[k] : d3;
+    if (r.cdeath < 0) r.cdeath = findClip(m, "crouch death");
+  }
+  if (r.walk[0] < 0 && r.pWalk >= 0) {   // NA1: a pistol-only set: its walk / run / backward / strafes stand in for the 8 directions
+    const int pl = findClip(m, "pistol strafe left"), pr = findClip(m, "pistol strafe right"), pb = r.pWalkB >= 0 ? r.pWalkB : r.pWalk, prb = r.pRunB >= 0 ? r.pRunB : pb;
+    const int wv[8] = {r.pWalk, r.pWalk, pl >= 0 ? pl : r.pWalk, pb, pb, pb, pr >= 0 ? pr : r.pWalk, r.pWalk};
+    const int rv[8] = {r.pRun >= 0 ? r.pRun : r.pWalk, r.pRun >= 0 ? r.pRun : r.pWalk, pl >= 0 ? pl : r.pWalk, prb, prb, prb, pr >= 0 ? pr : r.pWalk, r.pRun >= 0 ? r.pRun : r.pWalk};
+    for (int k = 0; k < 8; ++k) { r.walk[k] = wv[k]; r.run[k] = r.sprint[k] = rv[k]; r.cwalk[k] = wv[k]; }
+    if (r.idle < 0) r.idle = r.aim = r.pIdle; if (r.cidle < 0) r.cidle = r.caim = r.pKneel >= 0 ? r.pKneel : r.pIdle;
+  }
   // the pack's "Throw Grenade" is a prone throw (hips 15 cm up): prone Delta soldiers take the procedural prone pose instead
   r.throwS[0] = r.throwS[1] = findClip(m, "Grenade Throwstand"); r.throwC = findClip(m, "Throw Grenadecrouch");
+  if (r.throwS[0] < 0) { r.throwS[0] = r.throwS[1] = findClip(m, "grenade throw"); r.throwC = findClip(m, "throw grenade"); }   // NA1: the FigRig sets (standing, crouched)
+  for (int k = 0; k < m.joints(); ++k) if (m.nodeName[m.jointNode[k]] == "flash") r.flash = k;   // NA1: a body with its gun built in
+  r.shot = findClip(m, "shoot single"); r.cshot = findClip(m, "crouch shoot single"); if (r.cshot < 0) r.cshot = r.shot;
+  r.reload = findClip(m, "reload"); r.creload = findClip(m, "crouch reload"); if (r.creload < 0) r.creload = r.reload;
+  r.shotAt = flashAt(m, r.shot, r.flash); r.cshotAt = flashAt(m, r.cshot, r.flash);
   if (r.throwC < 0) r.throwC = r.throwS[0];
   r.turnL = findClip(m, "turn 90 left"); r.turnR = findClip(m, "turn 90 right"); r.cturnL = findClip(m, "crouching turn 90 left"); r.cturnR = findClip(m, "crouching turn 90 right");
   if (r.cturnL < 0) r.cturnL = r.turnL; if (r.cturnR < 0) r.cturnR = r.turnR;
@@ -190,7 +211,7 @@ float hipsYaw(const CharModel& m, const PoseResult& P) {
 }   // namespace
 
 bool deltaBodyPose(Game& G, Soldier& s, float dt, PoseParams& pp) {
-  enum { K_IDLE, K_AIM, K_LOCO = 3, K_DEATH = 6, K_THROW = 7, K_TURN = 8 };
+  enum { K_IDLE, K_AIM, K_FIRE = 4, K_LOCO = 3, K_DEATH = 6, K_THROW = 7, K_TURN = 8, K_RELOAD = 9 };
   const CharModel& m = *G.models[s.model];
   if (m.clips.empty()) return false;
   const DRig& r = dRigOf(m);
@@ -202,6 +223,9 @@ bool deltaBodyPose(Game& G, Soldier& s, float dt, PoseParams& pp) {
   if (A.life != s.lifeId) { A = AnimPlayer{}; A.life = s.lifeId; }
   const int key0 = A.key;
   const bool crouch = s.posture == Physics::CROUCH;
+  const bool bi = s.gunBody && r.flash >= 0;   // NA1: the gun built into the body (SS / gas-mask 2): its own reload and shot clips, no arm IK
+  if (bi) { if (A.life == s.lifeId && s.lastShot != s.gmShotAt) { s.gmShotAt = s.lastShot; s.gmFireT = 0; } else s.gmFireT += dt; }
+  const int shotC = crouch ? r.cshot : r.shot, relC = crouch ? r.creload : r.reload; const float shotAt = crouch ? r.cshotAt : r.shotAt;
   const bool pistol = s.weapon >= 0 && (pp.holdKind >= 0 ? pp.holdKind == 0 : pp.gripR.z < 0.12f);
   const bool hot = s.br.target >= 0 || G.t - s.lastShot < 1.5 || s.reload > 0;
   const float bodyYaw = (hot && !s.localPlayer ? s.anGunYaw : s.yaw) - s.dfYawOff;   // the body as drawn: turned so the clip's gun points at the aim (game.cpp)
@@ -223,6 +247,8 @@ bool deltaBodyPose(Game& G, Soldier& s, float dt, PoseParams& pp) {
     int d = crouch && r.cdeath >= 0 ? r.cdeath : r.death[(s.slot + s.lifeId) % 6];
     if (d < 0) d = r.death[0];
     if (d >= 0) A.play(K_DEATH, d, -1, 0, 1, false);
+  } else if (bi && s.reload > 0 && relC >= 0) {   // its reload clip, stretched over the reload time
+    A.play(K_RELOAD + 10 * crouch, relC, -1, 0, m.clips[relC].dur / std::max(0.3f, s.reloadTotal), false);
   } else if (moving) {
     int sec = (int)std::lround(std::atan2(vl, vf) / 0.78539816f); sec = (sec + 8) % 8;   // 0 forward, 2 left, 4 back, 6 right
     const float v = s.speed;
@@ -236,6 +262,8 @@ bool deltaBodyPose(Game& G, Soldier& s, float dt, PoseParams& pp) {
       if (v <= b || r.sprint[sec] == r.run[sec]) { float w = std::clamp((v - a) / (b - a), 0.0f, 1.0f); A.play(K_LOCO * 10 + sec, r.walk[sec], r.run[sec], w, std::clamp(v / glm::mix(a, b, w), 0.4f, 2.0f), true); }
       else { float w = std::clamp((v - b) / (c - b), 0.0f, 1.0f); A.play(K_LOCO * 10 + 30 + sec, r.run[sec], r.sprint[sec], w, std::clamp(v / glm::mix(b, c, w), 0.4f, 2.0f), true); }
     }
+  } else if (bi && shotC >= 0 && s.gmFireT < m.clips[shotC].dur - shotAt) {   // the recoil of the last shot, from its flash frame
+    A.play(K_FIRE + 10 * crouch, shotC, -1, 0, 0, false); hold = shotAt + s.gmFireT;
   } else if (std::fabs(s.dfYawRate) > 50.0f && (s.dfYawRate > 0 ? (crouch ? r.cturnL : r.turnL) : (crouch ? r.cturnR : r.turnR)) >= 0) {   // turning in place: the turn clip's feet, its hip turn taken out (the body turns by its yaw)
     turnClip = s.dfYawRate > 0 ? (crouch ? r.cturnL : r.turnL) : (crouch ? r.cturnR : r.turnR);
     const float clipRate = 90.0f / std::max(0.3f, m.clips[turnClip].dur);
@@ -257,6 +285,26 @@ bool deltaBodyPose(Game& G, Soldier& s, float dt, PoseParams& pp) {
   }
   s.poseFrom = -1; ++s.poseRev;
   if (!s.alive) { s.pose = base; return true; }
+  if (bi) {   // the built-in gun: the bore yaw meets the aim (the body turned by it), the upper body and the root-level hand / arm IK chains pitch with the aim
+    const glm::mat3 Rf = glm::mat3(base.delta[r.flash]); vec3 b = Rf * vec3(0, 0, 1); b.y = 0;
+    const float want = s.throwT >= 0 || glm::length(b) < 0.1f ? s.dfYawOff : glm::degrees(std::atan2(b.x, b.z));
+    s.dfYawOff += (want - s.dfYawOff) * (1.0f - std::exp(-dt / 0.2f));
+    if (glm::length(b) > 0.1f) b = glm::normalize(b); else b = vec3(0, 0, 1);
+    const int sp1 = m.semantic[CJ_SPINE1] >= 0 ? m.semantic[CJ_SPINE1] : m.semantic[CJ_SPINE];
+    if (sp1 >= 0 && s.reload <= 0 && s.throwT < 0) {
+      std::vector<char> sub(m.joints(), 0);
+      for (int k = 0; k < m.joints(); ++k) { const std::string& nn = m.nodeName[m.jointNode[k]]; if (k == sp1 || nn.rfind("wrist_ik", 0) == 0 || nn.rfind("arm_ik", 0) == 0) sub[k] = 1; }
+      for (int k = 0; k < m.joints(); ++k) for (int a = m.jointParent[k]; a >= 0 && !sub[k]; a = m.jointParent[a]) if (sub[a]) sub[k] = 1;
+      const vec3 piv = vec3(base.delta[sp1] * vec4(m.jointHead[sp1], 1));
+      const mat4 R = glm::translate(mat4(1), piv) * glm::mat4_cast(glm::angleAxis(-pp.aimPitch, vec3(b.z, 0, -b.x))) * glm::translate(mat4(1), -piv);
+      for (int k = 0; k < m.joints(); ++k) if (sub[k]) base.delta[k] = R * base.delta[k];
+      for (int k = 0; k < m.joints(); ++k) base.skin[k] = base.delta[k] * m.nodeWorld[m.jointNode[k]] * m.invBind[k];
+      for (int c = 0; c < CJ_COUNT; ++c) { int k = m.semantic[c]; base.joint[c] = k >= 0 ? vec3(base.delta[k] * vec4(m.jointHead[k], 1)) : vec3(0); }
+    }
+    s.pose = base;
+    flashMuzzle(G, s, m, r.flash);
+    return true;
+  }
   const int sp = m.semantic[CJ_SPINE1] >= 0 ? m.semantic[CJ_SPINE1] : m.semantic[CJ_SPINE];
   // the clip's gun line (model space): rifles the right -> left wrist line, a pistol shoulders -> hands; the body is drawn turned by
   // its yaw so that line points at the aim (game.cpp yawUse), and the whole chest pitches with the aim about the line's side axis

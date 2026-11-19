@@ -277,6 +277,86 @@
         "loop": "creature_ambience"
       },
       "head_mult": 4.0
+    },
+    {
+      "id": "mech",
+      "name": "Mech",
+      "model": "mech",
+      "height_m": 2.4,
+      "scale": 1,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 600,
+      "damage": 45,
+      "reach_m": 2.0,
+      "lunge_m": 0.8,
+      "cooldown_s": 1.1,
+      "windup_s": 0.4,
+      "attack_rate": 1.3,
+      "walk_mps": 2.2,
+      "run_mps": 4.2,
+      "run_within_m": 25,
+      "weight": 0,
+      "hit_zone_scale": 1.2,
+      "knockback_mps": 4,
+      "stagger_min_damage": 60,
+      "stagger_s": 0.4,
+      "explosive_mult": 0.8,
+      "clips": {
+        "walk": [
+          "Robot StandingWalkForward"
+        ],
+        "run": "Robot StandingRunForward",
+        "idle": [
+          "Robot StandingIdle",
+          "Robot StandingIdleLookingVer1"
+        ],
+        "attack": [
+          "Robot StandingMeleeAttackHorizontal",
+          "Robot StandingMeleeAttackDownward",
+          "Robot StandingMeleeAttackBackhand",
+          "Robot StandingMeleeAttackKickVer1",
+          "Robot StandingMeleeAttack360High",
+          "Robot StandingMeleeComboAttackVer3"
+        ],
+        "damage": [
+          "Robot StandingReactLargeGut",
+          "Robot StandingReactLargeFromLeft",
+          "Robot StandingReactLargeFromRight"
+        ],
+        "death": "Death",
+        "unused": [
+          "Robot CrouchIdle",
+          "Robot CrouchToStandingIdle",
+          "Robot StandingBlockIdle",
+          "Robot StandingBlockReactLarge",
+          "Robot StandingDisarmOverShoulder",
+          "Robot StandingDisarmUnderarm",
+          "Robot StandingIdleLookingVer2",
+          "Robot StandingJump",
+          "Robot StandingMeleeAttack360Low",
+          "Robot StandingMeleeAttackKickVer2",
+          "Robot StandingMeleeComboAttackVer1",
+          "Robot StandingMeleeComboAttackVer2",
+          "Robot StandingMeleeRunJumpAttack",
+          "Robot StandingRunBack",
+          "Robot StandingTauntBattlecry",
+          "Robot StandingTauntChestThump",
+          "Robot StandingTurnLeft90",
+          "Robot StandingTurnRight90",
+          "Robot StandingWalkBack",
+          "Robot StandingWalkLeft",
+          "Robot StandingWalkRight",
+          "Robot Unarmed*"
+        ]
+      },
+      "fallback_scale": 1.3,
+      "fallback_lean_deg": 0,
+      "note": "NA1: AI type Mechs: RobotExpressive (Tomas Laulhe / Quaternius, CC0 1.0, via three.js examples) with the user's robot_animations clips retargeted (tools/bake_gunbody.py --retarget --rig robotx) and the model's own Death; content/characters/mech.glb local-only (the clips' licence not stated): without it the plain zombie at 1.3 x"
     }
   ]
 }

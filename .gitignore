@@ -37,6 +37,14 @@ content/characters/trooper_*.glb
 content/characters/robot_*.glb
 # DF1: Delta Force: the user's Mixamo rifle / pistol / grenade clips (no licence supplied) on the US Marine body: the bake stays local-only (the soldier body without it)
 content/characters/delta_force.glb
+# NA1: the user's allied / gasmask / ss / robot animation exports on game bodies (clip licences not stated): the bakes stay local-only
+content/characters/allied_garand.glb
+content/characters/allied_thompson.glb
+content/characters/allied_bar.glb
+content/characters/allied_m3.glb
+content/characters/gasmask2_*.glb
+content/characters/ss_*.glb
+content/characters/mech.glb
 
 
 # VH2: the supplied Humvee (low-poly-humvee-vehicle.zip) carries no author or licence: its bake stays local-only;
