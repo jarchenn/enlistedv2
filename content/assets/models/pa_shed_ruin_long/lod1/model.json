@@ -51,6 +51,11 @@
    "albedo": "albedo_10.jpg",
    "name": "pr10_boards_weathered",
    "normal": "normal_9.jpg"
+  },
+  {
+   "albedo": "albedo_12.jpg",
+   "name": "pr10_concrete_dirty_wet",
+   "normal": "normal_11.jpg"
   }
  ],
  "parts": [
@@ -313,6 +318,32 @@
    "role": "body",
    "rough": 0.8500000238418579,
    "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    7.963435649871826,
+    0.024000275880098343,
+    4.046834945678711
+   ],
+   "bmin": [
+    -7.8765645027160645,
+    0.01200027484446764,
+    -3.8131651878356934
+   ],
+   "count": 36,
+   "first": 43374,
+   "mat": 10,
+   "metal": 0.0,
+   "name": "Plane__0.001",
+   "role": "body",
+   "rough": 0.8500000238418579,
+   "textured": true
   }
  ],
  "realLength": 1.0,
@@ -324,6 +355,6 @@
  "scale": 1.0,
  "source": "pa_shed_ruin_long.glb",
  "textures": {},
- "triangles": 14458,
- "vertices": 16848
+ "triangles": 14470,
+ "vertices": 16872
 }

@@ -799,5 +799,4 @@ PR10: the user's post-apocalyptic batch (title, author, licence and source as ea
 | `pa_tree_dead_c` | Dead tree | YN14R (https://sketchfab.com/YN14R) | CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) | https://sketchfab.com/3d-models/dead-tree-a0081da148294fb4bec1a0a91cbfd308 | modified: baked / textures resized | yes |
 | `pa_tree_dead_d` | Dead tree | YN14R (https://sketchfab.com/YN14R) | CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) | https://sketchfab.com/3d-models/dead-tree-a0081da148294fb4bec1a0a91cbfd308 | modified: baked / textures resized | yes |
 | `pa_tree_dead_e` | Dead tree | YN14R (https://sketchfab.com/YN14R) | CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) | https://sketchfab.com/3d-models/dead-tree-c9698601629b4eb2ae52265b2ca8699d | modified: baked / textures resized | yes |
-| `pa_tree_fallen` | Tree (part13) | YN14R (https://sketchfab.com/YN14R) | CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) | https://sketchfab.com/3d-models/tree-part13-a3c43e1c505b47b4a10cf3a6f80bf7d4 | modified: baked / textures resized | yes |
 <!-- /pr10_assets -->

@@ -55,6 +55,11 @@
    "albedo": "albedo_11.jpg",
    "name": "pr10_boards_weathered",
    "normal": "normal_10.jpg"
+  },
+  {
+   "albedo": "albedo_13.jpg",
+   "name": "pr10_floor_boards_worn",
+   "normal": "normal_12.jpg"
   }
  ],
  "parts": [
@@ -343,6 +348,32 @@
    "role": "body",
    "rough": 0.8500000238418579,
    "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.9435908794403076,
+    0.024000026285648346,
+    5.5261945724487305
+   ],
+   "bmin": [
+    -4.036409378051758,
+    0.012000025250017643,
+    -1.9918057918548584
+   ],
+   "count": 36,
+   "first": 30663,
+   "mat": 11,
+   "metal": 0.0,
+   "name": "Plane.001__0.001",
+   "role": "body",
+   "rough": 0.8500000238418579,
+   "textured": true
   }
  ],
  "realLength": 1.0,
@@ -354,6 +385,6 @@
  "scale": 1.0,
  "source": "pa_shack_ruin.glb",
  "textures": {},
- "triangles": 10221,
- "vertices": 12876
+ "triangles": 10233,
+ "vertices": 12900
 }

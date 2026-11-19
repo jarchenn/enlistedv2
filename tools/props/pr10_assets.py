@@ -72,6 +72,7 @@ BUILDINGS = {
     "pa_military_house": dict(
         name="Abandoned military house", lic="glb", src="abounded_military_house/abounded_military_house.glb", scale=1.15, maxTex=2048,
         # the boards across the wing's doorway and the five ground-floor windows go (solid panels, black from inside): open bays
+        add_boxes=[{"box": [1.15, 2.25, -0.3, 0.4, 0.36, 0.375], "tex": "floor_boards_old", "tile": 2.0}],   # the inner doorway's threshold
         delete_in=[["BigBuilding_Wood", -4.8, -4.0, 2.1, 3.6, 0.3, 2.3], ["BigBuilding_Wood", -3.0, -0.9, -0.3, 0.6, 1.0, 2.3],
                    ["BigBuilding_Wood", -4.8, -3.9, 0.55, 1.65, 1.0, 2.3], ["BigBuilding_Wood", -4.8, -3.9, 4.05, 5.15, 1.0, 2.3],
                    ["BigBuilding_Wood", -0.4, 0.7, -2.35, -0.65, 1.0, 2.3], ["BigBuilding_Wood", 3.0, 4.0, -2.35, -0.65, 1.0, 2.3]],                                 # the X-braced boards across the wing's doorway
@@ -88,8 +89,11 @@ BUILDINGS = {
                "win_end_a": [-4.5, -4.07, 0.65, 1.55, 1.1, 2.15], "win_end_b": [-4.5, -4.07, 4.15, 5.05, 1.1, 2.15],
                "win_block_l": [0.0, 0.45, -2.25, -0.75, 1.1, 2.15], "win_block_r": [3.25, 3.7, -2.25, -0.75, 1.1, 2.15]},
         floor=[-4.44, 3.62, 0.36, 5.33, 0.0, 0.36],
+        # its inside read as a dark untextured shell over bare ground: lined (boards, flaking plaster, old plaster ceiling)
+        lining={"rooms": [{"box": [-4.13, 3.62, 0.36, 5.33, 0.36, 2.66], "floor": "floor_boards_old", "walls": "plaster_flaking", "ceil": "plaster_old_b"},
+                          {"box": [0.38, 3.31, -2.82, -0.27, 0.36, 2.66], "floor": "floor_boards_old", "walls": "plaster_flaking", "ceil": "plaster_old_b"}]},
         furnish=[("ph_worn_metal_rack", -1.0, 5.0, 0), ("ph_old_military_crate", -3.55, 4.75, 15), ("mod_barrel_steel_rust", 3.15, 4.85, 0),
-                 ("pa_crate_slatted", 2.8, -2.3, 10), ("mod_debris_papers_scattered", 0.0, 2.6, 0)]),
+                 ("pa_crate_slatted", 2.8, -2.3, 10), ("furn_candle", -3.55, 4.75, 0, 0.47)]),   # a stub of candle on the crate: the one weak light
     # an exterior shell (one-sided brick box; the shopfront glass and doors were faces of a fake interior box,
     # "store_building_inside", facing out): that box deleted (broken-out shopfront bays, open doorways), the brick
     # given inner faces, a concrete floor added. Its ground is z -1 (a foundation below the file's zero).
@@ -160,7 +164,8 @@ BUILDINGS = {
         add_boxes=[{"box": [-6.6, 1.9, -7.08, -6.88, 0.0, 4.8], "tex": "boards_weathered", "tile": 2.5},
                    {"box": [3.6, 6.75, -7.08, -6.88, 0.0, 4.8], "tex": "boards_weathered", "tile": 2.5},
                    {"box": [1.9, 3.6, -7.08, -6.88, 3.4, 4.8], "tex": "boards_weathered", "tile": 2.5},
-                   {"box": [-3.95, 13.55, 6.22, 6.42, 0.0, 4.8], "tex": "boards_weathered", "tile": 2.5}],
+                   {"box": [-3.95, 13.55, 6.22, 6.42, 0.0, 4.8], "tex": "boards_weathered", "tile": 2.5},
+                   {"box": [-13.2, 13.2, -6.88, 6.22, 0.0, 0.02], "tex": "concrete_dirty_wet", "tile": 3.0}],   # a visible floor: the terrain showed through
         auto_colliders={"cell": 0.5, "min_wall": 2.0, "min_rect": 1.2, "min_floor": 0.5, "min_rect_floor": 0.25},
         desc="A long, half-collapsed shed of concrete and weathered planks under a holed corrugated roof, its torn-out front and back boarded up again: enterable through the front doorway.",
         walls=[], doors={}, holes={}, floor=[-4.0, -3.0, -1.0, 0.0, -0.05, 0.0],
@@ -174,7 +179,8 @@ BUILDINGS = {
         delete_mats=["Plane.001__0"], cut_below=-0.02,
         add_boxes=[{"box": [-4.95, -1.6, -8.86, -8.66, 0.0, 4.6], "tex": "boards_weathered", "tile": 2.5},
                    {"box": [0.0, 2.1, -8.86, -8.66, 0.0, 4.6], "tex": "boards_weathered", "tile": 2.5},
-                   {"box": [-1.6, 0.0, -8.86, -8.66, 3.4, 4.6], "tex": "boards_weathered", "tile": 2.5}],
+                   {"box": [-1.6, 0.0, -8.86, -8.66, 3.4, 4.6], "tex": "boards_weathered", "tile": 2.5},
+                   {"box": [-5.6, 2.7, -8.66, 3.87, 0.0, 0.02], "tex": "floor_boards_worn", "tile": 2.0}],   # a visible floor
         auto_colliders={"cell": 0.5, "min_wall": 2.0, "min_rect": 1.2, "min_floor": 0.5, "min_rect_floor": 0.25, "exclude": ["fabric"]},
         desc="A sagging plank shack under a holed corrugated roof, with an open lean-to of rusted drums beside it, its torn-out front boarded up again: enterable through three doorways.",
         walls=[], doors={}, holes={}, floor=[-4.0, -3.0, -1.0, 0.0, -0.05, 0.0],
@@ -213,9 +219,7 @@ PROPS = {
            ("pa_tree_dead_c", "Dead tree C", "dead_tree_2/dead_tree (2).glb", ["dead_tree_1_Mat.1_0", "dead_tree_1_Mat.1_0.001"], 9.0, 0.4),
            ("pa_tree_dead_d", "Dead tree D", "dead_tree_2/dead_tree (2).glb", ["dead_tree_2_Mat.1_0", "dead_tree_2_Mat.1_0.001"], 11.0, 0.35),
            ("pa_tree_dead_e", "Dead tree E", "dead_tree_3/dead_tree (3).glb", None, 10.0, 0.25))},
-    "pa_tree_fallen": dict(name="Fallen tree", lic="glb", src="tree_part13/tree_part13.glb", objects=["Sweep_NURBS_17_bark17_0"], piece={"length": 11.0, "colliders": "parts"},
-                           group=None, category="Trees", themes=ALL, maxTex=1024, nav="carve", lodDist=60, cullDist=900,
-                           desc="A fallen tree on its side, roots in the air (the model's leaf cards left out: their cut-out did not carry over)"),
+    # (the fallen tree from tree_part13.glb was dropped: without its leaf cards it read as a grey lump)
 }
 LINE = ("pa_fence_picket", "Old picket fence (model)", "pa_fence_picket_bay")
 
@@ -237,6 +241,30 @@ def licence(dl, E):
     return False, "%s supplied by the user; licence to be confirmed: local only" % E["pack"], (E["pack"], "to be confirmed", "to be confirmed", "-")
 
 
+def lining(B):
+    """Visible floor / ceiling / inner wall panels for each room (source units): models whose own inside reads as a dark
+    untextured shell. Wall panels 2 cm inside the room box, the building's doors and holes cut through them along their
+    thin axis; the floor 1.5 cm over the model's (no z-fight), the ceiling 1.5 cm under."""
+    L = B.get("lining")
+    if not L: return []
+    cuts = []
+    for b in [v[3] for v in B["doors"].values()] + list(B["holes"].values()):
+        lo, hi = [b[0], b[2], b[4]], [b[1], b[3], b[5]]
+        k = 0 if (b[1] - b[0]) < (b[3] - b[2]) else 1   # through the wall: the thin horizontal axis
+        lo[k] -= 0.6; hi[k] += 0.6; cuts.append((lo, hi))
+    out = []
+    for R in L["rooms"]:
+        x0, x1, y0, y1, z0, z1 = R["box"]; t = 0.02
+        if R.get("floor"): out.append({"box": [x0, x1, y0, y1, z0, z0 + 0.015], "tex": R["floor"], "tile": 2.0})
+        if R.get("ceil"): out.append({"box": [x0, x1, y0, y1, z1 - 0.015, z1], "tex": R["ceil"], "tile": 2.0})
+        if R.get("walls"):
+            for w in ([x0, x1, y0, y0 + t], [x0, x1, y1 - t, y1], [x0, x0 + t, y0, y1], [x1 - t, x1, y0, y1]):
+                boxes = [([w[0], w[2], z0], [w[1], w[3], z1])]
+                for c in cuts: boxes = [q for b in boxes for q in pr8_openings.subtract(b, c)]
+                out += [{"box": [lo[0], hi[0], lo[1], hi[1], lo[2], hi[2]], "tex": R["walls"], "tile": 2.0} for lo, hi in boxes]
+    return out
+
+
 def mark(x, y, z=0.2):
     return [x - 0.01, x + 0.01, y - 0.01, y + 0.01, z, z + 0.01]
 
@@ -253,9 +281,9 @@ def convert(dl, glbs):
     for bid, B in BUILDINGS.items():
         if os.path.exists(os.path.join(glbs, bid + ".glb")): continue
         marks = {**{k: v[3] for k, v in B["doors"].items()}, **B["holes"], "floor": B["floor"],
-                 **{"f%d" % i: mark(x, y, B["floor"][5]) for i, (_, x, y, _) in enumerate(B["furnish"])}}
+                 **{"f%d" % i: mark(f[1], f[2], B["floor"][5] + (f[4] if len(f) > 4 else 0)) for i, f in enumerate(B["furnish"])}}   # f[4]: on a top, this high
         piece = {"id": bid, "objects": None, "boxes": B["walls"], "marks": marks, "delete_mats": B.get("delete_mats", []), "delete_in": B.get("delete_in", []), "double_mats": B.get("double_mats", []), "cut_below": B.get("cut_below"), "decimate": B.get("decimate"), "auto_colliders": B.get("auto_colliders"),
-                 "add_boxes": [{**b, "tex": os.path.join(ROOT, "content", "textures", b["tex"])} for b in B.get("add_boxes", [])],
+                 "add_boxes": [{**b, "tex": os.path.join(ROOT, "content", "textures", b["tex"])} for b in B.get("add_boxes", []) + lining(B)],
                  "scale": B.get("scale", 1.0), "yaw": B.get("yaw", 0)}
         job = {"src": os.path.join(dl, B["src"]), "out": glbs, "pieces": [piece]}
         if B.get("matmap"): job.update(texfolder=os.path.join(dl, B["texfolder"]), matmap=B["matmap"])
@@ -291,7 +319,7 @@ def write(dl, glbs):
         A["parts"] = [{"t": "b", "c": c[:3], "s": c[3:], "m": "collider", **flag} for c in side["colliders"]]
         pr8_openings.apply(A, m, {k: v[:3] + v[4:] for k, v in B["doors"].items()}, holes=list(B["holes"]), floor_visible=False)
         A["companions"] = [{"asset": a, "pos": [round(m["f%d" % i][0], 3), round(m["f%d" % i][1] - 0.005, 3), round(m["f%d" % i][2], 3)], "yaw": yaw}
-                           for i, (a, _, _, yaw) in enumerate(B["furnish"])]
+                           for i, (a, _, _, yaw, *_) in enumerate(B["furnish"])]
         assert len(A["companions"]) <= 5
         A["nav"]["cover"] = [{"p": [round(x, 2), 0, round(s * (sz / 2 + 0.5), 2)], "yaw": 180 if s > 0 else 0, "height": "high", "peek": ["left", "right"]} for x in (-sx / 4, sx / 4) for s in (1, -1)]
         open(os.path.join(ROOT, "content", "assets", bid + ".json"), "w", encoding="utf-8", newline="").write(json.dumps(A, separators=(",", ":")))
