@@ -1335,7 +1335,8 @@ void AssetLibrary::build(AssetDef& ad) const {
     } else logf("asset %s: model %s not baked (%s)", a->id.c_str(), dir.string().c_str(), err.c_str());
     MeshData gh;
     Material ghostMat{"ghost"};
-    for (auto& p : a->parts) if (p.collide) { Part q = p; q.visible = true; appendPart(gh, q, ghostMat, mat4(1)); partCorners(q, pts); }
+    const bool anyCol = std::any_of(a->parts.begin(), a->parts.end(), [](const Part& p) { return p.collide; });   // UI13: collider-less props (cash register) still get a ghost
+    for (auto& p : a->parts) if (p.collide || !anyCol) { Part q = p; q.visible = true; appendPart(gh, q, ghostMat, mat4(1)); partCorners(q, pts); }
     a->colliderGhost.upload(gh);
   }
   for (auto& q : pts) { a->bmin = glm::min(a->bmin, q); a->bmax = glm::max(a->bmax, q); }

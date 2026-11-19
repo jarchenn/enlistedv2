@@ -81,6 +81,7 @@ void SelfTest::editorUpdate(App& app, float dt) {
   case 3300: {   // ================= map sizes, old maps
     if (!blank) { check(false, "Blank Slate template present"); finish(app); return; }
     if (std::getenv("NMK_ED1")) { reportName = "editor_ed1"; go(3394); return; }   // ED1 placement on object tops only
+    if (std::getenv("NMK_UI13")) { reportName = "editor_ui13"; gExploreFrames = 0; go(3347); return; }   // UI13 indoor building only
     for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--editor-shots") { reportName = "editor_shots"; gPerfFrame = 0; go(3370); return; }   // screenshots only (render A/B)
     const MapSizeRules& r = mapSizeRules();
     check(r.minSide == 100 && r.maxSide == 4000 && r.step == 100, fmt("size rules 100-4000 m in 100 m steps (got %.0f-%.0f / %.0f)", r.minSide, r.maxSide, r.step));
@@ -470,8 +471,85 @@ void SelfTest::editorUpdate(App& app, float dt) {
       settings().s.hotbar = UserSettings{}.hotbar; app.build.slot = 1;   // UI12: the default hotbar for the tests after
       gRuns.clear(); gPerfIdx = 0; gPerfFrame = 0;
       gPerfFrame = 0;
-      go(3390);   // V6 gestures + zoom buttons next
+      gExploreFrames = 0; go(3347);   // UI13 indoor building, then V6 gestures + zoom buttons
     }
+    break;
+  }
+  case 3347: {   // ================= UI13: building indoors: furniture and a crate on a house floor, a register on a table, hover / select / Del of a collider-less prop
+    static uint64_t house = 0, table = 0, reg = 0; static vec3 T{0}, S{0}, F{0}; static float floorY = 0; static int removed0 = 0;
+    int f = gExploreFrames++;
+    auto aimAt = [&](vec3 p) { vec3 e = app.eyePos(); app.eyeYaw = degrees(std::atan2(-(p.x - e.x), -(p.z - e.z))); app.eyePitch = degrees(std::atan2(p.y - e.y, glm::length(vec2(p.x - e.x, p.z - e.z)))); };
+    const AssetDef* houseA = app.lib.find("house_stone_cottage"); const AssetDef* tableA = app.lib.find("furn_table_dining");
+    const AssetDef* regA = app.lib.find("furn_cash_register"); const AssetDef* chairA = app.lib.find("furn_chair_slat"); const AssetDef* crateA = app.lib.find("crate_mixed_supply");
+    auto done = [&]() {
+      app.interior.autoOnPlace = true; settings().s.hotbar = UserSettings{}.hotbar; app.build.slot = 1;
+      app.scriptedInput = ExploreInput{}; app.useScripted = false; dropinReturn(app);
+      gExploreFrames = 0;
+      if (std::getenv("NMK_UI13")) finish(app); else go(3390);
+    };
+    app.scriptedInput.fire = false; app.scriptedInput.aim = false;
+    if (f == 0) {
+      gExploreFrames = 1;
+      if (!houseA || !tableA || !regA || !chairA || !crateA) { check(false, "UI13: test assets in the library"); done(); break; }
+      navNewMapSized(app, *blank, "UI13 indoor build", vec2(600, 600));
+      app.interior.autoOnPlace = false;   // an empty cottage: the test furnishes it
+      Instance i; i.id = app.doc.newId(); i.assetId = houseA->id; i.assetVersion = houseA->version; i.pos = vec3(20, app.terrain.height(20, 20), 20);
+      app.bump(i); app.doc.instances.push_back(i); house = i.id; app.syncRuntime();
+      // a table spot on the ground-floor, a clear spot 1.4-2.6 m from it to stand on, and a free floor spot in view
+      auto floorAt = [&](vec2 o, vec3& hit) { vec3 xz = i.pos + vec3(o.x, 0, o.y); return app.interior.hoverPoint(app, vec3(xz.x, i.pos.y + 1.6f, xz.z), vec3(0, -1, 0), hit, 0) && hit.y > i.pos.y - 0.2f && hit.y < i.pos.y + 1.0f; };
+      bool gotT = false, gotS = false, gotF = false; vec3 hit;
+      for (int g = 0; g < 121 && !gotT; ++g) { vec2 o((g % 11 - 5) * 0.5f, (g / 11 - 5) * 0.5f); if (floorAt(o, hit) && app.checkPlacement(tableA, hit, 0, 0).ok) { T = hit; gotT = true; } }
+      table = gotT ? app.placeInstance(tableA, T, 0) : 0;
+      for (int g = 0; g < 16 && table && !gotS; ++g) for (float r : {1.6f, 2.2f}) {
+        float an = g * 0.3927f; vec2 o = vec2(T.x - i.pos.x, T.z - i.pos.z) + r * vec2(std::cos(an), std::sin(an));
+        if (!gotS && floorAt(o, hit) && std::fabs(hit.y - T.y) < 0.05f && app.startMarkerValid(hit)) { S = hit; gotS = true; }
+      }
+      for (int g = 0; g < 16 && gotS && !gotF; ++g) {
+        float an = g * 0.3927f; vec2 o = vec2(S.x - i.pos.x, S.z - i.pos.z) + 1.5f * vec2(std::cos(an), std::sin(an));
+        if (floorAt(o, hit) && std::fabs(hit.y - T.y) < 0.05f && glm::length(hit - T) > 1.4f && app.checkPlacement(chairA, hit, 0, 0).ok && app.checkPlacement(crateA, hit, 0, 0).ok) { F = hit; gotF = true; }
+      }
+      floorY = T.y;
+      check(table && gotS && gotF, fmt("UI13: a table in the cottage, a floor spot to stand on and a free one (floor %.2f m above the terrain)", floorY - app.terrain.height(T.x, T.z)));
+      if (!table || !gotS || !gotF) { done(); break; }
+      check(dropinCommit(app, vec3(60, 0, 60), 0.0f), "UI13: dropped in from Creative");
+      app.useScripted = true; app.scriptedInput = ExploreInput{}; app.vm.procedural = false;
+      break;
+    }
+    if (f == 2) { Physics::setCharacterPos(S); app.scriptedInput.build = true; }
+    if (f == 3) app.scriptedInput.build = false;
+    if (f == 6) {
+      vec3 le = glm::inverse(yawQuat(app.doc.find(house)->yaw)) * (app.eyePos() - app.doc.find(house)->pos);
+      check(app.build.active && app.build.realEdits && glm::all(glm::greaterThan(le, houseA->bmin)) && glm::all(glm::lessThan(le, houseA->bmax)), "UI13: build mode, standing inside the cottage");
+      app.build.slot = 4; app.buildAssign(chairA->id); aimAt(F);
+    }
+    if (f == 9) {
+      check(app.build.valid && std::fabs(app.build.pos.y - floorY) < 0.1f, fmt("UI13: furniture on the house floor is valid (%s, at %.2f, floor %.2f)", app.build.reason.c_str(), app.build.pos.y, floorY));
+      check(app.build.aimId != house, "UI13: aiming at the floor of the house you stand in does not target the house");
+      app.buildAssign(crateA->id); aimAt(F);
+    }
+    if (f == 12) {
+      check(app.build.valid && std::fabs(app.build.pos.y - floorY) < 0.1f, fmt("UI13: a small 3D object (supply crate) on the house floor is valid (%s, at %.2f)", app.build.reason.c_str(), app.build.pos.y));
+      app.buildAssign(regA->id); aimAt(app.doc.find(table)->pos + vec3(0, tableA->bmax.y, 0));
+    }
+    if (f == 15) {
+      check(app.build.valid && app.build.pos.y > floorY + 0.5f, fmt("UI13: the cash register on the table top is valid (%s, %.2f m above the floor)", app.build.reason.c_str(), app.build.pos.y - floorY));
+      removed0 = (int)app.doc.instances.size(); app.scriptedInput.aim = true;   // RMB
+    }
+    if (f == 17) {
+      reg = (int)app.doc.instances.size() > removed0 ? app.doc.instances.back().id : 0;
+      const Instance* ri = app.doc.find(reg);
+      check(ri && ri->assetId == regA->id && ri->pos.y > floorY + 0.5f, fmt("UI13: RMB places it on the table (%.2f m above the floor)", ri ? ri->pos.y - floorY : -1.0f));
+      settings().s.hotbar[9].clear(); app.build.slot = 9;   // an empty slot: no ghost over the register in the shot
+      if (ri) aimAt(ri->pos + vec3(0, 0.2f, 0));
+    }
+    if (f == 20) {
+      check(reg && app.build.aimId == reg, fmt("UI13: the collider-less register under the dot is the hover target (aimed #%llu)", (unsigned long long)app.build.aimId));
+      app.uiShot = exeDir() / "selftest_out" / "ui13_indoor_hover.png"; shotQueue.push_back("ui13_indoor_hover_world");   // with the UI (dot, hotbar); the world only, also with a zero-size window
+    }
+    if (f == 22) app.scriptedInput.fire = true;   // LMB
+    if (f == 24) { check(app.build.selId == reg, "UI13: LMB selects it"); removed0 = app.build.removed; app.build.pendDel = true; }
+    if (f == 26) { check(!app.doc.find(reg) && app.build.removed == removed0 + 1 && app.doc.find(table), "UI13: Del removes the register, the table stays"); app.build.pendUndo = true; }
+    if (f == 28) { check(app.doc.find(reg) != nullptr, "UI13: Ctrl+Z brings it back"); done(); }
     break;
   }
   case 3390: {   // ================= V6: Select-tool LMB gestures (orbit / click-select / drag-move) and the zoom buttons

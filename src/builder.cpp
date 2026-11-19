@@ -41,6 +41,25 @@ static bool buildSnap(const App& app, const AssetDef* a, vec3& pos, float& yaw) 
   pos = p; yaw = y; return true;   // snapped (a sandbag already at its socket still counts as snapped)
 }
 static bool isSession(const Instance& i) { return i.extra.is_object() && i.extra.value("session", false); }
+// UI13: the instance under the centre dot. The physics ray first, then the parts of nearby furniture: half the props
+// (the cash register, books, pictures: non-blocking pieces) have no collider, so the ray alone passes through them.
+// The building you stand in is not a target (aiming at its floor or wall would tint and remove the whole house).
+static uint64_t buildPick(App& app, vec3 eye, vec3 f) {
+  Physics::Hit h; float tBest = kBuildReach; uint64_t best = 0;
+  if (Physics::castRayEx(eye, f, kBuildReach, h)) { tBest = h.t; if (h.ud != 0 && (h.ud >> 60) != 0xF) best = h.ud >> 16; }
+  for (auto& i : app.doc.instances) {
+    const AssetDef* a = app.assetFor(i);
+    if (!a || !app.interior.isProp(a) || glm::length(i.pos - eye) > kBuildReach + 3) continue;
+    quat iq = glm::inverse(yawQuat(i.yaw)); vec3 lo = iq * (eye - i.pos), ld = iq * f; float t;
+    if (!rayOBB(lo, ld, (a->bmin + a->bmax) * 0.5f, (a->bmax - a->bmin) * 0.5f, quat(1, 0, 0, 0), t) || t >= tBest) continue;
+    for (auto& p : a->parts) if (rayOBB(lo, ld, p.center, p.size * 0.5f, p.rot, t) && t < tBest) { tBest = t; best = i.id; }
+  }
+  if (const Instance* t = app.doc.find(best)) if (const AssetDef* a = app.assetFor(*t); a && a->enterable) {
+    vec3 le = glm::inverse(yawQuat(t->yaw)) * (eye - t->pos);
+    if (glm::all(glm::greaterThan(le, a->bmin)) && glm::all(glm::lessThan(le, a->bmax))) return 0;
+  }
+  return best;
+}
 static bool buildRemovable(const App& app, const Instance& i) {
   if (i.id == app.occupied || i.id == app.tanks.occupied) return false;
   return isSession(i) || app.build.realEdits;
@@ -207,7 +226,7 @@ void App::stepBuilder(const ExploreInput& in) {
   if (build.pendUndo) { build.pendUndo = false; buildUndo(); }
   vec3 eye = eyePos(), f = forward(eyeYaw, eyePitch);
   build.aimId = 0;   // Del target: the instance under the crosshair
-  { Physics::Hit h; if (Physics::castRayEx(eye, f, kBuildReach, h) && h.ud != 0 && (h.ud >> 60) != 0xF) if (const Instance* t = doc.find(h.ud >> 16); t && buildRemovable(*this, *t)) build.aimId = t->id; }
+  if (const Instance* t = doc.find(buildPick(*this, eye, f)); t && buildRemovable(*this, *t)) build.aimId = t->id;
   if (build.selId && !doc.find(build.selId)) build.selId = 0;
   if (lmbPress && !build.engineer && !build.palette) build.selId = build.aimId;   // UI12: LMB selects what is under the dot (nothing: clears)
   if (build.pendDel) { build.pendDel = false; if (!build.engineer) buildRemoveAimed(); }
@@ -227,7 +246,10 @@ void App::stepBuilder(const ExploreInput& in) {
   bool hit = Physics::castRayEx(eye, f, kBuildReach, h);
   bool ground = hit && (h.ud == 0 || (h.ud >> 60) == 0xF);
   vec3 fp;   // furniture lands on real floors and table tops, as in the editor
-  if (prop && interior.hoverPoint(*this, eye, f, fp, 0) && glm::length(fp - eye) <= kBuildReach) { hit = ground = true; h.pos = fp; h.normal = vec3(0, 1, 0); }
+  bool onObject = false;   // UI13: on a floor, a table or a deck, not the terrain
+  if (prop && interior.hoverPoint(*this, eye, f, fp, 0) && glm::length(fp - eye) <= kBuildReach) { hit = ground = onObject = true; h.pos = fp; h.normal = vec3(0, 1, 0); }
+  // UI13: anything else but defences lands on the flat top under the dot too (house floors, tables), as in the editor
+  else if (!prop && !defence && assetRestsOnObjects(a) && surfaceCursor(eye, f, 0, fp) && glm::length(fp - eye) <= kBuildReach) { hit = ground = onObject = true; h.pos = fp; h.normal = vec3(0, 1, 0); }
   if (!hit || !ground) { build.reason = hit ? "Aim at open ground" : "Out of reach (12 m)"; build.pos = eye + f * kBuildReach; build.pos.y = terrain.height(build.pos.x, build.pos.z); build.ghostYaw = eyeYaw + build.yaw; return; }
   build.pos = h.pos; build.ghostYaw = eyeYaw + build.yaw;
   // theta = acos(N . Y_up) from the hit normal
@@ -248,7 +270,7 @@ void App::stepBuilder(const ExploreInput& in) {
     if (around(build.pos)) {
       vec3 fh = glm::normalize(vec3(f.x, 0, f.z) + vec3(1e-6f, 0, 0));
       bool clear = false;
-      for (int k = 1; k <= 120 && !clear; ++k) { vec3 q = h.pos + fh * (0.25f * k); q.y = terrain.height(q.x, q.z); if (!around(q)) { build.pos = q; clear = true; } }
+      for (int k = 1; k <= 120 && !clear; ++k) { vec3 q = h.pos + fh * (0.25f * k); q.y = onObject ? h.pos.y : terrain.height(q.x, q.z); if (!around(q)) { build.pos = q; clear = true; } }
       if (!clear) { build.reason = "Too close: you would be inside it"; return; }
     }
   }
@@ -336,10 +358,17 @@ std::vector<uint64_t> App::buildSessionPiece(const AssetDef* a, vec3 pos, float 
 
 void App::builderGhosts(std::vector<DrawItem>& ghosts) {
   if (!build.active) return;
-  if (const Instance* t = doc.find(build.aimId)) if (const AssetDef* ta = assetFor(*t))   // the Del target, tinted
-    ghosts.push_back({&ta->opaque, instanceMatrix(*t), vec4(1.0f, 0.55f, 0.15f, 0.18f)});
-  if (build.selId != build.aimId) if (const Instance* t = doc.find(build.selId)) if (const AssetDef* ta = assetFor(*t))   // UI12: the LMB selection
-    ghosts.push_back({&ta->opaque, instanceMatrix(*t), vec4(0.3f, 0.7f, 1.0f, 0.22f)});
+  // UI13: hover (orange) and selection (blue) as a shell 4 % larger than the piece, so it never z-fights the piece itself;
+  // model assets (most furniture) draw it from their collider boxes, as the placement ghost does
+  auto shell = [&](uint64_t id, vec4 tint) {
+    const Instance* t = doc.find(id); const AssetDef* ta = t ? assetFor(*t) : nullptr; if (!ta) return;
+    vec3 c = (ta->bmin + ta->bmax) * 0.5f;
+    mat4 M = instanceMatrix(*t) * glm::translate(mat4(1), c) * glm::scale(mat4(1), vec3(1.04f)) * glm::translate(mat4(1), -c);
+    ghosts.push_back({&ta->opaque, M, tint}); ghosts.push_back({&ta->panelsIntact, M, tint});
+    if (ta->model) ghosts.push_back({&ta->colliderGhost, M, tint});
+  };
+  shell(build.aimId, vec4(1.0f, 0.55f, 0.15f, 0.38f));   // the piece under the dot (the Del target)
+  if (build.selId != build.aimId) shell(build.selId, vec4(0.3f, 0.7f, 1.0f, 0.42f));   // UI12: the LMB selection
   if (!build.asset) return;
   const AssetDef* a = build.asset;
   mat4 M = glm::translate(mat4(1), build.pos) * glm::mat4_cast(yawQuat(build.ghostYaw));
@@ -531,7 +560,7 @@ void App::drawBuilderUI() {
   }
   if (build.active && !build.engineer && !pauseMenu) {   // UI12: the hotbar, bottom centre (thumbnails; the current slot outlined)
     const float s = std::round(std::clamp(io.DisplaySize.y * 0.06f, 44.0f, 84.0f)), gap = 4;
-    float x0 = std::round(io.DisplaySize.x * 0.5f - (10 * s + 9 * gap) * 0.5f), y0 = std::round(io.DisplaySize.y - s - 18);
+    float x0 = std::round(io.DisplaySize.x * 0.5f - (10 * s + 9 * gap) * 0.5f), y0 = std::round(io.DisplaySize.y - s - 48);   // UI13: above the bottom key hint (Esc controls, M map)
     int thumbBudget = 1;   // at most one on-demand thumbnail render a frame (MEM2)
     for (int k = 0; k < 10; ++k) {
       ImVec2 mn(x0 + k * (s + gap), y0), mx(mn.x + s, mn.y + s);

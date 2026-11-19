@@ -12,8 +12,8 @@ In first person, **B** opens build mode, and you can place anything from the Ass
 | 1-9, 0 | Hotbar slot (10 slots along the bottom; defaults: 1 tank trap, 2 straight sandbags, 3 curved sandbags). The current slot is outlined. |
 | Wheel, Z / X, R | Rotate the ghost 15° (Z: −15°, X and R: +15°). While building, Z is not prone and X is not the ammo toggle. |
 | RMB | Place the hotbar asset at the ghost |
-| LMB | Select the placement under the centre dot (tinted blue; LMB on nothing clears it) |
-| Del | Remove the selected placement, else the aimed one (tinted orange while aimed) |
+| LMB | Select the placement under the centre dot (a blue shell; LMB on nothing clears it) |
+| Del | Remove the selected placement, else the one under the dot (an orange shell while hovered) |
 | Ctrl+Z | Undo the last first-person place or remove |
 | B, Esc | Leave build mode |
 
@@ -22,6 +22,8 @@ While the palette is open, the view does not turn. Mouse clicks go to the palett
 ## Placement
 
 - **Ghost.** It goes where the view meets open ground within **12 m** (it was 5 m), drawn like the editor's Place preview: mesh, panels, models and door leaves, green when valid and red with the reason when not. Furniture lands on real floors and table tops (`interior.hoverPoint`, as in the editor).
+- **Indoors and on furniture (UI13).** Anything but buildings, paths, ground dressing and defences lands on the flat top under the dot, as the editor's cursor does (`surfaceCursor`, then `checkPlacement`'s resting rules): a crate on a house floor, a register on a table. Defences keep the terrain-only aim (their sockets and slope rule).
+- **What is under the dot (UI13).** `buildPick()`: the physics ray, then the parts of nearby furniture, because half the props (the non-blocking ones: cash register, books, pictures) have no collider. The building you stand in is never the target, so aiming at its floor neither tints nor removes the house. Room-template (auto-furnished) pieces are ordinary map instances and are removed the same way; a regenerate leaves them out. Furniture built into a building's own model (`furnitureNames`) is part of that building and cannot be removed piece by piece.
 - **Never around the player.** If the asset's footprint would contain the player, the ghost is pushed forward along the view until it clears.
 - **Rules.** The same as the editor: `checkPlacement` (build area, water, foundation grade, overlaps, furniture rules) and, for defences and gun stations, the slope rule from the hit normal (35° for defences, 20° for carriages) plus the blocked-volume test.
 - **Snapping.** `buildSnap()` in `builder.cpp` snaps sandbags to sandbag sockets (`snapDefense`) and paths to path ends (`snapPath`). **V6 hook:** route this function through `snap.cpp`'s sockets when that lands.
@@ -47,6 +49,8 @@ Rack deployments (the M2HB tripod and the PaK 40 from a weapons rack) always sta
 6. Ctrl+Z three times: the crate comes back, then the house goes, then the crate goes. The map and the editor's undo stack end exactly where they started.
 7. Place a crate again and return to the editor. The crate is still there, and the editor's Undo removes it.
 8. In an F5 playtest, a placement is a session piece and is discarded on exit.
+
+Stage 3347 (UI13; `NMK_UI13=1` runs it alone): standing in a cottage, a chair and a supply crate are valid on its floor, the cash register is valid on a table and RMB places it there; the collider-less register under the dot is the hover target, LMB selects it, Del removes it (the table stays), Ctrl+Z brings it back. Shots: `selftest_out/ui13_indoor_hover.png` (with UI) and `ui13_indoor_hover_world.png`.
 
 `--selftest-env` keeps the defence checks: slope rule, socket snap gap and tangent, curved chaining, F5 discard, Apply and Ctrl+Z.
 
