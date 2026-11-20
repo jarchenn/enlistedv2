@@ -318,6 +318,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       continue;
     }
     if (!act.rtOf[idx]) continue;
+    if (R.perf.firThin && i.extra.is_object() && i.extra.value("perfThin", false)) continue;   // BT2 switch firthin: the map's optional far trees
     auto& r = *act.rtOf[idx];
     mat4 M = instanceMatrix(i);
     if (decorDraw(*this, i, r, M, op, gl)) continue;   // V8: border-ring decor saved in maps, cheap at range (decor.cpp)
