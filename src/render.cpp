@@ -1,4 +1,5 @@
 #include "render.h"
+#include <cstring>
 #include "crumb.h"
 #include "ground_paint.h"   // NT4: groundPaintArid
 #include "lighting.h"
@@ -5018,6 +5019,13 @@ void Renderer::gpuFrameBegin() {
     if (!perf.syncGpuQuery && set[GP_UI]) stats.gpuMs = (ts[GP_UI] - ts[0]) / 1e6;   // render() only, as GL_TIME_ELAPSED measured it
   }
   std::fill(set, set + GP_Count + 1, false);
+  if (fq[0][0]) {   // CP step 0: this slot's fragment counts (read once every one is ready; never waits)
+    bool* fs = fqSet[gqSlot]; bool fr = true;
+    for (int i = 0; i < GP_Count && fr; ++i) if (fs[i]) { GLint a = 0; glGetQueryObjectiv(fq[gqSlot][i], GL_QUERY_RESULT_AVAILABLE, &a); fr = a != 0; }
+    if (fr) { std::fill(fragInvM, fragInvM + GP_Count, 0.0);
+      for (int i = 0; i < GP_Count; ++i) if (fs[i]) { GLuint64 v = 0; glGetQueryObjectui64v(fq[gqSlot][i], GL_QUERY_RESULT, &v); fragInvM[i] = v / 1e6; } }
+    std::fill(fs, fs + GP_Count, false);
+  }
 }
 void Renderer::gpuMark(int p) {
   {   // P2: CPU time from this mark to the next one (NMK_DLPROF reports it per pass)
@@ -5027,6 +5035,12 @@ void Renderer::gpuMark(int p) {
   }
   if (!gpuTimers || !gq[0][0] || p < 0 || p > GP_Count) return;
   glQueryCounter(gq[gqSlot][p], GL_TIMESTAMP); gqSet[gqSlot][p] = true;
+  constexpr GLenum kFragInv = 0x82F4;   // GL_FRAGMENT_SHADER_INVOCATIONS (GL 4.6 / ARB_pipeline_statistics_query; not in our glad)
+  if (fqActive >= 0) { glEndQuery(kFragInv); fqActive = -1; }
+  if (fragStats && fqOk && p < GP_Count) {
+    if (!fq[0][0]) {   /* core in GL 4.6; the context is 4.5, so the ARB extension */ GLint mj = 0, mn = 0, ne = 0; glGetIntegerv(GL_MAJOR_VERSION, &mj); glGetIntegerv(GL_MINOR_VERSION, &mn); fqOk = mj * 10 + mn >= 46; glGetIntegerv(GL_NUM_EXTENSIONS, &ne); for (GLint i = 0; i < ne && !fqOk; ++i) { const char* e = (const char*)glGetStringi(GL_EXTENSIONS, i); fqOk = e && std::strcmp(e, "GL_ARB_pipeline_statistics_query") == 0; } if (!fqOk) { logf("fragment statistics: GL_ARB_pipeline_statistics_query not available"); return; } for (auto& s : fq) glGenQueries(GP_Count, s); }
+    glBeginQuery(kFragInv, fq[gqSlot][p]); fqSet[gqSlot][p] = true; fqActive = p;
+  }
 }
 
 void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<DrawItem>& opaque,

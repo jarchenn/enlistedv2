@@ -5,6 +5,7 @@
 #endif
 #include "app.h"
 #include "sight_overlay.h"
+#include "hitch_log.h"
 #include "map_ambience.h"   // BTA
 #include "sd_game.h"   // SD3
 #include "mainmenu.h"
@@ -103,6 +104,7 @@ void App::destroyRT(InstanceRT& r) {
   { extern void ivyDestroy(InstanceRT&); ivyDestroy(r); }
 }
 void App::buildRT(const Instance& i, InstanceRT& r) {
+  ++hitchCur().buildRT;   // CP step 0: the hitch log counts them
   destroyRT(r);
   r.id = i.id; r.rev = i.rev; r.asset = assetFor(i);
   uint64_t base = i.id << 16;
@@ -1135,11 +1137,12 @@ int App::run(int argc, char** argv) {
   int W = runSelf ? 1920 : 1600, H = runSelf ? 1080 : 900;
   bool bench1440 = std::getenv("NMK_WIN_1440") != nullptr;   // NMK_WIN_1440=1: any launch at a borderless 2560x1440 at (0,0)
    for (int k = 1; k < __argc; ++k) bench1440 |= std::string(__argv[k]) == "--bench-views";
-  if (bench1440) { W = 2560; H = 1440; glfwWindowHint(GLFW_DECORATED, GLFW_FALSE); }   // P1: the VO benchmark at 1440p (borderless: a framed 1440p window does not fit a 1440p screen and is shrunk)
+  if (bench1440) { W = 2560; H = 1440; if (const char* r = std::getenv("NMK_BENCH_RES")) std::sscanf(r, "%dx%d", &W, &H); glfwWindowHint(GLFW_DECORATED, GLFW_FALSE); }   // NMK_BENCH_RES=1920x1080: another size (CP step 0)   // P1: the VO benchmark at 1440p (borderless: a framed 1440p window does not fit a 1440p screen and is shrunk)
   win = glfwCreateWindow(W, H, "Battle Foundry", nullptr, nullptr);   // UI2: the game's name (repo / exe keep theirs)
   if (win && bench1440) glfwSetWindowPos(win, 0, 0);
   if (!win) { logf("Could not create an OpenGL 4.5 core window. Update your graphics driver."); glfwTerminate(); return 1; }
   if (!platformInitContext(win)) { logf("graphics context init failed"); return 1; }
+  hitchInstall();   // CP step 0: counts GL uploads and program links per frame (hitch_log.cpp)
   logf("GL %s | %s | %s", glGetString(GL_VERSION), glGetString(GL_RENDERER), glGetString(GL_VENDOR));
   platformSwapInterval(runSelf ? 0 : 1);
   glfwSetScrollCallback(win, scrollCb);
@@ -1233,7 +1236,7 @@ int App::run(int argc, char** argv) {
     if (gCrumbProf) crumbFrameEnd();
     mark("start");
     glfwPollEvents();
-    tex::flushPending();   // TX2: a lazy texture set a newly used material named (one reload, then nothing)
+    { double f0 = glfwGetTime(); tex::flushPending(); hitchCur().flushMs += (glfwGetTime() - f0) * 1000.0; }   // TX2: a lazy texture set a newly used material named (one reload, then nothing)
     syncCursor();   // GM1b: one per-frame rule for the cursor mode (explore.cpp)
     hangBeat(); forceQuitCheck(win, false);   // UI8
     if (glfwWindowShouldClose(win)) {
@@ -1492,9 +1495,10 @@ int App::run(int argc, char** argv) {
       stbi_write_png(uiShot.string().c_str(), fbw, fbh, 4, fl.data(), fbw * 4);
       logf("ui screenshot %s", uiShot.string().c_str()); uiShot.clear();
     }
-    platformPresent(win);
+    double sw0 = glfwGetTime(); platformPresent(win); double swapMs = (glfwGetTime() - sw0) * 1000.0;   // CP step 0: time blocked in swap
     mark("end");
     settingsEndFrame(*this);   // FPS cap
+    { extern bool loadingActive(); hitchFrameEnd(swapMs, loadingActive()); }   // CP step 0: always-on hitch log
   }
   int code = selftest ? selftest->exitCode : 0;
   if (gCrumbProf) { extern json crumbProfReport(const char*); crumbProfReport("exit"); }

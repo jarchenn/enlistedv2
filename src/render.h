@@ -207,6 +207,9 @@ public:
   void gpuMark(int pass);
   double gpuPassMs[GP_Count] = {};
   bool gpuTimers = true;
+  // CP step 0: fragment-shader invocations per pass (millions; GL 4.6 pipeline statistics), same marks and latency as the
+  // timers. Off unless set (the benchmark turns it on for its warm-up lap only: the queries may cost a little)
+  bool fragStats = false; double fragInvM[GP_Count] = {};
   // PF2 GPU-cost switches (docs/rendering.md#gpu-budget). --rq-off <name> / --rq-on <name> flip one for A/B;
   // legacy() is the pre-PF2 renderer (the maps suite's interleaved A/B, NMK_PERF_AB).
   struct Perf {
@@ -512,6 +515,7 @@ private:
   bool farPass = false;   // P2: the far cascade / sky occlusion is being drawn (DrawItem::noFarCast)
   bool castCull = false; vec3 castEye{0};   // R2 castercull: on during the sun cascades; castEye: the eye the caster ranges are measured from
   GLuint gq[3][GP_Count + 1]{}; bool gqSet[3][GP_Count + 1]{}; int gqSlot = 0;
+  GLuint fq[3][GP_Count]{}; bool fqSet[3][GP_Count]{}; int fqActive = -1; bool fqOk = true;   // CP step 0: fragStats queries
   void gpuFrameBegin();
   mat4 lightVP{1}, occVP{1};
   float occTop = 0, occRange = 1;
