@@ -217,7 +217,6 @@ public:
     bool hex = true;             // hex (M1): hex-tiled ground and cliff texture taps (textures.cpp texHexFetch)
     bool snow = true;            // snow (VO P, A/B only): the SN1 snow layer off on every surface, to time its shading
     bool visCull = true;         // viscull (weather corpus 08 s4): draw distance capped at 1.42 x the visibility at the eye (Settings::renderDist)
-    bool probeCap = false;       // probecap (CP 5.3, measured before it becomes the default): High fills new GI probes at 2 a frame instead of 8 (the corpus: indirect light may update slowly)
     bool koTrees = true, koGrass = true, koFolModels = true;   // kotrees / kograss / kofolmodels (CP knock-out, A/B only): that camera pass not drawn (shadows keep it)
     bool specAA = true;          // specaa (M3): geometric specular anti-aliasing in shade() (the baked Toksvig roughness mips stay)
     bool syncGpuQuery = false;   // asyncq (off = true): read the frame's GL_TIME_ELAPSED query back next frame, waiting for the GPU
@@ -309,7 +308,7 @@ public:
               // ^ characters (gameplay): append to the line above
               : n == "hashalpha" ? &hashAlpha
               // ^ stream A (vegetation): append to the line above
-              : n == "snow" ? &snow : n == "viscull" ? &visCull : n == "probecap" ? &probeCap : n == "kotrees" ? &koTrees : n == "kograss" ? &koGrass : n == "kofolmodels" ? &koFolModels
+              : n == "snow" ? &snow : n == "viscull" ? &visCull : n == "kotrees" ? &koTrees : n == "kograss" ? &koGrass : n == "kofolmodels" ? &koFolModels
               // ^ stream P (performance): append to the line above
               : nullptr;
       if (n == "perf1") { matFar = probeMed = on; return true; }   // PERF1: its switches together
@@ -404,7 +403,9 @@ public:
   int shaderCacheHits = 0;              // CP 5.8: programs loaded from the program-binary cache
   void warmPrograms();
   float visCullDist(vec3 eye) const;   // weather corpus 08 s4: one conservative cut for every cull site (1e9 with no fog)
-  bool fogHides(vec3 eye, vec3 top) const;   // the fog's transmittance from the eye to a point under 1/255 (the shader's height integrals)                  // CP 5.8: the programs compiled on first use, compiled at init instead (no mid-match compile hitch)
+  bool fogHides(vec3 eye, vec3 top) const;
+  float hazeSigma() const;   // the aerial haze at the ground the fog shader is fed (uFogDens; W1 presets: wx.der.sigma)
+  float envFogSigma() const; float envFogH() const;   // the fog layer the shader is fed (uEnvFog / uEnvFogH)   // the fog's transmittance from the eye to a point under 1/255 (the shader's height integrals)                  // CP 5.8: the programs compiled on first use, compiled at init instead (no mid-match compile hitch)
   int fboErrors = 0;                    // incomplete framebuffers since start (self-tests require 0)
   // Depth convention (docs/rendering.md#depth-convention). The world camera passes of render() are reverse-Z: clip depth
   // 0..1 (glClipControl), near = 1, far = 0, cleared to 0, GL_GREATER. Shadow cascades, sky occlusion, thumbnails and
