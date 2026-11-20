@@ -21,6 +21,19 @@ float lightingFixedExposure(const Renderer& R);
 // ============================================================== shaders
 static const char* kCommon = R"GLSL(
 const float PI = 3.14159265;
+#ifdef NMK_FS
+// FL1 greenery (content/settings/greenery.json, App::greenery): green leaf pixels drawn toward the reference's spring green
+// (uGreen.rgb: linear, unit luminance), each keeping its own luminance x gain; only pixels that are green already (dry,
+// autumn, dead, brown leaves and bark untouched). k 0: off (arid maps)
+uniform vec4 uGreen;   // rgb target, a: card-leaf strength
+uniform vec4 uGreenK;  // x card-leaf gain, y grass strength, z grass gain, w model-foliage strength
+float greenMask(vec3 c){ return smoothstep(0.04, 0.2, (c.g - max(c.r, c.b))/max(c.g, 1e-4)); }
+vec3 greenGrade(vec3 c, float k, float gain){
+  if (k <= 0.0) return c;
+  float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  return mix(c, uGreen.rgb*l*gain, k*greenMask(c));
+}
+#endif
 float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*0.1031); p3 += dot(p3, p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
 float hash13(vec3 p){ p = fract(p*0.1031); p += dot(p, p.zyx+31.32); return fract((p.x+p.y)*p.z); }
 float vnoise(vec3 p){
@@ -1834,7 +1847,9 @@ void main(){
   vec4 base = uBase;
   if (uHasAlb == 1) base *= texture(uAlb, vUV);
   if (uCutout == 1 && base.a < 0.5) discard;
-  if (vTintI.a > 0.5) {   // VR1: the ivy pack recoloured per instance; the texture keeps its own shading (luminance)
+  if (vTintI.a > 1.5) {   // FL1 greenery: this species' spring green (already / the texture's mean luminance), leaves only
+    if (uCutout == 1) base.rgb = mix(base.rgb, vTintI.rgb*dot(base.rgb, vec3(0.2126, 0.7152, 0.0722)), uGreenK.w*greenMask(base.rgb));
+  } else if (vTintI.a > 0.5) {   // VR1: the ivy pack recoloured per instance; the texture keeps its own shading (luminance)
     float l = dot(base.rgb, vec3(0.2126, 0.7152, 0.0722));
     base.rgb = uCutout == 1 ? vTintI.rgb * clamp(l / uIvyRef.x, 0.15, 2.5) : mix(uIvyStem, vTintI.rgb, 0.15) * clamp(l / uIvyRef.y, 0.15, 2.5);
   }
@@ -1904,7 +1919,7 @@ out vec3 vW, vN; out vec4 vT; out vec2 vUV; flat out vec4 vTintI;
 void main(){
   int b = (uInstBase + gl_InstanceID)*4;
   vec4 c0 = gFol[b], c1 = gFol[b + 1], c2 = gFol[b + 2], c3 = gFol[b + 3]; float wk = c0.w; c0.w = 0.0;
-  vTintI = c3.w > 1.5 ? vec4(c1.w, c2.w, c3.w - 2.0, 1.0) : vec4(0.0);   // VR1: the matrix's free w row carries a colour
+  vTintI = c3.w > 1.5 ? vec4(c1.w, c2.w, c3.w - 2.0, 1.0) : c3.w < -1.5 ? vec4(c1.w, c2.w, -c3.w - 2.0, 2.0) : vec4(0.0);   // VR1: the matrix's free w row carries a colour (FL1: < 0, a greenery target)
   c1.w = 0.0; c2.w = 0.0; c3.w = 1.0;
   mat4 M = mat4(c0, c1, c2, c3);
   vec4 w = M*vec4(aPos, 1.0);
@@ -2530,6 +2545,7 @@ void main(){
   // L2 / L2b tone inside the crown (foliage.cpp cardTone, about -1.25 .. 1.25): darker and a touch cooler in the interior, the
   // underside and the dark clumps; lighter and a touch warmer on the sunlit top, the outside and the light clumps (about +-20-30 % value)
   alb *= (1.0 + 0.34*vTone)*mix(vec3(0.955, 0.99, 1.06), vec3(1.05, 1.01, 0.9), clamp(0.5 + 0.4*vTone, 0.0, 1.0));
+  alb = greenGrade(alb, uGreen.a, uGreenK.x);   // FL1: spring green (hedges, ferns, card shrubs)
   alb = mix(alb, alb*vec3(1.08, 0.95, 0.7), hash12(vec2(vSeed, 5.0))*0.35);   // some yellowed / olive leaves
   // seasonal variation: whole crowns drift fresher or yellower-olive on a slow world-space noise (neighbouring trees
   // differ) and clusters inside a crown vary a little, so a row of one species never reads as copies
@@ -3179,6 +3195,7 @@ void main(){
     if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) sv = 1.0 - smoothstep(0.15, 0.6, (uOccTop - texture(uOcc, uv).r*uOccRange) - vW.y);
   }
   alb *= 0.9 + 0.2*fract(vSeed*91.7 + float(vPart)*0.37);   // PERF1 (user): each blade / card a little lighter or darker (+-10 %)
+  alb = greenGrade(alb, uGreenK.y, uGreenK.z);   // FL1: spring green
   float ndl = max(dot(N, uSunDir), 0.0)*0.75 + 0.25;
   vec3 irr = mix(uGroundCol, uSkyCol, 0.5 + 0.5*N.y)*mix(0.06, 1.0, sv) + uFill*(1.0 - sv);
   irr = giAmbient(vW, N, sv, irr);   // L2: probe light by night / under cover
@@ -4271,7 +4288,7 @@ void Renderer::drawFolModels(bool depth, const mat4& vp, const Frustum* fr, floa
     runs.push_back({m, {(int)(buf.size() / 4), (int)v.size()}});
     for (auto* d : v) {
       mat4 M = d->m; M[0].w = d->wind;
-      if (d->tint.a > 0) { M[1].w = d->tint.r; M[2].w = d->tint.g; M[3].w = 2.0f + d->tint.b; }   // kFolVS reads it back
+      if (d->tint.a > 0) { M[1].w = d->tint.r; M[2].w = d->tint.g; M[3].w = d->tint.a > 1.5f ? -2.0f - d->tint.b : 2.0f + d->tint.b; }   // kFolVS reads it back (FL1: a greenery target negative)
       for (int k = 0; k < 4; ++k) buf.push_back(M[k]);
     }
   }
@@ -4504,6 +4521,9 @@ void Renderer::gpuMark(int p) {
 void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<DrawItem>& opaque,
                       const std::vector<DrawItem>& glass, const std::vector<DrawItem>& ghosts, const Overlay& ov) {
   auto c0 = std::chrono::high_resolution_clock::now();
+  for (GLuint pg : {progLeaf, progGrass, progFolModel}) if (pg) {   // FL1 greenery (App::greenery)
+    glProgramUniform4fv(pg, U(pg, "uGreen"), 1, glm::value_ptr(green)); glProgramUniform4fv(pg, U(pg, "uGreenK"), 1, glm::value_ptr(greenK));
+  }
   if (displayW > 0) {   // P1: the internal size follows effScale() (the taau switch can flip it between frames: A/B)
     int iw = std::max(16, (int)std::lround(displayW * effScale())), ih = std::max(16, (int)std::lround(displayH * effScale()));
     if (iw != width || ih != height) { width = iw; height = ih; createTargets(); }

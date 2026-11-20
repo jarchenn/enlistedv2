@@ -1,0 +1,45 @@
+{
+ "id": "fl_gnarly_pack",
+ "version": 1,
+ "name": "Gnarly tree pack (bake)",
+ "category": "Vegetation",
+ "hidden": true,
+ "description": "FL1: the shared bake of the gnarly tree pack; its plants are the fl_gnarly_* assets (tools/fl1_flora.py). Not placed by itself.",
+ "footprint": [
+  1,
+  1
+ ],
+ "floors": 0,
+ "enterable": false,
+ "plinthDepth": 0,
+ "maxGrade": 30,
+ "noAutoPanels": true,
+ "model": {
+  "src": "gnarly.glb",
+  "lod1Src": "gnarly_lod1.glb",
+  "dir": "fl_gnarly",
+  "pivot": "ground",
+  "scale": 1,
+  "offset": [
+   1.37574,
+   -0.01,
+   -0.56189
+  ],
+  "maxTex": 512,
+  "lod1Tex": 512,
+  "jpgMaps": true,
+  "lodDist": 50,
+  "cullDist": 420,
+  "foliage": true,
+  "wind": 0.6,
+  "credit": "Gnarly trees by DJMaesen, CC-BY-4.0, https://sketchfab.com/3d-models/gnarly-trees-30e3921861124c3199e0b48549b53f83"
+ },
+ "nav": {
+  "effect": "none"
+ },
+ "materials": [],
+ "parts": [],
+ "furniture": [],
+ "interactables": [],
+ "panels": []
+}

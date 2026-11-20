@@ -1,16 +1,18 @@
 {
- "_doc": "VR1 (tools/vr1_rocks.py): engine-generated rock ids -> model-rock variants; a map placing an old id loads each such rock as one of its variants, picked by the instance id (as tree_aliases.json). \"removed\": ids dropped on load. Point an id at new rock assets here to swap them in.",
+ "_doc": "VR1 (tools/vr1_rocks.py): engine-generated rock ids -> model-rock variants; a map placing an old id loads each such rock as one of its variants, picked by the instance id (as tree_aliases.json). \"removed\": ids dropped on load. Point an id at new rock assets here to swap them in; FL1: stone_group_1's stones (rk_stone_*) added as the first of the user's rocks; FL1: stone_group_1's stones (rk_stone_*) added as the first of the user's rocks; FL1: stone_group_1's stones (rk_stone_*) added as the first of the user's rocks.",
  "aliases": {
   "nat_boulder_granite_l": [
    "rk_boulder_l_a",
-   "rk_boulder_l_b"
+   "rk_boulder_l_b",
+   "rk_stone_boulder_g"
   ],
   "nat_boulder_granite_s": [
    "rk_boulder_s_a"
   ],
   "nat_boulder_limestone_l": [
    "rk_lime_l_a",
-   "rk_lime_l_b"
+   "rk_lime_l_b",
+   "rk_stone_boulder"
   ],
   "nat_boulder_limestone_m": [
    "rk_lime_m_a",
@@ -29,15 +31,18 @@
   ],
   "nat_outcrop_limestone": [
    "rk_outcrop_l_a",
-   "rk_outcrop_l_b"
+   "rk_outcrop_l_b",
+   "rk_stone_outcrop"
   ],
   "nat_outcrop_schist": [
    "rk_outcrop_m_a",
-   "rk_outcrop_m_b"
+   "rk_outcrop_m_b",
+   "rk_stone_outcrop_m"
   ],
   "mod_rock_large": [
    "rk_rock_l_a",
-   "rk_rock_l_b"
+   "rk_rock_l_b",
+   "rk_stone_rock_l"
   ],
   "mod_rock_medium": [
    "rk_rock_m_a",

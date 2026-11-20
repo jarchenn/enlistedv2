@@ -1,0 +1,45 @@
+{
+ "id": "fl_deadbranch_pack",
+ "version": 1,
+ "name": "Dead-branch tree pack (bake)",
+ "category": "Vegetation",
+ "hidden": true,
+ "description": "FL1: the shared bake of the dead-branch tree pack; its plants are the fl_deadbranch_* assets (tools/fl1_flora.py). Not placed by itself.",
+ "footprint": [
+  1,
+  1
+ ],
+ "floors": 0,
+ "enterable": false,
+ "plinthDepth": 0,
+ "maxGrade": 30,
+ "noAutoPanels": true,
+ "model": {
+  "src": "deadbranch.glb",
+  "lod1Src": "deadbranch_lod1.glb",
+  "dir": "fl_deadbranch",
+  "pivot": "ground",
+  "scale": 1,
+  "offset": [
+   0.07305,
+   -0.01,
+   2.77738
+  ],
+  "maxTex": 1024,
+  "lod1Tex": 512,
+  "jpgMaps": true,
+  "lodDist": 50,
+  "cullDist": 420,
+  "foliage": true,
+  "wind": 0.3,
+  "credit": "Trees by DJMaesen, CC-BY-4.0, https://sketchfab.com/3d-models/trees-eed7470843504aa592514554a6100fbc"
+ },
+ "nav": {
+  "effect": "none"
+ },
+ "materials": [],
+ "parts": [],
+ "furniture": [],
+ "interactables": [],
+ "panels": []
+}

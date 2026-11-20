@@ -1,0 +1,45 @@
+{
+ "id": "fl_clover_pack",
+ "version": 1,
+ "name": "Clover pack (bake)",
+ "category": "Vegetation",
+ "hidden": true,
+ "description": "FL1: the shared bake of the clover pack; its plants are the fl_clover_* assets (tools/fl1_flora.py). Not placed by itself.",
+ "footprint": [
+  1,
+  1
+ ],
+ "floors": 0,
+ "enterable": false,
+ "plinthDepth": 0,
+ "maxGrade": 30,
+ "noAutoPanels": true,
+ "model": {
+  "src": "clover.glb",
+  "lod1Src": "clover_lod1.glb",
+  "dir": "fl_clover",
+  "pivot": "ground",
+  "scale": 1,
+  "offset": [
+   0.02636,
+   -0.01,
+   -0.00014
+  ],
+  "maxTex": 1024,
+  "lod1Tex": 512,
+  "jpgMaps": true,
+  "lodDist": 10,
+  "cullDist": 60,
+  "foliage": true,
+  "wind": 0.6,
+  "credit": "Clovers - Plants / Foliage by Studio Lab, CC-BY-4.0, https://sketchfab.com/3d-models/clovers-plants-foliage-d68dc45e329e48e3bc83ecc5448a6c25"
+ },
+ "nav": {
+  "effect": "none"
+ },
+ "materials": [],
+ "parts": [],
+ "furniture": [],
+ "interactables": [],
+ "panels": []
+}

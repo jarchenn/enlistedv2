@@ -264,6 +264,10 @@ struct AssetDef {
   float modelLodDist = 30, modelCull = 400;   // m
   float modelThinPx = 0;                       // thin-line widening (wire), pixels
   float modelScale = 1;          // TR1: "model": {"drawScale": s}: the bake drawn s times its size (one bake, several sized variants)
+  // FL1: "model": {"part": "<prefix>"} - this asset is the bake's parts named <prefix>... (one plant of a pack baked
+  // as one model: the pack's textures load once); count -1: every part
+  int modelFirst = 0, modelCount = -1, modelLodFirst = 0, modelLodCount = -1;
+  void modelRange(const GpuModel* g, int& k0, int& k1) const;   // the parts of g (model or modelLod) this asset draws
   bool modelFoliage = false; float modelWind = 0;   // NT8: "model": {"foliage": true, "wind": k}: instanced, alpha-tested cards, sway k
   ShapePtr playerShape;                        // union of "k": 2 parts (no sections)
   GpuMesh colliderGhost;                       // every collider as a box: placement preview of model assets

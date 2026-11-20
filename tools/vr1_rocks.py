@@ -90,12 +90,16 @@ def asset(vid, v, old, height):
     if s is None:   # the bake's collider top -> the old rock's height
         s = round(height / max(p["c"][1] + 0.5 * p["s"][1] for p in src["parts"]), 3)
     mj = json.load(open(os.path.join(ROOT, "content", "assets", "models", m["dir"], "model.json")))
-    ext = [(mj["bmax"][k] - mj["bmin"][k]) * s for k in range(3)]
+    lo, hi = mj["bmin"], mj["bmax"]
+    if "part" in m:   # FL1: one stone of a pack bake: its own parts' bounds
+        ps = [p for p in mj["parts"] if p["name"].startswith(m["part"])]
+        lo = [min(p["bmin"][k] for p in ps) for k in range(3)]; hi = [max(p["bmax"][k] for p in ps) for k in range(3)]
+    ext = [(hi[k] - lo[k]) * s for k in range(3)]
     parts = []
     if collide:
         for p in src.get("parts", []):
             q = dict(p); q["c"] = [round(c * s, 3) for c in p["c"]]; q["s"] = [round(c * s, 3) for c in p["s"]]; parts.append(q)
-    model = {k: m[k] for k in ("dir", "pivot", "jpgMaps", "lodDist", "cullDist", "foliage", "wind", "credit") if k in m}
+    model = {k: m[k] for k in ("dir", "part", "pivot", "jpgMaps", "lodDist", "cullDist", "foliage", "wind", "credit") if k in m}
     model.update({"scale": 1, "drawScale": s})
     return {"id": vid, "version": 1, "name": name, "category": "Nature",
             "description": "%s, about %.1f x %.1f m and %.1f m high (%s)." % (name, ext[0], ext[2], ext[1], m.get("credit", bake)),

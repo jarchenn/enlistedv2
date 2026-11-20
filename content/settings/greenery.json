@@ -1,0 +1,16 @@
+{
+ "_doc": "FL1 (src/foliage.cpp greenery, src/render.cpp greenGrade): the leaves of the temperate maps toward the spring green of the user's reference (ambientCG DayEnvironmentHDRI078: shaded canopy sRGB 0.46 0.55 0.15, hue 74, sunlit 0.73 0.79 0.54; never olive or blue-green). Only pixels that are green already move (dry, autumn, dead leaves, bark, succulents and the ivy stay); each keeps its own shading. target: the card leaves' and grass's colour (sRGB albedo); cardStrength / grassStrength: how far they move (0 off), cardGain / grassGain: their brightness. species: model foliage by bake dir prefix, leaf = that species' target (sRGB albedo), lum = its leaf texture's mean linear luminance (the gain is target / lum), modelStrength how far, jitter per instance. Read at startup; arid maps get none.",
+ "target": [0.40, 0.50, 0.15],
+ "cardStrength": 0.55, "cardGain": 1.25,
+ "grassStrength": 0.45, "grassGain": 1.15,
+ "modelStrength": 0.8, "jitter": 0.08,
+ "species": {
+  "fl_oak": {"leaf": [0.37, 0.47, 0.13], "lum": 0.083},
+  "fl_maple": {"leaf": [0.41, 0.50, 0.14], "lum": 0.054},
+  "fl_lilac": {"leaf": [0.36, 0.45, 0.17], "lum": 0.202},
+  "fl_bush": {"leaf": [0.35, 0.45, 0.14], "lum": 0.095},
+  "fl_clover": {"leaf": [0.38, 0.48, 0.16], "lum": 0.177},
+  "ph_grass_medium_01": {"leaf": [0.38, 0.46, 0.15], "lum": 0.090},
+  "ph_fern": {"leaf": [0.36, 0.46, 0.14], "lum": 0.09}
+ }
+}

@@ -1,0 +1,45 @@
+{
+ "id": "fl_bare_pack",
+ "version": 1,
+ "name": "Bare tree pack (bake)",
+ "category": "Vegetation",
+ "hidden": true,
+ "description": "FL1: the shared bake of the bare tree pack; its plants are the fl_bare_* assets (tools/fl1_flora.py). Not placed by itself.",
+ "footprint": [
+  1,
+  1
+ ],
+ "floors": 0,
+ "enterable": false,
+ "plinthDepth": 0,
+ "maxGrade": 30,
+ "noAutoPanels": true,
+ "model": {
+  "src": "bare.glb",
+  "lod1Src": "bare_lod1.glb",
+  "dir": "fl_bare",
+  "pivot": "ground",
+  "scale": 1,
+  "offset": [
+   0.07002,
+   -0.01,
+   1.49944
+  ],
+  "maxTex": 512,
+  "lod1Tex": 512,
+  "jpgMaps": true,
+  "lodDist": 40,
+  "cullDist": 400,
+  "foliage": true,
+  "wind": 1.0,
+  "credit": "Trees by DJMaesen, CC-BY-4.0, https://sketchfab.com/3d-models/trees-dbd3f20966de4cae9170413b9c6f891d"
+ },
+ "nav": {
+  "effect": "none"
+ },
+ "materials": [],
+ "parts": [],
+ "furniture": [],
+ "interactables": [],
+ "panels": []
+}

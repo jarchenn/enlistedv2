@@ -107,6 +107,22 @@ def decimate(o, target):
     select([o]); bpy.ops.object.modifier_apply(modifier=m.name)
 
 
+def drop_webs(o, max_alt=0.4, min_area=0.2):
+    """TR3: collapse decimation of a branch network fills the V between two branches with one flat triangle (the dark
+    folded planes under the conifers); a tube never makes a wide one: drop wood triangles with altitude (2 x area / the
+    longest edge) over max_alt and area over min_area (world units). tools/tr3_drop_webs.py does it to existing bakes."""
+    bm = bmesh.new(); bm.from_mesh(o.data); bm.transform(o.matrix_world)
+    bad = []
+    for f in bm.faces:
+        a = f.calc_area(); e = max(ed.calc_length() for ed in f.edges)
+        if a > min_area and 2 * a / max(e, 1e-6) > max_alt: bad.append(f)
+    bm.free()
+    if not bad: return
+    idx = {f.index for f in bad}
+    bm = bmesh.new(); bm.from_mesh(o.data); bm.faces.ensure_lookup_table()
+    bmesh.ops.delete(bm, geom=[bm.faces[i] for i in idx], context="FACES"); bm.to_mesh(o.data); bm.free()
+
+
 def ground_pivot(objs):
     """Centre x / y (Blender), lowest point z = 0, for the variant's objects together; transforms applied."""
     select(objs); bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
@@ -481,8 +497,8 @@ def bake(pid, spec):
         total = sum(tri_count(p) for p in wood) or 1
         for p in wood:
             c = p.copy(); c.data = p.data.copy(); bpy.context.scene.collection.objects.link(c)
-            decimate(p, max(60, spec["wood"][0] * tri_count(p) // total)); w0.append(p)
-            drop_small_islands(c, 1.5 if dims.z > 6 else 0.4); decimate(c, max(24, spec["wood"][1] * tri_count(c) // total)); w1.append(c)
+            decimate(p, max(60, spec["wood"][0] * tri_count(p) // total)); drop_webs(p); w0.append(p)
+            drop_small_islands(c, 1.5 if dims.z > 6 else 0.4); decimate(c, max(24, spec["wood"][1] * tri_count(c) // total)); drop_webs(c); w1.append(c)
         export(w0 + [cards0], os.path.join(OUT, aid + ".glb"))
         export(w1 + [cards1], os.path.join(OUT, aid + "_lod1.glb"))
         report[aid] = {"lod0": sum(map(tri_count, w0)) + tri_count(cards0), "cards0": len(lod0), "lod1": sum(map(tri_count, w1)) + tri_count(cards1),
@@ -523,8 +539,8 @@ def bake_rest(pid, spec, todo):
         total = sum(tri_count(p) for p in wood) or 1; w0, w1 = [], []
         for p in wood:
             c = p.copy(); c.data = p.data.copy(); bpy.context.scene.collection.objects.link(c)
-            decimate(p, max(60, spec["wood"][0] * tri_count(p) // total)); w0.append(p)
-            drop_small_islands(c, 1.5 if dims.z > 6 else 0.4); decimate(c, max(24, spec["wood"][1] * tri_count(c) // total)); w1.append(c)
+            decimate(p, max(60, spec["wood"][0] * tri_count(p) // total)); drop_webs(p); w0.append(p)
+            drop_small_islands(c, 1.5 if dims.z > 6 else 0.4); decimate(c, max(24, spec["wood"][1] * tri_count(c) // total)); drop_webs(c); w1.append(c)
         export(w0 + [cards0], os.path.join(OUT, aid + ".glb")); export(w1 + [cards1], os.path.join(OUT, aid + "_lod1.glb"))
         report[aid] = {"lod0": sum(map(tri_count, w0)) + tri_count(cards0), "cards0": len(lod0), "lod1": sum(map(tri_count, w1)) + tri_count(cards1),
                        "cards1": len(lod1), "size": [round(dims.x, 2), round(dims.z, 2), round(dims.y, 2)]}

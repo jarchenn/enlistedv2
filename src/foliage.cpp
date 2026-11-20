@@ -489,10 +489,13 @@ void App::treeDrawItems(const Instance& i, const InstanceRT& r, std::vector<Draw
     if (cd > r.asset->modelCull) return;
     const GpuModel* gm = (r.asset->modelLod && cd > r.asset->modelLodDist) ? r.asset->modelLod.get() : r.asset->model.get();
     mat4 S = glm::scale(mat4(1), vec3(r.asset->modelScale));
-    if (!r.treeFelled) { R.folModels.push_back({gm, M * S, r.asset->modelWind}); return; }
+    int k0, k1; r.asset->modelRange(gm, k0, k1);   // FL1: one plant of a pack bake
+    extern vec4 greenTintOf(const AssetDef&, const mat4&);   // FL1 greenery
+    const vec4 gt = greenTintOf(*r.asset, M);
+    if (!r.treeFelled) { R.folModels.push_back({gm, M * S, r.asset->modelWind, false, k0, k1 - k0, gt}); return; }
     op.push_back({&t.stumpMesh, M});
     vec3 p; quat q;
-    if (Physics::getTransform(r.trunkBody, p, q)) R.folModels.push_back({gm, glm::translate(mat4(1), p) * glm::mat4_cast(q) * glm::translate(mat4(1), vec3(0, -t.stumpH, 0)) * S, 0.0f});
+    if (Physics::getTransform(r.trunkBody, p, q)) R.folModels.push_back({gm, glm::translate(mat4(1), p) * glm::mat4_cast(q) * glm::translate(mat4(1), vec3(0, -t.stumpH, 0)) * S, 0.0f, false, k0, k1 - k0, gt});
     return;
   }
   if (!r.treeFelled) {
@@ -515,4 +518,66 @@ json App::treeApplyState(const Instance& i, const InstanceRT& r) const {
   quat inv = glm::inverse(yawQuat(i.yaw));
   vec3 lp = inv * (p - i.pos); quat lq = inv * q;
   return json{{"felled", true}, {"trunk", {{"p", tojson(lp)}, {"q", {lq.x, lq.y, lq.z, lq.w}}}}};
+}
+
+// ---------------------------------------------------------------- FL1 greenery
+// content/settings/greenery.json: the reference's spring green (DayEnvironmentHDRI078) for the leaves of the temperate
+// maps. Card leaves (hedges, ferns, card shrubs) and grass are graded in their shaders (kCommon greenGrade: green pixels
+// only, toward the target, keeping their luminance x a gain); model foliage per species (the bake dir): its own target
+// over the leaf texture's mean luminance, jittered per instance. Off on an arid map ("look": {"arid": true}).
+namespace {
+struct Greenery {
+  vec3 target{0.40f, 0.50f, 0.15f}; float cardK = 0.55f, cardGain = 1.25f, grassK = 0.45f, grassGain = 1.15f, modelK = 0.8f, jitter = 0.08f;
+  struct Sp { std::string prefix; vec3 leaf; float lum; };
+  std::vector<Sp> species;
+};
+vec3 linOf(vec3 s) { return glm::pow(glm::clamp(s, vec3(0.0f), vec3(1.0f)), vec3(2.2f)); }
+float lumOf(vec3 l) { return glm::dot(l, vec3(0.2126f, 0.7152f, 0.0722f)); }
+const Greenery& greenery() {
+  static const Greenery G = [] {
+    Greenery g;
+    try {
+      json j = json::parse(readTextFile(contentDir() / "settings" / "greenery.json"));
+      auto v3 = [](const json& a, vec3 d) { return a.is_array() && a.size() >= 3 ? vec3(a[0].get<float>(), a[1].get<float>(), a[2].get<float>()) : d; };
+      g.target = v3(j.value("target", json()), g.target);
+      g.cardK = j.value("cardStrength", g.cardK); g.cardGain = j.value("cardGain", g.cardGain);
+      g.grassK = j.value("grassStrength", g.grassK); g.grassGain = j.value("grassGain", g.grassGain);
+      g.modelK = j.value("modelStrength", g.modelK); g.jitter = j.value("jitter", g.jitter);
+      const json sp = j.value("species", json::object());   // kept alive while iterating
+      for (auto& [k, s] : sp.items()) g.species.push_back({k, v3(s.value("leaf", json()), g.target), s.value("lum", 0.1f)});
+    } catch (...) { logf("greenery: content/settings/greenery.json missing or unreadable: no grading"); g.cardK = g.grassK = g.modelK = 0; }
+    return g;
+  }();
+  return G;
+}
+}  // namespace
+
+void greeneryFrame(App& app) {   // per frame (App::buildDrawLists): the shaders' targets, off on an arid map
+  const Greenery& g = greenery();
+  static const bool abOff = std::getenv("NMK_GREEN_OFF") != nullptr;   // perf / look A/B
+  bool arid = abOff || app.doc.extra.is_object() && app.doc.extra.contains("look") && app.doc.extra["look"].is_object() && app.doc.extra["look"].value("arid", false);
+  vec3 t = linOf(g.target); t /= std::max(1e-4f, lumOf(t));
+  app.R.green = vec4(t, arid ? 0.0f : g.cardK);
+  app.R.greenK = vec4(g.cardGain, arid ? 0.0f : g.grassK, g.grassGain, arid ? 0.0f : g.modelK);
+}
+
+// a model-foliage instance's greenery tint (a = 2: on): its species' target / the texture's mean luminance, +-jitter per
+// instance (position hash); a = 0 for anything not listed (succulents, dead trees, the ivy, conifers)
+vec4 greenTintOf(const AssetDef& a, const mat4& M) {
+  static std::map<const AssetDef*, vec4> base;
+  auto it = base.find(&a);
+  if (it == base.end()) {
+    vec4 b(0.0f);
+    std::string dir = a.raw.is_object() && a.raw.contains("model") ? a.raw["model"].value("dir", a.id) : a.id;
+    for (auto& s : greenery().species) if (dir.rfind(s.prefix, 0) == 0) { vec3 l = linOf(s.leaf); b = vec4(l / std::max(0.01f, s.lum), 2.0f); break; }
+    it = base.emplace(&a, b).first;
+    if (std::getenv("NMK_GREEN_LOG")) logf("greenery: %s (bake %s) -> %.2f %.2f %.2f %s", a.id.c_str(), dir.c_str(), b.x, b.y, b.z, b.a > 0 ? "graded" : "as is");
+  }
+  vec4 t = it->second;
+  if (t.a > 0) {
+    uint32_t h = (uint32_t)(int)std::floor(M[3].x * 3.1f) * 73856093u ^ (uint32_t)(int)std::floor(M[3].z * 3.1f) * 19349663u; h ^= h >> 13; h *= 0x5bd1e995u; h ^= h >> 15;
+    float j = greenery().jitter, u = (h & 1023) / 1023.0f - 0.5f, w = ((h >> 10) & 1023) / 1023.0f - 0.5f;
+    t = vec4(vec3(t) * (1.0f + j * u) * vec3(1.0f + 0.6f * j * w, 1.0f, 1.0f - 0.6f * j * w), 2.0f);   // lighter / darker, a little yellower / bluer
+  }
+  return t;
 }
