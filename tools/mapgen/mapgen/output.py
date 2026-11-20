@@ -6,7 +6,7 @@ import os
 
 _TREE_ALIASES = None
 _REMOVED = set()
-MAP_ALIASES = {}   # FL1: template id -> its own aliases, ahead of the shared tables (outpost_desert: its gorse as succulents)
+MAP_ALIASES = {}   # FL1: template id -> its own aliases, ahead of the shared tables (tree_aliases.json "maps": the desert maps' plants)
 _CUR_MAP = None   # VR1: generated rock ids with no model rock yet (rock_aliases.json "removed"): not written
 
 
@@ -21,6 +21,7 @@ def tree_alias(aid, iid):
             p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "content", "settings", f)
             if os.path.exists(p):
                 j = json.load(open(p, encoding="utf-8")); _TREE_ALIASES.update(j.get("aliases", {}))
+                for m, al in j.get("maps", {}).items(): MAP_ALIASES.setdefault(m, {}).update(al)   # DF1: per-map tables (tools/fl1_flora.py writes them)
                 _REMOVED.update(j.get("removed", []))
     al = MAP_ALIASES.get(_CUR_MAP, {}).get(aid) or _TREE_ALIASES.get(aid)
     if not al:

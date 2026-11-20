@@ -13,18 +13,95 @@
 #include "scenario.h"
 #include "character.h"
 #include "grenade.h"
+#include "settings.h"
 #include <GLFW/glfw3.h>
 #include <map>
 
 namespace {
 MpTest* T = nullptr;
-int mode = -1, stage = 0, frames = 0; bool started = false, matchMode = false; float total = 0, st = 0, runT = 0; int runFrames = 0; double runDt = 0, worstDt = 0;
+int mode = -1, stage = 0, frames = 0; bool started = false, matchMode = false, blurMode = false, costMode = false; float total = 0, st = 0, runT = 0; int runFrames = 0; double runDt = 0, worstDt = 0;
 std::vector<int> row; vec3 origin(0);
 const char* kStates[] = {"aim", "aim_lmg", "aim_pistol", "idle", "walk", "run", "crouch", "shot", "reload", "throw"};
 }   // namespace
 
+// AIB1 NMK_WSM2=blur: one soldier standing, one walking across the view at 3, 8 and 20 m from a still camera, per configuration
+// (Medium / High, the soldiers' own TAA motion on / off, TAAU off, Classic lighting, specular AA off): selftest_out/aib1_<cfg>_<d>.png.
+// shortcut: the walker's feet are moved by the test (the AI is frozen), its clip from dbgVel; the camera never moves.
+struct BlurCfg { const char* name; GfxPreset preset; bool charVel, taau, lightNew, specAA; };
+const BlurCfg kBlur[] = {{"med_before", GfxPreset::Medium, false, true, true, true}, {"med_after", GfxPreset::Medium, true, true, true, true},
+                         {"med_native", GfxPreset::Medium, false, false, true, true}, {"high_before", GfxPreset::High, false, true, true, true},
+                         {"high_after", GfxPreset::High, true, true, true, true}, {"med_classic", GfxPreset::Medium, false, true, false, true},
+                         {"med_nospecaa", GfxPreset::Medium, false, true, true, false}};
+const float kDist[] = {3, 8, 20};
+static bool blurStep(App& app, Game& G, Soldier& L) {
+  static std::vector<int> two; static vec3 eye0, fwd0, right0; static int k = -1;
+  const int nCfg = (int)(sizeof(kBlur) / sizeof(kBlur[0])), nD = 3;
+  if (two.empty()) {
+    for (auto& s : G.sold) if (s.inUse && s.alive && !s.localPlayer && two.size() < 2) two.push_back(s.slot);
+    if (two.size() < 2) { T->check(false, "two soldiers to film"); app.selftest->exitCode = T->finish(); app.selftest->done = true; return true; }
+    eye0 = L.feet; fwd0 = vec3(0, 0, -1); right0 = vec3(1, 0, 0); app.eyeYaw = 0; app.eyePitch = 0;
+    for (int i : two) { const Soldier& s = G.sold[i]; char b[200]; std::snprintf(b, sizeof b, "soldier %d: model %s, hold body %d", i, G.models[s.model]->id.c_str(), (int)s.holdBody); T->note(b); }
+    k = 0; frames = 0;
+  }
+  if (k >= nCfg * nD) { if (frames > 4) { if (app.mode == Mode::Explore) app.exitExplore(); app.selftest->exitCode = T->finish(); app.selftest->done = true; } return true; }
+  const BlurCfg& c = kBlur[k / nD]; const float d = kDist[k % nD];
+  if (frames == 1) {
+    if (k % nD == 0) { settings().applyPreset(app, c.preset); app.R.perf.charVel = c.charVel; app.R.perf.taau = c.taau; app.R.perf.specAA = c.specAA; app.R.q.lightNew = c.lightNew; }
+    app.R.resetTemporal();
+  }
+  Physics::setCharacterPos(eye0 + vec3(0, 0.9f, 0)); app.eyeYaw = 0;
+  vec3 eye, ef; G.renderView(eye, ef);
+  const vec3 f = glm::normalize(vec3(ef.x, 0, ef.z)), r = glm::normalize(glm::cross(f, vec3(0, 1, 0)));
+  const vec3 mid = eye0 + f * d;
+  app.eyePitch = degrees(std::atan2(app.terrain.height(mid.x, mid.z) + 1.1f - eye.y, d));
+  for (int i = 0; i < 2; ++i) {
+    Soldier& s = G.sold[two[i]]; s.hp = 100; s.br.target = -1; s.lastShot = G.t - 10; s.posture = Physics::STAND;
+    vec3 p = mid + r * (i == 0 ? -1.6f : -0.7f + std::fmod(frames / 60.0f * 1.5f, 2.4f));   // the stander left of centre; the walker left to right at 1.5 m/s
+    p.y = app.terrain.height(p.x, p.z);
+    Physics::setAgentPos(s.agent, p); s.feet = p;
+    s.yaw = i == 0 ? degrees(std::atan2(-f.x, -f.z)) : degrees(std::atan2(r.x, r.z));   // the stander faces the camera, the walker its way
+    s.dbgVel = i == 1 ? App::forward(s.yaw, 0) * 1.5f : vec3(0);
+  }
+  if (frames == 70) {
+    char b[64]; std::snprintf(b, sizeof b, "aib1_%s_%02d.png", c.name, (int)d);
+    app.uiShot = exeDir() / "selftest_out" / b;
+  }
+  if (frames > 74) { ++k; frames = 0; }
+  return true;
+}
+
+// AIB1 NMK_WSM2=cost: 19 soldiers walking in a grid 5-25 m in front of a still camera (Medium), the soldiers' own TAA motion
+// switched on / off every 60 frames (interleaved, so other load on the GPU hits both alike): GPU frame and Models pass time.
+static bool costStep(App& app, Game& G, Soldier& L) {
+  static std::vector<int> bots; static vec3 eye0; static double acc[2][3] = {}; static int n[2] = {}, phase = 0;
+  if (bots.empty()) {
+    for (auto& s : G.sold) if (s.inUse && s.alive && !s.localPlayer) bots.push_back(s.slot);
+    eye0 = L.feet; settings().applyPreset(app, GfxPreset::Medium); frames = 0;
+  }
+  Physics::setCharacterPos(eye0 + vec3(0, 0.9f, 0)); app.eyeYaw = 0; app.eyePitch = -4;
+  vec3 eye, ef; G.renderView(eye, ef);
+  const vec3 f = glm::normalize(vec3(ef.x, 0, ef.z)), r = glm::normalize(glm::cross(f, vec3(0, 1, 0)));
+  for (int i = 0; i < (int)bots.size(); ++i) {
+    Soldier& s = G.sold[bots[i]]; s.hp = 100; s.br.target = -1; s.lastShot = G.t - 10;
+    vec3 p = eye0 + f * (5.0f + 4.0f * (i / 5)) + r * (-4.0f + 2.0f * (i % 5) + std::fmod(frames / 60.0f * 1.5f, 2.0f));
+    p.y = app.terrain.height(p.x, p.z); Physics::setAgentPos(s.agent, p); s.feet = p;
+    s.yaw = degrees(std::atan2(r.x, r.z)); s.dbgVel = App::forward(s.yaw, 0) * 1.5f;
+  }
+  const int on = (frames / 60) % 2; app.R.perf.charVel = on;
+  if (frames > 120 && frames % 60 > 5) { acc[on][0] += app.R.stats.gpuMs; acc[on][1] += app.R.gpuPassMs[GP_Models]; acc[on][2] += app.R.gpuPassMs[GP_Taa]; ++n[on]; }
+  if (frames == 2520) {
+    char b[300];
+    for (int k = 0; k < 2; ++k) { std::snprintf(b, sizeof b, "charvel %s: %d frames, GPU frame %.3f ms, Models pass %.3f ms, TAA pass %.3f ms", k ? "on " : "off", n[k], acc[k][0] / n[k], acc[k][1] / n[k], acc[k][2] / n[k]); T->note(b); }
+    std::snprintf(b, sizeof b, "cost of the soldiers' own TAA motion (19 walking in view, Medium): GPU frame %+.3f ms, Models pass %+.3f ms", acc[1][0] / n[1] - acc[0][0] / n[0], acc[1][1] / n[1] - acc[0][1] / n[0]);
+    T->check(n[0] > 100 && n[1] > 100, b);
+    app.uiShot = exeDir() / "selftest_out" / "aib1_cost.png";
+  }
+  if (frames > 2525) { if (app.mode == Mode::Explore) app.exitExplore(); app.selftest->exitCode = T->finish(); app.selftest->done = true; }
+  return true;
+}
+
 bool wsm2Capture(App& app, float dt) {
-  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-wsm2") mode = 1; const char* e = std::getenv("NMK_WSM2"); matchMode = e && std::string(e) == "match"; }
+  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-wsm2") mode = 1; const char* e = std::getenv("NMK_WSM2"); matchMode = e && std::string(e) == "match"; blurMode = e && std::string(e) == "blur"; costMode = e && std::string(e) == "cost"; if (costMode) matchMode = true; }
   if (mode != 1) return false;
   if (dt < 0) return true;
   if (app.win && glfwGetWindowAttrib(app.win, GLFW_ICONIFIED)) glfwRestoreWindow(app.win);
@@ -33,13 +110,15 @@ bool wsm2Capture(App& app, float dt) {
   if (!started) {
     started = true; T = new MpTest("wsm2");
     if (app.mode == Mode::Explore) app.exitExplore();
-    app.openMap(contentDir() / "examples/village_assault_3.nmap.json");
+    app.openMap(contentDir() / (blurMode ? "templates/blackwater_thaw.nmap.json" : "examples/village_assault_3.nmap.json"));   // AIB1: the map the blur was reported on
     Scenario sc = Scenario::fromJson(app.doc.extra.is_object() ? app.doc.extra.value("scenario", json::object()) : json::object());
     sc.rules.mode = GameMode::TDM; sc.rules.humanTeam = 0; sc.rules.killCap = 9999;
     sc.rules.teamFaction[0] = Faction::Allies; sc.rules.teamFaction[1] = Faction::Axis;
     for (int t = 0; t < 2; ++t) { for (int& x : sc.rules.aiCount[t]) x = 0; sc.rules.aiTypes[t] = 0; }
     const AiType types[] = {AiType::Soldiers, AiType::Allied, AiType::SS, AiType::GasMask, AiType::GasMask2, AiType::Desert, AiType::Delta, AiType::Operators, AiType::AlliedPara};
-    if (!matchMode) {
+    if (blurMode) {   // AIB1: the player and two Axis soldiers (one standing, one walking across)
+      sc.rules.teamPlayers[0] = 1; sc.rules.teamPlayers[1] = 2; sc.rules.aiTypes[1] = aiBit(AiType::Soldiers); sc.rules.aiCount[1][(int)AiType::Soldiers] = 2;
+    } else if (!matchMode) {
       sc.rules.teamPlayers[0] = 2; sc.rules.aiTypes[0] = aiBit(AiType::Soldiers); sc.rules.aiCount[0][(int)AiType::Soldiers] = 1;
       sc.rules.teamPlayers[1] = 9; for (AiType t : types) { sc.rules.aiTypes[1] |= aiBit(t); sc.rules.aiCount[1][(int)t] = 1; }
     } else {   // 10 a side (the player one of side 0's): the nine types spread over both sides
@@ -63,7 +142,7 @@ bool wsm2Capture(App& app, float dt) {
   if (L->alive) L->hp = 100;
   AiCore* A = aiCore();
   char b[400];
-  if (matchMode) {   // the AI on for 60 s after a 4 s settle
+  if (matchMode && !costMode) {   // the AI on for 60 s after a 4 s settle
     if (st < 4) return true;
     static double wall = 0; const double now = glfwGetTime(); const double wdt = wall > 0 ? now - wall : 0; wall = now;   // wall-clock frame time (dt is the fixed step)
     static std::map<int, vec3> start; if (runFrames == 0) for (auto& s : G.sold) if (s.inUse) start[s.slot] = s.feet;
@@ -78,6 +157,8 @@ bool wsm2Capture(App& app, float dt) {
     return true;
   }
   if (st < 3.0f) { if (A) A->frozen = true; return true; }
+  if (blurMode) return blurStep(app, G, *L);
+  if (costMode) return costStep(app, G, *L);
   if (stage == 0) {   // the row: side 0's bot first, then side 1's in spawn order; facts per bot
     for (auto& s : G.sold) if (s.inUse && s.alive && !s.localPlayer) row.push_back(s.slot);
     origin = G.sold[row[0]].feet;

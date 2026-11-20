@@ -107,7 +107,7 @@ def decimate(o, target):
     select([o]); bpy.ops.object.modifier_apply(modifier=m.name)
 
 
-def drop_webs(o, max_alt=0.4, min_area=0.2):
+def drop_webs(o, max_alt=0.3, min_area=0.12, ground=0.35):
     """TR3: collapse decimation of a branch network fills the V between two branches with one flat triangle (the dark
     folded planes under the conifers); a tube never makes a wide one: drop wood triangles with altitude (2 x area / the
     longest edge) over max_alt and area over min_area (world units). tools/tr3_drop_webs.py does it to existing bakes."""
@@ -115,7 +115,7 @@ def drop_webs(o, max_alt=0.4, min_area=0.2):
     bad = []
     for f in bm.faces:
         a = f.calc_area(); e = max(ed.calc_length() for ed in f.edges)
-        if a > min_area and 2 * a / max(e, 1e-6) > max_alt: bad.append(f)
+        if a > min_area and 2 * a / max(e, 1e-6) > max_alt and f.calc_center_median().z > ground: bad.append(f)   # the root flare stays
     bm.free()
     if not bad: return
     idx = {f.index for f in bad}

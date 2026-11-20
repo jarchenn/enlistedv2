@@ -8,7 +8,9 @@ import os
 
 from mapgen import (GroundPaint, Grid, Frame, MapBuilder, ScenarioBuilder, write_map, write_template, write_summary, asset_usage,
                     rng, look_yaw)
-from maps.sd_common import inside_eye, Plan, place_walls2, spread, place_masses, place_cover, wall_spot, roof_clutter, place_along_walls, free_spot, door_segs, barrier_line, place_in_space
+from maps.sd_common import inside_eye, Plan, place_walls2, spread, place_masses, place_cover, wall_spot, roof_clutter, place_along_walls, free_spot, door_segs, barrier_line, place_in_space, door_points, _seg_dist
+from mapgen import desert_flora as DF
+import random as _random
 
 TID, NAME, VERSION, SEED = "sd_desert", "Sun Fort", 1, 2611
 CELL = 6.0
@@ -80,6 +82,56 @@ LINKS = {
     ((3, 13), (3, 12)): "open", ((4, 13), (4, 12)): "open", ((10, 13), (10, 12)): "open", ((11, 13), (11, 12)): "open",
     ((6, 14), (6, 13)): "open", ((8, 14), (8, 13)): "open",
 }
+
+
+def flora(b, plan, grid, keep):
+    """DF1 (mapgen/desert_flora.py): in the compound only small tufts (0.35 m) hugging plain walls, away from every doorway,
+    door-to-door line, plant pad and both spawn yards, and one beside each scrub / small rock: no new cover in the lanes.
+    Outside the compound (out of bounds) larger patches and the desert shrubs."""
+    R = _random.Random(7302)
+    repo = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
+    insts = [(e["asset"], e["pos"][0], e["pos"][2], e["yaw"]) for e in b.inst]
+    obst = DF.obstacles(repo, insts)
+    regs = sorted({c for r in plan.rows for c in r} - set("# "))
+    doors = [(x, z, 5.0 if ch in "TD" else 3.0) for ch in regs for x, z in door_points(plan, ch)]   # spawn exits get more room
+    segs = [s for ch in regs for s in door_segs(plan, ch)]
+    free = lambda x, z: not any(DF.inside(o, x, z, 0.05) for o in obst)
+
+    def ok_in(x, z):
+        if plan.at(int((x - plan.x0) // plan.cell), int((z - plan.z0) // plan.cell)) in "# TD":
+            return False
+        if any(math.hypot(x - dx, z - dz) < r for dx, dz, r in doors) or any(_seg_dist((x, z), s0, s1) < 1.2 for s0, s1 in segs):
+            return False
+        return not any(math.hypot(x - kx, z - kz) < kr + 1.0 for kx, kz, kr in keep) and free(x, z)
+    P = DF.Placer(R, ok_in, gap=1.2)
+    for x, z, yaw, kind, a, c in plan.edges():
+        if kind:
+            continue
+        for cell in (a, c):
+            if not plan.walk(*cell) or plan.at(*cell) in "TD":
+                continue
+            ix, iz = plan._cc(*cell)
+            nx, nz = (math.copysign(1.0, ix - x), 0.0) if yaw == 90.0 else (0.0, math.copysign(1.0, iz - z))
+            t = R.uniform(-plan.cell / 2 + 0.6, plan.cell / 2 - 0.6)
+            P.add(DF.TUFT, x + nx * 0.6 - nz * t, z + nz * 0.6 + nx * t, 0.3)
+    for aid, x, z, yaw in insts:
+        if aid in ("nat_brush_scrub", "ph_dry_branches_medium_01_a", "sd_dry_rock_small", "rk_rock_s_a"):
+            a = R.uniform(0, 2 * math.pi)
+            P.add(DF.TUFT, x + math.cos(a) * 0.9, z + math.sin(a) * 0.9, 0.7)
+    inner = P.out
+    X0, Z0 = plan.x0 - 2.0, plan.z0 - 2.0
+
+    def ok_out(x, z):
+        return not (X0 < x < -X0 and Z0 < z < -Z0) and abs(x) < grid.width / 2 - 1.0 and abs(z) < grid.depth / 2 - 1.0 and free(x, z) and grid.slope_deg(x, z) < 28.0
+    Q = DF.Placer(R, ok_out, gap=1.6)
+    Q.rings([o for o in obst if any(s in o[0] for s in DF.ROCKS)], DF.PATCH, 2, 0.7)
+    Q.scatter(-grid.width / 2, -grid.depth / 2, grid.width / 2, grid.depth / 2, 70, DF.PATCH)
+    Q.scatter(-grid.width / 2, -grid.depth / 2, grid.width / 2, grid.depth / 2, 24, DF.SHRUB)
+    for aid, x, z, yaw in inner:
+        b.place(aid, x, z, yaw, check=False, cls="none", tags={"flora"})
+    for aid, x, z, yaw in Q.out:
+        b.place(aid, x, z, yaw, check=False, cls="none", tags={"flora"})
+    return len(inner), len(Q.out)
 
 
 def build(ctx):
@@ -271,6 +323,7 @@ def build(ctx):
     for e in b.inst:   # the desert props: no weed / moss tufts (sd_desert_assets.dry)
         if e["asset"] in ("mod_container_20_damaged", "mod_jersey_barrier", "mod_pallet_stack", "mod_rock_small"):
             e["asset"] = "sd_dry_" + e["asset"][4:]
+    flora(b, plan, grid, PADS)
     # ---------------------------------------------------------------- scenario: sites, spawns, timings
     sc = ScenarioBuilder(b, defending="Axis")
     xA, zA = plan.cc(*PLANT_A_CELL)

@@ -30,7 +30,7 @@ struct TreeDef;
 struct FoliageDraw { const TreeDef* tree; mat4 m; uint8_t* lod = nullptr; uint8_t cur = 2; uint64_t id = 0; bool batched = false; };   // id: a standing tree copy (P2 folbatch); batched: drawn from its cell this frame
 // thinPx > 0: keep sub-pixel geometry (barbed wire) visible - vertices move out along their normals by thinPx pixels'
 // worth of angle at their distance (capped at 3 cm), so a 2 mm strand stays about a pixel wide at range
-struct ModelDraw { const GpuModel* model; int part; mat4 m; vec4 tint{1, 1, 1, 1}; float thinPx = 0; int glass = 0; float albFloor = 0; bool optic = false; };   // AT6 optic: a fitted sight's own part (never cut by the window clip)   // glass: 1 dusty, 2 crazed (a wreck), 3 clean; albFloor: least albedo (a car-pack cabin seen from its seat)
+struct ModelDraw { const GpuModel* model; int part; mat4 m; vec4 tint{1, 1, 1, 1}; float thinPx = 0; int glass = 0; float albFloor = 0; bool optic = false; mat4 prevM{1}; int vel = 0; };   // AIB1 vel: TAA motion of a moving model: 0 none (depth reprojection), 1 from prevM, 2 also the skinned previous vertex (aPrev)   // AT6 optic: a fitted sight's own part (never cut by the window clip)   // glass: 1 dusty, 2 crazed (a wreck), 3 clean; albFloor: least albedo (a car-pack cabin seen from its seat)
 struct OverlayVert { vec3 p; vec4 c; };
 struct NatPatchDraw { GLuint vbo = 0; int count = 0; vec3 mn{0}, mx{0}; float reach = 1; };   // plant patch (nature.cpp); reach x the grass radius
 
@@ -228,6 +228,7 @@ public:
     bool fullShadow = true;      // fullshadow (VO L1): full-strength sun shadows (off: 30 % lighter, as Classic)
     bool gtao = true;            // gtao (VO L2): GTAO with multi-bounce and specular occlusion (off: the old 8-sample SSAO)
     bool microShadow = true;     // microsh (VO L4): micro-shadowing of the sun by material AO (Lighting New)
+    bool hashAlpha = false;      // hashalpha (VO A1): cut-out leaves / grass with a dithered threshold under TAA (Medium / High), width NMK_HASH_SPREAD (0.2); off: no gain over cutoutMips (A1 sheets), kept for A/B
     bool folTrans = true;        // foltrans (VO L4): two-sided translucency on model foliage (Lighting New)
     bool agx = true;             // agx (VO L8): AgX-style curve, the grade from a LUT, 13-tap bloom downsample (Lighting New)
     bool histExpo = true;        // histexpo (VO L8): histogram auto exposure (Lighting New)
@@ -251,6 +252,7 @@ public:
     bool terrainNormals = true;  // tnormal (VOT T1): base terrain shades with baked per-pixel normals (terrain_normals.cpp); off = vertex normals
     bool terrainMorph = true;    // tmorph (VOT T1): base terrain vertices geomorph toward the next LOD before it switches; off = LOD pops
     bool terrainSkyView = true;  // tskyview (VOT T5): the terrain's ambient is occluded by its own horizon (baked sky-view factor); off = open sky everywhere
+    bool charVel = true;         // charvel (AIB1): soldiers write their own TAA motion (previous model matrix + previous skinned vertex); off = depth reprojection (smeared)
     bool taau = true;            // taau (P1): below scale 1 the world renders at the resolution scale and TAA reconstructs at output size (rendering.md 14); off = native resolution
     static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false;
                            p.casterCull = p.leafShadowLod = p.probeBudgetOn = p.roomCull = p.propDist = p.taau = false; p.dlCache = p.instDepth = p.folBatch = p.leafMerge = p.furnDist = p.furnClutter = p.farLeaf = p.wallLod = p.shadowCache = p.occCull = p.matFar = p.probeMed = false; return p; }
@@ -267,7 +269,10 @@ public:
               // ^ stream L (lighting): append to the line above
               : n == "specaa" ? &specAA : n == "hex" ? &hex : n == "hblend" ? &hblend
               // ^ stream M (materials): append to the line above
-              // stream A (vegetation): add a line of names above this comment
+              : n == "charvel" ? &charVel
+              // ^ characters (gameplay): append to the line above
+              : n == "hashalpha" ? &hashAlpha
+              // ^ stream A (vegetation): append to the line above
               // stream P (performance): add a line of names above this comment
               : nullptr;
       if (n == "perf1") { matFar = probeMed = on; return true; }   // PERF1: its switches together

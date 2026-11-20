@@ -63,10 +63,11 @@ struct CharInstance {
   const CharModel* model = nullptr;
   GpuModel view;                            // vao + own vbo; ebo / mats / parts copied from the model
   GLuint jointSsbo = 0;
+  GLuint prevBuf = 0; int lastFrame = -10; bool prevValid = false;   // AIB1: each vertex's previous-frame position (TAA motion vectors), valid when skinned on consecutive frames
   int frameSkinned = -1;
   bool create(const CharModel& m);
   void destroy();
-  void skin(const std::vector<mat4>& skinMats);   // joint skinning matrices (model space delta * rest * invBind)
+  void skin(const std::vector<mat4>& skinMats, int frame = -1);   // frame: the caller's frame counter (-1: no motion history)   // joint skinning matrices (model space delta * rest * invBind)
 };
 
 // Procedural pose input (model space angles in radians unless noted).

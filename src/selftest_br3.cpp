@@ -88,7 +88,22 @@ bool br3Shots(App& app, float dt) {
     return true;
   }
   if (stage == 2) {
-    if (shotIdx >= (int)spots.size()) { app.selftest->exitCode = 0; app.selftest->done = true; return true; }
+    if (shotIdx >= (int)spots.size()) {
+      // VO motion check: NMK_BR3_WALK="x0:z0:x1:z1:seconds:every" walks the eye from (x0, z0) to (x1, z1) on the ground,
+      // looking ahead, TAA running (no reset), and keeps every <every>th frame as selftest_out/br3_walk_NNN.png
+      static float wt = -1; static int wf = 0; static double wg = 0; float W[6] = {0, 0, 0, 0, 20, 10};
+      const char* we = std::getenv("NMK_BR3_WALK");
+      if (!we || std::sscanf(we, "%f:%f:%f:%f:%f:%f", &W[0], &W[1], &W[2], &W[3], &W[4], &W[5]) < 4 || wt > W[4]) {
+        if (we && wt > 0) logf("[br3] walk: %d frames, gpu %.2f ms mean", wf, wf ? wg / wf : 0.0);
+        app.selftest->exitCode = 0; app.selftest->done = true; return true;
+      }
+      if (wt < 0) { wt = 0; app.R.resetTemporal(); }
+      float u = std::clamp(wt / std::max(1.0f, W[4]), 0.0f, 1.0f); vec2 a(W[0], W[1]), b(W[2], W[3]), e = glm::mix(a, b, u);
+      hold(app, Spot{"walk", e, e + glm::normalize(b - a) * 10.0f, -9999.0f, -1e9f});
+      G.posesStep(1.0f / 60); wt += 1.0f / 60; wg += app.R.stats.gpuMs;
+      if (wf++ % std::max(1, (int)W[5]) == 0) { char nm[48]; std::snprintf(nm, sizeof nm, "br3_walk_%03d.png", wf / std::max(1, (int)W[5])); pending = exeDir() / "selftest_out" / nm; }
+      return true;
+    }
     hold(app, spots[shotIdx]);
     G.posesStep(dt > 0 ? dt : 1.0f / 60);
     static double gsum = 0, fsum = 0, tsum = 0, dsum = 0; static int nf = 0;   // TR1: the spot's frame cost over the second before its shot (VR1: + triangles, draws)

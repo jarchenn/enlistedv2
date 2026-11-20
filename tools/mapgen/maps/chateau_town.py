@@ -737,7 +737,9 @@ def update_usage_doc(path, use):
     """The "Chateau town" column of docs/asset-usage-default-maps.md (placed counts, companions included)."""
     with open(path, encoding="utf-8") as f:
         lines = f.read().split("\n")
-    has = any(l.startswith("| Asset |") and "Chateau town" in l for l in lines)
+    hdr = next((l for l in lines if l.startswith("| Asset |")), "")
+    names = [c.strip() for c in hdr.strip().strip("|").split("|")]
+    cols = [k for k, n in enumerate(names) if n == "Chateau town"]   # VOT T3: write into its own column(s), not the last one
     out = []
     for l in lines:
         body = l.rstrip()
@@ -749,12 +751,28 @@ def update_usage_doc(path, use):
         elif body.startswith("| `"):
             aid = body[3:body.index("`", 3)]
             cell = str(use[aid]) if aid in use else "not used"
-        if cell is not None:
-            if has:
-                body = body[:-1].rstrip()
-                body = body[:body.rfind("|") + 1]
-            body = body + (cell + "|" if cell == "---" else " %s |" % cell)
+        if cell is not None and cell != "---":
+            parts = body.strip().strip("|").split("|")
+            if cols:
+                for k in cols:
+                    if k < len(parts):
+                        parts[k] = " %s " % cell
+                body = "|" + "|".join(parts) + "|"
+            else:
+                body = body + " %s |" % cell
+        elif cell == "---" and not cols:
+            body = body + "---|"
         out.append(body if cell is not None else l)
+    known = {l[3:l.index("`", 3)] for l in out if l.startswith("| `")}
+    if cols:   # new assets get a row (only this map's column filled)
+        ncol = out[next(i for i, l in enumerate(out) if l.startswith("| Asset |"))].count("|") - 1
+        k = max(i for i, l in enumerate(out) if l.startswith("| `"))
+        for aid in sorted(set(use) - known):
+            parts = [" `%s` " % aid] + [" not used "] * (ncol - 1)
+            for c in cols:
+                parts[c] = " %s " % use[aid]
+            k += 1
+            out.insert(k, "|" + "|".join(parts) + "|")
     note = ("- **Chateau town:** *Chateau town* (M1, `tools/mapgen/maps/chateau_town.py`): placed counts, companions included; "
             "\"not used\" = not on this map.")
     if not any(l.startswith("- **Chateau town:**") for l in out):
@@ -764,9 +782,61 @@ def update_usage_doc(path, use):
         f.write("\n".join(out))
 
 
+def relief(grid, rep, pads=()):
+    """VOT T3: layered relief outside the town core and off the roads, then rain and slope erosion and drainage lines
+    on the open ground, and the outer loop path worn down into a hollow way. Roads keep the large swell (they follow
+    the land) but not the medium / small layers; the chateau rise and the town core stay as they were."""
+    import numpy as np
+    from mapgen.relief import relief_layers, hydraulic_erosion, thermal_erosion, drainage, hollow_way, smooth, _arr, _coords
+    g = geometry()
+    xs, zs = _coords(grid)
+    X, Z = np.meshgrid(xs, zs)
+    pts = np.array([p for k in ("ring", "S1", "S2", "S3", "S4", "loop", "mill_lane", "back_lane", "forecourt") for p in resample(g[k], 3.0)])
+    d = np.full(X.shape, 1e9)
+    for c in range(0, len(pts), 200):
+        q = pts[c:c + 200]
+        d = np.minimum(d, np.sqrt((X[..., None] - q[:, 0]) ** 2 + (Z[..., None] - q[:, 1]) ** 2).min(axis=-1))
+    ss = lambda e0, e1, v: np.clip((v - e0) / (e1 - e0), 0, 1) ** 2 * (3 - 2 * np.clip((v - e0) / (e1 - e0), 0, 1))
+    town_k = ss(0.9, 1.35, (X / 128.0) ** 2 + ((Z - 8.0) / 150.0) ** 2)   # 0 in the town core, 1 in the country
+    ch_k = ss(50.0, 80.0, np.hypot(X - CH[0], Z - CH[1]))
+    pd = np.full(X.shape, 1e9)   # distance to the building footprints of the unrelieved layout (pass 0)
+    for aid, x, z, yaw, hx, hz in pads:
+        c, s = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
+        lx, lz = (X - x) * c - (Z - z) * s, (X - x) * s + (Z - z) * c
+        pd = np.minimum(pd, np.hypot(np.maximum(np.abs(lx) - hx, 0), np.maximum(np.abs(lz) - hz, 0)))
+    pad_k = ss(2.0, 12.0, pd)
+    w_large = (0.3 + 0.7 * town_k) * (0.25 + 0.75 * ch_k) * (0.4 + 0.6 * pad_k)
+    w_small = town_k * ss(4.0, 16.0, d) * ch_k * pad_k
+    H = _arr(grid)
+    h0 = H.copy()
+    relief_layers(grid, [(3.5, 320.0, 31, 3)], w_large)
+    relief_layers(grid, [(1.4, 90.0, 32, 4), (0.35, 30.0, 33, 3)], w_small)
+    hydraulic_erosion(grid, w_small, iters=45, kc=1.0)
+    thermal_erosion(grid, w_small, iters=15, talus=0.6)
+    smooth(grid, w_small, passes=3)
+    acc = drainage(grid, w_small, depth=0.55, start=90, full=1200, width=2)
+    smooth(grid, w_small, passes=1)
+    loop = g["loop"]
+    seg = [p for p in resample(loop, 3.0) if not town(p[0], p[1], 1.1)]
+    if len(seg) > 4:
+        others = [p for k in ("ring", "S1", "S2", "S3", "S4", "mill_lane", "back_lane") for p in resample(g[k], 3.0)]
+        def level(x, z):   # level crossings: the lane rises to the roads it meets
+            dd = min((x - p[0]) ** 2 + (z - p[1]) ** 2 for p in others) ** 0.5
+            t = min(1.0, max(0.0, (dd - 7.0) / 14.0))
+            return t * t * (3 - 2 * t)
+        hollow_way(grid, seg, depth=0.9, floor_half=2.2, top_half=9.0, scale=level)
+    inb = (np.abs(X) <= W / 2) & (np.abs(Z) <= D / 2)
+    rep["relief"] = {"changeMaxM": round(float(np.abs(H - h0)[inb].max()), 2), "changeStdM": round(float((H - h0)[inb].std()), 2),
+                     "drainCells": int((acc[inb] > 80).sum())}
+
+
 def build(ctx):
     grid = Grid(W, D, margin=MARGIN)
     grid.apply(lambda x, z, h: base_height(x, z))
+    t3 = {}
+    pads0 = []   # VOT T3 pass 0: where the buildings stand on the unrelieved ground; the relief keeps off them
+    populate(ctx, grid, pads0)
+    relief(grid, t3, [(aid, x, z, yaw, ctx.catalog[aid].half[0] + 1.5, ctx.catalog[aid].half[1] + 1.5) for aid, x, z, yaw in pads0])
     g = geometry()
     stream = g["stream"]
     L = polyline_length(stream)
@@ -783,6 +853,14 @@ def build(ctx):
         stamp_flatten_poly(grid, poly, height=grid.sample(x, z), falloff=4.0)
     grid.quantise()
     b, sc, g, rep = populate(ctx, grid)
+    from mapgen.relief import reseat_on_engine_ground
+    ra = b.reseat_all
+
+    def reseat_all(*a, **kw):   # VOT T3: last, on the ground the engine draws after its own pads (write_png calls this)
+        m = ra(*a, **kw)
+        t3["engineReseat"] = reseat_on_engine_ground(b, skip=lambda e: "bridge" in e["asset"])   # bridges span the stream
+        return m
+    b.reseat_all = reseat_all
     err, warn = sc.validate()
     for m in sc.spawns:
         if not m["rack"]:
@@ -817,8 +895,20 @@ def build(ctx):
         {"name": "orchard_eye", "pos": eye(ox, oz), "yaw": look_yaw(*ow), "pitch": 1.0, "gameplay": True},
         {"name": "town_from_south", "pos": [30.0, 45.0, -175.0], "yaw": look_yaw(-30.0, 175.0), "pitch": -12.0},
     ]
-    write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
-              builder=b, scenario_json=sc.to_json(), explore_start=((a1[0], a1[1], a1[2]), 180.0), camera=cam,
+    nmap = os.path.join(tdir, TID + ".nmap.json")
+    import json as _json
+    try:   # VOT T3: the hand-placed vehicle spawns of the committed map survive a regeneration, seated on the new ground
+        with open(nmap, encoding="utf-8") as f:
+            vsp = _json.load(f).get("scenario", {}).get("vehicleSpawns", [])
+    except (OSError, ValueError):
+        vsp = []
+    sj = sc.to_json()
+    if vsp:
+        for v in vsp:
+            v["pos"][1] = round(b.ground(v["pos"][0], v["pos"][2]), 2)
+        sj["vehicleSpawns"] = vsp
+    write_map(nmap, name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
+              builder=b, scenario_json=sj, explore_start=((a1[0], a1[1], a1[2]), 180.0), camera=cam,
               bookmarks={str(i + 1): {"position": [o["pos"][0], o["pos"][1] + 40, o["pos"][2] - 70], "yaw": 180.0, "pitch": -28}
                          for i, o in enumerate(sc.objectives)},
               extra={"groundPaint": b.paint.to_json()})
@@ -833,6 +923,7 @@ def build(ctx):
                    extra={"userMap": True, "views": views})   # userMap: --selftest-maps generic checks (no SPEC 2.1 bands)
     use = asset_usage(b)
     update_usage_doc(os.path.join(ctx.repo, "docs", "asset-usage-default-maps.md"), use)
+    rep.update(t3)
     rep.update({"instances": len(b.inst), "errors": err, "warnings": warn, "use": dict(sorted(use.items())),
                 "rejects": {"%s/%s" % k: v for k, v in sorted(b.rejects.items())},
                 "objectives": [(o["label"], o["displayName"], o["pos"], len(o["linkedStructures"]), len(o["defenseSlots"])) for o in sc.objectives]})

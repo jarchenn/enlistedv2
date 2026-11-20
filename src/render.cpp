@@ -81,6 +81,11 @@ uniform vec3 uSkyK;               // horizon colour relative to Day (exactly 1 b
 float ign(vec2 p){ return fract(52.9829189*fract(dot(p, vec2(0.06711056, 0.00583715))) + float(uFrame % 64)*0.618034); }
 #ifdef NMK_FS
 float pixelNoise(){ return ign(gl_FragCoord.xy); }
+// VO A1 hashed alpha: under TAA the cut-out threshold is dithered per pixel and frame (0.5 +- uHashAlpha / 2), so a leaf
+// edge's partial coverage resolves to a soft edge instead of a hard, crawling one; 0: the fixed 0.5 test (no TAA, Low,
+// --rq-off hashalpha). The shadow / depth passes keep 0.5 (stable shadows).
+uniform float uHashAlpha;
+float cutRef(){ return 0.5 + (pixelNoise() - 0.5)*uHashAlpha; }
 float pixelNoiseFixed(){ return fract(52.9829189*fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))); }   // FL1: the same every frame
 #else
 float pixelNoise(){ return 0.5; }
@@ -1910,18 +1915,22 @@ static const char* kModelVS = R"GLSL(
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec4 aTan; layout(location=3) in vec2 aUV;
 uniform mat4 uModel, uVP;
 uniform float uThin;   // radians to widen by (thin geometry), 0 = off
-out vec3 vW, vN; out vec4 vT; out vec2 vUV; flat out vec4 vTintI;
+// AIB1: motion vectors for moving models (ModelDraw::vel): 1 the previous model matrix, 2 also the skinned soldier's previous-frame
+// vertex (aPrev, CharInstance::prevBuf). 0: none (TAA reprojects the pixel from depth, as for static geometry)
+layout(location=4) in vec3 aPrev; uniform int uVelMode; uniform mat4 uPrevModel, uVPU, uPrevVP;
+out vec3 vW, vN; out vec4 vT; out vec2 vUV; flat out vec4 vTintI; out vec4 vCC, vPC;
 void main(){
   vTintI = vec4(0.0);
   vec4 w = uModel*vec4(aPos,1.0);
   mat3 m = mat3(uModel);
   if (uThin > 0.0) { vec3 n = m*aNrm; float l = length(n); if (l > 1e-6) w.xyz += n / l * min(length(w.xyz - uCamPos) * uThin, 0.03); }
   vW = w.xyz; vN = m*aNrm; vT = vec4(m*aTan.xyz, aTan.w); vUV = aUV;
+  vCC = uVPU*w; vPC = uPrevVP*(uPrevModel*vec4(uVelMode == 2 ? aPrev : aPos, 1.0));
   gl_Position = uVP*w;
 }
 )GLSL";
 static const char* kModelFS = R"GLSL(
-in vec3 vW, vN; in vec4 vT; in vec2 vUV; flat in vec4 vTintI;
+in vec3 vW, vN; in vec4 vT; in vec2 vUV; flat in vec4 vTintI; in vec4 vCC, vPC; uniform int uVelMode;
 uniform vec3 uIvyStem; uniform vec2 uIvyRef;   // VR1 (src/ivy.cpp)
 uniform sampler2D uAlb, uMR, uNrm, uAO;
 uniform int uHasAlb, uHasMR, uHasNrm, uHasAO, uAOinMR; uniform float uAOWeak;   // TK3: 0 as baked (the default of an unset uniform), 1 no baked occlusion
@@ -1941,7 +1950,7 @@ void main(){
   if (uClipMe == 1 && uVmClip.z > 0.0 && length(gl_FragCoord.xy - uVmClip.xy) < uVmClip.z) discard;
   vec4 base = uBase;
   if (uHasAlb == 1) base *= texture(uAlb, vUV);
-  if (uCutout == 1 && base.a < 0.5) discard;
+  if (uCutout == 1 && base.a < cutRef()) discard;
   if (vTintI.a > 2.5) {   // FL1 greenery: this species' spring green (already / the texture's mean luminance), leaves only
     if (uCutout == 1) base.rgb = mix(base.rgb, vTintI.rgb*dot(base.rgb, vec3(0.2126, 0.7152, 0.0722)), uGreenK.w*greenMask(base.rgb));
   } else if (vTintI.a > 1.5) base.rgb *= vTintI.rgb;   // HB1c: sandbags, per bag (src/sandbags.cpp)
@@ -2006,7 +2015,8 @@ void main(){
   oDist = length(vW - uCamPos);
   oAmb = vec4(gInd*gFogT, 1.0);
   oNR = vec4(N, clamp(rough, 0.04, 1.0) + (1.0 - gFogT));
-  oVel = vec4(0.0, 0.0, 0.0, uVmVel);   // first-person weapon: a = 1, zero motion (TAA keeps its own pixel, not the world reprojection)
+  oVel = uVelMode > 0 ? vec4(vPC.xy/vPC.w*0.5 - vCC.xy/vCC.w*0.5, 0.0, 1.0)   // AIB1: a moving model's own motion (TAA follows it, as for grass)
+       : vec4(0.0, 0.0, 0.0, uVmVel);   // first-person weapon: a = 1, zero motion (TAA keeps its own pixel, not the world reprojection)
 }
 )GLSL";
 
@@ -2016,7 +2026,7 @@ static const char* kFolVS = R"GLSL(
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec4 aTan; layout(location=3) in vec2 aUV;
 layout(std430, binding = 12) readonly buffer NmkFol { vec4 gFol[]; };
 uniform mat4 uVP; uniform float uTime, uWind; uniform int uInstBase;
-out vec3 vW, vN; out vec4 vT; out vec2 vUV; flat out vec4 vTintI;
+out vec3 vW, vN; out vec4 vT; out vec2 vUV; flat out vec4 vTintI; out vec4 vCC, vPC;   // vCC / vPC: kModelFS's motion (AIB1), unused here
 void main(){
   int b = (uInstBase + gl_InstanceID)*4;
   vec4 c0 = gFol[b], c1 = gFol[b + 1], c2 = gFol[b + 2], c3 = gFol[b + 3]; float wk = c0.w; c0.w = 0.0;
@@ -2029,7 +2039,7 @@ void main(){
   float f = 0.012*sin(7.0*uTime + 3.1*dot(w.xyz, vec3(1.0, 0.7, 1.3)));   // needle / blade flutter
   w.xyz += (vec3(0.8, 0.0, 0.6)*(0.018*h*s) + vec3(f, 0.5*f, f)*min(h, 1.5))*wk*uWind;
   mat3 m = mat3(M);
-  vW = w.xyz; vN = m*aNrm; vT = vec4(m*aTan.xyz, aTan.w); vUV = aUV;
+  vW = w.xyz; vN = m*aNrm; vT = vec4(m*aTan.xyz, aTan.w); vUV = aUV; vCC = vPC = vec4(0.0, 0.0, 0.0, 1.0);
   gl_Position = uVP*w;
 }
 )GLSL";
@@ -2734,7 +2744,7 @@ layout(location=3) out vec4 oNR;
 float leafAlpha(vec2 uv, float seed);
 void main(){
   vec4 tx = vLayer < 0.0 ? vec4(1.0) : texture(uLeaves, vec3(vUV, vLayer));
-  if ((vLayer < 0.0 ? leafAlpha(vUV, vSeed) : tx.a) < 0.5) discard;
+  if ((vLayer < 0.0 ? leafAlpha(vUV, vSeed) : tx.a) < cutRef()) discard;
   vec3 N = normalize(vN);
   float var = hash12(vec2(vSeed, 2.0));
   // textured: uLeafCol is the asset's leafColor / the species mean, so the crown keeps its authored colour
@@ -3307,7 +3317,7 @@ void main(){
     alb = vAlb;
     if (vGA >= 0) {             // GT1 atlas plant: its own colour detail, scaled to the clump's palette (root blend kept)
       vec4 tx = texture(uGATex, vec3(vUV, float(vGA)));
-      if (tx.a < 0.5) discard;
+      if (tx.a < cutRef()) discard;
       // one palette across the atlas / blade boundary: the clump's own colour (as the blades), modulated by the plant's
       // luminance detail, with a little of the photo's hue kept
       vec3 m = max(uGAMean[vGA], vec3(0.01));
@@ -3445,7 +3455,7 @@ layout(location=11) flat in int vGA;
 uniform sampler2DArray uGATex;
 void main(){
   float e = abs(vUV.x*2.0 - 1.0)*vTap, v = vUV.y;
-  if (vGA >= 0) { if (texture(uGATex, vec3(vUV, float(vGA))).a < 0.5) discard; }   // GT1: the plant's own cut-out
+  if (vGA >= 0) { if (texture(uGATex, vec3(vUV, float(vGA))).a < cutRef()) discard; }   // GT1: the plant's own cut-out
   else if (vPart == 11 || vPart == 14) { float y = v*2.0 - 1.0; if (e > sqrt(max(0.0, 1.0 - y*y))) discard; }
   else if (vPart == 13) { if (e > 0.12 && fract(v*6.0 + vSeed*3.0 + e*0.4) > 0.75) discard; }
   else if (e > 1.0 - pow(v, 3.0)*0.95) discard;
@@ -3746,7 +3756,7 @@ void main(){
   a *= smoothstep(0.4, 0.8, d)*(1.0 - smoothstep(R*0.8, R, d))*(1.0 - uSF2.w);
   vec3 axis = normalize(vel);
   vec3 side = normalize(cross(axis, normalize(p - uCamPos) + vec3(1e-4)));
-  float len = near ? mix(0.05, 0.16, h1(fi*4.4)) : 0.05, wid = near ? mix(0.006, 0.014, h1(fi*6.6)) : 0.004 + d*0.0004;
+  float len = near ? mix(0.025, 0.07, h1(fi*4.4)) : 0.05, wid = near ? mix(0.006, 0.014, h1(fi*6.6)) : 0.004 + d*0.0004;   // BT2: fine flakes, not long streaks
   int c = gl_VertexID; vec2 q = c == 0 ? vec2(-1, -1) : c == 1 ? vec2(1, -1) : c == 2 ? vec2(1, 1) : c == 3 ? vec2(-1, -1) : c == 4 ? vec2(1, 1) : vec2(-1, 1);
   vec3 w = p + side*q.x*wid + axis*q.y*len;
   vC = q; vA = a;
@@ -4791,6 +4801,8 @@ void Renderer::drawModels(const std::vector<ModelDraw>& items, const Frustum* fr
   const DrawLocs L = drawLocs(p);
   glUniform1i(L.alb, 2); glUniform1i(L.mr, 3); glUniform1i(L.nrm, 4); glUniform1i(L.ao, 5);
   GLint lm = L.model, lb = L.base, lme = L.metal, lr = L.rough, lt = L.tint, lth = L.thin;
+  static GLuint velProg = 0; static GLint lvel = -1, lpm = -1;   // AIB1: looked up once per program, not per draw
+  if (velProg != p) { velProg = p; lvel = U(p, "uVelMode"); lpm = U(p, "uPrevModel"); }
   const GpuModel* bound = nullptr; int boundMat = -2;
   for (auto& it : items) {
     const GpuModel* m = it.model;
@@ -4813,6 +4825,8 @@ void Renderer::drawModels(const std::vector<ModelDraw>& items, const Frustum* fr
     glUniform1f(lth, it.thinPx * pxAngle);
     glUniform1i(U(p, "uGlass"), it.glass); glUniform1f(U(p, "uAlbFloor"), it.albFloor);
     glUniform1i(U(p, "uClipMe"), it.optic ? 0 : 1);   // AT6 (uVmClip is set only in the first-person pass)
+    const int vel = perf.charVel ? it.vel : 0;   // AIB1
+    glUniform1i(lvel, vel); if (vel) glUniformMatrix4fv(lpm, 1, GL_FALSE, glm::value_ptr(it.prevM));
     glDrawElements(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u));
     stats.draws++; stats.tris += (int)pt.count / 3;
   }
@@ -4975,8 +4989,10 @@ void Renderer::gpuMark(int p) {
 void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<DrawItem>& opaque,
                       const std::vector<DrawItem>& glass, const std::vector<DrawItem>& ghosts, const Overlay& ov) {
   auto c0 = std::chrono::high_resolution_clock::now();
-  for (GLuint pg : {progLeaf, progGrass, progFolModel}) if (pg) {   // FL1 greenery (App::greenery)
+  for (GLuint pg : {progLeaf, progLeafI, progGrass, progFolModel}) if (pg) {   // FL1 greenery (App::greenery); VO A1 hashed alpha under TAA
     glProgramUniform4fv(pg, U(pg, "uGreen"), 1, glm::value_ptr(green)); glProgramUniform4fv(pg, U(pg, "uGreenK"), 1, glm::value_ptr(greenK));
+    static const float hashSpread = std::getenv("NMK_HASH_SPREAD") ? float(std::atof(std::getenv("NMK_HASH_SPREAD"))) : 0.2f;   // A1: dither width of the cut-out threshold (0.8 stippled stills under the TAA clamp; 0.35 / 0.2 look as off)
+    glProgramUniform1f(pg, U(pg, "uHashAlpha"), perf.hashAlpha && q.taa && !thumbMode ? hashSpread : 0.0f); glProgramUniform1i(pg, U(pg, "uFrame"), frame);
   }
   if (displayW > 0) {   // P1: the internal size follows effScale() (the taau switch can flip it between frames: A/B)
     int iw = std::max(16, (int)std::lround(displayW * effScale())), ih = std::max(16, (int)std::lround(displayH * effScale()));
@@ -5298,6 +5314,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glDisable(GL_CULL_FACE);
     setLighting(progModel, v);
     glUniformMatrix4fv(U(progModel, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+    glUniformMatrix4fv(U(progModel, "uVPU"), 1, GL_FALSE, glm::value_ptr(vpU));   // AIB1: motion vectors (ModelDraw::vel)
+    glUniformMatrix4fv(U(progModel, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(taaValid ? prevVP : vpU));
     drawModels(worldModels, &frMain);
     glEnable(GL_CULL_FACE);
   }

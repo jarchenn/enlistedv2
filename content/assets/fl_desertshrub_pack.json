@@ -1,0 +1,45 @@
+{
+ "id": "fl_desertshrub_pack",
+ "version": 1,
+ "name": "Desert shrub pack (bake)",
+ "category": "Desert",
+ "hidden": true,
+ "description": "FL1: the shared bake of the desert shrub pack; its plants are the fl_desertshrub_* assets (tools/fl1_flora.py). Not placed by itself.",
+ "footprint": [
+  1,
+  1
+ ],
+ "floors": 0,
+ "enterable": false,
+ "plinthDepth": 0,
+ "maxGrade": 30,
+ "noAutoPanels": true,
+ "model": {
+  "src": "desertshrub.glb",
+  "lod1Src": "desertshrub_lod1.glb",
+  "dir": "fl_desertshrub",
+  "pivot": "ground",
+  "scale": 1,
+  "offset": [
+   0.09061,
+   -0.01,
+   -0.01338
+  ],
+  "maxTex": 512,
+  "lod1Tex": 512,
+  "jpgMaps": true,
+  "lodDist": 20,
+  "cullDist": 220,
+  "foliage": true,
+  "wind": 0.15,
+  "credit": "Desert Shrubs by evolveduk, Sketchfab Standard licence (not redistributable): local only, https://sketchfab.com/3d-models/desert-shrubs-3f116a7e0c464f2798fe25c7dae4fabb"
+ },
+ "nav": {
+  "effect": "none"
+ },
+ "materials": [],
+ "parts": [],
+ "furniture": [],
+ "interactables": [],
+ "panels": []
+}
