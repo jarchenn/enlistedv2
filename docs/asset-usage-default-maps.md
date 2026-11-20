@@ -339,6 +339,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `wat_puddles` | Water | not placed: V1 water feature added after the map was built | terrain-only base map | not used | not used | not used | not used | 12 | not used | 2 | not used | not used | not used |
 | `wat_stream_bend` | Water | not placed: V1 stream piece (snaps with V6) added after the map was built | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `wat_stream_end` | Water | not placed: V1 stream piece added after the map was built | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `bt_creek` | Water | Blackwater Thaw only: the creek as one graded, flowing stream ribbon and the lane puddles (written by tools/mapgen/maps/blackwater_thaw.py) |
 | `wat_stream_straight` | Water | not placed: V1 stream piece added after the map was built | terrain-only base map | 63 | not used | not used | not used | not used | not used | not used | 63 | not used | not used |
 | `wire_concertina` | Defences | as `line_concertina` | terrain-only base map | as `line_concertina` | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `wire_fence` | Defences | as `line_wire_fence` | terrain-only base map | as `line_wire_fence` | not used | not used | not used | not used | not used | not used | not used | not used | not used |

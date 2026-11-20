@@ -86,6 +86,8 @@ ROUTES = {   # name: (points, clear width, kind)
     "overlook path": (OVERLOOK_BACK, 3.0, "lane"), "rear yard": (REAR, 3.2, "lane"), "terrace": (TERRACE_X, 4.0, "lane"),
 }
 
+PUDDLES = [(-30.0, -59.5, 1.3), (-8.0, -50.6, 1.1), (6.0, -42.6, 1.5), (9.5, -17.5, 1.2), (2.0, -9.0, 1.0), (-1.0, -3.5, 1.4),
+           (-60.0, -61.9, 1.2), (-84.0, -63.0, 1.6), (40.0, -55.8, 1.0), (62.0, -8.0, 1.3), (-20.0, 24.0, 1.1)]   # (x, z, radius m)
 SPAWN_LOW = (-90.0, -73.0)     # in the cart yard, the cart shed behind and a stone wall screening it from the orchard
 SPAWN_UP = (18.0, 109.0)       # the screened yard behind the washhouse
 COURT = (-3.0, 2.0)
@@ -359,6 +361,9 @@ def sculpt_details(F, lanes, d_cr):
         sh[np.hypot(X - gx, Z - gz) < 9.0] = 0.0
     sh[d_cr < 4.0] = 0.0
     F.H = H + sh
+    for (px, pz, r) in PUDDLES:   # meltwater pockets: shallow bowls in the lanes (8 cm); the puddles sit in them
+        d2 = ((X - px) / r) ** 2 + ((Z - pz) / (r * 0.7)) ** 2
+        F.H = F.H - 0.08 * np.clip(1.0 - d2, 0.0, 1.0)
 
 
 # ---------------------------------------------------------------- output helpers
@@ -465,6 +470,15 @@ def build(ctx):
     for aid, x, z, yaw in STATION:
         b.place(aid, x, z, yaw, check=False, y=G(x, z), tags={"station"}, companions=False)
 
+    # ---------------------------------------------------------------- M2: the creek ribbon, puddles, winter vegetation
+    cpath = write_creek_asset(ctx, F)
+    from mapgen.catalog import Asset
+    with open(cpath, encoding="utf-8") as fh:
+        cat.assets["bt_creek"] = Asset(__import__("json").load(fh), cpath)   # written just now: into this run's catalogue
+    if "bt_creek" in cat:
+        b.place("bt_creek", 0.0, 0.0, 0.0, check=False, cls="none", y=0.0, tags={"water"}, companions=False)
+    rep_veg = dress_vegetation(b, cat, G, R)
+
     # ---------------------------------------------------------------- scenario: 10 v 10 Team Deathmatch
     sc = ScenarioBuilder(b, defending="Axis")
     sc.objective("Waterworks court", COURT[0], COURT[1], radius=12.0, capture_time=30.0, attack_from=SPAWN_LOW)
@@ -506,13 +520,17 @@ def build(ctx):
     for n, c in cams:
         views.append({"name": n.lower().replace(" ", "_"), "pos": c["position"], "yaw": c["yaw"], "pitch": c["pitch"], "gameplay": True})
     cam0 = ([0.0, 150.0, -170.0], 0.0, -40.0)
-    look = {"weather": 0.9, "clouds": 0.95, "haze": 2.2, "envFog": 1, "fogNear": 6.0, "saturation": 0.72, "tint": [0.96, 0.99, 1.04],
-            "bloom": 1.1, "grime": 1.2, "season": "winter"}
+    # spec 6: bright overcast over dark slushy ground; near air ~0.0025 / m (93 % at 30 m, 61 % at 200 m, 11 % at 900 m),
+    # a valley mist layer (12 m e-folding) hugging the creek and the low ground
+    look = {"weather": 0.9, "clouds": 0.95, "haze": 2.4, "hazeHeight": 90.0, "envFog": 1, "fogNear": 6.0,
+            "fogLayer": {"density": 0.0015, "height": 12.0}, "saturation": 0.74, "tint": [0.96, 0.99, 1.04],
+            "bloom": 1.1, "grime": 1.3, "season": "winter", "leafless": True,
+            "snowfall": {"near": 150, "far": 2600, "fall": 1.0, "wind": [0.8, -0.6], "bright": 1.0}}   # SF1: light fall, wind from the north-west
     sculpt = write_sculpt(F, grid)
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sc.to_json(rules_extra=rules), explore_start=((SPAWN_LOW[0], G(*SPAWN_LOW), SPAWN_LOW[1]), 45.0),
               camera=cam0, bookmarks=bookmarks,
-              extra={"groundPaint": paint.to_json(), "terrainSculpt": sculpt, "waterBodies": creek_water(F),
+              extra={"groundPaint": paint.to_json(), "terrainSculpt": sculpt, "snow": snow_mask(F, tdir),
                      "lighting": {"hour": 15.3, "enclosed": False, "fill": 1.3}, "look": look})
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=22, version=VERSION, seed=SEED,
                    description="Team Deathmatch, 10 v 10 (milestone 1 greybox): a mountain hamlet in a late-winter thaw around a stepped "
@@ -521,7 +539,7 @@ def build(ctx):
                    map_file=TID + ".nmap.json", camera=cam0, thumbnail=TID + ".thumb.png",
                    thumb_camera=(cams[0][1]["position"], cams[0][1]["yaw"], 0.0), extra={"userMap": True, "views": views})
     # route report: lengths and grades from the true ground
-    rep = {"buildings": n_bld, "instances": len(b.inst), "sculpt_tiles": len(sculpt["tiles"]), "routes": {}}
+    rep = {"buildings": n_bld, "instances": len(b.inst), "sculpt_tiles": len(sculpt["tiles"]), "vegetation": rep_veg, "routes": {}}
     for n, (pts, w, kd) in ROUTES.items():
         d = lane_dense(pts, 1.0)
         L = sum(math.hypot(q[0] - p[0], q[1] - p[1]) for p, q in zip(d, d[1:]))
@@ -587,16 +605,15 @@ def snow_mask(F, tdir):
         return ndimage.zoom(g, (nz / g.shape[0], nx / g.shape[1]), order=1)[:nz, :nx]
     # deposit: open field and outer slopes 0.85 (55-85 % cover), sheltered yards / orchard 0.72 (45-75 %), scoured
     # crests lower (the 3-15 m patch field), busy roads and stairs ~0.5 with traffic (15-35 %)
-    R = 0.85 - 0.22 * blob(9.0, 8)
+    R = 0.9 - 0.32 * blob(9.0, 8)   # open ground: 55-85 % cover at the 0.70 threshold
     for name, ((cx, cz), (hx, hz), fl) in AREAS.items():
         m = (np.abs(X - cx) <= hx) & (np.abs(Z - cz) <= hz)
-        R[m] = np.minimum(R[m], 0.74 - 0.1 * blob(5.0, 4)[m])
+        R[m] = np.minimum(R[m], 0.84 - 0.26 * blob(5.0, 4)[m])   # sheltered yards and the orchard: 45-75 %
     G = np.zeros_like(R); B = np.zeros_like(R); A = np.zeros_like(R)
     for name, (pts, wd, kind) in ROUTES.items():
         dist = poly_dist(X, Z, lane_dense(pts, 2.0))
-        busy = 0.42 if kind == "road" else 0.3 if kind == "lane" else 0.22
-        G = np.maximum(G, busy * np.clip(1.0 - (dist - wd * 0.35) / (wd * 0.3 + 0.6), 0, 1))     # trodden middle, soft edges
-        R = np.where(dist < wd * 0.5 + 0.3, np.minimum(R, 0.62), R)
+        busy = 0.55 if kind == "road" else 0.45 if kind == "lane" else 0.35
+        G = np.maximum(G, busy * np.clip(1.0 - (dist - wd * 0.32) / (wd * 0.12 + 0.35), 0, 1))   # the trodden two thirds; snow keeps the edges (road 15-35 %)
     # wheel ruts: two dark wet lines 0.18-0.32 m wide, 1.6 m apart, inside each road and lane
     for name, (pts, wd, kind) in ROUTES.items():
         if kind not in ("road", "lane") or wd < 3.0:
@@ -630,5 +647,108 @@ def snow_mask(F, tdir):
     from PIL import Image
     Image.fromarray(img, "RGBA").save(os.path.join(tdir, TID + ".snow.png"), optimize=True)
     return {"mask": TID + ".snow.png", "box": [SNOW_BOX[0], SNOW_BOX[1], SNOW_BOX[2], SNOW_BOX[3]],
-            "slope": [0.62, 0.9], "threshold": 0.42, "soft": 0.1, "roof": 0.78, "noise": 0.32, "melt": 0.0}
+            "slope": [0.62, 0.9], "threshold": 0.7, "soft": 0.08, "roof": 0.95, "roofSlope": 0.42, "noise": 0.45, "melt": 0.0}
 
+
+# ---------------------------------------------------------------- M2: the creek as one graded, flowing ribbon (water.cpp BT1)
+_CREEK_DENSE = None
+
+
+def creek_dist(x, z):
+    global _CREEK_DENSE
+    if _CREEK_DENSE is None:
+        _CREEK_DENSE = lane_dense([(cx, cz, b) for cx, cz, b in CREEK_CTRL], 1.0)
+    return min(math.hypot(x - p[0], z - p[1]) for p in _CREEK_DENSE[::2])
+
+
+def write_creek_asset(ctx, F):
+    """content/assets/bt_creek.json: the creek (a stream surface graded along its centreline, the current slowing to
+    still edges where thin ice forms) and the lane puddles (thin ice skins), placed once at the origin."""
+    import json
+    dense = lane_dense([(x, z, BASE + b + 0.32) for x, z, b in CREEK_CTRL], 2.0)
+    left, right = [], []
+    for a, c in zip(dense, dense[1:] + [dense[-1]]):
+        dx, dz = c[0] - a[0], c[1] - a[1]
+        L = math.hypot(dx, dz) or 1.0
+        nx, nz = -dz / L, dx / L
+        left.append([round(a[0] + nx * 4.2, 2), round(a[1] + nz * 4.2, 2)])
+        right.append([round(a[0] - nx * 4.2, 2), round(a[1] - nz * 4.2, 2)])
+    surfaces = [{"kind": "stream", "outline": left + right[::-1], "level": round(max(p[2] for p in dense), 3),
+                 "path": [[round(p[0], 2), round(p[1], 2), round(p[2], 3)] for p in dense], "speed": 0.7, "halfWidth": 2.6,
+                 "clarity": 0.8, "waves": 0.8, "ice": 0.55}]
+    for (px, pz, r) in PUDDLES:
+        lvl = F.at(px, pz) + 0.05
+        ring = [[round(px + math.cos(t) * r * (1.0 + 0.12 * math.sin(3 * t)), 2), round(pz + math.sin(t) * r * 0.7 * (1.0 + 0.1 * math.cos(2 * t)), 2)]
+                for t in [2 * math.pi * k / 14 for k in range(14)]]
+        surfaces.append({"kind": "puddle", "outline": ring, "level": round(lvl, 3), "ice": 0.35})
+    xs = [p[0] for p in dense]
+    zs = [p[1] for p in dense]
+    j = {"id": "bt_creek", "version": 1, "name": "Blackwater Thaw creek", "category": "Water",
+         "description": "BT1: the Blackwater Thaw creek as one graded, flowing stream surface with still edge pockets and thin shore ice, and the lane puddles. Generated by tools/mapgen/maps/blackwater_thaw.py; placed once at the origin.",
+         "floors": 0, "enterable": False, "footprint": [round(max(xs) - min(xs), 1), round(max(zs) - min(zs), 1)], "plinthDepth": 0, "maxGrade": 90,
+         "noAutoPanels": True, "nav": {"effect": "none"}, "water": {"surfaces": surfaces}, "materials": [], "parts": [],
+         "furniture": [], "interactables": [], "panels": []}
+    path = os.path.join(ctx.repo, "content", "assets", "bt_creek.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(j, f, separators=(",", ":"))
+    return path
+
+
+# ---------------------------------------------------------------- M2: winter vegetation families (spec 5)
+def dress_vegetation(b, cat, G, R):
+    rep = {}
+    lanes = [(lane_dense(pts, 2.0), w) for pts, w, k in ROUTES.values()] + [(lane_dense([st[0], st[1]], 1.0), 2.4) for st in STAIRS]
+
+    def lane_gap(x, z):
+        return min(min(math.hypot(x - p[0], z - p[1]) for p in pts[::2]) - w / 2 for pts, w in lanes)
+
+    def put(aid, x, z, yaw, key, clear=1.2, inside=True):
+        if aid not in cat:
+            return False
+        if inside and not (ENV[0] + 3 < x < ENV[2] - 3 and ENV[1] + 3 < z < ENV[3] - 3):
+            return False
+        if lane_gap(x, z) < clear or b.overlaps(cat[aid], x, z, yaw, {"flat", "none", "veg"}):
+            return False
+        e = b.place(aid, x, z, yaw, check=False, cls="veg", y=G(x, z), tags={"veg", key}, companions=False)
+        rep[key] = rep.get(key, 0) + (e is not None)
+        return e is not None
+
+    # pruned orchard trees: loose rows 5-6 m apart on the terraces (bare in winter: look.leafless)
+    (ox, oz), (ohx, ohz), _ = AREAS["Western orchard"]
+    for z0, z1, fl in TERRACES:
+        zz = z0 + 2.6
+        while zz < z1 - 1.8:
+            xx = ox - ohx + 4.0 + R.uniform(-1, 1)
+            while xx < ox + ohx - 3.0:
+                if R.random() > 0.12:   # gaps where trees died
+                    put("tree_apple", xx + R.uniform(-0.6, 0.6), zz + R.uniform(-0.5, 0.5), R.uniform(0, 360), "orchard", clear=2.2)
+                xx += R.uniform(4.6, 6.4)
+            zz += R.uniform(5.0, 6.5)
+    # bare alder / willow along the creek (dead ash and oak forms), not at the crossings
+    for k, (x, z, _) in enumerate(lane_dense([(cx, cz, 0) for cx, cz, _b in CREEK_CTRL], 9.0)):
+        if not (ENV[0] < x < ENV[2]):
+            continue
+        if min(math.hypot(x - c[0], z - c[1]) for c in (BRIDGE_W, FOOTBRIDGE, FORD)) < 12.0:
+            continue
+        side = 1 if k % 2 else -1
+        put(R.choice(["nt3_tree_dead_ash", "nt3_tree_dead_oak", "nt3_tree_dead_ash"]), x + R.uniform(-1.5, 1.5), z + side * R.uniform(4.5, 6.5), R.uniform(0, 360), "creek_trees", clear=2.0)
+    # fir and spruce: ridgeline masses outside the envelope and border screens just inside it
+    firs = ["ph_fir_tree_01_a", "ph_fir_tree_01_b", "ph_fir_tree_01_c", "ph_fir_sapling_medium_a", "ph_fir_sapling_medium_b"]
+    for _ in range(2600):
+        x, z = R.uniform(ENV[0] - 70, ENV[2] + 70), R.uniform(ENV[1] - 60, ENV[3] + 90)
+        out = max(ENV[0] - x, x - ENV[2], ENV[1] - z, z - ENV[3])
+        if out < -6.0 or (out < 4.0 and R.random() < 0.7):
+            continue
+        if x < -60 and z < -60 and R.random() < 0.75:   # the south-west valley gap stays open (the bright opening)
+            continue
+        put(R.choice(firs), x, z, R.uniform(0, 360), "firs", clear=3.0, inside=False)
+    # dead grass and frosted seed heads at path edges, orchard margins and unused strips; bramble at wall feet
+    for _ in range(900):
+        x, z = R.uniform(ENV[0] + 4, ENV[2] - 4), R.uniform(ENV[1] + 4, ENV[3] - 4)
+        g = lane_gap(x, z)
+        if g < 1.0 or g > 14.0:
+            continue
+        r = R.random()
+        aid = "nat_drygrass_tufts" if r < 0.4 else "nat_drygrass_tall" if r < 0.7 else "nat_drygrass_sparse" if r < 0.85 else "shrub_bramble"
+        put(aid, x, z, R.uniform(0, 360), "ground_veg", clear=0.8)
+    return rep
