@@ -323,6 +323,8 @@ void paintAcc(inout float w[13], ivec2 c, float b) {
 }
 // one ground type: albedo, roughness, normal offset (xz), ambient occlusion
 // nz: the noises every type shares at this point (paintApply evaluates them once): n1 (~1 m), n2 (~25 cm), nb (~14 m), n3 (~25 cm)
+uniform vec2 uMudRough;   // GG1 (content/settings/ground_gloss.json): mud paint roughness, dry / damp lows
+uniform float uGroundMinRough, uPavedMinRough, uGroundSpec;   // uGroundSpec: specular scale of dry ground   // GG1: roughness floor of dry ground, of cobbles / rock
 void paintMat(int t, vec3 p, vec4 nz, out vec3 a, out float r, out vec3 bm, out float ao) {
   float n1 = nz.x, n2 = nz.y, nb = nz.z;
   bm = vec3(n2 - 0.5, 0.0, nz.w - 0.5)*0.3; ao = 1.0; r = 0.93;
@@ -339,7 +341,7 @@ void paintMat(int t, vec3 p, vec4 nz, out vec3 a, out float r, out vec3 bm, out 
   } else if (t == 3) {   // mud: darker, glossy where it is wettest, churned
     float gl = smoothstep(0.6, 0.8, n1);
     a = mix(vec3(0.10,0.078,0.056), vec3(0.155,0.12,0.085), n2)*(0.92 + 0.16*nb)*mix(1.0, 0.8, gl);
-    r = mix(0.55, 0.22, gl); bm *= 1.5; ao = 0.92;
+    r = mix(uMudRough.x, uMudRough.y, gl); bm *= 1.5; ao = 0.92;   // GG1: matte (was 0.55 / 0.22: a glossy lane, SSR below 0.4)
   } else if (t == 4) {   // gravel
     float s = step(0.55, vnoise(vec3(p.xz*9.0, 77.0)));
     a = mix(vec3(0.33,0.29,0.23), vec3(0.48,0.43,0.35), s)*(0.8 + 0.3*n2); r = 0.9; bm *= 1.7; ao = 0.88 + 0.12*s;
@@ -437,6 +439,7 @@ PaintOut paintApply(vec3 p, vec3 nGeo, inout vec3 alb, float dirt, vec3 dpx, vec
     int ps = uPaintSlot[i - 1];
     bool absAlb = texOn() && ps >= 0 && ps < 704 && uTexA[ps].x >= 0.0 && uTexB[ps].x < 0.0;   // NT8: the set's own colour, not a modulation
     ai = absAlb ? t.alb : ai*t.alb; ri *= t.r;
+    if (i != 1) ri = max(ri, (i == 6 || i == 7) ? uPavedMinRough : uGroundMinRough);   // GG1: dry ground stays matte whatever the set's roughness ratio (marsh keeps its pools)
     oi = absAlb ? t.ao : oi*t.ao; bi = absAlb ? t.dn : bi + t.dn;   // GR2: an absolute set brings its own relief and occlusion (the procedural grid's bump no longer shows through)
 #endif
     a += ai*w[i]; r += ri*w[i]; ao += oi*w[i]; bm += bi*w[i]; tot += w[i];

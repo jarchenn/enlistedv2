@@ -385,6 +385,7 @@ vec3 giAmbient(vec3 w, vec3 N, float sv, vec3 analytic){
   vec3 gi, ge; float cov = giSample(w, N, N, N, gi, ge);
   return mix(max(gi + analytic*(1.0 - cov), analytic), analytic, k);   // probe light only adds (as in shade())
 }
+float gSpecK = 1.0;   // GG1: the caller's specular scale (the terrain's dry ground: content/settings/ground_gloss.json drySpecular)
 vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
   vec3 V = normalize((gEyeOv.x < 1e29 ? gEyeOv : uCamPos) - w);
   vec3 L = uSunDir; vec3 H = normalize(V+L);
@@ -398,7 +399,7 @@ vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
   // normal moved the receiver offset / slope bias per pixel, which the per-frame PCF rotation turned into flicker
   vec3 Ng = dot(gNg, gNg) > 0.5 ? gNg : N;
   float sh = NdL > 0.0 ? shadowPCF(w, Ng) * cloudShadow(w) : 0.0;
-  vec3 direct = (kd*alb/PI + spec) * uSunCol * NdL * sh;
+  vec3 direct = (kd*alb/PI + spec*gSpecK) * uSunCol * NdL * sh;
   float sv = skyVis(w, Ng);
   float amb = mix(0.06, 1.0, sv);
   vec3 irr = mix(uGroundCol, uSkyCol, 0.5+0.5*N.y) * amb + uFill*(1.0-sv);
@@ -432,7 +433,7 @@ vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
     }
   }
   vec3 envL = mix(envOcc, skyColor(R) * amb, sv);
-  vec3 envSpec = envL * Fr * (1.0-rough*0.6) * 0.6 * cav;
+  vec3 envSpec = envL * Fr * (1.0-rough*0.6) * 0.6 * cav * gSpecK;
   // material AO darkens the light arriving from the hemisphere, not the direct sun (legacy: everything)
   float aoD = mix(ao, 1.0, uAoIndirectOnly);
   vec3 r = direct*aoD + (irr*alb*kd + envSpec*mix(1.0, ao, 0.7)) * ao;
@@ -2609,6 +2610,7 @@ uniform int uGrid; uniform vec2 uBuildHalf;
 uniform int uDiscard; uniform sampler2D uTileMask; uniform float uTileSize; uniform vec2 uTerrainOrg, uTerrainExt;
 uniform sampler2D uSurf;   // R wear, G wet, B route kind, A rut (surface.cpp)
 uniform float uTerrCave;   // CV1: look.cave: dark wet glossy floors
+uniform int uDbgTerr;      // GG1 (NMK_DBG_TERRAIN): 1 roughness classes (red < 0.4 SSR mirror, yellow < 0.7 sheen, grey matte), 2 specular share (red > 25 %, yellow > 10 %)
 uniform int uTCOn; uniform sampler2DArray uTC; uniform vec4 uTCMap;   // R1 terrain cache: on, texture (unit 24), xy = origin, zw = 1 / extent
 float vn2(vec2 q, float z){   // == vnoise(vec3(q, z)) for a whole-number z (f.z = 0): the 4 hashes that matter
   vec2 i = floor(q), f = fract(q); f = f*f*(3.0-2.0*f);
@@ -2778,6 +2780,7 @@ void main(){
     ao *= 1.0 - 0.35*rCrack*rockK;
   }
   N = normalize(N + tdn*(1.0 - puddle)); rough = clamp(rough*mix(trr, 1.0, puddle), 0.04, 1.0); ao *= tao;   // L4 terrain layers
+  rough = max(rough, uGroundMinRough*(1.0 - puddle)*(1.0 - vEw.z*ewK));   // GG1: dry ground matte (puddles and wet cut mud keep theirs)
   paintFinish(po, rough, N, ao);   // lasso ground paint: roughness, AO, relief over every other layer (after L4)
   if (puddle > 0.0) { rough = mix(rough, 0.08, puddle); N = normalize(mix(N, normalize(vN), puddle*0.85)); }   // CV1: standing water stays a mirror over painted ground
   if (uTerrCave > 0.5) {   // CV1 cave floor: dark wet rock under a water film, black away from the lights, mirror-bright where it catches them
@@ -2786,7 +2789,13 @@ void main(){
     rough = mix(rough, min(rough, mix(0.42, 0.1, film)), flat_k);
     N = normalize(mix(N, normalize(vN), flat_k*film*0.6));
   }
+  gSpecK = mix(uGroundSpec, 1.0, max(puddle, vEw.z*ewK));   // GG1: dry ground: no broad sun glare or sky sheen at grazing angles (standing water / wet cut mud keep theirs)
+  float gs0 = gSpecK; gSpecK = 0.0;
+  vec3 cMatte = uDbgTerr == 2 ? shade(vW, N, alb, 1.0, 0.0, ao) : vec3(0.0);   // GG1 measurement: no specular at all
+  gSpecK = gs0;
   vec3 c = shade(vW, N, alb, rough, 0.0, ao);
+  if (uDbgTerr == 1) c = rough < 0.4 ? vec3(3.0, 0.0, 0.0) : rough < 0.7 ? vec3(3.0, 3.0, 0.0) : vec3(0.35);
+  if (uDbgTerr == 2) { float l = dot(c, vec3(0.3, 0.5, 0.2)), s = l > 1e-4 ? max(0.0, l - dot(cMatte, vec3(0.3, 0.5, 0.2)))/l : 0.0; c = s > 0.25 ? vec3(3.0, 0.0, 0.0) : s > 0.1 ? vec3(3.0, 3.0, 0.0) : vec3(0.35); }
   if (uGrid == 1 && abs(p.x) <= uBuildHalf.x && abs(p.z) <= uBuildHalf.y) {
     vec2 g = abs(fract(p.xz/5.0 + 0.5) - 0.5)*5.0;
     vec2 fw = fwidth(p.xz)*1.2;
@@ -2794,7 +2803,7 @@ void main(){
     float d = length(p - uCamPos);
     c = mix(c, vec3(0.85,0.85,0.7), line*0.35*(1.0 - smoothstep(60.0, 220.0, d)));
   }
-  c = applyFog(c, vW);
+  if (uDbgTerr == 0) c = applyFog(c, vW);
   oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : c, 1.0);
   oAmb = vec4(gInd*gFogT, 1.0);
   oNR = vec4(N, rough + (1.0 - gFogT));   // puddles (rough 0.1) are the main mirror-like surface outdoors
@@ -4750,6 +4759,17 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     // so those win the depth test every frame instead of z-fighting with the terrain
     glEnable(GL_POLYGON_OFFSET_FILL); glPolygonOffset(-zToward(), -2.0f * zToward());
     glProgramUniform1f(progTerrain, glGetUniformLocation(progTerrain, "uTerrCave"), lt.mapCave);   // CV1
+    {   // GG1: ground gloss limits (content/settings/ground_gloss.json)
+      static json gj = [] { json j; try { j = json::parse(readTextFile(contentDir() / "settings" / "ground_gloss.json")); } catch (...) {} return j.is_object() ? j : json::object(); }();
+      static const vec2 mud(gj.value("mudDry", 0.92f), gj.value("mudDamp", 0.8f));
+      static const float gmin = gj.value("groundMinRough", 0.82f), pmin = gj.value("pavedMinRough", 0.68f);
+      glProgramUniform2f(progTerrain, glGetUniformLocation(progTerrain, "uMudRough"), ggOff ? 0.55f : mud.x, ggOff ? 0.22f : mud.y);
+      glProgramUniform1f(progTerrain, glGetUniformLocation(progTerrain, "uGroundMinRough"), ggOff ? 0.0f : gmin);
+      glProgramUniform1f(progTerrain, glGetUniformLocation(progTerrain, "uPavedMinRough"), ggOff ? 0.0f : pmin);
+      static const float dspec = gj.value("drySpecular", 0.35f);
+      glProgramUniform1f(progTerrain, glGetUniformLocation(progTerrain, "uGroundSpec"), ggOff ? 1.0f : dspec);
+    }
+    { static const int dbg = std::getenv("NMK_DBG_TERRAIN") ? std::atoi(std::getenv("NMK_DBG_TERRAIN")) : 0; glProgramUniform1i(progTerrain, glGetUniformLocation(progTerrain, "uDbgTerr"), dbgTerr >= 0 ? dbgTerr : dbg); }   // GG1 measurement
     t.draw(progTerrain, v.camPos, vp);   // streamed LOD chunks + deformation tiles (terrain_chunks.cpp)
     glDisable(GL_POLYGON_OFFSET_FILL);
   };

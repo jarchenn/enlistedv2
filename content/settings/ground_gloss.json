@@ -1,0 +1,8 @@
+{
+ "_doc": "GG1 ground gloss limits (src/render.cpp kTerrainFS, src/ground_paint.cpp). Dry ground is matte: groundMinRough is the lowest roughness of the terrain and of every painted ground type after its texture's roughness ratio (marsh keeps its water pools, puddles from the surface wetness keep their mirror, wet mud low in a trench cut keeps its sheen); pavedMinRough the same for cobbles and rock (a faint sheen at most). mudDry / mudDamp: the mud paint's roughness on its dry surface and in its damp lows (were 0.55 / 0.22: a glossy lane, screen-space reflections below 0.4). Before GG1: no floors. drySpecular: the sun specular and sky reflection of dry ground, x the physical value (a low sun raked a broad glare streak along matte paths); standing water and wet cut mud keep 1. Before GG1: 1.",
+ "groundMinRough": 0.82,
+ "pavedMinRough": 0.68,
+ "mudDry": 0.92,
+ "mudDamp": 0.8,
+ "drySpecular": 0.35
+}
