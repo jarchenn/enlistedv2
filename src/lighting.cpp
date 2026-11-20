@@ -482,7 +482,7 @@ void LightingPass::todColors(const Renderer& R, vec3& sun, vec3& sky, vec3& grou
 
 void LightingPass::exposureUniforms(const Renderer& R, GLuint p) {
   (void)R;
-  glUniform1f(U(p, "uExpoKey"), L.tod.expoKey * (R.thumbMode || R.wx.enclosed ? 1.0f : glm::mix(1.0f, 0.72f, R.wx.k)) * (R.q.lightNew && !R.q.legacy ? R.q.newExpo : 1.0f));   /* VO L1: Lighting New is ~7 % darker on screen (full shadows, contact shadows, GTAO); the key lifts it back to each map's Classic brightness */   /* WX2: Cloudy is darker (auto exposure would otherwise lift it back) */ glUniform1f(U(p, "uExpoMin"), L.tod.expoMin); glUniform1f(U(p, "uExpoMax"), L.tod.expoMax);
+  glUniform1f(U(p, "uExpoKey"), L.tod.expoKey * (R.thumbMode || R.wx.enclosed ? 1.0f : glm::mix(1.0f, 0.72f, R.wx.k)));   /* WX2: Cloudy is darker (auto exposure would otherwise lift it back) */ glUniform1f(U(p, "uExpoMin"), L.tod.expoMin); glUniform1f(U(p, "uExpoMax"), L.tod.expoMax);
 }
 
 void LightingPass::uniforms(Renderer& R, GLuint p) {

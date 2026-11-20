@@ -142,7 +142,7 @@ public:
   struct Quality {
     bool legacy = false;
     bool lightNew = true;       // VO stream L: Settings > Lighting New / Classic (Classic = the pre-VO look, exactly)
-    float newExpo = 1.12f;      // VO L1: exposure key x this under Lighting New (re-fit: mean screen luminance of five maps back to Classic's)
+    float newExpo = 1.15f;      // VO L1: exposure x this under Lighting New, after the fixed / adapted exposure (re-fit: five maps' mean screen luminance back to Classic's)
     bool farCascade = true;     // second shadow cascade out to ~240 m
     float shadowSoft = 2.2f;    // PCF radius (near texels); 0 = legacy 3x3
     bool cloudShadows = true;

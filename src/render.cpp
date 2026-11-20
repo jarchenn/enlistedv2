@@ -3435,6 +3435,7 @@ static const char* kToneFS = R"GLSL(
 #version 450 core
 in vec2 vUV;
 uniform sampler2D uHdr, uExpo, uBloom, uVmDist; uniform float uFixedExpo, uBloomAmt, uEyeR, uAspect, uRectVig, uMicro; uniform int uTonemap;
+uniform float uNewExpo;   // VO L1: Lighting New's re-fit of a fixed exposure (1 in Classic)
 uniform float uUnderTone;   // 1: under water (swim.cpp): blue-green tint, stronger vignette
 // GX5 grade (content/settings/grade.json, docs/graphics-overhaul.md#gx5-grade): saturation, cool shadows / warm
 // highlights, a gentle S-curve, vignette, chromatic aberration (0 = off), and an edge-aware sharpen of the image
@@ -3485,7 +3486,7 @@ void main(){
   if (uEyeR > 0.0) bAmt *= 1.0 - smoothstep(0.98*uEyeR, 1.02*uEyeR, length((vUV - 0.5)*vec2(uAspect, 1.0)));
   if (texture(uVmDist, vUV).r > 0.0) bAmt = 0.0;   // VM2: the bloom is the world's, taken before the first-person weapon was drawn: blended over the dark gun it showed the ground through it
   if (bAmt > 0.0) c = mix(c, texture(uBloom, vUV).rgb/6.0, bAmt);   // chain sums 6 levels; energy-preserving blend, not an add
-  float e = uFixedExpo > 0.0 ? uFixedExpo : texelFetch(uExpo, ivec2(0), 0).r;
+  float e = uFixedExpo > 0.0 ? uFixedExpo*uNewExpo : texelFetch(uExpo, ivec2(0), 0).r;   // VO L1: auto exposure already re-adapts to New's darker scene; a fixed one is lifted
   c = uTonemap == 0 ? aces(c*e*0.8) : filmic(c*e*1.22);
   // subdued, slightly desaturated period grade (grade.json): saturation, cool shadows / warm highlights, vignette
   float l = dot(c, vec3(0.2126,0.7152,0.0722));
@@ -5304,6 +5305,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUseProgram(progTone);
   glBindTextureUnit(0, hdrColor); glBindTextureUnit(1, expoTex[expoIdx]);
   glUniform1i(U(progTone, "uHdr"), 0); glUniform1i(U(progTone, "uExpo"), 1);
+  glUniform1f(U(progTone, "uNewExpo"), q.lightNew && !q.legacy && !thumbMode ? q.newExpo : 1.0f);   // VO L1
   glUniform1f(U(progTone, "uFixedExpo"), lt.mapExposure > 0 && !thumbMode ? lightingFixedExposure(*this) * lt.mapExposure : v.autoExposure ? -1.0f : lightingFixedExposure(*this));   // 1 by Day; BR3: a map may pin it (play = editor)
   glUniform1f(U(progTone, "uUnderTone"), v.underwater ? 1.0f : 0.0f);   // swim.cpp
   {   // colour grade (content/settings/grade.json, read once; the defaults match the shipped file)
