@@ -178,7 +178,12 @@ void App::buildWeaponMeshes() {
     d->modern = j.value("modern", d->side == "modern"); d->pellets = std::max(1, j.value("pellets", 1)); d->spreadDeg = j.value("spreadDeg", 0.0f);   // MG1
     d->casings = j.value("casings", true);
     { std::string bl = j.value("blaster", std::string()); d->blaster = bl == "red" ? 4 : bl.empty() ? 0 : 3; }   // SW1
-    if (j.contains("hold")) { const json& h = j["hold"]; d->holdOffset = jvec3(h.value("offset", json()), vec3(0)); d->holdWeld = h.value("weld", 1.0f); std::string hk = h.value("kind", std::string()); d->holdKind = hk == "pistol" ? 0 : hk == "rifle" ? 1 : hk == "launcher" ? 2 : -1; }   // SW2
+    if (j.contains("hold")) { const json& h = j["hold"]; d->holdOffset = jvec3(h.value("offset", json()), vec3(0)); d->holdWeld = h.value("weld", 1.0f); std::string hk = h.value("kind", std::string()); d->holdKind = hk == "pistol" ? 0 : hk == "rifle" ? 1 : hk == "launcher" ? 2 : -1; d->leftHold = h.value("left", std::string()) == "magazine" ? 1 : h.value("left", std::string()) == "tube" ? 2 : 0;   // 2: a launcher tube: the support hand in a C over it beside the face
+      if (h.contains("pose")) { const json& gp = h["pose"]; GripPose& G = d->gripPose; G.has = true;   // WS1: the approved hold (tools/grip_to_game.py); index 1 = the right hand
+        auto jq = [](const json& a) { return a.is_array() && a.size() == 4 ? glm::normalize(quat(a[3].get<float>(), a[0].get<float>(), a[1].get<float>(), a[2].get<float>())) : quat(1, 0, 0, 0); };
+        G.p[1] = jvec3(gp["r"].value("p", json()), vec3(0)); G.q[1] = jq(gp["r"].value("q", json())); G.p[0] = jvec3(gp["l"].value("p", json()), vec3(0)); G.q[0] = jq(gp["l"].value("q", json()));
+        G.lMag = gp["l"].value("anchor", std::string()) != "grip"; G.gun = jvec3(gp.value("gun", json()), vec3(0)); G.scale = gp.value("scale", 1.0f); if (gp.contains("butt") && gp["butt"].size() >= 2) G.butt = vec3(gp["butt"][0].get<float>(), gp["butt"][1].get<float>(), 0);   // "mag" / "support": from the left socket (the magazine's centre with hold.left = magazine), "grip": from the rightGrip socket
+        if (gp.contains("fingers")) for (auto it = gp["fingers"].begin(); it != gp["fingers"].end(); ++it) G.fingers.push_back({it.key(), jq(it.value())}); } }   // SW2
     d->dotCrosshair = j.value("crosshair", std::string()) == "dot";   // SW2
     d->category = j.value("category", std::string());   // UI11
     d->laterWar = j.value("laterWar", false); d->moveSpeed = j.value("moveSpeed", 1.0f); d->showArms = j.value("arms", true);
