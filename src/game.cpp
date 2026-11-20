@@ -1337,7 +1337,12 @@ void Game::drawItems() {
         app.R.heatDraws.push_back({{&src->ci.view, k, s.world}, h, obj});
       }
     }
-    if (!(s.localPlayer && s.alive)) brWornDraws(app, *this, s, s.world, app.R.worldModels, app.worldBoxDraws);   // BR3: helmet / vest / backpack; never in your own first person (the corpse and the death camera keep it)
+    if (!(s.localPlayer && s.alive)) {
+      const size_t w0 = app.R.worldModels.size();
+      brWornDraws(app, *this, s, s.world, app.R.worldModels, app.worldBoxDraws);
+      const mat4 bodyMove = prevW * glm::inverse(s.world);   // AIB1b: worn gear moves with the body (its joint's own sway left out)
+      for (size_t i = w0; i < app.R.worldModels.size(); ++i) { app.R.worldModels[i].prevM = bodyMove * app.R.worldModels[i].m; app.R.worldModels[i].vel = 1; }
+    }   // BR3: helmet / vest / backpack; never in your own first person (the corpse and the death camera keep it)
     if (s.alive && s.weapon >= 0 && !s.gunBody) {   // GM1: the gas-mask soldier's gun is part of its body
       const WeaponDef& d = *app.weaponDefs[s.weapon];
       if (d.useModel()) {
@@ -1361,8 +1366,11 @@ void Game::drawItems() {
           const float gh = 0.18f + 0.6f * std::exp(-(float)(t - s.lastShot) / 15.0f);
           for (int p = 0; p < 8; ++p) for (int k : d.worldParts()[p]) app.R.heatDraws.push_back({{d.worldModel(), k, W}, gh, heatObj});   // TH2: shaded with its holder
         }
+        const size_t o0 = app.R.worldModels.size();
         brSightDraws(app, d, s.ws, W, app.R.worldModels, app.worldBoxDraws);   // BR3: the fitted optic
         lootAttachDraws(app, d, s.ws, W, app.R.worldModels, app.worldBoxDraws);   // BR10: muzzle, magazine, recoil pad
+        const mat4 gunMove = prevGun * glm::inverse(W);   // AIB1b: the optic and attachments move with the gun
+        for (size_t i = o0; i < app.R.worldModels.size(); ++i) { app.R.worldModels[i].prevM = gunMove * app.R.worldModels[i].m; app.R.worldModels[i].vel = 1; }
       }
     }
   }
