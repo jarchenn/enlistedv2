@@ -419,7 +419,7 @@ void settingsWindow(App& app) {
       int pr = 4; for (int k = 0; k < 5; ++k) if (order[k] == u.preset()) pr = k;
       
       if (flat::combo("Preset", &pr, pn, 5) && order[pr] != GfxPreset::Custom) g = presetOpts(order[pr]);
-      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Medium is the standard look. Low: half-size shadows, no cloud shadows / light shafts / reflections / AO,\nless grass and decoration, 85 %% resolution. High: sharper far shadows, full-resolution AO, more grass, longer view.");
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Medium is the standard look. Low: half-size shadows, no cloud shadows / light shafts / reflections / AO,\nless grass and decoration, 50 %% resolution. High: sharper far shadows, full-resolution AO, more grass, longer view.");
       flat::sliderFloat("Resolution scale", &g.resScale, 0.5f, 1.0f, "%.2f");
       if (ImGui::IsItemDeactivatedAfterEdit()) applyNow = true;   // targets are recreated once, on release
       { const char* um[] = {"Temporal", "Spatial", "Off (native)"}; flat::combo("Upscaling", &u.upscale, um, 3);
