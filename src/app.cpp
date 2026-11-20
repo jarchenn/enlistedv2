@@ -1124,7 +1124,8 @@ int App::run(int argc, char** argv) {
     audio.silent = (testRun || (mu && *mu && std::strcmp(mu, "0") != 0)) && !(ae && std::strcmp(ae, "on") == 0); }
   if (testRun) { glfwWindowHint(GLFW_FOCUSED, GLFW_FALSE); glfwWindowHint(GLFW_FOCUS_ON_SHOW, GLFW_FALSE); }
   int W = runSelf ? 1920 : 1600, H = runSelf ? 1080 : 900;
-  bool bench1440 = false; for (int k = 1; k < __argc; ++k) bench1440 |= std::string(__argv[k]) == "--bench-views";
+  bool bench1440 = std::getenv("NMK_WIN_1440") != nullptr;   // NMK_WIN_1440=1: any launch at a borderless 2560x1440 at (0,0)
+   for (int k = 1; k < __argc; ++k) bench1440 |= std::string(__argv[k]) == "--bench-views";
   if (bench1440) { W = 2560; H = 1440; glfwWindowHint(GLFW_DECORATED, GLFW_FALSE); }   // P1: the VO benchmark at 1440p (borderless: a framed 1440p window does not fit a 1440p screen and is shrunk)
   win = glfwCreateWindow(W, H, "Battle Foundry", nullptr, nullptr);   // UI2: the game's name (repo / exe keep theirs)
   if (win && bench1440) glfwSetWindowPos(win, 0, 0);
