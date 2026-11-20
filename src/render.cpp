@@ -3718,7 +3718,7 @@ void main(){
   a *= smoothstep(0.4, 0.8, d)*(1.0 - smoothstep(R*0.8, R, d))*(1.0 - uSF2.w);
   vec3 axis = normalize(vel);
   vec3 side = normalize(cross(axis, normalize(p - uCamPos) + vec3(1e-4)));
-  float len = near ? mix(0.05, 0.16, h1(fi*4.4)) : 0.05, wid = near ? mix(0.006, 0.014, h1(fi*6.6)) : 0.004 + d*0.0004;
+  float len = near ? mix(0.025, 0.07, h1(fi*4.4)) : 0.05, wid = near ? mix(0.006, 0.014, h1(fi*6.6)) : 0.004 + d*0.0004;   // BT2: fine flakes, not long streaks
   int c = gl_VertexID; vec2 q = c == 0 ? vec2(-1, -1) : c == 1 ? vec2(1, -1) : c == 2 ? vec2(1, 1) : c == 3 ? vec2(-1, -1) : c == 4 ? vec2(1, 1) : vec2(-1, 1);
   vec3 w = p + side*q.x*wid + axis*q.y*len;
   vC = q; vA = a;

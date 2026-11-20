@@ -18,6 +18,7 @@ from scipy import ndimage
 
 from mapgen import (GroundPaint, Grid, Frame, MapBuilder, ScenarioBuilder, write_map, write_template, write_summary,
                     rng, look_yaw, catmull_rom, polyline_dist, local_to_world, in_poly)
+from mapgen.geom import circle_poly
 
 TID, NAME, VERSION, SEED = "blackwater_thaw", "Blackwater Thaw", 1, 7311
 W, D = 440.0, 380.0          # the dressed valley floor
@@ -89,6 +90,7 @@ ROUTES = {   # name: (points, clear width, kind)
 PUDDLES = [(-30.0, -59.5, 1.3), (-8.0, -50.6, 1.1), (6.0, -42.6, 1.5), (9.5, -17.5, 1.2), (2.0, -9.0, 1.0), (-1.0, -3.5, 1.4),
            (-60.0, -61.9, 1.2), (-84.0, -63.0, 1.6), (40.0, -55.8, 1.0), (62.0, -8.0, 1.3), (-20.0, 24.0, 1.1)]   # (x, z, radius m)
 ORCH_IDS = []
+FIR_STANDS = []   # BT2: (x, z, radius) of each fir stand (dark needle floor, no snow under it)
 SPAWN_LOW = (-90.0, -73.0)     # in the cart yard, the cart shed behind and a stone wall screening it from the orchard
 SPAWN_UP = (18.0, 109.0)       # the screened yard behind the washhouse
 COURT = (-3.0, 2.0)
@@ -119,7 +121,15 @@ BUILDINGS = [
     ("small_stone_dairy", 34.0, 60.5, 0.0, "terrace shed"),
     ("house_stone_cottage", -30.0, 72.0, 90.0, "worker cottage"),
     ("small_storehouse", 72.0, 82.0, 180.0, "quarry hut"),
+    # BT2 creek-to-court slice (footbridge -> court): a stepped cluster on the court approach. The cottage's door and the
+    # annex's door face the lane (~4.6 m wall to wall at its narrowest); a 2.1 m service gap between the two cottages
+    ("house_stone_cottage", 1.0, -20.0, 90.0, "slice cottage"),
+    ("house_stone_cottage", -7.3, -20.0, 270.0, "slice cottage (west)"),
+    ("sd_market_lean_to", 1.0, -25.6, 180.0, "slice lean-to"),
+    ("small_stone_dairy", 14.8, -14.9, 270.0, "slice pump annex"),
 ]
+SLICE_PASSAGE = (-3.15, -27.0)   # the service gap's south mouth (passage bookmark)
+OVERLOOK_EYE = (63.0, 58.5)      # the improved overlook bookmark: on the quarry top's south-west lip, scrub and rock just ahead
 
 
 # ---------------------------------------------------------------- terrain
@@ -237,16 +247,12 @@ def build_terrain(grid):
     # far constraints: the valley walls beyond the envelope, the south-west valley gap, the far ridge
     ex0, ez0, ex1, ez1 = ENV
     outside = np.maximum.reduce([ex0 - X, X - ex1, ez0 - Z, Z - ez1])
-    # a steep bank 8-12 m up within 12 m of the envelope edge (the rock faces / slopes that explain the boundary)
-    north = Z > ez1
-    rim_h = np.where(north, 26.0, np.where(Z < ez0, 14.0, 16.0))
-    gap = (X < -60) & (Z < -60)                      # the south-west valley gap stays lower (the bright opening)
-    rim_h = np.where(gap, 7.0, rim_h)
-    m = (outside > 10) & (outside < 14)
-    F.set_mask(m, rim_h)
+    # BT2: no wall at the envelope. The far edge of the terrain carries the high, asymmetric ridges (north highest, the
+    # south-west valley exit lowest); the apron and the near shoulders are set after the first solve (below)
+    gap = (X < -60) & (Z < -60)                      # the south-west valley exit (the bright opening)
     edge = (np.abs(X - X.min()) < 1) | (np.abs(X - X.max()) < 1) | (np.abs(Z - Z.min()) < 1) | (np.abs(Z - Z.max()) < 1)
-    far_h = np.where(Z > 0, 70.0, 38.0)
-    F.set_mask(edge, np.where(gap, 18.0, far_h))
+    far_h = np.where(Z > 120, 112.0, np.where(Z > 0, 88.0, np.where(X > 0, 66.0, 54.0)))
+    F.set_mask(edge, np.where(gap, 16.0, far_h))
     # the far ridge north-east: a crest line and its shoulders
     for (x0, z0, h0), (x1, z1, h1) in zip(RIDGE, RIDGE[1:]):
         m, hh, _, _ = F.corridor([(x0, z0, h0), (x1, z1, h1)], 9.0)
@@ -290,15 +296,22 @@ def build_terrain(grid):
     F.set_mask(m, 27.0)
     # the creek corridor is left free here: carved after the fill
     F.solve()
-    # the boundary: the ground just inside the envelope keeps its solved height, a rock face rises 12 m just outside it
-    # (steeper than the 50 deg the player can climb), so the envelope is a solid edge explained by the valley walls
+    # BT2 boundary as depth layers, not a wall: the ground at the envelope keeps its solved height; a graded apron rises
+    # 6-14 m over the first ~20 m outside; irregular near ridge shoulders ~50 m out (+26..+56, broken crests, low saddles),
+    # cut down at the south-west valley exit; the far ridges at the terrain's edge. The play limit is a hidden collision
+    # line in the trees and rock (bt_boundary), not visible terrain.
     inner = (outside > -1.5) & (outside <= 0.0)
-    ring = (outside > 1.5) & (outside < 4.5)
     F.set_mask(inner, F.H.copy())
-    rs2 = np.random.default_rng(SEED + 11)   # M4: the face's height wanders 7-17 m (a broken skyline, not a ruler)
-    varh = ndimage.gaussian_filter(rs2.standard_normal(F.H.shape), 18.0 / RES)
-    varh = (varh - varh.min()) / (np.ptp(varh) + 1e-9)
-    F.set_mask(ring, F.H + 7.0 + 10.0 * varh)
+    def lowf(scale, seed):
+        r_ = np.random.default_rng(seed)
+        v = ndimage.gaussian_filter(r_.standard_normal(F.H.shape), scale / RES)
+        return (v - v.min()) / (np.ptp(v) + 1e-9)
+    v1, v2 = lowf(16.0, SEED + 11), lowf(34.0, SEED + 12)
+    apron = (outside > 18.0) & (outside < 22.0)
+    F.set_mask(apron, F.H + 4.0 + 7.0 * v1)
+    shoulder = (outside > 62.0) & (outside < 68.0)   # far enough out that the slope to it stays ~25-35 deg, not a bowl wall
+    sh_h = F.H + 16.0 + 28.0 * v2 * (0.6 + 0.4 * v1)
+    F.set_mask(shoulder, np.where(gap, F.H + 6.0, sh_h))
     F.solve()
     H = F.H
     # gentle ground variation off the lanes and pads (0.0-0.35 m, 6-15 m scale)
@@ -461,9 +474,8 @@ def build(ctx):
     line("stone_wall", [(2.0, 114.5), (32.0, 114.5), (32.0, 96.0)])                                       # the screened rear yard
     line("post_wire_fence", [(68.0, 66.0), (76.0, 66.0), (88.0, 67.0)])                                   # the overlook rail (timber stand-in)
     line("stone_wall", [(-11.0, 43.2), (31.0, 43.2)])                                                     # the terrace parapet over its retaining face
-    for xb in (ENV[0] + 1.0, ENV[2] - 1.0):   # the creek leaves the map through walled culverts (the boundary across the bed)
-        zc = float(np.interp(xb, [p[0] for p in CREEK_CTRL], [p[1] for p in CREEK_CTRL]))
-        line("mod_wall_compound", [(xb, zc - 6.0), (xb, zc + 6.0)])
+    write_boundary_asset(ctx, cat, G)   # BT2: the play limit as a hidden collision line (explained by the trees and rock on it)
+    b.place("bt_boundary", 0.0, 0.0, 0.0, check=False, cls="none", y=0.0, tags={"boundary"}, companions=False)
     line("picket_fence", [(-104.0, -40.0), (-104.0, -20.0)])                                              # a crooked orchard rail (camera 1)
 
     # crossings: the stone bridge (cart road), the plank footbridge (bend), stepping stones at the ford
@@ -489,6 +501,19 @@ def build(ctx):
     if "bt_vent_smoke" in cat:   # the smithy's working chimney (small_carpenter_workshop's stack: local (-3.6, 6.05, -1.2))
         vx, vz = local_to_world((54.0, -12.0), 90.0, -3.6, -1.2)
         b.place("bt_vent_smoke", vx, vz, 0.0, check=False, cls="none", y=G(54.0, -12.0) + 5.9, tags={"fx"}, companions=False)
+    # BT2 slice dressing: a dark trunk in the near third of the bridge shot, rough bank stones at the footbridge, the
+    # cluster's woodpile off the lane, foreground scrub and chipped rock at the improved overlook
+    for aid, x, z, yaw, sink in (("tr_dead_b", 17.5, -41.0, 40.0, 0.0),
+                                 ("nat_boulder_schist_m", 7.2, -27.6, 20.0, 0.25), ("nat_boulder_schist_slab", 16.8, -28.2, 110.0, 0.2),
+                                 ("nat_boulder_limestone_m", 8.0, -35.0, 200.0, 0.3), ("nat_boulder_schist_m", 16.4, -35.4, 300.0, 0.25),
+                                 ("nat_boulder_granite_s", 4.5, -33.0, 70.0, 0.15), ("nat_boulder_granite_s", 19.5, -31.5, 150.0, 0.15),
+                                 ("drs_woodpile", -2.6, -16.8, 0.0, 0.0),
+                                 ("nat_brush_scrub", 61.5, 58.2, 30.0, 0.0), ("nat_boulder_granite_s", 62.6, 57.0, 75.0, 0.25),
+                                 ("nat_brush_patchy", 61.0, 57.2, 160.0, 0.0)):
+        if aid in cat:
+            b.place(aid, x, z, yaw, check=False, cls="veg" if aid.startswith(("tr_", "nat_brush")) else "none",
+                    y=G(x, z) - sink, tags={"dress", "slice"}, companions=False)
+    paint.poly("pebbles", [(3.0, -29.5), (21.0, -29.0), (22.0, -34.5), (3.5, -36.5)], weight=0.8, edge=1.5, ragged=1.5, seed=31)   # the gravel margin at the footbridge
     paint.poly("scorched", [(61.0, -9.0), (65.0, -10.5), (64.0, -13.0), (60.5, -12.5)], weight=0.6, edge=1.2, ragged=0.8, seed=21)   # ash downwind (south-east)
 
     # ---------------------------------------------------------------- M2: the creek ribbon, puddles, winter vegetation
@@ -502,6 +527,8 @@ def build(ctx):
     ORCH_IDS = write_orchard_trees(ctx, cat)
     rep_veg = dress_vegetation(b, cat, G, R)
     rep_veg["boundary_rock"] = dress_boundary(b, cat, G, R)
+    for k, (cx, cz, rad) in enumerate(FIR_STANDS):   # BT2: the stands' dark needle floor
+        paint.poly("leaf_litter", circle_poly(cx, cz, rad + 1.5, 14), weight=0.9, edge=3.0, ragged=2.5, seed=100 + k)
 
     # ---------------------------------------------------------------- scenario: 10 v 10 Team Deathmatch
     sc = ScenarioBuilder(b, defending="Axis")
@@ -537,6 +564,11 @@ def build(ctx):
             ("Service passage", cam(26.5, 60.0, 24.0, 76.0)),
             ("Workshop yard", cam(70.0, -2.0, 40.0, -30.0)),
             ("Quarry overlook", cam(84.0, 76.0, -20.0, 10.0, dy=0.6, pitch=-6.0))]
+    # BT2: the second set (improved compositions); the six above stay for before/after comparison
+    cams2 = [("Slice passage", cam(SLICE_PASSAGE[0], SLICE_PASSAGE[1], -3.0, 0.0, pitch=2.0)),
+             ("Slice bridge", cam(13.5, -47.0, 4.0, -18.0, pitch=2.0)),
+             ("Overlook improved", cam(OVERLOOK_EYE[0], OVERLOOK_EYE[1], -3.0, 2.0, dy=0.2, pitch=-9.0))]
+    cams = cams + cams2
     bookmarks = {str(k + 1): dict(c, name=n) for k, (n, c) in enumerate(cams)}
     tdir = os.path.join(ctx.repo, "content", "templates")
     grid.write_png(os.path.join(tdir, TID + ".height.png"))
@@ -556,10 +588,15 @@ def build(ctx):
     cam0 = ([0.0, 150.0, -170.0], 0.0, -40.0)
     # spec 6: bright overcast over dark slushy ground; near air ~0.0025 / m (93 % at 30 m, 61 % at 200 m, 11 % at 900 m),
     # a valley mist layer (12 m e-folding) hugging the creek and the low ground
-    look = {"weather": 0.9, "clouds": 0.95, "haze": 2.4, "hazeHeight": 90.0, "envFog": 1, "fogNear": 6.0,
-            "fogLayer": {"density": 0.0015, "height": 12.0}, "saturation": 0.74, "tint": [0.96, 0.99, 1.04],
+    # BT2: thinner world haze (the old 2.4 made a uniform veil), the damp valley pocket carries the mist (~0-12 m, tapering
+    # by ~30 m), lighter cloud deck, a cooler but less grey grade
+    look = {"weather": 0.8, "clouds": 0.75, "haze": 1.6, "hazeHeight": 90.0, "envFog": 1, "fogNear": 6.0,
+            "fogLayer": {"density": 0.004, "height": 10.0}, "saturation": 0.8, "tint": [0.97, 0.99, 1.03],
+            # BT2 sky (lighting session's per-map knobs): a soft low opening toward the south-west valley exit (azimuth
+            # atan2(dx, dz) = -130.7), broad cloud banks stretched along the valley, no sun disc
+            "cloudOpening": [-130.7, 11.0, 20.0, 0.8], "cloudScale": 2.0, "cloudStretch": 3.0, "cloudDir": -130.7, "sunDisc": 0.0,
             "bloom": 1.1, "grime": 1.3, "season": "winter", "leafless": True, "grassDead": 1.0,
-            "snowfall": {"near": 150, "far": 2600, "fall": 1.0, "wind": [0.8, -0.6], "bright": 1.0},
+            "snowfall": {"near": 40, "far": 1800, "fall": 1.0, "wind": [0.8, -0.6], "bright": 1.0},   # BT2: sparse near flakes
             # GR3 night / dusk air for the same map (the time of day picks it): thicker low mist, a closer start
             "night": {"haze": 2.0, "envFog": 1, "fogNear": 3.0}}   # SF1: light fall, wind from the north-west
     sculpt = write_sculpt(F, grid)
@@ -613,7 +650,7 @@ def creek_water(F):
     return bodies
 
 # ---------------------------------------------------------------- SN1 snow layer mask (spec 3)
-SNOW_BOX = (ENV[0] - 20.0, ENV[1] - 20.0, (ENV[2] - ENV[0]) + 40.0, (ENV[3] - ENV[1]) + 40.0)
+SNOW_BOX = (ENV[0] - 90.0, ENV[1] - 80.0, (ENV[2] - ENV[0]) + 180.0, (ENV[3] - ENV[1]) + 180.0)   # BT2: out over the fir stands
 SNOW_RES = 0.25
 
 
@@ -643,6 +680,11 @@ def snow_mask(F, tdir):
     # deposit: open field and outer slopes 0.85 (55-85 % cover), sheltered yards / orchard 0.72 (45-75 %), scoured
     # crests lower (the 3-15 m patch field), busy roads and stairs ~0.5 with traffic (15-35 %)
     R = 0.9 - 0.32 * blob(9.0, 8)   # open ground: 55-85 % cover at the 0.70 threshold
+    for cx, cz, rad in FIR_STANDS:   # BT2: little snow under a fir stand (the crowns hold it): the stand reads as one dark mass
+        m = np.hypot(X - cx, Z - cz) < rad + 4.0
+        if m.any():
+            k = np.clip((rad + 3.0 - np.hypot(X[m] - cx, Z[m] - cz)) / 4.0, 0, 1)
+            R[m] = R[m] * (1.0 - 0.6 * k)
     for name, ((cx, cz), (hx, hz), fl) in AREAS.items():
         m = (np.abs(X - cx) <= hx) & (np.abs(Z - cz) <= hz)
         R[m] = np.minimum(R[m], 0.84 - 0.26 * blob(5.0, 4)[m])   # sheltered yards and the orchard: 45-75 %
@@ -733,6 +775,7 @@ def write_creek_asset(ctx, F):
 
 # ---------------------------------------------------------------- M2: winter vegetation families (spec 5)
 def dress_vegetation(b, cat, G, R):
+    FIR_STANDS.clear()
     rep = {}
     lanes = [(lane_dense(pts, 2.0), w) for pts, w, k in ROUTES.values()] + [(lane_dense([st[0], st[1]], 1.0), 2.4) for st in STAIRS]
 
@@ -774,14 +817,25 @@ def dress_vegetation(b, cat, G, R):
         put(R.choice(["nt3_tree_dead_ash", "nt3_tree_dead_oak", "nt3_tree_dead_ash"]), x + R.uniform(-1.5, 1.5), z + side * R.uniform(4.5, 6.5), R.uniform(0, 360), "creek_trees", clear=2.0, seat=1.2)
     # fir and spruce: ridgeline masses outside the envelope and border screens just inside it
     firs = ["ph_fir_tree_01_a", "ph_fir_tree_01_b", "ph_fir_tree_01_c", "ph_fir_sapling_medium_a", "ph_fir_sapling_medium_b"]
-    for _ in range(2600):
-        x, z = R.uniform(ENV[0] - 70, ENV[2] + 70), R.uniform(ENV[1] - 60, ENV[3] + 90)
-        out = max(ENV[0] - x, x - ENV[2], ENV[1] - z, z - ENV[3])
-        if out < -6.0 or (out < 4.0 and R.random() < 0.7):
+    # BT2: massed stands (8-16 overlapping crowns each) with open ground between, not an even sprinkle: a stand reads as
+    # one dark mass at vista distance where single crowns broke into specks; the stands also hide the play limit
+    n_st = 0
+    while n_st < 240:
+        cx, cz = R.uniform(ENV[0] - 70, ENV[2] + 70), R.uniform(ENV[1] - 60, ENV[3] + 90)
+        out = max(ENV[0] - cx, cx - ENV[2], ENV[1] - cz, cz - ENV[3])
+        if out < -4.0:
             continue
-        if x < -60 and z < -60 and R.random() < 0.75:   # the south-west valley gap stays open (the bright opening)
+        if cx < -60 and cz < -60 and R.random() < 0.75:   # the south-west valley gap stays open (the bright opening)
             continue
-        put(R.choice(firs), x, z, R.uniform(0, 360), "firs", clear=3.0, inside=False)
+        n_st += 1
+        rad = R.uniform(7.0, 13.0)
+        FIR_STANDS.append((cx, cz, rad))
+        for _ in range(R.randint(12, 22)):
+            a_, d_ = R.uniform(0, 2 * math.pi), rad * math.sqrt(R.random())
+            x, z = cx + d_ * math.cos(a_), cz + d_ * math.sin(a_)
+            if max(ENV[0] - x, x - ENV[2], ENV[1] - z, z - ENV[3]) < -6.0:
+                continue
+            put(R.choice(firs), x, z, R.uniform(0, 360), "firs", clear=3.0, inside=False)
     # dead grass and frosted seed heads at path edges, orchard margins and unused strips; bramble at wall feet
     for _ in range(900):
         x, z = R.uniform(ENV[0] + 4, ENV[2] - 4), R.uniform(ENV[1] + 4, ENV[3] - 4)
@@ -1012,8 +1066,9 @@ def write_orchard_trees(ctx, cat, n=4):
 # ---------------------------------------------------------------- M4: the envelope's rock face broken up (rock faces set into it,
 # boulders and outcrops at its foot; the firs on its top already break the skyline)
 def dress_boundary(b, cat, G, R):
-    faces = [a for a in ("ph_rock_face_01", "ph_rock_face_02") if a in cat]
-    foot = [a for a in ("nat_boulder_granite_l", "nat_boulder_limestone_l", "nat_outcrop_limestone", "nat_boulders_granite_group", "nat_boulder_schist_slab") if a in cat]
+    # BT2: no rock-face cladding (on the old cliff it read as a wall); outcrops and boulder groups at irregular spacing
+    faces = [a for a in ("nat_outcrop_limestone", "nat_boulders_granite_group", "nat_boulder_granite_l") if a in cat]
+    foot = [a for a in ("nat_boulder_granite_s", "nat_boulder_limestone_m", "nat_boulder_schist_m", "nat_boulder_schist_slab") if a in cat]
     if not faces:
         return 0
     x0, z0, x1, z1 = ENV
@@ -1029,12 +1084,43 @@ def dress_boundary(b, cat, G, R):
             if min(math.hypot(x - cx, z - cz) for cx, cz, _ in CREEK_CTRL) < 10.0:
                 t += 6.0
                 continue
-            fx, fz = x + nx * R.uniform(0.6, 1.6), z + nz * R.uniform(0.6, 1.6)
-            yaw = look_yaw(-nx, -nz) + R.uniform(-18, 18)    # facing into the valley
-            e = b.place(R.choice(faces), fx, fz, yaw, check=False, cls="none", y=G(x, z) - R.uniform(0.3, 1.2), tags={"rock"}, companions=False)
+            if R.random() < 0.45:                           # gaps: the stands carry the line there
+                t += R.uniform(6.0, 14.0)
+                continue
+            fx, fz = x + nx * R.uniform(-1.0, 2.5), z + nz * R.uniform(-1.0, 2.5)
+            yaw = R.uniform(0, 360)
+            e = b.place(R.choice(faces), fx, fz, yaw, check=False, cls="none", y=G(fx, fz) - R.uniform(0.3, 0.8), tags={"rock"}, companions=False)
             n += e is not None
             if foot and R.random() < 0.45:
                 bx_, bz_ = x - nx * R.uniform(1.0, 3.5) + tx * R.uniform(-2, 2), z - nz * R.uniform(1.0, 3.5) + tz * R.uniform(-2, 2)
                 b.place(R.choice(foot), bx_, bz_, R.uniform(0, 360), check=False, cls="none", y=G(bx_, bz_), tags={"rock"}, companions=False)
-            t += R.uniform(4.5, 6.5)
+            t += R.uniform(6.0, 14.0)
     return n
+
+
+# ---------------------------------------------------------------- BT2: the play limit (hidden collision, generated per bake)
+def write_boundary_asset(ctx, cat, G, step=4.0, height=7.0):
+    """bt_boundary: thin hidden collider boxes along the envelope, each seated on the ground under it (asset at the origin,
+    y 0). The visible boundary is terrain, firs and rock; this only stops a player walking out of the play area."""
+    import json
+    from mapgen.catalog import Asset
+    x0, z0, x1, z1 = ENV
+    parts = []
+    for (ax, az), (bx, bz) in (((x0, z0), (x1, z0)), ((x1, z0), (x1, z1)), ((x1, z1), (x0, z1)), ((x0, z1), (x0, z0))):
+        L = math.hypot(bx - ax, bz - az)
+        n = max(1, int(math.ceil(L / step)))
+        for k in range(n):
+            t0, t1 = k / n, (k + 1) / n
+            cx, cz = ax + (bx - ax) * (t0 + t1) / 2, az + (bz - az) * (t0 + t1) / 2
+            gy = min(G(ax + (bx - ax) * t0, az + (bz - az) * t0), G(ax + (bx - ax) * t1, az + (bz - az) * t1), G(cx, cz))
+            sx, sz = (abs(bx - ax) / n + 0.6, 0.6) if abs(bx - ax) > abs(bz - az) else (0.6, abs(bz - az) / n + 0.6)
+            parts.append({"t": "b", "c": [round(cx, 2), round(gy + height / 2 - 1.0, 2), round(cz, 2)], "s": [round(sx, 2), height, round(sz, 2)], "m": "x", "v": 0})
+    j = {"id": "bt_boundary", "version": 1, "name": "Play-area limit (Blackwater Thaw)", "category": "Effects",
+         "description": "BT2: the Blackwater Thaw play-area limit as hidden collider boxes along the envelope, generated by tools/mapgen/maps/blackwater_thaw.py; the trees, rock and slopes on it are what the player sees.",
+         "floors": 0, "enterable": False, "footprint": [round(x1 - x0, 1), round(z1 - z0, 1)], "plinthDepth": 0, "maxGrade": 90, "noAutoPanels": True,
+         "nav": {"effect": "block"}, "materials": [{"name": "x", "albedo": [0.1, 0.1, 0.1], "roughness": 0.9, "pattern": "plain", "metallic": 0, "grain": 1}],
+         "parts": parts, "furniture": [], "interactables": [], "panels": []}
+    path = os.path.join(ctx.repo, "content", "assets", "bt_boundary.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(j, f, separators=(",", ":"))
+    cat.assets["bt_boundary"] = Asset(j, path)
