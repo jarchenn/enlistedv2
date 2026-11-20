@@ -57,7 +57,7 @@ function shelter() {   // the firing line: 12 m x 4 m, a sloped corrugated roof 
   return A;
 }
 function flag() {
-  const A = new Asset({ id: "mod_range_flag", name: "Range flag", description: "A 6 m steel pole with a sun-faded, torn red range flag.", footprint: [0.6, 0.6], ...META });
+  const A = new Asset({ id: "mod_range_flag", name: "Range flag", description: "A 6 m steel pole with a sun-faded, torn red range flag.", footprint: [0.6, 0.6], ...META, nav: { effect: "carve" } });
   mats(A);
   A.cyl([0, 3, 0], [0.08, 6, 0.08], "steel");
   A.box([0.06, 4.9, -0.01], [1.3, 5.75, 0.01], "red", { k: 0 });
@@ -66,14 +66,14 @@ function flag() {
   return A;
 }
 function marker() {
-  const A = new Asset({ id: "mod_range_marker", name: "Range lane marker", description: "A white lane post with a red top, chipped and leaning a little.", footprint: [0.3, 0.3], ...META });
+  const A = new Asset({ id: "mod_range_marker", name: "Range lane marker", description: "A white lane post with a red top, chipped and leaning a little.", footprint: [0.3, 0.3], ...META, nav: { effect: "carve" } });
   mats(A);
   A.obox([0, 0.6, 0], [0.14, 1.2, 0.14], [0, 0, 3], "white", {});
   A.obox([0.03, 1.12, 0], [0.15, 0.16, 0.15], [0, 0, 3], "red", { k: 0 });
   return A;
 }
 function sign() {
-  const A = new Asset({ id: "mod_range_sign", name: "Range warning sign", description: "A red and white range warning board on two posts, faded and bullet-holed.", footprint: [1.6, 0.3], ...META });
+  const A = new Asset({ id: "mod_range_sign", name: "Range warning sign", description: "A red and white range warning board on two posts, faded and bullet-holed.", footprint: [1.6, 0.3], ...META, nav: { effect: "carve" } });
   mats(A);
   for (const x of [-0.6, 0.6]) A.box([x - 0.05, 0, -0.05], [x + 0.05, 2.0, 0.05], "wood");
   A.box([-0.8, 1.1, 0.05], [0.8, 1.9, 0.08], "white", { k: 0 });
