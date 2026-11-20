@@ -204,6 +204,20 @@ float skyVis(vec3 w, vec3 n){
 // States: dry snow (cool, broad rough highlight, low-contrast grain), dirty slush (darker grit, tighter lobe), meltwater.
 uniform int uSnowOn; uniform sampler2D uSnowMask; uniform vec4 uSnowBox, uSnowP, uSnowP2;
 float gSnow = 0.0;
+// BT2 / OPT2: true only where applySnow's ground cover is certainly full (worst-case patch noise, the roof shelter, a
+// margin for SN2's height-blended edges): the ground under it needs no substrate texture taps. Uses only what
+// applySnow reads before any terrTex call: the baked mask, the geometric slope, the shelter tap (near).
+bool snowFullCover(vec3 w, vec3 Ng){
+  if (uSnowOn == 0) return false;
+  vec2 uv = (w.xz - uSnowBox.xy)*uSnowBox.zw;
+  vec4 M = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.7, 0.0, 0.0, 0.0) : texture(uSnowMask, uv);
+  float slope = smoothstep(uSnowP.x, uSnowP.y, Ng.y);
+  float sMin = slope*M.r*(1.0 - uSnowP2.y) - M.g - M.b - uSnowP2.w;   // the noise at its lowest
+  if (sMin < uSnowP.z + uSnowP.w + 0.1) return false;                  // + 0.1: room for the height-blended edge
+  if (uOccOn == 1 && length(w - uCamPos) < 150.0) { vec4 lp = uOccVP*vec4(w, 1.0); vec2 ouv = lp.xy*0.5 + 0.5;
+    if (ouv.x > 0.0 && ouv.x < 1.0 && ouv.y > 0.0 && ouv.y < 1.0 && uOccTop - texture(uOcc, ouv).r*uOccRange - w.y > 0.15) return false; }
+  return true;
+}
 void applySnow(vec3 w, vec3 Ng, float ground, inout vec3 alb, inout float rough, inout vec3 N){
   gSnow = 0.0;
   if (uSnowOn == 0) return;
