@@ -244,8 +244,9 @@ void Fx::build(const mat4& view, std::vector<FxVert>& alpha, std::vector<FxVert>
   vec3 right = vec3(inv[0]), up = vec3(inv[1]), eye = vec3(inv[3]);
   auto quad = [](std::vector<FxVert>& out, vec3 c, vec3 rx, vec3 ry, vec4 col, vec2 o = vec2(0)) {   // o: uv offset (the shader reads firing-smoke id / flag from it)
     vec3 p0 = c - rx - ry, p1 = c + rx - ry, p2 = c + rx + ry, p3 = c - rx + ry;
-    out.push_back({p0, col, o + vec2(0, 0)}); out.push_back({p1, col, o + vec2(1, 0)}); out.push_back({p2, col, o + vec2(1, 1)});
-    out.push_back({p0, col, o + vec2(0, 0)}); out.push_back({p2, col, o + vec2(1, 1)}); out.push_back({p3, col, o + vec2(0, 1)});
+    const float r = std::min(glm::length(rx), glm::length(ry));   // W6: the soft fade's radius
+    out.push_back({p0, col, o + vec2(0, 0), r}); out.push_back({p1, col, o + vec2(1, 0), r}); out.push_back({p2, col, o + vec2(1, 1), r});
+    out.push_back({p0, col, o + vec2(0, 0), r}); out.push_back({p2, col, o + vec2(1, 1), r}); out.push_back({p3, col, o + vec2(0, 1), r});
   };
   const float tanHalf = 0.70f;   // shortcut: the 70 deg vertical view (build has no projection); a zoomed sight caps a little early
   for (const Particle& q0 : parts) {

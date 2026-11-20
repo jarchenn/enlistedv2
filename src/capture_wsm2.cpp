@@ -96,14 +96,16 @@ static bool blurStep(App& app, Game& G, Soldier& L, bool second) {
 // Weather 7 NMK_WSM2=smoke: the camera inside one smoke cloud, then inside three (Medium); fxnear (near fade + screen-size cap)
 // switched on / off every 60 frames (interleaved): the GP_Fx pass and the GPU frame per state; a shot of each at the end.
 static bool smokeStep(App& app, Game& G, Soldier& L) {
-  static vec3 eye0; static int f0 = -1; static double acc[2][2][3] = {}; static int n[2][2] = {};
+  static vec3 eye0; static int f0 = -1, k0Outside = -1; static double acc[2][2][3] = {}; static int n[2][2] = {};
   if (f0 < 0) { f0 = frames; eye0 = L.feet; settings().applyPreset(app, GfxPreset::Medium); G.gren.addCloud(eye0 + vec3(0, 1.0f, 0), G.t, 7); }
+  if (k0Outside < 0) { k0Outside = 0; G.gren.addCloud(eye0 + App::forward(20, 0) * 16.0f + vec3(0, 0.5f, 0), G.t, 11); }   // W6: one seen from outside too
   const int k = frames - f0;
   Physics::setCharacterPos(eye0 + vec3(0, 0.9f, 0)); app.eyeYaw = 20; app.eyePitch = 0; app.scriptedInput = ExploreInput{};
   for (auto& s : G.sold) if (s.inUse && !s.localPlayer) { s.hp = 100; s.dbgVel = vec3(0); }
   if (k == 600) { G.gren.addCloud(eye0 + vec3(2.5f, 1.0f, -2.0f), G.t, 8); G.gren.addCloud(eye0 + vec3(-2.5f, 1.0f, -3.0f), G.t, 9); }
   const int phase = k < 600 ? 0 : 1, on = (k / 60) % 2;
-  app.R.perf.fxNear = on;
+  app.R.perf.fxNear = on; app.R.perf.fxLit = app.R.perf.fxSoft = !(k >= 380 && k < 440);   // W6 look check: lit / soft off for 60 frames
+  if (k == 430 || k == 490) { char b[64]; std::snprintf(b, sizeof b, "smoke_w6_%s.png", k == 430 ? "off" : "on"); app.R.perf.fxNear = true; app.uiShot = exeDir() / "selftest_out" / b; }
   const bool meas = (k > 180 && k < 580) || (k > 780 && k < 1180);
   if (meas && k % 60 > 5) { acc[phase][on][0] += app.R.gpuPassMs[GP_Fx]; acc[phase][on][1] = std::max(acc[phase][on][1], (double)app.R.gpuPassMs[GP_Fx]); acc[phase][on][2] += app.R.stats.gpuMs; ++n[phase][on]; }
   if (k == 510 || k == 570 || k == 1110 || k == 1170) { char b[64]; std::snprintf(b, sizeof b, "smoke_%d_%s.png", phase ? 3 : 1, (k / 60) % 2 ? "fxnear" : "before"); app.uiShot = exeDir() / "selftest_out" / b; }

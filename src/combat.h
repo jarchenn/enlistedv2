@@ -156,7 +156,7 @@ struct Particle { vec3 p{0}, v{0}; float life = 0, maxLife = 1, size = 0.3f, gro
                   float flame = -1; };   // flame >= 0 (additive): a flame sprite, id 0..255 = its rotation and noise seed; col.x = brightness, the colour follows its age (Fx::build) and the fragment shader erodes it with noise   // fade > 0: alpha x (life left)^fade (firing smoke, content/settings/fx.json)
 struct Streak { vec3 a{0}, b{0}; float life = 0, maxLife = 0.05f, width = 0.02f; vec4 col{1}; };
 struct Debris { vec3 p{0}, v{0}, w{0}, size{0.1f}; quat r{1, 0, 0, 0}; float life = 0; bool resting = false; };
-struct FxVert { vec3 p; vec4 c; vec2 uv; };
+struct FxVert { vec3 p; vec4 c; vec2 uv; float r = 0; };   // r: the sprite's radius (W6 soft fade; 0 = none)
 
 class Terrain;
 struct Fx {
