@@ -221,6 +221,7 @@ void writeDerived() { if (!gDerived.empty()) std::ofstream(exeDir() / "selftest_
 
 void applyRunSettings(App& a) {
   static const auto perf0 = a.R.perf; a.R.perf = perf0;   // every run starts from the launch switches (a knock-out does not leak into the next)
+  settings().s.dynRes = std::getenv("NMK_BENCH_DYNRES") != nullptr;   // CP 5.1: off in benchmarks (the corpus rule), on to test it
   settings().applyPreset(a, gPresets[gPi]);
   if (const char* l = std::getenv("NMK_BENCH_LIGHTING")) a.R.q.lightNew = std::string(l) != "classic";   // Lighting New (default) / Classic
   if (const char* m = std::getenv("NMK_BENCH_MSAA"); m && *m) a.R.setMsaa(std::atoi(m));   // A/B over the preset's MSAA (VO P2)

@@ -64,7 +64,7 @@ json UserSettings::toJson() const {
     {"graphics", {{"preset", presetName(preset())}, {"resolutionScale", g.resScale}, {"shadowQuality", g.shadowQuality}, {"farCascade", g.farCascade},
                   {"cloudShadows", g.cloudShadows}, {"lightShafts", g.shafts}, {"ssr", g.ssr}, {"ssao", g.ssao}, {"ssaoFullRes", g.ssaoFull},
                   {"bloom", g.bloom}, {"taa", g.taa}, {"taaPhases", g.taaPhases}, {"clouds", g.clouds}, {"cloudQuality", g.cloudQuality}, {"grass", g.grass}, {"grassWind", g.grassWind},
-                  {"renderDistance", g.renderDist}, {"particleBudget", g.particles}, {"fov", fov}, {"gamma", gamma}, {"microcontrast", microcontrast}, {"lighting", lightNew ? "new" : "classic"}, {"vsync", vsync}, {"fpsCap", fpsCap}, {"upscaling", upscale == 0 ? "temporal" : upscale == 1 ? "spatial" : "off"},
+                  {"renderDistance", g.renderDist}, {"particleBudget", g.particles}, {"fov", fov}, {"gamma", gamma}, {"microcontrast", microcontrast}, {"lighting", lightNew ? "new" : "classic"}, {"vsync", vsync}, {"fpsCap", fpsCap}, {"dynamicResolution", dynRes}, {"upscaling", upscale == 0 ? "temporal" : upscale == 1 ? "spatial" : "off"},
                   {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi}, {"msaa", g.msaa}, {"ivy", g.ivy}, {"materialDetail", g.materials}, {"dustMotes", g.dustMotes},
                   {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}, {"weather", wxPresetName(weather)}, {"envFog", envFog}}},
     {"gameplay", {{"mouseSensitivity", mouseSens}, {"adsSensitivity", adsSens}, {"invertY", invertY}, {"reducedMotion", reducedMotion},
@@ -95,7 +95,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     if (q.contains("drawDistance") && !q.contains("renderDistance")) g.renderDist = 1200.0f * q.value("drawDistance", 1.0f);   // migration: the old multiplier of 1200 m
     g.renderDist = std::clamp(q.value("renderDistance", g.renderDist), 300.0f, 5000.0f); g.particles = std::clamp(q.value("particleBudget", g.particles), 0.25f, 4.0f);
     { std::string m = q.value("upscaling", std::string()); if (m == "temporal") u.upscale = 0; else if (m == "spatial") u.upscale = 1; else if (m == "off") u.upscale = 2; }
-    u.fov = std::clamp(q.value("fov", u.fov), 55.0f, 100.0f); u.gamma = std::clamp(q.value("gamma", u.gamma), 0.5f, 2.0f); u.microcontrast = std::clamp(q.value("microcontrast", u.microcontrast), 0.0f, 1.0f); u.lightNew = q.value("lighting", std::string(u.lightNew ? "new" : "classic")) != "classic"; u.vsync = q.value("vsync", u.vsync); u.fpsCap = std::clamp(q.value("fpsCap", u.fpsCap), 0, 500);
+    u.fov = std::clamp(q.value("fov", u.fov), 55.0f, 100.0f); u.gamma = std::clamp(q.value("gamma", u.gamma), 0.5f, 2.0f); u.microcontrast = std::clamp(q.value("microcontrast", u.microcontrast), 0.0f, 1.0f); u.lightNew = q.value("lighting", std::string(u.lightNew ? "new" : "classic")) != "classic"; u.vsync = q.value("vsync", u.vsync); u.dynRes = q.value("dynamicResolution", u.dynRes); u.fpsCap = std::clamp(q.value("fpsCap", u.fpsCap), 0, 500);
     g.lightCount = std::clamp(q.value("lightCount", g.lightCount), 0, 4096); g.shadowLights = std::clamp(q.value("shadowedLights", g.shadowLights), 0, 8);
     g.gi = std::clamp(q.value("gi", g.gi), 0, 2);
     g.msaa = q.value("msaa", g.msaa) >= 2 ? 4 : 0; g.ivy = q.value("ivy", g.ivy); g.dustMotes = std::clamp(q.value("dustMotes", g.dustMotes), 0, 2);
@@ -423,6 +423,10 @@ void settingsWindow(App& app) {
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Medium is the standard look. Low: half-size shadows, no cloud shadows / light shafts / reflections / AO,\nless grass and decoration, 50 %% resolution. High: sharper far shadows, full-resolution AO, more grass, longer view.");
       flat::sliderFloat("Resolution scale", &g.resScale, 0.5f, 1.0f, "%.2f");
       if (ImGui::IsItemDeactivatedAfterEdit()) applyNow = true;   // targets are recreated once, on release
+      flat::checkbox("Dynamic resolution", &u.dynRes);   // CP 5.1 (dynres.cpp)
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Lowers the internal resolution when a frame would miss 60 fps and raises it again when there is room (Medium / High 77-100 %%, Low 67-100 %%; Temporal upscaling). Off: the fixed resolution scale above.");
+      { int fw = app.R.displayW, fh = app.R.displayH; float rs = app.R.perf.taau && settings().s.upscale != 2 ? app.R.resolutionScale() : 1.0f;
+        ImGui::TextDisabled("Internal resolution now: %d x %d (%.0f %%)", (int)std::lround(fw * rs), (int)std::lround(fh * rs), rs * 100); }
       { const char* um[] = {"Temporal", "Spatial", "Off (native)"}; flat::combo("Upscaling", &u.upscale, um, 3);
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Below 100 %% resolution: Temporal rebuilds full detail over several frames (sharpest),\nSpatial upscales each frame (fastest on the Mac), Off renders at full resolution."); }
       { const char* sq[] = {"Low (2048 / 1024)", "Medium (4096 / 2048)", "High (4096 / 4096)"}; flat::combo("Shadow quality", &g.shadowQuality, sq, 3); }
