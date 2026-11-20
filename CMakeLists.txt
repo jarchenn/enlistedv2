@@ -108,10 +108,18 @@ elseif(MSVC)
   target_link_options(NormandyMapmaker PRIVATE /ENTRY:mainCRTStartup)
 endif()
 
-# Copy content next to the executable so the build dir is runnable.
-add_custom_target(copy_content ALL
-  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/content $<TARGET_FILE_DIR:NormandyMapmaker>/content
-  COMMENT "Copying content/")
+# Content next to the executable so the build dir is runnable: a directory junction to the source content/ (default; no
+# 5 GB copy per build folder, cmake/link_content.cmake), or a copy with -DNMK_CONTENT_LINK=OFF. install() always copies.
+option(NMK_CONTENT_LINK "Link <build>/content to the source content/ instead of copying it" ON)
+if(NMK_CONTENT_LINK)
+  add_custom_target(copy_content ALL
+    COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_SOURCE_DIR}/content -DDST=$<TARGET_FILE_DIR:NormandyMapmaker>/content -P ${CMAKE_SOURCE_DIR}/cmake/link_content.cmake
+    COMMENT "Linking content/")
+else()
+  add_custom_target(copy_content ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/content $<TARGET_FILE_DIR:NormandyMapmaker>/content
+    COMMENT "Copying content/")
+endif()
 add_dependencies(copy_content NormandyMapmaker)
 
 install(TARGETS NormandyMapmaker RUNTIME DESTINATION .)

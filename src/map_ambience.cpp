@@ -103,7 +103,7 @@ void mapAmbienceFrame(App& app, float dt) {
     vec2 p = e.contains("path") && e["path"].is_array() && e["path"].size() >= 2 ? nearestOnPath(e["path"], l) : xz(e.value("at", json::array()));
     float maxD = e.value("max", 30.0f), d = glm::length(p - l);
     float vol = d > maxD + 5 ? 0.0f : e.value("volume", 0.6f) * (1 + gCover * (e.value("underRoof", 0.6f) - 1)) * trim(e.value("cat", std::string("water")).c_str());
-    vec3 pos(p.x, app.terrain.height(p.x, p.y) + e.value("y", 0.3f), p.y);
+    vec3 pos(p.x, std::max(app.terrain.height(p.x, p.y), waterAt(app, p.x, p.y)) + e.value("y", 0.3f), p.y);   // on the water surface where there is water (a raised creek)
     voice(app, "loop_" + e.value("id", std::to_string(k)), e.value("file", std::string()), true, pos, vol, e.value("min", 2.0f), maxD);
   }
   // creaks: old sheds, now and then while the listener is near, more often and louder in gusts

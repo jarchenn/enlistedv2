@@ -1,0 +1,18 @@
+{
+ "set": "snow_thaw",
+ "id": "Snow012",
+ "family": "snow (SN2, thawing)",
+ "size": [
+  2.0,
+  2.0
+ ],
+ "source": "https://ambientcg.com/a/Snow012",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "2K-JPG (the user's files, 2026-11-20; NormalGL)",
+ "maps": [
+  "color.jpg",
+  "normal.jpg",
+  "rma.jpg"
+ ]
+}

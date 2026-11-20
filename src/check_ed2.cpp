@@ -39,11 +39,11 @@ bool ed2SelfTest(App& a, float dt) {
     char b[300]; std::snprintf(b, sizeof b, "override applied: Garand rpm %.0f -> %.0f, damage near %.0f -> %.0f, visual back %.3f -> %.3f; Tiger reload %.1f -> %.1f s, roof MG %.0f -> %.0f rpm", r0, r1, n0, n1, b0, b1, l0, l1, m0, m1);
     chk(r1 == 999 && n1 == 77 && std::fabs(b1 - 0.2f) < 1e-4f && std::fabs(l1 - 3.3f) < 1e-4f && m1 == 1111, b);
     chk(slurp(contentDir() / "weapons" / "m1_garand.json") == shippedW && slurp(contentDir() / "vehicles" / "tiger_i.json") == shippedV, "the shipped files are untouched");
-    std::error_code ec; chk(fs::exists(contentDir() / "weapons" / "overrides_user.json", ec) && fs::exists(contentDir() / "vehicles" / "overrides_user.json", ec), "overrides written to content/{weapons,vehicles}/overrides_user.json");
+    std::error_code ec; chk(fs::exists(exeDir() / "overrides" / "weapons.json", ec) && fs::exists(exeDir() / "overrides" / "vehicles.json", ec), "overrides written to <exe>/overrides/{weapons,vehicles}.json");
     weaponOverrides().erase("m1_garand"); vehicleOverrides().erase("tiger_i"); saveOverrides(); a.reloadGameplayDefs();
     float r2, n2, b2, l2, m2; stats(r2, n2, b2, l2, m2);
     std::snprintf(b, sizeof b, "reset restores: Garand rpm %.0f, near %.0f, back %.3f; Tiger reload %.1f s, roof MG %.0f rpm", r2, n2, b2, l2, m2);
-    chk(r2 == r0 && n2 == n0 && b2 == b0 && l2 == l0 && m2 == m0 && !fs::exists(contentDir() / "weapons" / "overrides_user.json", ec), b);
+    chk(r2 == r0 && n2 == n0 && b2 == b0 && l2 == l0 && m2 == m0 && !fs::exists(exeDir() / "overrides" / "weapons.json", ec), b);
     // a visible override for the capture, then the screens
     weaponOverrides()["m1_garand"] = {{"rpm", 520}}; saveOverrides();
     mainMenuOpen(a); mainMenuGo(a, 4);

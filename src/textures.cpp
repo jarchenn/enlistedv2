@@ -86,7 +86,9 @@ Slot parseSlot(const std::string& name, const json& j) {
   }
   s.kAlb = j.value("albedo", s.kAlb); s.kN = j.value("normal", s.kN); s.kR = j.value("rough", s.kR);
   if (j.value("absolute", false)) s.kAlb = -std::max(s.kAlb, 0.01f);   // NT8: a painted slot drawn in its texture's own colour (sign = flag)
-  s.kAO = j.value("ao", s.kAO); s.kH = j.value("height", s.kH);
+  s.kAO = j.value("ao", s.kAO);
+  if (j.value("assetAbsolute", false)) s.kAO = -std::max(s.kAO, 0.01f);   // trails: an asset material on this slot draws the set's own colour (sign = flag)
+  s.kH = j.value("height", s.kH);
   if (j.contains("fade") && j["fade"].is_array() && j["fade"].size() == 2) { s.fadeA = j["fade"][0]; s.fadeB = j["fade"][1]; }
   s.under = j.value("under", ""); s.expo = j.value("exposure", s.expo); s.macro = j.value("macro", 0.0f); s.contrast = j.value("contrast", 1.0f);
   s.lazy = j.value("lazy", false);
@@ -336,6 +338,7 @@ void upload(GLuint p) {
   glProgramUniform2f(p, U("uTexNear"), nearR.x, std::max(nearR.y, nearR.x + 0.1f));
   glProgramUniform4fv(p, U("uTexLod"), 1, &lod.x); glProgramUniform4fv(p, U("uTexLod2"), 1, &lod2.x);
   glProgramUniform1iv(p, U("uPatSlot"), 32, wantImg ? patSlotImg : patSlot); glProgramUniform1iv(p, U("uTerrSlot"), 8, terrSlot); glProgramUniform1iv(p, U("uPaintSlot"), kPaintTypes, paintSlotEff);
+  glProgramUniform3i(p, U("uSnowSlot"), slotIndex("snow_packed"), slotIndex("snow_trodden"), slotIndex("snow_thaw"));   // SN2: the snow sets for applySnow (terrTexSlot), -1 when missing
 }
 void uploadTables() {   // the active table into NmkTexTables (std140: vec4 arrays, no padding)
   std::vector<vec4> d((size_t)kMaxSlots * 5 + (size_t)kMaxLayers * 2);
@@ -466,6 +469,7 @@ layout(std140, binding = 3) uniform NmkTexTables {
 uniform int uTerrSlot[8]; // terrain layers: grass, soil, mud, gravel, sand, rock, scree, crater
 #define NMK_TEX_PAINT 1   // painted ground: uPaintSlot[k] for marsh, dirt, mud, gravel, sand, cobbles, rock, dry_grass, ploughed, leaf_litter, scorched, pebbles
 uniform int uPaintSlot[12];
+uniform ivec3 uSnowSlot;   // SN2: slots snow_packed, snow_trodden, snow_thaw (-1 missing): terrTexSlot(uSnowSlot.x, p, n, dpx, dpy, dist)
 uniform float uTexLodG;   // TX2K: the ground's gradient scale (terrain layers, painted ground; uTexLod.x for everything else)
 uniform vec4 uTexLod;     // gradient scale (LOD bias against TAA-jitter shimmer), normal fade start / end (texels per pixel), fade depth
 uniform vec4 uTexLod2;    // albedo / roughness detail fade start / end (texels per pixel), fade depth
@@ -592,7 +596,7 @@ TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
   o.alb = K.x < 0.0 ? mix(M.rgb, s.col, f)*(-K.x)   // NT8 "absolute": the texture's own colour (paintApply uses it as the albedo)
                     : mix(vec3(1.0), clamp(s.col/max(M.rgb, vec3(0.004)), 0.0, 2.5), K.x*f);
   o.r = mix(1.0, s.r/max(Lp.z, 0.02), K.z*f);
-  o.ao = mix(1.0, s.ao, K.w*f);
+  o.ao = mix(1.0, s.ao, abs(K.w)*f);
   o.dn = (s.n - n)*K.y*f;
   o.h = mix(0.5, clamp(s.h - Lp.w + 0.5, 0.0, 1.0), f);   // M2
   vec4 Uu = uTexU[slot];
@@ -728,8 +732,9 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
   float fa = (uImgMat == 1 && A.y > 0.5) ? f : f*(1.0 - uTexLod2.z*smoothstep(uTexLod2.x, uTexLod2.y, pix*1024.0*max(inv.x, inv.y)));
   vec3 ratio = clamp(s.col/max(M.rgb, vec3(0.004)), 0.0, 2.5);
   if (uImgMat == 1 && uTexU[slot].z != 1.0) { float l = max(dot(ratio, vec3(0.2126, 0.7152, 0.0722)), 1e-3); ratio *= pow(l, uTexU[slot].z - 1.0); }   // MA1: per-set contrast
-  vec3 a2 = alb*mix(vec3(1.0), ratio, abs(K.x)*fa);   // TX4: an "absolute" (ground) slot named by an asset material: its strength, not a negative mix
-  float r2 = rough*mix(1.0, s.r/max(Lp.z, 0.02), K.z*fa), ao2 = mix(1.0, s.ao, K.w*f);
+  vec3 a2 = K.w < 0.0 ? mix(alb, s.col*abs(K.x), f)   // trails ("assetAbsolute": path_dirt / path_gravel): the set's own colour replaces the path material's
+                     : alb*mix(vec3(1.0), ratio, abs(K.x)*fa);   // TX4: an "absolute" (ground) slot named by an asset material: its strength, not a negative mix
+  float r2 = rough*mix(1.0, s.r/max(Lp.z, 0.02), K.z*fa), ao2 = mix(1.0, s.ao, abs(K.w)*f);
   vec3 dn2 = dn*(rel && A.y > 0.5 ? max(K.y, 1.0) : K.y)*f*(rel ? 1.5 - 0.5*smoothstep(6.0, 16.0, eyeD) : 1.0);   // MA1b: replace sets at full strength, x1.5 near the eye
   float fr = 128.0*max(inv.x, inv.y);   // the height map's features: ~8 texels
   float h2 = (s.h - Lp.w)*C.x*f*(1.0 - smoothstep(0.18, 0.5, fr*pix));

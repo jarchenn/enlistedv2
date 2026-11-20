@@ -195,6 +195,7 @@ public:
   struct Perf {
     bool hblend = true;          // hblend (M2): height-based blending of ground layers and paint (textures.cpp hbK)
     bool hex = true;             // hex (M1): hex-tiled ground and cliff texture taps (textures.cpp texHexFetch)
+    bool snow = true;            // snow (VO P, A/B only): the SN1 snow layer off on every surface, to time its shading
     bool specAA = true;          // specaa (M3): geometric specular anti-aliasing in shade() (the baked Toksvig roughness mips stay)
     bool syncGpuQuery = false;   // asyncq (off = true): read the frame's GL_TIME_ELAPSED query back next frame, waiting for the GPU
     bool farCache = true;        // farcache: the far shadow cascade is redrawn every 2nd frame (or when its focus moves)
@@ -282,7 +283,8 @@ public:
               // ^ characters (gameplay): append to the line above
               : n == "hashalpha" ? &hashAlpha
               // ^ stream A (vegetation): append to the line above
-              // stream P (performance): add a line of names above this comment
+              : n == "snow" ? &snow
+              // ^ stream P (performance): append to the line above
               : nullptr;
       if (n == "perf1") { matFar = probeMed = on; return true; }   // PERF1: its switches together
       if (n == "dr1") { farLeaf = wallLod = on; return true; }   // DR1: the distant-object switches together
