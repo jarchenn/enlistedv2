@@ -139,7 +139,8 @@ public:
   // row), wx.der what follows from it this frame. Read by AI sight, sound, particles and the renderer; weather.cpp derives it.
   enum WxPrecip { WxNone = 0, WxDrizzle = 1, WxRain = 2, WxSnow = 3 };
   struct WxState { float cover = 0.1f, tau = 0, visM = 40000; float fogTopM = 0; int precip = WxNone; float precipMmH = 0;
-                   float windDirDeg = 37, windMs = 3, gust = 1.3f, gustPeriodS = 8, tempC = 18, dustVisM = 0, lightningPerMin = 0; };
+                   float windDirDeg = 37, windMs = 3, gust = 1.3f, gustPeriodS = 8, tempC = 18, dustVisM = 0, lightningPerMin = 0;
+                   float wet = 0, puddle = 0, snowDepth = 0, dustCover = 0; };   // surfaces 0..1 (snowDepth m): set per preset until accumulation exists
   struct WxDerived { bool phys = false; int preset = 0;   // phys: the formulas drive light / air / exposure (presets 2-14, Lighting New)
                      float eSunLux = 0, eSkyLux = 0, eTotalLux = 0;   // direct normal, diffuse on a level surface, total on a level surface
                      float sunK = 1, skyK = 1; vec3 tint{1};          // multipliers on the engine's sun and sky light against Clear
@@ -159,6 +160,8 @@ public:
                    WxState st; WxDerived der;
                    // W2 lightning: count so far, the last strike's distance (m, thunder delay = d / 343 s) and Renderer::time
                    int strikes = 0; float strikeDistM = 0, strikeT = -1;
+                   struct Flash { vec3 pos; float t, distM; };   // a strike this frame: world position (cloud base), cloudClock() time, distance from the eye (m)
+                   std::vector<Flash> flashes;                   // this frame's strikes (cleared each frame by weatherDerive; thunder after distM / 343 s)
                    float wantK() const { extern float wxPresetDeck(int); return !enclosed && (forced < 0 || forced == kMapDefault) && mapCloud >= 0.0f && !userSet ? mapCloud : wxPresetDeck(want()); } void snap() { k = wantK(); } } wx;
   float cloudCoverNow() const { return glm::mix(cloudCover, 0.86f, wx.k); }   // WX1 Cloudy: broken to heavy cover, still with openings
   // WX1 environmental fog field (render.cpp bakeFog): 256^2 over the terrain, R ground-fog share (basins, low ground,
@@ -185,6 +188,7 @@ public:
     float snowfallScale = 1.0f;   // SF1: share of a map's snowfall drawn at this preset (Low 0.4, Medium 0.75, High 1)   // aerial perspective (1/m at ground level, scale height m)
     bool ssao = true; float ssaoStrength = 0.95f, ssaoRadius = 0.5f;   // GX5: 0.85 / 0.6 -> 0.95 / 0.5 (contact shadows tuned for interiors, brief §8)
     bool bloom = true; float bloomStrength = 0.045f;
+    float sharpness = 0.5f;       // CP1 Settings > Sharpness 0..1: the one contrast-adaptive sharpen (tone pass); 0 = off
     float microcontrast = 0.0f;   // UI2 Settings > Microcontrast 0..1: unsharp mask on luminance against HDR mip 3 (0: off, the branch is skipped)
     bool ssr = true; float ssrStrength = 1.0f;
     bool taa = true; float taaSharpen = 0.30f, taaJitter = 0.5f;   // V1: sharpen 0.40 -> 0.30 (facade shimmer A/B, docs/rendering.md 9.5)
@@ -282,6 +286,12 @@ public:
     bool w2Mist = true;          // w2mist (W2): environmental fog without the 0.3 floor everywhere, 2-3x patchy
     bool w2Expo = true;          // w2expo (W2): overcast on a snow map exposes up (x1.2) instead of down (x0.72)
     bool lightning = true;       // lightning (W2): Thunderstorm flashes and strike events (wx.strikes, for thunder)
+    bool taaJitPh = true;        // taajitph (CP1): jitter phases 8 x (display / render)^2 under upscaling
+    bool taaVel = true;          // taavel (CP1): TAA motion from the closest depth in 3x3
+    bool taaBox = true;          // taabox (CP1): history also clamped to the 3x3 min / max box
+    bool cas = true;             // cas (CP1): one contrast-adaptive sharpen after the grade sharpen's place, with the Sharpness slider; TAA and grade sharpens off
+    bool dither = true;          // dither (CP1): triangular +-1 LSB dither at the final write
+    bool slopeCap = true;        // slopecap (CP1): shadow slope-bias cap 6 -> 2, bias scaled by the filter radius
     bool wxSun = true;           // wxsun (OPT, weather corpus 08 s4.2): overcast takes the direct sun away; under 5 % direct share no sun cascades (fade to 10 %)
     bool sunShadow = true;       // sunshadow (OPT): the sun cascades (near, mid, far) drawn and sampled; off = none (knock-out)
     bool midCascade = true;      // midcascade (VO L3): a third sun cascade between the near and far ones (Medium / High, Lighting New)
@@ -308,7 +318,7 @@ public:
     bool set(const std::string& n, bool on) {   // false: no such switch
       if (n == "wx1") { clouds = cloudShadow = shafts = envFog = on; return true; }   // WX1: the whole weather / fog stack (one A/B)
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
-              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "sunshadow" ? &sunShadow : n == "wxsun" ? &wxSun : n == "w2sky" ? &w2Sky : n == "w2mist" ? &w2Mist : n == "w2expo" ? &w2Expo : n == "lightning" ? &lightning : n == "farlite" ? &farLite : n == "occsmall" ? &occSmall : n == "skygate" ? &skyGate : n == "ssrrange" ? &ssrRange : n == "probetrickle" ? &probeTrickle : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "clouds" ? &clouds : n == "cloudshadow" ? &cloudShadow : n == "shafts" ? &shafts : n == "envfog" ? &envFog : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
+              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "sunshadow" ? &sunShadow : n == "wxsun" ? &wxSun : n == "taajitph" ? &taaJitPh : n == "taavel" ? &taaVel : n == "taabox" ? &taaBox : n == "cas" ? &cas : n == "dither" ? &dither : n == "slopecap" ? &slopeCap : n == "w2sky" ? &w2Sky : n == "w2mist" ? &w2Mist : n == "w2expo" ? &w2Expo : n == "lightning" ? &lightning : n == "farlite" ? &farLite : n == "occsmall" ? &occSmall : n == "skygate" ? &skyGate : n == "ssrrange" ? &ssrRange : n == "probetrickle" ? &probeTrickle : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "clouds" ? &clouds : n == "cloudshadow" ? &cloudShadow : n == "shafts" ? &shafts : n == "envfog" ? &envFog : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
               : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : n == "leaftex" ? &leafTex : n == "taau" ? &taau : n == "imgmat" ? &imgMat
               : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : n == "grassatlas" ? &grassAtlas : n == "dlcache" ? &dlCache : n == "instdepth" ? &instDepth : n == "folbatch" ? &folBatch : n == "farleaf" ? &farLeaf : n == "walllod" ? &wallLod : n == "matfar" ? &matFar : n == "probemed" ? &probeMed : n == "shadowcache" ? &shadowCache : n == "occcull" ? &occCull : n == "treefar" ? &treeFar : n == "leafmerge" ? &leafMerge : n == "furndist" ? &furnDist : n == "furnclutter" ? &furnClutter : n == "paint" ? &groundPaint : n == "vegcull" ? &vegCull
               // One line per stream, each followed by a comment line, so two streams appending names no longer conflict in merges.
@@ -543,6 +553,6 @@ private:
 int wxPresetCount(); int wxPresetIdAt(int menuIndex); int wxPresetMenuIndex(int id); const char* wxPresetName(int id);
 int wxPresetFromName(const std::string& n);   // a name or the old "clear" / "cloudy"; -1 unknown
 float wxPresetDeck(int id);
-void weatherDerive(Renderer& R);
+void weatherDerive(Renderer& R, vec3 eye = vec3(0));
 void weatherForce(Renderer& R, int id);   // W1: a preset now, as if picked in the menu (benchmarks: also NMK_WEATHER=<name or id> at start)
 int dbgViewFromName(const std::string& n);   // CP0: "lum", "illum", "albedo", "furnace", "texel", "sky"; anything else 0 (off)

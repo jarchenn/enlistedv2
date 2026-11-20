@@ -60,13 +60,15 @@ float wxPresetDeck(int id) { return rowOf(id)->deckK; }
 // Clear at the same sun height, so Clear stays today's picture and every other preset moves from it by the corpus's numbers.
 void weatherForce(Renderer& R, int id) { R.wx.target = std::max(0, id); R.wx.userSet = true; R.wx.snap(); }
 
-void weatherDerive(Renderer& R) {
+void weatherDerive(Renderer& R, vec3 eye) {
   auto& W = R.wx; WxDerived& d = W.der;
   static bool envDone = false;   // NMK_WEATHER=<name or id>: once, at the first frame (the collective run / captures)
   if (!envDone) { envDone = true; if (const char* e = std::getenv("NMK_WEATHER")) { int id = std::isdigit((unsigned char)e[0]) ? std::atoi(e) : wxPresetFromName(e); if (id >= 0) weatherForce(R, id); } }
   const int id = W.want();
   const Row& row = *rowOf(id);
   W.st = row.st;
+  W.st.wet = id == 5 ? 0.5f : id == 6 || id == 7 ? 1.0f : 0.0f; W.st.puddle = id == 6 ? 0.5f : id == 7 ? 1.0f : 0.0f;   // until accumulation (W3)
+  W.flashes.clear();
   const bool phys = W.presetOn() && id >= 2 && R.q.lightNew && !R.q.legacy;
   d = WxDerived{};
   d.phys = phys; d.preset = id;
@@ -103,6 +105,8 @@ void weatherDerive(Renderer& R) {
   const float dt = lastT < 0 ? 0.0f : std::clamp(R.cloudClock() - lastT, 0.0f, 0.25f); lastT = R.cloudClock();
   if (R.perf.lightning && phys && s.lightningPerMin > 0 && rnd() < s.lightningPerMin / 60.0f * dt) {
     ++W.strikes; W.strikeT = R.cloudClock(); W.strikeDistM = 500.0f + 7500.0f * rnd() * rnd();
+    const float az = 6.2831853f * rnd(), hd = std::sqrt(std::max(W.strikeDistM * W.strikeDistM - 1200.0f * 1200.0f, 0.0f));
+    W.flashes.push_back({eye + vec3(std::cos(az) * hd, 1200.0f, std::sin(az) * hd), W.strikeT, W.strikeDistM});
   }
   if (R.perf.lightning && phys && W.strikeT >= 0) {
     float a = R.cloudClock() - W.strikeT, near = 1.0f - std::min(W.strikeDistM / 8000.0f, 0.9f);

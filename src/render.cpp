@@ -125,6 +125,7 @@ float pixelNoiseFixed(){ return 0.5; }
 // one cascade: Vogel-disk PCF in light space. Normal offset grows with the slope to the sun (acne), a small
 // constant depth bias keeps contact (no peter-panning where walls meet the ground).
 // ax: (scale, bias) of x into the map's atlas half (VO L3); taps are kept inside that half
+uniform float uSlopeCap = 6.0;   // CP1 slopecap
 float cascadePCF(sampler2DShadow sm, mat4 vp, vec2 texel, float worldTexel, vec3 w, vec3 n, float radiusTex, int taps, out float edge, vec2 ax){
   float ndl = clamp(dot(n, uSunDir), 0.0, 1.0), sinT = sqrt(1.0 - ndl*ndl);
   vec3 off = n*worldTexel*(0.6 + 1.6*sinT);
@@ -132,7 +133,8 @@ float cascadePCF(sampler2DShadow sm, mat4 vp, vec2 texel, float worldTexel, vec3
   vec3 s = lp.xyz/lp.w*0.5 + 0.5;
   vec2 e = abs(s.xy*2.0 - 1.0); edge = max(e.x, e.y);
   if (edge >= 1.0 || s.z >= 1.0) { edge = 2.0; return 1.0; }
-  float bias = worldTexel*(0.35 + 0.9*min(sinT/max(ndl, 0.08), 6.0))/uShadowDepthRange;
+  float bias = uSlopeCap < 5.0 ? worldTexel*(0.35 + 0.9*min(sinT/max(ndl, 0.08), uSlopeCap))*(1.0 + 0.08*radiusTex)/uShadowDepthRange   // CP1 slopecap: cap 2, scaled by the filter radius
+                               : worldTexel*(0.35 + 0.9*min(sinT/max(ndl, 0.08), 6.0))/uShadowDepthRange;
   // FL1: the PCF disk turns per pixel but not per frame: a per-frame turn left penumbrae (ridge tiles, eaves,
   // railings) shimmering under a still camera where TAA could not average it out
   float rot = pixelNoiseFixed()*6.2831853, sum = 0.0;
@@ -2551,6 +2553,7 @@ static const char* kTaaFS = R"GLSL(
 in vec2 vUV;
 uniform sampler2D uCur, uHist, uDepth, uVel; uniform mat4 uInvVP, uPrevVP; uniform vec2 uTexel; uniform int uValid; uniform float uSharpen;
 uniform int uUp; uniform vec2 uInTexel, uJit;
+uniform int uTaaVel, uTaaBox;   // CP1: velocity from the closest depth in 3x3 (taavel); history also clamped to the 3x3 min / max box (taabox)
 uniform int uTaaDbg;   // NMK_TAA_DEBUG: 1 uv, 2 texelFetch(uCur), 3 uInTexel x 1000 / uUp, 4 texture(uCur) (Metal shim checks)   // P1 TAAU: 1 = this pass runs at output size; the internal texel; the frame's jitter (internal px)
 layout(location=0) out vec4 oColor;
 layout(location=1) out vec4 oHist;
@@ -2601,6 +2604,16 @@ void main(){
     }
   }
   m1 /= 9.0; vec3 sig = sqrt(max(m2/9.0 - m1*m1, 0.0));
+  vec3 bmn = vec3(1e9), bmx = vec3(-1e9);
+  if (uTaaBox == 1) for (int y = -1; y <= 1; ++y) for (int x = -1; x <= 1; ++x) {
+    vec3 s = toYC(uUp == 1 ? tm(texelFetch(uCur, clamp(ivec2(dUV/uInTexel) + ivec2(x, y), ivec2(0), textureSize(uCur, 0) - 1), 0).rgb) : tm(texture(uCur, vUV + vec2(x, y)*uTexel).rgb));
+    bmn = min(bmn, s); bmx = max(bmx, s);
+  }
+  if (uTaaVel == 1) {   // the nearest surface in 3x3 (reverse-Z: largest depth) carries its motion onto silhouette edges
+    vec2 tx = uUp == 1 ? uInTexel : uTexel; vec2 best = dUV; float bz = texture(uDepth, dUV).r;
+    for (int y = -1; y <= 1; ++y) for (int x = -1; x <= 1; ++x) { vec2 o = dUV + vec2(x, y)*tx; float zz = texture(uDepth, o).r; if (zz > bz) { bz = zz; best = o; } }
+    dUV = best;
+  }
   float z = texture(uDepth, dUV).r;   // (TAAU's output depth: kDepthUpFS after this pass; a depth write here broke the Metal pipeline)
   vec4 wp = uInvVP*vec4(vUV*2.0 - 1.0, z, 1.0);   // reverse-Z: ndc z = depth; the sky (0) lands on the far plane
   vec3 w = wp.xyz/wp.w;
@@ -2621,6 +2634,7 @@ void main(){
     vec3 ctr = 0.5*(lo + hi), ext = max(0.5*(hi - lo), vec3(1e-4));   // clip toward the box centre
     vec3 d = h - ctr; vec3 a = abs(d/ext); float mx = max(a.x, max(a.y, a.z));
     if (mx > 1.0) h = ctr + d/mx;
+    if (uTaaBox == 1) h = clamp(h, bmn, bmx);
     // L3: a still pixel keeps more history (0.05, was 0.08): sub-pixel sky gaps in a canopy are sampled in only some jitter
     // positions, and the blend's own noise (~ sqrt(alpha)) was what still flickered; from 1 px of motion as before
     float alpha = motion < 1.0 ? mix(0.05, 0.08, motion) : mix(0.08, 0.30, clamp(motion/16.0, 0.0, 1.0));
@@ -3654,6 +3668,9 @@ static const char* kToneFS = R"GLSL(
 in vec2 vUV;
 uniform sampler2D uHdr, uExpo, uBloom, uVmDist; uniform float uFixedExpo, uBloomAmt, uEyeR, uAspect, uRectVig, uMicro; uniform int uTonemap;
 uniform float uNewExpo;   // VO L1: Lighting New's re-fit of a fixed exposure (1 in Classic)
+uniform float uCas;     // CP1: contrast-adaptive sharpen 0..1 (Settings > Sharpness; replaces the TAA and grade sharpens), 0 off
+uniform int uDither;    // CP1: triangular +-1 LSB dither at the final write
+float tpdf(){ vec2 p = gl_FragCoord.xy; float a = fract(sin(dot(p, vec2(12.9898, 78.233)))*43758.5453), b = fract(sin(dot(p + 17.31, vec2(39.3468, 11.135)))*24634.6345); return (a + b - 1.0)/255.0; }
 uniform int uDbgView;   // CP0: 1 false-colour luminance, 6 a centre patch of exposed 0.18 (the look-dev readout)
 uniform int uNewTone; uniform float uAgxK, uAgxSat; uniform sampler3D uGradeLut;   // VO L8: AgX-style curve and the grade LUT (Lighting New)
 // GX5 grade (content/settings/grade.json, docs/graphics-overhaul.md#gx5-grade): saturation, cool shadows / warm
@@ -3699,6 +3716,16 @@ void main(){
     float ys = clamp(y + dy*uGradeSharpen*(1.0 - smoothstep(0.03, 0.18, abs(dy))), 0.0, 0.999);
     c *= (ys/(1.0 - ys))/max(L, 1e-5);
   }
+  if (uCas > 0.0) {   // CP1 contrast-adaptive sharpen (AMD CAS on luminance in a compressed space): less where the cross already has contrast; no halos
+    vec2 tx = 1.0/vec2(textureSize(uHdr, 0)); const vec3 lw = vec3(0.2126, 0.7152, 0.0722);
+    float L = dot(c, lw); float yc = L/(1.0 + L);
+    float a0 = dot(texture(uHdr, vUV + vec2(tx.x, 0.0)).rgb, lw), a1 = dot(texture(uHdr, vUV - vec2(tx.x, 0.0)).rgb, lw), a2 = dot(texture(uHdr, vUV + vec2(0.0, tx.y)).rgb, lw), a3 = dot(texture(uHdr, vUV - vec2(0.0, tx.y)).rgb, lw);
+    vec4 yn = vec4(a0, a1, a2, a3)/(1.0 + vec4(a0, a1, a2, a3));
+    float mn = min(yc, min(min(yn.x, yn.y), min(yn.z, yn.w))), mx = max(yc, max(max(yn.x, yn.y), max(yn.z, yn.w)));
+    float amp = sqrt(clamp(min(mn, 1.0 - mx)/max(mx, 1e-4), 0.0, 1.0)), wgt = -amp/mix(8.0, 5.0, uCas);
+    float ys = clamp((yc + wgt*(yn.x + yn.y + yn.z + yn.w))/(1.0 + 4.0*wgt), 0.0, 0.999);
+    c *= (ys/(1.0 - ys))/max(L, 1e-5);
+  }
   if (uMicro > 0.0) {   // UI2 microcontrast: an unsharp mask on luminance against the HDR mip 3 (1/8 size, ~8 px; made for the exposure anyway), before the tone curve
     float L = dot(c, vec3(0.2126, 0.7152, 0.0722)), Lb = dot(textureLod(uHdr, vUV, 3.0).rgb, vec3(0.2126, 0.7152, 0.0722));
     float r = clamp((L - Lb)/(Lb + 1e-4), -0.5, 0.5);   // relative difference from the local mean, clamped: no halos round strong edges or the sky line
@@ -3727,7 +3754,7 @@ void main(){
     if (uRectVig > 0.5) { vec2 a = abs(vUV - 0.5)*2.0; float r = pow(pow(a.x, 6.0) + pow(a.y, 6.0), 1.0/6.0); float k = smoothstep(0.62, 1.04, r); k = k*k*(3.0 - 2.0*k);
       float n = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)))*43758.5453) - 0.5; c = max(c*(1.0 - 0.96*k) + n/255.0, 0.0); }
     if (uUnderTone > 0.0) c *= 1.0 - dot(q,q)*1.4*uUnderTone;
-    oColor = vec4(toSRGB(clamp(c, 0.0, 1.0)), 1.0); return;
+    oColor = vec4(toSRGB(clamp(c, 0.0, 1.0)) + (uDither == 1 ? vec3(tpdf()) : vec3(0.0)), 1.0); return;
   }
   c = uTonemap == 0 ? aces(c*e*0.8) : filmic(c*e*1.22);
   // subdued, slightly desaturated period grade (grade.json): saturation, cool shadows / warm highlights, vignette
@@ -3753,7 +3780,7 @@ void main(){
   if (uMapSat != 1.0 || uMapTint != vec3(1.0)) { float lm = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(lm), c, uMapSat)*uMapTint; }   // NT2b
   if (uMapGamma != 1.0) c = pow(clamp(c, 0.0, 1.0), vec3(1.0/uMapGamma));   // BR1c
   if (uUnderTone > 0.0) { c = mix(c, c*vec3(0.55, 0.92, 0.98) + vec3(0.0, 0.025, 0.035), uUnderTone); c *= 1.0 - dot(q,q)*1.4*uUnderTone; }
-  oColor = vec4(toSRGB(c), 1.0);
+  oColor = vec4(toSRGB(c) + (uDither == 1 ? vec3(tpdf()) : vec3(0.0)), 1.0);
 }
 )GLSL";
 static const char* kExpoFS = R"GLSL(
@@ -4448,7 +4475,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniformMatrix4fv(U(p, "uLightVPFar"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
   glUniform2f(U(p, "uShadowTexelFar"), 1.0f / shadowFarSize, 1.0f / shadowFarSize);
   glUniform2f(U(p, "uShadowWorldTexel"), 2 * nearR / shadowSize, 2 * farR / shadowFarSize);
-  glUniform1f(U(p, "uShadowDepthRange"), 800.0f);
+  glUniform1f(U(p, "uShadowDepthRange"), 800.0f); glUniform1f(U(p, "uSlopeCap"), perf.slopeCap && !q.legacy ? 2.0f : 6.0f);
   glUniform1f(U(p, "uShadowSoft"), q.legacy ? 0.0f : q.shadowSoft * (1.0f + 2.0f * wx.k));   // WX2: overcast sun casts very soft shadows
   glUniform1f(U(p, "uShadowLift"), (q.lightNew && perf.fullShadow ? q.newShadowLift : 0.7f) * sunShK);   // VO L1
   glUniform1f(U(p, "uShadowWarm"), q.lightNew && perf.fullShadow && !q.legacy ? q.newShadowWarm : 0.0f);   // VO L1
@@ -5122,7 +5149,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   if (!thumbMode) bakeFog(t);
   uploadStaticDecals();      // GX5: before the probe captures (they run the main shader too)
   lightingBegin(*this, v);   // L2: time of day (sunDir = the key light until lightingEnd)
-  weatherDerive(*this);      // W1: the weather state and what follows from it this frame (weather.cpp)
+  weatherDerive(*this, v.camPos);      // W1: the weather state and what follows from it this frame (weather.cpp)
   uploadWeather();
   pxAngle = 2.0f / (std::max(1e-3f, v.proj[1][1]) * std::max(1, height));   // vertical radians per pixel
   gpuFrameBegin(); gpuMark(GP_CloudShadow);   // stats.gpuMs from the timestamps: read 2-3 frames late, never waits
@@ -5335,7 +5362,9 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   mat4 projJ = v.proj;
   if (taaOn) {
     auto halton = [](int i, int b) { float f = 1, r = 0; while (i > 0) { f /= b; r += f * (i % b); i /= b; } return r; };
-    int ph = frame % std::clamp(q.taaPhases, 1, 64) + 1;
+    int nPh = q.taaPhases;
+    if (perf.taaJitPh && taau) { float sc = (float)displayW / std::max(width, 1); nPh = std::max(nPh, (int)std::lround(8.0f * sc * sc)); }   // CP1 taajitph: 8 x (display / render)^2 phases under upscaling
+    int ph = frame % std::clamp(nPh, 1, 64) + 1;
     jitterPx = vec2(halton(ph, 2) - 0.5f, halton(ph, 3) - 0.5f) * (taau ? 1.0f : q.taaJitter);   // +-0.25 px default: edges stay crisp; TAAU: a whole internal pixel
     projJ[2][0] += jitterPx.x * 2.0f / width; projJ[2][1] += jitterPx.y * 2.0f / height;
     // camera cut: teleport / mode switch / respawn (a fast flick is fine; reprojection handles it)
@@ -5785,6 +5814,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUseProgram(progTone);
   glBindTextureUnit(0, hdrColor); glBindTextureUnit(1, expoTex[expoIdx]);
   glUniform1i(U(progTone, "uDbgView"), dbgView);
+  glUniform1f(U(progTone, "uCas"), perf.cas && !q.legacy && !thumbMode ? q.sharpness : 0.0f); glUniform1i(U(progTone, "uDither"), perf.dither && !thumbMode ? 1 : 0);   // CP1
   glUniform1i(U(progTone, "uHdr"), 0); glUniform1i(U(progTone, "uExpo"), 1);
   glUniform1f(U(progTone, "uNewExpo"), q.lightNew && !q.legacy && !thumbMode ? q.newExpo : 1.0f);   // VO L1
   { float fe = lt.mapExposure > 0 && !thumbMode ? lightingFixedExposure(*this) * lt.mapExposure : v.autoExposure ? -1.0f : lightingFixedExposure(*this); glUniform1f(U(progTone, "uFixedExpo"), fe > 0 && !thumbMode ? fe * wx.der.fixedMul : fe); }   // W1: a preset moves a fixed exposure by two thirds of its light change   // 1 by Day; BR3: a map may pin it (play = editor)
@@ -5811,7 +5841,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   {   // GX5 grade (content/settings/grade.json)
     gradeU(progTone);
     glUniform1f(U(progTone, "uGradeVig"), grade.vignette); glUniform1f(U(progTone, "uGradeCA"), grade.chromatic);
-    glUniform1f(U(progTone, "uGradeSharpen"), q.taa ? grade.sharpen : 0.0f);
+    glUniform1f(U(progTone, "uGradeSharpen"), q.taa && !(perf.cas && !q.legacy) ? grade.sharpen : 0.0f);
     glUniform1i(U(progTone, "uNewTone"), newTone ? (std::getenv("NMK_VO_NOLUT") ? 2 : 1) : 0); glUniform1f(U(progTone, "uAgxK"), q.agxK); glUniform1f(U(progTone, "uAgxSat"), q.agxSat);   // VO L8
     glBindTextureUnit(4, gradeLutTex); glUniform1i(U(progTone, "uGradeLut"), 4);
   }
@@ -5984,7 +6014,8 @@ void Renderer::taaResolve(const mat4& vpJ, const mat4& vpU, const RenderView& v)
   glUniformMatrix4fv(U(progTaa, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(prevVP));
   glUniform2f(U(progTaa, "uTexel"), histUp ? 1.0f / up.w : 1.0f / width, histUp ? 1.0f / up.h : 1.0f / height);   // output (history) texel
   glUniform1i(U(progTaa, "uValid"), taaValid ? 1 : 0);
-  glUniform1f(U(progTaa, "uSharpen"), histUp ? 0.5f * q.taaSharpen : q.taaSharpen);   // TAAU: its blur reference is the coarser internal neighbourhood
+  glUniform1f(U(progTaa, "uSharpen"), perf.cas && !q.legacy ? 0.0f : histUp ? 0.5f * q.taaSharpen : q.taaSharpen);   // CP1 cas: the one sharpener is in the tone pass
+  glUniform1i(U(progTaa, "uTaaVel"), perf.taaVel ? 1 : 0); glUniform1i(U(progTaa, "uTaaBox"), perf.taaBox ? 1 : 0);   // TAAU: its blur reference is the coarser internal neighbourhood
   glDrawArrays(GL_TRIANGLES, 0, 3);
   histIdx = cur; taaValid = true;
   prevVP = vpU; prevCam = v.camPos;
