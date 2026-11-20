@@ -1884,18 +1884,22 @@ static const char* kModelVS = R"GLSL(
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec4 aTan; layout(location=3) in vec2 aUV;
 uniform mat4 uModel, uVP;
 uniform float uThin;   // radians to widen by (thin geometry), 0 = off
-out vec3 vW, vN; out vec4 vT; out vec2 vUV; flat out vec4 vTintI;
+// AIB1: motion vectors for moving models (ModelDraw::vel): 1 the previous model matrix, 2 also the skinned soldier's previous-frame
+// vertex (aPrev, CharInstance::prevBuf). 0: none (TAA reprojects the pixel from depth, as for static geometry)
+layout(location=4) in vec3 aPrev; uniform int uVelMode; uniform mat4 uPrevModel, uVPU, uPrevVP;
+out vec3 vW, vN; out vec4 vT; out vec2 vUV; flat out vec4 vTintI; out vec4 vCC, vPC;
 void main(){
   vTintI = vec4(0.0);
   vec4 w = uModel*vec4(aPos,1.0);
   mat3 m = mat3(uModel);
   if (uThin > 0.0) { vec3 n = m*aNrm; float l = length(n); if (l > 1e-6) w.xyz += n / l * min(length(w.xyz - uCamPos) * uThin, 0.03); }
   vW = w.xyz; vN = m*aNrm; vT = vec4(m*aTan.xyz, aTan.w); vUV = aUV;
+  vCC = uVPU*w; vPC = uPrevVP*(uPrevModel*vec4(uVelMode == 2 ? aPrev : aPos, 1.0));
   gl_Position = uVP*w;
 }
 )GLSL";
 static const char* kModelFS = R"GLSL(
-in vec3 vW, vN; in vec4 vT; in vec2 vUV; flat in vec4 vTintI;
+in vec3 vW, vN; in vec4 vT; in vec2 vUV; flat in vec4 vTintI; in vec4 vCC, vPC; uniform int uVelMode;
 uniform vec3 uIvyStem; uniform vec2 uIvyRef;   // VR1 (src/ivy.cpp)
 uniform sampler2D uAlb, uMR, uNrm, uAO;
 uniform int uHasAlb, uHasMR, uHasNrm, uHasAO, uAOinMR; uniform float uAOWeak;   // TK3: 0 as baked (the default of an unset uniform), 1 no baked occlusion
@@ -1980,7 +1984,8 @@ void main(){
   oDist = length(vW - uCamPos);
   oAmb = vec4(gInd*gFogT, 1.0);
   oNR = vec4(N, clamp(rough, 0.04, 1.0) + (1.0 - gFogT));
-  oVel = vec4(0.0, 0.0, 0.0, uVmVel);   // first-person weapon: a = 1, zero motion (TAA keeps its own pixel, not the world reprojection)
+  oVel = uVelMode > 0 ? vec4(vPC.xy/vPC.w*0.5 - vCC.xy/vCC.w*0.5, 0.0, 1.0)   // AIB1: a moving model's own motion (TAA follows it, as for grass)
+       : vec4(0.0, 0.0, 0.0, uVmVel);   // first-person weapon: a = 1, zero motion (TAA keeps its own pixel, not the world reprojection)
 }
 )GLSL";
 
@@ -1990,7 +1995,7 @@ static const char* kFolVS = R"GLSL(
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec4 aTan; layout(location=3) in vec2 aUV;
 layout(std430, binding = 12) readonly buffer NmkFol { vec4 gFol[]; };
 uniform mat4 uVP; uniform float uTime, uWind; uniform int uInstBase;
-out vec3 vW, vN; out vec4 vT; out vec2 vUV; flat out vec4 vTintI;
+out vec3 vW, vN; out vec4 vT; out vec2 vUV; flat out vec4 vTintI; out vec4 vCC, vPC;   // vCC / vPC: kModelFS's motion (AIB1), unused here
 void main(){
   int b = (uInstBase + gl_InstanceID)*4;
   vec4 c0 = gFol[b], c1 = gFol[b + 1], c2 = gFol[b + 2], c3 = gFol[b + 3]; float wk = c0.w; c0.w = 0.0;
@@ -2003,7 +2008,7 @@ void main(){
   float f = 0.012*sin(7.0*uTime + 3.1*dot(w.xyz, vec3(1.0, 0.7, 1.3)));   // needle / blade flutter
   w.xyz += (vec3(0.8, 0.0, 0.6)*(0.018*h*s) + vec3(f, 0.5*f, f)*min(h, 1.5))*wk*uWind;
   mat3 m = mat3(M);
-  vW = w.xyz; vN = m*aNrm; vT = vec4(m*aTan.xyz, aTan.w); vUV = aUV;
+  vW = w.xyz; vN = m*aNrm; vT = vec4(m*aTan.xyz, aTan.w); vUV = aUV; vCC = vPC = vec4(0.0, 0.0, 0.0, 1.0);
   gl_Position = uVP*w;
 }
 )GLSL";
@@ -4679,6 +4684,8 @@ void Renderer::drawModels(const std::vector<ModelDraw>& items, const Frustum* fr
   const DrawLocs L = drawLocs(p);
   glUniform1i(L.alb, 2); glUniform1i(L.mr, 3); glUniform1i(L.nrm, 4); glUniform1i(L.ao, 5);
   GLint lm = L.model, lb = L.base, lme = L.metal, lr = L.rough, lt = L.tint, lth = L.thin;
+  static GLuint velProg = 0; static GLint lvel = -1, lpm = -1;   // AIB1: looked up once per program, not per draw
+  if (velProg != p) { velProg = p; lvel = U(p, "uVelMode"); lpm = U(p, "uPrevModel"); }
   const GpuModel* bound = nullptr; int boundMat = -2;
   for (auto& it : items) {
     const GpuModel* m = it.model;
@@ -4701,6 +4708,8 @@ void Renderer::drawModels(const std::vector<ModelDraw>& items, const Frustum* fr
     glUniform1f(lth, it.thinPx * pxAngle);
     glUniform1i(U(p, "uGlass"), it.glass); glUniform1f(U(p, "uAlbFloor"), it.albFloor);
     glUniform1i(U(p, "uClipMe"), it.optic ? 0 : 1);   // AT6 (uVmClip is set only in the first-person pass)
+    const int vel = perf.charVel ? it.vel : 0;   // AIB1
+    glUniform1i(lvel, vel); if (vel) glUniformMatrix4fv(lpm, 1, GL_FALSE, glm::value_ptr(it.prevM));
     glDrawElements(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u));
     stats.draws++; stats.tris += (int)pt.count / 3;
   }
@@ -5186,6 +5195,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glDisable(GL_CULL_FACE);
     setLighting(progModel, v);
     glUniformMatrix4fv(U(progModel, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+    glUniformMatrix4fv(U(progModel, "uVPU"), 1, GL_FALSE, glm::value_ptr(vpU));   // AIB1: motion vectors (ModelDraw::vel)
+    glUniformMatrix4fv(U(progModel, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(taaValid ? prevVP : vpU));
     drawModels(worldModels, &frMain);
     glEnable(GL_CULL_FACE);
   }

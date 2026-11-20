@@ -56,7 +56,8 @@ struct Soldier {
   uint8_t kit = 0; float kitSpeed = 1; bool kitSparks = false;
   mat4 dfMagK{1}; bool dfMagHeld = false;   // DF1: a Delta Force reload: the magazine in the left hand (its offset from the hand at the grab)
   vec2 dfMagWin{0}; float dfPUp = 1;   /* WS1: the pistol posture, smoothed (gunbody.cpp) */ float dfBoltBack = 0, dfPumpBack = 0, dfPrevYaw = 0, dfYawRate = 0, dfYawOff = 0;   // DF1 gunbody.cpp: the reload span the magazine is out; the bolt / pump travel (m); the body's turn rate (deg/s)
-  vec3 dbgVel{0};   // WSM2 captures: the velocity a frozen bot reports (its walk / run clip in place)
+  vec3 dbgVel{0};
+  mat4 velWorld{1}, velGun{1}; int velFrame = -10, velGunFrame = -10;   // AIB1: the world matrix the body was last drawn with (TAA motion vectors), and that frame   // WSM2 captures: the velocity a frozen bot reports (its walk / run clip in place)
   bool holdBody = false;   // WSM2: a skin on the Allied paratrooper's skeleton (combat.json hold_bodies): the shared clips, the game's guns in the stored per-gun holds (gunbody.cpp deltaBodyPose)
   bool gunBody = false; int gmWeapon = -1; double gmShotAt = -100; float gmFireT = 1;   // GM1 / GM2: a body with its gun built in (gas-mask / desert soldiers, the Axis bots: combat.json gunbody_models): its weapon, the clip state of its shots (gunbody.cpp)   // SW1: 2 blaster trooper, 3 robot commando (combat.json kits: body, blasters, pace, hit sparks)
   float lean = 0;                            // MV3: the player's Q / E lean (-1 .. 1; local from App::lean, LAN in the snapshot)                           // AI5: an Operator bot (AiType::Operators): modern weapons (combat.json loadouts_operator)                       // G2: the melee brain (zombie.cpp: Zombies, heavies): no weapon

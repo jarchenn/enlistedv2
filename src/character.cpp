@@ -99,14 +99,15 @@ const char* kSemanticNames[CJ_COUNT] = {"Hips", "Spine", "Spine1", "Spine2", "Ne
   "LeftShoulder", "LeftArm", "LeftForeArm", "LeftHand", "RightShoulder", "RightArm", "RightForeArm", "RightHand",
   "LeftUpLeg", "LeftLeg", "LeftFoot", "LeftToeBase", "RightUpLeg", "RightLeg", "RightFoot", "RightToeBase"};
 
-GLuint gSkinProg = 0; GLint gSkinCount = -1;
+GLuint gSkinProg = 0; GLint gSkinCount = -1, gSkinKeep = -1;
 const char* kSkinCS = R"(#version 450
 layout(local_size_x = 64) in;
 struct V { vec4 pos; vec4 nrm; vec4 uv; uvec4 j; vec4 w; };
 layout(std430, binding = 0) readonly buffer Rest { V rv[]; };
 layout(std430, binding = 1) readonly buffer Joints { mat4 J[]; };
-layout(std430, binding = 2) writeonly buffer Out { float o[]; };
-uniform uint uCount;
+layout(std430, binding = 2) buffer Out { float o[]; };
+layout(std430, binding = 4) writeonly buffer PrevOut { vec4 po[]; };   // AIB1: each vertex's previous-frame position (TAA motion)
+uniform uint uCount; uniform int uKeepPrev;   // 1: the position in Out is last frame's (copied out before it is overwritten)
 void main() {
   uint i = gl_GlobalInvocationID.x; if (i >= uCount) return;
   V v = rv[i];
@@ -114,6 +115,7 @@ void main() {
   vec3 p = (M * vec4(v.pos.xyz, 1.0)).xyz;
   vec3 n = normalize(mat3(M) * v.nrm.xyz);
   uint b = i * 12u;
+  po[i] = vec4(uKeepPrev == 1 ? vec3(o[b], o[b + 1u], o[b + 2u]) : p, 1.0);
   o[b] = p.x; o[b + 1u] = p.y; o[b + 2u] = p.z;
   o[b + 3u] = n.x; o[b + 4u] = n.y; o[b + 5u] = n.z;
   o[b + 6u] = 1.0; o[b + 7u] = 0.0; o[b + 8u] = 0.0; o[b + 9u] = 1.0;
@@ -130,7 +132,7 @@ bool initSkinning(std::string& err) {
   gSkinProg = glCreateProgram(); glAttachShader(gSkinProg, s); glLinkProgram(gSkinProg); glDeleteShader(s);
   glGetProgramiv(gSkinProg, GL_LINK_STATUS, &ok);
   if (!ok) { err = "skinning program link failed"; return false; }
-  gSkinCount = glGetUniformLocation(gSkinProg, "uCount");
+  gSkinCount = glGetUniformLocation(gSkinProg, "uCount"); gSkinKeep = glGetUniformLocation(gSkinProg, "uKeepPrev");
   return true;
 }
 
@@ -401,13 +403,17 @@ void CharModel::destroy() {
 bool CharInstance::create(const CharModel& m) {
   model = &m;
   view.mats = m.gpu.mats; view.parts = m.gpu.parts; view.ebo = m.gpu.ebo; view.bmin = m.gpu.bmin; view.bmax = m.gpu.bmax; view.tris = m.gpu.tris;
-  glCreateVertexArrays(1, &view.vao); glCreateBuffers(1, &view.vbo); glCreateBuffers(1, &jointSsbo);
+  glCreateVertexArrays(1, &view.vao); glCreateBuffers(1, &view.vbo); glCreateBuffers(1, &jointSsbo); glCreateBuffers(1, &prevBuf);
   glNamedBufferStorage(view.vbo, m.verts.size() * sizeof(TexVertex), nullptr, 0);
   glNamedBufferStorage(jointSsbo, std::max(1, m.joints()) * sizeof(mat4), nullptr, GL_DYNAMIC_STORAGE_BIT);
+  glNamedBufferStorage(prevBuf, std::max<size_t>(1, m.verts.size()) * sizeof(vec4), nullptr, 0);   // AIB1: 16 B a vertex
   glVertexArrayVertexBuffer(view.vao, 0, view.vbo, 0, sizeof(TexVertex));
   glVertexArrayElementBuffer(view.vao, view.ebo);
   auto attr = [&](int loc, int n, size_t off) { glEnableVertexArrayAttrib(view.vao, loc); glVertexArrayAttribFormat(view.vao, loc, n, GL_FLOAT, GL_FALSE, (GLuint)off); glVertexArrayAttribBinding(view.vao, loc, 0); };
   attr(0, 3, offsetof(TexVertex, pos)); attr(1, 3, offsetof(TexVertex, nrm)); attr(2, 4, offsetof(TexVertex, tan)); attr(3, 2, offsetof(TexVertex, uv));
+  glVertexArrayVertexBuffer(view.vao, 1, prevBuf, 0, sizeof(vec4));   // AIB1: aPrev (kModelVS location 4)
+  glEnableVertexArrayAttrib(view.vao, 4); glVertexArrayAttribFormat(view.vao, 4, 3, GL_FLOAT, GL_FALSE, 0); glVertexArrayAttribBinding(view.vao, 4, 1);
+  lastFrame = -10;
   return true;
 }
 
@@ -415,17 +421,25 @@ void CharInstance::destroy() {
   if (view.vao) glDeleteVertexArrays(1, &view.vao);
   if (view.vbo) glDeleteBuffers(1, &view.vbo);
   if (jointSsbo) glDeleteBuffers(1, &jointSsbo);
+  if (prevBuf) glDeleteBuffers(1, &prevBuf);
+  prevBuf = 0;
   view.vao = view.vbo = 0; jointSsbo = 0; view.ebo = 0; view.mats.clear(); view.parts.clear(); model = nullptr;
 }
 
-void CharInstance::skin(const std::vector<mat4>& S) {
+void CharInstance::skin(const std::vector<mat4>& S, int frame) {
   if (!model || !gSkinProg || S.empty()) return;
-  glNamedBufferSubData(jointSsbo, 0, std::min<size_t>(S.size(), model->joints()) * sizeof(mat4), S.data());
+  const size_t nb = std::min<size_t>(S.size(), model->joints()) * sizeof(mat4);
+  glNamedBufferSubData(jointSsbo, 0, nb, S.data());
+  // AIB1: the previous position is last frame's pose only when that was skinned the frame before; after a gap (far, skinned every
+  // few frames) or the first skin: this pose (no limb motion, the body's own motion still comes from the previous model matrix)
+  const bool cont = frame >= 0 && lastFrame == frame - 1;
+  prevValid = cont; lastFrame = frame;
   glUseProgram(gSkinProg);
-  glUniform1ui(gSkinCount, (GLuint)model->verts.size());
+  glUniform1ui(gSkinCount, (GLuint)model->verts.size()); glUniform1i(gSkinKeep, prevValid ? 1 : 0);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, model->restSsbo);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, jointSsbo);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, view.vbo);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, prevBuf);
   glDispatchCompute((GLuint)((model->verts.size() + 63) / 64), 1, 1);
   glMemoryBarrier(GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT | GL_ELEMENT_ARRAY_BARRIER_BIT);
   glUseProgram(0);

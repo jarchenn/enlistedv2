@@ -1316,9 +1316,15 @@ void Game::drawItems() {
       if (!s.ciReady) { s.ci.create(*models[s.model]); s.ciReady = true; }
       int every = dist > 140 ? 6 : dist > 70 ? 3 : 1;   // far: skin less often
       bool due = s.ci.frameSkinned < 0 || (s.skinRev != s.poseRev && (frame + s.slot) % every == 0);   // and never an unchanged pose
-      if (due) { s.ci.skin(s.pose.skin); s.ci.frameSkinned = frame; s.skinRev = s.poseRev; }
+      if (due) { s.ci.skin(s.pose.skin, frame); s.ci.frameSkinned = frame; s.skinRev = s.poseRev; }
     }
-    for (int k = 0; k < (int)src->ci.view.parts.size(); ++k) if (!brHidePart(s, src->ci.view.parts[k].name)) app.R.worldModels.push_back({&src->ci.view, k, s.world, s.zombie ? rulesTint(*this, s) * vec4(enemyType(s.etype).tint, 1) : rulesTint(*this, s)});   // W1: protection shimmer
+    // AIB1: TAA motion: the body's previous world matrix (last frame's, if drawn then) and, skinned this frame, each vertex's last position
+    const int vel = src->ci.frameSkinned == frame && src->ci.prevValid ? 2 : 1;
+    const mat4 prevW = s.velFrame == frame - 1 ? s.velWorld : s.world; s.velWorld = s.world; s.velFrame = frame;
+    for (int k = 0; k < (int)src->ci.view.parts.size(); ++k) if (!brHidePart(s, src->ci.view.parts[k].name)) {
+      app.R.worldModels.push_back({&src->ci.view, k, s.world, s.zombie ? rulesTint(*this, s) * vec4(enemyType(s.etype).tint, 1) : rulesTint(*this, s)});
+      app.R.worldModels.back().prevM = prevW; app.R.worldModels.back().vel = vel;
+    }   // W1: protection shimmer
     vec4 heatObj(0.0f);   // TH2: the body's centre and reach, for its gun too
     if (app.R.thermalWanted) {   // TH1: body heat through a thermal scope: men hot (head / face hottest), monsters a little cooler, robots cool, the dead cooling over a minute
       const float h = s.alive ? (s.kit == 3 ? 0.45f : s.zombie ? 0.85f : 0.95f) : std::max(0.08f, 0.95f * (1.0f - (float)(t - s.diedAt) / 60.0f));
@@ -1349,7 +1355,8 @@ void Game::drawItems() {
         }
         const mat4 boltW = (clipKit(s.kit) || s.holdBody) && s.dfBoltBack > 0 ? W * glm::translate(mat4(1), vec3(0, 0, -s.dfBoltBack)) : W;   // DF1: the bolt drawn back / the pump slid back
         const mat4 pumpW = (clipKit(s.kit) || s.holdBody) && s.dfPumpBack > 0 ? W * glm::translate(mat4(1), vec3(0, 0, -s.dfPumpBack)) : W;
-        for (int p = 0; p < 8; ++p) for (int k : d.worldParts()[p]) app.R.worldModels.push_back({d.worldModel(), k, p == 2 ? magW : p == 1 ? boltW : p == 7 && d.action != "launcher" ? pumpW : W});   // WPart (weapons.cpp): 1 bolt, 2 mag, 7 handle
+        const mat4 prevGun = s.velGunFrame == frame - 1 ? s.velGun : W; s.velGun = W; s.velGunFrame = frame;   // AIB1: TAA motion of the held gun (its parts move with W)
+        for (int p = 0; p < 8; ++p) for (int k : d.worldParts()[p]) { app.R.worldModels.push_back({d.worldModel(), k, p == 2 ? magW : p == 1 ? boltW : p == 7 && d.action != "launcher" ? pumpW : W}); app.R.worldModels.back().prevM = prevGun; app.R.worldModels.back().vel = 1; }   // WPart (weapons.cpp): 1 bolt, 2 mag, 7 handle
         if (app.R.thermalWanted) {   // TH1: a gun warms with firing and cools over ~15 s
           const float gh = 0.18f + 0.6f * std::exp(-(float)(t - s.lastShot) / 15.0f);
           for (int p = 0; p < 8; ++p) for (int k : d.worldParts()[p]) app.R.heatDraws.push_back({{d.worldModel(), k, W}, gh, heatObj});   // TH2: shaded with its holder
