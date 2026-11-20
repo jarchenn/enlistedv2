@@ -1783,7 +1783,7 @@ void main(){
     // Lives here, not in the pattern bodies: L4 replace slots (MA1) skip those, concrete 11 / 15 included.
     vec3 alb0 = alb;
     int mc = pat == 11 || pat == 15 ? 3 : pat == 9 || pat == 18 ? 2 : pat == 1 || pat == 19 || pat == 22 ? 1 : 0;   // render / wood, stone, brick, concrete
-    float matK = mc == 2 ? 0.9 : mc == 1 ? 0.95 : 1.0;   // brick and dressed stone shed water better than render
+    float matK = mc == 2 ? 0.9 : 1.0;   // brick sheds water better than render; QS1 / CP step 6: dressed stone weathers like its wall (was 0.95: kept cleaner than it)
     vec3 dampC = mc == 0 ? vec3(0.45, 0.34, 0.22) : mc == 1 ? vec3(0.50, 0.50, 0.46) : mc == 2 ? vec3(0.40, 0.33, 0.28) : vec3(0.33, 0.35, 0.38);   // brown soil, dark wet stone (GR2: was green-grey, a continuous green band), dark wet
     // GR2: the grunge dirt channel along the wall (1 = dirty): damp and moss come in patches, not as one band
     float gD = uGrungeK > 0.0 ? textureLod(uGrunge, vec2(dot(vAp.xz, vec2(0.7071)), vAp.y)/3.0 + vec2(sd*5.3, sd*2.9), max(0.0, log2(max(gPix*1024.0/3.0, 1e-4)))).g : 1.0;
