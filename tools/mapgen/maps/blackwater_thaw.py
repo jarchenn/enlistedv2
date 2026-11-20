@@ -90,6 +90,7 @@ ROUTES = {   # name: (points, clear width, kind)
 PUDDLES = [(-30.0, -59.5, 1.3), (-8.0, -50.6, 1.1), (6.0, -42.6, 1.5), (9.5, -17.5, 1.2), (2.0, -9.0, 1.0), (-1.0, -3.5, 1.4),
            (-60.0, -61.9, 1.2), (-84.0, -63.0, 1.6), (40.0, -55.8, 1.0), (62.0, -8.0, 1.3), (-20.0, 24.0, 1.1)]   # (x, z, radius m)
 ORCH_IDS = []
+CREEK_PROFILE = []   # BT2: (x, z, water level above BASE) along the creek, 2 m apart (build_terrain)
 FIR_STANDS = []   # BT2: (x, z, radius) of each fir stand (dark needle floor, no snow under it)
 SPAWN_LOW = (-90.0, -73.0)     # in the cart yard, the cart shed behind and a stone wall screening it from the orchard
 SPAWN_UP = (18.0, 109.0)       # the screened yard behind the washhouse
@@ -321,7 +322,32 @@ def build_terrain(grid):
     H += np.where(F.fix, 0.0, noise)
     # the creek: a channel along the bed profile, 3-5 m wide at the bed, asymmetric banks (steeper on the outside of the
     # bend), the bank flattened at the ford; lanes on embankments keep their grade
-    _, _, d_cr, h_cr = F.corridor([(x, z, b) for x, z, b in CREEK_CTRL], 60.0)
+    # BT2 (user): the water 0.3-0.6 m under the lower bank top, not at the bottom of a trench: the bed is filled up to
+    # that line. The water keeps 0.9 m under each bridge deck, the ford keeps its wadeable depth, and the level never
+    # rises downstream below the stone bridge (so the east gorge below the ford stays as it is)
+    # the south bank's low patch below the stone bridge (x -78..-70) lifted to its neighbours' height, so it does not
+    # pin the whole village reach's water line down (it sits between the creek and the creek path, off the lane)
+    dip = np.clip(1.0 - np.maximum(np.maximum(-79.0 - X, X + 69.0), np.maximum(-58.5 - Z, Z + 55.0)) / 1.5, 0.0, 1.0)
+    H = np.where(dip > 0, np.maximum(H, H + (2.05 - H) * dip * (H < 2.05)), H)
+    def Hs(px, pz):
+        return float(ndimage.map_coordinates(H, [[(pz - F.z0) / RES], [(px - F.x0) / RES]], order=1, mode="nearest")[0])
+    dense = lane_dense([(x, z, b) for x, z, b in CREEK_CTRL], 2.0)
+    prof = []
+    for i, (x, z, b) in enumerate(dense):
+        a_, c_ = dense[max(i - 1, 0)], dense[min(i + 1, len(dense) - 1)]
+        L = math.hypot(c_[0] - a_[0], c_[1] - a_[1]) or 1.0
+        nx, nz = -(c_[1] - a_[1]) / L, (c_[0] - a_[0]) / L
+        w = max(b + 0.32, min(Hs(x + nx * 5.5, z + nz * 5.5), Hs(x - nx * 5.5, z - nz * 5.5)) - 0.45)
+        for (cx, cz), deck in ((BRIDGE_W, 2.6), (FOOTBRIDGE, 2.2)):
+            if math.hypot(x - cx, z - cz) < 12.0:
+                w = max(b + 0.32, min(w, deck - (0.9 if deck > 2.4 else 0.7)))
+        if math.hypot(x - FORD[0], z - FORD[1]) < 14.0 or x < -100.0:   # the ford stays wadeable; west of the cart yard the
+            w = b + 0.32                                                    # creek keeps its cut through the outer slopes
+        if prof and x > BRIDGE_W[0] + 2.0:   # the cart-yard reach above the stone bridge stands on its own (a low yard bank)
+            w = min(w, prof[-1][2])
+        prof.append((x, z, w))
+    CREEK_PROFILE[:] = prof
+    _, _, d_cr, h_cr = F.corridor([(x, z, w - 0.32) for x, z, w in prof], 60.0)
     bed_half = 1.8 + 0.6 * np.sin(X / 23.0)
     bank = 0.42 + 0.18 * (np.sin(X / 31.0 + 1.0) > 0)              # low stone banks, 60-67 deg: crossed only at the bridges and the ford
     ford = np.hypot(X - FORD[0], Z - FORD[1])
@@ -511,8 +537,11 @@ def build(ctx):
                                  ("nat_brush_scrub", 61.5, 58.2, 30.0, 0.0), ("nat_boulder_granite_s", 62.6, 57.0, 75.0, 0.25),
                                  ("nat_brush_patchy", 61.0, 57.2, 160.0, 0.0)):
         if aid in cat:
+            gy = G(x, z)
+            if aid.startswith("tr_"):   # a tree stands at its lowest root contact (1.5 m ring), so no root floats on the bank
+                gy = min([gy] + [G(x + 1.5 * math.cos(k * math.pi / 4), z + 1.5 * math.sin(k * math.pi / 4)) for k in range(8)])
             b.place(aid, x, z, yaw, check=False, cls="veg" if aid.startswith(("tr_", "nat_brush")) else "none",
-                    y=G(x, z) - sink, tags={"dress", "slice"}, companions=False)
+                    y=gy - sink, tags={"dress", "slice"}, companions=False)
     paint.poly("pebbles", [(3.0, -29.5), (21.0, -29.0), (22.0, -34.5), (3.5, -36.5)], weight=0.8, edge=1.5, ragged=1.5, seed=31)   # the gravel margin at the footbridge
     paint.poly("scorched", [(61.0, -9.0), (65.0, -10.5), (64.0, -13.0), (60.5, -12.5)], weight=0.6, edge=1.2, ragged=0.8, seed=21)   # ash downwind (south-east)
 
@@ -744,14 +773,14 @@ def write_creek_asset(ctx, F):
     """content/assets/bt_creek.json: the creek (a stream surface graded along its centreline, the current slowing to
     still edges where thin ice forms) and the lane puddles (thin ice skins), placed once at the origin."""
     import json
-    dense = lane_dense([(x, z, BASE + b + 0.32) for x, z, b in CREEK_CTRL], 2.0)
+    dense = [(x, z, BASE + w) for x, z, w in CREEK_PROFILE]   # BT2: the raised water line (build_terrain)
     left, right = [], []
     for a, c in zip(dense, dense[1:] + [dense[-1]]):
         dx, dz = c[0] - a[0], c[1] - a[1]
         L = math.hypot(dx, dz) or 1.0
         nx, nz = -dz / L, dx / L
-        left.append([round(a[0] + nx * 4.2, 2), round(a[1] + nz * 4.2, 2)])
-        right.append([round(a[0] - nx * 4.2, 2), round(a[1] - nz * 4.2, 2)])
+        left.append([round(a[0] + nx * 6.0, 2), round(a[1] + nz * 6.0, 2)])   # BT2: wider (the higher water spreads)
+        right.append([round(a[0] - nx * 6.0, 2), round(a[1] - nz * 6.0, 2)])
     surfaces = [{"kind": "stream", "outline": left + right[::-1], "level": round(max(p[2] for p in dense), 3),
                  "path": [[round(p[0], 2), round(p[1], 2), round(p[2], 3)] for p in dense], "speed": 0.7, "halfWidth": 2.6,
                  "clarity": 0.8, "waves": 0.8, "ice": 0.55}]
@@ -791,7 +820,10 @@ def dress_vegetation(b, cat, G, R):
             return False
         # BT2: seat = the root spread (m): the tree stands at the lowest ground under it (its lowest root contact), so no
         # root floats on a slope; the asset's model.sink buries the flare
-        y = min([G(x, z)] + [G(x + seat * math.cos(t), z + seat * math.sin(t)) for t in [k * math.pi / 4 for k in range(8)]]) if seat > 0 else G(x, z)
+        ring = [G(x, z)] + [G(x + seat * math.cos(t), z + seat * math.sin(t)) for t in [k * math.pi / 4 for k in range(8)]] if seat > 0 else [G(x, z)]
+        if max(ring) - min(ring) > 2.0:   # BT2 (user): not over a drop-off (the 1.8 m ring, wider than the roots, sets the seat)
+            return False
+        y = min(ring)
         e = b.place(aid, x, z, yaw, check=False, cls="veg", y=y, tags={"veg", key}, companions=False)
         rep[key] = rep.get(key, 0) + (e is not None)
         return e is not None
@@ -814,7 +846,9 @@ def dress_vegetation(b, cat, G, R):
         if min(math.hypot(x - c[0], z - c[1]) for c in (BRIDGE_W, FOOTBRIDGE, FORD)) < 12.0:
             continue
         side = 1 if k % 2 else -1
-        put(R.choice(["nt3_tree_dead_ash", "nt3_tree_dead_oak", "nt3_tree_dead_ash"]), x + R.uniform(-1.5, 1.5), z + side * R.uniform(4.5, 6.5), R.uniform(0, 360), "creek_trees", clear=2.0, seat=1.2)
+        for _try in range(5):   # a few spots along the bank top before giving the slot up
+            if put(R.choice(["nt3_tree_dead_ash", "nt3_tree_dead_oak", "nt3_tree_dead_ash"]), x + R.uniform(-3.0, 3.0), z + side * R.uniform(7.0, 11.0), R.uniform(0, 360), "creek_trees", clear=2.0, seat=1.8):
+                break
     # fir and spruce: ridgeline masses outside the envelope and border screens just inside it
     firs = ["ph_fir_tree_01_a", "ph_fir_tree_01_b", "ph_fir_tree_01_c", "ph_fir_sapling_medium_a", "ph_fir_sapling_medium_b"]
     # BT2: massed stands (8-16 overlapping crowns each) with open ground between, not an even sprinkle: a stand reads as
