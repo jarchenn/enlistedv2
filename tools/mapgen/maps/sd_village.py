@@ -117,7 +117,7 @@ def build(ctx):
     paint.poly("dirt", [(-B0, -B0), (B0, -B0), (B0, B0), (-B0, B0)], weight=0.62, edge=6.0, ragged=4.0, seed=2)
     paint.poly("dry_grass", [(-B0, -B0), (B0, -B0), (B0, B0), (-B0, B0)], weight=0.38, edge=6.0, ragged=4.0, seed=3)
     # trails (user, 2026-11-20: "Every map"): the dirt lanes paint "ploughed" (unused here; same footsteps, grass and nav as
-    # dirt), drawn as trail_gravel (look.paintSets); the base wash and yards stay dirt, the mud lanes stay mud
+    # dirt), drawn as trail_dirt (look.paintSets); the base wash and yards stay dirt, the mud lanes stay mud
     for pts, w, kind in ((MAIN, 6.5, "mud"), (GRAVE, 4.0, "ploughed"), (HOLLOW, 5.0, "mud"), (NORTH, 4.0, "ploughed"), (CHURCH_LANE, 3.2, "ploughed"),
                          (GAP, 3.5, "ploughed"), (WARD_EAST, 3.5, "ploughed"), (FARM_GATE, 3.5, "mud"), (EAST_ALLEY, 3.5, "mud"), (WELL_ALLEY, 3.0, "ploughed"), (BAKERS, 3.0, "ploughed"), (ORCHARD, 3.0, "ploughed")):
         paint.line(kind, pts, w, weight=0.9, edge=1.4)
@@ -489,7 +489,7 @@ def build(ctx):
     thumb_cam = ([6.0, G(6.0, -8.0) + 3.0, -8.0], look_yaw(-10.0, 22.0), -4.0)   # from the square's south-east corner, the well and the church lane
     a1 = sc.spawns[0]["pos"]
     look = {"haze": 2.6, "weather": 0.85, "clouds": 0.9, "envFog": 1, "saturation": 0.74, "tint": [1.04, 0.97, 0.88], "bloom": 1.3, "grime": 1.4, "season": "autumn",
-            "paintSets": {"leaf_litter": "ph_needle_floor", "ploughed": "trail_gravel"}}
+            "paintSets": {"leaf_litter": "ph_needle_floor", "ploughed": "trail_dirt"}}
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sc.to_json(rules_extra=rules), explore_start=((a1[0], a1[1], a1[2]), 0.0), camera=cam, bookmarks={},
               extra={"groundPaint": paint.to_json(), "lighting": {"hour": 17.9, "enclosed": False, "fill": 1.1}, "look": look})
