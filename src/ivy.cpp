@@ -1,15 +1,17 @@
-// Ivy on stone walls (B1, docs/asset-format.md#ivy): alpha-tested leaf cards hugging the exterior faces of a building's
-// stone / brick / rendered walls, seeded per instance. IV1: five types (common ivy with its mature berried shoots,
-// Virginia creeper green / autumn, Boston ivy, small-leaved ivy, dead ivy) drawn from the leaves.json layers, woody
-// stems that thicken with age, and growth patterns (climbing fans, corners, curtains, window framing, wall tops,
-// spirals, ground cover, islands, blankets) walked over a 10 cm grid of each facade. Drawn through the foliage
-// path (wind, culling, shadows); the cards on a bay go when the bay is breached; density follows the grass quality
-// and the Settings toggle (App::ivyOn).
+// Ivy on walls (B1 / IV1, docs/asset-format.md#ivy). VR1: every vine in the game is drawn from one model, the ivy pack
+// (LOLIPOP, CC-BY-4.0; content/assets/ivy_pack.json, one shared bake of 12 pieces with their own LODs): wall pieces
+// climbing a building's stone / brick / rendered facades (or hanging upside down from a wall top as curtains), the
+// inside-corner pieces where two facades meet in a re-entrant corner, and ground patches at the wall foot. A piece only
+// goes where the facade's 10 cm grid is wall over its whole rectangle, so never across a door or window; a piece over a
+// breached bay goes with the bay; the count thins with the grass quality and the Settings toggle (App::ivyOn). The
+// colour is a per-instance tint (content/settings/ivy.json: dusty grey through dry brown to orange), close in tone on
+// one building, apart between buildings. Drawn instanced through the model-foliage path (wind, culling, shadows).
 #include "app.h"
 #include "settings.h"
 #include <algorithm>
 #include <cfloat>
 #include <limits>
+#include <map>
 #include <random>
 
 namespace {
@@ -30,14 +32,14 @@ bool inSolid(const std::vector<std::pair<vec3, vec3>>& solids, vec3 q) {
 }
 // Vertical faces of axis-aligned stone boxes that look outward: walking out from the face to the asset's bounds
 // meets no solid (a partition or the face behind a facade slab always does). Bays only offer their outward face.
-// solids: every visible solid box, so a card is also only kept where nothing stands in front of it (recess, pier).
+// solids: every visible solid box, so a piece is also only kept where nothing stands in front of it (recess, pier).
 void collectFaces(const AssetDef& a, std::vector<Face>& out, std::vector<std::pair<vec3, vec3>>& solids) {
   std::vector<Face> cand;
   auto add = [&](const Part& p, int panel, int panelN, float panelSign) {
     if (!aligned(p) || !p.visible) return;
     solids.push_back({p.center - p.size * 0.5f, p.center + p.size * 0.5f});   // visible, solid or not (railings, glass)
-    if (std::max(p.size.x, p.size.z) < 1.2f && p.size.y < 2.5f) return;   // PR1: no creeper on small pieces (pumps, bins, cabinets): it read as a flat card
-    if (!p.collide || (p.bv > 0 && !gIvyAnyWall) || p.mat < 0 || p.mat >= (int)a.materials.size() || !ivyMaterial(a.materials[p.mat]) || p.size.y < 0.3f) return;   // bevelled: trim, the ivy goes round it
+    if (std::max(p.size.x, p.size.z) < 1.2f && p.size.y < 2.5f) return;   // PR1: no creeper on small pieces (pumps, bins, cabinets)
+    if (!p.collide || (p.bv > 0 && !gIvyAnyWall) || p.mat < 0 || p.mat >= (int)a.materials.size() || !ivyMaterial(a.materials[p.mat]) || p.size.y < 0.3f) return;   // bevelled: trim
     for (int n : {0, 2}) for (float sign : {-1.0f, 1.0f}) {
       if (panel >= 0 && (n != panelN || sign != panelSign)) continue;
       int u = 2 - n;
@@ -69,12 +71,11 @@ void collectFaces(const AssetDef& a, std::vector<Face>& out, std::vector<std::pa
 
 float u01(std::mt19937& g) { return (g() >> 8) * (1.0f / 16777216.0f); }
 
-// ---------------------------------------------------------------- IV1 types and patterns
-enum { T_COMMON, T_CREEPER, T_BOSTON, T_SMALL, T_DEAD, T_N };
+// growth patterns (IV1 names, kept so authored blocks and Beautify's per-copy "ivy" still mean the same): what each
+// lays down in pieces is in growFacade below. The IV1 leaf types ("common", "creeper", ...) no longer change anything:
+// every vine is the same model, coloured by the tint.
 enum { P_FAN = 1, P_CORNER = 2, P_CURTAIN = 4, P_FRAME = 8, P_TOP = 16, P_SPIRAL = 32, P_GROUND = 64, P_ISLANDS = 128, P_BLANKET = 256 };
-const char* const kTypeName[T_N] = {"common", "creeper", "boston", "small", "dead"};
 const char* const kPatName[9] = {"fan", "corner", "curtain", "frame", "top", "spiral", "ground", "islands", "blanket"};
-int typeOf(const std::string& s) { for (int k = 0; k < T_N; ++k) if (s == kTypeName[k]) return k; return -1; }
 int patternsOf(const std::string& s) {   // "fan+ground" -> P_FAN | P_GROUND
   int m = 0;
   for (size_t i = 0; i <= s.size();) {
@@ -84,18 +85,7 @@ int patternsOf(const std::string& s) {   // "fan+ground" -> P_FAN | P_GROUND
   }
   return m;
 }
-// leaf species (leaves.json, tools/gen_leaf_textures.mjs); upper: the mature (flowering, berried) shoots high on old ivy;
-// autumn: the colour after the turn. size: leaf length (m); perNode: leaves per 9 cm of stem at full vigour;
-// flat: how closely the leaves lie against the wall; col: procedural fallback colour (no leaf library)
-struct TypeP { const char *leaf, *upper, *autumn; float size, perNode, flat; bool deciduous; vec3 col; };
-const TypeP kType[T_N] = {
-  {"ivy", "ivy_mature", nullptr, 0.11f, 2.6f, 0.55f, false, {0.045f, 0.085f, 0.028f}},
-  {"creeper", nullptr, "creeper_red", 0.17f, 1.6f, 0.35f, true, {0.06f, 0.1f, 0.03f}},
-  {"boston", nullptr, "creeper_red", 0.17f, 2.2f, 0.85f, true, {0.05f, 0.09f, 0.03f}},
-  {"ivy_small", nullptr, nullptr, 0.065f, 3.8f, 0.6f, false, {0.04f, 0.075f, 0.025f}},
-  {"ivy_dead", nullptr, nullptr, 0.09f, 0.6f, 0.4f, false, {0.16f, 0.1f, 0.05f}},
-};
-const float kStep = 0.09f, kCell = 0.1f;
+const float kCell = 0.1f;
 
 // one facade's 10 cm cells: 0 nothing (outside, breached), 1 wall, 2 inside the outline but no wall (an opening: glass,
 // door, a gap), 3 too deep (a balcony slab in front), 5 a doorway (DR2: never grown); off = the surface in front of the facade plane (trim, a sill, a
@@ -104,163 +94,129 @@ struct Grid {
   int nu = 0, nv = 0; float u0 = 0, v0 = 0; std::vector<uint8_t> st; std::vector<float> off;
   int at(float u, float v) const { int i = (int)std::floor((u - u0) / kCell), j = (int)std::floor((v - v0) / kCell); return i < 0 || j < 0 || i >= nu || j >= nv ? -1 : j * nu + i; }
   int s(float u, float v) const { int k = at(u, v); return k < 0 ? 0 : st[k]; }
-  float o(float u, float v) const { int k = at(u, v); return k < 0 ? 0.0f : off[k]; }
-};
-
-struct Grower {
-  std::vector<float>& v; std::mt19937& g; int cards = 0, cap = 20000;
-  std::vector<int> leafL[T_N], upperL, autumnL[T_N], stemL;
-  explicit Grower(std::vector<float>& out, std::mt19937& gen) : v(out), g(gen) {}
-  int pick(const std::vector<int>& L) { return L.empty() ? -1 : L[g() % L.size()]; }
-  void card(vec3 c, vec3 T, vec3 B, vec3 n, int layer, float mask, float shade) {
-    if (cards >= cap) return;
-    ++cards;
-    vec3 q[4] = {c - T - B, c + T - B, c + T + B, c - T + B}; vec2 uv[4] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
-    float sh = shade + (layer >= 0 ? 2.0f * (layer + 1) : 0.0f);   // kLeafVS: shade + 2 (layer + 1) -> a leaves.json layer
-    for (int k : {0, 1, 2, 0, 2, 3}) v.insert(v.end(), {q[k].x, q[k].y, q[k].z, n.x, n.y, n.z, uv[k].x, uv[k].y, mask, sh});
-  }
-  // a leaf whose petiole base is at p on a surface with outward normal n, pointing along a (in the surface), tilted out
-  void leaf(vec3 p, vec3 n, vec3 a, float size, float tilt, int layer, float mask, float shade) {
-    vec3 ax = glm::normalize(a * std::cos(tilt) + n * std::sin(tilt)), s = glm::normalize(glm::cross(n, a));
-    vec3 B = ax * size * 0.56f, T = s * size * 0.56f;   // the layer's 16-texel gutter: the leaf spans ~89 % of the card
-    card(p + B * 0.9f + n * 0.004f, T, B, glm::normalize(n + ax * 0.25f), layer, mask, shade);
-  }
-  // a woody stem segment flat on the surface; the stem layers draw it 14 / 10 / 7 % of their width (thick / mid / thin)
-  void stem(vec3 p0, vec3 p1, vec3 n, float w) {
-    if (stemL.size() < 3 || w < 0.0025f) return;
-    vec3 d = p1 - p0; float L = glm::length(d); if (L < 1e-3f) return;
-    int k = w > 0.016f ? 0 : w > 0.007f ? 1 : 2; const float frac[3] = {0.14f, 0.10f, 0.07f};
-    vec3 B = d / L * (L * 0.56f + 0.01f), T = glm::normalize(glm::cross(n, d)) * (w / frac[k] * 0.5f);
-    card((p0 + p1) * 0.5f + n * 0.006f, T, B, n, stemL[k], 0.0f, 0.85f + 0.15f * u01(g));
-  }
-};
-
-// growth on one facade: stems walk the cells, leaves along them. dir: the facade's frame (eu along u, plane offset)
-struct Facet { int n; float sign, plane; vec3 eu, nrm; };
-vec3 wpos(const Facet& f, float u, float v, float off) { vec3 p = f.eu * u + vec3(0, v, 0); p[f.n] = f.plane + f.sign * off; return p; }
-
-struct Walker { float u, v, ang, w, len, maxLen; int depth; bool hang; float targetU; };
-struct Look { int type; float age, vig; bool overgrown; int season; float ground, H; int flags; };
-
-void grow(Grower& G, const Facet& F, const Grid& gr, std::vector<Walker> ws, const Look& L, float ua, float ub, float va, float vb) {
-  std::mt19937& g = G.g; const TypeP& tp = kType[L.type];
-  auto ok = [&](float u, float v, bool droop) { if (u < ua || u > ub || v < va || v > vb) return false; int s = gr.s(u, v); return s == 1 || ((L.overgrown || droop) && s == 2); };
-  auto nearOpening = [&](float u, float v) { for (int dj = -2; dj <= 2; ++dj) for (int di = -2; di <= 2; ++di) if (gr.s(u + di * kCell, v + dj * kCell) == 2) return true; return false; };
-  int leaves = 0;
-  for (size_t wi = 0; wi < ws.size() && wi < 900; ++wi) {
-    Walker w = ws[wi];
-    // stems: one card per 3 steps (27 cm); side shoots past the first branching only on old ivy (under the leaves otherwise)
-    const bool drawStem = w.depth <= 1 || L.age > 0.6f;
-    float su = w.u, sv = w.v, sw = w.w; int sn = 0;
-    auto flush = [&]() { if (sn && drawStem) G.stem(wpos(F, su, sv, gr.o(su, sv) + 0.004f), wpos(F, w.u, w.v, gr.o(w.u, w.v) + 0.004f), F.nrm, sw); su = w.u; sv = w.v; sn = 0; };
-    for (int stepN = 0; stepN < 600 && w.len < w.maxLen; ++stepN) {
-      // steer: climbers toward up, curtains toward down, corner growth toward its edge; then the first open cell of
-      // the straight-on, +-20, +-40, +-63 degree headings (frame growth prefers the cells round an opening)
-      float want = w.hang ? -1.5708f : 1.5708f;
-      w.ang += (want - w.ang) * (w.hang ? 0.3f : 0.12f) + (u01(g) - 0.5f) * 0.55f;
-      if (w.targetU == w.targetU) w.ang += std::clamp((w.targetU - w.u) * 0.6f, -0.35f, 0.35f) * (w.hang ? -1.0f : 1.0f);
-      float best = 1e9f, nu = 0, nv = 0;
-      for (float d : {0.0f, 0.35f, -0.35f, 0.7f, -0.7f, 1.1f, -1.1f}) {
-        float a = w.ang + d, cu = w.u + std::cos(a) * kStep, cv = w.v + std::sin(a) * kStep;
-        if (!ok(cu, cv, w.hang)) continue;   // NT4: hanging curtains drape over the openings below a band / parapet
-        float score = std::fabs(d) + ((L.flags & P_FRAME) && nearOpening(cu, cv) ? -0.6f : 0.0f);
-        if (score < best) { best = score; nu = cu; nv = cv; w.ang = a; }
-      }
-      if (best > 1e8f) break;
-      float t = std::clamp((w.v - L.ground) / std::max(L.H, 0.5f), 0.0f, 1.0f), r = w.len / std::max(w.maxLen, 0.01f);
-      if (sn == 0) sw = w.w * (1.0f - 0.6f * r);
-      w.u = nu; w.v = nv; w.len += kStep;
-      if (++sn == 3) flush();
-      // leaves: denser low and on old ivy, sparser at the ragged leading tips; deciduous types bare in winter
-      float rate = tp.perNode * std::max(L.vig, 0.9f) * (1.15f - 0.45f * t) * (r > 0.85f ? 0.55f : 1.0f);   // NT3: a thinned budget means fewer stems, each still in leaf (not bare stems)
-      if (tp.deciduous && L.season == 2) rate *= 0.06f;
-      for (float q = rate; q > 0.0f; q -= 1.0f) {
-        if (q < 1.0f && u01(g) > q) break;
-        float side = (leaves++ & 1) ? 1.0f : -1.0f, lu = w.u + side * (0.02f + 0.07f * u01(g)), lv = w.v + (u01(g) - 0.5f) * 0.05f;
-        if (!ok(lu, lv, false) && !L.overgrown) continue;   // openings stay clear
-        int layer = G.pick(G.leafL[L.type]);
-        if (L.type == T_COMMON && L.age > 0.55f && t > 0.5f && u01(g) < 0.7f && !G.upperL.empty()) layer = G.pick(G.upperL);
-        if (tp.deciduous && L.season >= 1 && !G.autumnL[L.type].empty()) layer = G.pick(G.autumnL[L.type]);
-        float rot = -1.5708f + side * (0.35f + 0.8f * u01(g)) + (u01(g) - 0.5f) * 0.4f;   // mostly hanging, splayed
-        vec3 a = glm::normalize(F.eu * std::cos(rot) + vec3(0, std::sin(rot), 0));
-        float size = tp.size * (0.8f + 0.45f * u01(g)) * (r > 0.85f ? 0.7f : 1.0f) * (1.0f + 0.15f * (1.0f - t)) * (L.age < 0.3f ? 0.85f : 1.0f);
-        float tilt = (1.0f - tp.flat) * (0.25f + 0.6f * u01(g));
-        float lift = 0.008f + (0.012f + 0.035f * L.age) * u01(g);   // old ivy stands further off the wall
-        G.leaf(wpos(F, lu, lv, gr.o(lu, lv) + lift), F.nrm, a, size, tilt, layer, 0.04f + 0.05f * t, 0.78f + 0.24f * u01(g) + 0.08f * t);
-        if ((L.flags & P_CORNER) && w.targetU == w.targetU && std::fabs(w.u - w.targetU) < 0.12f && u01(g) < 0.5f) {   // wrapping the corner
-          vec3 n2 = glm::normalize(F.nrm + F.eu * (w.targetU > 0.5f * (ua + ub) ? 1.0f : -1.0f));
-          G.leaf(wpos(F, w.targetU, lv, gr.o(lu, lv) + 0.02f), n2, vec3(0, -1, 0), size, tilt, layer, 0.05f, 0.85f);
-        }
-      }
-      // a stem crossing a lintel droops a few leaves into the opening below (frame growth)
-      if ((L.flags & P_FRAME) && gr.s(w.u, w.v - kCell) == 2 && u01(g) < 0.5f)
-        for (int k = 0; k < 3; ++k) {
-          float dv = 0.05f + 0.18f * u01(g), lu = w.u + (u01(g) - 0.5f) * 0.12f;
-          G.leaf(wpos(F, lu, w.v - dv, gr.o(w.u, w.v) + 0.02f), F.nrm, vec3(0, -1, 0), tp.size, 0.2f, G.pick(G.leafL[L.type]), 0.08f, 0.8f);
-        }
-      // branching: often near the root, never past four levels
-      float pb = (w.hang ? 0.05f : 0.08f) + (t < 0.25f ? 0.12f : 0.0f);   // bushy at the base
-      if (w.depth < 4 && u01(g) < pb && ws.size() < 900) {
-        float s = u01(g) < 0.5f ? -1.0f : 1.0f;
-        ws.push_back({w.u, w.v, w.ang + s * (0.5f + 0.6f * u01(g)), w.w * 0.65f, 0.0f, (w.maxLen - w.len) * (0.45f + 0.45f * u01(g)), w.depth + 1, w.hang, w.targetU});
-      }
+  // over a rectangle: the share of wall cells, -1 if any cell is an opening or a deep slab (cells off the grid: not wall)
+  float fit(float ua, float ub, float va, float vb, float* offMax = nullptr) const {
+    int i0 = (int)std::floor((ua - u0) / kCell + 0.5f), i1 = (int)std::floor((ub - u0) / kCell - 0.5f), j0 = (int)std::floor((va - v0) / kCell + 0.5f), j1 = (int)std::floor((vb - v0) / kCell - 0.5f);
+    if (i1 < i0 || j1 < j0) return 0.0f;
+    int wall = 0, all = 0; float om = 0;
+    for (int j = j0; j <= j1; ++j) for (int i = i0; i <= i1; ++i) {
+      ++all;
+      if (i < 0 || j < 0 || i >= nu || j >= nv) continue;
+      int c = st[(size_t)j * nu + i];
+      if (c == 2 || c == 3) return -1.0f;
+      if (c == 1) { ++wall; om = std::max(om, off[(size_t)j * nu + i]); }
     }
-    flush();
+    if (offMax) *offMax = om;
+    return all ? wall / (float)all : 0.0f;
   }
+  bool anyGone(const Grid& now, float ua, float ub, float va, float vb) const {   // this (intact) grid's wall cells the breached one lost
+    int i0 = std::max(0, (int)std::floor((ua - u0) / kCell)), i1 = std::min(nu - 1, (int)std::floor((ub - u0) / kCell)), j0 = std::max(0, (int)std::floor((va - v0) / kCell)), j1 = std::min(nv - 1, (int)std::floor((vb - v0) / kCell));
+    for (int j = j0; j <= j1; ++j) for (int i = i0; i <= i1; ++i) { size_t k = (size_t)j * nu + i; if (st[k] == 1 && now.st[k] != 1) return true; }
+    return false;
+  }
+};
+
+// ---------------------------------------------------------------- the pack and the colour settings
+struct Pack {
+  std::shared_ptr<GpuModel> m, lod;
+  struct P { int first = -1, count = 0, firstL = -1, countL = 0; vec3 lo{FLT_MAX}, hi{-FLT_MAX}; };
+  std::map<std::string, P> pieces;
+  float lodDist = 18, cull = 140, wind = 0.3f; bool ok = false;
+};
+void ranges(const GpuModel& g, std::map<std::string, Pack::P>& out, bool lod) {
+  for (int k = 0; k < (int)g.parts.size(); ++k) {
+    const std::string& nm = g.parts[k].name; size_t us = nm.rfind('_');
+    if (us == std::string::npos || (nm.compare(us, std::string::npos, "_leaf") != 0 && nm.compare(us, std::string::npos, "_stem") != 0)) continue;
+    Pack::P& p = out[nm.substr(0, us)];
+    int& f = lod ? p.firstL : p.first; int& c = lod ? p.countL : p.count;
+    if (f < 0) f = k;
+    c = k - f + 1;   // a piece's leaf and stem parts sit next to each other (parts are sorted by name)
+    if (!lod) { p.lo = glm::min(p.lo, g.parts[k].bmin); p.hi = glm::max(p.hi, g.parts[k].bmax); }
+  }
+}
+const Pack& pack(App& app) {
+  static Pack P; static bool tried = false;
+  if (tried) return P;
+  tried = true;
+  const AssetDef* a = app.lib.find("ivy_pack");
+  if (!a || !a->model) { logf("ivy: the ivy pack (content/assets/ivy_pack.json) is not baked: no ivy is drawn"); return P; }
+  P.m = a->model; P.lod = a->modelLod; P.lodDist = a->modelLodDist; P.cull = a->modelCull; P.wind = a->modelWind;
+  ranges(*P.m, P.pieces, false);
+  if (P.lod) ranges(*P.lod, P.pieces, true);
+  for (auto it = P.pieces.begin(); it != P.pieces.end();) it = it->second.count > 0 ? std::next(it) : P.pieces.erase(it);
+  P.ok = P.pieces.count("wall_1") && P.pieces.count("corner_1") && P.pieces.count("ground_1");
+  logf("ivy: pack with %zu pieces%s", P.pieces.size(), P.ok ? "" : " (incomplete: no ivy is drawn)");
+  return P;
 }
 
-// leaves lying on a horizontal surface (ground cover in front of the wall foot, the top of a wall)
-void flatLeaves(Grower& G, const Look& L, vec3 c, vec3 du, vec3 dw, float lenU, float depth, float perM2) {
-  const TypeP& tp = kType[L.type];
-  int n = (int)(lenU * depth * perM2 * L.vig);
-  if (tp.deciduous && L.season == 2) n /= 12;
-  for (int k = 0; k < n && G.cards < G.cap; ++k) {
-    float a = (u01(G.g) - 0.5f) * lenU, b = u01(G.g) * u01(G.g) * depth;   // denser near the wall
-    float th = u01(G.g) * 6.2831853f; vec3 ax = glm::normalize(du * std::cos(th) + dw * std::sin(th));
-    int layer = G.pick(tp.deciduous && L.season >= 1 && !G.autumnL[L.type].empty() ? G.autumnL[L.type] : G.leafL[L.type]);
-    G.leaf(c + du * a + dw * b + vec3(0, 0.01f + 0.02f * u01(G.g), 0), vec3(0, 1, 0), ax, tp.size * (0.8f + 0.4f * u01(G.g)), 0.15f + 0.4f * u01(G.g), layer, 0.06f, 0.8f + 0.2f * u01(G.g));
-  }
+// content/settings/ivy.json: the leaf colour ramp (sRGB, as the average leaf reads: "grey" -> "brown" -> "orange"),
+// where a building's tone sits on it (centre +- spread / 2, uniform), how far a facade and a piece stray from their
+// building's tone, a brightness jitter, and the stems' colour
+struct Colours { vec3 grey{0.42f, 0.41f, 0.37f}, brown{0.40f, 0.29f, 0.17f}, orange{0.62f, 0.32f, 0.10f}, stem{0.33f, 0.29f, 0.25f};
+                 float centre = 0.5f, spread = 1.0f, facadeSpread = 0.08f, pieceSpread = 0.06f, bright = 0.06f; };
+const Colours& colours() {
+  static const Colours C = [] {
+    Colours c;
+    try {
+      json j = json::parse(readTextFile(contentDir() / "settings" / "ivy.json"));
+      auto col = [&](const char* k, vec3& v) { if (j.contains(k) && j[k].is_array() && j[k].size() >= 3) v = vec3(j[k][0].get<float>(), j[k][1].get<float>(), j[k][2].get<float>()); };
+      col("grey", c.grey); col("brown", c.brown); col("orange", c.orange); col("stem", c.stem);
+      c.centre = j.value("centre", c.centre); c.spread = j.value("spread", c.spread); c.facadeSpread = j.value("facadeSpread", c.facadeSpread);
+      c.pieceSpread = j.value("pieceSpread", c.pieceSpread); c.bright = j.value("brightness", c.bright);
+    } catch (...) { logf("ivy: content/settings/ivy.json missing or unreadable, default colours"); }
+    return c;
+  }();
+  return C;
 }
+vec3 lin(vec3 s) { return glm::pow(glm::clamp(s, vec3(0.0f), vec3(1.0f)), vec3(2.2f)); }
+vec4 tintAt(float t, float b) {   // t 0 grey .. 0.5 brown .. 1 orange (linear rgb, a = 1: tinted)
+  const Colours& C = colours(); t = std::clamp(t, 0.0f, 1.0f);
+  vec3 s = t < 0.5f ? glm::mix(C.grey, C.brown, t * 2.0f) : glm::mix(C.brown, C.orange, t * 2.0f - 1.0f);
+  return vec4(lin(s) * b, 1.0f);
+}
+float hash01(uint32_t x) { x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; x ^= x >> 16; return (x >> 8) * (1.0f / 16777216.0f); }
+
+struct Look { float age; bool overgrown; int flags; float dens; };
 }  // namespace
 
-struct IvyEnv { bool abandoned = false; int season = 0; bool arid = false; };   // NT4 arid: dry, sparse creepers (desert)   // the open map's look: "style": "abandoned", "season"
+struct IvyEnv { bool abandoned = false; int season = 0; bool arid = false; };   // the open map's look: "style": "abandoned", "season", NT4 "arid"
 
-// Cards (pos, normal, uv, mask, shade: the TreeDef card layout) for one instance; breached bays get none.
-// Budget: at most ~6000 cards (12k triangles) a building at Medium, 14000 on a ruin / an abandoned map (x the quality
-// density); a building over it grows
-// again with the vigour scaled down, so every facade thins evenly instead of the last ones getting nothing.
-static void growIvy(const AssetDef& a, const IvyDef& iv, const std::vector<uint8_t>& state, uint32_t seed, float density, const IvyEnv& env, std::vector<float>& v, int cap);
-void buildIvyCards(const AssetDef& a, const IvyDef& iv, const std::vector<uint8_t>& state, uint32_t seed, float density, const IvyEnv& env, std::vector<float>& v) {
-  if (density <= 0) return;
-  const bool heavy = (a.raw.is_object() && a.raw.value("ruin", false)) || env.abandoned;
-  const vec3 ext = a.bmax - a.bmin;   // NT3: a ruin's budget follows its wall area (big blocks get curtains too, not a thin film)
-  const float wallA = 2.0f * (ext.x + ext.z) * std::max(ext.y, 1.0f);
-  const int cap = (int)((heavy ? std::clamp(22.0f * wallA, 16000.0f, 60000.0f) : 6000.0f) * std::min(1.15f, density));   // ordinary 1944 buildings: moderate
-  growIvy(a, iv, state, seed, density, env, v, 1 << 30);
-  int n = (int)v.size() / 60;
-  if (n > cap) { v.clear(); growIvy(a, iv, state, seed, density * cap / (float)n * 0.95f, env, v, cap); }
-}
-static void growIvy(const AssetDef& a, const IvyDef& iv, const std::vector<uint8_t>& state, uint32_t seed, float density, const IvyEnv& env, std::vector<float>& v, int cap) {
+// The pieces of one instance (asset space). density: the quality share of pieces kept; tone: the building's place on the
+// colour ramp. Deterministic per seed; a breached bay's pieces are left out (the layout itself is the intact one's).
+void buildIvyPieces(const Pack& PK, const AssetDef& a, const IvyDef& iv, const std::vector<uint8_t>& state, uint32_t seed, float density, const IvyEnv& env, std::vector<IvyPlaced>& out) {
+  if (density <= 0 || !PK.ok) return;
   std::mt19937 g(seed * 2654435761u + 0x9e3779b9u);
-  Grower G(v, g); G.cap = cap;
-  for (int t = 0; t < T_N; ++t) { G.leafL[t] = leafSpeciesLayers(kType[t].leaf); if (kType[t].autumn) G.autumnL[t] = leafSpeciesLayers(kType[t].autumn); }
-  G.upperL = leafSpeciesLayers("ivy_mature"); G.stemL = leafSpeciesLayers("ivy_stem");
-  // style: a ruin variant / an abandoned map (heavy, varied, overgrown), a modern building, or an old stone / brick one
+  const Colours& C = colours();
+  const float tone = C.centre + C.spread * (hash01(seed * 7u + 3u) - 0.5f);
+  size_t nput = 0;   // pieces laid out (the layout does not depend on the quality; the quality keeps a share of them)
+  auto keep = [&](size_t k) { return density >= 1.0f || hash01(seed * 131u + (uint32_t)k * 977u + 11u) < density; };
+  auto put = [&](const std::string& id, const mat4& L, float t) {
+    auto it = PK.pieces.find(id); if (it == PK.pieces.end()) return;
+    const Pack::P& p = it->second;
+    IvyPlaced q; q.piece = id; q.first = p.first; q.count = p.count; q.firstL = p.firstL >= 0 ? p.firstL : p.first; q.countL = p.firstL >= 0 ? p.countL : p.count; q.m = L;
+    q.tint = tintAt(t + C.pieceSpread * (u01(g) - 0.5f), 1.0f + C.bright * (u01(g) * 2.0f - 1.0f));
+    if (keep(nput++)) out.push_back(q);
+  };
+
+  if (iv.mode == IvyDef::PIECES) {   // a vine prop: its pieces as authored
+    for (auto& p : iv.pieces) {
+      mat4 L = glm::translate(mat4(1), p.pos) * glm::rotate(mat4(1), glm::radians(p.yaw), vec3(0, 1, 0));
+      if (p.hang) L = L * glm::rotate(mat4(1), 3.14159265f, vec3(0, 0, 1));
+      put(p.id, L * glm::scale(mat4(1), p.scale), tone);
+    }
+    return;
+  }
+
   const bool ruin = a.raw.is_object() && a.raw.value("ruin", false), heavy = ruin || env.abandoned, modern = a.id.rfind("mod_", 0) == 0;
   auto pickW = [&](std::initializer_list<std::pair<int, float>> opts) { float s = 0; for (auto& o : opts) s += o.second; float x = u01(g) * s; for (auto& o : opts) { if ((x -= o.second) <= 0) return o.first; } return opts.begin()->first; };
-  auto lookFor = [&](const std::string& ty, const std::string& pat, float age, bool over, float dens) {
+  auto lookFor = [&](const std::string& pat, float age, bool over, float dens) {
     Look L{};
-    L.type = typeOf(ty);
-    if (L.type < 0 && env.arid) L.type = pickW({{T_DEAD, 70}, {T_CREEPER, 30}});
-    if (L.type < 0) L.type = heavy ? pickW({{T_COMMON, 45}, {T_CREEPER, 20}, {T_DEAD, 5}, {T_BOSTON, 30}})   // NT2b: lush, few dead
-                    : modern ? pickW({{T_BOSTON, 45}, {T_CREEPER, 30}, {T_COMMON, 25}}) : pickW({{T_COMMON, 75}, {T_SMALL, 15}, {T_CREEPER, 10}});
-    L.flags = patternsOf(pat);
-    if (!L.flags) L.flags = heavy ? pickW({{P_BLANKET, 35}, {P_FAN | P_CURTAIN, 40}, {P_ISLANDS | P_GROUND, 10}, {P_CORNER | P_FRAME, 15}})   // NT3: curtains and blankets
+    L.flags = patternsOf(pat) & ~P_SPIRAL;   // spiral (posts, pipes): no pack piece wraps a post
+    if (!L.flags) L.flags = heavy ? pickW({{P_BLANKET, 35}, {P_FAN | P_CURTAIN, 40}, {P_ISLANDS | P_GROUND, 10}, {P_CORNER | P_FRAME, 15}})
                           : modern ? pickW({{P_CORNER, 35}, {P_FRAME, 30}, {P_FAN, 20}, {P_CURTAIN, 15}}) : pickW({{P_FAN | P_GROUND, 50}, {P_CORNER, 25}, {P_FRAME, 25}});
     L.age = age >= 0 ? std::clamp(age, 0.0f, 1.0f) : heavy ? 0.7f + 0.3f * u01(g) : 0.35f + 0.45f * u01(g);
     L.overgrown = over || (heavy && (L.flags & P_BLANKET));
-    L.vig = density * dens * (heavy ? 1.25f : 1.0f) * (env.arid ? 0.45f : 1.0f);
-    L.season = env.season;
+    L.dens = dens * (heavy ? 1.25f : 1.0f) * (env.arid ? 0.45f : 1.0f);
     return L;
   };
 
@@ -275,7 +231,7 @@ static void growIvy(const AssetDef& a, const IvyDef& iv, const std::vector<uint8
     if (!d) { fac.push_back({F.n, F.sign, F.plane}); d = &fac.back(); }
     d->u0 = std::min(d->u0, F.u0); d->u1 = std::max(d->u1, F.u1); d->v0 = std::min(d->v0, F.v0); d->v1 = std::max(d->v1, F.v1); d->faces.push_back(f);
   }
-  auto gridOf = [&](const Facade& d) {
+  auto gridOf = [&](const Facade& d, bool breached) {
     Grid gr; gr.u0 = d.u0; gr.v0 = d.v0; gr.nu = std::max(1, (int)std::ceil((d.u1 - d.u0) / kCell)); gr.nv = std::max(1, (int)std::ceil((d.v1 - d.v0) / kCell));
     gr.st.assign((size_t)gr.nu * gr.nv, 0); gr.off.assign(gr.st.size(), 0.0f);
     auto raster = [&](float u0, float u1, float v0, float v1, auto&& fn) {
@@ -285,10 +241,10 @@ static void growIvy(const AssetDef& a, const IvyDef& iv, const std::vector<uint8
     };
     for (int f : d.faces) {
       const Face& F = faces[f];
-      bool gone = F.panel >= 0 && F.panel < (int)state.size() && state[F.panel] == PANEL_BREACHED;
+      bool gone = breached && F.panel >= 0 && F.panel < (int)state.size() && state[F.panel] == PANEL_BREACHED;
       raster(F.u0, F.u1, F.v0, F.v1, [&](int k) { if (gone) gr.st[k] = 4; else if (gr.st[k] != 4) { gr.st[k] = 1; gr.off[k] = std::max(gr.off[k], d.sign * (F.plane - d.plane)); } });
     }
-    for (int k = 0; k < (int)gr.st.size(); ++k) if (gr.st[k] == 4) gr.st[k] = 0;   // a breached bay: a hole, never grown over
+    for (int k = 0; k < (int)gr.st.size(); ++k) if (gr.st[k] == 4) gr.st[k] = 0;   // a breached bay: a hole
     // what stands in front of the plane (trim, sills, pipes, slabs) lifts the surface; past 32 cm: too deep to climb
     int u = 2 - d.n;
     for (auto& [lo, hi] : solids) {
@@ -311,54 +267,112 @@ static void growIvy(const AssetDef& a, const IvyDef& iv, const std::vector<uint8
     }
     return gr;
   };
-  auto facetOf = [&](const Facade& d) { Facet F; F.n = d.n; F.sign = d.sign; F.plane = d.plane; F.eu = vec3(0); F.eu[2 - d.n] = 1.0f; F.nrm = vec3(0); F.nrm[d.n] = d.sign; return F; };
+  std::vector<Grid> intact(fac.size()), now(fac.size());
+  for (size_t k = 0; k < fac.size(); ++k) { intact[k] = gridOf(fac[k], false); now[k] = gridOf(fac[k], true); }
+  auto nrmOf = [](const Facade& d) { vec3 n(0); n[d.n] = d.sign; return n; };
+  auto at = [](const Facade& d, float u, float v, float off) { vec3 p(0); p[2 - d.n] = u; p.y = v; p[d.n] = d.plane + d.sign * off; return p; };
 
-  // one facade grown with one look inside [ua, ub] x [va, vb]
-  auto growFacade = [&](const Facade& d, Look L, float ua, float ub, float va, float vb) {
-    Grid gr = gridOf(d); Facet F = facetOf(d);
-    L.ground = std::max(va, d.v0); L.H = std::max(0.5f, std::min(vb, d.v1) - L.ground);
-    float W = ub - ua, wRoot = 0.004f + 0.032f * L.age, reach = L.H * (0.35f + 0.75f * L.age);
-    std::vector<Walker> ws; const float NaN = std::numeric_limits<float>::quiet_NaN();
-    auto rootAt = [&](float u) { for (float y = L.ground + 0.05f; y < L.ground + 0.8f; y += kCell) if (gr.s(u, y) == 1 || (L.overgrown && gr.s(u, y) == 2)) return y; return NaN; };
-    const float vs = std::clamp(L.vig / 0.9f, 0.25f, 1.0f);   // NT3: a thinned budget shortens the stems (leaves stay full on them)
-    auto climb = [&](float u, float len, float tu) { float y = rootAt(u); if (y != y) return; int n = 3 + (int)(u01(g) * 3); for (int k = 0; k < n; ++k) ws.push_back({u, y, 1.5708f + (u01(g) - 0.5f) * 1.6f, wRoot, 0.0f, vs * len * (0.6f + 0.5f * u01(g)), 0, false, tu}); };
-    auto topEdges = [&](float every, float len) {   // eaves, parapets, sills, balcony edges: wall cells with no wall above
-      for (int j = 0; j < gr.nv; ++j) for (int i = 0; i < gr.nu; ++i) {
-        int k = j * gr.nu + i; if (gr.st[k] != 1 || (j + 1 < gr.nv && gr.st[k + gr.nu] == 1)) continue;
-        float u = gr.u0 + (i + 0.5f) * kCell, vv = gr.v0 + (j + 0.5f) * kCell;
-        if (u < ua || u > ub || vv < va || vv > vb || u01(g) > kCell / every) continue;
-        ws.push_back({u, vv, -1.5708f, wRoot * 0.6f, 0.0f, vs * len * (0.5f + 0.6f * u01(g)), 1, true, NaN});
-      }
-    };
-    if (L.flags & P_FAN) { int n = std::max(1, (int)std::lround(W / 4.5f * (0.6f + 0.6f * u01(g)))); for (int k = 0; k < n; ++k) climb(ua + 0.2f + u01(g) * std::max(0.0f, W - 0.4f), reach, NaN); }
-    if (L.flags & P_BLANKET) { for (float u = ua + 0.3f; u < ub - 0.1f; u += 0.6f) climb(u + (u01(g) - 0.5f) * 0.2f, L.H * 1.1f, NaN); topEdges(0.9f, L.H * 0.6f); }
-    if (L.flags & P_CORNER) for (float e : {ua + 0.15f, ub - 0.15f}) if (u01(g) < 0.8f) climb(e, reach * 1.1f, e < 0.5f * (ua + ub) ? ua : ub);
-    if (L.flags & P_CURTAIN) topEdges(0.5f, 0.8f + 2.5f * L.age);
-    if (L.flags & P_FRAME) {   // roots under the openings' jambs
-      for (int i = 1; i < gr.nu - 1; ++i) for (int j = 0; j < std::min(gr.nv, 30); ++j) {
-        int k = j * gr.nu + i; bool edge = gr.st[k] == 1 && (gr.st[k - 1] == 2 || gr.st[k + 1] == 2);
-        if (edge && u01(g) < 0.25f) { climb(gr.u0 + (i + 0.5f) * kCell, reach, NaN); break; }
-      }
+  struct Rect { int f; float u0, u1, v0, v1; };
+  std::vector<Rect> taken;
+  auto overlap = [&](int f, float ua, float ub, float va, float vb) {   // the share of this rectangle already covered
+    float a0 = std::max(1e-4f, (ub - ua) * (vb - va)), s = 0;
+    for (auto& r : taken) if (r.f == f) s += std::max(0.0f, std::min(ub, r.u1) - std::max(ua, r.u0)) * std::max(0.0f, std::min(vb, r.v1) - std::max(va, r.v0));
+    return s / a0;
+  };
+  size_t budget = heavy ? 90 : 40;   // pieces a building at most (instanced: the cost is the triangles near the eye)
+
+  // a wall piece on facade f centred at u: climbing from vb0 (or hanging from vb0 down), at most maxH tall, scale in
+  // [sMin, sMax]; the largest variant / scale that fits wins. Returns false when none fits.
+  auto wallPiece = [&](int f, float tone, float u, float vb0, float maxH, bool hang, float sMin, float sMax, float maxOver = 0.35f) {
+    if (nput >= budget) return false;
+    const Facade& d = fac[f]; const Grid& gr = intact[f];
+    const char* ids[3] = {"wall_1", "wall_2", "wall_3"}; int o0 = (int)(g() % 3);
+    const float sxJ = 0.9f + 0.2f * u01(g);
+    // tallest first; at each height the authored width, then squeezed (a strip up a pier between two windows)
+    for (float s = sMax; s >= sMin - 1e-3f; s -= 0.1f) for (int k = 0; k < 3; ++k) for (float wf : {1.0f, 0.75f, 0.55f}) {
+      const auto it = PK.pieces.find(ids[(o0 + k) % 3]); if (it == PK.pieces.end()) continue;
+      const Pack::P& P = it->second;
+      const float h = (P.hi.y - 0.05f) * s, w = (P.hi.x - P.lo.x) * s * sxJ * wf;
+      if (h > maxH + 0.15f || h < 0.4f) continue;
+      float ua = u - 0.5f * w, ub = u + 0.5f * w, va = hang ? vb0 - h : vb0, vb = hang ? vb0 : vb0 + h, om = 0;
+      if (gr.fit(ua, ub, va, vb, &om) < 0.88f || overlap(f, ua, ub, va, vb) > maxOver) continue;
+      if (gr.anyGone(now[f], ua, ub, va, vb)) { taken.push_back({f, ua, ub, va, vb}); ++nput; return true; }   // grew there; the bay is breached now
+      vec3 N = nrmOf(d), Y(0, 1, 0), X = glm::cross(Y, N);
+      mat4 R(1); R[0] = vec4(X, 0); R[1] = vec4(Y, 0); R[2] = vec4(N, 0);
+      mat4 L = glm::translate(mat4(1), at(d, u, hang ? vb0 + 0.08f : vb0 - 0.05f, om + 0.012f)) * R;
+      if (hang) L = L * glm::rotate(mat4(1), 3.14159265f, vec3(0, 0, 1));
+      L = L * glm::scale(mat4(1), vec3(s * sxJ * wf, s, std::min(1.0f, s) * 0.75f));   // flatter than authored: it hugs the wall
+      put(ids[(o0 + k) % 3], L, tone);
+      taken.push_back({f, ua, ub, va, vb});
+      return true;
     }
-    if (L.flags & P_ISLANDS) {   // patchy remnants
-      int n = 2 + (int)(W * L.H / 10.0f * (0.5f + u01(g)));
-      for (int k = 0; k < n * 4 && n > 0; ++k) {
-        float u = ua + u01(g) * W, vv = L.ground + u01(g) * L.H; if (gr.s(u, vv) != 1) continue; --n;
-        for (int s = 0; s < 3; ++s) ws.push_back({u, vv, (u01(g) < 0.5f ? 1.5708f : -1.5708f) + (u01(g) - 0.5f) * 2.0f, wRoot * 0.5f, 0.0f, 0.4f + 1.0f * u01(g), 1, u01(g) < 0.4f, NaN});
-      }
-    }
-    if (L.flags & P_TOP) {   // along the wall top and over it, a little spilling down
-      float vt = std::min(vb, d.v1) - 0.08f;
-      for (int k = 0; k < 2; ++k) ws.push_back({ua + u01(g) * W, vt, k ? 0.0f : 3.1416f, wRoot * 0.6f, 0.0f, W * 0.6f, 1, false, NaN});
-      vec3 c = wpos(F, 0.5f * (ua + ub), std::min(vb, d.v1), gr.o(0.5f * (ua + ub), vt));
-      flatLeaves(G, L, c, F.eu, -F.nrm, W, 0.3f, 45.0f);
-      topEdges(0.6f, 0.2f + 0.5f * L.age);
-    }
-    grow(G, F, gr, ws, L, ua, ub, va, vb);
-    if ((L.flags & (P_GROUND | P_BLANKET)) && L.ground <= d.v0 + 0.3f)   // ground cover spreading out from the wall foot
-      flatLeaves(G, L, wpos(F, 0.5f * (ua + ub), d.v0, 0.0f) + F.nrm * 0.02f, F.eu, F.nrm, W * 0.8f, 0.4f + 1.1f * L.age, 30.0f);
+    return false;
+  };
+  // a ground patch spreading out from the foot of facade f, centred at u
+  auto groundPiece = [&](int f, float tone, float u) {
+    if (nput >= budget) return false;
+    const Facade& d = fac[f]; const Grid& gr = intact[f];
+    const char* ids[6] = {"ground_1", "ground_2", "ground_3", "gdirect_1", "gdirect_2", "gdirect_3"};
+    const auto it = PK.pieces.find(ids[g() % 6]); if (it == PK.pieces.end()) return false;
+    const Pack::P& P = it->second;
+    const float wT = 1.6f + 1.8f * u01(g), dT = 0.6f + 0.9f * u01(g), ua = u - 0.5f * wT, ub = u + 0.5f * wT;
+    const float g0 = std::max(d.v0, 0.0f);
+    if (gr.fit(ua, ub, g0, g0 + 0.7f) < 0.5f) return false;   // not before a door or a porch step (an opening or a slab at the foot)
+    const float sx = wT / std::max(0.1f, P.hi.x - P.lo.x), sz = dT / std::max(0.1f, P.hi.z - P.lo.z), sy = std::clamp(std::sqrt(sx * sz), 0.35f, 0.9f);
+    vec3 N = nrmOf(d), Y(0, 1, 0), X = glm::cross(Y, N);
+    mat4 R(1); R[0] = vec4(X, 0); R[1] = vec4(Y, 0); R[2] = vec4(N, 0);
+    mat4 L = glm::translate(mat4(1), at(d, u, 0.0f, 0.5f * dT + 0.03f)) * R * glm::scale(mat4(1), vec3(sx, sy, sz));
+    put(it->first, L, tone);
+    return true;
   };
 
+  // one facade with one look inside [ua, ub] x [va, vb]
+  auto growFacade = [&](int f, const Look& L, float ua, float ub, float va, float vb) {
+    const Facade& d = fac[f]; const Grid& gr = intact[f];
+    const float ft = std::clamp(tone + C.facadeSpread * (u01(g) - 0.5f), 0.0f, 1.0f);   // a facade strays a little from its building
+    const float g0 = std::max(va, d.v0), top = std::min(vb, d.v1), H = std::max(0.5f, top - g0), W = ub - ua;
+    const float reach = std::max(1.2f, H * (0.35f + 0.75f * L.age));
+    const float dens = std::clamp(L.dens, 0.2f, 2.0f);
+    auto climbAt = [&](float u, float maxH, float sMin) { return wallPiece(f, ft, u, g0, maxH, false, sMin, std::min(1.5f, maxH / 2.6f + 0.1f)); };
+    if (L.flags & P_FAN) {
+      int n = std::max(1, (int)std::lround(W / 4.0f * (0.6f + 0.6f * u01(g)) * dens));
+      for (int k = 0, tries = 0; k < n && tries < 4 * n + 4; ++tries) if (climbAt(ua + 0.6f + u01(g) * std::max(0.0f, W - 1.2f), reach, 0.45f)) ++k;
+    }
+    if (L.flags & P_BLANKET) {   // tiled along the wall, a second (third) row where it is tall
+      for (float row = g0; row < top - 1.0f; ) {
+        float rh = 0;
+        for (float u = ua + 0.8f; u < ub - 0.4f; u += 2.2f + 0.8f * u01(g)) if (wallPiece(f, ft, u, row, std::min(3.6f, top - row), false, 0.45f, 1.3f, 0.25f)) rh = std::max(rh, 2.4f);
+        if (rh <= 0) break;
+        row += rh * (0.8f + 0.1f * u01(g));
+      }
+    }
+    if (L.flags & P_CORNER) for (float e : {ua + 0.75f, ub - 0.75f}) if (u01(g) < 0.8f) for (float k = 0; k < 3; ++k) if (climbAt(e + (e < 0.5f * (ua + ub) ? 1.0f : -1.0f) * 0.3f * k, reach * 1.1f, 0.4f)) break;
+    if (L.flags & P_FRAME) {   // the piers beside the openings: a narrow piece in the wall next to the jamb
+      int n = 0;
+      for (int i = 1; i < gr.nu - 1 && n < 6; ++i) for (int j = 0; j < std::min(gr.nv, 30); ++j) {
+        int k = j * gr.nu + i; bool left = gr.st[k] == 1 && gr.st[k + 1] == 2, right = gr.st[k] == 1 && gr.st[k - 1] == 2;
+        if (!(left || right) || u01(g) > 0.35f * dens) continue;
+        float u = gr.u0 + (i + 0.5f) * kCell + (left ? -0.6f : 0.6f);
+        if (u > ua && u < ub && climbAt(u, reach, 0.3f)) ++n;
+        break;
+      }
+    }
+    if (L.flags & (P_CURTAIN | P_TOP)) {   // hanging from the wall top (eaves, a parapet): the wall piece upside down
+      const float drop = (L.flags & P_CURTAIN) ? 0.8f + 2.5f * L.age : 0.6f + 0.6f * L.age;
+      int n = std::max(1, (int)std::lround(W / 3.2f * dens));
+      for (int k = 0, tries = 0; k < n && tries < 3 * n + 3; ++tries) if (wallPiece(f, ft, ua + 0.6f + u01(g) * std::max(0.0f, W - 1.2f), top, std::min(drop, H), true, 0.35f, std::min(1.4f, drop / 2.6f + 0.15f))) ++k;
+    }
+    if (L.flags & P_ISLANDS) {   // patchy remnants: small pieces anywhere on the wall
+      int n = 2 + (int)(W * H / 12.0f * (0.5f + u01(g)) * dens);
+      for (int k = 0, tries = 0; k < n && tries < 4 * n; ++tries) if (wallPiece(f, ft, ua + u01(g) * W, g0 + u01(g) * std::max(0.0f, H - 1.2f), 1.4f, false, 0.3f, 0.5f, 0.1f)) ++k;
+    }
+    if ((L.flags & (P_GROUND | P_BLANKET)) && g0 <= d.v0 + 0.3f) {   // ground cover spreading out from the wall foot
+      int n = std::max(1, (int)std::lround(W / 5.0f * dens));
+      for (int k = 0, tries = 0; k < n && tries < 3 * n; ++tries) if (groundPiece(f, ft, ua + 1.0f + u01(g) * std::max(0.0f, W - 2.0f))) ++k;
+    }
+  };
+
+  std::vector<char> grown(fac.size(), 0);
   if (iv.mode == IvyDef::AUTO) {
     // facades large enough get growth with a chance by style (abandoned: most of them); "auto" always shows some
     float share = env.arid ? 0.3f : iv.share >= 0 ? iv.share : heavy ? 0.85f : modern ? 0.4f : 0.5f; int done = 0, best = -1; float bl = 0;
@@ -367,9 +381,9 @@ static void growIvy(const AssetDef& a, const IvyDef& iv, const std::vector<uint8
       if (d.u1 - d.u0 < 1.0f || d.v1 - d.v0 < 1.0f) continue;
       if (d.u1 - d.u0 > bl) { bl = d.u1 - d.u0; best = k; }
       if (u01(g) > share) continue;
-      growFacade(d, lookFor(iv.type, iv.pattern, iv.age, iv.overgrown, iv.density), d.u0, d.u1, d.v0, d.v1); ++done;
+      growFacade(k, lookFor(iv.pattern, iv.age, iv.overgrown, iv.density), d.u0, d.u1, d.v0, d.v1); grown[k] = 1; ++done;
     }
-    if (!done && best >= 0) growFacade(fac[best], lookFor(iv.type, iv.pattern, iv.age, iv.overgrown, iv.density), fac[best].u0, fac[best].u1, fac[best].v0, fac[best].v1);
+    if (!done && best >= 0) { growFacade(best, lookFor(iv.pattern, iv.age, iv.overgrown, iv.density), fac[best].u0, fac[best].u1, fac[best].v0, fac[best].v1); grown[best] = 1; }
   } else {
     for (auto& b : iv.blocks) {   // authored blocks: on the facade facing that way that covers most of the rectangle (the outermost of near ties)
       auto ov = [&](const Facade& d) { return d.n != b.axis || d.sign != b.sign ? 0.0f : std::max(0.0f, std::min(b.a1, d.u1) - std::max(b.a0, d.u0)) * std::max(0.0f, std::min(b.y1, d.v1) - std::max(b.y0, d.v0)); };
@@ -377,52 +391,54 @@ static void growIvy(const AssetDef& a, const IvyDef& iv, const std::vector<uint8
       int k = -1;
       for (int f = 0; f < (int)fac.size(); ++f) if (best > 0 && ov(fac[f]) >= 0.5f * best && (k < 0 || fac[f].sign * fac[f].plane > fac[k].sign * fac[k].plane)) k = f;
       if (k < 0) continue;
-      Look L = lookFor(b.type.empty() ? iv.type : b.type, b.pattern.empty() ? (iv.pattern.empty() ? std::string("fan") : iv.pattern) : b.pattern, b.age >= 0 ? b.age : iv.age, b.overgrown || iv.overgrown, b.density);
-      growFacade(fac[k], L, std::max(b.a0, fac[k].u0), std::min(b.a1, fac[k].u1), b.y0, b.y1);
+      Look L = lookFor(b.pattern.empty() ? (iv.pattern.empty() ? std::string("fan") : iv.pattern) : b.pattern, b.age >= 0 ? b.age : iv.age, b.overgrown || iv.overgrown, b.density);
+      growFacade(k, L, std::max(b.a0, fac[k].u0), std::min(b.a1, fac[k].u1), b.y0, b.y1); grown[k] = 1;
     }
   }
-  // spiral: posts, columns, pipes and trunks (upright cylinders, slim upright boxes) when the pattern asks for it, or
-  // downpipes beside a facade grown as a corner
-  int pflags = patternsOf(iv.pattern); for (auto& b : iv.blocks) pflags |= patternsOf(b.pattern);
-  if (pflags & (P_SPIRAL | P_CORNER)) {
-    Look L = lookFor(iv.type, "spiral", iv.age, false, iv.density); int n = 0;
-    for (const Part& p : a.parts) {
-      if (!p.visible || std::fabs(std::fabs(p.rot.w) - 1.0f) > 1e-3f || p.size.y < 0.8f) continue;
-      bool cyl = p.shape == Part::CYL && std::max(p.size.x, p.size.z) < 1.2f, post = p.shape == Part::BOX && std::max(p.size.x, p.size.z) < 0.45f;
-      if (!(cyl || post) || (!(pflags & P_SPIRAL) && !(cyl && std::max(p.size.x, p.size.z) < 0.2f)) || n >= 40 || u01(g) > 0.7f) continue;
-      ++n;
-      float y0 = p.center.y - p.size.y * 0.5f, top = y0 + p.size.y * (0.4f + 0.6f * L.age), R = std::max(p.size.x, p.size.z) * 0.5f + 0.012f, ph = u01(g) * 6.28f;
-      vec3 prev; const TypeP& tp = kType[L.type];
-      for (float y = y0 + 0.03f; y < top; y += 0.03f) {
-        float a = ph + (y - y0) / 0.9f * 6.2831853f; vec3 rn(std::cos(a), 0, std::sin(a)), q = vec3(p.center.x, y, p.center.z) + rn * R;
-        if (y > y0 + 0.031f) G.stem(prev, q, rn, 0.004f + 0.015f * L.age);
-        prev = q;
-        if (u01(g) < tp.perNode * L.vig * 0.45f * (tp.deciduous && L.season == 2 ? 0.06f : 1.0f)) {
-          float th = a + 1.5708f + (u01(g) - 0.5f) * 1.2f; vec3 ax = glm::normalize(vec3(-std::sin(a), 0, std::cos(a)) * std::cos(th - a) * 0.3f + vec3(0, -1, 0));
-          G.leaf(q + rn * 0.01f, rn, ax, tp.size * (0.8f + 0.4f * u01(g)), (1.0f - tp.flat) * 0.6f, G.pick(G.leafL[L.type]), 0.05f, 0.8f + 0.2f * u01(g));
-        }
-      }
-    }
+  // re-entrant corners (an L-shaped plan, a wing, a chimney stack or buttress standing out of a wall): facade A ends
+  // where facade B starts, B looking back over A's wall and running out from A's plane. The corner piece hugs both:
+  // its model walls face +z (along -x) and -x (along +z), mapped to A's normal and B's.
+  for (int ia = 0; ia < (int)fac.size(); ++ia) for (int ib = 0; ib < (int)fac.size(); ++ib) {
+    const Facade &A = fac[ia], &B = fac[ib];
+    if (A.n == B.n || !(grown[ia] || grown[ib]) || nput >= budget) continue;
+    const bool atEnd1 = std::fabs(B.plane - A.u1) < 0.06f && B.sign < 0, atEnd0 = std::fabs(B.plane - A.u0) < 0.06f && B.sign > 0;
+    if (!atEnd1 && !atEnd0) continue;
+    const bool outward = A.sign > 0 ? std::fabs(B.u0 - A.plane) < 0.06f && B.u1 > A.plane + 0.8f : std::fabs(B.u1 - A.plane) < 0.06f && B.u0 < A.plane - 0.8f;
+    const float g0 = std::max({A.v0, B.v0, 0.0f}), top = std::min(A.v1, B.v1);
+    if (!outward || top - g0 < 1.5f || u01(g) > 0.75f) continue;
+    const char* ids[3] = {"corner_1", "corner_2", "corner_3"};
+    const auto it = PK.pieces.find(ids[g() % 3]); if (it == PK.pieces.end()) continue;
+    const Pack::P& P = it->second;
+    const float s = std::clamp((top - g0) * (0.5f + 0.35f * u01(g)) / std::max(1.0f, P.hi.y), 0.5f, 1.3f);
+    const float h = P.hi.y * s, eA = -P.lo.x * s, eB = P.hi.z * s;
+    const float uc = atEnd1 ? A.u1 : A.u0, ub0 = A.sign > 0 ? B.u0 : B.u1;
+    const float fa = intact[ia].fit(atEnd1 ? uc - eA : uc, atEnd1 ? uc : uc + eA, g0, g0 + h), fb = intact[ib].fit(A.sign > 0 ? ub0 : ub0 - eB, A.sign > 0 ? ub0 + eB : ub0, g0, g0 + h);
+    if (fa < 0.8f || fb < 0.8f) continue;
+    if (intact[ia].anyGone(now[ia], atEnd1 ? uc - eA : uc, atEnd1 ? uc : uc + eA, g0, g0 + h) || intact[ib].anyGone(now[ib], A.sign > 0 ? ub0 : ub0 - eB, A.sign > 0 ? ub0 + eB : ub0, g0, g0 + h)) { ++nput; continue; }
+    vec3 Cp(0); Cp[A.n] = A.plane; Cp[B.n] = B.plane; Cp.y = g0 - 0.05f;
+    vec3 Z = nrmOf(A), X = -nrmOf(B);
+    mat4 R(1); R[0] = vec4(X, 0); R[1] = vec4(0, 1, 0, 0); R[2] = vec4(Z, 0);   // a reflection for one hand of corner: the piece mirrored, still in the corner
+    put(it->first, glm::translate(mat4(1), Cp + (Z - X) * 0.012f) * R * glm::scale(mat4(1), vec3(s, s, s)), std::clamp(tone + C.facadeSpread * (u01(g) - 0.5f), 0.0f, 1.0f));
   }
 }
-void buildIvyCards(const AssetDef& a, const IvyDef& iv, const std::vector<uint8_t>& state, uint32_t seed, float density, std::vector<float>& v) {
-  buildIvyCards(a, iv, state, seed, density, IvyEnv{}, v);
-}
 
-void ivyDestroy(InstanceRT& r) {
-  if (r.ivy) { glDeleteVertexArrays(1, &r.ivy->cardVao); glDeleteBuffers(1, &r.ivy->cardVbo); r.ivy.reset(); }
-  r.ivyKey = 0;
-}
+void ivyDestroy(InstanceRT& r) { r.ivy.reset(); r.ivyKey = 0; }
 
-// Adds the instance's ivy to the foliage list, rebuilding the cards when a bay breaks, the quality, the toggle or the
-// map's look changes. IV1: an instance's extra "ivy" ({type, pattern, age, density, overgrown}: Beautify's decor
-// buildings) overrides the asset's block and grows on any building with stone / brick / rendered walls.
+// Adds the instance's ivy pieces to the model-foliage list, rebuilding them when a bay breaks, the quality, the toggle
+// or the map's look changes. IV1: an instance's extra "ivy" ({pattern, age, density, overgrown, share}: Beautify's
+// decor buildings) overrides the asset's block and grows on any building with stone / brick / rendered walls.
 void ivyDrawItem(App& app, const Instance& i, InstanceRT& r, const mat4& M, float camDist) {
   const AssetDef& a = *r.asset;
   const json* ov = i.extra.is_object() && i.extra.contains("ivy") && i.extra["ivy"].is_object() ? &i.extra["ivy"] : nullptr;
   if (a.ivy.mode == IvyDef::NONE && !ov) return;
+  static const bool abOff = std::getenv("NMK_IVY_OFF") != nullptr;   // VR1 perf A/B: no ivy drawn
+  if (abOff) return;
+  const Pack& PK = pack(app);
+  if (!PK.ok) return;
+  static bool once = [&] { app.R.ivyStem = lin(colours().stem); return true; }(); (void)once;
   int gq = (int)app.grass.quality;
   float density = !app.ivyOn || gq == 0 ? 0.0f : gq == 1 ? 0.6f : gq == 2 ? 1.0f : 1.15f;
+  if (a.ivy.mode == IvyDef::PIECES && app.ivyOn && gq > 0) density = 1.0f;   // a placed vine prop is the prop itself: kept at every quality but Off
   IvyEnv env;
   if (app.doc.extra.is_object() && app.doc.extra.contains("look") && app.doc.extra["look"].is_object()) {
     const json& lk = app.doc.extra["look"];
@@ -435,29 +451,34 @@ void ivyDrawItem(App& app, const Instance& i, InstanceRT& r, const mat4& M, floa
   if (key != r.ivyKey) {
     ivyDestroy(r);
     r.ivyKey = key;
-    std::vector<float> v;
     IvyDef iv = a.ivy;
-    if (ov) {
+    if (ov && iv.mode != IvyDef::PIECES) {
       if (iv.mode == IvyDef::NONE) iv.mode = IvyDef::AUTO;
-      iv.type = ov->value("type", iv.type); iv.pattern = ov->value("pattern", iv.pattern); iv.age = ov->value("age", iv.age);
+      iv.pattern = ov->value("pattern", iv.pattern); iv.age = ov->value("age", iv.age);
       iv.density = ov->value("density", iv.density); iv.overgrown = ov->value("overgrown", iv.overgrown); iv.share = ov->value("share", iv.share);
       if (ov->contains("share")) iv.mode = IvyDef::AUTO;   // every facade by share, not the asset's authored blocks
     }
-    if (density > 0) buildIvyCards(a, iv, r.state, (uint32_t)(i.id * 7919u + 17u), density, env, v);
-    if (std::getenv("NMK_IVY_LOG")) logf("ivy: %s season %d -> %zu cards", a.id.c_str(), env.season, v.size() / 60);
-    if (!v.empty()) {
-      auto t = std::make_shared<TreeDef>();
-      t->leafCol = leafLibReady() ? vec3(1.0f) : vec3(0.045f, 0.085f, 0.028f);   // textured: the leaf layers carry their own colour
-      t->cardVerts = (int)v.size() / 10;
-      t->cardMin = vec3(FLT_MAX); t->cardMax = vec3(-FLT_MAX);
-      for (size_t k = 0; k + 2 < v.size(); k += 10) { vec3 p(v[k], v[k + 1], v[k + 2]); t->cardMin = glm::min(t->cardMin, p); t->cardMax = glm::max(t->cardMax, p); }
-      glCreateVertexArrays(1, &t->cardVao); glCreateBuffers(1, &t->cardVbo);
-      glNamedBufferStorage(t->cardVbo, v.size() * 4, v.data(), 0);
-      glVertexArrayVertexBuffer(t->cardVao, 0, t->cardVbo, 0, 40);
-      int comps[5] = {3, 3, 2, 1, 1}, off = 0;
-      for (int k = 0; k < 5; ++k) { glEnableVertexArrayAttrib(t->cardVao, k); glVertexArrayAttribFormat(t->cardVao, k, comps[k], GL_FLOAT, GL_FALSE, off * 4); glVertexArrayAttribBinding(t->cardVao, k, 0); off += comps[k]; }
-      r.ivy = t;
-    }
+    // a building's tone follows its id; a vine prop's follows where it stands (25 m cells), so the vines of one ruin
+    // read as one plant, not a rainbow
+    uint32_t seed = iv.mode == IvyDef::PIECES ? (uint32_t)((int)std::floor(i.pos.x / 25.0f) * 73856093 ^ (int)std::floor(i.pos.z / 25.0f) * 19349663) : (uint32_t)(i.id * 7919u + 17u);
+    auto P = std::make_shared<IvyPieces>();
+    if (density > 0) buildIvyPieces(PK, a, iv, r.state, seed, density, env, P->v);
+    if (std::getenv("NMK_IVY_LOG")) logf("ivy: %s -> %zu pieces", a.id.c_str(), P->v.size());
+    if (!P->v.empty()) r.ivy = P;
   }
-  if (r.ivy && camDist < (gq >= 3 ? 260.0f : 140.0f) * settings().drawDist()) app.R.foliage.push_back({r.ivy.get(), M});   // IV1: Medium / Low to 140 m
+  if (!r.ivy || camDist > (gq >= 3 ? 260.0f : PK.cull) * settings().drawDist()) return;   // IV1: Medium / Low to 140 m
+  const bool far = PK.lod && camDist > PK.lodDist;
+  const GpuModel* gm = far ? PK.lod.get() : PK.m.get();
+  for (const IvyPlaced& q : r.ivy->v) {
+    Renderer::FolModelDraw d{gm, M * q.m, PK.wind};
+    d.first = far ? q.firstL : q.first; d.count = far ? q.countL : q.count; d.tint = q.tint;
+    app.R.folModels.push_back(d);
+  }
+}
+
+// self-test hook (selftest_render.cpp): the pieces an asset lays out for a seed, as asset-space matrices
+std::vector<mat4> ivyLayout(App& app, const AssetDef& a, const IvyDef& iv, const std::vector<uint8_t>& state, uint32_t seed, float density) {
+  std::vector<IvyPlaced> v; buildIvyPieces(pack(app), a, iv, state, seed, density, IvyEnv{}, v);
+  std::vector<mat4> m; for (auto& q : v) m.push_back(q.m);
+  return m;
 }

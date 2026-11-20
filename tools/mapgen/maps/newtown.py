@@ -951,24 +951,17 @@ def populate(ctx, grid, pads=None):
                 aid = R.choice(["mod_weeds_clump", "nat_nettle_clump", "nat_tallgrass_patch", "mod_weeds_crack", "mod_rubble_small", "nat_bramble_thicket",
                                 "mod_sapling_paving", "shrub_hazel", "mod_ivy_patch_ground", "nat_bramble_thicket"])
                 nd["weeds"] += drop(aid, wx, wz, R.uniform(0, 360), cls="veg" if not aid.startswith("mod_rubble") else "solid") is not None
-        # NT4: vine curtains on the tall blocks: strands hung from every storey line and the parapet, 30 % of the bays
+        # NT4: vine curtains on the tall blocks. VR1: the wall ivy's "curtain" pattern (src/ivy.cpp: the ivy pack's pieces
+        # hung from the real wall tops and storey bands, off the openings) instead of props hung at the footprint box,
+        # which floated where the walls stand inside it or a ruin has lost the storey
         nv = 0
         for e in [e for e in b.inst if "building" in e["tags"]]:
-            a = cat[e["asset"]]; fl = a_floors(e["asset"])
-            if fl < 3:
+            if a_floors(e["asset"]) < 3:
                 continue
-            hx, hz = a.half; y0 = e["pos"][1]
-            for (ax, az, nxl, nzl, half) in ((0, -1, 0, -1, hx), (0, 1, 0, 1, hx), (-1, 0, -1, 0, hz), (1, 0, 1, 0, hz)):
-                u = -half + 1.3
-                while u < half - 1.0:
-                    for st in range(1, fl + 1):
-                        if RD.random() < 0.3:
-                            lx = ax * (hx + 0.12) if ax else u
-                            lz = az * (hz + 0.12) if az else u
-                            wx, wz = local_to_world((e["pos"][0], e["pos"][2]), e["yaw"], lx, lz)
-                            nv += b.place(RD.choice(["mod_vines_hanging_long", "mod_vines_hanging_long", "mod_vines_hanging"]), wx, wz, e["yaw"] + RD.uniform(0, 360),
-                                          check=False, cls="none", y=y0 + st * 3.3 - 0.05, tags={"vines"}) is not None
-                    u += RD.uniform(2.2, 3.4)
+            iv = dict((e.get("extra") or {}).get("ivy") or {})
+            iv["pattern"] = "curtain+fan"
+            e.setdefault("extra", {})["ivy"] = iv
+            nv += 1
         nd["vineCurtains"] = nv
         # NT4: yards, lots and verges: ragged gravel / rubble / broken-slab ground round the buildings and along the roads
         RY = rng(SEED + 41)

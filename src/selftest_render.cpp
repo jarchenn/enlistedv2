@@ -21,7 +21,7 @@
 #include <cstdarg>
 #include <functional>
 #include <fstream>
-void buildIvyCards(const AssetDef& a, const IvyDef& iv, const std::vector<uint8_t>& state, uint32_t seed, float density, std::vector<float>& v);   // ivy.cpp
+std::vector<mat4> ivyLayout(App& app, const AssetDef& a, const IvyDef& iv, const std::vector<uint8_t>& state, uint32_t seed, float density);   // ivy.cpp (VR1)
 
 namespace {
 MpTest* T = nullptr;
@@ -536,28 +536,28 @@ void build(App& app) {
     auto it = a.rt.find(kitId);
     if (it == a.rt.end()) { chk(false, "kit folly runtime"); return true; }
     InstanceRT& r = it->second; const AssetDef& d = *r.asset;
-    int verts = r.ivy ? r.ivy->cardVerts : 0;
+    int verts = r.ivy ? (int)r.ivy->v.size() * 6 : 0;   // VR1: ivy-pack pieces (x 6 keeps the old card arithmetic below)
     if (phase == 0 && t > 0.3f) {
-      chk(verts / 6 >= 100, "ivy: %d leaf cards on the folly's stone walls", verts / 6);
+      chk(verts / 6 >= 2, "ivy: %d ivy-pack pieces on the folly's stone walls", verts / 6);
       std::vector<uint8_t> intact(d.panels.size(), PANEL_INTACT);
-      std::vector<float> v1, v2, v3; buildIvyCards(d, d.ivy, intact, 77, 1.0f, v1); buildIvyCards(d, d.ivy, intact, 77, 1.0f, v2); buildIvyCards(d, d.ivy, intact, 78, 1.0f, v3);
-      chk(!v1.empty() && v1 == v2 && v1 != v3, "ivy: the same seed grows identical cards, another instance's seed a different growth");
-      float worst = 0;   // every card hugs a wall: its centre 2 .. 5.5 cm out from the face it grows on (nearest stone face)
+      auto v1 = ivyLayout(a, d, d.ivy, intact, 77, 1.0f), v2 = ivyLayout(a, d, d.ivy, intact, 77, 1.0f), v3 = ivyLayout(a, d, d.ivy, intact, 78, 1.0f);
+      chk(!v1.empty() && v1 == v2 && v1 != v3, "ivy: the same seed lays out identical pieces, another instance's seed a different layout");
+      float worst = 0;   // every piece is rooted at a wall: its origin within 1 m of a stone face (ground patches stand out from the foot)
       bool hug = true;
-      for (size_t k = 0; k + 59 < v1.size(); k += 60) {
-        vec3 c(0); for (int q : {0, 1, 2, 5}) c += vec3(v1[k + q * 10], v1[k + q * 10 + 1], v1[k + q * 10 + 2]) * 0.25f;   // the quad's four corners
+      for (size_t k = 0; k < v1.size(); ++k) {
+        vec3 c = vec3(v1[k][3]);
         float dmin = 1e9f;
         for (auto& p : d.parts) if (p.visible && p.shape == Part::BOX && std::fabs(std::fabs(p.rot.w) - 1.0f) < 1e-4f) { vec3 e = glm::max(glm::abs(c - p.center) - p.size * 0.5f, vec3(0)); dmin = std::min(dmin, glm::length(e)); }
         for (auto& pn : d.panels) for (auto& p : pn.parts[0]) if (p.visible) { vec3 e = glm::max(glm::abs(c - p.center) - p.size * 0.5f, vec3(0)); dmin = std::min(dmin, glm::length(e)); }
-        worst = std::max(worst, dmin); hug &= dmin > 0.0f && dmin < 0.06f;
+        worst = std::max(worst, dmin); hug &= dmin < 1.0f;
       }
-      chk(hug, "ivy: every card hugs its wall (centre outside the stone, within 6 cm of it; farthest %.3f m)", worst);
+      chk(hug, "ivy: every piece is rooted at its wall (origin within 1 m of a stone face; farthest %.3f m)", worst);
       size_t fewest = v1.size();
-      for (size_t k = 0; k < d.panels.size(); ++k) { auto s = intact; s[k] = PANEL_BREACHED; std::vector<float> w; buildIvyCards(d, d.ivy, s, 77, 1.0f, w); if (w.size() < fewest) { fewest = w.size(); best = (int)k; } }
-      { IvyDef au; au.mode = IvyDef::AUTO; size_t most = 0, least = SIZE_MAX;   // "auto": colonies from the ground on the outer stone walls
-        for (uint32_t sd = 1; sd <= 8; ++sd) { std::vector<float> w; buildIvyCards(d, au, intact, sd, 1.0f, w); most = std::max(most, w.size()); least = std::min(least, w.size()); }
-        chk(least > 0, "ivy \"auto\": every one of 8 instance seeds grows some (%zu .. %zu cards)", least / 60, most / 60); }
-      chk(best >= 0 && fewest < v1.size(), "ivy: breaching bay %d takes its %zu cards with it (%zu left)", best, (v1.size() - fewest) / 60, fewest / 60);
+      for (size_t k = 0; k < d.panels.size(); ++k) { auto s = intact; s[k] = PANEL_BREACHED; auto w = ivyLayout(a, d, d.ivy, s, 77, 1.0f); if (w.size() < fewest) { fewest = w.size(); best = (int)k; } }
+      { IvyDef au; au.mode = IvyDef::AUTO; size_t most = 0, least = SIZE_MAX;   // "auto": pieces from the ground on the outer stone walls
+        for (uint32_t sd = 1; sd <= 8; ++sd) { auto w = ivyLayout(a, d, au, intact, sd, 1.0f); most = std::max(most, w.size()); least = std::min(least, w.size()); }
+        chk(least > 0, "ivy \"auto\": every one of 8 instance seeds lays out some (%zu .. %zu pieces)", least, most); }
+      chk(best >= 0 && fewest < v1.size(), "ivy: breaching bay %d takes its %zu pieces with it (%zu left)", best, v1.size() - fewest, fewest);
       verts0 = verts;
       if (best >= 0) r.state[best] = PANEL_BREACHED;   // the runtime path: the next frame rebuilds without them
       phase = 1;

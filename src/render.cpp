@@ -5,7 +5,9 @@
 #include "settings.h"
 #include "nature.h"
 #include "textures.h"
+#include <cfloat>
 #include <chrono>
+#include <tuple>
 // L2 lighting engine hooks (src/lighting.cpp, docs/lighting.md)
 void lightingInit(Renderer& R, const char* kCommonSrc, const char* kMainFSSrc);
 void lightingBegin(Renderer& R, const RenderView& v);
@@ -1801,8 +1803,9 @@ static const char* kModelVS = R"GLSL(
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec4 aTan; layout(location=3) in vec2 aUV;
 uniform mat4 uModel, uVP;
 uniform float uThin;   // radians to widen by (thin geometry), 0 = off
-out vec3 vW, vN; out vec4 vT; out vec2 vUV;
+out vec3 vW, vN; out vec4 vT; out vec2 vUV; flat out vec4 vTintI;
 void main(){
+  vTintI = vec4(0.0);
   vec4 w = uModel*vec4(aPos,1.0);
   mat3 m = mat3(uModel);
   if (uThin > 0.0) { vec3 n = m*aNrm; float l = length(n); if (l > 1e-6) w.xyz += n / l * min(length(w.xyz - uCamPos) * uThin, 0.03); }
@@ -1811,7 +1814,8 @@ void main(){
 }
 )GLSL";
 static const char* kModelFS = R"GLSL(
-in vec3 vW, vN; in vec4 vT; in vec2 vUV;
+in vec3 vW, vN; in vec4 vT; in vec2 vUV; flat in vec4 vTintI;
+uniform vec3 uIvyStem; uniform vec2 uIvyRef;   // VR1 (src/ivy.cpp)
 uniform sampler2D uAlb, uMR, uNrm, uAO;
 uniform int uHasAlb, uHasMR, uHasNrm, uHasAO, uAOinMR; uniform float uAOWeak;   // TK3: 0 as baked (the default of an unset uniform), 1 no baked occlusion
 uniform vec4 uBase, uTint; uniform float uMetal, uRough;
@@ -1830,6 +1834,10 @@ void main(){
   vec4 base = uBase;
   if (uHasAlb == 1) base *= texture(uAlb, vUV);
   if (uCutout == 1 && base.a < 0.5) discard;
+  if (vTintI.a > 0.5) {   // VR1: the ivy pack recoloured per instance; the texture keeps its own shading (luminance)
+    float l = dot(base.rgb, vec3(0.2126, 0.7152, 0.0722));
+    base.rgb = uCutout == 1 ? vTintI.rgb * clamp(l / uIvyRef.x, 0.15, 2.5) : mix(uIvyStem, vTintI.rgb, 0.15) * clamp(l / uIvyRef.y, 0.15, 2.5);
+  }
   base.rgb = max(base.rgb, vec3(uAlbFloor));   // VH6d: a near-black supplied cabin reads as dark grey trim from the seat
   if (uGlass > 0) {   // tinted window glass: see-through, a dust film, sky reflection at grazing angles
     vec3 N = normalize(vN); if (!gl_FrontFacing) N = -N;
@@ -1892,11 +1900,13 @@ static const char* kFolVS = R"GLSL(
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec4 aTan; layout(location=3) in vec2 aUV;
 layout(std430, binding = 12) readonly buffer NmkFol { vec4 gFol[]; };
 uniform mat4 uVP; uniform float uTime, uWind; uniform int uInstBase;
-out vec3 vW, vN; out vec4 vT; out vec2 vUV;
+out vec3 vW, vN; out vec4 vT; out vec2 vUV; flat out vec4 vTintI;
 void main(){
   int b = (uInstBase + gl_InstanceID)*4;
-  vec4 c0 = gFol[b]; float wk = c0.w; c0.w = 0.0;
-  mat4 M = mat4(c0, gFol[b + 1], gFol[b + 2], gFol[b + 3]);
+  vec4 c0 = gFol[b], c1 = gFol[b + 1], c2 = gFol[b + 2], c3 = gFol[b + 3]; float wk = c0.w; c0.w = 0.0;
+  vTintI = c3.w > 1.5 ? vec4(c1.w, c2.w, c3.w - 2.0, 1.0) : vec4(0.0);   // VR1: the matrix's free w row carries a colour
+  c1.w = 0.0; c2.w = 0.0; c3.w = 1.0;
+  mat4 M = mat4(c0, c1, c2, c3);
   vec4 w = M*vec4(aPos, 1.0);
   float h = max(aPos.y, 0.0), ph = 0.21*M[3].x + 0.17*M[3].z;
   float s = sin(1.1*uTime + ph) + 0.35*sin(2.7*uTime + 1.3*ph + 0.4*h);
@@ -4241,22 +4251,33 @@ void Renderer::drawModelsDepth(GLuint p, const std::vector<ModelDraw>& items, co
 // then each part is one instanced draw; cutout parts alpha test (depth too), no back-face culling.
 void Renderer::drawFolModels(bool depth, const mat4& vp, const Frustum* fr, float minH) {
   if (folModels.empty()) return;
-  std::map<const GpuModel*, std::vector<const FolModelDraw*>> by;
+  struct Key { const GpuModel* m; int first, count; bool operator<(const Key& o) const { return std::tie(m, first, count) < std::tie(o.m, o.first, o.count); } };
+  std::map<Key, std::vector<const FolModelDraw*>> by;
   for (auto& d : folModels) {
     if (!d.model || !d.model->vao) continue;
-    if (minH > 0 && d.model->bmax.y - d.model->bmin.y < minH) continue;   // ferns / grass do not cast into this cascade
-    if (fr) { vec3 c = vec3(d.m * vec4(0.5f * (d.model->bmin + d.model->bmax), 1)); float r = 0.5f * glm::length(vec3(d.m * vec4(d.model->bmax - d.model->bmin, 0)));
+    vec3 lo = d.model->bmin, hi = d.model->bmax;
+    if (d.count >= 0) {   // VR1: a range of parts (one ivy piece): its own bounds
+      lo = vec3(FLT_MAX); hi = vec3(-FLT_MAX);
+      for (int k = d.first; k < d.first + d.count && k < (int)d.model->parts.size(); ++k) { lo = glm::min(lo, d.model->parts[k].bmin); hi = glm::max(hi, d.model->parts[k].bmax); }
+      if (lo.x > hi.x) continue;
+    }
+    if (minH > 0 && (hi.y - lo.y) * glm::length(vec3(d.m[1])) < minH) continue;   // ferns / grass do not cast into this cascade
+    if (fr) { vec3 c = vec3(d.m * vec4(0.5f * (lo + hi), 1)); float r = 0.5f * glm::length(vec3(d.m * vec4(hi - lo, 0)));
               if (!fr->sphere(c, r)) { stats.culled++; continue; } }
-    by[d.model].push_back(&d);
+    by[{d.model, d.count >= 0 ? d.first : 0, d.count}].push_back(&d);
   }
-  std::vector<vec4> buf; std::vector<std::pair<const GpuModel*, std::pair<int, int>>> runs;
+  std::vector<vec4> buf; std::vector<std::pair<Key, std::pair<int, int>>> runs;
   for (auto& [m, v] : by) {
     runs.push_back({m, {(int)(buf.size() / 4), (int)v.size()}});
-    for (auto* d : v) { mat4 M = d->m; M[0].w = d->wind; for (int k = 0; k < 4; ++k) buf.push_back(M[k]); }
+    for (auto* d : v) {
+      mat4 M = d->m; M[0].w = d->wind;
+      if (d->tint.a > 0) { M[1].w = d->tint.r; M[2].w = d->tint.g; M[3].w = 2.0f + d->tint.b; }   // kFolVS reads it back
+      for (int k = 0; k < 4; ++k) buf.push_back(M[k]);
+    }
   }
   if (buf.empty()) return;
   static const bool dbg = std::getenv("NMK_DBG_FOL") != nullptr; static int dbgN = 0;
-  if (dbg && !depth && dbgN++ < 3) for (auto& [m, rn] : runs) logf("fol: model %p parts %zu inst %d tris %d mats %zu alb0 %u cut0 %d", (const void*)m, m->parts.size(), rn.second, m->tris, m->mats.size(), m->mats.empty() ? 0u : m->mats[0].alb, m->parts.empty() ? -1 : (int)m->parts[0].cutout);
+  if (dbg && !depth && dbgN++ < 3) for (auto& [key, rn] : runs) if (const GpuModel* m = key.m) logf("fol: model %p parts %zu inst %d tris %d mats %zu alb0 %u cut0 %d", (const void*)m, m->parts.size(), rn.second, m->tris, m->mats.size(), m->mats.empty() ? 0u : m->mats[0].alb, m->parts.empty() ? -1 : (int)m->parts[0].cutout);
   size_t bytes = buf.size() * sizeof(vec4);
   if (!folBuf || folBufBytes < bytes) { if (folBuf) glDeleteBuffers(1, &folBuf); glCreateBuffers(1, &folBuf); folBufBytes = std::max(bytes, folBufBytes * 2); glNamedBufferData(folBuf, folBufBytes, nullptr, GL_STREAM_DRAW); }
   glNamedBufferSubData(folBuf, 0, bytes, buf.data());
@@ -4267,13 +4288,17 @@ void Renderer::drawFolModels(bool depth, const mat4& vp, const Frustum* fr, floa
   glUniform1f(U(p, "uTime"), time); glUniform1f(U(p, "uWind"), wind);
   const DrawLocs L = drawLocs(p);
   glUniform1i(L.alb, 2);
-  if (!depth) { glUniform1i(L.mr, 3); glUniform1i(L.nrm, 4); glUniform1i(L.ao, 5); glUniform4f(L.tint, 1, 1, 1, 1); glUniform1f(L.thin, 0); glUniform1i(U(p, "uGlass"), 0); glUniform1f(U(p, "uAlbFloor"), 0); }
+  if (!depth) { glUniform1i(L.mr, 3); glUniform1i(L.nrm, 4); glUniform1i(L.ao, 5); glUniform4f(L.tint, 1, 1, 1, 1); glUniform1f(L.thin, 0); glUniform1i(U(p, "uGlass"), 0); glUniform1f(U(p, "uAlbFloor"), 0);
+                glUniform3fv(U(p, "uIvyStem"), 1, glm::value_ptr(ivyStem)); glUniform2fv(U(p, "uIvyRef"), 1, glm::value_ptr(ivyRef)); }
   GLint lCut = U(p, "uCutout"), lBase = U(p, "uInstBase");
   glDisable(GL_CULL_FACE);
-  for (auto& [m, rn] : runs) {
+  for (auto& [key, rn] : runs) {
+    const GpuModel* m = key.m;
     glBindVertexArray(m->vao); glUniform1i(lBase, rn.first);
     int boundMat = -2;
-    for (auto& pt : m->parts) {
+    const int p0 = key.first, p1 = key.count < 0 ? (int)m->parts.size() : std::min((int)m->parts.size(), key.first + key.count);
+    for (int pi = p0; pi < p1; ++pi) {
+      const auto& pt = m->parts[pi];
       int mi = pt.mat >= 0 && pt.mat < (int)m->mats.size() ? pt.mat : -1;
       if (mi != boundMat) {
         boundMat = mi; GpuModel::MatTex none; const GpuModel::MatTex& t = mi >= 0 ? m->mats[mi] : none;

@@ -1,22 +1,28 @@
 #include "mapdoc.h"
 #include <fstream>
 #include <cstring>
+#include <set>
 
 // TR1: the generated trees replaced by model trees (content/settings/tree_aliases.json: old id -> model variants). A map
 // (template or saved) that places an old id loads each such tree as one of its variants, picked by the instance id
 // (the same tree every load, a mix across a wood); the old ids stay hidden from the palette (palette.cpp)
+// TR1 / VR1: generated tree and rock ids -> their model variants (content/settings/tree_aliases.json, rock_aliases.json);
+// a rock id under "removed" is dropped on load (aliasRemoved)
+static std::set<std::string> gAliasRemoved;
 const std::vector<std::string>* treeAlias(const std::string& id) {
   static const std::map<std::string, std::vector<std::string>> table = [] {
     std::map<std::string, std::vector<std::string>> t;
-    try {
-      json j = json::parse(readTextFile(contentDir() / "settings" / "tree_aliases.json"));
+    for (const char* f : {"tree_aliases.json", "rock_aliases.json"}) try {
+      json j = json::parse(readTextFile(contentDir() / "settings" / f));
       for (auto& [k, v] : j.value("aliases", json::object()).items()) for (auto& x : v) t[k].push_back(x.get<std::string>());
+      for (auto& x : j.value("removed", json::array())) gAliasRemoved.insert(x.get<std::string>());
     } catch (...) {}
     return t;
   }();
   auto it = table.find(id);
   return it == table.end() || it->second.empty() ? nullptr : &it->second;
 }
+bool aliasRemoved(const std::string& id) { treeAlias(id); return gAliasRemoved.count(id) > 0; }
 
 // ground paint chunks: run-length (count, r, g, b, a) then base64 (docs/lasso.md#map-format)
 static const char* kB64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -192,6 +198,7 @@ bool loadMap(const fs::path& path, MapDoc& d, std::string& err) {
     i.id = o.value("id", 0ull);
     i.assetId = o["asset"].value("id", "");
     i.assetVersion = o["asset"].value("version", 1);
+    if (aliasRemoved(i.assetId)) continue;   // VR1: a generated rock with no model rock yet
     if (const auto* al = treeAlias(i.assetId)) { uint64_t h = i.id * 0x9E3779B97F4A7C15ull; h ^= h >> 29; i.assetId = (*al)[(size_t)(h % al->size())]; i.assetVersion = 1; }   // TR1
     i.pos = jvec3(o["position"]);
     i.yaw = o.value("yaw", 0.0f);

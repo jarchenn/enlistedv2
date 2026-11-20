@@ -1,0 +1,45 @@
+{
+ "id": "ivy_pack",
+ "version": 1,
+ "name": "Ivy pack (wall, corner and ground pieces)",
+ "category": "Vegetation",
+ "hidden": true,
+ "description": "VR1: the 12 ivy pieces every vine in the game is drawn from (walls, inside corners, ground patches), one shared bake; src/ivy.cpp places them. Not placed by itself.",
+ "footprint": [
+  1,
+  1
+ ],
+ "floors": 0,
+ "enterable": false,
+ "plinthDepth": 0,
+ "maxGrade": 30,
+ "noAutoPanels": true,
+ "model": {
+  "src": "ivy_pack.glb",
+  "lod1Src": "ivy_pack_lod1.glb",
+  "dir": "ivy_pack",
+  "pivot": "ground",
+  "scale": 1,
+  "offset": [
+   0.0,
+   -0.14262,
+   -0.0
+  ],
+  "maxTex": 1024,
+  "lod1Tex": 512,
+  "jpgMaps": true,
+  "lodDist": 18,
+  "cullDist": 140,
+  "foliage": true,
+  "wind": 0.3,
+  "credit": "Ivy pack (12 variations, lowpoly, LODs) by LOLIPOP (sketchfab.com/lolipop_1707), CC-BY-4.0, sketchfab.com/3d-models/ivy-pack-12-variations-lowpoly-lods-0c80d67aa8fb4688bd1187518e4cc686"
+ },
+ "nav": {
+  "effect": "none"
+ },
+ "materials": [],
+ "parts": [],
+ "furniture": [],
+ "interactables": [],
+ "panels": []
+}
