@@ -113,6 +113,12 @@ public:
   GLuint wxUbo = 0; void uploadWeather();   // W1: NmkWeather uniform block, binding 4
   float sunDirectFrac = 1.0f, sunShK = 1.0f;   // OPT wxsun: last setLighting's direct-sun share; this frame's cascade strength (0 = none drawn)
   int dbgTerr = -1;   // GG1 measurement: terrain debug view (-1: NMK_DBG_TERRAIN), set per capture view
+  // CP0 look-dev (docs: corpus plan step 0): debug view, by name through dbgViewFromName (NMK_DEBUG_VIEW / --debug-view):
+  // 1 lum (false-colour luminance, stops around exposed 0.18), 2 illum (shade(): albedo 0.18, no metal), 3 albedo, 4 furnace,
+  // 5 texel (materials session), 6 sky (illum without the sun's direct light, plus a centre patch of exposed 0.18)
+  int dbgView = 0;
+  std::vector<DrawItem> lookdev;   // CP0 grey / white / chrome spheres, colour chart, grey cards (lookdev.cpp); the app draws them with the opaque list
+  struct LdProbe { std::vector<vec3> pts; std::vector<vec3> hdr; std::vector<glm::ivec2> px; float expo = 0; bool want = false; } ldProbe;   // CP0: scene-linear HDR (5x5 mean) at world points, read before the tone pass; -1 off screen; px: framebuffer pixel, rows top-down
   bool ggOff = false;  // GG1 A/B: the pre-GG1 ground roughness (capture views)
   vec4 green{0.0f}, greenK{1.0f, 0.0f, 1.0f, 0.0f};   // FL1 greenery (kCommon greenGrade): target + card strength; card gain, grass strength / gain, model strength   // VR1: stem colour (linear) and the leaf / stem textures' mean luminance (content/settings/ivy.json)
   std::vector<FolModelDraw> folModels;
@@ -539,3 +545,4 @@ int wxPresetFromName(const std::string& n);   // a name or the old "clear" / "cl
 float wxPresetDeck(int id);
 void weatherDerive(Renderer& R);
 void weatherForce(Renderer& R, int id);   // W1: a preset now, as if picked in the menu (benchmarks: also NMK_WEATHER=<name or id> at start)
+int dbgViewFromName(const std::string& n);   // CP0: "lum", "illum", "albedo", "furnace", "texel", "sky"; anything else 0 (off)

@@ -21,7 +21,10 @@
 #include <chrono>
 #include <fstream>
 #include <cstdarg>
+#include <functional>
+#include <algorithm>
 
+bool gLookdevRun = false;   // CP0: --selftest-lookdev (selftest.cpp)
 namespace {
 fs::path outDirM() { fs::path p = exeDir() / "selftest_out"; std::error_code ec; fs::create_directories(p, ec); return p; }
 double wsMB() { ProcMem pmc = processMemory(); return pmc.WorkingSetSize / 1048576.0; }
@@ -89,6 +92,48 @@ std::string fl1Analyse(App& app, const std::string& map, const std::string& view
 // FX1 headlamp captures (NMK_FX1=1, Medium): per view the headlamp off, then on; first-person views also crouched and
 // aiming down the sights; frame time with it off and on (1 s each) -> selftest_out/fx1_<map>_<view>_<state>.png
 const bool kFx1 = std::getenv("NMK_FX1") != nullptr;
+// CP0 look-dev readout (--selftest-lookdev, or NMK_LOOKDEV=1 with --selftest-maps): per gameplay view, at the current
+// preset, after the frame-time measurement: the view as played (clipped / crushed pixel shares), then the look-dev props
+// (lookdev.cpp) with five grey cards 5.5 m ahead, read in scene-linear HDR under the illum view (albedo 0.18) and the sky
+// view (the same without the sun's direct light). The card with the most sun gives sun:shade = log2(illum / sky) and
+// sun:sky = illum / sky - 1; its sRGB value in the props shot is the grey card in sun; the sky shot's centre patch is
+// scene 0.18 through the display chain. -> selftest_out/lookdev.json and ld_<map>_<view>[_props|_illum|_sky|_lum].png
+bool ldRun() { static const bool e = std::getenv("NMK_LOOKDEV") != nullptr; return gLookdevRun || e; }
+int gLdPh = 0; float gLdT = 0; float gLdExpo = 0; std::vector<vec3> gLdCards, gLdIll, gLdSky; std::vector<glm::ivec2> gLdPx; json gLd = json::object();
+float lumOf(vec3 c) { return 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b; }
+std::string ldAnalyse(App& app, const std::string& map, const std::string& view, const std::string& base) {
+  int w = 0, h = 0, n = 0, w2 = 0, h2 = 0, w3 = 0, h3 = 0;
+  auto ld = [&](const char* sfx, int& W, int& H) { return stbi_load((outDirM() / (base + sfx + ".png")).string().c_str(), &W, &H, &n, 3); };
+  unsigned char *A = ld("", w, h), *P = ld("_props", w2, h2), *S = ld("_sky", w3, h3);
+  std::string r;
+  if (!A || !P || !S || w != w2 || h != h2 || w != w3 || h != h3) r = "look-dev " + base + ": captures missing";
+  else {
+    long clip = 0, crush = 0;
+    for (long k = 0; k < (long)w * h; ++k) { int m = std::max({A[k * 3], A[k * 3 + 1], A[k * 3 + 2]}); clip += m >= 254; crush += m <= 3; }
+    auto patch = [&](unsigned char* I, int cx, int cy, int hw) { double s = 0; int c = 0;
+      for (int y = std::max(0, cy - hw); y <= std::min(h - 1, cy + hw); ++y) for (int x = std::max(0, cx - hw); x <= std::min(w - 1, cx + hw); ++x, ++c)
+        s += 0.2126 * I[(y * w + x) * 3] + 0.7152 * I[(y * w + x) * 3 + 1] + 0.0722 * I[(y * w + x) * 3 + 2];
+      return c ? s / c : -1.0; };
+    double mid = patch(S, w / 2, h / 2, 6);
+    int best = -1; float bestR = 0, minR = 1e9f;
+    for (size_t k = 0; k < gLdCards.size() && k < gLdIll.size() && k < gLdSky.size(); ++k) {
+      float li = lumOf(gLdIll[k]), ls = lumOf(gLdSky[k]);
+      if (li <= 0 || ls <= 0) continue;
+      float ra = li / ls; minR = std::min(minR, ra); if (ra > bestR) { bestR = ra; best = (int)k; }
+    }
+    double card = best >= 0 && best < (int)gLdPx.size() ? patch(P, gLdPx[best].x, gLdPx[best].y, 1) : -1.0;
+    json j = {{"clippedPct", 100.0 * clip / ((double)w * h)}, {"crushedPct", 100.0 * crush / ((double)w * h)}, {"mid18Srgb", mid}, {"exposure", gLdExpo},
+              {"cardsSeen", best >= 0 ? (int)std::count_if(gLdIll.begin(), gLdIll.end(), [](vec3 c) { return c.r >= 0; }) : 0}};
+    if (best >= 0) { j["sunShadeStops"] = std::log2(bestR); j["sunSky"] = bestR - 1.0f; j["shadiestCardStops"] = std::log2(minR); j["cardSunSrgb"] = card; }
+    gLd[map][view] = j;
+    std::ofstream(outDirM() / "lookdev.json") << gLd.dump(1);
+    r = best < 0 ? fmt("look-dev %s %s: no grey card on screen; clipped %.2f %%, crushed %.2f %%, scene 0.18 -> sRGB %.0f", map.c_str(), view.c_str(), j["clippedPct"].get<double>(), j["crushedPct"].get<double>(), mid)
+                 : fmt("look-dev %s %s: sun:shade %.2f stops (sun:sky %.1f:1; shadiest card %.2f), grey card in sun sRGB %.0f, scene 0.18 -> sRGB %.0f, clipped %.2f %%, crushed %.2f %%, exposure %.3f",
+                       map.c_str(), view.c_str(), std::log2(bestR), bestR - 1.0f, std::log2(minR), card, mid, j["clippedPct"].get<double>(), j["crushedPct"].get<double>(), gLdExpo);
+  }
+  stbi_image_free(A); stbi_image_free(P); stbi_image_free(S);
+  return r;
+}
 int gFxPh = 0; float gFxT = 0; double gFxMs[2] = {0, 0}; int gFxN[2] = {0, 0}; double gFxLast = 0;
 std::vector<Perf> sPerf; int sPresetPass = 0; double sLast = 0; double sLoadS = 0, sMemBefore = 0, sMemAfter = 0;
 json sSum = json::object();
@@ -449,7 +494,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
         if (app.mode == Mode::Explore) app.exitExplore();
         app.camPos = v.pos; app.camYaw = v.yaw; app.camPitch = v.pitch;
       }
-      sPerf.push_back({v.name, v.gate}); sLast = 0; gFlPh = 0; gFxPh = 0; gWalkN = 0; gWalk0 = app.camPos;
+      sPerf.push_back({v.name, v.gate}); sLast = 0; gFlPh = 0; gFxPh = 0; gLdPh = 0; gWalkN = 0; gWalk0 = app.camPos;
       logf("maps view %s at (%.1f %.1f %.1f) yaw %.1f pitch %.1f", v.name.c_str(), v.pos.x, v.pos.y, v.pos.z, v.yaw, v.pitch);
     }
     if (v.explore && app.mode == Mode::Explore) { app.useScripted = true; }
@@ -530,6 +575,28 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       }
       break;
     }
+    if (ldRun() && v.gate && sPresetPass == 0 && stageTime >= measEnd && gLdPh < 10) {   // CP0 look-dev readout (see ldAnalyse)
+      std::string map = app.templates[sTpl[sTi]].id, base = "ld_" + map + "_" + v.name;
+      Renderer& R = app.R;
+      auto wait = [&](float s) { return stageTime >= gLdT + s; };
+      auto next = [&] { gLdT = stageTime; ++gLdPh; };
+      auto probe = [&] { R.ldProbe.pts = gLdCards; R.ldProbe.want = true; };
+      switch (gLdPh) {
+        case 0: shotQueue.push_back(base); next(); break;   // the view as played
+        case 1: if (wait(0.1f)) { extern void lookdevPlace(Renderer&, vec3, float, const std::function<float(float, float)>&, std::vector<vec3>*);
+                  lookdevPlace(R, v.explore ? app.eyePos() : app.camPos, v.explore ? app.eyeYaw : app.camYaw, [&](float x, float z) { return app.terrain.height(x, z); }, &gLdCards);
+                  R.resetTemporal(); next(); } break;
+        case 2: if (wait(1.2f)) { shotQueue.push_back(base + "_props"); probe(); next(); } break;
+        case 3: gLdPx = R.ldProbe.px; gLdExpo = R.ldProbe.expo; R.dbgView = 2; R.resetTemporal(); next(); break;
+        case 4: if (wait(0.8f)) { shotQueue.push_back(base + "_illum"); probe(); next(); } break;
+        case 5: gLdIll = R.ldProbe.hdr; R.dbgView = 6; R.resetTemporal(); next(); break;
+        case 6: if (wait(0.8f)) { shotQueue.push_back(base + "_sky"); probe(); next(); } break;
+        case 7: gLdSky = R.ldProbe.hdr; R.dbgView = 1; next(); break;
+        case 8: if (wait(0.3f)) { shotQueue.push_back(base + "_lum"); next(); } break;
+        case 9: if (wait(0.1f)) { R.dbgView = 0; R.lookdev.clear(); R.resetTemporal(); check(true, ldAnalyse(app, map, v.name, base)); next(); } break;
+      }
+      break;
+    }
     if (stageTime >= measEnd) {
       Perf& p = sPerf.back();
       if (abEnv) { app.R.perf = Renderer::Perf(); if (std::string(abEnv) != "all") app.R.perf.set(abEnv, true); p.frames = p.abN[0]; p.ms = p.abMs[0]; p.gpu = 0; for (int i = 0; i < GP_Count; ++i) { p.pass[i] = p.abPass[0][i]; p.gpu += p.pass[i]; }
@@ -537,7 +604,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       std::string nm = "maps_" + app.templates[sTpl[sTi]].id + "_" + v.name + (sPresetPass == 1 ? "_low" : sPresetPass == 2 ? "_high" : sPresetPass == 3 ? "_night" : "");
       shotQueue.push_back(nm);
       check(p.frames > 10, fmt("%s view %s%s: %.2f ms avg (worst %.1f) over %d frames, %.0f draws, %.1f M tris, GPU %.2f ms, sun direct %.0f %%, %d sun-cascade draws -> selftest_out/%s.png", v.gate ? "gameplay" : "editor", v.name.c_str(), sPresetPass ? (sPresetPass == 1 ? " at Low" : sPresetPass == 2 ? " at High" : " at Night (Medium)") : "", p.ms, p.worst, p.frames, p.draws, p.tris / 1e6, p.gpu, app.R.stats.sunDirectPct, app.R.stats.shadowDraws, nm.c_str()));
-      if (v.gate && sPresetPass < 3 && !std::getenv("NMK_MAPS_VIEW") && !kFl1 && !kFx1) {   // V2 (docs/settings.md): the same gameplay view again at Low, then High; L2: then Night at Medium
+      if (v.gate && sPresetPass < 3 && !std::getenv("NMK_MAPS_VIEW") && !kFl1 && !kFx1 && !ldRun()) {   // V2 (docs/settings.md): the same gameplay view again at Low, then High; L2: then Night at Medium
         ++sPresetPass; GfxPreset ps = sPresetPass == 1 ? GfxPreset::Low : sPresetPass == 2 ? GfxPreset::High : GfxPreset::Medium;
         settings().applyPreset(app, ps); app.R.resetTemporal();
         if (sPresetPass == 3) app.R.lt.hour = 0.0f;   // Night (docs/lighting.md)
