@@ -16,9 +16,10 @@ them by category.
 | `creaks[]` | `{at, r, every: [lo, hi], volume}`: wood creaks (`amb_creak`) now and then while the listener is within `r`; more often and louder in gusts |
 | `surfaces` | `{paint id: step event}`: the footstep of each ground-paint type on this map (`grass` = unpainted ground) |
 
-**Footsteps.** `App::stepSound` asks `mapStepEvent`: six samples of the ground paint round the foot (the centre counted
-twice, four 0.35 m out), each the dominant painted type (under 35 % paint: the unpainted ground), mapped through
-`surfaces` or the type's own `step`; the most votes wins, so a transition dithers over about 0.7 m instead of switching
+**Footsteps.** `App::stepSound` asks `mapStepEvent`: six samples round the foot (the centre counted twice, four 0.35 m
+out), each first the map's snow mask (`snowStepAt`, BT1 `src/snow.h`: snow, deep snow, slush, meltwater; declared weak, so
+it is simply skipped until that code is linked), else the dominant painted type (under 35 % paint: the unpainted
+ground), mapped through `surfaces` or the type's own `step`; the most votes wins, so a transition dithers over about 0.7 m instead of switching
 on a line. Water from 5 to 30 cm deep is `step_shallow`, deeper `step_water`. Winter surfaces: `step_snow` (powder
 crunch), `step_snow_deep`, `step_slush`, `step_mud`, `step_shallow` (`custom/bta/steps_*.mp3`, levels in mix.json
 `steps`). Shallow water and slush steps leave one or two ripple rings at the contact, from the gore puff pool (capped
@@ -26,5 +27,5 @@ at 600), for the player and for bots within 30 m.
 
 Blackwater Thaw's file places the wind bed, gusts on the quarry overlook (and lighter on the washhouse terrace), a
 calmer court and workshop yard, the orchard's rustle, the creek along its whole line plus the stone bridge, footbridge
-and ford, the waterworks flume, three drains, the smithy fire and creaks at five old sheds, from the BT1 greybox's
-coordinates (`tools/mapgen/maps/blackwater_thaw.py`).
+and ford, the waterworks flume (head to foot), two drains, the smithy hearth and creaks at five old sheds, at the
+anchors BT1 writes to `content/templates/blackwater_thaw.audio.json`; the pebble creek shore steps as stone.

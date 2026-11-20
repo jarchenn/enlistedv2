@@ -1,5 +1,5 @@
 // BTA --check-bta: the winter footstep sets and the creak event load; Blackwater Thaw's ambience data is found by template
-// id; unpainted ground on that map steps as powder snow; at the footbridge the wind bed, the creek line and the footbridge
+// id; without the map's snow layer (snowStepAt, BT1) unpainted ground keeps the default step; at the footbridge the wind bed, the creek line and the footbridge
 // riffle sound (nothing else in range), and on the quarry overlook the ridge gust bed joins; the gust signal stays in 0..1
 #include "selftest.h"
 #include "map_ambience.h"
@@ -20,10 +20,10 @@ bool btaSelfTest(App& a, float dt) {
     a.newMap(*a.findTemplate("blank_slate"), "BTA check");
     a.doc.templateId = "blackwater_thaw";   // a blank map standing in for the map (its ambience file is found by template id)
     const json* c = mapAudioConfig(a);
-    chk(c && c->value("zones", json::array()).size() == 6 && c->value("loops", json::array()).size() == 9 && c->value("creaks", json::array()).size() == 5, "Blackwater Thaw ambience data: 6 zones, 9 loops, 5 creak spots");
+    chk(c && c->value("zones", json::array()).size() == 6 && c->value("loops", json::array()).size() == 8 && c->value("creaks", json::array()).size() == 5, "Blackwater Thaw ambience data: 6 zones, 8 loops, 5 creak spots");
     vec3 p(12, a.terrain.height(12, -31), -31);
     std::string st = mapStepEvent(a, p), ss = a.stepSound(p, 0);
-    chk(st == "step_snow" && ss == "step_snow", "unpainted ground steps as powder snow (" + st + ", " + ss + ")");
+    chk(st.empty() && ss == "step_grass", "no snow layer linked (snowStepAt null): unpainted ground keeps the default step (" + st + ", " + ss + ")");
     float g = mapWindGust(); chk(g >= 0 && g <= 1, "gust signal in 0..1 (" + std::to_string(g) + ")");
     a.doc.start = {true, p, 0}; chk(a.enterExplore(), "first person");
   }

@@ -123,6 +123,9 @@ void mapAmbienceFrame(App& app, float dt) {
   }
 }
 
+// BT1 (src/snow.h, on the map's branch): the snow mask's step at a point ("step_snow", "step_snow_deep", "step_slush",
+// "step_shallow") or nullptr. Weak: null until that code is linked in, then used with no further change
+extern "C++" __attribute__((weak)) const char* snowStepAt(float x, float z);
 // the ground paint's footstep: five samples (centre counted twice, four 0.35 m around), each the dominant painted type
 // (under 35 % paint: the unpainted ground); the most votes wins, so a transition dithers over ~0.7 m instead of a hard line
 std::string mapStepEvent(App& app, vec3 pos) {
@@ -133,9 +136,13 @@ std::string mapStepEvent(App& app, vec3 pos) {
   const vec2 off[5] = {{0, 0}, {0, 0}, {0.35f, 0}, {-0.35f, 0}, {0, 0.35f}};
   for (int s = 0; s < 6; ++s) {
     vec2 o = s < 5 ? off[s] : vec2(0, -0.35f);
-    int t = 0; float w = groundPaintAt(app, pos.x + o.x, pos.z + o.y, &t);
-    if (w < 0.35f || t < 0 || t >= (int)T.size()) t = 0;
-    std::string ev = surf.contains(T[t].id) ? surf[T[t].id].get<std::string>() : T[t].step;
+    std::string ev;
+    if (const char* sn = snowStepAt ? snowStepAt(pos.x + o.x, pos.z + o.y) : nullptr) ev = sn;   // the snow layer first
+    else {
+      int t = 0; float w = groundPaintAt(app, pos.x + o.x, pos.z + o.y, &t);
+      if (w < 0.35f || t < 0 || t >= (int)T.size()) t = 0;
+      ev = surf.contains(T[t].id) ? surf[T[t].id].get<std::string>() : T[t].step;
+    }
     if (++votes[ev] > bv) { bv = votes[ev]; best = ev; }
   }
   return best;

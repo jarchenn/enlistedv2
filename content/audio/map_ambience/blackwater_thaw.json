@@ -1,5 +1,5 @@
 {
-  "_doc": "BTA: Blackwater Thaw ambience (docs/map-ambience.md). Engine x / z (the greybox's plan: spec X east = x, Y north = z); heights follow the terrain. Files under content/audio/custom. Positions from tools/mapgen/maps/blackwater_thaw.py (BT1 greybox) and the map session (hearth, creaky sheds, overlook). Surfaces: the map paints snow / snow_deep / slush / meltwater / wet_gravel with these step ids itself; the table only turns the greybox's unpainted and dry-grass ground into snow.",
+  "_doc": "BTA: Blackwater Thaw ambience (docs/map-ambience.md). Engine x / z (the greybox's plan: spec X east = x, Y north = z); heights follow the terrain. Files under content/audio/custom. Positions from tools/mapgen/maps/blackwater_thaw.py (BT1 greybox) and the map session (hearth, creaky sheds, overlook). Surfaces: snow comes from the map's snow mask (snowStepAt, BT1); the table only makes the pebble creek shore a stone step. Anchors: content/templates/blackwater_thaw.audio.json (BT1).",
   "battlefield": false,
   "room": 0.25,
   "wind": {"file": "bta/wind_low.mp3", "volume": 0.5, "underRoof": 0.3},
@@ -17,11 +17,10 @@
     {"id": "stone_bridge", "file": "bta/creek.mp3", "at": [-82, -52], "volume": 0.5, "min": 2, "max": 22, "y": 0.2, "underRoof": 0.5},
     {"id": "footbridge", "file": "bta/creek.mp3", "at": [12, -31], "volume": 0.55, "min": 2, "max": 22, "y": 0.2, "underRoof": 0.5},
     {"id": "ford", "file": "bta/creek.mp3", "at": [50, -50], "volume": 0.55, "min": 2, "max": 22, "y": 0.1, "underRoof": 0.5},
-    {"id": "flume", "file": "bta/flume.mp3", "at": [-6, 6], "volume": 0.6, "min": 1.5, "max": 14, "y": 0.8},
-    {"id": "drain_court", "file": "bta/drain.mp3", "at": [2, -4], "volume": 0.4, "min": 1.2, "max": 11, "y": 0.1},
-    {"id": "drain_washhouse", "file": "bta/drain.mp3", "at": [8, 58], "volume": 0.45, "min": 1.2, "max": 11, "y": 0.2},
-    {"id": "drain_cartyard", "file": "bta/drain.mp3", "at": [-74, -70], "volume": 0.35, "min": 1.2, "max": 10, "y": 0.1},
-    {"id": "smithy_fire", "file": "bta/fire.mp3", "cat": "fire", "at": [58, -12], "volume": 0.7, "min": 1.5, "max": 18, "y": 1.0, "underRoof": 1.0}
+    {"id": "flume", "file": "bta/flume.mp3", "path": [[8, 15], [8, 6]], "volume": 0.6, "min": 1.5, "max": 14, "y": 0.6},
+    {"id": "drain_court", "file": "bta/drain.mp3", "at": [8, 5.6], "volume": 0.4, "min": 1.2, "max": 11, "y": 0.1},
+    {"id": "drain_washhouse", "file": "bta/drain.mp3", "at": [8, 56], "volume": 0.45, "min": 1.2, "max": 11, "y": 0.2},
+    {"id": "smithy_fire", "file": "bta/fire.mp3", "cat": "fire", "at": [59.6, -10.5], "volume": 0.7, "min": 1.5, "max": 18, "y": 1.0, "underRoof": 1.0}
   ],
   "creaks": [
     {"at": [78, -16], "r": 12, "every": [7, 18], "volume": 0.3},
@@ -30,5 +29,5 @@
     {"at": [-98, -44], "r": 12, "every": [7, 18], "volume": 0.3},
     {"at": [-64, -78], "r": 12, "every": [6, 16], "volume": 0.35}
   ],
-  "surfaces": {"grass": "step_snow", "dry_grass": "step_snow"}
+  "surfaces": {"pebbles": "step_stone"}
 }
