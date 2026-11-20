@@ -8,7 +8,8 @@
 #   NMK_BENCH_MAPS="a b" (default: the five VO maps); NMK_BENCH_PRESETS="Low,High"; NMK_BENCH_RES=1920x1080 (default
 #   2560x1440); NMK_BENCH_LAPS (3); NMK_BENCH_LIGHTING=classic (default: New), NMK_BENCH_MSAA=0|4 (over the preset),
 #   NMK_BENCH_RQOFF=a,b (Renderer::perf switches off); views only: NMK_BENCH_SETTLE / NMK_BENCH_MEASURE (s),
-#   NMK_BENCH_SHOTS=1 (a still and a pan frame per view).
+#   NMK_BENCH_SHOTS=1 (a still and a pan frame per view); NMK_BENCH_AB="none;hex;kograss;ssr;msaa4;scale0.5" runs each
+#   knock-out config in turn (Renderer::perf names, ssr, msaa4, scale<s>; "+" joins several).
 # GPU clocks are logged per map (nvidia-smi, read-only), not locked: locking them (nvidia-smi -lgc) changes a system
 # setting and needs an elevated prompt. Compare two runs with tools/bench_compare.py.
 set -u
@@ -22,7 +23,7 @@ rm -f "$O/bench_views_rows.md" "$O/bench_views.jsonl" "$O/bench_views_derived.js
 failed=""; shared=""
 for e in $ENTRIES; do
   k="${e%%:*}"; m="${e#*:}"
-  pat="^| $m | $k |"; [ "$k" = views ] && pat="^| $m |"   # this entry's rows (views: one row per view)
+  pat="^| $m | $k"; [ "$k" = views ] && pat="^| $m |"   # this entry's rows (views: one row per view)
   for try in 1 2; do
     n0=$(cat "$O/bench_views.jsonl" 2>/dev/null | wc -l)
     ( cd "$B" && NMK_MUTE=1 NMK_BENCH_TAG="$TAG" NMK_BENCH_MAPS="$m" NMK_BENCH_KIND="$k" GPU_TURN_EXCLUSIVE=1 GPU_TURN_TAG="bench-views $TAG $k $m" "$HERE/gpu_turn.sh" bash "$HERE/bench_one.sh" "$O" ) >/dev/null 2>&1; rc=$?

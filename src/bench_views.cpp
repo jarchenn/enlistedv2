@@ -45,6 +45,7 @@ std::vector<BView> gViews; BPath gPath; json gDerived = json::object();
 std::vector<Run> gRuns;
 std::string gTag = std::getenv("NMK_BENCH_TAG") ? std::getenv("NMK_BENCH_TAG") : "run";
 std::string gKind = std::getenv("NMK_BENCH_KIND") ? std::getenv("NMK_BENCH_KIND") : "path";
+std::vector<std::string> gCfgs{""}; size_t gCi = 0;   // NMK_BENCH_AB: knock-out configs, innermost loop
 size_t gMi = 0, gPi = 0, gVi = 0; int gPhase = 0; double gT0 = 0, gLast = 0; bool gFirstView = true;
 int gW = 2560, gH = 1440;
 constexpr double kPathS = 40.0, kTurnS = 8.0, kBotLapS = 20.0, kBotWarmS = 15.0;
@@ -219,15 +220,26 @@ void writeRun(App& a, const Run& r) {
 void writeDerived() { if (!gDerived.empty()) std::ofstream(exeDir() / "selftest_out" / "bench_views_derived.jsonl", std::ios::app) << gDerived.dump() << "\n"; gDerived = json::object(); }
 
 void applyRunSettings(App& a) {
+  static const auto perf0 = a.R.perf; a.R.perf = perf0;   // every run starts from the launch switches (a knock-out does not leak into the next)
   settings().applyPreset(a, gPresets[gPi]);
   if (const char* l = std::getenv("NMK_BENCH_LIGHTING")) a.R.q.lightNew = std::string(l) != "classic";   // Lighting New (default) / Classic
   if (const char* m = std::getenv("NMK_BENCH_MSAA"); m && *m) a.R.setMsaa(std::atoi(m));   // A/B over the preset's MSAA (VO P2)
   for (auto& f : envList("NMK_BENCH_RQOFF")) if (!a.R.perf.set(f, false)) logf("[bench] NMK_BENCH_RQOFF: unknown switch %s", f.c_str());   // A/B: Renderer::perf switches off
+  // the knock-out config: Renderer::perf switch names, plus ssr (R.q.ssr), msaa4, scale<s> (render scale), joined by '+'
+  for (size_t a0 = 0, c; a0 <= gCfgs[gCi].size(); a0 = c + 1) {
+    c = gCfgs[gCi].find('+', a0); if (c == std::string::npos) c = gCfgs[gCi].size();
+    std::string f = gCfgs[gCi].substr(a0, c - a0); if (f.empty()) continue;
+    if (f == "ssr") a.R.q.ssr = false; else if (f == "msaa4") a.R.setMsaa(4);
+    else if (f.rfind("scale", 0) == 0) a.R.setResolutionScale((float)std::atof(f.c_str() + 5));
+    else if (!a.R.perf.set(f, false)) logf("[bench] NMK_BENCH_AB: unknown switch %s", f.c_str());
+  }
   a.R.lt.hour = 14.0f; a.R.wx.target = 0; a.R.wx.userSet = true; a.R.wx.snap();
 }
 void internalRes(App& a, Run& r) { float s = a.R.perf.taau ? a.R.resolutionScale() : 1.0f; int fw, fh; glfwGetFramebufferSize(a.win, &fw, &fh); r.iw = (int)std::lround(fw * s); r.ih = (int)std::lround(fh * s); }
 
-void nextRun(App& a) {   // the next view / preset / map
+void nextRun(App& a) {   // the next config / view / preset / map
+  if (++gCi < gCfgs.size()) { gPhase = 1; return; }
+  gCi = 0;
   if (++gVi < (gKind == "views" ? gViews.size() : 1)) { gPhase = 1; return; }
   gVi = 0;
   if (++gPi < gPresets.size()) { gPhase = 1; return; }
@@ -249,6 +261,7 @@ bool benchViews(App& a, float dt) {
     gMaps = envList("NMK_BENCH_MAPS"); if (gMaps.empty()) gMaps.assign(std::begin(kMaps), std::end(kMaps));
     for (auto& n : envList("NMK_BENCH_PRESETS")) gPresets.push_back(n == "Low" ? GfxPreset::Low : n == "High" ? GfxPreset::High : n == "Ultra Low" ? GfxPreset::UltraLow : GfxPreset::Medium);
     if (gPresets.empty()) gPresets = {GfxPreset::Low, GfxPreset::Medium, GfxPreset::High};
+    if (const char* ab = std::getenv("NMK_BENCH_AB")) { gCfgs.clear(); std::string s = ab; for (size_t a0 = 0, c; a0 <= s.size(); a0 = c + 1) { c = s.find(';', a0); if (c == std::string::npos) c = s.size(); std::string x = s.substr(a0, c - a0); gCfgs.push_back(x == "none" ? "" : x); } }
     a.hideUi = true; a.hideEditorOverlays = true;
     a.selftest->realTime = true;   // wall-clock frame time: the simulation takes as many steps as a player's frame would (not one 1/60 s step)
   }
@@ -280,7 +293,7 @@ bool benchViews(App& a, float dt) {
   }
   if (gPhase == 1) {   // a preset (and a view): fixed light, the camera, settle / warm-up
     applyRunSettings(a);
-    std::string view = gKind == "views" ? gViews[gVi].name : gKind;
+    std::string view = (gKind == "views" ? gViews[gVi].name : gKind) + (gCfgs[gCi].empty() ? "" : "-" + gCfgs[gCi]);
     gRuns.push_back({map, view, presetName(gPresets[gPi])}); internalRes(a, gRuns.back());
     if (gKind == "views") { const BView& v = gViews[gVi]; a.camPos = v.pos; a.camYaw = v.yaw; a.camPitch = v.pitch; gT0 = t + envF("NMK_BENCH_SETTLE", 6.0f) + (gFirstView ? 6.0f : 0.0f); }
     else gT0 = t;   // path / bots: the warm-up lap starts now

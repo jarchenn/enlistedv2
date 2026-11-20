@@ -5385,10 +5385,10 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     drawModels(worldModels, &frMain);
     glEnable(GL_CULL_FACE);
   }
-  if (!folModels.empty()) { setLighting(progFolModel, v); drawFolModels(false, vp, &frMain); }   // NT8 model foliage
+  if (!folModels.empty() && perf.koFolModels) { setLighting(progFolModel, v); drawFolModels(false, vp, &frMain); }   // NT8 model foliage
   gpuMark(GP_Trees);
   // tree canopies (double sided, alpha tested)
-  if (!foliage.empty()) {
+  if (!foliage.empty() && perf.koTrees) {
     glDisable(GL_CULL_FACE);
     selectLeafLods(v);
     for (GLuint lp : {progLeaf, progLeafI}) {
@@ -5438,7 +5438,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   }
   gpuMark(GP_Grass);
   // grass after opaque so buildings reject hidden blades early; double sided
-  if (grass && !thumbMode) {
+  if (grass && !thumbMode && perf.koGrass) {
     glDisable(GL_CULL_FACE);
     setLighting(progGrass, v);
     glUniformMatrix4fv(U(progGrass, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
@@ -5454,7 +5454,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   }
   gpuMark(GP_Nature);
   natDraws = 0; natTufts = 0;
-  if (!natPatches.empty() && grass && !thumbMode) {   // flower / tall-grass patches (nature.cpp): same program, wind and fade
+  if (!natPatches.empty() && grass && !thumbMode && perf.koGrass) {   // flower / tall-grass patches (nature.cpp): same program, wind and fade
     glDisable(GL_CULL_FACE);
     setLighting(progGrass, v);
     glUniformMatrix4fv(U(progGrass, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
