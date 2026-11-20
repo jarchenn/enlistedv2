@@ -9,6 +9,8 @@
 #   GPU_TURN_TAG=<text>     who holds the slot (shown to waiters; default: the current directory)
 #   GPU_TURN_MIN_COMMIT_GB=<n>  no slot is taken while the system's free commit (RAM + page file not yet promised) is
 #                           under n GB (default 16; 0 = off): 5-6 games loading at once ran out (std::bad_alloc)
+# A slot whose holder (its pid file) no longer exists is taken over at once (a kill -9 leaves no trap to free it).
+# A waiter whose parent shell exits leaves the queue (it never takes a slot later); the ticket names the waiter's pid.
 # Pause: while the file <lock>.pause exists (tools/gpu_pause.sh on|off), no new run takes a slot; running ones finish.
 # Fair queue: each waiter takes a ticket in <lock>.q (named by arrival time). A waiter may take a free slot only while
 # fewer than N older tickets are waiting, so nobody is starved; an exclusive waiter must be first and waits for every
@@ -30,18 +32,21 @@ freeCommitGb() {   # Win32_OperatingSystem.FreeVirtualMemory (KB); empty when it
 slot() { [ "$1" -eq 1 ] && echo "$LOCK" || echo "$LOCK.$1"; }
 mkdir -p "$(dirname "$LOCK")" "$Q"
 TICKET="$Q/$(date +%s%N)-$$-$RANDOM$([ "$EXCL" = 1 ] && echo -X)"   # -X: exclusive (nobody behind it takes a slot)
-echo "$TAG | $*" > "$TICKET"
+PARENT=$PPID
+echo "$TAG | $* | waiter pid $$ (kill it to leave the queue)" > "$TICKET"
 HELD=()
 release() { rm -f "$TICKET"; for d in "${HELD[@]}"; do rm -rf "$d"; done; HELD=(); }
 trap release EXIT
 trap 'release; exit 143' INT TERM   # a plain kill stops a waiter (and frees what it holds)
 waited=0
 while :; do
+  kill -0 "$PARENT" 2>/dev/null || { echo "gpu_turn: the shell that started this ($PARENT) is gone; leaving the queue"; exit 143; }   # a stopped job leaves no stray waiter
   touch "$TICKET"
   find "$Q" -type f -mmin +2 ! -path "$TICKET" -delete 2>/dev/null    # waiters that died
   for k in $(seq 1 "$N"); do d="$(slot $k)"
     case " ${HELD[*]} " in *" $d "*) continue;; esac   # never time out a slot this waiter holds
     if [ -n "$(find "$d" -maxdepth 0 -mmin +"$STALE" 2>/dev/null)" ]; then echo "gpu_turn: slot $k older than $STALE min ($(cat "$d/owner" 2>/dev/null)): taking it over"; rm -rf "$d"; fi
+    hp=$(cat "$d/pid" 2>/dev/null); if [ -n "$hp" ] && [ -d "$d" ] && [ "$(find "$d/pid" -mmin +0.5 2>/dev/null)" ] && ! kill -0 "$hp" 2>/dev/null; then echo "gpu_turn: slot $k's holder ($hp) is gone ($(cut -d'|' -f1 "$d/owner" 2>/dev/null)): taking it over"; rm -rf "$d"; fi   # a holder killed without its trap
   done
   ahead=$(ls -1 "$Q" 2>/dev/null | sort | awk -v me="$(basename "$TICKET")" '$0 < me' | wc -l)
   if [ -e "$LOCK.pause" ]; then   # the user is playing: no new test takes the GPU (running ones finish)
@@ -70,7 +75,7 @@ while :; do
   fi
   sleep 5; waited=$((waited + 5))
 done
-for d in "${HELD[@]}"; do echo "$TAG | $* | since $(date '+%H:%M:%S')" > "$d/owner"; done
+for d in "${HELD[@]}"; do echo "$TAG | $* | since $(date '+%H:%M:%S')" > "$d/owner"; echo $$ > "$d/pid"; done   # pid: a waiter frees the slot if this shell dies untrapped
 rm -f "$TICKET"
 [ $waited -gt 0 ] && echo "gpu_turn: got the GPU after ${waited}s"
 "$@"

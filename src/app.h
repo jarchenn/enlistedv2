@@ -167,6 +167,7 @@ public:
   vec3 exploreStartPos{0}; float exploreStartYaw = 0;
   InteractTarget target;
   float physAccum = 0;
+  vec3 eyeDrawOff{0}, charStepPrev{0}; bool interpOff = std::getenv("NMK_NO_INTERP") != nullptr;   // interpOff: draw the last step as it is (A/B)   // CP: the eye drawn between the last two fixed steps (offset from the character's position), its position at the last step's start
   ExploreInput edgeCarry;   // edge presses from a frame that ran no fixed step, applied on the next one (explore.cpp)
   float stepTimer = 0;
   EditorCam savedCam;

@@ -49,8 +49,9 @@ void mpaiUI(App& app) {
   // a LAN host keeps simulating while its pause menu is open (clients depend on it)
   if (gNet && gNet->role == Net::HOST && app.mode == Mode::Explore && app.pauseMenu && gGame && gGame->active) {
     static float acc = 0; acc += app.frameDt; int n = 0;
-    while (acc >= 1.0f / 60.0f && n++ < 4) { ExploreInput none; app.exploreStep(1.0f / 60.0f, none); gGame->step(1.0f / 60.0f); acc -= 1.0f / 60.0f; }
-    Physics::step(app.frameDt);
+    int ns = 0; while (acc >= 1.0f / 60.0f && n++ < 4) { ExploreInput none; app.exploreStep(1.0f / 60.0f, none); gGame->step(1.0f / 60.0f); acc -= 1.0f / 60.0f; ++ns; }
+    gGame->posesFrame(ns / 60.0f, 1.0f);   // CP: poses once per frame here too
+    if (ns > 0) Physics::step(ns / 60.0f, ns);
   }
   if (app.mode == Mode::Creative) {
     gUi.scenarioPanel(app); gUi.setupWindow(app); gUi.joinWindow(app);
