@@ -107,7 +107,7 @@ public:
   std::vector<ModelDraw> worldModelsGlass;   // their glass parts (blended, after the glass pass)
   // NT8: model foliage (pines, ferns, grass), instanced. VR1: parts [first, first + count) only (count -1: all), and a
   // per-instance colour (tint.a > 0: the ivy pack's leaves recoloured to tint.rgb, its stems to ivyStem; src/ivy.cpp)
-  struct FolModelDraw { const GpuModel* model; mat4 m; float wind; int first = 0, count = -1; vec4 tint{0.0f}; };
+  struct FolModelDraw { const GpuModel* model; mat4 m; float wind; bool cast = false; int first = 0, count = -1; vec4 tint{0.0f}; };   // cast (HB1b sandbags): into the near sun cascade whatever the height
   vec3 ivyStem{0.12f, 0.1f, 0.08f}; vec2 ivyRef{0.2f, 0.1f};   // VR1: stem colour (linear) and the leaf / stem textures' mean luminance (content/settings/ivy.json)
   std::vector<FolModelDraw> folModels;
   std::vector<vec4> grassVeh;   // TK3: vehicle footprints that flatten the grass: per box (centre x, z, cos yaw, sin yaw), (half x, half z, 0, 0); 16 at most

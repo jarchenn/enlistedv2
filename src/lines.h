@@ -62,6 +62,7 @@ struct LineBuildOut {
   std::vector<glm::uvec2> secIdx;         // LN2: per section, its index range in `mesh` (cut sections drop out of the draw)
   std::vector<int> areaSec;               // LN2: per area, its section (-1 = always)
   std::vector<LineRigid> rigid;           // LN2: supplied models (wire) and canopies (hedges) placed per bay
+  std::vector<BagXf> bags;                // HB1b: the pieces' sandbags per bay, instance space (src/sandbags.cpp)
   uint64_t cutSig = 0;                    // LN2: secCut signature the uploaded mesh reflects
   std::vector<LineCollider> colliders;    // instance space
   std::vector<NavAreaPoly> areas;         // instance space outlines

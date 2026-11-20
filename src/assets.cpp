@@ -1,6 +1,7 @@
 #include "user_cache.h"
 #include <chrono>
 #include "assets.h"
+#include "sandbags.h"   // HB1b
 #include "crumb.h"
 #include "loading.h"
 #include "model.h"
@@ -614,7 +615,7 @@ static void appendSoft(MeshData& m, const Part& p, const Material& mat, const ma
 }
 
 void appendPart(MeshData& m, const Part& p, const Material& mat, const mat4& xf) {
-  if (!p.visible) return;
+  if (!p.visible || p.bag) return;   // HB1b: sandbags draw as bag meshes (src/sandbags.cpp)
   if (p.shape == Part::SOFT) { appendSoft(m, p, mat, xf); return; }
   if (p.shape == Part::ROUND || (p.shape == Part::BOX && p.bv > 0)) { appendRound(m, p, mat, xf); return; }
   if (p.shape == Part::CYL || p.shape == Part::ARCH || p.shape == Part::WEDGE) { appendCurved(m, p, mat, xf); return; }
@@ -714,6 +715,7 @@ static Part parsePart(const json& j, const std::map<std::string, int>& mats) {
       vec3 r = jvec3(j["r"]);
       p.rot = glm::quat(glm::radians(r));
     }
+    if ((p.shape == Part::BOX || p.shape == Part::ROUND) && p.visible) p.bag = (uint8_t)sandbagKind(j.value("m", std::string()), p.size);   // HB1b
   }
   return p;
 }
@@ -1261,6 +1263,7 @@ void AssetLibrary::build(AssetDef& ad) const {
     }
     for (auto& s : rj.value("deploy", json::array())) a->rackDeploy.push_back(s.get<std::string>());
   }
+  for (auto& p : a->parts) if (p.bag == 1 || p.bag == 3) a->hasBags = true;   // HB1b
   if (j.contains("defense")) {
     auto& dj = j["defense"]; DefenseDef& d = a->defense;
     d.kind = dj.value("kind", ""); d.hp = dj.value("hp", 300.0f); d.smallArms = dj.value("smallArmsMultiplier", 1.0f);

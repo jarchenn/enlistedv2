@@ -4261,7 +4261,7 @@ void Renderer::drawFolModels(bool depth, const mat4& vp, const Frustum* fr, floa
       for (int k = d.first; k < d.first + d.count && k < (int)d.model->parts.size(); ++k) { lo = glm::min(lo, d.model->parts[k].bmin); hi = glm::max(hi, d.model->parts[k].bmax); }
       if (lo.x > hi.x) continue;
     }
-    if (minH > 0 && (hi.y - lo.y) * glm::length(vec3(d.m[1])) < minH) continue;   // ferns / grass do not cast into this cascade
+    if (minH > 0 && (hi.y - lo.y) * glm::length(vec3(d.m[1])) < minH && !(d.cast && minH < 2.0f)) continue;   // ferns / grass do not cast into this cascade
     if (fr) { vec3 c = vec3(d.m * vec4(0.5f * (lo + hi), 1)); float r = 0.5f * glm::length(vec3(d.m * vec4(hi - lo, 0)));
               if (!fr->sphere(c, r)) { stats.culled++; continue; } }
     by[{d.model, d.count >= 0 ? d.first : 0, d.count}].push_back(&d);
