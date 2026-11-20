@@ -67,6 +67,7 @@ struct FrameStats { double cpuMs = 0, gpuMs = 0; int draws = 0, tris = 0; int cu
                     // R2: sun-cascade casters skipped by castercull, camera-pass items hidden by roomcull, sun-cascade draws; GI probes
                     // waiting for a first capture / invalidated, the oldest capture among probes within 12 m (frames)
                     int casterCulled = 0, roomCulled = 0, shadowDraws = 0, probePending = 0, probeDirty = 0, probeStaleMax = 0;
+                    float sunDirectPct = 100;   // OPT wxsun: the direct sun's share of a level surface's light (%)
                     int foliageDraws = 0, instDrawn = 0, farStatic = -1, occCulled = 0; };   // farStatic: the far cascade's static layer was redrawn this frame (1), reused (0), no cache (-1); occCulled: buildings hidden by terrain   // instDrawn: items drawn inside instanced depth draws (P2 instdepth)   // P2: draws by drawFoliage (all passes)   // culled: items / cards / parts skipped by the per-pass frustum tests (all passes); probeCpuMs / probes: CPU time and count of the GI probe captures (lighting.cpp)
 // GPU time per render pass from timestamp queries (Renderer::gpuMark, docs/rendering.md#gpu-budget), in frame order:
 // a pass runs from its mark to the next mark in GPU time; passes that did not run read 0
@@ -109,6 +110,7 @@ public:
   // per-instance colour (tint.a > 0: the ivy pack's leaves recoloured to tint.rgb, its stems to ivyStem; src/ivy.cpp)
   struct FolModelDraw { const GpuModel* model; mat4 m; float wind; bool cast = false; int first = 0, count = -1; vec4 tint{0.0f}; };   // cast (HB1b sandbags): into the near sun cascade whatever the height
   vec3 ivyStem{0.12f, 0.1f, 0.08f}; vec2 ivyRef{0.2f, 0.1f};   // VR1: stem colour (linear) and the leaf / stem textures' mean luminance (content/settings/ivy.json)
+  float sunDirectFrac = 1.0f, sunShK = 1.0f;   // OPT wxsun: last setLighting's direct-sun share; this frame's cascade strength (0 = none drawn)
   int dbgTerr = -1;   // GG1 measurement: terrain debug view (-1: NMK_DBG_TERRAIN), set per capture view
   bool ggOff = false;  // GG1 A/B: the pre-GG1 ground roughness (capture views)
   vec4 green{0.0f}, greenK{1.0f, 0.0f, 1.0f, 0.0f};   // FL1 greenery (kCommon greenGrade): target + card strength; card gain, grass strength / gain, model strength   // VR1: stem colour (linear) and the leaf / stem textures' mean luminance (content/settings/ivy.json)
@@ -245,6 +247,9 @@ public:
     bool skyRelit = true;        // skyrelit (VO L6): GI probes store sky visibility and are relit each frame from the sky colour (Lighting New)
     bool atmo = true;            // atmo (VO L5): atmosphere-driven sun / sky / fog away from the authored hour, aerial perspective (Lighting New)
     bool reflProbe = true;       // reflprobe (VO L7): a prefiltered reflection cube near the eye, parallax-corrected (Lighting New)
+    bool probeTrickle = true;    // probetrickle (OPT): GI probes captured at most 3 a frame while filling, 1 every 4th frame once converged (play; sky relit live)
+    bool wxSun = true;           // wxsun (OPT, weather corpus 08 s4.2): overcast takes the direct sun away; under 5 % direct share no sun cascades (fade to 10 %)
+    bool sunShadow = true;       // sunshadow (OPT): the sun cascades (near, mid, far) drawn and sampled; off = none (knock-out)
     bool midCascade = true;      // midcascade (VO L3): a third sun cascade between the near and far ones (Medium / High, Lighting New)
     bool probeMed = true;        // probemed (PERF1): Medium's near probe volume catches up at 2 captures a frame (was 3; converged rate unchanged); A/B probes -17.5 %, frame -1.6 % Medium
     bool matFar = true;          // matfar (PERF1): Medium / Low building surfaces drop the wear layer, static decals and relief past 25-35 m (High unchanged)
@@ -269,7 +274,7 @@ public:
     bool set(const std::string& n, bool on) {   // false: no such switch
       if (n == "wx1") { clouds = cloudShadow = shafts = envFog = on; return true; }   // WX1: the whole weather / fog stack (one A/B)
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
-              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "clouds" ? &clouds : n == "cloudshadow" ? &cloudShadow : n == "shafts" ? &shafts : n == "envfog" ? &envFog : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
+              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "sunshadow" ? &sunShadow : n == "wxsun" ? &wxSun : n == "probetrickle" ? &probeTrickle : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "clouds" ? &clouds : n == "cloudshadow" ? &cloudShadow : n == "shafts" ? &shafts : n == "envfog" ? &envFog : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
               : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : n == "leaftex" ? &leafTex : n == "taau" ? &taau : n == "imgmat" ? &imgMat
               : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : n == "grassatlas" ? &grassAtlas : n == "dlcache" ? &dlCache : n == "instdepth" ? &instDepth : n == "folbatch" ? &folBatch : n == "farleaf" ? &farLeaf : n == "walllod" ? &wallLod : n == "matfar" ? &matFar : n == "probemed" ? &probeMed : n == "shadowcache" ? &shadowCache : n == "occcull" ? &occCull : n == "treefar" ? &treeFar : n == "leafmerge" ? &leafMerge : n == "furndist" ? &furnDist : n == "furnclutter" ? &furnClutter : n == "paint" ? &groundPaint : n == "vegcull" ? &vegCull
               // One line per stream, each followed by a comment line, so two streams appending names no longer conflict in merges.
