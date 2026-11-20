@@ -428,7 +428,7 @@ void buildNatureAsset(AssetDef& a, const json& j, std::vector<vec3>& pts) {
     int k = 0;
     for (auto& pj : rj.value("pieces", json::array())) {
       RockPiece rp; rp.lith = std::max(0, lithFrom(pj.value("lith", json("limestone")))); rp.seed = pj.value("seed", 1u + k);
-      rp.size = jvec3(pj["size"], vec3(1)); rp.pos = jvec3(pj["pos"]); rp.yaw = pj.value("yaw", 0.0f);
+      rp.size = jvec3(jkey(pj, "size"), vec3(1)); rp.pos = jvec3(pj["pos"]); rp.yaw = pj.value("yaw", 0.0f);
       if (pj.contains("tilt")) { rp.tiltX = pj["tilt"][0].get<float>(); rp.tiltZ = pj["tilt"][1].get<float>(); }
       rp.sink = pj.value("sink", 0.25f);
       rp.shape = pj.value("shape", std::string()) == "cone" ? 1 : 0; rp.taper = pj.value("taper", 1.3f); rp.flute = pj.value("flute", 0.0f);   // CV1: dripstone spikes
@@ -464,7 +464,7 @@ void buildNatureAsset(AssetDef& a, const json& j, std::vector<vec3>& pts) {
     if (n.scatter == NatureDef::WHEAT) {
       std::string st = sj.value("state", std::string("ripe"));
       n.wheat = st == "stubble" ? 3 : st == "trampled" ? 2 : 1;
-      if (sj.contains("soil")) n.soil = jvec3(sj["soil"], n.soil);
+      if (sj.contains("soil")) n.soil = jvec3(jkey(sj, "soil"), n.soil);
     }
     json mix = sj.value("mix", json::object());
     for (auto& [name, w] : mix.items()) { int sp = natSpeciesFrom(name); if (sp >= 0) n.mix.push_back({sp, w.get<float>()}); }

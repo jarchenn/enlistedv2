@@ -222,7 +222,7 @@ void build(App&) {
   auto cottage = [](App& a) { vec3 c(-18, a.terrain.height(-18, -24), -24); look(a, c + vec3(-1.2f, 1.6f, -1.0f), c + vec3(1.5f, 1.0f, 1.5f)); };
   measure("Day inside the cottage, GI off", 60, [=](App& a) { cottage(a); a.R.lt.gi = 0; }, [](App& a) { report["cottage_day"]["gi_off"] = meanLuma(); a.screenshot(outDir() / "lights_cottage_gi_off.png"); });
   measure("Day inside the cottage, Medium GI", 300, [](App& a) { a.R.lt.gi = 1; lightingResetProbes(); }, [](App&) {
-    double on = meanLuma(), off = report["cottage_day"].value("gi_off", 0.0); report["cottage_day"]["gi_on"] = on;
+    double on = meanLuma(), off = jkey(report, "cottage_day").value("gi_off", 0.0); report["cottage_day"]["gi_on"] = on;
     chk(on > off * 0.97, "Day inside the stone cottage: Medium GI never darker than the old fill term (mean luma %.1f vs %.1f)", on, off);
     pendingShot = outDir() / "lights_cottage_gi.png";
   });

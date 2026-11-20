@@ -59,10 +59,10 @@ void SelfTest::fpsUpdate(App& app, float dt) {
         if (!j.contains("model")) continue;
         ++models;
         bool ok = d.useModel();
-        float L = 0, want = j["model"].value("overallLength", j["model"].value("realLength", 1.0f));   // overall length when the fit node is a sub-part (bazooka tube)
+        float L = 0, want = jkey(j, "model").value("overallLength", jkey(j, "model").value("realLength", 1.0f));   // overall length when the fit node is a sub-part (bazooka tube)
         if (ok) { float z0 = 1e9f, z1 = -1e9f; for (auto& mp : d.model->parts) if (mp.role != "clip") { z0 = std::min(z0, mp.bmin.z); z1 = std::max(z1, mp.bmax.z); } L = z1 - z0; }   // loose rounds / rockets excluded
         char b[220]; std::snprintf(b, sizeof b, "%s: imported model %s, %d tris, %zu parts, length %.3f m vs real %.3f m (%.2f%%)",
-                                   d.id.c_str(), j["model"].value("dir", "").c_str(), ok ? d.model->tris : 0, ok ? d.model->parts.size() : 0, L, want, ok ? 100 * std::fabs(L - want) / want : 100.0f);
+                                   d.id.c_str(), jkey(j, "model").value("dir", "").c_str(), ok ? d.model->tris : 0, ok ? d.model->parts.size() : 0, L, want, ok ? 100 * std::fabs(L - want) / want : 100.0f);
         check(ok && std::fabs(L - want) / want < 0.01f, b);
         bool texExpected = true;   // every imported weapon is textured now (bazooka: Metal046B set)
         bool nrmExpected = d.id != "panzerschreck";                          // the pickup mesh ships no normal map

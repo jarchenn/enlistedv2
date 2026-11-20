@@ -234,7 +234,7 @@ static bool soldierDrawn(const Game& G, const Soldier& s, vec3 cam, double corps
 
 void decalsRender(Renderer& r, const RenderView& v, const mat4& vp, unsigned depthTex) {
   GoreState& S = goreState();
-  double corpse = gGame && gGame->combat.is_object() && gGame->combat.contains("corpses") ? gGame->combat["corpses"].value("seconds", 40.0) : 40.0;
+  double corpse = gGame && gGame->combat.is_object() && gGame->combat.contains("corpses") ? jkey(gGame->combat, "corpses").value("seconds", 40.0) : 40.0;
   auto c0 = std::chrono::steady_clock::now();
   // previous GPU timings (3-frame ring, never stalls)
   int qr = (gQi + 1) % 3;

@@ -241,7 +241,7 @@ void ddayAnnotate(App& app) {
       }
     };
     poly(a->raw["trench"]["path"]);
-    for (auto& br : a->raw["trench"].value("branches", json::array())) if (br.size() >= 2 && std::hypot(br[1][0].get<float>() - br[0][0].get<float>(), br[1][1].get<float>() - br[0][1].get<float>()) >= 3.0f) poly(br);
+    for (auto& br : jkey(a->raw, "trench").value("branches", json::array())) if (br.size() >= 2 && std::hypot(br[1][0].get<float>() - br[0][0].get<float>(), br[1][1].get<float>() - br[0][1].get<float>()) >= 3.0f) poly(br);
   }
   for (auto& i : app.doc.instances) {   // firing sectors: +-30 degrees, 70 m, from every fixed gun's firing point
     const AssetDef* a = app.assetFor(i);
@@ -550,10 +550,10 @@ void SelfTest::captureUpdate(App& app, float dt) {
         {   // the interiors suite's re-check ("every piece valid"): each generated floor piece against the manual placement rules
           int pieces = 0, bad = 0; std::string why;
           for (auto& c : app.doc.instances) {
-            if (!c.extra.is_object() || !c.extra.contains("furnish") || c.extra["furnish"].value("host", (uint64_t)0) != id) continue;
+            if (!c.extra.is_object() || !c.extra.contains("furnish") || jkey(c.extra, "furnish").value("host", (uint64_t)0) != id) continue;
             ++pieces;
             const AssetDef* ca = app.assetFor(c); const PropDef* pd = app.interior.prop(ca);
-            if (!pd || pd->mount > 0 || c.assetId == "furn_curtains" || c.extra["furnish"].value("slot", std::string()).find("/top") != std::string::npos) continue;
+            if (!pd || pd->mount > 0 || c.assetId == "furn_curtains" || jkey(c.extra, "furnish").value("slot", std::string()).find("/top") != std::string::npos) continue;
             vec3 p = c.pos; PlaceCheck pc = app.interior.checkPlacement(app, ca, p, c.yaw, c.id);
             if (!pc.ok || std::fabs(pc.y - c.pos.y) > 0.03f) { ++bad; if (why.size() < 400) { vec3 l = glm::inverse(yawQuat(app.doc.find(id)->yaw)) * (c.pos - app.doc.find(id)->pos); char lp[64]; std::snprintf(lp, sizeof lp, "@(%.2f,%.2f,%.2f)", l.x, l.y, l.z); why += " " + c.assetId + lp + ":" + pc.reason; } }
           }
@@ -564,7 +564,7 @@ void SelfTest::captureUpdate(App& app, float dt) {
         keep.push_back(a->id + "_ext_front"); cams.push_back({keep.back().c_str(), o + vec3(fx * 0.9f + 4, 1.7f + H * 0.25f, fz * 1.6f + 6), o + vec3(0, H * 0.35f, 0)});
         keep.push_back(a->id + "_ext_rear"); cams.push_back({keep.back().c_str(), o + vec3(-fx * 0.9f - 4, 1.7f + H * 0.3f, -fz * 1.6f - 6), o + vec3(0, H * 0.35f, 0)});
         vec2 at(0); float y = 0; int k = 0;
-        for (auto& st : a->raw["tour"].value("steps", json::array())) {
+        for (auto& st : jkey(a->raw, "tour").value("steps", json::array())) {
           if (st.contains("goto")) { at = vec2(st["goto"][0].get<float>(), st["goto"][1].get<float>()); if (st.contains("expectY")) y = st["expectY"].get<float>(); }
           if (st.contains("look")) { keep.push_back(a->id + "_int" + std::to_string(++k)); cams.push_back({keep.back().c_str(), o + vec3(at.x, y + 1.6f, at.y), o + jvec3(st["look"])}); }
         }
@@ -606,7 +606,7 @@ void SelfTest::captureUpdate(App& app, float dt) {
         keep.push_back(a->id + "_ext_rear"); cams.push_back({keep.back().c_str(), o + vec3(-fx * 0.9f - 4, 1.7f + H * 0.3f, -fz * 1.6f - 6), o + vec3(0, H * 0.35f, 0)});
         keep.push_back(a->id + "_ext_eye"); cams.push_back({keep.back().c_str(), o + vec3(fx * 0.55f, 1.7f, fz + 7.0f), o + vec3(-fx * 0.2f, 1.6f + H * 0.18f, 0)});
         vec2 at(0); float y = 0; int k = 0;
-        for (auto& st : a->raw["tour"].value("steps", json::array())) {
+        for (auto& st : jkey(a->raw, "tour").value("steps", json::array())) {
           if (st.contains("goto")) { at = vec2(st["goto"][0].get<float>(), st["goto"][1].get<float>()); if (st.contains("expectY")) y = st["expectY"].get<float>(); }
           if (st.contains("look")) { keep.push_back(a->id + "_int" + std::to_string(++k)); cams.push_back({keep.back().c_str(), o + vec3(at.x, y + 1.6f, at.y), o + jvec3(st["look"])}); }
         }
@@ -840,7 +840,7 @@ void SelfTest::captureUpdate(App& app, float dt) {
           auto& S = ri->storeys[s];
           int rooms = 0, pieces = 0; const RoomInfo::Room* big = nullptr;
           for (auto& R : ri->rooms) if (R.storey == (int)s) { ++rooms; if (!big || R.area > big->area) big = &R; }
-          for (auto& i : app.doc.instances) if (isFurnishPiece(i) && i.extra["furnish"].value("host", (uint64_t)0) == id && i.pos.y - o.y > S.y - 0.3f && i.pos.y - o.y < S.ceil) ++pieces;
+          for (auto& i : app.doc.instances) if (isFurnishPiece(i) && jkey(i.extra, "furnish").value("host", (uint64_t)0) == id && i.pos.y - o.y > S.y - 0.3f && i.pos.y - o.y < S.ceil) ++pieces;
           rep += " storey y=" + std::to_string(S.y).substr(0, 4) + " rooms " + std::to_string(rooms) + " pieces " + std::to_string(pieces) + ";";
           if (!big) continue;
           keep.push_back(a->id + "_int" + std::to_string(s));   // from one corner of the room across to the other

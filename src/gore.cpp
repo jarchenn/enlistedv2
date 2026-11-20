@@ -448,8 +448,8 @@ void goreNetEvent(App& app, const json& ev) {
   h.weapon = ev.value("w", -1); h.bone = ev.value("b", -1); h.seed = ev.value("s", 0u); h.victimSlot = ev.value("v", -1); h.zone = ev.value("z", 1);
   h.energy = ev.value("e", 1.0f); h.exits = ev.value("x", false); h.helmet = ev.value("h", false); h.deflected = ev.value("df", false);
   GoreAttach A; A.model = ev.value("m", -1);
-  if (ev.contains("et")) { A.entryTri = ev["et"]; A.entryBary = jvec3(ev["eb"], vec3(1.0f / 3)); }
-  if (ev.contains("xt")) { A.exitTri = ev["xt"]; A.exitBary = jvec3(ev["xb"], vec3(1.0f / 3)); }
+  if (ev.contains("et")) { A.entryTri = ev["et"]; A.entryBary = jvec3(jkey(ev, "eb"), vec3(1.0f / 3)); }
+  if (ev.contains("xt")) { A.exitTri = ev["xt"]; A.exitBary = jvec3(jkey(ev, "xb"), vec3(1.0f / 3)); }
   const Soldier* s = victimOf(h.victimSlot);
   if (s && A.model != s->model && !h.helmet && !h.deflected) A = computeAttach(h);   // different character model here: place it locally
   ++gS.st.netReceived;

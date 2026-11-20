@@ -25,8 +25,8 @@ const NavCamSettings& navSettings() {
       n.orbitDegPerPixel = c.value("orbitDegPerPixel", n.orbitDegPerPixel); n.minClearance = c.value("minClearance", n.minClearance);
       n.frameMargin = c.value("frameMargin", n.frameMargin); n.flightSeconds = c.value("flightSeconds", n.flightSeconds); n.homePitch = c.value("homePitch", n.homePitch);
     }
-    if (j.contains("overview")) { n.overviewTexture = j["overview"].value("textureSize", n.overviewTexture); n.overviewFraction = j["overview"].value("windowFraction", n.overviewFraction); }
-    if (j.contains("terrainCut")) n.cutEdgePad = j["terrainCut"].value("edgePad", n.cutEdgePad);
+    if (j.contains("overview")) { n.overviewTexture = jkey(j, "overview").value("textureSize", n.overviewTexture); n.overviewFraction = jkey(j, "overview").value("windowFraction", n.overviewFraction); }
+    if (j.contains("terrainCut")) n.cutEdgePad = jkey(j, "terrainCut").value("edgePad", n.cutEdgePad);
     if (j.contains("dropIn")) {
       const json& d = j["dropIn"];
       n.facingMinDrag = d.value("facingMinDrag", n.facingMinDrag); n.markerRadius = d.value("markerRadius", n.markerRadius); n.arrowLength = d.value("arrowLength", n.arrowLength);

@@ -49,7 +49,7 @@ bool grassAtlasInit(GLuint progMain, GLuint progShadow) {
   // seed-head grass's leafy cards after its two stems, marram 4
   std::vector<int> sp(24 * 4, 0), idx(kMaxIdx, 0);
   int ni = 0;
-  for (auto& [key, v] : j["species"].items()) {
+  for (auto& [key, v] : jkey(j, "species").items()) {
     int s = std::atoi(key.c_str()); if (s < 0 || s >= 24 || !v.is_array()) continue;
     int first = ni;
     for (auto& x : v) if (ni < kMaxIdx && x.get<int>() >= 0 && x.get<int>() < n) idx[ni++] = x.get<int>();

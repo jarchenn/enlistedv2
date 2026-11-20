@@ -38,7 +38,7 @@ void NavConfig::load(const json& j) {
     heavyClimb = l.value("heavyClimbMax_m", heavyClimb); heavyGap = l.value("heavyGapMax_m", heavyGap); heavyRadius = l.value("heavyRadius_m", heavyRadius);
     vaultMax = l.value("vaultMaxHeight_m", vaultMax); vaultThick = l.value("vaultMaxThickness_m", vaultThick); gapMax = l.value("gapMax_m", gapMax);
     linkSpacing = l.value("spacing_m", linkSpacing); linkBorder = l.value("probeBorder_m", linkBorder);
-    if (l.contains("cost_m")) for (int k = 0; k < LINK_KINDS; ++k) linkCost[k] = l["cost_m"].value(navLinkName(k), linkCost[k]);
+    if (l.contains("cost_m")) for (int k = 0; k < LINK_KINDS; ++k) linkCost[k] = jkey(l, "cost_m").value(navLinkName(k), linkCost[k]);
   }
   // Detour tiles must be a whole number of cells
   tile = std::round(tile / cs) * cs;

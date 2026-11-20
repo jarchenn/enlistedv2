@@ -25,8 +25,8 @@ std::vector<TemplateInfo> loadTemplates(const fs::path& dir) {
       t.margin = j.value("margin", std::max(0.0f, (t.size - t.buildHalf * 2.0f) * 0.5f));
       t.seed = j.value("seed", 1u);
       t.camPos = jvec3(j["camera"]["pos"], t.camPos);
-      t.camYaw = j["camera"].value("yaw", 0.0f);
-      t.camPitch = j["camera"].value("pitch", -20.0f);
+      t.camYaw = jkey(j, "camera").value("yaw", 0.0f);
+      t.camPitch = jkey(j, "camera").value("pitch", -20.0f);
       out.push_back(t);
     } catch (std::exception& ex) { logf("template %s: %s", e.path().string().c_str(), ex.what()); }
   }
@@ -60,7 +60,7 @@ float Terrain::baseFormula(float wx, float wz, uint32_t seed) const {
 // ---- V8 generator layers (MapDoc::terrainGen; the tools are in terrain_brush.cpp / beautify.cpp)
 int Terrain::ringTiles() const {
   if (!gen.is_object() || !gen.contains("ring") || !gen["ring"].is_object()) return 0;
-  return std::clamp(gen["ring"].value("tiles", 0), 0, 24);
+  return std::clamp(jkey(gen, "ring").value("tiles", 0), 0, 24);
 }
 static float fbm3(float x, float z, uint32_t s) { return 0.62f * vnoise(x, z, s) + 0.28f * vnoise(x * 2.07f, z * 2.07f, s + 17) + 0.10f * vnoise(x * 4.31f, z * 4.31f, s + 29); }
 float terrainFbm(float x, float z, uint32_t s) { return fbm3(x, z, s); }   // shared with the brush (terrain_brush.cpp)

@@ -170,7 +170,7 @@ const LightAssetDef* lightDef(const AssetDef* a) {
   json arr = lj->is_array() ? *lj : json::array({*lj});
   std::vector<std::string> groups;
   if (a->raw.contains("prop") && a->raw["prop"].is_object())
-    for (auto& g : a->raw["prop"].value("groups", json::array())) groups.push_back(g.get<std::string>());
+    for (auto& g : jkey(a->raw, "prop").value("groups", json::array())) groups.push_back(g.get<std::string>());
   for (auto& l : arr) {
     if (!l.is_object() || slot->lights.size() >= 16) continue;
     LightSpec s;
@@ -567,7 +567,7 @@ void lightsPlanRooms(App& app, InteriorSys& sys, const Instance& host, const Ass
     }
     // the ceiling light; a room left without a lamp gets one hung from its ceiling as well
     bool bigRoom = R.area >= C.value("ceilingAlwaysArea", 20.0f) && !bunker && !hallway;   // GX2: a large room always has a ceiling light
-    if (bigRoom && ceilingAsset.empty()) ceilingAsset = RR.contains("default") ? RR["default"].value("ceiling", std::string("furn_lamp_ceiling")) : "furn_lamp_ceiling";
+    if (bigRoom && ceilingAsset.empty()) ceilingAsset = RR.contains("default") ? jkey(RR, "default").value("ceiling", std::string("furn_lamp_ceiling")) : "furn_lamp_ceiling";
     bool wantCeiling = !ceilingAsset.empty() && (R.type != ROOM_BEDROOM || bigRoom) && !hallway;
     if (!wantCeiling && !tablePlaced && !lit) ceilingAsset = R.type == ROOM_UTILITY ? "lamp_hanging_lantern" : "furn_lamp_ceiling", wantCeiling = true;
     if (wantCeiling && !app.lib.find(ceilingAsset)) wantCeiling = false;

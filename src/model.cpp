@@ -50,8 +50,8 @@ ImportSpec importSpecFromJson(const json& j) {
   s.simplify = j.value("simplify", 1.0f); s.lod1 = j.value("lod1", 0.0f); s.lod1Tex = j.value("lod1Tex", 256);
   s.lod1Src = j.value("lod1Src", std::string());   // NT8: a hand-made LOD1 (its own GLB next to src), baked as is
   s.lod2 = j.value("lod2", 0.0f); s.lod2Tex = j.value("lod2Tex", 128);
-  if (j.contains("maxTexBy") && j["maxTexBy"].is_object()) for (auto& [k, v] : j["maxTexBy"].items()) s.maxTexBy[k] = v.get<int>();
-  if (j.contains("sections")) { s.sectionAxis = j["sections"].value("axis", 2); s.sectionCount = std::max(1, j["sections"].value("count", 1)); }
+  if (j.contains("maxTexBy") && j["maxTexBy"].is_object()) for (auto& [k, v] : jkey(j, "maxTexBy").items()) s.maxTexBy[k] = v.get<int>();
+  if (j.contains("sections")) { s.sectionAxis = jkey(j, "sections").value("axis", 2); s.sectionCount = std::max(1, jkey(j, "sections").value("count", 1)); }
   return s;
 }
 

@@ -66,7 +66,7 @@ WAsset& parse(const AssetDef* a) {
   if (it != gCache.end()) return it->second;
   WAsset& w = gCache[a];
   if (!a || !a->raw.is_object() || !a->raw.contains("water")) return w;
-  for (auto& sj : a->raw["water"].value("surfaces", json::array())) {
+  for (auto& sj : jkey(a->raw, "water").value("surfaces", json::array())) {
     WSurf s;
     for (auto& p : sj.value("outline", json::array())) if (p.is_array() && p.size() >= 2) s.poly.push_back(vec2(p[0].get<float>(), p[1].get<float>()));
     if (s.poly.size() < 3) continue;

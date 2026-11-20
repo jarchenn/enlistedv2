@@ -154,7 +154,7 @@ bool App::buildRemoveAimed() {
   act.removed.push_back(*t);
   uint64_t id = t->id;
   if (selected == id) selected = 0;
-  auto furnOf = [&](const Instance& i) { return isFurnishPiece(i) && i.extra["furnish"].value("host", (uint64_t)0) == id; };   // V4: its furniture goes with it
+  auto furnOf = [&](const Instance& i) { return isFurnishPiece(i) && jkey(i.extra, "furnish").value("host", (uint64_t)0) == id; };   // V4: its furniture goes with it
   for (auto& i : doc.instances) if (furnOf(i)) act.removed.push_back(i);
   doc.instances.erase(std::remove_if(doc.instances.begin(), doc.instances.end(), [&](const Instance& i) { return i.id == id || furnOf(i); }), doc.instances.end());
   syncRuntime();

@@ -564,7 +564,7 @@ const GripGeo& gripGeo(const WeaponDef& d) {
   if (wj.contains(d.id)) g.gL.z = wj[d.id].value("gripZ", g.gL.z);   // measured further along the fore-end
   try {
     json j = json::parse(readTextFile(d.file));
-    std::string dir = j.contains("model") ? j["model"].value("dir", std::string()) : std::string();
+    std::string dir = j.contains("model") ? jkey(j, "model").value("dir", std::string()) : std::string();
     std::ifstream f(contentDir() / "weapons" / "models" / dir / "mesh.bin", std::ios::binary);
     uint32_t hdr[3] = {0, 0, 0};
     if (!dir.empty() && f.read((char*)hdr, sizeof hdr) && hdr[0] == 0x31574D4Eu) {

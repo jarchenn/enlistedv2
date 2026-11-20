@@ -266,7 +266,7 @@ int lineSyncGates(App& app) {
   auto& in = app.doc.instances;
   for (auto it = in.begin(); it != in.end();) {
     if (!it->extra.is_object() || !it->extra.contains("lineGate")) { ++it; continue; }
-    uint64_t L = it->extra["lineGate"].value("line", (uint64_t)0); int k = it->extra["lineGate"].value("k", -1);
+    uint64_t L = jkey(it->extra, "lineGate").value("line", (uint64_t)0); int k = jkey(it->extra, "lineGate").value("k", -1);
     auto w = std::find_if(want.begin(), want.end(), [&](const Want& x) { return x.line == L && x.k == k && x.asset == it->assetId; });
     if (w == want.end() || have.count({L, k})) { it = in.erase(it); ++changed; continue; }
     have.insert({L, k});

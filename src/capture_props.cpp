@@ -46,7 +46,7 @@ bool capturePropsSelfTest(App& a, float dt) {
       bool fp = isFurnishPiece(i);
       if (!fp && i.assetId.rfind("furn_", 0) != 0) continue;
       bool m = modelBakedFor(i.assetId);
-      if (fp) { ++pieces; byModel += m; kids[i.extra["furnish"].value("host", (uint64_t)0)].push_back(&i); if (!m) ++inHouse[i.assetId]; } else { ++hand; handModel += m; }
+      if (fp) { ++pieces; byModel += m; kids[jkey(i.extra, "furnish").value("host", (uint64_t)0)].push_back(&i); if (!m) ++inHouse[i.assetId]; } else { ++hand; handModel += m; }
       json f = furnitureModelFor(i.assetId);
       if (!f.is_null() && f.value("src", std::string()).rfind("frsrc_u_", 0) == 0) { ++user; ++userIds[i.assetId]; }
     }
@@ -59,7 +59,7 @@ bool capturePropsSelfTest(App& a, float dt) {
     auto isUser = [&](const std::string& id) { json f = furnitureModelFor(id); return !f.is_null() && f.value("src", std::string()).rfind("frsrc_u_", 0) == 0; };
     std::map<std::pair<uint64_t, int>, std::vector<const Instance*>> rooms;
     for (auto& [hid, v] : kids) for (const Instance* p : v) {
-      std::string sl = p->extra["furnish"].value("slot", std::string());
+      std::string sl = jkey(p->extra, "furnish").value("slot", std::string());
       if (sl.size() < 3 || sl[0] != 'r') continue;
       rooms[{hid, std::atoi(sl.c_str() + 1)}].push_back(p);
     }

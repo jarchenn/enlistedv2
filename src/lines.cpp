@@ -30,7 +30,7 @@ const std::vector<LineType>& lineTypes() { static std::vector<LineType> t = load
 const LineType* lineType(const std::string& id) { for (auto& t : lineTypes()) if (t.id == id) return &t; return nullptr; }
 const LineType* lineTypeOf(const AssetDef* a) {
   if (!a || !a->raw.is_object() || !a->raw.contains("line")) return nullptr;
-  return lineType(a->raw["line"].value("type", std::string()));
+  return lineType(jkey(a->raw, "line").value("type", std::string()));
 }
 
 bool lineGet(const Instance& i, LineData& out) {

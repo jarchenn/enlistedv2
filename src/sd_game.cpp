@@ -404,7 +404,7 @@ void sdStep(Game& g, float dt) {
       case SdEvent::Defused: gm2RemovePacksNear(m.bombPos, 1.0f); addFeed(g.match.slots[e.slot].name + " defused the bomb", g); break;
       case SdEvent::Detonated: {
         vec3 p = m.bombPos; gm2RemovePacksNear(p, 1.0f);
-        g.explosionDamage(p + vec3(0, 0.3f, 0), m.cfg.bombDamage, m.cfg.bombRadius / std::max(0.1f, g.combat["explosion"].value("personnelRadiusFactor", 3.0f)), -1, false);   // personnel only: no crater, no breach (spec §11)
+        g.explosionDamage(p + vec3(0, 0.3f, 0), m.cfg.bombDamage, m.cfg.bombRadius / std::max(0.1f, jkey(g.combat, "explosion").value("personnelRadiusFactor", 3.0f)), -1, false);   // personnel only: no crater, no breach (spec §11)
         g.app.fx.explosion(p, vec3(0, 1, 0), "ground", true); g.app.audio.play("shell_hit", p, 1.0f);
         g.app.blastShake = std::max(g.app.blastShake, std::max(0.0f, 1.0f - glm::length(p - g.app.eyePos()) / 60.0f));
         if (gNet && gNet->role == Net::HOST) gNet->hostWorldEvent(json{{"t", "sdboom"}, {"p", tojson(p)}});

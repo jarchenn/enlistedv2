@@ -333,7 +333,7 @@ void AiCore::startTraversal(Soldier& s, BotMind& m, NavRef offRef, vec3 sp, vec3
       tr.dur = std::max(0.45f, 2.0f * jumpV / std::max(1.0f, gravity)); break;
     default: {   // mantle: up = rise in place then over; down = over then lower
       // over the rim with clearance (trench revetment pickets, parapets) when the body fits up there; else hug the edge
-      float rim = navj.contains("links") ? navj["links"].value("mantleClear_m", 0.6f) : 0.6f;
+      float rim = navj.contains("links") ? jkey(navj, "links").value("mantleClear_m", 0.6f) : 0.6f;
       float hy = std::max(a.y, b.y) + rim;
       auto fitsAt = [&](vec3 q) { return Physics::shapeFitsAt(Physics::CROUCH, q + vec3(0, 0.04f, 0), true); };
       auto pathFits = [&](std::initializer_list<vec3> pts) {   // every 0.25 m along the profile (lintels, door tops, revetments)
@@ -457,7 +457,7 @@ bool AiCore::heavyClimbOut(Soldier& s, BotMind& m, vec3 toward) {
 void AiCore::linkAborted(NavRef ref, uint32_t id) {
   if (!ref || !G.nav.mesh()) return;
   int n = ++linkAbortsById[id];
-  if (n < (int)(navj.contains("links") ? navj["links"].value("disableAfterAborts", 2) : 2)) return;
+  if (n < (int)(navj.contains("links") ? jkey(navj, "links").value("disableAfterAborts", 2) : 2)) return;
   auto wl = G.nav.writeLock();
   unsigned short fl = 0; if (dtStatusSucceed(G.nav.mesh()->getPolyFlags(ref, &fl))) G.nav.mesh()->setPolyFlags(ref, fl | NF_BADLINK);
   if (++metrics.linksDisabled <= 10) logf("ai: link %u disabled after %d aborts", id, n);

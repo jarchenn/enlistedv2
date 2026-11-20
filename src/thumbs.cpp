@@ -75,7 +75,7 @@ std::string assetThumbKey(const AssetDef& a) {
   try {   // baked model: its description, mesh and texture files
     json j = json::parse(src);
     if (j.contains("model")) {
-      fs::path dir = contentDir() / "assets" / "models" / j["model"].value("dir", a.id);
+      fs::path dir = contentDir() / "assets" / "models" / jkey(j, "model").value("dir", a.id);
       h = fnvStr(h, readTextFile(dir / "model.json"));
       h = fnvStr(h, readTextFile(dir / "mesh.bin"));
       std::vector<std::pair<std::string, uintmax_t>> files; std::error_code ec;

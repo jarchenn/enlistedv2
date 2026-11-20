@@ -207,7 +207,7 @@ void SelfTest::entitiesUpdate(App& app, float dt) {
       fs::path p = outDirE() / "entities_trap_v1.nmap.json";
       json m; try { m = json::parse(readTextFile(fs::path(contentDir() / "examples" / "village.nmap.json"))); } catch (...) {}
       json keep = json::array(); int v1 = 0;
-      for (auto& o : m["instances"]) if (o["asset"].value("id", "") == "def_tank_trap") { o["asset"]["version"] = 1; keep.push_back(o); ++v1; }
+      for (auto& o : m["instances"]) if (jkey(o, "asset").value("id", "") == "def_tank_trap") { o["asset"]["version"] = 1; keep.push_back(o); ++v1; }
       m["instances"] = keep; m.erase("terrainDeltas");
       { std::ofstream f(p); f << m.dump(); }
       bool ok = a.openMap(p);
@@ -606,7 +606,7 @@ void SelfTest::entitiesUpdate(App& app, float dt) {
       // distinct guns never share one recording (by design: M1 / M1C Garand - same rifle; Tiger KwK 36 - the Flak 36 family)
       json m; try { m = json::parse(readTextFile(contentDir() / "audio" / "manifest.json")); } catch (...) {}
       std::map<std::string, std::string> owner;
-      for (auto& [ev, e] : m["events"].items()) {
+      for (auto& [ev, e] : jkey(m, "events").items()) {
         if (e.value("kind", "") != "shot" || ev == "shot_m1c_garand" || ev == "tank_88") continue;
         for (auto& v : e["variants"]) { std::string key = v.value("bank", "") + "#" + std::to_string(v.value("index", 0)); if (owner.count(key) && owner[key] != ev) ++shared; owner[key] = ev; }
       }
