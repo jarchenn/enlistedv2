@@ -314,8 +314,11 @@ bool deltaBodyPose(Game& G, Soldier& s, float dt, PoseParams& pp) {
     vec3 g = pistol ? 0.5f * (at(CJ_LHAND) + at(CJ_RHAND)) - 0.5f * (at(CJ_LARM) + at(CJ_RARM)) : at(CJ_LHAND) - at(CJ_RHAND);
     g.y = 0; if (glm::length(g) > 0.05f && s.throwT < 0) gun = glm::normalize(g);
     const bool tube = s.weapon >= 0 && G.app.weaponDefs[s.weapon]->action == "launcher";   // launchers ride the shoulder (the soldier placement), along the body
-    const float want = s.throwT >= 0 ? s.dfYawOff : tube ? 0.0f : glm::degrees(std::atan2(gun.x, gun.z));
+    const bool ruleHold = s.kit == 7 || s.kit == 8;   // WS1: held by rule along the body's forward, not along the clip's hands
+    const float want = s.throwT >= 0 ? s.dfYawOff : tube || ruleHold ? 0.0f : glm::degrees(std::atan2(gun.x, gun.z));
     pp.clipGun = !tube; pp.pistolRaise = pistol && hot && s.reload <= 0 ? 1.0f : 0.0f;
+    if (ruleHold && pistol) {   // WS1: the approved pistol postures: shooting / crouched = aimed; idle / walking = at the chest, muzzle up; running = the clip's own arms
+      s.dfPUp += ((hot || crouch ? 0.0f : 1.0f) - s.dfPUp) * (1.0f - std::exp(-dt / 0.12f)); pp.pistolUp = s.dfPUp; pp.pistolRun = !hot && !crouch && s.speed > 3.2f; }
     s.dfYawOff += (want - s.dfYawOff) * (1.0f - std::exp(-dt / 0.2f));
   }
   if (sp >= 0) {   // the chest pitches with the aim (the clip's arms and the gun with it)
@@ -352,7 +355,7 @@ bool deltaBodyPose(Game& G, Soldier& s, float dt, PoseParams& pp) {
     if (pp.cycleKind == 2) s.dfPumpBack = 0.09f * std::sin(3.14159265f * pp.cycle);
   }
   pp.crouch = pp.kneel = pp.prone = pp.hunch = pp.lean = pp.swim = 0; pp.gait = false; pp.climb = -1; pp.aimYawOffset = 0;
-  pp.carry = 0; pp.moveAim = 0; pp.clipHold = true;
+  pp.carry = 0; pp.moveAim = 0; pp.clipHold = !(s.kit == 7 || s.kit == 8);   /* WS1: the Allied / SS soldiers hold by rule (the soldier placement: butt in the right shoulder, barrel on the aim, palms on each gun's own sockets, hold.left styles), not in the clip's hands */
   poseCharacter(m, pp, s.pose);
   return true;
 }

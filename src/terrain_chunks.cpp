@@ -53,7 +53,8 @@ static TerrainStreamConfig loadStreamConfig() {
 static int lodSide(int lod) { return Terrain::kChunkCells / TerrainStream::kStep[lod] + 1; }
 static int lodVerts(int lod) { int m = lodSide(lod); return m * m + 4 * m; }
 static int lodIndices(int lod) { int m = lodSide(lod); return (m - 1) * (m - 1) * 6 + 4 * (m - 1) * 12; }
-static constexpr int kVertBytes = 24;   // position + normal
+static constexpr int kVertBytes = 28;   // position + normal + VOT T1 morph (coarser LOD height - own height)
+static constexpr int kVertF = kVertBytes / 4;
 
 size_t terrainPhysicsBytesEstimate(int chunks) { return (size_t)chunks * 3200; }   // Jolt 21x21 heightfield (8-bit samples, range blocks) + body
 
@@ -141,8 +142,7 @@ int TerrainStream::desiredLod(const Terrain& t, int idx, vec3 cam, int cur) cons
   float hy = cfg.hysteresis;
   if (d > cfg.maxDist * (cur >= 0 ? 1 + hy : 1)) return -1;
   // PF2: the rings past LOD0 follow the render distance (Low 600 m: x0.6, High 2.5 km: x1.5; the close-up ground stays)
-  const float k = std::clamp(settings().drawDist(), 0.6f, 1.5f);
-  float ld[4]; for (int l = 0; l < 4; ++l) ld[l] = cfg.lodDist[l] * (l >= 1 ? k : 1.0f);
+  float ld[4]; for (int l = 0; l < 4; ++l) ld[l] = lodDistance(l);
   int b = 4;
   for (int l = 0; l < 4; ++l) if (d < ld[l]) { b = l; break; }
   if (cur < 0 || b == cur) return b;
@@ -179,6 +179,9 @@ void TerrainStream::ensurePool(int lod, int need) {
       glVertexArrayAttribFormat(p.vao, k, 3, GL_FLOAT, GL_FALSE, k * 12);
       glVertexArrayAttribBinding(p.vao, k, 0);
     }
+    glEnableVertexArrayAttrib(p.vao, 4);   // VOT T1 aMorph
+    glVertexArrayAttribFormat(p.vao, 4, 1, GL_FLOAT, GL_FALSE, 24);
+    glVertexArrayAttribBinding(p.vao, 4, 0);
   }
   if (need <= p.capacity) return;
   int cap = std::max({need, p.capacity * 2, 16});
@@ -207,23 +210,31 @@ void TerrainStream::build(const Terrain& t, int idx, int lod) {
   c.lod = lod; c.slot = slot; c.rev = t.chunkRev.empty() ? 0 : t.chunkRev[idx];
   const int m = lodSide(lod), s = kStep[lod];
   int gx0 = (idx % cx) * Terrain::kChunkCells, gz0 = (idx / cx) * Terrain::kChunkCells;
-  std::vector<float> v((size_t)p.vertsPerSlot * 6);
+  std::vector<float> v((size_t)p.vertsPerSlot * kVertF);
   auto H = [&](int gx, int gz) { gx = std::clamp(gx, 0, t.nx - 1); gz = std::clamp(gz, 0, t.nz - 1); return t.h[(size_t)gz * t.nx + gx]; };
   const float e = Terrain::kCell;
+  const int S2 = lod + 1 < kLods ? kStep[lod + 1] : 0;   // VOT T1: the next LOD's step (chunk edges are multiples of it)
   for (int j = 0; j < m; ++j)
     for (int i = 0; i < m; ++i) {
       int gx = std::min(gx0 + i * s, t.nx - 1), gz = std::min(gz0 + j * s, t.nz - 1);
       vec3 n = glm::normalize(vec3(H(gx - 1, gz) - H(gx + 1, gz), 2 * e, H(gx, gz - 1) - H(gx, gz + 1)));   // = Terrain::baseNormal
-      float* o = &v[((size_t)j * m + i) * 6];
-      o[0] = t.org.x + gx * e; o[1] = H(gx, gz); o[2] = t.org.y + gz * e; o[3] = n.x; o[4] = n.y; o[5] = n.z;
+      float* o = &v[((size_t)j * m + i) * kVertF];
+      o[0] = t.org.x + gx * e; o[1] = H(gx, gz); o[2] = t.org.y + gz * e; o[3] = n.x; o[4] = n.y; o[5] = n.z; o[6] = 0.0f;
+      if (S2) {   // the coarser mesh's height here: its triangle (a c d / a d b, the a-d diagonal) at this vertex
+        int li = i * s, lj = j * s, ci = li / S2 * S2, cj = lj / S2 * S2;
+        float u = (float)(li - ci) / S2, w = (float)(lj - cj) / S2;
+        float a = H(gx0 + ci, gz0 + cj), b = H(gx0 + ci + S2, gz0 + cj), c = H(gx0 + ci, gz0 + cj + S2), d = H(gx0 + ci + S2, gz0 + cj + S2);
+        float hc = u >= w ? a + (b - a) * u + (d - b) * w : a + (c - a) * w + (d - c) * u;
+        o[6] = hc - o[1];
+      }
     }
   float drop = cfg.skirtDepth * (1.0f + 0.25f * s);
   for (int ed = 0; ed < 4; ++ed)
     for (int k = 0; k < m; ++k) {
       int src = ed == 0 ? k : ed == 1 ? k * m + (m - 1) : ed == 2 ? (m - 1) * m + k : k * m;
-      float* o = &v[((size_t)m * m + ed * m + k) * 6];
-      const float* q = &v[(size_t)src * 6];
-      for (int c6 = 0; c6 < 6; ++c6) o[c6] = q[c6];
+      float* o = &v[((size_t)m * m + ed * m + k) * kVertF];
+      const float* q = &v[(size_t)src * kVertF];
+      for (int c6 = 0; c6 < kVertF; ++c6) o[c6] = q[c6];
       o[1] -= drop;
     }
   glNamedBufferSubData(p.vbo, (GLintptr)slot * p.vertsPerSlot * kVertBytes, (GLsizeiptr)p.vertsPerSlot * kVertBytes, v.data());
@@ -271,7 +282,13 @@ void TerrainStream::update(const Terrain& t, vec3 cam, const mat4& vp, float bud
   stats.gpuBytes = bytes;
 }
 
-void TerrainStream::drawBase(const Terrain& t, vec3 cam, const mat4& vp) {
+float TerrainStream::lodDistance(int l) const {
+  // PF2: the rings past LOD0 follow the render distance (Low 600 m: x0.6, High 2.5 km: x1.5; the close-up ground stays)
+  const float k = std::clamp(settings().drawDist(), 0.6f, 1.5f);
+  return cfg.lodDist[l] * (l >= 1 ? k : 1.0f);
+}
+
+void TerrainStream::drawBase(const Terrain& t, vec3 cam, const mat4& vp, GLint uMorph) {
   (void)cam;
   Frustum fr = Frustum::fromVP(vp);
   std::vector<GLsizei> counts[kLods]; std::vector<const void*> offs[kLods]; std::vector<GLint> base[kLods];
@@ -289,6 +306,9 @@ void TerrainStream::drawBase(const Terrain& t, vec3 cam, const mat4& vp) {
   for (int l = 0; l < kLods; ++l) {
     if (counts[l].empty()) continue;
     glBindVertexArray(pools[l].vao);
+    // VOT T1 geomorphing: vertices slide to the next LOD's surface over 0.6-0.92 of this LOD's switch distance, so a chunk
+    // that changes LOD (at >= 1 + hysteresis coarser, <= 1 - hysteresis finer) already has the other level's shape
+    if (uMorph >= 0) { float D = lodDistance(std::min(l, 3)); if (l + 1 < kLods) glUniform4f(uMorph, 0.6f * D, 1.0f / (0.32f * D), 1.0f, 0.0f); else glUniform4f(uMorph, 0, 0, 0, 0); }
     glMultiDrawElementsBaseVertex(GL_TRIANGLES, counts[l].data(), GL_UNSIGNED_INT, offs[l].data(), (GLsizei)counts[l].size(), base[l].data());
     ++calls;
   }
