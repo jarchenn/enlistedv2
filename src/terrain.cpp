@@ -453,7 +453,7 @@ void Terrain::applyDeltas(const std::map<int, std::vector<float>>& d) {
   ++revision;
 }
 
-void Terrain::draw(GLuint prog, vec3 cam, const mat4& vp, GLuint progND) const {
+void Terrain::draw(GLuint prog, vec3 cam, const mat4& vp, GLuint progND, GLuint progDepth) const {
   if (h.empty()) return;
   // PF (terrain early depth): progND is the same shader without the tile-mask discard. A shader that can discard
   // writes depth late for every fragment, so only the base chunks under an active tile use prog; the rest of the
@@ -486,15 +486,45 @@ void Terrain::draw(GLuint prog, vec3 cam, const mat4& vp, GLuint progND) const {
   if (drawOpts.normals) glBindTextureUnit(18, nrmTex);
   if (drawOpts.skyView) glBindTextureUnit(26, svTex);
   stream.update(*this, cam, vp, stream.cfg.buildBudgetMs);
-  stream.drawBase(*this, cam, vp, prog, progND, drawOpts.morph);
-  for (GLuint pr : {prog, progND}) {
-    glUseProgram(pr);
-    glUniform1i(glGetUniformLocation(pr, "uDiscard"), 0);
-    glUniform1i(glGetUniformLocation(pr, "uTNOn"), 0);
-    glUniform4f(glGetUniformLocation(pr, "uMorph"), 0, 0, 0, 0);
+  auto drawTiles = [&](bool) {
+    for (auto& [k, t] : tiles) { if (!t.count) continue; glBindVertexArray(t.vao); glDrawElements(GL_TRIANGLES, t.count, GL_UNSIGNED_INT, nullptr); }
+  };
+  auto resetUniforms = [&]() {
+    for (GLuint pr : {prog, progND}) {
+      glUseProgram(pr);
+      glUniform1i(glGetUniformLocation(pr, "uDiscard"), 0);
+      glUniform1i(glGetUniformLocation(pr, "uTNOn"), 0);
+      glUniform4f(glGetUniformLocation(pr, "uMorph"), 0, 0, 0, 0);
+    }
+  };
+  if (progDepth && progND != prog) {
+    // PF tzprepass: depth first with a one-fetch shader (it keeps the tile-mask discard), then the full shader once per
+    // visible pixel: depth EQUAL, no depth writes, no discard anywhere (the masked base already lost to its tile there)
+    GLint dfunc = GL_LESS; glGetIntegerv(GL_DEPTH_FUNC, &dfunc);
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glUseProgram(progDepth);
+    glUniform1i(glGetUniformLocation(progDepth, "uTileMask"), 15);
+    glUniform1f(glGetUniformLocation(progDepth, "uTileSize"), tileSize());
+    glUniform2f(glGetUniformLocation(progDepth, "uTerrainOrg"), org.x, org.y);
+    glUniform1i(glGetUniformLocation(progDepth, "uDiscard"), tiles.empty() ? 0 : 1);
+    stream.drawBase(*this, cam, vp, progDepth, progDepth, drawOpts.morph);
+    glUseProgram(progDepth);
+    glUniform1i(glGetUniformLocation(progDepth, "uDiscard"), 0);
+    glUniform4f(glGetUniformLocation(progDepth, "uMorph"), 0, 0, 0, 0);
+    drawTiles(false);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE); glDepthMask(GL_FALSE); glDepthFunc(GL_EQUAL);
+    stream.drawBase(*this, cam, vp, progND, progND, drawOpts.morph);
+    stream.stats.drawnMasked = -1;   // the log: pre-pass mode (no chunk uses the discarding shader for colour)
+    resetUniforms();
+    glUseProgram(progND);
+    drawTiles(true);
+    glDepthMask(GL_TRUE); glDepthFunc(dfunc);
+    return;
   }
+  stream.drawBase(*this, cam, vp, prog, progND, drawOpts.morph);
+  resetUniforms();
   glUseProgram(progND);
-  for (auto& [k, t] : tiles) { if (!t.count) continue; glBindVertexArray(t.vao); glDrawElements(GL_TRIANGLES, t.count, GL_UNSIGNED_INT, nullptr); }
+  drawTiles(true);
 }
 
 void Terrain::destroy() {
