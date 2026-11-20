@@ -343,6 +343,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `bt_creek` | Water | Blackwater Thaw only: the creek as one graded, flowing stream ribbon and the lane puddles (written by tools/mapgen/maps/blackwater_thaw.py) |
 | `bt_cable_station` | Landmarks | Blackwater Thaw only: the far-ridge cable-haul station silhouette (written by blackwater_thaw.py) |
 | `bt_flume` | Small buildings | Blackwater Thaw only: the waterworks court's stepped header channel (written by blackwater_thaw.py) |
+| `bt_boundary` | Effects | Blackwater Thaw only: the play-area limit as hidden collider boxes along the envelope (written by blackwater_thaw.py) |
 | `bt_vent_smoke` | Effects | Blackwater Thaw: the smithy chimney's smoke emitter (vent_smoke); usable on any map |
 | `bt_orchard_tree_a` | Vegetation | Blackwater Thaw only: a pruned winter orchard tree (written by blackwater_thaw.py) |
 | `bt_orchard_tree_b` | Vegetation | Blackwater Thaw only: a pruned winter orchard tree (written by blackwater_thaw.py) |
