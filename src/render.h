@@ -228,6 +228,7 @@ public:
     bool fullShadow = true;      // fullshadow (VO L1): full-strength sun shadows (off: 30 % lighter, as Classic)
     bool gtao = true;            // gtao (VO L2): GTAO with multi-bounce and specular occlusion (off: the old 8-sample SSAO)
     bool microShadow = true;     // microsh (VO L4): micro-shadowing of the sun by material AO (Lighting New)
+    bool hashAlpha = true;       // hashalpha (VO A1): cut-out leaves / grass with a dithered threshold under TAA (on whenever TAA is: Medium / High); width 0.2, NMK_HASH_SPREAD to try others
     bool folTrans = true;        // foltrans (VO L4): two-sided translucency on model foliage (Lighting New)
     bool agx = true;             // agx (VO L8): AgX-style curve, the grade from a LUT, 13-tap bloom downsample (Lighting New)
     bool histExpo = true;        // histexpo (VO L8): histogram auto exposure (Lighting New)
@@ -265,7 +266,8 @@ public:
               // ^ stream L (lighting): append to the line above
               : n == "specaa" ? &specAA : n == "hex" ? &hex : n == "hblend" ? &hblend
               // ^ stream M (materials): append to the line above
-              // stream A (vegetation): add a line of names above this comment
+              : n == "hashalpha" ? &hashAlpha
+              // ^ stream A (vegetation): append to the line above
               // stream P (performance): add a line of names above this comment
               : nullptr;
       if (n == "perf1") { matFar = probeMed = on; return true; }   // PERF1: its switches together

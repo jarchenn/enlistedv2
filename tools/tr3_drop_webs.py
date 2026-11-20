@@ -2,7 +2,7 @@
 a branch network (tools/bake_ph_forest.py, wood to a few hundred triangles) fills the V between two branches with one
 flat triangle, a metre or two across, bark-textured, at trunk height. A tube never makes a wide triangle: a wood
 triangle (an opaque, non-card part) whose altitude (2 x area / longest edge) is over MAX_ALT and whose area is over
-MIN_AREA is a web, and is collapsed (its indices made degenerate: the buffers and part ranges stay as they are).
+MIN_AREA, above GROUND (the root flare stays), is a web, and is collapsed (its indices made degenerate: the buffers and part ranges stay as they are).
 
     python -I tools/tr3_drop_webs.py [--dry] <content/assets/models dir>...   # every bake dir given (its lod1 too)
 
@@ -11,14 +11,14 @@ bake_ph_forest.py drops the same triangles after its wood decimation (drop_webs)
 import json, os, struct, sys
 import numpy as np
 
-MAX_ALT, MIN_AREA = 0.4, 0.2
+MAX_ALT, MIN_AREA, GROUND = 0.3, 0.12, 0.35   # VO A1 pass: lowered once (0.4 / 0.2 left small slivers); the root flare at the foot is kept
 
 
 def webs(P, t):
     A, B, C = P[t[:, 0]], P[t[:, 1]], P[t[:, 2]]
     area = np.linalg.norm(np.cross(B - A, C - A), axis=1) / 2
     e = np.max([np.linalg.norm(B - A, axis=1), np.linalg.norm(C - B, axis=1), np.linalg.norm(A - C, axis=1)], axis=0)
-    return (area > MIN_AREA) & (2 * area / np.maximum(e, 1e-6) > MAX_ALT)
+    return (area > MIN_AREA) & (2 * area / np.maximum(e, 1e-6) > MAX_ALT) & ((A[:, 1] + B[:, 1] + C[:, 1]) / 3 > GROUND)
 
 
 def fix(path, dry):
