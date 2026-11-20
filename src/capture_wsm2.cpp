@@ -19,52 +19,75 @@
 
 namespace {
 MpTest* T = nullptr;
-int mode = -1, stage = 0, frames = 0; bool started = false, matchMode = false, blurMode = false, costMode = false; float total = 0, st = 0, runT = 0; int runFrames = 0; double runDt = 0, worstDt = 0;
+int mode = -1, stage = 0, frames = 0; bool started = false, matchMode = false, blurMode = false, costMode = false, blur2 = false; float total = 0, st = 0, runT = 0; int runFrames = 0; double runDt = 0, worstDt = 0;
 std::vector<int> row; vec3 origin(0);
 const char* kStates[] = {"aim", "aim_lmg", "aim_pistol", "idle", "walk", "run", "crouch", "shot", "reload", "throw"};
 }   // namespace
 
 // AIB1 NMK_WSM2=blur: one soldier standing, one walking across the view at 3, 8 and 20 m from a still camera, per configuration
 // (Medium / High, the soldiers' own TAA motion on / off, TAAU off, Classic lighting, specular AA off): selftest_out/aib1_<cfg>_<d>.png.
-// shortcut: the walker's feet are moved by the test (the AI is frozen), its clip from dbgVel; the camera never moves.
-struct BlurCfg { const char* name; GfxPreset preset; bool charVel, taau, lightNew, specAA; };
-const BlurCfg kBlur[] = {{"med_before", GfxPreset::Medium, false, true, true, true}, {"med_after", GfxPreset::Medium, true, true, true, true},
-                         {"med_native", GfxPreset::Medium, false, false, true, true}, {"high_before", GfxPreset::High, false, true, true, true},
-                         {"high_after", GfxPreset::High, true, true, true, true}, {"med_classic", GfxPreset::Medium, false, true, false, true},
-                         {"med_nospecaa", GfxPreset::Medium, false, true, true, false}};
-const float kDist[] = {3, 8, 20};
-static bool blurStep(App& app, Game& G, Soldier& L) {
-  static std::vector<int> two; static vec3 eye0, fwd0, right0; static int k = -1;
-  const int nCfg = (int)(sizeof(kBlur) / sizeof(kBlur[0])), nD = 3;
+// shortcut: the walker's feet are moved by the test (the AI is frozen), its clip from dbgVel.
+// NMK_WSM2=blur2 (AIB1b): the camera strafing past the walker at 8 m (3 m/s, Medium, before / after), and the stander idle and
+// aiming level at the camera at 3 m (High): the clip each plays is noted.
+struct BlurShot { const char* name; GfxPreset preset; bool charVel, taau, lightNew, specAA; float d; bool strafe, aim; };
+static std::vector<BlurShot> blurShots(bool second) {
+  std::vector<BlurShot> v;
+  if (second) {
+    v = {{"strafe_med_before", GfxPreset::Medium, false, true, true, true, 8, true, false}, {"strafe_med_after", GfxPreset::Medium, true, true, true, true, 8, true, false},
+         {"pose_idle", GfxPreset::High, true, true, true, true, 3, false, false}, {"pose_aim", GfxPreset::High, true, true, true, true, 3, false, true}};
+    return v;
+  }
+  const BlurShot cfg[] = {{"med_before", GfxPreset::Medium, false, true, true, true}, {"med_after", GfxPreset::Medium, true, true, true, true},
+                          {"med_native", GfxPreset::Medium, false, false, true, true}, {"high_before", GfxPreset::High, false, true, true, true},
+                          {"high_after", GfxPreset::High, true, true, true, true}, {"med_classic", GfxPreset::Medium, false, true, false, true},
+                          {"med_nospecaa", GfxPreset::Medium, false, true, true, false}};
+  for (const BlurShot& c : cfg) for (float d : {3.0f, 8.0f, 20.0f}) { v.push_back(c); v.back().d = d; }
+  return v;
+}
+static bool blurStep(App& app, Game& G, Soldier& L, bool second) {
+  static std::vector<int> two; static vec3 eye0; static int k = -1; static std::vector<BlurShot> shots;
   if (two.empty()) {
     for (auto& s : G.sold) if (s.inUse && s.alive && !s.localPlayer && two.size() < 2) two.push_back(s.slot);
     if (two.size() < 2) { T->check(false, "two soldiers to film"); app.selftest->exitCode = T->finish(); app.selftest->done = true; return true; }
-    eye0 = L.feet; fwd0 = vec3(0, 0, -1); right0 = vec3(1, 0, 0); app.eyeYaw = 0; app.eyePitch = 0;
+    eye0 = L.feet; app.eyeYaw = 0; app.eyePitch = 0; shots = blurShots(second);
     for (int i : two) { const Soldier& s = G.sold[i]; char b[200]; std::snprintf(b, sizeof b, "soldier %d: model %s, hold body %d", i, G.models[s.model]->id.c_str(), (int)s.holdBody); T->note(b); }
     k = 0; frames = 0;
   }
-  if (k >= nCfg * nD) { if (frames > 4) { if (app.mode == Mode::Explore) app.exitExplore(); app.selftest->exitCode = T->finish(); app.selftest->done = true; } return true; }
-  const BlurCfg& c = kBlur[k / nD]; const float d = kDist[k % nD];
+  if (k >= (int)shots.size()) { if (frames > 4) { if (app.mode == Mode::Explore) app.exitExplore(); app.selftest->exitCode = T->finish(); app.selftest->done = true; } return true; }
+  const BlurShot& c = shots[k]; const float d = c.d;
   if (frames == 1) {
-    if (k % nD == 0) { settings().applyPreset(app, c.preset); app.R.perf.charVel = c.charVel; app.R.perf.taau = c.taau; app.R.perf.specAA = c.specAA; app.R.q.lightNew = c.lightNew; }
+    if (k == 0 || shots[k - 1].preset != c.preset) settings().applyPreset(app, c.preset);
+    app.R.perf.charVel = c.charVel; app.R.perf.taau = c.taau; app.R.perf.specAA = c.specAA; app.R.q.lightNew = c.lightNew;
     app.R.resetTemporal();
   }
-  Physics::setCharacterPos(eye0 + vec3(0, 0.9f, 0)); app.eyeYaw = 0;
+  // the camera's frame from the start (yaw 0); strafing: the eye slides along its right at 3 m/s, centred on the shot frame
+  const vec3 f = App::forward(0, 0), r = glm::normalize(glm::cross(f, vec3(0, 1, 0)));
+  const vec3 eyeFeet = eye0 + (c.strafe ? r * (3.0f * (frames - 70) / 60.0f) : vec3(0));
+  Physics::setCharacterPos(eyeFeet + vec3(0, 0.9f, 0)); app.eyeYaw = 0;
   vec3 eye, ef; G.renderView(eye, ef);
-  const vec3 f = glm::normalize(vec3(ef.x, 0, ef.z)), r = glm::normalize(glm::cross(f, vec3(0, 1, 0)));
   const vec3 mid = eye0 + f * d;
   app.eyePitch = degrees(std::atan2(app.terrain.height(mid.x, mid.z) + 1.1f - eye.y, d));
   for (int i = 0; i < 2; ++i) {
-    Soldier& s = G.sold[two[i]]; s.hp = 100; s.br.target = -1; s.lastShot = G.t - 10; s.posture = Physics::STAND;
+    Soldier& s = G.sold[two[i]]; s.hp = 100; s.posture = Physics::STAND;
+    const bool hot = i == 0 && c.aim;
+    s.br.target = hot ? L.slot : -1; if (!hot) s.lastShot = G.t - 10;
     vec3 p = mid + r * (i == 0 ? -1.6f : -0.7f + std::fmod(frames / 60.0f * 1.5f, 2.4f));   // the stander left of centre; the walker left to right at 1.5 m/s
     p.y = app.terrain.height(p.x, p.z);
     Physics::setAgentPos(s.agent, p); s.feet = p;
-    s.yaw = i == 0 ? degrees(std::atan2(-f.x, -f.z)) : degrees(std::atan2(r.x, r.z));   // the stander faces the camera, the walker its way
+    // App::forward(yaw) faces (-sin, -cos): the stander faces the camera (-f), the walker the way it walks (+r)
+    s.yaw = i == 0 ? degrees(std::atan2(f.x, f.z)) : degrees(std::atan2(-r.x, -r.z));
+    if (hot) { s.br.aimYaw = s.anGunYaw = s.yaw; s.br.aimPitch = s.anGunPitch = 0; }
     s.dbgVel = i == 1 ? App::forward(s.yaw, 0) * 1.5f : vec3(0);
   }
   if (frames == 70) {
-    char b[64]; std::snprintf(b, sizeof b, "aib1_%s_%02d.png", c.name, (int)d);
+    char b[300]; std::snprintf(b, sizeof b, "aib1_%s_%02d.png", c.name, (int)d);
     app.uiShot = exeDir() / "selftest_out" / b;
+    for (int i = 0; i < 2; ++i) {   // which clip each plays (the pose question)
+      const Soldier& s = G.sold[two[i]]; const CharModel& m = *G.models[s.model];
+      std::snprintf(b, sizeof b, "%s: %s plays '%s'%s%s %.0f%%, hot %d, aim pitch %.1f deg", c.name, i ? "walker" : "stander", s.anim.a >= 0 ? m.clips[s.anim.a].name.c_str() : "-",
+                    s.anim.b >= 0 && s.anim.b != s.anim.a ? " -> " : "", s.anim.b >= 0 && s.anim.b != s.anim.a ? m.clips[s.anim.b].name.c_str() : "", s.anim.w * 100, (int)(s.br.target >= 0), s.br.aimPitch);
+      T->note(b);
+    }
   }
   if (frames > 74) { ++k; frames = 0; }
   return true;
@@ -101,7 +124,7 @@ static bool costStep(App& app, Game& G, Soldier& L) {
 }
 
 bool wsm2Capture(App& app, float dt) {
-  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-wsm2") mode = 1; const char* e = std::getenv("NMK_WSM2"); matchMode = e && std::string(e) == "match"; blurMode = e && std::string(e) == "blur"; costMode = e && std::string(e) == "cost"; if (costMode) matchMode = true; }
+  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-wsm2") mode = 1; const char* e = std::getenv("NMK_WSM2"); matchMode = e && std::string(e) == "match"; blurMode = e && (std::string(e) == "blur" || std::string(e) == "blur2"); blur2 = e && std::string(e) == "blur2"; costMode = e && std::string(e) == "cost"; if (costMode) matchMode = true; }
   if (mode != 1) return false;
   if (dt < 0) return true;
   if (app.win && glfwGetWindowAttrib(app.win, GLFW_ICONIFIED)) glfwRestoreWindow(app.win);
@@ -157,7 +180,7 @@ bool wsm2Capture(App& app, float dt) {
     return true;
   }
   if (st < 3.0f) { if (A) A->frozen = true; return true; }
-  if (blurMode) return blurStep(app, G, *L);
+  if (blurMode) return blurStep(app, G, *L, blur2);
   if (costMode) return costStep(app, G, *L);
   if (stage == 0) {   // the row: side 0's bot first, then side 1's in spawn order; facts per bot
     for (auto& s : G.sold) if (s.inUse && s.alive && !s.localPlayer) row.push_back(s.slot);
