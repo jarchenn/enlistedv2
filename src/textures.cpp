@@ -192,6 +192,7 @@ void encodeLevel(const std::vector<uint8_t>& src, int n, int comp, bool bc, int 
   }
 }
 
+float toksvigK() { static const float k = [] { const char* e = std::getenv("NMK_TEX_TOKSVIG"); return e ? (float)std::atof(e) : 1.0f; }(); return k; }
 void buildSetRaw(const fs::path& dir, bool bc, Cpu& o) {
   initLut();
   Img col, nrm, rma;
@@ -213,6 +214,15 @@ void buildSetRaw(const fs::path& dir, bool bc, Cpu& o) {
   }
   o.info.meanLin = vec3((float)(mr / N), (float)(mg / N), (float)(mb / N));
   o.info.meanAO = (float)(mao / N / 255.0); o.info.meanR = (float)(mR / N / 255.0); o.info.meanH = (float)(mH / N / 255.0);
+  // M3 Toksvig (stream M): the mean of the unit normals under each mip texel, unnormalised; its shortening is the
+  // normal variance the mip filtered away, added to that texel's alpha^2 so bumps that blur out turn into roughness
+  // instead of sparkle (Toksvig 2004). NMK_TEX_TOKSVIG = strength (0 off; part of the cache key)
+  const float tk = toksvigK();
+  std::vector<float> nv(tk > 0 ? N * 3 : 0);
+  for (size_t i = 0; i < nv.size() / 3; ++i) {
+    float x = b[i * 2] / 127.5f - 1, y = b[i * 2 + 1] / 127.5f - 1, z = std::sqrt(std::max(0.0f, 1 - x * x - y * y)), l = std::max(1e-4f, std::sqrt(x * x + y * y + z * z));
+    nv[i * 3] = x / l; nv[i * 3 + 1] = y / l; nv[i * 3 + 2] = z / l;
+  }
   int n = sn;
   for (int L = 0; L < levels; ++L) {
     encodeLevel(a, n, 4, bc, 0, o.lv[0][L]); encodeLevel(b, n, 2, bc, 1, o.lv[1][L]); encodeLevel(c, n, 2, bc, 2, o.lv[2][L]);
@@ -228,6 +238,12 @@ void buildSetRaw(const fs::path& dir, bool bc, Cpu& o) {
       for (size_t i : {i00, i10, i01, i11}) { nx += b[i * 2] / 127.5f - 1; ny += b[i * 2 + 1] / 127.5f - 1; }
       b2[d * 2] = (uint8_t)std::clamp((nx / 4 + 1) * 127.5f + 0.5f, 0.0f, 255.0f); b2[d * 2 + 1] = (uint8_t)std::clamp((ny / 4 + 1) * 127.5f + 0.5f, 0.0f, 255.0f);
       for (int k = 0; k < 2; ++k) c2[d * 2 + k] = (uint8_t)((c[i00 * 2 + k] + c[i10 * 2 + k] + c[i01 * 2 + k] + c[i11 * 2 + k] + 2) / 4);
+      if (tk > 0) {
+        float v[3];
+        for (int k = 0; k < 3; ++k) { v[k] = 0.25f * (nv[i00 * 3 + k] + nv[i10 * 3 + k] + nv[i01 * 3 + k] + nv[i11 * 3 + k]); nv[d * 3 + k] = v[k]; }   // in place: d <= i00
+        float r = std::clamp(std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]), 1e-3f, 1.0f), rr = c2[d * 2] / 255.0f;
+        c2[d * 2] = (uint8_t)std::clamp(std::pow(std::min(1.0f, rr * rr * rr * rr + tk * (1 - r) / r), 0.25f) * 255.0f + 0.5f, 0.0f, 255.0f);
+      }
     }
     a.swap(a2); b.swap(b2); c.swap(c2); n = m;
   }
@@ -244,7 +260,7 @@ void buildSetRaw(const fs::path& dir, bool bc, Cpu& o) {
 // CACHE1: a built set (compressed levels and its means) cached per user next to the model maps (texbc, "set-*"): the
 // decode, resample, mip and compression of 90+ sets took ~1.6 s every start. Keyed by the folder, its files' sizes / times
 fs::path setCacheFile(const fs::path& dir, bool bc, int n) {
-  std::string key = "set2|" + std::to_string(bc) + "|" + std::to_string(n) + "|" + std::to_string(levelsFor(n));   // CACHE2: by content, not by folder or time
+  std::string key = "set2|" + std::to_string(bc) + (toksvigK() > 0 ? "|tk" + std::to_string(toksvigK()) : std::string()) + "|" + std::to_string(n) + "|" + std::to_string(levelsFor(n));   // CACHE2: by content, not by folder or time
   std::error_code ec;
   for (const char* f : {"color.jpg", "color.png", "normal.jpg", "normal.png", "rma.jpg", "rma.png", "meta.json"}) {
     fs::path q = dir / f; if (!fs::exists(q, ec)) continue;
