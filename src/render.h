@@ -291,6 +291,10 @@ public:
     bool mapNoFog = false;      // BR2: "look": {"fog": false}: no aerial haze, weather fog or light shafts
     float mapSat = 1.0f; vec3 mapTint{1.0f}; float mapGrime = 0.0f; float mapVegCull = 1.0f; float mapCave = 0.0f;   // CV1: look.cave   // NT5: look.vegCull   // NT3: look.grime   // NT2b: look.saturation / look.tint, after the weather grade
     float mapHaze = 1.0f;       // AS1: "look": {"haze": k}: the aerial haze density x k (an abandoned town: hazier)
+    float mapFogNear = 0.0f;    // GR3: "look": {"fogNear": m}: the environmental fog starts this far from the eye (near ground keeps its contrast)
+    vec3 mapNightSky{1.0f};     // GR3: extra.lighting.nightSky: the sky light x this while the sun is down (a faint cool light on upward faces)
+    float mapNightFill = 1.0f;  // GR3: extra.lighting.nightFill: the fill (interiors, under cover) x this while the sun is down (rooms read lit through the windows)
+    bool neutralLook = false;   // GR3 capture views: the map's tint, saturation and ambient neutral (where does a colour cast come from)
     float mapShafts = 0.0f;     // NT8: "look": {"shafts": k}: sun shafts on Medium too (not Low), strength x k (a forest at golden hour)
     vec3 mapAmbient{0.0f};      // BR2: the open map's extra.lighting.ambient: an even indirect term added to the fill (lights everything, furniture included)
     float mapFill = 1.0f;       // UG4: extra.lighting.fill: the fill / indirect term x this (Tunnels darker between its lamps)

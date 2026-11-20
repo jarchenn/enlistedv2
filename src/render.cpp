@@ -45,7 +45,7 @@ uniform int uShadowTaps;          // P3: cap on the PCF taps (presets; 0 = no ca
 uniform int uFrame;               // frame counter (noise rotation; TAA decorrelation)
 uniform int uCloudShadowOn; uniform float uCloudCov, uCloudT;
 uniform float uCloudK, uCloudSeed; uniform vec2 uCloudWind;   // WX1: Clear -> Cloudy mix, the field's seed and wind (600 m cells / s)
-uniform float uEnvFog, uEnvFogH, uFogIndoor; uniform sampler2D uFogField; uniform vec4 uFogBox;   // WX1 environmental fog: density (1/m), layer height, indoor scale; field (unit 27), box (min xz, 1/size)
+uniform float uEnvFog, uEnvFogH, uFogIndoor, uEnvFogNear; uniform sampler2D uFogField; uniform vec4 uFogBox;   // WX1 environmental fog: density (1/m), layer height, indoor scale; field (unit 27), box (min xz, 1/size)
 uniform float uAoIndirectOnly;    // 1: material AO / sky occlusion darken only indirect light
 // ---- L2 lighting engine (src/lighting.cpp, docs/lighting.md): time of day, clustered local lights, probe GI
 uniform vec3 uSkyZen, uSkyHor;    // sky model zenith / horizon colour (time of day; Day = the BSL-pass constants)
@@ -205,7 +205,7 @@ vec3 applyFog(vec3 col, vec3 w){
     // WX1 environmental fog: height + distance extinction over the cached field (taken at the ray's midpoint; the drift
     // noise slides downwind), and a cheap sun glow toward the sun, dimmed by the cloud transmittance at the camera and
     // one shadow lookup at the surface. High adds the marched shafts on top (same density, kShaftFS)
-    float Lw = length(w - uCamPos);
+    float Lw = max(length(w - uCamPos) - uEnvFogNear, 0.0);   // GR3: look.fogNear: no mist on the ground at your feet
     vec3 m = 0.5*(w + uCamPos);
     vec2 uv = (m.xz - uFogBox.xy)*uFogBox.zw;
     vec4 F = texture(uFogField, uv);
@@ -3839,6 +3839,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   if (!q.legacy) { sun = vec3(3.30f, 3.05f, 2.62f); sky = vec3(0.30f, 0.36f, 0.47f); ground = vec3(0.17f, 0.155f, 0.12f); fill = vec3(0.075f, 0.072f, 0.065f); }
   vec3 zen(0.28f, 0.40f, 0.62f), hor(0.80f, 0.84f, 0.87f), skySun = sunDir, skySunCol = sun;
   lightingTodColors(*this, sun, sky, ground, fog, fill, zen, hor, skySun, skySunCol);   // L2 time of day (no change by Day / in thumbnails)
+  if (!thumbMode && (lt.hour < 5.8f || lt.hour > 20.4f)) { sky *= lt.mapNightSky; fill *= lt.mapNightFill; }   // GR3: lighting.nightSky (a faint cool sky light on upward faces) / nightFill (rooms lit from within) at night
   if (!thumbMode) fill = fill * lt.mapFill + (p == progModel ? lt.mapAmbient * 0.4f : lt.mapAmbient);   // UG4: x the map's fill scale   // BR2: a map's own even ambient (Backrooms); BR4: characters and the viewmodel take 40 %, so the lights and their shadows shape them
   glUniform3fv(U(p, "uSkyZen"), 1, glm::value_ptr(zen)); glUniform3fv(U(p, "uSkyHor"), 1, glm::value_ptr(hor));
   { vec3 sk = hor / vec3(0.80f, 0.84f, 0.87f); glUniform3fv(U(p, "uSkyK"), 1, glm::value_ptr(sk)); }
@@ -3874,7 +3875,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uFrame"), frame);
   glUniform1i(U(p, "uCloudShadowOn"), !q.legacy && q.cloudShadows && clouds && perf.cloudShadow && !thumbMode ? 1 : 0);
   glUniform1f(U(p, "uCloudCov"), cloudCoverNow()); glUniform1f(U(p, "uCloudT"), cloudClock());
-  glUniform1f(U(p, "uEnvFog"), thumbMode || q.legacy || !perf.envFog || fogTex == 0 || lt.mapNoFog ? 0.0f : std::max(wx.fogNow, 0.0f)); glUniform1f(U(p, "uEnvFogH"), 22.0f); glUniform1f(U(p, "uFogIndoor"), camIndoor ? 0.15f : 1.0f);
+  glUniform1f(U(p, "uEnvFog"), thumbMode || q.legacy || !perf.envFog || fogTex == 0 || lt.mapNoFog ? 0.0f : std::max(wx.fogNow, 0.0f)); glUniform1f(U(p, "uEnvFogH"), 22.0f); glUniform1f(U(p, "uEnvFogNear"), thumbMode ? 0.0f : lt.mapFogNear); glUniform1f(U(p, "uFogIndoor"), camIndoor ? 0.15f : 1.0f);
   glUniform1i(U(p, "uFogField"), 27); glBindTextureUnit(27, fogTex); glUniform4fv(U(p, "uFogBox"), 1, glm::value_ptr(fogBox));
   glUniform1f(U(p, "uCloudK"), thumbMode ? 0.0f : wx.k); glUniform1f(U(p, "uCloudSeed"), wx.seed); glUniform2fv(U(p, "uCloudWind"), 1, glm::value_ptr(wx.wind));
   glUniform1i(U(p, "uCloudShadowMap"), 13); glBindTextureUnit(13, cloudShTex);

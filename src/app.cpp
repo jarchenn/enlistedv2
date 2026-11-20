@@ -1374,7 +1374,16 @@ int App::run(int argc, char** argv) {
       R.lt.mapFill = lj ? std::clamp(lj->value("fill", 1.0f), 0.0f, 4.0f) : 1.0f;
       R.lt.mapAmbient = lj && lj->contains("ambient") && (*lj)["ambient"].is_array() && (*lj)["ambient"].size() == 3 ? vec3((*lj)["ambient"][0].get<float>(), (*lj)["ambient"][1].get<float>(), (*lj)["ambient"][2].get<float>()) : vec3(0.0f);
       R.lt.mapNoFog = lk && !lk->value("fog", true);
-      R.lt.mapHaze = lk ? std::clamp(lk->value("haze", 1.0f), 0.0f, 6.0f) : 1.0f;   // AS1
+      // GR3: "look": {"night": {"haze", "envFog", "fogNear"}}: the map's night air (its own density and mist), when the sun is down
+      const bool nightNow = R.lt.hour < 5.8f || R.lt.hour > 20.4f;
+      const json* lkN = nightNow && lk && lk->contains("night") && (*lk)["night"].is_object() ? &(*lk)["night"] : nullptr;
+      auto lkf = [&](const char* k, float d) { return lkN && lkN->contains(k) && (*lkN)[k].is_number() ? (*lkN)[k].get<float>() : lk ? lk->value(k, d) : d; };
+      R.lt.mapHaze = lk ? std::clamp(lkf("haze", 1.0f), 0.0f, 6.0f) : 1.0f;   // AS1
+      R.lt.mapFogNear = std::clamp(lkf("fogNear", 0.0f), 0.0f, 60.0f);
+      R.lt.mapNightFill = lj ? std::clamp(lj->value("nightFill", 1.0f), 0.0f, 6.0f) : 1.0f;
+      if (nightNow && lj && lj->contains("nightAmbient") && (*lj)["nightAmbient"].is_array() && (*lj)["nightAmbient"].size() == 3)   // GR3: a warm lamp-lit fill indoors at night (rooms lit from within)
+        R.lt.mapAmbient = vec3((*lj)["nightAmbient"][0].get<float>(), (*lj)["nightAmbient"][1].get<float>(), (*lj)["nightAmbient"][2].get<float>());
+      R.lt.mapNightSky = lj && lj->contains("nightSky") && (*lj)["nightSky"].is_array() && (*lj)["nightSky"].size() == 3 ? vec3((*lj)["nightSky"][0].get<float>(), (*lj)["nightSky"][1].get<float>(), (*lj)["nightSky"][2].get<float>()) : vec3(1.0f);
       R.lt.mapShafts = lk ? std::clamp(lk->value("shafts", 0.0f), 0.0f, 4.0f) : 0.0f;   // NT8
       {   // SD2: a map's own fair-weather cloud cover ("look": {"clouds": 0..1}; a hot desert noon: 0.05), restored on another map
         static float savedCover = -1.0f;
@@ -1389,7 +1398,8 @@ int App::run(int argc, char** argv) {
       R.lt.mapCave = lk && lk->value("cave", false) ? 1.0f : 0.0f;
       tex::mapPaintSets(lk);   // NT4
       R.lt.mapTint = lk && lk->contains("tint") && (*lk)["tint"].is_array() && (*lk)["tint"].size() == 3 ? vec3((*lk)["tint"][0].get<float>(), (*lk)["tint"][1].get<float>(), (*lk)["tint"][2].get<float>()) : vec3(1.0f);
-      R.wx.mapFog = lk && lk->contains("envFog") ? std::clamp(lk->value("envFog", 1), 0, 3) : -1;
+      if (R.lt.neutralLook) { R.lt.mapTint = vec3(1.0f); R.lt.mapSat = 1.0f; R.lt.mapAmbient = vec3(0.04f); R.lt.mapFill = 1.0f; }   // GR3 capture: neutral look (colour-cast tracing)
+      R.wx.mapFog = lkN && lkN->contains("envFog") ? std::clamp(lkN->value("envFog", 1), 0, 3) : lk && lk->contains("envFog") ? std::clamp(lk->value("envFog", 1), 0, 3) : -1;
       { static int prev = -9; int cur = R.wx.mapWx * 8 + R.wx.mapFog + (int)(R.wx.mapCloud * 1000.0f) * 64; if (cur != prev) { R.wx.snap(); R.wx.fogNow = R.wx.fogDens(); prev = cur; } }   // a map opens under its own sky
       R.wx.enclosed = enclosedMap || R.lt.mapNoFog;   // NT8: "enclosed": false: a fixed hour under the open sky (golden-hour Woods)   // WX2: Tunnels / Backrooms keep their own light
       R.lt.mapGamma = lj && lj->contains("gamma") && (*lj)["gamma"].is_number() ? std::clamp((*lj)["gamma"].get<float>(), 0.5f, 4.0f) : 1.0f;   // BR1c: a map may lift its gamma

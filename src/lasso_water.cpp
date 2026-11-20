@@ -2,6 +2,7 @@
 #include "lasso_water.h"
 #include "app.h"
 #include "geom2d.h"
+#include <algorithm>
 #include <cstring>
 #include <queue>
 #include <unordered_map>
@@ -33,7 +34,16 @@ void lassoWaterDrawItems(App& app) {
       glEnableVertexArrayAttrib(m.vao, 1); glVertexArrayAttribFormat(m.vao, 1, 2, GL_FLOAT, GL_FALSE, 3 * sizeof(float)); glVertexArrayAttribBinding(m.vao, 1, 0);
       m.sig = sig;
     }
-    if (m.count) app.R.water.push_back({m.vao, m.count, mat4(1), vec4(1.0f, 1.0f, 1.0f, 0.0f), vec4(0.0f)});   // kind 1 = pond
+    if (m.count) {   // kind 1 = pond; GR3: the map's "look": {"water": {"clarity", "waves", "tint"}} for its lasso water
+      float clarity = 1.0f, waves = 1.0f; vec4 tint(0.0f);
+      const json& ex = app.doc.extra;
+      if (ex.is_object() && ex.contains("look") && ex["look"].is_object() && ex["look"].contains("water") && ex["look"]["water"].is_object()) {
+        const json& wj = ex["look"]["water"];
+        clarity = std::clamp(wj.value("clarity", 1.0f), 0.05f, 10.0f); waves = std::clamp(wj.value("waves", 1.0f), 0.0f, 4.0f);
+        if (wj.contains("tint") && wj["tint"].is_array() && wj["tint"].size() == 3) tint = vec4(wj["tint"][0].get<float>(), wj["tint"][1].get<float>(), wj["tint"][2].get<float>(), 1.0f);
+      }
+      app.R.water.push_back({m.vao, m.count, mat4(1), vec4(1.0f, clarity, waves, 0.0f), tint});
+    }
   }
   for (auto it = gMeshes.begin(); it != gMeshes.end();) {
     if (it->second.live) { ++it; continue; }

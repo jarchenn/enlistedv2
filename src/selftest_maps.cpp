@@ -35,7 +35,7 @@ std::vector<int> mapTemplates(App& app) {
     if (app.templates[k].raw.contains("map") && (!only || !*only || app.templates[k].id == only)) v.push_back(k);
   return v;
 }
-struct View { std::string name; vec3 pos; float yaw, pitch; bool explore = false; bool gate = true; };   // gate: gameplay view held to the frame target
+struct View { std::string name; vec3 pos; float yaw, pitch; bool explore = false; bool gate = true; float hour = -1.0f; bool groundEye = false, neutral = false; };   // GR3: hour >= 0 sets the time of day for that view; groundEye: pos.y is the eye height above the terrain; neutral: the map's look tint / saturation / ambient off (tracing a colour cast)   // gate: gameplay view held to the frame target
 struct Perf { std::string name; bool gate = true; int frames = 0; double ms = 0, worst = 0, draws = 0, tris = 0; int preset = 1; bool night = false; double gpu = 0, pass[GP_Count] = {}; int abN[2] = {}; double abMs[2] = {}, abPass[2][GP_Count] = {}, abProbeCpu[2] = {}, abProbes[2] = {}, abCpu[2] = {};
               double x[10] = {}, abX[2][10] = {}; };   // R2: the frame counters below (kXName), plain run and A/B sides   // ab: [0] PF2 renderer, [1] the A/B baseline (NMK_PERF_AB)   // night: L2 Night at Medium (reported only)   // preset: GfxPreset (V2: gameplay views also at Low / High, reported only)
 
@@ -139,7 +139,7 @@ void templateViews(const TemplateInfo& t) {
   if (const char* xf = std::getenv("NMK_EXTRA_VIEWS")) {
     json xj; try { xj = json::parse(readTextFile(xf)); } catch (...) {}
     if (xj.is_object()) for (auto& v : xj.value(t.id, json::array()))
-      sViews.push_back({v.value("name", std::string("view")), jvec3(v["pos"], vec3(0)), v.value("yaw", 0.0f), v.value("pitch", 0.0f), v.value("explore", false), true});
+      sViews.push_back({v.value("name", std::string("view")), jvec3(v["pos"], vec3(0)), v.value("yaw", 0.0f), v.value("pitch", 0.0f), v.value("explore", false), true, v.value("hour", -1.0f), v.value("groundEye", false), v.value("neutral", false)});
   }
 }
 }  // namespace
@@ -433,6 +433,9 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     View& v = sViews[sVi];
     if (!sViewInit) {
       sViewInit = true;
+      if (v.hour >= 0.0f) { app.R.lt.hour = v.hour; app.R.lt.userHour = true; } else app.R.lt.userHour = false;   // GR3: a night view among day ones (userHour: the map's fixed hour does not take it back)
+      app.R.lt.neutralLook = v.neutral;
+      if (v.groundEye) { v.pos.y += app.terrain.height(v.pos.x, v.pos.z); v.groundEye = false; }
       if (v.explore) {
         app.doc.start = {true, v.pos, v.yaw};
         bool ok = app.enterExplore();
