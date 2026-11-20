@@ -525,6 +525,16 @@ float specAA(vec3 N, float rough){   // widens alpha where the normal changes fa
 #endif
   return rough;
 }
+// CP step 3 (corpus 03 s4.2, s6.2, s6.3; perf switch splitsum): split-sum environment specular from Karis's analytic fit
+// (no DFG table: every texture unit is taken), multi-scatter energy compensation 1 + F0 (1/E_ss - 1) with E_ss the fit at
+// F0 = 1, Lagarde's specular occlusion, and multi-bounce material AO by the pixel's own albedo (Jimenez 2016)
+uniform int uSplitSum;
+vec2 envBRDFApprox(float r, float NoV){
+  const vec4 c0 = vec4(-1.0, -0.0275, -0.572, 0.022), c1 = vec4(1.0, 0.0425, 1.04, -0.04);
+  vec4 q = r*c0 + c1;
+  float a004 = min(q.x*q.x, exp2(-9.28*NoV))*q.x + q.y;
+  return vec2(-1.04, 1.04)*a004 + q.zw;   // F = F0*x + y
+}
 vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
   rough = specAA(N, rough);
   vec3 V = normalize((gEyeOv.x < 1e29 ? gEyeOv : uCamPos) - w);
@@ -539,7 +549,9 @@ vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
   // normal moved the receiver offset / slope bias per pixel, which the per-frame PCF rotation turned into flicker
   vec3 Ng = dot(gNg, gNg) > 0.5 ? gNg : N;
   float sh = NdL > 0.0 ? shadowPCF(w, Ng) * cloudShadow(w) : 0.0;
-  vec3 direct = (kd*alb/PI + spec*gSpecK) * uSunCol * NdL * sh;
+  vec2 ssAB = envBRDFApprox(rough, NdV);
+  vec3 msK = uSplitSum == 1 ? 1.0 + F0*(1.0/max(ssAB.x + ssAB.y, 0.05) - 1.0) : vec3(1.0);   // multi-scatter: rough metals keep their energy
+  vec3 direct = (kd*alb/PI + spec*msK*gSpecK) * uSunCol * NdL * sh;
   // VO L4 micro-shadowing (Brinck et al. 2016): a crevice the material AO marks is also shadowed from the sun near the
   // terminator, so texture detail keeps its depth where the light grazes (legacy material AO never touched the sun)
   if (uMicroSh > 0.0) direct *= mix(1.0, clamp(NdL + 2.0*ao*ao - 1.0, 0.0, 1.0), uMicroSh);
@@ -581,10 +593,16 @@ vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
   }
   vec3 envL = mix(envOcc, skyColor(R) * amb, sv);
   if (uReflOn == 1 && uCapture == 0) { float rw; vec3 pc = reflProbe(w, R, rough, rw); envL = mix(envL, pc, rw); }   // VO L7 (never inside a probe capture): what is really there, not the sky estimate
-  vec3 envSpec = envL * Fr * (1.0-rough*0.6) * 0.6 * cav * gSpecK;
+  vec3 envSpec = uSplitSum == 1 ? envL*(F0*ssAB.x + ssAB.y)*msK*cav*gSpecK   // split sum (no 0.6 fudge)
+                                 : envL * Fr * (1.0-rough*0.6) * 0.6 * cav * gSpecK;
   // material AO darkens the light arriving from the hemisphere, not the direct sun (legacy: everything)
   float aoD = mix(ao, 1.0, uAoIndirectOnly);
-  vec3 r = direct*aoD + (irr*alb*kd + envSpec*mix(1.0, ao, 0.7)) * ao;
+  vec3 r;
+  if (uSplitSum == 1) {
+    vec3 aoMB = max(vec3(ao), ((ao*(2.0404*alb - 0.3324) + (-4.7951*alb + 0.6417))*ao + (2.7552*alb + 0.6903))*ao);   // multi-bounce, per channel by this albedo
+    float so = clamp(pow(NdV + ao, exp2(-16.0*rough - 1.0)) - 1.0 + ao, 0.0, 1.0);   // specular occlusion (Lagarde 2014): once, not ao twice
+    r = direct*aoD + irr*alb*kd*aoMB + envSpec*so;
+  } else r = direct*aoD + (irr*alb*kd + envSpec*mix(1.0, ao, 0.7)) * ao;
   if (uLightCount > 0) { vec3 ld, ls; localLights(w, N, Ng, V, rough, F0, ld, ls); r += (kd*alb/PI*ld + ls)*aoD; }
   gInd = irr*alb*kd*ao;
   return (any(isnan(r)) || any(isinf(r))) ? vec3(0.0) : r;   // never write a non-finite HDR value
@@ -4457,6 +4475,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
     if (const char* e = std::getenv("NMK_TEX_BIAS")) tb = (float)std::atof(e);
     glUniform1i(U(p, "uTexBiasOn"), perf.texBias && !thumbMode ? 1 : 0); glUniform1f(U(p, "uTexBias"), tb);
   }
+  glUniform1i(U(p, "uSplitSum"), q.legacy || !perf.splitSum ? 0 : 1);   // CP step 3
   glUniform2f(U(p, "uHex"), q.legacy || !perf.hex || q.matLayer == 0 || hd <= 0 ? 0.0f : 1.0f, std::max(hd, 0.05f)); }   // M1: hex tiling (--rq-off hex; off at Low); NMK_HEX = cells per texture repeat
   glUniform1f(U(p, "uHazeH"), lt.mapHazeH > 0.0f ? lt.mapHazeH : q.hazeHeight);   // FG1: a map's own haze scale height
   glUniform1f(U(p, "uTime"), time);
