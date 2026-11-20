@@ -188,6 +188,7 @@ void SelfTest::update(App& app, float dt) {
   { extern bool captureRc2SelfTest(App&, float); if (captureRc2SelfTest(app, dt)) return; }   // RC2: --capture-rc2
   { extern bool snd10SelfTest(App&, float); if (snd10SelfTest(app, dt)) return; }   // SND10: --check-snd10
   { extern bool btaSelfTest(App&, float); if (btaSelfTest(app, dt)) return; }   // BTA: --check-bta
+  { extern bool benchViews(App&, float); if (benchViews(app, dt)) return; }   // P1: --bench-views
   { extern bool memProbeSelfTest(App&, float); if (memProbeSelfTest(app, dt)) return; }   // MEM1: --mem-probe
   { extern bool rm1SelfTest(App&, float); if (rm1SelfTest(app, dt)) return; }   // RM1: --check-rm1
   { extern bool vm1SelfTest(App&, float); if (vm1SelfTest(app, dt)) return; }   // VM1: --check-vm1
