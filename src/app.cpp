@@ -5,6 +5,7 @@
 #endif
 #include "app.h"
 #include "sight_overlay.h"
+#include "map_ambience.h"   // BTA
 #include "sd_game.h"   // SD3
 #include "mainmenu.h"
 #include "loading.h"
@@ -1068,7 +1069,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-render") runSelf = true;   // V1 facades, walls, water (selftest_render.cpp)
     else if (a == "--selftest-lights") runSelf = true;   // L2 lighting engine (selftest_lights.cpp)
     else if (a == "--selftest-swim") runSelf = true;     // swimming, underwater view, breath (selftest_swim.cpp)
-    else if (a == "--capture-heli" || a == "--gen-vehicle-spawns" || a == "--capture-vh7" || a == "--check-ed2" || a == "--check-vh8" || a == "--capture-vh8" || a == "--mem-probe" || a == "--check-sm1" || a == "--capture-sm1" || a == "--check-sm1-br" || a == "--check-sm3" || a == "--capture-shade" || a == "--capture-rc2" || a == "--check-snd10" || a == "--check-rm1" || a == "--check-vm1") runSelf = true;   // VH5 (capture_heli.cpp)
+    else if (a == "--capture-heli" || a == "--gen-vehicle-spawns" || a == "--capture-vh7" || a == "--check-ed2" || a == "--check-vh8" || a == "--capture-vh8" || a == "--mem-probe" || a == "--check-sm1" || a == "--capture-sm1" || a == "--check-sm1-br" || a == "--check-sm3" || a == "--capture-shade" || a == "--capture-rc2" || a == "--check-snd10" || a == "--check-bta" || a == "--check-rm1" || a == "--check-vm1") runSelf = true;   // VH5 (capture_heli.cpp)
     else if (a == "--selftest-zombies" || a == "--capture-heavies" || a == "--capture-commands" || a == "--capture-ch1" || a == "--capture-ch6" || a == "--capture-ch8") runSelf = true;
     else if (a == "--capture-tk1" || a == "--check-tk1-match" || a == "--capture-tk2" || a == "--selftest-sd" || a == "--selftest-playerdmg" || a == "--selftest-prone" || a == "--selftest-sd3" || a == "--selftest-spectate" || a == "--sd-timings" || a == "--blocker-scan" || a == "--selftest-sd-plant" || a == "--capture-th1" || a == "--check-th2" || a == "--selftest-sd-freeze" || a == "--selftest-sd-time" || a == "--capture-sd9" || a == "--capture-gm1" || a == "--capture-df1" || a == "--capture-na1") runSelf = true;   // TK1 (capture_tk1.cpp)
     else if (a == "--capture-br-models" || a == "--capture-br-worn" || a == "--capture-reticles" || a == "--check-sight-freeze") runSelf = true;   // BR3 / BR8: a look at the Battle Royale models and worn gear (selftest_brmodels.cpp)
@@ -1326,14 +1327,15 @@ int App::run(int argc, char** argv) {
       {   // ambience loops: the battlefield everywhere but Backrooms; the room tone (60 %) on Backrooms and, under the battlefield, Tunnels
         const fs::path amb = contentDir() / "audio" / "ambience"; const bool br = doc.templateId == "backrooms", tn = doc.templateId == "tunnels";
         // CV1: a map may name its own bed (extra.audio.bed, a file in content/audio/ambience) and drop the battlefield (extra.audio.battlefield false)
-        const json* au = doc.extra.is_object() && doc.extra.contains("audio") && doc.extra["audio"].is_object() ? &doc.extra["audio"] : nullptr;
+        const json* au = mapAudioConfig(*this);   // BTA: content/audio/map_ambience/<template id>.json, overlaid by extra.audio
         const std::string own = au ? au->value("bed", std::string()) : std::string();
         audio.setBed(0, !own.empty() ? amb / own : br && fs::exists(amb / "level0.mp3") ? amb / "level0.mp3" : br || tn ? amb / "backrooms.mp3" : fs::path(), !own.empty() ? au->value("bedVolume", 0.8f) : 0.6f);   // level0.mp3: local-only track
         audio.setBed(1, br || (au && !au->value("battlefield", true)) ? fs::path() : amb / "battlefield.mp3", 0.7f);
-        audio.setRoom(br || tn || (au && !au->value("battlefield", true)) ? 1.0f : 0.0f);   // SND5: the gun reverb
+        audio.setRoom(br || tn ? 1.0f : au ? au->value("room", au->value("battlefield", true) ? 0.0f : 1.0f) : 0.0f);   // SND5: the gun reverb (BTA: a map may set its "room", 0 open .. 1 enclosed)
       }
     }
     audio.setUnderwater(v.underwater ? 1.0f : 0.0f);   // swim.cpp: muffled under water
+    mapAmbienceFrame(*this, frameDt);   // BTA: the map's wind, zones, water / fire loops and creaks (map_ambience.cpp)
     { extern void playerAudioFrame(App&); playerAudioFrame(*this); }   // SND13: low-health heartbeat, hurt grunt
     mark("mpai");
     if (R.thermalWanted && mode == Mode::Explore) {   // TH1: hot spots for a thermal scope: muzzle flashes, flames and fireballs, burning ground
@@ -1378,6 +1380,7 @@ int App::run(int argc, char** argv) {
       // FG1 (Blackwater Thaw spec 6): "look": {"hazeHeight": m (the aerial haze scale height), "fogLayer": {"density": 1/m,
       // "height": m}} (the valley mist: the environmental fog's own density and e-folding height, instead of the weather's)
       R.lt.mapLeafless = lk && lk->value("leafless", false);
+      R.lt.mapGrassDead = lk ? std::clamp(lk->value("grassDead", 0.0f), 0.0f, 1.0f) : 0.0f;
       { const json* sf = lk && lk->contains("snowfall") && (*lk)["snowfall"].is_object() ? &(*lk)["snowfall"] : nullptr;   // SF1
         R.lt.mapSnowfall = sf != nullptr;
         if (sf) { R.lt.sfNear = std::clamp(sf->value("near", 160.0f), 0.0f, 4000.0f); R.lt.sfFar = std::clamp(sf->value("far", 3000.0f), 0.0f, 40000.0f);

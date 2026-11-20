@@ -117,7 +117,7 @@ void judgeFalls(const json& rules, const json& falls, std::vector<Verdict>& out)
 }
 
 fs::path findBaseline(const json& TH, std::string& why) {
-  std::string rel = TH.contains("baseline") ? TH["baseline"].value("file", std::string("docs/baseline/ai_baseline.json")) : std::string("docs/baseline/ai_baseline.json");
+  std::string rel = TH.contains("baseline") ? jkey(TH, "baseline").value("file", std::string("docs/baseline/ai_baseline.json")) : std::string("docs/baseline/ai_baseline.json");
   if (!O.baseline.empty()) return O.baseline;
   if (const char* src = std::getenv("NMK_SRC")) if (fs::exists(fs::path(src) / rel)) return fs::path(src) / rel;
   for (fs::path start : {exeDir(), fs::current_path()}) for (fs::path p = start; !p.empty(); p = p.parent_path()) { if (fs::exists(p / rel)) return p / rel; if (p == p.parent_path()) break; }
@@ -421,8 +421,8 @@ bool runCourse(App& a, const std::string& spec, float t, Ctx& cx) {
     if (!m.trav.on && ar != 0) { NavArea na = navarea::toNav(ar); if (na == NavArea::Minefield || na == NavArea::Wire) { ++forbidden; forbiddenBots.insert(s.slot); } }
   }
   int cleared = 0; for (auto& bd : A.buildings) { bool all = !bd.rooms.empty(); for (auto& r : bd.rooms) if (!A.clearedRooms.count(std::to_string(bd.inst) + ":" + r.id)) all = false; if (all) ++cleared; }
-  double needFrac = rules.contains("reachedFraction") ? rules["reachedFraction"].value("min", 0.8) : 0.8;
-  int needCleared = rules.contains("buildingsCleared") ? rules["buildingsCleared"].value("min", 2) : 2;
+  double needFrac = rules.contains("reachedFraction") ? jkey(rules, "reachedFraction").value("min", 0.8) : 0.8;
+  int needCleared = rules.contains("buildingsCleared") ? jkey(rules, "buildingsCleared").value("min", 2) : 2;
   bool reachedEnough = !spawned.empty() && reached.size() >= needFrac * spawned.size();
   if (reachedEnough && tReach < 0) tReach = t;
   bool done = reachedEnough && cleared >= needCleared && G.match.active >= 1;
@@ -528,10 +528,10 @@ bool runRebuild(App& a, const std::string& spec, float t, Ctx& cx) {
   if (t < endAt && G.match.phase == MatchPhase::Running) return false;
   R.endMatch(G, A, "rebuild test done");
   json res = R.result(aiDifficultySetting());
-  double within = rules.contains("rerouteWithin_s") ? rules["rerouteWithin_s"].value("max", 1.0) : 1.0;
+  double within = rules.contains("rerouteWithin_s") ? jkey(rules, "rerouteWithin_s").value("max", 1.0) : 1.0;
   json dj = json::array(); std::vector<Verdict> vs;
-  int maxWalk = rules.contains("walkedIn") ? rules["walkedIn"].value("max", 0) : 0, maxStuck = rules.contains("stuckAgainst") ? rules["stuckAgainst"].value("max", 0) : 0;
-  int minAff = rules.contains("affectedBots") ? rules["affectedBots"].value("min", 1) : 1;
+  int maxWalk = rules.contains("walkedIn") ? jkey(rules, "walkedIn").value("max", 0) : 0, maxStuck = rules.contains("stuckAgainst") ? jkey(rules, "stuckAgainst").value("max", 0) : 0;
+  int minAff = rules.contains("affectedBots") ? jkey(rules, "affectedBots").value("min", 1) : 1;
   for (auto& dr : drops) {
     int n = 0, ok = 0; double worst = 0; for (auto& [slot, rt] : dr.aff) { ++n; if (rt >= 0 && rt <= within) ++ok; worst = std::max(worst, rt < 0 ? 99.0 : rt); }
     dj.push_back({{"what", dr.what}, {"t", dr.T}, {"affected", n}, {"reroutedInTime", ok}, {"slowest_s", worst > 90 ? -1.0 : worst}, {"walkedIn", dr.walked.size()}, {"stuckAgainst", dr.stuckAt.size()},

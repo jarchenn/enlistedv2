@@ -161,21 +161,24 @@ void applySnow(vec3 w, vec3 Ng, float ground, inout vec3 alb, inout float rough,
   if (uSnowOn == 0) return;
   vec2 uv = (w.xz - uSnowBox.xy)*uSnowBox.zw;
   vec4 M = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.7, 0.0, 0.0, 0.0) : texture(uSnowMask, uv);
-  float vis = skyVis(w, vec3(0.0));                       // 0 under a roof / eave / canopy
+  float vis = 1.0;                                        // 0 under a roof / eave / canopy (one tap of the sky-occlusion map: M5)
+  if (uOccOn == 1) { vec4 lp = uOccVP*vec4(w, 1.0); vec2 ouv = lp.xy*0.5 + 0.5;
+    if (ouv.x > 0.0 && ouv.x < 1.0 && ouv.y > 0.0 && ouv.y < 1.0) vis = 1.0 - smoothstep(0.15, 0.6, uOccTop - texture(uOcc, ouv).r*uOccRange - w.y); }
+  float dc = length(w - uCamPos);
   float slope = ground > 0.5 ? smoothstep(uSnowP.x, uSnowP.y, Ng.y) : smoothstep(uSnowP2.z, uSnowP2.z + 0.3, Ng.y);   // roofs hold snow on steeper pitches than the ground
-  float n = vnoise(vec3(w.xz*0.35, 41.0))*0.55 + vnoise(vec3(w.xz*1.7, 42.0))*0.3 + vnoise(vec3(w.xz*7.0, 43.0))*0.15;
+  float n = vnoise(vec3(w.xz*0.35, 41.0))*0.55 + vnoise(vec3(w.xz*1.7, 42.0))*0.3 + (dc < 40.0 ? vnoise(vec3(w.xz*7.0, 43.0))*0.15 : 0.075);   // M5: the finest octave near only
   float dep = ground > 0.5 ? M.r : uSnowP2.x*(0.55 + 0.45*M.r);   // raised faces (roofs, wall tops, rails) hold the roof share
   float s = (slope*dep*(1.0 + (n - 0.5)*2.0*uSnowP2.y) - M.g - M.b - uSnowP2.w)*vis;
   float c = smoothstep(uSnowP.z - uSnowP.w, uSnowP.z + uSnowP.w, s);
   if (ground > 0.5) {
     float slush = clamp(max(M.g, M.b*0.9)*smoothstep(0.08, 0.45, M.r)*(1.0 - c)*vis, 0.0, 1.0);
-    float grit = vnoise(vec3(w.xz*5.0, 44.0));
+    float grit = dc < 40.0 ? vnoise(vec3(w.xz*5.0, 44.0)) : 0.5;
     alb = mix(alb, mix(vec3(0.17, 0.165, 0.155), vec3(0.30, 0.295, 0.28), grit) + alb*0.12, slush*0.85);
     rough = mix(rough, 0.34, slush*0.85);
     float pool = clamp(M.a*(1.0 - c), 0.0, 1.0);
     alb *= mix(1.0, 0.5, pool); rough = mix(rough, 0.06, pool); N = normalize(mix(N, Ng, pool*0.9));
   }
-  float g2 = vnoise(vec3(w.xz*21.0 + w.y*3.0, 45.0));
+  float g2 = dc < 25.0 ? vnoise(vec3(w.xz*21.0 + w.y*3.0, 45.0)) : 0.5;   // M5: grain near only
   vec3 sA = vec3(0.80, 0.83, 0.88)*(0.95 + 0.05*g2);
   alb = mix(alb, sA, c); rough = mix(rough, 0.66, c); N = normalize(mix(N, Ng, c*0.75));
   gSnow = c;
@@ -2725,7 +2728,7 @@ void main(){
 )GLSL";
 static const char* kTerrainFS = R"GLSL(
 in vec3 vW, vN0; in float vDirt; in vec3 vEw;   // vEw: GX1 earthworks (terrain_cuts.cpp): packed mud, freshly turned earth, wet
-uniform int uTNOn; uniform sampler2D uTNrm; uniform vec4 uTNMap;   // VOT T1: per-pixel base normals (terrain_normals.cpp, unit 25), xy origin, zw 1 / extent
+uniform int uTNOn; uniform sampler2D uTNrm; uniform vec4 uTNMap;   // VOT T1: per-pixel base normals (terrain_normals.cpp, unit 18), xy origin, zw 1 / extent
 uniform int uTSVOn; uniform sampler2D uTSV;   // VOT T5: terrain sky-view factor (unit 26, same mapping as uTNMap)
 vec3 vN;   // the shading normal: vN0 (vertex) or the baked per-pixel one
 uniform int uGrid; uniform vec2 uBuildHalf;
@@ -3185,6 +3188,7 @@ void plantMain(){
 }
 )GLSL";
 static const char* kGrassFS = R"GLSL(
+uniform float uGrassDead;   // BT1: look.grassDead (0 summer .. 1 dead late-winter grass)
 layout(location=0) in vec3 vW; layout(location=1) in vec3 vAlb; layout(location=2) in vec3 vF; layout(location=3) in vec2 vUV; layout(location=4) in float vWid; layout(location=5) in float vTap;
 layout(location=6) in vec4 vCC; layout(location=7) in vec4 vPC;
 layout(location=8) flat in int vSp; layout(location=9) flat in int vPart; layout(location=10) flat in float vSeed;
@@ -3315,6 +3319,11 @@ void main(){
     if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) sv = 1.0 - smoothstep(0.15, 0.6, (uOccTop - texture(uOcc, uv).r*uOccRange) - vW.y);
   }
   alb *= 0.9 + 0.2*fract(vSeed*91.7 + float(vPart)*0.37);   // PERF1 (user): each blade / card a little lighter or darker (+-10 %)
+  if (uGrassDead > 0.0) {   // BT1 look.grassDead: late winter: blades and flower heads dead (straw, grey-brown seed heads), same luma range
+    float lum = dot(alb, vec3(0.2126, 0.7152, 0.0722));
+    vec3 straw = mix(vec3(0.34, 0.29, 0.21), vec3(0.46, 0.41, 0.31), fract(vSeed*17.3))*clamp(lum*3.2, 0.45, 1.15);
+    alb = mix(alb, vPart == 1 ? vec3(0.27, 0.23, 0.18)*clamp(lum*3.0, 0.5, 1.1) : straw, uGrassDead);
+  }
   float ndl = max(dot(N, uSunDir), 0.0)*0.75 + 0.25;
   vec3 irr = mix(uGroundCol, uSkyCol, 0.5 + 0.5*N.y)*mix(0.06, 1.0, sv) + uFill*(1.0 - sv);
   irr = giAmbient(vW, N, sv, irr);   // L2: probe light by night / under cover
@@ -4058,6 +4067,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   if (v.underwater && !thumbMode) { fog = v.underFogCol; glUniform3fv(U(p, "uFogCol"), 1, glm::value_ptr(fog)); glUniform1f(U(p, "uFogDens"), v.underFogDens); }   // swim.cpp
   glUniform1f(U(p, "uUnder"), v.underwater && !thumbMode ? 1.0f : 0.0f);
   snowUniforms(p, thumbMode);   // SN1 (snow.cpp): off unless the map has a snow layer
+  glUniform1f(U(p, "uGrassDead"), thumbMode ? 0.0f : lt.mapGrassDead);   // BT1
   if (p == progMain) fogNow = vec4(fog, v.underwater && !thumbMode ? v.underFogDens : (thumbMode || lt.mapNoFog ? 0.0f : (q.legacy ? 0.0016f : q.hazeDensity) * lt.mapHaze));
   glUniformMatrix4fv(U(p, "uLightVP"), 1, GL_FALSE, glm::value_ptr(lightVP));
   glUniformMatrix4fv(U(p, "uOccVP"), 1, GL_FALSE, glm::value_ptr(occVP));

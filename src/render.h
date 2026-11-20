@@ -306,6 +306,7 @@ public:
     float mapSat = 1.0f; vec3 mapTint{1.0f}; float mapGrime = 0.0f; float mapVegCull = 1.0f; float mapCave = 0.0f;   // CV1: look.cave   // NT5: look.vegCull   // NT3: look.grime   // NT2b: look.saturation / look.tint, after the weather grade
     float mapHaze = 1.0f;       // AS1: "look": {"haze": k}: the aerial haze density x k (an abandoned town: hazier)
     bool mapSnowfall = false; float sfNear = 0, sfFar = 0, sfFall = 1.1f, sfBright = 1.0f; vec2 sfWind{0.9f, -0.6f};   // SF1: look.snowfall
+    float mapGrassDead = 0.0f;   // BT1: look.grassDead
     bool mapLeafless = false;   // BT1: look.leafless (winter: no leaf cards on the part-built trees)
     float mapHazeH = 0.0f, mapFogLayerDens = -1.0f, mapFogLayerH = 0.0f;   // FG1: look.hazeHeight, look.fogLayer {density, height} (0 / -1: the defaults)
     float mapFogNear = 0.0f;    // GR3: "look": {"fogNear": m}: the environmental fog starts this far from the eye (near ground keeps its contrast)

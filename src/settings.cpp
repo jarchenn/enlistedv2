@@ -123,7 +123,7 @@ UserSettings UserSettings::fromJson(const json& j) {
   }
   if (j.contains("controls") && j["controls"].is_object())
     for (auto it = j["controls"].begin(); it != j["controls"].end(); ++it) if (it->is_string()) u.keys[it.key()] = it->get<std::string>();
-  if (j.contains("player") && j["player"].is_object()) { u.character = j["player"].value("character", std::string()); u.primary = j["player"].value("primary", std::string()); }
+  if (j.contains("player") && j["player"].is_object()) { u.character = jkey(j, "player").value("character", std::string()); u.primary = jkey(j, "player").value("primary", std::string()); }
   if (j.contains("build") && j["build"].is_object() && j["build"].contains("themes") && j["build"]["themes"].is_array()) {   // TH1
     u.themes = 0; for (auto& t : j["build"]["themes"]) for (int k = 0; k < 4; ++k) if (t.is_string() && t.get<std::string>() == kThemeNames[k]) u.themes |= 1u << k;
   }

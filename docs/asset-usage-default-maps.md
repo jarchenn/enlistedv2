@@ -343,6 +343,10 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `bt_cable_station` | Landmarks | Blackwater Thaw only: the far-ridge cable-haul station silhouette (written by blackwater_thaw.py) |
 | `bt_flume` | Small buildings | Blackwater Thaw only: the waterworks court's stepped header channel (written by blackwater_thaw.py) |
 | `bt_vent_smoke` | Effects | Blackwater Thaw: the smithy chimney's smoke emitter (vent_smoke); usable on any map |
+| `bt_orchard_tree_a` | Vegetation | Blackwater Thaw only: a pruned winter orchard tree (written by blackwater_thaw.py) |
+| `bt_orchard_tree_b` | Vegetation | Blackwater Thaw only: a pruned winter orchard tree (written by blackwater_thaw.py) |
+| `bt_orchard_tree_c` | Vegetation | Blackwater Thaw only: a pruned winter orchard tree (written by blackwater_thaw.py) |
+| `bt_orchard_tree_d` | Vegetation | Blackwater Thaw only: a pruned winter orchard tree (written by blackwater_thaw.py) |
 | `wat_stream_straight` | Water | not placed: V1 stream piece added after the map was built | terrain-only base map | 63 | not used | not used | not used | not used | not used | not used | 63 | not used | not used |
 | `wire_concertina` | Defences | as `line_concertina` | terrain-only base map | as `line_concertina` | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `wire_fence` | Defences | as `line_wire_fence` | terrain-only base map | as `line_wire_fence` | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -1346,6 +1350,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `cl_yard_workshop_corner` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `def_sandbag_bags_high` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `def_sandbag_bags_low` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `sb_bag_lib` | hidden library: the four bag meshes every sandbag box part draws (src/sandbags.cpp), never placed | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `def_sandbag_single` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_mod_monitor_16x9` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_mod_monitor_4x3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |

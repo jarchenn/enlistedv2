@@ -10,6 +10,7 @@
 #include <set>
 #include <algorithm>
 #include <fstream>
+#include <memory>
 #include <chrono>
 
 namespace {
@@ -161,6 +162,8 @@ struct Audio::Impl {
   ma_audio_buffer windAB, leafAB; ma_sound wind, leaves;
   ma_sound bed[2]; ma_audio_buffer bedAB[2]; Buf bedBuf[2]; bool bedOn[2] = {false, false}; std::string bedFile[2]; float bedVol[2] = {0, 0};
   Voice loops[16];
+  struct Amb { Buf b; ma_audio_buffer ab; ma_sound snd; bool on = false; };   // BTA: map ambience voices (ambVoice), never moved
+  std::map<std::string, std::unique_ptr<Amb>> amb;
   ma_lpf_node lpf; bool lpfOk = false; float lpfCut = -1;   // under-water muffle
   // SND5: sounds reach the limiter directly, through the muffle only while under water (its 20 kHz "open" biquad still
   // took the top octave); the limiter (instant attack, 40 ms release, ceiling 0.98) keeps loud overlaps from clipping
@@ -175,6 +178,7 @@ struct Audio::Impl {
     for (auto& v : voices) if (v.used) route(v.snd, v.bus);
     for (auto& v : loops) if (v.used) route(v.snd);
     for (int k = 0; k < 2; ++k) if (bedOn[k]) route(bed[k]);
+    for (auto& [id, a] : amb) if (a->on) route(a->snd);
     route(wind); route(leaves);
   }
 };
@@ -321,6 +325,8 @@ void Audio::shutdown() {
   for (auto& v : p->voices) if (v.used) { ma_sound_uninit(&v.snd); ma_audio_buffer_uninit(&v.buf); }
   for (auto& v : p->loops) if (v.used) { ma_sound_uninit(&v.snd); ma_audio_buffer_uninit(&v.buf); }
   for (int k = 0; k < 2; ++k) if (p->bedOn[k]) { ma_sound_uninit(&p->bed[k]); ma_audio_buffer_uninit(&p->bedAB[k]); }
+  for (auto& [id, a] : p->amb) if (a->on) { ma_sound_uninit(&a->snd); ma_audio_buffer_uninit(&a->ab); }
+  p->amb.clear();
   if (p->hbOn) { ma_sound_uninit(&p->hb); ma_audio_buffer_uninit(&p->hbAB); p->hbOn = false; }
   if (p->musicOn) { ma_sound_uninit(&p->music); p->musicOn = false; }
   ma_sound_uninit(&p->wind); ma_sound_uninit(&p->leaves);
@@ -356,7 +362,7 @@ static bool loadWavMono(const fs::path& path, Buf& out) {
 int Audio::loadEvents(const fs::path& dir) {
   if (!p) return 0;
   json m; try { std::ifstream f(dir / "manifest.json"); m = json::parse(f); } catch (...) { logf("audio: no manifest in %s (procedural sounds only)", dir.string().c_str()); return 0; }
-  for (auto& [name, e] : m["events"].items()) {
+  for (auto& [name, e] : jkey(m, "events").items()) {
     Impl::Event ev; ev.gain = e.value("gain", 1.0f); ev.kind = e.value("kind", "");
     for (auto& v : e["variants"]) {
       std::string bank = v.value("bank", ""); for (const char* pre : {"ww2_weapon_", "ww2_", "cmn_"}) if (bank.rfind(pre, 0) == 0) { bank = bank.substr(std::strlen(pre)); break; }
@@ -427,13 +433,17 @@ int Audio::loadCustom(const fs::path& dir) {
     for (auto& [k, v] : rl.value("trim_db", json::object()).items()) if (v.is_number()) p->reloadTrim[k] = std::pow(10.0f, v.get<float>() / 20.0f);
   }
   int used = 0; Buf b;
-  struct StepSet { const char* file; std::vector<const char*> names; };
-  for (auto& ss : {StepSet{"footsteps.mp3", {"step", "step_stone", "step_wood"}}, StepSet{"grass_steps.mp3", {"step_grass"}}, StepSet{"spider_steps.mp3", {"step_spider"}}}) if (decode(ss.file, b)) {
+  struct StepSet { const char* file; std::vector<const char*> names; size_t gap = 25; };   // gap: onsets at least this many 10 ms windows apart
+  // BTA: winter surfaces (bta/steps_*.mp3: single steps 0.95 s apart, tools/bta_audio_prep.py; 0.6 s keeps a crunch's second transient in its step)
+  for (auto& ss : {StepSet{"footsteps.mp3", {"step", "step_stone", "step_wood"}}, StepSet{"grass_steps.mp3", {"step_grass"}}, StepSet{"spider_steps.mp3", {"step_spider"}},
+                   StepSet{"bta/steps_snow.mp3", {"step_snow"}, 60}, StepSet{"bta/steps_snow_deep.mp3", {"step_snow_deep"}, 60}, StepSet{"bta/steps_slush.mp3", {"step_slush"}, 60},
+                   StepSet{"bta/steps_mud.mp3", {"step_mud"}, 60}, StepSet{"bta/steps_shallow.mp3", {"step_shallow"}, 60}}) if (decode(ss.file, b)) {
     const int W = SR / 100; std::vector<float> env(b.size() / W, 0.0f); float peak = 0;   // 10 ms loudness windows
     for (size_t k = 0; k < env.size(); ++k) { float e = 0; for (int j = 0; j < W; ++j) e = std::max(e, std::fabs(b[k * W + j])); env[k] = e; peak = std::max(peak, e); }
     std::vector<size_t> on;   // onsets: loud after a quiet window, at least 0.25 s apart
-    for (size_t k = 1; k < env.size(); ++k) if (env[k] > 0.3f * peak && env[k - 1] <= 0.3f * peak && (on.empty() || k - on.back() >= 25)) on.push_back(k);
+    for (size_t k = 1; k < env.size(); ++k) if (env[k] > 0.3f * peak && env[k - 1] <= 0.3f * peak && (on.empty() || k - on.back() >= ss.gap)) on.push_back(k);
     Impl::Event ev; ev.kind = "step";
+    if (mx.contains("steps") && mx["steps"].is_object()) ev.gain = mx["steps"].value(ss.names[0], 1.0f);   // BTA: per-surface level
     for (size_t i = 0; i < on.size() && ev.v.size() < 24; ++i) {
       size_t a = (on[i] > 1 ? on[i] - 1 : 0) * W, e = std::min({b.size(), a + (size_t)(0.45f * SR), i + 1 < on.size() ? (on[i + 1] - 1) * W : b.size()});
       if (e <= a + (size_t)W) continue;
@@ -443,6 +453,11 @@ int Audio::loadCustom(const fs::path& dir) {
       ev.v.push_back(std::move(s));
     }
     if (!ev.v.empty()) { ++used; for (const char* n : ss.names) { p->events[n] = ev; } }
+  }
+  {   // BTA: wood creaks near old sheds (map_ambience.cpp): one variant per file
+    Impl::Event ev; ev.kind = "amb";
+    for (const char* f : {"bta/creak_1.mp3", "bta/creak_2.mp3", "bta/creak_3.mp3", "bta/creak_4.mp3"}) if (decode(f, b)) ev.v.push_back(b);
+    if (!ev.v.empty()) { ++used; p->events["amb_creak"] = std::move(ev); }
   }
   if (decode("door_open.mp3", b)) { ++used; Impl::Event ev; ev.v.push_back(b); ev.gain = 0.5f; for (const char* n : {"wood_open", "glass_open", "shutter_open", "steel_open"}) p->events[n] = ev; }
   // gun shots (guns/*.mp3): one recording per weapon group. A burst recording gives its last shot (the one with the tail);
@@ -1137,33 +1152,38 @@ void Audio::setAmbience(float wind, float leaves) {
   ma_sound_set_volume(&p->wind, wind * ambienceGain);
   ma_sound_set_volume(&p->leaves, leaves * ambienceGain);
 }
+// a looping file decoded whole (ch channels) so the ends can be cross-faded: a streamed mp3 loop clicks and gaps at the
+// seam. The encoder silence is trimmed at both ends, then the last 3 s (at most a quarter) blended into the first.
+static bool loopBuf(const std::string& f, int ch, Buf& b) {
+  ma_decoder_config dc = ma_decoder_config_init(ma_format_f32, (ma_uint32)ch, SR);
+  ma_uint64 frames = 0; void* data = nullptr;
+  if (f.empty() || ma_decode_file(f.c_str(), &dc, &frames, &data) != MA_SUCCESS || !data) return false;
+  b.assign((float*)data, (float*)data + frames * ch); ma_free(data, nullptr);
+  size_t n = (size_t)frames, a = 0, e = n;
+  auto loud = [&](size_t k) { float s = 0; for (int c = 0; c < ch; ++c) s += std::fabs(b[ch * k + c]); return s > 0.002f * ch; };
+  while (a < e && !loud(a)) ++a;
+  while (e > a && !loud(e - 1)) --e;
+  size_t xf = std::min((size_t)(3 * SR), (e - a) / 4);
+  if (e - a <= (size_t)SR || xf == 0) return false;
+  for (size_t k = 0; k < xf; ++k) { float w = k / (float)xf, g0 = std::sqrt(w), g1 = std::sqrt(1 - w);   // equal power
+    for (int c = 0; c < ch; ++c) b[ch * (a + k) + c] = b[ch * (a + k) + c] * g0 + b[ch * (e - xf + k) + c] * g1; }
+  b.erase(b.begin() + ch * (e - xf), b.end()); b.erase(b.begin(), b.begin() + ch * a);
+  return true;
+}
 void Audio::setBed(int slot, const fs::path& file, float volume) {
   if (!p || slot < 0 || slot > 1) return;
   std::string f = file.string();
   if (f != p->bedFile[slot]) {
     if (p->bedOn[slot]) { ma_sound_uninit(&p->bed[slot]); ma_audio_buffer_uninit(&p->bedAB[slot]); p->bedOn[slot] = false; }
     p->bedFile[slot] = f;
-    // decoded whole (stereo) so the ends can be cross-faded: a streamed mp3 loop clicks and gaps at the seam
-    ma_decoder_config dc = ma_decoder_config_init(ma_format_f32, 2, SR);
-    ma_uint64 frames = 0; void* data = nullptr;
-    if (!f.empty() && ma_decode_file(f.c_str(), &dc, &frames, &data) == MA_SUCCESS && data) {
-      Buf& b = p->bedBuf[slot]; b.assign((float*)data, (float*)data + frames * 2); ma_free(data, nullptr);
-      size_t n = (size_t)frames, a = 0, e = n;   // trim the encoder silence at both ends, then blend the last 3 s into the first 3 s
-      auto loud = [&](size_t k) { return std::fabs(b[2 * k]) + std::fabs(b[2 * k + 1]) > 0.004f; };
-      while (a < e && !loud(a)) ++a;
-      while (e > a && !loud(e - 1)) --e;
-      size_t xf = std::min((size_t)(3 * SR), (e - a) / 4);
-      if (e - a > (size_t)SR && xf > 0) {
-        for (size_t k = 0; k < xf; ++k) { float w = k / (float)xf, g0 = std::sqrt(w), g1 = std::sqrt(1 - w);   // equal power
-          for (int c = 0; c < 2; ++c) b[2 * (a + k) + c] = b[2 * (a + k) + c] * g0 + b[2 * (e - xf + k) + c] * g1; }
-        b.erase(b.begin() + 2 * (e - xf), b.end()); b.erase(b.begin(), b.begin() + 2 * a);
-        ma_audio_buffer_config c = ma_audio_buffer_config_init(ma_format_f32, 2, b.size() / 2, b.data(), nullptr);
-        c.sampleRate = SR;
-        if (ma_audio_buffer_init(&c, &p->bedAB[slot]) == MA_SUCCESS) {
-          if (ma_sound_init_from_data_source(&p->engine, &p->bedAB[slot], MA_SOUND_FLAG_NO_SPATIALIZATION, nullptr, &p->bed[slot]) == MA_SUCCESS) {
-            p->bedOn[slot] = true; p->route(p->bed[slot]); ma_sound_set_looping(&p->bed[slot], MA_TRUE); ma_sound_start(&p->bed[slot]);
-          } else ma_audio_buffer_uninit(&p->bedAB[slot]);
-        }
+    Buf& b = p->bedBuf[slot];
+    if (loopBuf(f, 2, b)) {
+      ma_audio_buffer_config c = ma_audio_buffer_config_init(ma_format_f32, 2, b.size() / 2, b.data(), nullptr);
+      c.sampleRate = SR;
+      if (ma_audio_buffer_init(&c, &p->bedAB[slot]) == MA_SUCCESS) {
+        if (ma_sound_init_from_data_source(&p->engine, &p->bedAB[slot], MA_SOUND_FLAG_NO_SPATIALIZATION, nullptr, &p->bed[slot]) == MA_SUCCESS) {
+          p->bedOn[slot] = true; p->route(p->bed[slot]); ma_sound_set_looping(&p->bed[slot], MA_TRUE); ma_sound_start(&p->bed[slot]);
+        } else ma_audio_buffer_uninit(&p->bedAB[slot]);
       }
     }
   }
@@ -1173,6 +1193,33 @@ void Audio::setBed(int slot, const fs::path& file, float volume) {
     float duck = 1.0f - 0.3f * (float)std::clamp(1.0 - (now - p->duckT) / 1.5, 0.0, 1.0);
     if (p->bedOn[slot]) ma_sound_set_volume(&p->bed[slot], volume * ambienceGain * duck);
   }
+}
+void Audio::ambVoice(const std::string& id, const fs::path& file, bool spatial, vec3 pos, float volume, float minD, float maxD) {
+  if (!p) return;
+  auto& slot = p->amb[id];
+  if (!slot) {   // first use: decode (point sources mono), start looping from a random place (two voices of one file never in phase)
+    slot = std::make_unique<Impl::Amb>(); Impl::Amb& a = *slot; const int ch = spatial ? 1 : 2;
+    if (!loopBuf(file.string(), ch, a.b)) { logf("audio: map ambience %s: cannot loop %s", id.c_str(), file.string().c_str()); return; }
+    ma_audio_buffer_config c = ma_audio_buffer_config_init(ma_format_f32, (ma_uint32)ch, a.b.size() / ch, a.b.data(), nullptr);
+    c.sampleRate = SR;
+    if (ma_audio_buffer_init(&c, &a.ab) != MA_SUCCESS) return;
+    if (ma_sound_init_from_data_source(&p->engine, &a.ab, spatial ? 0 : MA_SOUND_FLAG_NO_SPATIALIZATION, nullptr, &a.snd) != MA_SUCCESS) { ma_audio_buffer_uninit(&a.ab); return; }
+    a.on = true; p->route(a.snd); ma_sound_set_looping(&a.snd, MA_TRUE);
+    if (spatial) { ma_sound_set_attenuation_model(&a.snd, ma_attenuation_model_linear); ma_sound_set_rolloff(&a.snd, 1.0f); }
+    ma_sound_seek_to_pcm_frame(&a.snd, (ma_uint64)(p->pick() % (a.b.size() / ch)));
+    ma_sound_set_volume(&a.snd, 0); ma_sound_start(&a.snd);
+  }
+  Impl::Amb& a = *slot; if (!a.on) return;
+  if (spatial) { ma_sound_set_position(&a.snd, pos.x, pos.y, pos.z); ma_sound_set_min_distance(&a.snd, minD); ma_sound_set_max_distance(&a.snd, std::max(maxD, minD + 0.1f)); }
+  double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+  float duck = 1.0f - 0.3f * (float)std::clamp(1.0 - (now - p->duckT) / 1.5, 0.0, 1.0);   // under nearby gunfire, as the beds
+  ma_sound_set_volume(&a.snd, std::max(0.0f, volume) * ambienceGain * duck);
+}
+std::vector<std::string> Audio::ambIds() const { std::vector<std::string> v; if (p) for (auto& [id, a] : p->amb) if (a->on) v.push_back(id); return v; }
+void Audio::ambClear() {
+  if (!p) return;
+  for (auto& [id, a] : p->amb) if (a->on) { ma_sound_uninit(&a->snd); ma_audio_buffer_uninit(&a->ab); }
+  p->amb.clear();
 }
 void Audio::setMenuMusic(bool on) {
   if (!p || !p->musicOn || on == p->musicPlaying) return;

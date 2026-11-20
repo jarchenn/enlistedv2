@@ -38,7 +38,7 @@ void App::loadEquipment(WeaponDef& d, const json& j) {
     const json& p = j["pack"]; d.pack.on = true;
     d.pack.fuse = gf(p, "fuse", 10.0f); d.pack.damage = gf(p, "damage", 450.0f); d.pack.radius = gf(p, "radius", 6.0f);
     d.pack.crater = gf(p, "crater", 0.4f); d.pack.reach = gf(p, "reach", 2.2f);
-    if (p.contains("led")) { d.pack.hasLed = true; d.pack.led = jvec3(p["led"], vec3(0)); }
+    if (p.contains("led")) { d.pack.hasLed = true; d.pack.led = jvec3(jkey(p, "led"), vec3(0)); }
   }
   if (j.contains("melee")) {
     const json& m = j["melee"]; d.melee.on = true;

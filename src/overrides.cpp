@@ -39,7 +39,7 @@ bool saveOverrides(std::string* err) {
 }
 int overrideCount() {
   ensure(); int n = 0; for (json* j : {&gW, &gV}) for (auto& [k, v] : j->items()) if (!v.is_object() || !v.empty()) ++n;
-  if (gA.contains("types")) for (auto& [k, v] : gA["types"].items()) if (!v.is_object() || !v.empty()) ++n;
+  if (gA.contains("types")) for (auto& [k, v] : jkey(gA, "types").items()) if (!v.is_object() || !v.empty()) ++n;
   if (gA.contains("_soldier") && !gA["_soldier"].empty()) ++n;
   return n;
 }   // items actually changed

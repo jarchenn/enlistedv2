@@ -133,13 +133,13 @@ json passJson(const double* ms) { json j = json::object(); for (int i = 0; i < G
 // Views authored in the template ("views": [{name, pos, yaw, pitch, gameplay}]), e.g. the terrain base's cliff shots.
 void templateViews(const TemplateInfo& t) {
   for (auto& v : t.raw.value("views", json::array()))
-    sViews.push_back({v.value("name", std::string("view")), jvec3(v["pos"], vec3(0)), v.value("yaw", 0.0f), v.value("pitch", 0.0f), false, v.value("gameplay", false)});
+    sViews.push_back({v.value("name", std::string("view")), jvec3(jkey(v, "pos"), vec3(0)), v.value("yaw", 0.0f), v.value("pitch", 0.0f), false, v.value("gameplay", false)});
   // R2 measurement views (NMK_EXTRA_VIEWS=<file.json>: {"<map id>": [{"name", "pos", "yaw", "pitch", "explore"}]}): orchards,
   // interiors through windows, damaged houses. "explore": first person on the ground at pos (x, z), else a free camera.
   if (const char* xf = std::getenv("NMK_EXTRA_VIEWS")) {
     json xj; try { xj = json::parse(readTextFile(xf)); } catch (...) {}
     if (xj.is_object()) for (auto& v : xj.value(t.id, json::array()))
-      sViews.push_back({v.value("name", std::string("view")), jvec3(v["pos"], vec3(0)), v.value("yaw", 0.0f), v.value("pitch", 0.0f), v.value("explore", false), true, v.value("hour", -1.0f), v.value("groundEye", false), v.value("neutral", false), v.value("dbg", -1), v.value("ggOff", false), v.value("weather", -1), v.value("cover", -1.0f), v.value("light", -1)});   // GG1: dbg = terrain debug view
+      sViews.push_back({v.value("name", std::string("view")), jvec3(jkey(v, "pos"), vec3(0)), v.value("yaw", 0.0f), v.value("pitch", 0.0f), v.value("explore", false), true, v.value("hour", -1.0f), v.value("groundEye", false), v.value("neutral", false), v.value("dbg", -1), v.value("ggOff", false), v.value("weather", -1), v.value("cover", -1.0f), v.value("light", -1)});   // GG1: dbg = terrain debug view
   }
 }
 }  // namespace
@@ -241,7 +241,7 @@ void SelfTest::authoredChecks(App& app, const TemplateInfo& t, const json& mj) {
   check(ok && app.doc.instances.size() == n && s2.objectives.size() == s.objectives.size() && s2.spawns.size() == s.spawns.size(),
         fmt("%s: the editable copy saves and reopens (%zu instances, %zu objectives)", id.c_str(), app.doc.instances.size(), s2.objectives.size()));
   sViews.clear();
-  if (t.raw.contains("thumbnailCamera")) { json c = t.raw["thumbnailCamera"]; sViews.push_back({"preview", jvec3(c["pos"], vec3(0)), c.value("yaw", 0.0f), c.value("pitch", 0.0f), false, false}); }
+  if (t.raw.contains("thumbnailCamera")) { json c = t.raw["thumbnailCamera"]; sViews.push_back({"preview", jvec3(jkey(c, "pos"), vec3(0)), c.value("yaw", 0.0f), c.value("pitch", 0.0f), false, false}); }
   if (app.doc.start.set) sViews.push_back({"explore_start", app.doc.start.pos, app.doc.start.yaw, 0.0f, true, true});
   sViews.push_back({"overview", t.camPos, t.camYaw, t.camPitch, false, false});
   sVi = 0; sPerf.clear(); sViewInit = false;
@@ -274,7 +274,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     if (thumbOnly) {
       navNewMapSized(app, t, t.name, vec2(t.width, t.depth));
       json c = t.raw.value("thumbnailCamera", t.raw.value("camera", json::object()));
-      app.camPos = jvec3(c["pos"], t.camPos); app.camYaw = c.value("yaw", t.camYaw); app.camPitch = c.value("pitch", t.camPitch);
+      app.camPos = jvec3(jkey(c, "pos"), t.camPos); app.camYaw = c.value("yaw", t.camYaw); app.camPitch = c.value("pitch", t.camPitch);
       go(4180); break;
     }
     const std::string id = t.id;

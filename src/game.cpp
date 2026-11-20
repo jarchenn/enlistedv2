@@ -2,6 +2,7 @@
 #include <map>
 // Match game layer: lifecycle, spawning, soldier weapons / grenades, damage, presentation. AI is in ai.cpp.
 #include "sd_game.h"
+#include "map_ambience.h"   // BTA
 #include "game.h"
 #include "classes.h"
 #include "abilities.h"
@@ -90,6 +91,7 @@ static void botFootstep(App& app, const Soldier& s, float v) {
   bucket -= 1;
   std::string ev = s.kit == 3 && app.audio.hasSound("step_metal") ? "step_metal" : app.stepSound(s.feet, 0);   // the robot commando: a metallic step
   app.audio.play(ev, foot, vol, s.kit == 3 && ev != "step_metal" ? 0.8f : 0.9f + 0.2f * (float)((s.slot * 7 + (int)(now * 13)) % 10) / 10.0f);
+  mapStepFeedback(app, ev, foot);   // BTA: splashes at the contact
   ++gBotSteps;
 }
 
@@ -763,7 +765,7 @@ void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
 
 void Game::explosionDamage(vec3 p, float dmg, float radius, int owner, bool grenade) {
   if (!active || isClient) return;
-  float R = grenade ? gren.tun.fragMaxR : radius * combat["explosion"].value("personnelRadiusFactor", 3.0f);
+  float R = grenade ? gren.tun.fragMaxR : radius * jkey(combat, "explosion").value("personnelRadiusFactor", 3.0f);
   for (size_t i = 0; i < sold.size(); ++i) {
     Soldier& s = sold[i];
     if (!s.alive) continue;
@@ -776,7 +778,7 @@ void Game::explosionDamage(vec3 p, float dmg, float radius, int owner, bool gren
       auto vis = [&](vec3 q) { return app.blastOcclusion(p, q) >= 0.999f ? 1.0f : 0.3f; };
       occ = 0.5f * vis(c) + 0.5f * vis(h);
     }
-    raw *= occ * combat["explosion"].value("scale", 1.0f);
+    raw *= occ * jkey(combat, "explosion").value("scale", 1.0f);
     if (s.zombie) raw *= enemyType(s.etype).explosiveMult;   // EN2: heavies take x5 from every blast
     if (raw > 1) damage((int)i, raw, owner, glm::normalize(c - p + vec3(0, 1e-3f, 0)), "blast");
   }
@@ -837,7 +839,7 @@ bool Game::soldierFlame(Soldier& s, vec3 dir, float dt) {
   app.flame.spray(app, s.slot, s.weapon, start, dir, dt, true);
   s.recoil = 0.25f; s.lastShot = t; ++s.shots;
   w.sinceShot += dt;
-  if (w.sinceShot >= 0.4f) { w.sinceShot = 0; hearSound(muzzle, (int)s.role, archetypes["perception"].value("hearShot_m", 70.0f), s.slot, 0); ++shotsByBots; }
+  if (w.sinceShot >= 0.4f) { w.sinceShot = 0; hearSound(muzzle, (int)s.role, jkey(archetypes, "perception").value("hearShot_m", 70.0f), s.slot, 0); ++shotsByBots; }
   return true;
 }
 
@@ -875,7 +877,7 @@ bool Game::soldierFire(Soldier& s, vec3 dir) {
   app.audio.play(lootSuppressedShot(d, w) && app.audio.hasEvent("shot_suppressed_rifle") ? std::string("shot_suppressed_rifle") : "shot_" + d.id + (d.action == "auto" && std::string(app.fireModeName(d, w)) == "SEMI" ? "_semi" : ""), muzzle, 1.0f);   // SND15; SND18: as weapons.cpp
   if (!s.localPlayer) app.shotCasing(d, s.feet, s.slot);   // SND4
   s.recoil = d.action == "launcher" ? 3.0f : 1.0f; s.lastShot = t;   // RC2: a launcher rocks the shooter's arms and weapon back (pose.cpp)
-  hearSound(muzzle, (int)s.role, archetypes["perception"].value("hearShot_m", 70.0f), s.slot, 0);
+  hearSound(muzzle, (int)s.role, jkey(archetypes, "perception").value("hearShot_m", 70.0f), s.slot, 0);
   ++shotsByBots;
   if (gNet && gNet->role == Net::HOST) gNet->hostWorldEvent(json{{"t", "shot"}, {"p", tojson(start)}, {"d", tojson(dd)}, {"w", s.weapon}, {"tr", tracer}, {"by", s.slot}});
   return true;
@@ -1227,7 +1229,7 @@ void Game::stepRest(float dt) {
     if (!trySpawn(slot, why)) match.onSpawnFailed(slot, dt, why);
   }
   // corpses
-  int maxC = combat["corpses"].value("max", 12); double life = combat["corpses"].value("seconds", 40.0);
+  int maxC = jkey(combat, "corpses").value("max", 12); double life = jkey(combat, "corpses").value("seconds", 40.0);
   int nC = 0; for (auto& s : sold) if (!s.alive && s.lifeId > 0 && t - s.diedAt < life) ++nC;
   (void)maxC; (void)nC;
   sounds.erase(std::remove_if(sounds.begin(), sounds.end(), [&](const Sound& x) { return t - x.t > 3.0; }), sounds.end());
@@ -1246,7 +1248,7 @@ void Game::worldChanged(vec3 lo, vec3 hi) {
 // ---------------------------------------------------------------- presentation
 void Game::drawItems() {
   if (!active) return;
-  double life = combat["corpses"].value("seconds", 40.0);
+  double life = jkey(combat, "corpses").value("seconds", 40.0);
   drops.erase(std::remove_if(drops.begin(), drops.end(), [&](const Drop& d) { return t - d.t > life; }), drops.end());
   for (auto& d : drops) {   // GM1: lying on its side next to the body
     const WeaponDef& w = *app.weaponDefs[d.weapon];
@@ -1261,7 +1263,7 @@ void Game::drawItems() {
   static int frame = 0; ++frame;
   for (auto& s : sold) {
     if (!s.inUse || s.lifeId == 0) continue;
-    if (!s.alive && t - s.diedAt > combat["corpses"].value("seconds", 40.0)) continue;
+    if (!s.alive && t - s.diedAt > jkey(combat, "corpses").value("seconds", 40.0)) continue;
     if (s.localPlayer && s.alive) continue;                 // first person: the viewmodel is drawn instead
     float bs = bodyScale(s);   // giants (large draw scales) reach far above and around their feet
     vec3 c = s.feet + vec3(0, 0.9f * bs, 0);

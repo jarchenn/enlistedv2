@@ -830,3 +830,25 @@ baked to `content/assets/models/ivy_pack/` (asset `ivy_pack`). The pack's demo w
 The Delta Force and Desert soldier bodies (`content/characters/delta_force.glb`, `desert_body.glb`) carry rifle, pistol and grenade clips the user downloaded from Adobe Mixamo (mixamo.com), retargeted onto the game's bodies. Committed at the user's decision (2026-11-20). Mixamo's terms cover use in a game; they do not grant the right to reuse these files as stand-alone animation assets.
 
 The Allied paratrooper and SS bodies of session WS1 (`content/characters/allied_body.glb`, AI type Allied paratroopers; `ss_body.glb`, kits.ss with no AI type yet) carry the same kind of Mixamo rifle, pistol, death and movement clips (83), retargeted onto the user's own Allied / SS bodies; committed on the same decision (2026-11-20).
+
+## BTA Blackwater Thaw ambience and winter footsteps (CC0)
+
+Freesound sounds released under **CC0 1.0 Universal** (licence checked on each sound's page, 2026-11-20); the HQ previews were downloaded and prepared with `tools/bta_audio_prep.py` (trimmed, levelled, footsteps re-cut). No attribution is required; it is given anyway. Files in `content/audio/custom/`.
+
+| File | Sound | Author | Licence | Source |
+|---|---|---|---|---|
+| bta/wind_low.mp3 (the wind bed) | Wind - Low Frequency, Warm and Strong | bassimat | CC0 1.0 | https://freesound.org/people/bassimat/sounds/861757/ |
+| bta/wind_ridge.mp3 (ridge and terrace gusts) | swirling winter wind gusty grains sand.flac | kyles | CC0 1.0 | https://freesound.org/people/kyles/sounds/454213/ |
+| bta/creek.mp3 (the creek line and the three crossings) | water river stream creek close soft good detail.flac | kyles | CC0 1.0 | https://freesound.org/people/kyles/sounds/637960/ |
+| bta/flume.mp3 (the waterworks flume) | Small water stream 2 | feastingfrog | CC0 1.0 | https://freesound.org/people/feastingfrog/sounds/754227/ |
+| bta/drain.mp3 (drains) | sewer storm drain melting snow water dripping [iphone] | RubyRiverX | CC0 1.0 | https://freesound.org/people/RubyRiverX/sounds/785760/ |
+| bta/fire.mp3 (the smithy fire) | Fire crackling in fireplace | Davor | CC0 1.0 | https://freesound.org/people/Davor/sounds/382616/ |
+| bta/creak_1.mp3 | 2022-02-06 wood creak 1.wav | sit_walk | CC0 1.0 | https://freesound.org/people/sit_walk/sounds/618085/ |
+| bta/creak_2.mp3 | 2022-02-06 wood creak 2.wav | sit_walk | CC0 1.0 | https://freesound.org/people/sit_walk/sounds/618084/ |
+| bta/creak_3.mp3 | 2022-02-06 wood creak 3.wav | sit_walk | CC0 1.0 | https://freesound.org/people/sit_walk/sounds/618083/ |
+| bta/creak_4.mp3 | 2022-02-06 wood creak 4.wav | sit_walk | CC0 1.0 | https://freesound.org/people/sit_walk/sounds/618082/ |
+| bta/steps_snow.mp3 (step_snow, powder) | Snow Footsteps Crunch 1 Mono.wav | JRWEntertainment | CC0 1.0 | https://freesound.org/people/JRWEntertainment/sounds/614137/ |
+| bta/steps_snow_deep.mp3 (step_snow_deep) | Footsteps in the deep snow.wav | tosha73 | CC0 1.0 | https://freesound.org/people/tosha73/sounds/496244/ |
+| bta/steps_slush.mp3 (step_slush) | Footsteps on slush | xkeril | CC0 1.0 | https://freesound.org/people/xkeril/sounds/611278/ |
+| bta/steps_mud.mp3 (step_mud) | Footsteps_Mountain_Boots_Mud_Mono.wav | Nox_Sound | CC0 1.0 | https://freesound.org/people/Nox_Sound/sounds/548384/ |
+| bta/steps_shallow.mp3 (step_shallow) | Splashing Footsteps Shallow Water | ChristopherJngs | CC0 1.0 | https://freesound.org/people/ChristopherJngs/sounds/861369/ |

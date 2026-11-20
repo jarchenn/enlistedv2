@@ -506,7 +506,7 @@ void SelfTest::tanksUpdate(App& app, float dt) {
       if (t < tHit + 0.5f) return false;
       a.scriptedInput.move = vec2(0);
       float loss = (vBefore - vAfter) / std::max(0.01f, vBefore);
-      float fast = summary.contains("ram_pole_fast") ? summary["ram_pole_fast"].value("loss", 1.0f) : 1.0f;
+      float fast = summary.contains("ram_pole_fast") ? jkey(summary, "ram_pole_fast").value("loss", 1.0f) : 1.0f;
       std::snprintf(b_, sizeof b_, "the same pole at %.1f km/h takes %.0f%% of the speed (%.1f%% at speed): v' = sqrt(v^2 - 2E/M), then momentum shared with the pole", vBefore * 3.6f, loss * 100, fast * 100);
       check(loss > 0.15f && loss > 4.0f * fast, b_);
       summary["ram_pole_slow"] = {{"before", vBefore}, {"after", vAfter}, {"loss", loss}};
@@ -999,14 +999,14 @@ void SelfTest::tanksUpdate(App& app, float dt) {
       bool poles = a.rt.count(POLE1) && a.rt[POLE1].staticBody != 0xffffffffu && a.tanks.knocked.empty() && a.tanks.ramWorkDone.empty();
       check(poles, "leaving Explore puts knocked-over props back (session overlay: static bodies restored, nothing left lying)");
       Instance* i = a.doc.find(TG);
-      bool kept = i->extra.contains("tank") && i->extra["tank"].value("hp", 0) == 50 && i->extra["tank"].value("reserveAP", 0) == 7;
+      bool kept = i->extra.contains("tank") && jkey(i->extra, "tank").value("hp", 0) == 50 && jkey(i->extra, "tank").value("reserveAP", 0) == 7;
       check(kept, "Apply session changes keeps the Tiger's damage and ammunition in the map (one undo step)");
       Instance* s = a.doc.find(SH);
-      check(s->extra.contains("tank") && s->extra["tank"].value("wrecked", false), "the Sherman wreck is applied too");
+      check(s->extra.contains("tank") && jkey(s->extra, "tank").value("wrecked", false), "the Sherman wreck is applied too");
       a.undo();
       check(!a.doc.find(TG)->extra.contains("tank"), "undo restores the undamaged Tiger");
       a.redo();
-      check(a.doc.find(TG)->extra.contains("tank") && a.doc.find(TG)->extra["tank"].value("hp", 0) == 50, "redo re-applies it");
+      check(a.doc.find(TG)->extra.contains("tank") && jkey(a.doc.find(TG)->extra, "tank").value("hp", 0) == 50, "redo re-applies it");
       a.selected = SH;
       size_t n0 = a.doc.instances.size();
       a.duplicateSelected();

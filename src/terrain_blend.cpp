@@ -102,15 +102,15 @@ int blendPartMode(const json& asset, const json& pj) {
   if (!blendEnabled() || !asset.is_object() || !pj.is_object()) return 0;
   const std::string m = pj.value("m", std::string());
   if (asset.contains("trench")) {
-    const json& r = asset["trench"].value("replace", json::object());
+    const json& r = jkey(asset, "trench").value("replace", json::object());
     auto mats = r.value("materials", json::array());
     if (std::find(mats.begin(), mats.end(), m) == mats.end()) return 0;
     float top = pj.contains("c") && pj.contains("s") ? pj["c"][1].get<float>() + 0.5f * pj["s"][1].get<float>() : 1.0f;
     if (top <= r.value("aboveY", -1.0f)) {   // the firestep and floor below stay; "floorDrop": the generated duckboards replace these
-      const json& fd = asset["trench"].value("floorDrop", json::object());
+      const json& fd = jkey(asset, "trench").value("floorDrop", json::object());
       auto fm = fd.value("materials", json::array());
       if (std::find(fm.begin(), fm.end(), m) != fm.end() && top <= fd.value("topBelow", -1.45f)) return 1;
-      const json& sd = asset["trench"].value("stepDrop", json::object());   // the firestep's full-width top plank: earth covers it
+      const json& sd = jkey(asset, "trench").value("stepDrop", json::object());   // the firestep's full-width top plank: earth covers it
       auto sm = sd.value("materials", json::array());
       bool wide = pj.contains("s") && pj["s"][2].get<float>() >= sd.value("minWidth", 0.3f) && pj["s"][1].get<float>() <= 0.08f;
       return std::find(sm.begin(), sm.end(), m) != sm.end() && wide && top >= sd.value("topAbove", -1.3f) ? 1 : 0;
@@ -122,7 +122,7 @@ int blendPartMode(const json& asset, const json& pj) {
     return std::find(keep.begin(), keep.end(), m) != keep.end() && pj.value("k", 1) != 0 && !tilted ? 2 : 1;
   }
   if (asset.contains("earthwork")) {
-    const json& r = asset["earthwork"].value("replace", json::object());
+    const json& r = jkey(asset, "earthwork").value("replace", json::object());
     auto mats = r.value("materials", json::array());
     return pj.value("t", std::string()) == r.value("shape", std::string("p")) && std::find(mats.begin(), mats.end(), m) != mats.end() ? 1 : 0;
   }
@@ -362,7 +362,7 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
   std::vector<vec2> P; std::vector<float> D;
   const bool isLine = lineTrench(a);
   if (isLine) { auto it = gLinePaths.find(i.id); if (it == gLinePaths.end()) return; P = it->second.P; D = it->second.D; }
-  else for (auto& q : a->raw["trench"].value("path", json::array())) { P.push_back(vec2(i.pos.x, i.pos.z) + toWorld(vec2(q[0].get<float>(), q[1].get<float>()), i.yaw)); D.push_back(q.size() > 2 ? q[2].get<float>() : 1.0f); }
+  else for (auto& q : jkey(a->raw, "trench").value("path", json::array())) { P.push_back(vec2(i.pos.x, i.pos.z) + toWorld(vec2(q[0].get<float>(), q[1].get<float>()), i.yaw)); D.push_back(q.size() > 2 ? q[2].get<float>() : 1.0f); }
   if (P.size() < 2) return;
   const float plane = sp.floorHalf + 0.02f, tilt = std::atan(sp.batter), boardT = 0.035f;
   uint32_t seed = idSeed(i.id);
@@ -533,7 +533,7 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
   };
   layRun(P, D, frontSide);
   std::vector<std::pair<std::vector<vec2>, std::vector<float>>> arms;   // junction arms (branches 3 m or longer): outward from the crossing
-  for (auto& br : isLine ? json::array() : a->raw["trench"].value("branches", json::array())) {
+  for (auto& br : isLine ? json::array() : jkey(a->raw, "trench").value("branches", json::array())) {
     std::vector<vec2> Pa; std::vector<float> Da;
     for (auto& q : br) { Pa.push_back(vec2(i.pos.x, i.pos.z) + toWorld(vec2(q[0].get<float>(), q[1].get<float>()), i.yaw)); Da.push_back(q.size() > 2 ? q[2].get<float>() : 1.0f); }
     if (Pa.size() >= 2 && glm::length(Pa.back() - Pa.front()) >= 3.0f) { layRun(Pa, Da, 0); arms.push_back({Pa, Da}); }

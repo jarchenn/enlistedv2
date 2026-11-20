@@ -32,6 +32,12 @@ public:
   vec3 listener_{0};
   void setAmbience(float wind, float leaves);
   void setBed(int slot, const fs::path& file, float volume);
+  // BTA: map ambience voices (map_ambience.cpp): a looping file per id, decoded on first use; spatial ones (mono) at pos,
+  // full level within minD, silent beyond maxD (linear); the others are beds. Volume x the Ambience setting, ducked under
+  // nearby gunfire like the beds; 0 keeps the voice loaded but silent. Cheap to call every frame
+  void ambVoice(const std::string& id, const fs::path& file, bool spatial, vec3 pos, float volume, float minD = 2, float maxD = 40);
+  void ambClear();   // drop every map ambience voice (another map)
+  std::vector<std::string> ambIds() const;   // the loaded map ambience voices (tests)
   // SND13: the low-health heartbeat (custom/fx/heartbeat.mp3, trimmed to whole beats): in the head, Effects bus; level
   // 0..1 (ramped: in over 0.4 s, out over 0.8 s), rate = pitch / tempo. Call every frame (0 to stop)
   void setHeartbeat(float level, float rate);

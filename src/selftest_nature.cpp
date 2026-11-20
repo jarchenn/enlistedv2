@@ -467,7 +467,7 @@ void build(App& app) {
     if (Instance* h = a.doc.find(house)) a.doc.find(house)->extra["dressingStyle"] = "neglected";   // the densest style: the strictest test
     if (Instance* h = a.doc.find(house)) a.bump(*h);
     a.syncRuntime(); foundationSync(a);
-    auto pieces = [&](uint64_t host) { std::vector<const Instance*> v; for (auto& i : a.doc.instances) if (isDressingPiece(i) && i.extra["dressing"].value("host", (uint64_t)0) == host) v.push_back(&i); return v; };
+    auto pieces = [&](uint64_t host) { std::vector<const Instance*> v; for (auto& i : a.doc.instances) if (isDressingPiece(i) && jkey(i.extra, "dressing").value("host", (uint64_t)0) == host) v.push_back(&i); return v; };
     std::vector<vec3> plants, stones; int style = -1;
     bool rec = foundationHostInfo(house, plants, stones, style);
     auto pv = pieces(house);
@@ -514,7 +514,7 @@ void build(App& app) {
     int far = 0; auto pm = pieces(house);
     for (auto* p : pm) if (glm::length(vec2(p->pos.x - hm->pos.x, p->pos.z - hm->pos.z)) > glm::length(vec2(ca->bmax.x - ca->bmin.x, ca->bmax.z - ca->bmin.z)) * 0.5f + 5.0f) ++far;
     std::set<uint64_t> ids; for (auto* p : pm) ids.insert(p->id);
-    int dressAll = 0; for (auto& i : a.doc.instances) dressAll += isDressingPiece(i) && i.extra["dressing"].value("host", (uint64_t)0) == house;
+    int dressAll = 0; for (auto& i : a.doc.instances) dressAll += isDressingPiece(i) && jkey(i.extra, "dressing").value("host", (uint64_t)0) == house;
     chk(far == 0 && ids.size() == pm.size() && dressAll == (int)pm.size(), "MA3: moved: %zu props, none left behind (%d), no duplicate ids", pm.size(), far);
     // delete: everything goes
     a.doc.instances.erase(std::remove_if(a.doc.instances.begin(), a.doc.instances.end(), [&](const Instance& i) { return i.id == house || i.id == path; }), a.doc.instances.end());

@@ -31,7 +31,7 @@ const Cfg& cfg() {
   if (loaded) return c;
   loaded = true;
   json j; try { j = json::parse(readTextFile(contentDir() / "settings" / "sandbags.json")); } catch (...) { logf("sandbags.json: missing or invalid, defaults"); return c; }
-  if (j.contains("tint")) c.tint = jvec3(j["tint"], c.tint);
+  if (j.contains("tint")) c.tint = jvec3(jkey(j, "tint"), c.tint);
   c.valueVar = j.value("valueVar", c.valueVar); c.hueVar = j.value("hueVar", c.hueVar); c.dirt = j.value("dirt", c.dirt); c.dirtH = j.value("dirtHeight", c.dirtH);
   c.lenFill = j.value("lengthFill", c.lenFill); c.fullness = j.value("fullness", c.fullness); c.bed = j.value("bed", c.bed);
   c.jitter = j.value("jitter", c.jitter); c.sag = j.value("sagShare", c.sag);

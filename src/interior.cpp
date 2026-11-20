@@ -469,11 +469,11 @@ int InteriorSys::roomType(const AssetDef* a, const RoomInfo& ri, int k) const {
     const bool modern = id.rfind("mod_", 0) == 0;   // MOD1: a modern building's kitchens, living rooms, bedrooms, offices and classrooms take the modern recipes
     auto modernOf = [&](int t) { return !modern ? t : t == ROOM_KITCHEN ? ROOM_KITCHEN_M : t == ROOM_SITTING ? ROOM_SITTING_M : t == ROOM_BEDROOM ? ROOM_BEDROOM_M : t == ROOM_OFFICE ? ROOM_OFFICE_M : t == ROOM_CLASS ? ROOM_CLASS_M : t; };
     vec2 c = (R.mn + R.mx) * 0.5f; float y = R.y0 + 0.5f;
-    for (auto& nr : a->raw["nav"].value("rooms", json::array())) {
+    for (auto& nr : jkey(a->raw, "nav").value("rooms", json::array())) {
       if (!nr.contains("min") || !nr.contains("max")) continue;
       vec3 mn = jvec3(nr["min"]), mx = jvec3(nr["max"]);
       if (c.x < mn.x || c.x > mx.x || c.y < mn.z || c.y > mx.z || y < mn.y - 0.3f || y > mx.y) continue;
-      std::string t = a->raw["roomTypes"].value(nr.value("id", std::string()), std::string());
+      std::string t = jkey(a->raw, "roomTypes").value(nr.value("id", std::string()), std::string());
       for (auto& [n, v] : kTypes) if (t == n) return modernOf(v);
     }
     if (id.rfind("mil_", 0) == 0) return ROOM_MIL_PASSAGE;
@@ -505,7 +505,7 @@ int InteriorSys::roomType(const AssetDef* a, const RoomInfo& ri, int k) const {
 }
 
 bool InteriorSys::hideBuiltin(const Instance& i) const {
-  return i.extra.is_object() && i.extra.contains("interior") && i.extra["interior"].value("on", false) && !i.extra["interior"].value("lightsOnly", false);   // L3: a lit bunker keeps its own furniture
+  return i.extra.is_object() && i.extra.contains("interior") && jkey(i.extra, "interior").value("on", false) && !jkey(i.extra, "interior").value("lightsOnly", false);   // L3: a lit bunker keeps its own furniture
 }
 
 // ============================================================ automatic furnishing (V4)
@@ -515,7 +515,7 @@ bool ruinHost(App& app, const AssetDef* a) {
   if (!a) return false;
   if (a->raw.is_object() && a->raw.value("ruin", false)) return true;
   const json& x = app.doc.extra;
-  return a->id.rfind("mod_", 0) == 0 && x.is_object() && x.contains("look") && x["look"].is_object() && x["look"].value("style", std::string()) == "abandoned";
+  return a->id.rfind("mod_", 0) == 0 && x.is_object() && x.contains("look") && x["look"].is_object() && jkey(x, "look").value("style", std::string()) == "abandoned";
 }
 
 bool InteriorSys::autoFurnishable(App& app, const Instance& i) {
@@ -591,7 +591,7 @@ const SurfaceParams* InteriorSys::surfaceFor(App& app, const Instance& i, const 
   SurfaceParams& sp = e.sp; sp = SurfaceParams{};
   json fin = i.extra.is_object() && i.extra.contains("finish") ? i.extra["finish"] : json::object();
   float seed = h01((uint32_t)i.id, 77u);
-  const bool cleanMap = app.doc.extra.is_object() && app.doc.extra.contains("look") && app.doc.extra["look"].is_object() && app.doc.extra["look"].value("clean", false);   // BR2
+  const bool cleanMap = app.doc.extra.is_object() && app.doc.extra.contains("look") && app.doc.extra["look"].is_object() && jkey(app.doc.extra, "look").value("clean", false);   // BR2
   sp.inst = vec4(seed, cleanMap ? 0.0f : std::clamp(fin.value("wear", defaultWear(app, a)), 0.0f, 2.0f), std::clamp(fin.value("palette", 1.0f), 0.0f, 1.0f), 0.0f);
   const RoomInfo* ri = rooms(a);
   int n = (int)ri->rooms.size();   // GX5: every room (the first 16 in uniforms, the rest in the decal buffer)
@@ -2065,7 +2065,7 @@ struct Planner {
       mark(R.storey, vec2(std::min(c0.x, c1.x), std::min(c0.z, c1.z)) - vec2(walkway), vec2(std::max(c0.x, c1.x), std::max(c0.z, c1.z)) + vec2(walkway), 2);
     }
     if (s.contains("hangAbove")) hangAbove(k, w, s["hangAbove"]);
-    if (s.contains("papers") && rnd(strHash(slot), 9) < s["papers"].value("p", 1.0f) * clutter) papers(k, w, s["papers"].value("n", 1));
+    if (s.contains("papers") && rnd(strHash(slot), 9) < jkey(s, "papers").value("p", 1.0f) * clutter) papers(k, w, jkey(s, "papers").value("n", 1));
     if (got) *got = w;
     return true;
   }
@@ -2501,7 +2501,7 @@ struct Planner {
 int InteriorSys::dropPieces(App& app, uint64_t hostId) {
   size_t n0 = app.doc.instances.size();
   app.doc.instances.erase(std::remove_if(app.doc.instances.begin(), app.doc.instances.end(), [&](const Instance& i) {
-    return isFurnishPiece(i) && i.extra["furnish"].value("host", (uint64_t)0) == hostId; }), app.doc.instances.end());
+    return isFurnishPiece(i) && jkey(i.extra, "furnish").value("host", (uint64_t)0) == hostId; }), app.doc.instances.end());
   return (int)(n0 - app.doc.instances.size());
 }
 
@@ -2509,7 +2509,7 @@ int InteriorSys::unfurnish(App& app, uint64_t hostId) {
   Instance* h = app.doc.find(hostId); if (!h) return 0;
   size_t n0 = app.doc.instances.size();
   app.doc.instances.erase(std::remove_if(app.doc.instances.begin(), app.doc.instances.end(), [&](const Instance& i) {
-    return i.extra.is_object() && i.extra.contains("furnish") && i.extra["furnish"].value("host", (uint64_t)0) == hostId; }), app.doc.instances.end());
+    return i.extra.is_object() && i.extra.contains("furnish") && jkey(i.extra, "furnish").value("host", (uint64_t)0) == hostId; }), app.doc.instances.end());
   h = app.doc.find(hostId);
   if (h) {   // stays bare: on: false also keeps auto-furnishing away from it
     if (!h->extra.is_object()) h->extra = json::object();
@@ -2524,7 +2524,7 @@ int InteriorSys::unfurnish(App& app, uint64_t hostId) {
 InteriorSys::DoorwayReport InteriorSys::doorwayReport(App& app) {
   DoorwayReport r;
   std::unordered_map<uint64_t, std::vector<const Instance*>> kids;
-  for (auto& i : app.doc.instances) if (isFurnishPiece(i)) kids[i.extra["furnish"].value("host", (uint64_t)0)].push_back(&i);
+  for (auto& i : app.doc.instances) if (isFurnishPiece(i)) kids[jkey(i.extra, "furnish").value("host", (uint64_t)0)].push_back(&i);
   for (auto& h : app.doc.instances) {
     auto kt = kids.find(h.id); if (kt == kids.end()) continue;
     const AssetDef* ha = app.assetFor(h); if (!ha) continue;
@@ -2599,7 +2599,7 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
   float density = std::clamp(in.value("density", 1.0f), 0.0f, 2.0f), clutter = std::clamp(in.value("clutter", 0.7f), 0.0f, 2.0f);   // V4: 1.0 is a lived-in house (3x the first templates), 2.0 crowded
   const bool ruin = ruinHost(app, ha);   // AS1
   const float wear0 = defaultWear(app, ha);   // MOD1: modern buildings start almost clean (TX5: unless the asset says otherwise)
-  float wear = h->extra.contains("finish") ? h->extra["finish"].value("wear", wear0) : wear0;
+  float wear = h->extra.contains("finish") ? jkey(h->extra, "finish").value("wear", wear0) : wear0;
   std::set<std::string> removed;
   for (auto& s : in.value("removed", json::array())) removed.insert(s.get<std::string>());
   std::set<std::string> lastSlots;
@@ -2608,16 +2608,16 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
   std::map<std::string, uint64_t> manual;
   std::set<std::string> present;
   for (auto& i : app.doc.instances) {
-    if (!i.extra.is_object() || !i.extra.contains("furnish") || i.extra["furnish"].value("host", (uint64_t)0) != hostId) continue;
-    std::string slot = i.extra["furnish"].value("slot", std::string());
+    if (!i.extra.is_object() || !i.extra.contains("furnish") || jkey(i.extra, "furnish").value("host", (uint64_t)0) != hostId) continue;
+    std::string slot = jkey(i.extra, "furnish").value("slot", std::string());
     present.insert(slot);
-    if (i.extra["furnish"].value("manual", false) && mode != 2) manual[slot] = i.id;
+    if (jkey(i.extra, "furnish").value("manual", false) && mode != 2) manual[slot] = i.id;
   }
   if (mode == 0) for (auto& s : lastSlots) if (!present.count(s)) removed.insert(s);   // deleted by the user: stays deleted
   if (mode != 0) removed.clear();
   app.doc.instances.erase(std::remove_if(app.doc.instances.begin(), app.doc.instances.end(), [&](const Instance& i) {
-    if (!i.extra.is_object() || !i.extra.contains("furnish") || i.extra["furnish"].value("host", (uint64_t)0) != hostId) return false;
-    return !manual.count(i.extra["furnish"].value("slot", std::string())); }), app.doc.instances.end());
+    if (!i.extra.is_object() || !i.extra.contains("furnish") || jkey(i.extra, "furnish").value("host", (uint64_t)0) != hostId) return false;
+    return !manual.count(jkey(i.extra, "furnish").value("slot", std::string())); }), app.doc.instances.end());
   h = app.doc.find(hostId);
   {   // built-in furniture leaves the collision before planning: swap the building's static shape in place (a full
       // rebuild of the building -- walls, terrain cut -- is not needed and is slow on large maps)
@@ -2711,7 +2711,7 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
   for (auto& it : P.out) if (it.asset.rfind("furn_chair", 0) == 0 && h01(seed, strHash(it.slot), 8u) < 0.05f * std::max(0.0f, wear - 0.6f)) it.broken = true;
   if (ruin) for (auto& it : P.out) {   // AS1: shelving stripped to its frame (the broken state keeps the frame groups), some chairs and tables broken
     const AssetDef* fa = app.lib.find(it.asset); if (!fa || !fa->raw.is_object() || !fa->raw.contains("prop")) continue;
-    const json& gs = fa->raw["prop"].value("groups", json::array());
+    const json& gs = jkey(fa->raw, "prop").value("groups", json::array());
     bool stocked = false; for (auto& g : gs) if (g.is_string() && (g == "goods" || g == "stock" || g == "books")) stocked = true;
     bool seat = it.asset.find("chair") != std::string::npos || it.asset.find("table") != std::string::npos || it.asset.find("stool") != std::string::npos;
     if ((stocked && h01(seed, strHash(it.slot), 9u) < 0.85f) || (seat && h01(seed, strHash(it.slot), 10u) < 0.25f)) it.broken = true;
@@ -2759,9 +2759,9 @@ void InteriorSys::sync(App& app) {
   ++syncPasses;
   bool changed = false;
   std::map<uint64_t, Instance*> hosts;
-  for (auto& i : app.doc.instances) if (i.extra.is_object() && i.extra.contains("interior") && i.extra["interior"].value("on", false)) hosts[i.id] = &i;   // L3: lit bunkers too
+  for (auto& i : app.doc.instances) if (i.extra.is_object() && i.extra.contains("interior") && jkey(i.extra, "interior").value("on", false)) hosts[i.id] = &i;   // L3: lit bunkers too
   std::vector<uint64_t> orphans, regen;
-  for (auto& [id, h] : hosts) if (h->extra["interior"].value("gen", (uint64_t)0) != id) regen.push_back(id);   // a duplicated building
+  for (auto& [id, h] : hosts) if (jkey(h->extra, "interior").value("gen", (uint64_t)0) != id) regen.push_back(id);   // a duplicated building
   for (auto& i : app.doc.instances) {
     if (!i.extra.is_object() || !i.extra.contains("furnish")) continue;
     json& f = i.extra["furnish"];
@@ -2835,7 +2835,7 @@ void InteriorSys::editorPanel(App& app, Instance& s) {
   if (a2) { app.pushUndo(); sp = app.doc.find(s.id); }
   if (e2 && sp) { if (!sp->extra.is_object()) sp->extra = json::object(); sp->extra["interior"]["density"] = dens; sp->extra["interior"]["clutter"] = clut; app.dirty = true; }
   int pieces = 0, overrides = 0;
-  for (auto& i : app.doc.instances) if (i.extra.is_object() && i.extra.contains("furnish") && i.extra["furnish"].value("host", (uint64_t)0) == s.id) { ++pieces; overrides += i.extra["furnish"].value("manual", false) ? 1 : 0; }
+  for (auto& i : app.doc.instances) if (i.extra.is_object() && i.extra.contains("furnish") && jkey(i.extra, "furnish").value("host", (uint64_t)0) == s.id) { ++pieces; overrides += jkey(i.extra, "furnish").value("manual", false) ? 1 : 0; }
   if (furnished) ImGui::TextDisabled("Furnished by room templates: %d pieces (%d moved by hand), seed %u", pieces, overrides, in.value("seed", 0u));
   else ImGui::TextDisabled("Built-in furniture shown. Room templates replace it with the furniture family.");
   if (ImGui::Button(furnished ? "Regenerate" : "Furnish rooms")) { app.pushUndo(); furnish(app, s.id, 0); }

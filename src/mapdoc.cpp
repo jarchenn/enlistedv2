@@ -152,12 +152,12 @@ bool loadMap(const fs::path& path, MapDoc& d, std::string& err) {
   MapDoc n;
   n.extra = j;
   for (const char* k : {"format", "schemaVersion", "name", "template", "nextId", "instances", "removedTemplateVegetation", "exploreStart", "editorCamera", "mapSize"}) n.extra.erase(k);
-  if (j.contains("terrainDeltas") && j["terrainDeltas"].value("templateVersion", -1) == j["template"].value("version", 1) && j["terrainDeltas"].value("fineN", 0) == 36) {
+  if (j.contains("terrainDeltas") && jkey(j, "terrainDeltas").value("templateVersion", -1) == jkey(j, "template").value("version", 1) && jkey(j, "terrainDeltas").value("fineN", 0) == 36) {
     n.terrainTemplateVersion = j["terrainDeltas"]["templateVersion"];
     for (auto& t : j["terrainDeltas"]["tiles"]) n.terrainDeltas[t["key"].get<int>()] = t["d"].get<std::vector<float>>();
     n.extra.erase("terrainDeltas");
   }   // otherwise kept verbatim in extra (deltas for another template version are preserved, not applied)
-  if (j.contains("terrainSculpt") && j["terrainSculpt"].value("fineN", 0) == 36) {   // V8 sculpt layer
+  if (j.contains("terrainSculpt") && jkey(j, "terrainSculpt").value("fineN", 0) == 36) {   // V8 sculpt layer
     for (auto& t : j["terrainSculpt"]["tiles"]) n.terrainSculpt[t["key"].get<int>()] = t["d"].get<std::vector<float>>();
     n.extra.erase("terrainSculpt");
   }
@@ -172,9 +172,9 @@ bool loadMap(const fs::path& path, MapDoc& d, std::string& err) {
     }
     n.extra.erase("waterBodies");
   }
-  if (j.contains("groundPaint") && j["groundPaint"].is_object() && j["groundPaint"].value("chunk", 0) == 32) {   // lasso ground paint
+  if (j.contains("groundPaint") && j["groundPaint"].is_object() && jkey(j, "groundPaint").value("chunk", 0) == 32) {   // lasso ground paint
     uint64_t sig = 1469598103934665603ull;
-    for (auto& c : j["groundPaint"].value("chunks", json::array())) {
+    for (auto& c : jkey(j, "groundPaint").value("chunks", json::array())) {
       if (!c.contains("c") || !c["c"].is_array() || c["c"].size() < 2) continue;
       std::vector<uint8_t> t;
       if (!paintDecode(c.value("d", std::string()), t, 32 * 32)) continue;
@@ -186,18 +186,18 @@ bool loadMap(const fs::path& path, MapDoc& d, std::string& err) {
     n.extra.erase("groundPaint");
   }
   n.name = j.value("name", "Untitled map");
-  n.templateId = j["template"].value("id", "blank_slate");
-  n.templateVersion = j["template"].value("version", 1);
-  n.seed = j["template"].value("seed", 1u);
-  if (j.contains("mapSize") && j["mapSize"].is_object()) { n.width = j["mapSize"].value("width", 0.0f); n.depth = j["mapSize"].value("depth", 0.0f); }   // absent: pre-9.1 map, template size
+  n.templateId = jkey(j, "template").value("id", "blank_slate");
+  n.templateVersion = jkey(j, "template").value("version", 1);
+  n.seed = jkey(j, "template").value("seed", 1u);
+  if (j.contains("mapSize") && j["mapSize"].is_object()) { n.width = jkey(j, "mapSize").value("width", 0.0f); n.depth = jkey(j, "mapSize").value("depth", 0.0f); }   // absent: pre-9.1 map, template size
   n.nextId = j.value("nextId", 1ull);
   for (auto& o : j.value("instances", json::array())) {
     Instance i;
     i.extra = o;
     for (const char* k : {"id", "asset", "position", "yaw", "overrides"}) i.extra.erase(k);
     i.id = o.value("id", 0ull);
-    i.assetId = o["asset"].value("id", "");
-    i.assetVersion = o["asset"].value("version", 1);
+    i.assetId = jkey(o, "asset").value("id", "");
+    i.assetVersion = jkey(o, "asset").value("version", 1);
     if (aliasRemoved(i.assetId)) continue;   // VR1: a generated rock with no model rock yet
     if (const auto* al = treeAlias(i.assetId)) { uint64_t h = i.id * 0x9E3779B97F4A7C15ull; h ^= h >> 29; i.assetId = (*al)[(size_t)(h % al->size())]; i.assetVersion = 1; }   // TR1
     i.pos = jvec3(o["position"]);
@@ -213,11 +213,11 @@ bool loadMap(const fs::path& path, MapDoc& d, std::string& err) {
   }
   for (auto& s : j.value("removedTemplateVegetation", json::array())) n.removedVegetation.insert(s.get<std::string>());
   if (j.contains("exploreStart") && j["exploreStart"].is_object()) {
-    n.start.set = true; n.start.pos = jvec3(j["exploreStart"]["position"]); n.start.yaw = j["exploreStart"].value("yaw", 0.0f);
+    n.start.set = true; n.start.pos = jvec3(j["exploreStart"]["position"]); n.start.yaw = jkey(j, "exploreStart").value("yaw", 0.0f);
   }
   if (j.contains("editorCamera")) {
     n.camera.set = true; n.camera.pos = jvec3(j["editorCamera"]["position"]);
-    n.camera.yaw = j["editorCamera"].value("yaw", 0.0f); n.camera.pitch = j["editorCamera"].value("pitch", -20.0f);
+    n.camera.yaw = jkey(j, "editorCamera").value("yaw", 0.0f); n.camera.pitch = jkey(j, "editorCamera").value("pitch", -20.0f);
     if (j["editorCamera"].contains("bookmarks") && j["editorCamera"]["bookmarks"].is_object()) n.cameraBookmarks = j["editorCamera"]["bookmarks"];
   }
   d = std::move(n);

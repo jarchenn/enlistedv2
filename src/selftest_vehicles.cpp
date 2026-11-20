@@ -65,7 +65,7 @@ void build(App&) {
         if (!r || !r->def) { note("FAIL: type %d has no vehicle state", k + 1); continue; }
         const TankDef& d = *r->def;
         note("type %d: %s '%s' model %s, %zu parts, wheels r %.2f track %.2f wheelbase %.2f, steering wheel (%.2f %.2f %.2f), eye (%.2f %.2f %.2f)", k + 1, d.id.c_str(), d.name.c_str(),
-             d.raw["model"].value("dir", "").c_str(), d.model->parts.size(), d.wheelR, 2 * d.trackHalfGauge, 2 * d.trackHalfLen, d.steerC.x, d.steerC.y, d.steerC.z, d.driverEye.x, d.driverEye.y, d.driverEye.z);
+             jkey(d.raw, "model").value("dir", "").c_str(), d.model->parts.size(), d.wheelR, 2 * d.trackHalfGauge, 2 * d.trackHalfLen, d.steerC.x, d.steerC.y, d.steerC.z, d.driverEye.x, d.driverEye.y, d.driverEye.z);
       }
       a.camPos = T(a, 1).pos + vec3(7, 4.0f, 12); a.camYaw = 30; a.camPitch = -14;
       return false;

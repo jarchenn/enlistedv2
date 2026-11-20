@@ -357,7 +357,7 @@ void SelfTest::sightsUpdate(App& app, float dt) {
           return probeThen(t, 2.0f, [&] {
             float w0 = measure(probe).leafW; const WeaponDef& d = WD(a);
             json j; try { j = json::parse(readTextFile(d.file)); } catch (...) {}
-            WD(a).eyeRelief = j["ads"].value("eyeRelief", 0.21f); a.vm.snap = true;
+            WD(a).eyeRelief = jkey(j, "ads").value("eyeRelief", 0.21f); a.vm.snap = true;
             float r = wCal / std::max(1.0f, w0);
             char b[200]; std::snprintf(b, sizeof b, "MG 42 Y-leaf drawn %.0f px wide at eye relief %.3f m vs %.0f px at the shared 0.21 m: %.1f%% larger (want 10-15%%), mesh not scaled", wCal, WD(a).eyeRelief, w0, (r - 1) * 100);
             check(r >= 1.10f && r <= 1.15f, b);
@@ -629,7 +629,7 @@ void SelfTest::sightsUpdate(App& app, float dt) {
           return probeThen(t, 2.0f, [&] {
             float w0 = measure(a, probe).leafW;
             json j; try { j = json::parse(readTextFile(WD(a).file)); } catch (...) {}
-            WD(a).eyeRelief = j["ads"].value("eyeRelief", 0.21f); WD(a).adsVmFov = j["ads"].value("vmFov", 0.0f); a.vm.snap = true;
+            WD(a).eyeRelief = jkey(j, "ads").value("eyeRelief", 0.21f); WD(a).adsVmFov = jkey(j, "ads").value("vmFov", 0.0f); a.vm.snap = true;
             float r = wRef / std::max(1.0f, w0);
             char b[260]; std::snprintf(b, sizeof b, "%s sight picture %.0f px wide at eye relief %.3f m, weapon FOV %.0f vs %.0f px at the shared 0.21 m / 60: %.0f%% larger (want %.0f-%.0f%%), mesh not scaled", id.c_str(), wRef, WD(a).eyeRelief, WD(a).adsVmFov > 0 ? WD(a).adsVmFov : 60.0f, w0, (r - 1) * 100, (w.sizeLo - 1) * 100, (w.sizeHi - 1) * 100);
             check(r >= w.sizeLo && r <= w.sizeHi, b);
