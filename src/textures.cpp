@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <future>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -337,8 +338,8 @@ void upload(GLuint p) {
   if (const char* e = std::getenv("NMK_TEX_NEAR")) std::sscanf(e, "%f,%f", &nearR.x, &nearR.y);
   glProgramUniform2f(p, U("uTexNear"), nearR.x, std::max(nearR.y, nearR.x + 0.1f));
   glProgramUniform4fv(p, U("uTexLod"), 1, &lod.x); glProgramUniform4fv(p, U("uTexLod2"), 1, &lod2.x);
-  glProgramUniform1iv(p, U("uPatSlot"), 32, wantImg ? patSlotImg : patSlot); glProgramUniform1iv(p, U("uTerrSlot"), 8, terrSlot); glProgramUniform1iv(p, U("uPaintSlot"), kPaintTypes, paintSlotEff);
   glProgramUniform3i(p, U("uSnowSlot"), slotIndex("snow_packed"), slotIndex("snow_trodden"), slotIndex("snow_thaw"));   // SN2: the snow sets for applySnow (terrTexSlot), -1 when missing
+  glProgramUniform1iv(p, U("uPatSlot"), 32, wantImg ? patSlotImg : patSlot); glProgramUniform1iv(p, U("uTerrSlot"), 8, terrSlot); glProgramUniform1iv(p, U("uPaintSlot"), kPaintTypes, paintSlotEff);
 }
 void uploadTables() {   // the active table into NmkTexTables (std140: vec4 arrays, no padding)
   std::vector<vec4> d((size_t)kMaxSlots * 5 + (size_t)kMaxLayers * 2);
@@ -469,6 +470,7 @@ layout(std140, binding = 3) uniform NmkTexTables {
 uniform int uTerrSlot[8]; // terrain layers: grass, soil, mud, gravel, sand, rock, scree, crater
 #define NMK_TEX_PAINT 1   // painted ground: uPaintSlot[k] for marsh, dirt, mud, gravel, sand, cobbles, rock, dry_grass, ploughed, leaf_litter, scorched, pebbles
 uniform int uPaintSlot[12];
+uniform int uOpt2Off;   // OPT2 A/B (NMK_OPT2=0): hex on every layer at any distance, the old far-normal rule, no snow tap gate
 uniform ivec3 uSnowSlot;   // SN2: slots snow_packed, snow_trodden, snow_thaw (-1 missing): terrTexSlot(uSnowSlot.x, p, n, dpx, dpy, dist)
 uniform float uTexLodG;   // TX2K: the ground's gradient scale (terrain layers, painted ground; uTexLod.x for everything else)
 uniform vec4 uTexLod;     // gradient scale (LOD bias against TAA-jitter shimmer), normal fade start / end (texels per pixel), fade depth
@@ -494,6 +496,7 @@ void texFrame(int q, inout vec3 T, inout vec3 B){ vec3 t = T; if (q == 1) { T = 
 // (switch "hex", Low), uHex.y = cells per texture repeat.
 uniform vec2 uHex;
 float gHexK = 0.0;
+float gLayerW = 1.0;   // OPT2: the calling layer's share of the pixel (kTerrainFS / paintApply set it); hex only at >= uHexMinW
 vec2 hexHash(vec2 v){ return fract(sin(mod(vec2(dot(v, vec2(127.1, 311.7)), dot(v, vec2(269.5, 183.3))), 3.14159))*43758.5453); }
 void texHexFetch(vec3 q, vec2 gx, vec2 gy, out vec4 c, out vec2 nx, out vec2 rh, float nfk, bool nrm, float hf){   // hf: UL1 fade (0 = three equal copies = plain tiling)
   vec2 sk = mat2(1.0, 0.0, -0.57735027, 1.15470054)*(q.xy*uHex.y);
@@ -541,7 +544,7 @@ void texTap(float L, vec3 p, vec3 dpx, vec3 dpy, vec2 inv, vec3 T, vec3 B, vec3 
   // normal detail near the pixel frequency flickers under the TAA jitter: fade it with the footprint (texels per pixel)
   float fp = max(length(gx), length(gy))*(texHi(L) ? 2048.0 : 1024.0)/max(gs, 1e-3);
   float nfk = 1.0 - uTexLod.w*gTexNFade*smoothstep(uTexLod.y, uTexLod.z, fp);
-  bool nrm = !(uTexSkipFar == 1 && nfk < 0.06);   // MA1 imgmat: far, no normal tap
+  bool nrm = uOpt2Off == 1 ? !(uTexSkipFar == 1 && nfk < 0.06) : nfk >= 0.06;   // far: the normal has faded out, so no normal tap (OPT2: every table; was the imgmat table only)
   vec4 c; vec2 nx, rh;
   float hf = uHexFade.y > 0.0 ? 1.0 - smoothstep(uHexFade.x, uHexFade.y, gEyeD) : 1.0;   // UL1: q.hexFade
   if (gHexK > 0.0 && hf > 0.0 && w > 0.04) texHexFetch(q, gx, gy, c, nx, rh, nfk, nrm, hf);
@@ -585,7 +588,7 @@ TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
   if (f <= 0.0) return o;
   gEyeD = dist;
   vec2 inv = Lp.xy*A.w; int rot = int(mod(C.y + 0.5, 4.0));
-  gHexK = uHex.x > 0.0 ? floor(C.y/4.0 + 0.01)/8.0 : 0.0;   // M1: this slot's hex tiling (ground and cliff taps)
+  gHexK = uHex.x > 0.0 && (uOpt2Off == 1 || gLayerW >= 0.35) ? floor(C.y/4.0 + 0.01)/8.0 : 0.0;   // M1: this slot's hex tiling (ground and cliff taps); OPT2: a layer under 35 % of the pixel takes one plain tap
   TexS s = TexS(vec3(0.0), 0.0, 0.0, 0.0, vec3(0.0), 0.0);
   float gs0 = gTexGS; gTexGS = uTexLodG;
   if (int(A.z + 0.5) == 3) {
@@ -809,6 +812,13 @@ void init(const fs::path& texRoot) {
   loadSets();
 }
 
+// OPT1 (CP step 5, the mid-match freeze): a set a material names after the load (a lazy library slot, an asset first
+// built mid-match) no longer reloads and re-uploads every set: the 1K arrays keep kSpare empty layers and a late set is
+// built from the cache and uploaded into the next one (addLateSet), one per frame. Only when the spares are used up does
+// it fall back to the full reload, logged as such for the hitch log.
+const int kSpare = 16;
+int spareNext = 0, spareEnd = 0;
+std::set<std::string> gLateFailed;   // late sets that would not build: not retried
 void loadSets() {   // TX2: the sets on the GPU (re-run by flushPending; the slot tables and codes stay)
   auto t0 = std::chrono::steady_clock::now();
   const fs::path& texRoot = root;
@@ -855,7 +865,8 @@ void loadSets() {   // TX2: the sets on the GPU (re-run by flushPending; the slo
   gpuOn = false;
   for (GLuint& a : arr) if (a) { glDeleteTextures(1, &a); a = 0; }
   for (GLuint& a : arrHi) if (a) { glDeleteTextures(1, &a); a = 0; }
-  gInfo.bytes = 0; hiBase = n;
+  const int spare = std::max(0, std::min(kSpare, kMaxLayers - n - nHi));   // OPT1: empty 1K layers for late sets
+  gInfo.bytes = 0; hiBase = n + spare; spareNext = n; spareEnd = n + spare;
   if (n + nHi > 0) {
     GLenum fmt[3] = {bc ? (GLenum)GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT : (GLenum)GL_SRGB8_ALPHA8, bc ? (GLenum)GL_COMPRESSED_RG_RGTC2 : (GLenum)GL_RG8, bc ? (GLenum)GL_COMPRESSED_RG_RGTC2 : (GLenum)GL_RG8};
     auto mk = [&](GLuint* a, int sz, int layers) {   // an empty array still gets one layer: its samplers stay complete
@@ -867,13 +878,14 @@ void loadSets() {   // TX2: the sets on the GPU (re-run by flushPending; the slo
         glTextureParameterf(a[k], 0x84FE /* GL_TEXTURE_MAX_ANISOTROPY */, gAniso);
       }
     };
-    mk(arr, kSize, n);
+    mk(arr, kSize, n + spare);
     if (nHi > 0) mk(arrHi, kSizeHi, nHi);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     int layer = 0;
     for (size_t i = 0; i < dirs.size(); ++i) {
       if (!cpu[i].ok) continue;
-      bool hi = cpu[i].n == kSizeHi; GLuint* a = hi ? arrHi : arr; int z = hi ? layer - hiBase : layer;
+      bool hi = cpu[i].n == kSizeHi; if (hi && layer < hiBase) layer = hiBase;   // OPT1: the 2K layers start after the spares
+      GLuint* a = hi ? arrHi : arr; int z = hi ? layer - hiBase : layer;
       for (int k = 0; k < 3; ++k) {
         int s = cpu[i].n;
         for (int L = 0; L < levelsFor(cpu[i].n); ++L, s /= 2) {
@@ -901,13 +913,84 @@ void loadSets() {   // TX2: the sets on the GPU (re-run by flushPending; the slo
   invalidateKey();
   gInfo.ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
   if (nHi > 0) logf("textures: %d of them 2K (TX2K, units %d-%d)", nHi, kUnitBase + 9, kUnitBase + 11);
+  logf("textures: array layers %d of %d used (%d 1K sets + %d spare for late sets, %d 2K); slots %d of %d", hiBase + nHi, kMaxLayers, n, spareEnd - spareNext, nHi, (int)slots.size(), kMaxSlots);
   logf("textures: %d sets (%s, %.0f MB), %d/%d slots live, %d sets on disk not used by a slot, %.0f ms", gInfo.sets, bc ? "BC3/BC5" : "RGBA8/RG8", gInfo.bytes / 1048576.0,
        gInfo.slotsLive, gInfo.slots, gInfo.unused, gInfo.ms);
   for (auto& m : gInfo.missing) logf("textures: set '%s' not found (its slots stay procedural)", m.c_str());
   uploadAll();
 }
 
-void flushPending() { if (!gPending) return; gPending = false; loadSets(); uploadAll(); }
+// OPT1: one late set into a spare 1K layer (false: no spare left, or it would not build)
+bool addLateSet(const std::string& name, Cpu* built = nullptr) {
+  if (!gpuOn || spareNext >= spareEnd || findSet(name) >= 0) return findSet(name) >= 0;
+  auto t0 = std::chrono::steady_clock::now();
+  Cpu c; c.n = kSize;
+  if (built) c = std::move(*built); else buildSet(root / name, gInfo.compressed, c);
+  if (!c.ok) { logf("textures: late set %s skipped (%s)", name.c_str(), c.err.c_str()); gLateFailed.insert(name); return true; }
+  const bool bc = gInfo.compressed;
+  GLenum fmt[3] = {bc ? (GLenum)GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT : (GLenum)GL_SRGB8_ALPHA8, bc ? (GLenum)GL_COMPRESSED_RG_RGTC2 : (GLenum)GL_RG8, bc ? (GLenum)GL_COMPRESSED_RG_RGTC2 : (GLenum)GL_RG8};
+  const int z = spareNext++; size_t bytes = 0;
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  for (int k = 0; k < 3; ++k) {
+    int s = kSize;
+    for (int L = 0; L < levelsFor(kSize); ++L, s /= 2) {
+      auto& d = c.lv[k][L];
+      if (bc) glCompressedTextureSubImage3D(arr[k], L, 0, 0, z, s, s, 1, fmt[k], (GLsizei)d.size(), d.data());
+      else glTextureSubImage3D(arr[k], L, 0, 0, z, s, s, 1, k == 0 ? GL_RGBA : GL_RG, GL_UNSIGNED_BYTE, d.data());
+      bytes += d.size();
+    }
+  }
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+  SetInfo si = c.info; si.name = name; si.layer = z; sets.push_back(si);
+  gInfo.bytes += bytes; gInfo.sets = (int)sets.size();
+  resolveLayers(); invalidateKey(); uploadAll();
+  logf("textures: late set %s into spare layer %d (%d of %d spares left), %.1f MB, %.1f ms", name.c_str(), z, spareEnd - spareNext, kSpare,
+       bytes / 1048576.0, std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
+  return true;
+}
+// budget: sets placed per call (0 = all); a set that finds no spare layer forces the full reload
+void flushImpl(int budget, const char* who) {
+  if (!gPending) return;
+  int placed = 0;
+  for (const std::string& n : gLazyWant) {
+    if (findSet(n) >= 0 || gLateFailed.count(n)) continue;
+    if (budget > 0 && placed >= budget) return;   // the rest next frame (gPending stays)
+    if (!addLateSet(n)) {
+      auto t0 = std::chrono::steady_clock::now();
+      gPending = false; loadSets(); uploadAll();
+      logf("textures: FULL RELOAD (%s: no spare layer for %s), %.0f ms", who, n.c_str(), std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
+      return;
+    }
+    ++placed;
+  }
+  gPending = false;
+}
+void flushPending() { flushImpl(0, "load"); }
+// per frame: the CPU side (cache read, or decode + compress on a cache miss) runs on a worker; this frame only uploads a
+// finished one (~4 MB), so a cache miss costs no frame time
+struct LateJob { std::string name; std::shared_ptr<Cpu> cpu; std::future<void> f; };
+LateJob gLate;
+void flushPendingFrame(bool late) {
+  if (!gPending) return;
+  static const bool envOld = std::getenv("NMK_TEX_LATE") && std::string(std::getenv("NMK_TEX_LATE")) == "0";   // A/B: the old full reload (perf switch texlate)
+  if (!late || envOld) { auto t0 = std::chrono::steady_clock::now(); gPending = false; loadSets(); uploadAll(); logf("textures: FULL RELOAD (frame, NMK_TEX_LATE=0), %.0f ms", std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count()); return; }
+  if (gLate.f.valid()) {
+    if (gLate.f.wait_for(std::chrono::seconds(0)) != std::future_status::ready) return;
+    gLate.f.get();
+    if (!addLateSet(gLate.name, gLate.cpu.get())) { gLazyWant.insert(gLate.name); flushImpl(0, "frame"); }
+    gLate = LateJob{};
+    return;   // one upload per frame
+  }
+  for (const std::string& n : gLazyWant) {
+    if (findSet(n) >= 0 || gLateFailed.count(n)) continue;
+    if (!gpuOn || spareNext >= spareEnd) { flushImpl(0, "frame"); return; }
+    gLate.name = n; gLate.cpu = std::make_shared<Cpu>(); gLate.cpu->n = kSize;
+    const bool bc = gInfo.compressed; fs::path dir = root / n; auto cpu = gLate.cpu;
+    gLate.f = std::async(std::launch::async, [dir, bc, cpu] { buildSet(dir, bc, *cpu); });
+    return;
+  }
+  gPending = false;
+}
 
 void attach(GLuint prog) {
   if (std::find(progs.begin(), progs.end(), prog) == progs.end()) progs.push_back(prog);
