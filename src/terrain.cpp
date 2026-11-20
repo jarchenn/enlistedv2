@@ -475,6 +475,8 @@ void Terrain::draw(GLuint prog, vec3 cam, const mat4& vp) const {
     glBindTextureUnit(25, nrmTex);
   }
   glUniform1i(uTN, drawOpts.normals && nrmTex ? 1 : 0);
+  if (drawOpts.skyView) { skyViewSync(); glUniform1i(glGetUniformLocation(prog, "uTSV"), 26); glBindTextureUnit(26, svTex); }   // VOT T5 (base and tiles alike)
+  glUniform1i(glGetUniformLocation(prog, "uTSVOn"), drawOpts.skyView && svTex ? 1 : 0);
   stream.update(*this, cam, vp, stream.cfg.buildBudgetMs);
   stream.drawBase(*this, cam, vp, drawOpts.morph ? glGetUniformLocation(prog, "uMorph") : -2);
   glUniform1i(uDis, 0);
