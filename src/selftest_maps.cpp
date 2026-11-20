@@ -24,6 +24,11 @@
 #include <functional>
 #include <algorithm>
 
+// W1 load check (NMK_WX_CYCLE=1 with --selftest-maps): per gameplay view after the measurement, every weather preset in menu
+// order, Map default, then Lighting Classic Clear / Overcast; a shot each (wx_<map>_<view>_NN.png) and its mean luminance,
+// black share and white share in the log: a white-out or an all-black preset shows at once
+const bool kWxCycle = std::getenv("NMK_WX_CYCLE") != nullptr;
+int gWxPh = 0; float gWxT = 0;
 bool gLookdevRun = false;   // CP0: --selftest-lookdev (selftest.cpp)
 namespace {
 fs::path outDirM() { fs::path p = exeDir() / "selftest_out"; std::error_code ec; fs::create_directories(p, ec); return p; }
@@ -494,7 +499,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
         if (app.mode == Mode::Explore) app.exitExplore();
         app.camPos = v.pos; app.camYaw = v.yaw; app.camPitch = v.pitch;
       }
-      sPerf.push_back({v.name, v.gate}); sLast = 0; gFlPh = 0; gFxPh = 0; gLdPh = 0; gWalkN = 0; gWalk0 = app.camPos;
+      sPerf.push_back({v.name, v.gate}); sLast = 0; gFlPh = 0; gFxPh = 0; gLdPh = 0; gWxPh = 0; gWalkN = 0; gWalk0 = app.camPos;
       logf("maps view %s at (%.1f %.1f %.1f) yaw %.1f pitch %.1f", v.name.c_str(), v.pos.x, v.pos.y, v.pos.z, v.yaw, v.pitch);
     }
     if (v.explore && app.mode == Mode::Explore) { app.useScripted = true; }
@@ -575,6 +580,35 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       }
       break;
     }
+    if (kWxCycle && v.gate && sPresetPass == 0 && stageTime >= measEnd) {   // W1 preset cycle (see kWxCycle)
+      const int np = wxPresetCount(), nAll = np + 3;   // presets, Map default, Classic Clear, Classic Overcast
+      std::string base = "wx_" + app.templates[sTpl[sTi]].id + "_" + v.name;
+      auto setK = [&](int k) {
+        bool classic = k >= np + 1; settings().s.lightNew = !classic; app.R.q.lightNew = !classic;
+        if (k < np) weatherForce(app.R, wxPresetIdAt(k)); else if (k == np) { app.R.wx.userSet = false; app.R.wx.snap(); } else weatherForce(app.R, k == np + 1 ? 0 : 1);
+        app.R.resetTemporal();
+      };
+      if (gWxPh == 0) { setK(0); gWxT = stageTime; gWxPh = 1; }
+      else if (gWxPh <= nAll && stageTime >= gWxT + 1.6f) {
+        char b[16]; std::snprintf(b, sizeof b, "_%02d", gWxPh - 1); shotQueue.push_back(base + b);
+        if (gWxPh < nAll) setK(gWxPh);
+        gWxT = stageTime; ++gWxPh;
+      } else if (gWxPh == nAll + 1 && stageTime >= gWxT + 0.2f) {
+        for (int k = 0; k < nAll; ++k) {
+          char b[16]; std::snprintf(b, sizeof b, "_%02d", k); int w = 0, h = 0, n = 0;
+          unsigned char* I = stbi_load((outDirM() / (base + b + ".png")).string().c_str(), &w, &h, &n, 3);
+          if (!I) { check(false, "W1 preset cycle: shot missing " + base + b); continue; }
+          double L = 0; long blk = 0, clp = 0;
+          for (long q = 0; q < (long)w * h; ++q) { int r = I[q * 3], g = I[q * 3 + 1], bb = I[q * 3 + 2]; L += 0.2126 * r + 0.7152 * g + 0.0722 * bb; int mx = std::max({r, g, bb}); blk += mx <= 3; clp += std::min({r, g, bb}) >= 252; }
+          stbi_image_free(I);
+          L /= (double)w * h; double bp = 100.0 * blk / ((double)w * h), cp = 100.0 * clp / ((double)w * h);
+          const char* nm = k < np ? wxPresetName(wxPresetIdAt(k)) : k == np ? "Map default" : k == np + 1 ? "Classic Clear" : "Classic Overcast";
+          check(L > 8.0 && L < 235.0 && bp < 60.0 && cp < 60.0, fmt("W1 %s %s: %s: mean sRGB %.0f, black %.1f %%, white %.1f %% -> %s%s.png", app.templates[sTpl[sTi]].id.c_str(), v.name.c_str(), nm, L, bp, cp, base.c_str(), b));
+        }
+        settings().s.lightNew = true; app.R.q.lightNew = true; app.R.wx.userSet = false; app.R.wx.snap(); ++gWxPh;
+      }
+      if (gWxPh <= nAll + 1) break;
+    }
     if (ldRun() && v.gate && sPresetPass == 0 && stageTime >= measEnd && gLdPh < 10) {   // CP0 look-dev readout (see ldAnalyse)
       std::string map = app.templates[sTpl[sTi]].id, base = "ld_" + map + "_" + v.name;
       Renderer& R = app.R;
@@ -604,7 +638,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       std::string nm = "maps_" + app.templates[sTpl[sTi]].id + "_" + v.name + (sPresetPass == 1 ? "_low" : sPresetPass == 2 ? "_high" : sPresetPass == 3 ? "_night" : "");
       shotQueue.push_back(nm);
       check(p.frames > 10, fmt("%s view %s%s: %.2f ms avg (worst %.1f) over %d frames, %.0f draws, %.1f M tris, GPU %.2f ms, sun direct %.0f %%, %d sun-cascade draws -> selftest_out/%s.png", v.gate ? "gameplay" : "editor", v.name.c_str(), sPresetPass ? (sPresetPass == 1 ? " at Low" : sPresetPass == 2 ? " at High" : " at Night (Medium)") : "", p.ms, p.worst, p.frames, p.draws, p.tris / 1e6, p.gpu, app.R.stats.sunDirectPct, app.R.stats.shadowDraws, nm.c_str()));
-      if (v.gate && sPresetPass < 3 && !std::getenv("NMK_MAPS_VIEW") && !kFl1 && !kFx1 && !ldRun()) {   // V2 (docs/settings.md): the same gameplay view again at Low, then High; L2: then Night at Medium
+      if (v.gate && sPresetPass < 3 && !std::getenv("NMK_MAPS_VIEW") && !kFl1 && !kFx1 && !ldRun() && !kWxCycle) {   // V2 (docs/settings.md): the same gameplay view again at Low, then High; L2: then Night at Medium
         ++sPresetPass; GfxPreset ps = sPresetPass == 1 ? GfxPreset::Low : sPresetPass == 2 ? GfxPreset::High : GfxPreset::Medium;
         settings().applyPreset(app, ps); app.R.resetTemporal();
         if (sPresetPass == 3) app.R.lt.hour = 0.0f;   // Night (docs/lighting.md)
