@@ -1375,6 +1375,19 @@ int App::run(int argc, char** argv) {
       R.lt.mapFill = lj ? std::clamp(lj->value("fill", 1.0f), 0.0f, 4.0f) : 1.0f;
       R.lt.mapAmbient = lj && lj->contains("ambient") && (*lj)["ambient"].is_array() && (*lj)["ambient"].size() == 3 ? vec3((*lj)["ambient"][0].get<float>(), (*lj)["ambient"][1].get<float>(), (*lj)["ambient"][2].get<float>()) : vec3(0.0f);
       R.lt.mapNoFog = lk && !lk->value("fog", true);
+      // FG1 (Blackwater Thaw spec 6): "look": {"hazeHeight": m (the aerial haze scale height), "fogLayer": {"density": 1/m,
+      // "height": m}} (the valley mist: the environmental fog's own density and e-folding height, instead of the weather's)
+      R.lt.mapLeafless = lk && lk->value("leafless", false);
+      { const json* sf = lk && lk->contains("snowfall") && (*lk)["snowfall"].is_object() ? &(*lk)["snowfall"] : nullptr;   // SF1
+        R.lt.mapSnowfall = sf != nullptr;
+        if (sf) { R.lt.sfNear = std::clamp(sf->value("near", 160.0f), 0.0f, 4000.0f); R.lt.sfFar = std::clamp(sf->value("far", 3000.0f), 0.0f, 40000.0f);
+                  R.lt.sfFall = std::clamp(sf->value("fall", 1.1f), 0.1f, 8.0f); R.lt.sfBright = std::clamp(sf->value("bright", 1.0f), 0.0f, 8.0f);
+                  if (sf->contains("wind") && (*sf)["wind"].is_array() && (*sf)["wind"].size() == 2) R.lt.sfWind = vec2((*sf)["wind"][0].get<float>(), (*sf)["wind"][1].get<float>()); } }
+      R.lt.mapHazeH = lk ? std::clamp(lk->value("hazeHeight", 0.0f), 0.0f, 2000.0f) : 0.0f;
+      { const json* fl = lk && lk->contains("fogLayer") && (*lk)["fogLayer"].is_object() ? &(*lk)["fogLayer"] : nullptr;
+        R.lt.mapFogLayerDens = fl ? std::clamp(fl->value("density", -1.0f), -1.0f, 0.2f) : -1.0f;
+        R.lt.mapFogLayerH = fl ? std::clamp(fl->value("height", 0.0f), 0.0f, 500.0f) : 0.0f; }
+      { extern void snowSync(App&); snowSync(*this); }   // SN1: the map's snow layer (snow.cpp)
       // GR3: "look": {"night": {"haze", "envFog", "fogNear"}}: the map's night air (its own density and mist), when the sun is down
       const bool nightNow = R.lt.hour < 5.8f || R.lt.hour > 20.4f;
       const json* lkN = nightNow && lk && lk->contains("night") && (*lk)["night"].is_object() ? &(*lk)["night"] : nullptr;

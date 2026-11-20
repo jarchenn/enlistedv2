@@ -249,7 +249,8 @@ void Settings::apply(App& app) {
   R.grassAtlasTier = g.grass >= 2;   // GT1 grass plant atlas: Medium, High, Ultra (Low keeps the procedural blades)
   R.leafLodScale = g.grass <= 1 ? 0.6f : 1.0f;   // L1: vegetation detail follows the grass quality (Low: near 6 m, mid 13 m)
   R.clouds = g.clouds; R.wx.quality = g.cloudQuality; R.wx.target = s.weather; R.wx.fog = s.envFog;   // WX1 (a LAN client takes the host's: Renderer::Weather::forced)
-  R.q.hazeDensity = 0.0010f * std::clamp(1200.0f / g.renderDist, 0.4f, 2.0f);   // PF2: the haze reaches the same depth at the render distance (Medium: unchanged)
+  R.q.hazeDensity = 0.0010f * std::clamp(1200.0f / g.renderDist, 0.4f, 2.0f);
+  R.q.snowfallScale = g.cloudQuality <= 0 ? 0.4f : g.cloudQuality == 1 ? 0.75f : 1.0f;   // SF1: a map's snowfall at this sky quality   // PF2: the haze reaches the same depth at the render distance (Medium: unchanged)
   R.lt.maxLights = g.lightCount; R.lt.shadowLights = g.shadowLights; R.lt.gi = g.gi; R.lt.hour = s.hour;   // L2 lighting
   app.grass.quality = (GrassQuality)std::clamp(g.grass, 0, 4); app.grass.nearWind = g.grassWind;
   app.fx.setBudget(g.particles);
