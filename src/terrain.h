@@ -19,6 +19,7 @@ struct TemplateInfo {
 std::vector<TemplateInfo> loadTemplates(const fs::path& dir);
 
 struct SurfaceFootprint { vec2 pos; float yaw; vec2 bmin, bmax; float strength = 1; };
+struct SurfaceShore { std::vector<vec2> outline; float level = 0; };   // GR3: a still water body (lasso pond): its bank gets a damp-mud band, its bed no grass
 
 // A terrain cut (navmeta.h TerrainCut) placed in the world by an instance: inside the outline the ground is lowered to
 // a flat floor at floorY (instance y - depth), ramping linearly from the outline over `bank` metres. Never raises ground.
@@ -169,7 +170,7 @@ public:
   int surfW = kSurfRes, surfH = kSurfRes;
   std::vector<uint8_t> surf;       // RGBA8: wear, wet, kind, rut (surfW x surfH over the terrain rectangle)
   uint32_t surfRev = 0; uint64_t surfSig = 0;
-  void buildSurface(const json& routes, const std::vector<SurfaceFootprint>& feet);
+  void buildSurface(const json& routes, const std::vector<SurfaceFootprint>& feet, const std::vector<SurfaceShore>& shores = {});
   float surfSample(float x, float z, int channel) const;
   float wearAt(float x, float z) const { return surfSample(x, z, 0); }
   float wetAt(float x, float z) const { return surfSample(x, z, 1); }

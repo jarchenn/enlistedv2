@@ -24,7 +24,7 @@ float segDist(vec2 p, vec2 a, vec2 b, float& along) {
 }
 }
 
-void Terrain::buildSurface(const json& routes, const std::vector<SurfaceFootprint>& feet) {
+void Terrain::buildSurface(const json& routes, const std::vector<SurfaceFootprint>& feet, const std::vector<SurfaceShore>& shores) {
   // texel: 0.39 m (the pre-9.1 800 m / 2048 mask) up to kSurfMaxTexels, coarser beyond (SPEC 9.1 large maps)
   float texel = 800.0f / kSurfRes;
   if ((double)(size / texel) * (sizeZ / texel) > (double)kSurfMaxTexels) texel = std::sqrt(size * sizeZ / (float)kSurfMaxTexels);
@@ -99,6 +99,37 @@ void Terrain::buildSurface(const json& routes, const std::vector<SurfaceFootprin
         size_t i = idx(x, y);
         surf[i + 0] = std::max<uint8_t>(surf[i + 0], (uint8_t)(soil * 0.75f * 255));
         surf[i + 1] = std::max<uint8_t>(surf[i + 1], (uint8_t)(wet * 255));
+      }
+  }
+  // GR3: shores of still water: the bed inside the outline is bare damp ground (no grass), and round it a thin damp-mud
+  // margin whose width follows the bank: up to ~2 m on a gentle shelf, a line against a steep bank (it ends ~0.25-0.45 m
+  // above the water), its edge broken into scallops by noise. Damp, below the puddle-gloss range: the map's mood stays
+  for (const auto& sh : shores) {
+    if (sh.outline.size() < 3) continue;
+    vec2 bmn(1e9f), bmx(-1e9f); for (vec2 p : sh.outline) { bmn = glm::min(bmn, p); bmx = glm::max(bmx, p); }
+    vec2 mn = toTex(bmn - vec2(4.0f)), mx = toTex(bmx + vec2(4.0f));
+    int x0 = std::max(0, (int)mn.x), x1 = std::min(R - 1, (int)mx.x), y0 = std::max(0, (int)mn.y), y1 = std::min(RZ - 1, (int)mx.y);
+    const size_t n = sh.outline.size();
+    for (int y = y0; y <= y1; ++y)
+      for (int x = x0; x <= x1; ++x) {
+        vec2 w(ox + (x + 0.5f) * texel, oz + (y + 0.5f) * texel);
+        bool in = false; float d = 1e9f, al;
+        for (size_t k = 0, j = n - 1; k < n; j = k++) {
+          vec2 a = sh.outline[j], b = sh.outline[k];
+          if (((a.y > w.y) != (b.y > w.y)) && (w.x < (b.x - a.x) * (w.y - a.y) / (b.y - a.y) + a.x)) in = !in;
+          d = std::min(d, segDist(w, a, b, al));
+        }
+        float hAbove = height(w.x, w.y) - sh.level;
+        float wetV, soilV;
+        if (in && hAbove < 0.0f) { wetV = 0.45f; soilV = 0.9f; }   // the bed, where the ground is really under the water: bare, damp
+        else if (in) {   // the waterline: a thin damp-mud margin within ~12 cm above the water, ragged; most grass stays
+          float n1 = vnoise(w.x * 0.9f, w.y * 0.9f, 31), n2 = vnoise(w.x * 2.7f, w.y * 2.7f, 37);
+          float damp = std::clamp(1.0f - hAbove / (0.06f + 0.1f * n1), 0.0f, 1.0f) * (0.6f + 0.4f * n2);
+          wetV = damp * 0.4f; soilV = damp * 0.4f;
+        } else { wetV = 0.0f; soilV = 0.0f; }
+        size_t i = idx(x, y);
+        surf[i + 0] = std::max<uint8_t>(surf[i + 0], (uint8_t)(std::clamp(soilV, 0.0f, 1.0f) * 255));
+        surf[i + 1] = std::max<uint8_t>(surf[i + 1], (uint8_t)(std::clamp(wetV, 0.0f, 1.0f) * 255));
       }
   }
   if (!surfTex) {

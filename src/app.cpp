@@ -1506,20 +1506,26 @@ void App::updateSurface() {
   auto mix = [&](uint64_t v) { sig = (sig ^ v) * 1099511628211ull; };
   for (auto& i : doc.instances) {
     const AssetDef* a = assetFor(i);
-    if (!a || a->station.kind.size() || (a->crate.is_object() && !a->crate.empty()) || a->tree.on || !a->defense.kind.empty() || a->rack || isVehicleAsset(a) || a->nature.kind != NatureDef::NONE) continue;
+    if (!a || a->station.kind.size() || (a->crate.is_object() && !a->crate.empty()) || a->tree.on || !a->defense.kind.empty() || a->rack || a->nature.kind != NatureDef::NONE) continue;
+    const float seat = isVehicleAsset(a) ? 0.6f : 1.0f;   // GR3: parked vehicles sit in the dirt too (mud round the tyres), a lighter band
     { extern bool waterAsset(const AssetDef*); if (waterAsset(a)) continue; }   // V1: ponds / streams / the sea have no foundation band
     if (isFurnishPiece(i) || isDressingPiece(i)) continue;   // V4 / MA3: furniture and foundation dressing have no foundation band of their own
     if (a->raw.is_object() && a->raw.contains("earthwork")) continue;   // GX1 earth-covered: the berm's contact band hugs the walls (the bounds would draw a line across the banks)
-    feet.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(a->bmin.x, a->bmin.z), vec2(a->bmax.x, a->bmax.z), 1.0f});
+    feet.push_back({vec2(i.pos.x, i.pos.z), i.yaw, vec2(a->bmin.x, a->bmin.z), vec2(a->bmax.x, a->bmax.z), seat});
     uint32_t b[3]; std::memcpy(&b[0], &i.pos.x, 4); std::memcpy(&b[1], &i.pos.z, 4); std::memcpy(&b[2], &i.yaw, 4);
     mix(b[0]); mix(b[1]); mix(b[2]); mix(std::hash<std::string>{}(i.assetId));
   }
   json routes = doc.extra.is_object() && doc.extra.contains("routes") ? doc.extra["routes"] : json::array();
   mix(std::hash<std::string>{}(routes.dump()));
   mix(terrain.generation);
+  std::vector<SurfaceShore> shores;   // GR3: the lasso water bodies' banks (damp-mud band, bare bed)
+  for (const auto& w : doc.waterBodies) {
+    shores.push_back({w.outline, w.level});
+    uint32_t lv; std::memcpy(&lv, &w.level, 4); mix(lv); mix(w.outline.size()); mix(w.id);
+  }
   gSurf = sig;
   if (sig == terrain.surfSig && !terrain.surf.empty()) return;
-  terrain.buildSurface(routes, feet);
+  terrain.buildSurface(routes, feet, shores);
   terrain.surfSig = sig;
 }
 
