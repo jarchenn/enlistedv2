@@ -2,6 +2,7 @@
 // what happened that frame).
 #include "hitch_log.h"
 #include "common.h"
+#include "crumb.h"
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
 #include <algorithm>
@@ -15,7 +16,7 @@ double gPrevEnd = 0, gLastLog = 0; int gSuppressed = 0;
 
 int chans(GLenum f) { return f == GL_RED || f == GL_RED_INTEGER || f == GL_DEPTH_COMPONENT ? 1 : f == GL_RG ? 2 : f == GL_RGB || f == GL_BGR ? 3 : 4; }
 int typeBytes(GLenum t) { return t == GL_FLOAT || t == GL_UNSIGNED_INT || t == GL_INT ? 4 : t == GL_HALF_FLOAT || t == GL_UNSIGNED_SHORT || t == GL_SHORT ? 2 : 1; }
-double mb(double bytes) { return bytes / (1024.0 * 1024.0); }
+double mb(double bytes) { double m = bytes / (1024.0 * 1024.0); if (m > gCur.bigUpMB) { gCur.bigUpMB = m; gCur.bigUpAt = gCrumb; } return m; }   // also: the largest upload's section
 
 PFNGLLINKPROGRAMPROC oLink; PFNGLTEXIMAGE2DPROC oTexImage2D; PFNGLTEXSUBIMAGE2DPROC oTexSub2D;
 PFNGLTEXTURESUBIMAGE2DPROC oTextureSub2D; PFNGLTEXTURESUBIMAGE3DPROC oTextureSub3D;
@@ -70,8 +71,8 @@ void hitchFrameEnd(double swapMs, bool loading) {
   if (gCur.hitch) {
     ++gHitches;
     if (now - gLastLog >= 0.5) {   // at most two lines a second; the rest are counted
-      logf("hitch: %.1f ms (median %.1f): tex uploads %d (%.1f MB), buffer uploads %d (%.1f MB), programs linked %d, flushPending %.1f ms, buildRT %d, swap %.1f ms%s",
-           gCur.frameMs, gCur.medianMs, gCur.texUploads, gCur.texMB, gCur.bufUploads, gCur.bufMB, gCur.links, gCur.flushMs, gCur.buildRT, gCur.swapMs,
+      logf("hitch: %.1f ms (median %.1f): tex uploads %d (%.1f MB), buffer uploads %d (%.1f MB), programs linked %d, flushPending %.1f ms, buildRT %d, swap %.1f ms, largest upload %.2f MB in \"%s\"%s",
+           gCur.frameMs, gCur.medianMs, gCur.texUploads, gCur.texMB, gCur.bufUploads, gCur.bufMB, gCur.links, gCur.flushMs, gCur.buildRT, gCur.swapMs, gCur.bigUpMB, gCur.bigUpAt ? gCur.bigUpAt : "-",
            gSuppressed ? (" (+" + std::to_string(gSuppressed) + " more since the last line)").c_str() : "");
       gLastLog = now; gSuppressed = 0;
     } else ++gSuppressed;

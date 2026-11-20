@@ -6,6 +6,7 @@
 struct HitchFrame {
   int texUploads = 0; double texMB = 0; int bufUploads = 0; double bufMB = 0; int links = 0;
   double flushMs = 0; int buildRT = 0;
+  double bigUpMB = 0; const char* bigUpAt = nullptr;   // the frame's largest single upload and the crumb (code section) it came from
   double swapMs = 0, frameMs = 0, medianMs = 0; bool hitch = false;
 };
 void hitchInstall();                         // after gladLoadGL
