@@ -201,6 +201,7 @@ void Terrain::baseEdited(vec2 lo, vec2 hi) {
   int z0 = std::max(0, (int)std::floor((lo.y - org.y) / cs) - 1), z1 = std::min(chunksZ() - 1, (int)std::floor((hi.y - org.y) / cs) + 1);
   for (int z = z0; z <= z1; ++z) for (int x = x0; x <= x1; ++x) ++chunkRev[(size_t)z * chunksX() + x];
   ++revision;
+  normalsDirty(lo, hi);   // VOT T1
 }
 
 float Terrain::baseHeight(float x, float z) const {
@@ -465,14 +466,26 @@ void Terrain::draw(GLuint prog, vec3 cam, const mat4& vp) const {
   glBindTextureUnit(14, surfTex);
   { extern void groundPaintBind(GLuint); groundPaintBind(prog); }   // lasso ground paint: unit 23 (ground_paint.cpp)
   glUniform1i(uDis, tiles.empty() ? 0 : 1);
+  // VOT T1: per-pixel normals on the base chunks (unit 25), geomorphing between their LOD steps (drawBase sets uMorph)
+  GLint uTN = glGetUniformLocation(prog, "uTNOn");
+  if (drawOpts.normals) {
+    normalsSync();
+    glUniform1i(glGetUniformLocation(prog, "uTNrm"), 25);
+    glUniform4f(glGetUniformLocation(prog, "uTNMap"), org.x, org.y, 1.0f / size, 1.0f / sizeZ);
+    glBindTextureUnit(25, nrmTex);
+  }
+  glUniform1i(uTN, drawOpts.normals && nrmTex ? 1 : 0);
   stream.update(*this, cam, vp, stream.cfg.buildBudgetMs);
-  stream.drawBase(*this, cam, vp);
+  stream.drawBase(*this, cam, vp, drawOpts.morph ? glGetUniformLocation(prog, "uMorph") : -2);
   glUniform1i(uDis, 0);
+  glUniform1i(uTN, 0);
+  glUniform4f(glGetUniformLocation(prog, "uMorph"), 0, 0, 0, 0);
   for (auto& [k, t] : tiles) { if (!t.count) continue; glBindVertexArray(t.vao); glDrawElements(GL_TRIANGLES, t.count, GL_UNSIGNED_INT, nullptr); }
 }
 
 void Terrain::destroy() {
   stream.release();
+  normalsRelease();
   if (maskTex) glDeleteTextures(1, &maskTex);
   maskTex = 0;
 }

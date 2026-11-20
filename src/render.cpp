@@ -2600,12 +2600,20 @@ void main(){}
 
 static const char* kTerrainVS = R"GLSL(
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in float aDirt; layout(location=3) in vec3 aEw;
+layout(location=4) in float aMorph;   // VOT T1: the next LOD's height minus this vertex's (base chunks; 0 elsewhere)
 uniform mat4 uVP;
-out vec3 vW, vN; out float vDirt; out vec3 vEw;
-void main(){ vW = aPos; vN = aNrm; vDirt = aDirt; vEw = aEw; gl_Position = uVP*vec4(aPos,1.0); }
+uniform vec4 uMorph;                  // VOT T1 geomorph: x start distance, y 1 / ramp length, z on
+out vec3 vW, vN0; out float vDirt; out vec3 vEw;
+void main(){
+  vec3 P = aPos;
+  if (uMorph.z > 0.5) P.y += aMorph*clamp((length(aPos - uCamPos) - uMorph.x)*uMorph.y, 0.0, 1.0);
+  vW = P; vN0 = aNrm; vDirt = aDirt; vEw = aEw; gl_Position = uVP*vec4(P,1.0);
+}
 )GLSL";
 static const char* kTerrainFS = R"GLSL(
-in vec3 vW, vN; in float vDirt; in vec3 vEw;   // vEw: GX1 earthworks (terrain_cuts.cpp): packed mud, freshly turned earth, wet
+in vec3 vW, vN0; in float vDirt; in vec3 vEw;   // vEw: GX1 earthworks (terrain_cuts.cpp): packed mud, freshly turned earth, wet
+uniform int uTNOn; uniform sampler2D uTNrm; uniform vec4 uTNMap;   // VOT T1: per-pixel base normals (terrain_normals.cpp, unit 25), xy origin, zw 1 / extent
+vec3 vN;   // the shading normal: vN0 (vertex) or the baked per-pixel one
 uniform int uGrid; uniform vec2 uBuildHalf;
 uniform int uDiscard; uniform sampler2D uTileMask; uniform float uTileSize; uniform vec2 uTerrainOrg, uTerrainExt;
 uniform sampler2D uSurf;   // R wear, G wet, B route kind, A rut (surface.cpp)
@@ -2621,6 +2629,8 @@ layout(location=2) out vec4 oAmb;
 layout(location=3) out vec4 oNR;
 layout(location=4) out vec4 oVel;
 void main(){
+  vN = vN0;
+  if (uTNOn == 1) { vec2 r = texture(uTNrm, (vW.xz - uTNMap.xy)*uTNMap.zw).rg; vN = vec3(r.x, sqrt(max(1.0 - dot(r, r), 0.0)), r.y); }   // VOT T1
   vec3 p = vW;
   vec3 tdx = dFdx(p), tdy = dFdy(p), tn0 = normalize(vN); float tDist = length(p - uCamPos);   // L4 terrain layers (before any discard)
   if (uDiscard == 1) {   // base mesh hidden under high-resolution deformation tiles
@@ -4774,6 +4784,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       glProgramUniform1f(progTerrain, glGetUniformLocation(progTerrain, "uGroundSpec"), ggOff ? 1.0f : dspec);
     }
     { static const int dbg = std::getenv("NMK_DBG_TERRAIN") ? std::atoi(std::getenv("NMK_DBG_TERRAIN")) : 0; glProgramUniform1i(progTerrain, glGetUniformLocation(progTerrain, "uDbgTerr"), dbgTerr >= 0 ? dbgTerr : dbg); }   // GG1 measurement
+    t.drawOpts.normals = perf.terrainNormals; t.drawOpts.morph = perf.terrainMorph;   // VOT T1
     t.draw(progTerrain, v.camPos, vp);   // streamed LOD chunks + deformation tiles (terrain_chunks.cpp)
     glDisable(GL_POLYGON_OFFSET_FILL);
   };
