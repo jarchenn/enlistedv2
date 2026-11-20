@@ -2541,9 +2541,24 @@ void main(){ gl_FragDepth = texelFetch(uDepth, clamp(ivec2(vUV*uInSize), ivec2(0
 // accumulated back up; the tonemap adds a small fraction. Wide and faint: a soft glow, no threshold streaks.
 static const char* kBloomDownFS = R"GLSL(
 in vec2 vUV;
-uniform sampler2D uSrc; uniform vec2 uSrcTexel; uniform int uFirst;
+uniform sampler2D uSrc; uniform vec2 uSrcTexel; uniform int uFirst, uDown13;
 out vec4 oColor;
+vec3 kw(vec3 a, vec3 b, vec3 c, vec3 d, int first){   // a 2x2 block; the first level weighs by 1 / (1 + luma) (Karis: no fireflies)
+  if (first == 0) return (a + b + c + d)*0.25;
+  float wa = 1.0/(1.0 + dot(a, vec3(0.2126, 0.7152, 0.0722))), wb = 1.0/(1.0 + dot(b, vec3(0.2126, 0.7152, 0.0722)));
+  float wc = 1.0/(1.0 + dot(c, vec3(0.2126, 0.7152, 0.0722))), wd = 1.0/(1.0 + dot(d, vec3(0.2126, 0.7152, 0.0722)));
+  return (a*wa + b*wb + c*wc + d*wd)/(wa + wb + wc + wd);
+}
 void main(){
+  if (uDown13 == 1) {   // VO L8: Jimenez 2014's 13-tap downsample (five overlapping 2x2 boxes): no aliasing / flicker in the glow
+    vec2 o = uSrcTexel;
+    vec3 A = texture(uSrc, vUV + o*vec2(-2, -2)).rgb, B = texture(uSrc, vUV + o*vec2(0, -2)).rgb, C = texture(uSrc, vUV + o*vec2(2, -2)).rgb;
+    vec3 D = texture(uSrc, vUV + o*vec2(-1, -1)).rgb, E = texture(uSrc, vUV + o*vec2(1, -1)).rgb, F = texture(uSrc, vUV + o*vec2(-2, 0)).rgb;
+    vec3 G = texture(uSrc, vUV).rgb, H = texture(uSrc, vUV + o*vec2(2, 0)).rgb, I = texture(uSrc, vUV + o*vec2(-1, 1)).rgb;
+    vec3 J = texture(uSrc, vUV + o*vec2(1, 1)).rgb, K = texture(uSrc, vUV + o*vec2(-2, 2)).rgb, L = texture(uSrc, vUV + o*vec2(0, 2)).rgb, M = texture(uSrc, vUV + o*vec2(2, 2)).rgb;
+    vec3 c = kw(D, E, I, J, uFirst)*0.5 + (kw(A, B, F, G, uFirst) + kw(B, C, G, H, uFirst) + kw(F, G, K, L, uFirst) + kw(G, H, L, M, uFirst))*0.125;
+    oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : min(c, vec3(64.0)), 1.0); return;
+  }
   vec3 s[4]; vec2 o = uSrcTexel;
   s[0] = texture(uSrc, vUV + vec2(-o.x, -o.y)).rgb; s[1] = texture(uSrc, vUV + vec2(o.x, -o.y)).rgb;
   s[2] = texture(uSrc, vUV + vec2(-o.x, o.y)).rgb;  s[3] = texture(uSrc, vUV + vec2(o.x, o.y)).rgb;
@@ -3471,19 +3486,49 @@ void main(){
   oColor = vec4((any(isnan(c)) || any(isinf(c))) ? skyColor(d) : c, 1.0);
 }
 )GLSL";
-static const char* kToneFS = R"GLSL(
-#version 450 core
-in vec2 vUV;
-uniform sampler2D uHdr, uExpo, uBloom, uVmDist; uniform float uFixedExpo, uBloomAmt, uEyeR, uAspect, uRectVig, uMicro; uniform int uTonemap;
-uniform float uNewExpo;   // VO L1: Lighting New's re-fit of a fixed exposure (1 in Classic)
+#define NMK_GRADE_GLSL R"GLSL(
 uniform float uUnderTone;   // 1: under water (swim.cpp): blue-green tint, stronger vignette
-// GX5 grade (content/settings/grade.json, docs/graphics-overhaul.md#gx5-grade): saturation, cool shadows / warm
-// highlights, a gentle S-curve, vignette, chromatic aberration (0 = off), and an edge-aware sharpen of the image
 uniform float uNightGamma;   // 1 by day; below 1 lifts the darks at night
 uniform float uMapGamma;     // BR1c: the open map's gamma (> 1 brighter), 1 = none
 uniform float uWxK;   // WX2: the Cloudy mix (desaturation, cooler grade)
 uniform float uMapSat; uniform vec3 uMapTint;   // NT2b: a map's own saturation / tint
 uniform int uGradeOn; uniform float uGradeSat, uGradeContrast, uGradeVig, uGradeSharpen, uGradeCA; uniform vec3 uGradeShadow, uGradeHigh;
+// VO L8: every colour-only step after the tone curve, in Classic's order (vignettes are applied apart: they are positional)
+vec3 gradeColor(vec3 c){
+  float l = dot(c, vec3(0.2126,0.7152,0.0722));
+  if (uGradeOn == 1) {
+    c = mix(vec3(l), c, uGradeSat);
+    float sh = 1.0 - smoothstep(0.0, 0.42, l), hi = smoothstep(0.3, 0.95, l);
+    c *= mix(vec3(1.0), uGradeShadow, sh)*mix(vec3(1.0), uGradeHigh, hi);
+    c = clamp(c, 0.0, 1.0); c = pow(c, vec3(uNightGamma)); c = mix(c, c*c*(3.0 - 2.0*c), uGradeContrast);
+  } else c = mix(vec3(l), c, 0.93);
+  if (uWxK > 0.0) { float lw = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(c, vec3(lw), 0.22*uWxK)*mix(vec3(1.0), vec3(0.94, 0.98, 1.05), uWxK)*(1.0 - 0.38*uWxK); c = mix(c, c*c*(3.0 - 2.0*c), 0.25*uWxK); }
+  if (uMapSat != 1.0 || uMapTint != vec3(1.0)) { float lm = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(lm), c, uMapSat)*uMapTint; }
+  if (uMapGamma != 1.0) c = pow(clamp(c, 0.0, 1.0), vec3(1.0/uMapGamma));
+  if (uUnderTone > 0.0) c = mix(c, c*vec3(0.55, 0.92, 0.98) + vec3(0.0, 0.025, 0.035), uUnderTone);
+  return c;
+}
+)GLSL"
+// VO L8: the grade baked into a 32^3 LUT each frame (sqrt-encoded input: precision in the darks); slice uSlice
+static const char* kGradeLutFS = R"GLSL(
+#version 450 core
+uniform float uSlice;
+out vec4 oColor;
+)GLSL" NMK_GRADE_GLSL R"GLSL(
+void main(){
+  vec3 u = vec3(floor(gl_FragCoord.xy), uSlice)/31.0;
+  oColor = vec4(gradeColor(u*u), 1.0);
+}
+)GLSL";
+static const char* kToneFS = R"GLSL(
+#version 450 core
+in vec2 vUV;
+uniform sampler2D uHdr, uExpo, uBloom, uVmDist; uniform float uFixedExpo, uBloomAmt, uEyeR, uAspect, uRectVig, uMicro; uniform int uTonemap;
+uniform float uNewExpo;   // VO L1: Lighting New's re-fit of a fixed exposure (1 in Classic)
+uniform int uNewTone; uniform float uAgxK, uAgxSat; uniform sampler3D uGradeLut;   // VO L8: AgX-style curve and the grade LUT (Lighting New)
+// GX5 grade (content/settings/grade.json, docs/graphics-overhaul.md#gx5-grade): saturation, cool shadows / warm
+// highlights, a gentle S-curve, vignette, chromatic aberration (0 = off), and an edge-aware sharpen of the image
+)GLSL" NMK_GRADE_GLSL R"GLSL(
 out vec4 oColor;
 vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
 vec3 toSRGB(vec3 c){ return mix(c*12.92, 1.055*pow(c, vec3(1.0/2.4))-0.055, step(0.0031308, c)); }
@@ -3499,6 +3544,15 @@ vec3 filmic(vec3 x){
   vec3 c = mix(shoulder(x, 1.7), byLum, 0.45);
   c = pow(c, vec3(1.10));                 // toe: a little more depth in the shadows without crushing them
   return clamp(c, 0.0, 1.0);
+}
+// VO L8 AgX-style display transform (Sobotka's AgX): the curve runs in AgX's inset primaries space and the result goes
+// back through the outset matrix, so bright saturated colour (desert sand, snow, sky, fire) travels to white instead of
+// skewing hue per channel. The curve itself stays the game's filmic one: in the linear part inset and outset cancel,
+// so mid-tones and shadows, and with them each map's mood, are unchanged; only the shoulder differs
+vec3 agxFilmic(vec3 v){
+  const mat3 inset = mat3(0.842479062253094, 0.0423282422610123, 0.0423756549057051, 0.0784335999999992, 0.878468636469772, 0.0784336, 0.0792237451477643, 0.0791661274605434, 0.879142973793104);
+  const mat3 outset = mat3(1.19687900512017, -0.0528968517574562, -0.0529716355144438, -0.0980208811401368, 1.15190312990417, -0.0980434501171241, -0.0990297440797205, -0.0989611768448433, 1.15107367264116);
+  return clamp(outset*filmic(inset*max(v, vec3(0.0))), 0.0, 1.0);
 }
 vec3 hdrAt(vec2 uv){
   if (uGradeOn == 0 || uGradeCA <= 0.0) return texture(uHdr, uv).rgb;
@@ -3527,10 +3581,20 @@ void main(){
   if (texture(uVmDist, vUV).r > 0.0) bAmt = 0.0;   // VM2: the bloom is the world's, taken before the first-person weapon was drawn: blended over the dark gun it showed the ground through it
   if (bAmt > 0.0) c = mix(c, texture(uBloom, vUV).rgb/6.0, bAmt);   // chain sums 6 levels; energy-preserving blend, not an add
   float e = uFixedExpo > 0.0 ? uFixedExpo*uNewExpo : texelFetch(uExpo, ivec2(0), 0).r;   // VO L1: auto exposure already re-adapts to New's darker scene; a fixed one is lifted
+  vec2 q = vUV - 0.5;
+  if (uNewTone >= 1) {   // VO L8: AgX curve (matched to the old one at mid grey), saturation re-fit, then the grade from its LUT
+    c = agxFilmic(c*e*1.22*uAgxK);
+    float la = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = max(mix(vec3(la), c, uAgxSat), 0.0);
+    c = uNewTone == 2 ? gradeColor(clamp(c, 0.0, 1.0)) : texture(uGradeLut, sqrt(clamp(c, 0.0, 1.0))*(31.0/32.0) + 0.5/32.0).rgb;   // 2: NMK_VO_NOLUT (A/B of the LUT)
+    c *= 1.0 - dot(q,q)*(uGradeOn == 1 ? uGradeVig : 0.16);
+    if (uRectVig > 0.5) { vec2 a = abs(vUV - 0.5)*2.0; float r = pow(pow(a.x, 6.0) + pow(a.y, 6.0), 1.0/6.0); float k = smoothstep(0.62, 1.04, r); k = k*k*(3.0 - 2.0*k);
+      float n = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)))*43758.5453) - 0.5; c = max(c*(1.0 - 0.96*k) + n/255.0, 0.0); }
+    if (uUnderTone > 0.0) c *= 1.0 - dot(q,q)*1.4*uUnderTone;
+    oColor = vec4(toSRGB(clamp(c, 0.0, 1.0)), 1.0); return;
+  }
   c = uTonemap == 0 ? aces(c*e*0.8) : filmic(c*e*1.22);
   // subdued, slightly desaturated period grade (grade.json): saturation, cool shadows / warm highlights, vignette
   float l = dot(c, vec3(0.2126,0.7152,0.0722));
-  vec2 q = vUV - 0.5;
   if (uGradeOn == 1) {   // GX5: the muted, cool-shadow / warm-light grading of the brief's targets
     c = mix(vec3(l), c, uGradeSat);
     float sh = 1.0 - smoothstep(0.0, 0.42, l), hi = smoothstep(0.3, 0.95, l);
@@ -3560,12 +3624,33 @@ static const char* kExpoFS = R"GLSL(
 uniform sampler2D uHdr, uPrev; uniform float uLod, uDt, uReset;
 uniform float uExpoKey, uExpoMin, uExpoMax;   // L2 time of day: Day 0.24, 0.9 .. 1.45; night opens the range (lighting.cpp)
 uniform float uExpoFloor;   // FX1: while the headlamp is on, the exposure at switch-on (fading): its lit patch does not pump the scene down
+uniform int uHist; uniform float uHistCal;   // VO L8: histogram metering (Lighting New), its calibration to the old mean metering
 out float oE;
+// VO L8 (Lagarde & de Rousiers 2014): a centre-weighted 32-bin histogram of log2 luminance over a 16 x 16 grid of a
+// ~64 px mip, metered as the mean between the 40th and 95th percentiles: the sky's few brightest pixels and dark
+// corners no longer swing the exposure (blown desert and snow, murky forest)
+float histLum(){
+  float h[32]; for (int i = 0; i < 32; ++i) h[i] = 0.0;
+  float lod = max(uLod - 6.0, 0.0), ws = 0.0;
+  for (int y = 0; y < 16; ++y) for (int x = 0; x < 16; ++x) {
+    vec2 uv = (vec2(x, y) + 0.5)/16.0;
+    float L = dot(textureLod(uHdr, uv, lod).rgb, vec3(0.2126, 0.7152, 0.0722));
+    if (isnan(L) || isinf(L)) continue;
+    float w = 1.0 - 0.7*smoothstep(0.1, 0.7, length((uv - 0.5)*vec2(1.0, 1.3)));
+    h[int(clamp((log2(max(L, 1e-6)) + 12.0)*2.0, 0.0, 31.0))] += w; ws += w;
+  }
+  float lo = 0.4*ws, hi = 0.95*ws, acc = 0.0, sum = 0.0, cnt = 0.0;
+  for (int i = 0; i < 32; ++i) {
+    float t = max(min(acc + h[i], hi) - max(acc, lo), 0.0);
+    sum += t*((float(i) + 0.5)*0.5 - 12.0); cnt += t; acc += h[i];
+  }
+  return exp2(sum/max(cnt, 1e-4))*uHistCal;
+}
 void main(){
   vec3 avg = textureLod(uHdr, vec2(0.5), uLod).rgb;
   float prev = texelFetch(uPrev, ivec2(0), 0).r;
   if (uReset > 0.0) { oE = uReset; return; }
-  float lr = dot(avg, vec3(0.2126,0.7152,0.0722));
+  float lr = uHist == 1 ? histLum() : dot(avg, vec3(0.2126,0.7152,0.0722));
   if (isnan(lr) || isinf(lr)) { oE = prev; return; }   // one non-finite pixel poisons the whole mip average
   float l = max(lr, 1e-4);
   float target = max(clamp(uExpoKey/l, uExpoMin, uExpoMax), uExpoFloor);
@@ -3786,6 +3871,7 @@ bool Renderer::init(int w, int h) {
   tex::init(contentDir() / "textures"); tex::attach(progMain); tex::attach(progTerrain);   // L4: ambientCG sets, units 20-22
   progSky = compile(kSkyVS, kSkyFS, "sky");
   progTone = compile(kFullVS, kToneFS, "tone");
+  progGradeLut = compile(kFullVS, kGradeLutFS, "grade_lut");   // VO L8
   {   // GX5 grade parameters (content/settings/grade.json; defaults when missing)
     json j; try { j = json::parse(readTextFile(contentDir() / "settings" / "grade.json")); } catch (...) { logf("grade: content/settings/grade.json missing or invalid (defaults)"); }
     if (j.is_object()) {
@@ -4120,7 +4206,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform2f(U(p, "uShadowWorldTexel"), 2 * nearR / shadowSize, 2 * farR / shadowFarSize);
   glUniform1f(U(p, "uShadowDepthRange"), 800.0f);
   glUniform1f(U(p, "uShadowSoft"), q.legacy ? 0.0f : q.shadowSoft * (1.0f + 2.0f * wx.k));   // WX2: overcast sun casts very soft shadows
-  glUniform1f(U(p, "uShadowLift"), q.lightNew && perf.fullShadow ? 1.0f : 0.7f);   // VO L1
+  glUniform1f(U(p, "uShadowLift"), q.lightNew && perf.fullShadow ? q.newShadowLift : 0.7f);   // VO L1
   glUniform1f(U(p, "uMicroSh"), q.lightNew && perf.microShadow && !q.legacy ? 1.0f : 0.0f);   // VO L4
   glUniform1i(U(p, "uShadowTaps"), q.shadowTaps);
   glUniform1i(U(p, "uFrame"), frame);
@@ -5366,9 +5452,34 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1f(U(progExpo, "uReset"), expoReset); expoReset = -1;
   lightingExposure(*this, progExpo);   // L2: exposure range of the time of day
   glUniform1f(U(progExpo, "uExpoFloor"), flashOn ? flashExpoFloor : 0.0f);   // FX1
+  glUniform1i(U(progExpo, "uHist"), q.lightNew && perf.histExpo && !q.legacy ? 1 : 0); glUniform1f(U(progExpo, "uHistCal"), q.histCal);   // VO L8
   glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
   expoIdx ^= 1;
 
+  // VO L8: the colour grade (and the weather / map / underwater colour steps after the tone curve) baked into a 32^3 LUT
+  const bool gradeOn = grade.on && perf.grade && !q.legacy && !thumbMode && !lt.mapClean;   // BR2: a clean map keeps its own colours (the cool-shadow grade turned yellow olive)
+  auto gradeU = [&](GLuint p) {
+    glUniform1i(U(p, "uGradeOn"), gradeOn ? 1 : 0);
+    glUniform1f(U(p, "uWxK"), thumbMode ? 0.0f : wx.k);
+    glUniform1f(U(p, "uMapSat"), thumbMode ? 1.0f : lt.mapSat); glUniform3fv(U(p, "uMapTint"), 1, glm::value_ptr(thumbMode ? vec3(1.0f) : lt.mapTint));
+    glUniform1f(U(p, "uNightGamma"), 1.0f / (1.0f + 0.3f * lightingTod(lt.hour).nightK) / settings().gamma());   // x the Settings gamma slider   // night: gamma +30 % (user request)
+    glUniform1f(U(p, "uMapGamma"), std::max(lt.mapGamma, 0.1f));   // BR1c: the map's own gamma (extra.lighting.gamma)
+    glUniform1f(U(p, "uGradeSat"), grade.saturation); glUniform1f(U(p, "uGradeContrast"), grade.contrast);
+    glUniform3fv(U(p, "uGradeShadow"), 1, glm::value_ptr(grade.shadowTint)); glUniform3fv(U(p, "uGradeHigh"), 1, glm::value_ptr(grade.highlightTint));
+    glUniform1f(U(p, "uUnderTone"), v.underwater ? 1.0f : 0.0f);   // swim.cpp
+  };
+  const bool newTone = q.lightNew && perf.agx && !q.legacy && !thumbMode;
+  if (newTone) {
+    if (!gradeLutTex) {
+      glCreateTextures(GL_TEXTURE_3D, 1, &gradeLutTex); glTextureStorage3D(gradeLutTex, 1, GL_RGBA16F, 32, 32, 32);
+      for (GLenum pn : {GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_TEXTURE_WRAP_R}) glTextureParameteri(gradeLutTex, pn, GL_CLAMP_TO_EDGE);
+      glTextureParameteri(gradeLutTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(gradeLutTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glCreateFramebuffers(1, &gradeLutFbo);
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, gradeLutFbo); glViewport(0, 0, 32, 32);
+    glUseProgram(progGradeLut); gradeU(progGradeLut);
+    for (int z = 0; z < 32; ++z) { glNamedFramebufferTextureLayer(gradeLutFbo, GL_COLOR_ATTACHMENT0, gradeLutTex, 0, z); glUniform1f(U(progGradeLut, "uSlice"), (float)z); glDrawArrays(GL_TRIANGLES, 0, 3); }
+  }
   // ---- tonemap into LDR (shares depth for overlays)
   glBindFramebuffer(GL_FRAMEBUFFER, ldrFbo); glInvalidateNamedFramebufferData(ldrFbo, 1, kInvC0);   // the tonemap writes every pixel (depth is shared: kept)
   glViewport(0, 0, width, height);
@@ -5377,7 +5488,6 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1i(U(progTone, "uHdr"), 0); glUniform1i(U(progTone, "uExpo"), 1);
   glUniform1f(U(progTone, "uNewExpo"), q.lightNew && !q.legacy && !thumbMode ? q.newExpo : 1.0f);   // VO L1
   glUniform1f(U(progTone, "uFixedExpo"), lt.mapExposure > 0 && !thumbMode ? lightingFixedExposure(*this) * lt.mapExposure : v.autoExposure ? -1.0f : lightingFixedExposure(*this));   // 1 by Day; BR3: a map may pin it (play = editor)
-  glUniform1f(U(progTone, "uUnderTone"), v.underwater ? 1.0f : 0.0f);   // swim.cpp
   {   // colour grade (content/settings/grade.json, read once; the defaults match the shipped file)
     static vec4 g(0.91f, 0.21f, 1.0f, 0.18f); static vec3 lo(0.965f, 0.995f, 1.045f), hi(1.035f, 1.0f, 0.955f); static bool read = false;
     if (!read) {
@@ -5399,16 +5509,11 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1f(U(progTone, "uRectVig"), v.rectVignette && !thumbMode ? 1.0f : 0.0f);   // TK3
   glUniform1f(U(progTone, "uEyeR"), eyepiece ? v.eyepieceR : 0.0f); glUniform1f(U(progTone, "uAspect"), (float)width / std::max(1, height));
   {   // GX5 grade (content/settings/grade.json)
-    bool on = grade.on && perf.grade && !q.legacy && !thumbMode && !lt.mapClean;   // BR2: a clean map keeps its own colours (the cool-shadow grade turned yellow olive)
-    glUniform1i(U(progTone, "uGradeOn"), on ? 1 : 0);
-    glUniform1f(U(progTone, "uWxK"), thumbMode ? 0.0f : wx.k);
-    glUniform1f(U(progTone, "uMapSat"), thumbMode ? 1.0f : lt.mapSat); glUniform3fv(U(progTone, "uMapTint"), 1, glm::value_ptr(thumbMode ? vec3(1.0f) : lt.mapTint));
-    glUniform1f(U(progTone, "uNightGamma"), 1.0f / (1.0f + 0.3f * lightingTod(lt.hour).nightK) / settings().gamma());   // x the Settings gamma slider   // night: gamma +30 % (user request)
-    glUniform1f(U(progTone, "uMapGamma"), std::max(lt.mapGamma, 0.1f));   // BR1c: the map's own gamma (extra.lighting.gamma)
-    glUniform1f(U(progTone, "uGradeSat"), grade.saturation); glUniform1f(U(progTone, "uGradeContrast"), grade.contrast);
+    gradeU(progTone);
     glUniform1f(U(progTone, "uGradeVig"), grade.vignette); glUniform1f(U(progTone, "uGradeCA"), grade.chromatic);
     glUniform1f(U(progTone, "uGradeSharpen"), q.taa ? grade.sharpen : 0.0f);
-    glUniform3fv(U(progTone, "uGradeShadow"), 1, glm::value_ptr(grade.shadowTint)); glUniform3fv(U(progTone, "uGradeHigh"), 1, glm::value_ptr(grade.highlightTint));
+    glUniform1i(U(progTone, "uNewTone"), newTone ? (std::getenv("NMK_VO_NOLUT") ? 2 : 1) : 0); glUniform1f(U(progTone, "uAgxK"), q.agxK); glUniform1f(U(progTone, "uAgxSat"), q.agxSat);   // VO L8
+    glBindTextureUnit(4, gradeLutTex); glUniform1i(U(progTone, "uGradeLut"), 4);
   }
   glDrawArrays(GL_TRIANGLES, 0, 3);
 
@@ -5601,6 +5706,7 @@ void Renderer::bloomPass() {
     if (i == 0) glTextureParameteri(hdrColor, GL_TEXTURE_MIN_FILTER, GL_LINEAR);   // read level 0 only
     glUniform2f(U(progBloomDown, "uSrcTexel"), 1.0f / sw, 1.0f / sh);
     glUniform1i(U(progBloomDown, "uFirst"), i == 0 ? 1 : 0);
+    glUniform1i(U(progBloomDown, "uDown13"), q.lightNew && perf.agx && !q.legacy ? 1 : 0);   // VO L8
     glDrawArrays(GL_TRIANGLES, 0, 3);
     if (i == 0) glTextureParameteri(hdrColor, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
   }
