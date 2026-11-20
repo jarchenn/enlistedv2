@@ -31,15 +31,24 @@ PACKS = {   # key -> (name, credit, wind, lodDist, cullDist, maxTex, category, l
     "succulent": ("Succulent", "Plant Series - Succulents by Spazio Silvestre, CC-BY-4.0, %splant-series-succulents-6a22ed22665743b6bc989978da95e32a" % SK, 0.1, 25, 220, 512, "Desert", False),
     "stone": ("Stone", "stone_group_1 by Isengrim, CC-BY-SA-4.0 (share-alike), %sstone-group-1-fb1bba28ee32463aae91c63a6b5951e1" % SK, 0.0, 30, 400, 1024, "Nature", False),
     "grass": ("Reed grass", "grass by Georgeous, Sketchfab Standard licence (not redistributable): local only", 1.0, 25, 120, 1024, "Vegetation", True),
+    # DF1: the desert maps' plants
+    "desertshrub": ("Desert shrub", "Desert Shrubs by evolveduk, Sketchfab Standard licence (not redistributable): local only, %sdesert-shrubs-3f116a7e0c464f2798fe25c7dae4fabb" % SK, 0.15, 20, 220, 512, "Desert", True),
+    "drygrass": ("Dry grass", "Grass patches by DJMaesen, CC-BY-4.0, %sgrass-patches-6952780b80594a31aab2dedf7249a47a" % SK, 0.8, 15, 120, 1024, "Desert", False),
 }
+# a local-only pack's committed stand-in per plant kind: (bake dir, part prefix, its height in m); the public tree draws it
+# at the plant's height
+FALLBACK = {"grass": lambda pid: ("ph_grass_medium_01_tall_a", None, None),
+            "desertshrub": lambda pid: {"agave": ("fl_succulent", "agave__", 1.57), "yucca": ("fl_succulent", "agave__", 1.57), "cholla": ("fl_succulent", "columns__", 1.95),
+                                        "ocotillo": ("fl_succulent", "columns__", 1.95), "creosote": ("fl_succulent", "ball__", 0.74)}[pid.split("_")[0]]}
 
 
 def jw(p, j, compact=True):
     open(p, "w", encoding="utf-8", newline="\n").write(json.dumps(j, separators=(",", ":")) if compact else json.dumps(j, indent=1))
 
 
-def packs(glb):
+def packs(glb, keys=None):
     for key, (name, credit, wind, lod, cull, tex, cat, local) in PACKS.items():
+        if keys and key not in keys: continue
         b = json.load(open(os.path.join(glb, key, key + "_bake.json")))
         jw(os.path.join(ROOT, "content", "assets", "fl_%s_pack.json" % key), {
             "id": "fl_%s_pack" % key, "version": 1, "name": "%s pack (bake)" % name, "category": cat, "hidden": True,
@@ -63,7 +72,7 @@ def parts_of(key):
 
 
 KIND = {"oak": "tree", "maple": "tree", "gnarly": "tree", "bare": "tree", "deadbranch": "tree", "lilac": "bush", "bush": "bush",
-        "clover": "cover", "grass": "cover", "succulent": "succulent", "stone": "stone"}
+        "clover": "cover", "grass": "cover", "succulent": "succulent", "stone": "stone", "desertshrub": "succulent", "drygrass": "cover"}
 NICE = {"big": "big", "large": "large", "med": "medium", "medium": "medium", "small": "small", "sapling": "sapling", "bush": "bush",
         "single_tree": "small tree", "small_bush": "small bush", "tree": "tree", "patch": "patch", "stone": "stone", "group": "group"}
 
@@ -83,7 +92,9 @@ def plant_asset(aid, key, pid, lo, hi, s=1.0, name=None, tree=None, nav=None, ex
     model = {"dir": "fl_" + key, "part": pid + "__", "pivot": "ground", "scale": 1, "jpgMaps": True, "lodDist": round(min(max(2.6 * h, 18.0), 40.0), 1) if kind in ("tree",) else min(lod, 20),   # the pack's LOD2 from ~26 m (a 10 m tree)
              "cullDist": cull, "foliage": True, "wind": wind, "credit": credit}
     if s != 1.0: model["drawScale"] = round(s, 3)
-    if local: model["fallbackDir"] = "ph_grass_medium_01_tall_a"
+    if local:
+        fd, fp, fh = FALLBACK[key](pid); model["fallbackDir"] = fd
+        if fp: model["fallbackPart"] = fp; model["fallbackScale"] = round(h / fh, 3)
     parts, mats = [], [{"name": "bark", "albedo": [0.24, 0.2, 0.16], "roughness": 0.9, "pattern": "wood", "metallic": 0, "grain": 1}]
     if kind in ("tree", "sapling"):
         tr = round(min(max(0.012 * h, 0.04), 0.45), 3); th = round(min(max(h * 0.45, 0.6), 5.0), 2)
@@ -133,7 +144,12 @@ BUSHES = {
     "nat_bramble_thicket": [("bs_thicket_a", "bush", "big_3", 0.95), ("bs_thicket_b", "lilac", "small_bush_2", 0.6)],
     "nat_gorse_shrub": [("bs_gorse_a", "bush", "big_5", 0.85), ("bs_gorse_b", "bush", "big_2", 0.85)],
 }
-DESERT = {"outpost_desert": {"nat_gorse_shrub": ["fl_succulent_columns", "fl_succulent_ball", "fl_succulent_agave", "fl_succulent_prickly_pear"]}}   # succulents: the desert maps only
+SUCC = ["fl_succulent_columns", "fl_succulent_ball", "fl_succulent_agave", "fl_succulent_prickly_pear"]
+# DF1: the desert maps' own aliases (tree_aliases.json "maps", read by mapgen; the templates remapped): outpost_desert's gorse
+# spots (FL1's succulents) take the succulents and the larger desert shrubs; Sun Fort's 0.35 m stand-in shrub the smallest
+DESERT = {"outpost_desert": {"nat_gorse_shrub": SUCC + ["fl_desertshrub_" + p for p in ("agave_1", "cholla_1", "cholla_2", "creosote_1", "creosote_2", "ocotillo_1", "yucca_1", "yucca_2")]},
+          "sd_desert": {"ph_shrub_03_b": ["fl_desertshrub_" + p for p in ("agave_3", "yucca_3", "ocotillo_3", "ocotillo_4")]}}
+GRASS = {"patch": 0.4, "tuft": 0.28}   # DF1: the dry grass patches drawn at 0.5 m and 0.35 m (they are 1.2-1.3 m in the pack)
 # stone_group_1 (Isengrim): the first of the user's rocks, into VR1's rock table next to the Poly Haven variants
 STONES = {"nat_outcrop_limestone": ("rk_stone_outcrop", "stone_1"), "nat_boulder_limestone_l": ("rk_stone_boulder", "stone_3"),
           "nat_boulder_granite_l": ("rk_stone_boulder_g", "stone_3"), "mod_rock_large": ("rk_stone_rock_l", "stone_1"), "nat_outcrop_schist": ("rk_stone_outcrop_m", "stone_6")}
@@ -219,6 +235,45 @@ def assets():
     return made
 
 
+def desert():
+    """DF1: the desert shrub and dry grass assets, the desert maps' alias tables, their shrub spots remapped, and the dry
+    grass pass over outpost_desert's template (its mapgen output no longer matches the committed map: VH7's vehicle
+    spawns, PR1's props; sd_desert is rebuilt by mapgen, which runs the same pass)"""
+    for pid, (lo, hi) in sorted(parts_of("desertshrub").items()):
+        plant_asset("fl_desertshrub_" + pid, "desertshrub", pid, lo, hi)
+    for pid, (lo, hi) in sorted(parts_of("drygrass").items()):
+        for kind, s in GRASS.items():
+            n = pid.split("_")[1]
+            plant_asset("fl_drygrass_%s_%s" % (kind, n), "drygrass", pid, lo, hi, s=s, name="Dry grass, %s %s" % ("tuft" if kind == "tuft" else "patch", n))
+    ta_p = os.path.join(ROOT, "content", "settings", "tree_aliases.json"); ta = json.load(open(ta_p, encoding="utf-8"))
+    ta["maps"] = DESERT
+    if "DF1" not in ta["_doc"]:
+        ta["_doc"] = ta["_doc"].rstrip(".") + '; DF1: "maps": per-map aliases ahead of the shared ones (mapgen only; the templates are remapped).'
+    jw(ta_p, ta, compact=False)
+    def fn(aid, iid, m):
+        al = DESERT.get(m, {})
+        if m == "outpost_desert" and aid in SUCC: aid = "nat_gorse_shrub"   # FL1's succulents stand on the gorse spots
+        return pick(al[aid], iid) if aid in al else None
+    for f, n in remap(fn).items(): print("%-28s %s" % (f, ", ".join("%s %d" % kv for kv in sorted(n.items()))))
+    # the grass pass over the written outpost_desert map (earlier DF1 grass removed first: re-runnable)
+    import random
+    sys.path.insert(0, os.path.join(ROOT, "tools", "mapgen"))
+    from mapgen import desert_flora as DF
+    from maps import outpost_desert as OD
+    T = os.path.join(ROOT, "content", "templates"); p = os.path.join(T, "outpost_desert.nmap.json")
+    s = open(p, encoding="utf-8", newline="").read(); j = json.loads(s)
+    j["instances"] = [i for i in j["instances"] if i["asset"]["id"] not in DF.FLORA]
+    g = DF.template_grid(T, "outpost_desert"); nid = max(j["nextId"], max(i["id"] for i in j["instances"]) + 1)
+    out = OD.flora(ROOT, [(i["asset"]["id"], i["position"][0], i["position"][2], i.get("yaw", 0.0)) for i in j["instances"]], g)
+    for aid, x, z, yaw in out:
+        j["instances"].append({"id": nid, "asset": {"id": aid, "version": 1}, "position": [round(x, 3), round(g.sample(x, z) - 0.03, 3), round(z, 3)], "yaw": round(yaw, 1), "overrides": {"interactables": {}}})
+        nid += 1
+    j["nextId"] = nid
+    open(p, "w", encoding="utf-8", newline="").write(json.dumps(j, ensure_ascii=False, separators=(",", ":")) + s[len(s.rstrip()):])
+    print("outpost_desert: %d dry grass patches" % len(out))
+
+
 if __name__ == "__main__":
-    if sys.argv[1] == "packs": packs(sys.argv[2])
+    if sys.argv[1] == "packs": packs(sys.argv[2], sys.argv[3:])
     if sys.argv[1] == "assets": assets()
+    if sys.argv[1] == "desert": desert()

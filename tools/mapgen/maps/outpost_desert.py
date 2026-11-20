@@ -4,13 +4,13 @@ south-west, and a flat-topped mesa along the east with a radar and an observatio
 
     <python> -I tools/mapgen/build.py outpost_desert"""
 import math
+import os
 
 from mapgen import polyline_dist, catmull_rom, rect, circle_poly, fbm, smoothstep, stamp_valley, asset_yaw_along, point_at, polyline_length, look_yaw
 from maps.newtown import stamp_road
 from maps.outpost_common import build_variant, range_layout, HX, HZ, WRECKS
-from mapgen import output as _output
-# FL1: the desert's gorse is the succulent pack (tools/fl1_flora.py DESERT; the shared alias table makes it the bush pack elsewhere)
-_output.MAP_ALIASES.setdefault("outpost_desert", {})["nat_gorse_shrub"] = ["fl_succulent_columns", "fl_succulent_ball", "fl_succulent_agave", "fl_succulent_prickly_pear"]
+from mapgen import desert_flora as DF
+import random as _random
 
 FOB = (-34.0, -64.0, 20.0, -22.0)                   # x0, z0, x1, z1 of the HESCO wall
 ROAD = catmull_rom([(-44.0, -78.0), (-42.0, -30.0), (-38.0, 8.0), (-44.0, 44.0), (-41.0, 78.0)])
@@ -183,6 +183,33 @@ def dress(b, R, prop, drop, line, paint, rep):
         o = R.uniform(-4.5, 4.5)
         drop(R.choice(["nat_boulder_limestone_m", "nat_boulder_limestone_l", "nat_scree_patch", "nat_stones_patch", "nat_drygrass_tall", "nt3_tree_dead_ash", "nat_brush_scrub"]),
              px - t[1] * o, pz + t[0] * o, R.uniform(0, 360), cls="solid")
+    # DF1: dry grass tufts from the walls, rocks, wadi, highway and tracks (the same pass runs over the written template)
+    repo = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
+    for aid, x, z, yaw in flora(repo, [(e["asset"], e["pos"][0], e["pos"][2], e["yaw"]) for e in b.inst], b.grid):
+        b.place(aid, x, z, yaw, check=False, cls="none", tags={"flora"})
+
+
+def flora(repo, insts, ground, seed=7301):
+    """DF1: (asset, x, z, yaw) of the dry grass tufts: HESCO / barrier / container feet, round the rocks, both wadi banks,
+    the highway and track edges, sparse in open sand; never on the road, a track, a footprint or a steep slope"""
+    R = _random.Random(seed)
+    obst = DF.obstacles(repo, [i for i in insts if i[0] not in DF.FLORA])
+
+    def ok(x, z):
+        if abs(x) > HX - 1.0 or abs(z) > HZ - 1.0 or DF.seg_dist((x, z), ROAD) < 4.2:
+            return False
+        if any(DF.seg_dist((x, z), pts) < w / 2 + 0.3 for pts, w in TRACKS):
+            return False
+        return not any(DF.inside(o, x, z, 0.3) for o in obst) and ground.slope_deg(x, z) < 28.0
+    P = DF.Placer(R, ok)
+    P.walls(obst, DF.PATCH, 3.5, 0.4)
+    P.rings([o for o in obst if any(s in o[0] for s in DF.ROCKS)], DF.PATCH, 2, 0.6)
+    P.along(WADI, (-3.4, -2.6, 2.6, 3.4), 4.0, DF.PATCH, 0.45)
+    P.along(ROAD, (-4.6, 4.6), 5.0, DF.PATCH, 0.35)
+    for pts, w in TRACKS:
+        P.along(pts, (-(w / 2 + 0.7), w / 2 + 0.7), 5.0, DF.PATCH, 0.3)
+    P.scatter(-HX, -HZ, HX, HZ, 40, DF.PATCH)
+    return P.out
 
 
 def lerp(a, b, t):

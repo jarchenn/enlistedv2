@@ -34,6 +34,9 @@ PACKS = {
                              {"id": "agave", "lod0": [r"^Plant\d$"]}, {"id": "prickly_pear", "lod0": [r"^Pear Cactus( Fruit)?\d$"]}]},
     "stone": {"unit": 1.0, "loose": 0.5, "maxTris": 4000, "decimate": 0.35},
     "grass": {"unit": 1.0, "plants": [{"id": "reeds", "lod0": [r"^Grass_Reeds"]}], "decimate": 0.5},
+    # DF1: evolveduk's desert shrubs (each mesh holds several plants of one kind; cholla and creosote stand on a bark mesh)
+    "desertshrub": {"unit": 1.0, "cluster": {"agave": "agave", "yacca": "yucca", "ocotillo": "ocotillo", "creosote": "creosote", "cholla": "cholla"}, "decimate": 0.4},
+    "drygrass": {"unit": 0.01, "plants": [{"id": "patch_%d" % k, "lod0": [r"^grasspatch%d$" % k]} for k in (1, 2, 3)], "decimate": 0.5},
 }
 
 a = sys.argv[sys.argv.index("--") + 1:]
@@ -125,6 +128,35 @@ elif "pairs" in P:   # one plant per tree node (its trunk and the branch cards u
         groups[best].append(c)
     for k, name in enumerate(sorted(groups), 1): plants.append(("tree_%d" % k, groups[name], None))
     print("EXPORT groups", {n: [o.name for o in g] for n, g in groups.items()})
+elif "cluster" in P:   # DF1: loose pieces of every mesh whose ground footprints overlap are one plant, named by its main material
+    whole = world_copy(meshes, "split"); bpy.context.view_layer.objects.active = whole
+    for o in bpy.context.scene.objects: o.select_set(o == whole)
+    bpy.ops.object.mode_set(mode="EDIT"); bpy.ops.mesh.separate(type="LOOSE"); bpy.ops.object.mode_set(mode="OBJECT")
+    bits = [o for o in bpy.context.scene.objects if o.name.startswith("split")]
+    box = [(lambda W: (W.min(0), W.max(0)))(np.array([v.co for v in o.data.vertices])) for o in bits]
+    par = list(range(len(bits)))
+    def root(i):
+        while par[i] != i: par[i] = par[par[i]]; i = par[i]
+        return i
+    for i in range(len(bits)):
+        for j in range(i):
+            if all(box[i][0][k] <= box[j][1][k] and box[j][0][k] <= box[i][1][k] for k in (0, 1)): par[root(i)] = root(j)
+    groups = {}
+    for i, o in enumerate(bits): groups.setdefault(root(i), []).append(o)
+    named = []
+    for g in groups.values():
+        area = {}
+        for o in g:
+            for p in o.data.polygons:
+                m = o.data.materials[p.material_index].name.lower() if o.data.materials else ""
+                kind = next((v for k, v in P["cluster"].items() if k in m), None)
+                if kind: area[kind] = area.get(kind, 0) + p.area
+        lo = np.min([box[bits.index(o)][0] for o in g], 0); hi = np.max([box[bits.index(o)][1] for o in g], 0)
+        if area: named.append((max(area, key=area.get), float(hi[2] - lo[2]), g))
+    for kind in sorted({n[0] for n in named}):
+        for k, (_, h, g) in enumerate(sorted([n for n in named if n[0] == kind], key=lambda n: -n[1]), 1): plants.append(("%s_%d" % (kind, k), g, None))
+    print("EXPORT clusters", [(p[0], len(p[1])) for p in plants])
+    meshes = []
 elif "loose" in P:   # one mesh of several stones: each loose part over the size limit is a stone; the whole group too
     whole = world_copy(meshes, "whole")
     plants.append(("group", [whole], None))

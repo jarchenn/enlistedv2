@@ -1328,7 +1328,8 @@ void AssetLibrary::build(AssetDef& ad) const {
     // tried when the main bake is missing (a licence-restricted bake kept local: the public tree shows the box fallback)
     const fs::path base = mj.value("root", std::string()) == "vehicles" ? contentDir() / "vehicles" / "models" : contentDir() / "assets" / "models";
     fs::path dir = base / mj.value("dir", a->id);
-    if (mj.contains("fallbackDir") && !fs::exists(dir / "mesh.bin")) dir = base / mj["fallbackDir"].get<std::string>();
+    const bool fellBack = mj.contains("fallbackDir") && !fs::exists(dir / "mesh.bin");
+    if (fellBack) { dir = base / mj["fallbackDir"].get<std::string>(); a->modelScale = mj.value("fallbackScale", a->modelScale); }   // DF1: "fallbackPart" / "fallbackScale": one plant of a committed pack
     auto gm = std::make_shared<GpuModel>(); std::string err; gm->keepPos = j.contains("sight");   // AT7: an optic keeps its vertices (its mount feet seat it on the gun)
     bool turn = mj.value("yaw", 0.0f) == 180.0f;   // "yaw": 180 - the bake faces -z (the car pack), the asset's parts +z
     // TR1: model foliage loads once per bake (the sized tree variants share it: one GPU copy, one instanced batch)
@@ -1338,7 +1339,7 @@ void AssetLibrary::build(AssetDef& ad) const {
     auto partRange = [&]() {
       vec3 lo = a->model->bmin, hi = a->model->bmax;
       if (mj.contains("part")) {
-        const std::string pre = mj["part"].get<std::string>();
+        const std::string pre = (fellBack && mj.contains("fallbackPart") ? mj["fallbackPart"] : mj["part"]).get<std::string>();
         auto rng = [&](const GpuModel& g, int& f, int& c) { f = 0; c = 0; int first = -1; for (int k = 0; k < (int)g.parts.size(); ++k) if (g.parts[k].name.rfind(pre, 0) == 0) { if (first < 0) first = k; f = first; c = k - first + 1; } };
         rng(*a->model, a->modelFirst, a->modelCount);
         if (a->modelLod) { rng(*a->modelLod, a->modelLodFirst, a->modelLodCount); if (!a->modelLodCount) a->modelLod.reset(); }

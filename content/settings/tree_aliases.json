@@ -1,5 +1,5 @@
 {
- "_doc": "TR1 (tools/tr1_trees.py): generated tree ids -> model-tree variants; a map placing an old id loads each such tree as one of its variants, picked by the instance id; FL1 (tools/fl1_flora.py): the generated shrubs -> the bush packs' variants; FL1 (tools/fl1_flora.py): the generated shrubs -> the bush packs' variants; FL1 (tools/fl1_flora.py): the generated shrubs -> the bush packs' variants.",
+ "_doc": "TR1 (tools/tr1_trees.py): generated tree ids -> model-tree variants; a map placing an old id loads each such tree as one of its variants, picked by the instance id; FL1 (tools/fl1_flora.py): the generated shrubs -> the bush packs' variants; FL1 (tools/fl1_flora.py): the generated shrubs -> the bush packs' variants; FL1 (tools/fl1_flora.py): the generated shrubs -> the bush packs' variants; DF1: \"maps\": per-map aliases ahead of the shared ones (mapgen only; the templates are remapped).",
  "aliases": {
   "tree_oak": [
    "tr_oak_a",
@@ -104,5 +104,31 @@
    "bs_gorse_a",
    "bs_gorse_b"
   ]
+ },
+ "maps": {
+  "outpost_desert": {
+   "nat_gorse_shrub": [
+    "fl_succulent_columns",
+    "fl_succulent_ball",
+    "fl_succulent_agave",
+    "fl_succulent_prickly_pear",
+    "fl_desertshrub_agave_1",
+    "fl_desertshrub_cholla_1",
+    "fl_desertshrub_cholla_2",
+    "fl_desertshrub_creosote_1",
+    "fl_desertshrub_creosote_2",
+    "fl_desertshrub_ocotillo_1",
+    "fl_desertshrub_yucca_1",
+    "fl_desertshrub_yucca_2"
+   ]
+  },
+  "sd_desert": {
+   "ph_shrub_03_b": [
+    "fl_desertshrub_agave_3",
+    "fl_desertshrub_yucca_3",
+    "fl_desertshrub_ocotillo_3",
+    "fl_desertshrub_ocotillo_4"
+   ]
+  }
  }
 }

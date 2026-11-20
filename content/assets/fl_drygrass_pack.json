@@ -1,0 +1,45 @@
+{
+ "id": "fl_drygrass_pack",
+ "version": 1,
+ "name": "Dry grass pack (bake)",
+ "category": "Desert",
+ "hidden": true,
+ "description": "FL1: the shared bake of the dry grass pack; its plants are the fl_drygrass_* assets (tools/fl1_flora.py). Not placed by itself.",
+ "footprint": [
+  1,
+  1
+ ],
+ "floors": 0,
+ "enterable": false,
+ "plinthDepth": 0,
+ "maxGrade": 30,
+ "noAutoPanels": true,
+ "model": {
+  "src": "drygrass.glb",
+  "lod1Src": "drygrass_lod1.glb",
+  "dir": "fl_drygrass",
+  "pivot": "ground",
+  "scale": 1,
+  "offset": [
+   -0.07904,
+   -0.01,
+   -0.04005
+  ],
+  "maxTex": 1024,
+  "lod1Tex": 512,
+  "jpgMaps": true,
+  "lodDist": 15,
+  "cullDist": 120,
+  "foliage": true,
+  "wind": 0.8,
+  "credit": "Grass patches by DJMaesen, CC-BY-4.0, https://sketchfab.com/3d-models/grass-patches-6952780b80594a31aab2dedf7249a47a"
+ },
+ "nav": {
+  "effect": "none"
+ },
+ "materials": [],
+ "parts": [],
+ "furniture": [],
+ "interactables": [],
+ "panels": []
+}

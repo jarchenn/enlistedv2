@@ -4,6 +4,7 @@ SPEC 3.5: every catalogue asset is used where it is historically plausible, or l
 Counts are placed instances (companions included), from the `tools/mapgen` build reports (`out/<map>.summary.json`).
 `--selftest-maps` fails when a catalogue asset is missing from this table.
 
+- **DF1 (Sun Fort, `sd_desert`):** no column here; its desert shrubs (on the stand-in shrub spots and outside the compound) and dry grass are in `tools/mapgen/maps/sd_desert.py` `flora()`.
 - **Omaha:** *Normandy Beaches - Omaha, Easy Red* (W5a, `tools/mapgen/maps/omaha_easy_red.py`).
 - **Mont-Castre:** *Normandy Forest - Mont-Castre, Hill 122* is a terrain-only base map (no assets placed; the user places them in the editor), built by W5b. Every cell in that column reads "terrain-only base map".
 - **Chateau town:** *Chateau town* (M1, `tools/mapgen/maps/chateau_town.py`): placed counts, companions included; "not used" = not on this map.
@@ -2175,6 +2176,30 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `rk_stone_outcrop` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `rk_stone_outcrop_m` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `rk_stone_rock_l` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_desertshrub_agave_1` | Desert | not used | not used | not used | not used | not used | not used | not used | 15 | not used | not used | not used | not used |
+| `fl_desertshrub_agave_2` | Desert | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_desertshrub_agave_3` | Desert | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_desertshrub_cholla_1` | Desert | not used | not used | not used | not used | not used | not used | not used | 14 | not used | not used | not used | not used |
+| `fl_desertshrub_cholla_2` | Desert | not used | not used | not used | not used | not used | not used | not used | 14 | not used | not used | not used | not used |
+| `fl_desertshrub_cholla_3` | Desert | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_desertshrub_creosote_1` | Desert | not used | not used | not used | not used | not used | not used | not used | 13 | not used | not used | not used | not used |
+| `fl_desertshrub_creosote_2` | Desert | not used | not used | not used | not used | not used | not used | not used | 8 | not used | not used | not used | not used |
+| `fl_desertshrub_creosote_3` | Desert | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_desertshrub_ocotillo_1` | Desert | not used | not used | not used | not used | not used | not used | not used | 14 | not used | not used | not used | not used |
+| `fl_desertshrub_ocotillo_2` | Desert | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_desertshrub_ocotillo_3` | Desert | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_desertshrub_ocotillo_4` | Desert | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_desertshrub_pack` | Desert | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_desertshrub_yucca_1` | Desert | not used | not used | not used | not used | not used | not used | not used | 10 | not used | not used | not used | not used |
+| `fl_desertshrub_yucca_2` | Desert | not used | not used | not used | not used | not used | not used | not used | 12 | not used | not used | not used | not used |
+| `fl_desertshrub_yucca_3` | Desert | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_drygrass_pack` | Desert | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_drygrass_patch_1` | Desert | not used | not used | not used | not used | not used | not used | not used | 64 | not used | not used | not used | not used |
+| `fl_drygrass_patch_2` | Desert | not used | not used | not used | not used | not used | not used | not used | 65 | not used | not used | not used | not used |
+| `fl_drygrass_patch_3` | Desert | not used | not used | not used | not used | not used | not used | not used | 76 | not used | not used | not used | not used |
+| `fl_drygrass_tuft_1` | Desert | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_drygrass_tuft_2` | Desert | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_drygrass_tuft_3` | Desert | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 
 ## Notes
 

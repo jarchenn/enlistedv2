@@ -148,3 +148,5 @@ content/assets/models/pa_abandoned_shop/
 content/textures/grunge_masks/local.png
 # FL1: grass.glb (Georgeous) is Sketchfab Standard (not redistributable): its bake stays local; fl_grass_reeds falls back to Poly Haven grass
 content/assets/models/fl_grass/
+# DF1: desert_shrubs.glb (evolveduk) is Sketchfab Standard too: its bake stays local; fl_desertshrub_* fall back to the succulents
+content/assets/models/fl_desertshrub/
