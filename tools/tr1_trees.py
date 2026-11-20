@@ -13,6 +13,9 @@ part (the static collider, and the stump when felled). Category "Vegetation": th
 The old ids stay loadable: tree_aliases.json maps each to its variants; the engine (mapdoc.cpp) and mapgen
 (mapgen/output.py) pick a variant by the instance id (h = id * 0x9E3779B97F4A7C15, h ^= h >> 29, h % n), so a wood
 stays mixed and every load gives the same tree; the palette hides the old ids.
+
+FL1: tools/fl1_flora.py re-points most of these variants at the user's oak / maple / lilac / DJMaesen packs (same ids,
+same maps); run it after this script if this one is ever rerun.
 """
 import json, os
 

@@ -17,7 +17,7 @@ std::string fmtL(const char* f, ...) { char b[600]; va_list a; va_start(a, f); s
 struct L2 { uint64_t fence = 0, wire = 0, gate = 0; size_t tpl = 0; int leftover = 0, lines = 0, maps = 0; std::string bad; };
 L2 g2;
 uint64_t gateOf(App& app, uint64_t line) {
-  for (auto& i : app.doc.instances) if (i.extra.is_object() && i.extra.contains("lineGate") && i.extra["lineGate"].value("line", (uint64_t)0) == line) return i.id;
+  for (auto& i : app.doc.instances) if (i.extra.is_object() && i.extra.contains("lineGate") && jkey(i.extra, "lineGate").value("line", (uint64_t)0) == line) return i.id;
   return 0;
 }
 // an agent walks from `a` toward `b` for up to 6 s; returns where it got to

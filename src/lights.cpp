@@ -170,7 +170,7 @@ const LightAssetDef* lightDef(const AssetDef* a) {
   json arr = lj->is_array() ? *lj : json::array({*lj});
   std::vector<std::string> groups;
   if (a->raw.contains("prop") && a->raw["prop"].is_object())
-    for (auto& g : a->raw["prop"].value("groups", json::array())) groups.push_back(g.get<std::string>());
+    for (auto& g : jkey(a->raw, "prop").value("groups", json::array())) groups.push_back(g.get<std::string>());
   for (auto& l : arr) {
     if (!l.is_object() || slot->lights.size() >= 16) continue;
     LightSpec s;
@@ -567,7 +567,7 @@ void lightsPlanRooms(App& app, InteriorSys& sys, const Instance& host, const Ass
     }
     // the ceiling light; a room left without a lamp gets one hung from its ceiling as well
     bool bigRoom = R.area >= C.value("ceilingAlwaysArea", 20.0f) && !bunker && !hallway;   // GX2: a large room always has a ceiling light
-    if (bigRoom && ceilingAsset.empty()) ceilingAsset = RR.contains("default") ? RR["default"].value("ceiling", std::string("furn_lamp_ceiling")) : "furn_lamp_ceiling";
+    if (bigRoom && ceilingAsset.empty()) ceilingAsset = RR.contains("default") ? jkey(RR, "default").value("ceiling", std::string("furn_lamp_ceiling")) : "furn_lamp_ceiling";
     bool wantCeiling = !ceilingAsset.empty() && (R.type != ROOM_BEDROOM || bigRoom) && !hallway;
     if (!wantCeiling && !tablePlaced && !lit) ceilingAsset = R.type == ROOM_UTILITY ? "lamp_hanging_lantern" : "furn_lamp_ceiling", wantCeiling = true;
     if (wantCeiling && !app.lib.find(ceilingAsset)) wantCeiling = false;
@@ -777,6 +777,17 @@ void lightsStep(App& app, float dt) {
       vec3 base = vec3(M * vec4(s.offset - vec3(0, s.fxSize * 0.6f, 0), 1));
       float sz = s.fxSize, k2 = sz / 0.55f;
       float& acc = gFxAcc[i.id * 16 + k];
+      if (s.fx == "vent_smoke") {   // BT1: a working vent or chimney: thin pale puffs, rising first, then bent downwind as they spread and fade
+        acc += dt * 3.0f;
+        while (acc >= 1.0f) {
+          acc -= 1.0f;
+          float g = 0.42f + 0.12f * app.fx.rnd();
+          app.fx.smoke(base + vec3(app.fx.rnd() - 0.5f, 0, app.fx.rnd() - 0.5f) * sz * 0.4f,
+                       vec3(0.35f + 0.25f * app.fx.rnd(), 1.1f + 0.5f * app.fx.rnd(), -0.25f - 0.2f * app.fx.rnd()),   // the north-west wind (toward +x, -z)
+                       sz * (0.8f + 0.5f * app.fx.rnd()), 7.0f + 3.0f * app.fx.rnd(), vec4(g, g, g * 1.02f, 0.22f), 0.6f, 0.35f);
+        }
+        continue;
+      }
       if (s.fx == "smoke_column") {   // D-day: a burning wreck's dark column, drifting downwind (no flames of its own)
         acc += dt * 2.2f * std::max(1.0f, k2);
         while (acc >= 1.0f) {

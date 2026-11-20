@@ -122,7 +122,7 @@ void loadCfg() {
   f("camera", "joltDrop_m", c.joltDrop); f("camera", "joltFreq_hz", c.joltFreq); f("camera", "joltDamping", c.joltDamp); f("camera", "swingPitch", c.swingPitch); f("camera", "landDip_m", c.landDip);
   f("sound", "windMin_mps", c.windMin); f("sound", "windFull_mps", c.windFull); f("sound", "windVolume", c.windVol); f("sound", "softWindVolume", c.softVol); f("sound", "planeVolume", c.planeVol); f("sound", "openVolume", c.openVol);
   f("bots", "jumpFrom", gCfg.botJumpFrom); f("bots", "jumpTo", gCfg.botJumpTo); f("bots", "landSpread_m", gCfg.botLandSpread);
-  if (j.contains("vehicles")) { gCfg.vehicles = j["vehicles"].value("count", gCfg.vehicles); gCfg.vehicleSpacing = j["vehicles"].value("spacing_m", gCfg.vehicleSpacing); }
+  if (j.contains("vehicles")) { gCfg.vehicles = jkey(j, "vehicles").value("count", gCfg.vehicles); gCfg.vehicleSpacing = jkey(j, "vehicles").value("spacing_m", gCfg.vehicleSpacing); }
   if (j.contains("storm")) stormCfg(j["storm"]);
 }
 void stormCfg(const json& s) {   // royale.json "storm", then a map's own (NT3: extra.royale.storm, small maps)
@@ -292,7 +292,7 @@ void royaleBegin(App& app, Game& G) {
   }
   // BR1b: named districts from the map file (scenario.districts: name, pos [x, y, z], radius); absent on most maps
   if (app.doc.extra.is_object() && app.doc.extra.contains("scenario") && app.doc.extra["scenario"].is_object())
-    for (auto& d : app.doc.extra["scenario"].value("districts", json::array()))
+    for (auto& d : jkey(app.doc.extra, "scenario").value("districts", json::array()))
       if (d.is_object() && d.contains("pos") && d["pos"].is_array() && d["pos"].size() == 3)
         S.districts.push_back({d.value("name", std::string("?")), vec3(d["pos"][0].get<float>(), d["pos"][1].get<float>(), d["pos"][2].get<float>())});
   logf("royale: %zu aboard, bomber (%.0f %.0f) -> heading %.0f deg at %.0f m, %.0f m line; storm circles r %.0f / %.0f / %.0f / %.0f m",

@@ -154,11 +154,11 @@ void App::buildWeaponMeshes() {
     d->defaultSight = std::clamp(j.value("defaultSight", 0), 0, 6);   // AT5
     d->sway = j.value("sway", 1.0f); d->rpm = j.value("rpm", 60.0f); d->velocity = j.value("velocity", 800.0f); d->zero = j.value("zero", 100.0f);
     d->boltTime = j.value("boltTime", 0.0f);
-    d->reloadEmpty = j["reload"].value("empty", 2.5f); d->reloadPartial = j["reload"].value("partial", d->reloadEmpty); d->reloadRound = j["reload"].value("round", 0.5f);
-    d->rPitch = j["recoil"].value("pitch", 1.0f); d->rYaw = j["recoil"].value("yaw", 0.4f); d->rRecover = j["recoil"].value("recover", 8.0f);
-    d->rClimb = j["recoil"].value("climb", 0.0f); d->rVisual = j["recoil"].value("visual", 0.05f); d->rSupported = j["recoil"].value("supported", 1.0f);
+    d->reloadEmpty = jkey(j, "reload").value("empty", 2.5f); d->reloadPartial = jkey(j, "reload").value("partial", d->reloadEmpty); d->reloadRound = jkey(j, "reload").value("round", 0.5f);
+    d->rPitch = jkey(j, "recoil").value("pitch", 1.0f); d->rYaw = jkey(j, "recoil").value("yaw", 0.4f); d->rRecover = jkey(j, "recoil").value("recover", 8.0f);
+    d->rClimb = jkey(j, "recoil").value("climb", 0.0f); d->rVisual = jkey(j, "recoil").value("visual", 0.05f); d->rSupported = jkey(j, "recoil").value("supported", 1.0f);
     d->rear = jvec3(j["sights"]["rear"]); d->front = jvec3(j["sights"]["front"]); d->muzzle = jvec3(j["muzzle"]);
-    if (j.contains("muzzleDir")) d->muzzleDir = glm::normalize(jvec3(j["muzzleDir"], vec3(0, 0, 1)));
+    if (j.contains("muzzleDir")) d->muzzleDir = glm::normalize(jvec3(jkey(j, "muzzleDir"), vec3(0, 0, 1)));
     if (j.contains("ads")) {
       const json& a = j["ads"];
       d->eyeRelief = a.value("eyeRelief", 0.21f); d->adsVmFov = a.value("vmFov", 0.0f);
@@ -181,13 +181,13 @@ void App::buildWeaponMeshes() {
     if (j.contains("hold")) { const json& h = j["hold"]; d->holdOffset = jvec3(h.value("offset", json()), vec3(0)); d->holdWeld = h.value("weld", 1.0f); std::string hk = h.value("kind", std::string()); d->holdKind = hk == "pistol" ? 0 : hk == "rifle" ? 1 : hk == "launcher" ? 2 : -1; d->leftHold = h.value("left", std::string()) == "magazine" ? 1 : h.value("left", std::string()) == "tube" ? 2 : 0;   // 2: a launcher tube: the support hand in a C over it beside the face
       if (h.contains("pose")) { const json& gp = h["pose"]; GripPose& G = d->gripPose; G.has = true;   // WS1: the approved hold (tools/grip_to_game.py); index 1 = the right hand
         auto jq = [](const json& a) { return a.is_array() && a.size() == 4 ? glm::normalize(quat(a[3].get<float>(), a[0].get<float>(), a[1].get<float>(), a[2].get<float>())) : quat(1, 0, 0, 0); };
-        G.p[1] = jvec3(gp["r"].value("p", json()), vec3(0)); G.q[1] = jq(gp["r"].value("q", json())); G.p[0] = jvec3(gp["l"].value("p", json()), vec3(0)); G.q[0] = jq(gp["l"].value("q", json()));
-        G.lMag = gp["l"].value("anchor", std::string()) != "grip"; G.gun = jvec3(gp.value("gun", json()), vec3(0)); G.scale = gp.value("scale", 1.0f); if (gp.contains("butt") && gp["butt"].size() >= 2) G.butt = vec3(gp["butt"][0].get<float>(), gp["butt"][1].get<float>(), 0);   // "mag" / "support": from the left socket (the magazine's centre with hold.left = magazine), "grip": from the rightGrip socket
+        G.p[1] = jvec3(jkey(gp, "r").value("p", json()), vec3(0)); G.q[1] = jq(jkey(gp, "r").value("q", json())); G.p[0] = jvec3(jkey(gp, "l").value("p", json()), vec3(0)); G.q[0] = jq(jkey(gp, "l").value("q", json()));
+        G.lMag = jkey(gp, "l").value("anchor", std::string()) != "grip"; G.gun = jvec3(gp.value("gun", json()), vec3(0)); G.scale = gp.value("scale", 1.0f); if (gp.contains("butt") && gp["butt"].size() >= 2) G.butt = vec3(gp["butt"][0].get<float>(), gp["butt"][1].get<float>(), 0);   // "mag" / "support": from the left socket (the magazine's centre with hold.left = magazine), "grip": from the rightGrip socket
         if (gp.contains("fingers")) for (auto it = gp["fingers"].begin(); it != gp["fingers"].end(); ++it) G.fingers.push_back({it.key(), jq(it.value())}); } }   // SW2
     d->dotCrosshair = j.value("crosshair", std::string()) == "dot";   // SW2
     d->category = j.value("category", std::string());   // UI11
     d->laterWar = j.value("laterWar", false); d->moveSpeed = j.value("moveSpeed", 1.0f); d->showArms = j.value("arms", true);
-    if (j.contains("scope")) { d->hasScope = true; d->scopeMag = j["scope"].value("mag", 2.5f); d->reticle = j["scope"].value("reticle", ""); d->scopeEye = jvec3(j["scope"]["eye"]); d->scopeIrons = j["scope"].value("irons", false); d->scopeRelief = j["scope"].value("relief", 0.07f); }
+    if (j.contains("scope")) { d->hasScope = true; d->scopeMag = jkey(j, "scope").value("mag", 2.5f); d->reticle = jkey(j, "scope").value("reticle", ""); d->scopeEye = jvec3(j["scope"]["eye"]); d->scopeIrons = jkey(j, "scope").value("irons", false); d->scopeRelief = jkey(j, "scope").value("relief", 0.07f); }
     if (j.contains("boltPivot")) { d->boltPivot = vec3(j["boltPivot"][0].get<float>(), j["boltPivot"][1].get<float>(), 0); d->boltLift = j.value("boltLift", 70.0f); }
     {
       std::string c = classes.value(d->id, std::string());
@@ -210,7 +210,7 @@ void App::buildWeaponMeshes() {
     std::map<std::string, int> mi;
     d->mats.push_back(Material{"default"});
     for (auto& mj : j.value("materials", json::array())) {
-      Material m; m.name = mj.value("name", ""); m.albedo = jvec3(mj["albedo"], vec3(0.5f)); m.roughness = mj.value("roughness", 0.6f);
+      Material m; m.name = mj.value("name", ""); m.albedo = jvec3(jkey(mj, "albedo"), vec3(0.5f)); m.roughness = mj.value("roughness", 0.6f);
       m.metallic = mj.value("metallic", 0.0f); m.grainAxis = mj.value("grain", 1);
       static const std::map<std::string, int> pat = {{"plain", PAT_PLAIN}, {"wood", PAT_WOOD}, {"metal", PAT_METAL}, {"fabric", PAT_FABRIC}};
       auto it = pat.find(mj.value("pattern", "plain")); m.pattern = it == pat.end() ? PAT_PLAIN : it->second;
@@ -220,7 +220,7 @@ void App::buildWeaponMeshes() {
       MeshData m;
       for (auto& pj : j.value("parts", json::object()).value(kPartNames[p], json::array())) {   // a gun with no box "parts" (NG1 stand-ins) must not throw
         Part q;
-        q.center = jvec3(pj["c"]); q.size = jvec3(pj["s"], vec3(0.01f));
+        q.center = jvec3(pj["c"]); q.size = jvec3(jkey(pj, "s"), vec3(0.01f));
         if (pj.contains("r")) q.rot = glm::quat(glm::radians(jvec3(pj["r"])));
         auto it = mi.find(pj.value("m", "")); q.mat = it == mi.end() ? 0 : it->second;
         appendPart(m, q, d->mats[q.mat], mat4(1));
@@ -228,7 +228,7 @@ void App::buildWeaponMeshes() {
       d->mesh[p].upload(m);
     }
     d->file = f;
-    if (j.contains("rail")) { d->rail = jvec3(j["rail"], d->rail); d->hasRail = true; } d->railScale = j.value("railScale", 1.0f);   // AT7: with the local override (railOf re-read only the committed file)
+    if (j.contains("rail")) { d->rail = jvec3(jkey(j, "rail"), d->rail); d->hasRail = true; } d->railScale = j.value("railScale", 1.0f);   // AT7: with the local override (railOf re-read only the committed file)
     d->bulletMass = j.value("bulletMass", 10.0f);
     for (auto& m : j.value("modes", json::array())) d->modes.push_back(m.get<std::string>());
     d->deploys = j.value("deploys", "");
@@ -240,7 +240,7 @@ void App::buildWeaponMeshes() {
       d->coverPivot = jvec3(pv.value("cover", json()), d->coverPivot); d->coverDeg = pv.value("coverDeg", d->coverDeg);
       d->bipodPivot = jvec3(pv.value("bipod", json()), d->bipodPivot); d->bipodDeg = pv.value("bipodDeg", d->bipodDeg); }
     if (j.contains("model") && useImportedModels) {
-      std::string dirName = j["model"].value("dir", "");
+      std::string dirName = jkey(j, "model").value("dir", "");
       auto it = modelCache.find(dirName);
       if (it == modelCache.end()) {
         auto gm = std::make_shared<GpuModel>();
@@ -250,7 +250,7 @@ void App::buildWeaponMeshes() {
       }
       d->model = it->second;
       auto roles = [&](const GpuModel& gm, std::vector<int>* parts) {
-        json hn = j["model"].value("hideNames", json::array());   // AT5: parts by name never drawn (the SMG-9's own sight)
+        json hn = jkey(j, "model").value("hideNames", json::array());   // AT5: parts by name never drawn (the SMG-9's own sight)
         for (size_t k = 0; k < gm.parts.size(); ++k) {
           if (std::find(hn.begin(), hn.end(), json(gm.parts[k].name)) != hn.end()) continue;
           const std::string& r = gm.parts[k].role;
@@ -258,7 +258,7 @@ void App::buildWeaponMeshes() {
           for (int p = 0; p < WP_COUNT; ++p) if (r == kPartNames[p]) role = p;
           parts[role].push_back((int)k);
         }
-        for (auto& hp : j["model"].value("hideParts", json::array())) for (int p = 0; p < WP_COUNT; ++p) if (hp.get<std::string>() == kPartNames[p]) parts[p].clear();   // e.g. the Garand clip: never drawn
+        for (auto& hp : jkey(j, "model").value("hideParts", json::array())) for (int p = 0; p < WP_COUNT; ++p) if (hp.get<std::string>() == kPartNames[p]) parts[p].clear();   // e.g. the Garand clip: never drawn
       };
       if (d->model) {
         measureHold(*d, d->model->cpuPos);

@@ -283,7 +283,7 @@ void AiCore::think(Soldier& s) {
     }
   }
   // weights and inertia
-  if (tactics.contains("utility")) for (int a = 0; a < A_COUNT; ++a) u[a] *= tactics["utility"].value(aiActionName(a), 1.0f);
+  if (tactics.contains("utility")) for (int a = 0; a < A_COUNT; ++a) u[a] *= jkey(tactics, "utility").value(aiActionName(a), 1.0f);
   u[m.action] += tj("decisions", "inertia", 0.08f);
   int best = 0; for (int a = 1; a < A_COUNT; ++a) if (u[a] > u[best]) best = a;
   if (u[best] <= 0.01f) best = attacker ? A_ADVANCE : A_HOLD;

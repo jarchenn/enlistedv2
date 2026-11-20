@@ -1,0 +1,45 @@
+{
+ "id": "fl_maple_pack",
+ "version": 1,
+ "name": "Maple pack (bake)",
+ "category": "Vegetation",
+ "hidden": true,
+ "description": "FL1: the shared bake of the maple pack; its plants are the fl_maple_* assets (tools/fl1_flora.py). Not placed by itself.",
+ "footprint": [
+  1,
+  1
+ ],
+ "floors": 0,
+ "enterable": false,
+ "plinthDepth": 0,
+ "maxGrade": 30,
+ "noAutoPanels": true,
+ "model": {
+  "src": "maple.glb",
+  "lod1Src": "maple_lod1.glb",
+  "dir": "fl_maple",
+  "pivot": "ground",
+  "scale": 1,
+  "offset": [
+   -0.34648,
+   -0.01,
+   0.279
+  ],
+  "maxTex": 1024,
+  "lod1Tex": 512,
+  "jpgMaps": true,
+  "lodDist": 45,
+  "cullDist": 420,
+  "foliage": true,
+  "wind": 1.0,
+  "credit": "Maple trees pack (lowpoly, game ready, LODs) by LOLIPOP (sketchfab.com/lolipop_1707), CC-BY-4.0, https://sketchfab.com/3d-models/maple-trees-pack-lowpoly-game-ready-lods-b5d2833c258f4054a01ee2b4ef85adf0"
+ },
+ "nav": {
+  "effect": "none"
+ },
+ "materials": [],
+ "parts": [],
+ "furniture": [],
+ "interactables": [],
+ "panels": []
+}

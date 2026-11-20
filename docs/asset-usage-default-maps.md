@@ -339,6 +339,14 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `wat_puddles` | Water | not placed: V1 water feature added after the map was built | terrain-only base map | not used | not used | not used | not used | 12 | not used | 2 | not used | not used | not used |
 | `wat_stream_bend` | Water | not placed: V1 stream piece (snaps with V6) added after the map was built | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `wat_stream_end` | Water | not placed: V1 stream piece added after the map was built | terrain-only base map | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `bt_creek` | Water | Blackwater Thaw only: the creek as one graded, flowing stream ribbon and the lane puddles (written by tools/mapgen/maps/blackwater_thaw.py) |
+| `bt_cable_station` | Landmarks | Blackwater Thaw only: the far-ridge cable-haul station silhouette (written by blackwater_thaw.py) |
+| `bt_flume` | Small buildings | Blackwater Thaw only: the waterworks court's stepped header channel (written by blackwater_thaw.py) |
+| `bt_vent_smoke` | Effects | Blackwater Thaw: the smithy chimney's smoke emitter (vent_smoke); usable on any map |
+| `bt_orchard_tree_a` | Vegetation | Blackwater Thaw only: a pruned winter orchard tree (written by blackwater_thaw.py) |
+| `bt_orchard_tree_b` | Vegetation | Blackwater Thaw only: a pruned winter orchard tree (written by blackwater_thaw.py) |
+| `bt_orchard_tree_c` | Vegetation | Blackwater Thaw only: a pruned winter orchard tree (written by blackwater_thaw.py) |
+| `bt_orchard_tree_d` | Vegetation | Blackwater Thaw only: a pruned winter orchard tree (written by blackwater_thaw.py) |
 | `wat_stream_straight` | Water | not placed: V1 stream piece added after the map was built | terrain-only base map | 63 | not used | not used | not used | not used | not used | not used | 63 | not used | not used |
 | `wire_concertina` | Defences | as `line_concertina` | terrain-only base map | as `line_concertina` | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `wire_fence` | Defences | as `line_wire_fence` | terrain-only base map | as `line_wire_fence` | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -1342,6 +1350,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `cl_yard_workshop_corner` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `def_sandbag_bags_high` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `def_sandbag_bags_low` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `sb_bag_lib` | hidden library: the four bag meshes every sandbag box part draws (src/sandbags.cpp), never placed | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `def_sandbag_single` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_mod_monitor_16x9` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `furn_mod_monitor_4x3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
@@ -2049,6 +2058,121 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `rk_schist_m_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `rk_slab_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `rk_slab_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `bs_blackthorn_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `bs_blackthorn_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `bs_bramble_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `bs_bramble_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `bs_bramble_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `bs_gorse_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `bs_gorse_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `bs_hawthorn_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `bs_hawthorn_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `bs_hawthorn_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `bs_hazel_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `bs_hazel_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `bs_hazel_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `bs_thicket_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `bs_thicket_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_bare_pack` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_bare_tree_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_bare_tree_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_bare_tree_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_bush_big_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_bush_big_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_bush_big_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_bush_big_4` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_bush_big_5` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_bush_medium_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_bush_medium_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_bush_medium_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_bush_medium_4` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_bush_medium_5` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_bush_pack` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_bush_small_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_bush_small_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_bush_small_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_bush_small_4` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_bush_small_5` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_clover_pack` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_clover_patch_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_clover_patch_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_clover_patch_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_clover_patch_4` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_deadbranch_pack` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_deadbranch_tree_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_deadbranch_tree_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_deadbranch_tree_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_deadbranch_tree_4` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_deadbranch_tree_5` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_deadbranch_tree_6` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_deadbranch_tree_7` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_gnarly_pack` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_gnarly_tree_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_gnarly_tree_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_gnarly_tree_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_gnarly_tree_4` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_grass_pack` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_grass_reeds` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_lilac_bush_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_lilac_bush_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_lilac_bush_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_lilac_pack` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_lilac_sapling_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_lilac_sapling_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_lilac_sapling_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_lilac_single_tree_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_lilac_single_tree_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_lilac_single_tree_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_lilac_small_bush_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_lilac_small_bush_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_lilac_small_bush_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_maple_large_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_maple_large_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_maple_large_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_maple_medium_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_maple_medium_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_maple_medium_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_maple_pack` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_maple_sapling_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_maple_sapling_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_maple_sapling_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_maple_small_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_maple_small_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_maple_small_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_oak_big_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_oak_big_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_oak_big_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_oak_big_4` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_oak_large_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_oak_large_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_oak_large_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_oak_large_4` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_oak_med_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_oak_med_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_oak_med_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_oak_pack` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_oak_sapling_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_oak_sapling_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_oak_sapling_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_oak_small_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_oak_small_2` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_oak_small_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_stone_group` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_stone_pack` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_stone_stone_1` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_stone_stone_3` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_stone_stone_5` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_stone_stone_6` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_succulent_agave` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_succulent_ball` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_succulent_columns` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_succulent_pack` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `fl_succulent_prickly_pear` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_stone_boulder` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_stone_boulder_g` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_stone_outcrop` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_stone_outcrop_m` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_stone_rock_l` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 
 ## Notes
 

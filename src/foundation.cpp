@@ -176,7 +176,7 @@ void destroyRec(App& app, uint64_t host, HostRec& r, bool props) {
   r.vbo = 0; r.inst.clear(); r.stones.destroy(); r.stonePts.clear();
   if (props && !r.props.empty()) {
     auto& v = app.doc.instances;
-    v.erase(std::remove_if(v.begin(), v.end(), [&](const Instance& i) { return isDressingPiece(i) && i.extra["dressing"].value("host", (uint64_t)0) == host; }), v.end());
+    v.erase(std::remove_if(v.begin(), v.end(), [&](const Instance& i) { return isDressingPiece(i) && jkey(i.extra, "dressing").value("host", (uint64_t)0) == host; }), v.end());
     r.props.clear();
   }
 }
@@ -393,7 +393,7 @@ void foundationSync(App& app) {
     auto& v = app.doc.instances; size_t n0 = v.size();
     v.erase(std::remove_if(v.begin(), v.end(), [&](const Instance& i) {
       if (!isDressingPiece(i)) return false;
-      uint64_t hid = i.extra["dressing"].value("host", (uint64_t)0);
+      uint64_t hid = jkey(i.extra, "dressing").value("host", (uint64_t)0);
       auto r = gRecs.find(hid);
       return !hosts.count(hid) || r == gRecs.end() || std::find(r->second.props.begin(), r->second.props.end(), i.id) == r->second.props.end();
     }), v.end());

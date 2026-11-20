@@ -162,6 +162,7 @@ void SelfTest::update(App& app, float dt) {
   { extern bool sd9Capture(App&, float); if (sd9Capture(app, dt)) return; }   // --capture-sd9 (selftest_sd9.cpp)
   { extern bool gm1Capture(App&, float); if (gm1Capture(app, dt)) return; }   // --capture-gm1 (capture_gm1.cpp)
   { extern bool df1Capture(App&, float); if (df1Capture(app, dt)) return; }   // --capture-df1 (capture_df1.cpp)
+  { extern bool wsm2Capture(App&, float); if (wsm2Capture(app, dt)) return; }   // --capture-wsm2 (capture_wsm2.cpp)
   { extern bool na1Capture(App&, float); if (na1Capture(app, dt)) return; }   // --capture-na1 (capture_na1.cpp)
   { extern bool sdPlantSelfTest(App&, float); if (sdPlantSelfTest(app, dt)) return; }   // --selftest-sd-plant (selftest_sdplant.cpp)
   { extern bool vehicleAiSelfTest(App&, float); if (vehicleAiSelfTest(app, dt)) return; }   // --check-vehicle-ai (selftest_vehicle_ai.cpp)
@@ -186,6 +187,7 @@ void SelfTest::update(App& app, float dt) {
   { extern bool captureShadeSelfTest(App&, float); if (captureShadeSelfTest(app, dt)) return; }   // --capture-shade
   { extern bool captureRc2SelfTest(App&, float); if (captureRc2SelfTest(app, dt)) return; }   // RC2: --capture-rc2
   { extern bool snd10SelfTest(App&, float); if (snd10SelfTest(app, dt)) return; }   // SND10: --check-snd10
+  { extern bool btaSelfTest(App&, float); if (btaSelfTest(app, dt)) return; }   // BTA: --check-bta
   { extern bool memProbeSelfTest(App&, float); if (memProbeSelfTest(app, dt)) return; }   // MEM1: --mem-probe
   { extern bool rm1SelfTest(App&, float); if (rm1SelfTest(app, dt)) return; }   // RM1: --check-rm1
   { extern bool vm1SelfTest(App&, float); if (vm1SelfTest(app, dt)) return; }   // VM1: --check-vm1
@@ -412,7 +414,7 @@ void SelfTest::update(App& app, float dt) {
       Instance before = *app.doc.find(houseId);
       size_t n0 = app.doc.instances.size(), a0 = authoredInstanceCount(app.doc.instances);
       app.selected = houseId; app.deleteSelected();
-      int orphans = 0; for (auto& i : app.doc.instances) orphans += isFurnishPiece(i) && i.extra["furnish"].value("host", (uint64_t)0) == before.id;
+      int orphans = 0; for (auto& i : app.doc.instances) orphans += isFurnishPiece(i) && jkey(i.extra, "furnish").value("host", (uint64_t)0) == before.id;
       check(authoredInstanceCount(app.doc.instances) == a0 - 1 && orphans == 0, "delete removes the building and its furniture (" + std::to_string(n0 - app.doc.instances.size()) + " instances)");
       app.undo(); app.redo(); app.undo();
       int count = 0; for (auto& i : app.doc.instances) if (i.id == before.id) ++count;

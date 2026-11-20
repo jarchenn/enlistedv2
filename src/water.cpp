@@ -8,15 +8,18 @@
 // attachments.
 #include "water.h"
 #include "app.h"
+#include <algorithm>
+#include <array>
 #include <chrono>
 #include <unordered_map>
 
 namespace {
 struct WSurf {
   GLuint vao = 0, vbo = 0; int count = 0;
-  int kind = 1; float clarity = 1, waves = 1; vec3 tint{0}; bool hasTint = false;
+  int kind = 1; float clarity = 1, waves = 1, ice = 0; vec3 tint{0}; bool hasTint = false;
   float level = 0, area = 0; vec2 bmin{1e9f}, bmax{-1e9f}; bool flows = false;
   std::vector<vec2> poly;
+  std::vector<vec2> gpath; std::vector<float> glev;   // BT1 ribbon: the graded centreline (level per point)
 };
 struct WAsset { std::vector<WSurf> s; bool gpu = false; };
 std::unordered_map<const AssetDef*, WAsset> gCache;
@@ -63,16 +66,22 @@ WAsset& parse(const AssetDef* a) {
   if (it != gCache.end()) return it->second;
   WAsset& w = gCache[a];
   if (!a || !a->raw.is_object() || !a->raw.contains("water")) return w;
-  for (auto& sj : a->raw["water"].value("surfaces", json::array())) {
+  for (auto& sj : jkey(a->raw, "water").value("surfaces", json::array())) {
     WSurf s;
     for (auto& p : sj.value("outline", json::array())) if (p.is_array() && p.size() >= 2) s.poly.push_back(vec2(p[0].get<float>(), p[1].get<float>()));
     if (s.poly.size() < 3) continue;
     s.level = sj.value("level", 0.0f); s.kind = kindOf(sj.value("kind", std::string("pond")));
     s.clarity = sj.value("clarity", 1.0f); s.waves = sj.value("waves", 1.0f);
+    s.ice = std::clamp(sj.value("ice", 0.0f), 0.0f, 1.0f);   // BT1: thin shore ice (0 open water .. 1 a frozen skin)
     if (sj.contains("tint") && sj["tint"].is_array() && sj["tint"].size() >= 3) { s.tint = vec3(sj["tint"][0].get<float>(), sj["tint"][1].get<float>(), sj["tint"][2].get<float>()); s.hasTint = true; }
     for (auto& p : s.poly) { s.bmin = glm::min(s.bmin, p); s.bmax = glm::max(s.bmax, p); }
     s.area = std::fabs(signedArea(s.poly));
     s.flows = sj.contains("path") && sj["path"].size() >= 2;
+    if (s.flows) {
+      for (auto& p : sj["path"]) if (p.is_array() && p.size() >= 3) { s.gpath.push_back(vec2(p[0].get<float>(), p[1].get<float>())); s.glev.push_back(p[2].get<float>()); }
+      if (s.glev.size() != sj["path"].size()) { s.gpath.clear(); s.glev.clear(); }
+      if (!s.glev.empty()) s.level = *std::max_element(s.glev.begin(), s.glev.end());   // the top of the reach (bounds)
+    }
     w.s.push_back(std::move(s));
   }
   return w;
@@ -83,12 +92,25 @@ void upload(const AssetDef* a, WAsset& w) {
   const json* surfs = a->raw.contains("water") ? &a->raw["water"] : nullptr;
   for (size_t k = 0; k < w.s.size(); ++k) {
     WSurf& s = w.s[k];
-    std::vector<vec2> path; float speed = 0.5f;
+    std::vector<vec2> path; std::vector<float> plev; float speed = 0.5f, halfW = 0.0f;
     if (s.flows && surfs) {
       const json& sj = (*surfs)["surfaces"][k];
-      for (auto& p : sj["path"]) path.push_back(vec2(p[0].get<float>(), p[1].get<float>()));
+      for (auto& p : sj["path"]) { path.push_back(vec2(p[0].get<float>(), p[1].get<float>())); if (p.size() >= 3) plev.push_back(p[2].get<float>()); }
+      if (plev.size() != path.size()) plev.clear();   // BT1 ribbon: [x, z, level] points grade the surface along the stream
       speed = sj.value("speed", 0.5f);
+      halfW = sj.value("halfWidth", 0.0f);   // BT1: the current slows toward the banks (still edge pockets)
     }
+    auto levelAt = [&](vec2 q) {
+      if (plev.empty()) return s.level;
+      float best = 1e30f, lv = s.level;
+      for (size_t i = 0; i + 1 < path.size(); ++i) {
+        vec2 ab = path[i + 1] - path[i]; float L2 = glm::dot(ab, ab); if (L2 < 1e-8f) continue;
+        float t = std::clamp(glm::dot(q - path[i], ab) / L2, 0.0f, 1.0f);
+        float d = glm::length(q - (path[i] + ab * t));
+        if (d < best) { best = d; lv = plev[i] + (plev[i + 1] - plev[i]) * t; }
+      }
+      return lv;
+    };
     auto flowAt = [&](vec2 q) {
       if (path.size() < 2) return vec2(0);
       float best = 1e30f; vec2 dir(0);
@@ -98,11 +120,32 @@ void upload(const AssetDef* a, WAsset& w) {
         float d = glm::length(q - (path[i] + ab * t));
         if (d < best) { best = d; dir = ab / std::sqrt(L2); }
       }
+      if (halfW > 0.0f) return dir * speed * std::clamp(1.0f - best / halfW, 0.0f, 1.0f);
       return dir * speed;
     };
     std::vector<vec2> tri = triangulate(s.poly);
+    if (!plev.empty()) {   // a graded ribbon: split long triangles so the level follows the path (<= 2 m edges)
+      std::vector<vec2> fine;
+      for (size_t t = 0; t + 2 < tri.size() + 0; t += 3) {
+        std::vector<std::array<vec2, 3>> st{{tri[t], tri[t + 1], tri[t + 2]}};
+        for (int it = 0; it < 6; ++it) {
+          std::vector<std::array<vec2, 3>> nx;
+          for (auto& T : st) {
+            float l0 = glm::length(T[0] - T[1]), l1 = glm::length(T[1] - T[2]), l2 = glm::length(T[2] - T[0]);
+            float m = std::max(l0, std::max(l1, l2));
+            if (m <= 2.0f) { nx.push_back(T); continue; }
+            int e = m == l0 ? 0 : m == l1 ? 1 : 2;
+            vec2 A = T[e], B = T[(e + 1) % 3], C = T[(e + 2) % 3], M = (A + B) * 0.5f;
+            nx.push_back({A, M, C}); nx.push_back({M, B, C});
+          }
+          st.swap(nx);
+        }
+        for (auto& T : st) { fine.push_back(T[0]); fine.push_back(T[1]); fine.push_back(T[2]); }
+      }
+      tri.swap(fine);
+    }
     std::vector<float> v; v.reserve(tri.size() * 5);
-    for (vec2 p : tri) { vec2 f = flowAt(p); v.insert(v.end(), {p.x, s.level, p.y, f.x, f.y}); }
+    for (vec2 p : tri) { vec2 f = flowAt(p); v.insert(v.end(), {p.x, levelAt(p), p.y, f.x, f.y}); }
     s.count = (int)tri.size();
     glCreateBuffers(1, &s.vbo); glNamedBufferData(s.vbo, (GLsizeiptr)(v.size() * sizeof(float)), v.data(), GL_STATIC_DRAW);
     glCreateVertexArrays(1, &s.vao);
@@ -135,7 +178,7 @@ const char* kWaterFS = R"GLSL(
 in vec3 vW; in vec2 vFlow;
 uniform sampler2D uSceneCopy, uDepthCopy;
 uniform vec2 uSize; uniform float uZA, uZB, uTime;
-uniform vec4 uWLook;  // kind (0 sea, 1 pond, 2 stream, 3 puddle, 4 crater), clarity, wave scale, -
+uniform vec4 uWLook;  // kind (0 sea, 1 pond, 2 stream, 3 puddle, 4 crater), clarity, wave scale, ice (BT1: 0..1)
 uniform vec4 uTint;   // optional water colour (rgb), a = 1 when set
 layout(location=0) out vec4 oColor;
 layout(location=2) out vec4 oAmb;
@@ -189,6 +232,17 @@ void main(){
   bool under = V.y < 0.0;
   if (under) N = -N;
   float rough = clamp(sqrt(0.0016 + lost*2.0) + 0.02, 0.03, 0.35);
+  // BT1 thin ice (spec 4: roughness 0.16-0.4, dark water seen through shallow margins, sparse hairline fractures): a
+  // patchy frozen skin, flat (no waves under it), rougher, paler; open leads stay water
+  float iceK = 0.0, crack = 0.0;
+  if (uWLook.w > 0.0) {
+    float pn = vnoise(vec3(vW.xz*0.45, 61.0))*0.7 + vnoise(vec3(vW.xz*1.9, 62.0))*0.3;
+    iceK = smoothstep(0.55, 0.62, pn*uWLook.w + 0.3*uWLook.w);
+    iceK *= 1.0 - smoothstep(0.06, 0.2, length(vFlow));   // only where the water is still (stream edges, pools)
+    crack = (1.0 - smoothstep(0.0, 0.035, abs(vnoise(vec3(vW.xz*0.9, 63.0)) - 0.5)))*iceK;
+    N = normalize(mix(N, vec3(0.0, under ? -1.0 : 1.0, 0.0), iceK));
+    rough = mix(rough, mix(0.18, 0.36, vnoise(vec3(vW.xz*3.0, 64.0))), iceK);
+  }
   // ---- depths: reverse-Z, view depth d = B / (z + A)
   vec2 suv = gl_FragCoord.xy/uSize;
   float dW = 1.0/gl_FragCoord.w;
@@ -245,6 +299,12 @@ void main(){
     float foam = (1.0 - smoothstep(0.0, kind == 0 ? 0.25 : 0.1, depthV))*smoothstep(0.5, 0.85, vnoise(vec3(vW.xz*2.5, uTime*0.5)))*shore;
     col += foam*0.22*(uSkyCol*0.6 + uSunCol*sh*0.25)*gFogT;
   }
+  if (iceK > 0.0) {   // the frozen skin: a pale, slightly milky layer lit by the sky, the dark water through its clear parts
+    vec3 iceAlb = mix(vec3(0.30, 0.34, 0.37), vec3(0.62, 0.66, 0.70), vnoise(vec3(vW.xz*2.2, 65.0)));
+    vec3 iceCol = iceAlb*(giAmbient(vW, up, sv, uSkyCol*mix(0.35, 1.0, sv)) + uSunCol*max(uSunDir.y, 0.0)*sh*0.5)*gFogT + fogAdd;
+    col = mix(col, iceCol + F*env*gFogT*0.5, iceK*0.75);
+    col = mix(col, col*0.55, crack*0.6);
+  }
   col = mix(dry, col, shore);
   col = (any(isnan(col)) || any(isinf(col))) ? dry : max(col, vec3(0.0));
   oColor = vec4(col, 1.0);
@@ -279,7 +339,7 @@ bool waterDrawItems(App& app, const Instance& i, const InstanceRT& r, const mat4
   if (glm::length(vec2(c.x - cam.x, c.z - cam.z)) - reach > 2500.0f) return true;
   WAsset& w = parse(a);
   upload(a, w);
-  for (auto& s : w.s) if (s.count) app.R.water.push_back({s.vao, s.count, M, vec4((float)s.kind, s.clarity, s.waves, 0.0f), vec4(s.tint, s.hasTint ? 1.0f : 0.0f)});
+  for (auto& s : w.s) if (s.count) app.R.water.push_back({s.vao, s.count, M, vec4((float)s.kind, s.clarity, s.waves, s.ice), vec4(s.tint, s.hasTint ? 1.0f : 0.0f)});
   return true;
 }
 
@@ -302,7 +362,19 @@ float waterSurfaceAt(const App& app, float x, float z) {
     vec3 l = vec3(inv * vec4(x, inst.pos.y, z, 1.0f));
     for (auto& s : parse(a).s) {
       if (l.x < s.bmin.x || l.z < s.bmin.y || l.x > s.bmax.x || l.z > s.bmax.y) continue;
-      if (inPoly(s.poly, vec2(l.x, l.z))) best = std::max(best, inst.pos.y + s.level);
+      if (inPoly(s.poly, vec2(l.x, l.z))) {
+        float lv = s.level;
+        if (!s.glev.empty()) {   // a graded ribbon: the level at the nearest point of its centreline
+          float bd = 1e30f; vec2 q(l.x, l.z);
+          for (size_t i = 0; i + 1 < s.gpath.size(); ++i) {
+            vec2 ab = s.gpath[i + 1] - s.gpath[i]; float L2 = glm::dot(ab, ab); if (L2 < 1e-8f) continue;
+            float t = std::clamp(glm::dot(q - s.gpath[i], ab) / L2, 0.0f, 1.0f);
+            float d = glm::length(q - (s.gpath[i] + ab * t));
+            if (d < bd) { bd = d; lv = s.glev[i] + (s.glev[i + 1] - s.glev[i]) * t; }
+          }
+        }
+        best = std::max(best, inst.pos.y + lv);
+      }
     }
   }
   return best;

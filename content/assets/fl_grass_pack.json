@@ -1,0 +1,45 @@
+{
+ "id": "fl_grass_pack",
+ "version": 1,
+ "name": "Reed grass pack (bake)",
+ "category": "Vegetation",
+ "hidden": true,
+ "description": "FL1: the shared bake of the reed grass pack; its plants are the fl_grass_* assets (tools/fl1_flora.py). Not placed by itself.",
+ "footprint": [
+  1,
+  1
+ ],
+ "floors": 0,
+ "enterable": false,
+ "plinthDepth": 0,
+ "maxGrade": 30,
+ "noAutoPanels": true,
+ "model": {
+  "src": "grass.glb",
+  "lod1Src": "grass_lod1.glb",
+  "dir": "fl_grass",
+  "pivot": "ground",
+  "scale": 1,
+  "offset": [
+   0.0434,
+   -0.01,
+   0.0637
+  ],
+  "maxTex": 1024,
+  "lod1Tex": 512,
+  "jpgMaps": true,
+  "lodDist": 25,
+  "cullDist": 120,
+  "foliage": true,
+  "wind": 1.0,
+  "credit": "grass by Georgeous, Sketchfab Standard licence (not redistributable): local only"
+ },
+ "nav": {
+  "effect": "none"
+ },
+ "materials": [],
+ "parts": [],
+ "furniture": [],
+ "interactables": [],
+ "panels": []
+}

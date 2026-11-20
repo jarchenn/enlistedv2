@@ -312,7 +312,7 @@ void SelfTest::structuresUpdate(App& app, float dt) {
     }
     // firing points: a clear line of sight 4 m out at eye height (embrasure / mg / firestep / unglazed openings;
     // glazed windows have casements, mortar positions fire indirect)
-    const json& rawFp = a->raw["nav"].value("firingPoints", json::array());
+    const json& rawFp = jkey(a->raw, "nav").value("firingPoints", json::array());
     for (size_t f = 0; f < a->navMeta.firingPoints.size(); ++f) {
       auto& fp = a->navMeta.firingPoints[f];
       bool unglazed = f < rawFp.size() && rawFp[f].value("unglazed", false);

@@ -86,6 +86,9 @@ ROUTES = {   # name: (points, clear width, kind)
     "overlook path": (OVERLOOK_BACK, 3.0, "lane"), "rear yard": (REAR, 3.2, "lane"), "terrace": (TERRACE_X, 4.0, "lane"),
 }
 
+PUDDLES = [(-30.0, -59.5, 1.3), (-8.0, -50.6, 1.1), (6.0, -42.6, 1.5), (9.5, -17.5, 1.2), (2.0, -9.0, 1.0), (-1.0, -3.5, 1.4),
+           (-60.0, -61.9, 1.2), (-84.0, -63.0, 1.6), (40.0, -55.8, 1.0), (62.0, -8.0, 1.3), (-20.0, 24.0, 1.1)]   # (x, z, radius m)
+ORCH_IDS = []
 SPAWN_LOW = (-90.0, -73.0)     # in the cart yard, the cart shed behind and a stone wall screening it from the orchard
 SPAWN_UP = (18.0, 109.0)       # the screened yard behind the washhouse
 COURT = (-3.0, 2.0)
@@ -292,7 +295,10 @@ def build_terrain(grid):
     inner = (outside > -1.5) & (outside <= 0.0)
     ring = (outside > 1.5) & (outside < 4.5)
     F.set_mask(inner, F.H.copy())
-    F.set_mask(ring, F.H + 12.0)
+    rs2 = np.random.default_rng(SEED + 11)   # M4: the face's height wanders 7-17 m (a broken skyline, not a ruler)
+    varh = ndimage.gaussian_filter(rs2.standard_normal(F.H.shape), 18.0 / RES)
+    varh = (varh - varh.min()) / (np.ptp(varh) + 1e-9)
+    F.set_mask(ring, F.H + 7.0 + 10.0 * varh)
     F.solve()
     H = F.H
     # gentle ground variation off the lanes and pads (0.0-0.35 m, 6-15 m scale)
@@ -359,6 +365,9 @@ def sculpt_details(F, lanes, d_cr):
         sh[np.hypot(X - gx, Z - gz) < 9.0] = 0.0
     sh[d_cr < 4.0] = 0.0
     F.H = H + sh
+    for (px, pz, r) in PUDDLES:   # meltwater pockets: shallow bowls in the lanes (8 cm); the puddles sit in them
+        d2 = ((X - px) / r) ** 2 + ((Z - pz) / (r * 0.7)) ** 2
+        F.H = F.H - 0.08 * np.clip(1.0 - d2, 0.0, 1.0)
 
 
 # ---------------------------------------------------------------- output helpers
@@ -380,7 +389,9 @@ def write_sculpt(F, grid):
             hf = F.sample(XX.ravel(), ZZ.ravel()).reshape(XX.shape)
             hb = np.array([[grid.sample(x, z) for x in xs] for z in zs])
             dlt = hf - hb
-            if np.abs(dlt).max() > 0.04:
+            cx_, cz_ = ox + ts / 2, oz + ts / 2   # M5: only where the play happens (envelope + 15 m) and the detail is real (> 0.1 m)
+            inside = ENV[0] - 15 - ts < cx_ < ENV[2] + 15 + ts and ENV[1] - 15 - ts < cz_ < ENV[3] + 15 + ts
+            if inside and np.abs(dlt).max() > 0.1:
                 tiles.append({"key": tz * tx_n + tx, "d": [round(float(v), 3) for v in dlt.ravel()]})
     return {"fineN": 36, "tiles": tiles}
 
@@ -461,9 +472,36 @@ def build(ctx):
     for k in range(3):
         b.place("mod_stepping_stones", FORD[0] + 1.2 * k, FORD[1] + 2.0 * k - 2.0, 300.0, check=False, y=G(FORD[0] + 1.2 * k, FORD[1] + 2.0 * k - 2.0), tags={"crossing"})
 
-    # the far ridge: the placeholder cable-haul station (two trestles of different heights and a ridge shed)
-    for aid, x, z, yaw in STATION:
-        b.place(aid, x, z, yaw, check=False, y=G(x, z), tags={"station"}, companions=False)
+    # the far ridge: the cable-haul station (two lattice trestles of different heights, a machinery shed, the haul cable)
+    sx, sz, sy = write_station_asset(ctx, G, cat)
+    b.place("bt_cable_station", sx, sz, 0.0, check=False, cls="none", y=sy, tags={"station"}, companions=False)
+    # the waterworks court's stepped header channel, the court's north-east side, head to the north
+    write_flume_asset(ctx, cat)
+    b.place("bt_flume", 8.0, 15.0, 0.0, check=False, y=G(8.0, 15.0), tags={"flume"}, companions=False)
+    # dressing by use (spec 4): the washhouse's pails, boards and porch; the smithy's fuel under cover, its fire, ash downwind
+    for aid, x, z, yaw in (("sd_market_lean_to", 8.0, 57.4, 0.0), ("ph_wooden_bucket_01", 2.6, 57.6, 0.0), ("ph_wooden_bucket_02", 3.2, 57.3, 40.0),
+                           ("ph_wooden_bucket_01", 13.7, 57.8, 10.0), ("pa_crate_slatted", 14.6, 57.2, 15.0),
+                           ("drs_woodpile", 57.6, -17.0, 0.0), ("fire_brazier", 59.6, -10.5, 0.0), ("ph_wine_barrel_01", 59.4, -14.6, 0.0),
+                           ("drs_woodpile", -64.0, -73.5, 90.0), ("drs_woodpile", -96.0, -2.0, 0.0),
+                           ("lamp_lantern_post", 0.6, 56.2, 200.0)):   # M4: the one minor practical light (the washhouse porch, lit at dusk)
+        if aid in cat:
+            b.place(aid, x, z, yaw, check=False, y=G(x, z), tags={"dress"}, companions=False)
+    if "bt_vent_smoke" in cat:   # the smithy's working chimney (small_carpenter_workshop's stack: local (-3.6, 6.05, -1.2))
+        vx, vz = local_to_world((54.0, -12.0), 90.0, -3.6, -1.2)
+        b.place("bt_vent_smoke", vx, vz, 0.0, check=False, cls="none", y=G(54.0, -12.0) + 5.9, tags={"fx"}, companions=False)
+    paint.poly("scorched", [(61.0, -9.0), (65.0, -10.5), (64.0, -13.0), (60.5, -12.5)], weight=0.6, edge=1.2, ragged=0.8, seed=21)   # ash downwind (south-east)
+
+    # ---------------------------------------------------------------- M2: the creek ribbon, puddles, winter vegetation
+    cpath = write_creek_asset(ctx, F)
+    from mapgen.catalog import Asset
+    with open(cpath, encoding="utf-8") as fh:
+        cat.assets["bt_creek"] = Asset(__import__("json").load(fh), cpath)   # written just now: into this run's catalogue
+    if "bt_creek" in cat:
+        b.place("bt_creek", 0.0, 0.0, 0.0, check=False, cls="none", y=0.0, tags={"water"}, companions=False)
+    global ORCH_IDS
+    ORCH_IDS = write_orchard_trees(ctx, cat)
+    rep_veg = dress_vegetation(b, cat, G, R)
+    rep_veg["boundary_rock"] = dress_boundary(b, cat, G, R)
 
     # ---------------------------------------------------------------- scenario: 10 v 10 Team Deathmatch
     sc = ScenarioBuilder(b, defending="Axis")
@@ -503,16 +541,28 @@ def build(ctx):
     tdir = os.path.join(ctx.repo, "content", "templates")
     grid.write_png(os.path.join(tdir, TID + ".height.png"))
     views = [{"name": "plan_high", "pos": [0.0, 260.0, -20.0], "yaw": 0.0, "pitch": -89.0}]
+    # M4 landmark close-ups (editor / eye views): the cable-haul station, the stepped flume, the washhouse
+    sty = G(236.0, 242.0)
+    views.append({"name": "station_close", "pos": [205.0, round(sty + 6.0, 2), 214.0], "yaw": round(look_yaw(268.0 - 205.0, 226.0 - 214.0), 2), "pitch": 6.0})
+    views.append({"name": "flume_close", "pos": [13.0, round(G(13.0, 7.5) + 1.65, 2), 7.5], "yaw": round(look_yaw(8.0 - 13.0, 12.0 - 7.5), 2), "pitch": -6.0, "gameplay": True})
+    views.append({"name": "washhouse_close", "pos": [4.0, round(G(4.0, 47.0) + 1.65, 2), 47.0], "yaw": round(look_yaw(8.0 - 4.0, 63.0 - 47.0), 2), "pitch": 4.0, "gameplay": True})
     for n, c in cams:
         views.append({"name": n.lower().replace(" ", "_"), "pos": c["position"], "yaw": c["yaw"], "pitch": c["pitch"], "gameplay": True})
     cam0 = ([0.0, 150.0, -170.0], 0.0, -40.0)
-    look = {"weather": 0.9, "clouds": 0.95, "haze": 2.2, "envFog": 1, "fogNear": 6.0, "saturation": 0.72, "tint": [0.96, 0.99, 1.04],
-            "bloom": 1.1, "grime": 1.2, "season": "winter"}
+    # spec 6: bright overcast over dark slushy ground; near air ~0.0025 / m (93 % at 30 m, 61 % at 200 m, 11 % at 900 m),
+    # a valley mist layer (12 m e-folding) hugging the creek and the low ground
+    look = {"weather": 0.9, "clouds": 0.95, "haze": 2.4, "hazeHeight": 90.0, "envFog": 1, "fogNear": 6.0,
+            "fogLayer": {"density": 0.0015, "height": 12.0}, "saturation": 0.74, "tint": [0.96, 0.99, 1.04],
+            "bloom": 1.1, "grime": 1.3, "season": "winter", "leafless": True, "grassDead": 1.0,
+            "snowfall": {"near": 150, "far": 2600, "fall": 1.0, "wind": [0.8, -0.6], "bright": 1.0},
+            # GR3 night / dusk air for the same map (the time of day picks it): thicker low mist, a closer start
+            "night": {"haze": 2.0, "envFog": 1, "fogNear": 3.0}}   # SF1: light fall, wind from the north-west
     sculpt = write_sculpt(F, grid)
+    write_audio_anchors(tdir, G)
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sc.to_json(rules_extra=rules), explore_start=((SPAWN_LOW[0], G(*SPAWN_LOW), SPAWN_LOW[1]), 45.0),
               camera=cam0, bookmarks=bookmarks,
-              extra={"groundPaint": paint.to_json(), "terrainSculpt": sculpt, "waterBodies": creek_water(F),
+              extra={"groundPaint": paint.to_json(), "terrainSculpt": sculpt, "snow": snow_mask(F, tdir),
                      "lighting": {"hour": 15.3, "enclosed": False, "fill": 1.3}, "look": look})
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=22, version=VERSION, seed=SEED,
                    description="Team Deathmatch, 10 v 10 (milestone 1 greybox): a mountain hamlet in a late-winter thaw around a stepped "
@@ -521,7 +571,7 @@ def build(ctx):
                    map_file=TID + ".nmap.json", camera=cam0, thumbnail=TID + ".thumb.png",
                    thumb_camera=(cams[0][1]["position"], cams[0][1]["yaw"], 0.0), extra={"userMap": True, "views": views})
     # route report: lengths and grades from the true ground
-    rep = {"buildings": n_bld, "instances": len(b.inst), "sculpt_tiles": len(sculpt["tiles"]), "routes": {}}
+    rep = {"buildings": n_bld, "instances": len(b.inst), "sculpt_tiles": len(sculpt["tiles"]), "vegetation": rep_veg, "routes": {}}
     for n, (pts, w, kd) in ROUTES.items():
         d = lane_dense(pts, 1.0)
         L = sum(math.hypot(q[0] - p[0], q[1] - p[1]) for p, q in zip(d, d[1:]))
@@ -587,16 +637,15 @@ def snow_mask(F, tdir):
         return ndimage.zoom(g, (nz / g.shape[0], nx / g.shape[1]), order=1)[:nz, :nx]
     # deposit: open field and outer slopes 0.85 (55-85 % cover), sheltered yards / orchard 0.72 (45-75 %), scoured
     # crests lower (the 3-15 m patch field), busy roads and stairs ~0.5 with traffic (15-35 %)
-    R = 0.85 - 0.22 * blob(9.0, 8)
+    R = 0.9 - 0.32 * blob(9.0, 8)   # open ground: 55-85 % cover at the 0.70 threshold
     for name, ((cx, cz), (hx, hz), fl) in AREAS.items():
         m = (np.abs(X - cx) <= hx) & (np.abs(Z - cz) <= hz)
-        R[m] = np.minimum(R[m], 0.74 - 0.1 * blob(5.0, 4)[m])
+        R[m] = np.minimum(R[m], 0.84 - 0.26 * blob(5.0, 4)[m])   # sheltered yards and the orchard: 45-75 %
     G = np.zeros_like(R); B = np.zeros_like(R); A = np.zeros_like(R)
     for name, (pts, wd, kind) in ROUTES.items():
         dist = poly_dist(X, Z, lane_dense(pts, 2.0))
-        busy = 0.42 if kind == "road" else 0.3 if kind == "lane" else 0.22
-        G = np.maximum(G, busy * np.clip(1.0 - (dist - wd * 0.35) / (wd * 0.3 + 0.6), 0, 1))     # trodden middle, soft edges
-        R = np.where(dist < wd * 0.5 + 0.3, np.minimum(R, 0.62), R)
+        busy = 0.55 if kind == "road" else 0.45 if kind == "lane" else 0.35
+        G = np.maximum(G, busy * np.clip(1.0 - (dist - wd * 0.32) / (wd * 0.12 + 0.35), 0, 1))   # the trodden two thirds; snow keeps the edges (road 15-35 %)
     # wheel ruts: two dark wet lines 0.18-0.32 m wide, 1.6 m apart, inside each road and lane
     for name, (pts, wd, kind) in ROUTES.items():
         if kind not in ("road", "lane") or wd < 3.0:
@@ -630,5 +679,354 @@ def snow_mask(F, tdir):
     from PIL import Image
     Image.fromarray(img, "RGBA").save(os.path.join(tdir, TID + ".snow.png"), optimize=True)
     return {"mask": TID + ".snow.png", "box": [SNOW_BOX[0], SNOW_BOX[1], SNOW_BOX[2], SNOW_BOX[3]],
-            "slope": [0.62, 0.9], "threshold": 0.42, "soft": 0.1, "roof": 0.78, "noise": 0.32, "melt": 0.0}
+            "slope": [0.62, 0.9], "threshold": 0.7, "soft": 0.08, "roof": 0.95, "roofSlope": 0.42, "noise": 0.45, "melt": 0.0}
 
+
+# ---------------------------------------------------------------- M2: the creek as one graded, flowing ribbon (water.cpp BT1)
+_CREEK_DENSE = None
+
+
+def creek_dist(x, z):
+    global _CREEK_DENSE
+    if _CREEK_DENSE is None:
+        _CREEK_DENSE = lane_dense([(cx, cz, b) for cx, cz, b in CREEK_CTRL], 1.0)
+    return min(math.hypot(x - p[0], z - p[1]) for p in _CREEK_DENSE[::2])
+
+
+def write_creek_asset(ctx, F):
+    """content/assets/bt_creek.json: the creek (a stream surface graded along its centreline, the current slowing to
+    still edges where thin ice forms) and the lane puddles (thin ice skins), placed once at the origin."""
+    import json
+    dense = lane_dense([(x, z, BASE + b + 0.32) for x, z, b in CREEK_CTRL], 2.0)
+    left, right = [], []
+    for a, c in zip(dense, dense[1:] + [dense[-1]]):
+        dx, dz = c[0] - a[0], c[1] - a[1]
+        L = math.hypot(dx, dz) or 1.0
+        nx, nz = -dz / L, dx / L
+        left.append([round(a[0] + nx * 4.2, 2), round(a[1] + nz * 4.2, 2)])
+        right.append([round(a[0] - nx * 4.2, 2), round(a[1] - nz * 4.2, 2)])
+    surfaces = [{"kind": "stream", "outline": left + right[::-1], "level": round(max(p[2] for p in dense), 3),
+                 "path": [[round(p[0], 2), round(p[1], 2), round(p[2], 3)] for p in dense], "speed": 0.7, "halfWidth": 2.6,
+                 "clarity": 0.8, "waves": 0.8, "ice": 0.55}]
+    for (px, pz, r) in PUDDLES:
+        lvl = F.at(px, pz) + 0.05
+        ring = [[round(px + math.cos(t) * r * (1.0 + 0.12 * math.sin(3 * t)), 2), round(pz + math.sin(t) * r * 0.7 * (1.0 + 0.1 * math.cos(2 * t)), 2)]
+                for t in [2 * math.pi * k / 14 for k in range(14)]]
+        surfaces.append({"kind": "puddle", "outline": ring, "level": round(lvl, 3), "ice": 0.35})
+    xs = [p[0] for p in dense]
+    zs = [p[1] for p in dense]
+    j = {"id": "bt_creek", "version": 1, "name": "Blackwater Thaw creek", "category": "Water",
+         "description": "BT1: the Blackwater Thaw creek as one graded, flowing stream surface with still edge pockets and thin shore ice, and the lane puddles. Generated by tools/mapgen/maps/blackwater_thaw.py; placed once at the origin.",
+         "floors": 0, "enterable": False, "footprint": [round(max(xs) - min(xs), 1), round(max(zs) - min(zs), 1)], "plinthDepth": 0, "maxGrade": 90,
+         "noAutoPanels": True, "nav": {"effect": "none"}, "water": {"surfaces": surfaces}, "materials": [], "parts": [],
+         "furniture": [], "interactables": [], "panels": []}
+    path = os.path.join(ctx.repo, "content", "assets", "bt_creek.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(j, f, separators=(",", ":"))
+    return path
+
+
+# ---------------------------------------------------------------- M2: winter vegetation families (spec 5)
+def dress_vegetation(b, cat, G, R):
+    rep = {}
+    lanes = [(lane_dense(pts, 2.0), w) for pts, w, k in ROUTES.values()] + [(lane_dense([st[0], st[1]], 1.0), 2.4) for st in STAIRS]
+
+    def lane_gap(x, z):
+        return min(min(math.hypot(x - p[0], z - p[1]) for p in pts[::2]) - w / 2 for pts, w in lanes)
+
+    def put(aid, x, z, yaw, key, clear=1.2, inside=True):
+        if aid not in cat:
+            return False
+        if inside and not (ENV[0] + 3 < x < ENV[2] - 3 and ENV[1] + 3 < z < ENV[3] - 3):
+            return False
+        if lane_gap(x, z) < clear or b.overlaps(cat[aid], x, z, yaw, {"flat", "none", "veg"}):
+            return False
+        e = b.place(aid, x, z, yaw, check=False, cls="veg", y=G(x, z), tags={"veg", key}, companions=False)
+        rep[key] = rep.get(key, 0) + (e is not None)
+        return e is not None
+
+    # pruned orchard trees: loose rows 5-6 m apart on the terraces (bare in winter: look.leafless)
+    (ox, oz), (ohx, ohz), _ = AREAS["Western orchard"]
+    for z0, z1, fl in TERRACES:
+        zz = z0 + 2.6
+        while zz < z1 - 1.8:
+            xx = ox - ohx + 4.0 + R.uniform(-1, 1)
+            while xx < ox + ohx - 3.0:
+                if R.random() > 0.12:   # gaps where trees died
+                    put(R.choice(ORCH_IDS), xx + R.uniform(-0.6, 0.6), zz + R.uniform(-0.5, 0.5), R.uniform(0, 360), "orchard", clear=2.2)
+                xx += R.uniform(4.6, 6.4)
+            zz += R.uniform(5.0, 6.5)
+    # bare alder / willow along the creek (dead ash and oak forms), not at the crossings
+    for k, (x, z, _) in enumerate(lane_dense([(cx, cz, 0) for cx, cz, _b in CREEK_CTRL], 9.0)):
+        if not (ENV[0] < x < ENV[2]):
+            continue
+        if min(math.hypot(x - c[0], z - c[1]) for c in (BRIDGE_W, FOOTBRIDGE, FORD)) < 12.0:
+            continue
+        side = 1 if k % 2 else -1
+        put(R.choice(["nt3_tree_dead_ash", "nt3_tree_dead_oak", "nt3_tree_dead_ash"]), x + R.uniform(-1.5, 1.5), z + side * R.uniform(4.5, 6.5), R.uniform(0, 360), "creek_trees", clear=2.0)
+    # fir and spruce: ridgeline masses outside the envelope and border screens just inside it
+    firs = ["ph_fir_tree_01_a", "ph_fir_tree_01_b", "ph_fir_tree_01_c", "ph_fir_sapling_medium_a", "ph_fir_sapling_medium_b"]
+    for _ in range(2600):
+        x, z = R.uniform(ENV[0] - 70, ENV[2] + 70), R.uniform(ENV[1] - 60, ENV[3] + 90)
+        out = max(ENV[0] - x, x - ENV[2], ENV[1] - z, z - ENV[3])
+        if out < -6.0 or (out < 4.0 and R.random() < 0.7):
+            continue
+        if x < -60 and z < -60 and R.random() < 0.75:   # the south-west valley gap stays open (the bright opening)
+            continue
+        put(R.choice(firs), x, z, R.uniform(0, 360), "firs", clear=3.0, inside=False)
+    # dead grass and frosted seed heads at path edges, orchard margins and unused strips; bramble at wall feet
+    for _ in range(900):
+        x, z = R.uniform(ENV[0] + 4, ENV[2] - 4), R.uniform(ENV[1] + 4, ENV[3] - 4)
+        g = lane_gap(x, z)
+        if g < 1.0 or g > 14.0:
+            continue
+        r = R.random()
+        aid = "nat_drygrass_tufts" if r < 0.4 else "nat_drygrass_tall" if r < 0.7 else "nat_drygrass_sparse" if r < 0.85 else "shrub_bramble"
+        put(aid, x, z, R.uniform(0, 360), "ground_veg", clear=0.8)
+    return rep
+
+
+# ---------------------------------------------------------------- M3: generated landmark assets (part-built, written by this script)
+M_STATION = [{"name": "timber", "albedo": [0.20, 0.18, 0.16], "roughness": 0.85, "pattern": "wood", "metallic": 0, "grain": 1},
+             {"name": "iron", "albedo": [0.16, 0.14, 0.13], "roughness": 0.6, "pattern": "metal", "metallic": 0.5, "grain": 1},
+             {"name": "cable", "albedo": [0.08, 0.08, 0.08], "roughness": 0.5, "pattern": "metal", "metallic": 0.6, "grain": 1},
+             {"name": "shed_board", "albedo": [0.24, 0.22, 0.20], "roughness": 0.85, "pattern": "wood", "metallic": 0, "grain": 1},
+             {"name": "roof_iron", "albedo": [0.18, 0.15, 0.13], "roughness": 0.7, "pattern": "metal", "metallic": 0.3, "grain": 1},
+             {"name": "stone", "albedo": [0.36, 0.35, 0.33], "roughness": 0.9, "pattern": "stone", "metallic": 0, "grain": 1}]
+
+
+def _box(c, s, m, r=None, k=1):
+    p = {"t": "b", "c": [round(v, 3) for v in c], "s": [round(v, 3) for v in s], "m": m}
+    if r:
+        p["r"] = [round(v, 2) for v in r]
+    if not k:
+        p["k"] = 0
+    return p
+
+
+def _beam(a, b, w, m, k=1):
+    """a box from point a to point b (x, y, z), w thick: its length along local y, rotated into place."""
+    dx, dy, dz = b[0] - a[0], b[1] - a[1], b[2] - a[2]
+    L = math.sqrt(dx * dx + dy * dy + dz * dz)
+    c = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2)
+    yaw = math.degrees(math.atan2(dx, dz))
+    pitch = math.degrees(math.atan2(math.hypot(dx, dz), dy))   # tilt from vertical toward (dx, dz)
+    return _box(c, (w, L, w), m, r=(pitch, yaw, 0.0) if L > 1e-6 else None, k=k)
+
+
+def _trestle(x, z, base_y, top_y, half=2.2, top_half=0.9):
+    """a lattice trestle from its own ground (base_y) to top_y: four leaning legs, X braces every ~4 m, a crossarm, two sheaves."""
+    parts = []
+    corners = [(-1, -1), (1, -1), (1, 1), (-1, 1)]
+    legs = []
+    for sx, sz in corners:
+        a = (x + sx * half, base_y, z + sz * half)
+        b = (x + sx * top_half, top_y, z + sz * top_half)
+        legs.append((a, b))
+        parts.append(_beam(a, b, 0.32, "timber"))
+    H = top_y - base_y
+    n = max(2, int(H / 4.2))
+    lerp = lambda a, b, t: (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t)
+    for k in range(n):
+        t0, t1 = k / n, (k + 1) / n
+        for i in range(4):
+            la, lb = legs[i], legs[(i + 1) % 4]
+            p0, p1 = lerp(*la, t0), lerp(*lb, t1)
+            q0, q1 = lerp(*lb, t0), lerp(*la, t1)
+            parts.append(_beam(p0, p1, 0.12, "timber"))
+            parts.append(_beam(q0, q1, 0.12, "timber"))
+            parts.append(_beam(lerp(*la, t1), lerp(*lb, t1), 0.16, "timber"))
+    parts.append(_box((x, top_y + 0.25, z), (top_half * 2 + 3.6, 0.5, 0.6), "timber"))       # the crossarm
+    for sx in (-1, 1):
+        parts.append({"t": "c", "c": [round(x + sx * 1.9, 3), round(top_y + 0.85, 3), round(z, 3)], "s": [0.12, 1.1, 1.1], "m": "iron", "r": [0, 0, 90]})   # sheave
+    parts.append(_box((x, base_y + 0.4, z), (half * 2 + 1.2, 0.8, half * 2 + 1.2), "stone"))   # footing
+    return parts
+
+
+def _catenary(a, b, sag, n=24):
+    pts = []
+    for k in range(n + 1):
+        t = k / n
+        p = (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t - sag * 4.0 * t * (1 - t), a[2] + (b[2] - a[2]) * t)
+        pts.append(p)
+    return [_beam(p, q, 0.07, "cable", k=0) for p, q in zip(pts, pts[1:])]
+
+
+def write_station_asset(ctx, G, cat):
+    """bt_cable_station: two trestles of different heights ~70 m apart on the far ridge (each from its own ground), a
+    machinery shed, a sagging haul cable between them and on down toward the valley. Origin = trestle A's foot."""
+    import json
+    from mapgen.catalog import Asset
+    ax, az = 236.0, 242.0
+    bx, bz = 300.0, 212.0
+    y0 = G(ax, az)
+    ya, yb = 0.0, G(bx, bz) - y0
+    ta, tb = 24.0, yb + 17.0                     # trestle tops (asset space): different heights
+    parts = _trestle(0.0, 0.0, ya - 1.0, ta) + _trestle(bx - ax, bz - az, yb - 1.0, tb)
+    # the machinery shed by trestle A: board walls, a pitched iron roof, a drive housing
+    sx, sz = -9.0, 6.0
+    parts += [_box((sx, 2.0, sz), (8.0, 4.0, 5.0), "shed_board"),
+              _box((sx, 4.6, sz - 1.35), (8.6, 0.12, 3.0), "roof_iron", r=(-30, 0, 0)),
+              _box((sx, 4.6, sz + 1.35), (8.6, 0.12, 3.0), "roof_iron", r=(30, 0, 0)),
+              _box((sx + 3.0, 6.2, sz), (0.6, 2.4, 0.6), "iron"),           # the vent stack
+              {"t": "c", "c": [sx - 4.3, 2.4, sz], "s": [0.5, 2.4, 2.4], "m": "iron", "r": [0, 0, 90]}]   # the drive wheel
+    top_a = (1.9, ta + 0.85, 0.0)
+    top_b = (bx - ax + 1.9, tb + 0.85, bz - az)
+    parts += _catenary(top_a, top_b, 6.0)
+    # the cable on down toward the valley (south-west), ending in the mist
+    far = (-90.0, ta - 70.0, -95.0)
+    parts += _catenary((top_a[0] - 3.8, top_a[1], top_a[2]), far, 9.0, n=30)
+    j = {"id": "bt_cable_station", "version": 1, "name": "Cable-haul station (Blackwater Thaw)", "category": "Landmarks",
+         "description": "BT1: the old cable-haul station on the far ridge: two lattice trestles of different heights, a machinery shed, a sagging haul cable. A skyline silhouette, generated by tools/mapgen/maps/blackwater_thaw.py.",
+         "floors": 0, "enterable": False, "footprint": [round(bx - ax + 8, 1), round(abs(bz - az) + 8, 1)], "plinthDepth": 0, "maxGrade": 90,
+         "noAutoPanels": True, "nav": {"effect": "none"}, "materials": M_STATION, "parts": parts, "furniture": [], "interactables": [], "panels": []}
+    path = os.path.join(ctx.repo, "content", "assets", "bt_cable_station.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(j, f, separators=(",", ":"))
+    cat.assets["bt_cable_station"] = Asset(j, path)
+    return (ax, az, y0)
+
+
+M_FLUME = [{"name": "stone", "albedo": [0.38, 0.37, 0.34], "roughness": 0.9, "pattern": "stone", "metallic": 0, "grain": 1},
+           {"name": "wet_stone", "albedo": [0.22, 0.22, 0.21], "roughness": 0.55, "pattern": "stone", "metallic": 0, "grain": 1},
+           {"name": "gate_wood", "albedo": [0.22, 0.19, 0.16], "roughness": 0.8, "pattern": "wood", "metallic": 0, "grain": 1},
+           {"name": "iron_rust", "albedo": [0.26, 0.14, 0.08], "roughness": 0.75, "pattern": "metal", "metallic": 0.2, "grain": 1}]
+
+
+def write_flume_asset(ctx, cat, steps=3, step_len=3.0, drop=0.4, inner=0.9, wall=0.45):
+    """bt_flume: the stepped header channel (pump room family): a stone U-channel along local -z, stepping down `drop` per
+    `step_len`, thick abutments at each step, wet bands, a timber gate with iron bolts at the head, water in each step
+    (water.cpp surfaces), a drain grate at the foot. Origin = the head of the channel at the court's floor."""
+    import json
+    from mapgen.catalog import Asset
+    parts, surfs = [], []
+    hw = inner / 2 + wall / 2
+    top0 = 1.2                                     # the head stands 1.2 m above the court
+    for k in range(steps):
+        z0, z1 = -k * step_len, -(k + 1) * step_len
+        zc = (z0 + z1) / 2
+        floor = top0 - 0.6 - k * drop
+        parts.append(_box((0, floor / 2, zc), (inner + 2 * wall, max(0.2, floor), step_len), "stone"))           # the bed block
+        for sx in (-1, 1):
+            parts.append(_box((sx * hw, (floor + 0.55) / 2 + 0.0, zc), (wall, floor + 0.55, step_len), "stone"))   # side walls
+            parts.append(_box((sx * (inner / 2 - 0.005), floor + 0.15, zc), (0.02, 0.3, step_len), "wet_stone", k=0))   # wet band
+        parts.append(_box((0, floor + 0.35, z1 + 0.25), (inner + 2 * wall + 0.5, floor + 0.7 + 0.1, 0.5), "stone"))   # the abutment / lip
+        surfs.append({"kind": "stream", "outline": [[-inner / 2, z0], [inner / 2, z0], [inner / 2, z1 + 0.5], [-inner / 2, z1 + 0.5]],
+                      "level": round(floor + 0.22, 3), "path": [[0.0, z0], [0.0, z1]], "speed": 0.9, "clarity": 0.9, "waves": 1.2})
+    # the timber gate and its bolts at the head
+    parts.append(_box((0, top0 - 0.1, 0.15), (inner + 0.1, 0.9, 0.1), "gate_wood"))
+    for sx in (-1, 1):
+        parts.append(_box((sx * (inner / 2 + 0.1), top0 + 0.2, 0.15), (0.14, 1.5, 0.16), "gate_wood"))
+        for yy in (top0 - 0.3, top0 + 0.1):
+            parts.append({"t": "c", "c": [sx * (inner / 2 - 0.12), yy, 0.21], "s": [0.06, 0.04, 0.06], "m": "iron_rust", "r": [90, 0, 0], "k": 0})
+    # the drain grate at the foot
+    zf = -steps * step_len - 0.4
+    parts.append(_box((0, 0.03, zf), (inner + 0.6, 0.06, 0.8), "iron_rust"))
+    j = {"id": "bt_flume", "version": 1, "name": "Stepped header channel (Blackwater Thaw)", "category": "Small buildings",
+         "description": "BT1: the waterworks court's stepped header channel: a stone U-channel stepping down 0.4 m per 3 m, thick abutments, wet bands, a timber gate with iron bolts, water in each step, a drain grate. Generated by tools/mapgen/maps/blackwater_thaw.py.",
+         "floors": 0, "enterable": False, "footprint": [inner + 2 * wall + 0.6, steps * step_len + 1.0], "plinthDepth": 0, "maxGrade": 6,
+         "noAutoPanels": True, "nav": {"effect": "carve"}, "materials": M_FLUME, "parts": parts, "water": {"surfaces": surfs},
+         "furniture": [], "interactables": [], "panels": []}
+    path = os.path.join(ctx.repo, "content", "assets", "bt_flume.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(j, f, separators=(",", ":"))
+    cat.assets["bt_flume"] = Asset(j, path)
+
+# ---------------------------------------------------------------- the sound session's anchors (content/templates/<id>.audio.json)
+def write_audio_anchors(tdir, G=None):
+    """positions the ambience reads: the creek centreline, the crossings, the flume and its drain, the smithy hearth and
+    vent, the creaky sheds, the overlook. World x, z (spec X, Y); y = the ground when known."""
+    import json
+    P = lambda x, z: [round(x, 2), round(G(x, z), 2) if G else None, round(z, 2)]
+    sheds = [(78.0, -16.0), (50.0, 14.0), (18.5, 66.0), (-98.0, -44.0), (-64.0, -78.0)]
+    j = {"map": TID, "note": "generated by tools/mapgen/maps/blackwater_thaw.py; world x, z = spec X, Y; creek bed datum y = %.1f" % BASE,
+         "creek": [P(x, z) for x, z, _ in CREEK_CTRL],
+         "crossings": {"stone_bridge": P(*BRIDGE_W), "footbridge": P(*FOOTBRIDGE), "ford": P(*FORD)},
+         "flume": {"head": P(8.0, 15.0), "foot": P(8.0, 6.0)}, "drains": [P(8.0, 5.6), P(8.0, 56.0)],
+         "hearth": P(59.6, -10.5), "vent": P(52.8, -8.4), "sheds": [P(x, z) for x, z in sheds], "overlook": P(82.0, 74.0),
+         "court": P(*COURT), "orchard": P(-76.0, -20.0)}
+    with open(os.path.join(tdir, TID + ".audio.json"), "w", encoding="utf-8") as f:
+        json.dump(j, f, indent=1)
+
+
+# ---------------------------------------------------------------- M4: pruned orchard trees (spec 5: 2.2-5.5 m, crooked trunk,
+# uneven branching with thickened pruning stubs, 3-5 silhouettes). Part-built, bare: no leaf cards in any season.
+M_ORCH = [{"name": "bark", "albedo": [0.20, 0.17, 0.14], "roughness": 0.95, "pattern": "wood", "metallic": 0, "grain": 1},
+          {"name": "bark_pale", "albedo": [0.36, 0.33, 0.29], "roughness": 0.9, "pattern": "wood", "metallic": 0, "grain": 1},
+          {"name": "cut", "albedo": [0.55, 0.45, 0.32], "roughness": 0.85, "pattern": "wood", "metallic": 0, "grain": 1}]
+
+
+def write_orchard_trees(ctx, cat, n=4):
+    import json, random
+    from mapgen.catalog import Asset
+    ids = []
+    for v in range(n):
+        rr = random.Random(9100 + v)
+        parts = []
+        lean = (rr.uniform(-0.35, 0.35), rr.uniform(-0.35, 0.35))
+        trunk_h = rr.uniform(1.4, 2.1)
+        base = (0.0, 0.0, 0.0)
+        top = (lean[0], trunk_h, lean[1])
+        tw = rr.uniform(0.2, 0.28)
+        mid = (lean[0] * 0.4 + rr.uniform(-0.08, 0.08), trunk_h * 0.5, lean[1] * 0.4 + rr.uniform(-0.08, 0.08))   # a crook
+        parts.append(_beam(base, mid, tw, "bark"))
+        parts.append(_beam(mid, top, tw * 0.9, "bark"))
+        parts.append(_box((0, 0.6, 0), (tw * 1.3, 1.2, tw * 1.3), "bark", k=1) | {"v": 0})   # the trunk collider only
+        limbs = rr.randint(3, 5)
+        for k in range(limbs):
+            a = 2 * math.pi * (k + rr.uniform(-0.25, 0.25)) / limbs
+            L = rr.uniform(1.3, 2.4)
+            rise = rr.uniform(0.9, 2.1)
+            end = (top[0] + math.cos(a) * L, top[1] + rise, top[2] + math.sin(a) * L)
+            w = tw * rr.uniform(0.45, 0.6)
+            parts.append(_beam(top, end, w, "bark", k=0))
+            parts.append(_box(end, (w * 1.5, w * 1.2, w * 1.5), "bark", k=0))                 # the thickened pruning stub
+            parts.append(_box((end[0], end[1] + w * 0.65, end[2]), (w * 1.2, 0.02, w * 1.2), "cut", k=0))   # its pale cut face
+            for s in range(rr.randint(2, 4)):   # water shoots from the stub and along the limb: thin, mostly upright
+                t = rr.uniform(0.4, 1.0)
+                p0 = (top[0] + (end[0] - top[0]) * t, top[1] + (end[1] - top[1]) * t, top[2] + (end[2] - top[2]) * t)
+                p1 = (p0[0] + rr.uniform(-0.5, 0.5), p0[1] + rr.uniform(0.6, 1.4), p0[2] + rr.uniform(-0.5, 0.5))
+                parts.append(_beam(p0, p1, rr.uniform(0.025, 0.045), "bark_pale", k=0))
+        h = max(p["c"][1] + p["s"][1] / 2 for p in parts)
+        aid = "bt_orchard_tree_%s" % "abcd"[v]
+        j = {"id": aid, "version": 1, "name": "Pruned orchard tree %s (winter)" % "ABCD"[v], "category": "Vegetation",
+             "description": "BT1: a pruned orchard tree in winter, %.1f m: a crooked trunk, uneven scaffold limbs ending in thickened pruning stubs with pale cuts, water shoots. Bare (no leaves). Generated by tools/mapgen/maps/blackwater_thaw.py." % h,
+             "floors": 0, "enterable": False, "footprint": [1.0, 1.0], "plinthDepth": 0, "maxGrade": 30, "noAutoPanels": True,
+             "nav": {"effect": "carve"}, "materials": M_ORCH, "parts": parts, "furniture": [], "interactables": [], "panels": []}
+        path = os.path.join(ctx.repo, "content", "assets", aid + ".json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(j, f, separators=(",", ":"))
+        cat.assets[aid] = Asset(j, path)
+        ids.append(aid)
+    return ids
+
+
+# ---------------------------------------------------------------- M4: the envelope's rock face broken up (rock faces set into it,
+# boulders and outcrops at its foot; the firs on its top already break the skyline)
+def dress_boundary(b, cat, G, R):
+    faces = [a for a in ("ph_rock_face_01", "ph_rock_face_02") if a in cat]
+    foot = [a for a in ("nat_boulder_granite_l", "nat_boulder_limestone_l", "nat_outcrop_limestone", "nat_boulders_granite_group", "nat_boulder_schist_slab") if a in cat]
+    if not faces:
+        return 0
+    x0, z0, x1, z1 = ENV
+    edges = [((x0, z0), (x1, z0)), ((x1, z0), (x1, z1)), ((x1, z1), (x0, z1)), ((x0, z1), (x0, z0))]
+    n = 0
+    for (ax, az), (bx, bz) in edges:
+        L = math.hypot(bx - ax, bz - az)
+        tx, tz = (bx - ax) / L, (bz - az) / L
+        nx, nz = tz, -tx                                   # outward (the envelope runs counter-clockwise)
+        t = R.uniform(0, 3)
+        while t < L:
+            x, z = ax + tx * t, az + tz * t
+            if min(math.hypot(x - cx, z - cz) for cx, cz, _ in CREEK_CTRL) < 10.0:
+                t += 6.0
+                continue
+            fx, fz = x + nx * R.uniform(0.6, 1.6), z + nz * R.uniform(0.6, 1.6)
+            yaw = look_yaw(-nx, -nz) + R.uniform(-18, 18)    # facing into the valley
+            e = b.place(R.choice(faces), fx, fz, yaw, check=False, cls="none", y=G(x, z) - R.uniform(0.3, 1.2), tags={"rock"}, companions=False)
+            n += e is not None
+            if foot and R.random() < 0.45:
+                bx_, bz_ = x - nx * R.uniform(1.0, 3.5) + tx * R.uniform(-2, 2), z - nz * R.uniform(1.0, 3.5) + tz * R.uniform(-2, 2)
+                b.place(R.choice(foot), bx_, bz_, R.uniform(0, 360), check=False, cls="none", y=G(bx_, bz_), tags={"rock"}, companions=False)
+            t += R.uniform(4.5, 6.5)
+    return n

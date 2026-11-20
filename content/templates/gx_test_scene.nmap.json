@@ -445,8 +445,8 @@
     },
     {
       "asset": {
-        "id": "shrub_hazel",
-        "version": 2
+        "id": "bs_hazel_b",
+        "version": 1
       },
       "id": 373,
       "overrides": {
@@ -461,8 +461,8 @@
     },
     {
       "asset": {
-        "id": "shrub_hazel",
-        "version": 2
+        "id": "bs_hazel_a",
+        "version": 1
       },
       "id": 374,
       "overrides": {
@@ -509,8 +509,8 @@
     },
     {
       "asset": {
-        "id": "nat_hawthorn_bush",
-        "version": 2
+        "id": "bs_hawthorn_a",
+        "version": 1
       },
       "id": 377,
       "overrides": {
@@ -690,8 +690,8 @@
     },
     {
       "asset": {
-        "id": "shrub_hazel",
-        "version": 2
+        "id": "bs_hazel_c",
+        "version": 1
       },
       "id": 490,
       "overrides": {

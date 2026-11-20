@@ -64,7 +64,7 @@ json UserSettings::toJson() const {
     {"graphics", {{"preset", presetName(preset())}, {"resolutionScale", g.resScale}, {"shadowQuality", g.shadowQuality}, {"farCascade", g.farCascade},
                   {"cloudShadows", g.cloudShadows}, {"lightShafts", g.shafts}, {"ssr", g.ssr}, {"ssao", g.ssao}, {"ssaoFullRes", g.ssaoFull},
                   {"bloom", g.bloom}, {"taa", g.taa}, {"taaPhases", g.taaPhases}, {"clouds", g.clouds}, {"cloudQuality", g.cloudQuality}, {"grass", g.grass}, {"grassWind", g.grassWind},
-                  {"renderDistance", g.renderDist}, {"particleBudget", g.particles}, {"fov", fov}, {"gamma", gamma}, {"microcontrast", microcontrast}, {"vsync", vsync}, {"fpsCap", fpsCap}, {"upscaling", upscale == 0 ? "temporal" : upscale == 1 ? "spatial" : "off"},
+                  {"renderDistance", g.renderDist}, {"particleBudget", g.particles}, {"fov", fov}, {"gamma", gamma}, {"microcontrast", microcontrast}, {"lighting", lightNew ? "new" : "classic"}, {"vsync", vsync}, {"fpsCap", fpsCap}, {"upscaling", upscale == 0 ? "temporal" : upscale == 1 ? "spatial" : "off"},
                   {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi}, {"msaa", g.msaa}, {"ivy", g.ivy}, {"materialDetail", g.materials}, {"dustMotes", g.dustMotes},
                   {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}, {"weather", weather == 1 ? "Cloudy" : "Clear"}, {"envFog", envFog}}},
     {"gameplay", {{"mouseSensitivity", mouseSens}, {"adsSensitivity", adsSens}, {"invertY", invertY}, {"reducedMotion", reducedMotion},
@@ -95,7 +95,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     if (q.contains("drawDistance") && !q.contains("renderDistance")) g.renderDist = 1200.0f * q.value("drawDistance", 1.0f);   // migration: the old multiplier of 1200 m
     g.renderDist = std::clamp(q.value("renderDistance", g.renderDist), 300.0f, 5000.0f); g.particles = std::clamp(q.value("particleBudget", g.particles), 0.25f, 4.0f);
     { std::string m = q.value("upscaling", std::string()); if (m == "temporal") u.upscale = 0; else if (m == "spatial") u.upscale = 1; else if (m == "off") u.upscale = 2; }
-    u.fov = std::clamp(q.value("fov", u.fov), 55.0f, 100.0f); u.gamma = std::clamp(q.value("gamma", u.gamma), 0.5f, 2.0f); u.microcontrast = std::clamp(q.value("microcontrast", u.microcontrast), 0.0f, 1.0f); u.vsync = q.value("vsync", u.vsync); u.fpsCap = std::clamp(q.value("fpsCap", u.fpsCap), 0, 500);
+    u.fov = std::clamp(q.value("fov", u.fov), 55.0f, 100.0f); u.gamma = std::clamp(q.value("gamma", u.gamma), 0.5f, 2.0f); u.microcontrast = std::clamp(q.value("microcontrast", u.microcontrast), 0.0f, 1.0f); u.lightNew = q.value("lighting", std::string(u.lightNew ? "new" : "classic")) != "classic"; u.vsync = q.value("vsync", u.vsync); u.fpsCap = std::clamp(q.value("fpsCap", u.fpsCap), 0, 500);
     g.lightCount = std::clamp(q.value("lightCount", g.lightCount), 0, 4096); g.shadowLights = std::clamp(q.value("shadowedLights", g.shadowLights), 0, 8);
     g.gi = std::clamp(q.value("gi", g.gi), 0, 2);
     g.msaa = q.value("msaa", g.msaa) >= 2 ? 4 : 0; g.ivy = q.value("ivy", g.ivy); g.dustMotes = std::clamp(q.value("dustMotes", g.dustMotes), 0, 2);
@@ -123,7 +123,7 @@ UserSettings UserSettings::fromJson(const json& j) {
   }
   if (j.contains("controls") && j["controls"].is_object())
     for (auto it = j["controls"].begin(); it != j["controls"].end(); ++it) if (it->is_string()) u.keys[it.key()] = it->get<std::string>();
-  if (j.contains("player") && j["player"].is_object()) { u.character = j["player"].value("character", std::string()); u.primary = j["player"].value("primary", std::string()); }
+  if (j.contains("player") && j["player"].is_object()) { u.character = jkey(j, "player").value("character", std::string()); u.primary = jkey(j, "player").value("primary", std::string()); }
   if (j.contains("build") && j["build"].is_object() && j["build"].contains("themes") && j["build"]["themes"].is_array()) {   // TH1
     u.themes = 0; for (auto& t : j["build"]["themes"]) for (int k = 0; k < 4; ++k) if (t.is_string() && t.get<std::string>() == kThemeNames[k]) u.themes |= 1u << k;
   }
@@ -241,6 +241,7 @@ void Settings::apply(App& app) {
   R.setSsaoFull(g.ssaoFull);
   R.q.farCascade = g.farCascade; R.q.cloudShadows = g.cloudShadows; R.q.shafts = g.shafts; R.q.ssr = g.ssr; R.q.ssao = g.ssao; R.q.bloom = g.bloom;
   R.q.microcontrast = s.microcontrast;   // UI2
+  R.q.lightNew = s.lightNew;   // VO stream L
   if (R.q.taa != g.taa || R.q.taaPhases != g.taaPhases) R.resetTemporal();
   R.q.taa = g.taa; R.q.taaPhases = g.taaPhases;
   R.setMsaa(g.msaa);
@@ -249,7 +250,8 @@ void Settings::apply(App& app) {
   R.grassAtlasTier = g.grass >= 2;   // GT1 grass plant atlas: Medium, High, Ultra (Low keeps the procedural blades)
   R.leafLodScale = g.grass <= 1 ? 0.6f : 1.0f;   // L1: vegetation detail follows the grass quality (Low: near 6 m, mid 13 m)
   R.clouds = g.clouds; R.wx.quality = g.cloudQuality; R.wx.target = s.weather; R.wx.fog = s.envFog;   // WX1 (a LAN client takes the host's: Renderer::Weather::forced)
-  R.q.hazeDensity = 0.0010f * std::clamp(1200.0f / g.renderDist, 0.4f, 2.0f);   // PF2: the haze reaches the same depth at the render distance (Medium: unchanged)
+  R.q.hazeDensity = 0.0010f * std::clamp(1200.0f / g.renderDist, 0.4f, 2.0f);
+  R.q.snowfallScale = g.cloudQuality <= 0 ? 0.4f : g.cloudQuality == 1 ? 0.75f : 1.0f;   // SF1: a map's snowfall at this sky quality   // PF2: the haze reaches the same depth at the render distance (Medium: unchanged)
   R.lt.maxLights = g.lightCount; R.lt.shadowLights = g.shadowLights; R.lt.gi = g.gi; R.lt.hour = s.hour;   // L2 lighting
   app.grass.quality = (GrassQuality)std::clamp(g.grass, 0, 4); app.grass.nearWind = g.grassWind;
   app.fx.setBudget(g.particles);
@@ -485,6 +487,9 @@ void settingsWindow(App& app) {
       { float pc = u.microcontrast * 100.0f;   // UI2: live (no Apply needed), like Weather
         if (flat::sliderFloat("Microcontrast", &pc, 0.0f, 100.0f, "%.0f %%")) { u.microcontrast = std::clamp(pc / 100.0f, 0.0f, 1.0f); gApplied.microcontrast = u.microcontrast; app.R.q.microcontrast = u.microcontrast; gPendingSave = true; } }
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Local contrast (clarity): brings out surface detail and depth in flat, hazy light without sharpening edges or dark noise. 0 %% is off.");
+      { int li = u.lightNew ? 0 : 1; const char* ln[] = {"New", "Classic"};   // VO stream L: live, like Microcontrast
+        if (flat::combo("Lighting", &li, ln, 2)) { u.lightNew = li == 0; gApplied.lightNew = u.lightNew; app.R.q.lightNew = u.lightNew; gPendingSave = true; } }
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("New: full-strength shadows grounded by contact shadows and the newer lighting. Classic: the lighting before the visual overhaul, for comparison.");
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Vertical field of view on foot (72 standard). Aiming and gun sights narrow from it.");
       flat::checkbox("Vsync", &u.vsync);
       { int caps[] = {0, 30, 60, 90, 120, 144, 165, 240}; const char* cn[] = {"Unlimited", "30", "60", "90", "120", "144", "165", "240"};

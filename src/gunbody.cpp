@@ -216,7 +216,7 @@ bool deltaBodyPose(Game& G, Soldier& s, float dt, PoseParams& pp) {
   if (m.clips.empty()) return false;
   const DRig& r = dRigOf(m);
   if (r.walk[0] < 0 || r.idle < 0) return false;
-  if (s.alive && s.posture == Physics::PRONE) { s.anim.key = -1; return false; }   // no prone clips in the packs: the soldier's procedural prone
+  if (s.alive && (s.posture == Physics::PRONE || pp.swim > 0.3f || pp.climb >= 0)) { s.anim.key = -1; return false; }   // WSM2: swimming / climbing: the procedural soldier   // no prone clips in the packs: the soldier's procedural prone
   // a long gun whose pistol grip sits at its butt end (sawn-off, the revolving grenade launcher): held as a long gun, not a pistol
   if (pp.holdKind < 0 && pp.gripR.z < 0.12f && pp.gripL.z - pp.gripR.z > 0.2f) pp.holdKind = 1;
   AnimPlayer& A = s.anim;
@@ -314,7 +314,7 @@ bool deltaBodyPose(Game& G, Soldier& s, float dt, PoseParams& pp) {
     vec3 g = pistol ? 0.5f * (at(CJ_LHAND) + at(CJ_RHAND)) - 0.5f * (at(CJ_LARM) + at(CJ_RARM)) : at(CJ_LHAND) - at(CJ_RHAND);
     g.y = 0; if (glm::length(g) > 0.05f && s.throwT < 0) gun = glm::normalize(g);
     const bool tube = s.weapon >= 0 && G.app.weaponDefs[s.weapon]->action == "launcher";   // launchers ride the shoulder (the soldier placement), along the body
-    const bool ruleHold = s.kit == 7 || s.kit == 8;   // WS1: held by rule along the body's forward, not along the clip's hands
+    const bool ruleHold = s.holdBody;   // WS1: held by rule along the body's forward, not along the clip's hands (WSM2: every skin on the shared skeleton)
     const float want = s.throwT >= 0 ? s.dfYawOff : tube || ruleHold ? 0.0f : glm::degrees(std::atan2(gun.x, gun.z));
     pp.clipGun = !tube; pp.pistolRaise = pistol && hot && s.reload <= 0 ? 1.0f : 0.0f;
     if (ruleHold && pistol) {   // WS1: the approved pistol postures: shooting / crouched = aimed; idle / walking = at the chest, muzzle up; running = the clip's own arms
@@ -355,7 +355,7 @@ bool deltaBodyPose(Game& G, Soldier& s, float dt, PoseParams& pp) {
     if (pp.cycleKind == 2) s.dfPumpBack = 0.09f * std::sin(3.14159265f * pp.cycle);
   }
   pp.crouch = pp.kneel = pp.prone = pp.hunch = pp.lean = pp.swim = 0; pp.gait = false; pp.climb = -1; pp.aimYawOffset = 0;
-  pp.carry = 0; pp.moveAim = 0; pp.clipHold = !(s.kit == 7 || s.kit == 8);   /* WS1: the Allied / SS soldiers hold by rule (the soldier placement: butt in the right shoulder, barrel on the aim, palms on each gun's own sockets, hold.left styles), not in the clip's hands */
+  pp.carry = 0; pp.moveAim = 0; pp.clipHold = !s.holdBody;   /* WS1: the Allied / SS soldiers hold by rule (the soldier placement: butt in the right shoulder, barrel on the aim, palms on each gun's own sockets, hold.left styles), not in the clip's hands */
   poseCharacter(m, pp, s.pose);
   return true;
 }

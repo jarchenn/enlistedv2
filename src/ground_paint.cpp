@@ -171,7 +171,7 @@ float groundPaintTint(float x, float z, vec3& col) {   // GX3: painted swatch un
   return std::min(pw, 1.0f);
 }
 bool groundPaintArid() {   // NT4: the map's look says "arid" (desert): scrub and dry grass grow on sand, no clover or turf
-  return gDoc && gDoc->extra.is_object() && gDoc->extra.contains("look") && gDoc->extra["look"].is_object() && gDoc->extra["look"].value("arid", false);
+  return gDoc && gDoc->extra.is_object() && gDoc->extra.contains("look") && gDoc->extra["look"].is_object() && jkey(gDoc->extra, "look").value("arid", false);
 }
 bool groundPaintBlocksNature(float x, float z) {
   if (!gDoc || gDoc->groundPaint.empty()) return false;

@@ -193,7 +193,23 @@ public:
   std::map<int, std::vector<uint32_t>> chunkSplitBodies;   // chunks with damage: one base body per undamaged tile
   std::vector<uint32_t> chunkRev;   // per chunk: bumped by baseEdited
   GLuint maskTexture() const { return maskTex; }
+  // ---- VOT T1 per-pixel normals (terrain_normals.cpp): a Catmull-Rom surface through the base vertices, baked at the
+  // fine spacing; kTerrainFS reads it for the base chunks (draw sets uTNOn). Set by the renderer each frame:
+  struct DrawOpts { bool normals = true, morph = true, skyView = true; };   // --rq-off tnormal / tmorph / tskyview
+  mutable DrawOpts drawOpts;
+  vec3 smoothNormal(float x, float z) const;
+  void normalsDirty(vec2 lo, vec2 hi) const;   // re-bake that rectangle on the next draw
+  void normalsSync() const;                    // bake + upload what is dirty (a new grid: everything)
+  void normalsRelease() const;
+  float skyViewAt(float x, float z) const;     // VOT T5: cosine-weighted sky fraction above the local tangent plane (1 = open)
+  void skyViewSync() const;
+  GLuint normalTexture() const { return nrmTex; }
 private:
+  mutable GLuint nrmTex = 0; mutable int nrmW = 0, nrmH = 0; mutable float nrmTexelX = 1, nrmTexelZ = 1;
+  mutable glm::ivec4 nrmDirty{1, 1, 0, 0};   // texel rectangle x0, z0, x1, z1 (x1 < x0: clean)
+  mutable uint32_t nrmGen = ~0u;
+  mutable GLuint svTex = 0; mutable int svW = 0, svH = 0; mutable float svTexelX = 1, svTexelZ = 1;   // T5 sky-view texture (R8, 2 texels a cell)
+  mutable glm::ivec4 svDirty{1, 1, 0, 0}; mutable uint32_t svGen = ~0u;
   GLuint maskTex = 0;
   float baseFormula(float wx, float wz, uint32_t seed) const;   // the procedural blank-slate ground (before W5 heightmaps)
   void applyGenLayers(const TemplateInfo& t, int innerNx, int innerNz);   // V8: ring + hill stamps over the base grid (terrain.cpp)

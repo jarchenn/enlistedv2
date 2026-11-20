@@ -35,7 +35,7 @@ std::vector<int> mapTemplates(App& app) {
     if (app.templates[k].raw.contains("map") && (!only || !*only || app.templates[k].id == only)) v.push_back(k);
   return v;
 }
-struct View { std::string name; vec3 pos; float yaw, pitch; bool explore = false; bool gate = true; float hour = -1.0f; bool groundEye = false, neutral = false; int dbg = -1; bool ggOff = false; int weather = -1; float cover = -1.0f; };   // SKY1: weather 0 clear / 1 cloudy, cover forced   // GR3: hour >= 0 sets the time of day for that view; groundEye: pos.y is the eye height above the terrain; neutral: the map's look tint / saturation / ambient off (tracing a colour cast)   // gate: gameplay view held to the frame target
+struct View { std::string name; vec3 pos; float yaw, pitch; bool explore = false; bool gate = true; float hour = -1.0f; bool groundEye = false, neutral = false; int dbg = -1; bool ggOff = false; int weather = -1; float cover = -1.0f; int light = -1; float walk = 0.0f; };   // VO walk: seconds walked forward at 1.4 m/s after the measurement, a frame every 0.5 s (motion check)   // VO: light 1 New / 0 Classic (Settings > Lighting)   // SKY1: weather 0 clear / 1 cloudy, cover forced   // GR3: hour >= 0 sets the time of day for that view; groundEye: pos.y is the eye height above the terrain; neutral: the map's look tint / saturation / ambient off (tracing a colour cast)   // gate: gameplay view held to the frame target
 struct Perf { std::string name; bool gate = true; int frames = 0; double ms = 0, worst = 0, draws = 0, tris = 0; int preset = 1; bool night = false; double gpu = 0, pass[GP_Count] = {}; int abN[2] = {}; double abMs[2] = {}, abPass[2][GP_Count] = {}, abProbeCpu[2] = {}, abProbes[2] = {}, abCpu[2] = {};
               double x[10] = {}, abX[2][10] = {}; };   // R2: the frame counters below (kXName), plain run and A/B sides   // ab: [0] PF2 renderer, [1] the A/B baseline (NMK_PERF_AB)   // night: L2 Night at Medium (reported only)   // preset: GfxPreset (V2: gameplay views also at Low / High, reported only)
 
@@ -51,6 +51,7 @@ const bool kFl1 = std::getenv("NMK_FL1") != nullptr;
 // L3: NMK_FL1_WIND=1: the clock runs (wind on) and b is the very next frame, so sway moves leaves only a few mm between
 // a and b: what still flickers there is sparkle under motion (smear: look at the _a shots)
 const bool kFl1Wind = std::getenv("NMK_FL1_WIND") != nullptr;
+int gWalkN = 0; vec3 gWalk0{0};   // VO motion check
 int gFlPh = 0; float gFlT = 0; vec3 gFlCam{0}; json gFl1 = json::array(), gFlState = json::array();   // state: exposure / probes at each shot
 std::string fl1Analyse(App& app, const std::string& map, const std::string& view, const std::string& base) {
   int w = 0, h = 0, n = 0, w2 = 0, h2 = 0, w3 = 0, h3 = 0;
@@ -133,13 +134,13 @@ json passJson(const double* ms) { json j = json::object(); for (int i = 0; i < G
 // Views authored in the template ("views": [{name, pos, yaw, pitch, gameplay}]), e.g. the terrain base's cliff shots.
 void templateViews(const TemplateInfo& t) {
   for (auto& v : t.raw.value("views", json::array()))
-    sViews.push_back({v.value("name", std::string("view")), jvec3(v["pos"], vec3(0)), v.value("yaw", 0.0f), v.value("pitch", 0.0f), false, v.value("gameplay", false)});
+    sViews.push_back({v.value("name", std::string("view")), jvec3(jkey(v, "pos"), vec3(0)), v.value("yaw", 0.0f), v.value("pitch", 0.0f), false, v.value("gameplay", false)});
   // R2 measurement views (NMK_EXTRA_VIEWS=<file.json>: {"<map id>": [{"name", "pos", "yaw", "pitch", "explore"}]}): orchards,
   // interiors through windows, damaged houses. "explore": first person on the ground at pos (x, z), else a free camera.
   if (const char* xf = std::getenv("NMK_EXTRA_VIEWS")) {
     json xj; try { xj = json::parse(readTextFile(xf)); } catch (...) {}
     if (xj.is_object()) for (auto& v : xj.value(t.id, json::array()))
-      sViews.push_back({v.value("name", std::string("view")), jvec3(v["pos"], vec3(0)), v.value("yaw", 0.0f), v.value("pitch", 0.0f), v.value("explore", false), true, v.value("hour", -1.0f), v.value("groundEye", false), v.value("neutral", false), v.value("dbg", -1), v.value("ggOff", false), v.value("weather", -1), v.value("cover", -1.0f)});   // GG1: dbg = terrain debug view
+      sViews.push_back({v.value("name", std::string("view")), jvec3(jkey(v, "pos"), vec3(0)), v.value("yaw", 0.0f), v.value("pitch", 0.0f), v.value("explore", false), true, v.value("hour", -1.0f), v.value("groundEye", false), v.value("neutral", false), v.value("dbg", -1), v.value("ggOff", false), v.value("weather", -1), v.value("cover", -1.0f), v.value("light", -1), v.value("walk", 0.0f)});   // GG1: dbg = terrain debug view
   }
 }
 }  // namespace
@@ -241,7 +242,7 @@ void SelfTest::authoredChecks(App& app, const TemplateInfo& t, const json& mj) {
   check(ok && app.doc.instances.size() == n && s2.objectives.size() == s.objectives.size() && s2.spawns.size() == s.spawns.size(),
         fmt("%s: the editable copy saves and reopens (%zu instances, %zu objectives)", id.c_str(), app.doc.instances.size(), s2.objectives.size()));
   sViews.clear();
-  if (t.raw.contains("thumbnailCamera")) { json c = t.raw["thumbnailCamera"]; sViews.push_back({"preview", jvec3(c["pos"], vec3(0)), c.value("yaw", 0.0f), c.value("pitch", 0.0f), false, false}); }
+  if (t.raw.contains("thumbnailCamera")) { json c = t.raw["thumbnailCamera"]; sViews.push_back({"preview", jvec3(jkey(c, "pos"), vec3(0)), c.value("yaw", 0.0f), c.value("pitch", 0.0f), false, false}); }
   if (app.doc.start.set) sViews.push_back({"explore_start", app.doc.start.pos, app.doc.start.yaw, 0.0f, true, true});
   sViews.push_back({"overview", t.camPos, t.camYaw, t.camPitch, false, false});
   sVi = 0; sPerf.clear(); sViewInit = false;
@@ -274,7 +275,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
     if (thumbOnly) {
       navNewMapSized(app, t, t.name, vec2(t.width, t.depth));
       json c = t.raw.value("thumbnailCamera", t.raw.value("camera", json::object()));
-      app.camPos = jvec3(c["pos"], t.camPos); app.camYaw = c.value("yaw", t.camYaw); app.camPitch = c.value("pitch", t.camPitch);
+      app.camPos = jvec3(jkey(c, "pos"), t.camPos); app.camYaw = c.value("yaw", t.camYaw); app.camPitch = c.value("pitch", t.camPitch);
       go(4180); break;
     }
     const std::string id = t.id;
@@ -439,6 +440,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       if (v.groundEye) { v.pos.y += app.terrain.height(v.pos.x, v.pos.z); v.groundEye = false; }
       if (v.weather >= 0) { app.R.wx.target = v.weather; app.R.wx.userSet = true; app.R.wx.snap(); }   // SKY1: a sky under a chosen weather
       if (v.cover >= 0.0f) app.R.cloudCover = v.cover;
+      if (v.light >= 0) { settings().s.lightNew = v.light != 0; app.R.q.lightNew = v.light != 0; app.R.resetTemporal(); }   // VO: New beside Classic in one run
       if (v.explore) {
         app.doc.start = {true, v.pos, v.yaw};
         bool ok = app.enterExplore();
@@ -447,7 +449,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
         if (app.mode == Mode::Explore) app.exitExplore();
         app.camPos = v.pos; app.camYaw = v.yaw; app.camPitch = v.pitch;
       }
-      sPerf.push_back({v.name, v.gate}); sLast = 0; gFlPh = 0; gFxPh = 0;
+      sPerf.push_back({v.name, v.gate}); sLast = 0; gFlPh = 0; gFxPh = 0; gWalkN = 0; gWalk0 = app.camPos;
       logf("maps view %s at (%.1f %.1f %.1f) yaw %.1f pitch %.1f", v.name.c_str(), v.pos.x, v.pos.y, v.pos.z, v.yaw, v.pitch);
     }
     if (v.explore && app.mode == Mode::Explore) { app.useScripted = true; }
@@ -485,6 +487,16 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       p.gpu = (p.gpu * p.frames + g) / (p.frames + 1); sampleX(app, p.x, p.frames); ++p.frames;
     }
     sLast = tnow;
+    if (v.walk > 0.0f && !v.explore && sPresetPass == 0 && stageTime >= measEnd) {   // VO motion check: a steady walk, frames to selftest_out/walk_<map>_<view>_NN.png
+      float t = stageTime - measEnd;
+      if (t < v.walk) {
+        vec3 f(-std::sin(radians(app.camYaw)), 0.0f, -std::cos(radians(app.camYaw)));
+        vec3 p = gWalk0 + f * 1.4f * t; p.y = app.terrain.height(p.x, p.z) + (gWalk0.y - app.terrain.height(gWalk0.x, gWalk0.z));
+        app.camPos = p;
+        if (t >= gWalkN * 0.5f) { char b[16]; std::snprintf(b, sizeof b, "_%02d", gWalkN++); shotQueue.push_back("walk_" + app.templates[sTpl[sTi]].id + "_" + v.name + b); }
+        break;
+      }
+    }
     if (kFl1 && sPresetPass == 0 && stageTime >= measEnd && gFlPh < 6) {   // FL1 (see fl1Analyse)
       std::string map = app.templates[sTpl[sTi]].id, base = "fl1_" + map + "_" + v.name;
       if (gFlPh == 0) { app.R.holdTime = !kFl1Wind; gFlT = stageTime; gFlPh = 1; }

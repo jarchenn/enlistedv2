@@ -1,0 +1,45 @@
+{
+ "id": "fl_stone_pack",
+ "version": 1,
+ "name": "Stone pack (bake)",
+ "category": "Nature",
+ "hidden": true,
+ "description": "FL1: the shared bake of the stone pack; its plants are the fl_stone_* assets (tools/fl1_flora.py). Not placed by itself.",
+ "footprint": [
+  1,
+  1
+ ],
+ "floors": 0,
+ "enterable": false,
+ "plinthDepth": 0,
+ "maxGrade": 30,
+ "noAutoPanels": true,
+ "model": {
+  "src": "stone.glb",
+  "lod1Src": "stone_lod1.glb",
+  "dir": "fl_stone",
+  "pivot": "ground",
+  "scale": 1,
+  "offset": [
+   0.02657,
+   -0.01,
+   0.2283
+  ],
+  "maxTex": 1024,
+  "lod1Tex": 512,
+  "jpgMaps": true,
+  "lodDist": 30,
+  "cullDist": 400,
+  "foliage": true,
+  "wind": 0.0,
+  "credit": "stone_group_1 by Isengrim, CC-BY-SA-4.0 (share-alike), https://sketchfab.com/3d-models/stone-group-1-fb1bba28ee32463aae91c63a6b5951e1"
+ },
+ "nav": {
+  "effect": "none"
+ },
+ "materials": [],
+ "parts": [],
+ "furniture": [],
+ "interactables": [],
+ "panels": []
+}

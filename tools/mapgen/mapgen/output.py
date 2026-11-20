@@ -5,7 +5,9 @@ import os
 
 
 _TREE_ALIASES = None
-_REMOVED = set()   # VR1: generated rock ids with no model rock yet (rock_aliases.json "removed"): not written
+_REMOVED = set()
+MAP_ALIASES = {}   # FL1: template id -> its own aliases, ahead of the shared tables (outpost_desert: its gorse as succulents)
+_CUR_MAP = None   # VR1: generated rock ids with no model rock yet (rock_aliases.json "removed"): not written
 
 
 def tree_alias(aid, iid):
@@ -20,7 +22,7 @@ def tree_alias(aid, iid):
             if os.path.exists(p):
                 j = json.load(open(p, encoding="utf-8")); _TREE_ALIASES.update(j.get("aliases", {}))
                 _REMOVED.update(j.get("removed", []))
-    al = _TREE_ALIASES.get(aid)
+    al = MAP_ALIASES.get(_CUR_MAP, {}).get(aid) or _TREE_ALIASES.get(aid)
     if not al:
         return aid
     h = (iid * 0x9E3779B97F4A7C15) & 0xFFFFFFFFFFFFFFFF
@@ -42,6 +44,8 @@ def instance_json(e, cat):
 
 def write_map(path, *, name, template_id, template_version, seed, width, depth, builder, scenario_json,
               explore_start=None, camera=None, bookmarks=None, extra=None):
+    global _CUR_MAP
+    _CUR_MAP = template_id
     from .lines import pieces_to_lines   # LN2: fence / wire / wall / hedge pieces become lines (as the engine migrates)
     from .lines import trench_pieces_to_lines   # LN1: trench pieces become trench lines
     n_tp, n_tl = trench_pieces_to_lines(builder, scenario_json)

@@ -1,0 +1,45 @@
+{
+ "id": "fl_lilac_pack",
+ "version": 1,
+ "name": "Lilac pack (bake)",
+ "category": "Vegetation",
+ "hidden": true,
+ "description": "FL1: the shared bake of the lilac pack; its plants are the fl_lilac_* assets (tools/fl1_flora.py). Not placed by itself.",
+ "footprint": [
+  1,
+  1
+ ],
+ "floors": 0,
+ "enterable": false,
+ "plinthDepth": 0,
+ "maxGrade": 30,
+ "noAutoPanels": true,
+ "model": {
+  "src": "lilac.glb",
+  "lod1Src": "lilac_lod1.glb",
+  "dir": "fl_lilac",
+  "pivot": "ground",
+  "scale": 1,
+  "offset": [
+   0.13227,
+   -0.01,
+   0.18159
+  ],
+  "maxTex": 1024,
+  "lod1Tex": 512,
+  "jpgMaps": true,
+  "lodDist": 30,
+  "cullDist": 260,
+  "foliage": true,
+  "wind": 1.0,
+  "credit": "Lilac bush pack (12 vars, LODs, game ready) by LOLIPOP (sketchfab.com/lolipop_1707), CC-BY-4.0, https://sketchfab.com/3d-models/lilac-bush-pack-12-vars-lods-game-ready-10312697ec994fc99355cb94f1963a2e"
+ },
+ "nav": {
+  "effect": "none"
+ },
+ "materials": [],
+ "parts": [],
+ "furniture": [],
+ "interactables": [],
+ "panels": []
+}

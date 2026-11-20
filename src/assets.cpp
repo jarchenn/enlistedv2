@@ -664,7 +664,7 @@ static int patternFromName(const std::string& s) {
 static thread_local bool gModelBaked = false;
 static bool modelBakedFor(const json& j, const std::string& id) {
   if (!j.is_object() || !j.contains("model") || !j["model"].is_object()) return false;
-  std::error_code ec; return fs::exists(contentDir() / "assets" / "models" / j["model"].value("dir", id) / "mesh.bin", ec);
+  std::error_code ec; return fs::exists(contentDir() / "assets" / "models" / jkey(j, "model").value("dir", id) / "mesh.bin", ec);
 }
 static Part parsePart(const json& j, const std::map<std::string, int>& mats);
 std::vector<Part> assetRawParts(const AssetDef& a) {
@@ -1029,6 +1029,10 @@ bool AssetLibrary::loadOne(const fs::path& path, const json* parsed) {
   if (!lazy || p->vehicle || j.contains("rack")) build(*p);
   return true;
 }
+void AssetDef::modelRange(const GpuModel* g, int& k0, int& k1) const {   // FL1
+  bool l = g && g == modelLod.get(); int f = l ? modelLodFirst : modelFirst, c = l ? modelLodCount : modelCount;
+  k0 = c < 0 ? 0 : f; k1 = c < 0 ? (g ? (int)g->parts.size() : 0) : f + c;
+}
 void AssetLibrary::build(AssetDef& ad) const {
   if (ad.built) return;
   ad.built = true;
@@ -1110,7 +1114,7 @@ void AssetLibrary::build(AssetDef& ad) const {
     st.label = sj.value("label", st.kind == "pak40" ? std::string("PaK 40") : st.kind); st.heName = sj.value("heName", st.heName); st.atName = sj.value("atName", st.atName);
     st.sightFov = sj.value("sightFov", st.kind == "pak40" ? 9.0f : 55.0f); st.muzzleScale = sj.value("muzzleScale", 1.0f);
     if (sj.contains("shellHE")) { auto& h = sj["shellHE"]; st.heVelocity = h.value("velocity", 550.0f); st.heDamage = h.value("damage", 120.0f); st.heRadius = h.value("radius", 2.2f); st.heCrater = h.value("crater", 1.0f); }
-    if (sj.contains("shellAT")) st.atVelocity = sj["shellAT"].value("velocity", 790.0f);
+    if (sj.contains("shellAT")) st.atVelocity = jkey(sj, "shellAT").value("velocity", 790.0f);
     st.fireSound = sj.value("fireSound", std::string("pak_fire")); st.fixed = sj.value("fixed", false);
     auto load = [&](const char* key, std::vector<Part>& parts, GpuMesh& mesh, vec3 pivot) {
       MeshData m;
@@ -1329,10 +1333,22 @@ void AssetLibrary::build(AssetDef& ad) const {
     // TR1: model foliage loads once per bake (the sized tree variants share it: one GPU copy, one instanced batch)
     static std::map<std::string, std::pair<std::shared_ptr<GpuModel>, std::shared_ptr<GpuModel>>> folCache;
     auto fc = a->modelFoliage ? folCache.find(dir.string() + (turn ? "|t" : "")) : folCache.end();
-    if (fc != folCache.end()) { a->model = fc->second.first; a->modelLod = fc->second.second; pts.push_back(a->model->bmin * a->modelScale); pts.push_back(a->model->bmax * a->modelScale); }
+    // FL1: "part": a prefix of part names (one plant of a pack bake); its bounds are those parts'
+    auto partRange = [&]() {
+      vec3 lo = a->model->bmin, hi = a->model->bmax;
+      if (mj.contains("part")) {
+        const std::string pre = mj["part"].get<std::string>();
+        auto rng = [&](const GpuModel& g, int& f, int& c) { f = 0; c = 0; int first = -1; for (int k = 0; k < (int)g.parts.size(); ++k) if (g.parts[k].name.rfind(pre, 0) == 0) { if (first < 0) first = k; f = first; c = k - first + 1; } };
+        rng(*a->model, a->modelFirst, a->modelCount);
+        if (a->modelLod) { rng(*a->modelLod, a->modelLodFirst, a->modelLodCount); if (!a->modelLodCount) a->modelLod.reset(); }
+        if (!a->modelCount) { logf("asset %s: no parts named %s* in its model %s: the whole model drawn", a->id.c_str(), pre.c_str(), dir.string().c_str()); a->modelCount = -1; }   // a fallback bake
+        else { lo = vec3(FLT_MAX); hi = vec3(-FLT_MAX); for (int k = a->modelFirst; k < a->modelFirst + a->modelCount; ++k) { lo = glm::min(lo, a->model->parts[k].bmin); hi = glm::max(hi, a->model->parts[k].bmax); } }
+      }
+      pts.push_back(lo * a->modelScale); pts.push_back(hi * a->modelScale);
+    };
+    if (fc != folCache.end()) { a->model = fc->second.first; a->modelLod = fc->second.second; partRange(); }
     else if (gm->load(dir, err, turn)) {
       a->model = gm;
-      pts.push_back(gm->bmin * a->modelScale); pts.push_back(gm->bmax * a->modelScale);
       auto lod = std::make_shared<GpuModel>(); std::string e2;
       if (fs::exists(dir / "lod1" / "mesh.bin") && lod->load(dir / "lod1", e2, turn)) {
         // FOL1: the LOD1 cards sample the same atlas layout as LOD0 (one bake): they draw LOD0's full-size cutout albedo
@@ -1342,11 +1358,12 @@ void AssetLibrary::build(AssetDef& ad) const {
         a->modelLod = lod;
       }
       if (a->modelFoliage) folCache[dir.string() + (turn ? "|t" : "")] = {a->model, a->modelLod};
+      partRange();
       if (mj.contains("stationRoles")) {   // part-name prefix -> station role: base / traverse / elevation / recoil
         static const std::map<std::string, int> rn = {{"base", 0}, {"traverse", 1}, {"elevation", 2}, {"recoil", 3}};
         for (auto& p : gm->parts) {
           int role = 0;
-          for (auto& [pre, rv] : mj["stationRoles"].items()) if (p.name.rfind(pre, 0) == 0) { auto f = rn.find(rv.get<std::string>()); if (f != rn.end()) role = f->second; }
+          for (auto& [pre, rv] : jkey(mj, "stationRoles").items()) if (p.name.rfind(pre, 0) == 0) { auto f = rn.find(rv.get<std::string>()); if (f != rn.end()) role = f->second; }
           a->station.modelRole.push_back(role);
         }
       }

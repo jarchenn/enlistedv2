@@ -34,7 +34,7 @@ void brWornDraws(App& app, Game& G, const Soldier& s, const mat4& world, std::ve
   const CharModel& m = *G.models[s.model];
   int lv[3] = {s.helmetLvl, s.vestLvl, s.backpack};
   float vestOut = 0;   // BR8: a backpack goes on top of the vest: out by how far the vest's back stands off the body
-  if (s.vestLvl > 0) if (const AssetDef* v = app.lib.find(wornId(1, s.vestLvl))) if (v->raw.contains("worn")) vestOut = v->raw["worn"].value("backOut", 0.0f);
+  if (s.vestLvl > 0) if (const AssetDef* v = app.lib.find(wornId(1, s.vestLvl))) if (v->raw.contains("worn")) vestOut = jkey(v->raw, "worn").value("backOut", 0.0f);
   for (int slot = 0; slot < 3; ++slot) {
     if (lv[slot] <= 0) continue;
     const AssetDef* a = app.lib.find(wornId(slot, lv[slot]));
@@ -42,7 +42,7 @@ void brWornDraws(App& app, Game& G, const Soldier& s, const mat4& world, std::ve
     const json& w = a->raw["worn"];
     int cj = w.value("joint", "Spine2") == "Head" ? CJ_HEAD : CJ_SPINE2, j = m.semantic[cj];
     if (j < 0 || j >= (int)s.pose.delta.size()) continue;
-    vec3 pos = jvec3(w["pos"], vec3(0)), sc = jvec3(w["scale"], vec3(1)), rest = w.contains("rest") ? jvec3(w["rest"]) : m.jointHead[j];
+    vec3 pos = jvec3(jkey(w, "pos"), vec3(0)), sc = jvec3(jkey(w, "scale"), vec3(1)), rest = w.contains("rest") ? jvec3(w["rest"]) : m.jointHead[j];
     pos += m.jointHead[j] - rest;   // fitted to the marine; another body carries it from its own joint
     if (slot == 2) pos.z -= vestOut;   // the back is -z (the body faces +z)
     // AN1 step 4: a hand-tuned correction on top of the baked fit ("wornFix": {"pos": [m], "rot": [deg x, y, z]}, about the item's base),
@@ -181,7 +181,7 @@ json brOpticAudit(const WeaponDef& d, int k) {
   std::vector<Foot> feet = feetOf(*a), fb = feet;
   if (k == 2) for (Foot& f : fb) { float z0 = f.z0; f.z0 = -f.z1; f.z1 = -z0; }
   Rail rb; rb.p = d.rear + vec3(0, -0.012f, 0.05f);
-  try { json j = json::parse(readTextFile(d.file)); if (j.contains("rail")) rb.p = jvec3(j["rail"], rb.p); rb.scale = j.value("railScale", 1.0f); } catch (...) {}
+  try { json j = json::parse(readTextFile(d.file)); if (j.contains("rail")) rb.p = jvec3(jkey(j, "rail"), rb.p); rb.scale = j.value("railScale", 1.0f); } catch (...) {}
   const Seat& st = seatOf(d, k, *a);
   json after = eval(st.base, st.s, feet); after["risers"] = st.risers.size();
   float gl = d.useModel() ? d.model->bmax.z - d.model->bmin.z : 0;
@@ -223,7 +223,7 @@ bool brSightWindow(const WeaponDef& d, const WeaponState& ws, vec3& centre, floa
   const AssetDef* a; mat4 M; vec3 e;
   if (!sightMount(d, fittedSight(d, ws), a, M, e)) return false;
   const json& s = sightOf(*a);
-  vec3 eye = jvec3(s["eye"], vec3(0, 0.035f, -0.04f)); float L = s.value("length", 0.085f);
+  vec3 eye = jvec3(jkey(s, "eye"), vec3(0, 0.035f, -0.04f)); float L = s.value("length", 0.085f);
   centre = vec3(M * vec4(eye.x, eye.y, eye.z + 0.6f * L, 1));
   radius = (fittedSight(d, ws) == 5 ? 0.013f : fittedSight(d, ws) == 7 ? 0.007f : 0.010f)   // PS1: the pistol dot's small window
            * glm::length(vec3(M[0]));   // the open window around the eye line

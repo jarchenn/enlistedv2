@@ -25,8 +25,8 @@ std::vector<TemplateInfo> loadTemplates(const fs::path& dir) {
       t.margin = j.value("margin", std::max(0.0f, (t.size - t.buildHalf * 2.0f) * 0.5f));
       t.seed = j.value("seed", 1u);
       t.camPos = jvec3(j["camera"]["pos"], t.camPos);
-      t.camYaw = j["camera"].value("yaw", 0.0f);
-      t.camPitch = j["camera"].value("pitch", -20.0f);
+      t.camYaw = jkey(j, "camera").value("yaw", 0.0f);
+      t.camPitch = jkey(j, "camera").value("pitch", -20.0f);
       out.push_back(t);
     } catch (std::exception& ex) { logf("template %s: %s", e.path().string().c_str(), ex.what()); }
   }
@@ -60,7 +60,7 @@ float Terrain::baseFormula(float wx, float wz, uint32_t seed) const {
 // ---- V8 generator layers (MapDoc::terrainGen; the tools are in terrain_brush.cpp / beautify.cpp)
 int Terrain::ringTiles() const {
   if (!gen.is_object() || !gen.contains("ring") || !gen["ring"].is_object()) return 0;
-  return std::clamp(gen["ring"].value("tiles", 0), 0, 24);
+  return std::clamp(jkey(gen, "ring").value("tiles", 0), 0, 24);
 }
 static float fbm3(float x, float z, uint32_t s) { return 0.62f * vnoise(x, z, s) + 0.28f * vnoise(x * 2.07f, z * 2.07f, s + 17) + 0.10f * vnoise(x * 4.31f, z * 4.31f, s + 29); }
 float terrainFbm(float x, float z, uint32_t s) { return fbm3(x, z, s); }   // shared with the brush (terrain_brush.cpp)
@@ -201,6 +201,7 @@ void Terrain::baseEdited(vec2 lo, vec2 hi) {
   int z0 = std::max(0, (int)std::floor((lo.y - org.y) / cs) - 1), z1 = std::min(chunksZ() - 1, (int)std::floor((hi.y - org.y) / cs) + 1);
   for (int z = z0; z <= z1; ++z) for (int x = x0; x <= x1; ++x) ++chunkRev[(size_t)z * chunksX() + x];
   ++revision;
+  normalsDirty(lo, hi);   // VOT T1
 }
 
 float Terrain::baseHeight(float x, float z) const {
@@ -465,14 +466,28 @@ void Terrain::draw(GLuint prog, vec3 cam, const mat4& vp) const {
   glBindTextureUnit(14, surfTex);
   { extern void groundPaintBind(GLuint); groundPaintBind(prog); }   // lasso ground paint: unit 23 (ground_paint.cpp)
   glUniform1i(uDis, tiles.empty() ? 0 : 1);
+  // VOT T1: per-pixel normals on the base chunks (unit 18), geomorphing between their LOD steps (drawBase sets uMorph)
+  GLint uTN = glGetUniformLocation(prog, "uTNOn");
+  if (drawOpts.normals) {
+    normalsSync();
+    glUniform1i(glGetUniformLocation(prog, "uTNrm"), 18);   // unit 18, not 25: 25 holds the texture library's macro map, bound once at load (18 is only bound transiently by the GI capture)
+    glUniform4f(glGetUniformLocation(prog, "uTNMap"), org.x, org.y, 1.0f / size, 1.0f / sizeZ);
+    glBindTextureUnit(18, nrmTex);
+  }
+  glUniform1i(uTN, drawOpts.normals && nrmTex ? 1 : 0);
+  if (drawOpts.skyView) { skyViewSync(); glUniform1i(glGetUniformLocation(prog, "uTSV"), 26); glBindTextureUnit(26, svTex); }   // VOT T5 (base and tiles alike)
+  glUniform1i(glGetUniformLocation(prog, "uTSVOn"), drawOpts.skyView && svTex ? 1 : 0);
   stream.update(*this, cam, vp, stream.cfg.buildBudgetMs);
-  stream.drawBase(*this, cam, vp);
+  stream.drawBase(*this, cam, vp, drawOpts.morph ? glGetUniformLocation(prog, "uMorph") : -2);
   glUniform1i(uDis, 0);
+  glUniform1i(uTN, 0);
+  glUniform4f(glGetUniformLocation(prog, "uMorph"), 0, 0, 0, 0);
   for (auto& [k, t] : tiles) { if (!t.count) continue; glBindVertexArray(t.vao); glDrawElements(GL_TRIANGLES, t.count, GL_UNSIGNED_INT, nullptr); }
 }
 
 void Terrain::destroy() {
   stream.release();
+  normalsRelease();
   if (maskTex) glDeleteTextures(1, &maskTex);
   maskTex = 0;
 }
