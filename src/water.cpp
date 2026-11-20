@@ -237,7 +237,10 @@ void main(){
   float shoreW = kind == 0 ? 0.08 : kind == 3 ? 0.012 : (kind == 1 || kind == 4) ? 0.25 : 0.04;
   float shore = smoothstep(0.0, shoreW, depthV);
   if (kind == 1 || kind == 4) {   // an irregular waterline: the fade depth wanders by +-8 cm (~1.5 m scale), so the terrain's straight facets do not draw the edge
-    shore = smoothstep(0.0, shoreW, depthV + (vnoise(vec3(vW.xz*0.7, 3.1)) - 0.5)*0.16 + (vnoise(vec3(vW.xz*2.3, 5.7)) - 0.5)*0.05); float sr = shore*shore; own = F*env*sr + spec*sr + (1.0 - F)*(1.0 - T)*Lin; col = trans*bed + own*gFogT + fogAdd*(1.0 - trans); }
+    shore = smoothstep(0.0, shoreW, depthV + (vnoise(vec3(vW.xz*0.7, 3.1)) - 0.5)*0.16 + (vnoise(vec3(vW.xz*2.3, 5.7)) - 0.5)*0.05);
+    float wd = mix(1.0, 0.75, smoothstep(0.0, 0.08, depthV)); bed *= wd; dry *= wd;   // WT2: the bed reads as wet mud from the waterline down; in the shore band the water mirrors the bank behind it, not
+    // the sky (the SSR that swaps the sky for the bank in deeper water is off there, so the sky estimate drew a pale line along the far shore)
+    float sr = shore*shore; own = F*mix(dry, env, smoothstep(0.75, 1.0, shore))*sr + spec*sr + (1.0 - F)*(1.0 - T)*Lin; col = trans*bed + own*gFogT + fogAdd*(1.0 - trans); }
   if (kind == 0 || kind == 2) {
     float foam = (1.0 - smoothstep(0.0, kind == 0 ? 0.25 : 0.1, depthV))*smoothstep(0.5, 0.85, vnoise(vec3(vW.xz*2.5, uTime*0.5)))*shore;
     col += foam*0.22*(uSkyCol*0.6 + uSunCol*sh*0.25)*gFogT;
