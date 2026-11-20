@@ -15,6 +15,7 @@
 #include "mptest.h"
 #include "physics.h"
 #include <algorithm>
+#include <fstream>
 
 namespace {
 struct Band { const char* what; float lo, hi; };
@@ -48,6 +49,7 @@ bool sdTimingsTest(App& app, float dt) {
   }
   if (++frames < 20) return true;   // the navmesh is baked at load: give it a few frames
   Game& G = *gGame;
+  if (G.nav.busy() && frames < 60 * 120) return true;   // BT1: a large map's tiles are still building (paths through them would be missing)
   json scj = app.doc.extra.is_object() ? app.doc.extra.value("scenario", json::object()) : json::object();
   const json rj = scj.value("rules", json::object()), sdj = rj.value("sd", json::object());
   std::vector<vec3> att, def; std::vector<std::string> attN, defN;
@@ -74,9 +76,37 @@ bool sdTimingsTest(App& app, float dt) {
     snprintf(buf, sizeof buf, "%s: %.1f-%.1f s (target %.0f-%.0f s)", b.what, lo_s, hi_s, b.lo, b.hi);
     T->check(ok && lo_s >= b.lo - 0.5f && hi_s <= b.hi + 0.5f, buf);
   };
-  T->check(att.size() >= 5 && def.size() >= 5 && site.size() == 2, "5+ spawns per side, two sites (" + std::to_string(att.size()) + " / " + std::to_string(def.size()) + ", " + std::to_string(site.size()) + ")");
-  if (site.size() != 2 || att.empty() || def.empty()) { app.selftest->exitCode = T->finish(); app.selftest->done = true; return true; }
-  for (int s = 0; s < 2; ++s) {
+  // BT1: a team-mode map (no bomb sites) is measured too: its routes and "centre" (the first arrival of each side's start
+  // group, within 2 s of each other); the site bands only when the map has its two sites
+  const bool sites = site.size() == 2;
+  if (sites) T->check(att.size() >= 5 && def.size() >= 5, "5+ spawns per side, two sites (" + std::to_string(att.size()) + " / " + std::to_string(def.size()) + ", " + std::to_string(site.size()) + ")");
+  else T->check(att.size() >= 5 && def.size() >= 5, "5+ spawns per side, no sites: a team-mode map (" + std::to_string(att.size()) + " / " + std::to_string(def.size()) + ")");
+  if (att.empty() || def.empty()) { app.selftest->exitCode = T->finish(); app.selftest->done = true; return true; }
+  if (sdj.contains("centre")) {
+    vec3 c = v3(sdj["centre"]);
+    float best[2] = {1e9f, 1e9f};
+    for (int side = 0; side < 2; ++side) {
+      const auto& S = side ? def : att; const auto& N = side ? defN : attN;
+      for (size_t k = 0; k < S.size(); ++k) {
+        bool o; float l = len(S[k], c, o);
+        snprintf(buf, sizeof buf, "%s -> centre %.0f m %.1f s (jog %.1f s)%s", N[k].c_str(), l, secs(l), l / jog, o ? "" : " NO PATH"); T->note(buf);
+        if (o) best[side] = std::min(best[side], secs(l));
+      }
+    }
+    {   // the fastest path of each side, for the plan (selftest_out/centre_paths.json)
+      json out = json::object();
+      for (int side = 0; side < 2; ++side) {
+        const auto& S = side ? def : att; float bl = 1e9f; std::vector<vec3> bp;
+        for (auto& sp : S) { std::vector<vec3> pts; float l = 0; if (G.nav.pathSync(sp, c, pts, nullptr, nullptr, &l) && l < bl) { bl = l; bp = pts; } }
+        json a = json::array(); for (auto& q : bp) a.push_back({q.x, q.y, q.z});
+        out[side ? "defenders" : "attackers"] = a;
+      }
+      std::ofstream(exeDir() / "selftest_out" / "centre_paths.json") << out.dump();
+    }
+    snprintf(buf, sizeof buf, "first arrival at the centre: attackers %.1f s, defenders %.1f s, %.1f s apart (target within 2 s)", best[0], best[1], std::fabs(best[0] - best[1]));
+    T->check(best[0] < 1e8f && best[1] < 1e8f && std::fabs(best[0] - best[1]) <= 2.0f, buf);
+  }
+  for (int s = 0; s < 2 && sites; ++s) {
     const char* L = s ? "B" : "A";
     float lo = 1e9f, hi = 0; bool allOk = true;
     for (size_t k = 0; k < def.size(); ++k) {   // to the nearest cover slot of the site (its centre when it has none)
@@ -93,7 +123,7 @@ bool sdTimingsTest(App& app, float dt) {
     }
     Band b2 = kAttPlant; std::string w2 = std::string(b2.what) + " " + L; b2.what = w2.c_str(); band(b2, lo, hi, allOk);
   }
-  { bool o; float l = len(site[0], site[1], o); snprintf(buf, sizeof buf, "A plant -> B plant, shortest: %.0f m %.1f s", l, secs(l)); T->check(o, buf); }
+  if (sites) { bool o; float l = len(site[0], site[1], o); snprintf(buf, sizeof buf, "A plant -> B plant, shortest: %.0f m %.1f s", l, secs(l)); T->check(o, buf); }
   if (sdj.contains("timingPoints") && sdj["timingPoints"].contains("contest")) {
     float lo = 1e9f, hi = 0; bool allOk = true;
     for (auto& a : att) { float best = 1e9f; for (auto& c : sdj["timingPoints"]["contest"]) { bool o; float l = len(a, v3(c), o); if (o) best = std::min(best, l); } allOk = allOk && best < 1e8f; lo = std::min(lo, secs(best)); hi = std::max(hi, secs(best)); }
