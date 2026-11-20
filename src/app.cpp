@@ -1234,7 +1234,7 @@ int App::run(int argc, char** argv) {
     if (gCrumbProf) crumbFrameEnd();
     mark("start");
     glfwPollEvents();
-    tex::flushPending();   // TX2: a lazy texture set a newly used material named (one reload, then nothing)
+    tex::flushPendingFrame(R.perf.texLate);   // TX2 / OPT1: a late texture set a newly used material named: one spare-layer upload per frame, no full reload
     syncCursor();   // GM1b: one per-frame rule for the cursor mode (explore.cpp)
     hangBeat(); forceQuitCheck(win, false);   // UI8
     if (glfwWindowShouldClose(win)) {

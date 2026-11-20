@@ -182,7 +182,7 @@ public:
     // UL1 material knobs (stream M, textures.cpp / static_decals.cpp): per tier; the defaults are what Low / Medium / High do
     float texAniso = 8.0f;              // max anisotropy of the texture-set arrays and the grunge mask
     glm::vec2 texNear{3.0f, 10.0f};     // TX3: the sets' LOD bias fades in between these eye distances (m)
-    glm::vec2 hexFade{0.0f, 0.0f};      // M1: hex tiling fades to plain tiling between these eye distances (m); y 0 = no fade
+    glm::vec2 hexFade{12.0f, 30.0f};    // M1: hex tiling fades to plain tiling between these eye distances (m); y 0 = no fade. OPT2: 12-30 m (was no fade: 9 taps per ground layer at any distance)
     glm::vec2 hblendFade{0.0f, 0.0f};   // M2: height blending fades out between these eye distances (m); y 0 = no fade
     float pomRange = 0.0f;              // MA1b parallax: range (m) on height-capable sets; 0 = by matLayer (Medium 8, High 14)
     int pomSteps = 0;                   // parallax steps; 0 = by matLayer (Medium 1 offset, High 10-step march)
@@ -210,6 +210,8 @@ public:
   // PF2 GPU-cost switches (docs/rendering.md#gpu-budget). --rq-off <name> / --rq-on <name> flip one for A/B;
   // legacy() is the pre-PF2 renderer (the maps suite's interleaved A/B, NMK_PERF_AB).
   struct Perf {
+    bool texLate = true;         // texlate (OPT1): a texture set needed mid-match goes into a spare array layer (worker build, one upload a frame); off = the old full reload of every set
+    bool groundTaps = true;      // groundtaps (OPT2): ground taps cut by distance and weight (hex 12-30 m fade, hex on layers >= 35 %, no far normal tap, no substrate taps under full snow); off = the old taps
     bool hblend = true;          // hblend (M2): height-based blending of ground layers and paint (textures.cpp hbK)
     bool hex = true;             // hex (M1): hex-tiled ground and cliff texture taps (textures.cpp texHexFetch)
     bool snow = true;            // snow (VO P, A/B only): the SN1 snow layer off on every surface, to time its shading
@@ -299,7 +301,7 @@ public:
               // ^ stream T (terrain): append to the line above
               : n == "contactsh" ? &contactShadow : n == "fullshadow" ? &fullShadow : n == "gtao" ? &gtao : n == "midcascade" ? &midCascade : n == "microsh" ? &microShadow : n == "foltrans" ? &folTrans : n == "agx" ? &agx : n == "histexpo" ? &histExpo : n == "skyrelit" ? &skyRelit : n == "atmo" ? &atmo : n == "reflprobe" ? &reflProbe
               // ^ stream L (lighting): append to the line above
-              : n == "specaa" ? &specAA : n == "hex" ? &hex : n == "hblend" ? &hblend
+              : n == "specaa" ? &specAA : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps
               // ^ stream M (materials): append to the line above
               : n == "charvel" ? &charVel
               // ^ characters (gameplay): append to the line above

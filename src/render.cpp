@@ -2947,10 +2947,14 @@ void main(){
   TerrT tI = TerrT(vec3(1.0), 1.0, 1.0, vec3(0.0), 0.5), tG = tI, tS = tI, tV = tI, tA = tI;
   float wGrav = smoothstep(0.75, 1.0, kind), wSand = 1.0 - smoothstep(0.07, 0.16, abs(kind - 0.251)), wSoil = (1.0 - wGrav)*(1.0 - wSand);
   bool under = paintCover(p) < 0.995 || vDirt > 0.15;   // CV1: full ground paint replaces the layers below it: take no samples there
-  if (under && tw < 0.995) tG = terrTex(0, p, tn0, tdx, tdy, tDist);
-  if (under && tw > 0.005 && wSoil > 0.01) tS = terrTex(1, p, tn0, tdx, tdy, tDist);
-  if (under && tw > 0.005 && wGrav > 0.01) tV = terrTex(3, p, tn0, tdx, tdy, tDist);
-  if (under && tw > 0.005 && wSand > 0.01) tA = terrTex(4, p, tn0, tdx, tdy, tDist);
+  const bool snowAll = uOpt2Off == 0 && snowFullCover(p, normalize(vN));   // OPT2 (weather 05 s4.7): under certain full snow cover the substrate's taps are wasted (applySnow covers them)
+  under = under && !snowAll;
+  float wTr = max(wSoil + wGrav*(1.0 - wSand) + wSand, 1e-4);   // OPT2: each layer's share of the pixel (gLayerW: hex only on a dominant layer)
+  if (under && tw < 0.995) { gLayerW = 1.0 - tw; tG = terrTex(0, p, tn0, tdx, tdy, tDist); }
+  if (under && tw > 0.005 && wSoil > 0.01) { gLayerW = tw*wSoil/wTr; tS = terrTex(1, p, tn0, tdx, tdy, tDist); }
+  if (under && tw > 0.005 && wGrav > 0.01) { gLayerW = tw*wGrav*(1.0 - wSand)/wTr; tV = terrTex(3, p, tn0, tdx, tdy, tDist); }
+  if (under && tw > 0.005 && wSand > 0.01) { gLayerW = tw*wSand/wTr; tA = terrTex(4, p, tn0, tdx, tdy, tDist); }
+  gLayerW = 1.0;
   float wT = max(wSoil + wGrav*(1.0 - wSand) + wSand, 1e-4);
   TerrT tTr = TerrT((tS.alb*wSoil + tV.alb*wGrav*(1.0 - wSand) + tA.alb*wSand)/wT, (tS.r*wSoil + tV.r*wGrav*(1.0 - wSand) + tA.r*wSand)/wT,
                     (tS.ao*wSoil + tV.ao*wGrav*(1.0 - wSand) + tA.ao*wSand)/wT, (tS.dn*wSoil + tV.dn*wGrav*(1.0 - wSand) + tA.dn*wSand)/wT, (tS.h*wSoil + tV.h*wGrav*(1.0 - wSand) + tA.h*wSand)/wT);
@@ -3006,12 +3010,12 @@ void main(){
     rBump = vec3(vnoise(vec3(p*1.7 + 50.0)) - 0.5, (bedLine - 0.5)*0.6, vnoise(vec3(p*1.7 + 51.0)) - 0.5)*1.1;
   }
   float mudK = clamp(rut*0.85 + wet*0.6, 0.0, 1.0)*tw;
-  if (under && mudK > 0.01) { TerrT tM = terrTex(2, p, tn0, tdx, tdy, tDist); mudK = hbK(mudK, hB, tM.h); mud *= tM.alb; tdn = mix(tdn, tM.dn, mudK); trr = mix(trr, tM.r, mudK); tao = mix(tao, tM.ao, mudK); }   // L4; M2: mud settles in the lows
+  if (under && mudK > 0.01) { gLayerW = mudK; TerrT tM = terrTex(2, p, tn0, tdx, tdy, tDist); gLayerW = 1.0; mudK = hbK(mudK, hB, tM.h); mud *= tM.alb; tdn = mix(tdn, tM.dn, mudK); trr = mix(trr, tM.r, mudK); tao = mix(tao, tM.ao, mudK); }   // L4; M2: mud settles in the lows
   alb = mix(alb, mud, mudK);
   // crater and disturbed soil
   float dirt = clamp(vDirt, 0.0, 1.0);
   float dirtK = smoothstep(0.15, 0.75, dirt + (nM - 0.5)*0.35);
-  if (dirtK > 0.01) { TerrT tC = terrTex(7, p, tn0, tdx, tdy, tDist); dirtK = hbK(dirtK, hB, tC.h); soil *= tC.alb; tdn = mix(tdn, tC.dn, dirtK); trr = mix(trr, tC.r, dirtK); tao = mix(tao, tC.ao, dirtK); }   // L4
+  if (dirtK > 0.01 && !snowAll) { gLayerW = dirtK; TerrT tC = terrTex(7, p, tn0, tdx, tdy, tDist); gLayerW = 1.0; dirtK = hbK(dirtK, hB, tC.h); soil *= tC.alb; tdn = mix(tdn, tC.dn, dirtK); trr = mix(trr, tC.r, dirtK); tao = mix(tao, tC.ao, dirtK); }   // L4
   alb = mix(alb, soil, dirtK);
   if (ewK > 0.001) {   // GX1 trench cuts and spoil: dark packed mud (wetter low down), freshly turned crumbly earth
     TerrT tM = terrTex(2, p, tn0, tdx, tdy, tDist), tF = terrTex(7, p, tn0, tdx, tdy, tDist);
@@ -4422,7 +4426,10 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   {   // UL1 material knobs (q.tex*, q.hexFade, q.hblendFade, q.pom*, q.decalRange); NMK_TEX_NEAR="a,b" still overrides
     vec2 tn = q.texNear; if (const char* e = std::getenv("NMK_TEX_NEAR")) std::sscanf(e, "%f,%f", &tn.x, &tn.y);
     glUniform2f(U(p, "uTexNear"), tn.x, std::max(tn.y, tn.x + 0.1f));
-    glUniform2f(U(p, "uHexFade"), q.hexFade.x, q.hexFade.y); glUniform2f(U(p, "uHBFade"), q.hblendFade.x, q.hblendFade.y);
+    static const bool envOpt2Off = std::getenv("NMK_OPT2") && std::string(std::getenv("NMK_OPT2")) == "0";   // OPT2 A/B (perf switch groundtaps)
+    const bool opt2Off = envOpt2Off || !perf.groundTaps;
+    glUniform1i(U(p, "uOpt2Off"), opt2Off ? 1 : 0);
+    glUniform2f(U(p, "uHexFade"), opt2Off ? 0.0f : q.hexFade.x, opt2Off ? 0.0f : q.hexFade.y); glUniform2f(U(p, "uHBFade"), q.hblendFade.x, q.hblendFade.y);
     glUniform2f(U(p, "uPomQ"), q.pomRange, (float)q.pomSteps); glUniform1f(U(p, "uSDecR"), q.decalRange);
     static float aniso = -1.0f; if (q.texAniso != aniso) { aniso = q.texAniso; tex::setAnisotropy(aniso); }
   }
