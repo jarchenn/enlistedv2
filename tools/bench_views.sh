@@ -3,7 +3,8 @@
 # card held exclusively for each, the table assembled into docs/perf/bench_<tag>.md (+ .jsonl, one line per run).
 # Usage: bash tools/bench_views.sh <build dir> [tag]
 #   NMK_BENCH_MAPS="a b" (default: the five VO maps), NMK_BENCH_PRESETS="Low,High", NMK_BENCH_SETTLE / NMK_BENCH_MEASURE (s);
-#   renderer switches (NMK_PERF_AB, NMK_*) pass through the environment.
+#   NMK_BENCH_LIGHTING=classic (default: New), NMK_BENCH_MSAA=0|4 (over the preset), NMK_BENCH_RQOFF=a,b (Renderer::perf switches off),
+#   NMK_BENCH_SHOTS=1 (a still and a 20 deg/s pan frame per view); renderer switches (NMK_PERF_AB, NMK_*) pass through the environment.
 set -u
 B="${1:?build dir}"; TAG="${2:-$(date +%Y%m%d-%H%M)}"
 HERE="$(cd "$(dirname "$0")" && pwd)"; DOCS="$HERE/../docs/perf"; O="$B/selftest_out"
@@ -22,9 +23,11 @@ for m in ${MAPS//,/ }; do
   done
 done
 [ -s "$O/bench_views_rows.md" ] || { echo "no results written"; exit 1; }
-FB=$(grep -o '"framebuffer":\[[0-9]*,[0-9]*\]' "$O/bench_views.jsonl" | head -1 | grep -o '[0-9]*,[0-9]*' | tr , x)
+FB=$(grep -o '"framebuffer":\[[0-9]*,[0-9]*\]' "$O/bench_views.jsonl" | sort -u | grep -o '[0-9]*,[0-9]*' | tr , x | tr '\n' ' ' | sed 's/ $//')
+LIGHT=$(grep -o '"lighting":"[a-z]*"' "$O/bench_views.jsonl" | sort -u | cut -d'"' -f4 | tr '\n' ' ' | sed 's/ $//')
+[ "$FB" = 2560x1440 ] || echo "WARNING: framebuffer sizes in this run: $FB (not all 2560x1440; not comparable)" >&2
 { echo "# VO benchmark: $TAG"; echo
-  echo "\`bash tools/bench_views.sh <build dir> $TAG\` on $(date '+%Y-%m-%d %H:%M'), commit $(git -C "$HERE/.." rev-parse --short HEAD), framebuffer $FB, 2 pm clear sky, UI hidden, the card held exclusively. Views: content/settings/bench_views.json. Times in ms: GPU = the per-pass timers summed, CPU = wall-clock frame time (no vsync), render CPU = render() alone, probes / frame = GI probe captures per frame (mean); median / p95 / p99 over the measured frames.${failed:+ Not measured (crashed twice):$failed.}"; echo
+  echo "\`bash tools/bench_views.sh <build dir> $TAG\` on $(date '+%Y-%m-%d %H:%M'), commit $(git -C "$HERE/.." rev-parse --short HEAD), framebuffer $FB, Lighting $LIGHT, 2 pm clear sky, UI hidden, the card held exclusively. Views: content/settings/bench_views.json. Times in ms: GPU = the per-pass timers summed, CPU = wall-clock frame time (no vsync), render CPU = render() alone, probes / frame = GI probe captures per frame (mean); median / p95 / p99 over the measured frames.${failed:+ Not measured (crashed twice):$failed.}"; echo
   echo "| Map | View | Preset | GPU med | GPU p95 | GPU p99 | CPU med | CPU p95 | CPU p99 | render CPU | Probes / frame | Draws | Tris (M) | Top passes (median ms) |"
   echo "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|"
   cat "$O/bench_views_rows.md"; } > "$DOCS/bench_$TAG.md"

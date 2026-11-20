@@ -89,7 +89,7 @@ void writeRun(App& a, const Run& r) {
   for (int i = 0; i < GP_Count; ++i) { std::vector<double> v; for (auto& p : r.pass) v.push_back(p[i]); double m = pct(v, 0.5); pj[gpuPassName(i)] = std::round(m * 1000) / 1000; top.push_back({m, i}); }
   std::sort(top.rbegin(), top.rend());
   int fw, fh; glfwGetFramebufferSize(a.win, &fw, &fh);
-  json j = {{"map", r.map}, {"view", r.view}, {"preset", r.preset}, {"frames", r.gpu.size()}, {"framebuffer", {fw, fh}},
+  json j = {{"map", r.map}, {"view", r.view}, {"preset", r.preset}, {"frames", r.gpu.size()}, {"framebuffer", {fw, fh}}, {"lighting", a.R.q.lightNew ? "new" : "classic"},
             {"gpuMs", {{"median", pct(r.gpu, 0.5)}, {"p95", pct(r.gpu, 0.95)}, {"p99", pct(r.gpu, 0.99)}}},
             {"cpuFrameMs", {{"median", pct(r.cpu, 0.5)}, {"p95", pct(r.cpu, 0.95)}, {"p99", pct(r.cpu, 0.99)}}},
             {"renderCpuMs", pct(r.rcpu, 0.5)}, {"probesPerFrame", std::accumulate(r.probes.begin(), r.probes.end(), 0.0) / std::max<size_t>(1, r.probes.size())}, {"draws", pct(r.draws, 0.5)}, {"tris", pct(r.tris, 0.5)}, {"gpuPassMs", pj}};
@@ -131,6 +131,7 @@ bool benchViews(App& a, float dt) {
   }
   if (gPhase == 1) {   // a preset and a view: fixed light, the camera, settle
     settings().applyPreset(a, gPresets[gPi]);
+    if (const char* l = std::getenv("NMK_BENCH_LIGHTING")) a.R.q.lightNew = std::string(l) != "classic";   // Lighting New (default) / Classic
     if (const char* m = std::getenv("NMK_BENCH_MSAA")) a.R.setMsaa(std::atoi(m));   // A/B over the preset's MSAA (VO P2)
     for (auto& f : envList("NMK_BENCH_RQOFF")) if (!a.R.perf.set(f, false)) logf("[bench] NMK_BENCH_RQOFF: unknown switch %s", f.c_str());   // A/B: Renderer::perf switches off
     a.R.lt.hour = 14.0f; a.R.wx.target = 0; a.R.wx.userSet = true; a.R.wx.snap();
