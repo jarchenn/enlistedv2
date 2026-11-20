@@ -965,7 +965,7 @@ void flushImpl(int budget, const char* who) {
   }
   gPending = false;
 }
-void flushPending() { flushImpl(0, "load"); }
+void flushPending() { if (!gPending) return; gPending = false; loadSets(); uploadAll(); }   // loading screens: the full reload (it repacks and leaves the spare layers free for mid-match sets)
 // per frame: the CPU side (cache read, or decode + compress on a cache miss) runs on a worker; this frame only uploads a
 // finished one (~4 MB), so a cache miss costs no frame time
 struct LateJob { std::string name; std::shared_ptr<Cpu> cpu; std::future<void> f; };
