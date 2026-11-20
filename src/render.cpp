@@ -76,6 +76,11 @@ uniform vec3 uSkyK;               // horizon colour relative to Day (exactly 1 b
 float ign(vec2 p){ return fract(52.9829189*fract(dot(p, vec2(0.06711056, 0.00583715))) + float(uFrame % 64)*0.618034); }
 #ifdef NMK_FS
 float pixelNoise(){ return ign(gl_FragCoord.xy); }
+// VO A1 hashed alpha: under TAA the cut-out threshold is dithered per pixel and frame (0.5 +- uHashAlpha / 2), so a leaf
+// edge's partial coverage resolves to a soft edge instead of a hard, crawling one; 0: the fixed 0.5 test (no TAA, Low,
+// --rq-off hashalpha). The shadow / depth passes keep 0.5 (stable shadows).
+uniform float uHashAlpha;
+float cutRef(){ return 0.5 + (pixelNoise() - 0.5)*uHashAlpha; }
 float pixelNoiseFixed(){ return fract(52.9829189*fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))); }   // FL1: the same every frame
 #else
 float pixelNoise(){ return 0.5; }
@@ -1908,7 +1913,7 @@ void main(){
   if (uClipMe == 1 && uVmClip.z > 0.0 && length(gl_FragCoord.xy - uVmClip.xy) < uVmClip.z) discard;
   vec4 base = uBase;
   if (uHasAlb == 1) base *= texture(uAlb, vUV);
-  if (uCutout == 1 && base.a < 0.5) discard;
+  if (uCutout == 1 && base.a < cutRef()) discard;
   if (vTintI.a > 2.5) {   // FL1 greenery: this species' spring green (already / the texture's mean luminance), leaves only
     if (uCutout == 1) base.rgb = mix(base.rgb, vTintI.rgb*dot(base.rgb, vec3(0.2126, 0.7152, 0.0722)), uGreenK.w*greenMask(base.rgb));
   } else if (vTintI.a > 1.5) base.rgb *= vTintI.rgb;   // HB1c: sandbags, per bag (src/sandbags.cpp)
@@ -2686,7 +2691,7 @@ layout(location=3) out vec4 oNR;
 float leafAlpha(vec2 uv, float seed);
 void main(){
   vec4 tx = vLayer < 0.0 ? vec4(1.0) : texture(uLeaves, vec3(vUV, vLayer));
-  if ((vLayer < 0.0 ? leafAlpha(vUV, vSeed) : tx.a) < 0.5) discard;
+  if ((vLayer < 0.0 ? leafAlpha(vUV, vSeed) : tx.a) < cutRef()) discard;
   vec3 N = normalize(vN);
   float var = hash12(vec2(vSeed, 2.0));
   // textured: uLeafCol is the asset's leafColor / the species mean, so the crown keeps its authored colour
@@ -3258,7 +3263,7 @@ void main(){
     alb = vAlb;
     if (vGA >= 0) {             // GT1 atlas plant: its own colour detail, scaled to the clump's palette (root blend kept)
       vec4 tx = texture(uGATex, vec3(vUV, float(vGA)));
-      if (tx.a < 0.5) discard;
+      if (tx.a < cutRef()) discard;
       // one palette across the atlas / blade boundary: the clump's own colour (as the blades), modulated by the plant's
       // luminance detail, with a little of the photo's hue kept
       vec3 m = max(uGAMean[vGA], vec3(0.01));
@@ -3396,7 +3401,7 @@ layout(location=11) flat in int vGA;
 uniform sampler2DArray uGATex;
 void main(){
   float e = abs(vUV.x*2.0 - 1.0)*vTap, v = vUV.y;
-  if (vGA >= 0) { if (texture(uGATex, vec3(vUV, float(vGA))).a < 0.5) discard; }   // GT1: the plant's own cut-out
+  if (vGA >= 0) { if (texture(uGATex, vec3(vUV, float(vGA))).a < cutRef()) discard; }   // GT1: the plant's own cut-out
   else if (vPart == 11 || vPart == 14) { float y = v*2.0 - 1.0; if (e > sqrt(max(0.0, 1.0 - y*y))) discard; }
   else if (vPart == 13) { if (e > 0.12 && fract(v*6.0 + vSeed*3.0 + e*0.4) > 0.75) discard; }
   else if (e > 1.0 - pow(v, 3.0)*0.95) discard;
@@ -4765,8 +4770,10 @@ void Renderer::gpuMark(int p) {
 void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<DrawItem>& opaque,
                       const std::vector<DrawItem>& glass, const std::vector<DrawItem>& ghosts, const Overlay& ov) {
   auto c0 = std::chrono::high_resolution_clock::now();
-  for (GLuint pg : {progLeaf, progGrass, progFolModel}) if (pg) {   // FL1 greenery (App::greenery)
+  for (GLuint pg : {progLeaf, progLeafI, progGrass, progFolModel}) if (pg) {   // FL1 greenery (App::greenery); VO A1 hashed alpha under TAA
     glProgramUniform4fv(pg, U(pg, "uGreen"), 1, glm::value_ptr(green)); glProgramUniform4fv(pg, U(pg, "uGreenK"), 1, glm::value_ptr(greenK));
+    static const float hashSpread = std::getenv("NMK_HASH_SPREAD") ? float(std::atof(std::getenv("NMK_HASH_SPREAD"))) : 0.2f;   // A1: dither width of the cut-out threshold (0.8 stippled stills under the TAA clamp; 0.35 / 0.2 look as off)
+    glProgramUniform1f(pg, U(pg, "uHashAlpha"), perf.hashAlpha && q.taa && !thumbMode ? hashSpread : 0.0f); glProgramUniform1i(pg, U(pg, "uFrame"), frame);
   }
   if (displayW > 0) {   // P1: the internal size follows effScale() (the taau switch can flip it between frames: A/B)
     int iw = std::max(16, (int)std::lround(displayW * effScale())), ih = std::max(16, (int)std::lround(displayH * effScale()));
