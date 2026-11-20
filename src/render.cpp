@@ -47,6 +47,7 @@ uniform vec2 uShadowWorldTexel;   // metres per shadow texel: near, far cascade
 uniform float uShadowDepthRange;  // metres covered by the [0,1] light-space depth
 uniform float uShadowSoft;        // PCF radius in near-cascade texels (0 = legacy 3x3 grid)
 uniform float uShadowLift;        // VO L1: share of the sun a shadow removes (Classic 0.7: shadows 30 % lighter; New 1)
+uniform float uMicroSh;           // VO L4: micro-shadowing from material AO on the direct light (0 Classic, 1 New)
 uniform int uShadowTaps;          // P3: cap on the PCF taps (presets; 0 = no cap)
 uniform int uFrame;               // frame counter (noise rotation; TAA decorrelation)
 uniform int uCloudShadowOn; uniform float uCloudCov, uCloudT;
@@ -444,6 +445,9 @@ vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
   vec3 Ng = dot(gNg, gNg) > 0.5 ? gNg : N;
   float sh = NdL > 0.0 ? shadowPCF(w, Ng) * cloudShadow(w) : 0.0;
   vec3 direct = (kd*alb/PI + spec*gSpecK) * uSunCol * NdL * sh;
+  // VO L4 micro-shadowing (Brinck et al. 2016): a crevice the material AO marks is also shadowed from the sun near the
+  // terminator, so texture detail keeps its depth where the light grazes (legacy material AO never touched the sun)
+  if (uMicroSh > 0.0) direct *= mix(1.0, clamp(NdL + 2.0*ao*ao - 1.0, 0.0, 1.0), uMicroSh);
   float sv = skyVis(w, Ng);
   float amb = mix(0.06, 1.0, sv);
   vec3 irr = mix(uGroundCol, uSkyCol, 0.5+0.5*N.y) * amb + uFill*(1.0-sv);
@@ -1872,6 +1876,7 @@ layout(location=3) out vec4 oNR;
 layout(location=4) out vec4 oVel; uniform float uVmVel;
 uniform float uAlbFloor;
 uniform int uCutout;   // NT8: alpha-tested foliage (needles, blades, fronds): discard under 0.5, sun through the thin side
+uniform float uFolTrans;   // VO L4: two-sided leaf translucency on model foliage (progFolModel only; 0: the NT8 rim on cut-out plants)
 uniform float uGlassOpacity = 1.0, uGlassFilm = 1.0, uGlassRefl = 1.0;   // GL1: content/settings/glass.json "opacity", "film", "reflection" (1 = the pre-GL1 look)
 uniform int uGlass;   // 0 opaque; 1 window glass (dusty); 2 a wreck's glass (crazed, grimy); 3 clean (the car you sit in: no film to catch the cabin light at night)
 uniform vec4 uVmClip; uniform int uClipMe;   // AT6: the fitted optic's window (px, bottom-left origin; radius px): the gun's own parts there are not drawn
@@ -1926,7 +1931,12 @@ void main(){
     }
   }
   vec3 c = shade(vW, N, base.rgb, clamp(rough, 0.04, 1.0), clamp(metal, 0.0, 1.0), mix(1.0, ao, 0.85));
-  if (uCutout == 1) {   // thin needles / blades: the low sun through them from behind, a warm rim (still shadowed)
+  if (uFolTrans > 0.0) {   // VO L4 (Barre-Brisebois & Bouchard 2011): light through the leaf from behind, peaked toward the sun, plus a
+    // diffuse share through the lit face's back; shadowed by what shades the leaf's sun side
+    vec3 Vv = normalize(uCamPos - vW), Lt = normalize(uSunDir + N*0.35);
+    float tr = 0.7*pow(clamp(dot(Vv, -Lt), 0.0, 1.0), 4.0) + 0.18*max(dot(-N, uSunDir), 0.0);
+    c += base.rgb*vec3(1.0, 1.04, 0.72)*uSunCol*tr*uFolTrans*sunShadowT(vW, -N, 1.0, 1);
+  } else if (uCutout == 1) {   // thin needles / blades: the low sun through them from behind, a warm rim (still shadowed)
     vec3 Vv = normalize(uCamPos - vW); float VoL = max(dot(-Vv, uSunDir), 0.0);
     c += base.rgb*vec3(1.0, 1.05, 0.6)*uSunCol*(0.04 + 0.35*pow(VoL, 5.0))*sunShadowT(vW, N, 1.0, 1);
   }
@@ -4093,6 +4103,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1f(U(p, "uShadowDepthRange"), 800.0f);
   glUniform1f(U(p, "uShadowSoft"), q.legacy ? 0.0f : q.shadowSoft * (1.0f + 2.0f * wx.k));   // WX2: overcast sun casts very soft shadows
   glUniform1f(U(p, "uShadowLift"), q.lightNew && perf.fullShadow ? 1.0f : 0.7f);   // VO L1
+  glUniform1f(U(p, "uMicroSh"), q.lightNew && perf.microShadow && !q.legacy ? 1.0f : 0.0f);   // VO L4
   glUniform1i(U(p, "uShadowTaps"), q.shadowTaps);
   glUniform1i(U(p, "uFrame"), frame);
   glUniform1i(U(p, "uCloudShadowOn"), !q.legacy && q.cloudShadows && clouds && perf.cloudShadow && !thumbMode ? 1 : 0);
@@ -4497,6 +4508,7 @@ void Renderer::drawFolModels(bool depth, const mat4& vp, const Frustum* fr, floa
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 12, folBuf);
   GLuint p = depth ? progFolDepth : progFolModel;
   glUseProgram(p);
+  if (!depth) glUniform1f(U(p, "uFolTrans"), q.lightNew && perf.folTrans && !q.legacy ? 1.0f : 0.0f);   // VO L4
   glUniformMatrix4fv(U(p, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
   glUniform1f(U(p, "uTime"), time); glUniform1f(U(p, "uWind"), wind);
   const DrawLocs L = drawLocs(p);
