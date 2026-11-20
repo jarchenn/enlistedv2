@@ -128,12 +128,27 @@ public:
   // WX1 weather (docs/rendering.md#weather): one world-space cloud field (seed, wind in 600 m cells / s, clock) drawn by the
   // sky, baked into the cloud-shadow map (direct sun only) and read by the sun shafts. k = the Clear -> Cloudy mix (8 s ramp);
   // clock = the shared match time (LAN: every machine places the clouds alike), -1 = the local render time
+  // W1 weather (weather corpus 08 s2; docs/weather-corpus-implementation.md): wx.st is what the sky is doing (the preset's
+  // row), wx.der what follows from it this frame. Read by AI sight, sound, particles and the renderer; weather.cpp derives it.
+  enum WxPrecip { WxNone = 0, WxDrizzle = 1, WxRain = 2, WxSnow = 3 };
+  struct WxState { float cover = 0.1f, tau = 0, visM = 40000; float fogTopM = 0; int precip = WxNone; float precipMmH = 0;
+                   float windDirDeg = 37, windMs = 3, gust = 1.3f, gustPeriodS = 8, tempC = 18, dustVisM = 0, lightningPerMin = 0; };
+  struct WxDerived { bool phys = false; int preset = 0;   // phys: the formulas drive light / air / exposure (presets 2-14, Lighting New)
+                     float eSunLux = 0, eSkyLux = 0, eTotalLux = 0;   // direct normal, diffuse on a level surface, total on a level surface
+                     float sunK = 1, skyK = 1; vec3 tint{1};          // multipliers on the engine's sun and sky light against Clear
+                     float keyMul = 1, fixedMul = 1;                  // exposure: auto-exposure key, fixed exposure
+                     float sigma = 0.001f, visM = 3912, dustVisM = 0, cullM = 5555, fogTopM = 0, fogLayerSigma = 0, fogAlbedo = 0.9f, fogG = 0.85f;   // air at the ground (1/m); visibility = 3.912 / sigma; cullM = 1.42 x visibility
+                     float windK = 1; vec2 windXZ{0};                 // wind against today's (1 = Clear's 3 m/s), m/s toward
+                     float sunShadow = 1; };                          // sun cascade strength (OPT wxsun)
   struct Weather { int target = 0, forced = -1, quality = 1, fog = 1, fogForced = -1; float k = 0, seed = 0, fogNow = -1; vec2 wind{0.012f, 0.0075f}; double clock = -1;
                    int mapWx = -1, mapFog = -1; bool userSet = false; float mapCloud = -1.0f;   // NT2b: mapCloud 0..1 = broken cloud (look.weather as a number)   // NT2: a map's default weather / env fog (extra.look), until the user picks one this session
                    int fogWant() const { return fogForced >= 0 ? fogForced : mapFog >= 0 && !userSet ? mapFog : fog; }
                    float fogDens() const { static const float d[4] = {0.0f, 0.0035f, 0.008f, 0.018f}; return d[std::clamp(fogWant(), 0, 3)] * (1.0f + 0.25f * k); }   // env fog (1/m at the ground, field 1): Off / Light / Moderate / Dense, a little more under cloud
                    bool enclosed = false;   // WX2: an enclosed map (fixed hour or no haze: Tunnels, Backrooms) has no weather
-                   int want() const { return enclosed ? 0 : forced >= 0 ? forced : mapWx >= 0 && !userSet ? mapWx : target; } float wantK() const { return !enclosed && forced < 0 && mapCloud >= 0.0f && !userSet ? mapCloud : (float)want(); } void snap() { k = wantK(); } } wx;
+                   int want() const { return enclosed ? 0 : forced >= 0 ? (forced == kMapDefault ? std::max(mapWx, 0) : forced) : mapWx >= 0 && !userSet ? mapWx : target; }
+                   static constexpr int kMapDefault = 99;   // W1: a LAN host on Map default (forced = this: the client uses the same map's own sky)
+                   bool presetOn() const { return !enclosed && (forced >= 0 ? forced != kMapDefault : userSet || (mapWx < 0 && mapCloud < 0.0f)); }   // a preset row, not the map's authored look
+                   WxState st; WxDerived der; float wantK() const { extern float wxPresetDeck(int); return !enclosed && (forced < 0 || forced == kMapDefault) && mapCloud >= 0.0f && !userSet ? mapCloud : wxPresetDeck(want()); } void snap() { k = wantK(); } } wx;
   float cloudCoverNow() const { return glm::mix(cloudCover, 0.86f, wx.k); }   // WX1 Cloudy: broken to heavy cover, still with openings
   // WX1 environmental fog field (render.cpp bakeFog): 256^2 over the terrain, R ground-fog share (basins, low ground,
   // shore), G drift noise (scrolls on the wind), B smoothed ground height (m). Rebuilt when the terrain changes.
@@ -514,3 +529,8 @@ private:
   float time = 0;
   int shadowSize = 2048, occSize = 2048;   // P3: Medium near cascade 2048
 };
+// W1 weather presets (weather.cpp): fifteen rows in menu order; ids are stable (0 Clear, 1 Overcast, then appended)
+int wxPresetCount(); int wxPresetIdAt(int menuIndex); int wxPresetMenuIndex(int id); const char* wxPresetName(int id);
+int wxPresetFromName(const std::string& n);   // a name or the old "clear" / "cloudy"; -1 unknown
+float wxPresetDeck(int id);
+void weatherDerive(Renderer& R);

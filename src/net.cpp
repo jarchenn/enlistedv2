@@ -1039,11 +1039,11 @@ void Net::update(App& app, float dt) {
       }
       ++k;
     }
-    { static int lastWx = -2; int wx = app.R.wx.want() * 8 + app.R.wx.fogWant() + 64 * (int)std::lround(app.R.lt.hour * 10.0f); if (role == HOST && wx != lastWx) { lastWx = wx; d->lobbyDirty = true; } }   // WX1: the host's weather is match state
+    { static int lastWx = -2; int wx = (app.R.wx.presetOn() ? app.R.wx.want() : Renderer::Weather::kMapDefault) * 8 + app.R.wx.fogWant() + 64 * (int)std::lround(app.R.lt.hour * 10.0f); if (role == HOST && wx != lastWx) { lastWx = wx; d->lobbyDirty = true; } }   // WX1: the host's weather is match state
     if (d->lobbyDirty) {
       d->lobbyDirty = false;
       json pl = json::array(); for (auto& p : players) pl.push_back({{"id", p.peer}, {"name", p.name}, {"ready", p.ready}});
-      std::string m = json{{"t", "lobby"}, {"players", pl}, {"rules", gUi.rules.toJson()}, {"map", app.doc.name}, {"running", matchRunning}, {"weather", app.R.wx.want()}, {"fog", app.R.wx.fogWant()}, {"hour", app.R.lt.hour}}.dump();
+      std::string m = json{{"t", "lobby"}, {"players", pl}, {"rules", gUi.rules.toJson()}, {"map", app.doc.name}, {"running", matchRunning}, {"weather", app.R.wx.presetOn() ? app.R.wx.want() : Renderer::Weather::kMapDefault}, {"fog", app.R.wx.fogWant()}, {"hour", app.R.lt.hour}}.dump();
       for (auto& p : d->peers) p.ch.send(m);
     }
     if (gGame && gGame->active && !gGame->isClient) hostGuns(app, *this, app.frameDt);
@@ -1188,7 +1188,7 @@ void weatherAppFrame(App& app) {
   app.R.wx.clock = gGame && gGame->active ? gGame->t : -1.0;
   if (!gNet || gNet->role != Net::CLIENT) { app.R.wx.forced = app.R.wx.fogForced = -1; app.R.lt.forcedHour = -1.0f; }
   static const char* ew = std::getenv("NMK_WEATHER");   // tests / A/B: force clear | cloudy, no ramp
-  if (ew) { app.R.wx.target = std::string(ew) == "cloudy" ? 1 : 0; app.R.wx.userSet = true; app.R.wx.snap(); }
+  if (ew) { app.R.wx.target = std::max(0, wxPresetFromName(ew)); app.R.wx.userSet = true; app.R.wx.snap(); }
   static const char* ef = std::getenv("NMK_FOG");   // tests / A/B: 0..3
   if (ef) { app.R.wx.fog = std::clamp(std::atoi(ef), 0, 3); app.R.wx.userSet = true; app.R.wx.fogNow = app.R.wx.fogDens(); }
 }
