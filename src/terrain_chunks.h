@@ -36,7 +36,8 @@ struct TerrainStream {
 
   // brings meshes up to date for a camera (const terrain: called from Terrain::draw). budgetMs < 0 = no limit.
   void update(const Terrain& t, vec3 cam, const mat4& vp, float budgetMs);
-  void drawBase(const Terrain& t, vec3 cam, const mat4& vp);
+  void drawBase(const Terrain& t, vec3 cam, const mat4& vp, GLint uMorph = -1);   // uMorph: VOT T1 geomorph uniform (< 0: none)
+  float lodDistance(int l) const;   // switch distance from LOD l to l + 1 (render-distance scaled past LOD0)
   int desiredLod(const Terrain& t, int idx, vec3 cam, int current) const;
   float chunkDistance(const Terrain& t, int idx, vec3 cam) const;
   void chunkBox(const Terrain& t, int idx, vec3& lo, vec3& hi) const;
