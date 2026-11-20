@@ -66,6 +66,10 @@ uniform int uShadowTaps;          // P3: cap on the PCF taps (presets; 0 = no ca
 uniform int uFrame;               // frame counter (noise rotation; TAA decorrelation)
 uniform int uCloudShadowOn; uniform float uCloudCov, uCloudT;
 uniform float uCloudK, uCloudSeed; uniform vec2 uCloudWind;   // WX1: Clear -> Cloudy mix, the field's seed and wind (600 m cells / s)
+uniform vec4 uCloudOpen; uniform float uCloudOpenK;   // VO L5 look.cloudOpening: direction (xyz), cosine of its half width (w), strength (0: none)
+uniform vec4 uCloudXf;    // VO L5 look.cloudScale / cloudStretch / cloudDir: the cloud field's xz transform (mat2 columns; identity by default)
+uniform float uSunDisc;   // VO L5 look.sunDisc: 1 default, 0 no sun disc in the sky
+float cloudOpening(vec3 d){ return uCloudOpenK*smoothstep(uCloudOpen.w, mix(uCloudOpen.w, 1.0, 0.6), dot(d, uCloudOpen.xyz)); }   // VO L5: 0..strength toward the opening
 uniform float uEnvFog, uEnvFogH, uFogIndoor, uEnvFogNear; uniform sampler2D uFogField; uniform vec4 uFogBox;   // WX1 environmental fog: density (1/m), layer height, indoor scale; field (unit 27), box (min xz, 1/size)
 uniform float uAoIndirectOnly;    // 1: material AO / sky occlusion darken only indirect light
 // ---- L2 lighting engine (src/lighting.cpp, docs/lighting.md): time of day, clustered local lights, probe GI
@@ -133,10 +137,20 @@ float sunShadowRaw(vec3 w, vec3 n, float soft, int taps){
   sF = mix(sF, 1.0, smoothstep(0.85, 0.98, eF));   // fade out at the far edge instead of a hard line
   return mix(sN, sF, tB);
 }
+// VO L7: the reflection cube near the eye (lighting.cpp reflPass), box-parallax corrected around its capture point
+uniform samplerCube uRefl; uniform int uReflOn; uniform vec3 uReflPos;
+vec3 reflProbe(vec3 w, vec3 R, float rough, out float wgt){
+  vec3 bmin = uReflPos - vec3(24.0, 1.8, 24.0), bmax = uReflPos + vec3(24.0, 14.0, 24.0);
+  vec3 iv = 1.0/(R + vec3(1e-5)); vec3 tf = max((bmax - w)*iv, (bmin - w)*iv);
+  float t = max(min(min(tf.x, tf.y), tf.z), 0.0);
+  vec3 o = max(bmin - w, w - bmax); wgt = 1.0 - smoothstep(-6.0, 0.0, max(max(o.x, o.y), o.z));   // fades out over the box's last 6 m
+  return textureLod(uRefl, w + R*t - uReflPos, rough*6.0).rgb;
+}
 float sunShadowT(vec3 w, vec3 n, float soft, int taps){ return mix(1.0, sunShadowRaw(w, n, soft, taps), uShadowLift); }   // Classic: sun shadows 30 % lighter (user request); VO L1 New: full shadows, grounded by contact shadows
 float shadowPCF(vec3 w, vec3 n){ return sunShadowT(w, n, 0.0, 8); }   // 8 rotated taps; TAA integrates the rotation over frames
 // cloud deck at 1500 m: the same field the sky draws, in world xz (so the shadows on the ground match the sky)
 float cloudField(vec2 xz){
+  xz = mat2(uCloudXf.xy, uCloudXf.zw)*xz;   // VO L5: broad directional banks (look.cloudScale / Stretch / Dir)
   vec3 q = vec3(xz/600.0 + uCloudSeed + uCloudT*uCloudWind, uCloudT*0.002);
   float n = 0.0, a = 0.5;
   for (int i = 0; i < 5; ++i) { n += a*vnoise(q); q = q*2.07 + vec3(1.7, 9.2, 3.1); a *= 0.5; }
@@ -145,6 +159,7 @@ float cloudField(vec2 xz){
 float cloudThreshold(){ return mix(0.72, 0.38, uCloudCov); }
 // low-octave version for the clouds' self-shadowing (only the broad optical depth matters)
 float cloudFieldLo(vec2 xz){
+  xz = mat2(uCloudXf.xy, uCloudXf.zw)*xz;
   vec3 q = vec3(xz/600.0 + uCloudSeed + uCloudT*uCloudWind, uCloudT*0.002);
   float n = 0.0, a = 0.5;
   for (int i = 0; i < 3; ++i) { n += a*vnoise(q); q = q*2.07 + vec3(1.7, 9.2, 3.1); a *= 0.5; }
@@ -243,7 +258,8 @@ vec3 skyColor(vec3 d){
   c += uSkySunCol*vec3(1.0, 0.93, 0.80)*halo*(0.35 + 0.65*g)*0.32;
   c *= 1.0 - 0.06*(1.0 - sd)*(1.0 - g);                         // anti-solar sky a touch deeper
   if (h < 0.0) c = mix(hor*0.92, gnd, clamp(-h*5.0, 0.0, 1.0));   // below the horizon (reflections only)
-  c += uSkySunCol*pow(sd, 900.0)*7.0*step(0.0, h);               // sun disc
+  c *= 1.0 + 0.6*cloudOpening(d);                                // VO L5: light through the cloud opening (fog in-scatter and reflections read this too)
+  c += uSkySunCol*pow(sd, 900.0)*7.0*step(0.0, h)*uSunDisc;      // sun disc
   return c;
 }
 // Aerial perspective: height-falloff haze integrated along the view ray, density rho(y) = rho0 exp(-y / Hh).
@@ -289,7 +305,7 @@ vec3 applyFog(vec3 col, vec3 w){
     fc = mix(fc, fcE, tauE/max(tt, 1e-6));
   }
   if (uAerial > 0.0) {   // VO L5: haze extinction by wavelength (Rayleigh + Mie, half strength), same luminance: distance cools, as in air
-    vec3 fr = 1.0 - exp(-max(-log(max(1.0 - f, 1e-5)), 0.0)*mix(vec3(1.0), vec3(0.895, 1.0, 1.27), uAerial));
+    vec3 fr = 1.0 - exp(-max(-log(max(1.0 - f, 1e-5)), 0.0)*mix(vec3(1.0), vec3(0.895, 1.0, 1.27), uAerial*smoothstep(70.0, 260.0, length(w - uCamPos))));   // distance only: near roofs keep their colour
     gFogT = 1.0 - f;
     return col*(1.0 - fr) + fc*fr;
   }
@@ -487,6 +503,7 @@ vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
   float sv = skyVis(w, Ng);
   float amb = mix(0.06, 1.0, sv);
   vec3 irr = mix(uGroundCol, uSkyCol, 0.5+0.5*N.y) * amb + uFill*(1.0-sv);
+  if (uCloudOpenK > 0.0) irr *= 1.0 + 0.35*uCloudOpenK*max(dot(N, uCloudOpen.xyz), 0.0)*sv;   // VO L5: sky light from the opening's side
   // VO L1: Classic's 30 % shadow lift let a warm share of the sun into every shadow; New's deeper shadows keep that hue
   // (not its brightness) in the sky light of surfaces that face the sun but are shaded: forest shade stays warm
   if (uShadowWarm > 0.0 && NdL > 0.0) { vec3 sunHue = uSunCol/max(dot(uSunCol, vec3(0.2126, 0.7152, 0.0722)), 1e-4); irr *= mix(vec3(1.0), sunHue, uShadowWarm*(1.0 - sh)*smoothstep(0.0, 0.3, NdL)); }
@@ -520,6 +537,7 @@ vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
     }
   }
   vec3 envL = mix(envOcc, skyColor(R) * amb, sv);
+  if (uReflOn == 1 && uCapture == 0) { float rw; vec3 pc = reflProbe(w, R, rough, rw); envL = mix(envL, pc, rw); }   // VO L7 (never inside a probe capture): what is really there, not the sky estimate
   vec3 envSpec = envL * Fr * (1.0-rough*0.6) * 0.6 * cav * gSpecK;
   // material AO darkens the light arriving from the hemisphere, not the direct sun (legacy: everything)
   float aoD = mix(ao, 1.0, uAoIndirectOnly);
@@ -3434,11 +3452,13 @@ void main(){
 }
 )GLSL";
 
+const char* rendererFullVS();
 static const char* kFullVS = R"GLSL(
 #version 450 core
 out vec2 vUV;
 void main(){ vec2 p = vec2((gl_VertexID<<1)&2, gl_VertexID&2); vUV = p; gl_Position = vec4(p*2.0-1.0, 1.0, 1.0); }
 )GLSL";
+const char* rendererFullVS() { return kFullVS; }   // VO L7: lighting.cpp's reflection prefilter
 // the sky's triangle sits on the far plane of the reverse-Z world pass (clip z 0 = depth 0), so drawn after the opaque
 // world (PF2 skyLast) it passes GL_GEQUAL only where nothing was drawn and early-Z skips its shading everywhere else.
 // Thumbnails (standard Z, sky first, no depth write) are unaffected.
@@ -3477,7 +3497,7 @@ void main(){
     n2 = mix(0.5, n2, smoothstep(-0.01, 0.03, d.y));   // SKY1: no noise below the horizon (the projection smeared it into vertical streaks)
     float L0 = dot(uSkyHor, vec3(0.2126, 0.7152, 0.0722));
     vec3 ov = vec3(L0)*vec3(0.95, 0.97, 1.0)*(0.56 + 0.2*n2)*mix(1.75, 0.88, smoothstep(0.0, 0.4, d.y));   // SKY1: a grey deck overhead, a pale band low at the horizon
-    c = mix(c, ov, uCloudK);
+    c = mix(c, ov, uCloudK*(1.0 - 0.85*cloudOpening(d)));   // VO L5: the overcast parts at the opening
   }
   if (uCloudOn == 1 && d.y > 0.0) {
     // ray to the cloud plane (1500 m), fBm (5 octaves) scrolling with the wind; coverage shifts the threshold
@@ -3491,7 +3511,7 @@ void main(){
     }
     float n = uCloudQ == 0 ? cloudFieldLo(cpw) : cloudField(cpw);
     // SKY1 Cloudy: a near-closed deck (the threshold drops) with soft, wide edges, like an overcast stratocumulus sky
-    float th = mix(0.72, 0.38, uCloudCover) - 0.12*uCloudK;
+    float th = mix(0.72, 0.38, uCloudCover) - 0.12*uCloudK + 0.5*cloudOpening(d);   // VO L5: fewer clouds toward the opening
     float cl = smoothstep(th, th + mix(0.22, 0.45, uCloudK), n);
     vec3 bg = c;   // the sky behind the deck (under Cloudy: the grey upper layer, brighter at the horizon)
     float sd = max(dot(d, uSunDir), 0.0);
@@ -4280,6 +4300,8 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
     }
   }
   glUniform2fv(U(p, "uAtmoHorAz"), 1, glm::value_ptr(horAz));
+  glUniform4fv(U(p, "uCloudOpen"), 1, glm::value_ptr(lt.cloudOpen)); glUniform1f(U(p, "uCloudOpenK"), thumbMode ? 0.0f : lt.cloudOpenK);   // VO L5 per-map sky knobs
+  { vec4 xf = thumbMode ? vec4(1, 0, 0, 1) : lt.cloudXf; glUniform4fv(U(p, "uCloudXf"), 1, glm::value_ptr(xf)); glUniform1f(U(p, "uSunDisc"), thumbMode ? 1.0f : lt.sunDisc); }
   glUniform1f(U(p, "uAerial"), q.lightNew && perf.atmo && !q.legacy && !thumbMode ? lt.mapAerial : 0.0f);   // VO L5 (look.aerial)
   if (!thumbMode && (lt.hour < 5.8f || lt.hour > 20.4f)) { sky *= lt.mapNightSky; fill *= lt.mapNightFill; }   // GR3: lighting.nightSky (a faint cool sky light on upward faces) / nightFill (rooms lit from within) at night
   if (!thumbMode) fill = fill * lt.mapFill + (p == progModel ? lt.mapAmbient * 0.4f : lt.mapAmbient);   // UG4: x the map's fill scale   // BR2: a map's own even ambient (Backrooms); BR4: characters and the viewmodel take 40 %, so the lights and their shadows shape them
@@ -4321,6 +4343,8 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1f(U(p, "uShadowSoft"), q.legacy ? 0.0f : q.shadowSoft * (1.0f + 2.0f * wx.k));   // WX2: overcast sun casts very soft shadows
   glUniform1f(U(p, "uShadowLift"), q.lightNew && perf.fullShadow ? q.newShadowLift : 0.7f);   // VO L1
   glUniform1f(U(p, "uShadowWarm"), q.lightNew && perf.fullShadow && !q.legacy ? q.newShadowWarm : 0.0f);   // VO L1
+  glUniform1i(U(p, "uReflOn"), reflOn && q.lightNew && perf.reflProbe && !q.legacy && !thumbMode ? 1 : 0); glUniform3fv(U(p, "uReflPos"), 1, glm::value_ptr(reflPos));   // VO L7
+  glUniform1i(U(p, "uRefl"), 9); if (p != progComposite && reflTex) glBindTextureUnit(9, reflTex);   // unit 9: free in the world pass (the composite binds its own there first)
   glUniform1i(U(p, "uSkyRelit"), q.lightNew && perf.skyRelit && !q.legacy ? 1 : 0);   // VO L6
   glUniform1f(U(p, "uMicroSh"), q.lightNew && perf.microShadow && !q.legacy ? 1.0f : 0.0f);   // VO L4
   glUniform1i(U(p, "uShadowTaps"), q.shadowTaps);

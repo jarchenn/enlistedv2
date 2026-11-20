@@ -194,6 +194,51 @@ void main(){
 }
 )GLSL";
 
+// ============================================================== VO L7 reflection probe
+// One 64^2 cube near the eye (Lagarde & Zanuttini 2012), captured with the GI capture program (all six faces in one
+// layered pass) when the eye has moved 6 m, the hour or the weather changed, or every ~300 frames; the faces are then
+// GGX-prefiltered into the cube's mips by roughness (split sum, Karis 2013: the environment half; the BRDF half stays
+// the shader's analytic Fresnel). shade() reads it through a box parallax correction around the capture point; outside
+// the box, and in Classic, the old sky-gradient estimate.
+const int kReflN = 64, kReflMips = 7;
+const char* kReflFS = R"GLSL(
+in vec2 vUV;
+out vec4 oColor;
+uniform sampler2DArray uRC, uRD;   // units 18, 19: the captured faces (faceView orientation), their depth
+uniform mat4 uFaceRotR[6];
+uniform int uFace; uniform float uRough;
+vec3 cubeDir(int f, vec2 n){   // the GL cube map's texel direction (row 0 = t 0)
+  if (f == 0) return vec3(1.0, -n.y, -n.x); if (f == 1) return vec3(-1.0, -n.y, n.x);
+  if (f == 2) return vec3(n.x, 1.0, n.y);  if (f == 3) return vec3(n.x, -1.0, -n.y);
+  if (f == 4) return vec3(n.x, -n.y, 1.0); return vec3(-n.x, -n.y, -1.0);
+}
+vec3 capFetch(vec3 d){
+  vec3 a = abs(d);
+  int f = (a.x >= a.y && a.x >= a.z) ? (d.x > 0.0 ? 0 : 1) : (a.y >= a.z ? (d.y > 0.0 ? 2 : 3) : (d.z > 0.0 ? 4 : 5));
+  vec3 v = transpose(mat3(uFaceRotR[f]))*d;
+  vec2 tc = clamp(v.xy/max(-v.z, 1e-4)*0.5 + 0.5, 0.0, 1.0);
+  if (texture(uRD, vec3(tc, float(f))).r >= 1.0) return d.y >= 0.0 ? skyColor(d) : uGroundCol;   // nothing captured: sky / ground
+  return texture(uRC, vec3(tc, float(f))).rgb;
+}
+float vdc(uint b){ b = (b << 16u) | (b >> 16u); b = ((b & 0x55555555u) << 1u) | ((b & 0xAAAAAAAAu) >> 1u); b = ((b & 0x33333333u) << 2u) | ((b & 0xCCCCCCCCu) >> 2u);
+  b = ((b & 0x0F0F0F0Fu) << 4u) | ((b & 0xF0F0F0F0u) >> 4u); b = ((b & 0x00FF00FFu) << 8u) | ((b & 0xFF00FF00u) >> 8u); return float(b)*2.3283064365386963e-10; }
+void main(){
+  vec3 N = normalize(cubeDir(uFace, vUV*2.0 - 1.0));
+  if (uRough <= 0.0) { oColor = vec4(capFetch(N), 1.0); return; }
+  vec3 T = normalize(cross(abs(N.y) < 0.99 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0), N)), B = cross(N, T);
+  float a = uRough*uRough; vec3 sum = vec3(0.0); float ws = 0.0;
+  const uint S = 32u;
+  for (uint i = 0u; i < S; ++i) {
+    vec2 x = vec2(float(i)/float(S), vdc(i));
+    float ph = 6.2831853*x.x, ct = sqrt((1.0 - x.y)/(1.0 + (a*a - 1.0)*x.y)), st = sqrt(1.0 - ct*ct);
+    vec3 H = normalize(T*(st*cos(ph)) + B*(st*sin(ph)) + N*ct);
+    vec3 L = reflect(-N, H); float nl = dot(N, L);
+    if (nl > 0.0) { sum += capFetch(L)*nl; ws += nl; }
+  }
+  oColor = vec4(sum/max(ws, 1e-4), 1.0);
+}
+)GLSL";
+struct Refl { GLuint col = 0, dep = 0, fbo = 0, cube = 0, cubeFbo = 0, prog = 0; vec3 pos{1e9f}; int stamp = -100000; float hour = -100.0f, wx = -1.0f; } RF;
 // ============================================================== time of day
 struct Tod {
   bool day = true;
@@ -421,6 +466,7 @@ struct LightingPass {
   static float fixedExposure(const Renderer& R) { (void)R; return L.tod.fixedExpo; }
   static void shadowPass(Renderer& R, const std::vector<DrawItem>& opaque);
   static void probePass(Renderer& R, const RenderView& v, const std::vector<DrawItem>& opaque, const Terrain& t);
+  static void reflPass(Renderer& R, const RenderView& v, const std::vector<DrawItem>& opaque);
 };
 
 void LightingPass::init(Renderer& R, const char* kCommonSrc, const char* kMainFSSrc) {
@@ -603,6 +649,81 @@ void LightingPass::shadowPass(Renderer& R, const std::vector<DrawItem>& opaque) 
 }
 
 // ---- probe volumes: scroll with the camera, pick a few probes, capture them in one layered pass, project
+void LightingPass::reflPass(Renderer& R, const RenderView& v, const std::vector<DrawItem>& opaque) {
+  Refl& F = RF;
+  if (!F.fbo) {
+    glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &F.col); glTextureStorage3D(F.col, 1, GL_RGBA16F, kReflN, kReflN, 6);
+    glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &F.dep); glTextureStorage3D(F.dep, 1, GL_DEPTH_COMPONENT32F, kReflN, kReflN, 6);
+    for (GLuint tx : {F.col, F.dep}) { glTextureParameteri(tx, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(tx, GL_TEXTURE_MAG_FILTER, GL_LINEAR); glTextureParameteri(tx, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(tx, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); }
+    glCreateFramebuffers(1, &F.fbo); glNamedFramebufferTexture(F.fbo, GL_COLOR_ATTACHMENT0, F.col, 0); glNamedFramebufferTexture(F.fbo, GL_DEPTH_ATTACHMENT, F.dep, 0);
+    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &F.cube); glTextureStorage2D(F.cube, kReflMips, GL_RGBA16F, kReflN, kReflN);
+    glTextureParameteri(F.cube, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTextureParameteri(F.cube, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+    glCreateFramebuffers(1, &F.cubeFbo);
+    extern const char* rendererFullVS(); F.prog = R.compile(rendererFullVS(), kReflFS, "refl_prefilter");
+    if (glCheckNamedFramebufferStatus(F.fbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) { logf("reflection probe framebuffer incomplete"); ++R.fboErrors; }
+  }
+  const vec3 eye = v.camPos;
+  const bool need = R.reflTex == 0 || glm::distance(eye, F.pos) > 6.0f || L.frame - F.stamp > 300 || std::fabs(R.lt.hour - F.hour) > 0.1f || std::fabs(R.wx.k - F.wx) > 0.1f;
+  R.reflOn = R.reflTex != 0;
+  if (!need) return;
+  F.pos = eye; F.stamp = L.frame; F.hour = R.lt.hour; F.wx = R.wx.k;
+  // capture: the six faces in one layered pass of the GI capture program (80 m range)
+  const float range = 80.0f;
+  mat4 pr = glm::perspective(radians(90.0f), 1.0f, 0.1f, range);
+  mat4 vps[6]; Frustum frs[6];
+  for (int f = 0; f < 6; ++f) { vps[f] = pr * faceView(eye, f); frs[f] = Frustum::fromVP(vps[f]); }
+  glNamedBufferSubData(L.capVPBuf, 0, sizeof vps, vps);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 9, L.capVPBuf);
+  glBindFramebuffer(GL_FRAMEBUFFER, F.fbo); glNamedFramebufferDrawBuffer(F.fbo, GL_COLOR_ATTACHMENT0);
+  glViewport(0, 0, kReflN, kReflN);
+  glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LESS); glDepthMask(GL_TRUE); glDisable(GL_BLEND); glDisable(GL_CULL_FACE); glDisable(GL_POLYGON_OFFSET_FILL);
+  glClearColor(0, 0, 0, 1); glClearDepth(1.0); glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  GLuint p = L.progCapture;
+  R.setLighting(p, v);
+  glUniform1i(U(p, "uLightMode"), 1); glUniform1i(U(p, "uCapture"), 1);
+  glUniform1i(U(p, "uWeather"), 1); glUniform1i(U(p, "uNoWallRelief"), R.wallRelief ? 0 : 1);
+  vec4 eye4(eye, 1.0f); glUniform4fv(U(p, "uCapEye"), 1, glm::value_ptr(eye4));
+  GLint lm = U(p, "uModel"), lt = U(p, "uTint"), li = U(p, "uInst"), ll = U(p, "uLayer");
+  static const SurfaceParams kDefaultSurf; const SurfaceParams* lastSurf = nullptr;
+  for (auto& it : opaque) {
+    if (!it.mesh || !it.mesh->count || it.tint.a < 0.999f) continue;
+    vec3 lo, hi; worldBox(it, lo, hi);
+    float d2 = boxDist2(eye, lo, hi), diag2 = glm::dot(hi - lo, hi - lo);
+    if (d2 > range * range || diag2 < 0.05f * 0.05f * d2) continue;   // farther than the range, or under ~1 texel
+    int layers[6], n = 0;
+    for (int f = 0; f < 6; ++f) if (frs[f].visible(lo, hi)) layers[n++] = f;
+    if (!n) continue;
+    glUniform1iv(ll, n, layers);
+    glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(it.model)); glUniform4fv(lt, 1, glm::value_ptr(it.tint));
+    const SurfaceParams* sp = it.surf ? it.surf : &kDefaultSurf;
+    if (li >= 0 && sp != lastSurf) {
+      lastSurf = sp; glUniform4fv(li, 1, glm::value_ptr(sp->inst));
+      int nr = std::clamp((int)(sp->inst.w + 0.5f), 0, 16);
+      if (nr) { glUniform4fv(U(p, "uRoomA"), nr, glm::value_ptr(sp->roomA[0])); glUniform4fv(U(p, "uRoomB"), nr, glm::value_ptr(sp->roomB[0])); }
+      int ns = std::clamp(sp->sills, 0, 12); glUniform1i(U(p, "uSills"), ns);
+      if (ns) { glUniform4fv(U(p, "uSillA"), ns, glm::value_ptr(sp->sillA[0])); glUniform4fv(U(p, "uSillB"), ns, glm::value_ptr(sp->sillB[0])); }
+    }
+    glBindVertexArray(it.mesh->vao); glDrawElementsInstanced(GL_TRIANGLES, it.mesh->count, GL_UNSIGNED_INT, nullptr, n);
+  }
+  // prefilter into the cube's mips (roughness = mip / 6)
+  glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT);
+  glDisable(GL_DEPTH_TEST);
+  R.setLighting(F.prog, v);
+  mat4 rot[6]; for (int f = 0; f < 6; ++f) rot[f] = glm::transpose(mat4(mat3(faceView(vec3(0), f))));
+  glUniformMatrix4fv(U(F.prog, "uFaceRotR"), 6, GL_FALSE, glm::value_ptr(rot[0]));
+  glBindTextureUnit(18, F.col); glBindTextureUnit(19, F.dep); glUniform1i(U(F.prog, "uRC"), 18); glUniform1i(U(F.prog, "uRD"), 19);
+  glBindFramebuffer(GL_FRAMEBUFFER, F.cubeFbo); glNamedFramebufferDrawBuffer(F.cubeFbo, GL_COLOR_ATTACHMENT0);
+  glBindVertexArray(R.emptyVao);
+  for (int m = 0; m < kReflMips; ++m) {
+    int s = std::max(1, kReflN >> m); glViewport(0, 0, s, s);
+    glUniform1f(U(F.prog, "uRough"), (float)m / (kReflMips - 1));
+    for (int f = 0; f < 6; ++f) { glNamedFramebufferTextureLayer(F.cubeFbo, GL_COLOR_ATTACHMENT0, F.cube, m, f); glUniform1i(U(F.prog, "uFace"), f); glDrawArrays(GL_TRIANGLES, 0, 3); }
+  }
+  glEnable(GL_DEPTH_TEST);
+  R.reflTex = F.cube; R.reflPos = eye; R.reflOn = true;
+}
+
 void LightingPass::probePass(Renderer& R, const RenderView& v, const std::vector<DrawItem>& opaque, const Terrain& t) {
   L.captured = 0; L.captureDraws = 0;
   setupCascades(R.lt.gi);
@@ -806,6 +927,7 @@ void LightingPass::prepass(Renderer& R, const RenderView& v, const std::vector<D
   { auto c0 = std::chrono::steady_clock::now();
     if (R.perf.probeCapture) probePass(R, v, opaque, t); else L.captured = L.captureDraws = 0;   // PF2 A/B: GI frozen
     R.stats.probeCpuMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - c0).count(); R.stats.probes = L.captured; }
+  if (R.q.lightNew && R.perf.reflProbe && !R.q.legacy && L.giAvail && !R.thumbMode) reflPass(R, v, opaque); else R.reflOn = false;   // VO L7
   R.gpuMark(GP_Clusters);
   // ---- froxel clusters for the camera
   glUseProgram(L.progCluster);

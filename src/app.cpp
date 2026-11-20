@@ -1411,6 +1411,20 @@ int App::run(int argc, char** argv) {
       R.wx.mapCloud = lk && lk->contains("weather") && (*lk)["weather"].is_number() ? std::clamp((*lk)["weather"].get<float>(), 0.0f, 1.0f) : -1.0f;   // NT2b: broken cloud
       R.wx.mapWx = R.wx.mapCloud >= 0.0f ? (R.wx.mapCloud >= 0.5f ? 1 : 0) : lk && lk->contains("weather") ? (lk->value("weather", std::string()) == "cloudy" ? 1 : 0) : -1;   // NT2: the map's default sky
       R.lt.mapSat = lk ? std::clamp(lk->value("saturation", 1.0f), 0.0f, 2.0f) : 1.0f;
+      {   // VO L5 sky knobs: look.cloudOpening [azimuth deg (0 = +z, 90 = +x), elevation deg, half width deg, strength 0..1];
+          // look.cloudScale (broad banks x this size), cloudStretch (x this longer along cloudDir), cloudDir (deg, as azimuth); look.sunDisc 0..1
+        R.lt.cloudOpenK = 0.0f; R.lt.cloudXf = vec4(1, 0, 0, 1); R.lt.sunDisc = 1.0f;
+        if (lk && lk->contains("cloudOpening") && (*lk)["cloudOpening"].is_array() && (*lk)["cloudOpening"].size() >= 4) {
+          const json& o = (*lk)["cloudOpening"]; float az = glm::radians(o[0].get<float>()), el = glm::radians(o[1].get<float>()), hw = glm::radians(std::clamp(o[2].get<float>(), 2.0f, 90.0f));
+          R.lt.cloudOpen = vec4(std::sin(az) * std::cos(el), std::sin(el), std::cos(az) * std::cos(el), std::cos(hw)); R.lt.cloudOpenK = std::clamp(o[3].get<float>(), 0.0f, 1.0f);
+        }
+        if (lk) {
+          float sc = std::clamp(lk->value("cloudScale", 1.0f), 0.25f, 8.0f), st = std::clamp(lk->value("cloudStretch", 1.0f), 1.0f, 8.0f), th = glm::radians(lk->value("cloudDir", 0.0f));
+          float c = std::cos(th), s = std::sin(th), ia = 1.0f / (sc * st), ib = 1.0f / sc;   // the field rotated so cloudDir is its z axis, banks longer along it
+          R.lt.cloudXf = vec4(ib * c, ia * s, -ib * s, ia * c);   // mat2 columns: x' = ib (c x - s z), z' = ia (s x + c z); identity at 1, 1, 0 deg
+          R.lt.sunDisc = std::clamp(lk->value("sunDisc", 1.0f), 0.0f, 1.0f);
+        }
+      }
       R.lt.mapAtmo = lk ? std::clamp(lk->value("atmo", 1.0f), 0.0f, 1.5f) : 1.0f; R.lt.mapAerial = lk ? std::clamp(lk->value("aerial", 1.0f), 0.0f, 1.5f) : 1.0f;   // VO L5 (render.cpp setLighting)
       R.lt.mapGrime = lk ? std::clamp(lk->value("grime", 0.0f), 0.0f, 2.0f) : 0.0f;
       R.lt.mapVegCull = lk ? std::clamp(lk->value("vegCull", 1.0f), 0.3f, 1.0f) : 1.0f;
