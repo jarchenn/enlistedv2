@@ -44,6 +44,7 @@ uniform vec2 uShadowTexelFar;
 uniform vec2 uShadowWorldTexel;   // metres per shadow texel: near, far cascade
 uniform float uShadowDepthRange;  // metres covered by the [0,1] light-space depth
 uniform float uShadowSoft;        // PCF radius in near-cascade texels (0 = legacy 3x3 grid)
+uniform float uShadowLift;        // VO L1: share of the sun a shadow removes (Classic 0.7: shadows 30 % lighter; New 1)
 uniform int uShadowTaps;          // P3: cap on the PCF taps (presets; 0 = no cap)
 uniform int uFrame;               // frame counter (noise rotation; TAA decorrelation)
 uniform int uCloudShadowOn; uniform float uCloudCov, uCloudT;
@@ -104,7 +105,7 @@ float sunShadowRaw(vec3 w, vec3 n, float soft, int taps){
   sF = mix(sF, 1.0, smoothstep(0.85, 0.98, eF));   // fade out at the far edge instead of a hard line
   return mix(sN, sF, tB);
 }
-float sunShadowT(vec3 w, vec3 n, float soft, int taps){ return mix(1.0, sunShadowRaw(w, n, soft, taps), 0.7); }   // sun shadows 30 % lighter (user request)
+float sunShadowT(vec3 w, vec3 n, float soft, int taps){ return mix(1.0, sunShadowRaw(w, n, soft, taps), uShadowLift); }   // Classic: sun shadows 30 % lighter (user request); VO L1 New: full shadows, grounded by contact shadows
 float shadowPCF(vec3 w, vec3 n){ return sunShadowT(w, n, 0.0, 8); }   // 8 rotated taps; TAA integrates the rotation over frames
 // cloud deck at 1500 m: the same field the sky draws, in world xz (so the shadows on the ground match the sky)
 float cloudField(vec2 xz){
@@ -2196,8 +2197,43 @@ void main(){
 static const char* kSsaoFS = R"GLSL(
 in vec2 vUV;
 uniform sampler2D uDepth; uniform mat4 uInvProj, uProj; uniform float uRadius, uPower; uniform vec2 uTexel;
+uniform int uGtao, uSlices, uSteps;   // VO L2: ground-truth AO (Lighting New): slices x steps per side
 out vec4 oColor;
 vec3 vpos(vec2 uv){ float z = texture(uDepth, uv).r; vec4 p = uInvProj*vec4(uv*2.0 - 1.0, z, 1.0); return p.xyz/p.w; }   // reverse-Z
+// VO L2 (Jimenez et al. 2016, XeGTAO): per slice the two horizon angles found along a screen direction, then the
+// cosine-weighted visible arc between them, projected-normal weighted; the horizon falls off past the radius (no halos)
+float gtao(vec3 P, vec3 N){
+  vec3 V = normalize(-P);
+  float rad = uRadius*1.6*clamp(1.0 + (-P.z - 20.0)/60.0, 1.0, 3.0);
+  vec2 radUV = rad*0.5*vec2(uProj[0][0], uProj[1][1])/(-P.z);   // the radius on screen (uv)
+  if (radUV.y < uTexel.y) return 1.0;   // under a texel: nothing to resolve
+  float noise = pixelNoise(), jit = fract(noise*7.31 + 0.37);
+  float vis = 0.0;
+  for (int s = 0; s < uSlices; ++s) {
+    float phi = (float(s) + noise)/float(uSlices)*3.14159265;
+    vec2 d2 = vec2(cos(phi), sin(phi));
+    vec3 dirV = vec3(d2, 0.0), ortho = dirV - dot(dirV, V)*V, axis = normalize(cross(dirV, V));
+    vec3 pN = N - axis*dot(N, axis); float pL = max(length(pN), 1e-4);
+    float cosN = clamp(dot(pN, V)/pL, -1.0, 1.0), n = sign(dot(ortho, pN))*acos(cosN);
+    float c0 = -1.0, c1 = -1.0;
+    for (int j = 0; j < uSteps; ++j) {
+      float t = (float(j) + jit)/float(uSteps); t = t*t*0.98 + 0.02;   // denser near the pixel
+      vec2 o = d2*radUV*t;
+      for (int k = 0; k < 2; ++k) {
+        vec2 uv = vUV + (k == 0 ? o : -o);
+        if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) continue;
+        vec3 dv = vpos(uv) - P; float l = length(dv);
+        float h = mix(-1.0, dot(dv/max(l, 1e-4), V), 1.0 - smoothstep(rad*0.6, rad, l));   // past the radius: no horizon
+        if (k == 0) c0 = max(c0, h); else c1 = max(c1, h);
+      }
+    }
+    float h0 = acos(clamp(c0, -1.0, 1.0)), h1 = -acos(clamp(c1, -1.0, 1.0));   // +side, -side horizon angles
+    h0 = n + min(h0 - n, 1.5707963); h1 = n + max(h1 - n, -1.5707963);
+    float sn = sin(n);
+    vis += pL*0.25*((-cos(2.0*h0 - n) + cosN + 2.0*h0*sn) + (-cos(2.0*h1 - n) + cosN + 2.0*h1*sn));
+  }
+  return clamp(vis/float(uSlices), 0.0, 1.0);
+}
 void main(){
   float z = texture(uDepth, vUV).r;
   if (z <= 0.0) { oColor = vec4(1.0); return; }   // sky
@@ -2207,6 +2243,7 @@ void main(){
   vec3 dx = dot(px, px) < dot(nx, nx) ? px : nx, dy = dot(py, py) < dot(ny, ny) ? py : ny;
   vec3 N = normalize(cross(dx, dy));
   if (dot(N, P) > 0.0) N = -N;
+  if (uGtao == 1) { oColor = vec4(gtao(P, N), -P.z, 0.0, 1.0); return; }
   float rad = uRadius*clamp(1.0 + (-P.z - 20.0)/60.0, 1.0, 3.0);   // a little wider far away (keeps contact)
   float occ = 0.0, rot = pixelNoise()*6.2831853;
   const int S = 8;
@@ -2244,6 +2281,8 @@ static const char* kCompositeFS = R"GLSL(
 in vec2 vUV;
 uniform sampler2D uScene, uShafts, uAmb, uAO, uDepth, uNR; uniform float uShaftAmt, uAoAmt, uSsrAmt;
 uniform mat4 uInvProj, uProj, uView; uniform vec2 uAoTexel;
+uniform float uContactAmt; uniform int uContactSteps;   // VO L1 screen-space sun contact shadows (0: off)
+uniform int uAoNew;   // VO L2: multi-bounce and specular occlusion from the (GT)AO
 out vec4 oColor;
 vec3 viewPosAt(vec2 uv){ float z = texture(uDepth, uv).r; vec4 p = uInvProj*vec4(uv*2.0 - 1.0, z, 1.0); return p.xyz/p.w; }   // reverse-Z
 vec2 toUV(vec3 q){ vec4 c = uProj*vec4(q, 1.0); return c.xy/c.w*0.5 + 0.5; }
@@ -2267,8 +2306,35 @@ vec4 traceSSR(vec3 Pv, vec3 Rv){
   }
   return vec4(0.0);
 }
+// VO L1 (Aldridge, Bend Studio 2023): march the depth buffer toward the sun for ~0.4-1.6 m; an occluder in front of
+// the ray within a thickness shadows the direct light the shadow map is too coarse for (grass, props on the ground, joints)
+float contactShadow(vec2 uv){
+  float z0 = texture(uDepth, uv).r;
+  if (z0 <= 0.0) return 1.0;   // sky
+  vec3 P = viewPosAt(uv);
+  float dist = -P.z;
+  if (dist > 90.0) return 1.0;
+  vec3 L = normalize(mat3(uView)*uSunDir);
+  if (L.z > 0.97) return 1.0;   // sun straight behind the camera: the ray leaves along the view (no information)
+  float len = clamp(0.4 + dist*0.02, 0.4, 1.6), thick = 0.06 + dist*0.006;
+  float n = float(uContactSteps), jit = pixelNoise();
+  float occ = 0.0;
+  for (int i = 0; i < uContactSteps; ++i) {
+    float t = (float(i) + jit)/n;
+    vec3 q = P + L*(len*t*t + 0.02 + dist*0.0015);   // denser near the surface; start a little off it (depth precision)
+    vec2 u2 = toUV(q);
+    if (u2.x < 0.0 || u2.x > 1.0 || u2.y < 0.0 || u2.y > 1.0) break;
+    float dz = viewPosAt(u2).z - q.z;   // > 0: the visible surface is in front of the ray point
+    if (dz > 0.005 && dz < thick) { occ = 1.0 - t*0.5; break; }
+  }
+  return 1.0 - occ*(1.0 - smoothstep(60.0, 90.0, dist));
+}
 void main(){
   vec3 c = texture(uScene, vUV).rgb;
+  if (uContactAmt > 0.0) {   // VO L1: only the direct share (colour less the indirect light the world pass wrote) is shadowed
+    vec3 amb = texture(uAmb, vUV).rgb;
+    c = amb + max(c - amb, vec3(0.0))*mix(1.0, contactShadow(vUV), uContactAmt);
+  }
   if (uSsrAmt > 0.0) {
     vec4 nr = texture(uNR, vUV);
     if (nr.w < 0.4 && texture(uDepth, vUV).r > 0.0) {   // not sky
@@ -2298,6 +2364,22 @@ void main(){
     }
     float ao = w > 1e-4 ? s/w : 1.0;
     vec3 amb = texture(uAmb, vUV).rgb;
+    if (uAoNew == 1) {
+      // VO L2 multi-bounce (Jimenez 2016 fit): light inter-reflected inside the occluded region, by the surface's
+      // albedo (approximated as 0.4: the composite does not see albedo); occlusion stays darkest on dark materials
+      const float al = 0.4; float a = 2.0404*al - 0.3324, b = -4.7951*al + 0.6417, cc = 2.7552*al + 0.6903;
+      ao = max(ao, ((ao*a + b)*ao + cc)*ao);
+      vec4 nr = texture(uNR, vUV);
+      if (nr.w < 0.95 && z > 0.0) {   // specular occlusion (Lagarde 2014): the sky reflection estimate is occluded too
+        vec3 Pv = viewPosAt(vUV), Nv = normalize(mat3(uView)*nr.xyz), Vv = normalize(-Pv);
+        float NdV = clamp(dot(Nv, Vv), 0.0, 1.0), r = clamp(nr.w, 0.0, 1.0);
+        float so = clamp(pow(NdV + ao, exp2(-16.0*r - 1.0)) - 1.0 + ao, 0.0, 1.0);
+        vec3 Rw = normalize(transpose(mat3(uView))*reflect(-Vv, Nv));
+        float F = 0.04 + 0.96*pow(1.0 - NdV, 5.0);
+        vec3 envS = skyColor(Rw)*F*(1.0 - r*0.6)*0.6;
+        c -= min(envS*(1.0 - so)*uAoAmt, c*0.5);
+      }
+    }
     c -= amb*(1.0 - ao)*uAoAmt;
   }
   if (uShaftAmt > 0.0) c += texture(uShafts, vUV).rgb*uShaftAmt;
@@ -3362,6 +3444,7 @@ static const char* kToneFS = R"GLSL(
 #version 450 core
 in vec2 vUV;
 uniform sampler2D uHdr, uExpo, uBloom, uVmDist; uniform float uFixedExpo, uBloomAmt, uEyeR, uAspect, uRectVig, uMicro; uniform int uTonemap;
+uniform float uNewExpo;   // VO L1: Lighting New's re-fit of a fixed exposure (1 in Classic)
 uniform float uUnderTone;   // 1: under water (swim.cpp): blue-green tint, stronger vignette
 // GX5 grade (content/settings/grade.json, docs/graphics-overhaul.md#gx5-grade): saturation, cool shadows / warm
 // highlights, a gentle S-curve, vignette, chromatic aberration (0 = off), and an edge-aware sharpen of the image
@@ -3412,7 +3495,7 @@ void main(){
   if (uEyeR > 0.0) bAmt *= 1.0 - smoothstep(0.98*uEyeR, 1.02*uEyeR, length((vUV - 0.5)*vec2(uAspect, 1.0)));
   if (texture(uVmDist, vUV).r > 0.0) bAmt = 0.0;   // VM2: the bloom is the world's, taken before the first-person weapon was drawn: blended over the dark gun it showed the ground through it
   if (bAmt > 0.0) c = mix(c, texture(uBloom, vUV).rgb/6.0, bAmt);   // chain sums 6 levels; energy-preserving blend, not an add
-  float e = uFixedExpo > 0.0 ? uFixedExpo : texelFetch(uExpo, ivec2(0), 0).r;
+  float e = uFixedExpo > 0.0 ? uFixedExpo*uNewExpo : texelFetch(uExpo, ivec2(0), 0).r;   // VO L1: auto exposure already re-adapts to New's darker scene; a fixed one is lifted
   c = uTonemap == 0 ? aces(c*e*0.8) : filmic(c*e*1.22);
   // subdued, slightly desaturated period grade (grade.json): saturation, cool shadows / warm highlights, vignette
   float l = dot(c, vec3(0.2126,0.7152,0.0722));
@@ -4002,6 +4085,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform2f(U(p, "uShadowWorldTexel"), 2 * nearR / shadowSize, 2 * farR / shadowFarSize);
   glUniform1f(U(p, "uShadowDepthRange"), 800.0f);
   glUniform1f(U(p, "uShadowSoft"), q.legacy ? 0.0f : q.shadowSoft * (1.0f + 2.0f * wx.k));   // WX2: overcast sun casts very soft shadows
+  glUniform1f(U(p, "uShadowLift"), q.lightNew && perf.fullShadow ? 1.0f : 0.7f);   // VO L1
   glUniform1i(U(p, "uShadowTaps"), q.shadowTaps);
   glUniform1i(U(p, "uFrame"), frame);
   glUniform1i(U(p, "uCloudShadowOn"), !q.legacy && q.cloudShadows && clouds && perf.cloudShadow && !thumbMode ? 1 : 0);
@@ -5231,6 +5315,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUseProgram(progTone);
   glBindTextureUnit(0, hdrColor); glBindTextureUnit(1, expoTex[expoIdx]);
   glUniform1i(U(progTone, "uHdr"), 0); glUniform1i(U(progTone, "uExpo"), 1);
+  glUniform1f(U(progTone, "uNewExpo"), q.lightNew && !q.legacy && !thumbMode ? q.newExpo : 1.0f);   // VO L1
   glUniform1f(U(progTone, "uFixedExpo"), lt.mapExposure > 0 && !thumbMode ? lightingFixedExposure(*this) * lt.mapExposure : v.autoExposure ? -1.0f : lightingFixedExposure(*this));   // 1 by Day; BR3: a map may pin it (play = editor)
   glUniform1f(U(progTone, "uUnderTone"), v.underwater ? 1.0f : 0.0f);   // swim.cpp
   {   // colour grade (content/settings/grade.json, read once; the defaults match the shipped file)
@@ -5309,8 +5394,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
 }
 
 void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
-  bool shafts = (q.shafts || (lt.mapShafts > 0 && q.bloom)) && perf.shafts && q.shaftStrength > 0 && !lt.mapNoFog && wx.k < 0.99f,   /* NT8: a map's own shafts from Medium up */   /* WX2: no sun shafts under overcast */ ao = q.ssao && q.ssaoStrength > 0, ssr = q.ssr && q.ssrStrength > 0;
-  if (!shafts && !ao && !ssr) return;
+  bool shafts = (q.shafts || (lt.mapShafts > 0 && q.bloom)) && perf.shafts && q.shaftStrength > 0 && !lt.mapNoFog && wx.k < 0.99f,   /* NT8: a map's own shafts from Medium up */   /* WX2: no sun shafts under overcast */ ao = q.ssao && q.ssaoStrength > 0, contact = q.lightNew && perf.contactShadow && !q.legacy, ssr = q.ssr && q.ssrStrength > 0;
+  if (!shafts && !ao && !ssr && !contact) return;
   glDisable(GL_DEPTH_TEST); glDepthMask(GL_FALSE); glDisable(GL_BLEND); glDisable(GL_CULL_FACE);
   glBindVertexArray(emptyVao);
   mat4 inv = glm::inverse(vp), invP = glm::inverse(v.proj);
@@ -5323,6 +5408,8 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
     glUniformMatrix4fv(U(progSsao, "uInvProj"), 1, GL_FALSE, glm::value_ptr(invP));
     glUniformMatrix4fv(U(progSsao, "uProj"), 1, GL_FALSE, glm::value_ptr(v.proj));
     glUniform1f(U(progSsao, "uRadius"), q.ssaoRadius); glUniform1f(U(progSsao, "uPower"), 1.4f);
+    { bool gt = q.lightNew && perf.gtao && !q.legacy;   // VO L2: GTAO, 2 x 3 steps a side at quarter resolution (Medium), 3 x 4 at half (High)
+      glUniform1i(U(progSsao, "uGtao"), gt ? 1 : 0); glUniform1i(U(progSsao, "uSlices"), aoDiv <= 2 ? 3 : 2); glUniform1i(U(progSsao, "uSteps"), aoDiv <= 2 ? 4 : 3); }
     glUniform2f(U(progSsao, "uTexel"), (float)aoDiv / width, (float)aoDiv / height);
     glDrawArrays(GL_TRIANGLES, 0, 3);
   }
@@ -5349,6 +5436,9 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   glUniform1i(U(progComposite, "uAmb"), 10); glUniform1i(U(progComposite, "uAO"), 11); glUniform1i(U(progComposite, "uDepth"), 7);
   glUniform1f(U(progComposite, "uShaftAmt"), shafts ? q.shaftStrength * (lt.mapShafts > 0 ? lt.mapShafts : 1.0f) * (1.0f - 0.75f * lightingTod(lt.hour).nightK) * (1.0f - wx.k) : 0.0f);   // moon shafts at a quarter strength: the night exposure made them glare
   glUniform1f(U(progComposite, "uAoAmt"), ao ? q.ssaoStrength : 0.0f);
+  glUniform1f(U(progComposite, "uContactAmt"), contact ? 0.85f * (1.0f - lightingTod(lt.hour).nightK) * (1.0f - wx.k) : 0.0f);   // VO L1: the sun's (none from the moon or an overcast sky)
+  glUniform1i(U(progComposite, "uAoNew"), q.lightNew && perf.gtao && !q.legacy ? 1 : 0);
+  glUniform1i(U(progComposite, "uContactSteps"), shadowTier >= 2 ? 16 : shadowTier == 1 ? 12 : 8);
   setLighting(progComposite, v);   // sky model + noise for the reflection estimate
   glUseProgram(progComposite);
   glBindTextureUnit(12, nrTex); glUniform1i(U(progComposite, "uNR"), 12);
