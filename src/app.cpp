@@ -1411,6 +1411,7 @@ int App::run(int argc, char** argv) {
       R.wx.mapCloud = lk && lk->contains("weather") && (*lk)["weather"].is_number() ? std::clamp((*lk)["weather"].get<float>(), 0.0f, 1.0f) : -1.0f;   // NT2b: broken cloud
       R.wx.mapWx = R.wx.mapCloud >= 0.0f ? (R.wx.mapCloud >= 0.5f ? 1 : 0) : lk && lk->contains("weather") ? (lk->value("weather", std::string()) == "cloudy" ? 1 : 0) : -1;   // NT2: the map's default sky
       R.lt.mapSat = lk ? std::clamp(lk->value("saturation", 1.0f), 0.0f, 2.0f) : 1.0f;
+      R.lt.mapAtmo = lk ? std::clamp(lk->value("atmo", 1.0f), 0.0f, 1.5f) : 1.0f; R.lt.mapAerial = lk ? std::clamp(lk->value("aerial", 1.0f), 0.0f, 1.5f) : 1.0f;   // VO L5 (render.cpp setLighting)
       R.lt.mapGrime = lk ? std::clamp(lk->value("grime", 0.0f), 0.0f, 2.0f) : 0.0f;
       R.lt.mapVegCull = lk ? std::clamp(lk->value("vegCull", 1.0f), 0.3f, 1.0f) : 1.0f;
       R.lt.mapCave = lk && lk->value("cave", false) ? 1.0f : 0.0f;

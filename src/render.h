@@ -232,6 +232,7 @@ public:
     bool agx = true;             // agx (VO L8): AgX-style curve, the grade from a LUT, 13-tap bloom downsample (Lighting New)
     bool histExpo = true;        // histexpo (VO L8): histogram auto exposure (Lighting New)
     bool skyRelit = true;        // skyrelit (VO L6): GI probes store sky visibility and are relit each frame from the sky colour (Lighting New)
+    bool atmo = true;            // atmo (VO L5): atmosphere-driven sun / sky / fog away from the authored hour, aerial perspective (Lighting New)
     bool midCascade = true;      // midcascade (VO L3): a third sun cascade between the near and far ones (Medium / High, Lighting New)
     bool probeMed = true;        // probemed (PERF1): Medium's near probe volume catches up at 2 captures a frame (was 3; converged rate unchanged); A/B probes -17.5 %, frame -1.6 % Medium
     bool matFar = true;          // matfar (PERF1): Medium / Low building surfaces drop the wear layer, static decals and relief past 25-35 m (High unchanged)
@@ -261,7 +262,7 @@ public:
               // One line per stream, each followed by a comment line, so two streams appending names no longer conflict in merges.
               : n == "tnormal" ? &terrainNormals : n == "tmorph" ? &terrainMorph : n == "tskyview" ? &terrainSkyView
               // ^ stream T (terrain): append to the line above
-              : n == "contactsh" ? &contactShadow : n == "fullshadow" ? &fullShadow : n == "gtao" ? &gtao : n == "midcascade" ? &midCascade : n == "microsh" ? &microShadow : n == "foltrans" ? &folTrans : n == "agx" ? &agx : n == "histexpo" ? &histExpo : n == "skyrelit" ? &skyRelit
+              : n == "contactsh" ? &contactShadow : n == "fullshadow" ? &fullShadow : n == "gtao" ? &gtao : n == "midcascade" ? &midCascade : n == "microsh" ? &microShadow : n == "foltrans" ? &folTrans : n == "agx" ? &agx : n == "histexpo" ? &histExpo : n == "skyrelit" ? &skyRelit : n == "atmo" ? &atmo
               // ^ stream L (lighting): append to the line above
               : n == "specaa" ? &specAA : n == "hex" ? &hex : n == "hblend" ? &hblend
               // ^ stream M (materials): append to the line above
@@ -322,6 +323,7 @@ public:
     bool userHour = false;      // SD8: the user picked an hour on this map (a map's own hour is only its default under the open sky)
     float forcedHour = -1.0f;   // SD8: a LAN client: the host's hour (-1: none)
     float mapHour = -1.0f;      // SD8: this map's default hour (extra.lighting.hour), -1: none
+    float mapAtmo = 1.0f, mapAerial = 1.0f;   // VO L5 per-map knobs (look.atmo, look.aerial, 0..1.5): how far the atmosphere moves the authored colours away from the authored hour; the blue of distance
     int maxLights = 256;        // local lights uploaded per frame (nearest first)
     int shadowLights = 2;       // nearest spot / point lights with a shadow map (Low 0, Medium 2, High 8)
     int gi = 1;                 // probe GI: 0 off (the old fill term), 1 near volume, 2 near + far volumes, faster updates
@@ -453,6 +455,10 @@ private:
   GLuint shadowFarFbo = 0, shadowFarTex = 0; int shadowFarSize = 2048;
   mat4 lightVPFar{1}; float nearR = 40.0f, farR = 240.0f; int frame = 0;
   GLuint progGradeLut = 0, gradeLutTex = 0, gradeLutFbo = 0;   // VO L8
+public:   // VO L5: render.cpp's atmosphere helpers fill these
+  struct AtmoRef { bool valid = false; vec3 sunDir{0}, sun{0}, sky{0}, ground{0}, fog{0}, zen{0}, hor{0}; } atmoRef;   // VO L5: authored-hour colours
+  struct AtmoSamples { vec3 sunT{1}, zen{1}, hor{1}, horSun{1}, horAnti{1}, amb{1}; } atmoRefT, atmoNow; vec3 atmoNowDir{0};   // VO L5 (render.cpp atmoEval)
+private:
   mat4 lightVPMid{1}; float midR = 96.0f; int midFrame = -1000; vec3 midFocus{0}, midSun{0}; bool midOn = false;   // VO L3 mid cascade
   GLuint hdrFbo = 0, hdrColor = 0, depthTex = 0, ldrFbo = 0, ldrColor = 0;
   int msaaSamples = 0;

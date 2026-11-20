@@ -220,6 +220,8 @@ vec3 gInd = vec3(0.0); float gFogT = 1.0;
 vec3 gNg = vec3(0.0); float gCavity = 1.0;
 vec3 gEyeOv = vec3(1e30);   // L2 probe captures: the probe is the eye (kMainFS sets it from the capture vertex shader)
 uniform float uHazeH;       // aerial-perspective scale height (m)
+uniform vec2 uAtmoHorAz;    // VO L5: horizon brightness toward / away from the sun, now relative to the authored hour (1, 1 there)
+uniform float uAerial;      // VO L5: wavelength-dependent haze extinction (Rayleigh + Mie, luminance kept): distance goes blue; strength (look.aerial)
 vec3 skyColor(vec3 d){
   float h = clamp(d.y, -1.0, 1.0);
   float sd = max(dot(d, uSkySun), 0.0);
@@ -233,6 +235,7 @@ vec3 skyColor(vec3 d){
   // The sun side of the sky is lifted and warmed (forward scattering by haze), the opposite side stays cool.
   // Day: zen (0.28, 0.40, 0.62), hor (0.80, 0.84, 0.87); the time of day moves both (lighting.cpp todCompute)
   vec3 zen = uSkyZen, hor = uSkyHor, gnd = vec3(0.36, 0.37, 0.34)*uSkyK;
+  { float ca = dot(normalize(d.xz + 1e-5), normalize(uSkySun.xz + 1e-5)); hor *= mix(uAtmoHorAz.y, uAtmoHorAz.x, 0.5 + 0.5*ca); }   // VO L5
   float up = max(h, 0.0);
   float g = exp(-up*3.2);                                       // 1 at the horizon -> ~0.04 at the zenith
   vec3 c = mix(zen, hor, g);
@@ -284,6 +287,11 @@ vec3 applyFog(vec3 col, vec3 w){
     float tt = tau + tauE;
     f = 1.0 - exp(-tt);
     fc = mix(fc, fcE, tauE/max(tt, 1e-6));
+  }
+  if (uAerial > 0.0) {   // VO L5: haze extinction by wavelength (Rayleigh + Mie, half strength), same luminance: distance cools, as in air
+    vec3 fr = 1.0 - exp(-max(-log(max(1.0 - f, 1e-5)), 0.0)*mix(vec3(1.0), vec3(0.895, 1.0, 1.27), uAerial));
+    gFogT = 1.0 - f;
+    return col*(1.0 - fr) + fc*fr;
   }
   gFogT = 1.0 - f;
   return mix(col, fc, f);
@@ -4173,6 +4181,57 @@ std::string Renderer::hdrProbe() const {
   return b;
 }
 
+// ---- VO L5 atmosphere (Hillaire 2020's model, single scattering, evaluated on the CPU for a few directions): Rayleigh,
+// Mie and an ozone layer over a spherical Earth, the sun's transmittance and the sky radiance at the zenith, the horizon
+// (mean, sun side, far side) and the cosine-weighted hemisphere. Lighting New scales each map's authored colours by the
+// ratio of now to the authored hour (setLighting), so the authored look is kept and the atmosphere carries the change.
+namespace {
+using AtmoOut = Renderer::AtmoSamples;
+AtmoOut atmoEval(vec3 sun) {
+  const vec3 bR(5.802e-6f, 13.558e-6f, 33.1e-6f), bO(0.650e-6f, 1.881e-6f, 0.085e-6f);
+  const float bM = 3.996e-6f, bMe = 4.40e-6f, Re = 6360e3f, Ra = 6460e3f, HR = 8000.0f, HM = 1200.0f;
+  const vec3 p0(0.0f, Re + 2.0f, 0.0f);
+  auto ext = [&](float h) { float r = std::exp(-h / HR), m = std::exp(-h / HM), o = std::max(0.0f, 1.0f - std::fabs(h - 25000.0f) / 15000.0f); return bR * r + vec3(bMe * m) + bO * o; };
+  auto top = [&](vec3 p, vec3 d) { float b = glm::dot(p, d), c = glm::dot(p, p) - Ra * Ra; return -b + std::sqrt(std::max(b * b - c, 0.0f)); };
+  auto ground = [&](vec3 p, vec3 d) { float b = glm::dot(p, d), c = glm::dot(p, p) - Re * Re, D = b * b - c; return b < 0.0f && D > 0.0f ? -b - std::sqrt(D) : -1.0f; };
+  auto trans = [&](vec3 p, vec3 d) -> vec3 {
+    if (ground(p, d) > 0.0f) return vec3(0.0f);
+    float L = top(p, d); vec3 od(0.0f); const int n = 10;
+    for (int i = 0; i < n; ++i) { vec3 q = p + d * (L * (i + 0.5f) / n); od += ext(glm::length(q) - Re) * (L / n); }
+    return glm::exp(-od);
+  };
+  auto radiance = [&](vec3 d) -> vec3 {
+    float L = top(p0, d), gd = ground(p0, d); if (gd > 0.0f) L = gd;
+    float mu = glm::dot(d, sun), g = 0.8f;
+    float pr = 3.0f / (16.0f * 3.14159265f) * (1.0f + mu * mu);
+    float pm = 3.0f / (8.0f * 3.14159265f) * ((1.0f - g * g) * (1.0f + mu * mu)) / ((2.0f + g * g) * std::pow(1.0f + g * g - 2.0f * g * mu, 1.5f));
+    vec3 sum(0.0f), od(0.0f); const int n = 14;
+    for (int i = 0; i < n; ++i) {
+      float dt = L / n; vec3 q = p0 + d * (dt * (i + 0.5f)); float h = glm::length(q) - Re;
+      od += ext(h) * dt;
+      float r = std::exp(-h / HR), m = std::exp(-h / HM);
+      sum += glm::exp(-od) * trans(q, glm::normalize(sun)) * (bR * r * pr + vec3(bM * m * pm)) * dt;
+    }
+    return sum + vec3(1e-6f);
+  };
+  AtmoOut o; o.sunT = trans(p0, sun) + vec3(1e-6f);
+  o.zen = radiance(vec3(0, 1, 0));
+  vec2 az = glm::length(vec2(sun.x, sun.z)) > 1e-4f ? glm::normalize(vec2(sun.x, sun.z)) : vec2(1, 0);
+  const float e = 0.05f;   // ~3 deg above the horizon
+  o.hor = vec3(0.0f);
+  for (int k = 0; k < 8; ++k) { float a = k * 0.7853982f; o.hor += radiance(glm::normalize(vec3(std::cos(a), e, std::sin(a)))) / 8.0f; }
+  o.horSun = radiance(glm::normalize(vec3(az.x, e, az.y))); o.horAnti = radiance(glm::normalize(vec3(-az.x, e, -az.y)));
+  o.amb = vec3(0.0f); float wsum = 0.0f;
+  for (int i = 0; i < 4; ++i) for (int k = 0; k < 6; ++k) {
+    float el = (i + 0.5f) / 4.0f * 1.5707963f, a = k * 1.0471976f; vec3 d(std::cos(el) * std::cos(a), std::sin(el), std::cos(el) * std::sin(a));
+    float w = std::sin(el) * std::cos(el); o.amb += radiance(d) * w; wsum += w;
+  }
+  o.amb /= wsum;
+  return o;
+}
+float gAtmoK = 1.0f;   // the map's look.atmo while setLighting runs
+vec3 ratioC(vec3 a, vec3 b) { return glm::pow(glm::clamp(a / glm::max(b, vec3(1e-12f)), vec3(0.2f), vec3(5.0f)), vec3(gAtmoK)); }
+}  // namespace
 void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUseProgram(p);
   // thumbnails / model sheets / item icons: a fixed studio state whatever map, weather or hour is loaded. Uniforms
@@ -4193,6 +4252,35 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   if (!q.legacy) { sun = vec3(3.30f, 3.05f, 2.62f); sky = vec3(0.30f, 0.36f, 0.47f); ground = vec3(0.17f, 0.155f, 0.12f); fill = vec3(0.075f, 0.072f, 0.065f); }
   vec3 zen(0.28f, 0.40f, 0.62f), hor(0.80f, 0.84f, 0.87f), skySun = sunDir, skySunCol = sun;
   lightingTodColors(*this, sun, sky, ground, fog, fill, zen, hor, skySun, skySunCol);   // L2 time of day (no change by Day / in thumbnails)
+  vec2 horAz(1.0f);   // VO L5: horizon brightness toward / away from the sun, now relative to the authored hour
+  if (!thumbMode && !q.legacy) {   // VO L5: authored colours at the authored hour; the atmosphere moves them away from it
+    const float authH = lt.mapHour >= 0.0f ? lt.mapHour : 14.0f;
+    // shortcut: the snapshot is the last one taken at an authored hour; a map opened straight at another hour (Settings hour)
+    // uses the previous map's until its own authored hour comes round; key it on the map load if that shows
+    if (std::fabs(lt.hour - authH) < 0.02f) {   // at the authored hour: its colours (they follow weather / map changes); its atmosphere when the sun moved
+      bool moved = !atmoRef.valid || glm::distance(sunDir, atmoRef.sunDir) > 0.002f;
+      atmoRef = {true, sunDir, sun, sky, ground, fog, zen, hor};
+      if (moved) atmoRefT = atmoEval(sunDir);
+    }
+    if (q.lightNew && perf.atmo && atmoRef.valid && atmoRef.sunDir.y > 0.02f) {
+      if (glm::distance(sunDir, atmoNowDir) > 0.002f) { atmoNow = atmoEval(sunDir); atmoNowDir = sunDir; }
+      const AtmoOut& A = atmoNow; const AtmoOut& B = atmoRefT;
+      gAtmoK = lt.mapAtmo;
+      float w = glm::smoothstep(0.02f, 0.10f, sunDir.y);   // toward dusk and night the time-of-day art takes over again
+      vec3 lumW(0.2126f, 0.7152f, 0.0722f);
+      sun = glm::mix(sun, atmoRef.sun * ratioC(A.sunT, B.sunT), w); skySunCol = sun;
+      sky = glm::mix(sky, atmoRef.sky * ratioC(A.amb, B.amb), w);
+      ground = glm::mix(ground, atmoRef.ground * glm::clamp(glm::dot(A.sunT * std::max(sunDir.y, 0.0f) + A.amb, lumW) / std::max(glm::dot(B.sunT * std::max(atmoRef.sunDir.y, 0.0f) + B.amb, lumW), 1e-9f), 0.2f, 5.0f), w);
+      zen = glm::mix(zen, atmoRef.zen * ratioC(A.zen, B.zen), w);
+      hor = glm::mix(hor, atmoRef.hor * ratioC(A.hor, B.hor), w);
+      fog = glm::mix(fog, atmoRef.fog * ratioC(A.hor, B.hor), w);
+      float sa = glm::dot(A.horSun, lumW) / std::max(glm::dot(A.hor, lumW), 1e-12f), aa = glm::dot(A.horAnti, lumW) / std::max(glm::dot(A.hor, lumW), 1e-12f);
+      float sb = glm::dot(B.horSun, lumW) / std::max(glm::dot(B.hor, lumW), 1e-12f), ab = glm::dot(B.horAnti, lumW) / std::max(glm::dot(B.hor, lumW), 1e-12f);
+      horAz = glm::mix(vec2(1.0f), glm::pow(glm::clamp(vec2(sa / sb, aa / ab), vec2(0.5f), vec2(2.0f)), vec2(gAtmoK)), w);
+    }
+  }
+  glUniform2fv(U(p, "uAtmoHorAz"), 1, glm::value_ptr(horAz));
+  glUniform1f(U(p, "uAerial"), q.lightNew && perf.atmo && !q.legacy && !thumbMode ? lt.mapAerial : 0.0f);   // VO L5 (look.aerial)
   if (!thumbMode && (lt.hour < 5.8f || lt.hour > 20.4f)) { sky *= lt.mapNightSky; fill *= lt.mapNightFill; }   // GR3: lighting.nightSky (a faint cool sky light on upward faces) / nightFill (rooms lit from within) at night
   if (!thumbMode) fill = fill * lt.mapFill + (p == progModel ? lt.mapAmbient * 0.4f : lt.mapAmbient);   // UG4: x the map's fill scale   // BR2: a map's own even ambient (Backrooms); BR4: characters and the viewmodel take 40 %, so the lights and their shadows shape them
   glUniform3fv(U(p, "uSkyZen"), 1, glm::value_ptr(zen)); glUniform3fv(U(p, "uSkyHor"), 1, glm::value_ptr(hor));
