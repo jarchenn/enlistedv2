@@ -192,6 +192,7 @@ void Terrain::generate(const TemplateInfo& t, float width, float depth) {
   std::vector<uint8_t> zero((size_t)tilesX() * tilesZ(), 0);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   glTextureSubImage2D(maskTex, 0, 0, 0, tilesX(), tilesZ(), GL_RED, GL_UNSIGNED_BYTE, zero.data());
+  maskCpu = zero;
   glTextureParameteri(maskTex, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTextureParameteri(maskTex, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 }
 
@@ -285,6 +286,7 @@ bool Terrain::raycast(vec3 o, vec3 d, float maxT, vec3& hit) const {
 void Terrain::setMask(int tx, int tz, uint8_t v) {
   // GL_R8 is normalised: write 255 so the shader test (> 0.5) sees an active tile
   uint8_t texel = v ? 255 : 0;
+  if ((size_t)key(tx, tz) < maskCpu.size()) maskCpu[key(tx, tz)] = texel;
   if (maskTex) { glPixelStorei(GL_UNPACK_ALIGNMENT, 1); glTextureSubImage2D(maskTex, 0, tx, tz, 1, 1, GL_RED, GL_UNSIGNED_BYTE, &texel); }
   // base collision holes under the tile are applied by the chunk bodies (terrain_chunks.cpp)
   physDirty.insert(key(tx, tz));
@@ -451,37 +453,47 @@ void Terrain::applyDeltas(const std::map<int, std::vector<float>>& d) {
   ++revision;
 }
 
-void Terrain::draw(GLuint prog, vec3 cam, const mat4& vp) const {
+void Terrain::draw(GLuint prog, vec3 cam, const mat4& vp, GLuint progND) const {
   if (h.empty()) return;
-  GLint uDis = glGetUniformLocation(prog, "uDiscard");
-  // units 14 / 15: 3 and 6 belong to the scene shader (uMR, uShadowFar); binding the mask / surface there made the far
-  // shadow cascade sample the surface mask on terrain (dark wedges wherever the far cascade reached)
-  glUniform1i(glGetUniformLocation(prog, "uTileMask"), 15);
-  glUniform1f(glGetUniformLocation(prog, "uTileSize"), tileSize());
-  glUniform2f(glGetUniformLocation(prog, "uTerrainOrg"), org.x, org.y);
-  glUniform2f(glGetUniformLocation(prog, "uTerrainExt"), size, sizeZ);
-  glUniform2f(glGetUniformLocation(prog, "uBuildHalf"), buildHalfX, buildHalfZ);
-  glBindTextureUnit(15, maskTex);
-  glUniform1i(glGetUniformLocation(prog, "uSurf"), 14);
-  glBindTextureUnit(14, surfTex);
-  { extern void groundPaintBind(GLuint); groundPaintBind(prog); }   // lasso ground paint: unit 23 (ground_paint.cpp)
-  glUniform1i(uDis, tiles.empty() ? 0 : 1);
-  // VOT T1: per-pixel normals on the base chunks (unit 18), geomorphing between their LOD steps (drawBase sets uMorph)
-  GLint uTN = glGetUniformLocation(prog, "uTNOn");
-  if (drawOpts.normals) {
-    normalsSync();
-    glUniform1i(glGetUniformLocation(prog, "uTNrm"), 18);   // unit 18, not 25: 25 holds the texture library's macro map, bound once at load (18 is only bound transiently by the GI capture)
-    glUniform4f(glGetUniformLocation(prog, "uTNMap"), org.x, org.y, 1.0f / size, 1.0f / sizeZ);
-    glBindTextureUnit(18, nrmTex);
+  // PF (terrain early depth): progND is the same shader without the tile-mask discard. A shader that can discard
+  // writes depth late for every fragment, so only the base chunks under an active tile use prog; the rest of the
+  // base and the tiles themselves use progND. progND 0: prog for everything (thumbnails).
+  if (!progND) progND = prog;
+  if (drawOpts.normals) normalsSync();
+  if (drawOpts.skyView) skyViewSync();
+  for (GLuint pr : {prog, progND}) {
+    glUseProgram(pr);
+    // units 14 / 15: 3 and 6 belong to the scene shader (uMR, uShadowFar); binding the mask / surface there made the far
+    // shadow cascade sample the surface mask on terrain (dark wedges wherever the far cascade reached)
+    glUniform1i(glGetUniformLocation(pr, "uTileMask"), 15);
+    glUniform1f(glGetUniformLocation(pr, "uTileSize"), tileSize());
+    glUniform2f(glGetUniformLocation(pr, "uTerrainOrg"), org.x, org.y);
+    glUniform2f(glGetUniformLocation(pr, "uTerrainExt"), size, sizeZ);
+    glUniform2f(glGetUniformLocation(pr, "uBuildHalf"), buildHalfX, buildHalfZ);
+    glUniform1i(glGetUniformLocation(pr, "uSurf"), 14);
+    { extern void groundPaintBind(GLuint); groundPaintBind(pr); }   // lasso ground paint: unit 23 (ground_paint.cpp)
+    glUniform1i(glGetUniformLocation(pr, "uDiscard"), pr == prog && (progND != prog || !tiles.empty()) ? 1 : 0);
+    // VOT T1: per-pixel normals on the base chunks (unit 18), geomorphing between their LOD steps (drawBase sets uMorph)
+    if (drawOpts.normals) {
+      glUniform1i(glGetUniformLocation(pr, "uTNrm"), 18);   // unit 18, not 25: 25 holds the texture library's macro map, bound once at load (18 is only bound transiently by the GI capture)
+      glUniform4f(glGetUniformLocation(pr, "uTNMap"), org.x, org.y, 1.0f / size, 1.0f / sizeZ);
+    }
+    glUniform1i(glGetUniformLocation(pr, "uTNOn"), drawOpts.normals && nrmTex ? 1 : 0);
+    if (drawOpts.skyView) glUniform1i(glGetUniformLocation(pr, "uTSV"), 26);   // VOT T5 (base and tiles alike)
+    glUniform1i(glGetUniformLocation(pr, "uTSVOn"), drawOpts.skyView && svTex ? 1 : 0);
   }
-  glUniform1i(uTN, drawOpts.normals && nrmTex ? 1 : 0);
-  if (drawOpts.skyView) { skyViewSync(); glUniform1i(glGetUniformLocation(prog, "uTSV"), 26); glBindTextureUnit(26, svTex); }   // VOT T5 (base and tiles alike)
-  glUniform1i(glGetUniformLocation(prog, "uTSVOn"), drawOpts.skyView && svTex ? 1 : 0);
+  glBindTextureUnit(15, maskTex); glBindTextureUnit(14, surfTex);
+  if (drawOpts.normals) glBindTextureUnit(18, nrmTex);
+  if (drawOpts.skyView) glBindTextureUnit(26, svTex);
   stream.update(*this, cam, vp, stream.cfg.buildBudgetMs);
-  stream.drawBase(*this, cam, vp, drawOpts.morph ? glGetUniformLocation(prog, "uMorph") : -2);
-  glUniform1i(uDis, 0);
-  glUniform1i(uTN, 0);
-  glUniform4f(glGetUniformLocation(prog, "uMorph"), 0, 0, 0, 0);
+  stream.drawBase(*this, cam, vp, prog, progND, drawOpts.morph);
+  for (GLuint pr : {prog, progND}) {
+    glUseProgram(pr);
+    glUniform1i(glGetUniformLocation(pr, "uDiscard"), 0);
+    glUniform1i(glGetUniformLocation(pr, "uTNOn"), 0);
+    glUniform4f(glGetUniformLocation(pr, "uMorph"), 0, 0, 0, 0);
+  }
+  glUseProgram(progND);
   for (auto& [k, t] : tiles) { if (!t.count) continue; glBindVertexArray(t.vao); glDrawElements(GL_TRIANGLES, t.count, GL_UNSIGNED_INT, nullptr); }
 }
 

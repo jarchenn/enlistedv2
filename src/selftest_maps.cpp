@@ -537,6 +537,13 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       std::string nm = "maps_" + app.templates[sTpl[sTi]].id + "_" + v.name + (sPresetPass == 1 ? "_low" : sPresetPass == 2 ? "_high" : sPresetPass == 3 ? "_night" : "");
       shotQueue.push_back(nm);
       check(p.frames > 10, fmt("%s view %s%s: %.2f ms avg (worst %.1f) over %d frames, %.0f draws, %.1f M tris -> selftest_out/%s.png", v.gate ? "gameplay" : "editor", v.name.c_str(), sPresetPass ? (sPresetPass == 1 ? " at Low" : sPresetPass == 2 ? " at High" : " at Night (Medium)") : "", p.ms, p.worst, p.frames, p.draws, p.tris / 1e6, nm.c_str()));
+      {   // PF terrain: the pass time, what it drew per LOD ring, the fine tiles and the share of its shaded fragments that wrote a sample
+        const auto& st = app.terrain.stream.stats; const auto& fs = app.R.stats;
+        logf("[terrain] %s %s: pass %.2f ms; chunks %d (%d with the discarding shader) per ring %d/%d/%d/%d/%d, tris %.2fM (%.2f/%.2f/%.2f/%.2f/%.2f M); fine tiles %zu; samples written %.2fM",
+             app.templates[sTpl[sTi]].id.c_str(), nm.c_str(), p.pass[GP_Terrain], st.drawnLastFrame, st.drawnMasked, st.drawnLod[0], st.drawnLod[1], st.drawnLod[2], st.drawnLod[3], st.drawnLod[4],
+             st.tris / 1e6, st.trisLod[0] / 1e6, st.trisLod[1] / 1e6, st.trisLod[2] / 1e6, st.trisLod[3] / 1e6, st.trisLod[4] / 1e6, app.terrain.tiles.size(),
+             fs.terrSamples / 1e6);
+      }
       if (v.gate && sPresetPass < 3 && !std::getenv("NMK_MAPS_VIEW") && !kFl1 && !kFx1) {   // V2 (docs/settings.md): the same gameplay view again at Low, then High; L2: then Night at Medium
         ++sPresetPass; GfxPreset ps = sPresetPass == 1 ? GfxPreset::Low : sPresetPass == 2 ? GfxPreset::High : GfxPreset::Medium;
         settings().applyPreset(app, ps); app.R.resetTemporal();
