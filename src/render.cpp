@@ -284,7 +284,7 @@ vec3 skyColor(vec3 d){
 // Aerial perspective: height-falloff haze integrated along the view ray, density rho(y) = rho0 exp(-y / Hh).
 // Optical depth from the eye at e to the point: rho0 * L * exp(-e.y/Hh) * (1 - exp(-dy/Hh)) / (dy/Hh).
 // The in-scattered colour is the horizon sky in that direction plus a sun glow, so the land fades into the sky.
-vec3 applyFog(vec3 col, vec3 w){
+vec3 applyFogAir(vec3 col, vec3 w){
   if (uUnder > 0.5) { float f = 1.0 - exp(-length(w - uCamPos)*uFogDens); gFogT = 1.0 - f; return mix(col, uFogCol, f); }
   vec3 dir = normalize(w - uCamPos);
   if (uLook == 0) {
@@ -330,6 +330,18 @@ vec3 applyFog(vec3 col, vec3 w){
   }
   gFogT = 1.0 - f;
   return mix(col, fc, f);
+}
+// smoke at the eye (grenade.cpp, Renderer::setLighting: uSmokeSigma 1/m, 0 outside any cloud): inside a cloud the near-faded
+// sprites hand over to this term; the smoke is a grey medium lit by the sky / ground and the sun (albedo uSmokeCol)
+uniform float uSmokeSigma; uniform vec3 uSmokeCol;
+vec3 applyFog(vec3 col, vec3 w){
+  vec3 c = applyFogAir(col, w);
+  if (uSmokeSigma > 0.0 && uUnder < 0.5) {
+    float t = exp(-uSmokeSigma*length(w - uCamPos));
+    vec3 lit = uSmokeCol*(0.5*(uSkyCol + uGroundCol) + uSunCol*max(uSunDir.y, 0.0)/PI);
+    c = mix(lit, c, t); gFogT *= t;
+  }
+  return c;
 }
 float D_GGX(float NdH, float a){ float a2=a*a; float d=NdH*NdH*(a2-1.0)+1.0; return a2/(PI*d*d); }
 float G_Smith(float NdV, float NdL, float r){ float k=(r+1.0)*(r+1.0)/8.0; return (NdV/(NdV*(1.0-k)+k))*(NdL/(NdL*(1.0-k)+k)); }
