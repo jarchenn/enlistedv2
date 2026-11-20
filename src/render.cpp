@@ -284,7 +284,7 @@ vec3 skyColor(vec3 d){
 // Aerial perspective: height-falloff haze integrated along the view ray, density rho(y) = rho0 exp(-y / Hh).
 // Optical depth from the eye at e to the point: rho0 * L * exp(-e.y/Hh) * (1 - exp(-dy/Hh)) / (dy/Hh).
 // The in-scattered colour is the horizon sky in that direction plus a sun glow, so the land fades into the sky.
-vec3 applyFog(vec3 col, vec3 w){
+vec3 applyFogAir(vec3 col, vec3 w){
   if (uUnder > 0.5) { float f = 1.0 - exp(-length(w - uCamPos)*uFogDens); gFogT = 1.0 - f; return mix(col, uFogCol, f); }
   vec3 dir = normalize(w - uCamPos);
   if (uLook == 0) {
@@ -330,6 +330,18 @@ vec3 applyFog(vec3 col, vec3 w){
   }
   gFogT = 1.0 - f;
   return mix(col, fc, f);
+}
+// smoke at the eye (grenade.cpp, Renderer::setLighting: uSmokeSigma 1/m, 0 outside any cloud): inside a cloud the near-faded
+// sprites hand over to this term; the smoke is a grey medium lit by the sky / ground and the sun (albedo uSmokeCol)
+uniform float uSmokeSigma; uniform vec3 uSmokeCol;
+vec3 applyFog(vec3 col, vec3 w){
+  vec3 c = applyFogAir(col, w);
+  if (uSmokeSigma > 0.0 && uUnder < 0.5) {
+    float t = exp(-uSmokeSigma*length(w - uCamPos));
+    vec3 lit = uSmokeCol*(0.5*(uSkyCol + uGroundCol) + uSunCol*max(uSunDir.y, 0.0)/PI);
+    c = mix(lit, c, t); gFogT *= t;
+  }
+  return c;
 }
 float D_GGX(float NdH, float a){ float a2=a*a; float d=NdH*NdH*(a2-1.0)+1.0; return a2/(PI*d*d); }
 float G_Smith(float NdV, float NdL, float r){ float k=(r+1.0)*(r+1.0)/8.0; return (NdV/(NdV*(1.0-k)+k))*(NdL/(NdL*(1.0-k)+k)); }
@@ -4334,6 +4346,13 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform4fv(U(p, "uCloudOpen"), 1, glm::value_ptr(lt.cloudOpen)); glUniform1f(U(p, "uCloudOpenK"), thumbMode ? 0.0f : lt.cloudOpenK);   // VO L5 per-map sky knobs
   { vec4 xf = thumbMode ? vec4(1, 0, 0, 1) : lt.cloudXf; glUniform4fv(U(p, "uCloudXf"), 1, glm::value_ptr(xf)); glUniform1f(U(p, "uSunDisc"), thumbMode ? 1.0f : lt.sunDisc); }
   glUniform1f(U(p, "uAerial"), q.lightNew && perf.atmo && !q.legacy && !thumbMode ? lt.mapAerial : 0.0f);   // VO L5 (look.aerial)
+  if (wx.der.phys && !thumbMode) {   // W1 preset light (weather.cpp): sun and sky by the corpus's formulas, as ratios to Clear; fog takes the horizon's hue
+    const WxDerived& d = wx.der; const vec3 lw(0.2126f, 0.7152f, 0.0722f);
+    const float fogL = glm::dot(fog, lw) * d.skyK;
+    sun *= d.sunK * d.tint; skySunCol *= d.sunK * d.tint;
+    sky *= d.skyK * d.tint; ground *= d.skyK * d.tint; fill *= d.skyK; zen *= d.skyK * d.tint; hor *= d.skyK * d.tint;
+    fog = hor * (fogL / std::max(glm::dot(hor, lw), 1e-5f));
+  }
   if (!thumbMode && (lt.hour < 5.8f || lt.hour > 20.4f)) { sky *= lt.mapNightSky; fill *= lt.mapNightFill; }   // GR3: lighting.nightSky (a faint cool sky light on upward faces) / nightFill (rooms lit from within) at night
   if (!thumbMode) fill = fill * lt.mapFill + (p == progModel ? lt.mapAmbient * 0.4f : lt.mapAmbient);   // UG4: x the map's fill scale   // BR2: a map's own even ambient (Backrooms); BR4: characters and the viewmodel take 40 %, so the lights and their shadows shape them
   glUniform3fv(U(p, "uSkyZen"), 1, glm::value_ptr(zen)); glUniform3fv(U(p, "uSkyHor"), 1, glm::value_ptr(hor));
@@ -4341,21 +4360,24 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform3fv(U(p, "uSkySun"), 1, glm::value_ptr(skySun)); glUniform3fv(U(p, "uSkySunCol"), 1, glm::value_ptr(skySunCol));
   if (v.underwater && !thumbMode) { sun *= vec3(0.22f, 0.38f, 0.40f); sky *= vec3(0.45f, 0.75f, 0.80f); ground *= vec3(0.45f, 0.75f, 0.80f); }   // swim.cpp: light filtered by the water above
   glUniform3fv(U(p, "uSunCol"), 1, glm::value_ptr(sun));
+  { const vec3 lw(0.2126f, 0.7152f, 0.0722f); float d = glm::dot(sun, lw) * std::max(sunDir.y, 0.0f) / 3.14159265f, a = glm::dot(sky, lw);
+    sunDirectFrac = d / std::max(d + a, 1e-6f); }   // OPT wxsun: the sun's share of a level surface's light (shade(): sun x N.L / pi against the sky term), read by the next frame's cascades
   glUniform3fv(U(p, "uSkyCol"), 1, glm::value_ptr(sky));
   glUniform3fv(U(p, "uGroundCol"), 1, glm::value_ptr(ground));
   glUniform3fv(U(p, "uFogCol"), 1, glm::value_ptr(fog));
   glUniform3fv(U(p, "uFill"), 1, glm::value_ptr(fill));
   glUniform3fv(U(p, "uCamPos"), 1, glm::value_ptr(v.camPos));
-  glUniform1f(U(p, "uFogDens"), thumbMode || lt.mapNoFog ? 0.0f : (q.legacy ? 0.0016f : q.hazeDensity) * lt.mapHaze);   // BR2: a map may have no haze
+  const float hazeD = thumbMode || lt.mapNoFog ? 0.0f : q.legacy ? 0.0016f * lt.mapHaze : wx.der.phys ? wx.der.sigma : q.hazeDensity * lt.mapHaze;   // W1: a preset's visibility replaces the map's haze
+  glUniform1f(U(p, "uFogDens"), hazeD);   // BR2: a map may have no haze
   if (v.underwater && !thumbMode) { fog = v.underFogCol; glUniform3fv(U(p, "uFogCol"), 1, glm::value_ptr(fog)); glUniform1f(U(p, "uFogDens"), v.underFogDens); }   // swim.cpp
   glUniform1f(U(p, "uUnder"), v.underwater && !thumbMode ? 1.0f : 0.0f);
   if (perf.snow) snowUniforms(p, thumbMode); else glUniform1i(U(p, "uSnowOn"), 0);   // SN1 (snow.cpp): off unless the map has a snow layer
   glUniform1f(U(p, "uGrassDead"), thumbMode ? 0.0f : lt.mapGrassDead);   // BT1
-  if (p == progMain) fogNow = vec4(fog, v.underwater && !thumbMode ? v.underFogDens : (thumbMode || lt.mapNoFog ? 0.0f : (q.legacy ? 0.0016f : q.hazeDensity) * lt.mapHaze));
+  if (p == progMain) fogNow = vec4(fog, v.underwater && !thumbMode ? v.underFogDens : hazeD);
   glUniformMatrix4fv(U(p, "uLightVP"), 1, GL_FALSE, glm::value_ptr(lightVP));
   glUniformMatrix4fv(U(p, "uOccVP"), 1, GL_FALSE, glm::value_ptr(occVP));
   glUniform1f(U(p, "uOccTop"), occTop); glUniform1f(U(p, "uOccRange"), occRange);
-  glUniform1i(U(p, "uShadowOn"), thumbMode ? 0 : 1);
+  glUniform1i(U(p, "uShadowOn"), thumbMode || !perf.sunShadow || sunShK <= 0.0f ? 0 : 1);
   glUniform1i(U(p, "uOccOn"), thumbMode ? 0 : 1);
   glUniform2f(U(p, "uShadowTexel"), 0.5f / shadowSize, 1.0f / shadowSize);   // VO L3: the atlas is 2 maps wide
   glUniform1f(U(p, "uShadowAtlas"), 0.5f);
@@ -4372,7 +4394,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform2f(U(p, "uShadowWorldTexel"), 2 * nearR / shadowSize, 2 * farR / shadowFarSize);
   glUniform1f(U(p, "uShadowDepthRange"), 800.0f);
   glUniform1f(U(p, "uShadowSoft"), q.legacy ? 0.0f : q.shadowSoft * (1.0f + 2.0f * wx.k));   // WX2: overcast sun casts very soft shadows
-  glUniform1f(U(p, "uShadowLift"), q.lightNew && perf.fullShadow ? q.newShadowLift : 0.7f);   // VO L1
+  glUniform1f(U(p, "uShadowLift"), (q.lightNew && perf.fullShadow ? q.newShadowLift : 0.7f) * sunShK);   // VO L1
   glUniform1f(U(p, "uShadowWarm"), q.lightNew && perf.fullShadow && !q.legacy ? q.newShadowWarm : 0.0f);   // VO L1
   glUniform1i(U(p, "uReflOn"), reflOn && q.lightNew && perf.reflProbe && !q.legacy && !thumbMode ? 1 : 0); glUniform3fv(U(p, "uReflPos"), 1, glm::value_ptr(reflPos));   // VO L7
   glUniform1i(U(p, "uRefl"), 9); if (p != progComposite && reflTex) glBindTextureUnit(9, reflTex);   // unit 9: free in the world pass (the composite binds its own there first)
@@ -4382,9 +4404,9 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uFrame"), frame);
   glUniform1i(U(p, "uCloudShadowOn"), !q.legacy && q.cloudShadows && clouds && perf.cloudShadow && !thumbMode ? 1 : 0);
   glUniform1f(U(p, "uCloudCov"), cloudCoverNow()); glUniform1f(U(p, "uCloudT"), cloudClock());
-  glUniform1f(U(p, "uEnvFog"), thumbMode || q.legacy || !perf.envFog || fogTex == 0 || lt.mapNoFog ? 0.0f : (lt.mapFogLayerDens >= 0.0f ? lt.mapFogLayerDens : std::max(wx.fogNow, 0.0f))); glUniform1f(U(p, "uEnvFogH"), lt.mapFogLayerH > 0.0f ? lt.mapFogLayerH : 22.0f);   /* FG1 */ glUniform1f(U(p, "uEnvFogNear"), thumbMode ? 0.0f : lt.mapFogNear); glUniform1f(U(p, "uFogIndoor"), camIndoor ? 0.15f : 1.0f);
+  glUniform1f(U(p, "uEnvFog"), thumbMode || q.legacy || !perf.envFog || fogTex == 0 || lt.mapNoFog ? 0.0f : (wx.der.fogLayerSigma > 0.0f ? wx.der.fogLayerSigma : lt.mapFogLayerDens >= 0.0f ? lt.mapFogLayerDens : std::max(wx.fogNow, 0.0f))); glUniform1f(U(p, "uEnvFogH"), wx.der.fogTopM > 0.0f ? wx.der.fogTopM * 0.4f : lt.mapFogLayerH > 0.0f ? lt.mapFogLayerH : 22.0f);   /* W1 Dawn ground fog: the preset's layer */   /* FG1 */ glUniform1f(U(p, "uEnvFogNear"), thumbMode ? 0.0f : lt.mapFogNear); glUniform1f(U(p, "uFogIndoor"), camIndoor ? 0.15f : 1.0f);
   glUniform1i(U(p, "uFogField"), 27); glBindTextureUnit(27, fogTex); glUniform4fv(U(p, "uFogBox"), 1, glm::value_ptr(fogBox));
-  glUniform1f(U(p, "uCloudK"), thumbMode ? 0.0f : wx.k); glUniform1f(U(p, "uCloudSeed"), wx.seed); glUniform2fv(U(p, "uCloudWind"), 1, glm::value_ptr(wx.wind));
+  glUniform1f(U(p, "uCloudK"), thumbMode ? 0.0f : wx.k); glUniform1f(U(p, "uCloudSeed"), wx.seed); { vec2 cw = wx.wind * wx.der.windK; glUniform2fv(U(p, "uCloudWind"), 1, glm::value_ptr(cw)); }   // W1: the deck drifts with the preset's wind
   glUniform1i(U(p, "uCloudShadowMap"), 13); glBindTextureUnit(13, cloudShTex);
   glUniform3fv(U(p, "uCloudShadowBox"), 1, glm::value_ptr(cloudShBox));
   glUniform1f(U(p, "uAoIndirectOnly"), q.legacy ? 0.0f : 1.0f);
@@ -5043,6 +5065,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   if (!thumbMode) bakeFog(t);
   uploadStaticDecals();      // GX5: before the probe captures (they run the main shader too)
   lightingBegin(*this, v);   // L2: time of day (sunDir = the key light until lightingEnd)
+  weatherDerive(*this);      // W1: the weather state and what follows from it this frame (weather.cpp)
   pxAngle = 2.0f / (std::max(1e-3f, v.proj[1][1]) * std::max(1, height));   // vertical radians per pixel
   gpuFrameBegin(); gpuMark(GP_CloudShadow);   // stats.gpuMs from the timestamps: read 2-3 frames late, never waits
   const bool elapsedQ = !gpuTimers || perf.syncGpuQuery;   // no timestamps: a GL_TIME_ELAPSED ring (never waits); asyncq A/B: the old waiting read-back
@@ -5101,6 +5124,13 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   castCull = perf.casterCull && !thumbMode; castEye = v.camPos;   // R2: on for the two sun cascades only
   const float leafLod = perf.leafShadowLod && !thumbMode ? q.leafShadowLodM : -1.0f;   // R2: full cards under / beside the eye, the LOD past 12 m
   const int shDraws0 = stats.draws;
+  // OPT wxsun (weather corpus 08 s4.2): when the direct sun is under ~5 % of a level surface's light its cast shadows are
+  // invisible: the three cascades are neither drawn nor sampled; between 5 and 10 % their strength fades (nothing snaps).
+  // Contact shadows, GTAO and sky visibility stay. sunshadow off: no cascades at all (knock-out)
+  sunShK = perf.wxSun && q.lightNew && !q.legacy && !thumbMode ? glm::smoothstep(0.05f, 0.10f, sunDirectFrac) : 1.0f;
+  stats.sunDirectPct = 100.0f * sunDirectFrac;
+  const bool sunSh = perf.sunShadow && sunShK > 0.0f;
+  if (sunSh) {
   drawItems(progShadow, opaque, true, &frNear);
   if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, lightVP, &frNear, false, leafLod);
   if (grass && !thumbMode && perf.grassShadow) {   // GX3: near pasture clumps cast (within the preset's shadow radius, in the eye's view)
@@ -5113,9 +5143,10 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   if (!folModels.empty() && !thumbMode) drawFolModels(true, lightVP, &frNear, 1.0f);   // NT8: ground plants under 1 m cast no sun shadow
   glUseProgram(progShadow);
   if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frNear);
+  }
   // VO L3 mid cascade (Lighting New, Medium / High): about 3x the near radius in the atlas's right half, texel-snapped like
   // the near one (no crawl), redrawn every 4th frame on Medium / 2nd on High or when its focus moves 4 m (movers lag a few frames there)
-  midOn = q.lightNew && perf.midCascade && !q.legacy && !thumbMode && shadowTier >= 1;
+  midOn = q.lightNew && perf.midCascade && !q.legacy && !thumbMode && shadowTier >= 1 && sunSh;
   if (midOn) {
     const float mR = std::max(90.0f, radius * 3.0f);
     const vec3 mfw = v.camPos + vec3(fwd.x, 0, fwd.z) * mR * 0.5f;
@@ -5169,7 +5200,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   const bool farRedo = cacheOn ? staticRedo || (farCadence && (farDyn || farHadDyn))
                                : !perf.farCache || farCadence || farMoved;
   stats.farStatic = cacheOn ? (staticRedo ? 1 : 0) : -1;
-  if (!q.legacy && q.farCascade && !thumbMode && farRedo) {
+  if (!q.legacy && q.farCascade && !thumbMode && farRedo && sunSh) {
     farR = fR; farFrame = frame; farFocus = ffw; farSun = sunDir; farPass = true;
     vec3 ff = ffw; ff.y = t.height(ff.x, ff.z);
     mat4 lv2; lightVPFar = stableOrtho(ff, sunDir, farR, 400.0f, shadowFarSize, lv2);
@@ -5535,8 +5566,11 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     }
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   }
-  if (lt.mapSnowfall && !thumbMode && !v.thermal && !v.underwater && q.snowfallScale > 0.0f) {   // SF1 snowfall (look.snowfall)
-    const int nearN = (int)(lt.sfNear * q.snowfallScale), farN = (int)(lt.sfFar * q.snowfallScale);
+  const bool wxSnow = wx.der.phys && wx.st.precip == WxSnow;   // W1: Light snow / Blizzard on any open-sky map (the map's own snowfall when it has one)
+  if ((lt.mapSnowfall || wxSnow) && !thumbMode && !v.thermal && !v.underwater && q.snowfallScale > 0.0f) {   // SF1 snowfall (look.snowfall)
+    const float sfN = lt.mapSnowfall ? lt.sfNear : 0.0f, sfF = lt.mapSnowfall ? lt.sfFar : 0.0f;
+    const float wN = wxSnow ? (wx.st.precipMmH >= 3.0f ? 400.0f : 60.0f) : 0.0f, wF = wxSnow ? (wx.st.precipMmH >= 3.0f ? 9000.0f : 2500.0f) : 0.0f;
+    const int nearN = (int)(std::max(sfN, wN) * q.snowfallScale), farN = (int)(std::max(sfF, wF) * q.snowfallScale);
     if (nearN + farN > 0) {
       glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE); glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST);
       glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -5546,7 +5580,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       glUniform1f(U(progSnowfall, "uTime"), time);
       float gust = 0.5f + 0.5f * std::sin(time * 0.23f) * std::sin(time * 0.071f + 1.3f);   // slow gusts (shared wind feel; deterministic)
       glUniform4f(U(progSnowfall, "uSF"), (float)nearN, 9.0f, 42.0f, lt.sfFall);
-      glUniform4f(U(progSnowfall, "uSF2"), lt.sfWind.x * (0.6f + 0.8f * gust), lt.sfWind.y * (0.6f + 0.8f * gust), gust, camIndoor ? 1.0f : 0.0f);
+      glUniform4f(U(progSnowfall, "uSF2"), lt.sfWind.x * wx.der.windK * (0.6f + 0.8f * gust), lt.sfWind.y * wx.der.windK * (0.6f + 0.8f * gust), gust, camIndoor ? 1.0f : 0.0f);
       glBindTextureUnit(1, occTex); glUniform1i(U(progSnowfall, "uOcc"), 1);
       glUniformMatrix4fv(U(progSnowfall, "uOccVP"), 1, GL_FALSE, glm::value_ptr(occVP));
       glUniform1f(U(progSnowfall, "uOccTop"), occTop); glUniform1f(U(progSnowfall, "uOccRange"), occRange); glUniform1i(U(progSnowfall, "uOccOn"), 1);
@@ -5705,7 +5739,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glBindTextureUnit(0, hdrColor); glBindTextureUnit(1, expoTex[expoIdx]);
   glUniform1i(U(progTone, "uHdr"), 0); glUniform1i(U(progTone, "uExpo"), 1);
   glUniform1f(U(progTone, "uNewExpo"), q.lightNew && !q.legacy && !thumbMode ? q.newExpo : 1.0f);   // VO L1
-  glUniform1f(U(progTone, "uFixedExpo"), lt.mapExposure > 0 && !thumbMode ? lightingFixedExposure(*this) * lt.mapExposure : v.autoExposure ? -1.0f : lightingFixedExposure(*this));   // 1 by Day; BR3: a map may pin it (play = editor)
+  { float fe = lt.mapExposure > 0 && !thumbMode ? lightingFixedExposure(*this) * lt.mapExposure : v.autoExposure ? -1.0f : lightingFixedExposure(*this); glUniform1f(U(progTone, "uFixedExpo"), fe > 0 && !thumbMode ? fe * wx.der.fixedMul : fe); }   // W1: a preset moves a fixed exposure by two thirds of its light change   // 1 by Day; BR3: a map may pin it (play = editor)
   {   // colour grade (content/settings/grade.json, read once; the defaults match the shipped file)
     static vec4 g(0.91f, 0.21f, 1.0f, 0.18f); static vec3 lo(0.965f, 0.995f, 1.045f), hi(1.035f, 1.0f, 0.955f); static bool read = false;
     if (!read) {
@@ -5777,7 +5811,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
 }
 
 void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
-  bool shafts = (q.shafts || (lt.mapShafts > 0 && q.bloom)) && perf.shafts && q.shaftStrength > 0 && !lt.mapNoFog && wx.k < 0.99f,   /* NT8: a map's own shafts from Medium up */   /* WX2: no sun shafts under overcast */ ao = q.ssao && q.ssaoStrength > 0, contact = q.lightNew && perf.contactShadow && !q.legacy, ssr = q.ssr && q.ssrStrength > 0;
+  bool shafts = (q.shafts || (lt.mapShafts > 0 && q.bloom)) && perf.shafts && q.shaftStrength > 0 && !lt.mapNoFog && wx.k < 0.99f && sunShK > 0.0f,   /* NT8: a map's own shafts from Medium up */   /* WX2: no sun shafts under overcast */ ao = q.ssao && q.ssaoStrength > 0, contact = q.lightNew && perf.contactShadow && !q.legacy, ssr = q.ssr && q.ssrStrength > 0;
   if (!shafts && !ao && !ssr && !contact) return;
   glDisable(GL_DEPTH_TEST); glDepthMask(GL_FALSE); glDisable(GL_BLEND); glDisable(GL_CULL_FACE);
   glBindVertexArray(emptyVao);
@@ -5805,7 +5839,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   glUniform1i(U(progShaft, "uDepth"), 7);
   glUniformMatrix4fv(U(progShaft, "uInvVP"), 1, GL_FALSE, glm::value_ptr(inv));
   glUniform1f(U(progShaft, "uMaxDist"), 150.0f);
-  glUniform1f(U(progShaft, "uDensity"), q.hazeDensity * 1.6f);
+  glUniform1f(U(progShaft, "uDensity"), (wx.der.phys ? wx.der.sigma : q.hazeDensity) * 1.6f);
   glUniform1i(U(progShaft, "uShaftN"), wx.quality == 0 ? 8 : 14);   // WX1: the cheaper variant at Low cloud quality
   glDrawArrays(GL_TRIANGLES, 0, 3);
   }
@@ -6049,7 +6083,7 @@ float Renderer::fogT(vec3 a, vec3 b) const {
   int i = std::clamp((int)((m.x - fogBox.x) * fogBox.z * N), 0, N - 1), j = std::clamp((int)((m.z - fogBox.y) * fogBox.w * N), 0, N - 1);
   const vec4& F = fogCpu[(size_t)j * N + i];
   float hm = std::max(m.y - F.z, 0.0f);
-  return std::exp(-dens * F.x * glm::length(b - a) * std::exp(-hm / 22.0f));
+  return std::exp(-dens * F.x * glm::length(b - a) * std::exp(-hm / 22.0f)) * (wx.der.phys ? std::exp(-wx.der.sigma * glm::length(b - a)) : 1.0f);   // W1: a preset's visibility counts for the bots' sight
 }
 
 // TH2: the last thermal frame's heat target read back (tests): hot pixels and their box, rows counted from the top

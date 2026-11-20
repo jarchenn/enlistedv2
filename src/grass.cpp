@@ -528,7 +528,7 @@ void Grass::drawChunks(GLuint prog, const mat4& cullVP, vec3 cam, float maxD, bo
   glBindVertexArray(vao);
   GLint lCount = glGetUniformLocation(prog, "uCount"), lCards = glGetUniformLocation(prog, "uCards");
   glUniform1f(glGetUniformLocation(prog, "uRadius"), P.radius);
-  glUniform1f(glGetUniformLocation(prog, "uWind"), wind ? 1.0f : 0.0f);
+  glUniform1f(glGetUniformLocation(prog, "uWind"), wind ? windK : 0.0f);
   glUniform1f(glGetUniformLocation(prog, "uWidthScale"), 1.0f);
   float frac = P.density / kMaxDensity * (shadow ? P.shadowShare : 1.0f);
   glUniform4f(glGetUniformLocation(prog, "uLod"), frac, P.nearR, P.midR, P.falloff);
