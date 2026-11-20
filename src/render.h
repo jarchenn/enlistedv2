@@ -150,7 +150,10 @@ public:
                    int want() const { return enclosed ? 0 : forced >= 0 ? (forced == kMapDefault ? std::max(mapWx, 0) : forced) : mapWx >= 0 && !userSet ? mapWx : target; }
                    static constexpr int kMapDefault = 99;   // W1: a LAN host on Map default (forced = this: the client uses the same map's own sky)
                    bool presetOn() const { return !enclosed && (forced >= 0 ? forced != kMapDefault : userSet || (mapWx < 0 && mapCloud < 0.0f)); }   // a preset row, not the map's authored look
-                   WxState st; WxDerived der; float wantK() const { extern float wxPresetDeck(int); return !enclosed && (forced < 0 || forced == kMapDefault) && mapCloud >= 0.0f && !userSet ? mapCloud : wxPresetDeck(want()); } void snap() { k = wantK(); } } wx;
+                   WxState st; WxDerived der;
+                   // W2 lightning: count so far, the last strike's distance (m, thunder delay = d / 343 s) and Renderer::time
+                   int strikes = 0; float strikeDistM = 0, strikeT = -1;
+                   float wantK() const { extern float wxPresetDeck(int); return !enclosed && (forced < 0 || forced == kMapDefault) && mapCloud >= 0.0f && !userSet ? mapCloud : wxPresetDeck(want()); } void snap() { k = wantK(); } } wx;
   float cloudCoverNow() const { return glm::mix(cloudCover, 0.86f, wx.k); }   // WX1 Cloudy: broken to heavy cover, still with openings
   // WX1 environmental fog field (render.cpp bakeFog): 256^2 over the terrain, R ground-fog share (basins, low ground,
   // shore), G drift noise (scrolls on the wind), B smoothed ground height (m). Rebuilt when the terrain changes.
@@ -269,6 +272,10 @@ public:
     bool occSmall = true;        // occsmall (OPT, weather corpus s3.5): sky-occlusion map over +-64 m instead of +-90 m
     bool skyGate = true;         // skygate (OPT, weather corpus s3.3): no low cloud field under a closed deck
     bool ssrRange = true;        // ssrrange (OPT, weather corpus s3.4): SSR stops at 0.75 x the weather's visibility
+    bool w2Sky = true;           // w2sky (W2): overcast sky zenith 3x the horizon (CIE), haze fades into the sky's own horizon colour (Lighting New)
+    bool w2Mist = true;          // w2mist (W2): environmental fog without the 0.3 floor everywhere, 2-3x patchy
+    bool w2Expo = true;          // w2expo (W2): overcast on a snow map exposes up (x1.2) instead of down (x0.72)
+    bool lightning = true;       // lightning (W2): Thunderstorm flashes and strike events (wx.strikes, for thunder)
     bool wxSun = true;           // wxsun (OPT, weather corpus 08 s4.2): overcast takes the direct sun away; under 5 % direct share no sun cascades (fade to 10 %)
     bool sunShadow = true;       // sunshadow (OPT): the sun cascades (near, mid, far) drawn and sampled; off = none (knock-out)
     bool midCascade = true;      // midcascade (VO L3): a third sun cascade between the near and far ones (Medium / High, Lighting New)
@@ -295,7 +302,7 @@ public:
     bool set(const std::string& n, bool on) {   // false: no such switch
       if (n == "wx1") { clouds = cloudShadow = shafts = envFog = on; return true; }   // WX1: the whole weather / fog stack (one A/B)
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
-              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "sunshadow" ? &sunShadow : n == "wxsun" ? &wxSun : n == "farlite" ? &farLite : n == "occsmall" ? &occSmall : n == "skygate" ? &skyGate : n == "ssrrange" ? &ssrRange : n == "probetrickle" ? &probeTrickle : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "clouds" ? &clouds : n == "cloudshadow" ? &cloudShadow : n == "shafts" ? &shafts : n == "envfog" ? &envFog : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
+              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "sunshadow" ? &sunShadow : n == "wxsun" ? &wxSun : n == "w2sky" ? &w2Sky : n == "w2mist" ? &w2Mist : n == "w2expo" ? &w2Expo : n == "lightning" ? &lightning : n == "farlite" ? &farLite : n == "occsmall" ? &occSmall : n == "skygate" ? &skyGate : n == "ssrrange" ? &ssrRange : n == "probetrickle" ? &probeTrickle : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "clouds" ? &clouds : n == "cloudshadow" ? &cloudShadow : n == "shafts" ? &shafts : n == "envfog" ? &envFog : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
               : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : n == "leaftex" ? &leafTex : n == "taau" ? &taau : n == "imgmat" ? &imgMat
               : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : n == "grassatlas" ? &grassAtlas : n == "dlcache" ? &dlCache : n == "instdepth" ? &instDepth : n == "folbatch" ? &folBatch : n == "farleaf" ? &farLeaf : n == "walllod" ? &wallLod : n == "matfar" ? &matFar : n == "probemed" ? &probeMed : n == "shadowcache" ? &shadowCache : n == "occcull" ? &occCull : n == "treefar" ? &treeFar : n == "leafmerge" ? &leafMerge : n == "furndist" ? &furnDist : n == "furnclutter" ? &furnClutter : n == "paint" ? &groundPaint : n == "vegcull" ? &vegCull
               // One line per stream, each followed by a comment line, so two streams appending names no longer conflict in merges.

@@ -98,4 +98,15 @@ void weatherDerive(Renderer& R) {
   d.cullM = 1.42f * d.visM;
   const float a = glm::radians(s.windDirDeg); d.windXZ = vec2(std::sin(a), std::cos(a)) * s.windMs * (phys ? 1.0f : 1.0f);
   d.sunShadow = R.sunShK;
+  // W2 lightning (Thunderstorm): Poisson strikes at lightningPerMin; each a double pulse ~0.25 s; distance 0.5-8 km
+  static float lastT = -1; static uint32_t rng = 12345u; auto rnd = [&] { rng = rng * 1664525u + 1013904223u; return (rng >> 8) / 16777216.0f; };
+  const float dt = lastT < 0 ? 0.0f : std::clamp(R.cloudClock() - lastT, 0.0f, 0.25f); lastT = R.cloudClock();
+  if (R.perf.lightning && phys && s.lightningPerMin > 0 && rnd() < s.lightningPerMin / 60.0f * dt) {
+    ++W.strikes; W.strikeT = R.cloudClock(); W.strikeDistM = 500.0f + 7500.0f * rnd() * rnd();
+  }
+  if (R.perf.lightning && phys && W.strikeT >= 0) {
+    float a = R.cloudClock() - W.strikeT, near = 1.0f - std::min(W.strikeDistM / 8000.0f, 0.9f);
+    d.flash = near * (std::exp(-a / 0.05f) + (a > 0.12f ? 0.7f * std::exp(-(a - 0.12f) / 0.08f) : 0.0f));
+    if (a > 1.0f) d.flash = 0;
+  }
 }

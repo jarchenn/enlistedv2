@@ -93,7 +93,10 @@ uniform float uShadowWarm;        // VO L1: sun-hue bias of the sky light on sur
 uniform int uShadowTaps;          // P3: cap on the PCF taps (presets; 0 = no cap)
 uniform int uFrame;               // frame counter (noise rotation; TAA decorrelation)
 uniform int uCloudShadowOn; uniform float uCloudCov, uCloudT;
-uniform float uCloudK, uCloudSeed; uniform vec2 uCloudWind;   // WX1: Clear -> Cloudy mix, the field's seed and wind (600 m cells / s)
+uniform float uCloudK, uCloudSeed; uniform vec2 uCloudWind;
+uniform int uW2;   // W2 (weather corpus): 1 = overcast sky the right way up, fog = the sky at the horizon
+uniform float uFlash;   // W2 lightning: 0..1 this frame (sky and ambient flash)
+float overcastGrad(float y){ return 1.25*(1.0 + 2.0*max(y, 0.0))/3.0; }   // CIE overcast sky: L(theta) ~ (1 + 2 sin theta) / 3, scaled so its mean matches SKY1's   // WX1: Clear -> Cloudy mix, the field's seed and wind (600 m cells / s)
 uniform vec4 uCloudOpen; uniform float uCloudOpenK;   // VO L5 look.cloudOpening: direction (xyz), cosine of its half width (w), strength (0: none)
 uniform vec4 uCloudXf;    // VO L5 look.cloudScale / cloudStretch / cloudDir: the cloud field's xz transform (mat2 columns; identity by default)
 uniform float uSunDisc;   // VO L5 look.sunDisc: 1 default, 0 no sun disc in the sky
@@ -329,6 +332,10 @@ vec3 applyFogAir(vec3 col, vec3 w){
   float f = 1.0 - exp(-tau);
   vec3 fd = normalize(vec3(dir.x, max(dir.y, 0.015), dir.z));
   vec3 fc = mix(uFogCol, skyColor(fd), 0.65);
+  if (uW2 == 1) {   // W2: distant ground fades into exactly the sky behind it at the horizon (the grey band under a deck)
+    vec3 band = vec3(dot(uSkyHor, vec3(0.2126, 0.7152, 0.0722)))*vec3(0.95, 0.97, 1.0)*0.66*overcastGrad(fd.y);
+    fc = mix(skyColor(fd), band, uCloudK);
+  }
   float sd = max(dot(dir, uSkySun), 0.0);
   fc += uSkySunCol*vec3(1.0, 0.92, 0.78)*pow(sd, 8.0)*0.10;
   if (uEnvFog > 0.0) {
@@ -3562,7 +3569,7 @@ void main(){
     float n2 = vnoise(vec3(q2, uCloudT*0.001))*0.6 + vnoise(vec3(q2*2.3, 4.0))*0.4;
     n2 = mix(0.5, n2, smoothstep(-0.01, 0.03, d.y));   // SKY1: no noise below the horizon (the projection smeared it into vertical streaks)
     float L0 = dot(uSkyHor, vec3(0.2126, 0.7152, 0.0722));
-    vec3 ov = vec3(L0)*vec3(0.95, 0.97, 1.0)*(0.56 + 0.2*n2)*mix(1.75, 0.88, smoothstep(0.0, 0.4, d.y));   // SKY1: a grey deck overhead, a pale band low at the horizon
+    vec3 ov = vec3(L0)*vec3(0.95, 0.97, 1.0)*(0.56 + 0.2*n2)*(uW2 == 1 ? overcastGrad(d.y) : mix(1.75, 0.88, smoothstep(0.0, 0.4, d.y)));   // SKY1: a grey deck overhead, a pale band low at the horizon; W2: CIE overcast, zenith 3x the horizon
     c = mix(c, ov, uCloudK*(1.0 - 0.85*cloudOpening(d)));   // VO L5: the overcast parts at the opening
   }
   if (uCloudOn == 1 && d.y > 0.0) {
@@ -4377,6 +4384,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform4fv(U(p, "uCloudOpen"), 1, glm::value_ptr(lt.cloudOpen)); glUniform1f(U(p, "uCloudOpenK"), thumbMode ? 0.0f : lt.cloudOpenK);   // VO L5 per-map sky knobs
   { vec4 xf = thumbMode ? vec4(1, 0, 0, 1) : lt.cloudXf; glUniform4fv(U(p, "uCloudXf"), 1, glm::value_ptr(xf)); glUniform1f(U(p, "uSunDisc"), thumbMode ? 1.0f : lt.sunDisc); }
   glUniform1f(U(p, "uAerial"), q.lightNew && perf.atmo && !q.legacy && !thumbMode ? lt.mapAerial : 0.0f);   // VO L5 (look.aerial)
+  if (wx.der.flash > 0.0f && !thumbMode) { const vec3 fl = vec3(0.85f, 0.9f, 1.0f) * wx.der.flash; sky += fl * 2.5f; fill += fl * 0.6f; zen += fl * 3.0f; hor += fl * 2.0f; }   // W2 lightning: the sky and the ambient flash (cloud-lit, no direction under the deck)
   if (wx.der.phys && !thumbMode) {   // W1 preset light (weather.cpp): sun and sky by the corpus's formulas, as ratios to Clear; fog takes the horizon's hue
     const WxDerived& d = wx.der; const vec3 lw(0.2126f, 0.7152f, 0.0722f);
     const float fogL = glm::dot(fog, lw) * d.skyK;
@@ -4442,6 +4450,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform3fv(U(p, "uCloudShadowBox"), 1, glm::value_ptr(cloudShBox));
   glUniform1f(U(p, "uAoIndirectOnly"), q.legacy ? 0.0f : 1.0f);
   glUniform1i(U(p, "uLook"), q.legacy ? 0 : 1);
+  glUniform1i(U(p, "uW2"), perf.w2Sky && q.lightNew && !q.legacy && !thumbMode ? 1 : 0); glUniform1f(U(p, "uFlash"), thumbMode ? 0.0f : wx.der.flash);   // W2
   { vec2 sa(0.25f, 0.18f); if (const char* e = std::getenv("NMK_SPECAA")) std::sscanf(e, "%f,%f", &sa.x, &sa.y); glUniform2f(U(p, "uSpecAA"), q.legacy || !perf.specAA ? 0.0f : sa.x, sa.y); }   // M3: specaa (--rq-off specaa); NMK_SPECAA="variance,clamp"
   { float hd = 1.0f; if (const char* e = std::getenv("NMK_HEX")) hd = (float)std::atof(e); glUniform1f(U(p, "uHBlend"), q.legacy || !perf.hblend || q.matLayer == 0 ? 0.0f : (std::getenv("NMK_HBLEND") ? (float)std::atof(std::getenv("NMK_HBLEND")) : 1.5f));   // M2: height blending (--rq-off hblend; off at Low); NMK_HBLEND = strength
   {   // UL1 material knobs (q.tex*, q.hexFade, q.hblendFade, q.pom*, q.decalRange); NMK_TEX_NEAR="a,b" still overrides
@@ -6044,7 +6053,7 @@ void Renderer::swapUp() {
 void Renderer::bakeFog(const Terrain& t) {
   const int N = 256;
   vec2 ext(t.tilesX() * t.tileSize(), t.tilesZ() * t.tileSize());
-  float sig = t.org.x + t.org.y * 3.1f + ext.x * 7.3f + ext.y * 11.7f + t.height(t.org.x + ext.x * 0.31f, t.org.y + ext.y * 0.57f) + t.height(t.org.x + ext.x * 0.73f, t.org.y + ext.y * 0.21f) * 1.37f;
+  float sig = (perf.w2Mist ? 0.731f : 0.0f) + t.org.x + t.org.y * 3.1f + ext.x * 7.3f + ext.y * 11.7f + t.height(t.org.x + ext.x * 0.31f, t.org.y + ext.y * 0.57f) + t.height(t.org.x + ext.x * 0.73f, t.org.y + ext.y * 0.21f) * 1.37f;
   if (fogTex && sig == fogSig) return;
   fogSig = sig;
   std::vector<float> h((size_t)N * N), s, tmp((size_t)N * N);
@@ -6068,7 +6077,8 @@ void Renderer::bakeFog(const Terrain& t) {
     float basin = std::clamp((s[k] - v) / 6.0f, 0.0f, 1.0f);            // hollows, valley floors between rises
     float low = std::clamp(1.0f - (v - hmin) / 35.0f, 0.0f, 1.0f);      // the lowest ground of the map
     float shore = hmin < 2.0f ? std::clamp(1.0f - std::fabs(v - 1.0f) / 6.0f, 0.0f, 1.0f) : 0.0f;   // coastal haze
-    float r = std::clamp(0.3f + 0.8f * basin + 0.45f * low + 0.6f * shore, 0.0f, 1.8f);
+    float r = std::clamp((perf.w2Mist ? 0.0f : 0.3f) + 0.8f * basin + 0.45f * low + 0.6f * shore, 0.0f, 1.8f);
+    if (perf.w2Mist) r *= 0.45f + 1.1f * vn(i / 3.0f + 57.0f, j / 3.0f + 11.0f);   // W2: no floor (flat open ground stays clear), density 2-3x patchy over tens of metres
     fogCpu[k] = vec4(r, vn(i / 24.0f, j / 24.0f) * 0.65f + vn(i / 9.0f + 31.0f, j / 9.0f) * 0.35f, s[k], 0);
   }
   if (!fogTex) {
