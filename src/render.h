@@ -267,6 +267,7 @@ public:
     bool poseJobs = true;        // posejobs (CP 3): poses evaluated on the job threads (off: all on the main thread)
     bool stepInterp = true;      // stepinterp (CP 4): at most 4 fixed steps a frame, the eye / soldiers drawn between the last two, Jolt on the same steps (off: cap 8, the last step as is, Jolt on the frame time)
     bool dtSnap = true;          // dtsnap (CP 4): frame time snapped to whole display refreshes within 1 ms, remainder carried (off: the raw clock)
+    bool fxNear = true;          // fxnear (weather 7): alpha sprites fade near the eye, every sprite capped at half the view height on screen (off: as before)
     bool charVel = true;         // charvel (AIB1): soldiers write their own TAA motion (previous model matrix + previous skinned vertex); off = depth reprojection (smeared)
     bool taau = true;            // taau (P1): below scale 1 the world renders at the resolution scale and TAA reconstructs at output size (rendering.md 14); off = native resolution
     static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false;
@@ -284,7 +285,7 @@ public:
               // ^ stream L (lighting): append to the line above
               : n == "specaa" ? &specAA : n == "hex" ? &hex : n == "hblend" ? &hblend
               // ^ stream M (materials): append to the line above
-              : n == "charvel" ? &charVel : n == "poseframe" ? &poseFrame : n == "poselod" ? &poseLod : n == "posejobs" ? &poseJobs : n == "stepinterp" ? &stepInterp : n == "dtsnap" ? &dtSnap
+              : n == "charvel" ? &charVel : n == "fxnear" ? &fxNear : n == "poseframe" ? &poseFrame : n == "poselod" ? &poseLod : n == "posejobs" ? &poseJobs : n == "stepinterp" ? &stepInterp : n == "dtsnap" ? &dtSnap
               // ^ characters (gameplay): append to the line above
               : n == "hashalpha" ? &hashAlpha
               // ^ stream A (vegetation): append to the line above
@@ -318,6 +319,7 @@ public:
   float resolutionScale() const { return resScale; }
   bool ssaoFull() const { return aoDiv == 1; }
   int displayW = 0, displayH = 0;
+  float smokeSigma = 0; vec3 smokeCol{0.62f, 0.62f, 0.61f};   // weather 7: smoke extinction (1/m) at the eye and its colour (uSmokeSigma / uSmokeCol, for applyFog; set each frame by the game)
   void resetTemporal() { taaValid = false; }   // camera cut / teleport / mode switch
   // Mac hook (MetalFX temporal scaler, rendering.md 14.4): when set and it returns true, it replaced the GL TAAU shader
   // exposure: the engine's 1x1 R32F exposure (last frame's; the tonemap multiplies the HDR colour by it)

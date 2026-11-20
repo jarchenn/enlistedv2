@@ -4277,6 +4277,7 @@ float gAtmoK = 1.0f;   // the map's look.atmo while setLighting runs
 vec3 ratioC(vec3 a, vec3 b) { return glm::pow(glm::clamp(a / glm::max(b, vec3(1e-12f)), vec3(0.2f), vec3(5.0f)), vec3(gAtmoK)); }
 }  // namespace
 void Renderer::setLighting(GLuint p, const RenderView& v) {
+  glUniform1f(glGetUniformLocation(p, "uSmokeSigma"), smokeSigma); glUniform3fv(glGetUniformLocation(p, "uSmokeCol"), 1, &smokeCol.x);   // weather 7: for applyFog (the lighting session's line)
   glUseProgram(p);
   // thumbnails / model sheets / item icons: a fixed studio state whatever map, weather or hour is loaded. Uniforms
   // persist per program, so everything the main frame sets per map is pinned here: a night / low sun (the asset tiles

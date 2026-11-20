@@ -19,7 +19,7 @@
 
 namespace {
 MpTest* T = nullptr;
-int mode = -1, stage = 0, frames = 0; bool started = false, matchMode = false, blurMode = false, costMode = false, blur2 = false, stepMode = false, cpabMode = false, hitMode = false; float total = 0, st = 0, runT = 0; int runFrames = 0; double runDt = 0, worstDt = 0;
+int mode = -1, stage = 0, frames = 0; bool started = false, matchMode = false, blurMode = false, costMode = false, blur2 = false, stepMode = false, cpabMode = false, hitMode = false, smokeMode = false; float total = 0, st = 0, runT = 0; int runFrames = 0; double runDt = 0, worstDt = 0;
 std::vector<int> row; vec3 origin(0);
 const char* kStates[] = {"aim", "aim_lmg", "aim_pistol", "idle", "walk", "run", "crouch", "shot", "reload", "throw"};
 }   // namespace
@@ -90,6 +90,33 @@ static bool blurStep(App& app, Game& G, Soldier& L, bool second) {
     }
   }
   if (frames > 74) { ++k; frames = 0; }
+  return true;
+}
+
+// Weather 7 NMK_WSM2=smoke: the camera inside one smoke cloud, then inside three (Medium); fxnear (near fade + screen-size cap)
+// switched on / off every 60 frames (interleaved): the GP_Fx pass and the GPU frame per state; a shot of each at the end.
+static bool smokeStep(App& app, Game& G, Soldier& L) {
+  static vec3 eye0; static int f0 = -1; static double acc[2][2][3] = {}; static int n[2][2] = {};
+  if (f0 < 0) { f0 = frames; eye0 = L.feet; settings().applyPreset(app, GfxPreset::Medium); G.gren.addCloud(eye0 + vec3(0, 1.0f, 0), G.t, 7); }
+  const int k = frames - f0;
+  Physics::setCharacterPos(eye0 + vec3(0, 0.9f, 0)); app.eyeYaw = 20; app.eyePitch = 0; app.scriptedInput = ExploreInput{};
+  for (auto& s : G.sold) if (s.inUse && !s.localPlayer) { s.hp = 100; s.dbgVel = vec3(0); }
+  if (k == 600) { G.gren.addCloud(eye0 + vec3(2.5f, 1.0f, -2.0f), G.t, 8); G.gren.addCloud(eye0 + vec3(-2.5f, 1.0f, -3.0f), G.t, 9); }
+  const int phase = k < 600 ? 0 : 1, on = (k / 60) % 2;
+  app.R.perf.fxNear = on;
+  const bool meas = (k > 180 && k < 580) || (k > 780 && k < 1180);
+  if (meas && k % 60 > 5) { acc[phase][on][0] += app.R.gpuPassMs[GP_Fx]; acc[phase][on][1] = std::max(acc[phase][on][1], (double)app.R.gpuPassMs[GP_Fx]); acc[phase][on][2] += app.R.stats.gpuMs; ++n[phase][on]; }
+  if (k == 510 || k == 570 || k == 1110 || k == 1170) { char b[64]; std::snprintf(b, sizeof b, "smoke_%d_%s.png", phase ? 3 : 1, (k / 60) % 2 ? "fxnear" : "before"); app.uiShot = exeDir() / "selftest_out" / b; }
+  if (k == 1190) {
+    char b[300];
+    for (int p = 0; p < 2; ++p) for (int o = 0; o < 2; ++o) {
+      std::snprintf(b, sizeof b, "inside %d cloud%s, fxnear %s: %d frames, GP_Fx avg %.3f ms, max %.3f ms, GPU frame %.2f ms, eye smoke sigma %.2f /m", p ? 3 : 1, p ? "s" : "", o ? "on " : "off",
+                    n[p][o], acc[p][o][0] / std::max(1, n[p][o]), acc[p][o][1], acc[p][o][2] / std::max(1, n[p][o]), app.R.smokeSigma);
+      T->note(b);
+    }
+    T->check(n[0][0] > 50 && n[1][1] > 50, "both cloud counts measured in both states");
+    if (app.mode == Mode::Explore) app.exitExplore(); app.selftest->exitCode = T->finish(); app.selftest->done = true;
+  }
   return true;
 }
 
@@ -253,7 +280,7 @@ static bool costStep(App& app, Game& G, Soldier& L) {
 }
 
 bool wsm2Capture(App& app, float dt) {
-  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-wsm2") mode = 1; const char* e = std::getenv("NMK_WSM2"); matchMode = e && std::string(e) == "match"; blurMode = e && (std::string(e) == "blur" || std::string(e) == "blur2"); blur2 = e && std::string(e) == "blur2"; costMode = e && std::string(e) == "cost"; stepMode = e && std::string(e) == "step"; if (stepMode) blurMode = true; cpabMode = e && std::string(e) == "cpab"; if (cpabMode) matchMode = true; hitMode = e && std::string(e) == "cphit"; if (hitMode) blurMode = true; if (costMode) matchMode = true; }
+  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-wsm2") mode = 1; const char* e = std::getenv("NMK_WSM2"); matchMode = e && std::string(e) == "match"; blurMode = e && (std::string(e) == "blur" || std::string(e) == "blur2"); blur2 = e && std::string(e) == "blur2"; costMode = e && std::string(e) == "cost"; stepMode = e && std::string(e) == "step"; if (stepMode) blurMode = true; cpabMode = e && std::string(e) == "cpab"; if (cpabMode) matchMode = true; hitMode = e && std::string(e) == "cphit"; if (hitMode) blurMode = true; smokeMode = e && std::string(e) == "smoke"; if (smokeMode) blurMode = true; if (costMode) matchMode = true; }
   if (mode != 1) return false;
   if (dt < 0) return true;
   if (app.win && glfwGetWindowAttrib(app.win, GLFW_ICONIFIED)) glfwRestoreWindow(app.win);
@@ -313,6 +340,7 @@ bool wsm2Capture(App& app, float dt) {
   if (st < 3.0f) { if (A) A->frozen = true; return true; }
   if (stepMode) return stepStep(app, G, *L);
   if (hitMode) return hitStep(app, G, *L);
+  if (smokeMode) return smokeStep(app, G, *L);
   if (blurMode) return blurStep(app, G, *L, blur2);
   if (costMode) return costStep(app, G, *L);
   if (stage == 0) {   // the row: side 0's bot first, then side 1's in spawn order; facts per bot

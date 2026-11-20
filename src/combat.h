@@ -1,5 +1,6 @@
 #pragma once
 #include "assets.h"
+#include <deque>
 #include "model.h"
 #include "character.h"   // GripPose (WS1)
 
@@ -159,12 +160,13 @@ struct FxVert { vec3 p; vec4 c; vec2 uv; };
 
 class Terrain;
 struct Fx {
-  std::vector<Particle> parts;
+  std::deque<Particle> parts;   // weather corpus 7: at the cap the oldest goes in O(1) (was vector::erase(begin): O(N) per spawn)
   std::vector<Streak> streaks;
   std::vector<Debris> debris;
   size_t maxParts = 1500, maxStreaks = 160, maxDebris = 72;
   void setBudget(float k);        // settings: caps = the defaults above x k (Low 0.6, Medium 1, High 1.5)
   bool rangeMode = true;          // range presentation: every trajectory clearly visible
+  bool nearFade = true;           // fxnear: every alpha sprite fades near the eye, every sprite is capped at half the view height on screen (Renderer::Perf, set each frame)
   void update(float dt, const Terrain& t);
   void clear() { parts.clear(); streaks.clear(); debris.clear(); }
   void bullet(vec3 a, vec3 b, int tracerKind);   // one flight segment of a round, drawn by its tracer kind

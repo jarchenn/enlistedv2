@@ -32,6 +32,7 @@ public:
   int detonations = 0;
   float density(const SmokeCloud& c, double now) const;       // 0..1 build-up / dense / fade
   float opticalDepth(vec3 a, vec3 b, double now) const;       // integrated along the segment (core-weighted)
+  float sigmaAt(vec3 p, double now) const;                     // extinction (1/m) at a point: the same profile (the fog inside a cloud)
   float transmittance(vec3 a, vec3 b, double now) const { return std::exp(-opticalDepth(a, b, now)); }
   void addCloud(vec3 p, double start, uint32_t seed);   // uses the current tuning
   void addCloud(const SmokeCloud& c) { clouds.push_back(c); while ((int)clouds.size() > tun.maxClouds) clouds.erase(clouds.begin()); }
