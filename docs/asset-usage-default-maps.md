@@ -943,8 +943,8 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `mod_sidewalk_bay_b_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_sidewalk_bay_c_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_sidewalk_bay_ruin` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
-| `mod_vines_hanging` | not used | not used | not used | not used | not used | not used | not used | 213 | not used | not used | not used | not used | not used |
-| `mod_vines_hanging_long` | not used | not used | not used | not used | not used | not used | not used | 391 | not used | not used | not used | not used | not used |
+| `mod_vines_hanging` | not used | not used | not used | not used | not used | not used | not used | not used (VR1: the tall blocks' curtains are wall ivy now; interiors of ruins still get it) | not used | not used | not used | not used | not used |
+| `mod_vines_hanging_long` | not used | not used | not used | not used | not used | not used | not used | not used (VR1: see mod_vines_hanging) | not used | not used | not used | not used | not used |
 | `mod_mil_hut_ruin` | not used | not used | not used | not used | not used | not used | not used | 1 | 1 | 1 | not used | not used | not used |
 | `mod_mil_hut` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `mod_pcar_compact` | not used | not used | not used | not used | not used | not used | not used | 2 | not used | 1 | not used | not used | not used |
@@ -2027,6 +2027,29 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `tr_street_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `tr_street_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 | `tr_street_c` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `ivy_pack` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_boulder_l_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_boulder_l_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_boulder_s_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_group_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_lime_l_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_lime_l_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_lime_m_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_lime_m_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_outcrop_l_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_outcrop_l_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_outcrop_m_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_outcrop_m_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_rock_l_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_rock_l_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_rock_m_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_rock_m_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_rock_s_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_rock_s_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_schist_m_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_schist_m_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_slab_a` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
+| `rk_slab_b` | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used | not used |
 
 ## Notes
 

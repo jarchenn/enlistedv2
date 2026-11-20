@@ -164,7 +164,7 @@ struct StationDef {
 // B1 ivy on stone walls (src/ivy.cpp): "ivy": "auto" | {"auto": true, "density": d} |
 // [{"face": "+z" | "-z" | "+x" | "-x", "a0", "a1" (along the wall), "y0", "y1", "density"}]
 struct IvyDef {
-  enum Mode { NONE, AUTO, BLOCKS } mode = NONE;
+  enum Mode { NONE, AUTO, BLOCKS, PIECES } mode = NONE;
   float density = 1;
   // IV1 (src/ivy.cpp): type ("common", "creeper", "boston", "small", "dead"), pattern ("fan", "corner", "curtain",
   // "frame", "top", "spiral", "ground", "islands", "blanket"; several joined by '+'), age 0..1 (-1: picked), and
@@ -172,6 +172,10 @@ struct IvyDef {
   std::string type, pattern; float age = -1, share = -1; bool overgrown = false;   // share: of the facades, how many grow ("auto"; -1: by style)
   struct Block { int axis = 2; float sign = 1, a0 = 0, a1 = 0, y0 = 0, y1 = 3, density = 1; std::string type, pattern; float age = -1; bool overgrown = false; };
   std::vector<Block> blocks;
+  // VR1: "ivyPieces": [{"piece": "wall_2", "pos", "yaw", "scale": [x, y, z], "hang"}] - an ivy prop (hanging vines, a
+  // ground patch) drawn from the ivy pack's pieces as they are (mode PIECES); hang: the piece upside down, rooted at pos
+  struct Piece { std::string id; vec3 pos{0}; float yaw = 0; vec3 scale{1}; bool hang = false; };
+  std::vector<Piece> pieces;
 };
 struct TreeDef {
   bool on = false;

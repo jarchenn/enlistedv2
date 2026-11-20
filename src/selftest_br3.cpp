@@ -91,11 +91,12 @@ bool br3Shots(App& app, float dt) {
     if (shotIdx >= (int)spots.size()) { app.selftest->exitCode = 0; app.selftest->done = true; return true; }
     hold(app, spots[shotIdx]);
     G.posesStep(dt > 0 ? dt : 1.0f / 60);
-    static double gsum = 0, fsum = 0; static int nf = 0;   // TR1: the spot's frame cost over the second before its shot
-    if (st > 1.5f && dt > 0) { gsum += app.R.stats.gpuMs; fsum += dt * 1000.0; ++nf; }
+    static double gsum = 0, fsum = 0, tsum = 0, dsum = 0; static int nf = 0;   // TR1: the spot's frame cost over the second before its shot (VR1: + triangles, draws)
+    if (st > 1.5f && dt > 0) { gsum += app.R.stats.gpuMs; fsum += dt * 1000.0; tsum += app.R.stats.tris; dsum += app.R.stats.draws; ++nf; }
     if (st > 2.5f) {
-      logf("[br3] spot %s: gpu %.2f ms, frame %.2f ms over %d frames (preset %s)", spots[shotIdx].name.c_str(), nf ? gsum / nf : 0.0, nf ? fsum / nf : 0.0, nf, presetName(settings().s.preset()));
-      gsum = fsum = 0; nf = 0;
+      logf("[br3] spot %s: gpu %.2f ms, frame %.2f ms over %d frames (preset %s), %.2f M tris, %.0f draws", spots[shotIdx].name.c_str(), nf ? gsum / nf : 0.0, nf ? fsum / nf : 0.0, nf, presetName(settings().s.preset()),
+           nf ? tsum / nf / 1e6 : 0.0, nf ? dsum / nf : 0.0);
+      gsum = fsum = tsum = dsum = 0; nf = 0;
       pending = exeDir() / "selftest_out" / ("br3_" + spots[shotIdx].name + ".png"); ++shotIdx; st = 0; app.R.resetTemporal();
     }
     return true;

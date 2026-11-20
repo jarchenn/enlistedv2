@@ -1310,23 +1310,14 @@ function topiary(id, kind) {
 // ---------------------------------------------------------------- overgrowth (ruined / derelict dressing)
 // hanging vines and roots: origin at the ceiling attachment point, strands hanging toward -y, ivy cards along the leafy
 // ones (about a third are bare roots); a matted clump at the ceiling. No collider; placed under a ceiling or arch.
+// VR1: every vine is the ivy pack (content/assets/ivy_pack.json, src/ivy.cpp): two of its wall pieces hung crossed
 function vinesHanging(id, drop) {
   const long = drop > 2, A = base({ id, name: long ? "Hanging vines, long (3 m)" : "Hanging vines (1.5 m)", category: "Vegetation", footprint: [1.5, 1.5],
-    description: `A 1.5 x 1.5 m cluster of ivy strands and bare roots hanging about ${drop} m from a ceiling, for derelict interiors, broken slabs and arches. The origin is the attachment point on the ceiling (place it there); visual only, no collision.` });
-  const R = rng(10900 + (long ? 1 : 0)), canopy = [], n = long ? 11 : 9;
-  for (let i = 0; i < 4; i++) canopy.push([(R() - 0.5) * 0.9, -0.22, (R() - 0.5) * 0.9, 0.2 + R() * 0.05]);   // matted at the ceiling
-  for (let i = 0; i < n; i++) {
-    const a = i * 2.39996 + R() * 0.5, rr = 0.66 * Math.sqrt((i + 0.5) / n), L = drop * (0.45 + R() * 0.55), bare = R() < 0.3;
-    let p = [Math.cos(a) * rr, 0, Math.sin(a) * rr];
-    const segs = Math.max(3, Math.round(L / 0.4)), sway = [(R() - 0.5) * 0.12, (R() - 0.5) * 0.12];
-    for (let s = 1; s <= segs; s++) {
-      const f = s / segs, q = [p[0] + sway[0] * (0.5 + f) + (R() - 0.5) * 0.04, -L * f, p[2] + sway[1] * (0.5 + f) + (R() - 0.5) * 0.04];
-      seg(A, p, q, bare ? 0.007 : 0.011 * (1 - 0.5 * f) + 0.004, (bare ? 0.007 : 0.011 * (1 - 0.5 * f) + 0.004) * 0.85, "vine", 4);
-      p = q;
-      if (!bare && s % 1 === 0 && (s < segs || R() < 0.7)) canopy.push([p[0] + (R() - 0.5) * 0.06, p[1] + 0.12, p[2] + (R() - 0.5) * 0.06, 0.13 + 0.05 * (1 - f) + R() * 0.03]);
-    }
-  }
-  foliage(A, canopy, { cardDensity: 60, leafSize: 0.5, leafColor: [0.03, 0.07, 0.02], seed: 10900 + (long ? 1 : 0) });
+    description: long ? "Ivy hanging about 3 m from a ceiling or an arch: two of the ivy pack's wall pieces hung crossed. The origin is the attachment point (place it there); visual only, no collision."
+                      : "Ivy hanging about 1.5 m from a ceiling, for derelict interiors, broken slabs and arches: two of the ivy pack's wall pieces hung crossed. The origin is the attachment point on the ceiling (place it there); visual only, no collision." });
+  A.meta.version = 2;
+  A.meta.ivyPieces = long ? [{ piece: "wall_2", pos: [0, 0, -0.14], yaw: 0, scale: [0.6, 0.95, 0.6], hang: true }, { piece: "wall_3", pos: [-0.14, 0, 0.05], yaw: 90, scale: [0.5, 0.85, 0.55], hang: true }]
+                     : [{ piece: "wall_3", pos: [0, 0, -0.14], yaw: 0, scale: [0.5, 0.47, 0.6], hang: true }, { piece: "wall_3", pos: [-0.14, 0, 0.05], yaw: 90, scale: [0.42, 0.4, 0.55], hang: true }];
   setNav(A, { effect: "none" });
   return A;
 }
@@ -1378,18 +1369,12 @@ function saplingPaving() {
   setNav(A, { effect: "none" });
   return A;
 }
-// ivy creeping over the ground: rooting runners and low leaf clusters, for overgrown yards and ruin floors
+// ivy creeping over the ground (VR1: the ivy pack's small ground piece, src/ivy.cpp)
 function ivyGround() {
   const A = base({ id: "mod_ivy_patch_ground", name: "Ivy ground cover (patch)", category: "Vegetation", footprint: [2.2, 2.2],
-    description: "A 2 m patch of ivy creeping over the ground (or broken paving): rooting runners and a low mat of ivy leaves, about 0.25 m deep. Visual only, walk-over." });
-  const R = rng(11200), canopy = [];
-  for (let i = 0; i < 6; i++) {   // runners from the middle outward, a leaf cluster every ~0.3 m
-    const yaw = i * 60 + R() * 40;
-    const pts = limb(A, R, [0, 0.02, 0], 0.9 + R() * 0.15, yaw, 0, 0, 0.008, 0.004, "vine", 3, 4);
-    for (const f of [0.15, 0.45, 0.75, 1]) { const p = along(pts, f); canopy.push([p[0], 0.1, p[2], 0.17 + R() * 0.04]); }
-  }
-  canopy.push([0, 0.12, 0, 0.22]);
-  foliage(A, canopy, { cardDensity: 60, leafSize: 0.45, leafColor: [0.03, 0.07, 0.02], seed: 11200 });
+    description: "A 2 m patch of ivy creeping over the ground (or broken paving): the ivy pack's small ground piece. Visual only, walk-over." });
+  A.meta.version = 2;
+  A.meta.ivyPieces = [{ piece: "ground_3", pos: [0, 0, 0], yaw: 0, scale: [0.67, 0.8, 0.76] }];
   setNav(A, { effect: "none" });
   return A;
 }

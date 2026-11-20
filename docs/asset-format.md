@@ -126,6 +126,15 @@ Where a visible box was the collider (the Tobruk turret, the foxhole sandbags, t
 
 `"ivy": "auto"` (or `{"auto": true, "density": 0.8}`) grows ivy colonies from the ground on the outer stone, brick and rendered walls of every placed copy, seeded by the instance. `"ivy": [{face: "+z", a0, a1, y0, y1, density}]` grows it inside those rectangles instead (a0 / a1 along the wall, on the outermost facade facing that way). The cards are alpha-tested leaf cards 2 to 5.5 cm off the wall, drawn through the foliage pass (wind, culling, shadows). Nothing grows on bevelled trims, behind anything visible or in openings. The cards on a bay go when it is breached. Settings > Ivy on walls and the grass quality control it.
 
+**VR1:** every vine is drawn from one model, the ivy pack (LOLIPOP, CC-BY-4.0; asset `ivy_pack`, baked by
+`tools/vr1_ivy_export.py`): wall pieces, inside-corner pieces at re-entrant corners, ground patches at the wall foot, and
+wall pieces hung upside down for curtains. A piece is placed only where its whole rectangle on the facade is wall, so
+never across a door or window (`overgrown` no longer lets it); a piece over a breached bay goes with the bay. Leaf
+`type` no longer changes the look: the colour is a per-piece tint from `content/settings/ivy.json` (dusty grey, dry
+brown, orange; one tone per building, close on its walls). `spiral` places nothing (no piece wraps a post). A prop can
+be built from the pieces directly: `"ivyPieces": [{"piece": "wall_2", "pos", "yaw", "scale": [x, y, z], "hang": true}]`
+(`mod_vines_hanging`, `mod_vines_hanging_long`, `mod_ivy_patch_ground`).
+
 IV1 adds types, patterns and age, both on `{"auto": true, ...}` and on each block:
 - **`type`** sets the species:
   - `common`: juvenile lobed leaves, plus the mature unlobed leaves with berries high on old growth.

@@ -1232,6 +1232,15 @@ void AssetLibrary::build(AssetDef& ad) const {
       }
     }
   }
+  if (j.contains("ivyPieces") && j["ivyPieces"].is_array()) {   // VR1: an ivy prop drawn from the ivy pack (src/ivy.cpp)
+    a->ivy.mode = IvyDef::PIECES;
+    for (auto& q : j["ivyPieces"]) {
+      IvyDef::Piece p; p.id = q.value("piece", std::string("wall_1")); p.pos = jvec3(q.value("pos", json()), vec3(0)); p.yaw = q.value("yaw", 0.0f);
+      p.scale = jvec3(q.value("scale", json()), vec3(1)); p.hang = q.value("hang", false);
+      a->ivy.pieces.push_back(p);
+      float r = 1.8f * std::max({p.scale.x, p.scale.y, p.scale.z}); pts.push_back(p.pos - vec3(r, p.hang ? 3.3f * p.scale.y : 0.0f, r)); pts.push_back(p.pos + vec3(r, p.hang ? 0.0f : 3.3f * p.scale.y, r));
+    }
+  }
   if (j.contains("tree")) { buildTreeAsset(*a, j["tree"]); for (auto& c : a->tree.canopy) { pts.push_back(vec3(c) - vec3(c.w)); pts.push_back(vec3(c) + vec3(c.w)); } }
   if (j.contains("rock") || j.contains("scatter")) buildNatureAsset(*a, j, pts);   // boulders / patches (nature.cpp)
   a->faction = j.value("faction", "");

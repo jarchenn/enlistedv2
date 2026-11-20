@@ -154,6 +154,16 @@
         "perMetre": 25,
         "min": 70,
         "max": 150
+      },
+      "rk_rock_s_a": {
+        "perMetre": 15,
+        "min": 35,
+        "max": 55
+      },
+      "rk_rock_s_b": {
+        "perMetre": 15,
+        "min": 35,
+        "max": 55
       }
     }
   }

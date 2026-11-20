@@ -5,6 +5,7 @@ import os
 
 
 _TREE_ALIASES = None
+_REMOVED = set()   # VR1: generated rock ids with no model rock yet (rock_aliases.json "removed"): not written
 
 
 def tree_alias(aid, iid):
@@ -13,8 +14,12 @@ def tree_alias(aid, iid):
     global _TREE_ALIASES
     if _TREE_ALIASES is None:
         import json, os
-        p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "content", "settings", "tree_aliases.json")
-        _TREE_ALIASES = json.load(open(p, encoding="utf-8")).get("aliases", {}) if os.path.exists(p) else {}
+        _TREE_ALIASES = {}
+        for f in ("tree_aliases.json", "rock_aliases.json"):   # VR1: the generated rocks too
+            p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "content", "settings", f)
+            if os.path.exists(p):
+                j = json.load(open(p, encoding="utf-8")); _TREE_ALIASES.update(j.get("aliases", {}))
+                _REMOVED.update(j.get("removed", []))
     al = _TREE_ALIASES.get(aid)
     if not al:
         return aid
@@ -51,7 +56,7 @@ def write_map(path, *, name, template_id, template_version, seed, width, depth, 
         "template": {"id": template_id, "version": template_version, "seed": seed},
         "mapSize": {"width": width, "depth": depth},
         "nextId": builder.next_id,
-        "instances": [instance_json(e, builder.cat) for e in builder.inst],
+        "instances": [instance_json(e, builder.cat) for e in builder.inst if tree_alias(e["asset"], e["id"]) not in _REMOVED],
         "removedTemplateVegetation": [],
         "exploreStart": {"position": [round(v, 3) for v in explore_start[0]], "yaw": explore_start[1]} if explore_start else None,
         "routes": builder.routes,

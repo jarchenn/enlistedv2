@@ -1,0 +1,12 @@
+{
+ "_doc": "VR1 (src/ivy.cpp): the colour of every vine (the ivy pack's leaves, one model, recoloured per piece). Read at startup: edit and restart, no rebuild. Colours are sRGB 0..1 as the average leaf reads. A building's tone is picked uniformly in centre +- spread / 2 on the ramp grey (0) -> brown (0.5) -> orange (1); each facade strays by up to +- facadeSpread / 2 from its building, each piece by +- pieceSpread / 2 from its facade, and brightness jitters by +- brightness. Hanging vines and ground patches placed as props take the tone of the 25 m cell they stand in. stem: the woody stems (they take 15 % of the leaf tone).",
+ "grey": [0.42, 0.41, 0.37],
+ "brown": [0.40, 0.29, 0.17],
+ "orange": [0.62, 0.32, 0.10],
+ "centre": 0.5,
+ "spread": 1.0,
+ "facadeSpread": 0.08,
+ "pieceSpread": 0.06,
+ "brightness": 0.06,
+ "stem": [0.33, 0.29, 0.25]
+}

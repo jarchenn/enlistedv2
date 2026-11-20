@@ -90,7 +90,8 @@ const AssetDef* drawAssetPalette(App& app, AssetPalette& st, const AssetDef* act
   const std::vector<std::string> cats = {"All", "Scenery", "Large Buildings", "Small Buildings", "Bunkers", "Ruins", "Vehicles", "Terrain", "Debris", "Small objects", "Furniture", "Wall mountables"};
   extern bool lineReplacedPiece(const std::string&);
   extern const std::vector<std::string>* treeAlias(const std::string&);   // TR1: generated trees, replaced by model trees
-  auto hidden = [](const AssetDef* a) { return (a->raw.is_object() && a->raw.value("hidden", false)) || lineReplacedPiece(a->id) || treeAlias(a->id)   // LN2: pieces now drawn as lines   // LN1: lines and the pieces they replace
+  extern bool aliasRemoved(const std::string&);   // VR1: generated rocks with no model rock
+  auto hidden = [](const AssetDef* a) { return (a->raw.is_object() && a->raw.value("hidden", false)) || lineReplacedPiece(a->id) || treeAlias(a->id) || aliasRemoved(a->id)   // LN2: pieces now drawn as lines   // LN1: lines and the pieces they replace
                                                || a->category == "Water"; };   // UI1: ponds, puddles and streams come from the water lasso
   st.category = std::clamp(st.category, 0, (int)cats.size() - 1);
   if (ImGui::BeginCombo("Category", cats[st.category].c_str())) {

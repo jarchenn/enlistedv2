@@ -1,0 +1,59 @@
+{
+ "_doc": "VR1 (tools/vr1_rocks.py): engine-generated rock ids -> model-rock variants; a map placing an old id loads each such rock as one of its variants, picked by the instance id (as tree_aliases.json). \"removed\": ids dropped on load. Point an id at new rock assets here to swap them in.",
+ "aliases": {
+  "nat_boulder_granite_l": [
+   "rk_boulder_l_a",
+   "rk_boulder_l_b"
+  ],
+  "nat_boulder_granite_s": [
+   "rk_boulder_s_a"
+  ],
+  "nat_boulder_limestone_l": [
+   "rk_lime_l_a",
+   "rk_lime_l_b"
+  ],
+  "nat_boulder_limestone_m": [
+   "rk_lime_m_a",
+   "rk_lime_m_b"
+  ],
+  "nat_boulder_schist_m": [
+   "rk_schist_m_a",
+   "rk_schist_m_b"
+  ],
+  "nat_boulder_schist_slab": [
+   "rk_slab_a",
+   "rk_slab_b"
+  ],
+  "nat_boulders_granite_group": [
+   "rk_group_a"
+  ],
+  "nat_outcrop_limestone": [
+   "rk_outcrop_l_a",
+   "rk_outcrop_l_b"
+  ],
+  "nat_outcrop_schist": [
+   "rk_outcrop_m_a",
+   "rk_outcrop_m_b"
+  ],
+  "mod_rock_large": [
+   "rk_rock_l_a",
+   "rk_rock_l_b"
+  ],
+  "mod_rock_medium": [
+   "rk_rock_m_a",
+   "rk_rock_m_b"
+  ],
+  "mod_rock_small": [
+   "rk_rock_s_a",
+   "rk_rock_s_b"
+  ],
+  "sd_dry_rock_small": [
+   "rk_rock_s_a"
+  ]
+ },
+ "removed": [
+  "nat_stones_patch",
+  "nat_stones_granite_patch",
+  "nat_scree_patch"
+ ]
+}

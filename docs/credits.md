@@ -813,3 +813,13 @@ PR10: the user's post-apocalyptic batch (title, author, licence and source as ea
 | `pa_tree_dead_d` | Dead tree | YN14R (https://sketchfab.com/YN14R) | CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) | https://sketchfab.com/3d-models/dead-tree-a0081da148294fb4bec1a0a91cbfd308 | modified: baked / textures resized | yes |
 | `pa_tree_dead_e` | Dead tree | YN14R (https://sketchfab.com/YN14R) | CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) | https://sketchfab.com/3d-models/dead-tree-c9698601629b4eb2ae52265b2ca8699d | modified: baked / textures resized | yes |
 <!-- /pr10_assets -->
+
+## Ivy (VR1)
+
+Every vine in the game (wall ivy, hanging vines, ivy ground patches) is drawn from this one model, recoloured per piece
+(content/settings/ivy.json); split into 12 anchored pieces by `tools/vr1_ivy_export.py` (Blender, background) and
+baked to `content/assets/models/ivy_pack/` (asset `ivy_pack`). The pack's demo walls and texture-holder quads are not used.
+
+| Asset | Model | Author | Licence | Source | Changes | In the repo |
+|---|---|---|---|---|---|---|
+| `ivy_pack` | Ivy pack (12 variations, lowpoly, LODs) | LOLIPOP (https://sketchfab.com/lolipop_1707) | CC-BY-4.0 (the GLB's own metadata) | https://sketchfab.com/3d-models/ivy-pack-12-variations-lowpoly-lods-0c80d67aa8fb4688bd1187518e4cc686 | modified: split into pieces, re-anchored, LOD2 as the distance LOD, textures resized, leaves recoloured in the shader | yes |

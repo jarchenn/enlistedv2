@@ -29,6 +29,9 @@ struct WallField {
 
 // Runtime (non-saved) state for one placed instance. Rebuilt whenever Instance::rev changes.
 struct LineBuildOut;   // lines.h (LN1)
+// VR1 (ivy.cpp): one placed ivy-pack piece: its part ranges in the LOD0 / LOD1 bakes, asset-space matrix, colour (linear)
+struct IvyPlaced { int first = 0, count = 0, firstL = 0, countL = 0; mat4 m{1.0f}; vec4 tint{0.0f}; std::string piece; };
+struct IvyPieces { std::vector<IvyPlaced> v; };
 struct InstanceRT {
   uint64_t id = 0; uint32_t rev = 0;
   const AssetDef* asset = nullptr;
@@ -49,7 +52,7 @@ struct InstanceRT {
   StationRT st;                                   // crew-served station overlay (if the asset is a station)
   std::vector<std::vector<uint8_t>> leafSt;       // [interactable][leaf] LEAF_* flags (session overlay)
   std::vector<std::vector<float>> leafHits;       // bullet hits taken
-  std::shared_ptr<TreeDef> ivy; uint64_t ivyKey = 0;   // B1 ivy cards for this instance (ivy.cpp), rebuilt when a bay breaks
+  std::shared_ptr<struct IvyPieces> ivy; uint64_t ivyKey = 0;   // VR1 ivy-pack pieces on this instance (ivy.cpp), rebuilt when a bay breaks
   bool occ = false; int occFrame = -1000; vec3 occEye{1e9f};   // GP1 occcull: hidden behind terrain from occEye (App::buildDrawLists)
   uint8_t lod = 0;                                  // PF2: current asset LOD level (App::assetLodMesh, hysteresis)
   float treeHits = 0; bool treeFelled = false, trunkApplied = false; uint32_t trunkBody = 0xffffffffu;   // trees (foliage.cpp)
