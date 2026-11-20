@@ -41,8 +41,9 @@ bool blockerScan(App& app, float dt) {
   }
   json cells = json::array(), assets = json::object();
   int n = 0;
-  for (float z = z0; z <= z1; z += 0.5f)
-    for (float x = x0; x <= x1; x += 0.5f) {
+  const float stepC = std::getenv("NMK_SCAN_STEP") ? std::max(0.25f, (float)std::atof(std::getenv("NMK_SCAN_STEP"))) : 0.5f;   // cell size (m)
+  for (float z = z0; z <= z1; z += stepC)
+    for (float x = x0; x <= x1; x += stepC) {
       float g = app.terrain.height(x, z); ++n;
       uint64_t ud = 0;   // blocked: no fit from the ground up to the character's 0.35 m step (a floor slab or a kerb is walkable)
       for (float dy = 0.0f; dy <= 0.351f; dy += 0.05f) { ud = Physics::shapeHitUD(Physics::STAND, vec3(x, g + dy, z), false); if (!ud) break; }
@@ -128,6 +129,54 @@ bool blockerScan(App& app, float dt) {
     }
   }
   logf("blocker-scan walks: %d, %d blocked; upper rooms %d, %d not reached", nWalk, nFail, nStair, nStairFail);
+  // BT1 routes (rules.sd.walkRoutes: the designed lane centre lines): the character steered point to point along each
+  // route both ways (crossings, bridges, stairs, grades), and every 15 m stepped sideways off the lane across its
+  // shoulders where no body stands in the way (a stall there is the ground itself: a snow shoulder or a bank too steep)
+  int nRoute = 0, nRouteFail = 0, nSide = 0, nSideFail = 0;
+  auto steer = [&](vec3 from, const std::vector<vec3>& pts, vec3& stuckAt) {
+    Physics::setCharacterPos(from + vec3(0, 0.05f, 0));
+    size_t k = 0; int idle = 0; float bestD = 1e9f;
+    for (int f = 0; f < 60 * 240 && k < pts.size(); ++f) {
+      vec3 c = Physics::character().pos;
+      vec2 d = vec2(pts[k].x - c.x, pts[k].z - c.z);
+      float L = glm::length(d);
+      if (L < 0.45f) { ++k; idle = 0; bestD = 1e9f; continue; }
+      if (L < bestD - 0.02f) { bestD = L; idle = 0; } else if (++idle > 120) { stuckAt = c; return false; }   // 2 s without getting closer
+      Physics::updateCharacter(1.0f / 60.0f, vec3(d.x, 0, d.y) / L * 2.7f, false, false);
+    }
+    stuckAt = Physics::character().pos;
+    return k >= pts.size();
+  };
+  for (auto& r : sdj.value("walkRoutes", json::array())) {
+    std::vector<vec3> pts;
+    for (auto& q : r["points"]) pts.push_back(vec3(q[0].get<float>(), q[1].get<float>(), q[2].get<float>()));
+    if (pts.size() < 2) continue;
+    std::string name = r.value("name", std::string("route"));
+    float w = r.value("width", 3.0f);
+    for (int dir = 0; dir < 2; ++dir) {
+      std::vector<vec3> p = pts; if (dir) std::reverse(p.begin(), p.end());
+      vec3 stuck(0); bool ok = steer(p[0], p, stuck); ++nRoute; nRouteFail += !ok;
+      walks.push_back({{"kind", "route"}, {"name", name + (dir ? " (back)" : "")}, {"ok", ok}, {"id", 0}, {"asset", ""}, {"p", {p[0].x, p[0].z}}, {"end", {stuck.x, stuck.y, stuck.z}}, {"reached", 0}});
+    }
+    for (size_t k = 5; k + 5 < pts.size(); k += 15) {   // sideways across the shoulders
+      vec2 t = glm::normalize(vec2(pts[k + 1].x - pts[k - 1].x, pts[k + 1].z - pts[k - 1].z)), n(-t.y, t.x);
+      for (int sg = -1; sg <= 1; sg += 2) {
+        std::vector<vec3> side; bool clear = true;
+        for (float d = 0.5f; d <= w * 0.5f + 2.6f; d += 0.5f) {
+          vec2 q = vec2(pts[k].x, pts[k].z) + n * (float)sg * d;
+          float g = app.terrain.height(q.x, q.y);
+          bool fit = false;
+          for (float dy = 0.0f; dy <= 0.351f && !fit; dy += 0.05f) fit = !Physics::shapeHitUD(Physics::STAND, vec3(q.x, g + dy, q.y), false);
+          if (!fit) { clear = false; break; }
+          side.push_back(vec3(q.x, g, q.y));
+        }
+        if (!clear || side.empty()) continue;
+        vec3 stuck(0); bool ok = steer(pts[k], side, stuck); ++nSide; nSideFail += !ok;
+        walks.push_back({{"kind", "shoulder"}, {"name", name}, {"ok", ok}, {"id", 0}, {"asset", ""}, {"p", {side.back().x, side.back().z}}, {"end", {stuck.x, stuck.y, stuck.z}}, {"reached", 0}});
+      }
+    }
+  }
+  logf("blocker-scan routes: %d walks, %d stalled; shoulder crossings %d, %d stalled", nRoute, nRouteFail, nSide, nSideFail);
   json inst = json::object();   // every instance at run time (runtime dressing and furniture are not in the map file)
   for (auto& i : app.doc.instances) inst[std::to_string(i.id)] = {i.assetId, i.pos.x, i.pos.y, i.pos.z, i.yaw};
   std::ofstream(out) << json{{"map", map}, {"cells", cells}, {"assets", assets}, {"instances", inst}, {"walks", walks}, {"scanned", n}}.dump();
