@@ -427,7 +427,7 @@ PaintOut paintApply(vec3 p, vec3 nGeo, inout vec3 alb, float dirt, vec3 dpx, vec
   float w[13]; for (int i = 0; i < 13; ++i) w[i] = gPW[i];
   float W = clamp(gPWsum, 0.0, 1.0)*(1.0 - smoothstep(0.15, 0.75, dirt));   // craters show through the paint
   if (W < 0.004) return o;
-  vec3 a = vec3(0.0), bm = vec3(0.0); float r = 0.0, ao = 0.0, tot = 0.0;
+  vec3 a = vec3(0.0), bm = vec3(0.0); float r = 0.0, ao = 0.0, tot = 0.0, hP = 0.0;
   vec4 nz = dist < 30.0 ? vec4(vnoise(vec3(p.xz*0.9, 71.0)), vnoise(vec3(p.xz*4.3, 72.0)), fbm(vec3(p.xz*0.07, 73.0)), vnoise(vec3(p.xz*4.3, 74.0)))
                         : vec4(vnoise(vec3(p.xz*0.9, 71.0)), 0.5, vnoise(vec3(p.xz*0.07, 73.0)), 0.5);   // NT5: once, not per type; far: no sub-pixel octaves
   for (int i = 1; i < 13; ++i) {
@@ -441,10 +441,14 @@ PaintOut paintApply(vec3 p, vec3 nGeo, inout vec3 alb, float dirt, vec3 dpx, vec
     ai = absAlb ? t.alb : ai*t.alb; ri *= t.r;
     if (i != 1) ri = max(ri, (i == 6 || i == 7) ? uPavedMinRough : uGroundMinRough);   // GG1: dry ground stays matte whatever the set's roughness ratio (marsh keeps its pools)
     oi = absAlb ? t.ao : oi*t.ao; bi = absAlb ? t.dn : bi + t.dn;   // GR2: an absolute set brings its own relief and occlusion (the procedural grid's bump no longer shows through)
+    w[i] *= exp2(uHBlend*4.0*(t.h - 0.5)); hP += t.h*w[i];   // M2: where paint types overlap, the higher surface wins (alone: unchanged, normalised by tot)
 #endif
     a += ai*w[i]; r += ri*w[i]; ao += oi*w[i]; bm += bi*w[i]; tot += w[i];
   }
   if (tot <= 0.0) return o;
+#ifdef NMK_TEX_PAINT
+  W = hbK(W, 0.5, hP/tot);   // M2: the paint's edge over the ground by the paint's own height
+#endif
   alb = mix(alb, a/tot, W);
   o.w = W; o.rough = r/tot; o.ao = ao/tot; o.dn = bm/tot;
   return o;

@@ -489,7 +489,7 @@ void texHexFetch(vec3 q, vec2 gx, vec2 gy, out vec4 c, out vec2 nx, out vec2 rh,
   float s = step(0.0, -t.z), s2 = 2.0*s - 1.0;
   vec3 bw = vec3(-t.z*s2, s - t.y*s2, s - t.x*s2);
   vec2 v[3] = vec2[3](b + vec2(s, s), b + vec2(s, 1.0 - s), b + vec2(1.0 - s, s));
-  c = vec4(0.0); nx = vec2(0.0); rh = vec2(0.0); float ws = 0.0;
+  c = vec4(0.0); nx = vec2(0.0); rh = vec2(0.0); float ws = 0.0, w2 = 0.0;
   for (int i = 0; i < 3; ++i) {
     if (bw[i] < 0.02) continue;
     float ang = (mod(abs(v[i].x*v[i].y) + abs(v[i].x + v[i].y), 6.2831853) - 3.14159265)*gHexK;
@@ -497,11 +497,16 @@ void texHexFetch(vec3 q, vec2 gx, vec2 gy, out vec4 c, out vec2 nx, out vec2 rh,
     vec2 cen = mat2(1.0, 0.0, 0.5, 0.8660254)*v[i]/uHex.y;
     vec3 qi = vec3(R*(q.xy - cen) + cen + hexHash(v[i]), q.z); vec2 gxi = R*gx, gyi = R*gy;
     vec2 h = texGRH(qi, gxi, gyi).rg;
-    float W = pow(bw[i], 5.0)*exp2(7.0*h.y);   // barycentric weight, sharpened, then the higher surface wins
-    c += texGCol(qi, gxi, gyi)*W; rh += h*W; ws += W;
+    float W = pow(bw[i], 5.0)*exp2(10.0*h.y);   // barycentric weight, sharpened, then the higher surface wins
+    c += texGCol(qi, gxi, gyi)*W; rh += h*W; ws += W; w2 += W*W;
     if (nrm) nx += transpose(R)*(texGNrm(qi, gxi, gyi).rg*2.0 - 1.0)*nfk*W;   // the turned copy's normal back into the surface frame
   }
   c /= ws; rh /= ws; nx /= ws;
+  // variance-preserving blend (Mikkelsen 2022, after Heitz & Neyret): a mix of copies loses contrast by sqrt(sum w^2);
+  // push each channel back out from the set's mean by its inverse (capped), so the blended ground is as crisp as one tap
+  float g = min(inversesqrt(max(w2/(ws*ws), 1e-4)), 1.7);
+  int li = int(q.z + 0.5); vec4 m = uTexM[li]; vec2 mr = uTexL[li].zw;
+  c = clamp(m + (c - m)*g, 0.0, 1.0); rh = clamp(mr + (rh - mr)*g, 0.0, 1.0); nx *= g;
 }
 void texTap(float L, vec3 p, vec3 dpx, vec3 dpy, vec2 inv, vec3 T, vec3 B, vec3 Nf, vec3 ns, float w, inout TexS s){
   vec3 q = vec3(dot(p, T)*inv.x, dot(p, B)*inv.y, L);
@@ -550,11 +555,16 @@ TexS texTri(float L, vec3 p, vec3 n, vec3 dpx, vec3 dpy, vec2 inv, int rot){
 }
 // terrain layer: albedo / roughness multipliers against the layer's means, ao, world normal delta; strengths and the
 // distance fade applied, identity when the layer has no texture
-struct TerrT { vec3 alb; float r, ao; vec3 dn; };
+struct TerrT { vec3 alb; float r, ao; vec3 dn; float h; };   // h (M2): the set's height against its mean, 0.5 = level / untextured
+// M2 height-based blending (after Mishkinis 2013): k = the weight of layer b over layer a; mid-transition the higher
+// surface wins (stones stand out of mud, mud and sand settle between them). Untouched at k = 0 / 1 and between layers
+// of equal height (untextured: 0.5), so the procedural edges and every map's look stay; uHBlend 0 = off (switch "hblend")
+uniform float uHBlend;
+float hbK(float k, float ha, float hb){ return uHBlend > 0.0 ? clamp(k + (hb - ha)*uHBlend*4.0*k*(1.0 - k), 0.0, 1.0) : k; }
 // any slot (terrain layers, painted ground: terrTexSlot(uPaintSlot[k], ...)); dpx / dpy = dFdx / dFdy of p taken in
 // uniform control flow (kTerrainFS: tdx, tdy), dist = eye distance (tDist)
 TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
-  TerrT o = TerrT(vec3(1.0), 1.0, 1.0, vec3(0.0));
+  TerrT o = TerrT(vec3(1.0), 1.0, 1.0, vec3(0.0), 0.5);
   if (!texOn() || slot < 0 || slot >= 704) return o;
   vec4 A = uTexA[slot]; if (A.x < 0.0) return o;
   int li = int(A.x + 0.5); vec4 K = uTexB[slot], C = uTexC[slot], Lp = uTexL[li], M = uTexM[li];
@@ -575,6 +585,7 @@ TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
   o.r = mix(1.0, s.r/max(Lp.z, 0.02), K.z*f);
   o.ao = mix(1.0, s.ao, K.w*f);
   o.dn = (s.n - n)*K.y*f;
+  o.h = mix(0.5, clamp(s.h - Lp.w + 0.5, 0.0, 1.0), f);   // M2
   vec4 Uu = uTexU[slot];
   if (uImgMat == 1 && K.x >= 0.0 && Uu.z != 1.0) {   // GR2: per-set contrast on the ground too (contrast < 1: softer seams between paving stones)
     float l = max(dot(o.alb, vec3(0.2126, 0.7152, 0.0722)), 1e-3); o.alb *= pow(l, Uu.z - 1.0);
@@ -602,7 +613,7 @@ TerrT terrTexSlot(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
     if (m <= 0.001) return terrTexOne(slot, p, n, dpx, dpy, dist);
     if (m >= 0.999) return terrTexOne(u, p, n, dpx, dpy, dist);
     TerrT x = terrTexOne(slot, p, n, dpx, dpy, dist), y = terrTexOne(u, p, n, dpx, dpy, dist);
-    return TerrT(mix(x.alb, y.alb, m), mix(x.r, y.r, m), mix(x.ao, y.ao, m), mix(x.dn, y.dn, m));
+    return TerrT(mix(x.alb, y.alb, m), mix(x.r, y.r, m), mix(x.ao, y.ao, m), mix(x.dn, y.dn, m), mix(x.h, y.h, m));
   }
   return terrTexOne(slot, p, n, dpx, dpy, dist);
 }
