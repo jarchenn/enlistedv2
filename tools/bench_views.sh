@@ -15,9 +15,15 @@
 set -u
 B="${1:?build dir}"; TAG="${2:-$(date +%Y%m%d-%H%M)}"
 HERE="$(cd "$(dirname "$0")" && pwd)"; DOCS="$HERE/../docs/perf"; O="$B/selftest_out"
+# NMK_BENCH_HOLD=1: the whole run takes the card once (one exclusive gpu_turn ticket), the map processes run inside it
+if [ "${NMK_BENCH_HOLD:-0}" = 1 ] && [ -z "${NMK_BENCH_HELD:-}" ]; then
+  NMK_BENCH_HELD=1 GPU_TURN_EXCLUSIVE=1 GPU_TURN_TAG="bench-views $TAG (combined)" exec "$HERE/gpu_turn.sh" bash "$0" "$@"
+fi
 MAPS="${NMK_BENCH_MAPS:-chateau_town newtown outpost_woods dday sd_town}"; KIND="${NMK_BENCH_KIND:-path}"
-ENTRIES=""; for m in ${MAPS//,/ }; do ENTRIES="$ENTRIES $KIND:$m"; done
-BOTS="${NMK_BENCH_BOTS_MAP:-dday}"; [ "$KIND" = path ] && [ "$BOTS" != none ] && [ -z "${NMK_BENCH_MAPS:-}" ] && ENTRIES="$ENTRIES bots:$BOTS"
+# NMK_BENCH_KINDS="views path bots": several kinds in one run (views first, then the paths, then the bots scene)
+ENTRIES=""; for k in ${NMK_BENCH_KINDS:-$KIND}; do [ "$k" = bots ] && continue; for m in ${MAPS//,/ }; do ENTRIES="$ENTRIES $k:$m"; done; done
+BOTS="${NMK_BENCH_BOTS_MAP:-dday}"
+case " ${NMK_BENCH_KINDS:-} " in *" bots "*) ENTRIES="$ENTRIES bots:$BOTS";; *) [ "$KIND" = path ] && [ "$BOTS" != none ] && [ -z "${NMK_BENCH_MAPS:-}" ] && ENTRIES="$ENTRIES bots:$BOTS";; esac
 mkdir -p "$O" "$DOCS"
 rm -f "$O/bench_views_rows.md" "$O/bench_views.jsonl" "$O/bench_views_derived.jsonl" "$O/bench_clocks.txt"
 failed=""; shared=""
@@ -26,7 +32,11 @@ for e in $ENTRIES; do
   pat="^| $m | $k"; [ "$k" = views ] && pat="^| $m |"   # this entry's rows (views: one row per view)
   for try in 1 2; do
     n0=$(cat "$O/bench_views.jsonl" 2>/dev/null | wc -l)
-    ( cd "$B" && NMK_MUTE=1 NMK_BENCH_TAG="$TAG" NMK_BENCH_MAPS="$m" NMK_BENCH_KIND="$k" GPU_TURN_EXCLUSIVE=1 GPU_TURN_TAG="bench-views $TAG $k $m" "$HERE/gpu_turn.sh" bash "$HERE/bench_one.sh" "$O" ) >/dev/null 2>&1; rc=$?
+    if [ -n "${NMK_BENCH_HELD:-}" ]; then   # the card is already held for the whole run
+      ( cd "$B" && NMK_MUTE=1 NMK_BENCH_TAG="$TAG" NMK_BENCH_MAPS="$m" NMK_BENCH_KIND="$k" bash "$HERE/bench_one.sh" "$O" ) >/dev/null 2>&1; rc=$?
+    else
+      ( cd "$B" && NMK_MUTE=1 NMK_BENCH_TAG="$TAG" NMK_BENCH_MAPS="$m" NMK_BENCH_KIND="$k" GPU_TURN_EXCLUSIVE=1 GPU_TURN_TAG="bench-views $TAG $k $m" "$HERE/gpu_turn.sh" bash "$HERE/bench_one.sh" "$O" ) >/dev/null 2>&1; rc=$?
+    fi
     drop() { head -n "$n0" "$O/bench_views.jsonl" > "$O/j.tmp" 2>/dev/null; mv -f "$O/j.tmp" "$O/bench_views.jsonl"
       grep -v "$pat" "$O/bench_views_rows.md" > "$O/r.tmp" 2>/dev/null; mv -f "$O/r.tmp" "$O/bench_views_rows.md"; }
     # other games / Blender working during the run (they ignore the slot lock): drop it and run once more, then keep it flagged

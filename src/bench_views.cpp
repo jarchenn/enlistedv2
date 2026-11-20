@@ -235,7 +235,8 @@ void applyRunSettings(App& a) {
   for (size_t a0 = 0, c; a0 <= gCfgs[gCi].size(); a0 = c + 1) {
     c = gCfgs[gCi].find('+', a0); if (c == std::string::npos) c = gCfgs[gCi].size();
     std::string f = gCfgs[gCi].substr(a0, c - a0); if (f.empty()) continue;
-    if (f == "ssr") a.R.q.ssr = false; else if (f == "msaa4") a.R.setMsaa(4); else if (f[0] == '^') a.R.perf.set(f.substr(1), true);   // ^name: a switch on
+    if (f[0] == '#' || f.rfind("hour=", 0) == 0 || f.rfind("envfog=", 0) == 0) continue;   // #n: a repeat (noise); hour= / envfog=: applied with the weather below
+    if (f == "ssr") a.R.q.ssr = false; else if (f == "msaa4") { if (gPresets[gPi] == GfxPreset::High) a.R.setMsaa(4); }   // P2 off: the old High (Medium never had MSAA) else if (f[0] == '^') a.R.perf.set(f.substr(1), true);   // ^name: a switch on
     else if (f.rfind("scale", 0) == 0) a.R.setResolutionScale((float)std::atof(f.c_str() + 5));
     else if (!a.R.perf.set(f, false)) logf("[bench] NMK_BENCH_AB: unknown switch %s", f.c_str());
   }
@@ -245,6 +246,12 @@ void applyRunSettings(App& a) {
   if (const char* w = std::getenv("NMK_BENCH_WEATHER"); w && *w) { a.R.wx.target = std::string(w) == "cloudy" ? 1 : 0; a.R.wx.userSet = true; }
   else a.R.wx.userSet = false;
   if (const char* f = std::getenv("NMK_BENCH_ENVFOG"); f && *f) { a.R.wx.fog = std::atoi(f); a.R.wx.userSet = true; }   // 0 Off .. 3 Dense
+  for (size_t a0 = 0, c; a0 <= gCfgs[gCi].size(); a0 = c + 1) {   // config tokens hour=<h>, envfog=<0..3> (the viscull pairs)
+    c = gCfgs[gCi].find('+', a0); if (c == std::string::npos) c = gCfgs[gCi].size();
+    std::string f = gCfgs[gCi].substr(a0, c - a0);
+    if (f.rfind("hour=", 0) == 0) a.R.lt.hour = (float)std::atof(f.c_str() + 5);
+    if (f.rfind("envfog=", 0) == 0) { a.R.wx.fog = std::atoi(f.c_str() + 7); a.R.wx.userSet = true; }
+  }
   a.R.wx.snap();
 }
 void internalRes(App& a, Run& r) { float s = a.R.perf.taau ? a.R.resolutionScale() : 1.0f; int fw, fh; glfwGetFramebufferSize(a.win, &fw, &fh); r.iw = (int)std::lround(fw * s); r.ih = (int)std::lround(fh * s); }
@@ -273,7 +280,8 @@ bool benchViews(App& a, float dt) {
     gMaps = envList("NMK_BENCH_MAPS"); if (gMaps.empty()) gMaps.assign(std::begin(kMaps), std::end(kMaps));
     for (auto& n : envList("NMK_BENCH_PRESETS")) gPresets.push_back(n == "Low" ? GfxPreset::Low : n == "High" ? GfxPreset::High : n == "Ultra Low" ? GfxPreset::UltraLow : GfxPreset::Medium);
     if (gPresets.empty()) gPresets = {GfxPreset::Low, GfxPreset::Medium, GfxPreset::High};
-    if (const char* ab = std::getenv("NMK_BENCH_AB")) { gCfgs.clear(); std::string s = ab; for (size_t a0 = 0, c; a0 <= s.size(); a0 = c + 1) { c = s.find(';', a0); if (c == std::string::npos) c = s.size(); std::string x = s.substr(a0, c - a0); gCfgs.push_back(x == "none" ? "" : x); } }
+    const char* ab = std::getenv(gKind == "views" ? "NMK_BENCH_AB" : "NMK_BENCH_AB_MOVING"); if (!ab) ab = std::getenv("NMK_BENCH_AB");   // path / bots: their own (short) config list
+    if (ab) { gCfgs.clear(); std::string s = ab; for (size_t a0 = 0, c; a0 <= s.size(); a0 = c + 1) { c = s.find(';', a0); if (c == std::string::npos) c = s.size(); std::string x = s.substr(a0, c - a0); gCfgs.push_back(x == "none" ? "" : x); } }
     a.hideUi = true; a.hideEditorOverlays = true;
     a.selftest->realTime = true;   // wall-clock frame time: the simulation takes as many steps as a player's frame would (not one 1/60 s step)
   }
@@ -339,7 +347,9 @@ bool benchViews(App& a, float dt) {
     return true;
   }
   if (gPhase == 4) { if (t >= gT0 + 0.2) gPhase = 5; return true; }   // the motion shot is written after this frame
-  if (gPhase == 2 && t >= gT0 + envF("NMK_BENCH_MEASURE", 4.0f) && std::getenv("NMK_BENCH_SHOTS")) {
+  auto shotCfg = [] { const char* l = std::getenv("NMK_BENCH_SHOTCFG"); if (!l || !*l) return true;   // NMK_BENCH_SHOTCFG="none,viscull": shots only for those configs
+    std::string want = gCfgs[gCi].empty() ? "none" : gCfgs[gCi]; for (auto& x : envList("NMK_BENCH_SHOTCFG")) if (x == want) return true; return false; };
+  if (gPhase == 2 && t >= gT0 + envF("NMK_BENCH_MEASURE", 4.0f) && std::getenv("NMK_BENCH_SHOTS") && shotCfg()) {
     a.selftest->queueShot("bench_" + r.map + "_" + r.view + "_" + r.preset + "_" + gTag + "_still");
     writeRun(a, r); gPhase = 3; gT0 = t + 0.1; gLast = t; return true;
   }
