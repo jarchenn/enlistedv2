@@ -204,6 +204,14 @@ float skyVis(vec3 w, vec3 n){
 // States: dry snow (cool, broad rough highlight, low-contrast grain), dirty slush (darker grit, tighter lobe), meltwater.
 uniform int uSnowOn; uniform sampler2D uSnowMask; uniform vec4 uSnowBox, uSnowP, uSnowP2;
 float gSnow = 0.0;
+vec3 gSnowAlb0 = vec3(0.0), gSnowN0 = vec3(0.0, 1.0, 0.0); float gSnowR0 = 1.0;   // SN2: the ground just before applySnow's snow mix (snowTex re-blends from it)
+// SN2 (corpus weather 05): lying snow depth (m) from the baked mask alone (no noise), for burying grass: up to ~0.18 m
+float snowDepthAt(vec2 xz){
+  if (uSnowOn == 0) return 0.0;
+  vec2 uv = (xz - uSnowBox.xy)*uSnowBox.zw;
+  vec4 M = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.7, 0.0, 0.0, 0.0) : textureLod(uSnowMask, uv, 0.0);
+  return 0.18*smoothstep(uSnowP.z - uSnowP.w, uSnowP.z + uSnowP.w, M.r - M.g - M.b - uSnowP2.w);
+}
 uniform int uSnowFar;   // BT2 switch snowfar (1: the distance gates in applySnow)
 // BT2 / OPT2: true only where applySnow's ground cover is certainly full (worst-case patch noise, the roof shelter, a
 // margin for SN2's height-blended edges): the ground under it needs no substrate texture taps. Uses only what
@@ -243,6 +251,7 @@ void applySnow(vec3 w, vec3 Ng, float ground, inout vec3 alb, inout float rough,
     float pool = clamp(M.a*(1.0 - c), 0.0, 1.0);
     alb *= mix(1.0, 0.5, pool); rough = mix(rough, 0.06, pool); N = normalize(mix(N, Ng, pool*0.9));
   }
+  gSnowAlb0 = alb; gSnowR0 = rough; gSnowN0 = N;
   float g2 = dc < 25.0 ? vnoise(vec3(w.xz*21.0 + w.y*3.0, 45.0)) : 0.5;   // M5: grain near only
   vec3 sA = vec3(0.85, 0.85, 0.86)*(0.95 + 0.05*g2);   // BT2 (corpus 05 s4.4): neutral; the blue in snow is sky light in shade
   alb = mix(alb, sA, c); rough = mix(rough, 0.58, c); N = normalize(mix(N, Ng, c*0.75));   // fresh snow ~0.5-0.65
@@ -3052,7 +3061,7 @@ void main(){
     rough = mix(rough, min(rough, mix(0.42, 0.1, film)), flat_k);
     N = normalize(mix(N, normalize(vN), flat_k*film*0.6));
   }
-  applySnow(p, normalize(vN), 1.0, alb, rough, N);   // SN1
+  applySnow(p, normalize(vN), 1.0, alb, rough, N); snowTex(p, normalize(vN), tdx, tdy, tDist, hB, alb, rough, N);   // SN1; SN2 the snow sets near (snow.cpp)
   gSpecK = mix(uGroundSpec, 1.0, max(puddle, vEw.z*ewK));   // GG1: dry ground: no broad sun glare or sky sheen at grazing angles (standing water / wet cut mud keep theirs)
   float gs0 = gSpecK; gSpecK = 0.0;
   vec3 cMatte = uDbgTerr == 2 ? shade(vW, N, alb, 1.0, 0.0, ao) : vec3(0.0);   // GG1 measurement: no specular at all
@@ -3180,10 +3189,12 @@ void pastureClump(){
   } else if (sp == 18) { curve = 0.08 + 0.22*r1 + 0.45*k; spread = 0.10; windAmp = 1.1; }   // marram: stiff, upright tussock
   else curve = 0.12 + 0.4*r1 + 0.8*k;   // medium meadow grass: the rim droops
   float h = H*hf*fade;
+  float bury = uSnowOn == 1 ? clamp(1.0 - snowDepthAt(base.xz)/max(H*hf, 0.02), 0.0, 1.0) : 1.0;   // SN2: snow buries short grass
+  h *= bury;
   float tap = part == 10 ? max(1.0 - 0.95*v*v*v, 0.1) : 1.0;   // G1: blade cards follow the pointed silhouette (no transparent padding)
   w *= widen*taper*tap;
   if (ga >= 0) {   // GT1: the card is the plant's rectangle: its aspect, a gentle lean instead of a blade's curve
-    h = H*mix(0.8, 0.65, k)*(0.8 + 0.4*r2)*fade;   // the plants' apparent height matches the blade clumps around them
+    h = H*mix(0.8, 0.65, k)*(0.8 + 0.4*r2)*fade*bury;   // the plants' apparent height matches the blade clumps around them
     h *= mix(0.5, 1.0, smoothstep(0.3, 1.1, d));      // prone: no giant smooth leaf right in front of the eye
     w = h*uGACell[ga].w; tap = 1.0; curve *= 0.3; spread *= 1.6;
   }
@@ -3263,6 +3274,7 @@ void plantMain(){
   if (sp >= 5) h = isLeaf ? iS.x*(sp == 12 ? 0.8 : sp == 5 ? 0.55 : 0.26)*(0.7 + 0.5*r2)*fade : isStem ? iS.x*(0.82 + 0.25*r2)*fade : 0.0;
   if (sp == 13 || sp == 15) h = iS.x*(0.92 + 0.12*r2)*fade;   // an even crop
   if (head && !disc) h = 0.0;
+  if (uSnowOn == 1) h *= clamp(1.0 - snowDepthAt(root.xz)/max(iS.x, 0.02), 0.0, 1.0);   // SN2: snow buries short plants
   float v = head ? 1.0 : aB.y;
   float taper = (sp == 3 || (sp == 12 && isLeaf)) ? 1.0 : (1.0 - v*0.8);
   float w;
@@ -3968,7 +3980,7 @@ bool Renderer::init(int w, int h) {
   progShadow = compile(kShadowVS, kShadowFS, "shadow");
   progShadowI = compile(kShadowIVS, kShadowFS, "shadow_inst");
   progDepth = compile(kDepthVS, kShadowFS, "depth prepass");
-  { extern const char* groundPaintGlsl(); progTerrain = compile(kTerrainVS, (std::string(tex::glslCommon()) + groundPaintGlsl() + kTerrainFS).c_str(), "terrain"); }   // L4 defines first, then lasso ground paint
+  { extern const char* groundPaintGlsl(); extern const char* snowTexGlsl(); progTerrain = compile(kTerrainVS, (std::string(tex::glslCommon()) + groundPaintGlsl() + snowTexGlsl() + kTerrainFS).c_str(), "terrain"); }   // L4 defines first, then lasso ground paint
   tex::init(contentDir() / "textures"); tex::attach(progMain); tex::attach(progTerrain);   // L4: ambientCG sets, units 20-22
   progSky = compile(kSkyVS, kSkyFS, "sky");
   progTone = compile(kFullVS, kToneFS, "tone");
@@ -4378,6 +4390,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1f(U(p, "uUnder"), v.underwater && !thumbMode ? 1.0f : 0.0f);
   if (perf.snow) snowUniforms(p, thumbMode); else glUniform1i(U(p, "uSnowOn"), 0);   // SN1 (snow.cpp): off unless the map has a snow layer
   glUniform1i(U(p, "uSnowFar"), perf.snowFar ? 1 : 0);   // BT2 switch snowfar
+  glUniform1i(U(p, "uSnowTexOn"), perf.snowTex ? 1 : 0);   // SN2 switch snowtex
   glUniform1f(U(p, "uGrassDead"), thumbMode ? 0.0f : lt.mapGrassDead);   // BT1
   if (p == progMain) fogNow = vec4(fog, v.underwater && !thumbMode ? v.underFogDens : hazeD);
   glUniformMatrix4fv(U(p, "uLightVP"), 1, GL_FALSE, glm::value_ptr(lightVP));

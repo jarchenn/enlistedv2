@@ -457,11 +457,12 @@ def build(ctx):
     E = W / 2 + MARGIN
     paint.poly("dry_grass", [(-E, -E), (E, -E), (E, E), (-E, E)], weight=1.0, edge=0.5)
     for name, (pts, w, kind) in ROUTES.items():
-        paint.line("mud" if kind in ("road", "lane") else "dirt", [(p[0], p[1]) for p in pts], w, weight=0.9, edge=1.0)
+        # SN2 trails (the user's Ground109 / Ground110 sets through look.paintSets): wheeled ways gravel, foot ways dirt
+        paint.line("gravel" if kind == "road" or name == "quarry path" else "dirt", [(p[0], p[1]) for p in pts], w, weight=0.9, edge=1.0)
     paint.line("pebbles", CREEK, 9.0, weight=0.9, edge=2.0)
     for name, ((cx, cz), (hx, hz), fl) in AREAS.items():
         if name in ("Waterworks court", "Lower cart yard", "Workshop yards", "Washhouse terrace"):
-            paint.poly("mud", [(cx - hx, cz - hz), (cx + hx, cz - hz), (cx + hx, cz + hz), (cx - hx, cz + hz)], weight=0.55, edge=3.0, ragged=2.0, seed=len(name))
+            paint.poly("gravel" if name in ("Lower cart yard", "Workshop yards") else "mud", [(cx - hx, cz - hz), (cx + hx, cz - hz), (cx + hx, cz + hz), (cx - hx, cz + hz)], weight=0.55, edge=3.0, ragged=2.0, seed=len(name))
 
     # buildings: stand-ins seated on the true ground at their pads
     n_bld = 0
@@ -625,6 +626,7 @@ def build(ctx):
             "fogLayer": {"density": 0.004, "height": 10.0}, "saturation": 0.8, "tint": [0.97, 0.99, 1.03],
             # BT2 sky (lighting session's per-map knobs): a soft low opening toward the south-west valley exit (azimuth
             # atan2(dx, dz) = -130.7), broad cloud banks stretched along the valley, no sun disc
+            "paintSets": {"dirt": "trail_dirt", "gravel": "trail_gravel"},   # SN2: the user's trail sets on this map's ways
             "cloudOpening": [-130.7, 11.0, 20.0, 0.8], "cloudScale": 2.0, "cloudStretch": 3.0, "cloudDir": -130.7, "sunDisc": 0.0,
             "bloom": 1.1, "grime": 1.3, "season": "winter", "leafless": True, "grassDead": 1.0,
             "snowfall": {"near": 40, "far": 1800, "fall": 1.0, "wind": [0.8, -0.6], "bright": 1.0},   # BT2: sparse near flakes
