@@ -4975,12 +4975,34 @@ void main(){
 // layer), with the fog field and drift at their low end (0.6) so the cut is never nearer than what is visible.
 // shortcut: no dithered fade at the cut (at 0.4 % contrast it does not show); reads the haze until the shared weather
 // state's cullDistance lands, then switch to that one number
+// The single cut (every cull site: trees, nature, ivy, lines, hlod) takes the extinction at the height of the highest
+// ground plus 30 m, not at the eye: from a valley floor the fog thins along a ray that climbs to a ridge, so anything on
+// the highest ground stays drawn; the per-object test (fogHides) does the exact cut for instances and trees
 float Renderer::visCullDist(vec3 eye) const {
   if (!perf.visCull || lt.mapNoFog || q.legacy) return 1e9f;
-  float sigma = q.hazeDensity * lt.mapHaze * std::exp(-std::max(eye.y, 0.0f) / std::max(1.0f, q.hazeHeight));
-  float env = perf.envFog ? (lt.mapFogLayerDens >= 0.0f ? lt.mapFogLayerDens : std::max(wx.fogNow, 0.0f)) : 0.0f;
-  sigma += 0.6f * env;   // the fog layer near its floor (the eye inside it: the conservative case is its thinnest drift)
+  float y = std::max(eye.y, fogGroundMax + 30.0f);
+  float sigma = q.hazeDensity * lt.mapHaze * std::exp(-std::max(y, 0.0f) / std::max(1.0f, q.hazeHeight));
+  float env = perf.envFog && !fogCpu.empty() ? (lt.mapFogLayerDens >= 0.0f ? lt.mapFogLayerDens : std::max(wx.fogNow, 0.0f)) : 0.0f;
+  float envH = lt.mapFogLayerH > 0.0f ? lt.mapFogLayerH : 22.0f;
+  sigma += 0.6f * env * (camIndoor ? 0.15f : 1.0f) * std::exp(-std::max(y - fogGroundMin, 0.0f) / envH);   // the layer at its thinnest: its lowest floor, its low drift
   return sigma > 1e-6f ? 1.42f * 3.912f / sigma : 1e9f;
+}
+bool Renderer::fogHides(vec3 eye, vec3 top) const {   // kCommon's applyFog terms on the CPU, drift at its low end (0.6)
+  if (!perf.visCull || lt.mapNoFog || q.legacy) return false;
+  float L = glm::length(top - eye); if (L < 1.0f) return false;
+  auto hf = [](float k) { return std::fabs(k) > 1e-3f ? (1.0f - std::exp(-k)) / k : 1.0f - 0.5f * k; };   // the height integral (closed form)
+  float H = std::max(1.0f, q.hazeHeight);
+  float tau = q.hazeDensity * lt.mapHaze * L * std::exp(-std::max(eye.y, 0.0f) / H) * hf((top.y - eye.y) / H);
+  float env = perf.envFog && !fogCpu.empty() ? (lt.mapFogLayerDens >= 0.0f ? lt.mapFogLayerDens : std::max(wx.fogNow, 0.0f)) : 0.0f;
+  if (env > 0.0f) {
+    const int N = 256; vec3 m = 0.5f * (eye + top);
+    int i = (int)((m.x - fogBox.x) * fogBox.z * N), j = (int)((m.z - fogBox.y) * fogBox.w * N);
+    i = ((i % N) + N) % N; j = ((j % N) + N) % N;   // the field wraps (GL_REPEAT), like the shader's lookup
+    const vec4& F = fogCpu[(size_t)j * N + i];
+    float eH = lt.mapFogLayerH > 0.0f ? lt.mapFogLayerH : 22.0f, Lw = std::max(L - lt.mapFogNear, 0.0f);
+    tau += env * (camIndoor ? 0.15f : 1.0f) * F.x * 0.6f * Lw * std::exp(-std::max(eye.y - F.z, 0.0f) / eH) * hf((top.y - eye.y) / eH);
+  }
+  return tau > 5.545f;   // ln 255: under one 8-bit step of the object's own contrast
 }
 static GLuint gLiveProg = 0;   // CP 5.8: compiled at init (warmPrograms)
 void Renderer::warmPrograms() {
@@ -6110,6 +6132,7 @@ void Renderer::bakeFog(const Terrain& t) {
   }
   glTextureSubImage2D(fogTex, 0, 0, 0, N, N, GL_RGBA, GL_FLOAT, fogCpu.data());
   fogBox = vec4(t.org.x, t.org.y, 1.0f / ext.x, 1.0f / ext.y);
+  fogGroundMin = hmin; fogGroundMax = *std::max_element(h.begin(), h.end());   // viscull (visCullDist)
 }
 // the shader's optical depth with the field taken at the segment's midpoint (no drift noise): bot sight in fog
 float Renderer::fogT(vec3 a, vec3 b) const {

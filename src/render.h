@@ -152,7 +152,7 @@ public:
   float cloudCoverNow() const { return glm::mix(cloudCover, 0.86f, wx.k); }   // WX1 Cloudy: broken to heavy cover, still with openings
   // WX1 environmental fog field (render.cpp bakeFog): 256^2 over the terrain, R ground-fog share (basins, low ground,
   // shore), G drift noise (scrolls on the wind), B smoothed ground height (m). Rebuilt when the terrain changes.
-  GLuint fogTex = 0; std::vector<vec4> fogCpu; vec4 fogBox{0, 0, 1, 1}; float fogSig = 0; bool camIndoor = false;
+  GLuint fogTex = 0; std::vector<vec4> fogCpu; vec4 fogBox{0, 0, 1, 1}; float fogSig = 0; bool camIndoor = false; float fogGroundMin = 0, fogGroundMax = 0;   // viscull: the map's ground range (bakeFog)
   void bakeFog(const Terrain& t);
   float fogT(vec3 a, vec3 b) const;   // CPU fog transmittance a -> b (AI sight; 1 before the first bake)
   float cloudClock() const { return wx.clock >= 0 ? (float)std::fmod(wx.clock, 86400.0) : time; }
@@ -403,7 +403,8 @@ public:
   int shaderErrors = 0;                 // compile failures since start (self-tests require 0)
   int shaderCacheHits = 0;              // CP 5.8: programs loaded from the program-binary cache
   void warmPrograms();
-  float visCullDist(vec3 eye) const;   // weather corpus 08 s4: 1.42 x the visibility (3.912 / extinction) at the eye, 1e9 with no fog                  // CP 5.8: the programs compiled on first use, compiled at init instead (no mid-match compile hitch)
+  float visCullDist(vec3 eye) const;   // weather corpus 08 s4: one conservative cut for every cull site (1e9 with no fog)
+  bool fogHides(vec3 eye, vec3 top) const;   // the fog's transmittance from the eye to a point under 1/255 (the shader's height integrals)                  // CP 5.8: the programs compiled on first use, compiled at init instead (no mid-match compile hitch)
   int fboErrors = 0;                    // incomplete framebuffers since start (self-tests require 0)
   // Depth convention (docs/rendering.md#depth-convention). The world camera passes of render() are reverse-Z: clip depth
   // 0..1 (glClipControl), near = 1, far = 0, cleared to 0, GL_GREATER. Shadow cascades, sky occlusion, thumbnails and
