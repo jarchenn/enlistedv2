@@ -398,7 +398,7 @@ static int thumbOne(App& app, AssetDef* a, ThumbStats& st, bool render) {
       }
     R.foliage.clear(); if (a->tree.on) R.foliage.push_back({&a->tree, mat4(1)});
     R.worldModels.clear();
-    if (a->model) for (size_t k = 0; k < a->model->parts.size(); ++k) R.worldModels.push_back({a->model.get(), (int)k, mat4(1)});
+    if (a->model) { int k0, k1; a->modelRange(a->model.get(), k0, k1); for (int k = k0; k < k1; ++k) R.worldModels.push_back({a->model.get(), k, mat4(1)}); }   // FL1: its parts of a pack bake
     // thin wire: at least 1.2 px wide in the tile (the world uses the asset's own thinLinesPx at range)
     // Box-part wire (fence strands: 8 mm on an 8 m fence = 0.26 px) gets the same: a tile-only copy of every visible
     // box part thinner than minT (~1.5 px of the tile, chosen by the renderer for its framing), thickened to that and

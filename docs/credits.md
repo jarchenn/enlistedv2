@@ -853,3 +853,24 @@ Freesound sounds released under **CC0 1.0 Universal** (licence checked on each s
 | bta/steps_slush.mp3 (step_slush) | Footsteps on slush | xkeril | CC0 1.0 | https://freesound.org/people/xkeril/sounds/611278/ |
 | bta/steps_mud.mp3 (step_mud) | Footsteps_Mountain_Boots_Mud_Mono.wav | Nox_Sound | CC0 1.0 | https://freesound.org/people/Nox_Sound/sounds/548384/ |
 | bta/steps_shallow.mp3 (step_shallow) | Splashing Footsteps Shallow Water | ChristopherJngs | CC0 1.0 | https://freesound.org/people/ChristopherJngs/sounds/861369/ |
+
+## Plants and stones (FL1)
+
+The user's plant and stone packs, each baked as ONE model (`content/assets/models/fl_<pack>/`, asset `fl_<pack>_pack`)
+whose plants are separate assets (`tools/fl1_flora_export.py`, `tools/fl1_flora.py`). The TR1 tree variants (`tr_*`),
+the shrub variants (`bs_*`) and VR1's rock variants (`rk_stone_*`) draw these bakes. Title, author, licence and source
+as each file's own metadata gives them.
+
+| Assets | Model | Author | Licence | Source | Changes | In the repo |
+|---|---|---|---|---|---|---|
+| `fl_oak_*` | Oak trees pack (17var, LODs, seasons, gameready) | LOLIPOP (https://sketchfab.com/lolipop_1707) | CC-BY-4.0 | https://sketchfab.com/3d-models/oak-trees-pack-17var-lods-seasons-gameready-a5e4e64f9f1d4089bdcc6170a9333393 | modified: split into one asset per plant, re-anchored, LODs (the pack's LOD2 or decimated), textures resized; billboards and seasonal copies not used | yes |
+| `fl_maple_*` | Maple trees pack (lowpoly, game ready, LODs) | LOLIPOP (https://sketchfab.com/lolipop_1707) | CC-BY-4.0 | https://sketchfab.com/3d-models/maple-trees-pack-lowpoly-game-ready-lods-b5d2833c258f4054a01ee2b4ef85adf0 | modified: split into one asset per plant, re-anchored, LODs (the pack's LOD2 or decimated), textures resized; billboards and seasonal copies not used | yes |
+| `fl_lilac_*` | Lilac bush pack (12 vars, LODs, game ready) | LOLIPOP (https://sketchfab.com/lolipop_1707) | CC-BY-4.0 | https://sketchfab.com/3d-models/lilac-bush-pack-12-vars-lods-game-ready-10312697ec994fc99355cb94f1963a2e | modified: split into one asset per plant, re-anchored, LODs (the pack's LOD2 or decimated), textures resized | yes |
+| `fl_bush_*` | Bush models pack (gameready, LODs) | LOLIPOP (https://sketchfab.com/lolipop_1707) | CC-BY-4.0 | https://sketchfab.com/3d-models/bush-models-pack-gameready-lods-f2d9ffd3e6a94cf0b9464ccd66a4c2f8 | modified: split into one asset per plant, re-anchored, LODs (the pack's LOD2 or decimated), textures resized; billboards and seasonal copies not used | yes |
+| `fl_gnarly_*` | Gnarly trees | DJMaesen | CC-BY-4.0 | https://sketchfab.com/3d-models/gnarly-trees-30e3921861124c3199e0b48549b53f83 | modified: split into one asset per plant, re-anchored, LODs (the pack's LOD2 or decimated), textures resized; decimated | yes |
+| `fl_bare_*` | Trees (trees.glb) | DJMaesen | CC-BY-4.0 | https://sketchfab.com/3d-models/trees-dbd3f20966de4cae9170413b9c6f891d | modified: split into one asset per plant, re-anchored, LODs (the pack's LOD2 or decimated), textures resized | yes |
+| `fl_deadbranch_*` | Trees (trees (1).glb) | DJMaesen | CC-BY-4.0 | https://sketchfab.com/3d-models/trees-eed7470843504aa592514554a6100fbc | modified: split into one asset per plant, re-anchored, LODs (the pack's LOD2 or decimated), textures resized | yes |
+| `fl_clover_*` | Clovers - Plants / Foliage | Studio Lab | CC-BY-4.0 | https://sketchfab.com/3d-models/clovers-plants-foliage-d68dc45e329e48e3bc83ecc5448a6c25 | modified: split into one asset per plant, re-anchored, LODs (the pack's LOD2 or decimated), textures resized; decimated | yes |
+| `fl_succulent_*` | Plant Series - Succulents | Spazio Silvestre | CC-BY-4.0 | https://sketchfab.com/3d-models/plant-series-succulents-6a22ed22665743b6bc989978da95e32a | modified: split into one asset per plant, re-anchored, LODs (the pack's LOD2 or decimated), textures resized; spines and the gravel bed dropped, decimated | yes |
+| `fl_stone_*` | stone_group_1 | Isengrim | CC-BY-SA-4.0 (share-alike: the baked stones are a derivative under the same licence) | https://sketchfab.com/3d-models/stone-group-1-fb1bba28ee32463aae91c63a6b5951e1 | modified: split into one asset per plant, re-anchored, LODs (the pack's LOD2 or decimated), textures resized | yes |
+| `fl_grass_*` | grass | Georgeous | Sketchfab Standard (not redistributable) | Sketchfab (no source URL in the file) | modified: split into one asset per plant, re-anchored, LODs (the pack's LOD2 or decimated), textures resized | no, local only (git-ignored bake; `fl_grass_reeds` falls back to Poly Haven grass) |

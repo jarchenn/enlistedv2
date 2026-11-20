@@ -1,5 +1,5 @@
 {
- "_doc": "TR1 (tools/tr1_trees.py): generated tree ids -> model-tree variants; a map placing an old id loads each such tree as one of its variants, picked by the instance id.",
+ "_doc": "TR1 (tools/tr1_trees.py): generated tree ids -> model-tree variants; a map placing an old id loads each such tree as one of its variants, picked by the instance id; FL1 (tools/fl1_flora.py): the generated shrubs -> the bush packs' variants; FL1 (tools/fl1_flora.py): the generated shrubs -> the bush packs' variants; FL1 (tools/fl1_flora.py): the generated shrubs -> the bush packs' variants.",
  "aliases": {
   "tree_oak": [
    "tr_oak_a",
@@ -76,6 +76,33 @@
    "tr_dead_b",
    "tr_dead_c",
    "tr_dead_d"
+  ],
+  "shrub_hazel": [
+   "bs_hazel_a",
+   "bs_hazel_b",
+   "bs_hazel_c"
+  ],
+  "nat_hawthorn_bush": [
+   "bs_hawthorn_a",
+   "bs_hawthorn_b",
+   "bs_hawthorn_c"
+  ],
+  "nat_blackthorn_low": [
+   "bs_blackthorn_a",
+   "bs_blackthorn_b"
+  ],
+  "shrub_bramble": [
+   "bs_bramble_a",
+   "bs_bramble_b",
+   "bs_bramble_c"
+  ],
+  "nat_bramble_thicket": [
+   "bs_thicket_a",
+   "bs_thicket_b"
+  ],
+  "nat_gorse_shrub": [
+   "bs_gorse_a",
+   "bs_gorse_b"
   ]
  }
 }

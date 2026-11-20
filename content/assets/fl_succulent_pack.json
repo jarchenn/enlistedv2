@@ -1,0 +1,45 @@
+{
+ "id": "fl_succulent_pack",
+ "version": 1,
+ "name": "Succulent pack (bake)",
+ "category": "Desert",
+ "hidden": true,
+ "description": "FL1: the shared bake of the succulent pack; its plants are the fl_succulent_* assets (tools/fl1_flora.py). Not placed by itself.",
+ "footprint": [
+  1,
+  1
+ ],
+ "floors": 0,
+ "enterable": false,
+ "plinthDepth": 0,
+ "maxGrade": 30,
+ "noAutoPanels": true,
+ "model": {
+  "src": "succulent.glb",
+  "lod1Src": "succulent_lod1.glb",
+  "dir": "fl_succulent",
+  "pivot": "ground",
+  "scale": 1,
+  "offset": [
+   -0.01716,
+   -0.01,
+   -0.0
+  ],
+  "maxTex": 512,
+  "lod1Tex": 512,
+  "jpgMaps": true,
+  "lodDist": 25,
+  "cullDist": 220,
+  "foliage": true,
+  "wind": 0.1,
+  "credit": "Plant Series - Succulents by Spazio Silvestre, CC-BY-4.0, https://sketchfab.com/3d-models/plant-series-succulents-6a22ed22665743b6bc989978da95e32a"
+ },
+ "nav": {
+  "effect": "none"
+ },
+ "materials": [],
+ "parts": [],
+ "furniture": [],
+ "interactables": [],
+ "panels": []
+}

@@ -8,6 +8,9 @@ import math
 from mapgen import polyline_dist, catmull_rom, rect, circle_poly, fbm, smoothstep, stamp_valley, asset_yaw_along, point_at, polyline_length, look_yaw
 from maps.newtown import stamp_road
 from maps.outpost_common import build_variant, range_layout, HX, HZ, WRECKS
+from mapgen import output as _output
+# FL1: the desert's gorse is the succulent pack (tools/fl1_flora.py DESERT; the shared alias table makes it the bush pack elsewhere)
+_output.MAP_ALIASES.setdefault("outpost_desert", {})["nat_gorse_shrub"] = ["fl_succulent_columns", "fl_succulent_ball", "fl_succulent_agave", "fl_succulent_prickly_pear"]
 
 FOB = (-34.0, -64.0, 20.0, -22.0)                   # x0, z0, x1, z1 of the HESCO wall
 ROAD = catmull_rom([(-44.0, -78.0), (-42.0, -30.0), (-38.0, 8.0), (-44.0, 44.0), (-41.0, 78.0)])

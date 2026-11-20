@@ -1,0 +1,45 @@
+{
+ "id": "fl_oak_pack",
+ "version": 1,
+ "name": "Oak pack (bake)",
+ "category": "Vegetation",
+ "hidden": true,
+ "description": "FL1: the shared bake of the oak pack; its plants are the fl_oak_* assets (tools/fl1_flora.py). Not placed by itself.",
+ "footprint": [
+  1,
+  1
+ ],
+ "floors": 0,
+ "enterable": false,
+ "plinthDepth": 0,
+ "maxGrade": 30,
+ "noAutoPanels": true,
+ "model": {
+  "src": "oak.glb",
+  "lod1Src": "oak_lod1.glb",
+  "dir": "fl_oak",
+  "pivot": "ground",
+  "scale": 1,
+  "offset": [
+   0.46013,
+   -0.01,
+   1.60681
+  ],
+  "maxTex": 1024,
+  "lod1Tex": 512,
+  "jpgMaps": true,
+  "lodDist": 45,
+  "cullDist": 420,
+  "foliage": true,
+  "wind": 1.0,
+  "credit": "Oak trees pack (17var, LODs, seasons, gameready) by LOLIPOP (sketchfab.com/lolipop_1707), CC-BY-4.0, https://sketchfab.com/3d-models/oak-trees-pack-17var-lods-seasons-gameready-a5e4e64f9f1d4089bdcc6170a9333393"
+ },
+ "nav": {
+  "effect": "none"
+ },
+ "materials": [],
+ "parts": [],
+ "furniture": [],
+ "interactables": [],
+ "panels": []
+}

@@ -1,0 +1,45 @@
+{
+ "id": "fl_bush_pack",
+ "version": 1,
+ "name": "Bush pack (bake)",
+ "category": "Vegetation",
+ "hidden": true,
+ "description": "FL1: the shared bake of the bush pack; its plants are the fl_bush_* assets (tools/fl1_flora.py). Not placed by itself.",
+ "footprint": [
+  1,
+  1
+ ],
+ "floors": 0,
+ "enterable": false,
+ "plinthDepth": 0,
+ "maxGrade": 30,
+ "noAutoPanels": true,
+ "model": {
+  "src": "bush.glb",
+  "lod1Src": "bush_lod1.glb",
+  "dir": "fl_bush",
+  "pivot": "ground",
+  "scale": 1,
+  "offset": [
+   0.17713,
+   -0.01,
+   -0.01371
+  ],
+  "maxTex": 1024,
+  "lod1Tex": 512,
+  "jpgMaps": true,
+  "lodDist": 20,
+  "cullDist": 180,
+  "foliage": true,
+  "wind": 1.0,
+  "credit": "Bush models pack (gameready, LODs) by LOLIPOP (sketchfab.com/lolipop_1707), CC-BY-4.0, https://sketchfab.com/3d-models/bush-models-pack-gameready-lods-f2d9ffd3e6a94cf0b9464ccd66a4c2f8"
+ },
+ "nav": {
+  "effect": "none"
+ },
+ "materials": [],
+ "parts": [],
+ "furniture": [],
+ "interactables": [],
+ "panels": []
+}
