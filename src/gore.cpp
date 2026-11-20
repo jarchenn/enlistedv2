@@ -627,3 +627,5 @@ uint64_t goreTestInjectHit(App& app) {
   }
   return 0;
 }
+
+void goreRipple(vec3 p) { ripple(p); }   // BTA: a footstep splash ring (map_ambience.cpp), from the same capped puff pool

@@ -126,3 +126,4 @@ json goreEventJsonFor(const FleshHit& h);         // the LAN event the host woul
 // decals.cpp
 void decalsRender(Renderer& r, const RenderView& v, const mat4& vp, unsigned depthTex);
 void decalsShutdown();
+void goreRipple(vec3 p);   // BTA: one water ripple ring at p (the puff pool, capped)

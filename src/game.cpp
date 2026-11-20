@@ -2,6 +2,7 @@
 #include <map>
 // Match game layer: lifecycle, spawning, soldier weapons / grenades, damage, presentation. AI is in ai.cpp.
 #include "sd_game.h"
+#include "map_ambience.h"   // BTA
 #include "game.h"
 #include "classes.h"
 #include "abilities.h"
@@ -90,6 +91,7 @@ static void botFootstep(App& app, const Soldier& s, float v) {
   bucket -= 1;
   std::string ev = s.kit == 3 && app.audio.hasSound("step_metal") ? "step_metal" : app.stepSound(s.feet, 0);   // the robot commando: a metallic step
   app.audio.play(ev, foot, vol, s.kit == 3 && ev != "step_metal" ? 0.8f : 0.9f + 0.2f * (float)((s.slot * 7 + (int)(now * 13)) % 10) / 10.0f);
+  mapStepFeedback(app, ev, foot);   // BTA: splashes at the contact
   ++gBotSteps;
 }
 
