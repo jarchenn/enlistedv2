@@ -3959,7 +3959,7 @@ bool Renderer::init(int w, int h) {
     // PF terrain early depth: the same shader without the tile-mask discard, for every base chunk not under an active tile
     const std::string cut = "if (texelFetch(uTileMask, tc, 0).r > 0.5) discard;";
     size_t at = fs.find(cut);
-    if (at != std::string::npos && fs.find("discard", at + cut.size()) == std::string::npos && fs.substr(0, at).find("discard") == std::string::npos) {
+    if (at != std::string::npos && fs.find("discard;", at + cut.size()) == std::string::npos && fs.substr(0, at).find("discard;") == std::string::npos) {   // statements only (comments mention the word)
       fs.replace(at, cut.size(), ";");
       progTerrainND = compile(kTerrainVS, fs.c_str(), "terrain_nodiscard");
       progTerrainDepth = compile(kTerrainVS, kTerrainDepthFS, "terrain_depth");
