@@ -66,7 +66,7 @@ json UserSettings::toJson() const {
                   {"bloom", g.bloom}, {"taa", g.taa}, {"taaPhases", g.taaPhases}, {"clouds", g.clouds}, {"cloudQuality", g.cloudQuality}, {"grass", g.grass}, {"grassWind", g.grassWind},
                   {"renderDistance", g.renderDist}, {"particleBudget", g.particles}, {"fov", fov}, {"gamma", gamma}, {"microcontrast", microcontrast}, {"lighting", lightNew ? "new" : "classic"}, {"vsync", vsync}, {"fpsCap", fpsCap}, {"upscaling", upscale == 0 ? "temporal" : upscale == 1 ? "spatial" : "off"},
                   {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi}, {"msaa", g.msaa}, {"ivy", g.ivy}, {"materialDetail", g.materials}, {"dustMotes", g.dustMotes},
-                  {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}, {"weather", weather == 1 ? "Cloudy" : "Clear"}, {"envFog", envFog}}},
+                  {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}, {"weather", wxPresetName(weather)}, {"envFog", envFog}}},
     {"gameplay", {{"mouseSensitivity", mouseSens}, {"adsSensitivity", adsSens}, {"invertY", invertY}, {"reducedMotion", reducedMotion},
                   {"showArms", showArms}, {"sightMarkers", sightMarkers}, {"weaponList", weaponList}, {"friendlyMarkers", friendlyMarkers}, {"heliCameraMotion", heliCamMotion}, {"vehicleWorldBars", vehicleBars}, {"reticleSize", reticleSize}, {"reticleBright", reticleBright}}},
     {"audio", {{"master", master}, {"effects", effects}, {"ui", ui}, {"ambience", ambience}, {"gunfire", gunfire}, {"heartbeat", heartbeat}}},
@@ -90,7 +90,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     g.farCascade = q.value("farCascade", g.farCascade); g.cloudShadows = q.value("cloudShadows", g.cloudShadows);
     g.shafts = q.value("lightShafts", g.shafts); g.ssr = q.value("ssr", g.ssr); g.ssao = q.value("ssao", g.ssao); g.ssaoFull = q.value("ssaoFullRes", g.ssaoFull);
     g.bloom = q.value("bloom", g.bloom); g.taa = q.value("taa", g.taa); g.taaPhases = std::clamp(q.value("taaPhases", g.taaPhases), 1, 64);
-    g.clouds = q.value("clouds", g.clouds); g.cloudQuality = std::clamp(q.value("cloudQuality", g.cloudQuality), 0, 2); u.weather = q.value("weather", std::string("Clear")) == "Cloudy" ? 1 : 0; u.envFog = std::clamp(q.value("envFog", u.envFog), 0, 3); g.grass = std::clamp(q.value("grass", g.grass), 0, 4); g.grassWind = q.value("grassWind", g.grassWind);
+    g.clouds = q.value("clouds", g.clouds); g.cloudQuality = std::clamp(q.value("cloudQuality", g.cloudQuality), 0, 2); u.weather = q.contains("weather") && q["weather"].is_number_integer() ? std::max(0, q["weather"].get<int>()) : std::max(0, wxPresetFromName(q.value("weather", std::string("Clear"))));   // W1: a preset name ("Cloudy" = Overcast) u.envFog = std::clamp(q.value("envFog", u.envFog), 0, 3); g.grass = std::clamp(q.value("grass", g.grass), 0, 4); g.grassWind = q.value("grassWind", g.grassWind);
     g.materials = std::clamp(q.value("materialDetail", g.materials), 0, 2);
     if (q.contains("drawDistance") && !q.contains("renderDistance")) g.renderDist = 1200.0f * q.value("drawDistance", 1.0f);   // migration: the old multiplier of 1200 m
     g.renderDist = std::clamp(q.value("renderDistance", g.renderDist), 300.0f, 5000.0f); g.particles = std::clamp(q.value("particleBudget", g.particles), 0.25f, 4.0f);
@@ -250,7 +250,7 @@ void Settings::apply(App& app) {
   R.grassAtlasTier = g.grass >= 2;   // GT1 grass plant atlas: Medium, High, Ultra (Low keeps the procedural blades)
   R.leafLodScale = g.grass <= 1 ? 0.6f : 1.0f;   // L1: vegetation detail follows the grass quality (Low: near 6 m, mid 13 m)
   R.clouds = g.clouds; R.wx.quality = g.cloudQuality; R.wx.target = s.weather; R.wx.fog = s.envFog;   // WX1 (a LAN client takes the host's: Renderer::Weather::forced)
-  R.q.hazeDensity = 0.0010f * std::clamp(1200.0f / g.renderDist, 0.4f, 2.0f);
+  R.q.hazeDensity = 0.0010f;   // W1: visibility is the weather's, the same on every quality preset (fair sight; was scaled by render distance)
   R.q.snowfallScale = g.cloudQuality <= 0 ? 0.4f : g.cloudQuality == 1 ? 0.75f : 1.0f;   // SF1: a map's snowfall at this sky quality   // PF2: the haze reaches the same depth at the render distance (Medium: unchanged)
   R.lt.maxLights = g.lightCount; R.lt.shadowLights = g.shadowLights; R.lt.gi = g.gi; R.lt.hour = s.hour;   // L2 lighting
   app.grass.quality = (GrassQuality)std::clamp(g.grass, 0, 4); app.grass.nearWind = g.grassWind;
@@ -468,11 +468,15 @@ void settingsWindow(App& app) {
         if (flat::sliderFloat("Hour", &u.hour, 0.0f, 23.99f, hl) && u.hour != h0) settingsUiHour(app, u.hour);
         ImGui::EndDisabled();
         { const bool wxDef = app.R.wx.mapWx >= 0 && !app.R.wx.enclosed;   // WX2: live (no Apply needed) and kept when the window closes
-          int wi = wxDef && !app.R.wx.userSet ? 2 : u.weather; const char* wn[] = {"Clear", "Cloudy", "Map default"};
-          if (flat::combo("Weather", &wi, wn, wxDef ? 3 : 2)) { if (wi == 2) app.R.wx.userSet = false; else { u.weather = wi; settingsUiWeather(app, wi); } } }
+          // W1: the fifteen presets in the corpus table's order, then Map default (maps with an authored sky); enclosed maps have none
+          static const char* wn[32]; const int np = wxPresetCount(); for (int k = 0; k < np; ++k) wn[k] = wxPresetName(wxPresetIdAt(k)); wn[np] = "Map default";
+          int wi = wxDef && !app.R.wx.userSet ? np : wxPresetMenuIndex(u.weather);
+          ImGui::BeginDisabled(app.R.wx.enclosed);
+          if (flat::combo("Weather", &wi, wn, wxDef ? np + 1 : np)) { if (wi == np) app.R.wx.userSet = false; else { u.weather = wxPresetIdAt(wi); settingsUiWeather(app, u.weather); } }
+          ImGui::EndDisabled();
+          if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip(app.R.wx.enclosed ? "This map has no sky." : "Applies at once; the hour stays as set (Dawn ground fog is meant for dawn). Clear and Overcast keep today's look; the others set light, air, wind and falling snow from the weather corpus. Lying snow and sand only on maps made for them. In a LAN match the host's weather applies."); }
         { const char* fn[] = {"Off", "Light", "Moderate", "Dense"}; flat::combo("Environmental fog", &u.envFog, fn, 4); }
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Ground fog in hollows, low ground and along the shore, drifting on the wind. Limits how far bots see. A LAN match uses the host's.");
-        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Cloudy: full overcast in layers, soft diffuse light, no sun rays, slightly muted colours. Applies at once. In a LAN match the host's weather applies.");
         flat::sliderInt("Light count", &g.lightCount, 0, 1024);
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Lamps, lanterns and fires lit each frame (nearest first).");
         { int sl[] = {0, 2, 4, 8}; const char* sn[] = {"Off", "2", "4", "8"}; int si = 0; for (int k = 0; k < 4; ++k) if (sl[k] == g.shadowLights) si = k;

@@ -49,6 +49,7 @@ public:
   };
   GrassQuality quality = GrassQuality::Medium;
   bool wind = true;                               // grass and trees (editor View menu, --off wind)
+  float windK = 1.0f;                             // W1: the weather preset's wind against Clear's (Renderer::wx.der.windK)
   bool nearWind = true;                           // settings: vertex wind on the near clumps (off = static grass)
 
   // Keep chunks near the camera built and current. budgetMs < 0 builds everything synchronously.
