@@ -2882,10 +2882,20 @@ layout(location=4) in float aMorph;   // VOT T1: the next LOD's height minus thi
 uniform mat4 uVP;
 uniform vec4 uMorph;                  // VOT T1 geomorph: x start distance, y 1 / ramp length, z on
 out vec3 vW, vN0; out float vDirt; out vec3 vEw;
+invariant gl_Position;                // PF tzprepass: the depth pass and the colour pass must rasterise identical depths
 void main(){
   vec3 P = aPos;
   if (uMorph.z > 0.5) P.y += aMorph*clamp((length(aPos - uCamPos) - uMorph.x)*uMorph.y, 0.0, 1.0);
   vW = P; vN0 = aNrm; vDirt = aDirt; vEw = aEw; gl_Position = uVP*vec4(P,1.0);
+}
+)GLSL";
+// PF tzprepass: the terrain's depth-only pass (kTerrainVS, whose gl_Position is invariant, so the colour pass's EQUAL test
+// matches it exactly); it alone discards the base under active tiles
+static const char* kTerrainDepthFS = R"GLSL(
+in vec3 vW, vN0; in float vDirt; in vec3 vEw;
+uniform int uDiscard; uniform sampler2D uTileMask; uniform float uTileSize; uniform vec2 uTerrainOrg;
+void main(){
+  if (uDiscard == 1 && texelFetch(uTileMask, ivec2(floor((vW.xz - uTerrainOrg)/uTileSize)), 0).r > 0.5) discard;
 }
 )GLSL";
 static const char* kTerrainFS = R"GLSL(
@@ -4007,8 +4017,17 @@ bool Renderer::init(int w, int h) {
   progShadow = compile(kShadowVS, kShadowFS, "shadow");
   progShadowI = compile(kShadowIVS, kShadowFS, "shadow_inst");
   progDepth = compile(kDepthVS, kShadowFS, "depth prepass");
-  { extern const char* groundPaintGlsl(); extern const char* snowTexGlsl(); progTerrain = compile(kTerrainVS, (std::string(tex::glslCommon()) + groundPaintGlsl() + snowTexGlsl() + kTerrainFS).c_str(), "terrain"); }   // L4 defines first, then lasso ground paint
-  tex::init(contentDir() / "textures"); tex::attach(progMain); tex::attach(progTerrain);   // L4: ambientCG sets, units 20-22
+  { extern const char* groundPaintGlsl(); extern const char* snowTexGlsl(); std::string fs = std::string(tex::glslCommon()) + groundPaintGlsl() + snowTexGlsl() + kTerrainFS;   // L4 defines first, then lasso ground paint
+    progTerrain = compile(kTerrainVS, fs.c_str(), "terrain");
+    // PF terrain early depth: the same shader without the tile-mask discard, for every base chunk not under an active tile
+    const std::string cut = "if (texelFetch(uTileMask, tc, 0).r > 0.5) discard;";
+    size_t at = fs.find(cut);
+    if (at != std::string::npos && fs.find("discard;", at + cut.size()) == std::string::npos && fs.substr(0, at).find("discard;") == std::string::npos) {   // statements only (comments mention the word)
+      fs.replace(at, cut.size(), ";");
+      progTerrainND = compile(kTerrainVS, fs.c_str(), "terrain_nodiscard");
+      progTerrainDepth = compile(kTerrainVS, kTerrainDepthFS, "terrain_depth");
+    } else { ++shaderErrors; logf("shader terrain_nodiscard: kTerrainFS no longer has exactly one discard, the tile-mask line \"%s\" (tzearly would do nothing)", cut.c_str()); } }
+  tex::init(contentDir() / "textures"); tex::attach(progMain); tex::attach(progTerrain); if (progTerrainND) tex::attach(progTerrainND);   // L4: ambientCG sets, units 20-22
   progSky = compile(kSkyVS, kSkyFS, "sky");
   progTone = compile(kFullVS, kToneFS, "tone");
   progGradeLut = compile(kFullVS, kGradeLutFS, "grade_lut");   // VO L8
@@ -5367,6 +5386,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glDepthMask(GL_TRUE); glDepthFunc(zLess());   // the world's depth state (drawSky leaves it too; sky-last must set it here)
   auto drawTerrain = [&]() {
     gpuMark(GP_Terrain);
+    const GLuint progTN = perf.terrainEarlyZ ? progTerrainND : 0;   // PF: tzearly
+    for (GLuint progTerrain : {this->progTerrain, progTN}) { if (!progTerrain) continue;   // the same set-up for both terrain shaders
     setLighting(progTerrain, v);
     glUniformMatrix4fv(U(progTerrain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
     glUniform1i(U(progTerrain, "uGrid"), v.grid ? 1 : 0);
@@ -5388,8 +5409,16 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       glProgramUniform1f(progTerrain, glGetUniformLocation(progTerrain, "uGroundSpec"), ggOff ? 1.0f : dspec);
     }
     { static const int dbg = std::getenv("NMK_DBG_TERRAIN") ? std::atoi(std::getenv("NMK_DBG_TERRAIN")) : 0; glProgramUniform1i(progTerrain, glGetUniformLocation(progTerrain, "uDbgTerr"), dbgTerr >= 0 ? dbgTerr : dbg); }   // GG1 measurement
+    }
     t.drawOpts.normals = perf.terrainNormals; t.drawOpts.morph = perf.terrainMorph; t.drawOpts.skyView = perf.terrainSkyView;   // VOT T1 / T5
-    t.draw(progTerrain, v.camPos, vp);   // streamed LOD chunks + deformation tiles (terrain_chunks.cpp)
+    // PF terrain: samples the terrain pass wrote, read a ring slot later (the shaded-fragment count is the bench's fragment query, gpuMark)
+    if (!terrQ[0][1]) for (auto& q : terrQ) glCreateQueries(GL_SAMPLES_PASSED, 1, &q[1]);
+    if (terrQn >= 2) { GLuint64 b = 0; GLint ok = 0; glGetQueryObjectiv(terrQ[terrQi][1], GL_QUERY_RESULT_AVAILABLE, &ok); if (ok) { glGetQueryObjectui64v(terrQ[terrQi][1], GL_QUERY_RESULT, &b); stats.terrSamples = (double)b; } }
+    glBeginQuery(GL_SAMPLES_PASSED, terrQ[terrQi][1]);
+    const GLuint progTD = progTN && perf.terrainPrepass ? progTerrainDepth : 0;   // PF: tzprepass
+    if (progTD) { glProgramUniformMatrix4fv(progTD, U(progTD, "uVP"), 1, GL_FALSE, glm::value_ptr(vp)); glProgramUniform3fv(progTD, U(progTD, "uCamPos"), 1, glm::value_ptr(v.camPos)); }
+    t.draw(progTerrain, v.camPos, vp, progTN, progTD);   // streamed LOD chunks + deformation tiles (terrain_chunks.cpp)
+    glEndQuery(GL_SAMPLES_PASSED); terrQi ^= 1; ++terrQn;
     glDisable(GL_POLYGON_OFFSET_FILL);
   };
   if (!perf.terrainLast) drawTerrain();

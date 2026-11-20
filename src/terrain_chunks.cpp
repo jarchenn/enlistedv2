@@ -288,29 +288,48 @@ float TerrainStream::lodDistance(int l) const {
   return cfg.lodDist[l] * (l >= 1 ? k : 1.0f);
 }
 
-void TerrainStream::drawBase(const Terrain& t, vec3 cam, const mat4& vp, GLint uMorph) {
+void TerrainStream::drawBase(const Terrain& t, vec3 cam, const mat4& vp, GLuint progD, GLuint progN, bool morph) {
   (void)cam;
   Frustum fr = Frustum::fromVP(vp);
-  std::vector<GLsizei> counts[kLods]; std::vector<const void*> offs[kLods]; std::vector<GLint> base[kLods];
+  // [0]: chunks under an active deformation / sculpt tile (progD, which discards the hidden base), [1]: the rest (progN:
+  // no discard, so depth is written early and covered ground is never shaded)
+  std::vector<GLsizei> counts[2][kLods]; std::vector<const void*> offs[2][kLods]; std::vector<GLint> base[2][kLods];
   int drawn = 0, culled = 0; int64_t tris = 0;
+  const int tpc = Terrain::kChunkCells / Terrain::kTileCells, ntx = t.tilesX(), ntz = t.tilesZ();
+  stats.drawnMasked = 0; for (int l = 0; l < kLods; ++l) { stats.drawnLod[l] = 0; stats.trisLod[l] = 0; }
   for (int i = 0; i < (int)chunks.size(); ++i) {
     const Chunk& c = chunks[i];
     if (c.lod < 0) continue;
     vec3 lo, hi; chunkBox(t, i, lo, hi);
     lo.y -= cfg.skirtDepth * 6;
     if (!fr.visible(lo, hi)) { ++culled; continue; }
-    counts[c.lod].push_back(pools[c.lod].indexCount); offs[c.lod].push_back(nullptr); base[c.lod].push_back(c.slot * pools[c.lod].vertsPerSlot);
-    ++drawn; tris += pools[c.lod].indexCount / 3;
+    int k = 1;
+    if (progD != progN && !t.maskCpu.empty()) {
+      const int cx = i % t.chunksX(), cz = i / t.chunksX();
+      for (int tz = cz * tpc; k && tz < std::min(ntz, cz * tpc + tpc); ++tz)
+        for (int tx = cx * tpc; tx < std::min(ntx, cx * tpc + tpc); ++tx)
+          if (t.maskCpu[(size_t)tz * ntx + tx]) { k = 0; break; }
+    } else if (progD == progN) k = 0;
+    stats.drawnMasked += k == 0;
+    counts[k][c.lod].push_back(pools[c.lod].indexCount); offs[k][c.lod].push_back(nullptr); base[k][c.lod].push_back(c.slot * pools[c.lod].vertsPerSlot);
+    ++drawn; tris += pools[c.lod].indexCount / 3; ++stats.drawnLod[c.lod]; stats.trisLod[c.lod] += pools[c.lod].indexCount / 3;
   }
   int calls = 0;
-  for (int l = 0; l < kLods; ++l) {
-    if (counts[l].empty()) continue;
-    glBindVertexArray(pools[l].vao);
-    // VOT T1 geomorphing: vertices slide to the next LOD's surface over 0.6-0.92 of this LOD's switch distance, so a chunk
-    // that changes LOD (at >= 1 + hysteresis coarser, <= 1 - hysteresis finer) already has the other level's shape
-    if (uMorph >= 0) { float D = lodDistance(std::min(l, 3)); if (l + 1 < kLods) glUniform4f(uMorph, 0.6f * D, 1.0f / (0.32f * D), 1.0f, 0.0f); else glUniform4f(uMorph, 0, 0, 0, 0); }
-    glMultiDrawElementsBaseVertex(GL_TRIANGLES, counts[l].data(), GL_UNSIGNED_INT, offs[l].data(), (GLsizei)counts[l].size(), base[l].data());
-    ++calls;
+  for (int k = 0; k < 2; ++k) {
+    GLuint pr = k == 0 ? progD : progN;
+    bool any = false; for (int l = 0; l < kLods; ++l) any |= !counts[k][l].empty();
+    if (!any) continue;
+    glUseProgram(pr);
+    GLint uMorph = morph ? glGetUniformLocation(pr, "uMorph") : -1;
+    for (int l = 0; l < kLods; ++l) {
+      if (counts[k][l].empty()) continue;
+      glBindVertexArray(pools[l].vao);
+      // VOT T1 geomorphing: vertices slide to the next LOD's surface over 0.6-0.92 of this LOD's switch distance, so a chunk
+      // that changes LOD (at >= 1 + hysteresis coarser, <= 1 - hysteresis finer) already has the other level's shape
+      if (uMorph >= 0) { float D = lodDistance(std::min(l, 3)); if (l + 1 < kLods) glUniform4f(uMorph, 0.6f * D, 1.0f / (0.32f * D), 1.0f, 0.0f); else glUniform4f(uMorph, 0, 0, 0, 0); }
+      glMultiDrawElementsBaseVertex(GL_TRIANGLES, counts[k][l].data(), GL_UNSIGNED_INT, offs[k][l].data(), (GLsizei)counts[k][l].size(), base[k][l].data());
+      ++calls;
+    }
   }
   stats.drawnLastFrame = drawn; stats.culledLastFrame = culled; stats.drawCalls = calls; stats.tris = tris;
 }

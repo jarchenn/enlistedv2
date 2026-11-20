@@ -122,7 +122,7 @@ public:
   bool inBuildArea(float x, float z) const { return std::fabs(x) <= buildHalfX && std::fabs(z) <= buildHalfZ; }
   bool inTerrain(float x, float z) const { return x >= org.x && z >= org.y && x <= org.x + size && z <= org.y + sizeZ; }
   // draws the streamed base chunks (LOD by distance to cam, culled by vp) and the deformation tiles
-  void draw(GLuint prog, vec3 cam, const mat4& vp) const;
+  void draw(GLuint prog, vec3 cam, const mat4& vp, GLuint progND = 0, GLuint progDepth = 0) const;   // progDepth: PF tzprepass depth-only shader (needs progND)   // progND: the shader without the tile-mask discard (terrain early depth)
   void destroy();
 
   // deformation
@@ -176,6 +176,7 @@ public:
   float wetAt(float x, float z) const { return surfSample(x, z, 1); }
   GLuint surfTex = 0;
   std::map<int, Tile> tiles;
+  std::vector<uint8_t> maskCpu;   // the tile mask (maskTex) on the CPU: which base chunks need the discarding shader
   std::set<int> physDirty;         // tile keys whose physics patch / chunk holes need syncing (terrain_chunks.cpp)
   uint32_t revision = 0, tileRev = 0, generation = 0;
 
