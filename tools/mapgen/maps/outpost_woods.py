@@ -257,17 +257,11 @@ V = {
                                   for a in [2 * math.pi * k / 48 for k in range(48)]]}],
     # NT8: golden hour in a pine forest (the Pine Forest banner): a low warm sun broken into shafts by the canopy, clear near
     # and middle ground (the earlier preview read too hazy), the glow in the shafts and the distance, cool green shade
-    # GR3 (realism brief): a cool, damp woodland air: near ground clear (fogNear), distance haze, a low mist that pools in the
-    # creek valley and the pond hollow (envFog: the WX1 ground field), its own night air; neutral indoor fill (the old green
-    # ambient x fill 1.4 turned every interior olive), a warm low sun without the yellow-green grade
-    "look": {"style": "abandoned", "haze": 1.05, "weather": 0.12, "envFog": 1, "fogNear": 14.0, "bloom": 1.35, "vegCull": 0.55, "saturation": 1.04,
-             "tint": [1.04, 1.0, 0.94], "grime": 1.0, "shafts": 2.6,
-             "night": {"haze": 0.6, "envFog": 1, "fogNear": 8.0},
-             "water": {"clarity": 2.4},
+    "look": {"style": "abandoned", "haze": 0.85, "weather": 0.12, "envFog": 0, "bloom": 1.35, "vegCull": 0.55, "saturation": 1.16, "tint": [1.1, 1.0, 0.84], "grime": 1.0,
+             "shafts": 2.6,
              "paintSets": {"gravel": "gravel_mixed", "dirt": "dirt_path_paint", "pebbles": "rock_slab_paint", "leaf_litter": "ph_needle_floor",
                            "ploughed": "moss_floor_paint", "scorched": "ph_leaf_floor"}},
-    "lighting": {"hour": 17.9, "enclosed": False, "fill": 0.95, "ambient": [0.018, 0.019, 0.021], "nightSky": [1.3, 1.5, 2.1], "nightFill": 1.2,
-                 "nightAmbient": [0.055, 0.042, 0.026]},   # GR3: at night a cool sky on upward faces, rooms warm from within
+    "lighting": {"hour": 17.9, "enclosed": False, "fill": 1.4, "ambient": [0.045, 0.06, 0.045]},
     "views_clear": 3.5,
 }
 
