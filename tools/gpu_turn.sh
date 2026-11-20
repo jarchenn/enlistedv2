@@ -7,6 +7,8 @@
 #   GPU_TURN_LOCK=<dir>     slot 1 directory (default: %TEMP%/nmk/gpu.lock; slot k > 1 is <dir>.k)
 #   GPU_TURN_STALE=<min>    a slot older than this is treated as abandoned and taken over (default 40)
 #   GPU_TURN_TAG=<text>     who holds the slot (shown to waiters; default: the current directory)
+#   GPU_TURN_MIN_COMMIT_GB=<n>  no slot is taken while the system's free commit (RAM + page file not yet promised) is
+#                           under n GB (default 16; 0 = off): 5-6 games loading at once ran out (std::bad_alloc)
 # Pause: while the file <lock>.pause exists (tools/gpu_pause.sh on|off), no new run takes a slot; running ones finish.
 # Fair queue: each waiter takes a ticket in <lock>.q (named by arrival time). A waiter may take a free slot only while
 # fewer than N older tickets are waiting, so nobody is starved; an exclusive waiter must be first and waits for every
@@ -20,6 +22,11 @@ N="${GPU_TURN_SLOTS:-5}"; [ "$N" -ge 1 ] 2>/dev/null || N=1
 EXCL="${GPU_TURN_EXCLUSIVE:-0}"
 STALE="${GPU_TURN_STALE:-40}"
 TAG="${GPU_TURN_TAG:-$(pwd)}"
+MINC="${GPU_TURN_MIN_COMMIT_GB:-16}"
+freeCommitGb() {   # Win32_OperatingSystem.FreeVirtualMemory (KB); empty when it can't be read (then the gate is open)
+  command -v powershell.exe >/dev/null 2>&1 || return
+  powershell.exe -NoProfile -NonInteractive -Command '[int]((Get-CimInstance Win32_OperatingSystem).FreeVirtualMemory / 1MB)' 2>/dev/null | tr -d ' '
+}
 slot() { [ "$1" -eq 1 ] && echo "$LOCK" || echo "$LOCK.$1"; }
 mkdir -p "$(dirname "$LOCK")" "$Q"
 TICKET="$Q/$(date +%s%N)-$$-$RANDOM$([ "$EXCL" = 1 ] && echo -X)"   # -X: exclusive (nobody behind it takes a slot)
@@ -40,6 +47,13 @@ while :; do
   if [ -e "$LOCK.pause" ]; then   # the user is playing: no new test takes the GPU (running ones finish)
     [ $((waited % 60)) -eq 0 ] && echo "gpu_turn: paused ($(cat "$LOCK.pause" 2>/dev/null)); waiting"
     sleep 5; waited=$((waited + 5)); continue
+  fi
+  if [ "$MINC" -gt 0 ] 2>/dev/null && { [ "$EXCL" = 1 ] && [ "$ahead" -eq 0 ] || [ "$EXCL" != 1 ] && [ "$ahead" -lt "$N" ]; }; then
+    fc=$(freeCommitGb)
+    if [ -n "$fc" ] && [ "$fc" -lt "$MINC" ] 2>/dev/null; then   # in line for a slot, but another game would not fit in memory
+      [ $((waited % 60)) -eq 0 ] && echo "gpu_turn: free commit ${fc} GB < ${MINC} GB; waiting for memory"
+      sleep 5; waited=$((waited + 5)); continue
+    fi
   fi
   if [ "$EXCL" = 1 ]; then
     if [ "$ahead" -eq 0 ]; then
