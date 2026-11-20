@@ -1246,7 +1246,7 @@ int App::run(int argc, char** argv) {
       static const double refresh = [] { const GLFWvidmode* vm = glfwGetPrimaryMonitor() ? glfwGetVideoMode(glfwGetPrimaryMonitor()) : nullptr; return vm && vm->refreshRate > 0 ? 1.0 / vm->refreshRate : 0.0; }();
       static double carry = 0;
       const double raw = std::min(0.1, t - last); double use = raw;
-      if (refresh > 0 && !std::getenv("NMK_DT_RAW")) {
+      if (refresh > 0 && R.perf.dtSnap) {
         const double n = std::round((raw + carry) / refresh);
         if (n >= 1 && std::fabs(raw + carry - n * refresh) < 0.001) use = n * refresh;
         carry += raw - use; if (std::fabs(carry) > refresh) { use += carry; carry = 0; }

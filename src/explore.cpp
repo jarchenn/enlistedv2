@@ -570,6 +570,7 @@ void App::updateExplore(float dt) {
   // CP (corpus 12 s12.5): fixed 60 Hz steps, at most 4 a frame (was 8: a slow frame no longer owes the next one a pile of steps);
   // the camera and the soldiers are drawn between the last two steps (alpha = the step fraction left), Jolt advances by the same steps
   eyeDrawOff = vec3(0);   // inside the steps the eye is the character's true position
+  gPosePerStep = !R.perf.poseFrame; gPoseLodOff = !R.perf.poseLod; gPoseSerial = !R.perf.poseJobs; gStepCap8 = !R.perf.stepInterp;   // the A/B switches (--rq-off)
   const int kMaxSteps = gStepCap8 ? 8 : 4;
   while (physAccum >= 1.0f / 60.0f && steps < kMaxSteps) {
     charStepPrev = Physics::character().pos;
@@ -582,11 +583,12 @@ void App::updateExplore(float dt) {
     physAccum -= 1.0f / 60.0f; ++steps;
   }
   if (steps == kMaxSteps) physAccum = std::fmod(physAccum, 1.0f / 60.0f);   // beyond the cap drop time (slow motion), never spiral
-  const float alpha = interpOff ? 1.0f : std::clamp(physAccum * 60.0f, 0.0f, 1.0f);
+  const float alpha = interpOff || !R.perf.stepInterp ? 1.0f : std::clamp(physAccum * 60.0f, 0.0f, 1.0f);
   { const vec3 cur = Physics::character().pos; if (glm::length(cur - charStepPrev) < 2.0f && !occupied) eyeDrawOff = glm::mix(charStepPrev, cur, alpha) - cur; }   // a teleport (2 m+): no streak
   if (gGame) gGame->posesFrame(steps / 60.0f, alpha);   // CP: one pose pass per drawn frame, with the steps' summed time
   crumb("physics step");
-  if (steps > 0) Physics::step(steps / 60.0f, steps);   // CP: Jolt on the same fixed steps (was the raw frame time)
+  if (!R.perf.stepInterp) Physics::step(dt);   // off: the raw frame time, as before
+  else if (steps > 0) Physics::step(steps / 60.0f, steps);   // CP: Jolt on the same fixed steps (was the raw frame time)
   crumb("explore leaves / interior / grenades");
   stepDynLeaves(dt);
   interior.step(*this, dt);

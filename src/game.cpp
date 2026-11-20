@@ -1043,10 +1043,9 @@ void Game::clientStep(float dt) {
   if (Soldier* L = local(); L && L->alive) localGrenadeCounts(*L, false);
 }
 
-// CP (corpus 12 s12.4): poses are evaluated once per drawn frame (posesFrame), not once per fixed step; NMK_POSE_PER_STEP=1
+// CP (corpus 12 s12.4): poses are evaluated once per drawn frame (posesFrame), not once per fixed step; --rq-off poseframe
 // restores the old per-step call (A/B)
-bool gPosePerStep = std::getenv("NMK_POSE_PER_STEP") != nullptr, gPoseLodOff = std::getenv("NMK_POSE_LOD_OFF") != nullptr, gPoseSerial = std::getenv("NMK_POSE_SERIAL") != nullptr,
-     gStepCap8 = std::getenv("NMK_STEP_CAP8") != nullptr;   // CP A/B switches (env at start; captures flip them live)
+bool gPosePerStep = false, gPoseLodOff = false, gPoseSerial = false, gStepCap8 = false;   // CP: Renderer::Perf poseframe / poselod / posejobs / stepinterp, copied each frame (explore.cpp)
 void Game::step(float dt) {
   if (!active || paused) return;
   for (auto& s : sold) s.prevFeet = s.feet;   // CP: the drawn position lies between this and the step's result

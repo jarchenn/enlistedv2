@@ -202,7 +202,7 @@ static bool cpabStep(App& app, Game& G, Soldier& L) {
   const double now = glfwGetTime(); if (t0 < 0) { t0 = now; last = now; lastPose = G.poseMs; lastSteps = G.steps; }
   app.eyeYaw = std::fmod(app.eyeYaw + 18.0f * (float)(now - last), 360.0f); app.eyePitch = -2; app.scriptedInput = ExploreInput{};
   const double el = now - t0 - 10.0; const int slot = el < 0 ? -1 : (int)(el / 6.0), cfg = slot < 0 ? 4 : slot % 5;
-  if (cfg != cur) { cur = cfg; const CpCfg& c = kCp[cfg]; gPosePerStep = c.perStep; gPoseLodOff = c.lodOff; gPoseSerial = c.serial; gStepCap8 = c.cap8; app.interpOff = c.interpOff; }
+  if (cfg != cur) { cur = cfg; const CpCfg& c = kCp[cfg]; auto& P = app.R.perf; P.poseFrame = !c.perStep; P.poseLod = !c.lodOff; P.poseJobs = !c.serial; P.stepInterp = !c.cap8; app.interpOff = c.interpOff; }
   if (slot >= 0 && slot < 20 && el - slot * 6.0 > 1.0) { fr[cfg].push_back((float)((now - last) * 1000)); pm[cfg].push_back((float)(G.poseMs - lastPose)); sp[cfg].push_back((float)(G.steps - lastSteps)); }
   last = now; lastPose = G.poseMs; lastSteps = G.steps;
   if (slot >= 20) {

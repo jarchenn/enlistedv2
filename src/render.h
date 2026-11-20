@@ -262,6 +262,11 @@ public:
     bool terrainNormals = true;  // tnormal (VOT T1): base terrain shades with baked per-pixel normals (terrain_normals.cpp); off = vertex normals
     bool terrainMorph = true;    // tmorph (VOT T1): base terrain vertices geomorph toward the next LOD before it switches; off = LOD pops
     bool terrainSkyView = true;  // tskyview (VOT T5): the terrain's ambient is occluded by its own horizon (baked sky-view factor); off = open sky everywhere
+    bool poseFrame = true;       // poseframe (CP 1): soldier poses once per drawn frame (off: once per fixed step, as before)
+    bool poseLod = true;         // poselod (CP 2): pose rate / view LOD at any soldier count (off: every soldier every frame)
+    bool poseJobs = true;        // posejobs (CP 3): poses evaluated on the job threads (off: all on the main thread)
+    bool stepInterp = true;      // stepinterp (CP 4): at most 4 fixed steps a frame, the eye / soldiers drawn between the last two, Jolt on the same steps (off: cap 8, the last step as is, Jolt on the frame time)
+    bool dtSnap = true;          // dtsnap (CP 4): frame time snapped to whole display refreshes within 1 ms, remainder carried (off: the raw clock)
     bool charVel = true;         // charvel (AIB1): soldiers write their own TAA motion (previous model matrix + previous skinned vertex); off = depth reprojection (smeared)
     bool taau = true;            // taau (P1): below scale 1 the world renders at the resolution scale and TAA reconstructs at output size (rendering.md 14); off = native resolution
     static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false;
@@ -279,7 +284,7 @@ public:
               // ^ stream L (lighting): append to the line above
               : n == "specaa" ? &specAA : n == "hex" ? &hex : n == "hblend" ? &hblend
               // ^ stream M (materials): append to the line above
-              : n == "charvel" ? &charVel
+              : n == "charvel" ? &charVel : n == "poseframe" ? &poseFrame : n == "poselod" ? &poseLod : n == "posejobs" ? &poseJobs : n == "stepinterp" ? &stepInterp : n == "dtsnap" ? &dtSnap
               // ^ characters (gameplay): append to the line above
               : n == "hashalpha" ? &hashAlpha
               // ^ stream A (vegetation): append to the line above
