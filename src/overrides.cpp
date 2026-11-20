@@ -5,9 +5,13 @@
 namespace {
 bool gLoaded = false;
 json gW = json::object(), gV = json::object(), gA = json::object();
-fs::path wPath() { return contentDir() / "weapons" / "overrides_user.json"; }
-fs::path vPath() { return contentDir() / "vehicles" / "overrides_user.json"; }
-fs::path aPath() { return contentDir() / "ai" / "overrides_user.json"; }   // UI3 (h)
+// beside the exe, not in content/ (a build's content/ may be a link to the source tree: CMake NMK_CONTENT_LINK); files an
+// older build left in content/<kind>/overrides_user.json are still read until the first save
+fs::path userPath(const char* kind) { return exeDir() / "overrides" / (std::string(kind) + ".json"); }
+fs::path legacyPath(const char* kind) { return contentDir() / kind / "overrides_user.json"; }
+fs::path wPath() { return userPath("weapons"); }
+fs::path vPath() { return userPath("vehicles"); }
+fs::path aPath() { return userPath("ai"); }   // UI3 (h)
 json readObj(const fs::path& p) {
   std::error_code ec;
   if (!fs::exists(p, ec)) return json::object();
@@ -15,10 +19,12 @@ json readObj(const fs::path& p) {
   catch (std::exception& e) { logf("overrides: %s: %s (ignored)", p.string().c_str(), e.what()); }
   return json::object();
 }
-void ensure() { if (!gLoaded) { gLoaded = true; gW = readObj(wPath()); gV = readObj(vPath()); gA = readObj(aPath()); } }
+json readKind(const char* kind) { std::error_code ec; return readObj(fs::exists(userPath(kind), ec) ? userPath(kind) : legacyPath(kind)); }
+void ensure() { if (!gLoaded) { gLoaded = true; gW = readKind("weapons"); gV = readKind("vehicles"); gA = readKind("ai"); } }
 bool writeObj(const fs::path& p, const json& j, std::string* err) {
   std::error_code ec;
   if (j.empty()) { fs::remove(p, ec); return true; }   // nothing overridden: no file
+  fs::create_directories(p.parent_path(), ec);
   std::ofstream f(p, std::ios::binary);
   if (!f) { if (err) *err = "cannot write " + p.string(); return false; }
   f << j.dump(1);
@@ -35,7 +41,9 @@ bool saveOverrides(std::string* err) {
   for (json* j : {&gW, &gV}) for (auto it = j->begin(); it != j->end();) { if (it->is_object() && it->empty()) it = j->erase(it); else ++it; }   // drop emptied items
   if (gA.contains("types") && gA["types"].is_object()) { json& t = gA["types"]; for (auto it = t.begin(); it != t.end();) { if (it->is_object() && it->empty()) it = t.erase(it); else ++it; } if (t.empty()) gA.erase("types"); }
   if (gA.contains("_soldier") && gA["_soldier"].is_object() && gA["_soldier"].empty()) gA.erase("_soldier");
-  return writeObj(wPath(), gW, err) && writeObj(vPath(), gV, err) && writeObj(aPath(), gA, err);
+  bool ok = writeObj(wPath(), gW, err) && writeObj(vPath(), gV, err) && writeObj(aPath(), gA, err);
+  std::error_code ec; if (ok) for (const char* k : {"weapons", "vehicles", "ai"}) fs::remove(legacyPath(k), ec);   // moved beside the exe
+  return ok;
 }
 int overrideCount() {
   ensure(); int n = 0; for (json* j : {&gW, &gV}) for (auto& [k, v] : j->items()) if (!v.is_object() || !v.empty()) ++n;
