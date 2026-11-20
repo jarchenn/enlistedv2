@@ -235,7 +235,7 @@ void applyRunSettings(App& a) {
   for (size_t a0 = 0, c; a0 <= gCfgs[gCi].size(); a0 = c + 1) {
     c = gCfgs[gCi].find('+', a0); if (c == std::string::npos) c = gCfgs[gCi].size();
     std::string f = gCfgs[gCi].substr(a0, c - a0); if (f.empty()) continue;
-    if (f[0] == '#' || f.rfind("hour=", 0) == 0 || f.rfind("envfog=", 0) == 0) continue;   // #n: a repeat (noise); hour= / envfog=: applied with the weather below
+    if (f[0] == '#' || f.rfind("hour=", 0) == 0 || f.rfind("envfog=", 0) == 0 || f.rfind("wx=", 0) == 0) continue;   // #n: a repeat (noise); hour= / envfog=: applied with the weather below
     if (f == "ssr") a.R.q.ssr = false; else if (f == "msaa4") { if (gPresets[gPi] == GfxPreset::High) a.R.setMsaa(4); }   // P2 off: the old High (Medium never had MSAA) else if (f[0] == '^') a.R.perf.set(f.substr(1), true);   // ^name: a switch on
     else if (f.rfind("scale", 0) == 0) a.R.setResolutionScale((float)std::atof(f.c_str() + 5));
     else if (!a.R.perf.set(f, false)) logf("[bench] NMK_BENCH_AB: unknown switch %s", f.c_str());
@@ -243,7 +243,7 @@ void applyRunSettings(App& a) {
   // weather: the map's own sky by default (fog layer, cloud deck, snowfall as players see the map); NMK_BENCH_WEATHER=clear
   // or cloudy forces one (secondary rows)
   a.R.lt.hour = envF("NMK_BENCH_HOUR", 14.0f);   // NMK_BENCH_HOUR=0: night
-  if (const char* w = std::getenv("NMK_BENCH_WEATHER"); w && *w) { a.R.wx.target = std::string(w) == "cloudy" ? 1 : 0; a.R.wx.userSet = true; }
+  if (const char* w = std::getenv("NMK_BENCH_WEATHER"); w && *w) { int id = wxPresetFromName(w); a.R.wx.target = id >= 0 ? id : 0; a.R.wx.userSet = true; }   // a W1 preset name
   else a.R.wx.userSet = false;
   if (const char* f = std::getenv("NMK_BENCH_ENVFOG"); f && *f) { a.R.wx.fog = std::atoi(f); a.R.wx.userSet = true; }   // 0 Off .. 3 Dense
   for (size_t a0 = 0, c; a0 <= gCfgs[gCi].size(); a0 = c + 1) {   // config tokens hour=<h>, envfog=<0..3> (the viscull pairs)
@@ -251,6 +251,10 @@ void applyRunSettings(App& a) {
     std::string f = gCfgs[gCi].substr(a0, c - a0);
     if (f.rfind("hour=", 0) == 0) a.R.lt.hour = (float)std::atof(f.c_str() + 5);
     if (f.rfind("envfog=", 0) == 0) { a.R.wx.fog = std::atoi(f.c_str() + 7); a.R.wx.userSet = true; }
+    if (f.rfind("wx=", 0) == 0) {   // wx=<W1 preset name> ("_" for " "): that preset, as the menu would set it
+      int id = wxPresetFromName(f.substr(3));
+      if (id < 0) logf("[bench] unknown weather preset %s", f.c_str() + 3); else { a.R.wx.target = id; a.R.wx.userSet = true; }
+    }
   }
   a.R.wx.snap();
 }

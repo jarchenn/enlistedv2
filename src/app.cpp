@@ -1364,6 +1364,7 @@ int App::run(int argc, char** argv) {
       }
     }
     audio.setUnderwater(v.underwater ? 1.0f : 0.0f);   // swim.cpp: muffled under water
+    { extern void weatherAudioFrame(App&, float); weatherAudioFrame(*this, frameDt); }   // W1: rain, wind and thunder from the weather state (weather_audio.cpp)
     mapAmbienceFrame(*this, frameDt);   // BTA: the map's wind, zones, water / fire loops and creaks (map_ambience.cpp)
     { extern void playerAudioFrame(App&); playerAudioFrame(*this); }   // SND13: low-health heartbeat, hurt grunt
     mark("mpai");

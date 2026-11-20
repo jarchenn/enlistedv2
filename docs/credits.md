@@ -877,3 +877,16 @@ as each file's own metadata gives them.
 | `fl_grass_*` | grass | Georgeous | Sketchfab Standard (not redistributable) | Sketchfab (no source URL in the file) | modified: split into one asset per plant, re-anchored, LODs (the pack's LOD2 or decimated), textures resized | no, local only (git-ignored bake; `fl_grass_reeds` falls back to Poly Haven grass) |
 | `fl_desertshrub_*` (DF1) | Desert Shrubs | evolveduk | Sketchfab Standard (not redistributable) | https://sketchfab.com/3d-models/desert-shrubs-3f116a7e0c464f2798fe25c7dae4fabb | modified: each mesh's plants split by footprint into 16 assets (agave, cholla, creosote, ocotillo, yucca), re-anchored, decimated LOD, textures resized | no, local only (git-ignored bake; each falls back to an `fl_succulent` plant at its height) |
 | `fl_drygrass_*` (DF1) | Grass patches | DJMaesen | CC-BY-4.0 | https://sketchfab.com/3d-models/grass-patches-6952780b80594a31aab2dedf7249a47a | modified: one asset per patch, drawn at 0.4 and 0.28 size, re-anchored, decimated LOD, textures resized | yes |
+
+## W1 weather sound: rain and thunder (CC0)
+
+Freesound sounds released under **CC0 1.0 Universal** (licence checked on each sound's page, 2026-11-20); the HQ previews were downloaded and prepared with `tools/wx_audio_prep.py` (rain trimmed and levelled; each thunder clap cut from its onset with its tail). No attribution is required; it is given anyway. Files in `content/audio/custom/wx/`. The weather wind reuses the BTA wind beds above.
+
+| File | Sound | Author | Licence | Source |
+|---|---|---|---|---|
+| wx/rain_light.mp3 (drizzle and light rain) | Slowly Raining Loop | unfa | CC0 1.0 | https://freesound.org/people/unfa/sounds/177479/ |
+| wx/rain_heavy.mp3 (heavy rain) | Rain heavy 2 (rural) | jmbphilmes | CC0 1.0 | https://freesound.org/people/jmbphilmes/sounds/200272/ |
+| wx/rain_roof.mp3 (rain heard under a roof) | Rain from Indoors - Perfect loop | samesamesame | CC0 1.0 | https://freesound.org/people/samesamesame/sounds/242889/ |
+| wx/thunder_near1.mp3 | high thunder suburb 08 | klankbeeld | CC0 1.0 | https://freesound.org/people/klankbeeld/sounds/169534/ |
+| wx/thunder_near2.mp3 | Thunder strike | AyaDrevis | CC0 1.0 | https://freesound.org/people/AyaDrevis/sounds/652690/ |
+| wx/thunder_far1.mp3 (distant rumble) | thunder long tail | elmoustachio | CC0 1.0 | https://freesound.org/people/elmoustachio/sounds/476738/ |
