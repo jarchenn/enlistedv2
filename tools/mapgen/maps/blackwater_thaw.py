@@ -385,7 +385,9 @@ def write_sculpt(F, grid):
             hf = F.sample(XX.ravel(), ZZ.ravel()).reshape(XX.shape)
             hb = np.array([[grid.sample(x, z) for x in xs] for z in zs])
             dlt = hf - hb
-            if np.abs(dlt).max() > 0.04:
+            cx_, cz_ = ox + ts / 2, oz + ts / 2   # M5: only where the play happens (envelope + 15 m) and the detail is real (> 0.1 m)
+            inside = ENV[0] - 15 - ts < cx_ < ENV[2] + 15 + ts and ENV[1] - 15 - ts < cz_ < ENV[3] + 15 + ts
+            if inside and np.abs(dlt).max() > 0.1:
                 tiles.append({"key": tz * tx_n + tx, "d": [round(float(v), 3) for v in dlt.ravel()]})
     return {"fineN": 36, "tiles": tiles}
 
@@ -466,9 +468,24 @@ def build(ctx):
     for k in range(3):
         b.place("mod_stepping_stones", FORD[0] + 1.2 * k, FORD[1] + 2.0 * k - 2.0, 300.0, check=False, y=G(FORD[0] + 1.2 * k, FORD[1] + 2.0 * k - 2.0), tags={"crossing"})
 
-    # the far ridge: the placeholder cable-haul station (two trestles of different heights and a ridge shed)
-    for aid, x, z, yaw in STATION:
-        b.place(aid, x, z, yaw, check=False, y=G(x, z), tags={"station"}, companions=False)
+    # the far ridge: the cable-haul station (two lattice trestles of different heights, a machinery shed, the haul cable)
+    sx, sz, sy = write_station_asset(ctx, G, cat)
+    b.place("bt_cable_station", sx, sz, 0.0, check=False, cls="none", y=sy, tags={"station"}, companions=False)
+    # the waterworks court's stepped header channel, the court's north-east side, head to the north
+    write_flume_asset(ctx, cat)
+    b.place("bt_flume", 8.0, 15.0, 0.0, check=False, y=G(8.0, 15.0), tags={"flume"}, companions=False)
+    # dressing by use (spec 4): the washhouse's pails, boards and porch; the smithy's fuel under cover, its fire, ash downwind
+    for aid, x, z, yaw in (("sd_market_lean_to", 8.0, 57.4, 0.0), ("ph_wooden_bucket_01", 2.6, 57.6, 0.0), ("ph_wooden_bucket_02", 3.2, 57.3, 40.0),
+                           ("ph_wooden_bucket_01", 13.7, 57.8, 10.0), ("pa_crate_slatted", 14.6, 57.2, 15.0),
+                           ("drs_woodpile", 57.6, -17.0, 0.0), ("fire_brazier", 59.6, -10.5, 0.0), ("ph_wine_barrel_01", 59.4, -14.6, 0.0),
+                           ("drs_woodpile", -64.0, -73.5, 90.0), ("drs_woodpile", -96.0, -2.0, 0.0),
+                           ("lamp_lantern_post", 0.6, 56.2, 200.0)):   # M4: the one minor practical light (the washhouse porch, lit at dusk)
+        if aid in cat:
+            b.place(aid, x, z, yaw, check=False, y=G(x, z), tags={"dress"}, companions=False)
+    if "bt_vent_smoke" in cat:   # the smithy's working chimney (small_carpenter_workshop's stack: local (-3.6, 6.05, -1.2))
+        vx, vz = local_to_world((54.0, -12.0), 90.0, -3.6, -1.2)
+        b.place("bt_vent_smoke", vx, vz, 0.0, check=False, cls="none", y=G(54.0, -12.0) + 5.9, tags={"fx"}, companions=False)
+    paint.poly("scorched", [(61.0, -9.0), (65.0, -10.5), (64.0, -13.0), (60.5, -12.5)], weight=0.6, edge=1.2, ragged=0.8, seed=21)   # ash downwind (south-east)
 
     # ---------------------------------------------------------------- M2: the creek ribbon, puddles, winter vegetation
     cpath = write_creek_asset(ctx, F)
@@ -525,8 +542,11 @@ def build(ctx):
     look = {"weather": 0.9, "clouds": 0.95, "haze": 2.4, "hazeHeight": 90.0, "envFog": 1, "fogNear": 6.0,
             "fogLayer": {"density": 0.0015, "height": 12.0}, "saturation": 0.74, "tint": [0.96, 0.99, 1.04],
             "bloom": 1.1, "grime": 1.3, "season": "winter", "leafless": True,
-            "snowfall": {"near": 150, "far": 2600, "fall": 1.0, "wind": [0.8, -0.6], "bright": 1.0}}   # SF1: light fall, wind from the north-west
+            "snowfall": {"near": 150, "far": 2600, "fall": 1.0, "wind": [0.8, -0.6], "bright": 1.0},
+            # GR3 night / dusk air for the same map (the time of day picks it): thicker low mist, a closer start
+            "night": {"haze": 2.0, "envFog": 1, "fogNear": 3.0}}   # SF1: light fall, wind from the north-west
     sculpt = write_sculpt(F, grid)
+    write_audio_anchors(tdir, G)
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sc.to_json(rules_extra=rules), explore_start=((SPAWN_LOW[0], G(*SPAWN_LOW), SPAWN_LOW[1]), 45.0),
               camera=cam0, bookmarks=bookmarks,
@@ -752,3 +772,166 @@ def dress_vegetation(b, cat, G, R):
         aid = "nat_drygrass_tufts" if r < 0.4 else "nat_drygrass_tall" if r < 0.7 else "nat_drygrass_sparse" if r < 0.85 else "shrub_bramble"
         put(aid, x, z, R.uniform(0, 360), "ground_veg", clear=0.8)
     return rep
+
+
+# ---------------------------------------------------------------- M3: generated landmark assets (part-built, written by this script)
+M_STATION = [{"name": "timber", "albedo": [0.20, 0.18, 0.16], "roughness": 0.85, "pattern": "wood", "metallic": 0, "grain": 1},
+             {"name": "iron", "albedo": [0.16, 0.14, 0.13], "roughness": 0.6, "pattern": "metal", "metallic": 0.5, "grain": 1},
+             {"name": "cable", "albedo": [0.08, 0.08, 0.08], "roughness": 0.5, "pattern": "metal", "metallic": 0.6, "grain": 1},
+             {"name": "shed_board", "albedo": [0.24, 0.22, 0.20], "roughness": 0.85, "pattern": "wood", "metallic": 0, "grain": 1},
+             {"name": "roof_iron", "albedo": [0.18, 0.15, 0.13], "roughness": 0.7, "pattern": "metal", "metallic": 0.3, "grain": 1},
+             {"name": "stone", "albedo": [0.36, 0.35, 0.33], "roughness": 0.9, "pattern": "stone", "metallic": 0, "grain": 1}]
+
+
+def _box(c, s, m, r=None, k=1):
+    p = {"t": "b", "c": [round(v, 3) for v in c], "s": [round(v, 3) for v in s], "m": m}
+    if r:
+        p["r"] = [round(v, 2) for v in r]
+    if not k:
+        p["k"] = 0
+    return p
+
+
+def _beam(a, b, w, m, k=1):
+    """a box from point a to point b (x, y, z), w thick: its length along local y, rotated into place."""
+    dx, dy, dz = b[0] - a[0], b[1] - a[1], b[2] - a[2]
+    L = math.sqrt(dx * dx + dy * dy + dz * dz)
+    c = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2)
+    yaw = math.degrees(math.atan2(dx, dz))
+    pitch = math.degrees(math.atan2(math.hypot(dx, dz), dy))   # tilt from vertical toward (dx, dz)
+    return _box(c, (w, L, w), m, r=(pitch, yaw, 0.0) if L > 1e-6 else None, k=k)
+
+
+def _trestle(x, z, base_y, top_y, half=2.2, top_half=0.9):
+    """a lattice trestle from its own ground (base_y) to top_y: four leaning legs, X braces every ~4 m, a crossarm, two sheaves."""
+    parts = []
+    corners = [(-1, -1), (1, -1), (1, 1), (-1, 1)]
+    legs = []
+    for sx, sz in corners:
+        a = (x + sx * half, base_y, z + sz * half)
+        b = (x + sx * top_half, top_y, z + sz * top_half)
+        legs.append((a, b))
+        parts.append(_beam(a, b, 0.32, "timber"))
+    H = top_y - base_y
+    n = max(2, int(H / 4.2))
+    lerp = lambda a, b, t: (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t)
+    for k in range(n):
+        t0, t1 = k / n, (k + 1) / n
+        for i in range(4):
+            la, lb = legs[i], legs[(i + 1) % 4]
+            p0, p1 = lerp(*la, t0), lerp(*lb, t1)
+            q0, q1 = lerp(*lb, t0), lerp(*la, t1)
+            parts.append(_beam(p0, p1, 0.12, "timber"))
+            parts.append(_beam(q0, q1, 0.12, "timber"))
+            parts.append(_beam(lerp(*la, t1), lerp(*lb, t1), 0.16, "timber"))
+    parts.append(_box((x, top_y + 0.25, z), (top_half * 2 + 3.6, 0.5, 0.6), "timber"))       # the crossarm
+    for sx in (-1, 1):
+        parts.append({"t": "c", "c": [round(x + sx * 1.9, 3), round(top_y + 0.85, 3), round(z, 3)], "s": [0.12, 1.1, 1.1], "m": "iron", "r": [0, 0, 90]})   # sheave
+    parts.append(_box((x, base_y + 0.4, z), (half * 2 + 1.2, 0.8, half * 2 + 1.2), "stone"))   # footing
+    return parts
+
+
+def _catenary(a, b, sag, n=24):
+    pts = []
+    for k in range(n + 1):
+        t = k / n
+        p = (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t - sag * 4.0 * t * (1 - t), a[2] + (b[2] - a[2]) * t)
+        pts.append(p)
+    return [_beam(p, q, 0.07, "cable", k=0) for p, q in zip(pts, pts[1:])]
+
+
+def write_station_asset(ctx, G, cat):
+    """bt_cable_station: two trestles of different heights ~70 m apart on the far ridge (each from its own ground), a
+    machinery shed, a sagging haul cable between them and on down toward the valley. Origin = trestle A's foot."""
+    import json
+    from mapgen.catalog import Asset
+    ax, az = 236.0, 242.0
+    bx, bz = 300.0, 212.0
+    y0 = G(ax, az)
+    ya, yb = 0.0, G(bx, bz) - y0
+    ta, tb = 24.0, yb + 17.0                     # trestle tops (asset space): different heights
+    parts = _trestle(0.0, 0.0, ya - 1.0, ta) + _trestle(bx - ax, bz - az, yb - 1.0, tb)
+    # the machinery shed by trestle A: board walls, a pitched iron roof, a drive housing
+    sx, sz = -9.0, 6.0
+    parts += [_box((sx, 2.0, sz), (8.0, 4.0, 5.0), "shed_board"),
+              _box((sx, 4.6, sz - 1.35), (8.6, 0.12, 3.0), "roof_iron", r=(-30, 0, 0)),
+              _box((sx, 4.6, sz + 1.35), (8.6, 0.12, 3.0), "roof_iron", r=(30, 0, 0)),
+              _box((sx + 3.0, 6.2, sz), (0.6, 2.4, 0.6), "iron"),           # the vent stack
+              {"t": "c", "c": [sx - 4.3, 2.4, sz], "s": [0.5, 2.4, 2.4], "m": "iron", "r": [0, 0, 90]}]   # the drive wheel
+    top_a = (1.9, ta + 0.85, 0.0)
+    top_b = (bx - ax + 1.9, tb + 0.85, bz - az)
+    parts += _catenary(top_a, top_b, 6.0)
+    # the cable on down toward the valley (south-west), ending in the mist
+    far = (-90.0, ta - 70.0, -95.0)
+    parts += _catenary((top_a[0] - 3.8, top_a[1], top_a[2]), far, 9.0, n=30)
+    j = {"id": "bt_cable_station", "version": 1, "name": "Cable-haul station (Blackwater Thaw)", "category": "Landmarks",
+         "description": "BT1: the old cable-haul station on the far ridge: two lattice trestles of different heights, a machinery shed, a sagging haul cable. A skyline silhouette, generated by tools/mapgen/maps/blackwater_thaw.py.",
+         "floors": 0, "enterable": False, "footprint": [round(bx - ax + 8, 1), round(abs(bz - az) + 8, 1)], "plinthDepth": 0, "maxGrade": 90,
+         "noAutoPanels": True, "nav": {"effect": "none"}, "materials": M_STATION, "parts": parts, "furniture": [], "interactables": [], "panels": []}
+    path = os.path.join(ctx.repo, "content", "assets", "bt_cable_station.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(j, f, separators=(",", ":"))
+    cat.assets["bt_cable_station"] = Asset(j, path)
+    return (ax, az, y0)
+
+
+M_FLUME = [{"name": "stone", "albedo": [0.38, 0.37, 0.34], "roughness": 0.9, "pattern": "stone", "metallic": 0, "grain": 1},
+           {"name": "wet_stone", "albedo": [0.22, 0.22, 0.21], "roughness": 0.55, "pattern": "stone", "metallic": 0, "grain": 1},
+           {"name": "gate_wood", "albedo": [0.22, 0.19, 0.16], "roughness": 0.8, "pattern": "wood", "metallic": 0, "grain": 1},
+           {"name": "iron_rust", "albedo": [0.26, 0.14, 0.08], "roughness": 0.75, "pattern": "metal", "metallic": 0.2, "grain": 1}]
+
+
+def write_flume_asset(ctx, cat, steps=3, step_len=3.0, drop=0.4, inner=0.9, wall=0.45):
+    """bt_flume: the stepped header channel (pump room family): a stone U-channel along local -z, stepping down `drop` per
+    `step_len`, thick abutments at each step, wet bands, a timber gate with iron bolts at the head, water in each step
+    (water.cpp surfaces), a drain grate at the foot. Origin = the head of the channel at the court's floor."""
+    import json
+    from mapgen.catalog import Asset
+    parts, surfs = [], []
+    hw = inner / 2 + wall / 2
+    top0 = 1.2                                     # the head stands 1.2 m above the court
+    for k in range(steps):
+        z0, z1 = -k * step_len, -(k + 1) * step_len
+        zc = (z0 + z1) / 2
+        floor = top0 - 0.6 - k * drop
+        parts.append(_box((0, floor / 2, zc), (inner + 2 * wall, max(0.2, floor), step_len), "stone"))           # the bed block
+        for sx in (-1, 1):
+            parts.append(_box((sx * hw, (floor + 0.55) / 2 + 0.0, zc), (wall, floor + 0.55, step_len), "stone"))   # side walls
+            parts.append(_box((sx * (inner / 2 - 0.005), floor + 0.15, zc), (0.02, 0.3, step_len), "wet_stone", k=0))   # wet band
+        parts.append(_box((0, floor + 0.35, z1 + 0.25), (inner + 2 * wall + 0.5, floor + 0.7 + 0.1, 0.5), "stone"))   # the abutment / lip
+        surfs.append({"kind": "stream", "outline": [[-inner / 2, z0], [inner / 2, z0], [inner / 2, z1 + 0.5], [-inner / 2, z1 + 0.5]],
+                      "level": round(floor + 0.22, 3), "path": [[0.0, z0], [0.0, z1]], "speed": 0.9, "clarity": 0.9, "waves": 1.2})
+    # the timber gate and its bolts at the head
+    parts.append(_box((0, top0 - 0.1, 0.15), (inner + 0.1, 0.9, 0.1), "gate_wood"))
+    for sx in (-1, 1):
+        parts.append(_box((sx * (inner / 2 + 0.1), top0 + 0.2, 0.15), (0.14, 1.5, 0.16), "gate_wood"))
+        for yy in (top0 - 0.3, top0 + 0.1):
+            parts.append({"t": "c", "c": [sx * (inner / 2 - 0.12), yy, 0.21], "s": [0.06, 0.04, 0.06], "m": "iron_rust", "r": [90, 0, 0], "k": 0})
+    # the drain grate at the foot
+    zf = -steps * step_len - 0.4
+    parts.append(_box((0, 0.03, zf), (inner + 0.6, 0.06, 0.8), "iron_rust"))
+    j = {"id": "bt_flume", "version": 1, "name": "Stepped header channel (Blackwater Thaw)", "category": "Small buildings",
+         "description": "BT1: the waterworks court's stepped header channel: a stone U-channel stepping down 0.4 m per 3 m, thick abutments, wet bands, a timber gate with iron bolts, water in each step, a drain grate. Generated by tools/mapgen/maps/blackwater_thaw.py.",
+         "floors": 0, "enterable": False, "footprint": [inner + 2 * wall + 0.6, steps * step_len + 1.0], "plinthDepth": 0, "maxGrade": 6,
+         "noAutoPanels": True, "nav": {"effect": "carve"}, "materials": M_FLUME, "parts": parts, "water": {"surfaces": surfs},
+         "furniture": [], "interactables": [], "panels": []}
+    path = os.path.join(ctx.repo, "content", "assets", "bt_flume.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(j, f, separators=(",", ":"))
+    cat.assets["bt_flume"] = Asset(j, path)
+
+# ---------------------------------------------------------------- the sound session's anchors (content/templates/<id>.audio.json)
+def write_audio_anchors(tdir, G=None):
+    """positions the ambience reads: the creek centreline, the crossings, the flume and its drain, the smithy hearth and
+    vent, the creaky sheds, the overlook. World x, z (spec X, Y); y = the ground when known."""
+    import json
+    P = lambda x, z: [round(x, 2), round(G(x, z), 2) if G else None, round(z, 2)]
+    sheds = [(78.0, -16.0), (50.0, 14.0), (18.5, 66.0), (-98.0, -44.0), (-64.0, -78.0)]
+    j = {"map": TID, "note": "generated by tools/mapgen/maps/blackwater_thaw.py; world x, z = spec X, Y; creek bed datum y = %.1f" % BASE,
+         "creek": [P(x, z) for x, z, _ in CREEK_CTRL],
+         "crossings": {"stone_bridge": P(*BRIDGE_W), "footbridge": P(*FOOTBRIDGE), "ford": P(*FORD)},
+         "flume": {"head": P(8.0, 15.0), "foot": P(8.0, 6.0)}, "drains": [P(8.0, 5.6), P(8.0, 56.0)],
+         "hearth": P(59.6, -10.5), "vent": P(52.8, -8.4), "sheds": [P(x, z) for x, z in sheds], "overlook": P(82.0, 74.0),
+         "court": P(*COURT), "orchard": P(-76.0, -20.0)}
+    with open(os.path.join(tdir, TID + ".audio.json"), "w", encoding="utf-8") as f:
+        json.dump(j, f, indent=1)
