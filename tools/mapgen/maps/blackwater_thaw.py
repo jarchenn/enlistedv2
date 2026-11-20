@@ -88,6 +88,7 @@ ROUTES = {   # name: (points, clear width, kind)
 
 PUDDLES = [(-30.0, -59.5, 1.3), (-8.0, -50.6, 1.1), (6.0, -42.6, 1.5), (9.5, -17.5, 1.2), (2.0, -9.0, 1.0), (-1.0, -3.5, 1.4),
            (-60.0, -61.9, 1.2), (-84.0, -63.0, 1.6), (40.0, -55.8, 1.0), (62.0, -8.0, 1.3), (-20.0, 24.0, 1.1)]   # (x, z, radius m)
+ORCH_IDS = []
 SPAWN_LOW = (-90.0, -73.0)     # in the cart yard, the cart shed behind and a stone wall screening it from the orchard
 SPAWN_UP = (18.0, 109.0)       # the screened yard behind the washhouse
 COURT = (-3.0, 2.0)
@@ -294,7 +295,10 @@ def build_terrain(grid):
     inner = (outside > -1.5) & (outside <= 0.0)
     ring = (outside > 1.5) & (outside < 4.5)
     F.set_mask(inner, F.H.copy())
-    F.set_mask(ring, F.H + 12.0)
+    rs2 = np.random.default_rng(SEED + 11)   # M4: the face's height wanders 7-17 m (a broken skyline, not a ruler)
+    varh = ndimage.gaussian_filter(rs2.standard_normal(F.H.shape), 18.0 / RES)
+    varh = (varh - varh.min()) / (np.ptp(varh) + 1e-9)
+    F.set_mask(ring, F.H + 7.0 + 10.0 * varh)
     F.solve()
     H = F.H
     # gentle ground variation off the lanes and pads (0.0-0.35 m, 6-15 m scale)
@@ -494,7 +498,10 @@ def build(ctx):
         cat.assets["bt_creek"] = Asset(__import__("json").load(fh), cpath)   # written just now: into this run's catalogue
     if "bt_creek" in cat:
         b.place("bt_creek", 0.0, 0.0, 0.0, check=False, cls="none", y=0.0, tags={"water"}, companions=False)
+    global ORCH_IDS
+    ORCH_IDS = write_orchard_trees(ctx, cat)
     rep_veg = dress_vegetation(b, cat, G, R)
+    rep_veg["boundary_rock"] = dress_boundary(b, cat, G, R)
 
     # ---------------------------------------------------------------- scenario: 10 v 10 Team Deathmatch
     sc = ScenarioBuilder(b, defending="Axis")
@@ -534,6 +541,11 @@ def build(ctx):
     tdir = os.path.join(ctx.repo, "content", "templates")
     grid.write_png(os.path.join(tdir, TID + ".height.png"))
     views = [{"name": "plan_high", "pos": [0.0, 260.0, -20.0], "yaw": 0.0, "pitch": -89.0}]
+    # M4 landmark close-ups (editor / eye views): the cable-haul station, the stepped flume, the washhouse
+    sty = G(236.0, 242.0)
+    views.append({"name": "station_close", "pos": [205.0, round(sty + 6.0, 2), 214.0], "yaw": round(look_yaw(268.0 - 205.0, 226.0 - 214.0), 2), "pitch": 6.0})
+    views.append({"name": "flume_close", "pos": [13.0, round(G(13.0, 7.5) + 1.65, 2), 7.5], "yaw": round(look_yaw(8.0 - 13.0, 12.0 - 7.5), 2), "pitch": -6.0, "gameplay": True})
+    views.append({"name": "washhouse_close", "pos": [4.0, round(G(4.0, 47.0) + 1.65, 2), 47.0], "yaw": round(look_yaw(8.0 - 4.0, 63.0 - 47.0), 2), "pitch": 4.0, "gameplay": True})
     for n, c in cams:
         views.append({"name": n.lower().replace(" ", "_"), "pos": c["position"], "yaw": c["yaw"], "pitch": c["pitch"], "gameplay": True})
     cam0 = ([0.0, 150.0, -170.0], 0.0, -40.0)
@@ -541,7 +553,7 @@ def build(ctx):
     # a valley mist layer (12 m e-folding) hugging the creek and the low ground
     look = {"weather": 0.9, "clouds": 0.95, "haze": 2.4, "hazeHeight": 90.0, "envFog": 1, "fogNear": 6.0,
             "fogLayer": {"density": 0.0015, "height": 12.0}, "saturation": 0.74, "tint": [0.96, 0.99, 1.04],
-            "bloom": 1.1, "grime": 1.3, "season": "winter", "leafless": True,
+            "bloom": 1.1, "grime": 1.3, "season": "winter", "leafless": True, "grassDead": 1.0,
             "snowfall": {"near": 150, "far": 2600, "fall": 1.0, "wind": [0.8, -0.6], "bright": 1.0},
             # GR3 night / dusk air for the same map (the time of day picks it): thicker low mist, a closer start
             "night": {"haze": 2.0, "envFog": 1, "fogNear": 3.0}}   # SF1: light fall, wind from the north-west
@@ -741,7 +753,7 @@ def dress_vegetation(b, cat, G, R):
             xx = ox - ohx + 4.0 + R.uniform(-1, 1)
             while xx < ox + ohx - 3.0:
                 if R.random() > 0.12:   # gaps where trees died
-                    put("tree_apple", xx + R.uniform(-0.6, 0.6), zz + R.uniform(-0.5, 0.5), R.uniform(0, 360), "orchard", clear=2.2)
+                    put(R.choice(ORCH_IDS), xx + R.uniform(-0.6, 0.6), zz + R.uniform(-0.5, 0.5), R.uniform(0, 360), "orchard", clear=2.2)
                 xx += R.uniform(4.6, 6.4)
             zz += R.uniform(5.0, 6.5)
     # bare alder / willow along the creek (dead ash and oak forms), not at the crossings
@@ -935,3 +947,86 @@ def write_audio_anchors(tdir, G=None):
          "court": P(*COURT), "orchard": P(-76.0, -20.0)}
     with open(os.path.join(tdir, TID + ".audio.json"), "w", encoding="utf-8") as f:
         json.dump(j, f, indent=1)
+
+
+# ---------------------------------------------------------------- M4: pruned orchard trees (spec 5: 2.2-5.5 m, crooked trunk,
+# uneven branching with thickened pruning stubs, 3-5 silhouettes). Part-built, bare: no leaf cards in any season.
+M_ORCH = [{"name": "bark", "albedo": [0.20, 0.17, 0.14], "roughness": 0.95, "pattern": "wood", "metallic": 0, "grain": 1},
+          {"name": "bark_pale", "albedo": [0.36, 0.33, 0.29], "roughness": 0.9, "pattern": "wood", "metallic": 0, "grain": 1},
+          {"name": "cut", "albedo": [0.55, 0.45, 0.32], "roughness": 0.85, "pattern": "wood", "metallic": 0, "grain": 1}]
+
+
+def write_orchard_trees(ctx, cat, n=4):
+    import json, random
+    from mapgen.catalog import Asset
+    ids = []
+    for v in range(n):
+        rr = random.Random(9100 + v)
+        parts = []
+        lean = (rr.uniform(-0.35, 0.35), rr.uniform(-0.35, 0.35))
+        trunk_h = rr.uniform(1.4, 2.1)
+        base = (0.0, 0.0, 0.0)
+        top = (lean[0], trunk_h, lean[1])
+        tw = rr.uniform(0.2, 0.28)
+        mid = (lean[0] * 0.4 + rr.uniform(-0.08, 0.08), trunk_h * 0.5, lean[1] * 0.4 + rr.uniform(-0.08, 0.08))   # a crook
+        parts.append(_beam(base, mid, tw, "bark"))
+        parts.append(_beam(mid, top, tw * 0.9, "bark"))
+        parts.append(_box((0, 0.6, 0), (tw * 1.3, 1.2, tw * 1.3), "bark", k=1) | {"v": 0})   # the trunk collider only
+        limbs = rr.randint(3, 5)
+        for k in range(limbs):
+            a = 2 * math.pi * (k + rr.uniform(-0.25, 0.25)) / limbs
+            L = rr.uniform(1.3, 2.4)
+            rise = rr.uniform(0.9, 2.1)
+            end = (top[0] + math.cos(a) * L, top[1] + rise, top[2] + math.sin(a) * L)
+            w = tw * rr.uniform(0.45, 0.6)
+            parts.append(_beam(top, end, w, "bark", k=0))
+            parts.append(_box(end, (w * 1.5, w * 1.2, w * 1.5), "bark", k=0))                 # the thickened pruning stub
+            parts.append(_box((end[0], end[1] + w * 0.65, end[2]), (w * 1.2, 0.02, w * 1.2), "cut", k=0))   # its pale cut face
+            for s in range(rr.randint(2, 4)):   # water shoots from the stub and along the limb: thin, mostly upright
+                t = rr.uniform(0.4, 1.0)
+                p0 = (top[0] + (end[0] - top[0]) * t, top[1] + (end[1] - top[1]) * t, top[2] + (end[2] - top[2]) * t)
+                p1 = (p0[0] + rr.uniform(-0.5, 0.5), p0[1] + rr.uniform(0.6, 1.4), p0[2] + rr.uniform(-0.5, 0.5))
+                parts.append(_beam(p0, p1, rr.uniform(0.025, 0.045), "bark_pale", k=0))
+        h = max(p["c"][1] + p["s"][1] / 2 for p in parts)
+        aid = "bt_orchard_tree_%s" % "abcd"[v]
+        j = {"id": aid, "version": 1, "name": "Pruned orchard tree %s (winter)" % "ABCD"[v], "category": "Vegetation",
+             "description": "BT1: a pruned orchard tree in winter, %.1f m: a crooked trunk, uneven scaffold limbs ending in thickened pruning stubs with pale cuts, water shoots. Bare (no leaves). Generated by tools/mapgen/maps/blackwater_thaw.py." % h,
+             "floors": 0, "enterable": False, "footprint": [1.0, 1.0], "plinthDepth": 0, "maxGrade": 30, "noAutoPanels": True,
+             "nav": {"effect": "carve"}, "materials": M_ORCH, "parts": parts, "furniture": [], "interactables": [], "panels": []}
+        path = os.path.join(ctx.repo, "content", "assets", aid + ".json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(j, f, separators=(",", ":"))
+        cat.assets[aid] = Asset(j, path)
+        ids.append(aid)
+    return ids
+
+
+# ---------------------------------------------------------------- M4: the envelope's rock face broken up (rock faces set into it,
+# boulders and outcrops at its foot; the firs on its top already break the skyline)
+def dress_boundary(b, cat, G, R):
+    faces = [a for a in ("ph_rock_face_01", "ph_rock_face_02") if a in cat]
+    foot = [a for a in ("nat_boulder_granite_l", "nat_boulder_limestone_l", "nat_outcrop_limestone", "nat_boulders_granite_group", "nat_boulder_schist_slab") if a in cat]
+    if not faces:
+        return 0
+    x0, z0, x1, z1 = ENV
+    edges = [((x0, z0), (x1, z0)), ((x1, z0), (x1, z1)), ((x1, z1), (x0, z1)), ((x0, z1), (x0, z0))]
+    n = 0
+    for (ax, az), (bx, bz) in edges:
+        L = math.hypot(bx - ax, bz - az)
+        tx, tz = (bx - ax) / L, (bz - az) / L
+        nx, nz = tz, -tx                                   # outward (the envelope runs counter-clockwise)
+        t = R.uniform(0, 3)
+        while t < L:
+            x, z = ax + tx * t, az + tz * t
+            if min(math.hypot(x - cx, z - cz) for cx, cz, _ in CREEK_CTRL) < 10.0:
+                t += 6.0
+                continue
+            fx, fz = x + nx * R.uniform(0.6, 1.6), z + nz * R.uniform(0.6, 1.6)
+            yaw = look_yaw(-nx, -nz) + R.uniform(-18, 18)    # facing into the valley
+            e = b.place(R.choice(faces), fx, fz, yaw, check=False, cls="none", y=G(x, z) - R.uniform(0.3, 1.2), tags={"rock"}, companions=False)
+            n += e is not None
+            if foot and R.random() < 0.45:
+                bx_, bz_ = x - nx * R.uniform(1.0, 3.5) + tx * R.uniform(-2, 2), z - nz * R.uniform(1.0, 3.5) + tz * R.uniform(-2, 2)
+                b.place(R.choice(foot), bx_, bz_, R.uniform(0, 360), check=False, cls="none", y=G(bx_, bz_), tags={"rock"}, companions=False)
+            t += R.uniform(4.5, 6.5)
+    return n

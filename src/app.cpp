@@ -1378,6 +1378,7 @@ int App::run(int argc, char** argv) {
       // FG1 (Blackwater Thaw spec 6): "look": {"hazeHeight": m (the aerial haze scale height), "fogLayer": {"density": 1/m,
       // "height": m}} (the valley mist: the environmental fog's own density and e-folding height, instead of the weather's)
       R.lt.mapLeafless = lk && lk->value("leafless", false);
+      R.lt.mapGrassDead = lk ? std::clamp(lk->value("grassDead", 0.0f), 0.0f, 1.0f) : 0.0f;
       { const json* sf = lk && lk->contains("snowfall") && (*lk)["snowfall"].is_object() ? &(*lk)["snowfall"] : nullptr;   // SF1
         R.lt.mapSnowfall = sf != nullptr;
         if (sf) { R.lt.sfNear = std::clamp(sf->value("near", 160.0f), 0.0f, 4000.0f); R.lt.sfFar = std::clamp(sf->value("far", 3000.0f), 0.0f, 40000.0f);
