@@ -2065,6 +2065,7 @@ layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(locatio
 layout(std430, binding = 12) readonly buffer NmkFol { vec4 gFol[]; };
 uniform mat4 uVP; uniform float uTime, uWind; uniform int uInstBase;
 out vec3 vW, vN; out vec4 vT; out vec2 vUV; flat out vec4 vTintI; out vec4 vCC, vPC;   // vCC / vPC: kModelFS's motion (AIB1), unused here
+invariant gl_Position;
 void main(){
   int b = (uInstBase + gl_InstanceID)*4;
   vec4 c0 = gFol[b], c1 = gFol[b + 1], c2 = gFol[b + 2], c3 = gFol[b + 3]; float wk = c0.w; c0.w = 0.0;
@@ -2078,13 +2079,13 @@ void main(){
   w.xyz += (vec3(0.8, 0.0, 0.6)*(0.018*h*s) + vec3(f, 0.5*f, f)*min(h, 1.5))*wk*uWind;
   mat3 m = mat3(M);
   vW = w.xyz; vN = m*aNrm; vT = vec4(m*aTan.xyz, aTan.w); vUV = aUV; vCC = vPC = vec4(0.0, 0.0, 0.0, 1.0);
-  gl_Position = uVP*w;
+  gl_Position = uVP*w;   // invariant: the CP1 depth prepass (fol_depth) and the GL_EQUAL shading pass must agree
 }
 )GLSL";
 static const char* kFolDepthFS = R"GLSL(
 in vec3 vW, vN; in vec4 vT; in vec2 vUV;
-uniform sampler2D uAlb; uniform int uCutout;
-void main(){ if (uCutout == 1 && texture(uAlb, vUV).a < 0.5) discard; }
+uniform sampler2D uAlb; uniform int uCutout; uniform vec4 uBase;
+void main(){ if (uCutout == 1 && uBase.a*texture(uAlb, vUV).a < cutRef()) discard; }   // kModelFS's cut-out exactly (CP1: the main prepass before its GL_EQUAL pass)
 )GLSL";
 
 // ---- near-field depth of field for aiming down the sights: only first-person weapon pixels nearer than the
@@ -2829,7 +2830,7 @@ static const char* kLeafShadowFS = R"GLSL(
 in vec3 vW, vN; in vec2 vUV; in float vM, vShade; flat in float vSeed;
 flat in float vLayer;
 float leafCut(vec2 uv, float seed, float layer);
-void main(){ if (leafCut(vUV, vSeed, vLayer) < 0.5) discard; }   // the same cutout as the shaded leaves
+void main(){ if (leafCut(vUV, vSeed, vLayer) < cutRef()) discard; }   // the same cutout as the shaded leaves (cutRef: 0.5 in the shadow passes; the colour pass's in the main prepass)
 )GLSL";
 
 static const char* kShadowVS = R"GLSL(
@@ -3111,6 +3112,7 @@ layout(location=0) in vec3 aB; layout(location=1) in vec4 iP; layout(location=2)
 uniform mat4 uVP; uniform float uTime, uRadius, uWidthScale, uWind;
 uniform mat4 uVPU, uPrevVP; uniform float uPrevTime;
 uniform float uPxAngle;              // FL1: radians per pixel (main pass; 0 in the shadow pass)
+invariant gl_Position;               // CP1: the grass depth prepass (grass_pre) and the GL_EQUAL shading pass must agree
 uniform int uVehN; uniform vec4 uVeh[32];   // TK3: vehicle footprints (oriented boxes): no grass inside, flattened just outside
 float vehFlat(vec2 xz){
   float k = 1.0;
@@ -3455,6 +3457,9 @@ void main(){
     alb = vAlb*(v > 0.9 ? 1.15 : 1.0);
   } else alb = vAlb;   // flower stems
   if (!past) alb *= mix(0.62, 1.12, lv);   // shaded roots, sunlit (not bleached) tips (pasture: gradient + AO per vertex)
+#ifdef NMK_PRE
+  return;   // CP1 grass_pre: every cut-out above, no shading (the compiler drops it)
+#endif
   if (vPart == 1) alb *= 0.85;
   // cheap lighting: one hardware-PCF shadow tap, one sky-occlusion tap, wrapped diffuse, no specular
   float sh = 1.0;
@@ -4003,7 +4008,9 @@ bool Renderer::init(int w, int h) {
   progSnowfall = compile(kSnowfallVS, kSnowfallFS, "snowfall"); glCreateVertexArrays(1, &snowfallVao);
   progGrass = compile(kGrassVS, kGrassFS, "grass");
   progGrassShadow = compile(kGrassVS, kGrassShadowFS, "grass_shadow");
-  { extern bool grassAtlasInit(GLuint, GLuint); grassAtlasReady = grassAtlasInit(progGrass, progGrassShadow); }   // GT1 (grass.cpp)
+  progGrassPre = compile(kGrassVS, (std::string("#define NMK_PRE 1\n") + kGrassFS).c_str(), "grass_pre");
+  { GLint ok = 0; glGetProgramiv(progGrassPre, GL_LINK_STATUS, &ok); if (!ok) { glDeleteProgram(progGrassPre); progGrassPre = 0; } }   // CP1: no grass prepass rather than no grass
+  { extern bool grassAtlasInit(GLuint, GLuint, GLuint); grassAtlasReady = grassAtlasInit(progGrass, progGrassShadow, progGrassPre); }   // GT1 (grass.cpp)
   progModel = compile(kModelVS, kModelFS, "model");
   {   // GL1 window glass clarity (content/settings/glass.json)
     json g; try { g = json::parse(readTextFile(contentDir() / "settings" / "glass.json")); } catch (...) { logf("glass.json: missing or invalid, the old look"); }
@@ -4868,6 +4875,7 @@ void Renderer::drawFolModels(bool depth, const mat4& vp, const Frustum* fr, floa
           glUniform1i(L.hasAlb, t.alb ? 1 : 0); glUniform1i(L.hasMR, t.mr ? 1 : 0); glUniform1i(L.hasNrm, t.n ? 1 : 0); glUniform1i(L.hasAO, t.ao ? 1 : 0); glUniform1i(L.aoInMR, t.aoInMR ? 1 : 0); }
       }
       glUniform1i(lCut, pt.cutout && (mi >= 0 && m->mats[mi].alb) ? 1 : 0);
+      if (depth) glUniform4fv(L.base, 1, glm::value_ptr(pt.base));   // fol_depth's cut-out multiplies by the base alpha, as kModelFS
       if (!depth) { glUniform4fv(L.base, 1, glm::value_ptr(pt.base)); glUniform1f(L.metal, pt.metal); glUniform1f(L.rough, pt.rough); }
       glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u), rn.second);
       stats.draws++; stats.tris += (int)pt.count / 3 * rn.second;
@@ -5408,7 +5416,23 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     drawModels(worldModels, &frMain);
     glEnable(GL_CULL_FACE);
   }
-  if (!folModels.empty()) { setLighting(progFolModel, v); drawFolModels(false, vp, &frMain); }   // NT8 model foliage
+  // CP1: the dithered cut-out threshold (hashalpha) in a main-view depth prepass, so it cuts exactly where the colour pass does
+  auto preHash = [&](std::initializer_list<GLuint> ps, bool on) { for (GLuint pg : ps) if (pg) {
+    static const float hs = std::getenv("NMK_HASH_SPREAD") ? float(std::atof(std::getenv("NMK_HASH_SPREAD"))) : 0.2f;
+    glProgramUniform1f(pg, U(pg, "uHashAlpha"), on && perf.hashAlpha && q.taa && !thumbMode ? hs : 0.0f); glProgramUniform1i(pg, U(pg, "uFrame"), frame); } };
+  auto colourBufs = [&] { if (thumbMode) glNamedFramebufferDrawBuffer(worldFbo, GL_COLOR_ATTACHMENT0); else glNamedFramebufferDrawBuffers(worldFbo, 5, b5); };
+  if (!folModels.empty()) {   // NT8 model foliage
+    setLighting(progFolModel, v);
+    const bool pre = perf.vegPrepass && !thumbMode;
+    if (pre) {   // CP1: depth first (alpha test only), then each covered pixel is shaded once at GL_EQUAL
+      glNamedFramebufferDrawBuffer(worldFbo, GL_NONE); preHash({progFolDepth}, true);
+      drawFolModels(true, vp, &frMain);
+      preHash({progFolDepth}, false); colourBufs();
+      glDepthFunc(GL_EQUAL); glDepthMask(GL_FALSE);
+    }
+    drawFolModels(false, vp, &frMain);
+    if (pre) { glDepthFunc(zLess()); glDepthMask(GL_TRUE); }
+  }
   gpuMark(GP_Trees);
   // tree canopies (double sided, alpha tested)
   if (!foliage.empty()) {
@@ -5421,9 +5445,9 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       glUniform1f(U(lp, "uPrevTime"), holdTime ? time : time - v.dt);
     }
     if (perf.leafPrepass) {   // PF2: canopy depth first (alpha test only), then each covered pixel is shaded once at GL_EQUAL
-      glNamedFramebufferDrawBuffer(worldFbo, GL_NONE);
+      glNamedFramebufferDrawBuffer(worldFbo, GL_NONE); preHash({progLeafShadow, progLeafIShadow}, true);
       drawFoliage(progLeafShadow, vp, &frMain, true);
-      if (thumbMode) glNamedFramebufferDrawBuffer(worldFbo, GL_COLOR_ATTACHMENT0); else glNamedFramebufferDrawBuffers(worldFbo, 5, b5);
+      preHash({progLeafShadow, progLeafIShadow}, false); colourBufs();
       glDepthFunc(GL_EQUAL); glDepthMask(GL_FALSE);
       drawFoliage(progLeaf, vp, &frMain, true);
       glDepthFunc(zLess()); glDepthMask(GL_TRUE);
@@ -5463,15 +5487,26 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   // grass after opaque so buildings reject hidden blades early; double sided
   if (grass && !thumbMode) {
     glDisable(GL_CULL_FACE);
-    setLighting(progGrass, v);
-    glUniformMatrix4fv(U(progGrass, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
-    glUniform1f(U(progGrass, "uPxAngle"), pxAngle);
-    glUniformMatrix4fv(U(progGrass, "uVPU"), 1, GL_FALSE, glm::value_ptr(vpU));
-    glUniformMatrix4fv(U(progGrass, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(taaValid ? prevVP : vpU));
-    glUniform1f(U(progGrass, "uPrevTime"), holdTime ? time : time - v.dt);
-    glUniform1i(U(progGrass, "uGAOn"), perf.grassAtlas && grassAtlasReady && grassAtlasTier);   // GT1 grass plant atlas (off at Low)
-    { int n = (int)std::min<size_t>(16, grassVeh.size() / 2); glUniform1i(U(progGrass, "uVehN"), n); if (n) glUniform4fv(U(progGrass, "uVeh"), 2 * n, glm::value_ptr(grassVeh[0])); }   // TK3
+    auto grassUni = [&](GLuint pg) {   // the colour program and its CP1 depth twin take the same inputs
+      setLighting(pg, v);
+      glUniformMatrix4fv(U(pg, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+      glUniform1f(U(pg, "uPxAngle"), pxAngle);
+      glUniformMatrix4fv(U(pg, "uVPU"), 1, GL_FALSE, glm::value_ptr(vpU));
+      glUniformMatrix4fv(U(pg, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(taaValid ? prevVP : vpU));
+      glUniform1f(U(pg, "uPrevTime"), holdTime ? time : time - v.dt);
+      glUniform1i(U(pg, "uGAOn"), perf.grassAtlas && grassAtlasReady && grassAtlasTier);   // GT1 grass plant atlas (off at Low)
+      { int n = (int)std::min<size_t>(16, grassVeh.size() / 2); glUniform1i(U(pg, "uVehN"), n); if (n) glUniform4fv(U(pg, "uVeh"), 2 * n, glm::value_ptr(grassVeh[0])); }   // TK3
+    };
+    const bool pre = perf.vegPrepass && progGrassPre;
+    if (pre) {   // CP1: blades' depth first (kGrassFS's own cut-outs), then each covered pixel is shaded once at GL_EQUAL
+      glNamedFramebufferDrawBuffer(worldFbo, GL_NONE);
+      grassUni(progGrassPre); preHash({progGrassPre}, true);
+      grass->draw(progGrassPre, vp, v.camPos);
+      colourBufs(); glDepthFunc(GL_EQUAL); glDepthMask(GL_FALSE);
+    }
+    grassUni(progGrass);
     grass->draw(progGrass, vp, v.camPos);
+    if (pre) { glDepthFunc(zLess()); glDepthMask(GL_TRUE); }
     stats.draws += grass->lastDrawnChunks; stats.tris += (int)grass->lastDrawnBlades * 8;
     glEnable(GL_CULL_FACE);
   }
