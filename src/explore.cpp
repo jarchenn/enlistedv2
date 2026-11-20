@@ -22,6 +22,7 @@
 #include "game.h"
 #include "commands.h"   // CMD1 "/" command line
 #include "sd_game.h"   // SD3
+#include "map_ambience.h"   // BTA
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <algorithm>
@@ -67,13 +68,15 @@ std::string App::stepSound(vec3 pos, uint64_t groundUser) {
   std::string s = "step_grass";
   std::string ps = pathSurfaceAt(pos);
   if (ps == "gravel" || ps == "concrete") s = "step_stone";   // dirt stays the soft step
-  { extern const std::string& groundPaintStep(float, float); const std::string& gs = groundPaintStep(pos.x, pos.z); if (!gs.empty() && audio.hasEvent(gs)) s = gs; }   // lasso ground paint
+  { std::string gs = mapStepEvent(*this, pos); if (!gs.empty() && audio.hasEvent(gs)) s = gs; }   // lasso ground paint (BTA: soft boundary, the map's surface table)
   if (groundUser == ~0ull || groundUser == 0) { Physics::Hit h; if (Physics::castRayEx(pos + vec3(0, 0.3f, 0), vec3(0, -1, 0), 0.8f, h)) groundUser = h.ud; }
   if (groundUser != ~0ull && groundUser != 0) {
     uint64_t iid = groundUser >> 16;
     if (const Instance* i = doc.find(iid)) s = (pos.y - i->pos.y > 0.9f) ? "step_wood" : "step_stone";
   }
-  if (pos.y < waterAt(*this, pos.x, pos.z) - 0.05f && audio.hasEvent("step_water")) s = "step_water";   // wading: the bank's deep-water steps (any water, water_query.h)
+  if (float wd = waterAt(*this, pos.x, pos.z) - pos.y; wd > 0.05f) {   // wading (any water, water_query.h): BTA shallow splashes to 0.3 m, then the bank's deep-water steps
+    if (wd < 0.3f && audio.hasEvent("step_shallow")) s = "step_shallow"; else if (audio.hasEvent("step_water")) s = "step_water";
+  }
   return s;
 }
 
@@ -380,7 +383,9 @@ void App::exploreStep(float dt, const ExploreInput& in) {
     float stride = in.sprint ? 1.1f : 0.75f;
     if (stepTimer > stride) {
       stepTimer = 0;
-      audio.play(stepSound(c.pos, c.groundUser), c.pos, in.crouch ? 0.4f : 0.8f);
+      std::string ev = stepSound(c.pos, c.groundUser);
+      audio.play(ev, c.pos, in.crouch ? 0.4f : 0.8f);
+      mapStepFeedback(*this, ev, c.pos);   // BTA: splashes at the contact
     }
   }
   // ---- interaction
