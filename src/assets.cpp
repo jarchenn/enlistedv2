@@ -696,7 +696,7 @@ static Part parsePart(const json& j, const std::map<std::string, int>& mats) {
     for (int k = 0; k < 3; ++k) for (float a : {p.a0, p.a1}) { vec3 q = prismPoint(p.axis, a, p.tri[k]); mn = glm::min(mn, q); mx = glm::max(mx, q); }
     p.center = (mn + mx) * 0.5f; p.size = mx - mn;
   } else {
-    p.center = jvec3(j["c"]); p.size = jvec3(j["s"], vec3(1));
+    p.center = jvec3(j["c"]); p.size = jvec3(jkey(j, "s"), vec3(1));
     float half = 0.5f * std::min({p.size.x, p.size.y, p.size.z});
     if (t == "r") { p.shape = Part::ROUND; p.rad = std::clamp(j.value("rad", 0.1f), 0.0f, half); }
     else if (t == "c" || t == "k") { p.shape = Part::CYL; p.sides = j.value("n", 0); p.top = std::clamp(j.value("top", t == "k" ? 0.0f : 1.0f), 0.0f, 1.0f); p.seg = j.value("seg", 0); }
@@ -1038,7 +1038,7 @@ void AssetLibrary::build(AssetDef& ad) const {
   for (auto& mj : j.value("materials", json::array())) {
     Material m;
     m.name = mj.value("name", "");
-    m.albedo = jvec3(mj["albedo"], vec3(0.6f));
+    m.albedo = jvec3(jkey(mj, "albedo"), vec3(0.6f));
     m.roughness = mj.value("roughness", 0.8f);
     m.metallic = mj.value("metallic", 0.0f);
     m.pattern = patternFromName(mj.value("pattern", "plain"));
@@ -1068,7 +1068,7 @@ void AssetLibrary::build(AssetDef& ad) const {
     d.kind = ij.value("kind", "door");
     d.label = ij.value("label", d.kind);
     d.sound = ij.value("sound", "wood");
-    d.axis = glm::normalize(jvec3(ij["axis"], vec3(0, 1, 0)));
+    d.axis = glm::normalize(jvec3(jkey(ij, "axis"), vec3(0, 1, 0)));
     d.openAngle = ij.value("openAngle", 95.0f);
     d.hp = ij.value("hp", -1.0f);
     d.duration = ij.value("duration", 0.9f);
@@ -1106,7 +1106,7 @@ void AssetLibrary::build(AssetDef& ad) const {
     st.traverseRate = sj.value("traverseRate", 14.0f); st.elevateRate = sj.value("elevateRate", 8.0f);
     st.recoil = sj.value("recoil", 0.6f); st.reloadTime = sj.value("reloadTime", 4.0f);
     st.loaded = sj.value("loaded", 1); st.reserve = sj.value("reserve", 5); st.ammo = sj.value("ammo", ""); st.reserveAT = sj.value("reserveAT", 0); st.ammoAT = sj.value("ammoAT", "");
-    st.moveHalf = jvec3(sj["moveHalf"], vec3(1, 0.5f, 1.6f)); st.serviceRadius = sj.value("serviceRadius", 6.0f);
+    st.moveHalf = jvec3(jkey(sj, "moveHalf"), vec3(1, 0.5f, 1.6f)); st.serviceRadius = sj.value("serviceRadius", 6.0f);
     st.label = sj.value("label", st.kind == "pak40" ? std::string("PaK 40") : st.kind); st.heName = sj.value("heName", st.heName); st.atName = sj.value("atName", st.atName);
     st.sightFov = sj.value("sightFov", st.kind == "pak40" ? 9.0f : 55.0f); st.muzzleScale = sj.value("muzzleScale", 1.0f);
     if (sj.contains("shellHE")) { auto& h = sj["shellHE"]; st.heVelocity = h.value("velocity", 550.0f); st.heDamage = h.value("damage", 120.0f); st.heRadius = h.value("radius", 2.2f); st.heCrater = h.value("crater", 1.0f); }
@@ -1179,7 +1179,7 @@ void AssetLibrary::build(AssetDef& ad) const {
     pn.id = pj.value("id", "");
     pn.family = pj.value("family", "masonry");
     pn.hp = pj.value("hp", 200.0f);
-    pn.bmin = jvec3(pj["min"]); pn.bmax = jvec3(pj["max"]); pn.normal = jvec3(pj["normal"], vec3(0, 0, 1));
+    pn.bmin = jvec3(pj["min"]); pn.bmax = jvec3(pj["max"]); pn.normal = jvec3(jkey(pj, "normal"), vec3(0, 0, 1));
     auto& sts = pj["states"];
     for (int s = 0; s < 3 && s < (int)sts.size(); ++s) {
       MeshData m; std::vector<Part> c;
@@ -1271,7 +1271,7 @@ void AssetLibrary::build(AssetDef& ad) const {
     d.blocksVehicles = dj.value("blocksVehicles", false); d.stopsBullets = dj.value("stopsBullets", false);
     d.unsafeVault = dj.value("unsafeVault", false); d.traversal = dj.value("traversal", std::string("block")); d.slowFactor = dj.value("slowFactor", 0.35f);
     d.sections = dj.value("sections", 0); d.sectionHp = dj.value("sectionHp", 60.0f);
-    for (auto& s : dj.value("sockets", json::array())) d.sockets.push_back({jvec3(s["p"]), jvec3(s["t"], vec3(1, 0, 0))});
+    for (auto& s : dj.value("sockets", json::array())) d.sockets.push_back({jvec3(s["p"]), jvec3(jkey(s, "t"), vec3(1, 0, 0))});
     // destroyed state: sandbags slump into a low spill (~0.25 m), the hedgehog is knocked onto its side
     MeshData bm; std::vector<Part> bc;
     float pivotY = a->parts.empty() ? 0.43f : a->parts[0].center.y;   // the hedgehog's crossing (all beams share it)
@@ -1288,7 +1288,7 @@ void AssetLibrary::build(AssetDef& ad) const {
     auto& pj = j["path"]; PathDef& p = a->path; p.on = true;
     p.kind = pj.value("kind", "dirt"); p.width = pj.value("width", 2.5f); p.length = pj.value("length", 8.0f);
     p.minW = pj.value("minWidth", 0.8f); p.maxW = pj.value("maxWidth", 8.0f); p.minL = pj.value("minLength", 1.0f); p.maxL = pj.value("maxLength", 60.0f);
-    p.albedo = jvec3(pj["albedo"], vec3(0.5f)); p.rough = pj.value("roughness", 0.85f); p.slab = pj.value("slab", 2.0f); p.slabHp = pj.value("slabHp", 60.0f);
+    p.albedo = jvec3(jkey(pj, "albedo"), vec3(0.5f)); p.rough = pj.value("roughness", 0.85f); p.slab = pj.value("slab", 2.0f); p.slabHp = pj.value("slabHp", 60.0f);
     extern void buildPathMeshData(MeshData&, const PathDef&, vec2, vec3, float, const std::function<float(float, float)>&, const std::vector<uint8_t>*);
     MeshData pm; buildPathMeshData(pm, p, vec2(p.width, p.length), vec3(0), 0.0f, [](float, float) { return 0.0f; }, nullptr);
     a->opaque.destroy(); a->opaque.upload(pm);
@@ -1308,7 +1308,7 @@ void AssetLibrary::build(AssetDef& ad) const {
       }
       if (!it->second.first) continue;
       AssetDef::Attached at; at.model = it->second.first; at.lod = it->second.second;
-      at.local = glm::translate(mat4(1), jvec3(mj["pos"], vec3(0))) * glm::mat4_cast(yawQuat(mj.value("yaw", 0.0f)));
+      at.local = glm::translate(mat4(1), jvec3(jkey(mj, "pos"), vec3(0))) * glm::mat4_cast(yawQuat(mj.value("yaw", 0.0f)));
       if (mj.contains("tilt") && mj["tilt"].is_array() && mj["tilt"].size() >= 2) { vec2 t(mj["tilt"][0].get<float>(), mj["tilt"][1].get<float>()); at.local = at.local * glm::rotate(mat4(1), glm::radians(t.x), vec3(1, 0, 0)) * glm::rotate(mat4(1), glm::radians(t.y), vec3(0, 0, 1)); }   // PR4: [pitch about x, roll about z] (a drum on its side, a tipped table)
       at.lodDist = mj.value("lodDist", 15.0f);
       a->attached.push_back(at);
