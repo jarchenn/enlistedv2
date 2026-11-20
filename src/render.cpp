@@ -2429,10 +2429,12 @@ uniform int uAoNew;   // VO L2: multi-bounce and specular occlusion from the (GT
 out vec4 oColor;
 vec3 viewPosAt(vec2 uv){ float z = texture(uDepth, uv).r; vec4 p = uInvProj*vec4(uv*2.0 - 1.0, z, 1.0); return p.xyz/p.w; }   // reverse-Z
 vec2 toUV(vec3 q){ vec4 c = uProj*vec4(q, 1.0); return c.xy/c.w*0.5 + 0.5; }
+uniform float uSsrMaxT = 1e9;   // OPT ssrrange
 vec4 traceSSR(vec3 Pv, vec3 Rv){
   float stepL = 0.22, t = 0.10, jit = pixelNoise();
   vec3 prev = Pv;
   for (int i = 0; i < 28; ++i) {
+    if (t > uSsrMaxT) break;
     vec3 q = Pv + Rv*(t + stepL*jit);
     if (q.z > -0.05) return vec4(0.0);
     vec2 uv = toUV(q);
@@ -5222,7 +5224,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     for (auto& f : foliage) { mix((uint64_t)(uintptr_t)f.tree); mix((fb(f.m[3].x) << 32) | fb(f.m[3].z)); mix((fb(f.m[3].y) << 32) | (uint64_t)std::max<int>(f.cur, 3)); }
     mix((uint64_t)nStat); mix(perf.casterCull | perf.smallCasters << 1 | perf.farLeaf << 2 | perf.leafShadowLod << 3 | perf.instDepth << 4);
   }
-  const bool farCadence = frame - farFrame >= std::max(1, q.farEvery);
+  const bool farCadence = frame - farFrame >= std::max(perf.farLite ? 4 : 1, q.farEvery);   // OPT farlite: the far cascade at most every 4th frame
   const bool farMoved = fR != farR || glm::distance(ffw, farFocus) > 8.0f || sunDir != farSun;
   const bool farDyn = opaque.size() > nStat || !worldModels.empty();
   const bool staticRedo = cacheOn && (farMoved || (farCadence && fsig != farSig));
@@ -5233,7 +5235,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     farR = fR; farFrame = frame; farFocus = ffw; farSun = sunDir; farPass = true;
     vec3 ff = ffw; ff.y = t.height(ff.x, ff.z);
     mat4 lv2; lightVPFar = stableOrtho(ff, sunDir, farR, 400.0f, shadowFarSize, lv2);
-    minCaster = perf.smallCasters ? 2.0f * (2 * farR / shadowFarSize) : 0.0f;   // PF2: casters under ~1 texel
+    minCaster = perf.smallCasters ? (perf.farLite ? 4.0f : 2.0f) * (2 * farR / shadowFarSize) : 0.0f;   // PF2: casters under ~1 texel
     Frustum frFar = Frustum::fromVP(lightVPFar);
     glViewport(0, 0, shadowFarSize, shadowFarSize);
     if (!cacheOn || staticRedo) {   // the static layer (everything, without the cache)
@@ -5266,7 +5268,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   gpuMark(GP_SkyOcc);
   // ---- sky occlusion (top down). PF2 occcache: redrawn every 16 frames, or at once when the camera moves 4 m across
   // or 8 m up / down (the map covers +-90 m, so the camera stays >= 86 m inside it); thumbnails always redraw.
-  float occR = 90.0f;
+  float occR = perf.occSmall ? 64.0f : 90.0f;   // OPT occsmall (weather corpus s3.5): the sky-occlusion map over +-64 m (fewer casters, finer texels)
   const float occTopW = std::max(v.camPos.y, 0.0f) + 60.0f;
   const bool occRedo = !perf.occCache || thumbMode || frame - occFrame >= 16 || glm::length(vec2(v.camPos.x - occCam.x, v.camPos.z - occCam.z)) > 4.0f || std::fabs(occTopW - occTop) > 8.0f;
   if (occRedo) {
@@ -5329,7 +5331,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glNamedFramebufferDrawBuffer(worldFbo, GL_COLOR_ATTACHMENT0);
     setLighting(progSky, v);
     glUniformMatrix4fv(U(progSky, "uInvVP"), 1, GL_FALSE, glm::value_ptr(glm::inverse(vp)));
-    glUniform1i(U(progSky, "uCloudOn"), clouds && perf.clouds ? 1 : 0); glUniform1f(U(progSky, "uCloudCover"), cloudCoverNow()); glUniform1i(U(progSky, "uCloudQ"), wx.quality);
+    glUniform1i(U(progSky, "uCloudOn"), clouds && perf.clouds && !(perf.skyGate && wx.k > 0.99f) ? 1 : 0);   /* OPT skygate: under a closed deck the low cloud field is not drawn (the grey layer covers) */ glUniform1f(U(progSky, "uCloudCover"), cloudCoverNow()); glUniform1i(U(progSky, "uCloudQ"), wx.quality);
     glDepthFunc(zLEqual()); glDepthMask(GL_FALSE);   // a front-facing triangle: the cull state does not matter
     glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
     glDepthMask(GL_TRUE); glDepthFunc(zLess());
@@ -5861,7 +5863,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   setLighting(progComposite, v);   // sky model + noise for the reflection estimate
   glUseProgram(progComposite);
   glBindTextureUnit(12, nrTex); glUniform1i(U(progComposite, "uNR"), 12);
-  glUniform1f(U(progComposite, "uSsrAmt"), ssr ? q.ssrStrength : 0.0f);
+  glUniform1f(U(progComposite, "uSsrAmt"), ssr ? q.ssrStrength : 0.0f); glUniform1f(U(progComposite, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f);   // OPT ssrrange: no march past 0.75 x visibility
   glUniformMatrix4fv(U(progComposite, "uProj"), 1, GL_FALSE, glm::value_ptr(v.proj));
   glUniformMatrix4fv(U(progComposite, "uView"), 1, GL_FALSE, glm::value_ptr(v.view));
   glUniformMatrix4fv(U(progComposite, "uInvProj"), 1, GL_FALSE, glm::value_ptr(invP));
