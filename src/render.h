@@ -215,6 +215,7 @@ public:
     bool hblend = true;          // hblend (M2): height-based blending of ground layers and paint (textures.cpp hbK)
     bool hex = true;             // hex (M1): hex-tiled ground and cliff texture taps (textures.cpp texHexFetch)
     bool snow = true;            // snow (VO P, A/B only): the SN1 snow layer off on every surface, to time its shading
+    bool texBias = true;         // texbias (CP step 1): texture sets at gradient scale 1.0 (were 0.6-1.6 mips too coarse), LOD bias log2(render / display) - 0.5 under TAA, anisotropy 16; off = the old 3.0 / 1.5 / 1.6 and 8x
     bool specAA = true;          // specaa (M3): geometric specular anti-aliasing in shade() (the baked Toksvig roughness mips stay)
     bool syncGpuQuery = false;   // asyncq (off = true): read the frame's GL_TIME_ELAPSED query back next frame, waiting for the GPU
     bool farCache = true;        // farcache: the far shadow cascade is redrawn every 2nd frame (or when its focus moves)
@@ -301,7 +302,7 @@ public:
               // ^ stream T (terrain): append to the line above
               : n == "contactsh" ? &contactShadow : n == "fullshadow" ? &fullShadow : n == "gtao" ? &gtao : n == "midcascade" ? &midCascade : n == "microsh" ? &microShadow : n == "foltrans" ? &folTrans : n == "agx" ? &agx : n == "histexpo" ? &histExpo : n == "skyrelit" ? &skyRelit : n == "atmo" ? &atmo : n == "reflprobe" ? &reflProbe
               // ^ stream L (lighting): append to the line above
-              : n == "specaa" ? &specAA : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps
+              : n == "specaa" ? &specAA : n == "texbias" ? &texBias : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps
               // ^ stream M (materials): append to the line above
               : n == "charvel" ? &charVel
               // ^ characters (gameplay): append to the line above

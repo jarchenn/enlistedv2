@@ -472,6 +472,8 @@ uniform int uTerrSlot[8]; // terrain layers: grass, soil, mud, gravel, sand, roc
 uniform int uPaintSlot[12];
 uniform int uOpt2Off;   // OPT2 A/B (NMK_OPT2=0): hex on every layer at any distance, the old far-normal rule, no snow tap gate
 uniform ivec3 uSnowSlot;   // SN2: slots snow_packed, snow_trodden, snow_thaw (-1 missing): terrTexSlot(uSnowSlot.x, p, n, dpx, dpy, dist)
+uniform int uTexBiasOn;   // CP step 1 (perf switch texbias): 1 = gradient scale 1.0 everywhere (corpus 07 s4.1) + uTexBias; 0 = the old 3.0 / 1.5 ground / 1.6 relief
+uniform float uTexBias;   // log2(render / display), -0.5 more under TAA (texbias on only)
 uniform float uTexLodG;   // TX2K: the ground's gradient scale (terrain layers, painted ground; uTexLod.x for everything else)
 uniform vec4 uTexLod;     // gradient scale (LOD bias against TAA-jitter shimmer), normal fade start / end (texels per pixel), fade depth
 uniform vec4 uTexLod2;    // albedo / roughness detail fade start / end (texels per pixel), fade depth
@@ -525,7 +527,7 @@ void texHexFetch(vec3 q, vec2 gx, vec2 gy, out vec4 c, out vec2 nx, out vec2 rh,
 }
 void texTap(float L, vec3 p, vec3 dpx, vec3 dpy, vec2 inv, vec3 T, vec3 B, vec3 Nf, vec3 ns, float w, inout TexS s){
   vec3 q = vec3(dot(p, T)*inv.x, dot(p, B)*inv.y, L);
-  float gs = gTexGS > 0.0 ? gTexGS : uTexLod.x;
+  float gs = uTexBiasOn == 1 ? exp2(uTexBias) : (gTexGS > 0.0 ? gTexGS : uTexLod.x);
   gs = mix(min(gs, 1.0), gs, smoothstep(uTexNear.x, uTexNear.y, gEyeD));   // TX3: no bias up close
   vec2 gx = vec2(dot(dpx, T), dot(dpx, B))*inv*gs, gy = vec2(dot(dpy, T), dot(dpy, B))*inv*gs;
   if (gPomK > 0.0 && w > 0.3) {   // GX5 POM: march from the top of the relief down until the height map is above the ray
