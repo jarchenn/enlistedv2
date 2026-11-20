@@ -407,7 +407,15 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     { extern bool waterDrawItems(App&, const Instance&, const InstanceRT&, const mat4&, std::vector<DrawItem>&); if (waterDrawItems(*this, i, r, M, op)) continue; }   // V1 water surfaces (water.cpp)
     // coarse distance cull
     float camDist = glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos));
-    if (camDist > 1200 * settings().drawDist()) continue;   // x the Settings draw distance (Low 0.6, High 1.4)
+    if (camDist > 1200 * settings().drawDist()) {   // x the Settings draw distance (Low 0.6, High 1.4)
+      // viscull: a light or a glowing material stays visible far into fog (to about 3.2 V, weather corpus 08 s4.1), so until
+      // the lamp-glow LOD exists, lit assets keep the user's distance instead of the fog cap
+      static std::unordered_map<std::string, bool> glows;   // by asset id (a library reload can reuse AssetDef addresses)
+      auto g = glows.find(r.asset->id);
+      if (g == glows.end()) g = glows.emplace(r.asset->id, (r.asset->raw.is_object() && r.asset->raw.contains("light")) ||
+                                std::any_of(r.asset->materials.begin(), r.asset->materials.end(), [](const Material& m) { return m.emissive != vec3(0); })).first;
+      if (!g->second || camDist > settings().renderDistUser()) continue;
+    }
     if (r.asset->hasBags) { extern void sandbagDraw(App&, const AssetDef&, const mat4&, float, bool); sandbagDraw(*this, *r.asset, M, camDist, r.defDestroyed); }   // HB1b: the sandbags, instanced
     if (camDist < 300.0f) for (auto& am : r.asset->attached) {   // PR1 modelled pieces of a part-built asset (the detail only up close)
       const GpuModel* gm = (am.lod && camDist > am.lodDist) ? am.lod.get() : am.model.get();
