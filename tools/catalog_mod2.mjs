@@ -65,11 +65,18 @@ export function mod2Assets() {
   // stand-in front glazing (the model has its own glass and frames)
   for (const s of [-1, 1]) P(A.box([s < 0 ? -3.85 : 1.9, 0.94, ZF + 0.12], [s < 0 ? -1.9 : 3.85, 2.61, ZF + 0.14], "glass", { k: 0 }));
   // the doors: steel front door (hinged at -x, opens into the hall) and the garage's up-and-over door
-  const dz = ZV - 0.04;
+  // DR2: the leaf sits in the model's steel door frame (DoorFrames: jambs x -0.611..0.608, threshold to head model z
+  // 0.187..2.314, 18 cm deep at model y -7.304..-7.486), 3 mm clear all round, hung on the left jamb at the frame's hall
+  // face so it swings into the hall past the jamb; it was in the stand-in wall's plane, 25-45 cm behind the frame
+  const r4 = (v) => Math.round(v * 1e4) / 1e4;
+  const J0 = E(-0.611, -7.304, 0.187).map(r4), J1 = E(0.608, -7.486, 2.314).map(r4);   // jamb / threshold / head corners (asset)
+  const cl = 0.003, lw = r4(J1[0] - J0[0] - 2 * cl), lh = r4(J1[1] - J0[1] - 2 * cl), lx = r4((J0[0] + J1[0]) / 2), ly = r4((J0[1] + J1[1]) / 2);
+  const dz = r4(J0[2] + 0.04);   // 5 cm leaf, its hall face 1.5 cm inside the frame
   A.interactables.push({ id: "front_door", kind: "door", label: "door", sound: "steel", axis: [0, 1, 0], openAngle: 95, duration: 1.1, defaultOpen: false,
-    leaves: [{ parts: [{ t: "b", c: [0, 1.33, dz], s: [1.22, 2.14, 0.05], m: "door_steel", k: 0, bv: 0.008 }, { t: "b", c: [0.46, 1.25, dz + 0.05], s: [0.03, 0.18, 0.05], m: "door_trim", k: 0 },
-      { t: "b", c: [0, 0.4, dz + 0.03], s: [1.0, 0.26, 0.01], m: "door_trim", k: 0 }, { t: "b", c: [0, 1.33, dz], s: [1.22, 2.14, 0.05], m: "door_steel", v: 0 }], hinge: [-0.61, 0, dz], sign: -1 }],
-    aperture: { min: [-0.62, FLOOR, ZV - 0.1], max: [0.62, 2.41, ZV + 0.02] } });
+    leaves: [{ parts: [{ t: "b", c: [lx, ly, dz], s: [lw, lh, 0.05], m: "door_steel", k: 0, bv: 0.008 }, { t: "b", c: [r4(lx + 0.46), r4(ly - 0.08), r4(dz + 0.05)], s: [0.03, 0.18, 0.05], m: "door_trim", k: 0 },
+      { t: "b", c: [lx, r4(J0[1] + 0.13), r4(dz + 0.03)], s: [r4(lw - 0.2), 0.26, 0.01], m: "door_trim", k: 0 }, { t: "b", c: [lx, ly, dz], s: [lw, lh, 0.05], m: "door_steel", v: 0 }],
+      hinge: [r4(J0[0] + cl), 0, r4(dz - 0.025)], sign: -1 }],
+    aperture: { min: [J0[0], J0[1], r4(J0[2] - 0.02)], max: [J1[0], J1[1], r4(J1[2] + 0.02)] } });
   const gz = ZB + 0.12;
   A.interactables.push({ id: "garage_door", kind: "door", label: "garage door", sound: "steel", axis: [1, 0, 0], openAngle: 88, duration: 2.4, defaultOpen: false,
     leaves: [{ parts: [{ t: "b", c: [-0.02, 1.93, gz], s: [3.42, 3.36, 0.06], m: "door_steel", k: 0 }, ...[0, 1, 2, 3, 4, 5, 6].map((i) => ({ t: "b", c: [-0.02, 0.5 + i * 0.48, gz + 0.04], s: [3.38, 0.04, 0.02], m: "door_trim", k: 0 })),

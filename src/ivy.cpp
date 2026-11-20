@@ -98,7 +98,7 @@ const TypeP kType[T_N] = {
 const float kStep = 0.09f, kCell = 0.1f;
 
 // one facade's 10 cm cells: 0 nothing (outside, breached), 1 wall, 2 inside the outline but no wall (an opening: glass,
-// door, a gap), 3 too deep (a balcony slab in front); off = the surface in front of the facade plane (trim, a sill, a
+// door, a gap), 3 too deep (a balcony slab in front), 5 a doorway (DR2: never grown); off = the surface in front of the facade plane (trim, a sill, a
 // face a few cm proud), so leaves follow it instead of floating or cutting through
 struct Grid {
   int nu = 0, nv = 0; float u0 = 0, v0 = 0; std::vector<uint8_t> st; std::vector<float> off;
@@ -301,6 +301,13 @@ static void growIvy(const AssetDef& a, const IvyDef& iv, const std::vector<uint8
       int k = j * gr.nu + i; if (gr.st[k] != 0) continue;
       auto wallTo = [&](int di, int dj) { for (int s = 1; s < 40; ++s) { int x = i + di * s, y = j + dj * s; if (x < 0 || y < 0 || x >= gr.nu || y >= gr.nv) return false; if (gr.st[y * gr.nu + x] == 1) return true; } return false; };
       if ((wallTo(1, 0) && wallTo(-1, 0)) || (wallTo(0, 1) && wallTo(0, -1))) gr.st[k] = 2;
+    }
+    // DR2: a doorway (a door / gate interactable's aperture near this plane, 5 cm round it and 15 cm over the head) stays
+    // bare: no leaves, no hanging curtains, no droop where the leaf swings and people walk
+    for (const auto& it : a.interactables) {
+      if (it.kind != "door" && it.kind != "gate") continue;
+      if (d.plane < it.apMin[d.n] - 0.6f || d.plane > it.apMax[d.n] + 0.6f) continue;
+      raster(it.apMin[u] - 0.05f, it.apMax[u] + 0.05f, it.apMin.y - 0.05f, it.apMax.y + 0.15f, [&](int k) { gr.st[k] = 5; });
     }
     return gr;
   };

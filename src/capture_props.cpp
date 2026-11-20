@@ -2,7 +2,7 @@
 // "id@x,y,z" aims at that asset-space point instead of the bounds' centre, e.g. one fuel dispenser of the petrol
 // station) placed alone on a blank map by day, shot from 1.5 m and 4 m at standing eye height (1.62 m), 35 degrees off
 // its +z face (NMK_PROPS_NEAR / NMK_PROPS_FAR: the two distances; NMK_PROPS_EYE: eye height above the piece; NMK_PROPS_NEAR_ONLY: no far shot; NMK_PROPS_GROUND: an asset laid under each piece), into selftest_out/prop_<k>_<n|f>.png; selftest_out/props.txt lists them (tools/props/sheet.py stitches
-// the labelled contact sheet). The editor camera, no UI.
+// the labelled contact sheet). The editor camera, no UI. DR2: an entry ending "!open" has its doors swung open.
 // NMK_PROPS_MAP=<template id> (PR5): load that shipped map instead; it furnishes on load as in a match. Three furnished
 // buildings are picked (a house, an inn / cafe, the largest) and each one's biggest ground-floor room is shot from
 // inside; selftest_out/map_counts.json counts the furniture drawn by an imported model against the in-house pieces.
@@ -16,7 +16,7 @@
 #include <fstream>
 
 namespace {
-struct Shot { std::string id; bool aim = false; vec3 at{0}; uint64_t inst = 0; float near = -1; bool fixed = false; vec3 eye{0}, look{0}; };
+struct Shot { std::string id; bool open = false; bool aim = false; vec3 at{0}; uint64_t inst = 0; float near = -1; bool fixed = false; vec3 eye{0}, look{0}; };
 void turnedBounds(vec3 bmin, vec3 bmax, float yaw, vec3& mn, vec3& mx) {   // the box round a piece's bounds turned by yaw
   quat q = yawQuat(yaw); mn = vec3(1e9f); mx = vec3(-1e9f);
   for (int k = 0; k < 8; ++k) { vec3 p = q * vec3(k & 1 ? bmax.x : bmin.x, k & 2 ? bmax.y : bmin.y, k & 4 ? bmax.z : bmin.z); mn = glm::min(mn, p); mx = glm::max(mx, p); }
@@ -159,7 +159,9 @@ bool capturePropsSelfTest(App& a, float dt) {
     std::string tok; int n = 0;
     while (std::getline(ss, tok, ';')) {
       if (tok.empty()) continue;
-      Shot s; size_t p = tok.find('@'), hsh = tok.find('#'); s.id = tok.substr(0, std::min(p, hsh));
+      Shot s;
+      if (size_t o = tok.find("!open"); o != std::string::npos) { s.open = true; tok.erase(o, 5); }   // DR2: "...!open": the piece's doors swung open
+      size_t p = tok.find('@'), hsh = tok.find('#'); s.id = tok.substr(0, std::min(p, hsh));
       if (hsh != std::string::npos) { s.fixed = std::sscanf(tok.c_str() + hsh + 1, "%f,%f,%f>%f,%f,%f", &s.eye.x, &s.eye.y, &s.eye.z, &s.look.x, &s.look.y, &s.look.z) == 6; }   // PR10: "id#eye>look" in asset space (a shot from inside)
       if (p != std::string::npos) { s.aim = true; std::sscanf(tok.c_str() + p + 1, "%f,%f,%f", &s.at.x, &s.at.y, &s.at.z); }
       const AssetDef* as = a.lib.find(s.id);
@@ -185,6 +187,13 @@ bool capturePropsSelfTest(App& a, float dt) {
       gShots.push_back(s);
     }
     a.syncRuntime();
+    for (auto& s : gShots) if (s.open) if (const AssetDef* as = a.lib.find(s.id))   // DR2
+      for (int k = 0; k < (int)as->interactables.size(); ++k) if (as->interactables[k].kind == "door") {   // the editor does not animate: set it open
+        auto it = a.rt.find(s.inst); const Instance* in = a.doc.find(s.inst); if (it == a.rt.end() || !in) continue;
+        int blockedAt = -1; for (int q = 1; q <= 20 && blockedAt < 0; ++q) if (a.leafBlocked(*in, as->interactables[k], q / 20.0f)) blockedAt = q * 5;   // the swing's own clip test, 5 % steps
+        logf("[capture-props] %s door %s: opened%s", s.id.c_str(), as->interactables[k].id.c_str(), blockedAt < 0 ? ", the swing is clear" : (", the swing is blocked at " + std::to_string(blockedAt) + " %").c_str());
+        if (k < (int)it->second.progress.size()) { it->second.progress[k] = 1.0f; it->second.dir[k] = 0; }
+      }
     Settings& S = settings(); S.s.hour = 14.0f; S.apply(a);
     if (a.mode == Mode::Explore) a.exitExplore();
     a.hideUi = true; gT = 0;
