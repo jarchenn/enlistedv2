@@ -121,11 +121,11 @@ void Terrain::buildSurface(const json& routes, const std::vector<SurfaceFootprin
         }
         float hAbove = height(w.x, w.y) - sh.level;
         float wetV, soilV;
-        if (in && hAbove < 0.0f) { wetV = 0.45f; soilV = 0.9f; }   // the bed, where the ground is really under the water: bare, damp
+        if (in && hAbove < 0.0f) { float k = std::clamp(-hAbove / 0.3f, 0.0f, 1.0f); wetV = 0.4f + 0.05f * k; soilV = 0.22f + 0.68f * k; }   // the bed, where the ground is really under the water: bare, damp (WT2: bare only from ~30 cm down, so the filtered texture does not bleed a pale soil line up a steep bank)
         else if (in) {   // the waterline: a thin damp-mud margin within ~12 cm above the water, ragged; most grass stays
           float n1 = vnoise(w.x * 0.9f, w.y * 0.9f, 31), n2 = vnoise(w.x * 2.7f, w.y * 2.7f, 37);
           float damp = std::clamp(1.0f - hAbove / (0.06f + 0.1f * n1), 0.0f, 1.0f) * (0.6f + 0.4f * n2);
-          wetV = damp * 0.4f; soilV = damp * 0.4f;
+          wetV = damp * 0.4f; soilV = damp * 0.22f;   // WT2: less bare soil (lighter than the grass), so the margin reads damp, not pale
         } else { wetV = 0.0f; soilV = 0.0f; }
         size_t i = idx(x, y);
         surf[i + 0] = std::max<uint8_t>(surf[i + 0], (uint8_t)(std::clamp(soilV, 0.0f, 1.0f) * 255));

@@ -16,6 +16,8 @@ POND = (32.0, 52.0, 11.0, 8.5)                       # centre x, z, radius x, z
 # WT1: the shipped map was patched after generation: the pond bowl dug deeper in its heightmap (centre (32.5, 51.8), radii
 # 8 x 5.6 m, 1.3 m deep, shallow edges; about 112 m2 of water instead of 77) and its water outline laid on the dry lip round
 # it (tools: E:/nmk/wt1/lake.py, not in the repo). Regenerating does not reproduce the shipped map (its instances changed since).
+# WT2: a lobe toward the creek mouth dug too (centre (23.5, 45.0), radii 5 x 3.6 m, turned -38 deg): about 153 m2 of water;
+# 7 grass / nettle / shrub instances there moved out to the new shore (E:/nmk/wt2/lake2.py).
 CREEK = catmull_rom([(6.0, -78.0), (10.0, -50.0), (6.0, -20.0), (2.0, 6.0), (14.0, 30.0), (26.0, 46.0)])
 TRACK = catmull_rom([(-6.0, 78.0), (-10.0, 42.0), (-4.0, 12.0), (2.0, -14.0), (8.0, -34.0), (16.0, -40.0)])
 SPUR_RADAR = catmull_rom([(-4.0, 12.0), (-20.0, -2.0), (-32.0, -18.0), (-42.0, -36.0)])
