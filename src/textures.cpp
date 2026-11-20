@@ -489,7 +489,7 @@ void texHexFetch(vec3 q, vec2 gx, vec2 gy, out vec4 c, out vec2 nx, out vec2 rh,
   float s = step(0.0, -t.z), s2 = 2.0*s - 1.0;
   vec3 bw = vec3(-t.z*s2, s - t.y*s2, s - t.x*s2);
   vec2 v[3] = vec2[3](b + vec2(s, s), b + vec2(s, 1.0 - s), b + vec2(1.0 - s, s));
-  c = vec4(0.0); nx = vec2(0.0); rh = vec2(0.0); float ws = 0.0;
+  c = vec4(0.0); nx = vec2(0.0); rh = vec2(0.0); float ws = 0.0, w2 = 0.0;
   for (int i = 0; i < 3; ++i) {
     if (bw[i] < 0.02) continue;
     float ang = (mod(abs(v[i].x*v[i].y) + abs(v[i].x + v[i].y), 6.2831853) - 3.14159265)*gHexK;
@@ -497,11 +497,16 @@ void texHexFetch(vec3 q, vec2 gx, vec2 gy, out vec4 c, out vec2 nx, out vec2 rh,
     vec2 cen = mat2(1.0, 0.0, 0.5, 0.8660254)*v[i]/uHex.y;
     vec3 qi = vec3(R*(q.xy - cen) + cen + hexHash(v[i]), q.z); vec2 gxi = R*gx, gyi = R*gy;
     vec2 h = texGRH(qi, gxi, gyi).rg;
-    float W = pow(bw[i], 5.0)*exp2(7.0*h.y);   // barycentric weight, sharpened, then the higher surface wins
-    c += texGCol(qi, gxi, gyi)*W; rh += h*W; ws += W;
+    float W = pow(bw[i], 5.0)*exp2(10.0*h.y);   // barycentric weight, sharpened, then the higher surface wins
+    c += texGCol(qi, gxi, gyi)*W; rh += h*W; ws += W; w2 += W*W;
     if (nrm) nx += transpose(R)*(texGNrm(qi, gxi, gyi).rg*2.0 - 1.0)*nfk*W;   // the turned copy's normal back into the surface frame
   }
   c /= ws; rh /= ws; nx /= ws;
+  // variance-preserving blend (Mikkelsen 2022, after Heitz & Neyret): a mix of copies loses contrast by sqrt(sum w^2);
+  // push each channel back out from the set's mean by its inverse (capped), so the blended ground is as crisp as one tap
+  float g = min(inversesqrt(max(w2/(ws*ws), 1e-4)), 1.7);
+  int li = int(q.z + 0.5); vec4 m = uTexM[li]; vec2 mr = uTexL[li].zw;
+  c = clamp(m + (c - m)*g, 0.0, 1.0); rh = clamp(mr + (rh - mr)*g, 0.0, 1.0); nx *= g;
 }
 void texTap(float L, vec3 p, vec3 dpx, vec3 dpy, vec2 inv, vec3 T, vec3 B, vec3 Nf, vec3 ns, float w, inout TexS s){
   vec3 q = vec3(dot(p, T)*inv.x, dot(p, B)*inv.y, L);
