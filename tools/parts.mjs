@@ -750,13 +750,45 @@ export function gableRoof(A, { X, Z, XI, EAVE, RIDGE, ov = 0.35, gov = 0.28, t =
   }
   A.obox([0, RIDGE + t / Math.cos(th) - 0.02, 0], [2 * X + 2 * gov + 0.04, 0.2, 0.2], [45, 0, 0], "ridge_tile");
 }
+// QS1 (the user: "these stones stick out way too much ... the edges are too straight and perfect"): each quoin keeps
+// its box as a hidden collider (v:0; colliders, cover, room detection and nav exactly as before) and is drawn as its own
+// stone (k:0): 3-12 mm proud of the wall (was 15 mm + up to 38 mm from exterior.mjs), joints closed to 4-16 mm (was an
+// open 20 mm gap), length +-2-3 cm, a fraction of a degree of tilt, its own small chamfer; seeded per building. Shimmer
+// rule: faces never coplanar with the wall (min 3 mm) and neighbours differ in projection. The material follows the wall
+// beside it (35 % of its colour, the ashlar set, so M4's baked wear and the shader grunge put grime in the joints).
 export function quoins(A, X, Z, y0, y1) {
+  const R = rng((A.meta && A.meta.id ? A.meta.id : "") + ":qs1:" + X + ":" + Z);
+  if (A.meta && !A._qs1) { A._qs1 = true; A.meta.version = (A.meta.version || 1) + 1; }   // placed instances pick up the new stones
+  const m = quoinMat(A, X, Z, y0, y1);
   for (const sx of [-1, 1]) for (const sz of [-1, 1])
     for (let i = 0, y = y0; y < y1 - 0.1; y += 0.31, i++) {
       const longX = i % 2 === 0, lx = longX ? 0.55 : 0.32, lz = longX ? 0.32 : 0.55;
-      const xa = sx * (X + 0.015), xb = sx * (X - lx), za = sz * (Z + 0.015), zb = sz * (Z - lz);
-      A.box([Math.min(xa, xb), y, Math.min(za, zb)], [Math.max(xa, xb), Math.min(y + 0.29, y1), Math.max(za, zb)], "stone_dressed");
+      const xa = sx * (X + 0.015), xb = sx * (X - lx), za = sz * (Z + 0.015), zb = sz * (Z - lz), yt = Math.min(y + 0.29, y1);
+      A.box([Math.min(xa, xb), y, Math.min(za, zb)], [Math.max(xa, xb), yt, Math.max(za, zb)], "stone_dressed", { v: 0 });
+      const pr = 0.003 + 0.009 * R(), dlx = (R() - 0.6) * 0.05, dlz = (R() - 0.6) * 0.05;   // projection; visible lengths (mostly shorter)
+      const ya = y - 0.008 + 0.006 * R(), yb = Math.min(y + 0.298 - 0.006 * R(), y1);         // joints 4-16 mm
+      const x0 = sx * (X + pr), x1 = sx * (X - lx - dlx), z0 = sz * (Z + pr), z1 = sz * (Z - lz - dlz);
+      const c = [(x0 + x1) / 2, (ya + yb) / 2, (z0 + z1) / 2], sz3 = [Math.abs(x1 - x0), yb - ya, Math.abs(z1 - z0)];
+      const tilt = [(R() - 0.5) * 1.2, (R() - 0.5) * 0.5, (R() - 0.5) * 1.2];                // degrees: set a touch askew
+      A.obox(c, sz3, tilt, m, { k: 0, bv: Math.round((0.004 + 0.01 * R()) * 1e4) / 1e4 });
     }
+}
+// the quoins' material: the dressed stone pulled 35 % toward the wall it sits in (the part at the corner, inside)
+function quoinMat(A, X, Z, y0, y1) {
+  const y = Math.min(y0 + 1.0, (y0 + y1) / 2);
+  const inside = (p, q) => p.t === "b" && !p.r && p.v !== 0 && p.m !== "stone_dressed" && [0, 1, 2].every((k) => Math.abs(q[k] - p.c[k]) <= p.s[k] / 2 + 1e-3);
+  let wall = null;
+  for (const [sx, sz] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+    const q = [sx * (X - 0.12), y, sz * (Z - 0.6)], r = [sx * (X - 0.6), y, sz * (Z - 0.12)];   // just inside each wall face, clear of the quoin
+    wall = A.parts.find((p) => inside(p, q) || inside(p, r));
+    if (wall) break;
+  }
+  const wm = wall && A.materials.find((q) => q.name === wall.m), base = [0.52, 0.48, 0.38];
+  if (!wm || !Array.isArray(wm.albedo)) return "stone_dressed";
+  const name = "stone_quoin_" + wm.name;
+  if (!A.materials.some((q) => q.name === name))
+    A.mat(name, base.map((v, k) => Math.round((v * 0.65 + wm.albedo[k] * 0.35) * 1000) / 1000), 0.86, "ashlar");
+  return name;
 }
 
 // =========================================================================== B1 architectural kit
