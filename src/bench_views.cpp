@@ -48,7 +48,7 @@ std::string gKind = std::getenv("NMK_BENCH_KIND") ? std::getenv("NMK_BENCH_KIND"
 std::vector<std::string> gCfgs{""}; size_t gCi = 0;   // NMK_BENCH_AB: knock-out configs, innermost loop
 size_t gMi = 0, gPi = 0, gVi = 0; int gPhase = 0; double gT0 = 0, gLast = 0; bool gFirstView = true;
 int gW = 2560, gH = 1440;
-constexpr double kPathS = 40.0, kTurnS = 8.0, kBotLapS = 20.0, kBotWarmS = 15.0;
+double kPathS = 40.0; constexpr double kTurnS = 8.0, kBotLapS = 20.0, kBotWarmS = 15.0;
 
 double nowS() { return glfwGetTime(); }
 float envF(const char* n, float d) { const char* v = std::getenv(n); return v && *v ? (float)std::atof(v) : d; }
@@ -137,6 +137,7 @@ void pathFor(App& a, const std::string& map) {
   }
   if (gPath.pts.size() < 2) gPath.pts = {vec2(-60, -40), vec2(60, 40)};
   for (size_t k = 0; k < gPath.pts.size(); ++k) gPath.len += glm::length(gPath.pts[(k + 1) % gPath.pts.size()] - gPath.pts[k]);
+  kPathS = envF("NMK_BENCH_PATH_SPEED", 0) > 0 ? gPath.len / envF("NMK_BENCH_PATH_SPEED", 0) : 40.0;   // NMK_BENCH_PATH_SPEED=5.4: a sprint (default: the loop in 40 s)
   logf("[bench] %s: path of %zu points, %.0f m (%.1f m/s), turn at (%.0f, %.0f)", map.c_str(), gPath.pts.size(), gPath.len, gPath.len / kPathS, gPath.turn.x, gPath.turn.z);
 }
 // Catmull-Rom through the closed loop at parameter u in [0,1) (by arc length of the control polygon)
@@ -196,7 +197,7 @@ void writeRun(App& a, const Run& r) {
   for (int l = 0; l < nl; ++l) { std::vector<double> v, c; for (size_t k = 0; k < r.gpu.size(); ++k) if (r.lap[k] == l) { v.push_back(r.gpu[k]); c.push_back(r.cpuNoSwap[k]); } lapP99.push_back(pct(v, 0.99)); lapP50.push_back(pct(v, 0.5)); lapCpu99.push_back(pct(c, 0.99)); }
   int h15 = std::accumulate(r.hitch.begin(), r.hitch.end(), 0), h33 = 0, h50 = 0; for (double c : r.cpu) { h33 += c > 33.3; h50 += c > 50.0; }
   json j = {{"kind", gKind}, {"map", r.map}, {"view", r.view}, {"preset", r.preset}, {"frames", r.gpu.size()}, {"laps", nl}, {"framebuffer", {fw, fh}}, {"internal", {r.iw, r.ih}},
-            {"lighting", a.R.q.lightNew ? "new" : "classic"}, {"msaa", a.R.msaa()},
+            {"lighting", a.R.q.lightNew ? "new" : "classic"}, {"msaa", a.R.msaa()}, {"vsync", false}, {"fpsCap", 0}, {"pathSpeed", gKind == "path" ? gPath.len / kPathS : 0.0},   // self-tests: swap interval 0, no cap (settings.cpp)
             {"gpuMs", pctJ(r.gpu)}, {"gpuP99PerLap", lapP99}, {"gpuP50PerLap", lapP50}, {"cpuP99PerLap", lapCpu99}, {"cpuFrameMs", pctJ(r.cpu)}, {"cpuNoSwapMs", pctJ(r.cpuNoSwap)}, {"swapMs", pctJ(r.swap)},
             {"hitches", {{"over1_5xMedian", h15}, {"over33ms", h33}, {"over50ms", h50}}},
             {"renderCpuMs", pct(r.rcpu, 0.5)}, {"probesPerFrame", mean(r.probes)}, {"draws", {{"p50", pct(r.draws, 0.5)}, {"max", pct(r.draws, 1)}}}, {"tris", {{"p50", pct(r.tris, 0.5)}, {"max", pct(r.tris, 1)}}},
@@ -230,7 +231,7 @@ void applyRunSettings(App& a) {
   for (size_t a0 = 0, c; a0 <= gCfgs[gCi].size(); a0 = c + 1) {
     c = gCfgs[gCi].find('+', a0); if (c == std::string::npos) c = gCfgs[gCi].size();
     std::string f = gCfgs[gCi].substr(a0, c - a0); if (f.empty()) continue;
-    if (f == "ssr") a.R.q.ssr = false; else if (f == "msaa4") a.R.setMsaa(4);
+    if (f == "ssr") a.R.q.ssr = false; else if (f == "msaa4") a.R.setMsaa(4); else if (f[0] == '^') a.R.perf.set(f.substr(1), true);   // ^name: a switch on
     else if (f.rfind("scale", 0) == 0) a.R.setResolutionScale((float)std::atof(f.c_str() + 5));
     else if (!a.R.perf.set(f, false)) logf("[bench] NMK_BENCH_AB: unknown switch %s", f.c_str());
   }
