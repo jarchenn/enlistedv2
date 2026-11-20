@@ -745,7 +745,7 @@ Asset packs the user supplied (PR6; licence, author and source read from each fi
 
 | File | Model | Author | Licence | Source | Assets | In the repo |
 |---|---|---|---|---|---|---|
-| sandbag_wall_-_24mb.glb | Sandbag Wall - 24MB | adventurer | CC-BY-4.0 | https://sketchfab.com/3d-models/sandbag-wall-24mb-35f39f3b391040169eb04d9a339d88a5 | 3 assets | yes |
+| sandbag_wall_-_24mb.glb | Sandbag Wall - 24MB | adventurer | CC-BY-4.0 | https://sketchfab.com/3d-models/sandbag-wall-24mb-35f39f3b391040169eb04d9a339d88a5 | 3 assets + sb_bag_lib (every sandbag, HB1b) | yes |
 | wall_cement_fence_wall_building.glb | wall Cement fence Wall Building | adventurer | CC-BY-4.0 | https://sketchfab.com/3d-models/wall-cement-fence-wall-building-bdc47284bdc843fb9274efe1c5df52ee | 2 assets | yes |
 | fence_retaining_wall.glb | Fence_retaining_wall | Mehdi Shahsavan | CC-BY-4.0 | https://sketchfab.com/3d-models/fence-retaining-wall-b26ac6fb2f5441e09cc1d66594816bec | 2 assets | yes |
 | wall_door_-_19mb.glb | Wall Door - 19MB | adventurer | CC-BY-4.0 | https://sketchfab.com/3d-models/wall-door-19mb-cac51dfd82784736a726bba118e86de9 | 3 assets | yes |

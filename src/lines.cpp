@@ -153,6 +153,10 @@ bool lineDrawItems(App& app, const Instance& i, InstanceRT& r, const mat4& M, st
   }
   { extern void lineDrawRigid(App&, const Instance&, InstanceRT&, const mat4&); lineDrawRigid(app, i, r, M); }   // LN2 wire models, hedge canopies
   if (r.lineMesh.count) op.push_back({&r.lineMesh, M});
+  if (!r.line->bags.empty()) {   // HB1b: the bays' sandbags, instanced (cut bays' bags skipped)
+    extern void sandbagDrawList(App&, const std::vector<BagXf>&, const std::vector<uint8_t>&, const mat4&, float);
+    sandbagDrawList(app, r.line->bags, r.secCut, M, glm::length(i.pos - (app.mode == Mode::Explore ? app.eyePos() : app.camPos)));
+  }
   blendDrawItems(app, i, r, M, op);   // a trench line's generated revetment (GX1)
   return true;
 }

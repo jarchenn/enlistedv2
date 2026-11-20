@@ -105,7 +105,7 @@ public:
   std::vector<NatPatchDraw> natPatches;   // flower / tall-grass patches (nature.cpp), drawn with the grass program
   int natDraws = 0; size_t natTufts = 0;   // last frame
   std::vector<ModelDraw> worldModelsGlass;   // their glass parts (blended, after the glass pass)
-  struct FolModelDraw { const GpuModel* model; mat4 m; float wind; };   // NT8: model foliage (pines, ferns, grass), instanced
+  struct FolModelDraw { const GpuModel* model; mat4 m; float wind; bool cast = false; };   // cast (HB1b sandbags): into the near sun cascade whatever the height   // NT8: model foliage (pines, ferns, grass), instanced
   std::vector<FolModelDraw> folModels;
   std::vector<vec4> grassVeh;   // TK3: vehicle footprints that flatten the grass: per box (centre x, z, cos yaw, sin yaw), (half x, half z, 0, 0); 16 at most
   struct HeatDraw { ModelDraw md; float heat; vec4 obj{0.0f}; };   // TH1: a warm body for the thermal pass (0 ambient .. 1 a living man; > 1 fire); TH2 obj: the whole object's centre and radius (its own depth extent: the nearest part brightest)

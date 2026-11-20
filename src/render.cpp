@@ -4243,7 +4243,7 @@ void Renderer::drawFolModels(bool depth, const mat4& vp, const Frustum* fr, floa
   std::map<const GpuModel*, std::vector<const FolModelDraw*>> by;
   for (auto& d : folModels) {
     if (!d.model || !d.model->vao) continue;
-    if (minH > 0 && d.model->bmax.y - d.model->bmin.y < minH) continue;   // ferns / grass do not cast into this cascade
+    if (minH > 0 && d.model->bmax.y - d.model->bmin.y < minH && !(d.cast && minH < 2.0f)) continue;   // ferns / grass do not cast into this cascade
     if (fr) { vec3 c = vec3(d.m * vec4(0.5f * (d.model->bmin + d.model->bmax), 1)); float r = 0.5f * glm::length(vec3(d.m * vec4(d.model->bmax - d.model->bmin, 0)));
               if (!fr->sphere(c, r)) { stats.culled++; continue; } }
     by[d.model].push_back(&d);

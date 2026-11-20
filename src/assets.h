@@ -55,6 +55,7 @@ struct Part {
   bool fill = false; // ARCH "fill": the solid between the box's rectangle and the intrados (a spandrel over an opening)
   int seg = 0;     // CYL / ARCH "seg": curve segments, 0 = by size
   struct Soft { bool drape = false; float puff = 0, dent = 0, sag = 0, tuft = 0, pipe = 0, wr = 0, drop = 0, th = 0.02f, fold = 0.3f, pleat = 0; int tx = 0, tz = 0, sides = 15; uint32_t seed = 0; } soft;
+  uint8_t bag = 0;   // HB1b: sack material at a bag's size: 1 a bag, 3 a course block (both drawn as bag meshes, src/sandbags.cpp; the box stays the collider), 2 a tie / ear / seam (not drawn)
   bool lodDetail = false;   // "lod": 1 - purely visual detail (trim, relief, dressing): dropped from the asset's LOD meshes (PF2)
 };
 // Convex pieces of a CYL / ARCH / WEDGE part in its local frame (relative to center, before rot): its colliders.
@@ -243,6 +244,7 @@ struct NatureDef {
   float hMin = 1.0f, hMax = 1.0f;          // FLOWERS / TALLGRASS: height scale range (x the species heights, nature.cpp)
   std::vector<vec3> tris;                  // ROCK: CPU copy of the render triangles, asset space (collision tests)
 };
+struct BagXf { int v = 0; mat4 m{1}; int sec = -1; };   // HB1b: one drawn sandbag: bag mesh variant, asset-space (or line-space) transform, line section
 struct AssetDef {
   StationDef station;
   TreeDef tree;
@@ -262,6 +264,8 @@ struct AssetDef {
   ShapePtr playerShape;                        // union of "k": 2 parts (no sections)
   GpuMesh colliderGhost;                       // every collider as a box: placement preview of model assets
   DefenseDef defense;
+  bool hasBags = false;                                       // HB1b: some part is a sandbag (src/sandbags.cpp)
+  mutable std::vector<BagXf> bagCache[2]; mutable bool bagBuilt[2] = {false, false};   // intact / destroyed bag transforms, built on first draw
   GpuMesh defBrokenMesh; ShapePtr defBrokenShape;
   bool rack = false;             // weapon rack (arsenal.cpp)
   std::string rackFaction;       // "US" / "DE": the registry side it lists
