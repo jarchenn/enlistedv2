@@ -386,7 +386,15 @@ vec3 giAmbient(vec3 w, vec3 N, float sv, vec3 analytic){
   return mix(max(gi + analytic*(1.0 - cov), analytic), analytic, k);   // probe light only adds (as in shade())
 }
 float gSpecK = 1.0;   // GG1: the caller's specular scale (the terrain's dry ground: content/settings/ground_gloss.json drySpecular)
+uniform vec2 uSpecAA;   // M3 (stream M): geometric specular AA, Tokuyoshi & Kaplanyan 2021: x screen-space variance, y the clamp; x = 0 off
+float specAA(vec3 N, float rough){   // widens alpha where the normal changes fast across a pixel (curved edges, fine bumps)
+#ifdef NMK_FS
+  if (uSpecAA.x > 0.0) { vec3 du = dFdx(N), dv = dFdy(N); float a2 = rough*rough*rough*rough; rough = sqrt(sqrt(clamp(a2 + min(2.0*uSpecAA.x*(dot(du,du) + dot(dv,dv)), uSpecAA.y), 0.0, 1.0))); }
+#endif
+  return rough;
+}
 vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
+  rough = specAA(N, rough);
   vec3 V = normalize((gEyeOv.x < 1e29 ? gEyeOv : uCamPos) - w);
   vec3 L = uSunDir; vec3 H = normalize(V+L);
   float NdL = max(dot(N,L),0.0), NdV = max(dot(N,V),1e-3), NdH = max(dot(N,H),0.0);
@@ -3906,6 +3914,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform3fv(U(p, "uCloudShadowBox"), 1, glm::value_ptr(cloudShBox));
   glUniform1f(U(p, "uAoIndirectOnly"), q.legacy ? 0.0f : 1.0f);
   glUniform1i(U(p, "uLook"), q.legacy ? 0 : 1);
+  { vec2 sa(0.25f, 0.18f); if (const char* e = std::getenv("NMK_SPECAA")) std::sscanf(e, "%f,%f", &sa.x, &sa.y); glUniform2f(U(p, "uSpecAA"), q.legacy || !perf.specAA ? 0.0f : sa.x, sa.y); }   // M3: specaa (--rq-off specaa); NMK_SPECAA="variance,clamp"
   glUniform1f(U(p, "uHazeH"), q.hazeHeight);
   glUniform1f(U(p, "uTime"), time);
   lightingUniforms(*this, p);   // L2: local lights, light shadows, probe GI, sky extras
