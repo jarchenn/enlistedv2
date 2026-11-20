@@ -36,6 +36,8 @@ uniform vec3 uSunDir, uSunCol, uSkyCol, uGroundCol, uCamPos, uFogCol, uFill;
 uniform float uFogDens;
 uniform float uUnder;   // 1: the camera is under water (swim.cpp): applyFog / sky become a dense uniform water fog
 uniform sampler2DShadow uShadow; uniform mat4 uLightVP; uniform int uShadowOn;
+uniform float uShadowAtlas;      // VO L3: uShadow is an atlas, the near cascade in [0, uShadowAtlas) of x, the mid one in [0.5, 1) (atlas 0.5)
+uniform mat4 uLightVPMid; uniform int uShadowMidOn; uniform float uShadowWorldTexelMid;   // VO L3: the mid cascade (Lighting New, Medium / High)
 uniform sampler2D uOcc; uniform mat4 uOccVP; uniform float uOccTop, uOccRange; uniform int uOccOn;
 uniform vec2 uShadowTexel;
 // ---- lighting model (docs/rendering.md). Original implementation; BSL v10 (Capt Tatsu) was the visual reference.
@@ -45,6 +47,7 @@ uniform vec2 uShadowWorldTexel;   // metres per shadow texel: near, far cascade
 uniform float uShadowDepthRange;  // metres covered by the [0,1] light-space depth
 uniform float uShadowSoft;        // PCF radius in near-cascade texels (0 = legacy 3x3 grid)
 uniform float uShadowLift;        // VO L1: share of the sun a shadow removes (Classic 0.7: shadows 30 % lighter; New 1)
+uniform float uMicroSh;           // VO L4: micro-shadowing from material AO on the direct light (0 Classic, 1 New)
 uniform int uShadowTaps;          // P3: cap on the PCF taps (presets; 0 = no cap)
 uniform int uFrame;               // frame counter (noise rotation; TAA decorrelation)
 uniform int uCloudShadowOn; uniform float uCloudCov, uCloudT;
@@ -67,7 +70,8 @@ float pixelNoiseFixed(){ return 0.5; }
 #endif
 // one cascade: Vogel-disk PCF in light space. Normal offset grows with the slope to the sun (acne), a small
 // constant depth bias keeps contact (no peter-panning where walls meet the ground).
-float cascadePCF(sampler2DShadow sm, mat4 vp, vec2 texel, float worldTexel, vec3 w, vec3 n, float radiusTex, int taps, out float edge){
+// ax: (scale, bias) of x into the map's atlas half (VO L3); taps are kept inside that half
+float cascadePCF(sampler2DShadow sm, mat4 vp, vec2 texel, float worldTexel, vec3 w, vec3 n, float radiusTex, int taps, out float edge, vec2 ax){
   float ndl = clamp(dot(n, uSunDir), 0.0, 1.0), sinT = sqrt(1.0 - ndl*ndl);
   vec3 off = n*worldTexel*(0.6 + 1.6*sinT);
   vec4 lp = vp*vec4(w + off, 1.0);
@@ -78,12 +82,16 @@ float cascadePCF(sampler2DShadow sm, mat4 vp, vec2 texel, float worldTexel, vec3
   // FL1: the PCF disk turns per pixel but not per frame: a per-frame turn left penumbrae (ridge tiles, eaves,
   // railings) shimmering under a still camera where TAA could not average it out
   float rot = pixelNoiseFixed()*6.2831853, sum = 0.0;
+  s.x = s.x*ax.x + ax.y;
+  float x0 = ax.y + texel.x, x1 = ax.y + ax.x - texel.x;
   for (int i = 0; i < taps; ++i) {
     float r = sqrt((float(i) + 0.5)/float(taps)), a = float(i)*2.3999632 + rot;
-    sum += texture(sm, vec3(s.xy + vec2(cos(a), sin(a))*r*radiusTex*texel, s.z - bias));
+    vec2 t = s.xy + vec2(cos(a), sin(a))*r*radiusTex*texel; t.x = clamp(t.x, x0, x1);
+    sum += texture(sm, vec3(t, s.z - bias));
   }
   return sum/float(taps);
 }
+float cascadePCF(sampler2DShadow sm, mat4 vp, vec2 texel, float worldTexel, vec3 w, vec3 n, float radiusTex, int taps, out float edge){ return cascadePCF(sm, vp, texel, worldTexel, w, n, radiusTex, taps, edge, vec2(1.0, 0.0)); }
 float sunShadowRaw(vec3 w, vec3 n, float soft, int taps){
   if (uShadowOn == 0) return 1.0;
   if (uShadowSoft <= 0.0) {   // legacy fallback: 3x3 grid, fixed offsets
@@ -92,14 +100,20 @@ float sunShadowRaw(vec3 w, vec3 n, float soft, int taps){
     vec3 s = lp.xyz/lp.w*0.5+0.5;
     if (s.x<0.0||s.x>1.0||s.y<0.0||s.y>1.0||s.z>1.0) return 1.0;
     float sum = 0.0;
+    s.x *= uShadowAtlas;
     for (int y=-1;y<=1;y++) for (int x=-1;x<=1;x++) sum += texture(uShadow, vec3(s.xy + vec2(x,y)*uShadowTexel*1.2, s.z - 0.0006));
     return sum/9.0;
   }
   if (uShadowTaps > 0) taps = min(taps, uShadowTaps);
   float eN, eF;
-  float sN = cascadePCF(uShadow, uLightVP, uShadowTexel, uShadowWorldTexel.x, w, n, uShadowSoft*(1.0 + 2.5*soft), taps, eN);
-  if (uShadowFarOn == 0) return sN;
+  float sN = cascadePCF(uShadow, uLightVP, uShadowTexel, uShadowWorldTexel.x, w, n, uShadowSoft*(1.0 + 2.5*soft), taps, eN, vec2(uShadowAtlas, 0.0));
   float tB = smoothstep(0.78, 0.96, eN);
+  if (uShadowMidOn == 1 && tB > 0.0) {   // VO L3: near -> mid (texel-snapped, about 3x the near radius) -> far
+    float eM; float sM = cascadePCF(uShadow, uLightVPMid, uShadowTexel, uShadowWorldTexelMid, w, n, 1.6 + 2.0*soft, max(taps*3/4, 4), eM, vec2(0.5, 0.5));
+    sN = mix(sN, sM, tB); eN = eM; tB = smoothstep(0.8, 0.96, eM);
+    if (eM >= 2.0) { sN = 1.0; tB = 1.0; }   // outside the mid box too: the far cascade alone
+  }
+  if (uShadowFarOn == 0) return sN;
   if (tB <= 0.0) return sN;
   float sF = cascadePCF(uShadowFar, uLightVPFar, uShadowTexelFar, uShadowWorldTexel.y, w, n, 1.25 + soft, max(taps/2, 4), eF);
   sF = mix(sF, 1.0, smoothstep(0.85, 0.98, eF));   // fade out at the far edge instead of a hard line
@@ -249,7 +263,7 @@ vec3 applyFog(vec3 col, vec3 w){
     float k2 = (w.y - uCamPos.y)/uEnvFogH;
     float hf2 = abs(k2) > 1e-3 ? (1.0 - exp(-k2))/k2 : 1.0 - 0.5*k2;
     float tauE = uEnvFog*uFogIndoor*F.r*(0.6 + 0.8*drift)*Lw*exp(-max(uCamPos.y - F.b, 0.0)/uEnvFogH)*hf2;
-    float e; float sh = cascadePCF(uShadow, uLightVP, uShadowTexel, uShadowWorldTexel.x, w, uSunDir, 0.0, 1, e);
+    float e; float sh = cascadePCF(uShadow, uLightVP, uShadowTexel, uShadowWorldTexel.x, w, uSunDir, 0.0, 1, e, vec2(uShadowAtlas, 0.0));
     if (e > 0.95) sh = 1.0;
     float c0 = dot(dir, uSunDir), ph = 0.3 + 2.2*pow(max(c0, 0.0), 6.0) + 0.6*pow(max(c0, 0.0), 2.0);   // forward-scattering approximation
     vec3 fcE = mix(uFogCol, skyColor(fd), 0.45)*1.05 + uSunCol*vec3(1.0, 0.95, 0.85)*ph*0.11*cloudShadow(uCamPos)*mix(0.3, 1.0, sh)*(1.0 - uCloudK);   // WX2: no sun glow under overcast
@@ -442,6 +456,9 @@ vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
   vec3 Ng = dot(gNg, gNg) > 0.5 ? gNg : N;
   float sh = NdL > 0.0 ? shadowPCF(w, Ng) * cloudShadow(w) : 0.0;
   vec3 direct = (kd*alb/PI + spec*gSpecK) * uSunCol * NdL * sh;
+  // VO L4 micro-shadowing (Brinck et al. 2016): a crevice the material AO marks is also shadowed from the sun near the
+  // terminator, so texture detail keeps its depth where the light grazes (legacy material AO never touched the sun)
+  if (uMicroSh > 0.0) direct *= mix(1.0, clamp(NdL + 2.0*ao*ao - 1.0, 0.0, 1.0), uMicroSh);
   float sv = skyVis(w, Ng);
   float amb = mix(0.06, 1.0, sv);
   vec3 irr = mix(uGroundCol, uSkyCol, 0.5+0.5*N.y) * amb + uFill*(1.0-sv);
@@ -1870,6 +1887,7 @@ layout(location=3) out vec4 oNR;
 layout(location=4) out vec4 oVel; uniform float uVmVel;
 uniform float uAlbFloor;
 uniform int uCutout;   // NT8: alpha-tested foliage (needles, blades, fronds): discard under 0.5, sun through the thin side
+uniform float uFolTrans;   // VO L4: two-sided leaf translucency on model foliage (progFolModel only; 0: the NT8 rim on cut-out plants)
 uniform float uGlassOpacity = 1.0, uGlassFilm = 1.0, uGlassRefl = 1.0;   // GL1: content/settings/glass.json "opacity", "film", "reflection" (1 = the pre-GL1 look)
 uniform int uGlass;   // 0 opaque; 1 window glass (dusty); 2 a wreck's glass (crazed, grimy); 3 clean (the car you sit in: no film to catch the cabin light at night)
 uniform vec4 uVmClip; uniform int uClipMe;   // AT6: the fitted optic's window (px, bottom-left origin; radius px): the gun's own parts there are not drawn
@@ -1924,7 +1942,12 @@ void main(){
     }
   }
   vec3 c = shade(vW, N, base.rgb, clamp(rough, 0.04, 1.0), clamp(metal, 0.0, 1.0), mix(1.0, ao, 0.85));
-  if (uCutout == 1) {   // thin needles / blades: the low sun through them from behind, a warm rim (still shadowed)
+  if (uFolTrans > 0.0) {   // VO L4 (Barre-Brisebois & Bouchard 2011): light through the leaf from behind, peaked toward the sun, plus a
+    // diffuse share through the lit face's back; shadowed by what shades the leaf's sun side
+    vec3 Vv = normalize(uCamPos - vW), Lt = normalize(uSunDir + N*0.35);
+    float tr = 0.7*pow(clamp(dot(Vv, -Lt), 0.0, 1.0), 4.0) + 0.18*max(dot(-N, uSunDir), 0.0);
+    c += base.rgb*vec3(1.0, 1.04, 0.72)*uSunCol*tr*uFolTrans*sunShadowT(vW, -N, 1.0, 1);
+  } else if (uCutout == 1) {   // thin needles / blades: the low sun through them from behind, a warm rim (still shadowed)
     vec3 Vv = normalize(uCamPos - vW); float VoL = max(dot(-Vv, uSunDir), 0.0);
     c += base.rgb*vec3(1.0, 1.05, 0.6)*uSunCol*(0.04 + 0.35*pow(VoL, 5.0))*sunShadowT(vW, N, 1.0, 1);
   }
@@ -2185,7 +2208,7 @@ void main(){
   float dt = L/float(N), jit = pixelNoise(), lit = 0.0, T = 1.0;
   for (int i = 0; i < N; ++i) {
     vec3 q = uCamPos + rd*(dt*(float(i) + jit));
-    float e; float s = cascadePCF(uShadow, uLightVP, uShadowTexel, uShadowWorldTexel.x, q, uSunDir, 0.0, 1, e);
+    float e; float s = cascadePCF(uShadow, uLightVP, uShadowTexel, uShadowWorldTexel.x, q, uSunDir, 0.0, 1, e, vec2(uShadowAtlas, 0.0));
     if (e > 0.95 && uShadowFarOn == 1) s = cascadePCF(uShadowFar, uLightVPFar, uShadowTexelFar, uShadowWorldTexel.y, q, uSunDir, 0.0, 1, e);
     s *= cloudShadow(q);   // WX1: the cloud transmittance at the sample itself: beams only through the gaps, none when the sun is covered
     vec4 F = texture(uFogField, (q.xz - uFogBox.xy)*uFogBox.zw);
@@ -2664,7 +2687,7 @@ void main(){
   float sh = 1.0;
   if (uShadowSoft > 0.0) sh = sunShadowT(vW + N*0.06, N, 1.0, 8) * cloudShadow(vW);   // soft: thin leaves blur the map
   else if (uShadowOn == 1) { vec4 lp = uLightVP*vec4(vW + N*0.12, 1.0); vec3 sc = lp.xyz/lp.w*0.5 + 0.5;
-    if (sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0 && sc.z < 1.0) sh = texture(uShadow, vec3(sc.xy, sc.z - 0.002)); }
+    if (sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0 && sc.z < 1.0) sh = texture(uShadow, vec3(sc.x*uShadowAtlas, sc.y, sc.z - 0.002)); }
   float ndl = max(dot(N, uSunDir), 0.0)*0.7 + 0.3;
   vec3 irr = mix(uGroundCol, uSkyCol, 0.5 + 0.5*N.y)*mix(0.45, 1.0, 0.5 + 0.5*N.y);
   float lsv = uShadowSoft > 0.0 ? skyVis(vW, N) : 1.0;
@@ -3319,7 +3342,7 @@ void main(){
   if (uShadowSoft > 0.0) sh = sunShadowT(shP, vec3(0.0, 1.0, 0.0), 0.6, 4) * cloudShadow(vW);
   else if (uShadowOn == 1) {
     vec4 lp = uLightVP*vec4(vW + vec3(0.0, 0.06, 0.0), 1.0); vec3 sc = lp.xyz/lp.w*0.5 + 0.5;
-    if (sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0 && sc.z < 1.0) sh = texture(uShadow, vec3(sc.xy, sc.z - 0.0015));
+    if (sc.x > 0.0 && sc.x < 1.0 && sc.y > 0.0 && sc.y < 1.0 && sc.z < 1.0) sh = texture(uShadow, vec3(sc.x*uShadowAtlas, sc.y, sc.z - 0.0015));
   }
   float sv = 1.0;
   if (uOccOn == 1) {
@@ -3853,7 +3876,7 @@ void Renderer::createShadowTargets() {
   farFrame = occFrame = -1000;   // PF2 caches: the maps are new
   if (shadowFbo) { glDeleteFramebuffers(1, &shadowFbo); glDeleteFramebuffers(1, &shadowFarFbo); GLuint t[2] = {shadowTex, shadowFarTex}; glDeleteTextures(2, t); }
   glCreateTextures(GL_TEXTURE_2D, 1, &shadowTex);
-  glTextureStorage2D(shadowTex, 1, GL_DEPTH_COMPONENT32F, shadowSize, shadowSize);
+  glTextureStorage2D(shadowTex, 1, GL_DEPTH_COMPONENT32F, shadowSize * 2, shadowSize);   // VO L3: near | mid atlas (the mid half unused in Classic / on Low)
   glTextureParameteri(shadowTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(shadowTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTextureParameteri(shadowTex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(shadowTex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glTextureParameteri(shadowTex, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE); glTextureParameteri(shadowTex, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
@@ -4082,7 +4105,11 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1f(U(p, "uOccTop"), occTop); glUniform1f(U(p, "uOccRange"), occRange);
   glUniform1i(U(p, "uShadowOn"), thumbMode ? 0 : 1);
   glUniform1i(U(p, "uOccOn"), thumbMode ? 0 : 1);
-  glUniform2f(U(p, "uShadowTexel"), 1.0f / shadowSize, 1.0f / shadowSize);
+  glUniform2f(U(p, "uShadowTexel"), 0.5f / shadowSize, 1.0f / shadowSize);   // VO L3: the atlas is 2 maps wide
+  glUniform1f(U(p, "uShadowAtlas"), 0.5f);
+  glUniform1i(U(p, "uShadowMidOn"), midOn && !thumbMode ? 1 : 0);
+  glUniformMatrix4fv(U(p, "uLightVPMid"), 1, GL_FALSE, glm::value_ptr(lightVPMid));
+  glUniform1f(U(p, "uShadowWorldTexelMid"), 2 * midR / shadowSize);
   glUniform1i(U(p, "uShadow"), 0); glUniform1i(U(p, "uOcc"), 1);
   glBindTextureUnit(0, shadowTex); glBindTextureUnit(1, occTex);
   bool far = !q.legacy && q.farCascade && !thumbMode;
@@ -4094,6 +4121,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1f(U(p, "uShadowDepthRange"), 800.0f);
   glUniform1f(U(p, "uShadowSoft"), q.legacy ? 0.0f : q.shadowSoft * (1.0f + 2.0f * wx.k));   // WX2: overcast sun casts very soft shadows
   glUniform1f(U(p, "uShadowLift"), q.lightNew && perf.fullShadow ? 1.0f : 0.7f);   // VO L1
+  glUniform1f(U(p, "uMicroSh"), q.lightNew && perf.microShadow && !q.legacy ? 1.0f : 0.0f);   // VO L4
   glUniform1i(U(p, "uShadowTaps"), q.shadowTaps);
   glUniform1i(U(p, "uFrame"), frame);
   glUniform1i(U(p, "uCloudShadowOn"), !q.legacy && q.cloudShadows && clouds && perf.cloudShadow && !thumbMode ? 1 : 0);
@@ -4499,6 +4527,7 @@ void Renderer::drawFolModels(bool depth, const mat4& vp, const Frustum* fr, floa
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 12, folBuf);
   GLuint p = depth ? progFolDepth : progFolModel;
   glUseProgram(p);
+  if (!depth) glUniform1f(U(p, "uFolTrans"), q.lightNew && perf.folTrans && !q.legacy ? 1.0f : 0.0f);   // VO L4
   glUniformMatrix4fv(U(p, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
   glUniform1f(U(p, "uTime"), time); glUniform1f(U(p, "uWind"), wind);
   const DrawLocs L = drawLocs(p);
@@ -4786,7 +4815,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glDisable(GL_BLEND);
   glBindFramebuffer(GL_FRAMEBUFFER, shadowFbo);
   glViewport(0, 0, shadowSize, shadowSize);
-  glClear(GL_DEPTH_BUFFER_BIT);
+  glEnable(GL_SCISSOR_TEST); glScissor(0, 0, shadowSize, shadowSize); glClear(GL_DEPTH_BUFFER_BIT); glDisable(GL_SCISSOR_TEST);   // VO L3: the near half only
   glEnable(GL_POLYGON_OFFSET_FILL); glPolygonOffset(1.5f, 2.0f);
   glDisable(GL_CULL_FACE);
   glUseProgram(progShadow);
@@ -4809,6 +4838,28 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   if (!folModels.empty() && !thumbMode) drawFolModels(true, lightVP, &frNear, 1.0f);   // NT8: ground plants under 1 m cast no sun shadow
   glUseProgram(progShadow);
   if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frNear);
+  // VO L3 mid cascade (Lighting New, Medium / High): about 3x the near radius in the atlas's right half, texel-snapped like
+  // the near one (no crawl), redrawn every 4th frame on Medium / 2nd on High or when its focus moves 4 m (movers lag a few frames there)
+  midOn = q.lightNew && perf.midCascade && !q.legacy && !thumbMode && shadowTier >= 1;
+  if (midOn) {
+    const float mR = std::max(90.0f, radius * 3.0f);
+    const vec3 mfw = v.camPos + vec3(fwd.x, 0, fwd.z) * mR * 0.5f;
+    if (frame - midFrame >= (shadowTier >= 2 ? 2 : 4) || mR != midR || glm::distance(mfw, midFocus) > 4.0f || sunDir != midSun) {
+      midR = mR; midFrame = frame; midFocus = mfw; midSun = sunDir;
+      vec3 mf = mfw; mf.y = t.height(mf.x, mf.z);
+      mat4 lv3; lightVPMid = stableOrtho(mf, sunDir, midR, 400.0f, shadowSize, lv3);
+      Frustum frMid = Frustum::fromVP(lightVPMid);
+      minCaster = perf.smallCasters ? 3.0f * (2 * midR / shadowSize) : 0.0f;   // casters under ~3 mid texels: the contact shadows (L1) and the near cascade carry them
+      glViewport(shadowSize, 0, shadowSize, shadowSize);
+      glEnable(GL_SCISSOR_TEST); glScissor(shadowSize, 0, shadowSize, shadowSize); glClear(GL_DEPTH_BUFFER_BIT); glDisable(GL_SCISSOR_TEST);
+      glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPMid)); depthVP = lightVPMid;
+      drawItems(progShadow, opaque, true, &frMid);
+      if (!foliage.empty()) drawFoliage(progLeafShadow, lightVPMid, &frMid, false, perf.leafShadowLod ? 0.0f : -1.0f);
+      if (!folModels.empty()) { drawFolModels(true, lightVPMid, &frMid, 4.0f); glUseProgram(progShadow); }   // trees only, as in the far cascade
+      if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frMid);
+      minCaster = 0;
+    }
+  } else midFrame = -1000;
   gpuMark(GP_ShadowFar);
   // far cascade: the whole visible village / fields (texel ~0.23 m), blended in where the near one ends
   // PF2 farcache: redrawn every 2nd frame, or at once when its focus moves > 8 m, its radius or the key light changes;
