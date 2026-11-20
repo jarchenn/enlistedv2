@@ -22,6 +22,34 @@ float lightingFixedExposure(const Renderer& R);
 // ============================================================== shaders
 static const char* kCommon = R"GLSL(
 const float PI = 3.14159265;
+// W1 weather state for every shader (Renderer::wx.st / wx.der, uploaded once a frame by Renderer::uploadWeather): fixed
+// layout, std140, binding 4. Fields by name below; read them through these names only (the packing may grow at the end)
+layout(std140, binding = 4) uniform NmkWeather { vec4 wxA, wxB, wxC, wxD, wxE, wxF, wxG; };
+#define wxCover wxA.x
+#define wxTau wxA.y
+#define wxVisM wxA.z
+#define wxFogTopM wxA.w
+#define wxPrecip int(wxB.x + 0.5)
+#define wxPrecipMmH wxB.y
+#define wxWindDirDeg wxB.z
+#define wxWindMs wxB.w
+#define wxGust wxC.x
+#define wxGustPeriodS wxC.y
+#define wxTempC wxC.z
+#define wxDustVisM wxC.w
+#define wxLightningPerMin wxD.x
+#define wxSigma wxD.y
+#define wxCullM wxD.z
+#define wxSunShadow wxD.w
+#define wxWindXZ wxE.xy
+#define wxWindK wxE.z
+#define wxPhys (wxE.w > 0.5)
+#define wxTint wxF.rgb
+#define wxFogG wxF.w
+#define wxESunLux wxG.x
+#define wxESkyLux wxG.y
+#define wxFogAlbedo wxG.z
+#define wxFlash wxG.w
 #ifdef NMK_FS
 // FL1 greenery (content/settings/greenery.json, App::greenery): green leaf pixels drawn toward the reference's spring green
 // (uGreen.rgb: linear, unit luminance), each keeping its own luminance x gain; only pixels that are green already (dry,
@@ -3950,6 +3978,14 @@ void Renderer::terrainCacheBind(const Terrain& t, GLuint prog) {
   glUniform4f(U(prog, "uTCMap"), tcOrg.x, tcOrg.y, 1.0f / (tcW * tcTexel), 1.0f / (tcH * tcTexel));
 }
 
+void Renderer::uploadWeather() {   // W1: NmkWeather (binding 4), the layout kCommon names
+  const WxState& s = wx.st; const WxDerived& d = wx.der;
+  const vec4 b[7] = {vec4(s.cover, s.tau, s.visM, s.fogTopM), vec4((float)s.precip, s.precipMmH, s.windDirDeg, s.windMs), vec4(s.gust, s.gustPeriodS, s.tempC, s.dustVisM),
+                     vec4(s.lightningPerMin, d.sigma, d.cullM, d.sunShadow), vec4(d.windXZ, d.windK, d.phys ? 1.0f : 0.0f), vec4(d.tint, d.fogG), vec4(d.eSunLux, d.eSkyLux, d.fogAlbedo, d.flash)};
+  if (!wxUbo) { glCreateBuffers(1, &wxUbo); glNamedBufferStorage(wxUbo, sizeof b, nullptr, GL_DYNAMIC_STORAGE_BIT); }
+  glNamedBufferSubData(wxUbo, 0, sizeof b, b);
+  glBindBufferBase(GL_UNIFORM_BUFFER, 4, wxUbo);
+}
 bool Renderer::init(int w, int h) {
   progMain = compile(kMainVS, (std::string(tex::glslCommon()) + tex::glslMain() + kMainFS).c_str(), "main");   // L4 texture hooks first
   progGlass = compile(kMainVS, kGlassFS, "glass");
@@ -5058,6 +5094,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   uploadStaticDecals();      // GX5: before the probe captures (they run the main shader too)
   lightingBegin(*this, v);   // L2: time of day (sunDir = the key light until lightingEnd)
   weatherDerive(*this);      // W1: the weather state and what follows from it this frame (weather.cpp)
+  uploadWeather();
   pxAngle = 2.0f / (std::max(1e-3f, v.proj[1][1]) * std::max(1, height));   // vertical radians per pixel
   gpuFrameBegin(); gpuMark(GP_CloudShadow);   // stats.gpuMs from the timestamps: read 2-3 frames late, never waits
   const bool elapsedQ = !gpuTimers || perf.syncGpuQuery;   // no timestamps: a GL_TIME_ELAPSED ring (never waits); asyncq A/B: the old waiting read-back

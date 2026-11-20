@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstring>
 #include <cctype>
+#include <cstdlib>
 
 using WxState = Renderer::WxState; using WxDerived = Renderer::WxDerived;
 constexpr int WxNone = Renderer::WxNone, WxDrizzle = Renderer::WxDrizzle, WxRain = Renderer::WxRain, WxSnow = Renderer::WxSnow;
@@ -57,8 +58,12 @@ float wxPresetDeck(int id) { return rowOf(id)->deckK; }
 // Once a frame after lightingBegin (sunDir is the day's key light). Preset ids 0 / 1 (Clear, Overcast) and Map default keep
 // today's look (Lighting: Classic and every approved map); the formulas below drive ids 2-14 under Lighting New, as ratios to
 // Clear at the same sun height, so Clear stays today's picture and every other preset moves from it by the corpus's numbers.
+void weatherForce(Renderer& R, int id) { R.wx.target = std::max(0, id); R.wx.userSet = true; R.wx.snap(); }
+
 void weatherDerive(Renderer& R) {
   auto& W = R.wx; WxDerived& d = W.der;
+  static bool envDone = false;   // NMK_WEATHER=<name or id>: once, at the first frame (the collective run / captures)
+  if (!envDone) { envDone = true; if (const char* e = std::getenv("NMK_WEATHER")) { int id = std::isdigit((unsigned char)e[0]) ? std::atoi(e) : wxPresetFromName(e); if (id >= 0) weatherForce(R, id); } }
   const int id = W.want();
   const Row& row = *rowOf(id);
   W.st = row.st;
