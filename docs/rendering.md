@@ -74,7 +74,7 @@ The archive contains no licence file, and every shader carries only the header "
   - On a hit it replaces the sky estimate already in the lit colour, weighted by Schlick Fresnel, roughness, screen edges and ray length. A miss keeps the environment and sky reflection.
   - Hazed-out surfaces are excluded.
 - **TAA.** Halton (2, 3) 8-phase jitter at ±0.25 px, world projection only.
-  - **Reprojection.** Static geometry reprojects from depth with the *unjittered* current and previous matrices. Wind-animated leaves and grass write their own motion vectors: each re-evaluates last frame's sway and projects it with last frame's matrix.
+  - **Reprojection.** Static geometry reprojects from depth with the *unjittered* current and previous matrices. Wind-animated leaves and grass write their own motion vectors: each re-evaluates last frame's sway and projects it with last frame's matrix. Soldiers (AIB1, `--rq-off charvel`) write theirs too: the previous world matrix of the body and its held gun, and, when the body was skinned on consecutive frames, each vertex's previous skinned position (the skinning compute pass also skins with last frame's joints into a 16-byte-a-vertex buffer, `aPrev`). Without it a walking or animating soldier reprojected as static geometry and the history ghosted it (doubled feet, smeared trailing edge).
   - **History.** Catmull-Rom history fetch, then YCoCg 3×3 variance clipping (±1.1σ) in a luminance-compressed space. The current-frame weight is 0.08, rising to 0.30 with motion.
   - **Sharpening.** An unsharp mask (0.30 since V1, was 0.40: it amplified facade shimmer, §9.5) on the displayed image only; it never enters the history.
   - **Invalidation.** History is invalid after a resize, a camera jump over 4 m (teleport, respawn, Creative↔Explore) or a disabled frame.
@@ -706,11 +706,11 @@ GX5 stays on. Measured: GPU −0.45 ms, opaque −0.41 ms (−5.7 %), 25/28 view
   - takes a Gaussian (`exp(-2 d²)`, d in internal pixels) of the 3x3 internal samples around it. The internal texel `c` holds
     the scene at the unjittered position `c + jitter`, because `projJ` moves the image by `-jitter`;
   - reprojects the output-size history with the nearest sample's depth (unjittered matrices), or with the sample's own motion
-    where `velTex.a = 1` (wind-animated foliage and grass);
+    where `velTex.a = 1` (wind-animated foliage and grass, soldiers);
   - clips the history to the YCoCg box of the same 3x3 samples;
   - blends with `alpha = mix(0.08, 0.30, motion) x (0.25 + 1.5 x conf)`, where `conf` is the weight of the nearest sample. A pixel
     with no sample close to it keeps more history.
-- **Reactive pixels.** Wind-animated pixels (`velTex.a = 1`) keep less history (alpha ≥ 0.2), because their motion is approximate.
+- **Reactive pixels.** Wind-animated pixels (`velTex.a = 1`) keep less history (alpha ≥ 0.2), because their motion is approximate. Soldiers write `a = 1` too and get the same floor once they move half a pixel.
 - **Output.** The pass writes the output colour, the output history and `gl_FragDepth`, the nearest internal depth. That depth is
   used by effects and editor overlays.
 - **Sharpening.** The unsharp mask runs at output size against the internal 3x3 mean, at half the TAA sharpen; the grade's sharpen
@@ -744,7 +744,7 @@ The call receives `TemporalUpscale`:
 |---|---|
 | `color` | Internal-size scene, RGBA16F, linear HDR (GL name) |
 | `depth` | Internal-size depth, D32F, **reverse-Z** (1 near, 0 far / sky) |
-| `motion` | Internal-size RGBA16F. Where `a = 1` (animated foliage and grass), `rg` = UV delta from the current to the previous frame. Elsewhere `a = 0`, and motion comes from the camera: `prevVP x invVP` applied to the pixel's depth (both unjittered) |
+| `motion` | Internal-size RGBA16F. Where `a = 1` (animated foliage and grass, soldiers), `rg` = UV delta from the current to the previous frame. Elsewhere `a = 0`, and motion comes from the camera: `prevVP x invVP` applied to the pixel's depth (both unjittered) |
 | `outColor`, `outDepth` | Output-size targets to fill. `outDepth` must receive the upsampled depth (nearest), because effects depth-test against it |
 | `inW/inH`, `outW/outH`, `jitterPx`, `reset` | Sizes, jitter and history reset. The image is shifted by **−jitterPx** internal pixels |
 
