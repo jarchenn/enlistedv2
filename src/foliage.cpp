@@ -492,7 +492,8 @@ void App::treeDrawItems(const Instance& i, const InstanceRT& r, std::vector<Draw
     int k0, k1; r.asset->modelRange(gm, k0, k1);   // FL1: one plant of a pack bake
     extern vec4 greenTintOf(const AssetDef&, const mat4&);   // FL1 greenery
     const vec4 gt = greenTintOf(*r.asset, M);
-    if (!r.treeFelled) { R.folModels.push_back({gm, M * S, r.asset->modelWind, false, k0, k1 - k0, gt}); return; }
+    const mat4 Sk = glm::translate(mat4(1), vec3(0, -r.asset->modelSink, 0));   // BT2 model.sink: the root flare under the ground
+    if (!r.treeFelled) { R.folModels.push_back({gm, Sk * M * S, r.asset->modelWind, false, k0, k1 - k0, gt}); return; }
     op.push_back({&t.stumpMesh, M});
     vec3 p; quat q;
     if (Physics::getTransform(r.trunkBody, p, q)) R.folModels.push_back({gm, glm::translate(mat4(1), p) * glm::mat4_cast(q) * glm::translate(mat4(1), vec3(0, -t.stumpH, 0)) * S, 0.0f, false, k0, k1 - k0, gt});

@@ -77,6 +77,17 @@
       "gameplay": true
     },
     {
+      "name": "creek_tree_close",
+      "pos": [
+        5.62,
+        11.71,
+        -31.72
+      ],
+      "yaw": 123.69,
+      "pitch": -8.0,
+      "gameplay": true
+    },
+    {
       "name": "washhouse_close",
       "pos": [
         4.0,

@@ -1322,6 +1322,7 @@ void AssetLibrary::build(AssetDef& ad) const {
     auto& mj = j["model"];
     a->modelLodDist = mj.value("lodDist", 30.0f); a->modelCull = mj.value("cullDist", 400.0f); a->modelThinPx = mj.value("thinLinesPx", 0.0f);
     a->modelFoliage = mj.value("foliage", false); a->modelWind = mj.value("wind", 0.0f);   // NT8: instanced model foliage
+    a->modelSink = std::clamp(mj.value("sink", 0.0f), 0.0f, 3.0f);   // BT2: drawn this far down (m): a tree's root flare buried, not stood on
     a->modelScale = mj.value("drawScale", 1.0f);
     // SD2: "root": "vehicles" reads a vehicle's bake (content/vehicles/models) for a static prop of it; "fallbackDir" is
     // tried when the main bake is missing (a licence-restricted bake kept local: the public tree shows the box fallback)

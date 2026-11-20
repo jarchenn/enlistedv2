@@ -269,6 +269,7 @@ struct AssetDef {
   int modelFirst = 0, modelCount = -1, modelLodFirst = 0, modelLodCount = -1;
   void modelRange(const GpuModel* g, int& k0, int& k1) const;   // the parts of g (model or modelLod) this asset draws
   bool modelFoliage = false; float modelWind = 0;   // NT8: "model": {"foliage": true, "wind": k}: instanced, alpha-tested cards, sway k
+  float modelSink = 0.0f;   // BT2: "model": {"sink": m}: the model drawn m lower (root flares, plinths baked above the pivot)
   ShapePtr playerShape;                        // union of "k": 2 parts (no sections)
   GpuMesh colliderGhost;                       // every collider as a box: placement preview of model assets
   DefenseDef defense;

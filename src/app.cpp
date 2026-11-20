@@ -423,7 +423,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
         int s = gm->parts[k].section;
         if (s >= 0 && s < (int)r.secCut.size() && r.secCut[s]) continue;
         if (gm->parts[k].glass) { const std::string& id = r.asset->id; R.worldModelsGlass.push_back({gm, (int)k, M, vec4(1), 0.0f, id.size() > 6 && id.compare(id.size() - 6, 6, "_wreck") == 0 ? 2 : 1}); continue; }
-        R.worldModels.push_back({gm, (int)k, M, vec4(1), r.asset->modelThinPx});
+        R.worldModels.push_back({gm, (int)k, r.asset->modelSink > 0.0f ? glm::translate(mat4(1), vec3(0, -r.asset->modelSink, 0)) * M : M, vec4(1), r.asset->modelThinPx});   // BT2 model.sink
       }
       op.push_back({&r.asset->opaque, M});   // any visible box parts (none for the wire obstacles)
       if (r.asset->glass.count) gl.push_back({&r.asset->glass, M});
