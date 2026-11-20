@@ -43,6 +43,7 @@ uniform vec2 uShadowTexelFar;
 uniform vec2 uShadowWorldTexel;   // metres per shadow texel: near, far cascade
 uniform float uShadowDepthRange;  // metres covered by the [0,1] light-space depth
 uniform float uShadowSoft;        // PCF radius in near-cascade texels (0 = legacy 3x3 grid)
+uniform float uShadowLift;        // VO L1: share of the sun a shadow removes (Classic 0.7: shadows 30 % lighter; New 1)
 uniform int uShadowTaps;          // P3: cap on the PCF taps (presets; 0 = no cap)
 uniform int uFrame;               // frame counter (noise rotation; TAA decorrelation)
 uniform int uCloudShadowOn; uniform float uCloudCov, uCloudT;
@@ -103,7 +104,7 @@ float sunShadowRaw(vec3 w, vec3 n, float soft, int taps){
   sF = mix(sF, 1.0, smoothstep(0.85, 0.98, eF));   // fade out at the far edge instead of a hard line
   return mix(sN, sF, tB);
 }
-float sunShadowT(vec3 w, vec3 n, float soft, int taps){ return mix(1.0, sunShadowRaw(w, n, soft, taps), 0.7); }   // sun shadows 30 % lighter (user request)
+float sunShadowT(vec3 w, vec3 n, float soft, int taps){ return mix(1.0, sunShadowRaw(w, n, soft, taps), uShadowLift); }   // Classic: sun shadows 30 % lighter (user request); VO L1 New: full shadows, grounded by contact shadows
 float shadowPCF(vec3 w, vec3 n){ return sunShadowT(w, n, 0.0, 8); }   // 8 rotated taps; TAA integrates the rotation over frames
 // cloud deck at 1500 m: the same field the sky draws, in world xz (so the shadows on the ground match the sky)
 float cloudField(vec2 xz){
@@ -2210,6 +2211,7 @@ static const char* kCompositeFS = R"GLSL(
 in vec2 vUV;
 uniform sampler2D uScene, uShafts, uAmb, uAO, uDepth, uNR; uniform float uShaftAmt, uAoAmt, uSsrAmt;
 uniform mat4 uInvProj, uProj, uView; uniform vec2 uAoTexel;
+uniform float uContactAmt; uniform int uContactSteps;   // VO L1 screen-space sun contact shadows (0: off)
 out vec4 oColor;
 vec3 viewPosAt(vec2 uv){ float z = texture(uDepth, uv).r; vec4 p = uInvProj*vec4(uv*2.0 - 1.0, z, 1.0); return p.xyz/p.w; }   // reverse-Z
 vec2 toUV(vec3 q){ vec4 c = uProj*vec4(q, 1.0); return c.xy/c.w*0.5 + 0.5; }
@@ -2233,8 +2235,35 @@ vec4 traceSSR(vec3 Pv, vec3 Rv){
   }
   return vec4(0.0);
 }
+// VO L1 (Aldridge, Bend Studio 2023): march the depth buffer toward the sun for ~0.4-1.6 m; an occluder in front of
+// the ray within a thickness shadows the direct light the shadow map is too coarse for (grass, props on the ground, joints)
+float contactShadow(vec2 uv){
+  float z0 = texture(uDepth, uv).r;
+  if (z0 <= 0.0) return 1.0;   // sky
+  vec3 P = viewPosAt(uv);
+  float dist = -P.z;
+  if (dist > 90.0) return 1.0;
+  vec3 L = normalize(mat3(uView)*uSunDir);
+  if (L.z > 0.97) return 1.0;   // sun straight behind the camera: the ray leaves along the view (no information)
+  float len = clamp(0.4 + dist*0.02, 0.4, 1.6), thick = 0.06 + dist*0.006;
+  float n = float(uContactSteps), jit = pixelNoise();
+  float occ = 0.0;
+  for (int i = 0; i < uContactSteps; ++i) {
+    float t = (float(i) + jit)/n;
+    vec3 q = P + L*(len*t*t + 0.02 + dist*0.0015);   // denser near the surface; start a little off it (depth precision)
+    vec2 u2 = toUV(q);
+    if (u2.x < 0.0 || u2.x > 1.0 || u2.y < 0.0 || u2.y > 1.0) break;
+    float dz = viewPosAt(u2).z - q.z;   // > 0: the visible surface is in front of the ray point
+    if (dz > 0.005 && dz < thick) { occ = 1.0 - t*0.5; break; }
+  }
+  return 1.0 - occ*(1.0 - smoothstep(60.0, 90.0, dist));
+}
 void main(){
   vec3 c = texture(uScene, vUV).rgb;
+  if (uContactAmt > 0.0) {   // VO L1: only the direct share (colour less the indirect light the world pass wrote) is shadowed
+    vec3 amb = texture(uAmb, vUV).rgb;
+    c = amb + max(c - amb, vec3(0.0))*mix(1.0, contactShadow(vUV), uContactAmt);
+  }
   if (uSsrAmt > 0.0) {
     vec4 nr = texture(uNR, vUV);
     if (nr.w < 0.4 && texture(uDepth, vUV).r > 0.0) {   // not sky
@@ -3895,6 +3924,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform2f(U(p, "uShadowWorldTexel"), 2 * nearR / shadowSize, 2 * farR / shadowFarSize);
   glUniform1f(U(p, "uShadowDepthRange"), 800.0f);
   glUniform1f(U(p, "uShadowSoft"), q.legacy ? 0.0f : q.shadowSoft * (1.0f + 2.0f * wx.k));   // WX2: overcast sun casts very soft shadows
+  glUniform1f(U(p, "uShadowLift"), q.lightNew && perf.fullShadow ? 1.0f : 0.7f);   // VO L1
   glUniform1i(U(p, "uShadowTaps"), q.shadowTaps);
   glUniform1i(U(p, "uFrame"), frame);
   glUniform1i(U(p, "uCloudShadowOn"), !q.legacy && q.cloudShadows && clouds && perf.cloudShadow && !thumbMode ? 1 : 0);
@@ -5178,8 +5208,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
 }
 
 void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
-  bool shafts = (q.shafts || (lt.mapShafts > 0 && q.bloom)) && perf.shafts && q.shaftStrength > 0 && !lt.mapNoFog && wx.k < 0.99f,   /* NT8: a map's own shafts from Medium up */   /* WX2: no sun shafts under overcast */ ao = q.ssao && q.ssaoStrength > 0, ssr = q.ssr && q.ssrStrength > 0;
-  if (!shafts && !ao && !ssr) return;
+  bool shafts = (q.shafts || (lt.mapShafts > 0 && q.bloom)) && perf.shafts && q.shaftStrength > 0 && !lt.mapNoFog && wx.k < 0.99f,   /* NT8: a map's own shafts from Medium up */   /* WX2: no sun shafts under overcast */ ao = q.ssao && q.ssaoStrength > 0, contact = q.lightNew && perf.contactShadow && !q.legacy, ssr = q.ssr && q.ssrStrength > 0;
+  if (!shafts && !ao && !ssr && !contact) return;
   glDisable(GL_DEPTH_TEST); glDepthMask(GL_FALSE); glDisable(GL_BLEND); glDisable(GL_CULL_FACE);
   glBindVertexArray(emptyVao);
   mat4 inv = glm::inverse(vp), invP = glm::inverse(v.proj);
@@ -5218,6 +5248,8 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   glUniform1i(U(progComposite, "uAmb"), 10); glUniform1i(U(progComposite, "uAO"), 11); glUniform1i(U(progComposite, "uDepth"), 7);
   glUniform1f(U(progComposite, "uShaftAmt"), shafts ? q.shaftStrength * (lt.mapShafts > 0 ? lt.mapShafts : 1.0f) * (1.0f - 0.75f * lightingTod(lt.hour).nightK) * (1.0f - wx.k) : 0.0f);   // moon shafts at a quarter strength: the night exposure made them glare
   glUniform1f(U(progComposite, "uAoAmt"), ao ? q.ssaoStrength : 0.0f);
+  glUniform1f(U(progComposite, "uContactAmt"), contact ? 0.85f * (1.0f - lightingTod(lt.hour).nightK) * (1.0f - wx.k) : 0.0f);   // VO L1: the sun's (none from the moon or an overcast sky)
+  glUniform1i(U(progComposite, "uContactSteps"), shadowTier >= 2 ? 16 : shadowTier == 1 ? 12 : 8);
   setLighting(progComposite, v);   // sky model + noise for the reflection estimate
   glUseProgram(progComposite);
   glBindTextureUnit(12, nrTex); glUniform1i(U(progComposite, "uNR"), 12);
