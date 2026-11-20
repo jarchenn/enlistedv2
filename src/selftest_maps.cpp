@@ -540,9 +540,9 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       { static bool once = false; if (!once) { once = true; check(app.R.shaderErrors == 0, fmt("all shaders compiled, terrain variants included (%d errors)", app.R.shaderErrors)); } }   // PF: a missing terrain variant fails here
       {   // PF terrain: the pass time, what it drew per LOD ring, the fine tiles and the share of its shaded fragments that wrote a sample
         const auto& st = app.terrain.stream.stats; const auto& fs = app.R.stats;
-        logf("[terrain] %s %s: pass %.2f ms; chunks %d (%d with the discarding shader) per ring %d/%d/%d/%d/%d, tris %.2fM (%.2f/%.2f/%.2f/%.2f/%.2f M); fine tiles %zu; samples written %.2fM",
+        logf("[terrain] %s %s: pass %.2f ms; chunks %d (%d with the discarding shader) per ring %d/%d/%d/%d/%d, tris %.2fM (%.2f/%.2f/%.2f/%.2f/%.2f M); fine tiles %d drawn (lod %d/%d/%d), %d culled; samples written %.2fM",
              app.templates[sTpl[sTi]].id.c_str(), nm.c_str(), p.pass[GP_Terrain], st.drawnLastFrame, st.drawnMasked, st.drawnLod[0], st.drawnLod[1], st.drawnLod[2], st.drawnLod[3], st.drawnLod[4],
-             st.tris / 1e6, st.trisLod[0] / 1e6, st.trisLod[1] / 1e6, st.trisLod[2] / 1e6, st.trisLod[3] / 1e6, st.trisLod[4] / 1e6, app.terrain.tiles.size(),
+             st.tris / 1e6, st.trisLod[0] / 1e6, st.trisLod[1] / 1e6, st.trisLod[2] / 1e6, st.trisLod[3] / 1e6, st.trisLod[4] / 1e6, app.terrain.tileStats.drawn, app.terrain.tileStats.lod[0], app.terrain.tileStats.lod[1], app.terrain.tileStats.lod[2], app.terrain.tileStats.culled,
              fs.terrSamples / 1e6);
       }
       if (v.gate && sPresetPass < 3 && !std::getenv("NMK_MAPS_VIEW") && !kFl1 && !kFx1) {   // V2 (docs/settings.md): the same gameplay view again at Low, then High; L2: then Night at Medium

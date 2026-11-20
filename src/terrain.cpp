@@ -1,4 +1,5 @@
 #include "terrain.h"
+#include "frustum.h"
 #include "crumb.h"
 #include "w5.h"
 #include <algorithm>
@@ -378,19 +379,41 @@ void Terrain::rebuildMesh(Tile& t) {
       v[k] = {vec3(x, t.h[k], z), normal(x, z), t.sdirt.empty() ? t.dirt[k] : std::max(t.dirt[k], t.sdirt[k]),
               t.sew.size() == v.size() * 3 ? vec3(t.sew[k * 3], t.sew[k * 3 + 1], t.sew[k * 3 + 2]) : vec3(0.0f)};
     }
-  if (!t.vao) {
+  // VOT T2: a skirt under each edge (4 x kFineN vertices, kSkirt m down) closes the cracks between tiles drawn at
+  // different steps; the bounds feed the culling
+  constexpr float kSkirt = 0.6f;
+  t.ylo = 1e30f; t.yhi = -1e30f;
+  for (auto& q : v) { t.ylo = std::min(t.ylo, q.p.y); t.yhi = std::max(t.yhi, q.p.y); }
+  auto edgeIdx = [](int e, int k) { return e == 0 ? k : e == 1 ? kFine * kFineN + k : e == 2 ? k * kFineN : k * kFineN + kFine; };
+  for (int e = 0; e < 4; ++e)
+    for (int k = 0; k < kFineN; ++k) { TV s = v[edgeIdx(e, k)]; s.p.y -= kSkirt; v.push_back(s); }
+  if (!tileEbo) {   // shared by every tile: LOD 0 / 1 / 2 = every 1st / 5th / 7th sample (kFine = 35), each with its skirts
     std::vector<uint32_t> idx;
-    for (int j = 0; j < kFine; ++j)
-      for (int i = 0; i < kFine; ++i) {
-        uint32_t a = j * kFineN + i, b = a + 1, c = a + kFineN, d = c + 1;
-        idx.insert(idx.end(), {a, c, d, a, d, b});
-      }
-    t.count = (int)idx.size();
-    glCreateVertexArrays(1, &t.vao); glCreateBuffers(1, &t.vbo); glCreateBuffers(1, &t.ebo);
-    glNamedBufferData(t.ebo, idx.size() * 4, idx.data(), GL_STATIC_DRAW);
+    const int steps[3] = {1, 5, 7};
+    for (int l = 0; l < 3; ++l) {
+      tileIdxOff[l] = (int)idx.size();
+      const int s = steps[l];
+      for (int j = 0; j < kFine; j += s)
+        for (int i = 0; i < kFine; i += s) {
+          uint32_t a = j * kFineN + i, b = a + s, c = a + s * kFineN, d = c + s;
+          idx.insert(idx.end(), {a, c, d, a, d, b});
+        }
+      for (int e = 0; e < 4; ++e)
+        for (int k = 0; k < kFine; k += s) {
+          uint32_t a = edgeIdx(e, k), b = edgeIdx(e, k + s), sa = kFineN * kFineN + e * kFineN + k, sb = sa + s;
+          idx.insert(idx.end(), {a, sa, sb, a, sb, b, a, sb, sa, a, b, sb});   // both windings: the side a tile's skirt shows depends on the edge
+        }
+      tileIdxCnt[l] = (int)idx.size() - tileIdxOff[l];
+    }
+    glCreateBuffers(1, &tileEbo);
+    glNamedBufferData(tileEbo, idx.size() * 4, idx.data(), GL_STATIC_DRAW);
+  }
+  if (!t.vao) {
+    t.count = tileIdxCnt[0];
+    glCreateVertexArrays(1, &t.vao); glCreateBuffers(1, &t.vbo);
     glNamedBufferData(t.vbo, v.size() * sizeof(TV), nullptr, GL_DYNAMIC_DRAW);
     glVertexArrayVertexBuffer(t.vao, 0, t.vbo, 0, sizeof(TV));
-    glVertexArrayElementBuffer(t.vao, t.ebo);
+    glVertexArrayElementBuffer(t.vao, tileEbo);
     for (int k = 0; k < 4; ++k) {
       glEnableVertexArrayAttrib(t.vao, k);
       glVertexArrayAttribFormat(t.vao, k, k == 2 ? 1 : 3, GL_FLOAT, GL_FALSE, k < 3 ? k * 12 : 28);
@@ -486,8 +509,25 @@ void Terrain::draw(GLuint prog, vec3 cam, const mat4& vp, GLuint progND, GLuint 
   if (drawOpts.normals) glBindTextureUnit(18, nrmTex);
   if (drawOpts.skyView) glBindTextureUnit(26, svTex);
   stream.update(*this, cam, vp, stream.cfg.buildBudgetMs);
-  auto drawTiles = [&](bool) {
-    for (auto& [k, t] : tiles) { if (!t.count) continue; glBindVertexArray(t.vao); glDrawElements(GL_TRIANGLES, t.count, GL_UNSIGNED_INT, nullptr); }
+  // VOT T2: the fine tiles, culled to the view and stepped by distance (ttilelod off: all at full resolution, no culling)
+  Frustum fr = Frustum::fromVP(vp);
+  const float ts = tileSize();
+  auto drawTiles = [&](bool count) {
+    if (count) tileStats = {};
+    for (auto& [k, t] : tiles) {
+      if (!t.count) continue;
+      int l = 0;
+      if (drawOpts.tileLod) {
+        vec2 o = tileOrigin(t.tx, t.tz);
+        if (!fr.visible(vec3(o.x, t.ylo - 0.7f, o.y), vec3(o.x + ts, t.yhi + 0.1f, o.y + ts), 1.0f)) { if (count) ++tileStats.culled; continue; }
+        float dx = std::max({o.x - cam.x, 0.0f, cam.x - o.x - ts}), dz = std::max({o.y - cam.z, 0.0f, cam.z - o.y - ts});
+        float d = std::sqrt(dx * dx + dz * dz + std::pow(std::max(0.0f, cam.y - t.yhi), 2.0f));
+        l = d < 90.0f ? 0 : d < 220.0f ? 1 : 2;
+      }
+      if (count) { ++tileStats.drawn; ++tileStats.lod[l]; }
+      glBindVertexArray(t.vao);
+      glDrawElements(GL_TRIANGLES, tileIdxCnt[l], GL_UNSIGNED_INT, (const void*)(intptr_t)(tileIdxOff[l] * 4));
+    }
   };
   auto resetUniforms = [&]() {
     for (GLuint pr : {prog, progND}) {
@@ -530,6 +570,8 @@ void Terrain::draw(GLuint prog, vec3 cam, const mat4& vp, GLuint progND, GLuint 
 void Terrain::destroy() {
   stream.release();
   normalsRelease();
+  if (tileEbo) glDeleteBuffers(1, &tileEbo);
+  tileEbo = 0;
   if (maskTex) glDeleteTextures(1, &maskTex);
   maskTex = 0;
 }

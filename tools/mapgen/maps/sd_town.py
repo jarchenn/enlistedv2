@@ -9,6 +9,7 @@ import os
 
 from mapgen import (GroundPaint, Grid, Frame, MapBuilder, ScenarioBuilder, write_map, write_template, write_summary, asset_usage,
                     rng, look_yaw)
+from mapgen.terrain import KCELL
 from maps.sd_common import door_points, rect_ok, inside_eye, rows_from, Plan, place_facades, spread, place_masses, place_cover, wall_spot, site_signs, place_along_walls, place_in_space
 
 TID, NAME, VERSION, SEED = "sd_town", "Rue Haute", 1, 2613
@@ -70,32 +71,123 @@ LINKS = {
 }
 
 
-TILT = (0.6, 3.0)   # VOT T3: the town's fall west -> east and south -> north across the plan (m)
+TILT = (0.6, 0.5)   # VOT T3/T2: the gentle fall west -> east and south -> north under the terraces (m)
+# VOT T2: the town stands on three street levels (m above the station yard): the lanes south of the river lane, the
+# market terraces (B, the square, the arcade) and the upper town (the back lanes, the gendarmerie, the churchyard).
+# Every open link stays level-continuous through a ramp in a lane cell; level changes between regions that do not link
+# fall under the wall piece already on that edge. The churchyard's north strip by the church stands one storey higher
+# behind a stone retaining wall with a flight of steps (drs_retaining_wall, drs_town_steps).
+L1, L2A, L2, L3 = 1.3, 2.0, 2.6, 3.9
+A_STEP_Z = 45.0   # the churchyard terrace edge (the row 17 / 18 boundary)
+
+
+def _lin(v, a, b, ha, hb):
+    import numpy as np
+    return ha + (hb - ha) * np.clip((v - a) / (b - a), 0.0, 1.0)
+
+
+def town_level(plan, X, Z):
+    """The street level (m) over the plan's open cells (NaN on solid ground and off the plan)."""
+    import numpy as np
+    I = np.floor((X - plan.x0) / plan.cell).astype(int)
+    J = np.floor((Z - plan.z0) / plan.cell).astype(int)
+    R = np.full(X.shape, "#", dtype="<U1")
+    ok = (I >= 0) & (J >= 0) & (I < plan.nx) & (J < plan.nz)
+    for j in range(plan.nz):
+        for i in range(plan.nx):
+            ch = plan.at(i, j)
+            if ch not in "# ":
+                R[ok & (I == i) & (J == j)] = ch
+    L = np.full(X.shape, np.nan)
+    flat = {"T": 0.0, "B": L1, "M": L1, "w": L1, "D": L2}
+    for ch, v in flat.items():
+        L[R == ch] = v
+    m = R == "t"; L[m] = _lin(Z[m], -9.0, 3.0, 0.0, L1)        # up into B over rows 9-10
+    m = R == "p"; L[m] = _lin(Z[m], -9.0, 3.0, 0.0, L1)        # up into the square
+    m = R == "s"; L[m] = _lin(Z[m], -3.0, 27.0, 0.0, L2A)      # Rue de l'Eglise climbs to A
+    m = R == "f"   # the river lane meets the t / p ramps level (no step at the junctions), then slopes east to s
+    xp, xs = plan.x0 + 10 * plan.cell, plan.x0 + 12 * plan.cell
+    up, us = _lin(Z[m], -9.0, 3.0, 0.0, L1), _lin(Z[m], -3.0, 27.0, 0.0, L2A)
+    L[m] = up + (us - up) * np.clip((X[m] - xp) / (xs - xp), 0, 1)
+    m = R == "n"; L[m] = _lin(Z[m], 15.0, 27.0, L1, L2A)       # the cafe passage up to A's door
+    m = R == "k"; L[m] = _lin(Z[m], 27.0, 39.0, L1, L2)        # defender access down to the square
+    m = R == "R"; L[m] = np.where(Z[m] < 39.0, _lin(Z[m], 27.0, 39.0, L1, L2), L2)
+    m = R == "c"   # the arcade at L1; its east corner climbs to A's south strip (the c - A link at x = 15)
+    cx = np.clip((X[m] - 9.0) / 6.0, 0, 1); cz = np.clip((Z[m] - 21.0) / 6.0, 0, 1)
+    corner = (X[m] >= 9.0) & (Z[m] < 27.0)
+    L[m] = np.where(Z[m] >= 27.0, L2A, np.where(corner, L1 + (L2A - L1) * cx * cz / np.maximum(cx * cz + (1 - cx) * (1 - cz), 1e-6), L1))
+    m = R == "A"
+    za = Z[m]
+    L[m] = np.where(za < A_STEP_Z - 0.6, _lin(za, 33.0, 39.0, L2A, L2), _lin(za, A_STEP_Z - 0.6, A_STEP_Z - 0.25, L2, L3))   # the face inside the wall's 0.8 m
+    return L
+
+
+def _fill(L, iters=400):
+    """Solid ground takes the level of the nearest street: repeated 4-neighbour averaging into the unknown samples."""
+    import numpy as np
+    L = L.copy()
+    known = ~np.isnan(L)
+    for _ in range(iters):
+        if known.all():
+            break
+        v = np.where(known, L, 0.0); k = known.astype(float)
+        s = np.zeros_like(v); n = np.zeros_like(v)
+        for sl_a, sl_b in (((slice(1, None), slice(None)), (slice(None, -1), slice(None))), ((slice(None, -1), slice(None)), (slice(1, None), slice(None))),
+                           ((slice(None), slice(1, None)), (slice(None), slice(None, -1))), ((slice(None), slice(None, -1)), (slice(None), slice(1, None)))):
+            s[sl_a] += v[sl_b]; n[sl_a] += k[sl_b]
+        new = ~known & (n > 0)
+        L[new] = s[new] / n[new]
+        known |= new
+    L[np.isnan(L)] = 0.0
+    return L
 
 
 def town_relief(grid, plan):
-    """VOT T3: the town stands on one plane tilted 3.0 m from the station (south) up to the gendarmerie (north) and
-    0.6 m across, so every lane keeps an even 1-2.5 % grade and the S&D layout and timings hold; beyond the plan the
-    ground rises into eroded hills (layered relief, rain and slope erosion, drainage lines) that frame the town. The
-    plane covers the whole build area (the plan and its ring of town houses); the hills fill the margin."""
+    """VOT T3/T2: the terraced town (town_level) on a gentle plane, its solid blocks at the level of their nearest
+    street; beyond the build area the levels fade out and the ground rises into eroded hills tall enough to stand
+    over the roofs from the long lanes (north and west up to ~28 m). Returns (stats, fine(grid) -> FineLayer): the
+    base grid holds what 3.1 m cells can; call fine() after grid.quantise() for the sub-cell residual (the terrace
+    wall's step, the ramp ends) as sculpt tiles."""
     import numpy as np
-    from mapgen.relief import relief_layers, hydraulic_erosion, thermal_erosion, drainage, smooth, _arr, _coords
+    from mapgen.relief import relief_layers, hydraulic_erosion, thermal_erosion, drainage, smooth, _arr, _coords, FineLayer
+    hx, hz = -plan.x0, -plan.z0
+    fs = KCELL / 7.0
+    fx = grid.org_x + np.arange((grid.nx - 1) * 7 + 1) * fs
+    fz = grid.org_z + np.arange((grid.nz - 1) * 7 + 1) * fs
+    FX, FZ = np.meshgrid(fx, fz)
+    lev = _fill(town_level(plan, FX, FZ))
+    out_f = np.maximum(np.abs(FX) - grid.width / 2, np.abs(FZ) - grid.depth / 2)
+    lev *= 1.0 - np.clip(out_f / 40.0, 0, 1) ** 2   # the levels fade out over 40 m past the build area
+    exact = 10.0 + TILT[0] * (FX / hx) * 0.5 + TILT[1] * (FZ / hz) * 0.5 + lev
+    H = _arr(grid)
+    H[...] = exact[::7, ::7]
     xs, zs = _coords(grid)
     X, Z = np.meshgrid(xs, zs)
-    hx, hz = -plan.x0, -plan.z0
-    H = _arr(grid)
-    H[...] = 10.0 + TILT[0] * (X / hx) * 0.5 + TILT[1] * (Z / hz) * 0.5
     out = np.maximum(np.abs(X) - grid.width / 2, np.abs(Z) - grid.depth / 2)   # metres outside the build area (the plan + the 30 m ring of town houses)
     t = np.clip((out - 1.0) / 35.0, 0, 1)
     w = t * t * (3 - 2 * t)
-    H += w * (6.0 * np.clip((out - 1.0) / 60.0, 0, 1))   # the valley sides: rising away from the town
-    relief_layers(grid, [(4.0, 180.0, 41, 3), (1.4, 60.0, 42, 4), (0.4, 20.0, 43, 3)], w)
+    ang = np.arctan2(Z, -X)   # north-west hills the tallest: they close the views up Rue de l'Eglise and along the arcade
+    tall = 34.0 + 16.0 * np.clip(np.cos(ang - np.radians(135.0)), 0, 1)   # VOT T2: tall enough to clear the roofs down the long lanes
+    H += w * tall * np.clip((out - 1.0) / 55.0, 0, 1) ** 1.1
+    relief_layers(grid, [(5.0, 180.0, 41, 3), (1.6, 60.0, 42, 4), (0.4, 20.0, 43, 3)], w)
     hydraulic_erosion(grid, w, iters=45, kc=1.0)
     thermal_erosion(grid, w, iters=15, talus=0.6)
     smooth(grid, w, passes=3)
     drainage(grid, w, depth=0.5, start=90, full=1200, width=2)
     smooth(grid, w, passes=1)
-    return {"tilt": TILT}
+    inb = (np.abs(FX) <= grid.width / 2) & (np.abs(FZ) <= grid.depth / 2)
+
+    def fine(grid):
+        f = FineLayer(grid)
+        ix = np.where(inb.any(axis=0))[0]; iz = np.where(inb.any(axis=1))[0]
+        for tx, tz in f.tiles_in((fx[ix[0]], fz[iz[0]], fx[ix[-1]], fz[iz[-1]])):
+            sl = (slice(tz * 35, tz * 35 + 36), slice(tx * 35, tx * 35 + 36))
+            X_, Z_ = FX[sl], FZ[sl]
+            D = np.where(inb[sl], exact[sl] - f.base(X_, Z_), 0.0)
+            if np.abs(D).max() >= 0.001:
+                f.d[tz * f.tx_n + tx] = D
+        return f
+    return {"tilt": TILT, "levels": [0.0, L1, L2A, L2, L3], "hillMaxM": round(float((w * tall).max()), 1)}, fine
 
 
 def seat_on_relief(b, y0):
@@ -157,17 +249,27 @@ def build(ctx):
     MARGIN = 60
     frame = Frame(W, D)
     grid = Grid(W, D, margin=MARGIN, base=10.0)
-    t3 = town_relief(grid, plan)   # VOT T3
+    t3, fine_fn = town_relief(grid, plan)   # VOT T3 / T2
     grid.quantise()
     b = MapBuilder(ctx.catalog, grid, frame, seed=SEED)
+    fine = fine_fn(grid)   # VOT T2: the sub-cell terrace edges as sculpt tiles; every later ground() sees them
+    fine.install(b)
     paint = GroundPaint()
     paint.poly("sand", [(-W / 2 - MARGIN, -D / 2 - MARGIN), (W / 2 + MARGIN, -D / 2 - MARGIN), (W / 2 + MARGIN, D / 2 + MARGIN), (-W / 2 - MARGIN, D / 2 + MARGIN)], weight=1.0, edge=0.5)
+    for q in ((-W / 2 - MARGIN, -D / 2 - MARGIN, -W / 2 - 6, D / 2 + MARGIN), (W / 2 + 6, -D / 2 - MARGIN, W / 2 + MARGIN, D / 2 + MARGIN),
+              (-W / 2 - MARGIN, -D / 2 - MARGIN, W / 2 + MARGIN, -D / 2 - 6), (-W / 2 - MARGIN, D / 2 + 6, W / 2 + MARGIN, D / 2 + MARGIN)):
+        paint.poly("grass", [(q[0], q[1]), (q[2], q[1]), (q[2], q[3]), (q[0], q[3])], weight=1.0, edge=4.0, ragged=0.6, seed=7)   # VOT T2: the hills are pasture, not sand
     y0 = b.ground(0.0, 0.0)
     seat_on_relief(b, y0)   # VOT T3: explicit heights below are on the datum; they land on the tilted town
     # the lanes are the gaps between house fronts; the churchyard keeps its wall; walls only between two open regions
     houses = []
     nw = place_facades(b, plan, FACADES, "sd_town_wall", y=y0, plain="A", plain_asset="sd_town_wall", out=houses)
     n_walls = sum(nw.values())
+    # VOT T2: the churchyard's north strip, one storey up behind a stone retaining wall; a flight of steps in the middle
+    wz = A_STEP_Z - 0.32
+    for x in (20.0, 24.0, 31.15, 35.15, 40.0):
+        b.place("drs_retaining_wall", x, wz, 0.0, check=False, cls="none", y=y0, tags={"wall"})
+    b.place("drs_town_steps", 27.6, A_STEP_Z - 1.3, 0.0, check=False, cls="none", y=y0, tags={"wall"})
     # ground: cobbled lanes, the square and the spawn yards cobbled too, the churchyard grass,
     # a strip of setts (pebbles -> setts_paint) along every house front: the gutter
     for ch, kind in (("A", "grass"), ("B", "cobbles"), ("M", "cobbles"), ("T", "cobbles"), ("D", "cobbles"), ("s", "cobbles"), ("t", "cobbles"), ("p", "cobbles"), ("f", "cobbles"), ("R", "cobbles"), ("c", "cobbles"), ("w", "cobbles"), ("n", "cobbles"), ("k", "cobbles")):
@@ -342,12 +444,63 @@ def build(ctx):
         s["team"] = -1
         s["pos"][1] = y0
     t3["reseatMaxM"] = round(reseat_after_pads(b, y0), 3)
-    from mapgen.relief import reseat_on_engine_ground
+    from mapgen.relief import reseat_on_engine_ground, level_rigid_pieces
     ra = b.reseat_all
 
     def reseat_all(*a, **kw):   # VOT T3: last, on the ground the engine draws after its own pads (write_png calls this)
         m = ra(*a, **kw)
+        for e in b.inst:   # churchyard cover off the terrace step (a stone across it sinks on one side)
+            hd = max(b.cat[e["asset"]].half)
+            if e["asset"] in {c[0] for c in A_COVER} and 15.0 < e["pos"][0] < 45.0 and e["pos"][2] - hd < A_STEP_Z + 0.1 and e["pos"][2] + hd > A_STEP_Z - 0.7:
+                up, dn = A_STEP_Z + 0.1 + hd, A_STEP_Z - 0.7 - hd
+                e["pos"][2] = round(up if up - e["pos"][2] < e["pos"][2] - dn else dn, 3)
+                e["pos"][1] = b.ground(e["pos"][0], e["pos"][2])
         t3["engineReseat"] = reseat_on_engine_ground(b)
+        n, worst = level_rigid_pieces(fine, b, skip=lambda e: e["asset"] in ("drs_retaining_wall", "drs_town_steps") or "wall" in e["asset"])
+        def back_pad(e, y, ring=0.4):   # the block behind a facade (out of reach) at its seat, so its back sits on the ground
+            cs, sn = math.cos(math.radians(e["yaw"])), math.sin(math.radians(e["yaw"]))
+            x, z = e["pos"][0], e["pos"][2]
+
+            def fn(X, Z, G):
+                import numpy as np
+                dx, dz = X - x, Z - z
+                lx, lz = dx * cs - dz * sn, dx * sn + dz * cs
+                d = np.hypot(np.maximum(np.abs(lx) - 2.6, 0), np.maximum(np.maximum(-3.2 - lz, lz + 0.6), 0))
+                t = np.clip(d / ring, 0, 1)
+                return y + (G - y) * (t * t * (3 - 2 * t))
+            fine.add(fn, (x - 5, z - 5, x + 5, z + 5))
+        # facades along a sloping lane: the door sill at the street, the low end on the 0.6 m stone foundation
+        from mapgen.geom import local_to_world
+        pads = []
+        for e in b.inst:
+            a = b.cat[e["asset"]]
+            if not e["asset"].startswith("sd_facade"):
+                continue
+            fx, fz = local_to_world((e["pos"][0], e["pos"][2]), e["yaw"], 0.0, 0.5)
+            front = [s[2] for s, n in zip(b._samples(a, e["pos"][0], e["pos"][2], e["yaw"], inset=0.1), b.NINE) if n[1] >= 0]
+            y = min(b.ground(fx, fz), min(front) + a.raw.get("foundation", 0.0) - 0.02)
+            pads.append((e, y))
+            d = y - e["pos"][1]
+            e["pos"][1] = y
+            for c in b.inst:
+                if c["extra"].get("support") == e["id"] or (c.get("host") == e["id"] and not c.get("free")):
+                    c["pos"][1] += d
+        for e, y in pads:
+            back_pad(e, y)
+        for e in b.inst:   # the roofed passages rest on their walls: the ceiling at the highest wall's seat (+ its lantern)
+            if e["asset"] != "sd_roof_bay_timber":
+                continue
+            x, z = e["pos"][0], e["pos"][2]
+            ys = [o["pos"][1] for o in b.inst if (o["asset"].startswith(("sd_facade", "sd_town_wall"))) and abs(o["pos"][0] - x) <= 3.4 and abs(o["pos"][2] - z) <= 3.4]
+            if ys:
+                d = max(ys) - e["pos"][1]
+                e["pos"][1] += d
+                for o in b.inst:
+                    if o["asset"] == "lamp_hanging_lantern" and abs(o["pos"][0] - x - 0.8) < 0.1 and abs(o["pos"][2] - z) < 0.1:
+                        o["pos"][1] = e["pos"][1] + 3.0   # as placed: from the ceiling
+        t3["fineSeats"] = [n, round(worst, 3)]
+        reseat_on_engine_ground(b, skip=lambda e: e["asset"].startswith(("sd_facade", "sd_roof_bay")) or e["asset"] == "lamp_hanging_lantern")   # the small pieces around the new seats
+        t3["sculptTiles"] = len(fine.d)
         return m
     b.reseat_all = reseat_all
     for o in sc.objectives:   # VOT T3: the scenario on the tilted ground
@@ -391,7 +544,7 @@ def build(ctx):
     thumb_cam = ([_v["pos"][0], _v["pos"][1] + 0.6, _v["pos"][2]], _v["yaw"], -5.0)
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sc.to_json(rules_extra=rules), explore_start=((a1[0], a1[1], a1[2]), 0.0), camera=cam, bookmarks={},
-              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 9.6, "enclosed": False, "fill": 1.3},   # GR2: a bright clouded morning sky as the main light, a low soft sun raking the street, shade lifted
+              extra={"terrainSculpt": fine.to_json(), "groundPaint": paint.to_json(), "lighting": {"hour": 9.6, "enclosed": False, "fill": 1.3},   # GR2: a bright clouded morning sky as the main light, a low soft sun raking the street, shade lifted
                      "look": {"haze": 0.7, "weather": 0.45, "clouds": 0.75, "saturation": 0.92, "tint": [1.0, 0.99, 0.97], "paintSets": {"pebbles": "setts_paint"}}})
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=20, version=VERSION, seed=SEED,
                    description="Search and Destroy: a Norman town quarter on an overcast morning, its lanes between house fronts. "

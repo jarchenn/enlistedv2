@@ -89,7 +89,8 @@ public:
     std::vector<float> dirt;   // disturbed-soil blend 0..1
     std::vector<float> sdirt;  // GX1 stamp soil mask 0..1 (trench mud, spoil, bare berm faces, pad embankments); derived, never saved
     std::vector<float> sew;    // GX1 stamp material per sample, 3 floats: packed mud (cut walls / floor), freshly turned earth (spoil), wet
-    GLuint vao = 0, vbo = 0, ebo = 0; int count = 0;
+    GLuint vao = 0, vbo = 0, ebo = 0; int count = 0;   // ebo unused since VOT T2: the tiles share tileEbo
+    float ylo = 0, yhi = 0;    // VOT T2: height bounds of the mesh (culling)
     uint32_t body = 0xffffffffu;
     uint32_t rev = 0;          // bumped on every remesh (grass / cache invalidation)
     bool cut = false;          // a terrain cut covers part of it (kept active while the cut exists)
@@ -196,8 +197,10 @@ public:
   GLuint maskTexture() const { return maskTex; }
   // ---- VOT T1 per-pixel normals (terrain_normals.cpp): a Catmull-Rom surface through the base vertices, baked at the
   // fine spacing; kTerrainFS reads it for the base chunks (draw sets uTNOn). Set by the renderer each frame:
-  struct DrawOpts { bool normals = true, morph = true, skyView = true; };   // --rq-off tnormal / tmorph / tskyview
+  struct DrawOpts { bool normals = true, morph = true, skyView = true, tileLod = true; };   // --rq-off tnormal / tmorph / tskyview / ttilelod
   mutable DrawOpts drawOpts;
+  mutable GLuint tileEbo = 0; mutable int tileIdxOff[3] = {}, tileIdxCnt[3] = {};   // VOT T2: one index buffer for every tile, 3 LODs + skirts
+  mutable struct { int drawn = 0, culled = 0, lod[3] = {}; } tileStats;
   vec3 smoothNormal(float x, float z) const;
   void normalsDirty(vec2 lo, vec2 hi) const;   // re-bake that rectangle on the next draw
   void normalsSync() const;                    // bake + upload what is dirty (a new grid: everything)

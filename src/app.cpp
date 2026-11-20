@@ -1136,6 +1136,7 @@ int App::run(int argc, char** argv) {
   bool bench1440 = std::getenv("NMK_WIN_1440") != nullptr;   // NMK_WIN_1440=1: any launch at a borderless 2560x1440 at (0,0)
    for (int k = 1; k < __argc; ++k) bench1440 |= std::string(__argv[k]) == "--bench-views";
   if (bench1440) { W = 2560; H = 1440; glfwWindowHint(GLFW_DECORATED, GLFW_FALSE); }   // P1: the VO benchmark at 1440p (borderless: a framed 1440p window does not fit a 1440p screen and is shrunk)
+  if (const char* e = std::getenv("NMK_WIN"); e && std::sscanf(e, "%dx%d", &W, &H) == 2) glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);   // VOT: measure at a set size (NMK_WIN=2560x1440, borderless so it fits the desktop)
   win = glfwCreateWindow(W, H, "Battle Foundry", nullptr, nullptr);   // UI2: the game's name (repo / exe keep theirs)
   if (win && bench1440) glfwSetWindowPos(win, 0, 0);
   if (!win) { logf("Could not create an OpenGL 4.5 core window. Update your graphics driver."); glfwTerminate(); return 1; }
