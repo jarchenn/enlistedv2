@@ -42,6 +42,7 @@ struct UserSettings {
   GraphicsOpts gfx;
   float gamma = 1.0f;          // display gamma: above 1 lifts the dark tones, below 1 deepens them
   bool lightNew = true;        // VO stream L: Lighting New / Classic (Classic = the pre-VO lighting, for comparison); personal, a preset keeps it
+  float sharpness = 0.5f;      // CP1: the one sharpener 0..1 (personal, like gamma)
   float microcontrast = 0.0f;  // UI2: local contrast / clarity 0..1 (0 = off: no pass, no cost); personal, like gamma (a preset keeps it)
   float fov = 72.0f;           // hip / running world FOV (vertical deg); ADS and sights narrow from it
   bool vsync = true;
