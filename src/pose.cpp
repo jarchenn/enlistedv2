@@ -166,7 +166,7 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
   // ---- evaluate in topological order; arms and legs are solved when their chain root is reached
   std::vector<mat4>& Dl = out.delta;
   quat preArm[2], preFore[2]; bool armSolved[2] = {false, false};
-  vec3 handDir[2], palmDir[2]; float handW[2] = {0, 0};   // the hand along the weapon (fingers round the grip / handguard) and its weight
+  bool clipSideL = false; bool poseHand[2] = {false, false}; std::vector<int> poseFinger;   /* WS1: a hand held in the weapon's stored grip pose; joint -> its stored finger turn (-1 none) */ bool magHoldL = false;   /* WS1: the support hand is on the magazine: its turn and curl are solved here, not the clip's */ vec3 handDir[2], palmDir[2]; float handW[2] = {0, 0};   // the hand along the weapon (fingers round the grip / handguard) and its weight
   quat preLeg[2], preKnee[2]; bool legSolved[2] = {false, false};
   mat4 weapon(1);
   bool weaponSet = false;
@@ -199,6 +199,12 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
     }
     else if (kind == 0) pa = (cb ? vec3(sh.x * 0.2f, shP.y - 0.06f, shP.z + 0.44f) + p.holdOffset : xf(chest, vec3(sh.x * 0.2f, sh.y - 0.06f, sh.z + 0.44f) + p.holdOffset)) - qa * p.gripR;
     else pa = (cb ? shP + vec3(-0.2f * sh.x, 0.10f, 0) : xf(chest, vec3(sh.x * 0.8f, sh.y + 0.10f, sh.z))) - qa * vec3(0, 0, p.gripR.z - 0.30f);
+    // WS1: a stored hold (the Allied / SS soldiers) places the rifle by the rules its grips were approved with: the butt plate 12 cm in front of
+    // the posed right shoulder joint along the aim, 2 cm in toward the chest, 2 cm up; the bore on the aim line (no cheek weld)
+    if (kind == 1 && p.gripPose && cb && J(CJ_SPINE2) >= 0) {
+      vec3 in = xf((*p.base)[J(CJ_SPINE2)], H(CJ_SPINE2)) - shP; in.y = 0; in = glm::length(in) > 1e-4f ? glm::normalize(in) : vec3(0);
+      pa = shP + qa * vec3(0, 0, 0.12f) + in * 0.02f + vec3(0, 0.02f, 0) - qa * vec3(p.gripR.x + p.gripPose->butt.x, p.gripR.y + p.gripPose->butt.y, 0);
+    }
     vec3 pos = pa; quat q = qa;
     if (carry > 0) {   // low ready across the body: firing hand at the right hip, muzzle down toward the left foot, swinging a little
       float ph = p.walkPhase;
@@ -235,6 +241,26 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       if (glm::length(want) > 1e-3f) { want = glm::normalize(want); vec3 uu = u - bz * glm::dot(u, bz); if (glm::length(uu) > 1e-4f) { uu = glm::normalize(uu); q = glm::angleAxis(std::atan2(glm::dot(glm::cross(uu, want), bz), glm::dot(uu, want)), bz) * q; } }
       if (lowR > 0) { vec3 lat = glm::cross(vec3(0, 1, 0), q * vec3(0, 0, 1)); if (glm::length(lat) > 1e-3f) q = glm::angleAxis(0.6f * lowR, glm::normalize(lat)) * q; }   // the muzzle down about the right palm
       pos = pR - q * p.gripR;
+    }
+    if (kind == 0 && p.gripPose && cb && J(CJ_LSHOULDER) >= 0 && prone <= 0 && p.throwT < 0 && swim <= 0) {   // WS1: the approved pistol postures (blender_anim/gun_in_clip.py pistol_frame)
+      const vec3 shL = xf((*p.base)[J(CJ_LSHOULDER)], H(CJ_LARM)), up(0, 1, 0), off = p.gripR + p.gripPose->p[1];   // off: the right wrist joint, weapon space
+      vec3 lv = shL - shP; lv.y = 0; lv = glm::length(lv) > 1e-4f ? glm::normalize(lv) : vec3(1, 0, 0);
+      const vec3 fw = glm::normalize(glm::cross(lv, up));
+      const float l1 = glm::length(H(CJ_RFOREARM) - H(CJ_RARM)), l2 = glm::length(H(CJ_RHAND) - H(CJ_RFOREARM));
+      if (p.pistolRun) {   // running: the clip's own arm swing, the pistol in its right fist
+        q = rotOf((*p.base)[J(CJ_RHAND)]) * glm::inverse(p.gripPose->q[1]); pos = clipJ(CJ_RHAND) - q * off;
+      } else {
+        // aimed: both arms out at shoulder height, the pistol on the centre line where they meet, on the aim
+        const vec3 mid = 0.5f * (shP + shL); const float w = glm::length(shP - mid), re = 0.96f * (l1 + l2);
+        const vec3 pA = mid + qa * vec3(0, 0, std::sqrt(std::max(re * re - w * w, 0.01f))) + up * 0.03f - lv * 0.035f - qa * off;
+        // at the chest: the upper arm hangs (neutral shoulder), the elbow folded, the hand straight on from the forearm, the muzzle up along it
+        const vec3 d1 = glm::normalize(-up + fw * 0.10f - lv * 0.12f); vec3 sd = glm::normalize(fw * 0.97f + lv * 0.22f); sd = glm::normalize(sd - d1 * glm::dot(sd, d1));
+        const float el = std::clamp(std::acos(std::clamp((l1 - 0.10f) / std::max(l2, 0.01f), -1.0f, 1.0f)), 0.5236f, 1.0472f) * 1.15f;
+        const vec3 yb = glm::normalize(-d1 * std::cos(el) + sd * std::sin(el)), yt = glm::normalize(-fw - yb * glm::dot(-fw, yb));
+        const quat qu = glm::normalize(glm::quat_cast(glm::mat3(glm::cross(yt, yb), yt, yb)));
+        const vec3 pU = shP + d1 * l1 + yb * l2 - qu * off;
+        const float u = c01(p.pistolUp); q = glm::slerp(qa, qu, u); pos = glm::mix(pA, pU, u);
+      }
     }
     weapon = glm::translate(mat4(1), pos) * glm::mat4_cast(q);
     if (p.recoil > 0) weapon = weapon * glm::translate(mat4(1), vec3(0, 0, -0.035f * p.recoil)) * glm::mat4_cast(glm::angleAxis(-0.06f * p.recoil, vec3(1, 0, 0)));
@@ -369,7 +395,15 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       float l1 = glm::length(b0 - a0), l2 = glm::length(c0 - b0);
       vec3 grip = side ? p.gripR : p.throwT >= 0 ? glm::mix(p.gripR, p.gripL, 0.4f) : p.gripL;   // throwing: the left hand at the balance point
       vec3 T = xf(weapon, grip);
-      if (side == 0 && kind != 0 && p.throwT < 0) {   // support hand: slide back along the handguard rather than lock the arm straight
+      // WS1: the weapon's stored hold: the wrist joint at its stored place on the gun, the hand and fingers turned as stored (nothing re-solved per frame)
+      const bool gpose = p.gripPose && !ch && (kind != 0 || p.base) && p.throwT < 0 && swim <= 0 && climbW <= 0 && !(side == 0 && p.reload > 0 && p.reload < 1);
+      if (gpose) {
+        if (kind == 0 && p.pistolRun && side == 0) { clipSideL = true; T = clipJ(CJ_LHAND); }   // running with a pistol: the free arm is the clip's
+        else { poseHand[side] = true; T = xf(weapon, (side == 0 && p.gripPose->lMag ? p.gripL : p.gripR) + p.gripPose->p[side]); }
+        if (poseFinger.empty()) { poseFinger.assign(nj, -1); for (int k = 0; k < nj; ++k) { const std::string& nm = m.nodeName[m.jointNode[k]]; const size_t c = nm.rfind(':');
+          for (size_t f = 0; f < p.gripPose->fingers.size(); ++f) if (nm.compare(c == std::string::npos ? 0 : c + 1, std::string::npos, p.gripPose->fingers[f].first) == 0) poseFinger[k] = (int)f; } }
+      }
+      if (side == 0 && kind != 0 && p.throwT < 0 && !gpose) {   // support hand: slide back along the handguard rather than lock the arm straight
         vec3 bore = glm::normalize(vec3(weapon[2])), wx = glm::normalize(vec3(weapon[0])), wy = glm::normalize(vec3(weapon[1])), wz = bore;
         float room = std::max(0.0f, p.gripL.z - p.gripR.z - 0.14f), slid = 0;
         for (int it = 0; it < 3; ++it) {
@@ -427,17 +461,19 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       }
       // the palm on the socket: the hand lies along the weapon and the wrist sits ~7.5 cm back from the socket
       if (ch && p.clipGun && kind == 0 && side == 0 && !(p.reload > 0 && p.reload < 1) && p.throwT < 0) T = clipPalm(0) + vec3(0, 0.10f * p.pistolRaise, 0);   // DF1: a pistol's support hand stays wrapped on the firing hand as the clip holds it
-      if (ch) { T -= clipRot(side ? CJ_RHAND : CJ_LHAND) * palmOff(side); handW[side] = 0; }   // DF1: the clip's hand (its turn and grip) with its palm centre on the target
+      const bool magHold = side == 0 && p.leftHold == 1 && kind != 0 && !(p.reload > 0 && p.reload < 1) && p.throwT < 0; if (magHold) magHoldL = true;   // WS1: the support hand grips the magazine
+      if (gpose) handW[side] = 0;
+      else if (ch && !magHold) { T -= clipRot(side ? CJ_RHAND : CJ_LHAND) * palmOff(side); handW[side] = 0; }   // DF1: the clip's hand (its turn and grip) with its palm centre on the target
       else {
         vec3 wx = glm::normalize(vec3(weapon[0])), wy = glm::normalize(vec3(weapon[1])), wz = glm::normalize(vec3(weapon[2]));
-        vec3 hd = side ? wy * -0.72f + wz * 0.69f : kind == 0 ? wx * -0.55f + wy * -0.45f + wz * 0.70f : wx * -0.88f + wz * 0.47f;   // AN1 step 2b: support fingers across under the handguard (they close up its far side)
+        vec3 hd = side ? wy * -0.72f + wz * 0.69f : magHold ? wz * 0.94f - wy * 0.34f : kind == 0 ? wx * -0.55f + wy * -0.45f + wz * 0.70f : wx * -0.88f + wz * 0.47f;   // AN1 step 2b: support fingers across under the handguard (they close up its far side)
         float w = (1 - climbW) * (1 - swim) * (side == 1 && p.throwT >= 0 ? 0.0f : 1.0f) * (side == 0 && p.reload > 0 && p.reload < 1 ? 0.0f : 1.0f) * (1 - boltW);
         // palms: the firing hand against the grip's right side, the support palm up under the handguard (pistols: cupping the right hand)
-        vec3 pn = side ? wx : kind == 0 ? -wx * 0.8f + wy * 0.3f : wy * 0.9f - wx * 0.45f;   // AN1 step 2b: the support palm up under the handguard, cupping from the outboard side
+        vec3 pn = side ? wx : magHold ? -wx : kind == 0 ?   /* WS1 magHold: the palm against the magazine's left side, facing right, fingers forward round its front */ -wx * 0.8f + wy * 0.3f : wy * 0.9f - wx * 0.45f;   // AN1 step 2b: the support palm up under the handguard, cupping from the outboard side
         hd = glm::normalize(hd); pn -= hd * glm::dot(pn, hd);   // the palm normal square to the fingers (the hand roll makes it so; the placement must agree)
         handDir[side] = hd; palmDir[side] = glm::normalize(pn); handW[side] = w;
         bool onGrip = side == 1 || kind == 0; float cr = onGrip ? p.gripRad + (side == 0 ? 0.022f : 0.0f) : p.guardRad;   // a pistol's support palm on the firing fingers
-        if ((onGrip ? p.gripRad : p.guardRad) > 0) {   // AN1 step 2b: the palm on the measured surface: the axis point at the socket, out by the radius and the palm's half thickness
+        if (!magHold && (onGrip ? p.gripRad : p.guardRad) > 0) {   // AN1 step 2b: the palm on the measured surface: the axis point at the socket, out by the radius and the palm's half thickness
           vec3 c = xf(weapon, onGrip ? p.gripC : p.guardC), ax = onGrip ? glm::normalize(glm::mat3(weapon) * p.gripAx) : glm::normalize(vec3(weapon[2]));
           vec3 onAx = c + ax * glm::dot(T - c, ax);
           vec3 Tn = m.fingerless ? onAx - handDir[side] * m.fistF[side] - palmDir[side] * m.fistN[side]   // AN1 step 2d: the modelled fist's centre on the axis
@@ -451,6 +487,11 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       if (prone > 0) pole = glm::mix(pole, side ? vec3(-0.5f, 0.3f, 1) : vec3(0.5f, 0.3f, 1), prone);   // elbows planted (upright +z is down)
       if (side == 1 && p.throwT >= 0 && p.throwT < 0.7f) pole = vec3(-0.7f, 0.8f, -0.35f);   // wind-up: the elbow out to the side and back, the hand behind the ear
       if (ch) pole = clipJ(side ? CJ_RFOREARM : CJ_LFOREARM) - 0.5f * (Ash + T);   // DF1: the clip's elbow (down, tucked)
+      if (gpose && p.base && J(CJ_LSHOULDER) >= 0 && J(CJ_RSHOULDER) >= 0) {   // WS1: the elbows as approved: down, the firing elbow out to the right, the support elbow a little out to the left
+        vec3 lv = xf((*p.base)[J(CJ_LSHOULDER)], H(CJ_LARM)) - xf((*p.base)[J(CJ_RSHOULDER)], H(CJ_RARM)); lv.y = 0;
+        if (glm::length(lv) > 1e-4f) { lv = glm::normalize(lv); pole = vec3(0, -1, 0) + lv * (side ? -0.45f : 0.35f);
+          if (kind == 0) { const vec3 fw = glm::cross(lv, vec3(0, 1, 0)); pole = p.pistolRun ? clipJ(side ? CJ_RFOREARM : CJ_LFOREARM) - 0.5f * (Ash + T) : side ? vec3(0, -1, 0) + glm::mix(-lv * 0.3f, fw * 0.10f - lv * 0.12f, c01(p.pistolUp)) : vec3(0, -1, 0) + lv * 0.3f; } }
+      }
       vec3 E = solve2(Ash, l1, l2, T, pole);
       T = E + glm::normalize(T - E) * std::min(l2, glm::length(T - E));
       quat Rp = rotOf(Pd);
@@ -463,11 +504,13 @@ void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out) {
       if (j == J(CJ_LFOREARM) && armSolved[0]) D[j] = preFore[0];
       if (j == J(CJ_RFOREARM) && armSolved[1]) D[j] = preFore[1];
       int hs = j == J(CJ_LHAND) ? 0 : j == J(CJ_RHAND) ? 1 : -1;
-      if (ch && par >= 0 && (hs >= 0 || handOf(j) >= 0)) {   // DF1: the clip's hand turn and finger curls
+      if ((ch || (clipSideL && (hs == 0 || (hs < 0 && handOf(j) == 0)))) && par >= 0 && (hs >= 0 || handOf(j) >= 0) && !(magHoldL && (hs == 0 || (hs < 0 && handOf(j) == 0)))) {   // DF1: the clip's hand turn and finger curls
         if (hs >= 0) { if (armSolved[hs]) D[j] = glm::inverse(rotOf(Pd)) * rotOf((*p.base)[j]); }
         else D[j] = glm::inverse(rotOf((*p.base)[par])) * rotOf((*p.base)[j]);
       } else
-      if (int fh = hs < 0 ? handOf(j) : -1; fh >= 0) {
+      if (hs >= 0 && poseHand[hs] && armSolved[hs]) D[j] = glm::inverse(rotOf(Pd)) * (rotOf(weapon) * p.gripPose->q[hs]);   // WS1: the stored hand turn
+      else if (int ph = hs < 0 ? handOf(j) : -1; ph >= 0 && poseHand[ph]) { if (j < (int)poseFinger.size() && poseFinger[j] >= 0) D[j] = p.gripPose->fingers[poseFinger[j]].second; }   // WS1: the stored finger turns
+      else if (int fh = hs < 0 ? handOf(j) : -1; fh >= 0) {
         int f = j < (int)m.finger.size() ? m.finger[j] : -1;
         if (f >= 0) {
           if (m.fingerSeg[j] == 1 && !m.fingerless) solveFinger(j, fh, Pd);

@@ -70,6 +70,10 @@ struct CharInstance {
 };
 
 // Procedural pose input (model space angles in radians unless noted).
+// WS1: a weapon's approved hold (content/weapons/<id>.json hold.pose, tools/grip_to_game.py): both wrists and every finger as posed on the
+// gun. p: the wrist joint from its anchor (weapon space; the rightGrip socket, or for the left hand the magazine's centre); q: the hand's
+// turn from rest in weapon space; fingers: each named joint's turn from rest against its parent's (model axes).
+struct GripPose { bool has = false; vec3 p[2] = {vec3(0), vec3(0)}; quat q[2] = {quat(1, 0, 0, 0), quat(1, 0, 0, 0)}; bool lMag = false; vec3 butt = vec3(0);   /* the butt plate from the rightGrip socket (weapon x, y) */ std::vector<std::pair<std::string, quat>> fingers; };
 struct PoseParams {
   float walkPhase = 0, walkAmount = 0;      // stride phase (rad) and blend 0..1 (speed / run speed)
   float crouch = 0, prone = 0;              // 0..1 blends
@@ -80,7 +84,7 @@ struct PoseParams {
   bool holdWeapon = true;
   float lowReady = 0;                       // 0 aimed .. 1 muzzle lowered (running, no target)
   vec3 gripR{0}, gripL{0};                  // weapon-space hand sockets
-  vec3 holdOffset{0}; float holdWeld = 1; int holdKind = -1;   // SW2: the weapon's own hold (WeaponDef::holdOffset)
+  vec3 holdOffset{0}; float holdWeld = 1; int holdKind = -1; int leftHold = 0; const struct GripPose* gripPose = nullptr; float pistolUp = 0; bool pistolRun = false;   /* WS1: a pistol with a stored hold: 0 aimed (arms out, level) .. 1 held at the chest, muzzle up; running: in the clip's own right fist */   /* WS1: the weapon's stored hold (WeaponDef::gripPose), applied rigidly */   /* WS1: WeaponDef::leftHold (1: the support hand on the magazine; gripL is then the magazine's centre) */   // SW2: the weapon's own hold (WeaponDef::holdOffset)
   vec3 magPos{0, -0.12f, 0.45f};            // weapon-space magazine (reload hand target)
   vec3 gripC{0}, gripAx{0, -1, 0}, guardC{0}; float gripRad = 0, guardRad = 0;   // AN1 step 2b: the weapon's grip / handguard capsules (WeaponDef; radius 0 = none)
   vec3 sightR{0};                           // AN1 step 2b: weapon-space rear sight (0: none; aim then puts it at the eye for the cheek weld)
