@@ -466,13 +466,13 @@ void Terrain::draw(GLuint prog, vec3 cam, const mat4& vp) const {
   glBindTextureUnit(14, surfTex);
   { extern void groundPaintBind(GLuint); groundPaintBind(prog); }   // lasso ground paint: unit 23 (ground_paint.cpp)
   glUniform1i(uDis, tiles.empty() ? 0 : 1);
-  // VOT T1: per-pixel normals on the base chunks (unit 25), geomorphing between their LOD steps (drawBase sets uMorph)
+  // VOT T1: per-pixel normals on the base chunks (unit 18), geomorphing between their LOD steps (drawBase sets uMorph)
   GLint uTN = glGetUniformLocation(prog, "uTNOn");
   if (drawOpts.normals) {
     normalsSync();
-    glUniform1i(glGetUniformLocation(prog, "uTNrm"), 25);
+    glUniform1i(glGetUniformLocation(prog, "uTNrm"), 18);   // unit 18, not 25: 25 holds the texture library's macro map, bound once at load (18 is only bound transiently by the GI capture)
     glUniform4f(glGetUniformLocation(prog, "uTNMap"), org.x, org.y, 1.0f / size, 1.0f / sizeZ);
-    glBindTextureUnit(25, nrmTex);
+    glBindTextureUnit(18, nrmTex);
   }
   glUniform1i(uTN, drawOpts.normals && nrmTex ? 1 : 0);
   if (drawOpts.skyView) { skyViewSync(); glUniform1i(glGetUniformLocation(prog, "uTSV"), 26); glBindTextureUnit(26, svTex); }   // VOT T5 (base and tiles alike)
