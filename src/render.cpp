@@ -160,21 +160,24 @@ void applySnow(vec3 w, vec3 Ng, float ground, inout vec3 alb, inout float rough,
   if (uSnowOn == 0) return;
   vec2 uv = (w.xz - uSnowBox.xy)*uSnowBox.zw;
   vec4 M = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.7, 0.0, 0.0, 0.0) : texture(uSnowMask, uv);
-  float vis = skyVis(w, vec3(0.0));                       // 0 under a roof / eave / canopy
+  float vis = 1.0;                                        // 0 under a roof / eave / canopy (one tap of the sky-occlusion map: M5)
+  if (uOccOn == 1) { vec4 lp = uOccVP*vec4(w, 1.0); vec2 ouv = lp.xy*0.5 + 0.5;
+    if (ouv.x > 0.0 && ouv.x < 1.0 && ouv.y > 0.0 && ouv.y < 1.0) vis = 1.0 - smoothstep(0.15, 0.6, uOccTop - texture(uOcc, ouv).r*uOccRange - w.y); }
+  float dc = length(w - uCamPos);
   float slope = ground > 0.5 ? smoothstep(uSnowP.x, uSnowP.y, Ng.y) : smoothstep(uSnowP2.z, uSnowP2.z + 0.3, Ng.y);   // roofs hold snow on steeper pitches than the ground
-  float n = vnoise(vec3(w.xz*0.35, 41.0))*0.55 + vnoise(vec3(w.xz*1.7, 42.0))*0.3 + vnoise(vec3(w.xz*7.0, 43.0))*0.15;
+  float n = vnoise(vec3(w.xz*0.35, 41.0))*0.55 + vnoise(vec3(w.xz*1.7, 42.0))*0.3 + (dc < 40.0 ? vnoise(vec3(w.xz*7.0, 43.0))*0.15 : 0.075);   // M5: the finest octave near only
   float dep = ground > 0.5 ? M.r : uSnowP2.x*(0.55 + 0.45*M.r);   // raised faces (roofs, wall tops, rails) hold the roof share
   float s = (slope*dep*(1.0 + (n - 0.5)*2.0*uSnowP2.y) - M.g - M.b - uSnowP2.w)*vis;
   float c = smoothstep(uSnowP.z - uSnowP.w, uSnowP.z + uSnowP.w, s);
   if (ground > 0.5) {
     float slush = clamp(max(M.g, M.b*0.9)*smoothstep(0.08, 0.45, M.r)*(1.0 - c)*vis, 0.0, 1.0);
-    float grit = vnoise(vec3(w.xz*5.0, 44.0));
+    float grit = dc < 40.0 ? vnoise(vec3(w.xz*5.0, 44.0)) : 0.5;
     alb = mix(alb, mix(vec3(0.17, 0.165, 0.155), vec3(0.30, 0.295, 0.28), grit) + alb*0.12, slush*0.85);
     rough = mix(rough, 0.34, slush*0.85);
     float pool = clamp(M.a*(1.0 - c), 0.0, 1.0);
     alb *= mix(1.0, 0.5, pool); rough = mix(rough, 0.06, pool); N = normalize(mix(N, Ng, pool*0.9));
   }
-  float g2 = vnoise(vec3(w.xz*21.0 + w.y*3.0, 45.0));
+  float g2 = dc < 25.0 ? vnoise(vec3(w.xz*21.0 + w.y*3.0, 45.0)) : 0.5;   // M5: grain near only
   vec3 sA = vec3(0.80, 0.83, 0.88)*(0.95 + 0.05*g2);
   alb = mix(alb, sA, c); rough = mix(rough, 0.66, c); N = normalize(mix(N, Ng, c*0.75));
   gSnow = c;
