@@ -3251,8 +3251,9 @@ void main(){
     vec2 up = uCamPos.xz + d.xz/(max(d.y, 0.0) + 0.05)*(3200.0 - uCamPos.y);
     vec2 q2 = up/2400.0 + uCloudSeed*0.7 + uCloudT*uCloudWind*0.35;
     float n2 = vnoise(vec3(q2, uCloudT*0.001))*0.6 + vnoise(vec3(q2*2.3, 4.0))*0.4;
+    n2 = mix(0.5, n2, smoothstep(-0.01, 0.03, d.y));   // SKY1: no noise below the horizon (the projection smeared it into vertical streaks)
     float L0 = dot(uSkyHor, vec3(0.2126, 0.7152, 0.0722));
-    vec3 ov = vec3(L0)*vec3(0.95, 0.97, 1.0)*(0.78 + 0.3*n2)*mix(1.12, 0.88, smoothstep(0.0, 0.6, d.y));
+    vec3 ov = vec3(L0)*vec3(0.95, 0.97, 1.0)*(0.56 + 0.2*n2)*mix(1.75, 0.88, smoothstep(0.0, 0.4, d.y));   // SKY1: a grey deck overhead, a pale band low at the horizon
     c = mix(c, ov, uCloudK);
   }
   if (uCloudOn == 1 && d.y > 0.0) {
@@ -3266,8 +3267,10 @@ void main(){
       c = mix(c, mix(skyColor(d), vec3(1.0)*1.3, 0.55)*uCloudLit, ci*mix(0.35, 0.55, uCloudK)*smoothstep(0.02, 0.2, d.y));
     }
     float n = uCloudQ == 0 ? cloudFieldLo(cpw) : cloudField(cpw);
-    float th = mix(0.72, 0.38, uCloudCover);
-    float cl = smoothstep(th, th + 0.22, n);
+    // SKY1 Cloudy: a near-closed deck (the threshold drops) with soft, wide edges, like an overcast stratocumulus sky
+    float th = mix(0.72, 0.38, uCloudCover) - 0.12*uCloudK;
+    float cl = smoothstep(th, th + mix(0.22, 0.45, uCloudK), n);
+    vec3 bg = c;   // the sky behind the deck (under Cloudy: the grey upper layer, brighter at the horizon)
     float sd = max(dot(d, uSunDir), 0.0);
     float thick = smoothstep(th + 0.05, th + 0.45, n);
     vec3 lit = vec3(0.95, 0.95, 0.96)*1.35*mix(1.0, 0.5, thick) + uSunCol*0.35*pow(sd, 6.0)*(1.0 - thick);   // grey bases, silver lining at thin edges
@@ -3279,10 +3282,11 @@ void main(){
       for (int i = 1; i <= 3; ++i) od += max(cloudFieldLo(cpw + toSun*float(i)) - th, 0.0);
       float lightT = exp(-od*3.2);
       vec3 base = mix(vec3(0.52, 0.56, 0.62), vec3(0.98, 0.98, 0.97), lightT)*1.45;
+      base = mix(base, mix(vec3(0.3, 0.325, 0.35), vec3(0.68, 0.7, 0.71), lightT)*1.15, uCloudK);   // SKY1: blue-grey bases, paler mottled tops
       float hg = 0.25 + 0.75*pow(sd, 5.0);
       lit = base*mix(1.0, 0.72, thick) + uSunCol*vec3(1.0, 0.95, 0.85)*0.45*hg*(1.0 - thick)*lightT;
-      float far = 1.0 - smoothstep(0.02, 0.25, d.y);           // distant cloud fades into the horizon haze
-      lit = mix(lit, skyColor(d), far*0.65);
+      float far = 1.0 - smoothstep(0.02, mix(0.25, 0.4, uCloudK), d.y);           // distant cloud fades into the horizon haze
+      lit = mix(lit, mix(skyColor(d), bg, uCloudK), far*mix(0.65, 0.9, uCloudK));   // SKY1: under Cloudy a pale band low at the horizon
     }
     lit *= mix(1.0, 0.72, uCloudK*thick);   // WX1 Cloudy: heavier, darker undersides
     // WX1: thick cloud is opaque (the HDR sun disc behind it no longer leaks through as a sprite); thin edges stay translucent
