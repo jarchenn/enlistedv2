@@ -37,7 +37,7 @@ GraphicsOpts presetOpts(GfxPreset p) {
     g.lightCount = 32; g.shadowLights = 0; g.gi = 0;
     g.materials = 0;
   } else if (p == GfxPreset::High) {
-    g.resScale = 1.0f; g.shadowQuality = 2; g.ssaoFull = true; g.taaPhases = 16; g.msaa = 4;   // P1: High stays native
+    g.resScale = 1.0f; g.shadowQuality = 2; g.ssaoFull = true; g.taaPhases = 16; g.msaa = 0;   // P1: High stays native; VO P2: TAA alone (4x MSAA under the TAA cost ms for edges the TAA already resolves; the Video tab still offers it)
     g.shafts = true;                                     // WX1: the marched sun shafts are High only (Low / Medium: the fog's sun glow)
     g.grass = 3; g.renderDist = 2500; g.particles = 1.5f; g.dustMotes = 2;
     g.lightCount = 512; g.shadowLights = 8; g.gi = 2;    // L2: near + far probe volumes, faster updates
@@ -99,6 +99,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     g.lightCount = std::clamp(q.value("lightCount", g.lightCount), 0, 4096); g.shadowLights = std::clamp(q.value("shadowedLights", g.shadowLights), 0, 8);
     g.gi = std::clamp(q.value("gi", g.gi), 0, 2);
     g.msaa = q.value("msaa", g.msaa) >= 2 ? 4 : 0; g.ivy = q.value("ivy", g.ivy); g.dustMotes = std::clamp(q.value("dustMotes", g.dustMotes), 0, 2);
+    if (pn == "High") { GraphicsOpts old = presetOpts(GfxPreset::High); old.msaa = 4; if (g == old) g.msaa = 0; }   // VO P2: a saved High (with its old 4x MSAA) is the new High, not Custom
     // time of day: a preset name gives its hour; an explicit hour wins
     std::string tn = q.value("timeOfDay", std::string("Day"));
     for (TodPreset p : {TodPreset::Day, TodPreset::Dusk, TodPreset::Night, TodPreset::Dawn}) if (tn == todPresetName(p)) u.hour = todPresetHour(p);
