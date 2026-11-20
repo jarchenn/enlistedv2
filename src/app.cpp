@@ -678,7 +678,16 @@ bool App::openMap(const fs::path& p) {
   toast("Opened " + doc.name + (isContent ? " (copy — Save As to keep)" : ""));
   return true;
 }
+// a map file inside a git checkout's content/templates (the worktree itself, or a build's content/ junction to it): Ctrl+S
+// there would overwrite a tracked template. Refused unless NMK_DEV_SAVE_TEMPLATES is set (authoring a shipped map)
+static bool trackedTemplatePath(const fs::path& p) {
+  std::error_code ec; fs::path c = fs::weakly_canonical(p, ec); if (ec) c = fs::absolute(p, ec);
+  for (fs::path d = c.parent_path(); !d.empty() && d != d.root_path(); d = d.parent_path())
+    if (d.filename() == "templates" && d.parent_path().filename() == "content") return fs::exists(d.parent_path().parent_path() / ".git", ec);
+  return false;
+}
 bool App::saveMapTo(const fs::path& p) {
+  if (trackedTemplatePath(p) && !std::getenv("NMK_DEV_SAVE_TEMPLATES")) { toast("Not saved: " + p.filename().string() + " is a shipped template in the source tree (Save As to your maps)", 8); return false; }
   if (!mpaiBeforeSave(*this)) return false;   // scenario check (mpui.cpp)
   doc.camera.set = true; doc.camera.pos = camPos; doc.camera.yaw = camYaw; doc.camera.pitch = camPitch;
   if (mode == Mode::Explore) { doc.camera.pos = savedCam.pos; doc.camera.yaw = savedCam.yaw; doc.camera.pitch = savedCam.pitch; }
