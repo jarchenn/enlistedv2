@@ -536,7 +536,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
         check(true, fmt("A/B %s, view %s: PF2 %.2f ms (%d frames) vs baseline %.2f ms (%d frames)", abEnv, v.name.c_str(), p.abMs[0], p.abN[0], p.abMs[1], p.abN[1])); }
       std::string nm = "maps_" + app.templates[sTpl[sTi]].id + "_" + v.name + (sPresetPass == 1 ? "_low" : sPresetPass == 2 ? "_high" : sPresetPass == 3 ? "_night" : "");
       shotQueue.push_back(nm);
-      check(p.frames > 10, fmt("%s view %s%s: %.2f ms avg (worst %.1f) over %d frames, %.0f draws, %.1f M tris -> selftest_out/%s.png", v.gate ? "gameplay" : "editor", v.name.c_str(), sPresetPass ? (sPresetPass == 1 ? " at Low" : sPresetPass == 2 ? " at High" : " at Night (Medium)") : "", p.ms, p.worst, p.frames, p.draws, p.tris / 1e6, nm.c_str()));
+      check(p.frames > 10, fmt("%s view %s%s: %.2f ms avg (worst %.1f) over %d frames, %.0f draws, %.1f M tris, GPU %.2f ms, sun direct %.0f %%, %d sun-cascade draws -> selftest_out/%s.png", v.gate ? "gameplay" : "editor", v.name.c_str(), sPresetPass ? (sPresetPass == 1 ? " at Low" : sPresetPass == 2 ? " at High" : " at Night (Medium)") : "", p.ms, p.worst, p.frames, p.draws, p.tris / 1e6, p.gpu, app.R.stats.sunDirectPct, app.R.stats.shadowDraws, nm.c_str()));
       if (v.gate && sPresetPass < 3 && !std::getenv("NMK_MAPS_VIEW") && !kFl1 && !kFx1) {   // V2 (docs/settings.md): the same gameplay view again at Low, then High; L2: then Night at Medium
         ++sPresetPass; GfxPreset ps = sPresetPass == 1 ? GfxPreset::Low : sPresetPass == 2 ? GfxPreset::High : GfxPreset::Medium;
         settings().applyPreset(app, ps); app.R.resetTemporal();

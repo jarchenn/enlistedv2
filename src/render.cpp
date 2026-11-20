@@ -4335,6 +4335,8 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform3fv(U(p, "uSkySun"), 1, glm::value_ptr(skySun)); glUniform3fv(U(p, "uSkySunCol"), 1, glm::value_ptr(skySunCol));
   if (v.underwater && !thumbMode) { sun *= vec3(0.22f, 0.38f, 0.40f); sky *= vec3(0.45f, 0.75f, 0.80f); ground *= vec3(0.45f, 0.75f, 0.80f); }   // swim.cpp: light filtered by the water above
   glUniform3fv(U(p, "uSunCol"), 1, glm::value_ptr(sun));
+  { const vec3 lw(0.2126f, 0.7152f, 0.0722f); float d = glm::dot(sun, lw) * std::max(sunDir.y, 0.0f) / 3.14159265f, a = glm::dot(sky, lw);
+    sunDirectFrac = d / std::max(d + a, 1e-6f); }   // OPT wxsun: the sun's share of a level surface's light (shade(): sun x N.L / pi against the sky term), read by the next frame's cascades
   glUniform3fv(U(p, "uSkyCol"), 1, glm::value_ptr(sky));
   glUniform3fv(U(p, "uGroundCol"), 1, glm::value_ptr(ground));
   glUniform3fv(U(p, "uFogCol"), 1, glm::value_ptr(fog));
@@ -4349,7 +4351,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniformMatrix4fv(U(p, "uLightVP"), 1, GL_FALSE, glm::value_ptr(lightVP));
   glUniformMatrix4fv(U(p, "uOccVP"), 1, GL_FALSE, glm::value_ptr(occVP));
   glUniform1f(U(p, "uOccTop"), occTop); glUniform1f(U(p, "uOccRange"), occRange);
-  glUniform1i(U(p, "uShadowOn"), thumbMode ? 0 : 1);
+  glUniform1i(U(p, "uShadowOn"), thumbMode || !perf.sunShadow || sunShK <= 0.0f ? 0 : 1);
   glUniform1i(U(p, "uOccOn"), thumbMode ? 0 : 1);
   glUniform2f(U(p, "uShadowTexel"), 0.5f / shadowSize, 1.0f / shadowSize);   // VO L3: the atlas is 2 maps wide
   glUniform1f(U(p, "uShadowAtlas"), 0.5f);
@@ -4366,7 +4368,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform2f(U(p, "uShadowWorldTexel"), 2 * nearR / shadowSize, 2 * farR / shadowFarSize);
   glUniform1f(U(p, "uShadowDepthRange"), 800.0f);
   glUniform1f(U(p, "uShadowSoft"), q.legacy ? 0.0f : q.shadowSoft * (1.0f + 2.0f * wx.k));   // WX2: overcast sun casts very soft shadows
-  glUniform1f(U(p, "uShadowLift"), q.lightNew && perf.fullShadow ? q.newShadowLift : 0.7f);   // VO L1
+  glUniform1f(U(p, "uShadowLift"), (q.lightNew && perf.fullShadow ? q.newShadowLift : 0.7f) * sunShK);   // VO L1
   glUniform1f(U(p, "uShadowWarm"), q.lightNew && perf.fullShadow && !q.legacy ? q.newShadowWarm : 0.0f);   // VO L1
   glUniform1i(U(p, "uReflOn"), reflOn && q.lightNew && perf.reflProbe && !q.legacy && !thumbMode ? 1 : 0); glUniform3fv(U(p, "uReflPos"), 1, glm::value_ptr(reflPos));   // VO L7
   glUniform1i(U(p, "uRefl"), 9); if (p != progComposite && reflTex) glBindTextureUnit(9, reflTex);   // unit 9: free in the world pass (the composite binds its own there first)
@@ -5094,6 +5096,13 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   castCull = perf.casterCull && !thumbMode; castEye = v.camPos;   // R2: on for the two sun cascades only
   const float leafLod = perf.leafShadowLod && !thumbMode ? q.leafShadowLodM : -1.0f;   // R2: full cards under / beside the eye, the LOD past 12 m
   const int shDraws0 = stats.draws;
+  // OPT wxsun (weather corpus 08 s4.2): when the direct sun is under ~5 % of a level surface's light its cast shadows are
+  // invisible: the three cascades are neither drawn nor sampled; between 5 and 10 % their strength fades (nothing snaps).
+  // Contact shadows, GTAO and sky visibility stay. sunshadow off: no cascades at all (knock-out)
+  sunShK = perf.wxSun && q.lightNew && !q.legacy && !thumbMode ? glm::smoothstep(0.05f, 0.10f, sunDirectFrac) : 1.0f;
+  stats.sunDirectPct = 100.0f * sunDirectFrac;
+  const bool sunSh = perf.sunShadow && sunShK > 0.0f;
+  if (sunSh) {
   drawItems(progShadow, opaque, true, &frNear);
   if (!foliage.empty() && !thumbMode) drawFoliage(progLeafShadow, lightVP, &frNear, false, leafLod);
   if (grass && !thumbMode && perf.grassShadow) {   // GX3: near pasture clumps cast (within the preset's shadow radius, in the eye's view)
@@ -5106,9 +5115,10 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   if (!folModels.empty() && !thumbMode) drawFolModels(true, lightVP, &frNear, 1.0f);   // NT8: ground plants under 1 m cast no sun shadow
   glUseProgram(progShadow);
   if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frNear);
+  }
   // VO L3 mid cascade (Lighting New, Medium / High): about 3x the near radius in the atlas's right half, texel-snapped like
   // the near one (no crawl), redrawn every 4th frame on Medium / 2nd on High or when its focus moves 4 m (movers lag a few frames there)
-  midOn = q.lightNew && perf.midCascade && !q.legacy && !thumbMode && shadowTier >= 1;
+  midOn = q.lightNew && perf.midCascade && !q.legacy && !thumbMode && shadowTier >= 1 && sunSh;
   if (midOn) {
     const float mR = std::max(90.0f, radius * 3.0f);
     const vec3 mfw = v.camPos + vec3(fwd.x, 0, fwd.z) * mR * 0.5f;
@@ -5162,7 +5172,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   const bool farRedo = cacheOn ? staticRedo || (farCadence && (farDyn || farHadDyn))
                                : !perf.farCache || farCadence || farMoved;
   stats.farStatic = cacheOn ? (staticRedo ? 1 : 0) : -1;
-  if (!q.legacy && q.farCascade && !thumbMode && farRedo) {
+  if (!q.legacy && q.farCascade && !thumbMode && farRedo && sunSh) {
     farR = fR; farFrame = frame; farFocus = ffw; farSun = sunDir; farPass = true;
     vec3 ff = ffw; ff.y = t.height(ff.x, ff.z);
     mat4 lv2; lightVPFar = stableOrtho(ff, sunDir, farR, 400.0f, shadowFarSize, lv2);
@@ -5743,7 +5753,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
 }
 
 void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
-  bool shafts = (q.shafts || (lt.mapShafts > 0 && q.bloom)) && perf.shafts && q.shaftStrength > 0 && !lt.mapNoFog && wx.k < 0.99f,   /* NT8: a map's own shafts from Medium up */   /* WX2: no sun shafts under overcast */ ao = q.ssao && q.ssaoStrength > 0, contact = q.lightNew && perf.contactShadow && !q.legacy, ssr = q.ssr && q.ssrStrength > 0;
+  bool shafts = (q.shafts || (lt.mapShafts > 0 && q.bloom)) && perf.shafts && q.shaftStrength > 0 && !lt.mapNoFog && wx.k < 0.99f && sunShK > 0.0f,   /* NT8: a map's own shafts from Medium up */   /* WX2: no sun shafts under overcast */ ao = q.ssao && q.ssaoStrength > 0, contact = q.lightNew && perf.contactShadow && !q.legacy, ssr = q.ssr && q.ssrStrength > 0;
   if (!shafts && !ao && !ssr && !contact) return;
   glDisable(GL_DEPTH_TEST); glDepthMask(GL_FALSE); glDisable(GL_BLEND); glDisable(GL_CULL_FACE);
   glBindVertexArray(emptyVao);
