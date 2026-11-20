@@ -162,6 +162,7 @@ void SelfTest::update(App& app, float dt) {
   { extern bool sd9Capture(App&, float); if (sd9Capture(app, dt)) return; }   // --capture-sd9 (selftest_sd9.cpp)
   { extern bool gm1Capture(App&, float); if (gm1Capture(app, dt)) return; }   // --capture-gm1 (capture_gm1.cpp)
   { extern bool df1Capture(App&, float); if (df1Capture(app, dt)) return; }   // --capture-df1 (capture_df1.cpp)
+  { extern bool wsm2Capture(App&, float); if (wsm2Capture(app, dt)) return; }   // --capture-wsm2 (capture_wsm2.cpp)
   { extern bool na1Capture(App&, float); if (na1Capture(app, dt)) return; }   // --capture-na1 (capture_na1.cpp)
   { extern bool sdPlantSelfTest(App&, float); if (sdPlantSelfTest(app, dt)) return; }   // --selftest-sd-plant (selftest_sdplant.cpp)
   { extern bool vehicleAiSelfTest(App&, float); if (vehicleAiSelfTest(app, dt)) return; }   // --check-vehicle-ai (selftest_vehicle_ai.cpp)

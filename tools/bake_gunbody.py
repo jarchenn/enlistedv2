@@ -586,8 +586,179 @@ def bake_retarget(base_path, clip_paths, out_path, names_mode=None, rig=None):
         fo.write(struct.pack('<II', len(O.bin), 0x004E4942)); fo.write(O.bin)
     print(os.path.basename(out_path), '%.1f MB' % (total / 1e6), 'hips x %.3f' % k_h); print('\n'.join(report))
 
+# WSM2 --skin: another soldier's mesh bound to the Allied paratrooper's skeleton (content/characters/allied_body.glb), so the
+# shared clips and the stored per-gun holds apply to it unchanged.
+#   python -I tools/bake_gunbody.py --skin <allied_body.glb> <soldier.glb> <out.glb>
+# The soldier keeps its own authored skin weights, each bone mapped by name onto the Allied bone (rig_name: Mixamo, FigRig and its
+# fingers; a bone with no partner goes to its nearest mapped ancestor). Its mesh is posed into the Allied rest frame: one uniform
+# scale so its shoulder joints stand at the Allied height, then every mapped bone carried onto its Allied partner: its head onto the
+# Allied joint, its chain (hips -> spine -> neck -> head, shoulder -> arm -> forearm -> wrist, the legs, each finger) turned onto the
+# Allied direction and stretched along itself to the Allied length (across it untouched: no fattened limbs); hips, chest and hands
+# also squared about their side line (hips: the thighs, chest: the shoulders, hand: index -> little); a hand scaled as a whole to the
+# Allied hand's length, so its knuckles and fingers lie on the Allied finger bones the stored holds turn. Its own wrist joint (the
+# cuff / hand boundary) lands on the Allied wrist. Rigid (unskinned) parts are dropped (a built-in gun). Output: the Allied nodes and
+# skin with only this mesh, its materials and textures, no clips (the game borrows allied_body's: combat.json hold_bodies).
+CHAIN = {'Hips': 'Spine', 'Spine': 'Spine1', 'Spine1': 'Spine2', 'Spine2': 'Neck', 'Neck': 'Head', 'Head': 'HeadTop_End'}
+for _s in ('Left', 'Right'):
+    CHAIN.update({_s + 'Shoulder': _s + 'Arm', _s + 'Arm': _s + 'ForeArm', _s + 'ForeArm': _s + 'Hand', _s + 'Hand': _s + 'HandMiddle1',
+                  _s + 'UpLeg': _s + 'Leg', _s + 'Leg': _s + 'Foot', _s + 'Foot': _s + 'ToeBase', _s + 'ToeBase': _s + 'Toe_End'})
+    for _f in ('Thumb', 'Index', 'Middle', 'Ring', 'Pinky'):
+        for _i in (1, 2, 3): CHAIN[_s + 'Hand' + _f + str(_i)] = _s + 'Hand' + _f + str(_i + 1)
+SIDE = {'Hips': ('LeftUpLeg', 'RightUpLeg'), 'Spine2': ('LeftArm', 'RightArm'), 'LeftHand': ('LeftHandIndex1', 'LeftHandPinky1'), 'RightHand': ('RightHandIndex1', 'RightHandPinky1')}
+
+def _sub(a, b): return [x - y for x, y in zip(a, b)]
+def _nrm(a): l = sum(x * x for x in a) ** 0.5 or 1.0; return [x / l for x in a]
+def _cross(a, b): return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
+def _dot(a, b): return sum(x * y for x, y in zip(a, b))
+def _frame(d, l):   # orthonormal columns: d, l square to d, their cross
+    e1 = _nrm(d); e2 = _sub(l, [x * _dot(l, e1) for x in e1]); e2 = _nrm(e2); e3 = _cross(e1, e2)
+    return [[e1[r], e2[r], e3[r]] for r in range(3)]
+def _tr(m): return [[m[c][r] for c in range(3)] for r in range(3)]
+
+def skin_onto(a_path, s_path, out_path):
+    A, abin = load(a_path); S, sbin = load(s_path)
+    SA, SS = _Skel(A), _Skel(S)
+    aj, sj = A['skins'][0]['joints'], S['skins'][0]['joints']
+    apos = {SA.name[k]: SA.affine(k)[1] for k in aj}
+    spos = {}
+    for k in sj: spos.setdefault(SS.name[k], SS.affine(k)[1])
+    kk = apos['LeftArm'][1] / spos['LeftArm'][1]   # 1: one size: the shoulders at the Allied height
+    spos = {n: [x * kk for x in v] for n, v in spos.items()}
+    aidx = {SA.name[k]: i for i, k in enumerate(aj)}
+    # 2: a transform per soldier bone, parents first (v' = hA + L (kk v - hS))
+    M = {}; lin = {}
+    I3 = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+    for ni in SS.order:
+        if ni not in sj: continue
+        n = SS.name[ni]; par = SS.par.get(ni)
+        while par is not None and par not in sj: par = SS.par.get(par)
+        if n in apos:
+            hA, hS = apos[n], spos[n]; c = CHAIN.get(n)
+            ok = c and c in apos and c in spos
+            if ok:
+                dA, dS = _sub(apos[c], hA), _sub(spos[c], hS); la = _dot(dA, dA) ** 0.5; ls = _dot(dS, dS) ** 0.5 or 1e-6; sc = min(1.6, max(0.6, la / ls))
+                ok = ls > 0.03 and la > 0.03   # a near-zero bone (FigRig's hips under the spine root) gives no direction: no turn, no stretch
+            if ok:
+                if n in SIDE and all(x in apos and x in spos for x in SIDE[n]):
+                    R = _mm(_frame(dA, _sub(apos[SIDE[n][0]], apos[SIDE[n][1]])), _tr(_frame(dS, _sub(spos[SIDE[n][0]], spos[SIDE[n][1]]))))
+                else:
+                    q = _between(dS, dA); R = _q2m(q)
+                if n.endswith('Hand'): Lb = [[R[r][cc] * sc for cc in range(3)] for r in range(3)]   # the hand as a whole to the Allied hand's length
+                else:
+                    u = _nrm(dS); St = [[(1 if r == cc else 0) + (sc - 1) * u[r] * u[cc] for cc in range(3)] for r in range(3)]; Lb = _mm(R, St)
+                rot = R
+            else:
+                rot = lin.get(par, (I3, I3))[1] if par is not None else I3; Lb = rot   # an end joint: the parent's turn, no stretch
+            M[ni] = (hA, hS, Lb); lin[ni] = (Lb, rot)
+        else:
+            M[ni] = M.get(par) if par is not None else None; lin[ni] = lin.get(par, (I3, I3)) if par is not None else (I3, I3)
+    def xfp(ni, v):
+        m = M.get(ni)
+        if m is None: return [x * kk for x in v]
+        hA, hS, Lb = m; d = [x * kk - y for x, y in zip(v, hS)]
+        return [hA[r] + sum(Lb[r][c] * d[c] for c in range(3)) for r in range(3)]
+    def xfn(ni, v):
+        m = M.get(ni); Lb = m[2] if m else I3
+        return [sum(Lb[r][c] * v[c] for c in range(3)) for r in range(3)]
+    # the joint remap: a soldier joint -> its Allied partner, or its nearest mapped ancestor's
+    jmap = []
+    for k in sj:
+        q = k
+        while q is not None and SS.name[q] not in aidx: q = SS.par.get(q)
+        jmap.append(aidx[SS.name[q]] if q is not None else aidx['Hips'])
+    O = Out()
+    j = {'asset': {'version': '2.0', 'generator': 'NormandyMapmaker tools/bake_gunbody.py --skin'}, 'scene': 0, 'scenes': json.loads(json.dumps(A['scenes'])),
+         'nodes': [dict(x) for x in A['nodes']]}
+    for x in j['nodes']: x.pop('mesh', None)
+    j['skins'] = []
+    for sk in A['skins']:
+        sk = dict(sk); sk['inverseBindMatrices'] = O.acc('a', A, abin, sk['inverseBindMatrices']); j['skins'].append(sk)
+    j['materials'] = []; j['textures'] = []; j['images'] = []; j['meshes'] = []; used_t = {}
+    for m in S.get('materials', []):
+        m = json.loads(json.dumps(m)); m.pop('normalTexture', None); m.pop('occlusionTexture', None)
+        for d in (m, m.get('pbrMetallicRoughness', {})):
+            for key in ('baseColorTexture', 'metallicRoughnessTexture', 'emissiveTexture'):
+                if key in d:
+                    t = d[key]['index']
+                    if t not in used_t:
+                        tx = dict(S['textures'][t]); im = dict(S['images'][tx['source']]); v = S['bufferViews'][im['bufferView']]; o = v.get('byteOffset', 0)
+                        data, im['mimeType'] = jpeg_if_opaque(bytes(sbin[o:o + v['byteLength']]), im.get('mimeType', ''), False)
+                        while len(O.bin) % 4: O.bin += b'\0'
+                        O.views.append({'buffer': 0, 'byteOffset': len(O.bin), 'byteLength': len(data)}); O.bin += data
+                        im['bufferView'] = len(O.views) - 1; j['images'].append(im); tx['source'] = len(j['images']) - 1; tx.pop('sampler', None)
+                        j['textures'].append(tx); used_t[t] = len(j['textures']) - 1
+                    d[key]['index'] = used_t[t]
+        j['materials'].append(m)
+    def vec(a, nc):
+        X = S['accessors'][a]; v = S['bufferViews'][X['bufferView']]; o = v.get('byteOffset', 0) + X.get('byteOffset', 0)
+        fmt = {5126: 'f', 5121: 'B', 5123: 'H'}[X['componentType']]; st = v.get('byteStride', nc * struct.calcsize(fmt))
+        arr = [struct.unpack_from('<%d%s' % (nc, fmt), sbin, o + i * st) for i in range(X['count'])]
+        if X.get('normalized'): arr = [tuple(x / (255.0 if fmt == 'B' else 65535.0) for x in q) for q in arr]
+        return arr
+    def put(arr, typ, ctype=5126):
+        data = b''.join(struct.pack('<%d%s' % (len(arr[0]), 'f' if ctype == 5126 else 'H'), *q) for q in arr)
+        while len(O.bin) % 4: O.bin += b'\0'
+        O.views.append({'buffer': 0, 'byteOffset': len(O.bin), 'byteLength': len(data)}); O.bin += data
+        acc = {'bufferView': len(O.views) - 1, 'componentType': ctype, 'count': len(arr), 'type': typ}
+        if typ == 'VEC3' and ctype == 5126: acc['min'] = [min(v[c] for v in arr) for c in range(3)]; acc['max'] = [max(v[c] for v in arr) for c in range(3)]
+        O.accs.append(acc); return len(O.accs) - 1
+    nv = 0; lo = [9e9] * 3; hi = [-9e9] * 3
+    for n in S['nodes']:
+        if 'mesh' not in n or 'skin' not in n: continue
+        m = json.loads(json.dumps(S['meshes'][n['mesh']])); prims = []
+        for pr in m['primitives']:
+            a = pr['attributes']
+            if 'JOINTS_0' not in a or 'WEIGHTS_0' not in a: continue
+            Jn, Wt, P = vec(a['JOINTS_0'], 4), vec(a['WEIGHTS_0'], 4), vec(a['POSITION'], 3); Nr = vec(a['NORMAL'], 3) if 'NORMAL' in a else None
+            Pn, Nn, Jo = [], [], []
+            for vi in range(len(P)):
+                ws = sum(Wt[vi]) or 1.0; p = [0.0, 0.0, 0.0]; nn = [0.0, 0.0, 0.0]
+                for c in range(4):
+                    w = Wt[vi][c] / ws
+                    if w <= 0: continue
+                    ni = sj[Jn[vi][c]]; q = xfp(ni, P[vi]); p = [x + w * y for x, y in zip(p, q)]
+                    if Nr: q2 = xfn(ni, Nr[vi]); nn = [x + w * y for x, y in zip(nn, q2)]
+                Pn.append(tuple(p)); Jo.append(tuple(jmap[x] for x in Jn[vi]))
+                if Nr: Nn.append(tuple(_nrm(nn)))
+                lo = [min(x, y) for x, y in zip(lo, p)]; hi = [max(x, y) for x, y in zip(hi, p)]
+            na = {'POSITION': put(Pn, 'VEC3'), 'JOINTS_0': put(Jo, 'VEC4', 5123), 'WEIGHTS_0': put([tuple(x / (sum(q) or 1) for x in q) for q in Wt], 'VEC4')}
+            if Nr: na['NORMAL'] = put(Nn, 'VEC3')
+            if 'TEXCOORD_0' in a: na['TEXCOORD_0'] = O.acc('s', S, sbin, a['TEXCOORD_0'])
+            np_ = {'attributes': na}
+            if 'indices' in pr: np_['indices'] = O.acc('s', S, sbin, pr['indices'])
+            if 'material' in pr: np_['material'] = pr['material']
+            if 'mode' in pr: np_['mode'] = pr['mode']
+            prims.append(np_); nv += len(P)
+        if not prims: continue
+        j['meshes'].append({'name': m.get('name', 'skin'), 'primitives': prims})
+        j['nodes'].append({'name': n.get('name', 'skin'), 'mesh': len(j['meshes']) - 1, 'skin': 0}); j['scenes'][0]['nodes'].append(len(j['nodes']) - 1)
+    if not j['textures']: del j['textures']
+    if not j['images']: del j['images']
+    if 'samplers' in S: j['samplers'] = S['samplers']
+    if os.environ.get('SKIN_CLIPS'):   # a viewing copy: the Allied clips in the file (the game borrows them instead)
+        j['animations'] = []
+        for an in A.get('animations', []):
+            na = {'name': an['name'], 'channels': [], 'samplers': []}
+            for c in an['channels']:
+                sm = an['samplers'][c['sampler']]
+                na['samplers'].append({'input': O.acc('a', A, abin, sm['input'], True), 'output': O.acc('a', A, abin, sm['output'], True), 'interpolation': sm.get('interpolation', 'LINEAR')})
+                na['channels'].append({'sampler': len(na['samplers']) - 1, 'target': dict(c['target'])})
+            j['animations'].append(na)
+    j['accessors'] = O.accs; j['bufferViews'] = O.views
+    while len(O.bin) % 4: O.bin += b'\0'
+    j['buffers'] = [{'byteLength': len(O.bin)}]
+    js = json.dumps(j, separators=(',', ':')).encode()
+    while len(js) % 4: js += b' '
+    total = 12 + 8 + len(js) + 8 + len(O.bin)
+    with open(out_path, 'wb') as fo:
+        fo.write(struct.pack('<III', 0x46546C67, 2, total)); fo.write(struct.pack('<II', len(js), 0x4E4F534A)); fo.write(js)
+        fo.write(struct.pack('<II', len(O.bin), 0x004E4942)); fo.write(O.bin)
+    unm = sorted({SS.name[k] for k in sj if SS.name[k] not in aidx})
+    print('%s %.1f MB: %d vertices, scale x%.3f, height %.2f m, %d bones mapped, %d to an ancestor (%s)' % (os.path.basename(out_path), total / 1e6, nv, kk, hi[1] - lo[1], len(sj) - len(unm), len(unm), ', '.join(unm[:12])))
+
 if __name__ == '__main__':
     args = sys.argv[1:]; skip = ()
+    if args and args[0] == '--skin': skin_onto(args[1], args[2], args[3]); sys.exit(0)
     if args and args[0] == '--retarget':
         nm = rg = None
         if '--names' in args: k = args.index('--names'); nm = args[k + 1]; del args[k:k + 2]
