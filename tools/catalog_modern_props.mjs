@@ -16,6 +16,9 @@ const vb = (bv) => ({ k: 0, bv });               // bevelled visible mass, no co
 
 // ------------------------------------------------------------------------------------------------- materials
 // [albedo, roughness, pattern, extra]; fin() registers only the ones an asset uses
+// HB1: hard-edged "weeds" cones (and the HESCO's fabric-crease sticks) dropped from man-made props: they read as green
+// pyramids. The call keeps its arguments so the rng draws, and every other part of the prop, stay where they were
+const skip = () => {};
 const T = (tex, alb, r, pat, ex = {}) => [alb, r, pat, tex ? { texture: tex, ...ex } : { ...ex }];   // MOD1 review: tex null = clean paint (the paint_metal_* sets carry rust)
 const MT = {
   conc: T("concrete_aged", [0.66, 0.64, 0.6], 0.9, "concrete"),
@@ -43,7 +46,7 @@ const MT = {
   iron: T("iron_worn", [0.3, 0.29, 0.28], 0.65, "metal", { metallic: 0.35 }),
   galv: T("steel_scratched", [0.62, 0.64, 0.65], 0.5, "metal", { metallic: 0.55 }),
   galv_c: T("corrugated_galv", [0.66, 0.67, 0.68], 0.5, "metal", { metallic: 0.5 }),
-  wire: [[0.5, 0.51, 0.52], 0.5, "metal", { metallic: 0.6 }],
+  wire: T("galv_wire", [0.5, 0.51, 0.52], 0.5, "metal", { metallic: 0.6 }),   // HB1: galvanised, some rust
   chrome: [[0.78, 0.79, 0.8], 0.15, "metal", { metallic: 0.9 }],
   rim: T("steel_scratched", [0.66, 0.67, 0.69], 0.3, "metal", { metallic: 0.75 }),
   rim_dk: [[0.07, 0.07, 0.075], 0.5, "metal", { metallic: 0.4 }],
@@ -118,8 +121,8 @@ const MT = {
   soil: T("soil_brown", [0.4, 0.32, 0.24], 1, "plain"),
   dirt: T("dirt_compacted", [0.5, 0.43, 0.34], 1, "plain"),
   gravel: T("gravel_fine", [0.55, 0.53, 0.5], 1, "stone"),
-  sand: T("sand_dirty", [0.62, 0.54, 0.42], 1, "plain"),
-  hesco_fab: T("canvas_rough", [0.66, 0.6, 0.47], 0.95, "fabric"),
+  sand: T("fill_sand", [0.62, 0.54, 0.42], 1, "plain"),   // HB1: sand / gravel fill, replace slot
+  hesco_fab: T("hesco_liner", [0.66, 0.6, 0.47], 0.95, "fabric"),   // HB1: woven geotextile, replace slot
   sandbag: T("canvas_rough", [0.58, 0.5, 0.36], 0.95, "fabric"),
   sandbag_dk: T("canvas_rough", [0.4, 0.34, 0.24], 0.95, "fabric"),
   sandbag_od: T("canvas_olive", [0.34, 0.34, 0.22], 0.95, "fabric"),
@@ -352,7 +355,7 @@ function jerseyDress(A, x0, x1, m, R, { loops = true } = {}) {
   for (let i = 0; i < 2; i++) { const x = x0 + 0.3 + R() * (x1 - x0 - 0.6), s = R() > 0.5 ? 1 : -1; A.obox([x, 0.22, s * 0.21], [0.1, 0.07, 0.035], [s * 35, 0, 0], "conc_dk", D); }   // gouge on the lower face
   for (let i = 0; i < 4; i++) {   // weeds and moss in the angle with the ground
     const x = x0 + 0.15 + R() * (x1 - x0 - 0.3), s = R() > 0.5 ? 1 : -1, h = 0.08 + R() * 0.14;
-    A.cone([x, h / 2, s * (0.33 + R() * 0.04)], [0.12 + R() * 0.1, h, 0.08 + R() * 0.06], "weeds", { k: 0, lod: 1, n: 5, top: 0.15 });
+    skip([x, h / 2, s * (0.33 + R() * 0.04)], [0.12 + R() * 0.1, h, 0.08 + R() * 0.06], "weeds", { k: 0, lod: 1, n: 5, top: 0.15 });
   }
   A.box([x0 + R() * 0.5, 0.0, 0.306], [x0 + 0.6 + R() * 0.6, 0.05, 0.311], "moss", D);
 }
@@ -476,7 +479,7 @@ function bollard(kind) {
     A.box([-0.04, 0.3, 0.19], [0.03, 0.36, 0.203], "conc_dk", D);
     A.cyl([0, 0.08, 0], [0.408, 0.15, 0.408], "conc_wet", { ...D, seg: 20 });                    // AS1: damp splash band
     for (const [a, y] of [[40, 0.84], [200, 0.5], [300, 0.2]]) { const t = a / DEG; A.obox([Math.sin(t) * 0.196, y, Math.cos(t) * 0.196], [0.09, 0.06, 0.02], [0, a, 0], "conc_dk", D); }   // spalled chips
-    for (let i = 0; i < 3; i++) { const t = i * 2.2; A.cone([Math.sin(t) * 0.24, 0.07, Math.cos(t) * 0.24], [0.14, 0.14, 0.1], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); }
+    for (let i = 0; i < 3; i++) { const t = i * 2.2; skip([Math.sin(t) * 0.24, 0.07, Math.cos(t) * 0.24], [0.14, 0.14, 0.1], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); }
     return fin(A, { cover: [cover([0, 0, -0.55], 0, "low", ["left", "right"])] });
   }
   if (kind === "steel") {
@@ -520,13 +523,13 @@ function hesco(nx, ny, half = false) {
     for (const s of [-1, 1]) for (let i = 0; i < nx; i++) {   // liner panel per cell face, each leaning a little under the fill
       const cx = -hx + (i + 0.5) * HB, lean = (Rl() - 0.3) * 1.6;
       A.obox([cx, (y0 + y1 - 0.01) / 2, s * (hz - 0.016)], [HB - 0.02, y1 - 0.01 - y0, 0.012], [s * lean, (Rl() - 0.5) * 0.8, 0], "hesco_fab", V);
-      A.obox([cx, y0 + 0.3 + Rl() * 0.6, s * (hz - 0.008)], [0.006, 0.25 + Rl() * 0.3, 0.004], [0, 0, (Rl() - 0.5) * 30], "sandbag_dk", D);   // fabric crease
+      skip([cx, y0 + 0.3 + Rl() * 0.6, s * (hz - 0.008)], [0.006, 0.25 + Rl() * 0.3, 0.004], [0, 0, (Rl() - 0.5) * 30], "sandbag_dk", D);   // fabric crease (HB1: read as sticks leaning on the wall)
       if (top && !half) A.box([cx - HB / 2 + 0.03, y1 - 0.06, s * (hz + 0.004) - 0.012], [cx + HB / 2 - 0.03, y1 + 0.012, s * (hz + 0.004) + 0.006], "hesco_fab", dv(0.005));   // liner turned over the top wire
     }
     for (const s of [-1, 1]) A.box([s * (hx - 0.012) - 0.006, y0, -hz + 0.004], [s * (hx - 0.012) + 0.006, y1 - 0.01, hz - 0.004], "hesco_fab", V);
     if (j === 0) for (const s of [-1, 1]) {   // mud splash and weeds at the foot
       A.box([-hx - 0.01, 0, s * (hz + 0.006) - 0.004], [hx + 0.01, 0.14 + Rl() * 0.08, s * (hz + 0.006) + 0.004], "grime", D);
-      for (let i = 0; i < nx * 2; i++) { const h = 0.1 + Rl() * 0.25; A.cone([-hx + 0.2 + Rl() * (X - 0.4), h / 2, s * (hz + 0.04 + Rl() * 0.05)], [0.14 + Rl() * 0.12, h, 0.1], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); }
+      for (let i = 0; i < nx * 2; i++) { const h = 0.1 + Rl() * 0.25; skip([-hx + 0.2 + Rl() * (X - 0.4), h / 2, s * (hz + 0.04 + Rl() * 0.05)], [0.14 + Rl() * 0.12, h, 0.1], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); }
     }
     for (let i = 1; i < nx; i++) A.box([-hx + i * HB - 0.006, y0, -hz + 0.01], [-hx + i * HB + 0.006, y1 - 0.01, hz - 0.01], "hesco_fab", V);
     // fill surface (slightly mounded) when it shows
@@ -535,7 +538,7 @@ function hesco(nx, ny, half = false) {
       const cx = -hx + (i + 0.5) * HB;
       A.box([cx - hz + 0.02, fy - 0.04, -hz + 0.02], [cx + hz - 0.02, fy, hz - 0.02], "sand", V);
       A.obox([cx + (Rl() - 0.5) * 0.15, fy + 0.005, (Rl() - 0.5) * 0.15], [0.74, 0.07, 0.7], [(Rl() - 0.5) * 6, Rl() * 90, (Rl() - 0.5) * 6], "sand", dv(0.03));   // settled, uneven fill
-      for (let k = 0; k < 3; k++) { const h = 0.12 + Rl() * 0.2; A.cone([cx + (Rl() - 0.5) * 0.7, fy + h / 2, (Rl() - 0.5) * 0.7], [0.18 + Rl() * 0.15, h, 0.15 + Rl() * 0.1], "weeds", { k: 0, lod: 1, n: 5, top: 0.12 }); }
+      for (let k = 0; k < 3; k++) { const h = 0.12 + Rl() * 0.2; skip([cx + (Rl() - 0.5) * 0.7, fy + h / 2, (Rl() - 0.5) * 0.7], [0.18 + Rl() * 0.15, h, 0.15 + Rl() * 0.1], "weeds", { k: 0, lod: 1, n: 5, top: 0.12 }); }
     }
     if (top && half) for (const s of [-1, 1]) for (let i = 0; i < nx * 3; i++) {   // the empty liner above the fill sags inward
       const x = -hx + (i + 0.5) * (HB / 3);
@@ -717,7 +720,7 @@ function chainLinkPanel(razor) {
   for (let x = -1.2; x < 1.3; x += 0.6) A.box([x - 0.006, HM - 0.03, 0.02], [x + 0.006, HM + 0.03, 0.055], "wire", D);   // ties
   A.box([-W / 2, 0, -0.03], [W / 2, HM, 0.06], "wire", H);
   { const Rf = rng(razor ? 61 : 62);   // AS1: abandoned: weeds grown up through the foot of the mesh, litter caught in it, rust at the ties
-    for (let i = 0; i < 9; i++) { const h = 0.2 + Rf() * 0.5; A.cone([-W / 2 + 0.1 + Rf() * (W - 0.2), h / 2, 0.03 + (Rf() - 0.5) * 0.2], [0.2 + Rf() * 0.2, h, 0.16], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); }
+    for (let i = 0; i < 9; i++) { const h = 0.2 + Rf() * 0.5; skip([-W / 2 + 0.1 + Rf() * (W - 0.2), h / 2, 0.03 + (Rf() - 0.5) * 0.2], [0.2 + Rf() * 0.2, h, 0.16], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); }
     A.obox([-0.6 + Rf() * 1.2, 0.18, 0.04], [0.5 + Rf() * 0.4, 0.3, 0.02], [0, 0, (Rf() - 0.5) * 10], "leaves", D);
     for (const x of [-W / 2, W / 2]) A.cyl([x, 0.09, 0], [0.064, 0.12, 0.064], "rust", { ...D, seg: 12 }); }
   if (razor) {
@@ -851,7 +854,7 @@ function palisade() {
   A.box([-W / 2, 0, 0], [W / 2, Hh, 0.12], "p_green", H);
   { const Rf = rng(73);   // AS1: rust bleeding from the bolts and pale tips, weeds at the foot
     for (let x = -W / 2 + 0.12; x < W / 2 - 0.06; x += 0.155) if (Rf() > 0.45) A.box([x - 0.01, 0.12 + Rf() * 0.3, 0.1005], [x + 0.01, 0.375, 0.1015], "rust", D);
-    for (let i = 0; i < 8; i++) { const h = 0.2 + Rf() * 0.45; A.cone([-W / 2 + 0.1 + Rf() * (W - 0.2), h / 2, 0.06 + (Rf() - 0.5) * 0.3], [0.2 + Rf() * 0.2, h, 0.15], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); } }
+    for (let i = 0; i < 8; i++) { const h = 0.2 + Rf() * 0.45; skip([-W / 2 + 0.1 + Rf() * (W - 0.2), h / 2, 0.06 + (Rf() - 0.5) * 0.3], [0.2 + Rf() * 0.2, h, 0.15], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); } }
   return fin(A, { cover: [cover([0, 0, -0.6], 0, "high", ["left", "right"]), cover([0, 0, 0.7], 180, "high", ["left", "right"])] });
 }
 
@@ -1159,7 +1162,7 @@ function carBody(A, v) {
       for (let i = 0; i < 8; i++) A.obox([s * (hx + 0.15 + R() * 0.7), 0.035, zC + R() * (zA - zC)], [0.02 + R() * 0.06, 0.004, 0.02 + R() * 0.05], [0, R() * 180, 0], "glass_crack", D);   // crumbs on the road (lifted with the -0.03 settle)
     }
     if ((v.broken || []).includes("rear") && !v.van) for (let x = -cx + 0.1; x < cx - 0.15; x += 0.18 + R() * 0.12) A.obox([x, belt + 0.04, zD + 0.04], [0.08 + R() * 0.1, 0.05 + R() * 0.08, 0.006], [-40, 0, (R() - 0.5) * 40], "glass_crack", D);
-    for (let i = 0; i < 8; i++) { const s = R() > 0.5 ? 1 : -1, h = 0.15 + R() * 0.3; A.cone([s * (hx + 0.05 + R() * 0.2), 0.03 + h / 2, zT + R() * L], [0.18 + R() * 0.15, h, 0.14], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); }
+    for (let i = 0; i < 8; i++) { const s = R() > 0.5 ? 1 : -1, h = 0.15 + R() * 0.3; skip([s * (hx + 0.05 + R() * 0.2), 0.03 + h / 2, zT + R() * L], [0.18 + R() * 0.15, h, 0.14], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); }
   }
   // burned extras: the last of the paint low on the doors, soot plumes out of the window frames, molten alloy puddles
   if (burn) {
@@ -1641,7 +1644,7 @@ function container(A, o) {
   }
   if (y0 === 0) {
     for (const s of [-1, 1]) B([s * (hx + 0.005) - 0.002, 0, -hz], [s * (hx + 0.005) + 0.002, 0.16 + R() * 0.1, hz], "grime", D);
-    for (let i = 0; i < Math.round(len * 0.6); i++) { const s = R() > 0.5 ? 1 : -1, h = 0.15 + R() * 0.35; A.cone(at(s * (hx + 0.06 + R() * 0.12), h / 2, -hz + R() * 2 * hz), [0.2 + R() * 0.15, h, 0.14], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); }
+    for (let i = 0; i < Math.round(len * 0.6); i++) { const s = R() > 0.5 ? 1 : -1, h = 0.15 + R() * 0.35; skip(at(s * (hx + 0.06 + R() * 0.12), h / 2, -hz + R() * 2 * hz), [0.2 + R() * 0.15, h, 0.14], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); }
   }
   for (let i = 0; i < 4; i++) B([-hx + 0.2 + R() * (CW - 0.6), CH - 0.018, -hz + 0.3 + R() * (2 * hz - 1)], [-hx + 0.6 + R() * (CW - 0.8), CH - 0.012, -hz + 0.8 + R() * (2 * hz - 1)], R() > 0.5 ? "rust_h" : "leaves", D);   // roof rust / leaf mould
   // doors
@@ -1908,7 +1911,7 @@ function palletStack() {
   const t = 72 / DEG;   // a loose pallet (deck boards and blocks) leaning on the +x side, top against the stack
   for (let i = 0; i < 5; i++) A.obox([0.63 + Math.cos(t) * 0.6, Math.sin(t) * 0.6, -0.35 + i * 0.175], [0.022, 1.2, 0.1], [0, 0, 18], i % 2 ? "wood_wx" : "wood_raw", { k: 0, bv: 0.004 });
   for (const v of [-0.5, 0, 0.5]) for (const z of [-0.35, 0, 0.35]) A.obox([0.63 + Math.cos(t) * (0.6 + v) + 0.05, Math.sin(t) * (0.6 + v), z], [0.078, 0.14, 0.1], [0, 0, 18], "wood_dk", { k: 0 });
-  for (let i = 0; i < 6; i++) { const h = 0.15 + R() * 0.3; A.cone([(R() - 0.5) * 1.3, h / 2, (R() > 0.5 ? 1 : -1) * (0.46 + R() * 0.08)], [0.18, h, 0.12], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); }
+  for (let i = 0; i < 6; i++) { const h = 0.15 + R() * 0.3; skip([(R() - 0.5) * 1.3, h / 2, (R() > 0.5 ? 1 : -1) * (0.46 + R() * 0.08)], [0.18, h, 0.12], "weeds", { k: 0, lod: 1, n: 5, top: 0.1 }); }
   return fin(A, { cover: boxCover(0.62, 0.42, 1.3) });
 }
 function plasticCrate(A, x, y, z, yaw, m) {
