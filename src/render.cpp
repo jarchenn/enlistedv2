@@ -3091,6 +3091,7 @@ void plantMain(){
 }
 )GLSL";
 static const char* kGrassFS = R"GLSL(
+uniform float uGrassDead;   // BT1: look.grassDead (0 summer .. 1 dead late-winter grass)
 layout(location=0) in vec3 vW; layout(location=1) in vec3 vAlb; layout(location=2) in vec3 vF; layout(location=3) in vec2 vUV; layout(location=4) in float vWid; layout(location=5) in float vTap;
 layout(location=6) in vec4 vCC; layout(location=7) in vec4 vPC;
 layout(location=8) flat in int vSp; layout(location=9) flat in int vPart; layout(location=10) flat in float vSeed;
@@ -3221,6 +3222,11 @@ void main(){
     if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) sv = 1.0 - smoothstep(0.15, 0.6, (uOccTop - texture(uOcc, uv).r*uOccRange) - vW.y);
   }
   alb *= 0.9 + 0.2*fract(vSeed*91.7 + float(vPart)*0.37);   // PERF1 (user): each blade / card a little lighter or darker (+-10 %)
+  if (uGrassDead > 0.0) {   // BT1 look.grassDead: late winter: blades and flower heads dead (straw, grey-brown seed heads), same luma range
+    float lum = dot(alb, vec3(0.2126, 0.7152, 0.0722));
+    vec3 straw = mix(vec3(0.34, 0.29, 0.21), vec3(0.46, 0.41, 0.31), fract(vSeed*17.3))*clamp(lum*3.2, 0.45, 1.15);
+    alb = mix(alb, vPart == 1 ? vec3(0.27, 0.23, 0.18)*clamp(lum*3.0, 0.5, 1.1) : straw, uGrassDead);
+  }
   float ndl = max(dot(N, uSunDir), 0.0)*0.75 + 0.25;
   vec3 irr = mix(uGroundCol, uSkyCol, 0.5 + 0.5*N.y)*mix(0.06, 1.0, sv) + uFill*(1.0 - sv);
   irr = giAmbient(vW, N, sv, irr);   // L2: probe light by night / under cover
@@ -3963,6 +3969,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   if (v.underwater && !thumbMode) { fog = v.underFogCol; glUniform3fv(U(p, "uFogCol"), 1, glm::value_ptr(fog)); glUniform1f(U(p, "uFogDens"), v.underFogDens); }   // swim.cpp
   glUniform1f(U(p, "uUnder"), v.underwater && !thumbMode ? 1.0f : 0.0f);
   snowUniforms(p, thumbMode);   // SN1 (snow.cpp): off unless the map has a snow layer
+  glUniform1f(U(p, "uGrassDead"), thumbMode ? 0.0f : lt.mapGrassDead);   // BT1
   if (p == progMain) fogNow = vec4(fog, v.underwater && !thumbMode ? v.underFogDens : (thumbMode || lt.mapNoFog ? 0.0f : (q.legacy ? 0.0016f : q.hazeDensity) * lt.mapHaze));
   glUniformMatrix4fv(U(p, "uLightVP"), 1, GL_FALSE, glm::value_ptr(lightVP));
   glUniformMatrix4fv(U(p, "uOccVP"), 1, GL_FALSE, glm::value_ptr(occVP));

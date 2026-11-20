@@ -56,6 +56,38 @@
       "pitch": -89.0
     },
     {
+      "name": "station_close",
+      "pos": [
+        205.0,
+        138.11,
+        214.0
+      ],
+      "yaw": -100.78,
+      "pitch": 6.0
+    },
+    {
+      "name": "flume_close",
+      "pos": [
+        13.0,
+        15.74,
+        7.5
+      ],
+      "yaw": 131.99,
+      "pitch": -6.0,
+      "gameplay": true
+    },
+    {
+      "name": "washhouse_close",
+      "pos": [
+        4.0,
+        26.65,
+        47.0
+      ],
+      "yaw": -165.96,
+      "pitch": 4.0,
+      "gameplay": true
+    },
+    {
       "name": "orchard_approach",
       "pos": [
         -101.5,
