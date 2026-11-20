@@ -140,7 +140,7 @@ bool royaleLiveSelfTest(App& app, float dt) {
   return true;
 }
 
-// CV1 fix check: --selftest-tdm-live. A big Team Deathmatch in the real loop (NMK_ROYALE_MAP, default caverns;
+// CV1 fix check: --selftest-tdm-live. A big Team Deathmatch in the real loop (NMK_ROYALE_MAP, default tunnels;
 // NMK_TDM_PLAYERS per team, default 240) while the player is teleported onto every team spawn marker in turn: a shot
 // facing the marker's way and one looking up from each (selftest_out/tdmlive_NNN.png; analysed for white-outs).
 namespace tdmlive {
@@ -150,7 +150,7 @@ void build(App&) {
   seq.push_back({"start", [](App& a, float) {
     if (a.mode == Mode::Explore) a.exitExplore();
     const char* mp = std::getenv("NMK_ROYALE_MAP");
-    a.openMap(contentDir() / "templates" / (std::string(mp && *mp ? mp : "caverns") + ".nmap.json"));
+    a.openMap(contentDir() / "templates" / (std::string(mp && *mp ? mp : "tunnels") + ".nmap.json"));
     json scj = a.doc.extra.is_object() ? a.doc.extra.value("scenario", json::object()) : json::object();
     Scenario sc = Scenario::fromJson(scj);
     const char* np = std::getenv("NMK_TDM_PLAYERS"); int n = np ? std::max(2, std::atoi(np)) : 240;

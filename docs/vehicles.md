@@ -167,5 +167,5 @@ The AH-64D Apache: vehicle `ah64d_apache` (`content/vehicles/ah64d_apache.json`,
   - A fresh copy after a death in a vehicle goes to the team's nearest vehicle spawn, else beside the infantry spawn as before.
   - Shipped maps: `--gen-vehicle-spawns` proposes them (5 m grid within 200 m of a team's spawns, behind them from the enemy, gentle ground, a tank fits, a clear line back preferred, about 120 m × map size / 600 back) and `tools/vehicles/apply_vspawns.py` writes them.
   - Got them: battle1, chateau_town, dday, newtown, omaha_easy_red (Team B: one), outpost_desert, outpost_woods (Team B only: woods all round A), village_assault.
-  - None: tunnels, backrooms, caverns (underground) and normandy_forest, tank_range, gx_test_scene (no team spawns).
+  - None: tunnels, backrooms (underground) and normandy_forest, tank_range, gx_test_scene (no team spawns).
 - Check: `--capture-vh7` (`src/capture_vh7.cpp`).

@@ -13,7 +13,6 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 - **Newtown:** *Newtown* (BR4, `tools/mapgen/maps/newtown.py`): placed counts; "not used" = not on this map.
 - **Outpost Desert:** *Outpost Desert* (NT3, `tools/mapgen/maps/outpost_desert.py`): placed counts; "not used" = not on this map.
 - **Outpost Woods:** *Outpost Woods* (NT3, `tools/mapgen/maps/outpost_woods.py`): placed counts; "not used" = not on this map.
-- **Caverns:** *Caverns* (CV1, `tools/mapgen/maps/caverns.py`): placed counts; "not used" = not on this map.
 - **Hollow Village:** *Hollow Village* (MP1, `tools/mapgen/maps/hollow_village.py`): placed counts; "not used" = not on this map.
 
 | Asset | Category | Omaha | Mont-Castre | Chateau town | D-day | Tunnels | Backrooms | Newtown | Outpost Desert | Outpost Woods | Chateau town | Caverns | Hollow Village |

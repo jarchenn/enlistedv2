@@ -8,9 +8,9 @@ Battle Foundry is a first-person shooter with a full map editor built in. Build 
 |---|---|---|
 | ![](content/templates/newtown.loading.jpg) | ![](content/templates/chateau_town.loading.jpg) | ![](content/templates/sd_town.loading.jpg) |
 
-| Desert outpost | Caverns | Tunnels |
+| Desert outpost | Woods outpost | Tunnels |
 |---|---|---|
-| ![](content/templates/outpost_desert.loading.jpg) | ![](content/templates/caverns.loading.jpg) | ![](content/templates/tunnels.loading.jpg) |
+| ![](content/templates/outpost_desert.loading.jpg) | ![](content/templates/outpost_woods.loading.jpg) | ![](content/templates/tunnels.loading.jpg) |
 
 The editor:
 
@@ -24,7 +24,7 @@ The editor:
 - Pick the enemy type per side: soldiers of several factions (WWII Allied and German, modern, desert, special forces), zombies, and creature types such as brutes, spiders and mechs.
 
 **Maps**
-- Ready-made maps: D-day, Omaha Easy Red, Chateau town, Village Assault, Battle 1, Hollow village, Newtown (nine-district modern town), woodland and desert outposts, four Search and Destroy maps (town, yard, desert, Ashwood Hollow village), plus Caverns, Tunnels and Backrooms.
+- Ready-made maps: D-day, Omaha Easy Red, Chateau town, Village Assault, Battle 1, Hollow village, Newtown (nine-district modern town), woodland and desert outposts, four Search and Destroy maps (town, yard, desert, Ashwood Hollow village), plus Tunnels and Backrooms.
 - Every map opens in the editor and can be changed or used as a starting point.
 
 **Map editor**
@@ -93,7 +93,7 @@ Menu keys: Up/Down (or W/S) to choose, Enter to open, Esc to go back.
 
 **LAN.** One PC chooses **Host LAN**, sets up the match and opens the lobby; the others choose **Join LAN**, then **Search LAN** or type the host's address. The game uses UDP port 27960. Every PC needs the same build, content and map file; internet play is not supported.
 
-**Edit a map.** **CREATE MAP** starts a blank map. In the editor, **File > Open** loads a built-in map (D-day, Chateau town, Newtown, Tunnels, Backrooms, Caverns, Outpost Woods, Outpost Desert) as an editable copy, or one of your own. Click a thumbnail in the **Assets** panel and left-click the ground to place it. Press **F5** to walk the map in first person, or drag the soldier icon from the toolbar onto the ground to start from that spot. Maps are saved as `.nmap.json` in `maps/` next to the executable. You can also pass a map file on the command line to open it in the editor.
+**Edit a map.** **CREATE MAP** starts a blank map. In the editor, **File > Open** loads a built-in map (D-day, Chateau town, Newtown, Tunnels, Backrooms, Outpost Woods, Outpost Desert) as an editable copy, or one of your own. Click a thumbnail in the **Assets** panel and left-click the ground to place it. Press **F5** to walk the map in first person, or drag the soldier icon from the toolbar onto the ground to start from that spot. Maps are saved as `.nmap.json` in `maps/` next to the executable. You can also pass a map file on the command line to open it in the editor.
 
 ## Settings
 

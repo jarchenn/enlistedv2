@@ -11,8 +11,8 @@
 
 namespace {
 const char* kMaps[] = {"battle1", "chateau_town", "dday", "newtown", "omaha_easy_red", "outpost_desert", "outpost_woods", "village_assault",
-                       "tunnels", "backrooms", "caverns", "normandy_forest", "tank_range", "gx_test_scene"};
-const char* kUnder[] = {"tunnels", "backrooms", "caverns"};
+                       "tunnels", "backrooms", "normandy_forest", "tank_range", "gx_test_scene"};
+const char* kUnder[] = {"tunnels", "backrooms"};
 int idx = 0;
 }
 
