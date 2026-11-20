@@ -435,7 +435,8 @@ void foundationSync(App& app) {
     Instance* h = app.doc.find(id);
     if (!h) continue;
     rec.sig = hostSig(app, *h, routes); rec.breached = 0;
-    generate(app, *h, rec, fp, spawns);
+    Instance hc = *h;   // generate() appends props to doc.instances: a reference into it dangles once the vector grows (Chateau town crashed in Ctx::excluded)
+    generate(app, hc, rec, fp, spawns);
     ++gStats.rebuilds; changed = true;
   }
   if (changed) app.syncRuntime();
