@@ -277,7 +277,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
   interior.beginFrame();   // R2 room culling: per-building visibility once per frame
   if (mode == Mode::Explore) { grenadeDrawItems(); gm2DrawItems(*this, op); }   // GM2: placed packs
   lassoWaterDrawItems(*this);   // lasso water bodies into V1's water pass (lasso_water.cpp; nothing without water.h)
-  R.wind = grass.wind ? 1.0f : 0.0f;
+  R.wind = grass.wind ? R.wx.der.windK : 0.0f; grass.windK = R.wx.der.windK;   // W1: the preset's wind
   lodPxPerM = projM[1][1] != 0.0f ? projM[1][1] * R.height * 0.5f : 0.0f; lodCount[0] = lodCount[1] = lodCount[2] = 0;
   leafMergeHit = leafMergeMiss = 0;
   static int dlFrameNo = 0; ++dlFrameNo; R.stats.occCulled = 0;   // GP1 occcull
@@ -679,7 +679,16 @@ bool App::openMap(const fs::path& p) {
   toast("Opened " + doc.name + (isContent ? " (copy — Save As to keep)" : ""));
   return true;
 }
+// a map file inside a git checkout's content/templates (the worktree itself, or a build's content/ junction to it): Ctrl+S
+// there would overwrite a tracked template. Refused unless NMK_DEV_SAVE_TEMPLATES is set (authoring a shipped map)
+static bool trackedTemplatePath(const fs::path& p) {
+  std::error_code ec; fs::path c = fs::weakly_canonical(p, ec); if (ec) c = fs::absolute(p, ec);
+  for (fs::path d = c.parent_path(); !d.empty() && d != d.root_path(); d = d.parent_path())
+    if (d.filename() == "templates" && d.parent_path().filename() == "content") return fs::exists(d.parent_path().parent_path() / ".git", ec);
+  return false;
+}
 bool App::saveMapTo(const fs::path& p) {
+  if (trackedTemplatePath(p) && !std::getenv("NMK_DEV_SAVE_TEMPLATES")) { toast("Not saved: " + p.filename().string() + " is a shipped template in the source tree (Save As to your maps)", 8); return false; }
   if (!mpaiBeforeSave(*this)) return false;   // scenario check (mpui.cpp)
   doc.camera.set = true; doc.camera.pos = camPos; doc.camera.yaw = camYaw; doc.camera.pitch = camPitch;
   if (mode == Mode::Explore) { doc.camera.pos = savedCam.pos; doc.camera.yaw = savedCam.yaw; doc.camera.pitch = savedCam.pitch; }
@@ -1414,7 +1423,7 @@ int App::run(int argc, char** argv) {
         else if (savedCover >= 0) { R.cloudCover = savedCover; savedCover = -1.0f; }
       }
       R.wx.mapCloud = lk && lk->contains("weather") && (*lk)["weather"].is_number() ? std::clamp((*lk)["weather"].get<float>(), 0.0f, 1.0f) : -1.0f;   // NT2b: broken cloud
-      R.wx.mapWx = R.wx.mapCloud >= 0.0f ? (R.wx.mapCloud >= 0.5f ? 1 : 0) : lk && lk->contains("weather") ? (lk->value("weather", std::string()) == "cloudy" ? 1 : 0) : -1;   // NT2: the map's default sky
+      R.wx.mapWx = R.wx.mapCloud >= 0.0f ? (R.wx.mapCloud >= 0.5f ? 1 : 0) : lk && lk->contains("weather") && (*lk)["weather"].is_string() ? std::max(0, wxPresetFromName((*lk)["weather"].get<std::string>())) : -1;   // W1: any preset name   // NT2: the map's default sky
       R.lt.mapSat = lk ? std::clamp(lk->value("saturation", 1.0f), 0.0f, 2.0f) : 1.0f;
       {   // VO L5 sky knobs: look.cloudOpening [azimuth deg (0 = +z, 90 = +x), elevation deg, half width deg, strength 0..1];
           // look.cloudScale (broad banks x this size), cloudStretch (x this longer along cloudDir), cloudDir (deg, as azimuth); look.sunDisc 0..1

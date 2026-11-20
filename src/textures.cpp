@@ -86,7 +86,9 @@ Slot parseSlot(const std::string& name, const json& j) {
   }
   s.kAlb = j.value("albedo", s.kAlb); s.kN = j.value("normal", s.kN); s.kR = j.value("rough", s.kR);
   if (j.value("absolute", false)) s.kAlb = -std::max(s.kAlb, 0.01f);   // NT8: a painted slot drawn in its texture's own colour (sign = flag)
-  s.kAO = j.value("ao", s.kAO); s.kH = j.value("height", s.kH);
+  s.kAO = j.value("ao", s.kAO);
+  if (j.value("assetAbsolute", false)) s.kAO = -std::max(s.kAO, 0.01f);   // trails: an asset material on this slot draws the set's own colour (sign = flag)
+  s.kH = j.value("height", s.kH);
   if (j.contains("fade") && j["fade"].is_array() && j["fade"].size() == 2) { s.fadeA = j["fade"][0]; s.fadeB = j["fade"][1]; }
   s.under = j.value("under", ""); s.expo = j.value("exposure", s.expo); s.macro = j.value("macro", 0.0f); s.contrast = j.value("contrast", 1.0f);
   s.lazy = j.value("lazy", false);
@@ -201,6 +203,13 @@ void encodeLevel(const std::vector<uint8_t>& src, int n, int comp, bool bc, int 
   }
 }
 
+float gAniso = 8.0f;   // UL1: Renderer::q.texAniso (tex::setAnisotropy)
+}  // namespace
+void setAnisotropy(float a) {
+  gAniso = std::clamp(a, 1.0f, 16.0f);
+  for (GLuint t : {arr[0], arr[1], arr[2], arrHi[0], arrHi[1], arrHi[2], grungeTex}) if (t) glTextureParameterf(t, 0x84FE /* GL_TEXTURE_MAX_ANISOTROPY */, gAniso);
+}
+namespace {
 float toksvigK() { static const float k = [] { const char* e = std::getenv("NMK_TEX_TOKSVIG"); return e ? (float)std::atof(e) : 1.0f; }(); return k; }
 void buildSetRaw(const fs::path& dir, bool bc, Cpu& o) {
   initLut();
@@ -329,6 +338,7 @@ void upload(GLuint p) {
   glProgramUniform2f(p, U("uTexNear"), nearR.x, std::max(nearR.y, nearR.x + 0.1f));
   glProgramUniform4fv(p, U("uTexLod"), 1, &lod.x); glProgramUniform4fv(p, U("uTexLod2"), 1, &lod2.x);
   glProgramUniform1iv(p, U("uPatSlot"), 32, wantImg ? patSlotImg : patSlot); glProgramUniform1iv(p, U("uTerrSlot"), 8, terrSlot); glProgramUniform1iv(p, U("uPaintSlot"), kPaintTypes, paintSlotEff);
+  glProgramUniform3i(p, U("uSnowSlot"), slotIndex("snow_packed"), slotIndex("snow_trodden"), slotIndex("snow_thaw"));   // SN2: the snow sets for applySnow (terrTexSlot), -1 when missing
 }
 void uploadTables() {   // the active table into NmkTexTables (std140: vec4 arrays, no padding)
   std::vector<vec4> d((size_t)kMaxSlots * 5 + (size_t)kMaxLayers * 2);
@@ -377,7 +387,7 @@ void loadGrunge() {
     glGenerateTextureMipmap(grungeTex);
     glTextureParameteri(grungeTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTextureParameteri(grungeTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTextureParameteri(grungeTex, GL_TEXTURE_WRAP_S, GL_REPEAT); glTextureParameteri(grungeTex, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTextureParameterf(grungeTex, 0x84FE /* GL_TEXTURE_MAX_ANISOTROPY */, 8.0f);
+    glTextureParameterf(grungeTex, 0x84FE /* GL_TEXTURE_MAX_ANISOTROPY */, gAniso);
     grungeK = std::getenv("NMK_NO_GRUNGE") ? 0.0f : 1.0f;
     gInfo.bytes += (double)w * h * 4 * 4 / 3;
     logf("textures: grunge masks %s (%dx%d)", f, w, h);
@@ -459,6 +469,7 @@ layout(std140, binding = 3) uniform NmkTexTables {
 uniform int uTerrSlot[8]; // terrain layers: grass, soil, mud, gravel, sand, rock, scree, crater
 #define NMK_TEX_PAINT 1   // painted ground: uPaintSlot[k] for marsh, dirt, mud, gravel, sand, cobbles, rock, dry_grass, ploughed, leaf_litter, scorched, pebbles
 uniform int uPaintSlot[12];
+uniform ivec3 uSnowSlot;   // SN2: slots snow_packed, snow_trodden, snow_thaw (-1 missing): terrTexSlot(uSnowSlot.x, p, n, dpx, dpy, dist)
 uniform float uTexLodG;   // TX2K: the ground's gradient scale (terrain layers, painted ground; uTexLod.x for everything else)
 uniform vec4 uTexLod;     // gradient scale (LOD bias against TAA-jitter shimmer), normal fade start / end (texels per pixel), fade depth
 uniform vec4 uTexLod2;    // albedo / roughness detail fade start / end (texels per pixel), fade depth
@@ -467,6 +478,7 @@ struct TexS { vec3 col; float ao, r, h; vec3 n; float d; };   // d: MA1b detail 
 // texMaterial for slots with a height, near the eye; the taps march the height map before sampling (docs/textures.md)
 vec3 gPomV = vec3(0.0); float gPomK = 0.0;
 int gPomN = 10;          // MA1b: parallax steps (High 10, Medium 4 under Perf relief)
+uniform vec2 uHexFade, uHBFade, uPomQ;   // UL1 (Renderer::q): hex / height-blend fade distances (y 0 = none), parallax range / steps (0 = by tier)
 uniform vec2 uTexNear;    // TX3: the LOD bias fades in between these eye distances (m): near the eye the surface is magnified, so
 float gEyeD = 1e9;        //   there is no shimmer to bias against and the 2K sets show their detail (gEyeD: set by each caller)
 float gTexGS = 0.0;      // MA1b: gradient scale for this slot's taps (0 = uTexLod.x); replace sets under relief: uTexLod2.w
@@ -483,7 +495,7 @@ void texFrame(int q, inout vec3 T, inout vec3 B){ vec3 t = T; if (q == 1) { T = 
 uniform vec2 uHex;
 float gHexK = 0.0;
 vec2 hexHash(vec2 v){ return fract(sin(mod(vec2(dot(v, vec2(127.1, 311.7)), dot(v, vec2(269.5, 183.3))), 3.14159))*43758.5453); }
-void texHexFetch(vec3 q, vec2 gx, vec2 gy, out vec4 c, out vec2 nx, out vec2 rh, float nfk, bool nrm){
+void texHexFetch(vec3 q, vec2 gx, vec2 gy, out vec4 c, out vec2 nx, out vec2 rh, float nfk, bool nrm, float hf){   // hf: UL1 fade (0 = three equal copies = plain tiling)
   vec2 sk = mat2(1.0, 0.0, -0.57735027, 1.15470054)*(q.xy*uHex.y);
   vec2 b = floor(sk); vec3 t = vec3(fract(sk), 0.0); t.z = 1.0 - t.x - t.y;
   float s = step(0.0, -t.z), s2 = 2.0*s - 1.0;
@@ -492,10 +504,10 @@ void texHexFetch(vec3 q, vec2 gx, vec2 gy, out vec4 c, out vec2 nx, out vec2 rh,
   c = vec4(0.0); nx = vec2(0.0); rh = vec2(0.0); float ws = 0.0, w2 = 0.0;
   for (int i = 0; i < 3; ++i) {
     if (bw[i] < 0.02) continue;
-    float ang = (mod(abs(v[i].x*v[i].y) + abs(v[i].x + v[i].y), 6.2831853) - 3.14159265)*gHexK;
+    float ang = (mod(abs(v[i].x*v[i].y) + abs(v[i].x + v[i].y), 6.2831853) - 3.14159265)*gHexK*hf;
     float cs = cos(ang), sn = sin(ang); mat2 R = mat2(cs, sn, -sn, cs);
     vec2 cen = mat2(1.0, 0.0, 0.5, 0.8660254)*v[i]/uHex.y;
-    vec3 qi = vec3(R*(q.xy - cen) + cen + hexHash(v[i]), q.z); vec2 gxi = R*gx, gyi = R*gy;
+    vec3 qi = vec3(R*(q.xy - cen) + cen + hexHash(v[i])*hf, q.z); vec2 gxi = R*gx, gyi = R*gy;
     vec2 h = texGRH(qi, gxi, gyi).rg;
     float W = pow(bw[i], 5.0)*exp2(10.0*h.y);   // barycentric weight, sharpened, then the higher surface wins
     c += texGCol(qi, gxi, gyi)*W; rh += h*W; ws += W; w2 += W*W;
@@ -504,7 +516,7 @@ void texHexFetch(vec3 q, vec2 gx, vec2 gy, out vec4 c, out vec2 nx, out vec2 rh,
   c /= ws; rh /= ws; nx /= ws;
   // variance-preserving blend (Mikkelsen 2022, after Heitz & Neyret): a mix of copies loses contrast by sqrt(sum w^2);
   // push each channel back out from the set's mean by its inverse (capped), so the blended ground is as crisp as one tap
-  float g = min(inversesqrt(max(w2/(ws*ws), 1e-4)), 1.7);
+  float g = mix(1.0, min(inversesqrt(max(w2/(ws*ws), 1e-4)), 1.7), hf);
   int li = int(q.z + 0.5); vec4 m = uTexM[li]; vec2 mr = uTexL[li].zw;
   c = clamp(m + (c - m)*g, 0.0, 1.0); rh = clamp(mr + (rh - mr)*g, 0.0, 1.0); nx *= g;
 }
@@ -531,7 +543,8 @@ void texTap(float L, vec3 p, vec3 dpx, vec3 dpy, vec2 inv, vec3 T, vec3 B, vec3 
   float nfk = 1.0 - uTexLod.w*gTexNFade*smoothstep(uTexLod.y, uTexLod.z, fp);
   bool nrm = !(uTexSkipFar == 1 && nfk < 0.06);   // MA1 imgmat: far, no normal tap
   vec4 c; vec2 nx, rh;
-  if (gHexK > 0.0 && w > 0.04) texHexFetch(q, gx, gy, c, nx, rh, nfk, nrm);
+  float hf = uHexFade.y > 0.0 ? 1.0 - smoothstep(uHexFade.x, uHexFade.y, gEyeD) : 1.0;   // UL1: q.hexFade
+  if (gHexK > 0.0 && hf > 0.0 && w > 0.04) texHexFetch(q, gx, gy, c, nx, rh, nfk, nrm, hf);
   else {
     c = texGCol(q, gx, gy);
     nx = nrm ? (texGNrm(q, gx, gy).rg*2.0 - 1.0)*nfk : vec2(0.0);
@@ -560,7 +573,7 @@ struct TerrT { vec3 alb; float r, ao; vec3 dn; float h; };   // h (M2): the set'
 // surface wins (stones stand out of mud, mud and sand settle between them). Untouched at k = 0 / 1 and between layers
 // of equal height (untextured: 0.5), so the procedural edges and every map's look stay; uHBlend 0 = off (switch "hblend")
 uniform float uHBlend;
-float hbK(float k, float ha, float hb){ return uHBlend > 0.0 ? clamp(k + (hb - ha)*uHBlend*4.0*k*(1.0 - k), 0.0, 1.0) : k; }
+float hbK(float k, float ha, float hb){ float s = uHBlend*(uHBFade.y > 0.0 ? 1.0 - smoothstep(uHBFade.x, uHBFade.y, gEyeD) : 1.0); return s > 0.0 ? clamp(k + (hb - ha)*s*4.0*k*(1.0 - k), 0.0, 1.0) : k; }
 // any slot (terrain layers, painted ground: terrTexSlot(uPaintSlot[k], ...)); dpx / dpy = dFdx / dFdy of p taken in
 // uniform control flow (kTerrainFS: tdx, tdy), dist = eye distance (tDist)
 TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
@@ -583,7 +596,7 @@ TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
   o.alb = K.x < 0.0 ? mix(M.rgb, s.col, f)*(-K.x)   // NT8 "absolute": the texture's own colour (paintApply uses it as the albedo)
                     : mix(vec3(1.0), clamp(s.col/max(M.rgb, vec3(0.004)), 0.0, 2.5), K.x*f);
   o.r = mix(1.0, s.r/max(Lp.z, 0.02), K.z*f);
-  o.ao = mix(1.0, s.ao, K.w*f);
+  o.ao = mix(1.0, s.ao, abs(K.w)*f);
   o.dn = (s.n - n)*K.y*f;
   o.h = mix(0.5, clamp(s.h - Lp.w + 0.5, 0.0, 1.0), f);   // M2
   vec4 Uu = uTexU[slot];
@@ -706,8 +719,8 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
   vec4 R = uTexR[slot];
   bool rel = uRelief == 1 && R.x + R.y + R.z > 0.0;   // MA1b: this slot's family has relief (textures.json "relief" / "crevice" / "edge")
   float pomD = rel ? R.x : max(C.x, A.y > 0.5 ? 0.015 : 0.0);   // GX5: replace-mode sets (their own structure: brick, slates, cobbles) get 1.5 cm
-  float pomR = uMatLayer == 2 ? 14.0 : 8.0;   // MA1b: Medium one offset within 8 m, High a 10-step march within 14 m
-  gPomN = uMatLayer == 2 ? 10 : 1;
+  float pomR = uPomQ.x > 0.0 ? uPomQ.x : uMatLayer == 2 ? 14.0 : 8.0;   // MA1b: Medium one offset within 8 m, High a 10-step march within 14 m
+  gPomN = uPomQ.y > 0.5 ? int(uPomQ.y + 0.5) : uMatLayer == 2 ? 10 : 1;
   if ((uMatLayer == 2 || rel) && pomD > 0.0 && (sp != 1 || rel) && eyeD < pomR) {
     gPomV = normalize(uCamPos - w);
     gPomK = pomD*max(inv.x, inv.y)*(1.0 - smoothstep(pomR*0.6, pomR, eyeD))*(rel ? smoothstep(0.08, 0.3, abs(dot(ng, gPomV))) : 1.0);   // MA1b: off at grazing angles (swim)
@@ -719,8 +732,9 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
   float fa = (uImgMat == 1 && A.y > 0.5) ? f : f*(1.0 - uTexLod2.z*smoothstep(uTexLod2.x, uTexLod2.y, pix*1024.0*max(inv.x, inv.y)));
   vec3 ratio = clamp(s.col/max(M.rgb, vec3(0.004)), 0.0, 2.5);
   if (uImgMat == 1 && uTexU[slot].z != 1.0) { float l = max(dot(ratio, vec3(0.2126, 0.7152, 0.0722)), 1e-3); ratio *= pow(l, uTexU[slot].z - 1.0); }   // MA1: per-set contrast
-  vec3 a2 = alb*mix(vec3(1.0), ratio, abs(K.x)*fa);   // TX4: an "absolute" (ground) slot named by an asset material: its strength, not a negative mix
-  float r2 = rough*mix(1.0, s.r/max(Lp.z, 0.02), K.z*fa), ao2 = mix(1.0, s.ao, K.w*f);
+  vec3 a2 = K.w < 0.0 ? mix(alb, s.col*abs(K.x), f)   // trails ("assetAbsolute": path_dirt / path_gravel): the set's own colour replaces the path material's
+                     : alb*mix(vec3(1.0), ratio, abs(K.x)*fa);   // TX4: an "absolute" (ground) slot named by an asset material: its strength, not a negative mix
+  float r2 = rough*mix(1.0, s.r/max(Lp.z, 0.02), K.z*fa), ao2 = mix(1.0, s.ao, abs(K.w)*f);
   vec3 dn2 = dn*(rel && A.y > 0.5 ? max(K.y, 1.0) : K.y)*f*(rel ? 1.5 - 0.5*smoothstep(6.0, 16.0, eyeD) : 1.0);   // MA1b: replace sets at full strength, x1.5 near the eye
   float fr = 128.0*max(inv.x, inv.y);   // the height map's features: ~8 texels
   float h2 = (s.h - Lp.w)*C.x*f*(1.0 - smoothstep(0.18, 0.5, fr*pix));
@@ -850,7 +864,7 @@ void loadSets() {   // TX2: the sets on the GPU (re-run by flushPending; the slo
         glTextureStorage3D(a[k], levelsFor(sz), fmt[k], sz, sz, std::max(layers, 1));
         glTextureParameteri(a[k], GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTextureParameteri(a[k], GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTextureParameteri(a[k], GL_TEXTURE_WRAP_S, GL_REPEAT); glTextureParameteri(a[k], GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTextureParameterf(a[k], 0x84FE /* GL_TEXTURE_MAX_ANISOTROPY */, 8.0f);
+        glTextureParameterf(a[k], 0x84FE /* GL_TEXTURE_MAX_ANISOTROPY */, gAniso);
       }
     };
     mk(arr, kSize, n);

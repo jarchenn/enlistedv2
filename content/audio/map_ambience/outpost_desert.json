@@ -1,0 +1,4 @@
+{
+  "_comment": "Footsteps only (map_ambience.cpp mapStepEvent): gravel tracks are painted as ploughed, dirt tyre ruts as cobbles (both unused elsewhere on this map).",
+  "surfaces": {"ploughed": "step_gravel", "cobbles": "step_dirt"}
+}

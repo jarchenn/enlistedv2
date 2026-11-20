@@ -1,0 +1,18 @@
+{
+ "set": "snow_trodden",
+ "id": "Snow007B",
+ "family": "snow (SN2, trodden)",
+ "size": [
+  2.5,
+  2.5
+ ],
+ "source": "https://ambientcg.com/a/Snow007B",
+ "license": "CC0 1.0 Universal",
+ "credit": "ambientCG.com (CC0)",
+ "resolution": "2K-JPG (the user's files, 2026-11-20; NormalGL)",
+ "maps": [
+  "color.jpg",
+  "normal.jpg",
+  "rma.jpg"
+ ]
+}

@@ -1,0 +1,4 @@
+{
+  "_comment": "Footsteps only (map_ambience.cpp mapStepEvent): the forest tracks are painted with the spare type rock, unused elsewhere on this map; they step as dirt.",
+  "surfaces": {"rock": "step_dirt"}
+}

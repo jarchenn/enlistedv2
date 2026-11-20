@@ -33,11 +33,12 @@ const Cfg& cfg() {
   return c;
 }
 uint32_t mix32(uint32_t x) { x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; x ^= x >> 16; return x; }
+float gDensity = 1.0f;   // UL1: Renderer::q.decalDensity, set per staticDecalsFor call
 struct Rng {
   uint32_t s;
   float f() { s = mix32(s + 0x9E3779B9u); return (s & 0xFFFFFF) / 16777216.0f; }
   float r(float a, float b) { return a + (b - a) * f(); }
-  int count(float expect) { int n = (int)expect; return n + (f() < expect - n ? 1 : 0); }   // expected value = expect
+  int count(float expect) { expect *= gDensity; int n = (int)expect; return n + (f() < expect - n ? 1 : 0); }   // expected value = expect x UL1 density
 };
 // a wall of a room rectangle: a point on it (pos along = 0), the direction along it, its inward normal, its length
 struct Wall { vec3 p0, along, n; float len; };
@@ -61,6 +62,7 @@ const char* staticDecalName(int t) {
 void staticDecalsFor(Renderer& R, uint64_t instId, const RoomInfo& ri, SurfaceParams& sp, float wear, bool damaged,
                      const std::vector<vec4>& xA, const std::vector<vec4>& xB, bool urbanRuin) {
   const Cfg& C = cfg();
+  gDensity = std::max(0.0f, R.q.decalDensity);
   std::vector<StaticDecal> out;
   auto wkOf = [&](float w) { return std::clamp(0.35f + 0.65f * w, 0.2f, 2.4f) * C.density; };   // wear 0 (kept) .. 2 (derelict)
   float wk = wkOf(wear);

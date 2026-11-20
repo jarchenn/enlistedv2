@@ -31,6 +31,7 @@ void attach(GLuint prog);
 // Vertex code for a material (Vertex::params.x = pattern + 100 * code): 0 = the pattern's default slot,
 // 1 = no texture, 2 + slot otherwise. explicitSet = the material JSON's "texture" field ("none" disables).
 int materialCode(const std::string& matName, int pattern, const std::string& explicitSet);
+void setAnisotropy(float a);   // UL1: Renderer::q.texAniso on the set arrays and the grunge mask (1..16)
 void flushPending();   // TX2: load the sets materials named since the last load (lazy library slots); call after the asset library loads
 
 bool active();                     // at least one set on the GPU
