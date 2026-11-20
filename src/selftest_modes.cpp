@@ -676,6 +676,10 @@ void build(App&) {
       vec3 d = glm::normalize(at - eye);
       a.camPos = eye; a.camYaw = glm::degrees(std::atan2(-d.x, -d.z)); a.camPitch = glm::degrees(std::asin(std::clamp(d.y, -1.0f, 1.0f)));
       a.R.lt.hour = p.value("hour", 18.0f); a.R.wx.target = p.value("weather", 0); a.R.wx.fog = 0; a.R.wx.userSet = true;
+      if (p.contains("preset")) {   // BT1: a still at a given preset (High: the full internal resolution, no TAAU upscale)
+        std::string q = p.value("preset", std::string("Medium"));
+        settings().applyPreset(a, q == "Low" ? GfxPreset::Low : q == "High" ? GfxPreset::High : GfxPreset::Medium); a.R.resetTemporal();
+      }
       logf("ui7 still %s: eye %.1f %.1f %.1f at %.1f %.1f %.1f (yaw %.1f pitch %.1f) hour %.1f", id.c_str(), eye.x, eye.y, eye.z, at.x, at.y, at.z, a.camYaw, a.camPitch, a.R.lt.hour);
       r0 = glfwGetTime(); ph = 1; return false;
     }
