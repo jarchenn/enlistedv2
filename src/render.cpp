@@ -4389,7 +4389,11 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
     glUniform2f(U(p, "uTexNear"), tn.x, std::max(tn.y, tn.x + 0.1f));
     glUniform2f(U(p, "uHexFade"), q.hexFade.x, q.hexFade.y); glUniform2f(U(p, "uHBFade"), q.hblendFade.x, q.hblendFade.y);
     glUniform2f(U(p, "uPomQ"), q.pomRange, (float)q.pomSteps); glUniform1f(U(p, "uSDecR"), q.decalRange);
-    static float aniso = -1.0f; if (q.texAniso != aniso) { aniso = q.texAniso; tex::setAnisotropy(aniso); }
+    const float an = perf.texBias ? std::max(q.texAniso, 16.0f) : q.texAniso;   // CP step 1: 16x with texbias
+    static float aniso = -1.0f; if (an != aniso) { aniso = an; tex::setAnisotropy(aniso); }
+    float tb = std::log2(std::max(effScale(), 0.25f)) + (q.taa ? -0.5f : 0.0f);   // texbias: follows the render scale (dynamic resolution)
+    if (const char* e = std::getenv("NMK_TEX_BIAS")) tb = (float)std::atof(e);
+    glUniform1i(U(p, "uTexBiasOn"), perf.texBias && !thumbMode ? 1 : 0); glUniform1f(U(p, "uTexBias"), tb);
   }
   glUniform2f(U(p, "uHex"), q.legacy || !perf.hex || q.matLayer == 0 || hd <= 0 ? 0.0f : 1.0f, std::max(hd, 0.05f)); }   // M1: hex tiling (--rq-off hex; off at Low); NMK_HEX = cells per texture repeat
   glUniform1f(U(p, "uHazeH"), lt.mapHazeH > 0.0f ? lt.mapHazeH : q.hazeHeight);   // FG1: a map's own haze scale height
