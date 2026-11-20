@@ -231,9 +231,13 @@ void main(){
   vec3 trans = (1.0 - F)*T;
   vec3 fogAdd = applyFog(vec3(0.0), vW);                 // the haze colour times its share; sets gFogT
   vec3 col = trans*bed + own*gFogT + fogAdd*(1.0 - trans);
-  // ---- shore: the last few centimetres fade into the bed, a wet sheen just inside the line; foam for sea / brook
-  float shoreW = kind == 0 ? 0.08 : kind == 3 ? 0.012 : 0.04;
+  // ---- shore: the last centimetres fade into the bed, a wet sheen just inside the line; foam for sea / brook
+  // WT1: still ponds fade over ~25 cm of depth, reflection and glint included: a 4 cm fade left the sky reflection at full
+  // strength in water a few centimetres deep, so the waterline (the coarse terrain's straight facets) read as a bright rim
+  float shoreW = kind == 0 ? 0.08 : kind == 3 ? 0.012 : (kind == 1 || kind == 4) ? 0.25 : 0.04;
   float shore = smoothstep(0.0, shoreW, depthV);
+  if (kind == 1 || kind == 4) {   // an irregular waterline: the fade depth wanders by +-8 cm (~1.5 m scale), so the terrain's straight facets do not draw the edge
+    shore = smoothstep(0.0, shoreW, depthV + (vnoise(vec3(vW.xz*0.7, 3.1)) - 0.5)*0.16 + (vnoise(vec3(vW.xz*2.3, 5.7)) - 0.5)*0.05); float sr = shore*shore; own = F*env*sr + spec*sr + (1.0 - F)*(1.0 - T)*Lin; col = trans*bed + own*gFogT + fogAdd*(1.0 - trans); }
   if (kind == 0 || kind == 2) {
     float foam = (1.0 - smoothstep(0.0, kind == 0 ? 0.25 : 0.1, depthV))*smoothstep(0.5, 0.85, vnoise(vec3(vW.xz*2.5, uTime*0.5)))*shore;
     col += foam*0.22*(uSkyCol*0.6 + uSunCol*sh*0.25)*gFogT;
@@ -242,7 +246,7 @@ void main(){
   col = (any(isnan(col)) || any(isinf(col))) ? dry : max(col, vec3(0.0));
   oColor = vec4(col, 1.0);
   oAmb = vec4(0.0);
-  oNR = vec4(N, mix(1.0, rough, shore) + (1.0 - gFogT));   // smooth: the world composite adds SSR (hazed-out: none)
+  oNR = vec4(N, mix(1.0, rough, (kind == 1 || kind == 4) ? shore*shore : shore) + (1.0 - gFogT));   // WT1: no SSR sky glint in the last few cm of a pond   // smooth: the world composite adds SSR (hazed-out: none)
   oVel = vec4(0.0);
 }
 )GLSL";
