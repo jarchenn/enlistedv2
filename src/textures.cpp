@@ -34,6 +34,7 @@ struct Slot {
   float scale = 1, kAlb = 0.8f, kN = 0.8f, kR = 0.5f, kAO = 0.5f, kH = 0, fadeA = 0, fadeB = 0;
   int layer = -1;
   std::string under; int underIdx = -1; float expo = 0.6f, contrast = 1.0f, macro = 0;   // MA1: substrate slot behind the macro exposure mask; macro variation strength
+  float hex = 0;   // M1 hex tiling: rotation strength 0..1 of the ground taps (0 = plain tiling); packed into uTexC.y above the quarter turns
   float relD = 0, crev = 0, edge = 0, lumps = 0;   // MA1b relief (Perf relief): parallax depth (m), crevice darkening, edge wear, fill lumps (m)
   bool lazy = false;   // TX2: a library slot (textures.json "lazy"): its set loads only once a material names it
 };
@@ -75,6 +76,14 @@ Slot parseSlot(const std::string& name, const json& j) {
   std::string m = j.value("mode", "detail"); s.mode = m == "replace" ? 1 : 0;
   std::string sp = j.value("space", "asset"); s.space = sp == "part" ? 1 : sp == "world" ? 2 : sp == "ground" ? 3 : 0;
   s.scale = j.value("scale", 1.0f); s.rot = j.value("rot", 0) & 3;
+  {   // M1: natural ground (soil, grass, gravel, sand, litter, rock) hex-tiles by default; laid or directional patterns (paving, setts, ploughed furrows, ruts,
+      // cobbles, roads, planks, bricks, tiles, slabs) keep their grid; "hex": 0..1 in textures.json overrides either way
+    std::string id = name + "|" + s.set; bool laid = false;
+    for (const char* k : {"paving", "setts", "cobble", "tactile", "road", "brick", "plank", "tile", "concrete", "apron", "slab", "floor_board", "parquet", "plough", "furrow", "rut", "track", "crop", "row"}) laid |= id.find(k) != std::string::npos;
+    bool loose = false;   // loose natural material on asset surfaces too (path beds, yards): the shader skips part space
+    for (const char* k : {"gravel", "dirt", "mud", "sand", "soil", "shingle", "litter", "moss", "grass", "earth"}) loose |= id.find(k) != std::string::npos;
+    s.hex = std::clamp(j.value("hex", (sp == "ground" || loose) && !laid ? 1.0f : 0.0f), 0.0f, 1.0f);
+  }
   s.kAlb = j.value("albedo", s.kAlb); s.kN = j.value("normal", s.kN); s.kR = j.value("rough", s.kR);
   if (j.value("absolute", false)) s.kAlb = -std::max(s.kAlb, 0.01f);   // NT8: a painted slot drawn in its texture's own colour (sign = flag)
   s.kAO = j.value("ao", s.kAO); s.kH = j.value("height", s.kH);
@@ -331,7 +340,7 @@ void uploadTables() {   // the active table into NmkTexTables (std140: vec4 arra
   for (size_t i = 0; i < tbl.size() && i < (size_t)kMaxSlots; ++i) {
     const Slot& s = tbl[i];
     A[i] = vec4((float)s.layer, (float)s.mode, (float)s.space, s.scale);
-    B[i] = vec4(s.kAlb, s.kN, s.kR, s.kAO); C[i] = vec4(s.kH, (float)s.rot, s.fadeA, s.fadeB);
+    B[i] = vec4(s.kAlb, s.kN, s.kR, s.kAO); C[i] = vec4(s.kH, (float)s.rot + 4.0f * std::round(s.hex * 8.0f), s.fadeA, s.fadeB);   // M1: y = quarter turns + 4 x hex eighths
     Uu[i] = vec4((float)s.underIdx, s.expo, s.contrast, s.macro);
     R[i] = vec4(s.relD, s.crev, s.edge, s.lumps);
   }
@@ -418,6 +427,7 @@ void resolveLayers() {
     else if (!s.set.empty() && !s.lazy && std::find(gInfo.missing.begin(), gInfo.missing.end(), s.set) == gInfo.missing.end()) gInfo.missing.push_back(s.set);
   }
   gInfo.slots = (int)slots.size();
+  { static bool told = false; int h = 0; for (auto& sl : slots) h += sl.hex > 0; if (!told) logf("textures: %d slots hex-tiled (M1)", h); told = true; }
 }
 
 const char* kCommonGLSL = R"GLSL(
@@ -465,6 +475,34 @@ bool texOn(){ return uTexOn == 1 && uLook == 1; }
 void texFrame(int q, inout vec3 T, inout vec3 B){ vec3 t = T; if (q == 1) { T = B; B = -t; } else if (q == 2) { T = -T; B = -B; } else if (q == 3) { T = -B; B = t; } }
 // one planar tap: frame T (u), B (v), Nf (out of the plane); explicit gradients (taps sit in divergent branches);
 // the tangent-space normal is whiteout-blended with the surface normal ns
+// M1 hex tiling (Mikkelsen, "Practical Real-Time Hex-Tiling", JCGT 2022): the plane is cut into a triangle grid; each
+// vertex owns a copy of the texture turned (by gHexK of a full turn) and shifted at random, and a pixel blends the three
+// copies of its triangle, sharpened by the set's own height so the seams follow stones and clods instead of a smooth
+// cross-fade. Three taps per map instead of one, ground and cliff slots only (terrTexOne sets gHexK); uHex.x 0 = off
+// (switch "hex", Low), uHex.y = cells per texture repeat.
+uniform vec2 uHex;
+float gHexK = 0.0;
+vec2 hexHash(vec2 v){ return fract(sin(mod(vec2(dot(v, vec2(127.1, 311.7)), dot(v, vec2(269.5, 183.3))), 3.14159))*43758.5453); }
+void texHexFetch(vec3 q, vec2 gx, vec2 gy, out vec4 c, out vec2 nx, out vec2 rh, float nfk, bool nrm){
+  vec2 sk = mat2(1.0, 0.0, -0.57735027, 1.15470054)*(q.xy*uHex.y);
+  vec2 b = floor(sk); vec3 t = vec3(fract(sk), 0.0); t.z = 1.0 - t.x - t.y;
+  float s = step(0.0, -t.z), s2 = 2.0*s - 1.0;
+  vec3 bw = vec3(-t.z*s2, s - t.y*s2, s - t.x*s2);
+  vec2 v[3] = vec2[3](b + vec2(s, s), b + vec2(s, 1.0 - s), b + vec2(1.0 - s, s));
+  c = vec4(0.0); nx = vec2(0.0); rh = vec2(0.0); float ws = 0.0;
+  for (int i = 0; i < 3; ++i) {
+    if (bw[i] < 0.02) continue;
+    float ang = (mod(abs(v[i].x*v[i].y) + abs(v[i].x + v[i].y), 6.2831853) - 3.14159265)*gHexK;
+    float cs = cos(ang), sn = sin(ang); mat2 R = mat2(cs, sn, -sn, cs);
+    vec2 cen = mat2(1.0, 0.0, 0.5, 0.8660254)*v[i]/uHex.y;
+    vec3 qi = vec3(R*(q.xy - cen) + cen + hexHash(v[i]), q.z); vec2 gxi = R*gx, gyi = R*gy;
+    vec2 h = texGRH(qi, gxi, gyi).rg;
+    float W = pow(bw[i], 5.0)*exp2(7.0*h.y);   // barycentric weight, sharpened, then the higher surface wins
+    c += texGCol(qi, gxi, gyi)*W; rh += h*W; ws += W;
+    if (nrm) nx += transpose(R)*(texGNrm(qi, gxi, gyi).rg*2.0 - 1.0)*nfk*W;   // the turned copy's normal back into the surface frame
+  }
+  c /= ws; rh /= ws; nx /= ws;
+}
 void texTap(float L, vec3 p, vec3 dpx, vec3 dpy, vec2 inv, vec3 T, vec3 B, vec3 Nf, vec3 ns, float w, inout TexS s){
   vec3 q = vec3(dot(p, T)*inv.x, dot(p, B)*inv.y, L);
   float gs = gTexGS > 0.0 ? gTexGS : uTexLod.x;
@@ -483,12 +521,17 @@ void texTap(float L, vec3 p, vec3 dpx, vec3 dpy, vec2 inv, vec3 T, vec3 B, vec3 
     }
   }
   if (gDetF > 0.0 && w > 0.3) s.d += (texGRH(vec3(q.xy*3.7 + vec2(0.37, 0.61), q.z), gx*3.7, gy*3.7).g - 0.5)*w;   // MA1b: the set's own grain / pores at 3.7x
-  vec4 c = texGCol(q, gx, gy);
   // normal detail near the pixel frequency flickers under the TAA jitter: fade it with the footprint (texels per pixel)
   float fp = max(length(gx), length(gy))*(texHi(L) ? 2048.0 : 1024.0)/max(gs, 1e-3);
   float nfk = 1.0 - uTexLod.w*gTexNFade*smoothstep(uTexLod.y, uTexLod.z, fp);
-  vec2 nx = (uTexSkipFar == 1 && nfk < 0.06) ? vec2(0.0) : (texGNrm(q, gx, gy).rg*2.0 - 1.0)*nfk;   // MA1 imgmat: far, no normal tap
-  vec2 rh = texGRH(q, gx, gy).rg;
+  bool nrm = !(uTexSkipFar == 1 && nfk < 0.06);   // MA1 imgmat: far, no normal tap
+  vec4 c; vec2 nx, rh;
+  if (gHexK > 0.0 && w > 0.04) texHexFetch(q, gx, gy, c, nx, rh, nfk, nrm);
+  else {
+    c = texGCol(q, gx, gy);
+    nx = nrm ? (texGNrm(q, gx, gy).rg*2.0 - 1.0)*nfk : vec2(0.0);
+    rh = texGRH(q, gx, gy).rg;
+  }
   float nz = sqrt(max(1.0 - dot(nx, nx), 0.0));
   vec3 wn = vec3(nx + vec2(dot(ns, T), dot(ns, B)), nz*max(dot(ns, Nf), 0.0));
   s.col += c.rgb*w; s.ao += c.a*w; s.r += rh.x*w; s.h += rh.y*w; s.n += (T*wn.x + B*wn.y + Nf*wn.z)*w;
@@ -518,14 +561,15 @@ TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
   float f = C.w > 0.0 ? 1.0 - smoothstep(C.z, C.w, dist) : 1.0;
   if (f <= 0.0) return o;
   gEyeD = dist;
-  vec2 inv = Lp.xy*A.w; int rot = int(C.y + 0.5);
+  vec2 inv = Lp.xy*A.w; int rot = int(mod(C.y + 0.5, 4.0));
+  gHexK = uHex.x > 0.0 ? floor(C.y/4.0 + 0.01)/8.0 : 0.0;   // M1: this slot's hex tiling (ground and cliff taps)
   TexS s = TexS(vec3(0.0), 0.0, 0.0, 0.0, vec3(0.0), 0.0);
   float gs0 = gTexGS; gTexGS = uTexLodG;
   if (int(A.z + 0.5) == 3) {
     vec3 T = vec3(1.0, 0.0, 0.0), B = vec3(0.0, 0.0, -1.0); texFrame(rot, T, B);
     texTap(A.x, p, dpx, dpy, inv, T, B, vec3(0.0, 1.0, 0.0), n, 1.0, s); s.n = normalize(s.n);
   } else s = texTri(A.x, p, n, dpx, dpy, inv, rot);
-  gTexGS = gs0;
+  gTexGS = gs0; gHexK = 0.0;
   o.alb = K.x < 0.0 ? mix(M.rgb, s.col, f)*(-K.x)   // NT8 "absolute": the texture's own colour (paintApply uses it as the albedo)
                     : mix(vec3(1.0), clamp(s.col/max(M.rgb, vec3(0.004)), 0.0, 2.5), K.x*f);
   o.r = mix(1.0, s.r/max(Lp.z, 0.02), K.z*f);
@@ -585,10 +629,11 @@ bool texReplace(int slot){ return texOn() && slot >= 0 && slot < 704 && uTexA[sl
 TexS texSlotTaps(int slot, vec3 w, vec3 ng, vec3 ap, vec3 an, vec3 pc, vec3 pn, int grain,
                  vec3 dwx, vec3 dwy, vec3 dax, vec3 day, vec3 dcx, vec3 dcy, out vec3 dn){
   vec4 A = uTexA[slot], C = uTexC[slot];
-  vec2 inv = uTexL[int(A.x + 0.5)].xy*A.w; int sp = int(A.z + 0.5), rot = int(C.y + 0.5);
+  vec2 inv = uTexL[int(A.x + 0.5)].xy*A.w; int sp = int(A.z + 0.5), rot = int(mod(C.y + 0.5, 4.0));
   TexS s = TexS(vec3(0.0), 0.0, 0.0, 0.0, vec3(0.0), 0.0); dn = vec3(0.0);
   gTexNFade = (uImgMat == 1 && A.y > 0.5) ? 0.5 : 1.0;
   gTexGS = uRelief == 1 && A.y > 0.5 ? uTexLod2.w : 0.0;   // MA1b: the image is the structure; less LOD bias keeps courses and tiles at 15-35 m
+  gHexK = uHex.x > 0.0 && sp != 1 ? floor(C.y/4.0 + 0.01)/8.0 : 0.0;   // M1: ground slots on assets too (path and yard surfaces)
   vec3 pv = gPomV;   // the eye direction (world): each space below takes its own copy
   if (sp == 2) { s = texTri(A.x, w, ng, dwx, dwy, inv, rot); dn = s.n - ng; }
   else if (sp == 1) {
@@ -619,6 +664,7 @@ TexS texSlotTaps(int slot, vec3 w, vec3 ng, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
     mat3 mm = mat3(uModel); vec3 nw = mm*na; float sc = max(length(nw), 1e-6);
     dn = (mm*s.n - nw)/sc;
   }
+  gHexK = 0.0;
   return s;
 }
 // MA1 macro variation: one tap, planar on the dominant world axis (walls x/z by y, floors and roofs xz)
