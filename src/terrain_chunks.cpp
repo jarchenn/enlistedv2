@@ -284,7 +284,7 @@ void TerrainStream::update(const Terrain& t, vec3 cam, const mat4& vp, float bud
 
 float TerrainStream::lodDistance(int l) const {
   // PF2: the rings past LOD0 follow the render distance (Low 600 m: x0.6, High 2.5 km: x1.5; the close-up ground stays)
-  const float k = std::clamp(settings().drawDist(), 0.6f, 1.5f);
+  const float k = std::clamp(settings().renderDistUser() / 1200.0f, 0.6f, 1.5f);   // not the fog cap (viscull): culled ground would show sky
   return cfg.lodDist[l] * (l >= 1 ? k : 1.0f);
 }
 

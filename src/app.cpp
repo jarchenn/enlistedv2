@@ -1261,6 +1261,7 @@ int App::run(int argc, char** argv) {
     else if (mode == Mode::Creative) { updateCreative(frameDt); drawCreativeUI(); }
     else { updateExplore(frameDt); crumb("explore ui"); drawExploreUI(); }
     mark("ui+sync");
+    settings().visCap = R.visCullDist(mode == Mode::Explore ? eyePos() : camPos);   // weather corpus 08 s4: draw distance follows the fog
     mpaiUI(*this);   // Play menu, scenario panel, match HUD
     settingsWindow(*this);   // Settings window (Creative menu, pause menu, Loadout)
     { extern void uiInputWatchdog(App&); uiInputWatchdog(*this); }   // UI8: a hidden modal raised, a dead setup window released

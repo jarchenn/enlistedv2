@@ -382,9 +382,11 @@ float waterSurfaceAt(const App& app, float x, float z) {
 
 const WaterStats& waterStats() { return gStats; }
 
+static GLuint gWaterProg = 0;   // CP 5.8: compiled at init (waterWarm), not on the first frame with water
 struct WaterPass {
+  static void warm(Renderer& r) { if (!gWaterProg) gWaterProg = r.compile(kWaterVS, kWaterFS, "water"); }
   static void run(Renderer& r, const RenderView& v, const mat4& vp) {
-    static GLuint prog = 0, depCopy = 0; static int cw = 0, ch = 0;
+    static GLuint depCopy = 0; static int cw = 0, ch = 0; GLuint& prog = gWaterProg;
     auto t0 = std::chrono::high_resolution_clock::now();
     gStats = WaterStats{};
     if (!prog) prog = r.compile(kWaterVS, kWaterFS, "water");
@@ -421,3 +423,4 @@ struct WaterPass {
   }
 };
 void waterRenderPass(Renderer& r, const RenderView& v, const mat4& vp) { WaterPass::run(r, v, vp); }
+void waterWarm(Renderer& r) { WaterPass::warm(r); }   // CP 5.8 (Renderer::warmPrograms)

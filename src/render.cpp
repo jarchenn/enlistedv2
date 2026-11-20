@@ -1,5 +1,7 @@
 #include "render.h"
 #include <cstring>
+#include <fstream>
+#include "user_cache.h"
 #include "crumb.h"
 #include "ground_paint.h"   // NT4: groundPaintArid
 #include "lighting.h"
@@ -3884,6 +3886,15 @@ void Overlay::capsule(vec3 f, float h, float r, vec4 c) {
 }
 
 // ============================================================== renderer
+// CP 5.8 program-binary cache: a linked program is kept as its driver binary in %LOCALAPPDATA%/BattleFoundry/shaders
+// (NMK_SHADER_CACHE: another folder; NMK_NO_SHADER_CACHE: off), keyed by every source string plus GL_RENDERER and
+// GL_VERSION, so a driver update or any shader edit misses and recompiles; a binary the driver rejects falls back to source.
+// shortcut: no size cap (a few hundred programs, tens of MB at most); add it to user_cache.cpp's pruning if it grows
+namespace {
+uint64_t fnv64(uint64_t h, const char* s) { for (; s && *s; ++s) { h ^= (uint8_t)*s; h *= 1099511628211ull; } return h; }
+fs::path progCachePath(uint64_t key) { static const fs::path d = userCacheDir("shaders", "NMK_SHADER_CACHE"); char b[24]; std::snprintf(b, sizeof b, "%016llx.bin", (unsigned long long)key); return d / b; }
+bool progCacheOn() { static const bool on = !std::getenv("NMK_NO_SHADER_CACHE"); return on; }
+}
 GLuint Renderer::compile(const char* vs, const char* fs, const char* name) {
   crumb("shader compile");   // UI5: the launch splash presents between programs
   locCache.clear();   // a new program may reuse a deleted one's id
@@ -3898,12 +3909,39 @@ GLuint Renderer::compile(const char* vs, const char* fs, const char* name) {
   bool fsHasVersion = std::strncmp(fs, "\n#version", 9) == 0 || std::strncmp(fs, "#version", 8) == 0;
   // kCommon has no #version: the stage define lets it hold fragment-only helpers (gl_FragCoord noise)
   const char* vsrc[3] = {"#version 450 core\n#define NMK_VS 1\n", kCommon, vs}; const char* fsrc[3] = {"#version 450 core\n#define NMK_FS 1\n", kCommon, fs};
+  uint64_t key = 1469598103934665603ull;
+  for (const char* s : {(const char*)glGetString(GL_RENDERER), (const char*)glGetString(GL_VERSION), "|", vsHasVersion ? vs : vsrc[0], vsHasVersion ? "" : kCommon, vsHasVersion ? "" : vs, "|", fsHasVersion ? fs : fsrc[0], fsHasVersion ? "" : kCommon, fsHasVersion ? "" : fs})
+    key = fnv64(key, s);
+  if (progCacheOn()) {   // the cached binary, if the driver still takes it
+    std::ifstream in(progCachePath(key), std::ios::binary);
+    std::vector<char> buf;
+    if (in) buf.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    if (buf.size() > sizeof(GLenum)) {
+      GLenum fmt; std::memcpy(&fmt, buf.data(), sizeof fmt);
+      GLuint p = glCreateProgram(); glProgramBinary(p, fmt, buf.data() + sizeof fmt, (GLsizei)(buf.size() - sizeof fmt));
+      GLint ok = 0; glGetProgramiv(p, GL_LINK_STATUS, &ok);
+      if (ok) { ++shaderCacheHits; return p; }
+      glDeleteProgram(p);
+    }
+  }
   GLuint v = vsHasVersion ? sh(GL_VERTEX_SHADER, &vs, 1) : sh(GL_VERTEX_SHADER, vsrc, 3);
   GLuint f = fsHasVersion ? sh(GL_FRAGMENT_SHADER, &fs, 1) : sh(GL_FRAGMENT_SHADER, fsrc, 3);
-  GLuint p = glCreateProgram(); glAttachShader(p, v); glAttachShader(p, f); glLinkProgram(p);
+  GLuint p = glCreateProgram(); glAttachShader(p, v); glAttachShader(p, f);
+  if (progCacheOn()) glProgramParameteri(p, GL_PROGRAM_BINARY_RETRIEVABLE_HINT, GL_TRUE);
+  glLinkProgram(p);
   GLint ok; glGetProgramiv(p, GL_LINK_STATUS, &ok);
   if (!ok) { char log[4096]; glGetProgramInfoLog(p, sizeof log, nullptr, log); logf("link %s error:\n%s", name, log); }
   glDeleteShader(v); glDeleteShader(f);
+  if (ok && progCacheOn()) {   // keep the binary (a temp name, then renamed: a crash leaves no half file)
+    GLint len = 0; glGetProgramiv(p, GL_PROGRAM_BINARY_LENGTH, &len);
+    if (len > 0) {
+      std::vector<char> buf(sizeof(GLenum) + len); GLenum fmt = 0; GLsizei got = 0;
+      glGetProgramBinary(p, len, &got, &fmt, buf.data() + sizeof fmt); std::memcpy(buf.data(), &fmt, sizeof fmt);
+      fs::path dst = progCachePath(key), tmp = dst; tmp += ".tmp"; std::error_code ec; fs::create_directories(dst.parent_path(), ec);
+      { std::ofstream o(tmp, std::ios::binary); o.write(buf.data(), (std::streamsize)(sizeof fmt + got)); }
+      fs::rename(tmp, dst, ec);
+    }
+  }
   return p;
 }
 
@@ -4044,6 +4082,8 @@ bool Renderer::init(int w, int h) {
   glNamedFramebufferTexture(thumbHdrFbo, GL_DEPTH_ATTACHMENT, thumbDepth, 0);
   resize(w, h);
   { static const std::string mainFS = std::string(tex::glslCommon()) + tex::glslMain() + kMainFS; lightingInit(*this, kCommon, mainFS.c_str()); }   // the capture shader is progMain's FS, L4 texture hooks included   // L2: clusters, light shadows, probe volumes
+  warmPrograms();   // CP 5.8: no program left to compile on first use
+  logf("shaders: %d programs from the binary cache", shaderCacheHits);
   return true;
 }
 
@@ -4930,9 +4970,26 @@ void main(){
   float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); o = vec4(mix(vec3(l), c, uSat), a);
 }
 )GLSL";
+// weather corpus 08 s4: beyond 1.42 x the visibility V = 3.912 / sigma an unlit object is under 0.4 % contrast against the fog,
+// so it is not drawn. sigma at the eye from the same terms kCommon's fog uses (aerial haze by height, the WX1 / FG1 fog
+// layer), with the fog field and drift at their low end (0.6) so the cut is never nearer than what is visible.
+// shortcut: no dithered fade at the cut (at 0.4 % contrast it does not show); reads the haze until the shared weather
+// state's cullDistance lands, then switch to that one number
+float Renderer::visCullDist(vec3 eye) const {
+  if (!perf.visCull || lt.mapNoFog || q.legacy) return 1e9f;
+  float sigma = q.hazeDensity * lt.mapHaze * std::exp(-std::max(eye.y, 0.0f) / std::max(1.0f, q.hazeHeight));
+  float env = perf.envFog ? (lt.mapFogLayerDens >= 0.0f ? lt.mapFogLayerDens : std::max(wx.fogNow, 0.0f)) : 0.0f;
+  sigma += 0.6f * env;   // the fog layer near its floor (the eye inside it: the conservative case is its thinnest drift)
+  return sigma > 1e-6f ? 1.42f * 3.912f / sigma : 1e9f;
+}
+static GLuint gLiveProg = 0;   // CP 5.8: compiled at init (warmPrograms)
+void Renderer::warmPrograms() {
+  if (!gLiveProg) gLiveProg = compile(kFullVS, kLiveFS, "modelLive");
+  extern void waterWarm(Renderer&); waterWarm(*this);
+}
 GLuint Renderer::renderModelLive(const std::vector<ModelDraw>& items, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, float saturation, int slot) {
   struct Slot { GLuint hdr = 0, dep = 0, fbo = 0, ldr = 0, ldrFbo = 0; int W = 0, H = 0; };
-  static Slot slots[2]; static GLuint prog = 0;
+  static Slot slots[2]; GLuint& prog = gLiveProg;
   Slot& S = slots[std::clamp(slot, 0, 1)];
   GLuint &hdr = S.hdr, &dep = S.dep, &fbo = S.fbo, &ldr = S.ldr, &ldrFbo = S.ldrFbo; int &W = S.W, &H = S.H;
   if (!prog) prog = compile(kFullVS, kLiveFS, "modelLive");

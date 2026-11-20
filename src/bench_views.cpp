@@ -88,7 +88,11 @@ bool isBuilding(const AssetDef* d) { return d->enterable; }
 bool isGreen(const AssetDef* d) { return d->tree.on || d->nature.kind != NatureDef::NONE || d->category == "Trees" || d->category == "Bushes" || d->category == "Nature"; }
 bool isAny(const AssetDef*) { return true; }
 
-json loadViewsFile() { json all = json::object(); try { std::ifstream f(contentDir() / "settings" / "bench_views.json"); if (f) all = json::parse(f); } catch (...) {} return all; }
+json loadViewsFile() {   // NMK_BENCH_VIEWFILE: another views file (a session's own bookmarks)
+  json all = json::object(); const char* e = std::getenv("NMK_BENCH_VIEWFILE");
+  try { std::ifstream f(e && *e ? fs::path(e) : contentDir() / "settings" / "bench_views.json"); if (f) all = json::parse(f); } catch (...) {}
+  return all;
+}
 
 void viewsFor(App& a, const std::string& map, const TemplateInfo& t) {
   json all = loadViewsFile();
@@ -197,7 +201,7 @@ void writeRun(App& a, const Run& r) {
   for (int l = 0; l < nl; ++l) { std::vector<double> v, c; for (size_t k = 0; k < r.gpu.size(); ++k) if (r.lap[k] == l) { v.push_back(r.gpu[k]); c.push_back(r.cpuNoSwap[k]); } lapP99.push_back(pct(v, 0.99)); lapP50.push_back(pct(v, 0.5)); lapCpu99.push_back(pct(c, 0.99)); }
   int h15 = std::accumulate(r.hitch.begin(), r.hitch.end(), 0), h33 = 0, h50 = 0; for (double c : r.cpu) { h33 += c > 33.3; h50 += c > 50.0; }
   json j = {{"kind", gKind}, {"map", r.map}, {"view", r.view}, {"preset", r.preset}, {"frames", r.gpu.size()}, {"laps", nl}, {"framebuffer", {fw, fh}}, {"internal", {r.iw, r.ih}},
-            {"lighting", a.R.q.lightNew ? "new" : "classic"}, {"msaa", a.R.msaa()}, {"vsync", false}, {"fpsCap", 0}, {"pathSpeed", gKind == "path" ? gPath.len / kPathS : 0.0},   // self-tests: swap interval 0, no cap (settings.cpp)
+            {"lighting", a.R.q.lightNew ? "new" : "classic"}, {"msaa", a.R.msaa()}, {"vsync", false}, {"fpsCap", 0}, {"weather", std::getenv("NMK_BENCH_WEATHER") ? std::getenv("NMK_BENCH_WEATHER") : "map"}, {"pathSpeed", gKind == "path" ? gPath.len / kPathS : 0.0},   // self-tests: swap interval 0, no cap (settings.cpp)
             {"gpuMs", pctJ(r.gpu)}, {"gpuP99PerLap", lapP99}, {"gpuP50PerLap", lapP50}, {"cpuP99PerLap", lapCpu99}, {"cpuFrameMs", pctJ(r.cpu)}, {"cpuNoSwapMs", pctJ(r.cpuNoSwap)}, {"swapMs", pctJ(r.swap)},
             {"hitches", {{"over1_5xMedian", h15}, {"over33ms", h33}, {"over50ms", h50}}},
             {"renderCpuMs", pct(r.rcpu, 0.5)}, {"probesPerFrame", mean(r.probes)}, {"draws", {{"p50", pct(r.draws, 0.5)}, {"max", pct(r.draws, 1)}}}, {"tris", {{"p50", pct(r.tris, 0.5)}, {"max", pct(r.tris, 1)}}},
@@ -235,7 +239,12 @@ void applyRunSettings(App& a) {
     else if (f.rfind("scale", 0) == 0) a.R.setResolutionScale((float)std::atof(f.c_str() + 5));
     else if (!a.R.perf.set(f, false)) logf("[bench] NMK_BENCH_AB: unknown switch %s", f.c_str());
   }
-  a.R.lt.hour = 14.0f; a.R.wx.target = 0; a.R.wx.userSet = true; a.R.wx.snap();
+  // weather: the map's own sky by default (fog layer, cloud deck, snowfall as players see the map); NMK_BENCH_WEATHER=clear
+  // or cloudy forces one (secondary rows)
+  a.R.lt.hour = 14.0f;
+  if (const char* w = std::getenv("NMK_BENCH_WEATHER"); w && *w) { a.R.wx.target = std::string(w) == "cloudy" ? 1 : 0; a.R.wx.userSet = true; }
+  else a.R.wx.userSet = false;
+  a.R.wx.snap();
 }
 void internalRes(App& a, Run& r) { float s = a.R.perf.taau ? a.R.resolutionScale() : 1.0f; int fw, fh; glfwGetFramebufferSize(a.win, &fw, &fh); r.iw = (int)std::lround(fw * s); r.ih = (int)std::lround(fh * s); }
 

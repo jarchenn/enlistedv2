@@ -97,8 +97,10 @@ public:
   void capture(const App& app);
   void applyPreset(App& app, GfxPreset p) { if (p != GfxPreset::Custom) s.gfx = presetOpts(p); apply(app); }
   // getters for other systems
-  float drawDist() const { return s.gfx.renderDist / 1200.0f; }   // the old multiplier (1 = Medium's 1200 m), used by the cull sites
-  float renderDist() const { return s.gfx.renderDist; }
+  float drawDist() const { return renderDist() / 1200.0f; }   // the old multiplier (1 = Medium's 1200 m), used by the cull sites
+  float renderDist() const { return std::min(s.gfx.renderDist, visCap); }   // capped by the fog (visCap, set each frame)
+  float renderDistUser() const { return s.gfx.renderDist; }   // uncapped: terrain (culled ground would show sky, not fog colour)
+  float visCap = 1e9f;         // weather corpus 08 s4: 1.42 x the visibility at the eye (Renderer::visCullDist), app.cpp each frame
   float particleBudget() const { return s.gfx.particles; }   // multiplier on effect / fragment caps (1 = Medium)
   float fov() const { return s.fov; }
   float gamma() const { return s.gamma; }
