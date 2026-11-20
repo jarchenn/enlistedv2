@@ -162,6 +162,15 @@ public:
     bool taa = true; float taaSharpen = 0.30f, taaJitter = 0.5f;   // V1: sharpen 0.40 -> 0.30 (facade shimmer A/B, docs/rendering.md 9.5)
     int taaPhases = 8;          // Halton (2,3) jitter phases (settings: High uses 16)
     int matLayer = 1;           // GX5 layered materials: 0 off (Low), 1 wear / grime / seams / detail, 2 + High extras
+    // UL1 material knobs (stream M, textures.cpp / static_decals.cpp): per tier; the defaults are what Low / Medium / High do
+    float texAniso = 8.0f;              // max anisotropy of the texture-set arrays and the grunge mask
+    glm::vec2 texNear{3.0f, 10.0f};     // TX3: the sets' LOD bias fades in between these eye distances (m)
+    glm::vec2 hexFade{0.0f, 0.0f};      // M1: hex tiling fades to plain tiling between these eye distances (m); y 0 = no fade
+    glm::vec2 hblendFade{0.0f, 0.0f};   // M2: height blending fades out between these eye distances (m); y 0 = no fade
+    float pomRange = 0.0f;              // MA1b parallax: range (m) on height-capable sets; 0 = by matLayer (Medium 8, High 14)
+    int pomSteps = 0;                   // parallax steps; 0 = by matLayer (Medium 1 offset, High 10-step march)
+    float decalDensity = 1.0f;          // static wall decals (stains, scuffs, pocks, streaks): x expected count per wall
+    float decalRange = 0.0f;            // static wall decals drawn within this eye distance (m); 0 = no limit
     // P3 per-preset costs (settings.cpp apply, by shadowQuality / gi). Defaults = Medium; High: 40 m, 16, 2, 12 m
     float shadowNearR = 32.0f;  // near sun cascade radius while walking (m)
     int shadowTaps = 6;         // cap on the sun PCF taps per cascade lookup (the shaders ask for 4-8)

@@ -584,7 +584,7 @@ uniform int uNoWallRelief;   // A/B: 1 = rough-wall relief off (Renderer::wallRe
 // uMatLayer (GX5 layered materials: 0 off (Low, probe captures), 1 on, 2 High) is declared with the L4 hooks (textures.cpp)
 struct SDec { vec4 a, b, c; };   // GX5 static decals (static_decals.h): centre + type, normal + seed, half size + strength + variant
 layout(std430, binding = 10) readonly buffer NmkStaticDecals { SDec gSD[]; };
-uniform vec4 uRoomDec[16]; uniform vec4 uExtDec; uniform int uSDecOn;
+uniform vec4 uRoomDec[16]; uniform vec4 uExtDec; uniform int uSDecOn; uniform float uSDecR;   // UL1: q.decalRange
 uniform int uGxDebug;   // NMK_GX5_DEBUG=1: red = interior room found (green = past 16), blue = decals in its list
 uniform ivec2 uRoomX;   // GX5: rooms past the 16 in uniforms, as records in gSD (a = room A, b = room B, c = decal range): first, count
 layout(location=0) out vec4 oColor;
@@ -1710,7 +1710,7 @@ void main(){
   {   // PERF1 matfar: both GX5 layers fade out over the far band and are skipped beyond it
     vec3 a0 = alb; float r0 = rough, o0 = ao;
     if (uMatLayer > 0 && farK < 1.0) gxLayer(pat, normalize(vAn), alb, rough, ao);   // GX5 wear / grime layer, roughness breakup, seam occlusion
-    if (uSDecOn == 1 && farK < 1.0 && (pat == 20 || (pat == 21 && gRoom >= 0) || (gIn == 0 && pat != 21 && pat != 23 && pat < 25 && uInst.w > 0.5))) sdecals(normalize(vAn), alb, rough, ao);   // GX5 static decals
+    if (uSDecOn == 1 && farK < 1.0 && (uSDecR <= 0.0 || length(vW - uCamPos) < uSDecR) && (pat == 20 || (pat == 21 && gRoom >= 0) || (gIn == 0 && pat != 21 && pat != 23 && pat < 25 && uInst.w > 0.5))) sdecals(normalize(vAn), alb, rough, ao);   // GX5 static decals
     if (farK > 0.0) { alb = mix(alb, a0, farK); rough = mix(rough, r0, farK); ao = mix(ao, o0, farK); gSeam = mix(gSeam, 1.0, farK); }
   }
   if (uMapGrime > 0.0 && uWeather == 1 && gIn == 0 && pat != 20 && pat != 21 && farK < 1.0) {   // NT3: abandoned map (look.grime)
@@ -4370,6 +4370,13 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uLook"), q.legacy ? 0 : 1);
   { vec2 sa(0.25f, 0.18f); if (const char* e = std::getenv("NMK_SPECAA")) std::sscanf(e, "%f,%f", &sa.x, &sa.y); glUniform2f(U(p, "uSpecAA"), q.legacy || !perf.specAA ? 0.0f : sa.x, sa.y); }   // M3: specaa (--rq-off specaa); NMK_SPECAA="variance,clamp"
   { float hd = 1.0f; if (const char* e = std::getenv("NMK_HEX")) hd = (float)std::atof(e); glUniform1f(U(p, "uHBlend"), q.legacy || !perf.hblend || q.matLayer == 0 ? 0.0f : (std::getenv("NMK_HBLEND") ? (float)std::atof(std::getenv("NMK_HBLEND")) : 1.5f));   // M2: height blending (--rq-off hblend; off at Low); NMK_HBLEND = strength
+  {   // UL1 material knobs (q.tex*, q.hexFade, q.hblendFade, q.pom*, q.decalRange); NMK_TEX_NEAR="a,b" still overrides
+    vec2 tn = q.texNear; if (const char* e = std::getenv("NMK_TEX_NEAR")) std::sscanf(e, "%f,%f", &tn.x, &tn.y);
+    glUniform2f(U(p, "uTexNear"), tn.x, std::max(tn.y, tn.x + 0.1f));
+    glUniform2f(U(p, "uHexFade"), q.hexFade.x, q.hexFade.y); glUniform2f(U(p, "uHBFade"), q.hblendFade.x, q.hblendFade.y);
+    glUniform2f(U(p, "uPomQ"), q.pomRange, (float)q.pomSteps); glUniform1f(U(p, "uSDecR"), q.decalRange);
+    static float aniso = -1.0f; if (q.texAniso != aniso) { aniso = q.texAniso; tex::setAnisotropy(aniso); }
+  }
   glUniform2f(U(p, "uHex"), q.legacy || !perf.hex || q.matLayer == 0 || hd <= 0 ? 0.0f : 1.0f, std::max(hd, 0.05f)); }   // M1: hex tiling (--rq-off hex; off at Low); NMK_HEX = cells per texture repeat
   glUniform1f(U(p, "uHazeH"), lt.mapHazeH > 0.0f ? lt.mapHazeH : q.hazeHeight);   // FG1: a map's own haze scale height
   glUniform1f(U(p, "uTime"), time);
