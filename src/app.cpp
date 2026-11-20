@@ -1070,7 +1070,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-render") runSelf = true;   // V1 facades, walls, water (selftest_render.cpp)
     else if (a == "--selftest-lights") runSelf = true;   // L2 lighting engine (selftest_lights.cpp)
     else if (a == "--selftest-swim") runSelf = true;     // swimming, underwater view, breath (selftest_swim.cpp)
-    else if (a == "--capture-heli" || a == "--gen-vehicle-spawns" || a == "--capture-vh7" || a == "--check-ed2" || a == "--check-vh8" || a == "--capture-vh8" || a == "--mem-probe" || a == "--check-sm1" || a == "--capture-sm1" || a == "--check-sm1-br" || a == "--check-sm3" || a == "--capture-shade" || a == "--capture-rc2" || a == "--check-snd10" || a == "--check-bta" || a == "--check-rm1" || a == "--check-vm1") runSelf = true;   // VH5 (capture_heli.cpp)
+    else if (a == "--capture-heli" || a == "--gen-vehicle-spawns" || a == "--capture-vh7" || a == "--check-ed2" || a == "--check-vh8" || a == "--capture-vh8" || a == "--mem-probe" || a == "--check-sm1" || a == "--capture-sm1" || a == "--check-sm1-br" || a == "--check-sm3" || a == "--capture-shade" || a == "--capture-rc2" || a == "--check-snd10" || a == "--check-bta" || a == "--bench-views" || a == "--check-rm1" || a == "--check-vm1") runSelf = true;   // VH5 (capture_heli.cpp)
     else if (a == "--selftest-zombies" || a == "--capture-heavies" || a == "--capture-commands" || a == "--capture-ch1" || a == "--capture-ch6" || a == "--capture-ch8") runSelf = true;
     else if (a == "--capture-tk1" || a == "--check-tk1-match" || a == "--capture-tk2" || a == "--selftest-sd" || a == "--selftest-playerdmg" || a == "--selftest-prone" || a == "--selftest-sd3" || a == "--selftest-spectate" || a == "--sd-timings" || a == "--blocker-scan" || a == "--selftest-sd-plant" || a == "--capture-th1" || a == "--check-th2" || a == "--selftest-sd-freeze" || a == "--selftest-sd-time" || a == "--capture-sd9" || a == "--capture-gm1" || a == "--capture-df1" || a == "--capture-na1" || a == "--capture-wsm2") runSelf = true;   // TK1 (capture_tk1.cpp)
     else if (a == "--capture-br-models" || a == "--capture-br-worn" || a == "--capture-reticles" || a == "--check-sight-freeze") runSelf = true;   // BR3 / BR8: a look at the Battle Royale models and worn gear (selftest_brmodels.cpp)
@@ -1124,7 +1124,11 @@ int App::run(int argc, char** argv) {
     audio.silent = (testRun || (mu && *mu && std::strcmp(mu, "0") != 0)) && !(ae && std::strcmp(ae, "on") == 0); }
   if (testRun) { glfwWindowHint(GLFW_FOCUSED, GLFW_FALSE); glfwWindowHint(GLFW_FOCUS_ON_SHOW, GLFW_FALSE); }
   int W = runSelf ? 1920 : 1600, H = runSelf ? 1080 : 900;
+  bool bench1440 = std::getenv("NMK_WIN_1440") != nullptr;   // NMK_WIN_1440=1: any launch at a borderless 2560x1440 at (0,0)
+   for (int k = 1; k < __argc; ++k) bench1440 |= std::string(__argv[k]) == "--bench-views";
+  if (bench1440) { W = 2560; H = 1440; glfwWindowHint(GLFW_DECORATED, GLFW_FALSE); }   // P1: the VO benchmark at 1440p (borderless: a framed 1440p window does not fit a 1440p screen and is shrunk)
   win = glfwCreateWindow(W, H, "Battle Foundry", nullptr, nullptr);   // UI2: the game's name (repo / exe keep theirs)
+  if (win && bench1440) glfwSetWindowPos(win, 0, 0);
   if (!win) { logf("Could not create an OpenGL 4.5 core window. Update your graphics driver."); glfwTerminate(); return 1; }
   if (!platformInitContext(win)) { logf("graphics context init failed"); return 1; }
   logf("GL %s | %s | %s", glGetString(GL_VERSION), glGetString(GL_RENDERER), glGetString(GL_VENDOR));
