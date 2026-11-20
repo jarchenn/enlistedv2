@@ -70,6 +70,84 @@ LINKS = {
 }
 
 
+TILT = (0.6, 3.0)   # VOT T3: the town's fall west -> east and south -> north across the plan (m)
+
+
+def town_relief(grid, plan):
+    """VOT T3: the town stands on one plane tilted 3.0 m from the station (south) up to the gendarmerie (north) and
+    0.6 m across, so every lane keeps an even 1-2.5 % grade and the S&D layout and timings hold; beyond the plan the
+    ground rises into eroded hills (layered relief, rain and slope erosion, drainage lines) that frame the town. The
+    plane covers the whole build area (the plan and its ring of town houses); the hills fill the margin."""
+    import numpy as np
+    from mapgen.relief import relief_layers, hydraulic_erosion, thermal_erosion, drainage, smooth, _arr, _coords
+    xs, zs = _coords(grid)
+    X, Z = np.meshgrid(xs, zs)
+    hx, hz = -plan.x0, -plan.z0
+    H = _arr(grid)
+    H[...] = 10.0 + TILT[0] * (X / hx) * 0.5 + TILT[1] * (Z / hz) * 0.5
+    out = np.maximum(np.abs(X) - grid.width / 2, np.abs(Z) - grid.depth / 2)   # metres outside the build area (the plan + the 30 m ring of town houses)
+    t = np.clip((out - 1.0) / 35.0, 0, 1)
+    w = t * t * (3 - 2 * t)
+    H += w * (6.0 * np.clip((out - 1.0) / 60.0, 0, 1))   # the valley sides: rising away from the town
+    relief_layers(grid, [(4.0, 180.0, 41, 3), (1.4, 60.0, 42, 4), (0.4, 20.0, 43, 3)], w)
+    hydraulic_erosion(grid, w, iters=45, kc=1.0)
+    thermal_erosion(grid, w, iters=15, talus=0.6)
+    smooth(grid, w, passes=3)
+    drainage(grid, w, depth=0.5, start=90, full=1200, width=2)
+    smooth(grid, w, passes=1)
+    return {"tilt": TILT}
+
+
+def seat_on_relief(b, y0):
+    """VOT T3: the layout code places on the flat datum y0 with explicit heights; from here on every explicit height
+    is moved by the ground under the piece: the lowest of its footprint samples (on the plane that is a corner, so no
+    edge floats). A piece resting on another (support) moves with its host; companions are already relative to theirs.
+    Wrapping place() (not a pass afterwards) keeps the pads the engine-style buildings level at their real height."""
+    orig = b.place
+
+    def place(aid, x, z, yaw=0.0, **kw):
+        if kw.get("y") is not None and kw.get("companions", True):
+            sup = kw.get("support")
+            if sup is not None:
+                d = sup.get("_dz", 0.0)
+            else:   # padded buildings (the engine levels a pad) at their mean ground: the cut and the fill balance
+                a = b.cat[aid]
+                hs = [s[2] for s in b._samples(a, x, z, yaw, inset=0.0)]
+                d = (sum(hs) / len(hs) if b.padded(a) else min(hs)) - y0
+            kw["y"] = kw["y"] + d
+            e = orig(aid, x, z, yaw, **kw)
+            if e is not None:
+                e["_dz"] = d
+            return e
+        return orig(aid, x, z, yaw, **kw)
+    b.place = place
+
+
+def reseat_after_pads(b, y0):
+    """VOT T3: the building pads placed later moved the ground under walls and props placed before them: re-seat every
+    explicit-height piece that is not itself padded on the finished ground (lowest footprint sample) and carry what
+    rests on it along. Returns the largest move (m)."""
+    delta, worst = {}, 0.0
+    for e in b.inst:
+        a = b.cat[e["asset"]]
+        if "_dz" not in e or "support" in e["extra"] or b.padded(a):
+            continue
+        d = min(s[2] for s in b._samples(a, e["pos"][0], e["pos"][2], e["yaw"], inset=0.0)) - y0
+        dd = d - e["_dz"]
+        if abs(dd) > 0.003:
+            e["pos"][1] += dd
+            e["_dz"] = d
+            delta[e["id"]] = dd
+            worst = max(worst, abs(dd))
+    for _ in range(3):
+        for e in b.inst:
+            hid = e["extra"].get("support")
+            if hid in delta and e["id"] not in delta:
+                e["pos"][1] += delta[hid]
+                delta[e["id"]] = delta[hid]
+    return worst
+
+
 def build(ctx):
     R = rng(SEED)
     plan = Plan(ROWS, CELL, LINKS, stretch_cols=STRETCH_COLS, stretch_rows=STRETCH_ROWS)
@@ -79,11 +157,13 @@ def build(ctx):
     MARGIN = 60
     frame = Frame(W, D)
     grid = Grid(W, D, margin=MARGIN, base=10.0)
+    t3 = town_relief(grid, plan)   # VOT T3
     grid.quantise()
     b = MapBuilder(ctx.catalog, grid, frame, seed=SEED)
     paint = GroundPaint()
     paint.poly("sand", [(-W / 2 - MARGIN, -D / 2 - MARGIN), (W / 2 + MARGIN, -D / 2 - MARGIN), (W / 2 + MARGIN, D / 2 + MARGIN), (-W / 2 - MARGIN, D / 2 + MARGIN)], weight=1.0, edge=0.5)
     y0 = b.ground(0.0, 0.0)
+    seat_on_relief(b, y0)   # VOT T3: explicit heights below are on the datum; they land on the tilted town
     # the lanes are the gaps between house fronts; the churchyard keeps its wall; walls only between two open regions
     houses = []
     nw = place_facades(b, plan, FACADES, "sd_town_wall", y=y0, plain="A", plain_asset="sd_town_wall", out=houses)
@@ -261,7 +341,22 @@ def build(ctx):
     for s in sc.spawns:
         s["team"] = -1
         s["pos"][1] = y0
-    P = lambda i, j, dx=0.0, dz=0.0: [round(plan.cc(i, j)[0] + dx, 2), round(y0, 2), round(plan.cc(i, j)[1] + dz, 2)]
+    t3["reseatMaxM"] = round(reseat_after_pads(b, y0), 3)
+    from mapgen.relief import reseat_on_engine_ground
+    ra = b.reseat_all
+
+    def reseat_all(*a, **kw):   # VOT T3: last, on the ground the engine draws after its own pads (write_png calls this)
+        m = ra(*a, **kw)
+        t3["engineReseat"] = reseat_on_engine_ground(b)
+        return m
+    b.reseat_all = reseat_all
+    for o in sc.objectives:   # VOT T3: the scenario on the tilted ground
+        o["pos"][1] = round(b.ground(o["pos"][0], o["pos"][2]), 3)
+        for sl in o.get("defenseSlots", []):
+            sl["pos"][1] = round(b.ground(sl["pos"][0], sl["pos"][2]), 3)
+    for s in sc.spawns:
+        s["pos"][1] = round(b.ground(s["pos"][0], s["pos"][2]), 3)
+    P = lambda i, j, dx=0.0, dz=0.0: [round(plan.cc(i, j)[0] + dx, 2), round(b.ground(plan.cc(i, j)[0] + dx, plan.cc(i, j)[1] + dz), 2), round(plan.cc(i, j)[1] + dz, 2)]
     sd = {
         "callouts": [{"name": n, "x": round(c[0], 1), "z": round(c[1], 1), "r": r} for n, c, r in (
             ("A Church Yard", aC, 12), ("B Market Hall", bC, 12), ("Market Square", plan.centre("M"), 12), ("Rue de l'Eglise", plan.cc(12, 6), 12),
@@ -273,8 +368,8 @@ def build(ctx):
             {"name": "back lanes", "kind": "rotation", "points": [P(2, 10), P(2, 11), P(9, 13), P(10, 13)]},
             {"name": "arcade", "kind": "mid", "points": [P(4, 10), P(5, 10), P(9, 10), P(9, 11), P(10, 11)]},
             {"name": "river lane", "kind": "fallback", "points": [P(12, 11), P(12, 5), P(3, 5), P(3, 7)]},
-            {"name": "mid to A via cafe", "kind": "attackMid", "points": [P(12, 2), P(10, 2), P(9, 7), P(10, 8), P(10, 11), [round(plantA[0], 2), round(y0, 2), round(plantA[1], 2)]]},
-            {"name": "mid to B via bakery", "kind": "attackMid", "points": [P(12, 2), P(10, 2), P(9, 7), P(5, 8), P(4, 8), [round(plantB[0], 2), round(y0, 2), round(plantB[1], 2)]]},
+            {"name": "mid to A via cafe", "kind": "attackMid", "points": [P(12, 2), P(10, 2), P(9, 7), P(10, 8), P(10, 11), [round(plantA[0], 2), round(b.ground(*plantA), 2), round(plantA[1], 2)]]},
+            {"name": "mid to B via bakery", "kind": "attackMid", "points": [P(12, 2), P(10, 2), P(9, 7), P(5, 8), P(4, 8), [round(plantB[0], 2), round(b.ground(*plantB), 2), round(plantB[1], 2)]]},
         ],
     }
     rules = {"mode": "snd", "sd": sd}
@@ -288,10 +383,10 @@ def build(ctx):
     eye = 1.65
     views = [{"name": "overview_high", "pos": [0.0, 130.0, -100.0], "yaw": 0.0, "pitch": -55.0}]
     for name, ex, ez, (tx, tz) in EYES:
-        views.append({"name": name, "pos": [round(ex, 2), round(y0 + eye, 2), round(ez, 2)], "yaw": look_yaw(tx - ex, tz - ez), "pitch": 0.0, "gameplay": True})
+        views.append({"name": name, "pos": [round(ex, 2), round(b.ground(ex, ez) + eye, 2), round(ez, 2)], "yaw": look_yaw(tx - ex, tz - ez), "pitch": 0.0, "gameplay": True})
     for name, (i, j), (ti, tj) in (("a_site", (12, 10), (12, 12)), ("b_site", (3, 6), (2, 8)), ("mid", (9, 6), (8, 8)), ("t_spawn", (12, 1), (12, 3)), ("d_spawn", (4, 15), (4, 13)), ("bakery", (6, 8), (4, 8)), ("arcade", (5, 10), (9, 10))):
         x, z = plan.cc(i, j); tx, tz = plan.cc(ti, tj)
-        views.append({"name": name + "_eye", "pos": [round(x, 2), round(y0 + eye, 2), round(z, 2)], "yaw": look_yaw(tx - x, tz - z), "pitch": 0.0, "gameplay": True})
+        views.append({"name": name + "_eye", "pos": [round(x, 2), round(b.ground(x, z) + eye, 2), round(z, 2)], "yaw": look_yaw(tx - x, tz - z), "pitch": 0.0, "gameplay": True})
     _v = views[1]   # the A site eye view (the old fixed offset from A looked into a wall)
     thumb_cam = ([_v["pos"][0], _v["pos"][1] + 0.6, _v["pos"][2]], _v["yaw"], -5.0)
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
@@ -304,6 +399,6 @@ def build(ctx):
                    width=W, depth=D, margin=MARGIN, heightmap=grid.meta(TID + ".height.png"), water_level=-1000.0,
                    map_file=TID + ".nmap.json", camera=cam, thumbnail=TID + ".thumb.png", thumb_camera=thumb_cam,
                    extra={"userMap": True, "views": views})
-    rep = {"instances": len(b.inst), "walls": nw, "masses": n_mass, "cover": n_cover, "plan": [plan.nx, plan.nz], "errors": err}
+    rep = {"instances": len(b.inst), "walls": nw, "masses": n_mass, "cover": n_cover, "plan": [plan.nx, plan.nz], "errors": err, "relief": t3}
     write_summary(os.path.join(ctx.out, TID + ".summary.json"), rep)
     print("instances %d | walls %d, masses %d, cover %d | plan %d x %d cells of %.0f m" % (len(b.inst), n_walls, n_mass, n_cover, plan.nx, plan.nz, CELL))
