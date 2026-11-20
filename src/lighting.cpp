@@ -115,6 +115,7 @@ uniform int uLayerBase;                      // first capture slot of this dispa
 layout(rg16f, binding = 0) uniform image2D uVisImg;
 shared vec3 sS0[64], sSx[64], sSy[64], sSz[64];
 shared float sBack[64], sCnt[64];
+shared vec4 sV[64];   // VO L6: sky visibility (mono L1 SH) of the sky misses, stored apart under Lighting New
 vec3 faceDir(int f, vec2 ndc){ return normalize(mat3(uFaceRot[f])*vec3(ndc, -1.0)); }
 float groundDist(vec4 pp, vec3 dir){ return (dir.y < -0.01 && pp.y > pp.w) ? (pp.w - pp.y)/dir.y : 1e9; }
 float capDist(int k, int f, ivec2 tc, vec3 dir){
@@ -145,7 +146,7 @@ void main(){
   int k = int(gl_WorkGroupID.x), t = int(gl_LocalInvocationIndex);
   int N = uCapN, total = 6*N*N;
   vec4 pp = uProbePos[k];
-  vec3 S0 = vec3(0.0), Sx = vec3(0.0), Sy = vec3(0.0), Sz = vec3(0.0); float back = 0.0, cnt = 0.0;
+  vec3 S0 = vec3(0.0), Sx = vec3(0.0), Sy = vec3(0.0), Sz = vec3(0.0); float back = 0.0, cnt = 0.0; vec4 V = vec4(0.0);
   for (int i = t; i < total; i += 64) {
     int f = i/(N*N), r = i - f*N*N; ivec2 tc = ivec2(r % N, r / N);
     vec2 ndc = (vec2(tc) + 0.5)/float(N)*2.0 - 1.0;
@@ -153,15 +154,18 @@ void main(){
     vec3 dir = faceDir(f, ndc);
     float d = texelFetch(uCapDepth, ivec3(tc, (uLayerBase + k)*6 + f), 0).r;
     vec3 L;
-    if (d >= 1.0) L = missRadiance(pp, dir);
+    if (d >= 1.0) {
+      if (uSkyRelit == 1 && dir.y >= 0.0 && groundDist(pp, dir) > 1e8) { V += vec4(1.0, dir)*dw; L = vec3(0.0); }   // VO L6: the sky is relit per frame (giSample)
+      else L = missRadiance(pp, dir);
+    }
     else { vec4 c = texelFetch(uCapCol, ivec3(tc, (uLayerBase + k)*6 + f), 0); L = c.rgb; if (c.a < 0.5) { back += dw; L = vec3(0.0); } }
     L = (any(isnan(L)) || any(isinf(L))) ? vec3(0.0) : clamp(L, vec3(0.0), vec3(64.0));
     S0 += L*dw; Sx += L*(dir.x*dw); Sy += L*(dir.y*dw); Sz += L*(dir.z*dw); cnt += dw;
   }
-  sS0[t] = S0; sSx[t] = Sx; sSy[t] = Sy; sSz[t] = Sz; sBack[t] = back; sCnt[t] = cnt;
+  sS0[t] = S0; sSx[t] = Sx; sSy[t] = Sy; sSz[t] = Sz; sBack[t] = back; sCnt[t] = cnt; sV[t] = V;
   barrier();
   for (int s = 32; s > 0; s >>= 1) {
-    if (t < s) { sS0[t] += sS0[t + s]; sSx[t] += sSx[t + s]; sSy[t] += sSy[t + s]; sSz[t] += sSz[t + s]; sBack[t] += sBack[t + s]; sCnt[t] += sCnt[t + s]; }
+    if (t < s) { sS0[t] += sS0[t + s]; sSx[t] += sSx[t + s]; sSy[t] += sSy[t + s]; sSz[t] += sSz[t + s]; sBack[t] += sBack[t + s]; sCnt[t] += sCnt[t + s]; sV[t] += sV[t + s]; }
     barrier();
   }
   int idx = uProbeIdx[k];
@@ -171,10 +175,12 @@ void main(){
     vec3 c0 = sS0[0]*norm/(4.0*PI), cx = sSx[0]*norm/(2.0*PI), cy = sSy[0]*norm/(2.0*PI), cz = sSz[0]*norm/(2.0*PI);
     bool dead = sBack[0]/max(sCnt[0], 1e-4) > 0.25;   // inside geometry: sees back faces
     vec4 nR = vec4(c0.r, cx.r, cy.r, cz.r), nG = vec4(c0.g, cx.g, cy.g, cz.g), nB = vec4(c0.b, cx.b, cy.b, cz.b);
-    gProbe[idx*4 + 0] = mix(gProbe[idx*4 + 0], nR, a);
-    gProbe[idx*4 + 1] = mix(gProbe[idx*4 + 1], nG, a);
-    gProbe[idx*4 + 2] = mix(gProbe[idx*4 + 2], nB, a);
-    gProbe[idx*4 + 3] = vec4(pp.xyz, dead ? 0.0 : 1.0);
+    vec4 nV = vec4(sV[0].x*norm/(4.0*PI), sV[0].yzw*norm/(2.0*PI));
+    gProbe[idx*5 + 0] = mix(gProbe[idx*5 + 0], nR, a);
+    gProbe[idx*5 + 1] = mix(gProbe[idx*5 + 1], nG, a);
+    gProbe[idx*5 + 2] = mix(gProbe[idx*5 + 2], nB, a);
+    gProbe[idx*5 + 3] = vec4(pp.xyz, dead ? 0.0 : 1.0);
+    gProbe[idx*5 + 4] = mix(gProbe[idx*5 + 4], nV, a);
   }
   ivec2 ot = ivec2(t % 8, t / 8);
   float m1 = 0.0, m2 = 0.0;
@@ -366,7 +372,7 @@ void setupCascades(int gi) {
   int first = 0;
   for (auto& c : L.cas) { c.first = first; if (c.on) { c.p.assign((size_t)c.n.x * c.n.y * c.n.z, Probe{}); first += (int)c.p.size(); } }
   L.probeTotal = std::max(first, 1);
-  std::vector<vec4> zero((size_t)L.probeTotal * 4, vec4(0));
+  std::vector<vec4> zero((size_t)L.probeTotal * 5, vec4(0));   // VO L6: 5 per probe (SH R, G, B, pos + valid, sky visibility)
   glNamedBufferData(L.probeBuf, zero.size() * sizeof(vec4), zero.data(), GL_DYNAMIC_DRAW);
   if (L.visTex) glDeleteTextures(1, &L.visTex);
   L.visRows = (L.probeTotal + L.visCols - 1) / L.visCols;
@@ -398,7 +404,7 @@ void placeProbe(const Cascade& c, Probe& p, const Terrain& t, const Renderer& R)
 }
 void writeProbePos(const Cascade& c, int i, const Probe& p) {
   vec4 v(p.pos, 0.0f);   // not live until captured
-  glNamedBufferSubData(L.probeBuf, (GLintptr)(((size_t)c.first + i) * 4 + 3) * sizeof(vec4), sizeof(vec4), &v);
+  glNamedBufferSubData(L.probeBuf, (GLintptr)(((size_t)c.first + i) * 5 + 3) * sizeof(vec4), sizeof(vec4), &v);
 }
 int posmod(int a, int n) { int m = a % n; return m < 0 ? m + n : m; }
 }  // namespace
@@ -428,7 +434,7 @@ void LightingPass::init(Renderer& R, const char* kCommonSrc, const char* kMainFS
   std::vector<uint32_t> zc((size_t)kCluster.x * kCluster.y * kCluster.z * (kClusterMax + 1), 0u);
   glNamedBufferData(L.clusterBuf, zc.size() * 4, zc.data(), GL_DYNAMIC_DRAW);
   glCreateBuffers(1, &L.lsVPBuf); glNamedBufferData(L.lsVPBuf, sizeof(L.lsVP), L.lsVP, GL_DYNAMIC_DRAW);
-  glCreateBuffers(1, &L.probeBuf); glNamedBufferData(L.probeBuf, sizeof(vec4) * 4, nullptr, GL_DYNAMIC_DRAW);
+  glCreateBuffers(1, &L.probeBuf); glNamedBufferData(L.probeBuf, sizeof(vec4) * 5, nullptr, GL_DYNAMIC_DRAW);
   glCreateBuffers(1, &L.capVPBuf); glNamedBufferData(L.capVPBuf, sizeof(mat4) * kMaxCap * 6, nullptr, GL_DYNAMIC_DRAW);
   L.progCluster = compileCS(R, kClusterCS, false, "light_clusters", kCommonSrc);
   if (L.giAvail) {
@@ -606,6 +612,7 @@ void LightingPass::probePass(Renderer& R, const RenderView& v, const std::vector
   for (auto& rb : R.rooms) sig += (int)(rb.m[3].x * 13 + rb.m[3].z * 7 + rb.half.x * 101);
   bool roomsChanged = sig != L.roomsSig;
   if (roomsChanged) { L.roomsSig = sig; L.roomInv.resize(R.rooms.size()); for (size_t k = 0; k < R.rooms.size(); ++k) L.roomInv[k] = glm::inverse(R.rooms[k].m); }
+  { static int lastRelit = -1; int relit = R.q.lightNew && R.perf.skyRelit && !R.q.legacy; if (relit != lastRelit) { L.resetAll = lastRelit >= 0 || L.resetAll; lastRelit = relit; } }   // VO L6: probes hold a different split
   if (R.perf.probeRefresh && std::fabs(R.lt.hour - L.capHour) > 0.1f) { L.resetAll = L.capHour > -50.0f || L.resetAll; L.capHour = R.lt.hour; }
   if (R.perf.probeRefresh && std::fabs(R.wx.k - L.capWx) > 0.25f) { L.resetAll = true; L.capWx = R.wx.k; }
   struct Cand { int c, i; float score; };
@@ -880,7 +887,7 @@ bool lightingClusterCounts(std::vector<int>& gpu, std::vector<int>& cpu, glm::iv
 float lightingGiAt(glm::vec3 w, glm::vec3 N, glm::vec3& irr) {
   irr = vec3(0);
   if (!L.giAvail || L.probeTotal <= 1) return 0;
-  std::vector<vec4> pb((size_t)L.probeTotal * 4);
+  std::vector<vec4> pb((size_t)L.probeTotal * 5);
   glGetNamedBufferSubData(L.probeBuf, 0, pb.size() * sizeof(vec4), pb.data());
   int vw = L.visCols * 8, vh = std::max(1, L.visRows) * 8;
   std::vector<glm::vec2> vis((size_t)vw * vh);
@@ -911,7 +918,7 @@ float lightingGiAt(glm::vec3 w, glm::vec3 N, glm::vec3& irr) {
       int idx = C.first + (m.y * C.n.z + m.z) * C.n.x + m.x;
       vec3 tri = glm::mix(vec3(1) - f, f, vec3(o));
       float wt = tri.x * tri.y * tri.z;
-      vec4 pp = pb[(size_t)idx * 4 + 3];
+      vec4 pp = pb[(size_t)idx * 5 + 3];
       if (pp.w < 0.5f) continue;
       tw += wt;
       vec3 toP = vec3(pp) - w; float dp = glm::length(toP);
@@ -920,7 +927,7 @@ float lightingGiAt(glm::vec3 w, glm::vec3 N, glm::vec3& irr) {
       vec2 mm = visAt(idx, pd / std::max(r, 1e-4f));
       if (r > mm.x) { float var = std::max(mm.y - mm.x * mm.x, 0.0004f), dd = r - mm.x, ch = var / (var + dd * dd); wt *= ch * ch * ch; }
       if (wt < 1e-6f) continue;
-      sR += pb[(size_t)idx * 4] * wt; sG += pb[(size_t)idx * 4 + 1] * wt; sB += pb[(size_t)idx * 4 + 2] * wt; sw += wt;
+      sR += pb[(size_t)idx * 5] * wt; sG += pb[(size_t)idx * 5 + 1] * wt; sB += pb[(size_t)idx * 5 + 2] * wt; sw += wt;
     }
     if (sw <= 1e-5f) continue;
     float conf = std::clamp(tw * 4.0f, 0.0f, 1.0f) * std::clamp(sw / std::max(tw, 1e-4f) * 8.0f, 0.0f, 1.0f);

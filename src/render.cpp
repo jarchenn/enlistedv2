@@ -61,6 +61,7 @@ uniform float uShadowDepthRange;  // metres covered by the [0,1] light-space dep
 uniform float uShadowSoft;        // PCF radius in near-cascade texels (0 = legacy 3x3 grid)
 uniform float uShadowLift;        // VO L1: share of the sun a shadow removes (Classic 0.7: shadows 30 % lighter; New 1)
 uniform float uMicroSh;           // VO L4: micro-shadowing from material AO on the direct light (0 Classic, 1 New)
+uniform float uShadowWarm;        // VO L1: sun-hue bias of the sky light on surfaces in the sun's shadow (New; 0 Classic)
 uniform int uShadowTaps;          // P3: cap on the PCF taps (presets; 0 = no cap)
 uniform int uFrame;               // frame counter (noise rotation; TAA decorrelation)
 uniform int uCloudShadowOn; uniform float uCloudCov, uCloudT;
@@ -298,7 +299,7 @@ layout(std430, binding = 7) readonly buffer NmkLShadowVP { mat4 gLShadowVP[]; };
 #ifdef NMK_PROBE_RW
 layout(std430, binding = 8) buffer NmkProbes { vec4 gProbe[]; };                   // the probe projection pass writes them
 #else
-layout(std430, binding = 8) readonly buffer NmkProbes { vec4 gProbe[]; };          // 4 per probe: SH R, G, B (irradiance / pi), pos + valid
+layout(std430, binding = 8) readonly buffer NmkProbes { vec4 gProbe[]; };          // 5 per probe: SH R, G, B (irradiance / pi), pos + valid, sky visibility (VO L6)
 #endif
 uniform int uLightCount, uLightMode;   // mode 0: froxel clusters (camera passes), 1: every light (probe captures)
 uniform vec4 uClusterP;                // unjittered projection [0][0], [1][1], [2][0], [2][1]
@@ -372,6 +373,7 @@ void localLights(vec3 w, vec3 N, vec3 Ng, vec3 V, float rough, vec3 F0, out vec3
 // radiance (stored as irradiance / pi: E(n)/pi = c.x + dot(c.yzw, n)) and an 8x8 octahedral tile of the distance to
 // the nearest surface (mean, mean^2) for a Chebyshev visibility test, so light does not leak through walls.
 uniform int uGiOn, uGiCascades;
+uniform int uSkyRelit;   // VO L6 (Patry 2021): probes keep the sky's share as visibility SH, relit with the current sky colour
 uniform vec4 uGiGrid[2];               // spacing (m), capture range (m)
 uniform ivec4 uGiOrg[2];               // origin cell (world cell index), first probe index
 uniform ivec4 uGiDim[2];               // probes per axis
@@ -410,13 +412,13 @@ float giSample(vec3 w, vec3 Ng, vec3 N, vec3 R, out vec3 irr, out vec3 env){
     float cw = c + 1 < uGiCascades ? clamp(min(min(edge.x, edge.y), edge.z), 0.0, 1.0) : 1.0;   // fade to the next volume over the outer cell
     ivec3 b = ivec3(floor(g)); vec3 f = g - vec3(b);
     vec3 q = w + Ng*(0.18*s);   // visibility bias along the geometric normal
-    vec4 sR = vec4(0.0), sG = vec4(0.0), sB = vec4(0.0); float sw = 0.0, tw = 0.0;
+    vec4 sR = vec4(0.0), sG = vec4(0.0), sB = vec4(0.0), sV = vec4(0.0); float sw = 0.0, tw = 0.0;
     for (int k = 0; k < 8; ++k) {
       ivec3 o = ivec3(k & 1, (k >> 1) & 1, k >> 2);
       int idx = giIndex(c, uGiOrg[c].xyz + b + o);
       vec3 tri = mix(1.0 - f, f, vec3(o));
       float wt = tri.x*tri.y*tri.z;
-      vec4 pp = gProbe[idx*4 + 3];
+      vec4 pp = gProbe[idx*5 + 3];
       if (pp.w < 0.5) continue;
       tw += wt;
       vec3 toP = pp.xyz - w; float dp = length(toP);
@@ -425,13 +427,15 @@ float giSample(vec3 w, vec3 Ng, vec3 N, vec3 R, out vec3 irr, out vec3 env){
       vec2 m = textureLod(uGiVis, giVisUV(idx, pd/max(r, 1e-4)), 0.0).rg;
       if (r > m.x) { float var = max(m.y - m.x*m.x, 0.0004); float dd = r - m.x; float ch = var/(var + dd*dd); wt *= ch*ch*ch; }
       if (wt < 1e-6) continue;
-      sR += gProbe[idx*4]*wt; sG += gProbe[idx*4 + 1]*wt; sB += gProbe[idx*4 + 2]*wt; sw += wt;
+      sR += gProbe[idx*5]*wt; sG += gProbe[idx*5 + 1]*wt; sB += gProbe[idx*5 + 2]*wt; sV += gProbe[idx*5 + 4]*wt; sw += wt;
     }
     if (sw <= 1e-5) continue;
     float conf = clamp(tw*4.0, 0.0, 1.0)*clamp(sw/max(tw, 1e-4)*8.0, 0.0, 1.0);
     sR /= sw; sG /= sw; sB /= sw;
     vec3 e = max(vec3(sR.x + dot(sR.yzw, N), sG.x + dot(sG.yzw, N), sB.x + dot(sB.yzw, N)), vec3(0.0));
+    if (uSkyRelit == 1) e += uSkyCol*max(sV.x/sw + dot(sV.yzw/sw, N), 0.0);   // VO L6: the visible sky, in today's sky colour (no capture lag)
     vec3 v = max(vec3(sR.x + dot(sR.yzw, R), sG.x + dot(sG.yzw, R), sB.x + dot(sB.yzw, R)), vec3(0.0));
+    if (uSkyRelit == 1) v += uSkyCol*max(sV.x/sw + dot(sV.yzw/sw, R), 0.0);
     float take = rem*cw*conf;
     irr += e*take; env += v*take; rem -= take;
     if (rem <= 1e-3) break;
@@ -475,6 +479,9 @@ vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
   float sv = skyVis(w, Ng);
   float amb = mix(0.06, 1.0, sv);
   vec3 irr = mix(uGroundCol, uSkyCol, 0.5+0.5*N.y) * amb + uFill*(1.0-sv);
+  // VO L1: Classic's 30 % shadow lift let a warm share of the sun into every shadow; New's deeper shadows keep that hue
+  // (not its brightness) in the sky light of surfaces that face the sun but are shaded: forest shade stays warm
+  if (uShadowWarm > 0.0 && NdL > 0.0) { vec3 sunHue = uSunCol/max(dot(uSunCol, vec3(0.2126, 0.7152, 0.0722)), 1e-4); irr *= mix(vec3(1.0), sunHue, uShadowWarm*(1.0 - sh)*smoothstep(0.0, 0.3, NdL)); }
   float cav = 1.0, relK = 1.0;
   if (uLook == 1 && dot(gNg, gNg) > 0.5) {
     // relief under sky light (bent normal): the sky toward the sun and overhead is brighter than the far side and the
@@ -4224,6 +4231,8 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1f(U(p, "uShadowDepthRange"), 800.0f);
   glUniform1f(U(p, "uShadowSoft"), q.legacy ? 0.0f : q.shadowSoft * (1.0f + 2.0f * wx.k));   // WX2: overcast sun casts very soft shadows
   glUniform1f(U(p, "uShadowLift"), q.lightNew && perf.fullShadow ? q.newShadowLift : 0.7f);   // VO L1
+  glUniform1f(U(p, "uShadowWarm"), q.lightNew && perf.fullShadow && !q.legacy ? q.newShadowWarm : 0.0f);   // VO L1
+  glUniform1i(U(p, "uSkyRelit"), q.lightNew && perf.skyRelit && !q.legacy ? 1 : 0);   // VO L6
   glUniform1f(U(p, "uMicroSh"), q.lightNew && perf.microShadow && !q.legacy ? 1.0f : 0.0f);   // VO L4
   glUniform1i(U(p, "uShadowTaps"), q.shadowTaps);
   glUniform1i(U(p, "uFrame"), frame);
