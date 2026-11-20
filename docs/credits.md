@@ -823,3 +823,7 @@ baked to `content/assets/models/ivy_pack/` (asset `ivy_pack`). The pack's demo w
 | Asset | Model | Author | Licence | Source | Changes | In the repo |
 |---|---|---|---|---|---|---|
 | `ivy_pack` | Ivy pack (12 variations, lowpoly, LODs) | LOLIPOP (https://sketchfab.com/lolipop_1707) | CC-BY-4.0 (the GLB's own metadata) | https://sketchfab.com/3d-models/ivy-pack-12-variations-lowpoly-lods-0c80d67aa8fb4688bd1187518e4cc686 | modified: split into pieces, re-anchored, LOD2 as the distance LOD, textures resized, leaves recoloured in the shader | yes |
+
+## Soldier animation clips: Mixamo
+
+The Delta Force and Desert soldier bodies (`content/characters/delta_force.glb`, `desert_body.glb`) carry rifle, pistol and grenade clips the user downloaded from Adobe Mixamo (mixamo.com), retargeted onto the game's bodies. Committed at the user's decision (2026-11-20). Mixamo's terms cover use in a game; they do not grant the right to reuse these files as stand-alone animation assets.
