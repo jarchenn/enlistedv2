@@ -33,7 +33,7 @@ SdConfig SdConfig::load() {
   if (j.contains("friendlyFire")) c.friendlyFire = j.value("friendlyFire", true);
   if (j.contains("killReward") && j["killReward"].is_object()) {
     const char* k[8] = {"firearm", "smg", "shotgun", "sniperHeavy", "knife", "grenade", "bomb", "world"};
-    for (int i = 0; i < 8; ++i) c.killReward[i] = j["killReward"].value(k[i], c.killReward[i]);
+    for (int i = 0; i < 8; ++i) c.killReward[i] = jkey(j, "killReward").value(k[i], c.killReward[i]);
   }
   if (j.contains("freePistol") && j["freePistol"].is_array() && j["freePistol"].size() == 2) for (int s = 0; s < 2; ++s) c.freePistol[s] = j["freePistol"][s].get<std::string>();
   if (j.contains("factions") && j["factions"].is_array() && j["factions"].size() == 2) for (int s = 0; s < 2; ++s) c.factionName[s] = j["factions"][s].get<std::string>();

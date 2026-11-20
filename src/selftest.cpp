@@ -412,7 +412,7 @@ void SelfTest::update(App& app, float dt) {
       Instance before = *app.doc.find(houseId);
       size_t n0 = app.doc.instances.size(), a0 = authoredInstanceCount(app.doc.instances);
       app.selected = houseId; app.deleteSelected();
-      int orphans = 0; for (auto& i : app.doc.instances) orphans += isFurnishPiece(i) && i.extra["furnish"].value("host", (uint64_t)0) == before.id;
+      int orphans = 0; for (auto& i : app.doc.instances) orphans += isFurnishPiece(i) && jkey(i.extra, "furnish").value("host", (uint64_t)0) == before.id;
       check(authoredInstanceCount(app.doc.instances) == a0 - 1 && orphans == 0, "delete removes the building and its furniture (" + std::to_string(n0 - app.doc.instances.size()) + " instances)");
       app.undo(); app.redo(); app.undo();
       int count = 0; for (auto& i : app.doc.instances) if (i.id == before.id) ++count;

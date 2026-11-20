@@ -132,7 +132,7 @@ void SelfTest::editorUpdate(App& app, float dt) {
     check(app.terrain.buildHalfZ == 300, "a plain New Map is back to 600 x 600");
     app.openMap(tmp);
     check(app.doc.width == 1200 && app.doc.depth == 2400 && app.terrain.buildHalfZ == 1200 && app.terrain.nz == T.nz, fmt("map size saved with the map and restored on load (%.0f x %.0f)", app.doc.width, app.doc.depth));
-    { json j = json::parse(readTextFile(tmp)); check(j.contains("mapSize") && j["mapSize"].value("width", 0) == 1200 && j["mapSize"].value("depth", 0) == 2400, "file stores mapSize {width, depth}"); }
+    { json j = json::parse(readTextFile(tmp)); check(j.contains("mapSize") && jkey(j, "mapSize").value("width", 0) == 1200 && jkey(j, "mapSize").value("depth", 0) == 2400, "file stores mapSize {width, depth}"); }
     // physics: one heightfield per chunk, ground where the terrain is
     {
       int bodies = 0; for (auto b : app.terrain.chunkBodies) bodies += b != 0xffffffffu;

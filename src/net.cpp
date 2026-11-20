@@ -607,7 +607,7 @@ void netApplyEvent(App& app, const json& ev, bool replay) {
     uint64_t id = ev.value("i", 0ull); StationRT* s = app.station(id);
     if (s && ev.value("by", -1) != g.localSlot) {
       const StationDef& sd = app.rt[id].asset->station;
-      vec3 p = jvec3(ev["p"]), dir = glm::normalize(jvec3(ev["d"], vec3(0, 0, 1)));
+      vec3 p = jvec3(ev["p"]), dir = glm::normalize(jvec3(jkey(ev, "d"), vec3(0, 0, 1)));
       bool mg = sd.kind == "mg42" || sd.kind == "m2hb";
       s->recoilT = 0; s->shots++;
       g.ghosts.push_back({p, dir * (sd.kind == "mg42" ? 755.0f : mg ? 890.0f : sd.heVelocity), 0, ev.value("tr", 0)});
@@ -616,7 +616,7 @@ void netApplyEvent(App& app, const json& ev, bool replay) {
     }
   } else if (t == "crate") {   // stock after a resupply (also replayed for late joiners)
     auto& st = app.crateStock[ev.value("i", 0ull)]; st.clear();
-    for (auto& [k, v] : ev["s"].items()) st[k] = v.get<int>();
+    for (auto& [k, v] : jkey(ev, "s").items()) st[k] = v.get<int>();
   } else if (t == "crateok") {   // our own resupply: the host moved the rounds
     int w = ev.value("w", -1);
     if (w >= 0 && w < (int)app.weaponDefs.size() && ev.contains("c")) {
@@ -733,7 +733,7 @@ static void hostRequest(App& app, Net& n, Peer& p, json& m) {   // m is mutable:
     if (!m.value("on", false)) {
       if (gunOccupant(app, *n.d, id) != slot) { refuse("not yours", ""); return; }
       n.d->gunner.erase(id); st->pos2 = ST_NONE; st->reload = 0;
-      vec3 f = jvec3(m["p"], s.feet);   // the dismount point the client found beside the gun
+      vec3 f = jvec3(jkey(m, "p"), s.feet);   // the dismount point the client found beside the gun
       if (glm::length(f - app.stationAnchor(id, ST_GUNNER)) < 6.0f) { s.feet = f; if (s.agent >= 0) Physics::setAgentPos(s.agent, f); }
       s.netHeard = n.d->now;
       return;

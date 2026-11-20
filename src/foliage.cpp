@@ -84,7 +84,7 @@ static bool loadLeafLib() {
   };
   int base = 0;
   auto put = [&](vec3 p, vec3 nrm, vec2 uv, float layer) { V.insert(V.end(), {p.x, p.y, p.z, nrm.x, nrm.y, nrm.z, uv.x, uv.y, layer}); return (uint32_t)(V.size() / 9 - 1 - base); };
-  for (auto& [id, sj] : j["species"].items()) {
+  for (auto& [id, sj] : jkey(j, "species").items()) {
     LeafSpecies sp; sp.base = vec3(sj["base"][0], sj["base"][1], sj["base"][2]);
     for (auto& l : sj.value("leaves", json::array())) sp.leaves.push_back(l.get<int>());
     for (auto& sg : sj["sprigs"]) {
@@ -400,7 +400,7 @@ static constexpr uint64_t kTrunkUD = 0xFFF1u;
 void App::buildTreeRT(const Instance& i, InstanceRT& r) {
   const TreeDef& t = r.asset->tree;
   r.treeHits = 0; r.treeFelled = false; r.trunkBody = 0xffffffffu;
-  if (!i.extra.contains("tree") || !i.extra["tree"].value("felled", false)) return;
+  if (!i.extra.contains("tree") || !jkey(i.extra, "tree").value("felled", false)) return;
   // applied (persistent) felled state: stump plus the trunk lying where it came to rest, both static
   Physics::remove(r.staticBody);
   r.staticBody = Physics::addStatic(t.stumpShape, i.pos, yawQuat(i.yaw), i.id << 16);
@@ -464,7 +464,7 @@ void App::resetTrees() {
     auto it = rt.find(i.id); if (it == rt.end()) continue;
     InstanceRT& r = it->second;
     if (!r.asset->tree.on) continue;
-    bool applied = i.extra.contains("tree") && i.extra["tree"].value("felled", false);
+    bool applied = i.extra.contains("tree") && jkey(i.extra, "tree").value("felled", false);
     if (r.treeHits != 0 || r.treeFelled != applied || (r.treeFelled && !r.trunkApplied)) buildRT(i, r);
   }
 }

@@ -314,7 +314,7 @@ bool gm2HostRequest(App& app, Game& g, Soldier& s, int slot, const json& m, std:
     if (std::find(s.carried.begin(), s.carried.end(), def) == s.carried.end()) { why = "pack: not carried"; return false; }
     WeaponState& ws = s.wsBy[def];
     if (ws.loaded <= 0 && ws.containers.empty()) { why = "pack: none left"; return false; }
-    vec3 eye = g.eye(s), e = jvec3(m["e"], eye), d = jvec3(m["d"], vec3(0, 0, -1));
+    vec3 eye = g.eye(s), e = jvec3(jkey(m, "e"), eye), d = jvec3(jkey(m, "d"), vec3(0, 0, -1));
     if (glm::length(e - eye) > 1.0f) e = eye;   // the host's own eye for this soldier, give or take a step
     if (!gm2PlacePack(app, def, e, d, slot, &why)) return false;
     if (ws.loaded > 0) --ws.loaded; else ws.containers.pop_back();
@@ -337,7 +337,7 @@ void gm2GrantSlot(int slot, const std::string& ability) { gS.slotAbilities[slot]
 bool gm2ClientEvent(App& app, const json& ev) {
   std::string t = ev.value("t", "");
   if (t == "gm2pack") {   // a pack placed on the host: drawn here, its blast arrives as an "ex" event
-    LivePack p; p.pos = jvec3(ev["p"]); p.nrm = jvec3(ev["n"], vec3(0, 1, 0)); p.fuse = ev.value("f", 10.0f); p.def = ev.value("w", -1); p.visualOnly = true;
+    LivePack p; p.pos = jvec3(ev["p"]); p.nrm = jvec3(jkey(ev, "n"), vec3(0, 1, 0)); p.fuse = ev.value("f", 10.0f); p.def = ev.value("w", -1); p.visualOnly = true;
     gS.packs.push_back(p); app.audio.play("click", p.pos, 0.6f);
     return true;
   }

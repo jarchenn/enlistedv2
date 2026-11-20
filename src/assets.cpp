@@ -664,7 +664,7 @@ static int patternFromName(const std::string& s) {
 static thread_local bool gModelBaked = false;
 static bool modelBakedFor(const json& j, const std::string& id) {
   if (!j.is_object() || !j.contains("model") || !j["model"].is_object()) return false;
-  std::error_code ec; return fs::exists(contentDir() / "assets" / "models" / j["model"].value("dir", id) / "mesh.bin", ec);
+  std::error_code ec; return fs::exists(contentDir() / "assets" / "models" / jkey(j, "model").value("dir", id) / "mesh.bin", ec);
 }
 static Part parsePart(const json& j, const std::map<std::string, int>& mats);
 std::vector<Part> assetRawParts(const AssetDef& a) {
@@ -1110,7 +1110,7 @@ void AssetLibrary::build(AssetDef& ad) const {
     st.label = sj.value("label", st.kind == "pak40" ? std::string("PaK 40") : st.kind); st.heName = sj.value("heName", st.heName); st.atName = sj.value("atName", st.atName);
     st.sightFov = sj.value("sightFov", st.kind == "pak40" ? 9.0f : 55.0f); st.muzzleScale = sj.value("muzzleScale", 1.0f);
     if (sj.contains("shellHE")) { auto& h = sj["shellHE"]; st.heVelocity = h.value("velocity", 550.0f); st.heDamage = h.value("damage", 120.0f); st.heRadius = h.value("radius", 2.2f); st.heCrater = h.value("crater", 1.0f); }
-    if (sj.contains("shellAT")) st.atVelocity = sj["shellAT"].value("velocity", 790.0f);
+    if (sj.contains("shellAT")) st.atVelocity = jkey(sj, "shellAT").value("velocity", 790.0f);
     st.fireSound = sj.value("fireSound", std::string("pak_fire")); st.fixed = sj.value("fixed", false);
     auto load = [&](const char* key, std::vector<Part>& parts, GpuMesh& mesh, vec3 pivot) {
       MeshData m;
@@ -1346,7 +1346,7 @@ void AssetLibrary::build(AssetDef& ad) const {
         static const std::map<std::string, int> rn = {{"base", 0}, {"traverse", 1}, {"elevation", 2}, {"recoil", 3}};
         for (auto& p : gm->parts) {
           int role = 0;
-          for (auto& [pre, rv] : mj["stationRoles"].items()) if (p.name.rfind(pre, 0) == 0) { auto f = rn.find(rv.get<std::string>()); if (f != rn.end()) role = f->second; }
+          for (auto& [pre, rv] : jkey(mj, "stationRoles").items()) if (p.name.rfind(pre, 0) == 0) { auto f = rn.find(rv.get<std::string>()); if (f != rn.end()) role = f->second; }
           a->station.modelRole.push_back(role);
         }
       }

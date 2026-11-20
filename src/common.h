@@ -44,8 +44,8 @@ inline float radians(float d) { return d * 0.017453292519943295f; }
 inline float degrees(float r) { return r * 57.29577951308232f; }
 inline float wrapDeg(float d) { d = std::fmod(d, 360.0f); if (d < 0) d += 360.0f; return d; }
 inline quat yawQuat(float deg) { return glm::angleAxis(radians(deg), vec3(0, 1, 0)); }
-// CR1: an optional key of a const json; j["k"] on a const json with no "k" is undefined (nlohmann dereferences end())
-inline const json& jkey(const json& j, const char* k) { static const json none; if (!j.is_object()) return none; auto it = j.find(k); return it == j.end() ? none : *it; }
+// CR1: an optional key of a const json; j["k"] on a const json with no "k" is undefined (nlohmann dereferences end()); a missing key reads as {}: value() gives its default, items() is empty, jvec3 its default
+inline const json& jkey(const json& j, const char* k) { static const json none = json::object(); if (!j.is_object()) return none; auto it = j.find(k); return it == j.end() ? none : *it; }
 inline vec3 jvec3(const json& j, vec3 def = vec3(0)) {
   if (!j.is_array() || j.size() < 3) return def;
   return vec3(j[0].get<float>(), j[1].get<float>(), j[2].get<float>());

@@ -21,7 +21,7 @@
 vec2 App::pathSize(const Instance& i, const AssetDef* a) const {
   const PathDef& p = a->path;
   float L = p.length, W = p.width;
-  if (i.extra.is_object() && i.extra.contains("path")) { L = i.extra["path"].value("length", L); W = i.extra["path"].value("width", W); }
+  if (i.extra.is_object() && i.extra.contains("path")) { L = jkey(i.extra, "path").value("length", L); W = jkey(i.extra, "path").value("width", W); }
   return vec2(std::clamp(W, p.minW, p.maxW), std::clamp(L, p.minL, p.maxL));
 }
 
@@ -36,7 +36,7 @@ void App::setPathSize(Instance& i, vec2 wl) {
 
 PathShape pathShape(const Instance& i) {
   PathShape s;
-  if (i.extra.is_object() && i.extra.contains("path") && i.extra["path"].is_object()) { s.bend = i.extra["path"].value("bend", 0.0f); s.u0 = i.extra["path"].value("u0", 0.0f); }
+  if (i.extra.is_object() && i.extra.contains("path") && i.extra["path"].is_object()) { s.bend = jkey(i.extra, "path").value("bend", 0.0f); s.u0 = jkey(i.extra, "path").value("u0", 0.0f); }
   return s;
 }
 void setPathShape(Instance& i, PathShape s) {

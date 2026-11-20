@@ -74,7 +74,7 @@ bool na1Capture(App& app, float dt) {
       else T->note("other bot: model " + id);
     }
     for (auto& k : kinds) {
-      json list = G.combat["gunbody_models"].value(k.name, json::array());
+      json list = jkey(G.combat, "gunbody_models").value(k.name, json::array());
       std::set<std::string> seen;
       for (auto& e : list) { std::string m = e[0], w = e[1]; if (seen.insert(m).second) k.guns.push_back({m, app.weaponIndex(w)}); }
       const Soldier& s = G.sold[k.slot]; const CharModel& m = *G.models[s.model];

@@ -193,7 +193,7 @@ void SelfTest::netUpdate(App& app, float dt) {
         check(rj("gun: taken") >= 1, "A was refused the gun the host crews (" + std::to_string(rj("gun: taken")) + ")");
         check(rj("gun: reach") >= 1, "A was refused the gun 30+ m away (" + std::to_string(rj("gun: reach")) + ")");
         const WeaponDef& gar = *a.weaponDefs[a.weaponIndex("m1_garand")];
-        int stock0 = a.lib.find("crate_mixed_supply")->crate["supplies"].value(gar.container, 0);
+        int stock0 = jkey(a.lib.find("crate_mixed_supply")->crate, "supplies").value(gar.container, 0);
         std::snprintf(b, sizeof b, "A resupplied at the crate: %s %d -> %d on the host; the second request (at the allowance) was refused (%d)", gar.container.c_str(), stock0, a.crateStock[C][gar.container], rj("crate: nothing moved"));
         check(a.crateStock[C][gar.container] < stock0 && rj("crate: nothing moved") >= 1, b);
         Soldier& sa = gGame->sold[slotA]; int rw = rackWeapon(a);

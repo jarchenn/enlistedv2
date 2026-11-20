@@ -233,7 +233,7 @@ bool mpaiGrenadeDetonate(App& app, int def, vec3 pos, int owner, int phase) {
   gInGrenadeBlast = false;
   if (match && !gGame->isClient) {
     gGame->explosionDamage(pos, 0, 0, owner < 0 ? gGame->localSlot : owner, true);
-    gGame->hearSound(pos, -1, gGame->archetypes["perception"].value("hearBlast_m", 90.0f), owner < 0 ? gGame->localSlot : owner, 1);
+    gGame->hearSound(pos, -1, jkey(gGame->archetypes, "perception").value("hearBlast_m", 90.0f), owner < 0 ? gGame->localSlot : owner, 1);
   }
   return false;
 }

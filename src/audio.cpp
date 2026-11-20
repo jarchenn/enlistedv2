@@ -356,7 +356,7 @@ static bool loadWavMono(const fs::path& path, Buf& out) {
 int Audio::loadEvents(const fs::path& dir) {
   if (!p) return 0;
   json m; try { std::ifstream f(dir / "manifest.json"); m = json::parse(f); } catch (...) { logf("audio: no manifest in %s (procedural sounds only)", dir.string().c_str()); return 0; }
-  for (auto& [name, e] : m["events"].items()) {
+  for (auto& [name, e] : jkey(m, "events").items()) {
     Impl::Event ev; ev.gain = e.value("gain", 1.0f); ev.kind = e.value("kind", "");
     for (auto& v : e["variants"]) {
       std::string bank = v.value("bank", ""); for (const char* pre : {"ww2_weapon_", "ww2_", "cmn_"}) if (bank.rfind(pre, 0) == 0) { bank = bank.substr(std::strlen(pre)); break; }

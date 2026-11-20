@@ -503,7 +503,7 @@ void build(App& app) {
         double s = shimmer(r), dt = detail(r), rel = dt > 0 ? s / dt : -1;
         report["kit_" + std::to_string(D) + "m" + tag] = {{"shimmer", s}, {"detail", dt}, {"relative", rel}, {"px", (r.x1 - r.x0) * (r.y1 - r.y0)}};
         if (kv.msaa) {
-          double ref = report["kit_50m"].value("relative", -1.0);
+          double ref = jkey(report, "kit_50m").value("relative", -1.0);
           chk(rel >= 0 && ref > 0 && rel <= ref * 1.1 + 0.003, "kit primitives at 50 m with 4x MSAA: relative shimmer %.4f (shimmer %.3f, detail %.2f) <= without MSAA %.4f x 1.1 -> selftest_out/render_kit_50m_msaa4.png",
               rel, s, dt, ref);
         } else {

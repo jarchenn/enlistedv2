@@ -49,7 +49,7 @@ const LootCfg& cfg() {
       if (a.contains("reduce")) c.reduce[k] = a["reduce"][k]; if (a.contains("penApply")) c.penApply[k] = a["penApply"][k]; if (a.contains("helmetDurability")) c.helmetDur[k] = a["helmetDurability"][k]; if (a.contains("vestDurability")) c.vestDur[k] = a["vestDurability"][k];
     }
     if (j.contains("heal")) for (int k = 1; k <= 2; ++k) {
-      const json& h = j["heal"].value(k == 1 ? "bandage" : "medkit", json::object());
+      const json& h = jkey(j, "heal").value(k == 1 ? "bandage" : "medkit", json::object());
       c.healAmount[k] = h.value("amount", c.healAmount[k]); c.healSeconds[k] = h.value("seconds", c.healSeconds[k]); c.healCap[k] = h.value("cap", c.healCap[k]);
     }
     if (j.contains("spawn")) {
@@ -310,7 +310,7 @@ template <class T, class W> static int pickWeighted(const std::vector<T>& v, W w
 
 bool lootIndoorMap(const App& app) {
   const json& e = app.doc.extra;
-  return e.is_object() && e.contains("royale") && e["royale"].is_object() && e["royale"].value("indoor", false);
+  return e.is_object() && e.contains("royale") && e["royale"].is_object() && jkey(e, "royale").value("indoor", false);
 }
 static bool covered(vec3 p) { Physics::Hit h; return Physics::castRayEx(p + vec3(0, 1.9f, 0), vec3(0, 1, 0), 40.0f, h); }
 bool lootIndoorPoint(Game& G, vec3& out) {

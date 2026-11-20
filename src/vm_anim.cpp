@@ -72,7 +72,7 @@ std::shared_ptr<AnimVM> animVmLoad(const fs::path& dir, const json& block, std::
   a->glb = dir / "vm.glb"; a->gunJointName = meta.value("gunJoint", "");
   if (!fs::exists(a->glb)) { err = "missing " + a->glb.string(); return nullptr; }
   json P = meta["points"];
-  if (block.contains("points")) for (auto& [k, v] : block["points"].items()) P[k] = v;   // rig-space points measured on the rig itself
+  if (block.contains("points")) for (auto& [k, v] : jkey(block, "points").items()) P[k] = v;   // rig-space points measured on the rig itself
   a->pt[0] = jv(P.contains("eye") ? P["eye"] : P["rear"]); a->pt[1] = jv(P["front"]); a->pt[2] = jv(P["muzzle"]);
   if (P.contains("up")) { a->up = glm::normalize(jv(P["up"])); a->hasUp = true; }
   // state -> clip name (defaults: the same name). No draw clip (equip goes straight to the idle) and no movement clips.

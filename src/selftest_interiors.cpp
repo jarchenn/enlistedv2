@@ -30,13 +30,13 @@ fs::path outDirI() { fs::path p = exeDir() / "selftest_out"; std::error_code ec;
 vec3 W(App& a, uint64_t id, vec3 l) { Instance* i = a.doc.find(id); return i ? i->pos + yawQuat(i->yaw) * l : l; }
 std::vector<Instance*> childrenOf(App& a, uint64_t host) {
   std::vector<Instance*> v;
-  for (auto& i : a.doc.instances) if (i.extra.is_object() && i.extra.contains("furnish") && i.extra["furnish"].value("host", (uint64_t)0) == host) v.push_back(&i);
+  for (auto& i : a.doc.instances) if (i.extra.is_object() && i.extra.contains("furnish") && jkey(i.extra, "furnish").value("host", (uint64_t)0) == host) v.push_back(&i);
   return v;
 }
 std::vector<std::string> layoutOf(App& a, uint64_t host) {
   std::vector<std::string> v;
   for (auto* i : childrenOf(a, host)) {
-    char b[200]; std::snprintf(b, sizeof b, "%s|%s|%.3f,%.3f,%.3f|%.1f", i->extra["furnish"].value("slot", std::string()).c_str(), i->assetId.c_str(), i->pos.x, i->pos.y, i->pos.z, i->yaw);
+    char b[200]; std::snprintf(b, sizeof b, "%s|%s|%.3f,%.3f,%.3f|%.1f", jkey(i->extra, "furnish").value("slot", std::string()).c_str(), i->assetId.c_str(), i->pos.x, i->pos.y, i->pos.z, i->yaw);
     v.push_back(b);
   }
   std::sort(v.begin(), v.end());
@@ -45,7 +45,7 @@ std::vector<std::string> layoutOf(App& a, uint64_t host) {
 Instance* childBy(App& a, uint64_t host, const std::string& slotPart, bool blocking = true) {
   for (auto* i : childrenOf(a, host)) {
     const PropDef* pd = a.interior.prop(a.assetFor(*i));
-    if (pd && pd->blocking == blocking && i->extra["furnish"].value("slot", std::string()).find(slotPart) != std::string::npos) return i;
+    if (pd && pd->blocking == blocking && jkey(i->extra, "furnish").value("slot", std::string()).find(slotPart) != std::string::npos) return i;
   }
   return nullptr;
 }
@@ -221,7 +221,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       firstLayout = layoutOf(a, FH);
       // distinct layouts: the farmhouse's two bedrooms and the cottage do not repeat one arrangement
       std::set<std::string> rooms;
-      for (auto* c : childrenOf(a, FH)) { std::string s = c->extra["furnish"].value("slot", std::string()); rooms.insert(s.substr(0, s.find('/'))); }
+      for (auto* c : childrenOf(a, FH)) { std::string s = jkey(c->extra, "furnish").value("slot", std::string()); rooms.insert(s.substr(0, s.find('/'))); }
       check(rooms.size() >= 4, "farmhouse: furniture in " + std::to_string(rooms.size()) + " rooms");
       // V4 density gate: at least 3x the pieces of the first templates (measured on master 0e8479f with these four fixtures:
       // farmhouse 22, cottage 8, inn 9, workshop 6 = 45)
@@ -243,7 +243,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
           const AssetDef* ca = a.assetFor(*c); const PropDef* pd = a.interior.prop(ca);
           if (!pd || c->extra.value("propBroken", false)) continue;
           ++n;
-          std::string slot = c->extra["furnish"].value("slot", std::string());
+          std::string slot = jkey(c->extra, "furnish").value("slot", std::string());
           if (pd->flat() && c->assetId.rfind("furn_rug", 0) == 0) {   // rugs lie 2 mm above the floor of their storey: no z-fighting, no floating
             ++rugs; Instance* hi = a.doc.find(h); const RoomInfo* ri = a.interior.rooms(a.assetFor(*hi));
             float ly = (glm::inverse(yawQuat(hi->yaw)) * (c->pos - hi->pos)).y, fl = 1e9f;
@@ -253,7 +253,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
           }
           if (slot.find("/top") != std::string::npos) {   // on a furniture top: resting on the parent's surface
             std::string ps = slot.substr(0, slot.find("/top")); Instance* par = nullptr;
-            for (auto* k : childrenOf(a, h)) if (k->extra["furnish"].value("slot", std::string()) == ps) par = k;
+            for (auto* k : childrenOf(a, h)) if (jkey(k->extra, "furnish").value("slot", std::string()) == ps) par = k;
             const PropDef* pp = par ? a.interior.prop(a.assetFor(*par)) : nullptr; bool on = false;
             if (pp) for (float sy : pp->surfY) on |= std::fabs(c->pos.y - (par->pos.y + sy)) < 0.003f;
             if (!on) { ++bad; why += " " + c->assetId + " not on its parent's top"; }
@@ -266,7 +266,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       std::snprintf(b_, sizeof b_, "%d generated pieces re-checked with the manual placement rules: %d invalid%s", n, bad, why.c_str());
       check(bad == 0, b_);
       std::snprintf(b_, sizeof b_, "%d/%d rugs flat on the floor (1-6 mm gap)", rugOk, rugs); check(rugs >= 2 && rugOk == rugs, b_);
-      int unsup = 0; std::string un; for (uint64_t h : {FH, CT, INN, WS}) for (auto* c : childrenOf(a, h)) if (!c->extra.value("propBroken", false) && !a.interior.supported(a, *c, a.assetFor(*c))) { ++unsup; if (un.size() < 200) un += " " + c->assetId + "@" + c->extra["furnish"].value("slot", std::string()); }
+      int unsup = 0; std::string un; for (uint64_t h : {FH, CT, INN, WS}) for (auto* c : childrenOf(a, h)) if (!c->extra.value("propBroken", false) && !a.interior.supported(a, *c, a.assetFor(*c))) { ++unsup; if (un.size() < 200) un += " " + c->assetId + "@" + jkey(c->extra, "furnish").value("slot", std::string()); }
       check(unsup == 0, "nothing floats: every piece stands on a floor or a furniture top, wall-hung pieces have a wall behind (" + std::to_string(unsup) + " unsupported" + un + ")");
       int worstRoom = -1; float f = 1;
       std::string why2;
@@ -364,10 +364,10 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       a.selected = del->id; a.deleteSelected();
       a.interior.sync(a);
       mv = a.doc.find(mvId);
-      check(mv && mv->extra["furnish"].value("manual", false), "a generated piece moved by hand is marked as an override");
+      check(mv && jkey(mv->extra, "furnish").value("manual", false), "a generated piece moved by hand is marked as an override");
       a.interior.furnish(a, FH, 0);
       mv = a.doc.find(mvId);
-      bool delBack = false; for (auto* c : childrenOf(a, FH)) if (c->extra["furnish"].value("slot", std::string()) == delSlot) delBack = true;
+      bool delBack = false; for (auto* c : childrenOf(a, FH)) if (jkey(c->extra, "furnish").value("slot", std::string()) == delSlot) delBack = true;
       check(mv && glm::length(mv->pos - moved) < 1e-3f, "regenerate keeps the override where it was moved");
       check(!delBack && childrenOf(a, FH).size() <= n0 - 1, "regenerate leaves the deleted piece (and what stood on it) out (" + std::to_string(childrenOf(a, FH).size()) + " of " + std::to_string(n0) + " pieces)");
       a.interior.furnish(a, FH, 1);
@@ -375,7 +375,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       check(l2 != firstLayout, "New layout (reroll): a different arrangement from a new seed");
       a.interior.furnish(a, FH, 2);
       a.interior.furnish(a, FH, 2);
-      std::set<std::string> slots; bool dup = false; for (auto* c : childrenOf(a, FH)) dup |= !slots.insert(c->extra["furnish"].value("slot", std::string())).second;
+      std::set<std::string> slots; bool dup = false; for (auto* c : childrenOf(a, FH)) dup |= !slots.insert(jkey(c->extra, "furnish").value("slot", std::string())).second;
       check(!dup, "reset twice: one piece per slot, no duplicates");
       return true; });
     push("templates: pieces follow the building; duplicate, delete, undo", [this](App& a, float) {
@@ -387,7 +387,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       a.interior.sync(a); a.syncRuntime();
       h = a.doc.find(WS); Instance* c1 = a.doc.find(cid);
       vec3 l1 = glm::inverse(yawQuat(h->yaw)) * (c1->pos - h->pos);
-      check(glm::length(l1 - l0) < 1e-3f && std::fabs(wrapDeg(c1->yaw - h->yaw - y0 + 180) - 180) < 0.05f && !c1->extra["furnish"].value("manual", false),
+      check(glm::length(l1 - l0) < 1e-3f && std::fabs(wrapDeg(c1->yaw - h->yaw - y0 + 180) - 180) < 0.05f && !jkey(c1->extra, "furnish").value("manual", false),
             "moving / turning the workshop carries its furniture (same local pose, not an override)");
       a.undo(); a.interior.sync(a);
       h = a.doc.find(WS); c1 = a.doc.find(cid);
@@ -564,10 +564,10 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       Instance* top = nullptr; Instance* table = nullptr;
       for (uint64_t h : {CT, INN, FH})
         for (auto* c : childrenOf(a, h)) {
-          std::string s = c->extra["furnish"].value("slot", std::string());
+          std::string s = jkey(c->extra, "furnish").value("slot", std::string());
           if (s.find("table/top") != std::string::npos && !propBroken(a, c->id)) {
             std::string base = s.substr(0, s.find("/top"));
-            for (auto* k : childrenOf(a, h)) if (k->extra["furnish"].value("slot", std::string()) == base && !propBroken(a, k->id)) { top = c; table = k; }
+            for (auto* k : childrenOf(a, h)) if (jkey(k->extra, "furnish").value("slot", std::string()) == base && !propBroken(a, k->id)) { top = c; table = k; }
           }
           if (top) break;
         }
@@ -809,7 +809,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       for (size_t k = 0; k < ri->rooms.size(); ++k) { const auto& R = ri->rooms[k]; vec2 e = R.mx - R.mn; if (R.storey == 0 && R.type == ROOM_HALL && std::max(e.x, e.y) > hl) { hl = std::max(e.x, e.y); hk = (int)k; } }
       std::vector<float> pend; int runners = 0, pics = 0; std::string pr = "r" + std::to_string(hk) + "/";
       for (auto* c : childrenOf(a, cid)) {
-        std::string slot = c->extra["furnish"].value("slot", std::string());
+        std::string slot = jkey(c->extra, "furnish").value("slot", std::string());
         if (slot.rfind(pr, 0) != 0) continue;
         vec3 l = glm::inverse(yawQuat(ch->yaw)) * (c->pos - ch->pos);
         if (slot.find("pendant") != std::string::npos) pend.push_back(l.x);
@@ -839,7 +839,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       for (auto it = a.doc.instances.rbegin(); it != a.doc.instances.rend(); ++it) {
         const AssetDef* as = a.lib.find(it->assetId);
         if (!as || !as->enterable || as->category == "Furniture" || done.count(as->id) || lightsOnlyHost(as) || isRuinedAsset(as->id) || notIntactHouse(as->id)) continue;
-        if (!it->extra.is_object() || !it->extra.contains("interior") || !it->extra["interior"].value("on", false)) continue;
+        if (!it->extra.is_object() || !it->extra.contains("interior") || !jkey(it->extra, "interior").value("on", false)) continue;
         done.insert(as->id); hosts.push_back(it->id);
       }
       for (uint64_t hid : hosts) {
@@ -873,7 +873,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
         auto it = idx.find(l.id / 16); if (it == idx.end()) continue;
         const Instance& i = *it->second;
         if (!i.extra.is_object() || !i.extra.contains("furnish")) continue;
-        uint64_t h = i.extra["furnish"].value("host", (uint64_t)0); std::string slot = i.extra["furnish"].value("slot", std::string());
+        uint64_t h = jkey(i.extra, "furnish").value("host", (uint64_t)0); std::string slot = jkey(i.extra, "furnish").value("slot", std::string());
         ++lightsOf[h]; if (slot.size() > 1 && slot[0] == 'r') roomsLit[h].insert(std::atoi(slot.c_str() + 1));
       }
       int eligible = 0, lit = 0, ruins = 0, ruinsDark = 0, bunkers = 0, bunkersOk = 0, rooms = 0, roomsWith = 0, crafts = 0, craftsDark = 0;
@@ -884,7 +884,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
         if (lightsRuinedAsset(as)) { ++ruins; ruinsDark += n == 0; if (n) ruinBad += " " + as->id; continue; }
         if (as->id.rfind("bch_", 0) == 0) { ++crafts; craftsDark += n == 0; continue; }
         if (notIntactHouse(as->id)) continue;
-        bool gen = i.extra.is_object() && i.extra.contains("interior") && i.extra["interior"].value("on", false);
+        bool gen = i.extra.is_object() && i.extra.contains("interior") && jkey(i.extra, "interior").value("on", false);
         const RoomInfo* ri = a.interior.rooms(as);
         if (!gen || !lightsLitBuilding(as) || ri->rooms.empty()) continue;   // authored bare (auto-furnish off, decor, removed)
         // open-topped pits: nothing to hang a lamp from. PR3: emplacements only; lightsRoofed probes 14 cells round each room centre
@@ -893,7 +893,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
         ++eligible; lit += n > 0;
         if (!n) {   // why: the first light of the building
           std::string why = "no light pieces";
-          std::map<std::string, int> rs; for (auto* c : childrenOf(a, i.id)) if (lightDef(a.assetFor(*c))) ++rs[lightOffReason(a, *c) + (c->extra.contains("light") && c->extra["light"].value("applied", false) ? " (applied)" : "")];
+          std::map<std::string, int> rs; for (auto* c : childrenOf(a, i.id)) if (lightDef(a.assetFor(*c))) ++rs[lightOffReason(a, *c) + (c->extra.contains("light") && jkey(c->extra, "light").value("applied", false) ? " (applied)" : "")];
           if (!rs.empty()) { why.clear(); for (auto& [r, k] : rs) why += r + " x" + std::to_string(k) + ", "; }
           bad += " " + as->id + " #" + std::to_string(i.id) + " (" + why + ")";
         }
@@ -921,7 +921,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       if (!cl || !tl) { lightsSetDaylight(-1); return true; }
       const PropDef* cpd = a.interior.prop(a.assetFor(*cl));
       {
-        uint64_t h = cl->extra["furnish"].value("host", (uint64_t)0); std::string slot = cl->extra["furnish"].value("slot", std::string());
+        uint64_t h = jkey(cl->extra, "furnish").value("host", (uint64_t)0); std::string slot = jkey(cl->extra, "furnish").value("slot", std::string());
         const RoomInfo* ri = a.interior.rooms(a.assetFor(*a.doc.find(h))); int k = std::atoi(slot.c_str() + 1);
         float ly = cl->extra["furnish"]["loc"][1].get<float>(), clear = ly + cpd->bmin.y - ri->rooms[k].y0;
         std::snprintf(b_, sizeof b_, "ceiling lamp hangs from the ceiling (support from above %d) with %.2f m clear under it (>= 1.75)", (int)a.interior.supported(a, *cl, a.assetFor(*cl)), clear);
@@ -977,7 +977,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       {
         int n = lightsApplyToMap(a);
         Instance* s = a.doc.find(SL);
-        bool saved = s && s->extra.contains("light") && !s->extra["light"].value("on", true) && s->extra["light"].value("applied", false);
+        bool saved = s && s->extra.contains("light") && !jkey(s->extra, "light").value("on", true) && jkey(s->extra, "light").value("applied", false);
         lightsClearApplied(a); s = a.doc.find(SL);
         std::snprintf(b_, sizeof b_, "Apply damage: %d lights saved off (extra.light {on: false, applied: true}); Clear applied damage removes them (%d)", n, (int)(s && !s->extra.contains("light")));
         check(n >= 4 && saved && s && !s->extra.contains("light"), b_);
