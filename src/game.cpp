@@ -190,7 +190,7 @@ bool Game::begin(std::string& err) {
     s.human = rs.human; s.peer = rs.peer; s.localPlayer = rs.id == localSlot;
     int side = ffaMode(match.mode()) ? 0 : std::clamp(rs.team, 0, 1);
     AiType ait = rs.human ? AiType::Soldiers : aiTypeNext(match.rules.aiCount[side], match.rules.aiTypes[side], aiGiven[side]);   // AI3: the typed counts per type
-    s.zombie = ait != AiType::Soldiers && ait != AiType::Operators && ait != AiType::Troopers && ait != AiType::Robots && ait != AiType::GasMask && ait != AiType::Desert && ait != AiType::Delta && ait != AiType::Allied && ait != AiType::GasMask2 && ait != AiType::SS;   // G2 melee brain (NA1: mechs are melee)
+    s.zombie = ait != AiType::Soldiers && ait != AiType::Operators && ait != AiType::Troopers && ait != AiType::Robots && ait != AiType::GasMask && ait != AiType::Desert && ait != AiType::Delta && ait != AiType::Allied && ait != AiType::GasMask2 && ait != AiType::SS && ait != AiType::AlliedPara;   // G2 melee brain (NA1: mechs are melee)
     s.gmWeapon = -1;
     // GM1 / GM2: bodies with the gun built in: the gas-mask and desert types, and the Axis side's plain soldier bots (not in Battle
     // royale, where bots loot and change guns; never a human: the player's own body and first person are unchanged)
@@ -198,7 +198,7 @@ bool Game::begin(std::string& err) {
                             : !rs.human && ait == AiType::Soldiers && rs.faction == Faction::Axis && match.mode() != GameMode::BattleRoyale ? "german" : nullptr;
     s.gunBody = gunBodyKind != nullptr;
     s.op = ait == AiType::Operators;
-    s.kit = ait == AiType::Troopers ? 2 : ait == AiType::Robots ? 3 : ait == AiType::Delta ? 4 : ait == AiType::Desert ? 6 : ait == AiType::Allied ? 7 : ait == AiType::SS ? 8 : s.op ? 1 : 0;   // WS1: 7 Allied, 8 SS soldiers on the Delta Force path   // SW1; DF1: 4 Delta Force; DSD1: 6 desert soldiers on the Delta Force path
+    s.kit = ait == AiType::Troopers ? 2 : ait == AiType::Robots ? 3 : ait == AiType::Delta ? 4 : ait == AiType::Desert ? 6 : ait == AiType::Allied || ait == AiType::AlliedPara ? 7 : ait == AiType::SS ? 8 : s.op ? 1 : 0;   // WS1: 7 Allied, 8 SS soldiers on the Delta Force path   // SW1; DF1: 4 Delta Force; DSD1: 6 desert soldiers on the Delta Force path
     s.etype = !s.zombie ? 0 : ait == AiType::ZombiesHeavies ? enemyTypePick((uint32_t)rs.id)   // EN1: the mix by weight, per slot
             : ait == AiType::Brutes ? std::max(0, enemyTypeIndex("brute")) : ait == AiType::Spiders ? std::max(0, enemyTypeIndex("stalker"))
             : ait == AiType::Creatures ? std::max(0, enemyTypeIndex("creature"))
@@ -1129,7 +1129,9 @@ void Game::posesStep(float dt) {
       }
     }
     pp.walkPhase = s.walkPhase;
-    if (s.weapon >= 0) { const WeaponDef& d = *app.weaponDefs[s.weapon]; pp.gripR = d.gripR; pp.gripL = d.gripL; pp.magPos = clipKit(s.kit) ? weaponPartCentre(d, 2, d.gripL + vec3(0, -0.1f, -0.12f)) : d.gripL + vec3(0, -0.1f, -0.12f); pp.holdOffset = d.holdOffset; pp.holdWeld = d.holdWeld; pp.holdKind = d.holdKind; pp.leftHold = d.leftHold; pp.gripPose = (s.kit == 7 || s.kit == 8) && d.gripPose.has ? &d.gripPose : nullptr;   /* WS1: the butt plate clear in front of the shoulder as approved (the stored wrist sits behind the grip: against the shoulder the firing elbow has nowhere to go but up) */ if (d.leftHold == 1) pp.gripL = weaponPartCentre(d, 2, d.gripL);   /* WS1: the support hand on the magazine itself */
+    if (s.weapon >= 0) { const WeaponDef& d = *app.weaponDefs[s.weapon]; pp.gripR = d.gripR; pp.gripL = d.gripL; pp.magPos = clipKit(s.kit) ? weaponPartCentre(d, 2, d.gripL + vec3(0, -0.1f, -0.12f)) : d.gripL + vec3(0, -0.1f, -0.12f); pp.holdOffset = d.holdOffset; pp.holdWeld = d.holdWeld; pp.holdKind = d.holdKind; pp.leftHold = d.leftHold; pp.gripPose = (s.kit == 7 || s.kit == 8) && d.gripPose.has ? &d.gripPose : nullptr;
+      if (d.leftHold == 1) pp.gripL = weaponPartCentre(d, 2, d.gripL);   /* WS1: the support hand on the magazine itself (before the scale below: a larger-drawn gun's magazine moves with it) */
+      if (pp.gripPose && d.gripPose.scale != 1) { pp.gripL = pp.gripR + (pp.gripL - pp.gripR) * d.gripPose.scale; pp.magPos = pp.gripR + (pp.magPos - pp.gripR) * d.gripPose.scale; }   /* WS1: a gun drawn larger about its grip: its sockets with it */   /* WS1: the butt plate clear in front of the shoulder as approved (the stored wrist sits behind the grip: against the shoulder the firing elbow has nowhere to go but up) */
       pp.gripC = d.gripC; pp.gripAx = d.gripAx; pp.gripRad = d.gripRad; pp.guardC = d.guardC; pp.guardRad = d.guardRad; pp.sightR = d.rear; }   // AN1 step 2b
     pp.reload = s.reload > 0 && s.reloadTotal > 0 ? 1.0f - s.reload / s.reloadTotal : 0;
     pp.throwT = s.throwT; pp.recoil = s.recoil;
@@ -1294,12 +1296,15 @@ void Game::drawItems() {
       const WeaponDef& d = *app.weaponDefs[s.weapon];
       if (d.useModel()) {
         mat4 W = s.world * s.pose.weapon, magW = W;
+        const float gk = (s.kit == 7 || s.kit == 8) && d.gripPose.has ? d.gripPose.scale : 1.0f;   // WS1: the gun drawn larger in these soldiers' hands, about its grip socket
+        const mat4 Sk = gk != 1 ? glm::translate(mat4(1), d.gripR) * glm::scale(mat4(1), vec3(gk)) * glm::translate(mat4(1), -d.gripR) : mat4(1);
+        W = W * Sk; magW = W;
         {   // DF1: a Delta Force reload: the magazine leaves the gun in the left hand (reload 25 %) and goes back in (80 %)
           const float r = (clipKit(s.kit)) && s.reload > 0 && s.reloadTotal > 0 ? 1.0f - s.reload / s.reloadTotal : 0.0f;
           const int lh = models[s.model]->semantic[CJ_LHAND];
           if (r > s.dfMagWin.x && r < s.dfMagWin.y && lh >= 0 && lh < (int)s.pose.delta.size()) {   // the span by its feed (gunbody.cpp: box 25-80 %, belt 35-65 %)
             if (!s.dfMagHeld) { s.dfMagK = glm::inverse(s.pose.delta[lh]) * s.pose.weapon; s.dfMagHeld = true; }
-            magW = s.world * s.pose.delta[lh] * s.dfMagK;
+            magW = s.world * s.pose.delta[lh] * s.dfMagK * Sk;
           } else s.dfMagHeld = false;
         }
         const mat4 boltW = (clipKit(s.kit)) && s.dfBoltBack > 0 ? W * glm::translate(mat4(1), vec3(0, 0, -s.dfBoltBack)) : W;   // DF1: the bolt drawn back / the pump slid back

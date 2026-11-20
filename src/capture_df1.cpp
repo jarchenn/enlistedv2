@@ -32,8 +32,8 @@ fs::path shot(const char* what) { return exeDir() / "selftest_out" / (pre + what
 bool df1Capture(App& app, float dt) {
   if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-df1") mode = 1; const char* e = std::getenv("NMK_DF_STAGE"); stageB = e && std::string(e) == "b";
     if (const char* k = std::getenv("NMK_DF_KIND"); k && std::string(k) == "desert") { kitN = "desert"; pre = "ds_"; aiT = AiType::Desert; kitNo = 6; }
-    else if (k && std::string(k) == "allied_all") { kitN = "allied_all"; pre = "aa_"; aiT = AiType::Allied; kitNo = 7; }   // WS1: the Allied body holding every gun (the review sheet)
-    else if (k && std::string(k) == "allied") { kitN = "allied"; pre = "al_"; aiT = AiType::Allied; kitNo = 7; }   // WS1: the Allied / SS soldiers on the same path
+    else if (k && std::string(k) == "allied_all") { kitN = "allied_all"; pre = "aa_"; aiT = AiType::AlliedPara; kitNo = 7; }   // WS1: the Allied body holding every gun (the review sheet)
+    else if (k && std::string(k) == "allied") { kitN = "allied"; pre = "al_"; aiT = AiType::AlliedPara; kitNo = 7; }   // WS1: the Allied / SS soldiers on the same path
     else if (k && std::string(k) == "ss") { kitN = "ss"; pre = "ss_"; aiT = AiType::SS; kitNo = 8; } }
   if (mode != 1) return false;
   if (dt < 0) return true;

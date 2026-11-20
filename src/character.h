@@ -73,7 +73,7 @@ struct CharInstance {
 // WS1: a weapon's approved hold (content/weapons/<id>.json hold.pose, tools/grip_to_game.py): both wrists and every finger as posed on the
 // gun. p: the wrist joint from its anchor (weapon space; the rightGrip socket, or for the left hand the magazine's centre); q: the hand's
 // turn from rest in weapon space; fingers: each named joint's turn from rest against its parent's (model axes).
-struct GripPose { bool has = false; vec3 p[2] = {vec3(0), vec3(0)}; quat q[2] = {quat(1, 0, 0, 0), quat(1, 0, 0, 0)}; bool lMag = false; vec3 butt = vec3(0);   /* the butt plate from the rightGrip socket (weapon x, y) */ std::vector<std::pair<std::string, quat>> fingers; };
+struct GripPose { bool has = false; vec3 p[2] = {vec3(0), vec3(0)}; quat q[2] = {quat(1, 0, 0, 0), quat(1, 0, 0, 0)}; bool lMag = false; vec3 gun = vec3(0); float scale = 1;   /* review corrections: the gun from its ruled place (x left, y up, z along the aim); the gun drawn larger about its grip */ vec3 butt = vec3(0);   /* the butt plate from the rightGrip socket (weapon x, y) */ std::vector<std::pair<std::string, quat>> fingers; };
 struct PoseParams {
   float walkPhase = 0, walkAmount = 0;      // stride phase (rad) and blend 0..1 (speed / run speed)
   float crouch = 0, prone = 0;              // 0..1 blends
