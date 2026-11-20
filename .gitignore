@@ -35,13 +35,6 @@ content/weapons/local/
 content/weapons/models/*_local/
 content/characters/trooper_*.glb
 content/characters/robot_*.glb
-# DF1: Delta Force: the user's Mixamo rifle / pistol / grenade clips (no licence supplied) on the US Marine body: the bake stays local-only (the soldier body without it)
-content/characters/delta_force.glb
-# DSD1: the desert soldier's body with Delta Force's clips (their licence not stated): local-only
-content/characters/desert_body.glb
-# WS1: the Allied and SS bodies with their Mixamo clips (licence not stated): local-only
-content/characters/allied_body.glb
-content/characters/ss_body.glb
 # NA1: the user's gasmask / robot animation exports on game bodies (clip licences not stated): the bakes stay local-only (Allied and SS: made by the user, committed)
 content/characters/gasmask2_*.glb
 content/characters/mech.glb
