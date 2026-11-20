@@ -545,6 +545,11 @@ def build(ctx):
     sty = G(236.0, 242.0)
     views.append({"name": "station_close", "pos": [205.0, round(sty + 6.0, 2), 214.0], "yaw": round(look_yaw(268.0 - 205.0, 226.0 - 214.0), 2), "pitch": 6.0})
     views.append({"name": "flume_close", "pos": [13.0, round(G(13.0, 7.5) + 1.65, 2), 7.5], "yaw": round(look_yaw(8.0 - 13.0, 12.0 - 7.5), 2), "pitch": -6.0, "gameplay": True})
+    ct = [e for e in b.inst if "creek_trees" in e["tags"]]
+    if ct:   # BT2: a creek tree close up (its roots on the ground, on the bank's slope)
+        e = ct[len(ct) // 2]; tx_, tz_ = e["pos"][0], e["pos"][2]
+        views.append({"name": "creek_tree_close", "pos": [round(tx_ + 4.5, 2), round(G(tx_ + 4.5, tz_ - 3.0) + 1.65, 2), round(tz_ - 3.0, 2)],
+                      "yaw": round(look_yaw(-4.5, 3.0), 2), "pitch": -8.0, "gameplay": True})
     views.append({"name": "washhouse_close", "pos": [4.0, round(G(4.0, 47.0) + 1.65, 2), 47.0], "yaw": round(look_yaw(8.0 - 4.0, 63.0 - 47.0), 2), "pitch": 4.0, "gameplay": True})
     for n, c in cams:
         views.append({"name": n.lower().replace(" ", "_"), "pos": c["position"], "yaw": c["yaw"], "pitch": c["pitch"], "gameplay": True})
@@ -734,14 +739,17 @@ def dress_vegetation(b, cat, G, R):
     def lane_gap(x, z):
         return min(min(math.hypot(x - p[0], z - p[1]) for p in pts[::2]) - w / 2 for pts, w in lanes)
 
-    def put(aid, x, z, yaw, key, clear=1.2, inside=True):
+    def put(aid, x, z, yaw, key, clear=1.2, inside=True, seat=0.0):
         if aid not in cat:
             return False
         if inside and not (ENV[0] + 3 < x < ENV[2] - 3 and ENV[1] + 3 < z < ENV[3] - 3):
             return False
         if lane_gap(x, z) < clear or b.overlaps(cat[aid], x, z, yaw, {"flat", "none", "veg"}):
             return False
-        e = b.place(aid, x, z, yaw, check=False, cls="veg", y=G(x, z), tags={"veg", key}, companions=False)
+        # BT2: seat = the root spread (m): the tree stands at the lowest ground under it (its lowest root contact), so no
+        # root floats on a slope; the asset's model.sink buries the flare
+        y = min([G(x, z)] + [G(x + seat * math.cos(t), z + seat * math.sin(t)) for t in [k * math.pi / 4 for k in range(8)]]) if seat > 0 else G(x, z)
+        e = b.place(aid, x, z, yaw, check=False, cls="veg", y=y, tags={"veg", key}, companions=False)
         rep[key] = rep.get(key, 0) + (e is not None)
         return e is not None
 
@@ -763,7 +771,7 @@ def dress_vegetation(b, cat, G, R):
         if min(math.hypot(x - c[0], z - c[1]) for c in (BRIDGE_W, FOOTBRIDGE, FORD)) < 12.0:
             continue
         side = 1 if k % 2 else -1
-        put(R.choice(["nt3_tree_dead_ash", "nt3_tree_dead_oak", "nt3_tree_dead_ash"]), x + R.uniform(-1.5, 1.5), z + side * R.uniform(4.5, 6.5), R.uniform(0, 360), "creek_trees", clear=2.0)
+        put(R.choice(["nt3_tree_dead_ash", "nt3_tree_dead_oak", "nt3_tree_dead_ash"]), x + R.uniform(-1.5, 1.5), z + side * R.uniform(4.5, 6.5), R.uniform(0, 360), "creek_trees", clear=2.0, seat=1.2)
     # fir and spruce: ridgeline masses outside the envelope and border screens just inside it
     firs = ["ph_fir_tree_01_a", "ph_fir_tree_01_b", "ph_fir_tree_01_c", "ph_fir_sapling_medium_a", "ph_fir_sapling_medium_b"]
     for _ in range(2600):
