@@ -248,7 +248,7 @@ struct NatureDef {
   float hMin = 1.0f, hMax = 1.0f;          // FLOWERS / TALLGRASS: height scale range (x the species heights, nature.cpp)
   std::vector<vec3> tris;                  // ROCK: CPU copy of the render triangles, asset space (collision tests)
 };
-struct BagXf { int v = 0; mat4 m{1}; int sec = -1; };   // HB1b: one drawn sandbag: bag mesh variant, asset-space (or line-space) transform, line section
+struct BagXf { int v = 0; mat4 m{1}; int sec = -1; vec4 tint{0.0f}; };   // tint (HB1c): multiplies the bag texture (a = 2)   // HB1b: one drawn sandbag: bag mesh variant, asset-space (or line-space) transform, line section
 struct AssetDef {
   StationDef station;
   TreeDef tree;

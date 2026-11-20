@@ -60,7 +60,8 @@ struct InstanceRT {
   uint32_t playerBody = 0xffffffffu;                 // player-only traversal volume (wire)
   GpuMesh pathMesh; uint32_t pathGround = ~0u, pathRev = 0; std::vector<uint8_t> slabCut;   // path entities (paths.cpp)
   vec4 contact[5]{}; uint32_t contactRev = 0, contactGround = ~0u;   // MA2: ground under the walls (App::contactProfile)
-  GpuMesh earthMesh; uint64_t earthKey = 0; uint32_t earthGround = ~0u;   // GX1: generated revetment / retaining skirt (terrain_blend.cpp)
+  GpuMesh earthMesh; uint64_t earthKey = 0; uint32_t earthGround = ~0u;
+  std::vector<BagXf> earthBags;   // HB1c: the trench's sandbags, drawn as bag meshes (src/sandbags.cpp)   // GX1: generated revetment / retaining skirt (terrain_blend.cpp)
   std::vector<float> secHp; std::vector<uint8_t> secCut;   // wire sections (session overlay): hp, cut; a line's bays (LN1)
   std::shared_ptr<LineBuildOut> line; GpuMesh lineMesh; uint32_t lineGround = ~0u;   // LN1 line features (lines.cpp): the builder's output
   // nature scatter patches (nature.cpp): stones as one merged mesh, plants as a grass-shader instance buffer

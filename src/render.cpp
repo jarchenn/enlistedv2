@@ -1834,7 +1834,8 @@ void main(){
   vec4 base = uBase;
   if (uHasAlb == 1) base *= texture(uAlb, vUV);
   if (uCutout == 1 && base.a < 0.5) discard;
-  if (vTintI.a > 0.5) {   // VR1: the ivy pack recoloured per instance; the texture keeps its own shading (luminance)
+  if (vTintI.a > 1.5) base.rgb *= vTintI.rgb;   // HB1c: sandbags, per bag (src/sandbags.cpp)
+  else if (vTintI.a > 0.5) {   // VR1: the ivy pack recoloured per instance; the texture keeps its own shading (luminance)
     float l = dot(base.rgb, vec3(0.2126, 0.7152, 0.0722));
     base.rgb = uCutout == 1 ? vTintI.rgb * clamp(l / uIvyRef.x, 0.15, 2.5) : mix(uIvyStem, vTintI.rgb, 0.15) * clamp(l / uIvyRef.y, 0.15, 2.5);
   }
@@ -1904,7 +1905,7 @@ out vec3 vW, vN; out vec4 vT; out vec2 vUV; flat out vec4 vTintI;
 void main(){
   int b = (uInstBase + gl_InstanceID)*4;
   vec4 c0 = gFol[b], c1 = gFol[b + 1], c2 = gFol[b + 2], c3 = gFol[b + 3]; float wk = c0.w; c0.w = 0.0;
-  vTintI = c3.w > 1.5 ? vec4(c1.w, c2.w, c3.w - 2.0, 1.0) : vec4(0.0);   // VR1: the matrix's free w row carries a colour
+  vTintI = c3.w > 5.5 ? vec4(c1.w, c2.w, c3.w - 6.0, 2.0) : c3.w > 1.5 ? vec4(c1.w, c2.w, c3.w - 2.0, 1.0) : vec4(0.0);   // VR1: the matrix's free w row carries a colour (HB1c: from 6, a multiplier)
   c1.w = 0.0; c2.w = 0.0; c3.w = 1.0;
   mat4 M = mat4(c0, c1, c2, c3);
   vec4 w = M*vec4(aPos, 1.0);
@@ -4271,7 +4272,7 @@ void Renderer::drawFolModels(bool depth, const mat4& vp, const Frustum* fr, floa
     runs.push_back({m, {(int)(buf.size() / 4), (int)v.size()}});
     for (auto* d : v) {
       mat4 M = d->m; M[0].w = d->wind;
-      if (d->tint.a > 0) { M[1].w = d->tint.r; M[2].w = d->tint.g; M[3].w = 2.0f + d->tint.b; }   // kFolVS reads it back
+      if (d->tint.a > 0) { M[1].w = d->tint.r; M[2].w = d->tint.g; M[3].w = (d->tint.a > 1.5f ? 6.0f : 2.0f) + d->tint.b; }   // kFolVS reads it back (HB1c: a 2 = multiply)
       for (int k = 0; k < 4; ++k) buf.push_back(M[k]);
     }
   }

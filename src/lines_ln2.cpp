@@ -153,12 +153,12 @@ void bayBuilder(const LineBuildCtx& c, LineBuildOut& out) {
       for (size_t pk = 0; pk < s.parts.size(); ++pk) {
         const Part& p = s.parts[pk];
         if (!p.bag || (s.partEnd[pk] >= 0 && !b.end[s.partEnd[pk]])) continue;
-        size_t n0 = pb.size(); sandbagBoxes(p, (uint32_t)(b.s0 * 131.0f) + (uint32_t)pk * 7919u, app, pb);
+        size_t n0 = pb.size(); sandbagBoxes(p, (uint32_t)(b.s0 * 131.0f) + (uint32_t)pk * 7919u, app, pb); sandbagDirt(pb, n0);
         for (size_t k = n0; k < pb.size(); ++k) {
           mat4 X = pb[k].m; vec3 c = vec3(X[3]); X[3] = vec4(0, 0, 0, 1);
           vec2 t; vec3 P = map(b, c, &t);
           mat4 Rw(1.0f); Rw[0] = vec4(mapDir(s, vec3(1, 0, 0), t), 0); Rw[2] = vec4(mapDir(s, vec3(0, 0, 1), t), 0);
-          out.bags.push_back({pb[k].v, glm::translate(mat4(1), P) * Rw * X, b.sec});
+          out.bags.push_back({pb[k].v, glm::translate(mat4(1), P) * Rw * X, b.sec, pb[k].tint});
         }
       }
     }

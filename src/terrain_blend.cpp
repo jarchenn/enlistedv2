@@ -2,6 +2,7 @@
 // evaluated in terrain_cuts.cpp; this file derives them from the instances, levels placements, generates the
 // revetment / skirt meshes and validates seating after reforms.
 #include "terrain_blend.h"
+#include "sandbags.h"   // HB1c
 #include "lines.h"
 #include "snap.h"
 #include "render.h"
@@ -345,6 +346,7 @@ void weather(MeshData& m, size_t start, const Wx& w, uint32_t seed) {
 
 // revetment (boards on posts against an earth backfill), a sandbag cap, duckboards and the firestep's earth fill along
 // one trench piece's path, fitted to the carved network around it
+static std::vector<BagXf>* gTrenchBags = nullptr;   // HB1c: where buildTrench puts its sandbags (null: into the mesh)
 void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
   const Terrain& T = app.terrain;
   const BlendConfig& C = blendConfig(); const StampParams& sp = T.sp;
@@ -373,6 +375,10 @@ void buildTrench(App& app, const Instance& i, const AssetDef* a, MeshData& m) {
   auto floorAt = [&](vec2 q) { return T.height(q.x, q.y); };
   auto floorL = [&](float fy) { return fy - i.pos.y - kTrenchMeshDrop; };
   auto put = [&](const Part& p, const Material& mt, float fy, vec3 tint, float mud, uint32_t k, float wetH = 0.65f) {
+    if (gTrenchBags && &mt == &bag) {   // HB1c: a sandbag: one of the bag meshes, the weathering hue as its tint
+      Part q = p; q.bag = (uint8_t)sandbagKind(mt.name, p.size);
+      if (q.bag == 1 || q.bag == 3) { sandbagBoxes(q, seed ^ (k * 2654435761u), app, *gTrenchBags, tint * 1.6f * (mud > 0 ? 0.85f : 1.0f)); return; }   // the hue was against the flat sacking albedo (~0.55): about 1 on the bag texture
+    }
     size_t s0 = m.v.size(); appendPart(m, p, mt, mat4(1));
     Wx w; w.floorL = floorL(fy); w.tint = tint; w.mud = mud; w.wetH = wetH; weather(m, s0, w, seed ^ (k * 2654435761u));
   };
@@ -650,12 +656,16 @@ void blendDrawItems(App& app, const Instance& i, InstanceRT& r, const mat4& M, s
   }
   if (stale) {
     MeshData m;
+    r.earthBags.clear(); gTrenchBags = &r.earthBags;
     if (tr) buildTrench(app, i, r.asset, m); else buildSkirt(app, i, r.asset, m);
+    gTrenchBags = nullptr;
     r.earthMesh.destroy();
     if (!m.i.empty()) r.earthMesh.upload(m);
     r.earthKey = key; r.earthGround = app.groundRev;
   }
   if (r.earthMesh.count) op.push_back({&r.earthMesh, tr ? M * glm::translate(mat4(1), vec3(0, kTrenchMeshDrop, 0)) : M});
+  if (!r.earthBags.empty()) sandbagDrawList(app, r.earthBags, {}, tr ? M * glm::translate(mat4(1), vec3(0, kTrenchMeshDrop, 0)) : M,
+                                           glm::length(i.pos - (app.mode == Mode::Explore ? app.eyePos() : app.camPos)));   // HB1c
 }
 
 // ================================================================ preview

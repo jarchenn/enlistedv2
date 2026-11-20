@@ -1,0 +1,13 @@
+{
+ "_doc": "HB1c sandbag look (src/sandbags.cpp). tint: multiplies the bag texture (linear rgb) - the user's model is a strong red-brown, this takes it to a duller hessian tan-brown. valueVar / hueVar: per-bag brightness and warm-cool spread. dirt / dirtHeight: bags whose centre is low in their piece darken toward this factor at the ground. lengthFill / fullness / bed: how far a bag overlaps its neighbours end to end, how much plumper than its box, how deep (m) it sits into the course below. jitter: scales every per-bag irregularity (size, yaw, tilt, in / out, level); 0 = tidy rows. sagShare: share of bags slumped at a steeper tilt.",
+ "tint": [1.12, 1.4, 1.5],
+ "valueVar": 0.14,
+ "hueVar": 0.05,
+ "dirt": 0.72,
+ "dirtHeight": 0.32,
+ "lengthFill": 1.22,
+ "fullness": 1.28,
+ "bed": 0.02,
+ "jitter": 1.0,
+ "sagShare": 0.07
+}

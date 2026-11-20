@@ -1,1 +1,88 @@
-{"id":"def_sandbag_single","version":1,"name":"Sandbag (single, model)","category":"Defences","description":"Sandbag (single, model), 0.58 x 0.36 x 0.17 m: Sandbag Wall - 24MB by adventurer.","footprint":[0.578,0.357],"floors":0,"enterable":false,"plinthDepth":0,"maxGrade":5,"noAutoPanels":true,"model":{"pivot":"ground","maxTex":1024,"simplify":1,"lod1":0.3,"lodDist":15,"cullDist":300,"src":"def_sandbag_single.glb","dir":"def_sandbag_single","jpgMaps":true,"scale":1,"credit":"Sandbag Wall - 24MB by adventurer, Sketchfab (https://sketchfab.com/3d-models/sandbag-wall-24mb-35f39f3b391040169eb04d9a339d88a5), CC-BY-4.0"},"nav":{"effect":"none","rooms":[],"doors":[],"entrances":[],"corners":[],"firingPoints":[],"areas":[],"cover":[]},"materials":[{"name":"collider","albedo":[0.4,0.4,0.38],"roughness":0.9,"pattern":"concrete","metallic":0,"grain":1,"texture":"concrete_aged"}],"parts":[{"t":"b","c":[0.0,0.083,-0.0],"s":[0.578,0.166,0.357],"m":"collider","v":0}],"furniture":[],"interactables":[],"panels":[]}
+{
+ "id": "def_sandbag_single",
+ "version": 1,
+ "name": "Sandbag (single, model)",
+ "category": "Defences",
+ "description": "Sandbag (single, model), 0.58 x 0.36 x 0.17 m: Sandbag Wall - 24MB by adventurer. HB1c: drawn as instanced bag meshes from the same model (src/sandbags.cpp); the collider is unchanged.",
+ "footprint": [
+  0.578,
+  0.357
+ ],
+ "floors": 0,
+ "enterable": false,
+ "plinthDepth": 0,
+ "maxGrade": 5,
+ "noAutoPanels": true,
+ "nav": {
+  "effect": "none",
+  "rooms": [],
+  "doors": [],
+  "entrances": [],
+  "corners": [],
+  "firingPoints": [],
+  "areas": [],
+  "cover": []
+ },
+ "materials": [
+  {
+   "name": "collider",
+   "albedo": [
+    0.4,
+    0.4,
+    0.38
+   ],
+   "roughness": 0.9,
+   "pattern": "concrete",
+   "metallic": 0,
+   "grain": 1,
+   "texture": "concrete_aged"
+  },
+  {
+   "name": "sacking",
+   "albedo": [
+    0.55,
+    0.47,
+    0.36
+   ],
+   "roughness": 0.95,
+   "pattern": "fabric",
+   "metallic": 0,
+   "grain": 1
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0.0,
+    0.083,
+    -0.0
+   ],
+   "s": [
+    0.578,
+    0.166,
+    0.357
+   ],
+   "m": "collider",
+   "v": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0.0,
+    0.083,
+    0.0
+   ],
+   "s": [
+    0.578,
+    0.166,
+    0.357
+   ],
+   "m": "sacking",
+   "k": 0
+  }
+ ],
+ "furniture": [],
+ "interactables": [],
+ "panels": []
+}

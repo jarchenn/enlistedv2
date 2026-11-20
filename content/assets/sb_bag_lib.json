@@ -4,7 +4,7 @@
  "name": "Sandbag library (bag meshes)",
  "category": "Defences",
  "hidden": true,
- "description": "HB1b: four sandbag meshes from the user's Sandbag Wall model, decimated to ~420 triangles (LOD1 ~130). Every sandbag box part (hessian / sandbag materials) of every asset draws one of these, instanced (src/sandbags.cpp); the box stays the collider. Tinted toward hessian tan in the bake (matOverride base 1.3 / 1.5 / 1.45: the model's albedo is a red-brown).",
+ "description": "HB1b: four sandbag meshes from the user's Sandbag Wall model, decimated to ~420 triangles (LOD1 ~130). Every sandbag box part (hessian / sandbag materials) of every asset draws one of these, instanced (src/sandbags.cpp); the box stays the collider. Baked untinted; the colour is content/settings/sandbags.json (HB1c).",
  "floors": 0,
  "enterable": false,
  "footprint": [
@@ -58,16 +58,7 @@
     "lod1": 0.3,
     "maxTex": 1024,
     "jpgMaps": true,
-    "credit": "Sandbag Wall - 24MB by adventurer, Sketchfab (https://sketchfab.com/3d-models/sandbag-wall-24mb-35f39f3b391040169eb04d9a339d88a5), CC-BY-4.0",
-    "matOverride": {
-     "material": {
-      "base": [
-       1.3,
-       1.5,
-       1.45
-      ]
-     }
-    }
+    "credit": "Sandbag Wall - 24MB by adventurer, Sketchfab (https://sketchfab.com/3d-models/sandbag-wall-24mb-35f39f3b391040169eb04d9a339d88a5), CC-BY-4.0"
    }
   },
   {
@@ -79,16 +70,7 @@
     "lod1": 0.3,
     "maxTex": 1024,
     "jpgMaps": true,
-    "credit": "Sandbag Wall - 24MB by adventurer, Sketchfab (https://sketchfab.com/3d-models/sandbag-wall-24mb-35f39f3b391040169eb04d9a339d88a5), CC-BY-4.0",
-    "matOverride": {
-     "material": {
-      "base": [
-       1.3,
-       1.5,
-       1.45
-      ]
-     }
-    }
+    "credit": "Sandbag Wall - 24MB by adventurer, Sketchfab (https://sketchfab.com/3d-models/sandbag-wall-24mb-35f39f3b391040169eb04d9a339d88a5), CC-BY-4.0"
    }
   },
   {
@@ -100,16 +82,7 @@
     "lod1": 0.3,
     "maxTex": 1024,
     "jpgMaps": true,
-    "credit": "Sandbag Wall - 24MB by adventurer, Sketchfab (https://sketchfab.com/3d-models/sandbag-wall-24mb-35f39f3b391040169eb04d9a339d88a5), CC-BY-4.0",
-    "matOverride": {
-     "material": {
-      "base": [
-       1.3,
-       1.5,
-       1.45
-      ]
-     }
-    }
+    "credit": "Sandbag Wall - 24MB by adventurer, Sketchfab (https://sketchfab.com/3d-models/sandbag-wall-24mb-35f39f3b391040169eb04d9a339d88a5), CC-BY-4.0"
    }
   },
   {
@@ -121,16 +94,7 @@
     "lod1": 0.3,
     "maxTex": 1024,
     "jpgMaps": true,
-    "credit": "Sandbag Wall - 24MB by adventurer, Sketchfab (https://sketchfab.com/3d-models/sandbag-wall-24mb-35f39f3b391040169eb04d9a339d88a5), CC-BY-4.0",
-    "matOverride": {
-     "material": {
-      "base": [
-       1.3,
-       1.5,
-       1.45
-      ]
-     }
-    }
+    "credit": "Sandbag Wall - 24MB by adventurer, Sketchfab (https://sketchfab.com/3d-models/sandbag-wall-24mb-35f39f3b391040169eb04d9a339d88a5), CC-BY-4.0"
    }
   }
  ]
