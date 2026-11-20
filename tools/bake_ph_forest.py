@@ -254,8 +254,10 @@ def clusters_of(twig, voxel, axis_c):
     C = np.zeros(n * 3, np.float32); me.polygons.foreach_get("center", C); C = C.reshape(n, 3)
     A = np.zeros(n, np.float32); me.polygons.foreach_get("area", A)
     key = np.floor(C / voxel).astype(np.int64)
-    k1 = (key[:, 0] * 73856093) ^ (key[:, 1] * 19349663) ^ (key[:, 2] * 83492791)
-    order = np.argsort(k1); k1s = k1[order]
+    # TR2: the exact voxel (an XOR hash of the cell let far-apart cells collide: their faces made one cluster, its card
+    # metres across with the bark between them in its tile: the large flat triangles near broadleaf trunks)
+    _, k1 = np.unique(key, axis=0, return_inverse=True); k1 = k1.reshape(-1)
+    order = np.argsort(k1, kind="stable"); k1s = k1[order]
     cuts = np.flatnonzero(np.diff(k1s)) + 1
     out = []
     for g in np.split(order, cuts):
@@ -303,8 +305,8 @@ def sprig_clusters(twig, max_size, axis_c):
     if len(stem_faces) == 0: return clusters_of(twig, max_size, axis_c)
     # a stem piece: its faces split along the stem every max_size (a long branch is several sprigs)
     sid = np.full(nP, -1, np.int64)
-    key = inv[stem_faces].astype(np.int64) * 4096 + np.floor(C[stem_faces] / max_size).astype(np.int64) @ np.array([1, 16, 256], np.int64)
-    _, sid[stem_faces] = np.unique(key, return_inverse=True)
+    key = np.column_stack([inv[stem_faces].astype(np.int64), np.floor(C[stem_faces] / max_size).astype(np.int64)])   # TR2: exact (stem, cell) rows (the packed key collided)
+    _, ki = np.unique(key, axis=0, return_inverse=True); sid[stem_faces] = ki.reshape(-1)
     kd = KDTree(len(stem_faces))
     for i, f in enumerate(stem_faces): kd.insert(C[f].tolist(), i)
     kd.balance()
