@@ -487,8 +487,10 @@ float specAA(vec3 N, float rough){   // widens alpha where the normal changes fa
 #endif
   return rough;
 }
+uniform int uDbgView;   // CP0 look-dev view (Renderer::dbgView): 2 illum / 6 sky force albedo 0.18, no metal; 6 also drops the sun's direct light
 vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
   rough = specAA(N, rough);
+  if (uDbgView == 2 || uDbgView == 6) { alb = vec3(0.18); metal = 0.0; }
   vec3 V = normalize((gEyeOv.x < 1e29 ? gEyeOv : uCamPos) - w);
   vec3 L = uSunDir; vec3 H = normalize(V+L);
   float NdL = max(dot(N,L),0.0), NdV = max(dot(N,V),1e-3), NdH = max(dot(N,H),0.0);
@@ -502,6 +504,7 @@ vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
   vec3 Ng = dot(gNg, gNg) > 0.5 ? gNg : N;
   float sh = NdL > 0.0 ? shadowPCF(w, Ng) * cloudShadow(w) : 0.0;
   vec3 direct = (kd*alb/PI + spec*gSpecK) * uSunCol * NdL * sh;
+  if (uDbgView == 6) direct = vec3(0.0);
   // VO L4 micro-shadowing (Brinck et al. 2016): a crevice the material AO marks is also shadowed from the sun near the
   // terminator, so texture detail keeps its depth where the light grazes (legacy material AO never touched the sun)
   if (uMicroSh > 0.0) direct *= mix(1.0, clamp(NdL + 2.0*ao*ao - 1.0, 0.0, 1.0), uMicroSh);
@@ -3588,6 +3591,7 @@ static const char* kToneFS = R"GLSL(
 in vec2 vUV;
 uniform sampler2D uHdr, uExpo, uBloom, uVmDist; uniform float uFixedExpo, uBloomAmt, uEyeR, uAspect, uRectVig, uMicro; uniform int uTonemap;
 uniform float uNewExpo;   // VO L1: Lighting New's re-fit of a fixed exposure (1 in Classic)
+uniform int uDbgView;   // CP0: 1 false-colour luminance, 6 a centre patch of exposed 0.18 (the look-dev readout)
 uniform int uNewTone; uniform float uAgxK, uAgxSat; uniform sampler3D uGradeLut;   // VO L8: AgX-style curve and the grade LUT (Lighting New)
 // GX5 grade (content/settings/grade.json, docs/graphics-overhaul.md#gx5-grade): saturation, cool shadows / warm
 // highlights, a gentle S-curve, vignette, chromatic aberration (0 = off), and an edge-aware sharpen of the image
@@ -3645,6 +3649,13 @@ void main(){
   if (bAmt > 0.0) c = mix(c, texture(uBloom, vUV).rgb/6.0, bAmt);   // chain sums 6 levels; energy-preserving blend, not an add
   float e = uFixedExpo > 0.0 ? uFixedExpo*uNewExpo : texelFetch(uExpo, ivec2(0), 0).r;   // VO L1: auto exposure already re-adapts to New's darker scene; a fixed one is lifted
   vec2 q = vUV - 0.5;
+  if (uDbgView == 1) {   // CP0 false colour: one band per stop of exposed luminance around 0.18 (grey = 0.18 +- half a stop)
+    const vec3 band[13] = vec3[13](vec3(0.0), vec3(0.25, 0.0, 0.35), vec3(0.2, 0.1, 0.8), vec3(0.0, 0.45, 0.9), vec3(0.0, 0.65, 0.6), vec3(0.3, 0.55, 0.3),
+      vec3(0.46), vec3(0.65, 0.8, 0.45), vec3(0.95, 0.75, 0.75), vec3(0.95, 0.9, 0.2), vec3(1.0, 0.6, 0.0), vec3(1.0, 0.1, 0.0), vec3(1.0));
+    float st = log2(max(dot(c*e, vec3(0.2126, 0.7152, 0.0722)), 1e-7)/0.18);
+    oColor = vec4(band[int(clamp(floor(st + 0.5) + 6.0, 0.0, 12.0))], 1.0); return;   // -6 and below black ... +6 and above white
+  }
+  if (uDbgView == 6 && all(lessThan(abs(gl_FragCoord.xy - vec2(textureSize(uHdr, 0))*0.5), vec2(12.0)))) c = vec3(0.18)/max(e, 1e-6);   // scene 0.18 through the whole display chain
   if (uNewTone >= 1) {   // VO L8: AgX curve (matched to the old one at mid grey), saturation re-fit, then the grade from its LUT
     c = agxFilmic(c*e*1.22*uAgxK);
     float la = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = max(mix(vec3(la), c, uAgxSat), 0.0);
@@ -3924,7 +3935,13 @@ void Renderer::terrainCacheBind(const Terrain& t, GLuint prog) {
   glUniform4f(U(prog, "uTCMap"), tcOrg.x, tcOrg.y, 1.0f / (tcW * tcTexel), 1.0f / (tcH * tcTexel));
 }
 
+int dbgViewFromName(const std::string& n) {   // CP0 debug views (Renderer::dbgView); the materials session owns 3-5
+  static const char* names[] = {"off", "lum", "illum", "albedo", "furnace", "texel", "sky"};
+  for (int k = 0; k < 7; ++k) if (n == names[k]) return k;
+  return 0;
+}
 bool Renderer::init(int w, int h) {
+  if (const char* e = std::getenv("NMK_DEBUG_VIEW")) dbgView = dbgViewFromName(e);
   progMain = compile(kMainVS, (std::string(tex::glslCommon()) + tex::glslMain() + kMainFS).c_str(), "main");   // L4 texture hooks first
   progGlass = compile(kMainVS, kGlassFS, "glass");
   progShadow = compile(kShadowVS, kShadowFS, "shadow");
@@ -4368,6 +4385,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform3fv(U(p, "uCloudShadowBox"), 1, glm::value_ptr(cloudShBox));
   glUniform1f(U(p, "uAoIndirectOnly"), q.legacy ? 0.0f : 1.0f);
   glUniform1i(U(p, "uLook"), q.legacy ? 0 : 1);
+  glUniform1i(U(p, "uDbgView"), dbgView);   // CP0
   { vec2 sa(0.25f, 0.18f); if (const char* e = std::getenv("NMK_SPECAA")) std::sscanf(e, "%f,%f", &sa.x, &sa.y); glUniform2f(U(p, "uSpecAA"), q.legacy || !perf.specAA ? 0.0f : sa.x, sa.y); }   // M3: specaa (--rq-off specaa); NMK_SPECAA="variance,clamp"
   { float hd = 1.0f; if (const char* e = std::getenv("NMK_HEX")) hd = (float)std::atof(e); glUniform1f(U(p, "uHBlend"), q.legacy || !perf.hblend || q.matLayer == 0 ? 0.0f : (std::getenv("NMK_HBLEND") ? (float)std::atof(std::getenv("NMK_HBLEND")) : 1.5f));   // M2: height blending (--rq-off hblend; off at Low); NMK_HBLEND = strength
   {   // UL1 material knobs (q.tex*, q.hexFade, q.hblendFade, q.pom*, q.decalRange); NMK_TEX_NEAR="a,b" still overrides
@@ -5652,8 +5670,25 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   // ---- tonemap into LDR (shares depth for overlays)
   glBindFramebuffer(GL_FRAMEBUFFER, ldrFbo); glInvalidateNamedFramebufferData(ldrFbo, 1, kInvC0);   // the tonemap writes every pixel (depth is shared: kept)
   glViewport(0, 0, width, height);
+  if (ldProbe.want) {   // CP0 look-dev readout: scene-linear HDR at world points, and the exposure the tone pass uses
+    ldProbe.want = false; ldProbe.hdr.clear(); ldProbe.px.clear();
+    float fe = lt.mapExposure > 0 && !thumbMode ? lightingFixedExposure(*this) * lt.mapExposure : v.autoExposure ? -1.0f : lightingFixedExposure(*this);
+    ldProbe.expo = fe > 0 ? fe * (q.lightNew && !q.legacy && !thumbMode ? q.newExpo : 1.0f) : exposure();
+    for (vec3 p : ldProbe.pts) {
+      vec4 c = vpU * vec4(p, 1.0f); vec3 r(-1.0f); int x = -1, y = -1;
+      if (c.w > 0.01f) {
+        x = (int)((c.x / c.w * 0.5f + 0.5f) * width); y = (int)((c.y / c.w * 0.5f + 0.5f) * height);
+        if (x >= 2 && y >= 2 && x < width - 2 && y < height - 2) {
+          float px[25 * 4]; glGetTextureSubImage(hdrColor, 0, x - 2, y - 2, 0, 5, 5, 1, GL_RGBA, GL_FLOAT, sizeof px, px);
+          r = vec3(0.0f); for (int k = 0; k < 25; ++k) r += vec3(px[k * 4], px[k * 4 + 1], px[k * 4 + 2]) / 25.0f;
+        }
+      }
+      ldProbe.hdr.push_back(r); ldProbe.px.push_back({x, height - 1 - y});
+    }
+  }
   glUseProgram(progTone);
   glBindTextureUnit(0, hdrColor); glBindTextureUnit(1, expoTex[expoIdx]);
+  glUniform1i(U(progTone, "uDbgView"), dbgView);
   glUniform1i(U(progTone, "uHdr"), 0); glUniform1i(U(progTone, "uExpo"), 1);
   glUniform1f(U(progTone, "uNewExpo"), q.lightNew && !q.legacy && !thumbMode ? q.newExpo : 1.0f);   // VO L1
   glUniform1f(U(progTone, "uFixedExpo"), lt.mapExposure > 0 && !thumbMode ? lightingFixedExposure(*this) * lt.mapExposure : v.autoExposure ? -1.0f : lightingFixedExposure(*this));   // 1 by Day; BR3: a map may pin it (play = editor)

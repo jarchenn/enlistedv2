@@ -1082,8 +1082,9 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-interiors") runSelf = true;   // walls, interiors and furniture (selftest_interiors.cpp)
     else if (a == "--selftest-structures") runSelf = true;   // W4 structure assets (selftest_structures.cpp)
     else if (a == "--selftest-lines") runSelf = true;   // LN1 / LN2 line features (selftest_lines_ln2.cpp)
-    else if (a == "--selftest-maps" || a == "--render-map-thumbs") runSelf = true;   // W5 default maps (selftest_maps.cpp)
+    else if (a == "--selftest-maps" || a == "--render-map-thumbs" || a == "--selftest-lookdev") runSelf = true;   // W5 default maps (selftest_maps.cpp)
     else if (a == "--selftest-grass" || a == "--build-range-map" || a == "--record-range" || a == "--selftest-fps" || a == "--selftest-env" || a == "--build-village-map" || a == "--selftest-arsenal" || a == "--selftest-move" || a == "--selftest-sights" || a == "--selftest-update" || a == "--selftest-entities" || a == "--selftest-editor") runSelf = true;
+    else if (a == "--debug-view" && k + 1 < argc) _putenv_s("NMK_DEBUG_VIEW", argv[++k]);   // CP0 look-dev view by name (render.cpp dbgViewFromName), read at Renderer::init
     else if (a == "--legacy-look") legacyLook = true;   // the pre-BSL-pass lighting / tonemap (A/B and fallback)
     else if (a == "--no-textures") tex::setEnabled(false);   // L4 A/B: procedural patterns only (textures.cpp)
     else if (a == "--selftest-textures") runSelf = true;   // L4 texture layer + missing-texture fallback (selftest_textures.cpp)
@@ -1445,6 +1446,11 @@ int App::run(int argc, char** argv) {
     mark("render");
     { extern void weatherAppFrame(App&); weatherAppFrame(*this); }   // WX1: the shared cloud clock, the host's weather on LAN clients
     tanks.grassBoxes(*this, v.camPos, R.grassVeh);   // TK3: no grass through the vehicles
+    {   // CP0 look-dev props: NMK_LOOKDEV_PROPS=1 sets them once in front of the first-person eye (lookdev.cpp); the selftest sets its own
+      static const bool ldEnv = std::getenv("NMK_LOOKDEV_PROPS") != nullptr;
+      if (ldEnv && R.lookdev.empty() && mode == Mode::Explore) { extern void lookdevPlace(Renderer&, vec3, float, const std::function<float(float, float)>&, std::vector<vec3>*); lookdevPlace(R, eyePos(), eyeYaw, [&](float x, float z) { return terrain.height(x, z); }, nullptr); }
+      op.insert(op.end(), R.lookdev.begin(), R.lookdev.end());
+    }
     if (menuUp) { glBindFramebuffer(GL_FRAMEBUFFER, 0); glViewport(0, 0, fbw, fbh); glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT); }
     else R.render(v, terrain, op, gl, ghosts, ov);
     mark("imgui");
