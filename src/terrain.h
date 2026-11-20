@@ -207,13 +207,22 @@ public:
   void normalsRelease() const;
   float skyViewAt(float x, float z) const;     // VOT T5: cosine-weighted sky fraction above the local tangent plane (1 = open)
   void skyViewSync() const;
-  GLuint normalTexture() const { return nrmTex; }
+  // VOT T6: the same texture's G / B / A hold the horizon elevation toward three sun azimuths (the baked one -12, 0,
+  // +12 deg) out to 900 m; the shared shadow code fades to it past the far cascade (uTHor*). Re-baked when the sun
+  // leaves that band or 1 s after the ground was last edited. Returns the texture (0: not baked).
+  GLuint horizonSync(vec3 sunDir) const;
+  glm::vec4 horizonWeights(vec3 sunDir) const;   // xyz: weights of G / B / A for this sun, w: its elevation (deg)
+  float horizonAt(float x, float z, float dx, float dz) const;   // tan of the horizon elevation from the ground at (x, z)
+  glm::vec4 horizonMap() const { return glm::vec4(org.x, org.y, 1.0f / size, 1.0f / sizeZ); }
 private:
   mutable GLuint nrmTex = 0; mutable int nrmW = 0, nrmH = 0; mutable float nrmTexelX = 1, nrmTexelZ = 1;
   mutable glm::ivec4 nrmDirty{1, 1, 0, 0};   // texel rectangle x0, z0, x1, z1 (x1 < x0: clean)
   mutable uint32_t nrmGen = ~0u;
   mutable GLuint svTex = 0; mutable int svW = 0, svH = 0; mutable float svTexelX = 1, svTexelZ = 1;   // T5 sky-view texture (R8, 2 texels a cell)
   mutable glm::ivec4 svDirty{1, 1, 0, 0}; mutable uint32_t svGen = ~0u;
+  mutable std::vector<uint8_t> svPx;   // T6: the RGBA texels on the CPU (R sky view, GBA horizon), so either half re-uploads alone
+  mutable float horAz = 1e9f; mutable double horEdit = -1;   // baked azimuth (rad), last edit time (s, -1 clean)
+  void svEnsure() const;
   GLuint maskTex = 0;
   float baseFormula(float wx, float wz, uint32_t seed) const;   // the procedural blank-slate ground (before W5 heightmaps)
   void applyGenLayers(const TemplateInfo& t, int innerNx, int innerNz);   // V8: ring + hill stamps over the base grid (terrain.cpp)

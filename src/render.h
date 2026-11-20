@@ -264,6 +264,7 @@ public:
     bool groundPaint = true;     // paint (NT5, measurement): off = the terrain draws without the lasso ground paint
     bool terrainNormals = true;  // tnormal (VOT T1): base terrain shades with baked per-pixel normals (terrain_normals.cpp); off = vertex normals
     bool terrainMorph = true;    // tmorph (VOT T1): base terrain vertices geomorph toward the next LOD before it switches; off = LOD pops
+    bool terrainHorizon = true;  // thorizon (VOT T6): baked terrain horizon toward the sun shadows the ground and far objects past the last cascade; off = unshadowed there, as before
     bool terrainTileLod = true;  // ttilelod (VOT T2): fine tiles culled to the view and drawn at 1/5/7-sample steps by distance (skirts hide the seams); off = every tile at full resolution
     bool terrainSkyView = true;  // tskyview (VOT T5): the terrain's ambient is occluded by its own horizon (baked sky-view factor); off = open sky everywhere
     bool charVel = true;         // charvel (AIB1): soldiers write their own TAA motion (previous model matrix + previous skinned vertex); off = depth reprojection (smeared)
@@ -277,7 +278,7 @@ public:
               : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : n == "leaftex" ? &leafTex : n == "taau" ? &taau : n == "imgmat" ? &imgMat
               : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : n == "grassatlas" ? &grassAtlas : n == "dlcache" ? &dlCache : n == "instdepth" ? &instDepth : n == "folbatch" ? &folBatch : n == "farleaf" ? &farLeaf : n == "walllod" ? &wallLod : n == "matfar" ? &matFar : n == "probemed" ? &probeMed : n == "shadowcache" ? &shadowCache : n == "occcull" ? &occCull : n == "treefar" ? &treeFar : n == "leafmerge" ? &leafMerge : n == "furndist" ? &furnDist : n == "furnclutter" ? &furnClutter : n == "paint" ? &groundPaint : n == "vegcull" ? &vegCull
               // One line per stream, each followed by a comment line, so two streams appending names no longer conflict in merges.
-              : n == "tnormal" ? &terrainNormals : n == "tmorph" ? &terrainMorph : n == "tskyview" ? &terrainSkyView : n == "ttilelod" ? &terrainTileLod
+              : n == "tnormal" ? &terrainNormals : n == "tmorph" ? &terrainMorph : n == "tskyview" ? &terrainSkyView : n == "ttilelod" ? &terrainTileLod : n == "thorizon" ? &terrainHorizon
               // ^ stream T (terrain): append to the line above
               : n == "contactsh" ? &contactShadow : n == "fullshadow" ? &fullShadow : n == "gtao" ? &gtao : n == "midcascade" ? &midCascade : n == "microsh" ? &microShadow : n == "foltrans" ? &folTrans : n == "agx" ? &agx : n == "histexpo" ? &histExpo : n == "skyrelit" ? &skyRelit : n == "atmo" ? &atmo : n == "reflprobe" ? &reflProbe
               // ^ stream L (lighting): append to the line above
@@ -502,6 +503,7 @@ private:
   mat4 lightVP{1}, occVP{1};
   float occTop = 0, occRange = 1;
   bool thumbMode = false;
+  GLuint thorTex = 0; glm::vec4 thorMap{0.0f}, thorW{0.0f};   // VOT T6: the terrain horizon texture (unit 26) for this frame, its mapping and sun weights
   float pxAngle = 0.001f;   // radians per framebuffer pixel of the current main view (thin-line widening)
   float time = 0;
   int shadowSize = 2048, occSize = 2048;   // P3: Medium near cascade 2048
