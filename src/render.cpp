@@ -128,6 +128,7 @@ uniform vec4 uWindP = vec4(0.0, 0.0, 50.0, 0.0);   // x sway clock this frame (s
 float windSway(float k){ return clamp(pow(max(k, 0.0), 0.8), 0.0, 2.5); }
 // BF B1 moss field (docs/vfx-rev3/BATTLE-FOUNDRY-SPEC.md 4.5, reference 03 s3.2): one field drives the film, the mat and
 // the cushions. moss.cpp mossFieldCpu is its C++ mirror (same integer hash): keep the two identical.
+uniform float uMossBias = 0.0;   // the map's wetness: 0.55 - look.mossThreshold (0 = temperate)
 uniform vec4 uMoss = vec4(0.0, 0.0, 12.0, 0.5);   // x on (mossfield), y transmission (Medium and up), z mat range (m; film beyond), w lichen age
 uint mossHash(ivec3 c){ uint h = uint(c.x)*0x8da6b343u ^ uint(c.y)*0xd8163841u ^ uint(c.z)*0xcb1ab31fu; h ^= h >> 13; h *= 0x5bd1e995u; h ^= h >> 15; return h; }
 float mossVn(vec3 p){
@@ -145,7 +146,7 @@ float mossShelter(float sh0, vec3 n, vec3 sunDir){ vec3 ds = -normalize(vec3(sun
 vec3 mossField(vec3 p, float upDot, float wallAttach, float groundRecv, float moist, float shelter, float por, float root, float traffic, float excl, float snow, float site, float nearK){
   float attach = max(smoothstep(0.22, 0.85, upDot)*groundRecv, wallAttach);
   float hab = attach*clamp(0.42*moist + 0.30*shelter + 0.18*por + 0.10*root, 0.0, 1.0);
-  float pt = smoothstep(0.36, 0.65, hab + 0.22*(mossVn(p/0.6) - 0.5) + 0.17*(mossVn(p/0.08 + 31.0) - 0.5)*nearK);
+  float pt = smoothstep(0.36, 0.65, hab + uMossBias*step(0.001, attach) + 0.22*(mossVn(p/0.6) - 0.5) + 0.17*(mossVn(p/0.08 + 31.0) - 0.5)*nearK);
   float M = pt*(1.0 - smoothstep(0.18, 0.62, traffic))*(1.0 - excl)*(1.0 - snow);
   float L = clamp((1.0 - shelter)*uMoss.w*(1.0 - moist)*2.0, 0.0, 1.0)*smoothstep(0.55, 0.9, por)*(1.0 - M)*(1.0 - snow)*(1.0 - excl)
           * smoothstep(0.5, 0.68, mossVn(p/0.09 + 7.0)*0.7 + mossVn(p/0.7 + 3.0)*0.3);   // crustose discs, 20-150 mm, in old patches
@@ -5435,6 +5436,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
     else glUniform1i(U(p, "uTHorOn"), 0);
     extern GLuint leafLibTex(); glBindTextureUnit(kLeafUnit, leafLibTex());
   }
+  glUniform1f(U(p, "uMossBias"), lt.mapMossBias);
   glUniform4f(U(p, "uMoss"), perf.mossField && !thumbMode && q.mossTier >= 1 ? 1.0f : 0.0f, q.mossTier >= 2 ? 1.0f : 0.0f, q.mossMatM, 0.5f);   // BF B1 (8.2: no moss detail below Low, transmission from Medium)
   sunDir = sunDirMap;   // the thumbnail studio sun never leaks back into the map
 }
@@ -6892,6 +6894,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     stats.draws += natDraws; stats.tris += (int)natTufts * 30;
     glEnable(GL_CULL_FACE);
   }
+  if (!thumbMode && perf.scatter) { extern void scatterRenderPass(Renderer&, const RenderView&, const mat4&); scatterRenderPass(*this, v, vp); }   // BF B2/B3: moss cushions, litter sheets
   if (perf.skyLast) drawSky();
   gpuMark(GP_MsaaResolve);
   if (ms) {   // B1 MSAA resolve into the HDR target; water and everything after draw there, as without MSAA

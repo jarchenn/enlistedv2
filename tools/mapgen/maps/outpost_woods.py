@@ -263,7 +263,7 @@ V = {
     # NT8: golden hour in a pine forest (the Pine Forest banner): a low warm sun broken into shafts by the canopy, clear near
     # and middle ground (the earlier preview read too hazy), the glow in the shafts and the distance, cool green shade
     "look": {"style": "abandoned", "haze": 0.85, "weather": 0.12, "envFog": 0, "bloom": 1.35, "vegCull": 0.55, "saturation": 1.16, "tint": [1.1, 1.0, 0.84], "grime": 1.0,
-             "shafts": 2.6,
+             "shafts": 2.6, "scatter": 1.0, "mossThreshold": 0.42,   # BF B3: ground scatter and moss cushions (src/scatter.h)
              "paintSets": {"gravel": "gravel_mixed", "dirt": "dirt_path_paint", "pebbles": "rock_slab_paint", "leaf_litter": "ph_needle_floor",
                            "ploughed": "moss_floor_paint", "scorched": "ph_leaf_floor", "rock": "trail_dirt"}},
     "lighting": {"hour": 17.9, "enclosed": False, "fill": 1.4, "ambient": [0.045, 0.06, 0.045]},
