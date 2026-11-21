@@ -4327,6 +4327,7 @@ void main(){
 uniform float uUnderTone;   // 1: under water (swim.cpp): blue-green tint, stronger vignette
 uniform float uNightGamma;   // 1 by day; below 1 lifts the darks at night
 uniform float uMapGamma;     // BR1c: the open map's gamma (> 1 brighter), 1 = none
+uniform float uScotopic;     // nightdark: night vision's blue-grey, desaturated look (0 by day .. 0.65 at full night)
 uniform float uWxK;   // WX2: the Cloudy mix (desaturation, cooler grade)
 uniform float uWxDark = 1.0;   // W2: 0 under a preset row (its exposure carries the light level; the grade only greys)
 uniform float uMapSat; uniform vec3 uMapTint;   // NT2b: a map's own saturation / tint
@@ -4343,6 +4344,7 @@ vec3 gradeColor(vec3 c){
   } else c = mix(vec3(l), c, 0.93);
   if (uWxK > 0.0) { float lw = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(c, vec3(lw), 0.22*uWxK)*mix(vec3(1.0), vec3(0.94, 0.98, 1.05), uWxK)*(1.0 - 0.38*uWxK*uWxDark); c = mix(c, c*c*(3.0 - 2.0*c), 0.25*uWxK); }
   if (uMapSat != 1.0 || uMapTint != vec3(1.0)) { float lm = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(lm), c, uMapSat)*uMapTint; }
+  if (uScotopic > 0.0) { float ls = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(c, vec3(ls)*vec3(0.82, 0.92, 1.08), uScotopic*(1.0 - smoothstep(0.25, 0.7, ls))); }   // lamp-lit highlights keep their colour
   if (uMapGamma != 1.0) c = pow(clamp(c, 0.0, 1.0), vec3(1.0/uMapGamma));
   if (uUnderTone > 0.0) c = mix(c, c*vec3(0.55, 0.92, 0.98) + vec3(0.0, 0.025, 0.035), uUnderTone);
   return c;
@@ -7516,7 +7518,9 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glUniform1i(U(p, "uPhysGrade"), perf.physGrade && q.lightPhys && q.lightNew && !q.legacy && !thumbMode ? 1 : 0);   // CP2
     glUniform1f(U(p, "uWxK"), thumbMode ? 0.0f : wx.k); glUniform1f(U(p, "uWxDark"), wx.der.phys ? 0.0f : 1.0f);
     glUniform1f(U(p, "uMapSat"), thumbMode ? 1.0f : lt.mapSat); glUniform3fv(U(p, "uMapTint"), 1, glm::value_ptr(thumbMode ? vec3(1.0f) : lt.mapTint));
-    glUniform1f(U(p, "uNightGamma"), 1.0f / (1.0f + 0.3f * lightingTod(lt.hour).nightK) / settings().gamma());   // x the Settings gamma slider   // night: gamma +30 % (user request)
+    { const float nk = lightingTod(lt.hour).nightK; const bool nd = perf.nightDark && q.lightNew && !q.legacy && !thumbMode;
+      glUniform1f(U(p, "uNightGamma"), 1.0f / (1.0f + (nd ? 0.0f : 0.3f) * nk) / settings().gamma());   // nightdark: no night gamma lift (it turned midnight into late afternoon)
+      glUniform1f(U(p, "uScotopic"), nd ? 0.65f * nk : 0.0f); }   // x the Settings gamma slider   // night: gamma +30 % (user request)
     glUniform1f(U(p, "uMapGamma"), std::max(lt.mapGamma, 0.1f));   // BR1c: the map's own gamma (extra.lighting.gamma)
     glUniform1f(U(p, "uGradeSat"), grade.saturation); glUniform1f(U(p, "uGradeContrast"), grade.contrast);
     glUniform3fv(U(p, "uGradeShadow"), 1, glm::value_ptr(grade.shadowTint)); glUniform3fv(U(p, "uGradeHigh"), 1, glm::value_ptr(grade.highlightTint));
