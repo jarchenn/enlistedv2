@@ -4176,51 +4176,98 @@ void main(){
 // range of sizes and apparent speeds), group 1 far (fine, long paths: depth). A flake under anything solid (the
 // top-down sky-occlusion map: roofs, eaves, canopies) is not drawn; the last 0.4-0.8 m before the eye fade; indoors none.
 static const char* kSnowfallVS = R"GLSL(
-#version 450 core
-uniform mat4 uVP; uniform vec3 uCamPos, uCamRight, uCamUp; uniform float uTime;
+// W4 precipitation (corpus weather 04 rain, 05 snow): one stateless path, kind by uKind. 0 snow (the map's snowfall,
+// Light snow, Blizzard: near-horizontal with the storm's wind), 1 rain (Drizzle, Steady rain, Thunderstorm: streaks along
+// the fall-and-wind velocity, length = speed x exposure, sub-pixel width given to alpha), 2 splashes (short-lived crowns
+// on the top surface under each drop: the sky-occlusion map's height, so roofs and ground alike), 3 spindrift (snow
+// racing over the ground in a blizzard). Every particle: a function of its id and the clock in a box round the eye that
+// wraps on world coordinates; the wind is the CPU-integrated drift (uSFAcc); hidden under roofs (occlusion map) and
+// indoors; the scene's fog (wxSigma) over its distance; lit by the lightning flash (wxFlash). kCommon (weather block,
+// uCamPos, the occlusion map) is prepended.
+uniform mat4 uVP; uniform vec3 uCamRight, uCamUp; uniform float uTime;
 uniform vec4 uSF;    // nearN, near box half (m), far box half (m), fall speed (m/s)
 uniform vec4 uSF2;   // unused x / y (the wind is uSFAcc), gust 0..1, indoor 0..1
 uniform vec2 uSFAcc; // BT2 (corpus weather 05 s2.4): the wind's accumulated drift (m), integrated on the CPU each frame
 uniform vec3 uCamFwd; uniform float uPxAng;   // the eye's forward; vertical radians per pixel
-uniform sampler2D uOcc; uniform mat4 uOccVP; uniform float uOccTop, uOccRange; uniform int uOccOn;
-out vec2 vC; out float vA;
+uniform int uKind; uniform vec3 uPCol;        // W4: the kind; the lit particle colour (CPU)
+uniform float uPSize;                         // W4: flake size factor (1; a blizzard's clumped flakes larger)
+out vec2 vC; out float vA; flat out int vK; out vec3 vCol;
 float h1(float n){ return fract(sin(n*12.9898 + 78.233)*43758.5453); }
 void main(){
   int id = gl_InstanceID; bool near = float(id) < uSF.x;
   float fi = float(id);
+  int c = gl_VertexID; vec2 qv = c == 0 ? vec2(-1, -1) : c == 1 ? vec2(1, -1) : c == 2 ? vec2(1, 1) : c == 3 ? vec2(-1, -1) : c == 4 ? vec2(1, 1) : vec2(-1, 1);
+  vK = uKind; vCol = uPCol*(1.0 + 4.0*wxFlash);
+  if (uKind == 2) {   // a splash: a random spot round the eye each 0.3 s cycle, on the top surface there, a crown rising and fading
+    float cyc = uTime/0.3 + h1(fi*3.3), k = floor(cyc), f = fract(cyc);
+    vec2 o = (vec2(h1(fi*1.7 + k*7.1), h1(fi*2.9 + k*5.3))*2.0 - 1.0)*uSF.y;
+    vec3 p = vec3(uCamPos.x + o.x, 0.0, uCamPos.z + o.y);
+    float a = 0.0;
+    if (uOccOn == 1) { vec4 lp = uOccVP*vec4(p.x, uCamPos.y, p.z, 1.0); vec2 uv = lp.xy*0.5 + 0.5;
+      if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) { p.y = uOccTop - texture(uOcc, uv).r*uOccRange; a = 1.0; } }
+    float d = length(p - uCamPos);
+    a *= (1.0 - f)*(1.0 - smoothstep(uSF.y*0.7, uSF.y, d))*(1.0 - uSF2.w)*exp(-wxSigma*d);
+    float rad = 0.03 + 0.06*f;
+    vec3 tv = normalize(p - uCamPos), side = normalize(cross(tv, vec3(0.0, 1.0, 0.0)) + vec3(1e-4));
+    vec3 w = p + side*qv.x*rad + vec3(0.0, 1.0, 0.0)*(qv.y*0.5 + 0.5)*rad*1.2;
+    vC = qv; vA = a*0.6;
+    gl_Position = uVP*vec4(w, 1.0);
+    if (vA <= 0.001) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    return;
+  }
+  const bool rain = uKind == 1, spin = uKind == 3;
   float R = near ? uSF.y : uSF.z;
   vec3 r = vec3(h1(fi*1.31), h1(fi*2.17 + 3.0), h1(fi*3.73 + 7.0));
   float spd = uSF.w*(near ? mix(0.6, 1.5, h1(fi*5.1)) : mix(0.5, 0.9, h1(fi*5.1)));
-  vec2 wf = vec2(0.7 + 0.6*h1(fi*7.7), 0.7 + 0.6*h1(fi*8.3));
+  if (rain) spd = uSF.w*mix(0.85, 1.15, h1(fi*5.1));
+  vec2 wf = vec2(0.7 + 0.6*h1(fi*7.7), 0.7 + 0.6*h1(fi*8.3)) * (spin ? 2.4 : 1.0);
   // BT2: position = start + the accumulated wind (each flake its own share) + a constant fall + a small flutter (3-15 cm at
   // ~1 Hz). Never velocity x time: with the gust in the velocity that drifted ever faster the longer the map ran
-  float fa = mix(0.03, 0.15, h1(fi*6.1)), fq = 6.2832*mix(0.7, 1.3, h1(fi*6.9)), ph = 6.2832*h1(fi*9.1);
-  vec3 p0 = (r*2.0 - 1.0)*R*vec3(1.0, 0.6, 1.0);
-  vec3 p = p0 + vec3(uSFAcc.x*wf.x, -spd*uTime, uSFAcc.y*wf.y) + vec3(sin(uTime*fq + ph), 0.0, cos(uTime*fq*0.8 + ph))*fa;
-  vec3 box = vec3(2.0*R, 1.2*R, 2.0*R);
-  vec3 cen = uCamPos + uCamFwd*0.35*box;                              // the box pushed ahead of the eye: most flakes in view
+  float fa = rain ? 0.0 : mix(0.03, 0.15, h1(fi*6.1)), fq = 6.2832*mix(0.7, 1.3, h1(fi*6.9)), ph = 6.2832*h1(fi*9.1);
+  vec3 box = spin ? vec3(2.0*R, 1.6, 2.0*R) : vec3(2.0*R, 1.2*R, 2.0*R);
+  vec3 p0 = (r - 0.5)*box;
+  vec3 p = p0 + vec3(uSFAcc.x*wf.x, -spd*uTime*(spin ? 0.15 : 1.0), uSFAcc.y*wf.y) + vec3(sin(uTime*fq + ph), 0.0, cos(uTime*fq*0.8 + ph))*fa;
+  vec3 cen = spin ? vec3(uCamPos.x, uCamPos.y - 1.0, uCamPos.z) + uCamFwd*vec3(0.35, 0.0, 0.35)*box : uCamPos + uCamFwd*0.35*box;
   p = mod(p - cen + box*0.5, box) - box*0.5 + cen;                    // wrapped on world coordinates (no riding with the camera)
   vec3 q = abs(p - cen)/(box*0.5);
   float a = near ? 1.0 : 0.55;
   a *= near ? mix(0.8, 1.0, uSF2.z) : smoothstep(h1(fi*9.9)*0.9, h1(fi*9.9)*0.9 + 0.1, 0.45 + 0.55*uSF2.z);
   a *= 1.0 - smoothstep(0.8, 1.0, max(q.x, max(q.y, q.z)));          // fade over the last tenth of the box
-  if (uOccOn == 1) {   // sheltered: a soft fade 0.5-1.5 m under anything solid above the flake
+  if (uOccOn == 1) {   // sheltered: a soft fade 0.5-1.5 m under anything solid above the particle
     vec4 lp = uOccVP*vec4(p, 1.0); vec2 uv = lp.xy*0.5 + 0.5;
-    if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) { float top = uOccTop - texture(uOcc, uv).r*uOccRange; a *= 1.0 - smoothstep(0.5, 1.5, top - p.y); }
+    if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) { float top = uOccTop - texture(uOcc, uv).r*uOccRange; a *= 1.0 - smoothstep(0.5, 1.5, top - p.y); if (spin && p.y < top - 0.05) a = 0.0; }
   }
   float d = length(p - uCamPos);
-  a *= smoothstep(0.4, 0.8, d)*(1.0 - uSF2.w);
-  // a soft disc 4-12 mm across near, ~3x in the far group; under 1.5 px it keeps 1.5 px and gives the lost area to alpha
-  float rad = 0.5*(near ? mix(0.004, 0.012, h1(fi*4.4)) : mix(0.012, 0.036, h1(fi*4.4)));
-  float rmin = 0.75*uPxAng*d;
-  if (rad < rmin) { a *= (rad*rad)/(rmin*rmin); rad = rmin; }
+  a *= smoothstep(0.4, 0.8, d)*(1.0 - uSF2.w)*exp(-wxSigma*d);       // the scene's fog over the particle's own distance
   vec3 tv = normalize(p - uCamPos);
-  vec3 side = normalize(cross(tv, vec3(0.0, 1.0, 0.0)) + vec3(1e-4)), up = cross(side, tv);
-  int c = gl_VertexID; vec2 qv = c == 0 ? vec2(-1, -1) : c == 1 ? vec2(1, -1) : c == 2 ? vec2(1, 1) : c == 3 ? vec2(-1, -1) : c == 4 ? vec2(1, 1) : vec2(-1, 1);
-  vec3 w = p + (side*qv.x + up*qv.y)*rad;
+  vec3 w;
+  if (rain) {   // a streak along the velocity: length = speed x a 1/45 s exposure, at least 1.5 px wide (the rest to alpha)
+    vec3 vel = vec3(uSF2.x*wf.x, -spd, uSF2.y*wf.y); float sp = length(vel); vec3 ax = vel/max(sp, 1e-3);
+    float len = clamp(sp/45.0, 0.08, 0.6)*0.5, wid = 0.0006, wmin = 0.75*uPxAng*d;
+    if (wid < wmin) { a *= wid/wmin; wid = wmin; }
+    vec3 side = normalize(cross(ax, tv) + vec3(1e-4));
+    w = p + side*qv.x*wid + ax*qv.y*len;
+    a *= 0.45;
+  } else {      // a soft disc 4-12 mm across near, ~3x far; under 1.5 px it keeps 1.5 px and gives the lost area to alpha
+    float rad = 0.5*uPSize*(near ? mix(0.004, 0.012, h1(fi*4.4)) : mix(0.012, 0.036, h1(fi*4.4)));
+    float rmin = 0.75*uPxAng*d;
+    if (rad < rmin) { a *= (rad*rad)/(rmin*rmin); rad = rmin; }
+    vec3 side = normalize(cross(tv, vec3(0.0, 1.0, 0.0)) + vec3(1e-4)), up = cross(side, tv);
+    w = p + (side*qv.x + up*qv.y)*rad;
+  }
   vC = qv; vA = a;
   gl_Position = uVP*vec4(w, 1.0);
   if (a <= 0.001) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+}
+)GLSL";
+static const char* kSnowfallFS = R"GLSL(
+#version 450 core
+in vec2 vC; in float vA; flat in int vK; in vec3 vCol; out vec4 oColor;
+void main(){
+  float k = vK == 1 ? (1.0 - vC.x*vC.x)*(1.0 - smoothstep(0.6, 1.0, abs(vC.y)))   // a rain streak: soft across, tapered ends
+          : vK == 2 ? (1.0 - smoothstep(0.2, 1.0, length(vC)))                       // a splash crown
+          : 1.0 - smoothstep(0.35, 1.0, length(vC));                                  // a soft round flake
+  oColor = vec4(vCol, k*vA*0.85);
 }
 )GLSL";
 // WS2 drifting leaves (corpus 07 s7.3), the snowfall's stateless path: each leaf is a function of its instance id and the
@@ -4283,14 +4330,6 @@ void main(){
   float ndl = abs(dot(N, uSunDir))*0.7 + 0.3;
   vec3 c = vCol/PI*uSunCol*ndl + vCol*mix(uGroundCol, uSkyCol, 0.6)*0.6;
   oColor = vec4(applyFog(c, vW), 1.0);
-}
-)GLSL";
-static const char* kSnowfallFS = R"GLSL(
-#version 450 core
-in vec2 vC; in float vA; uniform vec3 uSnowCol; out vec4 oColor;
-void main(){
-  float k = 1.0 - smoothstep(0.35, 1.0, length(vC));   // BT2: a soft round flake
-  oColor = vec4(uSnowCol, k*vA*0.85);
 }
 )GLSL";
 // Weather W6 (corpus 7.17-7.21): the particles belong to the scene's air. Per vertex (kCommon: the same fog and sun shadow as the
@@ -5944,7 +5983,7 @@ static mat4 reverseZ(const mat4& p) {
 const char* gpuPassName(int p) {
   static const char* n[GP_Count] = {"cloud_shadow", "shadow_near", "shadow_far", "sky_occlusion", "light_shadows", "probes", "clusters",
                                     "clears", "sky", "terrain", "opaque", "models", "trees", "grass", "nature", "msaa_resolve", "water", "gore",
-                                    "glass", "composite", "taa", "bloom", "fx", "weapon", "post", "ui"};
+                                    "glass", "composite", "taa", "bloom", "fx", "precip", "weapon", "post", "ui"};
   return p >= 0 && p < GP_Count ? n[p] : "end";
 }
 // one slot of GP_Count + 1 timestamps per frame, three slots in flight: a slot is read (only when every result is ready,
@@ -6623,40 +6662,59 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     }
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   }
+  // W4 precipitation (one path, kinds by uKind; the perf switch "precip", its GPU pass "precip"): snow (the map's snowfall,
+  // Light snow, Blizzard with spindrift), rain (Drizzle, Steady rain, Thunderstorm) with splashes, on any open-sky map
+  gpuMark(GP_Precip);
   const bool wxSnow = wx.der.phys && wx.st.precip == WxSnow;   // W1: Light snow / Blizzard on any open-sky map (the map's own snowfall when it has one)
-  if ((lt.mapSnowfall || wxSnow) && !thumbMode && !v.thermal && !v.underwater && q.snowfallScale > 0.0f) {   // SF1 snowfall (look.snowfall)
-    const float sfN = lt.mapSnowfall ? lt.sfNear : 0.0f, sfF = lt.mapSnowfall ? lt.sfFar : 0.0f;
-    const float wN = wxSnow ? (wx.st.precipMmH >= 3.0f ? 400.0f : 60.0f) : 0.0f, wF = wxSnow ? (wx.st.precipMmH >= 3.0f ? 9000.0f : 2500.0f) : 0.0f;
-    const int nearN = (int)(std::max(sfN, wN) * q.snowfallScale), farN = (int)(std::max(sfF, wF) * q.snowfallScale);
-    if (nearN + farN > 0) {
-      glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE); glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST);
-      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-      glUseProgram(progSnowfall);
-      glUniformMatrix4fv(U(progSnowfall, "uVP"), 1, GL_FALSE, glm::value_ptr(vpU));
-      glUniform3fv(U(progSnowfall, "uCamPos"), 1, glm::value_ptr(v.camPos));
-      glUniform1f(U(progSnowfall, "uTime"), time);
-      float gust = 0.5f + 0.5f * std::sin(time * 0.23f) * std::sin(time * 0.071f + 1.3f);   // slow gusts (shared wind feel; deterministic)
-      glUniform4f(U(progSnowfall, "uSF"), (float)nearN, 9.0f, 42.0f, lt.sfFall);
-      glUniform4f(U(progSnowfall, "uSF2"), 0.0f, 0.0f, gust, camIndoor ? 1.0f : 0.0f);
-      {   // BT2: the wind integrated frame by frame (the gust changes the speed, never the flakes' past path)
-        static double acc[2] = {0, 0}; static float lastT = -1.0f;
-        const float dt = lastT < 0.0f ? 0.0f : std::clamp(time - lastT, 0.0f, 0.1f); lastT = time;
-        const float wk = wx.der.windK * (0.6f + 0.8f * gust);   // the weather preset's wind (relative to Clear) x the gust
-        acc[0] += lt.sfWind.x * wk * dt; acc[1] += lt.sfWind.y * wk * dt;
-        acc[0] = std::fmod(acc[0], 7560.0); acc[1] = std::fmod(acc[1], 7560.0);   // shortcut: the wrap jumps flakes once per ~2 h of wind
-        glUniform2f(U(progSnowfall, "uSFAcc"), (float)acc[0], (float)acc[1]);
-      }
-      glUniform3f(U(progSnowfall, "uCamFwd"), -v.view[0][2], -v.view[1][2], -v.view[2][2]);
-      glUniform1f(U(progSnowfall, "uPxAng"), pxAngle);
-      glBindTextureUnit(1, occTex); glUniform1i(U(progSnowfall, "uOcc"), 1);
-      glUniformMatrix4fv(U(progSnowfall, "uOccVP"), 1, GL_FALSE, glm::value_ptr(occVP));
-      glUniform1f(U(progSnowfall, "uOccTop"), occTop); glUniform1f(U(progSnowfall, "uOccRange"), occRange); glUniform1i(U(progSnowfall, "uOccOn"), 1);
-      vec3 sc = vec3(0.92f, 0.94f, 0.98f) * lt.sfBright;
-      glUniform3fv(U(progSnowfall, "uSnowCol"), 1, glm::value_ptr(sc));
-      glBindVertexArray(snowfallVao);
+  const bool wxRainy = wx.der.phys && (wx.st.precip == WxRain || wx.st.precip == WxDrizzle);
+  if (perf.precip && (lt.mapSnowfall || wxSnow || wxRainy) && !thumbMode && !v.thermal && !v.underwater && q.snowfallScale > 0.0f) {
+    float gust = 0.5f + 0.5f * std::sin(time * 0.23f) * std::sin(time * 0.071f + 1.3f);   // slow gusts (shared wind feel; deterministic)
+    static float lastT = -1.0f; const float dt = lastT < 0.0f ? 0.0f : std::clamp(time - lastT, 0.0f, 0.1f); lastT = time;
+    // the wind each kind drifts on, integrated frame by frame (the gust changes the speed, never a particle's past path)
+    const vec2 wWx = wx.der.windXZ * (0.6f + 0.8f * gust);                                          // the weather's wind (m/s)
+    const vec2 wSnow = lt.mapSnowfall ? lt.sfWind * (wx.der.windK * (0.6f + 0.8f * gust)) : wWx;   // the map's snow drift, else the weather's
+    static double accS[2] = {0, 0}, accR[2] = {0, 0};
+    accS[0] = std::fmod(accS[0] + wSnow.x * dt, 7560.0); accS[1] = std::fmod(accS[1] + wSnow.y * dt, 7560.0);   // shortcut: the wrap jumps particles once per ~2 h of wind
+    accR[0] = std::fmod(accR[0] + wWx.x * dt, 7560.0); accR[1] = std::fmod(accR[1] + wWx.y * dt, 7560.0);
+    glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE); glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glUseProgram(progSnowfall);
+    glUniformMatrix4fv(U(progSnowfall, "uVP"), 1, GL_FALSE, glm::value_ptr(vpU));
+    glUniform3fv(U(progSnowfall, "uCamPos"), 1, glm::value_ptr(v.camPos));
+    glUniform1f(U(progSnowfall, "uTime"), time);
+    glUniform3f(U(progSnowfall, "uCamFwd"), -v.view[0][2], -v.view[1][2], -v.view[2][2]);
+    glUniform1f(U(progSnowfall, "uPxAng"), pxAngle);
+    glBindTextureUnit(1, occTex); glUniform1i(U(progSnowfall, "uOcc"), 1);
+    glUniformMatrix4fv(U(progSnowfall, "uOccVP"), 1, GL_FALSE, glm::value_ptr(occVP));
+    glUniform1f(U(progSnowfall, "uOccTop"), occTop); glUniform1f(U(progSnowfall, "uOccRange"), occRange); glUniform1i(U(progSnowfall, "uOccOn"), 1);
+    glBindVertexArray(snowfallVao);
+    auto draw = [&](int kind, int nearN, int farN, float nearBox, float farBox, float fall, vec2 wind, const double* acc, vec3 col, float size = 1.0f) {
+      if (nearN + farN <= 0) return;
+      glUniform1i(U(progSnowfall, "uKind"), kind);
+      glUniform4f(U(progSnowfall, "uSF"), (float)nearN, nearBox, farBox, fall);
+      glUniform4f(U(progSnowfall, "uSF2"), wind.x, wind.y, gust, camIndoor ? 1.0f : 0.0f);
+      glUniform2f(U(progSnowfall, "uSFAcc"), (float)acc[0], (float)acc[1]);
+      glUniform3fv(U(progSnowfall, "uPCol"), 1, glm::value_ptr(col)); glUniform1f(U(progSnowfall, "uPSize"), size);
       glDrawArraysInstanced(GL_TRIANGLES, 0, 6, nearN + farN);
-      glBindVertexArray(0);
+    };
+    const float qs = q.snowfallScale;   // Low 0.4, Medium 0.75, High 1 (the sky quality)
+    if (lt.mapSnowfall || wxSnow) {     // SF1 snowfall (look.snowfall) / Light snow / Blizzard
+      const bool blizzard = wxSnow && wx.st.precipMmH >= 3.0f;
+      const float sfN = lt.mapSnowfall ? lt.sfNear : 0.0f, sfF = lt.mapSnowfall ? lt.sfFar : 0.0f;
+      const float wN = wxSnow ? (blizzard ? 9000.0f : 60.0f) : 0.0f, wF = wxSnow ? (blizzard ? 16000.0f : 2500.0f) : 0.0f;   // a blizzard reads by count: ~2.6 flakes / m3 near
+      const vec3 sc = vec3(0.92f, 0.94f, 0.98f) * (lt.mapSnowfall ? lt.sfBright : 1.0f);
+      draw(0, (int)(std::max(sfN, wN) * qs), (int)(std::max(sfF, wF) * qs), 9.0f, 42.0f, lt.mapSnowfall ? lt.sfFall : 1.0f, wSnow, accS, sc, blizzard ? 2.2f : 1.0f);
+      if (blizzard) draw(3, (int)(3000 * qs), 0, 12.0f, 12.0f, 1.0f, wSnow, accS, sc * 0.95f, 1.6f);   // spindrift over the ground
     }
+    if (wxRainy) {   // rain: streaks, and splashes on whatever top surface is under them
+      const float rate = wx.st.precipMmH, share = std::clamp(0.25f + rate / 12.0f, 0.25f, 1.2f);
+      const float fall = wx.st.precip == WxDrizzle ? 3.5f : rate > 25.0f ? 8.5f : 7.5f;
+      const vec3 rc = vec3(0.55f, 0.58f, 0.62f);
+      draw(1, (int)(8000 * share * qs / 0.75f * 0.75f), (int)(8000 * share * qs), 9.0f, 30.0f, fall, wWx, accR, rc);
+      const float splash = std::clamp(rate / 10.0f, 0.2f, 1.0f) * std::max(wx.st.puddle, 0.4f);
+      if (wx.st.precip == WxRain) draw(2, (int)(1000 * splash * qs), 0, 12.0f, 12.0f, 0.0f, wWx, accR, rc * 1.2f);
+    }
+    glBindVertexArray(0);
   }
   if ((perf.leafDrift || perf.pollen) && q.leafDriftN > 0 && !thumbMode && !v.thermal && !v.underwater && progLeafDrift && snowfallVao) {   // WS2 drifting leaves, WS3 pollen
     // how wooded the eye's surroundings are: standing card trees (broadleaf, orchard) within 30 m, eased over ~2 s
