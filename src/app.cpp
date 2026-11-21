@@ -959,7 +959,9 @@ int App::placeCompanions(uint64_t hostId) {
   const AssetDef* a = assetFor(*h);
   if (!a || !a->raw.contains("companions")) return 0;
   vec3 hp = h->pos; float hy = h->yaw; int n = 0, k = 0;
+  std::vector<uint64_t> made;   // BT2: each companion's new id ("loadWithCompanion" refers to one by index)
   for (auto& c : a->raw["companions"]) {
+    made.push_back(0);
     // B2 decor: "chance" keeps a companion on that share of placed copies (seeded by the host id and its index);
     // "ground" sets it on the terrain instead of the host's floor
     uint64_t s = (hostId + 0x9E3779B97F4A7C15ull * (uint64_t)++k) * 0xBF58476D1CE4E5B9ull; s ^= s >> 31;
@@ -970,9 +972,15 @@ int App::placeCompanions(uint64_t hostId) {
     i.pos = hp + yawQuat(hy) * vec3(c["pos"][0].get<float>(), c["pos"][1].get<float>(), c["pos"][2].get<float>());
     if (c.value("ground", false)) i.pos.y = terrain.height(i.pos.x, i.pos.z) + c["pos"][1].get<float>();
     i.yaw = wrapDeg(hy + c.value("yaw", 0.0f));
+    if (c.contains("extra") && c["extra"].is_object()) i.extra = c["extra"];   // BT2: e.g. a lamp's light gain
+    if (c.contains("loadWithCompanion")) { int q = c["loadWithCompanion"].get<int>(); if (q >= 0 && q < (int)made.size() && made[q]) { if (!i.extra.is_object()) i.extra = json::object(); i.extra["loadWith"] = made[q]; } }
+    if (c.contains("supportCompanion")) { int q = c["supportCompanion"].get<int>(); if (q >= 0 && q < (int)made.size() && made[q]) setSupport(i, made[q]); }
+    made.back() = i.id;
+    if (a->raw.value("companionsOwned", false)) { if (!i.extra.is_object()) i.extra = json::object(); i.extra["companionOf"] = hostId; }   // BT2: deleted with the host
     bump(i);
     doc.instances.push_back(i);
     ++n;
+    if (ca->enterable && interior.autoOnPlace) interior.autoFurnish(*this, i.id);   // BT2: an enterable companion (a landmark's interior) comes furnished too
   }
   return n;
 }
@@ -1021,6 +1029,12 @@ void App::deleteSelected() {
   doc.instances.erase(it); selected = 0; dirty = true;
   interior.dropPieces(*this, gone);   // V4: its room-template furniture goes with it (interior.cpp)
   dropSupported(gone);   // ED1: what rested on it falls to the next surface below
+  // BT2: companions a host owns ("companionsOwned": a landmark's interior and lamps) go with it, with their furniture
+  std::vector<uint64_t> owned; for (auto& i : doc.instances) if (i.extra.is_object() && i.extra.value("companionOf", (uint64_t)0) == gone) owned.push_back(i.id);
+  for (uint64_t c : owned) {
+    doc.instances.erase(std::remove_if(doc.instances.begin(), doc.instances.end(), [&](const Instance& i) { return i.id == c || (i.extra.is_object() && i.extra.value("support", (uint64_t)0) == c && i.extra.value("companionOf", (uint64_t)0) == gone); }), doc.instances.end());
+    interior.dropPieces(*this, c);
+  }
 }
 uint64_t App::pickInstance(vec3 ro, vec3 rd, float& tBest) const {
   uint64_t best = 0; tBest = 1e30f;
