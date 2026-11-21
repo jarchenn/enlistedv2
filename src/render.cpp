@@ -173,6 +173,23 @@ vec2 deformAt(vec2 xz){   // 0 outside the camera window or when off
   if (r.x < 0.0 || r.y < 0.0 || r.x >= 1.0 || r.y >= 1.0) return vec2(0.0);
   return textureLod(uDefTex, xz*uDefMap.z, 0.0).rg;
 }
+uniform int uRoadN; uniform vec2 uRoadPt[64]; uniform vec4 uRoadK, uRoadBox;   // VFX rev3 roads.h: the map's first road (w, trackOffset, rutSigma)
+uniform int uPoolN; uniform vec4 uPool[16];                                     // ... and its pools (x, z, r, waterZ)
+vec4 roadLateral(vec2 xz){   // (signed lateral m, distance to the nearer rut centre, traffic 0..1, half-width); per vertex, not per pixel
+  if (uRoadN < 2 || xz.x < uRoadBox.x || xz.y < uRoadBox.y || xz.x > uRoadBox.z || xz.y > uRoadBox.w) return vec4(1e3, 1e3, 0.0, 0.0);
+  float bd = 1e9, lat = 1e3;
+  for (int k = 0; k + 1 < uRoadN; ++k) {
+    vec2 a = uRoadPt[k], u = uRoadPt[k + 1] - a; float L2 = max(dot(u, u), 1e-8);
+    float t = clamp(dot(xz - a, u)/L2, 0.0, 1.0); float d = length(xz - (a + u*t));
+    if (d < bd) { bd = d; lat = d*((u.x*(xz.y - a.y) - u.y*(xz.x - a.x)) > 0.0 ? 1.0 : -1.0); }
+  }
+  float w = uRoadK.x;
+  return vec4(lat, min(abs(lat - uRoadK.y), abs(lat + uRoadK.y)), 1.0 - smoothstep(0.53*w, 1.07*w, abs(lat)), w);
+}
+float poolAt(vec2 xz, float groundY){
+  for (int k = 0; k < uPoolN; ++k) if (length(xz - uPool[k].xy) < uPool[k].z) return max(0.0, uPool[k].w - groundY);
+  return 0.0;
+}
 uniform float uFogDens;
 uniform float uUnder;   // 1: the camera is under water (swim.cpp): applyFog / sky become a dense uniform water fog
 uniform sampler2DShadow uShadow; uniform mat4 uLightVP; uniform int uShadowOn;
@@ -5497,6 +5514,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uShadowFar"), 6); glBindTextureUnit(6, shadowFarTex);
   glUniform1i(U(p, "uShadowFarOn"), far ? 1 : 0);
   glUniform1i(U(p, "uTSV"), 26); glUniform1i(U(p, "uTHorOn"), thorTex && !thumbMode ? 1 : 0); glUniform1i(U(p, "uTHorAll"), p == progTerrain || p == progTerrainND || p == progGrass ? 1 : 0);   // VOT T6 (unit 26 = the terrain's T5 / T6 texture)
+  { extern void roadsUniforms(GLuint); roadsUniforms(p); }   // VFX rev3 roads.h (uploads only when the map's roads changed)
   glUniform1i(U(p, "uDefTex"), tu::kDeform); glUniform1i(U(p, "uDefOn"), defOn && !thumbMode ? 1 : 0);   // VFX rev3 tdeform (the composite rebinds unit 11 to its AO before it draws)
   if (defOn && !thumbMode) { glBindTextureUnit(tu::kDeform, defTex); glUniform4fv(U(p, "uDefMap"), 1, glm::value_ptr(defMap)); }
   if (thorTex && !thumbMode) { glBindTextureUnit(26, thorTex); glUniform4fv(U(p, "uTHorMap"), 1, glm::value_ptr(thorMap)); glUniform4fv(U(p, "uTHorW"), 1, glm::value_ptr(thorW)); }
