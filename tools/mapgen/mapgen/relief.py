@@ -558,6 +558,59 @@ def fine_road(fine, path, half, crown=0.06, ruts=0.0, gutter=0.0, verge=0.0, dit
     fine.add(fn, (x0, z0, x1, z1))
 
 
+def fine_track(fine, path, w=1.8, crown=0.05, drain_bias=0.02, rut_depth=(0.03, 0.07), rut_sigma=(0.22, 0.30),
+               track_offset=0.8, drain=0.0, drain_side=1, bank=0.0, relief=0.03, keep=None, ends=6.0, seed=11):
+    """VFX rev3 spec 4.3: a road's cross-section from its spline, in the fine layer (0.45 m, the collision surface at every
+    tier). zRoad = zSpline(s) - C - R + boundedRelief, zFinal = lerp(zExisting, zRoad, rim) with
+      C   = (crown - drainageBias*sign(x)) * |x| / w       capped cross-slope, crown centre-to-edge, drainage to one side
+      R   = left / right ruts as Gaussians at +-track_offset, depth and sigma moving slowly along s
+      rim = 1 - ss(0.72 w, 1.22 w, |x|)                    the fade into the authored terrain
+    Beyond the rim: a shallow drain on `drain_side` (+1 = left of travel) and a bank rising `bank` m on the other side.
+    zSpline is the ground along the road smoothed over ~24 m. Ruts are kept at sigma >= 0.22 m: the 0.45 m mesh carries
+    what it can resolve (spec 4.3's split); finer relief is the POM height's."""
+    P = np.array(path, dtype=float)
+    reach = 1.22 * w + (2.8 if drain else 0.0) + (3.4 if bank else 0.0) + 0.6
+    x0, z0 = P.min(axis=0) - reach - 1; x1, z1 = P.max(axis=0) + reach + 1
+    L = sum(math.hypot(*(P[k + 1] - P[k])) for k in range(len(P) - 1))
+    n = max(2, int(L / 3.0)); sx = []; acc = 0.0; k = 0
+    for q in range(n + 1):
+        s_ = L * q / n
+        while k < len(P) - 2 and acc + math.hypot(*(P[k + 1] - P[k])) < s_:
+            acc += math.hypot(*(P[k + 1] - P[k])); k += 1
+        seg = math.hypot(*(P[k + 1] - P[k])); t = min(1.0, max(0.0, (s_ - acc) / max(seg, 1e-6)))
+        sx.append(fine.ground(*(P[k] + (P[k + 1] - P[k]) * t)))
+    sm = np.array([np.mean(sx[max(0, q - 4):q + 5]) for q in range(n + 1)])
+    ss = lambda e0, e1, v: np.clip((v - e0) / (e1 - e0), 0, 1) ** 2 * (3 - 2 * np.clip((v - e0) / (e1 - e0), 0, 1))
+    slow = lambda lo, hi, f, ph, S: lo + (hi - lo) * (0.5 + 0.5 * np.sin(S / f + ph))
+
+    def fn(X, Z, G):
+        d, S, side, LL = _poly_dist(X, Z, P)
+        if (d < reach).sum() == 0:
+            return G
+        x = d * side
+        q = np.clip(np.round(S / max(LL, 1e-6) * n).astype(int), 0, n)
+        wS = w * (0.93 + 0.07 * np.sin(S / 23.0 + seed))                     # width moves slowly along s
+        C = (crown - drain_bias * np.sign(x) * drain_side) * np.abs(x) / np.maximum(wS, 0.1)
+        sig = slow(rut_sigma[0], rut_sigma[1], 17.0, seed, S)
+        rut = lambda c: np.exp(-0.5 * ((x - c) / sig) ** 2)
+        Rr = slow(*rut_depth, 13.0, seed + 1, S) * rut(-track_offset) + slow(*rut_depth, 11.0, seed + 2, S) * rut(track_offset)
+        br = relief * np.sin(S / 1.9 + 0.7 * x) * np.cos(S / 3.7 - 1.3 * x)   # bounded relief, |br| <= relief
+        zRoad = sm[q] - C - Rr + br
+        rim = 1 - ss(0.72 * wS, 1.22 * wS, np.abs(x))
+        out = G + (zRoad - G) * rim
+        e = 1.22 * wS
+        if drain:   # a shallow drain on one shoulder, rounded V centred 1.2 m past the rim
+            t = np.clip(1 - np.abs(np.abs(x) - (e + 1.2)) / 1.2, 0, 1)
+            out -= drain * t * t * (3 - 2 * t) * (side == drain_side)
+        if bank:    # the other shoulder rises into the forest floor
+            out += bank * ss(e, e + 2.6, np.abs(x)) * (1 - ss(e + 2.6, e + 3.4, np.abs(x)) * 0.35) * (side != drain_side)
+        kk = np.clip(np.minimum(S, LL - S) / ends, 0, 1); kk = kk * kk * (3 - 2 * kk)
+        if keep is not None:
+            kk = kk * keep(X, Z)
+        return np.where(d < reach, G + (out - G) * kk, G)
+    fine.add(fn, (x0, z0, x1, z1))
+
+
 def fine_bumps(fine, centre, radius, amp=0.12, scale=1.6, hollow=0.1, keep=None, seed=3):
     """VOT T2: foreground micro-relief around a viewpoint: low fbm bumps and a few shallow puddle hollows, fading out at
     `radius`; keep(X, Z) -> 0..1 protects roads, footprints and paths."""

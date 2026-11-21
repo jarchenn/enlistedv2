@@ -221,6 +221,9 @@ V = {
                    "cabins by a pond fed by a creek. Dense woodland, ferns and mist. Military loot (level-3 armour) in the camp, "
                    "the radar and the bunker. 16 players by default, short storm circles. Battle Royale, Team Deathmatch and Solo.",
     "height": height, "stamps": [stamps], "roads": [], "track_paint": "rock",
+    # VFX rev3 phase 3 (spec 4.3): the logging track's cross-section in the fine layer - crown, ruts, a drain on the east
+    # (house) shoulder, a bank rising into the forest on the west
+    "fine": lambda f: __import__("mapgen.relief", fromlist=["fine_track"]).fine_track(f, TRACK, w=1.8, crown=0.05, drain=0.3, drain_side=1, bank=0.55),
     "tracks": [(TRACK, 4.0), (SPUR_RADAR, 3.2), (SPUR_MILL, 3.5), (SPUR_POND, 3.0)],
     "sites": SITES, "site_info": INFO,
     "flats": [(rect(CAMP[0] + 1, CAMP[1] + 1, CAMP[2] - 1, CAMP[3] - 1), None), (circle_poly(-44.0, -44.0, 9.0, 16), None)],
