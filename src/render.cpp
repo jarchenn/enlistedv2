@@ -1,5 +1,6 @@
 #include "render.h"
 #include <cstring>
+#include <stb_dxt.h>   // CP3c impostor atlases (the implementation is in textures.cpp)
 #include <fstream>
 #include "user_cache.h"
 #include "crumb.h"
@@ -2232,7 +2233,8 @@ void main(){
   vec4 b = uBase; if (uHasAlb == 1) b *= texture(uAlb, vUV);
   if (uCutout == 1 && b.a < 0.5) discard;
   vec3 N = normalize(vN); if (!gl_FrontFacing) N = -N;
-  oAlb = vec4(b.rgb, 1.0); oNrm = vec4(N*0.5 + 0.5, gl_FragCoord.z);
+  vec3 n = N/(abs(N.x) + abs(N.y) + abs(N.z)); vec2 o = n.z >= 0.0 ? n.xy : (1.0 - abs(n.yx))*vec2(n.x >= 0.0 ? 1.0 : -1.0, n.y >= 0.0 ? 1.0 : -1.0);   // octahedral: two channels (BC5)
+  oAlb = vec4(b.rgb, 1.0); oNrm = vec4(o*0.5 + 0.5, gl_FragCoord.z, 1.0);
 }
 )GLSL";
 // the draw: one camera-facing quad per tree; the frame nearest the view direction (object space), the quad's pixel
@@ -2273,7 +2275,8 @@ void main(){
   vec3 alb = a.rgb/max(a.a, 1e-3);
   if (vTint.a > 2.5) alb = mix(alb, vTint.rgb*dot(alb, vec3(0.2126, 0.7152, 0.0722)), uGreenK.w*greenMask(alb));   // FL1 greenery, as kModelFS
   else if (vTint.a > 1.5) alb *= vTint.rgb;
-  vec3 Nn = normalize(rotY(texture(uImpNrm, auv).xyz*2.0 - 1.0, vYD.x));
+  vec2 on = texture(uImpNrm, auv).xy*2.0 - 1.0; vec3 no = vec3(on, 1.0 - abs(on.x) - abs(on.y)); float tq = max(-no.z, 0.0); no.xy += vec2(no.x >= 0.0 ? -tq : tq, no.y >= 0.0 ? -tq : tq);
+  vec3 Nn = normalize(rotY(normalize(no), vYD.x));
   vec3 V = normalize(uCamPos - vW);
   float sh = sunShadowT(vW + Nn*0.1, Nn, 1.0, 4);
   float ndl = max(dot(Nn, uSunDir), 0.0)*0.7 + 0.3;
@@ -5338,13 +5341,80 @@ void Renderer::drawModelsDepth(GLuint p, const std::vector<ModelDraw>& items, co
 // NT8: model foliage. Instances are culled per model (bounding sphere), their matrices packed into one SSBO (binding 12),
 // then each part is one instanced draw; cutout parts alpha test (depth too), no back-face culling.
 // ---------------- CP3 octahedral impostors
+// CP3c: the atlases end block-compressed (albedo BC3, octahedral normal BC5, about 6.7 MB a species at 2048): a bake draws
+// RGBA8 (usable at once), reads its mips back and compresses them on a worker thread; the result replaces the RGBA8 pair
+// and is written to the per-user texture cache (texbc), keyed by the bake's content (mesh.bin, model.json), the part
+// range, the atlas size and the bake version, so a second load reads it instead of baking.
+static fs::path impCacheFile(const GpuModel* m, int first, int count, int atlas) {
+  if (!m || m->srcDir.empty()) return {};
+  const std::string a = userCacheContentStamp(m->srcDir / "mesh.bin"), b = userCacheContentStamp(m->srcDir / "model.json");
+  if (a.empty()) return {};
+  std::string key = "imp1|" + a + "|" + b + "|" + std::to_string(first) + "|" + std::to_string(count) + "|" + std::to_string(atlas) + (m->turned ? "|t" : "");
+  uint64_t x = 1469598103934665603ull; for (unsigned char c : key) { x ^= c; x *= 1099511628211ull; }
+  char nm[40]; std::snprintf(nm, sizeof nm, "imp_%016llx.bc", (unsigned long long)x);
+  return userCacheDir("texbc", "NMK_TEXBC_CACHE") / nm;
+}
+static GLuint impUpload(GLenum fmt, int w, const std::vector<std::vector<uint8_t>>& lv) {
+  GLuint t; glCreateTextures(GL_TEXTURE_2D, 1, &t); glTextureStorage2D(t, (GLsizei)lv.size(), fmt, w, w);
+  for (int L = 0, lw = w; L < (int)lv.size(); ++L, lw = std::max(1, lw / 2)) glCompressedTextureSubImage2D(t, L, 0, 0, lw, lw, fmt, (GLsizei)lv[L].size(), lv[L].data());
+  glTextureParameteri(t, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTextureParameteri(t, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTextureParameteri(t, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(t, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  return t;
+}
+// levels of RGBA8 (w x w, halving) -> BC3 (rg5: BC5 from r, g)
+static std::vector<std::vector<uint8_t>> impCompress(const std::vector<std::vector<uint8_t>>& src, int w, bool rg5) {
+  std::vector<std::vector<uint8_t>> out;
+  for (int L = 0, lw = w; L < (int)src.size(); ++L, lw = std::max(1, lw / 2)) {
+    const int bw = std::max(1, (lw + 3) / 4); std::vector<uint8_t> o((size_t)bw * bw * 16);
+    for (int by = 0; by < bw; ++by) for (int bx = 0; bx < bw; ++bx) {
+      uint8_t blk[64], rg[32];
+      for (int y = 0; y < 4; ++y) for (int x = 0; x < 4; ++x) {
+        const int sx = std::min(lw - 1, bx * 4 + x), sy = std::min(lw - 1, by * 4 + y); const uint8_t* p = &src[L][((size_t)sy * lw + sx) * 4];
+        std::memcpy(blk + (y * 4 + x) * 4, p, 4); rg[(y * 4 + x) * 2] = p[0]; rg[(y * 4 + x) * 2 + 1] = p[1];
+      }
+      uint8_t* d = &o[((size_t)by * bw + bx) * 16];
+      if (rg5) stb_compress_bc5_block(d, rg); else stb_compress_dxt_block(d, blk, 1, STB_DXT_NORMAL);
+    }
+    out.push_back(std::move(o));
+  }
+  return out;
+}
+static void impWrite(const fs::path& f, const std::array<float, 6>& g, int atlas, const std::vector<std::vector<uint8_t>>& a, const std::vector<std::vector<uint8_t>>& n) {
+  std::error_code ec; fs::create_directories(f.parent_path(), ec);
+  fs::path tmp = f; tmp += "." + std::to_string((unsigned long long)std::chrono::steady_clock::now().time_since_epoch().count()) + ".tmp";
+  { std::ofstream o(tmp, std::ios::binary); const uint32_t hd[4] = {0x31504D49u /* IMP1 */, (uint32_t)atlas, (uint32_t)a.size(), (uint32_t)n.size()};
+    o.write((const char*)hd, sizeof hd); o.write((const char*)g.data(), sizeof(float) * 6);
+    for (auto* v : {&a, &n}) for (auto& l : *v) { uint32_t s = (uint32_t)l.size(); o.write((const char*)&s, 4); o.write((const char*)l.data(), s); } }
+  fs::rename(tmp, f, ec);
+}
+static bool impRead(const fs::path& f, Renderer::Impostor& I) {
+  std::ifstream in(f, std::ios::binary); if (!in) return false;
+  uint32_t hd[4]; float g[6];
+  if (!in.read((char*)hd, sizeof hd) || hd[0] != 0x31504D49u || hd[1] < 256 || hd[1] > 4096 || hd[2] > 14 || hd[3] > 14 || !in.read((char*)g, sizeof g)) return false;
+  std::vector<std::vector<uint8_t>> lv[2];
+  for (int k = 0; k < 2; ++k) for (uint32_t L = 0; L < hd[2 + k]; ++L) { uint32_t s = 0; if (!in.read((char*)&s, 4) || s > (32u << 20)) return false; lv[k].emplace_back(s); if (!in.read((char*)lv[k].back().data(), s)) return false; }
+  I.c = vec3(g[0], g[1], g[2]); I.r = g[3]; I.fpx = g[4]; I.use = g[5];
+  I.alb = impUpload(0x83F3 /* GL_COMPRESSED_RGBA_S3TC_DXT5_EXT */, (int)hd[1], lv[0]); I.nrm = impUpload(GL_COMPRESSED_RG_RGTC2, (int)hd[1] / 2, lv[1]);
+  I.ready = true; return true;
+}
 const Renderer::Impostor* Renderer::impostorFor(const GpuModel* m, int first, int count) {
   if (!progImp || !progImpBake || !m || !m->vao) return nullptr;
   auto key = std::make_tuple(m, first, count);
   auto it = impostors.find(key);
   if (it != impostors.end()) return it->second.ready ? &it->second : nullptr;
   if ((int)impostors.size() >= q.impMax) return nullptr;   // shortcut: the tier's species cap, first come; an LRU if maps need more
-  impostors[key]; impWant.push_back(key); return nullptr;
+  Impostor& I = impostors[key];
+  if (perf.impostorBC) { const fs::path f = impCacheFile(m, first, count, q.impAtlas); if (!f.empty() && impRead(f, I)) { userCacheTouch(f); logf("impostor: %p parts %d+%d from the cache", (const void*)m, first, count); return &I; } }
+  impWant.push_back(key); return nullptr;
+}
+
+void Renderer::impostorPoll() {   // CP3c: swap finished compressions in (the RGBA8 pair is freed)
+  for (auto& [k, I] : impostors) if (I.job.valid() && I.job.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+    ImpBC r = I.job.get();
+    if (r.w <= 0 || r.alb.empty() || r.nrm.empty()) { logf("impostor: compression failed (RGBA8 kept)"); continue; }
+    GLuint a = impUpload(0x83F3 /* GL_COMPRESSED_RGBA_S3TC_DXT5_EXT */, r.w, r.alb), n = impUpload(GL_COMPRESSED_RG_RGTC2, r.w / 2, r.nrm);
+    glDeleteTextures(1, &I.alb); glDeleteTextures(1, &I.nrm); I.alb = a; I.nrm = n;
+  }
 }
 
 void Renderer::impostorBakeSome() {
@@ -5370,7 +5440,7 @@ void Renderer::impostorBakeSome() {
     if (glCheckNamedFramebufferStatus(impFbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) { logf("impostor: framebuffer incomplete"); continue; }
     glBindFramebuffer(GL_FRAMEBUFFER, impFbo);
     glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE); glClearDepth(1.0);
-    const float z4[4] = {0, 0, 0, 0}, n4[4] = {0.5f, 0.5f, 1.0f, 1.0f};
+    const float z4[4] = {0, 0, 0, 0}, n4[4] = {0.5f, 0.5f, 1.0f, 1.0f};   // n4: octahedral (0, 0, 1) = 0.5, 0.5
     glViewport(0, 0, kAtlas, kAtlas); glDisable(GL_SCISSOR_TEST); glDepthMask(GL_TRUE);
     glClearNamedFramebufferfv(impFbo, GL_COLOR, 0, z4); glClearNamedFramebufferfv(impFbo, GL_COLOR, 1, n4); glClearNamedFramebufferfv(impFbo, GL_DEPTH, 0, n4 + 3);
     glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LESS); glDisable(GL_CULL_FACE); glDisable(GL_BLEND);
@@ -5407,6 +5477,19 @@ void Renderer::impostorBakeSome() {
                                        glTextureParameteri(t, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(t, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); }
     I.fpx = (float)kF; I.use = kN * (float)kF / kAtlas;
     I.ready = true; logf("impostor: baked %p parts %d-%d (r %.1f m, %d atlas)", (const void*)m, p0, p1, I.r, kAtlas);
+    if (perf.impostorBC) {   // CP3c: read the RGBA8 mips back (one stall per species), compress and cache on a worker
+      auto readLv = [](GLuint t, int w, int lv) { std::vector<std::vector<uint8_t>> o; for (int L = 0, lw = w; L < lv; ++L, lw = std::max(1, lw / 2)) {
+        o.emplace_back((size_t)lw * lw * 4); glGetTextureImage(t, L, GL_RGBA, GL_UNSIGNED_BYTE, (GLsizei)o.back().size(), o.back().data()); } return o; };
+      auto a = std::make_shared<std::vector<std::vector<uint8_t>>>(readLv(I.alb, kAtlas, lv)), n = std::make_shared<std::vector<std::vector<uint8_t>>>(readLv(I.nrm, kNrm, lvN));
+      const fs::path cf = impCacheFile(m, std::get<1>(key), std::get<2>(key), kAtlas); const std::array<float, 6> head = {I.c.x, I.c.y, I.c.z, I.r, (float)kF, kN * (float)kF / kAtlas};
+      try {   // under memory pressure: no worker (std::system_error) or a failed job (bad_alloc) keeps the RGBA8 pair, never a crash
+        I.job = std::async(std::launch::async, [a, n, cf, head, kAtlas, kNrm]() noexcept {
+          ImpBC r;
+          try { r.alb = impCompress(*a, kAtlas, false); r.nrm = impCompress(*n, kNrm, true); if (!cf.empty()) impWrite(cf, head, kAtlas, r.alb, r.nrm); r.w = kAtlas; }
+          catch (...) { r = ImpBC(); }
+          return r; });
+      } catch (...) { logf("impostor: no compression worker (RGBA8 kept)"); }
+    }
   }
   glBindVertexArray(0); glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFbo); glViewport(vpOld[0], vpOld[1], vpOld[2], vpOld[3]);
   glDepthFunc((GLenum)dfOld); if (cullOld) glEnable(GL_CULL_FACE); if (blendOld) glEnable(GL_BLEND); if (!dtOld) glDisable(GL_DEPTH_TEST);
@@ -5776,6 +5859,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     }
   }
   if (!impWant.empty() && !thumbMode) impostorBakeSome();   // CP3: queued impostor bakes, 2 a frame
+  if (!impostors.empty()) impostorPoll();
   if (displayW > 0) {   // P1: the internal size follows effScale() (the taau switch can flip it between frames: A/B)
     int iw = std::max(16, (int)std::lround(displayW * effScale())), ih = std::max(16, (int)std::lround(displayH * effScale()));
     if (iw != width || ih != height) { width = iw; height = ih; createTargets(); }

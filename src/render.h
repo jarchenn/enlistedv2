@@ -1,4 +1,5 @@
 #pragma once
+#include <future>   // CP3c: impostor compression jobs
 #include "assets.h"
 #include "terrain.h"
 #include "combat.h"
@@ -143,12 +144,13 @@ public:
   vec2 windDir2() const { float s = windSpeed(); return s > 1e-3f ? wx.der.windXZ / s : vec2(0.8f, 0.6f); }
   double windClock = 0, windClockPrev = 0, windGustOff = 0, windGustPrev = 0, windLastT = -1; glm::dvec2 windDrift{0.0};   // windDrift: accumulated wind displacement (m), WS2 leaves
   // CP3 octahedral impostors: per baked species (model, part range) a 2048 albedo / 1024 normal atlas of 12 x 12 frames
-  struct Impostor { GLuint alb = 0, nrm = 0; vec3 c{0}; float r = 1; bool ready = false; float fpx = 170, use = 12.0f * 170.0f / 2048.0f; };   // fpx: frame size (px), the swap height
+  struct ImpBC { std::vector<std::vector<uint8_t>> alb, nrm; int w = 0; };   // CP3c: compressed mips (BC3, BC5)
+  struct Impostor { GLuint alb = 0, nrm = 0; vec3 c{0}; float r = 1; bool ready = false; float fpx = 170, use = 12.0f * 170.0f / 2048.0f; std::future<ImpBC> job; };   // fpx: frame size (px), the swap height
   struct ImpDraw { const Impostor* imp; vec3 c; float r, yaw; vec4 tint; float dither; };
   std::map<std::tuple<const GpuModel*, int, int>, Impostor> impostors; std::vector<std::tuple<const GpuModel*, int, int>> impWant;
   std::vector<ImpDraw> impDraws;   // this frame's (App::buildDrawLists, folModelLodPush)
   const Impostor* impostorFor(const GpuModel* m, int first, int count);   // ready, or nullptr (queued for a bake)
-  void impostorBakeSome(); void drawImpostors(const RenderView& v, const mat4& vp, const Frustum& fr);
+  void impostorBakeSome(); void impostorPoll(); void drawImpostors(const RenderView& v, const mat4& vp, const Frustum& fr);
   GLuint progImpBake = 0, progImp = 0, impFbo = 0, impDepth = 0, impNrmTmp = 0, impBakeBuf = 0, impInstBuf = 0; size_t impInstBytes = 0; int impFboSize = 0;
   GLuint progLeafDrift = 0; float leafDriftK = 0, pollenK = 0; bool pollenOk = true;   // WS2 drifting leaves; how wooded the eye's surroundings are (eased)
   // sky clouds: fbm on a plane at 1500 m scrolling with the wind
@@ -320,6 +322,7 @@ public:
     bool grassTint = true;       // grasstint (CP4): the ground under thinning grass takes the clumps' mean top-down colour
     bool vegCascades = true;     // vegcascades (CP5): vegetation casts into the two nearest sun cascades only (near, mid), the mid one from a fixed far LOD; the far cascade has none while the mid one is drawn
     bool treePxLod = true;       // treepxlod (CP2): model foliage LOD and cull by projected pixels, a dithered cross-fade band, capped at the weather's cull distance
+    bool impostorBC = true;      // impostorbc (CP3c): impostor atlases block-compressed on a worker (BC3 / BC5) and cached on disk; off: RGBA8, baked every load
     bool impostors = true;       // impostors (CP3): model trees under ~170 px tall drawn as octahedral impostors (12 x 12 frames)
     bool pollen = true;          // pollen (WS3): drifting pollen motes over grass on dry, mild days (count 0.75 x leafDriftN)
     bool leafDrift = true;       // leafdrift (WS2): drifting leaves near broadleaf / orchard trees (count: Quality::leafDriftN)
@@ -390,7 +393,7 @@ public:
               // ^ stream M (materials): append to the line above
               : n == "charvel" ? &charVel
               // ^ characters (gameplay): append to the line above
-              : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "pollen" ? &pollen : n == "impostors" ? &impostors : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
+              : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "pollen" ? &pollen : n == "impostors" ? &impostors : n == "impostorbc" ? &impostorBC : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
               // ^ stream A (vegetation): append to the line above
               : n == "snowfar" ? &snowFar : n == "firthin" ? &firThin : n == "snowtex" ? &snowTex
               // ^ stream B (Blackwater snow / far firs): append to the line above

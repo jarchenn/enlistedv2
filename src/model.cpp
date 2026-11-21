@@ -777,6 +777,7 @@ void prefetchModelTree(const fs::path& root) {
 }
 bool GpuModel::load(const fs::path& dir, std::string& err, bool turn180) {
   destroy();
+  srcDir = dir; turned = turn180;
   json j;
   try { j = json::parse(readTextFile(dir / "model.json")); } catch (...) { err = "missing or bad " + (dir / "model.json").string(); return false; }
   std::ifstream f(dir / "mesh.bin", std::ios::binary);
