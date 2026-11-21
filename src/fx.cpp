@@ -373,7 +373,7 @@ bool Fx::admitLight() {
 }
 void Fx::setCaps(const Caps& c) {
   caps = c; caps.flashLights = std::max(1, c.flashLights); caps.dustPerBurst = std::max(1, c.dustPerBurst);   // the two floors (8.1 items 4 / 5)
-  if (c.soft > 0) maxParts = (size_t)c.soft;
+  // caps.soft is PF3's count of soft effects (12-22), not the particle pool: the pool stays setBudget's (it was set from it: 16 sprites)
   if (!capOn) return;
   size_t live = 0; for (auto& q : parts) live += q.ret < 0;
   for (auto& q : parts) { if (live <= maxParts) break; if (q.ret < 0) { q.ret = 0.3f; --live; } }   // oldest first, faded, never snapped
@@ -412,6 +412,7 @@ static FxWeaponRow fxHeavyFor(const std::string& name, float scale) {
 
 bool Fx::emit(const FxEvent& e0) {
   FxEvent e = e0; if (e.visTime < 0) e.visTime = clock;
+  const double tShow = std::min(e.visTime, std::max(lastPresent, e.visTime - 1.0 / 60.0));   // the drawn interval that contains the shot shows it (an event at the drawn instant would integrate to 0 there)
   if (e.id) {   // spec 9.2 EVENTS: no duplicate activation per id
     if (seenIds.count(e.id)) return false;
     seenIds.insert(e.id); seenOrder.push_back(e.id);
@@ -430,7 +431,7 @@ bool Fx::emit(const FxEvent& e0) {
   // presentation life (5.6): small 12-35 ms, heavy core 35-85 ms; the brightness is integrated over it (5.5), so energy is frame-rate free
   const float life = heavy ? std::clamp(2.0f * W.tVis, 0.035f, 0.085f) : std::clamp(6.0f * W.tVis, 0.012f, 0.035f);
   if (age < life * (heavy ? 1.6f : 1.0f)) {
-    FlashEl f; f.t0 = e.visTime; f.life = life; f.p = e.pos; f.dir = dir; f.roll = hash01(sd, 1) * 6.2831853f; f.xM = xM; f.L = L; f.R = R;
+    FlashEl f; f.t0 = tShow; f.life = life; f.p = e.pos; f.dir = dir; f.roll = hash01(sd, 1) * 6.2831853f; f.xM = xM; f.L = L; f.R = R;
     f.half = e.device == "brake" ? 30.0f : e.device == "flash_hider" ? 10.0f : 15.0f;
     f.emPrim = emission(W.Tprim, heavy ? 0.5f : 0.12f); f.emDisc = emission(heavy ? std::max(W.Tprim, 2000.0f) : 1800.0f, heavy ? 0.5f : 0.20f);
     f.emSec = emission(W.Tsec, W.epsSec) * dev.secondary;
@@ -453,7 +454,7 @@ bool Fx::emit(const FxEvent& e0) {
   }
   // the flash light (the lighting session's combustion light replaces this; until then the WP4 light, its envelope as before)
   if (brightOn && age < 0.06f) {   // fxbright: one combustion light from T, eps and size (spec 5.6), its envelope the flash's
-    CombSrc c; c.p = glm::length(e.light) > 0 ? e.light : e.pos; c.t0 = e.visTime; c.life = life * (heavy ? 1.6f : 1.0f);
+    CombSrc c; c.p = glm::length(e.light) > 0 ? e.light : e.pos; c.t0 = tShow; c.life = life * (heavy ? 1.6f : 1.0f);
     c.T = heavy ? 2400.0f : 2200.0f; c.eps = (heavy ? 0.55f : 0.2f) * (e.device == "suppressor" ? 0.1f : 1.0f); c.d = 2.8f * W.envR * dev.envelope; combSrc.push_back(c);
   } else if (age < 0.06f && admitLight()) {
     MuzzleLight Lt; Lt.p = glm::length(e.light) > 0 ? e.light : e.pos; Lt.life = (heavy ? 0.12f : 0.035f) * (e.device == "suppressor" ? 0.3f : 1.0f);
@@ -603,8 +604,11 @@ int fxEventSelfCheck(int& fails) {
   check(glm::length(f.parts.front().p - p0) < 1e-6f, "puffs are world space: a later muzzle move does not move them");
   f.maxParts = 20; f.capOn = true; const size_t before = f.parts.size(); FxEvent e2 = e; e2.id = 45; f.emit(e2);
   check(f.parts.size() <= std::max(before, (size_t)20) + 1, "pool cap enforced: at a cap of 20 only the cue sprite gets in (" + std::to_string(before) + " -> " + std::to_string(f.parts.size()) + ")");
-  Fx::Caps c = f.caps; c.soft = 5; f.setCaps(c); int ret = 0; for (auto& q : f.parts) ret += q.ret >= 0;
+  Fx::Caps c = f.caps; f.maxParts = 5; f.setCaps(c); int ret = 0; for (auto& q : f.parts) ret += q.ret >= 0;
   check(ret == (int)f.parts.size() - 5, "a lowered cap retires the oldest over 0.3 s (" + std::to_string(ret) + " fading, none removed at once)");
+  { Fx g; g.maxParts = 900; Fx::Caps cc; cc.soft = 16; g.setCaps(cc); check(g.maxParts == 900, "the soft-effect count (16) never becomes the particle pool (900 kept)"); }
+  { Fx g; g.clock = g.presentT = 10.0; g.lastPresent = 10.0; FxEvent q; q.id = 7; q.weapon = "rifle_7.62x51"; q.dir = vec3(1, 0, 0); g.emit(q); std::vector<FxVert> add; g.presentT = 10.0 + 1.0 / 60.0; g.buildFlashes(vec3(0, 0, -3), add);
+    check(!add.empty(), "a shot fired at the drawn instant shows in the next drawn frame's interval: " + std::to_string(add.size() / 3) + " triangles"); }
   c.flashLights = 0; c.dustPerBurst = 0; f.setCaps(c); check(f.caps.flashLights == 1 && f.caps.dustPerBurst == 1, "floors: a flash light and a dust puff survive at every tier");
   // SCALE (spec 9.2 / phase 5): grenade, 105 mm, 155 mm side by side differ in size and in rate; 2 x W -> x1.26 radius and times
   struct Burst { float life = 0, rMean = 0, plumeH = 0; int dust = 0, grains = 0, clods = 0; float fireK = 0; };
@@ -664,12 +668,12 @@ void Fx::explosionScaled(vec3 p, vec3 n, const std::string& family, const std::s
     const int nFb[5] = {1, 2, 4, 6, 8};
     const float fireK = water ? 0.15f : air ? 1.3f : std::clamp(1.6f / (0.6f + S.dustToFire), 0.35f, 1.3f);   // dust hides the ball; water suppresses it
     for (int i = 0; i < nFb[t]; ++i) {
-      FlashEl f; f.kind = 3; f.t0 = clock; f.life = M.tLum; f.T0 = M.T0; f.tau = M.tau * k; f.n = M.n; f.eps = 0.9f; f.k = fireK; f.roll = R() * 255.0f;
+      FlashEl f; f.kind = 3; f.t0 = std::min(clock, std::max(lastPresent, clock - 1.0 / 60.0)); f.life = M.tLum; f.T0 = M.T0; f.tau = M.tau * k; f.n = M.n; f.eps = 0.9f; f.k = fireK; f.roll = R() * 255.0f;
       const float th = R() * 6.2831853f, ph = std::acos(2 * R() - 1); const vec3 o(std::sin(ph) * std::cos(th), std::fabs(std::cos(ph)), std::sin(ph) * std::sin(th));
       f.p = p + (air ? vec3(0) : n * (0.3f * M.Rfb)) + o * (0.35f * M.Rfb); f.R = M.Rfb * 0.45f * std::exp(0.4f * (R() + R() + R() - 1.5f) * 1.414f);
       flashes.push_back(f);
     }
-    if (brightOn) { CombSrc c; c.p = p + n * (0.5f * M.Rfb); c.t0 = clock; c.life = 2.0f * M.tLum; c.cool = true; c.T0 = M.T0; c.tau = M.tau * k; c.n = M.n; c.eps = 0.9f * fireK; c.Rfb = M.Rfb; combSrc.push_back(c); }
+    if (brightOn) { CombSrc c; c.p = p + n * (0.5f * M.Rfb); c.t0 = std::min(clock, std::max(lastPresent, clock - 1.0 / 60.0)); c.life = 2.0f * M.tLum; c.cool = true; c.T0 = M.T0; c.tau = M.tau * k; c.n = M.n; c.eps = 0.9f * fireK; c.Rfb = M.Rfb; combSrc.push_back(c); }
     else if (admitLight()) { MuzzleLight L; L.p = p + n * (0.5f * M.Rfb); L.life = std::max(0.06f, 2.0f * M.tLum); L.k = 2.5f * w3 * fireK; L.col = D.hue(2800); L.id = 0xE7B00000u + (++mlightSerial & 0xFFF); mlights.push_back(L); }
   }
   const float Rc = 0.5f * M.craterD * std::max(0.3f, S.craterDepth), vMin = std::sqrt(9.81f * std::max(Rc, 0.1f)), vMax = 2.5f * 20.0f * std::pow(M.W, 0.18f), mu = fxSoilMu(sid);

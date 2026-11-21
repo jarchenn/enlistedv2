@@ -156,11 +156,14 @@ static bool bfRun(App& app, float dt) {
     app.fx.explosion(subj, vec3(0, 1, 0), "ground", true, "he_105mm_M1");
     app.fx.explosion(ground(subj + rt * 12.0f), vec3(0, 1, 0), "ground", true, "he_155mm_M107");
   }
+  static std::string pending;   // the still written last frame: what that frame actually drew (fx.build ran after this step)
+  if (!pending.empty()) { logf("[wsm2] %s drew %zu additive triangles (flash meshes, discs, fireballs, streaks) and %zu soft sprites", pending.c_str(), app.R.fxAdd.size() / 3, app.R.fxAlpha.size() / 6); pending.clear(); }
   const int at[4] = {fire, fire + 6, fire + 60, fire + 180}; const char* tag[4] = {"flash", "0.1s", "1s", "3s"};
   for (int c = 0; c < (j == 4 ? 4 : 3); ++c) if (f == at[c]) {
     char b[128]; std::snprintf(b, sizeof b, "bf_%s_%s_%s.png", scene[sc], shot[j], tag[c]); app.uiShot = exeDir() / "selftest_out" / b;
     logf("[wsm2] %s: camera (%.1f, %.1f, %.1f) yaw %.1f pitch %.1f, subject (%.1f, %.1f, %.1f), %.1f m, hour %.1f, %zu particles, %zu flash elements",
          b, cam.x, cam.y, cam.z, app.camYaw, app.camPitch, subj.x, subj.y, subj.z, glm::length(subj - cam), app.R.lt.hour, app.fx.parts.size(), app.fx.flashes.size());
+    pending = b;
   }
   if (++f > fire + (j == 4 ? 200 : 80)) {
     app.fx.clear(); app.fx.flashes.clear(); app.fx.delayed.clear(); f = 0;
