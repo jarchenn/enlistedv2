@@ -15,6 +15,7 @@ import os
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 W, FRONT, BACK = 6.0, 0.31, -2.9
+FOUND = 0.8                  # VOT T2: stone foundation below the sill (the floater scan allows a gap down to it)
 GF, FH = 3.3, 2.8            # ground floor and upper floor heights (m)
 PITCH = math.tan(math.radians(52))   # Norman roofs are steep
 
@@ -224,6 +225,7 @@ def house(aid, name, desc, body, floors, roof, shut, gf, upper="window", frame_t
             B(p, [-W / 2 + 0.35 + k * (W - 0.7) / 8, GF - 0.08, FRONT + jetty / 2], [0.14, 0.16, jetty], "oak", lod=1)
         B(p, [0, GF + 0.1, fu + 0.04], [W, 0.2, 0.08], "oak")
     B(p, [0, 0.3, FRONT + 0.03], [W, 0.6, 0.06], "plinth")
+    B(p, [0, -FOUND / 2, (FRONT + BACK) / 2], [W, FOUND, FRONT - BACK], "plinth")   # VOT T2: the foundation under the low end on a sloping lane
     # ground floor
     if gf == "shop":
         shopfront(p, -2.85, 1.0, FRONT, door_paint, awning or ("canvas_red", "canvas_cream"))
@@ -286,7 +288,7 @@ def house(aid, name, desc, body, floors, roof, shut, gf, upper="window", frame_t
         for px in (-0.17, 0.17):
             p.append({"t": "c", "c": [cx + px, top + 0.28, zb + 0.45], "s": [0.17, 0.36, 0.17], "m": "pot", "seg": 8, "k": 0, "lod": 1})
     return {"id": aid, "version": 1, "name": name, "category": "Modern: Military", "description": desc, "footprint": [W, FRONT - BACK],
-            "floors": 0, "enterable": False, "plinthDepth": 0.4, "maxGrade": 3, "noAutoPanels": True, "materials": MATS, "parts": p,
+            "floors": 0, "enterable": False, "plinthDepth": 0.4, "foundation": FOUND, "maxGrade": 3, "noAutoPanels": True, "materials": MATS, "parts": p,
             "nav": {"effect": "none", "rooms": [], "doors": [], "entrances": [], "corners": [], "firingPoints": [], "cover": [], "areas": []},
             "furniture": [], "interactables": [], "panels": []}
 

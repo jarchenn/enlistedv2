@@ -90,6 +90,7 @@ ROUTES = {   # name: (points, clear width, kind)
 PUDDLES = [(-30.0, -59.5, 1.3), (-8.0, -50.6, 1.1), (6.0, -42.6, 1.5), (9.5, -17.5, 1.2), (2.0, -9.0, 1.0), (-1.0, -3.5, 1.4),
            (-60.0, -61.9, 1.2), (-84.0, -63.0, 1.6), (40.0, -55.8, 1.0), (62.0, -8.0, 1.3), (-20.0, 24.0, 1.1)]   # (x, z, radius m)
 ORCH_IDS = []
+PAINT = [None]   # milestone 3: the map's ground paint while dressing (the castle road)
 FIELD = [None]   # BT2 perf: the terrain field while building (stand_seen)
 CREEK_PROFILE = []   # BT2: (x, z, water level above BASE) along the creek, 2 m apart (build_terrain)
 FIR_STANDS = []   # BT2: (x, z, radius) of each fir stand (dark needle floor, no snow under it)
@@ -254,7 +255,7 @@ def build_terrain(grid):
     gap = (X < -60) & (Z < -60)                      # the south-west valley exit (the bright opening)
     edge = (np.abs(X - X.min()) < 1) | (np.abs(X - X.max()) < 1) | (np.abs(Z - Z.min()) < 1) | (np.abs(Z - Z.max()) < 1)
     far_h = np.where(Z > 120, 112.0, np.where(Z > 0, 88.0, np.where(X > 0, 66.0, 54.0)))
-    F.set_mask(edge, np.where(gap, 16.0, far_h))
+    F.set_mask(edge, np.where(gap, 24.0, far_h))   # Phase 1 leftover: a shallower notch (16 m read as a pale wedge)
     castle_edge(F, X, Z, edge)   # BT2 phase 2: the castle spur (north-west, beyond the play area)
     castle_terrain(F, X, Z)
     # the far ridge north-east: a crest line and its shoulders
@@ -317,6 +318,7 @@ def build_terrain(grid):
     shoulder = (outside > 62.0) & (outside < 68.0) & ~spur   # far enough out that the slope to it stays ~25-35 deg, not a bowl wall
     sh_h = F.H + 16.0 + 28.0 * v2 * (0.6 + 0.4 * v1)
     F.set_mask(shoulder, np.where(gap, F.H + 6.0, sh_h))
+    castle_road_terrain(F)   # the explore-only road out of the play area and up the spur (graded, overrides the bands)
     F.solve()
     H = F.H
     # gentle ground variation off the lanes and pads (0.0-0.35 m, 6-15 m scale)
@@ -352,8 +354,15 @@ def build_terrain(grid):
         prof.append((x, z, w))
     CREEK_PROFILE[:] = prof
     _, _, d_cr, h_cr = F.corridor([(x, z, w - 0.32) for x, z, w in prof], 60.0)
-    bed_half = 1.8 + 0.6 * np.sin(X / 23.0)
+    # Phase 1 leftover (brief 1.1): the channel's width and bank shapes change along the reach: a wandering bed (1.2-3.4 m
+    # half width), a pool under the footbridge, stretches of gentle shingle shelf between steep cut banks
+    rsc = np.random.default_rng(SEED + 21)
+    wob = ndimage.gaussian_filter(rsc.standard_normal(X.shape), 9.0 / RES); wob = wob / (np.abs(wob).max() + 1e-9)
+    shelf = ndimage.gaussian_filter(rsc.standard_normal(X.shape), 14.0 / RES); shelf = (shelf - shelf.min()) / (np.ptp(shelf) + 1e-9)
+    pool = np.exp(-((X - FOOTBRIDGE[0]) ** 2 + (Z - FOOTBRIDGE[1]) ** 2) / (2 * 7.0 ** 2))
+    bed_half = np.clip(1.8 + 0.6 * np.sin(X / 23.0) + 0.7 * wob + 1.1 * pool, 1.2, 3.4)
     bank = 0.42 + 0.18 * (np.sin(X / 31.0 + 1.0) > 0)              # low stone banks, 60-67 deg: crossed only at the bridges and the ford
+    bank = np.where(shelf > 0.72, 1.4, bank)                        # shingle shelves (~35 deg) on some stretches
     ford = np.hypot(X - FORD[0], Z - FORD[1])
     bank = np.where(ford < 12.0, 7.0, bank)                         # the ford: a long flat bank
     depth_cap = h_cr                                                 # the bed level (absolute)
@@ -455,6 +464,7 @@ def build(ctx):
     b = MapBuilder(cat, grid, Frame(W, D), seed=SEED)
     G = lambda x, z: F.at(x, z)   # the true ground (base + sculpt)
     paint = GroundPaint()
+    PAINT[0] = paint
 
     # ground paint (greybox: the layer families the spec names, coarse)
     E = W / 2 + MARGIN
@@ -470,11 +480,14 @@ def build(ctx):
     # buildings: stand-ins seated on the true ground at their pads
     n_bld = 0
     placed = []
+    caps = write_snowcaps(ctx, cat, sorted({e[0] for e in BUILDINGS}))   # Phase 1 leftover: roof snow with thickness
     for aid, x, z, yaw, fam in BUILDINGS:
         e = b.place(aid, x, z, yaw, check=False, y=G(x, z), tags={"building"}, companions=False)
         if e is not None:
             n_bld += 1
             placed.append(e)
+            if aid in caps:
+                b.place(caps[aid], x, z, yaw, check=False, cls="none", y=e["pos"][1], tags={"snowcap"}, companions=False, support=e)
 
     # lines: orchard retaining walls (with gates), the breached orchard wall, the yard walls, the overlook rail
     seedc = [1]
@@ -505,7 +518,9 @@ def build(ctx):
     line("stone_wall", [(2.0, 114.5), (32.0, 114.5), (32.0, 96.0)])                                       # the screened rear yard
     line("post_wire_fence", [(68.0, 66.0), (76.0, 66.0), (88.0, 67.0)])                                   # the overlook rail (timber stand-in)
     line("stone_wall", [(-11.0, 43.2), (31.0, 43.2)])                                                     # the terrace parapet over its retaining face
-    write_boundary_asset(ctx, cat, G)   # BT2: the play limit as a hidden collision line (explained by the trees and rock on it)
+    write_boundary_asset(ctx, cat, G, gaps=[CASTLE_ROAD_EXIT])   # BT2: the play limit as a hidden collision line; a gap for the castle road
+    write_boundary_gate(ctx, cat, G)   # closed (solid) only while a match runs: the castle is explore-only
+    b.place("bt_boundary_gate", CASTLE_ROAD_EXIT[0], CASTLE_ROAD_EXIT[1], 90.0, check=False, cls="none", y=G(*CASTLE_ROAD_EXIT), tags={"boundary"}, companions=False)
     b.place("bt_boundary", 0.0, 0.0, 0.0, check=False, cls="none", y=0.0, tags={"boundary"}, companions=False)
     line("picket_fence", [(-104.0, -40.0), (-104.0, -20.0)])                                              # a crooked orchard rail (camera 1)
 
@@ -521,6 +536,11 @@ def build(ctx):
     # BT2 phase 2: the hilltop castle on the north-west spur (graybox)
     n_castle = write_castle_asset(ctx, cat)
     b.place("bt_castle", CASTLE_C[0], CASTLE_C[1], CASTLE_YAW, check=False, cls="none", y=BASE + CASTLE_PAD, tags={"castle"}, companions=False)
+    # the load-when-close rule on a stub room (the interior's stand-in until the rooms are built): built within 90 m of
+    # the player, dropped beyond 130 m
+    write_castle_stub(ctx, cat)
+    sx_, sz_ = castle_world(0.0, -72.0)
+    b.place("castle_interior_stub", sx_, sz_, CASTLE_YAW, check=False, cls="none", y=BASE + CASTLE_PAD - 12.0, tags={"castle"}, companions=False)
     # the waterworks court's stepped header channel, the court's north-east side, head to the north
     write_flume_asset(ctx, cat)
     b.place("bt_flume", 8.0, 15.0, 0.0, check=False, y=G(8.0, 15.0), tags={"flume"}, companions=False)
@@ -542,13 +562,13 @@ def build(ctx):
                                  ("nat_boulder_limestone_m", 8.0, -35.0, 200.0, 0.3), ("nat_boulder_schist_m", 16.4, -35.4, 300.0, 0.25),
                                  ("nat_boulder_granite_s", 4.5, -33.0, 70.0, 0.15), ("nat_boulder_granite_s", 19.5, -31.5, 150.0, 0.15),
                                  ("drs_woodpile", -2.6, -16.8, 0.0, 0.0),
-                                 ("nat_brush_scrub", 61.5, 58.2, 30.0, 0.0), ("nat_boulder_granite_s", 62.6, 57.0, 75.0, 0.25),
-                                 ("nat_brush_patchy", 61.0, 57.2, 160.0, 0.0)):
+                                 ("fl_bush_small_1", 61.5, 58.2, 30.0, 0.0), ("nat_boulder_granite_s", 62.6, 57.0, 75.0, 0.25),
+                                 ("fl_bush_small_3", 61.0, 57.2, 160.0, 0.0)):
         if aid in cat:
             gy = G(x, z)
             if aid.startswith("tr_"):   # a tree stands at its lowest root contact (1.5 m ring), so no root floats on the bank
                 gy = min([gy] + [G(x + 1.5 * math.cos(k * math.pi / 4), z + 1.5 * math.sin(k * math.pi / 4)) for k in range(8)])
-            b.place(aid, x, z, yaw, check=False, cls="veg" if aid.startswith(("tr_", "nat_brush")) else "none",
+            b.place(aid, x, z, yaw, check=False, cls="veg" if aid.startswith(("tr_", "fl_")) else "none",
                     y=gy - sink, tags={"dress", "slice"}, companions=False)
     paint.poly("pebbles", [(3.0, -29.5), (21.0, -29.0), (22.0, -34.5), (3.5, -36.5)], weight=0.8, edge=1.5, ragged=1.5, seed=31)   # the gravel margin at the footbridge
     paint.poly("scorched", [(61.0, -9.0), (65.0, -10.5), (64.0, -13.0), (60.5, -12.5)], weight=0.6, edge=1.2, ragged=0.8, seed=21)   # ash downwind (south-east)
@@ -561,7 +581,9 @@ def build(ctx):
     if "bt_creek" in cat:
         b.place("bt_creek", 0.0, 0.0, 0.0, check=False, cls="none", y=0.0, tags={"water"}, companions=False)
     global ORCH_IDS
-    ORCH_IDS = write_orchard_trees(ctx, cat)
+    # user: "get rid of the trees and any other vegetation generated by you, replace by tree 3d models": the orchard is
+    # the library's bare broadleaf models (DJMaesen, CC-BY), not the part-built bt_orchard_tree_* any more
+    ORCH_IDS = [a for a in ("fl_bare_tree_1", "fl_bare_tree_2", "fl_bare_tree_3") if a in cat]
     FIELD[0] = F   # BT2 perf: the fir stands' visibility test samples the ground in bulk
     rep_veg = dress_vegetation(b, cat, G, R)
     rep_veg["boundary_rock"] = dress_boundary(b, cat, G, R)
@@ -635,7 +657,7 @@ def build(ctx):
     # BT2: thinner world haze (the old 2.4 made a uniform veil), the damp valley pocket carries the mist (~0-12 m, tapering
     # by ~30 m), lighter cloud deck, a cooler but less grey grade
     look = {"weather": 0.8, "clouds": 0.75, "haze": 1.6, "hazeHeight": 90.0, "envFog": 1, "fogNear": 6.0,
-            "fogLayer": {"density": 0.004, "height": 10.0}, "saturation": 0.8, "tint": [0.97, 0.99, 1.03],
+            "fogLayer": {"density": 0.003, "height": 22.0}, "saturation": 0.8, "tint": [0.97, 0.99, 1.03],
             # BT2 sky (lighting session's per-map knobs): a soft low opening toward the south-west valley exit (azimuth
             # atan2(dx, dz) = -130.7), broad cloud banks stretched along the valley, no sun disc
             "paintSets": {"dirt": "trail_dirt", "gravel": "trail_gravel"},   # SN2: the user's trail sets on this map's ways
@@ -823,6 +845,8 @@ def dress_vegetation(b, cat, G, R):
     FIR_STANDS.clear()
     rep = {}
     lanes = [(lane_dense(pts, 2.0), w) for pts, w, k in ROUTES.values()] + [(lane_dense([st[0], st[1]], 1.0), 2.4) for st in STAIRS]
+    if CASTLE_ROAD_WORLD:   # the castle road stays clear of plants and stands
+        lanes.append((lane_dense(CASTLE_ROAD_WORLD, 2.0), 4.0))
 
     def lane_gap(x, z):
         return min(min(math.hypot(x - p[0], z - p[1]) for p in pts[::2]) - w / 2 for pts, w in lanes)
@@ -852,7 +876,7 @@ def dress_vegetation(b, cat, G, R):
             xx = ox - ohx + 4.0 + R.uniform(-1, 1)
             while xx < ox + ohx - 3.0:
                 if R.random() > 0.12:   # gaps where trees died
-                    put(R.choice(ORCH_IDS), xx + R.uniform(-0.6, 0.6), zz + R.uniform(-0.5, 0.5), R.uniform(0, 360), "orchard", clear=2.2)
+                    put(R.choice(ORCH_IDS), xx + R.uniform(-0.6, 0.6), zz + R.uniform(-0.5, 0.5), R.uniform(0, 360), "orchard", clear=2.2, seat=1.6)
                 xx += R.uniform(4.6, 6.4)
             zz += R.uniform(5.0, 6.5)
     # bare alder / willow along the creek (dead ash and oak forms), not at the crossings
@@ -865,6 +889,19 @@ def dress_vegetation(b, cat, G, R):
         for _try in range(5):   # a few spots along the bank top before giving the slot up
             if put(R.choice(["nt3_tree_dead_ash", "nt3_tree_dead_oak", "nt3_tree_dead_ash"]), x + R.uniform(-3.0, 3.0), z + side * R.uniform(7.0, 11.0), R.uniform(0, 360), "creek_trees", clear=2.0, seat=1.8):
                 break
+    # Phase 1 leftover: occasional stone ledges at the water's edge (slabs set into the bank), alternating sides
+    import random as _random
+    RL = _random.Random(SEED + 31)   # its own stream: the fir stands after it stay where they were
+    slabs = [a_ for a_ in ("nat_boulder_schist_slab", "nat_boulder_limestone_m", "nat_boulder_schist_m") if a_ in cat]
+    for k, (x, z, _) in enumerate(lane_dense([(cx, cz, 0) for cx, cz, _b in CREEK_CTRL], 23.0)):
+        if not (ENV[0] + 6 < x < ENV[2] - 6) or not slabs:
+            continue
+        if min(math.hypot(x - c[0], z - c[1]) for c in (BRIDGE_W, FOOTBRIDGE, FORD)) < 10.0:
+            continue
+        side = 1 if k % 2 else -1
+        for _try in range(3):
+            if put(RL.choice(slabs), x + RL.uniform(-2, 2), z + side * RL.uniform(2.6, 3.6), RL.uniform(0, 360), "ledges", clear=1.0):
+                break
     # fir and spruce: ridgeline masses outside the envelope and border screens just inside it
     firs = ["ph_fir_tree_01_a", "ph_fir_tree_01_b", "ph_fir_tree_01_c", "ph_fir_sapling_medium_a", "ph_fir_sapling_medium_b"]
     # BT2: massed stands (8-16 overlapping crowns each) with open ground between, not an even sprinkle: a stand reads as
@@ -875,8 +912,8 @@ def dress_vegetation(b, cat, G, R):
         out = max(ENV[0] - cx, cx - ENV[2], ENV[1] - cz, cz - ENV[3])
         if out < -4.0:
             continue
-        if cx < -60 and cz < -60 and R.random() < 0.75:   # the south-west valley gap stays open (the bright opening)
-            continue
+        if cx < -60 and cz < -60 and R.random() < 0.45:   # the south-west valley gap stays mostly open (the bright opening);
+            continue                                          # stands on its flanks break the pale wedge it made
         if castle_spur_zone(cx, cz):   # the castle spur has its own stands (dress_castle_spur)
             continue
         n_st += 1
@@ -907,8 +944,15 @@ def dress_vegetation(b, cat, G, R):
         if g < 1.0 or g > 14.0:
             continue
         r = R.random()
-        aid = "nat_drygrass_tufts" if r < 0.4 else "nat_drygrass_tall" if r < 0.7 else "nat_drygrass_sparse" if r < 0.85 else "shrub_bramble"
-        put(aid, x, z, R.uniform(0, 360), "ground_veg", clear=0.8)
+        if r >= 0.85:   # bramble at wall feet (already the library's bush model through the tree aliases)
+            put("shrub_bramble", x, z, R.uniform(0, 360), "ground_veg", clear=0.8)
+            continue
+        # the user's request: library grass models (DJMaesen dry grass patches, CC-BY) instead of the part-built grass
+        # pieces; one part-built piece covered ~7 m, a model ~0.7 m, so each spot gets a small cluster of them
+        kinds = ["fl_drygrass_tuft_1", "fl_drygrass_tuft_2", "fl_drygrass_tuft_3"] if r < 0.4 or r >= 0.7 else ["fl_drygrass_patch_1", "fl_drygrass_patch_2", "fl_drygrass_patch_3"]
+        for _k in range(4 if r < 0.7 else 2):
+            a_, d_ = R.uniform(0, 2 * math.pi), R.uniform(0.0, 2.5)
+            put(R.choice(kinds), x + d_ * math.cos(a_), z + d_ * math.sin(a_), R.uniform(0, 360), "ground_veg", clear=0.8)
     return rep
 
 
@@ -1145,7 +1189,7 @@ def dress_boundary(b, cat, G, R):
         t = R.uniform(0, 3)
         while t < L:
             x, z = ax + tx * t, az + tz * t
-            if min(math.hypot(x - cx, z - cz) for cx, cz, _ in CREEK_CTRL) < 10.0:
+            if min(math.hypot(x - cx, z - cz) for cx, cz, _ in CREEK_CTRL) < 10.0 or math.hypot(x - CASTLE_ROAD_EXIT[0], z - CASTLE_ROAD_EXIT[1]) < 6.0:
                 t += 6.0
                 continue
             if R.random() < 0.45:                           # gaps: the stands carry the line there
@@ -1163,7 +1207,7 @@ def dress_boundary(b, cat, G, R):
 
 
 # ---------------------------------------------------------------- BT2: the play limit (hidden collision, generated per bake)
-def write_boundary_asset(ctx, cat, G, step=4.0, height=7.0):
+def write_boundary_asset(ctx, cat, G, step=4.0, height=7.0, gaps=()):
     """bt_boundary: thin hidden collider boxes along the envelope, each seated on the ground under it (asset at the origin,
     y 0). The visible boundary is terrain, firs and rock; this only stops a player walking out of the play area."""
     import json
@@ -1176,6 +1220,8 @@ def write_boundary_asset(ctx, cat, G, step=4.0, height=7.0):
         for k in range(n):
             t0, t1 = k / n, (k + 1) / n
             cx, cz = ax + (bx - ax) * (t0 + t1) / 2, az + (bz - az) * (t0 + t1) / 2
+            if any(math.hypot(cx - gx, cz - gz) < 3.5 for gx, gz in gaps):
+                continue   # the castle road's gap (closed in matches by bt_boundary_gate)
             gy = min(G(ax + (bx - ax) * t0, az + (bz - az) * t0), G(ax + (bx - ax) * t1, az + (bz - az) * t1), G(cx, cz))
             sx, sz = (abs(bx - ax) / n + 0.6, 0.6) if abs(bx - ax) > abs(bz - az) else (0.6, abs(bz - az) / n + 0.6)
             parts.append({"t": "b", "c": [round(cx, 2), round(gy + height / 2 - 1.0, 2), round(cz, 2)], "s": [round(sx, 2), height, round(sz, 2)], "m": "x", "v": 0})
@@ -1231,7 +1277,7 @@ def stand_seen(cx, cz, rad, eye=1.65):
 # spur that rises out of the north-west corner beyond the play area. Local frame: +z (s) = gate -> apex, +x (t) = east.
 CASTLE_C = (-235.0, 215.0)                      # compound centre (world x, z)
 CASTLE_YAW = -11.53                             # local +z = (-0.2, 0.98): the spur climbs north-north-west
-SPUR_STANDS = 0                                 # fir stands on the castle spur (see dress_castle_spur)
+SPUR_STANDS = 46                                # fir stands on the castle spur (dark masses on its flanks; far-tree impostors)
 CASTLE_PAD = 100.0                              # palace pad above the creek-bed datum (the village floor is ~ +4..10)
 
 
@@ -1275,16 +1321,20 @@ def castle_edge(F, X, Z, edge):
     F.set_mask(m, 62.0)
 
 
-M_CASTLE = [{"name": "limestone", "albedo": [0.64, 0.61, 0.56], "roughness": 0.85, "pattern": "plain", "metallic": 0, "grain": 1},
-            {"name": "masonry", "albedo": [0.46, 0.44, 0.40], "roughness": 0.9, "pattern": "plain", "metallic": 0, "grain": 1},
-            {"name": "red", "albedo": [0.42, 0.19, 0.13], "roughness": 0.85, "pattern": "plain", "metallic": 0, "grain": 1},
-            {"name": "slate", "albedo": [0.10, 0.11, 0.13], "roughness": 0.6, "pattern": "plain", "metallic": 0, "grain": 1},
-            {"name": "dark", "albedo": [0.035, 0.035, 0.04], "roughness": 0.7, "pattern": "plain", "metallic": 0, "grain": 1}]
+# milestone 2: the kit's patterns. Pale warm-grey limestone ashlar body, cleaner pale trim on corners and belts, rough
+# masonry base and terrace, the gatehouse's oxide-red render, blue-charcoal slate (plain: procedural slate courses alias
+# into moire at 350 m), dark window recesses
+M_CASTLE = [{"name": "limestone", "albedo": [0.62, 0.60, 0.56], "roughness": 0.85, "pattern": "ashlar", "metallic": 0, "grain": 2},
+            {"name": "masonry", "albedo": [0.44, 0.42, 0.38], "roughness": 0.92, "pattern": "stone", "metallic": 0, "grain": 1},
+            {"name": "red", "albedo": [0.40, 0.19, 0.14], "roughness": 0.88, "pattern": "plaster", "metallic": 0, "grain": 1},
+            {"name": "slate", "albedo": [0.085, 0.095, 0.12], "roughness": 0.6, "pattern": "plain", "metallic": 0, "grain": 1},
+            {"name": "trim", "albedo": [0.72, 0.69, 0.63], "roughness": 0.8, "pattern": "ashlar", "metallic": 0, "grain": 1},
+            {"name": "dark", "albedo": [0.03, 0.03, 0.035], "roughness": 0.7, "pattern": "plain", "metallic": 0, "grain": 1}]
 
 
 def write_castle_asset(ctx, cat):
     """bt_castle: the graybox ensemble as one part-built asset (one batched mesh per LOD), no colliders, origin = the
-    palace pad. lodKeep 5 m: LOD2 (from ~300 m) keeps the towers' upper stages and caps, drops dormers and chimneys."""
+    palace pad. lodKeep 2 m: LOD2 (from ~300 m) keeps everything down to the window bays (the castle is ~3.4k tris)."""
     import json
     from mapgen.catalog import Asset
     P = []
@@ -1355,21 +1405,39 @@ def write_castle_asset(ctx, cat):
     gable_z(-9.6, 9.6, 30.0, 12.0, -4.0, 54.0)
     for z in (6.0, 18.0, 30.0, 42.0):
         for side in (-1, 1):
-            box((side * 8.3, 32.2, z), (3.0, 4.4, 4.2), "limestone", lod=1)
-            gable_x(z - 2.4, z + 2.4, 34.4, 3.0, side * 6.8, side * 9.9, lod=1)
+            box((side * 8.3, 32.2, z), (3.0, 4.4, 4.2), "limestone")
+            gable_x(z - 2.4, z + 2.4, 34.4, 3.0, side * 6.8, side * 9.9)
     box((-12.5, 15.0, 34.0), (7.0, 30.0, 14.0), "limestone")
     gable_x(27.0, 41.0, 30.0, 6.0, -16.0, -9.0)
     for (x, z, y0, h) in ((9.0, -4.0, 22.0, 16.0), (-9.0, -4.0, 24.0, 12.0), (9.0, 54.0, 20.0, 20.0), (-9.0, 54.0, 23.0, 14.0)):
         tower(x, z, 3.2, y0, h, cap=1.5)
     for (x, z) in ((3.5, 10.0), (-3.5, 24.0), (3.5, 40.0)):
-        box((x, 40.5, z), (1.3, 5.0, 1.3), "masonry", lod=1)
+        box((x, 40.5, z), (1.3, 5.0, 1.3), "masonry")
     # the tall narrow spire behind the main roof: square shaft, octagonal upper stage, pointed cap (top +70)
     box((5.0, 25.0, 50.0), (6.0, 50.0, 6.0), "limestone")
     cyl((5.0, 54.0, 50.0), 8.0, 8.0, "limestone", 8)
     cyl((5.0, 64.0, 50.0), 8.4, 12.0, "slate", 8, cone=True)
+    # milestone 2: shadowed window bays in vertical rows on both long sides of the palace (4 floors x 12 bays), a pale
+    # string course under each floor and on the towers' tops, clean pale corner courses; the gatehouse's two window rows
+    for side in (-1, 1):
+        for fl, y in enumerate((5.0, 11.5, 18.0, 24.5)):
+            for k in range(12):
+                z = -0.5 + k * 4.6
+                if side < 0 and 27.0 < z < 41.0:
+                    continue   # the throne-hall projection covers this stretch on the west
+                box((side * 9.05, y, z), (0.3, 2.9 if fl < 3 else 2.2, 1.35), "dark")
+            box((side * 9.12, y - 2.0, 25.0), (0.25, 0.45, 58.4), "trim")
+        for zc in (-4.0, 54.0):
+            box((side * 8.75, 15.0, zc + (0.75 if zc < 0 else -0.75)), (0.6, 30.0, 1.6), "trim")
+    for x in (-10.0, -6.0, -2.0, 2.0, 6.0, 10.0):
+        for y in (yT + 5.0, yT + 11.0):
+            box((x, y, -55.65), (1.6, 2.6, 0.3), "dark")
+    box((0.0, yT + 16.3, -55.6), (31.0, 0.5, 0.5), "trim")   # the gatehouse's cornice
+    for (x, z, d) in ((11.0, -38.0, 8.0), (26.0, 0.0, 7.2)):
+        cyl((x, (yL + 24.0 if d == 8.0 else yL + 26.0), z), d * 1.06, 0.8, "trim", 16)   # belts
     j = {"id": "bt_castle", "version": 1, "name": "Hilltop castle (Blackwater Thaw)", "category": "Landmarks",
          "description": "BT2: the scenic hilltop castle on the north-west spur, after the real Neuschwanstein's architecture (original geometry, graybox stage), generated by tools/mapgen/maps/blackwater_thaw.py. Far scenery: no colliders, one batched mesh per LOD.",
-         "floors": 0, "enterable": False, "footprint": [60.0, 150.0], "plinthDepth": 0, "maxGrade": 90, "noAutoPanels": True, "lodKeep": 5.0,
+         "floors": 0, "enterable": False, "footprint": [60.0, 150.0], "plinthDepth": 0, "maxGrade": 90, "noAutoPanels": True, "lodKeep": 2.0,
          "nav": {"effect": "none"}, "materials": M_CASTLE, "parts": P, "furniture": [], "interactables": [], "panels": []}
     path = os.path.join(ctx.repo, "content", "assets", "bt_castle.json")
     with open(path, "w", encoding="utf-8") as f:
@@ -1380,8 +1448,6 @@ def write_castle_asset(ctx, cat):
 
 def dress_castle_spur(b, cat, G, R):
     """dark fir masses on the spur's flanks (below the pads), rock faces on the exposed cliff under the palace."""
-    # shortcut: no fir stands on the spur yet (coordinator: no new fir instances until the plant session's far-tree
-    # impostors land); set SPUR_STANDS to 46 then
     firs = [a for a in ("ph_fir_tree_01_a", "ph_fir_tree_01_b", "ph_fir_tree_01_c") if a in cat]
     n = 0
     for _ in range(SPUR_STANDS):
@@ -1398,8 +1464,20 @@ def dress_castle_spur(b, cat, G, R):
             x, z = castle_world(t, s)
             if not (-298.0 < x and z < 288.0) or firs == []:
                 continue
+            if CASTLE_ROAD_WORLD and min(math.hypot(x - p_[0], z - p_[1]) for p_ in _ROAD_DENSE()) < 4.0:
+                continue   # not on the castle road
             b.place(R.choice(firs), x, z, R.uniform(0, 360), check=False, cls="veg", y=G(x, z), tags={"veg", "firs", "castle"}, companions=False)
             n += 1
+    # milestone 3: the approach road climbing the spur's east side and curving round the terrace to the gate (paint),
+    # boulders where the terrace wall meets the cliff
+    road = [(p_[0], p_[1]) for p_ in CASTLE_ROAD_WORLD] + [castle_world(-10.0, -64.0), castle_world(0.0, -60.0)]   # on to the gate
+    PAINT[0].line("gravel", road, 4.0, weight=0.9, edge=1.2)
+    foot = [a for a in ("nat_boulder_granite_l", "nat_boulder_limestone_m", "nat_boulder_schist_slab") if a in cat]
+    for k in range(10):
+        ph = math.radians(-80.0 + 17.0 * k)
+        x, z = castle_world(29.0 * math.sin(ph), -66.0 - 24.0 * math.cos(ph))   # past the terrace's pad: at its foot, not on top
+        if foot:
+            b.place(foot[k % len(foot)], x, z, R.uniform(0, 360), check=False, cls="none", y=G(x, z) - 0.4, tags={"rock", "castle"}, companions=False)
     faces = [a for a in ("ph_rock_face_01", "ph_rock_face_02") if a in cat]
     for k, s in enumerate(range(-4, 44, 7)):
         if not faces:
@@ -1407,3 +1485,128 @@ def dress_castle_spur(b, cat, G, R):
         x, z = castle_world(29.0, float(s))
         b.place(faces[k % len(faces)], x, z, CASTLE_YAW + 90.0 + R.uniform(-12, 12), check=False, cls="none", y=G(x, z) - 1.0, tags={"rock", "castle"}, companions=False)
     return n
+
+
+# ---------------------------------------------------------------- Phase 1 leftover: snow caps with real thickness
+ROOF_MATS = ("slate", "tile", "tile_orange", "roof", "roof_tile", "shingle", "thatch")
+
+
+def write_snowcaps(ctx, cat, ids):
+    """bt_snowcap_<asset>: a 9 cm snow slab over each sloped roof slab of a building (box parts in a roof material tilted
+    about one axis), inset 0.2 m from the eaves and 0.35 m from the verges, so the roofline has real buildup and the
+    tile courses (whose pattern rings into moire at distance) are covered. Placed with each building's own transform."""
+    import json
+    from mapgen.catalog import Asset
+    made = {}
+    for aid in ids:
+        if aid not in cat:
+            continue
+        j0 = cat[aid].raw
+        parts = []
+        for p in j0.get("parts", []):
+            if p.get("t", "b") != "b" or str(p.get("m", "")).lower() not in ROOF_MATS or "r" not in p:
+                continue
+            rx, ry, rz = (float(v) for v in p["r"])
+            sx, sy, sz = (float(v) for v in p["s"])
+            if ry != 0.0 or (rx != 0.0) == (rz != 0.0) or max(abs(rx), abs(rz)) < 12.0 or max(abs(rx), abs(rz)) > 62.0:
+                continue   # one tilt axis, a roof pitch (12-62 deg): flat tops and towers keep the shader's snow
+            if rx != 0.0:
+                a = math.radians(rx); n = (0.0, math.cos(a), math.sin(a)); size = (sx - 0.7, 0.09, sz - 0.4)
+            else:
+                a = math.radians(rz); n = (-math.sin(a), math.cos(a), 0.0); size = (sx - 0.4, 0.09, sz - 0.7)
+            if min(size[0], size[2]) < 0.6:
+                continue
+            off = sy / 2 + 0.045
+            c = [round(float(p["c"][k]) + n[k] * off, 3) for k in range(3)]
+            parts.append({"t": "b", "c": c, "s": [round(v, 3) for v in size], "r": [rx, 0, rz], "m": "snow", "k": 0})
+        if not parts:
+            continue
+        cid = "bt_snowcap_" + aid
+        j = {"id": cid, "version": 1, "name": "Snow cap (%s)" % aid, "category": "Effects",
+             "description": "Blackwater Thaw: the roof snow cap of %s, generated by tools/mapgen/maps/blackwater_thaw.py from its roof slabs." % aid,
+             "floors": 0, "enterable": False, "footprint": j0.get("footprint", [1, 1]), "plinthDepth": 0, "maxGrade": 90, "noAutoPanels": True,
+             "nav": {"effect": "none"}, "materials": [{"name": "snow", "albedo": [0.85, 0.85, 0.86], "roughness": 0.6, "pattern": "plain", "metallic": 0, "grain": 1}],
+             "parts": parts, "furniture": [], "interactables": [], "panels": []}
+        path = os.path.join(ctx.repo, "content", "assets", cid + ".json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(j, f, separators=(",", ":"))
+        cat.assets[cid] = Asset(j, path)
+        made[aid] = cid
+    return made
+
+
+# ---------------------------------------------------------------- the castle: explore-only reach (players only)
+CASTLE_ROAD_EXIT = (-128.0, 30.0)   # where the road leaves the play area (the west edge, above the orchard)
+# the road in the castle's local frame (t, s, height over the datum): from the spur's west foot three legs climb the
+# west flank (out of the quarry view) at 13-16 %, hairpins at their ends, onto the gate terrace's west edge
+CASTLE_ROAD_LOCAL = [(-50.0, -150.0, 30.0), (-52.0, 40.0, 56.0), (-40.0, 46.0, 57.0), (-38.0, -118.0, 78.0),
+                     (-28.0, -124.0, 79.0), (-22.0, -66.0, 88.0)]
+
+
+def castle_road_points(h_exit):
+    pts = [(CASTLE_ROAD_EXIT[0] + 2.0, CASTLE_ROAD_EXIT[1], h_exit)]
+    for t, s_, h in CASTLE_ROAD_LOCAL:
+        x, z = castle_world(t, s_)
+        pts.append((x, z, h))
+    return pts
+
+
+def castle_road_terrain(F):
+    """the road's floor (4 m) as a fixed corridor in the terrain solve, with a 2 m graded shoulder."""
+    h_exit = float(ndimage.map_coordinates(F.H, [[(CASTLE_ROAD_EXIT[1] - F.z0) / RES], [(CASTLE_ROAD_EXIT[0] + 2.0 - F.x0) / RES]], order=1, mode="nearest")[0])
+    pts = castle_road_points(h_exit)
+    CASTLE_ROAD_WORLD[:] = pts
+    _, _, d, h = F.corridor(pts, 8.0)
+    F.set_mask(d <= 2.0, h)
+
+
+CASTLE_ROAD_WORLD = []
+
+
+def write_boundary_gate(ctx, cat, G, width=7.0, height=7.0):
+    """bt_boundary_gate: the play limit across the castle road's gap, solid only while a match runs ("matchOnly"),
+    nav block (bots never path out); hidden, no collision outside matches, so a player exploring walks through."""
+    import json
+    from mapgen.catalog import Asset
+    j = {"id": "bt_boundary_gate", "version": 1, "name": "Play-limit gate (match only)", "category": "Effects",
+         "description": "BT2: closes the play limit's gap at the castle road while a match runs (matchOnly), so the explore-only castle is never part of a fight; generated by blackwater_thaw.py.",
+         "floors": 0, "enterable": False, "footprint": [width, 0.6], "plinthDepth": 0, "maxGrade": 90, "noAutoPanels": True, "matchOnly": True,
+         "nav": {"effect": "block"}, "materials": [{"name": "x", "albedo": [0.1, 0.1, 0.1], "roughness": 0.9, "pattern": "plain", "metallic": 0, "grain": 1}],
+         "parts": [{"t": "b", "c": [0.0, height / 2 - 1.0, 0.0], "s": [width, height, 0.6], "m": "x", "v": 0}], "furniture": [], "interactables": [], "panels": []}
+    path = os.path.join(ctx.repo, "content", "assets", "bt_boundary_gate.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(j, f, separators=(",", ":"))
+    cat.assets["bt_boundary_gate"] = Asset(j, path)
+
+
+_ROAD_CACHE = []
+
+
+def _ROAD_DENSE():
+    if not _ROAD_CACHE and CASTLE_ROAD_WORLD:
+        _ROAD_CACHE.extend(lane_dense(CASTLE_ROAD_WORLD, 2.0))
+    return _ROAD_CACHE
+
+
+def write_castle_stub(ctx, cat):
+    """castle_interior_stub: a 6 x 5 x 4 m stone room with a doorway, carrying "loadRadius": [90, 130], to prove the
+    load-when-close rule before the castle's rooms depend on it."""
+    import json
+    from mapgen.catalog import Asset
+    P = [{"t": "b", "c": [0, 0.1, 0], "s": [6.0, 0.2, 5.0], "m": "floor"},
+         {"t": "b", "c": [0, 4.1, 0], "s": [6.4, 0.2, 5.4], "m": "stone"},
+         {"t": "b", "c": [-3.1, 2.0, 0], "s": [0.4, 4.0, 5.4], "m": "stone"}, {"t": "b", "c": [3.1, 2.0, 0], "s": [0.4, 4.0, 5.4], "m": "stone"},
+         {"t": "b", "c": [0, 2.0, 2.6], "s": [6.4, 4.0, 0.4], "m": "stone"},
+         {"t": "b", "c": [-2.05, 2.0, -2.6], "s": [2.3, 4.0, 0.4], "m": "stone"}, {"t": "b", "c": [2.05, 2.0, -2.6], "s": [2.3, 4.0, 0.4], "m": "stone"},
+         {"t": "b", "c": [0, 3.3, -2.6], "s": [1.8, 1.4, 0.4], "m": "stone"}]
+    j = {"id": "castle_interior_stub", "version": 1, "name": "Castle interior (stub)", "category": "Effects",
+         "description": "BT2: a stand-in room proving the load-when-close rule (loadRadius) for the castle's interior; generated by blackwater_thaw.py.",
+         "floors": 0, "enterable": False, "footprint": [6.4, 5.4], "plinthDepth": 0, "maxGrade": 90, "noAutoPanels": True,
+         "loadRadius": [90.0, 130.0], "nav": {"effect": "none"},
+         "materials": [{"name": "stone", "albedo": [0.5, 0.48, 0.44], "roughness": 0.9, "pattern": "stone", "metallic": 0, "grain": 1},
+                       {"name": "floor", "albedo": [0.35, 0.33, 0.3], "roughness": 0.85, "pattern": "plain", "metallic": 0, "grain": 1}],
+         "parts": P, "furniture": [], "interactables": [], "panels": []}
+    path = os.path.join(ctx.repo, "content", "assets", "castle_interior_stub.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(j, f, separators=(",", ":"))
+    cat.assets["castle_interior_stub"] = Asset(j, path)

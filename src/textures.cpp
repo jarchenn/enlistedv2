@@ -323,6 +323,9 @@ void upload(GLuint p) {
   glProgramUniform1i(p, U("uTexCol"), kUnitBase + 0); glProgramUniform1i(p, U("uTexNrm"), kUnitBase + 1); glProgramUniform1i(p, U("uTexRH"), kUnitBase + 2);
   glProgramUniform1i(p, U("uTexColH"), kUnitBase + 9); glProgramUniform1i(p, U("uTexNrmH"), kUnitBase + 10); glProgramUniform1i(p, U("uTexRHH"), kUnitBase + 11);   // TX2K: units 29-31
   glProgramUniform1i(p, U("uTexHiBase"), hiBase);
+  { int l[4]; for (int k = 0; k < 4; ++k) { int si = slotIndex("mask_lib_" + std::to_string(k)); l[k] = si >= 0 ? slots[si].layer : -1; }
+    glProgramUniform4i(p, U("uMaskLayer"), l[0], l[1], l[2], l[3]); }   // CP step 6 part 2
+  { int ms = slotIndex("micro_detail"); glProgramUniform1i(p, U("uMicroLayer"), ms >= 0 ? slots[ms].layer : -1); }   // CP step 6
   glProgramUniform1i(p, U("uTexOn"), gpuOn && wantOn ? 1 : 0);
   glProgramUniform1i(p, U("uImgMat"), wantImg ? 1 : 0); glProgramUniform1i(p, U("uTexSkipFar"), wantImg ? 1 : 0);
   glProgramUniform1iv(p, U("uFloorSlot"), 8, floorSlotImg);
@@ -474,6 +477,11 @@ uniform int uOpt2Off;   // OPT2 A/B (NMK_OPT2=0): hex on every layer at any dist
 uniform ivec3 uSnowSlot;   // SN2: slots snow_packed, snow_trodden, snow_thaw (-1 missing): terrTexSlot(uSnowSlot.x, p, n, dpx, dpy, dist)
 uniform int uTexBiasOn;   // CP step 1 (perf switch texbias): 1 = gradient scale 1.0 everywhere (corpus 07 s4.1) + uTexBias; 0 = the old 3.0 / 1.5 ground / 1.6 relief
 uniform float uTexBias;   // log2(render / display), -0.5 more under TAA (texbias on only)
+uniform int uMicroLayer;   // CP step 6: the micro-detail set's array layer (slot micro_detail), -1 none
+uniform ivec4 uMaskLayer;  // CP step 6 part 2: the mask library's array layers (mask_lib_0..3), -1 missing
+uniform int uMaskLib;      // perf switch masklib
+uniform int uWearCause;    // M4 (perf switch wearcause): wear placed by its causes (splash, runoff), roughness first
+uniform ivec2 uMicroOn;    // x: micro detail (perf switch microdetail), y: macro roughness variation (perf switch roughvar)
 uniform float uTexLodG;   // TX2K: the ground's gradient scale (terrain layers, painted ground; uTexLod.x for everything else)
 uniform vec4 uTexLod;     // gradient scale (LOD bias against TAA-jitter shimmer), normal fade start / end (texels per pixel), fade depth
 uniform vec4 uTexLod2;    // albedo / roughness detail fade start / end (texels per pixel), fade depth
@@ -545,6 +553,7 @@ void texTap(float L, vec3 p, vec3 dpx, vec3 dpy, vec2 inv, vec3 T, vec3 B, vec3 
   if (gDetF > 0.0 && w > 0.3) s.d += (texGRH(vec3(q.xy*3.7 + vec2(0.37, 0.61), q.z), gx*3.7, gy*3.7).g - 0.5)*w;   // MA1b: the set's own grain / pores at 3.7x
   // normal detail near the pixel frequency flickers under the TAA jitter: fade it with the footprint (texels per pixel)
   float fp = max(length(gx), length(gy))*(texHi(L) ? 2048.0 : 1024.0)/max(gs, 1e-3);
+  if (w > 0.3) { float dn = (texHi(L) ? 2048.0 : 1024.0)*max(inv.x, inv.y); if (dn > gTexDensity) { gTexDensity = dn; gTexChk = mod(floor(q.x) + floor(q.y), 2.0); } }   // CP step 2 texel view
   float nfk = 1.0 - uTexLod.w*gTexNFade*smoothstep(uTexLod.y, uTexLod.z, fp);
   bool nrm = uOpt2Off == 1 ? !(uTexSkipFar == 1 && nfk < 0.06) : nfk >= 0.06;   // far: the normal has faded out, so no normal tap (OPT2: every table; was the imgmat table only)
   vec4 c; vec2 nx, rh;
@@ -604,6 +613,12 @@ TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
   o.ao = mix(1.0, s.ao, abs(K.w)*f);
   o.dn = (s.n - n)*K.y*f;
   o.h = mix(0.5, clamp(s.h - Lp.w + 0.5, 0.0, 1.0), f);   // M2
+  if (uMicroOn.x == 1 && uMicroLayer >= 0 && dist < 7.0) {   // CP step 6: micro detail on the ground too (planar xz, 0.2 m)
+    float mf = (1.0 - smoothstep(2.5, 7.0, dist))*f;
+    vec3 mq = vec3(p.xz/0.2, float(uMicroLayer));
+    vec2 mn = (texGNrm(mq, dpx.xz/0.2, dpy.xz/0.2).rg*2.0 - 1.0)*0.3*mf; float mrh = texGRH(mq, dpx.xz/0.2, dpy.xz/0.2).r;
+    o.dn += vec3(mn.x, 0.0, mn.y); o.r *= 1.0 + (mrh - uTexL[uMicroLayer].z)*0.5*mf;
+  }
   vec4 Uu = uTexU[slot];
   if (uImgMat == 1 && K.x >= 0.0 && Uu.z != 1.0) {   // GR2: per-set contrast on the ground too (contrast < 1: softer seams between paving stones)
     float l = max(dot(o.alb, vec3(0.2126, 0.7152, 0.0722)), 1e-3); o.alb *= pow(l, Uu.z - 1.0);
@@ -778,13 +793,19 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
       vec3 ga = abs(ng); bool gf = ga.y > max(ga.x, ga.z), gx = ga.x > ga.z;
       vec2 guv = (gf ? w.xz : gx ? w.zy : w.xy)/4.0, gdx = (gf ? dwx.xz : gx ? dwx.zy : dwx.xy)/4.0, gdy = (gf ? dwy.xz : gx ? dwy.zy : dwy.xy)/4.0;
       vec4 gm = textureGrad(uGrunge, guv + vec2(fract(gTexSeed*7.13), fract(gTexSeed*3.71)), gdx, gdy);
+      if (uMaskLib == 1 && uMaskLayer.x >= 0) {   // CP step 6 part 2 (corpus 08 s10.1): this building's own stain mask from the library (layer and channel by its seed)
+        int k = int(fract(gTexSeed*13.71)*3.999); int ml = k == 0 ? uMaskLayer.x : k == 1 ? uMaskLayer.y : k == 2 ? uMaskLayer.z : uMaskLayer.w;
+        vec3 lm = texGCol(vec3(guv*0.5 + vec2(fract(gTexSeed*2.3), fract(gTexSeed*5.9)), float(ml)), gdx*0.5, gdy*0.5).rgb;
+        int c = int(fract(gTexSeed*7.31)*2.999);
+        gm.g = mix(gm.g, c == 0 ? lm.r : c == 1 ? lm.g : lm.b, 0.6);
+      }
       float edgeW = 0.0;
       if (dot(pn, pn) > 2.0) { vec3 g3 = abs(vPcF) - abs(pc); vec3 gp = abs(pn); int gn = gp.x >= gp.y && gp.x >= gp.z ? 0 : gp.y >= gp.z ? 1 : 2; g3[gn] = 1e3;
         edgeW = 1.0 - smoothstep(0.02, 0.4, min(min(g3.x, g3.y), g3.z)); }
       wa = mac.a + ((gm.r - 0.5)*0.32 + edgeW*gm.r*0.3)*uGrungeK;   // the macro mask keeps the big peeled patches; the grunge mask breaks their edges into flakes and cracks
       float low = 1.0 - smoothstep(0.25, 1.8 + 0.6*mac.r, ap.y);
       float dirt = clamp(gm.g*(0.18 + 0.55*low) + gm.b*0.35, 0.0, 1.0)*wk*0.5*uGrungeK*f;
-      a2 *= 1.0 - 0.6*dirt; r2 = mix(r2, 0.95, dirt);
+      a2 *= 1.0 - min(0.6*dirt, uMicroOn.y == 1 ? 0.35 : 1.0); r2 = mix(r2, 0.95, dirt);   // CP step 6: grime moves luminance by 35 % at most (corpus 08 s12: 20-40 %)
     }
     float m = Uu.x >= 0.0 ? smoothstep(Uu.y, Uu.y + 0.08, wa + (gTexWear - 1.0)*0.12) : 0.0;
     if (m > 0.001 && uTexA[u].x >= 0.0) {   // the substrate (masonry under render, brick behind plaster): its own image colour
@@ -793,6 +814,32 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
       a2 = mix(a2, su.col, m)*(1.0 - (rel ? 0.4 : 0.25)*rim); r2 = mix(r2, su.r, m); ao2 = mix(ao2, su.ao, m);
       dn2 = mix(dn2, dnu*uTexB[u].y, m); h2 -= (rel ? 0.014 : 0.006)*m;   // MA1b: a visible step down to the substrate
     }
+  }
+  // CP step 6 (corpus 08 s4, s9): roughness varies before colour, at macro scale on every textured surface (one tap),
+  // and a micro-detail layer (0.2 m tiling, normal 0.3, roughness +-0.1 around its mean) near the eye, gone by 7 m
+  if (uMicroOn.y == 1) { vec4 mr = texMacro(w, ng, dwx, dwy); r2 *= 1.0 + (mr.g - 0.5)*0.3*f; }
+  // M4 (corpus 08 s1-s2, s12): wear has causes, so it has places. Splash: the bottom 0.6 m of vertical faces, where rain
+  // throws soil back up; runoff: streaks down vertical faces, from the grunge mask stretched 20:1; both raise roughness
+  // first, then darken within the 20-40 % budget; the amount varies per building (its seed), so neighbours differ and
+  // some stay clean. ap.y is the height above the asset's base (its ground)
+  if (uWearCause == 1 && uGrungeK > 0.0 && f > 0.0) {
+    float vert = 1.0 - smoothstep(0.35, 0.7, abs(ng.y)), amt = (0.35 + 0.65*fract(gTexSeed*5.31 + 0.17))*f*vert;
+    float splash = pow(clamp(1.0 - ap.y/0.6, 0.0, 1.0), 2.0)*amt;
+    vec2 ax = normalize(vec2(-ng.z, ng.x) + 1e-5);
+    vec2 suv = vec2(dot(w.xz, ax)*0.5, w.y*0.025) + vec2(fract(gTexSeed*3.7), 0.0);
+    float run = smoothstep(0.55, 0.85, textureGrad(uGrunge, suv, vec2(dot(dwx.xz, ax)*0.5, dwx.y*0.025), vec2(dot(dwy.xz, ax)*0.5, dwy.y*0.025)).g)*amt*0.8;
+    r2 = mix(r2, min(r2 + 0.25, 1.0), max(splash, run*0.6));   // roughness first: dried soil and dust are matt
+    a2 *= mix(vec3(1.0), vec3(0.78, 0.74, 0.68), splash*0.9);  // splashed soil, a warm grey-brown (<= 25 % darker)
+    a2 *= 1.0 - 0.16*run;                                       // runoff streaks
+  }
+  if (uMicroOn.x == 1 && uMicroLayer >= 0 && eyeD < 7.0) {
+    float mf = (1.0 - smoothstep(2.5, 7.0, eyeD))*f;
+    vec3 ga = abs(ng); bool fl = ga.y > max(ga.x, ga.z), xw = ga.x > ga.z;
+    vec2 muv = (fl ? w.xz : xw ? w.zy : w.xy)/0.2, mdx = (fl ? dwx.xz : xw ? dwx.zy : dwx.xy)/0.2, mdy = (fl ? dwy.xz : xw ? dwy.zy : dwy.xy)/0.2;
+    vec3 mq = vec3(muv, float(uMicroLayer));
+    vec2 mn = (texGNrm(mq, mdx, mdy).rg*2.0 - 1.0)*0.3*mf; float mrh = texGRH(mq, mdx, mdy).r;
+    vec3 Tm = fl ? vec3(1.0, 0.0, 0.0) : xw ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0), Bm = fl ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0);
+    dn2 += Tm*mn.x + Bm*mn.y; r2 *= 1.0 + (mrh - uTexL[uMicroLayer].z)*0.5*mf;
   }
   alb = a2; rough = clamp(r2, 0.04, 1.0); ao *= ao2;
   gTexDN = dn2; gTexH = h2;

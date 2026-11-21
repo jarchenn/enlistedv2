@@ -1,5 +1,6 @@
 #include "render.h"
 #include <cstring>
+#include <stb_dxt.h>   // CP3c impostor atlases (the implementation is in textures.cpp)
 #include <fstream>
 #include "user_cache.h"
 #include "crumb.h"
@@ -113,13 +114,17 @@ uniform int uShadowTaps;          // P3: cap on the PCF taps (presets; 0 = no ca
 uniform int uFrame;               // frame counter (noise rotation; TAA decorrelation)
 uniform int uCloudShadowOn; uniform float uCloudCov, uCloudT;
 uniform float uCloudK, uCloudSeed; uniform vec2 uCloudWind;
-uniform int uW2;   // W2 (weather corpus): 1 = overcast sky the right way up, fog = the sky at the horizon
 uniform float uFlash;   // W2 lightning: 0..1 this frame (sky and ambient flash)
 float overcastGrad(float y){ return 1.25*(1.0 + 2.0*max(y, 0.0))/3.0; }   // CIE overcast sky: L(theta) ~ (1 + 2 sin theta) / 3, scaled so its mean matches SKY1's   // WX1: Clear -> Cloudy mix, the field's seed and wind (600 m cells / s)
 uniform vec4 uCloudOpen; uniform float uCloudOpenK;   // VO L5 look.cloudOpening: direction (xyz), cosine of its half width (w), strength (0: none)
 uniform vec4 uCloudXf;    // VO L5 look.cloudScale / cloudStretch / cloudDir: the cloud field's xz transform (mat2 columns; identity by default)
 uniform float uSunDisc;   // VO L5 look.sunDisc: 1 default, 0 no sun disc in the sky
-float cloudOpening(vec3 d){ return uCloudOpenK*smoothstep(uCloudOpen.w, mix(uCloudOpen.w, 1.0, 0.6), dot(d, uCloudOpen.xyz)); }   // VO L5: 0..strength toward the opening
+uniform int uW2;   // W2 (weather corpus): 1 = overcast sky the right way up, fog = the sky at the horizon, soft cloud openings
+float cloudOpening(vec3 d){   // VO L5: 0..strength toward the opening; W2: a falloff over twice its half width (the old ~8 deg edge read as a disc)
+  float c = dot(d, uCloudOpen.xyz);
+  return uCloudOpenK*(uW2 == 1 ? smoothstep(cos(2.0*acos(clamp(uCloudOpen.w, -1.0, 1.0))), 1.0, c) : smoothstep(uCloudOpen.w, mix(uCloudOpen.w, 1.0, 0.6), c));
+}   // VO L5: 0..strength toward the opening
+uniform float uEnvFogTop = 1e9, uEnvFogSoft = 12.0;   // look.fogLayer top: the layer's ceiling at world y, soft over uEnvFogSoft m
 uniform float uEnvFog, uEnvFogH, uFogIndoor, uEnvFogNear; uniform sampler2D uFogField; uniform vec4 uFogBox;   // WX1 environmental fog: density (1/m), layer height, indoor scale; field (unit 27), box (min xz, 1/size)
 uniform float uAoIndirectOnly;    // 1: material AO / sky occlusion darken only indirect light
 // ---- L2 lighting engine (src/lighting.cpp, docs/lighting.md): time of day, clustered local lights, probe GI
@@ -167,7 +172,18 @@ float cascadePCF(sampler2DShadow sm, mat4 vp, vec2 texel, float worldTexel, vec3
   return sum/float(taps);
 }
 float cascadePCF(sampler2DShadow sm, mat4 vp, vec2 texel, float worldTexel, vec3 w, vec3 n, float radiusTex, int taps, out float edge){ return cascadePCF(sm, vp, texel, worldTexel, w, n, radiusTex, taps, edge, vec2(1.0, 0.0)); }
-float sunShadowRaw(vec3 w, vec3 n, float soft, int taps){
+// VOT T6: the terrain's horizon toward the sun (terrain_normals.cpp horizonSync; unit 26, G / B / A beside the T5 sky
+// view in R): distant relief stays shadowed where the cascades end. Ground-level horizon for anything at w.xz.
+uniform int uTHorOn; uniform sampler2D uTSV; uniform vec4 uTHorMap, uTHorW;   // map: org.xy, 1 / extent; w: bin weights, sun elevation (deg)
+uniform int uTHorAll;   // 1 on the ground and grass: the cascades hold no terrain, so the horizon shades them at every distance
+float terrainHorizonSun(vec3 w){
+  if (uTHorOn == 0) return 1.0;
+  vec2 uv = (w.xz - uTHorMap.xy)*uTHorMap.zw;
+  if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) return 1.0;
+  float h = dot(texture(uTSV, uv).gba, uTHorW.xyz)*50.0 - 5.0;   // horizon elevation (deg)
+  return smoothstep(h - 1.0, h + 1.5, uTHorW.w);   // the sun's disc and a little penumbra
+}
+float sunShadowCasc(vec3 w, vec3 n, float soft, int taps){
   if (uShadowOn == 0) return 1.0;
   if (uShadowSoft <= 0.0) {   // legacy fallback: 3x3 grid, fixed offsets
     float ndl = clamp(dot(n, uSunDir), 0.0, 1.0);
@@ -188,11 +204,16 @@ float sunShadowRaw(vec3 w, vec3 n, float soft, int taps){
     sN = mix(sN, sM, tB); eN = eM; tB = smoothstep(0.8, 0.96, eM);
     if (eM >= 2.0) { sN = 1.0; tB = 1.0; }   // outside the mid box too: the far cascade alone
   }
-  if (uShadowFarOn == 0) return sN;
   if (tB <= 0.0) return sN;
+  if (uShadowFarOn == 0) return mix(sN, terrainHorizonSun(w), tB);   // VOT T6: past the last cascade, the terrain horizon
   float sF = cascadePCF(uShadowFar, uLightVPFar, uShadowTexelFar, uShadowWorldTexel.y, w, n, 1.25 + soft, max(taps/2, 4), eF);
-  sF = mix(sF, 1.0, smoothstep(0.85, 0.98, eF));   // fade out at the far edge instead of a hard line
+  float fE = smoothstep(0.85, 0.98, eF);
+  if (fE > 0.0) sF = mix(sF, terrainHorizonSun(w), fE);   // fade to the terrain horizon (T6; 1 when off) at the far edge instead of a hard line
   return mix(sN, sF, tB);
+}
+float sunShadowRaw(vec3 w, vec3 n, float soft, int taps){
+  float s = sunShadowCasc(w, n, soft, taps);
+  return uTHorAll == 1 && uShadowOn == 1 ? min(s, terrainHorizonSun(w)) : s;
 }
 // VO L7: the reflection cube near the eye (lighting.cpp reflPass), box-parallax corrected around its capture point
 uniform samplerCube uRefl; uniform int uReflOn; uniform vec3 uReflPos;
@@ -348,6 +369,11 @@ vec3 skyColor(vec3 d){
 // Aerial perspective: height-falloff haze integrated along the view ray, density rho(y) = rho0 exp(-y / Hh).
 // Optical depth from the eye at e to the point: rho0 * L * exp(-e.y/Hh) * (1 - exp(-dy/Hh)) / (dy/Hh).
 // The in-scattered colour is the horizon sky in that direction plus a sun glow, so the land fades into the sky.
+vec3 hazeColor(vec3 dir){   // W2: the haze's colour toward dir (= the sky at the horizon under w2sky)
+  vec3 fd = normalize(vec3(dir.x, max(dir.y, 0.015), dir.z));
+  if (uW2 == 1) { vec3 band = vec3(dot(uSkyHor, vec3(0.2126, 0.7152, 0.0722)))*vec3(0.95, 0.97, 1.0)*0.66*overcastGrad(fd.y); return mix(skyColor(fd)/(1.0 + 0.6*cloudOpening(fd)), band, uCloudK); }   // the opening lights the sky, not the haze over the ground
+  return mix(uFogCol, skyColor(fd), 0.65);
+}
 vec3 applyFogAir(vec3 col, vec3 w){
   if (uUnder > 0.5) { float f = 1.0 - exp(-length(w - uCamPos)*uFogDens); gFogT = 1.0 - f; return mix(col, uFogCol, f); }
   vec3 dir = normalize(w - uCamPos);
@@ -365,10 +391,7 @@ vec3 applyFogAir(vec3 col, vec3 w){
   float f = 1.0 - exp(-tau);
   vec3 fd = normalize(vec3(dir.x, max(dir.y, 0.015), dir.z));
   vec3 fc = mix(uFogCol, skyColor(fd), 0.65);
-  if (uW2 == 1) {   // W2: distant ground fades into exactly the sky behind it at the horizon (the grey band under a deck)
-    vec3 band = vec3(dot(uSkyHor, vec3(0.2126, 0.7152, 0.0722)))*vec3(0.95, 0.97, 1.0)*0.66*overcastGrad(fd.y);
-    fc = mix(skyColor(fd), band, uCloudK);
-  }
+  if (uW2 == 1) fc = hazeColor(dir);   // W2: distant ground fades into exactly the sky behind it at the horizon (the grey band under a deck)
   float sd = max(dot(dir, uSkySun), 0.0);
   fc += uSkySunCol*vec3(1.0, 0.92, 0.78)*pow(sd, 8.0)*0.10;
   if (uEnvFog > 0.0) {
@@ -383,10 +406,16 @@ vec3 applyFogAir(vec3 col, vec3 w){
     float k2 = (w.y - uCamPos.y)/uEnvFogH;
     float hf2 = abs(k2) > 1e-3 ? (1.0 - exp(-k2))/k2 : 1.0 - 0.5*k2;
     float tauE = uEnvFog*uFogIndoor*F.r*(0.6 + 0.8*drift)*Lw*exp(-max(uCamPos.y - F.b, 0.0)/uEnvFogH)*hf2;
+    if (uEnvFogTop < 1e8) {   // ceiling: the share of the ray below top (each end softened over uEnvFogSoft)
+      float a = smoothstep(uEnvFogTop + uEnvFogSoft, uEnvFogTop - uEnvFogSoft, uCamPos.y), b = smoothstep(uEnvFogTop + uEnvFogSoft, uEnvFogTop - uEnvFogSoft, w.y);
+      float m2 = smoothstep(uEnvFogTop + uEnvFogSoft, uEnvFogTop - uEnvFogSoft, 0.5*(uCamPos.y + w.y));
+      tauE *= (a + 2.0*m2 + b)*0.25;
+    }
     float e; float sh = cascadePCF(uShadow, uLightVP, uShadowTexel, uShadowWorldTexel.x, w, uSunDir, 0.0, 1, e, vec2(uShadowAtlas, 0.0));
     if (e > 0.95) sh = 1.0;
     float c0 = dot(dir, uSunDir), ph = 0.3 + 2.2*pow(max(c0, 0.0), 6.0) + 0.6*pow(max(c0, 0.0), 2.0);   // forward-scattering approximation
     vec3 fcE = mix(uFogCol, skyColor(fd), 0.45)*1.05 + uSunCol*vec3(1.0, 0.95, 0.85)*ph*0.11*cloudShadow(uCamPos)*mix(0.3, 1.0, sh)*(1.0 - uCloudK);   // WX2: no sun glow under overcast
+    if (uW2 == 1) { float lc = dot(uSkyHor, vec3(0.2126, 0.7152, 0.0722))*0.8, le = dot(fcE, vec3(0.2126, 0.7152, 0.0722)); if (le > lc) fcE *= lc/le; }   // W2: a fog layer is never brighter than the sky at the horizon (a veil, not snow)
     float tt = tau + tauE;
     f = 1.0 - exp(-tt);
     fc = mix(fc, fcE, tauE/max(tt, 1e-6));
@@ -585,6 +614,22 @@ float specAA(vec3 N, float rough){   // widens alpha where the normal changes fa
 // (no DFG table: every texture unit is taken), multi-scatter energy compensation 1 + F0 (1/E_ss - 1) with E_ss the fit at
 // F0 = 1, Lagarde's specular occlusion, and multi-bounce material AO by the pixel's own albedo (Jimenez 2016)
 uniform int uSplitSum;
+uniform float uWetTime;   // W3: seconds, for the rain ripples (kCommon: the terrain program has no uTime)
+uniform int uWetOn;   // W3 (perf switch wet): surfaces follow the weather state's wxWet / wxPuddle
+// W3 rain ripples, procedural (no texture unit is free): in each 0.25 m cell a drop's ring expands and fades on its own
+// clock; returns a normal offset (x, 0, z). k = intensity 0..1
+vec3 rainRipple(vec2 xz, float t, float k){
+  vec3 n = vec3(0.0);
+  for (int i = 0; i < 2; ++i) {
+    vec2 q = xz*4.0 + float(i)*vec2(0.37, 0.71), g = floor(q), f = fract(q) - 0.5;
+    float h = fract(sin(dot(g, vec2(127.1, 311.7)) + float(i)*13.0)*43758.5453);
+    float ph = fract(t*(0.9 + 0.4*h) + h), r = ph*0.45, d = length(f - (vec2(fract(h*7.3), fract(h*3.1)) - 0.5)*0.3);
+    if (h > k) continue;   // fewer drops in light rain
+    float ring = sin((d - r)*55.0)*exp(-abs(d - r)*28.0)*(1.0 - ph);
+    n.xz += (f/max(d, 1e-3))*ring*0.18;
+  }
+  return n;
+}
 vec2 envBRDFApprox(float r, float NoV){
   const vec4 c0 = vec4(-1.0, -0.0275, -0.572, 0.022), c1 = vec4(1.0, 0.0425, 1.04, -0.04);
   vec4 q = r*c0 + c1;
@@ -593,13 +638,28 @@ vec2 envBRDFApprox(float r, float NoV){
 }
 uniform int uDbgView;   // CP0 look-dev view (Renderer::dbgView): 2 illum / 6 sky force albedo 0.18, no metal; 6 also drops the sun's direct light
 uniform int uAlbClamp;   // CP step 4 (perf switch albclamp; corpus 03 s4.4): dielectric albedo luminance kept in linear 0.02-0.9, grass >= 0.10
+float gTexDensity = 0.0, gTexChk = 0.0;   // CP step 2 texel view: the densest set tap of this pixel (texels / m) and its tile checker (textures.cpp texTap)
 vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
+  if (uDbgView == 3) {   // CP step 2 albedo range (corpus 03 s4.5), before the clamp: dielectric red < 0.02, blue > 0.9; metal red < 0.45; metallic 0.1-0.9 yellow
+    float l = dot(alb, vec3(0.2126, 0.7152, 0.0722));
+    return metal > 0.1 && metal < 0.9 ? vec3(1.0, 1.0, 0.0) : metal >= 0.9 ? (l < 0.45 ? vec3(1.0, 0.0, 0.0) : vec3(l))
+         : l < 0.02 ? vec3(1.0, 0.0, 0.0) : l > 0.9 ? vec3(0.0, 0.3, 1.0) : vec3(l);
+  }
+  if (uDbgView == 5) {   // CP step 2 texel density (corpus 07 s1.3): < 256 red, 256-512 orange, 512-1024 green, > 1024 blue, one checker per set tile; untextured grey
+    vec3 k = gTexDensity <= 0.0 ? vec3(0.3) : gTexDensity < 256.0 ? vec3(0.9, 0.1, 0.1) : gTexDensity < 512.0 ? vec3(1.0, 0.55, 0.1) : gTexDensity <= 1024.0 ? vec3(0.2, 0.8, 0.25) : vec3(0.2, 0.4, 1.0);
+    return k*mix(0.75, 1.0, gTexChk);
+  }
   if (uAlbClamp == 1 && metal < 0.5) { float al = dot(alb, vec3(0.2126, 0.7152, 0.0722)); alb *= clamp(al, 0.02, 0.9)/max(al, 1e-4); }   // hue kept, value in range
   rough = specAA(N, rough);
   if (uDbgView == 2 || uDbgView == 6) { alb = vec3(0.18); metal = 0.0; }
   vec3 V = normalize((gEyeOv.x < 1e29 ? gEyeOv : uCamPos) - w);
   vec3 L = uSunDir; vec3 H = normalize(V+L);
   float NdL = max(dot(N,L),0.0), NdV = max(dot(N,V),1e-3), NdH = max(dot(N,H),0.0);
+  if (uDbgView == 4) {   // CP step 2 white furnace (corpus 03 s4.1): a uniform white sky of luminance 1, no sun, no occlusion: what the surface returns (1 = energy kept)
+    vec2 ab = envBRDFApprox(rough, NdV); vec3 F0f = mix(vec3(0.04), alb, metal);
+    vec3 Fs = F0f*ab.x + ab.y, ms = 1.0 + F0f*(1.0/max(ab.x + ab.y, 0.05) - 1.0);
+    return (1.0 - Fs)*(1.0 - metal)*alb + Fs*ms;
+  }
   float a = max(rough*rough, 0.02);
   vec3 F0 = mix(vec3(0.04), alb, metal);
   vec3 F = F_Schlick(max(dot(H,V),0.0), F0);
@@ -1962,6 +2022,11 @@ void main(){
   }
   if (gl_FrontFacing) N = normalize(N + gTexDN);   // L4: the set's normal map
   if (uSnowOn == 1 && gl_FrontFacing && length(vW - uCamPos) > 1.2) { applySnow(vW, normalize(vN), 0.0, alb, rough, N); metal *= 1.0 - gSnow; }   // SN1 caps (not the weapon in hand)
+  if (uWetOn == 1 && wxWet > 0.0 && gl_FrontFacing) {   // W3: rain on walls, roofs and props: only where the sky reaches (shelter stays dry), porous (rough) dielectrics darken most
+    vec3 ng0 = normalize(vN); float w = clamp(wxWet, 0.0, 1.0)*skyVis(vW, ng0)*mix(0.55, 1.0, clamp(ng0.y, 0.0, 1.0));
+    float poro = (1.0 - metal)*smoothstep(0.35, 0.85, rough);
+    alb *= mix(1.0, 0.35, w*poro); rough = mix(rough, max(0.35*rough, 0.25), w);
+  }
   vec3 c = shade(vW, N, alb, rough, metal, ao);
   if (uGxDebug == 2 && uCapture == 0) c = gDbg*0.8 + 0.05;
   if (uGxDebug == 4 && uCapture == 0) c = gWxDbg;
@@ -2048,6 +2113,7 @@ void main(){
 )GLSL";
 static const char* kModelFS = R"GLSL(
 in vec3 vW, vN; in vec4 vT; in vec2 vUV; flat in vec4 vTintI; in vec4 vCC, vPC; uniform int uVelMode;
+uniform float uDither;   // CP2 treepxlod cross-fade (model foliage only): > 0 keep the pixels whose fixed noise is under it, < 0 the rest
 uniform vec3 uIvyStem; uniform vec2 uIvyRef;   // VR1 (src/ivy.cpp)
 uniform sampler2D uAlb, uMR, uNrm, uAO;
 uniform int uHasAlb, uHasMR, uHasNrm, uHasAO, uAOinMR; uniform float uAOWeak;   // TK3: 0 as baked (the default of an unset uniform), 1 no baked occlusion
@@ -2064,6 +2130,7 @@ uniform float uGlassOpacity = 1.0, uGlassFilm = 1.0, uGlassRefl = 1.0;   // GL1:
 uniform int uGlass;   // 0 opaque; 1 window glass (dusty); 2 a wreck's glass (crazed, grimy); 3 clean (the car you sit in: no film to catch the cabin light at night)
 uniform vec4 uVmClip; uniform int uClipMe;   // AT6: the fitted optic's window (px, bottom-left origin; radius px): the gun's own parts there are not drawn
 void main(){
+  if (uDither != 0.0) { float n = pixelNoiseFixed(); if (uDither > 0.0 ? n >= uDither : n < -uDither) discard; }   // CP2: as kFolDepthFS
   if (uClipMe == 1 && uVmClip.z > 0.0 && length(gl_FragCoord.xy - uVmClip.xy) < uVmClip.z) discard;
   vec4 base = uBase;
   if (uHasAlb == 1) base *= texture(uAlb, vUV);
@@ -2162,10 +2229,77 @@ void main(){
   gl_Position = uVP*w;   // invariant: the CP1 depth prepass (fol_depth) and the GL_EQUAL shading pass must agree
 }
 )GLSL";
+// CP3 octahedral impostors (corpus 09 s2.4): each model tree baked into 12 x 12 hemi-octahedral frames (albedo + alpha,
+// object-space normal + depth). The bake: kFolVS with one identity instance, an orthographic camera per frame.
+static const char* kImpBakeFS = R"GLSL(
+in vec3 vW, vN; in vec4 vT; in vec2 vUV; flat in vec4 vTintI;
+uniform sampler2D uAlb; uniform int uHasAlb, uCutout; uniform vec4 uBase;
+layout(location=0) out vec4 oAlb; layout(location=1) out vec4 oNrm;
+void main(){
+  vec4 b = uBase; if (uHasAlb == 1) b *= texture(uAlb, vUV);
+  if (uCutout == 1 && b.a < 0.5) discard;
+  vec3 N = normalize(vN); if (!gl_FrontFacing) N = -N;
+  vec3 n = N/(abs(N.x) + abs(N.y) + abs(N.z)); vec2 o = n.z >= 0.0 ? n.xy : (1.0 - abs(n.yx))*vec2(n.x >= 0.0 ? 1.0 : -1.0, n.y >= 0.0 ? 1.0 : -1.0);   // octahedral: two channels (BC5)
+  oAlb = vec4(b.rgb, 1.0); oNrm = vec4(o*0.5 + 0.5, gl_FragCoord.z, 1.0);
+}
+)GLSL";
+// the draw: one camera-facing quad per tree; the frame nearest the view direction (object space), the quad's pixel
+// projected into that frame's basis. Per instance (SSBO 13): centre, radius | yaw, dither, -, - | tint (as FolModelDraw)
+static const char* kImpVS = R"GLSL(
+layout(std430, binding = 13) readonly buffer NmkImp { vec4 gImp[]; };
+uniform mat4 uVP;
+out vec3 vW; flat out vec4 vCR; flat out vec4 vYD; flat out vec4 vTint;
+void main(){
+  int b = gl_InstanceID*3; vCR = gImp[b]; vYD = gImp[b + 1]; vTint = gImp[b + 2];
+  vec3 f = uCamPos - vCR.xyz; f = length(f) > 1e-3 ? normalize(f) : vec3(0.0, 0.0, 1.0);
+  vec3 rt = normalize(cross(abs(f.y) > 0.99 ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0), f)), up = cross(f, rt);
+  int k = gl_VertexID; vec2 q = k == 0 ? vec2(-1, -1) : k == 1 ? vec2(1, -1) : k == 2 ? vec2(1, 1) : k == 3 ? vec2(-1, -1) : k == 4 ? vec2(1, 1) : vec2(-1, 1);
+  vW = vCR.xyz + (rt*q.x + up*q.y)*vCR.w;
+  gl_Position = uVP*vec4(vW, 1.0);
+}
+)GLSL";
+static const char* kImpFS = R"GLSL(
+in vec3 vW; flat in vec4 vCR; flat in vec4 vYD; flat in vec4 vTint;
+uniform sampler2D uImpAlb, uImpNrm; uniform float uImpUse;   // uImpUse: the frames' share of the atlas (12 x 170 / 2048)
+layout(location=4) out vec4 oVel; layout(location=0) out vec4 oColor; layout(location=2) out vec4 oAmb; layout(location=3) out vec4 oNR;
+vec2 hoEnc(vec3 d){ d.y = max(d.y, 0.0); d /= abs(d.x) + abs(d.y) + abs(d.z); return vec2(d.x + d.z, d.z - d.x)*0.5 + 0.5; }
+vec3 hoDec(vec2 uv){ vec2 e = uv*2.0 - 1.0; float x = (e.x - e.y)*0.5, z = (e.x + e.y)*0.5; return normalize(vec3(x, 1.0 - abs(x) - abs(z), z)); }
+vec3 rotY(vec3 p, float a){ float c = cos(a), s = sin(a); return vec3(c*p.x + s*p.z, p.y, -s*p.x + c*p.z); }
+void main(){
+  if (vYD.y != 0.0) { float n = pixelNoiseFixed(); if (vYD.y > 0.0 ? n >= vYD.y : n < -vYD.y) discard; }   // CP2 cross-fade with the model
+  const float N = 12.0;
+  vec3 Vo = rotY(normalize(uCamPos - vCR.xyz), -vYD.x);
+  vec2 fi = clamp(floor(hoEnc(Vo)*N), 0.0, N - 1.0);
+  vec3 dF = hoDec((fi + 0.5)/N), rF = normalize(cross(vec3(0.0, 1.0, 0.0), dF)), uF = cross(dF, rF);
+  vec3 po = rotY(vW - vCR.xyz, -vYD.x)/vCR.w;
+  vec2 uv = vec2(dot(po, rF), dot(po, uF))*0.5 + 0.5;
+  if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) discard;
+  vec2 auv = (fi + uv)/N*uImpUse;
+  vec4 a = texture(uImpAlb, auv);
+  float lod = textureQueryLod(uImpAlb, auv).y;   // averaged mips thin the needles out: the cut falls with the mip so coverage holds
+  if (a.a < mix(0.5, 0.18, clamp(lod/4.0, 0.0, 1.0))) discard;
+  vec3 alb = a.rgb/max(a.a, 1e-3);
+  if (vTint.a > 2.5) alb = mix(alb, vTint.rgb*dot(alb, vec3(0.2126, 0.7152, 0.0722)), uGreenK.w*greenMask(alb));   // FL1 greenery, as kModelFS
+  else if (vTint.a > 1.5) alb *= vTint.rgb;
+  vec2 on = texture(uImpNrm, auv).xy*2.0 - 1.0; vec3 no = vec3(on, 1.0 - abs(on.x) - abs(on.y)); float tq = max(-no.z, 0.0); no.xy += vec2(no.x >= 0.0 ? -tq : tq, no.y >= 0.0 ? -tq : tq);
+  vec3 Nn = normalize(rotY(normalize(no), vYD.x));
+  vec3 V = normalize(uCamPos - vW);
+  float sh = sunShadowT(vW + Nn*0.1, Nn, 1.0, 4);
+  float ndl = max(dot(Nn, uSunDir), 0.0)*0.7 + 0.3;
+  vec3 irr = mix(uGroundCol, uSkyCol, 0.5 + 0.5*Nn.y)*mix(0.45, 1.0, 0.5 + 0.5*Nn.y);
+  irr = giAmbient(vW, Nn, 1.0, irr);
+  float VoL = max(dot(-V, uSunDir), 0.0);
+  vec3 c = alb/PI*uSunCol*ndl*sh + irr*alb*0.7 + alb*uSunCol*0.12*pow(VoL, 4.0)*sh;   // the baked crown's transmission: a backlit term
+  c = applyFog(c, vW);
+  oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : c, 1.0);
+  oAmb = vec4(irr*alb*0.7*gFogT*0.5, 1.0); oNR = vec4(Nn, 1.0); oVel = vec4(0.0, 0.0, 0.0, 1.0);
+}
+)GLSL";
 static const char* kFolDepthFS = R"GLSL(
 in vec3 vW, vN; in vec4 vT; in vec2 vUV;
-uniform sampler2D uAlb; uniform int uCutout; uniform vec4 uBase;
-void main(){ if (uCutout == 1 && uBase.a*texture(uAlb, vUV).a < cutRef()) discard; }   // kModelFS's cut-out exactly (CP1: the main prepass before its GL_EQUAL pass)
+uniform sampler2D uAlb; uniform int uCutout; uniform vec4 uBase; uniform float uDither;
+void main(){ if (uDither != 0.0) { float n = pixelNoiseFixed(); if (uDither > 0.0 ? n >= uDither : n < -uDither) discard; }   // CP2 cross-fade, every pass
+  if (uCutout == 1 && uBase.a*texture(uAlb, vUV).a < cutRef()) discard; }   // kModelFS's cut-out exactly (CP1: the main prepass before its GL_EQUAL pass)
 )GLSL";
 
 // ---- near-field depth of field for aiming down the sights: only first-person weapon pixels nearer than the
@@ -2491,6 +2625,8 @@ uniform sampler2D uScene, uShafts, uAmb, uAO, uDepth, uNR; uniform float uShaftA
 uniform mat4 uInvProj, uProj, uView; uniform vec2 uAoTexel;
 uniform float uContactAmt; uniform int uContactSteps;   // VO L1 screen-space sun contact shadows (0: off)
 uniform int uAoNew;   // VO L2: multi-bounce and specular occlusion from the (GT)AO
+uniform int uSsrHalf; uniform sampler2D uSsrTex; uniform vec2 uSsrTexel;
+uniform float uShimmer, uShimT;   // W5 wxshimmer: heat shimmer amplitude (px at this resolution, gated on the CPU), its clock   // OPT ssrhalf: the reflection added from a half-resolution pass (rgb: added light, a: view depth)
 out vec4 oColor;
 vec3 viewPosAt(vec2 uv){ float z = texture(uDepth, uv).r; vec4 p = uInvProj*vec4(uv*2.0 - 1.0, z, 1.0); return p.xyz/p.w; }   // reverse-Z
 vec2 toUV(vec3 q){ vec4 c = uProj*vec4(q, 1.0); return c.xy/c.w*0.5 + 0.5; }
@@ -2539,28 +2675,57 @@ float contactShadow(vec2 uv){
   }
   return 1.0 - occ*(1.0 - smoothstep(60.0, 90.0, dist));
 }
+vec3 ssrAdd(vec2 uv){   // the screen-space reflection's contribution here (geometry seen in it replaces the sky estimate)
+  vec4 nr = texture(uNR, uv);
+  if (nr.w >= 0.4 || texture(uDepth, uv).r <= 0.0) return vec3(0.0);   // rough or sky
+  vec3 Pv = viewPosAt(uv);
+  vec3 Nv = normalize(mat3(uView)*nr.xyz);
+  vec3 Vv = normalize(-Pv), Rv = reflect(-Vv, Nv);
+  float F = 0.02 + 0.98*pow(1.0 - max(dot(Nv, Vv), 0.0), 5.0);
+  vec4 hit = traceSSR(Pv, Rv);
+  if (hit.w <= 0.0) return vec3(0.0);
+  vec3 Rw = normalize(transpose(mat3(uView))*Rv);
+  vec3 refl = textureLod(uScene, hit.xy, 0.0).rgb;
+  return (refl - skyColor(Rw))*hit.z*F*(1.0 - smoothstep(0.1, 0.4, nr.w))*uSsrAmt;
+}
 void main(){
+#ifdef NMK_SSR_HALF
+  float zz = texture(uDepth, vUV).r;
+  oColor = vec4(uSsrAmt > 0.0 ? ssrAdd(vUV) : vec3(0.0), zz > 0.0 ? -viewPosAt(vUV).z : 1e6); return;
+#endif
   vec3 c = texture(uScene, vUV).rgb;
+  if (uShimmer > 0.0) {   // W5 heat shimmer: rays that pass low over hot ground, 80 -> 400 m away, wobble mostly vertically
+    float z = texture(uDepth, vUV).r;
+    vec4 pf = uInvProj*vec4(vUV*2.0 - 1.0, z > 0.0 ? z : 1e-6, 1.0); vec3 pv = pf.xyz/pf.w;
+    float dist = z > 0.0 ? -pv.z : 1e4;
+    vec3 dw = transpose(mat3(uView))*normalize(pv);
+    float band = 1.0 - smoothstep(0.0, 0.035, dw.y);   // below the horizon and ~2 deg above it
+    float w = band*smoothstep(80.0, 400.0, dist);
+    if (w > 0.0) {
+      vec2 f = gl_FragCoord.xy;
+      float n1 = vnoise(vec3(f.x*0.02, f.y*0.08 - uShimT*0.6*6.0, 1.0)) + 0.5*vnoise(vec3(f.x*0.04, f.y*0.16 - uShimT*1.1*6.0, 7.0)) - 0.75;
+      float n2 = vnoise(vec3(f.x*0.02 + 17.0, f.y*0.08 - uShimT*0.6*6.0, 3.0)) - 0.5;
+      vec2 o = vec2(n2*0.35, n1)*uShimmer*w/vec2(textureSize(uScene, 0));
+      float zo = texture(uDepth, vUV + o).r; vec4 qo = uInvProj*vec4((vUV + o)*2.0 - 1.0, zo > 0.0 ? zo : 1e-6, 1.0);
+      if (zo <= 0.0 || -qo.z/qo.w > 80.0) c = texture(uScene, vUV + o).rgb;   // nothing nearer than 80 m smears
+    }
+  }
   if (uContactAmt > 0.0) {   // VO L1: only the direct share (colour less the indirect light the world pass wrote) is shadowed
     vec3 amb = texture(uAmb, vUV).rgb;
     c = amb + max(c - amb, vec3(0.0))*mix(1.0, contactShadow(vUV), uContactAmt);
   }
-  if (uSsrAmt > 0.0) {
-    vec4 nr = texture(uNR, vUV);
-    if (nr.w < 0.4 && texture(uDepth, vUV).r > 0.0) {   // not sky
-      vec3 Pv = viewPosAt(vUV);
-      vec3 Nv = normalize(mat3(uView)*nr.xyz);
-      vec3 Vv = normalize(-Pv), Rv = reflect(-Vv, Nv);
-      float F = 0.02 + 0.98*pow(1.0 - max(dot(Nv, Vv), 0.0), 5.0);
-      vec4 hit = traceSSR(Pv, Rv);
-      if (hit.w > 0.0) {
-        vec3 Rw = normalize(transpose(mat3(uView))*Rv);
-        vec3 refl = textureLod(uScene, hit.xy, 0.0).rgb;
-        float w = hit.z*F*(1.0 - smoothstep(0.1, 0.4, nr.w))*uSsrAmt;
-        c = max(c + (refl - skyColor(Rw))*w, vec3(0.0));   // geometry seen in the reflection replaces the sky estimate
+  if (uSsrAmt > 0.0 && uSsrHalf == 1) {   // OPT ssrhalf: depth-aware 2x2 upsample of the half-resolution reflection
+    float z0 = texture(uDepth, vUV).r;
+    if (z0 > 0.0 && texture(uNR, vUV).w < 0.4) {
+      float d0 = -viewPosAt(vUV).z; vec3 s = vec3(0.0); float ws = 0.0;
+      for (int y = 0; y < 2; ++y) for (int x = 0; x < 2; ++x) {
+        vec4 a = texture(uSsrTex, vUV + (vec2(x, y) - 0.5)*uSsrTexel);
+        float k = exp(-abs(a.w - d0)/(0.03*d0 + 0.05)) + 1e-4;
+        s += a.rgb*k; ws += k;
       }
+      c = max(c + s/ws, vec3(0.0));
     }
-  }
+  } else if (uSsrAmt > 0.0) c = max(c + ssrAdd(vUV), vec3(0.0));
   if (uAoAmt > 0.0) {
     // depth-aware 4x4 blur of the half-resolution AO, then remove the occluded share of the indirect light
     float z = texture(uDepth, vUV).r;
@@ -2975,12 +3140,14 @@ void main(){
 }
 )GLSL";
 static const char* kTerrainFS = R"GLSL(
+uniform vec4 uGrassTop; uniform vec2 uGrassTopR;   // CP4: clumps' mean top-down albedo (linear), strength; ramp start / end (m)
 in vec3 vW, vN0; in float vDirt; in vec3 vEw;   // vEw: GX1 earthworks (terrain_cuts.cpp): packed mud, freshly turned earth, wet
 uniform int uTNOn; uniform sampler2D uTNrm; uniform vec4 uTNMap;   // VOT T1: per-pixel base normals (terrain_normals.cpp, unit 18), xy origin, zw 1 / extent
-uniform int uTSVOn; uniform sampler2D uTSV;   // VOT T5: terrain sky-view factor (unit 26, same mapping as uTNMap)
+uniform int uTSVOn;   // uTSV is declared with the shadow code (T6)   // VOT T5: terrain sky-view factor (unit 26, same mapping as uTNMap)
 vec3 vN;   // the shading normal: vN0 (vertex) or the baked per-pixel one
 uniform int uGrid; uniform vec2 uBuildHalf;
 uniform int uDiscard; uniform sampler2D uTileMask; uniform float uTileSize; uniform vec2 uTerrainOrg, uTerrainExt;
+uniform vec4 uDust;   // W5 tdust: xy wind direction (toward), z streamer strength (0: calm or not arid), w advection phase (m along the wind)
 uniform sampler2D uSurf;   // R wear, G wet, B route kind, A rut (surface.cpp)
 uniform float uTerrCave;   // CV1: look.cave: dark wet glossy floors
 uniform int uDbgTerr;      // GG1 (NMK_DBG_TERRAIN): 1 roughness classes (red < 0.4 SSR mirror, yellow < 0.7 sheen, grey matte), 2 specular share (red > 25 %, yellow > 10 %)
@@ -3074,6 +3241,9 @@ void main(){
   TerrT tTr = TerrT((tS.alb*wSoil + tV.alb*wGrav*(1.0 - wSand) + tA.alb*wSand)/wT, (tS.r*wSoil + tV.r*wGrav*(1.0 - wSand) + tA.r*wSand)/wT,
                     (tS.ao*wSoil + tV.ao*wGrav*(1.0 - wSand) + tA.ao*wSand)/wT, (tS.dn*wSoil + tV.dn*wGrav*(1.0 - wSand) + tA.dn*wSand)/wT, (tS.h*wSoil + tV.h*wGrav*(1.0 - wSand) + tA.h*wSand)/wT);
   grass *= tG.alb; track *= tTr.alb;
+  // CP4 grasstint (corpus 09 s7.4): where the blades thin out (from the near radius to the grass radius) the turf takes the
+  // clumps' mean top-down colour, so a lower density reads as the same field instead of greener / browner ground showing through
+  if (uGrassTop.a > 0.0) grass = mix(grass, uGrassTop.rgb, uGrassTop.a*smoothstep(uGrassTopR.x, uGrassTopR.y, length(vW.xz - uCamPos.xz)));
   float twH = hbK(tw, tG.h, tTr.h), hB = mix(tG.h, tTr.h, twH);   // M2: the grass / track edge by height; hB the ground's height so far
   vec3 tdn = mix(tG.dn, tTr.dn, twH); float trr = mix(tG.r, tTr.r, twH), tao = mix(tG.ao, tTr.ao, twH);
   vec3 alb = mix(grass, track, twH);
@@ -3150,6 +3320,12 @@ void main(){
   // localized wetness: darker, and glossy only where water stands (puddles follow ruts / lows)
   float puddle = smoothstep(0.55, 0.8, wet + (nX - 0.5)*0.2);
   alb *= mix(1.0, 0.62, clamp(wet*1.2, 0.0, 1.0));
+  // W3 the wet world (perf switch wet; weather corpus 04, corpus 08 s7): rain from the weather state, not the map. A film
+  // darkens porous ground (albedo x lerp(1, 0.35, wet x porosity); rock and scree shed water), and puddles fill the lows
+  // (the layers' own height, the map's wet field, ruts) as wxPuddle rises, on flat ground only
+  float wxw = uWetOn == 1 ? clamp(wxWet, 0.0, 1.0) : 0.0, wxp = uWetOn == 1 ? clamp(wxPuddle, 0.0, 1.0) : 0.0;
+  if (wxw > 0.0) alb *= mix(1.0, 0.35, wxw*(1.0 - 0.65*max(rockK, screeK*0.5))*(1.0 - 0.6*clamp(wet*1.2, 0.0, 1.0)));
+  if (wxp > 0.0) puddle = max(puddle, smoothstep(0.86, 0.97, normalize(vN).y)*smoothstep(0.86 - 0.42*wxp, 0.96 - 0.42*wxp, (1.0 - hB)*0.55 + wet*0.3 + rut*0.25 + (nX - 0.5)*0.25));
   float rough = mix(mix(0.96, 0.86, tw), 0.10, puddle);
   rough = mix(rough, 0.78, vEw.z*ewK);   // GX1: wet mud low in the cut: a dull damp sheen, not a mirror
   vec3 N = normalize(vN + vec3(nX - 0.5, 0.0, nZ - 0.5)*mix(0.22, 0.42, max(tw, dirt))*(1.0 - puddle)
@@ -3162,9 +3338,11 @@ void main(){
     ao *= 1.0 - 0.35*rCrack*rockK;
   }
   N = normalize(N + tdn*(1.0 - puddle)); rough = clamp(rough*mix(trr, 1.0, puddle), 0.04, 1.0); ao *= tao;   // L4 terrain layers
-  rough = max(rough, uGroundMinRough*(1.0 - puddle)*(1.0 - vEw.z*ewK));   // GG1: dry ground matte (puddles and wet cut mud keep theirs)
+  rough = max(rough, uGroundMinRough*(1.0 - puddle)*(1.0 - vEw.z*ewK)*(1.0 - wxw));   // W3: the matte floor is for dry ground only   // GG1: dry ground matte (puddles and wet cut mud keep theirs)
   paintFinish(po, rough, N, ao);   // lasso ground paint: roughness, AO, relief over every other layer (after L4)
-  if (puddle > 0.0) { rough = mix(rough, 0.08, puddle); N = normalize(mix(N, normalize(vN), puddle*0.85)); }   // CV1: standing water stays a mirror over painted ground
+  if (wxw > 0.0) rough = mix(rough, max(0.35*rough, 0.25), wxw);   // W3 film: smoother, but kept >= 0.25 outside puddles (no mirror ground without real reflections)
+  if (puddle > 0.0) { rough = mix(rough, 0.08, puddle); N = normalize(mix(N, normalize(vN), puddle*0.85)); }
+  if (puddle > 0.0 && wxw > 0.0 && wxPrecipMmH > 0.05) N = normalize(N + rainRipple(p.xz, uWetTime, min(wxPrecipMmH/8.0, 1.0))*puddle);   // W3: rings while it rains   // CV1: standing water stays a mirror over painted ground
   if (uTerrCave > 0.5) {   // CV1 cave floor: dark wet rock under a water film, black away from the lights, mirror-bright where it catches them
     float flat_k = smoothstep(0.72, 0.9, normalize(vN).y), film = smoothstep(0.35, 0.65, vnoise(vec3(p.xz*0.3, 97.0)) + 0.25*(vnoise(vec3(p.xz*2.1, 98.0)) - 0.5));
     alb *= mix(0.6, mix(0.34, 0.2, film), flat_k);
@@ -3172,7 +3350,17 @@ void main(){
     N = normalize(mix(N, normalize(vN), flat_k*film*0.6));
   }
   applySnow(p, normalize(vN), 1.0, alb, rough, N); snowTex(p, normalize(vN), tdx, tdy, tDist, hB, alb, rough, N);   // SN1; SN2 the snow sets near (snow.cpp)
-  gSpecK = mix(uGroundSpec, 1.0, max(puddle, vEw.z*ewK));   // GG1: dry ground: no broad sun glare or sky sheen at grazing angles (standing water / wet cut mud keep theirs)
+  if (uDust.z > 0.0) {   // W5 (weather corpus 06): wind-blown sand streaming over the ground near the eye, along the wind (arid maps)
+    float dk = uDust.z*(1.0 - smoothstep(40.0, 60.0, length(p.xz - uCamPos.xz)))*smoothstep(0.75, 0.92, normalize(vN).y);
+    if (dk > 0.0) {
+      vec2 q = vec2(dot(p.xz, uDust.xy), dot(p.xz, vec2(-uDust.y, uDust.x)));   // along / across the wind (m)
+      float s1 = vnoise(vec3((q.x - uDust.w)*0.35, q.y*2.4, 31.0)), s2 = vnoise(vec3((q.x - 1.4*uDust.w)*0.9, q.y*6.0, 32.0));
+      float s3 = vnoise(vec3((q.x - 0.5*uDust.w)*0.07, q.y*0.35, 33.0));   // the gust-scale patches the ribbons run in
+      float st = smoothstep(0.52, 0.82, 0.6*s1 + 0.4*s2)*smoothstep(0.3, 0.65, s3);
+      alb = mix(alb, vec3(0.80, 0.72, 0.57), st*0.5*dk); rough = mix(rough, 1.0, st*dk);
+    }
+  }
+  gSpecK = mix(uGroundSpec, 1.0, max(max(puddle, vEw.z*ewK), wxw));   // W3: wet ground keeps its sheen   // GG1: dry ground: no broad sun glare or sky sheen at grazing angles (standing water / wet cut mud keep theirs)
   float gs0 = gSpecK; gSpecK = 0.0;
   vec3 cMatte = uDbgTerr == 2 ? shade(vW, N, alb, 1.0, 0.0, ao) : vec3(0.0);   // GG1 measurement: no specular at all
   gSpecK = gs0;
@@ -3700,6 +3888,7 @@ void main(){
     // WX1: thick cloud is opaque (the HDR sun disc behind it no longer leaks through as a sprite); thin edges stay translucent
     c = mix(c, lit*uCloudLit, cl*mix(0.9, 1.0, thick)*smoothstep(0.0, 0.12, d.y));
   }
+  { float vis = 3.912/max(wxSigma, 1e-6); if (wxPhys && vis < 800.0) c = mix(c, hazeColor(d), 1.0 - smoothstep(250.0, 800.0, vis)); }   // W2: in a storm under ~500 m visibility the sky is the air's own colour (no blue, no cloud shapes)
   if (uUnder > 0.5) c = uFogCol*(0.75 + 0.45*max(d.y, 0.0));   // under water: the fog, a little lighter toward the surface
   oColor = vec4((any(isnan(c)) || any(isinf(c))) ? skyColor(d) : c, 1.0);
 }
@@ -3709,18 +3898,20 @@ uniform float uUnderTone;   // 1: under water (swim.cpp): blue-green tint, stron
 uniform float uNightGamma;   // 1 by day; below 1 lifts the darks at night
 uniform float uMapGamma;     // BR1c: the open map's gamma (> 1 brighter), 1 = none
 uniform float uWxK;   // WX2: the Cloudy mix (desaturation, cooler grade)
+uniform float uWxDark = 1.0;   // W2: 0 under a preset row (its exposure carries the light level; the grade only greys)
 uniform float uMapSat; uniform vec3 uMapTint;   // NT2b: a map's own saturation / tint
+uniform int uPhysGrade;   // CP2 physgrade: the grade ran in scene-linear before the curve (pivot 0.18); here only the weather / map / gamma steps
 uniform int uGradeOn; uniform float uGradeSat, uGradeContrast, uGradeVig, uGradeSharpen, uGradeCA; uniform vec3 uGradeShadow, uGradeHigh;
 // VO L8: every colour-only step after the tone curve, in Classic's order (vignettes are applied apart: they are positional)
 vec3 gradeColor(vec3 c){
   float l = dot(c, vec3(0.2126,0.7152,0.0722));
-  if (uGradeOn == 1) {
+  if (uGradeOn == 1 && uPhysGrade == 0) {
     c = mix(vec3(l), c, uGradeSat);
     float sh = 1.0 - smoothstep(0.0, 0.42, l), hi = smoothstep(0.3, 0.95, l);
     c *= mix(vec3(1.0), uGradeShadow, sh)*mix(vec3(1.0), uGradeHigh, hi);
     c = clamp(c, 0.0, 1.0); c = pow(c, vec3(uNightGamma)); c = mix(c, c*c*(3.0 - 2.0*c), uGradeContrast);
   } else c = mix(vec3(l), c, 0.93);
-  if (uWxK > 0.0) { float lw = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(c, vec3(lw), 0.22*uWxK)*mix(vec3(1.0), vec3(0.94, 0.98, 1.05), uWxK)*(1.0 - 0.38*uWxK); c = mix(c, c*c*(3.0 - 2.0*c), 0.25*uWxK); }
+  if (uWxK > 0.0) { float lw = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(c, vec3(lw), 0.22*uWxK)*mix(vec3(1.0), vec3(0.94, 0.98, 1.05), uWxK)*(1.0 - 0.38*uWxK*uWxDark); c = mix(c, c*c*(3.0 - 2.0*c), 0.25*uWxK); }
   if (uMapSat != 1.0 || uMapTint != vec3(1.0)) { float lm = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(lm), c, uMapSat)*uMapTint; }
   if (uMapGamma != 1.0) c = pow(clamp(c, 0.0, 1.0), vec3(1.0/uMapGamma));
   if (uUnderTone > 0.0) c = mix(c, c*vec3(0.55, 0.92, 0.98) + vec3(0.0, 0.025, 0.035), uUnderTone);
@@ -3814,6 +4005,7 @@ void main(){
   if (bAmt > 0.0) c = mix(c, texture(uBloom, vUV).rgb/6.0, bAmt);   // chain sums 6 levels; energy-preserving blend, not an add
   float e = uFixedExpo > 0.0 ? uFixedExpo*uNewExpo : texelFetch(uExpo, ivec2(0), 0).r;   // VO L1: auto exposure already re-adapts to New's darker scene; a fixed one is lifted
   vec2 q = vUV - 0.5;
+  if (uDbgView >= 3 && uDbgView <= 5) { oColor = vec4(clamp(texture(uHdr, vUV).rgb, 0.0, 1.0), 1.0); return; }   // CP step 2: albedo / furnace / texel views shown as computed (no exposure, curve or bloom)
   if (uDbgView == 1) {   // CP0 false colour: one band per stop of exposed luminance around 0.18 (grey = 0.18 +- half a stop)
     const vec3 band[13] = vec3[13](vec3(0.0), vec3(0.25, 0.0, 0.35), vec3(0.2, 0.1, 0.8), vec3(0.0, 0.45, 0.9), vec3(0.0, 0.65, 0.6), vec3(0.3, 0.55, 0.3),
       vec3(0.46), vec3(0.65, 0.8, 0.45), vec3(0.95, 0.75, 0.75), vec3(0.95, 0.9, 0.2), vec3(1.0, 0.6, 0.0), vec3(1.0, 0.1, 0.0), vec3(1.0));
@@ -3822,6 +4014,14 @@ void main(){
   }
   if (uDbgView == 6 && all(lessThan(abs(gl_FragCoord.xy - vec2(textureSize(uHdr, 0))*0.5), vec2(12.0)))) c = vec3(0.18)/max(e, 1e-6);   // scene 0.18 through the whole display chain
   if (uNewTone >= 1) {   // VO L8: AgX curve (matched to the old one at mid grey), saturation re-fit, then the grade from its LUT
+    if (uPhysGrade == 1 && uGradeOn == 1) {   // CP2 physgrade: contrast around scene 0.18, saturation, cool shadows / warm highlights by stops, all before the curve
+      vec3 x = c*e; const vec3 lw = vec3(0.2126, 0.7152, 0.0722); float L = max(dot(x, lw), 1e-6);
+      x *= 0.18*pow(L/0.18, 1.0 + 0.6*uGradeContrast)/L; L = max(dot(x, lw), 1e-6);
+      x = max(mix(vec3(L), x, uGradeSat), 0.0);
+      float st = log2(L/0.18);
+      x *= mix(uGradeShadow, vec3(1.0), smoothstep(-4.0, 0.0, st))*mix(vec3(1.0), uGradeHigh, smoothstep(0.0, 3.0, st));
+      c = x/max(e, 1e-8);
+    }
     c = agxFilmic(c*e*1.22*uAgxK);
     float la = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = max(mix(vec3(la), c, uAgxSat), 0.0);
     c = uNewTone == 2 ? gradeColor(clamp(c, 0.0, 1.0)) : texture(uGradeLut, sqrt(clamp(c, 0.0, 1.0))*(31.0/32.0) + 0.5/32.0).rgb;   // 2: NMK_VO_NOLUT (A/B of the LUT)
@@ -3851,7 +4051,7 @@ void main(){
     float n = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)))*43758.5453) - 0.5;
     c = max(c*(1.0 - 0.96*k) + n/255.0, 0.0);
   }
-  if (uWxK > 0.0) { float lw = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(c, vec3(lw), 0.22*uWxK)*mix(vec3(1.0), vec3(0.94, 0.98, 1.05), uWxK)*(1.0 - 0.38*uWxK); c = mix(c, c*c*(3.0 - 2.0*c), 0.25*uWxK); }   /* overcast: 38 % darker, more muted and cooler, a little more contrast (moody) */   // WX2 Cloudy: ~13 % less saturation, a touch cooler
+  if (uWxK > 0.0) { float lw = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(c, vec3(lw), 0.22*uWxK)*mix(vec3(1.0), vec3(0.94, 0.98, 1.05), uWxK)*(1.0 - 0.38*uWxK*uWxDark); c = mix(c, c*c*(3.0 - 2.0*c), 0.25*uWxK); }   /* overcast: 38 % darker, more muted and cooler, a little more contrast (moody) */   // WX2 Cloudy: ~13 % less saturation, a touch cooler
   if (uMapSat != 1.0 || uMapTint != vec3(1.0)) { float lm = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(lm), c, uMapSat)*uMapTint; }   // NT2b
   if (uMapGamma != 1.0) c = pow(clamp(c, 0.0, 1.0), vec3(1.0/uMapGamma));   // BR1c
   if (uUnderTone > 0.0) { c = mix(c, c*vec3(0.55, 0.92, 0.98) + vec3(0.0, 0.025, 0.035), uUnderTone); c *= 1.0 - dot(q,q)*1.4*uUnderTone; }
@@ -3957,17 +4157,20 @@ void main(){
 static const char* kLeafDriftVS = R"GLSL(
 uniform mat4 uVP; uniform vec3 uCamRight, uCamUp; uniform float uTime;
 uniform vec4 uLD;    // count, box half (m), wind displacement x, z (m, accumulated)
-uniform vec4 uLD2;   // indoor 0..1, -, -, -   (uOcc, uOccVP, uOccTop, uOccRange, uOccOn: kCommon)
+uniform vec4 uLD2;   // indoor 0..1, mode (0 leaves, 1 WS3 pollen), -, -   (uOcc, uOccVP, uOccTop, uOccRange, uOccOn: kCommon)
 out vec2 vC; out vec3 vW, vN, vCol; out float vA;
 float h1(float n){ return fract(sin(n*12.9898 + 78.233)*43758.5453); }
 void main(){
   float fi = float(gl_InstanceID), R = uLD.y;
   vec3 r = vec3(h1(fi*1.31), h1(fi*2.17 + 3.0), h1(fi*3.73 + 7.0));
-  float fall = mix(0.55, 1.4, h1(fi*5.1)), share = mix(0.45, 0.9, h1(fi*7.7)), ph = h1(fi*8.3)*6.2832;
-  vec3 p = vec3((r.x*2.0 - 1.0)*R, r.y*12.0 - 3.0, (r.z*2.0 - 1.0)*R);
+  const bool pol = uLD2.y > 0.5;   // WS3 pollen: near the ground, hardly falling, carried by the wind, bobbing
+  float fall = pol ? mix(0.02, 0.12, h1(fi*5.1)) : mix(0.55, 1.4, h1(fi*5.1)), share = pol ? mix(0.8, 1.0, h1(fi*7.7)) : mix(0.45, 0.9, h1(fi*7.7)), ph = h1(fi*8.3)*6.2832;
+  const float hy = pol ? 3.0 : 12.0, cy = pol ? 0.6 : 3.0;
+  vec3 p = vec3((r.x*2.0 - 1.0)*R, r.y*hy - 0.5*hy, (r.z*2.0 - 1.0)*R);
   p += vec3(uLD.z*share, -fall*uTime, uLD.w*share);
-  p.xz += vec2(sin(uTime*mix(0.8, 1.9, h1(fi*4.4)) + ph), cos(uTime*mix(0.6, 1.5, h1(fi*6.6)) + ph))*0.35;   // zig-zag of a falling leaf
-  vec3 box = vec3(2.0*R, 12.0, 2.0*R), c = uCamPos + vec3(0.0, 3.0, 0.0);
+  p.xz += vec2(sin(uTime*mix(0.8, 1.9, h1(fi*4.4)) + ph), cos(uTime*mix(0.6, 1.5, h1(fi*6.6)) + ph))*(pol ? 0.15 : 0.35);   // zig-zag of a falling leaf / a mote's wander
+  if (pol) p.y += 0.12*sin(uTime*mix(0.7, 1.6, h1(fi*18.1)) + ph);
+  vec3 box = vec3(2.0*R, hy, 2.0*R), c = uCamPos + vec3(0.0, cy, 0.0);
   p = mod(p - c + box*0.5, box) - box*0.5 + c;                                  // wrap round the eye, on world coordinates
   float g = windGust(p.xz, false), a = step(h1(fi*9.9), clamp(0.6 + 0.8*(g - 1.0), 0.0, 1.0));
   if (uOccOn == 1) { vec4 lp = uOccVP*vec4(p, 1.0); vec2 uv = lp.xy*0.5 + 0.5;
@@ -3979,12 +4182,14 @@ void main(){
   float an = uTime*mix(1.5, 4.5, h1(fi*14.9)) + ph, cs = cos(an), sn = sin(an);
   vec3 u0 = normalize(cross(ax, vec3(0.0, 1.0, 0.3))), v0 = cross(ax, u0);
   vec3 U = u0*cs + v0*sn, V = cross(ax, U);
-  float sz = mix(0.025, 0.045, h1(fi*15.5));
+  float sz = pol ? mix(0.0025, 0.005, h1(fi*15.5)) + d*0.0006 : mix(0.025, 0.045, h1(fi*15.5));   // motes keep about a pixel with distance
+  if (pol) { U = uCamRight; V = uCamUp; }   // motes face the eye
   int k = gl_VertexID; vec2 q = k == 0 ? vec2(-1, -1) : k == 1 ? vec2(1, -1) : k == 2 ? vec2(1, 1) : k == 3 ? vec2(-1, -1) : k == 4 ? vec2(1, 1) : vec2(-1, 1);
   vec3 w = p + (U*q.x*0.62 + V*q.y)*sz;
   float t = h1(fi*16.1);   // dead-leaf palette: brown, ochre, olive (linear)
   vCol = t < 0.45 ? vec3(0.16, 0.085, 0.035) : t < 0.8 ? vec3(0.30, 0.19, 0.055) : vec3(0.14, 0.15, 0.05);
   vCol *= mix(0.75, 1.2, h1(fi*17.3));
+  if (pol) vCol = mix(vec3(0.95, 0.88, 0.55), vec3(0.98, 0.96, 0.85), h1(fi*19.7));
   vC = q; vW = w; vN = ax; vA = a;
   gl_Position = uVP*vec4(w, 1.0);
   if (a <= 0.001) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -3992,7 +4197,13 @@ void main(){
 )GLSL";
 static const char* kLeafDriftFS = R"GLSL(
 in vec2 vC; in vec3 vW, vN, vCol; in float vA; out vec4 oColor;
+uniform vec4 uLD2;
 void main(){
+  if (uLD2.y > 0.5) {   // WS3 pollen: a round mote, lit mostly by the sun behind it (forward scattering)
+    if (vA < 0.5 || dot(vC, vC) > 1.0) discard;
+    float VoL = max(dot(normalize(vW - uCamPos), uSunDir), 0.0);
+    oColor = vec4(applyFog(vCol*(uSunCol*(0.12 + 0.6*pow(VoL, 8.0)) + mix(uGroundCol, uSkyCol, 0.7)*0.8), vW), 1.0); return;   // pale motes: never dark specks against the sky
+  }
   if (vA < 0.5 || dot(vC, vC) > 1.0 - 0.25*abs(vC.x)*(1.0 - vC.y)) discard;   // oval with a slight point
   vec3 N = normalize(vN); if (dot(N, uCamPos - vW) < 0.0) N = -N;
   float ndl = abs(dot(N, uSunDir))*0.7 + 0.3;
@@ -4235,7 +4446,7 @@ void Renderer::physLight(vec3& sun, vec3& sky, vec3& ground, vec3& fog, vec3& fi
     const float eTot = std::max(eDN * mu + eSky, 1e-3f);
     const float evScene = std::log2(eTot / 2.5f);
     physEV = glm::clamp(15.0f + 0.67f * (evScene - 15.0f), mu > 0.0f ? 9.0f : 3.0f, 15.5f);
-    physExpo = q.physExpoK * K / (1.2f * std::exp2(physEV));
+    physExpo = mu > 0.05f ? q.physExpoK * K / (1.2f * std::exp2(physEV)) : 0.0f;   // dusk / night: the engine's own night exposure (the art stays in its units)
   }
 }
 void Renderer::uploadWeather() {   // W1: NmkWeather (binding 4), the layout kCommon names
@@ -4299,6 +4510,8 @@ bool Renderer::init(int w, int h) {
     glProgramUniform1f(progModel, glGetUniformLocation(progModel, "uGlassFilm"), film);
   }
   progFolModel = compile(kFolVS, kModelFS, "fol_model"); progFolDepth = compile(kFolVS, kFolDepthFS, "fol_depth");   // NT8
+  progImpBake = compile(kFolVS, kImpBakeFS, "imp_bake"); progImp = compile(kImpVS, kImpFS, "impostor");   // CP3
+  for (GLuint* pp : {&progImpBake, &progImp}) { GLint ok = 0; glGetProgramiv(*pp, GL_LINK_STATUS, &ok); if (!ok) { glDeleteProgram(*pp); *pp = 0; } }   // a failed program: no impostors
   progDof = compile(kFullVS, kDofFS, "dof");
   progEyepiece = compile(kFullVS, kEyepieceFS, "eyepiece");
   progHeat = compile(kHeatVS, kHeatFS, "thermal heat");   // TH1
@@ -4315,6 +4528,7 @@ bool Renderer::init(int w, int h) {
   glCreateFramebuffers(1, &cloudShFbo); glNamedFramebufferTexture(cloudShFbo, GL_COLOR_ATTACHMENT0, cloudShTex, 0);
   if (glCheckNamedFramebufferStatus(cloudShFbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) { logf("cloud shadow framebuffer incomplete"); ++fboErrors; }
   progComposite = compile(kFullVS, kCompositeFS, "composite");
+  progSsrHalf = compile(kFullVS, (std::string("#define NMK_SSR_HALF 1\n") + kCompositeFS).c_str(), "ssr_half");   // OPT ssrhalf
   {
     std::string fs1 = std::string(kLeafAlpha) + kLeafFS, fs2 = std::string(kLeafAlpha) + kLeafShadowFS;
     progLeaf = compile(kLeafVS, fs1.c_str(), "leaf");
@@ -4453,6 +4667,11 @@ void Renderer::createTargets() {
   glTextureParameteri(aoTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(aoTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTextureParameteri(aoTex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(aoTex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glCreateFramebuffers(1, &aoFbo); glNamedFramebufferTexture(aoFbo, GL_COLOR_ATTACHMENT0, aoTex, 0);
+  if (ssrTex) { glDeleteTextures(1, &ssrTex); glDeleteFramebuffers(1, &ssrFbo); }   // OPT ssrhalf: reflection at half resolution (rgb, view depth)
+  glCreateTextures(GL_TEXTURE_2D, 1, &ssrTex); glTextureStorage2D(ssrTex, 1, GL_RGBA16F, std::max(1, width / 2), std::max(1, height / 2));
+  glTextureParameteri(ssrTex, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTextureParameteri(ssrTex, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTextureParameteri(ssrTex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(ssrTex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glCreateFramebuffers(1, &ssrFbo); glNamedFramebufferTexture(ssrFbo, GL_COLOR_ATTACHMENT0, ssrTex, 0);
   // world normal + roughness (attachment 3, world pass only) and the TAA history ping-pong
   if (nrTex) { glDeleteTextures(1, &nrTex); glDeleteTextures(2, histTex); glDeleteFramebuffers(2, taaFbo); }
   glCreateTextures(GL_TEXTURE_2D, 1, &nrTex); glTextureStorage2D(nrTex, 1, GL_RGBA16F, width, height);
@@ -4658,7 +4877,13 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1f(U(p, "uAerial"), q.lightNew && perf.atmo && !q.legacy && !thumbMode ? lt.mapAerial : 0.0f);   // VO L5 (look.aerial)
   if (wx.der.flash > 0.0f && !thumbMode) { const vec3 fl = vec3(0.85f, 0.9f, 1.0f) * wx.der.flash; sky += fl * 2.5f; fill += fl * 0.6f; zen += fl * 3.0f; hor += fl * 2.0f; }   // W2 lightning: the sky and the ambient flash (cloud-lit, no direction under the deck)
   if (wx.der.phys && !thumbMode) {   // W1 preset light (weather.cpp): sun and sky by the corpus's formulas, as ratios to Clear; fog takes the horizon's hue
-    const WxDerived& d = wx.der; const vec3 lw(0.2126f, 0.7152f, 0.0722f);
+    WxDerived& d = wx.der; const vec3 lw(0.2126f, 0.7152f, 0.0722f);
+    if (p == progMain) {   // W2: two-thirds compensation against Clear at this sun height and this map's own sun / sky balance (a low golden sun is most of the light)
+      const float mu = std::max(sunDir.y, 0.0f), ls = glm::dot(sun, lw), lk = glm::dot(sky, lw);
+      const float eOld = ls * mu / 3.14159265f + lk, eNew = ls * d.sunK * mu / 3.14159265f + lk * d.skyK;
+      const float r = std::max(eNew / std::max(eOld, 1e-5f), 1e-3f);
+      d.keyMul = std::pow(r, 1.0f / 3.0f); d.fixedMul = std::pow(r, -2.0f / 3.0f);
+    }
     const float fogL = glm::dot(fog, lw) * d.skyK;
     sun *= d.sunK * d.tint; skySunCol *= d.sunK * d.tint;
     sky *= d.skyK * d.tint; ground *= d.skyK * d.tint; fill *= d.skyK; zen *= d.skyK * d.tint; hor *= d.skyK * d.tint;
@@ -4703,6 +4928,8 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   bool far = !q.legacy && q.farCascade && !thumbMode;
   glUniform1i(U(p, "uShadowFar"), 6); glBindTextureUnit(6, shadowFarTex);
   glUniform1i(U(p, "uShadowFarOn"), far ? 1 : 0);
+  glUniform1i(U(p, "uTSV"), 26); glUniform1i(U(p, "uTHorOn"), thorTex && !thumbMode ? 1 : 0); glUniform1i(U(p, "uTHorAll"), p == progTerrain || p == progTerrainND || p == progGrass ? 1 : 0);   // VOT T6 (unit 26 = the terrain's T5 / T6 texture)
+  if (thorTex && !thumbMode) { glBindTextureUnit(26, thorTex); glUniform4fv(U(p, "uTHorMap"), 1, glm::value_ptr(thorMap)); glUniform4fv(U(p, "uTHorW"), 1, glm::value_ptr(thorW)); }
   glUniformMatrix4fv(U(p, "uLightVPFar"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
   glUniform2f(U(p, "uShadowTexelFar"), 1.0f / shadowFarSize, 1.0f / shadowFarSize);
   glUniform2f(U(p, "uShadowWorldTexel"), 2 * nearR / shadowSize, 2 * farR / shadowFarSize);
@@ -4719,7 +4946,28 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uCloudShadowOn"), !q.legacy && q.cloudShadows && clouds && perf.cloudShadow && !thumbMode ? 1 : 0);
   glUniform1f(U(p, "uCloudCov"), cloudCoverNow()); glUniform1f(U(p, "uCloudT"), cloudClock());
   glUniform1f(U(p, "uEnvFog"), thumbMode ? 0.0f : envFogSigma()); glUniform1f(U(p, "uEnvFogH"), envFogH());   /* W1 Dawn ground fog: the preset's layer */   /* FG1 */ glUniform1f(U(p, "uEnvFogNear"), thumbMode ? 0.0f : lt.mapFogNear); glUniform1f(U(p, "uFogIndoor"), camIndoor ? 0.15f : 1.0f);
-  glUniform1i(U(p, "uFogField"), 27); glBindTextureUnit(27, fogTex); glUniform4fv(U(p, "uFogBox"), 1, glm::value_ptr(fogBox));
+  glUniform1f(U(p, "uEnvFogTop"), lt.mapFogLayerTop); glUniform1f(U(p, "uEnvFogSoft"), lt.mapFogLayerSoft);
+  glUniform1i(U(p, "uFogField"), 27); glBindTextureUnit(27, fogTex);
+  if (U(p, "uGATex") >= 0) {   // the grass programs: 27 is their plant atlas (GT1, a 2D array): the fog field moves to a unit none of their active samplers uses
+    static std::unordered_map<GLuint, std::pair<int, int>> freeUnit;   // unit, calls seen: re-scanned for the first 3 calls (later setLighting lines set more sampler units)
+    auto it = freeUnit.find(p);
+    if (it == freeUnit.end() || it->second.second < 3) {
+      bool used[32] = {}; GLint n = 0; glGetProgramiv(p, GL_ACTIVE_UNIFORMS, &n);
+      for (GLint i = 0; i < n; ++i) {
+        char nm[128]; GLint sz = 0; GLenum ty = 0; glGetActiveUniform(p, (GLuint)i, sizeof nm, nullptr, &sz, &ty, nm);
+        const bool smp = (ty >= GL_SAMPLER_1D && ty <= GL_SAMPLER_2D_SHADOW) || (ty >= GL_SAMPLER_1D_ARRAY && ty <= GL_SAMPLER_CUBE_SHADOW) || ty == GL_SAMPLER_2D_RECT || ty == GL_SAMPLER_CUBE_MAP_ARRAY || ty == GL_SAMPLER_2D_MULTISAMPLE || ty == GL_SAMPLER_2D_MULTISAMPLE_ARRAY || ty == GL_SAMPLER_BUFFER;
+        if (!smp || std::string(nm) == "uFogField") continue;
+        GLint loc = glGetUniformLocation(p, nm); if (loc < 0) continue;
+        for (GLint k = 0; k < std::max(sz, 1); ++k) { GLint u = 0; glGetUniformiv(p, loc + k, &u); if (u >= 0 && u < 32) used[u] = true; }
+      }
+      int f = -1; for (int u : {9, 13, 6, 1, 0}) if (f < 0 && !used[u]) f = u;   // only units setLighting rebinds every call (20-31 hold the texture library, bound once)
+      if (f < 0) logf("grass: no free texture unit for the fog field (env fog off in the grass)");
+      int seen = it == freeUnit.end() ? 1 : it->second.second + 1; freeUnit[p] = {f, seen}; it = freeUnit.find(p); if (seen == 3) logf("grass: fog field on texture unit %d for program %u (atlas on 27)", f, p);
+    }
+    if (it->second.first >= 0) { glUniform1i(U(p, "uFogField"), it->second.first); glBindTextureUnit(it->second.first, fogTex); }
+    else glUniform1f(U(p, "uEnvFog"), 0.0f);
+    extern GLuint grassAtlasTex(); glBindTextureUnit(27, grassAtlasTex());
+  } glUniform4fv(U(p, "uFogBox"), 1, glm::value_ptr(fogBox));
   glUniform1f(U(p, "uCloudK"), thumbMode ? 0.0f : wx.k); glUniform1f(U(p, "uCloudSeed"), wx.seed); { vec2 cw = wx.wind * wx.der.windK; glUniform2fv(U(p, "uCloudWind"), 1, glm::value_ptr(cw)); }   // W1: the deck drifts with the preset's wind
   glUniform1i(U(p, "uCloudShadowMap"), 13); glBindTextureUnit(13, cloudShTex);
   glUniform3fv(U(p, "uCloudShadowBox"), 1, glm::value_ptr(cloudShBox));
@@ -4745,8 +4993,12 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   }
   glUniform1i(U(p, "uSplitSum"), q.legacy || !perf.splitSum ? 0 : 1);   // CP step 3
   glUniform1i(U(p, "uAlbClamp"), q.legacy || !perf.albClamp ? 0 : 1);   // CP step 4
+  glUniform1i(U(p, "uWetOn"), q.legacy || !perf.wet || thumbMode ? 0 : 1); glUniform1f(U(p, "uWetTime"), (float)std::fmod(time, 3600.0));   // W3   // CP step 3
+  glUniform1i(U(p, "uMaskLib"), !q.legacy && perf.maskLib ? 1 : 0);   // CP step 6 part 2
+  glUniform1i(U(p, "uWearCause"), !q.legacy && q.matLayer > 0 && perf.wearCause ? 1 : 0);   // M4
+  glUniform2i(U(p, "uMicroOn"), !q.legacy && q.matLayer > 0 && perf.microDetail ? 1 : 0, !q.legacy && perf.roughVar ? 1 : 0);   // CP step 6 (micro detail off at Low)
   glUniform2f(U(p, "uHex"), q.legacy || !perf.hex || q.matLayer == 0 || hd <= 0 ? 0.0f : 1.0f, std::max(hd, 0.05f)); }   // M1: hex tiling (--rq-off hex; off at Low); NMK_HEX = cells per texture repeat
-  glUniform1f(U(p, "uHazeH"), lt.mapHazeH > 0.0f ? lt.mapHazeH : q.hazeHeight);   // FG1: a map's own haze scale height
+  glUniform1f(U(p, "uHazeH"), wx.der.phys && wx.der.visM < 3000.0f ? std::max(lt.mapHazeH > 0.0f ? lt.mapHazeH : q.hazeHeight, 600.0f) : lt.mapHazeH > 0.0f ? lt.mapHazeH : q.hazeHeight);   // W2: a storm's air fills the valley, not a thin ground layer   // FG1: a map's own haze scale height
   glUniform1f(U(p, "uTime"), time);
   lightingUniforms(*this, p);   // L2: local lights, light shadows, probe GI, sky extras
   sunDir = sunDirMap;   // the thumbnail studio sun never leaks back into the map
@@ -5104,12 +5356,192 @@ void Renderer::drawModelsDepth(GLuint p, const std::vector<ModelDraw>& items, co
 
 // NT8: model foliage. Instances are culled per model (bounding sphere), their matrices packed into one SSBO (binding 12),
 // then each part is one instanced draw; cutout parts alpha test (depth too), no back-face culling.
-void Renderer::drawFolModels(bool depth, const mat4& vp, const Frustum* fr, float minH) {
+// ---------------- CP3 octahedral impostors
+// CP3c: the atlases end block-compressed (albedo BC3, octahedral normal BC5, about 6.7 MB a species at 2048): a bake draws
+// RGBA8 (usable at once), reads its mips back and compresses them on a worker thread; the result replaces the RGBA8 pair
+// and is written to the per-user texture cache (texbc), keyed by the bake's content (mesh.bin, model.json), the part
+// range, the atlas size and the bake version, so a second load reads it instead of baking.
+static fs::path impCacheFile(const GpuModel* m, int first, int count, int atlas) {
+  if (!m || m->srcDir.empty()) return {};
+  const std::string a = userCacheContentStamp(m->srcDir / "mesh.bin"), b = userCacheContentStamp(m->srcDir / "model.json");
+  if (a.empty()) return {};
+  std::string key = "imp1|" + a + "|" + b + "|" + std::to_string(first) + "|" + std::to_string(count) + "|" + std::to_string(atlas) + (m->turned ? "|t" : "");
+  uint64_t x = 1469598103934665603ull; for (unsigned char c : key) { x ^= c; x *= 1099511628211ull; }
+  char nm[40]; std::snprintf(nm, sizeof nm, "imp_%016llx.bc", (unsigned long long)x);
+  return userCacheDir("texbc", "NMK_TEXBC_CACHE") / nm;
+}
+static GLuint impUpload(GLenum fmt, int w, const std::vector<std::vector<uint8_t>>& lv) {
+  GLuint t; glCreateTextures(GL_TEXTURE_2D, 1, &t); glTextureStorage2D(t, (GLsizei)lv.size(), fmt, w, w);
+  for (int L = 0, lw = w; L < (int)lv.size(); ++L, lw = std::max(1, lw / 2)) glCompressedTextureSubImage2D(t, L, 0, 0, lw, lw, fmt, (GLsizei)lv[L].size(), lv[L].data());
+  glTextureParameteri(t, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTextureParameteri(t, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTextureParameteri(t, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(t, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  return t;
+}
+// levels of RGBA8 (w x w, halving) -> BC3 (rg5: BC5 from r, g)
+static std::vector<std::vector<uint8_t>> impCompress(const std::vector<std::vector<uint8_t>>& src, int w, bool rg5) {
+  std::vector<std::vector<uint8_t>> out;
+  for (int L = 0, lw = w; L < (int)src.size(); ++L, lw = std::max(1, lw / 2)) {
+    const int bw = std::max(1, (lw + 3) / 4); std::vector<uint8_t> o((size_t)bw * bw * 16);
+    for (int by = 0; by < bw; ++by) for (int bx = 0; bx < bw; ++bx) {
+      uint8_t blk[64], rg[32];
+      for (int y = 0; y < 4; ++y) for (int x = 0; x < 4; ++x) {
+        const int sx = std::min(lw - 1, bx * 4 + x), sy = std::min(lw - 1, by * 4 + y); const uint8_t* p = &src[L][((size_t)sy * lw + sx) * 4];
+        std::memcpy(blk + (y * 4 + x) * 4, p, 4); rg[(y * 4 + x) * 2] = p[0]; rg[(y * 4 + x) * 2 + 1] = p[1];
+      }
+      uint8_t* d = &o[((size_t)by * bw + bx) * 16];
+      if (rg5) stb_compress_bc5_block(d, rg); else stb_compress_dxt_block(d, blk, 1, STB_DXT_NORMAL);
+    }
+    out.push_back(std::move(o));
+  }
+  return out;
+}
+static void impWrite(const fs::path& f, const std::array<float, 6>& g, int atlas, const std::vector<std::vector<uint8_t>>& a, const std::vector<std::vector<uint8_t>>& n) {
+  std::error_code ec; fs::create_directories(f.parent_path(), ec);
+  fs::path tmp = f; tmp += "." + std::to_string((unsigned long long)std::chrono::steady_clock::now().time_since_epoch().count()) + ".tmp";
+  { std::ofstream o(tmp, std::ios::binary); const uint32_t hd[4] = {0x31504D49u /* IMP1 */, (uint32_t)atlas, (uint32_t)a.size(), (uint32_t)n.size()};
+    o.write((const char*)hd, sizeof hd); o.write((const char*)g.data(), sizeof(float) * 6);
+    for (auto* v : {&a, &n}) for (auto& l : *v) { uint32_t s = (uint32_t)l.size(); o.write((const char*)&s, 4); o.write((const char*)l.data(), s); } }
+  fs::rename(tmp, f, ec);
+}
+static bool impRead(const fs::path& f, Renderer::Impostor& I) {
+  std::ifstream in(f, std::ios::binary); if (!in) return false;
+  uint32_t hd[4]; float g[6];
+  if (!in.read((char*)hd, sizeof hd) || hd[0] != 0x31504D49u || hd[1] < 256 || hd[1] > 4096 || hd[2] > 14 || hd[3] > 14 || !in.read((char*)g, sizeof g)) return false;
+  std::vector<std::vector<uint8_t>> lv[2];
+  for (int k = 0; k < 2; ++k) for (uint32_t L = 0; L < hd[2 + k]; ++L) { uint32_t s = 0; if (!in.read((char*)&s, 4) || s > (32u << 20)) return false; lv[k].emplace_back(s); if (!in.read((char*)lv[k].back().data(), s)) return false; }
+  I.c = vec3(g[0], g[1], g[2]); I.r = g[3]; I.fpx = g[4]; I.use = g[5];
+  I.alb = impUpload(0x83F3 /* GL_COMPRESSED_RGBA_S3TC_DXT5_EXT */, (int)hd[1], lv[0]); I.nrm = impUpload(GL_COMPRESSED_RG_RGTC2, (int)hd[1] / 2, lv[1]);
+  I.ready = true; return true;
+}
+const Renderer::Impostor* Renderer::impostorFor(const GpuModel* m, int first, int count) {
+  if (!progImp || !progImpBake || !m || !m->vao) return nullptr;
+  auto key = std::make_tuple(m, first, count);
+  auto it = impostors.find(key);
+  if (it != impostors.end()) return it->second.ready ? &it->second : nullptr;
+  if ((int)impostors.size() >= q.impMax) return nullptr;   // shortcut: the tier's species cap, first come; an LRU if maps need more
+  Impostor& I = impostors[key];
+  if (perf.impostorBC) { const fs::path f = impCacheFile(m, first, count, q.impAtlas); if (!f.empty() && impRead(f, I)) { userCacheTouch(f); logf("impostor: %p parts %d+%d from the cache", (const void*)m, first, count); return &I; } }
+  impWant.push_back(key); return nullptr;
+}
+
+void Renderer::impostorPoll() {   // CP3c: swap finished compressions in (the RGBA8 pair is freed)
+  for (auto& [k, I] : impostors) if (I.job.valid() && I.job.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+    ImpBC r = I.job.get();
+    if (r.w <= 0 || r.alb.empty() || r.nrm.empty()) { logf("impostor: compression failed (RGBA8 kept)"); continue; }
+    GLuint a = impUpload(0x83F3 /* GL_COMPRESSED_RGBA_S3TC_DXT5_EXT */, r.w, r.alb), n = impUpload(GL_COMPRESSED_RG_RGTC2, r.w / 2, r.nrm);
+    glDeleteTextures(1, &I.alb); glDeleteTextures(1, &I.nrm); I.alb = a; I.nrm = n;
+  }
+}
+
+void Renderer::impostorBakeSome() {
+  const int kAtlas = q.impAtlas, kN = 12, kF = kAtlas / kN, kNrm = kAtlas / 2;   // shortcut: a tier change keeps earlier bakes at their size
+  GLint prevFbo = 0, vpOld[4], dfOld = GL_LESS; glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevFbo); glGetIntegerv(GL_VIEWPORT, vpOld); glGetIntegerv(GL_DEPTH_FUNC, &dfOld);
+  const GLboolean cullOld = glIsEnabled(GL_CULL_FACE), blendOld = glIsEnabled(GL_BLEND), dtOld = glIsEnabled(GL_DEPTH_TEST);
+  if (!impFbo || impFboSize != kAtlas) {
+    if (impFbo) { glDeleteFramebuffers(1, &impFbo); glDeleteRenderbuffers(1, &impDepth); glDeleteTextures(1, &impNrmTmp); } else glCreateBuffers(1, &impBakeBuf);
+    glCreateFramebuffers(1, &impFbo); glCreateRenderbuffers(1, &impDepth); glNamedRenderbufferStorage(impDepth, GL_DEPTH_COMPONENT24, kAtlas, kAtlas);
+    glCreateTextures(GL_TEXTURE_2D, 1, &impNrmTmp); glTextureStorage2D(impNrmTmp, 1, GL_RGBA8, kAtlas, kAtlas); impFboSize = kAtlas; }
+  for (int done = 0; done < 2 && !impWant.empty(); ++done) {
+    auto key = impWant.back(); impWant.pop_back();
+    Impostor& I = impostors[key];
+    const GpuModel* m = std::get<0>(key); const int p0 = std::get<2>(key) < 0 ? 0 : std::get<1>(key), p1 = std::get<2>(key) < 0 ? (int)m->parts.size() : std::min((int)m->parts.size(), std::get<1>(key) + std::get<2>(key));
+    vec3 lo(FLT_MAX), hi(-FLT_MAX); for (int k = p0; k < p1; ++k) { lo = glm::min(lo, m->parts[k].bmin); hi = glm::max(hi, m->parts[k].bmax); }
+    if (lo.x > hi.x) continue;
+    I.c = 0.5f * (lo + hi); I.r = 0.5f * glm::length(hi - lo);
+    int lv = 1; while ((kAtlas >> lv) > 0) ++lv;
+    glCreateTextures(GL_TEXTURE_2D, 1, &I.alb); glTextureStorage2D(I.alb, lv, GL_RGBA8, kAtlas, kAtlas);
+    glNamedFramebufferTexture(impFbo, GL_COLOR_ATTACHMENT0, I.alb, 0); glNamedFramebufferTexture(impFbo, GL_COLOR_ATTACHMENT1, impNrmTmp, 0);
+    glNamedFramebufferRenderbuffer(impFbo, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, impDepth);
+    const GLenum bufs[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1}; glNamedFramebufferDrawBuffers(impFbo, 2, bufs);
+    if (glCheckNamedFramebufferStatus(impFbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) { logf("impostor: framebuffer incomplete"); continue; }
+    glBindFramebuffer(GL_FRAMEBUFFER, impFbo);
+    glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE); glClearDepth(1.0);
+    const float z4[4] = {0, 0, 0, 0}, n4[4] = {0.5f, 0.5f, 1.0f, 1.0f};   // n4: octahedral (0, 0, 1) = 0.5, 0.5
+    glViewport(0, 0, kAtlas, kAtlas); glDisable(GL_SCISSOR_TEST); glDepthMask(GL_TRUE);
+    glClearNamedFramebufferfv(impFbo, GL_COLOR, 0, z4); glClearNamedFramebufferfv(impFbo, GL_COLOR, 1, n4); glClearNamedFramebufferfv(impFbo, GL_DEPTH, 0, n4 + 3);
+    glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LESS); glDisable(GL_CULL_FACE); glDisable(GL_BLEND);
+    glUseProgram(progImpBake);
+    const vec4 inst[4] = {vec4(1, 0, 0, 0), vec4(0, 1, 0, 0), vec4(0, 0, 1, 0), vec4(0, 0, 0, 1)};   // identity, wind 0, no tint
+    glNamedBufferData(impBakeBuf, sizeof inst, inst, GL_STREAM_DRAW); glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 12, impBakeBuf);
+    const DrawLocs L = drawLocs(progImpBake);
+    glUniform1i(U(progImpBake, "uInstBase"), 0); glUniform1f(L.time, 0.0f); glUniform1f(L.wind, 0.0f); glUniform1i(L.alb, 2);
+    const GLint lCut = U(progImpBake, "uCutout"), lHas = U(progImpBake, "uHasAlb"), lBase = U(progImpBake, "uBase");
+    glBindVertexArray(m->vao);
+    for (int fy = 0; fy < kN; ++fy) for (int fx = 0; fx < kN; ++fx) {
+      vec2 e = vec2((fx + 0.5f) / kN, (fy + 0.5f) / kN) * 2.0f - 1.0f; float x = (e.x - e.y) * 0.5f, z = (e.x + e.y) * 0.5f;
+      vec3 d = glm::normalize(vec3(x, 1.0f - std::abs(x) - std::abs(z), z));   // kImpFS hoDec
+      vec3 rF = glm::normalize(glm::cross(vec3(0, 1, 0), d)), uF = glm::cross(d, rF);
+      mat4 VP = glm::ortho(-I.r, I.r, -I.r, I.r, 0.01f, 4.0f * I.r) * glm::lookAt(I.c + d * (2.0f * I.r), I.c, uF);
+      glViewport(fx * kF, fy * kF, kF, kF);
+      glUniformMatrix4fv(L.vp, 1, GL_FALSE, glm::value_ptr(VP));
+      for (int pi = p0; pi < p1; ++pi) {
+        const auto& pt = m->parts[pi];
+        const int mi = pt.mat >= 0 && pt.mat < (int)m->mats.size() ? pt.mat : -1;
+        const GLuint alb = mi >= 0 ? m->mats[mi].alb : 0;
+        glBindTextureUnit(2, alb); glUniform1i(lHas, alb ? 1 : 0); glUniform1i(lCut, pt.cutout && alb ? 1 : 0); glUniform4fv(lBase, 1, glm::value_ptr(pt.base));
+        glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u), 1);
+      }
+    }
+    glGenerateTextureMipmap(I.alb);
+    int lvN = 1; while ((kNrm >> lvN) > 0) ++lvN;   // normals at half resolution (lower frequency)
+    glCreateTextures(GL_TEXTURE_2D, 1, &I.nrm); glTextureStorage2D(I.nrm, lvN, GL_RGBA8, kNrm, kNrm);
+    GLuint rf = 0; glCreateFramebuffers(1, &rf); glNamedFramebufferTexture(rf, GL_COLOR_ATTACHMENT0, I.nrm, 0);
+    glNamedFramebufferReadBuffer(impFbo, GL_COLOR_ATTACHMENT1);
+    glBlitNamedFramebuffer(impFbo, rf, 0, 0, kAtlas, kAtlas, 0, 0, kNrm, kNrm, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    glDeleteFramebuffers(1, &rf); glGenerateTextureMipmap(I.nrm);
+    for (GLuint t : {I.alb, I.nrm}) { glTextureParameteri(t, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTextureParameteri(t, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                                       glTextureParameteri(t, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(t, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); }
+    I.fpx = (float)kF; I.use = kN * (float)kF / kAtlas;
+    I.ready = true; logf("impostor: baked %p parts %d-%d (r %.1f m, %d atlas)", (const void*)m, p0, p1, I.r, kAtlas);
+    if (perf.impostorBC) {   // CP3c: read the RGBA8 mips back (one stall per species), compress and cache on a worker
+      auto readLv = [](GLuint t, int w, int lv) { std::vector<std::vector<uint8_t>> o; for (int L = 0, lw = w; L < lv; ++L, lw = std::max(1, lw / 2)) {
+        o.emplace_back((size_t)lw * lw * 4); glGetTextureImage(t, L, GL_RGBA, GL_UNSIGNED_BYTE, (GLsizei)o.back().size(), o.back().data()); } return o; };
+      auto a = std::make_shared<std::vector<std::vector<uint8_t>>>(readLv(I.alb, kAtlas, lv)), n = std::make_shared<std::vector<std::vector<uint8_t>>>(readLv(I.nrm, kNrm, lvN));
+      const fs::path cf = impCacheFile(m, std::get<1>(key), std::get<2>(key), kAtlas); const std::array<float, 6> head = {I.c.x, I.c.y, I.c.z, I.r, (float)kF, kN * (float)kF / kAtlas};
+      try {   // under memory pressure: no worker (std::system_error) or a failed job (bad_alloc) keeps the RGBA8 pair, never a crash
+        I.job = std::async(std::launch::async, [a, n, cf, head, kAtlas, kNrm]() noexcept {
+          ImpBC r;
+          try { r.alb = impCompress(*a, kAtlas, false); r.nrm = impCompress(*n, kNrm, true); if (!cf.empty()) impWrite(cf, head, kAtlas, r.alb, r.nrm); r.w = kAtlas; }
+          catch (...) { r = ImpBC(); }
+          return r; });
+      } catch (...) { logf("impostor: no compression worker (RGBA8 kept)"); }
+    }
+  }
+  glBindVertexArray(0); glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFbo); glViewport(vpOld[0], vpOld[1], vpOld[2], vpOld[3]);
+  glDepthFunc((GLenum)dfOld); if (cullOld) glEnable(GL_CULL_FACE); if (blendOld) glEnable(GL_BLEND); if (!dtOld) glDisable(GL_DEPTH_TEST);
+}
+
+void Renderer::drawImpostors(const RenderView& v, const mat4& vp, const Frustum& fr) {
+  std::map<const Impostor*, std::vector<vec4>> by;
+  for (auto& d : impDraws) {
+    if (!d.imp || !fr.sphere(d.c, d.r)) continue;
+    auto& b = by[d.imp]; b.push_back(vec4(d.c, d.r)); b.push_back(vec4(d.yaw, d.dither, 0, 0)); b.push_back(d.tint);
+  }
+  if (by.empty()) return;
+  setLighting(progImp, v);
+  glUniformMatrix4fv(U(progImp, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+  glUniform1i(U(progImp, "uImpAlb"), 2); glUniform1i(U(progImp, "uImpNrm"), 4); const GLint lUse = U(progImp, "uImpUse");
+  if (!impInstBuf) glCreateBuffers(1, &impInstBuf);
+  glDisable(GL_CULL_FACE); glBindVertexArray(snowfallVao);
+  for (auto& [I, b] : by) {
+    const size_t bytes = b.size() * sizeof(vec4);
+    if (impInstBytes < bytes) { glDeleteBuffers(1, &impInstBuf); glCreateBuffers(1, &impInstBuf); impInstBytes = std::max(bytes, impInstBytes * 2); glNamedBufferData(impInstBuf, impInstBytes, nullptr, GL_STREAM_DRAW); }
+    glNamedBufferSubData(impInstBuf, 0, bytes, b.data()); glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 13, impInstBuf);
+    glBindTextureUnit(2, I->alb); glBindTextureUnit(4, I->nrm); glUniform1f(lUse, I->use);
+    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)(b.size() / 3));
+    stats.draws++; stats.tris += (int)(b.size() / 3) * 2;
+  }
+  glBindVertexArray(0); glEnable(GL_CULL_FACE);
+}
+
+void Renderer::drawFolModels(bool depth, const mat4& vp, const Frustum* fr, float minH, bool shadowLod) {
   if (folModels.empty()) return;
-  struct Key { const GpuModel* m; int first, count; bool operator<(const Key& o) const { return std::tie(m, first, count) < std::tie(o.m, o.first, o.count); } };
+  struct Key { const GpuModel* m; int first, count; float dith; bool operator<(const Key& o) const { return std::tie(m, first, count, dith) < std::tie(o.m, o.first, o.count, o.dith); } };
   std::map<Key, std::vector<const FolModelDraw*>> by;
-  for (auto& d : folModels) {
-    if (!d.model || !d.model->vao) continue;
+  std::vector<FolModelDraw> swapped;   // CP5: the mid cascade's fixed far level
+  if (shadowLod) { swapped = folModels; for (auto& d : swapped) if (d.shadowModel) { d.model = d.shadowModel; d.first = d.sFirst; d.count = d.sCount; } }
+  for (auto& d : shadowLod ? swapped : folModels) {
+    if (!d.model || !d.model->vao || (d.shadowOnly && (!depth || minH <= 0))) continue;   // CP3: a tree drawn as an impostor still casts
     vec3 lo = d.model->bmin, hi = d.model->bmax;
     if (d.count >= 0) {   // VR1: a range of parts (one ivy piece): its own bounds
       lo = vec3(FLT_MAX); hi = vec3(-FLT_MAX);
@@ -5119,7 +5551,7 @@ void Renderer::drawFolModels(bool depth, const mat4& vp, const Frustum* fr, floa
     if (minH > 0 && (hi.y - lo.y) * glm::length(vec3(d.m[1])) < minH && !(d.cast && minH < 2.0f)) continue;   // ferns / grass do not cast into this cascade
     if (fr) { vec3 c = vec3(d.m * vec4(0.5f * (lo + hi), 1)); float r = 0.5f * glm::length(vec3(d.m * vec4(hi - lo, 0)));
               if (!fr->sphere(c, r)) { stats.culled++; continue; } }
-    by[{d.model, d.count >= 0 ? d.first : 0, d.count}].push_back(&d);
+    by[{d.model, d.count >= 0 ? d.first : 0, d.count, d.dither}].push_back(&d);
   }
   std::vector<vec4> buf; std::vector<std::pair<Key, std::pair<int, int>>> runs;
   for (auto& [m, v] : by) {
@@ -5146,11 +5578,11 @@ void Renderer::drawFolModels(bool depth, const mat4& vp, const Frustum* fr, floa
   glUniform1i(L.alb, 2);
   if (!depth) { glUniform1i(L.mr, 3); glUniform1i(L.nrm, 4); glUniform1i(L.ao, 5); glUniform4f(L.tint, 1, 1, 1, 1); glUniform1f(L.thin, 0); glUniform1i(U(p, "uGlass"), 0); glUniform1f(U(p, "uAlbFloor"), 0);
                 glUniform3fv(U(p, "uIvyStem"), 1, glm::value_ptr(ivyStem)); glUniform2fv(U(p, "uIvyRef"), 1, glm::value_ptr(ivyRef)); }
-  GLint lCut = U(p, "uCutout"), lBase = U(p, "uInstBase");
+  GLint lCut = U(p, "uCutout"), lBase = U(p, "uInstBase"), lDith = U(p, "uDither");
   glDisable(GL_CULL_FACE);
   for (auto& [key, rn] : runs) {
     const GpuModel* m = key.m;
-    glBindVertexArray(m->vao); glUniform1i(lBase, rn.first);
+    glBindVertexArray(m->vao); glUniform1i(lBase, rn.first); glUniform1f(lDith, key.dith);
     int boundMat = -2;
     const int p0 = key.first, p1 = key.count < 0 ? (int)m->parts.size() : std::min((int)m->parts.size(), key.first + key.count);
     for (int pi = p0; pi < p1; ++pi) {
@@ -5427,7 +5859,7 @@ void Renderer::gpuMark(int p) {
 void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<DrawItem>& opaque,
                       const std::vector<DrawItem>& glass, const std::vector<DrawItem>& ghosts, const Overlay& ov) {
   auto c0 = std::chrono::high_resolution_clock::now();
-  for (GLuint pg : {progLeaf, progLeafI, progGrass, progFolModel}) if (pg) {   // FL1 greenery (App::greenery); VO A1 hashed alpha under TAA
+  for (GLuint pg : {progLeaf, progLeafI, progGrass, progFolModel, progImp}) if (pg) {   // FL1 greenery (App::greenery); VO A1 hashed alpha under TAA
     glProgramUniform4fv(pg, U(pg, "uGreen"), 1, glm::value_ptr(green)); glProgramUniform4fv(pg, U(pg, "uGreenK"), 1, glm::value_ptr(greenK));
     static const float hashSpread = std::getenv("NMK_HASH_SPREAD") ? float(std::atof(std::getenv("NMK_HASH_SPREAD"))) : 0.2f;   // A1: dither width of the cut-out threshold (0.8 stippled stills under the TAA clamp; 0.35 / 0.2 look as off)
     glProgramUniform1f(pg, U(pg, "uHashAlpha"), perf.hashAlpha && q.taa && !thumbMode ? hashSpread : 0.0f); glProgramUniform1i(pg, U(pg, "uFrame"), frame);
@@ -5442,6 +5874,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       glProgramUniform4f(pg, U(pg, "uWindP"), float(windClock), float(windClockPrev), windGustL(), windGustG());
     }
   }
+  if (!impWant.empty() && !thumbMode) impostorBakeSome();   // CP3: queued impostor bakes, 2 a frame
+  if (!impostors.empty()) impostorPoll();
   if (displayW > 0) {   // P1: the internal size follows effScale() (the taau switch can flip it between frames: A/B)
     int iw = std::max(16, (int)std::lround(displayW * effScale())), ih = std::max(16, (int)std::lround(displayH * effScale()));
     if (iw != width || ih != height) { width = iw; height = ih; createTargets(); }
@@ -5450,6 +5884,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   // shadow cascades and sky occlusion: standard depth; the camera passes below switch to reverse-Z
   glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE); glClearDepth(1.0);
   RenderView v = v0;
+  thorTex = perf.terrainHorizon && !thumbMode ? t.horizonSync(sunDir) : 0;   // VOT T6 (bakes on a new map, a new sun band, or after edits)
+  thorMap = t.horizonMap(); thorW = t.horizonWeights(sunDir);
   v.proj = reverseZ(v0.proj);
   if (v0.vmProj[2][3] != 0.0f) v.vmProj = reverseZ(v0.vmProj);
   stats.draws = 0; stats.tris = 0; stats.culled = 0; stats.casterCulled = 0; stats.shadowDraws = 0; stats.foliageDraws = 0; stats.instDrawn = 0;
@@ -5559,7 +5995,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPMid)); depthVP = lightVPMid;
       drawItems(progShadow, opaque, true, &frMid);
       if (!foliage.empty()) drawFoliage(progLeafShadow, lightVPMid, &frMid, false, perf.leafShadowLod ? 0.0f : -1.0f);
-      if (!folModels.empty()) { drawFolModels(true, lightVPMid, &frMid, 4.0f); glUseProgram(progShadow); }   // trees only, as in the far cascade
+      if (!folModels.empty()) { drawFolModels(true, lightVPMid, &frMid, 4.0f, perf.vegCascades); glUseProgram(progShadow); }   // trees only, as in the far cascade (CP5: from their far level)
       if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frMid);
       minCaster = 0;
     }
@@ -5580,6 +6016,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   const size_t nStat = std::min(opaqueStatic, opaque.size());
   const bool cacheOn = perf.shadowCache && perf.farCache && farStaticFbo;
   uint64_t fsig = 1469598103934665603ull;
+  const bool vegFar = !(perf.vegCascades && midOn);   // CP5 (corpus 09 s3.5): vegetation in the two nearest cascades only while the mid one is drawn
   if (cacheOn) {
     auto mix = [&](uint64_t x) { fsig = (fsig ^ x) * 1099511628211ull; };
     auto fb = [](float f) { uint32_t u; std::memcpy(&u, &f, 4); return (uint64_t)u; };
@@ -5589,7 +6026,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       mix((fb(it.model[3].x) << 32) | fb(it.model[3].z)); mix((fb(it.model[3].y) << 32) | fb(it.model[0].x)); mix((fb(it.model[1].y) << 32) | fb(it.model[2].x));
     }
     for (auto& f : foliage) { mix((uint64_t)(uintptr_t)f.tree); mix((fb(f.m[3].x) << 32) | fb(f.m[3].z)); mix((fb(f.m[3].y) << 32) | (uint64_t)std::max<int>(f.cur, 3)); }
-    mix((uint64_t)nStat); mix(perf.casterCull | perf.smallCasters << 1 | perf.farLeaf << 2 | perf.leafShadowLod << 3 | perf.instDepth << 4);
+    mix((uint64_t)nStat); mix(perf.casterCull | perf.smallCasters << 1 | perf.farLeaf << 2 | perf.leafShadowLod << 3 | perf.instDepth << 4 | (uint64_t)vegFar << 5);
   }
   const bool farCadence = frame - farFrame >= std::max(perf.farLite ? 4 : 1, q.farEvery);   // OPT farlite: the far cascade at most every 4th frame
   const bool farMoved = fR != farR || glm::distance(ffw, farFocus) > 8.0f || sunDir != farSun;
@@ -5613,7 +6050,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       if (cacheOn) itemHi = (uint32_t)nStat;
       drawItems(progShadow, opaque, true, &frFar);
       itemHi = UINT32_MAX;
-      if (!foliage.empty()) drawFoliage(progLeafShadow, lightVPFar, &frFar, false, perf.leafShadowLod ? 0.0f : -1.0f);
+      if (!foliage.empty() && vegFar) drawFoliage(progLeafShadow, lightVPFar, &frFar, false, perf.leafShadowLod ? 0.0f : -1.0f);
       farSig = fsig;
     }
     if (cacheOn) {   // the live map: the static layer, then what moves
@@ -5627,7 +6064,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       farHadDyn = farDyn;
     }
     glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
-    if (!folModels.empty()) { drawFolModels(true, lightVPFar, &frFar, 4.0f); glUseProgram(progShadow); }   // NT8: trees only
+    if (!folModels.empty() && vegFar) { drawFolModels(true, lightVPFar, &frFar, 4.0f); glUseProgram(progShadow); }   // NT8: trees only
     if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frFar);
     minCaster = 0;
   }
@@ -5711,11 +6148,29 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glDepthMask(GL_TRUE); glDepthFunc(zLess());   // the world's depth state (drawSky leaves it too; sky-last must set it here)
   auto drawTerrain = [&]() {
     gpuMark(GP_Terrain);
+    {   // W5 tdust (weather corpus 06, saltation): streamer strength drive(u) = clamp(((u - u_t) / (u_full - u_t))^3, 0, 1), u_t 5.5 m/s,
+        // full by 14 m/s, on above u_t and off below 0.8 u_t (hysteresis); gusts from the shared state; arid maps only
+      using clk = std::chrono::steady_clock; static clk::time_point last = clk::now(); static double tAcc = 0;
+      const double dt = std::min(0.1, std::chrono::duration<double>(clk::now() - last).count()); last = clk::now(); tAcc += dt;
+      const auto& ws = wx.st; const float gp = std::max(1.0f, ws.gustPeriodS);
+      const float u = ws.windMs * (1.0f + (ws.gust - 1.0f) * 0.5f * (1.0f + (float)std::sin(6.2831853 * tAcc / gp)));
+      const float ut = 5.5f, uf = 14.0f;
+      dustOn = u > ut || (dustOn && u > 0.8f * ut);
+      float k = dustOn ? std::clamp((u - 0.8f * ut) / (uf - 0.8f * ut), 0.0f, 1.0f) : 0.0f; k = k * k * k;
+      if (ws.dustVisM > 0) k = std::max(k, 0.35f);   // Blowing dust / Sandstorm: always streaming
+      const bool arid = groundPaintArid();
+      vec2 dir = glm::length(wx.der.windXZ) > 1e-3f ? glm::normalize(wx.der.windXZ) : vec2(std::sin(glm::radians(ws.windDirDeg)), std::cos(glm::radians(ws.windDirDeg)));
+      dustPhase = std::fmod(dustPhase + (float)dt * 0.35f * u, 4096.0f);   // the ribbons travel at about a third of the wind
+      dustU = vec4(dir, perf.terrainDust && arid && !thumbMode ? k : 0.0f, dustPhase);
+    }
     const GLuint progTN = perf.terrainEarlyZ ? progTerrainND : 0;   // PF: tzearly
     for (GLuint progTerrain : {this->progTerrain, progTN}) { if (!progTerrain) continue;   // the same set-up for both terrain shaders
     setLighting(progTerrain, v);
     glUniformMatrix4fv(U(progTerrain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
     glUniform1i(U(progTerrain, "uGrid"), v.grid ? 1 : 0);
+    { vec3 gc(0); float gk = 0; vec2 gr(0, 1);   // CP4 grasstint
+      if (perf.grassTint && grass && !thumbMode && grass->meanTop(gc)) { const GrassPreset& P = grassPreset(grass->quality); if (P.radius > 0) { gk = 0.5f; gr = vec2(P.nearR, P.radius); } }
+      glUniform4f(U(progTerrain, "uGrassTop"), gc.r, gc.g, gc.b, gk); glUniform2f(U(progTerrain, "uGrassTopR"), gr.x, gr.y); }
     terrainCacheBind(t, progTerrain);
     glEnable(GL_CULL_FACE); glCullFace(GL_BACK);
     { extern bool gGroundPaintPerf; gGroundPaintPerf = perf.groundPaint; }
@@ -5734,8 +6189,9 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       glProgramUniform1f(progTerrain, glGetUniformLocation(progTerrain, "uGroundSpec"), ggOff ? 1.0f : dspec);
     }
     { static const int dbg = std::getenv("NMK_DBG_TERRAIN") ? std::atoi(std::getenv("NMK_DBG_TERRAIN")) : 0; glProgramUniform1i(progTerrain, glGetUniformLocation(progTerrain, "uDbgTerr"), dbgTerr >= 0 ? dbgTerr : dbg); }   // GG1 measurement
+    glProgramUniform4fv(progTerrain, glGetUniformLocation(progTerrain, "uDust"), 1, glm::value_ptr(dustU));   // W5 tdust
     }
-    t.drawOpts.normals = perf.terrainNormals; t.drawOpts.morph = perf.terrainMorph; t.drawOpts.skyView = perf.terrainSkyView;   // VOT T1 / T5
+    t.drawOpts.normals = perf.terrainNormals; t.drawOpts.morph = perf.terrainMorph; t.drawOpts.skyView = perf.terrainSkyView; t.drawOpts.tileLod = perf.terrainTileLod;   // VOT T1 / T5 / T2
     // PF terrain: samples the terrain pass wrote, read a ring slot later (the shaded-fragment count is the bench's fragment query, gpuMark)
     if (!terrQ[0][1]) for (auto& q : terrQ) glCreateQueries(GL_SAMPLES_PASSED, 1, &q[1]);
     if (terrQn >= 2) { GLuint64 b = 0; GLint ok = 0; glGetQueryObjectiv(terrQ[terrQi][1], GL_QUERY_RESULT_AVAILABLE, &ok); if (ok) { glGetQueryObjectui64v(terrQ[terrQi][1], GL_QUERY_RESULT, &b); stats.terrSamples = (double)b; } }
@@ -5806,6 +6262,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     drawFolModels(false, vp, &frMain);
     if (pre) { glDepthFunc(zLess()); glDepthMask(GL_TRUE); }
   }
+  if (!impDraws.empty() && !thumbMode) drawImpostors(v, vp, frMain);   // CP3
   gpuMark(GP_Trees);
   // tree canopies (double sided, alpha tested)
   if (!foliage.empty() && perf.koTrees) {
@@ -5870,7 +6327,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       glUniform1i(U(pg, "uGAOn"), perf.grassAtlas && grassAtlasReady && grassAtlasTier);   // GT1 grass plant atlas (off at Low)
       { int n = (int)std::min<size_t>(16, grassVeh.size() / 2); glUniform1i(U(pg, "uVehN"), n); if (n) glUniform4fv(U(pg, "uVeh"), 2 * n, glm::value_ptr(grassVeh[0])); }   // TK3
     };
-    const bool pre = perf.vegPrepass && progGrassPre;
+    const bool pre = perf.grassPrepass && progGrassPre;
     if (pre) {   // CP1: blades' depth first (kGrassFS's own cut-outs), then each covered pixel is shaded once at GL_EQUAL
       glNamedFramebufferDrawBuffer(worldFbo, GL_NONE);
       grassUni(progGrassPre); preHash({progGrassPre}, true);
@@ -6011,12 +6468,18 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       glBindVertexArray(0);
     }
   }
-  if (perf.leafDrift && q.leafDriftN > 0 && !thumbMode && !v.thermal && !v.underwater && !lt.mapLeafless && progLeafDrift && snowfallVao) {   // WS2 drifting leaves
+  if ((perf.leafDrift || perf.pollen) && q.leafDriftN > 0 && !thumbMode && !v.thermal && !v.underwater && progLeafDrift && snowfallVao) {   // WS2 drifting leaves, WS3 pollen
     // how wooded the eye's surroundings are: standing card trees (broadleaf, orchard) within 30 m, eased over ~2 s
     int nT = 0; for (auto& f : foliage) if (f.tree) { vec3 d = vec3(f.m[3]) - v.camPos; if (d.x * d.x + d.z * d.z < 900.0f) ++nT; }
-    leafDriftK += (std::clamp(nT / 10.0f, 0.0f, 1.0f) - leafDriftK) * std::clamp(v.dt * 0.5f, 0.0f, 1.0f);
-    const int n = (int)(q.leafDriftN * leafDriftK);
-    if (n > 0) {
+    leafDriftK += (std::clamp((nT - 4) / 26.0f, 0.0f, 1.0f) - leafDriftK) * std::clamp(v.dt * 0.5f, 0.0f, 1.0f);
+    const int n = perf.leafDrift && !lt.mapLeafless ? (int)(q.leafDriftN * leafDriftK) : 0;
+    // WS3 pollen: dry, mild days in daylight, over standing grass (this frame's drawn clumps), Medium 600 / High 1500
+    { extern bool snowLayerOn(); static float lastT = -999.0f; static int lastP = -1;
+      if (perf.pollen && (wx.st.tempC != lastT || wx.st.precip != lastP)) { lastT = wx.st.tempC; lastP = wx.st.precip; logf("pollen gate: tempC %.1f, precip %d, leafless %d, snow layer %d", lastT, lastP, (int)lt.mapLeafless, (int)snowLayerOn()); }
+      pollenOk = !lt.mapLeafless && !snowLayerOn(); }   // winter maps: no pollen, whatever the temperature says
+    pollenK += ((perf.pollen && pollenOk && wx.st.precip == WxNone && wx.st.tempC > 5.0f && sunDir.y > 0.05f && grass ? std::clamp(grass->lastDrawnClumps / 3000.0f, 0.0f, 1.0f) : 0.0f) - pollenK) * std::clamp(v.dt * 0.5f, 0.0f, 1.0f);
+    const int np = (int)(q.leafDriftN * 0.75f * pollenK);
+    if (n > 0 || np > 0) {
       const GLboolean blendWas = glIsEnabled(GL_BLEND), cullWas = glIsEnabled(GL_CULL_FACE);
       glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE); glDisable(GL_BLEND); glEnable(GL_DEPTH_TEST);
       setLighting(progLeafDrift, v);
@@ -6031,7 +6494,14 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       glUniformMatrix4fv(U(progLeafDrift, "uOccVP"), 1, GL_FALSE, glm::value_ptr(occVP));
       glUniform1f(U(progLeafDrift, "uOccTop"), occTop); glUniform1f(U(progLeafDrift, "uOccRange"), occRange); glUniform1i(U(progLeafDrift, "uOccOn"), 1);
       glBindVertexArray(snowfallVao);
-      glDrawArraysInstanced(GL_TRIANGLES, 0, 6, n);
+      if (n > 0) glDrawArraysInstanced(GL_TRIANGLES, 0, 6, n);
+      if (np > 0) {
+        glUniform4f(U(progLeafDrift, "uLD"), (float)np, 12.0f, float(windDrift.x), float(windDrift.y));
+        glUniform4f(U(progLeafDrift, "uLD2"), camIndoor ? 1.0f : 0.0f, 1.0f, 0, 0);
+        glUniform3fv(U(progLeafDrift, "uCamRight"), 1, glm::value_ptr(vec3(glm::inverse(v.view)[0])));
+        glUniform3fv(U(progLeafDrift, "uCamUp"), 1, glm::value_ptr(vec3(glm::inverse(v.view)[1])));
+        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, np);
+      }
       glBindVertexArray(0);
       if (cullWas) glEnable(GL_CULL_FACE); if (blendWas) glEnable(GL_BLEND);
     }
@@ -6157,7 +6627,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   const bool gradeOn = grade.on && perf.grade && !q.legacy && !thumbMode && !lt.mapClean;   // BR2: a clean map keeps its own colours (the cool-shadow grade turned yellow olive)
   auto gradeU = [&](GLuint p) {
     glUniform1i(U(p, "uGradeOn"), gradeOn ? 1 : 0);
-    glUniform1f(U(p, "uWxK"), thumbMode ? 0.0f : wx.k);
+    glUniform1i(U(p, "uPhysGrade"), perf.physGrade && q.lightPhys && q.lightNew && !q.legacy && !thumbMode ? 1 : 0);   // CP2
+    glUniform1f(U(p, "uWxK"), thumbMode ? 0.0f : wx.k); glUniform1f(U(p, "uWxDark"), wx.der.phys ? 0.0f : 1.0f);
     glUniform1f(U(p, "uMapSat"), thumbMode ? 1.0f : lt.mapSat); glUniform3fv(U(p, "uMapTint"), 1, glm::value_ptr(thumbMode ? vec3(1.0f) : lt.mapTint));
     glUniform1f(U(p, "uNightGamma"), 1.0f / (1.0f + 0.3f * lightingTod(lt.hour).nightK) / settings().gamma());   // x the Settings gamma slider   // night: gamma +30 % (user request)
     glUniform1f(U(p, "uMapGamma"), std::max(lt.mapGamma, 0.1f));   // BR1c: the map's own gamma (extra.lighting.gamma)
@@ -6308,6 +6779,20 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   }
   // composite into hdrColor from a copy of it
   glCopyImageSubData(hdrColor, GL_TEXTURE_2D, 0, 0, 0, 0, sceneCopy, GL_TEXTURE_2D, 0, 0, 0, 0, width, height, 1);
+  const bool ssrHalf = ssr && perf.ssrHalf && progSsrHalf && ssrTex;
+  if (ssrHalf) {   // OPT ssrhalf: the reflection march at a quarter of the pixels; the composite upsamples it by depth
+    glBindFramebuffer(GL_FRAMEBUFFER, ssrFbo); glViewport(0, 0, std::max(1, width / 2), std::max(1, height / 2));
+    glUseProgram(progSsrHalf);
+    glBindTextureUnit(8, sceneCopy); glBindTextureUnit(7, depthTex);
+    glUniform1i(U(progSsrHalf, "uScene"), 8); glUniform1i(U(progSsrHalf, "uDepth"), 7);
+    setLighting(progSsrHalf, v); glUseProgram(progSsrHalf);
+    glBindTextureUnit(12, nrTex); glUniform1i(U(progSsrHalf, "uNR"), 12);
+    glUniform1f(U(progSsrHalf, "uSsrAmt"), q.ssrStrength); glUniform1f(U(progSsrHalf, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f);
+    glUniformMatrix4fv(U(progSsrHalf, "uProj"), 1, GL_FALSE, glm::value_ptr(v.proj));
+    glUniformMatrix4fv(U(progSsrHalf, "uView"), 1, GL_FALSE, glm::value_ptr(v.view));
+    glUniformMatrix4fv(U(progSsrHalf, "uInvProj"), 1, GL_FALSE, glm::value_ptr(invP));
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+  }
   glBindFramebuffer(GL_FRAMEBUFFER, compFbo); glInvalidateNamedFramebufferData(compFbo, 1, kInvC0);   // rebuilt from sceneCopy
   glViewport(0, 0, width, height);
   glUseProgram(progComposite);
@@ -6322,7 +6807,19 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   setLighting(progComposite, v);   // sky model + noise for the reflection estimate
   glUseProgram(progComposite);
   glBindTextureUnit(12, nrTex); glUniform1i(U(progComposite, "uNR"), 12);
-  glUniform1f(U(progComposite, "uSsrAmt"), ssr ? q.ssrStrength : 0.0f); glUniform1f(U(progComposite, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f);   // OPT ssrrange: no march past 0.75 x visibility
+  glUniform1i(U(progComposite, "uSsrHalf"), ssrHalf ? 1 : 0); glBindTextureUnit(3, ssrHalf ? ssrTex : 0); glUniform1i(U(progComposite, "uSsrTex"), 3);   // unit 3: model material maps, rebound per draw
+  glUniform2f(U(progComposite, "uSsrTexel"), 2.0f / width, 2.0f / height);
+  glUniform1f(U(progComposite, "uSsrAmt"), ssr ? q.ssrStrength : 0.0f);
+  {   // W5 wxshimmer gate (terrain session's spec): arid map, sun > 25 deg, cover < 0.3, wind < 4.5 m/s (fading from 3), dry, no dust storm
+    extern bool groundPaintArid();
+    float g = perf.wxShimmer && !thumbMode && !q.legacy && groundPaintArid() && sunDir.y > 0.4226f && wx.st.cover < 0.3f && wx.st.precip == WxNone && wx.st.dustVisM <= 0.0f ? 1.0f : 0.0f;
+    g *= 1.0f - glm::smoothstep(3.0f, 4.5f, wx.st.windMs);
+    g *= 0.5f + 0.5f * glm::clamp((wx.st.tempC - 20.0f) / 15.0f, 0.0f, 1.0f);
+    const float pitch = std::asin(glm::clamp(-v.view[1][2], -1.0f, 1.0f));   // camera forward's y (view row 2 negated)
+    g *= std::max(0.0f, 1.0f - std::fabs(glm::degrees(pitch)) / 20.0f);
+    const float mag = std::max(1.0f, v.proj[1][1] / 1.43f);   // a scope's zoom (narrower than the ~70 deg view) scales the wobble
+    shimmerPx = 2.0f * (height / 1080.0f) * g * mag;
+  } glUniform1f(U(progComposite, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f);   // OPT ssrrange: no march past 0.75 x visibility
   glUniformMatrix4fv(U(progComposite, "uProj"), 1, GL_FALSE, glm::value_ptr(v.proj));
   glUniformMatrix4fv(U(progComposite, "uView"), 1, GL_FALSE, glm::value_ptr(v.view));
   glUniformMatrix4fv(U(progComposite, "uInvProj"), 1, GL_FALSE, glm::value_ptr(invP));

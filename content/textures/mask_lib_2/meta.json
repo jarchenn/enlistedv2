@@ -1,0 +1,18 @@
+{
+ "set": "mask_lib_2",
+ "family": "mask library (CP step 6)",
+ "size": [
+  2.0,
+  2.0
+ ],
+ "license": "CC0 1.0 Universal",
+ "credit": "derived from ambientCG CC0 sets: rb_metal_leaks, rb_metal_leaks_b, concrete_stained",
+ "channels": {
+  "r": "rb_metal_leaks",
+  "g": "rb_metal_leaks_b",
+  "b": "concrete_stained"
+ },
+ "maps": [
+  "color.jpg"
+ ]
+}

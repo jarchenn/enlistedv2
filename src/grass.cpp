@@ -11,6 +11,8 @@
 // GT1 grass plant atlas (docs/grass-atlas.md): content/textures/grass_atlas (tools/pack_grass_atlas.mjs, Poly Haven
 // grass_bermuda_01 / grass_medium_01, CC0) as one sRGB GL_TEXTURE_2D_ARRAY on unit 27 with coverage-preserving mips,
 // and the per-cell / per-species tables of kGrassVS. false: the procedural blades stay (missing or invalid files).
+static GLuint gAtlasTex = 0;
+GLuint grassAtlasTex() { return gAtlasTex; }   // unit 27 (setLighting rebinds it after the fog field)
 bool grassAtlasInit(GLuint progMain, GLuint progShadow, GLuint progPre) {
   constexpr int kUnit = 27, kMaxCells = 32, kMaxIdx = 48;
   fs::path dir = contentDir() / "textures" / "grass_atlas";
@@ -37,7 +39,7 @@ bool grassAtlasInit(GLuint progMain, GLuint progShadow, GLuint progPre) {
   glTextureParameteri(tex, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTextureParameteri(tex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTextureParameteri(tex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(tex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glTextureParameterf(tex, 0x84FE /* GL_TEXTURE_MAX_ANISOTROPY */, 4.0f);
-  glBindTextureUnit(kUnit, tex);
+  glBindTextureUnit(kUnit, tex); gAtlasTex = tex;
   std::vector<float> cell(kMaxCells * 4, 0.0f), mean(kMaxCells * 3, 0.2f);
   float v0 = 0;
   for (int k = 0; k < n; ++k) {
@@ -593,6 +595,22 @@ void Grass::drawShadow(GLuint prog, const mat4& lightVP, const mat4& camVP, vec3
   glUniformMatrix4fv(glGetUniformLocation(prog, "uVP"), 1, GL_FALSE, &lightVP[0][0]);
   glUniform1f(glGetUniformLocation(prog, "uShadowPass"), P.shadowR);
   drawChunks(prog, camVP, cam, P.shadowR, true);   // chunks in (or casting into) the eye's view; the tall centre cards cast
+}
+
+bool Grass::meanTop(vec3& out) const {
+  static size_t lastN = SIZE_MAX; static vec3 lastC(0);   // shortcut: one Grass per app; recomputed when the instance count changes
+  const size_t n = instanceCount();
+  if (n == 0) return false;
+  if (n != lastN) {
+    glm::dvec3 s(0); size_t k = 0;
+    for (auto& [key, c] : chunks) for (size_t i = 0; i < c.inst.size(); i += 7) {   // every 7th clump
+      uint32_t u; std::memcpy(&u, &c.inst[i].shape.z, 4);
+      s += glm::dvec3(u & 255, (u >> 8) & 255, (u >> 16) & 255) / 255.0; ++k;
+    }
+    lastC = k ? vec3(s / double(k)) * 0.5f * vec3(1.0f, 1.02f, 0.86f) : vec3(0);   // kGrassVS: pk x 0.5, the upper blade a touch yellower
+    lastN = n;
+  }
+  out = lastC; return lastC != vec3(0);
 }
 
 size_t Grass::instanceCount() const { size_t n = 0; for (auto& [k, c] : chunks) n += c.count; return n; }

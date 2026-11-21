@@ -30,6 +30,7 @@
 #include "selftest.h"
 #include <chrono>
 #include "mpai.h"
+#include "game.h"   // BT2: gGame (matchOnly blockers)
 #include "w5.h"
 #include "w3.h"
 #include "nature.h"
@@ -103,12 +104,40 @@ void App::destroyRT(InstanceRT& r) {
   r.leafBodies.clear();
   { extern void ivyDestroy(InstanceRT&); ivyDestroy(r); }
 }
+void App::refreshMatchOnly() {   // BT2: rebuild the matchOnly copies (their collider follows the match state)
+  for (auto& kv : rt) if (kv.second.asset && kv.second.asset->raw.is_object() && kv.second.asset->raw.value("matchOnly", false)) kv.second.rev = ~0u;
+  syncSig_ = 0;   // the next syncRuntime walks (it returns early while the placement signature is unchanged)
+}
+// BT2 load-when-close: an asset with "loadRadius": [in, out] (m) is built (mesh, colliders, furnishing) only inside `in`
+// of the eye (the player's in play, the camera's in the editor) and dropped beyond `out` (hysteresis); at most one copy
+// is built per frame (no hitch). buildRT does the far check on first build, so a far copy costs nothing at map load.
+static bool loadRadiusOf(const AssetDef* a, float& in, float& out) {
+  if (!a || !a->raw.is_object() || !a->raw.contains("loadRadius") || !a->raw["loadRadius"].is_array() || a->raw["loadRadius"].size() < 2) return false;
+  in = a->raw["loadRadius"][0].get<float>(); out = std::max(in + 1.0f, a->raw["loadRadius"][1].get<float>()); return true;
+}
+void App::syncLoadRadius() {
+  const bool play = true;   // play and editor alike: the editor camera brings it in when it flies close
+  const vec3 eye = mode == Mode::Explore ? eyePos() : camPos; int built = 0;
+  for (uint64_t id : loadRadiusIds) {
+    auto it = rt.find(id); Instance* ip = doc.find(id); if (it == rt.end() || !ip) continue;
+    auto& r = it->second; float in, out; if (!loadRadiusOf(r.asset, in, out)) continue;
+    const float d = glm::length(ip->pos - eye);
+    if (play && !r.farOut && d > out) { const AssetDef* a = r.asset; uint64_t rid = r.id; uint32_t rv = r.rev; destroyRT(r); r.asset = a; r.id = rid; r.rev = rv; r.farOut = true; logf("loadRadius: %s dropped at %.0f m", ip->assetId.c_str(), d); }
+    else if (r.farOut && (!play || d < in) && built == 0) { buildRT(*ip, r); ++built; logf("loadRadius: %s built at %.0f m", ip->assetId.c_str(), d); }
+  }
+}
+
 void App::buildRT(const Instance& i, InstanceRT& r) {
   ++hitchCur().buildRT;   // CP step 0: the hitch log counts them
   destroyRT(r);
   r.id = i.id; r.rev = i.rev; r.asset = assetFor(i);
+  { float in, out; r.farOut = false;   // BT2 loadRadius: beyond its outer radius in play it is not built at all
+    if (loadRadiusOf(r.asset, in, out) && glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos)) > out) { r.farOut = true; return; } }
   uint64_t base = i.id << 16;
-  if (ShapePtr s = snapShape(*this, i, r.asset) ? snapShape(*this, i, r.asset) : interior.staticShape(*this, i, r.asset)) r.staticBody = Physics::addStatic(s, i.pos, yawQuat(i.yaw), base);   // interiors: props, furnished copies
+  // BT2: an asset marked "matchOnly" (a play-limit blocker, e.g. at the road out to an explore-only landmark) is solid
+  // only while a match is running; refreshMatchOnly() rebuilds those copies when a match starts or ends
+  const bool matchOff = r.asset->raw.is_object() && r.asset->raw.value("matchOnly", false) && !(gGame && gGame->active);
+  if (!matchOff) if (ShapePtr s = snapShape(*this, i, r.asset) ? snapShape(*this, i, r.asset) : interior.staticShape(*this, i, r.asset)) r.staticBody = Physics::addStatic(s, i.pos, yawQuat(i.yaw), base);   // interiors: props, furnished copies
   if (r.asset->tree.on) buildTreeRT(i, r);
   r.defHp = r.asset->defense.hp; r.defDestroyed = false;
   r.secHp.assign(r.asset->defense.sections, r.asset->defense.sectionHp); r.secCut.assign(r.asset->defense.sections, 0);
@@ -265,6 +294,7 @@ void App::syncRuntime(bool sliceOk) {
     logf("memattr: buildRT %.0f MB over %zu assets:%s", tot, v.size(), s.c_str());
   }
   if (deferred) syncSig_ = 0;   // not done: the next call walks again
+  loadRadiusIds.clear(); for (auto& [id, r] : rt) { float in, out; if (live.count(id) && loadRadiusOf(r.asset, in, out)) loadRadiusIds.push_back(id); }   // BT2
   crumb("sync: prune");
   for (auto it = rt.begin(); it != rt.end();) {
     if (!live.count(it->first)) { destroyRT(it->second); it = rt.erase(it); } else ++it;
@@ -285,7 +315,7 @@ void App::resetInteractStates() {
 }
 
 void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
-  R.foliage.clear(); R.folModels.clear(); R.worldModels.clear(); R.worldModelsGlass.clear(); worldBoxDraws.clear(); R.natPatches.clear();
+  R.foliage.clear(); R.folModels.clear(); R.impDraws.clear(); R.worldModels.clear(); R.worldModelsGlass.clear(); worldBoxDraws.clear(); R.natPatches.clear();
   { extern void greeneryFrame(App&); greeneryFrame(*this); }   // FL1: spring-green leaves (foliage.cpp)
   foundationDrawItems(*this, op, mode == Mode::Explore ? eyePos() : camPos);   // MA3: foundation plants + stones (foundation.cpp)
   interior.beginFrame();   // R2 room culling: per-building visibility once per frame
@@ -332,7 +362,8 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       continue;
     }
     if (!act.rtOf[idx]) continue;
-    if (R.perf.firThin && i.extra.is_object() && i.extra.value("perfThin", false)) continue;   // BT2 switch firthin: the map's optional far trees
+    if (R.perf.firThin && i.extra.is_object() && i.extra.value("perfThin", false)) continue;
+    if (act.rtOf[idx]->farOut) continue;   // BT2 loadRadius: not built while far   // BT2 switch firthin: the map's optional far trees
     auto& r = *act.rtOf[idx];
     mat4 M = instanceMatrix(i);
     if (decorDraw(*this, i, r, M, op, gl)) continue;   // V8: border-ring decor saved in maps, cheap at range (decor.cpp)
@@ -441,9 +472,12 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       }
     }
     if (r.asset->model && !interior.prop(r.asset)) {   // supplied model: LOD by distance, cut wire sections hidden; collider boxes are not drawn (PR2: furniture models draw in propDraw)
+      if (r.asset->modelFoliage) {   // NT8: instanced, alpha tested (TR1: sized); CP2: LOD and cull by projected pixels
+        extern vec4 greenTintOf(const AssetDef&, const mat4&); extern void folModelLodPush(App&, const AssetDef&, const mat4&, float, const vec4&, vec3, float);
+        folModelLodPush(*this, *r.asset, M * glm::scale(mat4(1), vec3(r.asset->modelScale)), r.asset->modelWind, greenTintOf(*r.asset, M), mode == Mode::Explore ? eyePos() : camPos, camDist); continue;
+      }
       if (camDist > r.asset->modelCull) continue;
       const GpuModel* gm = (r.asset->modelLod && camDist > r.asset->modelLodDist) ? r.asset->modelLod.get() : r.asset->model.get();
-      if (r.asset->modelFoliage) { extern vec4 greenTintOf(const AssetDef&, const mat4&); int k0, k1; r.asset->modelRange(gm, k0, k1); R.folModels.push_back({gm, M * glm::scale(mat4(1), vec3(r.asset->modelScale)), r.asset->modelWind, false, k0, k1 - k0, greenTintOf(*r.asset, M)}); continue; }   // NT8: instanced, alpha tested (TR1: sized)
       for (size_t k = 0; k < gm->parts.size(); ++k) {
         int s = gm->parts[k].section;
         if (s >= 0 && s < (int)r.secCut.size() && r.secCut[s]) continue;
@@ -1163,6 +1197,7 @@ int App::run(int argc, char** argv) {
   bool bench1440 = std::getenv("NMK_WIN_1440") != nullptr;   // NMK_WIN_1440=1: any launch at a borderless 2560x1440 at (0,0)
    for (int k = 1; k < __argc; ++k) bench1440 |= std::string(__argv[k]) == "--bench-views";
   if (bench1440) { W = 2560; H = 1440; if (const char* r = std::getenv("NMK_BENCH_RES")) std::sscanf(r, "%dx%d", &W, &H); glfwWindowHint(GLFW_DECORATED, GLFW_FALSE); }   // NMK_BENCH_RES=1920x1080: another size (CP step 0)   // P1: the VO benchmark at 1440p (borderless: a framed 1440p window does not fit a 1440p screen and is shrunk)
+  if (const char* e = std::getenv("NMK_WIN"); e && std::sscanf(e, "%dx%d", &W, &H) == 2) glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);   // VOT: measure at a set size (NMK_WIN=2560x1440, borderless so it fits the desktop)
   win = glfwCreateWindow(W, H, "Battle Foundry", nullptr, nullptr);   // UI2: the game's name (repo / exe keep theirs)
   if (win && bench1440) glfwSetWindowPos(win, 0, 0);
   if (!win) { logf("Could not create an OpenGL 4.5 core window. Update your graphics driver."); glfwTerminate(); return 1; }
@@ -1291,6 +1326,7 @@ int App::run(int argc, char** argv) {
     { extern void uiInputWatchdog(App&); uiInputWatchdog(*this); }   // UI8: a hidden modal raised, a dead setup window released
     crumb("syncRuntime");
     syncRuntime(true);   // CP 5.8: the per-frame call may be time-sliced
+    syncLoadRadius();    // BT2: load-when-close assets
     crumb("tanks sync");
     tanks.sync(*this);
     crumb("interior sync");
@@ -1433,7 +1469,8 @@ int App::run(int argc, char** argv) {
       R.lt.mapHazeH = lk ? std::clamp(lk->value("hazeHeight", 0.0f), 0.0f, 2000.0f) : 0.0f;
       { const json* fl = lk && lk->contains("fogLayer") && (*lk)["fogLayer"].is_object() ? &(*lk)["fogLayer"] : nullptr;
         R.lt.mapFogLayerDens = fl ? std::clamp(fl->value("density", -1.0f), -1.0f, 0.2f) : -1.0f;
-        R.lt.mapFogLayerH = fl ? std::clamp(fl->value("height", 0.0f), 0.0f, 500.0f) : 0.0f; }
+        R.lt.mapFogLayerH = fl ? std::clamp(fl->value("height", 0.0f), 0.0f, 500.0f) : 0.0f;
+        R.lt.mapFogLayerTop = fl && fl->contains("top") ? fl->value("top", 1e9f) : 1e9f; R.lt.mapFogLayerSoft = fl ? std::clamp(fl->value("topSoft", 12.0f), 1.0f, 200.0f) : 12.0f; }   // a ceiling at world y (soft over topSoft m)
       { extern void snowSync(App&); snowSync(*this); }   // SN1: the map's snow layer (snow.cpp)
       // GR3: "look": {"night": {"haze", "envFog", "fogNear"}}: the map's night air (its own density and mist), when the sun is down
       const bool nightNow = R.lt.hour < 5.8f || R.lt.hour > 20.4f;

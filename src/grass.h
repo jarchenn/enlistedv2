@@ -59,6 +59,7 @@ public:
   void clear();
 
   size_t instanceCount() const;
+  bool meanTop(vec3& out) const;   // CP4: the clumps' mean top-down albedo (linear; sampled, cached per layout); false: no grass
   size_t gpuBytes() const;
   uint64_t layoutHash() const;                    // hash of every live instance (determinism tests)
   uint64_t chunkHash(int cx, int cz) const;

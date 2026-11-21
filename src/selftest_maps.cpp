@@ -639,13 +639,13 @@ void SelfTest::mapsUpdate(App& app, float dt) {
         check(true, fmt("A/B %s, view %s: PF2 %.2f ms (%d frames) vs baseline %.2f ms (%d frames)", abEnv, v.name.c_str(), p.abMs[0], p.abN[0], p.abMs[1], p.abN[1])); }
       std::string nm = "maps_" + app.templates[sTpl[sTi]].id + "_" + v.name + (sPresetPass == 1 ? "_low" : sPresetPass == 2 ? "_high" : sPresetPass == 3 ? "_night" : "");
       shotQueue.push_back(nm);
-      check(p.frames > 10, fmt("%s view %s%s: %.2f ms avg (worst %.1f) over %d frames, %.0f draws, %.1f M tris, GPU %.2f ms, sun direct %.0f %%, %d sun-cascade draws -> selftest_out/%s.png", v.gate ? "gameplay" : "editor", v.name.c_str(), sPresetPass ? (sPresetPass == 1 ? " at Low" : sPresetPass == 2 ? " at High" : " at Night (Medium)") : "", p.ms, p.worst, p.frames, p.draws, p.tris / 1e6, p.gpu, app.R.stats.sunDirectPct, app.R.stats.shadowDraws, nm.c_str()));
+      check(p.frames > 10, fmt("%s view %s%s: %.2f ms avg (worst %.1f) over %d frames, %.0f draws, %.1f M tris, GPU %.2f ms, sun direct %.0f %%, %d sun-cascade draws, shimmer %.2f px -> selftest_out/%s.png", v.gate ? "gameplay" : "editor", v.name.c_str(), sPresetPass ? (sPresetPass == 1 ? " at Low" : sPresetPass == 2 ? " at High" : " at Night (Medium)") : "", p.ms, p.worst, p.frames, p.draws, p.tris / 1e6, p.gpu, app.R.stats.sunDirectPct, app.R.stats.shadowDraws, app.R.shimmerPx, nm.c_str()));
       { static bool once = false; if (!once) { once = true; check(app.R.shaderErrors == 0, fmt("all shaders compiled, terrain variants included (%d errors)", app.R.shaderErrors)); } }   // PF: a missing terrain variant fails here
       {   // PF terrain: the pass time, what it drew per LOD ring, the fine tiles and the share of its shaded fragments that wrote a sample
         const auto& st = app.terrain.stream.stats; const auto& fs = app.R.stats;
-        logf("[terrain] %s %s: pass %.2f ms; chunks %d (%d with the discarding shader) per ring %d/%d/%d/%d/%d, tris %.2fM (%.2f/%.2f/%.2f/%.2f/%.2f M); fine tiles %zu; samples written %.2fM",
+        logf("[terrain] %s %s: pass %.2f ms; chunks %d (%d with the discarding shader) per ring %d/%d/%d/%d/%d, tris %.2fM (%.2f/%.2f/%.2f/%.2f/%.2f M); fine tiles %d drawn (lod %d/%d/%d), %d culled; samples written %.2fM",
              app.templates[sTpl[sTi]].id.c_str(), nm.c_str(), p.pass[GP_Terrain], st.drawnLastFrame, st.drawnMasked, st.drawnLod[0], st.drawnLod[1], st.drawnLod[2], st.drawnLod[3], st.drawnLod[4],
-             st.tris / 1e6, st.trisLod[0] / 1e6, st.trisLod[1] / 1e6, st.trisLod[2] / 1e6, st.trisLod[3] / 1e6, st.trisLod[4] / 1e6, app.terrain.tiles.size(),
+             st.tris / 1e6, st.trisLod[0] / 1e6, st.trisLod[1] / 1e6, st.trisLod[2] / 1e6, st.trisLod[3] / 1e6, st.trisLod[4] / 1e6, app.terrain.tileStats.drawn, app.terrain.tileStats.lod[0], app.terrain.tileStats.lod[1], app.terrain.tileStats.lod[2], app.terrain.tileStats.culled,
              fs.terrSamples / 1e6);
       }
       if (v.gate && sPresetPass < 3 && !std::getenv("NMK_MAPS_VIEW") && !kFl1 && !kFx1 && !ldRun() && !kWxCycle) {   // V2 (docs/settings.md): the same gameplay view again at Low, then High; L2: then Night at Medium

@@ -86,6 +86,7 @@ struct GpuModel {
   std::vector<int> opticParts;     // AT8: its factory optic (weapons.cpp factoryOptic): not drawn while another sight is fitted
   std::vector<int> ironParts;      // AT7: the gun's own sights split off (weapons.cpp splitIrons): not drawn with an optic fitted
   bool keepPos = false; std::vector<vec3> cpuPos; std::vector<uint32_t> cpuIdx;   // AT7: and the triangles (the optic seat on the receiver)   // AN1 step 2b: weapons keep their vertex positions (grip / handguard cross-sections)
+  fs::path srcDir; bool turned = false;   // CP3c: the bake's folder (impostor cache key)
   bool load(const fs::path& dir, std::string& err, bool turn180 = false);   // turn180: half a turn about y (a bake whose front is -z)
   void destroy();
   int find(const std::string& name) const;

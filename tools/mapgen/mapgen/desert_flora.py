@@ -15,6 +15,12 @@ PATCH = ["fl_drygrass_patch_1", "fl_drygrass_patch_2", "fl_drygrass_patch_3"]   
 TUFT = ["fl_drygrass_tuft_1", "fl_drygrass_tuft_2", "fl_drygrass_tuft_3"]        # about 0.35 m: wall feet inside S&D lanes
 SHRUB = ["fl_desertshrub_%s_%d" % (k, n) for k, c in (("agave", 3), ("cholla", 3), ("creosote", 3), ("ocotillo", 4), ("yucca", 3)) for n in range(1, c + 1)]   # local-only bake, committed fallbacks
 FLORA = set(PATCH + TUFT)
+# plant heights (m, the local bake; the committed fallbacks are scaled to the same heights)
+HEIGHT = {"agave_1": 0.62, "agave_2": 0.44, "agave_3": 0.25, "yucca_1": 0.79, "yucca_2": 0.60, "yucca_3": 0.25, "cholla_1": 1.21, "cholla_2": 0.88,
+          "cholla_3": 0.73, "ocotillo_1": 1.01, "ocotillo_2": 0.70, "ocotillo_3": 0.47, "ocotillo_4": 0.47, "creosote_1": 1.17, "creosote_2": 0.84, "creosote_3": 0.69}
+HEIGHT = dict({"fl_desertshrub_" + k: v for k, v in HEIGHT.items()}, **{t: 0.35 for t in TUFT}, **{p: 0.5 for p in PATCH})
+LOW = [s for s in SHRUB if HEIGHT[s] <= 0.6]                  # anywhere a player stands (S&D lanes): no cover
+MID = [s for s in SHRUB if 0.6 < HEIGHT[s] <= 0.75]           # dead ground only (between a tall blocker and a wall)
 WALLISH = ("hesco", "twall", "_wall", "sandbag", "jersey", "barrier", "container")
 ROCKS = ("rk_", "rock", "boulder", "outcrop", "stones", "scree")
 _FP = {}
