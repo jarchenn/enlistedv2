@@ -100,8 +100,15 @@ def build_variant(ctx, V):
     for poly, h in V.get("flats", []):
         stamp_flatten_poly(grid, poly, height=h if h is not None else grid.sample(*poly[0]), falloff=8.0)
     grid.quantise()
+    fine = None
+    if V.get("fine"):   # VFX rev3: map-local opt-in fine sculpt (relief.FineLayer, 0.45 m), in before anything is placed
+        from mapgen.relief import FineLayer
+        fine = FineLayer(grid)
+        V["fine"](fine)
 
     b = MapBuilder(cat, grid, Frame(W, D), seed=V["seed"], water_level=V["water"])
+    if fine is not None:
+        fine.install(b)
     ruin_place(b, cat, V["seed"])
     paint = GroundPaint()
     b.paint = paint
@@ -250,7 +257,7 @@ def build_variant(ctx, V):
     write_map(os.path.join(tdir, tid + ".nmap.json"), name=V["name"], template_id=tid, template_version=1, seed=V["seed"], width=W, depth=D,
               builder=b, scenario_json=sj, explore_start=((sx, b.ground(sx, sz), sz), look_yaw(*V["start"][1])), camera=cam,
               bookmarks={str(k + 1): {"position": [c[0], b.ground(*c) + 40.0, c[1] + 45.0], "yaw": 0.0, "pitch": -40} for k, (n, c) in enumerate(V["districts"])},
-              extra={"groundPaint": paint.to_json(), "waterBodies": V.get("water_bodies", []), "look": V["look"], "lighting": V["lighting"],
+              extra={**({"terrainSculpt": fine.to_json()} if fine is not None else {}), "groundPaint": paint.to_json(), "waterBodies": V.get("water_bodies", []), "look": V["look"], "lighting": V["lighting"],
                      "royale": ROYALE})
     write_template(os.path.join(tdir, tid + ".json"), tid=tid, name=V["name"], order=V["order"], version=1, seed=V["seed"],
                    description=V["description"], width=W, depth=D, margin=MARGIN, heightmap=grid.meta(tid + ".height.png"),

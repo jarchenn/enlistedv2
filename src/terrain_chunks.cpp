@@ -1,5 +1,6 @@
 // Chunked, streamed base terrain (SPEC 9.1): LOD meshes around the camera, one Jolt heightfield per chunk, the map
 // size rules and the New Map memory estimate. See terrain_chunks.h.
+#include <cstring>
 #include "terrain.h"
 #include "crumb.h"
 #include "settings.h"   // PF2: render distance scales the far LOD rings
@@ -53,7 +54,7 @@ static TerrainStreamConfig loadStreamConfig() {
 static int lodSide(int lod) { return Terrain::kChunkCells / TerrainStream::kStep[lod] + 1; }
 static int lodVerts(int lod) { int m = lodSide(lod); return m * m + 4 * m; }
 static int lodIndices(int lod) { int m = lodSide(lod); return (m - 1) * (m - 1) * 6 + 4 * (m - 1) * 12; }
-static constexpr int kVertBytes = 28;   // position + normal + VOT T1 morph (coarser LOD height - own height)
+static constexpr int kVertBytes = 32;   // position + normal + VOT T1 morph (coarser LOD height - own height) + VFX rev3 aHab (RGBA8, the last float's bits)
 static constexpr int kVertF = kVertBytes / 4;
 
 size_t terrainPhysicsBytesEstimate(int chunks) { return (size_t)chunks * 3200; }   // Jolt 21x21 heightfield (8-bit samples, range blocks) + body
@@ -182,6 +183,9 @@ void TerrainStream::ensurePool(int lod, int need) {
     glEnableVertexArrayAttrib(p.vao, 4);   // VOT T1 aMorph
     glVertexArrayAttribFormat(p.vao, 4, 1, GL_FLOAT, GL_FALSE, 24);
     glVertexArrayAttribBinding(p.vao, 4, 0);
+    glEnableVertexArrayAttrib(p.vao, 5);   // VFX rev3 aHab: habitat, 4 x unorm8
+    glVertexArrayAttribFormat(p.vao, 5, 4, GL_UNSIGNED_BYTE, GL_TRUE, 28);
+    glVertexArrayAttribBinding(p.vao, 5, 0);
   }
   if (need <= p.capacity) return;
   int cap = std::max({need, p.capacity * 2, 16});
@@ -220,6 +224,7 @@ void TerrainStream::build(const Terrain& t, int idx, int lod) {
       vec3 n = glm::normalize(vec3(H(gx - 1, gz) - H(gx + 1, gz), 2 * e, H(gx, gz - 1) - H(gx, gz + 1)));   // = Terrain::baseNormal
       float* o = &v[((size_t)j * m + i) * kVertF];
       o[0] = t.org.x + gx * e; o[1] = H(gx, gz); o[2] = t.org.y + gz * e; o[3] = n.x; o[4] = n.y; o[5] = n.z; o[6] = 0.0f;
+      { uint32_t hb = terrainHabitatPacked(o[0], o[2]); std::memcpy(&o[7], &hb, 4); }   // VFX rev3 aHab
       if (S2) {   // the coarser mesh's height here: its triangle (a c d / a d b, the a-d diagonal) at this vertex
         int li = i * s, lj = j * s, ci = li / S2 * S2, cj = lj / S2 * S2;
         float u = (float)(li - ci) / S2, w = (float)(lj - cj) / S2;

@@ -699,6 +699,29 @@ def populate(ctx, grid, pads=None):
         if any(polyline_dist((e["pos"][0], e["pos"][2]), pts)[0] < half for _, pts, half in street_keep):
             b.remove(e)
 
+    # VOT: culverts - cross-drains under the outer country lanes (the stretches with verges and ditches): every ~70 m a
+    # pipe takes the uphill ditch under the lane, a headwall on each ditch line, outlets facing away from the lane;
+    # never within 12 m of another road, 15 m of the stream or inside the town
+    other_roads = {o: resample(g[o], 2.0) for o in ("ring", "S1", "S2", "S3", "S4", "loop", "mill_lane", "back_lane")}
+    n_culv = 0
+    for k in ("S1", "S2", "S3", "S4"):
+        lane = resample(g[k], 1.0)
+        out = [i for i, p in enumerate(lane) if not town(p[0], p[1], 0.98)]
+        if len(out) < 40:
+            continue
+        for i in range(out[0] + 25, out[-1] - 10, 70):
+            px, pz = lane[i]
+            if polyline_dist((px, pz), stream)[0] < 15.0 or any(o != k and polyline_dist((px, pz), P)[0] < 12.0 for o, P in other_roads.items()):
+                continue
+            a0, a1 = lane[max(i - 3, 0)], lane[min(i + 3, len(lane) - 1)]
+            tl = math.hypot(a1[0] - a0[0], a1[1] - a0[1]) or 1.0
+            nx_, nz_ = -(a1[1] - a0[1]) / tl, (a1[0] - a0[0]) / tl
+            for side in (-1.0, 1.0):
+                x, z = px + nx_ * side * 5.4, pz + nz_ * side * 5.4
+                if b.place("mod_culvert_headwall", x, z, asset_yaw_facing(nx_ * side, nz_ * side), check=False, cls="none", tags={"culvert"}) is not None:
+                    n_culv += 1
+    print("chateau: %d culvert headwalls (cross-drains under the outer lanes)" % n_culv)
+
     # ------------------------------------------------------------------ 12. scenario: Assault A-D, TDM, crates
     sc = ScenarioBuilder(b, defending="Axis")
     br = bridges["S3"]
@@ -883,7 +906,8 @@ def chateau_fine(fine, b, g, anchors):
         s_out = s_where(pts, lambda x, z: not town(x, z, 0.98)) if k != "ring" else 1e9
         inner = [p for p in pts if polyline_dist(p, pts)[1] <= s_out] or pts[:2]
         outer = [p for p in pts if polyline_dist(p, pts)[1] >= s_out - 4]
-        fine_road(fine, inner, roads[k], crown=0.07, gutter=0.04, keep=lambda X, Z, k=k: clear(X, Z, 0.3, 1.0) * others(k, X, Z))
+        fine_road(fine, inner, roads[k], crown=0.07, gutter=0.04, kerb=0.12 if k == "ring" else 0.0,   # VOT: the town ring between kerbed footways
+                  keep=lambda X, Z, k=k: clear(X, Z, 0.3, 1.0) * others(k, X, Z))
         if len(outer) >= 2:
             fine_road(fine, outer, 2.0, crown=0.07, ruts=0.06, verge=0.25, ditch=0.6, keep=lambda X, Z, k=k: clear(X, Z) * others(k, X, Z))
     loop = g["loop"]
@@ -894,6 +918,19 @@ def chateau_fine(fine, b, g, anchors):
     fine_road(fine, g["mill_lane"], 1.75, crown=0.05, ruts=0.07, verge=0.15, keep=lambda X, Z: clear(X, Z) * others("mill_lane", X, Z))
     fine_road(fine, g["back_lane"], 1.3, crown=0.04, ruts=0.06, keep=lambda X, Z: clear(X, Z, 0.3, 1.0) * others("back_lane", X, Z))
     n_road = len(fine.d) - n0
+    # VOT: the stream's cut banks - a low, steep earth bank just past the water's edge (0.3-0.9 m, varying along the
+    # stream), easing back into the valley side by 7.5 m; raised only (never under the bed), clear of bridges and roads
+    SP = stream
+    def cutbank(X, Z, G):
+        d, S, side, LL = _poly_dist(X, Z, SP)
+        h = 0.6 + 0.3 * np.sin(S / 11.0 + 1.7 * side) * np.cos(S / 4.3)
+        prof = h * ss(3.4, 3.9, d) * (1 - ss(4.5, 7.5, d))
+        k = np.ones(X.shape)
+        for o, P in paths.items():
+            k = np.minimum(k, ss(roads[o] + 3.0, roads[o] + 9.0, _poly_dist(X, Z, P)[0]))
+        return G + prof * k * (d < 8.0)   # rigid pieces on the banks are re-seated after the fine layer
+    sx0, sz0 = SP.min(axis=0) - 9; sx1, sz1 = SP.max(axis=0) + 9
+    fine.add(cutbank, (sx0, sz0, sx1, sz1))
 
     def off_roads(X, Z):
         k = clear(X, Z, 0.6, 2.0)
