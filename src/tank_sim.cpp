@@ -711,7 +711,7 @@ void TankSys::fireCannon(App& app, TankRT& t) {
   if (d.autoGun) {   // VH8: an autocannon's shot is a small short puff (200 rpm: a full tank-gun cloud each round built a wall in the sight)
     app.fx.flash(muzzle + dir * 0.15f, 0.35f * d.muzzleScale / 0.55f, 0.04f, vec4(10, 7, 3, 1));
     for (int k = 0; k < 2; ++k) app.fx.smoke(muzzle + dir * 0.3f, dir * (2.0f + 2.0f * app.fx.rnd()) + vec3(0, 0.3f, 0), 0.12f, 0.45f + 0.25f * app.fx.rnd(), vec4(0.62f, 0.6f, 0.57f, 0.35f), 0.9f, 0.25f);
-  } else app.fx.muzzle(muzzle, dir, d.muzzleScale);   // vehicle JSON gun.muzzleScale (firing smoke: content/settings/fx.json)
+  } else app.fx.muzzle(muzzle, dir, d.muzzleScale, d.id.c_str());   // vehicle JSON gun.muzzleScale (firing smoke: content/settings/fx.json)
   app.audio.play(!d.gunSound.empty() && app.audio.hasEvent(d.gunSound) ? d.gunSound : t.def->id == "tiger_i" ? "tank_88" : "tank_17pdr", muzzle, d.autoGun ? 0.8f : 1.0f);
   app.viewKickPitch = d.autoGun ? 0.12f : 0.6f;
   t.kickT = 0; t.kickDeg = d.viewKick >= 0 ? d.viewKick : 5.5f * d.recoil;   // RC2: every seat's view jumps (cameraKick)
@@ -760,7 +760,7 @@ void TankSys::fireMg(App& app, TankRT& t) {
   app.fireProjectile(m, fd, d.mgVel, PROJ_BULLET, 0, bodyUD(t.id), (t.mgShots % d.mgTracerEvery) == 0, d.mgName);
   if (!app.projectiles.empty()) app.projectiles.back().mass = d.mgBulletMass;
   --t.mgLoaded; ++t.mgShots; t.mgCool += 60.0f / d.mgRpm; t.mgBurst = true;
-  app.fx.muzzleFlash(m + dir * 0.03f, dir, 1.7f, false, m);   // WP4
+  app.fx.muzzleFlash(m + dir * 0.03f, dir, 1.7f, false, m, vec3(-1), "7.92x57 mm");   // WP4 (fxev: rifle-calibre coax)
   if ((t.mgShots - 1) % d.mgSoundEvery == 0) app.audio.play(app.audio.hasSound(d.mgSound) ? d.mgSound : "shot_m2hb", m, 0.9f);   // TK1: the minigun's sound (until the sound session's shot_minigun lands: the M2's)
   app.viewKickPitch = 0.25f;
 }
@@ -878,7 +878,7 @@ void TankSys::fireBow(App& app, TankRT& t) {
   app.fireProjectile(m, fd, d.bowVel, PROJ_BULLET, 0, bodyUD(t.id), (t.bowShots % 5) == 0, d.bowName);
   if (!app.projectiles.empty()) app.projectiles.back().mass = d.bowBulletMass;
   --t.bowLoaded; ++t.bowShots; t.bowCool += 60.0f / d.bowRpm; t.bowBurst = true;
-  app.fx.muzzleFlash(m + dir * 0.03f, dir, 1.5f, false, m);   // WP4
+  app.fx.muzzleFlash(m + dir * 0.03f, dir, 1.5f, false, m, vec3(-1), "7.92x57 mm");   // WP4 (fxev: rifle-calibre bow MG)
   app.fx.smoke(m + dir * 0.1f, dir * 1.5f + vec3(0, 0.3f, 0), 0.05f, 1.0f, vec4(0.6f, 0.58f, 0.55f, 0.3f), 0.6f, 0.2f);
   app.audio.play(app.audio.hasSound(d.bowSound) ? d.bowSound : "shot_mg42", m, 0.95f);   // VH8: never a silent gun
   if (occupied == t.id) app.viewKickPitch = std::max(app.viewKickPitch, 0.08f);

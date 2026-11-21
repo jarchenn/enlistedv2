@@ -1,0 +1,574 @@
+{
+ "_note": "Master scalability matrix. See ch10.",
+ "internal_resolution_scale": {
+  "very_low": 0.54,
+  "low": 0.62,
+  "medium": 0.72,
+  "high": 0.85,
+  "ultra_high": 1.0
+ },
+ "gpu_budget_ms_total": {
+  "very_low": 7.5,
+  "low": 10.9,
+  "medium": 15.5,
+  "high": 21.3,
+  "ultra_high": 27.8
+ },
+ "combat_vfx_budget_ms": {
+  "very_low": 0.4,
+  "low": 0.9,
+  "medium": 1.9,
+  "high": 3.6,
+  "ultra_high": 5.4
+ },
+ "surface": {
+  "texture_taps": {
+   "very_low": 1,
+   "low": 4,
+   "medium": 6,
+   "high": 10,
+   "ultra_high": 13
+  },
+  "hex_tiling": {
+   "very_low": false,
+   "low": false,
+   "medium": false,
+   "high": true,
+   "ultra_high": true
+  },
+  "detail_layer": {
+   "very_low": false,
+   "low": false,
+   "medium": true,
+   "high": true,
+   "ultra_high": true
+  },
+  "decal_overdraw_screens": {
+   "very_low": 0.0,
+   "low": 0.15,
+   "medium": 0.35,
+   "high": 0.7,
+   "ultra_high": 1.2
+  },
+  "decal_atlas_px": {
+   "very_low": 0,
+   "low": 1024,
+   "medium": 2048,
+   "high": 4096,
+   "ultra_high": 4096
+  },
+  "vram_budget_GB": {
+   "very_low": 0.6,
+   "low": 1.2,
+   "medium": 2.5,
+   "high": 5.0,
+   "ultra_high": 9.0
+  }
+ },
+ "moss": {
+  "representation": {
+   "very_low": "film",
+   "low": "film+mat<8m",
+   "medium": "mat",
+   "high": "mat+shells<3m",
+   "ultra_high": "mat+clumps<4.5m"
+  },
+  "shell_count": {
+   "very_low": 0,
+   "low": 0,
+   "medium": 0,
+   "high": 8,
+   "ultra_high": 16
+  },
+  "clump_density_per_m2": {
+   "very_low": 0,
+   "low": 0,
+   "medium": 0,
+   "high": 400,
+   "ultra_high": 1200
+  },
+  "transmission": {
+   "very_low": false,
+   "low": false,
+   "medium": true,
+   "high": true,
+   "ultra_high": true
+  },
+  "cost_ms": {
+   "very_low": 0.0,
+   "low": 0.08,
+   "medium": 0.2,
+   "high": 0.55,
+   "ultra_high": 0.9
+  }
+ },
+ "ground": {
+  "splat_layers": {
+   "very_low": 1,
+   "low": 2,
+   "medium": 4,
+   "high": 6,
+   "ultra_high": 6
+  },
+  "tiling_scales": {
+   "very_low": 1,
+   "low": 1,
+   "medium": 2,
+   "high": 2,
+   "ultra_high": 2
+  },
+  "pom_steps_min_max": {
+   "very_low": [
+    0,
+    0
+   ],
+   "low": [
+    1,
+    1
+   ],
+   "medium": [
+    6,
+    16
+   ],
+   "high": [
+    10,
+    28
+   ],
+   "ultra_high": [
+    14,
+    40
+   ]
+  },
+  "pom_depth_m": {
+   "very_low": 0.0,
+   "low": 0.015,
+   "medium": 0.03,
+   "high": 0.05,
+   "ultra_high": 0.065
+  },
+  "displacement": {
+   "very_low": "none",
+   "low": "none",
+   "medium": "baked",
+   "high": "tess_45m",
+   "ultra_high": "tess_90m"
+  },
+  "mesh_ground_layers": {
+   "very_low": 1,
+   "low": 3,
+   "medium": 5,
+   "high": 7,
+   "ultra_high": 8
+  },
+  "rvt": {
+   "very_low": "off",
+   "low": "off",
+   "medium": "colour",
+   "high": "colour+normal",
+   "ultra_high": "colour+normal+height"
+  },
+  "deformation_cm_per_texel": {
+   "very_low": 0,
+   "low": 0,
+   "medium": 8,
+   "high": 4,
+   "ultra_high": 4
+  },
+  "deformation_extent_m": {
+   "very_low": 0,
+   "low": 0,
+   "medium": 48,
+   "high": 64,
+   "ultra_high": 96
+  },
+  "scatter_distance_m": {
+   "very_low": 8,
+   "low": 14,
+   "medium": 25,
+   "high": 40,
+   "ultra_high": 60
+  },
+  "grass_per_m2": {
+   "very_low": 0,
+   "low": 6,
+   "medium": 18,
+   "high": 40,
+   "ultra_high": 60
+  },
+  "cost_ms": {
+   "very_low": 0.25,
+   "low": 0.5,
+   "medium": 1.1,
+   "high": 2.2,
+   "ultra_high": 3.6
+  }
+ },
+ "muzzle_flash": {
+  "core": {
+   "very_low": "billboard",
+   "low": "billboard",
+   "medium": "mesh60",
+   "high": "mesh120",
+   "ultra_high": "mesh200"
+  },
+  "intermediate_disc": {
+   "very_low": false,
+   "low": false,
+   "medium": true,
+   "high": true,
+   "ultra_high": true
+  },
+  "secondary_sprites": {
+   "very_low": 1,
+   "low": 1,
+   "medium": 2,
+   "high": 3,
+   "ultra_high": 4
+  },
+  "flipbook": {
+   "very_low": "1frame",
+   "low": "4x4",
+   "medium": "6x6+mv",
+   "high": "8x8+mv",
+   "ultra_high": "8x8+mv+6way"
+  },
+  "dust_disc_sprites": {
+   "very_low": 0,
+   "low": 8,
+   "medium": 16,
+   "high": 28,
+   "ultra_high": 40
+  },
+  "embers": {
+   "very_low": 0,
+   "low": 0,
+   "medium": 8,
+   "high": 20,
+   "ultra_high": 40
+  },
+  "smoke_sprites": {
+   "very_low": 0,
+   "low": 1,
+   "medium": 3,
+   "high": 8,
+   "ultra_high": 16
+  },
+  "shadowed_light": {
+   "very_low": false,
+   "low": false,
+   "medium": false,
+   "high": true,
+   "ultra_high": true
+  },
+  "refraction": {
+   "very_low": false,
+   "low": false,
+   "medium": false,
+   "high": true,
+   "ultra_high": true
+  },
+  "max_concurrent": {
+   "very_low": 4,
+   "low": 8,
+   "medium": 16,
+   "high": 32,
+   "ultra_high": 64
+  },
+  "cost_ms_each": {
+   "very_low": 0.02,
+   "low": 0.05,
+   "medium": 0.12,
+   "high": 0.3,
+   "ultra_high": 0.55
+  }
+ },
+ "explosion": {
+  "flash_sprites": {
+   "very_low": 1,
+   "low": 1,
+   "medium": 2,
+   "high": 3,
+   "ultra_high": 3
+  },
+  "fireball_sprites": {
+   "very_low": 1,
+   "low": 2,
+   "medium": 4,
+   "high": 6,
+   "ultra_high": 8
+  },
+  "flipbook": {
+   "very_low": "4x4",
+   "low": "6x6",
+   "medium": "6x6+mv",
+   "high": "8x8+mv",
+   "ultra_high": "8x8+mv+6way"
+  },
+  "fireball_lighting": {
+   "very_low": "emissive",
+   "low": "unlit",
+   "medium": "per_vertex",
+   "high": "6way_2lights",
+   "ultra_high": "6way_per_pixel"
+  },
+  "smoke_sprites": {
+   "very_low": 2,
+   "low": 4,
+   "medium": 8,
+   "high": 20,
+   "ultra_high": 40
+  },
+  "smoke_lifetime_s": {
+   "very_low": 2,
+   "low": 4,
+   "medium": 8,
+   "high": 15,
+   "ultra_high": 25
+  },
+  "global_smoke_cap": {
+   "very_low": 40,
+   "low": 120,
+   "medium": 400,
+   "high": 1200,
+   "ultra_high": 3000
+  },
+  "fragments_drawn": {
+   "very_low": 0,
+   "low": 0,
+   "medium": 40,
+   "high": 120,
+   "ultra_high": 300
+  },
+  "fragment_impacts": {
+   "very_low": 0,
+   "low": 0,
+   "medium": 4,
+   "high": 12,
+   "ultra_high": 24
+  },
+  "refraction": {
+   "very_low": false,
+   "low": false,
+   "medium": false,
+   "high": true,
+   "ultra_high": true
+  },
+  "lights_per_burst": {
+   "very_low": 1,
+   "low": 1,
+   "medium": 1,
+   "high": 2,
+   "ultra_high": 2
+  },
+  "max_concurrent": {
+   "very_low": 2,
+   "low": 4,
+   "medium": 8,
+   "high": 16,
+   "ultra_high": 32
+  },
+  "cost_ms_each": {
+   "very_low": 0.05,
+   "low": 0.15,
+   "medium": 0.45,
+   "high": 1.1,
+   "ultra_high": 2.2
+  }
+ },
+ "ejecta": {
+  "dust_sprites": {
+   "very_low": 3,
+   "low": 8,
+   "medium": 20,
+   "high": 45,
+   "ultra_high": 90
+  },
+  "ballistic_grains": {
+   "very_low": 0,
+   "low": 40,
+   "medium": 200,
+   "high": 800,
+   "ultra_high": 2500
+  },
+  "mesh_clods": {
+   "very_low": 0,
+   "low": 0,
+   "medium": 4,
+   "high": 14,
+   "ultra_high": 30
+  },
+  "dust_ring_sprites": {
+   "very_low": 0,
+   "low": 6,
+   "medium": 14,
+   "high": 26,
+   "ultra_high": 40
+  },
+  "collision": {
+   "very_low": "none",
+   "low": "ground_plane",
+   "medium": "heightfield",
+   "high": "depth_buffer",
+   "ultra_high": "depth+sdf"
+  },
+  "dome_phase": {
+   "very_low": false,
+   "low": false,
+   "medium": false,
+   "high": true,
+   "ultra_high": true
+  },
+  "crater": {
+   "very_low": "decal",
+   "low": "decal",
+   "medium": "decal+deform",
+   "high": "+mesh_significant",
+   "ultra_high": "+mesh_always"
+  },
+  "fragment_scar_rays": {
+   "very_low": 0,
+   "low": 0,
+   "medium": 0,
+   "high": 20,
+   "ultra_high": 60
+  },
+  "persistent_clod_cap": {
+   "very_low": 0,
+   "low": 0,
+   "medium": 150,
+   "high": 600,
+   "ultra_high": 1500
+  },
+  "dust_lifetime_s": {
+   "very_low": 3,
+   "low": 6,
+   "medium": 12,
+   "high": 20,
+   "ultra_high": 30
+  },
+  "forward_scatter": {
+   "very_low": false,
+   "low": false,
+   "medium": true,
+   "high": true,
+   "ultra_high": true
+  },
+  "cost_ms_each": {
+   "very_low": 0.03,
+   "low": 0.1,
+   "medium": 0.35,
+   "high": 0.9,
+   "ultra_high": 1.8
+  }
+ },
+ "recoil": {
+  "gun_model": {
+   "very_low": "2key",
+   "low": "parabolic",
+   "medium": "parabolic+buffer",
+   "high": "+whip",
+   "ultra_high": "+mantlet"
+  },
+  "pre_exit_travel": {
+   "very_low": false,
+   "low": false,
+   "medium": true,
+   "high": true,
+   "ultra_high": true
+  },
+  "hull_response": {
+   "very_low": "none",
+   "low": "scripted",
+   "medium": "2dof_spring",
+   "high": "rigid_body",
+   "ultra_high": "per_wheel"
+  },
+  "vehicle_dust_sprites": {
+   "very_low": 0,
+   "low": 0,
+   "medium": 6,
+   "high": 16,
+   "ultra_high": 30
+  },
+  "small_arms_dof": {
+   "very_low": 1,
+   "low": 2,
+   "medium": 4,
+   "high": 6,
+   "ultra_high": 6
+  },
+  "bolt_carrier_impulse": {
+   "very_low": false,
+   "low": false,
+   "medium": false,
+   "high": true,
+   "ultra_high": true
+  }
+ },
+ "dynamic_governor": {
+  "target_ms": 16.0,
+  "down_threshold": 1.08,
+  "down_frames": 4,
+  "up_threshold": 0.88,
+  "up_frames": 30,
+  "max_res_step": 0.07,
+  "min_frames_between_steps": 8,
+  "ladder": [
+   {
+    "res": 1.0,
+    "smoke": 1.0,
+    "grains": 1.0,
+    "lights": 1.0
+   },
+   {
+    "res": 0.93,
+    "smoke": 0.8,
+    "grains": 0.7,
+    "lights": 1.0
+   },
+   {
+    "res": 0.86,
+    "smoke": 0.6,
+    "grains": 0.45,
+    "lights": 0.7
+   },
+   {
+    "res": 0.8,
+    "smoke": 0.45,
+    "grains": 0.25,
+    "lights": 0.5
+   },
+   {
+    "res": 0.72,
+    "smoke": 0.3,
+    "grains": 0.1,
+    "lights": 0.35
+   },
+   {
+    "res": 0.64,
+    "smoke": 0.2,
+    "grains": 0.0,
+    "lights": 0.25
+   }
+  ],
+  "spawn_priority": "screenArea/(1+d^2) * importance * recency",
+  "importance": {
+   "own_weapon": 4.0,
+   "nearby_hostile": 2.5,
+   "gameplay": 2.0,
+   "ambient": 1.0
+  }
+ },
+ "non_negotiable_at_very_low": [
+  "exposure and tone curve",
+  "contact AO or shadow under every resting object",
+  "aerial perspective",
+  "muzzle flash + flash light",
+  "explosion flash + dust + decal",
+  "crater and scorch decal",
+  "gun recoil",
+  "material identity",
+  "collision and deformation that gameplay reads",
+  "audio delay over distance"
+ ]
+}

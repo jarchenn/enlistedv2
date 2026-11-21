@@ -585,6 +585,7 @@ void App::updateExplore(float dt) {
   if (steps == kMaxSteps) physAccum = std::fmod(physAccum, 1.0f / 60.0f);   // beyond the cap drop time (slow motion), never spiral
   const float alpha = interpOff || !R.perf.stepInterp ? 1.0f : std::clamp(physAccum * 60.0f, 0.0f, 1.0f);
   { const vec3 cur = Physics::character().pos; if (glm::length(cur - charStepPrev) < 2.0f && !occupied) eyeDrawOff = glm::mix(charStepPrev, cur, alpha) - cur; }   // a teleport (2 m+): no streak
+  fx.presentT = fx.clock - (1.0 - alpha) / 60.0;   // Battle Foundry 5.5: flashes are drawn at the instant the eye and soldiers are
   if (gGame) gGame->posesFrame(steps / 60.0f, alpha);   // CP: one pose pass per drawn frame, with the steps' summed time
   crumb("physics step");
   if (!R.perf.stepInterp) Physics::step(dt);   // off: the raw frame time, as before
