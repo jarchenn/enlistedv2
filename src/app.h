@@ -386,7 +386,8 @@ public:
   void setPathSize(Instance& i, vec2 wl);
   void rebuildPathMesh(const Instance& i, InstanceRT& r);
   void blastPaths(vec3 p, float dmg, float radius);
-  std::string pathSurfaceAt(vec3 w) const;   // "gravel" / "dirt" / "concrete" / ""
+  std::string pathSurfaceAt(vec3 w) const;
+  std::string fxSurfaceAt(vec3 p, const std::string& family) const;   // Battle Foundry 6.5: the surfaces.json row under a burst (app.cpp)   // "gravel" / "dirt" / "concrete" / ""
   bool snapPath(const AssetDef* a, vec3& pos, float& yaw) const;
   // ---- hand equipment (equipment.cpp): grenades, knife
   struct LiveGrenade { uint32_t body = 0xffffffffu; float fuse = 0, age = 0; int def = 0; vec3 pos{0}, spawn{0}, v0{0}; quat rot{1, 0, 0, 0}; bool done = false; int owner = -1; };   // owner: soldier slot (mpai), -1 = local player
@@ -446,7 +447,7 @@ public:
   void switchStationPosition();
   StationRT* station(uint64_t id);
   mat4 stationMatrix(const Instance& i, const InstanceRT& r) const;
-  void stationParts(const Instance& i, const InstanceRT& r, mat4& base, mat4& yawM, mat4& elevM, mat4& recoilM) const;
+  void stationParts(const Instance& i, const InstanceRT& r, mat4& base, mat4& yawM, mat4& elevM, mat4& recoilM, bool visual = false) const;   // visual: + the cosmetic carriage hop (fxrecoil)
   vec3 stationMuzzle(const Instance& i, const InstanceRT& r, vec3& dir) const;
   bool stationCamera(vec3& eye, vec3& fwd, float& fov) const;
   bool carriageFits(const Instance& i, const InstanceRT& r, vec3& pos, float yaw, std::string& why) const;

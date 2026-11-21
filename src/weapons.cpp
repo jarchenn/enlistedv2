@@ -5,6 +5,7 @@
 // reload state machine, recoil springs, sights/scopes, first-person view model, crate resupply.
 // HUD "loaded" counts every round in the weapon including the chambered one.
 #include "app.h"
+#include "fxdata.h"   // Battle Foundry 6 (fxrecoil)
 #include "overrides.h"
 #include "settings.h"
 #include "sight_overlay.h"
@@ -600,7 +601,13 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   s.sinceShot += dt;
   float cycle = 60.0f / std::max(1.0f, d.rpm);
   if (s.sinceShot > cycle * 1.6f + 0.06f) settleRecoil(s);
-  {   // WP4: the visual recoil springs (critically damped, exact step: a sharp kick, a controlled return, no bounce)
+  if (gFxRecoil) {   // fxrecoil (spec 7.5): the shoulder is a damped spring per weapon class; impulses add (the climb in a burst is emergent)
+    const vec2 fz = fxSmallArmsSpring(d); const float w = 6.2831853f * fz.x, z = fz.y;
+    if (s.boltT >= 0 && s.sinceShot >= s.boltT) { s.kickV -= s.boltK; s.boltT = -1; }   // the carrier hits the back of the receiver
+    auto under = [&](float& x, float& v) { for (int k = 0; k < 4; ++k) { const float h = dt / 4; v += (-w * w * x - 2 * z * w * v) * h; x += v * h; } };
+    under(s.kick, s.kickV); under(s.kickP, s.kickPV); under(s.kickY, s.kickYV);
+    if (s.kick > d.vmBackMax) { s.kick = d.vmBackMax; s.kickV = std::min(s.kickV, 0.0f); }
+  } else {   // WP4: the visual recoil springs (critically damped, exact step: a sharp kick, a controlled return, no bounce)
     float w = d.vmOmega, e = std::exp(-w * dt);
     auto spring = [&](float& x, float& v) { float c = v + w * x; x = (x + c * dt) * e; v = (v - w * c * dt) * e; };
     spring(s.kick, s.kickV); spring(s.kickP, s.kickPV); spring(s.kickY, s.kickYV);
@@ -761,6 +768,10 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       s.sinceShot = 0;
       {   // WP4: a shot's impulse into the springs (peak = the per-shot value after 1 / omega); bursts blend, never restart
         float k = 2.718282f * d.vmOmega * std::sqrt(sc);
+        if (gFxRecoil) {   // fxrecoil: the same per-shot peaks (the weapon's tuning) from an underdamped spring: v0 = peak omega / firstPeak(zeta)
+          const vec2 fz = fxSmallArmsSpring(d); k = 6.2831853f * fz.x / fxSpringPeak(fz.y) * std::sqrt(sc);
+          if (gFxTier >= 3 && d.action != "bolt" && d.action != "pump") { s.boltT = 0.008f + 0.017f * wrand(s.seed); s.boltK = (0.15f + 0.2f * wrand(s.seed)) * d.vmBack * k; }
+        }
         s.kickV += d.vmBack * k; s.kickPV += d.vmPitch * k * (0.9f + 0.2f * wrand(s.seed)); s.kickYV += d.vmYaw * k * (0.6f + 0.8f * wrand(s.seed));
       }
       if (d.action == "bolt") adsT = 0;   // working the bolt takes the rifle off the shoulder

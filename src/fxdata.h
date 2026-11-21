@@ -45,6 +45,17 @@ const FxData& fxData();
 // a game weapon's flash row: weapons.json id, else from its "caliber" text (bore in mm, or inches) the nearest small-arms row,
 // x_Mach / envelope rescaled by the bore ratio (x_Mach = 0.67 D sqrt(p/p_a): linear in D at the row's pressure)
 FxWeaponRow fxWeaponFor(const std::string& vfxId, const std::string& caliber);
+// a munition row: munitions.json id, else for W kg TNT-eq the cube-root laws (R_fb 3.77 W^1/3, t_peak 0.0139 W^1/3, t_lum 0.10 W^1/3, crater 1.6 W^1/3)
+// with the column apex / life interpolated in log W between the rows
+FxMunitionRow fxMunitionFor(const std::string& id, float W);
+float fxSoilMu(const std::string& surface);   // the ejecta power law's mu (surfaces.json _soil_mu by soil class)
 // emitted luminance (nits) of a grey body at T, eps; and Yref = 0.18 E / pi (nits) for illuminance E (lux)
 inline float fxYrefNits(float lux) { return 0.18f * lux / 3.14159265f; }
 int fxDataSelfCheck();   // --check-fxev (headless)
+// ---- Battle Foundry phase 6 (fxrecoil): heavy guns as a constant-force brake (spec 7.2), small arms as a damped spring (7.5)
+extern bool gFxRecoil; extern int gFxTier;   // Renderer::perf fxRecoil and Fx::tier, set each frame (the rigs have no App)
+const FxGunRow& fxGunFor(const std::string& name);   // a vehicle / station name -> its guns_recoil.json row (nearest platform)
+float fxGunRecoilX(float t, const FxGunRow& g);      // metres of the row's own stroke: V0 t - a t^2 / 2 out, f a back, the last 0.1 L buffered
+float fxGunPreTime(const FxGunRow& g);               // the time the gun takes for its pre-exit travel (it moves before the flash)
+float fxSpringPeak(float zeta);
+vec2 fxSmallArmsSpring(const struct WeaponDef& d);   // guns_recoil.json small_arms_spring (f_n Hz, zeta) for the weapon's class                      // the first peak of an underdamped spring hit with v0, in units of v0 / omega

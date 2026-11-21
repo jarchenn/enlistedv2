@@ -1,6 +1,7 @@
 // Crew-served stations (PaK 40, M2HB), projectiles and ammunition crates.
 // All state here is an Explore session overlay: F5 starts from authored defaults, returning discards it.
 #include "app.h"
+#include "fxdata.h"   // Battle Foundry 6 (fxrecoil)
 #include "crumb.h"
 #include "mpai.h"
 #include "net.h"
@@ -56,14 +57,25 @@ mat4 App::stationMatrix(const Instance& i, const InstanceRT& r) const {
   return glm::translate(mat4(1), p) * glm::mat4_cast(yawQuat(y));
 }
 
-void App::stationParts(const Instance& i, const InstanceRT& r, mat4& base, mat4& yawM, mat4& elevM, mat4& recoilM) const {
+void App::stationParts(const Instance& i, const InstanceRT& r, mat4& base, mat4& yawM, mat4& elevM, mat4& recoilM, bool visual) const {
   const StationDef& s = r.asset->station;
   base = stationMatrix(i, r);
   yawM = base * glm::translate(mat4(1), s.yawPivot) * glm::mat4_cast(glm::angleAxis(radians(r.st.yaw), vec3(0, 1, 0)));
   elevM = yawM * glm::translate(mat4(1), s.elevPivot - s.yawPivot) * glm::mat4_cast(glm::angleAxis(radians(-r.st.elev), vec3(1, 0, 0)));
   float t = r.st.recoilT, off = 0;
   if (mgKind(s.kind)) t = 1.0f;   // mounted MGs: no recoil travel
-  if (t < 0.06f) off = s.recoil * (t / 0.06f);
+  if (gFxRecoil && !mgKind(s.kind)) {   // fxrecoil (7.2 / 7.3): the brake's curve (Pak 40: 158 ms back, 788 ms home) on the rig's travel, and the carriage
+    const FxGunRow& g = fxGunFor(s.kind);    // hops about its bedded spades (I_spade ~ 3 I: a third of the free 8.9 deg), wheels lifting, settling at f_n / zeta
+    off = fxGunRecoilX(t + (gFxTier >= 2 ? fxGunPreTime(g) : 0.0f), g) * (s.recoil / std::max(g.L, 1e-3f));
+    if (visual && g.platform == "towed" && t < 3.0f) {   // drawn only: the aim, the muzzle socket and the sight keep the bedded pose
+      const float wn = 2.0f * 3.14159265f * g.fn, z = g.zeta, wd = wn * std::sqrt(1 - z * z), th = radians(g.pitchDeg / 3.0f) / fxSpringPeak(z) * std::exp(-z * wn * t) * std::sin(wd * t);
+      const vec3 spade(0, 0, s.elevPivot.z - 2.4f);   // shortcut: the spade line ~2.4 m behind the trunnions (no spade marker in the station JSON yet)
+      const mat4 hop = glm::translate(mat4(1), spade) * glm::mat4_cast(glm::angleAxis(-th, vec3(1, 0, 0))) * glm::translate(mat4(1), -spade);
+      base = base * hop; yawM = base * glm::translate(mat4(1), s.yawPivot) * glm::mat4_cast(glm::angleAxis(radians(r.st.yaw), vec3(0, 1, 0)));
+      elevM = yawM * glm::translate(mat4(1), s.elevPivot - s.yawPivot) * glm::mat4_cast(glm::angleAxis(radians(-r.st.elev), vec3(1, 0, 0)));
+    }
+  }
+  else if (t < 0.06f) off = s.recoil * (t / 0.06f);
   else if (t < 0.7f) { float u = (t - 0.06f) / 0.64f; off = s.recoil * (1 - u * u * (3 - 2 * u)); }   // return to battery
   recoilM = elevM * glm::translate(mat4(1), vec3(0, 0, -off));
 }
@@ -365,7 +377,7 @@ void App::stepProjectiles(float dt) {
           if (p.lightAT > 0) {   // VH8: a 25 mm round: a modest burst, not a shell's explosion
             fx.flash(hit.pos + hit.normal * 0.1f, 0.5f, 0.06f, vec4(9, 6, 3, 1)); fx.impact(hit.pos, hit.normal, surface == "ground" ? "ground" : surface);
             for (int k = 0; k < 2; ++k) fx.smoke(hit.pos + hit.normal * 0.2f, hit.normal * 0.6f + vec3(0, 0.4f, 0), 0.25f, 1.1f, vec4(0.42f, 0.4f, 0.37f, 0.45f), 1.1f, 0.3f);
-          } else fx.explosion(hit.pos, hit.normal, surface == "ground" ? "ground" : surface, ground || ex.crater);
+          } else fx.explosion(hit.pos, hit.normal, surface == "ground" ? "ground" : surface, ground || ex.crater, p.kind == PROJ_ROCKET ? "rpg7_PG7V" : p.at || p.cannon30 ? "40mm_HEDP_M433" : nullptr, p.v, p.kind == PROJ_ROCKET || p.at || p.cannon30 ? -1.0f : 0.7f);   // fxscale: launcher warhead / AP or 30 mm / a 75 mm HE shell (~0.7 kg TNT-eq)
           if (p.kind == PROJ_HE && !p.cannon30) audio.play("shell_hit", hit.pos, 1.0f, 1.0f, glm::length(hit.pos - eyePos()) / 343.0f);   // SND9: tank / AT / field-gun shells, on anything (ground, walls, soldiers, big enemies)
           else audio.play(p.kind == PROJ_ROCKET ? "explosion_rocket" : p.at ? "explosion_big" : "explosion", hit.pos, p.cannon30 ? 0.35f : 1.0f);   // VH5: 10 rounds/s of 30 mm
           lastImpact = {hit.pos, surface, p.kind, (float)glfwGetTime(), ex.breached};

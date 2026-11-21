@@ -232,7 +232,7 @@ void App::wreckStation(uint64_t id, const std::string& why) {
   s->reload = 0; s->trans = 0; s->armed = false; s->pos2 = ST_NONE; s->loaded = 0;   // cancel pending shots
   s->status = "Destroyed (" + why + ")";
   vec3 c = vec3(stationMatrix(*i, rt[id]) * vec4((rt[id].asset->bmin + rt[id].asset->bmax) * 0.5f, 1));
-  fx.explosion(c, vec3(0, 1, 0), "concrete", false);       // effects exactly once
+  fx.explosion(c, vec3(0, 1, 0), "concrete", false, nullptr, vec3(0), 1.5f);       // effects exactly once
   for (int n = 0; n < 10; ++n) fx.smoke(c + vec3(fx.rnd() - 0.5f, 0.3f, fx.rnd() - 0.5f), vec3(0, 1.2f, 0), 0.5f, 6.0f, vec4(0.12f, 0.11f, 0.1f, 0.55f), 1.5f, 0.8f);
   audio.play("explosion", c, 1.0f);
   ++stationsWrecked;
