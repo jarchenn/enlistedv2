@@ -144,7 +144,7 @@ static bool bfRun(App& app, float dt) {
   app.R.q.lightNew = true; app.R.wx.target = 0; app.R.wx.userSet = true; app.R.lt.hour = hour[sc]; app.R.lt.userHour = true;
   if (f == 1) { app.R.wx.snap(); app.R.resetTemporal(); }
   // the camera: 1.7 m over the spawn; the shot's line runs off toward yaw 20 (the subject dist m out, side-on: fired across the view)
-  const vec3 cam = base + vec3(0, 1.7f, 0), fw = App::forward(20.0f, 0.0f), rt = glm::normalize(glm::cross(fw, vec3(0, 1, 0)));
+  const vec3 cam = base + vec3(0, j == 5 ? 7.0f : 1.7f, 0), fw = App::forward(20.0f, 0.0f), rt = glm::normalize(glm::cross(fw, vec3(0, 1, 0)));   // wide: 7 m up, over the trees in front of the row
   auto ground = [&](vec3 p) { p.y = app.terrain.height(p.x, p.z); return p; };
   vec3 subj = ground(cam + fw * dist[j]) + vec3(0, j == 0 ? 1.4f : j == 1 ? 0.45f : j == 2 ? 2.2f : j == 3 ? 1.1f : 0.0f, 0);
   const vec3 aim = j == 5 ? subj + vec3(0, 10.0f, 0) : j == 4 ? subj + vec3(0, 5.0f, 0) : subj + rt * (0.15f * dist[j]);   // the flash runs off along +rt: look a little ahead of the muzzle

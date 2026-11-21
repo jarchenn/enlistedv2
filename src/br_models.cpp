@@ -236,7 +236,7 @@ bool brSightLine(const WeaponDef& d, const WeaponState& ws, vec3& R, vec3& F, fl
   const AssetDef* a; mat4 M; vec3 e;
   if (!sightMount(d, fittedSight(d, ws), a, M, e)) return false;
   R = e; F = e + vec3(0, 0, 0.25f);
-  relief = fittedSight(d, ws) == 7 ? 0.35f : fittedSight(d, ws) == 1 || fittedSight(d, ws) == 5 ? 0.16f : 0.09f;   // PS1: a pistol dot at arm's length   // red dot / holographic: held further back; magnified optics: at the eyepiece
+  relief = fittedSight(d, ws) == 7 ? 0.35f : fittedSight(d, ws) == 1 || fittedSight(d, ws) == 5 ? 0.28f : 0.09f;   // CP: a red dot / holo 0.28 m from the eye (at 0.16 m its box filled ~25 deg of the aimed view)   // PS1: a pistol dot at arm's length   // red dot / holographic: held further back; magnified optics: at the eyepiece
   return true;
 }
 
