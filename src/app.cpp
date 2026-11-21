@@ -326,8 +326,11 @@ void App::resetInteractStates() {
 }
 
 void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
+  { extern void mossHabitatSync(App&); mossHabitatSync(*this); }   // BF B1: habitat grid (rebuilds on a worker when the map changes)
+  R.contactAO.clear();   // BF B4
   R.foliage.clear(); R.folModels.clear(); R.impDraws.clear(); R.worldModels.clear(); R.worldModelsGlass.clear(); worldBoxDraws.clear(); R.natPatches.clear();
   { extern void greeneryFrame(App&); greeneryFrame(*this); }   // FL1: spring-green leaves (foliage.cpp)
+  { extern void scatterFrame(App&, std::vector<DrawItem>&, vec3); scatterFrame(*this, op, mode == Mode::Explore ? eyePos() : camPos); }   // BF B2/B3 ground scatter (scatter.cpp)
   foundationDrawItems(*this, op, mode == Mode::Explore ? eyePos() : camPos);   // MA3: foundation plants + stones (foundation.cpp)
   interior.beginFrame();   // R2 room culling: per-building visibility once per frame
   if (mode == Mode::Explore) { grenadeDrawItems(); gm2DrawItems(*this, op); }   // GM2: placed packs
@@ -377,6 +380,20 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     if (act.rtOf[idx]->farOut) continue;   // BT2 loadRadius: not built while far   // BT2 switch firthin: the map's optional far trees
     auto& r = *act.rtOf[idx];
     mat4 M = instanceMatrix(i);
+    if (R.perf.contactAO) { extern bool waterAsset(const AssetDef*);   // BF B4: contact AO under resting objects within 60 m (not vehicles, water, paths, flat ground pieces, scatter patches)
+      const AssetDef* ca = r.asset; const vec3 dv = i.pos - dlEye;
+      if (glm::dot(dv, dv) < 3600.0f && std::fabs(i.pos.y + ca->bmin.y - terrain.height(i.pos.x, i.pos.z)) < 0.5f   // resting on the ground (not roof dressing)
+          && !isVehicleAsset(ca) && !ca->path.on && !waterAsset(ca) && ca->bmax.y - ca->bmin.y > 0.08f
+          && (ca->nature.kind == NatureDef::NONE || ca->nature.kind == NatureDef::ROCK)
+          && !(ca->modelFoliage && ca->bmax.y - ca->bmin.y < 4.0f)) {   // plants (ferns, grass clumps, saplings) are not resting objects
+        vec2 hh = ca->tree.on || ca->modelFoliage ? vec2(0.18f + 0.012f * (ca->bmax.y - ca->bmin.y))   // trunk, not crown
+                                                  : 0.5f * vec2(ca->bmax.x - ca->bmin.x, ca->bmax.z - ca->bmin.z);
+        vec2 cc = ca->tree.on || ca->modelFoliage ? vec2(0) : 0.5f * vec2(ca->bmax.x + ca->bmin.x, ca->bmax.z + ca->bmin.z);
+        const vec3 base = i.pos + yawQuat(i.yaw) * vec3(cc.x, 0, cc.y);
+        if (hh.x > 0.03f && hh.y > 0.03f && hh.x < 40.0f && hh.y < 40.0f)
+          R.pushContactAO(base, radians(i.yaw), hh, 0.5f, i.pos.y + ca->bmin.y - 0.6f - 0.3f * std::min(std::max(hh.x, hh.y), 4.0f), i.pos.y + ca->bmin.y + 0.25f);
+      }
+    }
     if (decorDraw(*this, i, r, M, op, gl)) continue;   // V8: border-ring decor saved in maps, cheap at range (decor.cpp)
     if (isVehicleAsset(r.asset) || (mode == Mode::Explore && tanks.isAdopted(i.id))) { tanks.drawItems(*this, i, r); continue; }   // BR7: an adopted car moves   // supplied tank GLB on its rig (tank_ui.cpp)
     if (mode == Mode::Explore) tanks.propMatrix(i, M);   // a prop a tank knocked over / crushed: drawn at its fallen pose (tank_ram.cpp)
@@ -634,8 +651,9 @@ const GpuMesh& App::assetLodMesh(InstanceRT& r, const AssetDef* a, const GpuMesh
 // the copy or the ground changes (placement, moves, sculpting, craters). kMainFS reads it as the local ground line.
 // shortcut: 4 x 4 samples (13 m apart on the 40 m chateau) miss ground detail finer than that; a perimeter list would not.
 const vec4* App::contactProfile(const Instance& i, InstanceRT& r) {
-  if (r.contactRev == i.rev && r.contactGround == groundRev) return r.contact;
-  r.contactRev = i.rev; r.contactGround = groundRev;
+  extern uint32_t mossHabitatRev(); const uint32_t gk = groundRev + 0x9e3779b9u * mossHabitatRev();   // BF B1: the habitat in contact[5]
+  if (r.contactRev == i.rev && r.contactGround == gk) return r.contact;
+  r.contactRev = i.rev; r.contactGround = gk;
   vec2 mn = vec2(r.asset->bmin.x, r.asset->bmin.z) - 0.4f, mx = vec2(r.asset->bmax.x, r.asset->bmax.z) + 0.4f;
   r.contact[0] = vec4(mn, mx);
   quat q = yawQuat(i.yaw);
@@ -644,6 +662,7 @@ const vec4* App::contactProfile(const Instance& i, InstanceRT& r) {
     vec3 w = i.pos + q * vec3(a.x, 0, a.y);
     r.contact[1 + z][x] = terrain.height(w.x, w.z) - i.pos.y;
   }
+  extern vec4 mossHabitat(float x, float z); r.contact[5] = mossHabitat(i.pos.x, i.pos.z);   // BF B1
   return r.contact;
 }
 
@@ -1499,6 +1518,7 @@ int App::run(int argc, char** argv) {
       // FG1 (Blackwater Thaw spec 6): "look": {"hazeHeight": m (the aerial haze scale height), "fogLayer": {"density": 1/m,
       // "height": m}} (the valley mist: the environmental fog's own density and e-folding height, instead of the weather's)
       R.lt.mapLeafless = lk && lk->value("leafless", false);
+      R.lt.mapMossBias = lk && lk->contains("mossThreshold") ? 0.55f - lk->value("mossThreshold", 0.55f) : 0.0f;   // BF moss wetness
       R.lt.mapGrassDead = lk ? std::clamp(lk->value("grassDead", 0.0f), 0.0f, 1.0f) : 0.0f;
       { const json* sf = lk && lk->contains("snowfall") && (*lk)["snowfall"].is_object() ? &(*lk)["snowfall"] : nullptr;   // SF1
         R.lt.mapSnowfall = sf != nullptr;
@@ -1610,6 +1630,12 @@ int App::run(int argc, char** argv) {
     settingsEndFrame(*this);   // FPS cap
     { extern bool loadingActive(); hitchFrameEnd(swapMs, loadingActive()); }   // CP step 0: always-on hitch log
     { extern void dynResFrame(App&); dynResFrame(*this); }   // CP 5.1: dynamic resolution (dynres.cpp)
+    {   // sampler-unit check (units are set at draw time): at startup (the menu's programs) and once a map has drawn 30 frames (setLighting / first-draw units)
+      extern bool loadingActive(); static int frames = 0, worldFrames = 0;
+      if (++frames == 3) R.checkSamplerUnits();
+      worldFrames = mainMenuActive() || loadingActive() ? 0 : worldFrames + 1;
+      if (worldFrames == 30) { static bool done = false; if (!done) { done = true; R.checkSamplerUnits(); } }
+    }
   }
   int code = selftest ? selftest->exitCode : 0;
   if (gCrumbProf) { extern json crumbProfReport(const char*); crumbProfReport("exit"); }

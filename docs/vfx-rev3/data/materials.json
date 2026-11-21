@@ -1,0 +1,345 @@
+{
+ "_note": "base_colour is LINEAR Rec.709. For metals base_colour is F0. See ch02.",
+ "_limits": {
+  "albedo_linear": [
+   0.02,
+   0.85
+  ],
+  "F0_dielectric": [
+   0.02,
+   0.05
+  ],
+  "metallic": [
+   0,
+   1
+  ]
+ },
+ "materials": [
+  {
+   "id": "lime_plaster_clean",
+   "base_colour_linear": [
+    0.52,
+    0.49,
+    0.44
+   ],
+   "roughness_range": [
+    0.82,
+    0.92
+   ],
+   "F0": 0.028,
+   "metallic": 0,
+   "normal_intensity": 0.4,
+   "substrate_porosity": 0.45
+  },
+  {
+   "id": "lime_plaster_weathered",
+   "base_colour_linear": [
+    0.33,
+    0.31,
+    0.28
+   ],
+   "roughness_range": [
+    0.86,
+    0.95
+   ],
+   "F0": 0.025,
+   "metallic": 0,
+   "normal_intensity": 0.6,
+   "substrate_porosity": 0.45
+  },
+  {
+   "id": "oak_plank_grey",
+   "base_colour_linear": [
+    0.14,
+    0.13,
+    0.11
+   ],
+   "roughness_range": [
+    0.72,
+    0.88
+   ],
+   "F0": 0.03,
+   "metallic": 0,
+   "normal_intensity": 0.8,
+   "substrate_porosity": 0.65
+  },
+  {
+   "id": "oak_plank_warm",
+   "base_colour_linear": [
+    0.13,
+    0.085,
+    0.045
+   ],
+   "roughness_range": [
+    0.7,
+    0.86
+   ],
+   "F0": 0.03,
+   "metallic": 0,
+   "normal_intensity": 0.8,
+   "substrate_porosity": 0.65
+  },
+  {
+   "id": "oak_plank_dark",
+   "base_colour_linear": [
+    0.055,
+    0.04,
+    0.028
+   ],
+   "roughness_range": [
+    0.68,
+    0.84
+   ],
+   "F0": 0.03,
+   "metallic": 0,
+   "normal_intensity": 0.9,
+   "substrate_porosity": 0.65
+  },
+  {
+   "id": "limestone_dry",
+   "base_colour_linear": [
+    0.17,
+    0.17,
+    0.16
+   ],
+   "roughness_range": [
+    0.7,
+    0.9
+   ],
+   "F0": 0.035,
+   "metallic": 0,
+   "normal_intensity": 1.0,
+   "substrate_porosity": 1.0
+  },
+  {
+   "id": "limestone_lichened",
+   "base_colour_linear": [
+    0.21,
+    0.22,
+    0.19
+   ],
+   "roughness_range": [
+    0.8,
+    0.95
+   ],
+   "F0": 0.03,
+   "metallic": 0,
+   "normal_intensity": 1.0,
+   "substrate_porosity": 1.0
+  },
+  {
+   "id": "clay_roof_tile",
+   "base_colour_linear": [
+    0.095,
+    0.05,
+    0.035
+   ],
+   "roughness_range": [
+    0.75,
+    0.9
+   ],
+   "F0": 0.03,
+   "metallic": 0,
+   "normal_intensity": 0.9,
+   "substrate_porosity": 0.55
+  },
+  {
+   "id": "slate",
+   "base_colour_linear": [
+    0.03,
+    0.032,
+    0.036
+   ],
+   "roughness_range": [
+    0.45,
+    0.7
+   ],
+   "F0": 0.035,
+   "metallic": 0,
+   "normal_intensity": 0.7,
+   "substrate_porosity": 0.3
+  },
+  {
+   "id": "iron_painted",
+   "base_colour_linear": [
+    0.045,
+    0.045,
+    0.048
+   ],
+   "roughness_range": [
+    0.35,
+    0.55
+   ],
+   "F0": 0.04,
+   "metallic": 0,
+   "normal_intensity": 0.5,
+   "substrate_porosity": 0.25
+  },
+  {
+   "id": "iron_bare",
+   "base_colour_linear": [
+    0.56,
+    0.57,
+    0.58
+   ],
+   "roughness_range": [
+    0.25,
+    0.45
+   ],
+   "F0": null,
+   "metallic": 1,
+   "normal_intensity": 0.6,
+   "substrate_porosity": 0.05
+  },
+  {
+   "id": "rust_mature",
+   "base_colour_linear": [
+    0.085,
+    0.035,
+    0.013
+   ],
+   "roughness_range": [
+    0.8,
+    0.98
+   ],
+   "F0": 0.035,
+   "metallic": 0,
+   "normal_intensity": 1.0,
+   "substrate_porosity": 0.9
+  },
+  {
+   "id": "soil_dry",
+   "base_colour_linear": [
+    0.085,
+    0.06,
+    0.038
+   ],
+   "roughness_range": [
+    0.88,
+    0.97
+   ],
+   "F0": 0.03,
+   "metallic": 0,
+   "normal_intensity": 1.0,
+   "substrate_porosity": 1.0
+  },
+  {
+   "id": "soil_wet",
+   "base_colour_linear": [
+    0.03,
+    0.021,
+    0.013
+   ],
+   "roughness_range": [
+    0.25,
+    0.55
+   ],
+   "F0": 0.03,
+   "metallic": 0,
+   "normal_intensity": 0.8,
+   "substrate_porosity": 1.0
+  },
+  {
+   "id": "moss_healthy",
+   "base_colour_linear": [
+    0.055,
+    0.105,
+    0.03
+   ],
+   "roughness_range": [
+    0.78,
+    0.92
+   ],
+   "F0": 0.035,
+   "metallic": 0,
+   "normal_intensity": 1.0,
+   "substrate_porosity": 1.0
+  },
+  {
+   "id": "moss_dry",
+   "base_colour_linear": [
+    0.085,
+    0.095,
+    0.045
+   ],
+   "roughness_range": [
+    0.85,
+    0.95
+   ],
+   "F0": 0.035,
+   "metallic": 0,
+   "normal_intensity": 1.0,
+   "substrate_porosity": 1.0
+  },
+  {
+   "id": "algae_film",
+   "base_colour_linear": [
+    0.04,
+    0.065,
+    0.03
+   ],
+   "roughness_range": [
+    0.7,
+    0.88
+   ],
+   "F0": 0.03,
+   "metallic": 0,
+   "normal_intensity": 0.3,
+   "substrate_porosity": 1.0
+  },
+  {
+   "id": "lichen_crustose",
+   "base_colour_linear": [
+    0.28,
+    0.29,
+    0.24
+   ],
+   "roughness_range": [
+    0.9,
+    0.95
+   ],
+   "F0": 0.032,
+   "metallic": 0,
+   "normal_intensity": 0.5,
+   "substrate_porosity": 1.0
+  },
+  {
+   "id": "soot_scorch",
+   "base_colour_linear": [
+    0.012,
+    0.012,
+    0.012
+   ],
+   "roughness_range": [
+    0.9,
+    1.0
+   ],
+   "F0": 0.02,
+   "metallic": 0,
+   "normal_intensity": 0.2,
+   "substrate_porosity": 0.8
+  },
+  {
+   "id": "water_shallow",
+   "base_colour_linear": [
+    0.012,
+    0.014,
+    0.013
+   ],
+   "roughness_range": [
+    0.02,
+    0.12
+   ],
+   "F0": 0.02,
+   "metallic": 0,
+   "normal_intensity": 0.0,
+   "substrate_porosity": 0.0
+  }
+ ],
+ "photo_reference_swatches": {
+  "_note": "Encoded sRGB read off the supplied reference photographs under their own exposure, from rev 1. Lighter than the physical albedos because they include baked lighting. Use for matching the photos; use the materials table for authoring.",
+  "muted_base_moss": "#394331",
+  "greener_mat_with_soil": "#596846",
+  "dry_vegetation_inclusion": "#857B55"
+ }
+}

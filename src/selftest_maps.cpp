@@ -40,7 +40,7 @@ std::vector<int> mapTemplates(App& app) {
   std::vector<int> v;
   const char* only = std::getenv("NMK_MAPS_ONLY");   // dev hook: just this template id (e.g. chateau_town)
   for (int k = 0; k < (int)app.templates.size(); ++k)
-    if (app.templates[k].raw.contains("map") && (!only || !*only || app.templates[k].id == only)) v.push_back(k);
+    if (app.templates[k].raw.contains("map") && (!only || !*only || ("," + std::string(only) + ",").find("," + app.templates[k].id + ",") != std::string::npos)) v.push_back(k);   // a comma list too (one launch over several maps)
   return v;
 }
 struct View { std::string name; vec3 pos; float yaw, pitch; bool explore = false; bool gate = true; float hour = -1.0f; bool groundEye = false, neutral = false; int dbg = -1; bool ggOff = false; int weather = -1; float cover = -1.0f; int light = -1; float walk = 0.0f; };   // VO walk: seconds walked forward at 1.4 m/s after the measurement, a frame every 0.5 s (motion check)   // VO: light 1 New / 0 Classic (Settings > Lighting)   // SKY1: weather 0 clear / 1 cloudy, cover forced   // GR3: hour >= 0 sets the time of day for that view; groundEye: pos.y is the eye height above the terrain; neutral: the map's look tint / saturation / ambient off (tracing a colour cast)   // gate: gameplay view held to the frame target
@@ -640,7 +640,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       std::string nm = "maps_" + app.templates[sTpl[sTi]].id + "_" + v.name + (sPresetPass == 1 ? "_low" : sPresetPass == 2 ? "_high" : sPresetPass == 3 ? "_night" : "");
       shotQueue.push_back(nm);
       check(p.frames > 10, fmt("%s view %s%s: %.2f ms avg (worst %.1f) over %d frames, %.0f draws, %.1f M tris, GPU %.2f ms, sun direct %.0f %%, %d sun-cascade draws, shimmer %.2f px, exposure %.2f%s, %zu lights, cascade4 %d / far atlas %d -> selftest_out/%s.png", v.gate ? "gameplay" : "editor", v.name.c_str(), sPresetPass ? (sPresetPass == 1 ? " at Low" : sPresetPass == 2 ? " at High" : " at Night (Medium)") : "", p.ms, p.worst, p.frames, p.draws, p.tris / 1e6, p.gpu, app.R.stats.sunDirectPct, app.R.stats.shadowDraws, app.R.shimmerPx, app.R.exposure(), app.R.camIndoor ? " (indoors)" : "", app.R.lights.size(), app.R.stats.c3, app.R.stats.farAtlas, nm.c_str()));
-      { static bool once = false; if (!once) { once = true; check(app.R.shaderErrors == 0, fmt("all shaders compiled, terrain variants included (%d errors)", app.R.shaderErrors)); } }   // PF: a missing terrain variant fails here
+      { static bool once = false; if (!once) { once = true; app.R.checkSamplerUnits(); check(app.R.shaderErrors == 0, fmt("all shaders compiled, terrain variants included (%d errors)", app.R.shaderErrors)); } }   // PF: a missing terrain variant fails here
       {   // PF terrain: the pass time, what it drew per LOD ring, the fine tiles and the share of its shaded fragments that wrote a sample
         const auto& st = app.terrain.stream.stats; const auto& fs = app.R.stats;
         logf("[terrain] %s %s: pass %.2f ms; chunks %d (%d with the discarding shader) per ring %d/%d/%d/%d/%d, tris %.2fM (%.2f/%.2f/%.2f/%.2f/%.2f M); fine tiles %d drawn (lod %d/%d/%d), %d culled; samples written %.2fM",

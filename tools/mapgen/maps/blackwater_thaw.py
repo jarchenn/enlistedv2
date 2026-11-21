@@ -661,7 +661,8 @@ def build(ctx):
     # a valley mist layer (12 m e-folding) hugging the creek and the low ground
     # BT2: thinner world haze (the old 2.4 made a uniform veil), the damp valley pocket carries the mist (~0-12 m, tapering
     # by ~30 m), lighter cloud deck, a cooler but less grey grade
-    look = {"weather": 0.8, "clouds": 0.75, "haze": 1.6, "hazeHeight": 90.0, "envFog": 1, "fogNear": 6.0,
+    look = {"weather": 0.8, "mossThreshold": 0.35, "clouds": 0.75,   # mossThreshold: BF moss wetness (a thawing, wet hamlet)
+            "haze": 1.6, "hazeHeight": 90.0, "envFog": 1, "fogNear": 6.0,
             "fogLayer": {"density": 0.003, "height": 22.0},
             # brief 2.2: a soft basin band over the castle spur's lowest trees and terrace wall (y ~65-90), tower tops clear
             "fogLayer2": {"density": 0.002, "floor": 55.0, "top": 100.0, "soft": 10.0}, "saturation": 0.8, "tint": [0.97, 0.99, 1.03],
@@ -1322,15 +1323,38 @@ def castle_terrain(F, X, Z):
     S, T = castle_frame(X, Z)
     P = CASTLE_PAD
     F.set_mask((S >= -84) & (S < -50) & (np.abs(T) <= 23), P - 12.0)                       # the gate terrace
-    F.set_mask((S >= -50) & (S < -8) & (np.abs(T) <= 21), P - 10.0)                        # the lower court (2 m over the gate)
+    F.set_mask((S >= -50) & (S < -6.8) & (np.abs(T) <= 21), P - 10.0)                      # the lower court (2 m over the gate), up to the retaining wall's middle
     F.set_mask((S >= -22) & (S < 8) & (T > 0) & (T <= 31), P - 10.0)                       # the lateral wing's ledge
-    F.set_mask((S >= -8) & (S < 66) & (np.abs(T) <= 19), P)                                # the palace
+    F.set_mask((S >= -6.8) & (S < 66) & (np.abs(T) <= 19), P)                              # the palace (its step hidden in the retaining wall)
     for s0, h in ((-100.0, 70.0), (-125.0, 45.0), (-150.0, 24.0)):                         # the crest, down to the valley
         F.set_mask((np.abs(S - s0) < 1.0) & (np.abs(T) < 8.0), h)
     F.set_mask((T > 40) & (T < 44) & (S > -150) & (S < 80), 46.0)                          # east flank (toward the quarry)
     F.set_mask((T > 29) & (T < 31) & (S > -6) & (S < 44), P - 38.0)                        # the exposed cliff under the palace
     F.set_mask((T < -40) & (T > -44) & (S > -150) & (S < 80), 52.0)                        # west flank
     F.set_mask((S > 74) & (S < 78) & (np.abs(T) < 40), P - 34.0)                           # the saddle behind the apex
+    # CB pass B (spec 6.1): the spur as four rock masses (south crest, under the gate and court, under the palace, the
+    # north apex) with benches and shelves between steep risers, each bench broken into pieces at slightly different
+    # heights and offsets, gullies where the masses meet; a foundation step under the palace's long sides; the west
+    # side keeps clear of the castle road (t ~ -39). The benches are kept for the dressing (boulders on the shelves).
+    rr = rng(SEED + 77)
+    CASTLE_BENCHES.clear()
+
+    def bench(s0, s1, t0, t1, h):
+        n = rr.randint(2, 3); L = (s1 - s0) / n
+        for i in range(n):
+            a, b_ = s0 + i * L + rr.uniform(0.0, 1.5), s0 + (i + 1) * L - rr.uniform(0.0, 1.5)
+            dt, dh = rr.uniform(-1.2, 1.2), rr.uniform(-2.0, 2.0)
+            lo, hi = t0 + dt, t1 + dt
+            F.set_mask((S >= a) & (S < b_) & (T > lo) & (T < hi), h + dh)
+            CASTLE_BENCHES.append((a, b_, (lo + hi) / 2))
+    bench(-82.0, -26.0, 25.5, 28.0, 74.0); bench(-80.0, -28.0, 33.0, 36.0, 60.0)          # east, under the gate and court
+    bench(10.0, 62.0, 20.5, 22.5, P - 5.0); bench(-2.0, 42.0, 34.0, 37.0, 55.0)            # east, under the palace: its foundation step; scree below the cliff
+    bench(48.0, 72.0, 24.0, 26.5, 86.0); bench(46.0, 72.0, 32.0, 35.0, 66.0)               # east, the north apex
+    bench(-2.0, 60.0, -22.5, -20.5, P - 6.0); bench(-46.0, -14.0, -25.0, -23.0, 82.0)      # west, above the road
+    F.set_mask((S > 68.5) & (S < 70.5) & (np.abs(T) < 12.0), 88.0)                          # a step under the palace's north end
+
+
+CASTLE_BENCHES = []
 
 
 def castle_edge(F, X, Z, edge):
@@ -1339,19 +1363,38 @@ def castle_edge(F, X, Z, edge):
     F.set_mask(m, 62.0)
 
 
+# CB pass D: windows in the wings' rooms (face, along, sill, w, h): the shell (hollow) and the interior (lining) cut the
+# same openings; the interior declares them as windows (daylight through real openings)
+BOWER_WIN = [("x+", -30.0, -8.0, 1.1, 2.0), ("x+", -30.0, -2.0, 1.1, 2.0), ("x+", -34.5, -2.0, 1.1, 2.0)]
+WING_WIN = [("x+", -14.0, -7.0, 1.2, 2.4), ("x+", -8.5, -7.0, 1.2, 2.4), ("z-", 20.0, -7.0, 1.2, 2.4)]
+STAIR_WIN = [("x-", -17.6, -4.0, 0.5, 1.2), ("x-", -10.4, 1.0, 0.5, 1.2)]
+# the interior's doors: (id, axis of the wall's normal, wall centre coordinate, along, sill, width)
+CASTLE_DOORS = [("bower", "x", -4.9, -26.0, -10.0, 1.6), ("stairs_court", "x", 6.4, -14.0, -10.0, 1.6),
+                ("stairs_hall", "z", -8.4, 7.6, 0.0, 1.6), ("hall_south", "z", -3.6, 7.6, 0.0, 1.6),
+                ("anteroom", "x", 15.4, -12.0, -10.0, 1.6)]
+
+
 # milestone 2: the kit's patterns. Pale warm-grey limestone ashlar body, cleaner pale trim on corners and belts, rough
 # masonry base and terrace, the gatehouse's oxide-red render, blue-charcoal slate (plain: procedural slate courses alias
 # into moire at 350 m), dark window recesses
-M_CASTLE = [{"name": "limestone", "albedo": [0.62, 0.60, 0.56], "roughness": 0.85, "pattern": "ashlar", "metallic": 0, "grain": 1},
+M_CASTLE = [{"name": "limestone", "albedo": [0.60, 0.58, 0.54], "roughness": 0.85, "pattern": "ashlar", "metallic": 0, "grain": 1},
             {"name": "paving", "albedo": [0.42, 0.41, 0.39], "roughness": 0.9, "pattern": "stone", "metallic": 0, "grain": 1},
             {"name": "door", "albedo": [0.20, 0.13, 0.08], "roughness": 0.7, "pattern": "wood", "metallic": 0, "grain": 1},
             {"name": "snow", "albedo": [0.85, 0.85, 0.86], "roughness": 0.6, "pattern": "plain", "metallic": 0, "grain": 1},
             {"name": "glass", "albedo": [0.8, 0.85, 0.82], "roughness": 0.05, "pattern": "glass", "metallic": 0, "grain": 1},
-            {"name": "masonry", "albedo": [0.44, 0.42, 0.38], "roughness": 0.92, "pattern": "stone", "metallic": 0, "grain": 1},
+            {"name": "masonry", "albedo": [0.35, 0.335, 0.305], "roughness": 0.92, "pattern": "stone", "metallic": 0, "grain": 1},
             {"name": "red", "albedo": [0.40, 0.19, 0.14], "roughness": 0.88, "pattern": "plaster", "metallic": 0, "grain": 1},
             {"name": "slate", "albedo": [0.085, 0.095, 0.12], "roughness": 0.6, "pattern": "plain", "metallic": 0, "grain": 1},
-            {"name": "trim", "albedo": [0.72, 0.69, 0.63], "roughness": 0.8, "pattern": "ashlar", "metallic": 0, "grain": 1},
-            {"name": "dark", "albedo": [0.03, 0.03, 0.035], "roughness": 0.7, "pattern": "plain", "metallic": 0, "grain": 1}]
+            {"name": "trim", "albedo": [0.84, 0.81, 0.74], "roughness": 0.8, "pattern": "ashlar", "metallic": 0, "grain": 1},
+            {"name": "dark", "albedo": [0.03, 0.03, 0.035], "roughness": 0.7, "pattern": "plain", "metallic": 0, "grain": 1},
+            {"name": "pane", "albedo": [0.045, 0.05, 0.055], "roughness": 0.12, "pattern": "glass", "metallic": 0, "grain": 1},
+            {"name": "stain", "albedo": [0.47, 0.46, 0.43], "roughness": 0.7, "pattern": "ashlar", "metallic": 0, "grain": 1},
+            {"name": "repair", "albedo": [0.70, 0.68, 0.62], "roughness": 0.85, "pattern": "ashlar", "metallic": 0, "grain": 1},
+            {"name": "red_damp", "albedo": [0.29, 0.135, 0.10], "roughness": 0.75, "pattern": "plaster", "metallic": 0, "grain": 1},
+            {"name": "salt", "albedo": [0.60, 0.55, 0.50], "roughness": 0.9, "pattern": "plaster", "metallic": 0, "grain": 1},
+            {"name": "moss", "albedo": [0.20, 0.23, 0.15], "roughness": 0.95, "pattern": "plain", "metallic": 0, "grain": 1},
+            {"name": "soot", "albedo": [0.11, 0.105, 0.10], "roughness": 0.9, "pattern": "plain", "metallic": 0, "grain": 1},
+            {"name": "crack", "albedo": [0.12, 0.115, 0.11], "roughness": 0.9, "pattern": "plain", "metallic": 0, "grain": 1}]
 
 
 def write_castle_asset(ctx, cat):
@@ -1381,16 +1424,26 @@ def write_castle_asset(ctx, cat):
         a = math.atan2(h, hw); L = math.hypot(hw, h)
         return a, L
 
-    def gable_z(x0, x1, y0, h, z0, z1, m="slate", lod=0):   # a pitched roof running along z
+    def gable_z(x0, x1, y0, h, z0, z1, m="slate", lod=0, gaps=()):   # a pitched roof running along z (gaps: z spans with no eave snow)
         p = {"t": "p", "axis": 2, "a": [round(z0, 2), round(z1, 2)], "tri": [[round(x0, 2), round(y0, 2)], [round(x1, 2), round(y0, 2)], [round((x0 + x1) / 2, 2), round(y0 + h, 2)]], "m": m}
         if lod:
             p["lod"] = 1
         P.append(p)
         hw = (x1 - x0) / 2; a, L = snow_strips(hw, h, z1 - z0, "z"); xm = (x0 + x1) / 2; zc = (z0 + z1) / 2
+        cuts = [z0 + 0.15]
+        for g0, g1 in sorted(gaps):
+            cuts += [g0, g1]
+        cuts.append(z1 - 0.15)
         for sg in (-1, 1):   # the eave strip: 35 % of the slope up from the eave, 12 cm thick
             f = 0.18; ex, ey = xm + sg * hw * (1 - f), y0 + h * f
-            P.append({"t": "b", "c": [round(ex + sg * math.sin(a) * 0.08, 2), round(ey + math.cos(a) * 0.08, 2), round(zc, 2)],
-                      "s": [round(L * 0.36, 2), 0.12, round(z1 - z0 - 0.3, 2)], "r": [0, 0, round(-sg * math.degrees(a), 1)], "m": "snow", "k": 0})
+            for s0, s1 in zip(cuts[0::2], cuts[1::2]):
+                if s1 - s0 > 0.2:
+                    P.append({"t": "b", "c": [round(ex + sg * math.sin(a) * 0.08, 2), round(ey + math.cos(a) * 0.08, 2), round((s0 + s1) / 2, 2)],
+                              "s": [round(L * 0.36, 2), 0.12, round(s1 - s0, 2)], "r": [0, 0, round(-sg * math.degrees(a), 1)], "m": "snow", "k": 0})
+            for g0, g1 in gaps:   # a drift pocket in the shelter just upslope of the dormer
+                f2 = 0.36; px, py = xm + sg * hw * (1 - f2), y0 + h * f2
+                P.append({"t": "b", "c": [round(px + sg * math.sin(a) * 0.1, 2), round(py + math.cos(a) * 0.1, 2), round((g0 + g1) / 2, 2)],
+                          "s": [round(L * 0.1, 2), 0.16, round(g1 - g0 - 0.6, 2)], "r": [0, 0, round(-sg * math.degrees(a), 1)], "m": "snow", "k": 0, "lod": 1})
         P.append({"t": "b", "c": [round(xm, 2), round(y0 + h + 0.02, 2), round(zc, 2)], "s": [0.5, 0.14, round(z1 - z0 - 0.3, 2)], "m": "snow", "k": 0})
 
     def gable_x(z0, z1, y0, h, x0, x1, m="slate", lod=0):   # a pitched roof running along x
@@ -1405,8 +1458,11 @@ def write_castle_asset(ctx, cat):
                       "s": [round(abs(x1 - x0) - 0.3, 2), 0.12, round(L * 0.36, 2)], "r": [round(sg * math.degrees(a), 1), 0, 0], "m": "snow", "k": 0})
         P.append({"t": "b", "c": [round(xc, 2), round(y0 + h + 0.02, 2), round(zm, 2)], "s": [round(abs(x1 - x0) - 0.3, 2), 0.14, 0.5], "m": "snow", "k": 0})
 
-    def tower(x, z, d, y0, h, crown=1.15, cap=1.0, m="limestone", n=16):   # shaft, crown band, pointed cap
+    def tower(x, z, d, y0, h, crown=1.15, cap=1.0, m="limestone", n=16, corbel=False):   # shaft, crown band, pointed cap
         cyl((x, y0 + h / 2, z), d, h, m, n)
+        if corbel:   # CB: an inverted cone of corbel courses carrying a turret that starts in mid-wall, a trim ring at its top
+            P.append({"t": "k", "c": [round(x, 2), round(y0 - 1.4, 2), round(z, 2)], "s": [round(d, 2), 2.8, round(d, 2)], "m": "limestone", "n": n, "r": [180, 0, 0]})
+            cyl((x, y0 + 0.12, z), d * 1.08, 0.25, "trim", n)
         cyl((x, y0 + h + 0.9, z), d * crown, 1.8, "limestone", n)
         cyl((x, y0 + h + 1.8 + cap * d * 0.6, z), d * crown, cap * d * 1.2, "slate", n, cone=True)
 
@@ -1459,6 +1515,104 @@ def write_castle_asset(ctx, cat):
         else:
             box((face_x + side * 0.2, y + h / 2 + 0.15, z), (0.4, 0.3, w + 0.5), "trim", k=0)  # lintel
 
+    def raw(c, s_, m, rot=None, lod=0, k=0):   # a box with an arbitrary single-axis rotation [rx, ry, rz] (degrees)
+        p_ = {"t": "b", "c": [round(v, 3) for v in c], "s": [round(v, 3) for v in s_], "m": m}
+        if rot:
+            p_["r"] = [round(v, 2) for v in rot]
+        if not k:
+            p_["k"] = 0
+        if lod:
+            p_["lod"] = 1
+        P.append(p_)
+
+    def skin(axis, fin, fout, a0, a1, y0, y1, holes, m):
+        """CB pass B: the outer wall leaf from fin to fout (along the face normal) over a0..a1 x y0..y1, with real
+        rectangular openings (a_centre, w, y_bottom, y_top): what shows through is the core behind (the reveal)."""
+        cuts = sorted({a0, a1} | {v for a, w, yb, yt in holes for v in (a - w / 2, a + w / 2) if a0 < v < a1})
+        t, fc = abs(fout - fin), (fin + fout) / 2
+        for lo, hi in zip(cuts, cuts[1:]):
+            mid = (lo + hi) / 2
+            spans = sorted((yb, yt) for a, w, yb, yt in holes if a - w / 2 < mid < a + w / 2)
+            cur = y0
+            for yb, yt in spans + [(y1, y1)]:
+                if yb > cur + 1e-3:
+                    c_ = (fc, (cur + yb) / 2, mid) if axis == "x" else (mid, (cur + yb) / 2, fc)
+                    s_ = (t, yb - cur, hi - lo) if axis == "x" else (hi - lo, yb - cur, t)
+                    raw(c_, s_, m, k=1)
+                cur = max(cur, yt)
+
+    def opening(kind, w, h):   # the clear opening's overall height (an arched head adds w/2)
+        return h + (w / 2 if kind in ("arch", "hall", "door") else 0.0)
+
+    def win2(axis, face, side, a, sill, w, h, kind, depth=0.4, snow=False, glass_d=None, room=False):
+        """CB pass C window families (spec section 3): P1 'rect', P2 'arch' (round head, transom), P3 'pair' (two lights,
+        a central pier), P4 'small', G1 'rect' on the gatehouse, 'hall' (the great hall's glazed arched openings, no
+        backing: the room is behind). Real reveal (depth) with a dark backing and a glass pane set back, pale jambs proud
+        0.1 m, a sill proud 0.1 m running into the reveal, a lintel or radiating voussoirs, mullion / transom."""
+        def at(d, y, al):
+            return (face + side * d, y, al) if axis == "x" else (al, y, face + side * d)
+        def sz(t, hh, ww):
+            return (t, hh, ww) if axis == "x" else (ww, hh, t)
+        H = opening(kind, w, h); yc = sill + H / 2
+        if kind == "hall" or room:
+            raw(at(-(glass_d if glass_d is not None else 0.3), yc, a), sz(0.05, H, w), "glass")
+        elif kind == "door":
+            raw(at(-depth + 0.04, yc, a), sz(0.08, H, w), "door")
+        else:
+            raw(at(-depth + 0.015, yc, a), sz(0.03, H, w), "dark")
+            raw(at(-depth + 0.06, yc, a), sz(0.02, H, w), "pane")
+        for da in (-w / 2 - 0.11, w / 2 + 0.11):   # jambs
+            raw(at(0.05, sill + h / 2, a + da), sz(0.1, h + 0.1, 0.22), "trim", lod=1)
+        raw(at((-depth + 0.18) / 2, sill - 0.07, a), sz(depth + 0.02, 0.14, w + 0.44), "trim")   # sill
+        if snow:   # a thin cap on the sill (spec 6: 2-8 cm on sheltered flat elements)
+            raw(at((-depth + 0.2) / 2, sill + 0.025, a), sz(depth - 0.06, 0.05, w + 0.3), "snow", lod=1)
+        if kind in ("arch", "hall", "door"):
+            r, n = w / 2, 7
+            rm, rt = r + 0.17, 0.34
+            ys = sill + h
+            for i in range(n):
+                ph = math.pi * (i + 0.5) / n
+                al, yy = a + rm * math.cos(ph), ys + rm * math.sin(ph)
+                big = 1.25 if i == n // 2 else 1.0   # the keystone
+                if axis == "x":
+                    raw(at((-depth + 0.16) / 2, yy, al), (depth + 0.06, rt * big, math.pi * rm / n * 1.1), "trim", rot=[90.0 - math.degrees(ph), 0, 0], lod=1)
+                else:
+                    raw(at((-depth + 0.16) / 2, yy, al), (math.pi * rm / n * 1.1, rt * big, depth + 0.06), "trim", rot=[0, 0, math.degrees(ph) - 90.0], lod=1)
+            if kind != "door":
+                raw(at(-depth + 0.15, ys, a), sz(0.16, 0.1, w), "trim", lod=1)   # transom at the springing
+        else:
+            raw(at(0.06, sill + h + 0.16, a), sz(0.12, 0.32, w + 0.44), "trim")   # lintel
+        if kind == "pair":
+            raw(at(-depth / 2, sill + h / 2, a), sz(depth, h, 0.28), "trim", lod=1)   # the central pier
+        elif kind in ("arch", "hall"):
+            raw(at(-depth + 0.15, sill + h / 2, a), sz(0.16, h, 0.1), "trim", lod=1)   # mullion
+
+    # CB pass E (spec 5 / 6): weathering with causes. The west and north faces and the court are the shaded, damp ones
+    # (run-off below most sills, rising damp at the foot, snow on most sills); the east front dries (a few tails, sill
+    # snow on some); the south (gate) face sheds snow. One seeded draw per opening, so the facades differ.
+    WX = rng(SEED + 91)
+    WET = {"west": 0.8, "north": 0.75, "court": 0.6, "east": 0.25, "south": 0.15}
+    SNOWY = {"west": 0.85, "north": 0.9, "court": 0.6, "east": 0.4, "south": 0.1}
+
+    def plate(axis, face, side, a, y, w, h, m, off=0.006):
+        raw((face + side * off, y, a) if axis == "x" else (a, y, face + side * off), (0.012, h, w) if axis == "x" else (w, h, 0.012), m, lod=1)
+
+    def runoff(axis, face, side, a, sill, w, expo, m="stain"):   # tails below a sill, tapering, length by exposure
+        if WX.random() < WET[expo]:
+            L = WX.uniform(0.6, 1.4) * (1.6 if expo in ("west", "north") else 1.0)
+            plate(axis, face, side, a + WX.uniform(-0.1, 0.1), sill - 0.14 - L / 2, w * 0.7, L, m)
+            plate(axis, face, side, a + WX.uniform(-0.15, 0.15), sill - 0.14 - L - 0.35, w * 0.3, 0.7, m)
+
+    def damp(axis, face, side, a0, a1, y0, hmax, m="stain"):   # rising damp at a wall foot: an irregular band
+        a = a0
+        while a < a1 - 0.3:
+            wd = min(a1 - a, WX.uniform(1.2, 2.6)); hh = hmax * WX.uniform(0.45, 1.0)
+            plate(axis, face, side, a + wd / 2, y0 + hh / 2, wd, hh, m)
+            a += wd
+
+    def snowsill(expo):
+        return WX.random() < SNOWY[expo]
+
     # the terrace: a battered retaining drum (a wider plinth course), coping, a parapet along its front, paving on top
     cyl((0.0, yT - 10.0, -66.0), 44.0, 20.0, "masonry", 32)
     cyl((0.0, yT - 17.0, -66.0), 46.5, 6.0, "masonry", 32)                       # the batter: a wider foot course
@@ -1467,6 +1621,9 @@ def write_castle_asset(ctx, cat):
     for k in range(9):
         ph = math.radians(-70.0 + 17.5 * k)
         box((22.4 * math.sin(ph), yT - 11.0, -66.0 - 17.4 * math.cos(ph)), (2.4, 18.0, 3.2), "masonry", r=math.degrees(ph))
+        box((22.9 * math.sin(ph), yT - 17.0, -66.0 - 17.8 * math.cos(ph)), (3.6, 6.0, 4.6), "masonry", r=math.degrees(ph))   # CB: the buttress widens to its foot
+        box((22.6 * math.sin(ph), yT - 1.9, -66.0 - 17.55 * math.cos(ph)), (2.8, 0.35, 3.6), "trim", r=math.degrees(ph), k=0)   # its cap
+    cyl((0.0, yT - 0.75, -66.0), 45.3, 0.5, "trim", 32)                            # CB: a projecting band under the coping
     for k in range(40):   # the parapet: continuous along the front arc with a coping, one gap where the road arrives (west)
         a0_, a1_ = math.radians(-100.0 + 5.0 * k), math.radians(-95.0 + 5.0 * k)
         if -100.5 < -100.0 + 5.0 * k < -84.5:
@@ -1475,59 +1632,152 @@ def write_castle_asset(ctx, cat):
         L = math.hypot(p1[0] - p0[0], p1[1] - p0[1]) + 0.05; yaw_ = math.degrees(math.atan2(p1[0] - p0[0], p1[1] - p0[1])) - 90.0
         box(((p0[0] + p1[0]) / 2, yT + 0.55, (p0[1] + p1[1]) / 2), (L, 1.1, 0.5), "masonry", r=yaw_)
         box(((p0[0] + p1[0]) / 2, yT + 1.17, (p0[1] + p1[1]) / 2), (L, 0.14, 0.7), "trim", r=yaw_, k=0)
-    # the gatehouse: red body split round a 4.4 x 6.4 m passage (open door leaves inside), stepped gable, towers
-    box((-8.6, yT + 8.0, -50.0), (12.8, 16.0, 11.0), "red")
-    box((8.6, yT + 8.0, -50.0), (12.8, 16.0, 11.0), "red")
-    box((0.0, yT + 11.2, -50.0), (4.4, 9.6, 11.0), "red")                         # over the passage
+        P.append({"t": "b", "c": [round((p0[0] + p1[0]) / 2, 3), round(yT + 1.27, 3), round((p0[1] + p1[1]) / 2, 3)], "s": [round(L * 0.96, 3), 0.06, 0.55], "m": "snow", "r": [0, round(yaw_, 1), 0], "k": 0, "lod": 1})
+    # the gatehouse: red body split round a 4.4 m passage (open door leaves inside), stepped gable, towers. CB pass B/C:
+    # the bodies are cores behind a 0.35 m front leaf with real window openings (G1); the portal (G2) is a true round
+    # arch (springing yT + 4.2, crown yT + 6.4): pale radiating voussoirs through the first 0.8 m, a lined barrel beyond,
+    # chamfered pale jambs with an impost course, a threshold stone
+    GF, GD = -55.5, 0.35
+    gwin = [(x, yT + 7.4, 1.4, 2.2) for x in (-10.0, -6.0, 6.0, 10.0)] + [(x, yT + 11.4, 1.4, 2.2) for x in (-10.0, -6.0, 6.0, 10.0)]
+    for sx_ in (-1, 1):
+        box((sx_ * 8.6, yT + 8.0, -50.0), (12.8, 16.0, 10.3), "red")              # core between the front and the court leaves
+        rw = [(x, w, y, y + h) for x, y, w, h in gwin if sx_ * x > 0]
+        skin("z", -44.5, -44.85, *sorted((sx_ * 2.2, sx_ * 15.0)), yT, yT + 16.0, rw, "red")
+        for x, w, yb, yt in rw:
+            win2("z", -44.5, 1, x, yb, w, yt - yb, "rect", depth=0.35, snow=snowsill("court"))
+            runoff("z", -44.5, 1, x, yb, w, "court", m="red_damp")
+        a0, a1 = sorted((sx_ * 2.2, sx_ * 15.0))
+        skin("z", GF, GF + GD, a0, a1, yT, yT + 16.0, [(x, w, y, y + h) for x, y, w, h in gwin if a0 < x < a1], "red")
+    for x, y, w, h in gwin:
+        win2("z", GF, -1, x, y, w, h, "rect", depth=GD, snow=snowsill("south"))
+        runoff("z", GF, -1, x, y, w, "south", m="red_damp")
+    for sx_ in (-1, 1):
+        damp("z", GF, -1, *sorted((sx_ * 2.9, sx_ * 13.0)), yT, 1.3, m="red_damp")
+        for k in range(3):   # salt bloom where the damp band evaporates
+            plate("z", GF, -1, sx_ * WX.uniform(4.0, 12.0), yT + WX.uniform(1.1, 1.5), WX.uniform(0.5, 1.1), 0.18, "salt", off=0.009)
+    gys, gr = yT + 4.2, 2.2
+    box((0.0, gys + 3.0 + 4.4, -50.0), (4.4, 8.8, 11.0), "red")                    # over the passage, above the arch
+    for i in range(11):                                                            # the voussoirs: through the first 0.8 m
+        ph = math.pi * (i + 0.5) / 11; rm = gr + 0.45
+        raw((rm * math.cos(ph), gys + rm * math.sin(ph), -55.3), (math.pi * rm / 11 * 1.08, 0.9 * (1.2 if i == 5 else 1.0), 0.8), "trim", rot=[0, 0, math.degrees(ph) - 90.0], k=1)
+    for i in range(12):                                                            # the barrel's lining (fills the spandrels)
+        ph = math.pi * (i + 0.5) / 12; rm = gr + 0.75
+        raw((rm * math.cos(ph), gys + rm * math.sin(ph), -49.7), (math.pi * rm / 12 * 1.12, 1.5, 10.4), "masonry", rot=[0, 0, math.degrees(ph) - 90.0], k=1)
+    for sx_ in (-1, 1):                                                            # red spandrels between the ring and the square
+        for j in range(11):
+            x0_ = 0.2 * j; xm = x0_ + 0.1
+            yo = math.sqrt(max(0.0, (gr + 0.9) ** 2 - (x0_ + 0.2) ** 2))
+            if yo < 3.0:
+                raw((sx_ * xm, gys + (yo + 3.0) / 2, -55.35), (0.2, 3.0 - yo, 0.3), "red", k=1)
+        raw((sx_ * 2.3, yT + 2.1, -55.3), (0.5, 4.2, 0.8), "trim", k=1)            # the jamb, proud 0.2 m, returning 0.6 m
+        raw((sx_ * 2.4, gys + 0.15, -55.3), (0.8, 0.3, 0.9), "trim")                # the impost
+        raw((sx_ * 2.125, yT + 2.1, -49.7), (0.15, 4.2, 10.4), "masonry", k=1)      # the passage's lining
+    raw((0.0, yT + 0.06, -55.85), (4.8, 0.12, 1.1), "trim", k=1)                    # threshold
     for k in range(5):                                                             # the ramp up to the court (2 m)
-        box((0.0, yT + 0.2 * (k + 1), -54.4 + 2.2 * k), (4.4, 0.4 * (k + 1), 2.2), "paving")
-    for k in range(9):   # the arch's surround: pale voussoirs in a semicircle over the opening, proud of the red face
-        ph = math.radians(10.0 + 20.0 * k)
-        P.append({"t": "b", "c": [round(2.75 * math.cos(ph), 2), round(yT + 6.4 + 2.75 * math.sin(ph) - 0.6, 2), -55.62], "s": [0.55, 1.0, 0.3],
-                  "r": [0, 0, round(math.degrees(ph) - 90.0, 1)], "m": "trim", "k": 0})
-    for dx, yaw in ((-2.1, 90.0), (2.1, -90.0)):                                   # door leaves, folded open against the passage walls
-        box((dx + (0.1 if dx < 0 else -0.1), yT + 3.0, -53.2), (0.15, 6.0, 2.1), "door", k=0)
+        box((0.0, yT + 0.2 * (k + 1), -54.4 + 2.2 * k), (4.1, 0.4 * (k + 1), 2.2), "paving")
+    for dx, yaw in ((-1.95, 90.0), (1.95, -90.0)):                                 # door leaves, folded open against the lining
+        box((dx, yT + 2.5, -53.2), (0.15, 5.0, 2.1), "door", k=0)
     gable_x(-55.5, -44.5, yT + 16.0, 6.0, -15.0, 15.0)
     for w, h, y in ((10.0, 5.0, 18.5), (6.5, 3.0, 22.5), (3.0, 2.2, 25.1)):
         box((0.0, yT + y, -55.3), (w, h, 1.4), "red")
-    for x in (-16.5, 16.5):
-        tower(x, -54.0, 7.0, yT, 24.0, m="red", cap=0.9)
-    for x in (-10.0, -6.0, 6.0, 10.0):                                            # the gatehouse windows (front face z -55.5)
-        for y in (yT + 8.5, yT + 12.5):
-            box((x, y, -55.58), (1.4, 2.2, 0.16), "dark", k=0)
-            box((x, y - 1.2, -55.75), (1.9, 0.18, 0.4), "trim", k=0)
-            box((x, y + 1.25, -55.7), (1.9, 0.3, 0.3), "trim", k=0)
+        box((0.0, yT + y + h / 2 + 0.15, -55.3), (w + 0.3, 0.3, 1.6), "trim", k=0)   # CB: cap blocks on each step
+    for x in (-16.5, 16.5):   # CB: the gate towers' crown differs from the palace turrets: corbels, a broad parapet ring, a low cap
+        cyl((x, yT + 12.0, -54.0), 7.0, 24.0, "red", 16)
+        for k in range(16):
+            ph = 2 * math.pi * k / 16
+            raw((x + 3.6 * math.cos(ph), yT + 23.6, -54.0 + 3.6 * math.sin(ph)), (0.5, 0.8, 0.4), "trim", rot=[0, -math.degrees(ph), 0], lod=1)
+        cyl((x, yT + 25.2, -54.0), 8.0, 2.4, "red", 16)
+        cyl((x, yT + 24.1, -54.0), 8.2, 0.25, "trim", 16)
+        cyl((x, yT + 26.35, -54.0), 8.2, 0.3, "trim", 16)
+        cyl((x, yT + 26.5 + 3.6, -54.0), 8.0, 7.2, "slate", 16, cone=True)
     # the lower court: a paved floor, side walls, the bower (left), the square-to-round tower (right, behind the gate)
-    box((0.0, yL - 0.15, -26.0), (38.0, 0.3, 37.0), "paving")
-    box((0.0, yL + 5.0, -6.8), (40.0, 10.0, 1.6), "masonry")   # the retaining wall up to the palace's level (no raw slope)
+    box((0.0, yL - 0.1, -26.0), (38.0, 0.3, 37.0), "paving")                       # (5 cm over the terrain pad)
+    # the retaining wall up to the palace's level, and the court's terminus (CB): an arched cellar door in a real
+    # recess, two buttresses, a drainage channel down the court's middle to a grate at the wall foot
+    box((0.0, yL + 5.0, -6.6), (40.0, 10.0, 1.2), "masonry")
+    skin("z", -7.6, -7.2, -20.0, 20.0, yL, yL + 10.0, [(0.0, 1.6, yL + 0.05, yL + 0.05 + opening("door", 1.6, 2.3))], "masonry")
+    win2("z", -7.6, -1, 0.0, yL + 0.05, 1.6, 2.3, "door", depth=0.4)
+    for bx in (-8.0, 8.0):
+        box((bx, yL + 3.5, -8.0), (1.4, 7.0, 0.8), "masonry")
+        box((bx, yL + 1.0, -8.25), (1.8, 2.0, 1.3), "masonry")   # wider at the foot
+        box((bx, yL + 7.1, -8.0), (1.6, 0.25, 1.0), "trim", k=0)
+    box((0.0, yL + 9.9, -6.8), (40.4, 0.3, 1.8), "trim", k=0)                       # the wall's coping
+    box((0.0, yL + 0.06, -27.0), (0.4, 0.02, 38.0), "stain", k=0)                    # the channel
+    box((0.0, yL + 0.07, -8.6), (0.7, 0.02, 0.7), "dark", k=0)                        # its grate
     for x in (-20.0, 20.0):
         box((x, yL + 4.0, -30.0), (2.0, 8.0, 36.0), "limestone")   # the facade's ashlar (masonry read as giant brick)
-    hollow(-11.0, yL + 10.0, -30.0, 13.0, 20.0, 16.0, "limestone", doors=[("x+", -26.0, yL, 1.6, 2.6)])
+        box((x, yL + 8.12, -30.0), (2.4, 0.25, 36.2), "trim", k=0)   # CB: its coping
+        raw((x, yL + 8.29, -30.0), (2.0, 0.08, 35.6), "snow", lod=1)   # CB E: snow on it
+    # CB E: the repair event: a former arched opening in the west court wall, walled up in paler, newer stone
+    for dz, hh in ((0.0, 2.6), (-0.55, 2.2), (0.55, 2.2)):
+        plate("x", -19.0, 1, -24.0 + dz, yL + hh / 2, 0.55 if dz else 0.6, hh, "repair", off=0.008)
+    for i in range(7):
+        ph = math.pi * (i + 0.5) / 7; rm = 0.95
+        raw((-18.99, yL + 2.6 + rm * math.sin(ph) * 0.8, -24.0 + rm * math.cos(ph)), (0.03, 0.3, 0.42), "trim", rot=[90.0 - math.degrees(ph), 0, 0], lod=1)
+    cy_, cz_ = yL + 3.4, -23.2
+    for i in range(6):   # a crack stepping up the joints from the infill's corner: up a head joint, along a bed joint
+        if i % 2 == 0:
+            raw((-18.985, cy_ + 0.11, cz_), (0.012, 0.22, 0.015), "crack", lod=1); cy_ += 0.22
+        else:
+            raw((-18.985, cy_, cz_ + 0.125), (0.012, 0.015, 0.25), "crack", lod=1); cz_ += 0.25
+    damp("z", -7.6, -1, -19.8, -0.9, yL, 1.4); damp("z", -7.6, -1, 0.9, 19.8, yL, 1.4)
+    raw((0.0, yL + 10.09, -6.8), (40.0, 0.08, 1.4), "snow", lod=1)
+    hollow(-11.0, yL + 10.0, -30.0, 13.0, 20.0, 16.0, "limestone", doors=[("x+", -26.0, yL, 1.6, 2.6)] + BOWER_WIN)
+    for f_, al, sy_, w_, h_ in BOWER_WIN:
+        win2("x", -4.5, 1, al, sy_, w_, h_, "rect", depth=0.8, room=True)
     box((-11.0, yL + 19.8, -30.0), (13.0, 0.4, 16.0), "limestone")   # its ceiling under the roof
     gable_z(-17.8, -4.2, yL + 20.0, 7.0, -38.0, -22.0)
-    tower(-4.2, -22.0, 3.2, yL + 14.0, 10.0, cap=1.4)
-    for y in (yL + 6.0, yL + 12.0):
-        window(-4.5, y, -30.0, 1.1, 2.0, 1, arch=False)
-    box((11.0, yL + 12.0, -38.0), (9.0, 24.0, 9.0), "limestone")
+    tower(-4.2, -22.0, 3.2, yL + 14.0, 10.0, cap=1.4, corbel=True)
+    box((11.0, yL + 12.0, -38.0), (8.2, 24.0, 9.0), "limestone")                  # CB: core; leaves with openings both sides
+    for xf, sd in ((6.5, -1), (15.5, 1)):
+        tw = [(-38.0, 1.0, yL + y, yL + y + 1.8) for y in (5.0, 11.0, 17.0)]
+        skin("x", xf, xf - sd * 0.4, -42.5, -33.5, yL, yL + 24.0, tw, "limestone")
+        for z_, w_, yb, yt in tw:
+            win2("x", xf, sd, z_, yb, w_, yt - yb, "rect")
     tower(11.0, -38.0, 8.0, yL + 24.0, 16.0, cap=1.1)
     # the connecting wing (right) between the court and the palace
-    hollow(12.0, yL + 9.0, -14.0, 12.0, 18.0, 12.0, "limestone", doors=[("x-", -14.0, yL, 1.6, 2.6), ("z+", 7.6, 0.0, 1.6, 2.6)])
+    hollow(12.0, yL + 9.0, -14.0, 12.0, 18.0, 12.0, "limestone", doors=[("x-", -14.0, yL, 1.6, 2.6), ("z+", 7.6, 0.0, 1.6, 2.6)] + STAIR_WIN)
+    for f_, al, sy_, w_, h_ in STAIR_WIN:   # the stair's lights (T1), following the flights
+        win2("x", 6.0, -1, al, sy_, w_, h_, "small", depth=0.8, room=True)
     box((12.0, yL + 17.8, -14.0), (12.0, 0.4, 12.0), "limestone")
     gable_x(-20.0, -8.0, yL + 18.0, 5.0, 6.0, 18.0)
     # the lower lateral wing toward the quarry and its slender, crowned, independent-looking tower
-    hollow(20.0, yL + 7.0, -8.0, 10.0, 14.0, 20.0, "limestone", doors=[("x-", -12.0, yL, 1.6, 2.6)])
+    hollow(20.0, yL + 7.0, -8.0, 10.0, 14.0, 20.0, "limestone", doors=[("x-", -12.0, yL, 1.6, 2.6)] + WING_WIN)
+    for f_, al, sy_, w_, h_ in WING_WIN:
+        if f_ == "x+":
+            win2("x", 25.0, 1, al, sy_, w_, h_, "rect", depth=0.8, room=True)
+        else:
+            win2("z", -18.0, -1, al, sy_, w_, h_, "rect", depth=0.8, room=True)
     box((20.0, yL + 13.8, -8.0), (10.0, 0.4, 20.0), "limestone")
     gable_z(15.0, 25.0, yL + 14.0, 4.5, -18.0, 2.0)
     # the side tower: a hollow ring (the spiral stair inside is the interior's), a door into the wing, an open lookout of
     # eight piers under its crown and cap
     TX, TZ, TR, TH = 26.0, 0.0, 3.6, 42.0
+    SLITS = {0: 0.0, 1: 1.1, 2: 2.2, 15: -1.1, 14: -2.2}   # CB: the outward (east) segments carry the stair's lights, stepping with the spiral
     for k in range(16):
         ph = math.radians(11.25 + 22.5 * k); seg = 2 * TR * math.sin(math.radians(11.25)) + 0.1
         cx_, cz_ = TX + (TR - 0.3) * math.cos(ph), TZ + (TR - 0.3) * math.sin(ph)
-        if abs(math.degrees(ph) - 180.0) < 12.0:   # the door (west, into the wing)
-            box((cx_, yL + 2.6 + (TH - 2.6) / 2, cz_), (0.6, TH - 2.6, seg), "limestone", r=-math.degrees(ph))
-        else:
-            box((cx_, yL + TH / 2, cz_), (0.6, TH, seg), "limestone", r=-math.degrees(ph))
+        tx_, tz_ = -math.sin(ph), math.cos(ph)
+        y_lo = yL + (2.6 if abs(math.degrees(ph) - 180.0) < 12.0 else 0.0)   # the door (west, into the wing)
+        cuts = [yL + 6.0 + SLITS[k] + 6.5 * j for j in range(5)] if k in SLITS else []
+        cur = y_lo
+        for yb in cuts + [yL + TH]:
+            top = yb if yb < yL + TH else yL + TH
+            if top > cur:
+                box((cx_, (cur + top) / 2, cz_), (0.6, top - cur, seg), "limestone", r=-math.degrees(ph))
+            if yb < yL + TH:   # the slit: 0.35 x 1.0 m, the segment's two halves either side of it, a pale sill and head
+                sw = (seg - 0.35) / 2
+                for sg in (-1, 1):
+                    o = sg * (0.35 / 2 + sw / 2)
+                    box((cx_ + tx_ * o, yb + 0.5, cz_ + tz_ * o), (0.6, 1.0, sw), "limestone", r=-math.degrees(ph))
+                for yy in (yb - 0.06, yb + 1.06):
+                    box((cx_ + 0.05 * math.cos(ph), yy, cz_ + 0.05 * math.sin(ph)), (0.7, 0.12, 0.6), "trim", r=-math.degrees(ph), k=0)
+                cur = yb + 1.0
+        if abs(math.degrees(ph) - 180.0) > 12.0:   # the battered foot (outside the ring; the door keeps its opening)
+            box((TX + (TR + 0.35) * math.cos(ph), yL + 1.5, TZ + (TR + 0.35) * math.sin(ph)), (0.7, 3.0, seg + 0.3), "masonry", r=-math.degrees(ph))
+    for k in range(16):   # corbels under the crown
+        ph = 2 * math.pi * k / 16
+        raw((TX + (TR + 0.2) * math.cos(ph), yL + TH + 2.0, TZ + (TR + 0.2) * math.sin(ph)), (0.6, 0.8, 0.4), "trim", rot=[0, -math.degrees(ph), 0], lod=1)
     for k in range(8):
         ph = math.radians(22.5 * k)
         box((TX + (TR - 0.3) * math.cos(ph), yL + TH + 1.2, TZ + (TR - 0.3) * math.sin(ph)), (0.6, 2.4, 0.9), "trim", r=-math.degrees(ph))
@@ -1535,48 +1785,127 @@ def write_castle_asset(ctx, cat):
     cyl((TX, yL + TH + 4.2 + 0.7 * 7.2 * 0.6, TZ), 2 * TR * 1.25, 0.7 * 7.2 * 1.2, "slate", 16, cone=True)
     # the palace: the long pale slab (its foot from the court level up), steep dark roof, dormer gables, throne-hall
     # projection, corner turrets, chimneys
-    box((0.0, 20.0, 25.0), (18.0, 20.0, 58.0), "limestone")                      # the floors above the hall
+    box((0.0, 20.0, 25.0), (17.2, 20.0, 57.2), "limestone")                      # the floors above the hall (the core; the leaves add 0.4 m)
+    for zf, sd in ((-4.0, -1), (54.0, 1)):   # CB: the narrow ends: two window columns and a column of stair lights (T1)
+        ends = [(x, 1.25, sill, sill + 2.0) for x in (-4.6, 4.6) for sill in (16.4, 20.4)] + [(x, 1.4, 11.0, 11.0 + opening("arch", 1.4, 2.9)) for x in (-4.6, 4.6)]
+        ends += [(0.0, 0.4, y, y + 1.0) for y in (12.2, 17.0, 21.8, 25.4)]
+        skin("z", zf, zf - sd * 0.4, -8.6, 8.6, 10.0, 30.0, ends, "limestone")
+        expo = "north" if sd > 0 else "south"
+        for x in (-4.6, 4.6):
+            win2("z", zf, sd, x, 11.0, 1.4, 2.9, "arch", snow=snowsill(expo))
+            runoff("z", zf, sd, x, 11.0, 1.4, expo)
+            for sill in (16.4, 20.4):
+                win2("z", zf, sd, x, sill, 1.25, 2.0, "rect", snow=snowsill(expo))
+                runoff("z", zf, sd, x, sill, 1.25, expo)
+        for y in (12.2, 17.0, 21.8, 25.4):
+            win2("z", zf, sd, 0.0, y, 0.4, 1.0, "small")
+        for yc_, hh, pr in ((10.0, 0.45, 0.22), (15.4, 0.25, 0.14), (19.4, 0.25, 0.14), (23.4, 0.25, 0.14), (29.75, 0.5, 0.4)):
+            box((0.0, yc_, zf + sd * (pr / 2 - 0.02)), (17.2, hh, pr + 0.04), "trim", k=0)
     HALL_WIN = [(f, z) for f in ("x-", "x+") for z in [-0.5 + 4.6 * k for k in range(12)] if not (f == "x-" and 27.0 < z < 41.0)]
-    hollow(0.0, 5.0, 25.0, 18.0, 10.0, 58.0, "limestone", doors=[("z-", 7.6, 0.0, 1.6, 2.6)] + [(f, z, 1.5, 1.8, 5.2) for f, z in HALL_WIN])   # the great hall's walls, its ground-floor windows open
+    hollow(0.0, 5.0, 25.0, 18.0, 10.0, 58.0, "limestone", doors=[("z-", 7.6, 0.0, 1.6, 2.6)] + [(f, z, 1.5, 1.8, 6.1) for f, z in HALL_WIN])   # the great hall's walls, its ground-floor windows open
     box((0.0, -5.0, 25.0), (18.6, 10.0, 58.6), "masonry")                         # the base course down to the court
-    gable_z(-9.6, 9.6, 30.0, 12.0, -4.0, 54.0)
-    for z in (6.0, 18.0, 30.0, 42.0):
-        for side in (-1, 1):
-            box((side * 8.3, 32.2, z), (3.0, 4.4, 4.2), "limestone")
+    gable_z(-9.6, 9.6, 30.0, 12.0, -4.0, 54.0, gaps=[(-4.0, 11.2), (15.6, 20.4), (27.6, 32.4), (38.4, 54.0)])
+    # CB pass B (spec 2.1.4): the pavilions break the long roof: a transverse gable over each, its ridge meeting the main
+    # slope, a gable wall over the pavilion's face with a small light
+    for side, z0, z1 in ((1, -4.0, 11.0), (1, 38.6, 54.0), (-1, -4.0, 11.0), (-1, 43.2, 54.0)):
+        zm = (z0 + z1) / 2; hgt = 5.6 if z1 - z0 > 12.0 else 4.2
+        gable_x(z0 - 0.3, z1 + 0.3, 30.0, hgt, side * 4.8, side * 10.0)
+        P.append({"t": "p", "axis": 0, "a": sorted([round(side * 9.1, 2), round(side * 9.5, 2)]), "tri": [[round(z0, 2), 30.0], [round(z1, 2), 30.0], [round(zm, 2), round(30.0 + hgt - 0.25, 2)]], "m": "limestone"})
+        P.append({"t": "c", "c": [round(side * 9.52, 2), round(30.0 + hgt * 0.42, 2), round(zm, 2)], "s": [1.1, 0.12, 1.1], "m": "trim", "r": [0, 0, 90], "n": 12, "k": 0})
+        P.append({"t": "c", "c": [round(side * 9.56, 2), round(30.0 + hgt * 0.42, 2), round(zm, 2)], "s": [0.8, 0.06, 0.8], "m": "pane", "r": [0, 0, 90], "n": 12, "k": 0})
+    for z in (18.0, 30.0):   # (the dormers at 6 and 42 gave way to the pavilions' gables)
+        for side in (-1, 1):   # CB: a dormer (an attic room's light): core, front leaf with a real opening, sill with snow
+            box((side * 8.175, 32.2, z), (2.75, 4.4, 4.2), "limestone")
+            skin("x", side * 9.55, side * 9.8, z - 2.1, z + 2.1, 30.0, 34.4, [(z, 0.9, 31.1, 32.4)], "limestone")
+            win2("x", side * 9.8, side, z, 31.1, 0.9, 1.3, "small", depth=0.25, snow=True)
             gable_x(z - 2.4, z + 2.4, 34.4, 3.0, side * 6.8, side * 9.9)
-    box((-12.5, 15.0, 34.0), (7.0, 30.0, 14.0), "limestone")
+    box((-12.3, 15.0, 34.0), (6.6, 30.0, 14.0), "limestone")                      # CB: the throne-hall projection's core
+    thr = []
+    for z_ in (30.0, 34.0, 38.0):
+        thr += [(z_, 1.6, 2.0, 2.0 + opening("arch", 1.6, 4.4)), (z_, 1.4, 11.0, 11.0 + opening("arch", 1.4, 2.9)),
+                (z_, 1.25, 16.4, 18.4), (z_, 1.25, 20.4, 22.4), (z_, 1.0, 24.4, 25.8)]
+    skin("x", -16.0, -15.6, 27.0, 41.0, 0.0, 30.0, thr, "limestone")
+    for z_ in (30.0, 34.0, 38.0):
+        win2("x", -16.0, -1, z_, 2.0, 1.6, 4.4, "arch")
+        win2("x", -16.0, -1, z_, 11.0, 1.4, 2.9, "arch", snow=snowsill("west"))
+        runoff("x", -16.0, -1, z_, 11.0, 1.4, "west")
+        for sill in (16.4, 20.4):
+            win2("x", -16.0, -1, z_, sill, 1.25, 2.0, "rect", snow=snowsill("west"))
+            runoff("x", -16.0, -1, z_, sill, 1.25, "west")
+        win2("x", -16.0, -1, z_, 24.4, 1.0, 1.4, "small")
+    for yc_, hh, pr in ((10.0, 0.45, 0.22), (15.4, 0.25, 0.14), (19.4, 0.25, 0.14), (23.4, 0.25, 0.14), (29.75, 0.5, 0.4)):
+        box((-16.0 - pr / 2 + 0.02, yc_, 34.0), (pr + 0.04, hh, 14.1), "trim", k=0)
     gable_x(27.0, 41.0, 30.0, 6.0, -16.0, -9.0)
     for (x, z, y0, h) in ((9.0, -4.0, 22.0, 16.0), (-9.0, -4.0, 24.0, 12.0), (9.0, 54.0, 20.0, 20.0), (-9.0, 54.0, 23.0, 14.0)):
-        tower(x, z, 3.2, y0, h, cap=1.5)
+        tower(x, z, 3.2, y0, h, cap=1.5, corbel=True)
     for (x, z) in ((3.5, 10.0), (-3.5, 24.0), (3.5, 40.0)):
         box((x, 40.5, z), (1.3, 5.0, 1.3), "masonry")
+        box((x, 43.15, z), (1.7, 0.3, 1.7), "trim", k=0)   # CB: a flue's cap stone
+        for dx_, dz_ in ((0.66, 0.0), (-0.66, 0.0), (0.0, 0.66), (0.0, -0.66)):   # CB E: soot under the cap
+            raw((x + dx_, 42.6, z + dz_), (0.012 if dx_ else 1.2, 0.7, 1.2 if dx_ else 0.012), "soot", lod=1)
     # the tall narrow spire behind the main roof: square shaft, octagonal upper stage, pointed cap (top +70)
     box((5.0, 25.0, 50.0), (6.0, 50.0, 6.0), "limestone")
     cyl((5.0, 54.0, 50.0), 8.0, 8.0, "limestone", 8)
-    cyl((5.0, 64.0, 50.0), 8.4, 12.0, "slate", 8, cone=True)
-    # the palace's windows in vertical bays (4 floors x 12), arched heads on the upper two floors (as on the real
-    # building's main floors), string courses under each floor, clean pale corner courses
+    cyl((5.0, 66.0, 50.0), 7.4, 16.0, "slate", 8, cone=True)                       # CB: taller and slimmer (top +74)
+    cyl((5.0, 58.2, 50.0), 8.3, 0.4, "trim", 8)
+    # the palace's windows (CB pass B/C, spec 2.3 and 3): 12 bays grouped 3 + 6 + 3, the end groups projecting 0.5 m as
+    # pavilions with paired lights (P3); the hall (0-10 m) keeps its tall glazed arches; above it a principal floor
+    # (10-15.5 m, P2 round-headed with a transom), two ordinary floors (P1) and a low attic floor (P4); string courses at
+    # the floor datums carried round the pavilions, quoins on their corners, a cornice under the eaves. Every opening
+    # is a real reveal in a 0.4 m leaf over the core.
+    BAYS = [-0.5 + 4.6 * k for k in range(12)]
+    FLOORS = [(11.0, 2.9, "arch", "pair"), (16.4, 2.0, "rect", "pair"), (20.4, 2.0, "rect", "rect"), (24.4, 1.4, "small", "small")]
+    WID = {"arch": 1.4, "pair": 2.1, "rect": 1.25, "small": 1.0}
     for side in (-1, 1):
-        for fl, y in enumerate((5.0, 11.5, 18.0, 24.5)):
-            for k in range(12):
-                z = -0.5 + k * 4.6
-                if side < 0 and 27.0 < z < 41.0:
-                    continue   # the throne-hall projection covers this stretch on the west
-                if fl == 0:   # the great hall's tall arched windows (1.8 x 5.2 m + the arch), glazed openings
-                    window(side * 9.0, 4.1, z, 1.8, 5.2, side, arch=True, glass=True)
-                else:
-                    window(side * 9.0, y, z, 1.35, 2.6 if fl < 3 else 2.0, side, arch=fl in (1, 2))
-            if fl > 0:   # (no course across the hall's tall windows)
-                box((side * 9.12, y - 2.05, 25.0), (0.25, 0.45, 58.4), "trim", k=0)
-        for zc in (-4.0, 54.0):
-            box((side * 8.75, 15.0, zc + (0.75 if zc < 0 else -0.75)), (0.6, 30.0, 1.6), "trim")
+        if side > 0:
+            zones = [(-4.0, 11.0, True), (11.0, 38.6, False), (38.6, 54.0, True)]
+        else:   # the throne-hall projection (z 27-41) covers the west face there; its far pavilion is two bays
+            zones = [(-4.0, 11.0, True), (11.0, 27.0, False), (41.0, 43.2, False), (43.2, 54.0, True)]
+            box((-8.8, 20.0, 34.0), (0.4, 20.0, 14.0), "limestone")
+        for z0, z1, pav in zones:
+            face = 9.5 if pav else 9.0
+            bays = [z for z in BAYS if z0 < z < z1 and not (side < 0 and 27.0 < z < 41.0)]
+            sample = side > 0 and z0 < 0.0   # the pass C sample: the three bays of the east front's south pavilion
+            if pav:
+                box((side * 8.85, 20.0, (z0 + z1) / 2), (0.5, 20.0, z1 - z0), "limestone")   # the pavilion's core forward
+                box((side * 9.55, -5.0, (z0 + z1) / 2), (0.5, 10.0, z1 - z0 + 0.6), "masonry")   # its base course
+                skin("x", side * 9.0, side * 9.5, z0, z1, 0.0, 10.0, [(z, 1.8, 1.5, 1.5 + opening("hall", 1.8, 5.2)) for z in bays], "limestone")
+                for zq in (z0, z1):   # quoins: the pavilion's corners, pale, proud 0.05 m
+                    box((side * 9.25, 10.0, zq + (0.42 if zq == z0 else -0.42)), (0.6, 40.0, 0.9), "trim", k=0)
+            holes = []
+            for sill, h, kc, kp in FLOORS:
+                kd = kp if pav else kc
+                holes += [(z, WID[kd], sill, sill + opening(kd, WID[kd], h)) for z in bays]
+            skin("x", side * (face - 0.4), side * face, z0, z1, 10.0, 30.0, holes, "limestone")
+            expo = "east" if side > 0 else "west"
+            for z in bays:
+                win2("x", side * face, side, z, 1.5, 1.8, 5.2, "hall", depth=0.8 + (0.5 if pav else 0.0), glass_d=0.5 if pav else 0.3)
+                for sill, h, kc, kp in FLOORS:
+                    kd = kp if pav else kc
+                    win2("x", side * face, side, z, sill, WID[kd], h, kd, snow=sample or snowsill(expo))
+                    if sample and sill < 17.0:
+                        plate("x", side * face, side, z, sill - 0.6, WID[kd] * 0.7, 0.9, "stain")
+                        plate("x", side * face, side, z, sill - 1.45, WID[kd] * 0.35, 0.8, "stain")
+                    elif not sample:
+                        runoff("x", side * face, side, z, sill, WID[kd], expo)
+            if side < 0:   # the west foot: rising damp along the hall level, moss on the base course's top
+                damp("x", side * face, side, z0 + 0.2, z1 - 0.2, 0.0, 1.1)
+                raw((side * (face + 0.15), 0.03, (z0 + z1) / 2), (0.3, 0.06, z1 - z0 - 0.4), "moss", lod=1)
+            if sample:   # one repair event: a patch of replaced, paler blocks on the pier between the first two bays
+                raw((side * (face + 0.006), 13.2, (bays[0] + bays[1]) / 2), (0.012, 1.1, 1.6), "repair", lod=1)
+                raw((side * (face + 0.006), 12.35, (bays[0] + bays[1]) / 2 + 0.3), (0.012, 0.6, 0.9), "repair", lod=1)
+            for yc_, hh, pr in ((10.0, 0.45, 0.22), (15.4, 0.25, 0.14), (19.4, 0.25, 0.14), (23.4, 0.25, 0.14), (29.75, 0.5, 0.4)):
+                box((side * (face + pr / 2 - 0.02), yc_, (z0 + z1) / 2), (pr + 0.04, hh, z1 - z0 + (0.1 if pav else 0.0)), "trim", k=0)
     box((0.0, yT + 16.3, -55.6), (31.0, 0.5, 0.5), "trim", k=0)   # the gatehouse's cornice
     for (x, z, d) in ((11.0, -38.0, 8.0), (26.0, 0.0, 7.2)):
         cyl((x, (yL + 24.0 if d == 8.0 else yL + 26.0), z), d * 1.06, 0.8, "trim", 16)   # belts
+    IVY = [{"face": "+x", "a0": -44.0, "a1": -36.0, "y0": yL - 2.0, "y1": yL + 6.0, "density": 1.0, "pattern": "fan+ground", "age": 0.8},
+           {"face": "+x", "a0": -17.5, "a1": -11.0, "y0": yL, "y1": yL + 4.5, "density": 0.6, "pattern": "fan", "age": 0.5},
+           {"face": "-z", "a0": -13.0, "a1": -10.8, "y0": yT, "y1": yT + 3.5, "density": 0.4, "pattern": "fan+ground", "age": 0.3}]
     j = {"id": "bt_castle", "version": 1, "name": "Hilltop castle (Blackwater Thaw)", "category": "Landmarks",
          "description": "BT2: the scenic hilltop castle on the north-west spur, after the real Neuschwanstein's architecture (original geometry, graybox stage), generated by tools/mapgen/maps/blackwater_thaw.py. Far scenery: no colliders, one batched mesh per LOD.",
          "floors": 0, "enterable": False, "footprint": [60.0, 150.0], "plinthDepth": 0, "maxGrade": 90, "noAutoPanels": True, "lodKeep": 2.0,
-         "nav": {"effect": "none"}, "materials": M_CASTLE, "parts": P, "furniture": [], "interactables": [], "panels": []}
+         "nav": {"effect": "none"}, "materials": M_CASTLE, "parts": P, "furniture": [], "interactables": [], "panels": [], "ivy": IVY}
     # the palette asset (user: "castle should be placeable asset as well once furnished"): the same shell under its own id,
     # with the interior and its lamps as companions (placed with it from the palette, the interior loading only near,
     # the lamps loading with the interior), a 20 m plinth to seat it on uneven ground; Blackwater places the parts itself
@@ -1599,6 +1928,7 @@ def write_castle_asset(ctx, cat):
 def dress_castle_spur(b, cat, G, R):
     """dark fir masses on the spur's flanks (below the pads), rock faces on the exposed cliff under the palace."""
     firs = [a for a in ("ph_fir_tree_01_a", "ph_fir_tree_01_b", "ph_fir_tree_01_c") if a in cat]
+    pad_y = G(*castle_world(0.0, 25.0))   # the palace pad
     n = 0
     for _ in range(SPUR_STANDS):
         s0, t0 = R.uniform(-150.0, 70.0), R.choice([-1, 1]) * R.uniform(24.0, 52.0)
@@ -1616,6 +1946,8 @@ def dress_castle_spur(b, cat, G, R):
                 continue
             if CASTLE_ROAD_WORLD and min(math.hypot(x - p_[0], z - p_[1]) for p_ in _ROAD_DENSE()) < 4.0:
                 continue   # not on the castle road
+            if G(x, z) > pad_y - 16.0:
+                continue   # CB: no trees in the top band under the pads
             b.place(R.choice(firs), x, z, R.uniform(0, 360), check=False, cls="veg", y=G(x, z), tags={"veg", "firs", "castle"}, companions=False)
             n += 1
     # milestone 3: the approach road climbing the spur's east side and curving round the terrace to the gate (paint),
@@ -1628,6 +1960,11 @@ def dress_castle_spur(b, cat, G, R):
         x, z = castle_world(29.0 * math.sin(ph), -66.0 - 24.0 * math.cos(ph))   # past the terrace's pad: at its foot, not on top
         if foot:
             b.place(foot[k % len(foot)], x, z, R.uniform(0, 360), check=False, cls="none", y=G(x, z) - 0.4, tags={"rock", "castle"}, companions=False)
+    for a_, b_, tm in CASTLE_BENCHES:   # CB: scree and fallen blocks on the shelves
+        for _k in range(2):
+            x, z = castle_world(tm + R.uniform(-0.8, 0.8), R.uniform(a_ + 1.0, b_ - 1.0))
+            if foot and not (CASTLE_ROAD_WORLD and min(math.hypot(x - p_[0], z - p_[1]) for p_ in _ROAD_DENSE()) < 5.0):
+                b.place(foot[R.randrange(len(foot))], x, z, R.uniform(0, 360), check=False, cls="none", y=G(x, z) - 0.3, tags={"rock", "castle"}, companions=False)
     faces = [a for a in ("ph_rock_face_01", "ph_rock_face_02") if a in cat]
     for k, s in enumerate(range(-4, 44, 7)):
         if not faces:
@@ -1793,10 +2130,13 @@ def write_castle_interior(ctx, cat):
                     mid, ln = (cur + lo) / 2, lo - cur
                     box((fx, cy, mid) if along == "z" else (mid, cy, fz), (t, sy, ln) if along == "z" else (ln, sy, t), "plaster")
                 if w > 0:
-                    top = cy + sy / 2
+                    top, bot = cy + sy / 2, cy - sy / 2
                     if oy + h < top:
                         hh = top - oy - h
                         box((fx, oy + h + hh / 2, al) if along == "z" else (al, oy + h + hh / 2, fz), (t, hh, w) if along == "z" else (w, hh, t), "plaster")
+                    if oy > bot + 0.05:   # CB: the piece under a window
+                        hh = oy - bot
+                        box((fx, bot + hh / 2, al) if along == "z" else (al, bot + hh / 2, fz), (t, hh, w) if along == "z" else (w, hh, t), "plaster")
                     cur = hi
 
     def stairs(x0, x1, z0, dz, y0, n, rise=0.2, run=0.28, m="tread_x"):   # a straight flight along z (dz = +1 / -1)
@@ -1805,7 +2145,7 @@ def write_castle_interior(ctx, cat):
 
     yL = -10.0
     # the bower: guard room (ground) and chamber (upper, +6 m), a flight along its north wall
-    lining(-11.0, yL + 10.0, -30.0, 13.0, 20.0, 16.0, doors=[("x+", -26.0, yL, 1.6, 2.6)])
+    lining(-11.0, yL + 10.0, -30.0, 13.0, 20.0, 16.0, doors=[("x+", -26.0, yL, 1.6, 2.6)] + BOWER_WIN)
     box((-11.0, yL + 0.1, -30.0), (11.4, 0.2, 14.4), "floor_x")
     stairs(-16.3, -15.0, -36.6, 1, yL, 30)
     for k_ in range(0, 30, 6):   # a wall string and rail on the open side
@@ -1813,7 +2153,7 @@ def write_castle_interior(ctx, cat):
     box((-10.15, yL + 6.0, -30.0), (9.7, 0.3, 14.4), "plank_x")                     # the upper floor, open over the stair
     box((-15.65, yL + 6.0, -25.3), (1.3, 0.3, 5.0), "plank_x")
     # the stair block: from the court door (west) up two flights to a gallery at the palace level, out (north) to the hall
-    lining(12.0, yL + 9.0, -14.0, 12.0, 18.0, 12.0, doors=[("x-", -14.0, yL, 1.6, 2.6), ("z+", 7.6, 0.0, 1.6, 2.6)])
+    lining(12.0, yL + 9.0, -14.0, 12.0, 18.0, 12.0, doors=[("x-", -14.0, yL, 1.6, 2.6), ("z+", 7.6, 0.0, 1.6, 2.6)] + STAIR_WIN)
     box((12.0, yL + 0.1, -14.0), (10.4, 0.2, 10.4), "floor_x")
     stairs(9.0, 10.4, -9.2, -1, yL, 25)                                            # up 5 m going south
     for k_ in range(0, 25, 5):   # handrails on the flights' open sides
@@ -1838,7 +2178,7 @@ def write_castle_interior(ctx, cat):
     for zc in range(2, 50, 8):                                                     # a row of stone piers down the hall
         box((0.0, 5.0, float(zc) + 2.0), (0.8, 10.0, 0.8), "stone")
     # the lateral wing (anteroom), the side tower's spiral stair and its lookout platform
-    lining(20.0, yL + 7.0, -8.0, 10.0, 14.0, 20.0, doors=[("x-", -12.0, yL, 1.6, 2.6)])
+    lining(20.0, yL + 7.0, -8.0, 10.0, 14.0, 20.0, doors=[("x-", -12.0, yL, 1.6, 2.6)] + WING_WIN)
     box((20.0, yL + 0.1, -8.0), (8.4, 0.2, 18.4), "floor_x")
     TX, TZ, TH = 26.0, 0.0, 42.0
     P.append({"t": "c", "c": [TX, yL + TH / 2, TZ], "s": [1.0, TH, 1.0], "m": "stone", "n": 12})   # the newel
@@ -1853,6 +2193,34 @@ def write_castle_interior(ctx, cat):
         if d_ < 40.0 or d_ > 330.0:
             continue
         box((TX + 1.8 * math.cos(ang), yL + TH - 0.1, TZ + 1.8 * math.sin(ang)), (2.6, 0.2, 1.4), "floor_x", r=-math.degrees(ang))
+    # CB pass D: the wings' windows declared (daylight through the real openings), and real doors in the doorways: a plank
+    # leaf on a hinge at one jamb (the engine's door: kinematic collider, eased swing, bots open them)
+    for rid, lst, cx_, cz_, hx, hz in (("bower", BOWER_WIN, -11.0, -30.0, 6.5, 8.0), ("stairs", STAIR_WIN, 12.0, -14.0, 6.0, 6.0),
+                                       ("anteroom", WING_WIN, 20.0, -8.0, 5.0, 10.0)):
+        for i_, (f_, al, sy_, w_, h_) in enumerate(lst):
+            if f_[0] == "x":
+                x = cx_ + (hx if f_ == "x+" else -hx); lo, hi = sorted((x, x - (0.8 if f_ == "x+" else -0.8)))
+                ap = {"min": [round(lo, 2), sy_, round(al - w_ / 2, 2)], "max": [round(hi, 2), sy_ + h_, round(al + w_ / 2, 2)]}
+            else:
+                z = cz_ + (hz if f_ == "z+" else -hz); lo, hi = sorted((z, z - (0.8 if f_ == "z+" else -0.8)))
+                ap = {"min": [round(al - w_ / 2, 2), sy_, round(lo, 2)], "max": [round(al + w_ / 2, 2), sy_ + h_, round(hi, 2)]}
+            WIN.append({"id": "%s_win_%d" % (rid, i_), "kind": "window", "label": "window", "sound": "glass", "axis": [0, 1, 0],
+                        "openAngle": 0, "duration": 0.5, "defaultOpen": False, "aperture": ap, "leaves": []})
+    for did, ax, wc, al, sy_, w_ in CASTLE_DOORS:
+        lw, lh = w_ - 0.04, 2.55
+        if ax == "x":
+            leaf = [{"t": "b", "c": [wc, sy_ + lh / 2 + 0.02, al], "s": [0.08, lh, lw], "m": "plank_x", "k": 0},
+                    {"t": "b", "c": [wc - 0.05, sy_ + 0.6, al], "s": [0.03, 0.12, lw - 0.1], "m": "iron_x", "k": 0},
+                    {"t": "b", "c": [wc - 0.05, sy_ + 2.0, al], "s": [0.03, 0.12, lw - 0.1], "m": "iron_x", "k": 0}]
+            hinge, ap = [wc, 0.0, al - w_ / 2], {"min": [wc - 0.4, sy_, al - w_ / 2], "max": [wc + 0.4, sy_ + 2.6, al + w_ / 2]}
+        else:
+            leaf = [{"t": "b", "c": [al, sy_ + lh / 2 + 0.02, wc], "s": [lw, lh, 0.08], "m": "plank_x", "k": 0},
+                    {"t": "b", "c": [al, sy_ + 0.6, wc - 0.05], "s": [lw - 0.1, 0.12, 0.03], "m": "iron_x", "k": 0},
+                    {"t": "b", "c": [al, sy_ + 2.0, wc - 0.05], "s": [lw - 0.1, 0.12, 0.03], "m": "iron_x", "k": 0}]
+            hinge, ap = [al - w_ / 2, 0.0, wc], {"min": [al - w_ / 2, sy_, wc - 0.4], "max": [al + w_ / 2, sy_ + 2.6, wc + 0.4]}
+        WIN.append({"id": "door_" + did, "kind": "door", "label": "door", "sound": "wood", "axis": [0, 1, 0], "openAngle": 95,
+                    "duration": 1.2, "defaultOpen": False, "aperture": {k_: [round(v, 3) for v in v_] for k_, v_ in ap.items()},
+                    "leaves": [{"hinge": [round(v, 3) for v in hinge], "sign": 1, "parts": leaf}]})
     j = {"id": "castle_interior", "version": 1, "name": "Hilltop castle interior", "category": "Landmarks",
          "description": "BT2: the hilltop castle's rooms (guard room and chamber, stair block, great hall, anteroom, the side tower's spiral stair and lookout), built only near (loadRadius 90 / 130 m); placed with bt_castle. Generated by blackwater_thaw.py.",
          "floors": 2, "enterable": True, "footprint": [60.0, 150.0], "plinthDepth": 0, "maxGrade": 90, "noAutoPanels": True,
@@ -1871,7 +2239,8 @@ def write_castle_interior(ctx, cat):
                        {"name": "plank_x", "albedo": [0.30, 0.21, 0.13], "roughness": 0.7, "pattern": "wood", "metallic": 0, "grain": 0},
                        {"name": "floor_x", "albedo": [0.42, 0.40, 0.37], "roughness": 0.85, "pattern": "stone", "metallic": 0, "grain": 1},
                        {"name": "tread_x", "albedo": [0.40, 0.38, 0.35], "roughness": 0.85, "pattern": "stone", "metallic": 0, "grain": 1},
-                       {"name": "hanging", "albedo": [0.32, 0.10, 0.08], "roughness": 0.95, "pattern": "fabric", "metallic": 0, "grain": 1}],
+                       {"name": "hanging", "albedo": [0.32, 0.10, 0.08], "roughness": 0.95, "pattern": "fabric", "metallic": 0, "grain": 1},
+                       {"name": "iron_x", "albedo": [0.10, 0.09, 0.085], "roughness": 0.55, "pattern": "metal", "metallic": 0.6, "grain": 1}],
          "parts": P, "furniture": [], "interactables": WIN, "panels": []}
     path = os.path.join(ctx.repo, "content", "assets", "castle_interior.json")
     with open(path, "w", encoding="utf-8") as f:

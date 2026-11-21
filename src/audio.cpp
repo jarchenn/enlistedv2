@@ -1066,6 +1066,7 @@ void Audio::play(const std::string& name, vec3 pos, float volume, float pitch, f
     else { size_t u = n.rfind('_'); if (u == std::string::npos) break; n = n.substr(0, u); }
   }
   if (!src) return;
+  if (!uiEv) delay = std::max(delay, glm::length(pos - p->listener) / 343.0f);   // BF 8.1 item 10: every world sound arrives after its travel time (callers that already pass it keep theirs)
   if (evGap > 0) {   // SND9: rapid fire (2500 rpm and up): rounds closer than minGap at the same spot are carried by the previous
                      // body (a buzz / roar, not a click train), and the oldest overlapping body fades out (15 ms) past maxVoices
     double tn = ma_engine_get_time_in_milliseconds(&p->engine) / 1000.0;   // audio time

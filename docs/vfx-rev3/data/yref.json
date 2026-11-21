@@ -1,0 +1,242 @@
+{
+ "_note": "Bridge between the two brightness conventions. Yref = 0.18*E/pi, the scene-linear luminance of a lit 18% Lambertian reference patch. See spec 5.4, reference/05.",
+ "_formula": {
+  "Yref": "0.18 * illuminance_lux / pi",
+  "peak": "min(L_v*eps/Yref, CLAMP)"
+ },
+ "yref_nits_by_condition": {
+  "full_sun_clear": 5729.57795,
+  "hazy_sun": 3437.74677,
+  "overcast_bright": 1145.91559,
+  "overcast_dull": 572.9578,
+  "deep_shade_canopy": 114.59156,
+  "interior_lit": 17.18873,
+  "interior_dim": 3.43775,
+  "dusk": 2.86479,
+  "deep_dusk": 0.28648,
+  "full_moon": 0.01432
+ },
+ "illuminance_lux_by_condition": {
+  "full_sun_clear": 100000,
+  "hazy_sun": 60000,
+  "overcast_bright": 20000,
+  "overcast_dull": 10000,
+  "deep_shade_canopy": 2000,
+  "interior_lit": 300,
+  "interior_dim": 60,
+  "dusk": 50,
+  "deep_dusk": 5,
+  "full_moon": 0.25
+ },
+ "sources": [
+  {
+   "id": "rifle_primary_flash",
+   "T_K": 1645,
+   "emissivity": 0.12,
+   "L_v_nits": 1246.0,
+   "x_Yref": {
+    "full_sun_clear": 0.2174,
+    "hazy_sun": 0.3623,
+    "overcast_bright": 1.087,
+    "overcast_dull": 2.174,
+    "deep_shade_canopy": 10.87,
+    "interior_lit": 72.47,
+    "interior_dim": 362.3,
+    "dusk": 434.8,
+    "deep_dusk": 4348.0,
+    "full_moon": 86990.0
+   }
+  },
+  {
+   "id": "rifle_intermediate_disc",
+   "T_K": 1800,
+   "emissivity": 0.2,
+   "L_v_nits": 7505.0,
+   "x_Yref": {
+    "full_sun_clear": 1.31,
+    "hazy_sun": 2.183,
+    "overcast_bright": 6.549,
+    "overcast_dull": 13.1,
+    "deep_shade_canopy": 65.49,
+    "interior_lit": 436.6,
+    "interior_dim": 2183.0,
+    "dusk": 2620.0,
+    "deep_dusk": 26200.0,
+    "full_moon": 524100.0
+   }
+  },
+  {
+   "id": "rifle_secondary_flash",
+   "T_K": 2500,
+   "emissivity": 0.25,
+   "L_v_nits": 448500.0,
+   "x_Yref": {
+    "full_sun_clear": 78.28,
+    "hazy_sun": 130.5,
+    "overcast_bright": 391.4,
+    "overcast_dull": 782.8,
+    "deep_shade_canopy": 3914.0,
+    "interior_lit": 26090.0,
+    "interior_dim": 130500.0,
+    "dusk": 156600.0,
+    "deep_dusk": 1566000.0,
+    "full_moon": 31320000.0
+   }
+  },
+  {
+   "id": "tank_muzzle_flash_core",
+   "T_K": 2400,
+   "emissivity": 0.55,
+   "L_v_nits": 649600.0,
+   "x_Yref": {
+    "full_sun_clear": 113.4,
+    "hazy_sun": 189.0,
+    "overcast_bright": 566.9,
+    "overcast_dull": 1134.0,
+    "deep_shade_canopy": 5669.0,
+    "interior_lit": 37790.0,
+    "interior_dim": 189000.0,
+    "dusk": 226800.0,
+    "deep_dusk": 2268000.0,
+    "full_moon": 45360000.0
+   }
+  },
+  {
+   "id": "tracer_762",
+   "T_K": 2200,
+   "emissivity": 0.9,
+   "L_v_nits": 412500.0,
+   "x_Yref": {
+    "full_sun_clear": 72.0,
+    "hazy_sun": 120.0,
+    "overcast_bright": 360.0,
+    "overcast_dull": 720.0,
+    "deep_shade_canopy": 3600.0,
+    "interior_lit": 24000.0,
+    "interior_dim": 120000.0,
+    "dusk": 144000.0,
+    "deep_dusk": 1440000.0,
+    "full_moon": 28810000.0
+   }
+  },
+  {
+   "id": "he_fireball_5ms",
+   "T_K": 3000,
+   "emissivity": 0.9,
+   "L_v_nits": 8671000.0,
+   "x_Yref": {
+    "full_sun_clear": 1513.0,
+    "hazy_sun": 2522.0,
+    "overcast_bright": 7567.0,
+    "overcast_dull": 15130.0,
+    "deep_shade_canopy": 75670.0,
+    "interior_lit": 504500.0,
+    "interior_dim": 2522000.0,
+    "dusk": 3027000.0,
+    "deep_dusk": 30270000.0,
+    "full_moon": 605500000.0
+   }
+  },
+  {
+   "id": "he_fireball_50ms",
+   "T_K": 2260,
+   "emissivity": 0.8,
+   "L_v_nits": 495500.0,
+   "x_Yref": {
+    "full_sun_clear": 86.48,
+    "hazy_sun": 144.1,
+    "overcast_bright": 432.4,
+    "overcast_dull": 864.8,
+    "deep_shade_canopy": 4324.0,
+    "interior_lit": 28830.0,
+    "interior_dim": 144100.0,
+    "dusk": 173000.0,
+    "deep_dusk": 1730000.0,
+    "full_moon": 34600000.0
+   }
+  },
+  {
+   "id": "glowing_fragment",
+   "T_K": 1300,
+   "emissivity": 0.7,
+   "L_v_nits": 145.2,
+   "x_Yref": {
+    "full_sun_clear": 0.02534,
+    "hazy_sun": 0.04224,
+    "overcast_bright": 0.1267,
+    "overcast_dull": 0.2534,
+    "deep_shade_canopy": 1.267,
+    "interior_lit": 8.448,
+    "interior_dim": 42.24,
+    "dusk": 50.69,
+    "deep_dusk": 506.9,
+    "full_moon": 10140.0
+   }
+  },
+  {
+   "id": "campfire",
+   "T_K": 1300,
+   "emissivity": 0.6,
+   "L_v_nits": 124.5,
+   "x_Yref": {
+    "full_sun_clear": 0.02172,
+    "hazy_sun": 0.03621,
+    "overcast_bright": 0.1086,
+    "overcast_dull": 0.2172,
+    "deep_shade_canopy": 1.086,
+    "interior_lit": 7.241,
+    "interior_dim": 36.21,
+    "dusk": 43.45,
+    "deep_dusk": 434.5,
+    "full_moon": 8692.0
+   }
+  },
+  {
+   "id": "tungsten_bulb",
+   "T_K": 2800,
+   "emissivity": 1.0,
+   "L_v_nits": 5277000.0,
+   "x_Yref": {
+    "full_sun_clear": 920.9,
+    "hazy_sun": 1535.0,
+    "overcast_bright": 4605.0,
+    "overcast_dull": 9209.0,
+    "deep_shade_canopy": 46050.0,
+    "interior_lit": 307000.0,
+    "interior_dim": 1535000.0,
+    "dusk": 1842000.0,
+    "deep_dusk": 18420000.0,
+    "full_moon": 368500000.0
+   }
+  }
+ ],
+ "peak_clamp_by_bloom_quality": {
+  "unthresholded_multiradius_le2pct_filmic": {
+   "clamp": null,
+   "note": "use the physical value; the PSF tail carries the halo"
+  },
+  "unthresholded_single_gaussian": {
+   "clamp": 60,
+   "note": "one wide gaussian spreads too much energy at high peak"
+  },
+  "thresholded": {
+   "clamp": 24,
+   "note": "above this the threshold makes bloom pop discontinuously"
+  },
+  "none": {
+   "clamp": 16,
+   "note": "nothing carries the overbright; this is the rev 1 range and it is correct here"
+  }
+ },
+ "sdr_proof_targets": {
+  "peak_small_core_display_luma": [
+   0.82,
+   0.96
+  ],
+  "thin_outer_lobes": [
+   0.32,
+   0.72
+  ],
+  "note": "if an entire entrance, tree line or aiming area washes out, the bloom is wrong, not the peak"
+ }
+}

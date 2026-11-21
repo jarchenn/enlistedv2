@@ -890,3 +890,9 @@ Freesound sounds released under **CC0 1.0 Universal** (licence checked on each s
 | wx/thunder_near1.mp3 | high thunder suburb 08 | klankbeeld | CC0 1.0 | https://freesound.org/people/klankbeeld/sounds/169534/ |
 | wx/thunder_near2.mp3 | Thunder strike | AyaDrevis | CC0 1.0 | https://freesound.org/people/AyaDrevis/sounds/652690/ |
 | wx/thunder_far1.mp3 (distant rumble) | thunder long tail | elmoustachio | CC0 1.0 | https://freesound.org/people/elmoustachio/sounds/476738/ |
+
+## Battle Foundry moss cushions (BF B2)
+
+| File | What | Version | Author | Licence | Source |
+|---|---|---|---|---|---|
+| content/models/bf_moss/moss_cushions.bin, moss_cushion_albedo.png (from cc0__apple_moss_bartramia_pomiformis.glb) | Moss cushions (src/scatter.cpp): six sub-region variants, voxel-remeshed and decimated to 1500 / 600 / ~300 tris, the scan's colour baked top-down, de-lit and balanced to the 3.2 moss albedo (tools/bake_moss_cushions.py) | - | ffish.asia / floraZia.com | CC0 1.0 | https://sketchfab.com/3d-models/cc0-apple-moss-bartramia-pomiformis-ef418bf372554dc29a8b5c3f50ae3506 |

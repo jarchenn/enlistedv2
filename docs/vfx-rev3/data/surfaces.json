@@ -1,0 +1,180 @@
+{
+ "_note": "Index by the material under the burst point. ejecta_albedo is LINEAR. See ch07 s7.4, ch08.",
+ "_soil_mu": {
+  "dry_sand": 0.41,
+  "damp_soil": 0.45,
+  "cohesive_soil": 0.5,
+  "competent_rock": 0.55
+ },
+ "surfaces": {
+  "dry_soil": {
+   "ejecta_albedo": [
+    0.085,
+    0.06,
+    0.038
+   ],
+   "ejecta_mass_scale": 1.4,
+   "dust_to_fire": 3.5,
+   "crater_depth_scale": 1.2,
+   "clod_fraction": 0.3,
+   "spark_rate": 0.0,
+   "wetness": 0.0
+  },
+  "dry_sand": {
+   "ejecta_albedo": [
+    0.18,
+    0.15,
+    0.105
+   ],
+   "ejecta_mass_scale": 1.6,
+   "dust_to_fire": 4.0,
+   "crater_depth_scale": 1.3,
+   "clod_fraction": 0.1,
+   "spark_rate": 0.0,
+   "wetness": 0.0
+  },
+  "wet_soil": {
+   "ejecta_albedo": [
+    0.03,
+    0.021,
+    0.013
+   ],
+   "ejecta_mass_scale": 1.1,
+   "dust_to_fire": 0.6,
+   "crater_depth_scale": 1.1,
+   "clod_fraction": 0.75,
+   "spark_rate": 0.0,
+   "wetness": 0.8
+  },
+  "mud": {
+   "ejecta_albedo": [
+    0.022,
+    0.016,
+    0.01
+   ],
+   "ejecta_mass_scale": 1.0,
+   "dust_to_fire": 0.2,
+   "crater_depth_scale": 1.25,
+   "clod_fraction": 0.9,
+   "spark_rate": 0.0,
+   "wetness": 1.0
+  },
+  "grass_turf": {
+   "ejecta_albedo": [
+    0.06,
+    0.07,
+    0.035
+   ],
+   "ejecta_mass_scale": 1.0,
+   "dust_to_fire": 1.2,
+   "crater_depth_scale": 0.95,
+   "clod_fraction": 0.55,
+   "spark_rate": 0.0,
+   "wetness": 0.3
+  },
+  "gravel": {
+   "ejecta_albedo": [
+    0.14,
+    0.135,
+    0.125
+   ],
+   "ejecta_mass_scale": 1.2,
+   "dust_to_fire": 1.8,
+   "crater_depth_scale": 0.55,
+   "clod_fraction": 0.7,
+   "spark_rate": 0.2,
+   "wetness": 0.0
+  },
+  "asphalt": {
+   "ejecta_albedo": [
+    0.04,
+    0.04,
+    0.042
+   ],
+   "ejecta_mass_scale": 0.5,
+   "dust_to_fire": 1.0,
+   "crater_depth_scale": 0.25,
+   "clod_fraction": 0.8,
+   "spark_rate": 0.1,
+   "wetness": 0.0
+  },
+  "concrete": {
+   "ejecta_albedo": [
+    0.28,
+    0.28,
+    0.27
+   ],
+   "ejecta_mass_scale": 0.6,
+   "dust_to_fire": 2.2,
+   "crater_depth_scale": 0.1,
+   "clod_fraction": 0.85,
+   "spark_rate": 0.4,
+   "wetness": 0.0
+  },
+  "rock": {
+   "ejecta_albedo": [
+    0.17,
+    0.17,
+    0.16
+   ],
+   "ejecta_mass_scale": 0.4,
+   "dust_to_fire": 1.5,
+   "crater_depth_scale": 0.0,
+   "clod_fraction": 0.95,
+   "spark_rate": 0.8,
+   "wetness": 0.0
+  },
+  "snow": {
+   "ejecta_albedo": [
+    0.78,
+    0.79,
+    0.82
+   ],
+   "ejecta_mass_scale": 1.5,
+   "dust_to_fire": 3.0,
+   "crater_depth_scale": 1.4,
+   "clod_fraction": 0.35,
+   "spark_rate": 0.0,
+   "wetness": 0.5
+  },
+  "water_shallow": {
+   "ejecta_albedo": [
+    0.5,
+    0.52,
+    0.54
+   ],
+   "ejecta_mass_scale": 0.9,
+   "dust_to_fire": 0.0,
+   "crater_depth_scale": 0.0,
+   "clod_fraction": 0.0,
+   "spark_rate": 0.0,
+   "wetness": 1.0
+  },
+  "water_deep": {
+   "ejecta_albedo": [
+    0.5,
+    0.52,
+    0.54
+   ],
+   "ejecta_mass_scale": 0.6,
+   "dust_to_fire": 0.0,
+   "crater_depth_scale": 0.0,
+   "clod_fraction": 0.0,
+   "spark_rate": 0.0,
+   "wetness": 1.0
+  },
+  "airburst": {
+   "ejecta_albedo": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "ejecta_mass_scale": 0.0,
+   "dust_to_fire": 0.1,
+   "crater_depth_scale": 0.0,
+   "clod_fraction": 0.0,
+   "spark_rate": 0.0,
+   "wetness": 0.0
+  }
+ }
+}
