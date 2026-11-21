@@ -89,7 +89,7 @@ void weatherDerive(Renderer& R, vec3 eye) {
     d.fixedMul = std::pow(r, -2.0f / 3.0f);   // a fixed exposure moves by two thirds of it
     float vis = s.dustVisM > 0 ? std::min(s.visM, s.dustVisM) : s.visM;
     d.sigma = 3.912f / vis;
-    d.fogTopM = s.fogTopM; d.fogLayerSigma = s.fogTopM > 0 ? 3.912f / 150.0f : 0.0f;   // Dawn ground fog: 150 m inside a 5-50 m layer
+    d.fogTopM = s.fogTopM; d.fogLayerSigma = s.fogTopM > 0 ? 3.912f / 300.0f : 0.0f;   // x the field's ground-fog share (up to ~1.8 in hollows): ~150 m there, thinner on open ground   // Dawn ground fog: 150 m inside a 5-50 m layer
     d.fogAlbedo = s.dustVisM > 0 ? 0.7f : 0.9f; d.fogG = s.dustVisM > 0 ? 0.7f : 0.85f;
     d.visM = s.fogTopM > 0 ? 150.0f : vis;
     d.windK = std::clamp(s.windMs / 3.0f, 0.1f, 3.0f);
