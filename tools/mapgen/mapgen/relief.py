@@ -493,15 +493,16 @@ def _poly_dist(X, Z, P):
 
 
 def fine_road(fine, path, half, crown=0.06, ruts=0.0, gutter=0.0, verge=0.0, ditch=0.0, sunk=0.0, sunk_half=None,
-              keep=None, ends=6.0, seed=7):
+              keep=None, ends=6.0, seed=7, kerb=0.0):
     """VOT T2: a road's cross-section in the fine layer, on top of the ground it already follows.
       crown   m the centre stands above the edges (camber)        ruts   m two wheel tracks 0.85 m off the centre sink
       gutter  m the edges sink (a paved street's water line)      verge  m a raised grass verge beyond the edge
+      kerb    m a kerbed footway: a 1.6 m pavement this far above the road edge, a sharp step at the edge (0: none)
       ditch   m a roadside ditch beyond the verge (V, rounded)     sunk   m a hollow way: the floor this far under the
               smoothed ground along the road, banks easing back over sunk_half (half-width at the top, m)
     keep(X, Z) -> 0..1 scales the whole profile (0 at junctions, bridges, building pads); it eases in over `ends` m."""
     P = np.array(path, dtype=float)
-    reach = half + (1.2 if verge else 0) + (3.8 if ditch else 0) + 0.6
+    reach = half + (1.2 if verge else 0) + (3.8 if ditch else 0) + (2.4 if kerb else 0) + 0.6
     if sunk:
         reach = max(reach, sunk_half + 0.6)
     x0, z0 = P.min(axis=0) - reach - 1; x1, z1 = P.max(axis=0) + reach + 1
@@ -535,6 +536,8 @@ def fine_road(fine, path, half, crown=0.06, ruts=0.0, gutter=0.0, verge=0.0, dit
         if gutter:
             off -= gutter * np.exp(-((d - half + 0.25) / 0.25) ** 2)
         e = half
+        if kerb:   # the footway: up over 0.2 m at the road edge (the kerb face), down again over 0.6 m past 1.6 m
+            off += kerb * np.clip((d - e) / 0.2, 0, 1) * (1 - np.clip((d - e - 1.6) / 0.6, 0, 1))
         if verge:
             t = np.clip((d - e) / 0.5, 0, 1); off += verge * t * t * (3 - 2 * t) * (d < e + 1.6)
             t2 = np.clip((d - e - 1.2) / 0.4, 0, 1); off -= verge * t2 * (d < e + 1.6)

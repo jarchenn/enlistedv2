@@ -3420,8 +3420,8 @@ void main(){
       vec2 q = vec2(dot(p.xz, uDust.xy), dot(p.xz, vec2(-uDust.y, uDust.x)));   // along / across the wind (m)
       float s1 = vnoise(vec3((q.x - uDust.w)*0.35, q.y*2.4, 31.0)), s2 = vnoise(vec3((q.x - 1.4*uDust.w)*0.9, q.y*6.0, 32.0));
       float s3 = vnoise(vec3((q.x - 0.5*uDust.w)*0.07, q.y*0.35, 33.0));   // the gust-scale patches the ribbons run in
-      float st = smoothstep(0.52, 0.82, 0.6*s1 + 0.4*s2)*smoothstep(0.3, 0.65, s3);
-      alb = mix(alb, vec3(0.80, 0.72, 0.57), st*0.5*dk); rough = mix(rough, 1.0, st*dk);
+      float st = smoothstep(0.46, 0.74, 0.6*s1 + 0.4*s2)*smoothstep(0.22, 0.55, s3);
+      alb = mix(alb, vec3(0.86, 0.78, 0.62), st*0.75*dk); rough = mix(rough, 1.0, st*dk);   // read at a glance (the first cut was too faint)
     }
   }
   gSpecK = mix(uGroundSpec, 1.0, max(max(puddle, vEw.z*ewK), wxw));   // W3: wet ground keeps its sheen   // GG1: dry ground: no broad sun glare or sky sheen at grazing angles (standing water / wet cut mud keep theirs)
@@ -3430,6 +3430,7 @@ void main(){
   gSpecK = gs0;
   vec3 c = shade(vW, N, alb, rough, 0.0, ao);
   if (uDbgTerr == 1) c = rough < 0.4 ? vec3(3.0, 0.0, 0.0) : rough < 0.7 ? vec3(3.0, 3.0, 0.0) : vec3(0.35);
+  if (uDbgTerr == 3) c = vec3(terrainHorizonSun(vW), uTHorOn == 1 ? 0.5 : 0.0, uTHorW.w/30.0);   // VOT T6 measurement: red = sun over the terrain horizon, green = map on, blue = sun elevation
   if (uDbgTerr == 2) { float l = dot(c, vec3(0.3, 0.5, 0.2)), s = l > 1e-4 ? max(0.0, l - dot(cMatte, vec3(0.3, 0.5, 0.2)))/l : 0.0; c = s > 0.25 ? vec3(3.0, 0.0, 0.0) : s > 0.1 ? vec3(3.0, 3.0, 0.0) : vec3(0.35); }
   if (uGrid == 1 && abs(p.x) <= uBuildHalf.x && abs(p.z) <= uBuildHalf.y) {
     vec2 g = abs(fract(p.xz/5.0 + 0.5) - 0.5)*5.0;
@@ -6012,8 +6013,6 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   // shadow cascades and sky occlusion: standard depth; the camera passes below switch to reverse-Z
   glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE); glClearDepth(1.0);
   RenderView v = v0;
-  thorTex = perf.terrainHorizon && !thumbMode ? t.horizonSync(sunDir) : 0;   // VOT T6 (bakes on a new map, a new sun band, or after edits)
-  thorMap = t.horizonMap(); thorW = t.horizonWeights(sunDir);
   v.proj = reverseZ(v0.proj);
   if (v0.vmProj[2][3] != 0.0f) v.vmProj = reverseZ(v0.vmProj);
   stats.draws = 0; stats.tris = 0; stats.culled = 0; stats.casterCulled = 0; stats.shadowDraws = 0; stats.foliageDraws = 0; stats.instDrawn = 0;
@@ -6026,6 +6025,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   if (!thumbMode) bakeFog(t);
   uploadStaticDecals();      // GX5: before the probe captures (they run the main shader too)
   lightingBegin(*this, v);   // L2: time of day (sunDir = the key light until lightingEnd)
+  thorTex = perf.terrainHorizon && !thumbMode ? t.horizonSync(sunDir) : 0;   // VOT T6, after lightingBegin: the hour's sun, not the Day sun (bakes on a new map, a new sun band, or after edits)
+  thorMap = t.horizonMap(); thorW = t.horizonWeights(sunDir);
   weatherDerive(*this, v.camPos);      // W1: the weather state and what follows from it this frame (weather.cpp)
   uploadWeather();
   pxAngle = 2.0f / (std::max(1e-3f, v.proj[1][1]) * std::max(1, height));   // vertical radians per pixel
@@ -6317,7 +6318,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       const float ut = 5.5f, uf = 14.0f;
       dustOn = u > ut || (dustOn && u > 0.8f * ut);
       float k = dustOn ? std::clamp((u - 0.8f * ut) / (uf - 0.8f * ut), 0.0f, 1.0f) : 0.0f; k = k * k * k;
-      if (ws.dustVisM > 0) k = std::max(k, 0.35f);   // Blowing dust / Sandstorm: always streaming
+      if (ws.dustVisM > 0) k = std::max(k, 0.6f);   // Blowing dust / Sandstorm: always streaming
       const bool arid = groundPaintArid();
       vec2 dir = glm::length(wx.der.windXZ) > 1e-3f ? glm::normalize(wx.der.windXZ) : vec2(std::sin(glm::radians(ws.windDirDeg)), std::cos(glm::radians(ws.windDirDeg)));
       dustPhase = std::fmod(dustPhase + (float)dt * 0.35f * u, 4096.0f);   // the ribbons travel at about a third of the wind
