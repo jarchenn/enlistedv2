@@ -173,6 +173,23 @@ vec2 deformAt(vec2 xz){   // 0 outside the camera window or when off
   if (r.x < 0.0 || r.y < 0.0 || r.x >= 1.0 || r.y >= 1.0) return vec2(0.0);
   return textureLod(uDefTex, xz*uDefMap.z, 0.0).rg;
 }
+uniform int uRoadN; uniform vec2 uRoadPt[64]; uniform vec4 uRoadK, uRoadBox;   // VFX rev3 roads.h: the map's first road (w, trackOffset, rutSigma)
+uniform int uPoolN; uniform vec4 uPool[16];                                     // ... and its pools (x, z, r, waterZ)
+vec4 roadLateral(vec2 xz){   // (signed lateral m, distance to the nearer rut centre, traffic 0..1, half-width); per vertex, not per pixel
+  if (uRoadN < 2 || xz.x < uRoadBox.x || xz.y < uRoadBox.y || xz.x > uRoadBox.z || xz.y > uRoadBox.w) return vec4(1e3, 1e3, 0.0, 0.0);
+  float bd = 1e9, lat = 1e3;
+  for (int k = 0; k + 1 < uRoadN; ++k) {
+    vec2 a = uRoadPt[k], u = uRoadPt[k + 1] - a; float L2 = max(dot(u, u), 1e-8);
+    float t = clamp(dot(xz - a, u)/L2, 0.0, 1.0); float d = length(xz - (a + u*t));
+    if (d < bd) { bd = d; lat = d*((u.x*(xz.y - a.y) - u.y*(xz.x - a.x)) > 0.0 ? 1.0 : -1.0); }
+  }
+  float w = uRoadK.x;
+  return vec4(lat, min(abs(lat - uRoadK.y), abs(lat + uRoadK.y)), 1.0 - smoothstep(0.53*w, 1.07*w, abs(lat)), w);
+}
+float poolAt(vec2 xz, float groundY){
+  for (int k = 0; k < uPoolN; ++k) if (length(xz - uPool[k].xy) < uPool[k].z) return max(0.0, uPool[k].w - groundY);
+  return 0.0;
+}
 uniform float uFogDens;
 uniform float uUnder;   // 1: the camera is under water (swim.cpp): applyFog / sky become a dense uniform water fog
 uniform sampler2DShadow uShadow; uniform mat4 uLightVP; uniform int uShadowOn;
@@ -3458,16 +3475,17 @@ void main(){}
 static const char* kTerrainVS = R"GLSL(
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in float aDirt; layout(location=3) in vec3 aEw;
 layout(location=4) in float aMorph;   // VOT T1: the next LOD's height minus this vertex's (base chunks; 0 elsewhere)
+layout(location=5) in vec4 aHab;      // VFX rev3: habitat (x moisture, y shelter, z exclusion, w canopy; all 0 = no data), terrain.h HabitatFn
 uniform mat4 uVP;
 uniform int uDefTiles;   // VFX rev3 tdeform: 1 while the fine tiles draw
 uniform vec4 uMorph;                  // VOT T1 geomorph: x start distance, y 1 / ramp length, z on
-out vec3 vW, vN0; out float vDirt; out vec3 vEw;
+out vec3 vW, vN0; out float vDirt; out vec3 vEw; out vec4 vHab;
 invariant gl_Position;                // PF tzprepass: the depth pass and the colour pass must rasterise identical depths
 void main(){
   vec3 P = aPos;
   if (uMorph.z > 0.5) P.y += aMorph*clamp((length(aPos - uCamPos) - uMorph.x)*uMorph.y, 0.0, 1.0);
   if (uDefTiles == 1) P.y -= deformAt(P.xz).x;   // VFX rev3 tdeform: ruts and tracks in the fine tiles (the same in the depth pre-pass)
-  vW = P; vN0 = aNrm; vDirt = aDirt; vEw = aEw; gl_Position = uVP*vec4(P,1.0);
+  vW = P; vN0 = aNrm; vDirt = aDirt; vEw = aEw; vHab = aHab; gl_Position = uVP*vec4(P,1.0);
 }
 )GLSL";
 // PF tzprepass: the terrain's depth-only pass (kTerrainVS, whose gl_Position is invariant, so the colour pass's EQUAL test
@@ -3482,6 +3500,7 @@ void main(){
 static const char* kTerrainFS = R"GLSL(
 uniform vec4 uGrassTop; uniform vec2 uGrassTopR;   // CP4: clumps' mean top-down albedo (linear), strength; ramp start / end (m)
 in vec3 vW, vN0; in float vDirt; in vec3 vEw;   // vEw: GX1 earthworks (terrain_cuts.cpp): packed mud, freshly turned earth, wet
+in vec4 vHab;   // VFX rev3: the habitat attribute (the vegetation session's moss terms; 0 = no data)
 uniform int uTNOn; uniform sampler2D uTNrm; uniform vec4 uTNMap;   // VOT T1: per-pixel base normals (terrain_normals.cpp, unit 18), xy origin, zw 1 / extent
 uniform int uTSVOn;   // uTSV is declared with the shadow code (T6)   // VOT T5: terrain sky-view factor (unit 26, same mapping as uTNMap)
 vec3 vN;   // the shading normal: vN0 (vertex) or the baked per-pixel one
@@ -5470,6 +5489,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uShadowFar"), 6); glBindTextureUnit(6, shadowFarTex);
   glUniform1i(U(p, "uShadowFarOn"), far ? 1 : 0);
   glUniform1i(U(p, "uTSV"), 26); glUniform1i(U(p, "uTHorOn"), thorTex && !thumbMode ? 1 : 0); glUniform1i(U(p, "uTHorAll"), p == progTerrain || p == progTerrainND || p == progGrass ? 1 : 0);   // VOT T6 (unit 26 = the terrain's T5 / T6 texture)
+  { extern void roadsUniforms(GLuint); roadsUniforms(p); }   // VFX rev3 roads.h (uploads only when the map's roads changed)
   glUniform1i(U(p, "uDefTex"), tu::kDeform); glUniform1i(U(p, "uDefOn"), defOn && !thumbMode ? 1 : 0);   // VFX rev3 tdeform (the composite rebinds unit 11 to its AO before it draws)
   if (defOn && !thumbMode) { glBindTextureUnit(tu::kDeform, defTex); glUniform4fv(U(p, "uDefMap"), 1, glm::value_ptr(defMap)); }
   if (thorTex && !thumbMode) { glBindTextureUnit(26, thorTex); glUniform4fv(U(p, "uTHorMap"), 1, glm::value_ptr(thorMap)); glUniform4fv(U(p, "uTHorW"), 1, glm::value_ptr(thorW)); }

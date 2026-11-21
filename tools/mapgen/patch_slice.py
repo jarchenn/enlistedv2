@@ -97,6 +97,12 @@ def main(mid):
         nm["groundPaint"] = paint.to_json()
         nm.setdefault("vfxSlice", {})["paint"] = 1
         print("%s: %d paint dabs (soil to litter, %d puddle rings)" % (mid, n, len(pud)))
+    if V.get("slice_roads"):   # the engine's roadLateral / poolAt data (src/roads.h): the road and the puddles of the slice
+        x0, z0, x1, z1 = V["slice_rect"]
+        nm["vfxRoads"] = V["slice_roads"]()
+        nm["vfxPools"] = [{"x": round(e["position"][0], 3), "z": round(e["position"][2], 3), "r": 1.2, "waterZ": round(e["position"][1], 3)}
+                          for e in nm["instances"] if (e["asset"] if isinstance(e["asset"], str) else e["asset"]["id"]) == "wat_puddles"
+                          and x0 <= e["position"][0] <= x1 and z0 <= e["position"][2] <= z1]
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         json.dump(nm, f, separators=(",", ":"))
     print("%s: %d sculpt tiles (was %d), %d instances moved with the ground" % (mid, len(new["tiles"]), len(old), moved))

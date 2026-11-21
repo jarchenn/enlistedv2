@@ -3,6 +3,7 @@
 #include "crumb.h"
 #include "w5.h"
 #include <algorithm>
+#include <cstddef>
 
 std::vector<TemplateInfo> loadTemplates(const fs::path& dir) {
   std::vector<TemplateInfo> out;
@@ -368,7 +369,7 @@ std::vector<int> Terrain::crater(vec3 c, float R, float D, const std::function<f
 
 void Terrain::rebuildMesh(Tile& t) {
   t.rev = ++tileRev;
-  struct TV { vec3 p, n; float dirt; vec3 ew; };   // ew: GX1 stamp material (mud, fresh earth, wet)
+  struct TV { vec3 p, n; float dirt; vec3 ew; uint32_t hab; };   // ew: GX1 stamp material (mud, fresh earth, wet); hab: VFX rev3 aHab
   std::vector<TV> v(kFineN * kFineN);
   vec2 o = tileOrigin(t.tx, t.tz);
   float fs = fineSpacing();
@@ -377,7 +378,7 @@ void Terrain::rebuildMesh(Tile& t) {
       float x = o.x + i * fs, z = o.y + j * fs;
       size_t k = (size_t)j * kFineN + i;
       v[k] = {vec3(x, t.h[k], z), normal(x, z), t.sdirt.empty() ? t.dirt[k] : std::max(t.dirt[k], t.sdirt[k]),
-              t.sew.size() == v.size() * 3 ? vec3(t.sew[k * 3], t.sew[k * 3 + 1], t.sew[k * 3 + 2]) : vec3(0.0f)};
+              t.sew.size() == v.size() * 3 ? vec3(t.sew[k * 3], t.sew[k * 3 + 1], t.sew[k * 3 + 2]) : vec3(0.0f), terrainHabitatPacked(x, z)};
     }
   // VOT T2: a skirt under each edge (4 x kFineN vertices, kSkirt m down) closes the cracks between tiles drawn at
   // different steps; the bounds feed the culling
@@ -419,6 +420,9 @@ void Terrain::rebuildMesh(Tile& t) {
       glVertexArrayAttribFormat(t.vao, k, k == 2 ? 1 : 3, GL_FLOAT, GL_FALSE, k < 3 ? k * 12 : 28);
       glVertexArrayAttribBinding(t.vao, k, 0);
     }
+    glEnableVertexArrayAttrib(t.vao, 5);   // VFX rev3 aHab
+    glVertexArrayAttribFormat(t.vao, 5, 4, GL_UNSIGNED_BYTE, GL_TRUE, offsetof(TV, hab));
+    glVertexArrayAttribBinding(t.vao, 5, 0);
   }
   glNamedBufferSubData(t.vbo, 0, v.size() * sizeof(TV), v.data());
 }
@@ -478,6 +482,7 @@ void Terrain::applyDeltas(const std::map<int, std::vector<float>>& d) {
 
 void Terrain::draw(GLuint prog, vec3 cam, const mat4& vp, GLuint progND, GLuint progDepth) const {
   if (h.empty()) return;
+  { extern void terrainHabitatActive(const Terrain*); terrainHabitatActive(this); }   // VFX rev3: terrainHabitatDirty() acts on the terrain being drawn
   // PF (terrain early depth): progND is the same shader without the tile-mask discard. A shader that can discard
   // writes depth late for every fragment, so only the base chunks under an active tile use prog; the rest of the
   // base and the tiles themselves use progND. progND 0: prog for everything (thumbnails).
@@ -579,3 +584,29 @@ void Terrain::destroy() {
   if (maskTex) glDeleteTextures(1, &maskTex);
   maskTex = 0;
 }
+
+// ------------------------------------------------------------------ VFX rev3: habitat attribute (aHab, location 5)
+namespace { HabitatFn gHabitat; const Terrain* gHabTerrain = nullptr; }
+void terrainSetHabitat(HabitatFn fn) { gHabitat = std::move(fn); }
+uint32_t terrainHabitatPacked(float x, float z) {
+  if (!gHabitat) return 0;
+  glm::vec4 h = glm::clamp(gHabitat(x, z), 0.0f, 1.0f);
+  return (uint32_t)std::lround(h.x * 255.0f) | (uint32_t)std::lround(h.y * 255.0f) << 8 | (uint32_t)std::lround(h.z * 255.0f) << 16 | (uint32_t)std::lround(h.w * 255.0f) << 24;
+}
+void Terrain::habitatDirty(vec2 lo, vec2 hi) {
+  gHabTerrain = this;
+  for (int i = 0; i < (int)stream.chunks.size(); ++i) {   // a chunk whose mesh rev no longer matches rebuilds its mesh (colliders keep theirs)
+    int cx = i % chunksX(), cz = i / chunksX();
+    float x0 = org.x + cx * kChunkCells * kCell, z0 = org.y + cz * kChunkCells * kCell, x1 = x0 + kChunkCells * kCell, z1 = z0 + kChunkCells * kCell;
+    if (x1 < lo.x || x0 > hi.x || z1 < lo.y || z0 > hi.y) continue;
+    if (stream.chunks[i].lod >= 0) stream.chunks[i].rev = ~0u;
+  }
+  for (auto& [k, t] : tiles) {
+    vec2 o = tileOrigin(t.tx, t.tz); float s = tileSize();
+    if (o.x + s < lo.x || o.x > hi.x || o.y + s < lo.y || o.y > hi.y) continue;
+    rebuildMesh(t);
+  }
+}
+void terrainHabitatDirty(vec2 lo, vec2 hi) { if (gHabTerrain) const_cast<Terrain*>(gHabTerrain)->habitatDirty(lo, hi); }
+void terrainHabitatActive(const Terrain* t) { gHabTerrain = t; }
+

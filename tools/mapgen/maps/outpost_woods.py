@@ -227,6 +227,9 @@ V = {
     # spec 4.4: soil to litter along the track over the 40 x 30 m reference slice (mud in the trail's wet lows, a gravel
     # fringe, litter off the road, a damp ring round each puddle)
     "slice_rect": (-20.0, 42.0, 20.0, 72.0),
+    # the engine's road data (src/roads.h roadLateral): the track through the slice and 10 m beyond, every 2 m
+    "slice_roads": lambda: [{"pts": [[round(p[0], 3), round(p[1], 3)] for p in __import__("mapgen.geom", fromlist=["resample"]).resample(TRACK, 2.0)
+                                     if -30.0 <= p[0] <= 30.0 and 32.0 <= p[1] <= 82.0][:64], "w": 1.8, "trackOffset": 0.8, "rutSigma": 0.26}],
     "slice_paint": lambda paint, ground, pud: __import__("mapgen.relief", fromlist=["track_soil"]).track_soil(paint, ground, TRACK, 1.8, (-20.0, 42.0, 20.0, 72.0), puddles=pud, drain_side=1),
     "tracks": [(TRACK, 4.0), (SPUR_RADAR, 3.2), (SPUR_MILL, 3.5), (SPUR_POND, 3.0)],
     "sites": SITES, "site_info": INFO,
