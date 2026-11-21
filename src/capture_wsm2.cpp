@@ -20,7 +20,7 @@
 
 namespace {
 MpTest* T = nullptr;
-int mode = -1, stage = 0, frames = 0; bool started = false, matchMode = false, blurMode = false, costMode = false, blur2 = false, stepMode = false, cpabMode = false, hitMode = false, smokeMode = false, wxMode = false, wedgeMode = false, w6Mode = false, bfMode = false; float total = 0, st = 0, runT = 0; int runFrames = 0; double runDt = 0, worstDt = 0;
+int mode = -1, stage = 0, frames = 0; bool started = false, matchMode = false, blurMode = false, costMode = false, blur2 = false, stepMode = false, cpabMode = false, hitMode = false, smokeMode = false, wxMode = false, bodyMode = false, wedgeMode = false, w6Mode = false, bfMode = false; float total = 0, st = 0, runT = 0; int runFrames = 0; double runDt = 0, worstDt = 0;
 std::vector<int> row; vec3 origin(0);
 const char* kStates[] = {"aim", "aim_lmg", "aim_pistol", "idle", "walk", "run", "crouch", "shot", "reload", "throw"};
 }   // namespace
@@ -385,8 +385,40 @@ static bool costStep(App& app, Game& G, Soldier& L) {
   return true;
 }
 
+// bodyshadow NMK_WSM2=bodyshadow: the local player's own sun shadow in first person, inside a match (the body is only pushed
+// for a live local soldier). The player held at the spawn (or NMK_BS_POS=x,z), the AI frozen, 16:30 (a long shadow),
+// looking 60 deg down: sun straight behind, sun 60 deg to the side, then Overcast; per scene standing, crouched and prone
+// stills -> selftest_out/bs_<scene>_<stance>.png, each logged with Renderer::shadowModels and the cascades that drew it.
+static bool bodyStep(App& app, Game& G, Soldier& L) {
+  struct Sc { const char* name; int wx; float side; }; static const Sc sc[] = {{"sunbehind", 0, 0.0f}, {"sunside", 0, 60.0f}, {"overcast", 1, 0.0f}};
+  static int k = -1, f0 = 0; static vec3 eye0;
+  if (k < 0) {
+    k = 0; f0 = frames; eye0 = L.feet;
+    if (const char* e = std::getenv("NMK_BS_POS")) { float x, z; if (std::sscanf(e, "%f,%f", &x, &z) == 2) eye0 = vec3(x, app.terrain.height(x, z), z); }
+    if (AiCore* A = aiCore()) A->frozen = true;
+  }
+  const Sc& c = sc[k];
+  app.R.q.lightNew = true; app.R.wx.target = c.wx; app.R.wx.userSet = true; app.R.lt.hour = 16.5f; app.R.lt.userHour = true;
+  const int f = frames - f0;
+  if (f == 1) { app.R.wx.snap(); Physics::setCharacterPos(eye0 + vec3(0, 0.9f, 0)); }
+  { vec3 sd = app.R.sunDir; sd.y = 0; if (glm::length(sd) > 1e-3f) { sd = glm::normalize(sd); app.eyeYaw = degrees(std::atan2(sd.x, sd.z)) + c.side; } }   // forward = -sun: the sun behind
+  app.eyePitch = -60;
+  for (auto& s : G.sold) if (s.inUse && !s.localPlayer) s.hp = 100;
+  ExploreInput in{}; in.crouch = f >= 100 && f < 180; in.prone = f == 180 || f == 310; app.scriptedInput = in;   // prone: one press down, one up
+  auto shot = [&](const char* st) {
+    char b[200]; std::snprintf(b, sizeof b, "bs_%s_%s.png", c.name, st); app.uiShot = exeDir() / "selftest_out" / b;
+    logf("[bodyshadow] %s %s: want %d, %zu draws pushed, cascades near %d mid %d c3 %d far %d, sun height %.2f, posture %d, feet (%.1f %.1f %.1f)", c.name, st,
+         app.R.wantBodyShadow() ? 1 : 0, app.R.shadowModels.size(), app.R.bsCasc[0], app.R.bsCasc[1], app.R.bsCasc[2], app.R.bsCasc[3], app.R.sunDir.y, (int)Physics::character().posture, L.feet.x, L.feet.y, L.feet.z);
+  };
+  if (f == 90) shot("stand");
+  if (f == 170) shot("crouch");
+  if (f == 300) shot("prone");
+  if (f > 360) { f0 = frames; if (++k >= 3) { T->check(true, "body-shadow stills written (3 scenes x stand / crouch / prone)"); if (app.mode == Mode::Explore) app.exitExplore(); app.selftest->exitCode = T->finish(); app.selftest->done = true; } }
+  return true;
+}
+
 bool wsm2Capture(App& app, float dt) {
-  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-wsm2") mode = 1; const char* e = std::getenv("NMK_WSM2"); matchMode = e && std::string(e) == "match"; blurMode = e && (std::string(e) == "blur" || std::string(e) == "blur2"); blur2 = e && std::string(e) == "blur2"; costMode = e && std::string(e) == "cost"; stepMode = e && std::string(e) == "step"; if (stepMode) blurMode = true; cpabMode = e && std::string(e) == "cpab"; if (cpabMode) matchMode = true; hitMode = e && std::string(e) == "cphit"; if (hitMode) blurMode = true; smokeMode = e && std::string(e) == "smoke"; if (smokeMode) blurMode = true; wxMode = e && std::string(e) == "wxsight"; if (wxMode) blurMode = true; wedgeMode = e && std::string(e) == "wedge"; w6Mode = e && std::string(e) == "w6look"; if (w6Mode) blurMode = true; bfMode = e && std::string(e) == "bffire"; if (costMode) matchMode = true; }
+  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-wsm2") mode = 1; const char* e = std::getenv("NMK_WSM2"); matchMode = e && std::string(e) == "match"; blurMode = e && (std::string(e) == "blur" || std::string(e) == "blur2"); blur2 = e && std::string(e) == "blur2"; costMode = e && std::string(e) == "cost"; stepMode = e && std::string(e) == "step"; if (stepMode) blurMode = true; cpabMode = e && std::string(e) == "cpab"; if (cpabMode) matchMode = true; hitMode = e && std::string(e) == "cphit"; if (hitMode) blurMode = true; smokeMode = e && std::string(e) == "smoke"; if (smokeMode) blurMode = true; wxMode = e && std::string(e) == "wxsight"; if (wxMode) blurMode = true; wedgeMode = e && std::string(e) == "wedge"; w6Mode = e && std::string(e) == "w6look"; if (w6Mode) blurMode = true; bfMode = e && std::string(e) == "bffire"; bodyMode = e && std::string(e) == "bodyshadow"; if (bodyMode) blurMode = true; if (costMode) matchMode = true; }
   if (mode != 1) return false;
   if (dt < 0) return true;
   if (app.win && glfwGetWindowAttrib(app.win, GLFW_ICONIFIED)) glfwRestoreWindow(app.win);
@@ -535,6 +567,7 @@ bool wsm2Capture(App& app, float dt) {
   if (smokeMode) return smokeStep(app, G, *L);
   if (wxMode) return wxSightStep(app, G, *L);
   if (w6Mode) return w6Step(app, G, *L);
+  if (bodyMode) return bodyStep(app, G, *L);
   if (blurMode) return blurStep(app, G, *L, blur2);
   if (costMode) return costStep(app, G, *L);
   if (stage == 0) {   // the row: side 0's bot first, then side 1's in spawn order; facts per bot
