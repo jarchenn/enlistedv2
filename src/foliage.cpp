@@ -510,13 +510,13 @@ void folModelLodPush(App& app, const AssetDef& a, const mat4& W, float wind, con
   // CP3: under one impostor frame (170 px tall, s < 85 px) the tree is its impostor; the band cross-fades as above, and
   // the model's far level stays as a shadow-only caster
   const GpuModel* far = m1 ? m1 : m0;
-  const float tI = qz(band(85.0f));
-  const Renderer::Impostor* I = R.perf.impostors && rad > 2.0f && tI < 1.0f ? [&] { int k0, k1; a.modelRange(m0, k0, k1); return R.impostorFor(m0, k0, k1 - k0); }() : nullptr;
+  const Renderer::Impostor* I = R.perf.impostors && rad > 2.0f && s < 90.0f ? [&] { int k0, k1; a.modelRange(m0, k0, k1); return R.impostorFor(m0, k0, k1 - k0); }() : nullptr;
+  const float tI = I ? qz(band(0.5f * I->fpx)) : 1.0f;   // the swap where the tree is one frame tall (170 px at 2048, 85 at 1024)
   auto pushImp = [&](float dith) {
     const float sc = glm::length(vec3(W[0]));
     R.impDraws.push_back({I, vec3(W * vec4(I->c, 1.0f)), I->r * sc, std::atan2(-W[0].z, W[0].x), tint, dith});
   };
-  if (I) {
+  if (I && tI < 1.0f) {
     if (tI <= 0) { pushImp(0.0f); push(far, 0.0f); R.folModels.back().shadowOnly = true; }
     else { push(far, tI); pushImp(-tI); }
     return;
