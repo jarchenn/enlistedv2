@@ -402,7 +402,7 @@ void paintMat(int t, vec3 p, vec4 nz, out vec3 a, out float r, out vec3 bm, out 
 //   paintFinish(po, rough, N, ao);                                   just before shade(), after every other layer
 // With L4's textures in the build (tex::glslCommon() prepended first: NMK_TEX_PAINT, uPaintSlot[12], terrTexSlot)
 // each painted type is modulated by its ambientCG set; without them the materials are the procedural ones above.
-struct PaintOut { float w; float rough, ao; vec3 dn, ng; };
+struct PaintOut { float w; float rough, ao; vec3 dn, ng; float h, paved; };   // h: the paint's mean height (0..1), paved: the cobbles / rock share
 // CV1: the painted weight alone (paintApply's texel taps, no materials): kTerrainFS skips layer samples under full paint
 float gPW[13]; float gPWsum = 0.0; bool gPWok = false;   // NT5: the pixel's paint weights, fetched once (paintCover, then paintApply)
 void paintWeights(vec3 p) {
@@ -421,7 +421,7 @@ float paintCover(vec3 p) {
   return clamp(gPWsum, 0.0, 1.0);
 }
 PaintOut paintApply(vec3 p, vec3 nGeo, inout vec3 alb, float dirt, vec3 dpx, vec3 dpy, float dist) {
-  PaintOut o; o.w = 0.0; o.rough = 1.0; o.ao = 1.0; o.dn = vec3(0.0); o.ng = nGeo;
+  PaintOut o; o.w = 0.0; o.rough = 1.0; o.ao = 1.0; o.dn = vec3(0.0); o.ng = nGeo; o.h = 0.5; o.paved = 0.0;
   if (uPaintOn == 0) return o;
   if (!gPWok) paintWeights(p);   // usually done already by paintCover (kTerrainFS)
   float w[13]; for (int i = 0; i < 13; ++i) w[i] = gPW[i];
@@ -452,6 +452,10 @@ PaintOut paintApply(vec3 p, vec3 nGeo, inout vec3 alb, float dirt, vec3 dpx, vec
 #endif
   alb = mix(alb, a/tot, W);
   o.w = W; o.rough = r/tot; o.ao = ao/tot; o.dn = bm/tot;
+  o.paved = (w[6] + w[7])/tot;
+#ifdef NMK_TEX_PAINT
+  o.h = hP/tot;
+#endif
   return o;
 }
 void paintFinish(PaintOut o, inout float rough, inout vec3 N, inout float ao) {

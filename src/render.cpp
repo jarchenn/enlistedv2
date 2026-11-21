@@ -2717,6 +2717,7 @@ out vec4 oColor;
 vec3 viewPosAt(vec2 uv){ float z = texture(uDepth, uv).r; vec4 p = uInvProj*vec4(uv*2.0 - 1.0, z, 1.0); return p.xyz/p.w; }   // reverse-Z
 vec2 toUV(vec3 q){ vec4 c = uProj*vec4(q, 1.0); return c.xy/c.w*0.5 + 0.5; }
 uniform float uSsrMaxT = 1e9;   // OPT ssrrange
+uniform int uSsrClamp;   // FIX7 (perf switch ssrclamp)
 uniform int uSsrEnvCube;   // 1 in the half-resolution SSR pass (it has the reflection cube bound)
 uniform vec2 uSsrRough = vec2(0.1, 0.4);   // CP4 ssrfade: SSR fades out over roughness x..y (0.3..0.5; was 0.1..0.4)
 vec4 traceSSR(vec3 Pv, vec3 Rv){
@@ -2780,7 +2781,10 @@ vec3 ssrAdd(vec2 uv){   // the screen-space reflection's contribution here (geom
     vec3 Pw = transpose(mat3(uView))*Pv + uCamPos; float wg; vec3 rp = reflProbe(Pw, Rw, nr.w, wg); env = mix(env, rp, wg);
   }
 #endif
-  return (refl - env)*hit.z*F*(1.0 - smoothstep(uSsrRough.x, uSsrRough.y, nr.w))*uSsrAmt;
+  vec3 sub = F*env;   // what the world pass reflected here, which the hit replaces
+  if (uSsrClamp == 1) sub = min(sub, textureLod(uScene, uv, 0.0).rgb);   // FIX7 ssrclamp: never more than the pixel holds (shelter, weather, specular occlusion dim the world pass's
+  // reflection below F x the sky / cube estimate; subtracting the estimate took sheltered and wet puddles below zero: black). Open-sky puddles: unchanged
+  return (F*refl - sub)*hit.z*(1.0 - smoothstep(uSsrRough.x, uSsrRough.y, nr.w))*uSsrAmt;
 }
 void main(){
 #ifdef NMK_SSR_HALF
@@ -3252,6 +3256,7 @@ uniform int uDiscard; uniform sampler2D uTileMask; uniform float uTileSize; unif
 uniform vec4 uDust;   // W5 tdust: xy wind direction (toward), z streamer strength (0: calm or not arid), w advection phase (m along the wind)
 uniform sampler2D uSurf;   // R wear, G wet, B route kind, A rut (surface.cpp)
 uniform float uTerrCave;   // CV1: look.cave: dark wet glossy floors
+uniform int uPudRelief;   // FIX7 (perf switch pudrelief)
 uniform int uDbgTerr;      // GG1 (NMK_DBG_TERRAIN): 1 roughness classes (red < 0.4 SSR mirror, yellow < 0.7 sheen, grey matte), 2 specular share (red > 25 %, yellow > 10 %)
 uniform int uTCOn; uniform sampler2DArray uTC; uniform vec4 uTCMap;   // R1 terrain cache: on, texture (unit 24), xy = origin, zw = 1 / extent
 float vn2(vec2 q, float z){   // == vnoise(vec3(q, z)) for a whole-number z (f.z = 0): the 4 hashes that matter
@@ -3432,7 +3437,8 @@ void main(){
   float wxw = uWetOn == 1 ? clamp(wxWet, 0.0, 1.0) : 0.0, wxp = uWetOn == 1 ? clamp(wxPuddle, 0.0, 1.0) : 0.0;
   if (wxw > 0.0 || wxp > 0.0) { float shel = smoothstep(0.15, 0.55, skyVis(p, normalize(vN))); wxw *= mix(0.2, 1.0, shel); wxp *= shel; }   // W3b: under a bridge, eave or canopy the ground stays damp at most, no puddles (it mirrored the underside black)
   if (wxw > 0.0) alb *= mix(1.0, 0.35, wxw*(1.0 - 0.65*max(rockK, screeK*0.5))*(1.0 - 0.6*clamp(wet*1.2, 0.0, 1.0)));
-  if (wxp > 0.0) puddle = max(puddle, smoothstep(0.86, 0.97, normalize(vN).y)*smoothstep(0.86 - 0.42*wxp, 0.96 - 0.42*wxp, (1.0 - hB)*0.55 + wet*0.3 + rut*0.12 + (nX - 0.5)*0.25));
+  float hR = uPudRelief == 1 ? mix(hB, po.h, po.w) : hB, pv = uPudRelief == 1 ? 0.14*po.paved*po.w : 0.0;   // FIX7 pudrelief: the paint's own height (cobble joints, ruts) and paving sheds water
+  if (wxp > 0.0) puddle = max(puddle, smoothstep(0.86, 0.97, normalize(vN).y)*smoothstep(0.86 + pv - 0.42*wxp, 0.96 + pv - 0.42*wxp, (1.0 - hR)*0.55 + wet*0.3 + rut*0.12 + (nX - 0.5)*0.25));
   float rough = mix(mix(0.96, 0.86, tw), 0.10, puddle);
   rough = mix(rough, 0.78, vEw.z*ewK);   // GX1: wet mud low in the cut: a dull damp sheen, not a mirror
   vec3 N = normalize(vN + vec3(nX - 0.5, 0.0, nZ - 0.5)*mix(0.22, 0.42, max(tw, dirt))*(1.0 - puddle)
@@ -5187,6 +5193,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uAlbClamp"), q.legacy || !perf.albClamp ? 0 : 1);   // CP step 4
   glUniform1i(U(p, "uWetOn"), q.legacy || !perf.wet || thumbMode ? 0 : 1); glUniform1f(U(p, "uWetTime"), (float)std::fmod(time, 3600.0));   // W3   // CP step 3
   glUniform1i(U(p, "uMaskLib"), !q.legacy && perf.maskLib ? 1 : 0);   // CP step 6 part 2
+  glUniform1i(U(p, "uPudRelief"), !q.legacy && perf.pudRelief ? 1 : 0);   // FIX7
   glUniform1i(U(p, "uMetalMask"), !q.legacy && perf.metalMask ? 1 : 0);   // FIX6
   glUniform1i(U(p, "uSteepTri"), !q.legacy && perf.steepTri ? 1 : 0);   // FIX5
   glUniform1i(U(p, "uWearCause"), !q.legacy && q.matLayer > 0 && perf.wearCause ? 1 : 0);   // M4
@@ -7139,7 +7146,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
     glUniform1i(U(progSsrHalf, "uScene"), 8); glUniform1i(U(progSsrHalf, "uDepth"), 7);
     setLighting(progSsrHalf, v); glUseProgram(progSsrHalf);
     glBindTextureUnit(12, nrTex); glUniform1i(U(progSsrHalf, "uNR"), 12);
-    glUniform1f(U(progSsrHalf, "uSsrAmt"), q.ssrStrength); glUniform1i(U(progSsrHalf, "uSsrEnvCube"), 1); glUniform1f(U(progSsrHalf, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f); glUniform2f(U(progSsrHalf, "uSsrRough"), perf.ssrFade ? 0.3f : 0.1f, perf.ssrFade ? 0.5f : 0.4f);
+    glUniform1f(U(progSsrHalf, "uSsrAmt"), q.ssrStrength); glUniform1i(U(progSsrHalf, "uSsrEnvCube"), 1); glUniform1i(U(progSsrHalf, "uSsrClamp"), perf.ssrClamp ? 1 : 0); glUniform1f(U(progSsrHalf, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f); glUniform2f(U(progSsrHalf, "uSsrRough"), perf.ssrFade ? 0.3f : 0.1f, perf.ssrFade ? 0.5f : 0.4f);
     glUniformMatrix4fv(U(progSsrHalf, "uProj"), 1, GL_FALSE, glm::value_ptr(v.proj));
     glUniformMatrix4fv(U(progSsrHalf, "uView"), 1, GL_FALSE, glm::value_ptr(v.view));
     glUniformMatrix4fv(U(progSsrHalf, "uInvProj"), 1, GL_FALSE, glm::value_ptr(invP));
@@ -7172,7 +7179,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
     g *= std::max(0.0f, 1.0f - std::fabs(glm::degrees(pitch)) / 20.0f);
     const float mag = std::max(1.0f, v.proj[1][1] / 1.43f);   // a scope's zoom (narrower than the ~70 deg view) scales the wobble
     shimmerPx = 2.0f * (height / 1080.0f) * g * mag;
-  } glUniform1f(U(progComposite, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f); glUniform2f(U(progComposite, "uSsrRough"), perf.ssrFade ? 0.3f : 0.1f, perf.ssrFade ? 0.5f : 0.4f);   // OPT ssrrange: no march past 0.75 x visibility
+  } glUniform1i(U(progComposite, "uSsrClamp"), perf.ssrClamp ? 1 : 0); glUniform1f(U(progComposite, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f); glUniform2f(U(progComposite, "uSsrRough"), perf.ssrFade ? 0.3f : 0.1f, perf.ssrFade ? 0.5f : 0.4f);   // OPT ssrrange: no march past 0.75 x visibility
   glUniformMatrix4fv(U(progComposite, "uProj"), 1, GL_FALSE, glm::value_ptr(v.proj));
   glUniformMatrix4fv(U(progComposite, "uView"), 1, GL_FALSE, glm::value_ptr(v.view));
   glUniformMatrix4fv(U(progComposite, "uInvProj"), 1, GL_FALSE, glm::value_ptr(invP));
