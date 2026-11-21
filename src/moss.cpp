@@ -4,6 +4,7 @@
 #include "assets.h"
 #include "ground_paint.h"
 #include "water_query.h"
+#include "terrain.h"
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -94,8 +95,19 @@ vec4 mossHabitat(float x, float z) {
 
 void mossHabitatSync(App& app) {
   if (gJob.valid() && gJob.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-    auto g = gJob.get(); { std::lock_guard<std::mutex> l(gGridM); gGrid = g; } gSig = gJobSig; ++gRev;
-    logf("moss: habitat grid %d x %d at %.1f m", g->nx, g->nz, g->cell);
+    auto g = gJob.get(); std::shared_ptr<const Grid> old;
+    { std::lock_guard<std::mutex> l(gGridM); old = gGrid; gGrid = g; } gSig = gJobSig; ++gRev;
+    static bool reg = false; if (!reg) { terrainSetHabitat(mossHabitat); reg = true; }   // the terrain mesh's aHab (MP2, terrain.h)
+    // re-fill the terrain's habitat attribute where the grid changed (the whole grid the first time or on a new layout)
+    vec2 lo(1e9f), hi(-1e9f);
+    const bool same = old && old->nx == g->nx && old->nz == g->nz && old->cell == g->cell && old->org == g->org && old->v.size() == g->v.size();
+    for (int z = 0; z < g->nz; ++z) for (int x = 0; x < g->nx; ++x) {
+      bool ch = !same;
+      if (same) { const size_t k = size_t(z * g->nx + x) * 4; for (int c = 0; c < 4 && !ch; ++c) ch = std::abs(int(g->v[k + c]) - int(old->v[k + c])) > 2; }
+      if (ch) { const vec2 w = g->org + vec2(x, z) * g->cell; lo = glm::min(lo, w); hi = glm::max(hi, w + vec2(g->cell)); }
+    }
+    if (lo.x <= hi.x) terrainHabitatDirty(lo - vec2(g->cell), hi + vec2(g->cell));
+    logf("moss: habitat grid %d x %d at %.1f m (terrain refill %.0f x %.0f m)", g->nx, g->nz, g->cell, std::max(0.0f, hi.x - lo.x), std::max(0.0f, hi.y - lo.y));
   }
   const Terrain& t = app.terrain;
   uint64_t is = app.doc.instances.size();
