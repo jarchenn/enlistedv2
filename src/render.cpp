@@ -119,6 +119,7 @@ float overcastGrad(float y){ return 1.25*(1.0 + 2.0*max(y, 0.0))/3.0; }   // CIE
 uniform vec4 uCloudOpen; uniform float uCloudOpenK;   // VO L5 look.cloudOpening: direction (xyz), cosine of its half width (w), strength (0: none)
 uniform vec4 uCloudXf;    // VO L5 look.cloudScale / cloudStretch / cloudDir: the cloud field's xz transform (mat2 columns; identity by default)
 uniform float uSunDisc;   // VO L5 look.sunDisc: 1 default, 0 no sun disc in the sky
+uniform int uFogPhase;   // CP4 fogphase
 uniform int uW2;   // W2 (weather corpus): 1 = overcast sky the right way up, fog = the sky at the horizon, soft cloud openings
 float cloudOpening(vec3 d){   // VO L5: 0..strength toward the opening; W2: a falloff over twice its half width (the old ~8 deg edge read as a disc)
   float c = dot(d, uCloudOpen.xyz);
@@ -393,7 +394,10 @@ vec3 applyFogAir(vec3 col, vec3 w){
   vec3 fc = mix(uFogCol, skyColor(fd), 0.65);
   if (uW2 == 1) fc = hazeColor(dir);   // W2: distant ground fades into exactly the sky behind it at the horizon (the grey band under a deck)
   float sd = max(dot(dir, uSkySun), 0.0);
-  fc += uSkySunCol*vec3(1.0, 0.92, 0.78)*pow(sd, 8.0)*0.10;
+  if (uFogPhase == 1) {   // CP4 fogphase: the sun's in-scatter by a Henyey-Greenstein lobe (g of the air: 0.85 haze / fog, 0.7 dust), only with direct sun
+    float g = wxFogG, cth = dot(dir, uSkySun), hg = (1.0 - g*g)/(4.0*PI*pow(max(1.0 + g*g - 2.0*g*cth, 1e-4), 1.5));
+    fc += uSkySunCol*wxFogAlbedo*hg*0.035*(1.0 - uCloudK);
+  } else fc += uSkySunCol*vec3(1.0, 0.92, 0.78)*pow(sd, 8.0)*0.10;
   if (uEnvFog > 0.0) {
     // WX1 environmental fog: height + distance extinction over the cached field (taken at the ray's midpoint; the drift
     // noise slides downwind), and a cheap sun glow toward the sun, dimmed by the cloud transmittance at the camera and
@@ -2544,13 +2548,14 @@ out vec4 oColor;
 vec3 vpos(vec2 uv){ float z = texture(uDepth, uv).r; vec4 p = uInvProj*vec4(uv*2.0 - 1.0, z, 1.0); return p.xyz/p.w; }   // reverse-Z
 // VO L2 (Jimenez et al. 2016, XeGTAO): per slice the two horizon angles found along a screen direction, then the
 // cosine-weighted visible arc between them, projected-normal weighted; the horizon falls off past the radius (no halos)
+vec3 gBent;   // CP4 bentnormal: the visible cone's mean direction (view space), set by gtao()
 float gtao(vec3 P, vec3 N){
   vec3 V = normalize(-P);
   float rad = uRadius*1.6*clamp(1.0 + (-P.z - 20.0)/60.0, 1.0, 3.0);
   vec2 radUV = rad*0.5*vec2(uProj[0][0], uProj[1][1])/(-P.z);   // the radius on screen (uv)
   if (radUV.y < uTexel.y) return 1.0;   // under a texel: nothing to resolve
   float noise = pixelNoise(), jit = fract(noise*7.31 + 0.37);
-  float vis = 0.0;
+  float vis = 0.0; gBent = vec3(0.0);
   for (int s = 0; s < uSlices; ++s) {
     float phi = (float(s) + noise)/float(uSlices)*3.14159265;
     vec2 d2 = vec2(cos(phi), sin(phi));
@@ -2573,7 +2578,10 @@ float gtao(vec3 P, vec3 N){
     h0 = n + min(h0 - n, 1.5707963); h1 = n + max(h1 - n, -1.5707963);
     float sn = sin(n);
     vis += pL*0.25*((-cos(2.0*h0 - n) + cosN + 2.0*h0*sn) + (-cos(2.0*h1 - n) + cosN + 2.0*h1*sn));
+    float hb = 0.5*(h0 + h1); vec3 od = normalize(ortho + vec3(1e-5));   // the slice's bent direction: halfway between its horizons
+    gBent += (V*cos(hb) + od*sin(hb))*pL;
   }
+  gBent = length(gBent) > 1e-4 ? normalize(gBent) : N;
   return clamp(vis/float(uSlices), 0.0, 1.0);
 }
 void main(){
@@ -2585,7 +2593,7 @@ void main(){
   vec3 dx = dot(px, px) < dot(nx, nx) ? px : nx, dy = dot(py, py) < dot(ny, ny) ? py : ny;
   vec3 N = normalize(cross(dx, dy));
   if (dot(N, P) > 0.0) N = -N;
-  if (uGtao == 1) { oColor = vec4(gtao(P, N), -P.z, 0.0, 1.0); return; }
+  if (uGtao == 1) { float a = gtao(P, N); oColor = vec4(a, -P.z, gBent.x, gBent.y); return; }   // CP4: the bent normal's view x, y (z faces the eye)
   float rad = uRadius*clamp(1.0 + (-P.z - 20.0)/60.0, 1.0, 3.0);   // a little wider far away (keeps contact)
   float occ = 0.0, rot = pixelNoise()*6.2831853;
   const int S = 8;
@@ -2625,12 +2633,14 @@ uniform sampler2D uScene, uShafts, uAmb, uAO, uDepth, uNR; uniform float uShaftA
 uniform mat4 uInvProj, uProj, uView; uniform vec2 uAoTexel;
 uniform float uContactAmt; uniform int uContactSteps;   // VO L1 screen-space sun contact shadows (0: off)
 uniform int uAoNew;   // VO L2: multi-bounce and specular occlusion from the (GT)AO
+uniform int uBent;    // CP4 bentnormal
 uniform int uSsrHalf; uniform sampler2D uSsrTex; uniform vec2 uSsrTexel;
 uniform float uShimmer, uShimT;   // W5 wxshimmer: heat shimmer amplitude (px at this resolution, gated on the CPU), its clock   // OPT ssrhalf: the reflection added from a half-resolution pass (rgb: added light, a: view depth)
 out vec4 oColor;
 vec3 viewPosAt(vec2 uv){ float z = texture(uDepth, uv).r; vec4 p = uInvProj*vec4(uv*2.0 - 1.0, z, 1.0); return p.xyz/p.w; }   // reverse-Z
 vec2 toUV(vec3 q){ vec4 c = uProj*vec4(q, 1.0); return c.xy/c.w*0.5 + 0.5; }
 uniform float uSsrMaxT = 1e9;   // OPT ssrrange
+uniform vec2 uSsrRough = vec2(0.1, 0.4);   // CP4 ssrfade: SSR fades out over roughness x..y (0.3..0.5; was 0.1..0.4)
 vec4 traceSSR(vec3 Pv, vec3 Rv){
   float stepL = 0.22, t = 0.10, jit = pixelNoise();
   vec3 prev = Pv;
@@ -2677,7 +2687,7 @@ float contactShadow(vec2 uv){
 }
 vec3 ssrAdd(vec2 uv){   // the screen-space reflection's contribution here (geometry seen in it replaces the sky estimate)
   vec4 nr = texture(uNR, uv);
-  if (nr.w >= 0.4 || texture(uDepth, uv).r <= 0.0) return vec3(0.0);   // rough or sky
+  if (nr.w >= uSsrRough.y || texture(uDepth, uv).r <= 0.0) return vec3(0.0);   // rough or sky
   vec3 Pv = viewPosAt(uv);
   vec3 Nv = normalize(mat3(uView)*nr.xyz);
   vec3 Vv = normalize(-Pv), Rv = reflect(-Vv, Nv);
@@ -2686,7 +2696,7 @@ vec3 ssrAdd(vec2 uv){   // the screen-space reflection's contribution here (geom
   if (hit.w <= 0.0) return vec3(0.0);
   vec3 Rw = normalize(transpose(mat3(uView))*Rv);
   vec3 refl = textureLod(uScene, hit.xy, 0.0).rgb;
-  return (refl - skyColor(Rw))*hit.z*F*(1.0 - smoothstep(0.1, 0.4, nr.w))*uSsrAmt;
+  return (refl - skyColor(Rw))*hit.z*F*(1.0 - smoothstep(uSsrRough.x, uSsrRough.y, nr.w))*uSsrAmt;
 }
 void main(){
 #ifdef NMK_SSR_HALF
@@ -2716,7 +2726,7 @@ void main(){
   }
   if (uSsrAmt > 0.0 && uSsrHalf == 1) {   // OPT ssrhalf: depth-aware 2x2 upsample of the half-resolution reflection
     float z0 = texture(uDepth, vUV).r;
-    if (z0 > 0.0 && texture(uNR, vUV).w < 0.4) {
+    if (z0 > 0.0 && texture(uNR, vUV).w < uSsrRough.y) {
       float d0 = -viewPosAt(vUV).z; vec3 s = vec3(0.0); float ws = 0.0;
       for (int y = 0; y < 2; ++y) for (int x = 0; x < 2; ++x) {
         vec4 a = texture(uSsrTex, vUV + (vec2(x, y) - 0.5)*uSsrTexel);
@@ -2730,15 +2740,23 @@ void main(){
     // depth-aware 4x4 blur of the half-resolution AO, then remove the occluded share of the indirect light
     float z = texture(uDepth, vUV).r;
     vec4 p = uInvProj*vec4(vUV*2.0 - 1.0, z, 1.0); float d0 = -p.z/p.w;
-    float s = 0.0, w = 0.0;
+    float s = 0.0, w = 0.0; vec2 bs = vec2(0.0);
     for (int y = -2; y < 2; ++y) for (int x = -2; x < 2; ++x) {
       vec2 o = (vec2(x, y) + 0.5)*uAoTexel;
-      vec2 a = texture(uAO, vUV + o).rg;
+      vec4 a = texture(uAO, vUV + o);
       float k = exp(-abs(a.g - d0)/(0.04*d0 + 0.05));
-      s += a.r*k; w += k;
+      s += a.r*k; w += k; bs += a.ba*k;
     }
     float ao = w > 1e-4 ? s/w : 1.0;
     vec3 amb = texture(uAmb, vUV).rgb;
+    if (uBent == 1 && w > 1e-4 && z > 0.0) {   // CP4 bentnormal: sky / ground light along the open direction instead of the surface normal
+      vec2 b2 = bs/w; vec3 bv = vec3(b2, sqrt(max(1.0 - dot(b2, b2), 0.0)));
+      vec3 bw = normalize(transpose(mat3(uView))*bv), nw = texture(uNR, vUV).xyz;
+      const vec3 lw = vec3(0.2126, 0.7152, 0.0722);
+      float ib = dot(mix(uGroundCol, uSkyCol, 0.5 + 0.5*bw.y), lw), inn = dot(mix(uGroundCol, uSkyCol, 0.5 + 0.5*nw.y), lw);
+      float kb = clamp(ib/max(inn, 1e-5), 0.6, 1.6);
+      c += amb*(kb - 1.0); amb *= kb;
+    }
     if (uAoNew == 1) {
       // VO L2 multi-bounce (Jimenez 2016 fit): light inter-reflected inside the occluded region, by the surface's
       // albedo (approximated as 0.4: the composite does not see albedo); occlusion stays darkest on dark materials
@@ -4685,7 +4703,7 @@ void Renderer::createTargets() {
   glCreateTextures(GL_TEXTURE_2D, 1, &ambTex); glTextureStorage2D(ambTex, 1, GL_R11F_G11F_B10F, width, height);   // PF2: rgb only, never negative (half the bytes of RGBA16F)
   glTextureParameteri(ambTex, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTextureParameteri(ambTex, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glNamedFramebufferTexture(hdrFbo, GL_COLOR_ATTACHMENT2, ambTex, 0);
-  glCreateTextures(GL_TEXTURE_2D, 1, &aoTex); glTextureStorage2D(aoTex, 1, GL_RG16F, std::max(1, width / aoDiv), std::max(1, height / aoDiv));
+  glCreateTextures(GL_TEXTURE_2D, 1, &aoTex); glTextureStorage2D(aoTex, 1, GL_RGBA16F, std::max(1, width / aoDiv), std::max(1, height / aoDiv));
   glTextureParameteri(aoTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(aoTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTextureParameteri(aoTex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(aoTex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glCreateFramebuffers(1, &aoFbo); glNamedFramebufferTexture(aoFbo, GL_COLOR_ATTACHMENT0, aoTex, 0);
@@ -4996,6 +5014,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform3fv(U(p, "uCloudShadowBox"), 1, glm::value_ptr(cloudShBox));
   glUniform1f(U(p, "uAoIndirectOnly"), q.legacy ? 0.0f : 1.0f);
   glUniform1i(U(p, "uLook"), q.legacy ? 0 : 1);
+  glUniform1i(U(p, "uFogPhase"), perf.fogPhase && q.lightNew && !q.legacy && !thumbMode ? 1 : 0);
   glUniform1i(U(p, "uW2"), perf.w2Sky && q.lightNew && !q.legacy && !thumbMode ? 1 : 0); glUniform1f(U(p, "uFlash"), thumbMode ? 0.0f : wx.der.flash);   // W2
   glUniform1i(U(p, "uDbgView"), dbgView);   // CP0
   { vec2 sa(0.25f, 0.18f); if (const char* e = std::getenv("NMK_SPECAA")) std::sscanf(e, "%f,%f", &sa.x, &sa.y); glUniform2f(U(p, "uSpecAA"), q.legacy || !perf.specAA ? 0.0f : sa.x, sa.y); }   // M3: specaa (--rq-off specaa); NMK_SPECAA="variance,clamp"
@@ -6826,7 +6845,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
     glUniform1i(U(progSsrHalf, "uScene"), 8); glUniform1i(U(progSsrHalf, "uDepth"), 7);
     setLighting(progSsrHalf, v); glUseProgram(progSsrHalf);
     glBindTextureUnit(12, nrTex); glUniform1i(U(progSsrHalf, "uNR"), 12);
-    glUniform1f(U(progSsrHalf, "uSsrAmt"), q.ssrStrength); glUniform1f(U(progSsrHalf, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f);
+    glUniform1f(U(progSsrHalf, "uSsrAmt"), q.ssrStrength); glUniform1f(U(progSsrHalf, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f); glUniform2f(U(progSsrHalf, "uSsrRough"), perf.ssrFade ? 0.3f : 0.1f, perf.ssrFade ? 0.5f : 0.4f);
     glUniformMatrix4fv(U(progSsrHalf, "uProj"), 1, GL_FALSE, glm::value_ptr(v.proj));
     glUniformMatrix4fv(U(progSsrHalf, "uView"), 1, GL_FALSE, glm::value_ptr(v.view));
     glUniformMatrix4fv(U(progSsrHalf, "uInvProj"), 1, GL_FALSE, glm::value_ptr(invP));
@@ -6842,6 +6861,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   glUniform1f(U(progComposite, "uAoAmt"), ao ? q.ssaoStrength : 0.0f);
   glUniform1f(U(progComposite, "uContactAmt"), contact ? 0.85f * (1.0f - lightingTod(lt.hour).nightK) * (1.0f - wx.k) : 0.0f);   // VO L1: the sun's (none from the moon or an overcast sky)
   glUniform1i(U(progComposite, "uAoNew"), q.lightNew && perf.gtao && !q.legacy ? 1 : 0);
+  glUniform1i(U(progComposite, "uBent"), q.lightNew && perf.gtao && perf.bentNormal && !q.legacy ? 1 : 0);
   glUniform1i(U(progComposite, "uContactSteps"), shadowTier >= 2 ? 16 : shadowTier == 1 ? 12 : 8);
   setLighting(progComposite, v);   // sky model + noise for the reflection estimate
   glUseProgram(progComposite);
@@ -6858,7 +6878,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
     g *= std::max(0.0f, 1.0f - std::fabs(glm::degrees(pitch)) / 20.0f);
     const float mag = std::max(1.0f, v.proj[1][1] / 1.43f);   // a scope's zoom (narrower than the ~70 deg view) scales the wobble
     shimmerPx = 2.0f * (height / 1080.0f) * g * mag;
-  } glUniform1f(U(progComposite, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f);   // OPT ssrrange: no march past 0.75 x visibility
+  } glUniform1f(U(progComposite, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f); glUniform2f(U(progComposite, "uSsrRough"), perf.ssrFade ? 0.3f : 0.1f, perf.ssrFade ? 0.5f : 0.4f);   // OPT ssrrange: no march past 0.75 x visibility
   glUniformMatrix4fv(U(progComposite, "uProj"), 1, GL_FALSE, glm::value_ptr(v.proj));
   glUniformMatrix4fv(U(progComposite, "uView"), 1, GL_FALSE, glm::value_ptr(v.view));
   glUniformMatrix4fv(U(progComposite, "uInvProj"), 1, GL_FALSE, glm::value_ptr(invP));
