@@ -1069,6 +1069,15 @@ float gDetH = 0.0;   // detail relief (m), added to the derivative bump
 float gFootDbg = -1.0;   // MA2 debug 3: 1 under 0.5 m above the local ground on a foundation surface, -1 = not one
 vec3 gWxDbg = vec3(0.0);   // MA2 debug 4: (damp, moss, splash) masks
 float gMossW = 0.0;        // BF B1: moss weight x thickness here (the transmission lobe after shade())
+// BF B1 the moss mat's weight over its host: the materials session's spec 3.3 layerBlend (switch layerblend) with the
+// moss slot's q = M and h = 1 - host height (moss fills the joints first), width d (walls 0.045, ground / stone 0.10);
+// off: the same height-blend as a smoothstep. The film past the mat range is the caller's (albedo / roughness only).
+float mossMatW(float M, float hHost, float hMoss, float d){
+  if (M < 0.02) return 0.0;
+  if (uLayerBlend == 1) { float q[4] = float[4](1.0 - M, M, 0.0, 0.0), h[4] = float[4](hHost, clamp(1.0 - hHost + 0.5*(hMoss - 0.925), 0.0, 1.0), 0.5, 0.5), w[4];
+    layerBlend(q, h, 2, 0, 0.24, d, w); return w[1]; }
+  return smoothstep(-d, d, (hMoss + M) - (hHost + 1.0 - M));
+}
 vec3 gDbg = vec3(0.0);   // NMK_GX5_DEBUG=2: decal tests passed (facing, plane, box)
 int gRoom = -1;      // the room whose finish this fragment took (pattern 20 / 21), for its decal list
 float gDecH = 0.0;   // decal relief (m)
@@ -2023,7 +2032,7 @@ void main(){
       float por = grain == 1 || grain == 3 ? 1.0 : grain == 0 ? 0.75 : 0.65;
       vec3 mf = mossField(vW, up, (1.0 - abs(up))*0.7, 1.0, mo, shl, por, 0.5*hb.w*(1.0 - smoothstep(0.0, 0.4, y)), 0.0, hb.z, 0.0, 0.0, 1.0 - smoothstep(12.0, 30.0, dCam));
       float hMoss = 0.85 + 0.15*mossVn(vW/0.05), hHost = clamp(h, 0.0, 1.0);   // joints and pits (low h) take moss first
-      float wm = dCam < uMoss.z ? smoothstep(-0.10, 0.10, (hMoss + mf.x) - (hHost + 1.0 - mf.x)) * step(0.02, mf.x) : mf.x*0.85;
+      float wm = dCam < uMoss.z ? mossMatW(mf.x, hHost, hMoss, 0.10) : mf.x*0.85;
       alb = mix(alb, mix(kMossAlb, kMossDry, 1.0 - mo)*(0.8 + 0.4*mossVn(vW/0.12 + 5.0))*mix(0.55, 1.0, hMoss), wm); rough = mix(rough, 0.88, wm);
       vec3 lc = mix(kLichenAlb, vec3(0.42, 0.37, 0.16), smoothstep(0.6, 0.8, mossVn(vW/0.25 + 61.0)));   // grey crust, a few yellow
       alb = mix(alb, lc*(0.9 + 0.2*grn), mf.z*0.8); rough = mix(rough, 0.92, mf.z);
@@ -2163,7 +2172,7 @@ void main(){
       vec3 mf = mossField(vW, nW.y, vert*dug*(0.55 + 0.45*cav), dug, mo, shl, por, 0.5*uMossHab.w*(1.0 - smoothstep(0.0, 0.4, hg)), 0.0, uMossHab.z, 0.0, 0.0, 1.0 - smoothstep(12.0, 30.0, dCam));
       float hMoss = 0.85 + 0.15*mossVn(vW/0.05), hHost = clamp(0.5 + gTexH/0.03, 0.0, 1.0);
       // mat: the HOST's height drives the blend, so moss fills the joints first (d = 0.045); film past uMoss.z
-      float wm = dCam < uMoss.z ? smoothstep(-0.045, 0.045, (hMoss + mf.x) - (hHost + 1.0 - mf.x)) * step(0.02, mf.x) : mf.x*0.85;
+      float wm = dCam < uMoss.z ? mossMatW(mf.x, hHost, hMoss, 0.045) : mf.x*0.85;
       vec3 mc0 = mix(kMossAlb, kMossDry, 1.0 - mo)*(0.8 + 0.4*mossVn(vW/0.12 + 5.0))*mix(0.55, 1.0, hMoss);
       alb = mix(alb, mc0, wm); rough = mix(rough, 0.88, wm);
       alb = mix(alb, kLichenAlb*(0.9 + 0.2*mossVn(vW/0.03)), mf.z*0.8); rough = mix(rough, 0.92, mf.z);
