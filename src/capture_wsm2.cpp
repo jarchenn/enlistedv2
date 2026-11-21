@@ -23,6 +23,10 @@ namespace {
 MpTest* T = nullptr;
 int mode = -1, stage = 0, frames = 0; bool started = false, matchMode = false, blurMode = false, costMode = false, blur2 = false, stepMode = false, cpabMode = false, hitMode = false, smokeMode = false, wxMode = false, bodyMode = false, wedgeMode = false, w6Mode = false, bfMode = false; float total = 0, st = 0, runT = 0; int runFrames = 0; double runDt = 0, worstDt = 0;
 std::vector<int> row; vec3 origin(0);
+// NMK_WSM2_ROWS=40,80: the lineup adds a full row of the ten types at each of those distances from the camera (sandstorm / rain
+// visibility at engagement range); the close row stays where it was
+std::vector<float> extraRowDist() { static std::vector<float> v; static bool once = false; if (!once) { once = true; if (const char* e = std::getenv("NMK_WSM2_ROWS")) { std::string t = e; size_t b = 0; while (b < t.size()) { size_t c = t.find(',', b); float d = (float)std::atof(t.substr(b, c - b).c_str()); if (d > 0) v.push_back(d); if (c == std::string::npos) break; b = c + 1; } } } return v; }
+std::vector<std::vector<int>> extraRows;
 const char* kStates[] = {"aim", "aim_lmg", "aim_pistol", "idle", "walk", "run", "crouch", "shot", "reload", "throw"};
 }   // namespace
 
@@ -128,7 +132,7 @@ static bool bfRun(App& app, float dt) {
   static int k = -1, f = 0; static vec3 base;
   static const int only = std::getenv("NMK_BF_SCENE") ? std::atoi(std::getenv("NMK_BF_SCENE")) : -1;
   const char* scene[2] = {"noon", "night"}; const float hour[2] = {12.0f, 23.0f};
-  const char* shot[5] = {"rifle", "mg42", "tankgun", "pak40", "explosions"}; const float dist[5] = {3, 6, 18, 12, 30};
+  const char* shot[6] = {"rifle", "mg42", "tankgun", "pak40", "explosions", "wide"}; const float dist[6] = {3, 6, 18, 12, 30, 60};   // wide: the grenade / 105 / 155 row whole, to its columns' tops
   if (k < 0) {
     T = new MpTest("wsm2"); started = true;
     if (app.mode == Mode::Explore) app.exitExplore();
@@ -137,14 +141,14 @@ static bool bfRun(App& app, float dt) {
     base = app.doc.start.set ? app.doc.start.pos : vec3(0); base.y = app.terrain.height(base.x, base.z);
     k = 0; f = 0; return true;
   }
-  const int nS = only >= 0 ? 1 : 2, sc = only >= 0 ? only : k / 5, j = k % 5;
+  const int nS = only >= 0 ? 1 : 2, sc = only >= 0 ? only : k / 6, j = k % 6;
   app.R.q.lightNew = true; app.R.wx.target = 0; app.R.wx.userSet = true; app.R.lt.hour = hour[sc]; app.R.lt.userHour = true;
   if (f == 1) { app.R.wx.snap(); app.R.resetTemporal(); }
   // the camera: 1.7 m over the spawn; the shot's line runs off toward yaw 20 (the subject dist m out, side-on: fired across the view)
   const vec3 cam = base + vec3(0, 1.7f, 0), fw = App::forward(20.0f, 0.0f), rt = glm::normalize(glm::cross(fw, vec3(0, 1, 0)));
   auto ground = [&](vec3 p) { p.y = app.terrain.height(p.x, p.z); return p; };
   vec3 subj = ground(cam + fw * dist[j]) + vec3(0, j == 0 ? 1.4f : j == 1 ? 0.45f : j == 2 ? 2.2f : j == 3 ? 1.1f : 0.0f, 0);
-  const vec3 aim = j == 4 ? subj + vec3(0, 5.0f, 0) : subj + rt * (0.15f * dist[j]);   // the flash runs off along +rt: look a little ahead of the muzzle
+  const vec3 aim = j == 5 ? subj + vec3(0, 10.0f, 0) : j == 4 ? subj + vec3(0, 5.0f, 0) : subj + rt * (0.15f * dist[j]);   // the flash runs off along +rt: look a little ahead of the muzzle
   { const vec3 d = glm::normalize(aim - cam); app.camPos = cam; app.camYaw = degrees(std::atan2(-d.x, -d.z)); app.camPitch = degrees(std::asin(std::clamp(d.y, -1.0f, 1.0f))); }
   app.fx.update(1.0f / 60.0f, app.terrain);   // no Explore step here: the fx clock advances with the frames
   const int fire = 40;
@@ -152,23 +156,26 @@ static bool bfRun(App& app, float dt) {
   if (j == 1 && f >= fire && f < fire + 60 && (f - fire) % 3 == 0) app.fx.muzzleFlash(subj, rt, 1.5f, false, subj, vec3(-1), "7.92x57 mm");
   if (j == 2 && f == fire) app.fx.muzzle(subj, rt, 1.2f, "tiger_i");
   if (j == 3 && f == fire) app.fx.muzzle(subj, rt, 1.0f, "pak40");
-  if (j == 4 && f == fire) {
-    app.fx.explosion(ground(subj - rt * 12.0f), vec3(0, 1, 0), "grenade", true, "grenade_M67");
+  if ((j == 4 || j == 5) && f == fire) {
+    const float sp = j == 5 ? 18.0f : 12.0f;
+    app.fx.explosion(ground(subj - rt * sp), vec3(0, 1, 0), "grenade", true, "grenade_M67");
     app.fx.explosion(subj, vec3(0, 1, 0), "ground", true, "he_105mm_M1");
-    app.fx.explosion(ground(subj + rt * 12.0f), vec3(0, 1, 0), "ground", true, "he_155mm_M107");
+    app.fx.explosion(ground(subj + rt * sp), vec3(0, 1, 0), "ground", true, "he_155mm_M107");
   }
   static std::string pending;   // the still written last frame: what that frame actually drew (fx.build ran after this step)
-  if (!pending.empty()) { logf("[wsm2] %s drew %zu additive triangles (flash meshes, discs, fireballs, streaks) and %zu soft sprites", pending.c_str(), app.R.fxAdd.size() / 3, app.R.fxAlpha.size() / 6); pending.clear(); }
-  const int at[4] = {fire, fire + 6, fire + 60, fire + 180}; const char* tag[4] = {"flash", "0.1s", "1s", "3s"};
-  for (int c = 0; c < (j == 4 ? 4 : 3); ++c) if (f == at[c]) {
+  if (!pending.empty()) { logf("[wsm2] %s drew %zu additive triangles (flash meshes, discs, fireballs, streaks) and %zu soft quads (%zu smoke / dust live, %zu grains, %zu delayed)", pending.c_str(), app.R.fxAdd.size() / 3, app.R.fxAlpha.size() / 6, app.fx.parts.size(), app.fx.grains.size(), app.fx.delayed.size()); pending.clear(); }
+  const int atN[4] = {fire, fire + 6, fire + 60, fire + 180}, atW[5] = {fire, fire + 18, fire + 60, fire + 180, fire + 480};
+  const char* tagN[4] = {"flash", "0.1s", "1s", "3s"}; const char* tagW[5] = {"flash", "0.3s", "1s", "3s", "8s"};
+  const int* at = j == 5 ? atW : atN; const char* const* tag = j == 5 ? tagW : tagN; const int nAt = j == 5 ? 5 : j == 4 ? 4 : 3;
+  for (int c = 0; c < nAt; ++c) if (f == at[c]) {
     char b[128]; std::snprintf(b, sizeof b, "bf_%s_%s_%s.png", scene[sc], shot[j], tag[c]); app.uiShot = exeDir() / "selftest_out" / b;
     logf("[wsm2] %s: camera (%.1f, %.1f, %.1f) yaw %.1f pitch %.1f, subject (%.1f, %.1f, %.1f), %.1f m, hour %.1f, %zu particles, %zu flash elements",
          b, cam.x, cam.y, cam.z, app.camYaw, app.camPitch, subj.x, subj.y, subj.z, glm::length(subj - cam), app.R.lt.hour, app.fx.parts.size(), app.fx.flashes.size());
     pending = b;
   }
-  if (++f > fire + (j == 4 ? 200 : 80)) {
+  if (++f > fire + (j == 5 ? 500 : j == 4 ? 200 : 80)) {
     app.fx.clear(); app.fx.flashes.clear(); app.fx.delayed.clear(); f = 0;
-    if (++k >= nS * 5) { T->check(true, "Battle Foundry stills written"); app.hideUi = false; app.hideEditorOverlays = false; app.selftest->exitCode = T->finish(); app.selftest->done = true; }
+    if (++k >= nS * 6) { T->check(true, "Battle Foundry stills written"); app.hideUi = false; app.hideEditorOverlays = false; app.selftest->exitCode = T->finish(); app.selftest->done = true; }
   }
   return true;
 }
@@ -527,8 +534,9 @@ bool wsm2Capture(App& app, float dt) {
     if (blurMode) {   // AIB1: the player and two Axis soldiers (one standing, one walking across)
       sc.rules.teamPlayers[0] = 1; sc.rules.teamPlayers[1] = 2; sc.rules.aiTypes[1] = aiBit(AiType::Soldiers); sc.rules.aiCount[1][(int)AiType::Soldiers] = 2;
     } else if (!matchMode) {
-      sc.rules.teamPlayers[0] = 2; sc.rules.aiTypes[0] = aiBit(AiType::Soldiers); sc.rules.aiCount[0][(int)AiType::Soldiers] = 1;
-      sc.rules.teamPlayers[1] = 9; for (AiType t : types) { sc.rules.aiTypes[1] |= aiBit(t); sc.rules.aiCount[1][(int)t] = 1; }
+      const int kRows = 1 + (int)extraRowDist().size();   // NMK_WSM2_ROWS: one more bot of every type per extra row
+      sc.rules.teamPlayers[0] = 1 + kRows; sc.rules.aiTypes[0] = aiBit(AiType::Soldiers); sc.rules.aiCount[0][(int)AiType::Soldiers] = kRows;
+      sc.rules.teamPlayers[1] = 9 * kRows; for (AiType t : types) { sc.rules.aiTypes[1] |= aiBit(t); sc.rules.aiCount[1][(int)t] = kRows; }
     } else {   // 10 a side (the player one of side 0's): the nine types spread over both sides
       sc.rules.teamPlayers[0] = 10; sc.rules.teamPlayers[1] = 10;
       const int nb = cpabMode ? 99 : 19; if (cpabMode) sc.rules.teamPlayers[0] = sc.rules.teamPlayers[1] = 50;   // CP: 100 combatants
@@ -577,6 +585,12 @@ bool wsm2Capture(App& app, float dt) {
   if (costMode) return costStep(app, G, *L);
   if (stage == 0) {   // the row: side 0's bot first, then side 1's in spawn order; facts per bot
     for (auto& s : G.sold) if (s.inUse && s.alive && !s.localPlayer) row.push_back(s.slot);
+    if (!extraRowDist().empty()) {   // deal the bots into rows: the r-th bot of each (side, model) goes to row r
+      std::vector<std::pair<int, int>> keys; std::map<std::pair<int, int>, std::vector<int>> byKey;
+      for (int sl : row) { const Soldier& s = G.sold[sl]; auto key = std::make_pair(s.team, s.model); if (!byKey.count(key)) keys.push_back(key); byKey[key].push_back(sl); }
+      row.clear(); extraRows.assign(extraRowDist().size(), {});
+      for (auto& kk : keys) { auto& v = byKey[kk]; row.push_back(v[0]); for (size_t r = 0; r < extraRows.size() && r + 1 < v.size(); ++r) extraRows[r].push_back(v[r + 1]); }
+    }
     origin = G.sold[row[0]].feet;
     for (int i = 0; i < (int)row.size(); ++i) {
       const Soldier& s = G.sold[row[i]]; const CharModel& m = *G.models[s.model];
@@ -590,9 +604,15 @@ bool wsm2Capture(App& app, float dt) {
   if (stage - 1 >= ns) { if (frames > 4) finish(); return true; }
   const std::string what = kStates[stage - 1];
   const int n = (int)row.size();
-  for (int i = 0; i < n; ++i) {   // stood in a row along x, facing +z (the camera)
-    Soldier& s = G.sold[row[i]]; if (!s.alive) continue;
-    vec3 p = origin + vec3((i - 0.5f * (n - 1)) * 1.25f, 0, 0);
+  const float camZ = 0.55f * 1.25f * n + 1.5f;   // the camera stands this far in front of the close row (below)
+  std::vector<std::pair<int, vec3>> stand;
+  for (int i = 0; i < n; ++i) stand.push_back({row[i], origin + vec3((i - 0.5f * (n - 1)) * 1.25f, 0, 0)});
+  for (size_t r = 0; r < extraRows.size(); ++r) {   // the far rows: D m from the camera, spaced wider, half a gap aside so they show between the close row
+    const float D = extraRowDist()[r], sp = std::max(1.25f, 0.04f * D); const int m = (int)extraRows[r].size();
+    for (int i = 0; i < m; ++i) { vec3 p = origin + vec3((i - 0.5f * (m - 1) + 0.5f) * sp, 0, camZ - D); p.y = app.terrain.height(p.x, p.z); stand.push_back({extraRows[r][i], p}); }
+  }
+  for (auto& [slot, p] : stand) {   // stood in rows along x, facing +z (the camera)
+    Soldier& s = G.sold[slot]; if (!s.alive) continue;
     Physics::setAgentPos(s.agent, p); s.feet = p; s.yaw = 180; s.hp = 100;
     const bool hot = what != "idle" && what != "walk" && what != "run";
     s.br.aimYaw = s.anGunYaw = 180; s.br.aimPitch = s.anGunPitch = 0; s.br.target = hot ? L->slot : -1; if (!hot) s.lastShot = G.t - 10;
@@ -609,7 +629,7 @@ bool wsm2Capture(App& app, float dt) {
     if (what == "shot" && frames == 38) { s.ws.cooldown = 0; s.ws.bolt = 0; if (s.ws.loaded <= 0) s.ws.loaded = 5; G.soldierFire(s, vec3(0, -0.02f, 1)); }
   }
   {   // the camera: in front of the row's middle, far enough for all of it
-    vec3 at = origin + vec3(0, 0, 0.55f * 1.25f * n + 1.5f);
+    vec3 at = origin + vec3(0, 0, camZ);
     Physics::setCharacterPos(at + vec3(0, 0.9f, 0));
     vec3 eye, ef; G.renderView(eye, ef); vec3 d = origin + vec3(0, 1.0f, 0) - eye;
     app.eyeYaw = degrees(std::atan2(-d.x, -d.z)); app.eyePitch = degrees(std::atan2(d.y, glm::length(vec2(d.x, d.z))));
@@ -620,6 +640,6 @@ bool wsm2Capture(App& app, float dt) {
     T->note(what + ": " + clips);
     app.uiShot = exeDir() / "selftest_out" / ("wsm2_" + what + ".png");
   }
-  if (frames > 44) { for (int i : row) { G.sold[i].dbgVel = vec3(0); G.sold[i].reload = 0; G.sold[i].throwT = -1; } ++stage; frames = 0; }
+  if (frames > 44) { for (auto& [i, p] : stand) { G.sold[i].dbgVel = vec3(0); G.sold[i].reload = 0; G.sold[i].throwT = -1; } ++stage; frames = 0; }
   return true;
 }

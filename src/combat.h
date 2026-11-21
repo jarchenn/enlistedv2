@@ -180,7 +180,7 @@ struct Fx {
   vec2 wind{0};                   // weather: the air's horizontal velocity (m/s) smoke and dust relax to (R.wx.der.windXZ; switch wxdrift)
   bool nearFade = true;           // fxnear: every alpha sprite fades near the eye, every sprite is capped at half the view height on screen (Renderer::Perf, set each frame)
   void update(float dt, const Terrain& t);
-  void clear() { parts.clear(); streaks.clear(); debris.clear(); }
+  void clear() { parts.clear(); streaks.clear(); debris.clear(); grains.clear(); }
   void bullet(vec3 a, vec3 b, int tracerKind);   // one flight segment of a round, drawn by its tracer kind
   void blasterImpact(vec3 p, vec3 n, int kind);   // SW1: a bolt striking a surface: coloured flash, sparks, a scorch puff, a brief light
   void smoke(vec3 p, vec3 v, float size, float life, vec4 col, float grow = 1.2f, float lift = 0.6f);
@@ -221,10 +221,12 @@ struct Fx {
                    vec3 emPrim{0}, emDisc{0}, emSec{0}; int kind = 0, segs = 6;   // kind 0 swept core mesh, 1 dished disc, 2 billboard, 3 cooling fireball
                    float T0 = 3200, tau = 0.02f, n = 0.85f, eps = 0.9f, k = 1; };   // kind 3: T(t) = T_amb + (T0 - T_amb)(1 + t/tau)^-n, radius R (1 - exp(-2.6 u / 0.19)), u = t / life
   std::vector<FlashEl> flashes;
-  struct Delayed { double t = 0; Particle q; }; std::vector<Delayed> delayed;   // puffs released later (suppressor, bore evacuator)
+  struct Delayed { double t = 0; Particle q; bool cue = false; }; std::vector<Delayed> delayed;   // cue: admitted at release even at the cap (the column)
+  struct Grain { vec3 p{0}, v{0}; float drag = 1, life = 6; vec3 col{0.2f}; };   // fxscale: ballistic ejecta grains, their own list (they emptied the sprite pool)
+  std::vector<Grain> grains; size_t maxGrains = 6000;   // puffs released later (suppressor, bore evacuator)
   std::deque<uint64_t> seenOrder; std::set<uint64_t> seenIds; uint64_t serial = 0;
   uint64_t nextId(int owner) { return ((uint64_t)(owner + 1) << 40) | (++serial & 0xFFFFFFFFFFull); }
-  vec3 emission(float T, float eps) const;  // scene-linear emission of a grey body at T: hue(T) x min(eps L_v / Yref, clamp) x Yref (spec 5.4)
+  vec3 emission(float T, float eps, float clampX = -1) const;   // clampX >= 0: this clamp instead of peakClamp (0: none)  // scene-linear emission of a grey body at T: hue(T) x min(eps L_v / Yref, clamp) x Yref (spec 5.4)
   static float envelopeAvg(double t0, float life, double a, double b);   // (1-u)^2 integrated over [a, b] / (b - a) (spec 5.5)
   bool admit(bool cue = false);
   bool admitLight();                        // fxcap: a muzzle light fits under caps.flashLights (>= 1; off: the oldest of 8 goes)

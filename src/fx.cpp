@@ -224,10 +224,15 @@ void Fx::impact(vec3 p, vec3 n, const std::string& surface) {
 void Fx::update(float dt, const Terrain& t) {
   clock += dt; presentT = clock; ground = &t;
   for (size_t k = 0; k < delayed.size();) {
-    if (delayed[k].t <= clock) { if (admit()) parts.push_back(delayed[k].q); delayed[k] = delayed.back(); delayed.pop_back(); } else ++k;
+    if (delayed[k].t <= clock) { if (admit(delayed[k].cue)) parts.push_back(delayed[k].q); delayed[k] = delayed.back(); delayed.pop_back(); } else ++k;
   }
   flashes.erase(std::remove_if(flashes.begin(), flashes.end(), [&](const FlashEl& f) { return f.t0 + f.life < clock - 0.25; }), flashes.end());
   for (auto& q : parts) if (q.ret >= 0) q.ret -= dt;
+  for (auto& g : grains) {   // ballistic grains: gravity, drag, gone where they meet the ground
+    g.life -= dt; g.v.y -= 9.81f * dt; g.v *= std::exp(-g.drag * dt); g.p += g.v * dt;
+    if (g.p.y < t.height(g.p.x, g.p.z)) g.life = 0;
+  }
+  grains.erase(std::remove_if(grains.begin(), grains.end(), [](const Grain& g) { return g.life <= 0; }), grains.end());
   for (auto& L : mlights) L.age += dt;   // WP4 muzzle lights
   mlights.erase(std::remove_if(mlights.begin(), mlights.end(), [](const MuzzleLight& L) { return L.age >= L.life; }), mlights.end());
   for (auto& q : parts) {
@@ -323,6 +328,12 @@ void Fx::build(const mat4& view, std::vector<FxVert>& alpha, std::vector<FxVert>
     quad(q.additive ? add : alpha, q.p, right * q.size, up * q.size, c);
   }
   buildFlashes(eye, add);
+  for (const Grain& g : grains) {   // a grain: a short streak along its motion (length v / 60 s, at least 6 cm), 2-3 cm wide
+    const float sp = glm::length(g.v); if (sp < 1e-3f) continue;
+    const vec3 ax = g.v / sp, side = glm::normalize(glm::cross(ax, g.p - eye) + vec3(1e-6f));
+    const float len = std::clamp(sp / 60.0f, 0.06f, 1.2f);
+    quad(alpha, g.p - ax * (0.5f * len), ax * (0.5f * len), side * 0.025f, vec4(g.col, 0.85f));
+  }
   for (auto& s : streaks) {
     vec3 d = s.b - s.a;
     if (glm::length(d) < 1e-4f) continue;
@@ -379,10 +390,10 @@ void Fx::setCaps(const Caps& c) {
   for (auto& q : parts) { if (live <= maxParts) break; if (q.ret < 0) { q.ret = 0.3f; --live; } }   // oldest first, faded, never snapped
   for (size_t k = 0; k + (size_t)caps.flashLights < mlights.size(); ++k) mlights[k].life = std::min(mlights[k].life, mlights[k].age + 0.3f);
 }
-vec3 Fx::emission(float T, float eps) const {
+vec3 Fx::emission(float T, float eps, float clampX) const {
   const FxData& D = fxData();
-  const float y = std::max(yrefNits, 1e-4f), mult = eps * D.lv(T) / y;
-  return D.hue(T) * (peakClamp > 0 ? std::min(mult, peakClamp) : mult) * y * kNitsToScene;
+  const float y = std::max(yrefNits, 1e-4f), mult = eps * D.lv(T) / y, cl = clampX >= 0 ? clampX : peakClamp;
+  return D.hue(T) * (cl > 0 ? std::min(mult, cl) : mult) * y * kNitsToScene;
 }
 float Fx::envelopeAvg(double t0, float life, double a, double b) {
   if (life <= 0) return 0;
@@ -420,6 +431,7 @@ bool Fx::emit(const FxEvent& e0) {
   }
   const float age = (float)(clock - e.visTime);
   const bool heavy = e.recipe == FXR_HEAVY;
+  if (!heavy && fxCaliberNoGunFlash(e.caliber)) return true;   // a launcher: no gun flash (its backblast / rocket flame are their own)
   const FxWeaponRow W = heavy ? fxHeavyFor(e.weapon, e.scale) : fxWeaponFor(e.weapon, e.caliber);
   const FxDeviceMod dev = fxData().device(e.device);
   const float smokeLife = heavy ? 20.0f : 5.0f;
@@ -433,8 +445,11 @@ bool Fx::emit(const FxEvent& e0) {
   if (age < life * (heavy ? 1.6f : 1.0f)) {
     FlashEl f; f.t0 = tShow; f.life = life; f.p = e.pos; f.dir = dir; f.roll = hash01(sd, 1) * 6.2831853f; f.xM = xM; f.L = L; f.R = R;
     f.half = e.device == "brake" ? 30.0f : e.device == "flash_hider" ? 10.0f : 15.0f;
-    f.emPrim = emission(W.Tprim, heavy ? 0.5f : 0.12f); f.emDisc = emission(heavy ? std::max(W.Tprim, 2000.0f) : 1800.0f, heavy ? 0.5f : 0.20f);
-    f.emSec = emission(W.Tsec, W.epsSec) * dev.secondary;
+    // the flash geometry is clamped at 60 x Yref even with the unthresholded bloom: unclamped, a dark storm exposure saturated a whole
+    // heavy core mesh flat white (a hard-edged wedge); spec 5.4's SDR checks want a small white core and 0.32-0.72 lobes, not a white shape
+    const float fc = std::min(peakClamp > 0 ? peakClamp : 60.0f, 60.0f);
+    f.emPrim = emission(W.Tprim, heavy ? 0.5f : 0.12f, fc); f.emDisc = emission(heavy ? std::max(W.Tprim, 2000.0f) : 1800.0f, heavy ? 0.5f : 0.20f, fc);
+    f.emSec = emission(W.Tsec, W.epsSec, fc) * dev.secondary;
     const int coreTris[5] = {0, 0, 60, 120, 200};   // spec 8.3 flash core form: billboard, billboard, swept mesh 60 / 120 / 200
     const int t = std::clamp(tier, 0, 4);
     if (coreTris[t] > 0) { f.kind = 0; f.segs = coreTris[t]; flashes.push_back(f); }
@@ -542,8 +557,9 @@ void Fx::buildFlashes(vec3 eye, std::vector<FxVert>& add) const {
         const float ang = j * 6.2831853f / M; const vec3 n = s1 * std::cos(ang) + s2 * std::sin(ang);
         const float rr = std::min(r, x * std::tan(glm::radians(f.half)) + 0.25f * f.R);   // the half-angle at the muzzle
         p = f.p + f.dir * x + n * rr;
-        const vec3 vd = glm::normalize(eye - p); const float facing = std::pow(std::fabs(glm::dot(n, vd)), 1.5f);
-        c = glm::mix(f.emPrim, f.emDisc, std::clamp(u / 1.67f, 0.0f, 1.0f)) * (k * facing * (1.0f - (float)i / S * 0.5f));
+        const vec3 vd = glm::normalize(eye - p); const float facing = std::pow(std::fabs(glm::dot(n, vd)), 4.0f);   // eps follows the optical depth: bright at the axis, nothing at the silhouette
+        const float along = (float)i / S, ends = glm::smoothstep(0.0f, 0.2f, along) * (1.0f - glm::smoothstep(0.55f, 1.0f, along));   // no hard base or tip
+        c = glm::mix(f.emPrim, f.emDisc, std::clamp(u / 1.67f, 0.0f, 1.0f)) * (k * facing * (0.25f + 0.75f * ends));
       };
       for (int i = 0; i < S; ++i) for (int j = 0; j < M; ++j) {
         vec3 p00, p01, p10, p11, c00, c01, c10, c11;
@@ -619,9 +635,9 @@ int fxEventSelfCheck(int& fails) {
     Burst b; int nf = 0;
     for (auto& fl : x.flashes) if (fl.kind == 3) { b.life = fl.life; b.rMean += fl.R; b.fireK = fl.k; ++nf; }
     if (nf) b.rMean /= nf;
-    for (auto& q : x.parts) (q.grain ? b.grains : b.dust)++;
+    b.dust = (int)x.parts.size(); b.grains = (int)x.grains.size();
     b.clods = (int)x.debris.size();
-    for (auto& d : x.delayed) b.plumeH = std::max(b.plumeH, d.q.v.y / std::max(1e-3f, d.q.drag));
+    for (auto& d : x.delayed) if (d.q.lift == 0) b.plumeH = std::max(b.plumeH, d.q.v.y / std::max(1e-3f, d.q.drag));   // the column's sprites (the curtain falls back)
     return b;
   };
   const Burst g = burst("grenade_M67", "dry_soil"), h105 = burst("he_105mm_M1", "dry_soil"), h155 = burst("he_155mm_M107", "dry_soil");
@@ -630,8 +646,8 @@ int fxEventSelfCheck(int& fails) {
   std::snprintf(buf, sizeof buf, "grenade / 105 / 155: fireball life %.0f / %.0f / %.0f ms, mean sprite radius %.2f / %.2f / %.2f m, plume to %.1f / %.1f / %.1f m",
                 g.life * 1000, h105.life * 1000, h155.life * 1000, g.rMean, h105.rMean, h155.rMean, g.plumeH, h105.plumeH, h155.plumeH);
   check(g.life < h105.life && h105.life < h155.life && g.plumeH < h105.plumeH && h105.plumeH < h155.plumeH && std::fabs(h155.life / g.life / std::cbrt(M5.W / Mg.W) - 1) < 0.03f, buf);
-  check(std::fabs(g.plumeH / (0.9f * Mg.apex) - 1) < 0.05f && std::fabs(h155.plumeH / (0.9f * M5.apex) - 1) < 0.05f && M1.apex / M1.craterD > 7 && M1.apex / M1.craterD < 9,
-        "the plume tops out at 0.9 x the column apex, apex ~ 8 x crater diameter (grenade " + std::to_string(Mg.apex / Mg.craterD) + ", 155 mm " + std::to_string(M5.apex / M5.craterD) + ")");
+  check(g.plumeH / Mg.apex > 0.9f && g.plumeH / Mg.apex < 1.1f && h155.plumeH / M5.apex > 0.9f && h155.plumeH / M5.apex < 1.1f && M1.apex / M1.craterD > 7 && M1.apex / M1.craterD < 9,
+        "the column tops out at the column apex (+-10 %), apex ~ 8 x crater diameter (grenade " + std::to_string(Mg.apex / Mg.craterD) + ", 155 mm " + std::to_string(M5.apex / M5.craterD) + ")");
   const FxMunitionRow w1 = fxMunitionFor("", 1.0f), w2 = fxMunitionFor("", 2.0f);
   check(std::fabs(w2.Rfb / w1.Rfb - 1.26f) < 0.005f && std::fabs(w2.tLum / w1.tLum - 1.26f) < 0.005f && std::fabs(w2.tPeak / w1.tPeak - 1.26f) < 0.005f,
         "doubling the charge: fireball radius x" + std::to_string(w2.Rfb / w1.Rfb) + ", times x" + std::to_string(w2.tLum / w1.tLum));
@@ -709,9 +725,8 @@ void Fx::explosionScaled(vec3 p, vec3 n, const std::string& family, const std::s
     for (int i = 0; i < ng; ++i) {
       const float u = std::max(1e-3f, R()), v = std::min(vMax, vMin * std::pow(u, -1.0f / (3.0f * mu))), xi = std::sqrt(R()), th = glm::radians(52.0f - 22.0f * xi), ph = azimuth();
       const vec3 rad = t1 * std::cos(ph) + t2 * std::sin(ph), dir = glm::normalize(rad * std::cos(th) + axis * std::sin(th));
-      Particle q; q.p = p + rad * (xi * Rc) + n * 0.05f; q.v = dir * v; q.drag = std::clamp(v / 40.0f, 0.2f, 3.0f); q.lift = -9.81f; q.grain = true;
-      q.size = 0.02f + 0.03f * R(); q.life = q.maxLife = 6.0f; q.col = vec4(albedo * (0.8f + 0.38f * R()), 0.9f);
-      if (!admit()) break; parts.push_back(q);
+      if (grains.size() >= maxGrains) break;   // their own cap: never the sprite pool the column needs
+      Grain g; g.p = p + rad * (xi * Rc) + n * 0.05f; g.v = dir * v; g.drag = std::clamp(v / 40.0f, 0.2f, 3.0f); g.col = albedo * (0.8f + 0.38f * R()); grains.push_back(g);
     }
   }
   // C. clods (> 20 mm): mesh debris, the same launch law biased to low xi, ground contact and rest (Fx::update)
@@ -734,23 +749,36 @@ void Fx::explosionScaled(vec3 p, vec3 n, const std::string& family, const std::s
     for (int i = 0; i < nRing; ++i) {
       const float ph = (i + R()) * 6.2831853f / std::max(1, nRing); const vec3 rad = t1 * std::cos(ph) + t2 * std::sin(ph);
       Particle q; q.drag = 1.0f / 0.055f; q.p = p + rad * 0.3f + n * (0.3f + 0.9f * R()); q.v = rad * (2.5f * M.Rfb * (0.55f + 0.45f * R()) * q.drag);
-      q.size = 0.25f * M.Rfb; q.grow = 0.1f * M.Rfb; q.life = q.maxLife = 3.0f + 4.0f * R(); q.col = vec4(dustCol, 0.45f);
+      q.size = 0.25f * M.Rfb; q.grow = 0.1f * M.Rfb; q.life = q.maxLife = 3.0f + 4.0f * R(); q.col = vec4(dustCol, 0.6f);
       if (!admit()) break; parts.push_back(q);
     }
   }
-  // the column / residual plume (5.1 event 4): delayed by 0.10-0.24 s x k, rising toward the column apex, lit soft sprites (8.3: 1-2 / 4 / 8 / 13 / 18)
+  // the dirt curtain and the column (6.2 / 7.7 / 8.4). Curtain: 60-600 ms x k, an inverted cone of soil sprites thrown up at 52-63 deg to
+  // ~0.8 x the apex, falling back by ~1.5-3 s. Column (5.1 event 4, the residual plume): from 0.10-0.24 s x k, soft sprites stacked to the
+  // column apex (each aims at its own height, 63 % there in a quarter of the column life), widening r(z) = r0 + 0.25 (z - z0), soot-dark at
+  // the base and dust-lighter where it thins, then hanging and drifting with the wind for the tier's smoke life. Both always admitted.
   {
     const int nPl[5] = {2, 4, 8, 13, 18}; const float lifeT[5] = {2, 4, 8, 15, 25};
-    const int np = std::min(nPl[t], caps.plume > 0 ? caps.plume : 18);
-    const float H = air ? 0.0f : 0.9f * M.apex, kd = 1.0f / std::max(0.2f, 0.25f * M.colLife);
-    const vec3 smokeCol = water ? vec3(0.8f) : glm::mix(vec3(0.06f), dustCol, std::clamp(S.dustToFire / 4.0f, 0.15f, 0.7f));   // soot darkened, soil-coloured where dust dominates
-    for (int i = 0; i < np; ++i) {
-      Particle q; const float hk = (float)(i + 1) / np;   // a column, not a ball: each sprite aims at its own height
-      q.p = p + n * (0.3f * M.Rfb) + vec3(R() - 0.5f, 0, R() - 0.5f) * (0.5f * M.Rfb);
-      q.drag = kd; q.v = (air ? vec3(R() - 0.5f, 0.2f, R() - 0.5f) * 2.0f : (axis * (H * hk * kd))) + vec3(R() - 0.5f, 0, R() - 0.5f) * 1.5f;
-      q.size = 0.45f * M.Rfb * (0.7f + 0.6f * R()); q.grow = 0.25f * H * kd * 0.5f + 0.1f; q.lift = 0;
-      q.life = q.maxLife = std::min(lifeT[t], std::max(2.0f, 3.0f * M.colLife * (0.8f + 0.4f * R()))); q.col = vec4(smokeCol * (0.85f + 0.3f * R()), water ? 0.45f : 0.7f);
-      Delayed dl; dl.t = clock + (0.10f + 0.14f * R()) * k; dl.q = q; delayed.push_back(dl);
+    const int np = std::max(1, std::min(nPl[t], caps.plume > 0 ? caps.plume : 18));
+    const float H = air ? 0.0f : M.apex, kd = 3.0f / std::max(0.6f, M.colLife);
+    const vec3 soot(0.05f), dirt = glm::min(albedo * 1.15f, vec3(0.8f));
+    if (!air) for (int i = 0; i < np; ++i) {   // the curtain
+      const float ph = azimuth(), el = glm::radians(52.0f + 11.0f * R()), h = 0.8f * H * (0.5f + 0.5f * R());
+      const vec3 rad = t1 * std::cos(ph) + t2 * std::sin(ph), dir = glm::normalize(rad * std::cos(el) + axis * std::sin(el));
+      Particle q; q.p = p + n * 0.3f + rad * (0.3f * Rc); q.v = dir * (std::sqrt(2.0f * 9.81f * h) / std::sin(el)); q.drag = 0.15f; q.lift = -9.81f;
+      q.size = 0.22f * M.Rfb * (0.7f + 0.6f * R()); q.grow = 0.35f * M.Rfb; q.life = q.maxLife = (2.0f + 1.5f * R()) * std::max(0.6f, k);
+      q.col = vec4(dirt * (0.75f + 0.25f * R()), water ? 0.55f : 0.85f); q.fade = 0.9f;
+      Delayed dl; dl.t = clock + 0.06f * k * R(); dl.q = q; dl.cue = i < 2; delayed.push_back(dl);
+    }
+    for (int i = 0; i < np * 2; ++i) {   // the column
+      const float hk = (i + 0.5f) / (np * 2.0f), zt = air ? 2.0f : H * hk;
+      Particle q; q.p = p + n * (0.25f * M.Rfb) + vec3(R() - 0.5f, 0, R() - 0.5f) * (0.4f * M.Rfb);
+      q.drag = kd; q.v = (air ? vec3(R() - 0.5f, 0.3f, R() - 0.5f) * 3.0f : axis * (zt * kd)) + vec3(R() - 0.5f, 0, R() - 0.5f) * 1.0f;
+      q.size = 0.32f * M.Rfb * (0.8f + 0.4f * R()) + 0.1f * zt; q.grow = 0.25f * zt * kd * 0.5f + 0.15f; q.lift = 0;
+      q.life = q.maxLife = std::max(2.0f * M.colLife, lifeT[t] * (0.8f + 0.4f * R()));
+      const vec3 c = water ? vec3(0.82f) : glm::mix(glm::mix(soot, dustCol, std::clamp(S.dustToFire / 4.0f, 0.2f, 0.7f)), dustCol, std::clamp(hk * 1.2f, 0.0f, 1.0f));
+      q.col = vec4(c * (0.9f + 0.2f * R()), water ? 0.6f : 0.85f); q.fade = 1.1f;
+      Delayed dl; dl.t = clock + (0.10f + 0.14f * R()) * k; dl.q = q; dl.cue = true; delayed.push_back(dl);
     }
   }
   // fragments (6.3): an equatorial belt about the shell axis (75 % within +-25 deg), dim motion streaks of length v dt

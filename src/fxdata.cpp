@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <cctype>
 #include <fstream>
 #include <sstream>
 
@@ -100,27 +101,40 @@ const FxSurfaceRow& FxData::surface(const std::string& id) const {
 }
 FxDeviceMod FxData::device(const std::string& id) const { auto it = devices.find(id); return it != devices.end() ? it->second : FxDeviceMod{}; }
 
-// bore (m) from a weapons/*.json "caliber" text: "7.92x57 mm", "9x19 mm", ".45 ACP", ".30-06", "2.36 in rocket"; 0 = unknown
+// bore (m) from a weapons/*.json "caliber" text: "7.92x57 mm", "9x19 mm", ".45 ACP", ".30-06", "12 gauge", "8.8 cm rocket", "PG-7V 85 mm
+// rocket"; 0 = unknown. The number is the one followed by "x", "mm", "cm", "in" or "gauge" (or a leading-dot inch figure).
 static float boreFromCaliber(const std::string& c, float* caseMm) {
   if (caseMm) *caseMm = 0;
-  const char* s = c.c_str(); while (*s && !(*s == '.' || (*s >= '0' && *s <= '9'))) ++s;
-  if (!*s) return 0;
-  char* e = nullptr; const float a = std::strtof(s, &e);
-  if (!(a > 0)) return 0;
-  if (*s == '.' || (a < 1.0f && !(e && *e == 'x'))) return a * 0.0254f;   // .45 / .30-06: inches
-  if (e && *e == 'x' && caseMm) *caseMm = std::strtof(e + 1, nullptr);
-  if (c.find(" in") != std::string::npos) return a * 0.0254f;
-  return a * 1e-3f;
+  for (size_t i = 0; i < c.size(); ++i) {
+    const bool dotInch = c[i] == '.' && i + 1 < c.size() && std::isdigit((unsigned char)c[i + 1]) && (i == 0 || c[i - 1] == ' ');
+    if (!dotInch && !std::isdigit((unsigned char)c[i])) continue;
+    if (!dotInch && i > 0 && (std::isalnum((unsigned char)c[i - 1]) || c[i - 1] == '-' || c[i - 1] == '.')) continue;   // "PG-7V", "5.4" tails
+    char* e = nullptr; const float a = std::strtof(c.c_str() + i, &e); if (!(a > 0) || !e) continue;
+    if (dotInch) { if (caseMm && c.find("BMG") != std::string::npos) *caseMm = 99; return a * 0.0254f; }
+    std::string rest(e); while (!rest.empty() && rest[0] == ' ') rest.erase(0, 1);
+    if (rest.rfind("x", 0) == 0) { if (caseMm) *caseMm = std::strtof(rest.c_str() + 1, nullptr); return a * 1e-3f; }
+    if (rest.rfind("mm", 0) == 0) return a * 1e-3f;
+    if (rest.rfind("cm", 0) == 0) return a * 1e-2f;
+    if (rest.rfind("in", 0) == 0) return a * 0.0254f;
+    if (rest.rfind("gauge", 0) == 0) return a == 12 ? 0.0185f : a == 20 ? 0.0157f : 0.0185f;
+    i = (size_t)(e - c.c_str());
+  }
+  return 0;
+}
+bool fxCaliberNoGunFlash(const std::string& c) {   // launchers and non-firearms: no propellant jet at the muzzle (a rocket's flame / backblast is its own)
+  for (const char* k : {"rocket", "grenade", "energy", "fuel", "blade", "tool", "charge", "flare"}) if (c.find(k) != std::string::npos) return true;
+  return false;
 }
 FxWeaponRow fxWeaponFor(const std::string& vfxId, const std::string& caliber) {
   const FxData& D = fxData();
   if (const FxWeaponRow* r = D.weapon(vfxId)) return *r;
   float caseMm = 0; const float bore = boreFromCaliber(caliber, &caseMm);
-  // the nearest small-arms row by class: pistol-case (< 30 mm or 9-11.5 mm bore), intermediate (7.62x39), full rifle, 5.56, HMG
-  const char* id = bore <= 0 ? "rifle_7.62x51" : bore < 0.0065f ? "rifle_5.56x45" : bore > 0.0125f ? "hmg_12.7x99"
-                 : (bore > 0.0085f || (caseMm > 0 && caseMm < 30)) ? "pistol_9x19" : (caseMm > 0 && caseMm < 45) ? "rifle_7.62x39" : "rifle_7.62x51";
+  const bool shot = caliber.find("gauge") != std::string::npos;
+  // the nearest small-arms row by class: pistol-case (< 30 mm or 9-11.5 mm bore; shotguns: low pressure), intermediate (7.62x39), full rifle, 5.56, HMG (12.7x99 only)
+  const char* id = bore <= 0 ? "rifle_7.62x51" : bore < 0.0065f ? "rifle_5.56x45" : (bore > 0.0125f && caseMm >= 90) ? "hmg_12.7x99"
+                 : (shot || bore > 0.0085f || (caseMm > 0 && caseMm < 30)) ? "pistol_9x19" : (caseMm > 0 && caseMm < 45) ? "rifle_7.62x39" : "rifle_7.62x51";
   FxWeaponRow r = D.weapon(id) ? *D.weapon(id) : FxWeaponRow{};
-  if (bore > 0 && r.boreM > 0) { const float k = bore / r.boreM; r.xMach *= k; r.envL *= k; r.envR *= k; r.boreM = bore; }   // x_Mach linear in D (reference 06 s6.2)
+  if (bore > 0 && r.boreM > 0) { const float k = std::clamp(bore / r.boreM, 0.6f, 1.3f); r.xMach *= k; r.envL *= k; r.envR *= k; r.boreM *= k; }   // x_Mach linear in D (ref 06 s6.2); small arms only: never a heavy gun's metres
   return r;
 }
 
@@ -155,6 +169,13 @@ int fxDataSelfCheck() {
   check(xm, "x_Mach = 0.67 D sqrt(p_muzzle / p_ambient) for all " + std::to_string(D.weapons.size()) + " weapons");
   { FxWeaponRow k = fxWeaponFor("", "7.92x57 mm"), p = fxWeaponFor("", ".45 ACP"), c = fxWeaponFor("", "7.62x39 mm");
     check(k.id == "rifle_7.62x51" && std::fabs(k.boreM - 0.00792f) < 1e-5f && p.id == "pistol_9x19" && c.id == "rifle_7.62x39", "game calibres map to rows (7.92x57 rifle, .45 pistol, 7.62x39)"); }
+  { bool ok = true; std::string bad;
+    for (const char* cal : {"2.36 in rocket", "40x46 mm grenade", "PG-7V 85 mm rocket", "8.8 cm rocket", ".50 AE", "12 gauge 00 buckshot", ".357 Magnum", "9x39 mm", "4.6x30 mm"}) {
+      const FxWeaponRow w = fxWeaponFor("", cal); if (w.envL > 0.75f) { ok = false; bad += std::string(" ") + cal + " " + std::to_string(w.envL) + " m"; } }
+    check(ok && fxCaliberNoGunFlash("2.36 in rocket") && fxCaliberNoGunFlash("40x46 mm grenade") && !fxCaliberNoGunFlash("7.92x57 mm"),
+          "no hand-held weapon gets a flash envelope over 0.75 m; launchers get no gun flash" + bad);
+    check(std::fabs(boreFromCaliber("8.8 cm rocket", nullptr) - 0.088f) < 1e-4f && std::fabs(boreFromCaliber("PG-7V 85 mm rocket", nullptr) - 0.085f) < 1e-4f
+          && std::fabs(boreFromCaliber(".50 AE", nullptr) - 0.0127f) < 1e-4f, "calibre text parsed: 8.8 cm, PG-7V 85 mm, .50 AE"); }
   // SCALE (spec 9.2): apex / crater diameter ~ 8 for every munition; doubling W multiplies R_fb and times by 2^(1/3)
   bool ap = true; for (auto& r : D.munitions) ap = ap && r.apex / r.craterD > 6.5f && r.apex / r.craterD < 9.5f;
   check(ap, "column apex / crater diameter ~ 8 for all " + std::to_string(D.munitions.size()) + " munitions");

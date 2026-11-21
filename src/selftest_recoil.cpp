@@ -4,10 +4,11 @@
 // logged. Then one Garand shot in a Tunnels corridor (the muzzle light on the walls).
 #include "selftest.h"
 #include "vm_anim.h"
+#include "loot.h"   // ATT_SIGHT
 
 namespace {
 int phase = 0, idx = 0, sub = 0; float t = 0; int shotFrame = -1, frame = 0; fs::path pend;
-const char* kW[] = {"m1_garand", "mp40", "modern_m4_irons", "modern_mp7", "modern_pistol3", "modern_shotgun", "modern_ak47", "modern_scorpion", "modern_mp5", "modern_glock34"};   // CP: + the ADS-lean checks (AK-47, Scorpion, MP5, Glock 34)   // WP4c: rifle, SMG, rig weapons with optics, the Glock (ADS arm), a shotgun
+const char* kW[] = {"m1_garand", "mp40", "modern_m4_irons", "modern_mp7", "modern_pistol3", "modern_shotgun", "modern_ak47", "modern_scorpion", "modern_mp5", "modern_glock34", "modern_scorpion+reddot"};   // CP: + the ADS-lean checks (AK-47, Scorpion, MP5, Glock 34)   // WP4c: rifle, SMG, rig weapons with optics, the Glock (ADS arm), a shotgun
 std::vector<int> all; bool table = false;   // --recoil-table: every gun, hip and ADS, logged only
 float z0 = 0, zMax = 0;
 // the rear sight in view space (+z toward the eye): what the player sees move back
@@ -19,10 +20,12 @@ float sightZ(App& a) {
 }
 float peakK = 0, peakP = 0, peakY = 0;
 fs::path out(const std::string& n) { fs::path p = exeDir() / "selftest_out"; std::error_code ec; fs::create_directories(p, ec); return p / ("recoil_" + n + ".png"); }
-void equip(App& a, const char* id) {
+void equip(App& a, const char* id0) {   // "<id>+reddot": with the red dot fitted (the optic path: brSightLine / weaponToRig)
+  const std::string full = id0; const size_t plus = full.find('+'); const std::string id = full.substr(0, plus);
   int w = a.weaponIndex(id); if (w < 0) return;
   a.carried = {w}; a.selectWeapon(w);
   WeaponState& s = a.wstate[a.weaponDefs[w]->id]; s.loaded = a.weaponDefs[w]->cap; s.cooldown = 0; s.bolt = 0; s.reload = 0;
+  s.att[ATT_SIGHT] = plus != std::string::npos && full.substr(plus + 1) == "reddot" ? 1 : 0;   // BR2: sight 1 = red dot
 }
 }
 
