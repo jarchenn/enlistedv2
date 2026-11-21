@@ -1,0 +1,77 @@
+{
+ "id": "bf_bridge",
+ "version": 1,
+ "name": "Footbridge (BF import)",
+ "category": "Battle Foundry",
+ "description": "BF rev 3 phase 1 import of bridge.glb, Nikolayy, CC-BY-4.0 (docs/credits.md). In metres; deck 5.7 m above its lowest point, 3.4 m wide.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  5.48,
+  16.72
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1,
+ "noAutoPanels": true,
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "materials": [
+  {
+   "name": "bf_standin",
+   "albedo": [
+    0.45,
+    0.43,
+    0.4
+   ],
+   "roughness": 0.85,
+   "pattern": "plain",
+   "metallic": 0,
+   "grain": 1
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    3.05,
+    0
+   ],
+   "s": [
+    5.48,
+    6.1,
+    16.72
+   ],
+   "m": "bf_standin",
+   "k": 0,
+   "mf": 1
+  },
+  {
+   "t": "b",
+   "c": [
+    0,
+    5.62,
+    0
+   ],
+   "s": [
+    3.4,
+    0.16,
+    16.72
+   ],
+   "m": "bf_standin",
+   "v": 0
+  }
+ ],
+ "model": {
+  "src": "bf_bridge.glb",
+  "dir": "bf_bridge",
+  "pivot": "ground",
+  "scale": 1,
+  "maxTex": 1024,
+  "credit": "Battle Foundry rev 3 bundle (spec 2.4 import: tools/bake_bf_assets.py); Nikolayy, CC-BY-4.0"
+ },
+ "nav": {
+  "effect": "none"
+ }
+}

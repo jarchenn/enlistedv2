@@ -1,0 +1,59 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  2.741450071334839,
+  6.103695392608643,
+  8.359978675842285
+ ],
+ "bmin": [
+  -2.741450071334839,
+  0.0,
+  -8.359978675842285
+ ],
+ "materials": [
+  {
+   "albedo": "albedo_1.jpg",
+   "name": "Scene_-_Root",
+   "normal": "normal_0.png"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.741450071334839,
+    6.103695392608643,
+    8.359978675842285
+   ],
+   "bmin": [
+    -2.741450071334839,
+    0.0,
+    -8.359978675842285
+   ],
+   "count": 5796,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "36f7559882c84d1f9f4e8b5eb4924ba2.obj.cleaner.materialmerger.gles",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "bf_bridge.glb",
+ "textures": {},
+ "triangles": 1932,
+ "vertices": 3505
+}

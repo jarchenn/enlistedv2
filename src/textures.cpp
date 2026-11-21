@@ -589,7 +589,30 @@ struct TerrT { vec3 alb; float r, ao; vec3 dn; float h; };   // h (M2): the set'
 // surface wins (stones stand out of mud, mud and sand settle between them). Untouched at k = 0 / 1 and between layers
 // of equal height (untextured: 0.5), so the procedural edges and every map's look stay; uHBlend 0 = off (switch "hblend")
 uniform float uHBlend;
-float hbK(float k, float ha, float hb){ float s = uHBlend*(uHBFade.y > 0.0 ? 1.0 - smoothstep(uHBFade.x, uHBFade.y, gEyeD) : 1.0); return s > 0.0 ? clamp(k + (hb - ha)*s*4.0*k*(1.0 - k), 0.0, 1.0) : k; }
+uniform int uLayerBlend;   // BF 3.3 (perf switch layerblend): the merged N-layer height blend; off = M2's two-way bias below
+// BF rev 3 spec 3.3 (mirrored in C++ by tex::layerBlend for the selftest): n <= 4 layers, q = authored weights >= 0,
+// h = sampled heights 0..1 (0.5 = level). Guaranteed fallback (all-zero q -> the base layer), the qi factor (an inactive
+// layer at maximum height never shows), weights sum to 1. beta 0.24, width 0.22 [A]; beta scales with the eye fade.
+void layerBlend(float q[4], float h[4], int n, int base, float beta, float width, out float w[4]){
+  float Q = 0.0; for (int i = 0; i < 4; ++i) { w[i] = 0.0; if (i < n) Q += max(q[i], 0.0); }
+  if (Q <= 1e-5) { w[base] = 1.0; return; }
+  float s[4]; float sMax = -1e9; int am = base; float qm = -1.0;
+  for (int i = 0; i < n; ++i) { float qi = max(q[i], 0.0)/Q; s[i] = qi > 1e-5 ? qi + beta*(h[i] - 0.5) : -1e9; sMax = max(sMax, s[i]); if (qi > qm) { qm = qi; am = i; } }
+  float G = 0.0;
+  for (int i = 0; i < n; ++i) { float qi = max(q[i], 0.0)/Q; w[i] = qi > 1e-5 ? qi*max(0.0, s[i] - sMax + width) : 0.0; G += w[i]; }
+  if (G > 1e-5) { for (int i = 0; i < n; ++i) w[i] /= G; } else { for (int i = 0; i < n; ++i) w[i] = i == am ? 1.0 : 0.0; }
+}
+// variance restoration (spec 3.3): blended value about the blended mean, scaled by 1/sqrt(sum w^2)
+vec3 vRestore(vec3 c, vec3 cMean, float sumW2){ return cMean + (c - cMean)*inversesqrt(max(sumW2, 0.25)); }
+// RNM (spec 3.3, Barre-Brisebois & Hill): tangent-space detail Nd onto base Nb; a neutral detail (0,0,1) returns Nb
+vec3 rnm(vec3 Nb, vec3 Nd){ vec3 T = Nb + vec3(0.0, 0.0, 1.0), U = Nd*vec3(-1.0, -1.0, 1.0); return normalize(T*dot(T, U)/max(T.z, 1e-4) - U); }
+float hbK(float k, float ha, float hb){ float s = uHBlend*(uHBFade.y > 0.0 ? 1.0 - smoothstep(uHBFade.x, uHBFade.y, gEyeD) : 1.0);
+  if (uLayerBlend == 1) {   // BF 3.3: b over a by the merged blend (k = b's authored weight); s fades the height term with the eye
+    if (s <= 0.0) return k;
+    float q[4] = float[4](1.0 - k, k, 0.0, 0.0), h[4] = float[4](ha, hb, 0.5, 0.5), w[4];
+    layerBlend(q, h, 2, 0, 0.24*s/max(uHBlend, 1e-3), 0.22, w); return w[1];   // beta 0.24 x the eye fade only (M2's strength is not applied twice)
+  }
+  return s > 0.0 ? clamp(k + (hb - ha)*s*4.0*k*(1.0 - k), 0.0, 1.0) : k; }
 // any slot (terrain layers, painted ground: terrTexSlot(uPaintSlot[k], ...)); dpx / dpy = dFdx / dFdy of p taken in
 // uniform control flow (kTerrainFS: tdx, tdy), dist = eye distance (tDist)
 TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
@@ -1098,6 +1121,16 @@ bool enabled() { return gpuOn && wantOn; }
 void setEnabled(bool on) { wantOn = on; invalidateKey(); for (GLuint p : progs) glProgramUniform1i(p, glGetUniformLocation(p, "uTexOn"), gpuOn && wantOn ? 1 : 0); }
 const Info& info() { return gInfo; }
 int slotIndex(const std::string& n) { auto it = slotByName.find(n); return it == slotByName.end() ? -1 : it->second; }
+void layerBlend(const float* q, const float* h, int n, int base, float beta, float width, float* w) {   // mirrors the GLSL layerBlend line for line
+  float Q = 0; for (int i = 0; i < 4; ++i) { w[i] = 0; if (i < n) Q += std::max(q[i], 0.0f); }
+  if (Q <= 1e-5f) { w[base] = 1; return; }
+  float s[4]; float sMax = -1e9f; int am = base; float qm = -1;
+  for (int i = 0; i < n; ++i) { float qi = std::max(q[i], 0.0f) / Q; s[i] = qi > 1e-5f ? qi + beta * (h[i] - 0.5f) : -1e9f; sMax = std::max(sMax, s[i]); if (qi > qm) { qm = qi; am = i; } }
+  float G = 0;
+  for (int i = 0; i < n; ++i) { float qi = std::max(q[i], 0.0f) / Q; w[i] = qi > 1e-5f ? qi * std::max(0.0f, s[i] - sMax + width) : 0.0f; G += w[i]; }
+  if (G > 1e-5f) { for (int i = 0; i < n; ++i) w[i] /= G; } else { for (int i = 0; i < n; ++i) w[i] = i == am ? 1.0f : 0.0f; }
+}
+vec3 rnm(vec3 Nb, vec3 Nd) { vec3 T = Nb + vec3(0, 0, 1), U = Nd * vec3(-1, -1, 1); return glm::normalize(T * glm::dot(T, U) / std::max(T.z, 1e-4f) - U); }
 int slotLayer(int s) { const auto& t = wantImg ? slotsImg : slots; return s >= 0 && s < (int)t.size() ? t[s].layer : -1; }   // the active table (MA1)
 int patternSlot(int p) { return p >= 0 && p < 32 ? (wantImg ? patSlotImg : patSlot)[p] : -1; }
 

@@ -1,0 +1,63 @@
+{
+ "id": "bf_wall_scan",
+ "version": 1,
+ "name": "Mossy stone wall, scan (BF import)",
+ "category": "Battle Foundry",
+ "description": "BF rev 3 phase 1 import of old_stone_wall_full_of_moss_-_scan.glb, Tijerin Art Studio, CC-BY-4.0 (docs/credits.md): emissive cleared (it glowed), 1 M tris decimated to 40k. A low ruin strip 0.9 m high, 8.7 x 33 m. No collider.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  8.73,
+  32.88
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1,
+ "noAutoPanels": true,
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "materials": [
+  {
+   "name": "bf_standin",
+   "albedo": [
+    0.45,
+    0.43,
+    0.4
+   ],
+   "roughness": 0.85,
+   "pattern": "plain",
+   "metallic": 0,
+   "grain": 1
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.445,
+    0
+   ],
+   "s": [
+    8.73,
+    0.89,
+    32.88
+   ],
+   "m": "bf_standin",
+   "k": 0,
+   "mf": 1
+  }
+ ],
+ "model": {
+  "src": "bf_wall_scan.glb",
+  "dir": "bf_wall_scan",
+  "pivot": "ground",
+  "scale": 1,
+  "maxTex": 4096,
+  "credit": "Battle Foundry rev 3 bundle (spec 2.4 import: tools/bake_bf_assets.py); Tijerin Art Studio, CC-BY-4.0",
+  "jpgMaps": true
+ },
+ "nav": {
+  "effect": "none"
+ }
+}
