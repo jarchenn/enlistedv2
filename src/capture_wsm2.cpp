@@ -99,7 +99,8 @@ static bool blurStep(App& app, Game& G, Soldier& L, bool second) {
 static bool w6Step(App& app, Game& G, Soldier& L) {
   struct Sc { const char* name; int wx; float hour; bool intoSun; }; static const Sc sc[] = {{"clear", 0, 12.0f, false}, {"densefog", 9, 12.0f, false}, {"lowsun", 0, 7.5f, true}};
   static int k = -1, f0 = 0; static vec3 eye0;
-  const int nS = 3, phase = k < 0 ? 0 : k % 2; const Sc& c = sc[std::max(0, k) / 2 % nS];
+  static const int only = std::getenv("NMK_W6_SCENE") ? std::atoi(std::getenv("NMK_W6_SCENE")) : -1;   // one scene (0 clear, 1 dense fog, 2 low sun)
+  const int nS = only >= 0 ? 1 : 3, phase = k < 0 ? 0 : k % 2; const Sc& c = sc[only >= 0 ? only : std::max(0, k) / 2 % nS];
   if (k < 0) { k = 0; f0 = frames; eye0 = L.feet; settings().applyPreset(app, GfxPreset::High); }
   app.R.q.lightNew = true; app.R.wx.target = c.wx; app.R.wx.userSet = true; app.R.lt.hour = c.hour;
   Physics::setCharacterPos(eye0 + vec3(0, 0.9f, 0)); app.scriptedInput = ExploreInput{};

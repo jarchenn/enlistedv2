@@ -4241,6 +4241,9 @@ void main(){
       if (wxPhys) amb += hazeColor(-n)*(1.0 - exp(-wxSigma*15.0));
       vec3 lit = aCol.rgb/PI*uSunCol*ph*sh + aCol.rgb*amb;
       vC.rgb = applyFog(lit, aPos);
+      // the scene fog keeps a 12 m clear zone for close combat (applyFogAir); smoke and dust are the air itself, so they take the
+      // preset haze over that first stretch too (without it a plume 10 m off in Dense fog got no in-scatter and read as a hole)
+      if (wxPhys) { float dz = min(length(aPos - uCamPos), 12.0); vC.rgb = mix(vC.rgb, hazeColor(-n), 1.0 - exp(-wxSigma*dz)); }
     } else { applyFog(vec3(0.0), aPos); vC.rgb *= gFogT; }
   }
   gl_Position = uVP*vec4(aPos,1.0);
