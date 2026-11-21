@@ -5477,8 +5477,11 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uShadowFarOn"), far ? 1 : 0);
   glUniform1i(U(p, "uTSV"), 26); glUniform1i(U(p, "uTHorOn"), thorTex && !thumbMode ? 1 : 0); glUniform1i(U(p, "uTHorAll"), p == progTerrain || p == progTerrainND || p == progGrass ? 1 : 0);   // VOT T6 (unit 26 = the terrain's T5 / T6 texture)
   { extern void roadsUniforms(GLuint); roadsUniforms(p); }   // VFX rev3 roads.h (uploads only when the map's roads changed)
-  glUniform1i(U(p, "uDefTex"), tu::kDeform); glUniform1i(U(p, "uDefOn"), defOn && !thumbMode ? 1 : 0);   // VFX rev3 tdeform (the composite rebinds unit 11 to its AO before it draws)
-  if (defOn && !thumbMode) { glBindTextureUnit(tu::kDeform, defTex); glUniform4fv(U(p, "uDefMap"), 1, glm::value_ptr(defMap)); }
+  // VFX rev3 tdeform. Unit 11 is bound only for programs that sample the buffer: setLighting also runs for the composite
+  // after it binds its AO to 11, and an unconditional bind there fed it zeros (AO 0 within ~1 m of the eye: black ground)
+  const bool defUsed = U(p, "uDefTex") >= 0;
+  glUniform1i(U(p, "uDefTex"), tu::kDeform); glUniform1i(U(p, "uDefOn"), defOn && !thumbMode ? 1 : 0);
+  if (defOn && !thumbMode && defUsed) { glBindTextureUnit(tu::kDeform, defTex); glUniform4fv(U(p, "uDefMap"), 1, glm::value_ptr(defMap)); }
   if (thorTex && !thumbMode) { glBindTextureUnit(26, thorTex); glUniform4fv(U(p, "uTHorMap"), 1, glm::value_ptr(thorMap)); glUniform4fv(U(p, "uTHorW"), 1, glm::value_ptr(thorW)); }
   glUniformMatrix4fv(U(p, "uLightVPFar"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
   glUniform2f(U(p, "uShadowTexelFar"), (farAtlas ? 0.5f : 1.0f) / shadowFarSize, 1.0f / shadowFarSize);

@@ -14,8 +14,8 @@
 //                                                                        24 terrain cache; 25 macro map; 26 terrain sky
 //                                                                        view / horizon (T5 / T6); 27-31 reserved
 namespace tu {
-// tdeform: the ground deformation buffer (2D, RG16F). Shares unit 11 with the composite's uAO: setLighting binds it
-// for every lit program, the composite pass rebinds 11 to its AO right before it draws, and no lit program declares
-// another sampler on 11.
+// tdeform: the ground deformation buffer (2D, RG16F). Shares unit 11 with the composite's uAO: setLighting binds it only
+// for programs where uDefTex is active (terrain, grass, patch plants), never for the composite (which calls setLighting
+// after binding its AO to 11), and no program that samples the buffer declares another sampler on 11.
 constexpr int kDeform = 11;
 }
