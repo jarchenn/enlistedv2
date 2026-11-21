@@ -130,6 +130,7 @@ uniform vec4 uWindP = vec4(0.0, 0.0, 50.0, 0.0);   // x sway clock this frame (s
 float windSway(float k){ return clamp(pow(max(k, 0.0), 0.8), 0.0, 2.5); }
 // BF B1 moss field (docs/vfx-rev3/BATTLE-FOUNDRY-SPEC.md 4.5, reference 03 s3.2): one field drives the film, the mat and
 // the cushions. moss.cpp mossFieldCpu is its C++ mirror (same integer hash): keep the two identical.
+uniform int uGroundMoss = 0;     // switch groundmoss: the terrain's moss (kTerrainVS / FS)
 uniform float uMossBias = 0.0;   // the map's wetness: 0.55 - look.mossThreshold (0 = temperate)
 uniform vec4 uMoss = vec4(0.0, 0.0, 12.0, 0.5);   // x on (mossfield), y transmission (Medium and up), z mat range (m; film beyond), w lichen age
 uint mossHash(ivec3 c){ uint h = uint(c.x)*0x8da6b343u ^ uint(c.y)*0xd8163841u ^ uint(c.z)*0xcb1ab31fu; h ^= h >> 13; h *= 0x5bd1e995u; h ^= h >> 15; return h; }
@@ -3498,7 +3499,7 @@ void main(){
   if (uMorph.z > 0.5) P.y += aMorph*clamp((length(aPos - uCamPos) - uMorph.x)*uMorph.y, 0.0, 1.0);
   if (uDefTiles == 1) P.y -= deformAt(P.xz).x;   // VFX rev3 tdeform: ruts and tracks in the fine tiles (the same in the depth pre-pass)
   vRim = 0.0;   // BF: the road out to its rim (4.3 rim = 1 - ss(0.72 w, 1.22 w, |x|)), per vertex (roads.h: not per pixel); ground moss stops there
-  if (uMoss.x > 0.5 && dot(aHab, aHab) > 1e-6) { vec4 rl = roadLateral(P.xz); if (rl.w > 0.0) vRim = 1.0 - smoothstep(0.72*rl.w, 1.22*rl.w, abs(rl.x)); }
+  if (uGroundMoss == 1 && uMoss.x > 0.5 && dot(aHab, aHab) > 1e-6) { vec4 rl = roadLateral(P.xz); if (rl.w > 0.0) vRim = 1.0 - smoothstep(0.72*rl.w, 1.22*rl.w, abs(rl.x)); }
   vW = P; vN0 = aNrm; vDirt = aDirt; vEw = aEw; vHab = aHab; gl_Position = uVP*vec4(P,1.0);
 }
 )GLSL";
@@ -3741,7 +3742,7 @@ void main(){
   rough = max(rough, uGroundMinRough*(1.0 - puddle)*(1.0 - vEw.z*ewK)*(1.0 - wxw));   // W3: the matte floor is for dry ground only   // GG1: dry ground matte (puddles and wet cut mud keep theirs)
   paintFinish(po, rough, N, ao);   // lasso ground paint: roughness, AO, relief over every other layer (after L4)
   float mossT = 0.0;   // BF B1 ground moss (03 s3.5): weight x thickness, for the transmission lobe after shade()
-  if (uMoss.x > 0.5 && dot(vHab, vHab) > 1e-6 && uTerrCave < 0.5) {   // the terrain's habitat attribute (terrain.h HabitatFn; 0 = no data)
+  if (uGroundMoss == 1 && uMoss.x > 0.5 && dot(vHab, vHab) > 1e-6 && uTerrCave < 0.5) {   // the terrain's habitat attribute (terrain.h HabitatFn; 0 = no data)
     // ground moss is a terrain layer: wetness weighted up, grip down, a canopy term; it stops dead on paths, tracks
     // and disturbed soil (paint, ruts, craters, the deformation buffer's G); snow (applySnow, after) covers it
     float tDistM = length(p - uCamPos), nup = normalize(vN).y;
@@ -5640,6 +5641,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
     extern GLuint leafLibTex(); glBindTextureUnit(kLeafUnit, leafLibTex());
   }
   glUniform1f(U(p, "uMossBias"), lt.mapMossBias);
+  glUniform1i(U(p, "uGroundMoss"), perf.groundMoss ? 1 : 0);
   glUniform4f(U(p, "uMoss"), perf.mossField && !thumbMode && q.mossTier >= 1 ? 1.0f : 0.0f, q.mossTier >= 2 ? 1.0f : 0.0f, q.mossMatM, 0.5f);   // BF B1 (8.2: no moss detail below Low, transmission from Medium)
   sunDir = sunDirMap;   // the thumbnail studio sun never leaks back into the map
 }

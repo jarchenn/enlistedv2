@@ -356,6 +356,7 @@ public:
     bool impostors = true;       // impostors (CP3): model trees under ~170 px tall drawn as octahedral impostors (12 x 12 frames)
     bool vegDust = true;         // vegdust (WS4): grass and cut-out model plants take a dust coating under the dust presets (st.dustVisM)
     bool pollen = true;          // pollen (WS3): drifting pollen motes over grass on dry, mild days (count 0.75 x leafDriftN)
+    bool groundMoss = false;     // groundmoss (BF B1, ground part): moss on the terrain from the habitat attribute; default off until the coordinator approves its look (walls / boulders: mossfield)
     bool mossField = true;       // mossfield (BF B1): the 4.5 moss / lichen field on walls, boulders (and the ground with the terrain's habitat attribute); off: the older MA2 / rock moss
     bool leafDrift = true;       // leafdrift (WS2): drifting leaves near broadleaf / orchard trees (count: Quality::leafDriftN)
     bool hashAlpha = false;      // hashalpha (VO A1): cut-out leaves / grass with a dithered threshold under TAA (Medium / High), width NMK_HASH_SPREAD (0.2); off: no gain over cutoutMips (A1 sheets), kept for A/B
@@ -455,7 +456,7 @@ public:
               // ^ stream M (materials): append to the line above
               : n == "charvel" ? &charVel : n == "fxnear" ? &fxNear : n == "wxdrift" ? &wxDrift : n == "fxlit" ? &fxLit : n == "fxsoft" ? &fxSoft : n == "poseframe" ? &poseFrame : n == "poselod" ? &poseLod : n == "posejobs" ? &poseJobs : n == "stepinterp" ? &stepInterp : n == "dtsnap" ? &dtSnap
               // ^ characters (gameplay): append to the line above
-              : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "mossfield" ? &mossField : n == "contactao" ? &contactAO : n == "scatter" ? &scatter : n == "pollen" ? &pollen : n == "vegdust" ? &vegDust : n == "impostors" ? &impostors : n == "impostorbc" ? &impostorBC : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
+              : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "mossfield" ? &mossField : n == "groundmoss" ? &groundMoss : n == "contactao" ? &contactAO : n == "scatter" ? &scatter : n == "pollen" ? &pollen : n == "vegdust" ? &vegDust : n == "impostors" ? &impostors : n == "impostorbc" ? &impostorBC : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
               // ^ stream A (vegetation): append to the line above
               : n == "snowfar" ? &snowFar : n == "firthin" ? &firThin : n == "snowtex" ? &snowTex : n == "precip" ? &precip
               // ^ stream B (Blackwater snow / far firs): append to the line above
