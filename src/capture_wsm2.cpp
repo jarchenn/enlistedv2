@@ -345,9 +345,10 @@ bool wsm2Capture(App& app, float dt) {
       bool ok = tp && navNewMapSized(app, *tp, "Wedge", vec2(tp->width, tp->depth));
       if (ok) {   // its own Assault with objective A taken out: the churchyard (B) is the attackers' goal, as when the soak wedged there
         Scenario sc = Scenario::fromJson(app.doc.extra.is_object() ? app.doc.extra.value("scenario", json()) : json());
-        if (!sc.objectives.empty()) sc.objectives.erase(sc.objectives.begin());
+        static const char* wrun = std::getenv("NMK_WEDGE_RUN");   // x,z,wallZ: the forecourt gate (objective A kept: the attackers go north through it)
+        if (!wrun && !sc.objectives.empty()) sc.objectives.erase(sc.objectives.begin());
         for (int i = 0; i < (int)sc.objectives.size(); ++i) sc.objectives[i].order = i;
-        for (auto& sp : sc.spawns) {   // the markers' phases follow (phase 0 = A is gone: its markers serve B)
+        if (!wrun) for (auto& sp : sc.spawns) {   // the markers' phases follow (phase 0 = A is gone: its markers serve B)
           std::vector<int> ph; for (int q : sp.phases) { int r = std::max(0, q - 1); if (r < (int)sc.objectives.size() && std::find(ph.begin(), ph.end(), r) == ph.end()) ph.push_back(r); }
           sp.phases = ph.empty() ? std::vector<int>{0} : ph;
         }
@@ -363,16 +364,19 @@ bool wsm2Capture(App& app, float dt) {
       Game& G = *gGame; static std::vector<int> five; static int opens0 = 0; static double t0 = 0; char b[300];
       if (five.empty()) {
         for (auto& s : G.sold) if (s.inUse && s.alive && !s.localPlayer && s.role == CombatRole::Attacker && five.size() < 5) five.push_back(s.slot);
-        for (int i = 0; i < (int)five.size(); ++i) { Soldier& s = G.sold[five[i]]; vec3 p(-92.4f + 0.6f * (i % 2), 9.2f, 26.0f - 0.7f * i); Physics::setAgentPos(s.agent, p); s.feet = s.prevFeet = p; }
+        float px = -92.4f, pz = 26.0f; static float wallZ = 27.0f;
+        if (const char* wr = std::getenv("NMK_WEDGE_RUN")) std::sscanf(wr, "%f,%f,%f", &px, &pz, &wallZ);
+        for (int i = 0; i < (int)five.size(); ++i) { Soldier& s = G.sold[five[i]]; vec3 p(px + 0.6f * (i % 2), 0, pz - 0.7f * i); p.y = app.terrain.height(p.x, p.z) + 0.05f; Physics::setAgentPos(s.agent, p); s.feet = s.prevFeet = p; }
         opens0 = G.doorOpens; t0 = G.t;
         std::snprintf(b, sizeof b, "%zu attackers placed south of the churchyard gate (closed)", five.size()); T->note(b);
       }
       for (int i : five) G.sold[i].hp = 100;   // the test is the way through, not the fight
       if (G.t - t0 > 60) {
-        int through = 0; for (int i : five) through += G.sold[i].feet.z > 28.0f;
+        float wz = 27.0f; { float a, c; if (const char* wr = std::getenv("NMK_WEDGE_RUN")) std::sscanf(wr, "%f,%f,%f", &a, &c, &wz); }
+        int through = 0; for (int i : five) through += G.sold[i].feet.z > wz + 1.0f;
         for (int i : five) {   // where each ended, doing what, and its stuck events at the gate
           const Soldier& q = G.sold[i]; int ev = 0; std::string last;
-          if (AiCore* A = aiCore()) for (auto& e : A->stuck) if (e.slot == i && std::fabs(e.pos.x + 93.0f) < 4 && std::fabs(e.pos.z - 26.5f) < 4) { ++ev; last = e.why; }
+          if (AiCore* A = aiCore()) for (auto& e : A->stuck) if (e.slot == i && std::fabs(e.pos.z - wz) < 4) { ++ev; last = e.why; }
           std::snprintf(b, sizeof b, "bot %d: (%.1f %.1f %.1f) alive %d, %s; %d stuck events at the gate%s%s", i, q.feet.x, q.feet.y, q.feet.z, (int)q.alive, q.br.why.c_str(), ev, ev ? ", last: " : "", last.c_str());
           T->note(b);
         }
@@ -388,7 +392,18 @@ bool wsm2Capture(App& app, float dt) {
         for (auto& in : app.doc.instances) if (in.id == (ud >> 16)) { char x[160]; std::snprintf(x, sizeof x, "%s #%llu part %d at (%.1f %.1f %.1f)", in.assetId.c_str(), (unsigned long long)in.id, (int)(ud & 0xFFFF) - 1, in.pos.x, in.pos.y, in.pos.z); return x; }
         char x[64]; std::snprintf(x, sizeof x, "ud 0x%llx", (unsigned long long)ud); return x;
       };
-      const vec3 A(-92.4f, 9.13f, 26.2f), B(-93.4f, 9.13f, 26.2f);
+      vec3 A(-92.4f, 9.13f, 26.2f), B(-93.4f, 9.13f, 26.2f);   // NMK_WEDGE=x,z,wx,wz: another spot and its waypoint (probes only)
+      static const char* wsp = std::getenv("NMK_WEDGE");
+      if (wsp) { float x, z, wx, wz; if (std::sscanf(wsp, "%f,%f,%f,%f", &x, &z, &wx, &wz) == 4) { A = vec3(x, app.terrain.height(x, z), z); B = vec3(wx, app.terrain.height(wx, wz), wz); } }
+      for (auto& [id, r] : app.rt) {   // interactables within 6 m and their state
+        const Instance* in = nullptr; for (auto& q : app.doc.instances) if (q.id == id) { in = &q; break; }
+        if (!in || !r.asset || glm::length(vec2(in->pos.x - A.x, in->pos.z - A.z)) > 6.0f || r.asset->interactables.empty()) continue;
+        for (size_t k = 0; k < r.asset->interactables.size() && k < r.progress.size(); ++k) {
+          std::snprintf(b, sizeof b, "interactable: %s #%llu at (%.1f %.1f %.1f) yaw %.0f, '%s' (%s): open %.2f, moving %d", in->assetId.c_str(), (unsigned long long)id, in->pos.x, in->pos.y, in->pos.z, in->yaw,
+                        r.asset->interactables[k].id.c_str(), r.asset->interactables[k].kind.c_str(), r.progress[k], r.dir[k]);
+          T->note(b);
+        }
+      }
       for (vec3 from : {A, vec3(-91.5f, 9.13f, 25.9f)}) for (float hgt : {0.1f, 0.3f, 0.6f, 1.0f, 1.5f}) {
         Physics::Hit h; const vec3 o = from + vec3(0, hgt, 0), d = glm::normalize(vec3(B.x - from.x, 0, B.z - from.z));
         const bool hit = Physics::castRayEx(o, d, 2.5f, h);
@@ -403,6 +418,7 @@ bool wsm2Capture(App& app, float dt) {
       { Physics::Hit h; Physics::castRayEx(A + vec3(0, 3, 0), vec3(0, -1, 0), 5, h); std::snprintf(b, sizeof b, "ground under the spot: y %.2f (%s), terrain height %.2f", h.pos.y, name(h.ud).c_str(), app.terrain.height(A.x, A.z)); T->note(b); }
       { Physics::Hit h; Physics::castRayEx(B + vec3(0, 3, 0), vec3(0, -1, 0), 5, h); std::snprintf(b, sizeof b, "ground under the waypoint: y %.2f (%s), terrain height %.2f", h.pos.y, name(h.ud).c_str(), app.terrain.height(B.x, B.z)); T->note(b); }
       T->check(true, "probes done");
+      if (wsp) { if (app.mode == Mode::Explore) app.exitExplore(); app.selftest->exitCode = T->finish(); app.selftest->done = true; }
     }
     return true;
   }
