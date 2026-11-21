@@ -5212,6 +5212,7 @@ void Renderer::setSsaoFull(bool full) {
 
 void Renderer::createTargets() {
   for (GLenum e; (e = glGetError()) != GL_NO_ERROR;) logf("GL error 0x%04x queued before the render targets' re-creation (raised by an earlier call this frame or before: not the targets)", e);
+  glProbeFrames = 3;
   if (hdrFbo) { glDeleteFramebuffers(1, &hdrFbo); glDeleteFramebuffers(1, &ldrFbo); glDeleteFramebuffers(1, &dofFbo); GLuint t[5] = {hdrColor, depthTex, ldrColor, vmDistTex, dofTex}; glDeleteTextures(5, t); }
   int levels = 1 + (int)std::floor(std::log2((float)std::max(width, height)));
   glCreateTextures(GL_TEXTURE_2D, 1, &hdrColor); glTextureStorage2D(hdrColor, levels, GL_RGBA16F, width, height);
@@ -6512,6 +6513,10 @@ void Renderer::gpuFrameBegin() {
   }
 }
 void Renderer::gpuMark(int p) {
+  if (glProbeFrames > 0) {   // glprobe: the first frames after a target (re)creation name the pass that raised a GL error
+    for (GLenum e; (e = glGetError()) != GL_NO_ERROR;) logf("glprobe: GL error 0x%04x in pass %s (%dx%d)", e, cpuMarkP >= 0 && cpuMarkP < GP_Count ? gpuPassName(cpuMarkP) : "between frames", width, height);
+    if (p == GP_Count) --glProbeFrames;
+  }
   {   // P2: CPU time from this mark to the next one (NMK_DLPROF reports it per pass)
     auto now = std::chrono::steady_clock::now();
     if (cpuMarkP >= 0 && cpuMarkP < GP_Count) cpuPassMs[cpuMarkP] += std::chrono::duration<double, std::milli>(now - cpuMarkT).count();
