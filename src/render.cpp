@@ -4314,6 +4314,7 @@ void main(){
       lit = mix(lit, mix(skyColor(d), bg, uCloudK), far*mix(0.65, 0.9, uCloudK));   // SKY1: under Cloudy a pale band low at the horizon
     }
     lit *= mix(1.0, 0.72, uCloudK*thick);   // WX1 Cloudy: heavier, darker undersides
+    lit += vec3(0.85, 0.9, 1.0)*uFlash*2.5*(1.0 - 0.5*thick);   // W2 lightning lights the deck as it lights the sky behind it (the deck stayed dark: black cloud shapes on a flashed sky)
     // WX1: thick cloud is opaque (the HDR sun disc behind it no longer leaks through as a sprite); thin edges stay translucent
     c = mix(c, lit*uCloudLit, cl*mix(0.9, 1.0, thick)*smoothstep(0.0, 0.12, d.y));
   }
@@ -4497,7 +4498,7 @@ uniform float uExpoKey, uExpoMin, uExpoMax;   // L2 time of day: Day 0.24, 0.9 .
 uniform float uExpoFloor;   // FX1: while the headlamp is on, the exposure at switch-on (fading): its lit patch does not pump the scene down
 uniform int uHist; uniform float uHistCal;   // VO L8: histogram metering (Lighting New), its calibration to the old mean metering
 uniform int uFxExpo, uFreeze;   // BF fxexpo (spec 5.2 / ref 05 5.6): top 4 % rejected, EV rate-limited in stops / s; uFreeze: hold (own-weapon fire)
-out vec2 oEx; float oE; float gHi = 0.0;   // CP2 physguard: .g = the scene's 98th-percentile luminance (highlight guard)
+out vec4 oEx; float oE; float gHi = 0.0, gL = -1.0;   // CP2 physguard: .g = the scene's 98th-percentile luminance (highlight guard)
 // VO L8 (Lagarde & de Rousiers 2014): a centre-weighted 32-bin histogram of log2 luminance over a 16 x 16 grid of a
 // ~64 px mip, metered as the mean between the 40th and 95th percentiles: the sky's few brightest pixels and dark
 // corners no longer swing the exposure (blown desert and snow, murky forest)
@@ -4526,7 +4527,7 @@ void mainE(){
   if (uReset > 0.0) { oE = uReset; return; }
   float lr = uHist == 1 ? histLum() : dot(avg, vec3(0.2126,0.7152,0.0722));
   if (isnan(lr) || isinf(lr)) { oE = prev; return; }   // one non-finite pixel poisons the whole mip average
-  float l = max(lr, 1e-4);
+  float l = max(lr, 1e-4); gL = l;
   float target = max(clamp(uExpoKey/l, uExpoMin, uExpoMax), uExpoFloor);
   if (uFxExpo == 1) {   // EV rate limits: opening up to the dark 0.9 stops / s (slow, as the eye), closing to the light 3 stops / s
     if (uFreeze == 1) { oE = prev; return; }
@@ -4537,7 +4538,7 @@ void mainE(){
   float k = 1.0 - exp(-uDt*(target > prev ? 0.6 : 1.2));
   oE = mix(prev, target, k);
 }
-void main(){ mainE(); if (gHi <= 0.0) gHi = dot(textureLod(uHdr, vec2(0.5), uLod).rgb, vec3(0.2126, 0.7152, 0.0722))*8.0; oEx = vec2(oE, gHi); }
+void main(){ mainE(); if (gHi <= 0.0) gHi = dot(textureLod(uHdr, vec2(0.5), uLod).rgb, vec3(0.2126, 0.7152, 0.0722))*8.0; oEx = vec4(oE, gHi, gL, 0.0); }   // b: the metered luminance (wxexpo log)
 )GLSL";
 // SF1 snowfall (Blackwater Thaw spec 6): two groups of streaks, procedural per instance, in boxes around the eye that wrap
 // on world coordinates (stable world movement: the flakes do not ride with the camera). Group 0 near (sparse, a broad
@@ -5153,8 +5154,8 @@ bool Renderer::init(int w, int h) {
   glNamedFramebufferDrawBuffer(occFbo, GL_NONE); glNamedFramebufferReadBuffer(occFbo, GL_NONE);
   // exposure ping-pong
   for (int k = 0; k < 2; ++k) {
-    glCreateTextures(GL_TEXTURE_2D, 1, &expoTex[k]); glTextureStorage2D(expoTex[k], 1, GL_RG32F, 1, 1);   // r exposure, g the 98th-percentile luminance (CP2 physguard)
-    const float one[2] = {1.0f, 1.0f}; glTextureSubImage2D(expoTex[k], 0, 0, 0, 1, 1, GL_RG, GL_FLOAT, one);
+    glCreateTextures(GL_TEXTURE_2D, 1, &expoTex[k]); glTextureStorage2D(expoTex[k], 1, GL_RGBA32F, 1, 1);   // r exposure, g the 98th-percentile luminance (CP2 physguard)
+    const float one[4] = {1.0f, 1.0f, -1.0f, 0.0f}; glTextureSubImage2D(expoTex[k], 0, 0, 0, 1, 1, GL_RGBA, GL_FLOAT, one);
     glCreateFramebuffers(1, &expoFbo[k]); glNamedFramebufferTexture(expoFbo[k], GL_COLOR_ATTACHMENT0, expoTex[k], 0);
   }
   glCreateQueries(GL_TIME_ELAPSED, 3, queries);
@@ -7491,7 +7492,18 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1f(U(progExpo, "uLod"), (float)levels); glUniform1f(U(progExpo, "uDt"), v.dt);
   glUniform1f(U(progExpo, "uReset"), expoReset); expoReset = -1;
   lightingExposure(*this, progExpo);   // L2: exposure range of the time of day
-  glUniform1f(U(progExpo, "uExpoFloor"), flashOn ? flashExpoFloor : 0.0f);   // FX1
+  {   // FX1 headlamp floor; wxexpo: by day in a dark preset the exposure never sits below 0.75 x its own compensation (the meter
+    // balances a rain frame on the bright fog and sky, so it opened only ~1.3x where the ground needs ~4-5x)
+    const float sunUp = glm::smoothstep(0.02f, 0.12f, physSunY);
+    wxFloor = perf.wxExpo && wx.der.phys && !thumbMode && !wx.enclosed && !camIndoor && q.lightNew && !q.legacy ? 0.75f * std::clamp(wx.der.fixedMul, 1.0f, 12.0f) * sunUp : 0.0f;
+    glUniform1f(U(progExpo, "uExpoFloor"), std::max(flashOn ? flashExpoFloor : 0.0f, wxFloor));
+    static const bool expoLog = std::getenv("NMK_EXPO_LOG") != nullptr; static double lastLog = -1;
+    if ((expoLog || glProbeFrames > 0) && time - lastLog >= 1.0) {   // reads the previous frame's result (stalls: logs only)
+      lastLog = time; float e[4] = {0, 0, 0, 0}; glGetTextureImage(expoTex[expoIdx], 0, GL_RGBA, GL_FLOAT, sizeof e, e);
+      logf("exposure: %.3f (metered luminance %.4f, p98 %.3f), floor %.2f, preset %d fixedMul %.2f keyMul %.2f, sun %.2f, indoor %d, enclosed %d", e[0], e[2], e[1], wxFloor, wx.der.preset, wx.der.fixedMul, wx.der.keyMul, physSunY, camIndoor ? 1 : 0, wx.enclosed ? 1 : 0);
+    }
+  }
+  if (perf.fxExpo && wx.der.flash > 0.01f) expoFreezeUntil = std::max(expoFreezeUntil, time + 0.3f);   // lightning is not metered (each flash closed 3 stops/s, reopened 0.9: a storm ratcheted the scene dark)
   glUniform1i(U(progExpo, "uFxExpo"), perf.fxExpo && !q.legacy ? 1 : 0); glUniform1i(U(progExpo, "uFreeze"), perf.fxExpo && time < expoFreezeUntil ? 1 : 0);   // BF
   glUniform1i(U(progExpo, "uHist"), q.lightNew && perf.histExpo && !q.legacy ? 1 : 0); glUniform1f(U(progExpo, "uHistCal"), q.histCal);   // VO L8
   glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
