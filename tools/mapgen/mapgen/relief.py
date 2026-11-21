@@ -344,6 +344,234 @@ def reseat_on_engine_ground(b, skip=lambda e: False):
     return len(delta), worst, n_pads, lifted
 
 
+# ---------------------------------------------------------------- VOT T2: the fine layer (the engine's sculpt tiles)
+class FineLayer:
+    """Sub-cell relief written as the map's "terrainSculpt": per 5 x 5-cell tile (15.7 m) a 36 x 36 lattice of metres
+    added to the base heightfield (terrain.h kFineN, spacing KCELL / 7 = 0.45 m). Retaining-wall steps, kerbs, ditches,
+    ruts and level seats under rigid pieces live here; the 3.1 m base grid cannot hold them.
+
+      fine = FineLayer(grid)
+      fine.add(fn, bounds)        fn(X, Z, G) -> new ground (numpy arrays; G = the current ground: base + fine)
+      fine.ground(x, z)           the engine's ground before its pads (base + sculpt), as Terrain::height
+      fine.to_json()              {"fineN": 36, "tiles": [{"key": k, "d": [...]}]}
+
+    Keys are tz * tilesX + tx over the whole grid (no terrainGen ring). Tiles whose deltas are all under 1 mm are dropped;
+    neighbours share their edge samples (the same fn at the same points), so a feature must fade out inside `bounds`."""
+    N = 36
+
+    def __init__(self, grid):
+        self.g = grid
+        self.ts = KCELL * 5
+        self.fs = self.ts / 35.0
+        self.tx_n, self.tz_n = (grid.nx - 1) // 5, (grid.nz - 1) // 5
+        self.d = {}
+
+    def _xz(self, tx, tz):
+        i = np.arange(self.N) * self.fs
+        return np.meshgrid(self.g.org_x + tx * self.ts + i, self.g.org_z + tz * self.ts + i)
+
+    def base(self, X, Z):
+        """Vectorised Grid.sample (the a-d diagonal split)."""
+        H = _arr(self.g)
+        fx = np.clip((X - self.g.org_x) / KCELL, 0, self.g.nx - 1.001); fz = np.clip((Z - self.g.org_z) / KCELL, 0, self.g.nz - 1.001)
+        xi, zi = fx.astype(int), fz.astype(int); tx, tz = fx - xi, fz - zi
+        a, b, c, d = H[zi, xi], H[zi, xi + 1], H[zi + 1, xi], H[zi + 1, xi + 1]
+        return np.where(tx >= tz, a + (b - a) * tx + (d - b) * tz, a + (c - a) * tz + (d - c) * tx)
+
+    def tiles_in(self, bounds):
+        x0, z0, x1, z1 = bounds
+        a0 = max(0, int(math.floor((x0 - self.g.org_x) / self.ts))); a1 = min(self.tx_n - 1, int(math.floor((x1 - self.g.org_x) / self.ts)))
+        b0 = max(0, int(math.floor((z0 - self.g.org_z) / self.ts))); b1 = min(self.tz_n - 1, int(math.floor((z1 - self.g.org_z) / self.ts)))
+        return [(tx, tz) for tz in range(b0, b1 + 1) for tx in range(a0, a1 + 1)]
+
+    def add(self, fn, bounds):
+        for tx, tz in self.tiles_in(bounds):
+            k = tz * self.tx_n + tx
+            X, Z = self._xz(tx, tz)
+            B = self.base(X, Z)
+            D = self.d.get(k, np.zeros((self.N, self.N)))
+            G = fn(X, Z, B + D)
+            D = G - B
+            if np.abs(D).max() >= 0.001:
+                self.d[k] = D
+            elif k in self.d:
+                del self.d[k]
+
+    def ground(self, x, z):
+        h = self.g.sample(x, z)
+        tx, tz = int(math.floor((x - self.g.org_x) / self.ts)), int(math.floor((z - self.g.org_z) / self.ts))
+        D = self.d.get(tz * self.tx_n + tx)
+        if D is None:
+            return h
+        fx = min(max((x - self.g.org_x - tx * self.ts) / self.fs, 0.0), 34.9999); fz = min(max((z - self.g.org_z - tz * self.ts) / self.fs, 0.0), 34.9999)
+        i, j = int(fx), int(fz); u, v = fx - i, fz - j
+        a, b, c, d = D[j, i], D[j, i + 1], D[j + 1, i], D[j + 1, i + 1]
+        return h + (a + (b - a) * u + (d - b) * v if u >= v else a + (c - a) * v + (d - c) * u)
+
+    def install(self, b):
+        """Every later MapBuilder.ground() (seating, cuts) sees the fine layer too."""
+        g0 = b.ground
+        fine = self
+
+        def ground(x, z, ignore_owner=None, before_fills=False):
+            return g0(x, z, ignore_owner, before_fills) + (fine.ground(x, z) - fine.g.sample(x, z))
+        b.ground = ground
+        return g0
+
+    def to_json(self):
+        return {"fineN": self.N, "tiles": [{"key": int(k), "d": [round(float(v), 3) for v in self.d[k].ravel()]} for k in sorted(self.d)]}
+
+
+def fine_pad(fine, b, e, ring=0.9, keep_low=True):
+    """A rigid piece that is not padded by the engine (a facade, a cart, gate piers) gets a level seat in the fine
+    layer: its footprint at its own base height, eased into the ground over `ring` m. Returns the largest change (m)."""
+    from .geom import local_to_world
+    a = b.cat[e["asset"]]
+    x, y, z = e["pos"]
+    hx, hz = a.half
+    cs, sn = math.cos(math.radians(e["yaw"])), math.sin(math.radians(e["yaw"]))
+    r = math.hypot(hx, hz) + ring + 0.5
+    worst = [0.0]
+
+    def fn(X, Z, G):
+        dx, dz = X - x, Z - z
+        lx, lz = dx * cs - dz * sn, dx * sn + dz * cs
+        d = np.hypot(np.maximum(np.abs(lx) - hx, 0), np.maximum(np.abs(lz) - hz, 0))
+        t = np.clip(d / ring, 0, 1)
+        t = t * t * (3 - 2 * t)
+        out = y + (G - y) * t
+        worst[0] = max(worst[0], float(np.abs(out - G).max()))
+        return out
+    fine.add(fn, (x - r, z - r, x + r, z + r))
+    return worst[0]
+
+
+def level_rigid_pieces(fine, b, min_area=4.0, max_range=0.7, skip=lambda e: False):
+    """VOT T2: every rigid piece the engine does not pad (facades, carts, gate piers, market stalls: footprint >= min_area
+    m2, not resting on another, not a wall line) moves to the ground at its centre and gets a level seat in the fine
+    layer (fine_pad), so it neither floats on its low side nor sinks on its high side and a door sill stays at the
+    ground. Pieces whose footprint spans more than max_range m of ground (a wall carrying a terrace step) keep their
+    seat. Returns (pieces levelled, largest ground change m)."""
+    n, worst = 0, 0.0
+    for e in b.inst:
+        a = b.cat[e["asset"]]
+        if (b.padded(a) and b.grid.in_build(e["pos"][0], e["pos"][2])) or a.path_on or a.tree or ("host" in e and not e.get("free")) or "support" in e["extra"] or skip(e):
+            continue   # the engine pads buildings inside the build area only (terrain_blend.cpp)
+        if a.raw.get("nature") or a.raw.get("scatter") or a.raw.get("line") or a.fw * a.fd < min_area:
+            continue
+        hs = [s[2] for s in b._samples(a, e["pos"][0], e["pos"][2], e["yaw"], inset=0.0)]
+        if max(hs) - min(hs) > max_range or e["pos"][1] - min(hs) > 0.35 or e["pos"][1] - min(hs) < -0.5:
+            continue   # spans a step, or mounted / buried on purpose
+        y = b.ground(e["pos"][0], e["pos"][2])
+        d = y - e["pos"][1]
+        e["pos"][1] = y
+        for c in b.inst:
+            if c["extra"].get("support") == e["id"] or (c.get("host") == e["id"] and not c.get("free")):
+                c["pos"][1] += d
+        worst = max(worst, fine_pad(fine, b, e))
+        n += 1
+    return n, worst
+
+
+def _poly_dist(X, Z, P):
+    """Distance, arclength and signed side (+1 left) from every (X, Z) to the polyline P (n x 2 array)."""
+    best = np.full(X.shape, 1e9); S = np.zeros(X.shape); side = np.ones(X.shape)
+    acc = 0.0
+    for k in range(len(P) - 1):
+        ax, az = P[k]; bx, bz = P[k + 1]
+        ux, uz = bx - ax, bz - az
+        L = math.hypot(ux, uz)
+        if L < 1e-6:
+            continue
+        t = np.clip(((X - ax) * ux + (Z - az) * uz) / (L * L), 0, 1)
+        d = np.hypot(X - (ax + ux * t), Z - (az + uz * t))
+        m = d < best
+        best = np.where(m, d, best); S = np.where(m, acc + t * L, S)
+        side = np.where(m, np.where(ux * (Z - az) - uz * (X - ax) > 0, 1.0, -1.0), side)
+        acc += L
+    return best, S, side, acc
+
+
+def fine_road(fine, path, half, crown=0.06, ruts=0.0, gutter=0.0, verge=0.0, ditch=0.0, sunk=0.0, sunk_half=None,
+              keep=None, ends=6.0, seed=7):
+    """VOT T2: a road's cross-section in the fine layer, on top of the ground it already follows.
+      crown   m the centre stands above the edges (camber)        ruts   m two wheel tracks 0.85 m off the centre sink
+      gutter  m the edges sink (a paved street's water line)      verge  m a raised grass verge beyond the edge
+      ditch   m a roadside ditch beyond the verge (V, rounded)     sunk   m a hollow way: the floor this far under the
+              smoothed ground along the road, banks easing back over sunk_half (half-width at the top, m)
+    keep(X, Z) -> 0..1 scales the whole profile (0 at junctions, bridges, building pads); it eases in over `ends` m."""
+    P = np.array(path, dtype=float)
+    reach = half + (1.2 if verge else 0) + (3.8 if ditch else 0) + 0.6
+    if sunk:
+        reach = max(reach, sunk_half + 0.6)
+    x0, z0 = P.min(axis=0) - reach - 1; x1, z1 = P.max(axis=0) + reach + 1
+    if sunk:   # the floor follows the ground along the lane, smoothed over ~24 m
+        L = sum(math.hypot(*(P[k + 1] - P[k])) for k in range(len(P) - 1))
+        n = max(2, int(L / 3.0))
+        sx = []; acc = 0.0; k = 0
+        for q in range(n + 1):
+            s_ = L * q / n
+            while k < len(P) - 2 and acc + math.hypot(*(P[k + 1] - P[k])) < s_:
+                acc += math.hypot(*(P[k + 1] - P[k])); k += 1
+            seg = math.hypot(*(P[k + 1] - P[k]))
+            t = min(1.0, max(0.0, (s_ - acc) / max(seg, 1e-6)))
+            sx.append(fine.ground(*(P[k] + (P[k + 1] - P[k]) * t)))
+        r = 4
+        sm = np.array([np.mean(sx[max(0, q - r):q + r + 1]) for q in range(n + 1)])
+
+    def fn(X, Z, G):
+        d, S, side, LL = _poly_dist(X, Z, P)
+        if (d < reach).sum() == 0:
+            return G
+        k = np.clip(np.minimum(S, LL - S) / ends, 0, 1); k = k * k * (3 - 2 * k)
+        if keep is not None:
+            k = k * keep(X, Z)
+        off = np.zeros_like(G)
+        u = np.clip(d / half, 0, 1)
+        off += crown * (1 - u * u) * (d < half)
+        if ruts:
+            var = 0.6 + 0.4 * np.sin(S / 7.0 + seed) * np.cos(S / 3.1 + 2 * seed)
+            off -= ruts * var * (np.exp(-((d * side - 0.85) / 0.2) ** 2) + np.exp(-((d * side + 0.85) / 0.2) ** 2))
+        if gutter:
+            off -= gutter * np.exp(-((d - half + 0.25) / 0.25) ** 2)
+        e = half
+        if verge:
+            t = np.clip((d - e) / 0.5, 0, 1); off += verge * t * t * (3 - 2 * t) * (d < e + 1.6)
+            t2 = np.clip((d - e - 1.2) / 0.4, 0, 1); off -= verge * t2 * (d < e + 1.6)
+            e += 1.2
+        if ditch:
+            c = e + 1.7
+            t = np.clip(1 - np.abs(d - c) / 1.7, 0, 1)
+            off -= ditch * t * t * (3 - 2 * t) * (d < e + 3.4)
+        out = G + off * k
+        if sunk:
+            q = np.clip(np.round(S / max(LL, 1e-6) * (len(sm) - 1)).astype(int), 0, len(sm) - 1)
+            floor = sm[q] - sunk
+            t = np.clip((d - half) / (sunk_half - half), 0, 1)
+            t = t * t * (3 - 2 * t)
+            prof = floor + (G - floor) * t
+            out = np.where(d < sunk_half, G + (np.minimum(prof, G) - G) * k + (off * k) * (d < half), out)
+        return np.where(d < reach, out, G)
+    fine.add(fn, (x0, z0, x1, z1))
+
+
+def fine_bumps(fine, centre, radius, amp=0.12, scale=1.6, hollow=0.1, keep=None, seed=3):
+    """VOT T2: foreground micro-relief around a viewpoint: low fbm bumps and a few shallow puddle hollows, fading out at
+    `radius`; keep(X, Z) -> 0..1 protects roads, footprints and paths."""
+    cx, cz = centre
+
+    def fn(X, Z, G):
+        r = np.hypot(X - cx, Z - cz)
+        k = np.clip(1 - r / radius, 0, 1) ** 0.7
+        if keep is not None:
+            k = k * keep(X, Z)
+        n = np.vectorize(lambda x, z: fbm(x / scale, z / scale, seed, 3))(X, Z) - 0.5
+        h = np.vectorize(lambda x, z: fbm(x / 5.0, z / 5.0, seed + 11, 2))(X, Z)
+        hol = -hollow * np.clip((h - 0.62) / 0.12, 0, 1)
+        return G + (amp * 2 * n + hol) * k
+    fine.add(fn, (cx - radius, cz - radius, cx + radius, cz + radius))
+
+
 def _selfcheck():
     class G:   # a 40 x 40 grid with a cone
         nx = nz = 40
@@ -363,6 +591,26 @@ def _selfcheck():
     keep = H.copy()
     hydraulic_erosion(g, np.zeros_like(H), iters=5)
     assert np.array_equal(keep, H), "weight 0 keeps the ground exactly"
+    H[...] = jj * 0.1 * KCELL   # a 10 % slope: a fine pad levels a 4 x 2 m footprint at its own height
+    f = FineLayer(g)
+    f.g.sample = lambda x, z: float(f.base(np.array(x), np.array(z)))
+
+    class B:
+        cat = {"p": type("A", (), {"half": (2.0, 1.0)})()}
+    e = {"asset": "p", "pos": [60.0, 6.0, 60.0], "yaw": 30.0}
+    fine_pad(f, B(), e)
+    for lx, lz in ((0, 0), (1.9, 0.9), (-1.9, -0.9), (1.9, -0.9)):
+        from .geom import local_to_world
+        w = local_to_world((60.0, 60.0), 30.0, lx, lz)
+        assert abs(f.ground(*w) - 6.0) < 0.02, (lx, lz, f.ground(*w))
+    assert abs(f.ground(60.0, 75.0) - f.g.sample(60.0, 75.0)) < 1e-6, "beyond the ring the ground is untouched"
+    H[...] = 10.0   # road profiles on flat ground
+    f = FineLayer(g); f.g.sample = lambda x, z: float(f.base(np.array(x), np.array(z)))
+    fine_road(f, [(20.0, 60.0), (100.0, 60.0)], 2.0, crown=0.06, ruts=0.08, verge=0.25, ditch=0.6)
+    assert f.ground(60, 60) - 10 > 0.04 and f.ground(60, 62.6) - 10 > 0.15 and f.ground(60, 64.9) - 10 < -0.5 and abs(f.ground(60, 68.5) - 10) < 1e-3
+    f = FineLayer(g); f.g.sample = lambda x, z: float(f.base(np.array(x), np.array(z)))
+    fine_road(f, [(20.0, 60.0), (100.0, 60.0)], 2.0, sunk=1.9, sunk_half=4.5)
+    assert f.ground(60, 60) - 10 < -1.75 and abs(f.ground(60, 65.2) - 10) < 1e-3, "a hollow way's banks stand over head height"
 
 
 if __name__ == "__main__":

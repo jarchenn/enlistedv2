@@ -35,6 +35,7 @@ struct IvyPieces { std::vector<IvyPlaced> v; };
 struct InstanceRT {
   uint64_t id = 0; uint32_t rev = 0;
   const AssetDef* asset = nullptr;
+  bool farOut = false;   // BT2 loadRadius: not built (beyond the asset's outer radius in play)
   uint32_t staticBody = 0xffffffffu;
   mutable uint8_t leafLod = 2;                    // L1 tree leaf LOD (0 near .. 2 cards), kept across frames for hysteresis
   std::vector<std::vector<uint32_t>> leafBodies; // [interactable][leaf]
@@ -185,9 +186,12 @@ public:
   const AssetDef* assetFor(const Instance& i) const;
   mat4 instanceMatrix(const Instance& i) const;
   const vec4* contactProfile(const Instance& i, InstanceRT& r);   // MA2: ground-contact grid (app.cpp)
-  void syncRuntime();
+  void syncRuntime(bool sliced = false);   // sliced: the main loop's per-frame call may spread rebuilds over frames (CP 5.8); callers that use what they placed at once keep the default
   void destroyRT(InstanceRT& r);
   void buildRT(const Instance& i, InstanceRT& r);
+  void refreshMatchOnly();   // BT2: matchOnly blockers follow the match state
+  void syncLoadRadius();     // BT2: assets with loadRadius [in, out] built near the eye only (play)
+  std::vector<uint64_t> loadRadiusIds;   // the copies that have one (syncRuntime keeps it)
   void resetInteractStates();
   bool authoredOpen(const Instance& i, const InteractDef& d) const;
   float leafAngle(const InteractDef& d, float p) const;

@@ -1,4 +1,5 @@
 #include "terrain.h"
+#include "frustum.h"
 #include "crumb.h"
 #include "w5.h"
 #include <algorithm>
@@ -192,6 +193,7 @@ void Terrain::generate(const TemplateInfo& t, float width, float depth) {
   std::vector<uint8_t> zero((size_t)tilesX() * tilesZ(), 0);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   glTextureSubImage2D(maskTex, 0, 0, 0, tilesX(), tilesZ(), GL_RED, GL_UNSIGNED_BYTE, zero.data());
+  maskCpu = zero;
   glTextureParameteri(maskTex, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTextureParameteri(maskTex, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 }
 
@@ -285,6 +287,7 @@ bool Terrain::raycast(vec3 o, vec3 d, float maxT, vec3& hit) const {
 void Terrain::setMask(int tx, int tz, uint8_t v) {
   // GL_R8 is normalised: write 255 so the shader test (> 0.5) sees an active tile
   uint8_t texel = v ? 255 : 0;
+  if ((size_t)key(tx, tz) < maskCpu.size()) maskCpu[key(tx, tz)] = texel;
   if (maskTex) { glPixelStorei(GL_UNPACK_ALIGNMENT, 1); glTextureSubImage2D(maskTex, 0, tx, tz, 1, 1, GL_RED, GL_UNSIGNED_BYTE, &texel); }
   // base collision holes under the tile are applied by the chunk bodies (terrain_chunks.cpp)
   physDirty.insert(key(tx, tz));
@@ -376,19 +379,41 @@ void Terrain::rebuildMesh(Tile& t) {
       v[k] = {vec3(x, t.h[k], z), normal(x, z), t.sdirt.empty() ? t.dirt[k] : std::max(t.dirt[k], t.sdirt[k]),
               t.sew.size() == v.size() * 3 ? vec3(t.sew[k * 3], t.sew[k * 3 + 1], t.sew[k * 3 + 2]) : vec3(0.0f)};
     }
-  if (!t.vao) {
+  // VOT T2: a skirt under each edge (4 x kFineN vertices, kSkirt m down) closes the cracks between tiles drawn at
+  // different steps; the bounds feed the culling
+  constexpr float kSkirt = 0.6f;
+  t.ylo = 1e30f; t.yhi = -1e30f;
+  for (auto& q : v) { t.ylo = std::min(t.ylo, q.p.y); t.yhi = std::max(t.yhi, q.p.y); }
+  auto edgeIdx = [](int e, int k) { return e == 0 ? k : e == 1 ? kFine * kFineN + k : e == 2 ? k * kFineN : k * kFineN + kFine; };
+  for (int e = 0; e < 4; ++e)
+    for (int k = 0; k < kFineN; ++k) { TV s = v[edgeIdx(e, k)]; s.p.y -= kSkirt; v.push_back(s); }
+  if (!tileEbo) {   // shared by every tile: LOD 0 / 1 / 2 = every 1st / 5th / 7th sample (kFine = 35), each with its skirts
     std::vector<uint32_t> idx;
-    for (int j = 0; j < kFine; ++j)
-      for (int i = 0; i < kFine; ++i) {
-        uint32_t a = j * kFineN + i, b = a + 1, c = a + kFineN, d = c + 1;
-        idx.insert(idx.end(), {a, c, d, a, d, b});
-      }
-    t.count = (int)idx.size();
-    glCreateVertexArrays(1, &t.vao); glCreateBuffers(1, &t.vbo); glCreateBuffers(1, &t.ebo);
-    glNamedBufferData(t.ebo, idx.size() * 4, idx.data(), GL_STATIC_DRAW);
+    const int steps[3] = {1, 5, 7};
+    for (int l = 0; l < 3; ++l) {
+      tileIdxOff[l] = (int)idx.size();
+      const int s = steps[l];
+      for (int j = 0; j < kFine; j += s)
+        for (int i = 0; i < kFine; i += s) {
+          uint32_t a = j * kFineN + i, b = a + s, c = a + s * kFineN, d = c + s;
+          idx.insert(idx.end(), {a, c, d, a, d, b});
+        }
+      for (int e = 0; e < 4; ++e)
+        for (int k = 0; k < kFine; k += s) {
+          uint32_t a = edgeIdx(e, k), b = edgeIdx(e, k + s), sa = kFineN * kFineN + e * kFineN + k, sb = sa + s;
+          idx.insert(idx.end(), {a, sa, sb, a, sb, b, a, sb, sa, a, b, sb});   // both windings: the side a tile's skirt shows depends on the edge
+        }
+      tileIdxCnt[l] = (int)idx.size() - tileIdxOff[l];
+    }
+    glCreateBuffers(1, &tileEbo);
+    glNamedBufferData(tileEbo, idx.size() * 4, idx.data(), GL_STATIC_DRAW);
+  }
+  if (!t.vao) {
+    t.count = tileIdxCnt[0];
+    glCreateVertexArrays(1, &t.vao); glCreateBuffers(1, &t.vbo);
     glNamedBufferData(t.vbo, v.size() * sizeof(TV), nullptr, GL_DYNAMIC_DRAW);
     glVertexArrayVertexBuffer(t.vao, 0, t.vbo, 0, sizeof(TV));
-    glVertexArrayElementBuffer(t.vao, t.ebo);
+    glVertexArrayElementBuffer(t.vao, tileEbo);
     for (int k = 0; k < 4; ++k) {
       glEnableVertexArrayAttrib(t.vao, k);
       glVertexArrayAttribFormat(t.vao, k, k == 2 ? 1 : 3, GL_FLOAT, GL_FALSE, k < 3 ? k * 12 : 28);
@@ -451,43 +476,102 @@ void Terrain::applyDeltas(const std::map<int, std::vector<float>>& d) {
   ++revision;
 }
 
-void Terrain::draw(GLuint prog, vec3 cam, const mat4& vp) const {
+void Terrain::draw(GLuint prog, vec3 cam, const mat4& vp, GLuint progND, GLuint progDepth) const {
   if (h.empty()) return;
-  GLint uDis = glGetUniformLocation(prog, "uDiscard");
-  // units 14 / 15: 3 and 6 belong to the scene shader (uMR, uShadowFar); binding the mask / surface there made the far
-  // shadow cascade sample the surface mask on terrain (dark wedges wherever the far cascade reached)
-  glUniform1i(glGetUniformLocation(prog, "uTileMask"), 15);
-  glUniform1f(glGetUniformLocation(prog, "uTileSize"), tileSize());
-  glUniform2f(glGetUniformLocation(prog, "uTerrainOrg"), org.x, org.y);
-  glUniform2f(glGetUniformLocation(prog, "uTerrainExt"), size, sizeZ);
-  glUniform2f(glGetUniformLocation(prog, "uBuildHalf"), buildHalfX, buildHalfZ);
-  glBindTextureUnit(15, maskTex);
-  glUniform1i(glGetUniformLocation(prog, "uSurf"), 14);
-  glBindTextureUnit(14, surfTex);
-  { extern void groundPaintBind(GLuint); groundPaintBind(prog); }   // lasso ground paint: unit 23 (ground_paint.cpp)
-  glUniform1i(uDis, tiles.empty() ? 0 : 1);
-  // VOT T1: per-pixel normals on the base chunks (unit 18), geomorphing between their LOD steps (drawBase sets uMorph)
-  GLint uTN = glGetUniformLocation(prog, "uTNOn");
-  if (drawOpts.normals) {
-    normalsSync();
-    glUniform1i(glGetUniformLocation(prog, "uTNrm"), 18);   // unit 18, not 25: 25 holds the texture library's macro map, bound once at load (18 is only bound transiently by the GI capture)
-    glUniform4f(glGetUniformLocation(prog, "uTNMap"), org.x, org.y, 1.0f / size, 1.0f / sizeZ);
-    glBindTextureUnit(18, nrmTex);
+  // PF (terrain early depth): progND is the same shader without the tile-mask discard. A shader that can discard
+  // writes depth late for every fragment, so only the base chunks under an active tile use prog; the rest of the
+  // base and the tiles themselves use progND. progND 0: prog for everything (thumbnails).
+  if (!progND) progND = prog;
+  if (drawOpts.normals) normalsSync();
+  if (drawOpts.skyView) skyViewSync();
+  for (GLuint pr : {prog, progND}) {
+    glUseProgram(pr);
+    // units 14 / 15: 3 and 6 belong to the scene shader (uMR, uShadowFar); binding the mask / surface there made the far
+    // shadow cascade sample the surface mask on terrain (dark wedges wherever the far cascade reached)
+    glUniform1i(glGetUniformLocation(pr, "uTileMask"), 15);
+    glUniform1f(glGetUniformLocation(pr, "uTileSize"), tileSize());
+    glUniform2f(glGetUniformLocation(pr, "uTerrainOrg"), org.x, org.y);
+    glUniform2f(glGetUniformLocation(pr, "uTerrainExt"), size, sizeZ);
+    glUniform2f(glGetUniformLocation(pr, "uBuildHalf"), buildHalfX, buildHalfZ);
+    glUniform1i(glGetUniformLocation(pr, "uSurf"), 14);
+    { extern void groundPaintBind(GLuint); groundPaintBind(pr); }   // lasso ground paint: unit 23 (ground_paint.cpp)
+    glUniform1i(glGetUniformLocation(pr, "uDiscard"), pr == prog && (progND != prog || !tiles.empty()) ? 1 : 0);
+    // VOT T1: per-pixel normals on the base chunks (unit 18), geomorphing between their LOD steps (drawBase sets uMorph)
+    if (drawOpts.normals) {
+      glUniform1i(glGetUniformLocation(pr, "uTNrm"), 18);   // unit 18, not 25: 25 holds the texture library's macro map, bound once at load (18 is only bound transiently by the GI capture)
+      glUniform4f(glGetUniformLocation(pr, "uTNMap"), org.x, org.y, 1.0f / size, 1.0f / sizeZ);
+    }
+    glUniform1i(glGetUniformLocation(pr, "uTNOn"), drawOpts.normals && nrmTex ? 1 : 0);
+    if (drawOpts.skyView) glUniform1i(glGetUniformLocation(pr, "uTSV"), 26);   // VOT T5 (base and tiles alike)
+    glUniform1i(glGetUniformLocation(pr, "uTSVOn"), drawOpts.skyView && svTex ? 1 : 0);
   }
-  glUniform1i(uTN, drawOpts.normals && nrmTex ? 1 : 0);
-  if (drawOpts.skyView) { skyViewSync(); glUniform1i(glGetUniformLocation(prog, "uTSV"), 26); glBindTextureUnit(26, svTex); }   // VOT T5 (base and tiles alike)
-  glUniform1i(glGetUniformLocation(prog, "uTSVOn"), drawOpts.skyView && svTex ? 1 : 0);
+  glBindTextureUnit(15, maskTex); glBindTextureUnit(14, surfTex);
+  if (drawOpts.normals) glBindTextureUnit(18, nrmTex);
+  if (drawOpts.skyView) glBindTextureUnit(26, svTex);
   stream.update(*this, cam, vp, stream.cfg.buildBudgetMs);
-  stream.drawBase(*this, cam, vp, drawOpts.morph ? glGetUniformLocation(prog, "uMorph") : -2);
-  glUniform1i(uDis, 0);
-  glUniform1i(uTN, 0);
-  glUniform4f(glGetUniformLocation(prog, "uMorph"), 0, 0, 0, 0);
-  for (auto& [k, t] : tiles) { if (!t.count) continue; glBindVertexArray(t.vao); glDrawElements(GL_TRIANGLES, t.count, GL_UNSIGNED_INT, nullptr); }
+  // VOT T2: the fine tiles, culled to the view and stepped by distance (ttilelod off: all at full resolution, no culling)
+  Frustum fr = Frustum::fromVP(vp);
+  const float ts = tileSize();
+  auto drawTiles = [&](bool count) {
+    if (count) tileStats = {};
+    for (auto& [k, t] : tiles) {
+      if (!t.count) continue;
+      int l = 0;
+      if (drawOpts.tileLod) {
+        vec2 o = tileOrigin(t.tx, t.tz);
+        if (!fr.visible(vec3(o.x, t.ylo - 0.7f, o.y), vec3(o.x + ts, t.yhi + 0.1f, o.y + ts), 1.0f)) { if (count) ++tileStats.culled; continue; }
+        float dx = std::max({o.x - cam.x, 0.0f, cam.x - o.x - ts}), dz = std::max({o.y - cam.z, 0.0f, cam.z - o.y - ts});
+        float d = std::sqrt(dx * dx + dz * dz + std::pow(std::max(0.0f, cam.y - t.yhi), 2.0f));
+        l = d < 90.0f ? 0 : d < 220.0f ? 1 : 2;
+      }
+      if (count) { ++tileStats.drawn; ++tileStats.lod[l]; }
+      glBindVertexArray(t.vao);
+      glDrawElements(GL_TRIANGLES, tileIdxCnt[l], GL_UNSIGNED_INT, (const void*)(intptr_t)(tileIdxOff[l] * 4));
+    }
+  };
+  auto resetUniforms = [&]() {
+    for (GLuint pr : {prog, progND}) {
+      glUseProgram(pr);
+      glUniform1i(glGetUniformLocation(pr, "uDiscard"), 0);
+      glUniform1i(glGetUniformLocation(pr, "uTNOn"), 0);
+      glUniform4f(glGetUniformLocation(pr, "uMorph"), 0, 0, 0, 0);
+    }
+  };
+  if (progDepth && progND != prog) {
+    // PF tzprepass: depth first with a one-fetch shader (it keeps the tile-mask discard), then the full shader once per
+    // visible pixel: depth EQUAL, no depth writes, no discard anywhere (the masked base already lost to its tile there)
+    GLint dfunc = GL_LESS; glGetIntegerv(GL_DEPTH_FUNC, &dfunc);
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glUseProgram(progDepth);
+    glUniform1i(glGetUniformLocation(progDepth, "uTileMask"), 15);
+    glUniform1f(glGetUniformLocation(progDepth, "uTileSize"), tileSize());
+    glUniform2f(glGetUniformLocation(progDepth, "uTerrainOrg"), org.x, org.y);
+    glUniform1i(glGetUniformLocation(progDepth, "uDiscard"), tiles.empty() ? 0 : 1);
+    stream.drawBase(*this, cam, vp, progDepth, progDepth, drawOpts.morph);
+    glUseProgram(progDepth);
+    glUniform1i(glGetUniformLocation(progDepth, "uDiscard"), 0);
+    glUniform4f(glGetUniformLocation(progDepth, "uMorph"), 0, 0, 0, 0);
+    drawTiles(false);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE); glDepthMask(GL_FALSE); glDepthFunc(GL_EQUAL);
+    stream.drawBase(*this, cam, vp, progND, progND, drawOpts.morph);
+    stream.stats.drawnMasked = -1;   // the log: pre-pass mode (no chunk uses the discarding shader for colour)
+    resetUniforms();
+    glUseProgram(progND);
+    drawTiles(true);
+    glDepthMask(GL_TRUE); glDepthFunc(dfunc);
+    return;
+  }
+  stream.drawBase(*this, cam, vp, prog, progND, drawOpts.morph);
+  resetUniforms();
+  glUseProgram(progND);
+  drawTiles(true);
 }
 
 void Terrain::destroy() {
   stream.release();
   normalsRelease();
+  if (tileEbo) glDeleteBuffers(1, &tileEbo);
+  tileEbo = 0;
   if (maskTex) glDeleteTextures(1, &maskTex);
   maskTex = 0;
 }

@@ -151,7 +151,7 @@ def dress(b, R, prop, drop, line, paint, rep):
                              [(-58.0, -30.0), (-46.0, -10.0), (-40.0, 10.0)], [(10.0, 66.0), (24.0, 50.0), (46.0, 44.0)]]):
         for side in (-0.85, 0.85):
             off = [(x + side * 0.6, z + side * 0.8) for x, z in pts]
-            paint.line("dirt", catmull_rom(off), 0.45, weight=0.55, edge=0.25)
+            paint.line("cobbles", catmull_rom(off), 0.45, weight=0.55, edge=0.25)   # trails: the ruts drawn as trail_dirt
     for x, z, r in ((14.0, 4.0, 4.5), (-30.0, -10.0, 3.5), (24.0, 38.0, 4.0)):
         paint.poly("scorched", circle_poly(x, z, r, 14), weight=0.75, edge=1.5, ragged=1.5, seed=int(x * 7 + z))
     for aid, x, z, yaw in (("mod_car_shell_burned", 14.0, 4.0, 40.0), ("car_truck_cargo", -30.0, -10.0, 120.0), ("mod_pcar_pickup_wreck", 24.0, 38.0, 300.0),
@@ -227,7 +227,7 @@ V = {
                    "convoy on the old highway, a dry wadi, a ruined roadside hamlet with a petrol station, and a mesa with a "
                    "radar and an observation bunker. Military loot (level-3 armour) in the base, the radar and the bunker. "
                    "16 players by default, short storm circles. Battle Royale, Team Deathmatch and Solo.",
-    "height": height, "stamps": [stamps, berm], "roads": [(ROAD, 3.6)], "tracks": TRACKS, "track_paint": "gravel",
+    "height": height, "stamps": [stamps, berm], "roads": [(ROAD, 3.6)], "tracks": TRACKS, "track_paint": "ploughed",   # trails: drawn as trail_gravel
     "sites": SITES, "site_info": INFO,
     "flats": [(rect(37.0, -48.0, 61.0, 34.0), None), (rect(-62.0, -64.0, -47.5, -28.0), None)],   # the mesa top; the range strip
     "paint": [("poly", "sand", rect(-HX - 70, -HZ - 70, HX + 70, HZ + 70), {"weight": 1.0, "edge": 0.5}),
@@ -262,8 +262,8 @@ V = {
     "start": ((-38.0, 22.0), (20.0, 28.0)),
     "thumb_cam": ([60.0, 70.0, 110.0], look_yaw(-60.0, -110.0), -28.0),
     "look": {"style": "abandoned", "haze": 5.0, "weather": 0.1, "envFog": 1, "bloom": 1.45, "saturation": 1.02, "tint": [1.08, 1.0, 0.86], "grime": 0.9, "arid": True,
-             "paintSets": {"gravel": "gravel_mixed", "rock": "rock_slab_paint", "dirt": "ground_rubble_paint"}},
-    "lighting": {"fill": 1.1, "ambient": [0.07, 0.05, 0.03], "hour": 17.4},
+             "paintSets": {"gravel": "gravel_mixed", "rock": "rock_slab_paint", "dirt": "ground_rubble_paint", "ploughed": "trail_gravel", "cobbles": "trail_dirt"}},
+    "lighting": {"fill": 1.1, "ambient": [0.07, 0.05, 0.03], "hour": 17.4, "enclosed": False},   # open sky: 17.4 is only the default hour, every weather preset applies
 }
 
 

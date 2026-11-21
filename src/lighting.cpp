@@ -533,9 +533,10 @@ void LightingPass::todColors(const Renderer& R, vec3& sun, vec3& sky, vec3& grou
   skySunCol *= 1.0f - k;
 }
 
+bool snowLayerOn();   // snow.cpp
 void LightingPass::exposureUniforms(const Renderer& R, GLuint p) {
   (void)R;
-  glUniform1f(U(p, "uExpoKey"), L.tod.expoKey * (R.thumbMode || R.wx.enclosed ? 1.0f : R.wx.der.phys ? R.wx.der.keyMul : glm::mix(1.0f, 0.72f, R.wx.k)));   /* WX2: Cloudy is darker (auto exposure would otherwise lift it back) */ glUniform1f(U(p, "uExpoMin"), L.tod.expoMin); glUniform1f(U(p, "uExpoMax"), L.tod.expoMax);
+  glUniform1f(U(p, "uExpoKey"), L.tod.expoKey * (R.thumbMode || R.wx.enclosed ? 1.0f : R.wx.der.phys ? R.wx.der.keyMul : glm::mix(1.0f, R.perf.w2Expo && snowLayerOn() ? 1.2f : 0.72f, R.wx.k)));   /* WX2: Cloudy is darker (auto exposure would otherwise lift it back) */ glUniform1f(U(p, "uExpoMin"), L.tod.expoMin); glUniform1f(U(p, "uExpoMax"), L.tod.expoMax);
 }
 
 void LightingPass::uniforms(Renderer& R, GLuint p) {
@@ -906,6 +907,14 @@ void LightingPass::prepass(Renderer& R, const RenderView& v, const std::vector<D
   L.sel.clear();
   L.sel.insert(L.sel.end(), R.lights.begin(), R.lights.end());
   L.sel.insert(L.sel.end(), R.testLights.begin(), R.testLights.end());
+  // CP2 Lighting Physical by day: lamps in lumens (intensity 1 = an 800 lm bulb, 64 cd) against the exposure. A light whose
+  // illuminance at 1 m is under E_min = pi 1.2 2^EV / 512 lux cannot move a pixel by one display step: culled (lightcull)
+  const bool physDay = R.q.lightPhys && R.q.lightNew && !R.q.legacy && R.physExpo > 0.0f;
+  if (physDay && R.perf.lightCull) {
+    const float eMin = 3.14159265f * 1.2f * std::exp2(R.physEV) / 512.0f;
+    L.sel.erase(std::remove_if(L.sel.begin(), L.sel.end(), [&](const LightDesc& d) { return d.id != kFlashlightLightId && d.intensity * 64.0f < eMin; }), L.sel.end());
+  }
+  const float lampK = physDay ? 64.0f / 30000.0f / kLampUnit : 1.0f;   // 64 lux at 1 m in engine illuminance (30,000 lux / unit), over the shader's kLampUnit
   vec3 cam = v.camPos;
   auto key = [&](const LightDesc& d) { return glm::length(d.pos - cam) - d.radius; };
   std::sort(L.sel.begin(), L.sel.end(), [&](const LightDesc& a, const LightDesc& b) { return key(a) < key(b); });
@@ -924,7 +933,7 @@ void LightingPass::prepass(Renderer& R, const RenderView& v, const std::vector<D
     fl *= glm::clamp((cutK - key(d)) / 12.0f, 0.0f, 1.0f);   // BR1c: the cap fade
     vec3 dir = glm::length(d.dir) > 1e-5f ? glm::normalize(d.dir) : vec3(0, -1, 0);
     float co = d.cosOuter <= -1.0f ? -2.0f : d.cosOuter, ci = std::max(d.cosInner, co + 1e-3f);
-    L.gpu[i] = {vec4(d.pos, std::max(d.radius, 0.0f)), vec4(glm::max(d.color, vec3(0)) * std::max(d.intensity, 0.0f) * fl, 0), vec4(dir, co), vec4(ci, -1, 0, d.id == kFlashlightLightId ? 1.0f : 0.0f)};   // misc.w: no GI (FX1)
+    L.gpu[i] = {vec4(d.pos, std::max(d.radius, 0.0f)), vec4(glm::max(d.color, vec3(0)) * std::max(d.intensity, 0.0f) * fl * (d.id == kFlashlightLightId ? 1.0f : lampK), 0), vec4(dir, co), vec4(ci, -1, 0, d.id == kFlashlightLightId ? 1.0f : 0.0f)};   // misc.w: no GI (FX1)
   }
   GLint64 bsize = 0; glGetNamedBufferParameteri64v(L.lightBuf, GL_BUFFER_SIZE, &bsize);
   if (bsize < (GLint64)(L.gpu.size() * sizeof(GpuLight))) glNamedBufferData(L.lightBuf, std::max<size_t>(L.gpu.size(), 64) * sizeof(GpuLight) * 2, nullptr, GL_DYNAMIC_DRAW);

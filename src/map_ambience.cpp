@@ -81,6 +81,7 @@ void mapAmbienceFrame(App& app, float dt) {
     gCover += (target - gCover) * std::min(1.0f, dt * 2.5f);
   }
   const float g = mapWindGust();
+  const float wxOff = app.R.wx.presetOn() ? 0.0f : 1.0f;   // W1: a weather preset brings its own wind (weather_audio.cpp): the map's wind beds give way
   // zones: wind multiplier, a gust bed of their own, the leaves bed
   float windMul = 1, leaves = 0; const json zones = C.value("zones", json::array());
   for (size_t k = 0; k < zones.size(); ++k) {
@@ -88,12 +89,12 @@ void mapAmbienceFrame(App& app, float dt) {
     windMul += w * (z.value("wind", 1.0f) - 1); leaves += w * z.value("leaves", 0.0f);
     if (z.contains("gust") && z["gust"].is_object()) {
       const json& gz = z["gust"]; float roof = 1 + gCover * (gz.value("underRoof", 0.25f) - 1);
-      voice(app, "zone_" + z.value("id", std::to_string(k)), gz.value("file", std::string()), false, vec3(0), w * gz.value("volume", 0.6f) * (0.2f + 0.8f * g) * roof * trim("gust"), 0, 0);
+      voice(app, "zone_" + z.value("id", std::to_string(k)), gz.value("file", std::string()), false, vec3(0), w * gz.value("volume", 0.6f) * (0.2f + 0.8f * g) * roof * trim("gust") * wxOff, 0, 0);
     }
   }
   if (C.contains("wind") && C["wind"].is_object()) {   // the steady low bed everywhere, swelling with the gusts, quieter under roofs
     const json& wb = C["wind"]; float roof = 1 + gCover * (wb.value("underRoof", 0.35f) - 1);
-    voice(app, "wind", wb.value("file", std::string()), false, vec3(0), wb.value("volume", 0.5f) * (0.75f + 0.35f * g) * std::max(0.0f, windMul) * roof * trim("wind"), 0, 0);
+    voice(app, "wind", wb.value("file", std::string()), false, vec3(0), wb.value("volume", 0.5f) * (0.75f + 0.35f * g) * std::max(0.0f, windMul) * roof * trim("wind") * wxOff, 0, 0);
   }
   app.audio.setAmbience(0, std::clamp(leaves, 0.0f, 1.0f) * (0.7f + 0.5f * g) * (1 - 0.7f * gCover) * trim("leaves"));
   // loops: points ("at") or lines ("path": the voice rides the nearest point), heights over the terrain

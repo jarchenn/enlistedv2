@@ -18,12 +18,17 @@
 // ---------------------------------------------------------------- presets
 // P3 A/B: NMK_PRESET_OLD=1 gives the pre-P3 Low / Medium values (presets, the shadow / probe / SSAO knobs, grass Low radius)
 bool presetsOld() { static const bool o = std::getenv("NMK_PRESET_OLD") != nullptr; return o; }
+// CP preset re-cut (corpus 13.10, docs/corpus-implementation.md): Medium is the art-directed baseline; High adds samples
+// and range; Low removes density and resolution, never a cue: every preset keeps near sun shadows, contact shadows,
+// ambient occlusion (Low / Ultra Low at quarter resolution), haze (the weather's, the same everywhere) and temporal AA.
+// Fixed scales are the dynamic-resolution floors: Medium 0.77, Low 0.67 (the corpus's 1080p floor; it was 0.5)
 GraphicsOpts presetOpts(GfxPreset p) {
   GraphicsOpts g;   // Medium: the built-in defaults (Renderer::Quality, Grass, Fx, the cull rules in maps.json)
+  if (p == GfxPreset::Medium) g.resScale = 0.77f;   // CP: was 0.67
   if (presetsOld() && p != GfxPreset::High) g.shadowLights = 4;
   if (p == GfxPreset::Low) {
-    g.resScale = 0.5f; g.shadowQuality = 0;   // P1: TAAU reconstructs the output (was 0.85 bilinear)
-    g.shafts = false; g.ssr = false; g.ssao = false;   // WX1: cloud shadows stay on (every preset sees the same sun patches)
+    g.resScale = 0.67f; g.shadowQuality = 0;   // P1: TAAU reconstructs the output; CP: 0.67, the corpus's 1080p floor (was 0.5)
+    g.shafts = false; g.ssr = false; g.ssao = true;   // WX1: cloud shadows stay on (every preset sees the same sun patches); CP: AO stays (quarter resolution), a cue
     g.cloudQuality = 0;
     g.bloom = presetsOld();                              // P3: no bloom on Low
     g.grass = 1; g.grassWind = false; g.renderDist = presetsOld() ? 600 : 450; g.particles = 0.6f; g.ivy = false; g.dustMotes = 0;
@@ -31,13 +36,13 @@ GraphicsOpts presetOpts(GfxPreset p) {
     g.materials = 0;                                     // GX5: base materials only (no layer, no static decals)
   } else if (p == GfxPreset::UltraLow) {   // PERF1: below Low - no reflections / AO / bloom / shafts / cloud shadows, static vegetation, shortest distances, lowest scale
     g.resScale = 0.5f; g.shadowQuality = 0;
-    g.shafts = false; g.ssr = false; g.ssao = false; g.bloom = false; g.cloudShadows = false;
+    g.shafts = false; g.ssr = false; g.ssao = true; g.bloom = false; g.cloudShadows = false;   // CP: AO stays (quarter resolution): a grounding cue
     g.cloudQuality = 0;
     g.grass = 1; g.grassWind = false; g.renderDist = 300; g.particles = 0.4f; g.ivy = false; g.dustMotes = 0;
     g.lightCount = 32; g.shadowLights = 0; g.gi = 0;
     g.materials = 0;
   } else if (p == GfxPreset::High) {
-    g.resScale = 1.0f; g.shadowQuality = 2; g.ssaoFull = true; g.taaPhases = 16; g.msaa = 4;   // P1: High stays native
+    g.resScale = 1.0f; g.shadowQuality = 2; g.ssaoFull = true; g.taaPhases = 16; g.msaa = 0;   // P1: High stays native; VO P2: TAA alone (4x MSAA under the TAA cost ms for edges the TAA already resolves; the Video tab still offers it)
     g.shafts = true;                                     // WX1: the marched sun shafts are High only (Low / Medium: the fog's sun glow)
     g.grass = 3; g.renderDist = 2500; g.particles = 1.5f; g.dustMotes = 2;
     g.lightCount = 512; g.shadowLights = 8; g.gi = 2;    // L2: near + far probe volumes, faster updates
@@ -64,7 +69,7 @@ json UserSettings::toJson() const {
     {"graphics", {{"preset", presetName(preset())}, {"resolutionScale", g.resScale}, {"shadowQuality", g.shadowQuality}, {"farCascade", g.farCascade},
                   {"cloudShadows", g.cloudShadows}, {"lightShafts", g.shafts}, {"ssr", g.ssr}, {"ssao", g.ssao}, {"ssaoFullRes", g.ssaoFull},
                   {"bloom", g.bloom}, {"taa", g.taa}, {"taaPhases", g.taaPhases}, {"clouds", g.clouds}, {"cloudQuality", g.cloudQuality}, {"grass", g.grass}, {"grassWind", g.grassWind},
-                  {"renderDistance", g.renderDist}, {"particleBudget", g.particles}, {"fov", fov}, {"gamma", gamma}, {"microcontrast", microcontrast}, {"lighting", lightNew ? "new" : "classic"}, {"vsync", vsync}, {"fpsCap", fpsCap}, {"upscaling", upscale == 0 ? "temporal" : upscale == 1 ? "spatial" : "off"},
+                  {"renderDistance", g.renderDist}, {"particleBudget", g.particles}, {"fov", fov}, {"gamma", gamma}, {"microcontrast", microcontrast}, {"sharpness", sharpness}, {"lighting", !lightNew ? "classic" : lightPhys ? "physical" : "new"}, {"vsync", vsync}, {"dynamicResolution", dynRes}, {"fpsCap", fpsCap}, {"upscaling", upscale == 0 ? "temporal" : upscale == 1 ? "spatial" : "off"},
                   {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi}, {"msaa", g.msaa}, {"ivy", g.ivy}, {"materialDetail", g.materials}, {"dustMotes", g.dustMotes},
                   {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}, {"weather", wxPresetName(weather)}, {"envFog", envFog}}},
     {"gameplay", {{"mouseSensitivity", mouseSens}, {"adsSensitivity", adsSens}, {"invertY", invertY}, {"reducedMotion", reducedMotion},
@@ -95,10 +100,15 @@ UserSettings UserSettings::fromJson(const json& j) {
     if (q.contains("drawDistance") && !q.contains("renderDistance")) g.renderDist = 1200.0f * q.value("drawDistance", 1.0f);   // migration: the old multiplier of 1200 m
     g.renderDist = std::clamp(q.value("renderDistance", g.renderDist), 300.0f, 5000.0f); g.particles = std::clamp(q.value("particleBudget", g.particles), 0.25f, 4.0f);
     { std::string m = q.value("upscaling", std::string()); if (m == "temporal") u.upscale = 0; else if (m == "spatial") u.upscale = 1; else if (m == "off") u.upscale = 2; }
-    u.fov = std::clamp(q.value("fov", u.fov), 55.0f, 100.0f); u.gamma = std::clamp(q.value("gamma", u.gamma), 0.5f, 2.0f); u.microcontrast = std::clamp(q.value("microcontrast", u.microcontrast), 0.0f, 1.0f); u.lightNew = q.value("lighting", std::string(u.lightNew ? "new" : "classic")) != "classic"; u.vsync = q.value("vsync", u.vsync); u.fpsCap = std::clamp(q.value("fpsCap", u.fpsCap), 0, 500);
+    u.fov = std::clamp(q.value("fov", u.fov), 55.0f, 100.0f); u.gamma = std::clamp(q.value("gamma", u.gamma), 0.5f, 2.0f); u.sharpness = std::clamp(q.value("sharpness", u.sharpness), 0.0f, 1.0f); u.microcontrast = std::clamp(q.value("microcontrast", u.microcontrast), 0.0f, 1.0f); { std::string lm = q.value("lighting", std::string(u.lightNew ? "new" : "classic")); u.lightNew = lm != "classic"; u.lightPhys = lm == "physical"; } u.vsync = q.value("vsync", u.vsync); u.dynRes = q.value("dynamicResolution", u.dynRes); u.fpsCap = std::clamp(q.value("fpsCap", u.fpsCap), 0, 500);
     g.lightCount = std::clamp(q.value("lightCount", g.lightCount), 0, 4096); g.shadowLights = std::clamp(q.value("shadowedLights", g.shadowLights), 0, 8);
     g.gi = std::clamp(q.value("gi", g.gi), 0, 2);
     g.msaa = q.value("msaa", g.msaa) >= 2 ? 4 : 0; g.ivy = q.value("ivy", g.ivy); g.dustMotes = std::clamp(q.value("dustMotes", g.dustMotes), 0, 2);
+    if (pn == "High") { GraphicsOpts old = presetOpts(GfxPreset::High); old.msaa = 4; if (g == old) g.msaa = 0; }   // VO P2: a saved High (with its old 4x MSAA) is the new High, not Custom
+    for (GfxPreset pp : {GfxPreset::Low, GfxPreset::UltraLow, GfxPreset::Medium}) if (pn == presetName(pp)) {   // CP re-cut: a saved preset with its old values is the new one
+      GraphicsOpts old = presetOpts(pp); old.resScale = pp == GfxPreset::Medium ? 0.67f : 0.5f; if (pp != GfxPreset::Medium) old.ssao = false;
+      if (g == old) g = presetOpts(pp);
+    }
     // time of day: a preset name gives its hour; an explicit hour wins
     std::string tn = q.value("timeOfDay", std::string("Day"));
     for (TodPreset p : {TodPreset::Day, TodPreset::Dusk, TodPreset::Night, TodPreset::Dawn}) if (tn == todPresetName(p)) u.hour = todPresetHour(p);
@@ -241,7 +251,9 @@ void Settings::apply(App& app) {
   R.setSsaoFull(g.ssaoFull);
   R.q.farCascade = g.farCascade; R.q.cloudShadows = g.cloudShadows; R.q.shafts = g.shafts; R.q.ssr = g.ssr; R.q.ssao = g.ssao; R.q.bloom = g.bloom;
   R.q.microcontrast = s.microcontrast;   // UI2
+  R.q.sharpness = s.sharpness;   // CP1
   R.q.lightNew = s.lightNew;   // VO stream L
+  R.q.lightPhys = s.lightNew && s.lightPhys;   // CP2
   if (R.q.taa != g.taa || R.q.taaPhases != g.taaPhases) R.resetTemporal();
   R.q.taa = g.taa; R.q.taaPhases = g.taaPhases;
   R.setMsaa(g.msaa);
@@ -251,8 +263,10 @@ void Settings::apply(App& app) {
   R.leafLodScale = g.grass <= 1 ? 0.6f : 1.0f;   // L1: vegetation detail follows the grass quality (Low: near 6 m, mid 13 m)
   R.clouds = g.clouds; R.wx.quality = g.cloudQuality; R.wx.target = s.weather; R.wx.fog = s.envFog;   // WX1 (a LAN client takes the host's: Renderer::Weather::forced)
   R.q.hazeDensity = 0.0010f;   // W1: visibility is the weather's, the same on every quality preset (fair sight; was scaled by render distance)
+  R.q.leafDriftN = g.cloudQuality <= 0 ? 0 : g.cloudQuality == 1 ? 800 : 2000;   // WS2 (corpus 07 s7.3)
   R.q.snowfallScale = g.cloudQuality <= 0 ? 0.4f : g.cloudQuality == 1 ? 0.75f : 1.0f;   // SF1: a map's snowfall at this sky quality   // PF2: the haze reaches the same depth at the render distance (Medium: unchanged)
   R.lt.maxLights = g.lightCount; R.lt.shadowLights = g.shadowLights; R.lt.gi = g.gi; R.lt.hour = s.hour;   // L2 lighting
+  R.q.impAtlas = g.grass >= 3 ? 2048 : 1024; R.q.impMax = g.grass >= 4 ? 16 : g.grass >= 2 ? 12 : 6;   // CP3: about 28 MB a species at 2048, 7 MB at 1024
   app.grass.quality = (GrassQuality)std::clamp(g.grass, 0, 4); app.grass.nearWind = g.grassWind;
   app.fx.setBudget(g.particles);
   if (!gSelftest) platformSwapInterval(s.vsync ? 1 : 0);
@@ -419,9 +433,13 @@ void settingsWindow(App& app) {
       int pr = 4; for (int k = 0; k < 5; ++k) if (order[k] == u.preset()) pr = k;
       
       if (flat::combo("Preset", &pr, pn, 5) && order[pr] != GfxPreset::Custom) g = presetOpts(order[pr]);
-      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Medium is the standard look. Low: half-size shadows, no cloud shadows / light shafts / reflections / AO,\nless grass and decoration, 50 %% resolution. High: sharper far shadows, full-resolution AO, more grass, longer view.");
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Medium is the standard look (77-100 %% resolution with dynamic resolution). Low: half-size shadows, no light shafts / reflections / bloom,\nless grass and decoration, 67-100 %% resolution; ambient occlusion, contact shadows, haze and anti-aliasing stay on every preset.\nHigh: sharper far shadows, full-resolution AO, more grass, longer view.");
       flat::sliderFloat("Resolution scale", &g.resScale, 0.5f, 1.0f, "%.2f");
       if (ImGui::IsItemDeactivatedAfterEdit()) applyNow = true;   // targets are recreated once, on release
+      flat::checkbox("Dynamic resolution", &u.dynRes);   // CP 5.1 (dynres.cpp)
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Lowers the internal resolution when a frame would miss 60 fps and raises it again when there is room (Medium / High 77-100 %%, Low 67-100 %%; Temporal upscaling). Off: the fixed resolution scale above.");
+      { int fw = app.R.displayW, fh = app.R.displayH; float rs = app.R.perf.taau && settings().s.upscale != 2 ? app.R.resolutionScale() : 1.0f;
+        ImGui::TextDisabled("Internal resolution now: %d x %d (%.0f %%)", (int)std::lround(fw * rs), (int)std::lround(fh * rs), rs * 100); }
       { const char* um[] = {"Temporal", "Spatial", "Off (native)"}; flat::combo("Upscaling", &u.upscale, um, 3);
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Below 100 %% resolution: Temporal rebuilds full detail over several frames (sharpest),\nSpatial upscales each frame (fastest on the Mac), Off renders at full resolution."); }
       { const char* sq[] = {"Low (2048 / 1024)", "Medium (4096 / 2048)", "High (4096 / 4096)"}; flat::combo("Shadow quality", &g.shadowQuality, sq, 3); }
@@ -491,8 +509,11 @@ void settingsWindow(App& app) {
       { float pc = u.microcontrast * 100.0f;   // UI2: live (no Apply needed), like Weather
         if (flat::sliderFloat("Microcontrast", &pc, 0.0f, 100.0f, "%.0f %%")) { u.microcontrast = std::clamp(pc / 100.0f, 0.0f, 1.0f); gApplied.microcontrast = u.microcontrast; app.R.q.microcontrast = u.microcontrast; gPendingSave = true; } }
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Local contrast (clarity): brings out surface detail and depth in flat, hazy light without sharpening edges or dark noise. 0 %% is off.");
-      { int li = u.lightNew ? 0 : 1; const char* ln[] = {"New", "Classic"};   // VO stream L: live, like Microcontrast
-        if (flat::combo("Lighting", &li, ln, 2)) { u.lightNew = li == 0; gApplied.lightNew = u.lightNew; app.R.q.lightNew = u.lightNew; gPendingSave = true; } }
+      { float sp = u.sharpness * 100.0f;   // CP1: live, like Microcontrast
+        if (flat::sliderFloat("Sharpness", &sp, 0.0f, 100.0f, "%.0f %%")) { u.sharpness = std::clamp(sp / 100.0f, 0.0f, 1.0f); gApplied.sharpness = u.sharpness; app.R.q.sharpness = u.sharpness; gPendingSave = true; } }
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Contrast-adaptive sharpening of the final image: crisper texture detail, held back on edges that are already sharp. 0 %% is off.");
+      { int li = !u.lightNew ? 1 : u.lightPhys ? 2 : 0; const char* ln[] = {"New", "Classic", "Physical"};   // VO stream L: live, like Microcontrast; CP2 Physical
+        if (flat::combo("Lighting", &li, ln, 3)) { u.lightNew = li != 1; u.lightPhys = li == 2; gApplied.lightNew = u.lightNew; gApplied.lightPhys = u.lightPhys; app.R.q.lightNew = u.lightNew; app.R.q.lightPhys = u.lightPhys; gPendingSave = true; } }
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("New: full-strength shadows grounded by contact shadows and the newer lighting. Classic: the lighting before the visual overhaul, for comparison.");
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Vertical field of view on foot (72 standard). Aiming and gun sights narrow from it.");
       flat::checkbox("Vsync", &u.vsync);

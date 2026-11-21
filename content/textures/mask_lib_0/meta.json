@@ -1,0 +1,18 @@
+{
+ "set": "mask_lib_0",
+ "family": "mask library (CP step 6)",
+ "size": [
+  2.0,
+  2.0
+ ],
+ "license": "CC0 1.0 Universal",
+ "credit": "derived from ambientCG CC0 sets: surface_imperfections_003, smear_008, surface_imperfections_014",
+ "channels": {
+  "r": "surface_imperfections_003",
+  "g": "smear_008",
+  "b": "surface_imperfections_014"
+ },
+ "maps": [
+  "color.jpg"
+ ]
+}

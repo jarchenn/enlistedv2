@@ -85,9 +85,11 @@ LINKS = {
 
 
 def flora(b, plan, grid, keep):
-    """DF1 (mapgen/desert_flora.py): in the compound only small tufts (0.35 m) hugging plain walls, away from every doorway,
-    door-to-door line, plant pad and both spawn yards, and one beside each scrub / small rock: no new cover in the lanes.
-    Outside the compound (out of bounds) larger patches and the desert shrubs."""
+    """DF1 / DF1b (mapgen/desert_flora.py): no new cover on the lanes. Inside the compound, plants of 0.6 m or less
+    (DF.LOW and the grass tufts) at plain-wall feet and in wall corners, one or two agave / yucca at each site's edge, and
+    plants up to 0.75 m (DF.MID) only in the dead gap between a tall blocker (vehicle, container, stack) and a wall or
+    another blocker. Nothing within 1.5 m of a door line, 3 m of a doorway (5 m at the spawn exits) or 1 m past a plant
+    pad / audit eye. Outside the compound (out of bounds) larger patches and the desert shrubs."""
     R = _random.Random(7302)
     repo = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
     insts = [(e["asset"], e["pos"][0], e["pos"][2], e["yaw"]) for e in b.inst]
@@ -96,29 +98,74 @@ def flora(b, plan, grid, keep):
     doors = [(x, z, 5.0 if ch in "TD" else 3.0) for ch in regs for x, z in door_points(plan, ch)]   # spawn exits get more room
     segs = [s for ch in regs for s in door_segs(plan, ch)]
     free = lambda x, z: not any(DF.inside(o, x, z, 0.05) for o in obst)
+    cell = lambda x, z: (int((x - plan.x0) // plan.cell), int((z - plan.z0) // plan.cell))
 
     def ok_in(x, z):
-        if plan.at(int((x - plan.x0) // plan.cell), int((z - plan.z0) // plan.cell)) in "# TD":
+        if not plan.walk(*cell(x, z)):
             return False
-        if any(math.hypot(x - dx, z - dz) < r for dx, dz, r in doors) or any(_seg_dist((x, z), s0, s1) < 1.2 for s0, s1 in segs):
+        if any(math.hypot(x - dx, z - dz) < r for dx, dz, r in doors) or any(_seg_dist((x, z), s0, s1) < 1.5 for s0, s1 in segs):
             return False
         return not any(math.hypot(x - kx, z - kz) < kr + 1.0 for kx, kz, kr in keep) and free(x, z)
+
+    def walled(x0, z0, x, z):
+        """(x, z), seen from (x0, z0), is behind a wall or inside a blocker: the gap between them is closed"""
+        a, c = cell(x0, z0), cell(x, z)
+        if not plan.walk(*c) or any(DF.inside(o, x, z, 0.0) for o in obst):
+            return True
+        return a != c and plan.at(*a) != plan.at(*c) and plan.links.get(frozenset((a, c))) != "open"
     P = DF.Placer(R, ok_in, gap=1.2)
+    # 1. each site's edge: one or two agave / yucca (0.44 / 0.6 m) in its wall corners
+    corners = []
+    for j in range(plan.nz):
+        for i in range(plan.nx):
+            ch = plan.at(i, j)
+            if not plan.walk(i, j):
+                continue
+            x, z = plan._cc(i, j)
+            for si in (-1, 1):
+                for sj in (-1, 1):
+                    if all(plan.at(*n) != ch and plan.links.get(frozenset(((i, j), n))) != "open" for n in ((i + si, j), (i, j + sj))):
+                        corners.append((ch, x + si * (plan.cell / 2 - 0.85), z + sj * (plan.cell / 2 - 0.85)))
+    R.shuffle(corners)
+    for site in "AB":
+        n = 0
+        for ch, x, z in corners:
+            if ch == site and n < 2 and P.add(["fl_desertshrub_agave_2", "fl_desertshrub_yucca_2"], x, z):
+                n += 1
+    # 2. wall corners: a low plant
+    for ch, x, z in corners:
+        P.add(DF.LOW, x, z, 0.8)
+    # 3. plain-wall feet (every walkable region, the spawn yards too): low shrubs and tufts
     for x, z, yaw, kind, a, c in plan.edges():
         if kind:
             continue
-        for cell in (a, c):
-            if not plan.walk(*cell) or plan.at(*cell) in "TD":
+        for cl in (a, c):
+            if not plan.walk(*cl):
                 continue
-            ix, iz = plan._cc(*cell)
+            ix, iz = plan._cc(*cl)
             nx, nz = (math.copysign(1.0, ix - x), 0.0) if yaw == 90.0 else (0.0, math.copysign(1.0, iz - z))
-            t = R.uniform(-plan.cell / 2 + 0.6, plan.cell / 2 - 0.6)
-            P.add(DF.TUFT, x + nx * 0.6 - nz * t, z + nz * 0.6 + nx * t, 0.3)
-    for aid, x, z, yaw in insts:
+            for _ in range(2):
+                t = R.uniform(-plan.cell / 2 + 0.9, plan.cell / 2 - 0.9)
+                P.add(DF.LOW if R.random() < 0.55 else DF.TUFT, x + nx * 0.8 - nz * t, z + nz * 0.8 + nx * t, 0.5)
+    # 4. dead ground: the gap between a tall blocker and the wall / blocker behind it
+    tall = DF.WALLISH + ("apc", "utility", "pcar", "container", "generator", "pallet", "crate", "sandbag", "tyre", "tower", "supply", "scrap", "deadwood", "compressor")
+    for aid, ox, oz, yaw, w, d in obst:
+        if not any(s in aid for s in tall) or aid.startswith(("sd_compound", "sd_mud")):
+            continue
+        big = w * d > 2.0
+        ax, az = DF.axes(yaw)
+        for (ux, uz), half in ((ax, w / 2), ((-ax[0], -ax[1]), w / 2), (az, d / 2), ((-az[0], -az[1]), d / 2)):
+            px, pz = ox + ux * (half + 0.45), oz + uz * (half + 0.45)
+            if walled(px, pz, px + ux * 1.0, pz + uz * 1.0):
+                P.add(DF.MID if big else DF.LOW, px, pz, 0.8)
+    for aid, x, z, yaw in insts:   # a tuft beside the scrub and small rocks already there
         if aid in ("nat_brush_scrub", "ph_dry_branches_medium_01_a", "sd_dry_rock_small", "rk_rock_s_a"):
             a = R.uniform(0, 2 * math.pi)
             P.add(DF.TUFT, x + math.cos(a) * 0.9, z + math.sin(a) * 0.9, 0.7)
     inner = P.out
+    for aid, x, z, yaw in inner:   # self-check: the S&D cover rule
+        assert DF.HEIGHT[aid] <= 0.6 or aid in DF.MID, aid
+        assert all(_seg_dist((x, z), s0, s1) >= 1.5 for s0, s1 in segs), (aid, x, z)
     X0, Z0 = plan.x0 - 2.0, plan.z0 - 2.0
 
     def ok_out(x, z):
@@ -131,6 +178,7 @@ def flora(b, plan, grid, keep):
         b.place(aid, x, z, yaw, check=False, cls="none", tags={"flora"})
     for aid, x, z, yaw in Q.out:
         b.place(aid, x, z, yaw, check=False, cls="none", tags={"flora"})
+    print("DF1b flora: %d inside (%s), %d outside" % (len(inner), ", ".join("%s %d" % (k, sum(1 for a in inner if a[0] in g)) for k, g in (("low", DF.LOW), ("mid", DF.MID), ("tuft", DF.TUFT))), len(Q.out)))
     return len(inner), len(Q.out)
 
 
@@ -386,7 +434,7 @@ def build(ctx):
         views.append({"name": name + "_eye", "pos": [round(x, 2), round(y0 + eye, 2), round(z, 2)], "yaw": look_yaw(tx - x, tz - z), "pitch": 0.0, "gameplay": True})
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sc.to_json(rules_extra=rules), explore_start=((a1[0], a1[1], a1[2]), 0.0), camera=cam, bookmarks={},
-              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 13.0, "enclosed": False}, "look": {"haze": 1.45, "weather": 0.0, "clouds": 0.04, "arid": True, "saturation": 1.12, "tint": [1.1, 1.0, 0.84], "bloom": 1.25, "paintSets": {"rock": "apron_concrete_paint", "gravel": "gravel_mixed", "dirt": "dirt_path_paint"}}})
+              extra={"groundPaint": paint.to_json(), "lighting": {"hour": 13.0, "enclosed": False}, "look": {"haze": 1.45, "weather": 0.0, "clouds": 0.04, "arid": True, "saturation": 1.12, "tint": [1.1, 1.0, 0.84], "bloom": 1.25, "paintSets": {"rock": "apron_concrete_paint", "gravel": "gravel_mixed", "dirt": "trail_dirt"}}})
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=20, version=VERSION, seed=SEED,
                    description="Search and Destroy: a desert compound of precast concrete walls and courtyards in hard noon light. "
                                "A: the west vehicle court; B: the east supply yard; Mid: the parade square. 5 v 5.",

@@ -7,6 +7,7 @@
 #include "terrain.h"
 #include <algorithm>
 #include <cmath>
+#include <chrono>
 #include <thread>
 
 namespace {
@@ -50,6 +51,7 @@ void Terrain::normalsDirty(vec2 lo, vec2 hi) const {
     if (svDirty.z < svDirty.x) svDirty = glm::ivec4(a0, b0, a1, b1);
     else svDirty = glm::ivec4(std::min(svDirty.x, a0), std::min(svDirty.y, b0), std::max(svDirty.z, a1), std::max(svDirty.w, b1));
   }
+  if (horAz < 1e8f) horEdit = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();   // T6: the horizon re-bakes once the edits pause
 }
 
 void Terrain::normalsSync() const {
@@ -95,6 +97,7 @@ void Terrain::normalsRelease() const {
   if (nrmTex) glDeleteTextures(1, &nrmTex);
   if (svTex) glDeleteTextures(1, &svTex);
   nrmTex = svTex = 0; nrmW = nrmH = svW = svH = 0; nrmGen = svGen = ~0u; nrmDirty = svDirty = glm::ivec4(1, 1, 0, 0);
+  svPx.clear(); svPx.shrink_to_fit(); horAz = 1e9f; horEdit = -1;
 }
 
 // ------------------------------------------------------------------ VOT T5: terrain self-occlusion (sky-view factor)
@@ -122,34 +125,95 @@ float Terrain::skyViewAt(float x, float z) const {
   return sum / kSvDirs;
 }
 
+void Terrain::svEnsure() const {
+  if (svGen == generation) return;
+  if (svTex) glDeleteTextures(1, &svTex);
+  svW = std::min(kMaxSide, (nx - 1) * 2); svH = std::min(kMaxSide, (nz - 1) * 2);
+  svTexelX = size / svW; svTexelZ = sizeZ / svH;
+  glCreateTextures(GL_TEXTURE_2D, 1, &svTex);
+  glTextureStorage2D(svTex, 1, GL_RGBA8, svW, svH);   // T6: R sky view, G / B / A horizon (was R8)
+  glTextureParameteri(svTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(svTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTextureParameteri(svTex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(svTex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  svPx.assign((size_t)svW * svH * 4, 255);   // R open sky; G / B / A the lowest horizon (lit) until baked
+  for (size_t k = 0; k < svPx.size(); k += 4) svPx[k + 1] = svPx[k + 2] = svPx[k + 3] = 0;
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  glTextureSubImage2D(svTex, 0, 0, 0, svW, svH, GL_RGBA, GL_UNSIGNED_BYTE, svPx.data());
+  svDirty = glm::ivec4(0, 0, svW - 1, svH - 1);
+  horAz = 1e9f; horEdit = -1;
+  svGen = generation;
+}
+
+namespace {
+void svUpload(GLuint tex, int W, const std::vector<uint8_t>& px, int z0, int z1) {   // whole rows z0..z1
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  glTextureSubImage2D(tex, 0, 0, z0, W, z1 - z0 + 1, GL_RGBA, GL_UNSIGNED_BYTE, px.data() + (size_t)z0 * W * 4);
+}
+template <class F> void svRows(int n, int perThreadMin, F f) {
+  int nt = std::clamp((int)std::thread::hardware_concurrency(), 1, 16);
+  if (n < perThreadMin) nt = 1;
+  std::vector<std::thread> th;
+  for (int k = 0; k < nt; ++k) { int a = n * k / nt, b = n * (k + 1) / nt; if (k + 1 < nt) th.emplace_back(f, a, b); else f(a, b); }
+  for (auto& t : th) t.join();
+}
+constexpr float kHorRange = 900.0f, kHorBin = 0.20944f;   // 12 deg between the bins
+constexpr float kHorLo = -5.0f, kHorSpan = 50.0f;           // stored elevation range (deg): -5 .. 45
+}  // namespace
+
 void Terrain::skyViewSync() const {
   if (h.empty()) return;
-  if (svGen != generation) {
-    if (svTex) glDeleteTextures(1, &svTex);
-    svW = std::min(kMaxSide, (nx - 1) * 2); svH = std::min(kMaxSide, (nz - 1) * 2);
-    svTexelX = size / svW; svTexelZ = sizeZ / svH;
-    glCreateTextures(GL_TEXTURE_2D, 1, &svTex);
-    glTextureStorage2D(svTex, 1, GL_R8, svW, svH);
-    glTextureParameteri(svTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(svTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTextureParameteri(svTex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(svTex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    svDirty = glm::ivec4(0, 0, svW - 1, svH - 1);
-    svGen = generation;
-  }
+  svEnsure();
   if (svDirty.z < svDirty.x) return;
   const glm::ivec4 r = svDirty;
   svDirty = glm::ivec4(1, 1, 0, 0);
   const int w = r.z - r.x + 1, hh = r.w - r.y + 1;
-  std::vector<uint8_t> px((size_t)w * hh);
-  auto rows = [&](int z0, int z1) {
+  svRows(hh, 32, [&](int z0, int z1) {
     for (int j = z0; j < z1; ++j)
       for (int i = 0; i < w; ++i)
-        px[(size_t)j * w + i] = (uint8_t)std::lround(std::clamp(skyViewAt(org.x + (r.x + i + 0.5f) * svTexelX, org.y + (r.y + j + 0.5f) * svTexelZ), 0.0f, 1.0f) * 255.0f);
-  };
-  int nt = std::clamp((int)std::thread::hardware_concurrency(), 1, 16);
-  if ((size_t)w * hh < 8192) nt = 1;
-  std::vector<std::thread> th;
-  for (int k = 0; k < nt; ++k) { int a = hh * k / nt, b = hh * (k + 1) / nt; if (k + 1 < nt) th.emplace_back(rows, a, b); else rows(a, b); }
-  for (auto& t : th) t.join();
-  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-  glTextureSubImage2D(svTex, 0, r.x, r.y, w, hh, GL_RED, GL_UNSIGNED_BYTE, px.data());
+        svPx[((size_t)(r.y + j) * svW + r.x + i) * 4] = (uint8_t)std::lround(std::clamp(skyViewAt(org.x + (r.x + i + 0.5f) * svTexelX, org.y + (r.y + j + 0.5f) * svTexelZ), 0.0f, 1.0f) * 255.0f);
+  });
+  svUpload(svTex, svW, svPx, r.y, r.w);
+}
+
+float Terrain::horizonAt(float x, float z, float dx, float dz) const {
+  const float h0 = baseHeight(x, z) + 0.3f;   // a little above the ground: its own texel-scale bumps do not shade it
+  float best = -1.0f;
+  for (float d = 3.0f; d <= kHorRange; d *= 1.12f) best = std::max(best, (baseHeight(x + dx * d, z + dz * d) - h0) / d);
+  return best;
+}
+
+glm::vec4 Terrain::horizonWeights(vec3 s) const {
+  float el = glm::degrees(std::asin(std::clamp(s.y, -1.0f, 1.0f)));
+  if (horAz > 1e8f) return glm::vec4(0, 0, 0, el);
+  float d = std::atan2(s.z, s.x) - horAz;
+  d = std::remainder(d, 6.2831853f);
+  float t = std::clamp(d / kHorBin, -1.0f, 1.0f);
+  return t < 0 ? glm::vec4(-t, 1 + t, 0, el) : glm::vec4(0, 1 - t, t, el);
+}
+
+GLuint Terrain::horizonSync(vec3 s) const {
+  if (h.empty()) return 0;
+  svEnsure();
+  const float az = std::atan2(s.z, s.x);
+  const double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+  bool out = horAz > 1e8f || std::fabs(std::remainder(az - horAz, 6.2831853f)) > kHorBin * 0.75f;
+  bool edited = horEdit >= 0 && now - horEdit > 1.0;
+  if (s.y < -0.05f && horAz < 1e8f) out = false;   // night: keep the day's bake
+  if (!out && !edited) return horAz < 1e8f ? svTex : 0;
+  const float a0 = std::round(az / 0.0872665f) * 0.0872665f;   // 5 deg steps: a slowly turning sun re-bakes rarely
+  float dx[3], dz[3];
+  for (int k = 0; k < 3; ++k) { dx[k] = std::cos(a0 + (k - 1) * kHorBin); dz[k] = std::sin(a0 + (k - 1) * kHorBin); }
+  svRows(svH, 8, [&](int z0, int z1) {
+    for (int j = z0; j < z1; ++j)
+      for (int i = 0; i < svW; ++i) {
+        float x = org.x + (i + 0.5f) * svTexelX, z = org.y + (j + 0.5f) * svTexelZ;
+        uint8_t* o = &svPx[((size_t)j * svW + i) * 4];
+        for (int k = 0; k < 3; ++k) {
+          float e = glm::degrees(std::atan(horizonAt(x, z, dx[k], dz[k])));
+          o[1 + k] = (uint8_t)std::lround(std::clamp((e - kHorLo) / kHorSpan, 0.0f, 1.0f) * 255.0f);
+        }
+      }
+  });
+  svUpload(svTex, svW, svPx, 0, svH - 1);
+  horAz = a0; horEdit = -1;
+  return svTex;
 }

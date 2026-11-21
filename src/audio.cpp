@@ -459,6 +459,12 @@ int Audio::loadCustom(const fs::path& dir) {
     for (const char* f : {"bta/creak_1.mp3", "bta/creak_2.mp3", "bta/creak_3.mp3", "bta/creak_4.mp3"}) if (decode(f, b)) ev.v.push_back(b);
     if (!ev.v.empty()) { ++used; p->events["amb_creak"] = std::move(ev); }
   }
+  for (auto [name, files] : {std::pair<const char*, std::vector<const char*>>{"wx_thunder_near", {"wx/thunder_near1.mp3", "wx/thunder_near2.mp3"}},
+                              {"wx_thunder_far", {"wx/thunder_far1.mp3"}}}) {   // W1 weather: thunder (weather_audio.cpp), on the ambience bus
+    Impl::Event ev; ev.kind = "amb";
+    for (const char* f : files) if (decode(f, b)) ev.v.push_back(b);
+    if (!ev.v.empty()) { ++used; p->events[name] = std::move(ev); }
+  }
   if (decode("door_open.mp3", b)) { ++used; Impl::Event ev; ev.v.push_back(b); ev.gain = 0.5f; for (const char* n : {"wood_open", "glass_open", "shutter_open", "steel_open"}) p->events[n] = ev; }
   // gun shots (guns/*.mp3): one recording per weapon group. A burst recording gives its last shot (the one with the tail);
   // automatic fire re-triggers it per round like every other shot event.

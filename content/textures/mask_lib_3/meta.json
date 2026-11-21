@@ -1,0 +1,18 @@
+{
+ "set": "mask_lib_3",
+ "family": "mask library (CP step 6)",
+ "size": [
+  2.0,
+  2.0
+ ],
+ "license": "CC0 1.0 Universal",
+ "credit": "derived from ambientCG CC0 sets: render_stained, brick_damaged, rb_rust_patch",
+ "channels": {
+  "r": "render_stained",
+  "g": "brick_damaged",
+  "b": "rb_rust_patch"
+ },
+ "maps": [
+  "color.jpg"
+ ]
+}

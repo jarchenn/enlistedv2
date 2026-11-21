@@ -312,6 +312,7 @@ bool Game::begin(std::string& err) {
   if (!isClient) match.start(); else { match.phase = MatchPhase::Running; for (auto& o : match.obj) o.state = ObjState::Locked; if (!match.obj.empty()) match.obj[0].state = ObjState::Active; }
   ghosts.clear(); doorSeen.clear();
   active = true;
+  app.refreshMatchOnly();   // BT2: play-limit blockers on (explore-only routes closed during a match)
   deployOpenedAt = t; deployReady = app.selftest; deploySpawn = -1;   // GM1: the first spawn goes through the deploy screen too
   // the local player waits in limbo until its first spawn
   if (Soldier* L = local()) { vec3 p = app.exploreStartPos; Physics::setCharacterPos(vec3(p.x, p.y - kLimboDepth, p.z)); (void)L; }
@@ -331,6 +332,7 @@ void Game::end() {
   Physics::destroyAllAgents();
   sold.clear(); gren.clear(); sounds.clear();
   active = false; isClient = false;
+  app.refreshMatchOnly();   // BT2: and off again
   match.phase = MatchPhase::Setup;
 }
 

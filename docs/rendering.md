@@ -764,3 +764,39 @@ Shim calls needed:
   - a nearest depth upsample into `outDepth`.
 
 No new GL feature is required: the GL path uses only `texelFetch`, `gl_FragDepth` and a depth attachment on the TAA target.
+
+<a id="wind"></a>
+## 15. Shared wind and drifting leaves (WS1, WS2)
+
+**Input.** The wind is read, never written, from the weather state (`R.wx`, src/weather.cpp):
+- direction and speed: `der.windXZ` (m/s, toward);
+- sway amplitude: `wind` (`der.windK` x on / off, `--rq-off wind`; 1 = Clear's 3 m/s) through
+  `windSway(k) = clamp(k^0.8, 0, 2.5)`, so windK 1 is the pre-weather look and the amplitude caps from about 9.4 m/s;
+- travelling gust factor G = `st.gust - 1` (peak over mean, 0..1);
+- gust length L = speed x `st.gustPeriodS` (20-100 m).
+
+Grass, model foliage (NT8) and the leaf cards all read this one path.
+
+**Clocks.** Two values are accumulated on the CPU at the current rates:
+- the sway clock: `+= dt (0.7 + 0.3 amp)`;
+- the gust offset: `+= dt speed`, in metres downwind.
+
+A changing wind therefore never rescales absolute time, which is what makes a constant-rate phase jump.
+
+**Gusts.** One gust pattern travels downwind: `g = 1 + G (2 vnoise((along - offset) / L, across / 1.7 L) - 1)`. It
+multiplies every sway. The uniforms are in kCommon:
+- `uWindV`: the direction, plus the gust offset now and in the previous frame;
+- `uWindP`: the clock now and in the previous frame, L and G.
+
+**Drifting leaves** (`leafdrift`, corpus 07 s7.3) use the snowfall's stateless path:
+- Each leaf is a function of its instance id and the clock, in a 32 x 12 x 32 m box round the eye that wraps on world
+  coordinates.
+- Fall speed is constant per leaf. The sideways travel is the accumulated wind displacement times a per-leaf share.
+- The gust pattern decides how many show where.
+- They are alpha-tested, two-sided tumbling ovals in a dead-leaf palette.
+- Count: Low 0, Medium 800, High 2000 (`Quality::leafDriftN`), scaled by how many standing card trees (broadleaf,
+  orchard) are within 30 m of the eye, so open fields have none. Leafless maps (`look.leafless`) have none.
+- They are hidden indoors, and where the sky-occlusion map has something solid 0.1-2.5 m above the leaf (eaves,
+  porches, low roofs).
+- Limit: the occlusion map cannot tell a roof from a canopy. So a leaf under a higher roof can still show, for
+  example inside an open barn seen from outside.

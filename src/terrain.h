@@ -89,7 +89,8 @@ public:
     std::vector<float> dirt;   // disturbed-soil blend 0..1
     std::vector<float> sdirt;  // GX1 stamp soil mask 0..1 (trench mud, spoil, bare berm faces, pad embankments); derived, never saved
     std::vector<float> sew;    // GX1 stamp material per sample, 3 floats: packed mud (cut walls / floor), freshly turned earth (spoil), wet
-    GLuint vao = 0, vbo = 0, ebo = 0; int count = 0;
+    GLuint vao = 0, vbo = 0, ebo = 0; int count = 0;   // ebo unused since VOT T2: the tiles share tileEbo
+    float ylo = 0, yhi = 0;    // VOT T2: height bounds of the mesh (culling)
     uint32_t body = 0xffffffffu;
     uint32_t rev = 0;          // bumped on every remesh (grass / cache invalidation)
     bool cut = false;          // a terrain cut covers part of it (kept active while the cut exists)
@@ -122,7 +123,7 @@ public:
   bool inBuildArea(float x, float z) const { return std::fabs(x) <= buildHalfX && std::fabs(z) <= buildHalfZ; }
   bool inTerrain(float x, float z) const { return x >= org.x && z >= org.y && x <= org.x + size && z <= org.y + sizeZ; }
   // draws the streamed base chunks (LOD by distance to cam, culled by vp) and the deformation tiles
-  void draw(GLuint prog, vec3 cam, const mat4& vp) const;
+  void draw(GLuint prog, vec3 cam, const mat4& vp, GLuint progND = 0, GLuint progDepth = 0) const;   // progDepth: PF tzprepass depth-only shader (needs progND)   // progND: the shader without the tile-mask discard (terrain early depth)
   void destroy();
 
   // deformation
@@ -176,6 +177,7 @@ public:
   float wetAt(float x, float z) const { return surfSample(x, z, 1); }
   GLuint surfTex = 0;
   std::map<int, Tile> tiles;
+  std::vector<uint8_t> maskCpu;   // the tile mask (maskTex) on the CPU: which base chunks need the discarding shader
   std::set<int> physDirty;         // tile keys whose physics patch / chunk holes need syncing (terrain_chunks.cpp)
   uint32_t revision = 0, tileRev = 0, generation = 0;
 
@@ -195,21 +197,32 @@ public:
   GLuint maskTexture() const { return maskTex; }
   // ---- VOT T1 per-pixel normals (terrain_normals.cpp): a Catmull-Rom surface through the base vertices, baked at the
   // fine spacing; kTerrainFS reads it for the base chunks (draw sets uTNOn). Set by the renderer each frame:
-  struct DrawOpts { bool normals = true, morph = true, skyView = true; };   // --rq-off tnormal / tmorph / tskyview
+  struct DrawOpts { bool normals = true, morph = true, skyView = true, tileLod = true; };   // --rq-off tnormal / tmorph / tskyview / ttilelod
   mutable DrawOpts drawOpts;
+  mutable GLuint tileEbo = 0; mutable int tileIdxOff[3] = {}, tileIdxCnt[3] = {};   // VOT T2: one index buffer for every tile, 3 LODs + skirts
+  mutable struct { int drawn = 0, culled = 0, lod[3] = {}; } tileStats;
   vec3 smoothNormal(float x, float z) const;
   void normalsDirty(vec2 lo, vec2 hi) const;   // re-bake that rectangle on the next draw
   void normalsSync() const;                    // bake + upload what is dirty (a new grid: everything)
   void normalsRelease() const;
   float skyViewAt(float x, float z) const;     // VOT T5: cosine-weighted sky fraction above the local tangent plane (1 = open)
   void skyViewSync() const;
-  GLuint normalTexture() const { return nrmTex; }
+  // VOT T6: the same texture's G / B / A hold the horizon elevation toward three sun azimuths (the baked one -12, 0,
+  // +12 deg) out to 900 m; the shared shadow code fades to it past the far cascade (uTHor*). Re-baked when the sun
+  // leaves that band or 1 s after the ground was last edited. Returns the texture (0: not baked).
+  GLuint horizonSync(vec3 sunDir) const;
+  glm::vec4 horizonWeights(vec3 sunDir) const;   // xyz: weights of G / B / A for this sun, w: its elevation (deg)
+  float horizonAt(float x, float z, float dx, float dz) const;   // tan of the horizon elevation from the ground at (x, z)
+  glm::vec4 horizonMap() const { return glm::vec4(org.x, org.y, 1.0f / size, 1.0f / sizeZ); }
 private:
   mutable GLuint nrmTex = 0; mutable int nrmW = 0, nrmH = 0; mutable float nrmTexelX = 1, nrmTexelZ = 1;
   mutable glm::ivec4 nrmDirty{1, 1, 0, 0};   // texel rectangle x0, z0, x1, z1 (x1 < x0: clean)
   mutable uint32_t nrmGen = ~0u;
   mutable GLuint svTex = 0; mutable int svW = 0, svH = 0; mutable float svTexelX = 1, svTexelZ = 1;   // T5 sky-view texture (R8, 2 texels a cell)
   mutable glm::ivec4 svDirty{1, 1, 0, 0}; mutable uint32_t svGen = ~0u;
+  mutable std::vector<uint8_t> svPx;   // T6: the RGBA texels on the CPU (R sky view, GBA horizon), so either half re-uploads alone
+  mutable float horAz = 1e9f; mutable double horEdit = -1;   // baked azimuth (rad), last edit time (s, -1 clean)
+  void svEnsure() const;
   GLuint maskTex = 0;
   float baseFormula(float wx, float wz, uint32_t seed) const;   // the procedural blank-slate ground (before W5 heightmaps)
   void applyGenLayers(const TemplateInfo& t, int innerNx, int innerNz);   // V8: ring + hill stamps over the base grid (terrain.cpp)
