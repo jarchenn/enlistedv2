@@ -24,6 +24,46 @@ void lightingExposure(const Renderer& R, GLuint p);
 float lightingFixedExposure(const Renderer& R);
 
 // ============================================================== shaders
+// BF B4 contact AO decals (spec 4.6, reference 04 s4.8): one screen-space rectangle per object, the bounds of its
+// footprint box projected; the fragment darkens up-facing ground within w of the footprint, multiplied into the AO target
+static const char* kContactAOVS = R"GLSL(#version 450 core
+layout(location=0) in vec4 aA; layout(location=1) in vec4 aB; layout(location=2) in vec4 aC;
+uniform mat4 uVP;
+flat out vec4 vA, vB, vC;
+void main(){
+  vA = aA; vB = aB; vC = aC;
+  float cs = cos(aA.w), sn = sin(aA.w); vec2 h = aB.xy + aB.z;
+  vec2 lo = vec2(1e9), hi = vec2(-1e9); bool behind = false;
+  for (int k = 0; k < 8; ++k) {
+    vec2 l = vec2((k & 1) == 0 ? -h.x : h.x, (k & 2) == 0 ? -h.y : h.y);
+    vec4 p = uVP*vec4(aA.x + cs*l.x + sn*l.y, (k & 4) == 0 ? aC.x : aC.y, aA.z - sn*l.x + cs*l.y, 1.0);
+    if (p.w < 0.05) { behind = true; break; }
+    lo = min(lo, p.xy/p.w); hi = max(hi, p.xy/p.w);
+  }
+  if (behind) { lo = vec2(-1.0); hi = vec2(1.0); }
+  lo = clamp(lo, -1.0, 1.0); hi = clamp(hi, -1.0, 1.0);
+  int v = gl_VertexID; vec2 t = vec2(v == 1 || v == 2 || v == 4 ? 1.0 : 0.0, v == 2 || v == 4 || v == 5 ? 1.0 : 0.0);
+  gl_Position = vec4(mix(lo, hi, t), 0.0, 1.0);
+}
+)GLSL";
+static const char* kContactAOFS = R"GLSL(#version 450 core
+uniform sampler2D uDepth, uNR; uniform mat4 uInvVP; uniform vec2 uInvSize; uniform vec3 uEye;
+flat in vec4 vA, vB, vC;
+layout(location=0) out vec4 oAO;
+void main(){
+  vec2 uv = gl_FragCoord.xy*uInvSize; float z = texture(uDepth, uv).r;
+  if (z <= 0.0) discard;
+  vec4 p = uInvVP*vec4(uv*2.0 - 1.0, z, 1.0); vec3 w = p.xyz/p.w;
+  if (w.y < vC.x || w.y > vC.y) discard;
+  if (texture(uNR, uv).y < 0.55) discard;   // ground only: walls and the object's own sides keep their shading
+  vec2 d = w.xz - vA.xz; float cs = cos(vA.w), sn = sin(vA.w);
+  vec2 l = vec2(cs*d.x - sn*d.y, sn*d.x + cs*d.y);
+  vec2 q = abs(l) - vB.xy; float sd = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
+  float occ = vB.w*(1.0 - smoothstep(0.0, vB.z, sd))*(1.0 - smoothstep(40.0, 60.0, length(w - uEye)));
+  if (occ <= 0.002) discard;
+  oAO = vec4(1.0 - occ, 1.0, 1.0, 1.0);
+}
+)GLSL";
 static const char* kCommon = R"GLSL(
 const float PI = 3.14159265;
 // W1 weather state for every shader (Renderer::wx.st / wx.der, uploaded once a frame by Renderer::uploadWeather): fixed
@@ -85,7 +125,35 @@ float fbm(vec3 p){ float s=0.0, a=0.5; for(int i=0;i<4;i++){ s+=a*vnoise(p); p*=
 // and one gust pattern travelling downwind: g = 1 + G (2 noise((along - offset) / L, across / 1.7 L) - 1). Defaults: the pre-WS1 breeze
 uniform vec4 uWindV = vec4(0.8, 0.6, 0.0, 0.0);    // xy direction (unit), z gust offset this frame (m), w the previous frame's
 uniform vec4 uWindP = vec4(0.0, 0.0, 50.0, 0.0);   // x sway clock this frame (s), y previous, z gust length L (m), w gust factor G
-float windSway(float k){ return clamp(pow(max(k, 0.0), 0.8), 0.0, 2.5); }   // sway amplitude from uWind (der.windK x on / off): 1 = Clear's 3 m/s, the pre-weather look; 2.5 from about 9.4 m/s
+float windSway(float k){ return clamp(pow(max(k, 0.0), 0.8), 0.0, 2.5); }
+// BF B1 moss field (docs/vfx-rev3/BATTLE-FOUNDRY-SPEC.md 4.5, reference 03 s3.2): one field drives the film, the mat and
+// the cushions. moss.cpp mossFieldCpu is its C++ mirror (same integer hash): keep the two identical.
+uniform vec4 uMoss = vec4(0.0, 0.0, 12.0, 0.5);   // x on (mossfield), y transmission (Medium and up), z mat range (m; film beyond), w lichen age
+uint mossHash(ivec3 c){ uint h = uint(c.x)*0x8da6b343u ^ uint(c.y)*0xd8163841u ^ uint(c.z)*0xcb1ab31fu; h ^= h >> 13; h *= 0x5bd1e995u; h ^= h >> 15; return h; }
+float mossVn(vec3 p){
+  vec3 i = floor(p), f = p - i; f = f*f*(3.0 - 2.0*f); ivec3 c = ivec3(i);
+  #define MH(x, y, z) (float(mossHash(c + ivec3(x, y, z)) & 0xffffu)*(1.0/65535.0))
+  return mix(mix(mix(MH(0,0,0), MH(1,0,0), f.x), mix(MH(0,1,0), MH(1,1,0), f.x), f.y),
+             mix(mix(MH(0,0,1), MH(1,0,1), f.x), mix(MH(0,1,1), MH(1,1,1), f.x), f.y), f.z);
+  #undef MH
+}
+// moisture: rising damp (y = height above grade, m), drips, cavity, distance to water (m)
+float mossMoist(float y, float drip, float cav, float distW){ return clamp(0.40*pow(clamp(1.0 - y/1.4, 0.0, 1.0), 1.8) + 0.25*drip + 0.20*cav + 0.15*clamp(1.0 - distW/8.0, 0.0, 1.0), 0.0, 1.0); }
+// shelter: sh0 = 1 - sunHours/6 (baked, 0..1); the face's turn away from the sun's path (sunDir: the path's noon side, +z south; moss.cpp)
+float mossShelter(float sh0, vec3 n, vec3 sunDir){ vec3 ds = -normalize(vec3(sunDir.x, 0.0, sunDir.z) + vec3(1e-4, 0.0, 0.0)); return 0.60*clamp(sh0, 0.0, 1.0) + 0.40*clamp(dot(n, ds)*0.5 + 0.5, 0.0, 1.0); }
+// (M appearance, G instanced relief, L lichen). nearK fades the 8 cm octave out with distance (1 = near; the CPU mirror uses 1)
+vec3 mossField(vec3 p, float upDot, float wallAttach, float groundRecv, float moist, float shelter, float por, float root, float traffic, float excl, float snow, float site, float nearK){
+  float attach = max(smoothstep(0.22, 0.85, upDot)*groundRecv, wallAttach);
+  float hab = attach*clamp(0.42*moist + 0.30*shelter + 0.18*por + 0.10*root, 0.0, 1.0);
+  float pt = smoothstep(0.36, 0.65, hab + 0.22*(mossVn(p/0.6) - 0.5) + 0.17*(mossVn(p/0.08 + 31.0) - 0.5)*nearK);
+  float M = pt*(1.0 - smoothstep(0.18, 0.62, traffic))*(1.0 - excl)*(1.0 - snow);
+  float L = clamp((1.0 - shelter)*uMoss.w*(1.0 - moist)*2.0, 0.0, 1.0)*smoothstep(0.55, 0.9, por)*(1.0 - M)*(1.0 - snow)*(1.0 - excl)
+          * smoothstep(0.5, 0.68, mossVn(p/0.09 + 7.0)*0.7 + mossVn(p/0.7 + 3.0)*0.3);   // crustose discs, 20-150 mm, in old patches
+  return vec3(M, smoothstep(0.50, 0.83, M)*site, L);
+}
+// the back lobe moss needs or it reads as green felt (4.5): x sun colour x shadow at the call site
+vec3 mossTransmit(vec3 N, vec3 L, vec3 V, float th){ return vec3(0.10, 0.21, 0.045)*(pow(clamp(dot(V, -L), 0.0, 1.0), 6.0)*0.55*th); }
+const vec3 kMossAlb = vec3(0.055, 0.105, 0.030), kMossDry = vec3(0.085, 0.095, 0.045), kLichenAlb = vec3(0.28, 0.29, 0.24);   // sway amplitude from uWind (der.windK x on / off): 1 = Clear's 3 m/s, the pre-weather look; 2.5 from about 9.4 m/s
 float windClock(bool prev){ return prev ? uWindP.y : uWindP.x; }
 vec3 windDir(){ return vec3(uWindV.x, 0.0, uWindV.y); }
 float windGust(vec2 xz, bool prev){
@@ -854,7 +922,7 @@ float lineAA(float mask, float w, float mean){ return mix(mask, mean, smoothstep
 flat in vec4 vInstV;                   // seed (0..1), wear (0..2), palette variation (0..1), room count: uInst, or per vertex (PF2 HLOD)
 #define uInst vInstV
 uniform vec4 uRoomA[16], uRoomB[16];   // (min x, min z, max x, max z) / (floor y, ceiling y, wall finish, floor finish)
-uniform vec4 uContactBox; uniform vec4 uContact[4]; uniform int uFoundWx;   // MA2: ground-contact grid (App::contactProfile)
+uniform vec4 uContactBox; uniform vec4 uContact[4]; uniform int uFoundWx; uniform vec4 uMossHab;   // BF B1: the copy's habitat (water nearness, shelter 1 - sunHours/6, exclusion, canopy; moss.cpp)   // MA2: ground-contact grid (App::contactProfile)
 // MA2: height above the LOCAL ground: the copy's terrain grid under its walls (bilinear), or the asset ground (y 0)
 float groundH(){
   if (uFoundWx == 0) return vAp.y;
@@ -991,6 +1059,7 @@ float gDetH = 0.0;   // detail relief (m), added to the derivative bump
 // occlusion at wall-wall, wall-floor and wall-ceiling joints (the flat lighting there made rooms read as boxes).
 float gFootDbg = -1.0;   // MA2 debug 3: 1 under 0.5 m above the local ground on a foundation surface, -1 = not one
 vec3 gWxDbg = vec3(0.0);   // MA2 debug 4: (damp, moss, splash) masks
+float gMossW = 0.0;        // BF B1: moss weight x thickness here (the transmission lobe after shade())
 vec3 gDbg = vec3(0.0);   // NMK_GX5_DEBUG=2: decal tests passed (facing, plane, box)
 int gRoom = -1;      // the room whose finish this fragment took (pattern 20 / 21), for its decal list
 float gDecH = 0.0;   // decal relief (m)
@@ -1928,13 +1997,29 @@ void main(){
     float blot = vnL(p*1.7 + 70.0, 1.7), pit = smoothstep(0.72, 0.88, vnL(p*7.0 + 71.0, 7.0)); grit = vnL(p*11.0 + 72.0, 11.0);
     rock *= (0.80 + 0.40*blot) * (1.0 - 0.32*pit) * (0.92 + 0.16*grit);
     h += grit*0.35 - pit*0.6; bump = max(bump, 0.035);
+    if (uMoss.x < 0.5) {   // BF B1: replaced by the moss field below when mossfield is on
     lichen = smoothstep(0.62, 0.8, vnL(p*0.9 + 47.0, 0.9)) * smoothstep(0.1, 0.7, up + 0.25);
     rock = mix(rock, mix(vec3(0.16, 0.19, 0.09), vec3(0.42, 0.41, 0.30), grn), lichen*0.55);     // moss / grey lichen
     rock = mix(rock, vec3(0.55, 0.50, 0.26), smoothstep(0.78, 0.86, vnL(p*5.5 + 61.0, 5.5))*smoothstep(0.0, 0.6, up)*0.45);   // crusty yellow lichen
     float foot = 1.0 - smoothstep(-0.05, 0.25 + 0.25*vnL(vAp*1.7, 1.7), vAp.y);
     rock = mix(rock, vec3(0.12, 0.15, 0.06), foot*smoothstep(0.45, 0.7, vnL(vAp*2.3 + 7.0, 2.3))*0.6) * mix(1.0, 0.75, foot);   // damp foot
+    }
     } else rock *= 0.92;
     alb = rock * vAlb * 0.8; rough = 0.86 + 0.08*grn; ao *= 1.0 - 0.3*crack;   // 0.8: matches the cliff faces' in-game brightness
+    if (uMoss.x > 0.5 && uMapCave < 0.5) {   // BF B1 mossfield on boulders: moss low, wet and shaded; lichen high, dry, sun-facing (one field)
+      vec4 hb = uFoundWx == 1 ? uMossHab : vec4(0.3, 0.4, 0.0, 0.3);
+      float dCam = length(vW - uCamPos), y = max(vAp.y, 0.0);
+      float mo = mossMoist(y, 0.0, clamp(0.5 - h, 0.0, 1.0)*0.8 + 0.5*crack, 8.0*(1.0 - hb.x));
+      float shl = mossShelter(hb.y, normalize(vN), vec3(0.0, 0.0, 1.0));
+      float por = grain == 1 || grain == 3 ? 1.0 : grain == 0 ? 0.75 : 0.65;
+      vec3 mf = mossField(vW, up, (1.0 - abs(up))*0.7, 1.0, mo, shl, por, 0.5*hb.w*(1.0 - smoothstep(0.0, 0.4, y)), 0.0, hb.z, 0.0, 0.0, 1.0 - smoothstep(12.0, 30.0, dCam));
+      float hMoss = 0.85 + 0.15*mossVn(vW/0.05), hHost = clamp(h, 0.0, 1.0);   // joints and pits (low h) take moss first
+      float wm = dCam < uMoss.z ? smoothstep(-0.10, 0.10, (hMoss + mf.x) - (hHost + 1.0 - mf.x)) * step(0.02, mf.x) : mf.x*0.85;
+      alb = mix(alb, mix(kMossAlb, kMossDry, 1.0 - mo)*(0.8 + 0.4*mossVn(vW/0.12 + 5.0))*mix(0.55, 1.0, hMoss), wm); rough = mix(rough, 0.88, wm);
+      vec3 lc = mix(kLichenAlb, vec3(0.42, 0.37, 0.16), smoothstep(0.6, 0.8, mossVn(vW/0.25 + 61.0)));   // grey crust, a few yellow
+      alb = mix(alb, lc*(0.9 + 0.2*grn), mf.z*0.8); rough = mix(rough, 0.92, mf.z);
+      gMossW = wm*mf.x;
+    }
     if (uMapCave > 0.5 && length(vW - uCamPos) < 45.0) {   // CV1 cave rock (near only: sub-pixel beyond): no lichen (re-darken it), flowstone and stains run down the faces, wet streaks shine
       float lichAll = clamp(lichen*0.55 + smoothstep(0.78, 0.86, vnL(p*5.5 + 61.0, 5.5))*smoothstep(0.0, 0.6, up)*0.45, 0.0, 1.0);
       alb = mix(alb, alb*0.55, lichAll) * (1.0 + 0.3*bedLine);   // bedding lines faint: dripstone, not masonry
@@ -2039,7 +2124,7 @@ void main(){
     // small exposed-substrate patches just above the ground: the finish is gone and the core shows, darker and rough
     float sub = uFoundWx == 1 ? (1.0 - smoothstep(0.1, 0.45 + 0.2*nn, hg)) * dug * smoothstep(0.78, 0.86, sn*0.4 + nn*0.6 + 0.08*cornerK) * (pat == 17 || pat == 3 || pat == 11 ? 1.0 : 0.5) : 0.0;
     alb = mix(alb, alb*vec3(0.6, 0.56, 0.5), sub); rough = mix(rough, 0.96, sub);
-    float moss = dug * on * mix(1.0, smoothstep(0.35, 0.75, gD), 0.85*uGrungeK) * (1.0 - smoothstep(0.0, zh*0.8 + 0.25*cornerK, hg)) * smoothstep(0.52 - 0.15*shadeF - 0.15*cornerK, 0.66, vnL(vAp*1.6 + sd*11.0, 1.6)) * (0.2 + 0.8*shadeF) * (mc == 1 ? 1.0 : mc == 3 ? 0.8 : 0.6);
+    float moss = uMoss.x > 0.5 ? 0.0 : dug * on * mix(1.0, smoothstep(0.35, 0.75, gD), 0.85*uGrungeK) * (1.0 - smoothstep(0.0, zh*0.8 + 0.25*cornerK, hg)) * smoothstep(0.52 - 0.15*shadeF - 0.15*cornerK, 0.66, vnL(vAp*1.6 + sd*11.0, 1.6)) * (0.2 + 0.8*shadeF) * (mc == 1 ? 1.0 : mc == 3 ? 0.8 : 0.6);
     alb = mix(alb, (mc == 0 ? vec3(0.36, 0.38, 0.24) : vec3(0.30, 0.34, 0.22))*(0.8 + 0.4*vnL(vAp*9.0, 9.0)), clamp(moss, 0.0, 1.0)*0.7);
     rough = mix(rough, 0.95, moss*0.5);
     if (uSills > 0 && vert > 0.5 && hg < 3.4) {   // run-off under the ground-storey sills
@@ -2059,6 +2144,22 @@ void main(){
     }
     float l0 = dot(alb0, vec3(0.3, 0.59, 0.11)), l1 = dot(alb, vec3(0.3, 0.59, 0.11));
     if (l1 < 0.4*l0) alb *= 0.4*l0/max(l1, 1e-4);   // the cap: 0.4 linear = ~35 % darker on screen (sRGB), never near-black
+    if (uMoss.x > 0.5 && uFoundWx == 1) {   // BF B1 mossfield: the 4.5 field on walls (after the cap: moss is a material, not a darkening)
+      float drip = uSills > 0 && vert > 0.5 && hg < 3.4 ? sillRunoff(vAp)*(1.0 - smoothstep(2.6, 3.4, hg)) : 0.0;
+      float cav = 0.6*cornerK;   // shortcut: corner proximity stands in for cavity until PF1's gCav lands
+      float por = mc == 1 ? 0.95 : mc == 2 ? 0.70 : mc == 3 ? 0.75 : 0.45;   // stone / lime mortar, brick, concrete, render (3.2)
+      float dCam = length(vW - uCamPos);
+      float mo = mossMoist(hg, drip, cav, 8.0*(1.0 - uMossHab.x));
+      float shl = mossShelter(uMossHab.y, nW, vec3(0.0, 0.0, 1.0));
+      vec3 mf = mossField(vW, nW.y, vert*dug*(0.55 + 0.45*cav), dug, mo, shl, por, 0.5*uMossHab.w*(1.0 - smoothstep(0.0, 0.4, hg)), 0.0, uMossHab.z, 0.0, 0.0, 1.0 - smoothstep(12.0, 30.0, dCam));
+      float hMoss = 0.85 + 0.15*mossVn(vW/0.05), hHost = clamp(0.5 + gTexH/0.03, 0.0, 1.0);
+      // mat: the HOST's height drives the blend, so moss fills the joints first (d = 0.045); film past uMoss.z
+      float wm = dCam < uMoss.z ? smoothstep(-0.045, 0.045, (hMoss + mf.x) - (hHost + 1.0 - mf.x)) * step(0.02, mf.x) : mf.x*0.85;
+      vec3 mc0 = mix(kMossAlb, kMossDry, 1.0 - mo)*(0.8 + 0.4*mossVn(vW/0.12 + 5.0))*mix(0.55, 1.0, hMoss);
+      alb = mix(alb, mc0, wm); rough = mix(rough, 0.88, wm);
+      alb = mix(alb, kLichenAlb*(0.9 + 0.2*mossVn(vW/0.03)), mf.z*0.8); rough = mix(rough, 0.92, mf.z);
+      gMossW = wm*mf.x; gWxDbg.y = mf.x;
+    }
     if (pat == 15) {   // earth packed against the bunker concrete (a different surface, so past the cap)
       float soil = (1.0 - smoothstep(0.0, 0.18 + 0.22*vnL(vAp*4.3 + 2.0, 4.3), hg)) * vert * float(uFoundWx);
       alb = mix(alb, vec3(0.2, 0.17, 0.12)*(0.8 + 0.4*nn), soil*0.8); rough = mix(rough, 0.97, soil);
@@ -2095,6 +2196,7 @@ void main(){
     alb *= mix(1.0, 0.35, w*poro); rough = mix(rough, max(0.35*rough, 0.25), w);
   }
   vec3 c = shade(vW, N, alb, rough, metal, ao);
+  if (gMossW > 0.0 && uMoss.y > 0.5) c += mossTransmit(N, uSunDir, normalize(uCamPos - vW), gMossW)*uSunCol*sunShadowT(vW, -N, 1.0, 1);   // BF B1 (interim: moves into shade() with PF1's blend)
   if (uGxDebug == 2 && uCapture == 0) c = gDbg*0.8 + 0.05;
   if (uGxDebug == 4 && uCapture == 0) c = gWxDbg;
   if (uGxDebug == 3 && uCapture == 0) c = gFootDbg < 0.0 ? vec3(0.0, 0.0, 0.4) : vec3(gFootDbg);   // MA2: the local ground line (white = within 0.5 m of it)
@@ -4690,6 +4792,8 @@ bool Renderer::init(int w, int h) {
   progHeat = compile(kHeatVS, kHeatFS, "thermal heat");   // TH1
   progShaft = compile(kFullVS, kShaftFS, "shafts");
   progSsao = compile(kFullVS, kSsaoFS, "ssao");
+  progContactAO = compile(kContactAOVS, kContactAOFS, "contact_ao");   // BF B4
+  { GLint ok = 0; if (progContactAO) glGetProgramiv(progContactAO, GL_LINK_STATUS, &ok); if (!ok) progContactAO = 0; }
   progBloomDown = compile(kFullVS, kBloomDownFS, "bloom_down");
   progBloomUp = compile(kFullVS, kBloomUpFS, "bloom_up");
   progTaa = compile(kFullVS, kTaaFS, "taa");
@@ -5210,6 +5314,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
     else glUniform1i(U(p, "uTHorOn"), 0);
     extern GLuint leafLibTex(); glBindTextureUnit(kLeafUnit, leafLibTex());
   }
+  glUniform4f(U(p, "uMoss"), perf.mossField && !thumbMode && q.mossTier >= 1 ? 1.0f : 0.0f, q.mossTier >= 2 ? 1.0f : 0.0f, q.mossMatM, 0.5f);   // BF B1 (8.2: no moss detail below Low, transmission from Medium)
   sunDir = sunDirMap;   // the thumbnail studio sun never leaks back into the map
 }
 
@@ -5218,7 +5323,7 @@ Renderer::DrawLocs Renderer::drawLocs(GLuint p) {
   DrawLocs l;
   l.model = U(p, "uModel"); l.tint = U(p, "uTint"); l.inst = U(p, "uInst"); l.snapAp = U(p, "uSnapAp"); l.glow = U(p, "uGlow");   // snapAp: V6 snap-chain texture origin
   l.roomA = U(p, "uRoomA"); l.roomB = U(p, "uRoomB"); l.sills = U(p, "uSills"); l.sillA = U(p, "uSillA"); l.sillB = U(p, "uSillB");
-  l.contactBox = U(p, "uContactBox"); l.contact = U(p, "uContact"); l.foundWx = U(p, "uFoundWx");   // MA2
+  l.contactBox = U(p, "uContactBox"); l.contact = U(p, "uContact"); l.foundWx = U(p, "uFoundWx"); l.mossHab = U(p, "uMossHab");   // MA2
   l.roomDec = U(p, "uRoomDec"); l.extDec = U(p, "uExtDec"); l.roomX = U(p, "uRoomX");   // GX5 static decal ranges, rooms past 16
   l.vp = U(p, "uVP"); l.time = U(p, "uTime"); l.wind = U(p, "uWind"); l.leafCol = U(p, "uLeafCol");
   l.base = U(p, "uBase"); l.metal = U(p, "uMetal"); l.rough = U(p, "uRough"); l.thin = U(p, "uThin");
@@ -5361,7 +5466,7 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
         lastContact = it.contact;
         bool on = it.contact && perf.foundWx && !q.legacy;
         glUniform1i(L.foundWx, on ? 1 : 0);
-        if (on) { glUniform4fv(L.contactBox, 1, glm::value_ptr(it.contact[0])); glUniform4fv(L.contact, 4, glm::value_ptr(it.contact[1])); }
+        if (on) { glUniform4fv(L.contactBox, 1, glm::value_ptr(it.contact[0])); glUniform4fv(L.contact, 4, glm::value_ptr(it.contact[1])); if (L.mossHab >= 0) glUniform4fv(L.mossHab, 1, glm::value_ptr(it.contact[5])); }
       }
     }
     if (it.mesh->vao != boundVao) { boundVao = it.mesh->vao; glBindVertexArray(boundVao); }
@@ -7107,6 +7212,26 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
       glUniform1i(U(progSsao, "uGtao"), gt ? 1 : 0); glUniform1i(U(progSsao, "uSlices"), aoDiv <= 2 ? 3 : 2); glUniform1i(U(progSsao, "uSteps"), aoDiv <= 2 ? 4 : 3); }
     glUniform2f(U(progSsao, "uTexel"), (float)aoDiv / width, (float)aoDiv / height);
     glDrawArrays(GL_TRIANGLES, 0, 3);
+    if (perf.contactAO && progContactAO && !contactAO.empty() && !thumbMode) {   // BF B4: multiply the contact decals into the AO
+      const size_t bytes = contactAO.size() * sizeof(vec4);
+      if (!contactAOVao) {
+        glCreateVertexArrays(1, &contactAOVao);
+        for (int k = 0; k < 3; ++k) { glEnableVertexArrayAttrib(contactAOVao, k); glVertexArrayAttribFormat(contactAOVao, k, 4, GL_FLOAT, GL_FALSE, k * 16); glVertexArrayAttribBinding(contactAOVao, k, 0); }
+        glVertexArrayBindingDivisor(contactAOVao, 0, 1);
+      }
+      if (bytes > contactAOBytes) { if (contactAOBuf) glDeleteBuffers(1, &contactAOBuf); glCreateBuffers(1, &contactAOBuf); contactAOBytes = std::max(bytes, size_t(48 * 256)); glNamedBufferStorage(contactAOBuf, contactAOBytes, nullptr, GL_DYNAMIC_STORAGE_BIT); glVertexArrayVertexBuffer(contactAOVao, 0, contactAOBuf, 0, 48); }
+      glNamedBufferSubData(contactAOBuf, 0, bytes, contactAO.data());
+      glUseProgram(progContactAO);
+      glUniformMatrix4fv(U(progContactAO, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+      glUniformMatrix4fv(U(progContactAO, "uInvVP"), 1, GL_FALSE, glm::value_ptr(inv));
+      glUniform2f(U(progContactAO, "uInvSize"), 1.0f / std::max(1, width / aoDiv), 1.0f / std::max(1, height / aoDiv));
+      glUniform3fv(U(progContactAO, "uEye"), 1, glm::value_ptr(v.camPos));
+      glBindTextureUnit(7, depthTex); glUniform1i(U(progContactAO, "uDepth"), 7);
+      glBindTextureUnit(12, nrTex); glUniform1i(U(progContactAO, "uNR"), 12);
+      glEnable(GL_BLEND); glBlendFunc(GL_ZERO, GL_SRC_COLOR); glColorMaski(0, GL_TRUE, GL_FALSE, GL_FALSE, GL_FALSE);
+      glBindVertexArray(contactAOVao); glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GLsizei(contactAO.size() / 3));
+      glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE); glDisable(GL_BLEND); glBindVertexArray(emptyVao);
+    }
   }
   // light shafts at half resolution
   if (shafts) {

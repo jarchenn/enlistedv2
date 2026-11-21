@@ -267,6 +267,11 @@ void Settings::apply(App& app) {
   R.leafLodScale = g.grass <= 1 ? 0.6f : g.ultraFx ? 1.5f : 1.0f;   // UL2: Ultra holds full tree detail 1.5x further   // L1: vegetation detail follows the grass quality (Low: near 6 m, mid 13 m)
   R.clouds = g.clouds; R.wx.quality = g.cloudQuality; R.wx.target = s.weather; R.wx.fog = s.envFog;   // WX1 (a LAN client takes the host's: Renderer::Weather::forced)
   R.q.hazeDensity = 0.0010f;   // W1: visibility is the weather's, the same on every quality preset (fair sight; was scaled by render distance)
+  {   // BF B1/B5 (spec 8.2, through the grass tier the presets set: 0 Ultra Low .. 4 Ultra)
+    const int t = std::clamp(g.grass, 0, 4); R.q.mossTier = t;
+    const float mat[5] = {0, 6, 12, 23, 32}, lit[5] = {0, 6, 25, 42, 55}, mul[5] = {0.0f, 0.3f, 0.6f, 0.9f, 1.0f};
+    R.q.mossMatM = mat[t]; R.q.litterM = lit[t]; R.q.scatterMul = mul[t];
+  }
   R.q.leafDriftN = g.cloudQuality <= 0 ? 0 : g.cloudQuality == 1 ? 800 : 2000;   // WS2 (corpus 07 s7.3)
   R.q.snowfallScale = g.cloudQuality <= 0 ? 0.4f : g.cloudQuality == 1 ? 0.75f : 1.0f;   // SF1: a map's snowfall at this sky quality   // PF2: the haze reaches the same depth at the render distance (Medium: unchanged)
   R.lt.maxLights = g.lightCount; R.lt.shadowLights = g.shadowLights; R.lt.gi = g.gi; R.lt.hour = s.hour;   // L2 lighting

@@ -153,6 +153,11 @@ public:
   const Impostor* impostorFor(const GpuModel* m, int first, int count);   // ready, or nullptr (queued for a bake)
   void impostorBakeSome(); void impostorPoll(); void drawImpostors(const RenderView& v, const mat4& vp, const Frustum& fr);
   GLuint progImpBake = 0, progImp = 0, impFbo = 0, impDepth = 0, impNrmTmp = 0, impBakeBuf = 0, impInstBuf = 0; size_t impInstBytes = 0; int impFboSize = 0;
+  // BF B4 contact AO: 3 vec4 per object: (x, ground y, z, yaw rad), (half x, half z, width m, strength), (y lo, y hi, -, -)
+  std::vector<vec4> contactAO; GLuint progContactAO = 0, contactAOBuf = 0, contactAOVao = 0; size_t contactAOBytes = 0;
+  void pushContactAO(vec3 base, float yawRad, vec2 half, float k, float yLo, float yHi) {
+    const float w = std::clamp(0.1f + 0.15f * std::min(half.x, half.y), 0.1f, 0.25f);
+    contactAO.push_back(vec4(base, yawRad)); contactAO.push_back(vec4(half, w, k)); contactAO.push_back(vec4(yLo, yHi, 0, 0)); }
   GLuint progLeafDrift = 0; float leafDriftK = 0, pollenK = 0; bool pollenOk = true;   // WS2 drifting leaves; how wooded the eye's surroundings are (eased)
   // sky clouds: fbm on a plane at 1500 m scrolling with the wind
   bool clouds = true; float cloudCover = 0.62f;
@@ -214,6 +219,7 @@ public:
     bool shafts = false; float shaftStrength = 0.35f;   // WX1: High only (presets)
     float hazeDensity = 0.0010f, hazeHeight = 70.0f;
     int impAtlas = 2048, impMax = 16;   // CP3: impostor atlas size (frames atlas / 12 px) and species cap (Settings::apply by grass tier)
+    int mossTier = 2; float mossMatM = 12.0f, litterM = 25.0f, scatterMul = 0.6f;   // BF B1/B5 (spec 8.2): vegetation tier 0-4 (Ultra Low .. Ultra), moss mat range, litter range, scatter density multiplier
     int leafDriftN = 2000;        // WS2: drifting leaves at this preset (Low 0, Medium 800, High 2000)
     float snowfallScale = 1.0f;   // SF1: share of a map's snowfall drawn at this preset (Low 0.4, Medium 0.75, High 1)   // aerial perspective (1/m at ground level, scale height m)
     bool ssao = true; float ssaoStrength = 0.95f, ssaoRadius = 0.5f;   // GX5: 0.85 / 0.6 -> 0.95 / 0.5 (contact shadows tuned for interiors, brief §8)
@@ -316,6 +322,7 @@ public:
     bool dlCache = true;         // dlcache (P2): far room-template furniture skips the draw-list loop; nature patches reuse their footprint hash
     bool farLeaf = true;         // farleaf (DR1): canopies past 80 / 180 / 400 m draw 40 / 15 / 6 % of their leaf cards, grown to keep the leaf area
     bool wallLod = true;         // walllod (DR1): undamaged buildings at asset LOD 1 / 2 draw their walls without small parts / opening trim; on since PERF1 (A/B -3.8 % GPU Medium, frames unchanged)
+    bool contactAO = true;       // contactao (BF B4): a small projected AO decal under every resting object, into the AO target (spec 4.6, cue 4)
     bool contactShadow = true;   // contactsh (VO L1): screen-space sun contact shadows (Lighting New)
     bool fullShadow = true;      // fullshadow (VO L1): full-strength sun shadows (off: 30 % lighter, as Classic)
     bool gtao = true;            // gtao (VO L2): GTAO with multi-bounce and specular occlusion (off: the old 8-sample SSAO)
@@ -329,6 +336,7 @@ public:
     bool impostors = true;       // impostors (CP3): model trees under ~170 px tall drawn as octahedral impostors (12 x 12 frames)
     bool vegDust = true;         // vegdust (WS4): grass and cut-out model plants take a dust coating under the dust presets (st.dustVisM)
     bool pollen = true;          // pollen (WS3): drifting pollen motes over grass on dry, mild days (count 0.75 x leafDriftN)
+    bool mossField = true;       // mossfield (BF B1): the 4.5 moss / lichen field on walls, boulders (and the ground with the terrain's habitat attribute); off: the older MA2 / rock moss
     bool leafDrift = true;       // leafdrift (WS2): drifting leaves near broadleaf / orchard trees (count: Quality::leafDriftN)
     bool hashAlpha = false;      // hashalpha (VO A1): cut-out leaves / grass with a dithered threshold under TAA (Medium / High), width NMK_HASH_SPREAD (0.2); off: no gain over cutoutMips (A1 sheets), kept for A/B
     bool folTrans = true;        // foltrans (VO L4): two-sided translucency on model foliage (Lighting New)
@@ -419,7 +427,7 @@ public:
               // ^ stream M (materials): append to the line above
               : n == "charvel" ? &charVel : n == "fxnear" ? &fxNear : n == "wxdrift" ? &wxDrift : n == "fxlit" ? &fxLit : n == "fxsoft" ? &fxSoft : n == "poseframe" ? &poseFrame : n == "poselod" ? &poseLod : n == "posejobs" ? &poseJobs : n == "stepinterp" ? &stepInterp : n == "dtsnap" ? &dtSnap
               // ^ characters (gameplay): append to the line above
-              : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "pollen" ? &pollen : n == "vegdust" ? &vegDust : n == "impostors" ? &impostors : n == "impostorbc" ? &impostorBC : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
+              : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "mossfield" ? &mossField : n == "contactao" ? &contactAO : n == "pollen" ? &pollen : n == "vegdust" ? &vegDust : n == "impostors" ? &impostors : n == "impostorbc" ? &impostorBC : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
               // ^ stream A (vegetation): append to the line above
               : n == "snowfar" ? &snowFar : n == "firthin" ? &firThin : n == "snowtex" ? &snowTex : n == "precip" ? &precip
               // ^ stream B (Blackwater snow / far firs): append to the line above
@@ -556,7 +564,7 @@ private:
   void drawFolModels(bool depth, const mat4& vp, const Frustum* fr, float minH = 0, bool shadowLod = false);   // shadowLod (CP5): each plant's shadowModel where it has one   // NT8: instanced, alpha-tested, wind; minH: casters shorter than this skipped
   GLuint progFolModel = 0, progFolDepth = 0, folBuf = 0; size_t folBufBytes = 0;
   // uniform locations of the draw loops, looked up once per program (cleared by compile())
-  struct DrawLocs { GLint model = -1, tint = -1, inst = -1, roomA = -1, roomB = -1, sills = -1, sillA = -1, sillB = -1, contactBox = -1, contact = -1, foundWx = -1, roomDec = -1, extDec = -1, roomX = -1,
+  struct DrawLocs { GLint model = -1, tint = -1, inst = -1, roomA = -1, roomB = -1, sills = -1, sillA = -1, sillB = -1, contactBox = -1, contact = -1, foundWx = -1, mossHab = -1, roomDec = -1, extDec = -1, roomX = -1,
                     vp = -1, time = -1, wind = -1, leafCol = -1, base = -1, metal = -1, rough = -1, thin = -1,
                     alb = -1, mr = -1, nrm = -1, ao = -1, hasAlb = -1, hasMR = -1, hasNrm = -1, hasAO = -1, aoInMR = -1, aoStr = -1, snapAp = -1, glow = -1; };
   std::vector<std::pair<GLuint, DrawLocs>> locCache;
