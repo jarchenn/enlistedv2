@@ -432,7 +432,9 @@ vec3 hazeColor(vec3 dir){   // W2: the haze's colour toward dir (= the sky at th
   if (uW2 == 1) { vec3 band = vec3(dot(uSkyHor, vec3(0.2126, 0.7152, 0.0722)))*vec3(0.95, 0.97, 1.0)*0.66*overcastGrad(fd.y); return mix(skyColor(fd)/(1.0 + 0.6*cloudOpening(fd)), band, uCloudK); }   // the opening lights the sky, not the haze over the ground
   return mix(uFogCol, skyColor(fd), 0.65);
 }
+uniform int uFroxWorld;   // CP4: 1 = the composite's froxel volume fogs the world (the per-surface air fog is skipped)
 vec3 applyFogAir(vec3 col, vec3 w){
+  if (uFroxWorld == 1 && uUnder < 0.5) { gFogT = 1.0; return col; }
   if (uUnder > 0.5) { float f = 1.0 - exp(-length(w - uCamPos)*uFogDens); gFogT = 1.0 - f; return mix(col, uFogCol, f); }
   vec3 dir = normalize(w - uCamPos);
   if (uLook == 0) {
@@ -2698,6 +2700,64 @@ void main(){
   oColor = vec4(cloudShadowAt(xz, 0.0), 0.0, 0.0, 1.0);
 }
 )GLSL";
+
+// CP4 froxel fog (High / Ultra, perf switch froxel): a 160 x 90 x 64 view-space grid to uFroxFar m, slices exponential.
+// inject: each cell's extinction (haze + ground-fog layer + fogLayer2 band) and in-scatter (fog colour + the sun through the
+// far cascade, Henyey-Greenstein); integrate: front to back per column -> rgb in-scattered light, a transmittance to there.
+static const char* kFroxInjectCS = R"GLSL(
+#version 450 core
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(rgba16f, binding = 0) writeonly uniform image3D uInj;
+uniform mat4 uInvVP; uniform vec3 uCam; uniform ivec3 uN; uniform float uNear, uFar;
+uniform float uHazeD, uHazeH, uEnvFog, uEnvFogH, uEnvTop, uEnvSoft, uFogIndoor; uniform vec4 uFog2, uFogBox;
+uniform sampler2D uFogField; uniform sampler2DShadow uShFar; uniform mat4 uVPFar; uniform vec2 uFarAx; uniform int uShOn;
+uniform vec3 uSunDir, uSunCol, uAmb; uniform float uG, uAlb, uCloudK;
+float band(float y, float lo, float hi, float s){ return smoothstep(lo - s, lo + s, y)*(1.0 - smoothstep(hi - s, hi + s, y)); }
+void main(){
+  ivec3 id = ivec3(gl_GlobalInvocationID.xy, gl_WorkGroupID.z);
+  if (any(greaterThanEqual(id, uN))) return;
+  vec2 uv = (vec2(id.xy) + 0.5)/vec2(uN.xy);
+  vec4 p = uInvVP*vec4(uv*2.0 - 1.0, 0.5, 1.0); vec3 dir = normalize(p.xyz/p.w - uCam);
+  float d = uNear*pow(uFar/uNear, (float(id.z) + 0.5)/float(uN.z));
+  vec3 w = uCam + dir*d;
+  float sig = uHazeD*exp(-max(w.y, 0.0)/uHazeH)*smoothstep(10.0, 14.0, d);   // the analytic haze's 12 m clear zone
+  if (uEnvFog > 0.0) {
+    vec4 F = texture(uFogField, (w.xz - uFogBox.xy)*uFogBox.zw);
+    float e = uEnvFog*uFogIndoor*F.r*(0.6 + 0.8*F.g)*exp(-max(w.y - F.b, 0.0)/uEnvFogH);
+    if (uEnvTop < 1e8) e *= smoothstep(uEnvTop + uEnvSoft, uEnvTop - uEnvSoft, w.y);
+    if (uFog2.x > 0.0) e += uFog2.x*uFogIndoor*band(w.y, uFog2.y, uFog2.z, uFog2.w);
+    sig += e;
+  }
+  float vis = 1.0;
+  if (uShOn == 1) {
+    vec4 lp = uVPFar*vec4(w, 1.0); vec3 s = lp.xyz/lp.w*0.5 + 0.5;
+    if (all(greaterThan(s.xy, vec2(0.0))) && all(lessThan(s.xy, vec2(1.0))) && s.z < 1.0) vis = texture(uShFar, vec3(s.x*uFarAx.x + uFarAx.y, s.y, s.z - 0.002));
+  }
+  float cth = dot(dir, uSunDir), g = uG, hg = (1.0 - g*g)/(4.0*3.14159265*pow(max(1.0 + g*g - 2.0*g*cth, 1e-4), 1.5));
+  vec3 L = uAmb + uSunCol*uAlb*hg*0.035*(1.0 - uCloudK)*vis;
+  imageStore(uInj, id, vec4(L*sig, sig));
+}
+)GLSL";
+static const char* kFroxIntegrateCS = R"GLSL(
+#version 450 core
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(rgba16f, binding = 0) readonly uniform image3D uInj;
+layout(rgba16f, binding = 1) writeonly uniform image3D uInt;
+uniform ivec3 uN; uniform float uNear, uFar;
+void main(){
+  ivec2 xy = ivec2(gl_GlobalInvocationID.xy);
+  if (any(greaterThanEqual(xy, uN.xy))) return;
+  vec3 S = vec3(0.0); float T = 1.0, dPrev = 0.0;
+  for (int k = 0; k < uN.z; ++k) {
+    float d = uNear*pow(uFar/uNear, (float(k) + 1.0)/float(uN.z));   // the slice's far end
+    vec4 v = imageLoad(uInj, ivec3(xy, k)); float sig = v.a, ds = d - dPrev;
+    float tr = exp(-sig*ds);
+    vec3 si = sig > 1e-7 ? v.rgb/sig*(1.0 - tr) : v.rgb*ds;
+    S += T*si; T *= tr; dPrev = d;
+    imageStore(uInt, ivec3(xy, k), vec4(S, T));
+  }
+}
+)GLSL";
 static const char* kCompositeFS = R"GLSL(
 in vec2 vUV;
 uniform sampler2D uScene, uShafts, uAmb, uAO, uDepth, uNR; uniform float uShaftAmt, uAoAmt, uSsrAmt;
@@ -2706,6 +2766,7 @@ uniform float uContactAmt; uniform int uContactSteps;   // VO L1 screen-space su
 uniform int uAoNew;   // VO L2: multi-bounce and specular occlusion from the (GT)AO
 uniform int uBent;    // CP4 bentnormal
 uniform int uSsrHalf; uniform sampler2D uSsrTex; uniform vec2 uSsrTexel;
+uniform int uFroxOn; uniform sampler3D uFrox; uniform float uFroxNear, uFroxFar, uFroxHazeD, uFroxHazeH; uniform vec3 uFroxAmb;   // CP4 froxel fog (unit 4)
 uniform float uShimmer, uShimT;   // W5 wxshimmer: heat shimmer amplitude (px at this resolution, gated on the CPU), its clock   // OPT ssrhalf: the reflection added from a half-resolution pass (rgb: added light, a: view depth)
 out vec4 oColor;
 vec3 viewPosAt(vec2 uv){ float z = texture(uDepth, uv).r; vec4 p = uInvProj*vec4(uv*2.0 - 1.0, z, 1.0); return p.xyz/p.w; }   // reverse-Z
@@ -2852,6 +2913,20 @@ void main(){
       }
     }
     c -= amb*(1.0 - ao)*uAoAmt;
+  }
+  if (uFroxOn == 1) {   // CP4 froxel fog: the integrated volume at this pixel's distance; past its far end the analytic haze
+    float zf = texture(uDepth, vUV).r;
+    if (zf > 0.0) {
+      vec3 pv = viewPosAt(vUV); float dist = length(pv);
+      float t = log(max(dist, uFroxNear)/uFroxNear)/log(uFroxFar/uFroxNear);
+      vec4 fv = texture(uFrox, vec3(vUV, clamp(t - 0.5/64.0, 0.0, 1.0)));
+      c = c*fv.a + fv.rgb;
+      if (dist > uFroxFar) {
+        vec3 wy = transpose(mat3(uView))*pv; float y = 0.5*wy.y + uCamPos.y;
+        float tr = exp(-uFroxHazeD*exp(-max(y, 0.0)/uFroxHazeH)*(dist - uFroxFar));
+        c = c*tr + uFroxAmb*(1.0 - tr);
+      }
+    }
   }
   if (uShaftAmt > 0.0) c += texture(uShafts, vUV).rgb*uShaftAmt;
   c = max(c, vec3(0.0));
@@ -3959,13 +4034,14 @@ void main(){
     // ray to the cloud plane (1500 m), fBm (5 octaves) scrolling with the wind; coverage shifts the threshold
     vec2 cpw = uW2 == 1 ? shellHit(d, 1500.0) : uCamPos.xz + d.xz/(d.y + 0.06)*(1500.0 - uCamPos.y);   // deck hit point in world xz (~600 m cells); W2: on a shell
     if (uCloudQ == 2) {   // WX1 High: a thin high layer (4500 m, streaked along the wind, slower); not in the shadow map
-      vec2 hp = uCamPos.xz + d.xz/(d.y + 0.03)*(4500.0 - uCamPos.y);
+      vec2 hp = uW2 == 1 ? shellHit(d, 4500.0) : uCamPos.xz + d.xz/(d.y + 0.03)*(4500.0 - uCamPos.y);
       vec2 wd = normalize(uCloudWind);
       vec2 sp = vec2(dot(hp, wd)/2600.0, dot(hp, vec2(-wd.y, wd.x))/700.0) + uCloudSeed*1.7 + uCloudT*0.004;
       float ci = smoothstep(0.55, 0.85, vnoise(vec3(sp, 3.0))*0.65 + vnoise(vec3(sp*2.7, 7.0))*0.35);
+      if (uW2 == 1) ci *= (1.0 - smoothstep(0.4, 0.8, uCloudK))*(1.0 - smoothstep(0.3, 0.8, length(fwidth(sp))));   // W2: cirrus sits above the deck (hidden under overcast) and goes soft where it would streak
       c = mix(c, mix(skyColor(d), vec3(1.0)*1.3, 0.55)*uCloudLit, ci*mix(0.35, 0.55, uCloudK)*smoothstep(0.02, 0.2, d.y));
     }
-    float n = uCloudQ == 0 ? cloudFieldLo(cpw) : uW2 == 1 ? cloudFieldAA(cpw, length(fwidth(cpw))/600.0*max(uCloudXf.x, 1.0)) : cloudField(cpw);
+    float n = uCloudQ == 0 ? cloudFieldLo(cpw) : uW2 == 1 ? cloudFieldAA(cpw, max(length(mat2(uCloudXf.xy, uCloudXf.zw)*dFdx(cpw)), length(mat2(uCloudXf.xy, uCloudXf.zw)*dFdy(cpw)))*1.4/600.0) : cloudField(cpw);
     // SKY1 Cloudy: a near-closed deck (the threshold drops) with soft, wide edges, like an overcast stratocumulus sky
     float th = mix(0.72, 0.38, uCloudCover) - 0.12*uCloudK + 0.5*cloudOpening(d);   // VO L5: fewer clouds toward the opening
     float cl = smoothstep(th, th + mix(0.22, 0.45, uCloudK), n);
@@ -4622,6 +4698,39 @@ void Renderer::physLight(vec3& sun, vec3& sky, vec3& ground, vec3& fog, vec3& fi
     physExpo = mu > 0.05f ? q.physExpoK * K / (1.2f * std::exp2(physEV)) : 0.0f;   // dusk / night: the engine's own night exposure (the art stays in its units)
   }
 }
+void Renderer::froxRun(const RenderView& v) {   // CP4 froxel fog: inject + integrate (High / Ultra)
+  froxOn = perf.froxel && shadowTier >= 2 && q.lightNew && !q.legacy && !thumbMode && !v.underwater && progFroxInj && progFroxInt;
+  if (!froxOn) return;
+  const int NX = 160, NY = 90, NZ = 64;
+  if (!froxInj) {
+    for (GLuint* t : {&froxInj, &froxInt}) { glCreateTextures(GL_TEXTURE_3D, 1, t); glTextureStorage3D(*t, 1, GL_RGBA16F, NX, NY, NZ);
+      glTextureParameteri(*t, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(*t, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      for (GLenum pn : {GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_TEXTURE_WRAP_R}) glTextureParameteri(*t, pn, GL_CLAMP_TO_EDGE); }
+  }
+  const float nearD = 0.5f, farD = 600.0f;
+  const mat4 inv = glm::inverse(v.proj * v.view);
+  GLuint p = progFroxInj; glUseProgram(p);
+  glBindImageTexture(0, froxInj, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA16F);
+  glUniformMatrix4fv(U(p, "uInvVP"), 1, GL_FALSE, glm::value_ptr(inv)); glUniform3fv(U(p, "uCam"), 1, glm::value_ptr(v.camPos));
+  glUniform3i(U(p, "uN"), NX, NY, NZ); glUniform1f(U(p, "uNear"), nearD); glUniform1f(U(p, "uFar"), farD);
+  glUniform1f(U(p, "uHazeD"), hazeSigma()); glUniform1f(U(p, "uHazeH"), wx.der.phys && wx.der.visM < 3000.0f ? std::max(lt.mapHazeH > 0.0f ? lt.mapHazeH : q.hazeHeight, 600.0f) : lt.mapHazeH > 0.0f ? lt.mapHazeH : q.hazeHeight);
+  glUniform1f(U(p, "uEnvFog"), perf.envFog && fogTex ? envFogSigma() : 0.0f); glUniform1f(U(p, "uEnvFogH"), envFogH());
+  glUniform1f(U(p, "uEnvTop"), lt.mapFogLayerTop); glUniform1f(U(p, "uEnvSoft"), lt.mapFogLayerSoft); glUniform1f(U(p, "uFogIndoor"), camIndoor ? 0.15f : 1.0f);
+  glUniform4fv(U(p, "uFog2"), 1, glm::value_ptr(perf.envFog ? lt.fog2 : vec4(0.0f))); glUniform4fv(U(p, "uFogBox"), 1, glm::value_ptr(fogBox));
+  glBindTextureUnit(0, fogTex); glUniform1i(U(p, "uFogField"), 0);
+  glBindTextureUnit(1, shadowFarTex); glUniform1i(U(p, "uShFar"), 1); glUniformMatrix4fv(U(p, "uVPFar"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
+  glUniform2f(U(p, "uFarAx"), farAtlas ? 0.5f : 1.0f, farAtlas ? 0.5f : 0.0f); glUniform1i(U(p, "uShOn"), sunShK > 0.0f && q.farCascade ? 1 : 0);
+  glUniform3fv(U(p, "uSunDir"), 1, glm::value_ptr(sunDir)); glUniform3fv(U(p, "uSunCol"), 1, glm::value_ptr(lastSunCol));
+  glUniform3fv(U(p, "uAmb"), 1, glm::value_ptr(vec3(fogNow))); glUniform1f(U(p, "uG"), wx.der.fogG); glUniform1f(U(p, "uAlb"), wx.der.fogAlbedo); glUniform1f(U(p, "uCloudK"), wx.k);
+  glDispatchCompute((NX + 7) / 8, (NY + 7) / 8, NZ);
+  glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+  p = progFroxInt; glUseProgram(p);
+  glBindImageTexture(0, froxInj, 0, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA16F); glBindImageTexture(1, froxInt, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA16F);
+  glUniform3i(U(p, "uN"), NX, NY, NZ); glUniform1f(U(p, "uNear"), nearD); glUniform1f(U(p, "uFar"), farD);
+  glDispatchCompute((NX + 7) / 8, (NY + 7) / 8, 1);
+  glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
+  froxNear = nearD; froxFar = farD;
+}
 void Renderer::uploadWeather() {   // W1: NmkWeather (binding 4), the layout kCommon names
   const WxState& s = wx.st; const WxDerived& d = wx.der;
   const vec4 b[8] = {vec4(s.cover, s.tau, s.visM, s.fogTopM), vec4((float)s.precip, s.precipMmH, s.windDirDeg, s.windMs), vec4(s.gust, s.gustPeriodS, s.tempC, s.dustVisM),
@@ -4701,6 +4810,17 @@ bool Renderer::init(int w, int h) {
   glCreateFramebuffers(1, &cloudShFbo); glNamedFramebufferTexture(cloudShFbo, GL_COLOR_ATTACHMENT0, cloudShTex, 0);
   if (glCheckNamedFramebufferStatus(cloudShFbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) { logf("cloud shadow framebuffer incomplete"); ++fboErrors; }
   progComposite = compile(kFullVS, kCompositeFS, "composite");
+  {   // CP4 froxel fog: two standalone compute programs
+    auto cs = [&](const char* src, const char* name) {
+      GLuint sh = glCreateShader(GL_COMPUTE_SHADER); glShaderSource(sh, 1, &src, nullptr); glCompileShader(sh);
+      GLint ok = 0; glGetShaderiv(sh, GL_COMPILE_STATUS, &ok);
+      if (!ok) { char log[4096]; glGetShaderInfoLog(sh, sizeof log, nullptr, log); logf("shader %s (cs) error: %s", name, log); ++shaderErrors; }
+      GLuint pr = glCreateProgram(); glAttachShader(pr, sh); glLinkProgram(pr); glDeleteShader(sh);
+      glGetProgramiv(pr, GL_LINK_STATUS, &ok); if (!ok) { logf("link %s failed", name); ++shaderErrors; glDeleteProgram(pr); return 0u; }
+      return pr;
+    };
+    progFroxInj = cs(kFroxInjectCS, "frox_inject"); progFroxInt = cs(kFroxIntegrateCS, "frox_integrate");
+  }
   progSsrHalf = compile(kFullVS, (std::string("#define NMK_SSR_HALF 1\n") + kCompositeFS).c_str(), "ssr_half");   // OPT ssrhalf
   {
     std::string fs1 = std::string(kLeafAlpha) + kLeafFS, fs2 = std::string(kLeafAlpha) + kLeafShadowFS;
@@ -5074,7 +5194,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   { vec3 sk = hor / vec3(0.80f, 0.84f, 0.87f); glUniform3fv(U(p, "uSkyK"), 1, glm::value_ptr(sk)); }
   glUniform3fv(U(p, "uSkySun"), 1, glm::value_ptr(skySun)); glUniform3fv(U(p, "uSkySunCol"), 1, glm::value_ptr(skySunCol));
   if (v.underwater && !thumbMode) { sun *= vec3(0.22f, 0.38f, 0.40f); sky *= vec3(0.45f, 0.75f, 0.80f); ground *= vec3(0.45f, 0.75f, 0.80f); }   // swim.cpp: light filtered by the water above
-  glUniform3fv(U(p, "uSunCol"), 1, glm::value_ptr(sun));
+  glUniform3fv(U(p, "uSunCol"), 1, glm::value_ptr(sun)); if (p == progMain) lastSunCol = sun;   // CP4 froxel inject
   { const vec3 lw(0.2126f, 0.7152f, 0.0722f); float d = glm::dot(sun, lw) * std::max(sunDir.y, 0.0f) / 3.14159265f, a = glm::dot(sky, lw);
     sunDirectFrac = d / std::max(d + a, 1e-6f); }   // OPT wxsun: the sun's share of a level surface's light (shade(): sun x N.L / pi against the sky term), read by the next frame's cascades
   glUniform3fv(U(p, "uSkyCol"), 1, glm::value_ptr(sky));
@@ -5157,6 +5277,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1f(U(p, "uAoIndirectOnly"), q.legacy ? 0.0f : 1.0f);
   glUniform1i(U(p, "uLook"), q.legacy ? 0 : 1);
   glUniform1i(U(p, "uSkyVisWall"), perf.skyVisWall && !q.legacy ? 1 : 0);
+  glUniform1i(U(p, "uFroxWorld"), froxOn && p != progComposite && p != progSsrHalf ? 1 : 0);
   glUniform1i(U(p, "uFogPhase"), perf.fogPhase && q.lightNew && !q.legacy && !thumbMode ? 1 : 0);
   glUniform1i(U(p, "uW2"), perf.w2Sky && q.lightNew && !q.legacy && !thumbMode ? 1 : 0); glUniform1f(U(p, "uFlash"), thumbMode ? 0.0f : wx.der.flash);   // W2
   glUniform1i(U(p, "uDbgView"), dbgView);   // CP0
@@ -7123,6 +7244,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   }
   // composite into hdrColor from a copy of it
   glCopyImageSubData(hdrColor, GL_TEXTURE_2D, 0, 0, 0, 0, sceneCopy, GL_TEXTURE_2D, 0, 0, 0, 0, width, height, 1);
+  froxRun(v);   // CP4 froxel fog (before the composite that applies it)
   const bool ssrHalf = ssr && perf.ssrHalf && progSsrHalf && ssrTex;
   if (ssrHalf) {   // OPT ssrhalf: the reflection march at a quarter of the pixels; the composite upsamples it by depth
     glBindFramebuffer(GL_FRAMEBUFFER, ssrFbo); glViewport(0, 0, std::max(1, width / 2), std::max(1, height / 2));
@@ -7155,6 +7277,9 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   glUniform1i(U(progComposite, "uSsrHalf"), ssrHalf ? 1 : 0); glBindTextureUnit(3, ssrHalf ? ssrTex : 0); glUniform1i(U(progComposite, "uSsrTex"), 3);   // unit 3: model material maps, rebound per draw
   glUniform2f(U(progComposite, "uSsrTexel"), 2.0f / width, 2.0f / height);
   glUniform1f(U(progComposite, "uSsrAmt"), ssr ? q.ssrStrength : 0.0f);
+  glUniform1i(U(progComposite, "uFroxOn"), froxOn ? 1 : 0); glBindTextureUnit(4, froxOn ? froxInt : 0); glUniform1i(U(progComposite, "uFrox"), 4);   // unit 4: model AO maps, rebound per draw
+  glUniform1f(U(progComposite, "uFroxNear"), froxNear); glUniform1f(U(progComposite, "uFroxFar"), froxFar); glUniform1f(U(progComposite, "uFroxHazeD"), hazeSigma());
+  glUniform1f(U(progComposite, "uFroxHazeH"), wx.der.phys && wx.der.visM < 3000.0f ? std::max(lt.mapHazeH > 0.0f ? lt.mapHazeH : q.hazeHeight, 600.0f) : lt.mapHazeH > 0.0f ? lt.mapHazeH : q.hazeHeight); glUniform3fv(U(progComposite, "uFroxAmb"), 1, glm::value_ptr(vec3(fogNow)));
   {   // W5 wxshimmer gate (terrain session's spec): arid map, sun > 25 deg, cover < 0.3, wind < 4.5 m/s (fading from 3), dry, no dust storm
     extern bool groundPaintArid();
     float g = perf.wxShimmer && !thumbMode && !q.legacy && groundPaintArid() && sunDir.y > 0.4226f && wx.st.cover < 0.3f && wx.st.precip == WxNone && wx.st.dustVisM <= 0.0f ? 1.0f : 0.0f;
