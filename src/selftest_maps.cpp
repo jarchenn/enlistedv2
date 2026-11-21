@@ -488,7 +488,12 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       app.R.lt.neutralLook = v.neutral;
       app.R.dbgTerr = v.dbg; app.R.ggOff = v.ggOff;   // GG1 measurement views
       if (v.groundEye) { v.pos.y += app.terrain.height(v.pos.x, v.pos.z); v.groundEye = false; }
-      if (v.weather >= 0) { app.R.wx.target = v.weather; app.R.wx.userSet = true; app.R.wx.snap(); }   // SKY1: a sky under a chosen weather
+      {   // SKY1: a sky under a chosen weather. The pin holds for that view only: the next view without "weather" (on this map
+        // or the next) gets back the weather the run had before the first pin (the map's own when nothing was user-set)
+        static int sWxTarget = -2; static bool sWxUser = false;
+        if (v.weather >= 0) { if (sWxTarget == -2) { sWxTarget = app.R.wx.target; sWxUser = app.R.wx.userSet; } app.R.wx.target = v.weather; app.R.wx.userSet = true; app.R.wx.snap(); }
+        else if (sWxTarget != -2) { app.R.wx.target = sWxTarget; app.R.wx.userSet = sWxUser; app.R.wx.snap(); sWxTarget = -2; }
+      }
       if (v.cover >= 0.0f) app.R.cloudCover = v.cover;
       if (v.light >= 0) { settings().s.lightNew = v.light != 0; app.R.q.lightNew = v.light != 0; app.R.resetTemporal(); }   // VO: New beside Classic in one run
       if (v.explore) {
