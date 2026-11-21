@@ -4301,6 +4301,7 @@ float histLum(){
 void mainE(){
   vec3 avg = textureLod(uHdr, vec2(0.5), uLod).rgb;
   float prev = texelFetch(uPrev, ivec2(0), 0).r;
+  if (isnan(prev) || isinf(prev) || prev <= 0.0) prev = 1.0;   // never absorbing: fxexpo's rate limit multiplies prev, so a 0 / NaN would stay black for good
   if (uReset > 0.0) { oE = uReset; return; }
   float lr = uHist == 1 ? histLum() : dot(avg, vec3(0.2126,0.7152,0.0722));
   if (isnan(lr) || isinf(lr)) { oE = prev; return; }   // one non-finite pixel poisons the whole mip average
