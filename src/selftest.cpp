@@ -252,6 +252,7 @@ void SelfTest::update(App& app, float dt) {
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-structures") { go(3800); return; }
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-lines") { go(4600); return; }   // LN2 part (LN1 chains its own checks in)
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-maps" || std::string(argv[k]) == "--render-map-thumbs") { go(4100); return; }
+    for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--selftest-lookdev") { extern bool gLookdevRun; gLookdevRun = true; go(4100); return; }   // CP0 look-dev readout (selftest_maps.cpp)
     for (int k = 1; k < argc; ++k) if (std::string(argv[k]) == "--benchmark-village") { extern void setVillageTag(const std::string&); setVillageTag(k + 1 < argc ? argv[k + 1] : "run"); go(1350); return; }
     if (!reopenPath.empty()) { go(100); break; }
     if (bench) { go(200); break; }

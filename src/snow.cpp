@@ -56,6 +56,7 @@ void snowSync(App& app) {
   logf("snow: layer on (%dx%d mask, box %.0f x %.0f m)", w, h, b[2].get<float>(), b[3].get<float>());
 }
 
+bool snowLayerOn() { return gS.on && gS.tex; }   // W2: the map has lying snow (exposure under overcast)
 void snowUniforms(GLuint p, bool thumb) {
   auto U = [&](const char* n) { return glGetUniformLocation(p, n); };
   int on = gS.on && gS.tex ? 1 : 0;
