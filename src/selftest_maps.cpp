@@ -40,7 +40,7 @@ std::vector<int> mapTemplates(App& app) {
   std::vector<int> v;
   const char* only = std::getenv("NMK_MAPS_ONLY");   // dev hook: just this template id (e.g. chateau_town)
   for (int k = 0; k < (int)app.templates.size(); ++k)
-    if (app.templates[k].raw.contains("map") && (!only || !*only || app.templates[k].id == only)) v.push_back(k);
+    if (app.templates[k].raw.contains("map") && (!only || !*only || ("," + std::string(only) + ",").find("," + app.templates[k].id + ",") != std::string::npos)) v.push_back(k);   // a comma list too (one launch over several maps)
   return v;
 }
 struct View { std::string name; vec3 pos; float yaw, pitch; bool explore = false; bool gate = true; float hour = -1.0f; bool groundEye = false, neutral = false; int dbg = -1; bool ggOff = false; int weather = -1; float cover = -1.0f; int light = -1; float walk = 0.0f; };   // VO walk: seconds walked forward at 1.4 m/s after the measurement, a frame every 0.5 s (motion check)   // VO: light 1 New / 0 Classic (Settings > Lighting)   // SKY1: weather 0 clear / 1 cloudy, cover forced   // GR3: hour >= 0 sets the time of day for that view; groundEye: pos.y is the eye height above the terrain; neutral: the map's look tint / saturation / ambient off (tracing a colour cast)   // gate: gameplay view held to the frame target

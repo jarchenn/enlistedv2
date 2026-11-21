@@ -480,6 +480,7 @@ uniform float uTexBias;   // log2(render / display), -0.5 more under TAA (texbia
 uniform int uMicroLayer;   // CP step 6: the micro-detail set's array layer (slot micro_detail), -1 none
 uniform ivec4 uMaskLayer;  // CP step 6 part 2: the mask library's array layers (mask_lib_0..3), -1 missing
 uniform int uMaskLib;      // perf switch masklib
+uniform int uAbsFar;      // FIX8 (perf switch absfar)
 uniform int uSteepTri;     // FIX5 (perf switch steeptri): ground-space slots triplanar on steep normals
 uniform int uWearCause;    // M4 (perf switch wearcause): wear placed by its causes (splash, runoff), roughness first
 uniform ivec2 uMicroOn;    // x: micro detail (perf switch microdetail), y: macro roughness variation (perf switch roughvar)
@@ -597,7 +598,7 @@ TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
   vec4 A = uTexA[slot]; if (A.x < 0.0) return o;
   int li = int(A.x + 0.5); vec4 K = uTexB[slot], C = uTexC[slot], Lp = uTexL[li], M = uTexM[li];
   float f = C.w > 0.0 ? 1.0 - smoothstep(C.z, C.w, dist) : 1.0;
-  if (f <= 0.0) return o;
+  if (f <= 0.0) { if (uAbsFar == 1 && K.x < 0.0) o.alb = M.rgb*(-K.x); return o; }   // FIX8 absfar: past the fade an "absolute" set is its mean colour, not a white x1 modulation (paint_dirt / trail_dirt read white beyond 160-180 m)
   gEyeD = dist;
   vec2 inv = Lp.xy*A.w; int rot = int(mod(C.y + 0.5, 4.0));
   gHexK = uHex.x > 0.0 && (uOpt2Off == 1 || gLayerW >= 0.35) ? floor(C.y/4.0 + 0.01)/8.0 : 0.0;   // M1: this slot's hex tiling (ground and cliff taps); OPT2: a layer under 35 % of the pixel takes one plain tap
