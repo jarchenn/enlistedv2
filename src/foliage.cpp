@@ -23,6 +23,7 @@ struct LeafSpecies { vec3 base{1}; std::vector<int> sprigs, leaves; };   // leav
 static std::map<std::string, LeafSpecies> gLeafSpecies;
 static json gLeafAssets;
 bool leafLibReady() { return gLeafTex != 0; }
+GLuint leafLibTex() { return gLeafTex; }   // render.cpp setLighting: rebinds it to kLeafUnit after moving the horizon map off 26
 
 void leafMips(GLuint tex, int layer, int S, int levels, std::vector<uint8_t> px) {
   int cov0 = 0; for (int k = 0; k < S * S; ++k) cov0 += px[k * 4 + 3] > 127;

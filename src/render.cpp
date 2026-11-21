@@ -5103,6 +5103,29 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1f(U(p, "uHazeH"), wx.der.phys && wx.der.visM < 3000.0f ? std::max(lt.mapHazeH > 0.0f ? lt.mapHazeH : q.hazeHeight, 600.0f) : lt.mapHazeH > 0.0f ? lt.mapHazeH : q.hazeHeight);   // W2: a storm's air fills the valley, not a thin ground layer   // FG1: a map's own haze scale height
   glUniform1f(U(p, "uTime"), time);
   lightingUniforms(*this, p);   // L2: local lights, light shadows, probe GI, sky extras
+  if (U(p, "uLeaves") >= 0 && U(p, "uTSV") >= 0) {   // the canopy colour programs: 26 is their leaf array (L1, a 2D array); the horizon map (uTSV, 2D) set to 26
+    // above would put two sampler types on one unit (invalid GL: the leaves' alpha read 0, every canopy fragment was cut
+    // while the depth prepass, without uTSV, kept them: white canopy shapes). The horizon map moves to a unit no active
+    // sampler of this program uses, as the fog field does for the grass atlas above.
+    static std::unordered_map<GLuint, std::pair<int, int>> tsvUnit;   // unit, calls seen (re-scanned for the first 3 calls)
+    auto it = tsvUnit.find(p);
+    if (it == tsvUnit.end() || it->second.second < 3) {
+      bool used[32] = {}; GLint n = 0; glGetProgramiv(p, GL_ACTIVE_UNIFORMS, &n);
+      for (GLint i = 0; i < n; ++i) {
+        char nm[128]; GLint sz = 0; GLenum ty = 0; glGetActiveUniform(p, (GLuint)i, sizeof nm, nullptr, &sz, &ty, nm);
+        const bool smp = (ty >= GL_SAMPLER_1D && ty <= GL_SAMPLER_2D_SHADOW) || (ty >= GL_SAMPLER_1D_ARRAY && ty <= GL_SAMPLER_CUBE_SHADOW) || ty == GL_SAMPLER_2D_RECT || ty == GL_SAMPLER_CUBE_MAP_ARRAY || ty == GL_SAMPLER_2D_MULTISAMPLE || ty == GL_SAMPLER_2D_MULTISAMPLE_ARRAY || ty == GL_SAMPLER_BUFFER;
+        if (!smp || std::string(nm) == "uTSV") continue;
+        GLint loc = glGetUniformLocation(p, nm); if (loc < 0) continue;
+        for (GLint k = 0; k < std::max(sz, 1); ++k) { GLint u = 0; glGetUniformiv(p, loc + k, &u); if (u >= 0 && u < 32) used[u] = true; }
+      }
+      int f = -1; for (int u : {9, 13, 6, 1, 0}) if (f < 0 && !used[u]) f = u;   // units setLighting rebinds every call
+      if (f < 0) logf("leaves: no free texture unit for the horizon map (terrain horizon off in the canopies)");
+      int seen = it == tsvUnit.end() ? 1 : it->second.second + 1; tsvUnit[p] = {f, seen}; it = tsvUnit.find(p); if (seen == 3) logf("leaves: horizon map on texture unit %d for program %u (leaf array on 26)", f, p);
+    }
+    if (it->second.first >= 0) { glUniform1i(U(p, "uTSV"), it->second.first); if (thorTex && !thumbMode) glBindTextureUnit(it->second.first, thorTex); }
+    else glUniform1i(U(p, "uTHorOn"), 0);
+    extern GLuint leafLibTex(); glBindTextureUnit(kLeafUnit, leafLibTex());
+  }
   sunDir = sunDirMap;   // the thumbnail studio sun never leaks back into the map
 }
 
