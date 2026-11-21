@@ -14,3 +14,4 @@ void scatterFrame(App& app, std::vector<DrawItem>& op, vec3 eye);               
 void scatterRenderPass(Renderer& r, const RenderView& v, const mat4& vp);            // cushions and litter (after the grass)
 struct ScatterStats { int chunks = 0, stones = 0, twigs = 0, roots = 0, litter = 0, cushions = 0, cushionsDrawn = 0, checkFails = 0; };
 const ScatterStats& scatterStats();
+int scatterRestingIn(vec2 lo, vec2 hi);   // stones, twigs, roots and litter sheets of the built chunks inside the xz box (VOT meter cue 5)

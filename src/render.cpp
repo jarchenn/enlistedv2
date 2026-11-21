@@ -2927,6 +2927,7 @@ uniform sampler2D uScene, uShafts, uAmb, uAO, uDepth, uNR; uniform float uShaftA
 uniform mat4 uInvProj, uProj, uView; uniform vec2 uAoTexel;
 uniform float uContactAmt; uniform int uContactSteps;   // VO L1 screen-space sun contact shadows (0: off)
 uniform int uAoNew;   // VO L2: multi-bounce and specular occlusion from the (GT)AO
+uniform int uDbgAo;   // VFX rev3 meter (NMK_DBG_TERRAIN 5): the ground's (1, ao, 0) times this pass's AO (SSAO / GTAO and the contact decals), cue 4
 uniform int uBent;    // CP4 bentnormal
 uniform int uSsrHalf; uniform sampler2D uSsrTex; uniform vec2 uSsrTexel;
 uniform int uFroxOn; uniform sampler3D uFrox; uniform float uFroxNear, uFroxFar, uFroxHazeD, uFroxHazeH; uniform vec3 uFroxAmb;   // CP4 froxel fog (unit 4)
@@ -3042,6 +3043,7 @@ void main(){
       c = max(c + s/ws, vec3(0.0));
     }
   } else if (uSsrAmt > 0.0) c = max(c + ssrAdd(vUV), vec3(0.0));
+  float aoDbg = 1.0;
   if (uAoAmt > 0.0) {
     // depth-aware 4x4 blur of the half-resolution AO, then remove the occluded share of the indirect light
     float z = texture(uDepth, vUV).r;
@@ -3054,6 +3056,7 @@ void main(){
       s += a.r*k; w += k; bs += a.ba*k;
     }
     float ao = w > 1e-4 ? s/w : 1.0;
+    aoDbg = mix(1.0, ao, min(uAoAmt, 1.0));
     vec3 amb = texture(uAmb, vUV).rgb;
     if (uBent == 1 && w > 1e-4 && z > 0.0) {   // CP4 bentnormal: sky / ground light along the open direction instead of the surface normal
       vec2 b2 = bs/w; vec3 bv = vec3(b2, sqrt(max(1.0 - dot(b2, b2), 0.0)));
@@ -3096,6 +3099,7 @@ void main(){
     }
   }
   if (uShaftAmt > 0.0) c += texture(uShafts, vUV).rgb*uShaftAmt;
+  if (uDbgAo == 1) { vec3 s0 = texture(uScene, vUV).rgb; if (s0.b < 0.01 && abs(s0.r - 1.0) < 0.02) c = vec3(1.0, s0.g*aoDbg, 0.0); }   // terrain debug 5 pixels only
   c = max(c, vec3(0.0));
   oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : c, 1.0);
 }
@@ -7622,6 +7626,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   glUniform1f(U(progComposite, "uAoAmt"), ao ? q.ssaoStrength : 0.0f);
   glUniform1f(U(progComposite, "uContactAmt"), contact ? 0.85f * (1.0f - lightingTod(lt.hour).nightK) * (1.0f - wx.k) : 0.0f);   // VO L1: the sun's (none from the moon or an overcast sky)
   glUniform1i(U(progComposite, "uAoNew"), q.lightNew && perf.gtao && !q.legacy ? 1 : 0);
+  { static const int dbg = std::getenv("NMK_DBG_TERRAIN") ? std::atoi(std::getenv("NMK_DBG_TERRAIN")) : 0; glUniform1i(U(progComposite, "uDbgAo"), (dbgTerr >= 0 ? dbgTerr : dbg) == 5 ? 1 : 0); }   // VFX rev3 meter, cue 4
   glUniform1i(U(progComposite, "uBent"), q.lightNew && perf.gtao && perf.bentNormal && !q.legacy ? 1 : 0);
   glUniform1i(U(progComposite, "uContactSteps"), shadowTier >= 2 ? 16 : shadowTier == 1 ? 12 : 8);
   setLighting(progComposite, v);   // sky model + noise for the reflection estimate
