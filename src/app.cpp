@@ -235,10 +235,21 @@ void App::syncRuntime() {
   { extern int lineSyncGates(App&); if (lineSyncGates(*this)) sig = placementSig(doc.instances, false); }   // LN2: line gates follow their spans
   crumb("sync: build");
   syncSig_ = sig;   // taken before the pass: anything a rebuild changes is seen by the next call
+  // CP 5.8 time slice: in play, at most ~4 ms of rebuilds a frame (corpus 12 s12.9: no long blocking work on the main
+  // thread); the rest wait for the next frames, keeping their previous build meanwhile (a new instance appears a frame or
+  // two later). A loading screen, a self-test that needs everything at once (realTime off) or NMK_SYNC_FULL: all at once
+  extern bool loadingActive();
+  static const bool syncFull = std::getenv("NMK_SYNC_FULL") != nullptr;
+  const bool sliced = !syncFull && !loadingActive() && mode == Mode::Explore && (!selftest || selftest->realTime);
+  const double sliceT0 = glfwGetTime(); bool deferred = false;
   std::set<uint64_t> live;
   static const bool memAttr = std::getenv("NMK_MEMLOG") != nullptr; std::map<std::string, std::pair<double, int>> memBy;   // MEM1: commit per asset's copies
   for (auto& i : doc.instances) {
     live.insert(i.id);
+    if (sliced) {   // over the slice: leave it (no empty runtime entry is made: the draw loop would find a null asset)
+      auto f = rt.find(i.id);
+      if ((f == rt.end() || f->second.rev != i.rev || f->second.id != i.id) && glfwGetTime() - sliceT0 > 0.004) { deferred = true; continue; }
+    }
     auto& r = rt[i.id];
     if (r.rev != i.rev || r.id != i.id) {
       size_t c0 = memAttr ? processMemory().PrivateBytes : 0;
@@ -253,6 +264,7 @@ void App::syncRuntime() {
     std::string s; for (size_t k = 0; k < v.size() && k < 12; ++k) { char b[96]; std::snprintf(b, sizeof b, " %s %.0f MB x%d;", v[k].second.c_str(), v[k].first, memBy[v[k].second].second); s += b; }
     logf("memattr: buildRT %.0f MB over %zu assets:%s", tot, v.size(), s.c_str());
   }
+  if (deferred) syncSig_ = 0;   // not done: the next call walks again
   crumb("sync: prune");
   for (auto it = rt.begin(); it != rt.end();) {
     if (!live.count(it->first)) { destroyRT(it->second); it = rt.erase(it); } else ++it;
