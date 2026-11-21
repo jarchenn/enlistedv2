@@ -6,6 +6,7 @@
 #include "ground_paint.h"
 #include "moss.h"
 #include "render.h"
+#include "roads.h"
 #include "water_query.h"
 #include <stb_image.h>
 #include <algorithm>
@@ -83,14 +84,18 @@ float nearestFp(const Ctx& x, vec2 p, vec2* dirOut = nullptr) {
   }
   return best;
 }
-float traffic(vec2 p) {   // paths and tracks (ground paint): 2 dirt, 3 mud, 4 gravel, 6 cobbles
-  return sat(std::max({groundPaintWeight(p.x, p.y, 2), 0.8f * groundPaintWeight(p.x, p.y, 3), 0.7f * groundPaintWeight(p.x, p.y, 4), groundPaintWeight(p.x, p.y, 6)}));
+float traffic(vec2 p) {   // paths and tracks: ground paint (2 dirt, 3 mud, 4 gravel, 6 cobbles) and the authored road's trail (roads.h)
+  return sat(std::max({groundPaintWeight(p.x, p.y, 2), 0.8f * groundPaintWeight(p.x, p.y, 3), 0.7f * groundPaintWeight(p.x, p.y, 4), groundPaintWeight(p.x, p.y, 6), roadLateral(p.x, p.y).traffic}));
+}
+float roadRim(vec2 p) {   // 1 on the road out to its rim (4.3: rim = 1 - ss(0.72 w, 1.22 w, |x|)), 0 beyond: moss stops dead there
+  const RoadQ r = roadLateral(p.x, p.y); return r.w > 0.0f ? 1.0f - ss(0.72f * r.w, 1.22f * r.w, std::fabs(r.lat)) : 0.0f;
 }
 // a candidate spot: ground height and normal; false where nothing may rest (water, footprints, steeper than repose)
 bool spot(const Ctx& x, vec2 p, float reposeDeg, float& h, vec3& n, float fpClear = 0.15f) {
   h = x.t->height(p.x, p.y); n = x.t->normal(p.x, p.y);
   if (n.y < std::cos(radians(reposeDeg))) return false;
   const float wl = waterAt(*x.app, p.x, p.y); if (!waterNone(wl) && wl > h - 0.01f) return false;
+  if (poolAt(p.x, p.y, h) > 0.005f) return false;   // the map's authored pools (roads.h)
   if (nearestFp(x, p) < fpClear) return false;
   return true;
 }
@@ -210,16 +215,18 @@ void buildChunk(const Ctx& x, Chunk& c) {
     if (u01(hk) >= x.mul) continue;
     const vec2 p = o + vec2(gx, gz) + 1.2f * vec2(u01(hk >> 3), u01(hash4(hk, 1, 0, 0)));
     float h; vec3 nrm; if (!spot(x, p, 40.0f, h, nrm, 0.05f)) continue;
-    const float tr = traffic(p); if (tr > 0.5f) continue;
+    const RoadQ rq = roadLateral(p.x, p.y);
+    const float rutK = rq.traffic > 0.5f ? 1.0f - ss(0.1f, 0.3f, rq.rutDist) : 0.0f;   // in a wheel rut
+    const float tr = traffic(p); if (tr > 0.5f && rutK <= 0.0f) continue;
     vec2 away(0); const float dw = nearestFp(x, p, &away);
     const float wall = dw < 1.5f ? 1.0f - dw / 1.5f : 0.0f;
     const float lee = wall * sat(glm::dot(glm::normalize(away + 1e-4f), x.wind));
     float ring = 0; for (int q = 0; q < 4; ++q) { const float aq = 1.5708f * q; ring += x.t->height(p.x + 1.5f * std::cos(aq), p.y + 1.5f * std::sin(aq)); }
     const float hollow = ss(0.02f, 0.12f, ring * 0.25f - h);
     const float canopy = mossHabitat(p.x, p.y).w;
-    const float W = (0.55f * canopy + 0.6f * wall + 0.3f * lee + 0.35f * hollow + 0.8f * groundPaintWeight(p.x, p.y, 10)) * (1.0f - tr) * x.cfg.density;
+    const float W = std::max((0.55f * canopy + 0.6f * wall + 0.3f * lee + 0.35f * hollow + 0.8f * groundPaintWeight(p.x, p.y, 10)) * (1.0f - tr), 0.7f * rutK) * x.cfg.density;
     if (u01(hash4(hk, 2, 0, 0)) > W) continue;
-    const float S = 0.5f + 0.4f * u01(hash4(hk, 3, 0, 0)), yw = 6.2831853f * u01(hash4(hk, 4, 0, 0)), seed = u01(hash4(hk, 5, 0, 0)) * 97.0f;
+    const float S = (rutK > 0.0f ? 0.35f : 0.5f) + 0.4f * u01(hash4(hk, 3, 0, 0)), yw = 6.2831853f * u01(hash4(hk, 4, 0, 0)), seed = u01(hash4(hk, 5, 0, 0)) * 97.0f;   // rut litter: smaller sheets
     const vec2 ax(std::cos(yw), std::sin(yw)), az(-ax.y, ax.x);
     const uint32_t b = (uint32_t)lv.size();
     for (int vz = 0; vz < 3; ++vz) for (int vx = 0; vx < 3; ++vx) {   // 3 x 3 grid snapped to the ground: no floating corners
@@ -246,7 +253,7 @@ void buildChunk(const Ctx& x, Chunk& c) {
     const vec4 hb = mossHabitat(p.x, p.y);
     const vec3 P(p.x, h, p.y);
     const float mo = mossMoistCpu(0.0f, 0.0f, 0.0f, 8.0f * (1.0f - hb.x)) * 0.5f + 0.5f * hb.w;   // ground: moisture weighted up under canopies (03 s3.5)
-    const vec3 f = mossFieldCpu(P, n.y, 0.0f, 1.0f, mo, mossShelterCpu(hb.y, n, vec3(0, 0, 1)), 0.9f, hb.w, traffic(p), hb.z, 0.0f, 1.0f, 0.5f, 1.0f, x.bias);
+    const vec3 f = mossFieldCpu(P, n.y, 0.0f, 1.0f, mo, mossShelterCpu(hb.y, n, vec3(0, 0, 1)), 0.9f, hb.w, std::max(traffic(p), roadRim(p)), hb.z, 0.0f, 1.0f, 0.5f, 1.0f, x.bias);
     if (u01(hash4(hk, 2, 0, 0)) >= f.y) continue;
     // align +Y between the surface normal and up, then turn about it by a smooth noise field: neighbours lean together
     const vec3 ax = glm::normalize(glm::mix(n, vec3(0, 1, 0), 0.35f));
