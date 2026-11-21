@@ -406,7 +406,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       rackDrawItems(i, r); continue;
     }
     if (!r.asset->station.kind.empty()) {   // station: base + yaw / elevation / recoil children
-      mat4 b, y, e, rc; stationParts(i, r, b, y, e, rc);
+      mat4 b, y, e, rc; stationParts(i, r, b, y, e, rc, true);
       if (r.asset->model && !r.asset->station.modelRole.empty()) {
         const StationDef& sd = r.asset->station; const GpuModel* gm = r.asset->model.get();
         vec4 tint = r.st.wrecked ? vec4(0.22f, 0.2f, 0.18f, 1) : vec4(1);
@@ -1470,7 +1470,7 @@ int App::run(int argc, char** argv) {
     fx.nearFade = R.perf.fxNear; fx.wind = R.perf.wxDrift ? R.wx.der.windXZ : vec2(0);
     {   // Battle Foundry 4: the flash's Yref from this frame's light (read only), the loose ground for the dust disc
       fx.evOn = R.perf.fxEv; fx.capOn = R.perf.fxCap; fx.wxWet = R.wx.st.wet; fx.wxSnow = R.wx.st.snowDepth;
-      fx.scaleOn = R.perf.fxScale;
+      fx.scaleOn = R.perf.fxScale; gFxRecoil = R.perf.fxRecoil; gFxTier = fx.tier;
       if (!fx.surfaceOf) fx.surfaceOf = [this](vec3 p, const std::string& fam) { return fxSurfaceAt(p, fam); };
       static const float indoorLux = fxData().yrefLux.count("interior_lit") ? fxData().yrefLux.at("interior_lit") : 300.0f;
       fx.yrefNits = fxYrefNits(R.camIndoor ? indoorLux : std::max(R.wx.der.eTotalLux, 0.25f)); fx.peakClamp = fxData().clampSingle;   // the current bloom: one chain (pbloom: no clamp)

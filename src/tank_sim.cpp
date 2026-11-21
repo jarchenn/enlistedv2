@@ -1,6 +1,7 @@
 // Tanks, Explore simulation: session state, driving, turret / gun, hatch MG, HE/AP loading, damage rules, wrecks,
 // entry / exit, effects and persistence. docs/tanks.md
 #include "app.h"
+#include "fxdata.h"   // Battle Foundry 6 (fxrecoil)
 #include "mpai.h"
 #include "game.h"
 #include <GLFW/glfw3.h>
@@ -35,7 +36,12 @@ void TankSys::rig(const TankRT& t, mat4& hull, mat4& turret, mat4& gun, mat4& re
   mat4 g = glm::translate(mat4(1), d.gunPivot) * glm::rotate(mat4(1), radians(-t.gElev), vec3(1, 0, 0));
   gun = turret * g * glm::translate(mat4(1), -d.gunPivot);
   float r = t.recoilT, off = 0, stroke = 1.3f * d.recoil;   // RC2: a longer, faster stroke and a slower run-out back to battery
-  if (r < 0.03f) off = stroke * (r / 0.03f);
+  if (gFxRecoil && !d.autoGun) {   // fxrecoil (spec 7.2): the brake's curve on the rig's own stroke (travelFraction = D / L), the row's timing at every tier,
+    const FxGunRow& g = fxGunFor(d.id);   // moving its pre-exit travel before the flash from Medium up
+    off = fxGunRecoilX(r + (gFxTier >= 2 ? fxGunPreTime(g) : 0.0f), g) * (stroke / std::max(g.L, 1e-3f));
+    if (gFxTier >= 2 && r < 0.2f) off += 0.004f * std::sin(r * 6.2831853f * 35.0f) * std::exp(-r / 0.06f);   // mantlet shudder, 2-6 mm over 0-200 ms (7.4)
+  }
+  else if (r < 0.03f) off = stroke * (r / 0.03f);
   else if (r < 1.33f) { float u = (r - 0.03f) / 1.3f; off = stroke * (1 - u * u * (3 - 2 * u)); }
   recoil = turret * g * glm::translate(mat4(1), vec3(0, 0, -off)) * glm::translate(mat4(1), -d.gunPivot);
 }
@@ -609,7 +615,11 @@ void TankSys::drive(App& app, TankRT& t, float dt) {
   {
     const float w = 8.5f, e = std::exp(-w * dt);
     auto spring = [&](float& x, float& v) { float c = v + w * x; x = (x + c * dt) * e; v = (v - w * c * dt) * e; };
-    spring(t.suspPitch, t.suspPitchV); spring(t.suspRoll, t.suspRollV);
+    if (gFxRecoil && !t.def->autoGun) {   // fxrecoil: the hull pitches and settles at the platform's own frequency and damping (7.3; ~1.3 s to rest)
+      const FxGunRow& g = fxGunFor(t.def->id); const float wn = 2.0f * 3.14159265f * g.fn, z = g.zeta;
+      auto under = [&](float& x, float& v) { for (int s = 0; s < 4; ++s) { const float h = dt / 4; v += (-wn * wn * x - 2 * z * wn * v) * h; x += v * h; } };
+      under(t.suspPitch, t.suspPitchV); under(t.suspRoll, t.suspRollV);
+    } else { spring(t.suspPitch, t.suspPitchV); spring(t.suspRoll, t.suspRollV); }
     for (int k = 0; k < 3; ++k) spring(t.shove[k], t.shoveV[k]);
   }
   // track speeds (+x / -x side) for the HUD, sounds and dust
@@ -703,6 +713,10 @@ void TankSys::fireCannon(App& app, TankRT& t) {
   {   // TK1: the hull rocks away from the barrel on its suspension (more broadside: the hull is narrower than long) and is
       // shoved a little back along it; springs in the drive step bring it back
     float deg = d.rockDeg >= 0 ? d.rockDeg : 9.0f * d.recoil, k = 8.5f * 2.718282f, a = radians(t.tYaw);
+    if (gFxRecoil && !d.autoGun) {   // fxrecoil (7.3): the derived peak pitch (M1A2 0.77, M60 0.79 deg), split by elevation, on the row's 1.2 Hz / zeta 0.3 hull
+      const FxGunRow& g = fxGunFor(d.id); deg = g.pitchDeg * std::cos(radians(t.gElev));
+      k = 2.0f * 3.14159265f * g.fn / fxSpringPeak(g.zeta);   // v0 for that first peak (Fx: the hull spring below runs underdamped)
+    }
     t.suspPitchV += deg * std::cos(a) * k;
     t.suspRollV += 1.6f * deg * std::sin(a) * k;
     vec3 back = -vec3(dir.x, 0, dir.z); float L = glm::length(back);
@@ -711,7 +725,14 @@ void TankSys::fireCannon(App& app, TankRT& t) {
   if (d.autoGun) {   // VH8: an autocannon's shot is a small short puff (200 rpm: a full tank-gun cloud each round built a wall in the sight)
     app.fx.flash(muzzle + dir * 0.15f, 0.35f * d.muzzleScale / 0.55f, 0.04f, vec4(10, 7, 3, 1));
     for (int k = 0; k < 2; ++k) app.fx.smoke(muzzle + dir * 0.3f, dir * (2.0f + 2.0f * app.fx.rnd()) + vec3(0, 0.3f, 0), 0.12f, 0.45f + 0.25f * app.fx.rnd(), vec4(0.62f, 0.6f, 0.57f, 0.35f), 0.9f, 0.25f);
-  } else app.fx.muzzle(muzzle, dir, d.muzzleScale, d.id.c_str());   // vehicle JSON gun.muzzleScale (firing smoke: content/settings/fx.json)
+  } else app.fx.muzzle(muzzle, dir, d.muzzleScale, d.id.c_str());
+  if (gFxRecoil && !d.autoGun && !d.hullBoxes.empty()) {   // fxrecoil (7.4): every horizontal surface sheds its dust, 5-60 ms (Medium 6 / High 16 / Ultra 30)
+    static const int nShed[5] = {0, 0, 6, 16, 30}; const mat4 H = hullMatrix(t); const TankBox& b = d.hullBoxes[0];
+    for (int k = 0; k < nShed[std::clamp(gFxTier, 0, 4)]; ++k) {
+      const vec3 lp = b.c + vec3((app.fx.rnd() * 2 - 1) * b.h.x, b.h.y, (app.fx.rnd() * 2 - 1) * b.h.z), wp = vec3(H * vec4(lp, 1));
+      app.fx.smoke(wp, vec3(app.fx.rnd() - 0.5f, 0.6f + 0.6f * app.fx.rnd(), app.fx.rnd() - 0.5f) * 1.2f, 0.25f + 0.25f * app.fx.rnd(), 1.5f + 1.5f * app.fx.rnd(), vec4(0.5f, 0.45f, 0.37f, 0.35f), 0.5f, 0.1f);
+    }
+  }   // vehicle JSON gun.muzzleScale (firing smoke: content/settings/fx.json)
   app.audio.play(!d.gunSound.empty() && app.audio.hasEvent(d.gunSound) ? d.gunSound : t.def->id == "tiger_i" ? "tank_88" : "tank_17pdr", muzzle, d.autoGun ? 0.8f : 1.0f);
   app.viewKickPitch = d.autoGun ? 0.12f : 0.6f;
   t.kickT = 0; t.kickDeg = d.viewKick >= 0 ? d.viewKick : 5.5f * d.recoil;   // RC2: every seat's view jumps (cameraKick)

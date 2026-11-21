@@ -111,7 +111,8 @@ struct WeaponState {
   bool triggerReleased = true, clicked = false;
   bool magOff = false;            // WP5: the magazine left the gun mid-reload (cancelled after mag-out): off until a reload completes
   float recoilP = 0, recoilY = 0, kick = 0;
-  float kickV = 0, kickP = 0, kickPV = 0, kickY = 0, kickYV = 0;   // WP4 spring: kick (back, m) and its rate, muzzle up / left (deg) and rates
+  float kickV = 0, kickP = 0, kickPV = 0, kickY = 0, kickYV = 0;
+  float boltT = -1, boltK = 0;    // fxrecoil (7.5): the bolt carrier's second impulse, due boltT s after the shot (< 0: none)   // WP4 spring: kick (back, m) and its rate, muzzle up / left (deg) and rates
   float sinceShot = 99;           // s since the last shot (a burst ends, and its recoil is folded into the aim, once firing has stopped)
   int shotIdx = 0, burst = 0, clipPings = 0;
   float flameFrac = 0;            // flamethrower: fuel used since the last whole percent

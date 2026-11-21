@@ -159,6 +159,20 @@ int fxDataSelfCheck() {
   check(ap, "column apex / crater diameter ~ 8 for all " + std::to_string(D.munitions.size()) + " munitions");
   bool rc = true; for (auto& r : D.guns) rc = rc && r.tCr / r.tR >= 4 && r.tCr / r.tR <= 7;
   check(rc, "recoil counter / recoil time between 4 and 7 for all " + std::to_string(D.guns.size()) + " guns");
+  {   // phase 6: the brake curve per row: fast out, home 4-7 x slower, buffered, exactly back at rest; the same at every tier
+    bool ok = true; std::string worst;
+    for (auto& g : D.guns) {
+      float peakT = 0, peak = 0, endT = 0;
+      for (int i = 1; i < 200000; ++i) { const float t = i * 1e-5f, x = fxGunRecoilX(t, g); if (x > peak) { peak = x; peakT = t; } if (x <= 0 && t > peakT && peakT > 0) { endT = t; break; } }
+      const float ratio = (endT - peakT) / std::max(peakT, 1e-6f);
+      const bool good = std::fabs(peak / g.L - 1) < 0.01f && ratio >= 4 && ratio <= 7.5f && fxGunRecoilX(endT + 0.5f, g) == 0.0f && std::fabs(peakT / g.tR - 1) < 0.02f;
+      if (!good) { ok = false; worst = g.id + " peak " + std::to_string(peak) + " at " + std::to_string(peakT) + " back at " + std::to_string(endT); }
+    }
+    check(ok, "gun recoil: full stroke at t_recoil, home 4-7 x slower, at rest after (all " + std::to_string(D.guns.size()) + " rows)" + (ok ? "" : ": " + worst));
+    const FxGunRow& m = fxGunFor("abrams_m1a2"); const float tp = fxGunPreTime(m);
+    check(std::fabs(fxGunRecoilX(tp, m) - m.preExit) < 1e-4f && tp > 0.001f && tp < 0.004f, "M256: the barrel is " + std::to_string(m.preExit * 1000) + " mm back " + std::to_string(tp * 1000) + " ms before the flash");
+    check(std::fabs(fxSpringPeak(0.5f) - 0.546f) < 0.005f && fxSpringPeak(0.3f) > fxSpringPeak(0.6f), "underdamped spring: first peak 0.546 v0 / omega at zeta 0.5");
+  }
   fxEventSelfCheck(fails);
   logf("[fxev] %s (%d failed)", fails ? "FAIL" : "PASS", fails);
   return fails ? 1 : 0;
@@ -189,4 +203,41 @@ float fxSoilMu(const std::string& s) {
   if (s == "wet_soil" || s == "mud") return mu("damp_soil", 0.45f);
   if (s == "rock" || s == "concrete" || s == "asphalt") return mu("competent_rock", 0.55f);
   return mu("cohesive_soil", 0.50f);
+}
+
+// ---- phase 6: recoil
+bool gFxRecoil = true; int gFxTier = 2;
+const FxGunRow& fxGunFor(const std::string& name) {
+  const FxData& D = fxData(); static const FxGunRow fallback;
+  auto has = [&](const char* k) { return name.find(k) != std::string::npos; };
+  const char* id = has("abrams") ? "M256_120mm" : has("bradley") || has("bofors") || has("flak38") ? "Bofors_40mm"
+                 : has("pak") || has("flak") || has("zis") ? "Pak40_75mm" : "M68_105mm";   // WWII tank guns: the M68 / M60 platform (0.8 deg)
+  if (const FxGunRow* r = D.gun(name)) return *r;
+  if (const FxGunRow* r = D.gun(id)) return *r;
+  return fallback;
+}
+float fxGunRecoilX(float t, const FxGunRow& g) {   // spec 7.2 drop-in
+  const float L = std::max(g.L, 1e-3f), V0 = std::max(g.V0, 1e-3f), a = V0 * V0 / (2.0f * L), tr = 2.0f * L / V0;
+  if (t <= 0.0f) return 0.0f;
+  if (t < tr) return V0 * t - 0.5f * a * t * t;
+  const float acr = std::max(g.f, 1e-3f) * a, tcr = std::sqrt(2.0f * L / acr), t2 = t - tr;
+  if (t2 >= tcr) return 0.0f;
+  const float x = L - 0.5f * acr * t2 * t2;
+  return x * glm::smoothstep(0.0f, 0.10f * L, x);   // the counter-recoil buffer
+}
+float fxGunPreTime(const FxGunRow& g) {
+  const float V0 = std::max(g.V0, 1e-3f), a = V0 * V0 / (2.0f * std::max(g.L, 1e-3f)), d = V0 * V0 - 2.0f * a * std::min(g.preExit, 0.99f * g.L);
+  return (V0 - std::sqrt(std::max(d, 0.0f))) / a;
+}
+float fxSpringPeak(float z) {
+  z = std::clamp(z, 0.01f, 0.99f); const float s = std::sqrt(1 - z * z);
+  return std::exp(-z * std::atan2(s, z) / s);   // x_peak = (v0 / omega) * this
+}
+#include "combat.h"
+vec2 fxSmallArmsSpring(const WeaponDef& d) {
+  const FxData& D = fxData();
+  const char* cls = d.category == "pistol" || d.holdKind == 0 ? "pistol" : d.wclass == WC_SNIPER ? "sniper" : d.wclass == WC_LMG ? "lmg_bipod"
+                  : d.wclass == WC_AUTO ? "carbine" : fxWeaponFor("", d.caliber).id == "rifle_7.62x51" ? "battle_rifle" : "carbine";
+  const json& j = D.smallArms.contains(cls) ? D.smallArms[cls] : json::object();
+  return vec2(j.value("f_n_Hz", 5.0f), j.value("zeta", 0.5f));
 }

@@ -446,7 +446,7 @@ public:
   void switchStationPosition();
   StationRT* station(uint64_t id);
   mat4 stationMatrix(const Instance& i, const InstanceRT& r) const;
-  void stationParts(const Instance& i, const InstanceRT& r, mat4& base, mat4& yawM, mat4& elevM, mat4& recoilM) const;
+  void stationParts(const Instance& i, const InstanceRT& r, mat4& base, mat4& yawM, mat4& elevM, mat4& recoilM, bool visual = false) const;   // visual: + the cosmetic carriage hop (fxrecoil)
   vec3 stationMuzzle(const Instance& i, const InstanceRT& r, vec3& dir) const;
   bool stationCamera(vec3& eye, vec3& fwd, float& fov) const;
   bool carriageFits(const Instance& i, const InstanceRT& r, vec3& pos, float yaw, std::string& why) const;

@@ -52,3 +52,10 @@ float fxSoilMu(const std::string& surface);   // the ejecta power law's mu (surf
 // emitted luminance (nits) of a grey body at T, eps; and Yref = 0.18 E / pi (nits) for illuminance E (lux)
 inline float fxYrefNits(float lux) { return 0.18f * lux / 3.14159265f; }
 int fxDataSelfCheck();   // --check-fxev (headless)
+// ---- Battle Foundry phase 6 (fxrecoil): heavy guns as a constant-force brake (spec 7.2), small arms as a damped spring (7.5)
+extern bool gFxRecoil; extern int gFxTier;   // Renderer::perf fxRecoil and Fx::tier, set each frame (the rigs have no App)
+const FxGunRow& fxGunFor(const std::string& name);   // a vehicle / station name -> its guns_recoil.json row (nearest platform)
+float fxGunRecoilX(float t, const FxGunRow& g);      // metres of the row's own stroke: V0 t - a t^2 / 2 out, f a back, the last 0.1 L buffered
+float fxGunPreTime(const FxGunRow& g);               // the time the gun takes for its pre-exit travel (it moves before the flash)
+float fxSpringPeak(float zeta);
+vec2 fxSmallArmsSpring(const struct WeaponDef& d);   // guns_recoil.json small_arms_spring (f_n Hz, zeta) for the weapon's class                      // the first peak of an underdamped spring hit with v0, in units of v0 / omega
