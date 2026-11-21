@@ -318,7 +318,8 @@ uniform mat4 uVP;
 out vec3 vW; out vec3 vN; out vec2 vUV; out float vH; flat out vec2 vHF;
 vec3 qrot(vec4 q, vec3 v){ return v + 2.0*cross(q.xyz, cross(q.xyz, v) + q.w*v); }
 void main(){
-  vec3 p = aPos*vec3(iA.w, iA.w*iC.x, iA.w);   // no wind: moss does not move (4.5)
+  float gk = uDefOn == 1 && deformAt(iA.xz).y > fract(iA.x*12.9898 + iA.z*78.233) ? 0.0 : 1.0;   // 4.4: the deformation buffer's G clears cushions (density x (1 - G))
+  vec3 p = aPos*vec3(iA.w, iA.w*iC.x, iA.w)*gk;   // no wind: moss does not move (4.5)
   vW = iA.xyz + qrot(iQ, p); vN = normalize(qrot(iQ, aNrm*vec3(iC.x, 1.0, iC.x)));
   vUV = aUV; vH = aPos.y/0.042; vHF = vec2(iC.y, iC.w);
   gl_Position = uVP*vec4(vW, 1.0);
@@ -377,6 +378,7 @@ void main(){
     alb *= 0.8 + 0.4*h3; tilt = (vec2(h1, h3) - 0.5)*0.5;
   }
   if (best < 0.0) discard;
+  if (uDefOn == 1 && deformAt(vW.xz).y > fract(best*7.31)) discard;   // 4.4: disturbance clears litter (per leaf)
   alb *= 1.0 - 0.3*vein;
   vec3 N = normalize(vN + vec3(tilt.x, 0.0, tilt.y));
   vec3 c = shade(vW, N, alb, 0.78, 0.0, 0.85);

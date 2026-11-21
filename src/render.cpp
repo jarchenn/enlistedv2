@@ -3708,6 +3708,28 @@ void main(){
   N = normalize(N + tdn*(1.0 - puddle)); rough = clamp(rough*mix(trr, 1.0, puddle), 0.04, 1.0); ao *= tao;   // L4 terrain layers
   rough = max(rough, uGroundMinRough*(1.0 - puddle)*(1.0 - vEw.z*ewK)*(1.0 - wxw));   // W3: the matte floor is for dry ground only   // GG1: dry ground matte (puddles and wet cut mud keep theirs)
   paintFinish(po, rough, N, ao);   // lasso ground paint: roughness, AO, relief over every other layer (after L4)
+  float mossT = 0.0;   // BF B1 ground moss (03 s3.5): weight x thickness, for the transmission lobe after shade()
+  if (uMoss.x > 0.5 && dot(vHab, vHab) > 1e-6 && uTerrCave < 0.5) {   // the terrain's habitat attribute (terrain.h HabitatFn; 0 = no data)
+    // ground moss is a terrain layer: wetness weighted up, grip down, a canopy term; it stops dead on paths, tracks
+    // and disturbed soil (paint, ruts, craters, the deformation buffer's G); snow (applySnow, after) covers it
+    float tDistM = length(p - uCamPos), nup = normalize(vN).y;
+    float cavG = clamp((0.5 - hB)*2.0, 0.0, 1.0);
+    float moG = clamp(0.5*mossMoist(0.0, 0.0, cavG, 8.0*(1.0 - vHab.x)) + 0.3*vHab.w + 0.3*clamp(wet*1.2, 0.0, 1.0), 0.0, 1.0);
+    float shG = mossShelter(vHab.y, normalize(vN), vec3(0.0, 0.0, 1.0));
+    float trafG = gPWok ? clamp(max(max(gPW[2], 0.8*gPW[3]), max(0.7*gPW[4], gPW[6])), 0.0, 1.0) : 0.0;
+    trafG = max(max(trafG, rut), max(dirt, deformAt(p.xz).y));
+    vec3 mfG = mossField(p, nup, 0.0, 1.0 - 0.7*rockK, moG, shG, 0.9, vHab.w, trafG, vHab.z, 0.0, 0.0, 1.0 - smoothstep(12.0, 30.0, tDistM));
+    float Mg = mfG.x*(1.0 - puddle)*(1.0 - smoothstep(0.1, 0.4, vEw.x + vEw.y));   // not in standing water or fresh earthworks
+    if (Mg > 0.02) {
+      float hMg = 0.85 + 0.15*mossVn(p/0.05), wmg;
+      if (tDistM < uMoss.z && uLayerBlend == 1) { float q[4] = float[4](1.0 - Mg, Mg, 0.0, 0.0), h[4] = float[4](hB, clamp(1.0 - hB + 0.5*(hMg - 0.925), 0.0, 1.0), 0.5, 0.5), w[4]; layerBlend(q, h, 2, 0, 0.24, 0.10, w); wmg = w[1]; }
+      else wmg = tDistM < uMoss.z ? smoothstep(-0.10, 0.10, (hMg + Mg) - (hB + 1.0 - Mg)) : Mg*0.85;   // mat (host-height, d 0.10 "it creeps") / film
+      vec3 mcol = mix(mix(kMossAlb, kMossWall, 0.5), kMossDry*1.3, 1.0 - moG)*(0.85 + 0.3*mossVn(p/0.15 + 5.0))*mix(0.8, 1.0, hMg);
+      alb = mix(alb, mcol, wmg); rough = mix(rough, 0.88, wmg); ao *= mix(1.0, mix(0.8, 1.0, hMg), wmg);
+      N = normalize(mix(N, normalize(normalize(vN) + vec3(hMg - 0.925, 0.0, mossVn(p/0.04 + 9.0) - 0.5)*0.6), wmg*0.6));   // mat relief (shading only)
+      mossT = wmg*Mg;
+    }
+  }
   if (wxw > 0.0) rough = mix(rough, max(0.35*rough, 0.25), wxw);   // W3 film: smoother, but kept >= 0.25 outside puddles (no mirror ground without real reflections)
   if (puddle > 0.0) { rough = mix(rough, 0.08, puddle); N = normalize(mix(N, normalize(vN), puddle*0.85)); }
   if (puddle > 0.0 && wxw > 0.0 && wxPrecipMmH > 0.05) N = normalize(N + rainRipple(p.xz, uWetTime, min(wxPrecipMmH/8.0, 1.0))*puddle);   // W3: rings while it rains   // CV1: standing water stays a mirror over painted ground
@@ -3733,6 +3755,7 @@ void main(){
   vec3 cMatte = uDbgTerr == 2 ? shade(vW, N, alb, 1.0, 0.0, ao) : vec3(0.0);   // GG1 measurement: no specular at all
   gSpecK = gs0;
   vec3 c = shade(vW, N, alb, rough, 0.0, ao);
+  if (mossT > 0.0 && uMoss.y > 0.5) c += mossTransmit(N, uSunDir, normalize(uCamPos - vW), mossT)*uSunCol*sunShadowT(vW, -N, 1.0, 1);   // BF B1: ground moss back lobe
   if (uDbgTerr == 1) c = rough < 0.4 ? vec3(3.0, 0.0, 0.0) : rough < 0.7 ? vec3(3.0, 3.0, 0.0) : vec3(0.35);
   if (uDbgTerr == 3) c = vec3(terrainHorizonSun(vW), uTHorOn == 1 ? 0.5 : 0.0, uTHorW.w/30.0);   // VOT T6 measurement: red = sun over the terrain horizon, green = map on, blue = sun elevation
   if (uDbgTerr == 4) c = alb;   // VFX rev3 4.1 meter (tools/vot_flatness.py): albedo only, cue 3
@@ -3815,6 +3838,7 @@ void pastureClump(){
   float nb = d <= uLod.y ? uCards.x : d <= uLod.z ? mix(uCards.x, uCards.y, smoothstep(uLod.y, uLod.z, d)) : mix(uCards.y, uCards.z, smoothstep(uLod.z, uRadius, d));
   float fade = (1.0 - smoothstep(uRadius*0.72, uRadius, d))*vis*clamp((uShadowPass > 0.0 ? uCards.w : nb) - bl, 0.0, 1.0);
   if (uVehN > 0) fade *= vehFlat(base.xz);   // TK3
+  if (uDefOn == 1 && deformAt(base.xz).y > ph) fade = 0.0;   // BF 4.4: the deformation buffer's disturbance clears grass (density x (1 - G), stable per clump)
   if (uShadowPass > 0.0) fade *= 1.0 - smoothstep(uShadowPass*0.7, uShadowPass, d);   // G1: casters shrink away toward the shadow radius (no ring)
   // GT1: plant cards of the atlas on this species' leading blade cards; its other blade cards collapse
   int ga = -1;
@@ -3920,6 +3944,7 @@ void plantMain(){
   float d = length(iP.xyz - uCamPos);
   float fade = 1.0 - smoothstep(uRadius*0.72, uRadius, d);
   if (uVehN > 0) fade *= vehFlat(iP.xz);   // TK3
+  if (uDefOn == 1 && deformAt(iP.xz).y > fract(sin(dot(iP.xz, vec2(12.9898, 78.233)))*43758.5453)) fade = 0.0;   // BF 4.4: disturbance clears patch plants too
   bool head = aB.z > 9.5;                                  // patch plants (nature.cpp) carry a head quad per blade
   float bl = head ? aB.z - 10.0 : aB.z;
   vec4 pk = unpackUnorm4x8(floatBitsToUint(iS.z));
