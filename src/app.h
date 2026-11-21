@@ -385,7 +385,8 @@ public:
   void setPathSize(Instance& i, vec2 wl);
   void rebuildPathMesh(const Instance& i, InstanceRT& r);
   void blastPaths(vec3 p, float dmg, float radius);
-  std::string pathSurfaceAt(vec3 w) const;   // "gravel" / "dirt" / "concrete" / ""
+  std::string pathSurfaceAt(vec3 w) const;
+  std::string fxSurfaceAt(vec3 p, const std::string& family) const;   // Battle Foundry 6.5: the surfaces.json row under a burst (app.cpp)   // "gravel" / "dirt" / "concrete" / ""
   bool snapPath(const AssetDef* a, vec3& pos, float& yaw) const;
   // ---- hand equipment (equipment.cpp): grenades, knife
   struct LiveGrenade { uint32_t body = 0xffffffffu; float fuse = 0, age = 0; int def = 0; vec3 pos{0}, spawn{0}, v0{0}; quat rot{1, 0, 0, 0}; bool done = false; int owner = -1; };   // owner: soldier slot (mpai), -1 = local player

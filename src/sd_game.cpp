@@ -405,7 +405,7 @@ void sdStep(Game& g, float dt) {
       case SdEvent::Detonated: {
         vec3 p = m.bombPos; gm2RemovePacksNear(p, 1.0f);
         g.explosionDamage(p + vec3(0, 0.3f, 0), m.cfg.bombDamage, m.cfg.bombRadius / std::max(0.1f, jkey(g.combat, "explosion").value("personnelRadiusFactor", 3.0f)), -1, false);   // personnel only: no crater, no breach (spec §11)
-        g.app.fx.explosion(p, vec3(0, 1, 0), "ground", true); g.app.audio.play("shell_hit", p, 1.0f);
+        g.app.fx.explosion(p, vec3(0, 1, 0), "ground", true, "he_155mm_M107"); g.app.audio.play("shell_hit", p, 1.0f);
         g.app.blastShake = std::max(g.app.blastShake, std::max(0.0f, 1.0f - glm::length(p - g.app.eyePos()) / 60.0f));
         if (gNet && gNet->role == Net::HOST) gNet->hostWorldEvent(json{{"t", "sdboom"}, {"p", tojson(p)}});
         break; }
@@ -683,7 +683,7 @@ bool sdHostRequest(Game& g, int slot, const json& req) {
 bool sdClientEvent(App& app, const json& ev) {
   std::string t = ev.value("t", "");
   if (t != "sd" && t != "sdboom") return false;
-  if (t == "sdboom") { vec3 p = jvec3(ev["p"]); app.fx.explosion(p, vec3(0, 1, 0), "ground", true); app.audio.play("shell_hit", p, 1.0f); return true; }
+  if (t == "sdboom") { vec3 p = jvec3(ev["p"]); app.fx.explosion(p, vec3(0, 1, 0), "ground", true, "he_155mm_M107"); app.audio.play("shell_hit", p, 1.0f); return true; }
   if (!gSd) { gSd = new SdMatch(); gSd->cfg = SdConfig::load(); }
   gSd->fromJson(ev["s"]);
   return true;

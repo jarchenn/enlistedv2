@@ -1470,6 +1470,8 @@ int App::run(int argc, char** argv) {
     fx.nearFade = R.perf.fxNear; fx.wind = R.perf.wxDrift ? R.wx.der.windXZ : vec2(0);
     {   // Battle Foundry 4: the flash's Yref from this frame's light (read only), the loose ground for the dust disc
       fx.evOn = R.perf.fxEv; fx.capOn = R.perf.fxCap; fx.wxWet = R.wx.st.wet; fx.wxSnow = R.wx.st.snowDepth;
+      fx.scaleOn = R.perf.fxScale;
+      if (!fx.surfaceOf) fx.surfaceOf = [this](vec3 p, const std::string& fam) { return fxSurfaceAt(p, fam); };
       static const float indoorLux = fxData().yrefLux.count("interior_lit") ? fxData().yrefLux.at("interior_lit") : 300.0f;
       fx.yrefNits = fxYrefNits(R.camIndoor ? indoorLux : std::max(R.wx.der.eTotalLux, 0.25f)); fx.peakClamp = fxData().clampSingle;   // the current bloom: one chain (pbloom: no clamp)
     }
@@ -1769,4 +1771,29 @@ void crumbFrameEnd() {
     if (kProfEvery > 0 && gMarks.back().second - gProfSince > kProfEvery) crumbProfReport("periodic");
   }
   gMarks.clear();
+}
+
+// Battle Foundry 6.5: the surfaces.json row under a burst. Water, height above the ground (airburst > 3 m), the hit thing's family,
+// a path's surface, the painted ground, snow and wetness (weather state read only); unpainted open ground is turf.
+std::string App::fxSurfaceAt(vec3 p, const std::string& family) const {
+  const float gy = terrain.height(p.x, p.z), wd = waterAt(*this, p.x, p.z) - gy;
+  if (wd > 0.05f && p.y < gy + wd + 0.5f) return wd < 1.0f ? "water_shallow" : "water_deep";
+  if (p.y - gy > 3.0f && family != "concrete" && family != "masonry" && family != "metal" && family != "timber" && family != "wood") return "airburst";
+  if (family == "concrete" || family == "masonry" || family == "stone" || family == "metal" || family == "brick") return "concrete";
+  if (family == "timber" || family == "wood") return "concrete";   // shortcut: surfaces.json has no wood row; low crater, pale dust (spec 6.5 wood: 0.4 / 0.8 / 0)
+  const std::string ps = pathSurfaceAt(p);
+  if (ps == "concrete") return "asphalt";
+  if (ps == "gravel") return "gravel";
+  const float wet = std::max(R.wx.st.wet, terrain.wetAt(p.x, p.z));
+  if (R.wx.st.snowDepth > 0.02f) return "snow";
+  int type = -1; const float w = groundPaintAt(*this, p.x, p.z, &type);
+  std::string soil = "grass_turf";
+  if (w > 0.4f && type >= 0 && type < tex::kPaintTypes) {
+    const std::string t = tex::kPaintTypeNames[type];
+    soil = t == "sand" ? "dry_sand" : t == "mud" || t == "marsh" ? "mud" : t == "gravel" || t == "pebbles" ? "gravel" : t == "cobbles" ? "concrete" : t == "rock" ? "rock"
+         : t == "dry_grass" ? "grass_turf" : "dry_soil";   // dirt, ploughed, leaf litter, scorched
+  } else if (ps == "dirt") soil = "dry_soil";
+  if (wet > 0.7f && (soil == "dry_soil" || soil == "grass_turf")) return "mud";
+  if (wet > 0.35f && soil == "dry_soil") return "wet_soil";
+  return soil;
 }

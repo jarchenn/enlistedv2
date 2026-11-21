@@ -38,14 +38,14 @@ bool isHost() { return gNet && gNet->role == Net::HOST && gGame && gGame->active
 
 // one charge / shell: the shared explode() path (walls, craters, tanks, glass, props; soldiers through the mpai hook,
 // attributed to the owner), the effect and the sound
-void blast(App& app, vec3 p, vec3 n, float dmg, float radius, float crater, int owner, float wall = 1) {
+void blast(App& app, vec3 p, vec3 n, float dmg, float radius, float crater, int owner, float wall = 1, const char* munition = nullptr, float W = -1, vec3 vImpact = vec3(0)) {
   mpaiSetBlastOwner(owner);
   app.blastPersonnel = 1;
   app.blastWall = wall;
   app.explode(p + n * 0.06f, -n, dmg, radius, crater, ~0ull, WALL_HE);
   app.blastWall = 1;
   mpaiSetBlastOwner(-1);
-  app.fx.explosion(p, n, "ground", true);
+  app.fx.explosion(p, n, "ground", true, munition, vImpact, W);   // fxscale: sized from the charge
   app.audio.play("explosion", p, 1.0f);
   gS.stats.lastBlast = p;
 }
@@ -190,7 +190,7 @@ void gm2Step(App& app, float dt) {
     }
     if (p.fuse > 0 || p.visualOnly) continue;
     const WeaponDef& d = *app.weaponDefs[p.def];
-    blast(app, p.pos, p.nrm, d.pack.damage, d.pack.radius, d.pack.crater, p.owner, 4.0f);   // strength = sqrt(dmg): x4 = twice the depth, twice the breach area
+    blast(app, p.pos, p.nrm, d.pack.damage, d.pack.radius, d.pack.crater, p.owner, 4.0f, nullptr, 1.5f);   // fxscale: a ~2.5 lb demolition charge, ~1.5 kg TNT-eq   // strength = sqrt(dmg): x4 = twice the depth, twice the breach area
     ++gS.stats.packsExploded;
   }
   gS.packs.erase(std::remove_if(gS.packs.begin(), gS.packs.end(), [](const LivePack& p) { return p.fuse <= 0; }), gS.packs.end());
@@ -200,7 +200,7 @@ void gm2Step(App& app, float dt) {
     while (s.fired < gArty.shells && s.t >= gArty.delay + s.fired * gArty.gap) {
       float a = frand(s.rng) * 6.2831853f, r = gArty.spread * std::sqrt(frand(s.rng));
       vec3 g = groundPoint(app, s.target + vec2(std::cos(a), std::sin(a)) * r);
-      blast(app, g, vec3(0, 1, 0), gArty.damage, gArty.radius, gArty.crater, s.owner);
+      blast(app, g, vec3(0, 1, 0), gArty.damage, gArty.radius, gArty.crater, s.owner, 1, "he_105mm_M1", -1, vec3(std::cos(a), -0.36f, std::sin(a)) * 300.0f);   // fxscale: a 105 mm howitzer shell, landing ~20 deg (6.5)
       ++s.fired; ++gS.stats.shellsLanded;
     }
   }

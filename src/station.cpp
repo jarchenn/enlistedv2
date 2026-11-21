@@ -365,7 +365,7 @@ void App::stepProjectiles(float dt) {
           if (p.lightAT > 0) {   // VH8: a 25 mm round: a modest burst, not a shell's explosion
             fx.flash(hit.pos + hit.normal * 0.1f, 0.5f, 0.06f, vec4(9, 6, 3, 1)); fx.impact(hit.pos, hit.normal, surface == "ground" ? "ground" : surface);
             for (int k = 0; k < 2; ++k) fx.smoke(hit.pos + hit.normal * 0.2f, hit.normal * 0.6f + vec3(0, 0.4f, 0), 0.25f, 1.1f, vec4(0.42f, 0.4f, 0.37f, 0.45f), 1.1f, 0.3f);
-          } else fx.explosion(hit.pos, hit.normal, surface == "ground" ? "ground" : surface, ground || ex.crater);
+          } else fx.explosion(hit.pos, hit.normal, surface == "ground" ? "ground" : surface, ground || ex.crater, p.kind == PROJ_ROCKET ? "rpg7_PG7V" : p.at || p.cannon30 ? "40mm_HEDP_M433" : nullptr, p.v, p.kind == PROJ_ROCKET || p.at || p.cannon30 ? -1.0f : 0.7f);   // fxscale: launcher warhead / AP or 30 mm / a 75 mm HE shell (~0.7 kg TNT-eq)
           if (p.kind == PROJ_HE && !p.cannon30) audio.play("shell_hit", hit.pos, 1.0f, 1.0f, glm::length(hit.pos - eyePos()) / 343.0f);   // SND9: tank / AT / field-gun shells, on anything (ground, walls, soldiers, big enemies)
           else audio.play(p.kind == PROJ_ROCKET ? "explosion_rocket" : p.at ? "explosion_big" : "explosion", hit.pos, p.cannon30 ? 0.35f : 1.0f);   // VH5: 10 rounds/s of 30 mm
           lastImpact = {hit.pos, surface, p.kind, (float)glfwGetTime(), ex.breached};

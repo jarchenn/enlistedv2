@@ -396,6 +396,7 @@ public:
     bool fxSoft = true;          // fxsoft (weather W6): particles fade over 0.35 x their radius where they meet the scene (off: a hard line)
     bool wxDrift = true;         // wxdrift (weather): smoke and dust particles drift with the state's wind, grenade clouds creep downwind (off: still air)
     bool fxEv = true;            // fxev (Battle Foundry 4): fired / impact events with ids, the physical flash (blackbody palette, Yref brightness, envelope integrated per drawn frame), ground dust disc, bore evacuator (off: the WP4 / DF1 sprites)
+    bool fxScale = true;         // fxscale (Battle Foundry 5): explosions sized from the charge (cube-root laws), the surface-response table, power-law ejecta in three size bands, fragments, a rising plume (off: the W6 burst)
     bool fxCap = true;           // fxcap (Battle Foundry 4 / PF3): particle and flash-light caps refuse new spawns, a lowered cap retires the oldest over 0.3 s (off: the oldest live one is dropped)
     bool fxNear = true;          // fxnear (weather 7): alpha sprites fade near the eye, every sprite capped at half the view height on screen (off: as before)
     bool charVel = true;         // charvel (AIB1): soldiers write their own TAA motion (previous model matrix + previous skinned vertex); off = depth reprojection (smeared)
@@ -419,7 +420,7 @@ public:
               // ^ stream L (lighting): append to the line above
               : n == "specaa" ? &specAA : n == "texbias" ? &texBias : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps : n == "splitsum" ? &splitSum : n == "albclamp" ? &albClamp : n == "wabs" ? &wAbs : n == "wet" ? &wet : n == "microdetail" ? &microDetail : n == "wearcause" ? &wearCause : n == "steeptri" ? &steepTri : n == "masklib" ? &maskLib : n == "roughvar" ? &roughVar
               // ^ stream M (materials): append to the line above
-              : n == "charvel" ? &charVel : n == "fxev" ? &fxEv : n == "fxcap" ? &fxCap : n == "fxnear" ? &fxNear : n == "wxdrift" ? &wxDrift : n == "fxlit" ? &fxLit : n == "fxsoft" ? &fxSoft : n == "poseframe" ? &poseFrame : n == "poselod" ? &poseLod : n == "posejobs" ? &poseJobs : n == "stepinterp" ? &stepInterp : n == "dtsnap" ? &dtSnap
+              : n == "charvel" ? &charVel : n == "fxev" ? &fxEv : n == "fxscale" ? &fxScale : n == "fxcap" ? &fxCap : n == "fxnear" ? &fxNear : n == "wxdrift" ? &wxDrift : n == "fxlit" ? &fxLit : n == "fxsoft" ? &fxSoft : n == "poseframe" ? &poseFrame : n == "poselod" ? &poseLod : n == "posejobs" ? &poseJobs : n == "stepinterp" ? &stepInterp : n == "dtsnap" ? &dtSnap
               // ^ characters (gameplay): append to the line above
               : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "pollen" ? &pollen : n == "vegdust" ? &vegDust : n == "impostors" ? &impostors : n == "impostorbc" ? &impostorBC : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
               // ^ stream A (vegetation): append to the line above

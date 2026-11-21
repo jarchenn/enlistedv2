@@ -153,7 +153,7 @@ struct Projectile {
   uint32_t uid = 0;             // VH7: identity for the TOW wire trail
 };
 struct Particle { vec3 p{0}, v{0}; float life = 0, maxLife = 1, size = 0.3f, grow = 0, drag = 0, lift = 0; vec4 col{1}; bool additive = false; float fade = 0;
-                  float flame = -1; float ret = -1; };   // ret >= 0: retiring (fxcap), seconds of its 0.3 s fade left   // flame >= 0 (additive): a flame sprite, id 0..255 = its rotation and noise seed; col.x = brightness, the colour follows its age (Fx::build) and the fragment shader erodes it with noise   // fade > 0: alpha x (life left)^fade (firing smoke, content/settings/fx.json)
+                  float flame = -1; float ret = -1; bool grain = false; };   // grain: a ballistic ejecta grain (killed where it meets the ground)   // ret >= 0: retiring (fxcap), seconds of its 0.3 s fade left   // flame >= 0 (additive): a flame sprite, id 0..255 = its rotation and noise seed; col.x = brightness, the colour follows its age (Fx::build) and the fragment shader erodes it with noise   // fade > 0: alpha x (life left)^fade (firing smoke, content/settings/fx.json)
 struct Streak { vec3 a{0}, b{0}; float life = 0, maxLife = 0.05f, width = 0.02f; vec4 col{1}; };
 struct Debris { vec3 p{0}, v{0}, w{0}, size{0.1f}; quat r{1, 0, 0, 0}; float life = 0; bool resting = false; };
 struct FxVert { vec3 p; vec4 c; vec2 uv; float r = 0; };   // r: the sprite's radius (W6 soft fade; 0 = none)
@@ -185,7 +185,12 @@ struct Fx {
   void smoke(vec3 p, vec3 v, float size, float life, vec4 col, float grow = 1.2f, float lift = 0.6f);
   void flash(vec3 p, float size, float life, vec4 col);
   void streak(vec3 a, vec3 b, float width, float life, vec4 col);
-  void explosion(vec3 p, vec3 n, const std::string& family, bool ground);
+  // fxscale (Battle Foundry 5): sized from the charge (munitions.json id, or W kg TNT-eq when > 0), shaped by the surface under it and the
+  // impact velocity (oblique: downrange ejecta); off: the W6 burst
+  void explosion(vec3 p, vec3 n, const std::string& family, bool ground, const char* munition = nullptr, vec3 vImpact = vec3(0), float W = -1);
+  bool scaleOn = true;                       // Renderer::perf fxScale
+  void explosionScaled(vec3 p, vec3 n, const std::string& family, const std::string& munition, vec3 vImpact, float W);
+  std::function<std::string(vec3, const std::string&)> surfaceOf;   // App: surfaces.json id under a burst (family = the hit thing's)
   void muzzle(vec3 p, vec3 dir, float scale, const char* gun = nullptr);   // gun: weapons.json id or a fxHeavyFor name (fxev)   // tank / AT / Flak gun discharge (content/settings/fx.json "muzzle")
   // WP4 small-arms muzzle flash, once per shot: a yellow-orange core and 4-6 orange flame petals along the bore
   // (20-40 ms, randomised), plus a warm point light at `light` (world muzzle; the player's flash is drawn at the
@@ -212,7 +217,8 @@ struct Fx {
   void setCaps(const Caps& c);              // fxcap: caps apply to new spawns; a lowered one retires the oldest over 0.3 s, never a live snap
   bool emit(const FxEvent& e);              // false: a duplicate id or expired
   struct FlashEl { double t0 = 0; float life = 0.02f; vec3 p{0}, dir{0, 0, 1}; float roll = 0, xM = 0.1f, L = 0.3f, R = 0.05f, half = 15;
-                   vec3 emPrim{0}, emDisc{0}, emSec{0}; int kind = 0, segs = 6; };   // kind 0 swept core mesh, 1 dished disc, 2 billboard
+                   vec3 emPrim{0}, emDisc{0}, emSec{0}; int kind = 0, segs = 6;   // kind 0 swept core mesh, 1 dished disc, 2 billboard, 3 cooling fireball
+                   float T0 = 3200, tau = 0.02f, n = 0.85f, eps = 0.9f, k = 1; };   // kind 3: T(t) = T_amb + (T0 - T_amb)(1 + t/tau)^-n, radius R (1 - exp(-2.6 u / 0.19)), u = t / life
   std::vector<FlashEl> flashes;
   struct Delayed { double t = 0; Particle q; }; std::vector<Delayed> delayed;   // puffs released later (suppressor, bore evacuator)
   std::deque<uint64_t> seenOrder; std::set<uint64_t> seenIds; uint64_t serial = 0;

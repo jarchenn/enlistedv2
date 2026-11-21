@@ -110,7 +110,8 @@ void Fx::bullet(vec3 a, vec3 b, int kind) {
   else streak(s, b, 0.012f, 0.03f, vec4(3.2f, 2.9f, 1.8f, 1));
 }
 
-void Fx::explosion(vec3 p, vec3 n, const std::string& family, bool ground) {
+void Fx::explosion(vec3 p, vec3 n, const std::string& family, bool ground, const char* munition, vec3 vImpact, float W) {
+  if (scaleOn) { explosionScaled(p, n, family, munition ? munition : "", vImpact, W); return; }
   flash(p + n * 0.3f, 3.5f, 0.12f, vec4(9.0f, 6.0f, 2.5f, 1));
   flash(p + n * 0.2f, 1.6f, 0.25f, vec4(5.0f, 2.6f, 0.8f, 1));
   vec4 dust = family == "concrete" ? vec4(0.42f, 0.41f, 0.38f, 0.75f) : family == "timber" ? vec4(0.33f, 0.27f, 0.19f, 0.7f)
@@ -234,6 +235,7 @@ void Fx::update(float dt, const Terrain& t) {
     q.v.y += q.lift * dt;
     q.p += q.v * dt;
     q.size = std::max(0.02f, q.size + q.grow * dt);
+    if (q.grain && q.p.y < t.height(q.p.x, q.p.z)) q.life = 0;   // fxscale: a ballistic grain ends where it meets the ground (8.9 Medium: the heightfield)
   }
   parts.erase(std::remove_if(parts.begin(), parts.end(), [](const Particle& q) { return q.life <= 0 || (q.ret < 0.0f && q.ret > -0.5f); }), parts.end());
   for (auto& s : streaks) s.life -= dt;
@@ -508,6 +510,20 @@ void Fx::buildFlashes(vec3 eye, std::vector<FxVert>& add) const {
   if (a < 0 || b - a <= 1e-6 || b - a > 0.25) a = b - 1.0 / 60.0;   // first draw / a repeat at the same instant / a long stall
   lastPresent = b;
   for (const FlashEl& f : flashes) {
+    if (f.kind == 3) {   // the cooling fireball: emission of T(t) averaged over the drawn interval (6 samples), radius growing to R_fb
+      const double s0 = std::max(a, f.t0), s1 = std::min(b, f.t0 + (double)f.life);
+      if (s1 <= s0) continue;
+      vec3 em(0);
+      for (int j = 0; j < 6; ++j) { const double tt = s0 + (s1 - s0) * (j + 0.5) / 6.0 - f.t0; em += emission(300.0f + (f.T0 - 300.0f) * (float)std::pow(1.0 + tt / f.tau, -(double)f.n), f.eps); }
+      em *= (float)((s1 - s0) / (b - a)) / 6.0f * f.k;
+      const float u = (float)std::clamp((b - f.t0) / f.life, 0.0, 0.99), Rt = f.R * std::max(0.15f, 1.0f - std::exp(-2.6f * u / 0.19f));
+      const vec3 rt = glm::normalize(glm::cross(f.p - eye, vec3(0, 1, 0)) + vec3(1e-5f)), upv = glm::normalize(glm::cross(rt, f.p - eye));
+      const vec4 c(em, 200.0f + std::floor(std::fmod(f.roll, 255.0f)) + 0.99f * u);
+      const vec3 rx = rt * Rt, ry = upv * Rt, p0 = f.p - rx - ry, p1 = f.p + rx - ry, p2 = f.p + rx + ry, p3 = f.p - rx + ry;
+      add.push_back({p0, c, {0, 0}, 0}); add.push_back({p1, c, {1, 0}, 0}); add.push_back({p2, c, {1, 1}, 0});
+      add.push_back({p0, c, {0, 0}, 0}); add.push_back({p2, c, {1, 1}, 0}); add.push_back({p3, c, {0, 1}, 0});
+      continue;
+    }
     const float k = envelopeAvg(f.t0, f.life, a, b);
     if (k <= 1e-4f) continue;
     vec3 up = std::fabs(f.dir.y) > 0.95f ? vec3(1, 0, 0) : vec3(0, 1, 0), s1 = glm::normalize(glm::cross(f.dir, up)), s2 = glm::cross(s1, f.dir);
@@ -586,5 +602,151 @@ int fxEventSelfCheck(int& fails) {
   Fx::Caps c = f.caps; c.soft = 5; f.setCaps(c); int ret = 0; for (auto& q : f.parts) ret += q.ret >= 0;
   check(ret == (int)f.parts.size() - 5, "a lowered cap retires the oldest over 0.3 s (" + std::to_string(ret) + " fading, none removed at once)");
   c.flashLights = 0; c.dustPerBurst = 0; f.setCaps(c); check(f.caps.flashLights == 1 && f.caps.dustPerBurst == 1, "floors: a flash light and a dust puff survive at every tier");
+  // SCALE (spec 9.2 / phase 5): grenade, 105 mm, 155 mm side by side differ in size and in rate; 2 x W -> x1.26 radius and times
+  struct Burst { float life = 0, rMean = 0, plumeH = 0; int dust = 0, grains = 0, clods = 0; float fireK = 0; };
+  auto burst = [&](const char* mun, const char* surf) {
+    Fx x; x.tier = 3; x.clock = x.presentT = 50.0; x.maxParts = 100000; x.maxDebris = 1000; x.maxStreaks = 1000; x.caps.grains = 1 << 20; x.caps.clods = 1000; x.caps.dustPerBurst = 1000;
+    const std::string sid = surf; x.surfaceOf = [sid](vec3, const std::string&) { return sid; };
+    x.explosion(vec3(0), vec3(0, 1, 0), "ground", true, mun);
+    Burst b; int nf = 0;
+    for (auto& fl : x.flashes) if (fl.kind == 3) { b.life = fl.life; b.rMean += fl.R; b.fireK = fl.k; ++nf; }
+    if (nf) b.rMean /= nf;
+    for (auto& q : x.parts) (q.grain ? b.grains : b.dust)++;
+    b.clods = (int)x.debris.size();
+    for (auto& d : x.delayed) b.plumeH = std::max(b.plumeH, d.q.v.y / std::max(1e-3f, d.q.drag));
+    return b;
+  };
+  const Burst g = burst("grenade_M67", "dry_soil"), h105 = burst("he_105mm_M1", "dry_soil"), h155 = burst("he_155mm_M107", "dry_soil");
+  const FxMunitionRow Mg = fxMunitionFor("grenade_M67", -1), M1 = fxMunitionFor("he_105mm_M1", -1), M5 = fxMunitionFor("he_155mm_M107", -1);
+  char buf[400];
+  std::snprintf(buf, sizeof buf, "grenade / 105 / 155: fireball life %.0f / %.0f / %.0f ms, mean sprite radius %.2f / %.2f / %.2f m, plume to %.1f / %.1f / %.1f m",
+                g.life * 1000, h105.life * 1000, h155.life * 1000, g.rMean, h105.rMean, h155.rMean, g.plumeH, h105.plumeH, h155.plumeH);
+  check(g.life < h105.life && h105.life < h155.life && g.plumeH < h105.plumeH && h105.plumeH < h155.plumeH && std::fabs(h155.life / g.life / std::cbrt(M5.W / Mg.W) - 1) < 0.03f, buf);
+  check(std::fabs(g.plumeH / (0.9f * Mg.apex) - 1) < 0.05f && std::fabs(h155.plumeH / (0.9f * M5.apex) - 1) < 0.05f && M1.apex / M1.craterD > 7 && M1.apex / M1.craterD < 9,
+        "the plume tops out at 0.9 x the column apex, apex ~ 8 x crater diameter (grenade " + std::to_string(Mg.apex / Mg.craterD) + ", 155 mm " + std::to_string(M5.apex / M5.craterD) + ")");
+  const FxMunitionRow w1 = fxMunitionFor("", 1.0f), w2 = fxMunitionFor("", 2.0f);
+  check(std::fabs(w2.Rfb / w1.Rfb - 1.26f) < 0.005f && std::fabs(w2.tLum / w1.tLum - 1.26f) < 0.005f && std::fabs(w2.tPeak / w1.tPeak - 1.26f) < 0.005f,
+        "doubling the charge: fireball radius x" + std::to_string(w2.Rfb / w1.Rfb) + ", times x" + std::to_string(w2.tLum / w1.tLum));
+  const Burst sand = burst("he_105mm_M1", "dry_sand"), wat = burst("he_105mm_M1", "water_shallow");
+  std::snprintf(buf, sizeof buf, "dry sand vs shallow water (105 mm): dust %d / %d, grains %d / %d, clods %d / %d, fireball x%.2f / x%.2f",
+                sand.dust, wat.dust, sand.grains, wat.grains, sand.clods, wat.clods, sand.fireK, wat.fireK);
+  check(sand.dust > 10 * std::max(1, wat.dust - 0) && wat.dust >= 1 && sand.grains > 0 && wat.grains == 0 && wat.clods == 0 && wat.fireK < sand.fireK, buf);
   return fails;
+}
+
+// ================================================================ Battle Foundry phase 5: explosions from the charge (fxscale)
+// spec 6.1-6.5, reference 07 / 08. Lengths and times scale as W^(1/3) (velocities do not): k = W^(1/3) / 1.876 against the
+// 155 mm timeline. The surface row decides the mix; an oblique impact biases the ejecta downrange.
+void Fx::explosionScaled(vec3 p, vec3 n, const std::string& family, const std::string& munition, vec3 vImpact, float Wkg) {
+  const FxData& D = fxData();
+  const FxMunitionRow M = fxMunitionFor(munition.empty() ? (family == "grenade" ? "grenade_M67" : "mortar_81mm_M374") : munition, Wkg);
+  const std::string sid = surfaceOf ? surfaceOf(p, family) : family == "grenade" || family == "ground" ? "dry_soil" : "concrete";
+  const FxSurfaceRow& S = D.surface(sid);
+  const bool water = sid == "water_shallow" || sid == "water_deep", air = sid == "airburst";
+  FxEvent e; e.id = nextId(-2); e.recipe = FXR_IMPACT; e.pos = p; e.normal = n; e.surface = sid; e.seed = (uint32_t)(serial * 2246822519u);
+  if (seenIds.count(e.id)) return; seenIds.insert(e.id); seenOrder.push_back(e.id); if (seenOrder.size() > 2048) { seenIds.erase(seenOrder.front()); seenOrder.pop_front(); }
+  const uint32_t sd = e.seed; int salt = 0; auto R = [&]() { return hash01(sd, (uint32_t)++salt); };
+  const float w3 = std::cbrt(M.W), k = w3 / 1.876f; const int t = std::clamp(tier, 0, 4);
+  n = glm::length(n) > 1e-4f ? glm::normalize(n) : vec3(0, 1, 0);
+  // the ejecta axis and the downrange azimuth (6.5): axis = mix(n, reflect(v, n), 0.55); density 1 + 0.9 cos(phi - phi_d)
+  vec3 axis = n, down(0); bool oblique = false;
+  if (glm::length(vImpact) > 1.0f) { const vec3 vi = glm::normalize(vImpact); axis = glm::normalize(glm::mix(n, glm::reflect(vi, n), 0.55f));
+    down = vi - n * glm::dot(vi, n); oblique = glm::length(down) > 0.2f; if (oblique) down = glm::normalize(down); }
+  vec3 t1 = glm::normalize(std::fabs(n.y) > 0.9f ? glm::cross(n, vec3(1, 0, 0)) : glm::cross(n, vec3(0, 1, 0))), t2 = glm::cross(n, t1);
+  if (oblique) { t1 = down; t2 = glm::cross(n, t1); }
+  auto azimuth = [&]() { for (int g = 0; g < 8; ++g) { float ph = R() * 6.2831853f; if (!oblique || R() * 1.9f < 1.0f + 0.9f * std::cos(ph)) return ph; } return 0.0f; };
+  // S1 / S2: the cooling fireball (T0 3200 K, tau 0.02 s, n 0.85; L_v ~ T^8.1), sprites on a 0.35 R_fb shell, lognormal radii (median 0.45 R_fb)
+  {
+    const int nFb[5] = {1, 2, 4, 6, 8};
+    const float fireK = water ? 0.15f : air ? 1.3f : std::clamp(1.6f / (0.6f + S.dustToFire), 0.35f, 1.3f);   // dust hides the ball; water suppresses it
+    for (int i = 0; i < nFb[t]; ++i) {
+      FlashEl f; f.kind = 3; f.t0 = clock; f.life = M.tLum; f.T0 = M.T0; f.tau = M.tau * k; f.n = M.n; f.eps = 0.9f; f.k = fireK; f.roll = R() * 255.0f;
+      const float th = R() * 6.2831853f, ph = std::acos(2 * R() - 1); const vec3 o(std::sin(ph) * std::cos(th), std::fabs(std::cos(ph)), std::sin(ph) * std::sin(th));
+      f.p = p + (air ? vec3(0) : n * (0.3f * M.Rfb)) + o * (0.35f * M.Rfb); f.R = M.Rfb * 0.45f * std::exp(0.4f * (R() + R() + R() - 1.5f) * 1.414f);
+      flashes.push_back(f);
+    }
+    if (admitLight()) { MuzzleLight L; L.p = p + n * (0.5f * M.Rfb); L.life = std::max(0.06f, 2.0f * M.tLum); L.k = 2.5f * w3 * fireK; L.col = D.hue(2800); L.id = 0xE7B00000u + (++mlightSerial & 0xFFF); mlights.push_back(L); }
+  }
+  const float Rc = 0.5f * M.craterD * std::max(0.3f, S.craterDepth), vMin = std::sqrt(9.81f * std::max(Rc, 0.1f)), vMax = 2.5f * 20.0f * std::pow(M.W, 0.18f), mu = fxSoilMu(sid);
+  const vec3 albedo = water ? vec3(0.75f) : S.albedo;
+  const vec3 dustCol = glm::min(albedo * 1.3f, vec3(0.85f));   // fines scatter more than the bulk (8.6)
+  // A. suspended dust (D < 0.2 mm): no arcs; out with the blast wind (tau 0.12 s), then the ambient wind; at least one per burst (8.1)
+  if (!air) {
+    const int nDust[5] = {3, 8, 20, 45, 90}, life[5] = {3, 6, 12, 20, 30};
+    int nd = water ? 1 : std::max(1, (int)std::lround(nDust[t] * std::min(2.0f, S.dustToFire / 2.0f)));
+    nd = std::min(nd, std::max(1, caps.dustPerBurst * 2));
+    for (int i = 0; i < nd; ++i) {
+      const float ph = azimuth(), r = R() * 0.6f * Rc; const vec3 rad = t1 * std::cos(ph) + t2 * std::sin(ph);
+      Particle q; q.p = p + rad * r + n * 0.2f; q.v = rad * (6.0f + 12.0f * R()) * std::sqrt(k) + n * (2.0f + 6.0f * R()) * std::sqrt(k);
+      q.drag = 1.0f / (0.12f * std::max(0.3f, k)); q.size = (0.8f + 3.2f * R()) * std::max(0.25f, k); q.grow = 0.25f * q.size;
+      q.life = q.maxLife = std::min((float)life[t], (8.0f + 17.0f * R()) * std::max(0.4f, k)); q.col = vec4(dustCol * (0.85f + 0.3f * R()), water ? 0.35f : 0.55f);
+      if (!admit(i == 0)) break; parts.push_back(q);
+    }
+  }
+  // B. ballistic grains (0.2-20 mm): the power law v = v_min u^(-1/(3 mu)), theta = 52 - 22 sqrt(u) deg; drag; killed at the ground
+  if (!air && !water) {
+    const int nGr[5] = {0, 40, 200, 800, 2500};
+    const int ng = std::min((int)(nGr[t] * std::min(1.0f, S.mass)), caps.grains > 0 ? caps.grains : 1 << 20);
+    for (int i = 0; i < ng; ++i) {
+      const float u = std::max(1e-3f, R()), v = std::min(vMax, vMin * std::pow(u, -1.0f / (3.0f * mu))), xi = std::sqrt(R()), th = glm::radians(52.0f - 22.0f * xi), ph = azimuth();
+      const vec3 rad = t1 * std::cos(ph) + t2 * std::sin(ph), dir = glm::normalize(rad * std::cos(th) + axis * std::sin(th));
+      Particle q; q.p = p + rad * (xi * Rc) + n * 0.05f; q.v = dir * v; q.drag = std::clamp(v / 40.0f, 0.2f, 3.0f); q.lift = -9.81f; q.grain = true;
+      q.size = 0.02f + 0.03f * R(); q.life = q.maxLife = 6.0f; q.col = vec4(albedo * (0.8f + 0.38f * R()), 0.9f);
+      if (!admit()) break; parts.push_back(q);
+    }
+  }
+  // C. clods (> 20 mm): mesh debris, the same launch law biased to low xi, ground contact and rest (Fx::update)
+  if (!air && !water) {
+    const int nCl[5] = {4, 8, 16, 28, 40};
+    const int nc = std::min((int)std::lround(nCl[t] * S.clodFrac), caps.clods > 0 ? caps.clods : 1 << 20);
+    for (int i = 0; i < nc; ++i) {
+      if (debris.size() >= maxDebris) { if (capOn) break; debris.erase(debris.begin()); }
+      const float u = std::max(1e-3f, R()), v = std::min(std::min(vMax, 35.0f), vMin * std::pow(u, -1.0f / (3.0f * mu))), xi = 0.6f * std::sqrt(R()), th = glm::radians(52.0f - 22.0f * xi), ph = azimuth();
+      const vec3 rad = t1 * std::cos(ph) + t2 * std::sin(ph);
+      Debris d; d.p = p + n * 0.15f + rad * (xi * Rc); d.v = glm::normalize(rad * std::cos(th) + axis * std::sin(th)) * v;
+      d.w = vec3(R() - 0.5f, R() - 0.5f, R() - 0.5f) * 14.0f; const float s = (0.04f + 0.12f * R()) * std::clamp(k, 0.5f, 1.5f);
+      d.size = vec3(s, s * (0.5f + 0.6f * R()), s * (0.6f + 0.8f * R())); d.life = 7.0f + 5.0f * R(); debris.push_back(d);
+    }
+  }
+  // D. the ground dust ring: an annulus out to 2.5 R_fb (tau 0.055 s), loose ground only
+  if (!air && !water && S.dustToFire >= 1.0f) {
+    static const int ringN[5] = {0, 6, 14, 26, 40};
+    const int nRing = std::min(caps.groundDust > 0 ? caps.groundDust : 40, ringN[t]);
+    for (int i = 0; i < nRing; ++i) {
+      const float ph = (i + R()) * 6.2831853f / std::max(1, nRing); const vec3 rad = t1 * std::cos(ph) + t2 * std::sin(ph);
+      Particle q; q.drag = 1.0f / 0.055f; q.p = p + rad * 0.3f + n * (0.3f + 0.9f * R()); q.v = rad * (2.5f * M.Rfb * (0.55f + 0.45f * R()) * q.drag);
+      q.size = 0.25f * M.Rfb; q.grow = 0.1f * M.Rfb; q.life = q.maxLife = 3.0f + 4.0f * R(); q.col = vec4(dustCol, 0.45f);
+      if (!admit()) break; parts.push_back(q);
+    }
+  }
+  // the column / residual plume (5.1 event 4): delayed by 0.10-0.24 s x k, rising toward the column apex, lit soft sprites (8.3: 1-2 / 4 / 8 / 13 / 18)
+  {
+    const int nPl[5] = {2, 4, 8, 13, 18}; const float lifeT[5] = {2, 4, 8, 15, 25};
+    const int np = std::min(nPl[t], caps.plume > 0 ? caps.plume : 18);
+    const float H = air ? 0.0f : 0.9f * M.apex, kd = 1.0f / std::max(0.2f, 0.25f * M.colLife);
+    const vec3 smokeCol = water ? vec3(0.8f) : glm::mix(vec3(0.06f), dustCol, std::clamp(S.dustToFire / 4.0f, 0.15f, 0.7f));   // soot darkened, soil-coloured where dust dominates
+    for (int i = 0; i < np; ++i) {
+      Particle q; const float hk = (float)(i + 1) / np;   // a column, not a ball: each sprite aims at its own height
+      q.p = p + n * (0.3f * M.Rfb) + vec3(R() - 0.5f, 0, R() - 0.5f) * (0.5f * M.Rfb);
+      q.drag = kd; q.v = (air ? vec3(R() - 0.5f, 0.2f, R() - 0.5f) * 2.0f : (axis * (H * hk * kd))) + vec3(R() - 0.5f, 0, R() - 0.5f) * 1.5f;
+      q.size = 0.45f * M.Rfb * (0.7f + 0.6f * R()); q.grow = 0.25f * H * kd * 0.5f + 0.1f; q.lift = 0;
+      q.life = q.maxLife = std::min(lifeT[t], std::max(2.0f, 3.0f * M.colLife * (0.8f + 0.4f * R()))); q.col = vec4(smokeCol * (0.85f + 0.3f * R()), water ? 0.45f : 0.7f);
+      Delayed dl; dl.t = clock + (0.10f + 0.14f * R()) * k; dl.q = q; delayed.push_back(dl);
+    }
+  }
+  // fragments (6.3): an equatorial belt about the shell axis (75 % within +-25 deg), dim motion streaks of length v dt
+  {
+    const int nFr[5] = {0, 0, 40, 120, 300};
+    const int nf = std::min(nFr[t], caps.fragments >= 0 ? caps.fragments : 300);
+    const vec3 ax = glm::length(vImpact) > 1.0f ? glm::normalize(vImpact) : vec3(0, 1, 0);
+    vec3 b1 = glm::normalize(std::fabs(ax.y) > 0.9f ? glm::cross(ax, vec3(1, 0, 0)) : glm::cross(ax, vec3(0, 1, 0))), b2 = glm::cross(ax, b1);
+    const float vf = std::min(M.vFrag, 1500.0f), len = vf / 60.0f;
+    for (int i = 0; i < nf && (int)streaks.size() < (int)maxStreaks; ++i) {
+      const float ph = R() * 6.2831853f, el = glm::radians((R() < 0.75f ? 25.0f : 80.0f) * (2 * R() - 1));
+      const vec3 d = glm::normalize((b1 * std::cos(ph) + b2 * std::sin(ph)) * std::cos(el) + ax * std::sin(el));
+      if (!air && glm::dot(d, n) < -0.05f) continue;   // into the ground: spent there
+      const float r0 = M.Rfb * (0.3f + 2.0f * R());
+      streaks.push_back({p + d * r0, p + d * (r0 + len), 0.03f, 0.03f, 0.012f, vec4(vec3(0.5f, 0.46f, 0.4f) * (1.6f / len), 1)});   // alpha ~ L_ref / (v dt)
+    }
+  }
 }

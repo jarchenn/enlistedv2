@@ -163,3 +163,30 @@ int fxDataSelfCheck() {
   logf("[fxev] %s (%d failed)", fails ? "FAIL" : "PASS", fails);
   return fails ? 1 : 0;
 }
+
+FxMunitionRow fxMunitionFor(const std::string& id, float W) {
+  const FxData& D = fxData();
+  if (W <= 0) { if (const FxMunitionRow* r = D.munition(id)) return *r; W = 1.09f; }
+  FxMunitionRow r; r.id = "W"; r.W = W; const float w3 = std::cbrt(W);
+  r.Rfb = 3.77f * w3; r.tPeak = 0.0139f * w3; r.tLum = 0.10f * w3; r.craterD = 1.6f * w3; r.craterDepth = 0.4f * r.craterD; r.craterLip = 0.12f * r.craterD;
+  r.vCol = 20.0f * std::pow(W, 0.18f);
+  // apex / D and the column life: log-W interpolation between the two rows around W (clamped at the ends)
+  const FxMunitionRow* lo = nullptr; const FxMunitionRow* hi = nullptr;
+  for (const FxMunitionRow& m : D.munitions) { if (m.W <= W && (!lo || m.W > lo->W)) lo = &m; if (m.W >= W && (!hi || m.W < hi->W)) hi = &m; }
+  if (!lo) lo = hi; if (!hi) hi = lo;
+  if (lo) {
+    const float k = hi->W > lo->W ? (std::log(W) - std::log(lo->W)) / (std::log(hi->W) - std::log(lo->W)) : 0.0f;
+    r.apex = r.craterD * glm::mix(lo->apex / lo->craterD, hi->apex / hi->craterD, k);
+    r.colLife = std::exp(glm::mix(std::log(lo->colLife), std::log(hi->colLife), k));
+    r.T0 = lo->T0; r.tau = lo->tau; r.n = lo->n; r.vFrag = glm::mix(lo->vFrag, hi->vFrag, k);
+  } else r.apex = 8.0f * r.craterD;
+  return r;
+}
+float fxSoilMu(const std::string& s) {
+  const FxData& D = fxData();
+  auto mu = [&](const char* k, float d) { auto it = D.soilMu.find(k); return it != D.soilMu.end() ? it->second : d; };
+  if (s == "dry_sand" || s == "snow") return mu("dry_sand", 0.41f);
+  if (s == "wet_soil" || s == "mud") return mu("damp_soil", 0.45f);
+  if (s == "rock" || s == "concrete" || s == "asphalt") return mu("competent_rock", 0.55f);
+  return mu("cohesive_soil", 0.50f);
+}
