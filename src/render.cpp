@@ -2921,6 +2921,7 @@ uniform int uTSVOn;   // uTSV is declared with the shadow code (T6)   // VOT T5:
 vec3 vN;   // the shading normal: vN0 (vertex) or the baked per-pixel one
 uniform int uGrid; uniform vec2 uBuildHalf;
 uniform int uDiscard; uniform sampler2D uTileMask; uniform float uTileSize; uniform vec2 uTerrainOrg, uTerrainExt;
+uniform vec4 uDust;   // W5 tdust: xy wind direction (toward), z streamer strength (0: calm or not arid), w advection phase (m along the wind)
 uniform sampler2D uSurf;   // R wear, G wet, B route kind, A rut (surface.cpp)
 uniform float uTerrCave;   // CV1: look.cave: dark wet glossy floors
 uniform int uDbgTerr;      // GG1 (NMK_DBG_TERRAIN): 1 roughness classes (red < 0.4 SSR mirror, yellow < 0.7 sheen, grey matte), 2 specular share (red > 25 %, yellow > 10 %)
@@ -3111,6 +3112,16 @@ void main(){
     N = normalize(mix(N, normalize(vN), flat_k*film*0.6));
   }
   applySnow(p, normalize(vN), 1.0, alb, rough, N); snowTex(p, normalize(vN), tdx, tdy, tDist, hB, alb, rough, N);   // SN1; SN2 the snow sets near (snow.cpp)
+  if (uDust.z > 0.0) {   // W5 (weather corpus 06): wind-blown sand streaming over the ground near the eye, along the wind (arid maps)
+    float dk = uDust.z*(1.0 - smoothstep(40.0, 60.0, length(p.xz - uCamPos.xz)))*smoothstep(0.75, 0.92, normalize(vN).y);
+    if (dk > 0.0) {
+      vec2 q = vec2(dot(p.xz, uDust.xy), dot(p.xz, vec2(-uDust.y, uDust.x)));   // along / across the wind (m)
+      float s1 = vnoise(vec3((q.x - uDust.w)*0.35, q.y*2.4, 31.0)), s2 = vnoise(vec3((q.x - 1.4*uDust.w)*0.9, q.y*6.0, 32.0));
+      float s3 = vnoise(vec3((q.x - 0.5*uDust.w)*0.07, q.y*0.35, 33.0));   // the gust-scale patches the ribbons run in
+      float st = smoothstep(0.52, 0.82, 0.6*s1 + 0.4*s2)*smoothstep(0.3, 0.65, s3);
+      alb = mix(alb, vec3(0.80, 0.72, 0.57), st*0.5*dk); rough = mix(rough, 1.0, st*dk);
+    }
+  }
   gSpecK = mix(uGroundSpec, 1.0, max(puddle, vEw.z*ewK));   // GG1: dry ground: no broad sun glare or sky sheen at grazing angles (standing water / wet cut mud keep theirs)
   float gs0 = gSpecK; gSpecK = 0.0;
   vec3 cMatte = uDbgTerr == 2 ? shade(vW, N, alb, 1.0, 0.0, ao) : vec3(0.0);   // GG1 measurement: no specular at all
@@ -5406,6 +5417,21 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glDepthMask(GL_TRUE); glDepthFunc(zLess());   // the world's depth state (drawSky leaves it too; sky-last must set it here)
   auto drawTerrain = [&]() {
     gpuMark(GP_Terrain);
+    {   // W5 tdust (weather corpus 06, saltation): streamer strength drive(u) = clamp(((u - u_t) / (u_full - u_t))^3, 0, 1), u_t 5.5 m/s,
+        // full by 14 m/s, on above u_t and off below 0.8 u_t (hysteresis); gusts from the shared state; arid maps only
+      using clk = std::chrono::steady_clock; static clk::time_point last = clk::now(); static double tAcc = 0;
+      const double dt = std::min(0.1, std::chrono::duration<double>(clk::now() - last).count()); last = clk::now(); tAcc += dt;
+      const auto& ws = wx.st; const float gp = std::max(1.0f, ws.gustPeriodS);
+      const float u = ws.windMs * (1.0f + (ws.gust - 1.0f) * 0.5f * (1.0f + (float)std::sin(6.2831853 * tAcc / gp)));
+      const float ut = 5.5f, uf = 14.0f;
+      dustOn = u > ut || (dustOn && u > 0.8f * ut);
+      float k = dustOn ? std::clamp((u - 0.8f * ut) / (uf - 0.8f * ut), 0.0f, 1.0f) : 0.0f; k = k * k * k;
+      if (ws.dustVisM > 0) k = std::max(k, 0.35f);   // Blowing dust / Sandstorm: always streaming
+      const bool arid = groundPaintArid();
+      vec2 dir = glm::length(wx.der.windXZ) > 1e-3f ? glm::normalize(wx.der.windXZ) : vec2(std::sin(glm::radians(ws.windDirDeg)), std::cos(glm::radians(ws.windDirDeg)));
+      dustPhase = std::fmod(dustPhase + (float)dt * 0.35f * u, 4096.0f);   // the ribbons travel at about a third of the wind
+      dustU = vec4(dir, perf.terrainDust && arid && !thumbMode ? k : 0.0f, dustPhase);
+    }
     const GLuint progTN = perf.terrainEarlyZ ? progTerrainND : 0;   // PF: tzearly
     for (GLuint progTerrain : {this->progTerrain, progTN}) { if (!progTerrain) continue;   // the same set-up for both terrain shaders
     setLighting(progTerrain, v);
@@ -5429,6 +5455,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       glProgramUniform1f(progTerrain, glGetUniformLocation(progTerrain, "uGroundSpec"), ggOff ? 1.0f : dspec);
     }
     { static const int dbg = std::getenv("NMK_DBG_TERRAIN") ? std::atoi(std::getenv("NMK_DBG_TERRAIN")) : 0; glProgramUniform1i(progTerrain, glGetUniformLocation(progTerrain, "uDbgTerr"), dbgTerr >= 0 ? dbgTerr : dbg); }   // GG1 measurement
+    glProgramUniform4fv(progTerrain, glGetUniformLocation(progTerrain, "uDust"), 1, glm::value_ptr(dustU));   // W5 tdust
     }
     t.drawOpts.normals = perf.terrainNormals; t.drawOpts.morph = perf.terrainMorph; t.drawOpts.skyView = perf.terrainSkyView; t.drawOpts.tileLod = perf.terrainTileLod;   // VOT T1 / T5 / T2
     // PF terrain: samples the terrain pass wrote, read a ring slot later (the shaded-fragment count is the bench's fragment query, gpuMark)
