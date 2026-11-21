@@ -1,0 +1,62 @@
+{
+ "id": "bf_apple_moss",
+ "version": 1,
+ "name": "Apple moss clump (BF import)",
+ "category": "Battle Foundry",
+ "description": "BF rev 3 phase 1 import of cc0__apple_moss_bartramia_pomiformis.glb, ffish.asia / floraZia.com, CC0-1.0: unlit -> lit, albedo de-lit to moss (healthy) 0.055 0.105 0.030, 1.39 M tris decimated. 9 cm clump, no collider.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  0.09,
+  0.05
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1,
+ "noAutoPanels": true,
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "materials": [
+  {
+   "name": "bf_standin",
+   "albedo": [
+    0.45,
+    0.43,
+    0.4
+   ],
+   "roughness": 0.85,
+   "pattern": "plain",
+   "metallic": 0,
+   "grain": 1
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.025,
+    0
+   ],
+   "s": [
+    0.09,
+    0.05,
+    0.05
+   ],
+   "m": "bf_standin",
+   "k": 0,
+   "mf": 1
+  }
+ ],
+ "model": {
+  "src": "bf_apple_moss.glb",
+  "dir": "bf_apple_moss",
+  "pivot": "ground",
+  "scale": 1,
+  "maxTex": 1024,
+  "credit": "Battle Foundry rev 3 bundle (spec 2.4 import: tools/bake_bf_assets.py); ffish.asia / floraZia.com, CC0-1.0"
+ },
+ "nav": {
+  "effect": "none"
+ }
+}
