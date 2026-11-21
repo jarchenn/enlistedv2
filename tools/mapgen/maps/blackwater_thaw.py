@@ -255,6 +255,8 @@ def build_terrain(grid):
     edge = (np.abs(X - X.min()) < 1) | (np.abs(X - X.max()) < 1) | (np.abs(Z - Z.min()) < 1) | (np.abs(Z - Z.max()) < 1)
     far_h = np.where(Z > 120, 112.0, np.where(Z > 0, 88.0, np.where(X > 0, 66.0, 54.0)))
     F.set_mask(edge, np.where(gap, 16.0, far_h))
+    castle_edge(F, X, Z, edge)   # BT2 phase 2: the castle spur (north-west, beyond the play area)
+    castle_terrain(F, X, Z)
     # the far ridge north-east: a crest line and its shoulders
     for (x0, z0, h0), (x1, z1, h1) in zip(RIDGE, RIDGE[1:]):
         m, hh, _, _ = F.corridor([(x0, z0, h0), (x1, z1, h1)], 9.0)
@@ -309,9 +311,10 @@ def build_terrain(grid):
         v = ndimage.gaussian_filter(r_.standard_normal(F.H.shape), scale / RES)
         return (v - v.min()) / (np.ptp(v) + 1e-9)
     v1, v2 = lowf(16.0, SEED + 11), lowf(34.0, SEED + 12)
-    apron = (outside > 18.0) & (outside < 22.0)
+    spur = castle_spur_zone(X, Z)
+    apron = (outside > 18.0) & (outside < 22.0) & ~spur
     F.set_mask(apron, F.H + 4.0 + 7.0 * v1)
-    shoulder = (outside > 62.0) & (outside < 68.0)   # far enough out that the slope to it stays ~25-35 deg, not a bowl wall
+    shoulder = (outside > 62.0) & (outside < 68.0) & ~spur   # far enough out that the slope to it stays ~25-35 deg, not a bowl wall
     sh_h = F.H + 16.0 + 28.0 * v2 * (0.6 + 0.4 * v1)
     F.set_mask(shoulder, np.where(gap, F.H + 6.0, sh_h))
     F.solve()
@@ -515,6 +518,9 @@ def build(ctx):
     # the far ridge: the cable-haul station (two lattice trestles of different heights, a machinery shed, the haul cable)
     sx, sz, sy = write_station_asset(ctx, G, cat)
     b.place("bt_cable_station", sx, sz, 0.0, check=False, cls="none", y=sy, tags={"station"}, companions=False)
+    # BT2 phase 2: the hilltop castle on the north-west spur (graybox)
+    n_castle = write_castle_asset(ctx, cat)
+    b.place("bt_castle", CASTLE_C[0], CASTLE_C[1], CASTLE_YAW, check=False, cls="none", y=BASE + CASTLE_PAD, tags={"castle"}, companions=False)
     # the waterworks court's stepped header channel, the court's north-east side, head to the north
     write_flume_asset(ctx, cat)
     b.place("bt_flume", 8.0, 15.0, 0.0, check=False, y=G(8.0, 15.0), tags={"flume"}, companions=False)
@@ -559,6 +565,8 @@ def build(ctx):
     FIELD[0] = F   # BT2 perf: the fir stands' visibility test samples the ground in bulk
     rep_veg = dress_vegetation(b, cat, G, R)
     rep_veg["boundary_rock"] = dress_boundary(b, cat, G, R)
+    rep_veg["castle_firs"] = dress_castle_spur(b, cat, G, R)
+    rep_veg["castle_parts"] = n_castle
     for k, (cx, cz, rad) in enumerate(FIR_STANDS):   # BT2: the stands' dark needle floor
         paint.poly("leaf_litter", circle_poly(cx, cz, rad + 1.5, 14), weight=0.9, edge=3.0, ragged=2.5, seed=100 + k)
 
@@ -601,6 +609,10 @@ def build(ctx):
              ("Slice bridge", cam(13.5, -47.0, 4.0, -18.0, pitch=2.0)),
              ("Overlook improved", cam(OVERLOOK_EYE[0], OVERLOOK_EYE[1], -3.0, 2.0, dy=0.2, pitch=-9.0))]
     cams = cams + cams2
+    # BT2 phase 2: the castle from the quarry (the panorama turned right toward it), the orchard and the creek path
+    cams += [("Castle quarry", cam(84.0, 76.0, CASTLE_C[0], CASTLE_C[1], dy=0.6, pitch=7.0)),
+             ("Castle orchard", cam(-101.5, -36.0, CASTLE_C[0], CASTLE_C[1], pitch=12.0)),
+             ("Castle creek", cam(-36.0, -60.0, CASTLE_C[0], CASTLE_C[1], pitch=10.0))]
     bookmarks = {str(k + 1): dict(c, name=n) for k, (n, c) in enumerate(cams)}
     tdir = os.path.join(ctx.repo, "content", "templates")
     grid.write_png(os.path.join(tdir, TID + ".height.png"))
@@ -864,6 +876,8 @@ def dress_vegetation(b, cat, G, R):
         if out < -4.0:
             continue
         if cx < -60 and cz < -60 and R.random() < 0.75:   # the south-west valley gap stays open (the bright opening)
+            continue
+        if castle_spur_zone(cx, cz):   # the castle spur has its own stands (dress_castle_spur)
             continue
         n_st += 1
         rad = R.uniform(7.0, 13.0)
@@ -1207,3 +1221,189 @@ def stand_seen(cx, cz, rad, eye=1.65):
         if clear.any():
             return True, float(d[clear].min())
     return False, float(d.min())
+
+
+# ---------------------------------------------------------------- BT2 phase 2: the hilltop castle (scenic landmark, graybox)
+# A Neuschwanstein-type ensemble after the four reference photos (the real building's hierarchy, original geometry):
+# gatehouse with twin round towers on a curved buttressed terrace at the low (south) end, a stepped lower court (bower,
+# square-to-round tower), a connecting wing, the long pale palace with a steep slate roof and dormer gables, a tall narrow
+# spire behind its roof and a slender crowned tower on a lower lateral wing toward the quarry. It stands on a tapering
+# spur that rises out of the north-west corner beyond the play area. Local frame: +z (s) = gate -> apex, +x (t) = east.
+CASTLE_C = (-235.0, 215.0)                      # compound centre (world x, z)
+CASTLE_YAW = -11.53                             # local +z = (-0.2, 0.98): the spur climbs north-north-west
+SPUR_STANDS = 0                                 # fir stands on the castle spur (see dress_castle_spur)
+CASTLE_PAD = 100.0                              # palace pad above the creek-bed datum (the village floor is ~ +4..10)
+
+
+def castle_frame(X, Z):
+    """(s, t) of world points in the castle's local frame (s along the spur, t across it, east positive)."""
+    a = math.radians(CASTLE_YAW)
+    ux, uz, ex, ez = math.sin(a), math.cos(a), math.cos(a), -math.sin(a)
+    dx, dz = X - CASTLE_C[0], Z - CASTLE_C[1]
+    return dx * ux + dz * uz, dx * ex + dz * ez
+
+
+def castle_world(t, s):
+    return local_to_world(CASTLE_C, CASTLE_YAW, t, s)
+
+
+def castle_spur_zone(X, Z):
+    S, T = castle_frame(X, Z)
+    return (np.abs(T) < 60.0) & (S > -165.0) & (S < 95.0)
+
+
+def castle_terrain(F, X, Z):
+    """the spur: stepped pads (gate terrace, lower court, palace), a crest falling south toward the valley, steep
+    flanks with an exposed rock cliff under the palace's east side, the terrain edge behind it held low (sky behind)."""
+    S, T = castle_frame(X, Z)
+    P = CASTLE_PAD
+    F.set_mask((S >= -84) & (S < -50) & (np.abs(T) <= 23), P - 12.0)                       # the gate terrace
+    F.set_mask((S >= -50) & (S < -8) & (np.abs(T) <= 21), P - 6.0)                         # the lower court
+    F.set_mask((S >= -22) & (S < 8) & (T > 0) & (T <= 31), P - 6.0)                        # the lateral wing's ledge
+    F.set_mask((S >= -8) & (S < 66) & (np.abs(T) <= 19), P)                                # the palace
+    for s0, h in ((-100.0, 70.0), (-125.0, 45.0), (-150.0, 24.0)):                         # the crest, down to the valley
+        F.set_mask((np.abs(S - s0) < 1.0) & (np.abs(T) < 8.0), h)
+    F.set_mask((T > 40) & (T < 44) & (S > -150) & (S < 80), 46.0)                          # east flank (toward the quarry)
+    F.set_mask((T > 29) & (T < 31) & (S > -6) & (S < 44), P - 38.0)                        # the exposed cliff under the palace
+    F.set_mask((T < -40) & (T > -44) & (S > -150) & (S < 80), 52.0)                        # west flank
+    F.set_mask((S > 74) & (S < 78) & (np.abs(T) < 40), P - 34.0)                           # the saddle behind the apex
+
+
+def castle_edge(F, X, Z, edge):
+    """the terrain edge near the castle held at +62 (the spire and the side tower stand against sky, not a ridge)."""
+    m = edge & (np.hypot(X - CASTLE_C[0], Z - CASTLE_C[1]) < 140.0)
+    F.set_mask(m, 62.0)
+
+
+M_CASTLE = [{"name": "limestone", "albedo": [0.64, 0.61, 0.56], "roughness": 0.85, "pattern": "plain", "metallic": 0, "grain": 1},
+            {"name": "masonry", "albedo": [0.46, 0.44, 0.40], "roughness": 0.9, "pattern": "plain", "metallic": 0, "grain": 1},
+            {"name": "red", "albedo": [0.42, 0.19, 0.13], "roughness": 0.85, "pattern": "plain", "metallic": 0, "grain": 1},
+            {"name": "slate", "albedo": [0.10, 0.11, 0.13], "roughness": 0.6, "pattern": "plain", "metallic": 0, "grain": 1},
+            {"name": "dark", "albedo": [0.035, 0.035, 0.04], "roughness": 0.7, "pattern": "plain", "metallic": 0, "grain": 1}]
+
+
+def write_castle_asset(ctx, cat):
+    """bt_castle: the graybox ensemble as one part-built asset (one batched mesh per LOD), no colliders, origin = the
+    palace pad. lodKeep 5 m: LOD2 (from ~300 m) keeps the towers' upper stages and caps, drops dormers and chimneys."""
+    import json
+    from mapgen.catalog import Asset
+    P = []
+
+    def box(c, s, m, lod=0, r=None):
+        p = {"t": "b", "c": [round(v, 2) for v in c], "s": [round(v, 2) for v in s], "m": m, "k": 0}
+        if lod:
+            p["lod"] = 1
+        if r is not None:
+            p["r"] = [0, round(r, 1), 0]
+        P.append(p)
+
+    def cyl(c, d, h, m, n=16, cone=False, lod=0):
+        p = {"t": "k" if cone else "c", "c": [round(c[0], 2), round(c[1], 2), round(c[2], 2)], "s": [round(d, 2), round(h, 2), round(d, 2)], "m": m, "k": 0, "n": n}
+        if lod:
+            p["lod"] = 1
+        P.append(p)
+
+    def gable_z(x0, x1, y0, h, z0, z1, m="slate", lod=0):   # a pitched roof running along z
+        p = {"t": "p", "axis": 2, "a": [round(z0, 2), round(z1, 2)], "tri": [[round(x0, 2), round(y0, 2)], [round(x1, 2), round(y0, 2)], [round((x0 + x1) / 2, 2), round(y0 + h, 2)]], "m": m, "k": 0}
+        if lod:
+            p["lod"] = 1
+        P.append(p)
+
+    def gable_x(z0, z1, y0, h, x0, x1, m="slate", lod=0):   # a pitched roof running along x
+        p = {"t": "p", "axis": 0, "a": [round(x0, 2), round(x1, 2)], "tri": [[round(z0, 2), round(y0, 2)], [round(z1, 2), round(y0, 2)], [round((z0 + z1) / 2, 2), round(y0 + h, 2)]], "m": m, "k": 0}
+        if lod:
+            p["lod"] = 1
+        P.append(p)
+
+    def tower(x, z, d, y0, h, crown=1.15, cap=1.0, m="limestone", n=16):   # shaft, crown band, pointed cap
+        cyl((x, y0 + h / 2, z), d, h, m, n)
+        cyl((x, y0 + h + 0.9, z), d * crown, 1.8, "limestone", n)
+        cyl((x, y0 + h + 1.8 + cap * d * 0.6, z), d * crown, cap * d * 1.2, "slate", n, cone=True)
+
+    yT, yL = -12.0, -6.0
+    # the curved, buttressed terrace wall tied into the cliff, and its fill (the terrace floor = its top)
+    cyl((0.0, yT - 10.0, -66.0), 44.0, 20.0, "masonry", 28)
+    for k in range(9):
+        ph = math.radians(-70.0 + 17.5 * k)
+        box((22.4 * math.sin(ph), yT - 11.0, -66.0 - 17.4 * math.cos(ph)), (2.4, 18.0, 3.2), "masonry", r=math.degrees(ph))
+    box((0.0, yT + 0.6, -82.6), (14.0, 1.2, 0.7), "masonry", lod=1)          # parapet at the front
+    # the gatehouse: red body, stepped central gable, arched gate, twin round flanking towers
+    box((0.0, yT + 8.0, -50.0), (30.0, 16.0, 11.0), "red")
+    gable_x(-55.5, -44.5, yT + 16.0, 6.0, -15.0, 15.0)
+    for w, h, y in ((10.0, 5.0, 18.5), (6.5, 3.0, 22.5), (3.0, 2.2, 25.1)):
+        box((0.0, yT + y, -55.3), (w, h, 1.4), "red")
+    box((0.0, yT + 3.2, -55.8), (4.4, 6.4, 0.6), "dark", lod=1)
+    for x in (-16.5, 16.5):
+        tower(x, -54.0, 7.0, yT, 24.0, m="red", cap=0.9)
+    # the lower court: side walls, the bower (left), the square-to-round tower (right, behind the gate)
+    for x in (-20.0, 20.0):
+        box((x, yL + 4.0, -30.0), (2.0, 8.0, 36.0), "masonry")
+    box((-11.0, yL + 10.0, -30.0), (13.0, 20.0, 16.0), "limestone")
+    gable_z(-17.8, -4.2, yL + 20.0, 7.0, -38.0, -22.0)
+    tower(-4.2, -22.0, 3.2, yL + 14.0, 10.0, cap=1.4)
+    box((11.0, yL + 12.0, -38.0), (9.0, 24.0, 9.0), "limestone")
+    tower(11.0, -38.0, 8.0, yL + 24.0, 16.0, cap=1.1)
+    # the connecting wing (right) between the court and the palace
+    box((12.0, yL + 9.0, -14.0), (12.0, 18.0, 12.0), "limestone")
+    gable_x(-20.0, -8.0, yL + 18.0, 5.0, 6.0, 18.0)
+    # the lower lateral wing toward the quarry and its slender, crowned, independent-looking tower
+    box((20.0, yL + 7.0, -8.0), (10.0, 14.0, 20.0), "limestone")
+    gable_z(15.0, 25.0, yL + 14.0, 4.5, -18.0, 2.0)
+    tower(26.0, 0.0, 7.2, yL, 38.0, crown=1.25, cap=0.7)
+    # the palace: the long pale slab, steep dark roof, dormer gables, throne-hall projection, corner turrets, chimneys
+    box((0.0, 15.0, 25.0), (18.0, 30.0, 58.0), "limestone")
+    gable_z(-9.6, 9.6, 30.0, 12.0, -4.0, 54.0)
+    for z in (6.0, 18.0, 30.0, 42.0):
+        for side in (-1, 1):
+            box((side * 8.3, 32.2, z), (3.0, 4.4, 4.2), "limestone", lod=1)
+            gable_x(z - 2.4, z + 2.4, 34.4, 3.0, side * 6.8, side * 9.9, lod=1)
+    box((-12.5, 15.0, 34.0), (7.0, 30.0, 14.0), "limestone")
+    gable_x(27.0, 41.0, 30.0, 6.0, -16.0, -9.0)
+    for (x, z, y0, h) in ((9.0, -4.0, 22.0, 16.0), (-9.0, -4.0, 24.0, 12.0), (9.0, 54.0, 20.0, 20.0), (-9.0, 54.0, 23.0, 14.0)):
+        tower(x, z, 3.2, y0, h, cap=1.5)
+    for (x, z) in ((3.5, 10.0), (-3.5, 24.0), (3.5, 40.0)):
+        box((x, 40.5, z), (1.3, 5.0, 1.3), "masonry", lod=1)
+    # the tall narrow spire behind the main roof: square shaft, octagonal upper stage, pointed cap (top +70)
+    box((5.0, 25.0, 50.0), (6.0, 50.0, 6.0), "limestone")
+    cyl((5.0, 54.0, 50.0), 8.0, 8.0, "limestone", 8)
+    cyl((5.0, 64.0, 50.0), 8.4, 12.0, "slate", 8, cone=True)
+    j = {"id": "bt_castle", "version": 1, "name": "Hilltop castle (Blackwater Thaw)", "category": "Landmarks",
+         "description": "BT2: the scenic hilltop castle on the north-west spur, after the real Neuschwanstein's architecture (original geometry, graybox stage), generated by tools/mapgen/maps/blackwater_thaw.py. Far scenery: no colliders, one batched mesh per LOD.",
+         "floors": 0, "enterable": False, "footprint": [60.0, 150.0], "plinthDepth": 0, "maxGrade": 90, "noAutoPanels": True, "lodKeep": 5.0,
+         "nav": {"effect": "none"}, "materials": M_CASTLE, "parts": P, "furniture": [], "interactables": [], "panels": []}
+    path = os.path.join(ctx.repo, "content", "assets", "bt_castle.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(j, f, separators=(",", ":"))
+    cat.assets["bt_castle"] = Asset(j, path)
+    return len(P)
+
+
+def dress_castle_spur(b, cat, G, R):
+    """dark fir masses on the spur's flanks (below the pads), rock faces on the exposed cliff under the palace."""
+    # shortcut: no fir stands on the spur yet (coordinator: no new fir instances until the plant session's far-tree
+    # impostors land); set SPUR_STANDS to 46 then
+    firs = [a for a in ("ph_fir_tree_01_a", "ph_fir_tree_01_b", "ph_fir_tree_01_c") if a in cat]
+    n = 0
+    for _ in range(SPUR_STANDS):
+        s0, t0 = R.uniform(-150.0, 70.0), R.choice([-1, 1]) * R.uniform(24.0, 52.0)
+        if s0 > -90.0 and abs(t0) < 26.0:
+            continue
+        for _k in range(R.randint(10, 18)):
+            s, t = s0 + R.uniform(-10, 10), t0 + R.uniform(-8, 8)
+            S_, T_ = s, t
+            if S_ > -88.0 and abs(T_) < 24.0:    # not on the pads
+                continue
+            if S_ > -8.0 and S_ < 44.0 and 26.0 < T_ < 33.0:   # the exposed cliff stays bare
+                continue
+            x, z = castle_world(t, s)
+            if not (-298.0 < x and z < 288.0) or firs == []:
+                continue
+            b.place(R.choice(firs), x, z, R.uniform(0, 360), check=False, cls="veg", y=G(x, z), tags={"veg", "firs", "castle"}, companions=False)
+            n += 1
+    faces = [a for a in ("ph_rock_face_01", "ph_rock_face_02") if a in cat]
+    for k, s in enumerate(range(-4, 44, 7)):
+        if not faces:
+            break
+        x, z = castle_world(29.0, float(s))
+        b.place(faces[k % len(faces)], x, z, CASTLE_YAW + 90.0 + R.uniform(-12, 12), check=False, cls="none", y=G(x, z) - 1.0, tags={"rock", "castle"}, companions=False)
+    return n
