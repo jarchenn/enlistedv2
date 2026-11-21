@@ -95,7 +95,7 @@
     "paint_ploughed":        {"set": "soil_ploughed",     "space": "ground", "albedo": 0.75, "normal": 0.6, "rough": 0.35, "ao": 0.4, "fade": [50, 160]},
     "paint_leaf_litter":     {"set": "forest_floor", "space": "ground", "albedo": 0.9, "absolute": true, "normal": 0.7, "rough": 0.35, "ao": 0.5, "fade": [50, 160]},
     "yard_asphalt_paint":    {"absolute": true, "set": "asphalt_worn", "space": "ground", "albedo": 0.9, "normal": 0.6, "rough": 0.4, "ao": 0.45, "fade": [60, 180]},
-    "sd_render_aged":        {"set": "render_aged", "albedo": 0.85, "normal": 0.7, "rough": 0.45, "ao": 0.5, "relief": 0.012, "crevice": 0.4, "scale": 0.6},
+    "sd_render_aged":        {"set": "render_aged", "albedo": 0.85, "normal": 0.7, "rough": 0.45, "ao": 0.5, "relief": 0.012, "crevice": 0.4, "scale": 0.8},
     "sd_render_stained":     {"set": "render_stained", "albedo": 0.85, "normal": 0.75, "rough": 0.45, "ao": 0.5, "relief": 0.015, "crevice": 0.45},
     "sd_plaster_flaking":    {"set": "plaster_flaking", "albedo": 0.85, "normal": 0.8, "rough": 0.45, "ao": 0.55, "relief": 0.02, "crevice": 0.5},
     "rb_cab_paint":         {"set": "rb_metal_leaks", "mode": "replace", "albedo": 0.9, "normal": 1.0, "rough": 0.5, "ao": 0.8, "relief": 0.012, "crevice": 0.4, "edge": 0.6},

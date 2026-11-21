@@ -265,6 +265,7 @@ public:
     bool albClamp = true;        // albclamp (CP step 4): dielectric albedo luminance clamped to linear 0.02-0.9, grass floored at 0.10
     bool wAbs = true;            // wabs (CP step 7): water extinction by absorption (Pope & Fry pure water + per-kind organics) and silt scattering; off = the per-kind tint
     bool maskLib = true;         // masklib (CP step 6 part 2): each building's grime from its own mask of the 12-mask library (4 array layers)
+    bool metalMask = true;       // metalmask (FIX6): metallic snaps to a mask (<= 0.4 dielectric, >= 0.6 bare metal at F0 >= 0.45)
     bool steepTri = true;        // steeptri (FIX5): ground-space texture slots go triplanar on slopes steeper than ~37 deg (painted banks stop stretching)
     bool wearCause = true;       // wearcause (M4): splash near the ground and runoff streaks on walls, roughness first, varied per building
     bool microDetail = true;     // microdetail (CP step 6): 0.2 m micro normal / roughness detail near the eye (fades 2.5-7 m), walls and ground
@@ -415,7 +416,7 @@ public:
               // ^ stream T (terrain): append to the line above
               : n == "contactsh" ? &contactShadow : n == "fullshadow" ? &fullShadow : n == "gtao" ? &gtao : n == "midcascade" ? &midCascade : n == "microsh" ? &microShadow : n == "foltrans" ? &folTrans : n == "agx" ? &agx : n == "histexpo" ? &histExpo : n == "skyrelit" ? &skyRelit : n == "atmo" ? &atmo : n == "reflprobe" ? &reflProbe
               // ^ stream L (lighting): append to the line above
-              : n == "specaa" ? &specAA : n == "texbias" ? &texBias : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps : n == "splitsum" ? &splitSum : n == "albclamp" ? &albClamp : n == "wabs" ? &wAbs : n == "wet" ? &wet : n == "microdetail" ? &microDetail : n == "wearcause" ? &wearCause : n == "steeptri" ? &steepTri : n == "masklib" ? &maskLib : n == "roughvar" ? &roughVar
+              : n == "specaa" ? &specAA : n == "texbias" ? &texBias : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps : n == "splitsum" ? &splitSum : n == "albclamp" ? &albClamp : n == "wabs" ? &wAbs : n == "wet" ? &wet : n == "microdetail" ? &microDetail : n == "wearcause" ? &wearCause : n == "steeptri" ? &steepTri : n == "metalmask" ? &metalMask : n == "masklib" ? &maskLib : n == "roughvar" ? &roughVar
               // ^ stream M (materials): append to the line above
               : n == "charvel" ? &charVel : n == "fxnear" ? &fxNear : n == "wxdrift" ? &wxDrift : n == "fxlit" ? &fxLit : n == "fxsoft" ? &fxSoft : n == "poseframe" ? &poseFrame : n == "poselod" ? &poseLod : n == "posejobs" ? &poseJobs : n == "stepinterp" ? &stepInterp : n == "dtsnap" ? &dtSnap
               // ^ characters (gameplay): append to the line above
