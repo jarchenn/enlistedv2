@@ -7,7 +7,7 @@
 
 namespace {
 int phase = 0, idx = 0, sub = 0; float t = 0; int shotFrame = -1, frame = 0; fs::path pend;
-const char* kW[] = {"m1_garand", "mp40", "modern_m4_irons", "modern_mp7", "modern_pistol3", "modern_shotgun", "modern_ak47"};   // CP: + the AK-47 (its ADS lean)   // WP4c: rifle, SMG, rig weapons with optics, the Glock (ADS arm), a shotgun
+const char* kW[] = {"m1_garand", "mp40", "modern_m4_irons", "modern_mp7", "modern_pistol3", "modern_shotgun", "modern_ak47", "modern_scorpion", "modern_mp5", "modern_glock34"};   // CP: + the ADS-lean checks (AK-47, Scorpion, MP5, Glock 34)   // WP4c: rifle, SMG, rig weapons with optics, the Glock (ADS arm), a shotgun
 std::vector<int> all; bool table = false;   // --recoil-table: every gun, hip and ADS, logged only
 float z0 = 0, zMax = 0;
 // the rear sight in view space (+z toward the eye): what the player sees move back
