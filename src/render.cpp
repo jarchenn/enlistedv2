@@ -2753,9 +2753,11 @@ vec3 ssrAdd(vec2 uv){   // the screen-space reflection's contribution here (geom
   vec3 Rw = normalize(transpose(mat3(uView))*Rv);
   vec3 refl = textureLod(uScene, hit.xy, 0.0).rgb;
   vec3 env = skyColor(Rw);   // what the world pass reflected here, which the hit replaces
+#ifdef NMK_SSR_HALF   // only this pass has the cube on unit 9: in the composite, a live uRefl (samplerCube) would share unit 9 with uShafts (2D) - invalid, every frame garbage
   if (uSsrEnvCube == 1 && uReflOn == 1) {   // the world pass used the L7 cube: subtract that, not the sky (a bright sky over a dim cube went below zero: black puddles)
     vec3 Pw = transpose(mat3(uView))*Pv + uCamPos; float wg; vec3 rp = reflProbe(Pw, Rw, nr.w, wg); env = mix(env, rp, wg);
   }
+#endif
   return (refl - env)*hit.z*F*(1.0 - smoothstep(uSsrRough.x, uSsrRough.y, nr.w))*uSsrAmt;
 }
 void main(){
