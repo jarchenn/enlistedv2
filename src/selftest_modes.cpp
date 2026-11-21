@@ -16,6 +16,8 @@
 #include "mainmenu.h"
 #include "editor_nav.h"
 #include "loading.h"
+#include "snap.h"      // BT2 castle test: crushAndFlatten (the palette path)
+#include "thumbs.h"    // BT2 castle test: the palette tile
 #include <imgui_internal.h>
 extern void (*gTestImGuiInput)();
 #include <GLFW/glfw3.h>
@@ -645,6 +647,74 @@ void build(App&) {
       case 9: ++it; ph = 0; mpos = ImVec2(-1, -1); return false;
     }
     return false; });
+  // BT2 --selftest-modes with NMK_SELFTEST_CASTLE=1: the hilltop castle as a palette asset. Placed on a flat map the way
+  // the palette does it (placeInstance, crushAndFlatten, placeCompanions); its interior companion is not built far,
+  // builds within 90 m (frames / worst frame logged) and drops beyond 130 m; save and reload keep it; deleting the castle
+  // takes its interior, lamps and furniture with it and undo restores them; the palette has a tile for it.
+  push("castle placeable", [](App& a, float t) {
+    if (!std::getenv("NMK_SELFTEST_CASTLE")) return true;
+    static int ph = 0, frames = 0; static uint64_t id = 0, inner = 0; static size_t n0 = 0; static float lastT = 0, worst = 0; static vec3 ip(0);
+    auto furnOf = [&](uint64_t h) { int n = 0; for (auto& i : a.doc.instances) if (i.extra.is_object() && i.extra.contains("furnish") && i.extra["furnish"].is_object() && i.extra["furnish"].value("host", (uint64_t)0) == h) ++n; return n; };
+    auto compsOf = [&](uint64_t h) { int n = 0; for (auto& i : a.doc.instances) if (i.extra.is_object() && i.extra.value("companionOf", (uint64_t)0) == h) ++n; return n; };
+    auto farOut = [&](uint64_t i) { auto f = a.rt.find(i); return f != a.rt.end() && f->second.farOut; };
+    if (t == 0) {
+      ph = 0; frames = 0; id = inner = 0; worst = 0; lastT = 0;
+      if (a.mode == Mode::Explore) a.exitExplore();
+      const TemplateInfo* tp = a.findTemplate("blank_slate");
+      if (!tp) { chk(false, "castle: Blank Slate template"); return true; }
+      a.newMap(*tp, "Castle placement test");
+      const AssetDef* c = a.lib.find("castle_hilltop");
+      if (!chk(c != nullptr, "castle: castle_hilltop is in the catalogue (category %s)", c ? c->category.c_str() : "-")) return true;
+      id = a.placeInstance(c, vec3(0, 0, 0), 30.0f);
+      if (!chk(id != 0, "castle: placed on the flat map through placeInstance")) return true;
+      crushAndFlatten(a, id);
+      int n = a.placeCompanions(id);
+      for (auto& i : a.doc.instances) if (i.extra.is_object() && i.extra.value("companionOf", (uint64_t)0) == id && i.assetId == "castle_interior") { inner = i.id; ip = i.pos; }
+      if (inner && furnOf(inner) == 0) a.interior.autoFurnish(a, inner);
+      const Instance* h = a.doc.find(id); const AssetDef* ia = a.lib.find("castle_interior");
+      chk(h && std::fabs(h->pos.y - a.terrain.height(h->pos.x, h->pos.z)) < 3.0f, "castle: (1) seated on the ground (y %.2f, ground %.2f)", h ? h->pos.y : 0.0f, h ? a.terrain.height(h->pos.x, h->pos.z) : 0.0f);
+      chk(n > 1 && inner != 0 && compsOf(id) == n, "castle: (1) %d companions placed and owned (interior %llu, lamps %d)", n, (unsigned long long)inner, n - 1);
+      chk(inner && furnOf(inner) > 50, "castle: (1) the interior is furnished (%d pieces)", inner ? furnOf(inner) : 0);
+      chk(ia && ia->raw.contains("loadRadius"), "castle: (2) the interior asset carries its loadRadius");
+      a.camPos = ip + vec3(300, 60, 0);
+      return false;
+    }
+    float dt = t - lastT; lastT = t; ++frames;
+    switch (ph) {
+      case 0: if (frames < 40) return false;
+        chk(farOut(inner), "castle: (2) the interior is not built from 300 m");
+        a.camPos = ip + vec3(20, 5, 0); frames = 0; worst = 0; ph = 1; return false;
+      case 1: worst = std::max(worst, dt);
+        if (farOut(inner) && frames < 1200) return false;
+        { int built = 0; for (auto& i : a.doc.instances) { float in, out; (void)in; (void)out; auto f = a.rt.find(i.id); if (f != a.rt.end() && !f->second.farOut && i.extra.is_object() && i.extra.contains("furnish") && i.extra["furnish"].is_object() && i.extra["furnish"].value("host", (uint64_t)0) == inner) ++built; }
+          if (built < furnOf(inner) && frames < 1500) return false;
+          chk(!farOut(inner), "castle: (2) the interior builds within 90 m (%d frames, worst frame %.1f ms, furniture %d / %d built)", frames, worst * 1000.0f, built, furnOf(inner)); }
+        a.camPos = ip + vec3(500, 60, 0); frames = 0; ph = 2; return false;
+      case 2: if (frames < 40) return false;
+        chk(farOut(inner), "castle: (2) the interior is dropped beyond 130 m");
+        {   // save and reload
+          fs::path pth = userMapsDir() / "selftest_castle.nmap.json";
+          bool ok = a.saveMapTo(pth); MapDoc rd; std::string err; bool lo = ok && loadMap(pth, rd, err);
+          int rc = 0, rl = 0, rf = 0; for (auto& i : rd.instances) { if (i.extra.is_object() && i.extra.value("companionOf", (uint64_t)0) == id) ++rc; if (i.extra.is_object() && i.extra.value("loadWith", (uint64_t)0) == inner) ++rl; if (i.extra.is_object() && i.extra.contains("furnish") && i.extra["furnish"].is_object() && i.extra["furnish"].value("host", (uint64_t)0) == inner) ++rf; }
+          bool host = false; for (auto& i : rd.instances) host |= i.id == id && i.assetId == "castle_hilltop";   // (the map's own runtime dressing is not saved: compare the castle's)
+          chk(ok && lo && host && rc == compsOf(id) && rl == compsOf(id) - 1 && rf == furnOf(inner),
+              "castle: (2) save / reload: %zu / %zu instances, companions %d / %d, lamps loading with the interior %d, furniture %d / %d %s", rd.instances.size(), a.doc.instances.size(), rc, compsOf(id), rl, rf, furnOf(inner), err.c_str());
+        }
+        {   // delete takes everything; undo restores
+          n0 = a.doc.instances.size(); size_t comps = compsOf(id), furn = furnOf(inner);
+          a.selected = id; a.deleteSelected();
+          chk(a.doc.find(id) == nullptr && compsOf(id) == 0 && furnOf(inner) == 0, "castle: (3) deleting the castle removes it, its %zu companions and %zu furniture pieces (%zu instances left of %zu)", comps, furn, a.doc.instances.size(), n0);
+          a.undo();
+          chk(a.doc.instances.size() == n0 && a.doc.find(id) && compsOf(id) == (int)comps, "castle: (3) undo restores them (%zu instances)", a.doc.instances.size());
+        }
+        {   // (4) the palette tile
+          if (!gThumbInfo.count("castle_hilltop")) makeAssetThumbnails(a);   // the palette build (cached tiles load, new ones render)
+          auto f = gThumbInfo.find("castle_hilltop");
+          chk(f != gThumbInfo.end() && (f->second.cached || f->second.fill > 0.02f), "castle: (4) the palette has a tile for castle_hilltop (fill %.2f, %s)", f != gThumbInfo.end() ? f->second.fill : 0.0f, f != gThumbInfo.end() ? (f->second.cached ? "cached" : "rendered") : "missing");
+        }
+        return true;
+    }
+    return true; });
   push("ui7 stills", [](App& a, float t) {
     if (!std::getenv("NMK_UI7_STILLS")) return true;
     static std::vector<std::string> ids; static size_t k = 0; static double r0 = 0; static int ph = 0; static json poses;
@@ -817,6 +887,7 @@ bool modesSelfTest(App& app, float dt) {
     started = true; T = new MpTest("modes"); build(app); cur = 0; st = 0;
     if (std::getenv("NMK_NAV_PREBAKE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "prebake templates" && s.name != "done"; }), seq.end());   // just the bake
     else if (std::getenv("NMK_MODES_ONLY_CACHE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "nav bake cache" && s.name != "done"; }), seq.end());   // just the cache round trip (with NMK_MODES_MAP: on another map)
+    else if (std::getenv("NMK_SELFTEST_CASTLE")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "castle placeable" && s.name != "done"; }), seq.end());   // BT2: just the castle
     else if (std::getenv("NMK_SND13")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "snd13 heartbeat" && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_UI8_PICKER")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui8 map picker" && s.name != "done"; }), seq.end());
     else if (std::getenv("NMK_UI7_STILLS")) seq.erase(std::remove_if(seq.begin(), seq.end(), [](const Step& s) { return s.name != "ui7 stills" && s.name != "done"; }), seq.end());

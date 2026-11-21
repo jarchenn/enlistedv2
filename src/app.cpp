@@ -976,6 +976,7 @@ int App::placeCompanions(uint64_t hostId) {
     if (c.contains("loadWithCompanion")) { int q = c["loadWithCompanion"].get<int>(); if (q >= 0 && q < (int)made.size() && made[q]) { if (!i.extra.is_object()) i.extra = json::object(); i.extra["loadWith"] = made[q]; } }
     if (c.contains("supportCompanion")) { int q = c["supportCompanion"].get<int>(); if (q >= 0 && q < (int)made.size() && made[q]) setSupport(i, made[q]); }
     made.back() = i.id;
+    if (a->raw.value("companionsOwned", false)) { if (!i.extra.is_object()) i.extra = json::object(); i.extra["companionOf"] = hostId; }   // BT2: deleted with the host
     bump(i);
     doc.instances.push_back(i);
     ++n;
@@ -1028,6 +1029,12 @@ void App::deleteSelected() {
   doc.instances.erase(it); selected = 0; dirty = true;
   interior.dropPieces(*this, gone);   // V4: its room-template furniture goes with it (interior.cpp)
   dropSupported(gone);   // ED1: what rested on it falls to the next surface below
+  // BT2: companions a host owns ("companionsOwned": a landmark's interior and lamps) go with it, with their furniture
+  std::vector<uint64_t> owned; for (auto& i : doc.instances) if (i.extra.is_object() && i.extra.value("companionOf", (uint64_t)0) == gone) owned.push_back(i.id);
+  for (uint64_t c : owned) {
+    doc.instances.erase(std::remove_if(doc.instances.begin(), doc.instances.end(), [&](const Instance& i) { return i.id == c || (i.extra.is_object() && i.extra.value("support", (uint64_t)0) == c && i.extra.value("companionOf", (uint64_t)0) == gone); }), doc.instances.end());
+    interior.dropPieces(*this, c);
+  }
 }
 uint64_t App::pickInstance(vec3 ro, vec3 rd, float& tBest) const {
   uint64_t best = 0; tBest = 1e30f;

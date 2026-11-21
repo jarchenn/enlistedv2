@@ -1587,6 +1587,7 @@ def write_castle_asset(ctx, cat):
     for lx, ly, lz, aid, gain in CASTLE_LAMPS:
         comps.append({"asset": aid, "pos": [lx, ly, lz], "yaw": 0, "extra": {"light": lamp_light(gain)}, "loadWithCompanion": 0, "supportCompanion": 0})
     hj["companions"] = comps
+    hj["companionsOwned"] = True   # deleting the castle removes its interior and lamps
     with open(os.path.join(ctx.repo, "content", "assets", "castle_hilltop.json"), "w", encoding="utf-8") as f:
         json.dump(hj, f, separators=(",", ":"))
     path = os.path.join(ctx.repo, "content", "assets", "bt_castle.json")
