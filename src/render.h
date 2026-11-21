@@ -113,6 +113,7 @@ public:
   vec3 ivyStem{0.12f, 0.1f, 0.08f}; vec2 ivyRef{0.2f, 0.1f};   // VR1: stem colour (linear) and the leaf / stem textures' mean luminance (content/settings/ivy.json)
   GLuint wxUbo = 0; void uploadWeather();
   void physLight(vec3& sun, vec3& sky, vec3& ground, vec3& fog, vec3& fill, vec3& zen, vec3& hor, vec3& skySunCol, bool main);   // CP2   // W1: NmkWeather uniform block, binding 4
+  float shimmerPx = 0;   // W5: this frame's heat-shimmer amplitude (tests)
   float physEV = 15.0f, physExpo = 0.0f;   // CP2 Lighting Physical: this frame's EV100 and the tone pass's exposure (0 = not physical)
   float sunDirectFrac = 1.0f, sunShK = 1.0f;   // OPT wxsun: last setLighting's direct-sun share; this frame's cascade strength (0 = none drawn)
   int dbgTerr = -1;   // GG1 measurement: terrain debug view (-1: NMK_DBG_TERRAIN), set per capture view
@@ -343,6 +344,8 @@ public:
     bool cas = true;             // cas (CP1): one contrast-adaptive sharpen after the grade sharpen's place, with the Sharpness slider; TAA and grade sharpens off
     bool dither = true;          // dither (CP1): triangular +-1 LSB dither at the final write
     bool slopeCap = true;        // slopecap (CP1): shadow slope-bias cap 6 -> 2, bias scaled by the filter radius
+    bool ssrHalf = true;         // ssrhalf (OPT, corpus 13 s13.5): the SSR march at half resolution, depth-aware upsample in the composite
+    bool wxShimmer = true;       // wxshimmer (W5): heat shimmer low over hot arid ground at 80-400 m (clear, calm, high sun)
     bool wxSun = true;           // wxsun (OPT, weather corpus 08 s4.2): overcast takes the direct sun away; under 5 % direct share no sun cascades (fade to 10 %)
     bool sunShadow = true;       // sunshadow (OPT): the sun cascades (near, mid, far) drawn and sampled; off = none (knock-out)
     bool midCascade = true;      // midcascade (VO L3): a third sun cascade between the near and far ones (Medium / High, Lighting New)
@@ -374,7 +377,7 @@ public:
     bool set(const std::string& n, bool on) {   // false: no such switch
       if (n == "wx1") { clouds = cloudShadow = shafts = envFog = on; return true; }   // WX1: the whole weather / fog stack (one A/B)
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
-              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "tzearly" ? &terrainEarlyZ : n == "tzprepass" ? &terrainPrepass : n == "sunshadow" ? &sunShadow : n == "wxsun" ? &wxSun : n == "taajitph" ? &taaJitPh : n == "taavel" ? &taaVel : n == "taabox" ? &taaBox : n == "cas" ? &cas : n == "dither" ? &dither : n == "slopecap" ? &slopeCap : n == "w2sky" ? &w2Sky : n == "w2mist" ? &w2Mist : n == "w2expo" ? &w2Expo : n == "lightning" ? &lightning : n == "farlite" ? &farLite : n == "occsmall" ? &occSmall : n == "skygate" ? &skyGate : n == "ssrrange" ? &ssrRange : n == "probetrickle" ? &probeTrickle : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "clouds" ? &clouds : n == "cloudshadow" ? &cloudShadow : n == "shafts" ? &shafts : n == "envfog" ? &envFog : n == "sdecals" ? &staticDecals : n == "grade" ? &grade : n == "tdust" ? &terrainDust
+              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "tzearly" ? &terrainEarlyZ : n == "tzprepass" ? &terrainPrepass : n == "sunshadow" ? &sunShadow : n == "wxsun" ? &wxSun : n == "taajitph" ? &taaJitPh : n == "taavel" ? &taaVel : n == "taabox" ? &taaBox : n == "cas" ? &cas : n == "dither" ? &dither : n == "slopecap" ? &slopeCap : n == "w2sky" ? &w2Sky : n == "w2mist" ? &w2Mist : n == "w2expo" ? &w2Expo : n == "lightning" ? &lightning : n == "farlite" ? &farLite : n == "occsmall" ? &occSmall : n == "skygate" ? &skyGate : n == "ssrrange" ? &ssrRange : n == "probetrickle" ? &probeTrickle : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "clouds" ? &clouds : n == "cloudshadow" ? &cloudShadow : n == "shafts" ? &shafts : n == "envfog" ? &envFog : n == "sdecals" ? &staticDecals : n == "grade" ? &grade : n == "tdust" ? &terrainDust : n == "wxshimmer" ? &wxShimmer : n == "ssrhalf" ? &ssrHalf
               : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : n == "leaftex" ? &leafTex : n == "taau" ? &taau : n == "imgmat" ? &imgMat
               : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : n == "grassatlas" ? &grassAtlas : n == "dlcache" ? &dlCache : n == "instdepth" ? &instDepth : n == "folbatch" ? &folBatch : n == "farleaf" ? &farLeaf : n == "walllod" ? &wallLod : n == "matfar" ? &matFar : n == "probemed" ? &probeMed : n == "shadowcache" ? &shadowCache : n == "occcull" ? &occCull : n == "treefar" ? &treeFar : n == "leafmerge" ? &leafMerge : n == "furndist" ? &furnDist : n == "furnclutter" ? &furnClutter : n == "paint" ? &groundPaint : n == "vegcull" ? &vegCull
               // One line per stream, each followed by a comment line, so two streams appending names no longer conflict in merges.
@@ -553,6 +556,7 @@ private:
   GLuint progHeat = 0, heatTex = 0, heatFbo = 0, heatDepthOf = 0; int heatW = 0, heatH = 0;   // TH1 thermal heat target (R16F, the scene depth attached)
   GLuint sceneCopy = 0, compFbo = 0, shaftTex = 0, shaftFbo = 0;   // world composite (before the weapon pass)
   void worldComposite(const RenderView& v, const mat4& vp);
+  GLuint ssrTex = 0, ssrFbo = 0, progSsrHalf = 0;   // OPT ssrhalf
   GLuint ambTex = 0, aoTex = 0, aoFbo = 0, progSsao = 0, progBloomDown = 0, progBloomUp = 0;
   static const int kBloomLevels = 6;
   GLuint bloomTex[kBloomLevels]{}, bloomFbo[kBloomLevels]{}; int bloomW[kBloomLevels]{}, bloomH[kBloomLevels]{};

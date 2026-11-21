@@ -2615,6 +2615,8 @@ uniform sampler2D uScene, uShafts, uAmb, uAO, uDepth, uNR; uniform float uShaftA
 uniform mat4 uInvProj, uProj, uView; uniform vec2 uAoTexel;
 uniform float uContactAmt; uniform int uContactSteps;   // VO L1 screen-space sun contact shadows (0: off)
 uniform int uAoNew;   // VO L2: multi-bounce and specular occlusion from the (GT)AO
+uniform int uSsrHalf; uniform sampler2D uSsrTex; uniform vec2 uSsrTexel;
+uniform float uShimmer, uShimT;   // W5 wxshimmer: heat shimmer amplitude (px at this resolution, gated on the CPU), its clock   // OPT ssrhalf: the reflection added from a half-resolution pass (rgb: added light, a: view depth)
 out vec4 oColor;
 vec3 viewPosAt(vec2 uv){ float z = texture(uDepth, uv).r; vec4 p = uInvProj*vec4(uv*2.0 - 1.0, z, 1.0); return p.xyz/p.w; }   // reverse-Z
 vec2 toUV(vec3 q){ vec4 c = uProj*vec4(q, 1.0); return c.xy/c.w*0.5 + 0.5; }
@@ -2663,28 +2665,57 @@ float contactShadow(vec2 uv){
   }
   return 1.0 - occ*(1.0 - smoothstep(60.0, 90.0, dist));
 }
+vec3 ssrAdd(vec2 uv){   // the screen-space reflection's contribution here (geometry seen in it replaces the sky estimate)
+  vec4 nr = texture(uNR, uv);
+  if (nr.w >= 0.4 || texture(uDepth, uv).r <= 0.0) return vec3(0.0);   // rough or sky
+  vec3 Pv = viewPosAt(uv);
+  vec3 Nv = normalize(mat3(uView)*nr.xyz);
+  vec3 Vv = normalize(-Pv), Rv = reflect(-Vv, Nv);
+  float F = 0.02 + 0.98*pow(1.0 - max(dot(Nv, Vv), 0.0), 5.0);
+  vec4 hit = traceSSR(Pv, Rv);
+  if (hit.w <= 0.0) return vec3(0.0);
+  vec3 Rw = normalize(transpose(mat3(uView))*Rv);
+  vec3 refl = textureLod(uScene, hit.xy, 0.0).rgb;
+  return (refl - skyColor(Rw))*hit.z*F*(1.0 - smoothstep(0.1, 0.4, nr.w))*uSsrAmt;
+}
 void main(){
+#ifdef NMK_SSR_HALF
+  float zz = texture(uDepth, vUV).r;
+  oColor = vec4(uSsrAmt > 0.0 ? ssrAdd(vUV) : vec3(0.0), zz > 0.0 ? -viewPosAt(vUV).z : 1e6); return;
+#endif
   vec3 c = texture(uScene, vUV).rgb;
+  if (uShimmer > 0.0) {   // W5 heat shimmer: rays that pass low over hot ground, 80 -> 400 m away, wobble mostly vertically
+    float z = texture(uDepth, vUV).r;
+    vec4 pf = uInvProj*vec4(vUV*2.0 - 1.0, z > 0.0 ? z : 1e-6, 1.0); vec3 pv = pf.xyz/pf.w;
+    float dist = z > 0.0 ? -pv.z : 1e4;
+    vec3 dw = transpose(mat3(uView))*normalize(pv);
+    float band = 1.0 - smoothstep(0.0, 0.035, dw.y);   // below the horizon and ~2 deg above it
+    float w = band*smoothstep(80.0, 400.0, dist);
+    if (w > 0.0) {
+      vec2 f = gl_FragCoord.xy;
+      float n1 = vnoise(vec3(f.x*0.02, f.y*0.08 - uShimT*0.6*6.0, 1.0)) + 0.5*vnoise(vec3(f.x*0.04, f.y*0.16 - uShimT*1.1*6.0, 7.0)) - 0.75;
+      float n2 = vnoise(vec3(f.x*0.02 + 17.0, f.y*0.08 - uShimT*0.6*6.0, 3.0)) - 0.5;
+      vec2 o = vec2(n2*0.35, n1)*uShimmer*w/vec2(textureSize(uScene, 0));
+      float zo = texture(uDepth, vUV + o).r; vec4 qo = uInvProj*vec4((vUV + o)*2.0 - 1.0, zo > 0.0 ? zo : 1e-6, 1.0);
+      if (zo <= 0.0 || -qo.z/qo.w > 80.0) c = texture(uScene, vUV + o).rgb;   // nothing nearer than 80 m smears
+    }
+  }
   if (uContactAmt > 0.0) {   // VO L1: only the direct share (colour less the indirect light the world pass wrote) is shadowed
     vec3 amb = texture(uAmb, vUV).rgb;
     c = amb + max(c - amb, vec3(0.0))*mix(1.0, contactShadow(vUV), uContactAmt);
   }
-  if (uSsrAmt > 0.0) {
-    vec4 nr = texture(uNR, vUV);
-    if (nr.w < 0.4 && texture(uDepth, vUV).r > 0.0) {   // not sky
-      vec3 Pv = viewPosAt(vUV);
-      vec3 Nv = normalize(mat3(uView)*nr.xyz);
-      vec3 Vv = normalize(-Pv), Rv = reflect(-Vv, Nv);
-      float F = 0.02 + 0.98*pow(1.0 - max(dot(Nv, Vv), 0.0), 5.0);
-      vec4 hit = traceSSR(Pv, Rv);
-      if (hit.w > 0.0) {
-        vec3 Rw = normalize(transpose(mat3(uView))*Rv);
-        vec3 refl = textureLod(uScene, hit.xy, 0.0).rgb;
-        float w = hit.z*F*(1.0 - smoothstep(0.1, 0.4, nr.w))*uSsrAmt;
-        c = max(c + (refl - skyColor(Rw))*w, vec3(0.0));   // geometry seen in the reflection replaces the sky estimate
+  if (uSsrAmt > 0.0 && uSsrHalf == 1) {   // OPT ssrhalf: depth-aware 2x2 upsample of the half-resolution reflection
+    float z0 = texture(uDepth, vUV).r;
+    if (z0 > 0.0 && texture(uNR, vUV).w < 0.4) {
+      float d0 = -viewPosAt(vUV).z; vec3 s = vec3(0.0); float ws = 0.0;
+      for (int y = 0; y < 2; ++y) for (int x = 0; x < 2; ++x) {
+        vec4 a = texture(uSsrTex, vUV + (vec2(x, y) - 0.5)*uSsrTexel);
+        float k = exp(-abs(a.w - d0)/(0.03*d0 + 0.05)) + 1e-4;
+        s += a.rgb*k; ws += k;
       }
+      c = max(c + s/ws, vec3(0.0));
     }
-  }
+  } else if (uSsrAmt > 0.0) c = max(c + ssrAdd(vUV), vec3(0.0));
   if (uAoAmt > 0.0) {
     // depth-aware 4x4 blur of the half-resolution AO, then remove the occluded share of the indirect light
     float z = texture(uDepth, vUV).r;
@@ -4478,6 +4509,7 @@ bool Renderer::init(int w, int h) {
   glCreateFramebuffers(1, &cloudShFbo); glNamedFramebufferTexture(cloudShFbo, GL_COLOR_ATTACHMENT0, cloudShTex, 0);
   if (glCheckNamedFramebufferStatus(cloudShFbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) { logf("cloud shadow framebuffer incomplete"); ++fboErrors; }
   progComposite = compile(kFullVS, kCompositeFS, "composite");
+  progSsrHalf = compile(kFullVS, (std::string("#define NMK_SSR_HALF 1\n") + kCompositeFS).c_str(), "ssr_half");   // OPT ssrhalf
   {
     std::string fs1 = std::string(kLeafAlpha) + kLeafFS, fs2 = std::string(kLeafAlpha) + kLeafShadowFS;
     progLeaf = compile(kLeafVS, fs1.c_str(), "leaf");
@@ -4616,6 +4648,11 @@ void Renderer::createTargets() {
   glTextureParameteri(aoTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(aoTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTextureParameteri(aoTex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(aoTex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glCreateFramebuffers(1, &aoFbo); glNamedFramebufferTexture(aoFbo, GL_COLOR_ATTACHMENT0, aoTex, 0);
+  if (ssrTex) { glDeleteTextures(1, &ssrTex); glDeleteFramebuffers(1, &ssrFbo); }   // OPT ssrhalf: reflection at half resolution (rgb, view depth)
+  glCreateTextures(GL_TEXTURE_2D, 1, &ssrTex); glTextureStorage2D(ssrTex, 1, GL_RGBA16F, std::max(1, width / 2), std::max(1, height / 2));
+  glTextureParameteri(ssrTex, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTextureParameteri(ssrTex, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTextureParameteri(ssrTex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(ssrTex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glCreateFramebuffers(1, &ssrFbo); glNamedFramebufferTexture(ssrFbo, GL_COLOR_ATTACHMENT0, ssrTex, 0);
   // world normal + roughness (attachment 3, world pass only) and the TAA history ping-pong
   if (nrTex) { glDeleteTextures(1, &nrTex); glDeleteTextures(2, histTex); glDeleteFramebuffers(2, taaFbo); }
   glCreateTextures(GL_TEXTURE_2D, 1, &nrTex); glTextureStorage2D(nrTex, 1, GL_RGBA16F, width, height);
@@ -6634,6 +6671,20 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   }
   // composite into hdrColor from a copy of it
   glCopyImageSubData(hdrColor, GL_TEXTURE_2D, 0, 0, 0, 0, sceneCopy, GL_TEXTURE_2D, 0, 0, 0, 0, width, height, 1);
+  const bool ssrHalf = ssr && perf.ssrHalf && progSsrHalf && ssrTex;
+  if (ssrHalf) {   // OPT ssrhalf: the reflection march at a quarter of the pixels; the composite upsamples it by depth
+    glBindFramebuffer(GL_FRAMEBUFFER, ssrFbo); glViewport(0, 0, std::max(1, width / 2), std::max(1, height / 2));
+    glUseProgram(progSsrHalf);
+    glBindTextureUnit(8, sceneCopy); glBindTextureUnit(7, depthTex);
+    glUniform1i(U(progSsrHalf, "uScene"), 8); glUniform1i(U(progSsrHalf, "uDepth"), 7);
+    setLighting(progSsrHalf, v); glUseProgram(progSsrHalf);
+    glBindTextureUnit(12, nrTex); glUniform1i(U(progSsrHalf, "uNR"), 12);
+    glUniform1f(U(progSsrHalf, "uSsrAmt"), q.ssrStrength); glUniform1f(U(progSsrHalf, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f);
+    glUniformMatrix4fv(U(progSsrHalf, "uProj"), 1, GL_FALSE, glm::value_ptr(v.proj));
+    glUniformMatrix4fv(U(progSsrHalf, "uView"), 1, GL_FALSE, glm::value_ptr(v.view));
+    glUniformMatrix4fv(U(progSsrHalf, "uInvProj"), 1, GL_FALSE, glm::value_ptr(invP));
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+  }
   glBindFramebuffer(GL_FRAMEBUFFER, compFbo); glInvalidateNamedFramebufferData(compFbo, 1, kInvC0);   // rebuilt from sceneCopy
   glViewport(0, 0, width, height);
   glUseProgram(progComposite);
@@ -6648,7 +6699,19 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   setLighting(progComposite, v);   // sky model + noise for the reflection estimate
   glUseProgram(progComposite);
   glBindTextureUnit(12, nrTex); glUniform1i(U(progComposite, "uNR"), 12);
-  glUniform1f(U(progComposite, "uSsrAmt"), ssr ? q.ssrStrength : 0.0f); glUniform1f(U(progComposite, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f);   // OPT ssrrange: no march past 0.75 x visibility
+  glUniform1i(U(progComposite, "uSsrHalf"), ssrHalf ? 1 : 0); glBindTextureUnit(3, ssrHalf ? ssrTex : 0); glUniform1i(U(progComposite, "uSsrTex"), 3);   // unit 3: model material maps, rebound per draw
+  glUniform2f(U(progComposite, "uSsrTexel"), 2.0f / width, 2.0f / height);
+  glUniform1f(U(progComposite, "uSsrAmt"), ssr ? q.ssrStrength : 0.0f);
+  {   // W5 wxshimmer gate (terrain session's spec): arid map, sun > 25 deg, cover < 0.3, wind < 4.5 m/s (fading from 3), dry, no dust storm
+    extern bool groundPaintArid();
+    float g = perf.wxShimmer && !thumbMode && !q.legacy && groundPaintArid() && sunDir.y > 0.4226f && wx.st.cover < 0.3f && wx.st.precip == WxNone && wx.st.dustVisM <= 0.0f ? 1.0f : 0.0f;
+    g *= 1.0f - glm::smoothstep(3.0f, 4.5f, wx.st.windMs);
+    g *= 0.5f + 0.5f * glm::clamp((wx.st.tempC - 20.0f) / 15.0f, 0.0f, 1.0f);
+    const float pitch = std::asin(glm::clamp(-v.view[1][2], -1.0f, 1.0f));   // camera forward's y (view row 2 negated)
+    g *= std::max(0.0f, 1.0f - std::fabs(glm::degrees(pitch)) / 20.0f);
+    const float mag = std::max(1.0f, v.proj[1][1] / 1.43f);   // a scope's zoom (narrower than the ~70 deg view) scales the wobble
+    shimmerPx = 2.0f * (height / 1080.0f) * g * mag;
+  } glUniform1f(U(progComposite, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f);   // OPT ssrrange: no march past 0.75 x visibility
   glUniformMatrix4fv(U(progComposite, "uProj"), 1, GL_FALSE, glm::value_ptr(v.proj));
   glUniformMatrix4fv(U(progComposite, "uView"), 1, GL_FALSE, glm::value_ptr(v.view));
   glUniformMatrix4fv(U(progComposite, "uInvProj"), 1, GL_FALSE, glm::value_ptr(invP));
