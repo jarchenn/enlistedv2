@@ -482,6 +482,7 @@ public:
     bool mapSnowfall = false; float sfNear = 0, sfFar = 0, sfFall = 1.1f, sfBright = 1.0f; vec2 sfWind{0.9f, -0.6f};   // SF1: look.snowfall
     float mapGrassDead = 0.0f;   // BT1: look.grassDead
     bool mapLeafless = false;   // BT1: look.leafless (winter: no leaf cards on the part-built trees)
+    vec4 fog2{0.0f};   // look.fogLayer2 {density, floor, top, soft}: a fog band between world heights (x = 0: none)
     float mapFogLayerTop = 1e9f, mapFogLayerSoft = 12.0f;   // look.fogLayer {top, topSoft}: the layer ends at world y top (1e9: no ceiling)
     float mapHazeH = 0.0f, mapFogLayerDens = -1.0f, mapFogLayerH = 0.0f;   // FG1: look.hazeHeight, look.fogLayer {density, height} (0 / -1: the defaults)
     float mapFogNear = 0.0f;    // GR3: "look": {"fogNear": m}: the environmental fog starts this far from the eye (near ground keeps its contrast)
