@@ -364,7 +364,7 @@ public:
     bool skyVisWall = true;      // skyviswall (CP4): on walls the top-down sky occlusion counts an occluder by ~2 m / its height above (no full-height stripes under dormers)
     bool indoorExpo = true;      // indoorexpo (CP4): inside a room exposure is metered and may open ~3 stops past the day range
     bool roomLights = true;      // roomlights (CP4): interior / fire lamps in big rooms reach and light x sqrt(floor area / 60 m2), 1..3
-    bool cascade4 = true;        // cascade4 (CP4): High / Ultra: a fourth sun cascade (the old far range) and the far one out to ~600 m
+    bool cascade4 = false;       // cascade4 (CP4, default off: no visible gain in 5 test views - the band 240-600 m holds only buildings; vegetation stays in the 2 nearest cascades, terrain uses the horizon map): High / Ultra: a fourth sun cascade (the old far range) and the far one out to ~600 m
     bool wxSun = true;           // wxsun (OPT, weather corpus 08 s4.2): overcast takes the direct sun away; under 5 % direct share no sun cascades (fade to 10 %)
     bool sunShadow = true;       // sunshadow (OPT): the sun cascades (near, mid, far) drawn and sampled; off = none (knock-out)
     bool midCascade = true;      // midcascade (VO L3): a third sun cascade between the near and far ones (Medium / High, Lighting New)
