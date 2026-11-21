@@ -10,6 +10,7 @@
 #include "physics.h"
 #include "lines.h"
 #include <fstream>
+#include <chrono>
 
 bool blockerScan(App& app, float dt) {
   static int mode = -1, frames = 0; static bool started = false; static std::string map;
@@ -177,6 +178,34 @@ bool blockerScan(App& app, float dt) {
     }
   }
   logf("blocker-scan routes: %d walks, %d stalled; shoulder crossings %d, %d stalled", nRoute, nRouteFail, nSide, nSideFail);
+  // BT2: NMK_SCAN_ROUTES=<file> {"routes": [{"name", "points": [[x, y, z], ...]}]}: extra walks (a route out of the play
+  // area, e.g. up to an explore-only landmark), once as the match runs (matchOnly blockers solid) and once with the match
+  // stopped (blockers open); load-when-close copies along it are brought in first (their build time is logged)
+  if (const char* rf = std::getenv("NMK_SCAN_ROUTES")) {
+    json rj; try { std::ifstream f(rf); rj = json::parse(f); } catch (...) { logf("blocker-scan: NMK_SCAN_ROUTES unreadable"); }
+    for (int open = 0; open < 2; ++open) {
+      if (open && gGame) { gGame->active = false; app.refreshMatchOnly(); app.syncRuntime(); }
+      for (auto& r : rj.value("routes", json::array())) {
+        std::vector<vec3> pts; for (auto& q : r["points"]) pts.push_back(vec3(q[0].get<float>(), q[1].get<float>(), q[2].get<float>()));
+        if (pts.size() < 2) continue;
+        if (open) {   // bring in what the route passes (a load-when-close interior and its furnishing), timed
+          auto t0 = std::chrono::steady_clock::now(); int passes = 0;
+          for (auto& q : pts) { Physics::setCharacterPos(q + vec3(0, 0.05f, 0)); for (int k = 0; k < 600; ++k, ++passes) app.syncLoadRadius(); }
+          logf("blocker-scan extra route %s: load-when-close builds along it took %.0f ms (%d passes)", r.value("name", std::string("route")).c_str(), std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count(), passes);
+        }
+        logf("blocker-scan extra route: match active %d", gGame && gGame->active ? 1 : 0);
+        vec3 stuck(0); bool ok = true; Physics::setCharacterPos(pts[0] + vec3(0, 0.05f, 0));
+        for (size_t q = 1; q < pts.size() && ok; ++q) {   // leg by leg, the position logged at each waypoint
+          std::vector<vec3> leg = {Physics::character().pos, pts[q]};
+          ok = steer(leg[0], leg, stuck);
+          vec3 c = Physics::character().pos;
+          logf("blocker-scan extra route   wp %zu (%.1f, %.1f, %.1f): at (%.1f, %.1f, %.1f)%s", q, pts[q].x, pts[q].y, pts[q].z, c.x, c.y, c.z, ok ? "" : " STALLED");
+        }
+        logf("blocker-scan extra route %s (%s): %s, ended at (%.1f, %.1f, %.1f)", r.value("name", std::string("route")).c_str(), open ? "no match" : "match running", ok ? "walked through" : "stalled", stuck.x, stuck.y, stuck.z);
+        walks.push_back({{"kind", open ? "extra route (no match)" : "extra route (match)"}, {"name", r.value("name", std::string("route"))}, {"ok", ok}, {"id", 0}, {"asset", ""}, {"p", {pts[0].x, pts[0].z}}, {"end", {stuck.x, stuck.y, stuck.z}}, {"reached", 0}});
+      }
+    }
+  }
   json inst = json::object();   // every instance at run time (runtime dressing and furniture are not in the map file)
   for (auto& i : app.doc.instances) inst[std::to_string(i.id)] = {i.assetId, i.pos.x, i.pos.y, i.pos.z, i.yaw};
   std::ofstream(out) << json{{"map", map}, {"cells", cells}, {"assets", assets}, {"instances", inst}, {"walks", walks}, {"scanned", n}}.dump();

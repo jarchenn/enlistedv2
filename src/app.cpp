@@ -115,11 +115,13 @@ static bool loadRadiusOf(const AssetDef* a, float& in, float& out) {
   if (!a || !a->raw.is_object() || !a->raw.contains("loadRadius") || !a->raw["loadRadius"].is_array() || a->raw["loadRadius"].size() < 2) return false;
   in = a->raw["loadRadius"][0].get<float>(); out = std::max(in + 1.0f, a->raw["loadRadius"][1].get<float>()); return true;
 }
-// the rule for one copy: its own asset's, else (a furnishing piece) its host's, measured from the host
+// the rule for one copy: its own asset's, else its host's (a furnishing piece, or extra.loadWith), measured from the host
 static bool loadRuleFor(App& a, const Instance& i, const AssetDef* asset, float& in, float& out, vec3& at) {
   if (loadRadiusOf(asset, in, out)) { at = i.pos; return true; }
-  if (!i.extra.is_object()) return false; auto f = i.extra.find("furnish"); if (f == i.extra.end() || !f->is_object()) return false;
-  uint64_t h = f->value("host", (uint64_t)0); if (!h) return false;
+  if (!i.extra.is_object()) return false;
+  uint64_t h = i.extra.value("loadWith", (uint64_t)0);   // a fixture placed to go with a load-when-close host (its lamps)
+  if (!h) { auto f = i.extra.find("furnish"); if (f == i.extra.end() || !f->is_object()) return false; h = f->value("host", (uint64_t)0); }
+  if (!h) return false;
   const Instance* hi = a.doc.find(h); if (!hi) return false;
   auto it = a.rt.find(h); const AssetDef* ha = it != a.rt.end() && it->second.asset ? it->second.asset : a.assetFor(*hi);
   if (!loadRadiusOf(ha, in, out)) return false; at = hi->pos; return true;

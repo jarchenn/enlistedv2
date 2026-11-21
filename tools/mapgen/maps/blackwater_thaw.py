@@ -539,7 +539,19 @@ def build(ctx):
     # the load-when-close rule on a stub room (the interior's stand-in until the rooms are built): built within 90 m of
     # the player, dropped beyond 130 m
     write_castle_interior(ctx, cat)
-    b.place("castle_interior", CASTLE_C[0], CASTLE_C[1], CASTLE_YAW, check=False, cls="none", y=BASE + CASTLE_PAD, tags={"castle"}, companions=False)
+    ci = b.place("castle_interior", CASTLE_C[0], CASTLE_C[1], CASTLE_YAW, check=False, cls="none", y=BASE + CASTLE_PAD, tags={"castle"}, companions=False)
+    if ci is not None:   # fixtures that go with the rooms (loaded with them): lanterns down the hall, the stair, bower, anteroom; tower sconces
+        lamps = [(x, 6.5, z, "lamp_hanging_lantern", 2.4) for z in range(1, 52, 7) for x in (-4.0, 4.0)]
+        lamps += [(12.0, 6.0 - 10.0, -14.0, "lamp_hanging_lantern", 1.8), (12.0, -1.5, -12.0, "lamp_hanging_lantern", 1.8),
+                  (-11.0, -6.0, -30.0, "lamp_hanging_lantern", 1.8), (-11.0, 4.0, -30.0, "lamp_hanging_lantern", 1.6),
+                  (20.0, -5.0, -12.0, "lamp_hanging_lantern", 1.6), (20.0, -5.0, -2.0, "lamp_hanging_lantern", 1.6)]
+        lamps += [(26.0 + 3.0 * math.cos(math.radians(a_)), -10.0 + 1.6 + 5.0 * k_, 3.0 * math.sin(math.radians(a_)), "furn_sconce_candle", 2.0)
+                  for k_, a_ in enumerate(range(30, 330, 40))]
+        for lx, ly, lz, aid, gain in lamps:
+            if aid in cat:
+                wx, wz = castle_world(lx, lz)
+                b.place(aid, wx, wz, CASTLE_YAW, check=False, cls="none", y=BASE + CASTLE_PAD + ly, tags={"castle", "lamp"}, companions=False,
+                        extra={"loadWith": ci["id"], "light": {"gain": gain}}, support=ci)
     # the waterworks court's stepped header channel, the court's north-east side, head to the north
     write_flume_asset(ctx, cat)
     b.place("bt_flume", 8.0, 15.0, 0.0, check=False, y=G(8.0, 15.0), tags={"flume"}, companions=False)
@@ -1329,6 +1341,7 @@ M_CASTLE = [{"name": "limestone", "albedo": [0.62, 0.60, 0.56], "roughness": 0.8
             {"name": "paving", "albedo": [0.42, 0.41, 0.39], "roughness": 0.9, "pattern": "stone", "metallic": 0, "grain": 1},
             {"name": "door", "albedo": [0.20, 0.13, 0.08], "roughness": 0.7, "pattern": "wood", "metallic": 0, "grain": 1},
             {"name": "snow", "albedo": [0.85, 0.85, 0.86], "roughness": 0.6, "pattern": "plain", "metallic": 0, "grain": 1},
+            {"name": "glass", "albedo": [0.8, 0.85, 0.82], "roughness": 0.05, "pattern": "glass", "metallic": 0, "grain": 1},
             {"name": "masonry", "albedo": [0.44, 0.42, 0.38], "roughness": 0.92, "pattern": "stone", "metallic": 0, "grain": 1},
             {"name": "red", "albedo": [0.40, 0.19, 0.14], "roughness": 0.88, "pattern": "plaster", "metallic": 0, "grain": 1},
             {"name": "slate", "albedo": [0.085, 0.095, 0.12], "roughness": 0.6, "pattern": "plain", "metallic": 0, "grain": 1},
@@ -1423,11 +1436,14 @@ def write_castle_asset(ctx, cat):
 
     yT, yL = -12.0, -10.0   # shell: the court sits 2 m over the gate terrace (a ramp in the passage), the palace 10 m over it
 
-    def window(face_x, y, z, w, h, side, arch=True, n_axis="x"):
+    def window(face_x, y, z, w, h, side, arch=True, n_axis="x", glass=False):
         """a recessed window on a wall face at x = face_x (normal +-x): dark opening, pale stone jambs, sill and lintel or
         an arched head, a mullion; the frames stand proud so the opening reads deep."""
         fx = face_x + side * 0.08
-        box((fx, y, z), (0.16, h, w), "dark", k=0)
+        if glass:   # a real opening (the hall behind it): glazing that lets the sky light in, set back in the wall
+            box((face_x - side * 0.3, y, z), (0.05, h, w), "glass", k=0)
+        else:
+            box((fx, y, z), (0.16, h, w), "dark", k=0)
         for dz in (-w / 2 - 0.11, w / 2 + 0.11):
             box((face_x + side * 0.16, y, z + dz), (0.32, h + 0.2, 0.22), "trim", k=0)
         box((face_x + side * 0.22, y - h / 2 - 0.1, z), (0.44, 0.18, w + 0.6), "trim", k=0)   # sill
@@ -1515,7 +1531,8 @@ def write_castle_asset(ctx, cat):
     # the palace: the long pale slab (its foot from the court level up), steep dark roof, dormer gables, throne-hall
     # projection, corner turrets, chimneys
     box((0.0, 20.0, 25.0), (18.0, 20.0, 58.0), "limestone")                      # the floors above the hall
-    hollow(0.0, 5.0, 25.0, 18.0, 10.0, 58.0, "limestone", doors=[("z-", 7.6, 0.0, 1.6, 2.6)])   # the great hall's walls
+    HALL_WIN = [(f, z) for f in ("x-", "x+") for z in [-0.5 + 4.6 * k for k in range(12)] if not (f == "x-" and 27.0 < z < 41.0)]
+    hollow(0.0, 5.0, 25.0, 18.0, 10.0, 58.0, "limestone", doors=[("z-", 7.6, 0.0, 1.6, 2.6)] + [(f, z, 3.7, 1.35, 2.6) for f, z in HALL_WIN])   # the great hall's walls, its ground-floor windows open
     box((0.0, -5.0, 25.0), (18.6, 10.0, 58.6), "masonry")                         # the base course down to the court
     gable_z(-9.6, 9.6, 30.0, 12.0, -4.0, 54.0)
     for z in (6.0, 18.0, 30.0, 42.0):
@@ -1540,7 +1557,7 @@ def write_castle_asset(ctx, cat):
                 z = -0.5 + k * 4.6
                 if side < 0 and 27.0 < z < 41.0:
                     continue   # the throne-hall projection covers this stretch on the west
-                window(side * 9.0, y, z, 1.35, 2.6 if fl < 3 else 2.0, side, arch=fl in (1, 2))
+                window(side * 9.0, y, z, 1.35, 2.6 if fl < 3 else 2.0, side, arch=fl in (1, 2), glass=fl == 0)
             box((side * 9.12, y - 2.05, 25.0), (0.25, 0.45, 58.4), "trim", k=0)
         for zc in (-4.0, 54.0):
             box((side * 8.75, 15.0, zc + (0.75 if zc < 0 else -0.75)), (0.6, 30.0, 1.6), "trim")
@@ -1733,6 +1750,7 @@ def write_castle_interior(ctx, cat):
     import json
     from mapgen.catalog import Asset
     P = []
+    WIN = []
 
     def box(c, s_, m, r=None, k=1):
         p_ = {"t": "b", "c": [round(v, 3) for v in c], "s": [round(v, 3) for v in s_], "m": m}
@@ -1769,18 +1787,33 @@ def write_castle_interior(ctx, cat):
     lining(-11.0, yL + 10.0, -30.0, 13.0, 20.0, 16.0, doors=[("x+", -26.0, yL, 1.6, 2.6)])
     box((-11.0, yL + 0.1, -30.0), (11.4, 0.2, 14.4), "floor_x")
     stairs(-16.3, -15.0, -36.6, 1, yL, 30)
+    for k_ in range(0, 30, 6):   # a wall string and rail on the open side
+        box((-14.95, yL + 0.2 * (k_ + 3) + 0.9, -36.6 + 0.28 * (k_ + 3)), (0.06, 0.06, 1.75), "plank_x", k=0)
     box((-10.15, yL + 6.0, -30.0), (9.7, 0.3, 14.4), "plank_x")                     # the upper floor, open over the stair
     box((-15.65, yL + 6.0, -25.3), (1.3, 0.3, 5.0), "plank_x")
     # the stair block: from the court door (west) up two flights to a gallery at the palace level, out (north) to the hall
     lining(12.0, yL + 9.0, -14.0, 12.0, 18.0, 12.0, doors=[("x-", -14.0, yL, 1.6, 2.6), ("z+", 7.6, 0.0, 1.6, 2.6)])
     box((12.0, yL + 0.1, -14.0), (10.4, 0.2, 10.4), "floor_x")
     stairs(9.0, 10.4, -9.2, -1, yL, 25)                                            # up 5 m going south
+    for k_ in range(0, 25, 5):   # handrails on the flights' open sides
+        box((10.45, yL + 0.2 * (k_ + 2.5) + 0.9, -9.2 - 0.28 * (k_ + 2.5)), (0.06, 0.06, 1.45), "plank_x", k=0)
+        box((11.55, yL + 5.0 + 0.2 * (k_ + 2.5) + 0.9, -16.2 + 0.28 * (k_ + 2.5)), (0.06, 0.06, 1.45), "plank_x", k=0)
     box((11.0, yL + 5.0 - 0.15, -17.6), (4.0, 0.3, 2.8), "plank_x")                   # the landing
     stairs(11.6, 13.0, -16.2, 1, yL + 5.0, 25)                                     # up 5 m going north
     box((10.0, -0.15, -9.4), (6.4, 0.3, 1.2), "plank_x")                              # the gallery to the north door
     # the great hall: the palace's ground floor (y 0 .. 10), 16.4 x 56.4 m
-    lining(0.0, 5.0, 25.0, 18.0, 10.0, 58.0, doors=[("z-", 7.6, 0.0, 1.6, 2.6)])
+    hall_win = [(f, z) for f in ("x-", "x+") for z in [-0.5 + 4.6 * k for k in range(12)] if not (f == "x-" and 27.0 < z < 41.0)]
+    lining(0.0, 5.0, 25.0, 18.0, 10.0, 58.0, doors=[("z-", 7.6, 0.0, 1.6, 2.6)] + [(f, z, 3.7, 1.35, 2.6) for f, z in hall_win])
     box((0.0, -0.1, 25.0), (16.4, 0.2, 56.4), "plank_x")
+    for f, z in hall_win:   # declared windows: the room pass gives them sills (daylight spill) and keeps them clear
+        x = -9.0 if f == "x-" else 9.0
+        WIN.append({"id": "hall_%s_%d" % (f[1], int(z * 10)), "kind": "window", "label": "window", "sound": "glass", "axis": [0, 1, 0],
+                    "openAngle": 0, "duration": 0.5, "defaultOpen": False,
+                    "aperture": {"min": [round(min(x, x * 0.92), 2), 3.7, round(z - 0.67, 2)], "max": [round(max(x, x * 0.92), 2), 6.3, round(z + 0.67, 2)]}, "leaves": []})
+    box((0.0, 0.2, 50.0), (16.0, 0.4, 6.0), "floor_x")                            # the dais at the north end
+    for zc in range(4, 50, 9):                                                     # wall hangings between the windows
+        for x in (-8.1, 8.1):
+            box((x, 6.8, zc + 2.3), (0.06, 3.2, 1.6), "hanging", k=0)
     for zc in range(2, 50, 8):                                                     # a row of stone piers down the hall
         box((0.0, 5.0, float(zc) + 2.0), (0.8, 10.0, 0.8), "stone")
     # the lateral wing (anteroom), the side tower's spiral stair and its lookout platform
@@ -1816,8 +1849,9 @@ def write_castle_interior(ctx, cat):
                        {"name": "stone", "albedo": [0.46, 0.44, 0.41], "roughness": 0.88, "pattern": "stone", "metallic": 0, "grain": 1},
                        {"name": "plank_x", "albedo": [0.30, 0.21, 0.13], "roughness": 0.7, "pattern": "wood", "metallic": 0, "grain": 0},
                        {"name": "floor_x", "albedo": [0.42, 0.40, 0.37], "roughness": 0.85, "pattern": "stone", "metallic": 0, "grain": 1},
-                       {"name": "tread_x", "albedo": [0.40, 0.38, 0.35], "roughness": 0.85, "pattern": "stone", "metallic": 0, "grain": 1}],
-         "parts": P, "furniture": [], "interactables": [], "panels": []}
+                       {"name": "tread_x", "albedo": [0.40, 0.38, 0.35], "roughness": 0.85, "pattern": "stone", "metallic": 0, "grain": 1},
+                       {"name": "hanging", "albedo": [0.32, 0.10, 0.08], "roughness": 0.95, "pattern": "fabric", "metallic": 0, "grain": 1}],
+         "parts": P, "furniture": [], "interactables": WIN, "panels": []}
     path = os.path.join(ctx.repo, "content", "assets", "castle_interior.json")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(j, f, separators=(",", ":"))
