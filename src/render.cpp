@@ -5413,6 +5413,7 @@ void Renderer::gpuMark(int p) {
     if (cpuMarkP >= 0 && cpuMarkP < GP_Count) cpuPassMs[cpuMarkP] += std::chrono::duration<double, std::milli>(now - cpuMarkT).count();
     cpuMarkP = p; cpuMarkT = now;
   }
+  gCrumb = p >= 0 && p < GP_Count ? gpuPassName(p) : "present";   // the render pass as the crumb: the hitch log and the crash reporter name it
   if (!gpuTimers || !gq[0][0] || p < 0 || p > GP_Count) return;
   glQueryCounter(gq[gqSlot][p], GL_TIMESTAMP); gqSet[gqSlot][p] = true;
   constexpr GLenum kFragInv = 0x82F4;   // GL_FRAGMENT_SHADER_INVOCATIONS (GL 4.6 / ARB_pipeline_statistics_query; not in our glad)
