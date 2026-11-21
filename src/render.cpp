@@ -582,6 +582,21 @@ float specAA(vec3 N, float rough){   // widens alpha where the normal changes fa
 // (no DFG table: every texture unit is taken), multi-scatter energy compensation 1 + F0 (1/E_ss - 1) with E_ss the fit at
 // F0 = 1, Lagarde's specular occlusion, and multi-bounce material AO by the pixel's own albedo (Jimenez 2016)
 uniform int uSplitSum;
+uniform int uWetOn;   // W3 (perf switch wet): surfaces follow the weather state's wxWet / wxPuddle
+// W3 rain ripples, procedural (no texture unit is free): in each 0.25 m cell a drop's ring expands and fades on its own
+// clock; returns a normal offset (x, 0, z). k = intensity 0..1
+vec3 rainRipple(vec2 xz, float t, float k){
+  vec3 n = vec3(0.0);
+  for (int i = 0; i < 2; ++i) {
+    vec2 q = xz*4.0 + float(i)*vec2(0.37, 0.71), g = floor(q), f = fract(q) - 0.5;
+    float h = fract(sin(dot(g, vec2(127.1, 311.7)) + float(i)*13.0)*43758.5453);
+    float ph = fract(t*(0.9 + 0.4*h) + h), r = ph*0.45, d = length(f - (vec2(fract(h*7.3), fract(h*3.1)) - 0.5)*0.3);
+    if (h > k) continue;   // fewer drops in light rain
+    float ring = sin((d - r)*55.0)*exp(-abs(d - r)*28.0)*(1.0 - ph);
+    n.xz += (f/max(d, 1e-3))*ring*0.18;
+  }
+  return n;
+}
 vec2 envBRDFApprox(float r, float NoV){
   const vec4 c0 = vec4(-1.0, -0.0275, -0.572, 0.022), c1 = vec4(1.0, 0.0425, 1.04, -0.04);
   vec4 q = r*c0 + c1;
@@ -1957,6 +1972,11 @@ void main(){
   }
   if (gl_FrontFacing) N = normalize(N + gTexDN);   // L4: the set's normal map
   if (uSnowOn == 1 && gl_FrontFacing && length(vW - uCamPos) > 1.2) { applySnow(vW, normalize(vN), 0.0, alb, rough, N); metal *= 1.0 - gSnow; }   // SN1 caps (not the weapon in hand)
+  if (uWetOn == 1 && wxWet > 0.0 && gl_FrontFacing) {   // W3: rain on walls, roofs and props: only where the sky reaches (shelter stays dry), porous (rough) dielectrics darken most
+    vec3 ng0 = normalize(vN); float w = clamp(wxWet, 0.0, 1.0)*skyVis(vW, ng0)*mix(0.55, 1.0, clamp(ng0.y, 0.0, 1.0));
+    float poro = (1.0 - metal)*smoothstep(0.35, 0.85, rough);
+    alb *= mix(1.0, 0.35, w*poro); rough = mix(rough, max(0.35*rough, 0.25), w);
+  }
   vec3 c = shade(vW, N, alb, rough, metal, ao);
   if (uGxDebug == 2 && uCapture == 0) c = gDbg*0.8 + 0.05;
   if (uGxDebug == 4 && uCapture == 0) c = gWxDbg;
@@ -3144,6 +3164,12 @@ void main(){
   // localized wetness: darker, and glossy only where water stands (puddles follow ruts / lows)
   float puddle = smoothstep(0.55, 0.8, wet + (nX - 0.5)*0.2);
   alb *= mix(1.0, 0.62, clamp(wet*1.2, 0.0, 1.0));
+  // W3 the wet world (perf switch wet; weather corpus 04, corpus 08 s7): rain from the weather state, not the map. A film
+  // darkens porous ground (albedo x lerp(1, 0.35, wet x porosity); rock and scree shed water), and puddles fill the lows
+  // (the layers' own height, the map's wet field, ruts) as wxPuddle rises, on flat ground only
+  float wxw = uWetOn == 1 ? clamp(wxWet, 0.0, 1.0) : 0.0, wxp = uWetOn == 1 ? clamp(wxPuddle, 0.0, 1.0) : 0.0;
+  if (wxw > 0.0) alb *= mix(1.0, 0.35, wxw*(1.0 - 0.65*max(rockK, screeK*0.5))*(1.0 - 0.6*clamp(wet*1.2, 0.0, 1.0)));
+  if (wxp > 0.0) puddle = max(puddle, smoothstep(0.86, 0.97, normalize(vN).y)*smoothstep(0.86 - 0.42*wxp, 0.96 - 0.42*wxp, (1.0 - hB)*0.55 + wet*0.3 + rut*0.25 + (nX - 0.5)*0.25));
   float rough = mix(mix(0.96, 0.86, tw), 0.10, puddle);
   rough = mix(rough, 0.78, vEw.z*ewK);   // GX1: wet mud low in the cut: a dull damp sheen, not a mirror
   vec3 N = normalize(vN + vec3(nX - 0.5, 0.0, nZ - 0.5)*mix(0.22, 0.42, max(tw, dirt))*(1.0 - puddle)
@@ -3156,9 +3182,11 @@ void main(){
     ao *= 1.0 - 0.35*rCrack*rockK;
   }
   N = normalize(N + tdn*(1.0 - puddle)); rough = clamp(rough*mix(trr, 1.0, puddle), 0.04, 1.0); ao *= tao;   // L4 terrain layers
-  rough = max(rough, uGroundMinRough*(1.0 - puddle)*(1.0 - vEw.z*ewK));   // GG1: dry ground matte (puddles and wet cut mud keep theirs)
+  rough = max(rough, uGroundMinRough*(1.0 - puddle)*(1.0 - vEw.z*ewK)*(1.0 - wxw));   // W3: the matte floor is for dry ground only   // GG1: dry ground matte (puddles and wet cut mud keep theirs)
   paintFinish(po, rough, N, ao);   // lasso ground paint: roughness, AO, relief over every other layer (after L4)
-  if (puddle > 0.0) { rough = mix(rough, 0.08, puddle); N = normalize(mix(N, normalize(vN), puddle*0.85)); }   // CV1: standing water stays a mirror over painted ground
+  if (wxw > 0.0) rough = mix(rough, max(0.35*rough, 0.25), wxw);   // W3 film: smoother, but kept >= 0.25 outside puddles (no mirror ground without real reflections)
+  if (puddle > 0.0) { rough = mix(rough, 0.08, puddle); N = normalize(mix(N, normalize(vN), puddle*0.85)); }
+  if (puddle > 0.0 && wxw > 0.0 && wxPrecipMmH > 0.05) N = normalize(N + rainRipple(p.xz, uTime, min(wxPrecipMmH/8.0, 1.0))*puddle);   // W3: rings while it rains   // CV1: standing water stays a mirror over painted ground
   if (uTerrCave > 0.5) {   // CV1 cave floor: dark wet rock under a water film, black away from the lights, mirror-bright where it catches them
     float flat_k = smoothstep(0.72, 0.9, normalize(vN).y), film = smoothstep(0.35, 0.65, vnoise(vec3(p.xz*0.3, 97.0)) + 0.25*(vnoise(vec3(p.xz*2.1, 98.0)) - 0.5));
     alb *= mix(0.6, mix(0.34, 0.2, film), flat_k);
@@ -3166,7 +3194,7 @@ void main(){
     N = normalize(mix(N, normalize(vN), flat_k*film*0.6));
   }
   applySnow(p, normalize(vN), 1.0, alb, rough, N); snowTex(p, normalize(vN), tdx, tdy, tDist, hB, alb, rough, N);   // SN1; SN2 the snow sets near (snow.cpp)
-  gSpecK = mix(uGroundSpec, 1.0, max(puddle, vEw.z*ewK));   // GG1: dry ground: no broad sun glare or sky sheen at grazing angles (standing water / wet cut mud keep theirs)
+  gSpecK = mix(uGroundSpec, 1.0, max(max(puddle, vEw.z*ewK), wxw));   // W3: wet ground keeps its sheen   // GG1: dry ground: no broad sun glare or sky sheen at grazing angles (standing water / wet cut mud keep theirs)
   float gs0 = gSpecK; gSpecK = 0.0;
   vec3 cMatte = uDbgTerr == 2 ? shade(vW, N, alb, 1.0, 0.0, ao) : vec3(0.0);   // GG1 measurement: no specular at all
   gSpecK = gs0;
@@ -4699,7 +4727,8 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
     if (const char* e = std::getenv("NMK_TEX_BIAS")) tb = (float)std::atof(e);
     glUniform1i(U(p, "uTexBiasOn"), perf.texBias && !thumbMode ? 1 : 0); glUniform1f(U(p, "uTexBias"), tb);
   }
-  glUniform1i(U(p, "uSplitSum"), q.legacy || !perf.splitSum ? 0 : 1);   // CP step 3
+  glUniform1i(U(p, "uSplitSum"), q.legacy || !perf.splitSum ? 0 : 1);
+  glUniform1i(U(p, "uWetOn"), q.legacy || !perf.wet || thumbMode ? 0 : 1);   // W3   // CP step 3
   glUniform2f(U(p, "uHex"), q.legacy || !perf.hex || q.matLayer == 0 || hd <= 0 ? 0.0f : 1.0f, std::max(hd, 0.05f)); }   // M1: hex tiling (--rq-off hex; off at Low); NMK_HEX = cells per texture repeat
   glUniform1f(U(p, "uHazeH"), lt.mapHazeH > 0.0f ? lt.mapHazeH : q.hazeHeight);   // FG1: a map's own haze scale height
   glUniform1f(U(p, "uTime"), time);

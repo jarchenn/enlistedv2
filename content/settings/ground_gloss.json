@@ -3,6 +3,6 @@
  "groundMinRough": 0.82,
  "pavedMinRough": 0.68,
  "mudDry": 0.92,
- "mudDamp": 0.8,
+ "mudDamp": 0.35,
  "drySpecular": 0.35
 }
