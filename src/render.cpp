@@ -272,6 +272,21 @@ float cloudField(vec2 xz){
   return n;
 }
 float cloudThreshold(){ return mix(0.72, 0.38, uCloudCov); }
+// W2 cloudshell: the field with each octave faded where a pixel covers more than ~a quarter of its period (fw: footprint in
+// field units of 600 m), so the far deck goes soft instead of streaking toward the horizon
+float cloudFieldAA(vec2 xz, float fw){
+  xz = mat2(uCloudXf.xy, uCloudXf.zw)*xz;
+  vec3 q = vec3(xz/600.0 + uCloudSeed + uCloudT*uCloudWind, uCloudT*0.002);
+  float n = 0.0, a = 0.5, f = 1.0;
+  for (int i = 0; i < 5; ++i) { float k = 1.0 - smoothstep(0.25, 0.6, fw*f); n += a*mix(0.5, vnoise(q), k); q = q*2.07 + vec3(1.7, 9.2, 3.1); a *= 0.5; f *= 2.07; }
+  return n;
+}
+// the ray's hit on a cloud shell h m above a 6371 km earth (instead of a plane: no infinite stretch at the horizon)
+vec2 shellHit(vec3 d, float h){
+  const float Re = 6371000.0; float r0 = Re + max(uCamPos.y, 0.0), r1 = Re + h;
+  float b = r0*d.y, t = -b + sqrt(max(b*b + r1*r1 - r0*r0, 0.0));
+  return uCamPos.xz + d.xz*t;
+}
 // low-octave version for the clouds' self-shadowing (only the broad optical depth matters)
 float cloudFieldLo(vec2 xz){
   xz = mat2(uCloudXf.xy, uCloudXf.zw)*xz;
@@ -301,6 +316,7 @@ float skyVis(vec3 w, vec3 n){
   vec4 lp = uOccVP * vec4(q, 1.0);
   vec2 uv = lp.xy*0.5+0.5;
   if (uv.x<0.0||uv.x>1.0||uv.y<0.0||uv.y>1.0) return 1.0;
+  vec2 eb = abs(uv*2.0 - 1.0); float boxFade = uSkyVisWall == 1 ? 1.0 - smoothstep(0.8, 1.0, max(eb.x, eb.y)) : 1.0;   // CP4: the occlusion fades out over the map's last 20 % (no hard square at its edge)
   float occ = 0.0;
   vec2 t = 1.0/vec2(textureSize(uOcc,0));
   // CP4 skyviswall: a wall sees half the sky sideways, so something high above its footprint (a dormer, an eave 15 m up)
@@ -312,7 +328,7 @@ float skyVis(vec3 w, vec3 n){
     float oy = uOccTop - d*uOccRange, dz = oy - w.y;
     occ += smoothstep(0.15, 0.6, dz)*mix(1.0, clamp(2.0/max(dz, 0.5), 0.0, 1.0), vert);
   }
-  return 1.0 - occ/9.0;
+  return 1.0 - boxFade*occ/9.0;
 }
 // SN1 shared snow layer (snow.cpp): a map's mask (R deposit x retention, G traffic, B melt, A pooling) and the spec's
 // snow = saturate(slope_response * deposit * retention - traffic - melt); shelter from skyVis (anything solid above).
@@ -3930,9 +3946,10 @@ void main(){
   if (uCloudK > 0.0) {
     // WX2 Cloudy: a continuous grey upper layer (3200 m, broad and slow) hides the blue sky and the sun disc; grey-white
     // toward the horizon. The broken low deck below moves faster over it. Two noise taps: cheap on every preset
-    vec2 up = uCamPos.xz + d.xz/(max(d.y, 0.0) + 0.05)*(3200.0 - uCamPos.y);
+    vec2 up = uW2 == 1 ? shellHit(d, 3200.0) : uCamPos.xz + d.xz/(max(d.y, 0.0) + 0.05)*(3200.0 - uCamPos.y);
     vec2 q2 = up/2400.0 + uCloudSeed*0.7 + uCloudT*uCloudWind*0.35;
     float n2 = vnoise(vec3(q2, uCloudT*0.001))*0.6 + vnoise(vec3(q2*2.3, 4.0))*0.4;
+    if (uW2 == 1) n2 = mix(0.5, n2, 1.0 - smoothstep(0.3, 0.8, length(fwidth(q2))*2.3));   // W2: the upper layer goes soft where it would streak
     n2 = mix(0.5, n2, smoothstep(-0.01, 0.03, d.y));   // SKY1: no noise below the horizon (the projection smeared it into vertical streaks)
     float L0 = dot(uSkyHor, vec3(0.2126, 0.7152, 0.0722));
     vec3 ov = vec3(L0)*vec3(0.95, 0.97, 1.0)*(0.56 + 0.2*n2)*(uW2 == 1 ? overcastGrad(d.y) : mix(1.75, 0.88, smoothstep(0.0, 0.4, d.y)));   // SKY1: a grey deck overhead, a pale band low at the horizon; W2: CIE overcast, zenith 3x the horizon
@@ -3940,7 +3957,7 @@ void main(){
   }
   if (uCloudOn == 1 && d.y > 0.0) {
     // ray to the cloud plane (1500 m), fBm (5 octaves) scrolling with the wind; coverage shifts the threshold
-    vec2 cpw = uCamPos.xz + d.xz/(d.y + 0.06)*(1500.0 - uCamPos.y);   // deck hit point in world xz (~600 m cells)
+    vec2 cpw = uW2 == 1 ? shellHit(d, 1500.0) : uCamPos.xz + d.xz/(d.y + 0.06)*(1500.0 - uCamPos.y);   // deck hit point in world xz (~600 m cells); W2: on a shell
     if (uCloudQ == 2) {   // WX1 High: a thin high layer (4500 m, streaked along the wind, slower); not in the shadow map
       vec2 hp = uCamPos.xz + d.xz/(d.y + 0.03)*(4500.0 - uCamPos.y);
       vec2 wd = normalize(uCloudWind);
@@ -3948,7 +3965,7 @@ void main(){
       float ci = smoothstep(0.55, 0.85, vnoise(vec3(sp, 3.0))*0.65 + vnoise(vec3(sp*2.7, 7.0))*0.35);
       c = mix(c, mix(skyColor(d), vec3(1.0)*1.3, 0.55)*uCloudLit, ci*mix(0.35, 0.55, uCloudK)*smoothstep(0.02, 0.2, d.y));
     }
-    float n = uCloudQ == 0 ? cloudFieldLo(cpw) : cloudField(cpw);
+    float n = uCloudQ == 0 ? cloudFieldLo(cpw) : uW2 == 1 ? cloudFieldAA(cpw, length(fwidth(cpw))/600.0*max(uCloudXf.x, 1.0)) : cloudField(cpw);
     // SKY1 Cloudy: a near-closed deck (the threshold drops) with soft, wide edges, like an overcast stratocumulus sky
     float th = mix(0.72, 0.38, uCloudCover) - 0.12*uCloudK + 0.5*cloudOpening(d);   // VO L5: fewer clouds toward the opening
     float cl = smoothstep(th, th + mix(0.22, 0.45, uCloudK), n);
@@ -6284,7 +6301,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   gpuMark(GP_SkyOcc);
   // ---- sky occlusion (top down). PF2 occcache: redrawn every 16 frames, or at once when the camera moves 4 m across
   // or 8 m up / down (the map covers +-90 m, so the camera stays >= 86 m inside it); thumbnails always redraw.
-  float occR = perf.occSmall ? 64.0f : 90.0f;   // OPT occsmall (weather corpus s3.5): the sky-occlusion map over +-64 m (fewer casters, finer texels)
+  float occR = perf.occSmall ? 64.0f : 90.0f;
+  occR = std::max(occR, std::min(1.5f * std::max(v.camPos.y - t.height(v.camPos.x, v.camPos.z), 0.0f), 400.0f));   // a high (plan / overview) camera sees ground far out: the box grows with height above the ground   // OPT occsmall (weather corpus s3.5): the sky-occlusion map over +-64 m (fewer casters, finer texels)
   const float occTopW = std::max(v.camPos.y, 0.0f) + 60.0f;
   const bool occRedo = !perf.occCache || thumbMode || frame - occFrame >= 16 || glm::length(vec2(v.camPos.x - occCam.x, v.camPos.z - occCam.z)) > 4.0f || std::fabs(occTopW - occTop) > 8.0f;
   if (occRedo) {
