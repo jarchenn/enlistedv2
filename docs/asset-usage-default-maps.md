@@ -348,6 +348,14 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `bt_flume` | Small buildings | Blackwater Thaw only: the waterworks court's stepped header channel (written by blackwater_thaw.py) |
 | `bt_boundary` | Effects | Blackwater Thaw only: the play-area limit as hidden collider boxes along the envelope (written by blackwater_thaw.py) |
 | `bt_castle` | Landmarks | Blackwater Thaw only: the scenic hilltop castle on the north-west spur (written by blackwater_thaw.py) |
+| `bt_snowcap_vil_stone_barn` | Effects | Blackwater Thaw only: the roof snow cap of vil_stone_barn (written by blackwater_thaw.py) |
+| `bt_snowcap_vil_rendered_shutters` | Effects | Blackwater Thaw only: the roof snow cap of vil_rendered_shutters (written by blackwater_thaw.py) |
+| `bt_snowcap_small_storehouse` | Effects | Blackwater Thaw only: the roof snow cap of small_storehouse (written by blackwater_thaw.py) |
+| `bt_snowcap_small_stone_dairy` | Effects | Blackwater Thaw only: the roof snow cap of small_stone_dairy (written by blackwater_thaw.py) |
+| `bt_snowcap_small_carpenter_workshop` | Effects | Blackwater Thaw only: the roof snow cap of small_carpenter_workshop (written by blackwater_thaw.py) |
+| `bt_snowcap_sd_market_lean_to` | Effects | Blackwater Thaw only: the roof snow cap of sd_market_lean_to (written by blackwater_thaw.py) |
+| `bt_snowcap_house_stone_cottage` | Effects | Blackwater Thaw only: the roof snow cap of house_stone_cottage (written by blackwater_thaw.py) |
+| `bt_snowcap_house_farmhouse_2story` | Effects | Blackwater Thaw only: the roof snow cap of house_farmhouse_2story (written by blackwater_thaw.py) |
 | `bt_vent_smoke` | Effects | Blackwater Thaw: the smithy chimney's smoke emitter (vent_smoke); usable on any map |
 | `bt_orchard_tree_a` | Vegetation | Blackwater Thaw only: a pruned winter orchard tree (written by blackwater_thaw.py) |
 | `bt_orchard_tree_b` | Vegetation | Blackwater Thaw only: a pruned winter orchard tree (written by blackwater_thaw.py) |
