@@ -106,11 +106,33 @@ void App::destroyRT(InstanceRT& r) {
 }
 void App::refreshMatchOnly() {   // BT2: rebuild the matchOnly copies (their collider follows the match state)
   for (auto& kv : rt) if (kv.second.asset && kv.second.asset->raw.is_object() && kv.second.asset->raw.value("matchOnly", false)) kv.second.rev = ~0u;
+  syncSig_ = 0;   // the next syncRuntime walks (it returns early while the placement signature is unchanged)
 }
+// BT2 load-when-close: an asset with "loadRadius": [in, out] (m) is built (mesh, colliders, furnishing) only inside `in`
+// of the eye (the player's in play, the camera's in the editor) and dropped beyond `out` (hysteresis); at most one copy
+// is built per frame (no hitch). buildRT does the far check on first build, so a far copy costs nothing at map load.
+static bool loadRadiusOf(const AssetDef* a, float& in, float& out) {
+  if (!a || !a->raw.is_object() || !a->raw.contains("loadRadius") || !a->raw["loadRadius"].is_array() || a->raw["loadRadius"].size() < 2) return false;
+  in = a->raw["loadRadius"][0].get<float>(); out = std::max(in + 1.0f, a->raw["loadRadius"][1].get<float>()); return true;
+}
+void App::syncLoadRadius() {
+  const bool play = true;   // play and editor alike: the editor camera brings it in when it flies close
+  const vec3 eye = mode == Mode::Explore ? eyePos() : camPos; int built = 0;
+  for (uint64_t id : loadRadiusIds) {
+    auto it = rt.find(id); Instance* ip = doc.find(id); if (it == rt.end() || !ip) continue;
+    auto& r = it->second; float in, out; if (!loadRadiusOf(r.asset, in, out)) continue;
+    const float d = glm::length(ip->pos - eye);
+    if (play && !r.farOut && d > out) { const AssetDef* a = r.asset; uint64_t rid = r.id; uint32_t rv = r.rev; destroyRT(r); r.asset = a; r.id = rid; r.rev = rv; r.farOut = true; logf("loadRadius: %s dropped at %.0f m", ip->assetId.c_str(), d); }
+    else if (r.farOut && (!play || d < in) && built == 0) { buildRT(*ip, r); ++built; logf("loadRadius: %s built at %.0f m", ip->assetId.c_str(), d); }
+  }
+}
+
 void App::buildRT(const Instance& i, InstanceRT& r) {
   ++hitchCur().buildRT;   // CP step 0: the hitch log counts them
   destroyRT(r);
   r.id = i.id; r.rev = i.rev; r.asset = assetFor(i);
+  { float in, out; r.farOut = false;   // BT2 loadRadius: beyond its outer radius in play it is not built at all
+    if (loadRadiusOf(r.asset, in, out) && glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos)) > out) { r.farOut = true; return; } }
   uint64_t base = i.id << 16;
   // BT2: an asset marked "matchOnly" (a play-limit blocker, e.g. at the road out to an explore-only landmark) is solid
   // only while a match is running; refreshMatchOnly() rebuilds those copies when a match starts or ends
@@ -272,6 +294,7 @@ void App::syncRuntime(bool sliceOk) {
     logf("memattr: buildRT %.0f MB over %zu assets:%s", tot, v.size(), s.c_str());
   }
   if (deferred) syncSig_ = 0;   // not done: the next call walks again
+  loadRadiusIds.clear(); for (auto& [id, r] : rt) { float in, out; if (live.count(id) && loadRadiusOf(r.asset, in, out)) loadRadiusIds.push_back(id); }   // BT2
   crumb("sync: prune");
   for (auto it = rt.begin(); it != rt.end();) {
     if (!live.count(it->first)) { destroyRT(it->second); it = rt.erase(it); } else ++it;
@@ -339,7 +362,8 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       continue;
     }
     if (!act.rtOf[idx]) continue;
-    if (R.perf.firThin && i.extra.is_object() && i.extra.value("perfThin", false)) continue;   // BT2 switch firthin: the map's optional far trees
+    if (R.perf.firThin && i.extra.is_object() && i.extra.value("perfThin", false)) continue;
+    if (act.rtOf[idx]->farOut) continue;   // BT2 loadRadius: not built while far   // BT2 switch firthin: the map's optional far trees
     auto& r = *act.rtOf[idx];
     mat4 M = instanceMatrix(i);
     if (decorDraw(*this, i, r, M, op, gl)) continue;   // V8: border-ring decor saved in maps, cheap at range (decor.cpp)
@@ -1301,6 +1325,7 @@ int App::run(int argc, char** argv) {
     { extern void uiInputWatchdog(App&); uiInputWatchdog(*this); }   // UI8: a hidden modal raised, a dead setup window released
     crumb("syncRuntime");
     syncRuntime(true);   // CP 5.8: the per-frame call may be time-sliced
+    syncLoadRadius();    // BT2: load-when-close assets
     crumb("tanks sync");
     tanks.sync(*this);
     crumb("interior sync");
