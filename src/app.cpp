@@ -1433,7 +1433,8 @@ int App::run(int argc, char** argv) {
       R.lt.mapHazeH = lk ? std::clamp(lk->value("hazeHeight", 0.0f), 0.0f, 2000.0f) : 0.0f;
       { const json* fl = lk && lk->contains("fogLayer") && (*lk)["fogLayer"].is_object() ? &(*lk)["fogLayer"] : nullptr;
         R.lt.mapFogLayerDens = fl ? std::clamp(fl->value("density", -1.0f), -1.0f, 0.2f) : -1.0f;
-        R.lt.mapFogLayerH = fl ? std::clamp(fl->value("height", 0.0f), 0.0f, 500.0f) : 0.0f; }
+        R.lt.mapFogLayerH = fl ? std::clamp(fl->value("height", 0.0f), 0.0f, 500.0f) : 0.0f;
+        R.lt.mapFogLayerTop = fl && fl->contains("top") ? fl->value("top", 1e9f) : 1e9f; R.lt.mapFogLayerSoft = fl ? std::clamp(fl->value("topSoft", 12.0f), 1.0f, 200.0f) : 12.0f; }   // a ceiling at world y (soft over topSoft m)
       { extern void snowSync(App&); snowSync(*this); }   // SN1: the map's snow layer (snow.cpp)
       // GR3: "look": {"night": {"haze", "envFog", "fogNear"}}: the map's night air (its own density and mist), when the sun is down
       const bool nightNow = R.lt.hour < 5.8f || R.lt.hour > 20.4f;

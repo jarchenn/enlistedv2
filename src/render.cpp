@@ -120,6 +120,7 @@ uniform vec4 uCloudOpen; uniform float uCloudOpenK;   // VO L5 look.cloudOpening
 uniform vec4 uCloudXf;    // VO L5 look.cloudScale / cloudStretch / cloudDir: the cloud field's xz transform (mat2 columns; identity by default)
 uniform float uSunDisc;   // VO L5 look.sunDisc: 1 default, 0 no sun disc in the sky
 float cloudOpening(vec3 d){ return uCloudOpenK*smoothstep(uCloudOpen.w, mix(uCloudOpen.w, 1.0, 0.6), dot(d, uCloudOpen.xyz)); }   // VO L5: 0..strength toward the opening
+uniform float uEnvFogTop = 1e9, uEnvFogSoft = 12.0;   // look.fogLayer top: the layer's ceiling at world y, soft over uEnvFogSoft m
 uniform float uEnvFog, uEnvFogH, uFogIndoor, uEnvFogNear; uniform sampler2D uFogField; uniform vec4 uFogBox;   // WX1 environmental fog: density (1/m), layer height, indoor scale; field (unit 27), box (min xz, 1/size)
 uniform float uAoIndirectOnly;    // 1: material AO / sky occlusion darken only indirect light
 // ---- L2 lighting engine (src/lighting.cpp, docs/lighting.md): time of day, clustered local lights, probe GI
@@ -388,6 +389,11 @@ vec3 applyFogAir(vec3 col, vec3 w){
     float k2 = (w.y - uCamPos.y)/uEnvFogH;
     float hf2 = abs(k2) > 1e-3 ? (1.0 - exp(-k2))/k2 : 1.0 - 0.5*k2;
     float tauE = uEnvFog*uFogIndoor*F.r*(0.6 + 0.8*drift)*Lw*exp(-max(uCamPos.y - F.b, 0.0)/uEnvFogH)*hf2;
+    if (uEnvFogTop < 1e8) {   // ceiling: the share of the ray below top (each end softened over uEnvFogSoft)
+      float a = smoothstep(uEnvFogTop + uEnvFogSoft, uEnvFogTop - uEnvFogSoft, uCamPos.y), b = smoothstep(uEnvFogTop + uEnvFogSoft, uEnvFogTop - uEnvFogSoft, w.y);
+      float m2 = smoothstep(uEnvFogTop + uEnvFogSoft, uEnvFogTop - uEnvFogSoft, 0.5*(uCamPos.y + w.y));
+      tauE *= (a + 2.0*m2 + b)*0.25;
+    }
     float e; float sh = cascadePCF(uShadow, uLightVP, uShadowTexel, uShadowWorldTexel.x, w, uSunDir, 0.0, 1, e, vec2(uShadowAtlas, 0.0));
     if (e > 0.95) sh = 1.0;
     float c0 = dot(dir, uSunDir), ph = 0.3 + 2.2*pow(max(c0, 0.0), 6.0) + 0.6*pow(max(c0, 0.0), 2.0);   // forward-scattering approximation
@@ -4770,6 +4776,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uCloudShadowOn"), !q.legacy && q.cloudShadows && clouds && perf.cloudShadow && !thumbMode ? 1 : 0);
   glUniform1f(U(p, "uCloudCov"), cloudCoverNow()); glUniform1f(U(p, "uCloudT"), cloudClock());
   glUniform1f(U(p, "uEnvFog"), thumbMode ? 0.0f : envFogSigma()); glUniform1f(U(p, "uEnvFogH"), envFogH());   /* W1 Dawn ground fog: the preset's layer */   /* FG1 */ glUniform1f(U(p, "uEnvFogNear"), thumbMode ? 0.0f : lt.mapFogNear); glUniform1f(U(p, "uFogIndoor"), camIndoor ? 0.15f : 1.0f);
+  glUniform1f(U(p, "uEnvFogTop"), lt.mapFogLayerTop); glUniform1f(U(p, "uEnvFogSoft"), lt.mapFogLayerSoft);
   glUniform1i(U(p, "uFogField"), 27); glBindTextureUnit(27, fogTex);
   if (U(p, "uGATex") >= 0) {   // the grass programs: 27 is their plant atlas (GT1, a 2D array): the fog field moves to a unit none of their active samplers uses
     static std::unordered_map<GLuint, std::pair<int, int>> freeUnit;   // unit, calls seen: re-scanned for the first 3 calls (later setLighting lines set more sampler units)
