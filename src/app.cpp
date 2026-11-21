@@ -1434,6 +1434,8 @@ int App::run(int argc, char** argv) {
       { const json* fl = lk && lk->contains("fogLayer") && (*lk)["fogLayer"].is_object() ? &(*lk)["fogLayer"] : nullptr;
         R.lt.mapFogLayerDens = fl ? std::clamp(fl->value("density", -1.0f), -1.0f, 0.2f) : -1.0f;
         R.lt.mapFogLayerH = fl ? std::clamp(fl->value("height", 0.0f), 0.0f, 500.0f) : 0.0f;
+        { const json* f2 = lk && lk->contains("fogLayer2") && (*lk)["fogLayer2"].is_object() ? &(*lk)["fogLayer2"] : nullptr;   // a band between absolute heights (castle terraces)
+          R.lt.fog2 = f2 ? vec4(std::clamp(f2->value("density", 0.0f), 0.0f, 0.2f), f2->value("floor", 0.0f), f2->value("top", 0.0f), std::clamp(f2->value("soft", 10.0f), 1.0f, 200.0f)) : vec4(0.0f); }
         R.lt.mapFogLayerTop = fl && fl->contains("top") ? fl->value("top", 1e9f) : 1e9f; R.lt.mapFogLayerSoft = fl ? std::clamp(fl->value("topSoft", 12.0f), 1.0f, 200.0f) : 12.0f; }   // a ceiling at world y (soft over topSoft m)
       { extern void snowSync(App&); snowSync(*this); }   // SN1: the map's snow layer (snow.cpp)
       // GR3: "look": {"night": {"haze", "envFog", "fogNear"}}: the map's night air (its own density and mist), when the sun is down

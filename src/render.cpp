@@ -124,6 +124,7 @@ float cloudOpening(vec3 d){   // VO L5: 0..strength toward the opening; W2: a fa
   float c = dot(d, uCloudOpen.xyz);
   return uCloudOpenK*(uW2 == 1 ? smoothstep(cos(2.0*acos(clamp(uCloudOpen.w, -1.0, 1.0))), 1.0, c) : smoothstep(uCloudOpen.w, mix(uCloudOpen.w, 1.0, 0.6), c));
 }   // VO L5: 0..strength toward the opening
+uniform vec4 uFog2;   // look.fogLayer2: density, floor y, top y, soft (m); x = 0 off
 uniform float uEnvFogTop = 1e9, uEnvFogSoft = 12.0;   // look.fogLayer top: the layer's ceiling at world y, soft over uEnvFogSoft m
 uniform float uEnvFog, uEnvFogH, uFogIndoor, uEnvFogNear; uniform sampler2D uFogField; uniform vec4 uFogBox;   // WX1 environmental fog: density (1/m), layer height, indoor scale; field (unit 27), box (min xz, 1/size)
 uniform float uAoIndirectOnly;    // 1: material AO / sky occlusion darken only indirect light
@@ -403,6 +404,12 @@ vec3 applyFogAir(vec3 col, vec3 w){
     float c0 = dot(dir, uSunDir), ph = 0.3 + 2.2*pow(max(c0, 0.0), 6.0) + 0.6*pow(max(c0, 0.0), 2.0);   // forward-scattering approximation
     vec3 fcE = mix(uFogCol, skyColor(fd), 0.45)*1.05 + uSunCol*vec3(1.0, 0.95, 0.85)*ph*0.11*cloudShadow(uCamPos)*mix(0.3, 1.0, sh)*(1.0 - uCloudK);   // WX2: no sun glow under overcast
     if (uW2 == 1) { float lc = dot(uSkyHor, vec3(0.2126, 0.7152, 0.0722))*0.8, le = dot(fcE, vec3(0.2126, 0.7152, 0.0722)); if (le > lc) fcE *= lc/le; }   // W2: a fog layer is never brighter than the sky at the horizon (a veil, not snow)
+    if (uFog2.x > 0.0) {   // the band: constant density between floor and top (soft edges), sampled at the eye, the midpoint and the far end
+      float L2 = max(length(w - uCamPos) - uEnvFogNear, 0.0);
+      #define BAND(hh) (smoothstep(uFog2.y - uFog2.w, uFog2.y + uFog2.w, hh)*(1.0 - smoothstep(uFog2.z - uFog2.w, uFog2.z + uFog2.w, hh)))
+      tauE += uFog2.x*uFogIndoor*L2*(BAND(uCamPos.y) + 2.0*BAND(0.5*(uCamPos.y + w.y)) + BAND(w.y))*0.25;
+      #undef BAND
+    }
     float tt = tau + tauE;
     f = 1.0 - exp(-tt);
     fc = mix(fc, fcE, tauE/max(tt, 1e-6));
@@ -4803,6 +4810,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uCloudShadowOn"), !q.legacy && q.cloudShadows && clouds && perf.cloudShadow && !thumbMode ? 1 : 0);
   glUniform1f(U(p, "uCloudCov"), cloudCoverNow()); glUniform1f(U(p, "uCloudT"), cloudClock());
   glUniform1f(U(p, "uEnvFog"), thumbMode ? 0.0f : envFogSigma()); glUniform1f(U(p, "uEnvFogH"), envFogH());   /* W1 Dawn ground fog: the preset's layer */   /* FG1 */ glUniform1f(U(p, "uEnvFogNear"), thumbMode ? 0.0f : lt.mapFogNear); glUniform1f(U(p, "uFogIndoor"), camIndoor ? 0.15f : 1.0f);
+  glUniform4fv(U(p, "uFog2"), 1, glm::value_ptr(thumbMode || q.legacy || !perf.envFog ? vec4(0.0f) : lt.fog2));
   glUniform1f(U(p, "uEnvFogTop"), lt.mapFogLayerTop); glUniform1f(U(p, "uEnvFogSoft"), lt.mapFogLayerSoft);
   glUniform1i(U(p, "uFogField"), 27); glBindTextureUnit(27, fogTex);
   if (U(p, "uGATex") >= 0) {   // the grass programs: 27 is their plant atlas (GT1, a 2D array): the fog field moves to a unit none of their active samplers uses
