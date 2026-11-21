@@ -246,6 +246,7 @@ public:
   struct Perf {
     bool texLate = true;         // texlate (OPT1): a texture set needed mid-match goes into a spare array layer (worker build, one upload a frame); off = the old full reload of every set
     bool groundTaps = true;      // groundtaps (OPT2): ground taps cut by distance and weight (hex 12-30 m fade, hex on layers >= 35 %, no far normal tap, no substrate taps under full snow); off = the old taps
+    bool wet = true;             // wet (W3): ground and walls follow the weather state's wxWet / wxPuddle (film, porosity darkening, puddles in the lows, rain ripples)
     bool splitSum = true;        // splitsum (CP step 3): split-sum env specular + multi-scatter, Lagarde specular occlusion, multi-bounce material AO by albedo; off = the x0.6 fudge
     bool albClamp = true;        // albclamp (CP step 4): dielectric albedo luminance clamped to linear 0.02-0.9, grass floored at 0.10
     bool wAbs = true;            // wabs (CP step 7): water extinction by absorption (Pope & Fry pure water + per-kind organics) and silt scattering; off = the per-kind tint
@@ -364,7 +365,7 @@ public:
               // ^ stream T (terrain): append to the line above
               : n == "contactsh" ? &contactShadow : n == "fullshadow" ? &fullShadow : n == "gtao" ? &gtao : n == "midcascade" ? &midCascade : n == "microsh" ? &microShadow : n == "foltrans" ? &folTrans : n == "agx" ? &agx : n == "histexpo" ? &histExpo : n == "skyrelit" ? &skyRelit : n == "atmo" ? &atmo : n == "reflprobe" ? &reflProbe
               // ^ stream L (lighting): append to the line above
-              : n == "specaa" ? &specAA : n == "texbias" ? &texBias : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps : n == "splitsum" ? &splitSum : n == "albclamp" ? &albClamp : n == "wabs" ? &wAbs
+              : n == "specaa" ? &specAA : n == "texbias" ? &texBias : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps : n == "splitsum" ? &splitSum : n == "albclamp" ? &albClamp : n == "wabs" ? &wAbs : n == "wet" ? &wet
               // ^ stream M (materials): append to the line above
               : n == "charvel" ? &charVel
               // ^ characters (gameplay): append to the line above
