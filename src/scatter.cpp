@@ -10,6 +10,7 @@
 #include "water_query.h"
 #include <stb_image.h>
 #include <algorithm>
+#include <cstdio>
 #include <cmath>
 #include <cstring>
 #include <fstream>
@@ -38,10 +39,11 @@ struct Chunk {
   GpuMesh nearM, farM;          // small stones + twigs (to 18 m); large stones + roots (to 60 m)
   std::vector<vec4> contacts;   // 3 vec4 each (Renderer::pushContactAO)
   std::vector<Cushion> cush;
+  std::vector<vec2> rest;       // xz of every stone, twig, root and litter sheet (the VOT meter's cue 5: scatterRestingIn)
   GLuint litVao = 0, litVbo = 0, litEbo = 0; int litCount = 0;
   vec4 contact[6]{};            // DrawItem::contact: the chunk's ground grid (groundH) and habitat for the rock moss
   void release() {
-    nearM.destroy(); farM.destroy(); contacts.clear(); cush.clear();
+    nearM.destroy(); farM.destroy(); contacts.clear(); cush.clear(); rest.clear();
     if (litVao) glDeleteVertexArrays(1, &litVao); if (litVbo) glDeleteBuffers(1, &litVbo); if (litEbo) glDeleteBuffers(1, &litEbo);
     litVao = litVbo = litEbo = 0; litCount = 0; built = false;
   }
@@ -161,7 +163,7 @@ void buildChunk(const Ctx& x, Chunk& c) {
       for (size_t q = v0; q < m.v.size(); ++q) { m.v[q].pos.y += dy; m.v[q].pcoord = m.v[q].pos; }
       if (check && (mnY + dy > h - 0.2f * H || mnY + dy < h - 0.5f * H)) fail("stone sink out of 25-45 %", vec3(p.x, h, p.y), hk);
       if (size > 0.06f) pushContact(c, vec3(p.x, h, p.y), 0.0f, vec2(0.45f * size), large ? 0.6f : 0.45f, h - 0.4f, h + 0.25f);
-      ++gStats.stones;
+      ++gStats.stones; c.rest.push_back(p);
     }
   }
   // ---- twigs: 0.1-0.5 m sticks under and near canopies (0.3-1.5 /m^2), lying in the ground, to 14 m with the small stones
@@ -182,7 +184,7 @@ void buildChunk(const Ctx& x, Chunk& c) {
       const float tone = 0.8f + 0.4f * u01(hash4(hk, 5, 0, 0));
       pushTube(nearM, {A, M, B}, {r, r * 0.9f, r * 0.7f}, 4, vec3(0.13f, 0.10f, 0.075f) * tone);
       if (check) for (vec3 e : {A, B}) if (std::fabs(e.y - 0.4f * r - x.t->height(e.x, e.z)) > 0.005f) fail("twig end off the ground", e, hk);
-      ++gStats.twigs;
+      ++gStats.twigs; c.rest.push_back(p);
     }
   }
   // ---- exposed roots: 3-6 per model tree standing in this chunk, 0.4-2 m, emerging at the trunk and diving back in
@@ -204,7 +206,7 @@ void buildChunk(const Ctx& x, Chunk& c) {
         pts.push_back(vec3(p.x, x.t->height(p.x, p.y) + rr * (0.5f - 0.9f * t), p.y)); rad.push_back(rr);   // half proud at the trunk, under by the tip
       }
       pushTube(farM, pts, rad, 6, vec3(0.12f, 0.095f, 0.075f) * (0.85f + 0.3f * u01(hash4(hk, 3, 0, 0))));
-      ++gStats.roots;
+      ++gStats.roots; c.rest.push_back(vec2(i.pos.x, i.pos.z) + (rt * 0.8f + 0.5f * len) * vec2(std::cos(th), std::sin(th)));
     }
   }
   // ---- litter sheets: where wind and water put leaves (against walls, on lee sides, in hollows, under canopies)
@@ -234,7 +236,7 @@ void buildChunk(const Ctx& x, Chunk& c) {
       lv.push_back({vec3(w.x, x.t->height(w.x, w.y), w.y), uv, seed, x.t->normal(w.x, w.y)});
     }
     for (int vz = 0; vz < 2; ++vz) for (int vx = 0; vx < 2; ++vx) { const uint32_t a0 = b + vz * 3 + vx; li.insert(li.end(), {a0, a0 + 3, a0 + 1, a0 + 1, a0 + 3, a0 + 4}); }
-    ++gStats.litter;
+    ++gStats.litter; c.rest.push_back(p);
   }
   if (!li.empty()) {
     glCreateVertexArrays(1, &c.litVao); glCreateBuffers(1, &c.litVbo); glCreateBuffers(1, &c.litEbo);
@@ -458,6 +460,19 @@ void scatterFrame(App& app, std::vector<DrawItem>& op, vec3 eye) {
     gBucket[v][l][0] = int(gFrameInst.size() / 3); gBucket[v][l][1] = int(inst[v][l].size() / 3);
     gFrameInst.insert(gFrameInst.end(), inst[v][l].begin(), inst[v][l].end()); gStats.cushionsDrawn += gBucket[v][l][1];
   }
+  {   // NMK_VOT_RECT="x0,z0,x1,z1": log the scatter's resting meshes in that box whenever the count changes (tools/vot_flatness.py --log)
+    static const char* e = std::getenv("NMK_VOT_RECT"); static int last = -1; float r[4];
+    if (e && std::sscanf(e, "%f,%f,%f,%f", &r[0], &r[1], &r[2], &r[3]) == 4) {
+      const int n = scatterRestingIn(vec2(r[0], r[1]), vec2(r[2], r[3]));
+      if (n != last) { last = n; logf("[vot] scatter resting %d in %.1f,%.1f,%.1f,%.1f", n, r[0], r[1], r[2], r[3]); }
+    }
+  }
+}
+
+int scatterRestingIn(vec2 lo, vec2 hi) {
+  int n = 0;
+  for (auto& [k, c] : gChunks) if (c.built) for (const vec2& p : c.rest) n += p.x >= lo.x && p.x <= hi.x && p.y >= lo.y && p.y <= hi.y;
+  return n;
 }
 
 void scatterRenderPass(Renderer& r, const RenderView& v, const mat4& vp) {

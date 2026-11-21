@@ -1,6 +1,6 @@
 """VFX rev3 phase 3 (docs/vfx-rev3 spec 4.1): the six flatness cues measured on a map slice.
 
-  python -I tools/vot_flatness.py <map id> x0 z0 x1 z1 [--albedo capture.png] [--ao capture.png] [--pom depth_m]
+  python -I tools/vot_flatness.py <map id> x0 z0 x1 z1 [--albedo capture.png] [--ao capture.png] [--pom depth_m] [--log game.log]
 
 Cue 1 silhouette relief: vertical range of the ground (base heightfield + terrainSculpt at 0.45 m) over 4 m windows
        (1 m steps). Target 0.15-0.6 m.
@@ -8,9 +8,11 @@ Cue 2 sub-mesh parallax: the POM depth in force (passed in; 0 = none). Target >=
 Cue 3 scale bands: octave bands of the albedo spectrum holding >= 4 % of the total (an albedo-only capture of the
        slice's ground, NMK_DBG_TERRAIN 4). Target >= 4. Coarse: a textured image passes easily; read the shares.
 Cue 4 contact occlusion: from an AO capture (NMK_DBG_TERRAIN 5: ground drawn as (1, ao, 0)) the darkening of the ground
-       at object bases, 1 - AO over the darkest 5 % of ground pixels only. Target 0.30-0.70.
+       at object bases, 1 - AO over the darkest 5 % of ground pixels only. Target 0.30-0.70. The capture includes the
+       composite's AO (SSAO / GTAO and the contactao decals), not only the terrain's own occlusion.
 Cue 5 object relief: small ground-resting meshes (stones, roots, logs, litter, clumps; not trees or buildings) per m².
-       Target 0.3-3.
+       Target 0.3-3. The map file's instances, plus the runtime scatter's stones / twigs / roots / litter when --log
+       names a game log run with NMK_VOT_RECT="x0,z0,x1,z1" (its last "[vot] scatter resting N in <rect>" line).
 Cue 6 material boundaries: distinct ground paint types (weight >= 0.25, top or under, plus the bare base) in 10 m
        windows. Target 3-6.
 Prints one line per cue and PASS / FAIL, and a JSON line for the record."""
@@ -18,6 +20,7 @@ import base64
 import json
 import math
 import os
+import re
 import struct
 import sys
 import zlib
@@ -152,6 +155,15 @@ def cue4(png):
     return float(1.0 - ao[: max(1, len(ao) // 20)].mean())   # the darkest 5 % of the ground: where it meets objects
 
 
+def scatter_from_log(path, rect):
+    n = None
+    for line in open(path, encoding="utf-8", errors="replace"):
+        m = re.search(r"\[vot\] scatter resting (\d+) in ([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+)", line)
+        if m and all(abs(float(m.group(k + 2)) - rect[k]) < 0.05 for k in range(4)):
+            n = int(m.group(1))
+    return n
+
+
 def main():
     a = sys.argv[1:]
     mid = a[0]; x0, z0, x1, z1 = map(float, a[1:5])
@@ -166,7 +178,14 @@ def main():
         nb, b = cue3(opt["--albedo"]); res["c3_bands"] = nb; res["c3_band_shares"] = b
     if "--ao" in opt:
         res["c4_contact_darkening"] = round(cue4(opt["--ao"]), 3)
-    res["c5_resting_per_m2"] = round(cue5(nm, x0, z0, x1, z1), 3)
+    c5 = cue5(nm, x0, z0, x1, z1)
+    if "--log" in opt:
+        sn = scatter_from_log(opt["--log"], (x0, z0, x1, z1))
+        if sn is None:
+            print("cue 5: no '[vot] scatter resting' line for this rect in %s (NMK_VOT_RECT unset, or scatter off)" % opt["--log"])
+        else:
+            res["c5_scatter"] = sn; c5 += sn / ((x1 - x0) * (z1 - z0))
+    res["c5_resting_per_m2"] = round(c5, 3)
     T, tex = paint_types(nm, x0, z0, x1, z1)
     m6, kinds = cue6(T, tex); res["c6_materials_10m_median"] = m6; res["c6_types"] = kinds
     ok = lambda c, v: "PASS" if v else "FAIL"
