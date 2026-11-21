@@ -26,7 +26,7 @@ std::vector<int> row; vec3 origin(0);
 // visibility at engagement range); the close row stays where it was
 std::vector<float> extraRowDist() { static std::vector<float> v; static bool once = false; if (!once) { once = true; if (const char* e = std::getenv("NMK_WSM2_ROWS")) { std::string t = e; size_t b = 0; while (b < t.size()) { size_t c = t.find(',', b); float d = (float)std::atof(t.substr(b, c - b).c_str()); if (d > 0) v.push_back(d); if (c == std::string::npos) break; b = c + 1; } } } return v; }
 std::vector<std::vector<int>> extraRows;
-const char* kStates[] = {"aim", "aim_lmg", "aim_pistol", "idle", "walk", "run", "crouch", "shot", "reload", "throw"};
+const char* kStates[] = {"aim", "aim_lmg", "aim_pistol", "idle", "walk", "run", "crouch", "shot", "reload", "throw", "death"};   // death: each killed a different way, the still mid-fall ([death] log lines name the clips)
 }   // namespace
 
 // AIB1 NMK_WSM2=blur: one soldier standing, one walking across the view at 3, 8 and 20 m from a still camera, per configuration
@@ -588,6 +588,14 @@ bool wsm2Capture(App& app, float dt) {
     }
     if (what == "reload") { s.reloadTotal = 3.0f; s.reload = 3.0f * (1.0f - std::min(0.4f, frames / 40.0f * 0.4f)); }
     if (what == "throw" && s.throwT >= 0) s.throwT = std::min(0.42f, frames / 40.0f * 0.42f);
+    if (what == "death" && frames == 2) {   // the soldier faces +z (the camera): 0 front, 1 back, 2 his right, 3 head front, 4 head back, 5 crouched head, 6 blast, 7 behind while running, 8 his left
+      static int k = 0; const int c = (k++) % 9;
+      const vec3 dir = c == 1 || c == 4 || c == 7 ? vec3(0, 0, 1) : c == 2 ? vec3(1, 0, 0) : c == 8 ? vec3(-1, 0, 0) : vec3(0, 0, -1);
+      s.lastHow = c == 3 || c == 4 || c == 5 ? "head" : c == 6 ? "blast" : "upper torso";
+      if (c == 5) s.posture = Physics::CROUCH;
+      if (c == 7) s.speed = 4.5f;
+      s.protectUntil = -1; G.killSoldier(s.slot, -1, dir);
+    }
     if (what == "shot" && frames == 38) { s.ws.cooldown = 0; s.ws.bolt = 0; if (s.ws.loaded <= 0) s.ws.loaded = 5; G.soldierFire(s, vec3(0, -0.02f, 1)); }
   }
   {   // the camera: in front of the row's middle, far enough for all of it

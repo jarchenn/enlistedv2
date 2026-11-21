@@ -638,6 +638,7 @@ void Game::killSoldier(int i, int killer, vec3 dir) {
   if (s.zombie && s.alive && !enemyType(s.etype).sndDeath.empty()) app.audio.play(enemyType(s.etype).sndDeath.c_str(), s.feet + vec3(0, 1.0f, 0), 1.0f);   // SND1. shortcut: host / single player only
   if (!s.alive) return;
   aiForget(*this, i);   // nobody keeps attacking where it fell
+  s.deathRunning = s.speed > 3.0f;   // before the corpse stops: the death pick reads it
   s.alive = false; s.diedAt = t; s.killer = killer; s.deathDir = dir; s.hp = 0;
   vec3 f = vec3(-std::sin(radians(s.yaw)), 0, -std::cos(radians(s.yaw)));
   s.deathStyle = glm::dot(f, dir) > 0.3f ? 1 : glm::dot(f, dir) < -0.3f ? 0 : 2;
@@ -806,8 +807,8 @@ void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
   s.br.hurtFrom = attacker >= 0 ? sold[attacker].feet : s.feet - dir * 10.0f; s.br.hurtAt = t;
   s.br.suppressed = std::min(1.0f, s.br.suppressed + 0.5f);
   if (s.localPlayer) { hurtFlash = std::min(1.0f, hurtFlash + dmg / 60.0f); lastHurtDir = -dir; }
+  s.lastHow = how ? how : "";   // the hit's zone / kind ("head", "upper torso", "blast", "melee", ...): the death pick reads it
   if (s.hp <= 0) killSoldier(i, attacker, dir);
-  (void)how;
 }
 
 void Game::explosionDamage(vec3 p, float dmg, float radius, int owner, bool grenade) {
