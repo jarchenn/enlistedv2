@@ -65,8 +65,36 @@ bool usesLiveSlot(const AssetDef* as) {
 }
 const char* kAssets[] = {"vil_norman_farmhouse", "house_stone_cottage", "vil_church_ruined"};
 
+void blendAssertions() {   // BF rev 3 spec 9.2 BLEND, on the C++ mirror of the shader's layerBlend / rnm
+  float w[4]; bool sum = true, finite = true, inactive = true;
+  { float q[4] = {0, 0, 0, 0}, h[4] = {1, 1, 1, 1}; tex::layerBlend(q, h, 4, 2, 0.24f, 0.22f, w);
+    chk(w[2] == 1 && w[0] == 0 && w[1] == 0 && w[3] == 0, "BLEND: all-zero masks select the base layer (w %.2f %.2f %.2f %.2f)", w[0], w[1], w[2], w[3]); }
+  uint32_t r = 12345; auto rnd = [&]() { r = r * 1664525u + 1013904223u; return (r >> 8) / 16777216.0f; };
+  for (int t = 0; t < 4000; ++t) {
+    int n = 2 + t % 3; float q[4] = {0, 0, 0, 0}, h[4];
+    for (int i = 0; i < n; ++i) { q[i] = rnd() < 0.25f ? 0.0f : rnd(); h[i] = rnd(); }
+    int off = t % n; q[off] = 0; h[off] = 1;   // an inactive layer at maximum height
+    tex::layerBlend(q, h, n, 0, 0.24f, 0.22f, w);
+    float S = 0; for (int i = 0; i < 4; ++i) { S += w[i]; finite = finite && std::isfinite(w[i]); }
+    sum = sum && std::fabs(S - 1) <= 1e-4f;
+    float Q = 0; for (int i = 0; i < n; ++i) Q += q[i];
+    if (Q > 1e-5f) inactive = inactive && w[off] == 0;
+  }
+  chk(sum && finite, "BLEND: returned weights sum to 1 +- 1e-4 and are finite (4000 random 2-4 layer cases)");
+  chk(inactive, "BLEND: an inactive layer at maximum texture height never becomes visible");
+  vec3 nb = glm::normalize(vec3(0.3f, -0.2f, 0.9f)), nn = tex::rnm(nb, vec3(0, 0, 1));
+  chk(glm::length(nn - nb) < 1e-4f, "BLEND: neutral RNM detail leaves the base normal unchanged (|d| %.1e)", glm::length(nn - nb));
+  // variance restoration: two uncorrelated equal-variance layers, 50/50: contrast within 10 % of either input
+  std::vector<float> A(20000), B(20000); for (size_t i = 0; i < A.size(); ++i) { A[i] = rnd(); B[i] = rnd(); }
+  auto sd = [](const std::vector<float>& v) { double m = 0, s = 0; for (float x : v) m += x; m /= v.size(); for (float x : v) s += (x - m) * (x - m); return std::sqrt(s / v.size()); };
+  std::vector<float> M(A.size()); for (size_t i = 0; i < A.size(); ++i) { float c = 0.5f * A[i] + 0.5f * B[i], mean = 0.5f; M[i] = mean + (c - mean) / std::sqrt(0.5f * 0.5f + 0.5f * 0.5f); }
+  double k = sd(M) / sd(A);
+  chk(std::fabs(k - 1) < 0.1, "BLEND: variance restoration keeps a 50/50 blend's contrast within 10 %% of its inputs (ratio %.3f)", k);
+}
+
 void run(App& a) {
   const tex::Info I = tex::info();   // a copy: the fallback step re-initialises the layer
+  blendAssertions();
   // ---- mapping
   chk(I.slots >= 40, "textures.json: %d slots", I.slots);
   int pats[] = {1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 22, 25, 26, 29}, missingPat = 0;

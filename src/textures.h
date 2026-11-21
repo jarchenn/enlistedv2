@@ -44,6 +44,9 @@ bool imgMat();
 struct Info { int sets = 0, slots = 0, slotsLive = 0, unused = 0; size_t bytes = 0; double ms = 0; bool compressed = false; std::vector<std::string> missing; };
 const Info& info();
 int slotIndex(const std::string& slotName);   // -1 if unknown
+// BF rev 3 spec 3.3, the C++ mirrors of the shader's layerBlend / rnm (selftest_textures checks the 9.2 BLEND assertions)
+void layerBlend(const float* q, const float* h, int n, int base, float beta, float width, float* w);
+glm::vec3 rnm(glm::vec3 Nb, glm::vec3 Nd);
 void mapPaintSets(const json* look);
 std::vector<std::string> groundSlots();   // TX4: slots a painted ground type may draw (space ground / world), for the paint panel
    // NT4: the open map's look.paintSets override of the painted-ground slots

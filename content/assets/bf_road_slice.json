@@ -1,0 +1,63 @@
+{
+ "id": "bf_road_slice",
+ "version": 1,
+ "name": "Forest dirt road slice (BF import)",
+ "category": "Battle Foundry",
+ "description": "BF rev 3 phase 1 import of update_dirt_road_through_forest.glb, 99.Miles, CC-BY-4.0 (docs/credits.md): scale 0.076 (Wood_Log 0.30 m; fence 0.74 m), vegetation cards and trunks dropped (re-scattered by our foliage), the UV1 normal maps of Fallen_Maple_Leaves and Rock_Decal re-baked into UV0. 42 x 42 m reference slice for spec 4.2, no collider (place on flat terrain).",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  41.89,
+  41.65
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1,
+ "noAutoPanels": true,
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "materials": [
+  {
+   "name": "bf_standin",
+   "albedo": [
+    0.45,
+    0.43,
+    0.4
+   ],
+   "roughness": 0.85,
+   "pattern": "plain",
+   "metallic": 0,
+   "grain": 1
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    2.975,
+    0
+   ],
+   "s": [
+    41.89,
+    5.95,
+    41.65
+   ],
+   "m": "bf_standin",
+   "k": 0,
+   "mf": 1
+  }
+ ],
+ "model": {
+  "src": "bf_road_slice.glb",
+  "dir": "bf_road_slice",
+  "pivot": "ground",
+  "scale": 1,
+  "maxTex": 1024,
+  "credit": "Battle Foundry rev 3 bundle (spec 2.4 import: tools/bake_bf_assets.py); 99.Miles, CC-BY-4.0",
+  "jpgMaps": true
+ },
+ "nav": {
+  "effect": "none"
+ }
+}

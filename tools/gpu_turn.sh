@@ -5,6 +5,7 @@
 #   GPU_TURN_SLOTS=<n>      how many runs may use the GPU at once (default 3; the user set "3 instances at most", 2026-11-21)
 #   GPU_TURN_EXCLUSIVE=1    take every slot (frame-time measurements that must not share the GPU)
 #   GPU_TURN_LOCK=<dir>     slot 1 directory (default: %TEMP%/nmk/gpu.lock; slot k > 1 is <dir>.k)
+#   GPU_TURN_MAX_RAM_GB=<n> wait while more than n GB of physical memory is in use (default 24: a 4 GB game stays under 28)
 #   GPU_TURN_MAX_GAMES=<n>  wait while n game processes are running (any, with or without a slot; default 3, exclusive waits for 0)
 #   GPU_TURN_STALE=<min>    a slot older than this whose holder pid is not alive is taken over (default 40)
 #   GPU_TURN_TAG=<text>     who holds the slot (shown to waiters; default: the current directory)
@@ -28,13 +29,17 @@ TAG="${GPU_TURN_TAG:-$(pwd)}"
 MINC="${GPU_TURN_MIN_COMMIT_GB:-16}"
 freeCommitGb() {   # Win32_OperatingSystem.FreeVirtualMemory (KB); empty when it can't be read (then the gate is open)
   command -v powershell.exe >/dev/null 2>&1 || return
-  powershell.exe -NoProfile -NonInteractive -Command '[int]((Get-CimInstance Win32_OperatingSystem).FreeVirtualMemory / 1MB)' 2>/dev/null | tr -d '
- '
+  powershell.exe -NoProfile -NonInteractive -Command '[int]((Get-CimInstance Win32_OperatingSystem).FreeVirtualMemory / 1MB)' 2>/dev/null | tr -d ' \r\n'
 }
 MINV="${GPU_TURN_MIN_VRAM_MB:-2560}"
 freeVramMb() {   # nvidia-smi's free video memory (MiB); empty without it (then the gate is open)
   command -v nvidia-smi >/dev/null 2>&1 || return
   nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' \r'
+}
+MAXRAM="${GPU_TURN_MAX_RAM_GB:-24}"
+usedRamGb() {   # physical memory in use (total minus the Available MBytes counter), GB; empty when unreadable (gate open)
+  command -v powershell.exe >/dev/null 2>&1 || return
+  powershell.exe -NoProfile -NonInteractive -Command '$t=(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1MB; $a=(Get-CimInstance Win32_PerfFormattedData_PerfOS_Memory).AvailableMBytes; [int](($t-$a)/1024)' 2>/dev/null | tr -d ' \r'
 }
 MAXG="${GPU_TURN_MAX_GAMES:-3}"
 liveGames() {   # game processes on the machine (NormandyMapmaker.exe and renamed copies nm_*.exe), slot or not; empty without tasklist (gate open)
@@ -78,6 +83,11 @@ while :; do
     fi
   fi
   if [ "$MAXG" -gt 0 ] 2>/dev/null && { [ "$EXCL" = 1 ] && [ "$ahead" -eq 0 ] || [ "$EXCL" != 1 ] && [ "$ahead" -lt "$N" ]; }; then
+    ru=$(usedRamGb)
+    if [ -n "$ru" ] && [ "$MAXRAM" -gt 0 ] 2>/dev/null && [ "$ru" -gt "$MAXRAM" ] 2>/dev/null; then   # the user's rule: stay under 28 GB; a game is about 4 GB
+      [ $((waited % 60)) -eq 0 ] && echo "gpu_turn: ${ru} GB of RAM in use > ${MAXRAM} GB; waiting"
+      sleep 5; waited=$((waited + 5)); continue
+    fi
     g=$(liveGames); lim=$([ "$EXCL" = 1 ] && echo 1 || echo "$MAXG")   # exclusive: the card alone; else at most MAXG games (the user's rule: 3), counted as processes
     if [ -n "$g" ] && [ "$g" -ge "$lim" ] 2>/dev/null; then
       [ $((waited % 60)) -eq 0 ] && echo "gpu_turn: $g game processes running (limit $([ "$EXCL" = 1 ] && echo "0 for exclusive" || echo "$MAXG")); waiting"
