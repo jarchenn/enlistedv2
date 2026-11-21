@@ -118,6 +118,7 @@ float overcastGrad(float y){ return 1.25*(1.0 + 2.0*max(y, 0.0))/3.0; }   // CIE
 uniform vec4 uCloudOpen; uniform float uCloudOpenK;   // VO L5 look.cloudOpening: direction (xyz), cosine of its half width (w), strength (0: none)
 uniform vec4 uCloudXf;    // VO L5 look.cloudScale / cloudStretch / cloudDir: the cloud field's xz transform (mat2 columns; identity by default)
 uniform float uSunDisc;   // VO L5 look.sunDisc: 1 default, 0 no sun disc in the sky
+uniform int uFogPhase;   // CP4 fogphase
 uniform int uW2;   // W2 (weather corpus): 1 = overcast sky the right way up, fog = the sky at the horizon, soft cloud openings
 float cloudOpening(vec3 d){   // VO L5: 0..strength toward the opening; W2: a falloff over twice its half width (the old ~8 deg edge read as a disc)
   float c = dot(d, uCloudOpen.xyz);
@@ -376,7 +377,10 @@ vec3 applyFogAir(vec3 col, vec3 w){
   vec3 fc = mix(uFogCol, skyColor(fd), 0.65);
   if (uW2 == 1) fc = hazeColor(dir);   // W2: distant ground fades into exactly the sky behind it at the horizon (the grey band under a deck)
   float sd = max(dot(dir, uSkySun), 0.0);
-  fc += uSkySunCol*vec3(1.0, 0.92, 0.78)*pow(sd, 8.0)*0.10;
+  if (uFogPhase == 1) {   // CP4 fogphase: the sun's in-scatter by a Henyey-Greenstein lobe (g of the air: 0.85 haze / fog, 0.7 dust), only with direct sun
+    float g = wxFogG, cth = dot(dir, uSkySun), hg = (1.0 - g*g)/(4.0*PI*pow(max(1.0 + g*g - 2.0*g*cth, 1e-4), 1.5));
+    fc += uSkySunCol*wxFogAlbedo*hg*0.035*(1.0 - uCloudK);
+  } else fc += uSkySunCol*vec3(1.0, 0.92, 0.78)*pow(sd, 8.0)*0.10;
   if (uEnvFog > 0.0) {
     // WX1 environmental fog: height + distance extinction over the cached field (taken at the ray's midpoint; the drift
     // noise slides downwind), and a cheap sun glow toward the sun, dimmed by the cloud transmittance at the camera and
@@ -2509,6 +2513,7 @@ out vec4 oColor;
 vec3 viewPosAt(vec2 uv){ float z = texture(uDepth, uv).r; vec4 p = uInvProj*vec4(uv*2.0 - 1.0, z, 1.0); return p.xyz/p.w; }   // reverse-Z
 vec2 toUV(vec3 q){ vec4 c = uProj*vec4(q, 1.0); return c.xy/c.w*0.5 + 0.5; }
 uniform float uSsrMaxT = 1e9;   // OPT ssrrange
+uniform vec2 uSsrRough = vec2(0.1, 0.4);   // CP4 ssrfade: SSR fades out over roughness x..y (0.3..0.5; was 0.1..0.4)
 vec4 traceSSR(vec3 Pv, vec3 Rv){
   float stepL = 0.22, t = 0.10, jit = pixelNoise();
   vec3 prev = Pv;
@@ -2555,7 +2560,7 @@ float contactShadow(vec2 uv){
 }
 vec3 ssrAdd(vec2 uv){   // the screen-space reflection's contribution here (geometry seen in it replaces the sky estimate)
   vec4 nr = texture(uNR, uv);
-  if (nr.w >= 0.4 || texture(uDepth, uv).r <= 0.0) return vec3(0.0);   // rough or sky
+  if (nr.w >= uSsrRough.y || texture(uDepth, uv).r <= 0.0) return vec3(0.0);   // rough or sky
   vec3 Pv = viewPosAt(uv);
   vec3 Nv = normalize(mat3(uView)*nr.xyz);
   vec3 Vv = normalize(-Pv), Rv = reflect(-Vv, Nv);
@@ -2564,7 +2569,7 @@ vec3 ssrAdd(vec2 uv){   // the screen-space reflection's contribution here (geom
   if (hit.w <= 0.0) return vec3(0.0);
   vec3 Rw = normalize(transpose(mat3(uView))*Rv);
   vec3 refl = textureLod(uScene, hit.xy, 0.0).rgb;
-  return (refl - skyColor(Rw))*hit.z*F*(1.0 - smoothstep(0.1, 0.4, nr.w))*uSsrAmt;
+  return (refl - skyColor(Rw))*hit.z*F*(1.0 - smoothstep(uSsrRough.x, uSsrRough.y, nr.w))*uSsrAmt;
 }
 void main(){
 #ifdef NMK_SSR_HALF
@@ -2594,7 +2599,7 @@ void main(){
   }
   if (uSsrAmt > 0.0 && uSsrHalf == 1) {   // OPT ssrhalf: depth-aware 2x2 upsample of the half-resolution reflection
     float z0 = texture(uDepth, vUV).r;
-    if (z0 > 0.0 && texture(uNR, vUV).w < 0.4) {
+    if (z0 > 0.0 && texture(uNR, vUV).w < uSsrRough.y) {
       float d0 = -viewPosAt(vUV).z; vec3 s = vec3(0.0); float ws = 0.0;
       for (int y = 0; y < 2; ++y) for (int x = 0; x < 2; ++x) {
         vec4 a = texture(uSsrTex, vUV + (vec2(x, y) - 0.5)*uSsrTexel);
@@ -4812,6 +4817,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform3fv(U(p, "uCloudShadowBox"), 1, glm::value_ptr(cloudShBox));
   glUniform1f(U(p, "uAoIndirectOnly"), q.legacy ? 0.0f : 1.0f);
   glUniform1i(U(p, "uLook"), q.legacy ? 0 : 1);
+  glUniform1i(U(p, "uFogPhase"), perf.fogPhase && q.lightNew && !q.legacy && !thumbMode ? 1 : 0);
   glUniform1i(U(p, "uW2"), perf.w2Sky && q.lightNew && !q.legacy && !thumbMode ? 1 : 0); glUniform1f(U(p, "uFlash"), thumbMode ? 0.0f : wx.der.flash);   // W2
   glUniform1i(U(p, "uDbgView"), dbgView);   // CP0
   { vec2 sa(0.25f, 0.18f); if (const char* e = std::getenv("NMK_SPECAA")) std::sscanf(e, "%f,%f", &sa.x, &sa.y); glUniform2f(U(p, "uSpecAA"), q.legacy || !perf.specAA ? 0.0f : sa.x, sa.y); }   // M3: specaa (--rq-off specaa); NMK_SPECAA="variance,clamp"
@@ -6403,7 +6409,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
     glUniform1i(U(progSsrHalf, "uScene"), 8); glUniform1i(U(progSsrHalf, "uDepth"), 7);
     setLighting(progSsrHalf, v); glUseProgram(progSsrHalf);
     glBindTextureUnit(12, nrTex); glUniform1i(U(progSsrHalf, "uNR"), 12);
-    glUniform1f(U(progSsrHalf, "uSsrAmt"), q.ssrStrength); glUniform1f(U(progSsrHalf, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f);
+    glUniform1f(U(progSsrHalf, "uSsrAmt"), q.ssrStrength); glUniform1f(U(progSsrHalf, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f); glUniform2f(U(progSsrHalf, "uSsrRough"), perf.ssrFade ? 0.3f : 0.1f, perf.ssrFade ? 0.5f : 0.4f);
     glUniformMatrix4fv(U(progSsrHalf, "uProj"), 1, GL_FALSE, glm::value_ptr(v.proj));
     glUniformMatrix4fv(U(progSsrHalf, "uView"), 1, GL_FALSE, glm::value_ptr(v.view));
     glUniformMatrix4fv(U(progSsrHalf, "uInvProj"), 1, GL_FALSE, glm::value_ptr(invP));
@@ -6435,7 +6441,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
     g *= std::max(0.0f, 1.0f - std::fabs(glm::degrees(pitch)) / 20.0f);
     const float mag = std::max(1.0f, v.proj[1][1] / 1.43f);   // a scope's zoom (narrower than the ~70 deg view) scales the wobble
     shimmerPx = 2.0f * (height / 1080.0f) * g * mag;
-  } glUniform1f(U(progComposite, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f);   // OPT ssrrange: no march past 0.75 x visibility
+  } glUniform1f(U(progComposite, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f); glUniform2f(U(progComposite, "uSsrRough"), perf.ssrFade ? 0.3f : 0.1f, perf.ssrFade ? 0.5f : 0.4f);   // OPT ssrrange: no march past 0.75 x visibility
   glUniformMatrix4fv(U(progComposite, "uProj"), 1, GL_FALSE, glm::value_ptr(v.proj));
   glUniformMatrix4fv(U(progComposite, "uView"), 1, GL_FALSE, glm::value_ptr(v.view));
   glUniformMatrix4fv(U(progComposite, "uInvProj"), 1, GL_FALSE, glm::value_ptr(invP));
