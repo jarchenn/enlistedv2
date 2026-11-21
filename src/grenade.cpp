@@ -54,6 +54,17 @@ float Grenades::opticalDepth(vec3 a, vec3 b, double now) const {
   return tau;
 }
 
+float Grenades::sigmaAt(vec3 p, double now) const {
+  float s = 0;
+  for (auto& c : clouds) {
+    const float dens = density(c, now); if (dens <= 0) continue;
+    const float R = c.radius * (0.4f + 0.6f * std::min(1.0f, dens * 1.5f));
+    vec3 r = p - c.p; r.y *= 1.6f; const float x = glm::dot(r, r) / (R * R);
+    if (x < 1) s += tun.smokeSigma * dens * (1.0f - x);
+  }
+  return s;
+}
+
 void Grenades::particles(Fx& fx, double now, float dt) const {
   for (auto& c : clouds) {
     float dens = density(c, now);

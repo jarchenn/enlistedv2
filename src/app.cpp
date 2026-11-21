@@ -115,13 +115,22 @@ static bool loadRadiusOf(const AssetDef* a, float& in, float& out) {
   if (!a || !a->raw.is_object() || !a->raw.contains("loadRadius") || !a->raw["loadRadius"].is_array() || a->raw["loadRadius"].size() < 2) return false;
   in = a->raw["loadRadius"][0].get<float>(); out = std::max(in + 1.0f, a->raw["loadRadius"][1].get<float>()); return true;
 }
+// the rule for one copy: its own asset's, else (a furnishing piece) its host's, measured from the host
+static bool loadRuleFor(App& a, const Instance& i, const AssetDef* asset, float& in, float& out, vec3& at) {
+  if (loadRadiusOf(asset, in, out)) { at = i.pos; return true; }
+  if (!i.extra.is_object()) return false; auto f = i.extra.find("furnish"); if (f == i.extra.end() || !f->is_object()) return false;
+  uint64_t h = f->value("host", (uint64_t)0); if (!h) return false;
+  const Instance* hi = a.doc.find(h); if (!hi) return false;
+  auto it = a.rt.find(h); const AssetDef* ha = it != a.rt.end() && it->second.asset ? it->second.asset : a.assetFor(*hi);
+  if (!loadRadiusOf(ha, in, out)) return false; at = hi->pos; return true;
+}
 void App::syncLoadRadius() {
   const bool play = true;   // play and editor alike: the editor camera brings it in when it flies close
   const vec3 eye = mode == Mode::Explore ? eyePos() : camPos; int built = 0;
   for (uint64_t id : loadRadiusIds) {
     auto it = rt.find(id); Instance* ip = doc.find(id); if (it == rt.end() || !ip) continue;
-    auto& r = it->second; float in, out; if (!loadRadiusOf(r.asset, in, out)) continue;
-    const float d = glm::length(ip->pos - eye);
+    auto& r = it->second; float in, out; vec3 at; if (!loadRuleFor(*this, *ip, r.asset, in, out, at)) continue;
+    const float d = glm::length(at - eye);
     if (play && !r.farOut && d > out) { const AssetDef* a = r.asset; uint64_t rid = r.id; uint32_t rv = r.rev; destroyRT(r); r.asset = a; r.id = rid; r.rev = rv; r.farOut = true; logf("loadRadius: %s dropped at %.0f m", ip->assetId.c_str(), d); }
     else if (r.farOut && (!play || d < in) && built == 0) { buildRT(*ip, r); ++built; logf("loadRadius: %s built at %.0f m", ip->assetId.c_str(), d); }
   }
@@ -132,7 +141,7 @@ void App::buildRT(const Instance& i, InstanceRT& r) {
   destroyRT(r);
   r.id = i.id; r.rev = i.rev; r.asset = assetFor(i);
   { float in, out; r.farOut = false;   // BT2 loadRadius: beyond its outer radius in play it is not built at all
-    if (loadRadiusOf(r.asset, in, out) && glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos)) > out) { r.farOut = true; return; } }
+    vec3 at; if (loadRuleFor(*this, i, r.asset, in, out, at) && glm::length(at - (mode == Mode::Explore ? eyePos() : camPos)) > out) { r.farOut = true; return; } }
   uint64_t base = i.id << 16;
   // BT2: an asset marked "matchOnly" (a play-limit blocker, e.g. at the road out to an explore-only landmark) is solid
   // only while a match is running; refreshMatchOnly() rebuilds those copies when a match starts or ends
@@ -294,7 +303,7 @@ void App::syncRuntime(bool sliceOk) {
     logf("memattr: buildRT %.0f MB over %zu assets:%s", tot, v.size(), s.c_str());
   }
   if (deferred) syncSig_ = 0;   // not done: the next call walks again
-  loadRadiusIds.clear(); for (auto& [id, r] : rt) { float in, out; if (live.count(id) && loadRadiusOf(r.asset, in, out)) loadRadiusIds.push_back(id); }   // BT2
+  loadRadiusIds.clear(); for (auto& i : doc.instances) { auto f = rt.find(i.id); float in, out; vec3 at; if (f != rt.end() && loadRuleFor(*this, i, f->second.asset, in, out, at)) loadRadiusIds.push_back(i.id); }   // BT2 (own rule or the host's)
   crumb("sync: prune");
   for (auto it = rt.begin(); it != rt.end();) {
     if (!live.count(it->first)) { destroyRT(it->second); it = rt.erase(it); } else ++it;
@@ -1304,8 +1313,21 @@ int App::run(int argc, char** argv) {
       else break;   // UI8: closed again while the question is up: quit (unsaved edits are lost, as the question warned)
     }
     double t = glfwGetTime();
-    frameDt = (float)std::min(0.1, t - last); last = t; now = t;
-    if (selftest && !selftest->realTime) frameDt = selftest->slowFrames ? 0.1f : 1.0f / 60.0f;  // deterministic simulation for the scripted test
+    {   // CP (corpus 12 s12.11): a measured delta within 1 ms of a whole number of display refreshes is snapped to it, the
+        // difference carried (game time never drifts from the clock by more than a refresh); the raw delta is still capped at 0.1 s
+      static const double refresh = [] { const GLFWvidmode* vm = glfwGetPrimaryMonitor() ? glfwGetVideoMode(glfwGetPrimaryMonitor()) : nullptr; return vm && vm->refreshRate > 0 ? 1.0 / vm->refreshRate : 0.0; }();
+      static double carry = 0;
+      const double raw = std::min(0.1, t - last); double use = raw;
+      if (refresh > 0 && R.perf.dtSnap) {
+        const double n = std::round((raw + carry) / refresh);
+        if (n >= 1 && std::fabs(raw + carry - n * refresh) < 0.001) use = n * refresh;
+        carry += raw - use; if (std::fabs(carry) > refresh) { use += carry; carry = 0; }
+      }
+      frameDt = (float)std::max(0.0, use); last = t; now = t;
+    }
+    static const bool rtEnv = std::getenv("NMK_SELFTEST_REALTIME") != nullptr;   // CP: profiles on the wall clock (steps per frame as in play)
+    static const float stDt = std::getenv("NMK_SELFTEST_DT") ? (float)std::atof(std::getenv("NMK_SELFTEST_DT")) : 0.0f;   // CP: a fixed frame time other than 1/60 (stepping captures)
+    if (selftest && !selftest->realTime && !rtEnv) frameDt = stDt > 0 ? stDt : selftest->slowFrames ? 0.1f : 1.0f / 60.0f;  // deterministic simulation for the scripted test
     glfwGetFramebufferSize(win, &fbw, &fbh);
     if (fbw > 0 && fbh > 0) R.resize(fbw, fbh);
 
@@ -1427,6 +1449,7 @@ int App::run(int argc, char** argv) {
     mark("fx");
     v.view = viewM; v.proj = projM; v.dt = frameDt;
     R.fxAlpha.clear(); R.fxAdd.clear();
+    fx.nearFade = R.perf.fxNear; fx.wind = R.perf.wxDrift ? R.wx.der.windXZ : vec2(0);
     if (mode == Mode::Explore || selftest) fx.build(viewM, R.fxAlpha, R.fxAdd);   // CV1: captures show light shafts / mist too
     if (mode == Mode::Explore) { extern void royaleFx(App&, std::vector<FxVert>&); royaleFx(*this, R.fxAlpha); }   // BR12: the storm wall, depth-tested in the scene
     if (!R.lt.mapClean) lightsMotes(*this, viewM, R.fxAdd);   // GX2: dust in the sun shafts indoors (every mode); BR2: none on a clean map
@@ -1470,6 +1493,8 @@ int App::run(int argc, char** argv) {
       { const json* fl = lk && lk->contains("fogLayer") && (*lk)["fogLayer"].is_object() ? &(*lk)["fogLayer"] : nullptr;
         R.lt.mapFogLayerDens = fl ? std::clamp(fl->value("density", -1.0f), -1.0f, 0.2f) : -1.0f;
         R.lt.mapFogLayerH = fl ? std::clamp(fl->value("height", 0.0f), 0.0f, 500.0f) : 0.0f;
+        { const json* f2 = lk && lk->contains("fogLayer2") && (*lk)["fogLayer2"].is_object() ? &(*lk)["fogLayer2"] : nullptr;   // a band between absolute heights (castle terraces)
+          R.lt.fog2 = f2 ? vec4(std::clamp(f2->value("density", 0.0f), 0.0f, 0.2f), f2->value("floor", 0.0f), f2->value("top", 0.0f), std::clamp(f2->value("soft", 10.0f), 1.0f, 200.0f)) : vec4(0.0f); }
         R.lt.mapFogLayerTop = fl && fl->contains("top") ? fl->value("top", 1e9f) : 1e9f; R.lt.mapFogLayerSoft = fl ? std::clamp(fl->value("topSoft", 12.0f), 1.0f, 200.0f) : 12.0f; }   // a ceiling at world y (soft over topSoft m)
       { extern void snowSync(App&); snowSync(*this); }   // SN1: the map's snow layer (snow.cpp)
       // GR3: "look": {"night": {"haze", "envFog", "fogNear"}}: the map's night air (its own density and mist), when the sun is down

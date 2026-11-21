@@ -546,6 +546,24 @@ void netInterpolate(Game& g, double clientT, float dt) {
   }
 }
 
+// CP: a client draws remote soldiers where the snapshot interpolation puts them at this frame's time (netInterpolate runs inside
+// the fixed steps, which a frame may have none or two of): feet and yaw only, prevFeet = feet so the step interpolation leaves them
+void netDrawPositions(Game& g) {
+  if (!gNet || !gNet->d) return;
+  auto& d = *gNet->d;
+  const double rt = d.serverT + (d.now - d.serverTAt) - 0.1;
+  for (auto& [k, np] : d.poses) {
+    if (k >= (int)g.sold.size()) continue;
+    Soldier& s = g.sold[k];
+    if (s.localPlayer || !s.alive) continue;
+    const double span = np.t[1] - np.t[0];
+    const float u = span > 1e-4 ? (float)std::clamp((rt - np.t[0]) / span, 0.0, 1.5) : 1.0f;
+    s.feet = s.prevFeet = glm::mix(np.feet[0], np.feet[1], u);
+    const float dy = wrapDeg(np.yaw[1] - np.yaw[0] + 180.0f) - 180.0f;
+    s.yaw = wrapDeg(np.yaw[0] + dy * std::min(u, 1.0f));
+  }
+}
+
 // ---------------------------------------------------------------- client applies world events
 void netApplyEvent(App& app, const json& ev, bool replay) {
   std::string t = ev.value("t", "");

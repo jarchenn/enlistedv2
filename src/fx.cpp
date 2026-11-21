@@ -6,12 +6,12 @@
 #include <cmath>
 
 void Fx::smoke(vec3 p, vec3 v, float size, float life, vec4 col, float grow, float lift) {
-  if (parts.size() >= maxParts) parts.erase(parts.begin());
+  if (parts.size() >= maxParts) parts.pop_front();
   Particle q; q.p = p; q.v = v; q.size = size; q.life = q.maxLife = life; q.col = col; q.grow = grow; q.drag = 1.6f; q.lift = lift;
   parts.push_back(q);
 }
 void Fx::flash(vec3 p, float size, float life, vec4 col) {
-  if (parts.size() >= maxParts) parts.erase(parts.begin());
+  if (parts.size() >= maxParts) parts.pop_front();
   Particle q; q.p = p; q.size = size; q.life = q.maxLife = life; q.col = col; q.additive = true; q.grow = -size / life * 0.3f;
   parts.push_back(q);
 }
@@ -20,7 +20,7 @@ void Fx::muzzleFlash(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light,
   vec3 up = std::fabs(dir.y) > 0.95f ? vec3(1, 0, 0) : vec3(0, 1, 0), s1 = glm::normalize(glm::cross(dir, up)), s2 = glm::cross(s1, dir);
   float life = 0.02f + 0.02f * rnd();
   auto put = [&](vec3 q, float size, vec4 col) {
-    if (parts.size() >= maxParts) parts.erase(parts.begin());
+    if (parts.size() >= maxParts) parts.pop_front();
     Particle a; a.p = q; a.size = size; a.life = a.maxLife = life; a.col = col; a.additive = true; a.grow = size * 1.5f; parts.push_back(a);
   };
   FlashLook F = flashLook;
@@ -51,7 +51,7 @@ void Fx::muzzleFireball(vec3 p, vec3 dir, float scale, bool suppressed, vec3 lig
   const float life = 0.022f + 0.018f * rnd(), D = (0.15f + 0.05f * rnd()) * scale;   // the ball's diameter (rifle ~17 cm)
   const float roll = rnd() * 6.2831853f;
   auto put = [&](vec3 q, float size, vec3 col, float stretch) {
-    if (parts.size() >= maxParts) parts.erase(parts.begin());
+    if (parts.size() >= maxParts) parts.pop_front();
     Particle a; a.p = q; a.size = size; a.life = a.maxLife = life; a.col = vec4(col, 1); a.additive = true; a.grow = size * 0.8f;
     a.flame = 1000.0f + (float)(int)(rnd() * 255.0f); a.v = dir * (0.001f + stretch); a.drag = 0; parts.push_back(a);
   };
@@ -107,12 +107,12 @@ void Fx::explosion(vec3 p, vec3 n, const std::string& family, bool ground) {
   flash(p + n * 0.3f, 3.5f, 0.12f, vec4(9.0f, 6.0f, 2.5f, 1));
   flash(p + n * 0.2f, 1.6f, 0.25f, vec4(5.0f, 2.6f, 0.8f, 1));
   vec4 dust = family == "concrete" ? vec4(0.42f, 0.41f, 0.38f, 0.75f) : family == "timber" ? vec4(0.33f, 0.27f, 0.19f, 0.7f)
-             : ground ? vec4(0.24f, 0.19f, 0.13f, 0.8f) : vec4(0.45f, 0.41f, 0.34f, 0.75f);
+             : ground ? vec4(0.35f, 0.29f, 0.21f, 0.8f) : vec4(0.45f, 0.41f, 0.34f, 0.75f);   // W6: kicked-up dry soil is lighter than the ground it came from (it was 0.24 / 0.19 / 0.13: a hole in fog once lit)
   for (int i = 0; i < 22; ++i) {
     vec3 d = glm::normalize(n * 1.3f + vec3(rnd() - 0.5f, rnd() * 0.8f, rnd() - 0.5f) * 1.6f);
     smoke(p + d * 0.3f, d * (2.0f + rnd() * 6.0f), 0.6f + rnd() * 0.8f, 2.5f + rnd() * 3.5f, dust * vec4(0.8f + rnd() * 0.3f, 0.8f + rnd() * 0.3f, 0.8f + rnd() * 0.3f, 1), 1.4f, 0.5f);
   }
-  for (int i = 0; i < 10; ++i) smoke(p + vec3(0, 0.5f, 0), vec3(rnd() - 0.5f, 1.5f + rnd() * 2, rnd() - 0.5f), 1.2f, 5.0f + rnd() * 3, vec4(0.16f, 0.15f, 0.14f, 0.55f), 0.9f, 0.9f);
+  for (int i = 0; i < 10; ++i) smoke(p + vec3(0, 0.5f, 0), vec3(rnd() - 0.5f, 1.5f + rnd() * 2, rnd() - 0.5f), 1.2f, 5.0f + rnd() * 3, vec4(0.28f, 0.27f, 0.25f, 0.55f), 0.9f, 0.9f);   // W6: was 0.16
   int nd = ground ? 10 : 16;
   for (int i = 0; i < nd; ++i) {
     if (debris.size() >= maxDebris) debris.erase(debris.begin());
@@ -193,7 +193,7 @@ void Fx::blasterImpact(vec3 p, vec3 n, int kind) {   // SW1
   flash(p + n * 0.03f, 0.35f, 0.09f, vec4(c * 8.0f + vec3(2.0f), 1));
   flash(p + n * 0.02f, 0.14f, 0.16f, vec4(c * 3.0f + vec3(3.0f, 2.0f, 1.0f), 1));
   for (int i = 0; i < 7; ++i) {   // sparks: short additive specks thrown off the surface
-    if (parts.size() >= maxParts) parts.erase(parts.begin());
+    if (parts.size() >= maxParts) parts.pop_front();
     Particle q; q.p = p + n * 0.02f; q.v = glm::normalize(n * 1.2f + vec3(rnd() - 0.5f, rnd() - 0.3f, rnd() - 0.5f)) * (2.0f + rnd() * 4.0f);
     q.size = 0.025f; q.life = q.maxLife = 0.15f + rnd() * 0.25f; q.col = vec4(c * 3.0f + vec3(4.0f, 3.0f, 2.0f), 1); q.additive = true; q.drag = 2.5f; q.lift = -6.0f; parts.push_back(q);
   }
@@ -213,7 +213,7 @@ void Fx::update(float dt, const Terrain& t) {
   mlights.erase(std::remove_if(mlights.begin(), mlights.end(), [](const MuzzleLight& L) { return L.age >= L.life; }), mlights.end());
   for (auto& q : parts) {
     q.life -= dt;
-    q.v *= std::exp(-q.drag * dt);
+    { const vec3 w = q.additive ? vec3(0) : vec3(wind.x, 0, wind.y); q.v = w + (q.v - w) * std::exp(-q.drag * dt); }   // weather: smoke / dust settle into the wind (0: still air)
     q.v.y += q.lift * dt;
     q.p += q.v * dt;
     q.size = std::max(0.02f, q.size + q.grow * dt);
@@ -244,12 +244,24 @@ void Fx::build(const mat4& view, std::vector<FxVert>& alpha, std::vector<FxVert>
   vec3 right = vec3(inv[0]), up = vec3(inv[1]), eye = vec3(inv[3]);
   auto quad = [](std::vector<FxVert>& out, vec3 c, vec3 rx, vec3 ry, vec4 col, vec2 o = vec2(0)) {   // o: uv offset (the shader reads firing-smoke id / flag from it)
     vec3 p0 = c - rx - ry, p1 = c + rx - ry, p2 = c + rx + ry, p3 = c - rx + ry;
-    out.push_back({p0, col, o + vec2(0, 0)}); out.push_back({p1, col, o + vec2(1, 0)}); out.push_back({p2, col, o + vec2(1, 1)});
-    out.push_back({p0, col, o + vec2(0, 0)}); out.push_back({p2, col, o + vec2(1, 1)}); out.push_back({p3, col, o + vec2(0, 1)});
+    const float r = std::min(glm::length(rx), glm::length(ry));   // W6: the soft fade's radius
+    out.push_back({p0, col, o + vec2(0, 0), r}); out.push_back({p1, col, o + vec2(1, 0), r}); out.push_back({p2, col, o + vec2(1, 1), r});
+    out.push_back({p0, col, o + vec2(0, 0), r}); out.push_back({p2, col, o + vec2(1, 1), r}); out.push_back({p3, col, o + vec2(0, 1), r});
   };
-  for (auto& q : parts) {
-    float f = std::clamp(q.life / q.maxLife, 0.0f, 1.0f);
-    vec4 c = q.col;
+  const float tanHalf = 0.70f;   // shortcut: the 70 deg vertical view (build has no projection); a zoomed sight caps a little early
+  for (const Particle& q0 : parts) {
+    float f = std::clamp(q0.life / q0.maxLife, 0.0f, 1.0f);
+    vec4 c = q0.col;
+    // weather corpus 7.19 / 7.22: a sprite never covers more than about half the view height (camera inside smoke: tens of
+    // full-screen layers of overdraw), and an alpha sprite fades out near the eye (d0 = r/2 + 0.1 m .. d0 + r) like the
+    // additive ones below; the inside look of a smoke cloud comes from the fog term instead (Renderer::smokeSigma)
+    Particle q = q0; float nearA = 1.0f;
+    if (nearFade) {
+      const float d = glm::length(q.p - eye);
+      q.size = std::min(q.size, 0.5f * std::max(d, 0.05f) * tanHalf);
+      if (!q.additive) { const float d0 = 0.5f * q0.size + 0.1f; nearA = glm::smoothstep(d0, d0 + q0.size, d); if (nearA * c.a < 1.0f / 255.0f) continue; }
+    }
+    c.a *= nearA;
     // CV1 fix: an additive sprite at the eye covers the whole screen at full strength (standing in a fire, a light
     // shaft's motes, a flash beside the camera) and stacks to white: fade it out inside ~2 of its own sizes
     static const bool noFade = std::getenv("NMK_FX_NONEARFADE") != nullptr;   // dev A/B: the old behaviour
@@ -280,11 +292,13 @@ void Fx::build(const mat4& view, std::vector<FxVert>& alpha, std::vector<FxVert>
       float a = glm::dot(q.v, right), b = glm::dot(q.v, up), l = std::sqrt(a * a + b * b);
       vec3 ax = l > 0.05f ? (right * a + up * b) / l : right, pr = l > 0.05f ? (up * a - right * b) / l : up;
       float st = 1.0f + 0.7f * std::min(1.0f, l / 3.0f);
+      if (c.a < 1.0f / 255.0f) continue;
       int id = (int)(std::fmod(q.maxLife * 97.13f, 1.0f) * 64.0f);
       quad(alpha, q.p, ax * (q.size * st), pr * (q.size * 0.85f), c, vec2(2.0f * id, 4.0f));
       continue;
     }
     else c.a *= std::min(1.0f, f * 2.0f) * std::min(1.0f, (1 - f) * 8.0f + 0.2f);
+    if (!q.additive && c.a < 1.0f / 255.0f) continue;   // an invisible quad still costs its overdraw
     quad(q.additive ? add : alpha, q.p, right * q.size, up * q.size, c);
   }
   for (auto& s : streaks) {
@@ -305,7 +319,7 @@ void Fx::build(const mat4& view, std::vector<FxVert>& alpha, std::vector<FxVert>
 // a slow low dust cloud when a piece is blown apart. Both respect maxParts like every other effect.
 void Fx::splinters(vec3 p, vec3 v, int n, vec4 col, float size) {
   for (int k = 0; k < n; ++k) {
-    if (parts.size() >= maxParts) parts.erase(parts.begin());
+    if (parts.size() >= maxParts) parts.pop_front();
     Particle q;
     vec3 r(rnd() - 0.5f, rnd() * 0.9f + 0.1f, rnd() - 0.5f);
     q.p = p + r * 0.25f; q.v = v * (0.4f + 0.8f * rnd()) + r * (2.5f + 3.5f * rnd());

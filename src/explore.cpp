@@ -45,7 +45,7 @@ static bool kp(GLFWwindow* w, int k) {
 
 vec3 App::eyePos() const {
   auto c = Physics::character();
-  return c.pos + vec3(0, eyeHeight, 0) + leanOffset();
+  return c.pos + eyeDrawOff + vec3(0, eyeHeight, 0) + leanOffset();   // CP: eyeDrawOff draws the eye between the last two steps (0 inside them)
 }
 
 // MV3 lean: the head swings on an arc about a waist pivot radius below the eye (sideways out to `side`, the drop ~4 cm
@@ -567,7 +567,13 @@ void App::updateExplore(float dt) {
   mpaiInput(*this, in);   // match: dead / ended input, grenade keys
   physAccum += dt;
   int steps = 0;
-  while (physAccum >= 1.0f / 60.0f && steps < 8) {
+  // CP (corpus 12 s12.5): fixed 60 Hz steps, at most 4 a frame (was 8: a slow frame no longer owes the next one a pile of steps);
+  // the camera and the soldiers are drawn between the last two steps (alpha = the step fraction left), Jolt advances by the same steps
+  eyeDrawOff = vec3(0);   // inside the steps the eye is the character's true position
+  gPosePerStep = !R.perf.poseFrame; gPoseLodOff = !R.perf.poseLod; gPoseSerial = !R.perf.poseJobs; gStepCap8 = !R.perf.stepInterp;   // the A/B switches (--rq-off)
+  const int kMaxSteps = gStepCap8 ? 8 : 4;
+  while (physAccum >= 1.0f / 60.0f && steps < kMaxSteps) {
+    charStepPrev = Physics::character().pos;
     crumb("explore step");
     exploreStep(1.0f / 60.0f, in);
     crumb("match step");
@@ -576,9 +582,13 @@ void App::updateExplore(float dt) {
     in.wheel = 0;   // one scroll notch turns the build ghost once, however many steps run
     physAccum -= 1.0f / 60.0f; ++steps;
   }
-  if (steps == 8) physAccum = 0;   // beyond 8 fixed steps per frame, drop time rather than spiral
+  if (steps == kMaxSteps) physAccum = std::fmod(physAccum, 1.0f / 60.0f);   // beyond the cap drop time (slow motion), never spiral
+  const float alpha = interpOff || !R.perf.stepInterp ? 1.0f : std::clamp(physAccum * 60.0f, 0.0f, 1.0f);
+  { const vec3 cur = Physics::character().pos; if (glm::length(cur - charStepPrev) < 2.0f && !occupied) eyeDrawOff = glm::mix(charStepPrev, cur, alpha) - cur; }   // a teleport (2 m+): no streak
+  if (gGame) gGame->posesFrame(steps / 60.0f, alpha);   // CP: one pose pass per drawn frame, with the steps' summed time
   crumb("physics step");
-  Physics::step(dt);
+  if (!R.perf.stepInterp) Physics::step(dt);   // off: the raw frame time, as before
+  else if (steps > 0) Physics::step(steps / 60.0f, steps);   // CP: Jolt on the same fixed steps (was the raw frame time)
   crumb("explore leaves / interior / grenades");
   stepDynLeaves(dt);
   interior.step(*this, dt);

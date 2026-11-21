@@ -197,6 +197,7 @@ public:
   // render quality / look (docs/rendering.md). legacy = the pre-BSL-pass look (fallback)
   struct Quality {
     bool legacy = false;
+    bool ultra = false;         // UL2: Ultra preset effects (GraphicsOpts::ultraFx): PCSS, far tree detail
     bool lightPhys = false;     // CP2 Settings > Lighting Physical: sun / sky / bounce in lux, EV100 exposure (implies lightNew)
     float physExpoK = 1.44f;    // CP2: exposure calibration (grey card in clear midday sun lands where New puts it; the look-dev readout refines it)
     bool lightNew = true;       // VO stream L: Settings > Lighting New / Classic (Classic = the pre-VO look, exactly)
@@ -352,6 +353,13 @@ public:
     bool wxShimmer = true;       // wxshimmer (W5): heat shimmer low over hot arid ground at 80-400 m (clear, calm, high sun)
     bool lightCull = true;       // lightcull (CP2): Lighting Physical by day culls lamps under one display step at this exposure (lamps in lumens)
     bool physGrade = true;       // physgrade (CP2): Lighting Physical grades in scene-linear before the curve (pivot 0.18)
+    bool ssrFade = true;         // ssrfade (CP4): SSR fades out over roughness 0.3-0.5 (was 0.1-0.4)
+    bool fogPhase = true;        // fogphase (CP4): the haze takes the sun by a Henyey-Greenstein lobe of the air's g, none under a deck
+    bool bentNormal = true;      // bentnormal (CP4): GTAO's bent normal steers the sky / ground share of the indirect light in the composite
+    bool reflRoom = true;        // reflroom (CP4): indoors the reflection cube's parallax box is the room it was captured in
+    bool pcss = true;            // pcss (UL2): contact-hardening near-cascade sun penumbrae (Ultra, Lighting New)
+    bool midCache = true;        // midcache (CP4): High / Ultra mid cascade = a cached static layer + movers redrawn every frame (was all of it every 2nd frame)
+    bool skyVisWall = true;      // skyviswall (CP4): on walls the top-down sky occlusion counts an occluder by ~2 m / its height above (no full-height stripes under dormers)
     bool wxSun = true;           // wxsun (OPT, weather corpus 08 s4.2): overcast takes the direct sun away; under 5 % direct share no sun cascades (fade to 10 %)
     bool sunShadow = true;       // sunshadow (OPT): the sun cascades (near, mid, far) drawn and sampled; off = none (knock-out)
     bool midCascade = true;      // midcascade (VO L3): a third sun cascade between the near and far ones (Medium / High, Lighting New)
@@ -373,6 +381,15 @@ public:
     bool terrainHorizon = true;  // thorizon (VOT T6): baked terrain horizon toward the sun shadows the ground and far objects past the last cascade; off = unshadowed there, as before
     bool terrainTileLod = true;  // ttilelod (VOT T2): fine tiles culled to the view and drawn at 1/5/7-sample steps by distance (skirts hide the seams); off = every tile at full resolution
     bool terrainSkyView = true;  // tskyview (VOT T5): the terrain's ambient is occluded by its own horizon (baked sky-view factor); off = open sky everywhere
+    bool poseFrame = true;       // poseframe (CP 1): soldier poses once per drawn frame (off: once per fixed step, as before)
+    bool poseLod = true;         // poselod (CP 2): pose rate / view LOD at any soldier count (off: every soldier every frame)
+    bool poseJobs = true;        // posejobs (CP 3): poses evaluated on the job threads (off: all on the main thread)
+    bool stepInterp = true;      // stepinterp (CP 4): at most 4 fixed steps a frame, the eye / soldiers drawn between the last two, Jolt on the same steps (off: cap 8, the last step as is, Jolt on the frame time)
+    bool dtSnap = true;          // dtsnap (CP 4): frame time snapped to whole display refreshes within 1 ms, remainder carried (off: the raw clock)
+    bool fxLit = true;           // fxlit (weather W6): particles lit by the sun (one shadow tap) and sky / ground and fogged per vertex like geometry (off: their own colour, unfogged)
+    bool fxSoft = true;          // fxsoft (weather W6): particles fade over 0.35 x their radius where they meet the scene (off: a hard line)
+    bool wxDrift = true;         // wxdrift (weather): smoke and dust particles drift with the state's wind, grenade clouds creep downwind (off: still air)
+    bool fxNear = true;          // fxnear (weather 7): alpha sprites fade near the eye, every sprite capped at half the view height on screen (off: as before)
     bool charVel = true;         // charvel (AIB1): soldiers write their own TAA motion (previous model matrix + previous skinned vertex); off = depth reprojection (smeared)
     bool snowFar = true;         // snowfar (BT2): applySnow's patch noise only within 120 m and its shelter tap within 150 m; off = everywhere
     bool snowTex = true;         // snowtex (SN2): the three snow sets (packed / trodden / thaw) on the ground within 60 m, edges by height; off = applySnow's flat snow
@@ -383,7 +400,7 @@ public:
     bool set(const std::string& n, bool on) {   // false: no such switch
       if (n == "wx1") { clouds = cloudShadow = shafts = envFog = on; return true; }   // WX1: the whole weather / fog stack (one A/B)
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
-              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "tzearly" ? &terrainEarlyZ : n == "tzprepass" ? &terrainPrepass : n == "sunshadow" ? &sunShadow : n == "wxsun" ? &wxSun : n == "taajitph" ? &taaJitPh : n == "taavel" ? &taaVel : n == "taabox" ? &taaBox : n == "cas" ? &cas : n == "dither" ? &dither : n == "slopecap" ? &slopeCap : n == "w2sky" ? &w2Sky : n == "w2mist" ? &w2Mist : n == "w2expo" ? &w2Expo : n == "lightning" ? &lightning : n == "farlite" ? &farLite : n == "occsmall" ? &occSmall : n == "skygate" ? &skyGate : n == "ssrrange" ? &ssrRange : n == "probetrickle" ? &probeTrickle : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "clouds" ? &clouds : n == "cloudshadow" ? &cloudShadow : n == "shafts" ? &shafts : n == "envfog" ? &envFog : n == "sdecals" ? &staticDecals : n == "grade" ? &grade : n == "tdust" ? &terrainDust : n == "wxshimmer" ? &wxShimmer : n == "ssrhalf" ? &ssrHalf : n == "lightcull" ? &lightCull : n == "physgrade" ? &physGrade
+              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "tzearly" ? &terrainEarlyZ : n == "tzprepass" ? &terrainPrepass : n == "sunshadow" ? &sunShadow : n == "wxsun" ? &wxSun : n == "skyviswall" ? &skyVisWall : n == "midcache" ? &midCache : n == "pcss" ? &pcss : n == "reflroom" ? &reflRoom : n == "taajitph" ? &taaJitPh : n == "taavel" ? &taaVel : n == "taabox" ? &taaBox : n == "cas" ? &cas : n == "dither" ? &dither : n == "slopecap" ? &slopeCap : n == "w2sky" ? &w2Sky : n == "w2mist" ? &w2Mist : n == "w2expo" ? &w2Expo : n == "lightning" ? &lightning : n == "farlite" ? &farLite : n == "occsmall" ? &occSmall : n == "skygate" ? &skyGate : n == "ssrrange" ? &ssrRange : n == "probetrickle" ? &probeTrickle : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "clouds" ? &clouds : n == "cloudshadow" ? &cloudShadow : n == "shafts" ? &shafts : n == "envfog" ? &envFog : n == "sdecals" ? &staticDecals : n == "grade" ? &grade : n == "tdust" ? &terrainDust : n == "wxshimmer" ? &wxShimmer : n == "ssrhalf" ? &ssrHalf : n == "lightcull" ? &lightCull : n == "physgrade" ? &physGrade : n == "bentnormal" ? &bentNormal : n == "ssrfade" ? &ssrFade : n == "fogphase" ? &fogPhase
               : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : n == "leaftex" ? &leafTex : n == "taau" ? &taau : n == "imgmat" ? &imgMat
               : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : n == "grassatlas" ? &grassAtlas : n == "dlcache" ? &dlCache : n == "instdepth" ? &instDepth : n == "folbatch" ? &folBatch : n == "farleaf" ? &farLeaf : n == "walllod" ? &wallLod : n == "matfar" ? &matFar : n == "probemed" ? &probeMed : n == "shadowcache" ? &shadowCache : n == "occcull" ? &occCull : n == "treefar" ? &treeFar : n == "leafmerge" ? &leafMerge : n == "furndist" ? &furnDist : n == "furnclutter" ? &furnClutter : n == "paint" ? &groundPaint : n == "vegcull" ? &vegCull
               // One line per stream, each followed by a comment line, so two streams appending names no longer conflict in merges.
@@ -393,7 +410,7 @@ public:
               // ^ stream L (lighting): append to the line above
               : n == "specaa" ? &specAA : n == "texbias" ? &texBias : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps : n == "splitsum" ? &splitSum : n == "albclamp" ? &albClamp : n == "wabs" ? &wAbs : n == "wet" ? &wet : n == "microdetail" ? &microDetail : n == "wearcause" ? &wearCause : n == "masklib" ? &maskLib : n == "roughvar" ? &roughVar
               // ^ stream M (materials): append to the line above
-              : n == "charvel" ? &charVel
+              : n == "charvel" ? &charVel : n == "fxnear" ? &fxNear : n == "wxdrift" ? &wxDrift : n == "fxlit" ? &fxLit : n == "fxsoft" ? &fxSoft : n == "poseframe" ? &poseFrame : n == "poselod" ? &poseLod : n == "posejobs" ? &poseJobs : n == "stepinterp" ? &stepInterp : n == "dtsnap" ? &dtSnap
               // ^ characters (gameplay): append to the line above
               : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "pollen" ? &pollen : n == "impostors" ? &impostors : n == "impostorbc" ? &impostorBC : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
               // ^ stream A (vegetation): append to the line above
@@ -429,6 +446,7 @@ public:
   float resolutionScale() const { return resScale; }
   bool ssaoFull() const { return aoDiv == 1; }
   int displayW = 0, displayH = 0;
+  float smokeSigma = 0; vec3 smokeCol{0.62f, 0.62f, 0.61f};   // weather 7: smoke extinction (1/m) at the eye and its colour (uSmokeSigma / uSmokeCol, for applyFog; set each frame by the game)
   void resetTemporal() { taaValid = false; }   // camera cut / teleport / mode switch
   // Mac hook (MetalFX temporal scaler, rendering.md 14.4): when set and it returns true, it replaced the GL TAAU shader
   // exposure: the engine's 1x1 R32F exposure (last frame's; the tonemap multiplies the HDR colour by it)
@@ -469,6 +487,7 @@ public:
     bool mapSnowfall = false; float sfNear = 0, sfFar = 0, sfFall = 1.1f, sfBright = 1.0f; vec2 sfWind{0.9f, -0.6f};   // SF1: look.snowfall
     float mapGrassDead = 0.0f;   // BT1: look.grassDead
     bool mapLeafless = false;   // BT1: look.leafless (winter: no leaf cards on the part-built trees)
+    vec4 fog2{0.0f};   // look.fogLayer2 {density, floor, top, soft}: a fog band between world heights (x = 0: none)
     float mapFogLayerTop = 1e9f, mapFogLayerSoft = 12.0f;   // look.fogLayer {top, topSoft}: the layer ends at world y top (1e9: no ceiling)
     float mapHazeH = 0.0f, mapFogLayerDens = -1.0f, mapFogLayerH = 0.0f;   // FG1: look.hazeHeight, look.fogLayer {density, height} (0 / -1: the defaults)
     float mapFogNear = 0.0f;    // GR3: "look": {"fogNear": m}: the environmental fog starts this far from the eye (near ground keeps its contrast)
@@ -585,7 +604,7 @@ private:
   float effScale() const { return perf.taau && upscaleMode != 2 ? resScale : 1.0f; }   // taau off / mode Off: native resolution
   bool grassAtlasReady = false;   // GT1: content/textures/grass_atlas loaded (grass.cpp grassAtlasInit)
   GLuint progGrass = 0, progGrassShadow = 0, progGrassPre = 0;   // Pre (CP1): kGrassFS's own cut-outs, depth only   // GX3: near pasture clumps into the sun map
-  GLuint progFx = 0, fxVao = 0, fxVbo = 0;
+  GLuint progFx = 0, fxVao = 0, fxVbo = 0, softDepth = 0; int softW = 0, softH = 0;   // softDepth: W6's copy of the depth (the particles' soft fade)
   GLuint progSnowfall = 0, snowfallVao = 0;   // SF1 snowfall
   // R1 terrain material cache (rendering.md 13): 2 RGBA8 layers of world-space noise over the terrain extent, mipmapped
   GLuint tcTex = 0, tcProg = 0; vec2 tcOrg{0}, tcExt{0}; int tcW = 0, tcH = 0; float tcTexel = 0.5f; double tcBakeMs = 0, tcMB = 0;
@@ -600,11 +619,13 @@ private:
   GLuint shadowFarFbo = 0, shadowFarTex = 0; int shadowFarSize = 2048;
   mat4 lightVPFar{1}; float nearR = 40.0f, farR = 240.0f; int frame = 0;
   GLuint progGradeLut = 0, gradeLutTex = 0, gradeLutFbo = 0;   // VO L8
-  GLuint reflTex = 0; vec3 reflPos{0}; bool reflOn = false;   // VO L7 reflection probe (lighting.cpp reflPass)
+  GLuint reflTex = 0; vec3 reflPos{0}; bool reflOn = false;
+  int reflRoom = -1; mat4 reflRoomInv{1}; vec3 reflRoomHalf{0};   // CP4 reflroom: the room the cube was captured in (-1: outdoors, the fixed box)   // VO L7 reflection probe (lighting.cpp reflPass)
 public:   // VO L5: render.cpp's atmosphere helpers fill these
   struct AtmoRef { bool valid = false; vec3 sunDir{0}, sun{0}, sky{0}, ground{0}, fog{0}, zen{0}, hor{0}; } atmoRef;   // VO L5: authored-hour colours
   struct AtmoSamples { vec3 sunT{1}, zen{1}, hor{1}, horSun{1}, horAnti{1}, amb{1}; } atmoRefT, atmoNow; vec3 atmoNowDir{0};   // VO L5 (render.cpp atmoEval)
 private:
+  GLuint midStaticTex = 0, midStaticFbo = 0; int midStaticSize = 0;   // CP4 midcache: the mid cascade's static layer
   mat4 lightVPMid{1}; float midR = 96.0f; int midFrame = -1000; vec3 midFocus{0}, midSun{0}; bool midOn = false;   // VO L3 mid cascade
   GLuint hdrFbo = 0, hdrColor = 0, depthTex = 0, ldrFbo = 0, ldrColor = 0;
   int msaaSamples = 0;

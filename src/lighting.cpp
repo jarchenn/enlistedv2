@@ -724,6 +724,15 @@ void LightingPass::reflPass(Renderer& R, const RenderView& v, const std::vector<
   }
   glEnable(GL_DEPTH_TEST);
   R.reflTex = F.cube; R.reflPos = eye; R.reflOn = true;
+  R.reflRoom = -1;   // CP4 reflroom: the room around the capture point, if any (the smallest that contains it)
+  float best = 1e30f;
+  for (size_t k = 0; k < R.rooms.size(); ++k) {
+    const auto& rb = R.rooms[k]; mat4 inv = glm::inverse(rb.m); vec3 l = vec3(inv * vec4(eye, 1.0f));
+    if (std::fabs(l.x) <= rb.half.x && std::fabs(l.y) <= rb.half.y && std::fabs(l.z) <= rb.half.z) {
+      float vol = rb.half.x * rb.half.y * rb.half.z;
+      if (vol < best) { best = vol; R.reflRoom = (int)k; R.reflRoomInv = inv; R.reflRoomHalf = rb.half; }
+    }
+  }
 }
 
 void LightingPass::probePass(Renderer& R, const RenderView& v, const std::vector<DrawItem>& opaque, const Terrain& t) {

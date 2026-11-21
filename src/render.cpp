@@ -111,6 +111,7 @@ uniform float uShadowLift;        // VO L1: share of the sun a shadow removes (C
 uniform float uMicroSh;           // VO L4: micro-shadowing from material AO on the direct light (0 Classic, 1 New)
 uniform float uShadowWarm;        // VO L1: sun-hue bias of the sky light on surfaces in the sun's shadow (New; 0 Classic)
 uniform int uShadowTaps;          // P3: cap on the PCF taps (presets; 0 = no cap)
+uniform int uPcss;                // UL1 (Ultra, --rq-off pcss): contact-hardening near-cascade penumbrae
 uniform int uFrame;               // frame counter (noise rotation; TAA decorrelation)
 uniform int uCloudShadowOn; uniform float uCloudCov, uCloudT;
 uniform float uCloudK, uCloudSeed; uniform vec2 uCloudWind;
@@ -119,11 +120,14 @@ float overcastGrad(float y){ return 1.25*(1.0 + 2.0*max(y, 0.0))/3.0; }   // CIE
 uniform vec4 uCloudOpen; uniform float uCloudOpenK;   // VO L5 look.cloudOpening: direction (xyz), cosine of its half width (w), strength (0: none)
 uniform vec4 uCloudXf;    // VO L5 look.cloudScale / cloudStretch / cloudDir: the cloud field's xz transform (mat2 columns; identity by default)
 uniform float uSunDisc;   // VO L5 look.sunDisc: 1 default, 0 no sun disc in the sky
+uniform int uFogPhase;   // CP4 fogphase
 uniform int uW2;   // W2 (weather corpus): 1 = overcast sky the right way up, fog = the sky at the horizon, soft cloud openings
 float cloudOpening(vec3 d){   // VO L5: 0..strength toward the opening; W2: a falloff over twice its half width (the old ~8 deg edge read as a disc)
   float c = dot(d, uCloudOpen.xyz);
-  return uCloudOpenK*(uW2 == 1 ? smoothstep(cos(2.0*acos(clamp(uCloudOpen.w, -1.0, 1.0))), 1.0, c) : smoothstep(uCloudOpen.w, mix(uCloudOpen.w, 1.0, 0.6), c));
+  if (uW2 == 1) return uCloudOpenK*smoothstep(cos(2.0*acos(clamp(uCloudOpen.w, -1.0, 1.0))), 1.0, c)*(1.0 - 0.9*smoothstep(0.5, 0.85, uCloudK));   // a closed deck: a faint brightening, no hole (the sun halo showed through as a disc)
+  return uCloudOpenK*smoothstep(uCloudOpen.w, mix(uCloudOpen.w, 1.0, 0.6), c);
 }   // VO L5: 0..strength toward the opening
+uniform vec4 uFog2;   // look.fogLayer2: density, floor y, top y, soft (m); x = 0 off
 uniform float uEnvFogTop = 1e9, uEnvFogSoft = 12.0;   // look.fogLayer top: the layer's ceiling at world y, soft over uEnvFogSoft m
 uniform float uEnvFog, uEnvFogH, uFogIndoor, uEnvFogNear; uniform sampler2D uFogField; uniform vec4 uFogBox;   // WX1 environmental fog: density (1/m), layer height, indoor scale; field (unit 27), box (min xz, 1/size)
 uniform float uAoIndirectOnly;    // 1: material AO / sky occlusion darken only indirect light
@@ -146,6 +150,21 @@ float pixelNoiseFixed(){ return fract(52.9829189*fract(dot(gl_FragCoord.xy, vec2
 float pixelNoise(){ return 0.5; }
 float pixelNoiseFixed(){ return 0.5; }
 #endif
+// UL1 PCSS without a depth sampler: the map is compare-only, so the blocker distance is read from the occluded share at
+// a few depth offsets (taps in a disk); the penumbra then grows with it at the sun's 0.53 deg (x1.5 for TAA-softened edges)
+float pcssRadius(sampler2DShadow sm, vec3 s, vec2 texel, float worldTexel, float bias, float x0, float x1, float rot){
+  const float dz[4] = float[4](0.0, 0.5, 2.0, 8.0);   // m above the receiver
+  float occ[4] = float[4](0.0, 0.0, 0.0, 0.0);
+  for (int i = 0; i < 6; ++i) {
+    float r = sqrt((float(i) + 0.5)/6.0), a = float(i)*2.3999632 + rot;
+    vec2 t = s.xy + vec2(cos(a), sin(a))*r*8.0*texel; t.x = clamp(t.x, x0, x1);
+    for (int k = 0; k < 4; ++k) occ[k] += 1.0 - texture(sm, vec3(t, s.z - bias - dz[k]/uShadowDepthRange));
+  }
+  if (occ[0] <= 0.0) return -1.0;   // no blocker near: lit
+  float d = 0.0, prev = 0.0;
+  for (int k = 0; k < 4; ++k) { float f = occ[k]/max(occ[0], 1e-3); d += f*(dz[k] - prev); prev = dz[k]; }
+  return clamp(d*0.0047*1.5/worldTexel, 0.7, 14.0);
+}
 // one cascade: Vogel-disk PCF in light space. Normal offset grows with the slope to the sun (acne), a small
 // constant depth bias keeps contact (no peter-panning where walls meet the ground).
 // ax: (scale, bias) of x into the map's atlas half (VO L3); taps are kept inside that half
@@ -164,6 +183,11 @@ float cascadePCF(sampler2DShadow sm, mat4 vp, vec2 texel, float worldTexel, vec3
   float rot = pixelNoiseFixed()*6.2831853, sum = 0.0;
   s.x = s.x*ax.x + ax.y;
   float x0 = ax.y + texel.x, x1 = ax.y + ax.x - texel.x;
+  if (uPcss == 1 && taps > 1 && ax.y == 0.0 && ax.x < 1.0) {   // near cascade of the atlas, filtered lookups only
+    float pr = pcssRadius(sm, s, texel, worldTexel, bias, x0, x1, rot);
+    if (pr < 0.0) return 1.0;
+    radiusTex = pr; taps = max(taps, 16);
+  }
   for (int i = 0; i < taps; ++i) {
     float r = sqrt((float(i) + 0.5)/float(taps)), a = float(i)*2.3999632 + rot;
     vec2 t = s.xy + vec2(cos(a), sin(a))*r*radiusTex*texel; t.x = clamp(t.x, x0, x1);
@@ -217,7 +241,15 @@ float sunShadowRaw(vec3 w, vec3 n, float soft, int taps){
 }
 // VO L7: the reflection cube near the eye (lighting.cpp reflPass), box-parallax corrected around its capture point
 uniform samplerCube uRefl; uniform int uReflOn; uniform vec3 uReflPos;
+uniform int uReflRoom; uniform mat4 uReflRoomInv; uniform vec3 uReflRoomHalf;   // CP4 reflroom: the capture was taken inside this room: its box is the parallax proxy
 vec3 reflProbe(vec3 w, vec3 R, float rough, out float wgt){
+  if (uReflRoom == 1) {   // an oriented room box (rigid transform): intersect in its local space; outside it the cube fades over 1 m
+    vec3 lw = (uReflRoomInv*vec4(w, 1.0)).xyz, lr = mat3(uReflRoomInv)*R;
+    vec3 iv = 1.0/(lr + vec3(1e-5)); vec3 tf = max((uReflRoomHalf - lw)*iv, (-uReflRoomHalf - lw)*iv);
+    float t = max(min(min(tf.x, tf.y), tf.z), 0.0);
+    vec3 o = abs(lw) - uReflRoomHalf; wgt = 1.0 - smoothstep(-0.2, 1.0, max(max(o.x, o.y), o.z));
+    return textureLod(uRefl, w + R*t - uReflPos, rough*6.0).rgb;
+  }
   vec3 bmin = uReflPos - vec3(24.0, 1.8, 24.0), bmax = uReflPos + vec3(24.0, 14.0, 24.0);
   vec3 iv = 1.0/(R + vec3(1e-5)); vec3 tf = max((bmax - w)*iv, (bmin - w)*iv);
   float t = max(min(min(tf.x, tf.y), tf.z), 0.0);
@@ -257,6 +289,7 @@ float cloudShadow(vec3 w){
   if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return cloudShadowAt(w.xz, w.y);
   return texture(uCloudShadowMap, uv).r;
 }
+uniform int uSkyVisWall;   // CP4 skyviswall
 float skyVis(vec3 w, vec3 n){
   if (uOccOn == 0) return 1.0;
   vec3 q = w + vec3(n.x, 0.0, n.z)*0.65;
@@ -265,10 +298,14 @@ float skyVis(vec3 w, vec3 n){
   if (uv.x<0.0||uv.x>1.0||uv.y<0.0||uv.y>1.0) return 1.0;
   float occ = 0.0;
   vec2 t = 1.0/vec2(textureSize(uOcc,0));
+  // CP4 skyviswall: a wall sees half the sky sideways, so something high above its footprint (a dormer, an eave 15 m up)
+  // shades it only by the share of sky it hides: ~ eave depth / height. Weighted by 2 m / height above the pixel on
+  // vertical faces; real eaves (a metre or two up) still shelter fully. Level surfaces keep the plain top-down test.
+  float vert = uSkyVisWall == 1 ? 1.0 - smoothstep(0.5, 0.8, abs(n.y)) : 0.0;
   for (int y=-1;y<=1;y++) for (int x=-1;x<=1;x++) {
     float d = texture(uOcc, uv + vec2(x,y)*t*1.5).r;
-    float oy = uOccTop - d*uOccRange;
-    occ += smoothstep(0.15, 0.6, oy - w.y);
+    float oy = uOccTop - d*uOccRange, dz = oy - w.y;
+    occ += smoothstep(0.15, 0.6, dz)*mix(1.0, clamp(2.0/max(dz, 0.5), 0.0, 1.0), vert);
   }
   return 1.0 - occ/9.0;
 }
@@ -282,7 +319,7 @@ vec3 gSnowAlb0 = vec3(0.0), gSnowN0 = vec3(0.0, 1.0, 0.0); float gSnowR0 = 1.0; 
 float snowDepthAt(vec2 xz){
   if (uSnowOn == 0) return 0.0;
   vec2 uv = (xz - uSnowBox.xy)*uSnowBox.zw;
-  vec4 M = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.7, 0.0, 0.0, 0.0) : textureLod(uSnowMask, uv, 0.0);
+  vec4 M = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.82, 0.0, 0.0, 0.0) : textureLod(uSnowMask, uv, 0.0);
   return 0.18*smoothstep(uSnowP.z - uSnowP.w, uSnowP.z + uSnowP.w, M.r - M.g - M.b - uSnowP2.w);
 }
 uniform int uSnowFar;   // BT2 switch snowfar (1: the distance gates in applySnow)
@@ -292,7 +329,7 @@ uniform int uSnowFar;   // BT2 switch snowfar (1: the distance gates in applySno
 bool snowFullCover(vec3 w, vec3 Ng){
   if (uSnowOn == 0) return false;
   vec2 uv = (w.xz - uSnowBox.xy)*uSnowBox.zw;
-  vec4 M = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.7, 0.0, 0.0, 0.0) : texture(uSnowMask, uv);
+  vec4 M = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.82, 0.0, 0.0, 0.0) : texture(uSnowMask, uv);
   float slope = smoothstep(uSnowP.x, uSnowP.y, Ng.y);
   float sMin = slope*M.r*(1.0 - uSnowP2.y) - M.g - M.b - uSnowP2.w;   // the noise at its lowest
   if (sMin < uSnowP.z + uSnowP.w + 0.1) return false;                  // + 0.1: room for the height-blended edge
@@ -304,7 +341,7 @@ void applySnow(vec3 w, vec3 Ng, float ground, inout vec3 alb, inout float rough,
   gSnow = 0.0;
   if (uSnowOn == 0) return;
   vec2 uv = (w.xz - uSnowBox.xy)*uSnowBox.zw;
-  vec4 M = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.7, 0.0, 0.0, 0.0) : texture(uSnowMask, uv);
+  vec4 M = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.82, 0.0, 0.0, 0.0) : texture(uSnowMask, uv);
   float dc = length(w - uCamPos);
   float vis = 1.0;                                        // 0 under a roof / eave / canopy (one tap of the sky-occlusion map: M5)
   if (uOccOn == 1 && (dc < 150.0 || uSnowFar == 0)) { vec4 lp = uOccVP*vec4(w, 1.0); vec2 ouv = lp.xy*0.5 + 0.5;   // BT2 perf: shelter near only (switch snowfar)
@@ -314,7 +351,7 @@ void applySnow(vec3 w, vec3 Ng, float ground, inout vec3 alb, inout float rough,
   float n = 0.5;
   if (dc < 120.0 || uSnowFar == 0) n = mix(vnoise(vec3(w.xz*0.35, 41.0))*0.55 + vnoise(vec3(w.xz*1.7, 42.0))*0.3 + (dc < 40.0 ? vnoise(vec3(w.xz*7.0, 43.0))*0.15 : 0.075), 0.5, uSnowFar == 1 ? smoothstep(100.0, 120.0, dc) : 0.0);   // M5: the finest octave near only
   float dep = ground > 0.5 ? M.r : uSnowP2.x*(0.55 + 0.45*M.r);   // raised faces (roofs, wall tops, rails) hold the roof share
-  float s = (slope*dep*(1.0 + (n - 0.5)*2.0*uSnowP2.y) - M.g - M.b - uSnowP2.w)*vis;
+  float s = (slope*dep*(1.0 + (n - 0.5)*2.0*uSnowP2.y*(ground > 0.5 ? 1.0 : 0.35)) - M.g - M.b - uSnowP2.w)*vis;   // roofs: a third of the patch noise (an even cover, not blotches)
   float c = smoothstep(uSnowP.z - uSnowP.w, uSnowP.z + uSnowP.w, s);
   if (ground > 0.5) {
     float slush = clamp(max(M.g, M.b*0.9)*smoothstep(0.08, 0.45, M.r)*(1.0 - c)*vis, 0.0, 1.0);
@@ -393,7 +430,10 @@ vec3 applyFogAir(vec3 col, vec3 w){
   vec3 fc = mix(uFogCol, skyColor(fd), 0.65);
   if (uW2 == 1) fc = hazeColor(dir);   // W2: distant ground fades into exactly the sky behind it at the horizon (the grey band under a deck)
   float sd = max(dot(dir, uSkySun), 0.0);
-  fc += uSkySunCol*vec3(1.0, 0.92, 0.78)*pow(sd, 8.0)*0.10;
+  if (uFogPhase == 1) {   // CP4 fogphase: the sun's in-scatter by a Henyey-Greenstein lobe (g of the air: 0.85 haze / fog, 0.7 dust), only with direct sun
+    float g = wxFogG, cth = dot(dir, uSkySun), hg = (1.0 - g*g)/(4.0*PI*pow(max(1.0 + g*g - 2.0*g*cth, 1e-4), 1.5));
+    fc += uSkySunCol*wxFogAlbedo*hg*0.035*(1.0 - uCloudK);
+  } else fc += uSkySunCol*vec3(1.0, 0.92, 0.78)*pow(sd, 8.0)*0.10;
   if (uEnvFog > 0.0) {
     // WX1 environmental fog: height + distance extinction over the cached field (taken at the ray's midpoint; the drift
     // noise slides downwind), and a cheap sun glow toward the sun, dimmed by the cloud transmittance at the camera and
@@ -416,6 +456,12 @@ vec3 applyFogAir(vec3 col, vec3 w){
     float c0 = dot(dir, uSunDir), ph = 0.3 + 2.2*pow(max(c0, 0.0), 6.0) + 0.6*pow(max(c0, 0.0), 2.0);   // forward-scattering approximation
     vec3 fcE = mix(uFogCol, skyColor(fd), 0.45)*1.05 + uSunCol*vec3(1.0, 0.95, 0.85)*ph*0.11*cloudShadow(uCamPos)*mix(0.3, 1.0, sh)*(1.0 - uCloudK);   // WX2: no sun glow under overcast
     if (uW2 == 1) { float lc = dot(uSkyHor, vec3(0.2126, 0.7152, 0.0722))*0.8, le = dot(fcE, vec3(0.2126, 0.7152, 0.0722)); if (le > lc) fcE *= lc/le; }   // W2: a fog layer is never brighter than the sky at the horizon (a veil, not snow)
+    if (uFog2.x > 0.0) {   // the band: constant density between floor and top (soft edges), sampled at the eye, the midpoint and the far end
+      float L2 = max(length(w - uCamPos) - uEnvFogNear, 0.0);
+      #define BAND(hh) (smoothstep(uFog2.y - uFog2.w, uFog2.y + uFog2.w, hh)*(1.0 - smoothstep(uFog2.z - uFog2.w, uFog2.z + uFog2.w, hh)))
+      tauE += uFog2.x*uFogIndoor*L2*(BAND(uCamPos.y) + 2.0*BAND(0.5*(uCamPos.y + w.y)) + BAND(w.y))*0.25;
+      #undef BAND
+    }
     float tt = tau + tauE;
     f = 1.0 - exp(-tt);
     fc = mix(fc, fcE, tauE/max(tt, 1e-6));
@@ -2544,13 +2590,14 @@ out vec4 oColor;
 vec3 vpos(vec2 uv){ float z = texture(uDepth, uv).r; vec4 p = uInvProj*vec4(uv*2.0 - 1.0, z, 1.0); return p.xyz/p.w; }   // reverse-Z
 // VO L2 (Jimenez et al. 2016, XeGTAO): per slice the two horizon angles found along a screen direction, then the
 // cosine-weighted visible arc between them, projected-normal weighted; the horizon falls off past the radius (no halos)
+vec3 gBent;   // CP4 bentnormal: the visible cone's mean direction (view space), set by gtao()
 float gtao(vec3 P, vec3 N){
   vec3 V = normalize(-P);
   float rad = uRadius*1.6*clamp(1.0 + (-P.z - 20.0)/60.0, 1.0, 3.0);
   vec2 radUV = rad*0.5*vec2(uProj[0][0], uProj[1][1])/(-P.z);   // the radius on screen (uv)
   if (radUV.y < uTexel.y) return 1.0;   // under a texel: nothing to resolve
   float noise = pixelNoise(), jit = fract(noise*7.31 + 0.37);
-  float vis = 0.0;
+  float vis = 0.0; gBent = vec3(0.0);
   for (int s = 0; s < uSlices; ++s) {
     float phi = (float(s) + noise)/float(uSlices)*3.14159265;
     vec2 d2 = vec2(cos(phi), sin(phi));
@@ -2573,7 +2620,10 @@ float gtao(vec3 P, vec3 N){
     h0 = n + min(h0 - n, 1.5707963); h1 = n + max(h1 - n, -1.5707963);
     float sn = sin(n);
     vis += pL*0.25*((-cos(2.0*h0 - n) + cosN + 2.0*h0*sn) + (-cos(2.0*h1 - n) + cosN + 2.0*h1*sn));
+    float hb = 0.5*(h0 + h1); vec3 od = normalize(ortho + vec3(1e-5));   // the slice's bent direction: halfway between its horizons
+    gBent += (V*cos(hb) + od*sin(hb))*pL;
   }
+  gBent = length(gBent) > 1e-4 ? normalize(gBent) : N;
   return clamp(vis/float(uSlices), 0.0, 1.0);
 }
 void main(){
@@ -2585,7 +2635,7 @@ void main(){
   vec3 dx = dot(px, px) < dot(nx, nx) ? px : nx, dy = dot(py, py) < dot(ny, ny) ? py : ny;
   vec3 N = normalize(cross(dx, dy));
   if (dot(N, P) > 0.0) N = -N;
-  if (uGtao == 1) { oColor = vec4(gtao(P, N), -P.z, 0.0, 1.0); return; }
+  if (uGtao == 1) { float a = gtao(P, N); oColor = vec4(a, -P.z, gBent.x, gBent.y); return; }   // CP4: the bent normal's view x, y (z faces the eye)
   float rad = uRadius*clamp(1.0 + (-P.z - 20.0)/60.0, 1.0, 3.0);   // a little wider far away (keeps contact)
   float occ = 0.0, rot = pixelNoise()*6.2831853;
   const int S = 8;
@@ -2625,12 +2675,14 @@ uniform sampler2D uScene, uShafts, uAmb, uAO, uDepth, uNR; uniform float uShaftA
 uniform mat4 uInvProj, uProj, uView; uniform vec2 uAoTexel;
 uniform float uContactAmt; uniform int uContactSteps;   // VO L1 screen-space sun contact shadows (0: off)
 uniform int uAoNew;   // VO L2: multi-bounce and specular occlusion from the (GT)AO
+uniform int uBent;    // CP4 bentnormal
 uniform int uSsrHalf; uniform sampler2D uSsrTex; uniform vec2 uSsrTexel;
 uniform float uShimmer, uShimT;   // W5 wxshimmer: heat shimmer amplitude (px at this resolution, gated on the CPU), its clock   // OPT ssrhalf: the reflection added from a half-resolution pass (rgb: added light, a: view depth)
 out vec4 oColor;
 vec3 viewPosAt(vec2 uv){ float z = texture(uDepth, uv).r; vec4 p = uInvProj*vec4(uv*2.0 - 1.0, z, 1.0); return p.xyz/p.w; }   // reverse-Z
 vec2 toUV(vec3 q){ vec4 c = uProj*vec4(q, 1.0); return c.xy/c.w*0.5 + 0.5; }
 uniform float uSsrMaxT = 1e9;   // OPT ssrrange
+uniform vec2 uSsrRough = vec2(0.1, 0.4);   // CP4 ssrfade: SSR fades out over roughness x..y (0.3..0.5; was 0.1..0.4)
 vec4 traceSSR(vec3 Pv, vec3 Rv){
   float stepL = 0.22, t = 0.10, jit = pixelNoise();
   vec3 prev = Pv;
@@ -2677,7 +2729,7 @@ float contactShadow(vec2 uv){
 }
 vec3 ssrAdd(vec2 uv){   // the screen-space reflection's contribution here (geometry seen in it replaces the sky estimate)
   vec4 nr = texture(uNR, uv);
-  if (nr.w >= 0.4 || texture(uDepth, uv).r <= 0.0) return vec3(0.0);   // rough or sky
+  if (nr.w >= uSsrRough.y || texture(uDepth, uv).r <= 0.0) return vec3(0.0);   // rough or sky
   vec3 Pv = viewPosAt(uv);
   vec3 Nv = normalize(mat3(uView)*nr.xyz);
   vec3 Vv = normalize(-Pv), Rv = reflect(-Vv, Nv);
@@ -2686,7 +2738,7 @@ vec3 ssrAdd(vec2 uv){   // the screen-space reflection's contribution here (geom
   if (hit.w <= 0.0) return vec3(0.0);
   vec3 Rw = normalize(transpose(mat3(uView))*Rv);
   vec3 refl = textureLod(uScene, hit.xy, 0.0).rgb;
-  return (refl - skyColor(Rw))*hit.z*F*(1.0 - smoothstep(0.1, 0.4, nr.w))*uSsrAmt;
+  return (refl - skyColor(Rw))*hit.z*F*(1.0 - smoothstep(uSsrRough.x, uSsrRough.y, nr.w))*uSsrAmt;
 }
 void main(){
 #ifdef NMK_SSR_HALF
@@ -2716,7 +2768,7 @@ void main(){
   }
   if (uSsrAmt > 0.0 && uSsrHalf == 1) {   // OPT ssrhalf: depth-aware 2x2 upsample of the half-resolution reflection
     float z0 = texture(uDepth, vUV).r;
-    if (z0 > 0.0 && texture(uNR, vUV).w < 0.4) {
+    if (z0 > 0.0 && texture(uNR, vUV).w < uSsrRough.y) {
       float d0 = -viewPosAt(vUV).z; vec3 s = vec3(0.0); float ws = 0.0;
       for (int y = 0; y < 2; ++y) for (int x = 0; x < 2; ++x) {
         vec4 a = texture(uSsrTex, vUV + (vec2(x, y) - 0.5)*uSsrTexel);
@@ -2730,15 +2782,23 @@ void main(){
     // depth-aware 4x4 blur of the half-resolution AO, then remove the occluded share of the indirect light
     float z = texture(uDepth, vUV).r;
     vec4 p = uInvProj*vec4(vUV*2.0 - 1.0, z, 1.0); float d0 = -p.z/p.w;
-    float s = 0.0, w = 0.0;
+    float s = 0.0, w = 0.0; vec2 bs = vec2(0.0);
     for (int y = -2; y < 2; ++y) for (int x = -2; x < 2; ++x) {
       vec2 o = (vec2(x, y) + 0.5)*uAoTexel;
-      vec2 a = texture(uAO, vUV + o).rg;
+      vec4 a = texture(uAO, vUV + o);
       float k = exp(-abs(a.g - d0)/(0.04*d0 + 0.05));
-      s += a.r*k; w += k;
+      s += a.r*k; w += k; bs += a.ba*k;
     }
     float ao = w > 1e-4 ? s/w : 1.0;
     vec3 amb = texture(uAmb, vUV).rgb;
+    if (uBent == 1 && w > 1e-4 && z > 0.0) {   // CP4 bentnormal: sky / ground light along the open direction instead of the surface normal
+      vec2 b2 = bs/w; vec3 bv = vec3(b2, sqrt(max(1.0 - dot(b2, b2), 0.0)));
+      vec3 bw = normalize(transpose(mat3(uView))*bv), nw = texture(uNR, vUV).xyz;
+      const vec3 lw = vec3(0.2126, 0.7152, 0.0722);
+      float ib = dot(mix(uGroundCol, uSkyCol, 0.5 + 0.5*bw.y), lw), inn = dot(mix(uGroundCol, uSkyCol, 0.5 + 0.5*nw.y), lw);
+      float kb = clamp(ib/max(inn, 1e-5), 0.6, 1.6);
+      c += amb*(kb - 1.0); amb *= kb;
+    }
     if (uAoNew == 1) {
       // VO L2 multi-bounce (Jimenez 2016 fit): light inter-reflected inside the occluded region, by the surface's
       // albedo (approximated as 0.4: the composite does not see albedo); occlusion stays darkest on dark materials
@@ -3316,7 +3376,11 @@ void main(){
     alb *= mix(1.0, 0.72, vEw.z*ewK);
     tdn = mix(tdn, mix(tF.dn, tM.dn, mk), ewK); trr = mix(trr, mix(tF.r, tM.r*0.7, mk), ewK); tao = mix(tao, mix(tF.ao, tM.ao, mk), ewK);
   }
+  vec3 albPrePaint = alb;
   PaintOut po = paintApply(p, normalize(vN), alb, dirt, dFdx(p), dFdy(p), length(p - uCamPos));   // lasso ground paint: albedo (ground_paint.cpp)
+  // cliffs keep their rock (world-space, triplanar): ground paint is ground cover, and its planar sets and xz noise smear
+  // into vertical streaks on a steep face (castle spur, quarry walls), so it fades out where the slope material is rock
+  if (rockK > 0.0) { alb = mix(alb, albPrePaint, rockK); po.w *= 1.0 - rockK; }
   // localized wetness: darker, and glossy only where water stands (puddles follow ruts / lows)
   float puddle = smoothstep(0.55, 0.8, wet + (nX - 0.5)*0.2);
   alb *= mix(1.0, 0.62, clamp(wet*1.2, 0.0, 1.0));
@@ -4219,19 +4283,50 @@ void main(){
   oColor = vec4(uSnowCol, k*vA*0.85);
 }
 )GLSL";
+// Weather W6 (corpus 7.17-7.21): the particles belong to the scene's air. Per vertex (kCommon: the same fog and sun shadow as the
+// geometry): an alpha sprite is lit like a matte surface facing the eye (sun x half phase x one shadow tap, sky / ground
+// ambient) and fogged with applyFog; an additive one (fire, flashes) keeps its colour and loses what the fog absorbs. Per
+// fragment: a soft fade over 0.35 x the sprite's radius where it meets the scene (a depth copy; no hard line through walls).
 static const char* kFxVS = R"GLSL(
-#version 450 core
-layout(location=0) in vec3 aPos; layout(location=1) in vec4 aCol; layout(location=2) in vec2 aUV;
-uniform mat4 uVP; out vec4 vC; out vec2 vUV;
-void main(){ vC = aCol; vUV = aUV; gl_Position = uVP*vec4(aPos,1.0); }
+layout(location=0) in vec3 aPos; layout(location=1) in vec4 aCol; layout(location=2) in vec2 aUV; layout(location=3) in float aR;
+uniform mat4 uVP; uniform int uAdd, uFxLit; out vec4 vC; out vec2 vUV; out float vR;
+void main(){
+  vC = aCol; vUV = aUV; vR = aR;
+  if (uFxLit == 1) {
+    if (uAdd == 0) {
+      vec3 n = normalize(uCamPos - aPos);
+      float sh = sunShadowRaw(aPos, n, 1.0, 1);
+      // smoke scatters forward: Henyey-Greenstein g 0.5 toward the sun, scaled so a side view (90 deg) keeps the old half phase
+      float ct = dot(-n, uSunDir), hg = 0.75/pow(1.25 - ct, 1.5);   // 4 pi x HG(0.5): 0.54 side-on, 6 into the sun
+      float ph = 0.5*clamp(hg/0.537, 0.6, 4.0);
+      // inside fog, dust or a storm the particle is lit by the air around it too (multiple scattering): the haze's colour by what
+      // ~15 m of that air scatters (without it a dark puff in Dense fog went black, darker than anything near it)
+      vec3 amb = mix(uGroundCol, uSkyCol, 0.75);
+      if (wxPhys) amb += hazeColor(-n)*(1.0 - exp(-wxSigma*15.0));
+      vec3 lit = aCol.rgb/PI*uSunCol*ph*sh + aCol.rgb*amb;
+      vC.rgb = applyFog(lit, aPos);
+      // the scene fog keeps a 12 m clear zone for close combat (applyFogAir); smoke and dust are the air itself, so they take the
+      // preset haze over that first stretch too (without it a plume 10 m off in Dense fog got no in-scatter and read as a hole)
+      if (wxPhys) { float dz = min(length(aPos - uCamPos), 12.0); vC.rgb = mix(vC.rgb, hazeColor(-n), 1.0 - exp(-wxSigma*dz)); }
+    } else { applyFog(vec3(0.0), aPos); vC.rgb *= gFogT; }
+  }
+  gl_Position = uVP*vec4(aPos,1.0);
+}
 )GLSL";
 static const char* kFxFS = R"GLSL(
-#version 450 core
-in vec4 vC; in vec2 vUV; uniform int uAdd; out vec4 o;
+in vec4 vC; in vec2 vUV; in float vR; uniform int uAdd; out vec4 o;
+uniform sampler2D uSoftDepth; uniform int uSoft; uniform float uP22, uP32;
+float softK(){   // 0 at the scene surface .. 1 a 0.35-radius in front of it (reverse-Z: distance = P32 / (depth + P22))
+  if (uSoft == 0 || vR <= 0.0) return 1.0;
+  float ds = uP32/(texelFetch(uSoftDepth, ivec2(gl_FragCoord.xy), 0).r + uP22), df = uP32/(gl_FragCoord.z + uP22);
+  return clamp((ds - df)/(0.35*vR), 0.0, 1.0);
+}
 float fxH(vec2 p){ p = fract(p*vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x*p.y); }
 float fxN(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0 - 2.0*f);
   return mix(mix(fxH(i), fxH(i + vec2(1,0)), f.x), mix(fxH(i + vec2(0,1)), fxH(i + vec2(1,1)), f.x), f.y); }
-void main(){
+void fxMain();
+void main(){ fxMain(); float k = softK(); if (uAdd == 1) o.rgb *= k; else o.a *= k; }
+void fxMain(){
   if (uAdd == 1 && vC.a > 150.0) {   // DF1 muzzle fireball sprite: alpha carries 200 + id + age; a soft, noise-ragged puff, its colour as given
     float id = floor(vC.a - 200.0), u = fract(vC.a - 200.0);
     vec2 p = vUV*2.0 - 1.0; float ang = id*2.399, cs = cos(ang), sn = sin(ang);
@@ -4539,7 +4634,8 @@ bool Renderer::init(int w, int h) {
   }
   glCreateVertexArrays(1, &fxVao); glCreateBuffers(1, &fxVbo);
   glVertexArrayVertexBuffer(fxVao, 0, fxVbo, 0, sizeof(FxVert));
-  for (int k = 0; k < 3; ++k) { glEnableVertexArrayAttrib(fxVao, k); glVertexArrayAttribBinding(fxVao, k, 0); }
+  for (int k = 0; k < 4; ++k) { glEnableVertexArrayAttrib(fxVao, k); glVertexArrayAttribBinding(fxVao, k, 0); }
+  glVertexArrayAttribFormat(fxVao, 3, 1, GL_FLOAT, GL_FALSE, offsetof(FxVert, r));   // W6: the sprite radius
   glVertexArrayAttribFormat(fxVao, 0, 3, GL_FLOAT, GL_FALSE, offsetof(FxVert, p));
   glVertexArrayAttribFormat(fxVao, 1, 4, GL_FLOAT, GL_FALSE, offsetof(FxVert, c));
   glVertexArrayAttribFormat(fxVao, 2, 2, GL_FLOAT, GL_FALSE, offsetof(FxVert, uv));
@@ -4663,7 +4759,7 @@ void Renderer::createTargets() {
   glCreateTextures(GL_TEXTURE_2D, 1, &ambTex); glTextureStorage2D(ambTex, 1, GL_R11F_G11F_B10F, width, height);   // PF2: rgb only, never negative (half the bytes of RGBA16F)
   glTextureParameteri(ambTex, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTextureParameteri(ambTex, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glNamedFramebufferTexture(hdrFbo, GL_COLOR_ATTACHMENT2, ambTex, 0);
-  glCreateTextures(GL_TEXTURE_2D, 1, &aoTex); glTextureStorage2D(aoTex, 1, GL_RG16F, std::max(1, width / aoDiv), std::max(1, height / aoDiv));
+  glCreateTextures(GL_TEXTURE_2D, 1, &aoTex); glTextureStorage2D(aoTex, 1, GL_RGBA16F, std::max(1, width / aoDiv), std::max(1, height / aoDiv));
   glTextureParameteri(aoTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(aoTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTextureParameteri(aoTex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(aoTex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glCreateFramebuffers(1, &aoFbo); glNamedFramebufferTexture(aoFbo, GL_COLOR_ATTACHMENT0, aoTex, 0);
@@ -4825,6 +4921,7 @@ float gAtmoK = 1.0f;   // the map's look.atmo while setLighting runs
 vec3 ratioC(vec3 a, vec3 b) { return glm::pow(glm::clamp(a / glm::max(b, vec3(1e-12f)), vec3(0.2f), vec3(5.0f)), vec3(gAtmoK)); }
 }  // namespace
 void Renderer::setLighting(GLuint p, const RenderView& v) {
+  glUniform1f(glGetUniformLocation(p, "uSmokeSigma"), smokeSigma); glUniform3fv(glGetUniformLocation(p, "uSmokeCol"), 1, &smokeCol.x);   // weather 7: for applyFog (the lighting session's line)
   glUseProgram(p);
   // thumbnails / model sheets / item icons: a fixed studio state whatever map, weather or hour is loaded. Uniforms
   // persist per program, so everything the main frame sets per map is pinned here: a night / low sun (the asset tiles
@@ -4938,14 +5035,17 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1f(U(p, "uShadowLift"), (q.lightNew && perf.fullShadow ? q.newShadowLift : 0.7f) * sunShK);   // VO L1
   glUniform1f(U(p, "uShadowWarm"), q.lightNew && perf.fullShadow && !q.legacy ? q.newShadowWarm : 0.0f);   // VO L1
   glUniform1i(U(p, "uReflOn"), reflOn && q.lightNew && perf.reflProbe && !q.legacy && !thumbMode ? 1 : 0); glUniform3fv(U(p, "uReflPos"), 1, glm::value_ptr(reflPos));   // VO L7
+  glUniform1i(U(p, "uReflRoom"), reflRoom >= 0 && perf.reflRoom ? 1 : 0); glUniformMatrix4fv(U(p, "uReflRoomInv"), 1, GL_FALSE, glm::value_ptr(reflRoomInv)); glUniform3fv(U(p, "uReflRoomHalf"), 1, glm::value_ptr(reflRoomHalf));   // CP4
   glUniform1i(U(p, "uRefl"), 9); if (p != progComposite && reflTex) glBindTextureUnit(9, reflTex);   // unit 9: free in the world pass (the composite binds its own there first)
   glUniform1i(U(p, "uSkyRelit"), q.lightNew && perf.skyRelit && !q.legacy ? 1 : 0);   // VO L6
   glUniform1f(U(p, "uMicroSh"), q.lightNew && perf.microShadow && !q.legacy ? 1.0f : 0.0f);   // VO L4
   glUniform1i(U(p, "uShadowTaps"), q.shadowTaps);
+  glUniform1i(U(p, "uPcss"), q.ultra && perf.pcss && q.lightNew && !q.legacy ? 1 : 0);   // UL1
   glUniform1i(U(p, "uFrame"), frame);
   glUniform1i(U(p, "uCloudShadowOn"), !q.legacy && q.cloudShadows && clouds && perf.cloudShadow && !thumbMode ? 1 : 0);
   glUniform1f(U(p, "uCloudCov"), cloudCoverNow()); glUniform1f(U(p, "uCloudT"), cloudClock());
   glUniform1f(U(p, "uEnvFog"), thumbMode ? 0.0f : envFogSigma()); glUniform1f(U(p, "uEnvFogH"), envFogH());   /* W1 Dawn ground fog: the preset's layer */   /* FG1 */ glUniform1f(U(p, "uEnvFogNear"), thumbMode ? 0.0f : lt.mapFogNear); glUniform1f(U(p, "uFogIndoor"), camIndoor ? 0.15f : 1.0f);
+  glUniform4fv(U(p, "uFog2"), 1, glm::value_ptr(thumbMode || q.legacy || !perf.envFog ? vec4(0.0f) : lt.fog2));
   glUniform1f(U(p, "uEnvFogTop"), lt.mapFogLayerTop); glUniform1f(U(p, "uEnvFogSoft"), lt.mapFogLayerSoft);
   glUniform1i(U(p, "uFogField"), 27); glBindTextureUnit(27, fogTex);
   if (U(p, "uGATex") >= 0) {   // the grass programs: 27 is their plant atlas (GT1, a 2D array): the fog field moves to a unit none of their active samplers uses
@@ -4973,6 +5073,8 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform3fv(U(p, "uCloudShadowBox"), 1, glm::value_ptr(cloudShBox));
   glUniform1f(U(p, "uAoIndirectOnly"), q.legacy ? 0.0f : 1.0f);
   glUniform1i(U(p, "uLook"), q.legacy ? 0 : 1);
+  glUniform1i(U(p, "uSkyVisWall"), perf.skyVisWall && !q.legacy ? 1 : 0);
+  glUniform1i(U(p, "uFogPhase"), perf.fogPhase && q.lightNew && !q.legacy && !thumbMode ? 1 : 0);
   glUniform1i(U(p, "uW2"), perf.w2Sky && q.lightNew && !q.legacy && !thumbMode ? 1 : 0); glUniform1f(U(p, "uFlash"), thumbMode ? 0.0f : wx.der.flash);   // W2
   glUniform1i(U(p, "uDbgView"), dbgView);   // CP0
   { vec2 sa(0.25f, 0.18f); if (const char* e = std::getenv("NMK_SPECAA")) std::sscanf(e, "%f,%f", &sa.x, &sa.y); glUniform2f(U(p, "uSpecAA"), q.legacy || !perf.specAA ? 0.0f : sa.x, sa.y); }   // M3: specaa (--rq-off specaa); NMK_SPECAA="variance,clamp"
@@ -5981,7 +6083,39 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   // VO L3 mid cascade (Lighting New, Medium / High): about 3x the near radius in the atlas's right half, texel-snapped like
   // the near one (no crawl), redrawn every 4th frame on Medium / 2nd on High or when its focus moves 4 m (movers lag a few frames there)
   midOn = q.lightNew && perf.midCascade && !q.legacy && !thumbMode && shadowTier >= 1 && sunSh;
-  if (midOn) {
+  const bool midCacheOn = midOn && perf.midCache && shadowTier >= 2;   // CP4 midcache (High / Ultra): a static layer redrawn on change; movers drawn into the mid cascade every frame
+  if (midCacheOn) {
+    if (midStaticSize != shadowSize) {
+      if (midStaticFbo) { glDeleteFramebuffers(1, &midStaticFbo); glDeleteTextures(1, &midStaticTex); }
+      glCreateTextures(GL_TEXTURE_2D, 1, &midStaticTex); glTextureStorage2D(midStaticTex, 1, GL_DEPTH_COMPONENT32F, shadowSize, shadowSize);
+      glCreateFramebuffers(1, &midStaticFbo); glNamedFramebufferTexture(midStaticFbo, GL_DEPTH_ATTACHMENT, midStaticTex, 0);
+      glNamedFramebufferDrawBuffer(midStaticFbo, GL_NONE); glNamedFramebufferReadBuffer(midStaticFbo, GL_NONE);
+      midStaticSize = shadowSize; midFrame = -1000;
+    }
+    const float mR = std::max(90.0f, radius * 3.0f);
+    const vec3 mfw = v.camPos + vec3(fwd.x, 0, fwd.z) * mR * 0.5f;
+    const size_t nS = std::min(opaqueStatic, opaque.size());
+    if (frame - midFrame >= 60 || mR != midR || glm::distance(mfw, midFocus) > 4.0f || sunDir != midSun) {   // the static layer: on a move / sun change, else every 60 frames (LOD changes)
+      midR = mR; midFrame = frame; midFocus = mfw; midSun = sunDir;
+      vec3 mf = mfw; mf.y = t.height(mf.x, mf.z);
+      mat4 lv3; lightVPMid = stableOrtho(mf, sunDir, midR, 400.0f, shadowSize, lv3);
+      Frustum frMid = Frustum::fromVP(lightVPMid);
+      minCaster = perf.smallCasters ? 3.0f * (2 * midR / shadowSize) : 0.0f;
+      glBindFramebuffer(GL_FRAMEBUFFER, midStaticFbo); glViewport(0, 0, shadowSize, shadowSize); glClear(GL_DEPTH_BUFFER_BIT);
+      glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPMid)); depthVP = lightVPMid;
+      itemHi = (uint32_t)nS; drawItems(progShadow, opaque, true, &frMid); itemHi = UINT32_MAX;
+      if (!foliage.empty()) drawFoliage(progLeafShadow, lightVPMid, &frMid, false, perf.leafShadowLod ? 0.0f : -1.0f);
+      if (!folModels.empty()) { drawFolModels(true, lightVPMid, &frMid, 4.0f, perf.vegCascades); glUseProgram(progShadow); }
+      minCaster = 0;
+    }
+    // every frame: the static layer into the atlas's right half, then what moves
+    glCopyImageSubData(midStaticTex, GL_TEXTURE_2D, 0, 0, 0, 0, shadowTex, GL_TEXTURE_2D, 0, shadowSize, 0, 0, shadowSize, shadowSize, 1);
+    glBindFramebuffer(GL_FRAMEBUFFER, shadowFbo); glViewport(shadowSize, 0, shadowSize, shadowSize);
+    Frustum frMid = Frustum::fromVP(lightVPMid);
+    glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPMid)); depthVP = lightVPMid;
+    if (opaque.size() > nS) { itemLo = (uint32_t)nS; drawItems(progShadow, opaque, true, &frMid); itemLo = 0; }
+    if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frMid);
+  } else if (midOn) {
     const float mR = std::max(90.0f, radius * 3.0f);
     const vec3 mfw = v.camPos + vec3(fwd.x, 0, fwd.z) * mR * 0.5f;
     if (frame - midFrame >= (shadowTier >= 2 ? 2 : 4) || mR != midR || glm::distance(mfw, midFocus) > 4.0f || sunDir != midSun) {
@@ -6420,6 +6554,22 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST);   // own state: the world composite / TAA passes leave blending off
     glUseProgram(progFx);
     glUniformMatrix4fv(U(progFx, "uVP"), 1, GL_FALSE, glm::value_ptr(vpU));   // after the TAA resolve: unjittered
+    {   // W6: the scene's fog / sun on the particles (fxlit) and the soft fade against a copy of the depth (fxsoft)
+      const bool lit = perf.fxLit && !q.legacy, soft = perf.fxSoft && !q.legacy && depthTex;
+      if (lit) setLighting(progFx, v);
+      glUseProgram(progFx); glUniform1i(U(progFx, "uFxLit"), lit ? 1 : 0); glUniform1i(U(progFx, "uSoft"), soft ? 1 : 0);
+      if (soft) {
+        if (!softDepth || softW != width || softH != height) {
+          if (softDepth) glDeleteTextures(1, &softDepth);
+          GLint fmt = GL_DEPTH_COMPONENT32F; glGetTextureLevelParameteriv(depthTex, 0, GL_TEXTURE_INTERNAL_FORMAT, &fmt);
+          glCreateTextures(GL_TEXTURE_2D, 1, &softDepth); glTextureStorage2D(softDepth, 1, (GLenum)fmt, width, height); softW = width; softH = height;
+          glTextureParameteri(softDepth, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTextureParameteri(softDepth, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        }
+        glCopyImageSubData(depthTex, GL_TEXTURE_2D, 0, 0, 0, 0, softDepth, GL_TEXTURE_2D, 0, 0, 0, 0, width, height, 1);
+        glBindTextureUnit(7, softDepth); glUniform1i(U(progFx, "uSoftDepth"), 7);   // unit 7: the post passes' depth unit, free here
+        glUniform1f(U(progFx, "uP22"), v.proj[2][2]); glUniform1f(U(progFx, "uP32"), v.proj[3][2]);
+      }
+    }
     glBindVertexArray(fxVao);
     if (!fxAlpha.empty() && !v.thermal) {   // TH1: smoke and dust do not block a thermal view (fires and flashes, additive, stay)
       glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); glUniform1i(U(progFx, "uAdd"), 0);
@@ -6787,7 +6937,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
     glUniform1i(U(progSsrHalf, "uScene"), 8); glUniform1i(U(progSsrHalf, "uDepth"), 7);
     setLighting(progSsrHalf, v); glUseProgram(progSsrHalf);
     glBindTextureUnit(12, nrTex); glUniform1i(U(progSsrHalf, "uNR"), 12);
-    glUniform1f(U(progSsrHalf, "uSsrAmt"), q.ssrStrength); glUniform1f(U(progSsrHalf, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f);
+    glUniform1f(U(progSsrHalf, "uSsrAmt"), q.ssrStrength); glUniform1f(U(progSsrHalf, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f); glUniform2f(U(progSsrHalf, "uSsrRough"), perf.ssrFade ? 0.3f : 0.1f, perf.ssrFade ? 0.5f : 0.4f);
     glUniformMatrix4fv(U(progSsrHalf, "uProj"), 1, GL_FALSE, glm::value_ptr(v.proj));
     glUniformMatrix4fv(U(progSsrHalf, "uView"), 1, GL_FALSE, glm::value_ptr(v.view));
     glUniformMatrix4fv(U(progSsrHalf, "uInvProj"), 1, GL_FALSE, glm::value_ptr(invP));
@@ -6803,6 +6953,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   glUniform1f(U(progComposite, "uAoAmt"), ao ? q.ssaoStrength : 0.0f);
   glUniform1f(U(progComposite, "uContactAmt"), contact ? 0.85f * (1.0f - lightingTod(lt.hour).nightK) * (1.0f - wx.k) : 0.0f);   // VO L1: the sun's (none from the moon or an overcast sky)
   glUniform1i(U(progComposite, "uAoNew"), q.lightNew && perf.gtao && !q.legacy ? 1 : 0);
+  glUniform1i(U(progComposite, "uBent"), q.lightNew && perf.gtao && perf.bentNormal && !q.legacy ? 1 : 0);
   glUniform1i(U(progComposite, "uContactSteps"), shadowTier >= 2 ? 16 : shadowTier == 1 ? 12 : 8);
   setLighting(progComposite, v);   // sky model + noise for the reflection estimate
   glUseProgram(progComposite);
@@ -6819,7 +6970,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
     g *= std::max(0.0f, 1.0f - std::fabs(glm::degrees(pitch)) / 20.0f);
     const float mag = std::max(1.0f, v.proj[1][1] / 1.43f);   // a scope's zoom (narrower than the ~70 deg view) scales the wobble
     shimmerPx = 2.0f * (height / 1080.0f) * g * mag;
-  } glUniform1f(U(progComposite, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f);   // OPT ssrrange: no march past 0.75 x visibility
+  } glUniform1f(U(progComposite, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f); glUniform2f(U(progComposite, "uSsrRough"), perf.ssrFade ? 0.3f : 0.1f, perf.ssrFade ? 0.5f : 0.4f);   // OPT ssrrange: no march past 0.75 x visibility
   glUniformMatrix4fv(U(progComposite, "uProj"), 1, GL_FALSE, glm::value_ptr(v.proj));
   glUniformMatrix4fv(U(progComposite, "uView"), 1, GL_FALSE, glm::value_ptr(v.view));
   glUniformMatrix4fv(U(progComposite, "uInvProj"), 1, GL_FALSE, glm::value_ptr(invP));
@@ -7041,12 +7192,13 @@ void Renderer::bakeFog(const Terrain& t) {
 // the shader's optical depth with the field taken at the segment's midpoint (no drift noise): bot sight in fog
 float Renderer::fogT(vec3 a, vec3 b) const {
   float dens = wx.fogNow >= 0 ? wx.fogNow : wx.fogDens();
-  if (fogCpu.empty() || dens <= 0) return 1.0f;
+  const float tPreset = wx.der.phys ? std::exp(-wx.der.sigma * glm::length(b - a)) : 1.0f;   // a preset's visibility (Dense fog, Blizzard, Sandstorm)
+  if (fogCpu.empty() || dens <= 0) return tPreset;   // the bots' sight: no fog field on the map must not mean clear air under a fog preset
   const int N = 256; vec3 m = (a + b) * 0.5f;
   int i = std::clamp((int)((m.x - fogBox.x) * fogBox.z * N), 0, N - 1), j = std::clamp((int)((m.z - fogBox.y) * fogBox.w * N), 0, N - 1);
   const vec4& F = fogCpu[(size_t)j * N + i];
   float hm = std::max(m.y - F.z, 0.0f);
-  return std::exp(-dens * F.x * glm::length(b - a) * std::exp(-hm / 22.0f)) * (wx.der.phys ? std::exp(-wx.der.sigma * glm::length(b - a)) : 1.0f);   // W1: a preset's visibility counts for the bots' sight
+  return std::exp(-dens * F.x * glm::length(b - a) * std::exp(-hm / 22.0f)) * tPreset;   // W1: a preset's visibility counts for the bots' sight
 }
 
 // TH2: the last thermal frame's heat target read back (tests): hot pixels and their box, rows counted from the top
