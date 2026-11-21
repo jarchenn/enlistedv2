@@ -4959,7 +4959,7 @@ void Renderer::setSsaoFull(bool full) {
 
 void Renderer::createTargets() {
   for (GLenum e; (e = glGetError()) != GL_NO_ERROR;) logf("glprobe: GL error 0x%04x raised before the %dx%d target creation", e, width, height);   // not the targets' own
-  glProbeFrames = 3;
+  glProbeFrames = 3; glProbeArm(true);
   if (hdrFbo) { glDeleteFramebuffers(1, &hdrFbo); glDeleteFramebuffers(1, &ldrFbo); glDeleteFramebuffers(1, &dofFbo); GLuint t[5] = {hdrColor, depthTex, ldrColor, vmDistTex, dofTex}; glDeleteTextures(5, t); }
   int levels = 1 + (int)std::floor(std::log2((float)std::max(width, height)));
   glCreateTextures(GL_TEXTURE_2D, 1, &hdrColor); glTextureStorage2D(hdrColor, levels, GL_RGBA16F, width, height);
@@ -6209,10 +6209,19 @@ void Renderer::gpuFrameBegin() {
     std::fill(fs, fs + GP_Count, false);
   }
 }
+static int gGlProbeMsgs = 0;   // glprobe: the driver's own words for an error (KHR_debug, core in 4.3), at most 40 per run
+static void GLAD_API_PTR glProbeMsg(GLenum, GLenum type, GLuint id, GLenum severity, GLsizei, const GLchar* msg, const void*) {
+  if (type != GL_DEBUG_TYPE_ERROR || gGlProbeMsgs >= 40) return;
+  ++gGlProbeMsgs; logf("glprobe: driver [pass %s, id %u, severity 0x%04x]: %s", gCrumb ? gCrumb : "?", id, severity, msg);
+}
+void Renderer::glProbeArm(bool on) {
+  if (on && gGlProbeMsgs < 40) { glDebugMessageCallback(glProbeMsg, nullptr); glEnable(GL_DEBUG_OUTPUT); glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); }
+  else { glDisable(GL_DEBUG_OUTPUT_SYNCHRONOUS); glDisable(GL_DEBUG_OUTPUT); }
+}
 void Renderer::gpuMark(int p) {
   if (glProbeFrames > 0) {   // glprobe: the first frames after a target (re)creation name the pass that raised a GL error
     for (GLenum e; (e = glGetError()) != GL_NO_ERROR;) logf("glprobe: GL error 0x%04x in pass %s (%dx%d)", e, cpuMarkP >= 0 && cpuMarkP < GP_Count ? gpuPassName(cpuMarkP) : "between frames", width, height);
-    if (p == GP_Count) --glProbeFrames;
+    if (p == GP_Count && --glProbeFrames == 0) glProbeArm(false);
   }
   {   // P2: CPU time from this mark to the next one (NMK_DLPROF reports it per pass)
     auto now = std::chrono::steady_clock::now();
