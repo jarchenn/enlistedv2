@@ -295,7 +295,7 @@ bool benchViews(App& a, float dt) {
     gMaps = envList("NMK_BENCH_MAPS"); if (gMaps.empty()) gMaps.assign(std::begin(kMaps), std::end(kMaps));
     for (auto& n : envList("NMK_BENCH_PRESETS")) {   // a name no preset has is skipped (it used to run as Medium unnoticed)
       GfxPreset p = GfxPreset::Custom;
-      for (GfxPreset c : {GfxPreset::UltraLow, GfxPreset::Low, GfxPreset::Medium, GfxPreset::High}) if (n == presetName(c)) p = c;
+      for (GfxPreset c : {GfxPreset::UltraLow, GfxPreset::Low, GfxPreset::Medium, GfxPreset::High, GfxPreset::Ultra}) if (n == presetName(c)) p = c;
       if (p == GfxPreset::Custom) logf("[bench] unknown preset %s: skipped", n.c_str()); else gPresets.push_back(p);
     }
     if (gPresets.empty()) gPresets = {GfxPreset::Low, GfxPreset::Medium, GfxPreset::High};

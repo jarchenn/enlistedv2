@@ -48,13 +48,16 @@ GraphicsOpts presetOpts(GfxPreset p) {
     g.lightCount = 512; g.shadowLights = 8; g.gi = 2;    // L2: near + far probe volumes, faster updates
     g.materials = 2;                                     // GX5: + parallax on height-capable texture sets
     g.cloudQuality = 2;                                  // WX1: + the high thin cloud layer
+  } else if (p == GfxPreset::Ultra) {   // UL2: High plus only what showed in the High | Ultra sheets (UL1 step 1 dropped 6144 maps, every cascade every frame, POM 20 m)
+    g = presetOpts(GfxPreset::High); g.ultraFx = true;
   }
   return g;
 }
-const char* presetName(GfxPreset p) { return p == GfxPreset::UltraLow ? "Ultra Low" : p == GfxPreset::Low ? "Low" : p == GfxPreset::Medium ? "Medium" : p == GfxPreset::High ? "High" : "Custom"; }
+const char* presetName(GfxPreset p) { return p == GfxPreset::UltraLow ? "Ultra Low" : p == GfxPreset::Low ? "Low" : p == GfxPreset::Medium ? "Medium" : p == GfxPreset::High ? "High" : p == GfxPreset::Ultra ? "Ultra" : "Custom"; }
+GfxPreset presetFromName(const std::string& n) { for (GfxPreset p : {GfxPreset::UltraLow, GfxPreset::Low, GfxPreset::High, GfxPreset::Ultra}) if (n == presetName(p)) return p; return GfxPreset::Medium; }
 
 GfxPreset UserSettings::preset() const {
-  for (GfxPreset p : {GfxPreset::UltraLow, GfxPreset::Low, GfxPreset::Medium, GfxPreset::High}) if (gfx == presetOpts(p)) return p;
+  for (GfxPreset p : {GfxPreset::UltraLow, GfxPreset::Low, GfxPreset::Medium, GfxPreset::High, GfxPreset::Ultra}) if (gfx == presetOpts(p)) return p;
   return GfxPreset::Custom;
 }
 
@@ -70,7 +73,7 @@ json UserSettings::toJson() const {
                   {"cloudShadows", g.cloudShadows}, {"lightShafts", g.shafts}, {"ssr", g.ssr}, {"ssao", g.ssao}, {"ssaoFullRes", g.ssaoFull},
                   {"bloom", g.bloom}, {"taa", g.taa}, {"taaPhases", g.taaPhases}, {"clouds", g.clouds}, {"cloudQuality", g.cloudQuality}, {"grass", g.grass}, {"grassWind", g.grassWind},
                   {"renderDistance", g.renderDist}, {"particleBudget", g.particles}, {"fov", fov}, {"gamma", gamma}, {"microcontrast", microcontrast}, {"sharpness", sharpness}, {"lighting", !lightNew ? "classic" : lightPhys ? "physical" : "new"}, {"vsync", vsync}, {"dynamicResolution", dynRes}, {"fpsCap", fpsCap}, {"upscaling", upscale == 0 ? "temporal" : upscale == 1 ? "spatial" : "off"},
-                  {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi}, {"msaa", g.msaa}, {"ivy", g.ivy}, {"materialDetail", g.materials}, {"dustMotes", g.dustMotes},
+                  {"lightCount", g.lightCount}, {"shadowedLights", g.shadowLights}, {"gi", g.gi}, {"msaa", g.msaa}, {"ivy", g.ivy}, {"materialDetail", g.materials}, {"ultraEffects", g.ultraFx}, {"dustMotes", g.dustMotes},
                   {"timeOfDay", todPresetName(todPresetOf(hour))}, {"hour", hour}, {"weather", wxPresetName(weather)}, {"envFog", envFog}}},
     {"gameplay", {{"mouseSensitivity", mouseSens}, {"adsSensitivity", adsSens}, {"invertY", invertY}, {"reducedMotion", reducedMotion},
                   {"showArms", showArms}, {"sightMarkers", sightMarkers}, {"weaponList", weaponList}, {"friendlyMarkers", friendlyMarkers}, {"heliCameraMotion", heliCamMotion}, {"vehicleWorldBars", vehicleBars}, {"reticleSize", reticleSize}, {"reticleBright", reticleBright}}},
@@ -89,7 +92,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     const json& q = j["graphics"]; GraphicsOpts& g = u.gfx;
     // a named preset is the starting point; explicit values on top make it Custom when they differ
     std::string pn = q.value("preset", std::string("Medium"));
-    g = presetOpts(pn == "Ultra Low" ? GfxPreset::UltraLow : pn == "Low" ? GfxPreset::Low : pn == "High" ? GfxPreset::High : GfxPreset::Medium);
+    g = presetOpts(presetFromName(pn));
     g.resScale = std::clamp(q.value("resolutionScale", g.resScale), 0.5f, 1.0f);
     g.shadowQuality = std::clamp(q.value("shadowQuality", g.shadowQuality), 0, 2);
     g.farCascade = q.value("farCascade", g.farCascade); g.cloudShadows = q.value("cloudShadows", g.cloudShadows);
@@ -103,7 +106,7 @@ UserSettings UserSettings::fromJson(const json& j) {
     u.fov = std::clamp(q.value("fov", u.fov), 55.0f, 100.0f); u.gamma = std::clamp(q.value("gamma", u.gamma), 0.5f, 2.0f); u.sharpness = std::clamp(q.value("sharpness", u.sharpness), 0.0f, 1.0f); u.microcontrast = std::clamp(q.value("microcontrast", u.microcontrast), 0.0f, 1.0f); { std::string lm = q.value("lighting", std::string(u.lightNew ? "new" : "classic")); u.lightNew = lm != "classic"; u.lightPhys = lm == "physical"; } u.vsync = q.value("vsync", u.vsync); u.dynRes = q.value("dynamicResolution", u.dynRes); u.fpsCap = std::clamp(q.value("fpsCap", u.fpsCap), 0, 500);
     g.lightCount = std::clamp(q.value("lightCount", g.lightCount), 0, 4096); g.shadowLights = std::clamp(q.value("shadowedLights", g.shadowLights), 0, 8);
     g.gi = std::clamp(q.value("gi", g.gi), 0, 2);
-    g.msaa = q.value("msaa", g.msaa) >= 2 ? 4 : 0; g.ivy = q.value("ivy", g.ivy); g.dustMotes = std::clamp(q.value("dustMotes", g.dustMotes), 0, 2);
+    g.msaa = q.value("msaa", g.msaa) >= 2 ? 4 : 0; g.ivy = q.value("ivy", g.ivy); g.ultraFx = q.value("ultraEffects", g.ultraFx); g.dustMotes = std::clamp(q.value("dustMotes", g.dustMotes), 0, 2);
     if (pn == "High") { GraphicsOpts old = presetOpts(GfxPreset::High); old.msaa = 4; if (g == old) g.msaa = 0; }   // VO P2: a saved High (with its old 4x MSAA) is the new High, not Custom
     for (GfxPreset pp : {GfxPreset::Low, GfxPreset::UltraLow, GfxPreset::Medium}) if (pn == presetName(pp)) {   // CP re-cut: a saved preset with its old values is the new one
       GraphicsOpts old = presetOpts(pp); old.resScale = pp == GfxPreset::Medium ? 0.67f : 0.5f; if (pp != GfxPreset::Medium) old.ssao = false;
@@ -254,13 +257,14 @@ void Settings::apply(App& app) {
   R.q.sharpness = s.sharpness;   // CP1
   R.q.lightNew = s.lightNew;   // VO stream L
   R.q.lightPhys = s.lightNew && s.lightPhys;   // CP2
+  R.q.ultra = g.ultraFx;   // UL2
   if (R.q.taa != g.taa || R.q.taaPhases != g.taaPhases) R.resetTemporal();
   R.q.taa = g.taa; R.q.taaPhases = g.taaPhases;
   R.setMsaa(g.msaa);
   R.q.matLayer = g.materials;   // GX5 (docs/graphics-overhaul.md#gx5)
   app.ivyOn = g.ivy;
   R.grassAtlasTier = g.grass >= 2;   // GT1 grass plant atlas: Medium, High, Ultra (Low keeps the procedural blades)
-  R.leafLodScale = g.grass <= 1 ? 0.6f : 1.0f;   // L1: vegetation detail follows the grass quality (Low: near 6 m, mid 13 m)
+  R.leafLodScale = g.grass <= 1 ? 0.6f : g.ultraFx ? 1.5f : 1.0f;   // UL2: Ultra holds full tree detail 1.5x further   // L1: vegetation detail follows the grass quality (Low: near 6 m, mid 13 m)
   R.clouds = g.clouds; R.wx.quality = g.cloudQuality; R.wx.target = s.weather; R.wx.fog = s.envFog;   // WX1 (a LAN client takes the host's: Renderer::Weather::forced)
   R.q.hazeDensity = 0.0010f;   // W1: visibility is the weather's, the same on every quality preset (fair sight; was scaled by render distance)
   R.q.leafDriftN = g.cloudQuality <= 0 ? 0 : g.cloudQuality == 1 ? 800 : 2000;   // WS2 (corpus 07 s7.3)
@@ -428,11 +432,11 @@ void settingsWindow(App& app) {
     if (tab == 0) {
       GraphicsOpts& g = u.gfx;
       // the list in quality order; GfxPreset keeps its stored values (Ultra Low was appended as 4)
-      const GfxPreset order[5] = {GfxPreset::UltraLow, GfxPreset::Low, GfxPreset::Medium, GfxPreset::High, GfxPreset::Custom};
-      const char* pn[] = {"Ultra Low", "Low", "Medium", "High", "Custom"};
-      int pr = 4; for (int k = 0; k < 5; ++k) if (order[k] == u.preset()) pr = k;
+      const GfxPreset order[6] = {GfxPreset::UltraLow, GfxPreset::Low, GfxPreset::Medium, GfxPreset::High, GfxPreset::Ultra, GfxPreset::Custom};
+      const char* pn[] = {"Ultra Low", "Low", "Medium", "High", "Ultra", "Custom"};
+      int pr = 5; for (int k = 0; k < 6; ++k) if (order[k] == u.preset()) pr = k;
       
-      if (flat::combo("Preset", &pr, pn, 5) && order[pr] != GfxPreset::Custom) g = presetOpts(order[pr]);
+      if (flat::combo("Preset", &pr, pn, 6) && order[pr] != GfxPreset::Custom) g = presetOpts(order[pr]);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Medium is the standard look (77-100 %% resolution with dynamic resolution). Low: half-size shadows, no light shafts / reflections / bloom,\nless grass and decoration, 67-100 %% resolution; ambient occlusion, contact shadows, haze and anti-aliasing stay on every preset.\nHigh: sharper far shadows, full-resolution AO, more grass, longer view.");
       flat::sliderFloat("Resolution scale", &g.resScale, 0.5f, 1.0f, "%.2f");
       if (ImGui::IsItemDeactivatedAfterEdit()) applyNow = true;   // targets are recreated once, on release

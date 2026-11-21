@@ -10,12 +10,13 @@
 
 class App;
 
-enum class GfxPreset : int { Low = 0, Medium = 1, High = 2, Custom = 3, UltraLow = 4 };   // PERF1: Ultra Low appended (stored values keep their meaning)
+enum class GfxPreset : int { Low = 0, Medium = 1, High = 2, Custom = 3, UltraLow = 4, Ultra = 5 };   // UL2: Ultra appended   // PERF1: Ultra Low appended (stored values keep their meaning)
 
 // The part of the graphics options a preset sets. Everything else (FOV, vsync, FPS cap, cloud cover) is personal and
 // kept when a preset is picked.
 struct GraphicsOpts {
   float resScale = 0.67f;      // internal render resolution (0.5 .. 1); below 1 TAA reconstructs at output size (P1 TAAU). Medium 0.67, Low 0.5, High 1
+  bool ultraFx = false;       // UL2: Ultra effects (soft contact-hardening sun shadows, trees at full detail 1.5x further); only visible gains
   int shadowQuality = 1;       // 0: near 2048 / far 1024, 1: 4096 / 2048 (default), 2: 4096 / 4096
   bool farCascade = true, cloudShadows = true, shafts = false, ssr = true, ssao = true, ssaoFull = false, bloom = true, taa = true;
   int taaPhases = 8;           // Halton jitter sequence length
@@ -36,6 +37,7 @@ struct GraphicsOpts {
 GraphicsOpts presetOpts(GfxPreset p);
 bool presetsOld();   // P3 A/B (NMK_PRESET_OLD): the pre-P3 Low / Medium values
 const char* presetName(GfxPreset p);
+GfxPreset presetFromName(const std::string& n);   // UL2: a preset's name (unknown: Medium)
 
 struct UserSettings {
   // graphics

@@ -111,6 +111,7 @@ uniform float uShadowLift;        // VO L1: share of the sun a shadow removes (C
 uniform float uMicroSh;           // VO L4: micro-shadowing from material AO on the direct light (0 Classic, 1 New)
 uniform float uShadowWarm;        // VO L1: sun-hue bias of the sky light on surfaces in the sun's shadow (New; 0 Classic)
 uniform int uShadowTaps;          // P3: cap on the PCF taps (presets; 0 = no cap)
+uniform int uPcss;                // UL1 (Ultra, --rq-off pcss): contact-hardening near-cascade penumbrae
 uniform int uFrame;               // frame counter (noise rotation; TAA decorrelation)
 uniform int uCloudShadowOn; uniform float uCloudCov, uCloudT;
 uniform float uCloudK, uCloudSeed; uniform vec2 uCloudWind;
@@ -148,6 +149,21 @@ float pixelNoiseFixed(){ return fract(52.9829189*fract(dot(gl_FragCoord.xy, vec2
 float pixelNoise(){ return 0.5; }
 float pixelNoiseFixed(){ return 0.5; }
 #endif
+// UL1 PCSS without a depth sampler: the map is compare-only, so the blocker distance is read from the occluded share at
+// a few depth offsets (taps in a disk); the penumbra then grows with it at the sun's 0.53 deg (x1.5 for TAA-softened edges)
+float pcssRadius(sampler2DShadow sm, vec3 s, vec2 texel, float worldTexel, float bias, float x0, float x1, float rot){
+  const float dz[4] = float[4](0.0, 0.5, 2.0, 8.0);   // m above the receiver
+  float occ[4] = float[4](0.0, 0.0, 0.0, 0.0);
+  for (int i = 0; i < 6; ++i) {
+    float r = sqrt((float(i) + 0.5)/6.0), a = float(i)*2.3999632 + rot;
+    vec2 t = s.xy + vec2(cos(a), sin(a))*r*8.0*texel; t.x = clamp(t.x, x0, x1);
+    for (int k = 0; k < 4; ++k) occ[k] += 1.0 - texture(sm, vec3(t, s.z - bias - dz[k]/uShadowDepthRange));
+  }
+  if (occ[0] <= 0.0) return -1.0;   // no blocker near: lit
+  float d = 0.0, prev = 0.0;
+  for (int k = 0; k < 4; ++k) { float f = occ[k]/max(occ[0], 1e-3); d += f*(dz[k] - prev); prev = dz[k]; }
+  return clamp(d*0.0047*1.5/worldTexel, 0.7, 14.0);
+}
 // one cascade: Vogel-disk PCF in light space. Normal offset grows with the slope to the sun (acne), a small
 // constant depth bias keeps contact (no peter-panning where walls meet the ground).
 // ax: (scale, bias) of x into the map's atlas half (VO L3); taps are kept inside that half
@@ -166,6 +182,11 @@ float cascadePCF(sampler2DShadow sm, mat4 vp, vec2 texel, float worldTexel, vec3
   float rot = pixelNoiseFixed()*6.2831853, sum = 0.0;
   s.x = s.x*ax.x + ax.y;
   float x0 = ax.y + texel.x, x1 = ax.y + ax.x - texel.x;
+  if (uPcss == 1 && taps > 1 && ax.y == 0.0 && ax.x < 1.0) {   // near cascade of the atlas, filtered lookups only
+    float pr = pcssRadius(sm, s, texel, worldTexel, bias, x0, x1, rot);
+    if (pr < 0.0) return 1.0;
+    radiusTex = pr; taps = max(taps, 16);
+  }
   for (int i = 0; i < taps; ++i) {
     float r = sqrt((float(i) + 0.5)/float(taps)), a = float(i)*2.3999632 + rot;
     vec2 t = s.xy + vec2(cos(a), sin(a))*r*radiusTex*texel; t.x = clamp(t.x, x0, x1);
@@ -5013,6 +5034,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uSkyRelit"), q.lightNew && perf.skyRelit && !q.legacy ? 1 : 0);   // VO L6
   glUniform1f(U(p, "uMicroSh"), q.lightNew && perf.microShadow && !q.legacy ? 1.0f : 0.0f);   // VO L4
   glUniform1i(U(p, "uShadowTaps"), q.shadowTaps);
+  glUniform1i(U(p, "uPcss"), q.ultra && perf.pcss && q.lightNew && !q.legacy ? 1 : 0);   // UL1
   glUniform1i(U(p, "uFrame"), frame);
   glUniform1i(U(p, "uCloudShadowOn"), !q.legacy && q.cloudShadows && clouds && perf.cloudShadow && !thumbMode ? 1 : 0);
   glUniform1f(U(p, "uCloudCov"), cloudCoverNow()); glUniform1f(U(p, "uCloudT"), cloudClock());
