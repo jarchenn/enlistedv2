@@ -708,7 +708,12 @@ def populate(ctx, grid, pads=None):
                  linked=[chateau["id"]] + [e["id"] for e in gates], slots=slots_from_structures(b, [chateau]))
     sc.objective("Church and graveyard", CHURCH[0], CHURCH[1] - 10.0, radius=20.0, capture_time=45.0, attack_from=(-42, -88),
                  linked=[church["id"]], slots=slots_from_structures(b, [church]))
-    sc.objective("Mill bridge", br["pos"][0], br["pos"][2], radius=14.0, capture_time=40.0, attack_from=(-52, -58),
+    # VOT T2: the bridge objective at its banks' level (the ground under the bridge is the stream bed, ~14 m lower: the
+    # capture zone sat in the water and the deck was out of it); the zone still reaches down into the bed
+    bank_y = max(b.ground(br["pos"][0] + 11.0 * math.cos(a * math.pi / 8), br["pos"][2] + 11.0 * math.sin(a * math.pi / 8)) for a in range(16))
+    bed_y = b.ground(br["pos"][0], br["pos"][2])
+    sc.objective("Mill bridge", br["pos"][0], br["pos"][2], radius=14.0, capture_time=40.0, attack_from=(-52, -58), y=bank_y,
+                 y_min=min(-2.0, bed_y - bank_y - 1.0), y_max=5.0,
                  linked=[br["id"]] + [e["id"] for e in near_bridge], slots=slots_from_structures(b, near_bridge))
     sc.objective("Town square", SQUARE[0], SQUARE[1], radius=18.0, capture_time=45.0, attack_from=(-72, 132),
                  linked=[e["id"] for e in sq_houses], slots=slots_from_structures(b, sq_houses))
@@ -810,6 +815,13 @@ def relief(grid, rep, pads=()):
     H = _arr(grid)
     h0 = H.copy()
     relief_layers(grid, [(3.5, 320.0, 31, 3)], w_large)
+    # VOT T2: the skyline: past the build area the ground climbs into ridges (north ~45 m, west ~40 m, else ~25 m) that
+    # stand over the hedges and roofs from the streets, the churchyard and the bridge
+    out = np.maximum(np.abs(X) - W / 2, np.abs(Z) - D / 2)
+    R_ = np.maximum(np.hypot(X, Z), 1.0)
+    tall = 25.0 + 20.0 * np.clip(Z / R_, 0, 1) + 15.0 * np.clip(-X / R_, 0, 1)
+    tw = ss(0.0, 95.0, out) * ss(12.0, 40.0, pd)   # the farm yards out there keep their gentle ground
+    H += tall * tw * (0.8 + 0.4 * np.vectorize(lambda x, z: fbm(x / 140.0, z / 140.0, 37, 3))(X, Z))
     relief_layers(grid, [(1.4, 90.0, 32, 4), (0.35, 30.0, 33, 3)], w_small)
     hydraulic_erosion(grid, w_small, iters=45, kc=1.0)
     thermal_erosion(grid, w_small, iters=15, talus=0.6)
@@ -828,6 +840,87 @@ def relief(grid, rep, pads=()):
     inb = (np.abs(X) <= W / 2) & (np.abs(Z) <= D / 2)
     rep["relief"] = {"changeMaxM": round(float(np.abs(H - h0)[inb].max()), 2), "changeStdM": round(float((H - h0)[inb].std()), 2),
                      "drainCells": int((acc[inb] > 80).sum())}
+
+
+def chateau_fine(fine, b, g, anchors):
+    """VOT T2: what the 3.1 m grid cannot show, in the fine layer: the streets cambered with gutters, the country lanes
+    cambered and rutted between raised verges and ditches (only along open stretches: never under a wall, a cart, a
+    building or a hedge row's posts), the loop lane outside the town sunk to head height between its banks, and
+    foreground ground (low bumps, puddle hollows) within 30 m of each gameplay viewpoint."""
+    import numpy as np
+    from mapgen.relief import fine_road, fine_bumps, _poly_dist
+    rects = []
+    for e in b.inst:   # every rigid footprint (not plants, paths or line pieces): the profile keeps off them
+        a = b.cat[e["asset"]]
+        if a.path_on or a.tree or a.raw.get("nature") or a.raw.get("scatter") or a.raw.get("line") or e["asset"].startswith(("bcg_hedgerow", "hedgerow", "line_")):
+            continue   # hedge rows follow the ground segment by segment: a bank under them is what they stand on
+        c, s = math.cos(math.radians(e["yaw"])), math.sin(math.radians(e["yaw"]))
+        rects.append((e["pos"][0], e["pos"][2], c, s, a.half[0], a.half[1], math.hypot(*a.half)))
+    R = np.array(rects)
+    stream = np.array(resample(g["stream"], 3.0))
+    ss = lambda e0, e1, v: np.clip((v - e0) / (e1 - e0), 0, 1) ** 2 * (3 - 2 * np.clip((v - e0) / (e1 - e0), 0, 1))
+
+    def clear(X, Z, near=0.8, far=2.2):
+        k = np.ones(X.shape)
+        x0, x1, z0, z1 = X.min() - 20, X.max() + 20, Z.min() - 20, Z.max() + 20
+        sel = R[(R[:, 0] > x0 - R[:, 6]) & (R[:, 0] < x1 + R[:, 6]) & (R[:, 1] > z0 - R[:, 6]) & (R[:, 1] < z1 + R[:, 6])]
+        for x, z, c, s, hx, hz, _ in sel:
+            lx, lz = (X - x) * c - (Z - z) * s, (X - x) * s + (Z - z) * c
+            k = np.minimum(k, ss(near, far, np.hypot(np.maximum(np.abs(lx) - hx, 0), np.maximum(np.abs(lz) - hz, 0))))
+        return k * ss(8.0, 14.0, _poly_dist(X, Z, stream)[0])   # bridges and the banks
+    roads = {"ring": 3.0, "S1": 2.5, "S2": 2.5, "S3": 2.5, "S4": 2.5, "loop": 1.75, "mill_lane": 1.75, "back_lane": 1.3, "forecourt": 17.0}
+    paths = {k: np.array(resample(g[k], 3.0)) for k in roads}
+
+    def others(name, X, Z):   # 0 on and near the other roads (junctions keep the road they meet)
+        k = np.ones(X.shape)
+        for o, P in paths.items():
+            if o != name:
+                k = np.minimum(k, ss(roads[o] + 1.0, roads[o] + 6.0, _poly_dist(X, Z, P)[0]))
+        return k
+    n0 = len(fine.d)
+    for k in ("ring", "S1", "S2", "S3", "S4"):
+        pts = g[k]
+        s_out = s_where(pts, lambda x, z: not town(x, z, 0.98)) if k != "ring" else 1e9
+        inner = [p for p in pts if polyline_dist(p, pts)[1] <= s_out] or pts[:2]
+        outer = [p for p in pts if polyline_dist(p, pts)[1] >= s_out - 4]
+        fine_road(fine, inner, roads[k], crown=0.07, gutter=0.04, keep=lambda X, Z, k=k: clear(X, Z, 0.3, 1.0) * others(k, X, Z))
+        if len(outer) >= 2:
+            fine_road(fine, outer, 2.0, crown=0.07, ruts=0.06, verge=0.25, ditch=0.6, keep=lambda X, Z, k=k: clear(X, Z) * others(k, X, Z))
+    loop = g["loop"]
+    fine_road(fine, loop, 1.75, crown=0.05, ruts=0.08, keep=lambda X, Z: clear(X, Z, 0.3, 1.0) * others("loop", X, Z))
+    # the hollow way: the loop sunk to head height between its banks wherever it runs clear of houses, junctions and the
+    # stream (the T3 base cut adds ~0.9 m outside the town)
+    fine_road(fine, loop, 1.75, crown=0.0, sunk=1.5, sunk_half=4.4, ends=14.0, keep=lambda X, Z: clear(X, Z, 1.0, 4.0) * others("loop", X, Z))
+    fine_road(fine, g["mill_lane"], 1.75, crown=0.05, ruts=0.07, verge=0.15, keep=lambda X, Z: clear(X, Z) * others("mill_lane", X, Z))
+    fine_road(fine, g["back_lane"], 1.3, crown=0.04, ruts=0.06, keep=lambda X, Z: clear(X, Z, 0.3, 1.0) * others("back_lane", X, Z))
+    n_road = len(fine.d) - n0
+
+    def off_roads(X, Z):
+        k = clear(X, Z, 0.6, 2.0)
+        for o, P in paths.items():
+            k = np.minimum(k, ss(roads[o] + 0.5, roads[o] + 2.5, _poly_dist(X, Z, P)[0]))
+        return k
+    for i, c in enumerate(anchors):
+        fine_bumps(fine, c, 30.0, amp=0.1, keep=off_roads, seed=50 + i)
+    nm = 0
+    for e in b.inst:   # soil heaped against the feet of the walls near the viewpoints (outside their footprints)
+        if "wall" not in e["asset"] or min(math.hypot(e["pos"][0] - c[0], e["pos"][2] - c[1]) for c in anchors) > 35.0:
+            continue
+        a = b.cat[e["asset"]]
+        x, z = e["pos"][0], e["pos"][2]
+        c, s = math.cos(math.radians(e["yaw"])), math.sin(math.radians(e["yaw"]))
+        hx, hz = a.half
+
+        def mound(X, Z, G, x=x, z=z, c=c, s=s, hx=hx, hz=hz):
+            lx, lz = (X - x) * c - (Z - z) * s, (X - x) * s + (Z - z) * c
+            d = np.hypot(np.maximum(np.abs(lx) - hx, 0), np.maximum(np.abs(lz) - hz, 0))
+            ends = np.clip((hx + 0.3 - np.abs(lx)) / 0.8, 0, 1)
+            t = np.clip(d / 0.9, 0, 1)
+            return G + 0.28 * (d > 0) * (1 - t * t * (3 - 2 * t)) * ends * off_roads(X, Z)
+        r = math.hypot(hx, hz) + 1.5
+        fine.add(mound, (x - r, z - r, x + r, z + r))
+        nm += 1
+    return {"roadTiles": n_road, "viewTiles": len(fine.d) - n0 - n_road, "wallMounds": nm}
 
 
 def build(ctx):
@@ -853,12 +946,25 @@ def build(ctx):
         stamp_flatten_poly(grid, poly, height=grid.sample(x, z), falloff=4.0)
     grid.quantise()
     b, sc, g, rep = populate(ctx, grid)
-    from mapgen.relief import reseat_on_engine_ground
+    from mapgen.relief import reseat_on_engine_ground, FineLayer, level_rigid_pieces
+    fine = FineLayer(grid)   # VOT T2: sub-cell relief (sculpt tiles): road sections, the sunk lane, foreground ground
+    fine.install(b)
     ra = b.reseat_all
+    s1p, s1t = point_at(g["S1"], 70.0)
+    br0 = [e for e in b.tagged("bridge") if "S3" in e["tags"]][0]
+    anchors = [(4.0, -46.0), (s1p[0] + s1t[1] * 1.2, s1p[1] - s1t[0] * 1.2), (-89.0, 15.0), (br0["pos"][0] + 24.0, br0["pos"][2] + 4.0),
+               (SQUARE[0] - 12.0, SQUARE[1] - 10.0)]
+    fixed = lambda e: "bridge" in e["asset"] or e["asset"].startswith("wat_")   # bridges span the stream; water lies flat
 
-    def reseat_all(*a, **kw):   # VOT T3: last, on the ground the engine draws after its own pads (write_png calls this)
+    def reseat_all(*a, **kw):   # VOT T3 / T2: last, on the ground the engine draws after its own pads (write_png calls this)
         m = ra(*a, **kw)
-        t3["engineReseat"] = reseat_on_engine_ground(b, skip=lambda e: "bridge" in e["asset"])   # bridges span the stream
+        t3["fine"] = chateau_fine(fine, b, g, anchors)
+        t3["engineReseat"] = reseat_on_engine_ground(b, skip=fixed)
+        n, worst = level_rigid_pieces(fine, b, min_area=1.0, max_range=1.5,   # carts, gate piers, wells, the farm buildings past the border
+                                      skip=lambda e: fixed(e) or "wall" in e["asset"] or e["asset"].startswith(("bcg_", "hedge", "line_")))
+        t3["fineSeats"] = [n, round(worst, 3)]
+        reseat_on_engine_ground(b, skip=fixed)
+        t3["sculptTiles"] = len(fine.d)
         return m
     b.reseat_all = reseat_all
     err, warn = sc.validate()
@@ -911,7 +1017,7 @@ def build(ctx):
               builder=b, scenario_json=sj, explore_start=((a1[0], a1[1], a1[2]), 180.0), camera=cam,
               bookmarks={str(i + 1): {"position": [o["pos"][0], o["pos"][1] + 40, o["pos"][2] - 70], "yaw": 180.0, "pitch": -28}
                          for i, o in enumerate(sc.objectives)},
-              extra={"groundPaint": b.paint.to_json(), "look": {"paintSets": {"scorched": "trail_dirt"}}})   # trails (user, 2026-11-20: "Every map")
+              extra={"terrainSculpt": fine.to_json(), "groundPaint": b.paint.to_json(), "look": {"paintSets": {"scorched": "trail_dirt"}}})   # trails (user, 2026-11-20: "Every map")
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=5, version=VERSION, seed=SEED,
                    description="A dense Norman town around a grand chateau: the chateau on its gravel forecourt behind garden walls "
                                "and an iron gate, a ring road and four winding streets of town houses, the church in its walled "

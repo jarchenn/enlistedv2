@@ -21,14 +21,15 @@ class ScenarioBuilder:
         return s
 
     def objective(self, name, x, z, *, radius=25.0, capture_time=45.0, attack_from=None, linked=(), slots=(),
-                  routes=(), y_min=-2.0, y_max=4.0, polygon=None):
-        """attack_from: (x, z) the attackers come from (sets the attack arrow); default the previous objective."""
+                  routes=(), y_min=-2.0, y_max=4.0, polygon=None, y=None):
+        """attack_from: (x, z) the attackers come from (sets the attack arrow); default the previous objective.
+        y: the objective's height (default the ground at x, z; a bridge objective takes its deck, not the bed below)."""
         order = len(self.objectives)
         if attack_from is None:
             attack_from = (self.objectives[-1]["pos"][0], self.objectives[-1]["pos"][2]) if self.objectives else (x, z - 100)
         ay = look_yaw(x - attack_from[0], z - attack_from[1])
         o = {"id": self._id("obj"), "label": chr(ord("A") + order), "displayName": name, "order": order,
-             "pos": [round(x, 3), round(self.b.ground(x, z), 3), round(z, 3)], "yaw": 0.0,
+             "pos": [round(x, 3), round(self.b.ground(x, z) if y is None else y, 3), round(z, 3)], "yaw": 0.0,
              "captureShape": {"type": "polygon", "points": [[round(p[0], 2), round(p[1], 2)] for p in polygon]} if polygon else {"type": "circle", "radius": radius},
              "radius": radius, "yMin": y_min, "yMax": y_max, "captureTime_s": capture_time, "attackYaw": round(ay, 2),
              "routes": [{"lane": ln, "points": [[round(p[0], 2), round(self.b.ground(p[0], p[1]), 2), round(p[1], 2)] for p in pts]} for ln, pts in routes],

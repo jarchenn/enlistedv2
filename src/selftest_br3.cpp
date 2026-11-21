@@ -414,7 +414,8 @@ bool floaterScan(App& app, float dt) {
     // from just above the base hits a placed instance's collider, not the terrain, within 30 cm
     bool onStructure = false;
     if (gap > 0.05f) { Physics::Hit h; if (Physics::castRayEx(i.pos + vec3(0, 0.25f, 0), vec3(0, -1, 0), 0.55f, h) && h.ud != 0 && (h.ud >> 60) != 0xF && (h.ud >> 16) != i.id) onStructure = true; }
-    if (gap > 0.05f && !skirted && !onStructure) { kind = "floating"; v = gap; ++nf; }
+    const float fnd = a->raw.is_object() ? a->raw.value("foundation", 0.0f) : 0.0f;   // VOT T2: a declared foundation below the base covers the low side
+    if (gap > 0.05f + fnd && !skirted && !onStructure) { kind = "floating"; v = gap; ++nf; }
     else if (sink > (a->tree.on ? 0.35f : a->modelFoliage ? (a->category == "Trees" ? 0.35f : 0.5f * std::max(0.1f, a->bmax.y - a->bmin.y)) : !a->defense.kind.empty() ? 0.30f : a->footprint.x * a->footprint.y < 6.0f ? 0.20f : 0.10f) && a->navMeta.terrainCuts.empty() && !blendTrench(a)) { kind = "sunk"; v = sink; ++ns; }   // a trunk or a small piece into a slope is natural
     if (kind) csv << kind << "," << a->id << "," << i.id << "," << i.pos.x << "," << i.pos.y << "," << i.pos.z << "," << i.yaw << "," << v << "," << a->category << "\n";
   }

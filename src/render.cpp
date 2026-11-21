@@ -167,7 +167,18 @@ float cascadePCF(sampler2DShadow sm, mat4 vp, vec2 texel, float worldTexel, vec3
   return sum/float(taps);
 }
 float cascadePCF(sampler2DShadow sm, mat4 vp, vec2 texel, float worldTexel, vec3 w, vec3 n, float radiusTex, int taps, out float edge){ return cascadePCF(sm, vp, texel, worldTexel, w, n, radiusTex, taps, edge, vec2(1.0, 0.0)); }
-float sunShadowRaw(vec3 w, vec3 n, float soft, int taps){
+// VOT T6: the terrain's horizon toward the sun (terrain_normals.cpp horizonSync; unit 26, G / B / A beside the T5 sky
+// view in R): distant relief stays shadowed where the cascades end. Ground-level horizon for anything at w.xz.
+uniform int uTHorOn; uniform sampler2D uTSV; uniform vec4 uTHorMap, uTHorW;   // map: org.xy, 1 / extent; w: bin weights, sun elevation (deg)
+uniform int uTHorAll;   // 1 on the ground and grass: the cascades hold no terrain, so the horizon shades them at every distance
+float terrainHorizonSun(vec3 w){
+  if (uTHorOn == 0) return 1.0;
+  vec2 uv = (w.xz - uTHorMap.xy)*uTHorMap.zw;
+  if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) return 1.0;
+  float h = dot(texture(uTSV, uv).gba, uTHorW.xyz)*50.0 - 5.0;   // horizon elevation (deg)
+  return smoothstep(h - 1.0, h + 1.5, uTHorW.w);   // the sun's disc and a little penumbra
+}
+float sunShadowCasc(vec3 w, vec3 n, float soft, int taps){
   if (uShadowOn == 0) return 1.0;
   if (uShadowSoft <= 0.0) {   // legacy fallback: 3x3 grid, fixed offsets
     float ndl = clamp(dot(n, uSunDir), 0.0, 1.0);
@@ -188,11 +199,16 @@ float sunShadowRaw(vec3 w, vec3 n, float soft, int taps){
     sN = mix(sN, sM, tB); eN = eM; tB = smoothstep(0.8, 0.96, eM);
     if (eM >= 2.0) { sN = 1.0; tB = 1.0; }   // outside the mid box too: the far cascade alone
   }
-  if (uShadowFarOn == 0) return sN;
   if (tB <= 0.0) return sN;
+  if (uShadowFarOn == 0) return mix(sN, terrainHorizonSun(w), tB);   // VOT T6: past the last cascade, the terrain horizon
   float sF = cascadePCF(uShadowFar, uLightVPFar, uShadowTexelFar, uShadowWorldTexel.y, w, n, 1.25 + soft, max(taps/2, 4), eF);
-  sF = mix(sF, 1.0, smoothstep(0.85, 0.98, eF));   // fade out at the far edge instead of a hard line
+  float fE = smoothstep(0.85, 0.98, eF);
+  if (fE > 0.0) sF = mix(sF, terrainHorizonSun(w), fE);   // fade to the terrain horizon (T6; 1 when off) at the far edge instead of a hard line
   return mix(sN, sF, tB);
+}
+float sunShadowRaw(vec3 w, vec3 n, float soft, int taps){
+  float s = sunShadowCasc(w, n, soft, taps);
+  return uTHorAll == 1 && uShadowOn == 1 ? min(s, terrainHorizonSun(w)) : s;
 }
 // VO L7: the reflection cube near the eye (lighting.cpp reflPass), box-parallax corrected around its capture point
 uniform samplerCube uRefl; uniform int uReflOn; uniform vec3 uReflPos;
@@ -3086,10 +3102,11 @@ static const char* kTerrainFS = R"GLSL(
 uniform vec4 uGrassTop; uniform vec2 uGrassTopR;   // CP4: clumps' mean top-down albedo (linear), strength; ramp start / end (m)
 in vec3 vW, vN0; in float vDirt; in vec3 vEw;   // vEw: GX1 earthworks (terrain_cuts.cpp): packed mud, freshly turned earth, wet
 uniform int uTNOn; uniform sampler2D uTNrm; uniform vec4 uTNMap;   // VOT T1: per-pixel base normals (terrain_normals.cpp, unit 18), xy origin, zw 1 / extent
-uniform int uTSVOn; uniform sampler2D uTSV;   // VOT T5: terrain sky-view factor (unit 26, same mapping as uTNMap)
+uniform int uTSVOn;   // uTSV is declared with the shadow code (T6)   // VOT T5: terrain sky-view factor (unit 26, same mapping as uTNMap)
 vec3 vN;   // the shading normal: vN0 (vertex) or the baked per-pixel one
 uniform int uGrid; uniform vec2 uBuildHalf;
 uniform int uDiscard; uniform sampler2D uTileMask; uniform float uTileSize; uniform vec2 uTerrainOrg, uTerrainExt;
+uniform vec4 uDust;   // W5 tdust: xy wind direction (toward), z streamer strength (0: calm or not arid), w advection phase (m along the wind)
 uniform sampler2D uSurf;   // R wear, G wet, B route kind, A rut (surface.cpp)
 uniform float uTerrCave;   // CV1: look.cave: dark wet glossy floors
 uniform int uDbgTerr;      // GG1 (NMK_DBG_TERRAIN): 1 roughness classes (red < 0.4 SSR mirror, yellow < 0.7 sheen, grey matte), 2 specular share (red > 25 %, yellow > 10 %)
@@ -3292,6 +3309,16 @@ void main(){
     N = normalize(mix(N, normalize(vN), flat_k*film*0.6));
   }
   applySnow(p, normalize(vN), 1.0, alb, rough, N); snowTex(p, normalize(vN), tdx, tdy, tDist, hB, alb, rough, N);   // SN1; SN2 the snow sets near (snow.cpp)
+  if (uDust.z > 0.0) {   // W5 (weather corpus 06): wind-blown sand streaming over the ground near the eye, along the wind (arid maps)
+    float dk = uDust.z*(1.0 - smoothstep(40.0, 60.0, length(p.xz - uCamPos.xz)))*smoothstep(0.75, 0.92, normalize(vN).y);
+    if (dk > 0.0) {
+      vec2 q = vec2(dot(p.xz, uDust.xy), dot(p.xz, vec2(-uDust.y, uDust.x)));   // along / across the wind (m)
+      float s1 = vnoise(vec3((q.x - uDust.w)*0.35, q.y*2.4, 31.0)), s2 = vnoise(vec3((q.x - 1.4*uDust.w)*0.9, q.y*6.0, 32.0));
+      float s3 = vnoise(vec3((q.x - 0.5*uDust.w)*0.07, q.y*0.35, 33.0));   // the gust-scale patches the ribbons run in
+      float st = smoothstep(0.52, 0.82, 0.6*s1 + 0.4*s2)*smoothstep(0.3, 0.65, s3);
+      alb = mix(alb, vec3(0.80, 0.72, 0.57), st*0.5*dk); rough = mix(rough, 1.0, st*dk);
+    }
+  }
   gSpecK = mix(uGroundSpec, 1.0, max(max(puddle, vEw.z*ewK), wxw));   // W3: wet ground keeps its sheen   // GG1: dry ground: no broad sun glare or sky sheen at grazing angles (standing water / wet cut mud keep theirs)
   float gs0 = gSpecK; gSpecK = 0.0;
   vec3 cMatte = uDbgTerr == 2 ? shade(vW, N, alb, 1.0, 0.0, ao) : vec3(0.0);   // GG1 measurement: no specular at all
@@ -4845,6 +4872,8 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   bool far = !q.legacy && q.farCascade && !thumbMode;
   glUniform1i(U(p, "uShadowFar"), 6); glBindTextureUnit(6, shadowFarTex);
   glUniform1i(U(p, "uShadowFarOn"), far ? 1 : 0);
+  glUniform1i(U(p, "uTSV"), 26); glUniform1i(U(p, "uTHorOn"), thorTex && !thumbMode ? 1 : 0); glUniform1i(U(p, "uTHorAll"), p == progTerrain || p == progTerrainND || p == progGrass ? 1 : 0);   // VOT T6 (unit 26 = the terrain's T5 / T6 texture)
+  if (thorTex && !thumbMode) { glBindTextureUnit(26, thorTex); glUniform4fv(U(p, "uTHorMap"), 1, glm::value_ptr(thorMap)); glUniform4fv(U(p, "uTHorW"), 1, glm::value_ptr(thorW)); }
   glUniformMatrix4fv(U(p, "uLightVPFar"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
   glUniform2f(U(p, "uShadowTexelFar"), 1.0f / shadowFarSize, 1.0f / shadowFarSize);
   glUniform2f(U(p, "uShadowWorldTexel"), 2 * nearR / shadowSize, 2 * farR / shadowFarSize);
@@ -5714,6 +5743,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   // shadow cascades and sky occlusion: standard depth; the camera passes below switch to reverse-Z
   glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE); glClearDepth(1.0);
   RenderView v = v0;
+  thorTex = perf.terrainHorizon && !thumbMode ? t.horizonSync(sunDir) : 0;   // VOT T6 (bakes on a new map, a new sun band, or after edits)
+  thorMap = t.horizonMap(); thorW = t.horizonWeights(sunDir);
   v.proj = reverseZ(v0.proj);
   if (v0.vmProj[2][3] != 0.0f) v.vmProj = reverseZ(v0.vmProj);
   stats.draws = 0; stats.tris = 0; stats.culled = 0; stats.casterCulled = 0; stats.shadowDraws = 0; stats.foliageDraws = 0; stats.instDrawn = 0;
@@ -5976,6 +6007,21 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glDepthMask(GL_TRUE); glDepthFunc(zLess());   // the world's depth state (drawSky leaves it too; sky-last must set it here)
   auto drawTerrain = [&]() {
     gpuMark(GP_Terrain);
+    {   // W5 tdust (weather corpus 06, saltation): streamer strength drive(u) = clamp(((u - u_t) / (u_full - u_t))^3, 0, 1), u_t 5.5 m/s,
+        // full by 14 m/s, on above u_t and off below 0.8 u_t (hysteresis); gusts from the shared state; arid maps only
+      using clk = std::chrono::steady_clock; static clk::time_point last = clk::now(); static double tAcc = 0;
+      const double dt = std::min(0.1, std::chrono::duration<double>(clk::now() - last).count()); last = clk::now(); tAcc += dt;
+      const auto& ws = wx.st; const float gp = std::max(1.0f, ws.gustPeriodS);
+      const float u = ws.windMs * (1.0f + (ws.gust - 1.0f) * 0.5f * (1.0f + (float)std::sin(6.2831853 * tAcc / gp)));
+      const float ut = 5.5f, uf = 14.0f;
+      dustOn = u > ut || (dustOn && u > 0.8f * ut);
+      float k = dustOn ? std::clamp((u - 0.8f * ut) / (uf - 0.8f * ut), 0.0f, 1.0f) : 0.0f; k = k * k * k;
+      if (ws.dustVisM > 0) k = std::max(k, 0.35f);   // Blowing dust / Sandstorm: always streaming
+      const bool arid = groundPaintArid();
+      vec2 dir = glm::length(wx.der.windXZ) > 1e-3f ? glm::normalize(wx.der.windXZ) : vec2(std::sin(glm::radians(ws.windDirDeg)), std::cos(glm::radians(ws.windDirDeg)));
+      dustPhase = std::fmod(dustPhase + (float)dt * 0.35f * u, 4096.0f);   // the ribbons travel at about a third of the wind
+      dustU = vec4(dir, perf.terrainDust && arid && !thumbMode ? k : 0.0f, dustPhase);
+    }
     const GLuint progTN = perf.terrainEarlyZ ? progTerrainND : 0;   // PF: tzearly
     for (GLuint progTerrain : {this->progTerrain, progTN}) { if (!progTerrain) continue;   // the same set-up for both terrain shaders
     setLighting(progTerrain, v);
@@ -6002,8 +6048,9 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       glProgramUniform1f(progTerrain, glGetUniformLocation(progTerrain, "uGroundSpec"), ggOff ? 1.0f : dspec);
     }
     { static const int dbg = std::getenv("NMK_DBG_TERRAIN") ? std::atoi(std::getenv("NMK_DBG_TERRAIN")) : 0; glProgramUniform1i(progTerrain, glGetUniformLocation(progTerrain, "uDbgTerr"), dbgTerr >= 0 ? dbgTerr : dbg); }   // GG1 measurement
+    glProgramUniform4fv(progTerrain, glGetUniformLocation(progTerrain, "uDust"), 1, glm::value_ptr(dustU));   // W5 tdust
     }
-    t.drawOpts.normals = perf.terrainNormals; t.drawOpts.morph = perf.terrainMorph; t.drawOpts.skyView = perf.terrainSkyView;   // VOT T1 / T5
+    t.drawOpts.normals = perf.terrainNormals; t.drawOpts.morph = perf.terrainMorph; t.drawOpts.skyView = perf.terrainSkyView; t.drawOpts.tileLod = perf.terrainTileLod;   // VOT T1 / T5 / T2
     // PF terrain: samples the terrain pass wrote, read a ring slot later (the shaded-fragment count is the bench's fragment query, gpuMark)
     if (!terrQ[0][1]) for (auto& q : terrQ) glCreateQueries(GL_SAMPLES_PASSED, 1, &q[1]);
     if (terrQn >= 2) { GLuint64 b = 0; GLint ok = 0; glGetQueryObjectiv(terrQ[terrQi][1], GL_QUERY_RESULT_AVAILABLE, &ok); if (ok) { glGetQueryObjectui64v(terrQ[terrQi][1], GL_QUERY_RESULT, &b); stats.terrSamples = (double)b; } }
