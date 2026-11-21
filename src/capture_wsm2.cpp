@@ -127,7 +127,7 @@ static bool bfRun(App& app, float dt) {
   static int k = -1, f = 0; static vec3 base;
   static const int only = std::getenv("NMK_BF_SCENE") ? std::atoi(std::getenv("NMK_BF_SCENE")) : -1;
   const char* scene[2] = {"noon", "night"}; const float hour[2] = {12.0f, 23.0f};
-  const char* shot[5] = {"rifle", "mg42", "tankgun", "pak40", "explosions"}; const float dist[5] = {3, 6, 18, 12, 30};
+  const char* shot[6] = {"rifle", "mg42", "tankgun", "pak40", "explosions", "wide"}; const float dist[6] = {3, 6, 18, 12, 30, 60};   // wide: the grenade / 105 / 155 row whole, to its columns' tops
   if (k < 0) {
     T = new MpTest("wsm2"); started = true;
     if (app.mode == Mode::Explore) app.exitExplore();
@@ -136,14 +136,14 @@ static bool bfRun(App& app, float dt) {
     base = app.doc.start.set ? app.doc.start.pos : vec3(0); base.y = app.terrain.height(base.x, base.z);
     k = 0; f = 0; return true;
   }
-  const int nS = only >= 0 ? 1 : 2, sc = only >= 0 ? only : k / 5, j = k % 5;
+  const int nS = only >= 0 ? 1 : 2, sc = only >= 0 ? only : k / 6, j = k % 6;
   app.R.q.lightNew = true; app.R.wx.target = 0; app.R.wx.userSet = true; app.R.lt.hour = hour[sc]; app.R.lt.userHour = true;
   if (f == 1) { app.R.wx.snap(); app.R.resetTemporal(); }
   // the camera: 1.7 m over the spawn; the shot's line runs off toward yaw 20 (the subject dist m out, side-on: fired across the view)
   const vec3 cam = base + vec3(0, 1.7f, 0), fw = App::forward(20.0f, 0.0f), rt = glm::normalize(glm::cross(fw, vec3(0, 1, 0)));
   auto ground = [&](vec3 p) { p.y = app.terrain.height(p.x, p.z); return p; };
   vec3 subj = ground(cam + fw * dist[j]) + vec3(0, j == 0 ? 1.4f : j == 1 ? 0.45f : j == 2 ? 2.2f : j == 3 ? 1.1f : 0.0f, 0);
-  const vec3 aim = j == 4 ? subj + vec3(0, 5.0f, 0) : subj + rt * (0.15f * dist[j]);   // the flash runs off along +rt: look a little ahead of the muzzle
+  const vec3 aim = j == 5 ? subj + vec3(0, 10.0f, 0) : j == 4 ? subj + vec3(0, 5.0f, 0) : subj + rt * (0.15f * dist[j]);   // the flash runs off along +rt: look a little ahead of the muzzle
   { const vec3 d = glm::normalize(aim - cam); app.camPos = cam; app.camYaw = degrees(std::atan2(-d.x, -d.z)); app.camPitch = degrees(std::asin(std::clamp(d.y, -1.0f, 1.0f))); }
   app.fx.update(1.0f / 60.0f, app.terrain);   // no Explore step here: the fx clock advances with the frames
   const int fire = 40;
@@ -151,23 +151,26 @@ static bool bfRun(App& app, float dt) {
   if (j == 1 && f >= fire && f < fire + 60 && (f - fire) % 3 == 0) app.fx.muzzleFlash(subj, rt, 1.5f, false, subj, vec3(-1), "7.92x57 mm");
   if (j == 2 && f == fire) app.fx.muzzle(subj, rt, 1.2f, "tiger_i");
   if (j == 3 && f == fire) app.fx.muzzle(subj, rt, 1.0f, "pak40");
-  if (j == 4 && f == fire) {
-    app.fx.explosion(ground(subj - rt * 12.0f), vec3(0, 1, 0), "grenade", true, "grenade_M67");
+  if ((j == 4 || j == 5) && f == fire) {
+    const float sp = j == 5 ? 18.0f : 12.0f;
+    app.fx.explosion(ground(subj - rt * sp), vec3(0, 1, 0), "grenade", true, "grenade_M67");
     app.fx.explosion(subj, vec3(0, 1, 0), "ground", true, "he_105mm_M1");
-    app.fx.explosion(ground(subj + rt * 12.0f), vec3(0, 1, 0), "ground", true, "he_155mm_M107");
+    app.fx.explosion(ground(subj + rt * sp), vec3(0, 1, 0), "ground", true, "he_155mm_M107");
   }
   static std::string pending;   // the still written last frame: what that frame actually drew (fx.build ran after this step)
-  if (!pending.empty()) { logf("[wsm2] %s drew %zu additive triangles (flash meshes, discs, fireballs, streaks) and %zu soft sprites", pending.c_str(), app.R.fxAdd.size() / 3, app.R.fxAlpha.size() / 6); pending.clear(); }
-  const int at[4] = {fire, fire + 6, fire + 60, fire + 180}; const char* tag[4] = {"flash", "0.1s", "1s", "3s"};
-  for (int c = 0; c < (j == 4 ? 4 : 3); ++c) if (f == at[c]) {
+  if (!pending.empty()) { logf("[wsm2] %s drew %zu additive triangles (flash meshes, discs, fireballs, streaks) and %zu soft quads (%zu smoke / dust live, %zu grains, %zu delayed)", pending.c_str(), app.R.fxAdd.size() / 3, app.R.fxAlpha.size() / 6, app.fx.parts.size(), app.fx.grains.size(), app.fx.delayed.size()); pending.clear(); }
+  const int atN[4] = {fire, fire + 6, fire + 60, fire + 180}, atW[5] = {fire, fire + 18, fire + 60, fire + 180, fire + 480};
+  const char* tagN[4] = {"flash", "0.1s", "1s", "3s"}; const char* tagW[5] = {"flash", "0.3s", "1s", "3s", "8s"};
+  const int* at = j == 5 ? atW : atN; const char* const* tag = j == 5 ? tagW : tagN; const int nAt = j == 5 ? 5 : j == 4 ? 4 : 3;
+  for (int c = 0; c < nAt; ++c) if (f == at[c]) {
     char b[128]; std::snprintf(b, sizeof b, "bf_%s_%s_%s.png", scene[sc], shot[j], tag[c]); app.uiShot = exeDir() / "selftest_out" / b;
     logf("[wsm2] %s: camera (%.1f, %.1f, %.1f) yaw %.1f pitch %.1f, subject (%.1f, %.1f, %.1f), %.1f m, hour %.1f, %zu particles, %zu flash elements",
          b, cam.x, cam.y, cam.z, app.camYaw, app.camPitch, subj.x, subj.y, subj.z, glm::length(subj - cam), app.R.lt.hour, app.fx.parts.size(), app.fx.flashes.size());
     pending = b;
   }
-  if (++f > fire + (j == 4 ? 200 : 80)) {
+  if (++f > fire + (j == 5 ? 500 : j == 4 ? 200 : 80)) {
     app.fx.clear(); app.fx.flashes.clear(); app.fx.delayed.clear(); f = 0;
-    if (++k >= nS * 5) { T->check(true, "Battle Foundry stills written"); app.hideUi = false; app.hideEditorOverlays = false; app.selftest->exitCode = T->finish(); app.selftest->done = true; }
+    if (++k >= nS * 6) { T->check(true, "Battle Foundry stills written"); app.hideUi = false; app.hideEditorOverlays = false; app.selftest->exitCode = T->finish(); app.selftest->done = true; }
   }
   return true;
 }
