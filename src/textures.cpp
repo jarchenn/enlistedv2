@@ -323,6 +323,8 @@ void upload(GLuint p) {
   glProgramUniform1i(p, U("uTexCol"), kUnitBase + 0); glProgramUniform1i(p, U("uTexNrm"), kUnitBase + 1); glProgramUniform1i(p, U("uTexRH"), kUnitBase + 2);
   glProgramUniform1i(p, U("uTexColH"), kUnitBase + 9); glProgramUniform1i(p, U("uTexNrmH"), kUnitBase + 10); glProgramUniform1i(p, U("uTexRHH"), kUnitBase + 11);   // TX2K: units 29-31
   glProgramUniform1i(p, U("uTexHiBase"), hiBase);
+  { int l[4]; for (int k = 0; k < 4; ++k) { int si = slotIndex("mask_lib_" + std::to_string(k)); l[k] = si >= 0 ? slots[si].layer : -1; }
+    glProgramUniform4i(p, U("uMaskLayer"), l[0], l[1], l[2], l[3]); }   // CP step 6 part 2
   { int ms = slotIndex("micro_detail"); glProgramUniform1i(p, U("uMicroLayer"), ms >= 0 ? slots[ms].layer : -1); }   // CP step 6
   glProgramUniform1i(p, U("uTexOn"), gpuOn && wantOn ? 1 : 0);
   glProgramUniform1i(p, U("uImgMat"), wantImg ? 1 : 0); glProgramUniform1i(p, U("uTexSkipFar"), wantImg ? 1 : 0);
@@ -476,6 +478,8 @@ uniform ivec3 uSnowSlot;   // SN2: slots snow_packed, snow_trodden, snow_thaw (-
 uniform int uTexBiasOn;   // CP step 1 (perf switch texbias): 1 = gradient scale 1.0 everywhere (corpus 07 s4.1) + uTexBias; 0 = the old 3.0 / 1.5 ground / 1.6 relief
 uniform float uTexBias;   // log2(render / display), -0.5 more under TAA (texbias on only)
 uniform int uMicroLayer;   // CP step 6: the micro-detail set's array layer (slot micro_detail), -1 none
+uniform ivec4 uMaskLayer;  // CP step 6 part 2: the mask library's array layers (mask_lib_0..3), -1 missing
+uniform int uMaskLib;      // perf switch masklib
 uniform int uWearCause;    // M4 (perf switch wearcause): wear placed by its causes (splash, runoff), roughness first
 uniform ivec2 uMicroOn;    // x: micro detail (perf switch microdetail), y: macro roughness variation (perf switch roughvar)
 uniform float uTexLodG;   // TX2K: the ground's gradient scale (terrain layers, painted ground; uTexLod.x for everything else)
@@ -789,6 +793,12 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
       vec3 ga = abs(ng); bool gf = ga.y > max(ga.x, ga.z), gx = ga.x > ga.z;
       vec2 guv = (gf ? w.xz : gx ? w.zy : w.xy)/4.0, gdx = (gf ? dwx.xz : gx ? dwx.zy : dwx.xy)/4.0, gdy = (gf ? dwy.xz : gx ? dwy.zy : dwy.xy)/4.0;
       vec4 gm = textureGrad(uGrunge, guv + vec2(fract(gTexSeed*7.13), fract(gTexSeed*3.71)), gdx, gdy);
+      if (uMaskLib == 1 && uMaskLayer.x >= 0) {   // CP step 6 part 2 (corpus 08 s10.1): this building's own stain mask from the library (layer and channel by its seed)
+        int k = int(fract(gTexSeed*13.71)*3.999); int ml = k == 0 ? uMaskLayer.x : k == 1 ? uMaskLayer.y : k == 2 ? uMaskLayer.z : uMaskLayer.w;
+        vec3 lm = texGCol(vec3(guv*0.5 + vec2(fract(gTexSeed*2.3), fract(gTexSeed*5.9)), float(ml)), gdx*0.5, gdy*0.5).rgb;
+        int c = int(fract(gTexSeed*7.31)*2.999);
+        gm.g = mix(gm.g, c == 0 ? lm.r : c == 1 ? lm.g : lm.b, 0.6);
+      }
       float edgeW = 0.0;
       if (dot(pn, pn) > 2.0) { vec3 g3 = abs(vPcF) - abs(pc); vec3 gp = abs(pn); int gn = gp.x >= gp.y && gp.x >= gp.z ? 0 : gp.y >= gp.z ? 1 : 2; g3[gn] = 1e3;
         edgeW = 1.0 - smoothstep(0.02, 0.4, min(min(g3.x, g3.y), g3.z)); }
