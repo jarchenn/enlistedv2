@@ -549,6 +549,7 @@ void texTap(float L, vec3 p, vec3 dpx, vec3 dpy, vec2 inv, vec3 T, vec3 B, vec3 
   if (gDetF > 0.0 && w > 0.3) s.d += (texGRH(vec3(q.xy*3.7 + vec2(0.37, 0.61), q.z), gx*3.7, gy*3.7).g - 0.5)*w;   // MA1b: the set's own grain / pores at 3.7x
   // normal detail near the pixel frequency flickers under the TAA jitter: fade it with the footprint (texels per pixel)
   float fp = max(length(gx), length(gy))*(texHi(L) ? 2048.0 : 1024.0)/max(gs, 1e-3);
+  if (w > 0.3) { float dn = (texHi(L) ? 2048.0 : 1024.0)*max(inv.x, inv.y); if (dn > gTexDensity) { gTexDensity = dn; gTexChk = mod(floor(q.x) + floor(q.y), 2.0); } }   // CP step 2 texel view
   float nfk = 1.0 - uTexLod.w*gTexNFade*smoothstep(uTexLod.y, uTexLod.z, fp);
   bool nrm = uOpt2Off == 1 ? !(uTexSkipFar == 1 && nfk < 0.06) : nfk >= 0.06;   // far: the normal has faded out, so no normal tap (OPT2: every table; was the imgmat table only)
   vec4 c; vec2 nx, rh;

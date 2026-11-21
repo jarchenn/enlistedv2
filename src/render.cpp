@@ -615,13 +615,28 @@ vec2 envBRDFApprox(float r, float NoV){
 }
 uniform int uDbgView;   // CP0 look-dev view (Renderer::dbgView): 2 illum / 6 sky force albedo 0.18, no metal; 6 also drops the sun's direct light
 uniform int uAlbClamp;   // CP step 4 (perf switch albclamp; corpus 03 s4.4): dielectric albedo luminance kept in linear 0.02-0.9, grass >= 0.10
+float gTexDensity = 0.0, gTexChk = 0.0;   // CP step 2 texel view: the densest set tap of this pixel (texels / m) and its tile checker (textures.cpp texTap)
 vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
+  if (uDbgView == 3) {   // CP step 2 albedo range (corpus 03 s4.5), before the clamp: dielectric red < 0.02, blue > 0.9; metal red < 0.45; metallic 0.1-0.9 yellow
+    float l = dot(alb, vec3(0.2126, 0.7152, 0.0722));
+    return metal > 0.1 && metal < 0.9 ? vec3(1.0, 1.0, 0.0) : metal >= 0.9 ? (l < 0.45 ? vec3(1.0, 0.0, 0.0) : vec3(l))
+         : l < 0.02 ? vec3(1.0, 0.0, 0.0) : l > 0.9 ? vec3(0.0, 0.3, 1.0) : vec3(l);
+  }
+  if (uDbgView == 5) {   // CP step 2 texel density (corpus 07 s1.3): < 256 red, 256-512 orange, 512-1024 green, > 1024 blue, one checker per set tile; untextured grey
+    vec3 k = gTexDensity <= 0.0 ? vec3(0.3) : gTexDensity < 256.0 ? vec3(0.9, 0.1, 0.1) : gTexDensity < 512.0 ? vec3(1.0, 0.55, 0.1) : gTexDensity <= 1024.0 ? vec3(0.2, 0.8, 0.25) : vec3(0.2, 0.4, 1.0);
+    return k*mix(0.75, 1.0, gTexChk);
+  }
   if (uAlbClamp == 1 && metal < 0.5) { float al = dot(alb, vec3(0.2126, 0.7152, 0.0722)); alb *= clamp(al, 0.02, 0.9)/max(al, 1e-4); }   // hue kept, value in range
   rough = specAA(N, rough);
   if (uDbgView == 2 || uDbgView == 6) { alb = vec3(0.18); metal = 0.0; }
   vec3 V = normalize((gEyeOv.x < 1e29 ? gEyeOv : uCamPos) - w);
   vec3 L = uSunDir; vec3 H = normalize(V+L);
   float NdL = max(dot(N,L),0.0), NdV = max(dot(N,V),1e-3), NdH = max(dot(N,H),0.0);
+  if (uDbgView == 4) {   // CP step 2 white furnace (corpus 03 s4.1): a uniform white sky of luminance 1, no sun, no occlusion: what the surface returns (1 = energy kept)
+    vec2 ab = envBRDFApprox(rough, NdV); vec3 F0f = mix(vec3(0.04), alb, metal);
+    vec3 Fs = F0f*ab.x + ab.y, ms = 1.0 + F0f*(1.0/max(ab.x + ab.y, 0.05) - 1.0);
+    return (1.0 - Fs)*(1.0 - metal)*alb + Fs*ms;
+  }
   float a = max(rough*rough, 0.02);
   vec3 F0 = mix(vec3(0.04), alb, metal);
   vec3 F = F_Schlick(max(dot(H,V),0.0), F0);
@@ -3921,6 +3936,7 @@ void main(){
   if (bAmt > 0.0) c = mix(c, texture(uBloom, vUV).rgb/6.0, bAmt);   // chain sums 6 levels; energy-preserving blend, not an add
   float e = uFixedExpo > 0.0 ? uFixedExpo*uNewExpo : texelFetch(uExpo, ivec2(0), 0).r;   // VO L1: auto exposure already re-adapts to New's darker scene; a fixed one is lifted
   vec2 q = vUV - 0.5;
+  if (uDbgView >= 3 && uDbgView <= 5) { oColor = vec4(clamp(texture(uHdr, vUV).rgb, 0.0, 1.0), 1.0); return; }   // CP step 2: albedo / furnace / texel views shown as computed (no exposure, curve or bloom)
   if (uDbgView == 1) {   // CP0 false colour: one band per stop of exposed luminance around 0.18 (grey = 0.18 +- half a stop)
     const vec3 band[13] = vec3[13](vec3(0.0), vec3(0.25, 0.0, 0.35), vec3(0.2, 0.1, 0.8), vec3(0.0, 0.45, 0.9), vec3(0.0, 0.65, 0.6), vec3(0.3, 0.55, 0.3),
       vec3(0.46), vec3(0.65, 0.8, 0.45), vec3(0.95, 0.75, 0.75), vec3(0.95, 0.9, 0.2), vec3(1.0, 0.6, 0.0), vec3(1.0, 0.1, 0.0), vec3(1.0));

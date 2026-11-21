@@ -136,6 +136,20 @@ void firstPerson(App& a, vec3 p, float yaw, float pitch) {
 
 void build(App& app) {
   (void)app;
+  {   // CP step 2 white furnace (corpus 03 s4.1): the env BRDF fit with its multi-scatter term, exactly as shade() uses it
+      // (render.cpp envBRDFApprox), under a uniform white environment: a white metal must return 1 and a white dielectric
+      // 1 within 2 % at every roughness and view angle (dbgView "furnace" shows the same per pixel)
+    auto ab = [](float r, float nv) { float q[4] = {r * -1.0f + 1.0f, r * -0.0275f + 0.0425f, r * -0.572f + 1.04f, r * 0.022f - 0.04f};
+      float a004 = std::min(q[0] * q[0], std::exp2(-9.28f * nv)) * q[0] + q[1]; return vec2(-1.04f * a004 + q[2], 1.04f * a004 + q[3]); };
+    float wm = 0, wd = 0;
+    for (int i = 0; i <= 20; ++i) for (int j = 1; j <= 10; ++j) {
+      float r = i / 20.0f, nv = j / 10.0f; vec2 e = ab(r, nv); float ess = std::max(e.x + e.y, 0.05f);
+      float metalE = (e.x + e.y) * (1.0f + (1.0f / ess - 1.0f));                         // F0 = 1
+      float fs = 0.04f * e.x + e.y, die = (1.0f - fs) + fs * (1.0f + 0.04f * (1.0f / ess - 1.0f));   // albedo 1, F0 0.04
+      wm = std::max(wm, std::fabs(metalE - 1.0f)); wd = std::max(wd, std::fabs(die - 1.0f));
+    }
+    chk(wm <= 0.02f && wd <= 0.02f, "white furnace: a white metal returns 1 within %.1f %%, a white dielectric within %.1f %% (limit 2 %%, roughness 0-1, NdV 0.1-1)", wm * 100, wd * 100);
+  }
   push("setup: Blank Slate with three facades", [](App& a, float t) {
     if (t == 0) {
       const TemplateInfo* tp = a.findTemplate("blank_slate");
