@@ -122,7 +122,16 @@ public:
   HeatStats heatStats(float thr) const;
   bool thermalWanted = false;   // TH1: the last frame drew a thermal eyepiece: the game collects heat this frame
   std::vector<ModelDraw> worldModels;   // imported models in the world (rack displays, the M2HB station)     // tree leaf cards (alpha-tested, wind sway, shadow casting)
-  float wind = 1.0f;
+  float wind = 1.0f;   // 0: no sway (editor View menu, --rq-off wind)
+  // WS1 shared wind, read from the weather state (never written): direction and speed der.windXZ, sway amplitude from
+  // wind (= der.windK x on / off), travelling gust G = st.gust - 1 (peak over mean), length L = speed x st.gustPeriodS. docs/rendering.md#wind
+  float windSpeed() const { return glm::length(wx.der.windXZ); }
+  float windGustG() const { return std::clamp(wx.st.gust - 1.0f, 0.0f, 1.0f); }
+  float windGustL() const { return std::clamp(windSpeed() * wx.st.gustPeriodS, 20.0f, 100.0f); }
+  float windSwayAmp() const { return std::clamp(std::pow(std::max(0.0f, wind), 0.8f), 0.0f, 2.5f); }   // kCommon windSway(uWind)   // sway amplitude: 1 at 4 m/s, 2.5 from about 13 m/s
+  vec2 windDir2() const { float s = windSpeed(); return s > 1e-3f ? wx.der.windXZ / s : vec2(0.8f, 0.6f); }
+  double windClock = 0, windClockPrev = 0, windGustOff = 0, windGustPrev = 0, windLastT = -1; glm::dvec2 windDrift{0.0};   // windDrift: accumulated wind displacement (m), WS2 leaves
+  GLuint progLeafDrift = 0; float leafDriftK = 0;   // WS2 drifting leaves; how wooded the eye's surroundings are (eased)
   // sky clouds: fbm on a plane at 1500 m scrolling with the wind
   bool clouds = true; float cloudCover = 0.62f;
   // WX1 weather (docs/rendering.md#weather): one world-space cloud field (seed, wind in 600 m cells / s, clock) drawn by the
@@ -171,6 +180,7 @@ public:
     bool cloudShadows = true;
     bool shafts = false; float shaftStrength = 0.35f;   // WX1: High only (presets)
     float hazeDensity = 0.0010f, hazeHeight = 70.0f;
+    int leafDriftN = 2000;        // WS2: drifting leaves at this preset (Low 0, Medium 800, High 2000)
     float snowfallScale = 1.0f;   // SF1: share of a map's snowfall drawn at this preset (Low 0.4, Medium 0.75, High 1)   // aerial perspective (1/m at ground level, scale height m)
     bool ssao = true; float ssaoStrength = 0.95f, ssaoRadius = 0.5f;   // GX5: 0.85 / 0.6 -> 0.95 / 0.5 (contact shadows tuned for interiors, brief §8)
     bool bloom = true; float bloomStrength = 0.045f;
@@ -256,6 +266,7 @@ public:
     bool gtao = true;            // gtao (VO L2): GTAO with multi-bounce and specular occlusion (off: the old 8-sample SSAO)
     bool microShadow = true;     // microsh (VO L4): micro-shadowing of the sun by material AO (Lighting New)
     bool vegPrepass = true;      // vegprepass (CP1): model foliage and grass get a depth prepass (alpha test only), then GL_EQUAL shading, like leafprepass
+    bool leafDrift = true;       // leafdrift (WS2): drifting leaves near broadleaf / orchard trees (count: Quality::leafDriftN)
     bool hashAlpha = false;      // hashalpha (VO A1): cut-out leaves / grass with a dithered threshold under TAA (Medium / High), width NMK_HASH_SPREAD (0.2); off: no gain over cutoutMips (A1 sheets), kept for A/B
     bool folTrans = true;        // foltrans (VO L4): two-sided translucency on model foliage (Lighting New)
     bool agx = true;             // agx (VO L8): AgX-style curve, the grade from a LUT, 13-tap bloom downsample (Lighting New)
@@ -302,7 +313,7 @@ public:
               // ^ stream M (materials): append to the line above
               : n == "charvel" ? &charVel
               // ^ characters (gameplay): append to the line above
-              : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass
+              : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "leafdrift" ? &leafDrift
               // ^ stream A (vegetation): append to the line above
               : n == "snow" ? &snow
               // ^ stream P (performance): append to the line above

@@ -44,6 +44,18 @@ float vnoise(vec3 p){
   return mix(mix(mix(a,b,f.x),mix(c,d,f.x),f.y), mix(mix(e,g,f.x),mix(h,k,f.x),f.y), f.z);
 }
 float fbm(vec3 p){ float s=0.0, a=0.5; for(int i=0;i<4;i++){ s+=a*vnoise(p); p*=2.03; a*=0.5; } return s; }
+// WS1 shared wind (the weather state, R.wx: der.windXZ, der.windK, st.gust, st.gustPeriodS): one direction, a sway amplitude from the wind, a sway
+// clock and a gust offset both accumulated on the CPU at the current rates (a changing wind never rescales absolute time),
+// and one gust pattern travelling downwind: g = 1 + G (2 noise((along - offset) / L, across / 1.7 L) - 1). Defaults: the pre-WS1 breeze
+uniform vec4 uWindV = vec4(0.8, 0.6, 0.0, 0.0);    // xy direction (unit), z gust offset this frame (m), w the previous frame's
+uniform vec4 uWindP = vec4(0.0, 0.0, 50.0, 0.0);   // x sway clock this frame (s), y previous, z gust length L (m), w gust factor G
+float windSway(float k){ return clamp(pow(max(k, 0.0), 0.8), 0.0, 2.5); }   // sway amplitude from uWind (der.windK x on / off): 1 = Clear's 3 m/s, the pre-weather look; 2.5 from about 9.4 m/s
+float windClock(bool prev){ return prev ? uWindP.y : uWindP.x; }
+vec3 windDir(){ return vec3(uWindV.x, 0.0, uWindV.y); }
+float windGust(vec2 xz, bool prev){
+  float L = max(uWindP.z, 1.0), a = dot(xz, uWindV.xy) - (prev ? uWindV.w : uWindV.z), c = dot(xz, vec2(-uWindV.y, uWindV.x));
+  return max(0.0, 1.0 + uWindP.w*(vnoise(vec3(a/L, c/(1.7*L), 0.37))*2.0 - 1.0));
+}
 
 uniform vec3 uSunDir, uSunCol, uSkyCol, uGroundCol, uCamPos, uFogCol, uFill;
 uniform float uFogDens;
@@ -2062,9 +2074,10 @@ void main(){
   mat4 M = mat4(c0, c1, c2, c3);
   vec4 w = M*vec4(aPos, 1.0);
   float h = max(aPos.y, 0.0), ph = 0.21*M[3].x + 0.17*M[3].z;
-  float s = sin(1.1*uTime + ph) + 0.35*sin(2.7*uTime + 1.3*ph + 0.4*h);
-  float f = 0.012*sin(7.0*uTime + 3.1*dot(w.xyz, vec3(1.0, 0.7, 1.3)));   // needle / blade flutter
-  w.xyz += (vec3(0.8, 0.0, 0.6)*(0.018*h*s) + vec3(f, 0.5*f, f)*min(h, 1.5))*wk*uWind;
+  float wt = windClock(false);
+  float s = sin(1.1*wt + ph) + 0.35*sin(2.7*wt + 1.3*ph + 0.4*h);
+  float f = 0.012*sin(7.0*wt + 3.1*dot(w.xyz, vec3(1.0, 0.7, 1.3)));   // needle / blade flutter
+  w.xyz += (windDir()*(0.018*h*s) + vec3(f, 0.5*f, f)*min(h, 1.5))*wk*windSway(uWind)*windGust(M[3].xz, false);
   mat3 m = mat3(M);
   vW = w.xyz; vN = m*aNrm; vT = vec4(m*aTan.xyz, aTan.w); vUV = aUV; vCC = vPC = vec4(0.0, 0.0, 0.0, 1.0);
   gl_Position = uVP*w;   // invariant: the CP1 depth prepass (fol_depth) and the GL_EQUAL shading pass must agree
@@ -2679,19 +2692,19 @@ out vec3 vW, vN; out vec2 vUV; out float vM, vShade; flat out float vSeed; flat 
 flat out float vLayer; out vec3 vLN;   // L1: leaf texture layer (-1: the procedural ovals), the leaf plane's normal
 out vec4 vCC, vPC;
 invariant gl_Position;
-vec3 leafSway(vec3 w, float t, float m){
-  const vec3 D = vec3(0.8, 0.0, 0.6); const float A = 0.10, f = 1.3, kx = 0.21, kz = 0.17;
+vec3 leafSway(vec3 w, bool prev, float m){
+  const float A = 0.10, f = 1.3, kx = 0.21, kz = 0.17; vec3 D = windDir(); float t = windClock(prev);
   float s = sin(f*t + kx*w.x + kz*w.z) + 0.3*sin(2.9*t + 0.8*w.x - 0.5*w.y);
-  return (D*A*s + vec3(0.0, 0.25*A*s, 0.0)) * m * uWind;
+  return (D*A*s + vec3(0.0, 0.25*A*s, 0.0)) * m * windSway(uWind) * windGust(w.xz, prev);
 }
 void main(){
   vec4 w0 = uModel*vec4(aPos, 1.0), w = w0;
-  w.xyz += leafSway(w0.xyz, uTime, aMask);
+  w.xyz += leafSway(w0.xyz, false, aMask);
   vW = w.xyz; vN = normalize(mat3(uModel)*aNrm); vUV = aUV; vM = aMask;
   vSeed = floor(dot(aPos, vec3(13.1, 7.3, 11.7)));
   float lk = floor(aShade*0.5);   // IV1: shade + 2 (layer + 1) = a leaves.json layer (wall ivy); tree cards stay below 2
   vShade = aShade - 2.0*lk; vLayer = lk - 1.0; vLN = vN; vTone = aTone;
-  vCC = uVPU*w; vPC = uPrevVP*vec4(w0.xyz + leafSway(w0.xyz, uPrevTime, aMask), 1.0);
+  vCC = uVPU*w; vPC = uPrevVP*vec4(w0.xyz + leafSway(w0.xyz, true, aMask), 1.0);
   gl_Position = uVP*w;   // invariant: the PF2 canopy depth prepass (leaf_shadow) and the GL_EQUAL shading pass must agree
 }
 )GLSL";
@@ -2708,21 +2721,21 @@ out vec3 vW, vN; out vec2 vUV; out float vM, vShade; flat out float vSeed; flat 
 flat out float vLayer; out vec3 vLN;
 out vec4 vCC, vPC;
 invariant gl_Position;
-vec3 leafSway(vec3 w, float t, float m){
-  const vec3 D = vec3(0.8, 0.0, 0.6); const float A = 0.10, f = 1.3, kx = 0.21, kz = 0.17;
+vec3 leafSway(vec3 w, bool prev, float m){
+  const float A = 0.10, f = 1.3, kx = 0.21, kz = 0.17; vec3 D = windDir(); float t = windClock(prev);
   float s = sin(f*t + kx*w.x + kz*w.z) + 0.3*sin(2.9*t + 0.8*w.x - 0.5*w.y);
-  return (D*A*s + vec3(0.0, 0.25*A*s, 0.0)) * m * uWind;
+  return (D*A*s + vec3(0.0, 0.25*A*s, 0.0)) * m * windSway(uWind) * windGust(w.xz, prev);
 }
 void main(){
   vec3 n = cross(iT, iB)/max(length(iT), 1e-6);   // card normal, same length as iT / iB
   vec4 w0 = uModel*vec4(iCtr + (iT*aC.x + iB*aC.y)*uCardScale + n*aC.z, 1.0), w = w0;
-  w.xyz += leafSway(w0.xyz, uTime, iMSS.x);
+  w.xyz += leafSway(w0.xyz, false, iMSS.x);
   vec3 ln = normalize(iT*aN.x + iB*aN.y + n*aN.z);
   if (dot(ln, iDir) < 0.0) ln = -ln;               // two-sided: the face toward the cluster's outside
   vW = w.xyz; vLN = normalize(mat3(uModel)*ln);
   vN = normalize(mat3(uModel)*normalize(iDir*0.7 + ln*0.3));   // the crown's volume first, the leaf's own tilt second
   vUV = aUV; vM = iMSS.x; vShade = iMSS.y; vSeed = iMSS.z; vTone = iMSS.w; vLayer = aLayer;
-  vCC = uVPU*w; vPC = uPrevVP*vec4(w0.xyz + leafSway(w0.xyz, uPrevTime, iMSS.x), 1.0);
+  vCC = uVPU*w; vPC = uPrevVP*vec4(w0.xyz + leafSway(w0.xyz, true, iMSS.x), 1.0);
   gl_Position = uVP*w;   // invariant: the canopy depth prepass and the GL_EQUAL shading pass must agree
 }
 )GLSL";
@@ -3196,9 +3209,9 @@ void pastureClump(){
   int nk = (windK > 0.0 && uShadowPass == 0.0) ? 2 : 1;
   vec3 pos[2];
   for (int f = 0; f < nk; ++f) {   // f 0: this frame, 1: previous frame (motion vectors)
-    float t = f == 0 ? uTime : uPrevTime;
+    float t = windClock(f == 1);
     float gust = sin(t*1.5 + ph*6.28 + dot(base.xz, vec2(0.13, 0.07)))*0.55 + sin(t*0.63 + dot(base.xz, vec2(0.045, 0.11)))*0.45;
-    vec3 wv = vec3(0.8, 0.0, 0.6)*(0.08 + gust*0.22*windK)*uWind*windAmp;
+    vec3 wv = windDir()*(0.08 + gust*0.22*windK)*windSway(uWind)*windAmp*windGust(base.xz, f == 1);
     vec3 p;
     if (part == 11) {   // clover leaflet: out from the petiole top, nearly flat
       float L = W*(0.85 + 0.3*r1)*fade;
@@ -3292,10 +3305,10 @@ void plantMain(){
   vec3 sideF = normalize(mix(side, cross(vec3(0.0, 1.0, 0.0), fD), flat_) + vec3(1e-5));
   vec3 pos[2]; vec3 nH = vec3(0.0, 1.0, 0.0);
   for (int k = 0; k < 2; ++k) {   // k 0: this frame, 1: previous frame (motion vectors)
-    float t = k == 0 ? uTime : uPrevTime;
+    float t = windClock(k == 1);
     float gust = sin(t*freq + iS.w + dot(iP.xz, vec2(0.13, 0.07)))*0.55 + sin(t*0.63 + dot(iP.xz, vec2(0.045, 0.11)))*0.45;
-    if (sp == 13) gust = sin(t*freq - dot(iP.xz, vec2(0.8, 0.6))*0.34)*0.6 + sin(t*0.57 - dot(iP.xz, vec2(0.8, 0.6))*0.11 + iS.w*0.15)*0.4;   // waves rolling across the field
-    vec3 bend = fwd*curve*((sp == 3 || (sp == 12 && isLeaf)) ? 0.5 : 1.0) + vec3(0.8, 0.0, 0.6)*(0.08 + gust*0.20)*uWind*windAmp;
+    if (sp == 13) gust = sin(t*freq - dot(iP.xz, uWindV.xy)*0.34)*0.6 + sin(t*0.57 - dot(iP.xz, uWindV.xy)*0.11 + iS.w*0.15)*0.4;   // waves rolling across the field
+    vec3 bend = fwd*curve*((sp == 3 || (sp == 12 && isLeaf)) ? 0.5 : 1.0) + windDir()*(0.08 + gust*0.20)*windSway(uWind)*windAmp*windGust(iP.xz, k == 1);
     vec3 p;
     if (head) {
       vec3 top = root + vec3(0.0, h*lift, 0.0) + bend*h; top.y -= h*dot(bend, bend)*0.35*lift;
@@ -3795,6 +3808,57 @@ void main(){
   if (a <= 0.001) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }
 )GLSL";
+// WS2 drifting leaves (corpus 07 s7.3), the snowfall's stateless path: each leaf is a function of its instance id and the
+// clock, in a box round the eye that wraps on world coordinates. Fall speed is constant per leaf (so x time is exact); the
+// sideways travel is the CPU-accumulated wind displacement (uLD.zw) x a per-leaf share, never speed x absolute time. The
+// travelling gust (windGust, kCommon) decides how many show where: denser bands pass downwind. Alpha-tested ovals, two-sided,
+// tumbling. Hidden indoors and where something solid sits just above the leaf (eaves, porches, low roofs: the sky-occlusion map).
+static const char* kLeafDriftVS = R"GLSL(
+uniform mat4 uVP; uniform vec3 uCamRight, uCamUp; uniform float uTime;
+uniform vec4 uLD;    // count, box half (m), wind displacement x, z (m, accumulated)
+uniform vec4 uLD2;   // indoor 0..1, -, -, -   (uOcc, uOccVP, uOccTop, uOccRange, uOccOn: kCommon)
+out vec2 vC; out vec3 vW, vN, vCol; out float vA;
+float h1(float n){ return fract(sin(n*12.9898 + 78.233)*43758.5453); }
+void main(){
+  float fi = float(gl_InstanceID), R = uLD.y;
+  vec3 r = vec3(h1(fi*1.31), h1(fi*2.17 + 3.0), h1(fi*3.73 + 7.0));
+  float fall = mix(0.55, 1.4, h1(fi*5.1)), share = mix(0.45, 0.9, h1(fi*7.7)), ph = h1(fi*8.3)*6.2832;
+  vec3 p = vec3((r.x*2.0 - 1.0)*R, r.y*12.0 - 3.0, (r.z*2.0 - 1.0)*R);
+  p += vec3(uLD.z*share, -fall*uTime, uLD.w*share);
+  p.xz += vec2(sin(uTime*mix(0.8, 1.9, h1(fi*4.4)) + ph), cos(uTime*mix(0.6, 1.5, h1(fi*6.6)) + ph))*0.35;   // zig-zag of a falling leaf
+  vec3 box = vec3(2.0*R, 12.0, 2.0*R), c = uCamPos + vec3(0.0, 3.0, 0.0);
+  p = mod(p - c + box*0.5, box) - box*0.5 + c;                                  // wrap round the eye, on world coordinates
+  float g = windGust(p.xz, false), a = step(h1(fi*9.9), clamp(0.6 + 0.8*(g - 1.0), 0.0, 1.0));
+  if (uOccOn == 1) { vec4 lp = uOccVP*vec4(p, 1.0); vec2 uv = lp.xy*0.5 + 0.5;
+    if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) { float top = uOccTop - texture(uOcc, uv).r*uOccRange; if (top > p.y + 0.1 && top < p.y + 2.5) a = 0.0; } }
+  float d = length(p - uCamPos);
+  a *= step(1.0, d)*(1.0 - smoothstep(R*0.75, R, d))*(1.0 - uLD2.x);
+  // tumble: the leaf plane turns about a per-leaf axis at a per-leaf rate
+  vec3 ax = normalize(vec3(h1(fi*11.1) - 0.5, h1(fi*12.7) - 0.5, h1(fi*13.3) - 0.5) + vec3(1e-3));
+  float an = uTime*mix(1.5, 4.5, h1(fi*14.9)) + ph, cs = cos(an), sn = sin(an);
+  vec3 u0 = normalize(cross(ax, vec3(0.0, 1.0, 0.3))), v0 = cross(ax, u0);
+  vec3 U = u0*cs + v0*sn, V = cross(ax, U);
+  float sz = mix(0.025, 0.045, h1(fi*15.5));
+  int k = gl_VertexID; vec2 q = k == 0 ? vec2(-1, -1) : k == 1 ? vec2(1, -1) : k == 2 ? vec2(1, 1) : k == 3 ? vec2(-1, -1) : k == 4 ? vec2(1, 1) : vec2(-1, 1);
+  vec3 w = p + (U*q.x*0.62 + V*q.y)*sz;
+  float t = h1(fi*16.1);   // dead-leaf palette: brown, ochre, olive (linear)
+  vCol = t < 0.45 ? vec3(0.16, 0.085, 0.035) : t < 0.8 ? vec3(0.30, 0.19, 0.055) : vec3(0.14, 0.15, 0.05);
+  vCol *= mix(0.75, 1.2, h1(fi*17.3));
+  vC = q; vW = w; vN = ax; vA = a;
+  gl_Position = uVP*vec4(w, 1.0);
+  if (a <= 0.001) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+}
+)GLSL";
+static const char* kLeafDriftFS = R"GLSL(
+in vec2 vC; in vec3 vW, vN, vCol; in float vA; out vec4 oColor;
+void main(){
+  if (vA < 0.5 || dot(vC, vC) > 1.0 - 0.25*abs(vC.x)*(1.0 - vC.y)) discard;   // oval with a slight point
+  vec3 N = normalize(vN); if (dot(N, uCamPos - vW) < 0.0) N = -N;
+  float ndl = abs(dot(N, uSunDir))*0.7 + 0.3;
+  vec3 c = vCol/PI*uSunCol*ndl + vCol*mix(uGroundCol, uSkyCol, 0.6)*0.6;
+  oColor = vec4(applyFog(c, vW), 1.0);
+}
+)GLSL";
 static const char* kSnowfallFS = R"GLSL(
 #version 450 core
 in vec2 vC; in float vA; uniform vec3 uSnowCol; out vec4 oColor;
@@ -3977,6 +4041,8 @@ bool Renderer::init(int w, int h) {
   progExpo = compile(kFullVS, kExpoFS, "expo");
   progLine = compile(kLineVS, kLineFS, "line");
   progFx = compile(kFxVS, kFxFS, "fx");
+  progLeafDrift = compile(kLeafDriftVS, kLeafDriftFS, "leaf_drift");   // WS2
+  { GLint ok = 0; glGetProgramiv(progLeafDrift, GL_LINK_STATUS, &ok); if (!ok) { glDeleteProgram(progLeafDrift); progLeafDrift = 0; } }   // a failed program would draw with whatever is bound
   progSnowfall = compile(kSnowfallVS, kSnowfallFS, "snowfall"); glCreateVertexArrays(1, &snowfallVao);
   progGrass = compile(kGrassVS, kGrassFS, "grass");
   progGrassShadow = compile(kGrassVS, kGrassShadowFS, "grass_shadow");
@@ -4652,7 +4718,7 @@ void Renderer::prepFoliageBatches() {
 
 void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr, bool view, float lodFrom) {
   if (lt.mapLeafless) return;   // BT1: look.leafless: the deciduous canopies (leaf cards) are bare in winter; the model conifers keep theirs
-  float sway = 0.14f * std::max(0.0f, wind) + kCullEps;   // kLeafVS leafSway: |offset| <= 0.10 x 1.3 x |(0.8, 0.25, 0.6)| x uWind
+  float sway = 0.14f * windSwayAmp() * (1.0f + windGustG()) + kCullEps;   // kLeafVS leafSway: |offset| <= 0.10 x 1.3 x |(0.8, 0.25, 0.6)| x uWind
   bool tex = perf.leafTex && leafLibReady();
   for (int pass = 0; pass < 2; ++pass) {
     auto mine = [&](const FoliageDraw& f) { bool inst = tex && f.tree && f.tree->leafVao; return f.tree && inst == (pass == 1) && (inst || f.tree->cardVao); };
@@ -5044,6 +5110,16 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glProgramUniform4fv(pg, U(pg, "uGreen"), 1, glm::value_ptr(green)); glProgramUniform4fv(pg, U(pg, "uGreenK"), 1, glm::value_ptr(greenK));
     static const float hashSpread = std::getenv("NMK_HASH_SPREAD") ? float(std::atof(std::getenv("NMK_HASH_SPREAD"))) : 0.2f;   // A1: dither width of the cut-out threshold (0.8 stippled stills under the TAA clamp; 0.35 / 0.2 look as off)
     glProgramUniform1f(pg, U(pg, "uHashAlpha"), perf.hashAlpha && q.taa && !thumbMode ? hashSpread : 0.0f); glProgramUniform1i(pg, U(pg, "uFrame"), frame);
+  }
+  {   // WS1 wind: the sway clock and the gust offset advance at this frame's rates (render() may run more than once per frame: by time)
+    const double dt = windLastT < 0 ? 0.0 : std::clamp(double(time) - windLastT, 0.0, 0.25); windLastT = time;
+    if (dt > 0) { windClockPrev = windClock; windGustPrev = windGustOff; windClock += dt * (0.7 + 0.3 * windSwayAmp()); windGustOff += dt * windSpeed(); windDrift += glm::dvec2(wx.der.windXZ) * dt; }
+    if (holdTime) { windClockPrev = windClock; windGustPrev = windGustOff; }   // FL1 frozen captures: no motion
+    const vec2 d = windDir2();
+    for (GLuint pg : {progLeaf, progLeafI, progLeafShadow, progLeafIShadow, progGrass, progGrassShadow, progGrassPre, progFolModel, progFolDepth}) if (pg) {
+      glProgramUniform4f(pg, U(pg, "uWindV"), d.x, d.y, float(windGustOff), float(windGustPrev));
+      glProgramUniform4f(pg, U(pg, "uWindP"), float(windClock), float(windClockPrev), windGustL(), windGustG());
+    }
   }
   if (displayW > 0) {   // P1: the internal size follows effScale() (the taau switch can flip it between frames: A/B)
     int iw = std::max(16, (int)std::lround(displayW * effScale())), ih = std::max(16, (int)std::lround(displayH * effScale()));
@@ -5589,6 +5665,31 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       glBindVertexArray(snowfallVao);
       glDrawArraysInstanced(GL_TRIANGLES, 0, 6, nearN + farN);
       glBindVertexArray(0);
+    }
+  }
+  if (perf.leafDrift && q.leafDriftN > 0 && !thumbMode && !v.thermal && !v.underwater && !lt.mapLeafless && progLeafDrift && snowfallVao) {   // WS2 drifting leaves
+    // how wooded the eye's surroundings are: standing card trees (broadleaf, orchard) within 30 m, eased over ~2 s
+    int nT = 0; for (auto& f : foliage) if (f.tree) { vec3 d = vec3(f.m[3]) - v.camPos; if (d.x * d.x + d.z * d.z < 900.0f) ++nT; }
+    leafDriftK += (std::clamp(nT / 10.0f, 0.0f, 1.0f) - leafDriftK) * std::clamp(v.dt * 0.5f, 0.0f, 1.0f);
+    const int n = (int)(q.leafDriftN * leafDriftK);
+    if (n > 0) {
+      const GLboolean blendWas = glIsEnabled(GL_BLEND), cullWas = glIsEnabled(GL_CULL_FACE);
+      glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE); glDisable(GL_BLEND); glEnable(GL_DEPTH_TEST);
+      setLighting(progLeafDrift, v);
+      glUseProgram(progLeafDrift);
+      glUniformMatrix4fv(U(progLeafDrift, "uVP"), 1, GL_FALSE, glm::value_ptr(vpU));
+      glUniform1f(U(progLeafDrift, "uTime"), time);
+      glUniform4f(U(progLeafDrift, "uLD"), (float)n, 16.0f, float(windDrift.x), float(windDrift.y));
+      glUniform4f(U(progLeafDrift, "uLD2"), camIndoor ? 1.0f : 0.0f, 0, 0, 0);
+      glUniform4f(U(progLeafDrift, "uWindV"), windDir2().x, windDir2().y, float(windGustOff), float(windGustPrev));
+      glUniform4f(U(progLeafDrift, "uWindP"), float(windClock), float(windClockPrev), windGustL(), windGustG());
+      glBindTextureUnit(1, occTex); glUniform1i(U(progLeafDrift, "uOcc"), 1);
+      glUniformMatrix4fv(U(progLeafDrift, "uOccVP"), 1, GL_FALSE, glm::value_ptr(occVP));
+      glUniform1f(U(progLeafDrift, "uOccTop"), occTop); glUniform1f(U(progLeafDrift, "uOccRange"), occRange); glUniform1i(U(progLeafDrift, "uOccOn"), 1);
+      glBindVertexArray(snowfallVao);
+      glDrawArraysInstanced(GL_TRIANGLES, 0, 6, n);
+      glBindVertexArray(0);
+      if (cullWas) glEnable(GL_CULL_FACE); if (blendWas) glEnable(GL_BLEND);
     }
   }
   glDepthMask(GL_TRUE);
