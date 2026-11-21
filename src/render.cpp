@@ -5195,6 +5195,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uMaskLib"), !q.legacy && perf.maskLib ? 1 : 0);   // CP step 6 part 2
   glUniform1i(U(p, "uPudRelief"), !q.legacy && perf.pudRelief ? 1 : 0);   // FIX7
   glUniform1i(U(p, "uMetalMask"), !q.legacy && perf.metalMask ? 1 : 0);   // FIX6
+  glUniform1i(U(p, "uLayerBlend"), !q.legacy && perf.layerBlend ? 1 : 0);   // BF 3.3
   glUniform1i(U(p, "uAbsFar"), !q.legacy && perf.absFar ? 1 : 0);   // FIX8
   glUniform1i(U(p, "uSteepTri"), !q.legacy && perf.steepTri ? 1 : 0);   // FIX5
   glUniform1i(U(p, "uWearCause"), !q.legacy && q.matLayer > 0 && perf.wearCause ? 1 : 0);   // M4
