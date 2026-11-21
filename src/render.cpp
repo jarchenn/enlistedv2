@@ -582,6 +582,7 @@ float specAA(vec3 N, float rough){   // widens alpha where the normal changes fa
 // (no DFG table: every texture unit is taken), multi-scatter energy compensation 1 + F0 (1/E_ss - 1) with E_ss the fit at
 // F0 = 1, Lagarde's specular occlusion, and multi-bounce material AO by the pixel's own albedo (Jimenez 2016)
 uniform int uSplitSum;
+uniform float uWetTime;   // W3: seconds, for the rain ripples (kCommon: the terrain program has no uTime)
 uniform int uWetOn;   // W3 (perf switch wet): surfaces follow the weather state's wxWet / wxPuddle
 // W3 rain ripples, procedural (no texture unit is free): in each 0.25 m cell a drop's ring expands and fades on its own
 // clock; returns a normal offset (x, 0, z). k = intensity 0..1
@@ -3186,7 +3187,7 @@ void main(){
   paintFinish(po, rough, N, ao);   // lasso ground paint: roughness, AO, relief over every other layer (after L4)
   if (wxw > 0.0) rough = mix(rough, max(0.35*rough, 0.25), wxw);   // W3 film: smoother, but kept >= 0.25 outside puddles (no mirror ground without real reflections)
   if (puddle > 0.0) { rough = mix(rough, 0.08, puddle); N = normalize(mix(N, normalize(vN), puddle*0.85)); }
-  if (puddle > 0.0 && wxw > 0.0 && wxPrecipMmH > 0.05) N = normalize(N + rainRipple(p.xz, uTime, min(wxPrecipMmH/8.0, 1.0))*puddle);   // W3: rings while it rains   // CV1: standing water stays a mirror over painted ground
+  if (puddle > 0.0 && wxw > 0.0 && wxPrecipMmH > 0.05) N = normalize(N + rainRipple(p.xz, uWetTime, min(wxPrecipMmH/8.0, 1.0))*puddle);   // W3: rings while it rains   // CV1: standing water stays a mirror over painted ground
   if (uTerrCave > 0.5) {   // CV1 cave floor: dark wet rock under a water film, black away from the lights, mirror-bright where it catches them
     float flat_k = smoothstep(0.72, 0.9, normalize(vN).y), film = smoothstep(0.35, 0.65, vnoise(vec3(p.xz*0.3, 97.0)) + 0.25*(vnoise(vec3(p.xz*2.1, 98.0)) - 0.5));
     alb *= mix(0.6, mix(0.34, 0.2, film), flat_k);
@@ -4728,7 +4729,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
     glUniform1i(U(p, "uTexBiasOn"), perf.texBias && !thumbMode ? 1 : 0); glUniform1f(U(p, "uTexBias"), tb);
   }
   glUniform1i(U(p, "uSplitSum"), q.legacy || !perf.splitSum ? 0 : 1);
-  glUniform1i(U(p, "uWetOn"), q.legacy || !perf.wet || thumbMode ? 0 : 1);   // W3   // CP step 3
+  glUniform1i(U(p, "uWetOn"), q.legacy || !perf.wet || thumbMode ? 0 : 1); glUniform1f(U(p, "uWetTime"), (float)std::fmod(time, 3600.0));   // W3   // CP step 3
   glUniform2f(U(p, "uHex"), q.legacy || !perf.hex || q.matLayer == 0 || hd <= 0 ? 0.0f : 1.0f, std::max(hd, 0.05f)); }   // M1: hex tiling (--rq-off hex; off at Low); NMK_HEX = cells per texture repeat
   glUniform1f(U(p, "uHazeH"), lt.mapHazeH > 0.0f ? lt.mapHazeH : q.hazeHeight);   // FG1: a map's own haze scale height
   glUniform1f(U(p, "uTime"), time);
