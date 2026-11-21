@@ -581,16 +581,18 @@ void SelfTest::mapsUpdate(App& app, float dt) {
       break;
     }
     if (kWxCycle && v.gate && sPresetPass == 0 && stageTime >= measEnd) {   // W1 preset cycle (see kWxCycle)
-      const int np = wxPresetCount(), nAll = np + 3;   // presets, Map default, Classic Clear, Classic Overcast
+      const int np = wxPresetCount(), nAll = np + 5;   // presets, Map default, Classic Clear / Overcast, Physical Clear / Overcast
       std::string base = "wx_" + app.templates[sTpl[sTi]].id + "_" + v.name;
       auto setK = [&](int k) {
-        bool classic = k >= np + 1; settings().s.lightNew = !classic; app.R.q.lightNew = !classic;
-        if (k < np) weatherForce(app.R, wxPresetIdAt(k)); else if (k == np) { app.R.wx.userSet = false; app.R.wx.snap(); } else weatherForce(app.R, k == np + 1 ? 0 : 1);
+        bool classic = k == np + 1 || k == np + 2, phys = k >= np + 3; settings().s.lightNew = !classic; app.R.q.lightNew = !classic; app.R.q.lightPhys = phys;
+        if (k < np) weatherForce(app.R, wxPresetIdAt(k)); else if (k == np) { app.R.wx.userSet = false; app.R.wx.snap(); } else weatherForce(app.R, (k - np) % 2 == 1 ? 0 : 1);
         app.R.resetTemporal();
       };
       if (gWxPh == 0) { setK(0); gWxT = stageTime; gWxPh = 1; }
-      else if (gWxPh <= nAll && stageTime >= gWxT + 1.6f) {
+      else if (gWxPh <= nAll && stageTime >= gWxT + 1.6f && gWxT >= 0.0f) {   // the shot is taken after this frame renders: switch on the next update
         char b[16]; std::snprintf(b, sizeof b, "_%02d", gWxPh - 1); shotQueue.push_back(base + b);
+        gWxT = -1.0f;
+      } else if (gWxPh <= nAll && gWxT < 0.0f) {
         if (gWxPh < nAll) setK(gWxPh);
         gWxT = stageTime; ++gWxPh;
       } else if (gWxPh == nAll + 1 && stageTime >= gWxT + 0.2f) {
@@ -602,10 +604,10 @@ void SelfTest::mapsUpdate(App& app, float dt) {
           for (long q = 0; q < (long)w * h; ++q) { int r = I[q * 3], g = I[q * 3 + 1], bb = I[q * 3 + 2]; L += 0.2126 * r + 0.7152 * g + 0.0722 * bb; int mx = std::max({r, g, bb}); blk += mx <= 3; clp += std::min({r, g, bb}) >= 252; }
           stbi_image_free(I);
           L /= (double)w * h; double bp = 100.0 * blk / ((double)w * h), cp = 100.0 * clp / ((double)w * h);
-          const char* nm = k < np ? wxPresetName(wxPresetIdAt(k)) : k == np ? "Map default" : k == np + 1 ? "Classic Clear" : "Classic Overcast";
+          const char* nm = k < np ? wxPresetName(wxPresetIdAt(k)) : k == np ? "Map default" : k == np + 1 ? "Classic Clear" : k == np + 2 ? "Classic Overcast" : k == np + 3 ? "Physical Clear" : "Physical Overcast";
           check(L > 8.0 && L < 235.0 && bp < 60.0 && cp < 60.0, fmt("W1 %s %s: %s: mean sRGB %.0f, black %.1f %%, white %.1f %% -> %s%s.png", app.templates[sTpl[sTi]].id.c_str(), v.name.c_str(), nm, L, bp, cp, base.c_str(), b));
         }
-        settings().s.lightNew = true; app.R.q.lightNew = true; app.R.wx.userSet = false; app.R.wx.snap(); ++gWxPh;
+        settings().s.lightNew = true; app.R.q.lightNew = true; app.R.q.lightPhys = false; app.R.wx.userSet = false; app.R.wx.snap(); ++gWxPh;
       }
       if (gWxPh <= nAll + 1) break;
     }
