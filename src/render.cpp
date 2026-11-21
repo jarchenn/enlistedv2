@@ -154,6 +154,18 @@ vec3 mossField(vec3 p, float upDot, float wallAttach, float groundRecv, float mo
           * smoothstep(0.5, 0.68, mossVn(p/0.09 + 7.0)*0.7 + mossVn(p/0.7 + 3.0)*0.3);   // crustose discs, 20-150 mm, in old patches
   return vec3(M, smoothstep(0.50, 0.83, M)*site, L);
 }
+// BF ground moss (reference 03 s3.5; batch-4 review: the wall formula at y = 0 carpeted the forest floor). Patchy by
+// construction: moisture from water nearness (pools, marsh, trunks' north sides: habitat x), shade from the sun hours and
+// the canopy; 4 m cluster noise leaves dry gaps; leaf litter smothers it; paths and tracks stop it dead (traffic 0.05-0.3);
+// a stretch of ground keeps at most 0.6 of the field. Inputs exist on both sides: moss.cpp mossGroundCpu mirrors it.
+vec2 mossGround(vec3 p, float nUp, vec4 hab, float traffic, float litter, float nearK){
+  float moist = clamp(0.55*hab.x + 0.35*hab.w, 0.0, 1.0), shade = clamp(0.6*hab.y + 0.4*hab.w, 0.0, 1.0);
+  float hb = smoothstep(0.55, 0.9, nUp)*clamp(0.5*moist + 0.35*shade + 0.15*hab.w, 0.0, 1.0);
+  float cl = smoothstep(0.45, 0.7, mossVn(p/4.0 + 17.0));
+  float pt = smoothstep(0.38, 0.62, hb + uMossBias + 0.22*(mossVn(p/0.6) - 0.5) + 0.17*(mossVn(p/0.08 + 31.0) - 0.5)*nearK)*cl;
+  float M = min(pt*(1.0 - smoothstep(0.05, 0.3, traffic))*(1.0 - 0.75*clamp(litter, 0.0, 1.0))*(1.0 - hab.z), 0.6);
+  return vec2(M, smoothstep(0.35, 0.58, M));
+}
 // the back lobe moss needs or it reads as green felt (4.5): x sun colour x shadow at the call site
 vec3 mossTransmit(vec3 N, vec3 L, vec3 V, float th){ return vec3(0.10, 0.21, 0.045)*(pow(clamp(dot(V, -L), 0.0, 1.0), 6.0)*0.55*th); }
 const vec3 kMossAlb = vec3(0.055, 0.105, 0.030), kMossDry = vec3(0.085, 0.095, 0.045), kLichenAlb = vec3(0.28, 0.29, 0.24);
@@ -3733,13 +3745,11 @@ void main(){
     // ground moss is a terrain layer: wetness weighted up, grip down, a canopy term; it stops dead on paths, tracks
     // and disturbed soil (paint, ruts, craters, the deformation buffer's G); snow (applySnow, after) covers it
     float tDistM = length(p - uCamPos), nup = normalize(vN).y;
-    float cavG = clamp((0.5 - hB)*2.0, 0.0, 1.0);
-    float moG = clamp(0.5*mossMoist(0.0, 0.0, cavG, 8.0*(1.0 - vHab.x)) + 0.3*vHab.w + 0.3*clamp(wet*1.2, 0.0, 1.0), 0.0, 1.0);
-    float shG = mossShelter(vHab.y, normalize(vN), vec3(0.0, 0.0, 1.0));
+    float moG = clamp(0.55*vHab.x + 0.35*vHab.w, 0.0, 1.0);
     float trafG = gPWok ? clamp(max(max(gPW[2], 0.8*gPW[3]), max(0.7*gPW[4], gPW[6])), 0.0, 1.0) : 0.0;
     trafG = max(max(max(trafG, rut), max(dirt, deformAt(p.xz).y)), vRim);
-    vec3 mfG = mossField(p, nup, 0.0, 1.0 - 0.7*rockK, moG, shG, 0.9, vHab.w, trafG, vHab.z, 0.0, 0.0, 1.0 - smoothstep(12.0, 30.0, tDistM));
-    float Mg = mfG.x*(1.0 - puddle)*(1.0 - smoothstep(0.1, 0.4, vEw.x + vEw.y));   // not in standing water or fresh earthworks
+    vec2 mg2 = mossGround(p, nup, vHab, trafG, gPWok ? gPW[10] : 0.0, 1.0 - smoothstep(12.0, 30.0, tDistM));
+    float Mg = mg2.x*(1.0 - 0.7*rockK)*(1.0 - puddle)*(1.0 - smoothstep(0.1, 0.4, vEw.x + vEw.y));   // not on rock faces, in standing water or fresh earthworks
     if (Mg > 0.02) {
       float hMg = 0.85 + 0.15*mossVn(p/0.05), wmg;
       if (tDistM < uMoss.z && uLayerBlend == 1) { float q[4] = float[4](1.0 - Mg, Mg, 0.0, 0.0), h[4] = float[4](hB, clamp(1.0 - hB + 0.5*(hMg - 0.925), 0.0, 1.0), 0.5, 0.5), w[4]; layerBlend(q, h, 2, 0, 0.24, 0.10, w); wmg = w[1]; }
@@ -7628,9 +7638,9 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
       glUniform3fv(U(progContactAO, "uEye"), 1, glm::value_ptr(v.camPos));
       glBindTextureUnit(7, depthTex); glUniform1i(U(progContactAO, "uDepth"), 7);
       glBindTextureUnit(12, nrTex); glUniform1i(U(progContactAO, "uNR"), 12);
-      glEnable(GL_BLEND); glBlendFunc(GL_ZERO, GL_SRC_COLOR); glColorMaski(0, GL_TRUE, GL_FALSE, GL_FALSE, GL_FALSE);
+      glEnable(GL_BLEND); glBlendEquation(GL_MIN); glColorMaski(0, GL_TRUE, GL_FALSE, GL_FALSE, GL_FALSE);   // min, not multiply: overlapping decals never stack below the darkest one (>= 0.30)
       glBindVertexArray(contactAOVao); glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GLsizei(contactAO.size() / 3));
-      glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE); glDisable(GL_BLEND); glBindVertexArray(emptyVao);
+      glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE); glBlendEquation(GL_FUNC_ADD); glDisable(GL_BLEND); glBindVertexArray(emptyVao);
     }
   }
   // light shafts at half resolution
