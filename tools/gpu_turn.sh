@@ -27,7 +27,13 @@ TAG="${GPU_TURN_TAG:-$(pwd)}"
 MINC="${GPU_TURN_MIN_COMMIT_GB:-16}"
 freeCommitGb() {   # Win32_OperatingSystem.FreeVirtualMemory (KB); empty when it can't be read (then the gate is open)
   command -v powershell.exe >/dev/null 2>&1 || return
-  powershell.exe -NoProfile -NonInteractive -Command '[int]((Get-CimInstance Win32_OperatingSystem).FreeVirtualMemory / 1MB)' 2>/dev/null | tr -d ' '
+  powershell.exe -NoProfile -NonInteractive -Command '[int]((Get-CimInstance Win32_OperatingSystem).FreeVirtualMemory / 1MB)' 2>/dev/null | tr -d '
+ '
+}
+MINV="${GPU_TURN_MIN_VRAM_MB:-2560}"
+freeVramMb() {   # nvidia-smi's free video memory (MiB); empty without it (then the gate is open)
+  command -v nvidia-smi >/dev/null 2>&1 || return
+  nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' '
 }
 slot() { [ "$1" -eq 1 ] && echo "$LOCK" || echo "$LOCK.$1"; }
 mkdir -p "$(dirname "$LOCK")" "$Q"
@@ -57,6 +63,11 @@ while :; do
     fc=$(freeCommitGb)
     if [ -n "$fc" ] && [ "$fc" -lt "$MINC" ] 2>/dev/null; then   # in line for a slot, but another game would not fit in memory
       [ $((waited % 60)) -eq 0 ] && echo "gpu_turn: free commit ${fc} GB < ${MINC} GB; waiting for memory"
+      sleep 5; waited=$((waited + 5)); continue
+    fi
+    fv=$(freeVramMb)
+    if [ "$EXCL" != 1 ] && [ -n "$fv" ] && [ "$fv" -lt "$MINV" ] 2>/dev/null; then   # a full card leaves new render targets undefined (garbage frames); exclusive waits for the slots instead
+      [ $((waited % 60)) -eq 0 ] && echo "gpu_turn: free video memory ${fv} MB < ${MINV} MB; waiting"
       sleep 5; waited=$((waited + 5)); continue
     fi
   fi

@@ -1610,6 +1610,12 @@ int App::run(int argc, char** argv) {
     settingsEndFrame(*this);   // FPS cap
     { extern bool loadingActive(); hitchFrameEnd(swapMs, loadingActive()); }   // CP step 0: always-on hitch log
     { extern void dynResFrame(App&); dynResFrame(*this); }   // CP 5.1: dynamic resolution (dynres.cpp)
+    {   // sampler-unit check (units are set at draw time): at startup (the menu's programs) and once a map has drawn 30 frames (setLighting / first-draw units)
+      extern bool loadingActive(); static int frames = 0, worldFrames = 0;
+      if (++frames == 3) R.checkSamplerUnits();
+      worldFrames = mainMenuActive() || loadingActive() ? 0 : worldFrames + 1;
+      if (worldFrames == 30) { static bool done = false; if (!done) { done = true; R.checkSamplerUnits(); } }
+    }
   }
   int code = selftest ? selftest->exitCode : 0;
   if (gCrumbProf) { extern json crumbProfReport(const char*); crumbProfReport("exit"); }
