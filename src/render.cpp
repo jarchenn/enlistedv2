@@ -3441,16 +3441,17 @@ void main(){}
 static const char* kTerrainVS = R"GLSL(
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in float aDirt; layout(location=3) in vec3 aEw;
 layout(location=4) in float aMorph;   // VOT T1: the next LOD's height minus this vertex's (base chunks; 0 elsewhere)
+layout(location=5) in vec4 aHab;      // VFX rev3: habitat (x moisture, y shelter, z exclusion, w canopy; all 0 = no data), terrain.h HabitatFn
 uniform mat4 uVP;
 uniform int uDefTiles;   // VFX rev3 tdeform: 1 while the fine tiles draw
 uniform vec4 uMorph;                  // VOT T1 geomorph: x start distance, y 1 / ramp length, z on
-out vec3 vW, vN0; out float vDirt; out vec3 vEw;
+out vec3 vW, vN0; out float vDirt; out vec3 vEw; out vec4 vHab;
 invariant gl_Position;                // PF tzprepass: the depth pass and the colour pass must rasterise identical depths
 void main(){
   vec3 P = aPos;
   if (uMorph.z > 0.5) P.y += aMorph*clamp((length(aPos - uCamPos) - uMorph.x)*uMorph.y, 0.0, 1.0);
   if (uDefTiles == 1) P.y -= deformAt(P.xz).x;   // VFX rev3 tdeform: ruts and tracks in the fine tiles (the same in the depth pre-pass)
-  vW = P; vN0 = aNrm; vDirt = aDirt; vEw = aEw; gl_Position = uVP*vec4(P,1.0);
+  vW = P; vN0 = aNrm; vDirt = aDirt; vEw = aEw; vHab = aHab; gl_Position = uVP*vec4(P,1.0);
 }
 )GLSL";
 // PF tzprepass: the terrain's depth-only pass (kTerrainVS, whose gl_Position is invariant, so the colour pass's EQUAL test
@@ -3465,6 +3466,7 @@ void main(){
 static const char* kTerrainFS = R"GLSL(
 uniform vec4 uGrassTop; uniform vec2 uGrassTopR;   // CP4: clumps' mean top-down albedo (linear), strength; ramp start / end (m)
 in vec3 vW, vN0; in float vDirt; in vec3 vEw;   // vEw: GX1 earthworks (terrain_cuts.cpp): packed mud, freshly turned earth, wet
+in vec4 vHab;   // VFX rev3: the habitat attribute (the vegetation session's moss terms; 0 = no data)
 uniform int uTNOn; uniform sampler2D uTNrm; uniform vec4 uTNMap;   // VOT T1: per-pixel base normals (terrain_normals.cpp, unit 18), xy origin, zw 1 / extent
 uniform int uTSVOn;   // uTSV is declared with the shadow code (T6)   // VOT T5: terrain sky-view factor (unit 26, same mapping as uTNMap)
 vec3 vN;   // the shading normal: vN0 (vertex) or the baked per-pixel one

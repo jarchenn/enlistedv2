@@ -143,6 +143,7 @@ public:
   static float craterShape(vec2 c, float angle);   // radius multiplier (>= 1) of the crater at c in direction angle
   std::vector<int> crater(vec3 c, float radius, float depth, const std::function<float(float, float)>& weight, float maxDepth = 1.6f, bool irregular = true);
   void rebuildMesh(Tile& t);
+  void habitatDirty(vec2 lo, vec2 hi);   // VFX rev3: rebuild the aHab attribute of the chunks and tiles over that box (meshes only)
   void clearTiles();               // drops every crater delta; tiles under terrain cuts are rebuilt from the cuts
   std::map<int, std::vector<float>> deltas() const;          // canonical world-metre deltas (vs the authored base) for persistence
   void applyDeltas(const std::map<int, std::vector<float>>& d);
@@ -244,3 +245,14 @@ struct MapSizeRules {
 const MapSizeRules& mapSizeRules();
 struct TerrainEstimate { int verticesX = 0, verticesZ = 0, chunks = 0, tiles = 0; double cpuMB = 0, physicsMB = 0, gpuMB = 0, surfaceMB = 0, totalMB = 0; bool comfortable = true; };
 TerrainEstimate estimateTerrain(float width, float depth, float margin = -1);
+
+// VFX rev3 (vegetation session, spec 4.5): per-vertex habitat on the terrain mesh, location 5, vec4 unorm8 "aHab"
+// (x static moisture, y shelter, z exclusion, w canopy; 0..1). The function is called at every chunk and tile mesh
+// build (pure, may run on worker threads); unset = all zero (the shader's "no habitat data"). terrainHabitatDirty
+// rebuilds the attribute over a box on the active terrain (editor placement); it does not touch colliders.
+#include <functional>
+using HabitatFn = std::function<glm::vec4(float x, float z)>;
+void terrainSetHabitat(HabitatFn fn);
+void terrainHabitatDirty(vec2 lo, vec2 hi);
+uint32_t terrainHabitatPacked(float x, float z);   // the packed RGBA8 at a point (0 when unset)
+
