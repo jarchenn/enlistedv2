@@ -20,7 +20,7 @@
 
 namespace {
 MpTest* T = nullptr;
-int mode = -1, stage = 0, frames = 0; bool started = false, matchMode = false, blurMode = false, costMode = false, blur2 = false, stepMode = false, cpabMode = false, hitMode = false, smokeMode = false, wxMode = false, wedgeMode = false; float total = 0, st = 0, runT = 0; int runFrames = 0; double runDt = 0, worstDt = 0;
+int mode = -1, stage = 0, frames = 0; bool started = false, matchMode = false, blurMode = false, costMode = false, blur2 = false, stepMode = false, cpabMode = false, hitMode = false, smokeMode = false, wxMode = false, wedgeMode = false, w6Mode = false; float total = 0, st = 0, runT = 0; int runFrames = 0; double runDt = 0, worstDt = 0;
 std::vector<int> row; vec3 origin(0);
 const char* kStates[] = {"aim", "aim_lmg", "aim_pistol", "idle", "walk", "run", "crouch", "shot", "reload", "throw"};
 }   // namespace
@@ -91,6 +91,29 @@ static bool blurStep(App& app, Game& G, Soldier& L, bool second) {
     }
   }
   if (frames > 74) { ++k; frames = 0; }
+  return true;
+}
+
+// Weather W6 NMK_WSM2=w6look: stills of a smoke cloud (16 m ahead) and a grenade explosion's puff (10 m) in Clear at noon, in
+// Dense fog, and in Clear at 07:30 looking into the low sun; each with the particles lit and fogged (fxlit, fxsoft) and without.
+static bool w6Step(App& app, Game& G, Soldier& L) {
+  struct Sc { const char* name; int wx; float hour; bool intoSun; }; static const Sc sc[] = {{"clear", 0, 12.0f, false}, {"densefog", 9, 12.0f, false}, {"lowsun", 0, 7.5f, true}};
+  static int k = -1, f0 = 0; static vec3 eye0;
+  static const int only = std::getenv("NMK_W6_SCENE") ? std::atoi(std::getenv("NMK_W6_SCENE")) : -1;   // one scene (0 clear, 1 dense fog, 2 low sun)
+  const int nS = only >= 0 ? 1 : 3, phase = k < 0 ? 0 : k % 2; const Sc& c = sc[only >= 0 ? only : std::max(0, k) / 2 % nS];
+  if (k < 0) { k = 0; f0 = frames; eye0 = L.feet; settings().applyPreset(app, GfxPreset::High); }
+  app.R.q.lightNew = true; app.R.wx.target = c.wx; app.R.wx.userSet = true; app.R.lt.hour = c.hour;
+  Physics::setCharacterPos(eye0 + vec3(0, 0.9f, 0)); app.scriptedInput = ExploreInput{};
+  if (c.intoSun) { vec3 sd = app.R.sunDir; app.eyeYaw = degrees(std::atan2(-sd.x, -sd.z)); } else app.eyeYaw = 20;
+  app.eyePitch = 2;
+  for (auto& s : G.sold) if (s.inUse && !s.localPlayer) s.hp = 100;
+  app.R.perf.fxLit = app.R.perf.fxSoft = phase == 0;
+  const int f = frames - f0;
+  const vec3 fw = App::forward(app.eyeYaw, 0), rt = glm::normalize(glm::cross(fw, vec3(0, 1, 0)));
+  if (f == 2) { app.R.wx.snap(); vec3 cp = eye0 + fw * 16.0f - rt * 3.0f; cp.y = app.terrain.height(cp.x, cp.z); G.gren.addCloud(cp, G.t - 4.0, 21 + k); }
+  if (f == 150) { vec3 ep = eye0 + fw * 10.0f + rt * 3.0f; ep.y = app.terrain.height(ep.x, ep.z); app.fx.explosion(ep, vec3(0, 1, 0), "grenade", true); }
+  if (f == 175) { char b[96]; std::snprintf(b, sizeof b, "w6_%s_%s.png", c.name, phase == 0 ? "lit" : "unlit"); app.uiShot = exeDir() / "selftest_out" / b; }
+  if (f > 180) { G.gren.clear(); f0 = frames; if (++k >= nS * 2) { T->check(true, "six stills written"); if (app.mode == Mode::Explore) app.exitExplore(); app.selftest->exitCode = T->finish(); app.selftest->done = true; } }
   return true;
 }
 
@@ -308,7 +331,7 @@ static bool costStep(App& app, Game& G, Soldier& L) {
 }
 
 bool wsm2Capture(App& app, float dt) {
-  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-wsm2") mode = 1; const char* e = std::getenv("NMK_WSM2"); matchMode = e && std::string(e) == "match"; blurMode = e && (std::string(e) == "blur" || std::string(e) == "blur2"); blur2 = e && std::string(e) == "blur2"; costMode = e && std::string(e) == "cost"; stepMode = e && std::string(e) == "step"; if (stepMode) blurMode = true; cpabMode = e && std::string(e) == "cpab"; if (cpabMode) matchMode = true; hitMode = e && std::string(e) == "cphit"; if (hitMode) blurMode = true; smokeMode = e && std::string(e) == "smoke"; if (smokeMode) blurMode = true; wxMode = e && std::string(e) == "wxsight"; if (wxMode) blurMode = true; wedgeMode = e && std::string(e) == "wedge"; if (costMode) matchMode = true; }
+  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-wsm2") mode = 1; const char* e = std::getenv("NMK_WSM2"); matchMode = e && std::string(e) == "match"; blurMode = e && (std::string(e) == "blur" || std::string(e) == "blur2"); blur2 = e && std::string(e) == "blur2"; costMode = e && std::string(e) == "cost"; stepMode = e && std::string(e) == "step"; if (stepMode) blurMode = true; cpabMode = e && std::string(e) == "cpab"; if (cpabMode) matchMode = true; hitMode = e && std::string(e) == "cphit"; if (hitMode) blurMode = true; smokeMode = e && std::string(e) == "smoke"; if (smokeMode) blurMode = true; wxMode = e && std::string(e) == "wxsight"; if (wxMode) blurMode = true; wedgeMode = e && std::string(e) == "wedge"; w6Mode = e && std::string(e) == "w6look"; if (w6Mode) blurMode = true; if (costMode) matchMode = true; }
   if (mode != 1) return false;
   if (dt < 0) return true;
   if (app.win && glfwGetWindowAttrib(app.win, GLFW_ICONIFIED)) glfwRestoreWindow(app.win);
@@ -319,7 +342,34 @@ bool wsm2Capture(App& app, float dt) {
     if (wf == 1) {
       T = new MpTest("wsm2");
       const TemplateInfo* tp = app.findTemplate("chateau_town");
-      T->check(tp && navNewMapSized(app, *tp, "Wedge", vec2(tp->width, tp->depth)) && app.enterExplore(), "chateau_town opened from its template, Explore");
+      bool ok = tp && navNewMapSized(app, *tp, "Wedge", vec2(tp->width, tp->depth));
+      if (ok) {   // its own Assault with objective A taken out: the churchyard (B) is the attackers' goal, as when the soak wedged there
+        Scenario sc = Scenario::fromJson(app.doc.extra.is_object() ? app.doc.extra.value("scenario", json()) : json());
+        if (!sc.objectives.empty()) sc.objectives.erase(sc.objectives.begin());
+        for (int i = 0; i < (int)sc.objectives.size(); ++i) sc.objectives[i].order = i;
+        sc.rules.defenderSlots = 6; sc.rules.attackerAI = 12;
+        gUi.matchScenario = sc.toJson(); gUi.loaded = false;
+        if (!gGame) gGame = new Game(app);
+        gGame->pendingStart = true;
+      }
+      T->check(ok && app.enterExplore() && gGame && gGame->active, "chateau_town opened from its template: its Assault without objective A");
+      return true;
+    }
+    if (wf > 90 && gGame && gGame->active) {   // five attackers put at the wedge spot; the gate stays as the map has it (closed)
+      Game& G = *gGame; static std::vector<int> five; static int opens0 = 0; static double t0 = 0; char b[300];
+      if (five.empty()) {
+        for (auto& s : G.sold) if (s.inUse && s.alive && !s.localPlayer && s.role == CombatRole::Attacker && five.size() < 5) five.push_back(s.slot);
+        for (int i = 0; i < (int)five.size(); ++i) { Soldier& s = G.sold[five[i]]; vec3 p(-92.4f + 0.6f * (i % 2), 9.2f, 26.0f - 0.7f * i); Physics::setAgentPos(s.agent, p); s.feet = s.prevFeet = p; }
+        opens0 = G.doorOpens; t0 = G.t;
+        std::snprintf(b, sizeof b, "%zu attackers placed south of the churchyard gate (closed)", five.size()); T->note(b);
+      }
+      for (int i : five) G.sold[i].hp = 100;   // the test is the way through, not the fight
+      if (G.t - t0 > 60) {
+        int through = 0; for (int i : five) through += G.sold[i].feet.z > 28.0f;
+        std::snprintf(b, sizeof b, "in 60 s %d of %zu went north through the gate; doors opened by bots %d", through, five.size(), G.doorOpens - opens0);
+        T->check(through >= 4, b);
+        if (app.mode == Mode::Explore) app.exitExplore(); app.selftest->exitCode = T->finish(); app.selftest->done = true;
+      }
       return true;
     }
     if (wf == 90) {
@@ -343,7 +393,6 @@ bool wsm2Capture(App& app, float dt) {
       { Physics::Hit h; Physics::castRayEx(A + vec3(0, 3, 0), vec3(0, -1, 0), 5, h); std::snprintf(b, sizeof b, "ground under the spot: y %.2f (%s), terrain height %.2f", h.pos.y, name(h.ud).c_str(), app.terrain.height(A.x, A.z)); T->note(b); }
       { Physics::Hit h; Physics::castRayEx(B + vec3(0, 3, 0), vec3(0, -1, 0), 5, h); std::snprintf(b, sizeof b, "ground under the waypoint: y %.2f (%s), terrain height %.2f", h.pos.y, name(h.ud).c_str(), app.terrain.height(B.x, B.z)); T->note(b); }
       T->check(true, "probes done");
-      if (app.mode == Mode::Explore) app.exitExplore(); app.selftest->exitCode = T->finish(); app.selftest->done = true;
     }
     return true;
   }
@@ -403,6 +452,7 @@ bool wsm2Capture(App& app, float dt) {
   if (hitMode) return hitStep(app, G, *L);
   if (smokeMode) return smokeStep(app, G, *L);
   if (wxMode) return wxSightStep(app, G, *L);
+  if (w6Mode) return w6Step(app, G, *L);
   if (blurMode) return blurStep(app, G, *L, blur2);
   if (costMode) return costStep(app, G, *L);
   if (stage == 0) {   // the row: side 0's bot first, then side 1's in spawn order; facts per bot

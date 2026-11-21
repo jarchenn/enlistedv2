@@ -107,12 +107,12 @@ void Fx::explosion(vec3 p, vec3 n, const std::string& family, bool ground) {
   flash(p + n * 0.3f, 3.5f, 0.12f, vec4(9.0f, 6.0f, 2.5f, 1));
   flash(p + n * 0.2f, 1.6f, 0.25f, vec4(5.0f, 2.6f, 0.8f, 1));
   vec4 dust = family == "concrete" ? vec4(0.42f, 0.41f, 0.38f, 0.75f) : family == "timber" ? vec4(0.33f, 0.27f, 0.19f, 0.7f)
-             : ground ? vec4(0.24f, 0.19f, 0.13f, 0.8f) : vec4(0.45f, 0.41f, 0.34f, 0.75f);
+             : ground ? vec4(0.35f, 0.29f, 0.21f, 0.8f) : vec4(0.45f, 0.41f, 0.34f, 0.75f);   // W6: kicked-up dry soil is lighter than the ground it came from (it was 0.24 / 0.19 / 0.13: a hole in fog once lit)
   for (int i = 0; i < 22; ++i) {
     vec3 d = glm::normalize(n * 1.3f + vec3(rnd() - 0.5f, rnd() * 0.8f, rnd() - 0.5f) * 1.6f);
     smoke(p + d * 0.3f, d * (2.0f + rnd() * 6.0f), 0.6f + rnd() * 0.8f, 2.5f + rnd() * 3.5f, dust * vec4(0.8f + rnd() * 0.3f, 0.8f + rnd() * 0.3f, 0.8f + rnd() * 0.3f, 1), 1.4f, 0.5f);
   }
-  for (int i = 0; i < 10; ++i) smoke(p + vec3(0, 0.5f, 0), vec3(rnd() - 0.5f, 1.5f + rnd() * 2, rnd() - 0.5f), 1.2f, 5.0f + rnd() * 3, vec4(0.16f, 0.15f, 0.14f, 0.55f), 0.9f, 0.9f);
+  for (int i = 0; i < 10; ++i) smoke(p + vec3(0, 0.5f, 0), vec3(rnd() - 0.5f, 1.5f + rnd() * 2, rnd() - 0.5f), 1.2f, 5.0f + rnd() * 3, vec4(0.28f, 0.27f, 0.25f, 0.55f), 0.9f, 0.9f);   // W6: was 0.16
   int nd = ground ? 10 : 16;
   for (int i = 0; i < nd; ++i) {
     if (debris.size() >= maxDebris) debris.erase(debris.begin());

@@ -4261,8 +4261,18 @@ void main(){
     if (uAdd == 0) {
       vec3 n = normalize(uCamPos - aPos);
       float sh = sunShadowRaw(aPos, n, 1.0, 1);
-      vec3 lit = aCol.rgb/PI*uSunCol*0.5*sh + aCol.rgb*mix(uGroundCol, uSkyCol, 0.75);
+      // smoke scatters forward: Henyey-Greenstein g 0.5 toward the sun, scaled so a side view (90 deg) keeps the old half phase
+      float ct = dot(-n, uSunDir), hg = 0.75/pow(1.25 - ct, 1.5);   // 4 pi x HG(0.5): 0.54 side-on, 6 into the sun
+      float ph = 0.5*clamp(hg/0.537, 0.6, 4.0);
+      // inside fog, dust or a storm the particle is lit by the air around it too (multiple scattering): the haze's colour by what
+      // ~15 m of that air scatters (without it a dark puff in Dense fog went black, darker than anything near it)
+      vec3 amb = mix(uGroundCol, uSkyCol, 0.75);
+      if (wxPhys) amb += hazeColor(-n)*(1.0 - exp(-wxSigma*15.0));
+      vec3 lit = aCol.rgb/PI*uSunCol*ph*sh + aCol.rgb*amb;
       vC.rgb = applyFog(lit, aPos);
+      // the scene fog keeps a 12 m clear zone for close combat (applyFogAir); smoke and dust are the air itself, so they take the
+      // preset haze over that first stretch too (without it a plume 10 m off in Dense fog got no in-scatter and read as a hole)
+      if (wxPhys) { float dz = min(length(aPos - uCamPos), 12.0); vC.rgb = mix(vC.rgb, hazeColor(-n), 1.0 - exp(-wxSigma*dz)); }
     } else { applyFog(vec3(0.0), aPos); vC.rgb *= gFogT; }
   }
   gl_Position = uVP*vec4(aPos,1.0);
