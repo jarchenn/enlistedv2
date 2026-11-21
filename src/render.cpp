@@ -2220,7 +2220,7 @@ void main(){
   if (uWetOn == 1 && wxWet > 0.0 && gl_FrontFacing) {   // W3: rain on walls, roofs and props: only where the sky reaches (shelter stays dry), porous (rough) dielectrics darken most
     vec3 ng0 = normalize(vN); float w = clamp(wxWet, 0.0, 1.0)*skyVis(vW, ng0)*mix(0.55, 1.0, clamp(ng0.y, 0.0, 1.0));
     float poro = (1.0 - metal)*smoothstep(0.35, 0.85, rough);
-    alb *= mix(1.0, 0.35, w*poro*(1.0 - clamp(1.5*gMossW, 0.0, 1.0))); rough = mix(rough, max(0.35*rough, 0.25), w);   // BF: moss keeps its colour wet
+    alb *= mix(1.0, 0.35, w*poro*mix(1.0, 0.25, clamp(gMossW, 0.0, 1.0))); rough = mix(rough, max(0.35*rough, 0.25), w);   // BF: wet moss darkens only to ~x0.84 (spec 3.4 coveredDryToWetScale 0.75-0.92)
   }
   vec3 c = shade(vW, N, alb, rough, metal, ao);
   if (gMossW > 0.0 && uMoss.y > 0.5) c += mossTransmit(N, uSunDir, normalize(uCamPos - vW), gMossW)*uSunCol*sunShadowT(vW, -N, 1.0, 1);   // BF B1 (interim: moves into shade() with PF1's blend)
