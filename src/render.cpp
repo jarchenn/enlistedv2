@@ -6362,7 +6362,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   }
   if (!folModels.empty() && !thumbMode) drawFolModels(true, lightVP, &frNear, 1.0f);   // NT8: ground plants under 1 m cast no sun shadow
   glUseProgram(progShadow);
-  if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frNear);
+  if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frNear); if (!shadowModels.empty()) drawModelsDepth(progShadow, shadowModels, &frNear);
   }
   // VO L3 mid cascade (Lighting New, Medium / High): about 3x the near radius in the atlas's right half, texel-snapped like
   // the near one (no crawl), redrawn every 4th frame on Medium / 2nd on High or when its focus moves 4 m (movers lag a few frames there)
@@ -6398,7 +6398,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     Frustum frMid = Frustum::fromVP(lightVPMid);
     glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPMid)); depthVP = lightVPMid;
     if (opaque.size() > nS) { itemLo = (uint32_t)nS; drawItems(progShadow, opaque, true, &frMid); itemLo = 0; }
-    if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frMid);
+    if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frMid); if (!shadowModels.empty()) drawModelsDepth(progShadow, shadowModels, &frMid);
   } else if (midOn) {
     const float mR = std::max(90.0f, radius * 3.0f);
     const vec3 mfw = v.camPos + vec3(fwd.x, 0, fwd.z) * mR * 0.5f;
@@ -6414,7 +6414,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       drawItems(progShadow, opaque, true, &frMid);
       if (!foliage.empty()) drawFoliage(progLeafShadow, lightVPMid, &frMid, false, perf.leafShadowLod ? 0.0f : -1.0f);
       if (!folModels.empty()) { drawFolModels(true, lightVPMid, &frMid, 4.0f, perf.vegCascades); glUseProgram(progShadow); }   // trees only, as in the far cascade (CP5: from their far level)
-      if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frMid);
+      if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frMid); if (!shadowModels.empty()) drawModelsDepth(progShadow, shadowModels, &frMid);
       minCaster = 0;
     }
   } else midFrame = -1000;
@@ -6442,7 +6442,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       drawItems(progShadow, opaque, true, &frC);
       if (!foliage.empty() && vegC3) drawFoliage(progLeafShadow, lightVPC3, &frC, false, perf.leafShadowLod ? 0.0f : -1.0f);
       if (!folModels.empty() && vegC3) { drawFolModels(true, lightVPC3, &frC, 4.0f); glUseProgram(progShadow); }
-      if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frC);
+      if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frC); if (!shadowModels.empty()) drawModelsDepth(progShadow, shadowModels, &frC);
       minCaster = 0; farPass = false;
     }
   } else c3Frame = -1000;
@@ -6471,7 +6471,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   }
   const bool farCadence = frame - farFrame >= std::max(perf.farLite ? 4 : 1, q.farEvery);   // OPT farlite: the far cascade at most every 4th frame
   const bool farMoved = fR != farR || glm::distance(ffw, farFocus) > 8.0f || sunDir != farSun;
-  const bool farDyn = opaque.size() > nStat || !worldModels.empty();
+  const bool farDyn = opaque.size() > nStat || !worldModels.empty() || !shadowModels.empty();
   const bool staticRedo = cacheOn && (farMoved || (farCadence && fsig != farSig));
   const bool farRedo = cacheOn ? staticRedo || (farCadence && (farDyn || farHadDyn))
                                : !perf.farCache || farCadence || farMoved;
@@ -6506,7 +6506,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     }
     glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
     if (!folModels.empty() && vegFar) { drawFolModels(true, lightVPFar, &frFar, 4.0f); glUseProgram(progShadow); }   // NT8: trees only
-    if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frFar);
+    if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frFar); if (!shadowModels.empty()) drawModelsDepth(progShadow, shadowModels, &frFar);
     minCaster = 0;
   }
   castCull = false; farPass = false; stats.shadowDraws = stats.draws - shDraws0;
