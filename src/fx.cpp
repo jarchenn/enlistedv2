@@ -390,10 +390,10 @@ void Fx::setCaps(const Caps& c) {
   for (auto& q : parts) { if (live <= maxParts) break; if (q.ret < 0) { q.ret = 0.3f; --live; } }   // oldest first, faded, never snapped
   for (size_t k = 0; k + (size_t)caps.flashLights < mlights.size(); ++k) mlights[k].life = std::min(mlights[k].life, mlights[k].age + 0.3f);
 }
-vec3 Fx::emission(float T, float eps) const {
+vec3 Fx::emission(float T, float eps, float clampX) const {
   const FxData& D = fxData();
-  const float y = std::max(yrefNits, 1e-4f), mult = eps * D.lv(T) / y;
-  return D.hue(T) * (peakClamp > 0 ? std::min(mult, peakClamp) : mult) * y * kNitsToScene;
+  const float y = std::max(yrefNits, 1e-4f), mult = eps * D.lv(T) / y, cl = clampX >= 0 ? clampX : peakClamp;
+  return D.hue(T) * (cl > 0 ? std::min(mult, cl) : mult) * y * kNitsToScene;
 }
 float Fx::envelopeAvg(double t0, float life, double a, double b) {
   if (life <= 0) return 0;
@@ -431,6 +431,7 @@ bool Fx::emit(const FxEvent& e0) {
   }
   const float age = (float)(clock - e.visTime);
   const bool heavy = e.recipe == FXR_HEAVY;
+  if (!heavy && fxCaliberNoGunFlash(e.caliber)) return true;   // a launcher: no gun flash (its backblast / rocket flame are their own)
   const FxWeaponRow W = heavy ? fxHeavyFor(e.weapon, e.scale) : fxWeaponFor(e.weapon, e.caliber);
   const FxDeviceMod dev = fxData().device(e.device);
   const float smokeLife = heavy ? 20.0f : 5.0f;
@@ -444,8 +445,11 @@ bool Fx::emit(const FxEvent& e0) {
   if (age < life * (heavy ? 1.6f : 1.0f)) {
     FlashEl f; f.t0 = tShow; f.life = life; f.p = e.pos; f.dir = dir; f.roll = hash01(sd, 1) * 6.2831853f; f.xM = xM; f.L = L; f.R = R;
     f.half = e.device == "brake" ? 30.0f : e.device == "flash_hider" ? 10.0f : 15.0f;
-    f.emPrim = emission(W.Tprim, heavy ? 0.5f : 0.12f); f.emDisc = emission(heavy ? std::max(W.Tprim, 2000.0f) : 1800.0f, heavy ? 0.5f : 0.20f);
-    f.emSec = emission(W.Tsec, W.epsSec) * dev.secondary;
+    // the flash geometry is clamped at 60 x Yref even with the unthresholded bloom: unclamped, a dark storm exposure saturated a whole
+    // heavy core mesh flat white (a hard-edged wedge); spec 5.4's SDR checks want a small white core and 0.32-0.72 lobes, not a white shape
+    const float fc = std::min(peakClamp > 0 ? peakClamp : 60.0f, 60.0f);
+    f.emPrim = emission(W.Tprim, heavy ? 0.5f : 0.12f, fc); f.emDisc = emission(heavy ? std::max(W.Tprim, 2000.0f) : 1800.0f, heavy ? 0.5f : 0.20f, fc);
+    f.emSec = emission(W.Tsec, W.epsSec, fc) * dev.secondary;
     const int coreTris[5] = {0, 0, 60, 120, 200};   // spec 8.3 flash core form: billboard, billboard, swept mesh 60 / 120 / 200
     const int t = std::clamp(tier, 0, 4);
     if (coreTris[t] > 0) { f.kind = 0; f.segs = coreTris[t]; flashes.push_back(f); }
@@ -553,8 +557,9 @@ void Fx::buildFlashes(vec3 eye, std::vector<FxVert>& add) const {
         const float ang = j * 6.2831853f / M; const vec3 n = s1 * std::cos(ang) + s2 * std::sin(ang);
         const float rr = std::min(r, x * std::tan(glm::radians(f.half)) + 0.25f * f.R);   // the half-angle at the muzzle
         p = f.p + f.dir * x + n * rr;
-        const vec3 vd = glm::normalize(eye - p); const float facing = std::pow(std::fabs(glm::dot(n, vd)), 1.5f);
-        c = glm::mix(f.emPrim, f.emDisc, std::clamp(u / 1.67f, 0.0f, 1.0f)) * (k * facing * (1.0f - (float)i / S * 0.5f));
+        const vec3 vd = glm::normalize(eye - p); const float facing = std::pow(std::fabs(glm::dot(n, vd)), 4.0f);   // eps follows the optical depth: bright at the axis, nothing at the silhouette
+        const float along = (float)i / S, ends = glm::smoothstep(0.0f, 0.2f, along) * (1.0f - glm::smoothstep(0.55f, 1.0f, along));   // no hard base or tip
+        c = glm::mix(f.emPrim, f.emDisc, std::clamp(u / 1.67f, 0.0f, 1.0f)) * (k * facing * (0.25f + 0.75f * ends));
       };
       for (int i = 0; i < S; ++i) for (int j = 0; j < M; ++j) {
         vec3 p00, p01, p10, p11, c00, c01, c10, c11;

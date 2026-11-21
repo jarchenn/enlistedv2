@@ -226,7 +226,7 @@ struct Fx {
   std::vector<Grain> grains; size_t maxGrains = 6000;   // puffs released later (suppressor, bore evacuator)
   std::deque<uint64_t> seenOrder; std::set<uint64_t> seenIds; uint64_t serial = 0;
   uint64_t nextId(int owner) { return ((uint64_t)(owner + 1) << 40) | (++serial & 0xFFFFFFFFFFull); }
-  vec3 emission(float T, float eps) const;  // scene-linear emission of a grey body at T: hue(T) x min(eps L_v / Yref, clamp) x Yref (spec 5.4)
+  vec3 emission(float T, float eps, float clampX = -1) const;   // clampX >= 0: this clamp instead of peakClamp (0: none)  // scene-linear emission of a grey body at T: hue(T) x min(eps L_v / Yref, clamp) x Yref (spec 5.4)
   static float envelopeAvg(double t0, float life, double a, double b);   // (1-u)^2 integrated over [a, b] / (b - a) (spec 5.5)
   bool admit(bool cue = false);
   bool admitLight();                        // fxcap: a muzzle light fits under caps.flashLights (>= 1; off: the oldest of 8 goes)

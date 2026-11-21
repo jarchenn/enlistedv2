@@ -22,6 +22,10 @@ namespace {
 MpTest* T = nullptr;
 int mode = -1, stage = 0, frames = 0; bool started = false, matchMode = false, blurMode = false, costMode = false, blur2 = false, stepMode = false, cpabMode = false, hitMode = false, smokeMode = false, wxMode = false, wedgeMode = false, w6Mode = false, bfMode = false; float total = 0, st = 0, runT = 0; int runFrames = 0; double runDt = 0, worstDt = 0;
 std::vector<int> row; vec3 origin(0);
+// NMK_WSM2_ROWS=40,80: the lineup adds a full row of the ten types at each of those distances from the camera (sandstorm / rain
+// visibility at engagement range); the close row stays where it was
+std::vector<float> extraRowDist() { static std::vector<float> v; static bool once = false; if (!once) { once = true; if (const char* e = std::getenv("NMK_WSM2_ROWS")) { std::string t = e; size_t b = 0; while (b < t.size()) { size_t c = t.find(',', b); float d = (float)std::atof(t.substr(b, c - b).c_str()); if (d > 0) v.push_back(d); if (c == std::string::npos) break; b = c + 1; } } } return v; }
+std::vector<std::vector<int>> extraRows;
 const char* kStates[] = {"aim", "aim_lmg", "aim_pistol", "idle", "walk", "run", "crouch", "shot", "reload", "throw"};
 }   // namespace
 
@@ -493,8 +497,9 @@ bool wsm2Capture(App& app, float dt) {
     if (blurMode) {   // AIB1: the player and two Axis soldiers (one standing, one walking across)
       sc.rules.teamPlayers[0] = 1; sc.rules.teamPlayers[1] = 2; sc.rules.aiTypes[1] = aiBit(AiType::Soldiers); sc.rules.aiCount[1][(int)AiType::Soldiers] = 2;
     } else if (!matchMode) {
-      sc.rules.teamPlayers[0] = 2; sc.rules.aiTypes[0] = aiBit(AiType::Soldiers); sc.rules.aiCount[0][(int)AiType::Soldiers] = 1;
-      sc.rules.teamPlayers[1] = 9; for (AiType t : types) { sc.rules.aiTypes[1] |= aiBit(t); sc.rules.aiCount[1][(int)t] = 1; }
+      const int kRows = 1 + (int)extraRowDist().size();   // NMK_WSM2_ROWS: one more bot of every type per extra row
+      sc.rules.teamPlayers[0] = 1 + kRows; sc.rules.aiTypes[0] = aiBit(AiType::Soldiers); sc.rules.aiCount[0][(int)AiType::Soldiers] = kRows;
+      sc.rules.teamPlayers[1] = 9 * kRows; for (AiType t : types) { sc.rules.aiTypes[1] |= aiBit(t); sc.rules.aiCount[1][(int)t] = kRows; }
     } else {   // 10 a side (the player one of side 0's): the nine types spread over both sides
       sc.rules.teamPlayers[0] = 10; sc.rules.teamPlayers[1] = 10;
       const int nb = cpabMode ? 99 : 19; if (cpabMode) sc.rules.teamPlayers[0] = sc.rules.teamPlayers[1] = 50;   // CP: 100 combatants
@@ -542,6 +547,12 @@ bool wsm2Capture(App& app, float dt) {
   if (costMode) return costStep(app, G, *L);
   if (stage == 0) {   // the row: side 0's bot first, then side 1's in spawn order; facts per bot
     for (auto& s : G.sold) if (s.inUse && s.alive && !s.localPlayer) row.push_back(s.slot);
+    if (!extraRowDist().empty()) {   // deal the bots into rows: the r-th bot of each (side, model) goes to row r
+      std::vector<std::pair<int, int>> keys; std::map<std::pair<int, int>, std::vector<int>> byKey;
+      for (int sl : row) { const Soldier& s = G.sold[sl]; auto key = std::make_pair(s.team, s.model); if (!byKey.count(key)) keys.push_back(key); byKey[key].push_back(sl); }
+      row.clear(); extraRows.assign(extraRowDist().size(), {});
+      for (auto& kk : keys) { auto& v = byKey[kk]; row.push_back(v[0]); for (size_t r = 0; r < extraRows.size() && r + 1 < v.size(); ++r) extraRows[r].push_back(v[r + 1]); }
+    }
     origin = G.sold[row[0]].feet;
     for (int i = 0; i < (int)row.size(); ++i) {
       const Soldier& s = G.sold[row[i]]; const CharModel& m = *G.models[s.model];
@@ -555,9 +566,15 @@ bool wsm2Capture(App& app, float dt) {
   if (stage - 1 >= ns) { if (frames > 4) finish(); return true; }
   const std::string what = kStates[stage - 1];
   const int n = (int)row.size();
-  for (int i = 0; i < n; ++i) {   // stood in a row along x, facing +z (the camera)
-    Soldier& s = G.sold[row[i]]; if (!s.alive) continue;
-    vec3 p = origin + vec3((i - 0.5f * (n - 1)) * 1.25f, 0, 0);
+  const float camZ = 0.55f * 1.25f * n + 1.5f;   // the camera stands this far in front of the close row (below)
+  std::vector<std::pair<int, vec3>> stand;
+  for (int i = 0; i < n; ++i) stand.push_back({row[i], origin + vec3((i - 0.5f * (n - 1)) * 1.25f, 0, 0)});
+  for (size_t r = 0; r < extraRows.size(); ++r) {   // the far rows: D m from the camera, spaced wider, half a gap aside so they show between the close row
+    const float D = extraRowDist()[r], sp = std::max(1.25f, 0.04f * D); const int m = (int)extraRows[r].size();
+    for (int i = 0; i < m; ++i) { vec3 p = origin + vec3((i - 0.5f * (m - 1) + 0.5f) * sp, 0, camZ - D); p.y = app.terrain.height(p.x, p.z); stand.push_back({extraRows[r][i], p}); }
+  }
+  for (auto& [slot, p] : stand) {   // stood in rows along x, facing +z (the camera)
+    Soldier& s = G.sold[slot]; if (!s.alive) continue;
     Physics::setAgentPos(s.agent, p); s.feet = p; s.yaw = 180; s.hp = 100;
     const bool hot = what != "idle" && what != "walk" && what != "run";
     s.br.aimYaw = s.anGunYaw = 180; s.br.aimPitch = s.anGunPitch = 0; s.br.target = hot ? L->slot : -1; if (!hot) s.lastShot = G.t - 10;
@@ -574,7 +591,7 @@ bool wsm2Capture(App& app, float dt) {
     if (what == "shot" && frames == 38) { s.ws.cooldown = 0; s.ws.bolt = 0; if (s.ws.loaded <= 0) s.ws.loaded = 5; G.soldierFire(s, vec3(0, -0.02f, 1)); }
   }
   {   // the camera: in front of the row's middle, far enough for all of it
-    vec3 at = origin + vec3(0, 0, 0.55f * 1.25f * n + 1.5f);
+    vec3 at = origin + vec3(0, 0, camZ);
     Physics::setCharacterPos(at + vec3(0, 0.9f, 0));
     vec3 eye, ef; G.renderView(eye, ef); vec3 d = origin + vec3(0, 1.0f, 0) - eye;
     app.eyeYaw = degrees(std::atan2(-d.x, -d.z)); app.eyePitch = degrees(std::atan2(d.y, glm::length(vec2(d.x, d.z))));
@@ -585,6 +602,6 @@ bool wsm2Capture(App& app, float dt) {
     T->note(what + ": " + clips);
     app.uiShot = exeDir() / "selftest_out" / ("wsm2_" + what + ".png");
   }
-  if (frames > 44) { for (int i : row) { G.sold[i].dbgVel = vec3(0); G.sold[i].reload = 0; G.sold[i].throwT = -1; } ++stage; frames = 0; }
+  if (frames > 44) { for (auto& [i, p] : stand) { G.sold[i].dbgVel = vec3(0); G.sold[i].reload = 0; G.sold[i].throwT = -1; } ++stage; frames = 0; }
   return true;
 }
