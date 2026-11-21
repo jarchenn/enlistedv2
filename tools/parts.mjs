@@ -758,7 +758,7 @@ export function gableRoof(A, { X, Z, XI, EAVE, RIDGE, ov = 0.35, gov = 0.28, t =
 // beside it (35 % of its colour, the ashlar set, so M4's baked wear and the shader grunge put grime in the joints).
 export function quoins(A, X, Z, y0, y1) {
   const R = rng((A.meta && A.meta.id ? A.meta.id : "") + ":qs1:" + X + ":" + Z);
-  if (A.meta && !A._qs1) { A._qs1 = true; A.meta.version = (A.meta.version || 1) + 1; }   // placed instances pick up the new stones
+  if (A.meta && !A._qs1) { A._qs1 = true; A.meta.version = (A.meta.version || 1) + 2; }   // placed instances pick up the new stones (QS1b: +2)
   const m = quoinMat(A, X, Z, y0, y1);
   for (const sx of [-1, 1]) for (const sz of [-1, 1])
     for (let i = 0, y = y0; y < y1 - 0.1; y += 0.31, i++) {
@@ -766,11 +766,11 @@ export function quoins(A, X, Z, y0, y1) {
       const xa = sx * (X + 0.015), xb = sx * (X - lx), za = sz * (Z + 0.015), zb = sz * (Z - lz), yt = Math.min(y + 0.29, y1);
       A.box([Math.min(xa, xb), y, Math.min(za, zb)], [Math.max(xa, xb), yt, Math.max(za, zb)], "stone_dressed", { v: 0 });
       const pr = 0.003 + 0.009 * R(), dlx = (R() - 0.6) * 0.05, dlz = (R() - 0.6) * 0.05;   // projection; visible lengths (mostly shorter)
-      const ya = y - 0.008 + 0.006 * R(), yb = Math.min(y + 0.298 - 0.006 * R(), y1);         // joints 4-16 mm
+      const ya = y - 0.009 + 0.003 * R(), yb = Math.min(y + 0.299 - 0.003 * R(), y1);         // QS1b: joints 2-8 mm (were 4-16: they read as dark lines)
       const x0 = sx * (X + pr), x1 = sx * (X - lx - dlx), z0 = sz * (Z + pr), z1 = sz * (Z - lz - dlz);
       const c = [(x0 + x1) / 2, (ya + yb) / 2, (z0 + z1) / 2], sz3 = [Math.abs(x1 - x0), yb - ya, Math.abs(z1 - z0)];
       const tilt = [(R() - 0.5) * 1.2, (R() - 0.5) * 0.5, (R() - 0.5) * 1.2];                // degrees: set a touch askew
-      A.obox(c, sz3, tilt, m, { k: 0, bv: Math.round((0.004 + 0.01 * R()) * 1e4) / 1e4 });
+      A.obox(c, sz3, tilt, m, { k: 0, bv: Math.round((0.002 + 0.004 * R()) * 1e4) / 1e4 });
     }
 }
 // the quoins' material: the dressed stone pulled 35 % toward the wall it sits in (the part at the corner, inside)
@@ -786,8 +786,14 @@ function quoinMat(A, X, Z, y0, y1) {
   const wm = wall && A.materials.find((q) => q.name === wall.m), base = [0.52, 0.48, 0.38];
   if (!wm || !Array.isArray(wm.albedo)) return "stone_dressed";
   const name = "stone_quoin_" + wm.name;
-  if (!A.materials.some((q) => q.name === name))
-    A.mat(name, base.map((v, k) => Math.round((v * 0.65 + wm.albedo[k] * 0.35) * 1000) / 1000), 0.86, "ashlar");
+  if (!A.materials.some((q) => q.name === name)) {
+    // QS1b: 60 % toward the wall, then at most 1.3x its luminance (corpus 08 s12: neighbours within 20-40 %; at 35 % the
+    // dressed stone read about twice as bright as a rubble wall)
+    const lum = (c) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    let al = base.map((v, k) => v * 0.4 + wm.albedo[k] * 0.6);
+    const cap = 1.3 * lum(wm.albedo); if (lum(al) > cap) al = al.map((v) => v * cap / lum(al));
+    A.mat(name, al.map((v) => Math.round(v * 1000) / 1000), 0.86, "ashlar");
+  }
   return name;
 }
 

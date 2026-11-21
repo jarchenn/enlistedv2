@@ -1,4 +1,5 @@
 #include "render.h"
+#include "blackbody_lut.h"
 #include <cstring>
 #include <stb_dxt.h>   // CP3c impostor atlases (the implementation is in textures.cpp)
 #include <fstream>
@@ -8,6 +9,7 @@
 #include "lighting.h"
 #include "snow.h"
 #include "settings.h"
+#include "texture_units.h"   // VFX rev3: fixed texture-unit owners (tu::kDeform)
 #include "nature.h"
 #include "textures.h"
 #include <cfloat>
@@ -24,6 +26,46 @@ void lightingExposure(const Renderer& R, GLuint p);
 float lightingFixedExposure(const Renderer& R);
 
 // ============================================================== shaders
+// BF B4 contact AO decals (spec 4.6, reference 04 s4.8): one screen-space rectangle per object, the bounds of its
+// footprint box projected; the fragment darkens up-facing ground within w of the footprint, multiplied into the AO target
+static const char* kContactAOVS = R"GLSL(#version 450 core
+layout(location=0) in vec4 aA; layout(location=1) in vec4 aB; layout(location=2) in vec4 aC;
+uniform mat4 uVP;
+flat out vec4 vA, vB, vC;
+void main(){
+  vA = aA; vB = aB; vC = aC;
+  float cs = cos(aA.w), sn = sin(aA.w); vec2 h = aB.xy + aB.z;
+  vec2 lo = vec2(1e9), hi = vec2(-1e9); bool behind = false;
+  for (int k = 0; k < 8; ++k) {
+    vec2 l = vec2((k & 1) == 0 ? -h.x : h.x, (k & 2) == 0 ? -h.y : h.y);
+    vec4 p = uVP*vec4(aA.x + cs*l.x + sn*l.y, (k & 4) == 0 ? aC.x : aC.y, aA.z - sn*l.x + cs*l.y, 1.0);
+    if (p.w < 0.05) { behind = true; break; }
+    lo = min(lo, p.xy/p.w); hi = max(hi, p.xy/p.w);
+  }
+  if (behind) { lo = vec2(-1.0); hi = vec2(1.0); }
+  lo = clamp(lo, -1.0, 1.0); hi = clamp(hi, -1.0, 1.0);
+  int v = gl_VertexID; vec2 t = vec2(v == 1 || v == 2 || v == 4 ? 1.0 : 0.0, v == 2 || v == 4 || v == 5 ? 1.0 : 0.0);
+  gl_Position = vec4(mix(lo, hi, t), 0.0, 1.0);
+}
+)GLSL";
+static const char* kContactAOFS = R"GLSL(#version 450 core
+uniform sampler2D uDepth, uNR; uniform mat4 uInvVP; uniform vec2 uInvSize; uniform vec3 uEye;
+flat in vec4 vA, vB, vC;
+layout(location=0) out vec4 oAO;
+void main(){
+  vec2 uv = gl_FragCoord.xy*uInvSize; float z = texture(uDepth, uv).r;
+  if (z <= 0.0) discard;
+  vec4 p = uInvVP*vec4(uv*2.0 - 1.0, z, 1.0); vec3 w = p.xyz/p.w;
+  if (w.y < vC.x || w.y > vC.y) discard;
+  if (texture(uNR, uv).y < 0.55) discard;   // ground only: walls and the object's own sides keep their shading
+  vec2 d = w.xz - vA.xz; float cs = cos(vA.w), sn = sin(vA.w);
+  vec2 l = vec2(cs*d.x - sn*d.y, sn*d.x + cs*d.y);
+  vec2 q = abs(l) - vB.xy; float sd = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
+  float occ = vB.w*(1.0 - smoothstep(0.0, vB.z, sd))*(1.0 - smoothstep(40.0, 60.0, length(w - uEye)));
+  if (occ <= 0.002) discard;
+  oAO = vec4(1.0 - occ, 1.0, 1.0, 1.0);
+}
+)GLSL";
 static const char* kCommon = R"GLSL(
 const float PI = 3.14159265;
 // W1 weather state for every shader (Renderer::wx.st / wx.der, uploaded once a frame by Renderer::uploadWeather): fixed
@@ -85,7 +127,37 @@ float fbm(vec3 p){ float s=0.0, a=0.5; for(int i=0;i<4;i++){ s+=a*vnoise(p); p*=
 // and one gust pattern travelling downwind: g = 1 + G (2 noise((along - offset) / L, across / 1.7 L) - 1). Defaults: the pre-WS1 breeze
 uniform vec4 uWindV = vec4(0.8, 0.6, 0.0, 0.0);    // xy direction (unit), z gust offset this frame (m), w the previous frame's
 uniform vec4 uWindP = vec4(0.0, 0.0, 50.0, 0.0);   // x sway clock this frame (s), y previous, z gust length L (m), w gust factor G
-float windSway(float k){ return clamp(pow(max(k, 0.0), 0.8), 0.0, 2.5); }   // sway amplitude from uWind (der.windK x on / off): 1 = Clear's 3 m/s, the pre-weather look; 2.5 from about 9.4 m/s
+float windSway(float k){ return clamp(pow(max(k, 0.0), 0.8), 0.0, 2.5); }
+// BF B1 moss field (docs/vfx-rev3/BATTLE-FOUNDRY-SPEC.md 4.5, reference 03 s3.2): one field drives the film, the mat and
+// the cushions. moss.cpp mossFieldCpu is its C++ mirror (same integer hash): keep the two identical.
+uniform float uMossBias = 0.0;   // the map's wetness: 0.55 - look.mossThreshold (0 = temperate)
+uniform vec4 uMoss = vec4(0.0, 0.0, 12.0, 0.5);   // x on (mossfield), y transmission (Medium and up), z mat range (m; film beyond), w lichen age
+uint mossHash(ivec3 c){ uint h = uint(c.x)*0x8da6b343u ^ uint(c.y)*0xd8163841u ^ uint(c.z)*0xcb1ab31fu; h ^= h >> 13; h *= 0x5bd1e995u; h ^= h >> 15; return h; }
+float mossVn(vec3 p){
+  vec3 i = floor(p), f = p - i; f = f*f*(3.0 - 2.0*f); ivec3 c = ivec3(i);
+  #define MH(x, y, z) (float(mossHash(c + ivec3(x, y, z)) & 0xffffu)*(1.0/65535.0))
+  return mix(mix(mix(MH(0,0,0), MH(1,0,0), f.x), mix(MH(0,1,0), MH(1,1,0), f.x), f.y),
+             mix(mix(MH(0,0,1), MH(1,0,1), f.x), mix(MH(0,1,1), MH(1,1,1), f.x), f.y), f.z);
+  #undef MH
+}
+// moisture: rising damp (y = height above grade, m), drips, cavity, distance to water (m)
+float mossMoist(float y, float drip, float cav, float distW){ return clamp(0.40*pow(clamp(1.0 - y/1.4, 0.0, 1.0), 1.8) + 0.25*drip + 0.20*cav + 0.15*clamp(1.0 - distW/8.0, 0.0, 1.0), 0.0, 1.0); }
+// shelter: sh0 = 1 - sunHours/6 (baked, 0..1); the face's turn away from the sun's path (sunDir: the path's noon side, +z south; moss.cpp)
+float mossShelter(float sh0, vec3 n, vec3 sunDir){ vec3 ds = -normalize(vec3(sunDir.x, 0.0, sunDir.z) + vec3(1e-4, 0.0, 0.0)); return 0.60*clamp(sh0, 0.0, 1.0) + 0.40*clamp(dot(n, ds)*0.5 + 0.5, 0.0, 1.0); }
+// (M appearance, G instanced relief, L lichen). nearK fades the 8 cm octave out with distance (1 = near; the CPU mirror uses 1)
+vec3 mossField(vec3 p, float upDot, float wallAttach, float groundRecv, float moist, float shelter, float por, float root, float traffic, float excl, float snow, float site, float nearK){
+  float attach = max(smoothstep(0.22, 0.85, upDot)*groundRecv, wallAttach);
+  float hab = attach*clamp(0.42*moist + 0.30*shelter + 0.18*por + 0.10*root, 0.0, 1.0);
+  float pt = smoothstep(0.36, 0.65, hab + uMossBias*step(0.001, attach) + 0.22*(mossVn(p/0.6) - 0.5) + 0.17*(mossVn(p/0.08 + 31.0) - 0.5)*nearK);
+  float M = pt*(1.0 - smoothstep(0.18, 0.62, traffic))*(1.0 - excl)*(1.0 - snow);
+  float L = clamp((1.0 - shelter)*uMoss.w*(1.0 - moist)*2.0, 0.0, 1.0)*smoothstep(0.55, 0.9, por)*(1.0 - M)*(1.0 - snow)*(1.0 - excl)
+          * smoothstep(0.5, 0.68, mossVn(p/0.09 + 7.0)*0.7 + mossVn(p/0.7 + 3.0)*0.3);   // crustose discs, 20-150 mm, in old patches
+  return vec3(M, smoothstep(0.50, 0.83, M)*site, L);
+}
+// the back lobe moss needs or it reads as green felt (4.5): x sun colour x shadow at the call site
+vec3 mossTransmit(vec3 N, vec3 L, vec3 V, float th){ return vec3(0.10, 0.21, 0.045)*(pow(clamp(dot(V, -L), 0.0, 1.0), 6.0)*0.55*th); }
+const vec3 kMossAlb = vec3(0.055, 0.105, 0.030), kMossDry = vec3(0.085, 0.095, 0.045), kLichenAlb = vec3(0.28, 0.29, 0.24);
+const vec3 kMossWall = vec3(0.10, 0.14, 0.055);   // batch-1 review: the 3.2 albedo read black on walls under overcast; the rev 1 photo swatch #596846 (linear)   // sway amplitude from uWind (der.windK x on / off): 1 = Clear's 3 m/s, the pre-weather look; 2.5 from about 9.4 m/s
 float windClock(bool prev){ return prev ? uWindP.y : uWindP.x; }
 vec3 windDir(){ return vec3(uWindV.x, 0.0, uWindV.y); }
 float windGust(vec2 xz, bool prev){
@@ -94,6 +166,13 @@ float windGust(vec2 xz, bool prev){
 }
 
 uniform vec3 uSunDir, uSunCol, uSkyCol, uGroundCol, uCamPos, uFogCol, uFill;
+uniform sampler2D uDefTex; uniform vec4 uDefMap; uniform int uDefOn;   // VFX rev3 tdeform (terrain_deform.h): R depth (m), G disturbance
+vec2 deformAt(vec2 xz){   // 0 outside the camera window or when off
+  if (uDefOn == 0) return vec2(0.0);
+  vec2 r = (xz - uDefMap.xy)*uDefMap.z;
+  if (r.x < 0.0 || r.y < 0.0 || r.x >= 1.0 || r.y >= 1.0) return vec2(0.0);
+  return textureLod(uDefTex, xz*uDefMap.z, 0.0).rg;
+}
 uniform float uFogDens;
 uniform float uUnder;   // 1: the camera is under water (swim.cpp): applyFog / sky become a dense uniform water fog
 uniform sampler2DShadow uShadow; uniform mat4 uLightVP; uniform int uShadowOn;
@@ -432,7 +511,9 @@ vec3 hazeColor(vec3 dir){   // W2: the haze's colour toward dir (= the sky at th
   if (uW2 == 1) { vec3 band = vec3(dot(uSkyHor, vec3(0.2126, 0.7152, 0.0722)))*vec3(0.95, 0.97, 1.0)*0.66*overcastGrad(fd.y); return mix(skyColor(fd)/(1.0 + 0.6*cloudOpening(fd)), band, uCloudK); }   // the opening lights the sky, not the haze over the ground
   return mix(uFogCol, skyColor(fd), 0.65);
 }
+uniform int uFroxWorld;   // CP4: 1 = the composite's froxel volume fogs the world (the per-surface air fog is skipped)
 vec3 applyFogAir(vec3 col, vec3 w){
+  if (uFroxWorld == 1 && uUnder < 0.5) { gFogT = 1.0; return col; }
   if (uUnder > 0.5) { float f = 1.0 - exp(-length(w - uCamPos)*uFogDens); gFogT = 1.0 - f; return mix(col, uFogCol, f); }
   vec3 dir = normalize(w - uCamPos);
   if (uLook == 0) {
@@ -704,6 +785,7 @@ vec2 envBRDFApprox(float r, float NoV){
   return vec2(-1.04, 1.04)*a004 + q.zw;   // F = F0*x + y
 }
 uniform int uDbgView;   // CP0 look-dev view (Renderer::dbgView): 2 illum / 6 sky force albedo 0.18, no metal; 6 also drops the sun's direct light
+uniform int uMetalMask;   // FIX6 (perf switch metalmask)
 uniform int uAlbClamp;   // CP step 4 (perf switch albclamp; corpus 03 s4.4): dielectric albedo luminance kept in linear 0.02-0.9, grass >= 0.10
 float gTexDensity = 0.0, gTexChk = 0.0;   // CP step 2 texel view: the densest set tap of this pixel (texels / m) and its tile checker (textures.cpp texTap)
 vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
@@ -715,6 +797,11 @@ vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
   if (uDbgView == 5) {   // CP step 2 texel density (corpus 07 s1.3): < 256 red, 256-512 orange, 512-1024 green, > 1024 blue, one checker per set tile; untextured grey
     vec3 k = gTexDensity <= 0.0 ? vec3(0.3) : gTexDensity < 256.0 ? vec3(0.9, 0.1, 0.1) : gTexDensity < 512.0 ? vec3(1.0, 0.55, 0.1) : gTexDensity <= 1024.0 ? vec3(0.2, 0.8, 0.25) : vec3(0.2, 0.4, 1.0);
     return k*mix(0.75, 1.0, gTexChk);
+  }
+  if (uMetalMask == 1 && metal > 0.0) {   // FIX6 metalmask (corpus 03 s2.4, s4.5): metallic is a mask, not a dial. Partial values (4,245 asset materials use 0.15-0.8
+    // as "dull metal") snap: <= 0.4 is the paint / rust / oxide over the metal (a dielectric), >= 0.6 bare metal; bare metal is never darker than F0 0.45
+    float mk = smoothstep(0.4, 0.6, metal); float l = dot(alb, vec3(0.2126, 0.7152, 0.0722));
+    alb *= mix(1.0, max(l, 0.45)/max(l, 1e-3), mk); metal = mk;
   }
   if (uAlbClamp == 1 && metal < 0.5) { float al = dot(alb, vec3(0.2126, 0.7152, 0.0722)); alb *= clamp(al, 0.02, 0.9)/max(al, 1e-4); }   // hue kept, value in range
   rough = specAA(N, rough);
@@ -854,7 +941,7 @@ float lineAA(float mask, float w, float mean){ return mix(mask, mean, smoothstep
 flat in vec4 vInstV;                   // seed (0..1), wear (0..2), palette variation (0..1), room count: uInst, or per vertex (PF2 HLOD)
 #define uInst vInstV
 uniform vec4 uRoomA[16], uRoomB[16];   // (min x, min z, max x, max z) / (floor y, ceiling y, wall finish, floor finish)
-uniform vec4 uContactBox; uniform vec4 uContact[4]; uniform int uFoundWx;   // MA2: ground-contact grid (App::contactProfile)
+uniform vec4 uContactBox; uniform vec4 uContact[4]; uniform int uFoundWx; uniform vec4 uMossHab;   // BF B1: the copy's habitat (water nearness, shelter 1 - sunHours/6, exclusion, canopy; moss.cpp)   // MA2: ground-contact grid (App::contactProfile)
 // MA2: height above the LOCAL ground: the copy's terrain grid under its walls (bilinear), or the asset ground (y 0)
 float groundH(){
   if (uFoundWx == 0) return vAp.y;
@@ -991,6 +1078,16 @@ float gDetH = 0.0;   // detail relief (m), added to the derivative bump
 // occlusion at wall-wall, wall-floor and wall-ceiling joints (the flat lighting there made rooms read as boxes).
 float gFootDbg = -1.0;   // MA2 debug 3: 1 under 0.5 m above the local ground on a foundation surface, -1 = not one
 vec3 gWxDbg = vec3(0.0);   // MA2 debug 4: (damp, moss, splash) masks
+float gMossW = 0.0;        // BF B1: moss weight x thickness here (the transmission lobe after shade())
+// BF B1 the moss mat's weight over its host: the materials session's spec 3.3 layerBlend (switch layerblend) with the
+// moss slot's q = M and h = 1 - host height (moss fills the joints first), width d (walls 0.045, ground / stone 0.10);
+// off: the same height-blend as a smoothstep. The film past the mat range is the caller's (albedo / roughness only).
+float mossMatW(float M, float hHost, float hMoss, float d){
+  if (M < 0.02) return 0.0;
+  if (uLayerBlend == 1) { float q[4] = float[4](1.0 - M, M, 0.0, 0.0), h[4] = float[4](hHost, clamp(1.0 - hHost + 0.5*(hMoss - 0.925), 0.0, 1.0), 0.5, 0.5), w[4];
+    layerBlend(q, h, 2, 0, 0.24, d, w); return w[1]; }
+  return smoothstep(-d, d, (hMoss + M) - (hHost + 1.0 - M));
+}
 vec3 gDbg = vec3(0.0);   // NMK_GX5_DEBUG=2: decal tests passed (facing, plane, box)
 int gRoom = -1;      // the room whose finish this fragment took (pattern 20 / 21), for its decal list
 float gDecH = 0.0;   // decal relief (m)
@@ -1928,13 +2025,29 @@ void main(){
     float blot = vnL(p*1.7 + 70.0, 1.7), pit = smoothstep(0.72, 0.88, vnL(p*7.0 + 71.0, 7.0)); grit = vnL(p*11.0 + 72.0, 11.0);
     rock *= (0.80 + 0.40*blot) * (1.0 - 0.32*pit) * (0.92 + 0.16*grit);
     h += grit*0.35 - pit*0.6; bump = max(bump, 0.035);
+    if (uMoss.x < 0.5) {   // BF B1: replaced by the moss field below when mossfield is on
     lichen = smoothstep(0.62, 0.8, vnL(p*0.9 + 47.0, 0.9)) * smoothstep(0.1, 0.7, up + 0.25);
     rock = mix(rock, mix(vec3(0.16, 0.19, 0.09), vec3(0.42, 0.41, 0.30), grn), lichen*0.55);     // moss / grey lichen
     rock = mix(rock, vec3(0.55, 0.50, 0.26), smoothstep(0.78, 0.86, vnL(p*5.5 + 61.0, 5.5))*smoothstep(0.0, 0.6, up)*0.45);   // crusty yellow lichen
     float foot = 1.0 - smoothstep(-0.05, 0.25 + 0.25*vnL(vAp*1.7, 1.7), vAp.y);
     rock = mix(rock, vec3(0.12, 0.15, 0.06), foot*smoothstep(0.45, 0.7, vnL(vAp*2.3 + 7.0, 2.3))*0.6) * mix(1.0, 0.75, foot);   // damp foot
+    }
     } else rock *= 0.92;
     alb = rock * vAlb * 0.8; rough = 0.86 + 0.08*grn; ao *= 1.0 - 0.3*crack;   // 0.8: matches the cliff faces' in-game brightness
+    if (uMoss.x > 0.5 && uMapCave < 0.5) {   // BF B1 mossfield on boulders: moss low, wet and shaded; lichen high, dry, sun-facing (one field)
+      vec4 hb = uFoundWx == 1 ? uMossHab : vec4(0.3, 0.4, 0.0, 0.3);
+      float dCam = length(vW - uCamPos), y = max(vAp.y, 0.0);
+      float mo = mossMoist(y, 0.0, clamp(0.5 - h, 0.0, 1.0)*0.8 + 0.5*crack, 8.0*(1.0 - hb.x));
+      float shl = mossShelter(hb.y, normalize(vN), vec3(0.0, 0.0, 1.0));
+      float por = grain == 1 || grain == 3 ? 1.0 : grain == 0 ? 0.75 : 0.65;
+      vec3 mf = mossField(vW, up, (1.0 - abs(up))*0.7, 1.0, mo, shl, por, 0.5*hb.w*(1.0 - smoothstep(0.0, 0.4, y)), 0.0, hb.z, 0.0, 0.0, 1.0 - smoothstep(12.0, 30.0, dCam));
+      float hMoss = 0.85 + 0.15*mossVn(vW/0.05), hHost = clamp(h, 0.0, 1.0);   // joints and pits (low h) take moss first
+      float wm = dCam < uMoss.z ? mossMatW(mf.x, hHost, hMoss, 0.10) : mf.x*0.85;
+      alb = mix(alb, mix(kMossAlb, kMossDry, 1.0 - mo)*(0.8 + 0.4*mossVn(vW/0.12 + 5.0))*mix(0.55, 1.0, hMoss), wm); rough = mix(rough, 0.88, wm);
+      vec3 lc = mix(kLichenAlb, vec3(0.42, 0.37, 0.16), smoothstep(0.6, 0.8, mossVn(vW/0.25 + 61.0)));   // grey crust, a few yellow
+      alb = mix(alb, lc*(0.9 + 0.2*grn), mf.z*0.8); rough = mix(rough, 0.92, mf.z);
+      gMossW = wm*mf.x;
+    }
     if (uMapCave > 0.5 && length(vW - uCamPos) < 45.0) {   // CV1 cave rock (near only: sub-pixel beyond): no lichen (re-darken it), flowstone and stains run down the faces, wet streaks shine
       float lichAll = clamp(lichen*0.55 + smoothstep(0.78, 0.86, vnL(p*5.5 + 61.0, 5.5))*smoothstep(0.0, 0.6, up)*0.45, 0.0, 1.0);
       alb = mix(alb, alb*0.55, lichAll) * (1.0 + 0.3*bedLine);   // bedding lines faint: dripstone, not masonry
@@ -1949,7 +2062,7 @@ void main(){
   } else {
     alb *= 0.94 + 0.08*vnL(vAp*7.0, 7.0);
   }
-  gTexWear = uInst.y; gTexSeed = uInst.x;   // MA1: worn copies show more substrate; TX6: the grunge mask offset
+  gTexWear = uInst.y; gTexSeed = uInst.x; gTexPal = uInst.z;   // MA1: worn copies show more substrate; TX6: the grunge mask offset
   texMaterial(tslot, vW, vN, vAp, vAn, vPc, vPn, grain, gPix, alb, rough, ao);   // L4: ambientCG layer under the weathering (textures.cpp)
   {   // PERF1 matfar: both GX5 layers fade out over the far band and are skipped beyond it
     vec3 a0 = alb; float r0 = rough, o0 = ao;
@@ -2039,7 +2152,7 @@ void main(){
     // small exposed-substrate patches just above the ground: the finish is gone and the core shows, darker and rough
     float sub = uFoundWx == 1 ? (1.0 - smoothstep(0.1, 0.45 + 0.2*nn, hg)) * dug * smoothstep(0.78, 0.86, sn*0.4 + nn*0.6 + 0.08*cornerK) * (pat == 17 || pat == 3 || pat == 11 ? 1.0 : 0.5) : 0.0;
     alb = mix(alb, alb*vec3(0.6, 0.56, 0.5), sub); rough = mix(rough, 0.96, sub);
-    float moss = dug * on * mix(1.0, smoothstep(0.35, 0.75, gD), 0.85*uGrungeK) * (1.0 - smoothstep(0.0, zh*0.8 + 0.25*cornerK, hg)) * smoothstep(0.52 - 0.15*shadeF - 0.15*cornerK, 0.66, vnL(vAp*1.6 + sd*11.0, 1.6)) * (0.2 + 0.8*shadeF) * (mc == 1 ? 1.0 : mc == 3 ? 0.8 : 0.6);
+    float moss = uMoss.x > 0.5 ? 0.0 : dug * on * mix(1.0, smoothstep(0.35, 0.75, gD), 0.85*uGrungeK) * (1.0 - smoothstep(0.0, zh*0.8 + 0.25*cornerK, hg)) * smoothstep(0.52 - 0.15*shadeF - 0.15*cornerK, 0.66, vnL(vAp*1.6 + sd*11.0, 1.6)) * (0.2 + 0.8*shadeF) * (mc == 1 ? 1.0 : mc == 3 ? 0.8 : 0.6);
     alb = mix(alb, (mc == 0 ? vec3(0.36, 0.38, 0.24) : vec3(0.30, 0.34, 0.22))*(0.8 + 0.4*vnL(vAp*9.0, 9.0)), clamp(moss, 0.0, 1.0)*0.7);
     rough = mix(rough, 0.95, moss*0.5);
     if (uSills > 0 && vert > 0.5 && hg < 3.4) {   // run-off under the ground-storey sills
@@ -2059,6 +2172,29 @@ void main(){
     }
     float l0 = dot(alb0, vec3(0.3, 0.59, 0.11)), l1 = dot(alb, vec3(0.3, 0.59, 0.11));
     if (l1 < 0.4*l0) alb *= 0.4*l0/max(l1, 1e-4);   // the cap: 0.4 linear = ~35 % darker on screen (sRGB), never near-black
+    if (uMoss.x > 0.5 && uFoundWx == 1) {   // BF B1 mossfield: the 4.5 field on walls (after the cap: moss is a material, not a darkening)
+      float drip = uSills > 0 && vert > 0.5 && hg < 3.4 ? sillRunoff(vAp)*(1.0 - smoothstep(2.6, 3.4, hg)) : 0.0;
+      float cav = max(gCav, 0.6*cornerK);   // the set's joints (materials' gCav) and the wall's corners
+      float por = max(gPorosity*(1.0 - metal), 0.3);   // materials' porosity from roughness (spec 3.2 within ~0.15)
+      float dCam = length(vW - uCamPos);
+      float mo = mossMoist(hg, drip, cav, 8.0*(1.0 - uMossHab.x));
+      float shl = mossShelter(uMossHab.y, nW, vec3(0.0, 0.0, 1.0));
+      vec3 mf = mossField(vW, nW.y, vert*dug*(0.55 + 0.45*cav), dug, mo, shl, por, 0.5*uMossHab.w*(1.0 - smoothstep(0.0, 0.4, hg)), 0.0, uMossHab.z, 0.0, 0.0, 1.0 - smoothstep(12.0, 30.0, dCam));
+      // batch-1 review (Blackwater): moss is a water map. Without moisture shelter and porosity alone covered whole
+      // north walls; the band fades above 1.0-1.8 m unless drips feed it (03 s3.1: ground to 1.0-1.6 m); never indoors
+      // (no sky above: the wet film's skyVis, and the room interiors); a wall keeps at most 0.6 of the field, so the mat
+      // holds the joints and patches instead of a coat
+      float skyK = gIn == 1 ? 0.0 : smoothstep(0.04, 0.2, skyVis(vW, vec3(0.0, 1.0, 0.0)));
+      float band = 1.0 - smoothstep(1.0, 1.8, hg)*(1.0 - clamp(2.0*drip, 0.0, 1.0));
+      mf.x = min(mf.x*smoothstep(0.12, 0.35, mo)*band*skyK, 0.6); mf.z *= skyK;
+      float hMoss = 0.85 + 0.15*mossVn(vW/0.05), hHost = clamp(0.5 + gTexH/0.03, 0.0, 1.0);
+      // mat: the HOST's height drives the blend, so moss fills the joints first (d = 0.045); film past uMoss.z
+      float wm = dCam < uMoss.z ? mossMatW(mf.x, hHost, hMoss, 0.045) : mf.x*0.85;
+      vec3 mc0 = mix(kMossWall, kMossDry*1.4, 1.0 - mo)*(0.85 + 0.3*mossVn(vW/0.12 + 5.0))*mix(0.8, 1.0, hMoss);
+      alb = mix(alb, mc0, wm); rough = mix(rough, 0.88, wm);
+      alb = mix(alb, kLichenAlb*(0.9 + 0.2*mossVn(vW/0.03)), mf.z*0.8); rough = mix(rough, 0.92, mf.z);
+      gMossW = wm*mf.x; gWxDbg.y = mf.x;
+    }
     if (pat == 15) {   // earth packed against the bunker concrete (a different surface, so past the cap)
       float soil = (1.0 - smoothstep(0.0, 0.18 + 0.22*vnL(vAp*4.3 + 2.0, 4.3), hg)) * vert * float(uFoundWx);
       alb = mix(alb, vec3(0.2, 0.17, 0.12)*(0.8 + 0.4*nn), soil*0.8); rough = mix(rough, 0.97, soil);
@@ -2092,9 +2228,10 @@ void main(){
   if (uWetOn == 1 && wxWet > 0.0 && gl_FrontFacing) {   // W3: rain on walls, roofs and props: only where the sky reaches (shelter stays dry), porous (rough) dielectrics darken most
     vec3 ng0 = normalize(vN); float w = clamp(wxWet, 0.0, 1.0)*skyVis(vW, ng0)*mix(0.55, 1.0, clamp(ng0.y, 0.0, 1.0));
     float poro = (1.0 - metal)*smoothstep(0.35, 0.85, rough);
-    alb *= mix(1.0, 0.35, w*poro); rough = mix(rough, max(0.35*rough, 0.25), w);
+    alb *= mix(1.0, 0.35, w*poro*mix(1.0, 0.25, clamp(gMossW, 0.0, 1.0))); rough = mix(rough, max(0.35*rough, 0.25), w);   // BF: wet moss darkens only to ~x0.84 (spec 3.4 coveredDryToWetScale 0.75-0.92)
   }
   vec3 c = shade(vW, N, alb, rough, metal, ao);
+  if (gMossW > 0.0 && uMoss.y > 0.5) c += mossTransmit(N, uSunDir, normalize(uCamPos - vW), gMossW)*uSunCol*sunShadowT(vW, -N, 1.0, 1);   // BF B1 (interim: moves into shade() with PF1's blend)
   if (uGxDebug == 2 && uCapture == 0) c = gDbg*0.8 + 0.05;
   if (uGxDebug == 4 && uCapture == 0) c = gWxDbg;
   if (uGxDebug == 3 && uCapture == 0) c = gFootDbg < 0.0 ? vec3(0.0, 0.0, 0.4) : vec3(gFootDbg);   // MA2: the local ground line (white = within 0.5 m of it)
@@ -2698,6 +2835,92 @@ void main(){
   oColor = vec4(cloudShadowAt(xz, 0.0), 0.0, 0.0, 1.0);
 }
 )GLSL";
+
+// CP4 froxel fog (High / Ultra, perf switch froxel): a 160 x 90 x 64 view-space grid to uFroxFar m, slices exponential.
+// inject: each cell's extinction (haze + ground-fog layer + fogLayer2 band) and in-scatter (fog colour + the sun through the
+// far cascade, Henyey-Greenstein); integrate: front to back per column -> rgb in-scattered light, a transmittance to there.
+static const char* kFroxInjectCS = R"GLSL(
+#version 450 core
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(rgba16f, binding = 0) writeonly uniform image3D uInj;
+uniform mat4 uInvVP; uniform vec3 uCam; uniform ivec3 uN; uniform float uNear, uFar;
+uniform float uHazeD, uHazeH, uEnvFog, uEnvFogH, uEnvTop, uEnvSoft, uFogIndoor; uniform vec4 uFog2, uFogBox;
+uniform sampler2D uFogField; uniform sampler2DShadow uShFar; uniform mat4 uVPFar; uniform vec2 uFarAx; uniform int uShOn;
+uniform vec3 uSunDir, uSunCol, uAmb; uniform float uG, uAlb, uCloudK;
+float band(float y, float lo, float hi, float s){ return smoothstep(lo - s, lo + s, y)*(1.0 - smoothstep(hi - s, hi + s, y)); }
+void main(){
+  ivec3 id = ivec3(gl_GlobalInvocationID.xy, gl_WorkGroupID.z);
+  if (any(greaterThanEqual(id, uN))) return;
+  vec2 uv = (vec2(id.xy) + 0.5)/vec2(uN.xy);
+  vec4 p = uInvVP*vec4(uv*2.0 - 1.0, 0.5, 1.0); vec3 dir = normalize(p.xyz/p.w - uCam);
+  float d = uNear*pow(uFar/uNear, (float(id.z) + 0.5)/float(uN.z));
+  vec3 w = uCam + dir*d;
+  float sig = uHazeD*exp(-max(w.y, 0.0)/uHazeH)*smoothstep(10.0, 14.0, d);   // the analytic haze's 12 m clear zone
+  if (uEnvFog > 0.0) {
+    vec4 F = texture(uFogField, (w.xz - uFogBox.xy)*uFogBox.zw);
+    float e = uEnvFog*uFogIndoor*F.r*(0.6 + 0.8*F.g)*exp(-max(w.y - F.b, 0.0)/uEnvFogH);
+    if (uEnvTop < 1e8) e *= smoothstep(uEnvTop + uEnvSoft, uEnvTop - uEnvSoft, w.y);
+    if (uFog2.x > 0.0) e += uFog2.x*uFogIndoor*band(w.y, uFog2.y, uFog2.z, uFog2.w);
+    sig += e;
+  }
+  float vis = 1.0;
+  if (uShOn == 1) {
+    vec4 lp = uVPFar*vec4(w, 1.0); vec3 s = lp.xyz/lp.w*0.5 + 0.5;
+    if (all(greaterThan(s.xy, vec2(0.0))) && all(lessThan(s.xy, vec2(1.0))) && s.z < 1.0) vis = texture(uShFar, vec3(s.x*uFarAx.x + uFarAx.y, s.y, s.z - 0.002));
+  }
+  float cth = dot(dir, uSunDir), g = uG, hg = (1.0 - g*g)/(4.0*3.14159265*pow(max(1.0 + g*g - 2.0*g*cth, 1e-4), 1.5));
+  vec3 L = uAmb + uSunCol*uAlb*hg*0.035*(1.0 - uCloudK)*vis;
+  imageStore(uInj, id, vec4(L*sig, sig));
+}
+)GLSL";
+static const char* kFroxIntegrateCS = R"GLSL(
+#version 450 core
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(rgba16f, binding = 0) readonly uniform image3D uInj;
+layout(rgba16f, binding = 1) writeonly uniform image3D uInt;
+uniform ivec3 uN; uniform float uNear, uFar;
+void main(){
+  ivec2 xy = ivec2(gl_GlobalInvocationID.xy);
+  if (any(greaterThanEqual(xy, uN.xy))) return;
+  vec3 S = vec3(0.0); float T = 1.0, dPrev = 0.0;
+  for (int k = 0; k < uN.z; ++k) {
+    float d = uNear*pow(uFar/uNear, (float(k) + 1.0)/float(uN.z));   // the slice's far end
+    vec4 v = imageLoad(uInj, ivec3(xy, k)); float sig = v.a, ds = d - dPrev;
+    float tr = exp(-sig*ds);
+    vec3 si = sig > 1e-7 ? v.rgb/sig*(1.0 - tr) : v.rgb*ds;
+    S += T*si; T *= tr; dPrev = d;
+    imageStore(uInt, ivec3(xy, k), vec4(S, T));
+  }
+}
+)GLSL";
+
+// BF litsmoke: the half-resolution soft target. kHalfDepthFS: the nearest (reverse-Z: largest) depth of each 2 x 2 block, for the
+// particles' soft fade / occlusion at half resolution; kSoftUpFS: the premultiplied smoke back onto the scene once, each
+// full-res pixel taking the half texels whose depth matches its own (no smoke bleeding over fences, rails, terrain edges)
+static const char* kHalfDepthFS = R"GLSL(
+#version 450 core
+uniform sampler2D uDepth; out float oD;
+void main(){ ivec2 p = ivec2(gl_FragCoord.xy)*2; ivec2 mx = textureSize(uDepth, 0) - 1;
+  oD = max(max(texelFetch(uDepth, min(p, mx), 0).r, texelFetch(uDepth, min(p + ivec2(1, 0), mx), 0).r),
+           max(texelFetch(uDepth, min(p + ivec2(0, 1), mx), 0).r, texelFetch(uDepth, min(p + ivec2(1, 1), mx), 0).r)); }
+)GLSL";
+static const char* kSoftUpFS = R"GLSL(
+#version 450 core
+in vec2 vUV; uniform sampler2D uSoftC, uHalfD, uFullD; uniform float uP22, uP32; out vec4 oC;
+float lin(float z){ return uP32/(z + uP22); }
+void main(){
+  float d0 = lin(texelFetch(uFullD, ivec2(gl_FragCoord.xy), 0).r);
+  vec2 hs = vec2(textureSize(uSoftC, 0)), p = vUV*hs - 0.5; ivec2 b = ivec2(floor(p)); vec2 f = fract(p);
+  vec4 acc = vec4(0.0); float ws = 0.0;
+  for (int y = 0; y < 2; ++y) for (int x = 0; x < 2; ++x) {
+    ivec2 t = clamp(b + ivec2(x, y), ivec2(0), ivec2(hs) - 1);
+    float bw = (x == 0 ? 1.0 - f.x : f.x)*(y == 0 ? 1.0 - f.y : f.y);
+    float dw = exp(-abs(lin(texelFetch(uHalfD, t, 0).r) - d0)/(0.05*d0 + 0.1));
+    float w = bw*dw + 1e-5; acc += texelFetch(uSoftC, t, 0)*w; ws += w;
+  }
+  oC = acc/ws;
+}
+)GLSL";
 static const char* kCompositeFS = R"GLSL(
 in vec2 vUV;
 uniform sampler2D uScene, uShafts, uAmb, uAO, uDepth, uNR; uniform float uShaftAmt, uAoAmt, uSsrAmt;
@@ -2706,11 +2929,13 @@ uniform float uContactAmt; uniform int uContactSteps;   // VO L1 screen-space su
 uniform int uAoNew;   // VO L2: multi-bounce and specular occlusion from the (GT)AO
 uniform int uBent;    // CP4 bentnormal
 uniform int uSsrHalf; uniform sampler2D uSsrTex; uniform vec2 uSsrTexel;
+uniform int uFroxOn; uniform sampler3D uFrox; uniform float uFroxNear, uFroxFar, uFroxHazeD, uFroxHazeH; uniform vec3 uFroxAmb;   // CP4 froxel fog (unit 4)
 uniform float uShimmer, uShimT;   // W5 wxshimmer: heat shimmer amplitude (px at this resolution, gated on the CPU), its clock   // OPT ssrhalf: the reflection added from a half-resolution pass (rgb: added light, a: view depth)
 out vec4 oColor;
 vec3 viewPosAt(vec2 uv){ float z = texture(uDepth, uv).r; vec4 p = uInvProj*vec4(uv*2.0 - 1.0, z, 1.0); return p.xyz/p.w; }   // reverse-Z
 vec2 toUV(vec3 q){ vec4 c = uProj*vec4(q, 1.0); return c.xy/c.w*0.5 + 0.5; }
 uniform float uSsrMaxT = 1e9;   // OPT ssrrange
+uniform int uSsrClamp;   // FIX7 (perf switch ssrclamp)
 uniform int uSsrEnvCube;   // 1 in the half-resolution SSR pass (it has the reflection cube bound)
 uniform vec2 uSsrRough = vec2(0.1, 0.4);   // CP4 ssrfade: SSR fades out over roughness x..y (0.3..0.5; was 0.1..0.4)
 vec4 traceSSR(vec3 Pv, vec3 Rv){
@@ -2774,7 +2999,10 @@ vec3 ssrAdd(vec2 uv){   // the screen-space reflection's contribution here (geom
     vec3 Pw = transpose(mat3(uView))*Pv + uCamPos; float wg; vec3 rp = reflProbe(Pw, Rw, nr.w, wg); env = mix(env, rp, wg);
   }
 #endif
-  return (refl - env)*hit.z*F*(1.0 - smoothstep(uSsrRough.x, uSsrRough.y, nr.w))*uSsrAmt;
+  vec3 sub = F*env;   // what the world pass reflected here, which the hit replaces
+  if (uSsrClamp == 1) sub = min(sub, textureLod(uScene, uv, 0.0).rgb);   // FIX7 ssrclamp: never more than the pixel holds (shelter, weather, specular occlusion dim the world pass's
+  // reflection below F x the sky / cube estimate; subtracting the estimate took sheltered and wet puddles below zero: black). Open-sky puddles: unchanged
+  return (F*refl - sub)*hit.z*(1.0 - smoothstep(uSsrRough.x, uSsrRough.y, nr.w))*uSsrAmt;
 }
 void main(){
 #ifdef NMK_SSR_HALF
@@ -2852,6 +3080,20 @@ void main(){
       }
     }
     c -= amb*(1.0 - ao)*uAoAmt;
+  }
+  if (uFroxOn == 1) {   // CP4 froxel fog: the integrated volume at this pixel's distance; past its far end the analytic haze
+    float zf = texture(uDepth, vUV).r;
+    if (zf > 0.0) {
+      vec3 pv = viewPosAt(vUV); float dist = length(pv);
+      float t = log(max(dist, uFroxNear)/uFroxNear)/log(uFroxFar/uFroxNear);
+      vec4 fv = texture(uFrox, vec3(vUV, clamp(t - 0.5/64.0, 0.0, 1.0)));
+      c = c*fv.a + fv.rgb;
+      if (dist > uFroxFar) {
+        vec3 wy = transpose(mat3(uView))*pv; float y = 0.5*wy.y + uCamPos.y;
+        float tr = exp(-uFroxHazeD*exp(-max(y, 0.0)/uFroxHazeH)*(dist - uFroxFar));
+        c = c*tr + uFroxAmb*(1.0 - tr);
+      }
+    }
   }
   if (uShaftAmt > 0.0) c += texture(uShafts, vUV).rgb*uShaftAmt;
   c = max(c, vec3(0.0));
@@ -2993,10 +3235,10 @@ void main(){ gl_FragDepth = texelFetch(uDepth, clamp(ivec2(vUV*uInSize), ivec2(0
 // accumulated back up; the tonemap adds a small fraction. Wide and faint: a soft glow, no threshold streaks.
 static const char* kBloomDownFS = R"GLSL(
 in vec2 vUV;
-uniform sampler2D uSrc; uniform vec2 uSrcTexel; uniform int uFirst, uDown13;
+uniform sampler2D uSrc; uniform vec2 uSrcTexel; uniform int uFirst, uDown13; uniform float uBloomClamp = 64.0;   // BF pbloom: no luma weighting, clamp 60000 (a flash keeps its energy)
 out vec4 oColor;
 vec3 kw(vec3 a, vec3 b, vec3 c, vec3 d, int first){   // a 2x2 block; the first level weighs by 1 / (1 + luma) (Karis: no fireflies)
-  if (first == 0) return (a + b + c + d)*0.25;
+  if (first == 0 || uBloomClamp > 100.0) return (a + b + c + d)*0.25;
   float wa = 1.0/(1.0 + dot(a, vec3(0.2126, 0.7152, 0.0722))), wb = 1.0/(1.0 + dot(b, vec3(0.2126, 0.7152, 0.0722)));
   float wc = 1.0/(1.0 + dot(c, vec3(0.2126, 0.7152, 0.0722))), wd = 1.0/(1.0 + dot(d, vec3(0.2126, 0.7152, 0.0722)));
   return (a*wa + b*wb + c*wc + d*wd)/(wa + wb + wc + wd);
@@ -3009,30 +3251,30 @@ void main(){
     vec3 G = texture(uSrc, vUV).rgb, H = texture(uSrc, vUV + o*vec2(2, 0)).rgb, I = texture(uSrc, vUV + o*vec2(-1, 1)).rgb;
     vec3 J = texture(uSrc, vUV + o*vec2(1, 1)).rgb, K = texture(uSrc, vUV + o*vec2(-2, 2)).rgb, L = texture(uSrc, vUV + o*vec2(0, 2)).rgb, M = texture(uSrc, vUV + o*vec2(2, 2)).rgb;
     vec3 c = kw(D, E, I, J, uFirst)*0.5 + (kw(A, B, F, G, uFirst) + kw(B, C, G, H, uFirst) + kw(F, G, K, L, uFirst) + kw(G, H, L, M, uFirst))*0.125;
-    oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : min(c, vec3(64.0)), 1.0); return;
+    oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : min(c, vec3(uBloomClamp)), 1.0); return;
   }
   vec3 s[4]; vec2 o = uSrcTexel;
   s[0] = texture(uSrc, vUV + vec2(-o.x, -o.y)).rgb; s[1] = texture(uSrc, vUV + vec2(o.x, -o.y)).rgb;
   s[2] = texture(uSrc, vUV + vec2(-o.x, o.y)).rgb;  s[3] = texture(uSrc, vUV + vec2(o.x, o.y)).rgb;
   vec3 c = vec3(0.0); float wsum = 0.0;
   for (int i = 0; i < 4; ++i) {
-    float w = uFirst == 1 ? 1.0/(1.0 + dot(s[i], vec3(0.2126, 0.7152, 0.0722))) : 1.0;
+    float w = uFirst == 1 && uBloomClamp < 100.0 ? 1.0/(1.0 + dot(s[i], vec3(0.2126, 0.7152, 0.0722))) : 1.0;
     c += s[i]*w; wsum += w;
   }
   c /= wsum;
-  oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : min(c, vec3(64.0)), 1.0);
+  oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : min(c, vec3(uBloomClamp)), 1.0);
 }
 )GLSL";
 static const char* kBloomUpFS = R"GLSL(
 in vec2 vUV;
-uniform sampler2D uSrc; uniform vec2 uSrcTexel;
+uniform sampler2D uSrc; uniform vec2 uSrcTexel; uniform float uUpW = 1.0;   // BF pbloom: each smaller (wider) level adds x0.62 (~1/r tail)
 out vec4 oColor;
 void main(){
   vec2 o = uSrcTexel;
   vec3 c = texture(uSrc, vUV).rgb*4.0;
   c += (texture(uSrc, vUV + vec2(o.x, 0)).rgb + texture(uSrc, vUV - vec2(o.x, 0)).rgb + texture(uSrc, vUV + vec2(0, o.y)).rgb + texture(uSrc, vUV - vec2(0, o.y)).rgb)*2.0;
   c += texture(uSrc, vUV + o).rgb + texture(uSrc, vUV - o).rgb + texture(uSrc, vUV + vec2(o.x, -o.y)).rgb + texture(uSrc, vUV + vec2(-o.x, o.y)).rgb;
-  oColor = vec4(c/16.0, 1.0);
+  oColor = vec4(c/16.0*uUpW, 1.0);
 }
 )GLSL";
 
@@ -3217,12 +3459,14 @@ static const char* kTerrainVS = R"GLSL(
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in float aDirt; layout(location=3) in vec3 aEw;
 layout(location=4) in float aMorph;   // VOT T1: the next LOD's height minus this vertex's (base chunks; 0 elsewhere)
 uniform mat4 uVP;
+uniform int uDefTiles;   // VFX rev3 tdeform: 1 while the fine tiles draw
 uniform vec4 uMorph;                  // VOT T1 geomorph: x start distance, y 1 / ramp length, z on
 out vec3 vW, vN0; out float vDirt; out vec3 vEw;
 invariant gl_Position;                // PF tzprepass: the depth pass and the colour pass must rasterise identical depths
 void main(){
   vec3 P = aPos;
   if (uMorph.z > 0.5) P.y += aMorph*clamp((length(aPos - uCamPos) - uMorph.x)*uMorph.y, 0.0, 1.0);
+  if (uDefTiles == 1) P.y -= deformAt(P.xz).x;   // VFX rev3 tdeform: ruts and tracks in the fine tiles (the same in the depth pre-pass)
   vW = P; vN0 = aNrm; vDirt = aDirt; vEw = aEw; gl_Position = uVP*vec4(P,1.0);
 }
 )GLSL";
@@ -3241,11 +3485,14 @@ in vec3 vW, vN0; in float vDirt; in vec3 vEw;   // vEw: GX1 earthworks (terrain_
 uniform int uTNOn; uniform sampler2D uTNrm; uniform vec4 uTNMap;   // VOT T1: per-pixel base normals (terrain_normals.cpp, unit 18), xy origin, zw 1 / extent
 uniform int uTSVOn;   // uTSV is declared with the shadow code (T6)   // VOT T5: terrain sky-view factor (unit 26, same mapping as uTNMap)
 vec3 vN;   // the shading normal: vN0 (vertex) or the baked per-pixel one
+float defR = 0.0, defG = 0.0;   // VFX rev3 tdeform: rut depth (m) and disturbance here (W3 wetness reads defR)
 uniform int uGrid; uniform vec2 uBuildHalf;
 uniform int uDiscard; uniform sampler2D uTileMask; uniform float uTileSize; uniform vec2 uTerrainOrg, uTerrainExt;
 uniform vec4 uDust;   // W5 tdust: xy wind direction (toward), z streamer strength (0: calm or not arid), w advection phase (m along the wind)
+uniform vec4 uTPom;   // VFX rev3 4.4 tpom: x depth (m), y steps (1 = one offset), z fade range (m), w the ground sets' uv per metre
 uniform sampler2D uSurf;   // R wear, G wet, B route kind, A rut (surface.cpp)
 uniform float uTerrCave;   // CV1: look.cave: dark wet glossy floors
+uniform int uPudRelief;   // FIX7 (perf switch pudrelief)
 uniform int uDbgTerr;      // GG1 (NMK_DBG_TERRAIN): 1 roughness classes (red < 0.4 SSR mirror, yellow < 0.7 sheen, grey matte), 2 specular share (red > 25 %, yellow > 10 %)
 uniform int uTCOn; uniform sampler2DArray uTC; uniform vec4 uTCMap;   // R1 terrain cache: on, texture (unit 24), xy = origin, zw = 1 / extent
 float vn2(vec2 q, float z){   // == vnoise(vec3(q, z)) for a whole-number z (f.z = 0): the 4 hashes that matter
@@ -3259,8 +3506,21 @@ layout(location=4) out vec4 oVel;
 void main(){
   vN = vN0;
   if (uTNOn == 1) { vec2 r = texture(uTNrm, (vW.xz - uTNMap.xy)*uTNMap.zw).rg; vN = vec3(r.x, sqrt(max(1.0 - dot(r, r), 0.0)), r.y); }   // VOT T1
+  if (uDefOn == 1) {   // VFX rev3 tdeform: depth for the wet code (defR: W3 adds 2R there) and the ruts' slope into the normal
+    vec2 dv = deformAt(vW.xz); defR = dv.x; defG = dv.y;
+    if (defR > 1e-4 || dv.y > 0.0) {
+      float t = uDefMap.w;
+      vec2 g = vec2(deformAt(vW.xz + vec2(t, 0.0)).x - deformAt(vW.xz - vec2(t, 0.0)).x, deformAt(vW.xz + vec2(0.0, t)).x - deformAt(vW.xz - vec2(0.0, t)).x)/(2.0*t);
+      vN = normalize(vN + vec3(g.x, 0.0, g.y));
+    }
+  }
   vec3 p = vW;
   vec3 tdx = dFdx(p), tdy = dFdy(p), tn0 = normalize(vN); float tDist = length(p - uCamPos);   // L4 terrain layers (before any discard)
+  if (uTPom.x > 0.0) {   // VFX rev3 4.4 tpom: parallax occlusion on the ground layers, through texTap's march (the materials code);
+    // tdx / tdy stay the derivatives of the unshifted p. Depth fades over the last 30 % of the range and at grazing views
+    gPomV = normalize(uCamPos - p); gPomN = int(uTPom.y + 0.5);
+    gPomK = uTPom.x*uTPom.w*(1.0 - smoothstep(uTPom.z*0.7, uTPom.z, tDist))*smoothstep(0.08, 0.3, abs(dot(tn0, gPomV)));
+  }
   if (uDiscard == 1) {   // base mesh hidden under high-resolution deformation tiles
     ivec2 tc = ivec2(floor((p.xz - uTerrainOrg)/uTileSize));
     if (texelFetch(uTileMask, tc, 0).r > 0.5) discard;
@@ -3365,16 +3625,20 @@ void main(){
     rockK = smoothstep(0.75, 0.62, sny + (rBreak - 0.5)*0.16)*ewRock;
     float lith = smoothstep(0.35, 0.65, fbm(vec3(p.xz*0.018, p.y*0.03 + 41.0)));              // limestone <-> schist
     float warp = fbm(vec3(p.xz*0.06, p.y*0.02 + 42.0))*5.0;
-    float bedY = p.y*0.42 + warp;                                                              // ~2.4 m beds
+    float bedY = p.y*0.42*(0.7 + 0.6*fbm(vec3(p.xz*0.011, 61.0))) + warp;                       // ~1.6-3.4 m beds, thicker / thinner across the face
     float bedV = fract(sin(floor(bedY)*91.7)*4375.85);                                         // per-bed tone
-    float bedLine = 1.0 - smoothstep(0.0, 0.07, min(fract(bedY), 1.0 - fract(bedY)));          // bedding planes
+    float farK = 1.0 - smoothstep(35.0, 140.0, tDist);                                       // VOT: fine lines read up close; from 100-400 m only the masses
+    float bedLine = (1.0 - smoothstep(0.0, 0.07, min(fract(bedY), 1.0 - fract(bedY))))
+                  * step(0.48, fract(sin(floor(bedY)*37.3 + floor(p.x*0.02 + p.z*0.02)*11.1)*917.3))*farK;   // bedding planes: about half show, by stretches
     float thin = smoothstep(0.82, 0.97, sin((p.y + warp*0.4)*7.5)*0.5 + 0.5);                  // fine laminae (schist)
-    float jx = (p.x*0.62 + p.z*0.78)*0.29 + (vnoise(vec3(p.xz*0.05, p.y*0.07 + 43.0)) - 0.5)*0.7;      // sub-vertical joints ~3.4 m apart
-    rCrack = (1.0 - smoothstep(0.012, 0.04, abs(fract(jx) - 0.5))) * step(0.45, vnoise(vec3(floor(jx)*1.7, floor(bedY*0.5)*1.3, 52.0)));   // some run, some stop at a bed
+    float jx = (p.x*0.62 + p.z*0.78)*(0.17 + 0.12*vnoise(vec3(p.xz*0.012, 62.0))) + (vnoise(vec3(p.xz*0.05, p.y*0.07 + 43.0)) - 0.5)*1.1;   // sub-vertical joints 3.4-6 m apart, wandering
+    rCrack = (1.0 - smoothstep(0.012, 0.04, abs(fract(jx) - 0.5))) * step(0.62, vnoise(vec3(floor(jx)*1.7, floor(bedY*0.5)*1.3, 52.0)))*mix(0.35, 1.0, farK);   // fewer; some run, some stop at a bed
     float grain = vnoise(vec3(p*3.1 + 44.0)), mott = fbm(vec3(p*0.6 + 45.0));
     vec3 lime = mix(vec3(0.44,0.40,0.33), vec3(0.57,0.52,0.43), bedV) * (0.74 + 0.42*mott);
     vec3 schist = mix(vec3(0.24,0.23,0.21), vec3(0.34,0.31,0.27), bedV) * (0.78 + 0.36*mott) * (1.0 - 0.25*thin*lith);
     vec3 rock = mix(lime, schist, lith) * (0.9 + 0.2*grain);
+    float macroR = fbm(vec3(p*0.012 + 63.0)), macroC = fbm(vec3(p*0.006 + 64.0));               // VOT: 80-170 m masses, so a whole face is not one tone
+    rock *= 0.7 + 0.6*macroR; rock = mix(rock, rock*vec3(1.08, 1.0, 0.88), smoothstep(0.4, 0.7, macroC));   // lighter / warmer and darker / greyer reaches
     rock *= 1.0 - 0.4*bedLine - 0.42*rCrack;
     rock = mix(rock, vec3(0.30,0.22,0.15), 0.25*smoothstep(0.55, 0.8, fbm(vec3(p*0.25 + 46.0))));      // iron staining
     float lichen = smoothstep(0.62, 0.8, vnoise(vec3(p*0.45 + 47.0))) * smoothstep(0.35, 0.65, sny + 0.25);
@@ -3424,8 +3688,10 @@ void main(){
   // darkens porous ground (albedo x lerp(1, 0.35, wet x porosity); rock and scree shed water), and puddles fill the lows
   // (the layers' own height, the map's wet field, ruts) as wxPuddle rises, on flat ground only
   float wxw = uWetOn == 1 ? clamp(wxWet, 0.0, 1.0) : 0.0, wxp = uWetOn == 1 ? clamp(wxPuddle, 0.0, 1.0) : 0.0;
+  if (wxw > 0.0 || wxp > 0.0) { float shel = smoothstep(0.15, 0.55, skyVis(p, normalize(vN))); wxw *= mix(0.2, 1.0, shel); wxp *= shel; }   // W3b: under a bridge, eave or canopy the ground stays damp at most, no puddles (it mirrored the underside black)
   if (wxw > 0.0) alb *= mix(1.0, 0.35, wxw*(1.0 - 0.65*max(rockK, screeK*0.5))*(1.0 - 0.6*clamp(wet*1.2, 0.0, 1.0)));
-  if (wxp > 0.0) puddle = max(puddle, smoothstep(0.86, 0.97, normalize(vN).y)*smoothstep(0.86 - 0.42*wxp, 0.96 - 0.42*wxp, (1.0 - hB)*0.55 + wet*0.3 + rut*0.12 + (nX - 0.5)*0.25));
+  float hR = uPudRelief == 1 ? mix(hB, po.h, po.w) : hB, pv = uPudRelief == 1 ? 0.14*po.paved*po.w : 0.0;   // FIX7 pudrelief: the paint's own height (cobble joints, ruts) and paving sheds water
+  if (wxp > 0.0) puddle = max(puddle, smoothstep(0.86, 0.97, normalize(vN).y)*smoothstep(0.86 + pv - 0.42*wxp, 0.96 + pv - 0.42*wxp, (1.0 - hR)*0.55 + wet*0.3 + rut*0.12 + (nX - 0.5)*0.25));
   float rough = mix(mix(0.96, 0.86, tw), 0.10, puddle);
   rough = mix(rough, 0.78, vEw.z*ewK);   // GX1: wet mud low in the cut: a dull damp sheen, not a mirror
   vec3 N = normalize(vN + vec3(nX - 0.5, 0.0, nZ - 0.5)*mix(0.22, 0.42, max(tw, dirt))*(1.0 - puddle)
@@ -3456,8 +3722,8 @@ void main(){
       vec2 q = vec2(dot(p.xz, uDust.xy), dot(p.xz, vec2(-uDust.y, uDust.x)));   // along / across the wind (m)
       float s1 = vnoise(vec3((q.x - uDust.w)*0.35, q.y*2.4, 31.0)), s2 = vnoise(vec3((q.x - 1.4*uDust.w)*0.9, q.y*6.0, 32.0));
       float s3 = vnoise(vec3((q.x - 0.5*uDust.w)*0.07, q.y*0.35, 33.0));   // the gust-scale patches the ribbons run in
-      float st = smoothstep(0.52, 0.82, 0.6*s1 + 0.4*s2)*smoothstep(0.3, 0.65, s3);
-      alb = mix(alb, vec3(0.80, 0.72, 0.57), st*0.5*dk); rough = mix(rough, 1.0, st*dk);
+      float st = smoothstep(0.46, 0.74, 0.6*s1 + 0.4*s2)*smoothstep(0.22, 0.55, s3);
+      alb = mix(alb, vec3(0.86, 0.78, 0.62), st*0.75*dk); rough = mix(rough, 1.0, st*dk);   // read at a glance (the first cut was too faint)
     }
   }
   gSpecK = mix(uGroundSpec, 1.0, max(max(puddle, vEw.z*ewK), wxw));   // W3: wet ground keeps its sheen   // GG1: dry ground: no broad sun glare or sky sheen at grazing angles (standing water / wet cut mud keep theirs)
@@ -3466,6 +3732,9 @@ void main(){
   gSpecK = gs0;
   vec3 c = shade(vW, N, alb, rough, 0.0, ao);
   if (uDbgTerr == 1) c = rough < 0.4 ? vec3(3.0, 0.0, 0.0) : rough < 0.7 ? vec3(3.0, 3.0, 0.0) : vec3(0.35);
+  if (uDbgTerr == 3) c = vec3(terrainHorizonSun(vW), uTHorOn == 1 ? 0.5 : 0.0, uTHorW.w/30.0);   // VOT T6 measurement: red = sun over the terrain horizon, green = map on, blue = sun elevation
+  if (uDbgTerr == 4) c = alb;   // VFX rev3 4.1 meter (tools/vot_flatness.py): albedo only, cue 3
+  if (uDbgTerr == 5) c = vec3(1.0, ao, 0.0);   // ... the ground's occlusion as green over red (the meter keeps only these ground pixels: G / R), cue 4
   if (uDbgTerr == 2) { float l = dot(c, vec3(0.3, 0.5, 0.2)), s = l > 1e-4 ? max(0.0, l - dot(cMatte, vec3(0.3, 0.5, 0.2)))/l : 0.0; c = s > 0.25 ? vec3(3.0, 0.0, 0.0) : s > 0.1 ? vec3(3.0, 3.0, 0.0) : vec3(0.35); }
   if (uGrid == 1 && abs(p.x) <= uBuildHalf.x && abs(p.z) <= uBuildHalf.y) {
     vec2 g = abs(fract(p.xz/5.0 + 0.5) - 0.5)*5.0;
@@ -3959,13 +4228,14 @@ void main(){
     // ray to the cloud plane (1500 m), fBm (5 octaves) scrolling with the wind; coverage shifts the threshold
     vec2 cpw = uW2 == 1 ? shellHit(d, 1500.0) : uCamPos.xz + d.xz/(d.y + 0.06)*(1500.0 - uCamPos.y);   // deck hit point in world xz (~600 m cells); W2: on a shell
     if (uCloudQ == 2) {   // WX1 High: a thin high layer (4500 m, streaked along the wind, slower); not in the shadow map
-      vec2 hp = uCamPos.xz + d.xz/(d.y + 0.03)*(4500.0 - uCamPos.y);
+      vec2 hp = uW2 == 1 ? shellHit(d, 4500.0) : uCamPos.xz + d.xz/(d.y + 0.03)*(4500.0 - uCamPos.y);
       vec2 wd = normalize(uCloudWind);
       vec2 sp = vec2(dot(hp, wd)/2600.0, dot(hp, vec2(-wd.y, wd.x))/700.0) + uCloudSeed*1.7 + uCloudT*0.004;
       float ci = smoothstep(0.55, 0.85, vnoise(vec3(sp, 3.0))*0.65 + vnoise(vec3(sp*2.7, 7.0))*0.35);
+      if (uW2 == 1) ci *= (1.0 - smoothstep(0.4, 0.8, uCloudK))*(1.0 - smoothstep(0.3, 0.8, length(fwidth(sp))));   // W2: cirrus sits above the deck (hidden under overcast) and goes soft where it would streak
       c = mix(c, mix(skyColor(d), vec3(1.0)*1.3, 0.55)*uCloudLit, ci*mix(0.35, 0.55, uCloudK)*smoothstep(0.02, 0.2, d.y));
     }
-    float n = uCloudQ == 0 ? cloudFieldLo(cpw) : uW2 == 1 ? cloudFieldAA(cpw, length(fwidth(cpw))/600.0*max(uCloudXf.x, 1.0)) : cloudField(cpw);
+    float n = uCloudQ == 0 ? cloudFieldLo(cpw) : uW2 == 1 ? cloudFieldAA(cpw, max(length(mat2(uCloudXf.xy, uCloudXf.zw)*dFdx(cpw)), length(mat2(uCloudXf.xy, uCloudXf.zw)*dFdy(cpw)))*1.4/600.0) : cloudField(cpw);
     // SKY1 Cloudy: a near-closed deck (the threshold drops) with soft, wide edges, like an overcast stratocumulus sky
     float th = mix(0.72, 0.38, uCloudCover) - 0.12*uCloudK + 0.5*cloudOpening(d);   // VO L5: fewer clouds toward the opening
     float cl = smoothstep(th, th + mix(0.22, 0.45, uCloudK), n);
@@ -4036,6 +4306,8 @@ static const char* kToneFS = R"GLSL(
 #version 450 core
 in vec2 vUV;
 uniform sampler2D uHdr, uExpo, uBloom, uVmDist; uniform float uFixedExpo, uBloomAmt, uEyeR, uAspect, uRectVig, uMicro; uniform int uTonemap;
+uniform float uBloomNorm = 6.0;
+uniform int uPhysGuard;   // CP2 physguard   // BF pbloom: the chain's total weight (6 equal levels before)
 uniform float uNewExpo;   // VO L1: Lighting New's re-fit of a fixed exposure (1 in Classic)
 uniform float uCas;     // CP1: contrast-adaptive sharpen 0..1 (Settings > Sharpness; replaces the TAA and grade sharpens), 0 off
 uniform int uDither;    // CP1: triangular +-1 LSB dither at the final write
@@ -4105,8 +4377,9 @@ void main(){
   float bAmt = uBloomAmt;   // optic eyepiece: no bloom over its dark surround (the bloom is taken from the whole lit view)
   if (uEyeR > 0.0) bAmt *= 1.0 - smoothstep(0.98*uEyeR, 1.02*uEyeR, length((vUV - 0.5)*vec2(uAspect, 1.0)));
   if (texture(uVmDist, vUV).r > 0.0) bAmt = 0.0;   // VM2: the bloom is the world's, taken before the first-person weapon was drawn: blended over the dark gun it showed the ground through it
-  if (bAmt > 0.0) c = mix(c, texture(uBloom, vUV).rgb/6.0, bAmt);   // chain sums 6 levels; energy-preserving blend, not an add
+  if (bAmt > 0.0) c = mix(c, texture(uBloom, vUV).rgb/uBloomNorm, bAmt);   // chain sums 6 levels; energy-preserving blend, not an add
   float e = uFixedExpo > 0.0 ? uFixedExpo*uNewExpo : texelFetch(uExpo, ivec2(0), 0).r;   // VO L1: auto exposure already re-adapts to New's darker scene; a fixed one is lifted
+  if (uPhysGuard == 1) e = min(e, 3.0/max(texelFetch(uExpo, ivec2(0), 0).g, 1e-6));   // CP2 physguard: the scene's brightest 2 % land on the curve's shoulder, not past it (into a low sun)
   vec2 q = vUV - 0.5;
   if (uDbgView >= 3 && uDbgView <= 5) { oColor = vec4(clamp(texture(uHdr, vUV).rgb, 0.0, 1.0), 1.0); return; }   // CP step 2: albedo / furnace / texel views shown as computed (no exposure, curve or bloom)
   if (uDbgView == 1) {   // CP0 false colour: one band per stop of exposed luminance around 0.18 (grey = 0.18 +- half a stop)
@@ -4167,7 +4440,8 @@ uniform sampler2D uHdr, uPrev; uniform float uLod, uDt, uReset;
 uniform float uExpoKey, uExpoMin, uExpoMax;   // L2 time of day: Day 0.24, 0.9 .. 1.45; night opens the range (lighting.cpp)
 uniform float uExpoFloor;   // FX1: while the headlamp is on, the exposure at switch-on (fading): its lit patch does not pump the scene down
 uniform int uHist; uniform float uHistCal;   // VO L8: histogram metering (Lighting New), its calibration to the old mean metering
-out float oE;
+uniform int uFxExpo, uFreeze;   // BF fxexpo (spec 5.2 / ref 05 5.6): top 4 % rejected, EV rate-limited in stops / s; uFreeze: hold (own-weapon fire)
+out vec2 oEx; float oE; float gHi = 0.0;   // CP2 physguard: .g = the scene's 98th-percentile luminance (highlight guard)
 // VO L8 (Lagarde & de Rousiers 2014): a centre-weighted 32-bin histogram of log2 luminance over a 16 x 16 grid of a
 // ~64 px mip, metered as the mean between the 40th and 95th percentiles: the sky's few brightest pixels and dark
 // corners no longer swing the exposure (blown desert and snow, murky forest)
@@ -4181,14 +4455,15 @@ float histLum(){
     float w = 1.0 - 0.7*smoothstep(0.1, 0.7, length((uv - 0.5)*vec2(1.0, 1.3)));
     h[int(clamp((log2(max(L, 1e-6)) + 12.0)*2.0, 0.0, 31.0))] += w; ws += w;
   }
-  float lo = 0.4*ws, hi = 0.95*ws, acc = 0.0, sum = 0.0, cnt = 0.0;
+  float lo = 0.4*ws, hi = (uFxExpo == 1 ? 0.96 : 0.95)*ws, acc = 0.0, sum = 0.0, cnt = 0.0;
+  { float a2 = 0.0; for (int i = 0; i < 32; ++i) { a2 += h[i]; if (a2 >= 0.98*ws) { gHi = exp2((float(i) + 0.5)*0.5 - 12.0); break; } } }
   for (int i = 0; i < 32; ++i) {
     float t = max(min(acc + h[i], hi) - max(acc, lo), 0.0);
     sum += t*((float(i) + 0.5)*0.5 - 12.0); cnt += t; acc += h[i];
   }
   return exp2(sum/max(cnt, 1e-4))*uHistCal;
 }
-void main(){
+void mainE(){
   vec3 avg = textureLod(uHdr, vec2(0.5), uLod).rgb;
   float prev = texelFetch(uPrev, ivec2(0), 0).r;
   if (uReset > 0.0) { oE = uReset; return; }
@@ -4196,9 +4471,16 @@ void main(){
   if (isnan(lr) || isinf(lr)) { oE = prev; return; }   // one non-finite pixel poisons the whole mip average
   float l = max(lr, 1e-4);
   float target = max(clamp(uExpoKey/l, uExpoMin, uExpoMax), uExpoFloor);
+  if (uFxExpo == 1) {   // EV rate limits: opening up to the dark 0.9 stops / s (slow, as the eye), closing to the light 3 stops / s
+    if (uFreeze == 1) { oE = prev; return; }
+    float d = log2(target) - log2(max(prev, 1e-6));
+    oE = prev*exp2(clamp(d, -3.0*uDt, 0.9*uDt));
+    return;
+  }
   float k = 1.0 - exp(-uDt*(target > prev ? 0.6 : 1.2));
   oE = mix(prev, target, k);
 }
+void main(){ mainE(); if (gHi <= 0.0) gHi = dot(textureLod(uHdr, vec2(0.5), uLod).rgb, vec3(0.2126, 0.7152, 0.0722))*8.0; oEx = vec2(oE, gHi); }
 )GLSL";
 // SF1 snowfall (Blackwater Thaw spec 6): two groups of streaks, procedural per instance, in boxes around the eye that wrap
 // on world coordinates (stable world movement: the flakes do not ride with the camera). Group 0 near (sparse, a broad
@@ -4365,6 +4647,29 @@ void main(){
 // geometry): an alpha sprite is lit like a matte surface facing the eye (sun x half phase x one shadow tap, sky / ground
 // ambient) and fogged with applyFog; an additive one (fire, flashes) keeps its colour and loses what the fog absorbs. Per
 // fragment: a soft fade over 0.35 x the sprite's radius where it meets the scene (a depth copy; no hard line through walls).
+// BF (Battle Foundry spec 5.2 / 5.4): what every fx shader may use. uYref: a lit 18 %% card this frame (engine radiance);
+// uNitsToScene: nits -> engine radiance (1 / 30,000); uPBloom: 1 = the unthresholded bloom is on (author the physical peak,
+// no clamp). fxFog(col, w): the world's air fog along the eye-to-particle path, once (12 m clear zone included).
+static const char* kFxCommon = R"GLSL(
+uniform float uYref, uNitsToScene; uniform int uPBloom;
+vec3 fxFog(vec3 col, vec3 w){ return applyFog(col, w); }
+// BF litsmoke (spec 6.6): smoke scatters, it never emits. dustAlbedo x (sky / ground ambient + the sun through the shadow
+// maps and the deck), with dust's forward lobe 1 + 1.4 pow(sat(dot(toEye... reversed), 4): bright against the sun.
+// n: the puff's normal guess (view-facing billboard: -viewDir, or a sphere normal); w: world position.
+vec3 fxSmokeLight(vec3 albedo, vec3 n, vec3 w){
+  vec3 V = normalize(uCamPos - w);
+  vec3 amb = mix(uGroundCol, uSkyCol, 0.5 + 0.5*n.y);
+  float sh = sunShadowRaw(w, vec3(0.0, 1.0, 0.0), 0.0, 1)*cloudShadow(w);
+  float fwd = 1.0 + 1.4*pow(clamp(dot(-V, uSunDir), 0.0, 1.0), 4.0);
+  return albedo*(amb + uSunCol*max(dot(n, uSunDir)*0.5 + 0.5, 0.0)*sh*fwd);
+}
+// six-way lightmaps (spec 6.6): A = (right, top, back, alpha), B = (left, bottom, front, emissive); Lts: the light in the
+// sprite's tangent space (x right, y up, z toward the back)
+float fxSixWay(vec4 A, vec4 B, vec3 Lts){
+  vec3 w = Lts*Lts;
+  return w.x*(Lts.x > 0.0 ? A.r : B.r) + w.y*(Lts.y > 0.0 ? A.g : B.g) + w.z*(Lts.z > 0.0 ? A.b : B.b);
+}
+)GLSL";
 static const char* kFxVS = R"GLSL(
 layout(location=0) in vec3 aPos; layout(location=1) in vec4 aCol; layout(location=2) in vec2 aUV; layout(location=3) in float aR;
 uniform mat4 uVP; uniform int uAdd, uFxLit; out vec4 vC; out vec2 vUV; out float vR;
@@ -4600,7 +4905,7 @@ void Renderer::physLight(vec3& sun, vec3& sky, vec3& ground, vec3& fog, vec3& fi
   const float h = glm::degrees(std::asin(glm::clamp(mu, 0.0f, 1.0f)));
   const float m = 1.0f / (std::max(mu, 1e-3f) + 0.50572f * std::pow(h + 6.07995f, -1.6364f));
   const float eDN = mu > 0.0f ? 133000.0f * std::exp(-0.21f * m) * wx.der.beamRatio : 0.0f;
-  const float eSky = mu > 0.0f ? (800.0f + 15500.0f * std::sqrt(mu)) * wx.der.skyRatio : 0.0f;
+  const float eSky = mu > 0.0f ? (800.0f + 15500.0f * std::sqrt(mu)) * wx.der.skyRatio * lt.physSky : 0.0f;   // look.physical.sky: a thicker / thinner deck than the weather row
   const vec3 sunC = kelvinRGB(glm::mix(2500.0f, 5800.0f, glm::smoothstep(0.0f, 0.5f, mu))) * wx.der.tint;
   extern bool snowLayerOn(); extern bool groundPaintArid();
   const float rho = snowLayerOn() ? 0.8f : groundPaintArid() ? 0.3f : 0.2f;
@@ -4618,9 +4923,50 @@ void Renderer::physLight(vec3& sun, vec3& sky, vec3& ground, vec3& fog, vec3& fi
   if (main) {
     const float eTot = std::max(eDN * mu + eSky, 1e-3f);
     const float evScene = std::log2(eTot / 2.5f);
-    physEV = glm::clamp(15.0f + 0.67f * (evScene - 15.0f), mu > 0.0f ? 9.0f : 3.0f, 15.5f);
+    physEV = glm::clamp(15.0f + 0.67f * (evScene - 15.0f) + lt.physEV, mu > 0.0f ? 9.0f : 3.0f, 15.5f);   // look.physical.ev: + = a darker exposure (stops)
     physExpo = mu > 0.05f ? q.physExpoK * K / (1.2f * std::exp2(physEV)) : 0.0f;   // dusk / night: the engine's own night exposure (the art stays in its units)
   }
+}
+void Renderer::froxRun(const RenderView& v) {   // CP4 froxel fog: inject + integrate (High / Ultra)
+  froxOn = perf.froxel && shadowTier >= 2 && q.lightNew && !q.legacy && !thumbMode && !v.underwater && progFroxInj && progFroxInt;
+  if (!froxOn) return;
+  const int NX = 160, NY = 90, NZ = 64;
+  if (!froxInj) {
+    for (GLuint* t : {&froxInj, &froxInt}) { glCreateTextures(GL_TEXTURE_3D, 1, t); glTextureStorage3D(*t, 1, GL_RGBA16F, NX, NY, NZ);
+      glTextureParameteri(*t, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(*t, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      for (GLenum pn : {GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_TEXTURE_WRAP_R}) glTextureParameteri(*t, pn, GL_CLAMP_TO_EDGE); }
+  }
+  const float nearD = 0.5f, farD = 600.0f;
+  const mat4 inv = glm::inverse(v.proj * v.view);
+  GLuint p = progFroxInj; glUseProgram(p);
+  glBindImageTexture(0, froxInj, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA16F);
+  glUniformMatrix4fv(U(p, "uInvVP"), 1, GL_FALSE, glm::value_ptr(inv)); glUniform3fv(U(p, "uCam"), 1, glm::value_ptr(v.camPos));
+  glUniform3i(U(p, "uN"), NX, NY, NZ); glUniform1f(U(p, "uNear"), nearD); glUniform1f(U(p, "uFar"), farD);
+  glUniform1f(U(p, "uHazeD"), hazeSigma()); glUniform1f(U(p, "uHazeH"), wx.der.phys && wx.der.visM < 3000.0f ? std::max(lt.mapHazeH > 0.0f ? lt.mapHazeH : q.hazeHeight, 600.0f) : lt.mapHazeH > 0.0f ? lt.mapHazeH : q.hazeHeight);
+  glUniform1f(U(p, "uEnvFog"), perf.envFog && fogTex ? envFogSigma() : 0.0f); glUniform1f(U(p, "uEnvFogH"), envFogH());
+  glUniform1f(U(p, "uEnvTop"), lt.mapFogLayerTop); glUniform1f(U(p, "uEnvSoft"), lt.mapFogLayerSoft); glUniform1f(U(p, "uFogIndoor"), camIndoor ? 0.15f : 1.0f);
+  glUniform4fv(U(p, "uFog2"), 1, glm::value_ptr(perf.envFog ? lt.fog2 : vec4(0.0f))); glUniform4fv(U(p, "uFogBox"), 1, glm::value_ptr(fogBox));
+  glBindTextureUnit(0, fogTex); glUniform1i(U(p, "uFogField"), 0);
+  glBindTextureUnit(1, shadowFarTex); glUniform1i(U(p, "uShFar"), 1); glUniformMatrix4fv(U(p, "uVPFar"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
+  glUniform2f(U(p, "uFarAx"), farAtlas ? 0.5f : 1.0f, farAtlas ? 0.5f : 0.0f); glUniform1i(U(p, "uShOn"), sunShK > 0.0f && q.farCascade ? 1 : 0);
+  glUniform3fv(U(p, "uSunDir"), 1, glm::value_ptr(sunDir)); glUniform3fv(U(p, "uSunCol"), 1, glm::value_ptr(lastSunCol));
+  glUniform3fv(U(p, "uAmb"), 1, glm::value_ptr(vec3(fogNow))); glUniform1f(U(p, "uG"), wx.der.fogG); glUniform1f(U(p, "uAlb"), wx.der.fogAlbedo); glUniform1f(U(p, "uCloudK"), wx.k);
+  glDispatchCompute((NX + 7) / 8, (NY + 7) / 8, NZ);
+  glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+  p = progFroxInt; glUseProgram(p);
+  glBindImageTexture(0, froxInj, 0, GL_TRUE, 0, GL_READ_ONLY, GL_RGBA16F); glBindImageTexture(1, froxInt, 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RGBA16F);
+  glUniform3i(U(p, "uN"), NX, NY, NZ); glUniform1f(U(p, "uNear"), nearD); glUniform1f(U(p, "uFar"), farD);
+  glDispatchCompute((NX + 7) / 8, (NY + 7) / 8, 1);
+  glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
+  froxNear = nearD; froxFar = farD;
+}
+// BF fxbright (spec 5.4): what an fx shader needs to author in nits or in Yref. 1 engine radiance = 30,000 nits (the CP2
+// scale); Yref = a lit 18 % card under this frame's light, in engine radiance (sky term + sun on a level surface)
+void Renderer::fxBrightUniforms(GLuint p) {
+  const vec3 lw(0.2126f, 0.7152f, 0.0722f);
+  const float yref = 0.18f * (glm::dot(lastSunCol, lw) * std::max(sunDir.y, 0.0f) / 3.14159265f + glm::dot(lastSkyCol, lw));
+  glUniform1f(U(p, "uYref"), std::max(yref, 1e-6f)); glUniform1f(U(p, "uNitsToScene"), 1.0f / 30000.0f);
+  glUniform1i(U(p, "uPBloom"), perf.pBloom && !q.legacy ? 1 : 0);
 }
 void Renderer::uploadWeather() {   // W1: NmkWeather (binding 4), the layout kCommon names
   const WxState& s = wx.st; const WxDerived& d = wx.der;
@@ -4666,7 +5012,10 @@ bool Renderer::init(int w, int h) {
   }
   progExpo = compile(kFullVS, kExpoFS, "expo");
   progLine = compile(kLineVS, kLineFS, "line");
-  progFx = compile(kFxVS, kFxFS, "fx");
+  {   // BF: the shared fx include (blackbody LUT, Yref / nits, fxFog) ahead of the gameplay session's kFx bodies
+    const std::string inc = std::string(kBlackbodyGLSL) + kFxCommon;
+    progFx = compile((inc + kFxVS).c_str(), (inc + kFxFS).c_str(), "fx");
+  }
   progLeafDrift = compile(kLeafDriftVS, kLeafDriftFS, "leaf_drift");   // WS2
   { GLint ok = 0; glGetProgramiv(progLeafDrift, GL_LINK_STATUS, &ok); if (!ok) { glDeleteProgram(progLeafDrift); progLeafDrift = 0; } }   // a failed program would draw with whatever is bound
   progSnowfall = compile(kSnowfallVS, kSnowfallFS, "snowfall"); glCreateVertexArrays(1, &snowfallVao);
@@ -4690,6 +5039,9 @@ bool Renderer::init(int w, int h) {
   progHeat = compile(kHeatVS, kHeatFS, "thermal heat");   // TH1
   progShaft = compile(kFullVS, kShaftFS, "shafts");
   progSsao = compile(kFullVS, kSsaoFS, "ssao");
+  progContactAO = compile(kContactAOVS, kContactAOFS, "contact_ao");   // BF B4
+  { GLint ok = 0; if (progContactAO) glGetProgramiv(progContactAO, GL_LINK_STATUS, &ok); if (!ok) progContactAO = 0; }
+  progHalfDepth = compile(kFullVS, kHalfDepthFS, "half_depth"); progSoftUp = compile(kFullVS, kSoftUpFS, "soft_up");   // BF litsmoke
   progBloomDown = compile(kFullVS, kBloomDownFS, "bloom_down");
   progBloomUp = compile(kFullVS, kBloomUpFS, "bloom_up");
   progTaa = compile(kFullVS, kTaaFS, "taa");
@@ -4701,6 +5053,17 @@ bool Renderer::init(int w, int h) {
   glCreateFramebuffers(1, &cloudShFbo); glNamedFramebufferTexture(cloudShFbo, GL_COLOR_ATTACHMENT0, cloudShTex, 0);
   if (glCheckNamedFramebufferStatus(cloudShFbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) { logf("cloud shadow framebuffer incomplete"); ++fboErrors; }
   progComposite = compile(kFullVS, kCompositeFS, "composite");
+  {   // CP4 froxel fog: two standalone compute programs
+    auto cs = [&](const char* src, const char* name) {
+      GLuint sh = glCreateShader(GL_COMPUTE_SHADER); glShaderSource(sh, 1, &src, nullptr); glCompileShader(sh);
+      GLint ok = 0; glGetShaderiv(sh, GL_COMPILE_STATUS, &ok);
+      if (!ok) { char log[4096]; glGetShaderInfoLog(sh, sizeof log, nullptr, log); logf("shader %s (cs) error: %s", name, log); ++shaderErrors; }
+      GLuint pr = glCreateProgram(); glAttachShader(pr, sh); glLinkProgram(pr); glDeleteShader(sh);
+      glGetProgramiv(pr, GL_LINK_STATUS, &ok); if (!ok) { logf("link %s failed", name); ++shaderErrors; glDeleteProgram(pr); return 0u; }
+      return pr;
+    };
+    progFroxInj = cs(kFroxInjectCS, "frox_inject"); progFroxInt = cs(kFroxIntegrateCS, "frox_integrate");
+  }
   progSsrHalf = compile(kFullVS, (std::string("#define NMK_SSR_HALF 1\n") + kCompositeFS).c_str(), "ssr_half");   // OPT ssrhalf
   {
     std::string fs1 = std::string(kLeafAlpha) + kLeafFS, fs2 = std::string(kLeafAlpha) + kLeafShadowFS;
@@ -4733,8 +5096,8 @@ bool Renderer::init(int w, int h) {
   glNamedFramebufferDrawBuffer(occFbo, GL_NONE); glNamedFramebufferReadBuffer(occFbo, GL_NONE);
   // exposure ping-pong
   for (int k = 0; k < 2; ++k) {
-    glCreateTextures(GL_TEXTURE_2D, 1, &expoTex[k]); glTextureStorage2D(expoTex[k], 1, GL_R32F, 1, 1);
-    float one = 1.0f; glTextureSubImage2D(expoTex[k], 0, 0, 0, 1, 1, GL_RED, GL_FLOAT, &one);
+    glCreateTextures(GL_TEXTURE_2D, 1, &expoTex[k]); glTextureStorage2D(expoTex[k], 1, GL_RG32F, 1, 1);   // r exposure, g the 98th-percentile luminance (CP2 physguard)
+    const float one[2] = {1.0f, 1.0f}; glTextureSubImage2D(expoTex[k], 0, 0, 0, 1, 1, GL_RG, GL_FLOAT, one);
     glCreateFramebuffers(1, &expoFbo[k]); glNamedFramebufferTexture(expoFbo[k], GL_COLOR_ATTACHMENT0, expoTex[k], 0);
   }
   glCreateQueries(GL_TIME_ELAPSED, 3, queries);
@@ -5074,7 +5437,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   { vec3 sk = hor / vec3(0.80f, 0.84f, 0.87f); glUniform3fv(U(p, "uSkyK"), 1, glm::value_ptr(sk)); }
   glUniform3fv(U(p, "uSkySun"), 1, glm::value_ptr(skySun)); glUniform3fv(U(p, "uSkySunCol"), 1, glm::value_ptr(skySunCol));
   if (v.underwater && !thumbMode) { sun *= vec3(0.22f, 0.38f, 0.40f); sky *= vec3(0.45f, 0.75f, 0.80f); ground *= vec3(0.45f, 0.75f, 0.80f); }   // swim.cpp: light filtered by the water above
-  glUniform3fv(U(p, "uSunCol"), 1, glm::value_ptr(sun));
+  glUniform3fv(U(p, "uSunCol"), 1, glm::value_ptr(sun)); if (p == progMain) { lastSunCol = sun; lastSkyCol = sky; }   // CP4 froxel inject; BF Yref
   { const vec3 lw(0.2126f, 0.7152f, 0.0722f); float d = glm::dot(sun, lw) * std::max(sunDir.y, 0.0f) / 3.14159265f, a = glm::dot(sky, lw);
     sunDirectFrac = d / std::max(d + a, 1e-6f); }   // OPT wxsun: the sun's share of a level surface's light (shade(): sun x N.L / pi against the sky term), read by the next frame's cascades
   glUniform3fv(U(p, "uSkyCol"), 1, glm::value_ptr(sky));
@@ -5107,6 +5470,8 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uShadowFar"), 6); glBindTextureUnit(6, shadowFarTex);
   glUniform1i(U(p, "uShadowFarOn"), far ? 1 : 0);
   glUniform1i(U(p, "uTSV"), 26); glUniform1i(U(p, "uTHorOn"), thorTex && !thumbMode ? 1 : 0); glUniform1i(U(p, "uTHorAll"), p == progTerrain || p == progTerrainND || p == progGrass ? 1 : 0);   // VOT T6 (unit 26 = the terrain's T5 / T6 texture)
+  glUniform1i(U(p, "uDefTex"), tu::kDeform); glUniform1i(U(p, "uDefOn"), defOn && !thumbMode ? 1 : 0);   // VFX rev3 tdeform (the composite rebinds unit 11 to its AO before it draws)
+  if (defOn && !thumbMode) { glBindTextureUnit(tu::kDeform, defTex); glUniform4fv(U(p, "uDefMap"), 1, glm::value_ptr(defMap)); }
   if (thorTex && !thumbMode) { glBindTextureUnit(26, thorTex); glUniform4fv(U(p, "uTHorMap"), 1, glm::value_ptr(thorMap)); glUniform4fv(U(p, "uTHorW"), 1, glm::value_ptr(thorW)); }
   glUniformMatrix4fv(U(p, "uLightVPFar"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
   glUniform2f(U(p, "uShadowTexelFar"), (farAtlas ? 0.5f : 1.0f) / shadowFarSize, 1.0f / shadowFarSize);
@@ -5157,6 +5522,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1f(U(p, "uAoIndirectOnly"), q.legacy ? 0.0f : 1.0f);
   glUniform1i(U(p, "uLook"), q.legacy ? 0 : 1);
   glUniform1i(U(p, "uSkyVisWall"), perf.skyVisWall && !q.legacy ? 1 : 0);
+  glUniform1i(U(p, "uFroxWorld"), froxOn && p != progComposite && p != progSsrHalf && p != progFx ? 1 : 0);   // particles draw after the composite: they keep the analytic fog
   glUniform1i(U(p, "uFogPhase"), perf.fogPhase && q.lightNew && !q.legacy && !thumbMode ? 1 : 0);
   glUniform1i(U(p, "uW2"), perf.w2Sky && q.lightNew && !q.legacy && !thumbMode ? 1 : 0); glUniform1f(U(p, "uFlash"), thumbMode ? 0.0f : wx.der.flash);   // W2
   glUniform1i(U(p, "uDbgView"), dbgView);   // CP0
@@ -5180,6 +5546,11 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uAlbClamp"), q.legacy || !perf.albClamp ? 0 : 1);   // CP step 4
   glUniform1i(U(p, "uWetOn"), q.legacy || !perf.wet || thumbMode ? 0 : 1); glUniform1f(U(p, "uWetTime"), (float)std::fmod(time, 3600.0));   // W3   // CP step 3
   glUniform1i(U(p, "uMaskLib"), !q.legacy && perf.maskLib ? 1 : 0);   // CP step 6 part 2
+  glUniform1i(U(p, "uPudRelief"), !q.legacy && perf.pudRelief ? 1 : 0);   // FIX7
+  glUniform1i(U(p, "uMetalMask"), !q.legacy && perf.metalMask ? 1 : 0);   // FIX6
+  glUniform1i(U(p, "uReach"), !q.legacy && q.matLayer > 0 && perf.reach ? 1 : 0); glUniform1i(U(p, "uInstVar"), !q.legacy && perf.instVar ? 1 : 0);   // BF 3.4 / 3.6
+  glUniform1i(U(p, "uLayerBlend"), !q.legacy && perf.layerBlend ? 1 : 0);   // BF 3.3
+  glUniform1i(U(p, "uAbsFar"), !q.legacy && perf.absFar ? 1 : 0);   // FIX8
   glUniform1i(U(p, "uSteepTri"), !q.legacy && perf.steepTri ? 1 : 0);   // FIX5
   glUniform1i(U(p, "uWearCause"), !q.legacy && q.matLayer > 0 && perf.wearCause ? 1 : 0);   // M4
   glUniform2i(U(p, "uMicroOn"), !q.legacy && q.matLayer > 0 && perf.microDetail ? 1 : 0, !q.legacy && perf.roughVar ? 1 : 0);   // CP step 6 (micro detail off at Low)
@@ -5210,6 +5581,8 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
     else glUniform1i(U(p, "uTHorOn"), 0);
     extern GLuint leafLibTex(); glBindTextureUnit(kLeafUnit, leafLibTex());
   }
+  glUniform1f(U(p, "uMossBias"), lt.mapMossBias);
+  glUniform4f(U(p, "uMoss"), perf.mossField && !thumbMode && q.mossTier >= 1 ? 1.0f : 0.0f, q.mossTier >= 2 ? 1.0f : 0.0f, q.mossMatM, 0.5f);   // BF B1 (8.2: no moss detail below Low, transmission from Medium)
   sunDir = sunDirMap;   // the thumbnail studio sun never leaks back into the map
 }
 
@@ -5218,7 +5591,7 @@ Renderer::DrawLocs Renderer::drawLocs(GLuint p) {
   DrawLocs l;
   l.model = U(p, "uModel"); l.tint = U(p, "uTint"); l.inst = U(p, "uInst"); l.snapAp = U(p, "uSnapAp"); l.glow = U(p, "uGlow");   // snapAp: V6 snap-chain texture origin
   l.roomA = U(p, "uRoomA"); l.roomB = U(p, "uRoomB"); l.sills = U(p, "uSills"); l.sillA = U(p, "uSillA"); l.sillB = U(p, "uSillB");
-  l.contactBox = U(p, "uContactBox"); l.contact = U(p, "uContact"); l.foundWx = U(p, "uFoundWx");   // MA2
+  l.contactBox = U(p, "uContactBox"); l.contact = U(p, "uContact"); l.foundWx = U(p, "uFoundWx"); l.mossHab = U(p, "uMossHab");   // MA2
   l.roomDec = U(p, "uRoomDec"); l.extDec = U(p, "uExtDec"); l.roomX = U(p, "uRoomX");   // GX5 static decal ranges, rooms past 16
   l.vp = U(p, "uVP"); l.time = U(p, "uTime"); l.wind = U(p, "uWind"); l.leafCol = U(p, "uLeafCol");
   l.base = U(p, "uBase"); l.metal = U(p, "uMetal"); l.rough = U(p, "uRough"); l.thin = U(p, "uThin");
@@ -5361,7 +5734,7 @@ void Renderer::drawItems(GLuint p, const std::vector<DrawItem>& items, bool shad
         lastContact = it.contact;
         bool on = it.contact && perf.foundWx && !q.legacy;
         glUniform1i(L.foundWx, on ? 1 : 0);
-        if (on) { glUniform4fv(L.contactBox, 1, glm::value_ptr(it.contact[0])); glUniform4fv(L.contact, 4, glm::value_ptr(it.contact[1])); }
+        if (on) { glUniform4fv(L.contactBox, 1, glm::value_ptr(it.contact[0])); glUniform4fv(L.contact, 4, glm::value_ptr(it.contact[1])); if (L.mossHab >= 0) glUniform4fv(L.mossHab, 1, glm::value_ptr(it.contact[5])); }
       }
     }
     if (it.mesh->vao != boundVao) { boundVao = it.mesh->vao; glBindVertexArray(boundVao); }
@@ -6137,8 +6510,6 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   // shadow cascades and sky occlusion: standard depth; the camera passes below switch to reverse-Z
   glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE); glClearDepth(1.0);
   RenderView v = v0;
-  thorTex = perf.terrainHorizon && !thumbMode ? t.horizonSync(sunDir) : 0;   // VOT T6 (bakes on a new map, a new sun band, or after edits)
-  thorMap = t.horizonMap(); thorW = t.horizonWeights(sunDir);
   v.proj = reverseZ(v0.proj);
   if (v0.vmProj[2][3] != 0.0f) v.vmProj = reverseZ(v0.vmProj);
   stats.draws = 0; stats.tris = 0; stats.culled = 0; stats.casterCulled = 0; stats.shadowDraws = 0; stats.foliageDraws = 0; stats.instDrawn = 0;
@@ -6151,6 +6522,15 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   if (!thumbMode) bakeFog(t);
   uploadStaticDecals();      // GX5: before the probe captures (they run the main shader too)
   lightingBegin(*this, v);   // L2: time of day (sunDir = the key light until lightingEnd)
+  thorTex = perf.terrainHorizon && !thumbMode ? t.horizonSync(sunDir) : 0;   // VOT T6, after lightingBegin: the hour's sun, not the Day sun (bakes on a new map, a new sun band, or after edits)
+  thorMap = t.horizonMap(); thorW = t.horizonWeights(sunDir);
+  {   // VFX rev3 tdeform: tiers by preset (spec 8.2): Ultra Low / Low off, Medium 8 cm / 48 m, High 4 cm / 64 m, Ultra 4 cm / 96 m
+    extern void deformFrame(vec3, float, int, bool&, GLuint&, glm::vec4&);
+    GfxPreset pr = settings().s.preset();
+    if (pr == GfxPreset::Custom) pr = q.matLayer >= 2 ? GfxPreset::High : q.matLayer == 1 ? GfxPreset::Medium : GfxPreset::Low;
+    int tier = !perf.terrainDeform || thumbMode ? 0 : pr == GfxPreset::Medium ? 1 : pr == GfxPreset::High ? 2 : pr == GfxPreset::Ultra ? 3 : 0;
+    deformFrame(v0.camPos, v0.dt, tier, defOn, defTex, defMap);
+  }
   weatherDerive(*this, v.camPos);      // W1: the weather state and what follows from it this frame (weather.cpp)
   uploadWeather();
   pxAngle = 2.0f / (std::max(1e-3f, v.proj[1][1]) * std::max(1, height));   // vertical radians per pixel
@@ -6466,7 +6846,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       const float ut = 5.5f, uf = 14.0f;
       dustOn = u > ut || (dustOn && u > 0.8f * ut);
       float k = dustOn ? std::clamp((u - 0.8f * ut) / (uf - 0.8f * ut), 0.0f, 1.0f) : 0.0f; k = k * k * k;
-      if (ws.dustVisM > 0) k = std::max(k, 0.35f);   // Blowing dust / Sandstorm: always streaming
+      if (ws.dustVisM > 0) k = std::max(k, 0.6f);   // Blowing dust / Sandstorm: always streaming
       const bool arid = groundPaintArid();
       vec2 dir = glm::length(wx.der.windXZ) > 1e-3f ? glm::normalize(wx.der.windXZ) : vec2(std::sin(glm::radians(ws.windDirDeg)), std::cos(glm::radians(ws.windDirDeg)));
       dustPhase = std::fmod(dustPhase + (float)dt * 0.35f * u, 4096.0f);   // the ribbons travel at about a third of the wind
@@ -6499,6 +6879,20 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     }
     { static const int dbg = std::getenv("NMK_DBG_TERRAIN") ? std::atoi(std::getenv("NMK_DBG_TERRAIN")) : 0; glProgramUniform1i(progTerrain, glGetUniformLocation(progTerrain, "uDbgTerr"), dbgTerr >= 0 ? dbgTerr : dbg); }   // GG1 measurement
     glProgramUniform4fv(progTerrain, glGetUniformLocation(progTerrain, "uDust"), 1, glm::value_ptr(dustU));   // W5 tdust
+    {   // VFX rev3 4.4 / 8.2 tpom tiers by preset: Ultra Low off; Low one offset 0.015 m within 8 m; Medium 8 steps 0.030 m / 18 m;
+        // High 10 steps 0.050 m / 35 m; Ultra 10 steps 0.065 m / 55 m (texTap caps the march at 10). Custom follows the material tier.
+      GfxPreset pr = settings().s.preset();
+      if (pr == GfxPreset::Custom) pr = q.matLayer >= 2 ? GfxPreset::High : q.matLayer == 1 ? GfxPreset::Medium : GfxPreset::Low;
+      vec4 tp(0.0f);
+      if (perf.terrainPom && !thumbMode) switch (pr) {
+        case GfxPreset::Low: tp = vec4(0.015f, 1.0f, 8.0f, 0.5f); break;
+        case GfxPreset::Medium: tp = vec4(0.030f, 8.0f, 18.0f, 0.5f); break;
+        case GfxPreset::High: tp = vec4(0.050f, 10.0f, 35.0f, 0.5f); break;
+        case GfxPreset::Ultra: tp = vec4(0.065f, 10.0f, 55.0f, 0.5f); break;
+        default: break;   // Ultra Low: off
+      }   // shortcut: w = 0.5 uv per metre (the ground sets' 2 m tile); read it from the soil slot's scale if the sets diverge
+      glProgramUniform4fv(progTerrain, glGetUniformLocation(progTerrain, "uTPom"), 1, glm::value_ptr(tp));
+    }
     }
     t.drawOpts.normals = perf.terrainNormals; t.drawOpts.morph = perf.terrainMorph; t.drawOpts.skyView = perf.terrainSkyView; t.drawOpts.tileLod = perf.terrainTileLod;   // VOT T1 / T5 / T2
     // PF terrain: samples the terrain pass wrote, read a ring slot later (the shaded-fragment count is the bench's fragment query, gpuMark)
@@ -6506,7 +6900,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     if (terrQn >= 2) { GLuint64 b = 0; GLint ok = 0; glGetQueryObjectiv(terrQ[terrQi][1], GL_QUERY_RESULT_AVAILABLE, &ok); if (ok) { glGetQueryObjectui64v(terrQ[terrQi][1], GL_QUERY_RESULT, &b); stats.terrSamples = (double)b; } }
     glBeginQuery(GL_SAMPLES_PASSED, terrQ[terrQi][1]);
     const GLuint progTD = progTN && perf.terrainPrepass ? progTerrainDepth : 0;   // PF: tzprepass
-    if (progTD) { glProgramUniformMatrix4fv(progTD, U(progTD, "uVP"), 1, GL_FALSE, glm::value_ptr(vp)); glProgramUniform3fv(progTD, U(progTD, "uCamPos"), 1, glm::value_ptr(v.camPos)); }
+    if (progTD) { glProgramUniformMatrix4fv(progTD, U(progTD, "uVP"), 1, GL_FALSE, glm::value_ptr(vp)); glProgramUniform3fv(progTD, U(progTD, "uCamPos"), 1, glm::value_ptr(v.camPos));    // the depth pre-pass must sink the tiles by the same R (EQUAL)
+      glProgramUniform1i(progTD, U(progTD, "uDefTex"), tu::kDeform); glProgramUniform1i(progTD, U(progTD, "uDefOn"), defOn && !thumbMode ? 1 : 0); glProgramUniform4fv(progTD, U(progTD, "uDefMap"), 1, glm::value_ptr(defMap)); }
     t.draw(progTerrain, v.camPos, vp, progTN, progTD);   // streamed LOD chunks + deformation tiles (terrain_chunks.cpp)
     glEndQuery(GL_SAMPLES_PASSED); terrQi ^= 1; ++terrQn;
     glDisable(GL_POLYGON_OFFSET_FILL);
@@ -6666,6 +7061,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     stats.draws += natDraws; stats.tris += (int)natTufts * 30;
     glEnable(GL_CULL_FACE);
   }
+  if (!thumbMode && perf.scatter) { extern void scatterRenderPass(Renderer&, const RenderView&, const mat4&); scatterRenderPass(*this, v, vp); }   // BF B2/B3: moss cushions, litter sheets
   if (perf.skyLast) drawSky();
   gpuMark(GP_MsaaResolve);
   if (ms) {   // B1 MSAA resolve into the HDR target; water and everything after draw there, as without MSAA
@@ -6720,38 +7116,89 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   if (vmOnly == 3) { float z[4] = {0, 0, 0, 0}; glClearTexImage(hdrColor, 0, GL_RGBA, GL_FLOAT, z); }   // VM2 self-test: the world black from here on (bloom, effects, the weapon over it)
   // bloom is taken from the lit world *before* effects are drawn, so muzzle flashes, tracers and impact sparks
   // look as they did before this pass (no glow)
+  // BF fxhdr (spec 5.2): emissive particles live in scene HDR before bloom (they bloom); the exposure meter's mips are
+  // taken before them, so no effect ever moves the exposure
+  const bool fxHdr = perf.fxHdr && !q.legacy && !thumbMode;
+  fxMipDone = false;
+  auto fxState = [&] {
+    glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE);
+    glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST);
+    glUseProgram(progFx);
+    glUniformMatrix4fv(U(progFx, "uVP"), 1, GL_FALSE, glm::value_ptr(vpU));
+    const bool lit = perf.fxLit && !q.legacy, soft = perf.fxSoft && !q.legacy && depthTex;
+    if (lit) setLighting(progFx, v);
+    glUseProgram(progFx); glUniform1i(U(progFx, "uFxLit"), lit ? 1 : 0); glUniform1i(U(progFx, "uSoft"), soft ? 1 : 0);
+    fxBrightUniforms(progFx);
+    if (soft) {
+      if (!softDepth || softW != width || softH != height) {
+        if (softDepth) glDeleteTextures(1, &softDepth);
+        GLint fmt = GL_DEPTH_COMPONENT32F; glGetTextureLevelParameteriv(depthTex, 0, GL_TEXTURE_INTERNAL_FORMAT, &fmt);
+        glCreateTextures(GL_TEXTURE_2D, 1, &softDepth); glTextureStorage2D(softDepth, 1, (GLenum)fmt, width, height); softW = width; softH = height;
+        glTextureParameteri(softDepth, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTextureParameteri(softDepth, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      }
+      glCopyImageSubData(depthTex, GL_TEXTURE_2D, 0, 0, 0, 0, softDepth, GL_TEXTURE_2D, 0, 0, 0, 0, width, height, 1);
+      glBindTextureUnit(7, softDepth); glUniform1i(U(progFx, "uSoftDepth"), 7);
+      glUniform1f(U(progFx, "uP22"), v.proj[2][2]); glUniform1f(U(progFx, "uP32"), v.proj[3][2]);
+    }
+    glBindVertexArray(fxVao);
+  };
+  if (fxHdr) {
+    if (!(v.eyepieceR > 0 && !thumbMode)) { glGenerateTextureMipmap(hdrColor); fxMipDone = true; }   // the meter's view of the scene, without effects
+    if (!fxAdd.empty()) {
+      fxState();
+      glBlendFunc(GL_ONE, GL_ONE); glUniform1i(U(progFx, "uAdd"), 1);
+      glNamedBufferData(fxVbo, fxAdd.size() * sizeof(FxVert), fxAdd.data(), GL_STREAM_DRAW);
+      glDrawArrays(GL_TRIANGLES, 0, (GLsizei)fxAdd.size());
+      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); glDisable(GL_BLEND); glDepthMask(GL_TRUE);
+    }
+  }
   gpuMark(GP_Bloom);
   if (!thumbMode && !q.legacy && q.bloom && q.bloomStrength > 0) bloomPass();
   gpuMark(GP_Fx);
   // effects: smoke (alpha) then flashes / tracers / streaks (additive), depth-tested, no depth writes
-  if (!fxAlpha.empty() || !fxAdd.empty()) {
-    glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE);
-    glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST);   // own state: the world composite / TAA passes leave blending off
-    glUseProgram(progFx);
-    glUniformMatrix4fv(U(progFx, "uVP"), 1, GL_FALSE, glm::value_ptr(vpU));   // after the TAA resolve: unjittered
-    {   // W6: the scene's fog / sun on the particles (fxlit) and the soft fade against a copy of the depth (fxsoft)
-      const bool lit = perf.fxLit && !q.legacy, soft = perf.fxSoft && !q.legacy && depthTex;
-      if (lit) setLighting(progFx, v);
-      glUseProgram(progFx); glUniform1i(U(progFx, "uFxLit"), lit ? 1 : 0); glUniform1i(U(progFx, "uSoft"), soft ? 1 : 0);
-      if (soft) {
-        if (!softDepth || softW != width || softH != height) {
-          if (softDepth) glDeleteTextures(1, &softDepth);
-          GLint fmt = GL_DEPTH_COMPONENT32F; glGetTextureLevelParameteriv(depthTex, 0, GL_TEXTURE_INTERNAL_FORMAT, &fmt);
-          glCreateTextures(GL_TEXTURE_2D, 1, &softDepth); glTextureStorage2D(softDepth, 1, (GLenum)fmt, width, height); softW = width; softH = height;
-          glTextureParameteri(softDepth, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTextureParameteri(softDepth, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        }
-        glCopyImageSubData(depthTex, GL_TEXTURE_2D, 0, 0, 0, 0, softDepth, GL_TEXTURE_2D, 0, 0, 0, 0, width, height, 1);
-        glBindTextureUnit(7, softDepth); glUniform1i(U(progFx, "uSoftDepth"), 7);   // unit 7: the post passes' depth unit, free here
-        glUniform1f(U(progFx, "uP22"), v.proj[2][2]); glUniform1f(U(progFx, "uP32"), v.proj[3][2]);
-      }
-    }
-    glBindVertexArray(fxVao);
+  if (!fxAlpha.empty() || (!fxAdd.empty() && !fxHdr)) {   // W6 fxlit / fxsoft state in fxState(); under fxhdr the additive ones went in before bloom
+    fxState();
     if (!fxAlpha.empty() && !v.thermal) {   // TH1: smoke and dust do not block a thermal view (fires and flashes, additive, stay)
+      const bool half = perf.litSmoke && !q.legacy && progHalfDepth && progSoftUp && depthTex;
+      if (half) {   // BF litsmoke: premultiplied into a half-resolution target (spec 6.6 / 8.3), occlusion by the soft fade against half depth
+        const int hw = std::max(1, width / 2), hh = std::max(1, height / 2);
+        if (!softCTex || softCW != hw || softCH != hh) {
+          if (softCTex) { glDeleteTextures(1, &softCTex); glDeleteTextures(1, &halfDTex); glDeleteFramebuffers(1, &softCFbo); glDeleteFramebuffers(1, &halfDFbo); }
+          glCreateTextures(GL_TEXTURE_2D, 1, &softCTex); glTextureStorage2D(softCTex, 1, GL_RGBA16F, hw, hh);
+          glCreateTextures(GL_TEXTURE_2D, 1, &halfDTex); glTextureStorage2D(halfDTex, 1, GL_R32F, hw, hh);
+          for (GLuint t : {softCTex, halfDTex}) { glTextureParameteri(t, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTextureParameteri(t, GL_TEXTURE_MAG_FILTER, GL_NEAREST); glTextureParameteri(t, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(t, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); }
+          glCreateFramebuffers(1, &softCFbo); glNamedFramebufferTexture(softCFbo, GL_COLOR_ATTACHMENT0, softCTex, 0);
+          glCreateFramebuffers(1, &halfDFbo); glNamedFramebufferTexture(halfDFbo, GL_COLOR_ATTACHMENT0, halfDTex, 0);
+          softCW = hw; softCH = hh;
+        }
+        GLint prevFbo = 0; glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevFbo);
+        glDisable(GL_BLEND); glDisable(GL_DEPTH_TEST);
+        glBindFramebuffer(GL_FRAMEBUFFER, halfDFbo); glViewport(0, 0, hw, hh);
+        glUseProgram(progHalfDepth); glBindTextureUnit(7, depthTex); glUniform1i(U(progHalfDepth, "uDepth"), 7);
+        glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
+        glBindFramebuffer(GL_FRAMEBUFFER, softCFbo); { const float z[4] = {0, 0, 0, 0}; glClearNamedFramebufferfv(softCFbo, GL_COLOR, 0, z); }
+        fxState(); glDisable(GL_DEPTH_TEST);
+        glUniform1i(U(progFx, "uSoft"), 1); glBindTextureUnit(7, halfDTex); glUniform1i(U(progFx, "uSoftDepth"), 7);   // the soft fade does the occlusion here
+        glUniform1f(U(progFx, "uP22"), v.proj[2][2]); glUniform1f(U(progFx, "uP32"), v.proj[3][2]);
+        glEnable(GL_BLEND); glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);   // premultiplied colour, coverage in alpha
+        glUniform1i(U(progFx, "uAdd"), 0);
+        glNamedBufferData(fxVbo, fxAlpha.size() * sizeof(FxVert), fxAlpha.data(), GL_STREAM_DRAW);
+        glBindVertexArray(fxVao); glDrawArrays(GL_TRIANGLES, 0, (GLsizei)fxAlpha.size());
+        glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFbo); glViewport(0, 0, width, height);
+        glUseProgram(progSoftUp);
+        glBindTextureUnit(3, softCTex); glBindTextureUnit(4, halfDTex); glBindTextureUnit(7, depthTex);
+        glUniform1i(U(progSoftUp, "uSoftC"), 3); glUniform1i(U(progSoftUp, "uHalfD"), 4); glUniform1i(U(progSoftUp, "uFullD"), 7);
+        glUniform1f(U(progSoftUp, "uP22"), v.proj[2][2]); glUniform1f(U(progSoftUp, "uP32"), v.proj[3][2]);
+        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);   // premultiplied over the scene, once
+        glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
+        glEnable(GL_DEPTH_TEST); glUseProgram(progFx); glBindVertexArray(fxVao);
+      } else {
       glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); glUniform1i(U(progFx, "uAdd"), 0);
       glNamedBufferData(fxVbo, fxAlpha.size() * sizeof(FxVert), fxAlpha.data(), GL_STREAM_DRAW);
       glDrawArrays(GL_TRIANGLES, 0, (GLsizei)fxAlpha.size());
+      }
     }
-    if (!fxAdd.empty()) {
+    if (!fxAdd.empty() && !fxHdr) {
       glBlendFunc(GL_ONE, GL_ONE); glUniform1i(U(progFx, "uAdd"), 1);
       glNamedBufferData(fxVbo, fxAdd.size() * sizeof(FxVert), fxAdd.data(), GL_STREAM_DRAW);
       glDrawArrays(GL_TRIANGLES, 0, (GLsizei)fxAdd.size());
@@ -6951,7 +7398,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
 
   gpuMark(GP_Post);
   // ---- exposure
-  if (!eyepiece) glGenerateTextureMipmap(hdrColor);
+  if (!eyepiece && !fxMipDone) glGenerateTextureMipmap(hdrColor);   // BF fxhdr: already taken before the effects
   int levels = (int)std::floor(std::log2((float)std::max(width, height)));
   glBindFramebuffer(GL_FRAMEBUFFER, expoFbo[expoIdx ^ 1]);
   glViewport(0, 0, 1, 1);
@@ -6963,6 +7410,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1f(U(progExpo, "uReset"), expoReset); expoReset = -1;
   lightingExposure(*this, progExpo);   // L2: exposure range of the time of day
   glUniform1f(U(progExpo, "uExpoFloor"), flashOn ? flashExpoFloor : 0.0f);   // FX1
+  glUniform1i(U(progExpo, "uFxExpo"), perf.fxExpo && !q.legacy ? 1 : 0); glUniform1i(U(progExpo, "uFreeze"), perf.fxExpo && time < expoFreezeUntil ? 1 : 0);   // BF
   glUniform1i(U(progExpo, "uHist"), q.lightNew && perf.histExpo && !q.legacy ? 1 : 0); glUniform1f(U(progExpo, "uHistCal"), q.histCal);   // VO L8
   glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
   expoIdx ^= 1;
@@ -7014,6 +7462,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUseProgram(progTone);
   glBindTextureUnit(0, hdrColor); glBindTextureUnit(1, expoTex[expoIdx]);
   glUniform1i(U(progTone, "uDbgView"), dbgView);
+  glUniform1i(U(progTone, "uPhysGuard"), perf.physGuard && q.lightPhys && q.lightNew && !q.legacy && !thumbMode && physExpo > 0.0f ? 1 : 0);
   glUniform1f(U(progTone, "uCas"), perf.cas && !q.legacy && !thumbMode ? q.sharpness : 0.0f); glUniform1i(U(progTone, "uDither"), perf.dither && !thumbMode ? 1 : 0);   // CP1
   glUniform1i(U(progTone, "uHdr"), 0); glUniform1i(U(progTone, "uExpo"), 1);
   glUniform1f(U(progTone, "uNewExpo"), q.lightNew && !q.legacy && !thumbMode ? q.newExpo : 1.0f);   // VO L1
@@ -7035,7 +7484,9 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glBindTextureUnit(2, bloomTex[0]); glUniform1i(U(progTone, "uBloom"), 2);
   glBindTextureUnit(3, vmDistTex); glUniform1i(U(progTone, "uVmDist"), 3);   // VM2: no world bloom on the first-person weapon
   glUniform1f(U(progTone, "uMicro"), thumbMode || q.legacy || eyepiece ? 0.0f : q.microcontrast);   // UI2 (the eyepiece view has no fresh mips)
-  glUniform1f(U(progTone, "uBloomAmt"), !q.legacy && q.bloom ? std::min(1.0f, q.bloomStrength * lt.mapBloom) : 0.0f);   // BR3: x the map's bloom
+  { const bool pb = perf.pBloom && !q.legacy; float norm = 6.0f; if (pb) { norm = 0.0f; float w = 1.0f; for (int i = 0; i < kBloomLevels; ++i) { norm += w; w *= 0.62f; } }
+    glUniform1f(U(progTone, "uBloomNorm"), norm);
+    glUniform1f(U(progTone, "uBloomAmt"), !q.legacy && q.bloom ? std::min(1.0f, (pb ? 0.012f : q.bloomStrength) * lt.mapBloom) : 0.0f); }   // BF pbloom: ~1.2 % of the source, unthresholded   // BR3: x the map's bloom
   glUniform1f(U(progTone, "uRectVig"), v.rectVignette && !thumbMode ? 1.0f : 0.0f);   // TK3
   glUniform1f(U(progTone, "uEyeR"), eyepiece ? v.eyepieceR : 0.0f); glUniform1f(U(progTone, "uAspect"), (float)width / std::max(1, height));
   {   // GX5 grade (content/settings/grade.json)
@@ -7107,6 +7558,26 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
       glUniform1i(U(progSsao, "uGtao"), gt ? 1 : 0); glUniform1i(U(progSsao, "uSlices"), aoDiv <= 2 ? 3 : 2); glUniform1i(U(progSsao, "uSteps"), aoDiv <= 2 ? 4 : 3); }
     glUniform2f(U(progSsao, "uTexel"), (float)aoDiv / width, (float)aoDiv / height);
     glDrawArrays(GL_TRIANGLES, 0, 3);
+    if (perf.contactAO && progContactAO && !contactAO.empty() && !thumbMode) {   // BF B4: multiply the contact decals into the AO
+      const size_t bytes = contactAO.size() * sizeof(vec4);
+      if (!contactAOVao) {
+        glCreateVertexArrays(1, &contactAOVao);
+        for (int k = 0; k < 3; ++k) { glEnableVertexArrayAttrib(contactAOVao, k); glVertexArrayAttribFormat(contactAOVao, k, 4, GL_FLOAT, GL_FALSE, k * 16); glVertexArrayAttribBinding(contactAOVao, k, 0); }
+        glVertexArrayBindingDivisor(contactAOVao, 0, 1);
+      }
+      if (bytes > contactAOBytes) { if (contactAOBuf) glDeleteBuffers(1, &contactAOBuf); glCreateBuffers(1, &contactAOBuf); contactAOBytes = std::max(bytes, size_t(48 * 256)); glNamedBufferStorage(contactAOBuf, contactAOBytes, nullptr, GL_DYNAMIC_STORAGE_BIT); glVertexArrayVertexBuffer(contactAOVao, 0, contactAOBuf, 0, 48); }
+      glNamedBufferSubData(contactAOBuf, 0, bytes, contactAO.data());
+      glUseProgram(progContactAO);
+      glUniformMatrix4fv(U(progContactAO, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+      glUniformMatrix4fv(U(progContactAO, "uInvVP"), 1, GL_FALSE, glm::value_ptr(inv));
+      glUniform2f(U(progContactAO, "uInvSize"), 1.0f / std::max(1, width / aoDiv), 1.0f / std::max(1, height / aoDiv));
+      glUniform3fv(U(progContactAO, "uEye"), 1, glm::value_ptr(v.camPos));
+      glBindTextureUnit(7, depthTex); glUniform1i(U(progContactAO, "uDepth"), 7);
+      glBindTextureUnit(12, nrTex); glUniform1i(U(progContactAO, "uNR"), 12);
+      glEnable(GL_BLEND); glBlendFunc(GL_ZERO, GL_SRC_COLOR); glColorMaski(0, GL_TRUE, GL_FALSE, GL_FALSE, GL_FALSE);
+      glBindVertexArray(contactAOVao); glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GLsizei(contactAO.size() / 3));
+      glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE); glDisable(GL_BLEND); glBindVertexArray(emptyVao);
+    }
   }
   // light shafts at half resolution
   if (shafts) {
@@ -7123,6 +7594,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   }
   // composite into hdrColor from a copy of it
   glCopyImageSubData(hdrColor, GL_TEXTURE_2D, 0, 0, 0, 0, sceneCopy, GL_TEXTURE_2D, 0, 0, 0, 0, width, height, 1);
+  froxRun(v);   // CP4 froxel fog (before the composite that applies it)
   const bool ssrHalf = ssr && perf.ssrHalf && progSsrHalf && ssrTex;
   if (ssrHalf) {   // OPT ssrhalf: the reflection march at a quarter of the pixels; the composite upsamples it by depth
     glBindFramebuffer(GL_FRAMEBUFFER, ssrFbo); glViewport(0, 0, std::max(1, width / 2), std::max(1, height / 2));
@@ -7131,7 +7603,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
     glUniform1i(U(progSsrHalf, "uScene"), 8); glUniform1i(U(progSsrHalf, "uDepth"), 7);
     setLighting(progSsrHalf, v); glUseProgram(progSsrHalf);
     glBindTextureUnit(12, nrTex); glUniform1i(U(progSsrHalf, "uNR"), 12);
-    glUniform1f(U(progSsrHalf, "uSsrAmt"), q.ssrStrength); glUniform1i(U(progSsrHalf, "uSsrEnvCube"), 1); glUniform1f(U(progSsrHalf, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f); glUniform2f(U(progSsrHalf, "uSsrRough"), perf.ssrFade ? 0.3f : 0.1f, perf.ssrFade ? 0.5f : 0.4f);
+    glUniform1f(U(progSsrHalf, "uSsrAmt"), q.ssrStrength); glUniform1i(U(progSsrHalf, "uSsrEnvCube"), 1); glUniform1i(U(progSsrHalf, "uSsrClamp"), perf.ssrClamp ? 1 : 0); glUniform1f(U(progSsrHalf, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f); glUniform2f(U(progSsrHalf, "uSsrRough"), perf.ssrFade ? 0.3f : 0.1f, perf.ssrFade ? 0.5f : 0.4f);
     glUniformMatrix4fv(U(progSsrHalf, "uProj"), 1, GL_FALSE, glm::value_ptr(v.proj));
     glUniformMatrix4fv(U(progSsrHalf, "uView"), 1, GL_FALSE, glm::value_ptr(v.view));
     glUniformMatrix4fv(U(progSsrHalf, "uInvProj"), 1, GL_FALSE, glm::value_ptr(invP));
@@ -7155,6 +7627,9 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
   glUniform1i(U(progComposite, "uSsrHalf"), ssrHalf ? 1 : 0); glBindTextureUnit(3, ssrHalf ? ssrTex : 0); glUniform1i(U(progComposite, "uSsrTex"), 3);   // unit 3: model material maps, rebound per draw
   glUniform2f(U(progComposite, "uSsrTexel"), 2.0f / width, 2.0f / height);
   glUniform1f(U(progComposite, "uSsrAmt"), ssr ? q.ssrStrength : 0.0f);
+  glUniform1i(U(progComposite, "uFroxOn"), froxOn ? 1 : 0); glBindTextureUnit(4, froxOn ? froxInt : 0); glUniform1i(U(progComposite, "uFrox"), 4);   // unit 4: model AO maps, rebound per draw
+  glUniform1f(U(progComposite, "uFroxNear"), froxNear); glUniform1f(U(progComposite, "uFroxFar"), froxFar); glUniform1f(U(progComposite, "uFroxHazeD"), hazeSigma());
+  glUniform1f(U(progComposite, "uFroxHazeH"), wx.der.phys && wx.der.visM < 3000.0f ? std::max(lt.mapHazeH > 0.0f ? lt.mapHazeH : q.hazeHeight, 600.0f) : lt.mapHazeH > 0.0f ? lt.mapHazeH : q.hazeHeight); glUniform3fv(U(progComposite, "uFroxAmb"), 1, glm::value_ptr(vec3(fogNow)));
   {   // W5 wxshimmer gate (terrain session's spec): arid map, sun > 25 deg, cover < 0.3, wind < 4.5 m/s (fading from 3), dry, no dust storm
     extern bool groundPaintArid();
     float g = perf.wxShimmer && !thumbMode && !q.legacy && groundPaintArid() && sunDir.y > 0.4226f && wx.st.cover < 0.3f && wx.st.precip == WxNone && wx.st.dustVisM <= 0.0f ? 1.0f : 0.0f;
@@ -7164,7 +7639,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
     g *= std::max(0.0f, 1.0f - std::fabs(glm::degrees(pitch)) / 20.0f);
     const float mag = std::max(1.0f, v.proj[1][1] / 1.43f);   // a scope's zoom (narrower than the ~70 deg view) scales the wobble
     shimmerPx = 2.0f * (height / 1080.0f) * g * mag;
-  } glUniform1f(U(progComposite, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f); glUniform2f(U(progComposite, "uSsrRough"), perf.ssrFade ? 0.3f : 0.1f, perf.ssrFade ? 0.5f : 0.4f);   // OPT ssrrange: no march past 0.75 x visibility
+  } glUniform1i(U(progComposite, "uSsrClamp"), perf.ssrClamp ? 1 : 0); glUniform1f(U(progComposite, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f); glUniform2f(U(progComposite, "uSsrRough"), perf.ssrFade ? 0.3f : 0.1f, perf.ssrFade ? 0.5f : 0.4f);   // OPT ssrrange: no march past 0.75 x visibility
   glUniformMatrix4fv(U(progComposite, "uProj"), 1, GL_FALSE, glm::value_ptr(v.proj));
   glUniformMatrix4fv(U(progComposite, "uView"), 1, GL_FALSE, glm::value_ptr(v.view));
   glUniformMatrix4fv(U(progComposite, "uInvProj"), 1, GL_FALSE, glm::value_ptr(invP));
@@ -7254,9 +7729,11 @@ void Renderer::taaResolve(const mat4& vpJ, const mat4& vpU, const RenderView& v)
 void Renderer::bloomPass() {
   glDisable(GL_DEPTH_TEST); glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE); glDisable(GL_BLEND);
   glBindVertexArray(emptyVao);
+  const bool pb = perf.pBloom && !q.legacy;   // BF pbloom: 8 levels (to ~0.45 of the screen height), no luma weighting, 1/r tail
+  const int nLv = pb ? kBloomLevels : 6;
   glUseProgram(progBloomDown);
-  glUniform1i(U(progBloomDown, "uSrc"), 0);
-  for (int i = 0; i < kBloomLevels; ++i) {
+  glUniform1i(U(progBloomDown, "uSrc"), 0); glUniform1f(U(progBloomDown, "uBloomClamp"), pb ? 60000.0f : 64.0f);
+  for (int i = 0; i < nLv; ++i) {
     GLuint src = i == 0 ? hdrColor : bloomTex[i - 1];
     int sw = i == 0 ? width : bloomW[i - 1], sh = i == 0 ? height : bloomH[i - 1];
     glBindFramebuffer(GL_FRAMEBUFFER, bloomFbo[i]); glViewport(0, 0, bloomW[i], bloomH[i]); glInvalidateNamedFramebufferData(bloomFbo[i], 1, kInvC0);
@@ -7269,9 +7746,9 @@ void Renderer::bloomPass() {
     if (i == 0) glTextureParameteri(hdrColor, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
   }
   glUseProgram(progBloomUp);
-  glUniform1i(U(progBloomUp, "uSrc"), 0);
+  glUniform1i(U(progBloomUp, "uSrc"), 0); glUniform1f(U(progBloomUp, "uUpW"), pb ? 0.62f : 1.0f);
   glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_ONE);
-  for (int i = kBloomLevels - 1; i > 0; --i) {   // accumulate each smaller level into the next larger one
+  for (int i = nLv - 1; i > 0; --i) {   // accumulate each smaller level into the next larger one
     glBindFramebuffer(GL_FRAMEBUFFER, bloomFbo[i - 1]); glViewport(0, 0, bloomW[i - 1], bloomH[i - 1]);
     glBindTextureUnit(0, bloomTex[i]);
     glUniform2f(U(progBloomUp, "uSrcTexel"), 1.0f / bloomW[i], 1.0f / bloomH[i]);

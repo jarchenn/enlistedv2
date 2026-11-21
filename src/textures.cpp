@@ -480,6 +480,7 @@ uniform float uTexBias;   // log2(render / display), -0.5 more under TAA (texbia
 uniform int uMicroLayer;   // CP step 6: the micro-detail set's array layer (slot micro_detail), -1 none
 uniform ivec4 uMaskLayer;  // CP step 6 part 2: the mask library's array layers (mask_lib_0..3), -1 missing
 uniform int uMaskLib;      // perf switch masklib
+uniform int uAbsFar;      // FIX8 (perf switch absfar)
 uniform int uSteepTri;     // FIX5 (perf switch steeptri): ground-space slots triplanar on steep normals
 uniform int uWearCause;    // M4 (perf switch wearcause): wear placed by its causes (splash, runoff), roughness first
 uniform ivec2 uMicroOn;    // x: micro detail (perf switch microdetail), y: macro roughness variation (perf switch roughvar)
@@ -588,7 +589,30 @@ struct TerrT { vec3 alb; float r, ao; vec3 dn; float h; };   // h (M2): the set'
 // surface wins (stones stand out of mud, mud and sand settle between them). Untouched at k = 0 / 1 and between layers
 // of equal height (untextured: 0.5), so the procedural edges and every map's look stay; uHBlend 0 = off (switch "hblend")
 uniform float uHBlend;
-float hbK(float k, float ha, float hb){ float s = uHBlend*(uHBFade.y > 0.0 ? 1.0 - smoothstep(uHBFade.x, uHBFade.y, gEyeD) : 1.0); return s > 0.0 ? clamp(k + (hb - ha)*s*4.0*k*(1.0 - k), 0.0, 1.0) : k; }
+uniform int uLayerBlend;   // BF 3.3 (perf switch layerblend): the merged N-layer height blend; off = M2's two-way bias below
+// BF rev 3 spec 3.3 (mirrored in C++ by tex::layerBlend for the selftest): n <= 4 layers, q = authored weights >= 0,
+// h = sampled heights 0..1 (0.5 = level). Guaranteed fallback (all-zero q -> the base layer), the qi factor (an inactive
+// layer at maximum height never shows), weights sum to 1. beta 0.24, width 0.22 [A]; beta scales with the eye fade.
+void layerBlend(float q[4], float h[4], int n, int base, float beta, float width, out float w[4]){
+  float Q = 0.0; for (int i = 0; i < 4; ++i) { w[i] = 0.0; if (i < n) Q += max(q[i], 0.0); }
+  if (Q <= 1e-5) { w[base] = 1.0; return; }
+  float s[4]; float sMax = -1e9; int am = base; float qm = -1.0;
+  for (int i = 0; i < n; ++i) { float qi = max(q[i], 0.0)/Q; s[i] = qi > 1e-5 ? qi + beta*(h[i] - 0.5) : -1e9; sMax = max(sMax, s[i]); if (qi > qm) { qm = qi; am = i; } }
+  float G = 0.0;
+  for (int i = 0; i < n; ++i) { float qi = max(q[i], 0.0)/Q; w[i] = qi > 1e-5 ? qi*max(0.0, s[i] - sMax + width) : 0.0; G += w[i]; }
+  if (G > 1e-5) { for (int i = 0; i < n; ++i) w[i] /= G; } else { for (int i = 0; i < n; ++i) w[i] = i == am ? 1.0 : 0.0; }
+}
+// variance restoration (spec 3.3): blended value about the blended mean, scaled by 1/sqrt(sum w^2)
+vec3 vRestore(vec3 c, vec3 cMean, float sumW2){ return cMean + (c - cMean)*inversesqrt(max(sumW2, 0.25)); }
+// RNM (spec 3.3, Barre-Brisebois & Hill): tangent-space detail Nd onto base Nb; a neutral detail (0,0,1) returns Nb
+vec3 rnm(vec3 Nb, vec3 Nd){ vec3 T = Nb + vec3(0.0, 0.0, 1.0), U = Nd*vec3(-1.0, -1.0, 1.0); return normalize(T*dot(T, U)/max(T.z, 1e-4) - U); }
+float hbK(float k, float ha, float hb){ float s = uHBlend*(uHBFade.y > 0.0 ? 1.0 - smoothstep(uHBFade.x, uHBFade.y, gEyeD) : 1.0);
+  if (uLayerBlend == 1) {   // BF 3.3: b over a by the merged blend (k = b's authored weight); s fades the height term with the eye
+    if (s <= 0.0) return k;
+    float q[4] = float[4](1.0 - k, k, 0.0, 0.0), h[4] = float[4](ha, hb, 0.5, 0.5), w[4];
+    layerBlend(q, h, 2, 0, 0.24*s/max(uHBlend, 1e-3), 0.22, w); return w[1];   // beta 0.24 x the eye fade only (M2's strength is not applied twice)
+  }
+  return s > 0.0 ? clamp(k + (hb - ha)*s*4.0*k*(1.0 - k), 0.0, 1.0) : k; }
 // any slot (terrain layers, painted ground: terrTexSlot(uPaintSlot[k], ...)); dpx / dpy = dFdx / dFdy of p taken in
 // uniform control flow (kTerrainFS: tdx, tdy), dist = eye distance (tDist)
 TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
@@ -597,7 +621,7 @@ TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
   vec4 A = uTexA[slot]; if (A.x < 0.0) return o;
   int li = int(A.x + 0.5); vec4 K = uTexB[slot], C = uTexC[slot], Lp = uTexL[li], M = uTexM[li];
   float f = C.w > 0.0 ? 1.0 - smoothstep(C.z, C.w, dist) : 1.0;
-  if (f <= 0.0) return o;
+  if (f <= 0.0) { if (uAbsFar == 1 && K.x < 0.0) o.alb = M.rgb*(-K.x); return o; }   // FIX8 absfar: past the fade an "absolute" set is its mean colour, not a white x1 modulation (paint_dirt / trail_dirt read white beyond 160-180 m)
   gEyeD = dist;
   vec2 inv = Lp.xy*A.w; int rot = int(mod(C.y + 0.5, 4.0));
   gHexK = uHex.x > 0.0 && (uOpt2Off == 1 || gLayerW >= 0.35) ? floor(C.y/4.0 + 0.01)/8.0 : 0.0;   // M1: this slot's hex tiling (ground and cliff taps); OPT2: a layer under 35 % of the pixel takes one plain tap
@@ -663,6 +687,9 @@ vec3 gTexDN = vec3(0.0); float gTexH = 0.0; bool gTexBump = false;   // world no
 uniform int uFloorSlot[8]; // MA1: room floor finish code -> slot (imgmat)
 uniform int uRelief;       // MA1b (Perf relief): parallax on Medium, per-family depth, crevices, detail grain, worn edges
 layout(location=11) flat in vec3 vPcF;         // MA1b: the triangle's provoking vertex part coordinate: a corner of a box face (edge distance)
+float gCav = 0.0, gPorosity = 0.0;   // BF 4.5 inputs for the moss field (gam-5): the set's depth below its mean height (0..1, 1 = deepest joint), and porosity = smoothstep(0.45, 0.85, roughness) (dielectrics; the caller drops metal)
+float gTexPal = 1.0;       // BF 3.6: the copy's palette-variation amount (uInst.z; finish "palette", 0 = none)
+uniform int uReach, uInstVar;   // BF 3.4 / 3.6 (perf switches reach, instvar)
 float gTexSeed = 0.0;      // TX6: the copy's seed (uInst.x): its grunge mask offset
 float gTexWear = 1.0;      // the copy's wear (kMainFS sets uInst.y before texMaterial): more substrate on worn buildings
 int texSlot(float code, int pat){ int c = int(code + 0.5)/100; return c == 0 ? (pat >= 0 && pat < 32 ? uPatSlot[pat] : -1) : c - 2; }
@@ -727,6 +754,7 @@ float macroDamp(vec3 w, vec3 n, float pix){
 void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, int grain, float pix,
                  inout vec3 alb, inout float rough, inout float ao){
   vec3 dwx = dFdx(w), dwy = dFdy(w), dax = dFdx(ap), day = dFdy(ap), dcx = dFdx(pc), dcy = dFdy(pc);
+  gPorosity = smoothstep(0.45, 0.85, rough); gCav = 0.0;   // untextured surfaces too (the early returns below)
   if (!texOn() || slot < 0 || slot >= 704) return;
   vec4 A = uTexA[slot]; if (A.x < 0.0) return;
   int li = int(A.x + 0.5); vec4 K = uTexB[slot], C = uTexC[slot], Lp = uTexL[li], M = uTexM[li];
@@ -759,6 +787,7 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
   vec3 dn2 = dn*(rel && A.y > 0.5 ? max(K.y, 1.0) : K.y)*f*(rel ? 1.5 - 0.5*smoothstep(6.0, 16.0, eyeD) : 1.0);   // MA1b: replace sets at full strength, x1.5 near the eye
   float fr = 128.0*max(inv.x, inv.y);   // the height map's features: ~8 texels
   float h2 = (s.h - Lp.w)*C.x*f*(1.0 - smoothstep(0.18, 0.5, fr*pix));
+  gCav = smoothstep(0.02, 0.3, Lp.w - s.h)*f;   // BF 4.5 (gam-5's moss): raw cavity, every textured slot
   if (rel) {
     // crevices: below the set's mean height (mortar, joints, tile laps, fissures, bark furrows) sees less light; in the
     // albedo too, so the courses still read where the relief is under a pixel (15-35 m)
@@ -833,6 +862,25 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
     a2 *= mix(vec3(1.0), vec3(0.78, 0.74, 0.68), splash*0.9);  // splashed soil, a warm grey-brown (<= 25 % darker)
     a2 *= 1.0 - 0.16*run;                                       // runoff streaks
   }
+  // BF rev 3 spec 3.4 reach: hands polish and darken box edges (door jambs, corners, sills) around 1.05 m +- 0.45 above
+  // the asset's ground; the mask is roughened (spread 0.2, threshold 0.25, contrast 4) so it never reads as a band [A]
+  if (uReach == 1 && gTexSeed > 0.0 && f > 0.0 && dot(pn, pn) > 2.0 && ap.y < 2.4) {
+    vec3 g3 = abs(vPcF) - abs(pc); vec3 gp = abs(pn); int gn = gp.x >= gp.y && gp.x >= gp.z ? 0 : gp.y >= gp.z ? 1 : 2; g3[gn] = 1e3;
+    float edge = 1.0 - smoothstep(0.02, 0.25, min(min(g3.x, g3.y), g3.z)), reach = exp(-pow((ap.y - 1.05)/0.45, 2.0));
+    float pol = clamp((edge*reach + (vnoise(w*9.0) - 0.5)*0.2 - 0.25)*4.0 + 0.5, 0.0, 1.0)*f;
+    r2 = mix(r2, max(r2*0.7, 0.3), pol); a2 *= 1.0 - 0.12*pol;
+  }
+  // BF rev 3 spec 3.6: per-building variation from per-instance constants, no textures. YCoCg so value and hue separate:
+  // hue +-0.12 rad, saturation 0.80-1.15, value 0.78-1.18, roughness +-0.06 [A], all scaled by the copy's palette amount
+  if (uInstVar == 1 && gTexSeed > 0.0 && gTexPal > 0.0) {
+    float h1 = fract(gTexSeed*12.9898 + 0.31), h2 = fract(gTexSeed*78.233 + 0.57), h3 = fract(gTexSeed*37.719 + 0.13), h4 = fract(gTexSeed*4.581 + 0.77);
+    vec3 yc = vec3(dot(a2, vec3(0.25, 0.5, 0.25)), 0.5*(a2.r - a2.b), dot(a2, vec3(-0.25, 0.5, -0.25)));
+    float an_ = (h1 - 0.5)*0.24*gTexPal, cs = cos(an_), sn = sin(an_);
+    vec2 co = vec2(yc.y*cs - yc.z*sn, yc.y*sn + yc.z*cs)*mix(1.0, mix(0.80, 1.15, h2), gTexPal);
+    float Y = yc.x*mix(1.0, mix(0.78, 1.18, h3), gTexPal);
+    a2 = max(vec3(Y + co.x - co.y, Y + co.y, Y - co.x - co.y), vec3(0.0));
+    r2 = r2 + (h4 - 0.5)*0.12*gTexPal;
+  }
   if (uMicroOn.x == 1 && uMicroLayer >= 0 && eyeD < 7.0) {
     float mf = (1.0 - smoothstep(2.5, 7.0, eyeD))*f;
     vec3 ga = abs(ng); bool fl = ga.y > max(ga.x, ga.z), xw = ga.x > ga.z;
@@ -843,6 +891,7 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
     dn2 += Tm*mn.x + Bm*mn.y; r2 *= 1.0 + (mrh - uTexL[uMicroLayer].z)*0.5*mf;
   }
   alb = a2; rough = clamp(r2, 0.04, 1.0); ao *= ao2;
+  gPorosity = smoothstep(0.45, 0.85, rough);   // BF 4.5 (gam-5's moss): porosity from roughness (spec 3.2 column within ~0.15)
   gTexDN = dn2; gTexH = h2;
   gTexBump = C.x > 0.0 || h2 != 0.0;
 }
@@ -1097,6 +1146,16 @@ bool enabled() { return gpuOn && wantOn; }
 void setEnabled(bool on) { wantOn = on; invalidateKey(); for (GLuint p : progs) glProgramUniform1i(p, glGetUniformLocation(p, "uTexOn"), gpuOn && wantOn ? 1 : 0); }
 const Info& info() { return gInfo; }
 int slotIndex(const std::string& n) { auto it = slotByName.find(n); return it == slotByName.end() ? -1 : it->second; }
+void layerBlend(const float* q, const float* h, int n, int base, float beta, float width, float* w) {   // mirrors the GLSL layerBlend line for line
+  float Q = 0; for (int i = 0; i < 4; ++i) { w[i] = 0; if (i < n) Q += std::max(q[i], 0.0f); }
+  if (Q <= 1e-5f) { w[base] = 1; return; }
+  float s[4]; float sMax = -1e9f; int am = base; float qm = -1;
+  for (int i = 0; i < n; ++i) { float qi = std::max(q[i], 0.0f) / Q; s[i] = qi > 1e-5f ? qi + beta * (h[i] - 0.5f) : -1e9f; sMax = std::max(sMax, s[i]); if (qi > qm) { qm = qi; am = i; } }
+  float G = 0;
+  for (int i = 0; i < n; ++i) { float qi = std::max(q[i], 0.0f) / Q; w[i] = qi > 1e-5f ? qi * std::max(0.0f, s[i] - sMax + width) : 0.0f; G += w[i]; }
+  if (G > 1e-5f) { for (int i = 0; i < n; ++i) w[i] /= G; } else { for (int i = 0; i < n; ++i) w[i] = i == am ? 1.0f : 0.0f; }
+}
+vec3 rnm(vec3 Nb, vec3 Nd) { vec3 T = Nb + vec3(0, 0, 1), U = Nd * vec3(-1, -1, 1); return glm::normalize(T * glm::dot(T, U) / std::max(T.z, 1e-4f) - U); }
 int slotLayer(int s) { const auto& t = wantImg ? slotsImg : slots; return s >= 0 && s < (int)t.size() ? t[s].layer : -1; }   // the active table (MA1)
 int patternSlot(int p) { return p >= 0 && p < 32 ? (wantImg ? patSlotImg : patSlot)[p] : -1; }
 

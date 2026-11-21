@@ -1,0 +1,670 @@
+{
+ "animDuration": 0.0,
+ "bmax": [
+  20.945213317871094,
+  5.94956111907959,
+  20.82288360595703
+ ],
+ "bmin": [
+  -20.945213317871094,
+  0.0,
+  -20.82288360595703
+ ],
+ "materials": [
+  {
+   "albedo": "albedoa_1.png",
+   "cutout": true,
+   "mr": "mr_2.jpg",
+   "name": "Metal_Fence",
+   "normal": "normal_0.jpg"
+  },
+  {
+   "albedo": "albedo_4.jpg",
+   "mr": "mr_5.jpg",
+   "name": "Dirt_Road_Bare",
+   "normal": "normal_3.jpg"
+  },
+  {
+   "albedo": "albedo_6.jpg",
+   "name": "Wood_Log"
+  },
+  {
+   "albedo": "albedoa_8.png",
+   "cutout": true,
+   "mr": "mr_9.jpg",
+   "name": "Fallen_Generic_Leaves",
+   "normal": "normal_7.jpg"
+  },
+  {
+   "albedo": "albedo_11.jpg",
+   "mr": "mr_12.jpg",
+   "name": "Ground_Dirt",
+   "normal": "normal_10.jpg"
+  },
+  {
+   "albedo": "albedoa_14.png",
+   "cutout": true,
+   "mr": "mr_15.jpg",
+   "name": "Fallen_Maple_Leaves",
+   "normal": "normal_13.jpg"
+  },
+  {
+   "albedo": "albedoa_17.png",
+   "cutout": true,
+   "mr": "mr_18.jpg",
+   "name": "Rock_Decal",
+   "normal": "normal_16.jpg"
+  },
+  {
+   "albedo": "albedo_20.jpg",
+   "mr": "mr_21.jpg",
+   "name": "Mud_Pile",
+   "normal": "normal_19.jpg"
+  },
+  {
+   "albedo": "albedoa_23.png",
+   "cutout": true,
+   "mr": "mr_24.jpg",
+   "name": "Dirt_Road_Trails",
+   "normal": "normal_22.jpg"
+  },
+  {
+   "albedo": "albedoa_26.png",
+   "cutout": true,
+   "mr": "mr_27.jpg",
+   "name": "Road_Edge_Gravel_Dusty",
+   "normal": "normal_25.jpg"
+  },
+  {
+   "albedo": "albedoa_29.png",
+   "cutout": true,
+   "mr": "mr_30.jpg",
+   "name": "Puddle_Streaks",
+   "normal": "normal_28.jpg"
+  },
+  {
+   "albedo": "albedo_31.jpg",
+   "name": "Wood_Fence"
+  },
+  {
+   "albedo": "albedo_33.jpg",
+   "mr": "mr_34.jpg",
+   "name": "Sloped_Rock",
+   "normal": "normal_32.jpg"
+  },
+  {
+   "albedo": "albedo_35.jpg",
+   "name": "Terrain_Far"
+  },
+  {
+   "albedo": "albedo_37.jpg",
+   "mr": "mr_38.jpg",
+   "name": "Aerial_Grass",
+   "normal": "normal_36.jpg"
+  },
+  {
+   "albedo": "albedo_40.jpg",
+   "mr": "mr_41.jpg",
+   "name": "Tall_Cliff",
+   "normal": "normal_39.jpg"
+  },
+  {
+   "albedo": "albedo_43.jpg",
+   "mr": "mr_44.jpg",
+   "name": "Cobblestone",
+   "normal": "normal_42.jpg"
+  },
+  {
+   "albedo": "albedo_46.jpg",
+   "mr": "mr_47.jpg",
+   "name": "Grass_Close",
+   "normal": "normal_45.jpg"
+  },
+  {
+   "albedo": "albedoa_49.png",
+   "cutout": true,
+   "mr": "mr_50.jpg",
+   "name": "Dirt_Road",
+   "normal": "normal_48.jpg"
+  },
+  {
+   "albedo": "albedo_52.jpg",
+   "mr": "mr_53.jpg",
+   "name": "Broken_Rocks",
+   "normal": "normal_51.jpg"
+  }
+ ],
+ "parts": [
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.09565258026123047,
+    5.944470405578613,
+    12.404911041259766
+   ],
+   "bmin": [
+    -7.73480749130249,
+    5.653594970703125,
+    9.130966186523438
+   ],
+   "count": 246,
+   "first": 0,
+   "mat": 0,
+   "metal": 0.0,
+   "name": "Background_Tree_Atlas.002_Metal_Fence_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -3.785316228866577,
+    5.862127304077148,
+    10.761019706726074
+   ],
+   "bmin": [
+    -6.855546951293945,
+    5.8255462646484375,
+    8.671566009521484
+   ],
+   "count": 1185,
+   "first": 246,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "Background_Tree_Atlas.003_Dirt_Road_Bare_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.08885955810546875,
+    5.94956111907959,
+    12.409842491149902
+   ],
+   "bmin": [
+    -7.742012023925781,
+    5.649662017822266,
+    9.126890182495117
+   ],
+   "count": 2646,
+   "first": 1431,
+   "mat": 2,
+   "metal": 0.0,
+   "name": "Background_Tree_Atlas.005_Wood_Log_0",
+   "role": "body",
+   "rough": 0.9849377870559692,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.1896352767944336,
+    5.924014091491699,
+    12.366390228271484
+   ],
+   "bmin": [
+    -15.009461402893066,
+    2.6122426986694336,
+    -0.3840513229370117
+   ],
+   "count": 22947,
+   "first": 4077,
+   "mat": 3,
+   "metal": 0.0,
+   "name": "Background_Tree_Atlas.007_Fallen_Generic_Leaves_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    0.5774316787719727,
+    5.645307540893555,
+    8.012609481811523
+   ],
+   "bmin": [
+    -4.580303192138672,
+    4.098257064819336,
+    3.944136381149292
+   ],
+   "count": 10461,
+   "first": 27024,
+   "mat": 4,
+   "metal": 0.0,
+   "name": "Background_Tree_Atlas.008_Ground_Dirt_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.487698554992676,
+    5.89246940612793,
+    12.356439590454102
+   ],
+   "bmin": [
+    -15.134156227111816,
+    2.6668519973754883,
+    -0.17905616760253906
+   ],
+   "count": 34515,
+   "first": 37485,
+   "mat": 5,
+   "metal": 0.0,
+   "name": "Background_Tree_Atlas.012_Fallen_Maple_Leaves_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.2149481773376465,
+    5.89385986328125,
+    12.130126953125
+   ],
+   "bmin": [
+    -15.663811683654785,
+    2.478548049926758,
+    -0.5506191253662109
+   ],
+   "count": 61587,
+   "first": 72000,
+   "mat": 6,
+   "metal": 0.0,
+   "name": "Background_Tree_Atlas.013_Rock_Decal_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    0.7904821634292603,
+    0.7904821634292603,
+    0.7904821634292603,
+    1.0
+   ],
+   "bmax": [
+    1.8849263191223145,
+    5.627541542053223,
+    9.274636268615723
+   ],
+   "bmin": [
+    -0.11287641525268555,
+    4.612804412841797,
+    3.949491500854492
+   ],
+   "count": 4527,
+   "first": 133587,
+   "mat": 7,
+   "metal": 0.0,
+   "name": "Background_Tree_Atlas.014_Mud_Pile_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.6095776557922363,
+    5.784994125366211,
+    8.963354110717773
+   ],
+   "bmin": [
+    -9.320140838623047,
+    3.0640087127685547,
+    0.26825428009033203
+   ],
+   "count": 15876,
+   "first": 138114,
+   "mat": 8,
+   "metal": 0.0,
+   "name": "Background_Tree_Atlas.015_Dirt_Road_Trails_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    0.6446405053138733,
+    0.6446405053138733,
+    0.6446405053138733,
+    1.0
+   ],
+   "bmax": [
+    1.9438543319702148,
+    5.8760528564453125,
+    12.032450675964355
+   ],
+   "bmin": [
+    -8.268050193786621,
+    3.2139501571655273,
+    0.5453848838806152
+   ],
+   "count": 9378,
+   "first": 153990,
+   "mat": 9,
+   "metal": 0.0,
+   "name": "Background_Tree_Atlas.016_Road_Edge_Gravel_Dusty_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.18935871124267578,
+    4.577301979064941,
+    4.994185924530029
+   ],
+   "bmin": [
+    -15.36342716217041,
+    2.7441301345825195,
+    -0.11946344375610352
+   ],
+   "count": 11079,
+   "first": 163368,
+   "mat": 10,
+   "metal": 0.0,
+   "name": "Background_Tree_Atlas.017_Puddle_Streaks_0",
+   "role": "body",
+   "rough": 0.7783287167549133,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.04338836669921875,
+    4.687116622924805,
+    4.069485187530518
+   ],
+   "bmin": [
+    -3.500786066055298,
+    3.9488954544067383,
+    2.345036268234253
+   ],
+   "count": 2004,
+   "first": 174447,
+   "mat": 11,
+   "metal": 0.0,
+   "name": "Background_Tree_Atlas.018_Wood_Fence_0",
+   "role": "body",
+   "rough": 0.9484773278236389,
+   "textured": true
+  },
+  {
+   "base": [
+    0.741868257522583,
+    0.741868257522583,
+    0.741868257522583,
+    1.0
+   ],
+   "bmax": [
+    2.432945728302002,
+    5.930055618286133,
+    12.412921905517578
+   ],
+   "bmin": [
+    -19.906845092773438,
+    0.003082275390625,
+    -5.942258834838867
+   ],
+   "count": 30861,
+   "first": 176451,
+   "mat": 12,
+   "metal": 0.0,
+   "name": "Background_Tree_Atlas.019_Sloped_Rock_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    20.945213317871094,
+    5.867009162902832,
+    20.82288360595703
+   ],
+   "bmin": [
+    -16.936264038085938,
+    0.31093883514404297,
+    -20.82288360595703
+   ],
+   "count": 7932,
+   "first": 207312,
+   "mat": 13,
+   "metal": 0.0,
+   "name": "Background_Tree_Atlas.020_Terrain_Far_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    7.851757049560547,
+    5.888381004333496,
+    17.598995208740234
+   ],
+   "bmin": [
+    -20.945213317871094,
+    0.0,
+    -6.086282730102539
+   ],
+   "count": 32187,
+   "first": 215244,
+   "mat": 14,
+   "metal": 0.0,
+   "name": "Background_Tree_Atlas.021_Aerial_Grass_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -2.0446460247039795,
+    5.5089921951293945,
+    7.205359935760498
+   ],
+   "bmin": [
+    -13.976119041442871,
+    2.463364601135254,
+    1.0977997779846191
+   ],
+   "count": 23460,
+   "first": 247431,
+   "mat": 15,
+   "metal": 0.0,
+   "name": "Background_Tree_Atlas.022_Tall_Cliff_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -2.080385208129883,
+    5.784231185913086,
+    7.959670066833496
+   ],
+   "bmin": [
+    -5.923255920410156,
+    5.475841522216797,
+    7.249515056610107
+   ],
+   "count": 2715,
+   "first": 270891,
+   "mat": 16,
+   "metal": 0.0,
+   "name": "Background_Tree_Atlas.023_Cobblestone_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    0.8998634219169617,
+    0.8998634219169617,
+    0.8998634219169617,
+    1.0
+   ],
+   "bmax": [
+    2.3294105529785156,
+    5.856054306030273,
+    12.940187454223633
+   ],
+   "bmin": [
+    -15.986772537231445,
+    2.731024742126465,
+    -0.7992196083068848
+   ],
+   "count": 21984,
+   "first": 273606,
+   "mat": 17,
+   "metal": 0.0,
+   "name": "Background_Tree_Atlas.024_Grass_Close_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    1.7457561492919922,
+    5.862126350402832,
+    12.252948760986328
+   ],
+   "bmin": [
+    -15.428269386291504,
+    2.7414255142211914,
+    -0.21344757080078125
+   ],
+   "count": 30156,
+   "first": 295590,
+   "mat": 18,
+   "metal": 0.0,
+   "name": "Background_Tree_Atlas.025_Dirt_Road_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -1.5249419212341309,
+    4.516227722167969,
+    5.911014080047607
+   ],
+   "bmin": [
+    -7.420352458953857,
+    3.386007308959961,
+    3.0466468334198
+   ],
+   "count": 12684,
+   "first": 325746,
+   "mat": 19,
+   "metal": 0.0,
+   "name": "Background_Tree_Atlas.026_Broken_Rocks_0",
+   "role": "body",
+   "rough": 1.0,
+   "textured": true
+  }
+ ],
+ "realLength": 1.0,
+ "rot": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "scale": 1.0,
+ "source": "bf_road_slice.glb",
+ "textures": {},
+ "triangles": 112810,
+ "vertices": 153389
+}

@@ -7,6 +7,9 @@
 //          warm-up lap (shaders, streaming, probe GI; fragment counts are taken here), then NMK_BENCH_LAPS timed laps (3).
 //   bots   one 100-bot match (NMK_BENCH_BOTS, default 100) on the map given; the player stands at the attacker spawn turning
 //          360 deg every 20 s; 15 s warm-up, then the same number of laps.
+//   barrage (Battle Foundry s8.5 / 10.6 #10) the map's first bench view, camera fixed; every 20 s lap 12 HE shells land
+//          0.5 s apart at seeded points 50-120 m ahead (+-30 m across), through App::explode (craters, walls) and
+//          Fx::explosion; one untimed warm-up barrage, then NMK_BENCH_LAPS timed ones. NMK_BENCH_DYNRES=1: the governor holds it.
 //   views  the P1 static views (street, foliage, overview), NMK_BENCH_SETTLE / NMK_BENCH_MEASURE s; NMK_BENCH_SHOTS=1 adds
 //          a still and a frame 0.5 s into a 20 deg/s pan per view (A/B sheets).
 // Per run (map x preset): GPU (per-pass timestamps summed), CPU frame (wall clock), CPU without the time blocked in swap,
@@ -48,7 +51,8 @@ std::string gKind = std::getenv("NMK_BENCH_KIND") ? std::getenv("NMK_BENCH_KIND"
 std::vector<std::string> gCfgs{""}; size_t gCi = 0;   // NMK_BENCH_AB: knock-out configs, innermost loop
 size_t gMi = 0, gPi = 0, gVi = 0; int gPhase = 0; double gT0 = 0, gLast = 0; bool gFirstView = true;
 int gW = 2560, gH = 1440;
-double kPathS = 40.0; constexpr double kTurnS = 8.0, kBotLapS = 20.0, kBotWarmS = 15.0;
+double kPathS = 40.0; constexpr double kTurnS = 8.0, kBotLapS = 20.0, kBotWarmS = 15.0, kBarLapS = 20.0;
+int gShot = 0;   // barrage: rounds fired so far this run
 
 double nowS() { return glfwGetTime(); }
 float envF(const char* n, float d) { const char* v = std::getenv(n); return v && *v ? (float)std::atof(v) : d; }
@@ -340,29 +344,44 @@ bool benchViews(App& a, float dt) {
     logf("[bench] open %s (%s): %s", map.c_str(), gKind.c_str(), ok ? "ok" : "FAILED");
     if (!ok) { ++gMi; return true; }
     gViews.clear();
-    if (gKind == "views") viewsFor(a, map, *tp); else if (gKind == "path") pathFor(a, map);
+    if (gKind == "views" || gKind == "barrage") viewsFor(a, map, *tp); else if (gKind == "path") pathFor(a, map);
+    if (gKind == "barrage" && gViews.size() > 1) gViews.resize(1);   // the map's first view only
     writeDerived();
     gPi = 0; gVi = 0; gPhase = 1; gFirstView = true;
     return true;
   }
   if (gPhase == 1) {   // a preset (and a view): fixed light, the camera, settle / warm-up
-    applyRunSettings(a, gKind == "views" && gVi < gViews.size() ? &gViews[gVi] : nullptr);
+    applyRunSettings(a, (gKind == "views" || gKind == "barrage") && gVi < gViews.size() ? &gViews[gVi] : nullptr);
     std::string view = (gKind == "views" ? gViews[gVi].name : gKind) + (gCfgs[gCi].empty() ? "" : "-" + gCfgs[gCi]);
     gRuns.push_back({map, view, presetName(gPresets[gPi])}); internalRes(a, gRuns.back());
     if (gKind == "views") { const BView& v = gViews[gVi]; a.camPos = v.pos; a.camYaw = v.yaw; a.camPitch = v.pitch; gT0 = t + envF("NMK_BENCH_SETTLE", 6.0f) + (gFirstView ? 6.0f : 0.0f); }
+    else if (gKind == "barrage" && !gViews.empty()) { const BView& v = gViews[0]; a.camPos = v.pos; a.camYaw = v.yaw; a.camPitch = v.pitch; gT0 = t; gShot = 0; }
     else gT0 = t;   // path / bots: the warm-up lap starts now
     a.R.resetTemporal(); a.R.fragStats = gKind != "views";
     gFirstView = false; gLast = 0; gPhase = 2;
     return true;
   }
   Run& r = gRuns.back();
-  if (gKind == "path" || gKind == "bots") {   // gPhase 2: warm-up lap + timed laps, in real time
-    double lapS = gKind == "path" ? kPathS + kTurnS : kBotLapS, warm = gKind == "path" ? lapS : kBotWarmS, s = t - gT0;
+  if (gKind == "path" || gKind == "bots" || gKind == "barrage") {   // gPhase 2: warm-up lap + timed laps, in real time
+    const bool bar = gKind == "barrage";
+    double lapS = gKind == "path" ? kPathS + kTurnS : bar ? kBarLapS : kBotLapS, warm = gKind == "path" || bar ? lapS : kBotWarmS, s = t - gT0;
     int lap = s < warm ? -1 : (int)((s - warm) / lapS);
     if (gLast > 0) sample(a, r, lap);
     gLast = t;
     if (lap >= 0 && a.R.fragStats) a.R.fragStats = false;   // fragment counts from the warm-up lap only
     if (gKind == "path") pathCamera(a, std::fmod(s, lapS));
+    else if (bar) {   // 12 rounds 0.5 s apart from 1 s into each lap, seeded by (lap, round): the same barrage every run
+      const int n = (int)std::floor(s / lapS) * 12 + std::clamp((int)std::floor((std::fmod(s, lapS) - 1.0) / 0.5) + 1, 0, 12);
+      for (; gShot < n; ++gShot) {
+        uint32_t h = 0x9E3779B9u * (uint32_t)(gShot + 1); auto u = [&]() { h ^= h << 13; h ^= h >> 17; h ^= h << 5; return (h % 100000u) / 100000.0f; };
+        const vec3 f = App::forward(a.camYaw, 0.0f), side = glm::normalize(glm::cross(f, vec3(0, 1, 0)));
+        vec3 p = a.camPos + f * (50.0f + 70.0f * u()) + side * (60.0f * (u() - 0.5f)); p.y = a.terrain.height(p.x, p.z);
+        a.explode(p, vec3(0, -1, 0), 250.0f, 2.2f, 1.0f);   // craters, wall damage, decals: what a shell does
+        a.fx.explosion(p, vec3(0, 1, 0), "ground", true);
+        a.audio.play("shell_hit", p, 1.0f);
+      }
+      a.fx.update((float)dt, a.terrain);   // Creative mode does not step the effects
+    }
     else { a.scriptedInput = ExploreInput{}; a.eyePitch = -2; a.eyeYaw += 360.0f / (float)kBotLapS * dt; }
     if (lap >= laps()) {
       r.gpu.pop_back(); r.pass.pop_back(); r.cpu.pop_back(); r.swap.pop_back(); r.cpuNoSwap.pop_back(); r.rcpu.pop_back(); r.draws.pop_back(); r.tris.pop_back(); r.probes.pop_back(); r.lap.pop_back(); r.hitch.pop_back();   // the frame past the last lap

@@ -102,7 +102,7 @@ def town_level(plan, X, Z):
     flat = {"T": 0.0, "B": L1, "M": L1, "w": L1, "D": L2}
     for ch, v in flat.items():
         L[R == ch] = v
-    m = R == "t"; L[m] = _lin(Z[m], -9.0, 3.0, 0.0, L1)        # up into B over rows 9-10
+    m = R == "t"; L[m] = _lin(Z[m], -9.0, 3.0, 0.0, L1)        # up into B over rows 9-10 (a stair here put the attackers' B time over 20.5 s)
     m = R == "p"; L[m] = _lin(Z[m], -9.0, 3.0, 0.0, L1)        # up into the square
     m = R == "s"; L[m] = _lin(Z[m], -3.0, 27.0, 0.0, L2A)      # Rue de l'Eglise climbs to A
     m = R == "f"   # the river lane meets the t / p ramps level (no step at the junctions), then slopes east to s
@@ -256,8 +256,9 @@ def build(ctx):
     fine.install(b)
     paint = GroundPaint()
     paint.poly("sand", [(-W / 2 - MARGIN, -D / 2 - MARGIN), (W / 2 + MARGIN, -D / 2 - MARGIN), (W / 2 + MARGIN, D / 2 + MARGIN), (-W / 2 - MARGIN, D / 2 + MARGIN)], weight=1.0, edge=0.5)
-    for q in ((-W / 2 - MARGIN, -D / 2 - MARGIN, -W / 2 - 6, D / 2 + MARGIN), (W / 2 + 6, -D / 2 - MARGIN, W / 2 + MARGIN, D / 2 + MARGIN),
-              (-W / 2 - MARGIN, -D / 2 - MARGIN, W / 2 + MARGIN, -D / 2 - 6), (-W / 2 - MARGIN, D / 2 + 6, W / 2 + MARGIN, D / 2 + MARGIN)):
+    E = 30.0 - 2.0   # VOT: the pasture comes in over the 30 m ring of town houses to the street plan's edge (it was sand there)
+    for q in ((-W / 2 - MARGIN, -D / 2 - MARGIN, -W / 2 + E, D / 2 + MARGIN), (W / 2 - E, -D / 2 - MARGIN, W / 2 + MARGIN, D / 2 + MARGIN),
+              (-W / 2 - MARGIN, -D / 2 - MARGIN, W / 2 + MARGIN, -D / 2 + E), (-W / 2 - MARGIN, D / 2 - E, W / 2 + MARGIN, D / 2 + MARGIN)):
         paint.poly("grass", [(q[0], q[1]), (q[2], q[1]), (q[2], q[3]), (q[0], q[3])], weight=1.0, edge=4.0, ragged=0.6, seed=7)   # VOT T2: the hills are pasture, not sand
     y0 = b.ground(0.0, 0.0)
     seat_on_relief(b, y0)   # VOT T3: explicit heights below are on the datum; they land on the tilted town

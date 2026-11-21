@@ -413,7 +413,7 @@ export function exterior(A, opt = {}) {
     return sillInPlace(A, pos) ? [{ kind: "rain_streak", pos: pos.map(q4), n, w: q4(s.a1 - s.a0 + 0.1), h }] : [];
   });
   unfight(A);
-  A.meta.version = (A.meta.version || 1) + (A._qs1 ? 2 : 1);   // QS1: the new quoins (parts.quoins) bump it once more
+  A.meta.version = (A.meta.version || 1) + (A._qs1 || A.parts.some((p) => p.m === "stone_dressed" && p.v === 0) ? 3 : 1);   // QS1: the new quoins (parts.quoins) bump it once more
   A.meta.description += opt.note ? " " + opt.note : "";
   return A;
 }

@@ -60,7 +60,8 @@ struct InstanceRT {
   float defHp = 0; bool defDestroyed = false;       // defences (builder.cpp)
   uint32_t playerBody = 0xffffffffu;                 // player-only traversal volume (wire)
   GpuMesh pathMesh; uint32_t pathGround = ~0u, pathRev = 0; std::vector<uint8_t> slabCut;   // path entities (paths.cpp)
-  vec4 contact[5]{}; uint32_t contactRev = 0, contactGround = ~0u;   // MA2: ground under the walls (App::contactProfile)
+  vec4 contact[6]{};   // [5]: BF B1 moss habitat at the copy (moss.cpp)
+  uint32_t contactRev = 0, contactGround = ~0u;   // MA2: ground under the walls (App::contactProfile)
   GpuMesh earthMesh; uint64_t earthKey = 0; uint32_t earthGround = ~0u;
   std::vector<BagXf> earthBags;   // HB1c: the trench's sandbags, drawn as bag meshes (src/sandbags.cpp)   // GX1: generated revetment / retaining skirt (terrain_blend.cpp)
   std::vector<float> secHp; std::vector<uint8_t> secCut;   // wire sections (session overlay): hp, cut; a line's bays (LN1)
