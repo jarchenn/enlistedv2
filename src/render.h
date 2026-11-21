@@ -294,7 +294,7 @@ public:
     bool fullShadow = true;      // fullshadow (VO L1): full-strength sun shadows (off: 30 % lighter, as Classic)
     bool gtao = true;            // gtao (VO L2): GTAO with multi-bounce and specular occlusion (off: the old 8-sample SSAO)
     bool microShadow = true;     // microsh (VO L4): micro-shadowing of the sun by material AO (Lighting New)
-    bool vegPrepass = true;      // vegprepass (CP1): model foliage and grass get a depth prepass (alpha test only), then GL_EQUAL shading, like leafprepass
+    bool vegPrepass = false;     // off until fixed: on Blackwater Thaw the prepass wrote depth where the colour pass drew no grass (flat ground-textured rectangles); --rq-on vegprepass   // vegprepass (CP1): model foliage and grass get a depth prepass (alpha test only), then GL_EQUAL shading, like leafprepass
     bool leafDrift = true;       // leafdrift (WS2): drifting leaves near broadleaf / orchard trees (count: Quality::leafDriftN)
     bool hashAlpha = false;      // hashalpha (VO A1): cut-out leaves / grass with a dithered threshold under TAA (Medium / High), width NMK_HASH_SPREAD (0.2); off: no gain over cutoutMips (A1 sheets), kept for A/B
     bool folTrans = true;        // foltrans (VO L4): two-sided translucency on model foliage (Lighting New)
