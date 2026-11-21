@@ -289,6 +289,7 @@ float cloudShadow(vec3 w){
   if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return cloudShadowAt(w.xz, w.y);
   return texture(uCloudShadowMap, uv).r;
 }
+uniform int uSkyVisWall;   // CP4 skyviswall
 float skyVis(vec3 w, vec3 n){
   if (uOccOn == 0) return 1.0;
   vec3 q = w + vec3(n.x, 0.0, n.z)*0.65;
@@ -297,10 +298,14 @@ float skyVis(vec3 w, vec3 n){
   if (uv.x<0.0||uv.x>1.0||uv.y<0.0||uv.y>1.0) return 1.0;
   float occ = 0.0;
   vec2 t = 1.0/vec2(textureSize(uOcc,0));
+  // CP4 skyviswall: a wall sees half the sky sideways, so something high above its footprint (a dormer, an eave 15 m up)
+  // shades it only by the share of sky it hides: ~ eave depth / height. Weighted by 2 m / height above the pixel on
+  // vertical faces; real eaves (a metre or two up) still shelter fully. Level surfaces keep the plain top-down test.
+  float vert = uSkyVisWall == 1 ? 1.0 - smoothstep(0.5, 0.8, abs(n.y)) : 0.0;
   for (int y=-1;y<=1;y++) for (int x=-1;x<=1;x++) {
     float d = texture(uOcc, uv + vec2(x,y)*t*1.5).r;
-    float oy = uOccTop - d*uOccRange;
-    occ += smoothstep(0.15, 0.6, oy - w.y);
+    float oy = uOccTop - d*uOccRange, dz = oy - w.y;
+    occ += smoothstep(0.15, 0.6, dz)*mix(1.0, clamp(2.0/max(dz, 0.5), 0.0, 1.0), vert);
   }
   return 1.0 - occ/9.0;
 }
@@ -5068,6 +5073,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform3fv(U(p, "uCloudShadowBox"), 1, glm::value_ptr(cloudShBox));
   glUniform1f(U(p, "uAoIndirectOnly"), q.legacy ? 0.0f : 1.0f);
   glUniform1i(U(p, "uLook"), q.legacy ? 0 : 1);
+  glUniform1i(U(p, "uSkyVisWall"), perf.skyVisWall && !q.legacy ? 1 : 0);
   glUniform1i(U(p, "uFogPhase"), perf.fogPhase && q.lightNew && !q.legacy && !thumbMode ? 1 : 0);
   glUniform1i(U(p, "uW2"), perf.w2Sky && q.lightNew && !q.legacy && !thumbMode ? 1 : 0); glUniform1f(U(p, "uFlash"), thumbMode ? 0.0f : wx.der.flash);   // W2
   glUniform1i(U(p, "uDbgView"), dbgView);   // CP0
@@ -6077,7 +6083,39 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   // VO L3 mid cascade (Lighting New, Medium / High): about 3x the near radius in the atlas's right half, texel-snapped like
   // the near one (no crawl), redrawn every 4th frame on Medium / 2nd on High or when its focus moves 4 m (movers lag a few frames there)
   midOn = q.lightNew && perf.midCascade && !q.legacy && !thumbMode && shadowTier >= 1 && sunSh;
-  if (midOn) {
+  const bool midCacheOn = midOn && perf.midCache && shadowTier >= 2;   // CP4 midcache (High / Ultra): a static layer redrawn on change; movers drawn into the mid cascade every frame
+  if (midCacheOn) {
+    if (midStaticSize != shadowSize) {
+      if (midStaticFbo) { glDeleteFramebuffers(1, &midStaticFbo); glDeleteTextures(1, &midStaticTex); }
+      glCreateTextures(GL_TEXTURE_2D, 1, &midStaticTex); glTextureStorage2D(midStaticTex, 1, GL_DEPTH_COMPONENT32F, shadowSize, shadowSize);
+      glCreateFramebuffers(1, &midStaticFbo); glNamedFramebufferTexture(midStaticFbo, GL_DEPTH_ATTACHMENT, midStaticTex, 0);
+      glNamedFramebufferDrawBuffer(midStaticFbo, GL_NONE); glNamedFramebufferReadBuffer(midStaticFbo, GL_NONE);
+      midStaticSize = shadowSize; midFrame = -1000;
+    }
+    const float mR = std::max(90.0f, radius * 3.0f);
+    const vec3 mfw = v.camPos + vec3(fwd.x, 0, fwd.z) * mR * 0.5f;
+    const size_t nS = std::min(opaqueStatic, opaque.size());
+    if (frame - midFrame >= 60 || mR != midR || glm::distance(mfw, midFocus) > 4.0f || sunDir != midSun) {   // the static layer: on a move / sun change, else every 60 frames (LOD changes)
+      midR = mR; midFrame = frame; midFocus = mfw; midSun = sunDir;
+      vec3 mf = mfw; mf.y = t.height(mf.x, mf.z);
+      mat4 lv3; lightVPMid = stableOrtho(mf, sunDir, midR, 400.0f, shadowSize, lv3);
+      Frustum frMid = Frustum::fromVP(lightVPMid);
+      minCaster = perf.smallCasters ? 3.0f * (2 * midR / shadowSize) : 0.0f;
+      glBindFramebuffer(GL_FRAMEBUFFER, midStaticFbo); glViewport(0, 0, shadowSize, shadowSize); glClear(GL_DEPTH_BUFFER_BIT);
+      glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPMid)); depthVP = lightVPMid;
+      itemHi = (uint32_t)nS; drawItems(progShadow, opaque, true, &frMid); itemHi = UINT32_MAX;
+      if (!foliage.empty()) drawFoliage(progLeafShadow, lightVPMid, &frMid, false, perf.leafShadowLod ? 0.0f : -1.0f);
+      if (!folModels.empty()) { drawFolModels(true, lightVPMid, &frMid, 4.0f, perf.vegCascades); glUseProgram(progShadow); }
+      minCaster = 0;
+    }
+    // every frame: the static layer into the atlas's right half, then what moves
+    glCopyImageSubData(midStaticTex, GL_TEXTURE_2D, 0, 0, 0, 0, shadowTex, GL_TEXTURE_2D, 0, shadowSize, 0, 0, shadowSize, shadowSize, 1);
+    glBindFramebuffer(GL_FRAMEBUFFER, shadowFbo); glViewport(shadowSize, 0, shadowSize, shadowSize);
+    Frustum frMid = Frustum::fromVP(lightVPMid);
+    glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPMid)); depthVP = lightVPMid;
+    if (opaque.size() > nS) { itemLo = (uint32_t)nS; drawItems(progShadow, opaque, true, &frMid); itemLo = 0; }
+    if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frMid);
+  } else if (midOn) {
     const float mR = std::max(90.0f, radius * 3.0f);
     const vec3 mfw = v.camPos + vec3(fwd.x, 0, fwd.z) * mR * 0.5f;
     if (frame - midFrame >= (shadowTier >= 2 ? 2 : 4) || mR != midR || glm::distance(mfw, midFocus) > 4.0f || sunDir != midSun) {
