@@ -589,7 +589,9 @@ vec2 envBRDFApprox(float r, float NoV){
   return vec2(-1.04, 1.04)*a004 + q.zw;   // F = F0*x + y
 }
 uniform int uDbgView;   // CP0 look-dev view (Renderer::dbgView): 2 illum / 6 sky force albedo 0.18, no metal; 6 also drops the sun's direct light
+uniform int uAlbClamp;   // CP step 4 (perf switch albclamp; corpus 03 s4.4): dielectric albedo luminance kept in linear 0.02-0.9, grass >= 0.10
 vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
+  if (uAlbClamp == 1 && metal < 0.5) { float al = dot(alb, vec3(0.2126, 0.7152, 0.0722)); alb *= clamp(al, 0.02, 0.9)/max(al, 1e-4); }   // hue kept, value in range
   rough = specAA(N, rough);
   if (uDbgView == 2 || uDbgView == 6) { alb = vec3(0.18); metal = 0.0; }
   vec3 V = normalize((gEyeOv.x < 1e29 ? gEyeOv : uCamPos) - w);
@@ -3030,7 +3032,8 @@ void main(){
   grass = mix(grass, dry, smoothstep(0.6, 0.82, nM)*0.5);
   grass *= 0.78 + 0.32*nF;
   grass *= 1.0 - 0.16*smoothstep(0.65, 0.8, nClov);   // clover / darker tufts
-  grass *= mix(1.0, mix(0.5, 0.85, clump), 0.5 + 0.5*nearK);                                             // shadowed sward depth between plants
+  grass *= mix(1.0, mix(0.5, 0.85, clump), 0.5 + 0.5*nearK);
+  if (uAlbClamp == 1) { float gl = dot(grass, vec3(0.2126, 0.7152, 0.0722)); if (gl < 0.10) grass *= 0.10/max(gl, 1e-4); }   // CP step 4: the clump shading reached 0.08 (corpus: grass 0.15-0.25, never under 0.10)                                             // shadowed sward depth between plants
   // near-field sward texture (fades with distance so it never shimmers): blade-scale streaks, flattened grass,
   // organic litter and exposed soil between plants - the ground reads as turf even where grass is culled
   float litter = smoothstep(0.62, 0.8, litN);
@@ -4700,6 +4703,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
     glUniform1i(U(p, "uTexBiasOn"), perf.texBias && !thumbMode ? 1 : 0); glUniform1f(U(p, "uTexBias"), tb);
   }
   glUniform1i(U(p, "uSplitSum"), q.legacy || !perf.splitSum ? 0 : 1);   // CP step 3
+  glUniform1i(U(p, "uAlbClamp"), q.legacy || !perf.albClamp ? 0 : 1);   // CP step 4
   glUniform2f(U(p, "uHex"), q.legacy || !perf.hex || q.matLayer == 0 || hd <= 0 ? 0.0f : 1.0f, std::max(hd, 0.05f)); }   // M1: hex tiling (--rq-off hex; off at Low); NMK_HEX = cells per texture repeat
   glUniform1f(U(p, "uHazeH"), lt.mapHazeH > 0.0f ? lt.mapHazeH : q.hazeHeight);   // FG1: a map's own haze scale height
   glUniform1f(U(p, "uTime"), time);
