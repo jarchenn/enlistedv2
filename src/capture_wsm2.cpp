@@ -459,7 +459,7 @@ bool wsm2Capture(App& app, float dt) {
   if (!started) {
     started = true; T = new MpTest("wsm2");
     if (app.mode == Mode::Explore) app.exitExplore();
-    app.openMap(contentDir() / (blurMode ? "templates/blackwater_thaw.nmap.json" : "examples/village_assault_3.nmap.json"));   // AIB1: the map the blur was reported on
+    app.openMap(contentDir() / (blurMode && !bfMode ? "templates/blackwater_thaw.nmap.json" : "examples/village_assault_3.nmap.json"));   // AIB1: the map the blur was reported on
     Scenario sc = Scenario::fromJson(app.doc.extra.is_object() ? app.doc.extra.value("scenario", json::object()) : json::object());
     sc.rules.mode = GameMode::TDM; sc.rules.humanTeam = 0; sc.rules.killCap = 9999;
     sc.rules.teamFaction[0] = Faction::Allies; sc.rules.teamFaction[1] = Faction::Axis;
