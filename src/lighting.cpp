@@ -506,9 +506,13 @@ void LightingPass::begin(Renderer& R, const RenderView& v) {
   L.tod = todCompute(R.lt.hour);
   if (R.perf.nightDark && R.q.lightNew && !R.q.legacy) {   // nightdark: night reads as night; moonlit shapes just legible, lamps / fires / flashes are what you see by
     Tod& t = L.tod;
-    t.expoMax = glm::mix(1.45f, 2.2f, t.nightK);   // was 5.0 at full night (~1.2 stops darker)
-    t.expoKey = glm::mix(0.24f, 0.07f, t.nightK);  // was 0.11
-    t.fixedExpo = std::min(t.fixedExpo, std::max(1.0f, t.expoMax * 0.65f));   // the editor's fixed night level follows (was <= 3.25, now <= 1.43)
+    const float nk = t.nightK;
+    t.expoMax = glm::mix(1.45f, 1.2f, nk);   // was 5.0 at full night: the meter no longer lifts night toward a mid-tone
+    t.expoKey = glm::mix(0.24f, 0.07f, nk);  // was 0.11
+    t.fixedExpo = std::min(t.fixedExpo, std::max(1.0f, t.expoMax * 0.65f));   // the editor's fixed night level follows (was <= 3.25, now 1)
+    if (t.keyIsMoon) t.keyMul *= glm::mix(1.0f, 0.35f, nk);   // moonlight: shapes and the road near, the far street lost; the headlamp / lamps lead
+    const float amb = glm::mix(1.0f, 0.5f, nk);   // the night sky and its fill
+    t.skyMul *= amb; t.groundMul *= amb; t.fogMul *= amb; t.zen *= amb; t.hor *= amb; t.cloudLit *= amb;
   }
   if (!L.tod.day) R.sunDir = L.tod.key;
   R.physSunY = L.tod.day ? R.sunDir.y : L.tod.sunTrue.y;   // CP2: the real sun's height (sunDir is the moon at night)
