@@ -90,6 +90,7 @@ ROUTES = {   # name: (points, clear width, kind)
 PUDDLES = [(-30.0, -59.5, 1.3), (-8.0, -50.6, 1.1), (6.0, -42.6, 1.5), (9.5, -17.5, 1.2), (2.0, -9.0, 1.0), (-1.0, -3.5, 1.4),
            (-60.0, -61.9, 1.2), (-84.0, -63.0, 1.6), (40.0, -55.8, 1.0), (62.0, -8.0, 1.3), (-20.0, 24.0, 1.1)]   # (x, z, radius m)
 ORCH_IDS = []
+PAINT = [None]   # milestone 3: the map's ground paint while dressing (the castle road)
 FIELD = [None]   # BT2 perf: the terrain field while building (stand_seen)
 CREEK_PROFILE = []   # BT2: (x, z, water level above BASE) along the creek, 2 m apart (build_terrain)
 FIR_STANDS = []   # BT2: (x, z, radius) of each fir stand (dark needle floor, no snow under it)
@@ -455,6 +456,7 @@ def build(ctx):
     b = MapBuilder(cat, grid, Frame(W, D), seed=SEED)
     G = lambda x, z: F.at(x, z)   # the true ground (base + sculpt)
     paint = GroundPaint()
+    PAINT[0] = paint
 
     # ground paint (greybox: the layer families the spec names, coarse)
     E = W / 2 + MARGIN
@@ -1240,7 +1242,7 @@ def stand_seen(cx, cz, rad, eye=1.65):
 # spur that rises out of the north-west corner beyond the play area. Local frame: +z (s) = gate -> apex, +x (t) = east.
 CASTLE_C = (-235.0, 215.0)                      # compound centre (world x, z)
 CASTLE_YAW = -11.53                             # local +z = (-0.2, 0.98): the spur climbs north-north-west
-SPUR_STANDS = 0                                 # fir stands on the castle spur (see dress_castle_spur)
+SPUR_STANDS = 46                                # fir stands on the castle spur (dark masses on its flanks; far-tree impostors)
 CASTLE_PAD = 100.0                              # palace pad above the creek-bed datum (the village floor is ~ +4..10)
 
 
@@ -1411,8 +1413,6 @@ def write_castle_asset(ctx, cat):
 
 def dress_castle_spur(b, cat, G, R):
     """dark fir masses on the spur's flanks (below the pads), rock faces on the exposed cliff under the palace."""
-    # shortcut: no fir stands on the spur yet (coordinator: no new fir instances until the plant session's far-tree
-    # impostors land); set SPUR_STANDS to 46 then
     firs = [a for a in ("ph_fir_tree_01_a", "ph_fir_tree_01_b", "ph_fir_tree_01_c") if a in cat]
     n = 0
     for _ in range(SPUR_STANDS):
@@ -1431,6 +1431,16 @@ def dress_castle_spur(b, cat, G, R):
                 continue
             b.place(R.choice(firs), x, z, R.uniform(0, 360), check=False, cls="veg", y=G(x, z), tags={"veg", "firs", "castle"}, companions=False)
             n += 1
+    # milestone 3: the approach road climbing the spur's east side and curving round the terrace to the gate (paint),
+    # boulders where the terrace wall meets the cliff
+    road = [castle_world(t, s_) for t, s_ in ((24.0, -150.0), (30.0, -125.0), (31.0, -104.0), (26.0, -90.0), (14.0, -86.5), (0.0, -86.0))]
+    PAINT[0].line("gravel", road, 4.0, weight=0.9, edge=1.2)
+    foot = [a for a in ("nat_boulder_granite_l", "nat_boulder_limestone_m", "nat_boulder_schist_slab") if a in cat]
+    for k in range(10):
+        ph = math.radians(-80.0 + 17.0 * k)
+        x, z = castle_world(25.0 * math.sin(ph), -66.0 - 20.0 * math.cos(ph))
+        if foot:
+            b.place(foot[k % len(foot)], x, z, R.uniform(0, 360), check=False, cls="none", y=G(x, z) - 0.4, tags={"rock", "castle"}, companions=False)
     faces = [a for a in ("ph_rock_face_01", "ph_rock_face_02") if a in cat]
     for k, s in enumerate(range(-4, 44, 7)):
         if not faces:
