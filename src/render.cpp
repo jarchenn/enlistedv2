@@ -8,6 +8,7 @@
 #include "lighting.h"
 #include "snow.h"
 #include "settings.h"
+#include "texture_units.h"   // VFX rev3: fixed texture-unit owners (tu::kDeform)
 #include "nature.h"
 #include "textures.h"
 #include <cfloat>
@@ -163,6 +164,13 @@ float windGust(vec2 xz, bool prev){
 }
 
 uniform vec3 uSunDir, uSunCol, uSkyCol, uGroundCol, uCamPos, uFogCol, uFill;
+uniform sampler2D uDefTex; uniform vec4 uDefMap; uniform int uDefOn;   // VFX rev3 tdeform (terrain_deform.h): R depth (m), G disturbance
+vec2 deformAt(vec2 xz){   // 0 outside the camera window or when off
+  if (uDefOn == 0) return vec2(0.0);
+  vec2 r = (xz - uDefMap.xy)*uDefMap.z;
+  if (r.x < 0.0 || r.y < 0.0 || r.x >= 1.0 || r.y >= 1.0) return vec2(0.0);
+  return textureLod(uDefTex, xz*uDefMap.z, 0.0).rg;
+}
 uniform float uFogDens;
 uniform float uUnder;   // 1: the camera is under water (swim.cpp): applyFog / sky become a dense uniform water fog
 uniform sampler2DShadow uShadow; uniform mat4 uLightVP; uniform int uShadowOn;
@@ -3405,12 +3413,14 @@ static const char* kTerrainVS = R"GLSL(
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in float aDirt; layout(location=3) in vec3 aEw;
 layout(location=4) in float aMorph;   // VOT T1: the next LOD's height minus this vertex's (base chunks; 0 elsewhere)
 uniform mat4 uVP;
+uniform int uDefTiles;   // VFX rev3 tdeform: 1 while the fine tiles draw
 uniform vec4 uMorph;                  // VOT T1 geomorph: x start distance, y 1 / ramp length, z on
 out vec3 vW, vN0; out float vDirt; out vec3 vEw;
 invariant gl_Position;                // PF tzprepass: the depth pass and the colour pass must rasterise identical depths
 void main(){
   vec3 P = aPos;
   if (uMorph.z > 0.5) P.y += aMorph*clamp((length(aPos - uCamPos) - uMorph.x)*uMorph.y, 0.0, 1.0);
+  if (uDefTiles == 1) P.y -= deformAt(P.xz).x;   // VFX rev3 tdeform: ruts and tracks in the fine tiles (the same in the depth pre-pass)
   vW = P; vN0 = aNrm; vDirt = aDirt; vEw = aEw; gl_Position = uVP*vec4(P,1.0);
 }
 )GLSL";
@@ -3429,6 +3439,7 @@ in vec3 vW, vN0; in float vDirt; in vec3 vEw;   // vEw: GX1 earthworks (terrain_
 uniform int uTNOn; uniform sampler2D uTNrm; uniform vec4 uTNMap;   // VOT T1: per-pixel base normals (terrain_normals.cpp, unit 18), xy origin, zw 1 / extent
 uniform int uTSVOn;   // uTSV is declared with the shadow code (T6)   // VOT T5: terrain sky-view factor (unit 26, same mapping as uTNMap)
 vec3 vN;   // the shading normal: vN0 (vertex) or the baked per-pixel one
+float defR = 0.0, defG = 0.0;   // VFX rev3 tdeform: rut depth (m) and disturbance here (W3 wetness reads defR)
 uniform int uGrid; uniform vec2 uBuildHalf;
 uniform int uDiscard; uniform sampler2D uTileMask; uniform float uTileSize; uniform vec2 uTerrainOrg, uTerrainExt;
 uniform vec4 uDust;   // W5 tdust: xy wind direction (toward), z streamer strength (0: calm or not arid), w advection phase (m along the wind)
@@ -3449,6 +3460,14 @@ layout(location=4) out vec4 oVel;
 void main(){
   vN = vN0;
   if (uTNOn == 1) { vec2 r = texture(uTNrm, (vW.xz - uTNMap.xy)*uTNMap.zw).rg; vN = vec3(r.x, sqrt(max(1.0 - dot(r, r), 0.0)), r.y); }   // VOT T1
+  if (uDefOn == 1) {   // VFX rev3 tdeform: depth for the wet code (defR: W3 adds 2R there) and the ruts' slope into the normal
+    vec2 dv = deformAt(vW.xz); defR = dv.x; defG = dv.y;
+    if (defR > 1e-4 || dv.y > 0.0) {
+      float t = uDefMap.w;
+      vec2 g = vec2(deformAt(vW.xz + vec2(t, 0.0)).x - deformAt(vW.xz - vec2(t, 0.0)).x, deformAt(vW.xz + vec2(0.0, t)).x - deformAt(vW.xz - vec2(0.0, t)).x)/(2.0*t);
+      vN = normalize(vN + vec3(g.x, 0.0, g.y));
+    }
+  }
   vec3 p = vW;
   vec3 tdx = dFdx(p), tdy = dFdy(p), tn0 = normalize(vN); float tDist = length(p - uCamPos);   // L4 terrain layers (before any discard)
   if (uTPom.x > 0.0) {   // VFX rev3 4.4 tpom: parallax occlusion on the ground layers, through texTap's march (the materials code);
@@ -5358,6 +5377,8 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uShadowFar"), 6); glBindTextureUnit(6, shadowFarTex);
   glUniform1i(U(p, "uShadowFarOn"), far ? 1 : 0);
   glUniform1i(U(p, "uTSV"), 26); glUniform1i(U(p, "uTHorOn"), thorTex && !thumbMode ? 1 : 0); glUniform1i(U(p, "uTHorAll"), p == progTerrain || p == progTerrainND || p == progGrass ? 1 : 0);   // VOT T6 (unit 26 = the terrain's T5 / T6 texture)
+  glUniform1i(U(p, "uDefTex"), tu::kDeform); glUniform1i(U(p, "uDefOn"), defOn && !thumbMode ? 1 : 0);   // VFX rev3 tdeform (the composite rebinds unit 11 to its AO before it draws)
+  if (defOn && !thumbMode) { glBindTextureUnit(tu::kDeform, defTex); glUniform4fv(U(p, "uDefMap"), 1, glm::value_ptr(defMap)); }
   if (thorTex && !thumbMode) { glBindTextureUnit(26, thorTex); glUniform4fv(U(p, "uTHorMap"), 1, glm::value_ptr(thorMap)); glUniform4fv(U(p, "uTHorW"), 1, glm::value_ptr(thorW)); }
   glUniformMatrix4fv(U(p, "uLightVPFar"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
   glUniform2f(U(p, "uShadowTexelFar"), (farAtlas ? 0.5f : 1.0f) / shadowFarSize, 1.0f / shadowFarSize);
@@ -6408,6 +6429,13 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   lightingBegin(*this, v);   // L2: time of day (sunDir = the key light until lightingEnd)
   thorTex = perf.terrainHorizon && !thumbMode ? t.horizonSync(sunDir) : 0;   // VOT T6, after lightingBegin: the hour's sun, not the Day sun (bakes on a new map, a new sun band, or after edits)
   thorMap = t.horizonMap(); thorW = t.horizonWeights(sunDir);
+  {   // VFX rev3 tdeform: tiers by preset (spec 8.2): Ultra Low / Low off, Medium 8 cm / 48 m, High 4 cm / 64 m, Ultra 4 cm / 96 m
+    extern void deformFrame(vec3, float, int, bool&, GLuint&, glm::vec4&);
+    GfxPreset pr = settings().s.preset();
+    if (pr == GfxPreset::Custom) pr = q.matLayer >= 2 ? GfxPreset::High : q.matLayer == 1 ? GfxPreset::Medium : GfxPreset::Low;
+    int tier = !perf.terrainDeform || thumbMode ? 0 : pr == GfxPreset::Medium ? 1 : pr == GfxPreset::High ? 2 : pr == GfxPreset::Ultra ? 3 : 0;
+    deformFrame(v0.camPos, v0.dt, tier, defOn, defTex, defMap);
+  }
   weatherDerive(*this, v.camPos);      // W1: the weather state and what follows from it this frame (weather.cpp)
   uploadWeather();
   pxAngle = 2.0f / (std::max(1e-3f, v.proj[1][1]) * std::max(1, height));   // vertical radians per pixel
@@ -6777,7 +6805,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     if (terrQn >= 2) { GLuint64 b = 0; GLint ok = 0; glGetQueryObjectiv(terrQ[terrQi][1], GL_QUERY_RESULT_AVAILABLE, &ok); if (ok) { glGetQueryObjectui64v(terrQ[terrQi][1], GL_QUERY_RESULT, &b); stats.terrSamples = (double)b; } }
     glBeginQuery(GL_SAMPLES_PASSED, terrQ[terrQi][1]);
     const GLuint progTD = progTN && perf.terrainPrepass ? progTerrainDepth : 0;   // PF: tzprepass
-    if (progTD) { glProgramUniformMatrix4fv(progTD, U(progTD, "uVP"), 1, GL_FALSE, glm::value_ptr(vp)); glProgramUniform3fv(progTD, U(progTD, "uCamPos"), 1, glm::value_ptr(v.camPos)); }
+    if (progTD) { glProgramUniformMatrix4fv(progTD, U(progTD, "uVP"), 1, GL_FALSE, glm::value_ptr(vp)); glProgramUniform3fv(progTD, U(progTD, "uCamPos"), 1, glm::value_ptr(v.camPos));    // the depth pre-pass must sink the tiles by the same R (EQUAL)
+      glProgramUniform1i(progTD, U(progTD, "uDefTex"), tu::kDeform); glProgramUniform1i(progTD, U(progTD, "uDefOn"), defOn && !thumbMode ? 1 : 0); glProgramUniform4fv(progTD, U(progTD, "uDefMap"), 1, glm::value_ptr(defMap)); }
     t.draw(progTerrain, v.camPos, vp, progTN, progTD);   // streamed LOD chunks + deformation tiles (terrain_chunks.cpp)
     glEndQuery(GL_SAMPLES_PASSED); terrQi ^= 1; ++terrQn;
     glDisable(GL_POLYGON_OFFSET_FILL);

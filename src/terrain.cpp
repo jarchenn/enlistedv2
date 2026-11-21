@@ -513,6 +513,9 @@ void Terrain::draw(GLuint prog, vec3 cam, const mat4& vp, GLuint progND, GLuint 
   Frustum fr = Frustum::fromVP(vp);
   const float ts = tileSize();
   auto drawTiles = [&](bool count) {
+    GLint cur = 0; glGetIntegerv(GL_CURRENT_PROGRAM, &cur);
+    const GLint uDT = glGetUniformLocation((GLuint)cur, "uDefTiles");   // VFX rev3 tdeform: the tiles sink by R, the base chunks do not
+    if (uDT >= 0) glUniform1i(uDT, 1);
     if (count) tileStats = {};
     for (auto& [k, t] : tiles) {
       if (!t.count) continue;
@@ -528,6 +531,7 @@ void Terrain::draw(GLuint prog, vec3 cam, const mat4& vp, GLuint progND, GLuint 
       glBindVertexArray(t.vao);
       glDrawElements(GL_TRIANGLES, tileIdxCnt[l], GL_UNSIGNED_INT, (const void*)(intptr_t)(tileIdxOff[l] * 4));
     }
+    if (uDT >= 0) glUniform1i(uDT, 0);
   };
   auto resetUniforms = [&]() {
     for (GLuint pr : {prog, progND}) {
