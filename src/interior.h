@@ -5,6 +5,7 @@
 #include "assets.h"
 #include "render.h"
 #include <deque>
+#include <future>
 #include <unordered_set>
 
 class App;
@@ -167,7 +168,8 @@ private:
   bool inBlast_ = false;
   // per-frame work is skipped while nothing changed: the edit revision, the instance count, the selection, or a
   // furniture state (epoch_: breaks, glass, crushing, resets)
-  uint64_t epoch_ = 1, batchSig_ = 0, syncSig_ = 0;
+  uint64_t epoch_ = 1, batchSig_ = 0, syncSig_ = 0, wantSig_ = 0;
+  std::map<uint64_t, std::pair<uint64_t, std::vector<const Instance*>>> want_;   // host -> (members' sig, pieces): walked again only when batchSig_'s inputs change
   struct Openings { bool built = false, closed = false; std::vector<std::pair<vec3, vec3>> boxes; };   // asset space
   std::map<const AssetDef*, Openings> openings_;
   const Openings& openings(const AssetDef* a);
@@ -176,11 +178,16 @@ private:
   std::unordered_map<uint64_t, std::pair<uint32_t, uint64_t>> hostOf_;   // piece -> (rev, host)
   uint32_t visFrame_ = 1;
   bool lowClutter_ = false;
-  struct Batch { uint8_t tier = 2; GpuMesh lop, slop; uint64_t sig = 0; std::vector<uint64_t> members; vec3 c{0}; float r = 0; bool built = false; size_t verts = 0; };
+  struct Merged { MeshData lop, slop; };
+  // CP hitch fix: a new batch's meshes are merged on a worker (job, for members' sig jobSig); the main thread only uploads
+  struct Batch { uint8_t tier = 2; GpuMesh lop, slop; uint64_t sig = 0; std::vector<uint64_t> members; vec3 c{0}; float r = 0; bool built = false; size_t verts = 0;
+                 std::future<Merged> job; uint64_t jobSig = 0; };
   std::map<uint64_t, Batch> batches_;                       // by host
   std::map<uint64_t, uint64_t> member_;                     // piece -> host while it is drawn by the batch
   struct CpuMesh { MeshData lod; bool small = false; };
   std::map<const AssetDef*, std::unique_ptr<CpuMesh>> cpu_;
   const CpuMesh& cpuMesh(const AssetDef* a);
   void rebuildBatch(App& app, uint64_t host, Batch& b, const std::vector<const Instance*>& pieces);
+  std::future<Merged> mergeJob(App& app, const std::vector<const Instance*>& pieces, bool async);
+  void finishBatch(App& app, uint64_t host, Batch& b, Merged m, const std::vector<const Instance*>& pieces);
 };

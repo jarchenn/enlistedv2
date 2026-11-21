@@ -666,22 +666,26 @@ void appendXf(MeshData& dst, const MeshData& src, const mat4& M) {
 }
 }
 
-void InteriorSys::rebuildBatch(App& app, uint64_t host, Batch& b, const std::vector<const Instance*>& pieces) {
-  MeshData lop, slop;
+// the pieces' LOD meshes and matrices are read here (main thread); the merge itself touches neither app nor the doc
+std::future<InteriorSys::Merged> InteriorSys::mergeJob(App& app, const std::vector<const Instance*>& pieces, bool async) {
+  std::vector<std::pair<const CpuMesh*, mat4>> in; in.reserve(pieces.size());
+  for (const Instance* i : pieces) in.emplace_back(&cpuMesh(app.assetFor(*i)), app.instanceMatrix(*i));
+  auto work = [in = std::move(in)]() { Merged m; for (auto& [c, M] : in) appendXf(c->small ? m.slop : m.lop, c->lod, M); return m; };
+  return std::async(async ? std::launch::async : std::launch::deferred, std::move(work));
+}
+void InteriorSys::finishBatch(App& app, uint64_t host, Batch& b, Merged m, const std::vector<const Instance*>& pieces) {
   vec3 mn(1e9f), mx(-1e9f);
-  for (const Instance* i : pieces) {
-    const AssetDef* a = app.assetFor(*i);
-    const CpuMesh& c = cpuMesh(a);
-    mat4 M = app.instanceMatrix(*i);
-    appendXf(c.small ? slop : lop, c.lod, M);
-    mn = glm::min(mn, i->pos); mx = glm::max(mx, i->pos + vec3(0, 2, 0));
-  }
+  for (const Instance* i : pieces) { mn = glm::min(mn, i->pos); mx = glm::max(mx, i->pos + vec3(0, 2, 0)); }
   b.lop.destroy(); b.slop.destroy();
-  b.lop.upload(lop); b.slop.upload(slop);
-  b.verts = lop.v.size() + slop.v.size();
+  b.lop.upload(m.lop); b.slop.upload(m.slop);
+  b.verts = m.lop.v.size() + m.slop.v.size();
   b.c = (mn + mx) * 0.5f; b.r = glm::length(mx - mn) * 0.5f + 1.0f;
+  static const bool logIt = std::getenv("NMK_BATCH_LOG") != nullptr;   // CP hitch hunt: which batch, how big, why
+  if (logIt) logf("batch: host %llu, %zu pieces, %zu verts, %s, %.0f m", (unsigned long long)host, pieces.size(), (size_t)b.verts, b.built ? "rebuilt (members changed)" : "built", glm::length((app.mode == Mode::Explore ? app.eyePos() : app.camPos) - b.c));
   b.built = true; ++batchRebuilds;
-  (void)host;
+}
+void InteriorSys::rebuildBatch(App& app, uint64_t host, Batch& b, const std::vector<const Instance*>& pieces) {
+  finishBatch(app, host, b, mergeJob(app, pieces, false).get(), pieces);   // in place (a break / edit on a drawn batch)
 }
 
 // TX3: per-preset distances (content/settings/cull.json): furniture small / big (m), small decorative props drawn while
@@ -728,10 +732,13 @@ void InteriorSys::updateBatches(App& app) {
   uint64_t sig = ((uint64_t)app.revCounter << 32) ^ ((uint64_t)app.doc.instances.size() << 8) ^ (app.selected * 0x9E3779B97F4A7C15ull) ^ (epoch_ * 0xC2B2AE3D27D4EB4Full) ^ (lowClutter_ ? 0x5bd1e995ull : 0);
   if (sig == batchSig_) return;
   batchSig_ = sig; ++batchPasses;
-  // which pieces each building's batch holds: intact, unselected, unmoved template pieces (cached per instance revision)
+  // which pieces each building's batch holds: intact, unselected, unmoved template pieces (cached per instance revision).
+  // CP hitch fix: a batch crossing the distance band alone reuses the last walk (chateau_town: thousands of pieces)
   struct HostOf { uint32_t rev = 0; uint64_t host = 0; };
   static std::unordered_map<uint64_t, HostOf> hostOf;
-  std::map<uint64_t, std::pair<uint64_t, std::vector<const Instance*>>> want;
+  auto& want = want_;
+  if (sig != wantSig_) { wantSig_ = sig; want.clear();
+  if (std::getenv("NMK_BATCH_LOG")) logf("batch: membership walk (rev %u, %zu instances, epoch %llu)", (unsigned)app.revCounter, app.doc.instances.size(), (unsigned long long)epoch_);
   for (auto& i : app.doc.instances) {
     HostOf& ho = hostOf[i.id];
     if (ho.rev != i.rev) {
@@ -749,11 +756,13 @@ void InteriorSys::updateBatches(App& app) {
     w.second.push_back(&i);
   }
   if (hostOf.size() > app.doc.instances.size() * 2 + 64) hostOf.clear();   // deleted instances
+  }
   for (auto it = batches_.begin(); it != batches_.end();) {
     if (!want.count(it->first)) { it->second.lop.destroy(); it->second.slop.destroy(); it = batches_.erase(it); }
     else ++it;
   }
   member_.clear(); batchLeads.clear(); batchedPieces = 0; batchVerts = 0;
+  int starts = 0, uploads = 0; bool pending = false;
   for (auto& [host, w] : want) {
     if (w.second.size() < 2) continue;   // a lone piece draws on its own
     Batch& b = batches_[host];
@@ -765,11 +774,18 @@ void InteriorSys::updateBatches(App& app) {
       if (b.built) { b.lop.destroy(); b.slop.destroy(); b.built = false; b.verts = 0; }
       continue;
     }
-    if (!b.built || b.sig != w.first) { b.sig = w.first; b.members.clear(); for (auto* pi : w.second) b.members.push_back(pi->id); rebuildBatch(app, host, b, w.second); }
+    if (!b.built) {   // CP hitch fix: merged on a worker, at most one job started and one batch uploaded per frame; its pieces draw alone until then
+      if (b.job.valid() && b.jobSig != w.first) b.job.get();   // its members changed while it merged: start again
+      if (!b.job.valid()) { pending = true; if (starts++ == 0) { b.jobSig = w.first; b.job = mergeJob(app, w.second, true); } continue; }
+      if (uploads > 0 || b.job.wait_for(std::chrono::seconds(0)) != std::future_status::ready) { pending = true; continue; }
+      ++uploads; b.sig = w.first; b.members.clear(); for (auto* pi : w.second) b.members.push_back(pi->id); finishBatch(app, host, b, b.job.get(), w.second);
+    }
+    if (b.sig != w.first) { b.sig = w.first; b.members.clear(); for (auto* pi : w.second) b.members.push_back(pi->id); rebuildBatch(app, host, b, w.second); }
     for (uint64_t id : b.members) member_[id] = host;
     if (!b.members.empty()) batchLeads.insert(b.members.front());   // P2: the piece that draws its batch (never skipped by distance)
     batchedPieces += (int)b.members.size(); batchVerts += b.verts;
   }
+  if (pending) batchSig_ = 0;   // the next frame builds the next one
 }
 
 bool InteriorSys::propDraw(App& app, const Instance& i, const InstanceRT& r, const mat4& M, std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
