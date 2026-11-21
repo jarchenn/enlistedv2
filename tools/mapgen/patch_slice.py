@@ -2,8 +2,8 @@
 after generation (the committed file is the truth; a rebuild would undo the edits, see patch_trails.py).
   <python> -I tools/mapgen/patch_slice.py outpost_woods
 Builds the fine layer on the committed heightmap, replaces "terrainSculpt", and moves every instance standing inside the
-changed area by the change of the ground under it (new sculpt minus the old one), so nothing floats or sinks. A second
-run with the same script changes nothing. The map script carries the same V["fine"], so a future rebuild keeps it."""
+changed area by the change of the ground under it (new sculpt minus the old one), so nothing floats or sinks; then, once
+(marked "vfxSlice"), V["slice_paint"] over V["slice_rect"]. A second run with the same script changes nothing. The map script carries the same V["fine"], so a future rebuild keeps it."""
 import importlib
 import json
 import math
@@ -16,6 +16,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from mapgen.terrain import Grid  # noqa: E402
 from mapgen.relief import FineLayer  # noqa: E402
+from mapgen.paint import GroundPaint, CHUNK  # noqa: E402
+import base64  # noqa: E402
 
 REPO = os.path.normpath(os.path.join(HERE, "..", ".."))
 TPL = os.path.join(REPO, "content", "templates")
@@ -76,6 +78,25 @@ def main(mid):
         if abs(dy) >= 0.002:
             p[1] = round(p[1] + dy, 4); moved += 1
     nm["terrainSculpt"] = new
+    if V.get("slice_paint") and not nm.get("vfxSlice", {}).get("paint"):   # once: dabs strengthen on a second pass
+        paint = GroundPaint()
+        for c in nm.get("groundPaint", {}).get("chunks", []):
+            raw, px = base64.b64decode(c["d"]), bytearray()
+            for k in range(0, len(raw), 5):
+                px += raw[k + 1:k + 5] * raw[k]
+            assert len(px) == CHUNK * CHUNK * 4
+            paint.chunks[tuple(c["c"])] = px
+        x0, z0, x1, z1 = V["slice_rect"]
+        pud = []
+        for e in nm["instances"]:
+            a = e["asset"] if isinstance(e["asset"], str) else e["asset"]["id"]
+            p = e.get("position")
+            if a == "wat_puddles" and p and x0 <= p[0] <= x1 and z0 <= p[2] <= z1:
+                pud.append((p[0], p[2], 1.2))
+        n = V["slice_paint"](paint, fine.ground, pud)
+        nm["groundPaint"] = paint.to_json()
+        nm.setdefault("vfxSlice", {})["paint"] = 1
+        print("%s: %d paint dabs (soil to litter, %d puddle rings)" % (mid, n, len(pud)))
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         json.dump(nm, f, separators=(",", ":"))
     print("%s: %d sculpt tiles (was %d), %d instances moved with the ground" % (mid, len(new["tiles"]), len(old), moved))

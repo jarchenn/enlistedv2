@@ -611,6 +611,53 @@ def fine_track(fine, path, w=1.8, crown=0.05, drain_bias=0.02, rut_depth=(0.03, 
     fine.add(fn, (x0, z0, x1, z1))
 
 
+def track_soil(paint, ground, path, w, rect, puddles=(), drain_side=1):
+    """VFX rev3 spec 4.4: soil-to-litter selection along a track, as ground paint (the q the layer blend reads), over
+    rect (x0, z0, x1, z1) at the paint's 0.5 m texels. ground(x, z) is the final ground (base + sculpt).
+      trail    = 1 - ss(0.53 w, 1.07 w, |x|)
+      flowHold = ss(0.01, 0.05, basin depth) * (1 - ss(0.03, 0.13, |grade|))        basin: 3 m mean minus the ground
+      mudQ     = trail * sat(0.25 + 0.55 moisture + 0.35 flowHold)                   -> "mud"
+      gravelQ  = edge band * (0.5 + 0.5 ss(0.43 w, 0.95 w, |x|))                     -> "pebbles"
+      litterQ  = (1 - trail) * sheltered                                             -> "leaf_litter" (the bank side more)
+    and a 0.5 m damp ring ("mud") round each puddle (x, z, r): the meniscus at paint resolution."""
+    from .paint import TYPES, TEXEL
+    x0, z0, x1, z1 = rect
+    i0, i1 = int(math.floor(x0 / TEXEL)), int(math.ceil(x1 / TEXEL)); j0, j1 = int(math.floor(z0 / TEXEL)), int(math.ceil(z1 / TEXEL))
+    xs = (np.arange(i0, i1) + 0.5) * TEXEL; zs = (np.arange(j0, j1) + 0.5) * TEXEL
+    X, Z = np.meshgrid(xs, zs)
+    G = np.vectorize(ground)(X, Z)
+    d, S, side, LL = _poly_dist(X, Z, np.array(path, dtype=float))
+    ss = lambda e0, e1, v: np.clip((v - e0) / (e1 - e0), 0, 1) ** 2 * (3 - 2 * np.clip((v - e0) / (e1 - e0), 0, 1))
+    k = 3
+    pad = np.pad(G, k, mode="edge")
+    mean = sum(pad[k + dj:k + dj + G.shape[0], k + di:k + di + G.shape[1]] for dj in range(-k, k + 1) for di in range(-k, k + 1)) / (2 * k + 1) ** 2
+    gz, gx = np.gradient(G, TEXEL)
+    flowHold = ss(0.01, 0.05, mean - G) * (1 - ss(0.03, 0.13, np.hypot(gx, gz)))
+    trail = 1 - ss(0.53 * w, 1.07 * w, d)
+    moist = 0.45 + 0.25 * (side == drain_side) * ss(1.0 * w, 1.6 * w, d)   # the drain shoulder stays damper
+    mudQ = trail * np.clip(0.25 + 0.55 * moist + 0.35 * flowHold, 0, 1) * ss(0.2, 0.6, flowHold + 0.25 * trail)
+    gravelQ = ss(0.6 * w, 0.9 * w, d) * (1 - ss(1.1 * w, 1.5 * w, d)) * (0.5 + 0.5 * ss(0.43 * w, 0.95 * w, d))
+    litterQ = (1 - trail) * ss(1.3 * w, 2.4 * w, d) * np.where(side == drain_side, 0.6, 1.0)
+    tm, tp, tl = TYPES.index("mud"), TYPES.index("pebbles"), TYPES.index("leaf_litter")
+    n = 0
+    for jj in range(G.shape[0]):
+        for ii in range(G.shape[1]):
+            i, j = i0 + ii, j0 + jj
+            if litterQ[jj, ii] > 0.3:
+                paint.dab(i, j, tl, 0.7 * litterQ[jj, ii]); n += 1
+            if gravelQ[jj, ii] > 0.25:
+                paint.dab(i, j, tp, 0.8 * gravelQ[jj, ii]); n += 1
+            if mudQ[jj, ii] > 0.3:
+                paint.dab(i, j, tm, mudQ[jj, ii]); n += 1
+    for px, pz, r in puddles:   # the meniscus: a damp ring just outside the water's edge
+        for j in range(int(math.floor((pz - r - 1) / TEXEL)), int(math.ceil((pz + r + 1) / TEXEL))):
+            for i in range(int(math.floor((px - r - 1) / TEXEL)), int(math.ceil((px + r + 1) / TEXEL))):
+                q = math.hypot((i + 0.5) * TEXEL - px, (j + 0.5) * TEXEL - pz) - r
+                if -0.1 < q < 0.5:
+                    paint.dab(i, j, tm, 0.7 * (1 - q / 0.5) if q > 0 else 0.7); n += 1
+    return n
+
+
 def fine_bumps(fine, centre, radius, amp=0.12, scale=1.6, hollow=0.1, keep=None, seed=3):
     """VOT T2: foreground micro-relief around a viewpoint: low fbm bumps and a few shallow puddle hollows, fading out at
     `radius`; keep(X, Z) -> 0..1 protects roads, footprints and paths."""
