@@ -2268,7 +2268,8 @@ void main(){
   if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) discard;
   vec2 auv = (fi + uv)/N*uImpUse;
   vec4 a = texture(uImpAlb, auv);
-  if (a.a < 0.5) discard;
+  float lod = textureQueryLod(uImpAlb, auv).y;   // averaged mips thin the needles out: the cut falls with the mip so coverage holds
+  if (a.a < mix(0.5, 0.18, clamp(lod/4.0, 0.0, 1.0))) discard;
   vec3 alb = a.rgb/max(a.a, 1e-3);
   if (vTint.a > 2.5) alb = mix(alb, vTint.rgb*dot(alb, vec3(0.2126, 0.7152, 0.0722)), uGreenK.w*greenMask(alb));   // FL1 greenery, as kModelFS
   else if (vTint.a > 1.5) alb *= vTint.rgb;
@@ -4183,7 +4184,7 @@ void main(){
   if (uLD2.y > 0.5) {   // WS3 pollen: a round mote, lit mostly by the sun behind it (forward scattering)
     if (vA < 0.5 || dot(vC, vC) > 1.0) discard;
     float VoL = max(dot(normalize(vW - uCamPos), uSunDir), 0.0);
-    oColor = vec4(applyFog(vCol*(uSunCol*(0.04 + 0.5*pow(VoL, 8.0)) + mix(uGroundCol, uSkyCol, 0.6)*0.3), vW), 1.0); return;
+    oColor = vec4(applyFog(vCol*(uSunCol*(0.12 + 0.6*pow(VoL, 8.0)) + mix(uGroundCol, uSkyCol, 0.7)*0.8), vW), 1.0); return;   // pale motes: never dark specks against the sky
   }
   if (vA < 0.5 || dot(vC, vC) > 1.0 - 0.25*abs(vC.x)*(1.0 - vC.y)) discard;   // oval with a slight point
   vec3 N = normalize(vN); if (dot(N, uCamPos - vW) < 0.0) N = -N;
@@ -5342,16 +5343,18 @@ const Renderer::Impostor* Renderer::impostorFor(const GpuModel* m, int first, in
   auto key = std::make_tuple(m, first, count);
   auto it = impostors.find(key);
   if (it != impostors.end()) return it->second.ready ? &it->second : nullptr;
-  if (impostors.size() >= 16) return nullptr;   // shortcut: at most 16 species (about 27 MB each), first come; an LRU if maps need more
+  if ((int)impostors.size() >= q.impMax) return nullptr;   // shortcut: the tier's species cap, first come; an LRU if maps need more
   impostors[key]; impWant.push_back(key); return nullptr;
 }
 
 void Renderer::impostorBakeSome() {
-  constexpr int kAtlas = 2048, kN = 12, kF = 170, kNrm = 1024;
+  const int kAtlas = q.impAtlas, kN = 12, kF = kAtlas / kN, kNrm = kAtlas / 2;   // shortcut: a tier change keeps earlier bakes at their size
   GLint prevFbo = 0, vpOld[4], dfOld = GL_LESS; glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevFbo); glGetIntegerv(GL_VIEWPORT, vpOld); glGetIntegerv(GL_DEPTH_FUNC, &dfOld);
   const GLboolean cullOld = glIsEnabled(GL_CULL_FACE), blendOld = glIsEnabled(GL_BLEND), dtOld = glIsEnabled(GL_DEPTH_TEST);
-  if (!impFbo) { glCreateFramebuffers(1, &impFbo); glCreateRenderbuffers(1, &impDepth); glNamedRenderbufferStorage(impDepth, GL_DEPTH_COMPONENT24, kAtlas, kAtlas);
-                 glCreateTextures(GL_TEXTURE_2D, 1, &impNrmTmp); glTextureStorage2D(impNrmTmp, 1, GL_RGBA8, kAtlas, kAtlas); glCreateBuffers(1, &impBakeBuf); }
+  if (!impFbo || impFboSize != kAtlas) {
+    if (impFbo) { glDeleteFramebuffers(1, &impFbo); glDeleteRenderbuffers(1, &impDepth); glDeleteTextures(1, &impNrmTmp); } else glCreateBuffers(1, &impBakeBuf);
+    glCreateFramebuffers(1, &impFbo); glCreateRenderbuffers(1, &impDepth); glNamedRenderbufferStorage(impDepth, GL_DEPTH_COMPONENT24, kAtlas, kAtlas);
+    glCreateTextures(GL_TEXTURE_2D, 1, &impNrmTmp); glTextureStorage2D(impNrmTmp, 1, GL_RGBA8, kAtlas, kAtlas); impFboSize = kAtlas; }
   for (int done = 0; done < 2 && !impWant.empty(); ++done) {
     auto key = impWant.back(); impWant.pop_back();
     Impostor& I = impostors[key];
@@ -5402,7 +5405,8 @@ void Renderer::impostorBakeSome() {
     glDeleteFramebuffers(1, &rf); glGenerateTextureMipmap(I.nrm);
     for (GLuint t : {I.alb, I.nrm}) { glTextureParameteri(t, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTextureParameteri(t, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
                                        glTextureParameteri(t, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(t, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); }
-    I.ready = true; logf("impostor: baked %p parts %d-%d (r %.1f m)", (const void*)m, p0, p1, I.r);
+    I.fpx = (float)kF; I.use = kN * (float)kF / kAtlas;
+    I.ready = true; logf("impostor: baked %p parts %d-%d (r %.1f m, %d atlas)", (const void*)m, p0, p1, I.r, kAtlas);
   }
   glBindVertexArray(0); glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFbo); glViewport(vpOld[0], vpOld[1], vpOld[2], vpOld[3]);
   glDepthFunc((GLenum)dfOld); if (cullOld) glEnable(GL_CULL_FACE); if (blendOld) glEnable(GL_BLEND); if (!dtOld) glDisable(GL_DEPTH_TEST);
@@ -5417,14 +5421,14 @@ void Renderer::drawImpostors(const RenderView& v, const mat4& vp, const Frustum&
   if (by.empty()) return;
   setLighting(progImp, v);
   glUniformMatrix4fv(U(progImp, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
-  glUniform1i(U(progImp, "uImpAlb"), 2); glUniform1i(U(progImp, "uImpNrm"), 4); glUniform1f(U(progImp, "uImpUse"), 12.0f * 170.0f / 2048.0f);
+  glUniform1i(U(progImp, "uImpAlb"), 2); glUniform1i(U(progImp, "uImpNrm"), 4); const GLint lUse = U(progImp, "uImpUse");
   if (!impInstBuf) glCreateBuffers(1, &impInstBuf);
   glDisable(GL_CULL_FACE); glBindVertexArray(snowfallVao);
   for (auto& [I, b] : by) {
     const size_t bytes = b.size() * sizeof(vec4);
     if (impInstBytes < bytes) { glDeleteBuffers(1, &impInstBuf); glCreateBuffers(1, &impInstBuf); impInstBytes = std::max(bytes, impInstBytes * 2); glNamedBufferData(impInstBuf, impInstBytes, nullptr, GL_STREAM_DRAW); }
     glNamedBufferSubData(impInstBuf, 0, bytes, b.data()); glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 13, impInstBuf);
-    glBindTextureUnit(2, I->alb); glBindTextureUnit(4, I->nrm);
+    glBindTextureUnit(2, I->alb); glBindTextureUnit(4, I->nrm); glUniform1f(lUse, I->use);
     glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)(b.size() / 3));
     stats.draws++; stats.tris += (int)(b.size() / 3) * 2;
   }
@@ -6367,10 +6371,13 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   if ((perf.leafDrift || perf.pollen) && q.leafDriftN > 0 && !thumbMode && !v.thermal && !v.underwater && progLeafDrift && snowfallVao) {   // WS2 drifting leaves, WS3 pollen
     // how wooded the eye's surroundings are: standing card trees (broadleaf, orchard) within 30 m, eased over ~2 s
     int nT = 0; for (auto& f : foliage) if (f.tree) { vec3 d = vec3(f.m[3]) - v.camPos; if (d.x * d.x + d.z * d.z < 900.0f) ++nT; }
-    leafDriftK += (std::clamp(nT / 10.0f, 0.0f, 1.0f) - leafDriftK) * std::clamp(v.dt * 0.5f, 0.0f, 1.0f);
+    leafDriftK += (std::clamp((nT - 4) / 26.0f, 0.0f, 1.0f) - leafDriftK) * std::clamp(v.dt * 0.5f, 0.0f, 1.0f);
     const int n = perf.leafDrift && !lt.mapLeafless ? (int)(q.leafDriftN * leafDriftK) : 0;
     // WS3 pollen: dry, mild days in daylight, over standing grass (this frame's drawn clumps), Medium 600 / High 1500
-    pollenK += ((perf.pollen && wx.st.precip == WxNone && wx.st.tempC > 5.0f && sunDir.y > 0.05f && grass ? std::clamp(grass->lastDrawnClumps / 3000.0f, 0.0f, 1.0f) : 0.0f) - pollenK) * std::clamp(v.dt * 0.5f, 0.0f, 1.0f);
+    { extern bool snowLayerOn(); static float lastT = -999.0f; static int lastP = -1;
+      if (perf.pollen && (wx.st.tempC != lastT || wx.st.precip != lastP)) { lastT = wx.st.tempC; lastP = wx.st.precip; logf("pollen gate: tempC %.1f, precip %d, leafless %d, snow layer %d", lastT, lastP, (int)lt.mapLeafless, (int)snowLayerOn()); }
+      pollenOk = !lt.mapLeafless && !snowLayerOn(); }   // winter maps: no pollen, whatever the temperature says
+    pollenK += ((perf.pollen && pollenOk && wx.st.precip == WxNone && wx.st.tempC > 5.0f && sunDir.y > 0.05f && grass ? std::clamp(grass->lastDrawnClumps / 3000.0f, 0.0f, 1.0f) : 0.0f) - pollenK) * std::clamp(v.dt * 0.5f, 0.0f, 1.0f);
     const int np = (int)(q.leafDriftN * 0.75f * pollenK);
     if (n > 0 || np > 0) {
       const GLboolean blendWas = glIsEnabled(GL_BLEND), cullWas = glIsEnabled(GL_CULL_FACE);

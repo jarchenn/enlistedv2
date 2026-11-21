@@ -266,6 +266,7 @@ void Settings::apply(App& app) {
   R.q.leafDriftN = g.cloudQuality <= 0 ? 0 : g.cloudQuality == 1 ? 800 : 2000;   // WS2 (corpus 07 s7.3)
   R.q.snowfallScale = g.cloudQuality <= 0 ? 0.4f : g.cloudQuality == 1 ? 0.75f : 1.0f;   // SF1: a map's snowfall at this sky quality   // PF2: the haze reaches the same depth at the render distance (Medium: unchanged)
   R.lt.maxLights = g.lightCount; R.lt.shadowLights = g.shadowLights; R.lt.gi = g.gi; R.lt.hour = s.hour;   // L2 lighting
+  R.q.impAtlas = g.grass >= 3 ? 2048 : 1024; R.q.impMax = g.grass >= 4 ? 16 : g.grass >= 2 ? 12 : 6;   // CP3: about 28 MB a species at 2048, 7 MB at 1024
   app.grass.quality = (GrassQuality)std::clamp(g.grass, 0, 4); app.grass.nearWind = g.grassWind;
   app.fx.setBudget(g.particles);
   if (!gSelftest) platformSwapInterval(s.vsync ? 1 : 0);
