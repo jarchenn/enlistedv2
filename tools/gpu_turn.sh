@@ -2,9 +2,10 @@
 # GPU turn-taking for parallel work sessions: runs "<cmd...>" while holding one of N machine-wide GPU slots, so the
 # self-test suites of many worktrees share the GPU in a controlled way instead of all at once.
 # Usage: tools/gpu_turn.sh <cmd> [args...]          e.g. tools/gpu_turn.sh ./NormandyMapmaker.exe --selftest-interiors
-#   GPU_TURN_SLOTS=<n>      how many runs may use the GPU at once (default 5; the user raised it from 1 to 3 to 5, 2026-11-07)
+#   GPU_TURN_SLOTS=<n>      how many runs may use the GPU at once (default 3; the user set "3 instances at most", 2026-11-21)
 #   GPU_TURN_EXCLUSIVE=1    take every slot (frame-time measurements that must not share the GPU)
 #   GPU_TURN_LOCK=<dir>     slot 1 directory (default: %TEMP%/nmk/gpu.lock; slot k > 1 is <dir>.k)
+#   GPU_TURN_MAX_GAMES=<n>  wait while n game processes are running (any, with or without a slot; default 3, exclusive waits for 0)
 #   GPU_TURN_STALE=<min>    a slot older than this whose holder pid is not alive is taken over (default 40)
 #   GPU_TURN_TAG=<text>     who holds the slot (shown to waiters; default: the current directory)
 #   GPU_TURN_MIN_COMMIT_GB=<n>  no slot is taken while the system's free commit (RAM + page file not yet promised) is
@@ -20,7 +21,7 @@ set -u
 [ $# -ge 1 ] || { echo "usage: tools/gpu_turn.sh <cmd> [args...]"; exit 2; }
 LOCK="${GPU_TURN_LOCK:-${TEMP:-/tmp}/nmk/gpu.lock}"
 Q="$LOCK.q"
-N="${GPU_TURN_SLOTS:-5}"; [ "$N" -ge 1 ] 2>/dev/null || N=1
+N="${GPU_TURN_SLOTS:-3}"; [ "$N" -ge 1 ] 2>/dev/null || N=1
 EXCL="${GPU_TURN_EXCLUSIVE:-0}"
 STALE="${GPU_TURN_STALE:-40}"
 TAG="${GPU_TURN_TAG:-$(pwd)}"
@@ -34,6 +35,11 @@ MINV="${GPU_TURN_MIN_VRAM_MB:-2560}"
 freeVramMb() {   # nvidia-smi's free video memory (MiB); empty without it (then the gate is open)
   command -v nvidia-smi >/dev/null 2>&1 || return
   nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' \r'
+}
+MAXG="${GPU_TURN_MAX_GAMES:-3}"
+liveGames() {   # game processes on the machine (NormandyMapmaker.exe and renamed copies nm_*.exe), slot or not; empty without tasklist (gate open)
+  command -v tasklist >/dev/null 2>&1 || command -v tasklist.exe >/dev/null 2>&1 || return
+  tasklist.exe //NH //FO CSV 2>/dev/null | grep -ci '^"\(normandymapmaker\|nm_[^"]*\)\.exe"'
 }
 slot() { [ "$1" -eq 1 ] && echo "$LOCK" || echo "$LOCK.$1"; }
 mkdir -p "$(dirname "$LOCK")" "$Q"
@@ -68,6 +74,13 @@ while :; do
     fv=$(freeVramMb)
     if [ "$EXCL" != 1 ] && [ -n "$fv" ] && [ "$fv" -lt "$MINV" ] 2>/dev/null; then   # a full card leaves new render targets undefined (garbage frames); exclusive waits for the slots instead
       [ $((waited % 60)) -eq 0 ] && echo "gpu_turn: free video memory ${fv} MB < ${MINV} MB; waiting"
+      sleep 5; waited=$((waited + 5)); continue
+    fi
+  fi
+  if [ "$MAXG" -gt 0 ] 2>/dev/null && { [ "$EXCL" = 1 ] && [ "$ahead" -eq 0 ] || [ "$EXCL" != 1 ] && [ "$ahead" -lt "$N" ]; }; then
+    g=$(liveGames); lim=$([ "$EXCL" = 1 ] && echo 1 || echo "$MAXG")   # exclusive: the card alone; else at most MAXG games (the user's rule: 3), counted as processes
+    if [ -n "$g" ] && [ "$g" -ge "$lim" ] 2>/dev/null; then
+      [ $((waited % 60)) -eq 0 ] && echo "gpu_turn: $g game processes running (limit $([ "$EXCL" = 1 ] && echo "0 for exclusive" || echo "$MAXG")); waiting"
       sleep 5; waited=$((waited + 5)); continue
     fi
   fi
