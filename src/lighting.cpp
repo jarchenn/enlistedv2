@@ -510,7 +510,7 @@ void LightingPass::begin(Renderer& R, const RenderView& v) {
     t.expoMax = glm::mix(1.45f, 1.2f, nk);   // was 5.0 at full night: the meter no longer lifts night toward a mid-tone
     t.expoKey = glm::mix(0.24f, 0.07f, nk);  // was 0.11
     t.fixedExpo = std::min(t.fixedExpo, std::max(1.0f, t.expoMax * 0.65f));   // the editor's fixed night level follows (was <= 3.25, now 1)
-    if (t.keyIsMoon) t.keyMul *= glm::mix(1.0f, 0.35f, nk);   // moonlight: shapes and the road near, the far street lost; the headlamp / lamps lead
+    if (t.keyIsMoon) t.keyMul *= glm::mix(1.0f, 0.15f, nk);   // was 0.35 (clear night measured 42 sRGB, target 25-30; rain night has little moon key and stays)   // moonlight: shapes and the road near, the far street lost; the headlamp / lamps lead
     const float amb = glm::mix(1.0f, 0.5f, nk);   // the night sky and its fill
     t.skyMul *= amb; t.groundMul *= amb; t.fogMul *= amb; t.zen *= amb; t.hor *= amb; t.cloudLit *= amb;
   }
@@ -968,6 +968,15 @@ void LightingPass::prepass(Renderer& R, const RenderView& v, const std::vector<D
     vec3 dir = glm::length(d.dir) > 1e-5f ? glm::normalize(d.dir) : vec3(0, -1, 0);
     float co = d.cosOuter <= -1.0f ? -2.0f : d.cosOuter, ci = std::max(d.cosInner, co + 1e-3f);
     L.gpu[i] = {vec4(d.pos, std::max(d.radius, 0.0f)), vec4(glm::max(d.color, vec3(0)) * std::max(d.intensity, 0.0f) * fl * (d.id == kFlashlightLightId || (d.id & 0xC0000000u) == 0xC0000000u ? 1.0f : lampK), 0), vec4(dir, co), vec4(ci, -1, 0, d.id == kFlashlightLightId ? 1.0f : 0.0f)};   // misc.w: no GI (FX1)
+  }
+  {   // headlamp log (NMK_EXPO_LOG / the glprobe frames), once a second: is it on, selected, how strong, where it points
+    static const bool lg = std::getenv("NMK_EXPO_LOG") != nullptr; static float last = -10.0f;
+    if ((lg || R.glProbeFrames > 0) && L.time - last >= 1.0f) {
+      last = L.time; int hi = -1; for (int i = 0; i < L.count; ++i) if (L.sel[i].id == kFlashlightLightId) hi = i;
+      if (hi >= 0) { const GpuLight& g = L.gpu[hi]; logf("headlamp: light %d of %d (cap %d), rgb x intensity (%.2f %.2f %.2f), radius %.1f, dir (%.2f %.2f %.2f) cos %.2f..%.2f, shadow slot %.0f, from (%.1f %.1f %.1f), camera (%.1f %.1f %.1f)",
+                          hi, L.count, cap, g.colI.x, g.colI.y, g.colI.z, g.posR.w, g.dirC.x, g.dirC.y, g.dirC.z, g.dirC.w, g.misc.x, g.misc.y, g.posR.x, g.posR.y, g.posR.z, cam.x, cam.y, cam.z); }
+      else logf("headlamp: not among the frame's %d lights (flashOn %d, %zu gathered, cap %d)", L.count, R.flashOn ? 1 : 0, R.lights.size(), cap);
+    }
   }
   GLint64 bsize = 0; glGetNamedBufferParameteri64v(L.lightBuf, GL_BUFFER_SIZE, &bsize);
   if (bsize < (GLint64)(L.gpu.size() * sizeof(GpuLight))) glNamedBufferData(L.lightBuf, std::max<size_t>(L.gpu.size(), 64) * sizeof(GpuLight) * 2, nullptr, GL_DYNAMIC_DRAW);
