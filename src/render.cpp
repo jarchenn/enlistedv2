@@ -348,6 +348,11 @@ vec3 skyColor(vec3 d){
 // Aerial perspective: height-falloff haze integrated along the view ray, density rho(y) = rho0 exp(-y / Hh).
 // Optical depth from the eye at e to the point: rho0 * L * exp(-e.y/Hh) * (1 - exp(-dy/Hh)) / (dy/Hh).
 // The in-scattered colour is the horizon sky in that direction plus a sun glow, so the land fades into the sky.
+vec3 hazeColor(vec3 dir){   // W2: the haze's colour toward dir (= the sky at the horizon under w2sky)
+  vec3 fd = normalize(vec3(dir.x, max(dir.y, 0.015), dir.z));
+  if (uW2 == 1) { vec3 band = vec3(dot(uSkyHor, vec3(0.2126, 0.7152, 0.0722)))*vec3(0.95, 0.97, 1.0)*0.66*overcastGrad(fd.y); return mix(skyColor(fd), band, uCloudK); }
+  return mix(uFogCol, skyColor(fd), 0.65);
+}
 vec3 applyFogAir(vec3 col, vec3 w){
   if (uUnder > 0.5) { float f = 1.0 - exp(-length(w - uCamPos)*uFogDens); gFogT = 1.0 - f; return mix(col, uFogCol, f); }
   vec3 dir = normalize(w - uCamPos);
@@ -387,6 +392,7 @@ vec3 applyFogAir(vec3 col, vec3 w){
     if (e > 0.95) sh = 1.0;
     float c0 = dot(dir, uSunDir), ph = 0.3 + 2.2*pow(max(c0, 0.0), 6.0) + 0.6*pow(max(c0, 0.0), 2.0);   // forward-scattering approximation
     vec3 fcE = mix(uFogCol, skyColor(fd), 0.45)*1.05 + uSunCol*vec3(1.0, 0.95, 0.85)*ph*0.11*cloudShadow(uCamPos)*mix(0.3, 1.0, sh)*(1.0 - uCloudK);   // WX2: no sun glow under overcast
+    if (uW2 == 1) { float lc = dot(uSkyHor, vec3(0.2126, 0.7152, 0.0722))*0.8, le = dot(fcE, vec3(0.2126, 0.7152, 0.0722)); if (le > lc) fcE *= lc/le; }   // W2: a fog layer is never brighter than the sky at the horizon (a veil, not snow)
     float tt = tau + tauE;
     f = 1.0 - exp(-tt);
     fc = mix(fc, fcE, tauE/max(tt, 1e-6));
@@ -3700,6 +3706,7 @@ void main(){
     // WX1: thick cloud is opaque (the HDR sun disc behind it no longer leaks through as a sprite); thin edges stay translucent
     c = mix(c, lit*uCloudLit, cl*mix(0.9, 1.0, thick)*smoothstep(0.0, 0.12, d.y));
   }
+  { float vis = 3.912/max(wxSigma, 1e-6); if (wxPhys && vis < 800.0) c = mix(c, hazeColor(d), 1.0 - smoothstep(250.0, 800.0, vis)); }   // W2: in a storm under ~500 m visibility the sky is the air's own colour (no blue, no cloud shapes)
   if (uUnder > 0.5) c = uFogCol*(0.75 + 0.45*max(d.y, 0.0));   // under water: the fog, a little lighter toward the surface
   oColor = vec4((any(isnan(c)) || any(isinf(c))) ? skyColor(d) : c, 1.0);
 }
@@ -3709,6 +3716,7 @@ uniform float uUnderTone;   // 1: under water (swim.cpp): blue-green tint, stron
 uniform float uNightGamma;   // 1 by day; below 1 lifts the darks at night
 uniform float uMapGamma;     // BR1c: the open map's gamma (> 1 brighter), 1 = none
 uniform float uWxK;   // WX2: the Cloudy mix (desaturation, cooler grade)
+uniform float uWxDark = 1.0;   // W2: 0 under a preset row (its exposure carries the light level; the grade only greys)
 uniform float uMapSat; uniform vec3 uMapTint;   // NT2b: a map's own saturation / tint
 uniform int uGradeOn; uniform float uGradeSat, uGradeContrast, uGradeVig, uGradeSharpen, uGradeCA; uniform vec3 uGradeShadow, uGradeHigh;
 // VO L8: every colour-only step after the tone curve, in Classic's order (vignettes are applied apart: they are positional)
@@ -3720,7 +3728,7 @@ vec3 gradeColor(vec3 c){
     c *= mix(vec3(1.0), uGradeShadow, sh)*mix(vec3(1.0), uGradeHigh, hi);
     c = clamp(c, 0.0, 1.0); c = pow(c, vec3(uNightGamma)); c = mix(c, c*c*(3.0 - 2.0*c), uGradeContrast);
   } else c = mix(vec3(l), c, 0.93);
-  if (uWxK > 0.0) { float lw = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(c, vec3(lw), 0.22*uWxK)*mix(vec3(1.0), vec3(0.94, 0.98, 1.05), uWxK)*(1.0 - 0.38*uWxK); c = mix(c, c*c*(3.0 - 2.0*c), 0.25*uWxK); }
+  if (uWxK > 0.0) { float lw = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(c, vec3(lw), 0.22*uWxK)*mix(vec3(1.0), vec3(0.94, 0.98, 1.05), uWxK)*(1.0 - 0.38*uWxK*uWxDark); c = mix(c, c*c*(3.0 - 2.0*c), 0.25*uWxK); }
   if (uMapSat != 1.0 || uMapTint != vec3(1.0)) { float lm = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(lm), c, uMapSat)*uMapTint; }
   if (uMapGamma != 1.0) c = pow(clamp(c, 0.0, 1.0), vec3(1.0/uMapGamma));
   if (uUnderTone > 0.0) c = mix(c, c*vec3(0.55, 0.92, 0.98) + vec3(0.0, 0.025, 0.035), uUnderTone);
@@ -3851,7 +3859,7 @@ void main(){
     float n = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)))*43758.5453) - 0.5;
     c = max(c*(1.0 - 0.96*k) + n/255.0, 0.0);
   }
-  if (uWxK > 0.0) { float lw = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(c, vec3(lw), 0.22*uWxK)*mix(vec3(1.0), vec3(0.94, 0.98, 1.05), uWxK)*(1.0 - 0.38*uWxK); c = mix(c, c*c*(3.0 - 2.0*c), 0.25*uWxK); }   /* overcast: 38 % darker, more muted and cooler, a little more contrast (moody) */   // WX2 Cloudy: ~13 % less saturation, a touch cooler
+  if (uWxK > 0.0) { float lw = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(c, vec3(lw), 0.22*uWxK)*mix(vec3(1.0), vec3(0.94, 0.98, 1.05), uWxK)*(1.0 - 0.38*uWxK*uWxDark); c = mix(c, c*c*(3.0 - 2.0*c), 0.25*uWxK); }   /* overcast: 38 % darker, more muted and cooler, a little more contrast (moody) */   // WX2 Cloudy: ~13 % less saturation, a touch cooler
   if (uMapSat != 1.0 || uMapTint != vec3(1.0)) { float lm = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(lm), c, uMapSat)*uMapTint; }   // NT2b
   if (uMapGamma != 1.0) c = pow(clamp(c, 0.0, 1.0), vec3(1.0/uMapGamma));   // BR1c
   if (uUnderTone > 0.0) { c = mix(c, c*vec3(0.55, 0.92, 0.98) + vec3(0.0, 0.025, 0.035), uUnderTone); c *= 1.0 - dot(q,q)*1.4*uUnderTone; }
@@ -4658,7 +4666,13 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1f(U(p, "uAerial"), q.lightNew && perf.atmo && !q.legacy && !thumbMode ? lt.mapAerial : 0.0f);   // VO L5 (look.aerial)
   if (wx.der.flash > 0.0f && !thumbMode) { const vec3 fl = vec3(0.85f, 0.9f, 1.0f) * wx.der.flash; sky += fl * 2.5f; fill += fl * 0.6f; zen += fl * 3.0f; hor += fl * 2.0f; }   // W2 lightning: the sky and the ambient flash (cloud-lit, no direction under the deck)
   if (wx.der.phys && !thumbMode) {   // W1 preset light (weather.cpp): sun and sky by the corpus's formulas, as ratios to Clear; fog takes the horizon's hue
-    const WxDerived& d = wx.der; const vec3 lw(0.2126f, 0.7152f, 0.0722f);
+    WxDerived& d = wx.der; const vec3 lw(0.2126f, 0.7152f, 0.0722f);
+    if (p == progMain) {   // W2: two-thirds compensation against Clear at this sun height and this map's own sun / sky balance (a low golden sun is most of the light)
+      const float mu = std::max(sunDir.y, 0.0f), ls = glm::dot(sun, lw), lk = glm::dot(sky, lw);
+      const float eOld = ls * mu / 3.14159265f + lk, eNew = ls * d.sunK * mu / 3.14159265f + lk * d.skyK;
+      const float r = std::max(eNew / std::max(eOld, 1e-5f), 1e-3f);
+      d.keyMul = std::pow(r, 1.0f / 3.0f); d.fixedMul = std::pow(r, -2.0f / 3.0f);
+    }
     const float fogL = glm::dot(fog, lw) * d.skyK;
     sun *= d.sunK * d.tint; skySunCol *= d.sunK * d.tint;
     sky *= d.skyK * d.tint; ground *= d.skyK * d.tint; fill *= d.skyK; zen *= d.skyK * d.tint; hor *= d.skyK * d.tint;
@@ -4746,7 +4760,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uSplitSum"), q.legacy || !perf.splitSum ? 0 : 1);   // CP step 3
   glUniform1i(U(p, "uAlbClamp"), q.legacy || !perf.albClamp ? 0 : 1);   // CP step 4
   glUniform2f(U(p, "uHex"), q.legacy || !perf.hex || q.matLayer == 0 || hd <= 0 ? 0.0f : 1.0f, std::max(hd, 0.05f)); }   // M1: hex tiling (--rq-off hex; off at Low); NMK_HEX = cells per texture repeat
-  glUniform1f(U(p, "uHazeH"), lt.mapHazeH > 0.0f ? lt.mapHazeH : q.hazeHeight);   // FG1: a map's own haze scale height
+  glUniform1f(U(p, "uHazeH"), wx.der.phys && wx.der.visM < 3000.0f ? std::max(lt.mapHazeH > 0.0f ? lt.mapHazeH : q.hazeHeight, 600.0f) : lt.mapHazeH > 0.0f ? lt.mapHazeH : q.hazeHeight);   // W2: a storm's air fills the valley, not a thin ground layer   // FG1: a map's own haze scale height
   glUniform1f(U(p, "uTime"), time);
   lightingUniforms(*this, p);   // L2: local lights, light shadows, probe GI, sky extras
   sunDir = sunDirMap;   // the thumbnail studio sun never leaks back into the map
@@ -6156,7 +6170,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   const bool gradeOn = grade.on && perf.grade && !q.legacy && !thumbMode && !lt.mapClean;   // BR2: a clean map keeps its own colours (the cool-shadow grade turned yellow olive)
   auto gradeU = [&](GLuint p) {
     glUniform1i(U(p, "uGradeOn"), gradeOn ? 1 : 0);
-    glUniform1f(U(p, "uWxK"), thumbMode ? 0.0f : wx.k);
+    glUniform1f(U(p, "uWxK"), thumbMode ? 0.0f : wx.k); glUniform1f(U(p, "uWxDark"), wx.der.phys ? 0.0f : 1.0f);
     glUniform1f(U(p, "uMapSat"), thumbMode ? 1.0f : lt.mapSat); glUniform3fv(U(p, "uMapTint"), 1, glm::value_ptr(thumbMode ? vec3(1.0f) : lt.mapTint));
     glUniform1f(U(p, "uNightGamma"), 1.0f / (1.0f + 0.3f * lightingTod(lt.hour).nightK) / settings().gamma());   // x the Settings gamma slider   // night: gamma +30 % (user request)
     glUniform1f(U(p, "uMapGamma"), std::max(lt.mapGamma, 0.1f));   // BR1c: the map's own gamma (extra.lighting.gamma)
