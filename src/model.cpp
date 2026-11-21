@@ -630,7 +630,10 @@ static bool compressBC(const uint8_t* d, int w, int h, int kind, bool cut, std::
       }
     };
     std::vector<std::thread> th; int per = (bh + (int)nt - 1) / (int)nt;
-    for (unsigned k = 0; k < nt; ++k) { int b0 = (int)k * per, b1 = std::min(bh, b0 + per); if (b0 < b1) th.emplace_back(rows, b0, b1); }
+    // a thread that cannot be made (memory pressure: std::system_error) does its rows here instead; an uncaught throw with
+    // threads still joinable would terminate the game (the "model textures" load crash, exception 0x20474343)
+    for (unsigned k = 0; k < nt; ++k) { int b0 = (int)k * per, b1 = std::min(bh, b0 + per); if (b0 >= b1) continue;
+      try { th.emplace_back(rows, b0, b1); } catch (...) { rows(b0, b1); } }
     for (auto& x : th) x.join();
     lvOut.push_back(out);
     if (L + 1 < levels) {   // the next mip: a 2x2 box
@@ -757,14 +760,17 @@ void prefetchModelTextures(const std::vector<fs::path>& dirs) {
   stbi_set_flip_vertically_on_load(0);
   std::atomic<size_t> next{0}; std::vector<std::thread> th;
   unsigned nt = std::clamp(std::thread::hardware_concurrency(), 1u, 16u);
-  for (unsigned t = 0; t < nt && t < jobs.size(); ++t) th.emplace_back([&] {
+  auto work = [&] {   // a job that throws (bad_alloc under memory pressure) is skipped: its map is compressed when first used
     for (size_t i; (i = next++) < jobs.size();) {
       int w, h, c; stbi_uc* d = stbi_load(jobs[i].f.string().c_str(), &w, &h, &c, 4); if (!d) continue;
-      std::vector<std::vector<uint8_t>> lv; GLenum fmt = 0;
-      if (compressBC(d, w, h, jobs[i].kind, jobs[i].cut, lv, fmt, 1)) writeTexCache(jobs[i].cf, w, h, fmt, lv);
+      try { std::vector<std::vector<uint8_t>> lv; GLenum fmt = 0;
+            if (compressBC(d, w, h, jobs[i].kind, jobs[i].cut, lv, fmt, 1)) writeTexCache(jobs[i].cf, w, h, fmt, lv); }
+      catch (...) { logf("textures: prefetch of %s failed (out of memory?): skipped", jobs[i].f.string().c_str()); }
       stbi_image_free(d);
     }
-  });
+  };
+  for (unsigned t = 0; t < nt && t < jobs.size(); ++t) { try { th.emplace_back(work); } catch (...) { break; } }   // no more threads: the rest here
+  work();
   for (auto& t : th) t.join();
   logf("textures: %zu model maps compressed into the cache on %u threads", jobs.size(), std::min<unsigned>(nt, (unsigned)jobs.size()));
 }
