@@ -400,6 +400,8 @@ public:
     bool governor = true;        // governor (Battle Foundry s8.5): the rung governor drives the render scale and effect caps; off: CP 5.1's sqrt dynres controller (caps 100 %)
     bool midCache = true;        // midcache (CP4): High / Ultra mid cascade = a cached static layer + movers redrawn every frame (was all of it every 2nd frame)
     bool skyVisWall = true;      // skyviswall (CP4): on walls the top-down sky occlusion counts an occluder by ~2 m / its height above (no full-height stripes under dormers)
+    bool nightDark = true;       // nightdark (Lighting New): night exposure ceiling 5 -> 2.2 and key 0.11 -> 0.07 at full night, the fixed night level <= 1.43
+    bool roomDark = true;        // roomdark (Lighting New): indoors the meter opens to 3 by day (was 8), not past the night's ceiling by night, and aims 0.6 x the key
     bool indoorExpo = true;      // indoorexpo (CP4): inside a room exposure is metered and may open ~3 stops past the day range
     bool roomLights = true;      // roomlights (CP4): interior / fire lamps in big rooms reach and light x sqrt(floor area / 60 m2), 1..3
     bool cascade4 = false;       // cascade4 (CP4, default off: no visible gain in 5 test views - the band 240-600 m holds only buildings; vegetation stays in the 2 nearest cascades, terrain uses the horizon map): High / Ultra: a fourth sun cascade (the old far range) and the far one out to ~600 m
@@ -462,7 +464,7 @@ public:
               // One line per stream, each followed by a comment line, so two streams appending names no longer conflict in merges.
               : n == "tnormal" ? &terrainNormals : n == "tmorph" ? &terrainMorph : n == "tskyview" ? &terrainSkyView : n == "ttilelod" ? &terrainTileLod : n == "thorizon" ? &terrainHorizon
               // ^ stream T (terrain): append to the line above
-              : n == "contactsh" ? &contactShadow : n == "fullshadow" ? &fullShadow : n == "gtao" ? &gtao : n == "midcascade" ? &midCascade : n == "microsh" ? &microShadow : n == "foltrans" ? &folTrans : n == "agx" ? &agx : n == "histexpo" ? &histExpo : n == "skyrelit" ? &skyRelit : n == "atmo" ? &atmo : n == "reflprobe" ? &reflProbe : n == "wxexpo" ? &wxExpo
+              : n == "contactsh" ? &contactShadow : n == "fullshadow" ? &fullShadow : n == "gtao" ? &gtao : n == "midcascade" ? &midCascade : n == "microsh" ? &microShadow : n == "foltrans" ? &folTrans : n == "agx" ? &agx : n == "histexpo" ? &histExpo : n == "skyrelit" ? &skyRelit : n == "atmo" ? &atmo : n == "reflprobe" ? &reflProbe : n == "wxexpo" ? &wxExpo : n == "nightdark" ? &nightDark : n == "roomdark" ? &roomDark
               // ^ stream L (lighting): append to the line above
               : n == "specaa" ? &specAA : n == "texbias" ? &texBias : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps : n == "splitsum" ? &splitSum : n == "albclamp" ? &albClamp : n == "wabs" ? &wAbs : n == "wet" ? &wet : n == "microdetail" ? &microDetail : n == "wearcause" ? &wearCause : n == "steeptri" ? &steepTri : n == "absfar" ? &absFar : n == "layerblend" ? &layerBlend : n == "reach" ? &reach : n == "instvar" ? &instVar : n == "ssrclamp" ? &ssrClamp : n == "pudrelief" ? &pudRelief : n == "masklib" ? &maskLib : n == "roughvar" ? &roughVar
               // ^ stream M (materials): append to the line above

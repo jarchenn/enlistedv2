@@ -504,6 +504,12 @@ void LightingPass::init(Renderer& R, const char* kCommonSrc, const char* kMainFS
 void LightingPass::begin(Renderer& R, const RenderView& v) {
   L.daySun = R.sunDir;
   L.tod = todCompute(R.lt.hour);
+  if (R.perf.nightDark && R.q.lightNew && !R.q.legacy) {   // nightdark: night reads as night; moonlit shapes just legible, lamps / fires / flashes are what you see by
+    Tod& t = L.tod;
+    t.expoMax = glm::mix(1.45f, 2.2f, t.nightK);   // was 5.0 at full night (~1.2 stops darker)
+    t.expoKey = glm::mix(0.24f, 0.07f, t.nightK);  // was 0.11
+    t.fixedExpo = std::min(t.fixedExpo, std::max(1.0f, t.expoMax * 0.65f));   // the editor's fixed night level follows (was <= 3.25, now <= 1.43)
+  }
   if (!L.tod.day) R.sunDir = L.tod.key;
   R.physSunY = L.tod.day ? R.sunDir.y : L.tod.sunTrue.y;   // CP2: the real sun's height (sunDir is the moon at night)
   L.view = v.view; L.proj = v.proj; L.cam = v.camPos; ++L.frame; L.time += v.dt;
@@ -540,9 +546,17 @@ void LightingPass::exposureUniforms(const Renderer& R, GLuint p) {
   // CP4 indoorexpo: inside a room the eye opens up: the meter may go ~3 stops past the day's range (corpus: interior EV 2-10 against 9-15.5 outside)
   // wxexpo: a dark preset (rain, overcast, storm) raises the meter's ceiling by its own compensation (fixedMul >= 1), or the
   // day's 1.45 stopped the meter ~2.5 stops short in Steady rain (deep dusk at noon); Clear (fixedMul 1) is unchanged
-  const float wxRoom = R.perf.wxExpo && R.wx.der.phys && !R.thumbMode && !R.wx.enclosed ? std::clamp(R.wx.der.fixedMul, 1.0f, 12.0f) : 1.0f;
-  glUniform1f(U(p, "uExpoMax"), R.camIndoor && R.perf.indoorExpo && !R.thumbMode ? std::max(L.tod.expoMax * wxRoom, 8.0f) : L.tod.expoMax * wxRoom);
-  glUniform1f(U(p, "uExpoKey"), L.tod.expoKey * (R.thumbMode || R.wx.enclosed ? 1.0f : R.wx.der.phys ? R.wx.der.keyMul : glm::mix(1.0f, R.perf.w2Expo && snowLayerOn() ? 1.2f : 0.72f, R.wx.k)));   /* WX2: Cloudy is darker (auto exposure would otherwise lift it back) */ glUniform1f(U(p, "uExpoMin"), L.tod.expoMin);
+  // only while the true sun is up (physSunY): rain at night stays darker than a clear night, never opened by it
+  const float sunUp = glm::smoothstep(0.02f, 0.12f, R.physSunY);
+  const float wxRoom = R.perf.wxExpo && R.wx.der.phys && !R.thumbMode && !R.wx.enclosed ? 1.0f + (std::clamp(R.wx.der.fixedMul, 1.0f, 12.0f) - 1.0f) * sunUp : 1.0f;
+  // roomdark: indoors the meter opens at most to 3 by day (was 8: rooms evenly bright) and not past the night's ceiling by night
+  // (an unlit cellar stays dark; a lamp-lit room is metered on its lamp), and aims 0.6 x the key (dim away from windows and lamps)
+  const bool roomDark = R.perf.roomDark && R.q.lightNew && !R.q.legacy;
+  const float inMax = roomDark ? glm::mix(L.tod.expoMax, std::max(L.tod.expoMax * wxRoom, 3.0f), sunUp) : std::max(L.tod.expoMax * wxRoom, 8.0f);
+  const bool inRoom = R.camIndoor && R.perf.indoorExpo && !R.thumbMode;
+  glUniform1f(U(p, "uExpoMax"), inRoom ? inMax : L.tod.expoMax * wxRoom);
+  const float inKey = inRoom && roomDark ? 0.6f : 1.0f;
+  glUniform1f(U(p, "uExpoKey"), inKey * L.tod.expoKey * (R.thumbMode || R.wx.enclosed ? 1.0f : R.wx.der.phys ? R.wx.der.keyMul : glm::mix(1.0f, R.perf.w2Expo && snowLayerOn() ? 1.2f : 0.72f, R.wx.k)));   /* WX2: Cloudy is darker (auto exposure would otherwise lift it back) */ glUniform1f(U(p, "uExpoMin"), L.tod.expoMin);
 }
 
 void LightingPass::uniforms(Renderer& R, GLuint p) {
