@@ -18,12 +18,17 @@
 // ---------------------------------------------------------------- presets
 // P3 A/B: NMK_PRESET_OLD=1 gives the pre-P3 Low / Medium values (presets, the shadow / probe / SSAO knobs, grass Low radius)
 bool presetsOld() { static const bool o = std::getenv("NMK_PRESET_OLD") != nullptr; return o; }
+// CP preset re-cut (corpus 13.10, docs/corpus-implementation.md): Medium is the art-directed baseline; High adds samples
+// and range; Low removes density and resolution, never a cue: every preset keeps near sun shadows, contact shadows,
+// ambient occlusion (Low / Ultra Low at quarter resolution), haze (the weather's, the same everywhere) and temporal AA.
+// Fixed scales are the dynamic-resolution floors: Medium 0.77, Low 0.67 (the corpus's 1080p floor; it was 0.5)
 GraphicsOpts presetOpts(GfxPreset p) {
   GraphicsOpts g;   // Medium: the built-in defaults (Renderer::Quality, Grass, Fx, the cull rules in maps.json)
+  if (p == GfxPreset::Medium) g.resScale = 0.77f;   // CP: was 0.67
   if (presetsOld() && p != GfxPreset::High) g.shadowLights = 4;
   if (p == GfxPreset::Low) {
-    g.resScale = 0.5f; g.shadowQuality = 0;   // P1: TAAU reconstructs the output (was 0.85 bilinear)
-    g.shafts = false; g.ssr = false; g.ssao = false;   // WX1: cloud shadows stay on (every preset sees the same sun patches)
+    g.resScale = 0.67f; g.shadowQuality = 0;   // P1: TAAU reconstructs the output; CP: 0.67, the corpus's 1080p floor (was 0.5)
+    g.shafts = false; g.ssr = false; g.ssao = true;   // WX1: cloud shadows stay on (every preset sees the same sun patches); CP: AO stays (quarter resolution), a cue
     g.cloudQuality = 0;
     g.bloom = presetsOld();                              // P3: no bloom on Low
     g.grass = 1; g.grassWind = false; g.renderDist = presetsOld() ? 600 : 450; g.particles = 0.6f; g.ivy = false; g.dustMotes = 0;
@@ -31,7 +36,7 @@ GraphicsOpts presetOpts(GfxPreset p) {
     g.materials = 0;                                     // GX5: base materials only (no layer, no static decals)
   } else if (p == GfxPreset::UltraLow) {   // PERF1: below Low - no reflections / AO / bloom / shafts / cloud shadows, static vegetation, shortest distances, lowest scale
     g.resScale = 0.5f; g.shadowQuality = 0;
-    g.shafts = false; g.ssr = false; g.ssao = false; g.bloom = false; g.cloudShadows = false;
+    g.shafts = false; g.ssr = false; g.ssao = true; g.bloom = false; g.cloudShadows = false;   // CP: AO stays (quarter resolution): a grounding cue
     g.cloudQuality = 0;
     g.grass = 1; g.grassWind = false; g.renderDist = 300; g.particles = 0.4f; g.ivy = false; g.dustMotes = 0;
     g.lightCount = 32; g.shadowLights = 0; g.gi = 0;
@@ -100,6 +105,10 @@ UserSettings UserSettings::fromJson(const json& j) {
     g.gi = std::clamp(q.value("gi", g.gi), 0, 2);
     g.msaa = q.value("msaa", g.msaa) >= 2 ? 4 : 0; g.ivy = q.value("ivy", g.ivy); g.dustMotes = std::clamp(q.value("dustMotes", g.dustMotes), 0, 2);
     if (pn == "High") { GraphicsOpts old = presetOpts(GfxPreset::High); old.msaa = 4; if (g == old) g.msaa = 0; }   // VO P2: a saved High (with its old 4x MSAA) is the new High, not Custom
+    for (GfxPreset pp : {GfxPreset::Low, GfxPreset::UltraLow, GfxPreset::Medium}) if (pn == presetName(pp)) {   // CP re-cut: a saved preset with its old values is the new one
+      GraphicsOpts old = presetOpts(pp); old.resScale = pp == GfxPreset::Medium ? 0.67f : 0.5f; if (pp != GfxPreset::Medium) old.ssao = false;
+      if (g == old) g = presetOpts(pp);
+    }
     // time of day: a preset name gives its hour; an explicit hour wins
     std::string tn = q.value("timeOfDay", std::string("Day"));
     for (TodPreset p : {TodPreset::Day, TodPreset::Dusk, TodPreset::Night, TodPreset::Dawn}) if (tn == todPresetName(p)) u.hour = todPresetHour(p);
@@ -420,7 +429,7 @@ void settingsWindow(App& app) {
       int pr = 4; for (int k = 0; k < 5; ++k) if (order[k] == u.preset()) pr = k;
       
       if (flat::combo("Preset", &pr, pn, 5) && order[pr] != GfxPreset::Custom) g = presetOpts(order[pr]);
-      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Medium is the standard look. Low: half-size shadows, no cloud shadows / light shafts / reflections / AO,\nless grass and decoration, 50 %% resolution. High: sharper far shadows, full-resolution AO, more grass, longer view.");
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Medium is the standard look (77-100 %% resolution with dynamic resolution). Low: half-size shadows, no light shafts / reflections / bloom,\nless grass and decoration, 67-100 %% resolution; ambient occlusion, contact shadows, haze and anti-aliasing stay on every preset.\nHigh: sharper far shadows, full-resolution AO, more grass, longer view.");
       flat::sliderFloat("Resolution scale", &g.resScale, 0.5f, 1.0f, "%.2f");
       if (ImGui::IsItemDeactivatedAfterEdit()) applyNow = true;   // targets are recreated once, on release
       flat::checkbox("Dynamic resolution", &u.dynRes);   // CP 5.1 (dynres.cpp)
