@@ -33,7 +33,7 @@ freeCommitGb() {   # Win32_OperatingSystem.FreeVirtualMemory (KB); empty when it
 MINV="${GPU_TURN_MIN_VRAM_MB:-2560}"
 freeVramMb() {   # nvidia-smi's free video memory (MiB); empty without it (then the gate is open)
   command -v nvidia-smi >/dev/null 2>&1 || return
-  nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' '
+  nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' \r'
 }
 slot() { [ "$1" -eq 1 ] && echo "$LOCK" || echo "$LOCK.$1"; }
 mkdir -p "$(dirname "$LOCK")" "$Q"
