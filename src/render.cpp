@@ -3479,12 +3479,14 @@ layout(location=5) in vec4 aHab;      // VFX rev3: habitat (x moisture, y shelte
 uniform mat4 uVP;
 uniform int uDefTiles;   // VFX rev3 tdeform: 1 while the fine tiles draw
 uniform vec4 uMorph;                  // VOT T1 geomorph: x start distance, y 1 / ramp length, z on
-out vec3 vW, vN0; out float vDirt; out vec3 vEw; out vec4 vHab;
+out vec3 vW, vN0; out float vDirt; out vec3 vEw; out vec4 vHab; out float vRim;
 invariant gl_Position;                // PF tzprepass: the depth pass and the colour pass must rasterise identical depths
 void main(){
   vec3 P = aPos;
   if (uMorph.z > 0.5) P.y += aMorph*clamp((length(aPos - uCamPos) - uMorph.x)*uMorph.y, 0.0, 1.0);
   if (uDefTiles == 1) P.y -= deformAt(P.xz).x;   // VFX rev3 tdeform: ruts and tracks in the fine tiles (the same in the depth pre-pass)
+  vRim = 0.0;   // BF: the road out to its rim (4.3 rim = 1 - ss(0.72 w, 1.22 w, |x|)), per vertex (roads.h: not per pixel); ground moss stops there
+  if (uMoss.x > 0.5 && dot(aHab, aHab) > 1e-6) { vec4 rl = roadLateral(P.xz); if (rl.w > 0.0) vRim = 1.0 - smoothstep(0.72*rl.w, 1.22*rl.w, abs(rl.x)); }
   vW = P; vN0 = aNrm; vDirt = aDirt; vEw = aEw; vHab = aHab; gl_Position = uVP*vec4(P,1.0);
 }
 )GLSL";
@@ -3500,6 +3502,7 @@ void main(){
 static const char* kTerrainFS = R"GLSL(
 uniform vec4 uGrassTop; uniform vec2 uGrassTopR;   // CP4: clumps' mean top-down albedo (linear), strength; ramp start / end (m)
 in vec3 vW, vN0; in float vDirt; in vec3 vEw;   // vEw: GX1 earthworks (terrain_cuts.cpp): packed mud, freshly turned earth, wet
+in float vRim;   // BF: the authored road out to its rim (kTerrainVS)
 in vec4 vHab;   // VFX rev3: the habitat attribute (the vegetation session's moss terms; 0 = no data)
 uniform int uTNOn; uniform sampler2D uTNrm; uniform vec4 uTNMap;   // VOT T1: per-pixel base normals (terrain_normals.cpp, unit 18), xy origin, zw 1 / extent
 uniform int uTSVOn;   // uTSV is declared with the shadow code (T6)   // VOT T5: terrain sky-view factor (unit 26, same mapping as uTNMap)
@@ -3734,7 +3737,7 @@ void main(){
     float moG = clamp(0.5*mossMoist(0.0, 0.0, cavG, 8.0*(1.0 - vHab.x)) + 0.3*vHab.w + 0.3*clamp(wet*1.2, 0.0, 1.0), 0.0, 1.0);
     float shG = mossShelter(vHab.y, normalize(vN), vec3(0.0, 0.0, 1.0));
     float trafG = gPWok ? clamp(max(max(gPW[2], 0.8*gPW[3]), max(0.7*gPW[4], gPW[6])), 0.0, 1.0) : 0.0;
-    trafG = max(max(trafG, rut), max(dirt, deformAt(p.xz).y));
+    trafG = max(max(max(trafG, rut), max(dirt, deformAt(p.xz).y)), vRim);
     vec3 mfG = mossField(p, nup, 0.0, 1.0 - 0.7*rockK, moG, shG, 0.9, vHab.w, trafG, vHab.z, 0.0, 0.0, 1.0 - smoothstep(12.0, 30.0, tDistM));
     float Mg = mfG.x*(1.0 - puddle)*(1.0 - smoothstep(0.1, 0.4, vEw.x + vEw.y));   // not in standing water or fresh earthworks
     if (Mg > 0.02) {
