@@ -3,6 +3,7 @@
 #include "combat.h"
 #include "terrain.h"
 #include "fxdata.h"
+#include "terrain_deform.h"
 #include <algorithm>
 #include <cmath>
 
@@ -451,7 +452,10 @@ bool Fx::emit(const FxEvent& e0) {
     }
   }
   // the flash light (the lighting session's combustion light replaces this; until then the WP4 light, its envelope as before)
-  if (age < 0.06f && admitLight()) {
+  if (brightOn && age < 0.06f) {   // fxbright: one combustion light from T, eps and size (spec 5.6), its envelope the flash's
+    CombSrc c; c.p = glm::length(e.light) > 0 ? e.light : e.pos; c.t0 = e.visTime; c.life = life * (heavy ? 1.6f : 1.0f);
+    c.T = heavy ? 2400.0f : 2200.0f; c.eps = (heavy ? 0.55f : 0.2f) * (e.device == "suppressor" ? 0.1f : 1.0f); c.d = 2.8f * W.envR * dev.envelope; combSrc.push_back(c);
+  } else if (age < 0.06f && admitLight()) {
     MuzzleLight Lt; Lt.p = glm::length(e.light) > 0 ? e.light : e.pos; Lt.life = (heavy ? 0.12f : 0.035f) * (e.device == "suppressor" ? 0.3f : 1.0f);
     Lt.k = heavy ? 3.0f * e.scale : e.scale * (e.device == "suppressor" ? 0.2f : 1.0f); Lt.id = 0xF1A50100u + (++mlightSerial & 0xFF);
     Lt.col = fxData().hue(2200); Lt.age = age; mlights.push_back(Lt);
@@ -508,7 +512,7 @@ bool Fx::emit(const FxEvent& e0) {
 void Fx::buildFlashes(vec3 eye, std::vector<FxVert>& add) const {
   double b = presentT, a = lastPresent;
   if (a < 0 || b - a <= 1e-6 || b - a > 0.25) a = b - 1.0 / 60.0;   // first draw / a repeat at the same instant / a long stall
-  lastPresent = b;
+  lastPresent = b; presentA = a;
   for (const FlashEl& f : flashes) {
     if (f.kind == 3) {   // the cooling fireball: emission of T(t) averaged over the drawn interval (6 samples), radius growing to R_fb
       const double s0 = std::max(a, f.t0), s1 = std::min(b, f.t0 + (double)f.life);
@@ -665,10 +669,21 @@ void Fx::explosionScaled(vec3 p, vec3 n, const std::string& family, const std::s
       f.p = p + (air ? vec3(0) : n * (0.3f * M.Rfb)) + o * (0.35f * M.Rfb); f.R = M.Rfb * 0.45f * std::exp(0.4f * (R() + R() + R() - 1.5f) * 1.414f);
       flashes.push_back(f);
     }
-    if (admitLight()) { MuzzleLight L; L.p = p + n * (0.5f * M.Rfb); L.life = std::max(0.06f, 2.0f * M.tLum); L.k = 2.5f * w3 * fireK; L.col = D.hue(2800); L.id = 0xE7B00000u + (++mlightSerial & 0xFFF); mlights.push_back(L); }
+    if (brightOn) { CombSrc c; c.p = p + n * (0.5f * M.Rfb); c.t0 = clock; c.life = 2.0f * M.tLum; c.cool = true; c.T0 = M.T0; c.tau = M.tau * k; c.n = M.n; c.eps = 0.9f * fireK; c.Rfb = M.Rfb; combSrc.push_back(c); }
+    else if (admitLight()) { MuzzleLight L; L.p = p + n * (0.5f * M.Rfb); L.life = std::max(0.06f, 2.0f * M.tLum); L.k = 2.5f * w3 * fireK; L.col = D.hue(2800); L.id = 0xE7B00000u + (++mlightSerial & 0xFFF); mlights.push_back(L); }
   }
   const float Rc = 0.5f * M.craterD * std::max(0.3f, S.craterDepth), vMin = std::sqrt(9.81f * std::max(Rc, 0.1f)), vMax = 2.5f * 20.0f * std::pow(M.W, 0.18f), mu = fxSoilMu(sid);
   const vec3 albedo = water ? vec3(0.75f) : S.albedo;
+  if (!air && !water) {   // 6.7 residue into the ground deformation buffer (tdeform): small craters as a bowl, every crater's 1.4 R vegetation-kill ring;
+    // the big bowls are the gameplay craters (App::explode / craterAt). Oblique: an ellipse, semi-axes 1 / sin(elevation) clamped [1, 3.5]
+    const float Dc = M.craterD * S.craterDepth, Rr = 0.5f * Dc;
+    float ell = 1; if (oblique) { const float el = std::asin(std::clamp(-glm::dot(glm::normalize(vImpact), n), 0.05f, 1.0f)); ell = std::clamp(1.0f / std::sin(el), 1.0f, 3.5f); }
+    const vec3 half = oblique ? down * (Rr * (ell - 1)) : vec3(0);
+    if (Dc > 0.05f) {
+      if (Dc < 0.9f) deformStamp(p - half, p + half, Rr, std::min(0.4f * Dc, 0.35f), 1.0f);
+      deformStamp(p - half * 1.4f, p + half * 1.4f, 1.4f * Rr, 0.0f, 1.0f);
+    }
+  }
   const vec3 dustCol = glm::min(albedo * 1.3f, vec3(0.85f));   // fines scatter more than the bulk (8.6)
   // A. suspended dust (D < 0.2 mm): no arcs; out with the blast wind (tau 0.12 s), then the ambient wind; at least one per burst (8.1)
   if (!air) {

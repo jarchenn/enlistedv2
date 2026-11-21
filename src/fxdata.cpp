@@ -138,7 +138,8 @@ int fxDataSelfCheck() {
   if (!fs::exists(docs)) logf("[fxev] SKIP data copies vs docs/vfx-rev3/data: no source tree here (set NMK_SRC)");
   else for (const char* f : {"blackbody.json", "guns_recoil.json", "materials.json", "munitions.json", "surfaces.json", "tiers.json", "weapons.json", "yref.json"}) {
     std::string a, b; try { a = readTextFile(contentDir() / "settings" / "vfx" / f); b = readTextFile(docs / f); } catch (...) {}
-    check(!a.empty() && a == b, std::string("settings/vfx/") + f + " byte-identical to docs/vfx-rev3/data");
+    auto noCR = [](std::string x) { x.erase(std::remove(x.begin(), x.end(), '\r'), x.end()); return x; };   // a checkout's line endings are not data
+    check(!a.empty() && noCR(a) == noCR(b), std::string("settings/vfx/") + f + " identical to docs/vfx-rev3/data (line endings aside)");
   }
   // blackbody: the spec's palette (5.3) from the LUT
   auto near3 = [](vec3 a, vec3 b, float t) { return glm::all(glm::lessThanEqual(glm::abs(a - b), vec3(t))); };

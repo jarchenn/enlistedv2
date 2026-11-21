@@ -2,6 +2,7 @@
 // All state here is an Explore session overlay: F5 starts from authored defaults, returning discards it.
 #include "app.h"
 #include "fxdata.h"   // Battle Foundry 6 (fxrecoil)
+#include "terrain_deform.h"
 #include "crumb.h"
 #include "mpai.h"
 #include "net.h"
@@ -528,6 +529,11 @@ void App::stationShoot(uint64_t id, int owner) {
   }
   projectiles.back().owner = owner;
   s->loaded -= 1; s->shots++; s->recoilT = 0;
+  if (gFxRecoil && !mgKind(d.kind) && fxGunFor(d.kind).platform == "towed") {   // fxrecoil (7.3): the spades dig in, a pair of trenches deepening with the shots
+    const float dep = std::min(0.15f, 0.04f * (1.0f + 0.5f * (float)s->shots));
+    const vec3 back = glm::normalize(vec3(b * vec4(0, 0, -1, 0)));
+    for (float x : {-0.75f, 0.75f}) { const vec3 sp = vec3(b * vec4(x, 0, d.elevPivot.z - 2.4f, 1)); deformStamp(sp, sp + back * 0.4f, 0.18f, dep, 1.0f); }
+  }
   mpaiStationShot(*this, id, start, dir, tracer, owner);
 }
 
