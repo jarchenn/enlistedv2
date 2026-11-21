@@ -25,7 +25,14 @@ DynResCtl gCtl; double gLastChange = 0; int gHold = 0; bool gWasOn = false;
 
 void dynResFrame(App& app) {
   const UserSettings& us = settings().s;
-  bool on = us.dynRes && us.upscale == 0 && app.R.gpuTimers;   // temporal upscaling only (the scale is what TAAU reconstructs)
+  static const bool force = std::getenv("NMK_DYNRES_FORCE") != nullptr;   // test hooks: on in any run; FLIP=<s>: 0.77 <-> 1 every s seconds
+  static const double flip = std::getenv("NMK_DYNRES_FLIP") ? std::atof(std::getenv("NMK_DYNRES_FLIP")) : 0.0;
+  if (flip > 0) {
+    static double last = 0; const double now = glfwGetTime();
+    if (now - last >= flip) { last = now; const float to = app.R.resolutionScale() > 0.9f ? 0.77f : 1.0f; app.R.setResolutionScale(to); logf("dynres: flip to %.2f", to); }
+    return;
+  }
+  bool on = (us.dynRes || force) && us.upscale == 0 && app.R.gpuTimers;   // temporal upscaling only (the scale is what TAAU reconstructs)
   if (!on) {
     if (gWasOn) { app.R.setResolutionScale(us.gfx.resScale); gWasOn = false; }   // back to the fixed scale
     return;

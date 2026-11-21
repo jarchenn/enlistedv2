@@ -4850,6 +4850,8 @@ void Renderer::createTargets() {
   for (GLuint f : {hdrFbo, ldrFbo, compFbo, shaftFbo, dofFbo, aoFbo})
     if (glCheckNamedFramebufferStatus(f, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) { logf("framebuffer %u incomplete after resize to %dx%d", f, width, height); ++fboErrors; }
   createMsaa();
+  // a full card (several games at once) can fail these allocations: the targets then hold undefined memory (garbage frames)
+  for (GLenum e; (e = glGetError()) != GL_NO_ERROR;) { logf("render targets %dx%d: GL error 0x%04x%s", width, height, e, e == GL_OUT_OF_MEMORY ? " (out of video memory)" : ""); ++fboErrors; }
 }
 
 // B1 MSAA (settings: High): the opaque world (sky, terrain, solids, models, foliage, grass) renders into a
