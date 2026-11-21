@@ -687,6 +687,7 @@ vec3 gTexDN = vec3(0.0); float gTexH = 0.0; bool gTexBump = false;   // world no
 uniform int uFloorSlot[8]; // MA1: room floor finish code -> slot (imgmat)
 uniform int uRelief;       // MA1b (Perf relief): parallax on Medium, per-family depth, crevices, detail grain, worn edges
 layout(location=11) flat in vec3 vPcF;         // MA1b: the triangle's provoking vertex part coordinate: a corner of a box face (edge distance)
+float gCav = 0.0, gPorosity = 0.0;   // BF 4.5 inputs for the moss field (gam-5): the set's depth below its mean height (0..1, 1 = deepest joint), and porosity = smoothstep(0.45, 0.85, roughness) (dielectrics; the caller drops metal)
 float gTexPal = 1.0;       // BF 3.6: the copy's palette-variation amount (uInst.z; finish "palette", 0 = none)
 uniform int uReach, uInstVar;   // BF 3.4 / 3.6 (perf switches reach, instvar)
 float gTexSeed = 0.0;      // TX6: the copy's seed (uInst.x): its grunge mask offset
@@ -753,6 +754,7 @@ float macroDamp(vec3 w, vec3 n, float pix){
 void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, int grain, float pix,
                  inout vec3 alb, inout float rough, inout float ao){
   vec3 dwx = dFdx(w), dwy = dFdy(w), dax = dFdx(ap), day = dFdy(ap), dcx = dFdx(pc), dcy = dFdy(pc);
+  gPorosity = smoothstep(0.45, 0.85, rough); gCav = 0.0;   // untextured surfaces too (the early returns below)
   if (!texOn() || slot < 0 || slot >= 704) return;
   vec4 A = uTexA[slot]; if (A.x < 0.0) return;
   int li = int(A.x + 0.5); vec4 K = uTexB[slot], C = uTexC[slot], Lp = uTexL[li], M = uTexM[li];
@@ -785,6 +787,7 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
   vec3 dn2 = dn*(rel && A.y > 0.5 ? max(K.y, 1.0) : K.y)*f*(rel ? 1.5 - 0.5*smoothstep(6.0, 16.0, eyeD) : 1.0);   // MA1b: replace sets at full strength, x1.5 near the eye
   float fr = 128.0*max(inv.x, inv.y);   // the height map's features: ~8 texels
   float h2 = (s.h - Lp.w)*C.x*f*(1.0 - smoothstep(0.18, 0.5, fr*pix));
+  gCav = smoothstep(0.02, 0.3, Lp.w - s.h)*f;   // BF 4.5 (gam-5's moss): raw cavity, every textured slot
   if (rel) {
     // crevices: below the set's mean height (mortar, joints, tile laps, fissures, bark furrows) sees less light; in the
     // albedo too, so the courses still read where the relief is under a pixel (15-35 m)
@@ -888,6 +891,7 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
     dn2 += Tm*mn.x + Bm*mn.y; r2 *= 1.0 + (mrh - uTexL[uMicroLayer].z)*0.5*mf;
   }
   alb = a2; rough = clamp(r2, 0.04, 1.0); ao *= ao2;
+  gPorosity = smoothstep(0.45, 0.85, rough);   // BF 4.5 (gam-5's moss): porosity from roughness (spec 3.2 column within ~0.15)
   gTexDN = dn2; gTexH = h2;
   gTexBump = C.x > 0.0 || h2 != 0.0;
 }
