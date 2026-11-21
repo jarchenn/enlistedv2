@@ -184,7 +184,7 @@ public:
   const AssetDef* assetFor(const Instance& i) const;
   mat4 instanceMatrix(const Instance& i) const;
   const vec4* contactProfile(const Instance& i, InstanceRT& r);   // MA2: ground-contact grid (app.cpp)
-  void syncRuntime();
+  void syncRuntime(bool sliced = false);   // sliced: the main loop's per-frame call may spread rebuilds over frames (CP 5.8); callers that use what they placed at once keep the default
   void destroyRT(InstanceRT& r);
   void buildRT(const Instance& i, InstanceRT& r);
   void resetInteractStates();

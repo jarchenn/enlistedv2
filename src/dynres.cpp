@@ -43,7 +43,8 @@ void dynResFrame(App& app) {
   float want = std::round(gCtl.update((float)gpu, sUsed, target) * 100.0f) / 100.0f;
   double now = glfwGetTime(), gap = want < sUsed ? (gCtl.over >= 2 ? 0.0 : 0.25) : 1.0;
   if (std::fabs(want - sUsed) >= 0.01f && now - gLastChange >= gap) {
-    app.R.setResolutionScale(want); gLastChange = now; gHold = 4;
+    double t0 = glfwGetTime(); app.R.setResolutionScale(want); gLastChange = now; gHold = 4;
+    logf("dynres: scale %.2f -> %.2f (GPU %.1f ms), targets re-created in %.1f ms CPU", sUsed, want, gpu, (glfwGetTime() - t0) * 1000.0);   // the sub-rectangle question: what a change costs
   }
 }
 
