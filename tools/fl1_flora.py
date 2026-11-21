@@ -25,8 +25,8 @@ PACKS = {   # key -> (name, credit, wind, lodDist, cullDist, maxTex, category, l
     "lilac": ("Lilac", "Lilac bush pack (12 vars, LODs, game ready) by %s, CC-BY-4.0, %slilac-bush-pack-12-vars-lods-game-ready-10312697ec994fc99355cb94f1963a2e" % (LOL, SK), 1.0, 30, 260, 1024, "Vegetation", False),
     "bush": ("Bush", "Bush models pack (gameready, LODs) by %s, CC-BY-4.0, %sbush-models-pack-gameready-lods-f2d9ffd3e6a94cf0b9464ccd66a4c2f8" % (LOL, SK), 1.0, 20, 180, 1024, "Vegetation", False),
     "gnarly": ("Gnarly tree", "Gnarly trees by DJMaesen, CC-BY-4.0, %sgnarly-trees-30e3921861124c3199e0b48549b53f83" % SK, 0.6, 50, 420, 512, "Vegetation", False),
-    "bare": ("Bare tree", "Trees by DJMaesen, CC-BY-4.0, %strees-dbd3f20966de4cae9170413b9c6f891d" % SK, 1.0, 40, 400, 512, "Vegetation", False),
-    "deadbranch": ("Dead-branch tree", "Trees by DJMaesen, CC-BY-4.0, %strees-eed7470843504aa592514554a6100fbc" % SK, 0.3, 50, 420, 1024, "Vegetation", False),
+    "bare": ("Bare tree", "Trees by DJMaesen, CC-BY-4.0, %strees-dbd3f20966de4cae9170413b9c6f891d" % SK, 0.0, 40, 400, 512, "Vegetation", False),   # wind 0: dead wood never moves (user)
+    "deadbranch": ("Dead-branch tree", "Trees by DJMaesen, CC-BY-4.0, %strees-eed7470843504aa592514554a6100fbc" % SK, 0.0, 50, 420, 1024, "Vegetation", False),
     "clover": ("Clover", "Clovers - Plants / Foliage by Studio Lab, CC-BY-4.0, %sclovers-plants-foliage-d68dc45e329e48e3bc83ecc5448a6c25" % SK, 0.6, 10, 60, 1024, "Vegetation", False),
     "succulent": ("Succulent", "Plant Series - Succulents by Spazio Silvestre, CC-BY-4.0, %splant-series-succulents-6a22ed22665743b6bc989978da95e32a" % SK, 0.1, 25, 220, 512, "Desert", False),
     "stone": ("Stone", "stone_group_1 by Isengrim, CC-BY-SA-4.0 (share-alike), %sstone-group-1-fb1bba28ee32463aae91c63a6b5951e1" % SK, 0.0, 30, 400, 1024, "Nature", False),
@@ -116,7 +116,9 @@ def plant_asset(aid, key, pid, lo, hi, s=1.0, name=None, tree=None, nav=None, ex
          "footprint": [round(max(w, 0.3), 2), round(max(d, 0.3), 2)], "floors": 0, "enterable": False, "plinthDepth": 0, "maxGrade": 30, "noAutoPanels": True,
          "model": model, "nav": nav or ({"effect": "block"} if kind == "stone" else {"effect": "carve", "cover": []} if kind in ("tree",) else {"effect": "none"}),
          "materials": mats, "parts": parts, "furniture": [], "interactables": [], "panels": []}
-    if tree is not None: j["tree"] = tree
+    if tree is not None:
+        if key in ("bare", "deadbranch") or aid.startswith("tr_dead"): tree = dict(tree, dead=True)   # dead / bare wood never moves (user): no wind anywhere
+        j["tree"] = tree
     jw(os.path.join(ROOT, "content", "assets", aid + ".json"), j)
     return j
 

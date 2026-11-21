@@ -31,7 +31,7 @@
   "lodDist": 40,
   "cullDist": 400,
   "foliage": true,
-  "wind": 1.0,
+  "wind": 0.0,
   "credit": "Trees by DJMaesen, CC-BY-4.0, https://sketchfab.com/3d-models/trees-dbd3f20966de4cae9170413b9c6f891d"
  },
  "nav": {

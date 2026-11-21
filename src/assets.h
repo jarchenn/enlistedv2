@@ -185,6 +185,7 @@ struct TreeDef {
   std::vector<vec4> canopy;                 // xyz centre (asset space), w radius
   float top = 5;                            // highest point (canopy) for the fall impulse
   bool hedge = false;                       // hedgerow / bank: indestructible, grass excluded over the bank
+  bool dead = false;                        // "tree": {"dead": true}: dead / bare wood never moves: no wind on its cards, model, shadows or batches (user)
   GpuMesh stumpMesh, trunkMesh;             // trunkMesh / trunkShape relative to the cut (0, stumpH, 0)
   ShapePtr stumpShape, trunkShape;
   GLuint cardVao = 0, cardVbo = 0, cardToneVbo = 0; int cardVerts = 0;   // L2: cardToneVbo, one tone per card vertex (attribute 5)   // leaf cards (asset space): pos, normal, uv, mask

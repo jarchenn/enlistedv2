@@ -5833,7 +5833,7 @@ void Renderer::prepFoliageBatches() {
   auto mix = [](uint64_t h, uint64_t v) { h ^= v + 0x9E3779B97F4A7C15ull + (h << 6) + (h >> 2); return h * 0x100000001B3ull; };
   for (int k = 0; k < (int)foliage.size(); ++k) {
     const FoliageDraw& f = foliage[k];
-    if (!f.id || !f.tree || !f.tree->leafVao || f.tree->leafInstCpu.empty() || f.tree->leafGroups.empty()) continue;
+    if (!f.id || !f.tree || !f.tree->leafVao || f.tree->leafInstCpu.empty() || f.tree->leafGroups.empty() || f.tree->dead) continue;   // dead: drawn on its own, windless
     int64_t cx = (int64_t)std::floor(f.m[3].x / 64.0f), cz = (int64_t)std::floor(f.m[3].z / 64.0f);
     FolCell& c = folCells[mix(mix((uint64_t)(uintptr_t)f.tree, (uint64_t)cx), (uint64_t)cz)];
     uint32_t pb[5]; const float pf[5] = {f.m[3].x, f.m[3].y, f.m[3].z, f.m[0].x, f.m[0].z}; std::memcpy(pb, pf, sizeof pb);   // a moved / turned tree rebuilds its cell
@@ -5900,8 +5900,10 @@ void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr, bool vie
     // the canopy tier of a tree in this pass: its leaf LOD in the main view; in the far cascade and the sky-occlusion map
     // (lodFrom == 0) at least the first far tier; the sprig cards in the near cascade
     auto tierOf = [&](const FoliageDraw& f) -> int { return view ? f.cur : perf.farLeaf && lodFrom == 0.0f ? std::max<int>(f.cur, 3) : 2; };
+    float curWind = wind;
     for (auto& f : foliage) {
       if (!mine(f)) continue;
+      { const float fw = f.tree->dead ? 0.0f : wind; if (fw != curWind) { glUniform1f(L.wind, fw); curWind = fw; } }   // dead / bare trees: no sway (user)
       const int tier = pass == 1 ? tierOf(f) : 2;
       if (pass == 1 && tier >= 4 && (f.batched || !perf.treeFar)) continue;   // drawn from its cell below (treefar off, measurement: not at all)
       if (fr && !fr->visible(f.tree->cardMin, f.tree->cardMax, f.m, sway + (pass ? 0.05f : 0.0f))) { stats.culled++; continue; }   // leaf fold: a few cm off the card
@@ -5929,6 +5931,7 @@ void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr, bool vie
         stats.draws++; stats.foliageDraws++; stats.tris += (size_t)r.count / 3 * n;
       }
     }
+    if (curWind != wind) glUniform1f(L.wind, wind);   // the cells below are living trees
     if (pass == 1 && !folCells.empty() && perf.treeFar) {   // P2 folbatch: each cell's visible far-tier trees, per leaf group, in runs of one tier
       const mat4 I(1); glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(I));
       std::vector<int> st;

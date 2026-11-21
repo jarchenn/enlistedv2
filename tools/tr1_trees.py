@@ -86,7 +86,7 @@ def asset(vid, v):
             "footprint": [round(2 * w, 2), round(2 * w, 2)], "floors": 0, "enterable": False, "plinthDepth": 0, "maxGrade": 30, "noAutoPanels": True,
             "model": {"dir": bake, "pivot": "ground", "scale": 1, "drawScale": s, "jpgMaps": True, "lodDist": lod, "cullDist": cull, "foliage": fol, "wind": wind,
                       "credit": src["model"].get("credit", "")},
-            "tree": {"hpBullet": hp, "hpAT": 1, "stumpHeight": stump, "trunkRadius": tr, "mass": mass, "seed": 1, "cardsPerSphere": 1,
+            "tree": {"hpBullet": hp, "hpAT": 1, "stumpHeight": stump, "trunkRadius": tr, "mass": mass, "seed": 1, "cardsPerSphere": 1, **({"dead": True} if vid.startswith("tr_dead") else {}),   # dead wood never moves (user)
                      "canopy": [[0, round(h * 0.62, 2), 0, round(min(w, h * 0.45), 2)]]},   # sight / rounds through the crown; no leaf cards drawn
             "nav": {"effect": "carve", "rooms": [], "doors": [], "entrances": [], "corners": [], "firingPoints": [], "areas": [], "cover": []},
             "materials": [{"name": "bark", "albedo": [0.24, 0.2, 0.16], "roughness": 0.9, "pattern": "wood", "metallic": 0, "grain": 1}],

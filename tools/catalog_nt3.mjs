@@ -8,9 +8,9 @@ import { fileURLToPath } from "node:url";
 const ASSETS = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "content", "assets");
 const TREES = [   // id, source, name, description, crown changes, bark albedo scale
   ["nt3_tree_dead_oak", "tree_oak", "Dead oak", "A drought-killed oak: bare grey limbs with a few clinging dry leaves.",
-    { cardsPerSphere: 5, cardDensity: 5, leafColor: [0.2, 0.15, 0.08], leafSize: 0.16 }, 1.7],
+    { cardsPerSphere: 5, cardDensity: 5, leafColor: [0.2, 0.15, 0.08], leafSize: 0.16, dead: true }, 1.7],   // dead: no wind (user)
   ["nt3_tree_dead_ash", "tree_ash", "Dead ash", "A dead ash, bleached and bare, its crown thinned to twigs.",
-    { cardsPerSphere: 4, cardDensity: 4, leafColor: [0.22, 0.17, 0.09], leafSize: 0.15 }, 1.8],
+    { cardsPerSphere: 4, cardDensity: 4, leafColor: [0.22, 0.17, 0.09], leafSize: 0.15, dead: true }, 1.8],
   ["nt3_tree_dry_ash", "tree_ash", "Dry scrub tree", "A drought-stunted tree with a sparse, dusty olive-grey crown.",
     { cardsPerSphere: 22, cardDensity: 22, leafColor: [0.17, 0.18, 0.1], leafSize: 0.18 }, 1.35],
   ["nt3_tree_forest_oak", "tree_oak", "Forest oak", "A tall woodland oak with a dense, deep green crown and mossy bark.",

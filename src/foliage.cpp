@@ -160,7 +160,7 @@ void buildTreeAsset(AssetDef& a, const json& tj) {
   TreeDef& t = a.tree;
   t.on = true;
   t.hpBullet = tj.value("hpBullet", 30.0f); t.hpAT = tj.value("hpAT", 1.0f);
-  t.stumpH = tj.value("stumpHeight", 0.4f); t.trunkR = tj.value("trunkRadius", 0.25f);
+  t.stumpH = tj.value("stumpHeight", 0.4f); t.trunkR = tj.value("trunkRadius", 0.25f); t.dead = tj.value("dead", false);
   t.mass = tj.value("mass", 300.0f); t.leafSize = tj.value("leafSize", 0.35f);
   t.leafCol = jvec3(tj.value("leafColor", json()), vec3(0.2f, 0.3f, 0.1f));
   for (auto& c : tj.value("canopy", json::array())) t.canopy.push_back(vec4(c[0], c[1], c[2], c[3]));
