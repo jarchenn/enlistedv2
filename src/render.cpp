@@ -124,7 +124,8 @@ uniform int uFogPhase;   // CP4 fogphase
 uniform int uW2;   // W2 (weather corpus): 1 = overcast sky the right way up, fog = the sky at the horizon, soft cloud openings
 float cloudOpening(vec3 d){   // VO L5: 0..strength toward the opening; W2: a falloff over twice its half width (the old ~8 deg edge read as a disc)
   float c = dot(d, uCloudOpen.xyz);
-  return uCloudOpenK*(uW2 == 1 ? smoothstep(cos(2.0*acos(clamp(uCloudOpen.w, -1.0, 1.0))), 1.0, c) : smoothstep(uCloudOpen.w, mix(uCloudOpen.w, 1.0, 0.6), c));
+  if (uW2 == 1) return uCloudOpenK*smoothstep(cos(2.0*acos(clamp(uCloudOpen.w, -1.0, 1.0))), 1.0, c)*(1.0 - 0.9*smoothstep(0.5, 0.85, uCloudK));   // a closed deck: a faint brightening, no hole (the sun halo showed through as a disc)
+  return uCloudOpenK*smoothstep(uCloudOpen.w, mix(uCloudOpen.w, 1.0, 0.6), c);
 }   // VO L5: 0..strength toward the opening
 uniform vec4 uFog2;   // look.fogLayer2: density, floor y, top y, soft (m); x = 0 off
 uniform float uEnvFogTop = 1e9, uEnvFogSoft = 12.0;   // look.fogLayer top: the layer's ceiling at world y, soft over uEnvFogSoft m
