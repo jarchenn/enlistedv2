@@ -505,6 +505,7 @@ void LightingPass::begin(Renderer& R, const RenderView& v) {
   L.daySun = R.sunDir;
   L.tod = todCompute(R.lt.hour);
   if (!L.tod.day) R.sunDir = L.tod.key;
+  R.physSunY = L.tod.day ? R.sunDir.y : L.tod.sunTrue.y;   // CP2: the real sun's height (sunDir is the moon at night)
   L.view = v.view; L.proj = v.proj; L.cam = v.camPos; ++L.frame; L.time += v.dt;
 }
 

@@ -127,6 +127,7 @@ public:
   float expoFreezeUntil = -1.0f; void exposureFreeze(float s) { expoFreezeUntil = std::max(expoFreezeUntil, time + s); }   // BF: hold the auto exposure (own-weapon discharge: 0.15 s)
   float shimmerPx = 0;   // W5: this frame's heat-shimmer amplitude (tests)
   float physEV = 15.0f, physExpo = 0.0f;   // CP2 Lighting Physical: this frame's EV100 and the tone pass's exposure (0 = not physical)
+  float physSunY = 1.0f;   // CP2: the true sun's height this frame (LightingPass::begin; sunDir is the moon's at night)
   float sunDirectFrac = 1.0f, sunShK = 1.0f;   // OPT wxsun: last setLighting's direct-sun share; this frame's cascade strength (0 = none drawn)
   int dbgTerr = -1;   // GG1 measurement: terrain debug view (-1: NMK_DBG_TERRAIN), set per capture view
   // CP0 look-dev (docs: corpus plan step 0): debug view, by name through dbgViewFromName (NMK_DEBUG_VIEW / --debug-view):
