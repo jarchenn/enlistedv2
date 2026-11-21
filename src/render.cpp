@@ -4733,7 +4733,27 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uCloudShadowOn"), !q.legacy && q.cloudShadows && clouds && perf.cloudShadow && !thumbMode ? 1 : 0);
   glUniform1f(U(p, "uCloudCov"), cloudCoverNow()); glUniform1f(U(p, "uCloudT"), cloudClock());
   glUniform1f(U(p, "uEnvFog"), thumbMode ? 0.0f : envFogSigma()); glUniform1f(U(p, "uEnvFogH"), envFogH());   /* W1 Dawn ground fog: the preset's layer */   /* FG1 */ glUniform1f(U(p, "uEnvFogNear"), thumbMode ? 0.0f : lt.mapFogNear); glUniform1f(U(p, "uFogIndoor"), camIndoor ? 0.15f : 1.0f);
-  glUniform1i(U(p, "uFogField"), 27); glBindTextureUnit(27, fogTex); glUniform4fv(U(p, "uFogBox"), 1, glm::value_ptr(fogBox));
+  glUniform1i(U(p, "uFogField"), 27); glBindTextureUnit(27, fogTex);
+  if (U(p, "uGATex") >= 0) {   // the grass programs: 27 is their plant atlas (GT1, a 2D array): the fog field moves to a unit none of their active samplers uses
+    static std::unordered_map<GLuint, std::pair<int, int>> freeUnit;   // unit, calls seen: re-scanned for the first 3 calls (later setLighting lines set more sampler units)
+    auto it = freeUnit.find(p);
+    if (it == freeUnit.end() || it->second.second < 3) {
+      bool used[32] = {}; GLint n = 0; glGetProgramiv(p, GL_ACTIVE_UNIFORMS, &n);
+      for (GLint i = 0; i < n; ++i) {
+        char nm[128]; GLint sz = 0; GLenum ty = 0; glGetActiveUniform(p, (GLuint)i, sizeof nm, nullptr, &sz, &ty, nm);
+        const bool smp = (ty >= GL_SAMPLER_1D && ty <= GL_SAMPLER_2D_SHADOW) || (ty >= GL_SAMPLER_1D_ARRAY && ty <= GL_SAMPLER_CUBE_SHADOW) || ty == GL_SAMPLER_2D_RECT || ty == GL_SAMPLER_CUBE_MAP_ARRAY || ty == GL_SAMPLER_2D_MULTISAMPLE || ty == GL_SAMPLER_2D_MULTISAMPLE_ARRAY || ty == GL_SAMPLER_BUFFER;
+        if (!smp || std::string(nm) == "uFogField") continue;
+        GLint loc = glGetUniformLocation(p, nm); if (loc < 0) continue;
+        for (GLint k = 0; k < std::max(sz, 1); ++k) { GLint u = 0; glGetUniformiv(p, loc + k, &u); if (u >= 0 && u < 32) used[u] = true; }
+      }
+      int f = -1; for (int u : {9, 13, 6, 1, 0}) if (f < 0 && !used[u]) f = u;   // only units setLighting rebinds every call (20-31 hold the texture library, bound once)
+      if (f < 0) logf("grass: no free texture unit for the fog field (env fog off in the grass)");
+      int seen = it == freeUnit.end() ? 1 : it->second.second + 1; freeUnit[p] = {f, seen}; it = freeUnit.find(p); if (seen == 3) logf("grass: fog field on texture unit %d for program %u (atlas on 27)", f, p);
+    }
+    if (it->second.first >= 0) { glUniform1i(U(p, "uFogField"), it->second.first); glBindTextureUnit(it->second.first, fogTex); }
+    else glUniform1f(U(p, "uEnvFog"), 0.0f);
+    extern GLuint grassAtlasTex(); glBindTextureUnit(27, grassAtlasTex());
+  } glUniform4fv(U(p, "uFogBox"), 1, glm::value_ptr(fogBox));
   glUniform1f(U(p, "uCloudK"), thumbMode ? 0.0f : wx.k); glUniform1f(U(p, "uCloudSeed"), wx.seed); { vec2 cw = wx.wind * wx.der.windK; glUniform2fv(U(p, "uCloudWind"), 1, glm::value_ptr(cw)); }   // W1: the deck drifts with the preset's wind
   glUniform1i(U(p, "uCloudShadowMap"), 13); glBindTextureUnit(13, cloudShTex);
   glUniform3fv(U(p, "uCloudShadowBox"), 1, glm::value_ptr(cloudShBox));
