@@ -141,7 +141,7 @@ public:
   float windSwayAmp() const { return std::clamp(std::pow(std::max(0.0f, wind), 0.8f), 0.0f, 2.5f); }   // kCommon windSway(uWind)   // sway amplitude: 1 at 4 m/s, 2.5 from about 13 m/s
   vec2 windDir2() const { float s = windSpeed(); return s > 1e-3f ? wx.der.windXZ / s : vec2(0.8f, 0.6f); }
   double windClock = 0, windClockPrev = 0, windGustOff = 0, windGustPrev = 0, windLastT = -1; glm::dvec2 windDrift{0.0};   // windDrift: accumulated wind displacement (m), WS2 leaves
-  GLuint progLeafDrift = 0; float leafDriftK = 0;   // WS2 drifting leaves; how wooded the eye's surroundings are (eased)
+  GLuint progLeafDrift = 0; float leafDriftK = 0, pollenK = 0;   // WS2 drifting leaves; how wooded the eye's surroundings are (eased)
   // sky clouds: fbm on a plane at 1500 m scrolling with the wind
   bool clouds = true; float cloudCover = 0.62f;
   // WX1 weather (docs/rendering.md#weather): one world-space cloud field (seed, wind in 600 m cells / s, clock) drawn by the
@@ -305,6 +305,7 @@ public:
     bool grassTint = true;       // grasstint (CP4): the ground under thinning grass takes the clumps' mean top-down colour
     bool vegCascades = true;     // vegcascades (CP5): vegetation casts into the two nearest sun cascades only (near, mid), the mid one from a fixed far LOD; the far cascade has none while the mid one is drawn
     bool treePxLod = true;       // treepxlod (CP2): model foliage LOD and cull by projected pixels, a dithered cross-fade band, capped at the weather's cull distance
+    bool pollen = true;          // pollen (WS3): drifting pollen motes over grass on dry, mild days (count 0.75 x leafDriftN)
     bool leafDrift = true;       // leafdrift (WS2): drifting leaves near broadleaf / orchard trees (count: Quality::leafDriftN)
     bool hashAlpha = false;      // hashalpha (VO A1): cut-out leaves / grass with a dithered threshold under TAA (Medium / High), width NMK_HASH_SPREAD (0.2); off: no gain over cutoutMips (A1 sheets), kept for A/B
     bool folTrans = true;        // foltrans (VO L4): two-sided translucency on model foliage (Lighting New)
@@ -369,7 +370,7 @@ public:
               // ^ stream M (materials): append to the line above
               : n == "charvel" ? &charVel
               // ^ characters (gameplay): append to the line above
-              : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
+              : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "pollen" ? &pollen : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
               // ^ stream A (vegetation): append to the line above
               : n == "snowfar" ? &snowFar : n == "firthin" ? &firThin : n == "snowtex" ? &snowTex
               // ^ stream B (Blackwater snow / far firs): append to the line above

@@ -4001,17 +4001,20 @@ void main(){
 static const char* kLeafDriftVS = R"GLSL(
 uniform mat4 uVP; uniform vec3 uCamRight, uCamUp; uniform float uTime;
 uniform vec4 uLD;    // count, box half (m), wind displacement x, z (m, accumulated)
-uniform vec4 uLD2;   // indoor 0..1, -, -, -   (uOcc, uOccVP, uOccTop, uOccRange, uOccOn: kCommon)
+uniform vec4 uLD2;   // indoor 0..1, mode (0 leaves, 1 WS3 pollen), -, -   (uOcc, uOccVP, uOccTop, uOccRange, uOccOn: kCommon)
 out vec2 vC; out vec3 vW, vN, vCol; out float vA;
 float h1(float n){ return fract(sin(n*12.9898 + 78.233)*43758.5453); }
 void main(){
   float fi = float(gl_InstanceID), R = uLD.y;
   vec3 r = vec3(h1(fi*1.31), h1(fi*2.17 + 3.0), h1(fi*3.73 + 7.0));
-  float fall = mix(0.55, 1.4, h1(fi*5.1)), share = mix(0.45, 0.9, h1(fi*7.7)), ph = h1(fi*8.3)*6.2832;
-  vec3 p = vec3((r.x*2.0 - 1.0)*R, r.y*12.0 - 3.0, (r.z*2.0 - 1.0)*R);
+  const bool pol = uLD2.y > 0.5;   // WS3 pollen: near the ground, hardly falling, carried by the wind, bobbing
+  float fall = pol ? mix(0.02, 0.12, h1(fi*5.1)) : mix(0.55, 1.4, h1(fi*5.1)), share = pol ? mix(0.8, 1.0, h1(fi*7.7)) : mix(0.45, 0.9, h1(fi*7.7)), ph = h1(fi*8.3)*6.2832;
+  const float hy = pol ? 3.0 : 12.0, cy = pol ? 0.6 : 3.0;
+  vec3 p = vec3((r.x*2.0 - 1.0)*R, r.y*hy - 0.5*hy, (r.z*2.0 - 1.0)*R);
   p += vec3(uLD.z*share, -fall*uTime, uLD.w*share);
-  p.xz += vec2(sin(uTime*mix(0.8, 1.9, h1(fi*4.4)) + ph), cos(uTime*mix(0.6, 1.5, h1(fi*6.6)) + ph))*0.35;   // zig-zag of a falling leaf
-  vec3 box = vec3(2.0*R, 12.0, 2.0*R), c = uCamPos + vec3(0.0, 3.0, 0.0);
+  p.xz += vec2(sin(uTime*mix(0.8, 1.9, h1(fi*4.4)) + ph), cos(uTime*mix(0.6, 1.5, h1(fi*6.6)) + ph))*(pol ? 0.15 : 0.35);   // zig-zag of a falling leaf / a mote's wander
+  if (pol) p.y += 0.12*sin(uTime*mix(0.7, 1.6, h1(fi*18.1)) + ph);
+  vec3 box = vec3(2.0*R, hy, 2.0*R), c = uCamPos + vec3(0.0, cy, 0.0);
   p = mod(p - c + box*0.5, box) - box*0.5 + c;                                  // wrap round the eye, on world coordinates
   float g = windGust(p.xz, false), a = step(h1(fi*9.9), clamp(0.6 + 0.8*(g - 1.0), 0.0, 1.0));
   if (uOccOn == 1) { vec4 lp = uOccVP*vec4(p, 1.0); vec2 uv = lp.xy*0.5 + 0.5;
@@ -4023,12 +4026,14 @@ void main(){
   float an = uTime*mix(1.5, 4.5, h1(fi*14.9)) + ph, cs = cos(an), sn = sin(an);
   vec3 u0 = normalize(cross(ax, vec3(0.0, 1.0, 0.3))), v0 = cross(ax, u0);
   vec3 U = u0*cs + v0*sn, V = cross(ax, U);
-  float sz = mix(0.025, 0.045, h1(fi*15.5));
+  float sz = pol ? mix(0.0025, 0.005, h1(fi*15.5)) + d*0.0006 : mix(0.025, 0.045, h1(fi*15.5));   // motes keep about a pixel with distance
+  if (pol) { U = uCamRight; V = uCamUp; }   // motes face the eye
   int k = gl_VertexID; vec2 q = k == 0 ? vec2(-1, -1) : k == 1 ? vec2(1, -1) : k == 2 ? vec2(1, 1) : k == 3 ? vec2(-1, -1) : k == 4 ? vec2(1, 1) : vec2(-1, 1);
   vec3 w = p + (U*q.x*0.62 + V*q.y)*sz;
   float t = h1(fi*16.1);   // dead-leaf palette: brown, ochre, olive (linear)
   vCol = t < 0.45 ? vec3(0.16, 0.085, 0.035) : t < 0.8 ? vec3(0.30, 0.19, 0.055) : vec3(0.14, 0.15, 0.05);
   vCol *= mix(0.75, 1.2, h1(fi*17.3));
+  if (pol) vCol = mix(vec3(0.95, 0.88, 0.55), vec3(0.98, 0.96, 0.85), h1(fi*19.7));
   vC = q; vW = w; vN = ax; vA = a;
   gl_Position = uVP*vec4(w, 1.0);
   if (a <= 0.001) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -4036,7 +4041,13 @@ void main(){
 )GLSL";
 static const char* kLeafDriftFS = R"GLSL(
 in vec2 vC; in vec3 vW, vN, vCol; in float vA; out vec4 oColor;
+uniform vec4 uLD2;
 void main(){
+  if (uLD2.y > 0.5) {   // WS3 pollen: a round mote, lit mostly by the sun behind it (forward scattering)
+    if (vA < 0.5 || dot(vC, vC) > 1.0) discard;
+    float VoL = max(dot(normalize(vW - uCamPos), uSunDir), 0.0);
+    oColor = vec4(applyFog(vCol*(uSunCol*(0.04 + 0.5*pow(VoL, 8.0)) + mix(uGroundCol, uSkyCol, 0.6)*0.3), vW), 1.0); return;
+  }
   if (vA < 0.5 || dot(vC, vC) > 1.0 - 0.25*abs(vC.x)*(1.0 - vC.y)) discard;   // oval with a slight point
   vec3 N = normalize(vN); if (dot(N, uCamPos - vW) < 0.0) N = -N;
   float ndl = abs(dot(N, uSunDir))*0.7 + 0.3;
@@ -6088,12 +6099,15 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       glBindVertexArray(0);
     }
   }
-  if (perf.leafDrift && q.leafDriftN > 0 && !thumbMode && !v.thermal && !v.underwater && !lt.mapLeafless && progLeafDrift && snowfallVao) {   // WS2 drifting leaves
+  if ((perf.leafDrift || perf.pollen) && q.leafDriftN > 0 && !thumbMode && !v.thermal && !v.underwater && progLeafDrift && snowfallVao) {   // WS2 drifting leaves, WS3 pollen
     // how wooded the eye's surroundings are: standing card trees (broadleaf, orchard) within 30 m, eased over ~2 s
     int nT = 0; for (auto& f : foliage) if (f.tree) { vec3 d = vec3(f.m[3]) - v.camPos; if (d.x * d.x + d.z * d.z < 900.0f) ++nT; }
     leafDriftK += (std::clamp(nT / 10.0f, 0.0f, 1.0f) - leafDriftK) * std::clamp(v.dt * 0.5f, 0.0f, 1.0f);
-    const int n = (int)(q.leafDriftN * leafDriftK);
-    if (n > 0) {
+    const int n = perf.leafDrift && !lt.mapLeafless ? (int)(q.leafDriftN * leafDriftK) : 0;
+    // WS3 pollen: dry, mild days in daylight, over standing grass (this frame's drawn clumps), Medium 600 / High 1500
+    pollenK += ((perf.pollen && wx.st.precip == WxNone && wx.st.tempC > 5.0f && sunDir.y > 0.05f && grass ? std::clamp(grass->lastDrawnClumps / 3000.0f, 0.0f, 1.0f) : 0.0f) - pollenK) * std::clamp(v.dt * 0.5f, 0.0f, 1.0f);
+    const int np = (int)(q.leafDriftN * 0.75f * pollenK);
+    if (n > 0 || np > 0) {
       const GLboolean blendWas = glIsEnabled(GL_BLEND), cullWas = glIsEnabled(GL_CULL_FACE);
       glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE); glDisable(GL_BLEND); glEnable(GL_DEPTH_TEST);
       setLighting(progLeafDrift, v);
@@ -6108,7 +6122,14 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       glUniformMatrix4fv(U(progLeafDrift, "uOccVP"), 1, GL_FALSE, glm::value_ptr(occVP));
       glUniform1f(U(progLeafDrift, "uOccTop"), occTop); glUniform1f(U(progLeafDrift, "uOccRange"), occRange); glUniform1i(U(progLeafDrift, "uOccOn"), 1);
       glBindVertexArray(snowfallVao);
-      glDrawArraysInstanced(GL_TRIANGLES, 0, 6, n);
+      if (n > 0) glDrawArraysInstanced(GL_TRIANGLES, 0, 6, n);
+      if (np > 0) {
+        glUniform4f(U(progLeafDrift, "uLD"), (float)np, 12.0f, float(windDrift.x), float(windDrift.y));
+        glUniform4f(U(progLeafDrift, "uLD2"), camIndoor ? 1.0f : 0.0f, 1.0f, 0, 0);
+        glUniform3fv(U(progLeafDrift, "uCamRight"), 1, glm::value_ptr(vec3(glm::inverse(v.view)[0])));
+        glUniform3fv(U(progLeafDrift, "uCamUp"), 1, glm::value_ptr(vec3(glm::inverse(v.view)[1])));
+        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, np);
+      }
       glBindVertexArray(0);
       if (cullWas) glEnable(GL_CULL_FACE); if (blendWas) glEnable(GL_BLEND);
     }
