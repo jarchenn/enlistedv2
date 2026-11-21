@@ -32,7 +32,8 @@ void attach(GLuint prog);
 // 1 = no texture, 2 + slot otherwise. explicitSet = the material JSON's "texture" field ("none" disables).
 int materialCode(const std::string& matName, int pattern, const std::string& explicitSet);
 void setAnisotropy(float a);   // UL1: Renderer::q.texAniso on the set arrays and the grunge mask (1..16)
-void flushPending();   // TX2: load the sets materials named since the last load (lazy library slots); call after the asset library loads
+void flushPending();
+void flushPendingFrame(bool late = true);   // OPT1: per frame: at most one late set into a spare layer (no full reload unless the spares are used up)   // TX2: load the sets materials named since the last load (lazy library slots); call after the asset library loads
 
 bool active();                     // at least one set on the GPU
 void setEnabled(bool on);          // A/B and tests: off = procedural everywhere (uniform uTexOn)

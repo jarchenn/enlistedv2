@@ -432,7 +432,7 @@ def populate(ctx, grid, pads=None):
             ang, rr = R.uniform(0, 2 * math.pi), R.uniform(24, 34)
             decor(R.choice(["tree_apple", "tree_oak", "tree_ash"]), c[0] + rr * math.cos(ang), c[1] + rr * math.sin(ang), R.uniform(0, 360))
         paint.poly("dirt", circle_poly(c[0], c[1], 7.0, 14), weight=0.8, edge=3.0, ragged=1.5, seed=int(c[0]))
-        paint.line("dirt", [c, (c[0] - nrm[0] * 60, c[1] - nrm[1] * 60)], 3.0, weight=0.75)   # the track toward town
+        paint.line("scorched", [c, (c[0] - nrm[0] * 60, c[1] - nrm[1] * 60)], 3.0, weight=0.75)   # the track toward town (trails: "scorched", unused here, dirt footsteps, drawn as trail_dirt)
     for c, nrm in woods:
         for k in range(R.randint(14, 26)):
             ang, rr = R.uniform(0, 2 * math.pi), 24 * math.sqrt(R.random())
@@ -618,7 +618,7 @@ def populate(ctx, grid, pads=None):
     rep["hedgePieces"] = nhedge
     for k_, ln in enumerate(l for l in lines if len(l) == 3):   # farm tracks along every third radial hedge
         if k_ % 3 == 0:
-            paint.line("dirt", offset_polyline(ln, 4.0), 2.8, weight=0.75, edge=1.0,
+            paint.line("scorched", offset_polyline(ln, 4.0), 2.8, weight=0.75, edge=1.0,   # trails: trail_dirt (look.paintSets)
                        mask=lambda x, z: not town(x, z, 0.95) and polyline_dist((x, z), stream)[0] > 6)
     norch = 0
     FLATKW = dict(cls="flat", ok_with={"flat", "none", "veg", "wire"})
@@ -911,7 +911,7 @@ def build(ctx):
               builder=b, scenario_json=sj, explore_start=((a1[0], a1[1], a1[2]), 180.0), camera=cam,
               bookmarks={str(i + 1): {"position": [o["pos"][0], o["pos"][1] + 40, o["pos"][2] - 70], "yaw": 180.0, "pitch": -28}
                          for i, o in enumerate(sc.objectives)},
-              extra={"groundPaint": b.paint.to_json()})
+              extra={"groundPaint": b.paint.to_json(), "look": {"paintSets": {"scorched": "trail_dirt"}}})   # trails (user, 2026-11-20: "Every map")
     write_template(os.path.join(tdir, TID + ".json"), tid=TID, name=NAME, order=5, version=VERSION, seed=SEED,
                    description="A dense Norman town around a grand chateau: the chateau on its gravel forecourt behind garden walls "
                                "and an iron gate, a ring road and four winding streets of town houses, the church in its walled "

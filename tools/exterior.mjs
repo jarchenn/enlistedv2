@@ -133,7 +133,9 @@ function timber(A, R) {
     }
   }
 }
-// quoins (parts.quoins: 0.335 x 0.565 plan, 0.29 high, stone_dressed): each stone stands out its own amount
+// quoins (parts.quoins: 0.335 x 0.565 plan, 0.29 high, stone_dressed): each stone stands out its own amount. QS1: these are
+// the hidden colliders now (v:0; the drawn stones are parts.quoins' own k:0 boxes, skipped here by their r), grown as before
+// so colliders, cover and room detection stay exactly as they were
 function quoins(A, R) {
   for (const p of A.parts) {
     if (p.t !== "b" || p.m !== "stone_dressed" || p.r || p.q) continue;
@@ -411,7 +413,7 @@ export function exterior(A, opt = {}) {
     return sillInPlace(A, pos) ? [{ kind: "rain_streak", pos: pos.map(q4), n, w: q4(s.a1 - s.a0 + 0.1), h }] : [];
   });
   unfight(A);
-  A.meta.version = (A.meta.version || 1) + 1;
+  A.meta.version = (A.meta.version || 1) + (A._qs1 ? 2 : 1);   // QS1: the new quoins (parts.quoins) bump it once more
   A.meta.description += opt.note ? " " + opt.note : "";
   return A;
 }

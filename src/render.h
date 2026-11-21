@@ -68,7 +68,8 @@ struct FrameStats { double cpuMs = 0, gpuMs = 0; int draws = 0, tris = 0; int cu
                     // waiting for a first capture / invalidated, the oldest capture among probes within 12 m (frames)
                     int casterCulled = 0, roomCulled = 0, shadowDraws = 0, probePending = 0, probeDirty = 0, probeStaleMax = 0;
                     float sunDirectPct = 100;   // OPT wxsun: the direct sun's share of a level surface's light (%)
-                    int foliageDraws = 0, instDrawn = 0, farStatic = -1, occCulled = 0; };   // farStatic: the far cascade's static layer was redrawn this frame (1), reused (0), no cache (-1); occCulled: buildings hidden by terrain   // instDrawn: items drawn inside instanced depth draws (P2 instdepth)   // P2: draws by drawFoliage (all passes)   // culled: items / cards / parts skipped by the per-pass frustum tests (all passes); probeCpuMs / probes: CPU time and count of the GI probe captures (lighting.cpp)
+                    int foliageDraws = 0, instDrawn = 0, farStatic = -1, occCulled = 0;   // farStatic: the far cascade's static layer was redrawn this frame (1), reused (0), no cache (-1); occCulled: buildings hidden by terrain   // instDrawn: items drawn inside instanced depth draws (P2 instdepth)   // P2: draws by drawFoliage (all passes)   // culled: items / cards / parts skipped by the per-pass frustum tests (all passes); probeCpuMs / probes: CPU time and count of the GI probe captures (lighting.cpp)
+                    double terrSamples = -1; };   // PF terrain (a frame or two old): samples the terrain pass wrote (-1: no data)
 // GPU time per render pass from timestamp queries (Renderer::gpuMark, docs/rendering.md#gpu-budget), in frame order:
 // a pass runs from its mark to the next mark in GPU time; passes that did not run read 0
 enum GpuPass : int { GP_CloudShadow, GP_ShadowNear, GP_ShadowFar, GP_SkyOcc, GP_LightShadows, GP_Probes, GP_Clusters,
@@ -122,7 +123,16 @@ public:
   HeatStats heatStats(float thr) const;
   bool thermalWanted = false;   // TH1: the last frame drew a thermal eyepiece: the game collects heat this frame
   std::vector<ModelDraw> worldModels;   // imported models in the world (rack displays, the M2HB station)     // tree leaf cards (alpha-tested, wind sway, shadow casting)
-  float wind = 1.0f;
+  float wind = 1.0f;   // 0: no sway (editor View menu, --rq-off wind)
+  // WS1 shared wind, read from the weather state (never written): direction and speed der.windXZ, sway amplitude from
+  // wind (= der.windK x on / off), travelling gust G = st.gust - 1 (peak over mean), length L = speed x st.gustPeriodS. docs/rendering.md#wind
+  float windSpeed() const { return glm::length(wx.der.windXZ); }
+  float windGustG() const { return std::clamp(wx.st.gust - 1.0f, 0.0f, 1.0f); }
+  float windGustL() const { return std::clamp(windSpeed() * wx.st.gustPeriodS, 20.0f, 100.0f); }
+  float windSwayAmp() const { return std::clamp(std::pow(std::max(0.0f, wind), 0.8f), 0.0f, 2.5f); }   // kCommon windSway(uWind)   // sway amplitude: 1 at 4 m/s, 2.5 from about 13 m/s
+  vec2 windDir2() const { float s = windSpeed(); return s > 1e-3f ? wx.der.windXZ / s : vec2(0.8f, 0.6f); }
+  double windClock = 0, windClockPrev = 0, windGustOff = 0, windGustPrev = 0, windLastT = -1; glm::dvec2 windDrift{0.0};   // windDrift: accumulated wind displacement (m), WS2 leaves
+  GLuint progLeafDrift = 0; float leafDriftK = 0;   // WS2 drifting leaves; how wooded the eye's surroundings are (eased)
   // sky clouds: fbm on a plane at 1500 m scrolling with the wind
   bool clouds = true; float cloudCover = 0.62f;
   // WX1 weather (docs/rendering.md#weather): one world-space cloud field (seed, wind in 600 m cells / s, clock) drawn by the
@@ -171,6 +181,7 @@ public:
     bool cloudShadows = true;
     bool shafts = false; float shaftStrength = 0.35f;   // WX1: High only (presets)
     float hazeDensity = 0.0010f, hazeHeight = 70.0f;
+    int leafDriftN = 2000;        // WS2: drifting leaves at this preset (Low 0, Medium 800, High 2000)
     float snowfallScale = 1.0f;   // SF1: share of a map's snowfall drawn at this preset (Low 0.4, Medium 0.75, High 1)   // aerial perspective (1/m at ground level, scale height m)
     bool ssao = true; float ssaoStrength = 0.95f, ssaoRadius = 0.5f;   // GX5: 0.85 / 0.6 -> 0.95 / 0.5 (contact shadows tuned for interiors, brief §8)
     bool bloom = true; float bloomStrength = 0.045f;
@@ -182,7 +193,7 @@ public:
     // UL1 material knobs (stream M, textures.cpp / static_decals.cpp): per tier; the defaults are what Low / Medium / High do
     float texAniso = 8.0f;              // max anisotropy of the texture-set arrays and the grunge mask
     glm::vec2 texNear{3.0f, 10.0f};     // TX3: the sets' LOD bias fades in between these eye distances (m)
-    glm::vec2 hexFade{0.0f, 0.0f};      // M1: hex tiling fades to plain tiling between these eye distances (m); y 0 = no fade
+    glm::vec2 hexFade{12.0f, 30.0f};    // M1: hex tiling fades to plain tiling between these eye distances (m); y 0 = no fade. OPT2: 12-30 m (was no fade: 9 taps per ground layer at any distance)
     glm::vec2 hblendFade{0.0f, 0.0f};   // M2: height blending fades out between these eye distances (m); y 0 = no fade
     float pomRange = 0.0f;              // MA1b parallax: range (m) on height-capable sets; 0 = by matLayer (Medium 8, High 14)
     int pomSteps = 0;                   // parallax steps; 0 = by matLayer (Medium 1 offset, High 10-step march)
@@ -213,9 +224,13 @@ public:
   // PF2 GPU-cost switches (docs/rendering.md#gpu-budget). --rq-off <name> / --rq-on <name> flip one for A/B;
   // legacy() is the pre-PF2 renderer (the maps suite's interleaved A/B, NMK_PERF_AB).
   struct Perf {
+    bool texLate = true;         // texlate (OPT1): a texture set needed mid-match goes into a spare array layer (worker build, one upload a frame); off = the old full reload of every set
+    bool groundTaps = true;      // groundtaps (OPT2): ground taps cut by distance and weight (hex 12-30 m fade, hex on layers >= 35 %, no far normal tap, no substrate taps under full snow); off = the old taps
+    bool splitSum = true;        // splitsum (CP step 3): split-sum env specular + multi-scatter, Lagarde specular occlusion, multi-bounce material AO by albedo; off = the x0.6 fudge
     bool hblend = true;          // hblend (M2): height-based blending of ground layers and paint (textures.cpp hbK)
     bool hex = true;             // hex (M1): hex-tiled ground and cliff texture taps (textures.cpp texHexFetch)
     bool snow = true;            // snow (VO P, A/B only): the SN1 snow layer off on every surface, to time its shading
+    bool texBias = true;         // texbias (CP step 1): texture sets at gradient scale 1.0 (were 0.6-1.6 mips too coarse), LOD bias log2(render / display) - 0.5 under TAA, anisotropy 16; off = the old 3.0 / 1.5 / 1.6 and 8x
     bool visCull = true;         // viscull (weather corpus 08 s4): draw distance capped at 1.42 x the visibility at the eye (Settings::renderDist)
     bool koTrees = true, koGrass = true, koFolModels = true;   // kotrees / kograss / kofolmodels (CP knock-out, A/B only): that camera pass not drawn (shadows keep it)
     bool specAA = true;          // specaa (M3): geometric specular anti-aliasing in shade() (the baked Toksvig roughness mips stay)
@@ -226,6 +241,8 @@ public:
     bool probeCull = true;       // probecull: GI probe captures skip items under ~1 capture texel (lighting.cpp)
     bool leafPrepass = true;     // leafprepass: canopy depth prepass, then GL_EQUAL shading (no overdraw shading)
     bool skyLast = true;         // skylast: the sky after the opaque world (early-Z skips it under geometry)
+    bool terrainPrepass = true;   // tzprepass (PF terrain): a depth-only terrain pass first, then the full terrain shader at depth EQUAL with no depth writes and no discard (each visible pixel shaded once; needs tzearly)
+    bool terrainEarlyZ = true;   // tzearly (PF terrain): base chunks with no active tile and the tiles use the shader without discard (depth written early)
     bool terrainLast = true;     // terrainlast: the terrain after solids, models and canopies (the ground they hide is never shaded)
     bool probeRefresh = true;    // proberefresh: full probe budget only while probes wait for a first capture, then 2 / 1 per frame
     bool hlod = false;           // hlod (--rq-on): buildings merged per 128 m cell (hlod.cpp); off: on a 2080 Ti it saved 4-12 % of draws but cost +0.2-0.5 ms (rendering.md 12.4)
@@ -260,6 +277,8 @@ public:
     bool fullShadow = true;      // fullshadow (VO L1): full-strength sun shadows (off: 30 % lighter, as Classic)
     bool gtao = true;            // gtao (VO L2): GTAO with multi-bounce and specular occlusion (off: the old 8-sample SSAO)
     bool microShadow = true;     // microsh (VO L4): micro-shadowing of the sun by material AO (Lighting New)
+    bool vegPrepass = true;      // vegprepass (CP1): model foliage and grass get a depth prepass (alpha test only), then GL_EQUAL shading, like leafprepass
+    bool leafDrift = true;       // leafdrift (WS2): drifting leaves near broadleaf / orchard trees (count: Quality::leafDriftN)
     bool hashAlpha = false;      // hashalpha (VO A1): cut-out leaves / grass with a dithered threshold under TAA (Medium / High), width NMK_HASH_SPREAD (0.2); off: no gain over cutoutMips (A1 sheets), kept for A/B
     bool folTrans = true;        // foltrans (VO L4): two-sided translucency on model foliage (Lighting New)
     bool agx = true;             // agx (VO L8): AgX-style curve, the grade from a LUT, 13-tap bloom downsample (Lighting New)
@@ -288,13 +307,16 @@ public:
     bool terrainMorph = true;    // tmorph (VOT T1): base terrain vertices geomorph toward the next LOD before it switches; off = LOD pops
     bool terrainSkyView = true;  // tskyview (VOT T5): the terrain's ambient is occluded by its own horizon (baked sky-view factor); off = open sky everywhere
     bool charVel = true;         // charvel (AIB1): soldiers write their own TAA motion (previous model matrix + previous skinned vertex); off = depth reprojection (smeared)
+    bool snowFar = true;         // snowfar (BT2): applySnow's patch noise only within 120 m and its shelter tap within 150 m; off = everywhere
+    bool snowTex = true;         // snowtex (SN2): the three snow sets (packed / trodden / thaw) on the ground within 60 m, edges by height; off = applySnow's flat snow
+    bool firThin = true;         // firthin (BT2): instances marked extra.perfThin (Blackwater's far-stand saplings and thinned trees) are not drawn
     bool taau = true;            // taau (P1): below scale 1 the world renders at the resolution scale and TAA reconstructs at output size (rendering.md 14); off = native resolution
-    static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false;
+    static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.vegPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false;
                            p.casterCull = p.leafShadowLod = p.probeBudgetOn = p.roomCull = p.propDist = p.taau = false; p.dlCache = p.instDepth = p.folBatch = p.leafMerge = p.furnDist = p.furnClutter = p.farLeaf = p.wallLod = p.shadowCache = p.occCull = p.matFar = p.probeMed = false; return p; }
     bool set(const std::string& n, bool on) {   // false: no such switch
       if (n == "wx1") { clouds = cloudShadow = shafts = envFog = on; return true; }   // WX1: the whole weather / fog stack (one A/B)
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
-              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "sunshadow" ? &sunShadow : n == "wxsun" ? &wxSun : n == "probetrickle" ? &probeTrickle : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "clouds" ? &clouds : n == "cloudshadow" ? &cloudShadow : n == "shafts" ? &shafts : n == "envfog" ? &envFog : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
+              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "tzearly" ? &terrainEarlyZ : n == "tzprepass" ? &terrainPrepass : n == "sunshadow" ? &sunShadow : n == "wxsun" ? &wxSun : n == "probetrickle" ? &probeTrickle : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "clouds" ? &clouds : n == "cloudshadow" ? &cloudShadow : n == "shafts" ? &shafts : n == "envfog" ? &envFog : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
               : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : n == "leaftex" ? &leafTex : n == "taau" ? &taau : n == "imgmat" ? &imgMat
               : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : n == "grassatlas" ? &grassAtlas : n == "dlcache" ? &dlCache : n == "instdepth" ? &instDepth : n == "folbatch" ? &folBatch : n == "farleaf" ? &farLeaf : n == "walllod" ? &wallLod : n == "matfar" ? &matFar : n == "probemed" ? &probeMed : n == "shadowcache" ? &shadowCache : n == "occcull" ? &occCull : n == "treefar" ? &treeFar : n == "leafmerge" ? &leafMerge : n == "furndist" ? &furnDist : n == "furnclutter" ? &furnClutter : n == "paint" ? &groundPaint : n == "vegcull" ? &vegCull
               // One line per stream, each followed by a comment line, so two streams appending names no longer conflict in merges.
@@ -302,12 +324,14 @@ public:
               // ^ stream T (terrain): append to the line above
               : n == "contactsh" ? &contactShadow : n == "fullshadow" ? &fullShadow : n == "gtao" ? &gtao : n == "midcascade" ? &midCascade : n == "microsh" ? &microShadow : n == "foltrans" ? &folTrans : n == "agx" ? &agx : n == "histexpo" ? &histExpo : n == "skyrelit" ? &skyRelit : n == "atmo" ? &atmo : n == "reflprobe" ? &reflProbe
               // ^ stream L (lighting): append to the line above
-              : n == "specaa" ? &specAA : n == "hex" ? &hex : n == "hblend" ? &hblend
+              : n == "specaa" ? &specAA : n == "texbias" ? &texBias : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps : n == "splitsum" ? &splitSum
               // ^ stream M (materials): append to the line above
               : n == "charvel" ? &charVel
               // ^ characters (gameplay): append to the line above
-              : n == "hashalpha" ? &hashAlpha
+              : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "leafdrift" ? &leafDrift
               // ^ stream A (vegetation): append to the line above
+              : n == "snowfar" ? &snowFar : n == "firthin" ? &firThin : n == "snowtex" ? &snowTex
+              // ^ stream B (Blackwater snow / far firs): append to the line above
               : n == "snow" ? &snow : n == "viscull" ? &visCull : n == "kotrees" ? &koTrees : n == "kograss" ? &koGrass : n == "kofolmodels" ? &koFolModels
               // ^ stream P (performance): append to the line above
               : nullptr;
@@ -491,7 +515,7 @@ private:
   void upDepth();            // TAAU output depth (kDepthUpFS): the nearest internal depth, for effects and overlays             // exchanges the internal and output-size post targets (and width / height)
   float effScale() const { return perf.taau && upscaleMode != 2 ? resScale : 1.0f; }   // taau off / mode Off: native resolution
   bool grassAtlasReady = false;   // GT1: content/textures/grass_atlas loaded (grass.cpp grassAtlasInit)
-  GLuint progGrass = 0, progGrassShadow = 0;   // GX3: near pasture clumps into the sun map
+  GLuint progGrass = 0, progGrassShadow = 0, progGrassPre = 0;   // Pre (CP1): kGrassFS's own cut-outs, depth only   // GX3: near pasture clumps into the sun map
   GLuint progFx = 0, fxVao = 0, fxVbo = 0;
   GLuint progSnowfall = 0, snowfallVao = 0;   // SF1 snowfall
   // R1 terrain material cache (rendering.md 13): 2 RGBA8 layers of world-space noise over the terrain extent, mipmapped
@@ -499,6 +523,8 @@ private:
   void terrainCacheBind(const Terrain& t, GLuint prog);   // (re)bakes when the terrain extent changes; sets uTCOn
   GLuint progDepth = 0; bool depthSurfOnly = false;   // R1 zprepass experiment: kMainVS's transform, no shading; building items only
   vec3 sortEye{0};        // R1 opqsort: the main view's eye for drawItems
+  GLuint progTerrainND = 0, progTerrainDepth = 0;   // PF: kTerrainFS without the tile-mask discard (early depth); the terrain depth pre-pass
+  GLuint terrQ[2][2] = {}; int terrQi = 0, terrQn = 0;   // PF terrain: [ring][unused, samples passed] queries
   GLuint progMain = 0, progShadow = 0, progTerrain = 0, progSky = 0, progGlass = 0, progLine = 0, progTone = 0, progExpo = 0;
   GLuint shadowFbo = 0, shadowTex = 0, occFbo = 0, occTex = 0;
   GLuint shadowFarFbo = 0, shadowFarTex = 0; int shadowFarSize = 2048;

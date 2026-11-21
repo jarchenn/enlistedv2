@@ -332,6 +332,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       continue;
     }
     if (!act.rtOf[idx]) continue;
+    if (R.perf.firThin && i.extra.is_object() && i.extra.value("perfThin", false)) continue;   // BT2 switch firthin: the map's optional far trees
     auto& r = *act.rtOf[idx];
     mat4 M = instanceMatrix(i);
     if (decorDraw(*this, i, r, M, op, gl)) continue;   // V8: border-ring decor saved in maps, cheap at range (decor.cpp)
@@ -1259,7 +1260,7 @@ int App::run(int argc, char** argv) {
     if (gCrumbProf) crumbFrameEnd();
     mark("start");
     glfwPollEvents();
-    { double f0 = glfwGetTime(); tex::flushPending(); hitchCur().flushMs += (glfwGetTime() - f0) * 1000.0; }   // TX2: a lazy texture set a newly used material named (one reload, then nothing)
+    { double f0 = glfwGetTime(); tex::flushPendingFrame(R.perf.texLate); hitchCur().flushMs += (glfwGetTime() - f0) * 1000.0; }   // TX2 / OPT1: a late texture set a newly used material named: one spare-layer upload per frame, no full reload (timed for the hitch log)
     syncCursor();   // GM1b: one per-frame rule for the cursor mode (explore.cpp)
     hangBeat(); forceQuitCheck(win, false);   // UI8
     if (glfwWindowShouldClose(win)) {

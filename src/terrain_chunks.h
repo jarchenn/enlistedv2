@@ -24,7 +24,8 @@ struct TerrainStream {
   static constexpr int kStep[kLods] = {1, 2, 4, 10, 20};
   struct Chunk { int lod = -1, slot = -1; float hmin = 0, hmax = 0; uint32_t rev = 0; bool bounds = false; };
   struct Pool { GLuint vao = 0, vbo = 0, ebo = 0; int vertsPerSlot = 0, indexCount = 0, capacity = 0, used = 0; std::vector<int> freeSlots; };
-  struct Stats { int loaded[kLods] = {}; int builtLastFrame = 0, drawnLastFrame = 0, culledLastFrame = 0, visibleUnloaded = 0, drawCalls = 0; size_t gpuBytes = 0; int64_t tris = 0; float buildMs = 0; };
+  struct Stats { int loaded[kLods] = {}; int builtLastFrame = 0, drawnLastFrame = 0, culledLastFrame = 0, visibleUnloaded = 0, drawCalls = 0; size_t gpuBytes = 0; int64_t tris = 0; float buildMs = 0;
+                 int drawnMasked = 0, drawnLod[kLods] = {}; int64_t trisLod[kLods] = {}; };   // PF terrain: chunks drawn with the discarding shader; per LOD ring (last drawBase)
   TerrainStreamConfig cfg;
   std::vector<Chunk> chunks;
   Pool pools[kLods];
@@ -36,7 +37,7 @@ struct TerrainStream {
 
   // brings meshes up to date for a camera (const terrain: called from Terrain::draw). budgetMs < 0 = no limit.
   void update(const Terrain& t, vec3 cam, const mat4& vp, float budgetMs);
-  void drawBase(const Terrain& t, vec3 cam, const mat4& vp, GLint uMorph = -1);   // uMorph: VOT T1 geomorph uniform (< 0: none)
+  void drawBase(const Terrain& t, vec3 cam, const mat4& vp, GLuint progD, GLuint progN, bool morph);   // progD: chunks under active tiles (discards), progN: the rest; morph: VOT T1 geomorph (uMorph)
   float lodDistance(int l) const;   // switch distance from LOD l to l + 1 (render-distance scaled past LOD0)
   int desiredLod(const Terrain& t, int idx, vec3 cam, int current) const;
   float chunkDistance(const Terrain& t, int idx, vec3 cam) const;
