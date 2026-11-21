@@ -266,7 +266,7 @@ public:
   // per-pass GPU timers: gpuMark(p) starts pass p (render() marks its passes, the app marks GP_UI's end with GP_Count).
   // Results are read without stalling, 2-3 frames late. Off (all 0) when timestamp queries are unsupported.
   void gpuMark(int pass);
-  int glProbeFrames = 0;   // glprobe: frames left to check glGetError at each pass mark
+  int glProbeFrames = 0; void glProbeArm(bool on);   // glprobe: frames left to check glGetError at each pass mark
   double gpuPassMs[GP_Count] = {};
   bool gpuTimers = true;
   // CP step 0: fragment-shader invocations per pass (millions; GL 4.6 pipeline statistics), same marks and latency as the
