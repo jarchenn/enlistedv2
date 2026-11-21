@@ -149,7 +149,7 @@ public:
   // bodyshadow: casters for the sun cascades only (never the main view, reflections or sky occlusion): the local player's
   // own skinned body and held weapon in first person. The game fills it only when wantBodyShadow() (switch on, sun out)
   std::vector<ModelDraw> shadowModels;
-  int bsCasc[4] = {0, 0, 0, 0};   // bodyshadow: shadowModels passes drawn this frame (near, mid, fourth, far), for the logs
+  int bsCasc[4] = {0, 0, 0, 0}; bool bsProbe = false;   // bsProbe: read the near cascade back at the body once (captures)   // bodyshadow: shadowModels passes drawn this frame (near, mid, fourth, far), for the logs
   bool wantBodyShadow() const { return perf.bodyShadow && sunShK > 0.0f && !thumbMode; }
   std::vector<ModelDraw> worldModels;   // imported models in the world (rack displays, the M2HB station)     // tree leaf cards (alpha-tested, wind sway, shadow casting)
   float wind = 1.0f;   // 0: no sway (editor View menu, --rq-off wind)
@@ -402,7 +402,7 @@ public:
     bool governor = true;        // governor (Battle Foundry s8.5): the rung governor drives the render scale and effect caps; off: CP 5.1's sqrt dynres controller (caps 100 %)
     bool midCache = true;        // midcache (CP4): High / Ultra mid cascade = a cached static layer + movers redrawn every frame (was all of it every 2nd frame)
     bool skyVisWall = true;      // skyviswall (CP4): on walls the top-down sky occlusion counts an occluder by ~2 m / its height above (no full-height stripes under dormers)
-    bool nightDark = true;       // nightdark (Lighting New): at full night ceiling 5 -> 1.2, key 0.11 -> 0.07, fixed level <= 1, moonlight x0.35, sky / fill x0.5, no night gamma lift, scotopic blue-grey 0.65
+    bool nightDark = true;       // nightdark (Lighting New): at full night ceiling 5 -> 1.2, key 0.11 -> 0.07, fixed level <= 1, moonlight x0.15, sky / fill x0.5, no night gamma lift, scotopic blue-grey 0.65
     bool roomDark = true;        // roomdark (Lighting New): indoors the meter opens to 3 by day (was 8), not past the night's ceiling by night, and aims 0.6 x the key
     bool indoorExpo = true;      // indoorexpo (CP4): inside a room exposure is metered and may open ~3 stops past the day range
     bool roomLights = true;      // roomlights (CP4): interior / fire lamps in big rooms reach and light x sqrt(floor area / 60 m2), 1..3
