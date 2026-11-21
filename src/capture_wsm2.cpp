@@ -4,6 +4,7 @@
 // aim (own gun), aim with an LMG (far grip), aim with a pistol, idle, walk, run, crouch, a shot, a reload at 40 %, a throw wind-up:
 // selftest_out/wsm2_<state>.png and per-bot facts in report_wsm2.txt (model, hold body, clips, head height).
 // NMK_WSM2=match: 10 against 10, mixed types on both sides, the AI on for 60 s: no crash, shots fired, the frame time.
+#include <functional>
 #include "selftest.h"
 #include "game.h"
 #include "mpui.h"
@@ -386,7 +387,7 @@ static bool costStep(App& app, Game& G, Soldier& L) {
 }
 
 // bodyshadow NMK_WSM2=bodyshadow: the local player's own sun shadow in first person, inside a match (the body is only pushed
-// for a live local soldier). The player held at the spawn (or NMK_BS_POS=x,z), the AI frozen, 16:30 (a long shadow),
+// for a live local soldier). Chateau Town (no fixed hour or map weather), the player held at the spawn (or NMK_BS_POS=x,z), the AI frozen, 18:00 (a long shadow), look-dev props ahead as reference casters,
 // looking 60 deg down: sun straight behind, sun 60 deg to the side, then Overcast; per scene standing, crouched and prone
 // stills -> selftest_out/bs_<scene>_<stance>.png, each logged with Renderer::shadowModels and the cascades that drew it.
 static bool bodyStep(App& app, Game& G, Soldier& L) {
@@ -398,22 +399,26 @@ static bool bodyStep(App& app, Game& G, Soldier& L) {
     if (AiCore* A = aiCore()) A->frozen = true;
   }
   const Sc& c = sc[k];
-  app.R.q.lightNew = true; app.R.wx.target = c.wx; app.R.wx.userSet = true; app.R.lt.hour = 16.5f; app.R.lt.userHour = true;
+  app.R.q.lightNew = true; app.R.wx.target = c.wx; app.R.wx.userSet = true; app.R.lt.hour = 18.0f; app.R.lt.userHour = true;
   const int f = frames - f0;
   if (f == 1) { app.R.wx.snap(); Physics::setCharacterPos(eye0 + vec3(0, 0.9f, 0)); }
   { vec3 sd = app.R.sunDir; sd.y = 0; if (glm::length(sd) > 1e-3f) { sd = glm::normalize(sd); app.eyeYaw = degrees(std::atan2(sd.x, sd.z)) + c.side; } }   // forward = -sun: the sun behind
-  app.eyePitch = -60;
+  app.eyePitch = -50;
   for (auto& s : G.sold) if (s.inUse && !s.localPlayer) s.hp = 100;
+  {   // reference casters in the same frame (look-dev spheres, chart and cards 3.5-5.5 m ahead, 0.5 m up): their sharp shadows show the sun is out
+    extern void lookdevPlace(Renderer&, vec3, float, const std::function<float(float, float)>&, std::vector<vec3>*);
+    lookdevPlace(app.R, L.feet, app.eyeYaw, [&](float x, float z) { return app.terrain.height(x, z); }, nullptr);
+  }
   ExploreInput in{}; in.crouch = f >= 100 && f < 180; in.prone = f == 180 || f == 310; app.scriptedInput = in;   // prone: one press down, one up
   auto shot = [&](const char* st) {
     char b[200]; std::snprintf(b, sizeof b, "bs_%s_%s.png", c.name, st); app.uiShot = exeDir() / "selftest_out" / b;
-    logf("[bodyshadow] %s %s: want %d, %zu draws pushed, cascades near %d mid %d c3 %d far %d, sun height %.2f, posture %d, feet (%.1f %.1f %.1f)", c.name, st,
-         app.R.wantBodyShadow() ? 1 : 0, app.R.shadowModels.size(), app.R.bsCasc[0], app.R.bsCasc[1], app.R.bsCasc[2], app.R.bsCasc[3], app.R.sunDir.y, (int)Physics::character().posture, L.feet.x, L.feet.y, L.feet.z);
+    logf("[bodyshadow] %s %s: want %d, %zu draws pushed, cascades near %d mid %d c3 %d far %d, preset %d (target %d), sun direct %.2f shadow k %.2f, hour %.1f sun height %.2f, posture %d, feet (%.1f %.1f %.1f)", c.name, st,
+         app.R.wantBodyShadow() ? 1 : 0, app.R.shadowModels.size(), app.R.bsCasc[0], app.R.bsCasc[1], app.R.bsCasc[2], app.R.bsCasc[3], app.R.wx.want(), app.R.wx.target, app.R.sunDirectFrac, app.R.sunShK, app.R.lt.hour, app.R.sunDir.y, (int)Physics::character().posture, L.feet.x, L.feet.y, L.feet.z);
   };
   if (f == 90) shot("stand");
   if (f == 170) shot("crouch");
   if (f == 300) shot("prone");
-  if (f > 360) { f0 = frames; if (++k >= 3) { T->check(true, "body-shadow stills written (3 scenes x stand / crouch / prone)"); if (app.mode == Mode::Explore) app.exitExplore(); app.selftest->exitCode = T->finish(); app.selftest->done = true; } }
+  if (f > 360) { f0 = frames; if (++k >= 3) { app.R.lookdev.clear(); T->check(true, "body-shadow stills written (3 scenes x stand / crouch / prone)"); if (app.mode == Mode::Explore) app.exitExplore(); app.selftest->exitCode = T->finish(); app.selftest->done = true; } }
   return true;
 }
 
@@ -513,7 +518,7 @@ bool wsm2Capture(App& app, float dt) {
   if (!started) {
     started = true; T = new MpTest("wsm2");
     if (app.mode == Mode::Explore) app.exitExplore();
-    app.openMap(contentDir() / (blurMode ? "templates/blackwater_thaw.nmap.json" : "examples/village_assault_3.nmap.json"));   // AIB1: the map the blur was reported on
+    app.openMap(contentDir() / (bodyMode ? "templates/chateau_town.nmap.json" : blurMode ? "templates/blackwater_thaw.nmap.json" : "examples/village_assault_3.nmap.json"));   // bodyshadow: no fixed hour, no map weather   // AIB1: the map the blur was reported on
     Scenario sc = Scenario::fromJson(app.doc.extra.is_object() ? app.doc.extra.value("scenario", json::object()) : json::object());
     sc.rules.mode = GameMode::TDM; sc.rules.humanTeam = 0; sc.rules.killCap = 9999;
     sc.rules.teamFaction[0] = Faction::Allies; sc.rules.teamFaction[1] = Faction::Axis;
