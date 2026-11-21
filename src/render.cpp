@@ -5371,7 +5371,11 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   mat4 projJ = v.proj;
   if (taaOn) {
     auto halton = [](int i, int b) { float f = 1, r = 0; while (i > 0) { f /= b; r += f * (i % b); i /= b; } return r; };
-    int ph = frame % std::clamp(q.taaPhases, 1, 64) + 1;
+    // CP 5.1: upscaling needs more phases to cover the output pixels (corpus 10: about 8 / s^2), so they follow the scale
+    // dynamic resolution sets (q.taaPhases is the native count)
+    const float sc = taau ? effScale() : 1.0f;
+    const int nPh = taau ? std::clamp(std::max(q.taaPhases, (int)std::lround(8.0f / (sc * sc))), 1, 64) : std::clamp(q.taaPhases, 1, 64);
+    int ph = frame % nPh + 1;
     jitterPx = vec2(halton(ph, 2) - 0.5f, halton(ph, 3) - 0.5f) * (taau ? 1.0f : q.taaJitter);   // +-0.25 px default: edges stay crisp; TAAU: a whole internal pixel
     projJ[2][0] += jitterPx.x * 2.0f / width; projJ[2][1] += jitterPx.y * 2.0f / height;
     // camera cut: teleport / mode switch / respawn (a fast flick is fine; reprojection handles it)
