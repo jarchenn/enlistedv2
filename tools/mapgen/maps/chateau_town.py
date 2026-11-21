@@ -708,7 +708,12 @@ def populate(ctx, grid, pads=None):
                  linked=[chateau["id"]] + [e["id"] for e in gates], slots=slots_from_structures(b, [chateau]))
     sc.objective("Church and graveyard", CHURCH[0], CHURCH[1] - 10.0, radius=20.0, capture_time=45.0, attack_from=(-42, -88),
                  linked=[church["id"]], slots=slots_from_structures(b, [church]))
-    sc.objective("Mill bridge", br["pos"][0], br["pos"][2], radius=14.0, capture_time=40.0, attack_from=(-52, -58),
+    # VOT T2: the bridge objective at its banks' level (the ground under the bridge is the stream bed, ~14 m lower: the
+    # capture zone sat in the water and the deck was out of it); the zone still reaches down into the bed
+    bank_y = max(b.ground(br["pos"][0] + 11.0 * math.cos(a * math.pi / 8), br["pos"][2] + 11.0 * math.sin(a * math.pi / 8)) for a in range(16))
+    bed_y = b.ground(br["pos"][0], br["pos"][2])
+    sc.objective("Mill bridge", br["pos"][0], br["pos"][2], radius=14.0, capture_time=40.0, attack_from=(-52, -58), y=bank_y,
+                 y_min=min(-2.0, bed_y - bank_y - 1.0), y_max=5.0,
                  linked=[br["id"]] + [e["id"] for e in near_bridge], slots=slots_from_structures(b, near_bridge))
     sc.objective("Town square", SQUARE[0], SQUARE[1], radius=18.0, capture_time=45.0, attack_from=(-72, 132),
                  linked=[e["id"] for e in sq_houses], slots=slots_from_structures(b, sq_houses))
