@@ -228,7 +228,7 @@ const App::ActiveSet& App::activeSet() {
   }
   return s;
 }
-void App::syncRuntime() {
+void App::syncRuntime(bool sliceOk) {
   uint64_t sig = placementSig(doc.instances, false);
   if (sig == syncSig_ && rt.size() == doc.instances.size()) return;   // nothing appeared, went away or changed revision
   crumb("sync: gates");
@@ -240,7 +240,7 @@ void App::syncRuntime() {
   // two later). A loading screen, a self-test that needs everything at once (realTime off) or NMK_SYNC_FULL: all at once
   extern bool loadingActive();
   static const bool syncFull = std::getenv("NMK_SYNC_FULL") != nullptr;
-  const bool sliced = !syncFull && !loadingActive() && mode == Mode::Explore && (!selftest || selftest->realTime);
+  const bool sliced = sliceOk && !syncFull && !loadingActive() && mode == Mode::Explore && (!selftest || selftest->realTime);
   const double sliceT0 = glfwGetTime(); bool deferred = false;
   std::set<uint64_t> live;
   static const bool memAttr = std::getenv("NMK_MEMLOG") != nullptr; std::map<std::string, std::pair<double, int>> memBy;   // MEM1: commit per asset's copies
@@ -1293,7 +1293,7 @@ int App::run(int argc, char** argv) {
     settingsWindow(*this);   // Settings window (Creative menu, pause menu, Loadout)
     { extern void uiInputWatchdog(App&); uiInputWatchdog(*this); }   // UI8: a hidden modal raised, a dead setup window released
     crumb("syncRuntime");
-    syncRuntime();
+    syncRuntime(true);   // CP 5.8: the per-frame call may be time-sliced
     crumb("tanks sync");
     tanks.sync(*this);
     crumb("interior sync");

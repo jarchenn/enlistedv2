@@ -23,10 +23,9 @@ void bed(App& app, const char* id, const char* file, float vol) {
 float smooth01(float x) { x = std::clamp(x, 0.0f, 1.0f); return x * x * (3 - 2 * x); }
 }   // namespace
 
-// thunder for a flash at `at` (world position) seen now: the crack or the rumble after distance / 343 m/s, quieter with
-// distance (a near strike under 1.5 km cracks, farther ones only rumble); called for each lightning flash
-void weatherThunder(App& app, vec3 at) {
-  float d = glm::length(at - app.audio.listenerPos());
+// thunder for a strike d m from the eye (R.wx.flashes' distM): the crack or the rumble after d / 343 m/s, quieter with
+// distance (a near strike under 1.5 km cracks, farther ones only rumble)
+void weatherThunder(App& app, float d) {
   const bool near = d < 1500.0f;
   const char* ev = near ? "wx_thunder_near" : "wx_thunder_far";
   if (!app.audio.hasEvent(ev)) return;
@@ -40,6 +39,7 @@ void weatherAudioFrame(App& app, float dt) {
   const bool live = W.presetOn() && app.mode == Mode::Explore && !mainMenuActive() && !W.enclosed;
   if (!live) { for (auto& id : gOn) app.audio.ambVoice(id, fs::path(), false, vec3(0), 0); return; }
   const auto& st = W.st;
+  for (const auto& f : W.flashes) weatherThunder(app, f.distM);   // W2 lightning: this frame's strikes (weatherDerive clears the list once a frame)
   vec3 L = app.audio.listenerPos();
   {   // under a roof: a ray straight up (the rain moves onto the roof)
     Physics::Hit h; float target = Physics::castRayEx(L + vec3(0, 0.1f, 0), vec3(0, 1, 0), 14.0f, h) ? 1.0f : 0.0f;
