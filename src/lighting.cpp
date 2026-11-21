@@ -536,7 +536,9 @@ void LightingPass::todColors(const Renderer& R, vec3& sun, vec3& sky, vec3& grou
 bool snowLayerOn();   // snow.cpp
 void LightingPass::exposureUniforms(const Renderer& R, GLuint p) {
   (void)R;
-  glUniform1f(U(p, "uExpoKey"), L.tod.expoKey * (R.thumbMode || R.wx.enclosed ? 1.0f : R.wx.der.phys ? R.wx.der.keyMul : glm::mix(1.0f, R.perf.w2Expo && snowLayerOn() ? 1.2f : 0.72f, R.wx.k)));   /* WX2: Cloudy is darker (auto exposure would otherwise lift it back) */ glUniform1f(U(p, "uExpoMin"), L.tod.expoMin); glUniform1f(U(p, "uExpoMax"), L.tod.expoMax);
+  // CP4 indoorexpo: inside a room the eye opens up: the meter may go ~3 stops past the day's range (corpus: interior EV 2-10 against 9-15.5 outside)
+  glUniform1f(U(p, "uExpoMax"), R.camIndoor && R.perf.indoorExpo && !R.thumbMode ? std::max(L.tod.expoMax, 8.0f) : L.tod.expoMax);
+  glUniform1f(U(p, "uExpoKey"), L.tod.expoKey * (R.thumbMode || R.wx.enclosed ? 1.0f : R.wx.der.phys ? R.wx.der.keyMul : glm::mix(1.0f, R.perf.w2Expo && snowLayerOn() ? 1.2f : 0.72f, R.wx.k)));   /* WX2: Cloudy is darker (auto exposure would otherwise lift it back) */ glUniform1f(U(p, "uExpoMin"), L.tod.expoMin);
 }
 
 void LightingPass::uniforms(Renderer& R, GLuint p) {
