@@ -504,14 +504,14 @@ void App::stationShoot(uint64_t id, int owner) {
     tracer = tracerKindFor(3, s->shots + 1);   // MG 42 / M2HB: a red tracer every 3rd round, the others a short streak
     fireProjectile(start, dir, mg42 ? 755.0f : 890.0f, PROJ_BULLET, 0, coreUD(inst->id), tracer, d.ammo);
     s->burst++;
-    fx.muzzleFlash(muzzle + dir * 0.03f, dir, mg42 ? 1.5f : 1.9f, false, muzzle);   // WP4
+    fx.muzzleFlash(muzzle + dir * 0.03f, dir, mg42 ? 1.5f : 1.9f, false, muzzle, vec3(-1), mg42 ? "7.92x57 mm" : "12.7x99 mm");   // WP4
     audio.play(mg42 ? "shot_mg42" : "shot_m2hb", muzzle, 1.0f);
   } else {
     vec3 bore = d.muzzle - d.elevPivot;   // the bore axis at the trunnion plane (the Flak's bore sits above its trunnions)
     start = vec3(e * vec4(bore.x, bore.y, 0, 1));   // sweep from there along the bore: a wall at the muzzle stops the shell
     fireProjectile(start, dir, s->loadedAT ? d.atVelocity : d.heVelocity, PROJ_HE, d.heDamage, coreUD(inst->id), false, s->loadedAT ? d.ammoAT : d.ammo);
     projectiles.back().at = s->loadedAT; projectiles.back().atKill = true; projectiles.back().blastR = d.heRadius; projectiles.back().craterScale = d.heCrater;
-    fx.muzzle(muzzle, dir, d.muzzleScale);
+    fx.muzzle(muzzle, dir, d.muzzleScale, d.kind.c_str());   // fxev: pak40 / flak18 -> their weapons.json row (fxHeavyFor)
     audio.play(d.fireSound, muzzle, 1.0f);
   }
   projectiles.back().owner = owner;

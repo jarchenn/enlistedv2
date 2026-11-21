@@ -153,12 +153,22 @@ struct Projectile {
   uint32_t uid = 0;             // VH7: identity for the TOW wire trail
 };
 struct Particle { vec3 p{0}, v{0}; float life = 0, maxLife = 1, size = 0.3f, grow = 0, drag = 0, lift = 0; vec4 col{1}; bool additive = false; float fade = 0;
-                  float flame = -1; };   // flame >= 0 (additive): a flame sprite, id 0..255 = its rotation and noise seed; col.x = brightness, the colour follows its age (Fx::build) and the fragment shader erodes it with noise   // fade > 0: alpha x (life left)^fade (firing smoke, content/settings/fx.json)
+                  float flame = -1; float ret = -1; };   // ret >= 0: retiring (fxcap), seconds of its 0.3 s fade left   // flame >= 0 (additive): a flame sprite, id 0..255 = its rotation and noise seed; col.x = brightness, the colour follows its age (Fx::build) and the fragment shader erodes it with noise   // fade > 0: alpha x (life left)^fade (firing smoke, content/settings/fx.json)
 struct Streak { vec3 a{0}, b{0}; float life = 0, maxLife = 0.05f, width = 0.02f; vec4 col{1}; };
 struct Debris { vec3 p{0}, v{0}, w{0}, size{0.1f}; quat r{1, 0, 0, 0}; float life = 0; bool resting = false; };
 struct FxVert { vec3 p; vec4 c; vec2 uv; float r = 0; };   // r: the sprite's radius (W6 soft fade; 0 = none)
 
 class Terrain;
+// Battle Foundry 5.1: one visual event per fired / impact / plume event (switch fxev). The muzzle transform is the one at
+// emission; smoke leaves it in world space. Ids are unique per source (owner << 40 | serial): a repeat (late LAN replication,
+// a second call path) is dropped, an event older than its longest phase is skipped by absolute age.
+enum FxRecipe : int { FXR_SMALL = 1, FXR_HEAVY = 2, FXR_IMPACT = 3, FXR_PLUME = 4 };
+struct FxEvent {
+  uint64_t id = 0; uint32_t tick = 0; double visTime = -1;   // visTime: Fx::clock at emission (< 0: now)
+  int recipe = FXR_SMALL; vec3 pos{0}, dir{0, 0, 1}, normal{0, 1, 0}; std::string surface; uint32_t seed = 0; int owner = -1;
+  std::string weapon, caliber, device = "none";   // small arms / heavy: weapons.json id or the def's caliber text; muzzle device
+  vec3 light{0}; float groundY = -1e9f; bool evacuator = false; float scale = 1; vec3 tint{-1};
+};
 struct Fx {
   std::deque<Particle> parts;   // weather corpus 7: at the cap the oldest goes in O(1) (was vector::erase(begin): O(N) per spawn)
   std::vector<Streak> streaks;
@@ -176,12 +186,12 @@ struct Fx {
   void flash(vec3 p, float size, float life, vec4 col);
   void streak(vec3 a, vec3 b, float width, float life, vec4 col);
   void explosion(vec3 p, vec3 n, const std::string& family, bool ground);
-  void muzzle(vec3 p, vec3 dir, float scale);   // tank / AT / Flak gun discharge (content/settings/fx.json "muzzle")
+  void muzzle(vec3 p, vec3 dir, float scale, const char* gun = nullptr);   // gun: weapons.json id or a fxHeavyFor name (fxev)   // tank / AT / Flak gun discharge (content/settings/fx.json "muzzle")
   // WP4 small-arms muzzle flash, once per shot: a yellow-orange core and 4-6 orange flame petals along the bore
   // (20-40 ms, randomised), plus a warm point light at `light` (world muzzle; the player's flash is drawn at the
   // viewmodel's apparent muzzle). suppressed: a faint core, no light
-  void muzzleFlash(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light, vec3 tint = vec3(-1));
-  void muzzleFireball(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light);   // DF1: a small hot core, a warm ball just ahead, a long ragged tongue along the bore (one or two frames)   // SW1 tint: a blaster's colour (x < 0: the flash look)
+  void muzzleFlash(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light, vec3 tint = vec3(-1), const char* caliber = nullptr, const char* device = nullptr);   // fxev: caliber = the def's text, device "brake" / "flash_hider" / ...
+  void muzzleFireball(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light, const char* caliber = nullptr, const char* device = nullptr);   // DF1: a small hot core, a warm ball just ahead, a long ragged tongue along the bore (one or two frames)   // SW1 tint: a blaster's colour (x < 0: the flash look)
   struct MuzzleLight { vec3 p{0}; float age = 0, life = 0.035f, k = 1; uint32_t id = 0; vec3 col{-1}; };   // SW1 col: own colour (x < 0: the flash look's)
   std::vector<MuzzleLight> mlights; uint32_t mlightSerial = 0;
   // WP4b: handling.json "muzzleFlash" (HDR linear colours; the light's radius m and intensity)
@@ -191,6 +201,29 @@ struct Fx {
   void splinters(vec3 p, vec3 v, int n, vec4 col, float size);   // furniture breaks (V4): falling chips
   void dust(vec3 p, float radius, vec4 col);                     // furniture blown apart (V4): low slow dust
   void build(const mat4& view, std::vector<FxVert>& alpha, std::vector<FxVert>& add) const;
+  // ---- Battle Foundry phase 4 (fxev / fxcap)
+  double clock = 0, presentT = 0;           // the one simulation clock (advanced by update's fixed steps); the drawn instant (clock - (1 - alpha) / 60)
+  mutable double lastPresent = -1;          // build: the previous drawn instant (the envelope integrates over the interval since)
+  bool evOn = true, capOn = true;           // Renderer::perf fxEv / fxCap, set each frame
+  float yrefNits = 3438, peakClamp = 60;    // Yref of the lit 18 % card (nits, 0.18 E / pi) this frame; the bloom-dependent clamp (yref.json)
+  static constexpr float kNitsToScene = 1.0f / 30000.0f;   // the lighting session's uNitsToScene
+  int tier = 2;                             // 0 Very Low .. 4 Ultra High (spec 8.3 columns)
+  struct Caps { int soft = 1500, clods = 16, flashLights = 2, dustPerBurst = 20, grains = 200, fragments = 40, groundDust = 16, plume = 8; } caps;
+  void setCaps(const Caps& c);              // fxcap: caps apply to new spawns; a lowered one retires the oldest over 0.3 s, never a live snap
+  bool emit(const FxEvent& e);              // false: a duplicate id or expired
+  struct FlashEl { double t0 = 0; float life = 0.02f; vec3 p{0}, dir{0, 0, 1}; float roll = 0, xM = 0.1f, L = 0.3f, R = 0.05f, half = 15;
+                   vec3 emPrim{0}, emDisc{0}, emSec{0}; int kind = 0, segs = 6; };   // kind 0 swept core mesh, 1 dished disc, 2 billboard
+  std::vector<FlashEl> flashes;
+  struct Delayed { double t = 0; Particle q; }; std::vector<Delayed> delayed;   // puffs released later (suppressor, bore evacuator)
+  std::deque<uint64_t> seenOrder; std::set<uint64_t> seenIds; uint64_t serial = 0;
+  uint64_t nextId(int owner) { return ((uint64_t)(owner + 1) << 40) | (++serial & 0xFFFFFFFFFFull); }
+  vec3 emission(float T, float eps) const;  // scene-linear emission of a grey body at T: hue(T) x min(eps L_v / Yref, clamp) x Yref (spec 5.4)
+  static float envelopeAvg(double t0, float life, double a, double b);   // (1-u)^2 integrated over [a, b] / (b - a) (spec 5.5)
+  bool admit(bool cue = false);
+  bool admitLight();                        // fxcap: a muzzle light fits under caps.flashLights (>= 1; off: the oldest of 8 goes)
+  void buildFlashes(vec3 eye, std::vector<FxVert>& add) const;
+  const Terrain* ground = nullptr;         // update's terrain (the dust disc's ground below a muzzle)
+  float wxWet = 0, wxSnow = 0;              // R.wx.st.wet / snowDepth (read only): the dust disc's loose-ground opacity             // fxcap: room for one more particle (cue: a dominant plume / event cue retires an accent instead)
   uint32_t rng = 1234567u;
   float rnd() { rng ^= rng << 13; rng ^= rng >> 17; rng ^= rng << 5; return (rng % 100000u) / 100000.0f; }
 };

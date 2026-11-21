@@ -342,7 +342,8 @@ void AiCore::startTraversal(Soldier& s, BotMind& m, NavRef offRef, vec3 sp, vec3
         return true; };
       bool high = rim > 0.13f && pathFits({vec3(a.x, a.y + 0.3f, a.z), vec3(a.x, hy, a.z), vec3(b.x, hy, b.z), vec3(b.x, b.y + 0.3f, b.z)});
       bool low = !high && (b.y > a.y ? pathFits({vec3(a.x, b.y + 0.12f, a.z), vec3(b.x, b.y + 0.08f, b.z)}) : pathFits({vec3(b.x, a.y + 0.08f, b.z), vec3(b.x, b.y + 0.3f, b.z)}));
-      if (!high && !low) { tr.on = false; ++metrics.linkAborts; m.linkBlockUntil = G.t + 1.0; linkAborted(offRef, tr.link); m.penalties.push_back({a, 1.2f, G.t + tj("stuck", "penalty_s", 20.0f)}); requestPath(s, m.hasSubGoal ? m.subGoal : m.goal, m.goalRadius, 6.0f, true); return; }   // no body fits through: never start it
+      if (!high && !low) { { auto& r = linkAbortLog[tr.link]; r.a = a; r.b = b; r.kind = tr.kind; ++r.startFit; r.at = a; }
+        tr.on = false; ++metrics.linkAborts; m.linkBlockUntil = G.t + 1.0; linkAborted(offRef, tr.link); m.penalties.push_back({a, 1.2f, G.t + tj("stuck", "penalty_s", 20.0f)}); requestPath(s, m.hasSubGoal ? m.subGoal : m.goal, m.goalRadius, 6.0f, true); return; }   // no body fits through: never start it
       if (high) { tr.p[0] = a; tr.p[1] = vec3(a.x, hy, a.z); tr.p[2] = vec3(b.x, hy, b.z); tr.p[3] = b; tr.np = 4; tr.dur = 0.6f + 0.45f * h + 0.4f * rim; }
       else if (b.y > a.y) { tr.p[0] = a; tr.p[1] = vec3(a.x, b.y + 0.12f, a.z); tr.p[2] = vec3(b.x, b.y + 0.08f, b.z); tr.p[3] = b; tr.np = 4; tr.dur = 0.55f + 0.5f * h; }
       else { tr.p[0] = a; tr.p[1] = vec3(b.x, a.y + 0.08f, b.z); tr.p[2] = b; tr.np = 3; tr.dur = 0.45f + 0.35f * h; }
@@ -372,7 +373,8 @@ bool AiCore::stepTraversal(Soldier& s, BotMind& m, float dt) {
   if (!fits && u < 0.98f) {
     // someone / something in the way: stop where the body still fits, re-plan
     tr.on = false; ++metrics.linkAborts; m.linkBlockUntil = G.t + 1.0;
-    { bool soldier = false; for (auto& o : G.sold) if (&o != &s && o.alive && glm::length(o.feet - p) < 0.9f) soldier = true; if (!soldier) linkAborted(tr.ref, tr.link); }   // geometry, not a teammate, in the way
+    { bool soldier = false; for (auto& o : G.sold) if (&o != &s && o.alive && glm::length(o.feet - p) < 0.9f) soldier = true; if (!soldier) linkAborted(tr.ref, tr.link);
+      auto& r = linkAbortLog[tr.link]; r.a = tr.p[0]; r.b = tr.p[tr.np - 1]; r.kind = tr.kind; ++(soldier ? r.midSoldier : r.midGeom); r.at = p; }   // geometry, not a teammate, in the way
     m.penalties.push_back({tr.p[0], 1.2f, G.t + tj("stuck", "penalty_s", 20.0f)});   // this bot avoids that link for a while
     if (metrics.linkAborts <= 15) logf("ai: bot %d %s link blocked at (%.1f %.1f %.1f) -> (%.1f %.1f %.1f), u %.2f", s.slot, navLinkName(tr.kind), tr.p[0].x, tr.p[0].y, tr.p[0].z, tr.end.x, tr.end.y, tr.end.z, u);
     requestPath(s, m.hasSubGoal ? m.subGoal : m.goal, m.goalRadius, 6.0f, true);

@@ -10,6 +10,7 @@
 #include "sd_game.h"   // SD3
 #include "mainmenu.h"
 #include "loading.h"
+#include "fxdata.h"   // Battle Foundry 4
 #include "ui_glass.h"
 #include "lines.h"   // MOD1: line types that clear grass (grassFootprints)
 #include "hlod.h"
@@ -1201,6 +1202,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--no-textures") tex::setEnabled(false);   // L4 A/B: procedural patterns only (textures.cpp)
     else if (a == "--selftest-textures") runSelf = true;   // L4 texture layer + missing-texture fallback (selftest_textures.cpp)
     else if (a == "--pack-texture" && k + 2 < argc) { fs::path s = argv[k + 1], d = argv[k + 2]; int n = k + 3 < argc ? std::atoi(argv[k + 3]) : 1024; return tex::packSet(s, d, n == 2048 ? 2048 : 1024); }   // tools/fetch_ambientcg.py
+    else if (a == "--check-fxev") { extern int fxDataSelfCheck(); return fxDataSelfCheck(); }   // Battle Foundry 9.2 EVENTS / BRIGHTNESS / SCALE (fxdata.cpp, fx.cpp)
     else if (a == "--check-dynres") { extern int dynResSelfCheck(); return dynResSelfCheck(); }   // CP 5.1: the control law on synthetic timings
     else if (a == "--texture-placeholders" && k + 1 < argc) { std::vector<std::string> v; std::string l = argv[++k]; for (size_t b = 0, e; b <= l.size(); b = e + 1) { e = l.find(',', b); if (e == std::string::npos) e = l.size(); if (e > b) v.push_back(l.substr(b, e - b)); } return tex::writePlaceholders(k + 1 < argc ? fs::path(argv[k + 1]) : contentDir() / "textures", v); }
     else if (a == "--rq-off" && k + 1 < argc) rqOff.push_back(argv[++k]);   // switch one render feature off (A/B): taa ssr ssao bloom shafts cascade cloudshadow, or a Renderer::perf switch
@@ -1485,6 +1487,11 @@ int App::run(int argc, char** argv) {
     v.view = viewM; v.proj = projM; v.dt = frameDt;
     R.fxAlpha.clear(); R.fxAdd.clear();
     fx.nearFade = R.perf.fxNear; fx.wind = R.perf.wxDrift ? R.wx.der.windXZ : vec2(0);
+    {   // Battle Foundry 4: the flash's Yref from this frame's light (read only), the loose ground for the dust disc
+      fx.evOn = R.perf.fxEv; fx.capOn = R.perf.fxCap; fx.wxWet = R.wx.st.wet; fx.wxSnow = R.wx.st.snowDepth;
+      static const float indoorLux = fxData().yrefLux.count("interior_lit") ? fxData().yrefLux.at("interior_lit") : 300.0f;
+      fx.yrefNits = fxYrefNits(R.camIndoor ? indoorLux : std::max(R.wx.der.eTotalLux, 0.25f)); fx.peakClamp = fxData().clampSingle;   // the current bloom: one chain (pbloom: no clamp)
+    }
     if (mode == Mode::Explore || selftest) fx.build(viewM, R.fxAlpha, R.fxAdd);   // CV1: captures show light shafts / mist too
     if (mode == Mode::Explore) { extern void royaleFx(App&, std::vector<FxVert>&); royaleFx(*this, R.fxAlpha); }   // BR12: the storm wall, depth-tested in the scene
     if (!R.lt.mapClean) lightsMotes(*this, viewM, R.fxAdd);   // GX2: dust in the sun shafts indoors (every mode); BR2: none on a clean map

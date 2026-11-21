@@ -279,6 +279,7 @@ void Settings::apply(App& app) {
   R.q.impAtlas = g.grass >= 3 ? 2048 : 1024; R.q.impMax = g.grass >= 4 ? 16 : g.grass >= 2 ? 12 : 6;   // CP3: about 28 MB a species at 2048, 7 MB at 1024
   app.grass.quality = (GrassQuality)std::clamp(g.grass, 0, 4); app.grass.nearWind = g.grassWind;
   app.fx.setBudget(g.particles);
+  { const GfxPreset p = s.preset(); app.fx.tier = p == GfxPreset::UltraLow ? 0 : p == GfxPreset::Low ? 1 : p == GfxPreset::High ? 3 : p == GfxPreset::Ultra ? 4 : 2; }   // spec 8.3 columns (Custom: Medium)
   if (!gSelftest) platformSwapInterval(s.vsync ? 1 : 0);
   app.reducedMotion = s.reducedMotion; app.vm.showArms = s.showArms; app.sightMarkers = s.sightMarkers; app.showWeaponList = s.weaponList; app.friendlyMarkers = s.friendlyMarkers;
   app.reticleSize = s.reticleSize / 100.0f; app.reticleBright = s.reticleBright / 100.0f;

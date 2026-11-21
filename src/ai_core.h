@@ -280,7 +280,9 @@ public:
   void pollWorld(bool rebuild = true);
   void onTilesChanged();
   void markNavTraps();
-  std::map<uint32_t, int> linkAbortsById;   // link id -> aborts; at links.disableAfterAborts the link is flagged NF_BADLINK
+  std::map<uint32_t, int> linkAbortsById;
+  struct LinkAbortRec { vec3 a{0}, b{0}; int kind = 0, startFit = 0, midGeom = 0, midSoldier = 0; vec3 at{0}; };   // per link: why its traversals were given up (the soak's link list)
+  std::map<uint32_t, LinkAbortRec> linkAbortLog;   // link id -> aborts; at links.disableAfterAborts the link is flagged NF_BADLINK
   void linkAborted(NavRef ref, uint32_t id);   // dead-end pockets (Nav::markTraps) against the objectives and spawns
   double trapsDueAt = -1; int navTraps = 0;
   // ---- knowledge (ai_core.cpp)

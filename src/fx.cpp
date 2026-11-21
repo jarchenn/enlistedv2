@@ -2,25 +2,31 @@
 // Pooled cosmetic effects. Never affect gameplay: impacts and damage come from the projectile path.
 #include "combat.h"
 #include "terrain.h"
+#include "fxdata.h"
 #include <algorithm>
 #include <cmath>
 
 void Fx::smoke(vec3 p, vec3 v, float size, float life, vec4 col, float grow, float lift) {
-  if (parts.size() >= maxParts) parts.pop_front();
+  if (!admit()) return;
   Particle q; q.p = p; q.v = v; q.size = size; q.life = q.maxLife = life; q.col = col; q.grow = grow; q.drag = 1.6f; q.lift = lift;
   parts.push_back(q);
 }
 void Fx::flash(vec3 p, float size, float life, vec4 col) {
-  if (parts.size() >= maxParts) parts.pop_front();
+  if (!admit()) return;
   Particle q; q.p = p; q.size = size; q.life = q.maxLife = life; q.col = col; q.additive = true; q.grow = -size / life * 0.3f;
   parts.push_back(q);
 }
-void Fx::muzzleFlash(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light, vec3 tint) {
+void Fx::muzzleFlash(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light, vec3 tint, const char* caliber, const char* device) {
   dir = glm::length(dir) > 1e-4f ? glm::normalize(dir) : vec3(0, 0, -1);
+  if (evOn && tint.x < 0) {   // fxev: spec 5.1 small-arms fire (a blaster keeps its own coloured look)
+    FxEvent e; e.id = nextId(-1); e.recipe = FXR_SMALL; e.pos = p; e.dir = dir; e.light = light; e.scale = scale;
+    e.caliber = caliber ? caliber : ""; e.device = suppressed ? "suppressor" : device ? device : "none"; e.seed = (uint32_t)(serial * 2654435761u);
+    emit(e); return;
+  }
   vec3 up = std::fabs(dir.y) > 0.95f ? vec3(1, 0, 0) : vec3(0, 1, 0), s1 = glm::normalize(glm::cross(dir, up)), s2 = glm::cross(s1, dir);
   float life = 0.02f + 0.02f * rnd();
   auto put = [&](vec3 q, float size, vec4 col) {
-    if (parts.size() >= maxParts) parts.pop_front();
+    if (!admit()) return;
     Particle a; a.p = q; a.size = size; a.life = a.maxLife = life; a.col = col; a.additive = true; a.grow = size * 1.5f; parts.push_back(a);
   };
   FlashLook F = flashLook;
@@ -37,7 +43,7 @@ void Fx::muzzleFlash(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light,
     put(q, sz, vec4(F.petal * (0.85f + 0.3f * rnd()), 1));                         // orange flame
     put(q + dir * 0.25f * sz, sz * 1.35f, vec4(F.edge, 1));                         // a darker orange-red rim around it
   }
-  if (mlights.size() >= 8) mlights.erase(mlights.begin());
+  if (!admitLight()) return;
   MuzzleLight L; L.p = light; L.life = life + 0.01f; L.k = scale; L.id = 0xF1A50100u + (++mlightSerial & 0xFF); if (tint.x >= 0) L.col = tint; mlights.push_back(L);
 }
 
@@ -45,13 +51,14 @@ void Fx::muzzleFlash(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light,
 // a ragged orange-tan tongue of burning gas some three balls long, narrowing; all noise-eroded sprites (fireball sprite: flame
 // id + 1000, its colour kept, the tongue's stretched along the bore on screen), gone in one or two frames, each shot rolled and
 // sized afresh. Suppressed: a dim core only. The muzzle light as the standard flash.
-void Fx::muzzleFireball(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light) {
+void Fx::muzzleFireball(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light, const char* caliber, const char* device) {
   dir = glm::length(dir) > 1e-4f ? glm::normalize(dir) : vec3(0, 0, -1);
+  if (evOn) { muzzleFlash(p, dir, scale, suppressed, light, vec3(-1), caliber, device); return; }   // fxev: one physical flash for every gun
   vec3 up = std::fabs(dir.y) > 0.95f ? vec3(1, 0, 0) : vec3(0, 1, 0), s1 = glm::normalize(glm::cross(dir, up)), s2 = glm::cross(s1, dir);
   const float life = 0.022f + 0.018f * rnd(), D = (0.15f + 0.05f * rnd()) * scale;   // the ball's diameter (rifle ~17 cm)
   const float roll = rnd() * 6.2831853f;
   auto put = [&](vec3 q, float size, vec3 col, float stretch) {
-    if (parts.size() >= maxParts) parts.pop_front();
+    if (!admit()) return;
     Particle a; a.p = q; a.size = size; a.life = a.maxLife = life; a.col = vec4(col, 1); a.additive = true; a.grow = size * 0.8f;
     a.flame = 1000.0f + (float)(int)(rnd() * 255.0f); a.v = dir * (0.001f + stretch); a.drag = 0; parts.push_back(a);
   };
@@ -74,7 +81,7 @@ void Fx::muzzleFireball(vec3 p, vec3 dir, float scale, bool suppressed, vec3 lig
     float heat = 1.0f - 0.55f * u;
     put(q, sz, vec3(3.0f, 1.75f, 0.70f) * heat * (0.8f + 0.4f * rnd()), 0.6f);
   }
-  if (mlights.size() >= 8) mlights.erase(mlights.begin());
+  if (!admitLight()) return;
   MuzzleLight L; L.p = light + dir * (0.5f * D); L.life = life + 0.012f; L.k = scale * 1.15f; L.id = 0xF1A50100u + (++mlightSerial & 0xFF); mlights.push_back(L);
 }
 
@@ -93,7 +100,7 @@ void Fx::bullet(vec3 a, vec3 b, int kind) {
     streak(s, b, 0.022f, 0.03f, vec4(c * 4.0f + vec3(5.0f), 1));
     streak(s, b, 0.075f, 0.03f, vec4(c * 9.0f, 1));
     streak(a, b, 0.03f, 0.035f, vec4(c * 2.2f, 1));   // the trail fades within ~6 m
-    if (mlights.size() >= 8) mlights.erase(mlights.begin());
+    if (!admitLight()) return;
     MuzzleLight L; L.p = b; L.life = 0.03f; L.k = 0.3f; L.col = c; L.id = 0xB0170000u + (++mlightSerial & 0xFF); mlights.push_back(L);
     return;
   }
@@ -167,8 +174,12 @@ void Fx::setBudget(float k) {
   maxParts = (size_t)(900 * k); maxStreaks = (size_t)(160 * k); maxDebris = (size_t)(72 * k);
 }
 
-void Fx::muzzle(vec3 p, vec3 dir, float scale) {
+void Fx::muzzle(vec3 p, vec3 dir, float scale, const char* gun) {
   const MuzzleFx& m = fxSettings().m;
+  if (evOn) {   // fxev: spec 5.1 heavy discharge: the physical flash, the ground dust disc, the bore evacuator; the firing smoke below stays
+    FxEvent e; e.id = nextId(-1); e.recipe = FXR_HEAVY; e.pos = p; e.dir = glm::length(dir) > 1e-4f ? glm::normalize(dir) : vec3(0, 0, 1); e.light = p; e.scale = scale;
+    e.weapon = gun ? gun : ""; e.seed = (uint32_t)(serial * 2654435761u); emit(e);
+  } else
   flash(p + dir * 0.25f * scale, m.flashSize * scale, m.flashLife, vec4(10.0f, 7.0f, 3.0f, 1));
   auto puff = [&](vec3 at, vec3 v, float size) {
     smoke(at, v, size, glm::mix(m.life.x, m.life.y, rnd()), vec4(m.col, m.alpha), m.grow, m.lift);
@@ -176,7 +187,7 @@ void Fx::muzzle(vec3 p, vec3 dir, float scale) {
   };
   for (int s : {-1, 1}) {   // muzzle-brake side blast
     vec3 side = glm::normalize(glm::cross(dir, vec3(0, 1, 0))) * (float)s;
-    flash(p + side * 0.5f * scale, m.sideFlashSize * scale, m.sideFlashLife, vec4(7, 4.5f, 2, 1));
+    if (!evOn) flash(p + side * 0.5f * scale, m.sideFlashSize * scale, m.sideFlashLife, vec4(7, 4.5f, 2, 1));
     for (int i = 0; i < m.sidePuffs; ++i) puff(p + side * 0.3f, (side * m.sideSpeed + dir * 1.5f + vec3(0, 0.5f, 0)) * (0.6f + rnd()), m.sideSize * scale);
   }
   for (int i = 0; i < m.forePuffs; ++i) puff(p + dir * 0.6f * scale, dir * glm::mix(m.foreSpeed.x, m.foreSpeed.y, rnd()) + vec3(rnd() - 0.5f, rnd(), rnd() - 0.5f), m.foreSize * scale);
@@ -193,12 +204,12 @@ void Fx::blasterImpact(vec3 p, vec3 n, int kind) {   // SW1
   flash(p + n * 0.03f, 0.35f, 0.09f, vec4(c * 8.0f + vec3(2.0f), 1));
   flash(p + n * 0.02f, 0.14f, 0.16f, vec4(c * 3.0f + vec3(3.0f, 2.0f, 1.0f), 1));
   for (int i = 0; i < 7; ++i) {   // sparks: short additive specks thrown off the surface
-    if (parts.size() >= maxParts) parts.pop_front();
+    if (!admit()) break;
     Particle q; q.p = p + n * 0.02f; q.v = glm::normalize(n * 1.2f + vec3(rnd() - 0.5f, rnd() - 0.3f, rnd() - 0.5f)) * (2.0f + rnd() * 4.0f);
     q.size = 0.025f; q.life = q.maxLife = 0.15f + rnd() * 0.25f; q.col = vec4(c * 3.0f + vec3(4.0f, 3.0f, 2.0f), 1); q.additive = true; q.drag = 2.5f; q.lift = -6.0f; parts.push_back(q);
   }
   for (int i = 0; i < 2; ++i) smoke(p + n * 0.03f, n * (0.4f + rnd() * 0.4f), 0.07f, 0.9f + rnd() * 0.6f, vec4(0.12f, 0.11f, 0.1f, 0.55f), 1.0f, 0.25f);   // scorch smoke
-  if (mlights.size() >= 8) mlights.erase(mlights.begin());
+  if (!admitLight()) return;
   MuzzleLight L; L.p = p + n * 0.1f; L.life = 0.12f; L.k = 0.45f; L.col = c; L.id = 0xB0171000u + (++mlightSerial & 0xFF); mlights.push_back(L);
 }
 
@@ -209,6 +220,12 @@ void Fx::impact(vec3 p, vec3 n, const std::string& surface) {
 }
 
 void Fx::update(float dt, const Terrain& t) {
+  clock += dt; presentT = clock; ground = &t;
+  for (size_t k = 0; k < delayed.size();) {
+    if (delayed[k].t <= clock) { if (admit()) parts.push_back(delayed[k].q); delayed[k] = delayed.back(); delayed.pop_back(); } else ++k;
+  }
+  flashes.erase(std::remove_if(flashes.begin(), flashes.end(), [&](const FlashEl& f) { return f.t0 + f.life < clock - 0.25; }), flashes.end());
+  for (auto& q : parts) if (q.ret >= 0) q.ret -= dt;
   for (auto& L : mlights) L.age += dt;   // WP4 muzzle lights
   mlights.erase(std::remove_if(mlights.begin(), mlights.end(), [](const MuzzleLight& L) { return L.age >= L.life; }), mlights.end());
   for (auto& q : parts) {
@@ -218,7 +235,7 @@ void Fx::update(float dt, const Terrain& t) {
     q.p += q.v * dt;
     q.size = std::max(0.02f, q.size + q.grow * dt);
   }
-  parts.erase(std::remove_if(parts.begin(), parts.end(), [](const Particle& q) { return q.life <= 0; }), parts.end());
+  parts.erase(std::remove_if(parts.begin(), parts.end(), [](const Particle& q) { return q.life <= 0 || (q.ret < 0.0f && q.ret > -0.5f); }), parts.end());
   for (auto& s : streaks) s.life -= dt;
   streaks.erase(std::remove_if(streaks.begin(), streaks.end(), [](const Streak& s) { return s.life <= 0; }), streaks.end());
   for (auto& d : debris) {
@@ -262,6 +279,7 @@ void Fx::build(const mat4& view, std::vector<FxVert>& alpha, std::vector<FxVert>
       if (!q.additive) { const float d0 = 0.5f * q0.size + 0.1f; nearA = glm::smoothstep(d0, d0 + q0.size, d); if (nearA * c.a < 1.0f / 255.0f) continue; }
     }
     c.a *= nearA;
+    if (q0.ret >= 0) { const float rk = std::clamp(q0.ret / 0.3f, 0.0f, 1.0f); c.a *= rk; if (q0.additive) c *= rk; }   // fxcap: retiring over 0.3 s
     // CV1 fix: an additive sprite at the eye covers the whole screen at full strength (standing in a fire, a light
     // shaft's motes, a flash beside the camera) and stacks to white: fade it out inside ~2 of its own sizes
     static const bool noFade = std::getenv("NMK_FX_NONEARFADE") != nullptr;   // dev A/B: the old behaviour
@@ -301,6 +319,7 @@ void Fx::build(const mat4& view, std::vector<FxVert>& alpha, std::vector<FxVert>
     if (!q.additive && c.a < 1.0f / 255.0f) continue;   // an invisible quad still costs its overdraw
     quad(q.additive ? add : alpha, q.p, right * q.size, up * q.size, c);
   }
+  buildFlashes(eye, add);
   for (auto& s : streaks) {
     vec3 d = s.b - s.a;
     if (glm::length(d) < 1e-4f) continue;
@@ -319,7 +338,7 @@ void Fx::build(const mat4& view, std::vector<FxVert>& alpha, std::vector<FxVert>
 // a slow low dust cloud when a piece is blown apart. Both respect maxParts like every other effect.
 void Fx::splinters(vec3 p, vec3 v, int n, vec4 col, float size) {
   for (int k = 0; k < n; ++k) {
-    if (parts.size() >= maxParts) parts.pop_front();
+    if (!admit()) return;
     Particle q;
     vec3 r(rnd() - 0.5f, rnd() * 0.9f + 0.1f, rnd() - 0.5f);
     q.p = p + r * 0.25f; q.v = v * (0.4f + 0.8f * rnd()) + r * (2.5f + 3.5f * rnd());
@@ -334,4 +353,238 @@ void Fx::dust(vec3 p, float radius, vec4 col) {
     vec3 r(rnd() - 0.5f, rnd() * 0.5f, rnd() - 0.5f);
     smoke(p + r * radius, r * 0.8f + vec3(0, 0.15f, 0), 0.25f + 0.35f * radius * rnd(), 2.2f + 2.0f * rnd(), col, 0.5f + 0.3f * rnd(), 0.05f);
   }
+}
+
+// ================================================================ Battle Foundry phase 4: events, flashes, caps (fxev / fxcap)
+// spec 5.1-5.8 (docs/vfx-rev3/BATTLE-FOUNDRY-SPEC.md), data content/settings/vfx (fxdata.h). Every number that has a row is read.
+bool Fx::admit(bool cue) {
+  if (!capOn) { if (parts.size() >= maxParts) parts.pop_front(); return true; }
+  if (parts.size() < maxParts) return true;
+  if (!cue) return false;   // caps apply to new spawns: refused, nothing live despawns
+  for (auto& q : parts) if (q.ret < 0) { q.ret = 0.3f; return true; }   // a cue retires the oldest live sprite over 0.3 s instead
+  return false;
+}
+bool Fx::admitLight() {
+  if (!capOn) { if (mlights.size() >= 8) mlights.erase(mlights.begin()); return true; }
+  return (int)mlights.size() < std::max(1, caps.flashLights);   // spec 8.1: a flash light survives at every tier
+}
+void Fx::setCaps(const Caps& c) {
+  caps = c; caps.flashLights = std::max(1, c.flashLights); caps.dustPerBurst = std::max(1, c.dustPerBurst);   // the two floors (8.1 items 4 / 5)
+  if (c.soft > 0) maxParts = (size_t)c.soft;
+  if (!capOn) return;
+  size_t live = 0; for (auto& q : parts) live += q.ret < 0;
+  for (auto& q : parts) { if (live <= maxParts) break; if (q.ret < 0) { q.ret = 0.3f; --live; } }   // oldest first, faded, never snapped
+  for (size_t k = 0; k + (size_t)caps.flashLights < mlights.size(); ++k) mlights[k].life = std::min(mlights[k].life, mlights[k].age + 0.3f);
+}
+vec3 Fx::emission(float T, float eps) const {
+  const FxData& D = fxData();
+  const float y = std::max(yrefNits, 1e-4f), mult = eps * D.lv(T) / y;
+  return D.hue(T) * (peakClamp > 0 ? std::min(mult, peakClamp) : mult) * y * kNitsToScene;
+}
+float Fx::envelopeAvg(double t0, float life, double a, double b) {
+  if (life <= 0) return 0;
+  auto F = [&](double t) { double u = std::clamp((t - t0) / life, 0.0, 1.0); return u - u * u + u * u * u / 3.0; };   // antiderivative of (1-u)^2
+  if (b - a < 1e-6) { double u = (b - t0) / life; return u < 0 || u > 1 ? 0.0f : (float)((1 - u) * (1 - u)); }
+  return (float)std::min(1.0, (F(b) - F(a)) * life / (b - a));   // the interval's mean, never above the peak
+}
+static uint32_t hashU(uint32_t x) { x ^= x >> 16; x *= 0x7feb352dU; x ^= x >> 15; x *= 0x846ca68bU; x ^= x >> 16; return x; }
+static float hash01(uint32_t a, uint32_t b) { return (hashU(a * 0x9E3779B9u ^ hashU(b)) & 0xFFFFFF) / 16777216.0f; }
+
+// heavy guns by vehicle / station name: the nearest weapons.json row and the real bore (x_Mach rescaled linearly)
+static FxWeaponRow fxHeavyFor(const std::string& name, float scale) {
+  const FxData& D = fxData();
+  if (const FxWeaponRow* r = D.weapon(name)) return *r;
+  auto has = [&](const char* k) { return name.find(k) != std::string::npos; };
+  const char* id = "atgun_76mm_zis3"; float bore = 0;
+  if (has("abrams")) id = "tankgun_120mm_m256";
+  else if (has("bradley")) { id = "autocannon_20mm"; bore = 25; }
+  else if (has("tiger") || has("flak")) bore = 88;
+  else if (has("firefly")) bore = 76.2f;
+  else if (has("sherman") || has("panzer") || has("pak")) bore = 75;
+  else if (name.empty()) id = scale < 0.7f ? "autocannon_20mm" : scale > 1.45f ? "tankgun_120mm_m256" : "atgun_76mm_zis3";
+  FxWeaponRow r = D.weapon(id) ? *D.weapon(id) : FxWeaponRow{};
+  if (bore > 0) { const float k = bore * 1e-3f / r.boreM; r.xMach *= k; r.envL *= k; r.envR *= k; r.boreM = bore * 1e-3f; r.dustR *= std::cbrt(k * k * k); }
+  return r;
+}
+
+bool Fx::emit(const FxEvent& e0) {
+  FxEvent e = e0; if (e.visTime < 0) e.visTime = clock;
+  if (e.id) {   // spec 9.2 EVENTS: no duplicate activation per id
+    if (seenIds.count(e.id)) return false;
+    seenIds.insert(e.id); seenOrder.push_back(e.id);
+    if (seenOrder.size() > 2048) { seenIds.erase(seenOrder.front()); seenOrder.pop_front(); }
+  }
+  const float age = (float)(clock - e.visTime);
+  const bool heavy = e.recipe == FXR_HEAVY;
+  const FxWeaponRow W = heavy ? fxHeavyFor(e.weapon, e.scale) : fxWeaponFor(e.weapon, e.caliber);
+  const FxDeviceMod dev = fxData().device(e.device);
+  const float smokeLife = heavy ? 20.0f : 5.0f;
+  if (age > smokeLife) return false;   // absolute-age skip: everything this event made is over
+  vec3 dir = glm::length(e.dir) > 1e-4f ? glm::normalize(e.dir) : vec3(0, 0, 1);
+  const uint32_t sd = e.seed ? e.seed : (uint32_t)e.id;
+  const float sc = 1.0f + (hash01(sd, 7) - 0.5f) * 0.24f;   // spec 5.6: +-12 % at most
+  const float xM = W.xMach * dev.xMach * sc, L = W.envL * dev.envelope * sc, R = W.envR * dev.envelope * sc;
+  // presentation life (5.6): small 12-35 ms, heavy core 35-85 ms; the brightness is integrated over it (5.5), so energy is frame-rate free
+  const float life = heavy ? std::clamp(2.0f * W.tVis, 0.035f, 0.085f) : std::clamp(6.0f * W.tVis, 0.012f, 0.035f);
+  if (age < life * (heavy ? 1.6f : 1.0f)) {
+    FlashEl f; f.t0 = e.visTime; f.life = life; f.p = e.pos; f.dir = dir; f.roll = hash01(sd, 1) * 6.2831853f; f.xM = xM; f.L = L; f.R = R;
+    f.half = e.device == "brake" ? 30.0f : e.device == "flash_hider" ? 10.0f : 15.0f;
+    f.emPrim = emission(W.Tprim, heavy ? 0.5f : 0.12f); f.emDisc = emission(heavy ? std::max(W.Tprim, 2000.0f) : 1800.0f, heavy ? 0.5f : 0.20f);
+    f.emSec = emission(W.Tsec, W.epsSec) * dev.secondary;
+    const int coreTris[5] = {0, 0, 60, 120, 200};   // spec 8.3 flash core form: billboard, billboard, swept mesh 60 / 120 / 200
+    const int t = std::clamp(tier, 0, 4);
+    if (coreTris[t] > 0) { f.kind = 0; f.segs = coreTris[t]; flashes.push_back(f); }
+    else { FlashEl b = f; b.kind = 2; b.emSec = f.emDisc; b.R = 0.6f * L; b.p = e.pos + dir * (0.4f * L); flashes.push_back(b); }
+    if (t >= 2) { FlashEl d = f; d.kind = 1; d.R = 0.4f * xM; d.p = e.pos + dir * xM; flashes.push_back(d); }   // E2 intermediate disc (Medium+)
+    if (dev.secondary > 0.01f) {   // E3: the secondary-flash vortex, 3-6 x_Mach out (heavy: the longer dim edge envelope)
+      const int nSec[5] = {1, 1, 2, 3, 4};
+      for (int k = 0; k < nSec[t]; ++k) {
+        FlashEl v = f; v.kind = 2; v.life = life * (heavy ? 1.6f : 1.0f); v.roll = hash01(sd, 20 + k) * 255.0f;
+        const float along = xM * (3.0f + 3.0f * hash01(sd, 30 + k)) * dev.envelope;
+        vec3 up = std::fabs(dir.y) > 0.95f ? vec3(1, 0, 0) : vec3(0, 1, 0), s1 = glm::normalize(glm::cross(dir, up)), s2 = glm::cross(s1, dir);
+        const float a = hash01(sd, 40 + k) * 6.2831853f;
+        v.p = e.pos + dir * std::min(along, L) + (s1 * std::cos(a) + s2 * std::sin(a)) * (0.3f * R);
+        v.R = xM * (0.8f + 0.4f * hash01(sd, 50 + k)) * (heavy ? 0.7f : 1.0f); flashes.push_back(v);
+      }
+    }
+  }
+  // the flash light (the lighting session's combustion light replaces this; until then the WP4 light, its envelope as before)
+  if (age < 0.06f && admitLight()) {
+    MuzzleLight Lt; Lt.p = glm::length(e.light) > 0 ? e.light : e.pos; Lt.life = (heavy ? 0.12f : 0.035f) * (e.device == "suppressor" ? 0.3f : 1.0f);
+    Lt.k = heavy ? 3.0f * e.scale : e.scale * (e.device == "suppressor" ? 0.2f : 1.0f); Lt.id = 0xF1A50100u + (++mlightSerial & 0xFF);
+    Lt.col = fxData().hue(2200); Lt.age = age; mlights.push_back(Lt);
+  }
+  auto spawn = [&](Particle q, float delay, bool cue) {   // world space: detached from the gun from the start
+    if (delay > age) { Delayed d; d.t = e.visTime + delay; d.q = q; delayed.push_back(d); return; }
+    q.life -= age - delay; if (q.life <= 0 || !admit(cue)) return; parts.push_back(q);
+  };
+  // suppressor: more smoke, released late (5.7 / 5.8)
+  if (dev.smokeScale > 1.01f) for (int k = 0; k < 2; ++k) {
+    Particle q; q.p = e.pos + dir * 0.03f; q.v = dir * (0.3f + 0.3f * hash01(sd, 60 + k)) + vec3(0, 0.15f, 0);
+    q.size = 0.05f * dev.smokeScale; q.life = q.maxLife = 2.0f + 2.0f * hash01(sd, 62 + k); q.col = vec4(0.62f, 0.6f, 0.57f, 0.22f); q.grow = 0.35f; q.drag = 2.0f; q.lift = 0.15f; q.fade = 1.4f;
+    spawn(q, dev.smokeDelay, false);
+  }
+  // E4 ground dust disc (5.7): a muzzle low over loose ground; asymmetric annulus expanding as R_max (1 - exp(-t / 0.055))
+  const float tierDust[5] = {0, 8, 16, 28, 40};
+  int nDust = std::min((int)tierDust[std::clamp(tier, 0, 4)], caps.groundDust > 0 ? caps.groundDust : 999);
+  if (tier == 1 && !heavy) nDust = 0;   // Low: large calibre only
+  const vec3 mw = glm::length(e.light) > 0 ? e.light : e.pos;
+  const float gy = e.groundY > -1e8f ? e.groundY : ground ? ground->height(mw.x, mw.z) : -1e9f;
+  const float h = mw.y - gy, trig = 3.0f * W.boreM * std::sqrt(W.pMuzzle / 101325.0f) * 0.5f;
+  const float loose = e.surface == "grass" || e.surface == "concrete" || e.surface == "water" || e.surface == "wood" ? 0.0f
+                    : wxSnow > 0.02f ? 0.65f : wxWet < 0.2f ? 0.65f : wxWet < 0.6f ? 0.15f : 0.0f;   // dry 0.5-0.8, damp 0.1-0.2, wet 0
+  if (nDust > 0 && h > -0.2f && h < trig && loose > 0) {
+    const float Rmax = W.dustR * dev.dust;
+    vec3 fw = glm::normalize(vec3(dir.x, 0, dir.z) + vec3(1e-4f, 0, 0)), sw = vec3(-fw.z, 0, fw.x);
+    const vec3 o = vec3(mw.x, gy, mw.z) + fw * (xM * (0.3f + 0.5f * hash01(sd, 70)));
+    for (int k = 0; k < nDust; ++k) {
+      const float phi = (k + hash01(sd, 100 + k)) * 6.2831853f / nDust, c = std::cos(phi);
+      float rk = e.device == "brake" ? 1.0f * (0.7f + 0.3f * std::fabs(std::sin(phi))) : c >= 0 ? 0.55f + 0.45f * c : 0.55f + 0.30f * c;   // 1 fwd / 0.55 side / 0.25 back
+      const float frac = 0.55f + 0.45f * hash01(sd, 200 + k);   // between the inner (0.55) and outer edge
+      vec3 rd = fw * c + sw * std::sin(phi);
+      Particle q; q.p = o + rd * 0.05f + vec3(0, 0.15f + 0.3f * hash01(sd, 300 + k), 0);
+      q.drag = 1.0f / 0.055f; q.v = rd * (Rmax * rk * frac * q.drag);   // x(t) = v0 / k (1 - exp(-k t)) = R (1 - exp(-t / 0.055))
+      q.size = std::max(0.15f, 0.22f * Rmax * rk); q.grow = 0.08f * Rmax; q.lift = 0.05f;
+      q.life = q.maxLife = 3.0f + 5.0f * hash01(sd, 400 + k); q.col = vec4(0.47f, 0.42f, 0.34f, loose);
+      spawn(q, 0.0f, k == 0);   // at least one puff is a cue (8.1 item 5)
+    }
+  }
+  // bore evacuator (5.7): 0.4-1.5 s after the shot, a smaller puff at the bulge and the muzzle (Medium+, guns that have one)
+  const bool evac = e.evacuator || W.id == "tankgun_105mm_m68" || W.id == "tankgun_120mm_m256" || W.id == "tankgun_125mm_2a46";
+  if (heavy && evac && tier >= 2) {
+    const float delay = 0.4f + 1.1f * hash01(sd, 80);
+    for (int k = 0; k < 4; ++k) {
+      Particle q; q.p = e.pos - dir * (k < 2 ? 1.8f : 0.0f) + vec3(0, 0.05f, 0); q.v = (k < 2 ? vec3(0, 0.6f, 0) : dir * 1.2f) + vec3(hash01(sd, 90 + k) - 0.5f, 0.2f, hash01(sd, 95 + k) - 0.5f) * 0.4f;
+      q.size = 0.35f; q.grow = 0.5f; q.life = q.maxLife = 3.0f + 2.0f * hash01(sd, 85 + k); q.col = vec4(0.6f, 0.58f, 0.55f, 0.3f); q.drag = 1.5f; q.lift = 0.25f; q.fade = 1.3f;
+      spawn(q, delay, false);
+    }
+  }
+  return true;
+}
+
+// the flash elements, once per drawn frame: each element's (1-u)^2 envelope averaged over the interval since the last draw
+void Fx::buildFlashes(vec3 eye, std::vector<FxVert>& add) const {
+  double b = presentT, a = lastPresent;
+  if (a < 0 || b - a <= 1e-6 || b - a > 0.25) a = b - 1.0 / 60.0;   // first draw / a repeat at the same instant / a long stall
+  lastPresent = b;
+  for (const FlashEl& f : flashes) {
+    const float k = envelopeAvg(f.t0, f.life, a, b);
+    if (k <= 1e-4f) continue;
+    vec3 up = std::fabs(f.dir.y) > 0.95f ? vec3(1, 0, 0) : vec3(0, 1, 0), s1 = glm::normalize(glm::cross(f.dir, up)), s2 = glm::cross(s1, f.dir);
+    { const float cr = std::cos(f.roll), sr = std::sin(f.roll); vec3 t1 = s1 * cr + s2 * sr; s2 = glm::cross(t1, f.dir); s1 = t1; }
+    auto V = [&](vec3 p, vec3 c) { add.push_back({p, vec4(c, 1), vec2(0.5f), 0}); };   // uv at the sprite centre: the vertex colour as given
+    if (f.kind == 0) {   // E1 swept core: r(x) = R (x / x0)^0.45 exp(-1.2 (x / x0 - 1)^2), x0 = 0.6 x_Mach; soft at the silhouette
+      const int M = f.segs >= 200 ? 10 : f.segs >= 120 ? 10 : 6, S = std::max(2, f.segs / (2 * M));
+      const float x0 = 0.6f * f.xM, len = std::min(f.L, 3.2f * x0);
+      auto ring = [&](int i, int j, vec3& p, vec3& c) {
+        const float x = len * i / S, u = x / x0, r = i == 0 ? 0.0f : f.R * std::pow(u, 0.45f) * std::exp(-1.2f * (u - 1) * (u - 1));
+        const float ang = j * 6.2831853f / M; const vec3 n = s1 * std::cos(ang) + s2 * std::sin(ang);
+        const float rr = std::min(r, x * std::tan(glm::radians(f.half)) + 0.25f * f.R);   // the half-angle at the muzzle
+        p = f.p + f.dir * x + n * rr;
+        const vec3 vd = glm::normalize(eye - p); const float facing = std::pow(std::fabs(glm::dot(n, vd)), 1.5f);
+        c = glm::mix(f.emPrim, f.emDisc, std::clamp(u / 1.67f, 0.0f, 1.0f)) * (k * facing * (1.0f - (float)i / S * 0.5f));
+      };
+      for (int i = 0; i < S; ++i) for (int j = 0; j < M; ++j) {
+        vec3 p00, p01, p10, p11, c00, c01, c10, c11;
+        ring(i, j, p00, c00); ring(i, j + 1, p01, c01); ring(i + 1, j, p10, c10); ring(i + 1, j + 1, p11, c11);
+        V(p00, c00); V(p10, c10); V(p11, c11); V(p00, c00); V(p11, c11); V(p01, c01);
+      }
+    } else if (f.kind == 1) {   // E2 dished disc at x_Mach, normal to the bore (80 deg half-angle cone), brightest at its inner edge: pow(1 - r/R, 0.6)
+      const int M = 8; const float dish = f.R * 0.176f;
+      for (int j = 0; j < M; ++j) for (int ringI = 0; ringI < 2; ++ringI) {
+        auto P = [&](float rf, int jj) { const float ang = jj * 6.2831853f / M; return f.p - f.dir * (dish * rf) + (s1 * std::cos(ang) + s2 * std::sin(ang)) * (f.R * rf); };
+        auto C = [&](float rf) { return f.emDisc * (k * std::pow(1.0f - rf, 0.6f)); };
+        const float r0 = ringI * 0.5f, r1 = r0 + 0.5f;
+        if (ringI == 0) { V(f.p, C(0)); V(P(r1, j), C(r1)); V(P(r1, j + 1), C(r1)); }
+        else { V(P(r0, j), C(r0)); V(P(r1, j), C(r1)); V(P(r1, j + 1), C(r1)); V(P(r0, j), C(r0)); V(P(r1, j + 1), C(r1)); V(P(r0, j + 1), C(r0)); }
+      }
+    } else {   // E3 / low-tier core: a noise-ragged billboard (the DF1 fireball sprite: alpha carries 200 + id + age)
+      const vec3 rt = glm::normalize(glm::cross(f.p - eye, vec3(0, 1, 0)) + vec3(1e-5f)), upv = glm::normalize(glm::cross(rt, f.p - eye));
+      const float u = (float)std::clamp((b - f.t0) / f.life, 0.0, 0.99);
+      const vec4 c(f.emSec * k, 200.0f + std::floor(std::fmod(f.roll, 255.0f)) + 0.99f * u);
+      const vec3 rx = rt * f.R, ry = upv * f.R, p0 = f.p - rx - ry, p1 = f.p + rx - ry, p2 = f.p + rx + ry, p3 = f.p - rx + ry;
+      add.push_back({p0, c, {0, 0}, 0}); add.push_back({p1, c, {1, 0}, 0}); add.push_back({p2, c, {1, 1}, 0});
+      add.push_back({p0, c, {0, 0}, 0}); add.push_back({p2, c, {1, 1}, 0}); add.push_back({p3, c, {0, 1}, 0});
+    }
+  }
+}
+
+// ---- --check-fxev, the event and brightness assertions (spec 9.2 EVENTS / BRIGHTNESS), headless
+int fxEventSelfCheck(int& fails) {
+  auto check = [&](bool ok, const std::string& what) { logf("[fxev] %s %s", ok ? "PASS" : "FAIL", what.c_str()); if (!ok) ++fails; };
+  // envelope: energy over a 30 ms flash equal at 30 / 60 / 120 presentation rates (within one presentation frame's rounding)
+  for (float life : {0.015f, 0.035f, 0.085f}) {
+    float E[3]; const float rates[3] = {30, 60, 120};
+    for (int r = 0; r < 3; ++r) { double dt = 1.0 / rates[r], e = 0; for (int i = 0; i < 40; ++i) { double a = 0.0037 + i * dt; e += Fx::envelopeAvg(0.0037 + 0.004, life, a, a + dt) * dt; } E[r] = (float)e; }
+    const float ref = life / 3.0f;
+    check(std::fabs(E[0] / ref - 1) < 0.01f && std::fabs(E[1] / ref - 1) < 0.01f && std::fabs(E[2] / ref - 1) < 0.01f,
+          "flash energy at 30 / 60 / 120 fps = life / 3 (life " + std::to_string((int)(life * 1000)) + " ms): " + std::to_string(E[0] / ref) + " " + std::to_string(E[1] / ref) + " " + std::to_string(E[2] / ref));
+  }
+  check(Fx::envelopeAvg(1.0, 0.02f, 0.97, 0.9999) == 0.0f && Fx::envelopeAvg(1.0, 0.02f, 1.0201, 1.05) == 0.0f && Fx::envelopeAvg(1.0, 0.02f, 0.99, 1.0001) > 0.0f
+        && Fx::envelopeAvg(1.0, 0.02f, 1.0199, 1.0201) > 0.0f, "envelope zero just before start and just after end, nonzero across both endpoints");
+  check(Fx::envelopeAvg(0.0, 0.02f, 0.0, 0.0) == 1.0f && Fx::envelopeAvg(0.0, 0.02f, -0.001, 0.0005) <= 1.0f, "envelope peaks at 1 at the start, an average never above the peak");
+  // emission: the same authored values, invisible in sun, dominant at night (spec 5.4 / 9.2)
+  Fx fx; fx.peakClamp = 60;
+  fx.yrefNits = fxYrefNits(100000); const vec3 primSun = fx.emission(1645, 0.12f) / (fx.yrefNits * Fx::kNitsToScene);
+  fx.yrefNits = fxYrefNits(0.25f); const vec3 primMoon = fx.emission(1645, 0.12f) / (fx.yrefNits * Fx::kNitsToScene);
+  check(primSun.r < 0.3f && primMoon.r >= 59.0f, "rifle primary flash: " + std::to_string(primSun.r) + " x Yref in full sun (invisible), " + std::to_string(primMoon.r) + " x at full moon (clamped 60)");
+  check(fx.emission(1645, 0.12f).g / std::max(1e-9f, fx.emission(1645, 0.12f).r) < 0.25f && fx.emission(2500, 0.25f).b < fx.emission(2500, 0.25f).g,
+        "flash palette from the blackbody LUT: orange (g/r 0.19 at 1645 K), no authored white");
+  // events: duplicate ids, absolute age, world-space smoke, pools
+  Fx f; f.tier = 3; f.wxWet = 0; f.clock = f.presentT = 100.0; FxEvent e; e.id = 42; e.recipe = FXR_HEAVY; e.weapon = "tankgun_120mm_m256"; e.pos = vec3(0, 1.5f, 0); e.dir = vec3(0, 0, 1); e.groundY = 0;
+  check(f.emit(e) && !f.emit(e), "no duplicate activation per event id");
+  const size_t nf = f.flashes.size(), np = f.parts.size(), nd = f.delayed.size();
+  check(nf >= 3 && np >= 16 && nd == 4, "120 mm discharge: core + disc + secondary (" + std::to_string(nf) + "), ground dust disc " + std::to_string(np) + " sprites, evacuator puffs queued " + std::to_string(nd));
+  FxEvent old = e; old.id = 43; old.visTime = f.clock - 30.0; check(!f.emit(old), "an event older than its longest phase is skipped by absolute age");
+  FxEvent late = e; late.id = 44; late.visTime = f.clock - 1.0; const size_t fl0 = f.flashes.size(); f.emit(late);
+  check(f.flashes.size() == fl0, "a late event (1 s) shows no flash, only what continues at its age");
+  if (f.parts.empty()) { check(false, "no particles to test world space"); return fails; }
+  vec3 p0 = f.parts.front().p; e.pos += vec3(0, 0, 5);   // the gun traverses on: the dust and smoke stay where they were born
+  check(glm::length(f.parts.front().p - p0) < 1e-6f, "puffs are world space: a later muzzle move does not move them");
+  f.maxParts = 20; f.capOn = true; const size_t before = f.parts.size(); FxEvent e2 = e; e2.id = 45; f.emit(e2);
+  check(f.parts.size() <= std::max(before, (size_t)20) + 1, "pool cap enforced: at a cap of 20 only the cue sprite gets in (" + std::to_string(before) + " -> " + std::to_string(f.parts.size()) + ")");
+  Fx::Caps c = f.caps; c.soft = 5; f.setCaps(c); int ret = 0; for (auto& q : f.parts) ret += q.ret >= 0;
+  check(ret == (int)f.parts.size() - 5, "a lowered cap retires the oldest over 0.3 s (" + std::to_string(ret) + " fading, none removed at once)");
+  c.flashLights = 0; c.dustPerBurst = 0; f.setCaps(c); check(f.caps.flashLights == 1 && f.caps.dustPerBurst == 1, "floors: a flash light and a dust puff survive at every tier");
+  return fails;
 }
