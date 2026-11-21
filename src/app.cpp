@@ -330,7 +330,7 @@ void App::resetInteractStates() {
 void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
   { extern void mossHabitatSync(App&); mossHabitatSync(*this); }   // BF B1: habitat grid (rebuilds on a worker when the map changes)
   R.contactAO.clear();   // BF B4
-  R.foliage.clear(); R.folModels.clear(); R.impDraws.clear(); R.worldModels.clear(); R.worldModelsGlass.clear(); worldBoxDraws.clear(); R.natPatches.clear();
+  R.foliage.clear(); R.folModels.clear(); R.impDraws.clear(); R.worldModels.clear(); R.shadowModels.clear(); R.worldModelsGlass.clear(); worldBoxDraws.clear(); R.natPatches.clear();
   { extern void greeneryFrame(App&); greeneryFrame(*this); }   // FL1: spring-green leaves (foliage.cpp)
   { extern void scatterFrame(App&, std::vector<DrawItem>&, vec3); scatterFrame(*this, op, mode == Mode::Explore ? eyePos() : camPos); }   // BF B2/B3 ground scatter (scatter.cpp)
   foundationDrawItems(*this, op, mode == Mode::Explore ? eyePos() : camPos);   // MA3: foundation plants + stones (foundation.cpp)

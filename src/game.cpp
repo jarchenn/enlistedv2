@@ -1377,21 +1377,30 @@ void Game::drawItems() {
   for (auto& s : sold) {
     if (!s.inUse || s.lifeId == 0) continue;
     if (!s.alive && t - s.diedAt > jkey(combat, "corpses").value("seconds", 40.0)) continue;
-    // first person: the viewmodel is drawn instead; selfshadow: the body (the pose the others see, posed once above) casts the sun
-    // shadow only (ModelDraw::shadowOnly), never in a vehicle seat
+    // first person: the viewmodel is drawn instead; bodyshadow: the body (the pose the others see, posed once above) goes to the
+    // sun cascades only (Renderer::shadowModels), in direct sun (wantBodyShadow: checked before any skinning), never in a vehicle seat
     const bool selfShadow = s.localPlayer && s.alive;
-    if (selfShadow && (!app.R.perf.selfShadow || app.tanks.occupied)) continue;
+    if (selfShadow && (!app.R.wantBodyShadow() || app.tanks.occupied)) continue;
     float bs = bodyScale(s);   // giants (large draw scales) reach far above and around their feet
     vec3 c = s.feet + vec3(0, 0.9f * bs, 0);
     float dist = glm::length(c - cam);
     if (dist > 300 + 2 * bs) continue;
-    if (dist > 4 * bs && glm::dot(glm::normalize(c - cam), fwd) < -0.2f) continue;   // behind the camera (shadows of close ones kept)
+    if (!selfShadow && dist > 4 * bs && glm::dot(glm::normalize(c - cam), fwd) < -0.2f) continue;   // behind the camera (shadows of close ones kept)
     s.drawnAt = t;
-    struct SelfShadowMark {   // everything pushed for the live local player below: shadow only, no TAA motion, no box / thermal draws
-      App& a; bool on; size_t m0, b0, h0;
-      ~SelfShadowMark() { if (!on) return; for (size_t i = m0; i < a.R.worldModels.size(); ++i) { ModelDraw& d = a.R.worldModels[i]; d.shadowOnly = true; d.prevM = d.m; d.vel = 0; }
-                          a.worldBoxDraws.resize(b0); a.R.heatDraws.resize(h0); }
-    } selfMark{app, selfShadow, app.R.worldModels.size(), app.worldBoxDraws.size(), app.R.heatDraws.size()};
+    struct SelfShadowMove {   // everything pushed for the live local player below moves to the cascade-only list (head and helmet left out:
+      App& a; bool on; size_t m0, b0, h0;   // they sit at the eye and would shade the viewmodel); its box-mesh and thermal draws are dropped
+      ~SelfShadowMove() {
+        if (!on) return;
+        for (size_t i = m0; i < a.R.worldModels.size(); ++i) {
+          const ModelDraw& d = a.R.worldModels[i];
+          const std::string& nm = d.model && d.part >= 0 && d.part < (int)d.model->parts.size() ? d.model->parts[d.part].name : std::string();
+          std::string lo = nm; for (char& ch : lo) ch = (char)std::tolower((unsigned char)ch);
+          if (lo.find("head") != std::string::npos || lo.find("helmet") != std::string::npos) continue;
+          a.R.shadowModels.push_back(d);
+        }
+        a.R.worldModels.resize(m0); a.worldBoxDraws.resize(b0); a.R.heatDraws.resize(h0);
+      }
+    } selfMove{app, selfShadow, app.R.worldModels.size(), app.worldBoxDraws.size(), app.R.heatDraws.size()};
     // PF1: a far pack follower in step with its leader draws the leader's skinned mesh (zombie.cpp aiZombiePose)
     Soldier* src = s.poseFrom >= 0 && s.poseFrom < (int)sold.size() && sold[s.poseFrom].ciReady && sold[s.poseFrom].ci.frameSkinned >= 0 ? &sold[s.poseFrom] : &s;
     if (src != &s || (!s.alive && t - s.diedAt > (s.zombie || s.gunBody ? 3.5 : 2.0) && s.ciReady && s.ci.frameSkinned >= 0)) {}   // settled corpse: keep the last skin
