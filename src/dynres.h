@@ -10,8 +10,9 @@
 //    4   | 0.72  |  30 % |   10 % |   35 %
 //    5   | 0.64  |  20 % |    0 % |   25 %
 // The resolution is the rung's x the preset's top, clamped to the preset's range (Medium / High 0.77-1, Low 0.67-1):
-// below the floor a rung cuts effects only. The scale moves <= 7 % per change, at most once every 8 frames; no rung
-// change during an aim-down-sights transition. Effect caps (governorCaps) apply to NEW spawns only (fx.cpp, the
+// below the floor a rung cuts effects only; Custom keeps the user's own scale (rungs cut effects only). Against pumping
+// (play-final): one frame counts at most 2x the target, a rung holds >= 1 s, no rise within 5 s of a fall, the scale
+// moves <= 7 % per change and at most once a second; no rung change during an aim-down-sights transition. Effect caps (governorCaps) apply to NEW spawns only (fx.cpp, the
 // gameplay session's): a live effect is never despawned. Target 15.0 ms (the user's 1080p decision; the spec's 16.0
 // at 1440p), NMK_DYNRES_TARGET to override. Settings > Video "Dynamic resolution" (UserSettings::dynRes) turns the
 // governor on / off; off: the fixed scale, caps at 100 %. Off in benchmarks unless NMK_BENCH_DYNRES=1.
@@ -20,7 +21,7 @@
 class App;
 struct GovCaps { float smoke = 1, grains = 1, lights = 1; };
 struct Governor {
-  int rung = 0, down = 0, up = 0, sinceChange = 1000;
+  int rung = 0, down = 0, up = 0, sinceChange = 1000, sinceRung = 1000, sinceFall = 1000;
   float ema = 0, scale = 1.0f, sMin = 0.77f, sMax = 1.0f;
   // gpuMs: a finished frame's GPU time; frozen: an ADS transition (no rung change). Returns the scale wanted now.
   float update(float gpuMs, float targetMs, bool frozen);
