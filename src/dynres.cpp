@@ -32,7 +32,8 @@ void dynResFrame(App& app) {
     if (now - last >= flip) { last = now; const float to = app.R.resolutionScale() > 0.9f ? 0.77f : 1.0f; app.R.setResolutionScale(to); logf("dynres: flip to %.2f", to); }
     return;
   }
-  bool on = (us.dynRes || force) && us.upscale == 0 && app.R.gpuTimers;   // temporal upscaling only (the scale is what TAAU reconstructs)
+  static const bool off = std::getenv("NMK_DYNRES_OFF") != nullptr;   // A/Bs: never scales (NMK_DYNRES_TARGET still scales on load hitches)
+  bool on = (us.dynRes || force) && !off && us.upscale == 0 && app.R.gpuTimers;   // temporal upscaling only (the scale is what TAAU reconstructs)
   if (!on) {
     if (gWasOn) { app.R.setResolutionScale(us.gfx.resScale); gWasOn = false; }   // back to the fixed scale
     return;
