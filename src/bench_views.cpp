@@ -230,7 +230,7 @@ void writeRun(App& a, const Run& r) {
 void writeDerived() { if (!gDerived.empty()) std::ofstream(exeDir() / "selftest_out" / "bench_views_derived.jsonl", std::ios::app) << gDerived.dump() << "\n"; gDerived = json::object(); }
 
 void applyRunSettings(App& a, const BView* view) {
-  static const auto perf0 = a.R.perf; a.R.perf = perf0;   // every run starts from the launch switches (a knock-out does not leak into the next)
+  static const auto perf0 = a.R.perf; a.R.perf = perf0; a.grass.wind = true;   // every run starts from the launch switches (wind: not reset by the preset apply) (a knock-out does not leak into the next)
   settings().s.dynRes = std::getenv("NMK_BENCH_DYNRES") != nullptr;   // CP 5.1: off in benchmarks (the corpus rule), on to test it
   settings().applyPreset(a, gPresets[gPi]);
   if (const char* l = std::getenv("NMK_BENCH_LIGHTING")) a.R.q.lightNew = std::string(l) != "classic";   // Lighting New (default) / Classic
@@ -241,7 +241,9 @@ void applyRunSettings(App& a, const BView* view) {
     c = gCfgs[gCi].find('+', a0); if (c == std::string::npos) c = gCfgs[gCi].size();
     std::string f = gCfgs[gCi].substr(a0, c - a0); if (f.empty()) continue;
     if (f[0] == '#' || f.rfind("hour=", 0) == 0 || f.rfind("envfog=", 0) == 0 || f.rfind("wx=", 0) == 0) continue;   // #n: a repeat (noise); hour= / envfog=: applied with the weather below
-    if (f == "ssr") a.R.q.ssr = false; else if (f == "msaa4") { if (gPresets[gPi] == GfxPreset::High) a.R.setMsaa(4); }   // P2 off: the old High (Medium never had MSAA) else if (f[0] == '^') a.R.perf.set(f.substr(1), true);   // ^name: a switch on
+    if (f == "ssr") a.R.q.ssr = false; else if (f == "taa") a.R.q.taa = false; else if (f == "ssao") a.R.q.ssao = false; else if (f == "bloom") a.R.q.bloom = false;   // the --rq-off names that are not perf switches (app.cpp)
+    else if (f == "shafts") a.R.q.shafts = false; else if (f == "cascade") a.R.q.farCascade = false; else if (f == "cloudshadow") a.R.q.cloudShadows = false; else if (f == "wind") a.grass.wind = false;
+    else if (f == "msaa4") { if (gPresets[gPi] == GfxPreset::High) a.R.setMsaa(4); }   // P2 off: the old High (Medium never had MSAA) else if (f[0] == '^') a.R.perf.set(f.substr(1), true);   // ^name: a switch on
     else if (f.rfind("scale", 0) == 0) a.R.setResolutionScale((float)std::atof(f.c_str() + 5));
     else if (!a.R.perf.set(f, false)) logf("[bench] NMK_BENCH_AB: unknown switch %s", f.c_str());
   }
@@ -290,7 +292,11 @@ bool benchViews(App& a, float dt) {
     if (fw != gW || fh != gH) { glfwSetWindowSize(a.win, gW, gH); glfwGetFramebufferSize(a.win, &fw, &fh); }
     logf("[bench] framebuffer %d x %d, kind %s", fw, fh, gKind.c_str());
     gMaps = envList("NMK_BENCH_MAPS"); if (gMaps.empty()) gMaps.assign(std::begin(kMaps), std::end(kMaps));
-    for (auto& n : envList("NMK_BENCH_PRESETS")) gPresets.push_back(n == "Low" ? GfxPreset::Low : n == "High" ? GfxPreset::High : n == "Ultra Low" ? GfxPreset::UltraLow : GfxPreset::Medium);
+    for (auto& n : envList("NMK_BENCH_PRESETS")) {   // a name no preset has is skipped (it used to run as Medium unnoticed)
+      GfxPreset p = GfxPreset::Custom;
+      for (GfxPreset c : {GfxPreset::UltraLow, GfxPreset::Low, GfxPreset::Medium, GfxPreset::High}) if (n == presetName(c)) p = c;
+      if (p == GfxPreset::Custom) logf("[bench] unknown preset %s: skipped", n.c_str()); else gPresets.push_back(p);
+    }
     if (gPresets.empty()) gPresets = {GfxPreset::Low, GfxPreset::Medium, GfxPreset::High};
     const char* ab = std::getenv(gKind == "views" ? "NMK_BENCH_AB" : "NMK_BENCH_AB_MOVING"); if (!ab) ab = std::getenv("NMK_BENCH_AB");   // path / bots: their own (short) config list
     if (ab) { gCfgs.clear(); std::string s = ab; for (size_t a0 = 0, c; a0 <= s.size(); a0 = c + 1) { c = s.find(';', a0); if (c == std::string::npos) c = s.size(); std::string x = s.substr(a0, c - a0); gCfgs.push_back(x == "none" ? "" : x); } }
