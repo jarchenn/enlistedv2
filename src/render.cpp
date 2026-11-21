@@ -261,7 +261,7 @@ vec3 gSnowAlb0 = vec3(0.0), gSnowN0 = vec3(0.0, 1.0, 0.0); float gSnowR0 = 1.0; 
 float snowDepthAt(vec2 xz){
   if (uSnowOn == 0) return 0.0;
   vec2 uv = (xz - uSnowBox.xy)*uSnowBox.zw;
-  vec4 M = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.7, 0.0, 0.0, 0.0) : textureLod(uSnowMask, uv, 0.0);
+  vec4 M = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.82, 0.0, 0.0, 0.0) : textureLod(uSnowMask, uv, 0.0);
   return 0.18*smoothstep(uSnowP.z - uSnowP.w, uSnowP.z + uSnowP.w, M.r - M.g - M.b - uSnowP2.w);
 }
 uniform int uSnowFar;   // BT2 switch snowfar (1: the distance gates in applySnow)
@@ -271,7 +271,7 @@ uniform int uSnowFar;   // BT2 switch snowfar (1: the distance gates in applySno
 bool snowFullCover(vec3 w, vec3 Ng){
   if (uSnowOn == 0) return false;
   vec2 uv = (w.xz - uSnowBox.xy)*uSnowBox.zw;
-  vec4 M = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.7, 0.0, 0.0, 0.0) : texture(uSnowMask, uv);
+  vec4 M = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.82, 0.0, 0.0, 0.0) : texture(uSnowMask, uv);
   float slope = smoothstep(uSnowP.x, uSnowP.y, Ng.y);
   float sMin = slope*M.r*(1.0 - uSnowP2.y) - M.g - M.b - uSnowP2.w;   // the noise at its lowest
   if (sMin < uSnowP.z + uSnowP.w + 0.1) return false;                  // + 0.1: room for the height-blended edge
@@ -283,7 +283,7 @@ void applySnow(vec3 w, vec3 Ng, float ground, inout vec3 alb, inout float rough,
   gSnow = 0.0;
   if (uSnowOn == 0) return;
   vec2 uv = (w.xz - uSnowBox.xy)*uSnowBox.zw;
-  vec4 M = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.7, 0.0, 0.0, 0.0) : texture(uSnowMask, uv);
+  vec4 M = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.82, 0.0, 0.0, 0.0) : texture(uSnowMask, uv);
   float dc = length(w - uCamPos);
   float vis = 1.0;                                        // 0 under a roof / eave / canopy (one tap of the sky-occlusion map: M5)
   if (uOccOn == 1 && (dc < 150.0 || uSnowFar == 0)) { vec4 lp = uOccVP*vec4(w, 1.0); vec2 ouv = lp.xy*0.5 + 0.5;   // BT2 perf: shelter near only (switch snowfar)
@@ -293,7 +293,7 @@ void applySnow(vec3 w, vec3 Ng, float ground, inout vec3 alb, inout float rough,
   float n = 0.5;
   if (dc < 120.0 || uSnowFar == 0) n = mix(vnoise(vec3(w.xz*0.35, 41.0))*0.55 + vnoise(vec3(w.xz*1.7, 42.0))*0.3 + (dc < 40.0 ? vnoise(vec3(w.xz*7.0, 43.0))*0.15 : 0.075), 0.5, uSnowFar == 1 ? smoothstep(100.0, 120.0, dc) : 0.0);   // M5: the finest octave near only
   float dep = ground > 0.5 ? M.r : uSnowP2.x*(0.55 + 0.45*M.r);   // raised faces (roofs, wall tops, rails) hold the roof share
-  float s = (slope*dep*(1.0 + (n - 0.5)*2.0*uSnowP2.y) - M.g - M.b - uSnowP2.w)*vis;
+  float s = (slope*dep*(1.0 + (n - 0.5)*2.0*uSnowP2.y*(ground > 0.5 ? 1.0 : 0.35)) - M.g - M.b - uSnowP2.w)*vis;   // roofs: a third of the patch noise (an even cover, not blotches)
   float c = smoothstep(uSnowP.z - uSnowP.w, uSnowP.z + uSnowP.w, s);
   if (ground > 0.5) {
     float slush = clamp(max(M.g, M.b*0.9)*smoothstep(0.08, 0.45, M.r)*(1.0 - c)*vis, 0.0, 1.0);

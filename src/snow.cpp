@@ -110,7 +110,7 @@ float snowRough(int s){ return s == 0 ? 0.58 : s == 1 ? 0.38 : 0.26; }
 void snowTex(vec3 p, vec3 Ng, vec3 dpx, vec3 dpy, float dist, float hSub, inout vec3 alb, inout float rough, inout vec3 N){
   if (uSnowOn == 0 || uSnowTexOn == 0 || dist > 60.0 || gSnow <= 0.002 || uSnowSlot.x < 0 || uSnowSlot.y < 0 || uSnowSlot.z < 0) return;
   vec2 uv = (p.xz - uSnowBox.xy)*uSnowBox.zw;
-  vec4 M = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.7, 0.0, 0.0, 0.0) : texture(uSnowMask, uv);
+  vec4 M = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.82, 0.0, 0.0, 0.0) : texture(uSnowMask, uv);
   float wTh = clamp(max(smoothstep(0.15, 0.6, M.b), 1.0 - smoothstep(0.35, 0.85, gSnow)), 0.0, 1.0);   // melt, or thin cover
   float wTr = smoothstep(0.08, 0.35, M.g)*(1.0 - wTh);                                                   // traffic
   float wPk = max(0.0, 1.0 - wTr - wTh);

@@ -657,7 +657,9 @@ def build(ctx):
     # BT2: thinner world haze (the old 2.4 made a uniform veil), the damp valley pocket carries the mist (~0-12 m, tapering
     # by ~30 m), lighter cloud deck, a cooler but less grey grade
     look = {"weather": 0.8, "clouds": 0.75, "haze": 1.6, "hazeHeight": 90.0, "envFog": 1, "fogNear": 6.0,
-            "fogLayer": {"density": 0.003, "height": 22.0}, "saturation": 0.8, "tint": [0.97, 0.99, 1.03],
+            "fogLayer": {"density": 0.003, "height": 22.0},
+            # brief 2.2: a soft basin band over the castle spur's lowest trees and terrace wall (y ~65-90), tower tops clear
+            "fogLayer2": {"density": 0.002, "floor": 55.0, "top": 100.0, "soft": 10.0}, "saturation": 0.8, "tint": [0.97, 0.99, 1.03],
             # BT2 sky (lighting session's per-map knobs): a soft low opening toward the south-west valley exit (azimuth
             # atan2(dx, dz) = -130.7), broad cloud banks stretched along the valley, no sun disc
             "paintSets": {"dirt": "trail_dirt", "gravel": "trail_gravel"},   # SN2: the user's trail sets on this map's ways
@@ -1304,8 +1306,8 @@ def castle_terrain(F, X, Z):
     S, T = castle_frame(X, Z)
     P = CASTLE_PAD
     F.set_mask((S >= -84) & (S < -50) & (np.abs(T) <= 23), P - 12.0)                       # the gate terrace
-    F.set_mask((S >= -50) & (S < -8) & (np.abs(T) <= 21), P - 6.0)                         # the lower court
-    F.set_mask((S >= -22) & (S < 8) & (T > 0) & (T <= 31), P - 6.0)                        # the lateral wing's ledge
+    F.set_mask((S >= -50) & (S < -8) & (np.abs(T) <= 21), P - 10.0)                        # the lower court (2 m over the gate)
+    F.set_mask((S >= -22) & (S < 8) & (T > 0) & (T <= 31), P - 10.0)                       # the lateral wing's ledge
     F.set_mask((S >= -8) & (S < 66) & (np.abs(T) <= 19), P)                                # the palace
     for s0, h in ((-100.0, 70.0), (-125.0, 45.0), (-150.0, 24.0)):                         # the crest, down to the valley
         F.set_mask((np.abs(S - s0) < 1.0) & (np.abs(T) < 8.0), h)
@@ -1324,7 +1326,10 @@ def castle_edge(F, X, Z, edge):
 # milestone 2: the kit's patterns. Pale warm-grey limestone ashlar body, cleaner pale trim on corners and belts, rough
 # masonry base and terrace, the gatehouse's oxide-red render, blue-charcoal slate (plain: procedural slate courses alias
 # into moire at 350 m), dark window recesses
-M_CASTLE = [{"name": "limestone", "albedo": [0.62, 0.60, 0.56], "roughness": 0.85, "pattern": "ashlar", "metallic": 0, "grain": 2},
+M_CASTLE = [{"name": "limestone", "albedo": [0.62, 0.60, 0.56], "roughness": 0.85, "pattern": "ashlar", "metallic": 0, "grain": 1},
+            {"name": "paving", "albedo": [0.42, 0.41, 0.39], "roughness": 0.9, "pattern": "stone", "metallic": 0, "grain": 1},
+            {"name": "door", "albedo": [0.20, 0.13, 0.08], "roughness": 0.7, "pattern": "wood", "metallic": 0, "grain": 1},
+            {"name": "snow", "albedo": [0.85, 0.85, 0.86], "roughness": 0.6, "pattern": "plain", "metallic": 0, "grain": 1},
             {"name": "masonry", "albedo": [0.44, 0.42, 0.38], "roughness": 0.92, "pattern": "stone", "metallic": 0, "grain": 1},
             {"name": "red", "albedo": [0.40, 0.19, 0.14], "roughness": 0.88, "pattern": "plaster", "metallic": 0, "grain": 1},
             {"name": "slate", "albedo": [0.085, 0.095, 0.12], "roughness": 0.6, "pattern": "plain", "metallic": 0, "grain": 1},
@@ -1339,8 +1344,10 @@ def write_castle_asset(ctx, cat):
     from mapgen.catalog import Asset
     P = []
 
-    def box(c, s, m, lod=0, r=None):
-        p = {"t": "b", "c": [round(v, 2) for v in c], "s": [round(v, 2) for v in s], "m": m, "k": 0}
+    def box(c, s, m, lod=0, r=None, k=1):   # shell: solid (players reach it); trims and openings k=0
+        p = {"t": "b", "c": [round(v, 2) for v in c], "s": [round(v, 2) for v in s], "m": m}
+        if not k:
+            p["k"] = 0
         if lod:
             p["lod"] = 1
         if r is not None:
@@ -1348,49 +1355,106 @@ def write_castle_asset(ctx, cat):
         P.append(p)
 
     def cyl(c, d, h, m, n=16, cone=False, lod=0):
-        p = {"t": "k" if cone else "c", "c": [round(c[0], 2), round(c[1], 2), round(c[2], 2)], "s": [round(d, 2), round(h, 2), round(d, 2)], "m": m, "k": 0, "n": n}
+        p = {"t": "k" if cone else "c", "c": [round(c[0], 2), round(c[1], 2), round(c[2], 2)], "s": [round(d, 2), round(h, 2), round(d, 2)], "m": m, "n": n}
         if lod:
             p["lod"] = 1
         P.append(p)
+
+    def snow_strips(hw, h, along, ax):   # snow lying along the eaves (with thickness) and the ridge of a pitched roof
+        a = math.atan2(h, hw); L = math.hypot(hw, h)
+        return a, L
 
     def gable_z(x0, x1, y0, h, z0, z1, m="slate", lod=0):   # a pitched roof running along z
-        p = {"t": "p", "axis": 2, "a": [round(z0, 2), round(z1, 2)], "tri": [[round(x0, 2), round(y0, 2)], [round(x1, 2), round(y0, 2)], [round((x0 + x1) / 2, 2), round(y0 + h, 2)]], "m": m, "k": 0}
+        p = {"t": "p", "axis": 2, "a": [round(z0, 2), round(z1, 2)], "tri": [[round(x0, 2), round(y0, 2)], [round(x1, 2), round(y0, 2)], [round((x0 + x1) / 2, 2), round(y0 + h, 2)]], "m": m}
         if lod:
             p["lod"] = 1
         P.append(p)
+        hw = (x1 - x0) / 2; a, L = snow_strips(hw, h, z1 - z0, "z"); xm = (x0 + x1) / 2; zc = (z0 + z1) / 2
+        for sg in (-1, 1):   # the eave strip: 35 % of the slope up from the eave, 12 cm thick
+            f = 0.18; ex, ey = xm + sg * hw * (1 - f), y0 + h * f
+            P.append({"t": "b", "c": [round(ex + sg * math.sin(a) * 0.08, 2), round(ey + math.cos(a) * 0.08, 2), round(zc, 2)],
+                      "s": [round(L * 0.36, 2), 0.12, round(z1 - z0 - 0.3, 2)], "r": [0, 0, round(-sg * math.degrees(a), 1)], "m": "snow", "k": 0})
+        P.append({"t": "b", "c": [round(xm, 2), round(y0 + h + 0.02, 2), round(zc, 2)], "s": [0.5, 0.14, round(z1 - z0 - 0.3, 2)], "m": "snow", "k": 0})
 
     def gable_x(z0, z1, y0, h, x0, x1, m="slate", lod=0):   # a pitched roof running along x
-        p = {"t": "p", "axis": 0, "a": [round(x0, 2), round(x1, 2)], "tri": [[round(z0, 2), round(y0, 2)], [round(z1, 2), round(y0, 2)], [round((z0 + z1) / 2, 2), round(y0 + h, 2)]], "m": m, "k": 0}
+        p = {"t": "p", "axis": 0, "a": [round(x0, 2), round(x1, 2)], "tri": [[round(z0, 2), round(y0, 2)], [round(z1, 2), round(y0, 2)], [round((z0 + z1) / 2, 2), round(y0 + h, 2)]], "m": m}
         if lod:
             p["lod"] = 1
         P.append(p)
+        hw = (z1 - z0) / 2; a, L = snow_strips(hw, h, x1 - x0, "x"); zm = (z0 + z1) / 2; xc = (x0 + x1) / 2
+        for sg in (-1, 1):
+            f = 0.18; ez, ey = zm + sg * hw * (1 - f), y0 + h * f
+            P.append({"t": "b", "c": [round(xc, 2), round(ey + math.cos(a) * 0.08, 2), round(ez + sg * math.sin(a) * 0.08, 2)],
+                      "s": [round(abs(x1 - x0) - 0.3, 2), 0.12, round(L * 0.36, 2)], "r": [round(sg * math.degrees(a), 1), 0, 0], "m": "snow", "k": 0})
+        P.append({"t": "b", "c": [round(xc, 2), round(y0 + h + 0.02, 2), round(zm, 2)], "s": [round(abs(x1 - x0) - 0.3, 2), 0.14, 0.5], "m": "snow", "k": 0})
 
     def tower(x, z, d, y0, h, crown=1.15, cap=1.0, m="limestone", n=16):   # shaft, crown band, pointed cap
         cyl((x, y0 + h / 2, z), d, h, m, n)
         cyl((x, y0 + h + 0.9, z), d * crown, 1.8, "limestone", n)
         cyl((x, y0 + h + 1.8 + cap * d * 0.6, z), d * crown, cap * d * 1.2, "slate", n, cone=True)
 
-    yT, yL = -12.0, -6.0
-    # the curved, buttressed terrace wall tied into the cliff, and its fill (the terrace floor = its top)
-    cyl((0.0, yT - 10.0, -66.0), 44.0, 20.0, "masonry", 28)
+    yT, yL = -12.0, -10.0   # shell: the court sits 2 m over the gate terrace (a ramp in the passage), the palace 10 m over it
+
+    def window(face_x, y, z, w, h, side, arch=True, n_axis="x"):
+        """a recessed window on a wall face at x = face_x (normal +-x): dark opening, pale stone jambs, sill and lintel or
+        an arched head, a mullion; the frames stand proud so the opening reads deep."""
+        fx = face_x + side * 0.08
+        box((fx, y, z), (0.16, h, w), "dark", k=0)
+        for dz in (-w / 2 - 0.11, w / 2 + 0.11):
+            box((face_x + side * 0.16, y, z + dz), (0.32, h + 0.2, 0.22), "trim", k=0)
+        box((face_x + side * 0.22, y - h / 2 - 0.1, z), (0.44, 0.18, w + 0.6), "trim", k=0)   # sill
+        box((face_x + side * 0.16, y, z), (0.24, h, 0.1), "trim", k=0)                         # mullion
+        if arch:
+            P.append({"t": "c", "c": [round(face_x + side * 0.16, 2), round(y + h / 2, 2), round(z, 2)], "s": [w + 0.44, 0.32, w + 0.44], "m": "trim", "r": [0, 0, 90], "n": 12, "k": 0})
+            P.append({"t": "c", "c": [round(face_x + side * 0.2, 2), round(y + h / 2, 2), round(z, 2)], "s": [w, 0.32, w], "m": "dark", "r": [0, 0, 90], "n": 12, "k": 0})
+        else:
+            box((face_x + side * 0.2, y + h / 2 + 0.15, z), (0.4, 0.3, w + 0.5), "trim", k=0)  # lintel
+
+    # the terrace: a battered retaining drum (a wider plinth course), coping, a parapet along its front, paving on top
+    cyl((0.0, yT - 10.0, -66.0), 44.0, 20.0, "masonry", 32)
+    cyl((0.0, yT - 17.0, -66.0), 46.5, 6.0, "masonry", 32)                       # the batter: a wider foot course
+    cyl((0.0, yT + 0.08, -66.0), 43.4, 0.16, "paving", 32)                        # paving
+    cyl((0.0, yT - 0.2, -66.0), 44.8, 0.4, "trim", 32)                            # coping
     for k in range(9):
         ph = math.radians(-70.0 + 17.5 * k)
         box((22.4 * math.sin(ph), yT - 11.0, -66.0 - 17.4 * math.cos(ph)), (2.4, 18.0, 3.2), "masonry", r=math.degrees(ph))
-    box((0.0, yT + 0.6, -82.6), (14.0, 1.2, 0.7), "masonry", lod=1)          # parapet at the front
-    # the gatehouse: red body, stepped central gable, arched gate, twin round flanking towers
-    box((0.0, yT + 8.0, -50.0), (30.0, 16.0, 11.0), "red")
+    for k in range(17):   # the parapet: low wall blocks along the front arc, a gap where the road comes onto the terrace
+        ph = math.radians(-100.0 + 12.5 * k)
+        if -112.0 < math.degrees(ph) < -88.0:
+            continue
+        box((21.6 * math.sin(ph), yT + 0.55, -66.0 - 16.6 * math.cos(ph)), (3.2, 1.1, 0.5), "masonry", r=math.degrees(ph))
+    # the gatehouse: red body split round a 4.4 x 6.4 m passage (open door leaves inside), stepped gable, towers
+    box((-8.6, yT + 8.0, -50.0), (12.8, 16.0, 11.0), "red")
+    box((8.6, yT + 8.0, -50.0), (12.8, 16.0, 11.0), "red")
+    box((0.0, yT + 11.2, -50.0), (4.4, 9.6, 11.0), "red")                         # over the passage
+    for k in range(5):                                                             # the ramp up to the court (2 m)
+        box((0.0, yT + 0.2 * (k + 1), -54.4 + 2.2 * k), (4.4, 0.4 * (k + 1), 2.2), "paving")
+    for k in range(9):   # the arch's surround: pale voussoirs in a semicircle over the opening, proud of the red face
+        ph = math.radians(10.0 + 20.0 * k)
+        P.append({"t": "b", "c": [round(2.75 * math.cos(ph), 2), round(yT + 6.4 + 2.75 * math.sin(ph) - 0.6, 2), -55.62], "s": [0.55, 1.0, 0.3],
+                  "r": [0, 0, round(math.degrees(ph) - 90.0, 1)], "m": "trim", "k": 0})
+    for dx, yaw in ((-2.1, 90.0), (2.1, -90.0)):                                   # door leaves, folded open against the passage walls
+        box((dx + (0.1 if dx < 0 else -0.1), yT + 3.0, -53.2), (0.15, 6.0, 2.1), "door", k=0)
     gable_x(-55.5, -44.5, yT + 16.0, 6.0, -15.0, 15.0)
     for w, h, y in ((10.0, 5.0, 18.5), (6.5, 3.0, 22.5), (3.0, 2.2, 25.1)):
         box((0.0, yT + y, -55.3), (w, h, 1.4), "red")
-    box((0.0, yT + 3.2, -55.8), (4.4, 6.4, 0.6), "dark", lod=1)
     for x in (-16.5, 16.5):
         tower(x, -54.0, 7.0, yT, 24.0, m="red", cap=0.9)
-    # the lower court: side walls, the bower (left), the square-to-round tower (right, behind the gate)
+    for x in (-10.0, -6.0, 6.0, 10.0):                                            # the gatehouse windows (front face z -55.5)
+        for y in (yT + 8.5, yT + 12.5):
+            box((x, y, -55.58), (1.4, 2.2, 0.16), "dark", k=0)
+            box((x, y - 1.2, -55.75), (1.9, 0.18, 0.4), "trim", k=0)
+            box((x, y + 1.25, -55.7), (1.9, 0.3, 0.3), "trim", k=0)
+    # the lower court: a paved floor, side walls, the bower (left), the square-to-round tower (right, behind the gate)
+    box((0.0, yL - 0.15, -26.0), (38.0, 0.3, 37.0), "paving")
+    box((0.0, yL + 5.0, -6.8), (40.0, 10.0, 1.6), "masonry")   # the retaining wall up to the palace's level (no raw slope)
     for x in (-20.0, 20.0):
         box((x, yL + 4.0, -30.0), (2.0, 8.0, 36.0), "masonry")
     box((-11.0, yL + 10.0, -30.0), (13.0, 20.0, 16.0), "limestone")
     gable_z(-17.8, -4.2, yL + 20.0, 7.0, -38.0, -22.0)
     tower(-4.2, -22.0, 3.2, yL + 14.0, 10.0, cap=1.4)
+    for y in (yL + 6.0, yL + 12.0):
+        window(-4.5, y, -30.0, 1.1, 2.0, 1, arch=False)
     box((11.0, yL + 12.0, -38.0), (9.0, 24.0, 9.0), "limestone")
     tower(11.0, -38.0, 8.0, yL + 24.0, 16.0, cap=1.1)
     # the connecting wing (right) between the court and the palace
@@ -1399,9 +1463,11 @@ def write_castle_asset(ctx, cat):
     # the lower lateral wing toward the quarry and its slender, crowned, independent-looking tower
     box((20.0, yL + 7.0, -8.0), (10.0, 14.0, 20.0), "limestone")
     gable_z(15.0, 25.0, yL + 14.0, 4.5, -18.0, 2.0)
-    tower(26.0, 0.0, 7.2, yL, 38.0, crown=1.25, cap=0.7)
-    # the palace: the long pale slab, steep dark roof, dormer gables, throne-hall projection, corner turrets, chimneys
+    tower(26.0, 0.0, 7.2, yL, 42.0, crown=1.25, cap=0.7)
+    # the palace: the long pale slab (its foot from the court level up), steep dark roof, dormer gables, throne-hall
+    # projection, corner turrets, chimneys
     box((0.0, 15.0, 25.0), (18.0, 30.0, 58.0), "limestone")
+    box((0.0, -5.0, 25.0), (18.6, 10.0, 58.6), "masonry")                         # the base course down to the court
     gable_z(-9.6, 9.6, 30.0, 12.0, -4.0, 54.0)
     for z in (6.0, 18.0, 30.0, 42.0):
         for side in (-1, 1):
@@ -1417,22 +1483,19 @@ def write_castle_asset(ctx, cat):
     box((5.0, 25.0, 50.0), (6.0, 50.0, 6.0), "limestone")
     cyl((5.0, 54.0, 50.0), 8.0, 8.0, "limestone", 8)
     cyl((5.0, 64.0, 50.0), 8.4, 12.0, "slate", 8, cone=True)
-    # milestone 2: shadowed window bays in vertical rows on both long sides of the palace (4 floors x 12 bays), a pale
-    # string course under each floor and on the towers' tops, clean pale corner courses; the gatehouse's two window rows
+    # the palace's windows in vertical bays (4 floors x 12), arched heads on the upper two floors (as on the real
+    # building's main floors), string courses under each floor, clean pale corner courses
     for side in (-1, 1):
         for fl, y in enumerate((5.0, 11.5, 18.0, 24.5)):
             for k in range(12):
                 z = -0.5 + k * 4.6
                 if side < 0 and 27.0 < z < 41.0:
                     continue   # the throne-hall projection covers this stretch on the west
-                box((side * 9.05, y, z), (0.3, 2.9 if fl < 3 else 2.2, 1.35), "dark")
-            box((side * 9.12, y - 2.0, 25.0), (0.25, 0.45, 58.4), "trim")
+                window(side * 9.0, y, z, 1.35, 2.6 if fl < 3 else 2.0, side, arch=fl in (1, 2))
+            box((side * 9.12, y - 2.05, 25.0), (0.25, 0.45, 58.4), "trim", k=0)
         for zc in (-4.0, 54.0):
             box((side * 8.75, 15.0, zc + (0.75 if zc < 0 else -0.75)), (0.6, 30.0, 1.6), "trim")
-    for x in (-10.0, -6.0, -2.0, 2.0, 6.0, 10.0):
-        for y in (yT + 5.0, yT + 11.0):
-            box((x, y, -55.65), (1.6, 2.6, 0.3), "dark")
-    box((0.0, yT + 16.3, -55.6), (31.0, 0.5, 0.5), "trim")   # the gatehouse's cornice
+    box((0.0, yT + 16.3, -55.6), (31.0, 0.5, 0.5), "trim", k=0)   # the gatehouse's cornice
     for (x, z, d) in ((11.0, -38.0, 8.0), (26.0, 0.0, 7.2)):
         cyl((x, (yL + 24.0 if d == 8.0 else yL + 26.0), z), d * 1.06, 0.8, "trim", 16)   # belts
     j = {"id": "bt_castle", "version": 1, "name": "Hilltop castle (Blackwater Thaw)", "category": "Landmarks",
