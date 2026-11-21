@@ -299,7 +299,15 @@ struct Rec {
             {"frameMs", stats(frameMs)}, {"aiMainThreadMs", stats(aiMs)}, {"matchStepMs", stats(stepMs)},
             {"navRebuildTiles", rebuildTiles}, {"navRebuildMsMax", rebuildMsMax}, {"rebuildReplans", replans},
             {"linkTraversals", linkTrav}, {"linkAborts", linkAborts}, {"links", {{"drop", linkKinds[0]}, {"mantle", linkKinds[1]}, {"vault", linkKinds[2]}, {"jump", linkKinds[3]}}}, {"snaps", snaps},
-            {"perMinute", minutes}, {"stuckEventsList", stuckList}};
+            {"perMinute", minutes}, {"stuckEventsList", stuckList}, {"linkAbortsList", [&] {   // which links gave up, and how (worst first)
+              json L = json::array(); AiCore* A = aiCore(); if (!A) return L;
+              std::vector<std::pair<int, uint32_t>> o; for (auto& [id, r] : A->linkAbortLog) o.push_back({r.startFit + r.midGeom + r.midSoldier, id});
+              std::sort(o.rbegin(), o.rend());
+              static const char* kn[4] = {"drop", "mantle", "vault", "jump"};
+              for (auto& [n, id] : o) { const auto& r = A->linkAbortLog[id];
+                L.push_back({{"id", id}, {"kind", kn[std::clamp(r.kind, 0, 3)]}, {"aborts", n}, {"startFit", r.startFit}, {"midGeometry", r.midGeom}, {"midSoldier", r.midSoldier},
+                             {"a", {r.a.x, r.a.y, r.a.z}}, {"b", {r.b.x, r.b.y, r.b.z}}, {"at", {r.at.x, r.at.y, r.at.z}}}); }
+              return L; }()}};
   }
 };
 
