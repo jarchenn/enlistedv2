@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstring>
 #include <cctype>
+#include <cstdlib>
 
 using WxState = Renderer::WxState; using WxDerived = Renderer::WxDerived;
 constexpr int WxNone = Renderer::WxNone, WxDrizzle = Renderer::WxDrizzle, WxRain = Renderer::WxRain, WxSnow = Renderer::WxSnow;
@@ -57,11 +58,17 @@ float wxPresetDeck(int id) { return rowOf(id)->deckK; }
 // Once a frame after lightingBegin (sunDir is the day's key light). Preset ids 0 / 1 (Clear, Overcast) and Map default keep
 // today's look (Lighting: Classic and every approved map); the formulas below drive ids 2-14 under Lighting New, as ratios to
 // Clear at the same sun height, so Clear stays today's picture and every other preset moves from it by the corpus's numbers.
-void weatherDerive(Renderer& R) {
+void weatherForce(Renderer& R, int id) { R.wx.target = std::max(0, id); R.wx.userSet = true; R.wx.snap(); }
+
+void weatherDerive(Renderer& R, vec3 eye) {
   auto& W = R.wx; WxDerived& d = W.der;
+  static bool envDone = false;   // NMK_WEATHER=<name or id>: once, at the first frame (the collective run / captures)
+  if (!envDone) { envDone = true; if (const char* e = std::getenv("NMK_WEATHER")) { int id = std::isdigit((unsigned char)e[0]) ? std::atoi(e) : wxPresetFromName(e); if (id >= 0) weatherForce(R, id); } }
   const int id = W.want();
   const Row& row = *rowOf(id);
   W.st = row.st;
+  W.st.wet = id == 5 ? 0.5f : id == 6 || id == 7 ? 1.0f : 0.0f; W.st.puddle = id == 6 ? 0.5f : id == 7 ? 1.0f : 0.0f;   // until accumulation (W3)
+  W.flashes.clear();
   const bool phys = W.presetOn() && id >= 2 && R.q.lightNew && !R.q.legacy;
   d = WxDerived{};
   d.phys = phys; d.preset = id;
@@ -82,7 +89,7 @@ void weatherDerive(Renderer& R) {
     d.fixedMul = std::pow(r, -2.0f / 3.0f);   // a fixed exposure moves by two thirds of it
     float vis = s.dustVisM > 0 ? std::min(s.visM, s.dustVisM) : s.visM;
     d.sigma = 3.912f / vis;
-    d.fogTopM = s.fogTopM; d.fogLayerSigma = s.fogTopM > 0 ? 3.912f / 150.0f : 0.0f;   // Dawn ground fog: 150 m inside a 5-50 m layer
+    d.fogTopM = s.fogTopM; d.fogLayerSigma = s.fogTopM > 0 ? 3.912f / 300.0f : 0.0f;   // x the field's ground-fog share (up to ~1.8 in hollows): ~150 m there, thinner on open ground   // Dawn ground fog: 150 m inside a 5-50 m layer
     d.fogAlbedo = s.dustVisM > 0 ? 0.7f : 0.9f; d.fogG = s.dustVisM > 0 ? 0.7f : 0.85f;
     d.visM = s.fogTopM > 0 ? 150.0f : vis;
     d.windK = std::clamp(s.windMs / 3.0f, 0.1f, 3.0f);
@@ -90,7 +97,21 @@ void weatherDerive(Renderer& R) {
     d.sigma = 0.0010f;   // today's haze at Medium, now on every quality preset (fair sight on Low / High)
     d.visM = 3.912f / d.sigma;
   }
+  d.skyRatio = row.skyLux / clr.skyLux * (id == 12 ? 1.3f : 1.0f); d.beamRatio = clrSun > 0 ? d.eSunLux / clrSun : 0.0f;
   d.cullM = 1.42f * d.visM;
   const float a = glm::radians(s.windDirDeg); d.windXZ = vec2(std::sin(a), std::cos(a)) * s.windMs * (phys ? 1.0f : 1.0f);
   d.sunShadow = R.sunShK;
+  // W2 lightning (Thunderstorm): Poisson strikes at lightningPerMin; each a double pulse ~0.25 s; distance 0.5-8 km
+  static float lastT = -1; static uint32_t rng = 12345u; auto rnd = [&] { rng = rng * 1664525u + 1013904223u; return (rng >> 8) / 16777216.0f; };
+  const float dt = lastT < 0 ? 0.0f : std::clamp(R.cloudClock() - lastT, 0.0f, 0.25f); lastT = R.cloudClock();
+  if (R.perf.lightning && phys && s.lightningPerMin > 0 && rnd() < s.lightningPerMin / 60.0f * dt) {
+    ++W.strikes; W.strikeT = R.cloudClock(); W.strikeDistM = 500.0f + 7500.0f * rnd() * rnd();
+    const float az = 6.2831853f * rnd(), hd = std::sqrt(std::max(W.strikeDistM * W.strikeDistM - 1200.0f * 1200.0f, 0.0f));
+    W.flashes.push_back({eye + vec3(std::cos(az) * hd, 1200.0f, std::sin(az) * hd), W.strikeT, W.strikeDistM});
+  }
+  if (R.perf.lightning && phys && W.strikeT >= 0) {
+    float a = R.cloudClock() - W.strikeT, near = 1.0f - std::min(W.strikeDistM / 8000.0f, 0.9f);
+    d.flash = near * (std::exp(-a / 0.05f) + (a > 0.12f ? 0.7f * std::exp(-(a - 0.12f) / 0.08f) : 0.0f));
+    if (a > 1.0f) d.flash = 0;
+  }
 }

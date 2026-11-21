@@ -5,6 +5,7 @@
 #endif
 #include "app.h"
 #include "sight_overlay.h"
+#include "hitch_log.h"
 #include "map_ambience.h"   // BTA
 #include "sd_game.h"   // SD3
 #include "mainmenu.h"
@@ -103,6 +104,7 @@ void App::destroyRT(InstanceRT& r) {
   { extern void ivyDestroy(InstanceRT&); ivyDestroy(r); }
 }
 void App::buildRT(const Instance& i, InstanceRT& r) {
+  ++hitchCur().buildRT;   // CP step 0: the hitch log counts them
   destroyRT(r);
   r.id = i.id; r.rev = i.rev; r.asset = assetFor(i);
   uint64_t base = i.id << 16;
@@ -226,17 +228,28 @@ const App::ActiveSet& App::activeSet() {
   }
   return s;
 }
-void App::syncRuntime() {
+void App::syncRuntime(bool sliceOk) {
   uint64_t sig = placementSig(doc.instances, false);
   if (sig == syncSig_ && rt.size() == doc.instances.size()) return;   // nothing appeared, went away or changed revision
   crumb("sync: gates");
   { extern int lineSyncGates(App&); if (lineSyncGates(*this)) sig = placementSig(doc.instances, false); }   // LN2: line gates follow their spans
   crumb("sync: build");
   syncSig_ = sig;   // taken before the pass: anything a rebuild changes is seen by the next call
+  // CP 5.8 time slice: in play, at most ~4 ms of rebuilds a frame (corpus 12 s12.9: no long blocking work on the main
+  // thread); the rest wait for the next frames, keeping their previous build meanwhile (a new instance appears a frame or
+  // two later). A loading screen, a self-test that needs everything at once (realTime off) or NMK_SYNC_FULL: all at once
+  extern bool loadingActive();
+  static const bool syncFull = std::getenv("NMK_SYNC_FULL") != nullptr;
+  const bool sliced = sliceOk && !syncFull && !loadingActive() && mode == Mode::Explore && (!selftest || selftest->realTime);
+  const double sliceT0 = glfwGetTime(); bool deferred = false;
   std::set<uint64_t> live;
   static const bool memAttr = std::getenv("NMK_MEMLOG") != nullptr; std::map<std::string, std::pair<double, int>> memBy;   // MEM1: commit per asset's copies
   for (auto& i : doc.instances) {
     live.insert(i.id);
+    if (sliced) {   // over the slice: leave it (no empty runtime entry is made: the draw loop would find a null asset)
+      auto f = rt.find(i.id);
+      if ((f == rt.end() || f->second.rev != i.rev || f->second.id != i.id) && glfwGetTime() - sliceT0 > 0.004) { deferred = true; continue; }
+    }
     auto& r = rt[i.id];
     if (r.rev != i.rev || r.id != i.id) {
       size_t c0 = memAttr ? processMemory().PrivateBytes : 0;
@@ -251,6 +264,7 @@ void App::syncRuntime() {
     std::string s; for (size_t k = 0; k < v.size() && k < 12; ++k) { char b[96]; std::snprintf(b, sizeof b, " %s %.0f MB x%d;", v[k].second.c_str(), v[k].first, memBy[v[k].second].second); s += b; }
     logf("memattr: buildRT %.0f MB over %zu assets:%s", tot, v.size(), s.c_str());
   }
+  if (deferred) syncSig_ = 0;   // not done: the next call walks again
   crumb("sync: prune");
   for (auto it = rt.begin(); it != rt.end();) {
     if (!live.count(it->first)) { destroyRT(it->second); it = rt.erase(it); } else ++it;
@@ -318,6 +332,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       continue;
     }
     if (!act.rtOf[idx]) continue;
+    if (R.perf.firThin && i.extra.is_object() && i.extra.value("perfThin", false)) continue;   // BT2 switch firthin: the map's optional far trees
     auto& r = *act.rtOf[idx];
     mat4 M = instanceMatrix(i);
     if (decorDraw(*this, i, r, M, op, gl)) continue;   // V8: border-ring decor saved in maps, cheap at range (decor.cpp)
@@ -338,7 +353,8 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       continue;
     }
     if (r.asset->tree.on) {
-      if (glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos)) < 900 * settings().drawDist()) treeDrawItems(i, r, op);
+      { vec3 e = mode == Mode::Explore ? eyePos() : camPos; float d = glm::length(i.pos - e);   // viscull: the per-object test with the crown's top
+        if (d < 900 * settings().drawDist() && (d < 60.0f || !R.fogHides(e, i.pos + vec3(0, r.asset->bmax.y + 1.0f, 0)))) treeDrawItems(i, r, op); }
       continue;
     }
     if (r.asset->rack) {   // box parts, the supplied model if any (the modern weapons case), the displayed guns
@@ -405,7 +421,16 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
     { extern bool waterDrawItems(App&, const Instance&, const InstanceRT&, const mat4&, std::vector<DrawItem>&); if (waterDrawItems(*this, i, r, M, op)) continue; }   // V1 water surfaces (water.cpp)
     // coarse distance cull
     float camDist = glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos));
-    if (camDist > 1200 * settings().drawDist()) continue;   // x the Settings draw distance (Low 0.6, High 1.4)
+    if (camDist > 1200 * settings().drawDist()) {   // x the Settings draw distance (Low 0.6, High 1.4)
+      // viscull: a light or a glowing material stays visible far into fog (to about 3.2 V, weather corpus 08 s4.1), so until
+      // the lamp-glow LOD exists, lit assets keep the user's distance instead of the fog cap
+      static std::unordered_map<std::string, bool> glows;   // by asset id (a library reload can reuse AssetDef addresses)
+      auto g = glows.find(r.asset->id);
+      if (g == glows.end()) g = glows.emplace(r.asset->id, (r.asset->raw.is_object() && r.asset->raw.contains("light")) ||
+                                std::any_of(r.asset->materials.begin(), r.asset->materials.end(), [](const Material& m) { return m.emissive != vec3(0); })).first;
+      if (!g->second || camDist > settings().renderDistUser()) continue;
+    }
+    else if (camDist > 60.0f && R.fogHides(mode == Mode::Explore ? eyePos() : camPos, i.pos + vec3(0, r.asset->bmax.y + 1.0f, 0)) && !r.asset->raw.contains("light")) continue;   // viscull: the exact per-object test (its top, through the height fog)
     if (r.asset->hasBags) { extern void sandbagDraw(App&, const AssetDef&, const mat4&, float, bool); sandbagDraw(*this, *r.asset, M, camDist, r.defDestroyed); }   // HB1b: the sandbags, instanced
     if (camDist < 300.0f) for (auto& am : r.asset->attached) {   // PR1 modelled pieces of a part-built asset (the detail only up close)
       const GpuModel* gm = (am.lod && camDist > am.lodDist) ? am.lod.get() : am.model.get();
@@ -1094,12 +1119,14 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-interiors") runSelf = true;   // walls, interiors and furniture (selftest_interiors.cpp)
     else if (a == "--selftest-structures") runSelf = true;   // W4 structure assets (selftest_structures.cpp)
     else if (a == "--selftest-lines") runSelf = true;   // LN1 / LN2 line features (selftest_lines_ln2.cpp)
-    else if (a == "--selftest-maps" || a == "--render-map-thumbs") runSelf = true;   // W5 default maps (selftest_maps.cpp)
+    else if (a == "--selftest-maps" || a == "--render-map-thumbs" || a == "--selftest-lookdev") runSelf = true;   // W5 default maps (selftest_maps.cpp)
     else if (a == "--selftest-grass" || a == "--build-range-map" || a == "--record-range" || a == "--selftest-fps" || a == "--selftest-env" || a == "--build-village-map" || a == "--selftest-arsenal" || a == "--selftest-move" || a == "--selftest-sights" || a == "--selftest-update" || a == "--selftest-entities" || a == "--selftest-editor") runSelf = true;
+    else if (a == "--debug-view" && k + 1 < argc) _putenv_s("NMK_DEBUG_VIEW", argv[++k]);   // CP0 look-dev view by name (render.cpp dbgViewFromName), read at Renderer::init
     else if (a == "--legacy-look") legacyLook = true;   // the pre-BSL-pass lighting / tonemap (A/B and fallback)
     else if (a == "--no-textures") tex::setEnabled(false);   // L4 A/B: procedural patterns only (textures.cpp)
     else if (a == "--selftest-textures") runSelf = true;   // L4 texture layer + missing-texture fallback (selftest_textures.cpp)
     else if (a == "--pack-texture" && k + 2 < argc) { fs::path s = argv[k + 1], d = argv[k + 2]; int n = k + 3 < argc ? std::atoi(argv[k + 3]) : 1024; return tex::packSet(s, d, n == 2048 ? 2048 : 1024); }   // tools/fetch_ambientcg.py
+    else if (a == "--check-dynres") { extern int dynResSelfCheck(); return dynResSelfCheck(); }   // CP 5.1: the control law on synthetic timings
     else if (a == "--texture-placeholders" && k + 1 < argc) { std::vector<std::string> v; std::string l = argv[++k]; for (size_t b = 0, e; b <= l.size(); b = e + 1) { e = l.find(',', b); if (e == std::string::npos) e = l.size(); if (e > b) v.push_back(l.substr(b, e - b)); } return tex::writePlaceholders(k + 1 < argc ? fs::path(argv[k + 1]) : contentDir() / "textures", v); }
     else if (a == "--rq-off" && k + 1 < argc) rqOff.push_back(argv[++k]);   // switch one render feature off (A/B): taa ssr ssao bloom shafts cascade cloudshadow, or a Renderer::perf switch
     else if (a == "--rq-on" && k + 1 < argc) rqOn.push_back(argv[++k]);   // PF2: switch one Renderer::perf feature on (A/B)
@@ -1138,11 +1165,12 @@ int App::run(int argc, char** argv) {
   int W = runSelf ? 1920 : 1600, H = runSelf ? 1080 : 900;
   bool bench1440 = std::getenv("NMK_WIN_1440") != nullptr;   // NMK_WIN_1440=1: any launch at a borderless 2560x1440 at (0,0)
    for (int k = 1; k < __argc; ++k) bench1440 |= std::string(__argv[k]) == "--bench-views";
-  if (bench1440) { W = 2560; H = 1440; glfwWindowHint(GLFW_DECORATED, GLFW_FALSE); }   // P1: the VO benchmark at 1440p (borderless: a framed 1440p window does not fit a 1440p screen and is shrunk)
+  if (bench1440) { W = 2560; H = 1440; if (const char* r = std::getenv("NMK_BENCH_RES")) std::sscanf(r, "%dx%d", &W, &H); glfwWindowHint(GLFW_DECORATED, GLFW_FALSE); }   // NMK_BENCH_RES=1920x1080: another size (CP step 0)   // P1: the VO benchmark at 1440p (borderless: a framed 1440p window does not fit a 1440p screen and is shrunk)
   win = glfwCreateWindow(W, H, "Battle Foundry", nullptr, nullptr);   // UI2: the game's name (repo / exe keep theirs)
   if (win && bench1440) glfwSetWindowPos(win, 0, 0);
   if (!win) { logf("Could not create an OpenGL 4.5 core window. Update your graphics driver."); glfwTerminate(); return 1; }
   if (!platformInitContext(win)) { logf("graphics context init failed"); return 1; }
+  hitchInstall();   // CP step 0: counts GL uploads and program links per frame (hitch_log.cpp)
   logf("GL %s | %s | %s", glGetString(GL_VERSION), glGetString(GL_RENDERER), glGetString(GL_VENDOR));
   platformSwapInterval(runSelf ? 0 : 1);
   glfwSetScrollCallback(win, scrollCb);
@@ -1236,7 +1264,7 @@ int App::run(int argc, char** argv) {
     if (gCrumbProf) crumbFrameEnd();
     mark("start");
     glfwPollEvents();
-    tex::flushPending();   // TX2: a lazy texture set a newly used material named (one reload, then nothing)
+    { double f0 = glfwGetTime(); tex::flushPendingFrame(R.perf.texLate); hitchCur().flushMs += (glfwGetTime() - f0) * 1000.0; }   // TX2 / OPT1: a late texture set a newly used material named: one spare-layer upload per frame, no full reload (timed for the hitch log)
     syncCursor();   // GM1b: one per-frame rule for the cursor mode (explore.cpp)
     hangBeat(); forceQuitCheck(win, false);   // UI8
     if (glfwWindowShouldClose(win)) {
@@ -1260,11 +1288,12 @@ int App::run(int argc, char** argv) {
     else if (mode == Mode::Creative) { updateCreative(frameDt); drawCreativeUI(); }
     else { updateExplore(frameDt); crumb("explore ui"); drawExploreUI(); }
     mark("ui+sync");
+    settings().visCap = R.visCullDist(mode == Mode::Explore ? eyePos() : camPos);   // weather corpus 08 s4: draw distance follows the fog
     mpaiUI(*this);   // Play menu, scenario panel, match HUD
     settingsWindow(*this);   // Settings window (Creative menu, pause menu, Loadout)
     { extern void uiInputWatchdog(App&); uiInputWatchdog(*this); }   // UI8: a hidden modal raised, a dead setup window released
     crumb("syncRuntime");
-    syncRuntime();
+    syncRuntime(true);   // CP 5.8: the per-frame call may be time-sliced
     crumb("tanks sync");
     tanks.sync(*this);
     crumb("interior sync");
@@ -1352,6 +1381,7 @@ int App::run(int argc, char** argv) {
       }
     }
     audio.setUnderwater(v.underwater ? 1.0f : 0.0f);   // swim.cpp: muffled under water
+    { extern void weatherAudioFrame(App&, float); weatherAudioFrame(*this, frameDt); }   // W1: rain, wind and thunder from the weather state (weather_audio.cpp)
     mapAmbienceFrame(*this, frameDt);   // BTA: the map's wind, zones, water / fire loops and creaks (map_ambience.cpp)
     { extern void playerAudioFrame(App&); playerAudioFrame(*this); }   // SND13: low-health heartbeat, hurt grunt
     mark("mpai");
@@ -1457,6 +1487,11 @@ int App::run(int argc, char** argv) {
     mark("render");
     { extern void weatherAppFrame(App&); weatherAppFrame(*this); }   // WX1: the shared cloud clock, the host's weather on LAN clients
     tanks.grassBoxes(*this, v.camPos, R.grassVeh);   // TK3: no grass through the vehicles
+    {   // CP0 look-dev props: NMK_LOOKDEV_PROPS=1 sets them once in front of the first-person eye (lookdev.cpp); the selftest sets its own
+      static const bool ldEnv = std::getenv("NMK_LOOKDEV_PROPS") != nullptr;
+      if (ldEnv && R.lookdev.empty() && mode == Mode::Explore) { extern void lookdevPlace(Renderer&, vec3, float, const std::function<float(float, float)>&, std::vector<vec3>*); lookdevPlace(R, eyePos(), eyeYaw, [&](float x, float z) { return terrain.height(x, z); }, nullptr); }
+      op.insert(op.end(), R.lookdev.begin(), R.lookdev.end());
+    }
     if (menuUp) { glBindFramebuffer(GL_FRAMEBUFFER, 0); glViewport(0, 0, fbw, fbh); glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT); }
     else R.render(v, terrain, op, gl, ghosts, ov);
     mark("imgui");
@@ -1495,9 +1530,11 @@ int App::run(int argc, char** argv) {
       stbi_write_png(uiShot.string().c_str(), fbw, fbh, 4, fl.data(), fbw * 4);
       logf("ui screenshot %s", uiShot.string().c_str()); uiShot.clear();
     }
-    platformPresent(win);
+    double sw0 = glfwGetTime(); platformPresent(win); double swapMs = (glfwGetTime() - sw0) * 1000.0;   // CP step 0: time blocked in swap
     mark("end");
     settingsEndFrame(*this);   // FPS cap
+    { extern bool loadingActive(); hitchFrameEnd(swapMs, loadingActive()); }   // CP step 0: always-on hitch log
+    { extern void dynResFrame(App&); dynResFrame(*this); }   // CP 5.1: dynamic resolution (dynres.cpp)
   }
   int code = selftest ? selftest->exitCode : 0;
   if (gCrumbProf) { extern json crumbProfReport(const char*); crumbProfReport("exit"); }

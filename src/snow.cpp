@@ -56,6 +56,7 @@ void snowSync(App& app) {
   logf("snow: layer on (%dx%d mask, box %.0f x %.0f m)", w, h, b[2].get<float>(), b[3].get<float>());
 }
 
+bool snowLayerOn() { return gS.on && gS.tex; }   // W2: the map has lying snow (exposure under overcast)
 void snowUniforms(GLuint p, bool thumb) {
   auto U = [&](const char* n) { return glGetUniformLocation(p, n); };
   int on = gS.on && gS.tex ? 1 : 0;
@@ -86,8 +87,53 @@ const char* snowStepAt(float x, float z) {
   vec4 m = snowMaskAt(x, z);
   float s = m.r - m.g - m.b - gS.p2.w;
   if (m.a > 0.45f) return "step_shallow";                                  // meltwater pockets
-  if ((m.g > 0.3f || m.b > 0.3f) && m.r > 0.15f) return "step_slush";      // trodden / melting snow
+  if (m.b > 0.35f && m.r > 0.15f) return "step_slush";                      // SN2: the thaw state (melting snow)
+  if (s > gS.p.z && m.g > 0.2f) return "step_snow";                        // SN2: the trodden state (packed footing)
   if (s > gS.p.z + 0.25f) return "step_snow_deep";
   if (s > gS.p.z) return "step_snow";
   return nullptr;
+}
+
+// SN2 (the user's snow sets; corpus weather 05 s3-s4): within 60 m of the eye the ground's snow is the three ambientCG
+// sets instead of applySnow's flat white: packed (deposit, little traffic), trodden (the traffic mask: lanes, yards,
+// door pads, ruts) and thaw (melt or thin cover: the creek's dirty band, drip lines, the edges giving way to mud). The
+// two strongest states blend by height; the snow's edge is cut by the snow's and the substrate's heights (stones and
+// ridges poke through first), with a dark wet halo just outside it. Albedo means are scaled to the corpus ranges
+// (packed ~0.82, trodden ~0.72, thaw ~0.32, neutral); beyond 45-60 m it hands back to applySnow's flat snow (the same
+// cover, no taps). Compiled into the terrain program after the texture GLSL (terrTexSlot, uSnowSlot, hbK).
+const char* snowTexGlsl() {
+  return R"GLSL(
+uniform int uSnowTexOn;   // switch snowtex
+int snowSlotOf(int s){ return s == 0 ? uSnowSlot.x : s == 1 ? uSnowSlot.y : uSnowSlot.z; }
+vec3 snowAlbScale(int s){ return s == 0 ? vec3(1.498, 1.483, 1.488) : s == 1 ? vec3(1.12, 0.953, 0.836) : vec3(1.05); }
+float snowRough(int s){ return s == 0 ? 0.58 : s == 1 ? 0.38 : 0.26; }
+void snowTex(vec3 p, vec3 Ng, vec3 dpx, vec3 dpy, float dist, float hSub, inout vec3 alb, inout float rough, inout vec3 N){
+  if (uSnowOn == 0 || uSnowTexOn == 0 || dist > 60.0 || gSnow <= 0.002 || uSnowSlot.x < 0 || uSnowSlot.y < 0 || uSnowSlot.z < 0) return;
+  vec2 uv = (p.xz - uSnowBox.xy)*uSnowBox.zw;
+  vec4 M = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.7, 0.0, 0.0, 0.0) : texture(uSnowMask, uv);
+  float wTh = clamp(max(smoothstep(0.15, 0.6, M.b), 1.0 - smoothstep(0.35, 0.85, gSnow)), 0.0, 1.0);   // melt, or thin cover
+  float wTr = smoothstep(0.08, 0.35, M.g)*(1.0 - wTh);                                                   // traffic
+  float wPk = max(0.0, 1.0 - wTr - wTh);
+  vec3 w3 = vec3(wPk, wTr, wTh);
+  int a = w3.x >= w3.y && w3.x >= w3.z ? 0 : w3.y >= w3.z ? 1 : 2;
+  int b = a == 0 ? (w3.y >= w3.z ? 1 : 2) : a == 1 ? (w3.x >= w3.z ? 0 : 2) : (w3.x >= w3.y ? 0 : 1);
+  float wa = w3[a], wb = w3[b];
+  TerrT ta = terrTexSlot(snowSlotOf(a), p, Ng, dpx, dpy, dist);
+  TerrT tb = ta; float k = 0.0;
+  if (wb > 0.02) { tb = terrTexSlot(snowSlotOf(b), p, Ng, dpx, dpy, dist); k = hbK(wb/(wa + wb), ta.h, tb.h); }
+  vec3 sAlb = mix(ta.alb*snowAlbScale(a), tb.alb*snowAlbScale(b), k);
+  float sR = clamp(mix(ta.r*snowRough(a), tb.r*snowRough(b), k), 0.1, 1.0);
+  float sH = mix(ta.h, tb.h, k);
+  vec3 sN = normalize(Ng + mix(ta.dn, tb.dn, k));
+  // the edge by height: the snow's own relief against the substrate's (stones and ridges through first), not a fade
+  float c = clamp((gSnow - 0.5 + (sH - 0.5)*0.35 - (hSub - 0.5)*0.45)/0.12 + 0.5, 0.0, 1.0);
+  float halo = (1.0 - c)*smoothstep(0.1, 0.45, gSnow);    // wet ground just outside the snow
+  vec3 base = gSnowAlb0*(1.0 - 0.35*halo); float baseR = mix(gSnowR0, 0.35, halo);
+  float f = 1.0 - smoothstep(45.0, 60.0, dist);           // hand back to applySnow's snow
+  alb = mix(alb, mix(base, sAlb, c), f);
+  rough = mix(rough, mix(baseR, sR, c), f);
+  N = normalize(mix(N, normalize(mix(gSnowN0, sN, c)), f));
+  gSnow = mix(gSnow, c, f);
+}
+)GLSL";
 }

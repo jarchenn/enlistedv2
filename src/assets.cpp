@@ -728,6 +728,9 @@ static void partCorners(const Part& p, std::vector<vec3>& out);
 static void buildAssetLods(AssetDef& a, size_t fullTris, const MeshData& walls) {
   if (a.path.on || a.model || a.parts.size() < 12) return;
   const float aDiag = glm::length(a.bmax - a.bmin);
+  // BT2: lodKeep (m): the smallest part LOD2 keeps (default 12 % of the diagonal: on a 170 m scenic landmark that dropped
+  // its towers' upper stages, caps and window bays, the silhouette, from 300 m)
+  const float keep2 = a.raw.is_object() ? a.raw.value("lodKeep", std::max(1.5f, 0.12f * aDiag)) : std::max(1.5f, 0.12f * aDiag);
   const size_t nStatic = a.furnitureNames.empty() ? a.parts.size() : std::min(a.furnFirst, a.parts.size());
   MeshData m[2], full, glass; std::vector<vec3> cs;
   for (size_t k = 0; k < nStatic; ++k) {
@@ -743,7 +746,7 @@ static void buildAssetLods(AssetDef& a, size_t fullTris, const MeshData& walls) 
     if (q.shape == Part::CYL && q.sides == 0) q.sides = 8;
     if (q.shape == Part::ARCH) q.seg = std::min(q.seg > 0 ? q.seg : 6, 6);
     if (!p.lodDetail && d >= 0.35f) appendPart(m[0], q, a.materials[p.mat], mat4(1));
-    if (!p.lodDetail && d >= std::max(1.5f, 0.12f * aDiag)) appendPart(m[1], q, a.materials[p.mat], mat4(1));
+    if (!p.lodDetail && d >= keep2) appendPart(m[1], q, a.materials[p.mat], mat4(1));
   }
   size_t t1 = m[0].i.size() / 3, t2 = m[1].i.size() / 3;
   if (t1 > 0 && t1 * 4 <= fullTris * 3) a.lodMesh[0].upload(m[0]); else t1 = fullTris;

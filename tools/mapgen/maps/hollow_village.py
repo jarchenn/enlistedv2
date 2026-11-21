@@ -719,7 +719,7 @@ def build(ctx):
     ]
     look = {"style": "abandoned", "season": "autumn", "haze": 2.6, "weather": 0.9, "clouds": 0.95, "envFog": 2, "bloom": 0.7, "saturation": 0.68,
             "tint": [0.94, 0.97, 1.0], "grime": 1.6, "shafts": 0.4,
-            "paintSets": {"ploughed": "moss_floor_paint"}}
+            "paintSets": {"ploughed": "moss_floor_paint", "dirt": "trail_dirt"}}   # trails (user, 2026-11-20: "Every map"): its dirt paint is mostly the BP / CP footpaths
     write_map(os.path.join(tdir, TID + ".nmap.json"), name=NAME, template_id=TID, template_version=VERSION, seed=SEED, width=W, depth=D,
               builder=b, scenario_json=sj, explore_start=((views[1]["pos"][0], views[1]["pos"][1] - 1.7, views[1]["pos"][2]), views[1]["yaw"]), camera=cam,
               bookmarks={str(k): {"position": [c[0], b.ground(*c) + 45.0, c[1] - 55.0], "yaw": 180.0, "pitch": -35} for k, (n, c) in DISTRICTS.items()},

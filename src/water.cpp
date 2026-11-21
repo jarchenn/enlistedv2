@@ -179,6 +179,7 @@ in vec3 vW; in vec2 vFlow;
 uniform sampler2D uSceneCopy, uDepthCopy;
 uniform vec2 uSize; uniform float uZA, uZB, uTime;
 uniform vec4 uWLook;  // kind (0 sea, 1 pond, 2 stream, 3 puddle, 4 crater), clarity, wave scale, ice (BT1: 0..1)
+uniform int uWAbs;     // CP step 7 (perf switch wabs): extinction by absorption + scattering
 uniform vec4 uTint;   // optional water colour (rgb), a = 1 when set
 layout(location=0) out vec4 oColor;
 layout(location=2) out vec4 oAmb;
@@ -267,11 +268,23 @@ void main(){
   if (uTint.a > 0.5) sc = uTint.rgb;
   ext /= max(uWLook.y, 0.05);
   vec3 T = exp(-ext*vec3(1.35, 1.0, 0.85)*thick);        // red is absorbed first
+  // CP step 7 (perf switch wabs; corpus 11.7): extinction from what is in the water instead of a tint. Pure water absorbs
+  // (0.340, 0.0565, 0.0092) /m at 650 / 550 / 450 nm (Pope & Fry 1997); dissolved organics (CDOM: tea, peat) absorb blue
+  // most, silt scatters grey. Each kind: CDOM amount, silt scattering (1/m). What the bed shows is exp(-sigma_t d); what
+  // the water itself shows is the scattered share sigma_s / sigma_t of the light, so its colour follows the physics.
+  vec3 wOmega = vec3(0.0);
+  if (uWAbs == 1 && uTint.a <= 0.5) {
+    vec2 ks = kind == 0 ? vec2(0.02, 0.25) : kind == 2 ? vec2(0.45, 0.5) : kind == 3 ? vec2(1.0, 6.0) : kind == 4 ? vec2(0.5, 3.0) : vec2(1.2, 1.2);
+    vec3 sa = vec3(0.340, 0.0565, 0.0092) + ks.x*vec3(0.15, 0.42, 1.0), st = sa + ks.y;
+    T = exp(-st*thick/max(uWLook.y, 0.05));
+    wOmega = ks.y/st;   // single-scattering albedo per channel
+  }
   // ---- light
   vec3 up = vec3(0.0, 1.0, 0.0);
   float sh = shadowPCF(vW, up)*cloudShadow(vW);
   float sv = skyVis(vW, up);
-  vec3 Lin = sc*(giAmbient(vW, up, sv, uSkyCol*mix(0.35, 1.0, sv)) + uSunCol*max(uSunDir.y, 0.0)*sh*0.6);   // L2: probe light by night / under cover
+  vec3 lightIn = giAmbient(vW, up, sv, uSkyCol*mix(0.35, 1.0, sv)) + uSunCol*max(uSunDir.y, 0.0)*sh*0.6;
+  vec3 Lin = sc*lightIn;   // L2: probe light by night / under cover
   float NdV = max(dot(N, V), 1e-3);
   float F = 0.02 + 0.98*pow(1.0 - NdV, 5.0);
   vec3 R = reflect(-V, N); R.y = abs(R.y);
@@ -279,8 +292,9 @@ void main(){
   vec3 L = uSunDir, H = normalize(V + L);
   float NdL = max(dot(N, L), 0.0), NdH = max(dot(N, H), 0.0), a = max(rough*rough, 0.0009);
   vec3 spec = D_GGX(NdH, a)*G_Smith(NdV, NdL, rough)*vec3(F_Schlick(max(dot(H, V), 0.0), vec3(0.02)))/(4.0*NdV*max(NdL, 1e-3))*uSunCol*NdL*sh;
-  if (uLightCount > 0) { vec3 ld, ls; localLights(vW, N, up, V, rough, vec3(0.02), ld, ls); Lin += sc*ld*0.6; spec += ls; }   // L2: lamps on the water
+  if (uLightCount > 0) { vec3 ld, ls; localLights(vW, N, up, V, rough, vec3(0.02), ld, ls); Lin += sc*ld*0.6; lightIn += ld*0.6; spec += ls; }   // L2: lamps on the water
   if (under) { env = Lin*2.0; spec = vec3(0.0); }
+  if (uWAbs == 1 && uTint.a <= 0.5) Lin = wOmega*0.1*lightIn;   // the scattered share of the light (~10 % goes back up), no tint
   vec3 own = F*env + spec + (1.0 - F)*(1.0 - T)*Lin;
   vec3 trans = (1.0 - F)*T;
   vec3 fogAdd = applyFog(vec3(0.0), vW);                 // the haze colour times its share; sets gFogT
@@ -382,9 +396,11 @@ float waterSurfaceAt(const App& app, float x, float z) {
 
 const WaterStats& waterStats() { return gStats; }
 
+static GLuint gWaterProg = 0;   // CP 5.8: compiled at init (waterWarm), not on the first frame with water
 struct WaterPass {
+  static void warm(Renderer& r) { if (!gWaterProg) gWaterProg = r.compile(kWaterVS, kWaterFS, "water"); }
   static void run(Renderer& r, const RenderView& v, const mat4& vp) {
-    static GLuint prog = 0, depCopy = 0; static int cw = 0, ch = 0;
+    static GLuint depCopy = 0; static int cw = 0, ch = 0; GLuint& prog = gWaterProg;
     auto t0 = std::chrono::high_resolution_clock::now();
     gStats = WaterStats{};
     if (!prog) prog = r.compile(kWaterVS, kWaterFS, "water");
@@ -402,6 +418,7 @@ struct WaterPass {
     auto U = [&](const char* n) { return glGetUniformLocation(prog, n); };
     glUniformMatrix4fv(U("uVP"), 1, GL_FALSE, glm::value_ptr(vp));
     glUniform1f(U("uTime"), r.time);
+    glUniform1i(U("uWAbs"), r.perf.wAbs && !r.q.legacy ? 1 : 0);   // CP step 7
     glUniform2f(U("uSize"), (float)r.width, (float)r.height);
     glUniform1f(U("uZA"), v.proj[2][2]); glUniform1f(U("uZB"), v.proj[3][2]);   // reverse-Z: view depth = B / (z + A)
     glBindTextureUnit(8, r.sceneCopy); glUniform1i(U("uSceneCopy"), 8);
@@ -421,3 +438,4 @@ struct WaterPass {
   }
 };
 void waterRenderPass(Renderer& r, const RenderView& v, const mat4& vp) { WaterPass::run(r, v, vp); }
+void waterWarm(Renderer& r) { WaterPass::warm(r); }   // CP 5.8 (Renderer::warmPrograms)

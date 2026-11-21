@@ -41,7 +41,9 @@ struct UserSettings {
   // graphics
   GraphicsOpts gfx;
   float gamma = 1.0f;          // display gamma: above 1 lifts the dark tones, below 1 deepens them
+  bool lightPhys = false;      // CP2: Lighting Physical (on top of New); the user approves it map by map
   bool lightNew = true;        // VO stream L: Lighting New / Classic (Classic = the pre-VO lighting, for comparison); personal, a preset keeps it
+  float sharpness = 0.5f;      // CP1: the one sharpener 0..1 (personal, like gamma)
   float microcontrast = 0.0f;  // UI2: local contrast / clarity 0..1 (0 = off: no pass, no cost); personal, like gamma (a preset keeps it)
   float fov = 72.0f;           // hip / running world FOV (vertical deg); ADS and sights narrow from it
   bool vsync = true;
@@ -49,6 +51,7 @@ struct UserSettings {
   float hour = 14.0f;          // time of day (L2): 14:00 Day, 18:36 Dusk, 00:00 Night, 05:00 Dawn, or any hour
   int envFog = 1;              // WX1: environmental fog 0 Off, 1 Light, 2 Moderate, 3 Dense (a match follows the host's)
   int weather = 0;             // W1 weather preset id (weather.cpp: 0 Clear, 1 Overcast (was Cloudy), 2-14 appended); a match follows the host's
+  bool dynRes = true;          // CP 5.1 (dynres.h): the render scale follows the GPU time (Medium / High 0.77-1, Low 0.67-1); off: the fixed scale
 #ifdef __APPLE__
   int upscale = 1;             // 0 temporal, 1 spatial, 2 off (Renderer::upscaleMode). Mac: spatial (MetalFX temporal at Retina costs ~25 ms)
 #else
@@ -96,8 +99,10 @@ public:
   void capture(const App& app);
   void applyPreset(App& app, GfxPreset p) { if (p != GfxPreset::Custom) s.gfx = presetOpts(p); apply(app); }
   // getters for other systems
-  float drawDist() const { return s.gfx.renderDist / 1200.0f; }   // the old multiplier (1 = Medium's 1200 m), used by the cull sites
-  float renderDist() const { return s.gfx.renderDist; }
+  float drawDist() const { return renderDist() / 1200.0f; }   // the old multiplier (1 = Medium's 1200 m), used by the cull sites
+  float renderDist() const { return std::min(s.gfx.renderDist, visCap); }   // capped by the fog (visCap, set each frame)
+  float renderDistUser() const { return s.gfx.renderDist; }   // uncapped: terrain (culled ground would show sky, not fog colour)
+  float visCap = 1e9f;         // weather corpus 08 s4: 1.42 x the visibility at the eye (Renderer::visCullDist), app.cpp each frame
   float particleBudget() const { return s.gfx.particles; }   // multiplier on effect / fragment caps (1 = Medium)
   float fov() const { return s.fov; }
   float gamma() const { return s.gamma; }
