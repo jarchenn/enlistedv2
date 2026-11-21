@@ -7382,10 +7382,13 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     if (lt.mapSnowfall || wxSnow) {     // SF1 snowfall (look.snowfall) / Light snow / Blizzard
       const bool blizzard = wxSnow && wx.st.precipMmH >= 3.0f;
       const float sfN = lt.mapSnowfall ? lt.sfNear : 0.0f, sfF = lt.mapSnowfall ? lt.sfFar : 0.0f;
-      const float wN = wxSnow ? (blizzard ? 9000.0f : 60.0f) : 0.0f, wF = wxSnow ? (blizzard ? 16000.0f : 2500.0f) : 0.0f;   // a blizzard reads by count: ~2.6 flakes / m3 near
-      const float vN = perf.snowVar ? (blizzard ? 1.7f : 5.0f) : 1.0f, vF = perf.snowVar ? 1.3f : 1.0f;   // SV1: smaller flakes, more of them (Light snow's 60 near read as none)
+      const float mm = wx.st.precipMmH;
+      // a blizzard reads by count: ~2.6 flakes / m3 near. SV1: the preset's rate sets the count (Light snow 1 mm/h: 3800 / 5200,
+      // Blizzard 4 mm/h: 15200 / 20800); the W4 path had Light snow at a fixed 60 near, which read as none once flakes were smaller
+      const float wN = wxSnow ? (perf.snowVar ? 3800.0f * mm : blizzard ? 9000.0f : 60.0f) : 0.0f, wF = wxSnow ? (perf.snowVar ? 5200.0f * mm : blizzard ? 16000.0f : 2500.0f) : 0.0f;
+      const float vN = perf.snowVar ? 3.0f : 1.0f, vF = perf.snowVar ? 1.5f : 1.0f;   // SV1: a map's own snowfall (look.snowfall) x3 / x1.5 for the smaller flakes
       const vec3 sc = vec3(0.92f, 0.94f, 0.98f) * (lt.mapSnowfall ? lt.sfBright : 1.0f);
-      draw(0, (int)(std::max(sfN, wN) * vN * qs), (int)(std::max(sfF, wF) * vF * qs), 9.0f, 42.0f, lt.mapSnowfall ? lt.sfFall : 1.0f, wSnow, accS, sc, blizzard ? (perf.snowVar ? 1.3f : 2.2f) : 1.0f);   // SV1: smaller blizzard flakes
+      draw(0, (int)(std::max(sfN * vN, wN) * qs), (int)(std::max(sfF * vF, wF) * qs), 9.0f, 42.0f, lt.mapSnowfall ? lt.sfFall : 1.0f, wSnow, accS, sc, perf.snowVar ? (wxSnow ? 1.3f : 1.0f) : blizzard ? 2.2f : 1.0f);   // SV1: the presets' flakes 1.3   // SV1: smaller blizzard flakes
       if (blizzard) draw(3, (int)(3000 * qs), 0, 12.0f, 12.0f, 1.0f, wSnow, accS, sc * 0.95f, 1.6f);   // spindrift over the ground
     }
     if (wxRainy) {   // rain: streaks, and splashes on whatever top surface is under them
