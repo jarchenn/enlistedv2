@@ -155,7 +155,8 @@ vec3 mossField(vec3 p, float upDot, float wallAttach, float groundRecv, float mo
 }
 // the back lobe moss needs or it reads as green felt (4.5): x sun colour x shadow at the call site
 vec3 mossTransmit(vec3 N, vec3 L, vec3 V, float th){ return vec3(0.10, 0.21, 0.045)*(pow(clamp(dot(V, -L), 0.0, 1.0), 6.0)*0.55*th); }
-const vec3 kMossAlb = vec3(0.055, 0.105, 0.030), kMossDry = vec3(0.085, 0.095, 0.045), kLichenAlb = vec3(0.28, 0.29, 0.24);   // sway amplitude from uWind (der.windK x on / off): 1 = Clear's 3 m/s, the pre-weather look; 2.5 from about 9.4 m/s
+const vec3 kMossAlb = vec3(0.055, 0.105, 0.030), kMossDry = vec3(0.085, 0.095, 0.045), kLichenAlb = vec3(0.28, 0.29, 0.24);
+const vec3 kMossWall = vec3(0.10, 0.14, 0.055);   // batch-1 review: the 3.2 albedo read black on walls under overcast; the rev 1 photo swatch #596846 (linear)   // sway amplitude from uWind (der.windK x on / off): 1 = Clear's 3 m/s, the pre-weather look; 2.5 from about 9.4 m/s
 float windClock(bool prev){ return prev ? uWindP.y : uWindP.x; }
 vec3 windDir(){ return vec3(uWindV.x, 0.0, uWindV.y); }
 float windGust(vec2 xz, bool prev){
@@ -2165,16 +2166,23 @@ void main(){
     if (l1 < 0.4*l0) alb *= 0.4*l0/max(l1, 1e-4);   // the cap: 0.4 linear = ~35 % darker on screen (sRGB), never near-black
     if (uMoss.x > 0.5 && uFoundWx == 1) {   // BF B1 mossfield: the 4.5 field on walls (after the cap: moss is a material, not a darkening)
       float drip = uSills > 0 && vert > 0.5 && hg < 3.4 ? sillRunoff(vAp)*(1.0 - smoothstep(2.6, 3.4, hg)) : 0.0;
-      float cav = 0.6*cornerK;   // shortcut: corner proximity stands in for cavity until PF1's gCav lands
-      float por = mc == 1 ? 0.95 : mc == 2 ? 0.70 : mc == 3 ? 0.75 : 0.45;   // stone / lime mortar, brick, concrete, render (3.2)
+      float cav = max(gCav, 0.6*cornerK);   // the set's joints (materials' gCav) and the wall's corners
+      float por = max(gPorosity*(1.0 - metal), 0.3);   // materials' porosity from roughness (spec 3.2 within ~0.15)
       float dCam = length(vW - uCamPos);
       float mo = mossMoist(hg, drip, cav, 8.0*(1.0 - uMossHab.x));
       float shl = mossShelter(uMossHab.y, nW, vec3(0.0, 0.0, 1.0));
       vec3 mf = mossField(vW, nW.y, vert*dug*(0.55 + 0.45*cav), dug, mo, shl, por, 0.5*uMossHab.w*(1.0 - smoothstep(0.0, 0.4, hg)), 0.0, uMossHab.z, 0.0, 0.0, 1.0 - smoothstep(12.0, 30.0, dCam));
+      // batch-1 review (Blackwater): moss is a water map. Without moisture shelter and porosity alone covered whole
+      // north walls; the band fades above 1.0-1.8 m unless drips feed it (03 s3.1: ground to 1.0-1.6 m); never indoors
+      // (no sky above: the wet film's skyVis, and the room interiors); a wall keeps at most 0.6 of the field, so the mat
+      // holds the joints and patches instead of a coat
+      float skyK = gIn == 1 ? 0.0 : smoothstep(0.04, 0.2, skyVis(vW, vec3(0.0, 1.0, 0.0)));
+      float band = 1.0 - smoothstep(1.0, 1.8, hg)*(1.0 - clamp(2.0*drip, 0.0, 1.0));
+      mf.x = min(mf.x*smoothstep(0.12, 0.35, mo)*band*skyK, 0.6); mf.z *= skyK;
       float hMoss = 0.85 + 0.15*mossVn(vW/0.05), hHost = clamp(0.5 + gTexH/0.03, 0.0, 1.0);
       // mat: the HOST's height drives the blend, so moss fills the joints first (d = 0.045); film past uMoss.z
       float wm = dCam < uMoss.z ? mossMatW(mf.x, hHost, hMoss, 0.045) : mf.x*0.85;
-      vec3 mc0 = mix(kMossAlb, kMossDry, 1.0 - mo)*(0.8 + 0.4*mossVn(vW/0.12 + 5.0))*mix(0.55, 1.0, hMoss);
+      vec3 mc0 = mix(kMossWall, kMossDry*1.4, 1.0 - mo)*(0.85 + 0.3*mossVn(vW/0.12 + 5.0))*mix(0.8, 1.0, hMoss);
       alb = mix(alb, mc0, wm); rough = mix(rough, 0.88, wm);
       alb = mix(alb, kLichenAlb*(0.9 + 0.2*mossVn(vW/0.03)), mf.z*0.8); rough = mix(rough, 0.92, mf.z);
       gMossW = wm*mf.x; gWxDbg.y = mf.x;
@@ -2212,7 +2220,7 @@ void main(){
   if (uWetOn == 1 && wxWet > 0.0 && gl_FrontFacing) {   // W3: rain on walls, roofs and props: only where the sky reaches (shelter stays dry), porous (rough) dielectrics darken most
     vec3 ng0 = normalize(vN); float w = clamp(wxWet, 0.0, 1.0)*skyVis(vW, ng0)*mix(0.55, 1.0, clamp(ng0.y, 0.0, 1.0));
     float poro = (1.0 - metal)*smoothstep(0.35, 0.85, rough);
-    alb *= mix(1.0, 0.35, w*poro); rough = mix(rough, max(0.35*rough, 0.25), w);
+    alb *= mix(1.0, 0.35, w*poro*(1.0 - clamp(1.5*gMossW, 0.0, 1.0))); rough = mix(rough, max(0.35*rough, 0.25), w);   // BF: moss keeps its colour wet
   }
   vec3 c = shade(vW, N, alb, rough, metal, ao);
   if (gMossW > 0.0 && uMoss.y > 0.5) c += mossTransmit(N, uSunDir, normalize(uCamPos - vW), gMossW)*uSunCol*sunShadowT(vW, -N, 1.0, 1);   // BF B1 (interim: moves into shade() with PF1's blend)
