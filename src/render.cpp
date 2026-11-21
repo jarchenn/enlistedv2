@@ -4522,6 +4522,7 @@ float histLum(){
 void mainE(){
   vec3 avg = textureLod(uHdr, vec2(0.5), uLod).rgb;
   float prev = texelFetch(uPrev, ivec2(0), 0).r;
+  if (isnan(prev) || isinf(prev) || prev <= 0.0) prev = 1.0;   // never absorbing: fxexpo's rate limit multiplies prev, so a 0 / NaN would stay black for good
   if (uReset > 0.0) { oE = uReset; return; }
   float lr = uHist == 1 ? histLum() : dot(avg, vec3(0.2126,0.7152,0.0722));
   if (isnan(lr) || isinf(lr)) { oE = prev; return; }   // one non-finite pixel poisons the whole mip average
@@ -4956,7 +4957,7 @@ static vec3 kelvinRGB(float T) {   // blackbody colour, unit luminance (Helland'
   return c / std::max(0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b, 1e-4f);
 }
 void Renderer::physLight(vec3& sun, vec3& sky, vec3& ground, vec3& fog, vec3& fill, vec3& zen, vec3& hor, vec3& skySunCol, bool main) {
-  const float K = 30000.0f, mu = std::max(sunDir.y, 0.0f);
+  const float K = 30000.0f, mu = std::max(std::min(sunDir.y, physSunY), 0.0f);   // the real sun, not the key: a moon above the horizon is night (was daylight in moonlight's colour)
   const vec3 lw(0.2126f, 0.7152f, 0.0722f);
   const float h = glm::degrees(std::asin(glm::clamp(mu, 0.0f, 1.0f)));
   const float m = 1.0f / (std::max(mu, 1e-3f) + 0.50572f * std::pow(h + 6.07995f, -1.6364f));
