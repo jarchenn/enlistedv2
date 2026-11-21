@@ -5356,6 +5356,9 @@ void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr, bool vie
   if (lt.mapLeafless) return;   // BT1: look.leafless: the deciduous canopies (leaf cards) are bare in winter; the model conifers keep theirs
   float sway = 0.14f * windSwayAmp() * (1.0f + windGustG()) + kCullEps;   // kLeafVS leafSway: |offset| <= 0.10 x 1.3 x |(0.8, 0.25, 0.6)| x uWind
   bool tex = perf.leafTex && leafLibReady();
+  // unit 26 is also the terrain's horizon-shadow (setLighting) and sky-view map: bind the leaf array here, or the cards
+  // sample the wrong texture, read alpha 0 and are cut away (with the canopy prepass: depth without colour, drawn white)
+  { extern unsigned leafLibTex(); if (leafLibTex()) glBindTextureUnit(kLeafUnit, leafLibTex()); }
   for (int pass = 0; pass < 2; ++pass) {
     auto mine = [&](const FoliageDraw& f) { bool inst = tex && f.tree && f.tree->leafVao; return f.tree && inst == (pass == 1) && (inst || f.tree->cardVao); };
     if (std::none_of(foliage.begin(), foliage.end(), mine)) continue;
@@ -6846,7 +6849,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1f(U(progTone, "uCas"), perf.cas && !q.legacy && !thumbMode ? q.sharpness : 0.0f); glUniform1i(U(progTone, "uDither"), perf.dither && !thumbMode ? 1 : 0);   // CP1
   glUniform1i(U(progTone, "uHdr"), 0); glUniform1i(U(progTone, "uExpo"), 1);
   glUniform1f(U(progTone, "uNewExpo"), q.lightNew && !q.legacy && !thumbMode ? q.newExpo : 1.0f);   // VO L1
-  { float fe = lt.mapExposure > 0 && !thumbMode ? lightingFixedExposure(*this) * lt.mapExposure : v.autoExposure ? -1.0f : lightingFixedExposure(*this); if (q.lightPhys && q.lightNew && !q.legacy && !thumbMode && !camIndoor && physExpo > 0.0f) fe = physExpo; else if (fe > 0 && !thumbMode) fe *= wx.der.fixedMul; glUniform1f(U(progTone, "uFixedExpo"), fe); }   // CP2: Physical exposes by EV100 outdoors (indoors the meter)   // W1: a preset moves a fixed exposure by two thirds of its light change   // 1 by Day; BR3: a map may pin it (play = editor)
+  { float fe = lt.mapExposure > 0 && !thumbMode ? lightingFixedExposure(*this) * lt.mapExposure : v.autoExposure ? -1.0f : lightingFixedExposure(*this); if (camIndoor && perf.indoorExpo && !thumbMode && !q.legacy) fe = -1.0f;   /* CP4 indoorexpo: indoors always metered (editor stills too) */ if (q.lightPhys && q.lightNew && !q.legacy && !thumbMode && !camIndoor && physExpo > 0.0f) fe = physExpo; else if (fe > 0 && !thumbMode) fe *= wx.der.fixedMul; glUniform1f(U(progTone, "uFixedExpo"), fe); }   // CP2: Physical exposes by EV100 outdoors (indoors the meter)   // W1: a preset moves a fixed exposure by two thirds of its light change   // 1 by Day; BR3: a map may pin it (play = editor)
   {   // colour grade (content/settings/grade.json, read once; the defaults match the shipped file)
     static vec4 g(0.91f, 0.21f, 1.0f, 0.18f); static vec3 lo(0.965f, 0.995f, 1.045f), hi(1.035f, 1.0f, 0.955f); static bool read = false;
     if (!read) {

@@ -304,6 +304,24 @@ float lightsEmissiveScale(App& app, const Instance& i) {
   return useScale(d->lights[0].use, lightsDaylight(app));
 }
 
+// CP4 roomlights: the floor area of the (smallest) room box around p sets a lamp's reach and strength: x sqrt(area / 60 m2),
+// 1..3 (a 56 x 16 m hall: x3; a 12 m2 room: x1). Cached by position cell; rebuilt when the rooms change
+static float roomLightScale(App& app, vec3 p) {
+  static std::unordered_map<int64_t, float> cache; static size_t roomsN = ~size_t(0);
+  const auto& rooms = app.R.rooms;
+  if (rooms.size() != roomsN) { cache.clear(); roomsN = rooms.size(); }
+  const int64_t key = ((int64_t)std::floor(p.x * 2.0f) & 0xFFFFF) | (((int64_t)std::floor(p.y * 2.0f) & 0xFFFFF) << 20) | (((int64_t)std::floor(p.z * 2.0f) & 0xFFFFF) << 40);
+  auto it = cache.find(key); if (it != cache.end()) return it->second;
+  float best = 1e30f, k = 1.0f;
+  for (const auto& rb : rooms) {
+    vec3 l = vec3(glm::inverse(rb.m) * vec4(p, 1.0f));
+    if (std::fabs(l.x) <= rb.half.x + 0.3f && std::fabs(l.y) <= rb.half.y + 0.3f && std::fabs(l.z) <= rb.half.z + 0.3f) {
+      float area = 4.0f * rb.half.x * rb.half.z;
+      if (area < best) { best = area; k = std::clamp(std::sqrt(area / 60.0f), 1.0f, 3.0f); }
+    }
+  }
+  cache[key] = k; return k;
+}
 void lightsGather(App& app, std::vector<LightDesc>& out) {
   float day = lightsDaylight(app);
   for (auto& [idx, rp] : app.activeSet().lights) {   // instances with a light asset only (app.cpp), not every instance
@@ -325,6 +343,11 @@ void lightsGather(App& app, std::vector<LightDesc>& out) {
       LightDesc o;
       o.pos = vec3(M * vec4(s.offset, 1)); o.radius = s.radius;
       o.color = tint ? col : s.color; o.intensity = s.intensity * sc;
+      if (L && L->contains("radius")) o.radius = std::clamp(L->value("radius", o.radius), 0.5f, 60.0f);   // a placed lamp's own reach (extra.light.radius, m)
+      else if (app.R.perf.roomLights && (s.use == "interior" || s.use == "fire")) {   // CP4 roomlights: a lamp in a big room reaches and lights as the room needs (one lamp per ~60 m2 of floor reads)
+        const float k = roomLightScale(app, vec3(M * vec4(s.offset, 1)));
+        o.radius *= k; o.intensity *= k;
+      }
       o.dir = glm::normalize(q * s.dir); o.cosInner = s.cosInner; o.cosOuter = s.cosOuter;
       o.flicker = s.flicker; o.shadow = s.shadow;
       o.id = (uint32_t)(i.id * 16u + (uint64_t)k);
