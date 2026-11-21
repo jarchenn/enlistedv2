@@ -87,8 +87,9 @@ void weatherDerive(Renderer& R, vec3 eye) {
     d.skyK = d.eSkyLux / (clr.skyLux * std::sqrt(mu / 0.77f));
     d.tint = row.tint / std::max(lumOf(row.tint), 1e-3f);
     const float r = std::max(d.eTotalLux / std::max(clrTot, 1.0f), 1e-3f);   // the scene's light against Clear's
-    d.keyMul = std::pow(r, 1.0f / 3.0f);   // auto exposure: a third of the change stays on screen (two-thirds compensation)
-    d.fixedMul = std::pow(r, -2.0f / 3.0f);   // a fixed exposure moves by two thirds of it
+    const float keep = R.perf.wxExpo ? 0.25f : 1.0f / 3.0f;   // wxexpo: a quarter of the change stays on screen (was a third)
+    d.keyMul = std::pow(r, keep);   // auto exposure: that share of the change stays on screen
+    d.fixedMul = std::pow(r, keep - 1.0f);   // a fixed exposure moves by the rest
     float vis = s.dustVisM > 0 ? std::min(s.visM, s.dustVisM) : s.visM;
     d.sigma = 3.912f / vis;
     d.fogTopM = s.fogTopM; d.fogLayerSigma = s.fogTopM > 0 ? 3.912f / 300.0f : 0.0f;   // x the field's ground-fog share (up to ~1.8 in hollows): ~150 m there, thinner on open ground   // Dawn ground fog: 150 m inside a 5-50 m layer

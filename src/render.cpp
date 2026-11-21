@@ -5482,7 +5482,8 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
       const float mu = std::max(sunDir.y, 0.0f), ls = glm::dot(sun, lw), lk = glm::dot(sky, lw);
       const float eOld = ls * mu / 3.14159265f + lk, eNew = ls * d.sunK * mu / 3.14159265f + lk * d.skyK;
       const float r = std::max(eNew / std::max(eOld, 1e-5f), 1e-3f);
-      d.keyMul = std::pow(r, 1.0f / 3.0f); d.fixedMul = std::pow(r, -2.0f / 3.0f);
+      const float keep = perf.wxExpo ? 0.25f : 1.0f / 3.0f;   // wxexpo: rain and overcast are exposure states, a quarter of the light change stays on screen
+      d.keyMul = std::pow(r, keep); d.fixedMul = std::pow(r, keep - 1.0f);
     }
     const float fogL = glm::dot(fog, lw) * d.skyK;
     sun *= d.sunK * d.tint; skySunCol *= d.sunK * d.tint;

@@ -538,7 +538,10 @@ bool snowLayerOn();   // snow.cpp
 void LightingPass::exposureUniforms(const Renderer& R, GLuint p) {
   (void)R;
   // CP4 indoorexpo: inside a room the eye opens up: the meter may go ~3 stops past the day's range (corpus: interior EV 2-10 against 9-15.5 outside)
-  glUniform1f(U(p, "uExpoMax"), R.camIndoor && R.perf.indoorExpo && !R.thumbMode ? std::max(L.tod.expoMax, 8.0f) : L.tod.expoMax);
+  // wxexpo: a dark preset (rain, overcast, storm) raises the meter's ceiling by its own compensation (fixedMul >= 1), or the
+  // day's 1.45 stopped the meter ~2.5 stops short in Steady rain (deep dusk at noon); Clear (fixedMul 1) is unchanged
+  const float wxRoom = R.perf.wxExpo && R.wx.der.phys && !R.thumbMode && !R.wx.enclosed ? std::clamp(R.wx.der.fixedMul, 1.0f, 12.0f) : 1.0f;
+  glUniform1f(U(p, "uExpoMax"), R.camIndoor && R.perf.indoorExpo && !R.thumbMode ? std::max(L.tod.expoMax * wxRoom, 8.0f) : L.tod.expoMax * wxRoom);
   glUniform1f(U(p, "uExpoKey"), L.tod.expoKey * (R.thumbMode || R.wx.enclosed ? 1.0f : R.wx.der.phys ? R.wx.der.keyMul : glm::mix(1.0f, R.perf.w2Expo && snowLayerOn() ? 1.2f : 0.72f, R.wx.k)));   /* WX2: Cloudy is darker (auto exposure would otherwise lift it back) */ glUniform1f(U(p, "uExpoMin"), L.tod.expoMin);
 }
 
