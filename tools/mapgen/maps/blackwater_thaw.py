@@ -1388,7 +1388,12 @@ M_CASTLE = [{"name": "limestone", "albedo": [0.60, 0.58, 0.54], "roughness": 0.8
             {"name": "dark", "albedo": [0.03, 0.03, 0.035], "roughness": 0.7, "pattern": "plain", "metallic": 0, "grain": 1},
             {"name": "pane", "albedo": [0.045, 0.05, 0.055], "roughness": 0.12, "pattern": "glass", "metallic": 0, "grain": 1},
             {"name": "stain", "albedo": [0.47, 0.46, 0.43], "roughness": 0.7, "pattern": "ashlar", "metallic": 0, "grain": 1},
-            {"name": "repair", "albedo": [0.70, 0.68, 0.62], "roughness": 0.85, "pattern": "ashlar", "metallic": 0, "grain": 1}]
+            {"name": "repair", "albedo": [0.70, 0.68, 0.62], "roughness": 0.85, "pattern": "ashlar", "metallic": 0, "grain": 1},
+            {"name": "red_damp", "albedo": [0.29, 0.135, 0.10], "roughness": 0.75, "pattern": "plaster", "metallic": 0, "grain": 1},
+            {"name": "salt", "albedo": [0.60, 0.55, 0.50], "roughness": 0.9, "pattern": "plaster", "metallic": 0, "grain": 1},
+            {"name": "moss", "albedo": [0.20, 0.23, 0.15], "roughness": 0.95, "pattern": "plain", "metallic": 0, "grain": 1},
+            {"name": "soot", "albedo": [0.11, 0.105, 0.10], "roughness": 0.9, "pattern": "plain", "metallic": 0, "grain": 1},
+            {"name": "crack", "albedo": [0.12, 0.115, 0.11], "roughness": 0.9, "pattern": "plain", "metallic": 0, "grain": 1}]
 
 
 def write_castle_asset(ctx, cat):
@@ -1581,6 +1586,32 @@ def write_castle_asset(ctx, cat):
         elif kind in ("arch", "hall"):
             raw(at(-depth + 0.15, sill + h / 2, a), sz(0.16, h, 0.1), "trim", lod=1)   # mullion
 
+    # CB pass E (spec 5 / 6): weathering with causes. The west and north faces and the court are the shaded, damp ones
+    # (run-off below most sills, rising damp at the foot, snow on most sills); the east front dries (a few tails, sill
+    # snow on some); the south (gate) face sheds snow. One seeded draw per opening, so the facades differ.
+    WX = rng(SEED + 91)
+    WET = {"west": 0.8, "north": 0.75, "court": 0.6, "east": 0.25, "south": 0.15}
+    SNOWY = {"west": 0.85, "north": 0.9, "court": 0.6, "east": 0.4, "south": 0.1}
+
+    def plate(axis, face, side, a, y, w, h, m, off=0.006):
+        raw((face + side * off, y, a) if axis == "x" else (a, y, face + side * off), (0.012, h, w) if axis == "x" else (w, h, 0.012), m, lod=1)
+
+    def runoff(axis, face, side, a, sill, w, expo, m="stain"):   # tails below a sill, tapering, length by exposure
+        if WX.random() < WET[expo]:
+            L = WX.uniform(0.6, 1.4) * (1.6 if expo in ("west", "north") else 1.0)
+            plate(axis, face, side, a + WX.uniform(-0.1, 0.1), sill - 0.14 - L / 2, w * 0.7, L, m)
+            plate(axis, face, side, a + WX.uniform(-0.15, 0.15), sill - 0.14 - L - 0.35, w * 0.3, 0.7, m)
+
+    def damp(axis, face, side, a0, a1, y0, hmax, m="stain"):   # rising damp at a wall foot: an irregular band
+        a = a0
+        while a < a1 - 0.3:
+            wd = min(a1 - a, WX.uniform(1.2, 2.6)); hh = hmax * WX.uniform(0.45, 1.0)
+            plate(axis, face, side, a + wd / 2, y0 + hh / 2, wd, hh, m)
+            a += wd
+
+    def snowsill(expo):
+        return WX.random() < SNOWY[expo]
+
     # the terrace: a battered retaining drum (a wider plinth course), coping, a parapet along its front, paving on top
     cyl((0.0, yT - 10.0, -66.0), 44.0, 20.0, "masonry", 32)
     cyl((0.0, yT - 17.0, -66.0), 46.5, 6.0, "masonry", 32)                       # the batter: a wider foot course
@@ -1600,6 +1631,7 @@ def write_castle_asset(ctx, cat):
         L = math.hypot(p1[0] - p0[0], p1[1] - p0[1]) + 0.05; yaw_ = math.degrees(math.atan2(p1[0] - p0[0], p1[1] - p0[1])) - 90.0
         box(((p0[0] + p1[0]) / 2, yT + 0.55, (p0[1] + p1[1]) / 2), (L, 1.1, 0.5), "masonry", r=yaw_)
         box(((p0[0] + p1[0]) / 2, yT + 1.17, (p0[1] + p1[1]) / 2), (L, 0.14, 0.7), "trim", r=yaw_, k=0)
+        P.append({"t": "b", "c": [round((p0[0] + p1[0]) / 2, 3), round(yT + 1.27, 3), round((p0[1] + p1[1]) / 2, 3)], "s": [round(L * 0.96, 3), 0.06, 0.55], "m": "snow", "r": [0, round(yaw_, 1), 0], "k": 0, "lod": 1})
     # the gatehouse: red body split round a 4.4 m passage (open door leaves inside), stepped gable, towers. CB pass B/C:
     # the bodies are cores behind a 0.35 m front leaf with real window openings (G1); the portal (G2) is a true round
     # arch (springing yT + 4.2, crown yT + 6.4): pale radiating voussoirs through the first 0.8 m, a lined barrel beyond,
@@ -1611,11 +1643,17 @@ def write_castle_asset(ctx, cat):
         rw = [(x, w, y, y + h) for x, y, w, h in gwin if sx_ * x > 0]
         skin("z", -44.5, -44.85, *sorted((sx_ * 2.2, sx_ * 15.0)), yT, yT + 16.0, rw, "red")
         for x, w, yb, yt in rw:
-            win2("z", -44.5, 1, x, yb, w, yt - yb, "rect", depth=0.35)
+            win2("z", -44.5, 1, x, yb, w, yt - yb, "rect", depth=0.35, snow=snowsill("court"))
+            runoff("z", -44.5, 1, x, yb, w, "court", m="red_damp")
         a0, a1 = sorted((sx_ * 2.2, sx_ * 15.0))
         skin("z", GF, GF + GD, a0, a1, yT, yT + 16.0, [(x, w, y, y + h) for x, y, w, h in gwin if a0 < x < a1], "red")
     for x, y, w, h in gwin:
-        win2("z", GF, -1, x, y, w, h, "rect", depth=GD)
+        win2("z", GF, -1, x, y, w, h, "rect", depth=GD, snow=snowsill("south"))
+        runoff("z", GF, -1, x, y, w, "south", m="red_damp")
+    for sx_ in (-1, 1):
+        damp("z", GF, -1, *sorted((sx_ * 2.9, sx_ * 13.0)), yT, 1.3, m="red_damp")
+        for k in range(3):   # salt bloom where the damp band evaporates
+            plate("z", GF, -1, sx_ * WX.uniform(4.0, 12.0), yT + WX.uniform(1.1, 1.5), WX.uniform(0.5, 1.1), 0.18, "salt", off=0.009)
     gys, gr = yT + 4.2, 2.2
     box((0.0, gys + 3.0 + 4.4, -50.0), (4.4, 8.8, 11.0), "red")                    # over the passage, above the arch
     for i in range(11):                                                            # the voussoirs: through the first 0.8 m
@@ -1668,6 +1706,21 @@ def write_castle_asset(ctx, cat):
     for x in (-20.0, 20.0):
         box((x, yL + 4.0, -30.0), (2.0, 8.0, 36.0), "limestone")   # the facade's ashlar (masonry read as giant brick)
         box((x, yL + 8.12, -30.0), (2.4, 0.25, 36.2), "trim", k=0)   # CB: its coping
+        raw((x, yL + 8.29, -30.0), (2.0, 0.08, 35.6), "snow", lod=1)   # CB E: snow on it
+    # CB E: the repair event: a former arched opening in the west court wall, walled up in paler, newer stone
+    for dz, hh in ((0.0, 2.6), (-0.55, 2.2), (0.55, 2.2)):
+        plate("x", -19.0, 1, -24.0 + dz, yL + hh / 2, 0.55 if dz else 0.6, hh, "repair", off=0.008)
+    for i in range(7):
+        ph = math.pi * (i + 0.5) / 7; rm = 0.95
+        raw((-18.99, yL + 2.6 + rm * math.sin(ph) * 0.8, -24.0 + rm * math.cos(ph)), (0.03, 0.3, 0.42), "trim", rot=[90.0 - math.degrees(ph), 0, 0], lod=1)
+    cy_, cz_ = yL + 3.4, -23.2
+    for i in range(6):   # a crack stepping up the joints from the infill's corner: up a head joint, along a bed joint
+        if i % 2 == 0:
+            raw((-18.985, cy_ + 0.11, cz_), (0.012, 0.22, 0.015), "crack", lod=1); cy_ += 0.22
+        else:
+            raw((-18.985, cy_, cz_ + 0.125), (0.012, 0.015, 0.25), "crack", lod=1); cz_ += 0.25
+    damp("z", -7.6, -1, -19.8, -0.9, yL, 1.4); damp("z", -7.6, -1, 0.9, 19.8, yL, 1.4)
+    raw((0.0, yL + 10.09, -6.8), (40.0, 0.08, 1.4), "snow", lod=1)
     hollow(-11.0, yL + 10.0, -30.0, 13.0, 20.0, 16.0, "limestone", doors=[("x+", -26.0, yL, 1.6, 2.6)] + BOWER_WIN)
     for f_, al, sy_, w_, h_ in BOWER_WIN:
         win2("x", -4.5, 1, al, sy_, w_, h_, "rect", depth=0.8, room=True)
@@ -1736,10 +1789,13 @@ def write_castle_asset(ctx, cat):
         ends = [(x, 1.25, sill, sill + 2.0) for x in (-4.6, 4.6) for sill in (16.4, 20.4)] + [(x, 1.4, 11.0, 11.0 + opening("arch", 1.4, 2.9)) for x in (-4.6, 4.6)]
         ends += [(0.0, 0.4, y, y + 1.0) for y in (12.2, 17.0, 21.8, 25.4)]
         skin("z", zf, zf - sd * 0.4, -8.6, 8.6, 10.0, 30.0, ends, "limestone")
+        expo = "north" if sd > 0 else "south"
         for x in (-4.6, 4.6):
-            win2("z", zf, sd, x, 11.0, 1.4, 2.9, "arch")
+            win2("z", zf, sd, x, 11.0, 1.4, 2.9, "arch", snow=snowsill(expo))
+            runoff("z", zf, sd, x, 11.0, 1.4, expo)
             for sill in (16.4, 20.4):
-                win2("z", zf, sd, x, sill, 1.25, 2.0, "rect")
+                win2("z", zf, sd, x, sill, 1.25, 2.0, "rect", snow=snowsill(expo))
+                runoff("z", zf, sd, x, sill, 1.25, expo)
         for y in (12.2, 17.0, 21.8, 25.4):
             win2("z", zf, sd, 0.0, y, 0.4, 1.0, "small")
         for yc_, hh, pr in ((10.0, 0.45, 0.22), (15.4, 0.25, 0.14), (19.4, 0.25, 0.14), (23.4, 0.25, 0.14), (29.75, 0.5, 0.4)):
@@ -1770,9 +1826,11 @@ def write_castle_asset(ctx, cat):
     skin("x", -16.0, -15.6, 27.0, 41.0, 0.0, 30.0, thr, "limestone")
     for z_ in (30.0, 34.0, 38.0):
         win2("x", -16.0, -1, z_, 2.0, 1.6, 4.4, "arch")
-        win2("x", -16.0, -1, z_, 11.0, 1.4, 2.9, "arch")
+        win2("x", -16.0, -1, z_, 11.0, 1.4, 2.9, "arch", snow=snowsill("west"))
+        runoff("x", -16.0, -1, z_, 11.0, 1.4, "west")
         for sill in (16.4, 20.4):
-            win2("x", -16.0, -1, z_, sill, 1.25, 2.0, "rect")
+            win2("x", -16.0, -1, z_, sill, 1.25, 2.0, "rect", snow=snowsill("west"))
+            runoff("x", -16.0, -1, z_, sill, 1.25, "west")
         win2("x", -16.0, -1, z_, 24.4, 1.0, 1.4, "small")
     for yc_, hh, pr in ((10.0, 0.45, 0.22), (15.4, 0.25, 0.14), (19.4, 0.25, 0.14), (23.4, 0.25, 0.14), (29.75, 0.5, 0.4)):
         box((-16.0 - pr / 2 + 0.02, yc_, 34.0), (pr + 0.04, hh, 14.1), "trim", k=0)
@@ -1782,6 +1840,8 @@ def write_castle_asset(ctx, cat):
     for (x, z) in ((3.5, 10.0), (-3.5, 24.0), (3.5, 40.0)):
         box((x, 40.5, z), (1.3, 5.0, 1.3), "masonry")
         box((x, 43.15, z), (1.7, 0.3, 1.7), "trim", k=0)   # CB: a flue's cap stone
+        for dx_, dz_ in ((0.66, 0.0), (-0.66, 0.0), (0.0, 0.66), (0.0, -0.66)):   # CB E: soot under the cap
+            raw((x + dx_, 42.6, z + dz_), (0.012 if dx_ else 1.2, 0.7, 1.2 if dx_ else 0.012), "soot", lod=1)
     # the tall narrow spire behind the main roof: square shaft, octagonal upper stage, pointed cap (top +70)
     box((5.0, 25.0, 50.0), (6.0, 50.0, 6.0), "limestone")
     cyl((5.0, 54.0, 50.0), 8.0, 8.0, "limestone", 8)
@@ -1816,15 +1876,20 @@ def write_castle_asset(ctx, cat):
                 kd = kp if pav else kc
                 holes += [(z, WID[kd], sill, sill + opening(kd, WID[kd], h)) for z in bays]
             skin("x", side * (face - 0.4), side * face, z0, z1, 10.0, 30.0, holes, "limestone")
+            expo = "east" if side > 0 else "west"
             for z in bays:
                 win2("x", side * face, side, z, 1.5, 1.8, 5.2, "hall", depth=0.8 + (0.5 if pav else 0.0), glass_d=0.5 if pav else 0.3)
                 for sill, h, kc, kp in FLOORS:
                     kd = kp if pav else kc
-                    win2("x", side * face, side, z, sill, WID[kd], h, kd, snow=sample)
-                if sample:   # run-off below the principal and first-floor sills, tapering (spec 5: damp under overflow paths)
-                    for sill, h, kc, kp in FLOORS[:2]:
-                        raw((side * (face + 0.006), sill - 0.6, z), (0.012, 0.9, WID[kp] * 0.7), "stain", lod=1)
-                        raw((side * (face + 0.006), sill - 1.45, z), (0.012, 0.8, WID[kp] * 0.35), "stain", lod=1)
+                    win2("x", side * face, side, z, sill, WID[kd], h, kd, snow=sample or snowsill(expo))
+                    if sample and sill < 17.0:
+                        plate("x", side * face, side, z, sill - 0.6, WID[kd] * 0.7, 0.9, "stain")
+                        plate("x", side * face, side, z, sill - 1.45, WID[kd] * 0.35, 0.8, "stain")
+                    elif not sample:
+                        runoff("x", side * face, side, z, sill, WID[kd], expo)
+            if side < 0:   # the west foot: rising damp along the hall level, moss on the base course's top
+                damp("x", side * face, side, z0 + 0.2, z1 - 0.2, 0.0, 1.1)
+                raw((side * (face + 0.15), 0.03, (z0 + z1) / 2), (0.3, 0.06, z1 - z0 - 0.4), "moss", lod=1)
             if sample:   # one repair event: a patch of replaced, paler blocks on the pier between the first two bays
                 raw((side * (face + 0.006), 13.2, (bays[0] + bays[1]) / 2), (0.012, 1.1, 1.6), "repair", lod=1)
                 raw((side * (face + 0.006), 12.35, (bays[0] + bays[1]) / 2 + 0.3), (0.012, 0.6, 0.9), "repair", lod=1)
@@ -1833,10 +1898,13 @@ def write_castle_asset(ctx, cat):
     box((0.0, yT + 16.3, -55.6), (31.0, 0.5, 0.5), "trim", k=0)   # the gatehouse's cornice
     for (x, z, d) in ((11.0, -38.0, 8.0), (26.0, 0.0, 7.2)):
         cyl((x, (yL + 24.0 if d == 8.0 else yL + 26.0), z), d * 1.06, 0.8, "trim", 16)   # belts
+    IVY = [{"face": "+x", "a0": -44.0, "a1": -36.0, "y0": yL - 2.0, "y1": yL + 6.0, "density": 1.0, "pattern": "fan+ground", "age": 0.8},
+           {"face": "+x", "a0": -17.5, "a1": -11.0, "y0": yL, "y1": yL + 4.5, "density": 0.6, "pattern": "fan", "age": 0.5},
+           {"face": "-z", "a0": -13.0, "a1": -10.8, "y0": yT, "y1": yT + 3.5, "density": 0.4, "pattern": "fan+ground", "age": 0.3}]
     j = {"id": "bt_castle", "version": 1, "name": "Hilltop castle (Blackwater Thaw)", "category": "Landmarks",
          "description": "BT2: the scenic hilltop castle on the north-west spur, after the real Neuschwanstein's architecture (original geometry, graybox stage), generated by tools/mapgen/maps/blackwater_thaw.py. Far scenery: no colliders, one batched mesh per LOD.",
          "floors": 0, "enterable": False, "footprint": [60.0, 150.0], "plinthDepth": 0, "maxGrade": 90, "noAutoPanels": True, "lodKeep": 2.0,
-         "nav": {"effect": "none"}, "materials": M_CASTLE, "parts": P, "furniture": [], "interactables": [], "panels": []}
+         "nav": {"effect": "none"}, "materials": M_CASTLE, "parts": P, "furniture": [], "interactables": [], "panels": [], "ivy": IVY}
     # the palette asset (user: "castle should be placeable asset as well once furnished"): the same shell under its own id,
     # with the interior and its lamps as companions (placed with it from the palette, the interior loading only near,
     # the lamps loading with the interior), a 20 m plinth to seat it on uneven ground; Blackwater places the parts itself
