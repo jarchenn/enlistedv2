@@ -322,6 +322,7 @@ public:
     bool dlCache = true;         // dlcache (P2): far room-template furniture skips the draw-list loop; nature patches reuse their footprint hash
     bool farLeaf = true;         // farleaf (DR1): canopies past 80 / 180 / 400 m draw 40 / 15 / 6 % of their leaf cards, grown to keep the leaf area
     bool wallLod = true;         // walllod (DR1): undamaged buildings at asset LOD 1 / 2 draw their walls without small parts / opening trim; on since PERF1 (A/B -3.8 % GPU Medium, frames unchanged)
+    bool scatter = true;         // scatter (BF B2/B3): ground scatter on maps with look.scatter: stones, twigs, roots, litter sheets, moss cushions (scatter.cpp)
     bool contactAO = true;       // contactao (BF B4): a small projected AO decal under every resting object, into the AO target (spec 4.6, cue 4)
     bool contactShadow = true;   // contactsh (VO L1): screen-space sun contact shadows (Lighting New)
     bool fullShadow = true;      // fullshadow (VO L1): full-strength sun shadows (off: 30 % lighter, as Classic)
@@ -427,7 +428,7 @@ public:
               // ^ stream M (materials): append to the line above
               : n == "charvel" ? &charVel : n == "fxnear" ? &fxNear : n == "wxdrift" ? &wxDrift : n == "fxlit" ? &fxLit : n == "fxsoft" ? &fxSoft : n == "poseframe" ? &poseFrame : n == "poselod" ? &poseLod : n == "posejobs" ? &poseJobs : n == "stepinterp" ? &stepInterp : n == "dtsnap" ? &dtSnap
               // ^ characters (gameplay): append to the line above
-              : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "mossfield" ? &mossField : n == "contactao" ? &contactAO : n == "pollen" ? &pollen : n == "vegdust" ? &vegDust : n == "impostors" ? &impostors : n == "impostorbc" ? &impostorBC : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
+              : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "mossfield" ? &mossField : n == "contactao" ? &contactAO : n == "scatter" ? &scatter : n == "pollen" ? &pollen : n == "vegdust" ? &vegDust : n == "impostors" ? &impostors : n == "impostorbc" ? &impostorBC : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
               // ^ stream A (vegetation): append to the line above
               : n == "snowfar" ? &snowFar : n == "firthin" ? &firThin : n == "snowtex" ? &snowTex : n == "precip" ? &precip
               // ^ stream B (Blackwater snow / far firs): append to the line above
@@ -501,6 +502,7 @@ public:
     float mapHaze = 1.0f;       // AS1: "look": {"haze": k}: the aerial haze density x k (an abandoned town: hazier)
     bool mapSnowfall = false; float sfNear = 0, sfFar = 0, sfFall = 1.1f, sfBright = 1.0f; vec2 sfWind{0.9f, -0.6f};   // SF1: look.snowfall
     float mapGrassDead = 0.0f;   // BT1: look.grassDead
+    float mapMossBias = 0;      // BF: look.mossThreshold (reference 03: 0.35 damp village, 0.55 temperate, 0.75 dry): the field's habitat + (0.55 - it); absent: 0 (as before)
     bool mapLeafless = false;   // BT1: look.leafless (winter: no leaf cards on the part-built trees)
     vec4 fog2{0.0f};   // look.fogLayer2 {density, floor, top, soft}: a fog band between world heights (x = 0: none)
     float mapFogLayerTop = 1e9f, mapFogLayerSoft = 12.0f;   // look.fogLayer {top, topSoft}: the layer ends at world y top (1e9: no ceiling)
@@ -545,6 +547,7 @@ public:
   float zToward() const { return revZ ? 1.0f : -1.0f; }   // polygon-offset sign that pulls a fragment toward the eye
   std::vector<WaterDraw> water;         // set by the app each frame (water.cpp), consumed by render()
   friend struct WaterPass;
+  friend void scatterRenderPass(Renderer&, const RenderView&, const mat4&);   // BF B2/B3 (scatter.cpp)
 private:
   GLuint compile(const char* vs, const char* fs, const char* name);
   void createTargets();

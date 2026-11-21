@@ -800,3 +800,40 @@ multiplies every sway. The uniforms are in kCommon:
   porches, low roofs).
 - Limit: the occlusion map cannot tell a roof from a canopy. So a leaf under a higher roof can still show, for
   example inside an open barn seen from outside.
+
+## 16. Moss, ground scatter and contact AO (Battle Foundry phase 3: BF B1-B5)
+
+Spec: `docs/vfx-rev3/BATTLE-FOUNDRY-SPEC.md` 4.5, 4.6 and 8.2; reference chapters 03 and 04. Every cost figure there is a guess; the collective run measures them.
+
+**One moss field (B1, switch `mossfield`).** `mossField()` in kCommon (render.cpp) computes the 4.5 field: attachment, moisture (rising damp by height above grade, drips under sills, cavity, distance to water), shelter, substrate porosity, traffic, exclusion and snow. It returns M (appearance), G (instanced relief) and L (lichen, its inverse: dry, sun-facing, old stone). `mossFieldCpu()` (moss.cpp) mirrors it with the same integer hash, so the cushions placed on the CPU agree with what the shaders draw.
+- Walls: the MA2 block uses it for walls that have a ground-contact profile. A mat is height-blended by the host's height (moss fills the joints first, d = 0.045) within the tier's mat range, and a film (albedo and roughness only) is used beyond it. Boulders and scatter stones get the same field, with the stone's own height for joints and pits.
+- Transmission: a wrapped back lobe (`mossTransmit`), on from Medium. It is added after `shade()` for now, and moves into the materials session's layer blend and the lighting session's `shade()` when those land. Neither moss nor lichen has wind.
+- Map wetness: `look.mossThreshold` (reference 03: 0.35 damp village, 0.55 temperate, 0.75 dry) adds 0.55 - threshold to the habitat of every attached surface, in the shader and the CPU mirror. Maps without it are unchanged. Set on Blackwater Thaw (0.35) and outpost_woods (0.42).
+- Habitat grid (moss.cpp): the low-frequency terms a shader cannot compute, on 2+ m cells: water nearness, shelter as 1 - sunHours/6, door clearance, canopy.
+  - Sun hours come from the long-term sun path (east to west through the south, +z) swept against terrain, buildings and crowns.
+  - The grid rebuilds on a worker when the map holds still for a second after an edit.
+  - Instances get it in `uMossHab` (InstanceRT::contact[5]).
+  - The terrain session feeds it into the terrain mesh as a vertex attribute for ground moss (pending).
+
+**Ground scatter (B2, B3, switch `scatter`, map opt-in `look.scatter`).** scatter.cpp places everything on 16 m chunks from a stable hash of (map seed, chunk, candidate cell). A preset keeps a candidate when its own seed is under `Quality::scatterMul`, so changing presets never moves anything.
+- Stones: two-level Poisson (clusters on a 7 m jittered lattice, 2-8 stones /m^2 within 1-3 m), sunk 25-45 %. Small stones draw to 18 m, large ones to 60 m.
+- Twigs (0.1-0.5 m, under canopies) and roots (3-6 per model tree, half buried).
+- Litter sheets: against walls, on lee sides, in hollows and under canopies. Each is a 3 x 3 grid snapped to the ground, with procedural leaves in the shader.
+- Moss cushions: placed where G passes. Each is aligned between the surface normal and up, then turned by a smooth noise field so neighbours lean together, and sunk 20-35 %. LODs at 1 / 2 / 4 m, with a dithered hand-over at the range edge.
+- Nothing is placed in water, on paths, inside footprints, or above the angle of repose (34 deg stones, 40 deg rooted soil).
+- `NMK_SCATTER_CHECK=1` logs the 9.2 placement failures (a stone's sink outside 25-45 %, a twig end off the ground) with the seed and the ground height.
+- The cushions come from the CC0 apple moss scan, built by tools/bake_moss_cushions.py (Blender, background).
+
+**Contact AO (B4, switch `contactao`).** For every resting object within 60 m, and every scatter stone over 6 cm within 25 m, the pass draws one screen rectangle covering its footprint box. The rectangle multiplies AO 0.35-0.70 into up-facing ground within 0.10-0.25 m of the footprint, writing into the AO target after SSAO, so only the indirect share darkens. The pass runs on every preset (8.1 item 2).
+
+**Tiers (8.2, B5)**, from the grass tier the presets set:
+
+| | Ultra Low | Low | Medium | High | Ultra |
+|---|---|---|---|---|---|
+| Moss mat range | off | 6 m | 12 m | 23 m | 32 m |
+| Litter range | off | 6 m | 25 m | 42 m | 55 m |
+| Scatter share | 0 | 0.3 | 0.6 | 0.9 | 1.0 |
+| Cushions | - | - | 2 m, 3 shapes | 4 m, 4 shapes | 4.5 m, 6 shapes |
+| Transmission | - | - | on | on | on |
+
+Missing: hanging moss strands (no asset). Ultra Low shares Low's grass tier, so it gets Low's moss rows.

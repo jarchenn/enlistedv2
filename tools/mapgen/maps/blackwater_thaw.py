@@ -661,7 +661,8 @@ def build(ctx):
     # a valley mist layer (12 m e-folding) hugging the creek and the low ground
     # BT2: thinner world haze (the old 2.4 made a uniform veil), the damp valley pocket carries the mist (~0-12 m, tapering
     # by ~30 m), lighter cloud deck, a cooler but less grey grade
-    look = {"weather": 0.8, "clouds": 0.75, "haze": 1.6, "hazeHeight": 90.0, "envFog": 1, "fogNear": 6.0,
+    look = {"weather": 0.8, "mossThreshold": 0.35, "clouds": 0.75,   # mossThreshold: BF moss wetness (a thawing, wet hamlet)
+            "haze": 1.6, "hazeHeight": 90.0, "envFog": 1, "fogNear": 6.0,
             "fogLayer": {"density": 0.003, "height": 22.0},
             # brief 2.2: a soft basin band over the castle spur's lowest trees and terrace wall (y ~65-90), tower tops clear
             "fogLayer2": {"density": 0.002, "floor": 55.0, "top": 100.0, "soft": 10.0}, "saturation": 0.8, "tint": [0.97, 0.99, 1.03],

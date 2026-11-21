@@ -170,10 +170,10 @@ float mossShelterCpu(float sh0, vec3 n, vec3 sunDir) {
   return 0.60f * sat(sh0) + 0.40f * sat(glm::dot(n, ds) * 0.5f + 0.5f);
 }
 vec3 mossFieldCpu(vec3 p, float upDot, float wallAttach, float groundRecv, float moist, float shelter, float por, float root,
-                  float traffic, float excl, float snow, float site, float lichenAge, float nearK) {
+                  float traffic, float excl, float snow, float site, float lichenAge, float nearK, float bias) {
   const float attach = std::max(ss(0.22f, 0.85f, upDot) * groundRecv, wallAttach);
   const float hab = attach * sat(0.42f * moist + 0.30f * shelter + 0.18f * por + 0.10f * root);
-  const float pt = ss(0.36f, 0.65f, hab + 0.22f * (mossVnCpu(p / 0.6f) - 0.5f) + 0.17f * (mossVnCpu(p / 0.08f + 31.0f) - 0.5f) * nearK);
+  const float pt = ss(0.36f, 0.65f, hab + (attach > 0.001f ? bias : 0.0f) + 0.22f * (mossVnCpu(p / 0.6f) - 0.5f) + 0.17f * (mossVnCpu(p / 0.08f + 31.0f) - 0.5f) * nearK);
   const float M = pt * (1 - ss(0.18f, 0.62f, traffic)) * (1 - excl) * (1 - snow);
   const float L = sat((1 - shelter) * lichenAge * (1 - moist) * 2.0f) * ss(0.55f, 0.9f, por) * (1 - M) * (1 - snow) * (1 - excl)
                 * ss(0.5f, 0.68f, mossVnCpu(p / 0.09f + 7.0f) * 0.7f + mossVnCpu(p / 0.7f + 3.0f) * 0.3f);

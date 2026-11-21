@@ -330,6 +330,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
   R.contactAO.clear();   // BF B4
   R.foliage.clear(); R.folModels.clear(); R.impDraws.clear(); R.worldModels.clear(); R.worldModelsGlass.clear(); worldBoxDraws.clear(); R.natPatches.clear();
   { extern void greeneryFrame(App&); greeneryFrame(*this); }   // FL1: spring-green leaves (foliage.cpp)
+  { extern void scatterFrame(App&, std::vector<DrawItem>&, vec3); scatterFrame(*this, op, mode == Mode::Explore ? eyePos() : camPos); }   // BF B2/B3 ground scatter (scatter.cpp)
   foundationDrawItems(*this, op, mode == Mode::Explore ? eyePos() : camPos);   // MA3: foundation plants + stones (foundation.cpp)
   interior.beginFrame();   // R2 room culling: per-building visibility once per frame
   if (mode == Mode::Explore) { grenadeDrawItems(); gm2DrawItems(*this, op); }   // GM2: placed packs
@@ -1517,6 +1518,7 @@ int App::run(int argc, char** argv) {
       // FG1 (Blackwater Thaw spec 6): "look": {"hazeHeight": m (the aerial haze scale height), "fogLayer": {"density": 1/m,
       // "height": m}} (the valley mist: the environmental fog's own density and e-folding height, instead of the weather's)
       R.lt.mapLeafless = lk && lk->value("leafless", false);
+      R.lt.mapMossBias = lk && lk->contains("mossThreshold") ? 0.55f - lk->value("mossThreshold", 0.55f) : 0.0f;   // BF moss wetness
       R.lt.mapGrassDead = lk ? std::clamp(lk->value("grassDead", 0.0f), 0.0f, 1.0f) : 0.0f;
       { const json* sf = lk && lk->contains("snowfall") && (*lk)["snowfall"].is_object() ? &(*lk)["snowfall"] : nullptr;   // SF1
         R.lt.mapSnowfall = sf != nullptr;
