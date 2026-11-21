@@ -5333,6 +5333,9 @@ void Renderer::drawFoliage(GLuint p, const mat4& vp, const Frustum* fr, bool vie
   if (lt.mapLeafless) return;   // BT1: look.leafless: the deciduous canopies (leaf cards) are bare in winter; the model conifers keep theirs
   float sway = 0.14f * windSwayAmp() * (1.0f + windGustG()) + kCullEps;   // kLeafVS leafSway: |offset| <= 0.10 x 1.3 x |(0.8, 0.25, 0.6)| x uWind
   bool tex = perf.leafTex && leafLibReady();
+  // unit 26 is also the terrain's horizon-shadow (setLighting) and sky-view map: bind the leaf array here, or the cards
+  // sample the wrong texture, read alpha 0 and are cut away (with the canopy prepass: depth without colour, drawn white)
+  { extern unsigned leafLibTex(); if (leafLibTex()) glBindTextureUnit(kLeafUnit, leafLibTex()); }
   for (int pass = 0; pass < 2; ++pass) {
     auto mine = [&](const FoliageDraw& f) { bool inst = tex && f.tree && f.tree->leafVao; return f.tree && inst == (pass == 1) && (inst || f.tree->cardVao); };
     if (std::none_of(foliage.begin(), foliage.end(), mine)) continue;

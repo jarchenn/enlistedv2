@@ -286,7 +286,22 @@ bool benchViews(App& a, float dt) {
   static int mode = -1;
   if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--bench-views") mode = 1; }
   if (mode != 1) return false;
-  if (dt < 0) return false;   // the post-render pass writes the queued shots (stage 0: nothing else runs there)
+  // NMK_BENCH_CHECKVIEWS=1: each view's sanity check (the eye above the ground, not inside geometry, a frame that is not
+  // near-uniform) instead of a measurement; one [viewcheck] line per view, selftest_out/bench_viewcheck.jsonl
+  static const bool checkViews = std::getenv("NMK_BENCH_CHECKVIEWS") != nullptr;
+  static int checkState = 0; static json checkRec;   // 1: the frame is read after this render, 2: read
+  if (dt < 0) {   // the post-render pass writes the queued shots (stage 0: nothing else runs there)
+    if (checkState == 1) {
+      int fw, fh; glfwGetFramebufferSize(a.win, &fw, &fh);
+      std::vector<uint8_t> px((size_t)fw * fh * 4); glReadBuffer(GL_BACK); glPixelStorei(GL_PACK_ALIGNMENT, 1);
+      glReadPixels(0, 0, fw, fh, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
+      double sum = 0, sq = 0; size_t n = 0;
+      for (size_t k = 0; k + 3 < px.size(); k += 16) { double l = 0.2126 * px[k] + 0.7152 * px[k + 1] + 0.0722 * px[k + 2]; sum += l; sq += l * l; ++n; }
+      double m = n ? sum / n : 0, sd = n ? std::sqrt(std::max(0.0, sq / n - m * m)) : 0;
+      checkRec["lumMean"] = std::round(m * 10) / 10; checkRec["lumStd"] = std::round(sd * 10) / 10; checkState = 2;
+    }
+    return false;
+  }
   if (gMaps.empty()) {
     if (const char* r = std::getenv("NMK_BENCH_RES")) std::sscanf(r, "%dx%d", &gW, &gH);
     int fw, fh; glfwGetFramebufferSize(a.win, &fw, &fh);
@@ -358,6 +373,27 @@ bool benchViews(App& a, float dt) {
     return true;
   }
   // views: gPhase 2 measure (3-5: the NMK_BENCH_SHOTS stills and motion frames)
+  if (checkViews && gPhase == 2 && t >= gT0) {
+    if (checkState == 0) {   // the geometry tests now, the frame's statistics after this frame renders
+      const BView& v = gViews[gVi]; vec3 e = a.camPos;
+      float above = e.y - a.terrain.height(e.x, e.z); int hits = 0;
+      for (vec3 d : {vec3(1, 0, 0), vec3(-1, 0, 0), vec3(0, 1, 0), vec3(0, -1, 0), vec3(0, 0, 1), vec3(0, 0, -1)}) { Physics::Hit h; hits += Physics::castRayEx(e, d, 0.25f, h); }
+      checkRec = {{"map", v.map}, {"view", v.name}, {"pos", {e.x, e.y, e.z}}, {"aboveGround", std::round(above * 100) / 100}, {"rayHits", hits}};
+      checkState = 1; return true;
+    }
+    if (checkState == 2) {
+      std::string why;
+      if (checkRec["aboveGround"].get<float>() < 0.3f) why += " under or at the ground;";
+      if (checkRec["rayHits"].get<int>() >= 4) why += " inside geometry (most rays hit within 0.25 m);";
+      if (checkRec["lumStd"].get<double>() < 4.0 || checkRec["lumMean"].get<double>() < 3.0) why += " near-uniform frame;";
+      checkRec["ok"] = why.empty(); checkRec["why"] = why;
+      logf("[viewcheck] %s %s: %.2f m above the ground, %d / 6 rays hit, frame mean %.1f sd %.1f: %s%s", checkRec["map"].get<std::string>().c_str(), checkRec["view"].get<std::string>().c_str(),
+           checkRec["aboveGround"].get<float>(), checkRec["rayHits"].get<int>(), checkRec["lumMean"].get<double>(), checkRec["lumStd"].get<double>(), why.empty() ? "OK" : "FAIL", why.c_str());
+      std::ofstream(exeDir() / "selftest_out" / "bench_viewcheck.jsonl", std::ios::app) << checkRec.dump() << "\n";
+      checkState = 0; nextRun(a);
+    }
+    return true;
+  }
   if (gPhase == 2 && t >= gT0 && gLast > 0) sample(a, r, 0);
   const double fdt = t - gLast; gLast = t;
   if (gPhase == 3) {   // NMK_BENCH_SHOTS: a still was queued; now pan 20 deg/s and take a frame 0.5 s into the motion (TAA under motion)
