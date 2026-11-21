@@ -2687,6 +2687,7 @@ out vec4 oColor;
 vec3 viewPosAt(vec2 uv){ float z = texture(uDepth, uv).r; vec4 p = uInvProj*vec4(uv*2.0 - 1.0, z, 1.0); return p.xyz/p.w; }   // reverse-Z
 vec2 toUV(vec3 q){ vec4 c = uProj*vec4(q, 1.0); return c.xy/c.w*0.5 + 0.5; }
 uniform float uSsrMaxT = 1e9;   // OPT ssrrange
+uniform int uSsrEnvCube;   // 1 in the half-resolution SSR pass (it has the reflection cube bound)
 uniform vec2 uSsrRough = vec2(0.1, 0.4);   // CP4 ssrfade: SSR fades out over roughness x..y (0.3..0.5; was 0.1..0.4)
 vec4 traceSSR(vec3 Pv, vec3 Rv){
   float stepL = 0.22, t = 0.10, jit = pixelNoise();
@@ -2743,7 +2744,11 @@ vec3 ssrAdd(vec2 uv){   // the screen-space reflection's contribution here (geom
   if (hit.w <= 0.0) return vec3(0.0);
   vec3 Rw = normalize(transpose(mat3(uView))*Rv);
   vec3 refl = textureLod(uScene, hit.xy, 0.0).rgb;
-  return (refl - skyColor(Rw))*hit.z*F*(1.0 - smoothstep(uSsrRough.x, uSsrRough.y, nr.w))*uSsrAmt;
+  vec3 env = skyColor(Rw);   // what the world pass reflected here, which the hit replaces
+  if (uSsrEnvCube == 1 && uReflOn == 1) {   // the world pass used the L7 cube: subtract that, not the sky (a bright sky over a dim cube went below zero: black puddles)
+    vec3 Pw = transpose(mat3(uView))*Pv + uCamPos; float wg; vec3 rp = reflProbe(Pw, Rw, nr.w, wg); env = mix(env, rp, wg);
+  }
+  return (refl - env)*hit.z*F*(1.0 - smoothstep(uSsrRough.x, uSsrRough.y, nr.w))*uSsrAmt;
 }
 void main(){
 #ifdef NMK_SSR_HALF
@@ -6175,6 +6180,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   c3On = farAtlas && perf.cascade4 && q.lightNew && !q.legacy && !thumbMode && q.farCascade && sunSh;
   const float fR = c3On ? std::max(600.0f, radius * 6.0f) : std::max(240.0f, radius * 2.5f);   // CP4: with the fourth cascade the far one reaches ~600 m
   const int farX = farAtlas ? shadowFarSize : 0;   // the far cascade's half of the far map
+  stats.c3 = c3On ? 1 : 0; stats.farAtlas = farAtlas ? 1 : 0;
   const bool vegC3 = !(perf.vegCascades && midOn);   // vegetation stays in the two nearest cascades (CP5)
   if (c3On) {   // CP4 cascade4: the old far range at the far map's resolution, redrawn every 2nd frame or on a 6 m move / sun change
     const float cR = std::max(240.0f, radius * 2.5f);
@@ -6993,7 +6999,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
     glUniform1i(U(progSsrHalf, "uScene"), 8); glUniform1i(U(progSsrHalf, "uDepth"), 7);
     setLighting(progSsrHalf, v); glUseProgram(progSsrHalf);
     glBindTextureUnit(12, nrTex); glUniform1i(U(progSsrHalf, "uNR"), 12);
-    glUniform1f(U(progSsrHalf, "uSsrAmt"), q.ssrStrength); glUniform1f(U(progSsrHalf, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f); glUniform2f(U(progSsrHalf, "uSsrRough"), perf.ssrFade ? 0.3f : 0.1f, perf.ssrFade ? 0.5f : 0.4f);
+    glUniform1f(U(progSsrHalf, "uSsrAmt"), q.ssrStrength); glUniform1i(U(progSsrHalf, "uSsrEnvCube"), 1); glUniform1f(U(progSsrHalf, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f); glUniform2f(U(progSsrHalf, "uSsrRough"), perf.ssrFade ? 0.3f : 0.1f, perf.ssrFade ? 0.5f : 0.4f);
     glUniformMatrix4fv(U(progSsrHalf, "uProj"), 1, GL_FALSE, glm::value_ptr(v.proj));
     glUniformMatrix4fv(U(progSsrHalf, "uView"), 1, GL_FALSE, glm::value_ptr(v.view));
     glUniformMatrix4fv(U(progSsrHalf, "uInvProj"), 1, GL_FALSE, glm::value_ptr(invP));

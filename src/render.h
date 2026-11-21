@@ -68,6 +68,7 @@ struct FrameStats { double cpuMs = 0, gpuMs = 0; int draws = 0, tris = 0; int cu
                     // R2: sun-cascade casters skipped by castercull, camera-pass items hidden by roomcull, sun-cascade draws; GI probes
                     // waiting for a first capture / invalidated, the oldest capture among probes within 12 m (frames)
                     int casterCulled = 0, roomCulled = 0, shadowDraws = 0, probePending = 0, probeDirty = 0, probeStaleMax = 0;
+                    int c3 = 0, farAtlas = 0;   // CP4 cascade4 this frame (tests)
                     float sunDirectPct = 100;   // OPT wxsun: the direct sun's share of a level surface's light (%)
                     int foliageDraws = 0, instDrawn = 0, farStatic = -1, occCulled = 0;   // farStatic: the far cascade's static layer was redrawn this frame (1), reused (0), no cache (-1); occCulled: buildings hidden by terrain   // instDrawn: items drawn inside instanced depth draws (P2 instdepth)   // P2: draws by drawFoliage (all passes)   // culled: items / cards / parts skipped by the per-pass frustum tests (all passes); probeCpuMs / probes: CPU time and count of the GI probe captures (lighting.cpp)
                     double terrSamples = -1; };   // PF terrain (a frame or two old): samples the terrain pass wrote (-1: no data)
