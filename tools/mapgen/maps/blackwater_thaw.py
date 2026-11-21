@@ -760,8 +760,8 @@ def snow_mask(F, tdir):
             k = np.clip((rad + 3.0 - np.hypot(X[m] - cx, Z[m] - cz)) / 4.0, 0, 1)
             R[m] = R[m] * (1.0 - 0.6 * k)
     for name, ((cx, cz), (hx, hz), fl) in AREAS.items():
-        m = (np.abs(X - cx) <= hx) & (np.abs(Z - cz) <= hz)
-        R[m] = np.minimum(R[m], 0.84 - 0.26 * blob(5.0, 4)[m])   # sheltered yards and the orchard: 45-75 %
+        k = np.clip(np.minimum(hx - np.abs(X - cx), hz - np.abs(Z - cz)) / 8.0 + 0.5, 0, 1)   # 8 m feathered edge, no hard rectangle
+        R = R * (1.0 - k) + np.minimum(R, 0.84 - 0.26 * blob(5.0, 4)) * k   # sheltered yards and the orchard: 45-75 %
     G = np.zeros_like(R); B = np.zeros_like(R); A = np.zeros_like(R)
     for name, (pts, wd, kind) in ROUTES.items():
         dist = poly_dist(X, Z, lane_dense(pts, 2.0))
@@ -784,8 +784,7 @@ def snow_mask(F, tdir):
             A = np.maximum(A, k * np.clip((blob(3.0, 2) - 0.62) * 4.0, 0, 1))   # meltwater only in low pockets of the ruts
     # door pads and gate gaps: packed, then clear
     for aid, x, z, yaw, fam in BUILDINGS:
-        m = np.hypot(X - x, Z - z) < 9.0
-        G[m] = np.maximum(G[m], 0.12)
+        G = np.maximum(G, 0.12 * np.clip((11.0 - np.hypot(X - x, Z - z)) / 4.0, 0, 1))   # feathered, no hard disc
     for (gx, gz) in ((-46.0, -6.0), (58.0, -24.0), (8.0, 84.0), (-87.0, -67.0)):
         m = np.hypot(X - gx, Z - gz) < 2.2
         B[m] = np.maximum(B[m], 0.9)

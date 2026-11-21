@@ -75,7 +75,7 @@ struct FrameStats { double cpuMs = 0, gpuMs = 0; int draws = 0, tris = 0; int cu
 // a pass runs from its mark to the next mark in GPU time; passes that did not run read 0
 enum GpuPass : int { GP_CloudShadow, GP_ShadowNear, GP_ShadowFar, GP_SkyOcc, GP_LightShadows, GP_Probes, GP_Clusters,
                      GP_Clears, GP_Sky, GP_Terrain, GP_Opaque, GP_Models, GP_Trees, GP_Grass, GP_Nature, GP_MsaaResolve, GP_Water, GP_Gore,
-                     GP_Glass, GP_Composite, GP_Taa, GP_Bloom, GP_Fx, GP_Weapon, GP_Post, GP_UI, GP_Count };
+                     GP_Glass, GP_Composite, GP_Taa, GP_Bloom, GP_Fx, GP_Precip, GP_Weapon, GP_Post, GP_UI, GP_Count };   // GP_Precip: W4
 const char* gpuPassName(int p);
 // water surface of a placed asset (water.cpp): drawn by the water pass after the opaque world
 struct WaterDraw { GLuint vao = 0; int count = 0; mat4 model{1}; vec4 look{0}, tint{0}; };   // look: kind, clarity, waves
@@ -264,6 +264,7 @@ public:
     bool albClamp = true;        // albclamp (CP step 4): dielectric albedo luminance clamped to linear 0.02-0.9, grass floored at 0.10
     bool wAbs = true;            // wabs (CP step 7): water extinction by absorption (Pope & Fry pure water + per-kind organics) and silt scattering; off = the per-kind tint
     bool maskLib = true;         // masklib (CP step 6 part 2): each building's grime from its own mask of the 12-mask library (4 array layers)
+    bool steepTri = true;        // steeptri (FIX5): ground-space texture slots go triplanar on slopes steeper than ~37 deg (painted banks stop stretching)
     bool wearCause = true;       // wearcause (M4): splash near the ground and runoff streaks on walls, roughness first, varied per building
     bool microDetail = true;     // microdetail (CP step 6): 0.2 m micro normal / roughness detail near the eye (fades 2.5-7 m), walls and ground
     bool roughVar = true;        // roughvar (CP step 6): macro roughness variation (+-15 %) on every textured surface
@@ -325,6 +326,7 @@ public:
     bool treePxLod = true;       // treepxlod (CP2): model foliage LOD and cull by projected pixels, a dithered cross-fade band, capped at the weather's cull distance
     bool impostorBC = true;      // impostorbc (CP3c): impostor atlases block-compressed on a worker (BC3 / BC5) and cached on disk; off: RGBA8, baked every load
     bool impostors = true;       // impostors (CP3): model trees under ~170 px tall drawn as octahedral impostors (12 x 12 frames)
+    bool vegDust = true;         // vegdust (WS4): grass and cut-out model plants take a dust coating under the dust presets (st.dustVisM)
     bool pollen = true;          // pollen (WS3): drifting pollen motes over grass on dry, mild days (count 0.75 x leafDriftN)
     bool leafDrift = true;       // leafdrift (WS2): drifting leaves near broadleaf / orchard trees (count: Quality::leafDriftN)
     bool hashAlpha = false;      // hashalpha (VO A1): cut-out leaves / grass with a dithered threshold under TAA (Medium / High), width NMK_HASH_SPREAD (0.2); off: no gain over cutoutMips (A1 sheets), kept for A/B
@@ -394,6 +396,7 @@ public:
     bool fxNear = true;          // fxnear (weather 7): alpha sprites fade near the eye, every sprite capped at half the view height on screen (off: as before)
     bool charVel = true;         // charvel (AIB1): soldiers write their own TAA motion (previous model matrix + previous skinned vertex); off = depth reprojection (smeared)
     bool snowFar = true;         // snowfar (BT2): applySnow's patch noise only within 120 m and its shelter tap within 150 m; off = everywhere
+    bool precip = true;          // precip (W4): falling snow, blizzard spindrift, rain streaks and splashes (one path); off = none
     bool snowTex = true;         // snowtex (SN2): the three snow sets (packed / trodden / thaw) on the ground within 60 m, edges by height; off = applySnow's flat snow
     bool firThin = true;         // firthin (BT2): instances marked extra.perfThin (Blackwater's far-stand saplings and thinned trees) are not drawn
     bool taau = true;            // taau (P1): below scale 1 the world renders at the resolution scale and TAA reconstructs at output size (rendering.md 14); off = native resolution
@@ -410,13 +413,13 @@ public:
               // ^ stream T (terrain): append to the line above
               : n == "contactsh" ? &contactShadow : n == "fullshadow" ? &fullShadow : n == "gtao" ? &gtao : n == "midcascade" ? &midCascade : n == "microsh" ? &microShadow : n == "foltrans" ? &folTrans : n == "agx" ? &agx : n == "histexpo" ? &histExpo : n == "skyrelit" ? &skyRelit : n == "atmo" ? &atmo : n == "reflprobe" ? &reflProbe
               // ^ stream L (lighting): append to the line above
-              : n == "specaa" ? &specAA : n == "texbias" ? &texBias : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps : n == "splitsum" ? &splitSum : n == "albclamp" ? &albClamp : n == "wabs" ? &wAbs : n == "wet" ? &wet : n == "microdetail" ? &microDetail : n == "wearcause" ? &wearCause : n == "masklib" ? &maskLib : n == "roughvar" ? &roughVar
+              : n == "specaa" ? &specAA : n == "texbias" ? &texBias : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps : n == "splitsum" ? &splitSum : n == "albclamp" ? &albClamp : n == "wabs" ? &wAbs : n == "wet" ? &wet : n == "microdetail" ? &microDetail : n == "wearcause" ? &wearCause : n == "steeptri" ? &steepTri : n == "masklib" ? &maskLib : n == "roughvar" ? &roughVar
               // ^ stream M (materials): append to the line above
               : n == "charvel" ? &charVel : n == "fxnear" ? &fxNear : n == "wxdrift" ? &wxDrift : n == "fxlit" ? &fxLit : n == "fxsoft" ? &fxSoft : n == "poseframe" ? &poseFrame : n == "poselod" ? &poseLod : n == "posejobs" ? &poseJobs : n == "stepinterp" ? &stepInterp : n == "dtsnap" ? &dtSnap
               // ^ characters (gameplay): append to the line above
-              : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "pollen" ? &pollen : n == "impostors" ? &impostors : n == "impostorbc" ? &impostorBC : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
+              : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "pollen" ? &pollen : n == "vegdust" ? &vegDust : n == "impostors" ? &impostors : n == "impostorbc" ? &impostorBC : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
               // ^ stream A (vegetation): append to the line above
-              : n == "snowfar" ? &snowFar : n == "firthin" ? &firThin : n == "snowtex" ? &snowTex
+              : n == "snowfar" ? &snowFar : n == "firthin" ? &firThin : n == "snowtex" ? &snowTex : n == "precip" ? &precip
               // ^ stream B (Blackwater snow / far firs): append to the line above
               : n == "snow" ? &snow : n == "viscull" ? &visCull : n == "kotrees" ? &koTrees : n == "kograss" ? &koGrass : n == "kofolmodels" ? &koFolModels
               // ^ stream P (performance): append to the line above
