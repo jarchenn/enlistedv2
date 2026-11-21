@@ -451,7 +451,7 @@ public:
     bool charVel = true;         // charvel (AIB1): soldiers write their own TAA motion (previous model matrix + previous skinned vertex); off = depth reprojection (smeared)
     bool snowFar = true;         // snowfar (BT2): applySnow's patch noise only within 120 m and its shelter tap within 150 m; off = everywhere
     bool precip = true;          // precip (W4): falling snow, blizzard spindrift, rain streaks and splashes (one path); off = none
-    bool snowVar = true;         // snowvar (SV1): falling snow varied per flake (power-law size, speed / brightness by size, own drift, gust swirl and patches, <= 8 px); off = the W4 flakes
+    bool snowVar = false;        // snowvar (SV1): falling snow varied per flake (power-law size, speed / brightness by size, own drift, gust swirl and patches, <= 8 px); off = the W4 flakes
     bool snowTex = true;         // snowtex (SN2): the three snow sets (packed / trodden / thaw) on the ground within 60 m, edges by height; off = applySnow's flat snow
     bool firThin = true;         // firthin (BT2): instances marked extra.perfThin (Blackwater's far-stand saplings and thinned trees) are not drawn
     bool taau = true;            // taau (P1): below scale 1 the world renders at the resolution scale and TAA reconstructs at output size (rendering.md 14); off = native resolution
