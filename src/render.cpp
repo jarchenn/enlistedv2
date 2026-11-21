@@ -2191,6 +2191,69 @@ void main(){
   gl_Position = uVP*w;   // invariant: the CP1 depth prepass (fol_depth) and the GL_EQUAL shading pass must agree
 }
 )GLSL";
+// CP3 octahedral impostors (corpus 09 s2.4): each model tree baked into 12 x 12 hemi-octahedral frames (albedo + alpha,
+// object-space normal + depth). The bake: kFolVS with one identity instance, an orthographic camera per frame.
+static const char* kImpBakeFS = R"GLSL(
+in vec3 vW, vN; in vec4 vT; in vec2 vUV; flat in vec4 vTintI;
+uniform sampler2D uAlb; uniform int uHasAlb, uCutout; uniform vec4 uBase;
+layout(location=0) out vec4 oAlb; layout(location=1) out vec4 oNrm;
+void main(){
+  vec4 b = uBase; if (uHasAlb == 1) b *= texture(uAlb, vUV);
+  if (uCutout == 1 && b.a < 0.5) discard;
+  vec3 N = normalize(vN); if (!gl_FrontFacing) N = -N;
+  oAlb = vec4(b.rgb, 1.0); oNrm = vec4(N*0.5 + 0.5, gl_FragCoord.z);
+}
+)GLSL";
+// the draw: one camera-facing quad per tree; the frame nearest the view direction (object space), the quad's pixel
+// projected into that frame's basis. Per instance (SSBO 13): centre, radius | yaw, dither, -, - | tint (as FolModelDraw)
+static const char* kImpVS = R"GLSL(
+layout(std430, binding = 13) readonly buffer NmkImp { vec4 gImp[]; };
+uniform mat4 uVP;
+out vec3 vW; flat out vec4 vCR; flat out vec4 vYD; flat out vec4 vTint;
+void main(){
+  int b = gl_InstanceID*3; vCR = gImp[b]; vYD = gImp[b + 1]; vTint = gImp[b + 2];
+  vec3 f = uCamPos - vCR.xyz; f = length(f) > 1e-3 ? normalize(f) : vec3(0.0, 0.0, 1.0);
+  vec3 rt = normalize(cross(abs(f.y) > 0.99 ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0), f)), up = cross(f, rt);
+  int k = gl_VertexID; vec2 q = k == 0 ? vec2(-1, -1) : k == 1 ? vec2(1, -1) : k == 2 ? vec2(1, 1) : k == 3 ? vec2(-1, -1) : k == 4 ? vec2(1, 1) : vec2(-1, 1);
+  vW = vCR.xyz + (rt*q.x + up*q.y)*vCR.w;
+  gl_Position = uVP*vec4(vW, 1.0);
+}
+)GLSL";
+static const char* kImpFS = R"GLSL(
+in vec3 vW; flat in vec4 vCR; flat in vec4 vYD; flat in vec4 vTint;
+uniform sampler2D uImpAlb, uImpNrm; uniform float uImpUse;   // uImpUse: the frames' share of the atlas (12 x 170 / 2048)
+layout(location=4) out vec4 oVel; layout(location=0) out vec4 oColor; layout(location=2) out vec4 oAmb; layout(location=3) out vec4 oNR;
+vec2 hoEnc(vec3 d){ d.y = max(d.y, 0.0); d /= abs(d.x) + abs(d.y) + abs(d.z); return vec2(d.x + d.z, d.z - d.x)*0.5 + 0.5; }
+vec3 hoDec(vec2 uv){ vec2 e = uv*2.0 - 1.0; float x = (e.x - e.y)*0.5, z = (e.x + e.y)*0.5; return normalize(vec3(x, 1.0 - abs(x) - abs(z), z)); }
+vec3 rotY(vec3 p, float a){ float c = cos(a), s = sin(a); return vec3(c*p.x + s*p.z, p.y, -s*p.x + c*p.z); }
+void main(){
+  if (vYD.y != 0.0) { float n = pixelNoiseFixed(); if (vYD.y > 0.0 ? n >= vYD.y : n < -vYD.y) discard; }   // CP2 cross-fade with the model
+  const float N = 12.0;
+  vec3 Vo = rotY(normalize(uCamPos - vCR.xyz), -vYD.x);
+  vec2 fi = clamp(floor(hoEnc(Vo)*N), 0.0, N - 1.0);
+  vec3 dF = hoDec((fi + 0.5)/N), rF = normalize(cross(vec3(0.0, 1.0, 0.0), dF)), uF = cross(dF, rF);
+  vec3 po = rotY(vW - vCR.xyz, -vYD.x)/vCR.w;
+  vec2 uv = vec2(dot(po, rF), dot(po, uF))*0.5 + 0.5;
+  if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) discard;
+  vec2 auv = (fi + uv)/N*uImpUse;
+  vec4 a = texture(uImpAlb, auv);
+  if (a.a < 0.5) discard;
+  vec3 alb = a.rgb/max(a.a, 1e-3);
+  if (vTint.a > 2.5) alb = mix(alb, vTint.rgb*dot(alb, vec3(0.2126, 0.7152, 0.0722)), uGreenK.w*greenMask(alb));   // FL1 greenery, as kModelFS
+  else if (vTint.a > 1.5) alb *= vTint.rgb;
+  vec3 Nn = normalize(rotY(texture(uImpNrm, auv).xyz*2.0 - 1.0, vYD.x));
+  vec3 V = normalize(uCamPos - vW);
+  float sh = sunShadowT(vW + Nn*0.1, Nn, 1.0, 4);
+  float ndl = max(dot(Nn, uSunDir), 0.0)*0.7 + 0.3;
+  vec3 irr = mix(uGroundCol, uSkyCol, 0.5 + 0.5*Nn.y)*mix(0.45, 1.0, 0.5 + 0.5*Nn.y);
+  irr = giAmbient(vW, Nn, 1.0, irr);
+  float VoL = max(dot(-V, uSunDir), 0.0);
+  vec3 c = alb/PI*uSunCol*ndl*sh + irr*alb*0.7 + alb*uSunCol*0.12*pow(VoL, 4.0)*sh;   // the baked crown's transmission: a backlit term
+  c = applyFog(c, vW);
+  oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : c, 1.0);
+  oAmb = vec4(irr*alb*0.7*gFogT*0.5, 1.0); oNR = vec4(Nn, 1.0); oVel = vec4(0.0, 0.0, 0.0, 1.0);
+}
+)GLSL";
 static const char* kFolDepthFS = R"GLSL(
 in vec3 vW, vN; in vec4 vT; in vec2 vUV;
 uniform sampler2D uAlb; uniform int uCutout; uniform vec4 uBase; uniform float uDither;
@@ -4354,6 +4417,8 @@ bool Renderer::init(int w, int h) {
     glProgramUniform1f(progModel, glGetUniformLocation(progModel, "uGlassFilm"), film);
   }
   progFolModel = compile(kFolVS, kModelFS, "fol_model"); progFolDepth = compile(kFolVS, kFolDepthFS, "fol_depth");   // NT8
+  progImpBake = compile(kFolVS, kImpBakeFS, "imp_bake"); progImp = compile(kImpVS, kImpFS, "impostor");   // CP3
+  for (GLuint* pp : {&progImpBake, &progImp}) { GLint ok = 0; glGetProgramiv(*pp, GL_LINK_STATUS, &ok); if (!ok) { glDeleteProgram(*pp); *pp = 0; } }   // a failed program: no impostors
   progDof = compile(kFullVS, kDofFS, "dof");
   progEyepiece = compile(kFullVS, kEyepieceFS, "eyepiece");
   progHeat = compile(kHeatVS, kHeatFS, "thermal heat");   // TH1
@@ -5187,6 +5252,101 @@ void Renderer::drawModelsDepth(GLuint p, const std::vector<ModelDraw>& items, co
 
 // NT8: model foliage. Instances are culled per model (bounding sphere), their matrices packed into one SSBO (binding 12),
 // then each part is one instanced draw; cutout parts alpha test (depth too), no back-face culling.
+// ---------------- CP3 octahedral impostors
+const Renderer::Impostor* Renderer::impostorFor(const GpuModel* m, int first, int count) {
+  if (!progImp || !progImpBake || !m || !m->vao) return nullptr;
+  auto key = std::make_tuple(m, first, count);
+  auto it = impostors.find(key);
+  if (it != impostors.end()) return it->second.ready ? &it->second : nullptr;
+  if (impostors.size() >= 16) return nullptr;   // shortcut: at most 16 species (about 27 MB each), first come; an LRU if maps need more
+  impostors[key]; impWant.push_back(key); return nullptr;
+}
+
+void Renderer::impostorBakeSome() {
+  constexpr int kAtlas = 2048, kN = 12, kF = 170, kNrm = 1024;
+  GLint prevFbo = 0, vpOld[4], dfOld = GL_LESS; glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevFbo); glGetIntegerv(GL_VIEWPORT, vpOld); glGetIntegerv(GL_DEPTH_FUNC, &dfOld);
+  const GLboolean cullOld = glIsEnabled(GL_CULL_FACE), blendOld = glIsEnabled(GL_BLEND), dtOld = glIsEnabled(GL_DEPTH_TEST);
+  if (!impFbo) { glCreateFramebuffers(1, &impFbo); glCreateRenderbuffers(1, &impDepth); glNamedRenderbufferStorage(impDepth, GL_DEPTH_COMPONENT24, kAtlas, kAtlas);
+                 glCreateTextures(GL_TEXTURE_2D, 1, &impNrmTmp); glTextureStorage2D(impNrmTmp, 1, GL_RGBA8, kAtlas, kAtlas); glCreateBuffers(1, &impBakeBuf); }
+  for (int done = 0; done < 2 && !impWant.empty(); ++done) {
+    auto key = impWant.back(); impWant.pop_back();
+    Impostor& I = impostors[key];
+    const GpuModel* m = std::get<0>(key); const int p0 = std::get<2>(key) < 0 ? 0 : std::get<1>(key), p1 = std::get<2>(key) < 0 ? (int)m->parts.size() : std::min((int)m->parts.size(), std::get<1>(key) + std::get<2>(key));
+    vec3 lo(FLT_MAX), hi(-FLT_MAX); for (int k = p0; k < p1; ++k) { lo = glm::min(lo, m->parts[k].bmin); hi = glm::max(hi, m->parts[k].bmax); }
+    if (lo.x > hi.x) continue;
+    I.c = 0.5f * (lo + hi); I.r = 0.5f * glm::length(hi - lo);
+    int lv = 1; while ((kAtlas >> lv) > 0) ++lv;
+    glCreateTextures(GL_TEXTURE_2D, 1, &I.alb); glTextureStorage2D(I.alb, lv, GL_RGBA8, kAtlas, kAtlas);
+    glNamedFramebufferTexture(impFbo, GL_COLOR_ATTACHMENT0, I.alb, 0); glNamedFramebufferTexture(impFbo, GL_COLOR_ATTACHMENT1, impNrmTmp, 0);
+    glNamedFramebufferRenderbuffer(impFbo, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, impDepth);
+    const GLenum bufs[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1}; glNamedFramebufferDrawBuffers(impFbo, 2, bufs);
+    if (glCheckNamedFramebufferStatus(impFbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) { logf("impostor: framebuffer incomplete"); continue; }
+    glBindFramebuffer(GL_FRAMEBUFFER, impFbo);
+    glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE); glClearDepth(1.0);
+    const float z4[4] = {0, 0, 0, 0}, n4[4] = {0.5f, 0.5f, 1.0f, 1.0f};
+    glViewport(0, 0, kAtlas, kAtlas); glDisable(GL_SCISSOR_TEST); glDepthMask(GL_TRUE);
+    glClearNamedFramebufferfv(impFbo, GL_COLOR, 0, z4); glClearNamedFramebufferfv(impFbo, GL_COLOR, 1, n4); glClearNamedFramebufferfv(impFbo, GL_DEPTH, 0, n4 + 3);
+    glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LESS); glDisable(GL_CULL_FACE); glDisable(GL_BLEND);
+    glUseProgram(progImpBake);
+    const vec4 inst[4] = {vec4(1, 0, 0, 0), vec4(0, 1, 0, 0), vec4(0, 0, 1, 0), vec4(0, 0, 0, 1)};   // identity, wind 0, no tint
+    glNamedBufferData(impBakeBuf, sizeof inst, inst, GL_STREAM_DRAW); glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 12, impBakeBuf);
+    const DrawLocs L = drawLocs(progImpBake);
+    glUniform1i(U(progImpBake, "uInstBase"), 0); glUniform1f(L.time, 0.0f); glUniform1f(L.wind, 0.0f); glUniform1i(L.alb, 2);
+    const GLint lCut = U(progImpBake, "uCutout"), lHas = U(progImpBake, "uHasAlb"), lBase = U(progImpBake, "uBase");
+    glBindVertexArray(m->vao);
+    for (int fy = 0; fy < kN; ++fy) for (int fx = 0; fx < kN; ++fx) {
+      vec2 e = vec2((fx + 0.5f) / kN, (fy + 0.5f) / kN) * 2.0f - 1.0f; float x = (e.x - e.y) * 0.5f, z = (e.x + e.y) * 0.5f;
+      vec3 d = glm::normalize(vec3(x, 1.0f - std::abs(x) - std::abs(z), z));   // kImpFS hoDec
+      vec3 rF = glm::normalize(glm::cross(vec3(0, 1, 0), d)), uF = glm::cross(d, rF);
+      mat4 VP = glm::ortho(-I.r, I.r, -I.r, I.r, 0.01f, 4.0f * I.r) * glm::lookAt(I.c + d * (2.0f * I.r), I.c, uF);
+      glViewport(fx * kF, fy * kF, kF, kF);
+      glUniformMatrix4fv(L.vp, 1, GL_FALSE, glm::value_ptr(VP));
+      for (int pi = p0; pi < p1; ++pi) {
+        const auto& pt = m->parts[pi];
+        const int mi = pt.mat >= 0 && pt.mat < (int)m->mats.size() ? pt.mat : -1;
+        const GLuint alb = mi >= 0 ? m->mats[mi].alb : 0;
+        glBindTextureUnit(2, alb); glUniform1i(lHas, alb ? 1 : 0); glUniform1i(lCut, pt.cutout && alb ? 1 : 0); glUniform4fv(lBase, 1, glm::value_ptr(pt.base));
+        glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u), 1);
+      }
+    }
+    glGenerateTextureMipmap(I.alb);
+    int lvN = 1; while ((kNrm >> lvN) > 0) ++lvN;   // normals at half resolution (lower frequency)
+    glCreateTextures(GL_TEXTURE_2D, 1, &I.nrm); glTextureStorage2D(I.nrm, lvN, GL_RGBA8, kNrm, kNrm);
+    GLuint rf = 0; glCreateFramebuffers(1, &rf); glNamedFramebufferTexture(rf, GL_COLOR_ATTACHMENT0, I.nrm, 0);
+    glNamedFramebufferReadBuffer(impFbo, GL_COLOR_ATTACHMENT1);
+    glBlitNamedFramebuffer(impFbo, rf, 0, 0, kAtlas, kAtlas, 0, 0, kNrm, kNrm, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    glDeleteFramebuffers(1, &rf); glGenerateTextureMipmap(I.nrm);
+    for (GLuint t : {I.alb, I.nrm}) { glTextureParameteri(t, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTextureParameteri(t, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                                       glTextureParameteri(t, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(t, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); }
+    I.ready = true; logf("impostor: baked %p parts %d-%d (r %.1f m)", (const void*)m, p0, p1, I.r);
+  }
+  glBindVertexArray(0); glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFbo); glViewport(vpOld[0], vpOld[1], vpOld[2], vpOld[3]);
+  glDepthFunc((GLenum)dfOld); if (cullOld) glEnable(GL_CULL_FACE); if (blendOld) glEnable(GL_BLEND); if (!dtOld) glDisable(GL_DEPTH_TEST);
+}
+
+void Renderer::drawImpostors(const RenderView& v, const mat4& vp, const Frustum& fr) {
+  std::map<const Impostor*, std::vector<vec4>> by;
+  for (auto& d : impDraws) {
+    if (!d.imp || !fr.sphere(d.c, d.r)) continue;
+    auto& b = by[d.imp]; b.push_back(vec4(d.c, d.r)); b.push_back(vec4(d.yaw, d.dither, 0, 0)); b.push_back(d.tint);
+  }
+  if (by.empty()) return;
+  setLighting(progImp, v);
+  glUniformMatrix4fv(U(progImp, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
+  glUniform1i(U(progImp, "uImpAlb"), 2); glUniform1i(U(progImp, "uImpNrm"), 4); glUniform1f(U(progImp, "uImpUse"), 12.0f * 170.0f / 2048.0f);
+  if (!impInstBuf) glCreateBuffers(1, &impInstBuf);
+  glDisable(GL_CULL_FACE); glBindVertexArray(snowfallVao);
+  for (auto& [I, b] : by) {
+    const size_t bytes = b.size() * sizeof(vec4);
+    if (impInstBytes < bytes) { glDeleteBuffers(1, &impInstBuf); glCreateBuffers(1, &impInstBuf); impInstBytes = std::max(bytes, impInstBytes * 2); glNamedBufferData(impInstBuf, impInstBytes, nullptr, GL_STREAM_DRAW); }
+    glNamedBufferSubData(impInstBuf, 0, bytes, b.data()); glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 13, impInstBuf);
+    glBindTextureUnit(2, I->alb); glBindTextureUnit(4, I->nrm);
+    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)(b.size() / 3));
+    stats.draws++; stats.tris += (int)(b.size() / 3) * 2;
+  }
+  glBindVertexArray(0); glEnable(GL_CULL_FACE);
+}
+
 void Renderer::drawFolModels(bool depth, const mat4& vp, const Frustum* fr, float minH, bool shadowLod) {
   if (folModels.empty()) return;
   struct Key { const GpuModel* m; int first, count; float dith; bool operator<(const Key& o) const { return std::tie(m, first, count, dith) < std::tie(o.m, o.first, o.count, o.dith); } };
@@ -5194,7 +5354,7 @@ void Renderer::drawFolModels(bool depth, const mat4& vp, const Frustum* fr, floa
   std::vector<FolModelDraw> swapped;   // CP5: the mid cascade's fixed far level
   if (shadowLod) { swapped = folModels; for (auto& d : swapped) if (d.shadowModel) { d.model = d.shadowModel; d.first = d.sFirst; d.count = d.sCount; } }
   for (auto& d : shadowLod ? swapped : folModels) {
-    if (!d.model || !d.model->vao) continue;
+    if (!d.model || !d.model->vao || (d.shadowOnly && (!depth || minH <= 0))) continue;   // CP3: a tree drawn as an impostor still casts
     vec3 lo = d.model->bmin, hi = d.model->bmax;
     if (d.count >= 0) {   // VR1: a range of parts (one ivy piece): its own bounds
       lo = vec3(FLT_MAX); hi = vec3(-FLT_MAX);
@@ -5512,7 +5672,7 @@ void Renderer::gpuMark(int p) {
 void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<DrawItem>& opaque,
                       const std::vector<DrawItem>& glass, const std::vector<DrawItem>& ghosts, const Overlay& ov) {
   auto c0 = std::chrono::high_resolution_clock::now();
-  for (GLuint pg : {progLeaf, progLeafI, progGrass, progFolModel}) if (pg) {   // FL1 greenery (App::greenery); VO A1 hashed alpha under TAA
+  for (GLuint pg : {progLeaf, progLeafI, progGrass, progFolModel, progImp}) if (pg) {   // FL1 greenery (App::greenery); VO A1 hashed alpha under TAA
     glProgramUniform4fv(pg, U(pg, "uGreen"), 1, glm::value_ptr(green)); glProgramUniform4fv(pg, U(pg, "uGreenK"), 1, glm::value_ptr(greenK));
     static const float hashSpread = std::getenv("NMK_HASH_SPREAD") ? float(std::atof(std::getenv("NMK_HASH_SPREAD"))) : 0.2f;   // A1: dither width of the cut-out threshold (0.8 stippled stills under the TAA clamp; 0.35 / 0.2 look as off)
     glProgramUniform1f(pg, U(pg, "uHashAlpha"), perf.hashAlpha && q.taa && !thumbMode ? hashSpread : 0.0f); glProgramUniform1i(pg, U(pg, "uFrame"), frame);
@@ -5527,6 +5687,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       glProgramUniform4f(pg, U(pg, "uWindP"), float(windClock), float(windClockPrev), windGustL(), windGustG());
     }
   }
+  if (!impWant.empty() && !thumbMode) impostorBakeSome();   // CP3: queued impostor bakes, 2 a frame
   if (displayW > 0) {   // P1: the internal size follows effScale() (the taau switch can flip it between frames: A/B)
     int iw = std::max(16, (int)std::lround(displayW * effScale())), ih = std::max(16, (int)std::lround(displayH * effScale()));
     if (iw != width || ih != height) { width = iw; height = ih; createTargets(); }
@@ -5895,6 +6056,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     drawFolModels(false, vp, &frMain);
     if (pre) { glDepthFunc(zLess()); glDepthMask(GL_TRUE); }
   }
+  if (!impDraws.empty() && !thumbMode) drawImpostors(v, vp, frMain);   // CP3
   gpuMark(GP_Trees);
   // tree canopies (double sided, alpha tested)
   if (!foliage.empty() && perf.koTrees) {
