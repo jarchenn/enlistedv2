@@ -3389,7 +3389,7 @@ void main(){
   // (the layers' own height, the map's wet field, ruts) as wxPuddle rises, on flat ground only
   float wxw = uWetOn == 1 ? clamp(wxWet, 0.0, 1.0) : 0.0, wxp = uWetOn == 1 ? clamp(wxPuddle, 0.0, 1.0) : 0.0;
   if (wxw > 0.0) alb *= mix(1.0, 0.35, wxw*(1.0 - 0.65*max(rockK, screeK*0.5))*(1.0 - 0.6*clamp(wet*1.2, 0.0, 1.0)));
-  if (wxp > 0.0) puddle = max(puddle, smoothstep(0.86, 0.97, normalize(vN).y)*smoothstep(0.86 - 0.42*wxp, 0.96 - 0.42*wxp, (1.0 - hB)*0.55 + wet*0.3 + rut*0.25 + (nX - 0.5)*0.25));
+  if (wxp > 0.0) puddle = max(puddle, smoothstep(0.86, 0.97, normalize(vN).y)*smoothstep(0.86 - 0.42*wxp, 0.96 - 0.42*wxp, (1.0 - hB)*0.55 + wet*0.3 + rut*0.12 + (nX - 0.5)*0.25));
   float rough = mix(mix(0.96, 0.86, tw), 0.10, puddle);
   rough = mix(rough, 0.78, vEw.z*ewK);   // GX1: wet mud low in the cut: a dull damp sheen, not a mirror
   vec3 N = normalize(vN + vec3(nX - 0.5, 0.0, nZ - 0.5)*mix(0.22, 0.42, max(tw, dirt))*(1.0 - puddle)
@@ -5097,6 +5097,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uAlbClamp"), q.legacy || !perf.albClamp ? 0 : 1);   // CP step 4
   glUniform1i(U(p, "uWetOn"), q.legacy || !perf.wet || thumbMode ? 0 : 1); glUniform1f(U(p, "uWetTime"), (float)std::fmod(time, 3600.0));   // W3   // CP step 3
   glUniform1i(U(p, "uMaskLib"), !q.legacy && perf.maskLib ? 1 : 0);   // CP step 6 part 2
+  glUniform1i(U(p, "uSteepTri"), !q.legacy && perf.steepTri ? 1 : 0);   // FIX5
   glUniform1i(U(p, "uWearCause"), !q.legacy && q.matLayer > 0 && perf.wearCause ? 1 : 0);   // M4
   glUniform2i(U(p, "uMicroOn"), !q.legacy && q.matLayer > 0 && perf.microDetail ? 1 : 0, !q.legacy && perf.roughVar ? 1 : 0);   // CP step 6 (micro detail off at Low)
   glUniform2f(U(p, "uHex"), q.legacy || !perf.hex || q.matLayer == 0 || hd <= 0 ? 0.0f : 1.0f, std::max(hd, 0.05f)); }   // M1: hex tiling (--rq-off hex; off at Low); NMK_HEX = cells per texture repeat
