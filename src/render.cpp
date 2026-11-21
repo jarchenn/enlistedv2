@@ -98,6 +98,7 @@ uniform float uFogDens;
 uniform float uUnder;   // 1: the camera is under water (swim.cpp): applyFog / sky become a dense uniform water fog
 uniform sampler2DShadow uShadow; uniform mat4 uLightVP; uniform int uShadowOn;
 uniform float uShadowAtlas;      // VO L3: uShadow is an atlas, the near cascade in [0, uShadowAtlas) of x, the mid one in [0.5, 1) (atlas 0.5)
+uniform mat4 uLightVPC3; uniform int uC3On; uniform float uShadowWorldTexelC3; uniform vec2 uFarAx = vec2(1.0, 0.0);   // CP4 cascade4: a fourth cascade in the far map's left half (far on the right)
 uniform mat4 uLightVPMid; uniform int uShadowMidOn; uniform float uShadowWorldTexelMid;   // VO L3: the mid cascade (Lighting New, Medium / High)
 uniform sampler2D uOcc; uniform mat4 uOccVP; uniform float uOccTop, uOccRange; uniform int uOccOn;
 uniform vec2 uShadowTexel;
@@ -228,9 +229,13 @@ float sunShadowCasc(vec3 w, vec3 n, float soft, int taps){
     sN = mix(sN, sM, tB); eN = eM; tB = smoothstep(0.8, 0.96, eM);
     if (eM >= 2.0) { sN = 1.0; tB = 1.0; }   // outside the mid box too: the far cascade alone
   }
+  if (uC3On == 1 && tB > 0.0) {   // CP4: mid -> the fourth cascade (the old far range, ~240 m) -> far (~600 m)
+    float e3; float s3 = cascadePCF(uShadowFar, uLightVPC3, uShadowTexelFar, uShadowWorldTexelC3, w, n, 1.4 + 1.5*soft, max(taps*2/3, 4), e3, vec2(0.5, 0.0));
+    if (e3 < 2.0) { sN = mix(sN, s3, tB); eN = e3; tB = smoothstep(0.82, 0.97, e3); }
+  }
   if (tB <= 0.0) return sN;
   if (uShadowFarOn == 0) return mix(sN, terrainHorizonSun(w), tB);   // VOT T6: past the last cascade, the terrain horizon
-  float sF = cascadePCF(uShadowFar, uLightVPFar, uShadowTexelFar, uShadowWorldTexel.y, w, n, 1.25 + soft, max(taps/2, 4), eF);
+  float sF = cascadePCF(uShadowFar, uLightVPFar, uShadowTexelFar, uShadowWorldTexel.y, w, n, 1.25 + soft, max(taps/2, 4), eF, uFarAx);
   float fE = smoothstep(0.85, 0.98, eF);
   if (fE > 0.0) sF = mix(sF, terrainHorizonSun(w), fE);   // fade to the terrain horizon (T6; 1 when off) at the far edge instead of a hard line
   return mix(sN, sF, tB);
@@ -267,6 +272,21 @@ float cloudField(vec2 xz){
   return n;
 }
 float cloudThreshold(){ return mix(0.72, 0.38, uCloudCov); }
+// W2 cloudshell: the field with each octave faded where a pixel covers more than ~a quarter of its period (fw: footprint in
+// field units of 600 m), so the far deck goes soft instead of streaking toward the horizon
+float cloudFieldAA(vec2 xz, float fw){
+  xz = mat2(uCloudXf.xy, uCloudXf.zw)*xz;
+  vec3 q = vec3(xz/600.0 + uCloudSeed + uCloudT*uCloudWind, uCloudT*0.002);
+  float n = 0.0, a = 0.5, f = 1.0;
+  for (int i = 0; i < 5; ++i) { float k = 1.0 - smoothstep(0.25, 0.6, fw*f); n += a*mix(0.5, vnoise(q), k); q = q*2.07 + vec3(1.7, 9.2, 3.1); a *= 0.5; f *= 2.07; }
+  return n;
+}
+// the ray's hit on a cloud shell h m above a 6371 km earth (instead of a plane: no infinite stretch at the horizon)
+vec2 shellHit(vec3 d, float h){
+  const float Re = 6371000.0; float r0 = Re + max(uCamPos.y, 0.0), r1 = Re + h;
+  float b = r0*d.y, t = -b + sqrt(max(b*b + r1*r1 - r0*r0, 0.0));
+  return uCamPos.xz + d.xz*t;
+}
 // low-octave version for the clouds' self-shadowing (only the broad optical depth matters)
 float cloudFieldLo(vec2 xz){
   xz = mat2(uCloudXf.xy, uCloudXf.zw)*xz;
@@ -296,6 +316,7 @@ float skyVis(vec3 w, vec3 n){
   vec4 lp = uOccVP * vec4(q, 1.0);
   vec2 uv = lp.xy*0.5+0.5;
   if (uv.x<0.0||uv.x>1.0||uv.y<0.0||uv.y>1.0) return 1.0;
+  vec2 eb = abs(uv*2.0 - 1.0); float boxFade = uSkyVisWall == 1 ? 1.0 - smoothstep(0.8, 1.0, max(eb.x, eb.y)) : 1.0;   // CP4: the occlusion fades out over the map's last 20 % (no hard square at its edge)
   float occ = 0.0;
   vec2 t = 1.0/vec2(textureSize(uOcc,0));
   // CP4 skyviswall: a wall sees half the sky sideways, so something high above its footprint (a dormer, an eave 15 m up)
@@ -307,7 +328,7 @@ float skyVis(vec3 w, vec3 n){
     float oy = uOccTop - d*uOccRange, dz = oy - w.y;
     occ += smoothstep(0.15, 0.6, dz)*mix(1.0, clamp(2.0/max(dz, 0.5), 0.0, 1.0), vert);
   }
-  return 1.0 - occ/9.0;
+  return 1.0 - boxFade*occ/9.0;
 }
 // SN1 shared snow layer (snow.cpp): a map's mask (R deposit x retention, G traffic, B melt, A pooling) and the spec's
 // snow = saturate(slope_response * deposit * retention - traffic - melt); shelter from skyVis (anything solid above).
@@ -2159,6 +2180,7 @@ void main(){
 )GLSL";
 static const char* kModelFS = R"GLSL(
 in vec3 vW, vN; in vec4 vT; in vec2 vUV; flat in vec4 vTintI; in vec4 vCC, vPC; uniform int uVelMode;
+uniform float uDustK;   // WS4: dust coating on cut-out foliage (progFolModel, progImp; 0 elsewhere)
 uniform float uDither;   // CP2 treepxlod cross-fade (model foliage only): > 0 keep the pixels whose fixed noise is under it, < 0 the rest
 uniform vec3 uIvyStem; uniform vec2 uIvyRef;   // VR1 (src/ivy.cpp)
 uniform sampler2D uAlb, uMR, uNrm, uAO;
@@ -2181,6 +2203,7 @@ void main(){
   vec4 base = uBase;
   if (uHasAlb == 1) base *= texture(uAlb, vUV);
   if (uCutout == 1 && base.a < cutRef()) discard;
+  if (uCutout == 1) base.rgb = mix(base.rgb, vec3(0.45, 0.37, 0.26), 0.5*uDustK);   // WS4: dust on the needles and leaves
   if (vTintI.a > 2.5) {   // FL1 greenery: this species' spring green (already / the texture's mean luminance), leaves only
     if (uCutout == 1) base.rgb = mix(base.rgb, vTintI.rgb*dot(base.rgb, vec3(0.2126, 0.7152, 0.0722)), uGreenK.w*greenMask(base.rgb));
   } else if (vTintI.a > 1.5) base.rgb *= vTintI.rgb;   // HB1c: sandbags, per bag (src/sandbags.cpp)
@@ -2306,7 +2329,7 @@ void main(){
 )GLSL";
 static const char* kImpFS = R"GLSL(
 in vec3 vW; flat in vec4 vCR; flat in vec4 vYD; flat in vec4 vTint;
-uniform sampler2D uImpAlb, uImpNrm; uniform float uImpUse;   // uImpUse: the frames' share of the atlas (12 x 170 / 2048)
+uniform sampler2D uImpAlb, uImpNrm; uniform float uImpUse; uniform float uFolTrans; uniform float uDustK;   // uImpUse: the frames' share of the atlas (12 x 170 / 2048)
 layout(location=4) out vec4 oVel; layout(location=0) out vec4 oColor; layout(location=2) out vec4 oAmb; layout(location=3) out vec4 oNR;
 vec2 hoEnc(vec3 d){ d.y = max(d.y, 0.0); d /= abs(d.x) + abs(d.y) + abs(d.z); return vec2(d.x + d.z, d.z - d.x)*0.5 + 0.5; }
 vec3 hoDec(vec2 uv){ vec2 e = uv*2.0 - 1.0; float x = (e.x - e.y)*0.5, z = (e.x + e.y)*0.5; return normalize(vec3(x, 1.0 - abs(x) - abs(z), z)); }
@@ -2327,18 +2350,24 @@ void main(){
   vec3 alb = a.rgb/max(a.a, 1e-3);
   if (vTint.a > 2.5) alb = mix(alb, vTint.rgb*dot(alb, vec3(0.2126, 0.7152, 0.0722)), uGreenK.w*greenMask(alb));   // FL1 greenery, as kModelFS
   else if (vTint.a > 1.5) alb *= vTint.rgb;
+  alb = mix(alb, vec3(0.45, 0.37, 0.26), 0.5*uDustK);   // WS4, as kModelFS
   vec2 on = texture(uImpNrm, auv).xy*2.0 - 1.0; vec3 no = vec3(on, 1.0 - abs(on.x) - abs(on.y)); float tq = max(-no.z, 0.0); no.xy += vec2(no.x >= 0.0 ? -tq : tq, no.y >= 0.0 ? -tq : tq);
   vec3 Nn = normalize(rotY(normalize(no), vYD.x));
-  vec3 V = normalize(uCamPos - vW);
-  float sh = sunShadowT(vW + Nn*0.1, Nn, 1.0, 4);
-  float ndl = max(dot(Nn, uSunDir), 0.0)*0.7 + 0.3;
-  vec3 irr = mix(uGroundCol, uSkyCol, 0.5 + 0.5*Nn.y)*mix(0.45, 1.0, 0.5 + 0.5*Nn.y);
-  irr = giAmbient(vW, Nn, 1.0, irr);
-  float VoL = max(dot(-V, uSunDir), 0.0);
-  vec3 c = alb/PI*uSunCol*ndl*sh + irr*alb*0.7 + alb*uSunCol*0.12*pow(VoL, 4.0)*sh;   // the baked crown's transmission: a backlit term
+  // lit as the model it stands for (kModelFS on NT8 foliage): shade(), then the leaf translucency (uFolTrans) or the needle rim,
+  // so the far forest keeps its value and colour across the swap (it read darker with a lighting of its own)
+  vec3 c = shade(vW, Nn, alb, 0.85, 0.0, 1.0);
+  vec3 Vv = normalize(uCamPos - vW);
+  if (uFolTrans > 0.0) {
+    vec3 Lt = normalize(uSunDir + Nn*0.35);
+    float tr = 0.7*pow(clamp(dot(Vv, -Lt), 0.0, 1.0), 4.0) + 0.18*max(dot(-Nn, uSunDir), 0.0);
+    c += alb*vec3(1.0, 1.04, 0.72)*uSunCol*tr*uFolTrans*sunShadowT(vW, -Nn, 1.0, 1);
+  } else {
+    float VoL = max(dot(-Vv, uSunDir), 0.0);
+    c += alb*vec3(1.0, 1.05, 0.6)*uSunCol*(0.04 + 0.35*pow(VoL, 5.0))*sunShadowT(vW, Nn, 1.0, 1);
+  }
   c = applyFog(c, vW);
   oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : c, 1.0);
-  oAmb = vec4(irr*alb*0.7*gFogT*0.5, 1.0); oNR = vec4(Nn, 1.0); oVel = vec4(0.0, 0.0, 0.0, 1.0);
+  oAmb = vec4(gInd*gFogT, 1.0); oNR = vec4(Nn, 0.85 + (1.0 - gFogT)); oVel = vec4(0.0, 0.0, 0.0, 1.0);
 }
 )GLSL";
 static const char* kFolDepthFS = R"GLSL(
@@ -2566,7 +2595,7 @@ void main(){
   for (int i = 0; i < N; ++i) {
     vec3 q = uCamPos + rd*(dt*(float(i) + jit));
     float e; float s = cascadePCF(uShadow, uLightVP, uShadowTexel, uShadowWorldTexel.x, q, uSunDir, 0.0, 1, e, vec2(uShadowAtlas, 0.0));
-    if (e > 0.95 && uShadowFarOn == 1) s = cascadePCF(uShadowFar, uLightVPFar, uShadowTexelFar, uShadowWorldTexel.y, q, uSunDir, 0.0, 1, e);
+    if (e > 0.95 && uShadowFarOn == 1) s = cascadePCF(uShadowFar, uLightVPFar, uShadowTexelFar, uShadowWorldTexel.y, q, uSunDir, 0.0, 1, e, uFarAx);
     s *= cloudShadow(q);   // WX1: the cloud transmittance at the sample itself: beams only through the gaps, none when the sun is covered
     vec4 F = texture(uFogField, (q.xz - uFogBox.xy)*uFogBox.zw);
     float rho = uDensity*exp(-max(q.y, 0.0)/uHazeH) + uEnvFog*uFogIndoor*F.r*exp(-max(q.y - F.b, 0.0)/uEnvFogH);   // WX1: + the environmental fog
@@ -2682,6 +2711,7 @@ out vec4 oColor;
 vec3 viewPosAt(vec2 uv){ float z = texture(uDepth, uv).r; vec4 p = uInvProj*vec4(uv*2.0 - 1.0, z, 1.0); return p.xyz/p.w; }   // reverse-Z
 vec2 toUV(vec3 q){ vec4 c = uProj*vec4(q, 1.0); return c.xy/c.w*0.5 + 0.5; }
 uniform float uSsrMaxT = 1e9;   // OPT ssrrange
+uniform int uSsrEnvCube;   // 1 in the half-resolution SSR pass (it has the reflection cube bound)
 uniform vec2 uSsrRough = vec2(0.1, 0.4);   // CP4 ssrfade: SSR fades out over roughness x..y (0.3..0.5; was 0.1..0.4)
 vec4 traceSSR(vec3 Pv, vec3 Rv){
   float stepL = 0.22, t = 0.10, jit = pixelNoise();
@@ -2738,7 +2768,13 @@ vec3 ssrAdd(vec2 uv){   // the screen-space reflection's contribution here (geom
   if (hit.w <= 0.0) return vec3(0.0);
   vec3 Rw = normalize(transpose(mat3(uView))*Rv);
   vec3 refl = textureLod(uScene, hit.xy, 0.0).rgb;
-  return (refl - skyColor(Rw))*hit.z*F*(1.0 - smoothstep(uSsrRough.x, uSsrRough.y, nr.w))*uSsrAmt;
+  vec3 env = skyColor(Rw);   // what the world pass reflected here, which the hit replaces
+#ifdef NMK_SSR_HALF   // only this pass has the cube on unit 9: in the composite, a live uRefl (samplerCube) would share unit 9 with uShafts (2D) - invalid, every frame garbage
+  if (uSsrEnvCube == 1 && uReflOn == 1) {   // the world pass used the L7 cube: subtract that, not the sky (a bright sky over a dim cube went below zero: black puddles)
+    vec3 Pw = transpose(mat3(uView))*Pv + uCamPos; float wg; vec3 rp = reflProbe(Pw, Rw, nr.w, wg); env = mix(env, rp, wg);
+  }
+#endif
+  return (refl - env)*hit.z*F*(1.0 - smoothstep(uSsrRough.x, uSsrRough.y, nr.w))*uSsrAmt;
 }
 void main(){
 #ifdef NMK_SSR_HALF
@@ -3389,7 +3425,7 @@ void main(){
   // (the layers' own height, the map's wet field, ruts) as wxPuddle rises, on flat ground only
   float wxw = uWetOn == 1 ? clamp(wxWet, 0.0, 1.0) : 0.0, wxp = uWetOn == 1 ? clamp(wxPuddle, 0.0, 1.0) : 0.0;
   if (wxw > 0.0) alb *= mix(1.0, 0.35, wxw*(1.0 - 0.65*max(rockK, screeK*0.5))*(1.0 - 0.6*clamp(wet*1.2, 0.0, 1.0)));
-  if (wxp > 0.0) puddle = max(puddle, smoothstep(0.86, 0.97, normalize(vN).y)*smoothstep(0.86 - 0.42*wxp, 0.96 - 0.42*wxp, (1.0 - hB)*0.55 + wet*0.3 + rut*0.25 + (nX - 0.5)*0.25));
+  if (wxp > 0.0) puddle = max(puddle, smoothstep(0.86, 0.97, normalize(vN).y)*smoothstep(0.86 - 0.42*wxp, 0.96 - 0.42*wxp, (1.0 - hB)*0.55 + wet*0.3 + rut*0.12 + (nX - 0.5)*0.25));
   float rough = mix(mix(0.96, 0.86, tw), 0.10, puddle);
   rough = mix(rough, 0.78, vEw.z*ewK);   // GX1: wet mud low in the cut: a dull damp sheen, not a mirror
   vec3 N = normalize(vN + vec3(nX - 0.5, 0.0, nZ - 0.5)*mix(0.22, 0.42, max(tw, dirt))*(1.0 - puddle)
@@ -3699,6 +3735,7 @@ void plantMain(){
 )GLSL";
 static const char* kGrassFS = R"GLSL(
 uniform float uGrassDead;   // BT1: look.grassDead (0 summer .. 1 dead late-winter grass)
+uniform float uDustK;   // WS4: dust coating 0..1 from the weather's dust visibility (st.dustVisM)
 layout(location=0) in vec3 vW; layout(location=1) in vec3 vAlb; layout(location=2) in vec3 vF; layout(location=3) in vec2 vUV; layout(location=4) in float vWid; layout(location=5) in float vTap;
 layout(location=6) in vec4 vCC; layout(location=7) in vec4 vPC;
 layout(location=8) flat in int vSp; layout(location=9) flat in int vPart; layout(location=10) flat in float vSeed;
@@ -3817,6 +3854,7 @@ void main(){
 #ifdef NMK_PRE
   return;   // CP1 grass_pre: every cut-out above, no shading (the compiler drops it)
 #endif
+  alb = mix(alb, vec3(0.45, 0.37, 0.26), 0.5*uDustK);   // WS4: blown dust settles on the blades (0 without a dust preset)
   if (vPart == 1) alb *= 0.85;
   // cheap lighting: one hardware-PCF shadow tap, one sky-occlusion tap, wrapped diffuse, no specular
   float sh = 1.0;
@@ -3908,9 +3946,10 @@ void main(){
   if (uCloudK > 0.0) {
     // WX2 Cloudy: a continuous grey upper layer (3200 m, broad and slow) hides the blue sky and the sun disc; grey-white
     // toward the horizon. The broken low deck below moves faster over it. Two noise taps: cheap on every preset
-    vec2 up = uCamPos.xz + d.xz/(max(d.y, 0.0) + 0.05)*(3200.0 - uCamPos.y);
+    vec2 up = uW2 == 1 ? shellHit(d, 3200.0) : uCamPos.xz + d.xz/(max(d.y, 0.0) + 0.05)*(3200.0 - uCamPos.y);
     vec2 q2 = up/2400.0 + uCloudSeed*0.7 + uCloudT*uCloudWind*0.35;
     float n2 = vnoise(vec3(q2, uCloudT*0.001))*0.6 + vnoise(vec3(q2*2.3, 4.0))*0.4;
+    if (uW2 == 1) n2 = mix(0.5, n2, 1.0 - smoothstep(0.3, 0.8, length(fwidth(q2))*2.3));   // W2: the upper layer goes soft where it would streak
     n2 = mix(0.5, n2, smoothstep(-0.01, 0.03, d.y));   // SKY1: no noise below the horizon (the projection smeared it into vertical streaks)
     float L0 = dot(uSkyHor, vec3(0.2126, 0.7152, 0.0722));
     vec3 ov = vec3(L0)*vec3(0.95, 0.97, 1.0)*(0.56 + 0.2*n2)*(uW2 == 1 ? overcastGrad(d.y) : mix(1.75, 0.88, smoothstep(0.0, 0.4, d.y)));   // SKY1: a grey deck overhead, a pale band low at the horizon; W2: CIE overcast, zenith 3x the horizon
@@ -3918,7 +3957,7 @@ void main(){
   }
   if (uCloudOn == 1 && d.y > 0.0) {
     // ray to the cloud plane (1500 m), fBm (5 octaves) scrolling with the wind; coverage shifts the threshold
-    vec2 cpw = uCamPos.xz + d.xz/(d.y + 0.06)*(1500.0 - uCamPos.y);   // deck hit point in world xz (~600 m cells)
+    vec2 cpw = uW2 == 1 ? shellHit(d, 1500.0) : uCamPos.xz + d.xz/(d.y + 0.06)*(1500.0 - uCamPos.y);   // deck hit point in world xz (~600 m cells); W2: on a shell
     if (uCloudQ == 2) {   // WX1 High: a thin high layer (4500 m, streaked along the wind, slower); not in the shadow map
       vec2 hp = uCamPos.xz + d.xz/(d.y + 0.03)*(4500.0 - uCamPos.y);
       vec2 wd = normalize(uCloudWind);
@@ -3926,7 +3965,7 @@ void main(){
       float ci = smoothstep(0.55, 0.85, vnoise(vec3(sp, 3.0))*0.65 + vnoise(vec3(sp*2.7, 7.0))*0.35);
       c = mix(c, mix(skyColor(d), vec3(1.0)*1.3, 0.55)*uCloudLit, ci*mix(0.35, 0.55, uCloudK)*smoothstep(0.02, 0.2, d.y));
     }
-    float n = uCloudQ == 0 ? cloudFieldLo(cpw) : cloudField(cpw);
+    float n = uCloudQ == 0 ? cloudFieldLo(cpw) : uW2 == 1 ? cloudFieldAA(cpw, length(fwidth(cpw))/600.0*max(uCloudXf.x, 1.0)) : cloudField(cpw);
     // SKY1 Cloudy: a near-closed deck (the threshold drops) with soft, wide edges, like an overcast stratocumulus sky
     float th = mix(0.72, 0.38, uCloudCover) - 0.12*uCloudK + 0.5*cloudOpening(d);   // VO L5: fewer clouds toward the opening
     float cl = smoothstep(th, th + mix(0.22, 0.45, uCloudK), n);
@@ -4166,51 +4205,98 @@ void main(){
 // range of sizes and apparent speeds), group 1 far (fine, long paths: depth). A flake under anything solid (the
 // top-down sky-occlusion map: roofs, eaves, canopies) is not drawn; the last 0.4-0.8 m before the eye fade; indoors none.
 static const char* kSnowfallVS = R"GLSL(
-#version 450 core
-uniform mat4 uVP; uniform vec3 uCamPos, uCamRight, uCamUp; uniform float uTime;
+// W4 precipitation (corpus weather 04 rain, 05 snow): one stateless path, kind by uKind. 0 snow (the map's snowfall,
+// Light snow, Blizzard: near-horizontal with the storm's wind), 1 rain (Drizzle, Steady rain, Thunderstorm: streaks along
+// the fall-and-wind velocity, length = speed x exposure, sub-pixel width given to alpha), 2 splashes (short-lived crowns
+// on the top surface under each drop: the sky-occlusion map's height, so roofs and ground alike), 3 spindrift (snow
+// racing over the ground in a blizzard). Every particle: a function of its id and the clock in a box round the eye that
+// wraps on world coordinates; the wind is the CPU-integrated drift (uSFAcc); hidden under roofs (occlusion map) and
+// indoors; the scene's fog (wxSigma) over its distance; lit by the lightning flash (wxFlash). kCommon (weather block,
+// uCamPos, the occlusion map) is prepended.
+uniform mat4 uVP; uniform vec3 uCamRight, uCamUp; uniform float uTime;
 uniform vec4 uSF;    // nearN, near box half (m), far box half (m), fall speed (m/s)
 uniform vec4 uSF2;   // unused x / y (the wind is uSFAcc), gust 0..1, indoor 0..1
 uniform vec2 uSFAcc; // BT2 (corpus weather 05 s2.4): the wind's accumulated drift (m), integrated on the CPU each frame
 uniform vec3 uCamFwd; uniform float uPxAng;   // the eye's forward; vertical radians per pixel
-uniform sampler2D uOcc; uniform mat4 uOccVP; uniform float uOccTop, uOccRange; uniform int uOccOn;
-out vec2 vC; out float vA;
+uniform int uKind; uniform vec3 uPCol;        // W4: the kind; the lit particle colour (CPU)
+uniform float uPSize;                         // W4: flake size factor (1; a blizzard's clumped flakes larger)
+out vec2 vC; out float vA; flat out int vK; out vec3 vCol;
 float h1(float n){ return fract(sin(n*12.9898 + 78.233)*43758.5453); }
 void main(){
   int id = gl_InstanceID; bool near = float(id) < uSF.x;
   float fi = float(id);
+  int c = gl_VertexID; vec2 qv = c == 0 ? vec2(-1, -1) : c == 1 ? vec2(1, -1) : c == 2 ? vec2(1, 1) : c == 3 ? vec2(-1, -1) : c == 4 ? vec2(1, 1) : vec2(-1, 1);
+  vK = uKind; vCol = uPCol*(1.0 + 4.0*wxFlash);
+  if (uKind == 2) {   // a splash: a random spot round the eye each 0.3 s cycle, on the top surface there, a crown rising and fading
+    float cyc = uTime/0.3 + h1(fi*3.3), k = floor(cyc), f = fract(cyc);
+    vec2 o = (vec2(h1(fi*1.7 + k*7.1), h1(fi*2.9 + k*5.3))*2.0 - 1.0)*uSF.y;
+    vec3 p = vec3(uCamPos.x + o.x, 0.0, uCamPos.z + o.y);
+    float a = 0.0;
+    if (uOccOn == 1) { vec4 lp = uOccVP*vec4(p.x, uCamPos.y, p.z, 1.0); vec2 uv = lp.xy*0.5 + 0.5;
+      if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) { p.y = uOccTop - texture(uOcc, uv).r*uOccRange; a = 1.0; } }
+    float d = length(p - uCamPos);
+    a *= (1.0 - f)*(1.0 - smoothstep(uSF.y*0.7, uSF.y, d))*(1.0 - uSF2.w)*exp(-wxSigma*d);
+    float rad = 0.03 + 0.06*f;
+    vec3 tv = normalize(p - uCamPos), side = normalize(cross(tv, vec3(0.0, 1.0, 0.0)) + vec3(1e-4));
+    vec3 w = p + side*qv.x*rad + vec3(0.0, 1.0, 0.0)*(qv.y*0.5 + 0.5)*rad*1.2;
+    vC = qv; vA = a*0.6;
+    gl_Position = uVP*vec4(w, 1.0);
+    if (vA <= 0.001) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    return;
+  }
+  const bool rain = uKind == 1, spin = uKind == 3;
   float R = near ? uSF.y : uSF.z;
   vec3 r = vec3(h1(fi*1.31), h1(fi*2.17 + 3.0), h1(fi*3.73 + 7.0));
   float spd = uSF.w*(near ? mix(0.6, 1.5, h1(fi*5.1)) : mix(0.5, 0.9, h1(fi*5.1)));
-  vec2 wf = vec2(0.7 + 0.6*h1(fi*7.7), 0.7 + 0.6*h1(fi*8.3));
+  if (rain) spd = uSF.w*mix(0.85, 1.15, h1(fi*5.1));
+  vec2 wf = vec2(0.7 + 0.6*h1(fi*7.7), 0.7 + 0.6*h1(fi*8.3)) * (spin ? 2.4 : 1.0);
   // BT2: position = start + the accumulated wind (each flake its own share) + a constant fall + a small flutter (3-15 cm at
   // ~1 Hz). Never velocity x time: with the gust in the velocity that drifted ever faster the longer the map ran
-  float fa = mix(0.03, 0.15, h1(fi*6.1)), fq = 6.2832*mix(0.7, 1.3, h1(fi*6.9)), ph = 6.2832*h1(fi*9.1);
-  vec3 p0 = (r*2.0 - 1.0)*R*vec3(1.0, 0.6, 1.0);
-  vec3 p = p0 + vec3(uSFAcc.x*wf.x, -spd*uTime, uSFAcc.y*wf.y) + vec3(sin(uTime*fq + ph), 0.0, cos(uTime*fq*0.8 + ph))*fa;
-  vec3 box = vec3(2.0*R, 1.2*R, 2.0*R);
-  vec3 cen = uCamPos + uCamFwd*0.35*box;                              // the box pushed ahead of the eye: most flakes in view
+  float fa = rain ? 0.0 : mix(0.03, 0.15, h1(fi*6.1)), fq = 6.2832*mix(0.7, 1.3, h1(fi*6.9)), ph = 6.2832*h1(fi*9.1);
+  vec3 box = spin ? vec3(2.0*R, 1.6, 2.0*R) : vec3(2.0*R, 1.2*R, 2.0*R);
+  vec3 p0 = (r - 0.5)*box;
+  vec3 p = p0 + vec3(uSFAcc.x*wf.x, -spd*uTime*(spin ? 0.15 : 1.0), uSFAcc.y*wf.y) + vec3(sin(uTime*fq + ph), 0.0, cos(uTime*fq*0.8 + ph))*fa;
+  vec3 cen = spin ? vec3(uCamPos.x, uCamPos.y - 1.0, uCamPos.z) + uCamFwd*vec3(0.35, 0.0, 0.35)*box : uCamPos + uCamFwd*0.35*box;
   p = mod(p - cen + box*0.5, box) - box*0.5 + cen;                    // wrapped on world coordinates (no riding with the camera)
   vec3 q = abs(p - cen)/(box*0.5);
   float a = near ? 1.0 : 0.55;
   a *= near ? mix(0.8, 1.0, uSF2.z) : smoothstep(h1(fi*9.9)*0.9, h1(fi*9.9)*0.9 + 0.1, 0.45 + 0.55*uSF2.z);
   a *= 1.0 - smoothstep(0.8, 1.0, max(q.x, max(q.y, q.z)));          // fade over the last tenth of the box
-  if (uOccOn == 1) {   // sheltered: a soft fade 0.5-1.5 m under anything solid above the flake
+  if (uOccOn == 1) {   // sheltered: a soft fade 0.5-1.5 m under anything solid above the particle
     vec4 lp = uOccVP*vec4(p, 1.0); vec2 uv = lp.xy*0.5 + 0.5;
-    if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) { float top = uOccTop - texture(uOcc, uv).r*uOccRange; a *= 1.0 - smoothstep(0.5, 1.5, top - p.y); }
+    if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) { float top = uOccTop - texture(uOcc, uv).r*uOccRange; a *= 1.0 - smoothstep(0.5, 1.5, top - p.y); if (spin && p.y < top - 0.05) a = 0.0; }
   }
   float d = length(p - uCamPos);
-  a *= smoothstep(0.4, 0.8, d)*(1.0 - uSF2.w);
-  // a soft disc 4-12 mm across near, ~3x in the far group; under 1.5 px it keeps 1.5 px and gives the lost area to alpha
-  float rad = 0.5*(near ? mix(0.004, 0.012, h1(fi*4.4)) : mix(0.012, 0.036, h1(fi*4.4)));
-  float rmin = 0.75*uPxAng*d;
-  if (rad < rmin) { a *= (rad*rad)/(rmin*rmin); rad = rmin; }
+  a *= smoothstep(0.4, 0.8, d)*(1.0 - uSF2.w)*exp(-wxSigma*d);       // the scene's fog over the particle's own distance
   vec3 tv = normalize(p - uCamPos);
-  vec3 side = normalize(cross(tv, vec3(0.0, 1.0, 0.0)) + vec3(1e-4)), up = cross(side, tv);
-  int c = gl_VertexID; vec2 qv = c == 0 ? vec2(-1, -1) : c == 1 ? vec2(1, -1) : c == 2 ? vec2(1, 1) : c == 3 ? vec2(-1, -1) : c == 4 ? vec2(1, 1) : vec2(-1, 1);
-  vec3 w = p + (side*qv.x + up*qv.y)*rad;
+  vec3 w;
+  if (rain) {   // a streak along the velocity: length = speed x a 1/45 s exposure, at least 1.5 px wide (the rest to alpha)
+    vec3 vel = vec3(uSF2.x*wf.x, -spd, uSF2.y*wf.y); float sp = length(vel); vec3 ax = vel/max(sp, 1e-3);
+    float len = clamp(sp/45.0, 0.08, 0.6)*0.5, wid = 0.0006, wmin = 0.75*uPxAng*d;
+    if (wid < wmin) { a *= wid/wmin; wid = wmin; }
+    vec3 side = normalize(cross(ax, tv) + vec3(1e-4));
+    w = p + side*qv.x*wid + ax*qv.y*len;
+    a *= 0.45;
+  } else {      // a soft disc 4-12 mm across near, ~3x far; under 1.5 px it keeps 1.5 px and gives the lost area to alpha
+    float rad = 0.5*uPSize*(near ? mix(0.004, 0.012, h1(fi*4.4)) : mix(0.012, 0.036, h1(fi*4.4)));
+    float rmin = 0.75*uPxAng*d;
+    if (rad < rmin) { a *= (rad*rad)/(rmin*rmin); rad = rmin; }
+    vec3 side = normalize(cross(tv, vec3(0.0, 1.0, 0.0)) + vec3(1e-4)), up = cross(side, tv);
+    w = p + (side*qv.x + up*qv.y)*rad;
+  }
   vC = qv; vA = a;
   gl_Position = uVP*vec4(w, 1.0);
   if (a <= 0.001) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+}
+)GLSL";
+static const char* kSnowfallFS = R"GLSL(
+#version 450 core
+in vec2 vC; in float vA; flat in int vK; in vec3 vCol; out vec4 oColor;
+void main(){
+  float k = vK == 1 ? (1.0 - vC.x*vC.x)*(1.0 - smoothstep(0.6, 1.0, abs(vC.y)))   // a rain streak: soft across, tapered ends
+          : vK == 2 ? (1.0 - smoothstep(0.2, 1.0, length(vC)))                       // a splash crown
+          : 1.0 - smoothstep(0.35, 1.0, length(vC));                                  // a soft round flake
+  oColor = vec4(vCol, k*vA*0.85);
 }
 )GLSL";
 // WS2 drifting leaves (corpus 07 s7.3), the snowfall's stateless path: each leaf is a function of its instance id and the
@@ -4273,14 +4359,6 @@ void main(){
   float ndl = abs(dot(N, uSunDir))*0.7 + 0.3;
   vec3 c = vCol/PI*uSunCol*ndl + vCol*mix(uGroundCol, uSkyCol, 0.6)*0.6;
   oColor = vec4(applyFog(c, vW), 1.0);
-}
-)GLSL";
-static const char* kSnowfallFS = R"GLSL(
-#version 450 core
-in vec2 vC; in float vA; uniform vec3 uSnowCol; out vec4 oColor;
-void main(){
-  float k = 1.0 - smoothstep(0.35, 1.0, length(vC));   // BT2: a soft round flake
-  oColor = vec4(uSnowCol, k*vA*0.85);
 }
 )GLSL";
 // Weather W6 (corpus 7.17-7.21): the particles belong to the scene's air. Per vertex (kCommon: the same fog and sun shadow as the
@@ -4686,7 +4764,8 @@ void Renderer::createShadowTargets() {
   glNamedFramebufferDrawBuffer(shadowFbo, GL_NONE); glNamedFramebufferReadBuffer(shadowFbo, GL_NONE);
   // far cascade (same comparison sampler setup)
   glCreateTextures(GL_TEXTURE_2D, 1, &shadowFarTex);
-  glTextureStorage2D(shadowFarTex, 1, GL_DEPTH_COMPONENT32F, shadowFarSize, shadowFarSize);
+  farAtlas = shadowFarSize >= 4096;   // CP4 cascade4 (High / Ultra): the far map is 2 wide, the fourth cascade | far
+  glTextureStorage2D(shadowFarTex, 1, GL_DEPTH_COMPONENT32F, shadowFarSize * (farAtlas ? 2 : 1), shadowFarSize);
   glTextureParameteri(shadowFarTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR); glTextureParameteri(shadowFarTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTextureParameteri(shadowFarTex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(shadowFarTex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glTextureParameteri(shadowFarTex, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE); glTextureParameteri(shadowFarTex, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
@@ -4801,6 +4880,8 @@ void Renderer::createTargets() {
   for (GLuint f : {hdrFbo, ldrFbo, compFbo, shaftFbo, dofFbo, aoFbo})
     if (glCheckNamedFramebufferStatus(f, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) { logf("framebuffer %u incomplete after resize to %dx%d", f, width, height); ++fboErrors; }
   createMsaa();
+  // a full card (several games at once) can fail these allocations: the targets then hold undefined memory (garbage frames)
+  for (GLenum e; (e = glGetError()) != GL_NO_ERROR;) { logf("render targets %dx%d: GL error 0x%04x%s", width, height, e, e == GL_OUT_OF_MEMORY ? " (out of video memory)" : ""); ++fboErrors; }
 }
 
 // B1 MSAA (settings: High): the opaque world (sky, terrain, solids, models, foliage, grass) renders into a
@@ -5028,7 +5109,9 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uTSV"), 26); glUniform1i(U(p, "uTHorOn"), thorTex && !thumbMode ? 1 : 0); glUniform1i(U(p, "uTHorAll"), p == progTerrain || p == progTerrainND || p == progGrass ? 1 : 0);   // VOT T6 (unit 26 = the terrain's T5 / T6 texture)
   if (thorTex && !thumbMode) { glBindTextureUnit(26, thorTex); glUniform4fv(U(p, "uTHorMap"), 1, glm::value_ptr(thorMap)); glUniform4fv(U(p, "uTHorW"), 1, glm::value_ptr(thorW)); }
   glUniformMatrix4fv(U(p, "uLightVPFar"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
-  glUniform2f(U(p, "uShadowTexelFar"), 1.0f / shadowFarSize, 1.0f / shadowFarSize);
+  glUniform2f(U(p, "uShadowTexelFar"), (farAtlas ? 0.5f : 1.0f) / shadowFarSize, 1.0f / shadowFarSize);
+  glUniform2f(U(p, "uFarAx"), farAtlas ? 0.5f : 1.0f, farAtlas ? 0.5f : 0.0f);
+  glUniform1i(U(p, "uC3On"), c3On && !thumbMode ? 1 : 0); glUniformMatrix4fv(U(p, "uLightVPC3"), 1, GL_FALSE, glm::value_ptr(lightVPC3)); glUniform1f(U(p, "uShadowWorldTexelC3"), 2 * c3R / shadowFarSize);
   glUniform2f(U(p, "uShadowWorldTexel"), 2 * nearR / shadowSize, 2 * farR / shadowFarSize);
   glUniform1f(U(p, "uShadowDepthRange"), 800.0f); glUniform1f(U(p, "uSlopeCap"), perf.slopeCap && !q.legacy ? 2.0f : 6.0f);
   glUniform1f(U(p, "uShadowSoft"), q.legacy ? 0.0f : q.shadowSoft * (1.0f + 2.0f * wx.k));   // WX2: overcast sun casts very soft shadows
@@ -5097,6 +5180,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uAlbClamp"), q.legacy || !perf.albClamp ? 0 : 1);   // CP step 4
   glUniform1i(U(p, "uWetOn"), q.legacy || !perf.wet || thumbMode ? 0 : 1); glUniform1f(U(p, "uWetTime"), (float)std::fmod(time, 3600.0));   // W3   // CP step 3
   glUniform1i(U(p, "uMaskLib"), !q.legacy && perf.maskLib ? 1 : 0);   // CP step 6 part 2
+  glUniform1i(U(p, "uSteepTri"), !q.legacy && perf.steepTri ? 1 : 0);   // FIX5
   glUniform1i(U(p, "uWearCause"), !q.legacy && q.matLayer > 0 && perf.wearCause ? 1 : 0);   // M4
   glUniform2i(U(p, "uMicroOn"), !q.legacy && q.matLayer > 0 && perf.microDetail ? 1 : 0, !q.legacy && perf.roughVar ? 1 : 0);   // CP step 6 (micro detail off at Low)
   glUniform2f(U(p, "uHex"), q.legacy || !perf.hex || q.matLayer == 0 || hd <= 0 ? 0.0f : 1.0f, std::max(hd, 0.05f)); }   // M1: hex tiling (--rq-off hex; off at Low); NMK_HEX = cells per texture repeat
@@ -5649,6 +5733,7 @@ void Renderer::drawImpostors(const RenderView& v, const mat4& vp, const Frustum&
   setLighting(progImp, v);
   glUniformMatrix4fv(U(progImp, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
   glUniform1i(U(progImp, "uImpAlb"), 2); glUniform1i(U(progImp, "uImpNrm"), 4); const GLint lUse = U(progImp, "uImpUse");
+  glUniform1f(U(progImp, "uFolTrans"), q.lightNew && perf.folTrans && !q.legacy ? 1.0f : 0.0f);   // as progFolModel (drawFolModels)
   if (!impInstBuf) glCreateBuffers(1, &impInstBuf);
   glDisable(GL_CULL_FACE); glBindVertexArray(snowfallVao);
   for (auto& [I, b] : by) {
@@ -5865,6 +5950,43 @@ bool Renderer::fogHides(vec3 eye, vec3 top) const {   // kCommon's applyFog term
   }
   return tau > 5.545f;   // ln 255: under one 8-bit step of the object's own contrast
 }
+// A program whose active samplers of different types (sampler2D / samplerCube / sampler2DArray ...) read the same texture
+// unit is an invalid draw (GL 4.5 s7.10): garbage or nothing, found only by eye (units 25, 27, 26, 9 so far). Units are
+// set at draw time, so this runs after views have rendered; program names are small integers, walked with glIsProgram.
+int Renderer::checkSamplerUnits() {
+  auto isSampler = [](GLenum t) {
+    switch (t) { case GL_SAMPLER_1D: case GL_SAMPLER_2D: case GL_SAMPLER_3D: case GL_SAMPLER_CUBE: case GL_SAMPLER_2D_SHADOW: case GL_SAMPLER_2D_ARRAY:
+      case GL_SAMPLER_2D_ARRAY_SHADOW: case GL_SAMPLER_CUBE_SHADOW: case GL_SAMPLER_CUBE_MAP_ARRAY: case GL_SAMPLER_2D_MULTISAMPLE: case GL_SAMPLER_BUFFER:
+      case GL_INT_SAMPLER_2D: case GL_INT_SAMPLER_3D: case GL_INT_SAMPLER_2D_ARRAY: case GL_UNSIGNED_INT_SAMPLER_2D: case GL_UNSIGNED_INT_SAMPLER_3D:
+      case GL_UNSIGNED_INT_SAMPLER_2D_ARRAY: case GL_UNSIGNED_INT_SAMPLER_BUFFER: case GL_INT_SAMPLER_BUFFER: return true; default: return false; } };
+  int bad = 0, unset = 0, progs = 0;
+  for (GLuint p = 1; p < 8192; ++p) {
+    if (!glIsProgram(p)) continue;
+    GLint linked = 0; glGetProgramiv(p, GL_LINK_STATUS, &linked); if (!linked) continue;
+    ++progs;
+    GLint n = 0; glGetProgramiv(p, GL_ACTIVE_UNIFORMS, &n);
+    std::map<GLint, std::pair<GLenum, std::string>> unit;   // unit -> (type, first uniform on it)
+    for (GLint k = 0; k < n; ++k) {
+      char nm[256]; GLsizei len = 0; GLint size = 0; GLenum type = 0;
+      glGetActiveUniform(p, (GLuint)k, sizeof nm, &len, &size, &type, nm);
+      if (!isSampler(type)) continue;
+      std::string base(nm); if (auto b = base.find('['); b != std::string::npos) base.resize(b);
+      for (GLint e = 0; e < size; ++e) {   // sampler arrays: each element has its own unit
+        std::string el = size > 1 ? base + "[" + std::to_string(e) + "]" : base;
+        GLint loc = glGetUniformLocation(p, el.c_str()); if (loc < 0) continue;
+        GLint u = 0; glGetUniformiv(p, loc, &u);
+        auto [it, fresh] = unit.emplace(u, std::make_pair(type, el));
+        if (!fresh && it->second.first != type) {   // unit 0 = never assigned (a feature off: snow mask, cloud shadows): reported, not failed
+          if (u != 0) ++bad; else ++unset;
+          logf("sampler clash%s: program %u, unit %d: %s (type 0x%04x) and %s (type 0x%04x)", u ? "" : " (unassigned, unit 0)", p, u, it->second.second.c_str(), it->second.first, el.c_str(), type);
+        }
+      }
+    }
+  }
+  logf("sampler units: %d programs checked, %d clashes on assigned units (shader errors), %d on unassigned unit 0", progs, bad, unset);   // shortcut: unit-0 clashes are invalid draws by the spec too (NVIDIA draws them); fail them once those programs park their unused samplers
+  shaderErrors += bad;
+  return bad;
+}
 static GLuint gLiveProg = 0;   // CP 5.8: compiled at init (warmPrograms)
 void Renderer::warmPrograms() {
   if (!gLiveProg) gLiveProg = compile(kFullVS, kLiveFS, "modelLive");
@@ -5933,7 +6055,7 @@ static mat4 reverseZ(const mat4& p) {
 const char* gpuPassName(int p) {
   static const char* n[GP_Count] = {"cloud_shadow", "shadow_near", "shadow_far", "sky_occlusion", "light_shadows", "probes", "clusters",
                                     "clears", "sky", "terrain", "opaque", "models", "trees", "grass", "nature", "msaa_resolve", "water", "gore",
-                                    "glass", "composite", "taa", "bloom", "fx", "weapon", "post", "ui"};
+                                    "glass", "composite", "taa", "bloom", "fx", "precip", "weapon", "post", "ui"};
   return p >= 0 && p < GP_Count ? n[p] : "end";
 }
 // one slot of GP_Count + 1 timestamps per frame, three slots in flight: a slot is read (only when every result is ready,
@@ -5997,9 +6119,12 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     if (dt > 0) { windClockPrev = windClock; windGustPrev = windGustOff; windClock += dt * (0.7 + 0.3 * windSwayAmp()); windGustOff += dt * windSpeed(); windDrift += glm::dvec2(wx.der.windXZ) * dt; }
     if (holdTime) { windClockPrev = windClock; windGustPrev = windGustOff; }   // FL1 frozen captures: no motion
     const vec2 d = windDir2();
-    for (GLuint pg : {progLeaf, progLeafI, progLeafShadow, progLeafIShadow, progGrass, progGrassShadow, progGrassPre, progFolModel, progFolDepth}) if (pg) {
+    // WS4: dust coating from the dust visibility (Sandstorm 100 m: 1, Blowing dust 3000 m: about 0.26, none: 0)
+    const float dv = wx.st.dustVisM, dustK = perf.vegDust && dv > 0.0f ? std::clamp((std::log(10000.0f) - std::log(std::max(dv, 1.0f))) / (std::log(10000.0f) - std::log(100.0f)), 0.0f, 1.0f) : 0.0f;
+    for (GLuint pg : {progLeaf, progLeafI, progLeafShadow, progLeafIShadow, progGrass, progGrassShadow, progGrassPre, progFolModel, progFolDepth, progImp}) if (pg) {
       glProgramUniform4f(pg, U(pg, "uWindV"), d.x, d.y, float(windGustOff), float(windGustPrev));
       glProgramUniform4f(pg, U(pg, "uWindP"), float(windClock), float(windClockPrev), windGustL(), windGustG());
+      glProgramUniform1f(pg, U(pg, "uDustK"), dustK);
     }
   }
   if (!impWant.empty() && !thumbMode) impostorBakeSome();   // CP3: queued impostor bakes, 2 a frame
@@ -6164,7 +6289,30 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   // far cascade: the whole visible village / fields (texel ~0.23 m), blended in where the near one ends
   // PF2 farcache: redrawn every 2nd frame, or at once when its focus moves > 8 m, its radius or the key light changes;
   // in between the shaders keep sampling the last map with the matrix it was drawn with (moving casters lag <= 1 frame)
-  const float fR = std::max(240.0f, radius * 2.5f);
+  c3On = farAtlas && perf.cascade4 && q.lightNew && !q.legacy && !thumbMode && q.farCascade && sunSh;
+  const float fR = c3On ? std::max(600.0f, radius * 6.0f) : std::max(240.0f, radius * 2.5f);   // CP4: with the fourth cascade the far one reaches ~600 m
+  const int farX = farAtlas ? shadowFarSize : 0;   // the far cascade's half of the far map
+  stats.c3 = c3On ? 1 : 0; stats.farAtlas = farAtlas ? 1 : 0;
+  const bool vegC3 = !(perf.vegCascades && midOn);   // vegetation stays in the two nearest cascades (CP5)
+  if (c3On) {   // CP4 cascade4: the old far range at the far map's resolution, redrawn every 2nd frame or on a 6 m move / sun change
+    const float cR = std::max(240.0f, radius * 2.5f);
+    const vec3 cfw = v.camPos + vec3(fwd.x, 0, fwd.z) * cR * 0.6f;
+    if (frame - c3Frame >= 2 || cR != c3R || glm::distance(cfw, c3Focus) > 6.0f || sunDir != c3Sun) {
+      c3R = cR; c3Frame = frame; c3Focus = cfw; c3Sun = sunDir; farPass = true;
+      vec3 cf = cfw; cf.y = t.height(cf.x, cf.z);
+      mat4 lv4; lightVPC3 = stableOrtho(cf, sunDir, c3R, 400.0f, shadowFarSize, lv4);
+      Frustum frC = Frustum::fromVP(lightVPC3);
+      minCaster = perf.smallCasters ? 3.0f * (2 * c3R / shadowFarSize) : 0.0f;
+      glBindFramebuffer(GL_FRAMEBUFFER, shadowFarFbo); glViewport(0, 0, shadowFarSize, shadowFarSize);
+      glEnable(GL_SCISSOR_TEST); glScissor(0, 0, shadowFarSize, shadowFarSize); glClear(GL_DEPTH_BUFFER_BIT); glDisable(GL_SCISSOR_TEST);
+      glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPC3)); depthVP = lightVPC3; depthVPSet = true;
+      drawItems(progShadow, opaque, true, &frC);
+      if (!foliage.empty() && vegC3) drawFoliage(progLeafShadow, lightVPC3, &frC, false, perf.leafShadowLod ? 0.0f : -1.0f);
+      if (!folModels.empty() && vegC3) { drawFolModels(true, lightVPC3, &frC, 4.0f); glUseProgram(progShadow); }
+      if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frC);
+      minCaster = 0; farPass = false;
+    }
+  } else c3Frame = -1000;
   const vec3 ffw = v.camPos + vec3(fwd.x, 0, fwd.z) * fR * 0.6f;
   // GP1 shadowcache: the list's static part (opaque[0 .. opaqueStatic) and the canopies) is drawn into its own map only
   // when it changes - the cascade re-centres (> 8 m), the key light or radius changes, or the signature of what is in the
@@ -6201,10 +6349,10 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     mat4 lv2; lightVPFar = stableOrtho(ff, sunDir, farR, 400.0f, shadowFarSize, lv2);
     minCaster = perf.smallCasters ? (perf.farLite ? 4.0f : 2.0f) * (2 * farR / shadowFarSize) : 0.0f;   // PF2: casters under ~1 texel
     Frustum frFar = Frustum::fromVP(lightVPFar);
-    glViewport(0, 0, shadowFarSize, shadowFarSize);
     if (!cacheOn || staticRedo) {   // the static layer (everything, without the cache)
       glBindFramebuffer(GL_FRAMEBUFFER, cacheOn ? farStaticFbo : shadowFarFbo);
-      glClear(GL_DEPTH_BUFFER_BIT);
+      glViewport(cacheOn ? 0 : farX, 0, shadowFarSize, shadowFarSize);
+      glEnable(GL_SCISSOR_TEST); glScissor(cacheOn ? 0 : farX, 0, shadowFarSize, shadowFarSize); glClear(GL_DEPTH_BUFFER_BIT); glDisable(GL_SCISSOR_TEST);
       glUseProgram(progShadow);
       glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPFar)); depthVP = lightVPFar; depthVPSet = true;
       if (cacheOn) itemHi = (uint32_t)nStat;
@@ -6214,8 +6362,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       farSig = fsig;
     }
     if (cacheOn) {   // the live map: the static layer, then what moves
-      glCopyImageSubData(farStaticTex, GL_TEXTURE_2D, 0, 0, 0, 0, shadowFarTex, GL_TEXTURE_2D, 0, 0, 0, 0, shadowFarSize, shadowFarSize, 1);
-      glBindFramebuffer(GL_FRAMEBUFFER, shadowFarFbo);
+      glCopyImageSubData(farStaticTex, GL_TEXTURE_2D, 0, 0, 0, 0, shadowFarTex, GL_TEXTURE_2D, 0, farX, 0, 0, shadowFarSize, shadowFarSize, 1);
+      glBindFramebuffer(GL_FRAMEBUFFER, shadowFarFbo); glViewport(farX, 0, shadowFarSize, shadowFarSize);
       if (opaque.size() > nStat) {
         glUseProgram(progShadow);
         glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
@@ -6232,7 +6380,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   gpuMark(GP_SkyOcc);
   // ---- sky occlusion (top down). PF2 occcache: redrawn every 16 frames, or at once when the camera moves 4 m across
   // or 8 m up / down (the map covers +-90 m, so the camera stays >= 86 m inside it); thumbnails always redraw.
-  float occR = perf.occSmall ? 64.0f : 90.0f;   // OPT occsmall (weather corpus s3.5): the sky-occlusion map over +-64 m (fewer casters, finer texels)
+  float occR = perf.occSmall ? 64.0f : 90.0f;
+  occR = std::max(occR, std::min(1.5f * std::max(v.camPos.y - t.height(v.camPos.x, v.camPos.z), 0.0f), 400.0f));   // a high (plan / overview) camera sees ground far out: the box grows with height above the ground   // OPT occsmall (weather corpus s3.5): the sky-occlusion map over +-64 m (fewer casters, finer texels)
   const float occTopW = std::max(v.camPos.y, 0.0f) + 60.0f;
   const bool occRedo = !perf.occCache || thumbMode || frame - occFrame >= 16 || glm::length(vec2(v.camPos.x - occCam.x, v.camPos.z - occCam.z)) > 4.0f || std::fabs(occTopW - occTop) > 8.0f;
   if (occRedo) {
@@ -6609,40 +6758,59 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     }
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   }
+  // W4 precipitation (one path, kinds by uKind; the perf switch "precip", its GPU pass "precip"): snow (the map's snowfall,
+  // Light snow, Blizzard with spindrift), rain (Drizzle, Steady rain, Thunderstorm) with splashes, on any open-sky map
+  gpuMark(GP_Precip);
   const bool wxSnow = wx.der.phys && wx.st.precip == WxSnow;   // W1: Light snow / Blizzard on any open-sky map (the map's own snowfall when it has one)
-  if ((lt.mapSnowfall || wxSnow) && !thumbMode && !v.thermal && !v.underwater && q.snowfallScale > 0.0f) {   // SF1 snowfall (look.snowfall)
-    const float sfN = lt.mapSnowfall ? lt.sfNear : 0.0f, sfF = lt.mapSnowfall ? lt.sfFar : 0.0f;
-    const float wN = wxSnow ? (wx.st.precipMmH >= 3.0f ? 400.0f : 60.0f) : 0.0f, wF = wxSnow ? (wx.st.precipMmH >= 3.0f ? 9000.0f : 2500.0f) : 0.0f;
-    const int nearN = (int)(std::max(sfN, wN) * q.snowfallScale), farN = (int)(std::max(sfF, wF) * q.snowfallScale);
-    if (nearN + farN > 0) {
-      glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE); glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST);
-      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-      glUseProgram(progSnowfall);
-      glUniformMatrix4fv(U(progSnowfall, "uVP"), 1, GL_FALSE, glm::value_ptr(vpU));
-      glUniform3fv(U(progSnowfall, "uCamPos"), 1, glm::value_ptr(v.camPos));
-      glUniform1f(U(progSnowfall, "uTime"), time);
-      float gust = 0.5f + 0.5f * std::sin(time * 0.23f) * std::sin(time * 0.071f + 1.3f);   // slow gusts (shared wind feel; deterministic)
-      glUniform4f(U(progSnowfall, "uSF"), (float)nearN, 9.0f, 42.0f, lt.sfFall);
-      glUniform4f(U(progSnowfall, "uSF2"), 0.0f, 0.0f, gust, camIndoor ? 1.0f : 0.0f);
-      {   // BT2: the wind integrated frame by frame (the gust changes the speed, never the flakes' past path)
-        static double acc[2] = {0, 0}; static float lastT = -1.0f;
-        const float dt = lastT < 0.0f ? 0.0f : std::clamp(time - lastT, 0.0f, 0.1f); lastT = time;
-        const float wk = wx.der.windK * (0.6f + 0.8f * gust);   // the weather preset's wind (relative to Clear) x the gust
-        acc[0] += lt.sfWind.x * wk * dt; acc[1] += lt.sfWind.y * wk * dt;
-        acc[0] = std::fmod(acc[0], 7560.0); acc[1] = std::fmod(acc[1], 7560.0);   // shortcut: the wrap jumps flakes once per ~2 h of wind
-        glUniform2f(U(progSnowfall, "uSFAcc"), (float)acc[0], (float)acc[1]);
-      }
-      glUniform3f(U(progSnowfall, "uCamFwd"), -v.view[0][2], -v.view[1][2], -v.view[2][2]);
-      glUniform1f(U(progSnowfall, "uPxAng"), pxAngle);
-      glBindTextureUnit(1, occTex); glUniform1i(U(progSnowfall, "uOcc"), 1);
-      glUniformMatrix4fv(U(progSnowfall, "uOccVP"), 1, GL_FALSE, glm::value_ptr(occVP));
-      glUniform1f(U(progSnowfall, "uOccTop"), occTop); glUniform1f(U(progSnowfall, "uOccRange"), occRange); glUniform1i(U(progSnowfall, "uOccOn"), 1);
-      vec3 sc = vec3(0.92f, 0.94f, 0.98f) * lt.sfBright;
-      glUniform3fv(U(progSnowfall, "uSnowCol"), 1, glm::value_ptr(sc));
-      glBindVertexArray(snowfallVao);
+  const bool wxRainy = wx.der.phys && (wx.st.precip == WxRain || wx.st.precip == WxDrizzle);
+  if (perf.precip && (lt.mapSnowfall || wxSnow || wxRainy) && !thumbMode && !v.thermal && !v.underwater && q.snowfallScale > 0.0f) {
+    float gust = 0.5f + 0.5f * std::sin(time * 0.23f) * std::sin(time * 0.071f + 1.3f);   // slow gusts (shared wind feel; deterministic)
+    static float lastT = -1.0f; const float dt = lastT < 0.0f ? 0.0f : std::clamp(time - lastT, 0.0f, 0.1f); lastT = time;
+    // the wind each kind drifts on, integrated frame by frame (the gust changes the speed, never a particle's past path)
+    const vec2 wWx = wx.der.windXZ * (0.6f + 0.8f * gust);                                          // the weather's wind (m/s)
+    const vec2 wSnow = lt.mapSnowfall ? lt.sfWind * (wx.der.windK * (0.6f + 0.8f * gust)) : wWx;   // the map's snow drift, else the weather's
+    static double accS[2] = {0, 0}, accR[2] = {0, 0};
+    accS[0] = std::fmod(accS[0] + wSnow.x * dt, 7560.0); accS[1] = std::fmod(accS[1] + wSnow.y * dt, 7560.0);   // shortcut: the wrap jumps particles once per ~2 h of wind
+    accR[0] = std::fmod(accR[0] + wWx.x * dt, 7560.0); accR[1] = std::fmod(accR[1] + wWx.y * dt, 7560.0);
+    glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE); glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glUseProgram(progSnowfall);
+    glUniformMatrix4fv(U(progSnowfall, "uVP"), 1, GL_FALSE, glm::value_ptr(vpU));
+    glUniform3fv(U(progSnowfall, "uCamPos"), 1, glm::value_ptr(v.camPos));
+    glUniform1f(U(progSnowfall, "uTime"), time);
+    glUniform3f(U(progSnowfall, "uCamFwd"), -v.view[0][2], -v.view[1][2], -v.view[2][2]);
+    glUniform1f(U(progSnowfall, "uPxAng"), pxAngle);
+    glBindTextureUnit(1, occTex); glUniform1i(U(progSnowfall, "uOcc"), 1);
+    glUniformMatrix4fv(U(progSnowfall, "uOccVP"), 1, GL_FALSE, glm::value_ptr(occVP));
+    glUniform1f(U(progSnowfall, "uOccTop"), occTop); glUniform1f(U(progSnowfall, "uOccRange"), occRange); glUniform1i(U(progSnowfall, "uOccOn"), 1);
+    glBindVertexArray(snowfallVao);
+    auto draw = [&](int kind, int nearN, int farN, float nearBox, float farBox, float fall, vec2 wind, const double* acc, vec3 col, float size = 1.0f) {
+      if (nearN + farN <= 0) return;
+      glUniform1i(U(progSnowfall, "uKind"), kind);
+      glUniform4f(U(progSnowfall, "uSF"), (float)nearN, nearBox, farBox, fall);
+      glUniform4f(U(progSnowfall, "uSF2"), wind.x, wind.y, gust, camIndoor ? 1.0f : 0.0f);
+      glUniform2f(U(progSnowfall, "uSFAcc"), (float)acc[0], (float)acc[1]);
+      glUniform3fv(U(progSnowfall, "uPCol"), 1, glm::value_ptr(col)); glUniform1f(U(progSnowfall, "uPSize"), size);
       glDrawArraysInstanced(GL_TRIANGLES, 0, 6, nearN + farN);
-      glBindVertexArray(0);
+    };
+    const float qs = q.snowfallScale;   // Low 0.4, Medium 0.75, High 1 (the sky quality)
+    if (lt.mapSnowfall || wxSnow) {     // SF1 snowfall (look.snowfall) / Light snow / Blizzard
+      const bool blizzard = wxSnow && wx.st.precipMmH >= 3.0f;
+      const float sfN = lt.mapSnowfall ? lt.sfNear : 0.0f, sfF = lt.mapSnowfall ? lt.sfFar : 0.0f;
+      const float wN = wxSnow ? (blizzard ? 9000.0f : 60.0f) : 0.0f, wF = wxSnow ? (blizzard ? 16000.0f : 2500.0f) : 0.0f;   // a blizzard reads by count: ~2.6 flakes / m3 near
+      const vec3 sc = vec3(0.92f, 0.94f, 0.98f) * (lt.mapSnowfall ? lt.sfBright : 1.0f);
+      draw(0, (int)(std::max(sfN, wN) * qs), (int)(std::max(sfF, wF) * qs), 9.0f, 42.0f, lt.mapSnowfall ? lt.sfFall : 1.0f, wSnow, accS, sc, blizzard ? 2.2f : 1.0f);
+      if (blizzard) draw(3, (int)(3000 * qs), 0, 12.0f, 12.0f, 1.0f, wSnow, accS, sc * 0.95f, 1.6f);   // spindrift over the ground
     }
+    if (wxRainy) {   // rain: streaks, and splashes on whatever top surface is under them
+      const float rate = wx.st.precipMmH, share = std::clamp(0.25f + rate / 12.0f, 0.25f, 1.2f);
+      const float fall = wx.st.precip == WxDrizzle ? 3.5f : rate > 25.0f ? 8.5f : 7.5f;
+      const vec3 rc = vec3(0.55f, 0.58f, 0.62f);
+      draw(1, (int)(8000 * share * qs / 0.75f * 0.75f), (int)(8000 * share * qs), 9.0f, 30.0f, fall, wWx, accR, rc);
+      const float splash = std::clamp(rate / 10.0f, 0.2f, 1.0f) * std::max(wx.st.puddle, 0.4f);
+      if (wx.st.precip == WxRain) draw(2, (int)(1000 * splash * qs), 0, 12.0f, 12.0f, 0.0f, wWx, accR, rc * 1.2f);
+    }
+    glBindVertexArray(0);
   }
   if ((perf.leafDrift || perf.pollen) && q.leafDriftN > 0 && !thumbMode && !v.thermal && !v.underwater && progLeafDrift && snowfallVao) {   // WS2 drifting leaves, WS3 pollen
     // how wooded the eye's surroundings are: standing card trees (broadleaf, orchard) within 30 m, eased over ~2 s
@@ -6963,7 +7131,7 @@ void Renderer::worldComposite(const RenderView& v, const mat4& vp) {
     glUniform1i(U(progSsrHalf, "uScene"), 8); glUniform1i(U(progSsrHalf, "uDepth"), 7);
     setLighting(progSsrHalf, v); glUseProgram(progSsrHalf);
     glBindTextureUnit(12, nrTex); glUniform1i(U(progSsrHalf, "uNR"), 12);
-    glUniform1f(U(progSsrHalf, "uSsrAmt"), q.ssrStrength); glUniform1f(U(progSsrHalf, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f); glUniform2f(U(progSsrHalf, "uSsrRough"), perf.ssrFade ? 0.3f : 0.1f, perf.ssrFade ? 0.5f : 0.4f);
+    glUniform1f(U(progSsrHalf, "uSsrAmt"), q.ssrStrength); glUniform1i(U(progSsrHalf, "uSsrEnvCube"), 1); glUniform1f(U(progSsrHalf, "uSsrMaxT"), perf.ssrRange ? 0.75f * wx.der.visM : 1e9f); glUniform2f(U(progSsrHalf, "uSsrRough"), perf.ssrFade ? 0.3f : 0.1f, perf.ssrFade ? 0.5f : 0.4f);
     glUniformMatrix4fv(U(progSsrHalf, "uProj"), 1, GL_FALSE, glm::value_ptr(v.proj));
     glUniformMatrix4fv(U(progSsrHalf, "uView"), 1, GL_FALSE, glm::value_ptr(v.view));
     glUniformMatrix4fv(U(progSsrHalf, "uInvProj"), 1, GL_FALSE, glm::value_ptr(invP));

@@ -5,7 +5,7 @@
 #   GPU_TURN_SLOTS=<n>      how many runs may use the GPU at once (default 5; the user raised it from 1 to 3 to 5, 2026-11-07)
 #   GPU_TURN_EXCLUSIVE=1    take every slot (frame-time measurements that must not share the GPU)
 #   GPU_TURN_LOCK=<dir>     slot 1 directory (default: %TEMP%/nmk/gpu.lock; slot k > 1 is <dir>.k)
-#   GPU_TURN_STALE=<min>    a slot older than this is treated as abandoned and taken over (default 40)
+#   GPU_TURN_STALE=<min>    a slot older than this whose holder pid is not alive is taken over (default 40)
 #   GPU_TURN_TAG=<text>     who holds the slot (shown to waiters; default: the current directory)
 #   GPU_TURN_MIN_COMMIT_GB=<n>  no slot is taken while the system's free commit (RAM + page file not yet promised) is
 #                           under n GB (default 16; 0 = off): 5-6 games loading at once ran out (std::bad_alloc)
@@ -27,7 +27,13 @@ TAG="${GPU_TURN_TAG:-$(pwd)}"
 MINC="${GPU_TURN_MIN_COMMIT_GB:-16}"
 freeCommitGb() {   # Win32_OperatingSystem.FreeVirtualMemory (KB); empty when it can't be read (then the gate is open)
   command -v powershell.exe >/dev/null 2>&1 || return
-  powershell.exe -NoProfile -NonInteractive -Command '[int]((Get-CimInstance Win32_OperatingSystem).FreeVirtualMemory / 1MB)' 2>/dev/null | tr -d ' '
+  powershell.exe -NoProfile -NonInteractive -Command '[int]((Get-CimInstance Win32_OperatingSystem).FreeVirtualMemory / 1MB)' 2>/dev/null | tr -d '
+ '
+}
+MINV="${GPU_TURN_MIN_VRAM_MB:-2560}"
+freeVramMb() {   # nvidia-smi's free video memory (MiB); empty without it (then the gate is open)
+  command -v nvidia-smi >/dev/null 2>&1 || return
+  nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' \r'
 }
 slot() { [ "$1" -eq 1 ] && echo "$LOCK" || echo "$LOCK.$1"; }
 mkdir -p "$(dirname "$LOCK")" "$Q"
@@ -45,7 +51,7 @@ while :; do
   find "$Q" -type f -mmin +2 ! -path "$TICKET" -delete 2>/dev/null    # waiters that died
   for k in $(seq 1 "$N"); do d="$(slot $k)"
     case " ${HELD[*]} " in *" $d "*) continue;; esac   # never time out a slot this waiter holds
-    if [ -n "$(find "$d" -maxdepth 0 -mmin +"$STALE" 2>/dev/null)" ]; then echo "gpu_turn: slot $k older than $STALE min ($(cat "$d/owner" 2>/dev/null)): taking it over"; rm -rf "$d"; fi
+    if [ -n "$(find "$d" -maxdepth 0 -mmin +"$STALE" 2>/dev/null)" ] && ! kill -0 "$(cat "$d/pid" 2>/dev/null)" 2>/dev/null; then echo "gpu_turn: slot $k older than $STALE min ($(cat "$d/owner" 2>/dev/null)): taking it over"; rm -rf "$d"; fi   # old AND no live holder (a long exclusive run is not abandoned)
     hp=$(cat "$d/pid" 2>/dev/null); if [ -n "$hp" ] && [ -d "$d" ] && [ "$(find "$d/pid" -mmin +0.5 2>/dev/null)" ] && ! kill -0 "$hp" 2>/dev/null; then echo "gpu_turn: slot $k's holder ($hp) is gone ($(cut -d'|' -f1 "$d/owner" 2>/dev/null)): taking it over"; rm -rf "$d"; fi   # a holder killed without its trap
   done
   ahead=$(ls -1 "$Q" 2>/dev/null | sort | awk -v me="$(basename "$TICKET")" '$0 < me' | wc -l)
@@ -57,6 +63,11 @@ while :; do
     fc=$(freeCommitGb)
     if [ -n "$fc" ] && [ "$fc" -lt "$MINC" ] 2>/dev/null; then   # in line for a slot, but another game would not fit in memory
       [ $((waited % 60)) -eq 0 ] && echo "gpu_turn: free commit ${fc} GB < ${MINC} GB; waiting for memory"
+      sleep 5; waited=$((waited + 5)); continue
+    fi
+    fv=$(freeVramMb)
+    if [ "$EXCL" != 1 ] && [ -n "$fv" ] && [ "$fv" -lt "$MINV" ] 2>/dev/null; then   # a full card leaves new render targets undefined (garbage frames); exclusive waits for the slots instead
+      [ $((waited % 60)) -eq 0 ] && echo "gpu_turn: free video memory ${fv} MB < ${MINV} MB; waiting"
       sleep 5; waited=$((waited + 5)); continue
     fi
   fi
