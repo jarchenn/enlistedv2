@@ -4560,8 +4560,13 @@ uniform vec2 uSFAcc; // BT2 (corpus weather 05 s2.4): the wind's accumulated dri
 uniform vec3 uCamFwd; uniform float uPxAng;   // the eye's forward; vertical radians per pixel
 uniform int uKind; uniform vec3 uPCol;        // W4: the kind; the lit particle colour (CPU)
 uniform float uPSize;                         // W4: flake size factor (1; a blizzard's clumped flakes larger)
+uniform int uSnowVar;                         // SV1 (perf switch "snowvar"): varied, wind-driven falling snow (kind 0 only)
 out vec2 vC; out float vA; flat out int vK; out vec3 vCol;
 float h1(float n){ return fract(sin(n*12.9898 + 78.233)*43758.5453); }
+float hv(int id, int k){   // SV1: an integer hash (the sin hash above loses precision at large ids: lines and repeats)
+  uint x = uint(id)*16u + uint(k); x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; x ^= x >> 16;
+  return float(x)*(1.0/4294967296.0);
+}
 void main(){
   int id = gl_InstanceID; bool near = float(id) < uSF.x;
   float fi = float(id);
@@ -4586,6 +4591,45 @@ void main(){
   }
   const bool rain = uKind == 1, spin = uKind == 3;
   float R = near ? uSF.y : uSF.z;
+  if (uSnowVar == 1 && uKind == 0) {   // SV1: varied snow. Sizes power-law (many tiny, few large); speed, brightness and opacity by size;
+    // each flake its own wind share and drift; gust-driven swirl (a world-space noise field, so neighbours eddy together and
+    // the field changes across the screen); density in patches that ride the gusts; on screen at most 4 px radius
+    float s = pow(hv(id, 0), 2.6), u1 = hv(id, 1), u2 = hv(id, 2);
+    vec3 r3 = vec3(hv(id, 3), hv(id, 4), hv(id, 5));
+    float wind = length(uSF2.xy), wk = clamp(wind/8.0, 0.2, 1.0);                   // Light snow's breeze swirls less than a blizzard
+    float spd = uSF.w*mix(0.65, 1.35, s)*mix(0.85, 1.15, u1)*(near ? 1.0 : 0.8);     // larger aggregates fall faster
+    float share = mix(1.25, 0.8, s)*mix(0.75, 1.25, u2);                             // small flakes ride the wind more
+    vec2 own = (vec2(hv(id, 6), hv(id, 7)) - 0.5)*0.9*wk;                             // each flake's own sideways drift (m/s)
+    vec3 box = vec3(2.0*R, 1.2*R, 2.0*R);
+    vec3 p = (r3 - 0.5)*box + vec3(uSFAcc.x*share + own.x*uTime, -spd*uTime, uSFAcc.y*share + own.y*uTime);
+    vec3 cen = uCamPos + uCamFwd*0.35*box;
+    p = mod(p - cen + box*0.5, box) - box*0.5 + cen;
+    float g = windGust(p.xz, false);
+    vec3 sw = vec3(vnoise(vec3(p.xz*0.18, uTime*0.35)), vnoise(vec3(p.zx*0.18 + 17.0, uTime*0.3)), vnoise(vec3(p.xz*0.11 + 41.0, uTime*0.4))) - 0.5;
+    p += sw*vec3(2.6, 1.0, 2.6)*wk*clamp(1.0 + 0.9*(g - 1.0), 0.3, 1.6);   // eddies, stronger in a gust
+    float ph = 6.2832*hv(id, 8), fq = 6.2832*mix(0.5, 1.6, u1);
+    p += vec3(sin(uTime*fq + ph), 0.0, cos(uTime*fq*0.7 + ph))*mix(0.04, 0.2, 1.0 - s);  // flutter: small flakes more
+    vec3 q = abs(p - cen)/(box*0.5);
+    float dn = vnoise(vec3((p.xz - uSFAcc*0.9)*0.035, uTime*0.04));                      // patches that travel with the snow
+    float dens = clamp(0.3 + 0.7*dn + 0.6*(g - 1.0), 0.08, 1.0)*(near ? mix(0.85, 1.0, uSF2.z) : 0.45 + 0.55*uSF2.z);
+    float a = smoothstep(hv(id, 9) - 0.08, hv(id, 9) + 0.08, dens);
+    a *= (near ? 1.0 : 0.55)*mix(0.45, 1.0, sqrt(s))*mix(0.8, 1.0, u2);               // small flakes fainter
+    a *= 1.0 - smoothstep(0.8, 1.0, max(q.x, max(q.y, q.z)));
+    if (uOccOn == 1) { vec4 lp = uOccVP*vec4(p, 1.0); vec2 uv = lp.xy*0.5 + 0.5;
+      if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) { float top = uOccTop - texture(uOcc, uv).r*uOccRange; a *= 1.0 - smoothstep(0.5, 1.5, top - p.y); } }
+    float d = length(p - uCamPos);
+    a *= smoothstep(0.7, 1.6, d)*(1.0 - uSF2.w)*exp(-wxSigma*d);                       // nothing right at the lens
+    float rad = uPSize*(near ? mix(0.0012, 0.0065, s) : mix(0.004, 0.02, s));
+    float rmin = 0.6*uPxAng*d, rmax = 4.0*uPxAng*d;                                      // >= 1.2 px across (the rest to alpha), <= 8 px
+    rad = min(rad, rmax);
+    if (rad < rmin) { a *= (rad*rad)/(rmin*rmin); rad = rmin; }
+    vCol *= mix(0.82, 1.05, u2)*mix(0.92, 1.0, s);
+    vec3 tv = normalize(p - uCamPos), side = normalize(cross(tv, vec3(0.0, 1.0, 0.0)) + vec3(1e-4)), up = cross(side, tv);
+    vC = qv; vA = a;
+    gl_Position = uVP*vec4(p + (side*qv.x + up*qv.y)*rad, 1.0);
+    if (a <= 0.001) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    return;
+  }
   vec3 r = vec3(h1(fi*1.31), h1(fi*2.17 + 3.0), h1(fi*3.73 + 7.0));
   float spd = uSF.w*(near ? mix(0.6, 1.5, h1(fi*5.1)) : mix(0.5, 0.9, h1(fi*5.1)));
   if (rain) spd = uSF.w*mix(0.85, 1.15, h1(fi*5.1));
@@ -7313,6 +7357,9 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glBindTextureUnit(1, occTex); glUniform1i(U(progSnowfall, "uOcc"), 1);
     glUniformMatrix4fv(U(progSnowfall, "uOccVP"), 1, GL_FALSE, glm::value_ptr(occVP));
     glUniform1f(U(progSnowfall, "uOccTop"), occTop); glUniform1f(U(progSnowfall, "uOccRange"), occRange); glUniform1i(U(progSnowfall, "uOccOn"), 1);
+    glUniform1i(U(progSnowfall, "uSnowVar"), perf.snowVar ? 1 : 0);
+    glUniform4f(U(progSnowfall, "uWindV"), windDir2().x, windDir2().y, float(windGustOff), float(windGustPrev));   // SV1: the gust field
+    glUniform4f(U(progSnowfall, "uWindP"), float(windClock), float(windClockPrev), windGustL(), windGustG());
     glBindVertexArray(snowfallVao);
     auto draw = [&](int kind, int nearN, int farN, float nearBox, float farBox, float fall, vec2 wind, const double* acc, vec3 col, float size = 1.0f) {
       if (nearN + farN <= 0) return;
@@ -7329,7 +7376,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       const float sfN = lt.mapSnowfall ? lt.sfNear : 0.0f, sfF = lt.mapSnowfall ? lt.sfFar : 0.0f;
       const float wN = wxSnow ? (blizzard ? 9000.0f : 60.0f) : 0.0f, wF = wxSnow ? (blizzard ? 16000.0f : 2500.0f) : 0.0f;   // a blizzard reads by count: ~2.6 flakes / m3 near
       const vec3 sc = vec3(0.92f, 0.94f, 0.98f) * (lt.mapSnowfall ? lt.sfBright : 1.0f);
-      draw(0, (int)(std::max(sfN, wN) * qs), (int)(std::max(sfF, wF) * qs), 9.0f, 42.0f, lt.mapSnowfall ? lt.sfFall : 1.0f, wSnow, accS, sc, blizzard ? 2.2f : 1.0f);
+      draw(0, (int)(std::max(sfN, wN) * qs), (int)(std::max(sfF, wF) * qs), 9.0f, 42.0f, lt.mapSnowfall ? lt.sfFall : 1.0f, wSnow, accS, sc, blizzard ? (perf.snowVar ? 1.3f : 2.2f) : 1.0f);   // SV1: smaller blizzard flakes
       if (blizzard) draw(3, (int)(3000 * qs), 0, 12.0f, 12.0f, 1.0f, wSnow, accS, sc * 0.95f, 1.6f);   // spindrift over the ground
     }
     if (wxRainy) {   // rain: streaks, and splashes on whatever top surface is under them
