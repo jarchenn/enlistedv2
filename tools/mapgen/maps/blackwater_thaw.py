@@ -538,9 +538,8 @@ def build(ctx):
     b.place("bt_castle", CASTLE_C[0], CASTLE_C[1], CASTLE_YAW, check=False, cls="none", y=BASE + CASTLE_PAD, tags={"castle"}, companions=False)
     # the load-when-close rule on a stub room (the interior's stand-in until the rooms are built): built within 90 m of
     # the player, dropped beyond 130 m
-    write_castle_stub(ctx, cat)
-    sx_, sz_ = castle_world(0.0, -72.0)
-    b.place("castle_interior_stub", sx_, sz_, CASTLE_YAW, check=False, cls="none", y=BASE + CASTLE_PAD - 12.0, tags={"castle"}, companions=False)
+    write_castle_interior(ctx, cat)
+    b.place("castle_interior", CASTLE_C[0], CASTLE_C[1], CASTLE_YAW, check=False, cls="none", y=BASE + CASTLE_PAD, tags={"castle"}, companions=False)
     # the waterworks court's stepped header channel, the court's north-east side, head to the north
     write_flume_asset(ctx, cat)
     b.place("bt_flume", 8.0, 15.0, 0.0, check=False, y=G(8.0, 15.0), tags={"flume"}, companions=False)
@@ -1393,6 +1392,35 @@ def write_castle_asset(ctx, cat):
         cyl((x, y0 + h + 0.9, z), d * crown, 1.8, "limestone", n)
         cyl((x, y0 + h + 1.8 + cap * d * 0.6, z), d * crown, cap * d * 1.2, "slate", n, cone=True)
 
+    # ---- rooms commit: hollow shell volumes (walls 0.8 m with door openings); the rooms' floors, stairs, linings and
+    # furnishing are castle_interior (built only near: loadRadius)
+    def hollow(cx, cy, cz, sx, sy, sz, m, doors=(), t=0.8):
+        """four walls of a box volume, openings as (face, along, y0, w, h): face 'x-','x+','z-','z+', along = the
+        opening's centre on that face's long axis, y0 its sill (absolute local y)."""
+        y0, y1 = cy - sy / 2, cy + sy / 2
+        for face in ("x-", "x+", "z-", "z+"):
+            ops = sorted([d for d in doors if d[0] == face], key=lambda d: d[1])
+            if face[0] == "x":
+                fx = cx - sx / 2 + t / 2 if face == "x-" else cx + sx / 2 - t / 2
+                a0, a1 = cz - sz / 2, cz + sz / 2
+            else:
+                fz = cz - sz / 2 + t / 2 if face == "z-" else cz + sz / 2 - t / 2
+                a0, a1 = cx - sx / 2 + t, cx + sx / 2 - t
+            cur = a0
+            for _f, al, oy, w, h in ops + [(face, a1 + 99.0, y0, 0.0, 0.0)]:
+                lo, hi = (al - w / 2, al + w / 2) if w > 0 else (a1, a1)
+                if lo > cur:   # a full-height piece up to the opening
+                    L, mid = lo - cur, (cur + lo) / 2
+                    box((fx, cy, mid) if face[0] == "x" else (mid, cy, fz), (t, sy, L) if face[0] == "x" else (L, sy, t), m)
+                if w > 0:      # over and under the opening
+                    if oy + h < y1:
+                        hh = y1 - (oy + h); yc = oy + h + hh / 2
+                        box((fx, yc, al) if face[0] == "x" else (al, yc, fz), (t, hh, w) if face[0] == "x" else (w, hh, t), m)
+                    if oy > y0:
+                        hh = oy - y0; yc = y0 + hh / 2
+                        box((fx, yc, al) if face[0] == "x" else (al, yc, fz), (t, hh, w) if face[0] == "x" else (w, hh, t), m)
+                    cur = hi
+
     yT, yL = -12.0, -10.0   # shell: the court sits 2 m over the gate terrace (a ramp in the passage), the palace 10 m over it
 
     def window(face_x, y, z, w, h, side, arch=True, n_axis="x"):
@@ -1418,11 +1446,14 @@ def write_castle_asset(ctx, cat):
     for k in range(9):
         ph = math.radians(-70.0 + 17.5 * k)
         box((22.4 * math.sin(ph), yT - 11.0, -66.0 - 17.4 * math.cos(ph)), (2.4, 18.0, 3.2), "masonry", r=math.degrees(ph))
-    for k in range(17):   # the parapet: low wall blocks along the front arc, a gap where the road comes onto the terrace
-        ph = math.radians(-100.0 + 12.5 * k)
-        if -112.0 < math.degrees(ph) < -88.0:
+    for k in range(40):   # the parapet: continuous along the front arc with a coping, one gap where the road arrives (west)
+        a0_, a1_ = math.radians(-100.0 + 5.0 * k), math.radians(-95.0 + 5.0 * k)
+        if -100.5 < -100.0 + 5.0 * k < -84.5:
             continue
-        box((21.6 * math.sin(ph), yT + 0.55, -66.0 - 16.6 * math.cos(ph)), (3.2, 1.1, 0.5), "masonry", r=math.degrees(ph))
+        p0 = (21.6 * math.sin(a0_), -66.0 - 16.6 * math.cos(a0_)); p1 = (21.6 * math.sin(a1_), -66.0 - 16.6 * math.cos(a1_))
+        L = math.hypot(p1[0] - p0[0], p1[1] - p0[1]) + 0.05; yaw_ = math.degrees(math.atan2(p1[0] - p0[0], p1[1] - p0[1])) - 90.0
+        box(((p0[0] + p1[0]) / 2, yT + 0.55, (p0[1] + p1[1]) / 2), (L, 1.1, 0.5), "masonry", r=yaw_)
+        box(((p0[0] + p1[0]) / 2, yT + 1.17, (p0[1] + p1[1]) / 2), (L, 0.14, 0.7), "trim", r=yaw_, k=0)
     # the gatehouse: red body split round a 4.4 x 6.4 m passage (open door leaves inside), stepped gable, towers
     box((-8.6, yT + 8.0, -50.0), (12.8, 16.0, 11.0), "red")
     box((8.6, yT + 8.0, -50.0), (12.8, 16.0, 11.0), "red")
@@ -1449,8 +1480,9 @@ def write_castle_asset(ctx, cat):
     box((0.0, yL - 0.15, -26.0), (38.0, 0.3, 37.0), "paving")
     box((0.0, yL + 5.0, -6.8), (40.0, 10.0, 1.6), "masonry")   # the retaining wall up to the palace's level (no raw slope)
     for x in (-20.0, 20.0):
-        box((x, yL + 4.0, -30.0), (2.0, 8.0, 36.0), "masonry")
-    box((-11.0, yL + 10.0, -30.0), (13.0, 20.0, 16.0), "limestone")
+        box((x, yL + 4.0, -30.0), (2.0, 8.0, 36.0), "limestone")   # the facade's ashlar (masonry read as giant brick)
+    hollow(-11.0, yL + 10.0, -30.0, 13.0, 20.0, 16.0, "limestone", doors=[("x+", -26.0, yL, 1.6, 2.6)])
+    box((-11.0, yL + 19.8, -30.0), (13.0, 0.4, 16.0), "limestone")   # its ceiling under the roof
     gable_z(-17.8, -4.2, yL + 20.0, 7.0, -38.0, -22.0)
     tower(-4.2, -22.0, 3.2, yL + 14.0, 10.0, cap=1.4)
     for y in (yL + 6.0, yL + 12.0):
@@ -1458,15 +1490,32 @@ def write_castle_asset(ctx, cat):
     box((11.0, yL + 12.0, -38.0), (9.0, 24.0, 9.0), "limestone")
     tower(11.0, -38.0, 8.0, yL + 24.0, 16.0, cap=1.1)
     # the connecting wing (right) between the court and the palace
-    box((12.0, yL + 9.0, -14.0), (12.0, 18.0, 12.0), "limestone")
+    hollow(12.0, yL + 9.0, -14.0, 12.0, 18.0, 12.0, "limestone", doors=[("x-", -14.0, yL, 1.6, 2.6), ("z+", 7.6, 0.0, 1.6, 2.6)])
+    box((12.0, yL + 17.8, -14.0), (12.0, 0.4, 12.0), "limestone")
     gable_x(-20.0, -8.0, yL + 18.0, 5.0, 6.0, 18.0)
     # the lower lateral wing toward the quarry and its slender, crowned, independent-looking tower
-    box((20.0, yL + 7.0, -8.0), (10.0, 14.0, 20.0), "limestone")
+    hollow(20.0, yL + 7.0, -8.0, 10.0, 14.0, 20.0, "limestone", doors=[("x-", -12.0, yL, 1.6, 2.6)])
+    box((20.0, yL + 13.8, -8.0), (10.0, 0.4, 20.0), "limestone")
     gable_z(15.0, 25.0, yL + 14.0, 4.5, -18.0, 2.0)
-    tower(26.0, 0.0, 7.2, yL, 42.0, crown=1.25, cap=0.7)
+    # the side tower: a hollow ring (the spiral stair inside is the interior's), a door into the wing, an open lookout of
+    # eight piers under its crown and cap
+    TX, TZ, TR, TH = 26.0, 0.0, 3.6, 42.0
+    for k in range(16):
+        ph = math.radians(11.25 + 22.5 * k); seg = 2 * TR * math.sin(math.radians(11.25)) + 0.1
+        cx_, cz_ = TX + (TR - 0.3) * math.cos(ph), TZ + (TR - 0.3) * math.sin(ph)
+        if abs(math.degrees(ph) - 180.0) < 12.0:   # the door (west, into the wing)
+            box((cx_, yL + 2.6 + (TH - 2.6) / 2, cz_), (0.6, TH - 2.6, seg), "limestone", r=-math.degrees(ph))
+        else:
+            box((cx_, yL + TH / 2, cz_), (0.6, TH, seg), "limestone", r=-math.degrees(ph))
+    for k in range(8):
+        ph = math.radians(22.5 * k)
+        box((TX + (TR - 0.3) * math.cos(ph), yL + TH + 1.2, TZ + (TR - 0.3) * math.sin(ph)), (0.6, 2.4, 0.9), "trim", r=-math.degrees(ph))
+    cyl((TX, yL + TH + 2.4 + 0.9, TZ), 2 * TR * 1.25, 1.8, "limestone", 16)
+    cyl((TX, yL + TH + 4.2 + 0.7 * 7.2 * 0.6, TZ), 2 * TR * 1.25, 0.7 * 7.2 * 1.2, "slate", 16, cone=True)
     # the palace: the long pale slab (its foot from the court level up), steep dark roof, dormer gables, throne-hall
     # projection, corner turrets, chimneys
-    box((0.0, 15.0, 25.0), (18.0, 30.0, 58.0), "limestone")
+    box((0.0, 20.0, 25.0), (18.0, 20.0, 58.0), "limestone")                      # the floors above the hall
+    hollow(0.0, 5.0, 25.0, 18.0, 10.0, 58.0, "limestone", doors=[("z-", 7.6, 0.0, 1.6, 2.6)])   # the great hall's walls
     box((0.0, -5.0, 25.0), (18.6, 10.0, 58.6), "masonry")                         # the base course down to the court
     gable_z(-9.6, 9.6, 30.0, 12.0, -4.0, 54.0)
     for z in (6.0, 18.0, 30.0, 42.0):
@@ -1673,3 +1722,104 @@ def write_castle_stub(ctx, cat):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(j, f, separators=(",", ":"))
     cat.assets["castle_interior_stub"] = Asset(j, path)
+
+
+def write_castle_interior(ctx, cat):
+    """castle_interior: the castle's rooms (the shell bt_castle stays the far exterior and holds their outer walls), built
+    only within 90 m and dropped beyond 130 m ("loadRadius"); enterable, so the room detection, auto-furnishing and
+    interior lighting work on it. Same transform as the shell (origin = the palace pad). Rooms: a two-storey guard room
+    and chamber in the bower, the stair block from the court (y -10) to the palace level (y 0), the great hall on the
+    palace's ground floor, the lateral wing as an anteroom, a spiral stair up the side tower to an open lookout."""
+    import json
+    from mapgen.catalog import Asset
+    P = []
+
+    def box(c, s_, m, r=None, k=1):
+        p_ = {"t": "b", "c": [round(v, 3) for v in c], "s": [round(v, 3) for v in s_], "m": m}
+        if r is not None:
+            p_["r"] = [0, round(r, 2), 0]
+        if not k:
+            p_["k"] = 0
+        P.append(p_)
+
+    def lining(cx, cy, cz, sx, sy, sz, doors=(), t=0.12):   # the room's inner faces, 0.8 m in from the shell's outer
+        ix, iz = sx - 1.6, sz - 1.6
+        for face, fx, fz, L, along in (("x-", cx - ix / 2 - t / 2, None, iz, "z"), ("x+", cx + ix / 2 + t / 2, None, iz, "z"),
+                                       ("z-", None, cz - iz / 2 - t / 2, ix, "x"), ("z+", None, cz + iz / 2 + t / 2, ix, "x")):
+            a0 = (cz if along == "z" else cx) - L / 2; cur = a0
+            ops = sorted([d for d in doors if d[0] == face], key=lambda d: d[1])
+            for _f, al, oy, w, h in ops + [(face, a0 + L + 99.0, 0.0, 0.0, 0.0)]:
+                lo, hi = (al - w / 2, al + w / 2) if w > 0 else (a0 + L, a0 + L)
+                if lo > cur:
+                    mid, ln = (cur + lo) / 2, lo - cur
+                    box((fx, cy, mid) if along == "z" else (mid, cy, fz), (t, sy, ln) if along == "z" else (ln, sy, t), "plaster")
+                if w > 0:
+                    top = cy + sy / 2
+                    if oy + h < top:
+                        hh = top - oy - h
+                        box((fx, oy + h + hh / 2, al) if along == "z" else (al, oy + h + hh / 2, fz), (t, hh, w) if along == "z" else (w, hh, t), "plaster")
+                    cur = hi
+
+    def stairs(x0, x1, z0, dz, y0, n, rise=0.2, run=0.28, m="tread_x"):   # a straight flight along z (dz = +1 / -1)
+        for k_ in range(n):
+            box(((x0 + x1) / 2, y0 + rise * (k_ + 0.5), z0 + dz * run * (k_ + 0.5)), (x1 - x0, rise * (k_ + 1), run), m)
+
+    yL = -10.0
+    # the bower: guard room (ground) and chamber (upper, +6 m), a flight along its north wall
+    lining(-11.0, yL + 10.0, -30.0, 13.0, 20.0, 16.0, doors=[("x+", -26.0, yL, 1.6, 2.6)])
+    box((-11.0, yL + 0.1, -30.0), (11.4, 0.2, 14.4), "floor_x")
+    stairs(-16.3, -15.0, -36.6, 1, yL, 30)
+    box((-10.15, yL + 6.0, -30.0), (9.7, 0.3, 14.4), "plank_x")                     # the upper floor, open over the stair
+    box((-15.65, yL + 6.0, -25.3), (1.3, 0.3, 5.0), "plank_x")
+    # the stair block: from the court door (west) up two flights to a gallery at the palace level, out (north) to the hall
+    lining(12.0, yL + 9.0, -14.0, 12.0, 18.0, 12.0, doors=[("x-", -14.0, yL, 1.6, 2.6), ("z+", 7.6, 0.0, 1.6, 2.6)])
+    box((12.0, yL + 0.1, -14.0), (10.4, 0.2, 10.4), "floor_x")
+    stairs(9.0, 10.4, -9.2, -1, yL, 25)                                            # up 5 m going south
+    box((11.0, yL + 5.0 - 0.15, -17.6), (4.0, 0.3, 2.8), "plank_x")                   # the landing
+    stairs(11.6, 13.0, -16.2, 1, yL + 5.0, 25)                                     # up 5 m going north
+    box((10.0, -0.15, -9.4), (6.4, 0.3, 1.2), "plank_x")                              # the gallery to the north door
+    # the great hall: the palace's ground floor (y 0 .. 10), 16.4 x 56.4 m
+    lining(0.0, 5.0, 25.0, 18.0, 10.0, 58.0, doors=[("z-", 7.6, 0.0, 1.6, 2.6)])
+    box((0.0, -0.1, 25.0), (16.4, 0.2, 56.4), "plank_x")
+    for zc in range(2, 50, 8):                                                     # a row of stone piers down the hall
+        box((0.0, 5.0, float(zc) + 2.0), (0.8, 10.0, 0.8), "stone")
+    # the lateral wing (anteroom), the side tower's spiral stair and its lookout platform
+    lining(20.0, yL + 7.0, -8.0, 10.0, 14.0, 20.0, doors=[("x-", -12.0, yL, 1.6, 2.6)])
+    box((20.0, yL + 0.1, -8.0), (8.4, 0.2, 18.4), "floor_x")
+    TX, TZ, TH = 26.0, 0.0, 42.0
+    P.append({"t": "c", "c": [TX, yL + TH / 2, TZ], "s": [1.0, TH, 1.0], "m": "stone", "n": 12})   # the newel
+    nst = int(TH / 0.2); last = 0.0
+    for k_ in range(nst - 1):
+        ang = math.radians(180.0 + 15.0 * k_); last = ang
+        cx_, cz_ = TX + 1.8 * math.cos(ang), TZ + 1.8 * math.sin(ang)
+        box((cx_, yL + 0.2 * (k_ + 1) - 0.1, cz_), (2.6, 0.2, 0.85), "tread_x", r=-math.degrees(ang))
+    for k_ in range(16):   # the lookout floor: a ring of slabs, open over the stair's last turn
+        ang = math.radians(11.25 + 22.5 * k_)
+        d_ = (math.degrees(ang) - math.degrees(last)) % 360.0
+        if d_ < 40.0 or d_ > 330.0:
+            continue
+        box((TX + 1.8 * math.cos(ang), yL + TH - 0.1, TZ + 1.8 * math.sin(ang)), (2.6, 0.2, 1.4), "floor_x", r=-math.degrees(ang))
+    j = {"id": "castle_interior", "version": 1, "name": "Hilltop castle interior", "category": "Landmarks",
+         "description": "BT2: the hilltop castle's rooms (guard room and chamber, stair block, great hall, anteroom, the side tower's spiral stair and lookout), built only near (loadRadius 90 / 130 m); placed with bt_castle. Generated by blackwater_thaw.py.",
+         "floors": 2, "enterable": True, "footprint": [60.0, 150.0], "plinthDepth": 0, "maxGrade": 90, "noAutoPanels": True,
+         "loadRadius": [90.0, 130.0],
+         # the rooms' kinds for the furnishing (GX6: nav room boxes + roomTypes; nav "none": players only, no bots)
+         "nav": {"effect": "none", "rooms": [
+             {"id": "guard", "min": [-16.7, -10.0, -37.2], "max": [-5.3, -4.2, -22.8]},
+             {"id": "chamber", "min": [-16.7, -4.0, -37.2], "max": [-5.3, 9.6, -22.8]},
+             {"id": "stairs", "min": [6.8, -10.0, -19.2], "max": [17.2, 7.8, -8.8]},
+             {"id": "great_hall", "min": [-8.2, -0.5, -3.2], "max": [8.2, 10.0, 53.2]},
+             {"id": "anteroom", "min": [15.8, -10.0, -17.2], "max": [24.2, 4.0, 1.2]},
+             {"id": "lookout", "min": [22.0, 31.0, -4.0], "max": [30.0, 36.0, 4.0]}]},
+         "roomTypes": {"guard": "tavern", "chamber": "bedroom", "stairs": "hall", "great_hall": "tavern", "anteroom": "sitting", "lookout": "hall"},
+         "materials": [{"name": "plaster", "albedo": [0.62, 0.58, 0.50], "roughness": 0.9, "pattern": "plaster", "metallic": 0, "grain": 1},
+                       {"name": "stone", "albedo": [0.46, 0.44, 0.41], "roughness": 0.88, "pattern": "stone", "metallic": 0, "grain": 1},
+                       {"name": "plank_x", "albedo": [0.30, 0.21, 0.13], "roughness": 0.7, "pattern": "wood", "metallic": 0, "grain": 0},
+                       {"name": "floor_x", "albedo": [0.42, 0.40, 0.37], "roughness": 0.85, "pattern": "stone", "metallic": 0, "grain": 1},
+                       {"name": "tread_x", "albedo": [0.40, 0.38, 0.35], "roughness": 0.85, "pattern": "stone", "metallic": 0, "grain": 1}],
+         "parts": P, "furniture": [], "interactables": [], "panels": []}
+    path = os.path.join(ctx.repo, "content", "assets", "castle_interior.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(j, f, separators=(",", ":"))
+    cat.assets["castle_interior"] = Asset(j, path)
+    return len(P)
