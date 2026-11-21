@@ -5208,6 +5208,7 @@ void Renderer::setSsaoFull(bool full) {
 }
 
 void Renderer::createTargets() {
+  for (GLenum e; (e = glGetError()) != GL_NO_ERROR;) logf("GL error 0x%04x queued before the render targets' re-creation (raised by an earlier call this frame or before: not the targets)", e);
   if (hdrFbo) { glDeleteFramebuffers(1, &hdrFbo); glDeleteFramebuffers(1, &ldrFbo); glDeleteFramebuffers(1, &dofFbo); GLuint t[5] = {hdrColor, depthTex, ldrColor, vmDistTex, dofTex}; glDeleteTextures(5, t); }
   int levels = 1 + (int)std::floor(std::log2((float)std::max(width, height)));
   glCreateTextures(GL_TEXTURE_2D, 1, &hdrColor); glTextureStorage2D(hdrColor, levels, GL_RGBA16F, width, height);
@@ -5288,7 +5289,7 @@ void Renderer::createTargets() {
     if (glCheckNamedFramebufferStatus(f, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) { logf("framebuffer %u incomplete after resize to %dx%d", f, width, height); ++fboErrors; }
   createMsaa();
   // a full card (several games at once) can fail these allocations: the targets then hold undefined memory (garbage frames)
-  for (GLenum e; (e = glGetError()) != GL_NO_ERROR;) { logf("render targets %dx%d: GL error 0x%04x%s", width, height, e, e == GL_OUT_OF_MEMORY ? " (out of video memory)" : ""); ++fboErrors; }
+  for (GLenum e; (e = glGetError()) != GL_NO_ERROR;) { logf("render targets %dx%d: GL error 0x%04x raised during their re-creation%s", width, height, e, e == GL_OUT_OF_MEMORY ? " (out of video memory)" : ""); ++fboErrors; }
 }
 
 // B1 MSAA (settings: High): the opaque world (sky, terrain, solids, models, foliage, grass) renders into a

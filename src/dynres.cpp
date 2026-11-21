@@ -70,7 +70,8 @@ void dynResFrame(App& app) {
     return;
   }
   static const bool off = std::getenv("NMK_DYNRES_OFF") != nullptr;   // A/Bs: never scales (NMK_DYNRES_TARGET still scales on load hitches)
-  bool on = (us.dynRes || force) && !off && us.upscale == 0 && app.R.gpuTimers;   // temporal upscaling only (the scale is what TAAU reconstructs)
+  static const bool optIn = force || std::getenv("NMK_BENCH_DYNRES") != nullptr;   // self-tests (captures, --selftest-maps) keep a fixed scale unless asked
+  bool on = (us.dynRes || force) && !off && us.upscale == 0 && app.R.gpuTimers && (!app.selftest || optIn);   // temporal upscaling only (the scale is what TAAU reconstructs)
   if (!on) {
     if (gWasOn) { app.R.setResolutionScale(us.gfx.resScale); gWasOn = false; }   // back to the fixed scale
     return;
@@ -82,6 +83,7 @@ void dynResFrame(App& app) {
     gWasOn = true; gGov = Governor{}; gGov.sMin = sMin; gGov.sMax = sMax; gGov.scale = sMax; app.R.setResolutionScale(sMax); gHold = 4; return;
   }
   if (gUseGov != app.R.perf.governor) { gUseGov = app.R.perf.governor; gWasOn = false; gOld = DynResCtl{sMax, sMin, sMax}; return; }   // switched: restart at the top
+  { extern bool loadingActive(); if (loadingActive()) { gHold = 4; return; } }   // a map load's frames are not load to adapt to (they made the governor hunt in --selftest-maps)
   if (gHold > 0) { --gHold; return; }   // the timings in flight (2-3 frames late) were rendered at the old scale
   double gpu = 0; for (int i = 0; i < GP_Count; ++i) gpu += app.R.gpuPassMs[i];
   if (gpu <= 0) return;
