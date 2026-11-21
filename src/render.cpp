@@ -1955,7 +1955,7 @@ void main(){
   } else {
     alb *= 0.94 + 0.08*vnL(vAp*7.0, 7.0);
   }
-  gTexWear = uInst.y; gTexSeed = uInst.x;   // MA1: worn copies show more substrate; TX6: the grunge mask offset
+  gTexWear = uInst.y; gTexSeed = uInst.x; gTexPal = uInst.z;   // MA1: worn copies show more substrate; TX6: the grunge mask offset
   texMaterial(tslot, vW, vN, vAp, vAn, vPc, vPn, grain, gPix, alb, rough, ao);   // L4: ambientCG layer under the weathering (textures.cpp)
   {   // PERF1 matfar: both GX5 layers fade out over the far band and are skipped beyond it
     vec3 a0 = alb; float r0 = rough, o0 = ao;
@@ -5195,6 +5195,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uMaskLib"), !q.legacy && perf.maskLib ? 1 : 0);   // CP step 6 part 2
   glUniform1i(U(p, "uPudRelief"), !q.legacy && perf.pudRelief ? 1 : 0);   // FIX7
   glUniform1i(U(p, "uMetalMask"), !q.legacy && perf.metalMask ? 1 : 0);   // FIX6
+  glUniform1i(U(p, "uReach"), !q.legacy && q.matLayer > 0 && perf.reach ? 1 : 0); glUniform1i(U(p, "uInstVar"), !q.legacy && perf.instVar ? 1 : 0);   // BF 3.4 / 3.6
   glUniform1i(U(p, "uLayerBlend"), !q.legacy && perf.layerBlend ? 1 : 0);   // BF 3.3
   glUniform1i(U(p, "uAbsFar"), !q.legacy && perf.absFar ? 1 : 0);   // FIX8
   glUniform1i(U(p, "uSteepTri"), !q.legacy && perf.steepTri ? 1 : 0);   // FIX5
