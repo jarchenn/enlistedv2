@@ -117,37 +117,55 @@ static bool w6Step(App& app, Game& G, Soldier& L) {
   return true;
 }
 
-// Battle Foundry NMK_WSM2=bffire: stills of the phase 4 / 5 effects from a still camera, Clear at noon and at 23:00 (High):
-// a rifle side-on at 3 m, an MG 42 burst (20 rounds/s for 1 s) at 6 m, a tank gun side-on at 18 m (muzzle 2.2 m up, dry ground:
-// the dust disc), a Pak 40 at 12 m, then a grenade / 105 mm / 155 mm row at 30 m; each at its flash frame, +0.1 s and +1 s
-// (explosions + 3 s too): selftest_out/bf_<scene>_<shot>_<t>.png. NMK_BF_SCENE=0 / 1: one scene; --rq-off fxev / fxscale for the before.
-static bool bfStep(App& app, Game& G, Soldier& L) {
-  static int k = -1, f0 = 0; static vec3 eye0;
+// Battle Foundry NMK_WSM2=bffire: stills of the phase 4 / 5 effects, no match: village_assault_3 in the editor camera (no HUD,
+// no viewmodel, ImGui hidden), the fx stepped here at 1/60 s. Clear at noon, then 23:00 (lt.userHour, as the Night map views),
+// High. Per shot the camera stands 1.7 m over the spawn and is aimed at the subject: a rifle muzzle side-on at 3 m, an MG 42
+// burst (20 rounds/s for 1 s) at 6 m, a tank gun side-on at 18 m (muzzle 2.2 m up: the dust disc), a Pak 40 at 12 m, a
+// grenade / 105 mm / 155 mm row at 30 m; stills at the flash frame, +0.1 s, +1 s (explosions + 3 s) ->
+// selftest_out/bf_<scene>_<shot>_<t>.png, each logged with the camera, the subject and the distance. NMK_BF_SCENE=0 / 1: one scene.
+static bool bfRun(App& app, float dt) {
+  static int k = -1, f = 0; static vec3 base;
   static const int only = std::getenv("NMK_BF_SCENE") ? std::atoi(std::getenv("NMK_BF_SCENE")) : -1;
   const char* scene[2] = {"noon", "night"}; const float hour[2] = {12.0f, 23.0f};
-  const char* shot[5] = {"rifle", "mg42", "tankgun", "pak40", "explosions"};
-  const int nS = only >= 0 ? 1 : 2, sc = only >= 0 ? only : std::max(0, k) / 5, j = std::max(0, k) % 5;
-  if (k < 0) { k = 0; f0 = frames; eye0 = L.feet; settings().applyPreset(app, GfxPreset::High); }
-  app.R.q.lightNew = true; app.R.wx.target = 0; app.R.wx.userSet = true; app.R.lt.hour = hour[sc];
-  Physics::setCharacterPos(eye0 + vec3(0, 0.9f, 0)); app.scriptedInput = ExploreInput{}; app.eyeYaw = 20; app.eyePitch = 2;
-  for (auto& s : G.sold) if (s.inUse && !s.localPlayer) s.hp = 100;
-  const int f = frames - f0, fire = 30;
-  const vec3 eye = eye0 + vec3(0, 1.6f, 0), fw = App::forward(app.eyeYaw, 0), rt = glm::normalize(glm::cross(fw, vec3(0, 1, 0)));
-  auto ground = [&](vec3 p) { p.y = app.terrain.height(p.x, p.z); return p; };
-  if (f == 2) app.R.wx.snap();
-  if (j == 0 && f == fire) { vec3 m = eye + fw * 3.0f - rt * 0.2f; m.y = eye.y - 0.2f; app.fx.muzzleFlash(m, rt, 1.2f, false, m, vec3(-1), "7.92x57 mm"); }
-  if (j == 1 && f >= fire && f < fire + 60 && (f - fire) % 3 == 0) { vec3 m = ground(eye + fw * 6.0f - rt * 0.5f) + vec3(0, 0.45f, 0); app.fx.muzzleFlash(m, rt, 1.5f, false, m, vec3(-1), "7.92x57 mm"); }
-  if (j == 2 && f == fire) { vec3 m = ground(eye + fw * 18.0f - rt * 4.0f) + vec3(0, 2.2f, 0); app.fx.muzzle(m, rt, 1.2f, "tiger_i"); }
-  if (j == 3 && f == fire) { vec3 m = ground(eye + fw * 12.0f - rt * 1.5f) + vec3(0, 1.1f, 0); app.fx.muzzle(m, rt, 1.0f, "pak40"); }
-  if (j == 4 && f == fire) {
-    app.fx.explosion(ground(eye + fw * 30.0f - rt * 12.0f), vec3(0, 1, 0), "grenade", true, "grenade_M67");
-    app.fx.explosion(ground(eye + fw * 30.0f), vec3(0, 1, 0), "ground", true, "he_105mm_M1");
-    app.fx.explosion(ground(eye + fw * 30.0f + rt * 14.0f), vec3(0, 1, 0), "ground", true, "he_155mm_M107");
+  const char* shot[5] = {"rifle", "mg42", "tankgun", "pak40", "explosions"}; const float dist[5] = {3, 6, 18, 12, 30};
+  if (k < 0) {
+    T = new MpTest("wsm2"); started = true;
+    if (app.mode == Mode::Explore) app.exitExplore();
+    app.openMap(contentDir() / "examples/village_assault_3.nmap.json");
+    settings().applyPreset(app, GfxPreset::High); app.hideUi = true; app.hideEditorOverlays = true;   // the editor view: fixed exposure (night stays night)
+    base = app.doc.start.set ? app.doc.start.pos : vec3(0); base.y = app.terrain.height(base.x, base.z);
+    k = 0; f = 0; return true;
   }
-  const int caps[4] = {fire, fire + 6, fire + 60, fire + 180}; const char* tag[4] = {"flash", "0.1s", "1s", "3s"};
-  for (int c = 0; c < (j == 4 ? 4 : 3); ++c) if (f == caps[c]) { char b[128]; std::snprintf(b, sizeof b, "bf_%s_%s_%s.png", scene[sc], shot[j], tag[c]); app.uiShot = exeDir() / "selftest_out" / b; }
-  if (f > fire + (j == 4 ? 200 : 80)) { app.fx.clear(); app.fx.flashes.clear(); app.fx.delayed.clear(); f0 = frames;
-    if (++k >= nS * 5) { T->check(true, "Battle Foundry stills written"); if (app.mode == Mode::Explore) app.exitExplore(); app.selftest->exitCode = T->finish(); app.selftest->done = true; } }
+  const int nS = only >= 0 ? 1 : 2, sc = only >= 0 ? only : k / 5, j = k % 5;
+  app.R.q.lightNew = true; app.R.wx.target = 0; app.R.wx.userSet = true; app.R.lt.hour = hour[sc]; app.R.lt.userHour = true;
+  if (f == 1) { app.R.wx.snap(); app.R.resetTemporal(); }
+  // the camera: 1.7 m over the spawn; the shot's line runs off toward yaw 20 (the subject dist m out, side-on: fired across the view)
+  const vec3 cam = base + vec3(0, 1.7f, 0), fw = App::forward(20.0f, 0.0f), rt = glm::normalize(glm::cross(fw, vec3(0, 1, 0)));
+  auto ground = [&](vec3 p) { p.y = app.terrain.height(p.x, p.z); return p; };
+  vec3 subj = ground(cam + fw * dist[j]) + vec3(0, j == 0 ? 1.4f : j == 1 ? 0.45f : j == 2 ? 2.2f : j == 3 ? 1.1f : 0.0f, 0);
+  const vec3 aim = j == 4 ? subj + vec3(0, 5.0f, 0) : subj + rt * (0.15f * dist[j]);   // the flash runs off along +rt: look a little ahead of the muzzle
+  { const vec3 d = glm::normalize(aim - cam); app.camPos = cam; app.camYaw = degrees(std::atan2(-d.x, -d.z)); app.camPitch = degrees(std::asin(std::clamp(d.y, -1.0f, 1.0f))); }
+  app.fx.update(1.0f / 60.0f, app.terrain);   // no Explore step here: the fx clock advances with the frames
+  const int fire = 40;
+  if (j == 0 && f == fire) app.fx.muzzleFlash(subj, rt, 1.2f, false, subj, vec3(-1), "7.92x57 mm");
+  if (j == 1 && f >= fire && f < fire + 60 && (f - fire) % 3 == 0) app.fx.muzzleFlash(subj, rt, 1.5f, false, subj, vec3(-1), "7.92x57 mm");
+  if (j == 2 && f == fire) app.fx.muzzle(subj, rt, 1.2f, "tiger_i");
+  if (j == 3 && f == fire) app.fx.muzzle(subj, rt, 1.0f, "pak40");
+  if (j == 4 && f == fire) {
+    app.fx.explosion(ground(subj - rt * 12.0f), vec3(0, 1, 0), "grenade", true, "grenade_M67");
+    app.fx.explosion(subj, vec3(0, 1, 0), "ground", true, "he_105mm_M1");
+    app.fx.explosion(ground(subj + rt * 12.0f), vec3(0, 1, 0), "ground", true, "he_155mm_M107");
+  }
+  const int at[4] = {fire, fire + 6, fire + 60, fire + 180}; const char* tag[4] = {"flash", "0.1s", "1s", "3s"};
+  for (int c = 0; c < (j == 4 ? 4 : 3); ++c) if (f == at[c]) {
+    char b[128]; std::snprintf(b, sizeof b, "bf_%s_%s_%s.png", scene[sc], shot[j], tag[c]); app.uiShot = exeDir() / "selftest_out" / b;
+    logf("[wsm2] %s: camera (%.1f, %.1f, %.1f) yaw %.1f pitch %.1f, subject (%.1f, %.1f, %.1f), %.1f m, hour %.1f, %zu particles, %zu flash elements",
+         b, cam.x, cam.y, cam.z, app.camYaw, app.camPitch, subj.x, subj.y, subj.z, glm::length(subj - cam), app.R.lt.hour, app.fx.parts.size(), app.fx.flashes.size());
+  }
+  if (++f > fire + (j == 4 ? 200 : 80)) {
+    app.fx.clear(); app.fx.flashes.clear(); app.fx.delayed.clear(); f = 0;
+    if (++k >= nS * 5) { T->check(true, "Battle Foundry stills written"); app.hideUi = false; app.hideEditorOverlays = false; app.selftest->exitCode = T->finish(); app.selftest->done = true; }
+  }
   return true;
 }
 
@@ -365,12 +383,13 @@ static bool costStep(App& app, Game& G, Soldier& L) {
 }
 
 bool wsm2Capture(App& app, float dt) {
-  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-wsm2") mode = 1; const char* e = std::getenv("NMK_WSM2"); matchMode = e && std::string(e) == "match"; blurMode = e && (std::string(e) == "blur" || std::string(e) == "blur2"); blur2 = e && std::string(e) == "blur2"; costMode = e && std::string(e) == "cost"; stepMode = e && std::string(e) == "step"; if (stepMode) blurMode = true; cpabMode = e && std::string(e) == "cpab"; if (cpabMode) matchMode = true; hitMode = e && std::string(e) == "cphit"; if (hitMode) blurMode = true; smokeMode = e && std::string(e) == "smoke"; if (smokeMode) blurMode = true; wxMode = e && std::string(e) == "wxsight"; if (wxMode) blurMode = true; wedgeMode = e && std::string(e) == "wedge"; w6Mode = e && std::string(e) == "w6look"; if (w6Mode) blurMode = true; bfMode = e && std::string(e) == "bffire"; if (bfMode) blurMode = true; if (costMode) matchMode = true; }
+  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-wsm2") mode = 1; const char* e = std::getenv("NMK_WSM2"); matchMode = e && std::string(e) == "match"; blurMode = e && (std::string(e) == "blur" || std::string(e) == "blur2"); blur2 = e && std::string(e) == "blur2"; costMode = e && std::string(e) == "cost"; stepMode = e && std::string(e) == "step"; if (stepMode) blurMode = true; cpabMode = e && std::string(e) == "cpab"; if (cpabMode) matchMode = true; hitMode = e && std::string(e) == "cphit"; if (hitMode) blurMode = true; smokeMode = e && std::string(e) == "smoke"; if (smokeMode) blurMode = true; wxMode = e && std::string(e) == "wxsight"; if (wxMode) blurMode = true; wedgeMode = e && std::string(e) == "wedge"; w6Mode = e && std::string(e) == "w6look"; if (w6Mode) blurMode = true; bfMode = e && std::string(e) == "bffire"; if (costMode) matchMode = true; }
   if (mode != 1) return false;
   if (dt < 0) return true;
   if (app.win && glfwGetWindowAttrib(app.win, GLFW_ICONIFIED)) glfwRestoreWindow(app.win);
   if (!app.uiShot.empty()) return true;
   static float boot = 0; if (!started && (boot += dt) < 5.0f) return true;   // let start-up loading settle before opening the map (a load-time race in assets.cpp crashed early opens)
+  if (bfMode) return bfRun(app, dt);
   if (wedgeMode) {   // chateau_town churchyard wedge: what physically blocks the 1 m the path asks for at (-92.4, 9.13, 26.2) -> (-93.4, 26.2)
     static int wf = 0; ++wf;
     if (wf == 1) {
@@ -459,7 +478,7 @@ bool wsm2Capture(App& app, float dt) {
   if (!started) {
     started = true; T = new MpTest("wsm2");
     if (app.mode == Mode::Explore) app.exitExplore();
-    app.openMap(contentDir() / (blurMode && !bfMode ? "templates/blackwater_thaw.nmap.json" : "examples/village_assault_3.nmap.json"));   // AIB1: the map the blur was reported on
+    app.openMap(contentDir() / (blurMode ? "templates/blackwater_thaw.nmap.json" : "examples/village_assault_3.nmap.json"));   // AIB1: the map the blur was reported on
     Scenario sc = Scenario::fromJson(app.doc.extra.is_object() ? app.doc.extra.value("scenario", json::object()) : json::object());
     sc.rules.mode = GameMode::TDM; sc.rules.humanTeam = 0; sc.rules.killCap = 9999;
     sc.rules.teamFaction[0] = Faction::Allies; sc.rules.teamFaction[1] = Faction::Axis;
@@ -513,7 +532,6 @@ bool wsm2Capture(App& app, float dt) {
   if (smokeMode) return smokeStep(app, G, *L);
   if (wxMode) return wxSightStep(app, G, *L);
   if (w6Mode) return w6Step(app, G, *L);
-  if (bfMode) return bfStep(app, G, *L);
   if (blurMode) return blurStep(app, G, *L, blur2);
   if (costMode) return costStep(app, G, *L);
   if (stage == 0) {   // the row: side 0's bot first, then side 1's in spawn order; facts per bot
