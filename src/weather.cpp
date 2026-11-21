@@ -68,6 +68,7 @@ void weatherDerive(Renderer& R, vec3 eye) {
   const int id = W.want();
   const Row& row = *rowOf(id);
   W.st = row.st;
+  if (R.perf.dustVis && W.st.dustVisM > 0.0f) W.st.dustVisM = std::max(W.st.dustVisM, 260.0f);   // dustvis: Sandstorm 100 -> 260 m (a soldier at 70 m keeps ~35 % contrast, was ~6 %); the AI's sight follows the same visibility
   { extern bool snowLayerOn(); if (!W.presetOn() && snowLayerOn()) W.st.tempC = std::min(W.st.tempC, 1.0f); }   // Map default on a map with lying snow (a thaw): about freezing, whatever row it maps to
   W.st.wet = id == 5 ? 0.5f : id == 6 || id == 7 ? 1.0f : 0.0f; W.st.puddle = id == 6 ? 0.5f : id == 7 ? 1.0f : 0.0f;   // until accumulation (W3)
   W.flashes.clear();
