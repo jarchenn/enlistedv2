@@ -30,7 +30,7 @@
 #include <numeric>
 
 namespace {
-struct BView { std::string map, name; vec3 pos; float yaw = 0, pitch = 0; };
+struct BView { std::string map, name; vec3 pos; float yaw = 0, pitch = 0; float hour = -1; int wx = -1; };   // hour / wx: the view's own (-1: the run's)
 struct BPath { std::vector<vec2> pts; float height = 9; vec3 turn{0}; float turnYaw = 0; float len = 0; };
 struct Run {
   std::string map, view, preset;
@@ -96,9 +96,12 @@ json loadViewsFile() {   // NMK_BENCH_VIEWFILE: another views file (a session's 
 
 void viewsFor(App& a, const std::string& map, const TemplateInfo& t) {
   json all = loadViewsFile();
-  json mv = all.value("maps", json::object()).value(map, json::array());
+  json mv = (all.contains("maps") ? all["maps"] : all).value(map, json::array());   // {"maps": {...}} or the maps at the top level
   if (mv.is_array() && !mv.empty()) {
-    for (auto& v : mv) gViews.push_back({map, v.value("name", std::string("view")), jvec3(v["pos"], vec3(0)), v.value("yaw", 0.0f), v.value("pitch", 0.0f)});
+    for (auto& v : mv) {
+      int wx = !v.contains("weather") ? -1 : v["weather"].is_number_integer() ? v["weather"].get<int>() : wxPresetFromName(v.value("weather", std::string()));   // a preset id or name
+      gViews.push_back({map, v.value("name", std::string("view")), jvec3(v["pos"], vec3(0)), v.value("yaw", 0.0f), v.value("pitch", 0.0f), v.value("hour", -1.0f), wx});
+    }
     return;
   }
   BView s{map, "street"}, g{map, "foliage"}, o{map, "overview", t.camPos, t.camYaw, t.camPitch};
@@ -224,7 +227,7 @@ void writeRun(App& a, const Run& r) {
 }
 void writeDerived() { if (!gDerived.empty()) std::ofstream(exeDir() / "selftest_out" / "bench_views_derived.jsonl", std::ios::app) << gDerived.dump() << "\n"; gDerived = json::object(); }
 
-void applyRunSettings(App& a) {
+void applyRunSettings(App& a, const BView* view) {
   static const auto perf0 = a.R.perf; a.R.perf = perf0;   // every run starts from the launch switches (a knock-out does not leak into the next)
   settings().s.dynRes = std::getenv("NMK_BENCH_DYNRES") != nullptr;   // CP 5.1: off in benchmarks (the corpus rule), on to test it
   settings().applyPreset(a, gPresets[gPi]);
@@ -246,6 +249,8 @@ void applyRunSettings(App& a) {
   if (const char* w = std::getenv("NMK_BENCH_WEATHER"); w && *w) { int id = wxPresetFromName(w); a.R.wx.target = id >= 0 ? id : 0; a.R.wx.userSet = true; }   // a W1 preset name
   else a.R.wx.userSet = false;
   if (const char* f = std::getenv("NMK_BENCH_ENVFOG"); f && *f) { a.R.wx.fog = std::atoi(f); a.R.wx.userSet = true; }   // 0 Off .. 3 Dense
+  if (view && view->hour >= 0) a.R.lt.hour = view->hour;   // the view's own hour / weather (a config token below still wins)
+  if (view && view->wx >= 0) { a.R.wx.target = view->wx; a.R.wx.userSet = true; }
   for (size_t a0 = 0, c; a0 <= gCfgs[gCi].size(); a0 = c + 1) {   // config tokens hour=<h>, envfog=<0..3> (the viscull pairs)
     c = gCfgs[gCi].find('+', a0); if (c == std::string::npos) c = gCfgs[gCi].size();
     std::string f = gCfgs[gCi].substr(a0, c - a0);
@@ -316,7 +321,7 @@ bool benchViews(App& a, float dt) {
     return true;
   }
   if (gPhase == 1) {   // a preset (and a view): fixed light, the camera, settle / warm-up
-    applyRunSettings(a);
+    applyRunSettings(a, gKind == "views" && gVi < gViews.size() ? &gViews[gVi] : nullptr);
     std::string view = (gKind == "views" ? gViews[gVi].name : gKind) + (gCfgs[gCi].empty() ? "" : "-" + gCfgs[gCi]);
     gRuns.push_back({map, view, presetName(gPresets[gPi])}); internalRes(a, gRuns.back());
     if (gKind == "views") { const BView& v = gViews[gVi]; a.camPos = v.pos; a.camYaw = v.yaw; a.camPitch = v.pitch; gT0 = t + envF("NMK_BENCH_SETTLE", 6.0f) + (gFirstView ? 6.0f : 0.0f); }
