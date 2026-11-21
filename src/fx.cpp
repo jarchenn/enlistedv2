@@ -704,7 +704,9 @@ void Fx::explosionScaled(vec3 p, vec3 n, const std::string& family, const std::s
       deformStamp(p - half * 1.4f, p + half * 1.4f, 1.4f * Rr, 0.0f, 1.0f);
     }
   }
-  const vec3 dustCol = glm::min(albedo * 1.3f, vec3(0.85f));   // fines scatter more than the bulk (8.6)
+  // dust: the substrate mixed toward a neutral warm grey (spec 6.5: 0.20-0.45) and raised 1.3x (fines scatter more, 8.6); turf's 0.06 alone
+  // read near black once lit
+  const vec3 dustCol = water ? vec3(0.8f) : glm::min(glm::mix(albedo, vec3(0.42f, 0.37f, 0.30f), 0.45f) * 1.3f, vec3(0.85f));
   // A. suspended dust (D < 0.2 mm): no arcs; out with the blast wind (tau 0.12 s), then the ambient wind; at least one per burst (8.1)
   if (!air) {
     const int nDust[5] = {3, 8, 20, 45, 90}, life[5] = {3, 6, 12, 20, 30};
@@ -770,14 +772,15 @@ void Fx::explosionScaled(vec3 p, vec3 n, const std::string& family, const std::s
       q.col = vec4(dirt * (0.75f + 0.25f * R()), water ? 0.55f : 0.85f); q.fade = 0.9f;
       Delayed dl; dl.t = clock + 0.06f * k * R(); dl.q = q; dl.cue = i < 2; delayed.push_back(dl);
     }
-    for (int i = 0; i < np * 2; ++i) {   // the column
-      const float hk = (i + 0.5f) / (np * 2.0f), zt = air ? 2.0f : H * hk;
+    for (int i = 0; i < np * 3; ++i) {   // the column: many smaller puffs, each rising to its own height, thinning as they spread
+      const float hk = (i + 0.5f) / (np * 3.0f), zt = air ? 2.0f : H * hk;
       Particle q; q.p = p + n * (0.25f * M.Rfb) + vec3(R() - 0.5f, 0, R() - 0.5f) * (0.4f * M.Rfb);
       q.drag = kd; q.v = (air ? vec3(R() - 0.5f, 0.3f, R() - 0.5f) * 3.0f : axis * (zt * kd)) + vec3(R() - 0.5f, 0, R() - 0.5f) * 1.0f;
-      q.size = 0.32f * M.Rfb * (0.8f + 0.4f * R()) + 0.1f * zt; q.grow = 0.25f * zt * kd * 0.5f + 0.15f; q.lift = 0;
+      q.size = 0.22f * M.Rfb * (0.7f + 0.6f * R()) + 0.06f * zt; q.grow = 0.25f * zt * kd * 0.25f + 0.1f; q.lift = 0;
       q.life = q.maxLife = std::max(2.0f * M.colLife, lifeT[t] * (0.8f + 0.4f * R()));
-      const vec3 c = water ? vec3(0.82f) : glm::mix(glm::mix(soot, dustCol, std::clamp(S.dustToFire / 4.0f, 0.2f, 0.7f)), dustCol, std::clamp(hk * 1.2f, 0.0f, 1.0f));
-      q.col = vec4(c * (0.9f + 0.2f * R()), water ? 0.6f : 0.85f); q.fade = 1.1f;
+      // tan dust low in the column (the soil it lifted), a lighter soot-grey above (the fireball's smoke): spec 6.6 albedo 0.04 fresh -> 0.25 mixed
+      const vec3 c = water ? vec3(0.82f) : glm::mix(dustCol, glm::mix(vec3(0.16f, 0.15f, 0.14f), dustCol, 0.35f), glm::smoothstep(0.35f, 0.9f, hk));
+      q.col = vec4(c * (0.85f + 0.3f * R()), water ? 0.6f : 0.8f); q.fade = 1.6f;
       Delayed dl; dl.t = clock + (0.10f + 0.14f * R()) * k; dl.q = q; dl.cue = true; delayed.push_back(dl);
     }
   }

@@ -110,7 +110,7 @@ void gunBodyPose(Game& G, Soldier& s, float dt) {
   const bool moving = s.speed > (A.key % 10 == K_LOCO ? 0.3f : 0.6f) && r.walk >= 0;   // hysteresis: no idle / walk flicker
   float hold = -1;   // >= 0: the time (s, or the phase of a blend) set rather than played
   int b = -1; float w = 0; aimBlend(crouch ? r.caim : r.aim, pitch, b, w);
-  if (!s.alive && r.death >= 0) A.play(K_DEATH, r.death, -1, 0, 1, false);
+  if (!s.alive && r.death >= 0) A.play(K_DEATH, r.death, -1, 0, 0.85f + 0.3f * (float)(((uint32_t)s.slot * 2654435761u ^ (uint32_t)s.lifeId * 40503u) % 1000u) / 1000.0f, false);   // one death clip in these packs: its pace varies
   else if (prone && r.prone >= 0) A.play(K_PRONE, r.prone, -1, 0, 1, false);
   else if (s.reload > 0 && rel >= 0) A.play(K_RELOAD, rel, -1, 0, m.clips[rel].dur / std::max(0.3f, s.reloadTotal), false);
   else if (r.hit >= 0 && (hurt || (A.key == K_HIT && A.time < 0.45f))) A.play(K_HIT, r.hit, -1, 0, 1, false, hurt);
@@ -148,7 +148,8 @@ void gunBodyPose(Game& G, Soldier& s, float dt) {
 //   still: idle aiming (engaged) / idle; crouched: idle crouching aiming / idle crouching; a pistol: pistol idle / kneeling.
 // The chest pitches with the aim (Spine1, 45 % of it), the arms and the weapon take the rest.
 namespace {
-struct DRig { int walk[8], run[8], sprint[8], cwalk[8]; int flash = -1, shot = -1, cshot = -1, reload = -1, creload = -1; float shotAt = 0.1f, cshotAt = 0.1f; int throwS[2] = {-1, -1}, throwC = -1, turnL = -1, turnR = -1, cturnL = -1, cturnR = -1; int idle = -1, aim = -1, cidle = -1, caim = -1, pIdle = -1, pKneel = -1, pWalk = -1, pRun = -1, pWalkB = -1, pRunB = -1; int death[6]; int cdeath = -1; };
+struct DRig { int walk[8], run[8], sprint[8], cwalk[8]; int flash = -1, shot = -1, cshot = -1, reload = -1, creload = -1; float shotAt = 0.1f, cshotAt = 0.1f; int throwS[2] = {-1, -1}, throwC = -1, turnL = -1, turnR = -1, cturnL = -1, cturnR = -1; int idle = -1, aim = -1, cidle = -1, caim = -1, pIdle = -1, pKneel = -1, pWalk = -1, pRun = -1, pWalkB = -1, pRunB = -1; int death[6]; int cdeath = -1;
+  int dFront = -1, dBack = -1, dRight = -1, dHeadF = -1, dHeadB = -1, dCrouchHead = -1, dCrouch = -1, dFlyBack = -1, dFallFwd = -1, dReactFwd = -1, dFallBack = -1, hit = -1, walkHit = -1; };
 std::map<const CharModel*, DRig> gDRigs;
 const DRig& dRigOf(const CharModel& m) {
   std::lock_guard<std::recursive_mutex> lk(gPoseCacheMx);
@@ -163,6 +164,12 @@ const DRig& dRigOf(const CharModel& m) {
   for (int k = 0; k < 8; ++k) { if (r.walk[k] < 0) r.walk[k] = r.walk[0]; if (r.run[k] < 0) r.run[k] = r.walk[k]; if (r.sprint[k] < 0) r.sprint[k] = r.run[k]; if (r.cwalk[k] < 0) r.cwalk[k] = r.walk[k]; }
   r.pIdle = findClip(m, "pistol idle"); r.pKneel = findClip(m, "pistol kneeling idle"); r.pWalk = findClip(m, "pistol walk"); r.pRun = findClip(m, "pistol run");
   r.pWalkB = findClip(m, "pistol walk backward"); r.pRunB = findClip(m, "pistol run backward");
+  auto ci = [&](const char* n) {   // the packs spell the same clip "Crouch Death" / "crouch death": match without case
+    for (size_t k = 0; k < m.clips.size(); ++k) { const std::string& a = m.clips[k].name; if (a.size() == std::strlen(n) && std::equal(a.begin(), a.end(), n, [](char x, char y) { return std::tolower((unsigned char)x) == std::tolower((unsigned char)y); })) return (int)k; }
+    return -1; };
+  r.dFront = ci("death from the front"); r.dBack = ci("death from the back"); r.dRight = ci("death from right"); r.dHeadF = ci("death from front headshot");
+  r.dHeadB = ci("death from back headshot"); r.dCrouchHead = ci("death crouching headshot front"); r.dCrouch = ci("crouch death"); r.dFlyBack = ci("flying back death");
+  r.dFallFwd = ci("falling forward death"); r.dReactFwd = ci("standing react death forward"); r.dFallBack = ci("falling back death"); r.hit = ci("hit reaction"); r.walkHit = ci("walking hit reaction");
   static const char* deaths[6] = {"death from the front", "death from the back", "death from right", "death from front headshot", "death from back headshot", "death from the front"};
   for (int k = 0; k < 6; ++k) r.death[k] = findClip(m, deaths[k]);
   r.cdeath = findClip(m, "death crouching headshot front");
@@ -215,6 +222,38 @@ float hipsYaw(const CharModel& m, const PoseResult& P) {
 }
 }   // namespace
 
+// the death clip for this life (once, at the first dead pose): the candidates the hit allows, by what killed and where -- a blast or a
+// vehicle throws back; crouched: the crouching deaths; a head hit from the front / back its headshot; from the right its own; from behind
+// while running falling forward; else front / back -- then one at random among them, never the clip a soldier within 20 m took in the
+// last 4 s when another is valid. -1: none of them in this model (the old pick)
+static int pickDeath(Game& G, Soldier& s, const DRig& r, const CharModel& m, bool crouch) {
+  const std::string& how = s.lastHow;
+  const bool blast = how == "blast" || how == "vehicle", head = how == "head" || how == "neck";
+  const vec3 f = App::forward(s.yaw, 0), rt(-f.z, 0, f.x);
+  vec3 d = s.deathDir; d.y = 0; const float L = glm::length(d); if (L > 1e-3f) d /= L;
+  const float along = L > 1e-3f ? glm::dot(f, d) : -1.0f, side = L > 1e-3f ? glm::dot(rt, d) : 0.0f;   // along > 0: the round travelled the way he faced (hit from behind); side < 0: from his right
+  const bool fromBack = along > 0.35f, fromRight = side < -0.6f;
+  std::vector<int> c;
+  auto add = [&](int k) { if (k >= 0 && std::find(c.begin(), c.end(), k) == c.end()) c.push_back(k); };
+  if (blast) { add(r.dFlyBack); add(r.dFallBack); }
+  if (c.empty() && crouch) { if (head) add(r.dCrouchHead); add(r.dCrouch); if (c.empty()) add(r.dCrouchHead); }
+  if (c.empty() && head) add(fromBack ? r.dHeadB : r.dHeadF);
+  if (c.empty() && fromRight) add(r.dRight);
+  if (c.empty() && fromBack) { add(r.dBack); if (s.deathRunning) add(r.dFallFwd); }
+  if (c.empty()) { add(r.dFront); add(r.dReactFwd); add(r.dFallBack); }
+  if (c.empty()) return -1;
+  struct Recent { int clip; vec3 p; double t; const CharModel* m; }; static std::deque<Recent> recent;
+  while (!recent.empty() && (G.t - recent.front().t > 4.0 || G.t < recent.front().t)) recent.pop_front();
+  std::vector<int> fresh; for (int k : c) { bool rep = false; for (auto& q : recent) rep = rep || (q.m == &m && q.clip == k && glm::length(q.p - s.feet) < 20.0f); if (!rep) fresh.push_back(k); }
+  const std::vector<int>& pool = fresh.empty() ? c : fresh;
+  uint32_t h = (uint32_t)s.slot * 2654435761u ^ (uint32_t)s.lifeId * 40503u ^ (uint32_t)(G.t * 1000.0); h ^= h >> 15; h *= 0x2c1b3c6dU; h ^= h >> 12;
+  const int pick = pool[h % pool.size()];
+  recent.push_back({pick, s.feet, G.t, &m}); if (recent.size() > 16) recent.pop_front();
+  logf("[death] slot %d: '%s' (%s, from %s%s, %zu candidates)", s.slot, m.clips[pick].name.c_str(), how.empty() ? "-" : how.c_str(),
+       fromBack ? "behind" : fromRight ? "the right" : side > 0.6f ? "the left" : "the front", crouch ? ", crouched" : "", c.size());
+  return pick;
+}
+
 bool deltaBodyPose(Game& G, Soldier& s, float dt, PoseParams& pp) {
   enum { K_IDLE, K_AIM, K_FIRE = 4, K_LOCO = 3, K_DEATH = 6, K_THROW = 7, K_TURN = 8, K_RELOAD = 9 };
   const CharModel& m = *G.models[s.model];
@@ -249,9 +288,14 @@ bool deltaBodyPose(Game& G, Soldier& s, float dt, PoseParams& pp) {
     A.play(K_THROW, thr, -1, 0, 0, false);
     pp.rightArmClip = true;
   } else if (!s.alive) {
-    int d = crouch && r.cdeath >= 0 ? r.cdeath : r.death[(s.slot + s.lifeId) % 6];
+    if (s.deathPickLife != s.lifeId) { s.deathPickLife = s.lifeId; s.deathClip = pickDeath(G, s, r, m, crouch); }
+    int d = s.deathClip;
+    if (d < 0) d = crouch && r.cdeath >= 0 ? r.cdeath : r.death[(s.slot + s.lifeId) % 6];
     if (d < 0) d = r.death[0];
     if (d >= 0) A.play(K_DEATH, d, -1, 0, 1, false);
+  } else if (s.alive && (r.hit >= 0 || r.walkHit >= 0) && G.t - s.br.hurtAt < 0.45 && s.br.hurtAt > s.diedAt && s.reload <= 0 && s.throwT < 0) {   // a non-lethal hit: the pack's flinch (walking: its own)
+    const int hc = moving && r.walkHit >= 0 ? r.walkHit : r.hit >= 0 ? r.hit : r.walkHit;
+    A.play(K_TURN + 20, hc, -1, 0, 1, false);
   } else if (bi && s.reload > 0 && relC >= 0) {   // its reload clip, stretched over the reload time
     A.play(K_RELOAD + 10 * crouch, relC, -1, 0, m.clips[relC].dur / std::max(0.3f, s.reloadTotal), false);
   } else if (moving) {

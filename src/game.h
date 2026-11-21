@@ -95,6 +95,7 @@ struct Soldier {
   uint32_t rng = 1;
   int lifeId = 0;                            // increments per spawn (net / tests)
   double lastShot = -100;
+  int deathClip = -1, deathPickLife = -1; bool deathRunning = false;   // deathRunning: over 3 m/s when killed    // the death clip picked for this life (gunbody.cpp pickDeath: by side, zone, crouch, blast)
   std::string lastHow;                       // SD1: the last damage kind (kill rewards: knife, grenade, firearm)
   double drawnAt = -100;                    // GP1 spectate check: the last time the draw pass drew this body (not culled)
   bool genericHits = false;                  // GP1: hit zones from the feet / posture / facing, not the posed body (a non-soldier body picked on the Character screen)
