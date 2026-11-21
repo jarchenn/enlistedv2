@@ -1377,13 +1377,21 @@ void Game::drawItems() {
   for (auto& s : sold) {
     if (!s.inUse || s.lifeId == 0) continue;
     if (!s.alive && t - s.diedAt > jkey(combat, "corpses").value("seconds", 40.0)) continue;
-    if (s.localPlayer && s.alive) continue;                 // first person: the viewmodel is drawn instead
+    // first person: the viewmodel is drawn instead; selfshadow: the body (the pose the others see, posed once above) casts the sun
+    // shadow only (ModelDraw::shadowOnly), never in a vehicle seat
+    const bool selfShadow = s.localPlayer && s.alive;
+    if (selfShadow && (!app.R.perf.selfShadow || app.tanks.occupied)) continue;
     float bs = bodyScale(s);   // giants (large draw scales) reach far above and around their feet
     vec3 c = s.feet + vec3(0, 0.9f * bs, 0);
     float dist = glm::length(c - cam);
     if (dist > 300 + 2 * bs) continue;
     if (dist > 4 * bs && glm::dot(glm::normalize(c - cam), fwd) < -0.2f) continue;   // behind the camera (shadows of close ones kept)
     s.drawnAt = t;
+    struct SelfShadowMark {   // everything pushed for the live local player below: shadow only, no TAA motion, no box / thermal draws
+      App& a; bool on; size_t m0, b0, h0;
+      ~SelfShadowMark() { if (!on) return; for (size_t i = m0; i < a.R.worldModels.size(); ++i) { ModelDraw& d = a.R.worldModels[i]; d.shadowOnly = true; d.prevM = d.m; d.vel = 0; }
+                          a.worldBoxDraws.resize(b0); a.R.heatDraws.resize(h0); }
+    } selfMark{app, selfShadow, app.R.worldModels.size(), app.worldBoxDraws.size(), app.R.heatDraws.size()};
     // PF1: a far pack follower in step with its leader draws the leader's skinned mesh (zombie.cpp aiZombiePose)
     Soldier* src = s.poseFrom >= 0 && s.poseFrom < (int)sold.size() && sold[s.poseFrom].ciReady && sold[s.poseFrom].ci.frameSkinned >= 0 ? &sold[s.poseFrom] : &s;
     if (src != &s || (!s.alive && t - s.diedAt > (s.zombie || s.gunBody ? 3.5 : 2.0) && s.ciReady && s.ci.frameSkinned >= 0)) {}   // settled corpse: keep the last skin
@@ -1412,7 +1420,7 @@ void Game::drawItems() {
         app.R.heatDraws.push_back({{&src->ci.view, k, s.world}, h, obj});
       }
     }
-    if (!(s.localPlayer && s.alive)) {
+    if (!(s.localPlayer && s.alive) || selfShadow) {
       const size_t w0 = app.R.worldModels.size();
       brWornDraws(app, *this, s, s.world, app.R.worldModels, app.worldBoxDraws);
       const mat4 bodyMove = prevW * glm::inverse(s.world);   // AIB1b: worn gear moves with the body (its joint's own sway left out)
