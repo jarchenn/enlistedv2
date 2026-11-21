@@ -229,6 +229,11 @@ struct Fx {
   bool admit(bool cue = false);
   bool admitLight();                        // fxcap: a muzzle light fits under caps.flashLights (>= 1; off: the oldest of 8 goes)
   void buildFlashes(vec3 eye, std::vector<FxVert>& add) const;
+  mutable double presentA = 0;              // build: the drawn interval [presentA, lastPresent] (App drives the combustion lights over it)
+  bool brightOn = false;                    // Renderer::perf fxBright: lights go to Renderer::addCombustionLight (CombSrc), not mlights
+  struct CombSrc { int h = -1; bool started = false, done = false; vec3 p{0}; double t0 = 0; float life = 0.03f, T = 2200, eps = 0.2f, d = 0.15f;
+                   bool cool = false; float T0 = 3200, tau = 0.02f, n = 0.85f, Rfb = 0; };   // cool: the fireball's T(t) and growing diameter
+  std::vector<CombSrc> combSrc;
   const Terrain* ground = nullptr;         // update's terrain (the dust disc's ground below a muzzle)
   float wxWet = 0, wxSnow = 0;              // R.wx.st.wet / snowDepth (read only): the dust disc's loose-ground opacity             // fxcap: room for one more particle (cue: a dominant plume / event cue retires an accent instead)
   uint32_t rng = 1234567u;

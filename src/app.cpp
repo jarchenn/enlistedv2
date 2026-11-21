@@ -11,6 +11,7 @@
 #include "mainmenu.h"
 #include "loading.h"
 #include "fxdata.h"   // Battle Foundry 4
+#include "dynres.h"   // PF3 gFxCapsHook
 #include "ui_glass.h"
 #include "lines.h"   // MOD1: line types that clear grass (grassFootprints)
 #include "hlod.h"
@@ -1489,12 +1490,24 @@ int App::run(int argc, char** argv) {
     fx.nearFade = R.perf.fxNear; fx.wind = R.perf.wxDrift ? R.wx.der.windXZ : vec2(0);
     {   // Battle Foundry 4: the flash's Yref from this frame's light (read only), the loose ground for the dust disc
       fx.evOn = R.perf.fxEv; fx.capOn = R.perf.fxCap; fx.wxWet = R.wx.st.wet; fx.wxSnow = R.wx.st.snowDepth;
-      fx.scaleOn = R.perf.fxScale; gFxRecoil = R.perf.fxRecoil; gFxTier = fx.tier;
+      fx.scaleOn = R.perf.fxScale; gFxRecoil = R.perf.fxRecoil; gFxTier = fx.tier; fx.brightOn = R.perf.fxBright;
+      if (!gFxCapsHook) gFxCapsHook = [](App& a, const FxTierCaps& c) {   // PF3's governor / tier caps (dynres.cpp) -> Fx::setCaps
+        a.fx.setCaps({c.softEffects, c.clods, c.flashLights, c.dustPerBurst, c.grainsPerBurst, c.fragments, c.groundDust, c.plumePerImpact}); };
       if (!fx.surfaceOf) fx.surfaceOf = [this](vec3 p, const std::string& fam) { return fxSurfaceAt(p, fam); };
       static const float indoorLux = fxData().yrefLux.count("interior_lit") ? fxData().yrefLux.at("interior_lit") : 300.0f;
-      fx.yrefNits = fxYrefNits(R.camIndoor ? indoorLux : std::max(R.wx.der.eTotalLux, 0.25f)); fx.peakClamp = fxData().clampSingle;   // the current bloom: one chain (pbloom: no clamp)
+      fx.yrefNits = fxYrefNits(R.camIndoor ? indoorLux : std::max(R.wx.der.eTotalLux, 0.25f)); fx.peakClamp = R.perf.pBloom ? 0.0f : fxData().clampSingle;   // yref.json: unthresholded multi-radius bloom (pbloom): the physical value; else one chain, 60
     }
-    if (mode == Mode::Explore || selftest) fx.build(viewM, R.fxAlpha, R.fxAdd);   // CV1: captures show light shafts / mist too
+    if (mode == Mode::Explore || selftest) fx.build(viewM, R.fxAlpha, R.fxAdd);
+    for (auto& c : fx.combSrc) {   // fxbright: each source's light over the drawn interval (the same [a, b] the flashes integrated)
+      if (c.done) continue;
+      const double a = fx.presentA, b = fx.lastPresent;
+      if (b > c.t0 + c.life || !R.perf.fxBright) { R.endCombustionLight(c.h); c.done = true; continue; }
+      float T = c.T, d = c.d, k = Fx::envelopeAvg(c.t0, c.life, a, b);
+      if (c.cool) { const float t = (float)std::max(0.0, b - c.t0), u = t / c.life * 2.0f; T = 300.0f + (c.T0 - 300.0f) * std::pow(1.0f + t / c.tau, -c.n); d = 2.0f * c.Rfb * std::max(0.15f, 1.0f - std::exp(-2.6f * u / 0.19f)); k = 1.0f; }
+      if (!c.started) { c.started = true; c.h = R.addCombustionLight(c.p, T, c.eps, d); }
+      R.updateCombustionLight(c.h, c.p, T, c.eps, k);   // a light the pool had no room for (h < 0) stays dark
+    }
+    fx.combSrc.erase(std::remove_if(fx.combSrc.begin(), fx.combSrc.end(), [](const Fx::CombSrc& c) { return c.done; }), fx.combSrc.end());   // CV1: captures show light shafts / mist too
     if (mode == Mode::Explore) { extern void royaleFx(App&, std::vector<FxVert>&); royaleFx(*this, R.fxAlpha); }   // BR12: the storm wall, depth-tested in the scene
     if (!R.lt.mapClean) lightsMotes(*this, viewM, R.fxAdd);   // GX2: dust in the sun shafts indoors (every mode); BR2: none on a clean map
     mark("w3");
