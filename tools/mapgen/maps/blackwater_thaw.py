@@ -541,17 +541,11 @@ def build(ctx):
     write_castle_interior(ctx, cat)
     ci = b.place("castle_interior", CASTLE_C[0], CASTLE_C[1], CASTLE_YAW, check=False, cls="none", y=BASE + CASTLE_PAD, tags={"castle"}, companions=False)
     if ci is not None:   # fixtures that go with the rooms (loaded with them): lanterns down the hall, the stair, bower, anteroom; tower sconces
-        lamps = [(x, 6.5, z, "lamp_hanging_lantern", 2.4) for z in range(1, 52, 7) for x in (-4.0, 4.0)]
-        lamps += [(12.0, 6.0 - 10.0, -14.0, "lamp_hanging_lantern", 1.8), (12.0, -1.5, -12.0, "lamp_hanging_lantern", 1.8),
-                  (-11.0, -6.0, -30.0, "lamp_hanging_lantern", 1.8), (-11.0, 4.0, -30.0, "lamp_hanging_lantern", 1.6),
-                  (20.0, -5.0, -12.0, "lamp_hanging_lantern", 1.6), (20.0, -5.0, -2.0, "lamp_hanging_lantern", 1.6)]
-        lamps += [(26.0 + 3.0 * math.cos(math.radians(a_)), -10.0 + 1.6 + 5.0 * k_, 3.0 * math.sin(math.radians(a_)), "furn_sconce_candle", 2.0)
-                  for k_, a_ in enumerate(range(30, 330, 40))]
-        for lx, ly, lz, aid, gain in lamps:
+        for lx, ly, lz, aid, gain in CASTLE_LAMPS:
             if aid in cat:
                 wx, wz = castle_world(lx, lz)
                 b.place(aid, wx, wz, CASTLE_YAW, check=False, cls="none", y=BASE + CASTLE_PAD + ly, tags={"castle", "lamp"}, companions=False,
-                        extra={"loadWith": ci["id"], "light": {"gain": gain}}, support=ci)
+                        extra={"loadWith": ci["id"], "light": lamp_light(gain)}, support=ci)
     # the waterworks court's stepped header channel, the court's north-east side, head to the north
     write_flume_asset(ctx, cat)
     b.place("bt_flume", 8.0, 15.0, 0.0, check=False, y=G(8.0, 15.0), tags={"flume"}, companions=False)
@@ -1290,6 +1284,18 @@ def stand_seen(cx, cz, rad, eye=1.65):
 # spur that rises out of the north-west corner beyond the play area. Local frame: +z (s) = gate -> apex, +x (t) = east.
 CASTLE_C = (-235.0, 215.0)                      # compound centre (world x, z)
 CASTLE_YAW = -11.53                             # local +z = (-0.2, 0.98): the spur climbs north-north-west
+# the castle's fixtures (castle-local x, y, z, asset, light gain): lanterns down the hall, the stair block, bower and anteroom;
+# candle sconces up the tower
+CASTLE_LAMPS = ([(x, 6.5, float(z), "lamp_hanging_lantern", 3.0) for z in range(1, 52, 7) for x in (-4.0, 4.0)]
+                + [(12.0, -4.0, -14.0, "lamp_hanging_lantern", 1.8), (12.0, -1.5, -12.0, "lamp_hanging_lantern", 1.8),
+                   (-11.0, -6.0, -30.0, "lamp_hanging_lantern", 1.8), (-11.0, 4.0, -30.0, "lamp_hanging_lantern", 1.6),
+                   (20.0, -5.0, -12.0, "lamp_hanging_lantern", 1.6), (20.0, -5.0, -2.0, "lamp_hanging_lantern", 1.6)]
+                + [(26.0 + 3.0 * math.cos(math.radians(a_)), -10.0 + 1.6 + 5.0 * k_, 3.0 * math.sin(math.radians(a_)), "furn_sconce_candle", 2.0)
+                   for k_, a_ in enumerate(range(30, 330, 40))])
+def lamp_light(gain):   # the hall's lanterns (gain 3) carry a 56 m room: 14 m reach (lighting session); the rest the room rule
+    return {"gain": gain, "radius": 14.0} if gain >= 3.0 else {"gain": gain}
+
+
 SPUR_STANDS = 46                                # fir stands on the castle spur (dark masses on its flanks; far-tree impostors)
 CASTLE_PAD = 100.0                              # palace pad above the creek-bed datum (the village floor is ~ +4..10)
 
@@ -1532,7 +1538,7 @@ def write_castle_asset(ctx, cat):
     # projection, corner turrets, chimneys
     box((0.0, 20.0, 25.0), (18.0, 20.0, 58.0), "limestone")                      # the floors above the hall
     HALL_WIN = [(f, z) for f in ("x-", "x+") for z in [-0.5 + 4.6 * k for k in range(12)] if not (f == "x-" and 27.0 < z < 41.0)]
-    hollow(0.0, 5.0, 25.0, 18.0, 10.0, 58.0, "limestone", doors=[("z-", 7.6, 0.0, 1.6, 2.6)] + [(f, z, 3.7, 1.35, 2.6) for f, z in HALL_WIN])   # the great hall's walls, its ground-floor windows open
+    hollow(0.0, 5.0, 25.0, 18.0, 10.0, 58.0, "limestone", doors=[("z-", 7.6, 0.0, 1.6, 2.6)] + [(f, z, 1.5, 1.8, 5.2) for f, z in HALL_WIN])   # the great hall's walls, its ground-floor windows open
     box((0.0, -5.0, 25.0), (18.6, 10.0, 58.6), "masonry")                         # the base course down to the court
     gable_z(-9.6, 9.6, 30.0, 12.0, -4.0, 54.0)
     for z in (6.0, 18.0, 30.0, 42.0):
@@ -1557,8 +1563,12 @@ def write_castle_asset(ctx, cat):
                 z = -0.5 + k * 4.6
                 if side < 0 and 27.0 < z < 41.0:
                     continue   # the throne-hall projection covers this stretch on the west
-                window(side * 9.0, y, z, 1.35, 2.6 if fl < 3 else 2.0, side, arch=fl in (1, 2), glass=fl == 0)
-            box((side * 9.12, y - 2.05, 25.0), (0.25, 0.45, 58.4), "trim", k=0)
+                if fl == 0:   # the great hall's tall arched windows (1.8 x 5.2 m + the arch), glazed openings
+                    window(side * 9.0, 4.1, z, 1.8, 5.2, side, arch=True, glass=True)
+                else:
+                    window(side * 9.0, y, z, 1.35, 2.6 if fl < 3 else 2.0, side, arch=fl in (1, 2))
+            if fl > 0:   # (no course across the hall's tall windows)
+                box((side * 9.12, y - 2.05, 25.0), (0.25, 0.45, 58.4), "trim", k=0)
         for zc in (-4.0, 54.0):
             box((side * 8.75, 15.0, zc + (0.75 if zc < 0 else -0.75)), (0.6, 30.0, 1.6), "trim")
     box((0.0, yT + 16.3, -55.6), (31.0, 0.5, 0.5), "trim", k=0)   # the gatehouse's cornice
@@ -1568,6 +1578,17 @@ def write_castle_asset(ctx, cat):
          "description": "BT2: the scenic hilltop castle on the north-west spur, after the real Neuschwanstein's architecture (original geometry, graybox stage), generated by tools/mapgen/maps/blackwater_thaw.py. Far scenery: no colliders, one batched mesh per LOD.",
          "floors": 0, "enterable": False, "footprint": [60.0, 150.0], "plinthDepth": 0, "maxGrade": 90, "noAutoPanels": True, "lodKeep": 2.0,
          "nav": {"effect": "none"}, "materials": M_CASTLE, "parts": P, "furniture": [], "interactables": [], "panels": []}
+    # the palette asset (user: "castle should be placeable asset as well once furnished"): the same shell under its own id,
+    # with the interior and its lamps as companions (placed with it from the palette, the interior loading only near,
+    # the lamps loading with the interior), a 20 m plinth to seat it on uneven ground; Blackwater places the parts itself
+    hj = dict(j, id="castle_hilltop", name="Hilltop castle", category="Landmarks", plinthDepth=20.0,
+              description="A hilltop castle after the real Neuschwanstein's architecture (original geometry): gatehouse and terrace, court, palace, spire and side tower, with an explorable interior (built only within ~90 m) and its lamps placed with it. Generated by tools/mapgen/maps/blackwater_thaw.py.")
+    comps = [{"asset": "castle_interior", "pos": [0, 0, 0], "yaw": 0}]
+    for lx, ly, lz, aid, gain in CASTLE_LAMPS:
+        comps.append({"asset": aid, "pos": [lx, ly, lz], "yaw": 0, "extra": {"light": lamp_light(gain)}, "loadWithCompanion": 0, "supportCompanion": 0})
+    hj["companions"] = comps
+    with open(os.path.join(ctx.repo, "content", "assets", "castle_hilltop.json"), "w", encoding="utf-8") as f:
+        json.dump(hj, f, separators=(",", ":"))
     path = os.path.join(ctx.repo, "content", "assets", "bt_castle.json")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(j, f, separators=(",", ":"))
@@ -1803,13 +1824,13 @@ def write_castle_interior(ctx, cat):
     box((10.0, -0.15, -9.4), (6.4, 0.3, 1.2), "plank_x")                              # the gallery to the north door
     # the great hall: the palace's ground floor (y 0 .. 10), 16.4 x 56.4 m
     hall_win = [(f, z) for f in ("x-", "x+") for z in [-0.5 + 4.6 * k for k in range(12)] if not (f == "x-" and 27.0 < z < 41.0)]
-    lining(0.0, 5.0, 25.0, 18.0, 10.0, 58.0, doors=[("z-", 7.6, 0.0, 1.6, 2.6)] + [(f, z, 3.7, 1.35, 2.6) for f, z in hall_win])
+    lining(0.0, 5.0, 25.0, 18.0, 10.0, 58.0, doors=[("z-", 7.6, 0.0, 1.6, 2.6)] + [(f, z, 1.5, 1.8, 6.1) for f, z in hall_win])
     box((0.0, -0.1, 25.0), (16.4, 0.2, 56.4), "plank_x")
     for f, z in hall_win:   # declared windows: the room pass gives them sills (daylight spill) and keeps them clear
         x = -9.0 if f == "x-" else 9.0
         WIN.append({"id": "hall_%s_%d" % (f[1], int(z * 10)), "kind": "window", "label": "window", "sound": "glass", "axis": [0, 1, 0],
                     "openAngle": 0, "duration": 0.5, "defaultOpen": False,
-                    "aperture": {"min": [round(min(x, x * 0.92), 2), 3.7, round(z - 0.67, 2)], "max": [round(max(x, x * 0.92), 2), 6.3, round(z + 0.67, 2)]}, "leaves": []})
+                    "aperture": {"min": [round(min(x, x * 0.92), 2), 1.5, round(z - 0.9, 2)], "max": [round(max(x, x * 0.92), 2), 7.6, round(z + 0.9, 2)]}, "leaves": []})
     box((0.0, 0.2, 50.0), (16.0, 0.4, 6.0), "floor_x")                            # the dais at the north end
     for zc in range(4, 50, 9):                                                     # wall hangings between the windows
         for x in (-8.1, 8.1):

@@ -348,6 +348,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `bt_boundary_gate` | Effects | Blackwater Thaw only: the play limit across the castle road, solid only during a match (written by blackwater_thaw.py) |
 | `bt_castle` | Landmarks | Blackwater Thaw only: the scenic hilltop castle on the north-west spur (written by blackwater_thaw.py) |
 | `castle_interior` | Landmarks | Blackwater Thaw: the hilltop castle's rooms, built only near (loadRadius), placed with bt_castle (written by blackwater_thaw.py) |
+| `castle_hilltop` | Landmarks | The hilltop castle as one palette asset: the shell with its explorable interior (built only near) and lamps as companions (written by blackwater_thaw.py); doors are open doorways (no swinging doors yet) |
 | `bt_snowcap_vil_stone_barn` | Effects | Blackwater Thaw only: the roof snow cap of vil_stone_barn (written by blackwater_thaw.py) |
 | `bt_snowcap_vil_rendered_shutters` | Effects | Blackwater Thaw only: the roof snow cap of vil_rendered_shutters (written by blackwater_thaw.py) |
 | `bt_snowcap_small_storehouse` | Effects | Blackwater Thaw only: the roof snow cap of small_storehouse (written by blackwater_thaw.py) |

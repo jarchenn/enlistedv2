@@ -959,7 +959,9 @@ int App::placeCompanions(uint64_t hostId) {
   const AssetDef* a = assetFor(*h);
   if (!a || !a->raw.contains("companions")) return 0;
   vec3 hp = h->pos; float hy = h->yaw; int n = 0, k = 0;
+  std::vector<uint64_t> made;   // BT2: each companion's new id ("loadWithCompanion" refers to one by index)
   for (auto& c : a->raw["companions"]) {
+    made.push_back(0);
     // B2 decor: "chance" keeps a companion on that share of placed copies (seeded by the host id and its index);
     // "ground" sets it on the terrain instead of the host's floor
     uint64_t s = (hostId + 0x9E3779B97F4A7C15ull * (uint64_t)++k) * 0xBF58476D1CE4E5B9ull; s ^= s >> 31;
@@ -970,9 +972,14 @@ int App::placeCompanions(uint64_t hostId) {
     i.pos = hp + yawQuat(hy) * vec3(c["pos"][0].get<float>(), c["pos"][1].get<float>(), c["pos"][2].get<float>());
     if (c.value("ground", false)) i.pos.y = terrain.height(i.pos.x, i.pos.z) + c["pos"][1].get<float>();
     i.yaw = wrapDeg(hy + c.value("yaw", 0.0f));
+    if (c.contains("extra") && c["extra"].is_object()) i.extra = c["extra"];   // BT2: e.g. a lamp's light gain
+    if (c.contains("loadWithCompanion")) { int q = c["loadWithCompanion"].get<int>(); if (q >= 0 && q < (int)made.size() && made[q]) { if (!i.extra.is_object()) i.extra = json::object(); i.extra["loadWith"] = made[q]; } }
+    if (c.contains("supportCompanion")) { int q = c["supportCompanion"].get<int>(); if (q >= 0 && q < (int)made.size() && made[q]) setSupport(i, made[q]); }
+    made.back() = i.id;
     bump(i);
     doc.instances.push_back(i);
     ++n;
+    if (ca->enterable && interior.autoOnPlace) interior.autoFurnish(*this, i.id);   // BT2: an enterable companion (a landmark's interior) comes furnished too
   }
   return n;
 }
