@@ -2159,6 +2159,7 @@ void main(){
 )GLSL";
 static const char* kModelFS = R"GLSL(
 in vec3 vW, vN; in vec4 vT; in vec2 vUV; flat in vec4 vTintI; in vec4 vCC, vPC; uniform int uVelMode;
+uniform float uDustK;   // WS4: dust coating on cut-out foliage (progFolModel, progImp; 0 elsewhere)
 uniform float uDither;   // CP2 treepxlod cross-fade (model foliage only): > 0 keep the pixels whose fixed noise is under it, < 0 the rest
 uniform vec3 uIvyStem; uniform vec2 uIvyRef;   // VR1 (src/ivy.cpp)
 uniform sampler2D uAlb, uMR, uNrm, uAO;
@@ -2181,6 +2182,7 @@ void main(){
   vec4 base = uBase;
   if (uHasAlb == 1) base *= texture(uAlb, vUV);
   if (uCutout == 1 && base.a < cutRef()) discard;
+  if (uCutout == 1) base.rgb = mix(base.rgb, vec3(0.45, 0.37, 0.26), 0.5*uDustK);   // WS4: dust on the needles and leaves
   if (vTintI.a > 2.5) {   // FL1 greenery: this species' spring green (already / the texture's mean luminance), leaves only
     if (uCutout == 1) base.rgb = mix(base.rgb, vTintI.rgb*dot(base.rgb, vec3(0.2126, 0.7152, 0.0722)), uGreenK.w*greenMask(base.rgb));
   } else if (vTintI.a > 1.5) base.rgb *= vTintI.rgb;   // HB1c: sandbags, per bag (src/sandbags.cpp)
@@ -2306,7 +2308,7 @@ void main(){
 )GLSL";
 static const char* kImpFS = R"GLSL(
 in vec3 vW; flat in vec4 vCR; flat in vec4 vYD; flat in vec4 vTint;
-uniform sampler2D uImpAlb, uImpNrm; uniform float uImpUse;   // uImpUse: the frames' share of the atlas (12 x 170 / 2048)
+uniform sampler2D uImpAlb, uImpNrm; uniform float uImpUse; uniform float uFolTrans; uniform float uDustK;   // uImpUse: the frames' share of the atlas (12 x 170 / 2048)
 layout(location=4) out vec4 oVel; layout(location=0) out vec4 oColor; layout(location=2) out vec4 oAmb; layout(location=3) out vec4 oNR;
 vec2 hoEnc(vec3 d){ d.y = max(d.y, 0.0); d /= abs(d.x) + abs(d.y) + abs(d.z); return vec2(d.x + d.z, d.z - d.x)*0.5 + 0.5; }
 vec3 hoDec(vec2 uv){ vec2 e = uv*2.0 - 1.0; float x = (e.x - e.y)*0.5, z = (e.x + e.y)*0.5; return normalize(vec3(x, 1.0 - abs(x) - abs(z), z)); }
@@ -2327,18 +2329,24 @@ void main(){
   vec3 alb = a.rgb/max(a.a, 1e-3);
   if (vTint.a > 2.5) alb = mix(alb, vTint.rgb*dot(alb, vec3(0.2126, 0.7152, 0.0722)), uGreenK.w*greenMask(alb));   // FL1 greenery, as kModelFS
   else if (vTint.a > 1.5) alb *= vTint.rgb;
+  alb = mix(alb, vec3(0.45, 0.37, 0.26), 0.5*uDustK);   // WS4, as kModelFS
   vec2 on = texture(uImpNrm, auv).xy*2.0 - 1.0; vec3 no = vec3(on, 1.0 - abs(on.x) - abs(on.y)); float tq = max(-no.z, 0.0); no.xy += vec2(no.x >= 0.0 ? -tq : tq, no.y >= 0.0 ? -tq : tq);
   vec3 Nn = normalize(rotY(normalize(no), vYD.x));
-  vec3 V = normalize(uCamPos - vW);
-  float sh = sunShadowT(vW + Nn*0.1, Nn, 1.0, 4);
-  float ndl = max(dot(Nn, uSunDir), 0.0)*0.7 + 0.3;
-  vec3 irr = mix(uGroundCol, uSkyCol, 0.5 + 0.5*Nn.y)*mix(0.45, 1.0, 0.5 + 0.5*Nn.y);
-  irr = giAmbient(vW, Nn, 1.0, irr);
-  float VoL = max(dot(-V, uSunDir), 0.0);
-  vec3 c = alb/PI*uSunCol*ndl*sh + irr*alb*0.7 + alb*uSunCol*0.12*pow(VoL, 4.0)*sh;   // the baked crown's transmission: a backlit term
+  // lit as the model it stands for (kModelFS on NT8 foliage): shade(), then the leaf translucency (uFolTrans) or the needle rim,
+  // so the far forest keeps its value and colour across the swap (it read darker with a lighting of its own)
+  vec3 c = shade(vW, Nn, alb, 0.85, 0.0, 1.0);
+  vec3 Vv = normalize(uCamPos - vW);
+  if (uFolTrans > 0.0) {
+    vec3 Lt = normalize(uSunDir + Nn*0.35);
+    float tr = 0.7*pow(clamp(dot(Vv, -Lt), 0.0, 1.0), 4.0) + 0.18*max(dot(-Nn, uSunDir), 0.0);
+    c += alb*vec3(1.0, 1.04, 0.72)*uSunCol*tr*uFolTrans*sunShadowT(vW, -Nn, 1.0, 1);
+  } else {
+    float VoL = max(dot(-Vv, uSunDir), 0.0);
+    c += alb*vec3(1.0, 1.05, 0.6)*uSunCol*(0.04 + 0.35*pow(VoL, 5.0))*sunShadowT(vW, Nn, 1.0, 1);
+  }
   c = applyFog(c, vW);
   oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : c, 1.0);
-  oAmb = vec4(irr*alb*0.7*gFogT*0.5, 1.0); oNR = vec4(Nn, 1.0); oVel = vec4(0.0, 0.0, 0.0, 1.0);
+  oAmb = vec4(gInd*gFogT, 1.0); oNR = vec4(Nn, 0.85 + (1.0 - gFogT)); oVel = vec4(0.0, 0.0, 0.0, 1.0);
 }
 )GLSL";
 static const char* kFolDepthFS = R"GLSL(
@@ -3700,6 +3708,7 @@ void plantMain(){
 )GLSL";
 static const char* kGrassFS = R"GLSL(
 uniform float uGrassDead;   // BT1: look.grassDead (0 summer .. 1 dead late-winter grass)
+uniform float uDustK;   // WS4: dust coating 0..1 from the weather's dust visibility (st.dustVisM)
 layout(location=0) in vec3 vW; layout(location=1) in vec3 vAlb; layout(location=2) in vec3 vF; layout(location=3) in vec2 vUV; layout(location=4) in float vWid; layout(location=5) in float vTap;
 layout(location=6) in vec4 vCC; layout(location=7) in vec4 vPC;
 layout(location=8) flat in int vSp; layout(location=9) flat in int vPart; layout(location=10) flat in float vSeed;
@@ -3818,6 +3827,7 @@ void main(){
 #ifdef NMK_PRE
   return;   // CP1 grass_pre: every cut-out above, no shading (the compiler drops it)
 #endif
+  alb = mix(alb, vec3(0.45, 0.37, 0.26), 0.5*uDustK);   // WS4: blown dust settles on the blades (0 without a dust preset)
   if (vPart == 1) alb *= 0.85;
   // cheap lighting: one hardware-PCF shadow tap, one sky-occlusion tap, wrapped diffuse, no specular
   float sh = 1.0;
@@ -5650,6 +5660,7 @@ void Renderer::drawImpostors(const RenderView& v, const mat4& vp, const Frustum&
   setLighting(progImp, v);
   glUniformMatrix4fv(U(progImp, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
   glUniform1i(U(progImp, "uImpAlb"), 2); glUniform1i(U(progImp, "uImpNrm"), 4); const GLint lUse = U(progImp, "uImpUse");
+  glUniform1f(U(progImp, "uFolTrans"), q.lightNew && perf.folTrans && !q.legacy ? 1.0f : 0.0f);   // as progFolModel (drawFolModels)
   if (!impInstBuf) glCreateBuffers(1, &impInstBuf);
   glDisable(GL_CULL_FACE); glBindVertexArray(snowfallVao);
   for (auto& [I, b] : by) {
@@ -5998,9 +6009,12 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     if (dt > 0) { windClockPrev = windClock; windGustPrev = windGustOff; windClock += dt * (0.7 + 0.3 * windSwayAmp()); windGustOff += dt * windSpeed(); windDrift += glm::dvec2(wx.der.windXZ) * dt; }
     if (holdTime) { windClockPrev = windClock; windGustPrev = windGustOff; }   // FL1 frozen captures: no motion
     const vec2 d = windDir2();
-    for (GLuint pg : {progLeaf, progLeafI, progLeafShadow, progLeafIShadow, progGrass, progGrassShadow, progGrassPre, progFolModel, progFolDepth}) if (pg) {
+    // WS4: dust coating from the dust visibility (Sandstorm 100 m: 1, Blowing dust 3000 m: about 0.26, none: 0)
+    const float dv = wx.st.dustVisM, dustK = perf.vegDust && dv > 0.0f ? std::clamp((std::log(10000.0f) - std::log(std::max(dv, 1.0f))) / (std::log(10000.0f) - std::log(100.0f)), 0.0f, 1.0f) : 0.0f;
+    for (GLuint pg : {progLeaf, progLeafI, progLeafShadow, progLeafIShadow, progGrass, progGrassShadow, progGrassPre, progFolModel, progFolDepth, progImp}) if (pg) {
       glProgramUniform4f(pg, U(pg, "uWindV"), d.x, d.y, float(windGustOff), float(windGustPrev));
       glProgramUniform4f(pg, U(pg, "uWindP"), float(windClock), float(windClockPrev), windGustL(), windGustG());
+      glProgramUniform1f(pg, U(pg, "uDustK"), dustK);
     }
   }
   if (!impWant.empty() && !thumbMode) impostorBakeSome();   // CP3: queued impostor bakes, 2 a frame
