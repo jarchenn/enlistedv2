@@ -6,9 +6,9 @@ Cue 1 silhouette relief: vertical range of the ground (base heightfield + terrai
        (1 m steps). Target 0.15-0.6 m.
 Cue 2 sub-mesh parallax: the POM depth in force (passed in; 0 = none). Target >= 0.02 m.
 Cue 3 scale bands: octave bands of the albedo spectrum holding >= 4 % of the total (an albedo-only capture of the
-       slice's ground, NMK_DBG_TERRAIN 4). Target >= 4.
-Cue 4 contact occlusion: from an AO capture (NMK_DBG_TERRAIN 5) the darkening of the ground right at object bases,
-       given as 1 - AO at the darkest 5 % of ground pixels. Target 0.30-0.70.
+       slice's ground, NMK_DBG_TERRAIN 4). Target >= 4. Coarse: a textured image passes easily; read the shares.
+Cue 4 contact occlusion: from an AO capture (NMK_DBG_TERRAIN 5: ground drawn as (1, ao, 0)) the darkening of the ground
+       at object bases, 1 - AO over the darkest 5 % of ground pixels only. Target 0.30-0.70.
 Cue 5 object relief: small ground-resting meshes (stones, roots, logs, litter, clumps; not trees or buildings) per m².
        Target 0.3-3.
 Cue 6 material boundaries: distinct ground paint types (weight >= 0.25, top or under, plus the bare base) in 10 m
@@ -143,10 +143,13 @@ def cue3(png):
 
 def cue4(png):
     from PIL import Image
-    im = np.asarray(Image.open(png).convert("L"), float) / 255.0
-    g = im[int(im.shape[0] * 0.45):, :].ravel()
-    g = np.sort(g)
-    return float(1.0 - g[: max(1, len(g) // 20)].mean())
+    im = np.asarray(Image.open(png).convert("RGB"), float) / 255.0
+    R, G, B = im[..., 0], im[..., 1], im[..., 2]
+    ground = (R > 0.08) & (B < 0.35 * R) & (G <= R * 1.05)   # debug view 5 draws the ground as (1, ao, 0); everything else is lit
+    if not ground.any():
+        return float("nan")
+    ao = np.sort((G[ground] / R[ground]).ravel())
+    return float(1.0 - ao[: max(1, len(ao) // 20)].mean())   # the darkest 5 % of the ground: where it meets objects
 
 
 def main():
