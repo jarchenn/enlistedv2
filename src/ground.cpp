@@ -77,6 +77,7 @@ void App::resetGround() {
   // Explore damage is a session overlay: restore the map's authored ground (base + applied deltas).
   removeGroundBodies();
   terrain.sculpt = doc.terrainSculpt;   // V8 sculpt layer: re-based into the tiles by clearTiles
+  { extern void roadsLoad(const json&); roadsLoad(doc.extra); }   // VFX rev3: the map's authored roads and pools (roads.h)
   terrain.clearTiles();
   ++groundRev;
   if (!doc.terrainDeltas.empty()) terrain.applyDeltas(doc.terrainDeltas);
