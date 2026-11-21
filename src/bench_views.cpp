@@ -242,6 +242,7 @@ void applyRunSettings(App& a, const BView* view) {
     std::string f = gCfgs[gCi].substr(a0, c - a0); if (f.empty()) continue;
     if (f[0] == '#' || f.rfind("hour=", 0) == 0 || f.rfind("envfog=", 0) == 0 || f.rfind("wx=", 0) == 0) continue;   // #n: a repeat (noise); hour= / envfog=: applied with the weather below
     if (f == "ssr") a.R.q.ssr = false; else if (f == "taa") a.R.q.taa = false; else if (f == "ssao") a.R.q.ssao = false; else if (f == "bloom") a.R.q.bloom = false;   // the --rq-off names that are not perf switches (app.cpp)
+    else if (f == "classic") a.R.q.lightNew = false;   // Lighting Classic (the Classic | Physical sheets)
     else if (f == "shafts") a.R.q.shafts = false; else if (f == "cascade") a.R.q.farCascade = false; else if (f == "cloudshadow") a.R.q.cloudShadows = false; else if (f == "wind") a.grass.wind = false;
     else if (f == "msaa4") { if (gPresets[gPi] == GfxPreset::High) a.R.setMsaa(4); }   // P2 off: the old High (Medium never had MSAA) else if (f[0] == '^') a.R.perf.set(f.substr(1), true);   // ^name: a switch on
     else if (f.rfind("scale", 0) == 0) a.R.setResolutionScale((float)std::atof(f.c_str() + 5));
