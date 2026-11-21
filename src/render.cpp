@@ -7480,6 +7480,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     mat4 vvp = (v.vmProj[2][3] != 0.0f ? v.vmProj : v.proj) * v.view;
     glEnable(GL_CULL_FACE);
     setLighting(progMain, v);
+    if (perf.vmClassic) glUniform1i(U(progMain, "uSplitSum"), 0);   // vmclassic: the weapon keeps the pre-CP3 environment specular (split-sum + multi-scatter lit blued steel silver)
     glUniform1i(U(progMain, "uWeather"), 0);
     glUniformMatrix4fv(U(progMain, "uVP"), 1, GL_FALSE, glm::value_ptr(vvp));
     glUniform1f(U(progMain, "uVmVel"), 1.0f);
@@ -7488,6 +7489,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     if (!viewModelTex.empty()) {
       glDisable(GL_CULL_FACE);
       setLighting(progModel, v);
+      if (perf.vmClassic) glUniform1i(U(progModel, "uSplitSum"), 0);   // vmclassic (see above)
       glUniform1f(U(progModel, "uVmVel"), 1.0f);
       glUniformMatrix4fv(U(progModel, "uVP"), 1, GL_FALSE, glm::value_ptr(vvp));
       {   // AT6: the fitted optic's window, in this pass's pixels
