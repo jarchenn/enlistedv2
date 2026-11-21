@@ -347,6 +347,10 @@ bool wsm2Capture(App& app, float dt) {
         Scenario sc = Scenario::fromJson(app.doc.extra.is_object() ? app.doc.extra.value("scenario", json()) : json());
         if (!sc.objectives.empty()) sc.objectives.erase(sc.objectives.begin());
         for (int i = 0; i < (int)sc.objectives.size(); ++i) sc.objectives[i].order = i;
+        for (auto& sp : sc.spawns) {   // the markers' phases follow (phase 0 = A is gone: its markers serve B)
+          std::vector<int> ph; for (int q : sp.phases) { int r = std::max(0, q - 1); if (r < (int)sc.objectives.size() && std::find(ph.begin(), ph.end(), r) == ph.end()) ph.push_back(r); }
+          sp.phases = ph.empty() ? std::vector<int>{0} : ph;
+        }
         sc.rules.defenderSlots = 6; sc.rules.attackerAI = 12;
         gUi.matchScenario = sc.toJson(); gUi.loaded = false;
         if (!gGame) gGame = new Game(app);
@@ -366,6 +370,12 @@ bool wsm2Capture(App& app, float dt) {
       for (int i : five) G.sold[i].hp = 100;   // the test is the way through, not the fight
       if (G.t - t0 > 60) {
         int through = 0; for (int i : five) through += G.sold[i].feet.z > 28.0f;
+        for (int i : five) {   // where each ended, doing what, and its stuck events at the gate
+          const Soldier& q = G.sold[i]; int ev = 0; std::string last;
+          if (AiCore* A = aiCore()) for (auto& e : A->stuck) if (e.slot == i && std::fabs(e.pos.x + 93.0f) < 4 && std::fabs(e.pos.z - 26.5f) < 4) { ++ev; last = e.why; }
+          std::snprintf(b, sizeof b, "bot %d: (%.1f %.1f %.1f) alive %d, %s; %d stuck events at the gate%s%s", i, q.feet.x, q.feet.y, q.feet.z, (int)q.alive, q.br.why.c_str(), ev, ev ? ", last: " : "", last.c_str());
+          T->note(b);
+        }
         std::snprintf(b, sizeof b, "in 60 s %d of %zu went north through the gate; doors opened by bots %d", through, five.size(), G.doorOpens - opens0);
         T->check(through >= 4, b);
         if (app.mode == Mode::Explore) app.exitExplore(); app.selftest->exitCode = T->finish(); app.selftest->done = true;

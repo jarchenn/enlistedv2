@@ -609,17 +609,32 @@ void AiCore::move(Soldier& s, float dt) {
     }
   }
   // doors on the way: open them through the shared interaction, then wait for the leaf
-  if (glm::length(vel) > 0.3f && ((int)G.steps + s.slot) % 8 == 0) {
-    vec3 o = pos + vec3(0, 1.0f, 0); Physics::Hit h[4];
-    int n = Physics::castRayAll(o, glm::normalize(vel), 1.2f, h, 4, false); ++raysThisFrame;
-    for (int k = 0; k < n; ++k) {
-      if (!isLeafUD(h[k].ud)) break;
-      uint64_t inst = h[k].ud >> 16; int idx = (int)(h[k].ud & 0xFFFF) - 1;
-      auto it = G.app.rt.find(inst);
-      if (it != G.app.rt.end() && idx >= 0 && idx < (int)it->second.dir.size() && it->second.asset->interactables[idx].kind != "window" && it->second.dir[idx] <= 0 && it->second.progress[idx] < 0.9f) {
-        G.app.toggleInteract(inst, idx); ++G.doorOpens; m.doorWait = 1.1f; b.why = "opening a door";
+  // chateau_town's churchyard gate wedged 5 attackers for up to 392 s: one ray at 1.0 m slips between a wrought-iron gate's
+  // rails and bars, and bots crowding the opening are slowed below 0.3 m/s by the avoidance (vel is the commanded velocity),
+  // which switched the check off. Now every moving bot looks at rail / knee / chest heights, and one that wants to move but
+  // is held back looks along where it wants to go and 30 deg either side
+  static const bool oldDoor = std::getenv("NMK_DOOR_OLD") != nullptr;   // A/B: the single 1.0 m ray while moving
+  const bool slow = glm::length(vel) <= 0.3f, pushing = !oldDoor && slow && wantsMove && lenXZ(desired) > 1e-3f;
+  if ((!slow || pushing) && ((int)G.steps + s.slot) % 8 == 0) {
+    const vec3 d0 = slow ? glm::normalize(vec3(desired.x, 0, desired.z)) : glm::normalize(vel);
+    static const float kHs[5] = {1.0f, 0.15f, 0.5f, 0.92f, 1.52f};
+    bool opened = false;
+    for (int di = 0; di < (pushing ? 3 : 1) && !opened; ++di) {
+      const float a = di == 0 ? 0.0f : di == 1 ? 0.52f : -0.52f;
+      const vec3 d(d0.x * std::cos(a) - d0.z * std::sin(a), 0, d0.x * std::sin(a) + d0.z * std::cos(a));
+      for (int hi = 0; hi < (oldDoor ? 1 : 5) && !opened; ++hi) {
+        Physics::Hit h[4];
+        int n = Physics::castRayAll(pos + vec3(0, kHs[hi], 0), d, 1.2f, h, 4, false); ++raysThisFrame;
+        for (int k = 0; k < n; ++k) {
+          if (!isLeafUD(h[k].ud)) break;
+          uint64_t inst = h[k].ud >> 16; int idx = (int)(h[k].ud & 0xFFFF) - 1;
+          auto it = G.app.rt.find(inst);
+          if (it != G.app.rt.end() && idx >= 0 && idx < (int)it->second.dir.size() && it->second.asset->interactables[idx].kind != "window" && it->second.dir[idx] <= 0 && it->second.progress[idx] < 0.9f) {
+            G.app.toggleInteract(inst, idx); ++G.doorOpens; m.doorWait = 1.1f; b.why = "opening a door"; opened = true;
+          }
+          break;
+        }
       }
-      break;
     }
   }
   // body facing: toward movement when moving fast, else toward the aim
