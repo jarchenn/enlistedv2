@@ -4141,7 +4141,8 @@ static const char* kToneFS = R"GLSL(
 #version 450 core
 in vec2 vUV;
 uniform sampler2D uHdr, uExpo, uBloom, uVmDist; uniform float uFixedExpo, uBloomAmt, uEyeR, uAspect, uRectVig, uMicro; uniform int uTonemap;
-uniform float uBloomNorm = 6.0;   // BF pbloom: the chain's total weight (6 equal levels before)
+uniform float uBloomNorm = 6.0;
+uniform int uPhysGuard;   // CP2 physguard   // BF pbloom: the chain's total weight (6 equal levels before)
 uniform float uNewExpo;   // VO L1: Lighting New's re-fit of a fixed exposure (1 in Classic)
 uniform float uCas;     // CP1: contrast-adaptive sharpen 0..1 (Settings > Sharpness; replaces the TAA and grade sharpens), 0 off
 uniform int uDither;    // CP1: triangular +-1 LSB dither at the final write
@@ -4213,6 +4214,7 @@ void main(){
   if (texture(uVmDist, vUV).r > 0.0) bAmt = 0.0;   // VM2: the bloom is the world's, taken before the first-person weapon was drawn: blended over the dark gun it showed the ground through it
   if (bAmt > 0.0) c = mix(c, texture(uBloom, vUV).rgb/uBloomNorm, bAmt);   // chain sums 6 levels; energy-preserving blend, not an add
   float e = uFixedExpo > 0.0 ? uFixedExpo*uNewExpo : texelFetch(uExpo, ivec2(0), 0).r;   // VO L1: auto exposure already re-adapts to New's darker scene; a fixed one is lifted
+  if (uPhysGuard == 1) e = min(e, 3.0/max(texelFetch(uExpo, ivec2(0), 0).g, 1e-6));   // CP2 physguard: the scene's brightest 2 % land on the curve's shoulder, not past it (into a low sun)
   vec2 q = vUV - 0.5;
   if (uDbgView >= 3 && uDbgView <= 5) { oColor = vec4(clamp(texture(uHdr, vUV).rgb, 0.0, 1.0), 1.0); return; }   // CP step 2: albedo / furnace / texel views shown as computed (no exposure, curve or bloom)
   if (uDbgView == 1) {   // CP0 false colour: one band per stop of exposed luminance around 0.18 (grey = 0.18 +- half a stop)
@@ -4274,7 +4276,7 @@ uniform float uExpoKey, uExpoMin, uExpoMax;   // L2 time of day: Day 0.24, 0.9 .
 uniform float uExpoFloor;   // FX1: while the headlamp is on, the exposure at switch-on (fading): its lit patch does not pump the scene down
 uniform int uHist; uniform float uHistCal;   // VO L8: histogram metering (Lighting New), its calibration to the old mean metering
 uniform int uFxExpo, uFreeze;   // BF fxexpo (spec 5.2 / ref 05 5.6): top 4 % rejected, EV rate-limited in stops / s; uFreeze: hold (own-weapon fire)
-out float oE;
+out vec2 oEx; float oE; float gHi = 0.0;   // CP2 physguard: .g = the scene's 98th-percentile luminance (highlight guard)
 // VO L8 (Lagarde & de Rousiers 2014): a centre-weighted 32-bin histogram of log2 luminance over a 16 x 16 grid of a
 // ~64 px mip, metered as the mean between the 40th and 95th percentiles: the sky's few brightest pixels and dark
 // corners no longer swing the exposure (blown desert and snow, murky forest)
@@ -4289,13 +4291,14 @@ float histLum(){
     h[int(clamp((log2(max(L, 1e-6)) + 12.0)*2.0, 0.0, 31.0))] += w; ws += w;
   }
   float lo = 0.4*ws, hi = (uFxExpo == 1 ? 0.96 : 0.95)*ws, acc = 0.0, sum = 0.0, cnt = 0.0;
+  { float a2 = 0.0; for (int i = 0; i < 32; ++i) { a2 += h[i]; if (a2 >= 0.98*ws) { gHi = exp2((float(i) + 0.5)*0.5 - 12.0); break; } } }
   for (int i = 0; i < 32; ++i) {
     float t = max(min(acc + h[i], hi) - max(acc, lo), 0.0);
     sum += t*((float(i) + 0.5)*0.5 - 12.0); cnt += t; acc += h[i];
   }
   return exp2(sum/max(cnt, 1e-4))*uHistCal;
 }
-void main(){
+void mainE(){
   vec3 avg = textureLod(uHdr, vec2(0.5), uLod).rgb;
   float prev = texelFetch(uPrev, ivec2(0), 0).r;
   if (uReset > 0.0) { oE = uReset; return; }
@@ -4312,6 +4315,7 @@ void main(){
   float k = 1.0 - exp(-uDt*(target > prev ? 0.6 : 1.2));
   oE = mix(prev, target, k);
 }
+void main(){ mainE(); if (gHi <= 0.0) gHi = dot(textureLod(uHdr, vec2(0.5), uLod).rgb, vec3(0.2126, 0.7152, 0.0722))*8.0; oEx = vec2(oE, gHi); }
 )GLSL";
 // SF1 snowfall (Blackwater Thaw spec 6): two groups of streaks, procedural per instance, in boxes around the eye that wrap
 // on world coordinates (stable world movement: the flakes do not ride with the camera). Group 0 near (sparse, a broad
@@ -4697,7 +4701,7 @@ void Renderer::physLight(vec3& sun, vec3& sky, vec3& ground, vec3& fog, vec3& fi
   const float h = glm::degrees(std::asin(glm::clamp(mu, 0.0f, 1.0f)));
   const float m = 1.0f / (std::max(mu, 1e-3f) + 0.50572f * std::pow(h + 6.07995f, -1.6364f));
   const float eDN = mu > 0.0f ? 133000.0f * std::exp(-0.21f * m) * wx.der.beamRatio : 0.0f;
-  const float eSky = mu > 0.0f ? (800.0f + 15500.0f * std::sqrt(mu)) * wx.der.skyRatio : 0.0f;
+  const float eSky = mu > 0.0f ? (800.0f + 15500.0f * std::sqrt(mu)) * wx.der.skyRatio * lt.physSky : 0.0f;   // look.physical.sky: a thicker / thinner deck than the weather row
   const vec3 sunC = kelvinRGB(glm::mix(2500.0f, 5800.0f, glm::smoothstep(0.0f, 0.5f, mu))) * wx.der.tint;
   extern bool snowLayerOn(); extern bool groundPaintArid();
   const float rho = snowLayerOn() ? 0.8f : groundPaintArid() ? 0.3f : 0.2f;
@@ -4715,7 +4719,7 @@ void Renderer::physLight(vec3& sun, vec3& sky, vec3& ground, vec3& fog, vec3& fi
   if (main) {
     const float eTot = std::max(eDN * mu + eSky, 1e-3f);
     const float evScene = std::log2(eTot / 2.5f);
-    physEV = glm::clamp(15.0f + 0.67f * (evScene - 15.0f), mu > 0.0f ? 9.0f : 3.0f, 15.5f);
+    physEV = glm::clamp(15.0f + 0.67f * (evScene - 15.0f) + lt.physEV, mu > 0.0f ? 9.0f : 3.0f, 15.5f);   // look.physical.ev: + = a darker exposure (stops)
     physExpo = mu > 0.05f ? q.physExpoK * K / (1.2f * std::exp2(physEV)) : 0.0f;   // dusk / night: the engine's own night exposure (the art stays in its units)
   }
 }
@@ -4886,8 +4890,8 @@ bool Renderer::init(int w, int h) {
   glNamedFramebufferDrawBuffer(occFbo, GL_NONE); glNamedFramebufferReadBuffer(occFbo, GL_NONE);
   // exposure ping-pong
   for (int k = 0; k < 2; ++k) {
-    glCreateTextures(GL_TEXTURE_2D, 1, &expoTex[k]); glTextureStorage2D(expoTex[k], 1, GL_R32F, 1, 1);
-    float one = 1.0f; glTextureSubImage2D(expoTex[k], 0, 0, 0, 1, 1, GL_RED, GL_FLOAT, &one);
+    glCreateTextures(GL_TEXTURE_2D, 1, &expoTex[k]); glTextureStorage2D(expoTex[k], 1, GL_RG32F, 1, 1);   // r exposure, g the 98th-percentile luminance (CP2 physguard)
+    const float one[2] = {1.0f, 1.0f}; glTextureSubImage2D(expoTex[k], 0, 0, 0, 1, 1, GL_RG, GL_FLOAT, one);
     glCreateFramebuffers(1, &expoFbo[k]); glNamedFramebufferTexture(expoFbo[k], GL_COLOR_ATTACHMENT0, expoTex[k], 0);
   }
   glCreateQueries(GL_TIME_ELAPSED, 3, queries);
@@ -7161,6 +7165,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUseProgram(progTone);
   glBindTextureUnit(0, hdrColor); glBindTextureUnit(1, expoTex[expoIdx]);
   glUniform1i(U(progTone, "uDbgView"), dbgView);
+  glUniform1i(U(progTone, "uPhysGuard"), perf.physGuard && q.lightPhys && q.lightNew && !q.legacy && !thumbMode && physExpo > 0.0f ? 1 : 0);
   glUniform1f(U(progTone, "uCas"), perf.cas && !q.legacy && !thumbMode ? q.sharpness : 0.0f); glUniform1i(U(progTone, "uDither"), perf.dither && !thumbMode ? 1 : 0);   // CP1
   glUniform1i(U(progTone, "uHdr"), 0); glUniform1i(U(progTone, "uExpo"), 1);
   glUniform1f(U(progTone, "uNewExpo"), q.lightNew && !q.legacy && !thumbMode ? q.newExpo : 1.0f);   // VO L1
