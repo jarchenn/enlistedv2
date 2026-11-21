@@ -1,5 +1,6 @@
 #pragma once
 #include "assets.h"
+#include <deque>
 #include "model.h"
 #include "character.h"   // GripPose (WS1)
 
@@ -155,16 +156,18 @@ struct Particle { vec3 p{0}, v{0}; float life = 0, maxLife = 1, size = 0.3f, gro
                   float flame = -1; };   // flame >= 0 (additive): a flame sprite, id 0..255 = its rotation and noise seed; col.x = brightness, the colour follows its age (Fx::build) and the fragment shader erodes it with noise   // fade > 0: alpha x (life left)^fade (firing smoke, content/settings/fx.json)
 struct Streak { vec3 a{0}, b{0}; float life = 0, maxLife = 0.05f, width = 0.02f; vec4 col{1}; };
 struct Debris { vec3 p{0}, v{0}, w{0}, size{0.1f}; quat r{1, 0, 0, 0}; float life = 0; bool resting = false; };
-struct FxVert { vec3 p; vec4 c; vec2 uv; };
+struct FxVert { vec3 p; vec4 c; vec2 uv; float r = 0; };   // r: the sprite's radius (W6 soft fade; 0 = none)
 
 class Terrain;
 struct Fx {
-  std::vector<Particle> parts;
+  std::deque<Particle> parts;   // weather corpus 7: at the cap the oldest goes in O(1) (was vector::erase(begin): O(N) per spawn)
   std::vector<Streak> streaks;
   std::vector<Debris> debris;
   size_t maxParts = 1500, maxStreaks = 160, maxDebris = 72;
   void setBudget(float k);        // settings: caps = the defaults above x k (Low 0.6, Medium 1, High 1.5)
   bool rangeMode = true;          // range presentation: every trajectory clearly visible
+  vec2 wind{0};                   // weather: the air's horizontal velocity (m/s) smoke and dust relax to (R.wx.der.windXZ; switch wxdrift)
+  bool nearFade = true;           // fxnear: every alpha sprite fades near the eye, every sprite is capped at half the view height on screen (Renderer::Perf, set each frame)
   void update(float dt, const Terrain& t);
   void clear() { parts.clear(); streaks.clear(); debris.clear(); }
   void bullet(vec3 a, vec3 b, int tracerKind);   // one flight segment of a round, drawn by its tracer kind

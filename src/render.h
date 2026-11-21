@@ -378,6 +378,10 @@ public:
     bool poseJobs = true;        // posejobs (CP 3): poses evaluated on the job threads (off: all on the main thread)
     bool stepInterp = true;      // stepinterp (CP 4): at most 4 fixed steps a frame, the eye / soldiers drawn between the last two, Jolt on the same steps (off: cap 8, the last step as is, Jolt on the frame time)
     bool dtSnap = true;          // dtsnap (CP 4): frame time snapped to whole display refreshes within 1 ms, remainder carried (off: the raw clock)
+    bool fxLit = true;           // fxlit (weather W6): particles lit by the sun (one shadow tap) and sky / ground and fogged per vertex like geometry (off: their own colour, unfogged)
+    bool fxSoft = true;          // fxsoft (weather W6): particles fade over 0.35 x their radius where they meet the scene (off: a hard line)
+    bool wxDrift = true;         // wxdrift (weather): smoke and dust particles drift with the state's wind, grenade clouds creep downwind (off: still air)
+    bool fxNear = true;          // fxnear (weather 7): alpha sprites fade near the eye, every sprite capped at half the view height on screen (off: as before)
     bool charVel = true;         // charvel (AIB1): soldiers write their own TAA motion (previous model matrix + previous skinned vertex); off = depth reprojection (smeared)
     bool snowFar = true;         // snowfar (BT2): applySnow's patch noise only within 120 m and its shelter tap within 150 m; off = everywhere
     bool snowTex = true;         // snowtex (SN2): the three snow sets (packed / trodden / thaw) on the ground within 60 m, edges by height; off = applySnow's flat snow
@@ -398,7 +402,7 @@ public:
               // ^ stream L (lighting): append to the line above
               : n == "specaa" ? &specAA : n == "texbias" ? &texBias : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps : n == "splitsum" ? &splitSum : n == "albclamp" ? &albClamp : n == "wabs" ? &wAbs : n == "wet" ? &wet : n == "microdetail" ? &microDetail : n == "wearcause" ? &wearCause : n == "masklib" ? &maskLib : n == "roughvar" ? &roughVar
               // ^ stream M (materials): append to the line above
-              : n == "charvel" ? &charVel : n == "poseframe" ? &poseFrame : n == "poselod" ? &poseLod : n == "posejobs" ? &poseJobs : n == "stepinterp" ? &stepInterp : n == "dtsnap" ? &dtSnap
+              : n == "charvel" ? &charVel : n == "fxnear" ? &fxNear : n == "wxdrift" ? &wxDrift : n == "fxlit" ? &fxLit : n == "fxsoft" ? &fxSoft : n == "poseframe" ? &poseFrame : n == "poselod" ? &poseLod : n == "posejobs" ? &poseJobs : n == "stepinterp" ? &stepInterp : n == "dtsnap" ? &dtSnap
               // ^ characters (gameplay): append to the line above
               : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "pollen" ? &pollen : n == "impostors" ? &impostors : n == "impostorbc" ? &impostorBC : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
               // ^ stream A (vegetation): append to the line above
@@ -434,6 +438,7 @@ public:
   float resolutionScale() const { return resScale; }
   bool ssaoFull() const { return aoDiv == 1; }
   int displayW = 0, displayH = 0;
+  float smokeSigma = 0; vec3 smokeCol{0.62f, 0.62f, 0.61f};   // weather 7: smoke extinction (1/m) at the eye and its colour (uSmokeSigma / uSmokeCol, for applyFog; set each frame by the game)
   void resetTemporal() { taaValid = false; }   // camera cut / teleport / mode switch
   // Mac hook (MetalFX temporal scaler, rendering.md 14.4): when set and it returns true, it replaced the GL TAAU shader
   // exposure: the engine's 1x1 R32F exposure (last frame's; the tonemap multiplies the HDR colour by it)
@@ -590,7 +595,7 @@ private:
   float effScale() const { return perf.taau && upscaleMode != 2 ? resScale : 1.0f; }   // taau off / mode Off: native resolution
   bool grassAtlasReady = false;   // GT1: content/textures/grass_atlas loaded (grass.cpp grassAtlasInit)
   GLuint progGrass = 0, progGrassShadow = 0, progGrassPre = 0;   // Pre (CP1): kGrassFS's own cut-outs, depth only   // GX3: near pasture clumps into the sun map
-  GLuint progFx = 0, fxVao = 0, fxVbo = 0;
+  GLuint progFx = 0, fxVao = 0, fxVbo = 0, softDepth = 0; int softW = 0, softH = 0;   // softDepth: W6's copy of the depth (the particles' soft fade)
   GLuint progSnowfall = 0, snowfallVao = 0;   // SF1 snowfall
   // R1 terrain material cache (rendering.md 13): 2 RGBA8 layers of world-space noise over the terrain extent, mipmapped
   GLuint tcTex = 0, tcProg = 0; vec2 tcOrg{0}, tcExt{0}; int tcW = 0, tcH = 0; float tcTexel = 0.5f; double tcBakeMs = 0, tcMB = 0;

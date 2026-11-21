@@ -1440,6 +1440,7 @@ int App::run(int argc, char** argv) {
     mark("fx");
     v.view = viewM; v.proj = projM; v.dt = frameDt;
     R.fxAlpha.clear(); R.fxAdd.clear();
+    fx.nearFade = R.perf.fxNear; fx.wind = R.perf.wxDrift ? R.wx.der.windXZ : vec2(0);
     if (mode == Mode::Explore || selftest) fx.build(viewM, R.fxAlpha, R.fxAdd);   // CV1: captures show light shafts / mist too
     if (mode == Mode::Explore) { extern void royaleFx(App&, std::vector<FxVert>&); royaleFx(*this, R.fxAlpha); }   // BR12: the storm wall, depth-tested in the scene
     if (!R.lt.mapClean) lightsMotes(*this, viewM, R.fxAdd);   // GX2: dust in the sun shafts indoors (every mode); BR2: none on a clean map

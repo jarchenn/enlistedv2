@@ -1041,6 +1041,7 @@ void Game::clientStep(float dt) {
     ++k;
   }
   gren.expire(t);
+  if (app.R.perf.wxDrift) gren.drift(app.R.wx.der.windXZ, dt);   // weather: clouds creep downwind (host and client alike, from the same state)
   gren.particles(app.fx, t, dt);
   if (Soldier* L = local(); L && L->alive) localGrenadeCounts(*L, false);
 }
@@ -1328,6 +1329,7 @@ void Game::stepRest(float dt) {
   crumb("game: grenades");
   // grenades: bodies, fuses and blasts are the shared core (App::stepGrenades); smoke clouds and the AI view here
   syncGrenadeView();
+  if (app.R.perf.wxDrift) gren.drift(app.R.wx.der.windXZ, dt);   // weather: clouds creep downwind (host and client alike, from the same state)
   gren.particles(app.fx, t, dt);
   // match rules
   match.update(dt);
@@ -1356,7 +1358,9 @@ void Game::worldChanged(vec3 lo, vec3 hi) {
 
 // ---------------------------------------------------------------- presentation
 void Game::drawItems() {
+  app.R.smokeSigma = 0;
   if (!active) return;
+  app.R.smokeSigma = gren.sigmaAt(app.eyePos(), t);   // weather 7: the fog inside a smoke cloud (the near sprites fade out)
   double life = jkey(combat, "corpses").value("seconds", 40.0);
   drops.erase(std::remove_if(drops.begin(), drops.end(), [&](const Drop& d) { return t - d.t > life; }), drops.end());
   for (auto& d : drops) {   // GM1: lying on its side next to the body

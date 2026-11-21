@@ -4219,19 +4219,40 @@ void main(){
   oColor = vec4(uSnowCol, k*vA*0.85);
 }
 )GLSL";
+// Weather W6 (corpus 7.17-7.21): the particles belong to the scene's air. Per vertex (kCommon: the same fog and sun shadow as the
+// geometry): an alpha sprite is lit like a matte surface facing the eye (sun x half phase x one shadow tap, sky / ground
+// ambient) and fogged with applyFog; an additive one (fire, flashes) keeps its colour and loses what the fog absorbs. Per
+// fragment: a soft fade over 0.35 x the sprite's radius where it meets the scene (a depth copy; no hard line through walls).
 static const char* kFxVS = R"GLSL(
-#version 450 core
-layout(location=0) in vec3 aPos; layout(location=1) in vec4 aCol; layout(location=2) in vec2 aUV;
-uniform mat4 uVP; out vec4 vC; out vec2 vUV;
-void main(){ vC = aCol; vUV = aUV; gl_Position = uVP*vec4(aPos,1.0); }
+layout(location=0) in vec3 aPos; layout(location=1) in vec4 aCol; layout(location=2) in vec2 aUV; layout(location=3) in float aR;
+uniform mat4 uVP; uniform int uAdd, uFxLit; out vec4 vC; out vec2 vUV; out float vR;
+void main(){
+  vC = aCol; vUV = aUV; vR = aR;
+  if (uFxLit == 1) {
+    if (uAdd == 0) {
+      vec3 n = normalize(uCamPos - aPos);
+      float sh = sunShadowRaw(aPos, n, 1.0, 1);
+      vec3 lit = aCol.rgb/PI*uSunCol*0.5*sh + aCol.rgb*mix(uGroundCol, uSkyCol, 0.75);
+      vC.rgb = applyFog(lit, aPos);
+    } else { applyFog(vec3(0.0), aPos); vC.rgb *= gFogT; }
+  }
+  gl_Position = uVP*vec4(aPos,1.0);
+}
 )GLSL";
 static const char* kFxFS = R"GLSL(
-#version 450 core
-in vec4 vC; in vec2 vUV; uniform int uAdd; out vec4 o;
+in vec4 vC; in vec2 vUV; in float vR; uniform int uAdd; out vec4 o;
+uniform sampler2D uSoftDepth; uniform int uSoft; uniform float uP22, uP32;
+float softK(){   // 0 at the scene surface .. 1 a 0.35-radius in front of it (reverse-Z: distance = P32 / (depth + P22))
+  if (uSoft == 0 || vR <= 0.0) return 1.0;
+  float ds = uP32/(texelFetch(uSoftDepth, ivec2(gl_FragCoord.xy), 0).r + uP22), df = uP32/(gl_FragCoord.z + uP22);
+  return clamp((ds - df)/(0.35*vR), 0.0, 1.0);
+}
 float fxH(vec2 p){ p = fract(p*vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x*p.y); }
 float fxN(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0 - 2.0*f);
   return mix(mix(fxH(i), fxH(i + vec2(1,0)), f.x), mix(fxH(i + vec2(0,1)), fxH(i + vec2(1,1)), f.x), f.y); }
-void main(){
+void fxMain();
+void main(){ fxMain(); float k = softK(); if (uAdd == 1) o.rgb *= k; else o.a *= k; }
+void fxMain(){
   if (uAdd == 1 && vC.a > 150.0) {   // DF1 muzzle fireball sprite: alpha carries 200 + id + age; a soft, noise-ragged puff, its colour as given
     float id = floor(vC.a - 200.0), u = fract(vC.a - 200.0);
     vec2 p = vUV*2.0 - 1.0; float ang = id*2.399, cs = cos(ang), sn = sin(ang);
@@ -4539,7 +4560,8 @@ bool Renderer::init(int w, int h) {
   }
   glCreateVertexArrays(1, &fxVao); glCreateBuffers(1, &fxVbo);
   glVertexArrayVertexBuffer(fxVao, 0, fxVbo, 0, sizeof(FxVert));
-  for (int k = 0; k < 3; ++k) { glEnableVertexArrayAttrib(fxVao, k); glVertexArrayAttribBinding(fxVao, k, 0); }
+  for (int k = 0; k < 4; ++k) { glEnableVertexArrayAttrib(fxVao, k); glVertexArrayAttribBinding(fxVao, k, 0); }
+  glVertexArrayAttribFormat(fxVao, 3, 1, GL_FLOAT, GL_FALSE, offsetof(FxVert, r));   // W6: the sprite radius
   glVertexArrayAttribFormat(fxVao, 0, 3, GL_FLOAT, GL_FALSE, offsetof(FxVert, p));
   glVertexArrayAttribFormat(fxVao, 1, 4, GL_FLOAT, GL_FALSE, offsetof(FxVert, c));
   glVertexArrayAttribFormat(fxVao, 2, 2, GL_FLOAT, GL_FALSE, offsetof(FxVert, uv));
@@ -4825,6 +4847,7 @@ float gAtmoK = 1.0f;   // the map's look.atmo while setLighting runs
 vec3 ratioC(vec3 a, vec3 b) { return glm::pow(glm::clamp(a / glm::max(b, vec3(1e-12f)), vec3(0.2f), vec3(5.0f)), vec3(gAtmoK)); }
 }  // namespace
 void Renderer::setLighting(GLuint p, const RenderView& v) {
+  glUniform1f(glGetUniformLocation(p, "uSmokeSigma"), smokeSigma); glUniform3fv(glGetUniformLocation(p, "uSmokeCol"), 1, &smokeCol.x);   // weather 7: for applyFog (the lighting session's line)
   glUseProgram(p);
   // thumbnails / model sheets / item icons: a fixed studio state whatever map, weather or hour is loaded. Uniforms
   // persist per program, so everything the main frame sets per map is pinned here: a night / low sun (the asset tiles
@@ -6420,6 +6443,22 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST);   // own state: the world composite / TAA passes leave blending off
     glUseProgram(progFx);
     glUniformMatrix4fv(U(progFx, "uVP"), 1, GL_FALSE, glm::value_ptr(vpU));   // after the TAA resolve: unjittered
+    {   // W6: the scene's fog / sun on the particles (fxlit) and the soft fade against a copy of the depth (fxsoft)
+      const bool lit = perf.fxLit && !q.legacy, soft = perf.fxSoft && !q.legacy && depthTex;
+      if (lit) setLighting(progFx, v);
+      glUseProgram(progFx); glUniform1i(U(progFx, "uFxLit"), lit ? 1 : 0); glUniform1i(U(progFx, "uSoft"), soft ? 1 : 0);
+      if (soft) {
+        if (!softDepth || softW != width || softH != height) {
+          if (softDepth) glDeleteTextures(1, &softDepth);
+          GLint fmt = GL_DEPTH_COMPONENT32F; glGetTextureLevelParameteriv(depthTex, 0, GL_TEXTURE_INTERNAL_FORMAT, &fmt);
+          glCreateTextures(GL_TEXTURE_2D, 1, &softDepth); glTextureStorage2D(softDepth, 1, (GLenum)fmt, width, height); softW = width; softH = height;
+          glTextureParameteri(softDepth, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTextureParameteri(softDepth, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        }
+        glCopyImageSubData(depthTex, GL_TEXTURE_2D, 0, 0, 0, 0, softDepth, GL_TEXTURE_2D, 0, 0, 0, 0, width, height, 1);
+        glBindTextureUnit(7, softDepth); glUniform1i(U(progFx, "uSoftDepth"), 7);   // unit 7: the post passes' depth unit, free here
+        glUniform1f(U(progFx, "uP22"), v.proj[2][2]); glUniform1f(U(progFx, "uP32"), v.proj[3][2]);
+      }
+    }
     glBindVertexArray(fxVao);
     if (!fxAlpha.empty() && !v.thermal) {   // TH1: smoke and dust do not block a thermal view (fires and flashes, additive, stay)
       glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); glUniform1i(U(progFx, "uAdd"), 0);
@@ -7041,12 +7080,13 @@ void Renderer::bakeFog(const Terrain& t) {
 // the shader's optical depth with the field taken at the segment's midpoint (no drift noise): bot sight in fog
 float Renderer::fogT(vec3 a, vec3 b) const {
   float dens = wx.fogNow >= 0 ? wx.fogNow : wx.fogDens();
-  if (fogCpu.empty() || dens <= 0) return 1.0f;
+  const float tPreset = wx.der.phys ? std::exp(-wx.der.sigma * glm::length(b - a)) : 1.0f;   // a preset's visibility (Dense fog, Blizzard, Sandstorm)
+  if (fogCpu.empty() || dens <= 0) return tPreset;   // the bots' sight: no fog field on the map must not mean clear air under a fog preset
   const int N = 256; vec3 m = (a + b) * 0.5f;
   int i = std::clamp((int)((m.x - fogBox.x) * fogBox.z * N), 0, N - 1), j = std::clamp((int)((m.z - fogBox.y) * fogBox.w * N), 0, N - 1);
   const vec4& F = fogCpu[(size_t)j * N + i];
   float hm = std::max(m.y - F.z, 0.0f);
-  return std::exp(-dens * F.x * glm::length(b - a) * std::exp(-hm / 22.0f)) * (wx.der.phys ? std::exp(-wx.der.sigma * glm::length(b - a)) : 1.0f);   // W1: a preset's visibility counts for the bots' sight
+  return std::exp(-dens * F.x * glm::length(b - a) * std::exp(-hm / 22.0f)) * tPreset;   // W1: a preset's visibility counts for the bots' sight
 }
 
 // TH2: the last thermal frame's heat target read back (tests): hot pixels and their box, rows counted from the top
