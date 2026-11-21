@@ -1,4 +1,5 @@
 #include "render.h"
+#include "blackbody_lut.h"
 #include <cstring>
 #include <stb_dxt.h>   // CP3c impostor atlases (the implementation is in textures.cpp)
 #include <fstream>
@@ -2867,6 +2868,34 @@ void main(){
   }
 }
 )GLSL";
+
+// BF litsmoke: the half-resolution soft target. kHalfDepthFS: the nearest (reverse-Z: largest) depth of each 2 x 2 block, for the
+// particles' soft fade / occlusion at half resolution; kSoftUpFS: the premultiplied smoke back onto the scene once, each
+// full-res pixel taking the half texels whose depth matches its own (no smoke bleeding over fences, rails, terrain edges)
+static const char* kHalfDepthFS = R"GLSL(
+#version 450 core
+uniform sampler2D uDepth; out float oD;
+void main(){ ivec2 p = ivec2(gl_FragCoord.xy)*2; ivec2 mx = textureSize(uDepth, 0) - 1;
+  oD = max(max(texelFetch(uDepth, min(p, mx), 0).r, texelFetch(uDepth, min(p + ivec2(1, 0), mx), 0).r),
+           max(texelFetch(uDepth, min(p + ivec2(0, 1), mx), 0).r, texelFetch(uDepth, min(p + ivec2(1, 1), mx), 0).r)); }
+)GLSL";
+static const char* kSoftUpFS = R"GLSL(
+#version 450 core
+in vec2 vUV; uniform sampler2D uSoftC, uHalfD, uFullD; uniform float uP22, uP32; out vec4 oC;
+float lin(float z){ return uP32/(z + uP22); }
+void main(){
+  float d0 = lin(texelFetch(uFullD, ivec2(gl_FragCoord.xy), 0).r);
+  vec2 hs = vec2(textureSize(uSoftC, 0)), p = vUV*hs - 0.5; ivec2 b = ivec2(floor(p)); vec2 f = fract(p);
+  vec4 acc = vec4(0.0); float ws = 0.0;
+  for (int y = 0; y < 2; ++y) for (int x = 0; x < 2; ++x) {
+    ivec2 t = clamp(b + ivec2(x, y), ivec2(0), ivec2(hs) - 1);
+    float bw = (x == 0 ? 1.0 - f.x : f.x)*(y == 0 ? 1.0 - f.y : f.y);
+    float dw = exp(-abs(lin(texelFetch(uHalfD, t, 0).r) - d0)/(0.05*d0 + 0.1));
+    float w = bw*dw + 1e-5; acc += texelFetch(uSoftC, t, 0)*w; ws += w;
+  }
+  oC = acc/ws;
+}
+)GLSL";
 static const char* kCompositeFS = R"GLSL(
 in vec2 vUV;
 uniform sampler2D uScene, uShafts, uAmb, uAO, uDepth, uNR; uniform float uShaftAmt, uAoAmt, uSsrAmt;
@@ -3181,10 +3210,10 @@ void main(){ gl_FragDepth = texelFetch(uDepth, clamp(ivec2(vUV*uInSize), ivec2(0
 // accumulated back up; the tonemap adds a small fraction. Wide and faint: a soft glow, no threshold streaks.
 static const char* kBloomDownFS = R"GLSL(
 in vec2 vUV;
-uniform sampler2D uSrc; uniform vec2 uSrcTexel; uniform int uFirst, uDown13;
+uniform sampler2D uSrc; uniform vec2 uSrcTexel; uniform int uFirst, uDown13; uniform float uBloomClamp = 64.0;   // BF pbloom: no luma weighting, clamp 60000 (a flash keeps its energy)
 out vec4 oColor;
 vec3 kw(vec3 a, vec3 b, vec3 c, vec3 d, int first){   // a 2x2 block; the first level weighs by 1 / (1 + luma) (Karis: no fireflies)
-  if (first == 0) return (a + b + c + d)*0.25;
+  if (first == 0 || uBloomClamp > 100.0) return (a + b + c + d)*0.25;
   float wa = 1.0/(1.0 + dot(a, vec3(0.2126, 0.7152, 0.0722))), wb = 1.0/(1.0 + dot(b, vec3(0.2126, 0.7152, 0.0722)));
   float wc = 1.0/(1.0 + dot(c, vec3(0.2126, 0.7152, 0.0722))), wd = 1.0/(1.0 + dot(d, vec3(0.2126, 0.7152, 0.0722)));
   return (a*wa + b*wb + c*wc + d*wd)/(wa + wb + wc + wd);
@@ -3197,30 +3226,30 @@ void main(){
     vec3 G = texture(uSrc, vUV).rgb, H = texture(uSrc, vUV + o*vec2(2, 0)).rgb, I = texture(uSrc, vUV + o*vec2(-1, 1)).rgb;
     vec3 J = texture(uSrc, vUV + o*vec2(1, 1)).rgb, K = texture(uSrc, vUV + o*vec2(-2, 2)).rgb, L = texture(uSrc, vUV + o*vec2(0, 2)).rgb, M = texture(uSrc, vUV + o*vec2(2, 2)).rgb;
     vec3 c = kw(D, E, I, J, uFirst)*0.5 + (kw(A, B, F, G, uFirst) + kw(B, C, G, H, uFirst) + kw(F, G, K, L, uFirst) + kw(G, H, L, M, uFirst))*0.125;
-    oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : min(c, vec3(64.0)), 1.0); return;
+    oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : min(c, vec3(uBloomClamp)), 1.0); return;
   }
   vec3 s[4]; vec2 o = uSrcTexel;
   s[0] = texture(uSrc, vUV + vec2(-o.x, -o.y)).rgb; s[1] = texture(uSrc, vUV + vec2(o.x, -o.y)).rgb;
   s[2] = texture(uSrc, vUV + vec2(-o.x, o.y)).rgb;  s[3] = texture(uSrc, vUV + vec2(o.x, o.y)).rgb;
   vec3 c = vec3(0.0); float wsum = 0.0;
   for (int i = 0; i < 4; ++i) {
-    float w = uFirst == 1 ? 1.0/(1.0 + dot(s[i], vec3(0.2126, 0.7152, 0.0722))) : 1.0;
+    float w = uFirst == 1 && uBloomClamp < 100.0 ? 1.0/(1.0 + dot(s[i], vec3(0.2126, 0.7152, 0.0722))) : 1.0;
     c += s[i]*w; wsum += w;
   }
   c /= wsum;
-  oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : min(c, vec3(64.0)), 1.0);
+  oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : min(c, vec3(uBloomClamp)), 1.0);
 }
 )GLSL";
 static const char* kBloomUpFS = R"GLSL(
 in vec2 vUV;
-uniform sampler2D uSrc; uniform vec2 uSrcTexel;
+uniform sampler2D uSrc; uniform vec2 uSrcTexel; uniform float uUpW = 1.0;   // BF pbloom: each smaller (wider) level adds x0.62 (~1/r tail)
 out vec4 oColor;
 void main(){
   vec2 o = uSrcTexel;
   vec3 c = texture(uSrc, vUV).rgb*4.0;
   c += (texture(uSrc, vUV + vec2(o.x, 0)).rgb + texture(uSrc, vUV - vec2(o.x, 0)).rgb + texture(uSrc, vUV + vec2(0, o.y)).rgb + texture(uSrc, vUV - vec2(0, o.y)).rgb)*2.0;
   c += texture(uSrc, vUV + o).rgb + texture(uSrc, vUV - o).rgb + texture(uSrc, vUV + vec2(o.x, -o.y)).rgb + texture(uSrc, vUV + vec2(-o.x, o.y)).rgb;
-  oColor = vec4(c/16.0, 1.0);
+  oColor = vec4(c/16.0*uUpW, 1.0);
 }
 )GLSL";
 
@@ -4228,6 +4257,8 @@ static const char* kToneFS = R"GLSL(
 #version 450 core
 in vec2 vUV;
 uniform sampler2D uHdr, uExpo, uBloom, uVmDist; uniform float uFixedExpo, uBloomAmt, uEyeR, uAspect, uRectVig, uMicro; uniform int uTonemap;
+uniform float uBloomNorm = 6.0;
+uniform int uPhysGuard;   // CP2 physguard   // BF pbloom: the chain's total weight (6 equal levels before)
 uniform float uNewExpo;   // VO L1: Lighting New's re-fit of a fixed exposure (1 in Classic)
 uniform float uCas;     // CP1: contrast-adaptive sharpen 0..1 (Settings > Sharpness; replaces the TAA and grade sharpens), 0 off
 uniform int uDither;    // CP1: triangular +-1 LSB dither at the final write
@@ -4297,8 +4328,9 @@ void main(){
   float bAmt = uBloomAmt;   // optic eyepiece: no bloom over its dark surround (the bloom is taken from the whole lit view)
   if (uEyeR > 0.0) bAmt *= 1.0 - smoothstep(0.98*uEyeR, 1.02*uEyeR, length((vUV - 0.5)*vec2(uAspect, 1.0)));
   if (texture(uVmDist, vUV).r > 0.0) bAmt = 0.0;   // VM2: the bloom is the world's, taken before the first-person weapon was drawn: blended over the dark gun it showed the ground through it
-  if (bAmt > 0.0) c = mix(c, texture(uBloom, vUV).rgb/6.0, bAmt);   // chain sums 6 levels; energy-preserving blend, not an add
+  if (bAmt > 0.0) c = mix(c, texture(uBloom, vUV).rgb/uBloomNorm, bAmt);   // chain sums 6 levels; energy-preserving blend, not an add
   float e = uFixedExpo > 0.0 ? uFixedExpo*uNewExpo : texelFetch(uExpo, ivec2(0), 0).r;   // VO L1: auto exposure already re-adapts to New's darker scene; a fixed one is lifted
+  if (uPhysGuard == 1) e = min(e, 3.0/max(texelFetch(uExpo, ivec2(0), 0).g, 1e-6));   // CP2 physguard: the scene's brightest 2 % land on the curve's shoulder, not past it (into a low sun)
   vec2 q = vUV - 0.5;
   if (uDbgView >= 3 && uDbgView <= 5) { oColor = vec4(clamp(texture(uHdr, vUV).rgb, 0.0, 1.0), 1.0); return; }   // CP step 2: albedo / furnace / texel views shown as computed (no exposure, curve or bloom)
   if (uDbgView == 1) {   // CP0 false colour: one band per stop of exposed luminance around 0.18 (grey = 0.18 +- half a stop)
@@ -4359,7 +4391,8 @@ uniform sampler2D uHdr, uPrev; uniform float uLod, uDt, uReset;
 uniform float uExpoKey, uExpoMin, uExpoMax;   // L2 time of day: Day 0.24, 0.9 .. 1.45; night opens the range (lighting.cpp)
 uniform float uExpoFloor;   // FX1: while the headlamp is on, the exposure at switch-on (fading): its lit patch does not pump the scene down
 uniform int uHist; uniform float uHistCal;   // VO L8: histogram metering (Lighting New), its calibration to the old mean metering
-out float oE;
+uniform int uFxExpo, uFreeze;   // BF fxexpo (spec 5.2 / ref 05 5.6): top 4 % rejected, EV rate-limited in stops / s; uFreeze: hold (own-weapon fire)
+out vec2 oEx; float oE; float gHi = 0.0;   // CP2 physguard: .g = the scene's 98th-percentile luminance (highlight guard)
 // VO L8 (Lagarde & de Rousiers 2014): a centre-weighted 32-bin histogram of log2 luminance over a 16 x 16 grid of a
 // ~64 px mip, metered as the mean between the 40th and 95th percentiles: the sky's few brightest pixels and dark
 // corners no longer swing the exposure (blown desert and snow, murky forest)
@@ -4373,14 +4406,15 @@ float histLum(){
     float w = 1.0 - 0.7*smoothstep(0.1, 0.7, length((uv - 0.5)*vec2(1.0, 1.3)));
     h[int(clamp((log2(max(L, 1e-6)) + 12.0)*2.0, 0.0, 31.0))] += w; ws += w;
   }
-  float lo = 0.4*ws, hi = 0.95*ws, acc = 0.0, sum = 0.0, cnt = 0.0;
+  float lo = 0.4*ws, hi = (uFxExpo == 1 ? 0.96 : 0.95)*ws, acc = 0.0, sum = 0.0, cnt = 0.0;
+  { float a2 = 0.0; for (int i = 0; i < 32; ++i) { a2 += h[i]; if (a2 >= 0.98*ws) { gHi = exp2((float(i) + 0.5)*0.5 - 12.0); break; } } }
   for (int i = 0; i < 32; ++i) {
     float t = max(min(acc + h[i], hi) - max(acc, lo), 0.0);
     sum += t*((float(i) + 0.5)*0.5 - 12.0); cnt += t; acc += h[i];
   }
   return exp2(sum/max(cnt, 1e-4))*uHistCal;
 }
-void main(){
+void mainE(){
   vec3 avg = textureLod(uHdr, vec2(0.5), uLod).rgb;
   float prev = texelFetch(uPrev, ivec2(0), 0).r;
   if (uReset > 0.0) { oE = uReset; return; }
@@ -4388,9 +4422,16 @@ void main(){
   if (isnan(lr) || isinf(lr)) { oE = prev; return; }   // one non-finite pixel poisons the whole mip average
   float l = max(lr, 1e-4);
   float target = max(clamp(uExpoKey/l, uExpoMin, uExpoMax), uExpoFloor);
+  if (uFxExpo == 1) {   // EV rate limits: opening up to the dark 0.9 stops / s (slow, as the eye), closing to the light 3 stops / s
+    if (uFreeze == 1) { oE = prev; return; }
+    float d = log2(target) - log2(max(prev, 1e-6));
+    oE = prev*exp2(clamp(d, -3.0*uDt, 0.9*uDt));
+    return;
+  }
   float k = 1.0 - exp(-uDt*(target > prev ? 0.6 : 1.2));
   oE = mix(prev, target, k);
 }
+void main(){ mainE(); if (gHi <= 0.0) gHi = dot(textureLod(uHdr, vec2(0.5), uLod).rgb, vec3(0.2126, 0.7152, 0.0722))*8.0; oEx = vec2(oE, gHi); }
 )GLSL";
 // SF1 snowfall (Blackwater Thaw spec 6): two groups of streaks, procedural per instance, in boxes around the eye that wrap
 // on world coordinates (stable world movement: the flakes do not ride with the camera). Group 0 near (sparse, a broad
@@ -4557,6 +4598,29 @@ void main(){
 // geometry): an alpha sprite is lit like a matte surface facing the eye (sun x half phase x one shadow tap, sky / ground
 // ambient) and fogged with applyFog; an additive one (fire, flashes) keeps its colour and loses what the fog absorbs. Per
 // fragment: a soft fade over 0.35 x the sprite's radius where it meets the scene (a depth copy; no hard line through walls).
+// BF (Battle Foundry spec 5.2 / 5.4): what every fx shader may use. uYref: a lit 18 %% card this frame (engine radiance);
+// uNitsToScene: nits -> engine radiance (1 / 30,000); uPBloom: 1 = the unthresholded bloom is on (author the physical peak,
+// no clamp). fxFog(col, w): the world's air fog along the eye-to-particle path, once (12 m clear zone included).
+static const char* kFxCommon = R"GLSL(
+uniform float uYref, uNitsToScene; uniform int uPBloom;
+vec3 fxFog(vec3 col, vec3 w){ return applyFog(col, w); }
+// BF litsmoke (spec 6.6): smoke scatters, it never emits. dustAlbedo x (sky / ground ambient + the sun through the shadow
+// maps and the deck), with dust's forward lobe 1 + 1.4 pow(sat(dot(toEye... reversed), 4): bright against the sun.
+// n: the puff's normal guess (view-facing billboard: -viewDir, or a sphere normal); w: world position.
+vec3 fxSmokeLight(vec3 albedo, vec3 n, vec3 w){
+  vec3 V = normalize(uCamPos - w);
+  vec3 amb = mix(uGroundCol, uSkyCol, 0.5 + 0.5*n.y);
+  float sh = sunShadowRaw(w, vec3(0.0, 1.0, 0.0), 0.0, 1)*cloudShadow(w);
+  float fwd = 1.0 + 1.4*pow(clamp(dot(-V, uSunDir), 0.0, 1.0), 4.0);
+  return albedo*(amb + uSunCol*max(dot(n, uSunDir)*0.5 + 0.5, 0.0)*sh*fwd);
+}
+// six-way lightmaps (spec 6.6): A = (right, top, back, alpha), B = (left, bottom, front, emissive); Lts: the light in the
+// sprite's tangent space (x right, y up, z toward the back)
+float fxSixWay(vec4 A, vec4 B, vec3 Lts){
+  vec3 w = Lts*Lts;
+  return w.x*(Lts.x > 0.0 ? A.r : B.r) + w.y*(Lts.y > 0.0 ? A.g : B.g) + w.z*(Lts.z > 0.0 ? A.b : B.b);
+}
+)GLSL";
 static const char* kFxVS = R"GLSL(
 layout(location=0) in vec3 aPos; layout(location=1) in vec4 aCol; layout(location=2) in vec2 aUV; layout(location=3) in float aR;
 uniform mat4 uVP; uniform int uAdd, uFxLit; out vec4 vC; out vec2 vUV; out float vR;
@@ -4792,7 +4856,7 @@ void Renderer::physLight(vec3& sun, vec3& sky, vec3& ground, vec3& fog, vec3& fi
   const float h = glm::degrees(std::asin(glm::clamp(mu, 0.0f, 1.0f)));
   const float m = 1.0f / (std::max(mu, 1e-3f) + 0.50572f * std::pow(h + 6.07995f, -1.6364f));
   const float eDN = mu > 0.0f ? 133000.0f * std::exp(-0.21f * m) * wx.der.beamRatio : 0.0f;
-  const float eSky = mu > 0.0f ? (800.0f + 15500.0f * std::sqrt(mu)) * wx.der.skyRatio : 0.0f;
+  const float eSky = mu > 0.0f ? (800.0f + 15500.0f * std::sqrt(mu)) * wx.der.skyRatio * lt.physSky : 0.0f;   // look.physical.sky: a thicker / thinner deck than the weather row
   const vec3 sunC = kelvinRGB(glm::mix(2500.0f, 5800.0f, glm::smoothstep(0.0f, 0.5f, mu))) * wx.der.tint;
   extern bool snowLayerOn(); extern bool groundPaintArid();
   const float rho = snowLayerOn() ? 0.8f : groundPaintArid() ? 0.3f : 0.2f;
@@ -4810,7 +4874,7 @@ void Renderer::physLight(vec3& sun, vec3& sky, vec3& ground, vec3& fog, vec3& fi
   if (main) {
     const float eTot = std::max(eDN * mu + eSky, 1e-3f);
     const float evScene = std::log2(eTot / 2.5f);
-    physEV = glm::clamp(15.0f + 0.67f * (evScene - 15.0f), mu > 0.0f ? 9.0f : 3.0f, 15.5f);
+    physEV = glm::clamp(15.0f + 0.67f * (evScene - 15.0f) + lt.physEV, mu > 0.0f ? 9.0f : 3.0f, 15.5f);   // look.physical.ev: + = a darker exposure (stops)
     physExpo = mu > 0.05f ? q.physExpoK * K / (1.2f * std::exp2(physEV)) : 0.0f;   // dusk / night: the engine's own night exposure (the art stays in its units)
   }
 }
@@ -4846,6 +4910,14 @@ void Renderer::froxRun(const RenderView& v) {   // CP4 froxel fog: inject + inte
   glDispatchCompute((NX + 7) / 8, (NY + 7) / 8, 1);
   glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
   froxNear = nearD; froxFar = farD;
+}
+// BF fxbright (spec 5.4): what an fx shader needs to author in nits or in Yref. 1 engine radiance = 30,000 nits (the CP2
+// scale); Yref = a lit 18 % card under this frame's light, in engine radiance (sky term + sun on a level surface)
+void Renderer::fxBrightUniforms(GLuint p) {
+  const vec3 lw(0.2126f, 0.7152f, 0.0722f);
+  const float yref = 0.18f * (glm::dot(lastSunCol, lw) * std::max(sunDir.y, 0.0f) / 3.14159265f + glm::dot(lastSkyCol, lw));
+  glUniform1f(U(p, "uYref"), std::max(yref, 1e-6f)); glUniform1f(U(p, "uNitsToScene"), 1.0f / 30000.0f);
+  glUniform1i(U(p, "uPBloom"), perf.pBloom && !q.legacy ? 1 : 0);
 }
 void Renderer::uploadWeather() {   // W1: NmkWeather (binding 4), the layout kCommon names
   const WxState& s = wx.st; const WxDerived& d = wx.der;
@@ -4891,7 +4963,10 @@ bool Renderer::init(int w, int h) {
   }
   progExpo = compile(kFullVS, kExpoFS, "expo");
   progLine = compile(kLineVS, kLineFS, "line");
-  progFx = compile(kFxVS, kFxFS, "fx");
+  {   // BF: the shared fx include (blackbody LUT, Yref / nits, fxFog) ahead of the gameplay session's kFx bodies
+    const std::string inc = std::string(kBlackbodyGLSL) + kFxCommon;
+    progFx = compile((inc + kFxVS).c_str(), (inc + kFxFS).c_str(), "fx");
+  }
   progLeafDrift = compile(kLeafDriftVS, kLeafDriftFS, "leaf_drift");   // WS2
   { GLint ok = 0; glGetProgramiv(progLeafDrift, GL_LINK_STATUS, &ok); if (!ok) { glDeleteProgram(progLeafDrift); progLeafDrift = 0; } }   // a failed program would draw with whatever is bound
   progSnowfall = compile(kSnowfallVS, kSnowfallFS, "snowfall"); glCreateVertexArrays(1, &snowfallVao);
@@ -4917,6 +4992,7 @@ bool Renderer::init(int w, int h) {
   progSsao = compile(kFullVS, kSsaoFS, "ssao");
   progContactAO = compile(kContactAOVS, kContactAOFS, "contact_ao");   // BF B4
   { GLint ok = 0; if (progContactAO) glGetProgramiv(progContactAO, GL_LINK_STATUS, &ok); if (!ok) progContactAO = 0; }
+  progHalfDepth = compile(kFullVS, kHalfDepthFS, "half_depth"); progSoftUp = compile(kFullVS, kSoftUpFS, "soft_up");   // BF litsmoke
   progBloomDown = compile(kFullVS, kBloomDownFS, "bloom_down");
   progBloomUp = compile(kFullVS, kBloomUpFS, "bloom_up");
   progTaa = compile(kFullVS, kTaaFS, "taa");
@@ -4971,8 +5047,8 @@ bool Renderer::init(int w, int h) {
   glNamedFramebufferDrawBuffer(occFbo, GL_NONE); glNamedFramebufferReadBuffer(occFbo, GL_NONE);
   // exposure ping-pong
   for (int k = 0; k < 2; ++k) {
-    glCreateTextures(GL_TEXTURE_2D, 1, &expoTex[k]); glTextureStorage2D(expoTex[k], 1, GL_R32F, 1, 1);
-    float one = 1.0f; glTextureSubImage2D(expoTex[k], 0, 0, 0, 1, 1, GL_RED, GL_FLOAT, &one);
+    glCreateTextures(GL_TEXTURE_2D, 1, &expoTex[k]); glTextureStorage2D(expoTex[k], 1, GL_RG32F, 1, 1);   // r exposure, g the 98th-percentile luminance (CP2 physguard)
+    const float one[2] = {1.0f, 1.0f}; glTextureSubImage2D(expoTex[k], 0, 0, 0, 1, 1, GL_RG, GL_FLOAT, one);
     glCreateFramebuffers(1, &expoFbo[k]); glNamedFramebufferTexture(expoFbo[k], GL_COLOR_ATTACHMENT0, expoTex[k], 0);
   }
   glCreateQueries(GL_TIME_ELAPSED, 3, queries);
@@ -5312,7 +5388,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   { vec3 sk = hor / vec3(0.80f, 0.84f, 0.87f); glUniform3fv(U(p, "uSkyK"), 1, glm::value_ptr(sk)); }
   glUniform3fv(U(p, "uSkySun"), 1, glm::value_ptr(skySun)); glUniform3fv(U(p, "uSkySunCol"), 1, glm::value_ptr(skySunCol));
   if (v.underwater && !thumbMode) { sun *= vec3(0.22f, 0.38f, 0.40f); sky *= vec3(0.45f, 0.75f, 0.80f); ground *= vec3(0.45f, 0.75f, 0.80f); }   // swim.cpp: light filtered by the water above
-  glUniform3fv(U(p, "uSunCol"), 1, glm::value_ptr(sun)); if (p == progMain) lastSunCol = sun;   // CP4 froxel inject
+  glUniform3fv(U(p, "uSunCol"), 1, glm::value_ptr(sun)); if (p == progMain) { lastSunCol = sun; lastSkyCol = sky; }   // CP4 froxel inject; BF Yref
   { const vec3 lw(0.2126f, 0.7152f, 0.0722f); float d = glm::dot(sun, lw) * std::max(sunDir.y, 0.0f) / 3.14159265f, a = glm::dot(sky, lw);
     sunDirectFrac = d / std::max(d + a, 1e-6f); }   // OPT wxsun: the sun's share of a level surface's light (shade(): sun x N.L / pi against the sky term), read by the next frame's cascades
   glUniform3fv(U(p, "uSkyCol"), 1, glm::value_ptr(sky));
@@ -5395,7 +5471,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1f(U(p, "uAoIndirectOnly"), q.legacy ? 0.0f : 1.0f);
   glUniform1i(U(p, "uLook"), q.legacy ? 0 : 1);
   glUniform1i(U(p, "uSkyVisWall"), perf.skyVisWall && !q.legacy ? 1 : 0);
-  glUniform1i(U(p, "uFroxWorld"), froxOn && p != progComposite && p != progSsrHalf ? 1 : 0);
+  glUniform1i(U(p, "uFroxWorld"), froxOn && p != progComposite && p != progSsrHalf && p != progFx ? 1 : 0);   // particles draw after the composite: they keep the analytic fog
   glUniform1i(U(p, "uFogPhase"), perf.fogPhase && q.lightNew && !q.legacy && !thumbMode ? 1 : 0);
   glUniform1i(U(p, "uW2"), perf.w2Sky && q.lightNew && !q.legacy && !thumbMode ? 1 : 0); glUniform1f(U(p, "uFlash"), thumbMode ? 0.0f : wx.der.flash);   // W2
   glUniform1i(U(p, "uDbgView"), dbgView);   // CP0
@@ -6967,38 +7043,89 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   if (vmOnly == 3) { float z[4] = {0, 0, 0, 0}; glClearTexImage(hdrColor, 0, GL_RGBA, GL_FLOAT, z); }   // VM2 self-test: the world black from here on (bloom, effects, the weapon over it)
   // bloom is taken from the lit world *before* effects are drawn, so muzzle flashes, tracers and impact sparks
   // look as they did before this pass (no glow)
+  // BF fxhdr (spec 5.2): emissive particles live in scene HDR before bloom (they bloom); the exposure meter's mips are
+  // taken before them, so no effect ever moves the exposure
+  const bool fxHdr = perf.fxHdr && !q.legacy && !thumbMode;
+  fxMipDone = false;
+  auto fxState = [&] {
+    glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE);
+    glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST);
+    glUseProgram(progFx);
+    glUniformMatrix4fv(U(progFx, "uVP"), 1, GL_FALSE, glm::value_ptr(vpU));
+    const bool lit = perf.fxLit && !q.legacy, soft = perf.fxSoft && !q.legacy && depthTex;
+    if (lit) setLighting(progFx, v);
+    glUseProgram(progFx); glUniform1i(U(progFx, "uFxLit"), lit ? 1 : 0); glUniform1i(U(progFx, "uSoft"), soft ? 1 : 0);
+    fxBrightUniforms(progFx);
+    if (soft) {
+      if (!softDepth || softW != width || softH != height) {
+        if (softDepth) glDeleteTextures(1, &softDepth);
+        GLint fmt = GL_DEPTH_COMPONENT32F; glGetTextureLevelParameteriv(depthTex, 0, GL_TEXTURE_INTERNAL_FORMAT, &fmt);
+        glCreateTextures(GL_TEXTURE_2D, 1, &softDepth); glTextureStorage2D(softDepth, 1, (GLenum)fmt, width, height); softW = width; softH = height;
+        glTextureParameteri(softDepth, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTextureParameteri(softDepth, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      }
+      glCopyImageSubData(depthTex, GL_TEXTURE_2D, 0, 0, 0, 0, softDepth, GL_TEXTURE_2D, 0, 0, 0, 0, width, height, 1);
+      glBindTextureUnit(7, softDepth); glUniform1i(U(progFx, "uSoftDepth"), 7);
+      glUniform1f(U(progFx, "uP22"), v.proj[2][2]); glUniform1f(U(progFx, "uP32"), v.proj[3][2]);
+    }
+    glBindVertexArray(fxVao);
+  };
+  if (fxHdr) {
+    if (!(v.eyepieceR > 0 && !thumbMode)) { glGenerateTextureMipmap(hdrColor); fxMipDone = true; }   // the meter's view of the scene, without effects
+    if (!fxAdd.empty()) {
+      fxState();
+      glBlendFunc(GL_ONE, GL_ONE); glUniform1i(U(progFx, "uAdd"), 1);
+      glNamedBufferData(fxVbo, fxAdd.size() * sizeof(FxVert), fxAdd.data(), GL_STREAM_DRAW);
+      glDrawArrays(GL_TRIANGLES, 0, (GLsizei)fxAdd.size());
+      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); glDisable(GL_BLEND); glDepthMask(GL_TRUE);
+    }
+  }
   gpuMark(GP_Bloom);
   if (!thumbMode && !q.legacy && q.bloom && q.bloomStrength > 0) bloomPass();
   gpuMark(GP_Fx);
   // effects: smoke (alpha) then flashes / tracers / streaks (additive), depth-tested, no depth writes
-  if (!fxAlpha.empty() || !fxAdd.empty()) {
-    glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE);
-    glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST);   // own state: the world composite / TAA passes leave blending off
-    glUseProgram(progFx);
-    glUniformMatrix4fv(U(progFx, "uVP"), 1, GL_FALSE, glm::value_ptr(vpU));   // after the TAA resolve: unjittered
-    {   // W6: the scene's fog / sun on the particles (fxlit) and the soft fade against a copy of the depth (fxsoft)
-      const bool lit = perf.fxLit && !q.legacy, soft = perf.fxSoft && !q.legacy && depthTex;
-      if (lit) setLighting(progFx, v);
-      glUseProgram(progFx); glUniform1i(U(progFx, "uFxLit"), lit ? 1 : 0); glUniform1i(U(progFx, "uSoft"), soft ? 1 : 0);
-      if (soft) {
-        if (!softDepth || softW != width || softH != height) {
-          if (softDepth) glDeleteTextures(1, &softDepth);
-          GLint fmt = GL_DEPTH_COMPONENT32F; glGetTextureLevelParameteriv(depthTex, 0, GL_TEXTURE_INTERNAL_FORMAT, &fmt);
-          glCreateTextures(GL_TEXTURE_2D, 1, &softDepth); glTextureStorage2D(softDepth, 1, (GLenum)fmt, width, height); softW = width; softH = height;
-          glTextureParameteri(softDepth, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTextureParameteri(softDepth, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        }
-        glCopyImageSubData(depthTex, GL_TEXTURE_2D, 0, 0, 0, 0, softDepth, GL_TEXTURE_2D, 0, 0, 0, 0, width, height, 1);
-        glBindTextureUnit(7, softDepth); glUniform1i(U(progFx, "uSoftDepth"), 7);   // unit 7: the post passes' depth unit, free here
-        glUniform1f(U(progFx, "uP22"), v.proj[2][2]); glUniform1f(U(progFx, "uP32"), v.proj[3][2]);
-      }
-    }
-    glBindVertexArray(fxVao);
+  if (!fxAlpha.empty() || (!fxAdd.empty() && !fxHdr)) {   // W6 fxlit / fxsoft state in fxState(); under fxhdr the additive ones went in before bloom
+    fxState();
     if (!fxAlpha.empty() && !v.thermal) {   // TH1: smoke and dust do not block a thermal view (fires and flashes, additive, stay)
+      const bool half = perf.litSmoke && !q.legacy && progHalfDepth && progSoftUp && depthTex;
+      if (half) {   // BF litsmoke: premultiplied into a half-resolution target (spec 6.6 / 8.3), occlusion by the soft fade against half depth
+        const int hw = std::max(1, width / 2), hh = std::max(1, height / 2);
+        if (!softCTex || softCW != hw || softCH != hh) {
+          if (softCTex) { glDeleteTextures(1, &softCTex); glDeleteTextures(1, &halfDTex); glDeleteFramebuffers(1, &softCFbo); glDeleteFramebuffers(1, &halfDFbo); }
+          glCreateTextures(GL_TEXTURE_2D, 1, &softCTex); glTextureStorage2D(softCTex, 1, GL_RGBA16F, hw, hh);
+          glCreateTextures(GL_TEXTURE_2D, 1, &halfDTex); glTextureStorage2D(halfDTex, 1, GL_R32F, hw, hh);
+          for (GLuint t : {softCTex, halfDTex}) { glTextureParameteri(t, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTextureParameteri(t, GL_TEXTURE_MAG_FILTER, GL_NEAREST); glTextureParameteri(t, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(t, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); }
+          glCreateFramebuffers(1, &softCFbo); glNamedFramebufferTexture(softCFbo, GL_COLOR_ATTACHMENT0, softCTex, 0);
+          glCreateFramebuffers(1, &halfDFbo); glNamedFramebufferTexture(halfDFbo, GL_COLOR_ATTACHMENT0, halfDTex, 0);
+          softCW = hw; softCH = hh;
+        }
+        GLint prevFbo = 0; glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevFbo);
+        glDisable(GL_BLEND); glDisable(GL_DEPTH_TEST);
+        glBindFramebuffer(GL_FRAMEBUFFER, halfDFbo); glViewport(0, 0, hw, hh);
+        glUseProgram(progHalfDepth); glBindTextureUnit(7, depthTex); glUniform1i(U(progHalfDepth, "uDepth"), 7);
+        glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
+        glBindFramebuffer(GL_FRAMEBUFFER, softCFbo); { const float z[4] = {0, 0, 0, 0}; glClearNamedFramebufferfv(softCFbo, GL_COLOR, 0, z); }
+        fxState(); glDisable(GL_DEPTH_TEST);
+        glUniform1i(U(progFx, "uSoft"), 1); glBindTextureUnit(7, halfDTex); glUniform1i(U(progFx, "uSoftDepth"), 7);   // the soft fade does the occlusion here
+        glUniform1f(U(progFx, "uP22"), v.proj[2][2]); glUniform1f(U(progFx, "uP32"), v.proj[3][2]);
+        glEnable(GL_BLEND); glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);   // premultiplied colour, coverage in alpha
+        glUniform1i(U(progFx, "uAdd"), 0);
+        glNamedBufferData(fxVbo, fxAlpha.size() * sizeof(FxVert), fxAlpha.data(), GL_STREAM_DRAW);
+        glBindVertexArray(fxVao); glDrawArrays(GL_TRIANGLES, 0, (GLsizei)fxAlpha.size());
+        glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFbo); glViewport(0, 0, width, height);
+        glUseProgram(progSoftUp);
+        glBindTextureUnit(3, softCTex); glBindTextureUnit(4, halfDTex); glBindTextureUnit(7, depthTex);
+        glUniform1i(U(progSoftUp, "uSoftC"), 3); glUniform1i(U(progSoftUp, "uHalfD"), 4); glUniform1i(U(progSoftUp, "uFullD"), 7);
+        glUniform1f(U(progSoftUp, "uP22"), v.proj[2][2]); glUniform1f(U(progSoftUp, "uP32"), v.proj[3][2]);
+        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);   // premultiplied over the scene, once
+        glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
+        glEnable(GL_DEPTH_TEST); glUseProgram(progFx); glBindVertexArray(fxVao);
+      } else {
       glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); glUniform1i(U(progFx, "uAdd"), 0);
       glNamedBufferData(fxVbo, fxAlpha.size() * sizeof(FxVert), fxAlpha.data(), GL_STREAM_DRAW);
       glDrawArrays(GL_TRIANGLES, 0, (GLsizei)fxAlpha.size());
+      }
     }
-    if (!fxAdd.empty()) {
+    if (!fxAdd.empty() && !fxHdr) {
       glBlendFunc(GL_ONE, GL_ONE); glUniform1i(U(progFx, "uAdd"), 1);
       glNamedBufferData(fxVbo, fxAdd.size() * sizeof(FxVert), fxAdd.data(), GL_STREAM_DRAW);
       glDrawArrays(GL_TRIANGLES, 0, (GLsizei)fxAdd.size());
@@ -7198,7 +7325,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
 
   gpuMark(GP_Post);
   // ---- exposure
-  if (!eyepiece) glGenerateTextureMipmap(hdrColor);
+  if (!eyepiece && !fxMipDone) glGenerateTextureMipmap(hdrColor);   // BF fxhdr: already taken before the effects
   int levels = (int)std::floor(std::log2((float)std::max(width, height)));
   glBindFramebuffer(GL_FRAMEBUFFER, expoFbo[expoIdx ^ 1]);
   glViewport(0, 0, 1, 1);
@@ -7210,6 +7337,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1f(U(progExpo, "uReset"), expoReset); expoReset = -1;
   lightingExposure(*this, progExpo);   // L2: exposure range of the time of day
   glUniform1f(U(progExpo, "uExpoFloor"), flashOn ? flashExpoFloor : 0.0f);   // FX1
+  glUniform1i(U(progExpo, "uFxExpo"), perf.fxExpo && !q.legacy ? 1 : 0); glUniform1i(U(progExpo, "uFreeze"), perf.fxExpo && time < expoFreezeUntil ? 1 : 0);   // BF
   glUniform1i(U(progExpo, "uHist"), q.lightNew && perf.histExpo && !q.legacy ? 1 : 0); glUniform1f(U(progExpo, "uHistCal"), q.histCal);   // VO L8
   glBindVertexArray(emptyVao); glDrawArrays(GL_TRIANGLES, 0, 3);
   expoIdx ^= 1;
@@ -7261,6 +7389,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUseProgram(progTone);
   glBindTextureUnit(0, hdrColor); glBindTextureUnit(1, expoTex[expoIdx]);
   glUniform1i(U(progTone, "uDbgView"), dbgView);
+  glUniform1i(U(progTone, "uPhysGuard"), perf.physGuard && q.lightPhys && q.lightNew && !q.legacy && !thumbMode && physExpo > 0.0f ? 1 : 0);
   glUniform1f(U(progTone, "uCas"), perf.cas && !q.legacy && !thumbMode ? q.sharpness : 0.0f); glUniform1i(U(progTone, "uDither"), perf.dither && !thumbMode ? 1 : 0);   // CP1
   glUniform1i(U(progTone, "uHdr"), 0); glUniform1i(U(progTone, "uExpo"), 1);
   glUniform1f(U(progTone, "uNewExpo"), q.lightNew && !q.legacy && !thumbMode ? q.newExpo : 1.0f);   // VO L1
@@ -7282,7 +7411,9 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glBindTextureUnit(2, bloomTex[0]); glUniform1i(U(progTone, "uBloom"), 2);
   glBindTextureUnit(3, vmDistTex); glUniform1i(U(progTone, "uVmDist"), 3);   // VM2: no world bloom on the first-person weapon
   glUniform1f(U(progTone, "uMicro"), thumbMode || q.legacy || eyepiece ? 0.0f : q.microcontrast);   // UI2 (the eyepiece view has no fresh mips)
-  glUniform1f(U(progTone, "uBloomAmt"), !q.legacy && q.bloom ? std::min(1.0f, q.bloomStrength * lt.mapBloom) : 0.0f);   // BR3: x the map's bloom
+  { const bool pb = perf.pBloom && !q.legacy; float norm = 6.0f; if (pb) { norm = 0.0f; float w = 1.0f; for (int i = 0; i < kBloomLevels; ++i) { norm += w; w *= 0.62f; } }
+    glUniform1f(U(progTone, "uBloomNorm"), norm);
+    glUniform1f(U(progTone, "uBloomAmt"), !q.legacy && q.bloom ? std::min(1.0f, (pb ? 0.012f : q.bloomStrength) * lt.mapBloom) : 0.0f); }   // BF pbloom: ~1.2 % of the source, unthresholded   // BR3: x the map's bloom
   glUniform1f(U(progTone, "uRectVig"), v.rectVignette && !thumbMode ? 1.0f : 0.0f);   // TK3
   glUniform1f(U(progTone, "uEyeR"), eyepiece ? v.eyepieceR : 0.0f); glUniform1f(U(progTone, "uAspect"), (float)width / std::max(1, height));
   {   // GX5 grade (content/settings/grade.json)
@@ -7525,9 +7656,11 @@ void Renderer::taaResolve(const mat4& vpJ, const mat4& vpU, const RenderView& v)
 void Renderer::bloomPass() {
   glDisable(GL_DEPTH_TEST); glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE); glDisable(GL_BLEND);
   glBindVertexArray(emptyVao);
+  const bool pb = perf.pBloom && !q.legacy;   // BF pbloom: 8 levels (to ~0.45 of the screen height), no luma weighting, 1/r tail
+  const int nLv = pb ? kBloomLevels : 6;
   glUseProgram(progBloomDown);
-  glUniform1i(U(progBloomDown, "uSrc"), 0);
-  for (int i = 0; i < kBloomLevels; ++i) {
+  glUniform1i(U(progBloomDown, "uSrc"), 0); glUniform1f(U(progBloomDown, "uBloomClamp"), pb ? 60000.0f : 64.0f);
+  for (int i = 0; i < nLv; ++i) {
     GLuint src = i == 0 ? hdrColor : bloomTex[i - 1];
     int sw = i == 0 ? width : bloomW[i - 1], sh = i == 0 ? height : bloomH[i - 1];
     glBindFramebuffer(GL_FRAMEBUFFER, bloomFbo[i]); glViewport(0, 0, bloomW[i], bloomH[i]); glInvalidateNamedFramebufferData(bloomFbo[i], 1, kInvC0);
@@ -7540,9 +7673,9 @@ void Renderer::bloomPass() {
     if (i == 0) glTextureParameteri(hdrColor, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
   }
   glUseProgram(progBloomUp);
-  glUniform1i(U(progBloomUp, "uSrc"), 0);
+  glUniform1i(U(progBloomUp, "uSrc"), 0); glUniform1f(U(progBloomUp, "uUpW"), pb ? 0.62f : 1.0f);
   glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_ONE);
-  for (int i = kBloomLevels - 1; i > 0; --i) {   // accumulate each smaller level into the next larger one
+  for (int i = nLv - 1; i > 0; --i) {   // accumulate each smaller level into the next larger one
     glBindFramebuffer(GL_FRAMEBUFFER, bloomFbo[i - 1]); glViewport(0, 0, bloomW[i - 1], bloomH[i - 1]);
     glBindTextureUnit(0, bloomTex[i]);
     glUniform2f(U(progBloomUp, "uSrcTexel"), 1.0f / bloomW[i], 1.0f / bloomH[i]);
