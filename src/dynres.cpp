@@ -28,16 +28,21 @@ const float kRes[6] = {1.00f, 0.93f, 0.86f, 0.80f, 0.72f, 0.64f};
 const GovCaps kCaps[6] = {{1, 1, 1}, {0.8f, 0.7f, 1}, {0.6f, 0.45f, 0.7f}, {0.45f, 0.25f, 0.5f}, {0.3f, 0.1f, 0.35f}, {0.2f, 0, 0.25f}};
 }
 float Governor::update(float gpuMs, float targetMs, bool frozen) {
-  ema = ema == 0 ? gpuMs : ema + (2.0f / 9.0f) * (gpuMs - ema);   // EMA over 8 frames
-  ++sinceChange;
+  // play-final (Blackwater TDM, 113 combatants): single hitch frames (GPU 4 ms, then one of hundreds) swung the 8-frame
+  // EMA 4 -> 122 ms and the ladder cycled 0-5-0 within seconds, each step a target re-creation (35-77 ms). Hence: one
+  // frame counts at most 2x the target; a rung holds >= 1 s (kDwell frames at 60 fps); no rise within 5 s of a fall;
+  // the scale changes at most once a second
+  constexpr int kDwell = 60, kNoRiseAfterFall = 300, kScaleGap = 60;
+  ema = (ema == 0 ? targetMs : ema) + (2.0f / 9.0f) * (std::min(gpuMs, 2 * targetMs) - (ema == 0 ? targetMs : ema));   // EMA over 8 frames from a neutral start, spikes clipped
+  ++sinceChange; ++sinceRung; ++sinceFall;
   down = ema > targetMs * 1.08f ? down + 1 : 0;
   up = ema < targetMs * 0.88f ? up + 1 : 0;
-  if (!frozen) {
-    if (down >= 4 && rung < 5) { ++rung; down = up = 0; }
-    else if (up >= 30 && rung > 0) { --rung; down = up = 0; }
+  if (!frozen && sinceRung >= kDwell) {
+    if (down >= 4 && rung < 5) { ++rung; down = up = 0; sinceRung = 0; sinceFall = 0; }
+    else if (up >= 30 && rung > 0 && sinceFall >= kNoRiseAfterFall) { --rung; down = up = 0; sinceRung = 0; }
   }
   const float want = std::clamp(sMax * kRes[rung], sMin, sMax);
-  if (sinceChange >= 8 && std::fabs(want - scale) >= 0.005f) {   // <= 7 % per change, at most once every 8 frames
+  if (sinceChange >= kScaleGap && std::fabs(want - scale) >= 0.005f) {   // <= 7 % per change, at most once a second
     float next = std::clamp(want, scale * 0.93f, scale * 1.07f);
     next = next < scale ? std::ceil(next * 100.0f - 1e-3f) / 100.0f : std::floor(next * 100.0f + 1e-3f) / 100.0f;   // to 0.01, rounded toward the old scale (never past 7 %)
     next = std::clamp(next, sMin, sMax);
@@ -78,7 +83,8 @@ void dynResFrame(App& app) {
   }
   GfxPreset p = us.preset();
   float sMax = 1.0f, sMin = p == GfxPreset::High || p == GfxPreset::Medium ? 0.77f : p == GfxPreset::Low ? 0.67f : std::max(0.5f, us.gfx.resScale * 0.77f);
-  if (p == GfxPreset::Custom || p == GfxPreset::UltraLow) sMax = std::max(sMin, us.gfx.resScale);
+  if (p == GfxPreset::UltraLow) sMax = std::max(sMin, us.gfx.resScale);
+  if (p == GfxPreset::Custom) sMin = sMax = us.gfx.resScale;   // the user's own scale is kept (play-final: 0.6 hunted 0.50-0.60); the rungs still cut effects
   if (!gWasOn || gGov.sMin != sMin || gGov.sMax != sMax) {   // on, or a new preset: rung 0 at the top
     gWasOn = true; gGov = Governor{}; gGov.sMin = sMin; gGov.sMax = sMax; gGov.scale = sMax; app.R.setResolutionScale(sMax); gHold = 4; return;
   }
@@ -114,15 +120,20 @@ int dynResSelfCheck() {
   const float T = 15.0f;
   {   // a pixel-bound 30 ms at native (a barrage): falls to the floor in <= 7 % steps >= 8 frames apart, rungs keep cutting effects
     Governor g; float s = 1, prev = 1; int last = -100, minGap = 1000; float maxStep = 0;
-    for (int k = 0; k < 400; ++k) { s = g.update(30.0f * s * s, T, false); if (s != prev) { minGap = std::min(minGap, k - last); maxStep = std::max(maxStep, 1 - s / prev); last = k; prev = s; } }
+    for (int k = 0; k < 1200; ++k) { s = g.update(30.0f * s * s, T, false); if (s != prev) { minGap = std::min(minGap, k - last); maxStep = std::max(maxStep, 1 - s / prev); last = k; prev = s; } }
     chk(s == 0.77f, "a 2x over-budget frame falls to the floor (0.77)");
     chk(maxStep <= 0.0701f && minGap >= 8, "each change <= 7 %, at most once every 8 frames");
     chk(g.rung == 5 && g.caps().grains == 0, "below the floor the rungs cut effects (rung 5: no grains)"); }
   { Governor g; float s = 1; for (int k = 0; k < 300; ++k) s = g.update(14.0f, T, false);
     chk(s == 1.0f && g.rung == 0, "inside the band at native: no change"); }
-  { Governor g; float s = 1; for (int k = 0; k < 60; ++k) s = g.update(30.0f * s * s, T, false);
-    int r = g.rung, k = 0; for (; k < 2000 && (g.rung > 0 || s < 1); ++k) s = g.update(6.0f, T, false);
+  { Governor g; float s = 1; for (int k = 0; k < 400; ++k) s = g.update(30.0f * s * s, T, false);
+    int r = g.rung, k = 0; for (; k < 6000 && (g.rung > 0 || s < 1); ++k) s = g.update(6.0f, T, false);
     chk(r > 0 && g.rung == 0 && s == 1.0f && k >= 30 * r, "recovers to native, one rung per 30 calm frames"); }
+  { Governor g; float s = 1; int changes = 0; for (int k = 0; k < 1200; ++k) { float n = g.update(k % 40 == 0 ? 300.0f : 5.0f, T, false); changes += n != s; s = n; }   // play-final: 5 ms frames, a 300 ms hitch every 40
+    chk(changes == 0 && g.rung == 0, "isolated hitch frames do not move the governor"); }
+  { Governor g; float s = 1; int changes = 0, ups = 0; for (int k = 0; k < 1200; ++k) { float n = g.update((k / 90) % 2 ? 9.0f : 22.0f, T, false); changes += n != s; ups += n > s; s = n; }   // load flipping every 1.5 s, 20 s
+    logf("[dynres] flipping load: %d scale changes (%d up) in 20 s, rung %d, scale %.2f", changes, ups, g.rung, s);
+    chk(changes <= 5 && ups <= 1, "a load flipping every 1.5 s does not pump the resolution (each change re-creates the targets)"); }
   { Governor g; for (int k = 0; k < 100; ++k) g.update(40.0f, T, true);
     chk(g.rung == 0, "no rung change during an ADS transition"); }
   logf("[dynres] %d failures", bad);

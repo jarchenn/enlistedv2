@@ -295,7 +295,7 @@ void Settings::apply(App& app) {
 
 void Settings::capture(const App& app) {
   GraphicsOpts& g = s.gfx; const Renderer& R = app.R;
-  g.resScale = R.resolutionScale();
+  if (!s.dynRes) g.resScale = R.resolutionScale();   // with the governor on, the live scale is its choice, not the user's setting (it fed back: a new range, a reset, a hunt)
   g.shadowQuality = R.shadowTier;
   g.farCascade = R.q.farCascade; g.cloudShadows = R.q.cloudShadows; g.shafts = R.q.shafts; g.ssr = R.q.ssr; g.ssao = R.q.ssao; g.bloom = R.q.bloom;
   g.ssaoFull = R.ssaoFull(); g.taa = R.q.taa; g.taaPhases = R.q.taaPhases; g.clouds = R.clouds; g.cloudQuality = R.wx.quality;
