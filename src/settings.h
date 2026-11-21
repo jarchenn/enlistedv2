@@ -53,7 +53,7 @@ struct UserSettings {
   float hour = 14.0f;          // time of day (L2): 14:00 Day, 18:36 Dusk, 00:00 Night, 05:00 Dawn, or any hour
   int envFog = 1;              // WX1: environmental fog 0 Off, 1 Light, 2 Moderate, 3 Dense (a match follows the host's)
   int weather = 0;             // W1 weather preset id (weather.cpp: 0 Clear, 1 Overcast (was Cloudy), 2-14 appended); a match follows the host's
-  bool dynRes = true;          // CP 5.1 (dynres.h): the render scale follows the GPU time (Medium / High 0.77-1, Low 0.67-1); off: the fixed scale
+  bool dynRes = false;         // CP 5.1 (dynres.h): the render scale follows the GPU time (Medium / High 0.77-1, Low 0.67-1); off: the fixed scale. Off by default until the re-created targets are fixed (garbage frames after a scale change)
 #ifdef __APPLE__
   int upscale = 1;             // 0 temporal, 1 spatial, 2 off (Renderer::upscaleMode). Mac: spatial (MetalFX temporal at Retina costs ~25 ms)
 #else
