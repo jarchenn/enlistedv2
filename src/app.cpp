@@ -30,6 +30,7 @@
 #include "selftest.h"
 #include <chrono>
 #include "mpai.h"
+#include "game.h"   // BT2: gGame (matchOnly blockers)
 #include "w5.h"
 #include "w3.h"
 #include "nature.h"
@@ -103,12 +104,18 @@ void App::destroyRT(InstanceRT& r) {
   r.leafBodies.clear();
   { extern void ivyDestroy(InstanceRT&); ivyDestroy(r); }
 }
+void App::refreshMatchOnly() {   // BT2: rebuild the matchOnly copies (their collider follows the match state)
+  for (auto& kv : rt) if (kv.second.asset && kv.second.asset->raw.is_object() && kv.second.asset->raw.value("matchOnly", false)) kv.second.rev = ~0u;
+}
 void App::buildRT(const Instance& i, InstanceRT& r) {
   ++hitchCur().buildRT;   // CP step 0: the hitch log counts them
   destroyRT(r);
   r.id = i.id; r.rev = i.rev; r.asset = assetFor(i);
   uint64_t base = i.id << 16;
-  if (ShapePtr s = snapShape(*this, i, r.asset) ? snapShape(*this, i, r.asset) : interior.staticShape(*this, i, r.asset)) r.staticBody = Physics::addStatic(s, i.pos, yawQuat(i.yaw), base);   // interiors: props, furnished copies
+  // BT2: an asset marked "matchOnly" (a play-limit blocker, e.g. at the road out to an explore-only landmark) is solid
+  // only while a match is running; refreshMatchOnly() rebuilds those copies when a match starts or ends
+  const bool matchOff = r.asset->raw.is_object() && r.asset->raw.value("matchOnly", false) && !(gGame && gGame->active);
+  if (!matchOff) if (ShapePtr s = snapShape(*this, i, r.asset) ? snapShape(*this, i, r.asset) : interior.staticShape(*this, i, r.asset)) r.staticBody = Physics::addStatic(s, i.pos, yawQuat(i.yaw), base);   // interiors: props, furnished copies
   if (r.asset->tree.on) buildTreeRT(i, r);
   r.defHp = r.asset->defense.hp; r.defDestroyed = false;
   r.secHp.assign(r.asset->defense.sections, r.asset->defense.sectionHp); r.secCut.assign(r.asset->defense.sections, 0);

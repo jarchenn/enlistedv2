@@ -318,6 +318,7 @@ def build_terrain(grid):
     shoulder = (outside > 62.0) & (outside < 68.0) & ~spur   # far enough out that the slope to it stays ~25-35 deg, not a bowl wall
     sh_h = F.H + 16.0 + 28.0 * v2 * (0.6 + 0.4 * v1)
     F.set_mask(shoulder, np.where(gap, F.H + 6.0, sh_h))
+    castle_road_terrain(F)   # the explore-only road out of the play area and up the spur (graded, overrides the bands)
     F.solve()
     H = F.H
     # gentle ground variation off the lanes and pads (0.0-0.35 m, 6-15 m scale)
@@ -517,7 +518,9 @@ def build(ctx):
     line("stone_wall", [(2.0, 114.5), (32.0, 114.5), (32.0, 96.0)])                                       # the screened rear yard
     line("post_wire_fence", [(68.0, 66.0), (76.0, 66.0), (88.0, 67.0)])                                   # the overlook rail (timber stand-in)
     line("stone_wall", [(-11.0, 43.2), (31.0, 43.2)])                                                     # the terrace parapet over its retaining face
-    write_boundary_asset(ctx, cat, G)   # BT2: the play limit as a hidden collision line (explained by the trees and rock on it)
+    write_boundary_asset(ctx, cat, G, gaps=[CASTLE_ROAD_EXIT])   # BT2: the play limit as a hidden collision line; a gap for the castle road
+    write_boundary_gate(ctx, cat, G)   # closed (solid) only while a match runs: the castle is explore-only
+    b.place("bt_boundary_gate", CASTLE_ROAD_EXIT[0], CASTLE_ROAD_EXIT[1], 90.0, check=False, cls="none", y=G(*CASTLE_ROAD_EXIT), tags={"boundary"}, companions=False)
     b.place("bt_boundary", 0.0, 0.0, 0.0, check=False, cls="none", y=0.0, tags={"boundary"}, companions=False)
     line("picket_fence", [(-104.0, -40.0), (-104.0, -20.0)])                                              # a crooked orchard rail (camera 1)
 
@@ -837,6 +840,8 @@ def dress_vegetation(b, cat, G, R):
     FIR_STANDS.clear()
     rep = {}
     lanes = [(lane_dense(pts, 2.0), w) for pts, w, k in ROUTES.values()] + [(lane_dense([st[0], st[1]], 1.0), 2.4) for st in STAIRS]
+    if CASTLE_ROAD_WORLD:   # the castle road stays clear of plants and stands
+        lanes.append((lane_dense(CASTLE_ROAD_WORLD, 2.0), 4.0))
 
     def lane_gap(x, z):
         return min(min(math.hypot(x - p[0], z - p[1]) for p in pts[::2]) - w / 2 for pts, w in lanes)
@@ -1179,7 +1184,7 @@ def dress_boundary(b, cat, G, R):
         t = R.uniform(0, 3)
         while t < L:
             x, z = ax + tx * t, az + tz * t
-            if min(math.hypot(x - cx, z - cz) for cx, cz, _ in CREEK_CTRL) < 10.0:
+            if min(math.hypot(x - cx, z - cz) for cx, cz, _ in CREEK_CTRL) < 10.0 or math.hypot(x - CASTLE_ROAD_EXIT[0], z - CASTLE_ROAD_EXIT[1]) < 6.0:
                 t += 6.0
                 continue
             if R.random() < 0.45:                           # gaps: the stands carry the line there
@@ -1197,7 +1202,7 @@ def dress_boundary(b, cat, G, R):
 
 
 # ---------------------------------------------------------------- BT2: the play limit (hidden collision, generated per bake)
-def write_boundary_asset(ctx, cat, G, step=4.0, height=7.0):
+def write_boundary_asset(ctx, cat, G, step=4.0, height=7.0, gaps=()):
     """bt_boundary: thin hidden collider boxes along the envelope, each seated on the ground under it (asset at the origin,
     y 0). The visible boundary is terrain, firs and rock; this only stops a player walking out of the play area."""
     import json
@@ -1210,6 +1215,8 @@ def write_boundary_asset(ctx, cat, G, step=4.0, height=7.0):
         for k in range(n):
             t0, t1 = k / n, (k + 1) / n
             cx, cz = ax + (bx - ax) * (t0 + t1) / 2, az + (bz - az) * (t0 + t1) / 2
+            if any(math.hypot(cx - gx, cz - gz) < 3.5 for gx, gz in gaps):
+                continue   # the castle road's gap (closed in matches by bt_boundary_gate)
             gy = min(G(ax + (bx - ax) * t0, az + (bz - az) * t0), G(ax + (bx - ax) * t1, az + (bz - az) * t1), G(cx, cz))
             sx, sz = (abs(bx - ax) / n + 0.6, 0.6) if abs(bx - ax) > abs(bz - az) else (0.6, abs(bz - az) / n + 0.6)
             parts.append({"t": "b", "c": [round(cx, 2), round(gy + height / 2 - 1.0, 2), round(cz, 2)], "s": [round(sx, 2), height, round(sz, 2)], "m": "x", "v": 0})
@@ -1452,16 +1459,18 @@ def dress_castle_spur(b, cat, G, R):
             x, z = castle_world(t, s)
             if not (-298.0 < x and z < 288.0) or firs == []:
                 continue
+            if CASTLE_ROAD_WORLD and min(math.hypot(x - p_[0], z - p_[1]) for p_ in _ROAD_DENSE()) < 4.0:
+                continue   # not on the castle road
             b.place(R.choice(firs), x, z, R.uniform(0, 360), check=False, cls="veg", y=G(x, z), tags={"veg", "firs", "castle"}, companions=False)
             n += 1
     # milestone 3: the approach road climbing the spur's east side and curving round the terrace to the gate (paint),
     # boulders where the terrace wall meets the cliff
-    road = [castle_world(t, s_) for t, s_ in ((24.0, -150.0), (30.0, -125.0), (31.0, -104.0), (26.0, -90.0), (14.0, -86.5), (0.0, -86.0))]
+    road = [(p_[0], p_[1]) for p_ in CASTLE_ROAD_WORLD] + [castle_world(-10.0, -64.0), castle_world(0.0, -60.0)]   # on to the gate
     PAINT[0].line("gravel", road, 4.0, weight=0.9, edge=1.2)
     foot = [a for a in ("nat_boulder_granite_l", "nat_boulder_limestone_m", "nat_boulder_schist_slab") if a in cat]
     for k in range(10):
         ph = math.radians(-80.0 + 17.0 * k)
-        x, z = castle_world(25.0 * math.sin(ph), -66.0 - 20.0 * math.cos(ph))
+        x, z = castle_world(29.0 * math.sin(ph), -66.0 - 24.0 * math.cos(ph))   # past the terrace's pad: at its foot, not on top
         if foot:
             b.place(foot[k % len(foot)], x, z, R.uniform(0, 360), check=False, cls="none", y=G(x, z) - 0.4, tags={"rock", "castle"}, companions=False)
     faces = [a for a in ("ph_rock_face_01", "ph_rock_face_02") if a in cat]
@@ -1519,3 +1528,56 @@ def write_snowcaps(ctx, cat, ids):
         cat.assets[cid] = Asset(j, path)
         made[aid] = cid
     return made
+
+
+# ---------------------------------------------------------------- the castle: explore-only reach (players only)
+CASTLE_ROAD_EXIT = (-128.0, 30.0)   # where the road leaves the play area (the west edge, above the orchard)
+# the road in the castle's local frame (t, s, height over the datum): from the spur's west foot three legs climb the
+# west flank (out of the quarry view) at 13-16 %, hairpins at their ends, onto the gate terrace's west edge
+CASTLE_ROAD_LOCAL = [(-50.0, -150.0, 30.0), (-52.0, 40.0, 56.0), (-40.0, 46.0, 57.0), (-38.0, -118.0, 78.0),
+                     (-28.0, -124.0, 79.0), (-22.0, -66.0, 88.0)]
+
+
+def castle_road_points(h_exit):
+    pts = [(CASTLE_ROAD_EXIT[0] + 2.0, CASTLE_ROAD_EXIT[1], h_exit)]
+    for t, s_, h in CASTLE_ROAD_LOCAL:
+        x, z = castle_world(t, s_)
+        pts.append((x, z, h))
+    return pts
+
+
+def castle_road_terrain(F):
+    """the road's floor (4 m) as a fixed corridor in the terrain solve, with a 2 m graded shoulder."""
+    h_exit = float(ndimage.map_coordinates(F.H, [[(CASTLE_ROAD_EXIT[1] - F.z0) / RES], [(CASTLE_ROAD_EXIT[0] + 2.0 - F.x0) / RES]], order=1, mode="nearest")[0])
+    pts = castle_road_points(h_exit)
+    CASTLE_ROAD_WORLD[:] = pts
+    _, _, d, h = F.corridor(pts, 8.0)
+    F.set_mask(d <= 2.0, h)
+
+
+CASTLE_ROAD_WORLD = []
+
+
+def write_boundary_gate(ctx, cat, G, width=7.0, height=7.0):
+    """bt_boundary_gate: the play limit across the castle road's gap, solid only while a match runs ("matchOnly"),
+    nav block (bots never path out); hidden, no collision outside matches, so a player exploring walks through."""
+    import json
+    from mapgen.catalog import Asset
+    j = {"id": "bt_boundary_gate", "version": 1, "name": "Play-limit gate (match only)", "category": "Effects",
+         "description": "BT2: closes the play limit's gap at the castle road while a match runs (matchOnly), so the explore-only castle is never part of a fight; generated by blackwater_thaw.py.",
+         "floors": 0, "enterable": False, "footprint": [width, 0.6], "plinthDepth": 0, "maxGrade": 90, "noAutoPanels": True, "matchOnly": True,
+         "nav": {"effect": "block"}, "materials": [{"name": "x", "albedo": [0.1, 0.1, 0.1], "roughness": 0.9, "pattern": "plain", "metallic": 0, "grain": 1}],
+         "parts": [{"t": "b", "c": [0.0, height / 2 - 1.0, 0.0], "s": [width, height, 0.6], "m": "x", "v": 0}], "furniture": [], "interactables": [], "panels": []}
+    path = os.path.join(ctx.repo, "content", "assets", "bt_boundary_gate.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(j, f, separators=(",", ":"))
+    cat.assets["bt_boundary_gate"] = Asset(j, path)
+
+
+_ROAD_CACHE = []
+
+
+def _ROAD_DENSE():
+    if not _ROAD_CACHE and CASTLE_ROAD_WORLD:
+        _ROAD_CACHE.extend(lane_dense(CASTLE_ROAD_WORLD, 2.0))
+    return _ROAD_CACHE

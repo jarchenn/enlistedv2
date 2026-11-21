@@ -187,6 +187,7 @@ public:
   void syncRuntime(bool sliced = false);   // sliced: the main loop's per-frame call may spread rebuilds over frames (CP 5.8); callers that use what they placed at once keep the default
   void destroyRT(InstanceRT& r);
   void buildRT(const Instance& i, InstanceRT& r);
+  void refreshMatchOnly();   // BT2: matchOnly blockers follow the match state
   void resetInteractStates();
   bool authoredOpen(const Instance& i, const InteractDef& d) const;
   float leafAngle(const InteractDef& d, float p) const;

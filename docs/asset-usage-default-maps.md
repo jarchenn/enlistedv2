@@ -345,6 +345,7 @@ Counts are placed instances (companions included), from the `tools/mapgen` build
 | `bt_cable_station` | Landmarks | Blackwater Thaw only: the far-ridge cable-haul station silhouette (written by blackwater_thaw.py) |
 | `bt_flume` | Small buildings | Blackwater Thaw only: the waterworks court's stepped header channel (written by blackwater_thaw.py) |
 | `bt_boundary` | Effects | Blackwater Thaw only: the play-area limit as hidden collider boxes along the envelope (written by blackwater_thaw.py) |
+| `bt_boundary_gate` | Effects | Blackwater Thaw only: the play limit across the castle road, solid only during a match (written by blackwater_thaw.py) |
 | `bt_castle` | Landmarks | Blackwater Thaw only: the scenic hilltop castle on the north-west spur (written by blackwater_thaw.py) |
 | `bt_snowcap_vil_stone_barn` | Effects | Blackwater Thaw only: the roof snow cap of vil_stone_barn (written by blackwater_thaw.py) |
 | `bt_snowcap_vil_rendered_shutters` | Effects | Blackwater Thaw only: the roof snow cap of vil_rendered_shutters (written by blackwater_thaw.py) |
