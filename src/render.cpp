@@ -6614,6 +6614,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   weatherDerive(*this, v.camPos);      // W1: the weather state and what follows from it this frame (weather.cpp)
   uploadWeather();
   pxAngle = 2.0f / (std::max(1e-3f, v.proj[1][1]) * std::max(1, height));   // vertical radians per pixel
+  if (glProbeFrames > 0 && (!shadowModels.empty() || wantBodyShadow())) logf("bodyshadow: want %d, %zu draws pushed, drawn last frame in cascades near %d mid %d c3 %d far %d", wantBodyShadow() ? 1 : 0, shadowModels.size(), bsCasc[0], bsCasc[1], bsCasc[2], bsCasc[3]);
+  bsCasc[0] = bsCasc[1] = bsCasc[2] = bsCasc[3] = 0;
   gpuFrameBegin(); gpuMark(GP_CloudShadow);   // stats.gpuMs from the timestamps: read 2-3 frames late, never waits
   const bool elapsedQ = !gpuTimers || perf.syncGpuQuery;   // no timestamps: a GL_TIME_ELAPSED ring (never waits); asyncq A/B: the old waiting read-back
   if (elapsedQ) {
@@ -6689,7 +6691,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   }
   if (!folModels.empty() && !thumbMode) drawFolModels(true, lightVP, &frNear, 1.0f);   // NT8: ground plants under 1 m cast no sun shadow
   glUseProgram(progShadow);
-  if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frNear); if (!shadowModels.empty()) drawModelsDepth(progShadow, shadowModels, &frNear);
+  if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frNear); if (!shadowModels.empty()) { drawModelsDepth(progShadow, shadowModels, &frNear); ++bsCasc[0]; }
   }
   // VO L3 mid cascade (Lighting New, Medium / High): about 3x the near radius in the atlas's right half, texel-snapped like
   // the near one (no crawl), redrawn every 4th frame on Medium / 2nd on High or when its focus moves 4 m (movers lag a few frames there)
@@ -6725,7 +6727,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     Frustum frMid = Frustum::fromVP(lightVPMid);
     glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPMid)); depthVP = lightVPMid;
     if (opaque.size() > nS) { itemLo = (uint32_t)nS; drawItems(progShadow, opaque, true, &frMid); itemLo = 0; }
-    if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frMid); if (!shadowModels.empty()) drawModelsDepth(progShadow, shadowModels, &frMid);
+    if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frMid); if (!shadowModels.empty()) { drawModelsDepth(progShadow, shadowModels, &frMid); ++bsCasc[1]; }
   } else if (midOn) {
     const float mR = std::max(90.0f, radius * 3.0f);
     const vec3 mfw = v.camPos + vec3(fwd.x, 0, fwd.z) * mR * 0.5f;
@@ -6741,7 +6743,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       drawItems(progShadow, opaque, true, &frMid);
       if (!foliage.empty()) drawFoliage(progLeafShadow, lightVPMid, &frMid, false, perf.leafShadowLod ? 0.0f : -1.0f);
       if (!folModels.empty()) { drawFolModels(true, lightVPMid, &frMid, 4.0f, perf.vegCascades); glUseProgram(progShadow); }   // trees only, as in the far cascade (CP5: from their far level)
-      if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frMid); if (!shadowModels.empty()) drawModelsDepth(progShadow, shadowModels, &frMid);
+      if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frMid); if (!shadowModels.empty()) { drawModelsDepth(progShadow, shadowModels, &frMid); ++bsCasc[1]; }
       minCaster = 0;
     }
   } else midFrame = -1000;
@@ -6769,7 +6771,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       drawItems(progShadow, opaque, true, &frC);
       if (!foliage.empty() && vegC3) drawFoliage(progLeafShadow, lightVPC3, &frC, false, perf.leafShadowLod ? 0.0f : -1.0f);
       if (!folModels.empty() && vegC3) { drawFolModels(true, lightVPC3, &frC, 4.0f); glUseProgram(progShadow); }
-      if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frC); if (!shadowModels.empty()) drawModelsDepth(progShadow, shadowModels, &frC);
+      if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frC); if (!shadowModels.empty()) { drawModelsDepth(progShadow, shadowModels, &frC); ++bsCasc[2]; }
       minCaster = 0; farPass = false;
     }
   } else c3Frame = -1000;
@@ -6833,7 +6835,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     }
     glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
     if (!folModels.empty() && vegFar) { drawFolModels(true, lightVPFar, &frFar, 4.0f); glUseProgram(progShadow); }   // NT8: trees only
-    if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frFar); if (!shadowModels.empty()) drawModelsDepth(progShadow, shadowModels, &frFar);
+    if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frFar); if (!shadowModels.empty()) { drawModelsDepth(progShadow, shadowModels, &frFar); ++bsCasc[3]; }
     minCaster = 0;
   }
   castCull = false; farPass = false; stats.shadowDraws = stats.draws - shDraws0;

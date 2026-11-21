@@ -148,6 +148,7 @@ public:
   // bodyshadow: casters for the sun cascades only (never the main view, reflections or sky occlusion): the local player's
   // own skinned body and held weapon in first person. The game fills it only when wantBodyShadow() (switch on, sun out)
   std::vector<ModelDraw> shadowModels;
+  int bsCasc[4] = {0, 0, 0, 0};   // bodyshadow: shadowModels passes drawn this frame (near, mid, fourth, far), for the logs
   bool wantBodyShadow() const { return perf.bodyShadow && sunShK > 0.0f && !thumbMode; }
   std::vector<ModelDraw> worldModels;   // imported models in the world (rack displays, the M2HB station)     // tree leaf cards (alpha-tested, wind sway, shadow casting)
   float wind = 1.0f;   // 0: no sway (editor View menu, --rq-off wind)
