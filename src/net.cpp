@@ -1,5 +1,6 @@
 // LAN multiplayer over UDP: Winsock2 on Windows, BSD sockets elsewhere (see net.h, docs/multiplayer.md).
 #ifdef _WIN32
+#include <cctype>
 #include <mutex>
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -1188,7 +1189,8 @@ void weatherAppFrame(App& app) {
   app.R.wx.clock = gGame && gGame->active ? gGame->t : -1.0;
   if (!gNet || gNet->role != Net::CLIENT) { app.R.wx.forced = app.R.wx.fogForced = -1; app.R.lt.forcedHour = -1.0f; }
   static const char* ew = std::getenv("NMK_WEATHER");   // tests / A/B: force clear | cloudy, no ramp
-  if (ew) { app.R.wx.target = std::max(0, wxPresetFromName(ew)); app.R.wx.userSet = true; app.R.wx.snap(); }
+  static const int ewId = !ew ? -1 : std::isdigit((unsigned char)ew[0]) ? std::atoi(ew) : wxPresetFromName(ew);   // a preset id (0..) or its name; unknown: ignored (was: any id -> Clear)
+  if (ewId >= 0 && (app.R.wx.target != ewId || !app.R.wx.userSet)) { app.R.wx.target = ewId; app.R.wx.userSet = true; app.R.wx.snap(); }   // every frame: wins over a map's own weather and a view's pin
   static const char* ef = std::getenv("NMK_FOG");   // tests / A/B: 0..3
   if (ef) { app.R.wx.fog = std::clamp(std::atoi(ef), 0, 3); app.R.wx.userSet = true; app.R.wx.fogNow = app.R.wx.fogDens(); }
 }
