@@ -75,7 +75,7 @@ struct FrameStats { double cpuMs = 0, gpuMs = 0; int draws = 0, tris = 0; int cu
 // a pass runs from its mark to the next mark in GPU time; passes that did not run read 0
 enum GpuPass : int { GP_CloudShadow, GP_ShadowNear, GP_ShadowFar, GP_SkyOcc, GP_LightShadows, GP_Probes, GP_Clusters,
                      GP_Clears, GP_Sky, GP_Terrain, GP_Opaque, GP_Models, GP_Trees, GP_Grass, GP_Nature, GP_MsaaResolve, GP_Water, GP_Gore,
-                     GP_Glass, GP_Composite, GP_Taa, GP_Bloom, GP_Fx, GP_Weapon, GP_Post, GP_UI, GP_Count };
+                     GP_Glass, GP_Composite, GP_Taa, GP_Bloom, GP_Fx, GP_Precip, GP_Weapon, GP_Post, GP_UI, GP_Count };   // GP_Precip: W4
 const char* gpuPassName(int p);
 // water surface of a placed asset (water.cpp): drawn by the water pass after the opaque world
 struct WaterDraw { GLuint vao = 0; int count = 0; mat4 model{1}; vec4 look{0}, tint{0}; };   // look: kind, clarity, waves
@@ -394,6 +394,7 @@ public:
     bool fxNear = true;          // fxnear (weather 7): alpha sprites fade near the eye, every sprite capped at half the view height on screen (off: as before)
     bool charVel = true;         // charvel (AIB1): soldiers write their own TAA motion (previous model matrix + previous skinned vertex); off = depth reprojection (smeared)
     bool snowFar = true;         // snowfar (BT2): applySnow's patch noise only within 120 m and its shelter tap within 150 m; off = everywhere
+    bool precip = true;          // precip (W4): falling snow, blizzard spindrift, rain streaks and splashes (one path); off = none
     bool snowTex = true;         // snowtex (SN2): the three snow sets (packed / trodden / thaw) on the ground within 60 m, edges by height; off = applySnow's flat snow
     bool firThin = true;         // firthin (BT2): instances marked extra.perfThin (Blackwater's far-stand saplings and thinned trees) are not drawn
     bool taau = true;            // taau (P1): below scale 1 the world renders at the resolution scale and TAA reconstructs at output size (rendering.md 14); off = native resolution
@@ -416,7 +417,7 @@ public:
               // ^ characters (gameplay): append to the line above
               : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "pollen" ? &pollen : n == "impostors" ? &impostors : n == "impostorbc" ? &impostorBC : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
               // ^ stream A (vegetation): append to the line above
-              : n == "snowfar" ? &snowFar : n == "firthin" ? &firThin : n == "snowtex" ? &snowTex
+              : n == "snowfar" ? &snowFar : n == "firthin" ? &firThin : n == "snowtex" ? &snowTex : n == "precip" ? &precip
               // ^ stream B (Blackwater snow / far firs): append to the line above
               : n == "snow" ? &snow : n == "viscull" ? &visCull : n == "kotrees" ? &koTrees : n == "kograss" ? &koGrass : n == "kofolmodels" ? &koFolModels
               // ^ stream P (performance): append to the line above
