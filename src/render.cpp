@@ -219,7 +219,15 @@ float sunShadowRaw(vec3 w, vec3 n, float soft, int taps){
 }
 // VO L7: the reflection cube near the eye (lighting.cpp reflPass), box-parallax corrected around its capture point
 uniform samplerCube uRefl; uniform int uReflOn; uniform vec3 uReflPos;
+uniform int uReflRoom; uniform mat4 uReflRoomInv; uniform vec3 uReflRoomHalf;   // CP4 reflroom: the capture was taken inside this room: its box is the parallax proxy
 vec3 reflProbe(vec3 w, vec3 R, float rough, out float wgt){
+  if (uReflRoom == 1) {   // an oriented room box (rigid transform): intersect in its local space; outside it the cube fades over 1 m
+    vec3 lw = (uReflRoomInv*vec4(w, 1.0)).xyz, lr = mat3(uReflRoomInv)*R;
+    vec3 iv = 1.0/(lr + vec3(1e-5)); vec3 tf = max((uReflRoomHalf - lw)*iv, (-uReflRoomHalf - lw)*iv);
+    float t = max(min(min(tf.x, tf.y), tf.z), 0.0);
+    vec3 o = abs(lw) - uReflRoomHalf; wgt = 1.0 - smoothstep(-0.2, 1.0, max(max(o.x, o.y), o.z));
+    return textureLod(uRefl, w + R*t - uReflPos, rough*6.0).rgb;
+  }
   vec3 bmin = uReflPos - vec3(24.0, 1.8, 24.0), bmax = uReflPos + vec3(24.0, 14.0, 24.0);
   vec3 iv = 1.0/(R + vec3(1e-5)); vec3 tf = max((bmax - w)*iv, (bmin - w)*iv);
   float t = max(min(min(tf.x, tf.y), tf.z), 0.0);
@@ -5000,6 +5008,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1f(U(p, "uShadowLift"), (q.lightNew && perf.fullShadow ? q.newShadowLift : 0.7f) * sunShK);   // VO L1
   glUniform1f(U(p, "uShadowWarm"), q.lightNew && perf.fullShadow && !q.legacy ? q.newShadowWarm : 0.0f);   // VO L1
   glUniform1i(U(p, "uReflOn"), reflOn && q.lightNew && perf.reflProbe && !q.legacy && !thumbMode ? 1 : 0); glUniform3fv(U(p, "uReflPos"), 1, glm::value_ptr(reflPos));   // VO L7
+  glUniform1i(U(p, "uReflRoom"), reflRoom >= 0 && perf.reflRoom ? 1 : 0); glUniformMatrix4fv(U(p, "uReflRoomInv"), 1, GL_FALSE, glm::value_ptr(reflRoomInv)); glUniform3fv(U(p, "uReflRoomHalf"), 1, glm::value_ptr(reflRoomHalf));   // CP4
   glUniform1i(U(p, "uRefl"), 9); if (p != progComposite && reflTex) glBindTextureUnit(9, reflTex);   // unit 9: free in the world pass (the composite binds its own there first)
   glUniform1i(U(p, "uSkyRelit"), q.lightNew && perf.skyRelit && !q.legacy ? 1 : 0);   // VO L6
   glUniform1f(U(p, "uMicroSh"), q.lightNew && perf.microShadow && !q.legacy ? 1.0f : 0.0f);   // VO L4
