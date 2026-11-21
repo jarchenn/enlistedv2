@@ -76,6 +76,7 @@ bool mpaiCreativeMouse(App& app) { return gUi.creativeMouse(app); }
 bool mpaiBeforeSave(App& app) { return gUi.beforeSave(app); }
 
 void mpaiFrame(App& app, Overlay& ov) {
+  app.R.smokeSigma = 0;   // weather 7: no smoke fog unless a live match's cloud sets it below (none left over from a match that ended in smoke)
   if (app.mode == Mode::Creative) { gUi.creativeOverlay(app, ov); return; }
   if (gGame && gGame->active) { gGame->drawItems(); royaleDraw(app); }   // BR1: bomber, parachutes
 }
