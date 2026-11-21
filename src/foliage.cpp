@@ -23,6 +23,7 @@ struct LeafSpecies { vec3 base{1}; std::vector<int> sprigs, leaves; };   // leav
 static std::map<std::string, LeafSpecies> gLeafSpecies;
 static json gLeafAssets;
 bool leafLibReady() { return gLeafTex != 0; }
+unsigned leafLibTex() { return gLeafTex; }   // re-bound to kLeafUnit before each leaf draw: unit 26 is shared (terrain horizon / sky-view maps)
 
 void leafMips(GLuint tex, int layer, int S, int levels, std::vector<uint8_t> px) {
   int cov0 = 0; for (int k = 0; k < S * S; ++k) cov0 += px[k * 4 + 3] > 127;
