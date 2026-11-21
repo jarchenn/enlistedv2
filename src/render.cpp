@@ -3337,16 +3337,20 @@ void main(){
     rockK = smoothstep(0.75, 0.62, sny + (rBreak - 0.5)*0.16)*ewRock;
     float lith = smoothstep(0.35, 0.65, fbm(vec3(p.xz*0.018, p.y*0.03 + 41.0)));              // limestone <-> schist
     float warp = fbm(vec3(p.xz*0.06, p.y*0.02 + 42.0))*5.0;
-    float bedY = p.y*0.42 + warp;                                                              // ~2.4 m beds
+    float bedY = p.y*0.42*(0.7 + 0.6*fbm(vec3(p.xz*0.011, 61.0))) + warp;                       // ~1.6-3.4 m beds, thicker / thinner across the face
     float bedV = fract(sin(floor(bedY)*91.7)*4375.85);                                         // per-bed tone
-    float bedLine = 1.0 - smoothstep(0.0, 0.07, min(fract(bedY), 1.0 - fract(bedY)));          // bedding planes
+    float farK = 1.0 - smoothstep(35.0, 140.0, tDist);                                       // VOT: fine lines read up close; from 100-400 m only the masses
+    float bedLine = (1.0 - smoothstep(0.0, 0.07, min(fract(bedY), 1.0 - fract(bedY))))
+                  * step(0.48, fract(sin(floor(bedY)*37.3 + floor(p.x*0.02 + p.z*0.02)*11.1)*917.3))*farK;   // bedding planes: about half show, by stretches
     float thin = smoothstep(0.82, 0.97, sin((p.y + warp*0.4)*7.5)*0.5 + 0.5);                  // fine laminae (schist)
-    float jx = (p.x*0.62 + p.z*0.78)*0.29 + (vnoise(vec3(p.xz*0.05, p.y*0.07 + 43.0)) - 0.5)*0.7;      // sub-vertical joints ~3.4 m apart
-    rCrack = (1.0 - smoothstep(0.012, 0.04, abs(fract(jx) - 0.5))) * step(0.45, vnoise(vec3(floor(jx)*1.7, floor(bedY*0.5)*1.3, 52.0)));   // some run, some stop at a bed
+    float jx = (p.x*0.62 + p.z*0.78)*(0.17 + 0.12*vnoise(vec3(p.xz*0.012, 62.0))) + (vnoise(vec3(p.xz*0.05, p.y*0.07 + 43.0)) - 0.5)*1.1;   // sub-vertical joints 3.4-6 m apart, wandering
+    rCrack = (1.0 - smoothstep(0.012, 0.04, abs(fract(jx) - 0.5))) * step(0.62, vnoise(vec3(floor(jx)*1.7, floor(bedY*0.5)*1.3, 52.0)))*mix(0.35, 1.0, farK);   // fewer; some run, some stop at a bed
     float grain = vnoise(vec3(p*3.1 + 44.0)), mott = fbm(vec3(p*0.6 + 45.0));
     vec3 lime = mix(vec3(0.44,0.40,0.33), vec3(0.57,0.52,0.43), bedV) * (0.74 + 0.42*mott);
     vec3 schist = mix(vec3(0.24,0.23,0.21), vec3(0.34,0.31,0.27), bedV) * (0.78 + 0.36*mott) * (1.0 - 0.25*thin*lith);
     vec3 rock = mix(lime, schist, lith) * (0.9 + 0.2*grain);
+    float macroR = fbm(vec3(p*0.012 + 63.0)), macroC = fbm(vec3(p*0.006 + 64.0));               // VOT: 80-170 m masses, so a whole face is not one tone
+    rock *= 0.7 + 0.6*macroR; rock = mix(rock, rock*vec3(1.08, 1.0, 0.88), smoothstep(0.4, 0.7, macroC));   // lighter / warmer and darker / greyer reaches
     rock *= 1.0 - 0.4*bedLine - 0.42*rCrack;
     rock = mix(rock, vec3(0.30,0.22,0.15), 0.25*smoothstep(0.55, 0.8, fbm(vec3(p*0.25 + 46.0))));      // iron staining
     float lichen = smoothstep(0.62, 0.8, vnoise(vec3(p*0.45 + 47.0))) * smoothstep(0.35, 0.65, sny + 0.25);
