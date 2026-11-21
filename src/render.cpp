@@ -3424,6 +3424,7 @@ void main(){
   // darkens porous ground (albedo x lerp(1, 0.35, wet x porosity); rock and scree shed water), and puddles fill the lows
   // (the layers' own height, the map's wet field, ruts) as wxPuddle rises, on flat ground only
   float wxw = uWetOn == 1 ? clamp(wxWet, 0.0, 1.0) : 0.0, wxp = uWetOn == 1 ? clamp(wxPuddle, 0.0, 1.0) : 0.0;
+  if (wxw > 0.0 || wxp > 0.0) { float shel = smoothstep(0.15, 0.55, skyVis(p, normalize(vN))); wxw *= mix(0.2, 1.0, shel); wxp *= shel; }   // W3b: under a bridge, eave or canopy the ground stays damp at most, no puddles (it mirrored the underside black)
   if (wxw > 0.0) alb *= mix(1.0, 0.35, wxw*(1.0 - 0.65*max(rockK, screeK*0.5))*(1.0 - 0.6*clamp(wet*1.2, 0.0, 1.0)));
   if (wxp > 0.0) puddle = max(puddle, smoothstep(0.86, 0.97, normalize(vN).y)*smoothstep(0.86 - 0.42*wxp, 0.96 - 0.42*wxp, (1.0 - hB)*0.55 + wet*0.3 + rut*0.12 + (nX - 0.5)*0.25));
   float rough = mix(mix(0.96, 0.86, tw), 0.10, puddle);

@@ -428,6 +428,7 @@ PaintOut paintApply(vec3 p, vec3 nGeo, inout vec3 alb, float dirt, vec3 dpx, vec
   float W = clamp(gPWsum, 0.0, 1.0)*(1.0 - smoothstep(0.15, 0.75, dirt));   // craters show through the paint
   if (W < 0.004) return o;
   vec3 a = vec3(0.0), bm = vec3(0.0); float r = 0.0, ao = 0.0, tot = 0.0, hP = 0.0;
+  float wxS = uWetOn == 1 && wxWet > 0.0 ? clamp(wxWet, 0.0, 1.0)*mix(0.2, 1.0, smoothstep(0.15, 0.55, skyVis(p, nGeo))) : 0.0;   // W3b: sheltered paint stays matte (damp at most)
   vec4 nz = dist < 30.0 ? vec4(vnoise(vec3(p.xz*0.9, 71.0)), vnoise(vec3(p.xz*4.3, 72.0)), fbm(vec3(p.xz*0.07, 73.0)), vnoise(vec3(p.xz*4.3, 74.0)))
                         : vec4(vnoise(vec3(p.xz*0.9, 71.0)), 0.5, vnoise(vec3(p.xz*0.07, 73.0)), 0.5);   // NT5: once, not per type; far: no sub-pixel octaves
   for (int i = 1; i < 13; ++i) {
@@ -439,7 +440,7 @@ PaintOut paintApply(vec3 p, vec3 nGeo, inout vec3 alb, float dirt, vec3 dpx, vec
     int ps = uPaintSlot[i - 1];
     bool absAlb = texOn() && ps >= 0 && ps < 704 && uTexA[ps].x >= 0.0 && uTexB[ps].x < 0.0;   // NT8: the set's own colour, not a modulation
     ai = absAlb ? t.alb : ai*t.alb; ri *= t.r;
-    if (i != 1) ri = max(ri, ((i == 6 || i == 7) ? uPavedMinRough : uGroundMinRough)*(uWetOn == 1 ? 1.0 - clamp(wxWet, 0.0, 1.0) : 1.0));   // W3: the matte floor is for dry ground   // GG1: dry ground stays matte whatever the set's roughness ratio (marsh keeps its pools)
+    if (i != 1) ri = max(ri, ((i == 6 || i == 7) ? uPavedMinRough : uGroundMinRough)*(1.0 - wxS));   // W3: the matte floor is for dry ground   // GG1: dry ground stays matte whatever the set's roughness ratio (marsh keeps its pools)
     oi = absAlb ? t.ao : oi*t.ao; bi = absAlb ? t.dn : bi + t.dn;   // GR2: an absolute set brings its own relief and occlusion (the procedural grid's bump no longer shows through)
     w[i] *= exp2(uHBlend*4.0*(t.h - 0.5)); hP += t.h*w[i];   // M2: where paint types overlap, the higher surface wins (alone: unchanged, normalised by tot)
 #endif
