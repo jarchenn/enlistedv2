@@ -476,6 +476,7 @@ uniform ivec3 uSnowSlot;   // SN2: slots snow_packed, snow_trodden, snow_thaw (-
 uniform int uTexBiasOn;   // CP step 1 (perf switch texbias): 1 = gradient scale 1.0 everywhere (corpus 07 s4.1) + uTexBias; 0 = the old 3.0 / 1.5 ground / 1.6 relief
 uniform float uTexBias;   // log2(render / display), -0.5 more under TAA (texbias on only)
 uniform int uMicroLayer;   // CP step 6: the micro-detail set's array layer (slot micro_detail), -1 none
+uniform int uWearCause;    // M4 (perf switch wearcause): wear placed by its causes (splash, runoff), roughness first
 uniform ivec2 uMicroOn;    // x: micro detail (perf switch microdetail), y: macro roughness variation (perf switch roughvar)
 uniform float uTexLodG;   // TX2K: the ground's gradient scale (terrain layers, painted ground; uTexLod.x for everything else)
 uniform vec4 uTexLod;     // gradient scale (LOD bias against TAA-jitter shimmer), normal fade start / end (texels per pixel), fade depth
@@ -806,6 +807,20 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
   // CP step 6 (corpus 08 s4, s9): roughness varies before colour, at macro scale on every textured surface (one tap),
   // and a micro-detail layer (0.2 m tiling, normal 0.3, roughness +-0.1 around its mean) near the eye, gone by 7 m
   if (uMicroOn.y == 1) { vec4 mr = texMacro(w, ng, dwx, dwy); r2 *= 1.0 + (mr.g - 0.5)*0.3*f; }
+  // M4 (corpus 08 s1-s2, s12): wear has causes, so it has places. Splash: the bottom 0.6 m of vertical faces, where rain
+  // throws soil back up; runoff: streaks down vertical faces, from the grunge mask stretched 20:1; both raise roughness
+  // first, then darken within the 20-40 % budget; the amount varies per building (its seed), so neighbours differ and
+  // some stay clean. ap.y is the height above the asset's base (its ground)
+  if (uWearCause == 1 && uGrungeK > 0.0 && f > 0.0) {
+    float vert = 1.0 - smoothstep(0.35, 0.7, abs(ng.y)), amt = (0.35 + 0.65*fract(gTexSeed*5.31 + 0.17))*f*vert;
+    float splash = pow(clamp(1.0 - ap.y/0.6, 0.0, 1.0), 2.0)*amt;
+    vec2 ax = normalize(vec2(-ng.z, ng.x) + 1e-5);
+    vec2 suv = vec2(dot(w.xz, ax)*0.5, w.y*0.025) + vec2(fract(gTexSeed*3.7), 0.0);
+    float run = smoothstep(0.55, 0.85, textureGrad(uGrunge, suv, vec2(dot(dwx.xz, ax)*0.5, dwx.y*0.025), vec2(dot(dwy.xz, ax)*0.5, dwy.y*0.025)).g)*amt*0.8;
+    r2 = mix(r2, min(r2 + 0.25, 1.0), max(splash, run*0.6));   // roughness first: dried soil and dust are matt
+    a2 *= mix(vec3(1.0), vec3(0.78, 0.74, 0.68), splash*0.9);  // splashed soil, a warm grey-brown (<= 25 % darker)
+    a2 *= 1.0 - 0.16*run;                                       // runoff streaks
+  }
   if (uMicroOn.x == 1 && uMicroLayer >= 0 && eyeD < 7.0) {
     float mf = (1.0 - smoothstep(2.5, 7.0, eyeD))*f;
     vec3 ga = abs(ng); bool fl = ga.y > max(ga.x, ga.z), xw = ga.x > ga.z;
