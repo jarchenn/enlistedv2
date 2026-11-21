@@ -109,7 +109,7 @@ public:
   std::vector<ModelDraw> worldModelsGlass;   // their glass parts (blended, after the glass pass)
   // NT8: model foliage (pines, ferns, grass), instanced. VR1: parts [first, first + count) only (count -1: all), and a
   // per-instance colour (tint.a > 0: the ivy pack's leaves recoloured to tint.rgb, its stems to ivyStem; src/ivy.cpp)
-  struct FolModelDraw { const GpuModel* model; mat4 m; float wind; bool cast = false; int first = 0, count = -1; vec4 tint{0.0f}; };   // cast (HB1b sandbags): into the near sun cascade whatever the height
+  struct FolModelDraw { const GpuModel* model; mat4 m; float wind; bool cast = false; int first = 0, count = -1; vec4 tint{0.0f}; float dither = 0; const GpuModel* shadowModel = nullptr; int sFirst = 0, sCount = -1; };   // cast (HB1b sandbags): into the near sun cascade whatever the height; dither: CP2 cross-fade share (kModelFS uDither); shadowModel [sFirst, +sCount): CP5 the fixed far level the mid cascade draws
   vec3 ivyStem{0.12f, 0.1f, 0.08f}; vec2 ivyRef{0.2f, 0.1f};   // VR1: stem colour (linear) and the leaf / stem textures' mean luminance (content/settings/ivy.json)
   GLuint wxUbo = 0; void uploadWeather();
   void physLight(vec3& sun, vec3& sky, vec3& ground, vec3& fog, vec3& fill, vec3& zen, vec3& hor, vec3& skySunCol, bool main);   // CP2   // W1: NmkWeather uniform block, binding 4
@@ -299,7 +299,11 @@ public:
     bool fullShadow = true;      // fullshadow (VO L1): full-strength sun shadows (off: 30 % lighter, as Classic)
     bool gtao = true;            // gtao (VO L2): GTAO with multi-bounce and specular occlusion (off: the old 8-sample SSAO)
     bool microShadow = true;     // microsh (VO L4): micro-shadowing of the sun by material AO (Lighting New)
-    bool vegPrepass = false;     // off until fixed: on Blackwater Thaw the prepass wrote depth where the colour pass drew no grass (flat ground-textured rectangles); --rq-on vegprepass   // vegprepass (CP1): model foliage and grass get a depth prepass (alpha test only), then GL_EQUAL shading, like leafprepass
+    bool vegPrepass = true;      // vegprepass (CP1): model foliage gets a depth prepass (alpha test only), then GL_EQUAL shading, like leafprepass
+    bool grassPrepass = false;   // grassprepass (CP1): the same for the grass clumps. Off: on blackwater_thaw its prepass kept whole atlas cards (rectangles of ground behind the blades) where the colour pass cut them; suspect the GT1 atlas and the WX1 fog field sharing texture unit 27
+    bool grassTint = true;       // grasstint (CP4): the ground under thinning grass takes the clumps' mean top-down colour
+    bool vegCascades = true;     // vegcascades (CP5): vegetation casts into the two nearest sun cascades only (near, mid), the mid one from a fixed far LOD; the far cascade has none while the mid one is drawn
+    bool treePxLod = true;       // treepxlod (CP2): model foliage LOD and cull by projected pixels, a dithered cross-fade band, capped at the weather's cull distance
     bool leafDrift = true;       // leafdrift (WS2): drifting leaves near broadleaf / orchard trees (count: Quality::leafDriftN)
     bool hashAlpha = false;      // hashalpha (VO A1): cut-out leaves / grass with a dithered threshold under TAA (Medium / High), width NMK_HASH_SPREAD (0.2); off: no gain over cutoutMips (A1 sheets), kept for A/B
     bool folTrans = true;        // foltrans (VO L4): two-sided translucency on model foliage (Lighting New)
@@ -347,7 +351,7 @@ public:
     bool snowTex = true;         // snowtex (SN2): the three snow sets (packed / trodden / thaw) on the ground within 60 m, edges by height; off = applySnow's flat snow
     bool firThin = true;         // firthin (BT2): instances marked extra.perfThin (Blackwater's far-stand saplings and thinned trees) are not drawn
     bool taau = true;            // taau (P1): below scale 1 the world renders at the resolution scale and TAA reconstructs at output size (rendering.md 14); off = native resolution
-    static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.vegPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false;
+    static Perf legacy() { Perf p; p.syncGpuQuery = true; p.farCache = p.occCache = p.smallCasters = p.probeCull = p.leafPrepass = p.vegPrepass = p.grassPrepass = p.skyLast = p.probeRefresh = p.terrainLast = p.assetLod = p.hlod = false;
                            p.casterCull = p.leafShadowLod = p.probeBudgetOn = p.roomCull = p.propDist = p.taau = false; p.dlCache = p.instDepth = p.folBatch = p.leafMerge = p.furnDist = p.furnClutter = p.farLeaf = p.wallLod = p.shadowCache = p.occCull = p.matFar = p.probeMed = false; return p; }
     bool set(const std::string& n, bool on) {   // false: no such switch
       if (n == "wx1") { clouds = cloudShadow = shafts = envFog = on; return true; }   // WX1: the whole weather / fog stack (one A/B)
@@ -364,7 +368,7 @@ public:
               // ^ stream M (materials): append to the line above
               : n == "charvel" ? &charVel
               // ^ characters (gameplay): append to the line above
-              : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "leafdrift" ? &leafDrift
+              : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
               // ^ stream A (vegetation): append to the line above
               : n == "snowfar" ? &snowFar : n == "firthin" ? &firThin : n == "snowtex" ? &snowTex
               // ^ stream B (Blackwater snow / far firs): append to the line above
@@ -494,7 +498,7 @@ private:
   // L1 leaf LOD distances (m at a 70 degree FOV): enter near / leave near, enter mid / leave mid (docs/leaves.md)
   static constexpr float kLeafNearIn = 10, kLeafNearOut = 12, kLeafMidIn = 22, kLeafMidOut = 26;
   void drawModelsDepth(GLuint prog, const std::vector<ModelDraw>& items, const Frustum* fr = nullptr);
-  void drawFolModels(bool depth, const mat4& vp, const Frustum* fr, float minH = 0);   // NT8: instanced, alpha-tested, wind; minH: casters shorter than this skipped
+  void drawFolModels(bool depth, const mat4& vp, const Frustum* fr, float minH = 0, bool shadowLod = false);   // shadowLod (CP5): each plant's shadowModel where it has one   // NT8: instanced, alpha-tested, wind; minH: casters shorter than this skipped
   GLuint progFolModel = 0, progFolDepth = 0, folBuf = 0; size_t folBufBytes = 0;
   // uniform locations of the draw loops, looked up once per program (cleared by compile())
   struct DrawLocs { GLint model = -1, tint = -1, inst = -1, roomA = -1, roomB = -1, sills = -1, sillA = -1, sillB = -1, contactBox = -1, contact = -1, foundWx = -1, roomDec = -1, extDec = -1, roomX = -1,

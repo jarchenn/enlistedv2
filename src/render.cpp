@@ -2054,6 +2054,7 @@ void main(){
 )GLSL";
 static const char* kModelFS = R"GLSL(
 in vec3 vW, vN; in vec4 vT; in vec2 vUV; flat in vec4 vTintI; in vec4 vCC, vPC; uniform int uVelMode;
+uniform float uDither;   // CP2 treepxlod cross-fade (model foliage only): > 0 keep the pixels whose fixed noise is under it, < 0 the rest
 uniform vec3 uIvyStem; uniform vec2 uIvyRef;   // VR1 (src/ivy.cpp)
 uniform sampler2D uAlb, uMR, uNrm, uAO;
 uniform int uHasAlb, uHasMR, uHasNrm, uHasAO, uAOinMR; uniform float uAOWeak;   // TK3: 0 as baked (the default of an unset uniform), 1 no baked occlusion
@@ -2070,6 +2071,7 @@ uniform float uGlassOpacity = 1.0, uGlassFilm = 1.0, uGlassRefl = 1.0;   // GL1:
 uniform int uGlass;   // 0 opaque; 1 window glass (dusty); 2 a wreck's glass (crazed, grimy); 3 clean (the car you sit in: no film to catch the cabin light at night)
 uniform vec4 uVmClip; uniform int uClipMe;   // AT6: the fitted optic's window (px, bottom-left origin; radius px): the gun's own parts there are not drawn
 void main(){
+  if (uDither != 0.0) { float n = pixelNoiseFixed(); if (uDither > 0.0 ? n >= uDither : n < -uDither) discard; }   // CP2: as kFolDepthFS
   if (uClipMe == 1 && uVmClip.z > 0.0 && length(gl_FragCoord.xy - uVmClip.xy) < uVmClip.z) discard;
   vec4 base = uBase;
   if (uHasAlb == 1) base *= texture(uAlb, vUV);
@@ -2170,8 +2172,9 @@ void main(){
 )GLSL";
 static const char* kFolDepthFS = R"GLSL(
 in vec3 vW, vN; in vec4 vT; in vec2 vUV;
-uniform sampler2D uAlb; uniform int uCutout; uniform vec4 uBase;
-void main(){ if (uCutout == 1 && uBase.a*texture(uAlb, vUV).a < cutRef()) discard; }   // kModelFS's cut-out exactly (CP1: the main prepass before its GL_EQUAL pass)
+uniform sampler2D uAlb; uniform int uCutout; uniform vec4 uBase; uniform float uDither;
+void main(){ if (uDither != 0.0) { float n = pixelNoiseFixed(); if (uDither > 0.0 ? n >= uDither : n < -uDither) discard; }   // CP2 cross-fade, every pass
+  if (uCutout == 1 && uBase.a*texture(uAlb, vUV).a < cutRef()) discard; }   // kModelFS's cut-out exactly (CP1: the main prepass before its GL_EQUAL pass)
 )GLSL";
 
 // ---- near-field depth of field for aiming down the sights: only first-person weapon pixels nearer than the
@@ -2981,6 +2984,7 @@ void main(){
 }
 )GLSL";
 static const char* kTerrainFS = R"GLSL(
+uniform vec4 uGrassTop; uniform vec2 uGrassTopR;   // CP4: clumps' mean top-down albedo (linear), strength; ramp start / end (m)
 in vec3 vW, vN0; in float vDirt; in vec3 vEw;   // vEw: GX1 earthworks (terrain_cuts.cpp): packed mud, freshly turned earth, wet
 uniform int uTNOn; uniform sampler2D uTNrm; uniform vec4 uTNMap;   // VOT T1: per-pixel base normals (terrain_normals.cpp, unit 18), xy origin, zw 1 / extent
 uniform int uTSVOn; uniform sampler2D uTSV;   // VOT T5: terrain sky-view factor (unit 26, same mapping as uTNMap)
@@ -3080,6 +3084,9 @@ void main(){
   TerrT tTr = TerrT((tS.alb*wSoil + tV.alb*wGrav*(1.0 - wSand) + tA.alb*wSand)/wT, (tS.r*wSoil + tV.r*wGrav*(1.0 - wSand) + tA.r*wSand)/wT,
                     (tS.ao*wSoil + tV.ao*wGrav*(1.0 - wSand) + tA.ao*wSand)/wT, (tS.dn*wSoil + tV.dn*wGrav*(1.0 - wSand) + tA.dn*wSand)/wT, (tS.h*wSoil + tV.h*wGrav*(1.0 - wSand) + tA.h*wSand)/wT);
   grass *= tG.alb; track *= tTr.alb;
+  // CP4 grasstint (corpus 09 s7.4): where the blades thin out (from the near radius to the grass radius) the turf takes the
+  // clumps' mean top-down colour, so a lower density reads as the same field instead of greener / browner ground showing through
+  if (uGrassTop.a > 0.0) grass = mix(grass, uGrassTop.rgb, uGrassTop.a*smoothstep(uGrassTopR.x, uGrassTopR.y, length(vW.xz - uCamPos.xz)));
   float twH = hbK(tw, tG.h, tTr.h), hB = mix(tG.h, tTr.h, twH);   // M2: the grass / track edge by height; hB the ground's height so far
   vec3 tdn = mix(tG.dn, tTr.dn, twH); float trr = mix(tG.r, tTr.r, twH), tao = mix(tG.ao, tTr.ao, twH);
   vec3 alb = mix(grass, track, twH);
@@ -5118,11 +5125,13 @@ void Renderer::drawModelsDepth(GLuint p, const std::vector<ModelDraw>& items, co
 
 // NT8: model foliage. Instances are culled per model (bounding sphere), their matrices packed into one SSBO (binding 12),
 // then each part is one instanced draw; cutout parts alpha test (depth too), no back-face culling.
-void Renderer::drawFolModels(bool depth, const mat4& vp, const Frustum* fr, float minH) {
+void Renderer::drawFolModels(bool depth, const mat4& vp, const Frustum* fr, float minH, bool shadowLod) {
   if (folModels.empty()) return;
-  struct Key { const GpuModel* m; int first, count; bool operator<(const Key& o) const { return std::tie(m, first, count) < std::tie(o.m, o.first, o.count); } };
+  struct Key { const GpuModel* m; int first, count; float dith; bool operator<(const Key& o) const { return std::tie(m, first, count, dith) < std::tie(o.m, o.first, o.count, o.dith); } };
   std::map<Key, std::vector<const FolModelDraw*>> by;
-  for (auto& d : folModels) {
+  std::vector<FolModelDraw> swapped;   // CP5: the mid cascade's fixed far level
+  if (shadowLod) { swapped = folModels; for (auto& d : swapped) if (d.shadowModel) { d.model = d.shadowModel; d.first = d.sFirst; d.count = d.sCount; } }
+  for (auto& d : shadowLod ? swapped : folModels) {
     if (!d.model || !d.model->vao) continue;
     vec3 lo = d.model->bmin, hi = d.model->bmax;
     if (d.count >= 0) {   // VR1: a range of parts (one ivy piece): its own bounds
@@ -5133,7 +5142,7 @@ void Renderer::drawFolModels(bool depth, const mat4& vp, const Frustum* fr, floa
     if (minH > 0 && (hi.y - lo.y) * glm::length(vec3(d.m[1])) < minH && !(d.cast && minH < 2.0f)) continue;   // ferns / grass do not cast into this cascade
     if (fr) { vec3 c = vec3(d.m * vec4(0.5f * (lo + hi), 1)); float r = 0.5f * glm::length(vec3(d.m * vec4(hi - lo, 0)));
               if (!fr->sphere(c, r)) { stats.culled++; continue; } }
-    by[{d.model, d.count >= 0 ? d.first : 0, d.count}].push_back(&d);
+    by[{d.model, d.count >= 0 ? d.first : 0, d.count, d.dither}].push_back(&d);
   }
   std::vector<vec4> buf; std::vector<std::pair<Key, std::pair<int, int>>> runs;
   for (auto& [m, v] : by) {
@@ -5160,11 +5169,11 @@ void Renderer::drawFolModels(bool depth, const mat4& vp, const Frustum* fr, floa
   glUniform1i(L.alb, 2);
   if (!depth) { glUniform1i(L.mr, 3); glUniform1i(L.nrm, 4); glUniform1i(L.ao, 5); glUniform4f(L.tint, 1, 1, 1, 1); glUniform1f(L.thin, 0); glUniform1i(U(p, "uGlass"), 0); glUniform1f(U(p, "uAlbFloor"), 0);
                 glUniform3fv(U(p, "uIvyStem"), 1, glm::value_ptr(ivyStem)); glUniform2fv(U(p, "uIvyRef"), 1, glm::value_ptr(ivyRef)); }
-  GLint lCut = U(p, "uCutout"), lBase = U(p, "uInstBase");
+  GLint lCut = U(p, "uCutout"), lBase = U(p, "uInstBase"), lDith = U(p, "uDither");
   glDisable(GL_CULL_FACE);
   for (auto& [key, rn] : runs) {
     const GpuModel* m = key.m;
-    glBindVertexArray(m->vao); glUniform1i(lBase, rn.first);
+    glBindVertexArray(m->vao); glUniform1i(lBase, rn.first); glUniform1f(lDith, key.dith);
     int boundMat = -2;
     const int p0 = key.first, p1 = key.count < 0 ? (int)m->parts.size() : std::min((int)m->parts.size(), key.first + key.count);
     for (int pi = p0; pi < p1; ++pi) {
@@ -5572,7 +5581,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPMid)); depthVP = lightVPMid;
       drawItems(progShadow, opaque, true, &frMid);
       if (!foliage.empty()) drawFoliage(progLeafShadow, lightVPMid, &frMid, false, perf.leafShadowLod ? 0.0f : -1.0f);
-      if (!folModels.empty()) { drawFolModels(true, lightVPMid, &frMid, 4.0f); glUseProgram(progShadow); }   // trees only, as in the far cascade
+      if (!folModels.empty()) { drawFolModels(true, lightVPMid, &frMid, 4.0f, perf.vegCascades); glUseProgram(progShadow); }   // trees only, as in the far cascade (CP5: from their far level)
       if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frMid);
       minCaster = 0;
     }
@@ -5593,6 +5602,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   const size_t nStat = std::min(opaqueStatic, opaque.size());
   const bool cacheOn = perf.shadowCache && perf.farCache && farStaticFbo;
   uint64_t fsig = 1469598103934665603ull;
+  const bool vegFar = !(perf.vegCascades && midOn);   // CP5 (corpus 09 s3.5): vegetation in the two nearest cascades only while the mid one is drawn
   if (cacheOn) {
     auto mix = [&](uint64_t x) { fsig = (fsig ^ x) * 1099511628211ull; };
     auto fb = [](float f) { uint32_t u; std::memcpy(&u, &f, 4); return (uint64_t)u; };
@@ -5602,7 +5612,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       mix((fb(it.model[3].x) << 32) | fb(it.model[3].z)); mix((fb(it.model[3].y) << 32) | fb(it.model[0].x)); mix((fb(it.model[1].y) << 32) | fb(it.model[2].x));
     }
     for (auto& f : foliage) { mix((uint64_t)(uintptr_t)f.tree); mix((fb(f.m[3].x) << 32) | fb(f.m[3].z)); mix((fb(f.m[3].y) << 32) | (uint64_t)std::max<int>(f.cur, 3)); }
-    mix((uint64_t)nStat); mix(perf.casterCull | perf.smallCasters << 1 | perf.farLeaf << 2 | perf.leafShadowLod << 3 | perf.instDepth << 4);
+    mix((uint64_t)nStat); mix(perf.casterCull | perf.smallCasters << 1 | perf.farLeaf << 2 | perf.leafShadowLod << 3 | perf.instDepth << 4 | (uint64_t)vegFar << 5);
   }
   const bool farCadence = frame - farFrame >= std::max(perf.farLite ? 4 : 1, q.farEvery);   // OPT farlite: the far cascade at most every 4th frame
   const bool farMoved = fR != farR || glm::distance(ffw, farFocus) > 8.0f || sunDir != farSun;
@@ -5626,7 +5636,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       if (cacheOn) itemHi = (uint32_t)nStat;
       drawItems(progShadow, opaque, true, &frFar);
       itemHi = UINT32_MAX;
-      if (!foliage.empty()) drawFoliage(progLeafShadow, lightVPFar, &frFar, false, perf.leafShadowLod ? 0.0f : -1.0f);
+      if (!foliage.empty() && vegFar) drawFoliage(progLeafShadow, lightVPFar, &frFar, false, perf.leafShadowLod ? 0.0f : -1.0f);
       farSig = fsig;
     }
     if (cacheOn) {   // the live map: the static layer, then what moves
@@ -5640,7 +5650,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       farHadDyn = farDyn;
     }
     glUseProgram(progShadow); glUniformMatrix4fv(U(progShadow, "uVP"), 1, GL_FALSE, glm::value_ptr(lightVPFar));
-    if (!folModels.empty()) { drawFolModels(true, lightVPFar, &frFar, 4.0f); glUseProgram(progShadow); }   // NT8: trees only
+    if (!folModels.empty() && vegFar) { drawFolModels(true, lightVPFar, &frFar, 4.0f); glUseProgram(progShadow); }   // NT8: trees only
     if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frFar);
     minCaster = 0;
   }
@@ -5729,6 +5739,9 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     setLighting(progTerrain, v);
     glUniformMatrix4fv(U(progTerrain, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
     glUniform1i(U(progTerrain, "uGrid"), v.grid ? 1 : 0);
+    { vec3 gc(0); float gk = 0; vec2 gr(0, 1);   // CP4 grasstint
+      if (perf.grassTint && grass && !thumbMode && grass->meanTop(gc)) { const GrassPreset& P = grassPreset(grass->quality); if (P.radius > 0) { gk = 0.5f; gr = vec2(P.nearR, P.radius); } }
+      glUniform4f(U(progTerrain, "uGrassTop"), gc.r, gc.g, gc.b, gk); glUniform2f(U(progTerrain, "uGrassTopR"), gr.x, gr.y); }
     terrainCacheBind(t, progTerrain);
     glEnable(GL_CULL_FACE); glCullFace(GL_BACK);
     { extern bool gGroundPaintPerf; gGroundPaintPerf = perf.groundPaint; }
@@ -5883,7 +5896,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       glUniform1i(U(pg, "uGAOn"), perf.grassAtlas && grassAtlasReady && grassAtlasTier);   // GT1 grass plant atlas (off at Low)
       { int n = (int)std::min<size_t>(16, grassVeh.size() / 2); glUniform1i(U(pg, "uVehN"), n); if (n) glUniform4fv(U(pg, "uVeh"), 2 * n, glm::value_ptr(grassVeh[0])); }   // TK3
     };
-    const bool pre = perf.vegPrepass && progGrassPre;
+    const bool pre = perf.grassPrepass && progGrassPre;
     if (pre) {   // CP1: blades' depth first (kGrassFS's own cut-outs), then each covered pixel is shaded once at GL_EQUAL
       glNamedFramebufferDrawBuffer(worldFbo, GL_NONE);
       grassUni(progGrassPre); preHash({progGrassPre}, true);

@@ -595,6 +595,22 @@ void Grass::drawShadow(GLuint prog, const mat4& lightVP, const mat4& camVP, vec3
   drawChunks(prog, camVP, cam, P.shadowR, true);   // chunks in (or casting into) the eye's view; the tall centre cards cast
 }
 
+bool Grass::meanTop(vec3& out) const {
+  static size_t lastN = SIZE_MAX; static vec3 lastC(0);   // shortcut: one Grass per app; recomputed when the instance count changes
+  const size_t n = instanceCount();
+  if (n == 0) return false;
+  if (n != lastN) {
+    glm::dvec3 s(0); size_t k = 0;
+    for (auto& [key, c] : chunks) for (size_t i = 0; i < c.inst.size(); i += 7) {   // every 7th clump
+      uint32_t u; std::memcpy(&u, &c.inst[i].shape.z, 4);
+      s += glm::dvec3(u & 255, (u >> 8) & 255, (u >> 16) & 255) / 255.0; ++k;
+    }
+    lastC = k ? vec3(s / double(k)) * 0.5f * vec3(1.0f, 1.02f, 0.86f) : vec3(0);   // kGrassVS: pk x 0.5, the upper blade a touch yellower
+    lastN = n;
+  }
+  out = lastC; return lastC != vec3(0);
+}
+
 size_t Grass::instanceCount() const { size_t n = 0; for (auto& [k, c] : chunks) n += c.count; return n; }
 size_t Grass::gpuBytes() const { return instanceCount() * sizeof(GrassInstance) * 2 + (vao ? 80 : 0); }   // VBO + CPU mirror
 uint64_t Grass::chunkHash(int cx, int cz) const {
