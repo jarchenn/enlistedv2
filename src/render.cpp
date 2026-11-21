@@ -815,7 +815,6 @@ vec2 envBRDFApprox(float r, float NoV){
   return vec2(-1.04, 1.04)*a004 + q.zw;   // F = F0*x + y
 }
 uniform int uDbgView;   // CP0 look-dev view (Renderer::dbgView): 2 illum / 6 sky force albedo 0.18, no metal; 6 also drops the sun's direct light
-uniform int uMetalMask;   // FIX6 (perf switch metalmask)
 uniform int uAlbClamp;   // CP step 4 (perf switch albclamp; corpus 03 s4.4): dielectric albedo luminance kept in linear 0.02-0.9, grass >= 0.10
 float gTexDensity = 0.0, gTexChk = 0.0;   // CP step 2 texel view: the densest set tap of this pixel (texels / m) and its tile checker (textures.cpp texTap)
 vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
@@ -827,11 +826,6 @@ vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
   if (uDbgView == 5) {   // CP step 2 texel density (corpus 07 s1.3): < 256 red, 256-512 orange, 512-1024 green, > 1024 blue, one checker per set tile; untextured grey
     vec3 k = gTexDensity <= 0.0 ? vec3(0.3) : gTexDensity < 256.0 ? vec3(0.9, 0.1, 0.1) : gTexDensity < 512.0 ? vec3(1.0, 0.55, 0.1) : gTexDensity <= 1024.0 ? vec3(0.2, 0.8, 0.25) : vec3(0.2, 0.4, 1.0);
     return k*mix(0.75, 1.0, gTexChk);
-  }
-  if (uMetalMask == 1 && metal > 0.0) {   // FIX6 metalmask (corpus 03 s2.4, s4.5): metallic is a mask, not a dial. Partial values (4,245 asset materials use 0.15-0.8
-    // as "dull metal") snap: <= 0.4 is the paint / rust / oxide over the metal (a dielectric), >= 0.6 bare metal; bare metal is never darker than F0 0.45
-    float mk = smoothstep(0.4, 0.6, metal); float l = dot(alb, vec3(0.2126, 0.7152, 0.0722));
-    alb *= mix(1.0, max(l, 0.45)/max(l, 1e-3), mk); metal = mk;
   }
   if (uAlbClamp == 1 && metal < 0.5) { float al = dot(alb, vec3(0.2126, 0.7152, 0.0722)); alb *= clamp(al, 0.02, 0.9)/max(al, 1e-4); }   // hue kept, value in range
   rough = specAA(N, rough);
@@ -5615,7 +5609,6 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uWetOn"), q.legacy || !perf.wet || thumbMode ? 0 : 1); glUniform1f(U(p, "uWetTime"), (float)std::fmod(time, 3600.0));   // W3   // CP step 3
   glUniform1i(U(p, "uMaskLib"), !q.legacy && perf.maskLib ? 1 : 0);   // CP step 6 part 2
   glUniform1i(U(p, "uPudRelief"), !q.legacy && perf.pudRelief ? 1 : 0);   // FIX7
-  glUniform1i(U(p, "uMetalMask"), !q.legacy && perf.metalMask ? 1 : 0);   // FIX6
   glUniform1i(U(p, "uReach"), !q.legacy && q.matLayer > 0 && perf.reach ? 1 : 0); glUniform1i(U(p, "uInstVar"), !q.legacy && perf.instVar ? 1 : 0);   // BF 3.4 / 3.6
   glUniform1i(U(p, "uLayerBlend"), !q.legacy && perf.layerBlend ? 1 : 0);   // BF 3.3
   glUniform1i(U(p, "uAbsFar"), !q.legacy && perf.absFar ? 1 : 0);   // FIX8
