@@ -4880,6 +4880,8 @@ void Renderer::createTargets() {
   for (GLuint f : {hdrFbo, ldrFbo, compFbo, shaftFbo, dofFbo, aoFbo})
     if (glCheckNamedFramebufferStatus(f, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) { logf("framebuffer %u incomplete after resize to %dx%d", f, width, height); ++fboErrors; }
   createMsaa();
+  // a full card (several games at once) can fail these allocations: the targets then hold undefined memory (garbage frames)
+  for (GLenum e; (e = glGetError()) != GL_NO_ERROR;) { logf("render targets %dx%d: GL error 0x%04x%s", width, height, e, e == GL_OUT_OF_MEMORY ? " (out of video memory)" : ""); ++fboErrors; }
 }
 
 // B1 MSAA (settings: High): the opaque world (sky, terrain, solids, models, foliage, grass) renders into a
@@ -5947,6 +5949,43 @@ bool Renderer::fogHides(vec3 eye, vec3 top) const {   // kCommon's applyFog term
     tau += env * (camIndoor ? 0.15f : 1.0f) * F.x * 0.6f * Lw * std::exp(-std::max(eye.y - F.z, 0.0f) / eH) * hf((top.y - eye.y) / eH);
   }
   return tau > 5.545f;   // ln 255: under one 8-bit step of the object's own contrast
+}
+// A program whose active samplers of different types (sampler2D / samplerCube / sampler2DArray ...) read the same texture
+// unit is an invalid draw (GL 4.5 s7.10): garbage or nothing, found only by eye (units 25, 27, 26, 9 so far). Units are
+// set at draw time, so this runs after views have rendered; program names are small integers, walked with glIsProgram.
+int Renderer::checkSamplerUnits() {
+  auto isSampler = [](GLenum t) {
+    switch (t) { case GL_SAMPLER_1D: case GL_SAMPLER_2D: case GL_SAMPLER_3D: case GL_SAMPLER_CUBE: case GL_SAMPLER_2D_SHADOW: case GL_SAMPLER_2D_ARRAY:
+      case GL_SAMPLER_2D_ARRAY_SHADOW: case GL_SAMPLER_CUBE_SHADOW: case GL_SAMPLER_CUBE_MAP_ARRAY: case GL_SAMPLER_2D_MULTISAMPLE: case GL_SAMPLER_BUFFER:
+      case GL_INT_SAMPLER_2D: case GL_INT_SAMPLER_3D: case GL_INT_SAMPLER_2D_ARRAY: case GL_UNSIGNED_INT_SAMPLER_2D: case GL_UNSIGNED_INT_SAMPLER_3D:
+      case GL_UNSIGNED_INT_SAMPLER_2D_ARRAY: case GL_UNSIGNED_INT_SAMPLER_BUFFER: case GL_INT_SAMPLER_BUFFER: return true; default: return false; } };
+  int bad = 0, unset = 0, progs = 0;
+  for (GLuint p = 1; p < 8192; ++p) {
+    if (!glIsProgram(p)) continue;
+    GLint linked = 0; glGetProgramiv(p, GL_LINK_STATUS, &linked); if (!linked) continue;
+    ++progs;
+    GLint n = 0; glGetProgramiv(p, GL_ACTIVE_UNIFORMS, &n);
+    std::map<GLint, std::pair<GLenum, std::string>> unit;   // unit -> (type, first uniform on it)
+    for (GLint k = 0; k < n; ++k) {
+      char nm[256]; GLsizei len = 0; GLint size = 0; GLenum type = 0;
+      glGetActiveUniform(p, (GLuint)k, sizeof nm, &len, &size, &type, nm);
+      if (!isSampler(type)) continue;
+      std::string base(nm); if (auto b = base.find('['); b != std::string::npos) base.resize(b);
+      for (GLint e = 0; e < size; ++e) {   // sampler arrays: each element has its own unit
+        std::string el = size > 1 ? base + "[" + std::to_string(e) + "]" : base;
+        GLint loc = glGetUniformLocation(p, el.c_str()); if (loc < 0) continue;
+        GLint u = 0; glGetUniformiv(p, loc, &u);
+        auto [it, fresh] = unit.emplace(u, std::make_pair(type, el));
+        if (!fresh && it->second.first != type) {   // unit 0 = never assigned (a feature off: snow mask, cloud shadows): reported, not failed
+          if (u != 0) ++bad; else ++unset;
+          logf("sampler clash%s: program %u, unit %d: %s (type 0x%04x) and %s (type 0x%04x)", u ? "" : " (unassigned, unit 0)", p, u, it->second.second.c_str(), it->second.first, el.c_str(), type);
+        }
+      }
+    }
+  }
+  logf("sampler units: %d programs checked, %d clashes on assigned units (shader errors), %d on unassigned unit 0", progs, bad, unset);   // shortcut: unit-0 clashes are invalid draws by the spec too (NVIDIA draws them); fail them once those programs park their unused samplers
+  shaderErrors += bad;
+  return bad;
 }
 static GLuint gLiveProg = 0;   // CP 5.8: compiled at init (warmPrograms)
 void Renderer::warmPrograms() {

@@ -520,6 +520,7 @@ public:
   int shaderErrors = 0;                 // compile failures since start (self-tests require 0)
   int shaderCacheHits = 0;              // CP 5.8: programs loaded from the program-binary cache
   void warmPrograms();
+  int checkSamplerUnits();   // every live program: two active samplers of different types on one unit (an invalid draw); logs, counts as shader errors
   float visCullDist(vec3 eye) const;   // weather corpus 08 s4: one conservative cut for every cull site (1e9 with no fog)
   bool fogHides(vec3 eye, vec3 top) const;
   float hazeSigma() const;   // the aerial haze at the ground the fog shader is fed (uFogDens; W1 presets: wx.der.sigma)

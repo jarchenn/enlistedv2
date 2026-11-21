@@ -10,7 +10,7 @@ def load(paths):
     rows = []
     for p in paths:
         with open(p, encoding="utf-8") as f:
-            rows += [json.loads(l) for l in f if l.strip()]
+            rows += [dict(json.loads(l), _src=p) for l in f if l.strip()]   # each file (part) keeps its own baseline
     return rows
 
 
@@ -27,6 +27,8 @@ def label(cfg, base):
     gone = sorted(x[1:] for x in b - c if x.startswith("^"))
     parts = [f"{x} off" if not x.startswith("^") and x not in ("msaa4",) and not x.startswith("scale") else x for x in off if not x.startswith("#")]
     parts += [f"{x} off" for x in gone]
+    if len(parts) > 8:   # the all-off config: its label is not one switch (its last name read as that switch's cost)
+        return f"everything off ({len(parts)} switches)"
     return ", ".join(parts) or ("repeat" if any(x.startswith("#") for x in off) else "baseline")
 
 
@@ -40,10 +42,10 @@ def main():
     groups = {}
     for r in rows:
         v, cfg = split(r["view"])
-        groups.setdefault((r["map"], v, r["preset"], r.get("kind", "views")), {})[cfg] = r
-    print(f"| Map | Run | Preset | Baseline GPU P50 / P99 | CPU P99 | vs {a.target:g} ms | Noise (repeat) | Config: GPU P99 change (ms), CPU P99 change |")
-    print("|---|---|---|---|---:|---:|---:|---|")
-    for (m, v, p, k), cfgs in sorted(groups.items()):
+        groups.setdefault((r["_src"], r["map"], v, r["preset"], r.get("kind", "views")), {})[cfg] = r
+    print(f"| Part | Map | Run | Preset | Baseline GPU P50 / P99 | CPU P99 | vs {a.target:g} ms | Noise (repeat) | Config: GPU P99 change (ms), CPU P99 change |")
+    print("|---|---|---|---|---|---:|---:|---:|---|")
+    for (src, m, v, p, k), cfgs in sorted(groups.items()):
         b = cfgs.get(a.base)
         if not b:
             continue
@@ -58,7 +60,8 @@ def main():
             dc = r.get("cpuNoSwapMs", {}).get("p99", 0) - c99
             cells.append(f"{label(c, a.base)}: {d:+.2f}, {dc:+.2f}")
         frame = max(g99, c99)
-        print(f"| {m} | {v} | {p} | {g50:.2f} / {g99:.2f} | {c99:.2f} | {frame - a.target:+.2f} | {noise} | {'; '.join(cells)} |")
+        part = src.replace("\\", "/").rsplit("/", 1)[-1].rsplit(".", 1)[0]
+        print(f"| {part} | {m} | {v} | {p} | {g50:.2f} / {g99:.2f} | {c99:.2f} | {frame - a.target:+.2f} | {noise} | {'; '.join(cells)} |")
 
 
 def selftest():
@@ -66,6 +69,7 @@ def selftest():
     assert label("", "^probecap") == "probecap off"
     assert label("^probecap+#2", "^probecap") == "repeat"
     assert label("^probecap+msaa4", "^probecap") == "msaa4"
+    assert label("+".join("abcdefghij"), "none") == "everything off (10 switches)"
 
 
 if __name__ == "__main__":
