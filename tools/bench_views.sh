@@ -21,7 +21,7 @@ if [ "${NMK_BENCH_HOLD:-0}" = 1 ] && [ -z "${NMK_BENCH_HELD:-}" ]; then
 fi
 MAPS="${NMK_BENCH_MAPS:-chateau_town newtown outpost_woods dday sd_town}"; KIND="${NMK_BENCH_KIND:-path}"
 # NMK_BENCH_KINDS="views path bots": several kinds in one run (views first, then the paths, then the bots scene)
-ENTRIES=""; for k in ${NMK_BENCH_KINDS:-$KIND}; do [ "$k" = bots ] && continue; for m in ${MAPS//,/ }; do ENTRIES="$ENTRIES $k:$m"; done; done
+ENTRIES=""; for k in ${NMK_BENCH_KINDS:-$KIND}; do [ "$k" = bots ] && [ -n "${NMK_BENCH_KINDS:-}" ] && continue; for m in ${MAPS//,/ }; do ENTRIES="$ENTRIES $k:$m"; done; done   # bots alone (KIND=bots): one entry per map
 BOTS="${NMK_BENCH_BOTS_MAP:-dday}"
 case " ${NMK_BENCH_KINDS:-} " in *" bots "*) ENTRIES="$ENTRIES bots:$BOTS";; *) [ "$KIND" = path ] && [ "$BOTS" != none ] && [ -z "${NMK_BENCH_MAPS:-}" ] && ENTRIES="$ENTRIES bots:$BOTS";; esac
 mkdir -p "$O" "$DOCS"
