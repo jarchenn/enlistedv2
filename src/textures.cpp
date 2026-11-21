@@ -480,6 +480,7 @@ uniform float uTexBias;   // log2(render / display), -0.5 more under TAA (texbia
 uniform int uMicroLayer;   // CP step 6: the micro-detail set's array layer (slot micro_detail), -1 none
 uniform ivec4 uMaskLayer;  // CP step 6 part 2: the mask library's array layers (mask_lib_0..3), -1 missing
 uniform int uMaskLib;      // perf switch masklib
+uniform int uSteepTri;     // FIX5 (perf switch steeptri): ground-space slots triplanar on steep normals
 uniform int uWearCause;    // M4 (perf switch wearcause): wear placed by its causes (splash, runoff), roughness first
 uniform ivec2 uMicroOn;    // x: micro detail (perf switch microdetail), y: macro roughness variation (perf switch roughvar)
 uniform float uTexLodG;   // TX2K: the ground's gradient scale (terrain layers, painted ground; uTexLod.x for everything else)
@@ -602,7 +603,7 @@ TerrT terrTexOne(int slot, vec3 p, vec3 n, vec3 dpx, vec3 dpy, float dist){
   gHexK = uHex.x > 0.0 && (uOpt2Off == 1 || gLayerW >= 0.35) ? floor(C.y/4.0 + 0.01)/8.0 : 0.0;   // M1: this slot's hex tiling (ground and cliff taps); OPT2: a layer under 35 % of the pixel takes one plain tap
   TexS s = TexS(vec3(0.0), 0.0, 0.0, 0.0, vec3(0.0), 0.0);
   float gs0 = gTexGS; gTexGS = uTexLodG;
-  if (int(A.z + 0.5) == 3) {
+  if (int(A.z + 0.5) == 3 && (uSteepTri == 0 || n.y > 0.8)) {   // ground space: planar xz; FIX5 steeptri: steeper than ~37 deg the slot goes triplanar (no stretch on 45-52 deg banks; texTri is still mostly the top plane at the switch)
     vec3 T = vec3(1.0, 0.0, 0.0), B = vec3(0.0, 0.0, -1.0); texFrame(rot, T, B);
     texTap(A.x, p, dpx, dpy, inv, T, B, vec3(0.0, 1.0, 0.0), n, 1.0, s); s.n = normalize(s.n);
   } else s = texTri(A.x, p, n, dpx, dpy, inv, rot);
@@ -817,7 +818,7 @@ void texMaterial(int slot, vec3 w, vec3 nW, vec3 ap, vec3 an, vec3 pc, vec3 pn, 
   }
   // CP step 6 (corpus 08 s4, s9): roughness varies before colour, at macro scale on every textured surface (one tap),
   // and a micro-detail layer (0.2 m tiling, normal 0.3, roughness +-0.1 around its mean) near the eye, gone by 7 m
-  if (uMicroOn.y == 1) { vec4 mr = texMacro(w, ng, dwx, dwy); r2 *= 1.0 + (mr.g - 0.5)*0.3*f; }
+  if (uMicroOn.y == 1 && !(uImgMat == 1 && Uu.w > 0.0) && eyeD < 80.0) { vec4 mr = texMacro(w, ng, dwx, dwy); r2 *= 1.0 + (mr.g - 0.5)*0.3*f; }   // FIX5: no second macro tap where the slot already took one (its MA1 macro varies roughness), none past 80 m
   // M4 (corpus 08 s1-s2, s12): wear has causes, so it has places. Splash: the bottom 0.6 m of vertical faces, where rain
   // throws soil back up; runoff: streaks down vertical faces, from the grunge mask stretched 20:1; both raise roughness
   // first, then darken within the 20-40 % budget; the amount varies per building (its seed), so neighbours differ and
