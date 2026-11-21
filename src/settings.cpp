@@ -258,6 +258,7 @@ void Settings::apply(App& app) {
   R.q.lightNew = s.lightNew;   // VO stream L
   R.q.lightPhys = s.lightNew && s.lightPhys;   // CP2
   R.q.ultra = g.ultraFx;   // UL2
+  R.fxLightCap = g.ultraFx ? 4 : g.shadowQuality >= 2 ? 3 : g.shadowQuality == 1 ? 2 : g.grass <= 0 ? 0 : 1;   // BF spec 8.3: flash lights at once
   if (R.q.taa != g.taa || R.q.taaPhases != g.taaPhases) R.resetTemporal();
   R.q.taa = g.taa; R.q.taaPhases = g.taaPhases;
   R.setMsaa(g.msaa);

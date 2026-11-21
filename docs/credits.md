@@ -891,10 +891,13 @@ Freesound sounds released under **CC0 1.0 Universal** (licence checked on each s
 | wx/thunder_near2.mp3 | Thunder strike | AyaDrevis | CC0 1.0 | https://freesound.org/people/AyaDrevis/sounds/652690/ |
 | wx/thunder_far1.mp3 (distant rumble) | thunder long tail | elmoustachio | CC0 1.0 | https://freesound.org/people/elmoustachio/sounds/476738/ |
 
+## Battle Foundry moss cushions (BF B2)
+
+| File | What | Version | Author | Licence | Source |
+|---|---|---|---|---|---|
+| content/models/bf_moss/moss_cushions.bin, moss_cushion_albedo.png (from cc0__apple_moss_bartramia_pomiformis.glb) | Moss cushions (src/scatter.cpp): six sub-region variants, voxel-remeshed and decimated to 1500 / 600 / ~300 tris, the scan's colour baked top-down, de-lit and balanced to the 3.2 moss albedo (tools/bake_moss_cushions.py) | - | ffish.asia / floraZia.com | CC0 1.0 | https://sketchfab.com/3d-models/cc0-apple-moss-bartramia-pomiformis-ef418bf372554dc29a8b5c3f50ae3506 |
 ## Battle Foundry rev 3 bundle (BF phase 0b / 1)
-
 Licences read from each GLB's `asset.extras`; checksums and the shippable flag in `content/licences.json`, enforced by `tools/licence_gate.py`. Imported by `tools/bake_bf_assets.py` (spec section 2.4) and the game's own bake.
-
 | File | Used for | Author | Licence | Source URL |
 |---|---|---|---|---|
 | bridge.glb | asset `bf_bridge` (`content/assets/models/bf_bridge`) | Nikolayy (https://sketchfab.com/Nikolayy) | CC-BY-4.0 | https://sketchfab.com/3d-models/bridge-545a57d9785443bca9b135da2e497bc0 |
@@ -904,9 +907,3 @@ Licences read from each GLB's `asset.extras`; checksums and the shippable flag i
 | fantasy_house_with_interior.glb | reference only, not shipped (material language for the art-test house, built from original geometry) | CGMeller | CC-BY-NC-4.0 | https://sketchfab.com/3d-models/fantasy-house-with-interior-68f07f44addf4b44b137e0d2d5a9d0e4 |
 | stone_with_moss.glb | reference only, not shipped | Plutonium.software | CC-BY-NC-4.0 | https://sketchfab.com/3d-models/stone-with-moss-01fce300303645b4aa3086cce3d4250f |
 | reference-photos/*.jpg (3) | colour and coverage reference only, not shipped | unknown | no verified terms | BF rev 3 bundle |
-
-## Battle Foundry moss cushions (BF B2)
-
-| File | What | Version | Author | Licence | Source |
-|---|---|---|---|---|---|
-| content/models/bf_moss/moss_cushions.bin, moss_cushion_albedo.png (from cc0__apple_moss_bartramia_pomiformis.glb) | Moss cushions (src/scatter.cpp): six sub-region variants, voxel-remeshed and decimated to 1500 / 600 / ~300 tris, the scan's colour baked top-down, de-lit and balanced to the 3.2 moss albedo (tools/bake_moss_cushions.py) | - | ffish.asia / floraZia.com | CC0 1.0 | https://sketchfab.com/3d-models/cc0-apple-moss-bartramia-pomiformis-ef418bf372554dc29a8b5c3f50ae3506 |

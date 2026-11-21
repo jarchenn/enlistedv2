@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <chrono>
+#include <array>
 
 // Per building copy parameters of the wall / floor finish patterns 17-22 (docs/interiors.md): no shader edits needed
 // to vary wear, palette or room finishes. Rooms and sills are in asset space.
@@ -115,6 +116,15 @@ public:
   vec3 ivyStem{0.12f, 0.1f, 0.08f}; vec2 ivyRef{0.2f, 0.1f};   // VR1: stem colour (linear) and the leaf / stem textures' mean luminance (content/settings/ivy.json)
   GLuint wxUbo = 0; void uploadWeather();
   void physLight(vec3& sun, vec3& sky, vec3& ground, vec3& fog, vec3& fill, vec3& zen, vec3& hor, vec3& skySunCol, bool main);   // CP2   // W1: NmkWeather uniform block, binding 4
+  // BF fxbright (spec 5.4 / 8.3, ref 05 5.9, fx_lights.cpp): combustion lights by temperature, emissivity, size and envelope
+  int addCombustionLight(vec3 pos, float T, float eps, float diameterM);            // a handle, -1 if all 16 are busy
+  void updateCombustionLight(int h, vec3 pos, float T, float eps, float k);          // once per presentation frame; k = interval-averaged envelope
+  void endCombustionLight(int h);
+  void combLightsGather(std::vector<LightDesc>& out, vec3 eye);                     // lighting.cpp prepass
+  int fxLightCap = 2;   // per tier (spec 8.3): Ultra Low 0 .. Ultra 4 (settings.cpp)
+  struct CombLight { bool live = false; vec3 pos{0}; float T = 0, eps = 0, d = 0, k = 1; uint16_t gen = 0; };
+  std::array<CombLight, 16> combLights{};
+  float expoFreezeUntil = -1.0f; void exposureFreeze(float s) { expoFreezeUntil = std::max(expoFreezeUntil, time + s); }   // BF: hold the auto exposure (own-weapon discharge: 0.15 s)
   float shimmerPx = 0;   // W5: this frame's heat-shimmer amplitude (tests)
   float physEV = 15.0f, physExpo = 0.0f;   // CP2 Lighting Physical: this frame's EV100 and the tone pass's exposure (0 = not physical)
   float sunDirectFrac = 1.0f, sunShK = 1.0f;   // OPT wxsun: last setLighting's direct-sun share; this frame's cascade strength (0 = none drawn)
@@ -384,6 +394,12 @@ public:
     bool roomLights = true;      // roomlights (CP4): interior / fire lamps in big rooms reach and light x sqrt(floor area / 60 m2), 1..3
     bool cascade4 = false;       // cascade4 (CP4, default off: no visible gain in 5 test views - the band 240-600 m holds only buildings; vegetation stays in the 2 nearest cascades, terrain uses the horizon map): High / Ultra: a fourth sun cascade (the old far range) and the far one out to ~600 m
     bool froxel = true;          // froxel (CP4): High / Ultra fog from a 160 x 90 x 64 froxel volume (haze, ground fog, band, sun through the far cascade), applied in the composite
+    bool fxExpo = true;          // fxexpo (BF 5.2): meter rejects the top 4 %, EV rate 0.9 stops/s open / 3 close, exposureFreeze() for own fire
+    bool pBloom = true;          // pbloom (BF 5.2 / ref 05 5.7): unthresholded 8-level bloom, ~1/r tail, ~1.2 % energy, no luma weighting
+    bool fxHdr = true;           // fxhdr (BF 5.2): additive / emissive particles drawn into scene HDR before bloom (they bloom); the meter excludes them
+    bool fxBright = true;        // fxbright (BF 5.4): combustion lights from T / eps / size (fx_lights.cpp), uYref / uNitsToScene on fx programs
+    bool litSmoke = true;        // litsmoke (BF 6.6): smoke / dust premultiplied into a half-res target, soft-faded against half depth, depth-aware upsample once
+    bool physGuard = true;       // physguard (CP2): under Physical the brightest 2 %% of the scene may not pass the curve's shoulder (no 20 %% clip into a low sun)
     bool wxSun = true;           // wxsun (OPT, weather corpus 08 s4.2): overcast takes the direct sun away; under 5 % direct share no sun cascades (fade to 10 %)
     bool sunShadow = true;       // sunshadow (OPT): the sun cascades (near, mid, far) drawn and sampled; off = none (knock-out)
     bool midCascade = true;      // midcascade (VO L3): a third sun cascade between the near and far ones (Medium / High, Lighting New)
@@ -425,7 +441,7 @@ public:
     bool set(const std::string& n, bool on) {   // false: no such switch
       if (n == "wx1") { clouds = cloudShadow = shafts = envFog = on; return true; }   // WX1: the whole weather / fog stack (one A/B)
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
-              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "tzearly" ? &terrainEarlyZ : n == "tzprepass" ? &terrainPrepass : n == "sunshadow" ? &sunShadow : n == "wxsun" ? &wxSun : n == "froxel" ? &froxel : n == "cascade4" ? &cascade4 : n == "indoorexpo" ? &indoorExpo : n == "roomlights" ? &roomLights : n == "skyviswall" ? &skyVisWall : n == "midcache" ? &midCache : n == "pcss" ? &pcss : n == "reflroom" ? &reflRoom : n == "taajitph" ? &taaJitPh : n == "taavel" ? &taaVel : n == "taabox" ? &taaBox : n == "cas" ? &cas : n == "dither" ? &dither : n == "slopecap" ? &slopeCap : n == "w2sky" ? &w2Sky : n == "w2mist" ? &w2Mist : n == "w2expo" ? &w2Expo : n == "lightning" ? &lightning : n == "farlite" ? &farLite : n == "occsmall" ? &occSmall : n == "skygate" ? &skyGate : n == "ssrrange" ? &ssrRange : n == "probetrickle" ? &probeTrickle : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "clouds" ? &clouds : n == "cloudshadow" ? &cloudShadow : n == "shafts" ? &shafts : n == "envfog" ? &envFog : n == "sdecals" ? &staticDecals : n == "grade" ? &grade : n == "tdust" ? &terrainDust : n == "wxshimmer" ? &wxShimmer : n == "ssrhalf" ? &ssrHalf : n == "lightcull" ? &lightCull : n == "physgrade" ? &physGrade : n == "bentnormal" ? &bentNormal : n == "ssrfade" ? &ssrFade : n == "fogphase" ? &fogPhase : n == "governor" ? &governor
+              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "tzearly" ? &terrainEarlyZ : n == "tzprepass" ? &terrainPrepass : n == "sunshadow" ? &sunShadow : n == "wxsun" ? &wxSun : n == "froxel" ? &froxel : n == "cascade4" ? &cascade4 : n == "indoorexpo" ? &indoorExpo : n == "roomlights" ? &roomLights : n == "skyviswall" ? &skyVisWall : n == "midcache" ? &midCache : n == "pcss" ? &pcss : n == "reflroom" ? &reflRoom : n == "taajitph" ? &taaJitPh : n == "taavel" ? &taaVel : n == "taabox" ? &taaBox : n == "cas" ? &cas : n == "dither" ? &dither : n == "slopecap" ? &slopeCap : n == "w2sky" ? &w2Sky : n == "w2mist" ? &w2Mist : n == "w2expo" ? &w2Expo : n == "lightning" ? &lightning : n == "farlite" ? &farLite : n == "occsmall" ? &occSmall : n == "skygate" ? &skyGate : n == "ssrrange" ? &ssrRange : n == "probetrickle" ? &probeTrickle : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "clouds" ? &clouds : n == "cloudshadow" ? &cloudShadow : n == "shafts" ? &shafts : n == "envfog" ? &envFog : n == "sdecals" ? &staticDecals : n == "grade" ? &grade : n == "tdust" ? &terrainDust : n == "wxshimmer" ? &wxShimmer : n == "ssrhalf" ? &ssrHalf : n == "lightcull" ? &lightCull : n == "physgrade" ? &physGrade : n == "bentnormal" ? &bentNormal : n == "ssrfade" ? &ssrFade : n == "fogphase" ? &fogPhase : n == "governor" ? &governor : n == "physguard" ? &physGuard : n == "litsmoke" ? &litSmoke : n == "fxbright" ? &fxBright : n == "fxhdr" ? &fxHdr : n == "pbloom" ? &pBloom : n == "fxexpo" ? &fxExpo
               : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : n == "leaftex" ? &leafTex : n == "taau" ? &taau : n == "imgmat" ? &imgMat
               : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : n == "grassatlas" ? &grassAtlas : n == "dlcache" ? &dlCache : n == "instdepth" ? &instDepth : n == "folbatch" ? &folBatch : n == "farleaf" ? &farLeaf : n == "walllod" ? &wallLod : n == "matfar" ? &matFar : n == "probemed" ? &probeMed : n == "shadowcache" ? &shadowCache : n == "occcull" ? &occCull : n == "treefar" ? &treeFar : n == "leafmerge" ? &leafMerge : n == "furndist" ? &furnDist : n == "furnclutter" ? &furnClutter : n == "paint" ? &groundPaint : n == "vegcull" ? &vegCull
               // One line per stream, each followed by a comment line, so two streams appending names no longer conflict in merges.
@@ -513,6 +529,7 @@ public:
     float mapGrassDead = 0.0f;   // BT1: look.grassDead
     float mapMossBias = 0;      // BF: look.mossThreshold (reference 03: 0.35 damp village, 0.55 temperate, 0.75 dry): the field's habitat + (0.55 - it); absent: 0 (as before)
     bool mapLeafless = false;   // BT1: look.leafless (winter: no leaf cards on the part-built trees)
+    float physSky = 1.0f, physEV = 0.0f;   // CP2 look.physical {sky, ev}: the map's deck thickness and exposure offset under Lighting Physical
     vec4 fog2{0.0f};   // look.fogLayer2 {density, floor, top, soft}: a fog band between world heights (x = 0: none)
     float mapFogLayerTop = 1e9f, mapFogLayerSoft = 12.0f;   // look.fogLayer {top, topSoft}: the layer ends at world y top (1e9: no ceiling)
     float mapHazeH = 0.0f, mapFogLayerDens = -1.0f, mapFogLayerH = 0.0f;   // FG1: look.hazeHeight, look.fogLayer {density, height} (0 / -1: the defaults)
@@ -610,10 +627,11 @@ private:
   GLuint progHeat = 0, heatTex = 0, heatFbo = 0, heatDepthOf = 0; int heatW = 0, heatH = 0;   // TH1 thermal heat target (R16F, the scene depth attached)
   GLuint sceneCopy = 0, compFbo = 0, shaftTex = 0, shaftFbo = 0;   // world composite (before the weapon pass)
   void worldComposite(const RenderView& v, const mat4& vp);
+  bool fxMipDone = false; vec3 lastSkyCol{0}; void fxBrightUniforms(GLuint p);   // BF fxhdr / fxbright
   GLuint progFroxInj = 0, progFroxInt = 0, froxInj = 0, froxInt = 0; bool froxOn = false; float froxNear = 0.5f, froxFar = 600.0f; vec3 lastSunCol{0}; void froxRun(const RenderView& v);   // CP4 froxel fog
   GLuint ssrTex = 0, ssrFbo = 0, progSsrHalf = 0;   // OPT ssrhalf
   GLuint ambTex = 0, aoTex = 0, aoFbo = 0, progSsao = 0, progBloomDown = 0, progBloomUp = 0;
-  static const int kBloomLevels = 6;
+  static const int kBloomLevels = 8;   // BF pbloom uses 8 (to ~0.45 of the screen height); off: the first 6
   GLuint bloomTex[kBloomLevels]{}, bloomFbo[kBloomLevels]{}; int bloomW[kBloomLevels]{}, bloomH[kBloomLevels]{};
   void bloomPass();
   GLuint velTex = 0, cloudShTex = 0, cloudShFbo = 0, progCloudSh = 0; vec3 cloudShBox{0, 0, 1500};
@@ -633,6 +651,7 @@ private:
   float effScale() const { return perf.taau && upscaleMode != 2 ? resScale : 1.0f; }   // taau off / mode Off: native resolution
   bool grassAtlasReady = false;   // GT1: content/textures/grass_atlas loaded (grass.cpp grassAtlasInit)
   GLuint progGrass = 0, progGrassShadow = 0, progGrassPre = 0;   // Pre (CP1): kGrassFS's own cut-outs, depth only   // GX3: near pasture clumps into the sun map
+  GLuint progHalfDepth = 0, progSoftUp = 0, softCTex = 0, halfDTex = 0, softCFbo = 0, halfDFbo = 0; int softCW = 0, softCH = 0;   // BF litsmoke: half-res soft target
   GLuint progFx = 0, fxVao = 0, fxVbo = 0, softDepth = 0; int softW = 0, softH = 0;   // softDepth: W6's copy of the depth (the particles' soft fade)
   GLuint progSnowfall = 0, snowfallVao = 0;   // SF1 snowfall
   // R1 terrain material cache (rendering.md 13): 2 RGBA8 layers of world-space noise over the terrain extent, mipmapped
