@@ -43,7 +43,7 @@ std::vector<int> mapTemplates(App& app) {
     if (app.templates[k].raw.contains("map") && (!only || !*only || ("," + std::string(only) + ",").find("," + app.templates[k].id + ",") != std::string::npos)) v.push_back(k);   // a comma list too (one launch over several maps)
   return v;
 }
-struct View { std::string name; vec3 pos; float yaw, pitch; bool explore = false; bool gate = true; float hour = -1.0f; bool groundEye = false, neutral = false; int dbg = -1; bool ggOff = false; int weather = -1; float cover = -1.0f; int light = -1; float walk = 0.0f; };   // VO walk: seconds walked forward at 1.4 m/s after the measurement, a frame every 0.5 s (motion check)   // VO: light 1 New / 0 Classic (Settings > Lighting)   // SKY1: weather 0 clear / 1 cloudy, cover forced   // GR3: hour >= 0 sets the time of day for that view; groundEye: pos.y is the eye height above the terrain; neutral: the map's look tint / saturation / ambient off (tracing a colour cast)   // gate: gameplay view held to the frame target
+struct View { std::string name; vec3 pos; float yaw, pitch; bool explore = false; bool gate = true; float hour = -1.0f; bool groundEye = false, neutral = false; int dbg = -1; bool ggOff = false; int weather = -1; float cover = -1.0f; int light = -1; float walk = 0.0f; float sunYaw = -999.0f; };   // BS1 sunYaw: the heading in degrees from down-sun (0: the sun straight behind), set from the sun at the view   // VO walk: seconds walked forward at 1.4 m/s after the measurement, a frame every 0.5 s (motion check)   // VO: light 1 New / 0 Classic (Settings > Lighting)   // SKY1: weather 0 clear / 1 cloudy, cover forced   // GR3: hour >= 0 sets the time of day for that view; groundEye: pos.y is the eye height above the terrain; neutral: the map's look tint / saturation / ambient off (tracing a colour cast)   // gate: gameplay view held to the frame target
 struct Perf { std::string name; bool gate = true; int frames = 0; double ms = 0, worst = 0, draws = 0, tris = 0; int preset = 1; bool night = false; double gpu = 0, pass[GP_Count] = {}; int abN[2] = {}; double abMs[2] = {}, abPass[2][GP_Count] = {}, abProbeCpu[2] = {}, abProbes[2] = {}, abCpu[2] = {};
               double x[10] = {}, abX[2][10] = {}; };   // R2: the frame counters below (kXName), plain run and A/B sides   // ab: [0] PF2 renderer, [1] the A/B baseline (NMK_PERF_AB)   // night: L2 Night at Medium (reported only)   // preset: GfxPreset (V2: gameplay views also at Low / High, reported only)
 
@@ -97,6 +97,10 @@ std::string fl1Analyse(App& app, const std::string& map, const std::string& view
 // FX1 headlamp captures (NMK_FX1=1, Medium): per view the headlamp off, then on; first-person views also crouched and
 // aiming down the sights; frame time with it off and on (1 s each) -> selftest_out/fx1_<map>_<view>_<state>.png
 const bool kFx1 = std::getenv("NMK_FX1") != nullptr;
+// BS1 body-shadow captures (NMK_BS1=1): per first-person view the eye held at the view's pitch (and, with "sunYaw", its
+// heading from down-sun), stills standing, crouched and prone: selftest_out/bs1_<map>_<view>_{stand,crouch,prone}.png
+const bool kBs1 = std::getenv("NMK_BS1") != nullptr;
+int gBsPh = 0; float gBsT = 0;
 // CP0 look-dev readout (--selftest-lookdev, or NMK_LOOKDEV=1 with --selftest-maps): per gameplay view, at the current
 // preset, after the frame-time measurement: the view as played (clipped / crushed pixel shares), then the look-dev props
 // (lookdev.cpp) with five grey cards 5.5 m ahead, read in scene-linear HDR under the illum view (albedo 0.18) and the sky
@@ -189,8 +193,9 @@ void templateViews(const TemplateInfo& t) {
   // interiors through windows, damaged houses. "explore": first person on the ground at pos (x, z), else a free camera.
   if (const char* xf = std::getenv("NMK_EXTRA_VIEWS")) {
     json xj; try { xj = json::parse(readTextFile(xf)); } catch (...) {}
-    if (xj.is_object()) for (auto& v : xj.value(t.id, json::array()))
+    if (xj.is_object()) for (auto& v : xj.value(t.id, json::array())) {
       sViews.push_back({v.value("name", std::string("view")), jvec3(jkey(v, "pos"), vec3(0)), v.value("yaw", 0.0f), v.value("pitch", 0.0f), v.value("explore", false), true, v.value("hour", -1.0f), v.value("groundEye", false), v.value("neutral", false), v.value("dbg", -1), v.value("ggOff", false), v.value("weather", -1), v.value("cover", -1.0f), v.value("light", -1), v.value("walk", 0.0f)});   // GG1: dbg = terrain debug view
+      sViews.back().sunYaw = v.value("sunYaw", -999.0f); }   // BS1
   }
 }
 }  // namespace
@@ -504,7 +509,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
         if (app.mode == Mode::Explore) app.exitExplore();
         app.camPos = v.pos; app.camYaw = v.yaw; app.camPitch = v.pitch;
       }
-      sPerf.push_back({v.name, v.gate}); sLast = 0; gFlPh = 0; gFxPh = 0; gLdPh = 0; gWxPh = 0; gWalkN = 0; gWalk0 = app.camPos;
+      sPerf.push_back({v.name, v.gate}); sLast = 0; gFlPh = 0; gFxPh = 0; gBsPh = 0; gLdPh = 0; gWxPh = 0; gWalkN = 0; gWalk0 = app.camPos;
       logf("maps view %s at (%.1f %.1f %.1f) yaw %.1f pitch %.1f", v.name.c_str(), v.pos.x, v.pos.y, v.pos.z, v.yaw, v.pitch);
     }
     if (v.explore && app.mode == Mode::Explore) { app.useScripted = true; }
@@ -562,6 +567,24 @@ void SelfTest::mapsUpdate(App& app, float dt) {
         gFlPh = 4; gFlT = stageTime; }
       else if (gFlPh == 4 && stageTime > gFlT + 1.2f) { shotQueue.push_back(base + "_c"); gFlPh = 5; gFlT = stageTime; }
       else if (gFlPh == 5 && stageTime > gFlT + 0.1f) { check(true, fl1Analyse(app, map, v.name, base)); if (!v.explore) app.camPos = gFlCam; app.R.holdTime = false; gFlPh = 6; }
+      break;
+    }
+    if (kBs1 && v.explore && app.mode == Mode::Explore) {   // BS1 (see above): the eye held where the view points
+      if (v.sunYaw > -900.0f) { vec3 s = app.R.sunDir; s.y = 0; if (glm::length(s) > 1e-3f) { s = glm::normalize(s); app.eyeYaw = glm::degrees(std::atan2(s.x, s.z)) + v.sunYaw; } }   // forward (-sin, -cos) = -sun: the sun behind
+      else app.eyeYaw = v.yaw;
+      app.eyePitch = std::clamp(v.pitch, -85.0f, 85.0f);
+    }
+    if (kBs1 && v.explore && sPresetPass == 0 && stageTime >= measEnd && gBsPh < 8) {   // BS1 stance stills
+      std::string base = "bs1_" + app.templates[sTpl[sTi]].id + "_" + v.name;
+      auto next = [&](float wait) { if (stageTime < gBsT + wait) return false; gBsT = stageTime; ++gBsPh; return true; };
+      if (gBsPh == 0) { app.scriptedInput.crouch = false; app.scriptedInput.prone = false; gBsT = stageTime; gBsPh = 1; }
+      else if (gBsPh == 1) { if (next(1.5f)) shotQueue.push_back(base + "_stand"); }
+      else if (gBsPh == 2) { app.scriptedInput.crouch = true; gBsT = stageTime; gBsPh = 3; }
+      else if (gBsPh == 3) { if (next(1.2f)) shotQueue.push_back(base + "_crouch"); }
+      else if (gBsPh == 4) { app.scriptedInput.crouch = false; app.scriptedInput.prone = true; gBsT = stageTime; gBsPh = 5; }   // Z pressed once (an edge)
+      else if (gBsPh == 5) { app.scriptedInput.prone = false; if (next(2.0f)) shotQueue.push_back(base + "_prone"); }
+      else if (gBsPh == 6) { app.scriptedInput.prone = true; gBsPh = 7; }   // back up for the next view (one press)
+      else if (gBsPh == 7) { app.scriptedInput.prone = false; gBsPh = 8; check(true, fmt("BS1 %s %s: stand / crouch / prone stills, sun height %.2f", app.templates[sTpl[sTi]].id.c_str(), v.name.c_str(), app.R.sunDir.y)); }
       break;
     }
     if (kFx1 && sPresetPass == 0 && stageTime >= measEnd && gFxPh < 9) {   // FX1 (see above)
