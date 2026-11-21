@@ -263,7 +263,7 @@ V = {
     "thumb_cam": ([60.0, 70.0, 110.0], look_yaw(-60.0, -110.0), -28.0),
     "look": {"style": "abandoned", "haze": 5.0, "weather": 0.1, "envFog": 1, "bloom": 1.45, "saturation": 1.02, "tint": [1.08, 1.0, 0.86], "grime": 0.9, "arid": True,
              "paintSets": {"gravel": "gravel_mixed", "rock": "rock_slab_paint", "dirt": "ground_rubble_paint", "ploughed": "trail_gravel", "cobbles": "trail_dirt"}},
-    "lighting": {"fill": 1.1, "ambient": [0.07, 0.05, 0.03], "hour": 17.4},
+    "lighting": {"fill": 1.1, "ambient": [0.07, 0.05, 0.03], "hour": 17.4, "enclosed": False},   # open sky: 17.4 is only the default hour, every weather preset applies
 }
 
 
