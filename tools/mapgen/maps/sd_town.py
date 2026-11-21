@@ -103,7 +103,9 @@ def town_level(plan, X, Z):
     flat = {"T": 0.0, "B": L1, "M": L1, "w": L1, "D": L2}
     for ch, v in flat.items():
         L[R == ch] = v
-    m = R == "t"; L[m] = _lin(Z[m], B_STEP_Z - 0.4, B_STEP_Z, 0.0, L1)   # up into B by a flight of steps (the face behind its top step)
+    m = R == "t"   # up into B by two flights of steps (the face behind their top step) with a cart ramp along the east 1.8 m
+    ramp_x = plan.x0 + 3.5 * plan.cell + 1.25
+    L[m] = np.where(X[m] > ramp_x, _lin(Z[m], -9.0, 3.0, 0.0, L1), _lin(Z[m], B_STEP_Z - 0.4, B_STEP_Z, 0.0, L1))
     m = R == "p"; L[m] = _lin(Z[m], -9.0, 3.0, 0.0, L1)        # up into the square
     m = R == "s"; L[m] = _lin(Z[m], -3.0, 27.0, 0.0, L2A)      # Rue de l'Eglise climbs to A
     m = R == "f"   # the river lane meets the t / p ramps level (no step at the junctions), then slopes east to s
@@ -272,9 +274,10 @@ def build(ctx):
     for x in (20.0, 24.0, 31.15, 35.15, 40.0):
         b.place("drs_retaining_wall", x, wz, 0.0, check=False, cls="none", y=y0, tags={"wall"})
     b.place("drs_town_steps", 27.6, A_STEP_Z - 1.3, 0.0, check=False, cls="none", y=y0, tags={"wall"})
-    # VOT: Rue du Moulin's climb into B, three flights across the 6 m lane (their outer ends run into the house blocks)
+    # VOT: Rue du Moulin's climb into B, two flights across the west of the 6 m lane (the outer end runs into the house
+    # block), a cart ramp along the east 1.8 m (the attackers' route keeps its timing)
     xt = plan.x0 + 3.5 * plan.cell
-    for dx in (-2.4, 0.0, 2.4):
+    for dx in (-2.4, 0.0):
         b.place("drs_town_steps", xt + dx, B_STEP_Z - 1.3, 0.0, check=False, cls="none", y=y0, tags={"wall"})
     # ground: cobbled lanes, the square and the spawn yards cobbled too, the churchyard grass,
     # a strip of setts (pebbles -> setts_paint) along every house front: the gutter
