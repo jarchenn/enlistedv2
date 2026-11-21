@@ -523,18 +523,19 @@ void LightingPass::todColors(const Renderer& R, vec3& sun, vec3& sky, vec3& grou
   auto grey = [](vec3 c, vec3 tint, float s) { return vec3(lum(c)) * tint * s; };
   // WX2 full overcast: the direct sun at 30 % (faint, very soft shadows: render.cpp widens the PCF), the grey sky fill
   // raised so diffuse light dominates and exposure stays sensible, no sun glow in the sky, the fog takes the grey sky
-  sun *= glm::mix(1.0f, 0.30f, k);
+  const bool ph = R.wx.der.phys;   // W1: a preset row sets the light level itself (weather.cpp); the deck here only greys the colours
+  sun *= ph ? 1.0f : glm::mix(1.0f, R.q.lightNew && R.perf.wxSun && !R.q.legacy ? 0.0f : 0.30f, k);   // OPT wxsun: under a real overcast deck (optical depth ~30) no direct sun reaches the ground (New)
   zen = glm::mix(zen, grey(zen * 0.5f + hor * 0.5f, vec3(0.93f, 0.96f, 1.0f), 1.0f), 0.9f * k);
-  hor = glm::mix(hor, grey(hor, vec3(0.95f, 0.97f, 1.0f), 0.95f), 0.85f * k);
-  sky = glm::mix(sky, grey(sky, vec3(0.95f, 0.98f, 1.0f), 1.5f), 0.85f * k);
-  ground *= glm::mix(1.0f, 1.35f, k); fill *= glm::mix(1.0f, 1.6f, k);
+  hor = glm::mix(hor, grey(hor, vec3(0.95f, 0.97f, 1.0f), ph ? 1.0f : 0.95f), 0.85f * k);
+  sky = glm::mix(sky, grey(sky, vec3(0.95f, 0.98f, 1.0f), ph ? 1.0f : 1.5f), 0.85f * k);
+  if (!ph) { ground *= glm::mix(1.0f, 1.35f, k); fill *= glm::mix(1.0f, 1.6f, k); }
   fog = glm::mix(fog, grey(fog, vec3(0.96f, 0.98f, 1.0f), 0.95f), 0.85f * k);
   skySunCol *= 1.0f - k;
 }
 
 void LightingPass::exposureUniforms(const Renderer& R, GLuint p) {
   (void)R;
-  glUniform1f(U(p, "uExpoKey"), L.tod.expoKey * (R.thumbMode || R.wx.enclosed ? 1.0f : glm::mix(1.0f, 0.72f, R.wx.k)));   /* WX2: Cloudy is darker (auto exposure would otherwise lift it back) */ glUniform1f(U(p, "uExpoMin"), L.tod.expoMin); glUniform1f(U(p, "uExpoMax"), L.tod.expoMax);
+  glUniform1f(U(p, "uExpoKey"), L.tod.expoKey * (R.thumbMode || R.wx.enclosed ? 1.0f : R.wx.der.phys ? R.wx.der.keyMul : glm::mix(1.0f, 0.72f, R.wx.k)));   /* WX2: Cloudy is darker (auto exposure would otherwise lift it back) */ glUniform1f(U(p, "uExpoMin"), L.tod.expoMin); glUniform1f(U(p, "uExpoMax"), L.tod.expoMax);
 }
 
 void LightingPass::uniforms(Renderer& R, GLuint p) {
@@ -780,6 +781,15 @@ void LightingPass::probePass(Renderer& R, const RenderView& v, const std::vector
   if (R.perf.probeRefresh && R.lt.probeBudget <= 0) {
     int pending = (int)std::count_if(cand.begin(), cand.end(), [](const Cand& c) { return c.score > 1e8f; });
     budget = std::min(budget, std::max(pending, R.lt.gi >= 2 ? 2 : half ? halfTick : 1));
+  }
+  if (R.perf.probeTrickle && R.lt.probeBudget <= 0 && !v.editor) {
+    // OPT probetrickle (corpus 13 s13.2.3: indirect light may update slowly): at most 3 captures a frame while probes wait
+    // for a first capture or were invalidated (geometry, doors, damage: lightingInvalidate); once converged, and with the
+    // sky relit live (VO L6), one age refresh every 4th frame instead of 1-2 a frame. The editor keeps the old rate
+    // (placements do not invalidate). Lamps switching on and off are caught by that slow refresh only.
+    int waiting = (int)std::count_if(cand.begin(), cand.end(), [](const Cand& c) { return c.score > 1e8f; });
+    const bool relit = R.q.lightNew && R.perf.skyRelit && !R.q.legacy;
+    budget = waiting ? std::min(budget, 3) : relit ? (L.frame % 4 == 0 ? 1 : 0) : budget;
   }
   if (R.perf.probeBudgetOn && R.lt.probeBudget <= 0) {
     // R2 probebudget: the budget is in cost units (near probe 1, far probe 4); unused units carry over (capped), so a far

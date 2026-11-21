@@ -277,7 +277,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
   interior.beginFrame();   // R2 room culling: per-building visibility once per frame
   if (mode == Mode::Explore) { grenadeDrawItems(); gm2DrawItems(*this, op); }   // GM2: placed packs
   lassoWaterDrawItems(*this);   // lasso water bodies into V1's water pass (lasso_water.cpp; nothing without water.h)
-  R.wind = grass.wind ? 1.0f : 0.0f;
+  R.wind = grass.wind ? R.wx.der.windK : 0.0f; grass.windK = R.wx.der.windK;   // W1: the preset's wind
   lodPxPerM = projM[1][1] != 0.0f ? projM[1][1] * R.height * 0.5f : 0.0f; lodCount[0] = lodCount[1] = lodCount[2] = 0;
   leafMergeHit = leafMergeMiss = 0;
   static int dlFrameNo = 0; ++dlFrameNo; R.stats.occCulled = 0;   // GP1 occcull
@@ -318,6 +318,7 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       continue;
     }
     if (!act.rtOf[idx]) continue;
+    if (R.perf.firThin && i.extra.is_object() && i.extra.value("perfThin", false)) continue;   // BT2 switch firthin: the map's optional far trees
     auto& r = *act.rtOf[idx];
     mat4 M = instanceMatrix(i);
     if (decorDraw(*this, i, r, M, op, gl)) continue;   // V8: border-ring decor saved in maps, cheap at range (decor.cpp)
@@ -1234,7 +1235,7 @@ int App::run(int argc, char** argv) {
     if (gCrumbProf) crumbFrameEnd();
     mark("start");
     glfwPollEvents();
-    tex::flushPending();   // TX2: a lazy texture set a newly used material named (one reload, then nothing)
+    tex::flushPendingFrame(R.perf.texLate);   // TX2 / OPT1: a late texture set a newly used material named: one spare-layer upload per frame, no full reload
     syncCursor();   // GM1b: one per-frame rule for the cursor mode (explore.cpp)
     hangBeat(); forceQuitCheck(win, false);   // UI8
     if (glfwWindowShouldClose(win)) {
@@ -1423,7 +1424,7 @@ int App::run(int argc, char** argv) {
         else if (savedCover >= 0) { R.cloudCover = savedCover; savedCover = -1.0f; }
       }
       R.wx.mapCloud = lk && lk->contains("weather") && (*lk)["weather"].is_number() ? std::clamp((*lk)["weather"].get<float>(), 0.0f, 1.0f) : -1.0f;   // NT2b: broken cloud
-      R.wx.mapWx = R.wx.mapCloud >= 0.0f ? (R.wx.mapCloud >= 0.5f ? 1 : 0) : lk && lk->contains("weather") ? (lk->value("weather", std::string()) == "cloudy" ? 1 : 0) : -1;   // NT2: the map's default sky
+      R.wx.mapWx = R.wx.mapCloud >= 0.0f ? (R.wx.mapCloud >= 0.5f ? 1 : 0) : lk && lk->contains("weather") && (*lk)["weather"].is_string() ? std::max(0, wxPresetFromName((*lk)["weather"].get<std::string>())) : -1;   // W1: any preset name   // NT2: the map's default sky
       R.lt.mapSat = lk ? std::clamp(lk->value("saturation", 1.0f), 0.0f, 2.0f) : 1.0f;
       {   // VO L5 sky knobs: look.cloudOpening [azimuth deg (0 = +z, 90 = +x), elevation deg, half width deg, strength 0..1];
           // look.cloudScale (broad banks x this size), cloudStretch (x this longer along cloudDir), cloudDir (deg, as azimuth); look.sunDisc 0..1

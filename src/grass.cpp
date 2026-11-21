@@ -11,7 +11,7 @@
 // GT1 grass plant atlas (docs/grass-atlas.md): content/textures/grass_atlas (tools/pack_grass_atlas.mjs, Poly Haven
 // grass_bermuda_01 / grass_medium_01, CC0) as one sRGB GL_TEXTURE_2D_ARRAY on unit 27 with coverage-preserving mips,
 // and the per-cell / per-species tables of kGrassVS. false: the procedural blades stay (missing or invalid files).
-bool grassAtlasInit(GLuint progMain, GLuint progShadow) {
+bool grassAtlasInit(GLuint progMain, GLuint progShadow, GLuint progPre) {
   constexpr int kUnit = 27, kMaxCells = 32, kMaxIdx = 48;
   fs::path dir = contentDir() / "textures" / "grass_atlas";
   json j;
@@ -56,7 +56,7 @@ bool grassAtlasInit(GLuint progMain, GLuint progShadow) {
     int cards0 = s == 2 ? 3 : 0, cards = 2;   // fill budget: 2 plants stand in for a clump's 12 blades
     sp[s * 4 + 0] = first; sp[s * 4 + 1] = ni - first; sp[s * 4 + 2] = cards0; sp[s * 4 + 3] = cards;
   }
-  for (GLuint p : {progMain, progShadow}) {
+  for (GLuint p : {progMain, progShadow, progPre}) {
     if (!p) continue;
     glProgramUniform1i(p, glGetUniformLocation(p, "uGATex"), kUnit);
     glProgramUniform4fv(p, glGetUniformLocation(p, "uGACell"), kMaxCells, cell.data());
@@ -528,7 +528,7 @@ void Grass::drawChunks(GLuint prog, const mat4& cullVP, vec3 cam, float maxD, bo
   glBindVertexArray(vao);
   GLint lCount = glGetUniformLocation(prog, "uCount"), lCards = glGetUniformLocation(prog, "uCards");
   glUniform1f(glGetUniformLocation(prog, "uRadius"), P.radius);
-  glUniform1f(glGetUniformLocation(prog, "uWind"), wind ? 1.0f : 0.0f);
+  glUniform1f(glGetUniformLocation(prog, "uWind"), wind ? windK : 0.0f);
   glUniform1f(glGetUniformLocation(prog, "uWidthScale"), 1.0f);
   float frac = P.density / kMaxDensity * (shadow ? P.shadowShare : 1.0f);
   glUniform4f(glGetUniformLocation(prog, "uLod"), frac, P.nearR, P.midR, P.falloff);

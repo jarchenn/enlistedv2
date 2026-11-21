@@ -185,7 +185,7 @@ def dress(b, R, prop, drop, line, paint, rep):
         if e is not None:
             e["extra"] = e.get("extra") or {}; e["extra"]["loot"] = {"spot": True, "size": "small", "district": 1, "military": True}
     # NT8: a packed-earth forest track (the Pine Forest banner): roots across it, stones along its edges, a few puddles
-    paint.line("dirt", TRACK, 2.6, weight=0.9, edge=0.9)
+    paint.line("rock", TRACK, 2.6, weight=0.9, edge=0.9)   # trails: "rock" drawn as trail_dirt (no step_dirt type is free here; tools/mapgen/patch_trails.py)
     for s in range(6, int(L) - 4, 9):
         (px, pz), t = point_at(TRACK, s + R.uniform(-3, 3))
         drop(R.choice(ROOTS), px + t[1] * R.uniform(-0.6, 0.6), pz - t[0] * R.uniform(-0.6, 0.6), math.degrees(math.atan2(-t[1], t[0])) + R.uniform(-30, 30), dy=-0.04, cls="none")
@@ -220,7 +220,7 @@ V = {
                    "a forest clearing, a radar and a field bunker on the wooded ridge, a sawmill on the logging track, and "
                    "cabins by a pond fed by a creek. Dense woodland, ferns and mist. Military loot (level-3 armour) in the camp, "
                    "the radar and the bunker. 16 players by default, short storm circles. Battle Royale, Team Deathmatch and Solo.",
-    "height": height, "stamps": [stamps], "roads": [], "track_paint": "dirt",
+    "height": height, "stamps": [stamps], "roads": [], "track_paint": "rock",
     "tracks": [(TRACK, 4.0), (SPUR_RADAR, 3.2), (SPUR_MILL, 3.5), (SPUR_POND, 3.0)],
     "sites": SITES, "site_info": INFO,
     "flats": [(rect(CAMP[0] + 1, CAMP[1] + 1, CAMP[2] - 1, CAMP[3] - 1), None), (circle_poly(-44.0, -44.0, 9.0, 16), None)],
@@ -265,7 +265,7 @@ V = {
     "look": {"style": "abandoned", "haze": 0.85, "weather": 0.12, "envFog": 0, "bloom": 1.35, "vegCull": 0.55, "saturation": 1.16, "tint": [1.1, 1.0, 0.84], "grime": 1.0,
              "shafts": 2.6,
              "paintSets": {"gravel": "gravel_mixed", "dirt": "dirt_path_paint", "pebbles": "rock_slab_paint", "leaf_litter": "ph_needle_floor",
-                           "ploughed": "moss_floor_paint", "scorched": "ph_leaf_floor"}},
+                           "ploughed": "moss_floor_paint", "scorched": "ph_leaf_floor", "rock": "trail_dirt"}},
     "lighting": {"hour": 17.9, "enclosed": False, "fill": 1.4, "ambient": [0.045, 0.06, 0.045]},
     "views_clear": 3.5,
 }

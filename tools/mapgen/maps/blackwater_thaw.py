@@ -90,6 +90,7 @@ ROUTES = {   # name: (points, clear width, kind)
 PUDDLES = [(-30.0, -59.5, 1.3), (-8.0, -50.6, 1.1), (6.0, -42.6, 1.5), (9.5, -17.5, 1.2), (2.0, -9.0, 1.0), (-1.0, -3.5, 1.4),
            (-60.0, -61.9, 1.2), (-84.0, -63.0, 1.6), (40.0, -55.8, 1.0), (62.0, -8.0, 1.3), (-20.0, 24.0, 1.1)]   # (x, z, radius m)
 ORCH_IDS = []
+FIELD = [None]   # BT2 perf: the terrain field while building (stand_seen)
 CREEK_PROFILE = []   # BT2: (x, z, water level above BASE) along the creek, 2 m apart (build_terrain)
 FIR_STANDS = []   # BT2: (x, z, radius) of each fir stand (dark needle floor, no snow under it)
 SPAWN_LOW = (-90.0, -73.0)     # in the cart yard, the cart shed behind and a stone wall screening it from the orchard
@@ -456,11 +457,12 @@ def build(ctx):
     E = W / 2 + MARGIN
     paint.poly("dry_grass", [(-E, -E), (E, -E), (E, E), (-E, E)], weight=1.0, edge=0.5)
     for name, (pts, w, kind) in ROUTES.items():
-        paint.line("mud" if kind in ("road", "lane") else "dirt", [(p[0], p[1]) for p in pts], w, weight=0.9, edge=1.0)
+        # SN2 trails (the user's Ground109 / Ground110 sets through look.paintSets): wheeled ways gravel, foot ways dirt
+        paint.line("gravel" if kind == "road" or name == "quarry path" else "dirt", [(p[0], p[1]) for p in pts], w, weight=0.9, edge=1.0)
     paint.line("pebbles", CREEK, 9.0, weight=0.9, edge=2.0)
     for name, ((cx, cz), (hx, hz), fl) in AREAS.items():
         if name in ("Waterworks court", "Lower cart yard", "Workshop yards", "Washhouse terrace"):
-            paint.poly("mud", [(cx - hx, cz - hz), (cx + hx, cz - hz), (cx + hx, cz + hz), (cx - hx, cz + hz)], weight=0.55, edge=3.0, ragged=2.0, seed=len(name))
+            paint.poly("gravel" if name in ("Lower cart yard", "Workshop yards") else "mud", [(cx - hx, cz - hz), (cx + hx, cz - hz), (cx + hx, cz + hz), (cx - hx, cz + hz)], weight=0.55, edge=3.0, ragged=2.0, seed=len(name))
 
     # buildings: stand-ins seated on the true ground at their pads
     n_bld = 0
@@ -554,6 +556,7 @@ def build(ctx):
         b.place("bt_creek", 0.0, 0.0, 0.0, check=False, cls="none", y=0.0, tags={"water"}, companions=False)
     global ORCH_IDS
     ORCH_IDS = write_orchard_trees(ctx, cat)
+    FIELD[0] = F   # BT2 perf: the fir stands' visibility test samples the ground in bulk
     rep_veg = dress_vegetation(b, cat, G, R)
     rep_veg["boundary_rock"] = dress_boundary(b, cat, G, R)
     for k, (cx, cz, rad) in enumerate(FIR_STANDS):   # BT2: the stands' dark needle floor
@@ -623,6 +626,7 @@ def build(ctx):
             "fogLayer": {"density": 0.004, "height": 10.0}, "saturation": 0.8, "tint": [0.97, 0.99, 1.03],
             # BT2 sky (lighting session's per-map knobs): a soft low opening toward the south-west valley exit (azimuth
             # atan2(dx, dz) = -130.7), broad cloud banks stretched along the valley, no sun disc
+            "paintSets": {"dirt": "trail_dirt", "gravel": "trail_gravel"},   # SN2: the user's trail sets on this map's ways
             "cloudOpening": [-130.7, 11.0, 20.0, 0.8], "cloudScale": 2.0, "cloudStretch": 3.0, "cloudDir": -130.7, "sunDisc": 0.0,
             "bloom": 1.1, "grime": 1.3, "season": "winter", "leafless": True, "grassDead": 1.0,
             "snowfall": {"near": 40, "far": 1800, "fall": 1.0, "wind": [0.8, -0.6], "bright": 1.0},   # BT2: sparse near flakes
@@ -811,7 +815,7 @@ def dress_vegetation(b, cat, G, R):
     def lane_gap(x, z):
         return min(min(math.hypot(x - p[0], z - p[1]) for p in pts[::2]) - w / 2 for pts, w in lanes)
 
-    def put(aid, x, z, yaw, key, clear=1.2, inside=True, seat=0.0):
+    def put(aid, x, z, yaw, key, clear=1.2, inside=True, seat=0.0, extra=None):
         if aid not in cat:
             return False
         if inside and not (ENV[0] + 3 < x < ENV[2] - 3 and ENV[1] + 3 < z < ENV[3] - 3):
@@ -824,7 +828,7 @@ def dress_vegetation(b, cat, G, R):
         if max(ring) - min(ring) > 2.0:   # BT2 (user): not over a drop-off (the 1.8 m ring, wider than the roots, sets the seat)
             return False
         y = min(ring)
-        e = b.place(aid, x, z, yaw, check=False, cls="veg", y=y, tags={"veg", key}, companions=False)
+        e = b.place(aid, x, z, yaw, check=False, cls="veg", y=y, tags={"veg", key}, companions=False, extra=extra)
         rep[key] = rep.get(key, 0) + (e is not None)
         return e is not None
 
@@ -863,13 +867,25 @@ def dress_vegetation(b, cat, G, R):
             continue
         n_st += 1
         rad = R.uniform(7.0, 13.0)
-        FIR_STANDS.append((cx, cz, rad))
-        for _ in range(R.randint(12, 22)):
+        # BT2 perf: a stand outside the play area that no route or start point can see is not placed; one seen only from
+        # beyond 150 m keeps 3 trees in 5, one seen only from beyond 60 m drops its saplings (they hide behind the big crowns);
+        # the RNG draws stay the same, so every other tree is where it was
+        seen, near = (True, 0.0) if out < 0.0 else stand_seen(cx, cz, rad)
+        keep = seen
+        if keep:
+            FIR_STANDS.append((cx, cz, rad))
+        rep["stands_hidden"] = rep.get("stands_hidden", 0) + (not seen)
+        for k_ in range(R.randint(12, 22)):
             a_, d_ = R.uniform(0, 2 * math.pi), rad * math.sqrt(R.random())
             x, z = cx + d_ * math.cos(a_), cz + d_ * math.sin(a_)
             if max(ENV[0] - x, x - ENV[2], ENV[1] - z, z - ENV[3]) < -6.0:
                 continue
-            put(R.choice(firs), x, z, R.uniform(0, 360), "firs", clear=3.0, inside=False)
+            ch, yw = R.choice(firs), R.uniform(0, 360)
+            if not keep:
+                continue
+            thin = (near > 150.0 and k_ % 5 in (1, 3)) or (near > 60.0 and "sapling" in ch)   # saplings hide in a far stand
+            # thinned trees stay in the map marked perfThin: the engine skips them while the firthin switch is on (A/B in one run)
+            put(ch, x, z, yw, "firs_thin" if thin else "firs", clear=3.0, inside=False, extra={"perfThin": True} if thin else None)
     # dead grass and frosted seed heads at path edges, orchard margins and unused strips; bramble at wall feet
     for _ in range(900):
         x, z = R.uniform(ENV[0] + 4, ENV[2] - 4), R.uniform(ENV[1] + 4, ENV[3] - 4)
@@ -1158,3 +1174,36 @@ def write_boundary_asset(ctx, cat, G, step=4.0, height=7.0):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(j, f, separators=(",", ":"))
     cat.assets["bt_boundary"] = Asset(j, path)
+
+
+# ---------------------------------------------------------------- BT2 perf: which backdrop fir stands any player can see
+_VIEWPTS = None
+
+
+def stand_seen(cx, cz, rad, eye=1.65):
+    """(seen, nearest viewer distance): line of sight from any route point (every 8 m, eye height) or start point to the
+    stand's crown middle or top (ground + 7 m / + 14 m) at its centre or either side, over the true ground."""
+    global _VIEWPTS
+    F = FIELD[0]
+    samp = lambda xs, zs: ndimage.map_coordinates(F.H, [(zs - F.z0) / RES, (xs - F.x0) / RES], order=1, mode="nearest")
+    if _VIEWPTS is None:
+        pts = [(p[0], p[1]) for pts_, w, k in ROUTES.values() for p in lane_dense(pts_, 8.0)]
+        pts += [SPAWN_LOW, SPAWN_UP] + [(st[0][0], st[0][1]) for st in STAIRS]
+        P = np.array(pts, dtype=float)
+        _VIEWPTS = np.column_stack([P, samp(P[:, 0], P[:, 1]) + eye])
+    V = _VIEWPTS
+    d = np.hypot(V[:, 0] - cx, V[:, 1] - cz)
+    tg = []
+    for ox, oz in ((0.0, 0.0), (rad * 0.7, 0.0), (-rad * 0.7, 0.0), (0.0, rad * 0.7), (0.0, -rad * 0.7)):
+        g0 = float(samp(np.array([cx + ox]), np.array([cz + oz]))[0])
+        tg += [(cx + ox, cz + oz, g0 + 7.0), (cx + ox, cz + oz, g0 + 14.0)]
+    t = np.linspace(0.04, 0.96, 72)
+    for tx, tz, ty in tg:
+        X = V[:, 0:1] + (tx - V[:, 0:1]) * t
+        Z = V[:, 1:2] + (tz - V[:, 1:2]) * t
+        Y = V[:, 2:3] + (ty - V[:, 2:3]) * t
+        H = samp(X.ravel(), Z.ravel()).reshape(X.shape)
+        clear = np.all(H < Y - 0.3, axis=1)
+        if clear.any():
+            return True, float(d[clear].min())
+    return False, float(d.min())

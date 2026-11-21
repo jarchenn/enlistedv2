@@ -48,7 +48,7 @@ struct UserSettings {
   int fpsCap = 0;              // 0 = unlimited
   float hour = 14.0f;          // time of day (L2): 14:00 Day, 18:36 Dusk, 00:00 Night, 05:00 Dawn, or any hour
   int envFog = 1;              // WX1: environmental fog 0 Off, 1 Light, 2 Moderate, 3 Dense (a match follows the host's)
-  int weather = 0;             // WX1: 0 Clear, 1 Cloudy (a match follows the host's; switches live with an 8 s transition)
+  int weather = 0;             // W1 weather preset id (weather.cpp: 0 Clear, 1 Overcast (was Cloudy), 2-14 appended); a match follows the host's
 #ifdef __APPLE__
   int upscale = 1;             // 0 temporal, 1 spatial, 2 off (Renderer::upscaleMode). Mac: spatial (MetalFX temporal at Retina costs ~25 ms)
 #else
