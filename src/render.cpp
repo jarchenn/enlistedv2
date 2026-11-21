@@ -3244,6 +3244,7 @@ vec3 vN;   // the shading normal: vN0 (vertex) or the baked per-pixel one
 uniform int uGrid; uniform vec2 uBuildHalf;
 uniform int uDiscard; uniform sampler2D uTileMask; uniform float uTileSize; uniform vec2 uTerrainOrg, uTerrainExt;
 uniform vec4 uDust;   // W5 tdust: xy wind direction (toward), z streamer strength (0: calm or not arid), w advection phase (m along the wind)
+uniform vec4 uTPom;   // VFX rev3 4.4 tpom: x depth (m), y steps (1 = one offset), z fade range (m), w the ground sets' uv per metre
 uniform sampler2D uSurf;   // R wear, G wet, B route kind, A rut (surface.cpp)
 uniform float uTerrCave;   // CV1: look.cave: dark wet glossy floors
 uniform int uDbgTerr;      // GG1 (NMK_DBG_TERRAIN): 1 roughness classes (red < 0.4 SSR mirror, yellow < 0.7 sheen, grey matte), 2 specular share (red > 25 %, yellow > 10 %)
@@ -3261,6 +3262,11 @@ void main(){
   if (uTNOn == 1) { vec2 r = texture(uTNrm, (vW.xz - uTNMap.xy)*uTNMap.zw).rg; vN = vec3(r.x, sqrt(max(1.0 - dot(r, r), 0.0)), r.y); }   // VOT T1
   vec3 p = vW;
   vec3 tdx = dFdx(p), tdy = dFdy(p), tn0 = normalize(vN); float tDist = length(p - uCamPos);   // L4 terrain layers (before any discard)
+  if (uTPom.x > 0.0) {   // VFX rev3 4.4 tpom: parallax occlusion on the ground layers, through texTap's march (the materials code);
+    // tdx / tdy stay the derivatives of the unshifted p. Depth fades over the last 30 % of the range and at grazing views
+    gPomV = normalize(uCamPos - p); gPomN = int(uTPom.y + 0.5);
+    gPomK = uTPom.x*uTPom.w*(1.0 - smoothstep(uTPom.z*0.7, uTPom.z, tDist))*smoothstep(0.08, 0.3, abs(dot(tn0, gPomV)));
+  }
   if (uDiscard == 1) {   // base mesh hidden under high-resolution deformation tiles
     ivec2 tc = ivec2(floor((p.xz - uTerrainOrg)/uTileSize));
     if (texelFetch(uTileMask, tc, 0).r > 0.5) discard;
@@ -6467,6 +6473,20 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     }
     { static const int dbg = std::getenv("NMK_DBG_TERRAIN") ? std::atoi(std::getenv("NMK_DBG_TERRAIN")) : 0; glProgramUniform1i(progTerrain, glGetUniformLocation(progTerrain, "uDbgTerr"), dbgTerr >= 0 ? dbgTerr : dbg); }   // GG1 measurement
     glProgramUniform4fv(progTerrain, glGetUniformLocation(progTerrain, "uDust"), 1, glm::value_ptr(dustU));   // W5 tdust
+    {   // VFX rev3 4.4 / 8.2 tpom tiers by preset: Ultra Low off; Low one offset 0.015 m within 8 m; Medium 8 steps 0.030 m / 18 m;
+        // High 10 steps 0.050 m / 35 m; Ultra 10 steps 0.065 m / 55 m (texTap caps the march at 10). Custom follows the material tier.
+      GfxPreset pr = settings().s.preset();
+      if (pr == GfxPreset::Custom) pr = q.matLayer >= 2 ? GfxPreset::High : q.matLayer == 1 ? GfxPreset::Medium : GfxPreset::Low;
+      vec4 tp(0.0f);
+      if (perf.terrainPom && !thumbMode) switch (pr) {
+        case GfxPreset::Low: tp = vec4(0.015f, 1.0f, 8.0f, 0.5f); break;
+        case GfxPreset::Medium: tp = vec4(0.030f, 8.0f, 18.0f, 0.5f); break;
+        case GfxPreset::High: tp = vec4(0.050f, 10.0f, 35.0f, 0.5f); break;
+        case GfxPreset::Ultra: tp = vec4(0.065f, 10.0f, 55.0f, 0.5f); break;
+        default: break;   // Ultra Low: off
+      }   // shortcut: w = 0.5 uv per metre (the ground sets' 2 m tile); read it from the soil slot's scale if the sets diverge
+      glProgramUniform4fv(progTerrain, glGetUniformLocation(progTerrain, "uTPom"), 1, glm::value_ptr(tp));
+    }
     }
     t.drawOpts.normals = perf.terrainNormals; t.drawOpts.morph = perf.terrainMorph; t.drawOpts.skyView = perf.terrainSkyView; t.drawOpts.tileLod = perf.terrainTileLod;   // VOT T1 / T5 / T2
     // PF terrain: samples the terrain pass wrote, read a ring slot later (the shaded-fragment count is the bench's fragment query, gpuMark)
