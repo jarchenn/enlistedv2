@@ -111,8 +111,17 @@ public:
   // per-instance colour (tint.a > 0: the ivy pack's leaves recoloured to tint.rgb, its stems to ivyStem; src/ivy.cpp)
   struct FolModelDraw { const GpuModel* model; mat4 m; float wind; bool cast = false; int first = 0, count = -1; vec4 tint{0.0f}; };   // cast (HB1b sandbags): into the near sun cascade whatever the height
   vec3 ivyStem{0.12f, 0.1f, 0.08f}; vec2 ivyRef{0.2f, 0.1f};   // VR1: stem colour (linear) and the leaf / stem textures' mean luminance (content/settings/ivy.json)
+  GLuint wxUbo = 0; void uploadWeather();
+  void physLight(vec3& sun, vec3& sky, vec3& ground, vec3& fog, vec3& fill, vec3& zen, vec3& hor, vec3& skySunCol, bool main);   // CP2   // W1: NmkWeather uniform block, binding 4
+  float physEV = 15.0f, physExpo = 0.0f;   // CP2 Lighting Physical: this frame's EV100 and the tone pass's exposure (0 = not physical)
   float sunDirectFrac = 1.0f, sunShK = 1.0f;   // OPT wxsun: last setLighting's direct-sun share; this frame's cascade strength (0 = none drawn)
   int dbgTerr = -1;   // GG1 measurement: terrain debug view (-1: NMK_DBG_TERRAIN), set per capture view
+  // CP0 look-dev (docs: corpus plan step 0): debug view, by name through dbgViewFromName (NMK_DEBUG_VIEW / --debug-view):
+  // 1 lum (false-colour luminance, stops around exposed 0.18), 2 illum (shade(): albedo 0.18, no metal), 3 albedo, 4 furnace,
+  // 5 texel (materials session), 6 sky (illum without the sun's direct light, plus a centre patch of exposed 0.18)
+  int dbgView = 0;
+  std::vector<DrawItem> lookdev;   // CP0 grey / white / chrome spheres, colour chart, grey cards (lookdev.cpp); the app draws them with the opaque list
+  struct LdProbe { std::vector<vec3> pts; std::vector<vec3> hdr; std::vector<glm::ivec2> px; float expo = 0; bool want = false; } ldProbe;   // CP0: scene-linear HDR (5x5 mean) at world points, read before the tone pass; -1 off screen; px: framebuffer pixel, rows top-down
   bool ggOff = false;  // GG1 A/B: the pre-GG1 ground roughness (capture views)
   vec4 green{0.0f}, greenK{1.0f, 0.0f, 1.0f, 0.0f};   // FL1 greenery (kCommon greenGrade): target + card strength; card gain, grass strength / gain, model strength   // VR1: stem colour (linear) and the leaf / stem textures' mean luminance (content/settings/ivy.json)
   std::vector<FolModelDraw> folModels;
@@ -142,14 +151,17 @@ public:
   // row), wx.der what follows from it this frame. Read by AI sight, sound, particles and the renderer; weather.cpp derives it.
   enum WxPrecip { WxNone = 0, WxDrizzle = 1, WxRain = 2, WxSnow = 3 };
   struct WxState { float cover = 0.1f, tau = 0, visM = 40000; float fogTopM = 0; int precip = WxNone; float precipMmH = 0;
-                   float windDirDeg = 37, windMs = 3, gust = 1.3f, gustPeriodS = 8, tempC = 18, dustVisM = 0, lightningPerMin = 0; };
+                   float windDirDeg = 37, windMs = 3, gust = 1.3f, gustPeriodS = 8, tempC = 18, dustVisM = 0, lightningPerMin = 0;
+                   float wet = 0, puddle = 0, snowDepth = 0, dustCover = 0; };   // surfaces 0..1 (snowDepth m): set per preset until accumulation exists
   struct WxDerived { bool phys = false; int preset = 0;   // phys: the formulas drive light / air / exposure (presets 2-14, Lighting New)
                      float eSunLux = 0, eSkyLux = 0, eTotalLux = 0;   // direct normal, diffuse on a level surface, total on a level surface
                      float sunK = 1, skyK = 1; vec3 tint{1};          // multipliers on the engine's sun and sky light against Clear
                      float keyMul = 1, fixedMul = 1;                  // exposure: auto-exposure key, fixed exposure
                      float sigma = 0.001f, visM = 3912, dustVisM = 0, cullM = 5555, fogTopM = 0, fogLayerSigma = 0, fogAlbedo = 0.9f, fogG = 0.85f;   // air at the ground (1/m); visibility = 3.912 / sigma; cullM = 1.42 x visibility
                      float windK = 1; vec2 windXZ{0};                 // wind against today's (1 = Clear's 3 m/s), m/s toward
-                     float sunShadow = 1; };                          // sun cascade strength (OPT wxsun)
+                     float sunShadow = 1;                             // sun cascade strength (OPT wxsun)
+                     float flash = 0;                                 // lightning: 0..1 this frame (W2)
+                     float skyRatio = 1, beamRatio = 1; };            // CP2: the row's diffuse light and direct beam against Clear (every preset, phys or not)                              // lightning: 0..1 this frame (W2)
   struct Weather { int target = 0, forced = -1, quality = 1, fog = 1, fogForced = -1; float k = 0, seed = 0, fogNow = -1; vec2 wind{0.012f, 0.0075f}; double clock = -1;
                    int mapWx = -1, mapFog = -1; bool userSet = false; float mapCloud = -1.0f;   // NT2b: mapCloud 0..1 = broken cloud (look.weather as a number)   // NT2: a map's default weather / env fog (extra.look), until the user picks one this session
                    int fogWant() const { return fogForced >= 0 ? fogForced : mapFog >= 0 && !userSet ? mapFog : fog; }
@@ -158,7 +170,12 @@ public:
                    int want() const { return enclosed ? 0 : forced >= 0 ? (forced == kMapDefault ? std::max(mapWx, 0) : forced) : mapWx >= 0 && !userSet ? mapWx : target; }
                    static constexpr int kMapDefault = 99;   // W1: a LAN host on Map default (forced = this: the client uses the same map's own sky)
                    bool presetOn() const { return !enclosed && (forced >= 0 ? forced != kMapDefault : userSet || (mapWx < 0 && mapCloud < 0.0f)); }   // a preset row, not the map's authored look
-                   WxState st; WxDerived der; float wantK() const { extern float wxPresetDeck(int); return !enclosed && (forced < 0 || forced == kMapDefault) && mapCloud >= 0.0f && !userSet ? mapCloud : wxPresetDeck(want()); } void snap() { k = wantK(); } } wx;
+                   WxState st; WxDerived der;
+                   // W2 lightning: count so far, the last strike's distance (m, thunder delay = d / 343 s) and Renderer::time
+                   int strikes = 0; float strikeDistM = 0, strikeT = -1;
+                   struct Flash { vec3 pos; float t, distM; };   // a strike this frame: world position (cloud base), cloudClock() time, distance from the eye (m)
+                   std::vector<Flash> flashes;                   // this frame's strikes (cleared each frame by weatherDerive; thunder after distM / 343 s)
+                   float wantK() const { extern float wxPresetDeck(int); return !enclosed && (forced < 0 || forced == kMapDefault) && mapCloud >= 0.0f && !userSet ? mapCloud : wxPresetDeck(want()); } void snap() { k = wantK(); } } wx;
   float cloudCoverNow() const { return glm::mix(cloudCover, 0.86f, wx.k); }   // WX1 Cloudy: broken to heavy cover, still with openings
   // WX1 environmental fog field (render.cpp bakeFog): 256^2 over the terrain, R ground-fog share (basins, low ground,
   // shore), G drift noise (scrolls on the wind), B smoothed ground height (m). Rebuilt when the terrain changes.
@@ -169,6 +186,8 @@ public:
   // render quality / look (docs/rendering.md). legacy = the pre-BSL-pass look (fallback)
   struct Quality {
     bool legacy = false;
+    bool lightPhys = false;     // CP2 Settings > Lighting Physical: sun / sky / bounce in lux, EV100 exposure (implies lightNew)
+    float physExpoK = 1.44f;    // CP2: exposure calibration (grey card in clear midday sun lands where New puts it; the look-dev readout refines it)
     bool lightNew = true;       // VO stream L: Settings > Lighting New / Classic (Classic = the pre-VO look, exactly)
     float agxK = 1.0f, agxSat = 1.0f;   // VO L8: AgX-space curve input scale and saturation re-fit (1: the old curve's mid-tones)
     float histCal = 1.0f;      // VO L8: histogram metering (40-95 % log mean) x this = the old mean metering on typical views
@@ -185,6 +204,7 @@ public:
     float snowfallScale = 1.0f;   // SF1: share of a map's snowfall drawn at this preset (Low 0.4, Medium 0.75, High 1)   // aerial perspective (1/m at ground level, scale height m)
     bool ssao = true; float ssaoStrength = 0.95f, ssaoRadius = 0.5f;   // GX5: 0.85 / 0.6 -> 0.95 / 0.5 (contact shadows tuned for interiors, brief §8)
     bool bloom = true; float bloomStrength = 0.045f;
+    float sharpness = 0.5f;       // CP1 Settings > Sharpness 0..1: the one contrast-adaptive sharpen (tone pass); 0 = off
     float microcontrast = 0.0f;   // UI2 Settings > Microcontrast 0..1: unsharp mask on luminance against HDR mip 3 (0: off, the branch is skipped)
     bool ssr = true; float ssrStrength = 1.0f;
     bool taa = true; float taaSharpen = 0.30f, taaJitter = 0.5f;   // V1: sharpen 0.40 -> 0.30 (facade shimmer A/B, docs/rendering.md 9.5)
@@ -227,6 +247,8 @@ public:
     bool texLate = true;         // texlate (OPT1): a texture set needed mid-match goes into a spare array layer (worker build, one upload a frame); off = the old full reload of every set
     bool groundTaps = true;      // groundtaps (OPT2): ground taps cut by distance and weight (hex 12-30 m fade, hex on layers >= 35 %, no far normal tap, no substrate taps under full snow); off = the old taps
     bool splitSum = true;        // splitsum (CP step 3): split-sum env specular + multi-scatter, Lagarde specular occlusion, multi-bounce material AO by albedo; off = the x0.6 fudge
+    bool albClamp = true;        // albclamp (CP step 4): dielectric albedo luminance clamped to linear 0.02-0.9, grass floored at 0.10
+    bool wAbs = true;            // wabs (CP step 7): water extinction by absorption (Pope & Fry pure water + per-kind organics) and silt scattering; off = the per-kind tint
     bool hblend = true;          // hblend (M2): height-based blending of ground layers and paint (textures.cpp hbK)
     bool hex = true;             // hex (M1): hex-tiled ground and cliff texture taps (textures.cpp texHexFetch)
     bool snow = true;            // snow (VO P, A/B only): the SN1 snow layer off on every surface, to time its shading
@@ -277,7 +299,7 @@ public:
     bool fullShadow = true;      // fullshadow (VO L1): full-strength sun shadows (off: 30 % lighter, as Classic)
     bool gtao = true;            // gtao (VO L2): GTAO with multi-bounce and specular occlusion (off: the old 8-sample SSAO)
     bool microShadow = true;     // microsh (VO L4): micro-shadowing of the sun by material AO (Lighting New)
-    bool vegPrepass = true;      // vegprepass (CP1): model foliage and grass get a depth prepass (alpha test only), then GL_EQUAL shading, like leafprepass
+    bool vegPrepass = false;     // off until fixed: on Blackwater Thaw the prepass wrote depth where the colour pass drew no grass (flat ground-textured rectangles); --rq-on vegprepass   // vegprepass (CP1): model foliage and grass get a depth prepass (alpha test only), then GL_EQUAL shading, like leafprepass
     bool leafDrift = true;       // leafdrift (WS2): drifting leaves near broadleaf / orchard trees (count: Quality::leafDriftN)
     bool hashAlpha = false;      // hashalpha (VO A1): cut-out leaves / grass with a dithered threshold under TAA (Medium / High), width NMK_HASH_SPREAD (0.2); off: no gain over cutoutMips (A1 sheets), kept for A/B
     bool folTrans = true;        // foltrans (VO L4): two-sided translucency on model foliage (Lighting New)
@@ -287,6 +309,20 @@ public:
     bool atmo = true;            // atmo (VO L5): atmosphere-driven sun / sky / fog away from the authored hour, aerial perspective (Lighting New)
     bool reflProbe = true;       // reflprobe (VO L7): a prefiltered reflection cube near the eye, parallax-corrected (Lighting New)
     bool probeTrickle = true;    // probetrickle (OPT): GI probes captured at most 3 a frame while filling, 1 every 4th frame once converged (play; sky relit live)
+    bool farLite = true;         // farlite (OPT): far sun cascade redrawn at most every 4th frame, casters under ~4 far texels skipped (was 2)
+    bool occSmall = true;        // occsmall (OPT, weather corpus s3.5): sky-occlusion map over +-64 m instead of +-90 m
+    bool skyGate = true;         // skygate (OPT, weather corpus s3.3): no low cloud field under a closed deck
+    bool ssrRange = true;        // ssrrange (OPT, weather corpus s3.4): SSR stops at 0.75 x the weather's visibility
+    bool w2Sky = true;           // w2sky (W2): overcast sky zenith 3x the horizon (CIE), haze fades into the sky's own horizon colour (Lighting New)
+    bool w2Mist = true;          // w2mist (W2): environmental fog without the 0.3 floor everywhere, 2-3x patchy
+    bool w2Expo = true;          // w2expo (W2): overcast on a snow map exposes up (x1.2) instead of down (x0.72)
+    bool lightning = true;       // lightning (W2): Thunderstorm flashes and strike events (wx.strikes, for thunder)
+    bool taaJitPh = true;        // taajitph (CP1): jitter phases 8 x (display / render)^2 under upscaling
+    bool taaVel = true;          // taavel (CP1): TAA motion from the closest depth in 3x3
+    bool taaBox = true;          // taabox (CP1): history also clamped to the 3x3 min / max box
+    bool cas = true;             // cas (CP1): one contrast-adaptive sharpen after the grade sharpen's place, with the Sharpness slider; TAA and grade sharpens off
+    bool dither = true;          // dither (CP1): triangular +-1 LSB dither at the final write
+    bool slopeCap = true;        // slopecap (CP1): shadow slope-bias cap 6 -> 2, bias scaled by the filter radius
     bool wxSun = true;           // wxsun (OPT, weather corpus 08 s4.2): overcast takes the direct sun away; under 5 % direct share no sun cascades (fade to 10 %)
     bool sunShadow = true;       // sunshadow (OPT): the sun cascades (near, mid, far) drawn and sampled; off = none (knock-out)
     bool midCascade = true;      // midcascade (VO L3): a third sun cascade between the near and far ones (Medium / High, Lighting New)
@@ -316,7 +352,7 @@ public:
     bool set(const std::string& n, bool on) {   // false: no such switch
       if (n == "wx1") { clouds = cloudShadow = shafts = envFog = on; return true; }   // WX1: the whole weather / fog stack (one A/B)
       bool* b = n == "farcache" ? &farCache : n == "occcache" ? &occCache : n == "smallcasters" ? &smallCasters : n == "probecull" ? &probeCull
-              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "tzearly" ? &terrainEarlyZ : n == "tzprepass" ? &terrainPrepass : n == "sunshadow" ? &sunShadow : n == "wxsun" ? &wxSun : n == "probetrickle" ? &probeTrickle : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "clouds" ? &clouds : n == "cloudshadow" ? &cloudShadow : n == "shafts" ? &shafts : n == "envfog" ? &envFog : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
+              : n == "leafprepass" ? &leafPrepass : n == "skylast" ? &skyLast : n == "terrainlast" ? &terrainLast : n == "tzearly" ? &terrainEarlyZ : n == "tzprepass" ? &terrainPrepass : n == "sunshadow" ? &sunShadow : n == "wxsun" ? &wxSun : n == "taajitph" ? &taaJitPh : n == "taavel" ? &taaVel : n == "taabox" ? &taaBox : n == "cas" ? &cas : n == "dither" ? &dither : n == "slopecap" ? &slopeCap : n == "w2sky" ? &w2Sky : n == "w2mist" ? &w2Mist : n == "w2expo" ? &w2Expo : n == "lightning" ? &lightning : n == "farlite" ? &farLite : n == "occsmall" ? &occSmall : n == "skygate" ? &skyGate : n == "ssrrange" ? &ssrRange : n == "probetrickle" ? &probeTrickle : n == "probecapture" ? &probeCapture : n == "proberefresh" ? &probeRefresh : n == "assetlod" ? &assetLod : n == "hlod" ? &hlod : n == "matlayer" ? &matLayer : n == "relief" ? &relief : n == "clouds" ? &clouds : n == "cloudshadow" ? &cloudShadow : n == "shafts" ? &shafts : n == "envfog" ? &envFog : n == "sdecals" ? &staticDecals : n == "grade" ? &grade
               : n == "terraincache" ? &terrainCache : n == "matlod" ? &matLod : n == "opqsort" ? &opqSort : n == "zprepass" ? &zPrepass : n == "grassshadow" ? &grassShadow : n == "leaftex" ? &leafTex : n == "taau" ? &taau : n == "imgmat" ? &imgMat
               : n == "castercull" ? &casterCull : n == "leafshadowlod" ? &leafShadowLod : n == "probebudget" ? &probeBudgetOn : n == "roomcull" ? &roomCull : n == "propdist" ? &propDist : n == "foundwx" ? &foundWx : n == "grassatlas" ? &grassAtlas : n == "dlcache" ? &dlCache : n == "instdepth" ? &instDepth : n == "folbatch" ? &folBatch : n == "farleaf" ? &farLeaf : n == "walllod" ? &wallLod : n == "matfar" ? &matFar : n == "probemed" ? &probeMed : n == "shadowcache" ? &shadowCache : n == "occcull" ? &occCull : n == "treefar" ? &treeFar : n == "leafmerge" ? &leafMerge : n == "furndist" ? &furnDist : n == "furnclutter" ? &furnClutter : n == "paint" ? &groundPaint : n == "vegcull" ? &vegCull
               // One line per stream, each followed by a comment line, so two streams appending names no longer conflict in merges.
@@ -324,7 +360,7 @@ public:
               // ^ stream T (terrain): append to the line above
               : n == "contactsh" ? &contactShadow : n == "fullshadow" ? &fullShadow : n == "gtao" ? &gtao : n == "midcascade" ? &midCascade : n == "microsh" ? &microShadow : n == "foltrans" ? &folTrans : n == "agx" ? &agx : n == "histexpo" ? &histExpo : n == "skyrelit" ? &skyRelit : n == "atmo" ? &atmo : n == "reflprobe" ? &reflProbe
               // ^ stream L (lighting): append to the line above
-              : n == "specaa" ? &specAA : n == "texbias" ? &texBias : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps : n == "splitsum" ? &splitSum
+              : n == "specaa" ? &specAA : n == "texbias" ? &texBias : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps : n == "splitsum" ? &splitSum : n == "albclamp" ? &albClamp : n == "wabs" ? &wAbs
               // ^ stream M (materials): append to the line above
               : n == "charvel" ? &charVel
               // ^ characters (gameplay): append to the line above
@@ -562,4 +598,6 @@ private:
 int wxPresetCount(); int wxPresetIdAt(int menuIndex); int wxPresetMenuIndex(int id); const char* wxPresetName(int id);
 int wxPresetFromName(const std::string& n);   // a name or the old "clear" / "cloudy"; -1 unknown
 float wxPresetDeck(int id);
-void weatherDerive(Renderer& R);
+void weatherDerive(Renderer& R, vec3 eye = vec3(0));
+void weatherForce(Renderer& R, int id);   // W1: a preset now, as if picked in the menu (benchmarks: also NMK_WEATHER=<name or id> at start)
+int dbgViewFromName(const std::string& n);   // CP0: "lum", "illum", "albedo", "furnace", "texel", "sky"; anything else 0 (off)
