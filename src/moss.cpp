@@ -5,6 +5,7 @@
 #include "ground_paint.h"
 #include "water_query.h"
 #include "terrain.h"
+#include "roads.h"
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -27,6 +28,7 @@ inline float ss(float a, float b, float x) { float t = sat((x - a) / (b - a)); r
 struct Inputs {   // everything the worker needs, gathered on the main thread
   Grid g; std::vector<float> ground, top, canopy, crownLo, crownHi; std::vector<uint8_t> water;
   std::vector<vec2> doors;
+  std::vector<vec3> trunks;   // x, z, trunk radius: their north sides hold moisture (moss climbs the shaded foot)
 };
 
 std::shared_ptr<Grid> buildGrid(Inputs in) {
@@ -66,6 +68,16 @@ std::shared_ptr<Grid> buildGrid(Inputs in) {
     o[0] = uint8_t(std::lround(255 * sat(1 - d[k] / 8.0f)));
     o[1] = uint8_t(std::lround(255 * sat(1 - sunHours / 6.0f)));
     o[3] = uint8_t(std::lround(255 * sat(in.canopy[k])));
+  }
+  // x also: the shaded north foot of every trunk (world north = -z), out to ~1.5 m past the bark
+  for (vec3 tr : in.trunks) {
+    const int r = int(std::ceil((tr.z + 1.6f) / cs)), cx = int((tr.x - in.g.org.x) / cs), cz = int((tr.y - in.g.org.y) / cs);
+    for (int z = cz - r; z <= cz; ++z) for (int x = cx - r; x <= cx + r; ++x) {
+      if (x < 0 || z < 0 || x >= nx || z >= nz) continue;
+      const vec2 d = in.g.org + (vec2(x, z) + 0.5f) * cs - vec2(tr.x, tr.y);
+      const float north = sat(-d.y / std::max(glm::length(d), 1e-3f)), k = 0.65f * north * (1 - ss(tr.z, tr.z + 1.5f + cs, glm::length(d)));
+      uint8_t& o = out->v[size_t(z * nx + x) * 4]; o = std::max<uint8_t>(o, uint8_t(std::lround(255 * sat(k))));
+    }
   }
   // z: no moss within ~1.2 m of a door or gate (0.8-1.5 m, reference 03 s3.1)
   for (vec2 p : in.doors) {
@@ -127,7 +139,7 @@ void mossHabitatSync(App& app) {
     const vec2 w = g.org + (vec2(x, z) + 0.5f) * g.cell; const int k = z * g.nx + x;
     const float h = t.height(w.x, w.y); in->ground[k] = in->top[k] = h;
     const float wl = waterAt(app, w.x, w.y);
-    in->water[k] = (!waterNone(wl) && wl > h - 0.02f) || groundPaintWeight(w.x, w.y, 1) > 0.5f;   // 1: marsh / shallow water
+    in->water[k] = (!waterNone(wl) && wl > h - 0.02f) || groundPaintWeight(w.x, w.y, 1) > 0.5f || poolAt(w.x, w.y, h) > 0.0f;   // 1: marsh / shallow water; the map's authored pools
   }
   for (const Instance& i : app.doc.instances) {
     auto it = app.rt.find(i.id); if (it == app.rt.end() || !it->second.asset) continue;
@@ -136,6 +148,7 @@ void mossHabitatSync(App& app) {
     const bool tree = a->tree.on || a->modelFoliage;
     if (!tree && a->footprint.x * a->footprint.y < 1.0f) continue;
     const vec3 mn = a->bmin, mx = a->bmax;
+    if (tree && mx.y - mn.y > 3.0f) in->trunks.push_back(vec3(i.pos.x, i.pos.z, a->tree.on ? a->tree.trunkR : 0.15f + 0.012f * (mx.y - mn.y)));
     if (tree) {   // crown disc: half the larger span, from a third of the height up
       const float r = 0.5f * std::max(mx.x - mn.x, mx.z - mn.z), lo = i.pos.y + mn.y + 0.35f * (mx.y - mn.y), hi = i.pos.y + mx.y;
       const int rc = int(std::ceil(r / g.cell)), cx = int((i.pos.x - g.org.x) / g.cell), cz = int((i.pos.z - g.org.y) / g.cell);
@@ -190,4 +203,13 @@ vec3 mossFieldCpu(vec3 p, float upDot, float wallAttach, float groundRecv, float
   const float L = sat((1 - shelter) * lichenAge * (1 - moist) * 2.0f) * ss(0.55f, 0.9f, por) * (1 - M) * (1 - snow) * (1 - excl)
                 * ss(0.5f, 0.68f, mossVnCpu(p / 0.09f + 7.0f) * 0.7f + mossVnCpu(p / 0.7f + 3.0f) * 0.3f);
   return vec3(M, ss(0.50f, 0.83f, M) * site, L);
+}
+
+vec2 mossGroundCpu(vec3 p, float nUp, vec4 hab, float traffic, float litter, float bias, float nearK) {   // kCommon mossGround
+  const float moist = sat(0.55f * hab.x + 0.35f * hab.w), shade = sat(0.6f * hab.y + 0.4f * hab.w);
+  const float hb = ss(0.55f, 0.9f, nUp) * sat(0.5f * moist + 0.35f * shade + 0.15f * hab.w);
+  const float cl = ss(0.45f, 0.7f, mossVnCpu(p / 4.0f + 17.0f));
+  const float pt = ss(0.38f, 0.62f, hb + bias + 0.22f * (mossVnCpu(p / 0.6f) - 0.5f) + 0.17f * (mossVnCpu(p / 0.08f + 31.0f) - 0.5f) * nearK) * cl;
+  const float M = std::min(pt * (1 - ss(0.05f, 0.3f, traffic)) * (1 - 0.75f * sat(litter)) * (1 - hab.z), 0.6f);
+  return vec2(M, ss(0.35f, 0.58f, M));
 }

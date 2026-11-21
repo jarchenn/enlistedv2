@@ -20,5 +20,7 @@ float mossVnCpu(vec3 p);
 float mossMoistCpu(float y, float drip, float cav, float distW);
 float mossShelterCpu(float sh0, vec3 n, vec3 sunDir);
 // (M appearance, G instanced relief, L lichen); nearK = 1 (the 8 cm octave at full strength)
+// ground moss (kCommon mossGround): (M, G); hab = mossHabitat, litter = leaf-litter paint weight
+vec2 mossGroundCpu(vec3 p, float nUp, vec4 hab, float traffic, float litter, float bias, float nearK = 1.0f);
 vec3 mossFieldCpu(vec3 p, float upDot, float wallAttach, float groundRecv, float moist, float shelter, float por, float root,
                   float traffic, float excl, float snow, float site, float lichenAge = 0.5f, float nearK = 1.0f, float bias = 0.0f);   // bias: the map's wetness (Renderer::lt.mapMossBias)

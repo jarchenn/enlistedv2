@@ -252,8 +252,8 @@ void buildChunk(const Ctx& x, Chunk& c) {
     float h; vec3 n; if (!spot(x, p, 45.0f, h, n, 0.3f)) continue;
     const vec4 hb = mossHabitat(p.x, p.y);
     const vec3 P(p.x, h, p.y);
-    const float mo = mossMoistCpu(0.0f, 0.0f, 0.0f, 8.0f * (1.0f - hb.x)) * 0.5f + 0.5f * hb.w;   // ground: moisture weighted up under canopies (03 s3.5)
-    const vec3 f = mossFieldCpu(P, n.y, 0.0f, 1.0f, mo, mossShelterCpu(hb.y, n, vec3(0, 0, 1)), 0.9f, hb.w, std::max(traffic(p), roadRim(p)), hb.z, 0.0f, 1.0f, 0.5f, 1.0f, x.bias);
+    const vec2 g = mossGroundCpu(P, n.y, hb, std::max(traffic(p), roadRim(p)), groundPaintWeight(p.x, p.y, 10), x.bias);   // the ground moss field (kCommon mossGround)
+    const vec3 f(g.x, g.y, 0.0f);
     if (u01(hash4(hk, 2, 0, 0)) >= f.y) continue;
     // align +Y between the surface normal and up, then turn about it by a smooth noise field: neighbours lean together
     const vec3 ax = glm::normalize(glm::mix(n, vec3(0, 1, 0), 0.35f));
