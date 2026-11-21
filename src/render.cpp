@@ -4556,7 +4556,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
     glUniform2f(U(p, "uPomQ"), q.pomRange, (float)q.pomSteps); glUniform1f(U(p, "uSDecR"), q.decalRange);
     const float an = perf.texBias ? std::max(q.texAniso, 16.0f) : q.texAniso;   // CP step 1: 16x with texbias
     static float aniso = -1.0f; if (an != aniso) { aniso = an; tex::setAnisotropy(aniso); }
-    float tb = std::log2(std::max(effScale(), 0.25f)) + (q.taa ? -0.5f : 0.0f);   // texbias: follows the render scale (dynamic resolution)
+    float tb = (perf.taau && upscaleMode == 0 ? std::log2(std::max(resScale, 0.25f)) : 0.0f) + (q.taa ? -0.5f : 0.0f);   // temporal upscaling only (mode 1 is a spatial blit: no history resolves a negative bias)   // texbias: follows the render scale (dynamic resolution)
     if (const char* e = std::getenv("NMK_TEX_BIAS")) tb = (float)std::atof(e);
     glUniform1i(U(p, "uTexBiasOn"), perf.texBias && !thumbMode ? 1 : 0); glUniform1f(U(p, "uTexBias"), tb);
   }
