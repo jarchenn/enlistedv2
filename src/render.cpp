@@ -6082,12 +6082,13 @@ void Renderer::bakeFog(const Terrain& t) {
 // the shader's optical depth with the field taken at the segment's midpoint (no drift noise): bot sight in fog
 float Renderer::fogT(vec3 a, vec3 b) const {
   float dens = wx.fogNow >= 0 ? wx.fogNow : wx.fogDens();
-  if (fogCpu.empty() || dens <= 0) return 1.0f;
+  const float tPreset = wx.der.phys ? std::exp(-wx.der.sigma * glm::length(b - a)) : 1.0f;   // a preset's visibility (Dense fog, Blizzard, Sandstorm)
+  if (fogCpu.empty() || dens <= 0) return tPreset;   // the bots' sight: no fog field on the map must not mean clear air under a fog preset
   const int N = 256; vec3 m = (a + b) * 0.5f;
   int i = std::clamp((int)((m.x - fogBox.x) * fogBox.z * N), 0, N - 1), j = std::clamp((int)((m.z - fogBox.y) * fogBox.w * N), 0, N - 1);
   const vec4& F = fogCpu[(size_t)j * N + i];
   float hm = std::max(m.y - F.z, 0.0f);
-  return std::exp(-dens * F.x * glm::length(b - a) * std::exp(-hm / 22.0f)) * (wx.der.phys ? std::exp(-wx.der.sigma * glm::length(b - a)) : 1.0f);   // W1: a preset's visibility counts for the bots' sight
+  return std::exp(-dens * F.x * glm::length(b - a) * std::exp(-hm / 22.0f)) * tPreset;   // W1: a preset's visibility counts for the bots' sight
 }
 
 // TH2: the last thermal frame's heat target read back (tests): hot pixels and their box, rows counted from the top

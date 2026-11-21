@@ -166,6 +166,7 @@ struct Fx {
   size_t maxParts = 1500, maxStreaks = 160, maxDebris = 72;
   void setBudget(float k);        // settings: caps = the defaults above x k (Low 0.6, Medium 1, High 1.5)
   bool rangeMode = true;          // range presentation: every trajectory clearly visible
+  vec2 wind{0};                   // weather: the air's horizontal velocity (m/s) smoke and dust relax to (R.wx.der.windXZ; switch wxdrift)
   bool nearFade = true;           // fxnear: every alpha sprite fades near the eye, every sprite is capped at half the view height on screen (Renderer::Perf, set each frame)
   void update(float dt, const Terrain& t);
   void clear() { parts.clear(); streaks.clear(); debris.clear(); }

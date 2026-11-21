@@ -213,7 +213,7 @@ void Fx::update(float dt, const Terrain& t) {
   mlights.erase(std::remove_if(mlights.begin(), mlights.end(), [](const MuzzleLight& L) { return L.age >= L.life; }), mlights.end());
   for (auto& q : parts) {
     q.life -= dt;
-    q.v *= std::exp(-q.drag * dt);
+    { const vec3 w = q.additive ? vec3(0) : vec3(wind.x, 0, wind.y); q.v = w + (q.v - w) * std::exp(-q.drag * dt); }   // weather: smoke / dust settle into the wind (0: still air)
     q.v.y += q.lift * dt;
     q.p += q.v * dt;
     q.size = std::max(0.02f, q.size + q.grow * dt);

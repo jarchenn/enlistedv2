@@ -289,6 +289,7 @@ public:
     bool dtSnap = true;          // dtsnap (CP 4): frame time snapped to whole display refreshes within 1 ms, remainder carried (off: the raw clock)
     bool fxLit = true;           // fxlit (weather W6): particles lit by the sun (one shadow tap) and sky / ground and fogged per vertex like geometry (off: their own colour, unfogged)
     bool fxSoft = true;          // fxsoft (weather W6): particles fade over 0.35 x their radius where they meet the scene (off: a hard line)
+    bool wxDrift = true;         // wxdrift (weather): smoke and dust particles drift with the state's wind, grenade clouds creep downwind (off: still air)
     bool fxNear = true;          // fxnear (weather 7): alpha sprites fade near the eye, every sprite capped at half the view height on screen (off: as before)
     bool charVel = true;         // charvel (AIB1): soldiers write their own TAA motion (previous model matrix + previous skinned vertex); off = depth reprojection (smeared)
     bool taau = true;            // taau (P1): below scale 1 the world renders at the resolution scale and TAA reconstructs at output size (rendering.md 14); off = native resolution
@@ -307,7 +308,7 @@ public:
               // ^ stream L (lighting): append to the line above
               : n == "specaa" ? &specAA : n == "hex" ? &hex : n == "hblend" ? &hblend
               // ^ stream M (materials): append to the line above
-              : n == "charvel" ? &charVel : n == "fxnear" ? &fxNear : n == "fxlit" ? &fxLit : n == "fxsoft" ? &fxSoft : n == "poseframe" ? &poseFrame : n == "poselod" ? &poseLod : n == "posejobs" ? &poseJobs : n == "stepinterp" ? &stepInterp : n == "dtsnap" ? &dtSnap
+              : n == "charvel" ? &charVel : n == "fxnear" ? &fxNear : n == "wxdrift" ? &wxDrift : n == "fxlit" ? &fxLit : n == "fxsoft" ? &fxSoft : n == "poseframe" ? &poseFrame : n == "poselod" ? &poseLod : n == "posejobs" ? &poseJobs : n == "stepinterp" ? &stepInterp : n == "dtsnap" ? &dtSnap
               // ^ characters (gameplay): append to the line above
               : n == "hashalpha" ? &hashAlpha
               // ^ stream A (vegetation): append to the line above

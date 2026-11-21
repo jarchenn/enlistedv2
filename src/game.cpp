@@ -1039,6 +1039,7 @@ void Game::clientStep(float dt) {
     ++k;
   }
   gren.expire(t);
+  if (app.R.perf.wxDrift) gren.drift(app.R.wx.der.windXZ, dt);   // weather: clouds creep downwind (host and client alike, from the same state)
   gren.particles(app.fx, t, dt);
   if (Soldier* L = local(); L && L->alive) localGrenadeCounts(*L, false);
 }
@@ -1326,6 +1327,7 @@ void Game::stepRest(float dt) {
   crumb("game: grenades");
   // grenades: bodies, fuses and blasts are the shared core (App::stepGrenades); smoke clouds and the AI view here
   syncGrenadeView();
+  if (app.R.perf.wxDrift) gren.drift(app.R.wx.der.windXZ, dt);   // weather: clouds creep downwind (host and client alike, from the same state)
   gren.particles(app.fx, t, dt);
   // match rules
   match.update(dt);
