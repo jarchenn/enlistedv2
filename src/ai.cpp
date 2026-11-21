@@ -52,7 +52,7 @@ void Game::aiStep(Soldier& s, float dt) {
     // SD7: in the SD freeze (buy time) a bot on the ground is pinned: no agent update at all (with a zero velocity the
     // controller still slid it on slopes and pushed it out of its neighbours at the spawn); only one still in the air settles
     const bool pinned = sdFrozen() && !s.human && Physics::agent(s.agent).grounded;
-    if (!pinned) Physics::updateAgent(s.agent, dt, vec3(0), false, s.posture, s.yaw);
+    if (!pinned) Physics::updateAgent(s.agent, dt, s.dbgVel, false, s.posture, s.yaw);   // CP: dbgVel (0 but in captures) walks it through the real steps
     auto st = Physics::agent(s.agent); s.feet = st.pos; s.vel = s.dbgVel; s.speed = glm::length(vec2(s.dbgVel.x, s.dbgVel.z));   // WSM2: dbgVel 0 but in captures
     if (sdFrozen() && !s.human) { b.aimYaw = s.yaw; b.aimPitch = 0; b.target = -1; b.yawVel = 0; b.faceVel = vec2(0); }   // no turn left over into the live round   // SD7: the gun level along the facing (out of the spawn)
     return;

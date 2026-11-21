@@ -13,6 +13,7 @@
 // pose.weapon * the weapon's muzzle is that joint, with the bore along the joint's rest +z, so every pose.weapon user
 // (soldierFire, net echoes) needs no change.
 #include "game.h"
+#include <mutex>
 #include "character.h"
 #include "anim_clip.h"
 #include "ai_hooks.h"
@@ -57,7 +58,9 @@ void flashMuzzle(Game& G, Soldier& s, const CharModel& m, int flash) {
   s.pose.weapon = W;
 }
 
+std::recursive_mutex gPoseCacheMx;   // CP: the lazily filled rig / socket caches below, read from the pose workers (game.cpp posesStep)
 const Rig& rigOf(const CharModel& m) {
+  std::lock_guard<std::recursive_mutex> lk(gPoseCacheMx);
   auto it = gRigs.find(&m); if (it != gRigs.end()) return it->second;
   Rig r;
   for (int k = 0; k < m.joints(); ++k) if (m.nodeName[m.jointNode[k]] == "flash") r.flash = k;
@@ -148,6 +151,7 @@ namespace {
 struct DRig { int walk[8], run[8], sprint[8], cwalk[8]; int flash = -1, shot = -1, cshot = -1, reload = -1, creload = -1; float shotAt = 0.1f, cshotAt = 0.1f; int throwS[2] = {-1, -1}, throwC = -1, turnL = -1, turnR = -1, cturnL = -1, cturnR = -1; int idle = -1, aim = -1, cidle = -1, caim = -1, pIdle = -1, pKneel = -1, pWalk = -1, pRun = -1, pWalkB = -1, pRunB = -1; int death[6]; int cdeath = -1; };
 std::map<const CharModel*, DRig> gDRigs;
 const DRig& dRigOf(const CharModel& m) {
+  std::lock_guard<std::recursive_mutex> lk(gPoseCacheMx);
   auto it = gDRigs.find(&m); if (it != gDRigs.end()) return it->second;
   DRig r; static const char* dir[8] = {"forward", "forward left", "left", "backward left", "backward", "backward right", "right", "forward right"};
   r.idle = findClip(m, "idle"); r.aim = findClip(m, "idle aiming"); if (r.aim < 0) r.aim = r.idle; if (r.idle < 0) r.idle = r.aim;
@@ -191,6 +195,7 @@ const DRig& dRigOf(const CharModel& m) {
 // the centre of a gun's parts of one role (weapons.cpp WPart: 1 bolt, 2 mag, 3 cover, 4 clip, 7 handle), weapon space, from the
 // kept vertex positions; `def` when it has none
 vec3 weaponPartCentre(const WeaponDef& d, int role, vec3 def) {
+  std::lock_guard<std::recursive_mutex> lk(gPoseCacheMx);
   static std::map<std::pair<const WeaponDef*, int>, std::pair<bool, vec3>> memo;
   auto key = std::make_pair(&d, role);
   if (auto it = memo.find(key); it != memo.end()) return it->second.first ? it->second.second : def;
@@ -276,10 +281,12 @@ bool deltaBodyPose(Game& G, Soldier& s, float dt, PoseParams& pp) {
   static thread_local PoseResult base;
   A.update(m, dt, base);
   if (turnClip >= 0 && A.a == turnClip && m.semantic[CJ_HIPS] >= 0) {   // take the clip's hip turn (since its first frame) out about the hips' vertical
-    static std::map<std::pair<const CharModel*, int>, float> yaw0;
+    static std::map<std::pair<const CharModel*, int>, float> yaw0; float yaw0v;
     auto k0 = std::make_pair(&m, turnClip);
+    { std::lock_guard<std::recursive_mutex> lk(gPoseCacheMx);
     if (!yaw0.count(k0)) { NodeLocals L; restLocals(m, L); sampleClip(m, turnClip, 0, true, L); PoseResult P0; poseFromLocals(m, L, P0); yaw0[k0] = hipsYaw(m, P0); }
-    const float yw = hipsYaw(m, base) - yaw0[k0]; const vec3 piv = vec3(base.delta[m.semantic[CJ_HIPS]] * vec4(m.jointHead[m.semantic[CJ_HIPS]], 1));
+    yaw0v = yaw0[k0]; }
+    const float yw = hipsYaw(m, base) - yaw0v; const vec3 piv = vec3(base.delta[m.semantic[CJ_HIPS]] * vec4(m.jointHead[m.semantic[CJ_HIPS]], 1));
     const mat4 R = glm::translate(mat4(1), vec3(piv.x, 0, piv.z)) * glm::mat4_cast(glm::angleAxis(-yw, vec3(0, 1, 0))) * glm::translate(mat4(1), -vec3(piv.x, 0, piv.z));
     for (auto& d : base.delta) d = R * d;
   }

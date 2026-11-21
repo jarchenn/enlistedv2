@@ -373,6 +373,11 @@ public:
     bool terrainHorizon = true;  // thorizon (VOT T6): baked terrain horizon toward the sun shadows the ground and far objects past the last cascade; off = unshadowed there, as before
     bool terrainTileLod = true;  // ttilelod (VOT T2): fine tiles culled to the view and drawn at 1/5/7-sample steps by distance (skirts hide the seams); off = every tile at full resolution
     bool terrainSkyView = true;  // tskyview (VOT T5): the terrain's ambient is occluded by its own horizon (baked sky-view factor); off = open sky everywhere
+    bool poseFrame = true;       // poseframe (CP 1): soldier poses once per drawn frame (off: once per fixed step, as before)
+    bool poseLod = true;         // poselod (CP 2): pose rate / view LOD at any soldier count (off: every soldier every frame)
+    bool poseJobs = true;        // posejobs (CP 3): poses evaluated on the job threads (off: all on the main thread)
+    bool stepInterp = true;      // stepinterp (CP 4): at most 4 fixed steps a frame, the eye / soldiers drawn between the last two, Jolt on the same steps (off: cap 8, the last step as is, Jolt on the frame time)
+    bool dtSnap = true;          // dtsnap (CP 4): frame time snapped to whole display refreshes within 1 ms, remainder carried (off: the raw clock)
     bool charVel = true;         // charvel (AIB1): soldiers write their own TAA motion (previous model matrix + previous skinned vertex); off = depth reprojection (smeared)
     bool snowFar = true;         // snowfar (BT2): applySnow's patch noise only within 120 m and its shelter tap within 150 m; off = everywhere
     bool snowTex = true;         // snowtex (SN2): the three snow sets (packed / trodden / thaw) on the ground within 60 m, edges by height; off = applySnow's flat snow
@@ -393,7 +398,7 @@ public:
               // ^ stream L (lighting): append to the line above
               : n == "specaa" ? &specAA : n == "texbias" ? &texBias : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps : n == "splitsum" ? &splitSum : n == "albclamp" ? &albClamp : n == "wabs" ? &wAbs : n == "wet" ? &wet : n == "microdetail" ? &microDetail : n == "wearcause" ? &wearCause : n == "masklib" ? &maskLib : n == "roughvar" ? &roughVar
               // ^ stream M (materials): append to the line above
-              : n == "charvel" ? &charVel
+              : n == "charvel" ? &charVel : n == "poseframe" ? &poseFrame : n == "poselod" ? &poseLod : n == "posejobs" ? &poseJobs : n == "stepinterp" ? &stepInterp : n == "dtsnap" ? &dtSnap
               // ^ characters (gameplay): append to the line above
               : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "pollen" ? &pollen : n == "impostors" ? &impostors : n == "impostorbc" ? &impostorBC : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
               // ^ stream A (vegetation): append to the line above

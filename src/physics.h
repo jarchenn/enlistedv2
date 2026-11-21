@@ -27,7 +27,8 @@ public:
   static vec3 velocity(uint32_t body);
   static void remove(uint32_t body);
   static int bodyCount();
-  static void step(float dt);
+  static void step(float dt, int collisionSteps = 1);
+  static void parallelFor(int n, const std::function<void(int)>& fn);   // CP: fn(0..n-1) on Jolt's job threads (and this one); returns when all are done. No GL in fn   // CP: collisionSteps equal sub-steps (the game's fixed steps)
   static void optimizeBroadPhase();   // after adding many bodies (map load, auto-furnish): rebalances the tree for queries
 
   static bool castRay(vec3 o, vec3 dir, float maxDist, float& t, uint64_t& userData);

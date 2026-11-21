@@ -254,7 +254,18 @@ void Physics::remove(uint32_t body) {
   bi.RemoveBody(BodyID(body)); bi.DestroyBody(BodyID(body)); --W->bodies;
 }
 int Physics::bodyCount() { return W->bodies; }
-void Physics::step(float dt) { W->sys->Update(dt, 1, W->temp.get(), W->jobs.get()); }
+void Physics::parallelFor(int n, const std::function<void(int)>& fn) {
+  if (n <= 0) return;
+  JobSystem* js = W ? W->jobs.get() : nullptr;
+  if (!js || n == 1) { for (int i = 0; i < n; ++i) fn(i); return; }
+  const int chunks = std::min(n, std::max(1, js->GetMaxConcurrency()) * 2);
+  JobSystem::Barrier* b = js->CreateBarrier();
+  for (int c = 0; c < chunks; ++c)
+    b->AddJob(js->CreateJob("poses", Color::sGreen, [&fn, c, chunks, n] { for (int i = c; i < n; i += chunks) fn(i); }));
+  js->WaitForJobs(b);   // the calling thread runs jobs too
+  js->DestroyBarrier(b);
+}
+void Physics::step(float dt, int collisionSteps) { W->sys->Update(dt, std::max(1, collisionSteps), W->temp.get(), W->jobs.get()); }
 void Physics::optimizeBroadPhase() { W->sys->OptimizeBroadPhase(); }
 
 namespace {

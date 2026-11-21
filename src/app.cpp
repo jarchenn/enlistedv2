@@ -1304,8 +1304,21 @@ int App::run(int argc, char** argv) {
       else break;   // UI8: closed again while the question is up: quit (unsaved edits are lost, as the question warned)
     }
     double t = glfwGetTime();
-    frameDt = (float)std::min(0.1, t - last); last = t; now = t;
-    if (selftest && !selftest->realTime) frameDt = selftest->slowFrames ? 0.1f : 1.0f / 60.0f;  // deterministic simulation for the scripted test
+    {   // CP (corpus 12 s12.11): a measured delta within 1 ms of a whole number of display refreshes is snapped to it, the
+        // difference carried (game time never drifts from the clock by more than a refresh); the raw delta is still capped at 0.1 s
+      static const double refresh = [] { const GLFWvidmode* vm = glfwGetPrimaryMonitor() ? glfwGetVideoMode(glfwGetPrimaryMonitor()) : nullptr; return vm && vm->refreshRate > 0 ? 1.0 / vm->refreshRate : 0.0; }();
+      static double carry = 0;
+      const double raw = std::min(0.1, t - last); double use = raw;
+      if (refresh > 0 && R.perf.dtSnap) {
+        const double n = std::round((raw + carry) / refresh);
+        if (n >= 1 && std::fabs(raw + carry - n * refresh) < 0.001) use = n * refresh;
+        carry += raw - use; if (std::fabs(carry) > refresh) { use += carry; carry = 0; }
+      }
+      frameDt = (float)std::max(0.0, use); last = t; now = t;
+    }
+    static const bool rtEnv = std::getenv("NMK_SELFTEST_REALTIME") != nullptr;   // CP: profiles on the wall clock (steps per frame as in play)
+    static const float stDt = std::getenv("NMK_SELFTEST_DT") ? (float)std::atof(std::getenv("NMK_SELFTEST_DT")) : 0.0f;   // CP: a fixed frame time other than 1/60 (stepping captures)
+    if (selftest && !selftest->realTime && !rtEnv) frameDt = stDt > 0 ? stDt : selftest->slowFrames ? 0.1f : 1.0f / 60.0f;  // deterministic simulation for the scripted test
     glfwGetFramebufferSize(win, &fbw, &fbh);
     if (fbw > 0 && fbh > 0) R.resize(fbw, fbh);
 

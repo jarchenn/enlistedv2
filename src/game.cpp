@@ -667,6 +667,11 @@ void Game::killSoldier(int i, int killer, vec3 dir) {
 }
 
 // ---------------------------------------------------------------- damage
+bool Game::coarseHit(const Soldier& s, vec3 a, vec3 d) const {   // CP: hitTest's bounding sphere alone
+  float bs = bodyScale(s), zs = s.zombie ? bs * (s.eFallback ? 1.0f : enemyType(s.etype).zoneScale) : 1.0f;
+  vec3 m = a - (s.feet + vec3(0, 0.9f * bs, 0)); float b = glm::dot(m, d), R0 = 1.3f * std::max(bs, zs), cc = glm::dot(m, m) - R0 * R0;
+  return !(cc > 0 && b > 0) && b * b - cc >= 0;
+}
 bool Game::hitTest(const Soldier& s, vec3 a, vec3 d, float maxT, HitZone& hz) const {
   // coarse sphere around the body
   float bs = bodyScale(s), zs = s.zombie ? bs * (s.eFallback ? 1.0f : enemyType(s.etype).zoneScale) : 1.0f;   // EN1: the type's size and hit-zone scale
@@ -737,6 +742,7 @@ bool Game::shellSegment(const Projectile& p, vec3 a, vec3 seg, float len, float&
     Soldier& s = sold[i];
     if (!s.alive || (int)i == shooter) continue;
     HitZone hz;
+    if (s.poseAcc > 0 && coarseHit(s, a, d)) poseNow(s);   // CP: a held pose is brought up to date first
     if (hitTest(s, a, d, bt, hz) && hz.t < bt) { bt = hz.t; best = (int)i; }
   }
   if (best < 0) return false;
@@ -754,6 +760,7 @@ bool Game::projectileSegment(Projectile& p, vec3 a, vec3 seg, float len, float& 
     Soldier& s = sold[i];
     if (!s.alive || (int)i == shooter) continue;
     HitZone hz;
+    if (s.poseAcc > 0 && coarseHit(s, a, d)) poseNow(s);   // CP: a held (rate-LOD) pose is brought up to date before its zones are tested
     if (hitTest(s, a, d, bt, hz) && hz.t < bt) { bt = hz.t; best = (int)i; bz = hz; }
   }
   if (best >= 0) tHit = bt;
@@ -1038,10 +1045,14 @@ void Game::clientStep(float dt) {
   if (Soldier* L = local(); L && L->alive) localGrenadeCounts(*L, false);
 }
 
+// CP (corpus 12 s12.4): poses are evaluated once per drawn frame (posesFrame), not once per fixed step; --rq-off poseframe
+// restores the old per-step call (A/B)
+bool gPosePerStep = false, gPoseLodOff = false, gPoseSerial = false, gStepCap8 = false;   // CP: Renderer::Perf poseframe / poselod / posejobs / stepinterp, copied each frame (explore.cpp)
 void Game::step(float dt) {
   if (!active || paused) return;
+  for (auto& s : sold) s.prevFeet = s.feet;   // CP: the drawn position lies between this and the step's result
   hitMarker = std::max(0.0f, hitMarker - dt); killMarker = std::max(0.0f, killMarker - dt); hurtFlash = std::max(0.0f, hurtFlash - dt * 0.6f);
-  if (isClient) { clientStep(dt); posesStep(dt); return; }
+  if (isClient) { clientStep(dt); if (gPosePerStep) { drawAlpha = 1; posesStep(dt); } return; }
   auto c0 = std::chrono::steady_clock::now();
   struct Timer { Game& g; std::chrono::steady_clock::time_point c; ~Timer() { g.stepMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - c).count(); ++g.stepCalls; } } timer{*this, c0};
   t += dt; ++steps;
@@ -1064,7 +1075,7 @@ void Game::step(float dt) {
   // occupancy sample at step start (capture precedence uses it)
   for (auto& s : sold) match.reportAlive(s.slot, s.alive, s.feet);
   sdStep(*this, dt);   // SD1: rounds, the bomb, the economy (respawns at a round start go through stepRest)
-  crumb("game: poses"); posesStep(dt);
+  if (gPosePerStep) { crumb("game: poses"); drawAlpha = 1; posesStep(dt); }
   crumb("game: doors");
   // doors moved on the host (players, bots, client requests) -> clients
   if (gNet && gNet->role == Net::HOST)
@@ -1083,11 +1094,76 @@ void Game::step(float dt) {
   crumb("game: rest"); stepRest(dt); crumb("game: done");
 }
 
-void Game::posesStep(float dt) {
-  // AI2 crowds (over 200 combatants): far soldiers re-pose every 2nd step beyond 80 m, every 4th beyond 150 m (staggered)
-  const bool poseLod = sold.size() > 200; vec3 cam, camF; renderView(cam, camF);   // the actual camera (vehicle chase / sight cameras too)
+void Game::posesFrame(float dt, float alpha) {
+  if (!active || paused || gPosePerStep) return;
+  drawAlpha = std::clamp(alpha, 0.0f, 1.0f); ++poseFrameNo;
+  if (isClient) { void netDrawPositions(Game&); netDrawPositions(*this); }   // CP: remote soldiers at this frame's time
+  crumb("game: poses"); posesStep(dt);
+}
+
+void Game::poseNow(Soldier& s) {
+  if (s.poseAcc <= 0 || s.pose.delta.empty() || gPosePerStep) return;   // posed this frame already
+  ++posesOnDemand; poseOnly = &s; posesStep(0); poseOnly = nullptr;
+}
+
+void Game::posesStep(float dtFrame) {
+  // CP (corpus 12 s12.4): rate LOD at any soldier count, staggered by slot: every frame within 25 m, then every 2nd / 3rd / 4th frame
+  // to 50 / 100 m / beyond (20 % hysteresis); not evaluated at all while in no view (the camera's, or past 30 m the sun shadow's
+  // reach), except once a second. A soldier not evaluated keeps its pose and moves rigidly with its feet; the next evaluation runs
+  // with all the time it missed. (Replaces AI2's bands, which only applied over 200 combatants.)
+  vec3 cam, camF; renderView(cam, camF);   // the actual camera (vehicle chase / sight cameras too)
+  const float cosView = std::cos(radians(0.5f * 70.0f * 1.9f) + 0.25f);   // the 70 deg vertical view at 16:9 is ~106 deg across: a cone of half its diagonal plus a margin
+  const bool lodOff = gPoseLodOff, kPoseSerial = gPoseSerial || poseOnly;   // A/B (poseNow: on this thread)
+  const auto pt0 = std::chrono::steady_clock::now();
+  struct PoseTimer { Game& g; std::chrono::steady_clock::time_point c; ~PoseTimer() { g.poseMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - c).count(); } } poseTimer{*this, pt0};   // CP: main-thread pose time
+  struct PoseJob { Soldier* s; PoseParams pp; vec3 drawFeet; float aimYawDraw, dt; };
+  static std::vector<PoseJob> jobs; jobs.clear();
+  auto finish = [&](Soldier& s, const PoseParams& pp, vec3 drawFeet, float aimYawDraw) {   // CP: the drawn transform (after the pose: dfYawOff)
+    const CharModel& m = *models[s.model]; (void)m;
+    float yawUse = s.localPlayer ? app.eyeYaw : (s.gunBody || clipKit(s.kit) || s.holdBody) && s.alive && (s.br.target >= 0 || t - s.lastShot < 1.5) ? aimYawDraw : s.yaw;   // GM1: the clips cannot twist to the aim: engaged, the whole body turns to it
+    if (s.alive && !s.localPlayer) yawUse -= s.dfYawOff;   // 0 unless a clip body (gunbody.cpp deltaBodyPose)   // DF1: the clip holds its gun turned off its body's forward (gunbody.cpp): the body turns so the gun meets the aim
+    s.world = glm::translate(mat4(1), drawFeet) * glm::mat4_cast(glm::angleAxis(radians(yawUse) + 3.14159265f, vec3(0, 1, 0)));   // CP: drawn between the last two steps
+    if (s.zombie) {   // EN1: the type's draw scale, and a forward lean about the feet (the stalker on the zombie rig)
+      if (s.eLean != 0 && s.alive) s.world = glm::rotate(s.world, radians(s.eLean), vec3(1, 0, 0));
+      if (s.eScale != 1) s.world = glm::scale(s.world, vec3(s.eScale));
+    }
+    if (static const char* ft = std::getenv("NMK_FOOT_TRACE"); ft && !s.localPlayer && !s.zombie && s.alive && s.slot < 24 && !s.pose.delta.empty()) {   // AN1 step 3b: planted-foot slip (foottrace.csv)
+      static FILE* f = nullptr; if (!f) { std::error_code ec; fs::create_directories(exeDir() / "selftest_out", ec); f = std::fopen((exeDir() / "selftest_out" / "foottrace.csv").string().c_str(), "w"); if (f) std::fprintf(f, "t,slot,model,speed,stanceL,stanceR,lx,lz,rx,rz,gapL,gapR\n"); }
+      auto st = [&](int leg) { float u = (pp.walkPhase + (leg ? 3.14159265f : 0.0f)) / 6.2831853f; u -= std::floor(u); float du = std::clamp(pp.duty, 0.2f, 0.8f); return u > 0.1f * du && u < 0.9f * du ? 1 : 0; };
+      vec3 L = vec3(s.world * vec4(s.pose.joint[CJ_LFOOT], 1)), R = vec3(s.world * vec4(s.pose.joint[CJ_RFOOT], 1));
+      auto gap = [&](vec3 F, int sf) { Physics::Hit h; return Physics::castRayEx(F + vec3(0, 0.6f, 0), vec3(0, -1, 0), 1.5f, h) ? F.y - m.jointHead[sf].y - h.pos.y : 9.0f; };   // ankle over the ground minus its rest height (+ hover, - sink)
+      if (f) std::fprintf(f, "%.4f,%d,%s,%.2f,%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f\n", t, s.slot, m.id.c_str(), s.speed, st(0), st(1), L.x, L.z, R.x, R.z, gap(L, m.semantic[CJ_LFOOT]), gap(R, m.semantic[CJ_RFOOT]));
+    }
+    if (s.flat && !s.alive) {   // squashed: the whole body pressed into a thin, slightly spread layer on the ground, within 0.12 s
+      float k = std::min(1.0f, (float)(t - s.diedAt) / 0.12f);
+      s.world = glm::translate(mat4(1), drawFeet) * glm::scale(mat4(1), vec3(1.0f + 0.25f * k, 1.0f - 0.96f * k, 1.0f + 0.25f * k)) * glm::translate(mat4(1), -drawFeet) * s.world;
+    }
+  };
   for (auto& s : sold) {
     if (!s.inUse || (!s.alive && t - s.diedAt > (s.zombie || s.gunBody || clipKit(s.kit) || s.holdBody ? 3.5 : 2.0))) continue;   // G2: the zombie death clip runs ~3 s (GM1: 2.4 s)
+    const vec3 drawFeet = glm::length(s.feet - s.prevFeet) < 2.0f ? glm::mix(s.prevFeet, s.feet, drawAlpha) : s.feet;   // CP: between the last two steps (a jump of 2 m+ is a teleport: no streak)
+    s.poseAcc += dtFrame;
+    {
+      const float d = glm::length(s.feet - cam);
+      const float lo[3] = {25, 50, 100}; int r = 1;
+      for (int k = 0; k < 3; ++k) if (d > lo[k] * (s.poseRate > k + 1 ? 0.8f : 1.0f)) r = k + 2;   // hysteresis: a slower band is kept until 20 % nearer
+      s.poseRate = r;
+      const vec3 c = s.feet + vec3(0, 0.9f, 0); const float dc = glm::length(c - cam);
+      const bool inView = dc < 4.0f || glm::dot((c - cam) / std::max(dc, 1e-3f), camF) > cosView || d < 30.0f;   // near ones may cast a shadow into view
+      // a melee strike lands where the posed joint is (zombie.cpp) and a throw leaves from the posed hand: those are posed every frame
+      // a change of stance, death, a swim or a new life is posed at once whatever the band (no one is shot in a pose from before it)
+      const int key = (int)s.posture | (s.alive ? 8 : 0) | (s.swim ? 16 : 0) | (s.flat ? 32 : 0) | ((int)(s.lifeId & 0xffff) << 6);
+      const bool changed = key != s.poseKey; s.poseKey = key;
+      const bool settling = !s.alive || std::fabs(s.anProne - (s.posture == Physics::PRONE ? 1.0f : 0.0f)) > 0.02f || std::fabs(s.crouchBlend - (s.posture == Physics::CROUCH ? 1.0f : 0.0f)) > 0.02f;   // a stance blend or a death in progress
+      bool eval = s.localPlayer || lodOff || changed || settling || s.meleeWind >= 0 || s.throwT >= 0 || (inView ? (poseFrameNo + s.slot) % r == 0 : (poseFrameNo + s.slot) % 60 == 0);
+      if (dtFrame <= 0 || s.pose.delta.empty()) eval = dtFrame > 0 || s.pose.delta.empty();
+      if (poseOnly) { if (&s != poseOnly) continue; eval = true; }   // poseNow: this soldier only, now
+      if (!eval) {   // held pose: rigid motion only (AIB1: it is not re-skinned, so it writes no skinning motion)
+        if (!s.flat && !s.pose.delta.empty()) s.world[3] = vec4(drawFeet, 1.0f);
+        continue;
+      }
+    }
+    const float dt = std::min(s.poseAcc, 0.5f); s.poseAcc = 0;   // all the time since its last evaluation (capped: a soldier held off-view for long)
     const CharModel& m = *models[s.model];
     PoseParams pp;
     pp.walkAmount = std::min(1.0f, s.speed / 3.0f);
@@ -1103,9 +1179,12 @@ void Game::posesStep(float dt) {
       bool hot = s.br.target >= 0 || t - s.lastShot < 1.5;
       if (!s.anGunInit || !s.alive) { s.anGunYaw = s.br.aimYaw; s.anGunPitch = s.br.aimPitch; s.anGunVel = s.anGunPVel = 0; s.anGunInit = s.alive; }
       const float w = hot ? 11.0f : 6.0f, vmax = hot ? 400.0f : 160.0f;   // rad/s natural frequency; deg/s cap
-      auto follow = [&](float& x, float& v, float target, bool wrap) {
-        float e = wrap ? wrapDeg(target - x + 180.0f) - 180.0f : target - x;
-        v += (w * w * e - 2 * w * v) * dt; v = std::clamp(v, -vmax, vmax); x += v * dt; if (wrap) x = wrapDeg(x);
+      auto follow = [&](float& x, float& v, float target, bool wrap) {   // CP: sub-stepped at <= 1/60 s (dt is a whole frame or more now)
+        const int n = std::max(1, (int)std::ceil(dt * 60.0f - 1e-3f)); const float h = dt / n;
+        for (int i = 0; i < n; ++i) {
+          float e = wrap ? wrapDeg(target - x + 180.0f) - 180.0f : target - x;
+          v += (w * w * e - 2 * w * v) * h; v = std::clamp(v, -vmax, vmax); x += v * h; if (wrap) x = wrapDeg(x);
+        }
       };
       follow(s.anGunYaw, s.anGunVel, s.br.aimYaw, true); follow(s.anGunPitch, s.anGunPVel, s.br.aimPitch, false);
       aimYawDraw = s.anGunYaw; aimPitchDraw = s.anGunPitch;
@@ -1187,14 +1266,13 @@ void Game::posesStep(float dt) {
     pp.swim = s.swimBlend; pp.swimPhase = (float)t * 5.3f + (float)s.slot;   // breaststroke ~0.85 Hz
     if (s.localPlayer) app.swimPose(pp);   // swim.cpp: the player's own stroke phase
     if (!s.alive) { pp.death = std::min(1.0f, (float)(t - s.diedAt) / 0.8f); pp.deathStyle = s.deathStyle; }
-    float camD = poseLod ? glm::length(s.feet - cam) : 0.0f; int every = camD > 150 ? 4 : camD > 80 ? 2 : 1;
-    bool skipPose = poseLod && !s.localPlayer && s.alive && every > 1 && (steps + s.slot) % every != 0;
+    const bool skipPose = false;   // CP: the rate decision is made above
     // AN1 step 3b: foot planting. A foot that comes down is held at its world point for its stance (turns, speed changes, strafes and
     // stops no longer drag it); it lets go at lift-off, when the leg would overreach, or (standing) when it ends 14 cm off its rest spot
     // (turning in place), blending from that point to its stepping path over a third of the swing (a standing re-step lifts it)
     if (!noFootLock && !s.zombie && s.alive && pp.gait && pp.prone < 0.5f && pp.kneel < 0.5f && pp.swim < 0.5f && pp.climb < 0 && !s.pose.delta.empty() && !skipPose) {
       float yawNow = s.localPlayer ? app.eyeYaw : s.yaw;
-      mat4 Wn = glm::translate(mat4(1), s.feet) * glm::mat4_cast(glm::angleAxis(radians(yawNow) + 3.14159265f, vec3(0, 1, 0))), Wi = glm::inverse(Wn);
+      mat4 Wn = glm::translate(mat4(1), drawFeet) * glm::mat4_cast(glm::angleAxis(radians(yawNow) + 3.14159265f, vec3(0, 1, 0))), Wi = glm::inverse(Wn);   // CP: the drawn feet
       bool moving = s.speed > 0.3f; float du = std::clamp(pp.duty, 0.2f, 0.8f), cadN = gaitCadence(s.speed);
       for (int leg = 0; leg < 2; ++leg) {
         int sf = m.semantic[leg ? CJ_RFOOT : CJ_LFOOT], su = m.semantic[leg ? CJ_RUPLEG : CJ_LUPLEG], sk = m.semantic[leg ? CJ_RLEG : CJ_LLEG];
@@ -1230,28 +1308,19 @@ void Game::posesStep(float dt) {
         }
       }
     } else if (!s.alive || pp.prone >= 0.5f || pp.kneel >= 0.5f || pp.swim >= 0.5f) { s.anFootLock[0] = s.anFootLock[1] = false; s.anFootRel[0] = s.anFootRel[1] = -1; }
+    // CP: soldiers on the clip or procedural path are evaluated on the job threads after this loop (no GL, no shared writes: the
+    // lazy rig caches are locked, gunbody.cpp); built-in-gun bodies and zombies (sounds, pack leaders) stay here
+    if (!s.gunBody && !(s.zombie && !m.clips.empty()) && !kPoseSerial) { jobs.push_back({&s, pp, drawFeet, aimYawDraw, dt}); continue; }
     if (s.gunBody) { if (!(skipPose ? false : deltaBodyPose(*this, s, dt, pp))) gunBodyPose(*this, s, dt); }   // GM1: its own clips, the gun in its hands (NA1: an 8-way clip set: gunbody.cpp deltaBodyPose, its built-in gun mode)
     else if ((clipKit(s.kit) || s.holdBody) && !skipPose && deltaBodyPose(*this, s, dt, pp)) {}   // DF1: the clips' body, the arms on the held gun (DSD1: the desert soldiers too)
     else if (s.zombie && !m.clips.empty()) aiZombiePose(*this, s, dt); else if (!skipPose) { poseCharacter(m, pp, s.pose); s.poseFrom = -1; ++s.poseRev; }   // G2: clips
-    float yawUse = s.localPlayer ? app.eyeYaw : (s.gunBody || clipKit(s.kit) || s.holdBody) && s.alive && (s.br.target >= 0 || t - s.lastShot < 1.5) ? aimYawDraw : s.yaw;   // GM1: the clips cannot twist to the aim: engaged, the whole body turns to it
-    if (s.alive && !s.localPlayer) yawUse -= s.dfYawOff;   // 0 unless a clip body (gunbody.cpp deltaBodyPose)   // DF1: the clip holds its gun turned off its body's forward (gunbody.cpp): the body turns so the gun meets the aim
-    s.world = glm::translate(mat4(1), s.feet) * glm::mat4_cast(glm::angleAxis(radians(yawUse) + 3.14159265f, vec3(0, 1, 0)));
-    if (s.zombie) {   // EN1: the type's draw scale, and a forward lean about the feet (the stalker on the zombie rig)
-      if (s.eLean != 0 && s.alive) s.world = glm::rotate(s.world, radians(s.eLean), vec3(1, 0, 0));
-      if (s.eScale != 1) s.world = glm::scale(s.world, vec3(s.eScale));
-    }
-    if (static const char* ft = std::getenv("NMK_FOOT_TRACE"); ft && !s.localPlayer && !s.zombie && s.alive && s.slot < 24 && !s.pose.delta.empty()) {   // AN1 step 3b: planted-foot slip (foottrace.csv)
-      static FILE* f = nullptr; if (!f) { std::error_code ec; fs::create_directories(exeDir() / "selftest_out", ec); f = std::fopen((exeDir() / "selftest_out" / "foottrace.csv").string().c_str(), "w"); if (f) std::fprintf(f, "t,slot,model,speed,stanceL,stanceR,lx,lz,rx,rz,gapL,gapR\n"); }
-      auto st = [&](int leg) { float u = (pp.walkPhase + (leg ? 3.14159265f : 0.0f)) / 6.2831853f; u -= std::floor(u); float du = std::clamp(pp.duty, 0.2f, 0.8f); return u > 0.1f * du && u < 0.9f * du ? 1 : 0; };
-      vec3 L = vec3(s.world * vec4(s.pose.joint[CJ_LFOOT], 1)), R = vec3(s.world * vec4(s.pose.joint[CJ_RFOOT], 1));
-      auto gap = [&](vec3 F, int sf) { Physics::Hit h; return Physics::castRayEx(F + vec3(0, 0.6f, 0), vec3(0, -1, 0), 1.5f, h) ? F.y - m.jointHead[sf].y - h.pos.y : 9.0f; };   // ankle over the ground minus its rest height (+ hover, - sink)
-      if (f) std::fprintf(f, "%.4f,%d,%s,%.2f,%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f\n", t, s.slot, m.id.c_str(), s.speed, st(0), st(1), L.x, L.z, R.x, R.z, gap(L, m.semantic[CJ_LFOOT]), gap(R, m.semantic[CJ_RFOOT]));
-    }
-    if (s.flat && !s.alive) {   // squashed: the whole body pressed into a thin, slightly spread layer on the ground, within 0.12 s
-      float k = std::min(1.0f, (float)(t - s.diedAt) / 0.12f);
-      s.world = glm::translate(mat4(1), s.feet) * glm::scale(mat4(1), vec3(1.0f + 0.25f * k, 1.0f - 0.96f * k, 1.0f + 0.25f * k)) * glm::translate(mat4(1), -s.feet) * s.world;
-    }
+    finish(s, pp, drawFeet, aimYawDraw);
   }
+  Physics::parallelFor((int)jobs.size(), [&](int i) {
+    PoseJob& j = jobs[i]; Soldier& s = *j.s; const CharModel& m = *models[s.model];
+    if (!((clipKit(s.kit) || s.holdBody) && deltaBodyPose(*this, s, j.dt, j.pp))) { poseCharacter(m, j.pp, s.pose); s.poseFrom = -1; ++s.poseRev; }
+  });
+  for (PoseJob& j : jobs) finish(*j.s, j.pp, j.drawFeet, j.aimYawDraw);
 }
 
 void Game::stepRest(float dt) {

@@ -47,6 +47,7 @@ struct Brain {
   std::string why;                           // debug overlay: current reason
 };
 
+extern bool gPosePerStep, gPoseLodOff, gPoseSerial, gStepCap8;   // CP A/B switches (game.cpp)
 struct Soldier {
   int slot = -1; bool inUse = false, alive = false;
   Faction faction = Faction::Allies; CombatRole role = CombatRole::Defender;
@@ -70,6 +71,7 @@ struct Soldier {
   bool localPlayer = false, human = false; int peer = -1;
   int agent = -1;                            // physics agent (bots, remote humans); the local player uses the explore character
   vec3 feet{0}, vel{0}; float yaw = 0, pitch = 0; int posture = 0; float speed = 0;
+  vec3 prevFeet{0}; float poseAcc = 0; int poseRate = 1; int poseKey = -1;   // poseKey: posture / alive / swim / life when last posed (a change forces a pose)   // CP: feet at the last step's start (drawn between the two), time since the last pose evaluation, its update interval (frames)
   vec3 lastGoodFeet{0};                      // the last finite feet (Game::step restores it if a NaN appears)
   bool swim = false; float swimBlend = 0;    // swimming (swim.cpp; bots: floating agents; LAN: snapshot flags 2|4, client posture 3)
   float hp = 100; double diedAt = 0; int deathStyle = 0; int killer = -1; vec3 deathDir{0};
@@ -158,6 +160,9 @@ public:
   void step(float dt);                       // fixed 60 Hz, after the explore step (server)
   void clientStep(float dt);                 // LAN client: mirror, interpolation, local requests
   void posesStep(float dt);
+  void posesFrame(float dt, float alpha);   // CP: once per drawn frame (dt: the steps' summed time; alpha: the step fraction left, for drawing between the last two steps)
+  float drawAlpha = 1; int poseFrameNo = 0; double poseMs = 0; Soldier* poseOnly = nullptr; int posesOnDemand = 0;
+  void poseNow(Soldier& s);   // CP: evaluate a soldier's held pose now (a bullet reached its bounds)   // CP (poseMs: main-thread time in posesStep, summed)
   void stepRest(float dt);
   bool loadData(std::string& err);
   bool ensureModels(std::string& err);
@@ -189,6 +194,7 @@ public:
   bool soldierFlame(Soldier& s, vec3 dir, float dt);        // FT1: a bot holds its nozzle open for dt
   bool meleeHit(int attacker, int victim, float dmg);   // G2 (zombie.cpp): a blow that landed (zombie strike, the knife)
   bool hitTest(const Soldier& s, vec3 a, vec3 d, float maxT, HitZone& hz) const;
+  bool coarseHit(const Soldier& s, vec3 a, vec3 d) const;   // CP: hitTest's bounding sphere only
   int soldierOfOwner(int owner) const;
   bool sameTeam(int a, int b) const { return a >= 0 && b >= 0 && sold[a].team == sold[b].team; }
   static bool hostile(const Soldier& a, const Soldier& b) {   // G1: every enemy check; CMD2: an AI never takes the /admin (ignored) or anyone (/peace) for an enemy
