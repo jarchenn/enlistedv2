@@ -212,6 +212,7 @@ public:
   struct Perf {
     bool texLate = true;         // texlate (OPT1): a texture set needed mid-match goes into a spare array layer (worker build, one upload a frame); off = the old full reload of every set
     bool groundTaps = true;      // groundtaps (OPT2): ground taps cut by distance and weight (hex 12-30 m fade, hex on layers >= 35 %, no far normal tap, no substrate taps under full snow); off = the old taps
+    bool wAbs = true;            // wabs (CP step 7): water extinction by absorption (Pope & Fry pure water + per-kind organics) and silt scattering; off = the per-kind tint
     bool hblend = true;          // hblend (M2): height-based blending of ground layers and paint (textures.cpp hbK)
     bool hex = true;             // hex (M1): hex-tiled ground and cliff texture taps (textures.cpp texHexFetch)
     bool snow = true;            // snow (VO P, A/B only): the SN1 snow layer off on every surface, to time its shading
@@ -302,7 +303,7 @@ public:
               // ^ stream T (terrain): append to the line above
               : n == "contactsh" ? &contactShadow : n == "fullshadow" ? &fullShadow : n == "gtao" ? &gtao : n == "midcascade" ? &midCascade : n == "microsh" ? &microShadow : n == "foltrans" ? &folTrans : n == "agx" ? &agx : n == "histexpo" ? &histExpo : n == "skyrelit" ? &skyRelit : n == "atmo" ? &atmo : n == "reflprobe" ? &reflProbe
               // ^ stream L (lighting): append to the line above
-              : n == "specaa" ? &specAA : n == "texbias" ? &texBias : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps
+              : n == "specaa" ? &specAA : n == "texbias" ? &texBias : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "wabs" ? &wAbs : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps
               // ^ stream M (materials): append to the line above
               : n == "charvel" ? &charVel
               // ^ characters (gameplay): append to the line above
