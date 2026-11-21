@@ -255,7 +255,7 @@ def build_terrain(grid):
     gap = (X < -60) & (Z < -60)                      # the south-west valley exit (the bright opening)
     edge = (np.abs(X - X.min()) < 1) | (np.abs(X - X.max()) < 1) | (np.abs(Z - Z.min()) < 1) | (np.abs(Z - Z.max()) < 1)
     far_h = np.where(Z > 120, 112.0, np.where(Z > 0, 88.0, np.where(X > 0, 66.0, 54.0)))
-    F.set_mask(edge, np.where(gap, 16.0, far_h))
+    F.set_mask(edge, np.where(gap, 24.0, far_h))   # Phase 1 leftover: a shallower notch (16 m read as a pale wedge)
     castle_edge(F, X, Z, edge)   # BT2 phase 2: the castle spur (north-west, beyond the play area)
     castle_terrain(F, X, Z)
     # the far ridge north-east: a crest line and its shoulders
@@ -353,8 +353,15 @@ def build_terrain(grid):
         prof.append((x, z, w))
     CREEK_PROFILE[:] = prof
     _, _, d_cr, h_cr = F.corridor([(x, z, w - 0.32) for x, z, w in prof], 60.0)
-    bed_half = 1.8 + 0.6 * np.sin(X / 23.0)
+    # Phase 1 leftover (brief 1.1): the channel's width and bank shapes change along the reach: a wandering bed (1.2-3.4 m
+    # half width), a pool under the footbridge, stretches of gentle shingle shelf between steep cut banks
+    rsc = np.random.default_rng(SEED + 21)
+    wob = ndimage.gaussian_filter(rsc.standard_normal(X.shape), 9.0 / RES); wob = wob / (np.abs(wob).max() + 1e-9)
+    shelf = ndimage.gaussian_filter(rsc.standard_normal(X.shape), 14.0 / RES); shelf = (shelf - shelf.min()) / (np.ptp(shelf) + 1e-9)
+    pool = np.exp(-((X - FOOTBRIDGE[0]) ** 2 + (Z - FOOTBRIDGE[1]) ** 2) / (2 * 7.0 ** 2))
+    bed_half = np.clip(1.8 + 0.6 * np.sin(X / 23.0) + 0.7 * wob + 1.1 * pool, 1.2, 3.4)
     bank = 0.42 + 0.18 * (np.sin(X / 31.0 + 1.0) > 0)              # low stone banks, 60-67 deg: crossed only at the bridges and the ford
+    bank = np.where(shelf > 0.72, 1.4, bank)                        # shingle shelves (~35 deg) on some stretches
     ford = np.hypot(X - FORD[0], Z - FORD[1])
     bank = np.where(ford < 12.0, 7.0, bank)                         # the ford: a long flat bank
     depth_cap = h_cr                                                 # the bed level (absolute)
@@ -472,11 +479,14 @@ def build(ctx):
     # buildings: stand-ins seated on the true ground at their pads
     n_bld = 0
     placed = []
+    caps = write_snowcaps(ctx, cat, sorted({e[0] for e in BUILDINGS}))   # Phase 1 leftover: roof snow with thickness
     for aid, x, z, yaw, fam in BUILDINGS:
         e = b.place(aid, x, z, yaw, check=False, y=G(x, z), tags={"building"}, companions=False)
         if e is not None:
             n_bld += 1
             placed.append(e)
+            if aid in caps:
+                b.place(caps[aid], x, z, yaw, check=False, cls="none", y=e["pos"][1], tags={"snowcap"}, companions=False, support=e)
 
     # lines: orchard retaining walls (with gates), the breached orchard wall, the yard walls, the overlook rail
     seedc = [1]
@@ -639,7 +649,7 @@ def build(ctx):
     # BT2: thinner world haze (the old 2.4 made a uniform veil), the damp valley pocket carries the mist (~0-12 m, tapering
     # by ~30 m), lighter cloud deck, a cooler but less grey grade
     look = {"weather": 0.8, "clouds": 0.75, "haze": 1.6, "hazeHeight": 90.0, "envFog": 1, "fogNear": 6.0,
-            "fogLayer": {"density": 0.004, "height": 10.0}, "saturation": 0.8, "tint": [0.97, 0.99, 1.03],
+            "fogLayer": {"density": 0.003, "height": 22.0}, "saturation": 0.8, "tint": [0.97, 0.99, 1.03],
             # BT2 sky (lighting session's per-map knobs): a soft low opening toward the south-west valley exit (azimuth
             # atan2(dx, dz) = -130.7), broad cloud banks stretched along the valley, no sun disc
             "paintSets": {"dirt": "trail_dirt", "gravel": "trail_gravel"},   # SN2: the user's trail sets on this map's ways
@@ -869,6 +879,19 @@ def dress_vegetation(b, cat, G, R):
         for _try in range(5):   # a few spots along the bank top before giving the slot up
             if put(R.choice(["nt3_tree_dead_ash", "nt3_tree_dead_oak", "nt3_tree_dead_ash"]), x + R.uniform(-3.0, 3.0), z + side * R.uniform(7.0, 11.0), R.uniform(0, 360), "creek_trees", clear=2.0, seat=1.8):
                 break
+    # Phase 1 leftover: occasional stone ledges at the water's edge (slabs set into the bank), alternating sides
+    import random as _random
+    RL = _random.Random(SEED + 31)   # its own stream: the fir stands after it stay where they were
+    slabs = [a_ for a_ in ("nat_boulder_schist_slab", "nat_boulder_limestone_m", "nat_boulder_schist_m") if a_ in cat]
+    for k, (x, z, _) in enumerate(lane_dense([(cx, cz, 0) for cx, cz, _b in CREEK_CTRL], 23.0)):
+        if not (ENV[0] + 6 < x < ENV[2] - 6) or not slabs:
+            continue
+        if min(math.hypot(x - c[0], z - c[1]) for c in (BRIDGE_W, FOOTBRIDGE, FORD)) < 10.0:
+            continue
+        side = 1 if k % 2 else -1
+        for _try in range(3):
+            if put(RL.choice(slabs), x + RL.uniform(-2, 2), z + side * RL.uniform(2.6, 3.6), RL.uniform(0, 360), "ledges", clear=1.0):
+                break
     # fir and spruce: ridgeline masses outside the envelope and border screens just inside it
     firs = ["ph_fir_tree_01_a", "ph_fir_tree_01_b", "ph_fir_tree_01_c", "ph_fir_sapling_medium_a", "ph_fir_sapling_medium_b"]
     # BT2: massed stands (8-16 overlapping crowns each) with open ground between, not an even sprinkle: a stand reads as
@@ -879,8 +902,8 @@ def dress_vegetation(b, cat, G, R):
         out = max(ENV[0] - cx, cx - ENV[2], ENV[1] - cz, cz - ENV[3])
         if out < -4.0:
             continue
-        if cx < -60 and cz < -60 and R.random() < 0.75:   # the south-west valley gap stays open (the bright opening)
-            continue
+        if cx < -60 and cz < -60 and R.random() < 0.45:   # the south-west valley gap stays mostly open (the bright opening);
+            continue                                          # stands on its flanks break the pale wedge it made
         if castle_spur_zone(cx, cz):   # the castle spur has its own stands (dress_castle_spur)
             continue
         n_st += 1
@@ -1448,3 +1471,51 @@ def dress_castle_spur(b, cat, G, R):
         x, z = castle_world(29.0, float(s))
         b.place(faces[k % len(faces)], x, z, CASTLE_YAW + 90.0 + R.uniform(-12, 12), check=False, cls="none", y=G(x, z) - 1.0, tags={"rock", "castle"}, companions=False)
     return n
+
+
+# ---------------------------------------------------------------- Phase 1 leftover: snow caps with real thickness
+ROOF_MATS = ("slate", "tile", "tile_orange", "roof", "roof_tile", "shingle", "thatch")
+
+
+def write_snowcaps(ctx, cat, ids):
+    """bt_snowcap_<asset>: a 9 cm snow slab over each sloped roof slab of a building (box parts in a roof material tilted
+    about one axis), inset 0.2 m from the eaves and 0.35 m from the verges, so the roofline has real buildup and the
+    tile courses (whose pattern rings into moire at distance) are covered. Placed with each building's own transform."""
+    import json
+    from mapgen.catalog import Asset
+    made = {}
+    for aid in ids:
+        if aid not in cat:
+            continue
+        j0 = cat[aid].raw
+        parts = []
+        for p in j0.get("parts", []):
+            if p.get("t", "b") != "b" or str(p.get("m", "")).lower() not in ROOF_MATS or "r" not in p:
+                continue
+            rx, ry, rz = (float(v) for v in p["r"])
+            sx, sy, sz = (float(v) for v in p["s"])
+            if ry != 0.0 or (rx != 0.0) == (rz != 0.0) or max(abs(rx), abs(rz)) < 12.0 or max(abs(rx), abs(rz)) > 62.0:
+                continue   # one tilt axis, a roof pitch (12-62 deg): flat tops and towers keep the shader's snow
+            if rx != 0.0:
+                a = math.radians(rx); n = (0.0, math.cos(a), math.sin(a)); size = (sx - 0.7, 0.09, sz - 0.4)
+            else:
+                a = math.radians(rz); n = (-math.sin(a), math.cos(a), 0.0); size = (sx - 0.4, 0.09, sz - 0.7)
+            if min(size[0], size[2]) < 0.6:
+                continue
+            off = sy / 2 + 0.045
+            c = [round(float(p["c"][k]) + n[k] * off, 3) for k in range(3)]
+            parts.append({"t": "b", "c": c, "s": [round(v, 3) for v in size], "r": [rx, 0, rz], "m": "snow", "k": 0})
+        if not parts:
+            continue
+        cid = "bt_snowcap_" + aid
+        j = {"id": cid, "version": 1, "name": "Snow cap (%s)" % aid, "category": "Effects",
+             "description": "Blackwater Thaw: the roof snow cap of %s, generated by tools/mapgen/maps/blackwater_thaw.py from its roof slabs." % aid,
+             "floors": 0, "enterable": False, "footprint": j0.get("footprint", [1, 1]), "plinthDepth": 0, "maxGrade": 90, "noAutoPanels": True,
+             "nav": {"effect": "none"}, "materials": [{"name": "snow", "albedo": [0.85, 0.85, 0.86], "roughness": 0.6, "pattern": "plain", "metallic": 0, "grain": 1}],
+             "parts": parts, "furniture": [], "interactables": [], "panels": []}
+        path = os.path.join(ctx.repo, "content", "assets", cid + ".json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(j, f, separators=(",", ":"))
+        cat.assets[cid] = Asset(j, path)
+        made[aid] = cid
+    return made
