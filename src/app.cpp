@@ -271,7 +271,7 @@ void App::resetInteractStates() {
 }
 
 void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
-  R.foliage.clear(); R.folModels.clear(); R.worldModels.clear(); R.worldModelsGlass.clear(); worldBoxDraws.clear(); R.natPatches.clear();
+  R.foliage.clear(); R.folModels.clear(); R.impDraws.clear(); R.worldModels.clear(); R.worldModelsGlass.clear(); worldBoxDraws.clear(); R.natPatches.clear();
   { extern void greeneryFrame(App&); greeneryFrame(*this); }   // FL1: spring-green leaves (foliage.cpp)
   foundationDrawItems(*this, op, mode == Mode::Explore ? eyePos() : camPos);   // MA3: foundation plants + stones (foundation.cpp)
   interior.beginFrame();   // R2 room culling: per-building visibility once per frame

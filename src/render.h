@@ -108,7 +108,7 @@ public:
   std::vector<ModelDraw> worldModelsGlass;   // their glass parts (blended, after the glass pass)
   // NT8: model foliage (pines, ferns, grass), instanced. VR1: parts [first, first + count) only (count -1: all), and a
   // per-instance colour (tint.a > 0: the ivy pack's leaves recoloured to tint.rgb, its stems to ivyStem; src/ivy.cpp)
-  struct FolModelDraw { const GpuModel* model; mat4 m; float wind; bool cast = false; int first = 0, count = -1; vec4 tint{0.0f}; float dither = 0; const GpuModel* shadowModel = nullptr; int sFirst = 0, sCount = -1; };   // cast (HB1b sandbags): into the near sun cascade whatever the height; dither: CP2 cross-fade share (kModelFS uDither); shadowModel [sFirst, +sCount): CP5 the fixed far level the mid cascade draws
+  struct FolModelDraw { const GpuModel* model; mat4 m; float wind; bool cast = false; int first = 0, count = -1; vec4 tint{0.0f}; float dither = 0; const GpuModel* shadowModel = nullptr; int sFirst = 0, sCount = -1; bool shadowOnly = false; };   // cast (HB1b sandbags): into the near sun cascade whatever the height; dither: CP2 cross-fade share (kModelFS uDither); shadowModel [sFirst, +sCount): CP5 the fixed far level the mid cascade draws
   vec3 ivyStem{0.12f, 0.1f, 0.08f}; vec2 ivyRef{0.2f, 0.1f};   // VR1: stem colour (linear) and the leaf / stem textures' mean luminance (content/settings/ivy.json)
   float sunDirectFrac = 1.0f, sunShK = 1.0f;   // OPT wxsun: last setLighting's direct-sun share; this frame's cascade strength (0 = none drawn)
   int dbgTerr = -1;   // GG1 measurement: terrain debug view (-1: NMK_DBG_TERRAIN), set per capture view
@@ -131,6 +131,14 @@ public:
   float windSwayAmp() const { return std::clamp(std::pow(std::max(0.0f, wind), 0.8f), 0.0f, 2.5f); }   // kCommon windSway(uWind)   // sway amplitude: 1 at 4 m/s, 2.5 from about 13 m/s
   vec2 windDir2() const { float s = windSpeed(); return s > 1e-3f ? wx.der.windXZ / s : vec2(0.8f, 0.6f); }
   double windClock = 0, windClockPrev = 0, windGustOff = 0, windGustPrev = 0, windLastT = -1; glm::dvec2 windDrift{0.0};   // windDrift: accumulated wind displacement (m), WS2 leaves
+  // CP3 octahedral impostors: per baked species (model, part range) a 2048 albedo / 1024 normal atlas of 12 x 12 frames
+  struct Impostor { GLuint alb = 0, nrm = 0; vec3 c{0}; float r = 1; bool ready = false; };
+  struct ImpDraw { const Impostor* imp; vec3 c; float r, yaw; vec4 tint; float dither; };
+  std::map<std::tuple<const GpuModel*, int, int>, Impostor> impostors; std::vector<std::tuple<const GpuModel*, int, int>> impWant;
+  std::vector<ImpDraw> impDraws;   // this frame's (App::buildDrawLists, folModelLodPush)
+  const Impostor* impostorFor(const GpuModel* m, int first, int count);   // ready, or nullptr (queued for a bake)
+  void impostorBakeSome(); void drawImpostors(const RenderView& v, const mat4& vp, const Frustum& fr);
+  GLuint progImpBake = 0, progImp = 0, impFbo = 0, impDepth = 0, impNrmTmp = 0, impBakeBuf = 0, impInstBuf = 0; size_t impInstBytes = 0;
   GLuint progLeafDrift = 0; float leafDriftK = 0, pollenK = 0;   // WS2 drifting leaves; how wooded the eye's surroundings are (eased)
   // sky clouds: fbm on a plane at 1500 m scrolling with the wind
   bool clouds = true; float cloudCover = 0.62f;
@@ -270,6 +278,7 @@ public:
     bool grassTint = true;       // grasstint (CP4): the ground under thinning grass takes the clumps' mean top-down colour
     bool vegCascades = true;     // vegcascades (CP5): vegetation casts into the two nearest sun cascades only (near, mid), the mid one from a fixed far LOD; the far cascade has none while the mid one is drawn
     bool treePxLod = true;       // treepxlod (CP2): model foliage LOD and cull by projected pixels, a dithered cross-fade band, capped at the weather's cull distance
+    bool impostors = true;       // impostors (CP3): model trees under ~170 px tall drawn as octahedral impostors (12 x 12 frames)
     bool pollen = true;          // pollen (WS3): drifting pollen motes over grass on dry, mild days (count 0.75 x leafDriftN)
     bool leafDrift = true;       // leafdrift (WS2): drifting leaves near broadleaf / orchard trees (count: Quality::leafDriftN)
     bool hashAlpha = false;      // hashalpha (VO A1): cut-out leaves / grass with a dithered threshold under TAA (Medium / High), width NMK_HASH_SPREAD (0.2); off: no gain over cutoutMips (A1 sheets), kept for A/B
@@ -318,7 +327,7 @@ public:
               // ^ stream M (materials): append to the line above
               : n == "charvel" ? &charVel
               // ^ characters (gameplay): append to the line above
-              : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "pollen" ? &pollen : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
+              : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "pollen" ? &pollen : n == "impostors" ? &impostors : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
               // ^ stream A (vegetation): append to the line above
               : n == "snow" ? &snow
               // ^ stream P (performance): append to the line above
