@@ -3307,7 +3307,11 @@ void main(){
     alb *= mix(1.0, 0.72, vEw.z*ewK);
     tdn = mix(tdn, mix(tF.dn, tM.dn, mk), ewK); trr = mix(trr, mix(tF.r, tM.r*0.7, mk), ewK); tao = mix(tao, mix(tF.ao, tM.ao, mk), ewK);
   }
+  vec3 albPrePaint = alb;
   PaintOut po = paintApply(p, normalize(vN), alb, dirt, dFdx(p), dFdy(p), length(p - uCamPos));   // lasso ground paint: albedo (ground_paint.cpp)
+  // cliffs keep their rock (world-space, triplanar): ground paint is ground cover, and its planar sets and xz noise smear
+  // into vertical streaks on a steep face (castle spur, quarry walls), so it fades out where the slope material is rock
+  if (rockK > 0.0) { alb = mix(alb, albPrePaint, rockK); po.w *= 1.0 - rockK; }
   // localized wetness: darker, and glossy only where water stands (puddles follow ruts / lows)
   float puddle = smoothstep(0.55, 0.8, wet + (nX - 0.5)*0.2);
   alb *= mix(1.0, 0.62, clamp(wet*1.2, 0.0, 1.0));
