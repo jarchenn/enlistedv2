@@ -110,7 +110,9 @@ public:
   // per-instance colour (tint.a > 0: the ivy pack's leaves recoloured to tint.rgb, its stems to ivyStem; src/ivy.cpp)
   struct FolModelDraw { const GpuModel* model; mat4 m; float wind; bool cast = false; int first = 0, count = -1; vec4 tint{0.0f}; };   // cast (HB1b sandbags): into the near sun cascade whatever the height
   vec3 ivyStem{0.12f, 0.1f, 0.08f}; vec2 ivyRef{0.2f, 0.1f};   // VR1: stem colour (linear) and the leaf / stem textures' mean luminance (content/settings/ivy.json)
-  GLuint wxUbo = 0; void uploadWeather();   // W1: NmkWeather uniform block, binding 4
+  GLuint wxUbo = 0; void uploadWeather();
+  void physLight(vec3& sun, vec3& sky, vec3& ground, vec3& fog, vec3& fill, vec3& zen, vec3& hor, vec3& skySunCol, bool main);   // CP2   // W1: NmkWeather uniform block, binding 4
+  float physEV = 15.0f, physExpo = 0.0f;   // CP2 Lighting Physical: this frame's EV100 and the tone pass's exposure (0 = not physical)
   float sunDirectFrac = 1.0f, sunShK = 1.0f;   // OPT wxsun: last setLighting's direct-sun share; this frame's cascade strength (0 = none drawn)
   int dbgTerr = -1;   // GG1 measurement: terrain debug view (-1: NMK_DBG_TERRAIN), set per capture view
   // CP0 look-dev (docs: corpus plan step 0): debug view, by name through dbgViewFromName (NMK_DEBUG_VIEW / --debug-view):
@@ -148,7 +150,8 @@ public:
                      float sigma = 0.001f, visM = 3912, dustVisM = 0, cullM = 5555, fogTopM = 0, fogLayerSigma = 0, fogAlbedo = 0.9f, fogG = 0.85f;   // air at the ground (1/m); visibility = 3.912 / sigma; cullM = 1.42 x visibility
                      float windK = 1; vec2 windXZ{0};                 // wind against today's (1 = Clear's 3 m/s), m/s toward
                      float sunShadow = 1;                             // sun cascade strength (OPT wxsun)
-                     float flash = 0; };                              // lightning: 0..1 this frame (W2)
+                     float flash = 0;                                 // lightning: 0..1 this frame (W2)
+                     float skyRatio = 1, beamRatio = 1; };            // CP2: the row's diffuse light and direct beam against Clear (every preset, phys or not)                              // lightning: 0..1 this frame (W2)
   struct Weather { int target = 0, forced = -1, quality = 1, fog = 1, fogForced = -1; float k = 0, seed = 0, fogNow = -1; vec2 wind{0.012f, 0.0075f}; double clock = -1;
                    int mapWx = -1, mapFog = -1; bool userSet = false; float mapCloud = -1.0f;   // NT2b: mapCloud 0..1 = broken cloud (look.weather as a number)   // NT2: a map's default weather / env fog (extra.look), until the user picks one this session
                    int fogWant() const { return fogForced >= 0 ? fogForced : mapFog >= 0 && !userSet ? mapFog : fog; }
@@ -173,6 +176,8 @@ public:
   // render quality / look (docs/rendering.md). legacy = the pre-BSL-pass look (fallback)
   struct Quality {
     bool legacy = false;
+    bool lightPhys = false;     // CP2 Settings > Lighting Physical: sun / sky / bounce in lux, EV100 exposure (implies lightNew)
+    float physExpoK = 1.44f;    // CP2: exposure calibration (grey card in clear midday sun lands where New puts it; the look-dev readout refines it)
     bool lightNew = true;       // VO stream L: Settings > Lighting New / Classic (Classic = the pre-VO look, exactly)
     float agxK = 1.0f, agxSat = 1.0f;   // VO L8: AgX-space curve input scale and saturation re-fit (1: the old curve's mid-tones)
     float histCal = 1.0f;      // VO L8: histogram metering (40-95 % log mean) x this = the old mean metering on typical views

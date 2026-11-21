@@ -24,7 +24,7 @@ static const char* kCommon = R"GLSL(
 const float PI = 3.14159265;
 // W1 weather state for every shader (Renderer::wx.st / wx.der, uploaded once a frame by Renderer::uploadWeather): fixed
 // layout, std140, binding 4. Fields by name below; read them through these names only (the packing may grow at the end)
-layout(std140, binding = 4) uniform NmkWeather { vec4 wxA, wxB, wxC, wxD, wxE, wxF, wxG; };
+layout(std140, binding = 4) uniform NmkWeather { vec4 wxA, wxB, wxC, wxD, wxE, wxF, wxG, wxH; };
 #define wxCover wxA.x
 #define wxTau wxA.y
 #define wxVisM wxA.z
@@ -50,6 +50,10 @@ layout(std140, binding = 4) uniform NmkWeather { vec4 wxA, wxB, wxC, wxD, wxE, w
 #define wxESkyLux wxG.y
 #define wxFogAlbedo wxG.z
 #define wxFlash wxG.w
+#define wxWet wxH.x
+#define wxPuddle wxH.y
+#define wxSnowDepth wxH.z
+#define wxDustCover wxH.w
 #ifdef NMK_FS
 // FL1 greenery (content/settings/greenery.json, App::greenery): green leaf pixels drawn toward the reference's spring green
 // (uGreen.rgb: linear, unit luminance), each keeping its own luminance x gain; only pixels that are green already (dry,
@@ -4025,10 +4029,52 @@ void Renderer::terrainCacheBind(const Terrain& t, GLuint prog) {
   glUniform4f(U(prog, "uTCMap"), tcOrg.x, tcOrg.y, 1.0f / (tcW * tcTexel), 1.0f / (tcH * tcTexel));
 }
 
+// CP2 Lighting Physical (corpus 04 / 14; docs/corpus-implementation.md step 2): the sun from its elevation by air mass
+// (E_DN = 133,000 exp(-0.21 m) lux), the sky E = 800 + 15,500 sqrt(sin h) lux, both by the weather row's beam / diffuse
+// ratios; sun colour 5,800 K high to 2,500 K at the horizon; ground bounce L_g = rho (E_sun sin h + E_sky) / pi with the
+// map's ground albedo (snow 0.8, sand 0.3, else 0.2); the sky dome and fog scaled to the same sky; EV100 from the scene's
+// illuminance (log2(E / 2.5)) with two-thirds compensation around clear midday (EV 15), clamped 9-15.5 by day, 3-15.5 at
+// night. Engine units: illuminance / 30,000 lux (sun), radiance x pi / 30,000 (sky, ground); 1 engine radiance = 30,000 nits.
+static vec3 kelvinRGB(float T) {   // blackbody colour, unit luminance (Helland's fit)
+  float t = T / 100.0f, r, g, b;
+  r = t <= 66 ? 1.0f : glm::clamp(1.2929f * std::pow(t - 60.0f, -0.1332f), 0.0f, 1.0f);
+  g = t <= 66 ? glm::clamp(0.3901f * std::log(t) - 0.6318f, 0.0f, 1.0f) : glm::clamp(1.1298f * std::pow(t - 60.0f, -0.0755f), 0.0f, 1.0f);
+  b = t >= 66 ? 1.0f : t <= 19 ? 0.0f : glm::clamp(0.5432f * std::log(t - 10.0f) - 1.1962f, 0.0f, 1.0f);
+  vec3 c(r * r, g * g, b * b);   // ~linear
+  return c / std::max(0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b, 1e-4f);
+}
+void Renderer::physLight(vec3& sun, vec3& sky, vec3& ground, vec3& fog, vec3& fill, vec3& zen, vec3& hor, vec3& skySunCol, bool main) {
+  const float K = 30000.0f, mu = std::max(sunDir.y, 0.0f);
+  const vec3 lw(0.2126f, 0.7152f, 0.0722f);
+  const float h = glm::degrees(std::asin(glm::clamp(mu, 0.0f, 1.0f)));
+  const float m = 1.0f / (std::max(mu, 1e-3f) + 0.50572f * std::pow(h + 6.07995f, -1.6364f));
+  const float eDN = mu > 0.0f ? 133000.0f * std::exp(-0.21f * m) * wx.der.beamRatio : 0.0f;
+  const float eSky = mu > 0.0f ? (800.0f + 15500.0f * std::sqrt(mu)) * wx.der.skyRatio : 0.0f;
+  const vec3 sunC = kelvinRGB(glm::mix(2500.0f, 5800.0f, glm::smoothstep(0.0f, 0.5f, mu))) * wx.der.tint;
+  extern bool snowLayerOn(); extern bool groundPaintArid();
+  const float rho = snowLayerOn() ? 0.8f : groundPaintArid() ? 0.3f : 0.2f;
+  const float oldSky = std::max(glm::dot(sky, lw), 1e-5f), oldSun = std::max(glm::dot(sun, lw), 1e-5f);
+  const vec3 skyHue = sky / oldSky;
+  vec3 nSun = sunC * (eDN / K), nSky = skyHue * wx.der.tint * (eSky / (3.14159265f * K));
+  const float nightK = mu > 0.0f ? 0.0f : 1.0f;   // by night the time-of-day art (moon, sky) stays as it is, in the same units
+  if (nightK > 0.0f) { nSun = sun; nSky = sky; }
+  const float skyK = glm::dot(nSky, lw) / oldSky;
+  zen *= skyK; hor *= skyK; fog *= skyK; fill *= skyK;
+  skySunCol *= glm::dot(nSun, lw) / oldSun;
+  sun = nSun; sky = nSky;
+  ground = vec3(0.95f, 0.92f, 0.86f) * rho * (eDN * mu + eSky) / (3.14159265f * K);
+  if (nightK > 0.0f) ground = ground * 0.0f + sky * rho;
+  if (main) {
+    const float eTot = std::max(eDN * mu + eSky, 1e-3f);
+    const float evScene = std::log2(eTot / 2.5f);
+    physEV = glm::clamp(15.0f + 0.67f * (evScene - 15.0f), mu > 0.0f ? 9.0f : 3.0f, 15.5f);
+    physExpo = q.physExpoK * K / (1.2f * std::exp2(physEV));
+  }
+}
 void Renderer::uploadWeather() {   // W1: NmkWeather (binding 4), the layout kCommon names
   const WxState& s = wx.st; const WxDerived& d = wx.der;
-  const vec4 b[7] = {vec4(s.cover, s.tau, s.visM, s.fogTopM), vec4((float)s.precip, s.precipMmH, s.windDirDeg, s.windMs), vec4(s.gust, s.gustPeriodS, s.tempC, s.dustVisM),
-                     vec4(s.lightningPerMin, d.sigma, d.cullM, d.sunShadow), vec4(d.windXZ, d.windK, d.phys ? 1.0f : 0.0f), vec4(d.tint, d.fogG), vec4(d.eSunLux, d.eSkyLux, d.fogAlbedo, d.flash)};
+  const vec4 b[8] = {vec4(s.cover, s.tau, s.visM, s.fogTopM), vec4((float)s.precip, s.precipMmH, s.windDirDeg, s.windMs), vec4(s.gust, s.gustPeriodS, s.tempC, s.dustVisM),
+                     vec4(s.lightningPerMin, d.sigma, d.cullM, d.sunShadow), vec4(d.windXZ, d.windK, d.phys ? 1.0f : 0.0f), vec4(d.tint, d.fogG), vec4(d.eSunLux, d.eSkyLux, d.fogAlbedo, d.flash), vec4(s.wet, s.puddle, s.snowDepth, s.dustCover)};
   if (!wxUbo) { glCreateBuffers(1, &wxUbo); glNamedBufferStorage(wxUbo, sizeof b, nullptr, GL_DYNAMIC_STORAGE_BIT); }
   glNamedBufferSubData(wxUbo, 0, sizeof b, b);
   glBindBufferBase(GL_UNIFORM_BUFFER, 4, wxUbo);
@@ -4436,6 +4482,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
     sky *= d.skyK * d.tint; ground *= d.skyK * d.tint; fill *= d.skyK; zen *= d.skyK * d.tint; hor *= d.skyK * d.tint;
     fog = hor * (fogL / std::max(glm::dot(hor, lw), 1e-5f));
   }
+  if (q.lightPhys && q.lightNew && !q.legacy && !thumbMode) physLight(sun, sky, ground, fog, fill, zen, hor, skySunCol, p == progMain);   // CP2 Lighting Physical
   if (!thumbMode && (lt.hour < 5.8f || lt.hour > 20.4f)) { sky *= lt.mapNightSky; fill *= lt.mapNightFill; }   // GR3: lighting.nightSky (a faint cool sky light on upward faces) / nightFill (rooms lit from within) at night
   if (!thumbMode) fill = fill * lt.mapFill + (p == progModel ? lt.mapAmbient * 0.4f : lt.mapAmbient);   // UG4: x the map's fill scale   // BR2: a map's own even ambient (Backrooms); BR4: characters and the viewmodel take 40 %, so the lights and their shadows shape them
   glUniform3fv(U(p, "uSkyZen"), 1, glm::value_ptr(zen)); glUniform3fv(U(p, "uSkyHor"), 1, glm::value_ptr(hor));
@@ -5817,7 +5864,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1f(U(progTone, "uCas"), perf.cas && !q.legacy && !thumbMode ? q.sharpness : 0.0f); glUniform1i(U(progTone, "uDither"), perf.dither && !thumbMode ? 1 : 0);   // CP1
   glUniform1i(U(progTone, "uHdr"), 0); glUniform1i(U(progTone, "uExpo"), 1);
   glUniform1f(U(progTone, "uNewExpo"), q.lightNew && !q.legacy && !thumbMode ? q.newExpo : 1.0f);   // VO L1
-  { float fe = lt.mapExposure > 0 && !thumbMode ? lightingFixedExposure(*this) * lt.mapExposure : v.autoExposure ? -1.0f : lightingFixedExposure(*this); glUniform1f(U(progTone, "uFixedExpo"), fe > 0 && !thumbMode ? fe * wx.der.fixedMul : fe); }   // W1: a preset moves a fixed exposure by two thirds of its light change   // 1 by Day; BR3: a map may pin it (play = editor)
+  { float fe = lt.mapExposure > 0 && !thumbMode ? lightingFixedExposure(*this) * lt.mapExposure : v.autoExposure ? -1.0f : lightingFixedExposure(*this); if (q.lightPhys && q.lightNew && !q.legacy && !thumbMode && !camIndoor && physExpo > 0.0f) fe = physExpo; else if (fe > 0 && !thumbMode) fe *= wx.der.fixedMul; glUniform1f(U(progTone, "uFixedExpo"), fe); }   // CP2: Physical exposes by EV100 outdoors (indoors the meter)   // W1: a preset moves a fixed exposure by two thirds of its light change   // 1 by Day; BR3: a map may pin it (play = editor)
   {   // colour grade (content/settings/grade.json, read once; the defaults match the shipped file)
     static vec4 g(0.91f, 0.21f, 1.0f, 0.18f); static vec3 lo(0.965f, 0.995f, 1.045f), hi(1.035f, 1.0f, 0.955f); static bool read = false;
     if (!read) {

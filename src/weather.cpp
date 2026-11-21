@@ -97,6 +97,7 @@ void weatherDerive(Renderer& R, vec3 eye) {
     d.sigma = 0.0010f;   // today's haze at Medium, now on every quality preset (fair sight on Low / High)
     d.visM = 3.912f / d.sigma;
   }
+  d.skyRatio = row.skyLux / clr.skyLux * (id == 12 ? 1.3f : 1.0f); d.beamRatio = clrSun > 0 ? d.eSunLux / clrSun : 0.0f;
   d.cullM = 1.42f * d.visM;
   const float a = glm::radians(s.windDirDeg); d.windXZ = vec2(std::sin(a), std::cos(a)) * s.windMs * (phys ? 1.0f : 1.0f);
   d.sunShadow = R.sunShK;
