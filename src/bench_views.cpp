@@ -30,7 +30,7 @@
 #include <numeric>
 
 namespace {
-struct BView { std::string map, name; vec3 pos; float yaw = 0, pitch = 0; float hour = -1; int wx = -1; };   // hour / wx: the view's own (-1: the run's)
+struct BView { std::string map, name; vec3 pos; float yaw = 0, pitch = 0; float hour = -1; int wx = -1, light = -1; };   // hour / wx / light (1 New, 0 Classic): the view's own (-1: the run's)
 struct BPath { std::vector<vec2> pts; float height = 9; vec3 turn{0}; float turnYaw = 0; float len = 0; };
 struct Run {
   std::string map, view, preset;
@@ -100,7 +100,9 @@ void viewsFor(App& a, const std::string& map, const TemplateInfo& t) {
   if (mv.is_array() && !mv.empty()) {
     for (auto& v : mv) {
       int wx = !v.contains("weather") ? -1 : v["weather"].is_number_integer() ? v["weather"].get<int>() : wxPresetFromName(v.value("weather", std::string()));   // a preset id or name
-      gViews.push_back({map, v.value("name", std::string("view")), jvec3(v["pos"], vec3(0)), v.value("yaw", 0.0f), v.value("pitch", 0.0f), v.value("hour", -1.0f), wx});
+      vec3 pos = jvec3(v["pos"], vec3(0));
+      if (v.value("groundEye", false)) pos.y += a.terrain.height(pos.x, pos.z);   // NMK_EXTRA_VIEWS files: y is the eye above the ground
+      gViews.push_back({map, v.value("name", std::string("view")), pos, v.value("yaw", 0.0f), v.value("pitch", 0.0f), v.value("hour", -1.0f), wx, v.value("light", -1)});
     }
     return;
   }
@@ -251,6 +253,7 @@ void applyRunSettings(App& a, const BView* view) {
   if (const char* f = std::getenv("NMK_BENCH_ENVFOG"); f && *f) { a.R.wx.fog = std::atoi(f); a.R.wx.userSet = true; }   // 0 Off .. 3 Dense
   if (view && view->hour >= 0) a.R.lt.hour = view->hour;   // the view's own hour / weather (a config token below still wins)
   if (view && view->wx >= 0) { a.R.wx.target = view->wx; a.R.wx.userSet = true; }
+  if (view && view->light >= 0) a.R.q.lightNew = view->light == 1;
   for (size_t a0 = 0, c; a0 <= gCfgs[gCi].size(); a0 = c + 1) {   // config tokens hour=<h>, envfog=<0..3> (the viscull pairs)
     c = gCfgs[gCi].find('+', a0); if (c == std::string::npos) c = gCfgs[gCi].size();
     std::string f = gCfgs[gCi].substr(a0, c - a0);
