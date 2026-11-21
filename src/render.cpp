@@ -113,13 +113,16 @@ uniform int uShadowTaps;          // P3: cap on the PCF taps (presets; 0 = no ca
 uniform int uFrame;               // frame counter (noise rotation; TAA decorrelation)
 uniform int uCloudShadowOn; uniform float uCloudCov, uCloudT;
 uniform float uCloudK, uCloudSeed; uniform vec2 uCloudWind;
-uniform int uW2;   // W2 (weather corpus): 1 = overcast sky the right way up, fog = the sky at the horizon
 uniform float uFlash;   // W2 lightning: 0..1 this frame (sky and ambient flash)
 float overcastGrad(float y){ return 1.25*(1.0 + 2.0*max(y, 0.0))/3.0; }   // CIE overcast sky: L(theta) ~ (1 + 2 sin theta) / 3, scaled so its mean matches SKY1's   // WX1: Clear -> Cloudy mix, the field's seed and wind (600 m cells / s)
 uniform vec4 uCloudOpen; uniform float uCloudOpenK;   // VO L5 look.cloudOpening: direction (xyz), cosine of its half width (w), strength (0: none)
 uniform vec4 uCloudXf;    // VO L5 look.cloudScale / cloudStretch / cloudDir: the cloud field's xz transform (mat2 columns; identity by default)
 uniform float uSunDisc;   // VO L5 look.sunDisc: 1 default, 0 no sun disc in the sky
-float cloudOpening(vec3 d){ return uCloudOpenK*smoothstep(uCloudOpen.w, mix(uCloudOpen.w, 1.0, 0.6), dot(d, uCloudOpen.xyz)); }   // VO L5: 0..strength toward the opening
+uniform int uW2;   // W2 (weather corpus): 1 = overcast sky the right way up, fog = the sky at the horizon, soft cloud openings
+float cloudOpening(vec3 d){   // VO L5: 0..strength toward the opening; W2: a falloff over twice its half width (the old ~8 deg edge read as a disc)
+  float c = dot(d, uCloudOpen.xyz);
+  return uCloudOpenK*(uW2 == 1 ? smoothstep(cos(2.0*acos(clamp(uCloudOpen.w, -1.0, 1.0))), 1.0, c) : smoothstep(uCloudOpen.w, mix(uCloudOpen.w, 1.0, 0.6), c));
+}   // VO L5: 0..strength toward the opening
 uniform float uEnvFogTop = 1e9, uEnvFogSoft = 12.0;   // look.fogLayer top: the layer's ceiling at world y, soft over uEnvFogSoft m
 uniform float uEnvFog, uEnvFogH, uFogIndoor, uEnvFogNear; uniform sampler2D uFogField; uniform vec4 uFogBox;   // WX1 environmental fog: density (1/m), layer height, indoor scale; field (unit 27), box (min xz, 1/size)
 uniform float uAoIndirectOnly;    // 1: material AO / sky occlusion darken only indirect light
@@ -351,7 +354,7 @@ vec3 skyColor(vec3 d){
 // The in-scattered colour is the horizon sky in that direction plus a sun glow, so the land fades into the sky.
 vec3 hazeColor(vec3 dir){   // W2: the haze's colour toward dir (= the sky at the horizon under w2sky)
   vec3 fd = normalize(vec3(dir.x, max(dir.y, 0.015), dir.z));
-  if (uW2 == 1) { vec3 band = vec3(dot(uSkyHor, vec3(0.2126, 0.7152, 0.0722)))*vec3(0.95, 0.97, 1.0)*0.66*overcastGrad(fd.y); return mix(skyColor(fd), band, uCloudK); }
+  if (uW2 == 1) { vec3 band = vec3(dot(uSkyHor, vec3(0.2126, 0.7152, 0.0722)))*vec3(0.95, 0.97, 1.0)*0.66*overcastGrad(fd.y); return mix(skyColor(fd)/(1.0 + 0.6*cloudOpening(fd)), band, uCloudK); }   // the opening lights the sky, not the haze over the ground
   return mix(uFogCol, skyColor(fd), 0.65);
 }
 vec3 applyFogAir(vec3 col, vec3 w){
@@ -371,10 +374,7 @@ vec3 applyFogAir(vec3 col, vec3 w){
   float f = 1.0 - exp(-tau);
   vec3 fd = normalize(vec3(dir.x, max(dir.y, 0.015), dir.z));
   vec3 fc = mix(uFogCol, skyColor(fd), 0.65);
-  if (uW2 == 1) {   // W2: distant ground fades into exactly the sky behind it at the horizon (the grey band under a deck)
-    vec3 band = vec3(dot(uSkyHor, vec3(0.2126, 0.7152, 0.0722)))*vec3(0.95, 0.97, 1.0)*0.66*overcastGrad(fd.y);
-    fc = mix(skyColor(fd), band, uCloudK);
-  }
+  if (uW2 == 1) fc = hazeColor(dir);   // W2: distant ground fades into exactly the sky behind it at the horizon (the grey band under a deck)
   float sd = max(dot(dir, uSkySun), 0.0);
   fc += uSkySunCol*vec3(1.0, 0.92, 0.78)*pow(sd, 8.0)*0.10;
   if (uEnvFog > 0.0) {
@@ -3755,11 +3755,12 @@ uniform float uMapGamma;     // BR1c: the open map's gamma (> 1 brighter), 1 = n
 uniform float uWxK;   // WX2: the Cloudy mix (desaturation, cooler grade)
 uniform float uWxDark = 1.0;   // W2: 0 under a preset row (its exposure carries the light level; the grade only greys)
 uniform float uMapSat; uniform vec3 uMapTint;   // NT2b: a map's own saturation / tint
+uniform int uPhysGrade;   // CP2 physgrade: the grade ran in scene-linear before the curve (pivot 0.18); here only the weather / map / gamma steps
 uniform int uGradeOn; uniform float uGradeSat, uGradeContrast, uGradeVig, uGradeSharpen, uGradeCA; uniform vec3 uGradeShadow, uGradeHigh;
 // VO L8: every colour-only step after the tone curve, in Classic's order (vignettes are applied apart: they are positional)
 vec3 gradeColor(vec3 c){
   float l = dot(c, vec3(0.2126,0.7152,0.0722));
-  if (uGradeOn == 1) {
+  if (uGradeOn == 1 && uPhysGrade == 0) {
     c = mix(vec3(l), c, uGradeSat);
     float sh = 1.0 - smoothstep(0.0, 0.42, l), hi = smoothstep(0.3, 0.95, l);
     c *= mix(vec3(1.0), uGradeShadow, sh)*mix(vec3(1.0), uGradeHigh, hi);
@@ -3867,6 +3868,14 @@ void main(){
   }
   if (uDbgView == 6 && all(lessThan(abs(gl_FragCoord.xy - vec2(textureSize(uHdr, 0))*0.5), vec2(12.0)))) c = vec3(0.18)/max(e, 1e-6);   // scene 0.18 through the whole display chain
   if (uNewTone >= 1) {   // VO L8: AgX curve (matched to the old one at mid grey), saturation re-fit, then the grade from its LUT
+    if (uPhysGrade == 1 && uGradeOn == 1) {   // CP2 physgrade: contrast around scene 0.18, saturation, cool shadows / warm highlights by stops, all before the curve
+      vec3 x = c*e; const vec3 lw = vec3(0.2126, 0.7152, 0.0722); float L = max(dot(x, lw), 1e-6);
+      x *= 0.18*pow(L/0.18, 1.0 + 0.6*uGradeContrast)/L; L = max(dot(x, lw), 1e-6);
+      x = max(mix(vec3(L), x, uGradeSat), 0.0);
+      float st = log2(L/0.18);
+      x *= mix(uGradeShadow, vec3(1.0), smoothstep(-4.0, 0.0, st))*mix(vec3(1.0), uGradeHigh, smoothstep(0.0, 3.0, st));
+      c = x/max(e, 1e-8);
+    }
     c = agxFilmic(c*e*1.22*uAgxK);
     float la = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = max(mix(vec3(la), c, uAgxSat), 0.0);
     c = uNewTone == 2 ? gradeColor(clamp(c, 0.0, 1.0)) : texture(uGradeLut, sqrt(clamp(c, 0.0, 1.0))*(31.0/32.0) + 0.5/32.0).rgb;   // 2: NMK_VO_NOLUT (A/B of the LUT)
@@ -4280,7 +4289,7 @@ void Renderer::physLight(vec3& sun, vec3& sky, vec3& ground, vec3& fog, vec3& fi
     const float eTot = std::max(eDN * mu + eSky, 1e-3f);
     const float evScene = std::log2(eTot / 2.5f);
     physEV = glm::clamp(15.0f + 0.67f * (evScene - 15.0f), mu > 0.0f ? 9.0f : 3.0f, 15.5f);
-    physExpo = q.physExpoK * K / (1.2f * std::exp2(physEV));
+    physExpo = mu > 0.05f ? q.physExpoK * K / (1.2f * std::exp2(physEV)) : 0.0f;   // dusk / night: the engine's own night exposure (the art stays in its units)
   }
 }
 void Renderer::uploadWeather() {   // W1: NmkWeather (binding 4), the layout kCommon names
@@ -6234,6 +6243,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   const bool gradeOn = grade.on && perf.grade && !q.legacy && !thumbMode && !lt.mapClean;   // BR2: a clean map keeps its own colours (the cool-shadow grade turned yellow olive)
   auto gradeU = [&](GLuint p) {
     glUniform1i(U(p, "uGradeOn"), gradeOn ? 1 : 0);
+    glUniform1i(U(p, "uPhysGrade"), perf.physGrade && q.lightPhys && q.lightNew && !q.legacy && !thumbMode ? 1 : 0);   // CP2
     glUniform1f(U(p, "uWxK"), thumbMode ? 0.0f : wx.k); glUniform1f(U(p, "uWxDark"), wx.der.phys ? 0.0f : 1.0f);
     glUniform1f(U(p, "uMapSat"), thumbMode ? 1.0f : lt.mapSat); glUniform3fv(U(p, "uMapTint"), 1, glm::value_ptr(thumbMode ? vec3(1.0f) : lt.mapTint));
     glUniform1f(U(p, "uNightGamma"), 1.0f / (1.0f + 0.3f * lightingTod(lt.hour).nightK) / settings().gamma());   // x the Settings gamma slider   // night: gamma +30 % (user request)

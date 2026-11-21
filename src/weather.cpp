@@ -63,10 +63,12 @@ void weatherForce(Renderer& R, int id) { R.wx.target = std::max(0, id); R.wx.use
 void weatherDerive(Renderer& R, vec3 eye) {
   auto& W = R.wx; WxDerived& d = W.der;
   static bool envDone = false;   // NMK_WEATHER=<name or id>: once, at the first frame (the collective run / captures)
+  if (std::getenv("NMK_LIGHT_PHYS")) { R.q.lightNew = true; R.q.lightPhys = true; }   // runs: Lighting Physical without touching the settings file
   if (!envDone) { envDone = true; if (const char* e = std::getenv("NMK_WEATHER")) { int id = std::isdigit((unsigned char)e[0]) ? std::atoi(e) : wxPresetFromName(e); if (id >= 0) weatherForce(R, id); } }
   const int id = W.want();
   const Row& row = *rowOf(id);
   W.st = row.st;
+  { extern bool snowLayerOn(); if (!W.presetOn() && snowLayerOn()) W.st.tempC = std::min(W.st.tempC, 1.0f); }   // Map default on a map with lying snow (a thaw): about freezing, whatever row it maps to
   W.st.wet = id == 5 ? 0.5f : id == 6 || id == 7 ? 1.0f : 0.0f; W.st.puddle = id == 6 ? 0.5f : id == 7 ? 1.0f : 0.0f;   // until accumulation (W3)
   W.flashes.clear();
   const bool phys = W.presetOn() && id >= 2 && R.q.lightNew && !R.q.legacy;
