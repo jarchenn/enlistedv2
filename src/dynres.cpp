@@ -7,6 +7,22 @@
 #include <cmath>
 #include <cstring>
 
+namespace {   // CP 5.1's controller, kept behind the governor switch (off: this one)
+struct DynResCtl {
+  float s = 1.0f, sMin = 0.77f, sMax = 1.0f, tFilt = 0.0f; int over = 0;
+  float update(float tGpuMs, float sUsed, float targetMs) {   // corpus 10 s10.7.2
+    const float budget = targetMs * 0.90f;
+    tFilt = tFilt == 0.0f ? tGpuMs : tFilt + 0.2f * (tGpuMs - tFilt);
+    over = tGpuMs > targetMs ? over + 1 : 0;
+    float t = over >= 2 ? tGpuMs : tFilt;
+    float sTarget = sUsed * std::sqrt(budget / std::max(0.1f, t)), err = sTarget - s;
+    if (over == 0 && std::fabs(err) < 0.03f) return s;
+    float g = err < 0.0f ? (over >= 2 ? 1.0f : 0.5f) : 0.1f;
+    s = std::clamp(s + g * err, sMin, sMax); return s;
+  }
+};
+DynResCtl gOld; double gOldLast = 0; bool gUseGov = true;
+}
 namespace {
 const float kRes[6] = {1.00f, 0.93f, 0.86f, 0.80f, 0.72f, 0.64f};
 const GovCaps kCaps[6] = {{1, 1, 1}, {0.8f, 0.7f, 1}, {0.6f, 0.45f, 0.7f}, {0.45f, 0.25f, 0.5f}, {0.3f, 0.1f, 0.35f}, {0.2f, 0, 0.25f}};
@@ -65,9 +81,18 @@ void dynResFrame(App& app) {
   if (!gWasOn || gGov.sMin != sMin || gGov.sMax != sMax) {   // on, or a new preset: rung 0 at the top
     gWasOn = true; gGov = Governor{}; gGov.sMin = sMin; gGov.sMax = sMax; gGov.scale = sMax; app.R.setResolutionScale(sMax); gHold = 4; return;
   }
+  if (gUseGov != app.R.perf.governor) { gUseGov = app.R.perf.governor; gWasOn = false; gOld = DynResCtl{sMax, sMin, sMax}; return; }   // switched: restart at the top
   if (gHold > 0) { --gHold; return; }   // the timings in flight (2-3 frames late) were rendered at the old scale
   double gpu = 0; for (int i = 0; i < GP_Count; ++i) gpu += app.R.gpuPassMs[i];
   if (gpu <= 0) return;
+  if (!gUseGov) {   // switch governor off: CP 5.1's controller, unchanged
+    static const float t60 = [] { const char* e = std::getenv("NMK_DYNRES_TARGET"); return e ? (float)std::atof(e) : 1000.0f / 60.0f; }();
+    gOld.sMin = sMin; gOld.sMax = sMax;
+    const float sUsed = app.R.resolutionScale(), want = std::round(gOld.update((float)gpu, sUsed, t60) * 100.0f) / 100.0f;
+    const double now = glfwGetTime(), gap = want < sUsed ? (gOld.over >= 2 ? 0.0 : 0.25) : 1.0;
+    if (std::fabs(want - sUsed) >= 0.01f && now - gOldLast >= gap) { app.R.setResolutionScale(want); gOldLast = now; gHold = 4; logf("dynres (old controller): scale %.2f -> %.2f (GPU %.1f ms)", sUsed, want, gpu); }
+    return;
+  }
   static const float target = [] { const char* e = std::getenv("NMK_DYNRES_TARGET"); return e ? (float)std::atof(e) : 15.0f; }();
   const float sUsed = app.R.resolutionScale(); const int r0 = gGov.rung;
   const bool adsMoving = app.adsT > 0.02f && app.adsT < 0.98f;   // no rung change while aiming in / out
@@ -79,7 +104,7 @@ void dynResFrame(App& app) {
   }
 }
 
-GovCaps governorCaps() { return gWasOn ? gGov.caps() : GovCaps{}; }
+GovCaps governorCaps() { return gWasOn && gUseGov ? gGov.caps() : GovCaps{}; }
 int governorRung() { return gWasOn ? gGov.rung : 0; }
 
 int dynResSelfCheck() {
