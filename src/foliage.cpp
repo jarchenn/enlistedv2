@@ -480,20 +480,50 @@ GLuint leafInstVao(GLuint inst) {
   return vao;
 }
 
+// CP2 (corpus 09 s2): a standing model plant's LOD and cull by its projected radius s = r k / max(|c - eye| - r, 1) px,
+// k = internal height / (2 tan(fov / 2)) (lodPxPerM, so zoom and resolution count). The thresholds keep the asset's own
+// lodDist / cullDist at 1080p and 72 degrees (k 743). Each switch is a band of +-5 % of its threshold (10 % in all) over which
+// the two levels cross-fade by a fixed per-pixel noise (kModelFS / kFolDepthFS uDither, the same in every pass); a continuous
+// band cannot flip-flop, so it stands in for the hysteresis a hard switch would need. Past the weather's cull distance
+// (wx.der.cullM, 1.42 x visibility) plants fade out over its last 10 %. treepxlod off: the distance rule as before.
+void folModelLodPush(App& app, const AssetDef& a, const mat4& W, float wind, const vec4& tint, vec3 eye, float camDist) {
+  Renderer& R = app.R;
+  const GpuModel* m0 = a.model.get(); const GpuModel* m1 = a.modelLod ? a.modelLod.get() : nullptr;
+  auto push = [&](const GpuModel* gm, float dith) { int k0, k1; a.modelRange(gm, k0, k1); Renderer::FolModelDraw d{gm, W, wind, false, k0, k1 - k0, tint}; d.dither = dith;
+    if (m1) { int s0, s1; a.modelRange(m1, s0, s1); d.shadowModel = m1; d.sFirst = s0; d.sCount = s1 - s0; }   // CP5: the mid cascade's fixed level
+    R.folModels.push_back(d); };
+  const float k = app.lodPxPerM;
+  if (!R.perf.treePxLod || k <= 0 || !m0) { if (camDist > a.modelCull) return; push(m1 && camDist > a.modelLodDist ? m1 : m0, 0.0f); return; }
+  const vec3 c = vec3(W * vec4(0.5f * (m0->bmin + m0->bmax), 1.0f));
+  const float rad = std::max(0.05f, 0.5f * glm::length(vec3(W * vec4(m0->bmax - m0->bmin, 0.0f))));
+  const float dist = glm::length(c - eye), s = rad * k / std::max(dist - rad, 1.0f);
+  constexpr float kRef = 743.0f, w = 0.05f;
+  auto band = [&](float T) { return std::clamp((s - T * (1.0f - w)) / (2.0f * w * T), 0.0f, 1.0f); };   // 0 below the band, 1 above
+  auto qz = [](float x) { return std::round(x * 32.0f) / 32.0f; };   // 32 steps: few extra batches
+  float vis = band(rad * kRef / std::max(a.modelCull, 1.0f));
+  const float maxD = R.wx.der.cullM;
+  if (maxD > 0) vis = std::min(vis, std::clamp((maxD - dist) / (0.1f * maxD), 0.0f, 1.0f));
+  vis = qz(vis);
+  if (vis <= 0) return;
+  if (vis < 1) { push(m1 ? m1 : m0, vis); return; }   // fading out: the far level
+  const float t1 = m1 ? qz(band(rad * kRef / std::max(a.modelLodDist, 1.0f))) : 1.0f;
+  if (t1 >= 1) push(m0, 0.0f); else if (t1 <= 0) push(m1, 0.0f); else { push(m0, t1); push(m1, -t1); }
+}
+
 void App::treeDrawItems(const Instance& i, const InstanceRT& r, std::vector<DrawItem>& op) {
   const TreeDef& t = r.asset->tree;
   mat4 M = instanceMatrix(i);
   if (r.asset->model && r.asset->modelFoliage) {   // TR1: a model tree (Poly Haven bake): drawn instanced with wind; felled, the
     // whole model rides the trunk body (a topple about the cut) over the procedural stump; its trunk box only collides
     float cd = glm::length(i.pos - (mode == Mode::Explore ? eyePos() : camPos));
-    if (cd > r.asset->modelCull) return;
+    if (cd > r.asset->modelCull && !(R.perf.treePxLod && !r.treeFelled)) return;   // CP2: the standing tree's cull is folModelLodPush's
     const GpuModel* gm = (r.asset->modelLod && cd > r.asset->modelLodDist) ? r.asset->modelLod.get() : r.asset->model.get();
     mat4 S = glm::scale(mat4(1), vec3(r.asset->modelScale));
     int k0, k1; r.asset->modelRange(gm, k0, k1);   // FL1: one plant of a pack bake
     extern vec4 greenTintOf(const AssetDef&, const mat4&);   // FL1 greenery
     const vec4 gt = greenTintOf(*r.asset, M);
     const mat4 Sk = glm::translate(mat4(1), vec3(0, -r.asset->modelSink, 0));   // BT2 model.sink: the root flare under the ground
-    if (!r.treeFelled) { R.folModels.push_back({gm, Sk * M * S, r.asset->modelWind, false, k0, k1 - k0, gt}); return; }
+    if (!r.treeFelled) { folModelLodPush(*this, *r.asset, Sk * M * S, r.asset->modelWind, gt, mode == Mode::Explore ? eyePos() : camPos, cd); return; }
     op.push_back({&t.stumpMesh, M});
     vec3 p; quat q;
     if (Physics::getTransform(r.trunkBody, p, q)) R.folModels.push_back({gm, glm::translate(mat4(1), p) * glm::mat4_cast(q) * glm::translate(mat4(1), vec3(0, -t.stumpH, 0)) * S, 0.0f, false, k0, k1 - k0, gt});

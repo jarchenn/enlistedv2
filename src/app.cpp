@@ -416,9 +416,12 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
       }
     }
     if (r.asset->model && !interior.prop(r.asset)) {   // supplied model: LOD by distance, cut wire sections hidden; collider boxes are not drawn (PR2: furniture models draw in propDraw)
+      if (r.asset->modelFoliage) {   // NT8: instanced, alpha tested (TR1: sized); CP2: LOD and cull by projected pixels
+        extern vec4 greenTintOf(const AssetDef&, const mat4&); extern void folModelLodPush(App&, const AssetDef&, const mat4&, float, const vec4&, vec3, float);
+        folModelLodPush(*this, *r.asset, M * glm::scale(mat4(1), vec3(r.asset->modelScale)), r.asset->modelWind, greenTintOf(*r.asset, M), mode == Mode::Explore ? eyePos() : camPos, camDist); continue;
+      }
       if (camDist > r.asset->modelCull) continue;
       const GpuModel* gm = (r.asset->modelLod && camDist > r.asset->modelLodDist) ? r.asset->modelLod.get() : r.asset->model.get();
-      if (r.asset->modelFoliage) { extern vec4 greenTintOf(const AssetDef&, const mat4&); int k0, k1; r.asset->modelRange(gm, k0, k1); R.folModels.push_back({gm, M * glm::scale(mat4(1), vec3(r.asset->modelScale)), r.asset->modelWind, false, k0, k1 - k0, greenTintOf(*r.asset, M)}); continue; }   // NT8: instanced, alpha tested (TR1: sized)
       for (size_t k = 0; k < gm->parts.size(); ++k) {
         int s = gm->parts[k].section;
         if (s >= 0 && s < (int)r.secCut.size() && r.secCut[s]) continue;
