@@ -104,6 +104,15 @@ static void measureHold(WeaponDef& d, const std::vector<vec3>& P) {
        d.gripC.x, d.gripC.y, d.gripC.z, d.gripAx.x, d.gripAx.y, d.gripAx.z, d.gripRad, d.guardC.x, d.guardC.y, d.guardC.z, d.guardRad, d.gripR.x, d.gripR.y, d.gripR.z, d.gripL.x, d.gripL.y, d.gripL.z);
 }
 
+bool fireCurveAt(const WeaponDef& d, float t, float out[6]) {   // KF1
+  const auto& c = d.fireCurve; if (c.empty()) { for (int k = 0; k < 6; ++k) out[k] = 0; return false; }
+  const float f = std::max(0.0f, t) * d.fireCurveFps; const int i = (int)f;
+  if (i >= (int)c.size() - 1) { for (int k = 0; k < 6; ++k) out[k] = c.back()[k]; return false; }
+  const float u = f - (float)i;
+  for (int k = 0; k < 6; ++k) out[k] = c[i][k] + (c[i + 1][k] - c[i][k]) * u;
+  return true;
+}
+
 void App::buildWeaponMeshes() {
   weaponDefs.clear();
   fs::path dir = contentDir() / "weapons";
@@ -154,6 +163,11 @@ void App::buildWeaponMeshes() {
     d->tracerEvery = j.value("tracerEvery", 0);
     d->defaultSight = std::clamp(j.value("defaultSight", 0), 0, 6);   // AT5
     d->sway = j.value("sway", 1.0f); d->rpm = j.value("rpm", 60.0f); d->velocity = j.value("velocity", 800.0f); d->zero = j.value("zero", 100.0f);
+    if (j.contains("fireCurve") && j["fireCurve"].is_object()) {   // KF1
+      const json& fc = j["fireCurve"]; d->fireCurveFps = std::max(1.0f, fc.value("fps", 30.0f));
+      for (auto& r : fc.value("frames", json::array())) if (r.is_array() && r.size() >= 6) { std::array<float, 6> a; for (int k = 0; k < 6; ++k) a[k] = r[k].get<float>(); d->fireCurve.push_back(a); }
+    }
+    d->boltDelay = std::max(0.0f, j.value("boltDelay", 0.0f));
     d->boltTime = j.value("boltTime", 0.0f); d->spinUp = std::max(0.0f, j.value("spinUp", 0.0f)); d->hipSpreadMul = std::max(0.1f, j.value("hipSpreadMul", 1.0f));   // MG13
     d->reloadEmpty = jkey(j, "reload").value("empty", 2.5f); d->reloadPartial = jkey(j, "reload").value("partial", d->reloadEmpty); d->reloadRound = jkey(j, "reload").value("round", 0.5f);
     d->rPitch = jkey(j, "recoil").value("pitch", 1.0f); d->rYaw = jkey(j, "recoil").value("yaw", 0.4f); d->rRecover = jkey(j, "recoil").value("recover", 8.0f);
@@ -572,7 +586,8 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   }
   // bolt actions (Kar98k, ZF39): a shot drops out of ADS (adsT = 0 at the shot); aiming waits for the bolt and the
   // cooldown, then a held aim key re-enters
-  bool aimBlocked = d.action == "bolt" && (s.bolt > 0 || s.cooldown > 0);
+  const bool holdAds = d.boltDelay > 0 && s.bolt > d.boltTime;   // KF1: shouldered until the bolt is worked
+  bool aimBlocked = d.action == "bolt" && !holdAds && (s.bolt > 0 || s.cooldown > 0);
   float adsRate = d.adsSpeed / std::max(0.05f, move.adsTime) * (s.att[ATT_STOCK] ? 1.0f / kPadAdsTime : 1.0f);   // the only writer of adsT while a weapon is out; BR2 recoil pad: ADS time -25 %
   adsT = std::clamp(adsT + (in.aim && !modal && !aimBlocked ? adsRate : -adsRate) * dt, 0.0f, 1.0f);
   stepViewModel(dt, in, d, s);
@@ -622,7 +637,13 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
     if (s.burst > 1 && d.action == "auto") audio.play("tail_" + d.id, weaponMuzzleWorld(d, s), 0.9f);   // recorded tail, once per release
     s.triggerReleased = true; s.burst = 0;
   }
-  viewKickPitch = s.recoilP + vm.breathPitch; viewKickYaw = s.recoilY + vm.breathYaw;   // breathing moves the whole sight picture
+  float cP = 0, cY = 0;
+  if (!d.fireCurve.empty() && !s.curveFolded) {   // KF1: the camera rides the measured curve; its last row goes into the aim once
+    float row[6]; const bool more = fireCurveAt(d, s.sinceShot, row);
+    if (more) { cP = row[4]; cY = row[5]; }
+    else { s.recoilP += row[4]; s.recoilY += row[5]; s.curveFolded = true; }
+  }
+  viewKickPitch = s.recoilP + cP + vm.breathPitch; viewKickYaw = s.recoilY + cY + vm.breathYaw;   // breathing moves the whole sight picture
   if (d.flame.on) { stepFlameLocal(dt, in, d, s, fireHeld); return; }   // FT1: hold to spray; fuel by the second, no reload
   // ---- reload start
   if (in.reload && s.reload <= 0) {
@@ -687,7 +708,8 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       s.clicked = false;
       s.loaded -= 1; ++s.shotIdx; ++s.burst;
       s.cooldown = 60.0f / d.rpm;
-      if (d.action == "bolt") { s.bolt = d.boltTime; if (audio.hasEvent("bolt_cycle_" + d.id)) audio.play("bolt_cycle_" + d.id, eyePos(), 0.7f); }   // SND4: open-back, forward-close, twice
+      if (d.action == "bolt") { s.bolt = d.boltTime + d.boltDelay;   // KF1: the bolt waits boltDelay
+        if (audio.hasEvent("bolt_cycle_" + d.id)) audio.play("bolt_cycle_" + d.id, eyePos(), 0.7f); }   // SND4: open-back, forward-close, twice
       vec3 eye = eyePos();
       vec3 aimDir = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch);
       // dispersion: the class's hip / ADS cone (handling.json) x the stance (prone near laser-like, mounted near none)
@@ -766,6 +788,8 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       if (s.att[ATT_MUZZLE] == 2) sc *= kBrakeRecoil;   // BR2 muzzle brake: recoil -20 %
       float yawK = moving ? 1 + handling.movingYaw : 1.0f;
       lastRecoilScale = sc;
+      if (!d.fireCurve.empty()) { s.curveFolded = false; s.sinceShot = 0; }   // KF1: the measured curve drives aim and gun; no random recoil, no spring kick
+      else {
       s.recoilP += sc * (d.rPitch * (0.85f + 0.3f * wrand(s.seed)) + d.rClimb * std::min(s.burst, 12));
       s.recoilP = std::min(s.recoilP, std::max(0.0f, 85.0f - eyePitch));   // only the camera's pitch bound (look clamp 85) limits the climb
       {   // WP4c: an erratic horizontal jerk every shot (+ = left): either side (slightly more often left), a wide spread of sizes
@@ -784,7 +808,8 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
         }
         s.kickV += d.vmBack * k; s.kickPV += d.vmPitch * k * (0.9f + 0.2f * wrand(s.seed)); s.kickYV += d.vmYaw * k * (0.6f + 0.8f * wrand(s.seed));
       }
-      if (d.action == "bolt") adsT = 0;   // working the bolt takes the rifle off the shoulder
+      }
+      if (d.action == "bolt" && d.boltDelay <= 0) adsT = 0;   // working the bolt takes the rifle off the shoulder (KF1: boltDelay keeps it there first)
       if (d.feed == "enbloc" && s.loaded == 0) { audio.play("ping", muzzle, 0.8f); weaponMsg = "Clip ejected (ping)"; s.clipPings++; }
     }
   }
