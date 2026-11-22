@@ -54,11 +54,12 @@ bool recoilCapture(App& a, float dt) {
     if (!table && shotFrame >= 0 && frame == shotFrame + 9) a.uiShot = out(name + "_2recovered");     // ~165 ms
     if (shotFrame >= 0 && frame == shotFrame + 12) logf("[recoil] %s: seen back %.3f m%s (spring %.3f m), muzzle up %.2f deg, left %.2f deg (omega %.0f: peak at %.0f ms); now %.4f m / %.3f deg", name.c_str(), zMax, zMax < 0.005f ? " ZERO" : "", peakK, peakP, peakY, d.vmOmega, 1000.0f / d.vmOmega, s.kick, s.kickP);
     // KR2: an animated bolt rifle: a still 0.85 s after the shot (mid bolt cycle) and, at the hip, the magazine emptied and a
-    // reload started 1.7 s after it, a still 1.5 s into that empty reload
-    const bool longer = d.anim && d.action == "bolt" && !table;
+    // reload started 1.7 s after it, a still 1.5 s into that empty reload; GR13: the Garand's rig the empty reload's still only
+    // (1.5 s in: the hand pushing the rod home; its rod cycles in 0.1 s, so no mid-cycle still)
+    const bool longer = d.anim && (d.action == "bolt" || d.id == "m1_garand") && !table;
     if (longer && shotFrame >= 0) {
       const float ts = t - tShot;
-      if (ts >= 0.85f && ts < 0.85f + dt) a.uiShot = out(name + "_3cycle");
+      if (d.action == "bolt" && ts >= 0.85f && ts < 0.85f + dt) a.uiShot = out(name + "_3cycle");
       if (!ads && ts >= 1.7f && ts < 1.7f + dt) { a.wstate[d.id].loaded = 0; in.reload = true; } else in.reload = false;
       if (!ads && ts >= 3.2f && ts < 3.2f + dt) a.uiShot = out(name + "_4reload_empty");
       return ts > (ads ? 1.0f : 3.4f);
