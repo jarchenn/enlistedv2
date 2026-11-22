@@ -274,6 +274,16 @@ const A = {
     rigidify: ["base_minigun_0", "barrels_minigun_0", "lid_minigun_0", "button_minigun_0", "mag_minigun_0", "bullet_minigun_0"], gun: "base_minigun_0",
     clips: { fire: [0, 5], idle: [5, 48], reload: [48, 100], inspect: [100, 131] },   // fire: the barrels one step (60 deg); reload: the box out and in; inspect (raised, the button) not played
     mats: { minigun: { albedo: "img0.png", mr: "img1.png", normal: "img2.png" }, arms: { albedo: "img3.png", mr: "img4.png", normal: "img5.png", ...ng2Arms } } },
+  // ---- SG1: the StG 44 on first-person arms (STG44_fps_arms.glb: the user's rig, the SCAR-H fps arms with the StG's parts on
+  // the Weapon / Magazine / Slide bones; local-only: the arms' licence is unknown); one 1-281 timeline at 24 fps. Sights: the game's
+  // StG sights mapped through a similarity fit of the rig's rifle onto models/stg44 (E:/nmk/stg44rig/register.py, median 3 mm;
+  // 12.439 units per metre, the rig's rifle within 1.5 deg of the levelled weapon space: no 12.8 deg cant left)
+  stg44_rig_local: { abs: true, wid: "stg44", src: path.resolve(process.env.STG44_RIG || "E:/nmk/incoming_stg44fps/STG44_fps_arms.glb"), tex: path.resolve(process.env.STG44_TEX || "E:/nmk/incoming_stg44fps"),
+    srcPoints: {"rear": [-0.02136, 1.01659, -0.52571], "front": [-0.01592, 1.00285, 5.06757], "muzzle": [-0.00278, 0.26517, 5.36911], "up": [-0.0341, 1.63842, -0.52286]}, srcScale: 0.08039, glbRest: true, normals: true, hipRear: [0.079, 0.265, -0.069],   // the static StG's hip pose (ads.hipOffset from the ADS line at relief 0.18)
+   
+    keep: ["FPS_Hands", "STG44_Weapon", "STG44_Magazine", "STG44_Slide"], gun: "STG44_Weapon", gunBone: "Weapon",
+    clips: { idle: { action: "STG44_fps", range: [49, 80] }, fire: { action: "STG44_fps", range: [80, 89] }, reload: { action: "STG44_fps", range: [101, 172] }, reload_empty: { action: "STG44_fps", range: [173, 281] } },   // draw 1-48 (not played), a second shot 92-100, the empty reload: handle back and held, the magazine, the handle released (253-261)
+    mats: { Hands_Mat: { albedo: "img0.png", ...ng2Arms }, "03___Default": { albedo: "img3.png", mr: "img2.png", normal: "img1.png" }, "07___Default": { albedo: "img3.png", mr: "img2.png", normal: "img1.png" } } },
   // ---- STR1: the Sten on the same fps-animated-smg rig (tools/sten_rig_prep.py: the MP5 meshes swapped for the Sten's parts; local-only, weapon sten)
   sten_rig_local: { abs: true, wid: "sten", src: path.resolve(process.env.STEN_RIG || "E:/nmk/sten_rig/sten_rig.blend"), tex: path.resolve(process.env.STEN_TEX || "E:/nmk/sten_rig"), stat: "modern_mp5_local",
     pointShift: [0.0257, 0.005, 0.08], realLength: 0.7,   // the Sten's weapon space -> the MP5's (rightGrip on rightGrip; tools/sten_rig_prep.py T); the rig keeps the MP5's static mapping
@@ -299,6 +309,10 @@ for (const [id, a] of Object.entries(A)) {
   if (id.startsWith("_")) continue;   // parked entries (MG7: the SCAR-H rig, not exported)
   if (process.env.MG_ONLY && !process.env.MG_ONLY.split(",").includes(id)) continue;   // MG12: only these ids (the others need their own static summaries)
   if (a.frame) {   // MG7 (the knife): framed by its own camera, no static model or sights
+    fs.writeFileSync(path.join(CFG, "anim_" + id + ".json"), JSON.stringify({ maxTex: 2048, ...a, src: a.abs ? a.src : G + a.src, texdir: (path.isAbsolute(a.tex) ? a.tex : G + a.tex) + "/textures", out: O + id + "_vm.glb", points: {} }, null, 1));
+    continue;
+  }
+  if (a.srcPoints) {   // SG1: sights given in the source rig's own coordinates (glTF world at rest, registered on the game's static model) with its scale
     fs.writeFileSync(path.join(CFG, "anim_" + id + ".json"), JSON.stringify({ maxTex: 2048, ...a, src: a.abs ? a.src : G + a.src, texdir: (path.isAbsolute(a.tex) ? a.tex : G + a.tex) + "/textures", out: O + id + "_vm.glb", points: {} }, null, 1));
     continue;
   }
