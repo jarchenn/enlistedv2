@@ -1,0 +1,439 @@
+{
+ "id": "modern_minigun",
+ "name": "Minigun (7.62x51 mm)",
+ "side": "modern",
+ "modern": true,
+ "action": "auto",
+ "feed": "belt",
+ "cap": 500,
+ "loaded": 500,
+ "reserve": 1000,
+ "container": "762n_box500",
+ "containerSize": 500,
+ "rpm": 2400,
+ "spinUp": 0.4,
+ "velocity": 850,
+ "caliber": "7.62x51 mm NATO",
+ "bulletMass": 9.5,
+ "recoil": {
+  "pitch": 1.1,
+  "yaw": 0.8,
+  "recover": 6,
+  "climb": 0.06,
+  "visual": 0.05,
+  "supported": 0.35
+ },
+ "reload": {
+  "empty": 4.3,
+  "partial": 4.3
+ },
+ "reloadStyle": "magazine",
+ "tracerEvery": 3,
+ "moveSpeed": 0.72,
+ "hipSpreadMul": 2.0,
+ "sights": {
+  "rear": [
+   -0.0012,
+   0.0538,
+   0.084
+  ],
+  "front": [
+   -0.0012,
+   0.0538,
+   1.0847
+  ],
+  "note": "MG13: no sights on the model: a line parallel to the barrel cluster's axis (x 0, y 0.0008 in the bake) raised 0.144 m to just over the housing (the eye would otherwise sit inside the receiver), from over the rear handle to over the muzzle"
+ },
+ "muzzle": [
+  -0.0012,
+  -0.0905,
+  1.1
+ ],
+ "muzzleDir": [
+  0,
+  0,
+  1
+ ],
+ "zero": 100,
+ "hold": {
+  "pose": {
+   "r": {
+    "p": [
+     -0.0843,
+     -0.031,
+     -0.0268
+    ],
+    "q": [
+     -0.3486,
+     0.3595,
+     0.6939,
+     0.5175
+    ]
+   },
+   "l": {
+    "p": [
+     0.0355,
+     -0.0652,
+     -0.1143
+    ],
+    "q": [
+     -0.4275,
+     -0.4291,
+     -0.5398,
+     0.5846
+    ],
+    "anchor": "support"
+   },
+   "template": "pg",
+   "butt": [
+    -0.0116,
+    0.0844
+   ],
+   "scale": 1.316,
+   "gun": [
+    0,
+    0,
+    -0.05
+   ],
+   "fingers": {
+    "LeftHandThumb1": [
+     0.0,
+     0.0,
+     -0.0,
+     1.0
+    ],
+    "LeftHandThumb2": [
+     -0.0,
+     -0.0,
+     0.0,
+     1.0
+    ],
+    "LeftHandThumb3": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "LeftHandThumb4": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "LeftHandIndex1": [
+     0.0167,
+     -0.0043,
+     -0.0854,
+     0.9962
+    ],
+    "LeftHandIndex2": [
+     0.0497,
+     -0.0127,
+     -0.2537,
+     0.9659
+    ],
+    "LeftHandIndex3": [
+     0.1031,
+     -0.0263,
+     -0.5267,
+     0.8434
+    ],
+    "LeftHandIndex4": [
+     -0.0,
+     0.0,
+     -0.0,
+     1.0
+    ],
+    "LeftHandMiddle1": [
+     0.096,
+     -0.0245,
+     -0.4901,
+     0.866
+    ],
+    "LeftHandMiddle2": [
+     0.0333,
+     -0.0085,
+     -0.1702,
+     0.9848
+    ],
+    "LeftHandMiddle3": [
+     0.096,
+     -0.0245,
+     -0.4901,
+     0.866
+    ],
+    "LeftHandMiddle4": [
+     -0.0,
+     -0.0,
+     -0.0,
+     1.0
+    ],
+    "LeftHandRing1": [
+     0.0811,
+     -0.0207,
+     -0.4142,
+     0.9063
+    ],
+    "LeftHandRing2": [
+     0.0811,
+     -0.0207,
+     -0.4142,
+     0.9063
+    ],
+    "LeftHandRing3": [
+     0.0167,
+     -0.0043,
+     -0.0854,
+     0.9962
+    ],
+    "LeftHandRing4": [
+     -0.0,
+     0.0,
+     -0.0,
+     1.0
+    ],
+    "LeftHandPinky1": [
+     0.1168,
+     -0.0298,
+     -0.5967,
+     0.7934
+    ],
+    "LeftHandPinky2": [
+     0.0,
+     -0.0,
+     -0.0,
+     1.0
+    ],
+    "LeftHandPinky3": [
+     0.0811,
+     -0.0207,
+     -0.4142,
+     0.9063
+    ],
+    "LeftHandPinky4": [
+     -0.0,
+     0.0,
+     -0.0,
+     1.0
+    ],
+    "RightHandThumb1": [
+     0.0,
+     0.0,
+     -0.0,
+     1.0
+    ],
+    "RightHandThumb2": [
+     -0.0,
+     0.0,
+     -0.0,
+     1.0
+    ],
+    "RightHandThumb3": [
+     -0.0,
+     -0.0,
+     0.0,
+     1.0
+    ],
+    "RightHandThumb4": [
+     -0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "RightHandIndex1": [
+     0.0,
+     0.0,
+     -0.0,
+     1.0
+    ],
+    "RightHandIndex2": [
+     -0.0,
+     -0.0,
+     -0.0,
+     1.0
+    ],
+    "RightHandIndex3": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "RightHandIndex4": [
+     -0.0,
+     -0.0,
+     0.0,
+     1.0
+    ],
+    "RightHandMiddle1": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "RightHandMiddle2": [
+     -0.0,
+     -0.0,
+     -0.0,
+     1.0
+    ],
+    "RightHandMiddle3": [
+     -0.0,
+     -0.0,
+     0.0,
+     1.0
+    ],
+    "RightHandMiddle4": [
+     -0.0,
+     -0.0,
+     0.0,
+     1.0
+    ],
+    "RightHandRing1": [
+     0.0,
+     -0.0,
+     -0.0,
+     1.0
+    ],
+    "RightHandRing2": [
+     -0.0,
+     0.0,
+     -0.0,
+     1.0
+    ],
+    "RightHandRing3": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "RightHandRing4": [
+     -0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "RightHandPinky1": [
+     0.1304,
+     0.0128,
+     0.4018,
+     0.9063
+    ],
+    "RightHandPinky2": [
+     0.0,
+     -0.0,
+     0.0,
+     1.0
+    ],
+    "RightHandPinky3": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "RightHandPinky4": [
+     -0.0,
+     0.0,
+     0.0,
+     1.0
+    ]
+   }
+  }
+ },
+ "sockets": {
+  "rightGrip": [
+   -0.0009,
+   -0.0593,
+   0.2857
+  ],
+  "leftSupport": [
+   -0.0009,
+   -0.0157,
+   0.5357999801635742
+  ]
+ },
+ "ads": {
+  "eyeRelief": 0.15,
+  "vmFov": 0,
+  "posCorrection": [
+   0,
+   0,
+   0
+  ],
+  "rotCorrection": [
+   0,
+   0,
+   0
+  ]
+ },
+ "modes": [
+  "auto"
+ ],
+ "note": "MG13: an M134-type minigun carried by hand: 500-round box, 2400 rpm after a 0.4 s spin-up, heavy climb, wide from the hip, slow to move with (0.72) and to reload. Modern weapons case only.",
+ "model": {
+  "src": "modern_minigun.glb",
+  "dir": "modern_minigun",
+  "realLength": 1.1,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "maxTex": 1024,
+  "credit": "Minigun animated by DJMaesen (https://sketchfab.com/3d-models/minigun-animated-e5dbbb2d2e594ebfac33d82d65a97380), CC BY 4.0 (E:/nmk/incoming_minigun; docs/credits.md)"
+ },
+ "animated": {
+  "dir": "modern_minigun",
+  "insert": 0.6,
+  "fireRate": 8.33,
+  "reloadRate": 0.5,
+  "note": "MG13: the source's own arms and clips (models/<dir>/vm.glb): fire = one barrel step (60 deg) played at 8.33x so each round turns the cluster one barrel (2400 rpm: 400 rev/min, continuous while firing); reload (the box swap) at 0.5x: 4.3 s",
+  "points": {
+   "up": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "note": "MG13: the gun's vertical (bind space: from the bore at the muzzle square up to the aim line), so ADS has no roll"
+  }
+ },
+ "parts": {
+  "body": [
+   {
+    "t": "b",
+    "c": [
+     0,
+     0,
+     0.4465
+    ],
+    "s": [
+     0.05,
+     0.08,
+     0.893
+    ],
+    "m": "dark",
+    "k": 0
+   }
+  ],
+  "bolt": [],
+  "mag": [],
+  "cover": [],
+  "clip": [],
+  "bipod": [],
+  "scope": [],
+  "handle": []
+ },
+ "materials": [
+  {
+   "name": "dark",
+   "albedo": [
+    0.08,
+    0.08,
+    0.08
+   ],
+   "roughness": 0.5,
+   "pattern": "metal",
+   "metallic": 0.6,
+   "grain": 1
+  }
+ ]
+}
