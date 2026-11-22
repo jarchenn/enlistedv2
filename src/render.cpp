@@ -6750,6 +6750,20 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUseProgram(progShadow);
   if (!worldModels.empty()) drawModelsDepth(progShadow, worldModels, &frNear); if (!shadowModels.empty()) { drawModelsDepth(progShadow, shadowModels, &frNear); ++bsCasc[0]; }
   }
+  if (bsProbe) {   // bodyshadow probe: the near cascade's stored depth at the body's torso and at its feet against their own light depths
+    bsProbe = false;
+    if (!shadowModels.empty()) {
+      const vec3 feet = vec3(shadowModels[0].m[3]);
+      auto at = [&](vec3 w, float& own, float& stored) {
+        const vec4 c = lightVP * vec4(w, 1.0f); const vec3 n = vec3(c) / c.w; own = n.z * 0.5f + 0.5f; stored = -1.0f;
+        const int x = (int)((n.x * 0.5f + 0.5f) * shadowSize), y = (int)((n.y * 0.5f + 0.5f) * shadowSize);
+        if (x >= 0 && y >= 0 && x < shadowSize && y < shadowSize) glGetTextureSubImage(shadowTex, 0, x, y, 0, 1, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, sizeof(float), &stored);
+      };
+      float tOwn, tSt, fOwn, fSt; at(feet + vec3(0, 1.1f, 0), tOwn, tSt); at(feet + vec3(0, 0.05f, 0), fOwn, fSt);
+      logf("bodyshadow probe: near cascade %s; torso (y+1.1) own depth %.5f stored %.5f -> %s; feet own %.5f stored %.5f; %zu draws, cascade radius %.1f m",
+           sunShK > 0.0f && perf.sunShadow ? "drawn" : "NOT drawn (no direct sun)", tOwn, tSt, tSt >= 0.0f && tSt <= tOwn + 2e-4f ? "the body is in the map" : "NOT in the map", fOwn, fSt, shadowModels.size(), nearR);
+    } else logf("bodyshadow probe: no shadowModels this frame (want %d)", wantBodyShadow() ? 1 : 0);
+  }
   // VO L3 mid cascade (Lighting New, Medium / High): about 3x the near radius in the atlas's right half, texel-snapped like
   // the near one (no crawl), redrawn every 4th frame on Medium / 2nd on High or when its focus moves 4 m (movers lag a few frames there)
   midOn = q.lightNew && perf.midCascade && !q.legacy && !thumbMode && shadowTier >= 1 && sunSh;

@@ -394,31 +394,49 @@ static bool costStep(App& app, Game& G, Soldier& L) {
 }
 
 // bodyshadow NMK_WSM2=bodyshadow: the local player's own sun shadow in first person, inside a match (the body is only pushed
-// for a live local soldier). Chateau Town (no fixed hour or map weather), the player held at the spawn (or NMK_BS_POS=x,z), the AI frozen, 18:00 (a long shadow), look-dev props ahead as reference casters,
-// looking 60 deg down: sun straight behind, sun 60 deg to the side, then Overcast; per scene standing, crouched and prone
+// for a live local soldier). Chateau Town (no fixed hour or map weather), 18:00 (a long shadow), the AI frozen, the player on a
+// pale open sunlit path spot found at frame 20 (or NMK_BS_POS=x,z), look-dev props mid-frame as reference casters,
+// looking 35 deg down: sun straight behind, sun 60 deg to the side (Haze, id 2), then no direct sun (Steady rain, id 6); per scene standing, crouched and prone
 // stills -> selftest_out/bs_<scene>_<stance>.png, each logged with Renderer::shadowModels and the cascades that drew it.
 static bool bodyStep(App& app, Game& G, Soldier& L) {
-  struct Sc { const char* name; int wx; float side; }; static const Sc sc[] = {{"sunbehind", 0, 0.0f}, {"sunside", 0, 60.0f}, {"overcast", 1, 0.0f}};
-  static int k = -1, f0 = 0; static vec3 eye0;
+  // presets by id: 2 Haze (a phys row with direct sun), 6 Steady rain (a phys row with none); ids 0 / 1 are not phys rows
+  struct Sc { const char* name; int wx; float side; }; static const Sc sc[] = {{"sunbehind", 2, 0.0f}, {"sunside", 2, 60.0f}, {"nosun", 6, 0.0f}};
+  static int k = -1, f0 = 0; static vec3 eye0; static bool spot = false;
   if (k < 0) {
     k = 0; f0 = frames; eye0 = L.feet;
-    if (const char* e = std::getenv("NMK_BS_POS")) { float x, z; if (std::sscanf(e, "%f,%f", &x, &z) == 2) eye0 = vec3(x, app.terrain.height(x, z), z); }
+    if (const char* e = std::getenv("NMK_BS_POS")) { float x, z; if (std::sscanf(e, "%f,%f", &x, &z) == 2) { eye0 = vec3(x, app.terrain.height(x, z), z); spot = true; } }
     if (AiCore* A = aiCore()) A->frozen = true;
   }
   const Sc& c = sc[k];
-  app.R.q.lightNew = true; app.R.wx.target = c.wx; app.R.wx.userSet = true; app.R.lt.hour = 18.0f; app.R.lt.userHour = true;
+  app.R.q.lightNew = true; app.R.wx.target = c.wx; app.R.wx.userSet = true;
+  settings().s.hour = 18.0f; app.R.lt.hour = 18.0f; app.R.lt.userHour = true;   // Settings::apply (the governor's rungs) writes s.hour back into lt.hour
   const int f = frames - f0;
-  if (f == 1) { app.R.wx.snap(); Physics::setCharacterPos(eye0 + vec3(0, 0.9f, 0)); }
+  if (f == 1) app.R.wx.snap();
+  if (!spot && f == 20) {   // a pale, open, sunlit spot found here (logged): gravel / concrete path, nothing within 3 m, a clear line to the sun
+    const vec3 sd = glm::normalize(app.R.sunDir); float best = 1e9f;
+    for (int r = 0; r <= 160 && best > 1e8f; r += 4) for (int a = 0; a < (r ? 24 : 1); ++a) {
+      const float an = a * 6.2831853f / 24.0f; vec3 q = L.feet + vec3(std::cos(an) * r, 0, std::sin(an) * r); q.y = app.terrain.height(q.x, q.z);
+      const std::string ps = app.pathSurfaceAt(q); if (ps != "gravel" && ps != "concrete") continue;
+      float t; uint64_t ud; if (Physics::castRay(q + vec3(0, 1.0f, 0), sd, 80.0f, t, ud)) continue;   // shaded
+      bool open = true; for (int b = 0; b < 8 && open; ++b) { const float bn = b * 0.785398f; open = !Physics::castRay(q + vec3(0, 0.5f, 0), vec3(std::cos(bn), 0, std::sin(bn)), 3.0f, t, ud); }
+      if (!open || std::fabs(app.terrain.height(q.x + 1, q.z) - q.y) > 0.15f) continue;
+      eye0 = q; best = (float)r;
+    }
+    spot = true;
+    logf("[bodyshadow] spot %s: (%.1f %.1f %.1f) %s, %.0f m from the spawn", best < 1e8f ? "found" : "NOT found (staying at the spawn)", eye0.x, eye0.y, eye0.z, app.pathSurfaceAt(eye0).c_str(), best < 1e8f ? best : 0.0f);
+  }
+  if (f == 1 || f == 21) Physics::setCharacterPos(eye0 + vec3(0, 0.9f, 0));
   { vec3 sd = app.R.sunDir; sd.y = 0; if (glm::length(sd) > 1e-3f) { sd = glm::normalize(sd); app.eyeYaw = degrees(std::atan2(sd.x, sd.z)) + c.side; } }   // forward = -sun: the sun behind
-  app.eyePitch = -50;
+  app.eyePitch = -35;
   for (auto& s : G.sold) if (s.inUse && !s.localPlayer) s.hp = 100;
-  {   // reference casters in the same frame (look-dev spheres, chart and cards 3.5-5.5 m ahead, 0.5 m up): their sharp shadows show the sun is out
+  {   // reference casters mid-frame (look-dev spheres, chart and cards 3.5-5.5 m ahead, 0.5 m up)
     extern void lookdevPlace(Renderer&, vec3, float, const std::function<float(float, float)>&, std::vector<vec3>*);
     lookdevPlace(app.R, L.feet, app.eyeYaw, [&](float x, float z) { return app.terrain.height(x, z); }, nullptr);
   }
   ExploreInput in{}; in.crouch = f >= 100 && f < 180; in.prone = f == 180 || f == 310; app.scriptedInput = in;   // prone: one press down, one up
   auto shot = [&](const char* st) {
     char b[200]; std::snprintf(b, sizeof b, "bs_%s_%s.png", c.name, st); app.uiShot = exeDir() / "selftest_out" / b;
+    app.R.bsProbe = true;   // the near cascade read back at the body this frame (Renderer: "bodyshadow probe")
     logf("[bodyshadow] %s %s: want %d, %zu draws pushed, cascades near %d mid %d c3 %d far %d, preset %d (target %d), sun direct %.2f shadow k %.2f, hour %.1f sun height %.2f, posture %d, feet (%.1f %.1f %.1f)", c.name, st,
          app.R.wantBodyShadow() ? 1 : 0, app.R.shadowModels.size(), app.R.bsCasc[0], app.R.bsCasc[1], app.R.bsCasc[2], app.R.bsCasc[3], app.R.wx.want(), app.R.wx.target, app.R.sunDirectFrac, app.R.sunShK, app.R.lt.hour, app.R.sunDir.y, (int)Physics::character().posture, L.feet.x, L.feet.y, L.feet.z);
   };
