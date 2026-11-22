@@ -716,6 +716,8 @@ int ar1SelfCheck() {
       chk(sh->speed == 55 && sh->ammo == "crossbow_bolt" && sh->rangeMin == 4 && sh->rangeMax == 45 && std::fabs(sh->swing - 0.692f) < 1e-4f, "55 m/s, crossbow_bolt, 4-45 m, swing 0.692"); }
     chk(e.model == "archer_1" && fs::exists(contentDir() / "characters" / "archer_1.glb"), "model content/characters/archer_1.glb");
   }
+  { int k2 = enemyTypeIndex("archer2"); bool sh2 = false; if (k2 >= 0) for (auto& a : enemyType(k2).attackSpecs) sh2 = sh2 || (a.shoot && a.clip == "longbow shot");
+    chk(k2 >= 0 && sh2, "archer2 (AR2) with the same longbow shot"); }
   for (float D : {5.0f, 10.0f, 25.0f, 45.0f}) {
     vec3 from(0, 1.45f, 0), aim(0, 1.3f, -D), p = from, v = arrowAim(from, aim, 55.0f) * 55.0f; float best = 1e9f; const float h = 1.0f / 120;
     for (int i = 0; i < 600 && p.z > -D - 2; ++i) { vec3 q = p + v * h; float t = glm::clamp(glm::dot(aim - p, q - p) / std::max(1e-9f, glm::dot(q - p, q - p)), 0.0f, 1.0f); best = std::min(best, glm::length(p + (q - p) * t - aim)); p = q; v.y -= 9.81f * h; }

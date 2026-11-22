@@ -1586,6 +1586,92 @@
           ]
         }
       ]
+    },
+    {
+      "id": "archer2",
+      "name": "Archer 2",
+      "model": "archer_2",
+      "height_m": 1.7,
+      "scale": 1,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 120,
+      "damage": 25,
+      "reach_m": 1.4,
+      "lunge_m": 0,
+      "cooldown_s": 1.6,
+      "windup_s": 0.5,
+      "attack_rate": 1.0,
+      "walk_mps": 1.5,
+      "run_mps": 3.8,
+      "run_within_m": 12,
+      "weight": 0,
+      "hit_zone_scale": 1.0,
+      "knockback_mps": 2,
+      "stagger_min_damage": 40,
+      "stagger_s": 0.5,
+      "explosive_mult": 1,
+      "note": "AR2: Archer 1's behaviour (the longbow shot, arrows, kick / punch) on the user's second archer: a dark knee-length tunic with a hood mantle and a spectacle helmet with a mail curtain over Archer 1's bow, quiver and belts (content/characters/archer_2.glb, LOCAL-ONLY: the tunic is CC-BY-NC-ND-4.0; without the file AI type Archer 2 spawns Archer 1)",
+      "clips": {
+        "walk": [
+          "standing walk forward"
+        ],
+        "run": "standing run forward",
+        "idle": [
+          "standing idle 01",
+          "standing idle 02 looking"
+        ],
+        "attack": [
+          "longbow shot",
+          "standing melee kick",
+          "standing melee punch"
+        ],
+        "damage": [
+          "standing react small from front",
+          "standing react small from headshot"
+        ],
+        "death": [
+          "standing death backward 01",
+          "standing death forward 01"
+        ]
+      },
+      "sounds": {
+        "attack": "knightattack",
+        "contact": "knightattackcontact",
+        "death": "knightdeath"
+      },
+      "attack_dust": false,
+      "attacks": [
+        {
+          "clip": "longbow shot",
+          "swing": 0.692,
+          "range": [
+            4,
+            45
+          ],
+          "shoot": {
+            "speed": 55,
+            "spread_deg": 1.0,
+            "ammo": "crossbow_bolt",
+            "mass_g": 60
+          }
+        },
+        {
+          "clip": "standing melee kick",
+          "radius": 0.35,
+          "damage": 25
+        },
+        {
+          "clip": "standing melee punch",
+          "joint": "RightHand",
+          "radius": 0.3,
+          "damage": 18
+        }
+      ]
     }
   ]
 }
