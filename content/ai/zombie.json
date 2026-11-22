@@ -417,7 +417,7 @@
         ]
       },
       "sounds": {
-        "attack": "knightattack",
+        "attack": "knight_attack", "attack_at": "blow",
         "contact": "knight_slice", "miss": "knight_miss", "hurt": "knight_hurt", "weapon_drop": "knight_weapon_drop",
         "death": "knightdeath"
       },
@@ -580,7 +580,7 @@
         ]
       },
       "sounds": {
-        "attack": "knightattack",
+        "attack": "knight_attack", "attack_at": "blow",
         "contact": "knight_slice", "miss": "knight_miss", "hurt": "knight_hurt", "weapon_drop": "knight_weapon_drop",
         "death": "knightdeath"
       },
@@ -690,7 +690,7 @@
         ]
       },
       "sounds": {
-        "attack": "knightattack",
+        "attack": "knight_attack", "attack_at": "blow",
         "contact": "knight_slice", "miss": "knight_miss", "hurt": "knight_hurt", "weapon_drop": "knight_weapon_drop",
         "death": "knightdeath"
       },
@@ -800,7 +800,7 @@
         ]
       },
       "sounds": {
-        "attack": "knightattack",
+        "attack": "knight_attack", "attack_at": "blow",
         "contact": "knight_slice", "miss": "knight_miss", "hurt": "knight_hurt", "weapon_drop": "knight_weapon_drop",
         "death": "knightdeath"
       },
@@ -910,7 +910,7 @@
         ]
       },
       "sounds": {
-        "attack": "knightattack",
+        "attack": "knight_attack", "attack_at": "blow",
         "contact": "knight_slice", "miss": "knight_miss", "hurt": "knight_hurt", "weapon_drop": "knight_weapon_drop",
         "death": "knightdeath"
       },
@@ -1020,7 +1020,7 @@
         ]
       },
       "sounds": {
-        "attack": "knightattack",
+        "attack": "knight_attack", "attack_at": "blow",
         "contact": "knight_slice", "miss": "knight_miss", "hurt": "knight_hurt", "weapon_drop": "knight_weapon_drop",
         "death": "knightdeath"
       },
@@ -1130,7 +1130,7 @@
         ]
       },
       "sounds": {
-        "attack": "knightattack",
+        "attack": "knight_attack", "attack_at": "blow",
         "contact": "knight_slice", "miss": "knight_miss", "hurt": "knight_hurt", "weapon_drop": "knight_weapon_drop",
         "death": "knightdeath"
       },
@@ -1247,7 +1247,7 @@
         ]
       },
       "sounds": {
-        "attack": "knightattack",
+        "attack": "knight_attack", "attack_at": "blow",
         "contact": "knight_slice",
         "miss": "knight_miss",
         "hurt": "knight_hurt",
@@ -1889,7 +1889,7 @@
         ]
       },
       "sounds": {
-        "attack": "knightattack",
+        "attack": "knight_attack", "attack_at": "blow",
         "contact": "knight_slice", "miss": "knight_miss", "hurt": "knight_hurt", "weapon_drop": "knight_weapon_drop",
         "death": "knightdeath"
       },
@@ -1999,7 +1999,7 @@
         ]
       },
       "sounds": {
-        "attack": "knightattack",
+        "attack": "knight_attack", "attack_at": "blow",
         "contact": "knight_slice", "miss": "knight_miss", "hurt": "knight_hurt", "weapon_drop": "knight_weapon_drop",
         "death": "knightdeath"
       },
@@ -2105,7 +2105,7 @@
         ]
       },
       "sounds": {
-        "attack": "knightattack",
+        "attack": "knight_attack", "attack_at": "blow",
         "contact": "knightattackcontact",
         "death": "knightdeath"
       },
@@ -2195,7 +2195,7 @@
         ]
       },
       "sounds": {
-        "attack": "knightattack",
+        "attack": "knight_attack", "attack_at": "blow",
         "contact": "knightattackcontact",
         "death": "knightdeath"
       },
@@ -2301,7 +2301,7 @@
         ]
       },
       "sounds": {
-        "attack": "knightattack",
+        "attack": "knight_attack", "attack_at": "blow",
         "contact": "knightattackcontact",
         "death": "knightdeath"
       },
@@ -2416,7 +2416,7 @@
         ]
       },
       "sounds": {
-        "attack": "knightattack",
+        "attack": "knight_attack", "attack_at": "blow",
         "contact": "knightattackcontact",
         "death": "knightdeath"
       },
@@ -2517,7 +2517,7 @@
         ]
       },
       "sounds": {
-        "attack": "knightattack",
+        "attack": "knight_attack", "attack_at": "blow",
         "contact": "knight_slice",
         "miss": "knight_miss",
         "hurt": "knight_hurt",
@@ -2609,7 +2609,7 @@
         ]
       },
       "sounds": {
-        "attack": "knightattack",
+        "attack": "knight_attack", "attack_at": "blow",
         "contact": "knight_slice",
         "miss": "knight_miss",
         "hurt": "knight_hurt",

@@ -1043,11 +1043,11 @@ int Audio::loadCustom(const fs::path& dir) {
   };
   std::error_code ec;
   {   // KS1 knight sounds (custom/knight/<name>[_N].mp3 -> event "knight_<name>", the _N files its variants, picked at random,
-      // never the same twice running): miss (a swing that hits nobody), slice (a blow that lands), hurt (the knight is hit),
+      // never the same twice running): attack (KS2: the knight's grunt as the weapon comes down), miss (a swing that hits nobody), slice (a blow that lands), hurt (the knight is hit),
       // weapon_drop (its weapon reaches the floor in the death clip). Per event: gain, full volume within minDist m, then the
       // default 1.2 roll-off; a crowd: at most one per 0.06 s per 4 m spot and maxVoices overlapping bodies (the oldest fades)
     struct K { const char* name; float gain, minDist; int maxV; };
-    const K ks[] = {{"miss", 0.55f, 2.0f, 3}, {"slice", 0.9f, 2.0f, 3}, {"hurt", 0.7f, 2.0f, 4}, {"weapon_drop", 0.8f, 3.0f, 3}};
+    const K ks[] = {{"attack", 0.85f, 2.0f, 3}, {"miss", 0.55f, 2.0f, 3}, {"slice", 0.9f, 2.0f, 3}, {"hurt", 0.7f, 2.0f, 4}, {"weapon_drop", 0.8f, 3.0f, 3}};
     for (const K& k : ks) {
       Impl::Event ev; ev.gain = k.gain; ev.minDist = k.minDist; ev.minGap = 0.06f; ev.maxVoices = k.maxV;
       std::string base = std::string("knight/") + k.name;

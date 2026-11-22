@@ -112,7 +112,7 @@ const ZombieCfg& zcfg() {
         json sd = e.value("sounds", json::object()); t.sndAttack = sd.value("attack", ""); t.sndIdle = sd.value("idle", ""); t.sndStep = sd.value("step", "");
         t.sndContact = sd.value("contact", ""); t.sndDeath = sd.value("death", ""); t.sndLoop = sd.value("loop", "");
         t.sndMiss = sd.value("miss", ""); t.sndHurt = sd.value("hurt", ""); t.sndWeaponDrop = sd.value("weapon_drop", "");
-        t.sndWindup = sd.value("windup", ""); t.voicePitch = std::clamp(e.value("voice_pitch", 1.0f), 0.5f, 2.0f);
+        t.sndWindup = sd.value("windup", ""); t.attackAtBlow = sd.value("attack_at", std::string()) == "blow"; t.voicePitch = std::clamp(e.value("voice_pitch", 1.0f), 0.5f, 2.0f);
         json cl = e.value("clips", json::object());
         strs(cl, "walk", t.walkClips); strs(cl, "idle", t.idleClips); strs(cl, "attack", t.attackClips);
         t.runClip = cl.value("run", t.runClip); t.walkInjured = cl.value("walk_injured", t.walkInjured); t.runInjured = cl.value("run_injured", t.runInjured); t.climbClip = cl.value("climb", t.climbClip); strs(cl, "damage", t.damageClips); strs(cl, "death", t.deathClips);
@@ -638,7 +638,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     dropOk = n >= ((int)ac.size() > 1 ? 2 : 1);   // two or more; one will do when the slam is her only attack
   }
   if (s.meleeWind < 0 && best && G.t >= s.meleeReady && G.t >= s.staggerUntil && ((inR && (int)ac.size() > (di >= 0 ? 1 : 0)) || dropOk)) { if (e.id == "stalker") G.app.audio.play("spider_attack", s.feet + vec3(0, 1, 0), 1.0f); else if (e.id == "brute") G.app.audio.play("troll_attack", s.feet + vec3(0, 2, 0), 1.0f); else if (!e.sndWindup.empty() && best->human) { G.app.audio.play(e.sndWindup.c_str(), s.feet + vec3(0, 0.8f * e.height * e.scale, 0), 1.0f, e.voicePitch * (0.96f + 0.08f * G.rnd(s))); gWindVoiced[s.slot] = true; }   /* SND4: just before the blow on a player */
-    else if (!e.sndAttack.empty()) { gWindVoiced.erase(s.slot); G.app.audio.play(e.sndAttack.c_str(), s.feet + vec3(0, 0.6f * e.height * e.scale, 0), 1.0f, e.voicePitch * (0.93f + 0.14f * G.rnd(s))); }   /* one of three, picked at random */
+    else if (!e.sndAttack.empty()) { gWindVoiced.erase(s.slot); if (!e.attackAtBlow) G.app.audio.play(e.sndAttack.c_str(), s.feet + vec3(0, 0.6f * e.height * e.scale, 0), 1.0f, e.voicePitch * (0.93f + 0.14f * G.rnd(s))); }   /* one of three, picked at random */
     s.meleeWind = 0; int n = (int)ac.size() - (di >= 0 ? 1 : 0);   // EN2: any of the type's attacks (the drop only at its distance)
     if (dropOk || n <= 0) s.meleeClip = di;   // two or more in the slam's oval: the slam; otherwise the others
     else if (strikes && !fit.empty()) { float x = G.rnd(s) * wsum; s.meleeClip = fit.back(); for (int i : fit) { x -= strikeOf(G, s, i).weight; if (x <= 0) { s.meleeClip = i; break; } } }   // CH6: by weight among those that fit
@@ -654,7 +654,9 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     }
     else m.speed = SPD_STOP;   // the blow and its follow-through: planted
     float w0 = s.meleeWind; s.meleeWind += dt;
-    if (w0 < wu && s.meleeWind >= wu && gWindVoiced.erase(s.slot) && wu >= 1.0f && !e.sndAttack.empty()) G.app.audio.play(e.sndAttack.c_str(), s.feet + vec3(0, 0.6f * e.height * e.scale, 0), 1.0f, e.voicePitch * (0.93f + 0.14f * G.rnd(s)));   // SND4: after a windup sound, the attack sound at the blow (not if they would overlap)
+    { const float lead = e.attackAtBlow ? std::min(0.15f, 0.5f * wu) : 0.0f;   // KS2: attack_at blow: as the weapon comes down
+      const bool now = e.attackAtBlow ? w0 < wu - lead && s.meleeWind >= wu - lead : w0 < wu && s.meleeWind >= wu && gWindVoiced.erase(s.slot) && wu >= 1.0f;
+      if (now && !e.sndAttack.empty()) G.app.audio.play(e.sndAttack.c_str(), s.feet + vec3(0, 0.6f * e.height * e.scale, 0), 1.0f, e.voicePitch * (0.93f + 0.14f * G.rnd(s))); }   // SND4: after a windup sound, the attack sound at the blow (not if they would overlap)
     std::vector<int>& hit = gStruck[s.slot];
     if (r.shoot) { if (best && w0 < wu && s.meleeWind >= wu) loose(G, s, *best, r); }   // AR1: the arrow leaves at the release; no strike sphere
     else if (r.breath1 > 0) {   // DR1: a flame breath while the mouth is open (clip fractions breath0..breath1): the M2's burning parcels from
@@ -711,6 +713,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
   } else if (s.meleeWind >= 0) {
     float wu = windupOf(G, s);
     if (best && e.lunge > e.reach) { float gap = zLenXZ(best->feet - s.feet) - 0.8f * e.reach; if (gap > 0) { m.zSpeed = std::max(m.zSpeed, gap / std::max(0.1f, wu - s.meleeWind)); m.speed = SPD_ZOMBIE; } }
+    if (e.attackAtBlow && !e.sndAttack.empty()) { const float lead = std::min(0.15f, 0.5f * wu); if (s.meleeWind < wu - lead && s.meleeWind + dt >= wu - lead) G.app.audio.play(e.sndAttack.c_str(), s.feet + vec3(0, 0.6f * e.height * e.scale, 0), 1.0f, e.voicePitch * (0.93f + 0.14f * G.rnd(s))); }   // KS2
     s.meleeWind += dt;
     if (s.meleeWind >= wu) {
       float hp0 = best ? best->hp : 0;
@@ -978,6 +981,10 @@ int ar1SelfCheck() {
       std::vector<std::string> need = t.walkClips; need.push_back(t.runClip); need.push_back(t.walkInjured); need.push_back(t.runInjured); for (auto* v : {&t.idleClips, &t.attackClips, &t.damageClips, &t.deathClips}) need.insert(need.end(), v->begin(), v->end());
       for (auto& c : need) clipsOk = clipsOk && anims.count(c); }
     chk(clipsOk && nNpc >= 7, "Civilians (NPC1/2): npc_ch31 is a fighter, AI type Civilians picks a civilian type, " + std::to_string(nNpc) + " civilian types, every clip each names is in its GLB"); }
+  {   // KS2: the knights' attack sound: one of five grunts at random (custom/knight/attack_N.mp3, event knight_attack), as the weapon comes down
+    int nk = 0, ok = 0, files = 0; for (int n = 1; n <= 5; ++n) files += fs::exists(contentDir() / "audio" / "custom" / "knight" / ("attack_" + std::to_string(n) + ".mp3"));
+    for (auto& t : enemyTypes()) if (t.id.rfind("knight", 0) == 0) { ++nk; ok += t.sndAttack == "knight_attack" && t.attackAtBlow; }
+    chk(files == 5 && nk >= 10 && ok == nk, "knight attack sound (KS2): " + std::to_string(ok) + " of " + std::to_string(nk) + " knight types play knight_attack at the blow; " + std::to_string(files) + " of 5 variants"); }
   {   // KS: the Spear Knight: AI type 42, three builds picked at random, stab clips only, 1.3x Knight 7's reach; each build's GLB names every clip
     int sk = enemyTypeIndex("knight_spear"), k7 = enemyTypeIndex("knight7"); bool ok = sk >= 0 && k7 >= 0, stabs = ok, files = ok; std::set<int> picks;
     if (ok) { const EnemyType& t = enemyType(sk);
