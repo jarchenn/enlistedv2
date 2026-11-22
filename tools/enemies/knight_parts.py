@@ -1,8 +1,12 @@
-# Knights 6 / 7 (Blender background): the user's approved knights from the preview script kcombo.py, one preset each
+# Knights 6 / 7 / 10 (Blender background): the user's approved knights from the preview scripts kcombo.py / k3combo.py, one preset each
 # (knight6: HELM=sallet CHEST=metal WEAPON=sword SHIELD=polish SH_ROT=90; knight7: HELM=greathelm CHEST=cuirass WEAPON=axe
 # SHIELD=scutum SH_ALONG=0.14 SH_IN=0.09; the preset numbers are kcombo's), placed on knight_ss.glb's rest pose, exported
 # alone for tools/enemies/knight_v2_merge.py, plus the body's chest edits as a JSON of rest positions (glTF coordinates).
-#   blender -b --factory-startup --disable-autoexec --python knight_parts.py -- <preset> <knight_ss.glb> <tex dir/> <out_parts.glb>
+# K10 knight10 (k3combo.py's defaults): on knight_3.glb (its own head, winged helm, neck mail kept); the cuirass; Silver Sword
+# 1.0 m gripped 12 % from the pommel along the old flail handle's axis (toward flail_0), finish 2.0 tiles; the triangular shield
+# 0.80 m, 0.05 m toward the hand and 0.02 m in, its wide top pointing the way the knight faces in T-pose (the user's rule), finish
+# 2.5 tiles; the finish tiles cut from Knight 3's own "Metal" (tile_base.png). No head / helm / bevor arguments.
+#   blender -b --factory-startup --disable-autoexec --python knight_parts.py -- <preset> <knight_ss.glb | knight_3.glb> <tex dir/> <out_parts.glb>
 #       <out_body_edits.json> head=<anikin_head_3.glb> helm=<...> [bevor=<burgundian_chapelle_with_bevor.glb>] chest=<...>
 #       weapon=<...> shield=<...> [shield_base=<png> shield_mr=<png>]
 # Parts (rigid; node names KNB_<bone>_*: the merge hangs each on mixamorig:<bone>):
@@ -23,8 +27,10 @@ PRESET, SRC, TEX, OUT, EDITS = A[:5]; F = dict(x.split('=', 1) for x in A[5:])
 P_ = {'knight6': dict(head_k=0.94, head_up=-0.03, head_back=0.02, helm=(0.215, 1.813, 0.04, 0), bevor=(0.22, 1.835, 0.022, 0), chest=(0.38, 1.50), shrink=0.73,
                       wlen=0.98, grip=0.11, sword=True, sh_len=0.78, sh_sign=-1.0, sh_rot=90.0, sh_along=0.0, sh_in=0.0),
       'knight7': dict(head_k=1.0, head_up=0.035, head_back=0.0, helm=(0.21, 1.819, 0.0, 180), bevor=None, chest=(0.335, 1.50), shrink=0.67,
-                      wlen=0.70, grip=0.14, sword=False, sh_len=0.95, sh_sign=1.0, sh_rot=0.0, sh_along=0.14, sh_in=0.09)}[PRESET]
-HEAD, SALLET, CHAP, BREAST, SWORD, SHLD = F['head'], F['helm'], F.get('bevor'), F['chest'], F['weapon'], F['shield']
+                      wlen=0.70, grip=0.14, sword=False, sh_len=0.95, sh_sign=1.0, sh_rot=0.0, sh_along=0.14, sh_in=0.09),
+      'knight10': dict(head=False, chest=(0.335, 1.50), shrink=0.67, wlen=1.0, grip=0.12, sword=True, sh_len=0.80, sh_sign=1.0, sh_rot=0.0, sh_along=0.05, sh_in=0.02,
+                       sh_up='forward', tile='tile_base.png', w_finish=2.0, sh_finish=2.5)}[PRESET]
+HEAD, SALLET, CHAP, BREAST, SWORD, SHLD = F.get('head'), F.get('helm'), F.get('bevor'), F['chest'], F['weapon'], F['shield']
 BAKE_PX = 1024
 DZ = -0.06; SHR = P_['shrink']; MK = 0.86; NECK = 0.45; SH_ROT = P_['sh_rot']
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -41,8 +47,8 @@ def world(i):
     return m
 C = Matrix(((1, 0, 0, 0), (0, 0, -1, 0), (0, 1, 0, 0), (0, 0, 0, 1)))
 arm.data.pose_position = 'REST'; bpy.context.view_layer.update()
-for nm in ('Sword', 'Shield'):
-    i = next(k for k, x in enumerate(NN) if x.get('name') == nm); bpy.data.objects[nm].matrix_world = C @ world(i) @ C.inverted()
+for i, x in enumerate(NN):   # the bone-parented rigid meshes (Sword, Shield; K10: Helmet, NeckMail): Blender mis-places them on import
+    if 'mesh' in x and 'skin' not in x and x.get('name') in bpy.data.objects: bpy.data.objects[x['name']].matrix_world = C @ world(i) @ C.inverted()
 bpy.context.view_layer.update()
 def wpts(o): return np.array([o.matrix_world @ v.co for v in o.data.vertices])
 def axis(o):
@@ -87,47 +93,57 @@ kill = region(('mixamorig:Head', 'mixamorig:HeadTop_End'), 0.5)
 K = np.array([orig[i] for i in kill]); hc = (K.min(0) + K.max(0)) / 2
 print('OLDHEAD', len(kill))
 # ---- sword
-sw = bpy.data.objects['Sword']; P, c, a, t = axis(sw)
-th = float((np.array(arm.matrix_world @ arm.data.bones['mixamorig:RightHand'].head_local) - c) @ a)
-if abs(t.max() - th) < abs(t.min() - th): a = -a; th = -th
-grip_s = c + a * th
+if 'Sword' in bpy.data.objects:
+    sw = bpy.data.objects['Sword']; P, c, a, t = axis(sw)
+    th = float((np.array(arm.matrix_world @ arm.data.bones['mixamorig:RightHand'].head_local) - c) @ a)
+    if abs(t.max() - th) < abs(t.min() - th): a = -a; th = -th
+    grip_s = c + a * th
+else:   # K10 (Knight 3): the flail's handle (its vertices fully on the right hand) gives the axis, pointing from the hand toward flail_0
+    fl = bpy.data.objects['Flail']; hg = fl.vertex_groups['mixamorig:RightHand'].index
+    HP_ = np.array([fl.matrix_world @ v.co for v in fl.data.vertices if any(g.group == hg and g.weight > 0.9 for g in v.groups)]); hcen = HP_.mean(0)
+    a = np.linalg.eigh(np.cov((HP_ - hcen).T))[1][:, -1]; bh_ = lambda n: np.array(arm.matrix_world @ arm.data.bones[n].head_local)
+    if (bh_('flail_0') - bh_('mixamorig:RightHand')) @ a < 0: a = -a
+    grip_s = hcen + a * float((bh_('mixamorig:RightHand') - hcen) @ a)
 m = join(imp(SWORD), 'KNB_RightHand_' + ('sword' if P_['sword'] else 'weapon')); bpy.ops.object.transform_apply(location=True, rotation=True, scale=True); bpy.context.view_layer.update()
 Pm, cm, am, tm = axis(m); L = float(tm.max() - tm.min()); perp = np.linalg.norm((Pm - cm) - np.outer(tm, am), axis=1)
 if (perp[tm < tm.min() + 0.25 * L].max() > perp[tm > tm.max() - 0.25 * L].max()) != P_['sword']: am = -am; tm = -tm   # a sword's wide end is its hilt, an axe's its head
 k = P_['wlen'] / L; grip_m = cm + am * (tm.min() + P_['grip'] * L)
 m.matrix_world = Matrix.Translation(Vector(grip_s)) @ Vector(am).rotation_difference(Vector(a)).to_matrix().to_4x4() @ Matrix.Diagonal((k, k, k, 1)) @ Matrix.Translation(-Vector(grip_m))
 parts.append(m); print('WEAPON %.3f m, grip %s' % (L * k, np.round(grip_s, 3)))
+if P_.get('w_finish'): finish[m] = P_['w_finish']
 # ---- head
 def fit(objs, width, top, dy, yaw, cy, sy=1.0, ref=None):
     Rz = Matrix.Rotation(math.radians(yaw), 4, 'Z'); P = np.vstack([np.array([Rz @ (o.matrix_world @ v.co) for v in o.data.vertices]) for o in objs if ref is None or ref in o.name.lower()]); lo, hi = P.min(0), P.max(0)
     k = width / (hi[0] - lo[0])
     T = Matrix.Translation((0, cy + dy, top)) @ Matrix.Diagonal((k, k * sy, k, 1)) @ Matrix.Translation((-(lo[0] + hi[0]) / 2, -(lo[1] + hi[1]) / 2, -hi[2])) @ Rz
     return [(o, T @ o.matrix_world) for o in objs]
-fr = [o for o in imp(HEAD) if o.type == 'MESH']
-FP = np.vstack([wpts(o) for o in fr]); fmin, fmax = FP.min(0), FP.max(0)
-kf = P_['head_k'] * 0.84; hh = fmax[2] - fmin[2]; HDZ = DZ + P_['head_up']
-Tf = Matrix.Translation((hc[0], hc[1] + 0.006 + P_['head_back'], 1.645 + HDZ + 0.028)) @ Matrix.Diagonal((kf, kf, kf, 1)) @ Matrix.Translation((-(fmin[0] + fmax[0]) / 2, -(fmin[1] + fmax[1]) / 2, -(fmax[2] - 0.40 * hh)))
-for o in fr:   # taper the neck so the knight's collar closes over it
-    zc = fmax[2] - 0.78 * hh; Mw = o.matrix_world; Mi = Mw.inverted(); cx_, cy2 = (fmin[0] + fmax[0]) / 2, (fmin[1] + fmax[1]) / 2
-    for v in o.data.vertices:
-        w_ = Mw @ v.co
-        if w_.z < zc:
-            t_ = min(1.0, (zc - w_.z) / max(zc - fmin[2], 1e-6)); f_ = 1.0 - NECK * t_; w_.x = cx_ + (w_.x - cx_) * f_; w_.y = cy2 + 0.02 + (w_.y - cy2 - 0.02) * f_; v.co = Mi @ w_
-    o.matrix_world = Tf @ o.matrix_world
-head = join(fr, 'KNB_Head_head'); parts.append(head)
-# ---- helm (+ the chapelle's bevor under a sallet)
-hs = [o for o in imp(SALLET) if o.type == 'MESH']; hw, ht, hd, hy = P_['helm']
-for o, M in fit(hs, hw, ht + DZ, hd, hy, hc[1]): o.matrix_world = M
-fe = [o for o in hs if 'feather' in o.name.lower()]   # kcombo: a feather keeps its own finish
-sal = join([o for o in hs if o not in fe], 'KNB_Head_helm'); parts.append(sal); finish[sal] = 2.5
-if fe: fo = join(fe, 'KNB_Head_feather'); parts.append(fo)
-if P_['bevor']:
-    b2 = [o for o in imp(CHAP) if o.type == 'MESH']; bev = []; bw_, bt_, bd_, by_ = P_['bevor']
-    for o, M in fit(b2, bw_, bt_ + DZ, bd_, by_, hc[1], ref='helmet'):
-        if 'bevor' in o.name.lower(): o.matrix_world = M; bev.append(o)
-        else: bpy.data.objects.remove(o, do_unlink=True)
-    assert bev, 'no bevor mesh'
-    bv = join(bev, 'KNB_Head_bevor'); parts.append(bv); finish[bv] = 2.5
+if P_.get('head', True):
+    fr = [o for o in imp(HEAD) if o.type == 'MESH']
+    FP = np.vstack([wpts(o) for o in fr]); fmin, fmax = FP.min(0), FP.max(0)
+    kf = P_['head_k'] * 0.84; hh = fmax[2] - fmin[2]; HDZ = DZ + P_['head_up']
+    Tf = Matrix.Translation((hc[0], hc[1] + 0.006 + P_['head_back'], 1.645 + HDZ + 0.028)) @ Matrix.Diagonal((kf, kf, kf, 1)) @ Matrix.Translation((-(fmin[0] + fmax[0]) / 2, -(fmin[1] + fmax[1]) / 2, -(fmax[2] - 0.40 * hh)))
+    for o in fr:   # taper the neck so the knight's collar closes over it
+        zc = fmax[2] - 0.78 * hh; Mw = o.matrix_world; Mi = Mw.inverted(); cx_, cy2 = (fmin[0] + fmax[0]) / 2, (fmin[1] + fmax[1]) / 2
+        for v in o.data.vertices:
+            w_ = Mw @ v.co
+            if w_.z < zc:
+                t_ = min(1.0, (zc - w_.z) / max(zc - fmin[2], 1e-6)); f_ = 1.0 - NECK * t_; w_.x = cx_ + (w_.x - cx_) * f_; w_.y = cy2 + 0.02 + (w_.y - cy2 - 0.02) * f_; v.co = Mi @ w_
+        o.matrix_world = Tf @ o.matrix_world
+    head = join(fr, 'KNB_Head_head'); parts.append(head)
+    # ---- helm (+ the chapelle's bevor under a sallet)
+    hs = [o for o in imp(SALLET) if o.type == 'MESH']; hw, ht, hd, hy = P_['helm']
+    for o, M in fit(hs, hw, ht + DZ, hd, hy, hc[1]): o.matrix_world = M
+    fe = [o for o in hs if 'feather' in o.name.lower()]   # kcombo: a feather keeps its own finish
+    sal = join([o for o in hs if o not in fe], 'KNB_Head_helm'); parts.append(sal); finish[sal] = 2.5
+    if fe: fo = join(fe, 'KNB_Head_feather'); parts.append(fo)
+    if P_['bevor']:
+        b2 = [o for o in imp(CHAP) if o.type == 'MESH']; bev = []; bw_, bt_, bd_, by_ = P_['bevor']
+        for o, M in fit(b2, bw_, bt_ + DZ, bd_, by_, hc[1], ref='helmet'):
+            if 'bevor' in o.name.lower(): o.matrix_world = M; bev.append(o)
+            else: bpy.data.objects.remove(o, do_unlink=True)
+        assert bev, 'no bevor mesh'
+        bv = join(bev, 'KNB_Head_bevor'); parts.append(bv); finish[bv] = 2.5
+
 # ---- breastplate
 bs = [o for o in imp(BREAST) if o.type == 'MESH']
 for o, M in fit(bs, P_['chest'][0], P_['chest'][1], 0.0, 0, (CH.min(0)[1] + CH.max(0)[1]) / 2, 1.0): o.matrix_world = M
@@ -144,6 +160,11 @@ hd_ = np.array(arm.matrix_world @ arm.data.bones['mixamorig:LeftHand'].head_loca
 co = co + fdir * P_['sh_along'] - no * P_['sh_in']   # kcombo SH_ALONG / SH_IN: toward the hand, in toward the arm
 sh = join(imp(SHLD), 'KNB_LeftForeArm_shield'); bpy.context.view_layer.update()
 Ps, cs, ns, us = frame(sh); ns = -ns * P_['sh_sign']; ext_ = float(np.ptp((Ps - cs) @ us)); rot_ = math.radians(SH_ROT)
+if P_.get('sh_up') == 'forward':   # K10: us to the wide (top) edge; the old shield's up replaced by the knight's facing (-y) in its plane: in
+    # T-pose the teardrop's wide top points the way the knight faces (the user's rule)
+    tq = (Ps - cs) @ us; pq = np.abs((Ps - cs) @ np.cross(ns, us))
+    if pq[tq > tq.max() - 0.25 * ext_].max() < pq[tq < tq.min() + 0.25 * ext_].max(): us = -us
+    fwd_ = np.array((0.0, -1.0, 0.0)); uo = fwd_ - no * (fwd_ @ no)
 us = math.cos(rot_) * us + math.sin(rot_) * np.cross(ns / np.linalg.norm(ns), us); ks = P_['sh_len'] / ext_
 def basis(n, u):
     n = n / np.linalg.norm(n); u = u - n * (u @ n); u = u / np.linalg.norm(u); return Matrix(np.column_stack([n, u, np.cross(n, u)]).tolist())
@@ -158,6 +179,7 @@ if 'shield_base' in F:   # the user's recolour (the scutum's red field to the ar
         src_img(b.inputs['Base Color']).image = bpy.data.images.load(F['shield_base'])
         ni = src_img(b.inputs['Roughness']); ni.image = bpy.data.images.load(F['shield_mr']); ni.image.colorspace_settings.name = 'Non-Color'
 parts.append(sh); print('SHIELD %.3f m long axis, centre %s' % (ext_ * ks, np.round(co, 3)))
+if P_.get('sh_finish'): finish[sh] = P_['sh_finish']
 # ---- the armour finish (the preview's node set), baked into each material's own UVs
 def armour_finish(o, tiles):
     cvs = np.array([v.co for v in o.data.vertices]); dim = float((cvs.max(0) - cvs.min(0)).max())
@@ -168,7 +190,7 @@ def armour_finish(o, tiles):
         tc = nt.nodes.new('ShaderNodeTexCoord'); mp = nt.nodes.new('ShaderNodeMapping'); s_ = tiles / dim; mp.inputs['Scale'].default_value = (s_, s_, s_); nt.links.new(tc.outputs['Object'], mp.inputs['Vector'])
         def tile(fn, cs_):
             n = nt.nodes.new('ShaderNodeTexImage'); n.image = bpy.data.images.load(os.path.join(TEX, fn), check_existing=True); n.image.colorspace_settings.name = cs_; n.projection = 'BOX'; n.projection_blend = 0.35; nt.links.new(mp.outputs[0], n.inputs['Vector']); return n
-        tb = tile('tile_base_clean.png', 'sRGB'); tmr = tile('tile_mr.png', 'Non-Color')
+        tb = tile(P_.get('tile', 'tile_base_clean.png'), 'sRGB'); tmr = tile('tile_mr.png', 'Non-Color')
         ib = b.inputs['Base Color']; col = tb.outputs[0]
         if ib.is_linked:
             bw = nt.nodes.new('ShaderNodeRGBToBW'); nt.links.new(ib.links[0].from_socket, bw.inputs[0])

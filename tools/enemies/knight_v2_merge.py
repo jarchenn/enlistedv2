@@ -14,8 +14,13 @@
 import json, struct, sys, io
 import numpy as np
 from PIL import Image
-SRC, PARTS, METAL, OUT = sys.argv[1:5]
-EDITS = sys.argv[5] if len(sys.argv) > 5 and sys.argv[5] != '-' else None; CREDITS = sys.argv[6] if len(sys.argv) > 6 else None
+# K10 options (key=value, after the positional arguments): drop=<node,node> the nodes whose meshes go (default Sword,Shield; a
+# skinned one loses its skin too); head=keep (the knight's own head stays: Knight 3's winged helm); METAL '-': the armour's
+# base colour unchanged
+OPT = {k: v for k, v in (a.split('=', 1) for a in sys.argv[5:] if '=' in a and a.split('=', 1)[0] in ('drop', 'head'))}
+ARGV = [a for a in sys.argv if not ('=' in a and a.split('=', 1)[0] in ('drop', 'head'))]
+SRC, PARTS, METAL, OUT = ARGV[1:5]
+EDITS = ARGV[5] if len(ARGV) > 5 and ARGV[5] != '-' else None; CREDITS = ARGV[6] if len(ARGV) > 6 else None
 def load(p):
     b = open(p, 'rb').read(); assert b[:4] == b'glTF'
     jl = struct.unpack('<I', b[12:16])[0]; J = json.loads(b[20:20 + jl]); bl = struct.unpack('<I', b[20 + jl:24 + jl])[0]
@@ -66,7 +71,7 @@ def world(i):
     while i in par: i = par[i]; M = local(N[i]) @ M
     return M
 idx = {n.get('name'): i for i, n in enumerate(N)}
-for nm in ('Sword', 'Shield'): N[idx[nm]].pop('mesh', None)
+for nm in OPT.get('drop', 'Sword,Shield').split(','): N[idx[nm]].pop('mesh', None); N[idx[nm]].pop('skin', None)
 hang = []
 for pn in P['nodes']:
     if 'mesh' not in pn: continue
@@ -97,7 +102,7 @@ for pr in J['meshes'][body['mesh']]['primitives']:
     if wa['componentType'] == 5121: w = w / 255.0
     elif wa['componentType'] == 5123: w = w / 65535.0
     hw = sum(np.where(jo == h, w, 0).sum(1) for h in headj)
-    dead = hw > 0.5; killed += int(dead.sum())
+    dead = (hw > 0.5) & (OPT.get('head') != 'keep'); killed += int(dead.sum())
     if EDITS:   # KN6: the chest pulled in (positions in the bind space of each vertex's own skin blend)
         pa = J['accessors'][pr['attributes']['POSITION']]; Pm = read(pr['attributes']['POSITION']).astype(np.float64)
         Mv = np.einsum('vk,vkij->vij', w, Sk[jo]); Pw = np.einsum('vij,vj->vi', Mv[:, :3, :3], Pm) + Mv[:, :3, 3]
@@ -114,11 +119,12 @@ for pr in J['meshes'][body['mesh']]['primitives']:
     vi = add_view(I2.tobytes(), 34963)
     J['accessors'].append({'bufferView': vi, 'componentType': ia['componentType'], 'count': int(I2.size), 'type': 'SCALAR'}); pr['indices'] = len(J['accessors']) - 1
 # ---- the armour's de-reddened base colour
-mm = next(m for m in J['materials'] if m['name'] == 'Metal')
-buf = io.BytesIO(); Image.open(METAL).convert('RGB').save(buf, 'JPEG', quality=92)
-J['images'].append({'name': 'knight_metal_basecolor_clean', 'mimeType': 'image/jpeg', 'bufferView': add_view(buf.getvalue())})
-J['textures'].append({'source': len(J['images']) - 1, **({'sampler': J['textures'][mm['pbrMetallicRoughness']['baseColorTexture']['index']]['sampler']} if 'sampler' in J['textures'][mm['pbrMetallicRoughness']['baseColorTexture']['index']] else {})})
-mm['pbrMetallicRoughness']['baseColorTexture']['index'] = len(J['textures']) - 1
+mm = next(m for m in J['materials'] if m['name'] == 'Metal') if METAL != '-' else None
+if mm is not None:
+  buf = io.BytesIO(); Image.open(METAL).convert('RGB').save(buf, 'JPEG', quality=92)
+  J['images'].append({'name': 'knight_metal_basecolor_clean', 'mimeType': 'image/jpeg', 'bufferView': add_view(buf.getvalue())})
+  J['textures'].append({'source': len(J['images']) - 1, **({'sampler': J['textures'][mm['pbrMetallicRoughness']['baseColorTexture']['index']]['sampler']} if 'sampler' in J['textures'][mm['pbrMetallicRoughness']['baseColorTexture']['index']] else {})})
+  mm['pbrMetallicRoughness']['baseColorTexture']['index'] = len(J['textures']) - 1
 J['buffers'] = [{'byteLength': len(BIN)}]
 J['asset'].setdefault('extras', {})['credits'] = CREDITS if CREDITS else (J['asset']['extras'].get('credits', '') + '; Knight 2: Frogmouth Helmet by lesnykh3d (CC-BY-4.0, '
     'sketchfab.com/3d-models/frogmouth-helmet-2fe4b0c62b09416bbd41816c58afdb12); Knights Shield Practice by jamiul.98 (Sketchfab Standard: '
@@ -126,6 +132,6 @@ J['asset'].setdefault('extras', {})['credits'] = CREDITS if CREDITS else (J['ass
 js = json.dumps(J, separators=(',', ':')).encode(); js += b' ' * (-len(js) % 4)
 while len(BIN) % 4: BIN.append(0)
 open(OUT, 'wb').write(b'glTF' + struct.pack('<II', 2, 28 + len(js) + len(BIN)) + struct.pack('<I', len(js)) + b'JSON' + js + struct.pack('<I', len(BIN)) + b'BIN\0' + bytes(BIN))
-assert killed == 4141, killed   # the preview's count (every Knight_Tpose vertex over 0.5 on the head joints)
+assert killed == 4141 or OPT.get('head') == 'keep', killed   # the preview's count (every Knight_Tpose vertex over 0.5 on the head joints)
 if EDITS: assert moved >= len(E), (moved, len(E))   # every edited vertex found (seams may duplicate one)
 print('head: %d vertices, triangles %d -> %d; body vertices moved %d; parts %s; wrote %s (%d KB)' % (killed, tris0, tris1, moved, hang, OUT, (28 + len(js) + len(BIN)) // 1024))
