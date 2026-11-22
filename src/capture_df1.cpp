@@ -53,7 +53,7 @@ bool df1Capture(App& app, float dt) {
     gGame->pendingStart = true;
     bool ok = app.enterExplore() && gGame->active;
     app.useScripted = true; app.scriptedInput = ExploreInput{};
-    T->check(ok, "Team Deathmatch starts, one Delta Force bot on side 1");
+    T->check(ok, "Team Deathmatch starts, one FSB operator bot on side 1");
     return true;
   }
   total += dt; st += dt; ++frames;
