@@ -1,10 +1,11 @@
 # Blender background (5.x): the FSB operator download -> a clean skinned GLB for tools/bake_gunbody.py --skin.
 #   blender -b --factory-startup --disable-autoexec --python tools/fsb_prep.py -- <fsb_operator.glb> <out.glb>
 #   then: python -I tools/bake_gunbody.py --skin content/characters/allied_body.glb <out.glb> content/characters/skin_fsb.glb
-# The bind pose (A-pose) stood upright by the animation's own root turn at frame 1 (its armature rests on its side); the rifle,
-# its magazine and the four loose magazines dropped (the game's guns are held instead); the pouches and patches (rigid, hung off
-# the scene root in the standing frame) carried onto their nearest torso / hip bone, weight 1; decimated to ~26 k triangles;
-# textures at most 1024 px.
+# The bind pose (A-pose) stood upright by the animation's own root turn at frame 1 (its armature rests on its side); only the
+# AKS-74u dropped (Gun_99 with its stock and its own magazine: the game's guns are held instead); the four spare magazines, four
+# pouches and two patches (rigid, each on its own animated empty: right only at frame 1) carried from frame 1 onto Spine (pouches,
+# magazines), Spine2 (back patch), RightArm (shoulder patch), weight 1; decimated to ~26 k triangles; textures at most 1024 px.
+# The T-pose comes from tools/bake_gunbody.py --skin (the arms re-aimed onto allied_body's T-pose rest).
 import bpy, sys
 from mathutils import Vector, Matrix
 argv = sys.argv[sys.argv.index('--') + 1:]
@@ -22,8 +23,8 @@ def chain_has(o, words):
     return False
 skinned = [o for o in bpy.context.scene.objects if o.type == 'MESH' and any(m.type == 'ARMATURE' for m in o.modifiers)]
 rigid = [o for o in bpy.context.scene.objects if o.type == 'MESH' and o not in skinned]
-drop = [o for o in rigid if chain_has(o, ('Gun', 'Magazine', 'Stock')) or o.name.startswith('Icosphere')]
-keep = [o for o in rigid if o not in drop and chain_has(o, ('pouch', 'Plane'))]
+drop = [o for o in rigid if chain_has(o, ('Gun_', 'Stock_')) or o.name.startswith('Icosphere')]   # the AKS-74u (its stock and its own magazine hang under Gun_99) only
+keep = [o for o in rigid if o not in drop and chain_has(o, ('pouch', 'Plane', 'Magazine.'))]   # the pouches, both patches, the four spare magazines
 other = [o for o in rigid if o not in drop and o not in keep]
 print('skinned', len(skinned), 'rigid kept', [o.parent.name for o in keep], 'dropped', len(drop), 'unclassified', [o.name for o in other])
 # 1. frame 1 (the animation stands him up): every pose bone's world matrix, the kept parts' worlds
@@ -35,7 +36,9 @@ cands = [bn[k] for k in ('Hips', 'Spine', 'Spine1', 'Spine2', 'LeftUpLeg', 'Righ
 att = []
 for o in keep:
     c = sum((o.matrix_world @ Vector(v) for v in o.bound_box), Vector()) / 8
-    b = min(cands, key=lambda n: (posed[n].translation - c).length)
+    # each piece on its bone (not the nearest one: in the idle hold the hands sit in front of the chest): pouches and spare
+    # magazines on Spine, the back patch (Plane_104) on Spine2, the shoulder patch (Plane.001_105) on RightArm
+    b = bn['RightArm'] if chain_has(o, ('Plane.001',)) else bn['Spine2'] if chain_has(o, ('Plane_',)) else bn['Spine']
     att.append((o, b, posed[b].inverted() @ o.matrix_world))
     print('  %-22s -> %-22s (%.3f m from its joint)' % (o.parent.name if o.parent else o.name, b, (posed[b].translation - c).length))
 # 2. back to the bind pose, the armature stood up; the kept parts placed on their bones there
