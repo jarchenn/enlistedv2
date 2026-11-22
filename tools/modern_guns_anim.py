@@ -17,6 +17,8 @@ sc = bpy.context.scene
 arm = next(o for o in bpy.data.objects if o.type == "ARMATURE")
 keep = [bpy.data.objects[n] for n in cfg["keep"]]
 f0 = cfg.get("restFrame", 1)
+def armSlot(act):   # FR7: the armature's own slot (a Sketchfab take holds one slot per animated object; slot 0 was an IK pole's: its location played on the armature, every bone frozen)
+    return next((s for s in act.slots if s.identifier == "OB" + arm.name), act.slots[0])
 log = {"warn": []}
 
 # ---------------------------------------------------------------- MG7: a held object skinned to a hand bone
@@ -110,7 +112,7 @@ else:
     if cfg.get("staticPoseFrame") is not None:   # MG7: the static bake was posed at this frame (the SCAR-H): its points back to the rest pose
         if cfg.get("staticPoseAction"):
             _ad = arm.animation_data or arm.animation_data_create(); _act = bpy.data.actions[cfg["staticPoseAction"]]; _ad.action = _act
-            if hasattr(_ad, "action_slot") and _act.slots: _ad.action_slot = _act.slots[0]
+            if hasattr(_ad, "action_slot") and _act.slots: _ad.action_slot = armSlot(_act)
         sc.frame_set(cfg["staticPoseFrame"]); bpy.context.view_layer.update()
         _gb = cfg.get("gunBone"); _pb = arm.pose.bones[_gb]
         _D = ((arm.matrix_world @ _pb.matrix) @ (arm.matrix_world @ _pb.bone.matrix_local).inverted()).inverted()
@@ -158,7 +160,7 @@ ad0 = arm.animation_data or arm.animation_data_create()
 if isinstance(idle, list): fr = idle[0]
 else:
     act = bpy.data.actions[idle["action"] if isinstance(idle, dict) else idle]; ad0.action = act
-    if hasattr(ad0, "action_slot") and act.slots: ad0.action_slot = act.slots[0]
+    if hasattr(ad0, "action_slot") and act.slots: ad0.action_slot = armSlot(act)
     fr = idle["range"][0] if isinstance(idle, dict) else act.frame_range[0]
 sc.frame_set(int(fr)); bpy.context.view_layer.update()
 pb = arm.pose.bones[gunBone]
@@ -425,7 +427,7 @@ for name, c in cfg["clips"].items():
             a0, a1 = part.get("range", act.frame_range)
             if t0 is None: t0 = a0
             stp = tr.strips.new(name + str(k), int(t0 + tot), act)
-            if hasattr(stp, "action_slot") and act.slots: stp.action_slot = act.slots[0]
+            if hasattr(stp, "action_slot") and act.slots: stp.action_slot = armSlot(act)
             stp.action_frame_start = a0; stp.action_frame_end = a1; tot += a1 - a0
         clips[name] = round(tot / fps, 4); continue
     if isinstance(c, list): act, (a0, a1) = base, c
@@ -439,7 +441,7 @@ for name, c in cfg["clips"].items():
     if a1 - a0 < 1: a1 = a0 + 1   # a one-frame pose (Idle)
     tr = ad.nla_tracks.new(); tr.name = name
     stp = tr.strips.new(name, int(a0), act)
-    if hasattr(stp, "action_slot") and act.slots: stp.action_slot = act.slots[0]
+    if hasattr(stp, "action_slot") and act.slots: stp.action_slot = armSlot(act)
     stp.action_frame_start = a0; stp.action_frame_end = a1
     clips[name] = round((a1 - a0) / fps, 4)
 ad.action = None
@@ -477,6 +479,22 @@ def glbIdleDelta(path, joint):
         pose[c["target"]["node"]][{"translation": 0, "rotation": 1, "scale": 2}[c["target"]["path"]]] = list(np.frombuffer(BIN_, np.float32, count=k_, offset=v_.get("byteOffset", 0) + a_.get("byteOffset", 0)))
     gi_ = next(i for i, n in enumerate(N_) if n.get("name") == joint)
     return world_(gi_, pose) @ np.linalg.inv(world_(gi_, rest))
+def glbMoving(path):   # FR7: per clip, the skin joints whose channels change (a frozen rig - only the armature node moving - must not pass)
+    import struct, numpy as np
+    b_ = open(path, "rb").read(); jl_ = struct.unpack("<I", b_[12:16])[0]; J_ = json.loads(b_[20:20 + jl_]); BIN_ = b_[28 + jl_:]
+    joints = {j for s_ in J_.get("skins", []) for j in s_["joints"]}; out_ = {}
+    for an in J_.get("animations", []):
+        mv = set()
+        for c in an["channels"]:
+            if c["target"]["node"] not in joints: continue
+            a_ = J_["accessors"][an["samplers"][c["sampler"]]["output"]]; v_ = J_["bufferViews"][a_["bufferView"]]; k_ = {"SCALAR": 1, "VEC3": 3, "VEC4": 4}[a_["type"]]
+            o_ = np.frombuffer(BIN_, np.float32, count=a_["count"] * k_, offset=v_.get("byteOffset", 0) + a_.get("byteOffset", 0)).reshape(-1, k_)
+            if float(np.ptp(o_, axis=0).max()) > 1e-4: mv.add(J_["nodes"][c["target"]["node"]].get("name"))
+        out_[an["name"]] = sorted(mv)
+    return out_
+_mov = glbMoving(out); log["movingJoints"] = {k: len(v) for k, v in _mov.items()}
+_live = [k for k, v in _mov.items() if k != "idle" and len(v) >= 2]
+if _mov and not _live: raise SystemExit("FR7: frozen rig: no clip moves its skin joints (%s)" % log["movingJoints"])
 ptsOut = {k: b2g(v) for k, v in pts.items()}
 import numpy as np
 Dg = glbIdleDelta(out, gunBone); log["glbIdleDelta"] = [round(float(x), 4) for x in Dg[:3, :].ravel()]
