@@ -96,6 +96,7 @@ const ZombieCfg& zcfg() {
           strs(h, "kinds", t.horseKinds); strs(h, "hide", t.corpseHide);
         }
         t.horseHp = std::max(0.0f, e.value("horse_hp", 0.0f));   // HK3
+        if (e.contains("death_side") && e["death_side"].is_array() && e["death_side"].size() == 2) { t.deathRight = e["death_side"][0].get<std::string>(); t.deathLeft = e["death_side"][1].get<std::string>(); }   // HK4
         for (auto& z : e.value("horse_zones", json::array())) if (z.is_array() && z.size() == 3) t.horseZones.push_back({z[0].get<std::string>(), z[1].get<std::string>(), z[2].get<float>()});
         t.capsuleH = e.value("capsule_height_m", t.capsuleH); t.capsuleR = e.value("capsule_radius_m", t.capsuleR);
         t.climbM = e.value("climb_m", t.climbM); t.stepGap = e.value("step_gap_m", t.stepGap);
@@ -749,6 +750,10 @@ void aiZombiePose(Game& G, Soldier& s, float dt) {
     if (dc >= 0 && m.clips[dc].handFloor >= 0) G.app.audio.play(e.sndWeaponDrop.c_str(), s.feet + vec3(0, 0.2f, 0), 1.0f, 0.96f + 0.08f * G.rnd(s), m.clips[dc].handFloor);
   }
   int hd = !s.alive && s.mountDeath == 1 ? findClip(m, e.horseDeathClip.c_str()) : -1;   // HK2: the horse down (decided on the host: aiZombieDead)
+  if (!s.alive && hd < 0 && !e.deathRight.empty()) {   // HK4: the rider falls the way the killing hit pushed him: the model's -x is the body's right
+    vec3 l = glm::inverse(glm::mat3(s.world)) * s.deathDir;
+    hd = findClip(m, (l.x < 0 ? e.deathRight : e.deathLeft).c_str());
+  }
   if (!s.alive) A.play(K_DEATH, hd >= 0 ? hd : pickAt(ce.deathClips, s.slot + s.lifeId), -1, 0, 1, false);
   else if (climbing) { int cc = ce.climbClip.empty() ? -1 : findClip(m, ce.climbClip); if (cc >= 0) A.play(K_CLIMB, cc, -1, 0, m.clips[cc].dur / std::max(0.3f, tm->trav.dur), false); else A.play(K_CLIMB, walk, -1, 0, 1.4f, true); }   // holds its end pose (no ragdoll in this game)
   else if (A.strike != s.meleeCount) { A.strike = s.meleeCount; A.play(K_ATTACK, attackClip(m, ce, s.meleeClip), -1, 0, e.attackRate, false, true); }

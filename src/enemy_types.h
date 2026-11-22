@@ -53,6 +53,7 @@ struct EnemyType {
   // the horse's hit capsules on its own joints. A bullet hits whichever body it meets first; melee lands on the horse; a blast,
   // shell, fire or vehicle hurts both. The horse at 0: horse_death (the knight goes on foot with the rider's health left); the
   // rider at 0: the type's death clips (the rider shot off)
+  std::string deathRight, deathLeft;   // HK4 json "death_side": [the clip falling to the body's right, to its left]: picked by the killing hit's direction (pushed away from the shooter)
   float horseHp = 0; struct HorseZone { std::string a, b; float r = 0.1f; }; std::vector<HorseZone> horseZones;
   float capsuleH = 0, capsuleR = 0;                       // EN2: physics capsule height / radius (0: the soldier's)
   float climbM = 0, stepGap = 0;                          // EN4: takes the heavies-only climb links (lips up to the nav pass's 2.2 m) / gap links; stuck in a pit, climbs a lip up to climbM
