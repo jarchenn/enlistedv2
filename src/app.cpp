@@ -1455,7 +1455,7 @@ int App::run(int argc, char** argv) {
         if (std::fabs(fv.y) > 0.999f) fv = glm::normalize(vec3(std::fabs(lastF.y) < 0.999f ? lastF.x : 0.0f, fv.y > 0 ? 0.999f : -0.999f, std::fabs(lastF.y) < 0.999f ? lastF.z : 1.0f) * vec3(0.045f, 1, 0.045f) + vec3(0, 0, 0));   // straight up / down: lookAt's matrix is NaN along the up axis (it reached Terrain::height in the render): a hair off vertical
       }
       { extern bool gVh8CamOn; extern vec3 gVh8CamEye, gVh8CamAt; if (gVh8CamOn) { e = gVh8CamEye; fv = glm::normalize(gVh8CamAt - e); fov = 60; } }   // VH8 capture: outside view
-      viewM = glm::lookAt(e, e + fv, viewUp(fv));   // swim.cpp: a slight roll with the stroke
+      viewM = glm::rotate(mat4(1), radians(-viewKickRoll), vec3(0, 0, 1)) * glm::lookAt(e, e + fv, viewUp(fv));   // GR1: the fire curve's camera roll   // swim.cpp: a slight roll with the stroke
       projM = glm::perspective(radians(fov), aspect, 0.03f, std::max(4000.0f, settings().renderDist() * 1.2f));   // PF2: Ultra render distance (5 km)
       worldFov = fov;
       v.vmProj = glm::perspective(radians(vmFovNow()), aspect, 0.01f, 6.0f);

@@ -887,6 +887,14 @@ int ar1SelfCheck() {
     for (auto& [id, w] : zcfg().assorted) inMix = inMix || id.rfind("fallen", 0) == 0;
     chk(fk >= 0 && f1 >= 0 && k1 >= 0 && enemyType(fk).hp == 5 * enemyType(k1).hp && enemyType(f1).hp == enemyType(fk).hp && enemyType(fk).model == "knight" && !inMix && std::string(aiTypeName(AiType::FallenKnight)) == "Fallen Knight",
         "Fallen Knight (FK1): AI type 39, 5x a knight's health, the Brother Knight's model, a Knight 1 fallback, not in Assorted"); }
+  {   // GR1: the fire curve's overlapping shots add, each x its weight; the rod is the furthest back among them; past the end a shot is off the curve
+    WeaponDef d; d.fireCurveFps = 10; d.fireCurve = {{}, {}, {}}; d.fireCurve[1][6] = 2; d.fireCurve[1][9] = 0.08f;   // muzzle up 2 deg and the rod back at 0.1 s
+    WeaponState w; w.curveFolded[0] = w.curveFolded[1] = false; w.curveAge[0] = 0.1f; w.curveGain[0] = 1; w.curveAge[1] = 0.05f; w.curveGain[1] = 0.5f;
+    float row[10], h; fireCurveSum(d, w, row, h);
+    const bool sum = std::fabs(row[6] - (2 + 0.5f * 1)) < 1e-4f && std::fabs(h - 0.08f) < 1e-6f;
+    w.curveFolded[0] = true; fireCurveSum(d, w, row, h); float end[10];
+    chk(sum && std::fabs(row[6] - 0.5f) < 1e-4f && !fireCurveAt(d, 0.25f, end) && end[6] == 0, "GR1 fire curve: two overlapping shots sum by weight, a folded shot drops out, past the end the last row");
+  }
   {   // DR1: the dragon: AI type 40, its type, and its model's clips and joints read from the GLB's JSON chunk (no GPU)
     int dk = enemyTypeIndex("dragon"); std::set<std::string> anims, nodes;
     { std::ifstream f(contentDir() / "characters" / "dragon.glb", std::ios::binary); std::string g((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
