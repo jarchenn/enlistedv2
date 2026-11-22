@@ -14,6 +14,7 @@ struct InstanceRT;
 struct PlaceCheck;
 
 // "prop" block of a furniture asset, with its derived meshes and shapes (built on first use)
+float furnishKeepFraction();   // FURN50: the share of each room's planned furniture kept (room_dressing.json "keepFraction", 0.5)
 struct PropDef {
   std::string family = "wood";            // wood painted ceramic glass cloth masonry paper
   int rounds = 0;                          // small-arms hits that break it (0: never by rounds)

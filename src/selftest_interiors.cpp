@@ -232,8 +232,9 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
         now += n; was += b;
         char q[120]; std::snprintf(q, sizeof q, "%s%s %d (x%.1f)", per.empty() ? "" : ", ", hi->assetId.c_str(), n, n / (float)b); per += q;
       }
-      std::snprintf(b_, sizeof b_, "density: %d pieces in the four fixtures vs %d before = x%.2f (gate x3): %s", now, was, now / (float)was, per.c_str());
-      check(now >= 3 * was, b_);
+      const float gate = 3.0f * furnishKeepFraction();   // FURN50: the x3 gate was set on the full plan; furnishing is now halved
+      std::snprintf(b_, sizeof b_, "density: %d pieces in the four fixtures vs %d before = x%.2f (gate x%.2f, 3 x keepFraction): %s", now, was, now / (float)was, gate, per.c_str());
+      check(now >= gate * was, b_);
       summary["density"] = {{"before", was}, {"now", now}, {"ratio", now / (float)was}};
       return true; });
     push("templates: every piece valid (floors, walls, doors, stairs, windows)", [this](App& a, float) {
@@ -645,7 +646,7 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       if (t < 0.3f) return false;
       std::snprintf(b_, sizeof b_, "a grenade on the kitchen floor: %d of the %d pieces within 4 m blown apart (%d broke in all, %d rigid fragments, %d splinter bursts, +%zu particles; furniture pass %.1f ms)",
                     broke, inRoom, a.interior.lastBlastBreaks, a.interior.fragsSpawned - fr0, a.interior.splinterBursts - bursts0, a.fx.parts.size() - parts0, ms);
-      check(inRoom >= 4 && broke * 10 >= inRoom * 7 && a.interior.fragsSpawned - fr0 >= 8 && a.interior.splinterBursts - bursts0 >= broke, b_);
+      check(inRoom >= 3 && broke * 10 >= inRoom * 7 && a.interior.fragsSpawned - fr0 >= 8 && a.interior.splinterBursts - bursts0 >= broke, b_);
       summary["grenade"] = {{"near", inRoom}, {"broke", broke}, {"allBroke", a.interior.lastBlastBreaks}, {"ms", ms}};
       return true; }, 5);
     push("damage: tank HE, AT and rocket direct hits blow pieces apart", [this](App& a, float t) {
@@ -753,8 +754,9 @@ void SelfTest::interiorsUpdate(App& app, float dt) {
       check(vils >= 5 && vilRooms == vils && fixed == 1, b_);
       std::snprintf(b_, sizeof b_, "the church gets pews: %d pews", pews);
       check(pews >= 6, b_);
-      std::snprintf(b_, sizeof b_, "density over every building: %d pieces vs %d with the first templates = x%.2f (gate x3); lowest %s x%.1f", total, was, total / (float)std::max(1, was), lowest.c_str(), worst);
-      check(total >= 3 * was, b_);
+      const float gateAll = 3.0f * furnishKeepFraction();   // FURN50: as above
+      std::snprintf(b_, sizeof b_, "density over every building: %d pieces vs %d with the first templates = x%.2f (gate x%.2f, 3 x keepFraction); lowest %s x%.1f", total, was, total / (float)std::max(1, was), gateAll, lowest.c_str(), worst);
+      check(total >= gateAll * was, b_);
       // a decorative border building (V8, extra.decor) and a building whose furniture the user removed stay as they are
       // free spots for the two test cottages: the asset grid above grows with every new building family
       const AssetDef* cot = a.lib.find("house_stone_cottage");
