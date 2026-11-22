@@ -355,7 +355,8 @@ bool TankSys::ramObstacles(App& app, TankRT& t, float dt, const mat4& H, vec3 c,
     }
     if (!a->defense.kind.empty()) {
       if (r.defDestroyed) continue;
-      if (a->defense.blocksVehicles || a->defense.kind == "sandbag") { blocker = a->name; continue; }
+      const bool low = t.def && t.def->mech && a->bmax.y - a->bmin.y <= t.def->mechStep;   // Mech Tank: sandbags and low barriers are crushed
+      if ((a->defense.blocksVehicles || a->defense.kind == "sandbag") && !low) { blocker = a->name; continue; }
       auto sp = ramProps.find(a->id);
       Obs o{O_WIRE, i, &r, {}, iid << 16, (sp != ramProps.end() ? sp->second.breakKJ : 60.0f) * 1000.0f, ov[h].pos, -dir};
       o.name = a->name; o.mass = sp != ramProps.end() ? sp->second.massKg : 80.0f;
@@ -368,6 +369,7 @@ bool TankSys::ramObstacles(App& app, TankRT& t, float dt, const mat4& H, vec3 c,
     else if (a->category == "Dressing" && a->panels.empty() && !a->enterable && a->station.kind.empty() && !isVehicleAsset(a) &&
              (a->bmax.x - a->bmin.x) * (a->bmax.z - a->bmin.z) < 2.5f) { s.mode = "topple"; s.breakKJ = 10; s.massKg = 100; }   // small dressing
     else s.mode = "block";
+    if (s.mode == "block" && a->panels.empty() && t.def && t.def->mech && a->bmax.y - a->bmin.y <= t.def->mechStep) { s.mode = "rubble"; s.breakKJ = 80; s.massKg = 500; }   // Mech Tank: a low wall, log, fence or rubble pile goes under the tracks
     if (s.mode == "block" && !a->panels.empty()) {
       // a building's solid core where it meets a wall bay or an opening: within the trim margin of a door or window it
       // breaks that trim (once it has gone the tank passes what is left at the opening, steps and slivers); beside a bay

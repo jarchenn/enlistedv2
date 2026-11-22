@@ -1,0 +1,68 @@
+{
+ "id": "tank_cyber_tank",
+ "version": 1,
+ "name": "Mech Tank",
+ "category": "Vehicles",
+ "description": "Autonomous AI tank (no crew). Supplied cyber tank model (local-only; the Tiger I mesh stands in without it).",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  5.65,
+  7.5
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 1.2,
+ "noAutoPanels": true,
+ "faction": "Axis",
+ "materials": [
+  {
+   "name": "collider",
+   "albedo": [
+    0.3,
+    0.3,
+    0.3
+   ],
+   "roughness": 0.8,
+   "pattern": "metal"
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    1.6,
+    0
+   ],
+   "s": [
+    5.6,
+    2.4,
+    7.4
+   ],
+   "m": "collider",
+   "v": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0,
+    2.97,
+    -1.77
+   ],
+   "s": [
+    3.2,
+    1.04,
+    3.4
+   ],
+   "m": "collider",
+   "v": 0
+  }
+ ],
+ "furniture": [],
+ "interactables": [],
+ "panels": [],
+ "vehicle": "cyber_tank",
+ "nav": {
+  "effect": "none"
+ }
+}

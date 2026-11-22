@@ -22,7 +22,7 @@
 
 namespace {
 MpTest* T = nullptr;
-int mode = -1, stage = 0, frames = 0; bool started = false, matchMode = false, blurMode = false, costMode = false, blur2 = false, stepMode = false, cpabMode = false, hitMode = false, smokeMode = false, wxMode = false, bodyMode = false, wedgeMode = false, w6Mode = false, bfMode = false; float total = 0, st = 0, runT = 0; int runFrames = 0; double runDt = 0, worstDt = 0;
+int mode = -1, stage = 0, frames = 0; bool started = false, mechMode = false, matchMode = false, blurMode = false, costMode = false, blur2 = false, stepMode = false, cpabMode = false, hitMode = false, smokeMode = false, wxMode = false, bodyMode = false, wedgeMode = false, w6Mode = false, bfMode = false; float total = 0, st = 0, runT = 0; int runFrames = 0; double runDt = 0, worstDt = 0;
 std::vector<int> row; vec3 origin(0);
 // NMK_WSM2_ROWS=40,80: the lineup adds a full row of the ten types at each of those distances from the camera (sandstorm / rain
 // visibility at engagement range); the close row stays where it was
@@ -476,8 +476,77 @@ static bool bodyStep(App& app, Game& G, Soldier& L) {
   return true;
 }
 
+// MT1 NMK_WSM2=mech: the Mech Tank AI in a match on Chateau Town (the soldier AI frozen, the player kept alive):
+//  1. fire: a side-B Mech Tank 50-70 m from the player on a clear line: it takes the player as its target, lays the gun
+//     within 2 deg and fires (aiShots) within 25 s
+//  2. breach: a second one 18 m outside the nearest building with wall panels, its goal through the building (targets
+//     off): a wall bay is pushed through (TankRT::breaches) within 30 s
+// selftest_out/mech_fire.png, mech_breach.png; the log has "[mech] ..." lines.
+static bool mechStep(App& app, Game& G, Soldier& L) {
+  static int ph = -1, f0 = 0; static uint64_t id = 0; static float acc = 0; char b[300];
+  if (AiCore* A = aiCore()) A->frozen = true;
+  L.hp = 100;
+  auto done = [&](bool ok, const std::string& what) { T->check(ok, what); };
+  const int f = frames - f0;
+  if (ph < 0) {   // 1: a spot 50-70 m from the player with a clear line
+    ph = 0; f0 = frames;
+    const vec3 me = L.feet + vec3(0, 1.1f, 0);
+    for (float r = 55; r <= 75 && !id; r += 10) for (int k = 0; k < 16 && !id; ++k) {
+      const float an = k * 0.3927f; vec3 p = L.feet + vec3(std::cos(an) * r, 0, std::sin(an) * r); p.y = app.terrain.height(p.x, p.z);
+      const vec3 e = p + vec3(0, 3.4f, 0), dv = me - e; float t; uint64_t ud;
+      if (Physics::castRay(e, glm::normalize(dv), glm::length(dv) - 0.8f, t, ud)) continue;
+      id = app.tanks.spawnMech(app, p, glm::degrees(std::atan2(-dv.x, -dv.z)) + 40.0f, 1);   // facing 40 deg off: it must turn
+    }
+    std::snprintf(b, sizeof b, "[mech] fire: tank %llu placed %s", (unsigned long long)id, id ? "" : "(no clear spot: nothing to test)"); logf("%s", b);
+    if (TankRT* t = app.tanks.get(id)) t->aiGoal = L.feet;
+    return true;
+  }
+  TankRT* t = app.tanks.get(id);
+  if (ph == 0) {
+    bool ok = false; float err = 180;
+    if (t) {
+      vec3 md; const vec3 mz = app.tanks.muzzleWorld(*t, md); const vec3 to = glm::normalize(L.feet + vec3(0, 1.1f, 0) - mz);
+      err = glm::degrees(std::acos(std::clamp(glm::dot(glm::normalize(md), to), -1.0f, 1.0f)));
+      ok = t->aiSlot == L.slot && t->aiShots > 0;
+      if (ok && app.uiShot.empty()) app.uiShot = exeDir() / "selftest_out" / "mech_fire.png";
+    }
+    if (ok || f > 25 * 60) {
+      std::snprintf(b, sizeof b, "mech fire: target %s, barrel %.1f deg off the player at the last frame, %d shots in %.1f s", t && t->aiSlot == L.slot ? "the player" : "NOT the player", err, t ? t->aiShots : 0, f / 60.0f);
+      done(ok, b); ph = 1; f0 = frames; id = 0;
+    }
+    return true;
+  }
+  if (ph == 1) {   // 2: through the nearest building with wall panels
+    const Instance* best = nullptr; float bd = 1e9f;
+    for (auto& i : app.doc.instances) { const AssetDef* a = app.lib.find(i.assetId); if (!a || a->panels.empty() || !a->enterable) continue; const float dd = glm::length(vec2(i.pos.x - L.feet.x, i.pos.z - L.feet.z)); if (dd < bd && dd < 250) { bd = dd; best = &i; } }
+    ph = 2; f0 = frames;
+    if (!best) { done(false, "mech breach: no building with wall panels within 250 m"); ph = 3; return true; }
+    const AssetDef* a = app.lib.find(best->assetId); const float R = 0.5f * glm::length(vec2(a->bmax.x - a->bmin.x, a->bmax.z - a->bmin.z));
+    const vec3 c = best->pos; vec3 u = L.feet - c; u.y = 0; u = glm::length(u) > 1 ? glm::normalize(u) : vec3(1, 0, 0);
+    vec3 p = c + u * (R + 18.0f); p.y = app.terrain.height(p.x, p.z);
+    id = app.tanks.spawnMech(app, p, glm::degrees(std::atan2(-u.x, -u.z)), 0);
+    if (TankRT* t2 = app.tanks.get(id)) { t2->aiGoal = c - u * (R + 12.0f); }
+    std::snprintf(b, sizeof b, "[mech] breach: tank %llu toward %s at (%.0f %.0f), %.0f m across", (unsigned long long)id, a->name.c_str(), c.x, c.z, 2 * R); logf("%s", b);
+    return true;
+  }
+  if (ph == 2) {
+    if (t) { t->aiSlot = -1; t->aiTank = 0; t->aiThinkT = 1e9f; }   // targets off: it only drives
+    const bool ok = t && t->breaches > 0;
+    if (ok && app.uiShot.empty()) app.uiShot = exeDir() / "selftest_out" / "mech_breach.png";
+    if (ok || f > 30 * 60 || !t) {
+      std::snprintf(b, sizeof b, "mech breach: %d wall bays pushed through, %d props knocked, last ram '%s', blocked by '%s', in %.1f s", t ? t->breaches : 0, t ? t->knocks : 0, app.tanks.lastRam.c_str(), t ? t->blockedBy.c_str() : "-", f / 60.0f);
+      done(ok, b); ph = 3;
+    }
+    return true;
+  }
+  (void)acc;
+  if (app.mode == Mode::Explore) app.exitExplore();
+  app.selftest->exitCode = T->finish(); app.selftest->done = true;
+  return true;
+}
+
 bool wsm2Capture(App& app, float dt) {
-  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-wsm2") mode = 1; const char* e = std::getenv("NMK_WSM2"); matchMode = e && std::string(e) == "match"; blurMode = e && (std::string(e) == "blur" || std::string(e) == "blur2"); blur2 = e && std::string(e) == "blur2"; costMode = e && std::string(e) == "cost"; stepMode = e && std::string(e) == "step"; if (stepMode) blurMode = true; cpabMode = e && std::string(e) == "cpab"; if (cpabMode) matchMode = true; hitMode = e && std::string(e) == "cphit"; if (hitMode) blurMode = true; smokeMode = e && std::string(e) == "smoke"; if (smokeMode) blurMode = true; wxMode = e && std::string(e) == "wxsight"; if (wxMode) blurMode = true; wedgeMode = e && std::string(e) == "wedge"; w6Mode = e && std::string(e) == "w6look"; if (w6Mode) blurMode = true; bfMode = e && std::string(e) == "bffire"; bodyMode = e && std::string(e) == "bodyshadow"; if (bodyMode) blurMode = true; if (costMode) matchMode = true; }
+  if (mode < 0) { mode = 0; for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-wsm2") mode = 1; const char* e = std::getenv("NMK_WSM2"); matchMode = e && std::string(e) == "match"; blurMode = e && (std::string(e) == "blur" || std::string(e) == "blur2"); blur2 = e && std::string(e) == "blur2"; costMode = e && std::string(e) == "cost"; stepMode = e && std::string(e) == "step"; if (stepMode) blurMode = true; cpabMode = e && std::string(e) == "cpab"; if (cpabMode) matchMode = true; hitMode = e && std::string(e) == "cphit"; if (hitMode) blurMode = true; smokeMode = e && std::string(e) == "smoke"; if (smokeMode) blurMode = true; wxMode = e && std::string(e) == "wxsight"; if (wxMode) blurMode = true; wedgeMode = e && std::string(e) == "wedge"; w6Mode = e && std::string(e) == "w6look"; if (w6Mode) blurMode = true; bfMode = e && std::string(e) == "bffire"; bodyMode = e && std::string(e) == "bodyshadow"; mechMode = e && std::string(e) == "mech"; if (mechMode) blurMode = true; if (bodyMode) blurMode = true; if (costMode) matchMode = true; }
   if (mode != 1) return false;
   if (dt < 0) return true;
   if (app.win && glfwGetWindowAttrib(app.win, GLFW_ICONIFIED)) glfwRestoreWindow(app.win);
@@ -572,7 +641,7 @@ bool wsm2Capture(App& app, float dt) {
   if (!started) {
     started = true; T = new MpTest("wsm2");
     if (app.mode == Mode::Explore) app.exitExplore();
-    app.openMap(contentDir() / (bodyMode ? "templates/chateau_town.nmap.json" : blurMode ? "templates/blackwater_thaw.nmap.json" : "examples/village_assault_3.nmap.json"));   // bodyshadow: no fixed hour, no map weather   // AIB1: the map the blur was reported on
+    app.openMap(contentDir() / (bodyMode || mechMode ? "templates/chateau_town.nmap.json" : blurMode ? "templates/blackwater_thaw.nmap.json" : "examples/village_assault_3.nmap.json"));   // bodyshadow: no fixed hour, no map weather   // AIB1: the map the blur was reported on
     Scenario sc = Scenario::fromJson(app.doc.extra.is_object() ? app.doc.extra.value("scenario", json::object()) : json::object());
     sc.rules.mode = GameMode::TDM; sc.rules.humanTeam = 0; sc.rules.killCap = 9999;
     sc.rules.teamFaction[0] = Faction::Allies; sc.rules.teamFaction[1] = Faction::Axis;
@@ -629,6 +698,7 @@ bool wsm2Capture(App& app, float dt) {
   if (wxMode) return wxSightStep(app, G, *L);
   if (w6Mode) return w6Step(app, G, *L);
   if (bodyMode) return bodyStep(app, G, *L);
+  if (mechMode) return mechStep(app, G, *L);
   if (blurMode) return blurStep(app, G, *L, blur2);
   if (costMode) return costStep(app, G, *L);
   if (stage == 0) {   // the row: side 0's bot first, then side 1's in spawn order; facts per bot

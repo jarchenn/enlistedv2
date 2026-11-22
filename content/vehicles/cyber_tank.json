@@ -1,0 +1,348 @@
+{
+ "id": "cyber_tank",
+ "name": "Mech Tank",
+ "faction": "Axis",
+ "identity": "Supplied cyber_tank_rigged.glb (licence unknown: local-only, git-ignored; clones without it draw the Tiger I mesh). An autonomous AI tank: no crew, no Enter prompt (AiType Mech Tank).",
+ "model": {
+  "src": "cyber_tank_rigged.glb",
+  "dir": "cyber_tank",
+  "fallbackDir": "tiger",
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "realLength": 7.5,
+  "maxTex": 1024,
+  "lod1": 0.4,
+  "lod1Tex": 512,
+  "lod2": 0.12,
+  "lod2Tex": 256,
+  "groundRoles": [
+   "body"
+  ],
+  "nodeParts": {
+   "Turret_Yaw": "turret",
+   "Barrel_Pitch": "gun"
+  },
+  "fallbackRig": {
+   "turretPivot": [
+    0.0,
+    1.834,
+    0.01
+   ],
+   "gunPivot": [
+    -0.02,
+    2.22,
+    1.05
+   ],
+   "muzzle": [
+    -0.02,
+    2.22,
+    5.31
+   ],
+   "optic": [
+    0.32,
+    2.3,
+    1.72
+   ],
+   "hatchEye": [
+    0.47,
+    3.55,
+    -0.4
+   ],
+   "mgPivot": [
+    0.47,
+    3.04,
+    0.02
+   ],
+   "engine": [
+    0,
+    1.4,
+    -2.3
+   ],
+   "exhausts": [
+    [
+     0.38,
+     1.75,
+     -3.1
+    ],
+    [
+     -0.38,
+     1.75,
+     -3.1
+    ]
+   ],
+   "exits": [
+    [
+     2.6,
+     0,
+     0.3
+    ],
+    [
+     -2.6,
+     0,
+     0.3
+    ],
+    [
+     2.6,
+     0,
+     -2.0
+    ],
+    [
+     -2.6,
+     0,
+     -2.0
+    ],
+    [
+     0,
+     0,
+     -4.0
+    ],
+    [
+     0,
+     0,
+     6.0
+    ],
+    [
+     2.6,
+     0,
+     2.4
+    ],
+    [
+     -2.6,
+     0,
+     2.4
+    ]
+   ]
+  },
+  "note": "Turret_Yaw / Barrel_Pitch are the nodes the file's Turret_Traverse_360 / Barrel_Elevation clips rotate; the code drives them. 5.735 m long as supplied, scaled to 7.5 m (a heavy hull).",
+  "centreRole": "body"
+ },
+ "rig": {
+  "turretPivot": [
+   0.0,
+   2.455,
+   -1.929
+  ],
+  "gunPivot": [
+   -0.206,
+   2.939,
+   -0.396
+  ],
+  "muzzle": [
+   -0.21,
+   2.94,
+   1.4
+  ],
+  "optic": [
+   0.35,
+   3.35,
+   -0.55
+  ],
+  "hatchEye": [
+   0.6,
+   3.9,
+   -1.9
+  ],
+  "mgPivot": [
+   0.6,
+   3.5,
+   -2.2
+  ],
+  "engine": [
+   0,
+   1.5,
+   -3.0
+  ],
+  "exhausts": [
+   [
+    0.6,
+    2.0,
+    -3.6
+   ],
+   [
+    -0.6,
+    2.0,
+    -3.6
+   ]
+  ],
+  "exits": [
+   [
+    3.4,
+    0,
+    0.3
+   ],
+   [
+    -3.4,
+    0,
+    0.3
+   ],
+   [
+    0,
+    0,
+    -4.6
+   ],
+   [
+    0,
+    0,
+    4.6
+   ]
+  ],
+  "note": "measured on the bake: Turret_Yaw / Barrel_Pitch node origins (S 1.3098, re-origined), the muzzle at the barrel tip"
+ },
+ "colliders": {
+  "hull": [
+   {
+    "c": [
+     0,
+     1.6,
+     0
+    ],
+    "h": [
+     2.8,
+     1.2,
+     3.7
+    ]
+   }
+  ],
+  "turret": [
+   {
+    "c": [
+     0,
+     2.97,
+     -1.77
+    ],
+    "h": [
+     1.6,
+     0.52,
+     1.7
+    ]
+   }
+  ],
+  "armourHull": {
+   "c": [
+    0,
+    1.6,
+    0
+   ],
+   "h": [
+    2.8,
+    1.2,
+    3.7
+   ]
+  },
+  "armourTurret": {
+   "c": [
+    0,
+    2.97,
+    -1.77
+   ],
+   "h": [
+    1.6,
+    0.52,
+    1.7
+   ]
+  },
+  "note": "boxes in hull space from the baked bounds (body 5.65 x 2.81 x 7.5 m, turret 3.2 x 1.04 x 3.4 m at the rear)"
+ },
+ "gun": {
+  "muzzleScale": 1.2,
+  "name": "8.8 cm KwK 36 L/56",
+  "rockDeg": 4.0,
+  "viewKick": 2.5,
+  "traverseRate": 10,
+  "traverseAccel": 8,
+  "elevationRate": 4,
+  "elevationAccel": 12,
+  "elevation": [
+   -8,
+   15
+  ],
+  "recoil": 0.45,
+  "fov": 30,
+  "fovZoom": 12,
+  "zeroRange": 400,
+  "reticle": "tiger",
+  "note": "rates, limits and sight field are provisional game tuning; the Sherman's faster traverse is the requested direction"
+ },
+ "ammunition": {
+  "reloadTime": 7.0,
+  "reserveAP": 40,
+  "reserveHE": 40,
+  "startLoaded": "AP",
+  "ap": "88mm_pzgr39",
+  "he": "88mm_sprgr",
+  "velocityAP": 773,
+  "velocityHE": 820,
+  "blastHE": 160,
+  "note": "reserves and reload time are provisional game values"
+ },
+ "mobility": {
+  "maxForward": 11.1,
+  "maxReverse": 2.8,
+  "accel": 1.2,
+  "brake": 4.5,
+  "coast": 0.8,
+  "turnRate": 18,
+  "pivotRate": 14,
+  "maxSlopeDeg": 30,
+  "offroadMul": 0.6,
+  "halfSize": [
+   2.8,
+   1.2,
+   3.7
+  ],
+  "clearance": 0.4,
+  "trackHalfGauge": 2.3,
+  "trackHalfLength": 3.3,
+  "note": "road top speed follows the museum listing (faster than the Firefly on roads); off-road multiplier, acceleration and turning make it feel heavier (gameplay tuning)"
+ },
+ "durability": {
+  "frontHitsSurvived": 6,
+  "sideHitsSurvived": 2
+ },
+ "bowMg": {
+  "name": "MG 42 type bow MG (hull ball mount)",
+  "short": "Bow MG 42",
+  "sound": "shot_mg42",
+  "tail": "tail_mg42",
+  "reloadSound": "reload_mg42",
+  "pivot": [
+   -0.6,
+   1.7,
+   3.3
+  ],
+  "muzzle": [
+   -0.6,
+   1.7,
+   3.7
+  ],
+  "yaw": 15,
+  "elevation": [
+   -10,
+   15
+  ],
+  "rpm": 1200,
+  "velocity": 755,
+  "spreadDeg": 0.35,
+  "bulletMass": 0.0128,
+  "belt": 50,
+  "reserve": 1000,
+  "reload": 4.6,
+  "note": "ball mount measured on the supplied mesh (right of the driver, the radio operator's gun); the user asked for an MG 42 type gun with the MG 42 sound pack. 50-round belts change automatically (crew)."
+ },
+ "ramming": {
+  "massKg": 68000,
+  "engineKW": 900,
+  "pushEfficiency": 0.6,
+  "note": "a notch above the Tiger: heavier, more power (game tuning)"
+ },
+ "mech": {
+  "standoff": 45,
+  "sight": 220,
+  "heRange": 400,
+  "stepHeight": 1.0,
+  "note": "autonomous AI (tank_mech.cpp): holds this standoff to its target, sees this far, crushes low obstacles up to stepHeight (m) instead of stopping"
+ }
+}

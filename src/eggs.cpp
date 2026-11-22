@@ -19,7 +19,7 @@
 #include <cmath>
 
 namespace {
-struct Egg { std::string name; AiType ait; int etype; bool soldier; };
+struct Egg { std::string name; AiType ait; int etype; bool soldier; bool vehicle = false; };   // MT1 vehicle: placed into the map (acts in Explore)
 struct EggState { bool open = false; int sel = -1; int side = 0; bool frozen = false; float holdT = 0; bool rmbWas = false; float acc = 0; } E;
 
 std::vector<Egg> eggs() {   // rebuilt each call: cheap, and always the current type lists
@@ -29,6 +29,7 @@ std::vector<Egg> eggs() {   // rebuilt each call: cheap, and always the current 
     v.push_back({aiTypeName((AiType)t), (AiType)t, -1, true});
   }
   const auto& et = enemyTypes();
+  v.push_back({"Mech Tank (vehicle: placed in the map, acts in Explore)", AiType::MechTank, -1, false, true});   // MT1: not a sandbox soldier
   for (int k = 0; k < (int)et.size(); ++k) v.push_back({et[k].name.empty() ? et[k].id : et[k].name, AiType::Zombies, k, false});   // the plain melee carrier, its enemy type overridden (gameplay: ZombiesHeavies is the weighted mix)
   return v;
 }
@@ -40,6 +41,11 @@ int spawnedCount() { return sandboxOn() ? (int)gGame->sold.size() : 0; }
 int spawnEgg(App& app, const Egg& e, vec3 feet, float yaw, int side) {
   if (lanBusy()) { app.toast("Spawn eggs are local only: leave the LAN session first", 4); return -1; }
   if (app.mode != Mode::Creative) return -1;
+  if (e.vehicle) {   // MT1: a crewless Mech Tank instance for that side (hostile to all: side B); undo / delete like any placed vehicle
+    const uint64_t id = app.tanks.spawnMech(app, feet, yaw, side == 0 ? 0 : 1);
+    if (!id) app.toast("Mech Tank: no room here (or its vehicle definition is missing)", 4);
+    return id ? 0 : -1;
+  }
   if (gGame && gGame->active && !gGame->sandbox) { app.toast("A match is running: spawn eggs work in Creative", 4); return -1; }
   if (spawnedCount() >= ScenarioRules::kMaxAI) { app.toast("Combatant limit reached (" + std::to_string(ScenarioRules::kMaxAI) + " AI): clear some first", 4); return -1; }
   if (!sandboxOn()) {
