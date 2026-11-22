@@ -361,7 +361,7 @@
     {
       "note": "knight2: AI type Knights (9) on the user's sword-and-shield knight (content/characters/knight_ss.glb, tools/enemies/knight2_prep.py; credits in docs/credits.md); this entry wins over an old 'knight' in zombie_local.json. 'legacy' (perf switch knight2 off, at the next table load): the Brother Knight (content/characters/knight.glb, local-only; without it the plain zombie)",
       "id": "knight",
-      "name": "Knight",
+      "name": "Knight 1",
       "model": "knight_ss",
       "height_m": 1.9,
       "scale": 1,
@@ -499,6 +499,95 @@
           }
         ]
       }
+    },
+    {
+      "note": "KN2: AI type Knight 2 (26): the knight's body and 51 clips with a spiked mace, the frogmouth helm and a round shield (content/characters/knight_v2.glb, local-only: tools/enemies/knight_v2_parts.py + knight_v2_merge.py); without the file AI type 26 plays Knight 1 (game.cpp)",
+      "id": "knight2",
+      "name": "Knight 2",
+      "model": "knight_v2",
+      "height_m": 1.9,
+      "scale": 1,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 600,
+      "damage": 60,
+      "reach_m": 2.0,
+      "lunge_m": 1.0,
+      "cooldown_s": 1.2,
+      "windup_s": 0.5,
+      "attack_rate": 1.0,
+      "walk_mps": 1.5,
+      "run_mps": 3.8,
+      "run_within_m": 12,
+      "weight": 0,
+      "hit_zone_scale": 1.1,
+      "knockback_mps": 3,
+      "stagger_min_damage": 120,
+      "stagger_s": 0.7,
+      "explosive_mult": 2,
+      "clips": {
+        "walk": [
+          "sword and shield walk"
+        ],
+        "run": "sword and shield run",
+        "idle": [
+          "sword and shield idle",
+          "sword and shield idle (4)"
+        ],
+        "attack": [
+          "sword and shield slash",
+          "sword and shield slash (3)",
+          "sword and shield slash (5)",
+          "sword and shield attack (4)"
+        ],
+        "damage": [
+          "sword and shield impact",
+          "sword and shield impact (2)",
+          "sword and shield impact (3)",
+          "sword and shield block"
+        ],
+        "death": [
+          "sword and shield death",
+          "sword and shield death (2)"
+        ]
+      },
+      "sounds": {
+        "attack": "knightattack",
+        "contact": "knightattackcontact",
+        "death": "knightdeath"
+      },
+      "attack_dust": false,
+      "head_mult": 4,
+      "attacks": [
+        {
+          "clip": "sword and shield slash",
+          "joint": "RightHand",
+          "extend": 0.75,
+          "radius": 0.6
+        },
+        {
+          "clip": "sword and shield slash (3)",
+          "joint": "RightHand",
+          "extend": 0.75,
+          "radius": 0.6
+        },
+        {
+          "clip": "sword and shield slash (5)",
+          "joint": "RightHand",
+          "extend": 0.75,
+          "radius": 0.6
+        },
+        {
+          "clip": "sword and shield attack (4)",
+          "joint": "RightHand",
+          "extend": 0.75,
+          "radius": 0.6
+        }
+      ]
     }
   ]
 }
