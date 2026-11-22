@@ -8,6 +8,8 @@ const M12 = path.resolve(process.env.MG12_SRC || "E:/nmk/incoming/mg12") + "/"; 
 const NG1 = path.resolve(process.env.NG1_SRC || "E:/nmk/incoming/ng1") + "/";   // NG1 sources (licences unknown: the bakes are local-only)
 const NG3 = path.resolve(process.env.NG3_SRC || "E:/nmk/incoming/ng3") + "/";
 const NG4 = path.resolve(process.env.NG4_SRC || "E:/nmk/incoming/ng4") + "/";   // NG4 sources   // NG3 sources (licences unknown: the bakes are local-only)
+const XB = path.resolve(process.env.XB_SRC || "E:/nmk/incoming_crossbow") + "/";   // XB1: crossbow animated (DJMaesen, CC-BY-4.0)
+const MP5N = path.resolve(process.env.MP5N_SRC || "E:/nmk/incoming_mp5fps") + "/";   // XB1: the user's MP5 on the fps-animated-smg rig (MP5 meshes: source unknown: local-only)
 const C = {
   ak: { src: G + "fps-ak-animated/source/arms@ak.fbx", tex: "fps-ak-animated", keep: k("base", "bolt", "bullet", "mag", "release", "trigger"),
         mats: { ak74: { albedo: "ak74Color.png", normal: "ak74Normal.png", metal: "akMetallic.png", smooth: "aksmoothness.png", ao: "akAO.png" } } },
@@ -131,6 +133,11 @@ const C = {
   mp5: { src: NG4 + "animated-mp5/source/AnimatedMP5.fbx", tex: NG4 + "animated-mp5", poseFrame: 1, poseAction: "Armature|Armature|Idle", keep: { "MP5_1_Low.010": "base", "MP5_1_Low.011": "mag", "MP5_1_Low.013": "trigger" },
         mats: { M_LayeredMaterial: { albedo: "M_LayeredMaterial_Base_color.png", normal: "M_LayeredMaterial_Normal_OpenGL.png", metal: "M_LayeredMaterial_Metallic.png", rough: "M_LayeredMaterial_Roughness.png",
                                      dull: { metal: [0.55, 0.7], other: [0.7, 0.85] } } } },   // NG4: its roughness map ran ~0.24 (mirror-like): parkerised steel / polymer
+  // ---- XB1: the crossbow (Sketchfab GLB, its rest pose assembled with a bolt on the rail; muzzle already toward glTF +z)
+  crossbow: { src: XB + "crossbow_animated.glb", tex: "", keep: { Object_61: "base", Object_63: "base", trigger_crossbow_0: "trigger", stick_crossbow_0: "base", puller_crossbow_0: "base", loader_crossbow_0: "base" } },
+  // ---- XB1: the user's MP5 (local-only): its meshes hang off the smg45 rig's objects (the fps-animated-smg timeline)
+  mp5_local: { src: MP5N + "source/arms@mp5.fbx", tex: MP5N, keep: { mp5_body: "base", mp5_receiver_barrel: "base", mp5_handguard_grip: "base", mp5_stock: "base", mp5_attachments: "base", mp5_charginghandle: "bolt", mp5_mag: "mag" },
+        mats: Object.fromEntries(["mp5_body", "mp5_receiver_barrel", "mp5_handguard_grip", "mp5_stock", "mp5_attachments"].map(m => [m, { albedo: m + "_Color.png", normal: m + "_Normal.png", metal: m + "_Metallic.png", rough: m + "_Roughness.png" }])) },
   case: { src: G + "hardcase_for_weapons.glb", tex: "", scale: 1.27,
         keep: k("CaseLower_low_Hardcase_0", "CaseUpped_low_Hardcase_0", "Foam_low_Hardcase_0", "Handle_low_Hardcase_0", "HandleRods_low_Hardcase_0", "HingesLower_low_Hardcase_0", "HingesUpper_low_Hardcase_0", "Knob_low_Hardcase_0", "LockRods_low_Hardcase_0", "Locks_low_Hardcase_0") },
 };

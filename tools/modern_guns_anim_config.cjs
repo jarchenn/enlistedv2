@@ -13,6 +13,8 @@ const M12 = path.resolve(process.env.MG12_SRC || "E:/nmk/incoming/mg12") + "/"; 
 const NG3 = path.resolve(process.env.NG3_SRC || "E:/nmk/incoming/ng3") + "/";
 const NG4 = path.resolve(process.env.NG4_SRC || "E:/nmk/incoming/ng4") + "/";   // NG4 sources   // NG3 sources (licences unknown: local-only bakes)
 const NG1 = path.resolve(process.env.NG1_SRC || "E:/nmk/incoming/ng1") + "/";   // NG1 sources (licences unknown: local-only bakes into models/<id>_local)
+const XBR = path.resolve(process.env.XB_RIG || "E:/nmk/crossbow_build/crossbow_rig.blend");   // XB1: tools/crossbow_prep.py from crossbow_animated.glb
+const MP5N = path.resolve(process.env.MP5N_SRC || "E:/nmk/incoming_mp5fps") + "/";   // XB1: the user's MP5 on the fps-animated-smg rig (local-only)
 // MG2: Unreal mannequin arms (AR-15, MP7, RPG-7) and the Rigify agent's arms (Scorpion, Uzi)
 const manny = { MI_Manny_01: { albedo: "T_Manny_01_D.png", rough_f: 0.6 }, MI_Manny_02: { albedo: "T_Manny_02_D.png", rough_f: 0.6 } };
 const agent = { Gloves: { albedo: "Gloves_BaseColor.1003.png", rough: "Gloves_Roughness.1003.png", metal: "Gloves_Metallic.1003.png" }, Cloths: { albedo: "Cloths_BaseColor.1002.png", rough: "Cloths_Roughness.1002.png", metal: "Cloths_Metallic.1002.png" },
@@ -259,6 +261,19 @@ const A = {
     ironsSplit: { "MP5_1_Low.010": 0.04 }, normals: true,
     mats: { M_LayeredMaterial: { albedo: "M_LayeredMaterial_Base_color.png", metal: "M_LayeredMaterial_Metallic.png", rough: "M_LayeredMaterial_Roughness.png", dull: { metal: [0.55, 0.7], other: [0.7, 0.85] } },
             DMC5_Nero_BareArm: { ...ng2Arms, albedo: "pl0000_handr_d.png", normal: "pl0000_handr_n.png", rough_f: 0.75, matte: [0.72, 0.8] } } },
+  // ---- XB1: the crossbow (DJMaesen GLB, one 5.67 s timeline at 24 fps after import: frames 0-136); its parts baked per frame
+  modern_crossbow: { abs: true, src: XBR, tex: "E:/nmk/incoming_crossbow", stat: "modern_crossbow", normals: true,   // tex: the GLB's embedded images extracted to <tex>/textures (img<n>_x.png)
+    mats: { arms: { albedo: "img0_x.png", mr: "img1_x.png", normal: "img2_x.png", ...ng2Arms }, crossbow: { albedo: "img3_x.png", mr: "img4_x.png", normal: "img5_x.png" } }, restFrame: 0, timeline: [0, 136],
+    keep: ["Object_7", "Object_61", "Object_63", "trigger_crossbow_0", "stick_crossbow_0", "puller_crossbow_0", "loader_crossbow_0"],
+    rigidify: ["Object_61", "Object_63", "trigger_crossbow_0", "stick_crossbow_0", "puller_crossbow_0", "loader_crossbow_0"], gun: "Object_61",
+    clips: { fire: [0, 3], reload: [3, 62], inspect: [62, 109], idle: [109, 136] } },   // the bolt leaves at 0-3; cocked 24-35, the new bolt laid 51-60; inspect not played
+  // ---- XB1: the user's MP5 (local-only; weapon modern_mp5 through content/weapons/local/modern_mp5.json): the fps-animated-smg timeline
+  modern_mp5_local: { abs: true, wid: "modern_mp5", src: MP5N + "source/arms@mp5.fbx", tex: MP5N, stat: "modern_mp5_local",
+    keep: ["armmesh", "mp5_body", "mp5_receiver_barrel", "mp5_handguard_grip", "mp5_stock", "mp5_attachments", "mp5_charginghandle", "mp5_mag"],
+    rigidify: ["mp5_body", "mp5_receiver_barrel", "mp5_handguard_grip", "mp5_stock", "mp5_attachments", "mp5_charginghandle", "mp5_mag"], gun: "mp5_body", timeline: [1, 235],
+    clips: { fire: [1, 9], reload_empty: [9, 81], reload: [81, 130], inspect: [130, 177], idle: [177, 216] },   // the UMP-45's cuts (same rig and timeline)
+    mats: { ...Object.fromEntries(["mp5_body", "mp5_receiver_barrel", "mp5_handguard_grip", "mp5_stock", "mp5_attachments"].map(m => [m, { albedo: m + "_Color.png", metal: m + "_Metallic.png", rough: m + "_Roughness.png" }])),
+            "arms.001": { ...c4dArms(), ...ng2Arms } }, normals: true },
   // ---- MG7: the first-person knife (knife_animated.glb, Sketchfab; one 0-116 timeline at 24 fps); framed by its camera: the eye
   // at the scene origin looking along -y in the exported frame (found by a test export), centimetres
   knife_bayonet: { src: "../mg7/knife_animated/knife_animated.glb", tex: "../mg7/knife_animated", frame: { rear: [0, 0, 0], front: [0, -100, 0], up: [0, 0, 1], scale: 0.01 }, hipRear: [0, 0, 0],
@@ -272,8 +287,9 @@ for (const [id, a] of Object.entries(A)) {
     fs.writeFileSync(path.join(CFG, "anim_" + id + ".json"), JSON.stringify({ maxTex: 2048, ...a, src: a.abs ? a.src : G + a.src, texdir: (path.isAbsolute(a.tex) ? a.tex : G + a.tex) + "/textures", out: O + id + "_vm.glb", points: {} }, null, 1));
     continue;
   }
-  const w = JSON.parse(fs.readFileSync(WDIR + id + ".json", "utf8"));
-  if (fs.existsSync(WDIR + "local/" + id + ".json")) Object.assign(w, JSON.parse(fs.readFileSync(WDIR + "local/" + id + ".json", "utf8")));   // MG12: a local-only bake's real model / sights (content/weapons/local/<id>.json)
+  const wid = a.wid || id;   // XB1: a rig for another id's weapon (the local MP5 rig of modern_mp5)
+  const w = JSON.parse(fs.readFileSync(WDIR + wid + ".json", "utf8"));
+  if (fs.existsSync(WDIR + "local/" + wid + ".json")) Object.assign(w, JSON.parse(fs.readFileSync(WDIR + "local/" + wid + ".json", "utf8")));   // MG12: a local-only bake's real model / sights (content/weapons/local/<id>.json)
   const sum = JSON.parse(fs.readFileSync(O + a.stat + "_summary.json", "utf8"));
   const parts = a.lengthPart ? sum.parts.filter(p => p.name === a.lengthPart) : sum.parts;
   const mn = [0, 1, 2].map(i => Math.min(...parts.map(p => p.gltf_min[i]))), mx = [0, 1, 2].map(i => Math.max(...parts.map(p => p.gltf_max[i])));

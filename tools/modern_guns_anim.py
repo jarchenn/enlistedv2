@@ -360,8 +360,8 @@ for mname, m in cfg.get("mats", {}).items():
             nim.colorspace_settings.name = "Non-Color"
             t = nt.nodes.new("ShaderNodeTexImage"); t.image = nim; nm = nt.nodes.new("ShaderNodeNormalMap")
             nt.links.new(t.outputs["Color"], nm.inputs["Color"]); nt.links.new(nm.outputs["Normal"], bsdf.inputs["Normal"])
-    rough = chan("rough") if "rough" in m else chan("smooth", 0, True) if "smooth" in m else chan("gloss", 4, True) if "gloss" in m else None
-    metal = chan("metal") if "metal" in m else None
+    rough = chan("rough") if "rough" in m else chan("mr", 1) if "mr" in m else chan("smooth", 0, True) if "smooth" in m else chan("gloss", 4, True) if "gloss" in m else None
+    metal = chan("metal") if "metal" in m else chan("mr", 2) if "mr" in m else None   # XB1 "mr": a glTF metal-rough map (G roughness, B metal)
     if "spec" in m: sp = chan("spec", 4); metal = (sp > 0.5).astype(np.float32) if sp is not None else None
     if m.get("dull"):   # NG4: a gun's own finish less glossy: roughness into a range per surface (bare metal by the metallic map, else
         # polymer / coated parts), metallic scaled (a pack with one metallic factor for the whole gun)
