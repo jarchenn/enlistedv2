@@ -43,6 +43,7 @@ struct EnemyType {
   std::string runClip = "run";
   std::vector<std::string> damageClips{"damage"}, deathClips{"death"};   // EN2: lists, one picked per hit / death
 };
+extern bool gMechRobot;                              // mechrobot perf switch (zombie.cpp, read as each slot spawns): AI type Mechs = the KR-714 robot soldier; off = the melee mech
 extern bool gKnight2;                                // knight2 perf switch (zombie.cpp): off = the types' "legacy" patches at the next table load
 const std::vector<EnemyType>& enemyTypes();          // never empty (the plain zombie at least)
 const EnemyType& enemyType(int k);                   // clamped
