@@ -4,8 +4,9 @@
 # 1. The FSB at its animation's frame 1: skinned meshes posed, loose pieces (pouches, magazines, patches) where their empties are.
 # 2. SWAT: the rifle (material '*rifle*') dropped; fitted onto the FSB by a similarity transform of the face mesh (same topology).
 # 3. Weights per connected island, decided for the island as a whole: on an FSB loose piece (median distance < 8 mm) -> that
-#    piece's bone, weight 1 (pouches / magazines Spine, back patch Spine2, shoulder patch RightArm); nearer the FSB gloves than
-#    the rest of the body -> the gloves' weights; else the nearest FSB body vertex's weights (gloves left out of that source).
+#    piece's bone, weight 1 (pouches / magazines Spine, back patch Spine2, shoulder patch RightArm); else by a vote of its
+#    vertices' nearest FSB body vertex a torso piece (non-arm weights only) or an arm piece (arm weights only). The glove mesh
+#    is the FSB's own vertex for vertex (same edges): it takes the FSB gloves' positions and per-finger weights by index.
 # 4. Each vertex un-posed by the inverse of its blended skin matrix (frame-1 pose -> bind), bound to the FSB armature at rest;
 #    the armature stood up as tools/fsb_prep.py does; maps <= 2048 px; no decimation.
 import bpy, bmesh, sys
@@ -40,6 +41,11 @@ def weights_of(o):
     gi = {g.index: g.name for g in o.vertex_groups}
     return [[(gi[g.group], g.weight) for g in v.groups if g.weight > 1e-4 and gi.get(g.group) in S] for v in o.data.vertices]
 body_P, body_W, glove_P, glove_W = [], [], [], []
+gl_objs = sorted([o for o in fskin if o.active_material and 'glove' in o.active_material.name.lower()], key=lambda o: o.name)
+gl_P, gl_W, gl_E = [], [], set()   # both FSB gloves in name order, concatenated: the SWAT glove mesh is the same mesh vertex for vertex
+for o in gl_objs:
+    n0 = len(gl_P); P, _ = posed_verts(o); gl_P += P; gl_W += weights_of(o)
+    gl_E |= {tuple(sorted((e.vertices[0] + n0, e.vertices[1] + n0))) for e in o.data.edges}
 for o in fskin:
     P, _ = posed_verts(o); W = weights_of(o)
     is_glove = o.active_material and 'glove' in o.active_material.name.lower()
@@ -80,7 +86,7 @@ Mfit = Matrix(((*(s * R[0]), t[0]), (*(s * R[1]), t[1]), (*(s * R[2]), t[2]), (0
 # 3 + 4. per island weights, un-posed, bound
 for o in sw:
     o.data.transform(o.matrix_world); o.matrix_world = Matrix.Identity(4); o.data.transform(Mfit); o.data.update()
-stats = {'rigid': 0, 'glove': 0, 'body': 0}; rigid_names = {}
+stats = {'rigid': 0, 'glove': 0, 'body': 0}; rigid_names = {}; isl_log = []; before = {}; after = {}; rigid_bone = {}   # the placement check below
 for o in sw:
     me = o.data; bm = bmesh.new(); bm.from_mesh(me); bm.verts.ensure_lookup_table()
     island = [-1] * len(bm.verts); k = 0
@@ -97,7 +103,16 @@ for o in sw:
     groups = {}; drop = []
     co = [v.co.copy() for v in me.vertices]
     newco = [None] * len(co)
-    for isl in range(k):
+    same_glove = len(co) == len(gl_P) and {tuple(sorted(e.vertices)) for e in me.edges} == gl_E
+    if same_glove:   # the hands: the FSB glove's own frame-1 positions and per-finger weights by index (un-posed below to its exact bind)
+        co = [p.copy() for p in gl_P]; stats['glove_by_index'] = len(co)
+    def unpose(Wv):
+        for i, ws in Wv.items():
+            tot = sum(w for _, w in ws) or 1.0
+            M = sum(((S[b]) * (w / tot) for b, w in ws), Matrix(((0,) * 4,) * 4))
+            p = Ai @ co[i]; q = M.inverted_safe() @ p; newco[i] = A @ q
+            for b, w in ws: groups.setdefault(b, []).append((i, w / tot))
+    for isl in ([] if same_glove else range(k)):
         idx = [i for i in range(len(co)) if island[i] == isl]
         sample = idx[:: max(1, len(idx) // 200)]
         best = None
@@ -105,28 +120,40 @@ for o in sw:
             ds = sorted((bvh.find_nearest(co[i])[3] or 9.0) for i in sample)
             med = ds[len(ds) // 2]
             if med < 0.008 and (best is None or med < best[0]): best = (med, bone, nm)
+        isl_log.append((o.name, idx, bool(best), True))
         if best:
             stats['rigid'] += 1; rigid_names[best[2]] = rigid_names.get(best[2], 0) + 1
-            Wv = {i: [(best[1], 1.0)] for i in idx}
+            cen = sum((co[i] for i in idx), Vector()) / len(idx)   # one weight set for the whole piece (it stays rigid): the body's under
+            ks, Ws = (kba, body_W_a) if armish(best[1]) else (kbt, body_W_t)   # the shoulder patch: the sleeve's weights; the rest the vest's
+            Wv = {i: Ws[ks.find(cen)[1]] for i in idx}; rigid_bone[(o.name, idx[0])] = [(best[1], 1.0)]
         else:
             dg_ = sorted(kg.find(co[i])[2] for i in sample); db = sorted(kb.find(co[i])[2] for i in sample)
-            glove = dg_[len(dg_) // 2] < db[len(db) // 2]
+            glove = dg_[len(dg_) // 2] < db[len(db) // 2] and not gl_P   # the gloves come by index when the mesh matches: vest tabs by the grip hand stay on the body
             stats['glove' if glove else 'body'] += 1
-            if glove: src, W = kg, glove_W
+            if glove:
+                src, W = kg, glove_W
+                ext = max((co[i] - co[j]).length for i in sample for j in sample) if len(sample) > 1 else 0
+                print('  glove island %s/%d: %d vertices, %.3f m, glove %.1f mm body %.1f mm' % (o.name, isl, len(idx), ext, dg_[len(dg_) // 2] * 1000, db[len(db) // 2] * 1000))
             else:   # the island's region by a vote of its vertices' nearest FSB vertex: a torso piece (vest webbing against the forearm in
                     # the rifle hold) takes no arm weights at all; an arm piece (a sleeve) takes the whole body's
                 votes = sum(1 for i in sample if body_arm[kb.find(co[i])[1]]); torso = votes * 2 < len(sample)
                 src, W = (kbt, body_W_t) if torso else (kba, body_W_a)   # an arm piece takes arm weights only: a strap lying on the forearm moves with it
                 stats['torso' if torso else 'arm'] = stats.get('torso' if torso else 'arm', 0) + 1
+                isl_log[-1] = (o.name, idx, False, torso)
                 if not torso:
                     ext = max((co[i] - co[j]).length for i in sample for j in sample) if len(sample) > 1 else 0
                     print('  arm island %s/%d: %d vertices, %.2f m, torso vote %.0f%%' % (o.name, isl, len(idx), ext, 100 - votes * 100 / len(sample)))
+            bb = Vector([max(co[i][a] for i in idx) - min(co[i][a] for i in idx) for a in range(3)]).length
             Wv = {i: W[src.find(co[i])[1]] for i in idx}
-        for i, ws in Wv.items():
-            tot = sum(w for _, w in ws) or 1.0
-            M = sum(((S[b]) * (w / tot) for b, w in ws), Matrix(((0,) * 4,) * 4))
-            p = Ai @ co[i]; q = M.inverted_safe() @ p; newco[i] = A @ q
-            for b, w in ws: groups.setdefault(b, []).append((i, w / tot))
+            limb = lambda b: armish(b) or 'Leg' in b or 'Foot' in b
+            if not glove and torso and bb < 0.25 and any(limb(b) for ws in Wv.values() for b, w in ws if w > 0.05) and not all(limb(max(ws, key=lambda q: q[1])[0]) for ws in Wv.values()):
+                # a compact torso piece pulled by a limb that touched it at frame 1 (the hip pouch: thigh and forearm against it): rigid on
+                # its centroid's weights, so un-posing cannot shear it; jacket panels without limb weights keep per-vertex weights (no cracks)
+                cen = sum((co[i] for i in idx), Vector()) / len(idx)
+                Wv = {i: W[src.find(cen)[1]] for i in idx}; stats['compact'] = stats.get('compact', 0) + 1
+        unpose(Wv)
+    if same_glove: unpose({i: gl_W[i] for i in range(len(co))})
+    before[o.name] = co; after[o.name] = list(newco)
     for i, c in enumerate(newco):
         if c is not None: me.vertices[i].co = c
     me.update()
@@ -138,6 +165,18 @@ for o in sw:
         bm = bmesh.new(); bm.from_mesh(me); bm.verts.ensure_lookup_table(); ds = set(drop)
         bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.index in ds], context='VERTS'); bm.to_mesh(me); bm.free(); me.update()
 print('islands:', stats, 'rigid on', rigid_names)
+# check: each rigid piece (pouch, magazine, patch, buckle) keeps its place on the body: its centroid's distance to the nearest
+# non-rigid SWAT surface vertex, frame 1 vs bind; a piece un-posed by a wrong bone sinks into the body or floats off
+nb = [(on, i) for on, idx, rg, tor in isl_log if not rg and tor for i in idx]   # torso only: the forearm lay across the chest at frame 1
+kb0 = kd([before[on][i] for on, i in nb]); kb1 = kd([after[on][i] for on, i in nb])
+bad = []; dmax = 0
+for on, idx, rg, tor in isl_log:
+    if not rg: continue
+    c0 = sum((before[on][i] for i in idx), Vector()) / len(idx); c1 = sum((after[on][i] for i in idx), Vector()) / len(idx)
+    d0 = kb0.find(c0)[2]; d1 = kb1.find(c1)[2]; dmax = max(dmax, abs(d1 - d0))
+    if armish(next(b for b, w in rigid_bone[(on, idx[0])])): continue   # on the sleeve: not measured against the torso
+    if abs(d1 - d0) > 0.01: bad.append((on, len(idx), round(d0 * 1000, 1), round(d1 * 1000, 1)))
+print('CHECK rigid pieces: %d, gap to the body changed by more than 10 mm: %d, worst %.1f mm %s' % (sum(1 for x in isl_log if x[2]), len(bad), dmax * 1000, bad[:10]))
 # the FSB meshes out; the armature at rest, stood up (as tools/fsb_prep.py)
 posed = {pb.name: arm.matrix_world @ pb.matrix for pb in arm.pose.bones}; restW = {b.name: arm.matrix_world @ b.matrix_local for b in arm.data.bones}
 hips = bn['Hips']; upright = posed[hips] @ restW[hips].inverted()
