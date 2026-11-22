@@ -98,8 +98,8 @@ void TankSys::mechThink(App& app, TankRT& t, float dt) {
   // ---- gun: led for drop with this round's velocity; the loader's next choice by target kind
   float aimErr = 180.0f;
   if (haveT) {
-    const float v = veh ? d.velAP : d.velHE, L = glm::length(tp - muz), tof = L / std::max(v, 50.0f);
-    const vec3 want = glm::normalize(tp + vec3(0, 0.5f * 9.81f * tof * tof, 0) - muz);
+    const float v = d.bolt ? d.boltVel : veh ? d.velAP : d.velHE, L = glm::length(tp - muz), tof = L / std::max(v, 50.0f);
+    const vec3 want = glm::normalize(tp + vec3(0, d.bolt ? 0.0f : 0.5f * 9.81f * tof * tof, 0) - muz);   // MT2: the bolt flies straight
     t.aiAim = want; t.aiAimOn = true;
     aimErr = glm::degrees(std::acos(std::clamp(glm::dot(glm::normalize(mdir), want), -1.0f, 1.0f)));
     t.selected = veh ? SHELL_AP : SHELL_HE;
@@ -147,6 +147,15 @@ void mechSpawnForMatch(App& app, Game& G, const int n[2]) {
   }
 }
 
+// MT2: a bolt's blast on soldiers (a shell's damage rules; owner -2 = no soldier). false: no match running (the caller hurts the player)
+bool mechBoltBlast(App& app, const Projectile& p, vec3 at) {
+  (void)app;
+  if (!gGame || !gGame->active) return false;
+  if (!gGame->isClient) gGame->explosionDamage(at, p.blastDmg, p.blastR, gGame->soldierOfOwner(p.owner), false);
+  gGame->hearSound(at, -1, 90.0f, gGame->soldierOfOwner(p.owner), 1);
+  return true;
+}
+
 // --check-mech (headless, no GL): the drive / fire rule on fixed cases
 int mechSelfCheck() {
   int fails = 0;
@@ -171,6 +180,14 @@ int mechSelfCheck() {
   chk(m.throttle == 0.0f, "no target, at its goal: holds");
   m = mechDecide(0, vec3(0), vec3(0, 0, 100), true, true, 45, 400, 0.5f, true, true);
   chk(m.throttle < 0.0f && m.steer > 0.5f, "stuck: backs and turns");
+  {   // MT2: the shipped Mech Tank fires a red, straight, damaging bolt (the world effects are checked by NMK_WSM2=mech)
+    json j; try { j = json::parse(readTextFile(contentDir() / "vehicles" / "cyber_tank.json")); } catch (...) {}
+    const json b = j.value("bolt", json::object()); const vec3 c = jvec3(b.value("colour", json()), vec3(0));
+    chk(!b.empty(), "cyber_tank.json has a bolt block (its gun fires bolts, not shells)");
+    chk(c.r > 0.5f && c.g < 0.3f && c.b < 0.3f, "the bolt is red");
+    chk(b.value("damage", 0.0f) > 100 && b.value("blastDamage", 0.0f) > 0 && b.value("blastRadius", 0.0f) > 1, "the bolt kills on a direct hit and has a blast on soldiers");
+    chk(b.value("speed", 0.0f) >= 200 && b.value("length", 0.0f) >= 3 && b.value("width", 0.0f) >= 0.2f, "fast, metres long and thick enough to read at range");
+  }
   logf("[mech] %s (%d failed)", fails ? "FAIL" : "all ok", fails);
   return fails ? 1 : 0;
 }

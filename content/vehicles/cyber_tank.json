@@ -349,5 +349,20 @@
   "heRange": 400,
   "stepHeight": 1.0,
   "note": "autonomous AI (tank_mech.cpp): holds this standoff to its target, sees this far, crushes low obstacles up to stepHeight (m) instead of stopping"
+ },
+ "bolt": {
+  "colour": [
+   1.0,
+   0.06,
+   0.04
+  ],
+  "glow": 40,
+  "length": 7.0,
+  "width": 0.45,
+  "speed": 450,
+  "damage": 320,
+  "blastDamage": 150,
+  "blastRadius": 4.5,
+  "note": "MT2 (the user: \"mech cannon should shoot giant laser bolt instead of regular shell, no env destruction\"): red like the robot eyes; straight (no drop); a direct hit counts as an AP shell on armour and kills a soldier, the blast hurts soldiers within the radius; no crater, wall breach, felled trees, toppled props, cut defences or paths, no glass"
  }
 }

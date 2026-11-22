@@ -323,19 +323,34 @@ void App::stepProjectiles(float dt) {
       if (mpaiProjectile(*this, p, seg, len, impact ? hit.t : len)) { arrowHit(p.p + seg * 0.5f, 1.0f); projectiles.erase(projectiles.begin() + k); continue; }   // hit a soldier
       vec3 end = impact ? hit.pos : p.p + seg;
       // visible travel feedback along the actual path
-      if (p.kind == PROJ_HE) fx.streak(p.p, end, 0.045f, 0.05f, vec4(2.2f, 1.6f, 1.0f, 1));
+      if (p.energy) {   // MT2: the bolt: a long glowing core along its path and a light at its head
+        const vec3 dn = glm::length(p.v) > 1e-3f ? glm::normalize(p.v) : vec3(0, 0, 1);
+        fx.streak(end - dn * std::min(p.boltLen, p.travelled + glm::length(end - p.p)), end, p.boltW, 0.03f, p.boltCol);
+        fx.streak(end - dn * p.boltLen * 0.6f, end, p.boltW * 2.2f, 0.03f, p.boltCol * 0.25f);
+        fx.flash(end, p.boltW * 5.0f, 0.03f, p.boltCol * 0.3f);
+      }
+      else if (p.kind == PROJ_HE) fx.streak(p.p, end, 0.045f, 0.05f, vec4(2.2f, 1.6f, 1.0f, 1));
       else if (p.kind == PROJ_ROCKET) { fx.streak(p.p, end, 0.06f, 0.06f, vec4(6.0f, 3.0f, 1.0f, 1)); if (fx.rnd() < 0.5f) fx.smoke(p.p, vec3(0, 0.2f, 0), 0.12f, 1.4f, vec4(0.62f, 0.6f, 0.57f, 0.45f), 1.4f, 0.2f); }
       else if (p.mesh) p.visTrav += glm::length(end - p.p);   // XB7: the bolt itself is drawn (projectileDrawItems)
       else { float L = glm::length(end - p.p); if (p.visTrav + L > p.trailSkip) { float u0 = p.visTrav < p.trailSkip && L > 0 ? (p.trailSkip - p.visTrav) / L : 0.0f;
         fx.bullet(glm::mix(p.p, end, u0) + p.visOff * visFade(p.visTrav + u0 * L), end + p.visOff * visFade(p.visTrav + L), p.tracerKind); } p.visTrav += L; }   // AT4: drawn from the muzzle onto the path
-      if (impact && (p.kind == PROJ_HE || p.kind == PROJ_ROCKET) && shellThroughGlass(*this, p, hit.pos, hit.ud)) continue;   // T7: thin glass breaks, the shell flies on
+      if (impact && !p.energy && (p.kind == PROJ_HE || p.kind == PROJ_ROCKET) && shellThroughGlass(*this, p, hit.pos, hit.ud)) continue;
+      auto energyHit = [&](vec3 at, vec3 n) {   // MT2: soldiers in the blast (owner rules as a shell's), a flash and sparks; the world is untouched
+        fx.flash(at + n * 0.3f, p.boltW * 12.0f, 0.14f, p.boltCol * 1.2f);
+        fx.blasterImpact(at, n, p.boltCol.x >= p.boltCol.z ? 4 : 3);
+        extern bool mechBoltBlast(App&, const Projectile&, vec3);   // tank_mech.cpp: soldiers in a match
+        if (!mechBoltBlast(*this, p, at)) blastPlayer(at, p.blastDmg, p.blastR);
+        audio.play(audio.hasEvent("blaster_hit") ? "blaster_hit" : "explosion", at, 1.0f, audio.hasEvent("blaster_hit") ? 0.5f : 1.0f);
+        ++energyHits;
+      };   // T7: thin glass breaks, the shell flies on
       if (impact) {
         arrowHit(hit.pos, hit.ud == 0 || (hit.ud >> 60) == 0xF ? 0.6f : 1.0f);   // AR1: a miss into the ground thuds quieter than a wall / wood
         // tanks (tank_sim.cpp): the damage matrix decides; small arms ricochet, a launcher on the front armour makes a
         // visible non-penetrating impact with no blast (no splash leak); counted hits detonate on the armour (no ground crater)
         TankHitResult th = tanks.projectileHit(*this, p, hit.pos, hit.normal, hit.ud);
         if (th.tank) {
-          if (!th.consumed && p.kind != PROJ_BULLET) {   // detonation on the armour: the shared blast, but no crater under the tank
+          if (p.energy) { energyHit(hit.pos, hit.normal); lastImpact = {hit.pos, "armour", p.kind, (float)glfwGetTime(), 0}; }
+          else if (!th.consumed && p.kind != PROJ_BULLET) {   // detonation on the armour: the shared blast, but no crater under the tank
             blastAT = false; blastSplashGun = p.splashGun; blastPersonnel = p.kind == PROJ_ROCKET ? 1.6f : p.at ? 1.0f : 2.0f;
             auto ex = p.kind == PROJ_ROCKET ? explode(hit.pos, p.v, p.blastDmg, p.blastR, 0.0f, p.ignore, WALL_ROCKET)
                     : p.at ? explode(hit.pos, p.v, 320.0f, 0.9f, 0.0f, p.ignore, WALL_AP) : explode(hit.pos, p.v, p.dmg, 2.2f, 0.0f, p.ignore, WALL_HE);
@@ -366,7 +381,8 @@ void App::stepProjectiles(float dt) {
             for (auto& pn : r.asset->panels) { float d = glm::length(glm::clamp(lp, pn.bmin, pn.bmax) - lp); if (d < best) { best = d; surface = pn.family; } }
           }
         } else if ((hit.ud & 0xFFFF) != 0) surface = "wood";
-        if (p.kind == PROJ_HE || p.kind == PROJ_ROCKET) {
+        if (p.energy) { energyHit(hit.pos, hit.normal); lastImpact = {hit.pos, surface, p.kind, (float)glfwGetTime(), 0}; }
+        else if (p.kind == PROJ_HE || p.kind == PROJ_ROCKET) {
           // explicit direct hit on an AT gun (its own body, not merely inside the blast): one-shot destruction
           uint64_t hitInst = (hit.ud >> 60) == 0xF || hit.ud == 0 ? 0 : (hit.ud >> 16);
           if (p.atKill && hitInst) { auto hr = rt.find(hitInst); if (hr != rt.end() && isAtGun(hr->second.asset) && !hr->second.st.wrecked) { wreckStation(hitInst, p.kind == PROJ_ROCKET ? "rocket direct hit" : "shell direct hit"); ++directHits; } }

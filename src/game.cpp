@@ -184,7 +184,7 @@ vec3 Game::chest(const Soldier& s) const {
   return s.feet + vec3(0, h * bodyScale(s), 0);
 }
 
-int Game::soldierOfOwner(int owner) const { return owner >= 0 ? owner : localSlot; }
+int Game::soldierOfOwner(int owner) const { return owner >= 0 ? owner : owner == -1 ? localSlot : -1; }   // MT2: -2 = no soldier (an AI vehicle's round: nobody skipped, no kill credit)
 
 // ---------------------------------------------------------------- lifecycle
 bool Game::begin(std::string& err) {

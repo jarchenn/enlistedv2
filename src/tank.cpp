@@ -170,6 +170,12 @@ void TankSys::loadDefs(App& app) {
     d->launcherAllSides = du.value("launcherAllSides", false);
     d->frontSurvive = du.value("frontHitsSurvived", d->frontSurvive); d->sideSurvive = du.value("sideHitsSurvived", d->sideSurvive);
     if (j.contains("model") && j["model"].contains("animRootTravel") && !fellBack) d->animTravel = glm::length(jvec3(j["model"]["animRootTravel"], vec3(0)));   // MT1: the supplied model's clip (not the stand-in's)
+    if (j.contains("bolt") && j["bolt"].is_object()) {   // MT2
+      const json& b = j["bolt"]; d->bolt = true; d->boltCol = jvec3(b.value("colour", json()), d->boltCol);
+      d->boltGlow = b.value("glow", d->boltGlow); d->boltLen = b.value("length", d->boltLen); d->boltW = b.value("width", d->boltW);
+      d->boltVel = b.value("speed", d->boltVel); d->boltDmg = b.value("damage", d->boltDmg);
+      d->boltBlastDmg = b.value("blastDamage", d->boltBlastDmg); d->boltBlastR = b.value("blastRadius", d->boltBlastR);
+    }
     if (j.contains("mech") && j["mech"].is_object()) {   // Mech Tank (tank_mech.cpp)
       const json& mc = j["mech"]; d->mech = true;
       d->mechStandoff = mc.value("standoff", d->mechStandoff); d->mechSight = mc.value("sight", d->mechSight);

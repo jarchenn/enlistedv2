@@ -481,11 +481,15 @@ static bool bodyStep(App& app, Game& G, Soldier& L) {
 //     within 2 deg and fires (aiShots) within 25 s
 //  2. breach: a second one 18 m outside the nearest building with wall panels, its goal through the building (targets
 //     off): a wall bay is pushed through (TankRT::breaches) within 30 s
-// selftest_out/mech_fire.png, mech_breach.png; the log has "[mech] ..." lines.
+//  3. bolt (MT2): a third one 25 m from a building fires its bolt into the wall: the bolt strikes (App::energyHits) and the
+//     building gains no wall event and no breached panel; phase 1 also asks that the bolt hurt the player (hp from 1e6)
+// selftest_out/mech_fire.png, mech_breach.png, mech_bolt.png; the log has "[mech] ..." lines.
 static bool mechStep(App& app, Game& G, Soldier& L) {
   static int ph = -1, f0 = 0; static uint64_t id = 0; static float acc = 0; char b[300];
   if (AiCore* A = aiCore()) A->frozen = true;
-  L.hp = 100;
+  static bool hpSet = false; if (!hpSet) { L.hp = 1e6f; hpSet = true; }   // MT2: high enough to live through every bolt, low enough to see each one
+  if (L.hp < 1e5f) L.hp = 1e6f;
+  static float minHp = 1e6f; minHp = std::min(minHp, L.hp);
   auto done = [&](bool ok, const std::string& what) { T->check(ok, what); };
   const int f = frames - f0;
   if (ph < 0) {   // 1: a spot 50-70 m from the player with a clear line
@@ -507,11 +511,11 @@ static bool mechStep(App& app, Game& G, Soldier& L) {
     if (t) {
       vec3 md; const vec3 mz = app.tanks.muzzleWorld(*t, md); const vec3 to = glm::normalize(L.feet + vec3(0, 1.1f, 0) - mz);
       err = glm::degrees(std::acos(std::clamp(glm::dot(glm::normalize(md), to), -1.0f, 1.0f)));
-      ok = t->aiSlot == L.slot && t->aiShots > 0;
+      ok = t->aiSlot == L.slot && t->aiShots > 0 && minHp < 1e6f;   // MT2: and the bolt hurt the player
       if (ok && app.uiShot.empty()) app.uiShot = exeDir() / "selftest_out" / "mech_fire.png";
     }
     if (ok || f > 25 * 60) {
-      std::snprintf(b, sizeof b, "mech fire: target %s, barrel %.1f deg off the player at the last frame, %d shots in %.1f s", t && t->aiSlot == L.slot ? "the player" : "NOT the player", err, t ? t->aiShots : 0, f / 60.0f);
+      std::snprintf(b, sizeof b, "mech fire: target %s, barrel %.1f deg off the player at the last frame, %d shots, player hp lost %.0f, %d bolt impacts in %.1f s", t && t->aiSlot == L.slot ? "the player" : "NOT the player", err, t ? t->aiShots : 0, 1e6f - minHp, app.energyHits, f / 60.0f);
       done(ok, b); ph = 1; f0 = frames; id = 0;
     }
     return true;
@@ -535,7 +539,39 @@ static bool mechStep(App& app, Game& G, Soldier& L) {
     if (ok && app.uiShot.empty()) app.uiShot = exeDir() / "selftest_out" / "mech_breach.png";
     if (ok || f > 30 * 60 || !t) {
       std::snprintf(b, sizeof b, "mech breach: %d wall bays pushed through, %d props knocked, last ram '%s', blocked by '%s', in %.1f s", t ? t->breaches : 0, t ? t->knocks : 0, app.tanks.lastRam.c_str(), t ? t->blockedBy.c_str() : "-", f / 60.0f);
-      done(ok, b); ph = 3;
+      done(ok, b); ph = 3; f0 = frames; id = 0;
+    }
+    return true;
+  }
+  static uint64_t wallInst = 0; static size_t ev0 = 0; static int hits0 = 0; static bool fired = false;
+  if (ph == 3) {   // MT2: a bolt into a building wall from 25 m
+    const Instance* best = nullptr; float bd = 1e9f;
+    for (auto& i : app.doc.instances) { const AssetDef* a = app.lib.find(i.assetId); if (!a || a->panels.empty() || !a->enterable) continue; const float dd = glm::length(vec2(i.pos.x - L.feet.x, i.pos.z - L.feet.z)); if (dd < bd && dd < 250) { bd = dd; best = &i; } }
+    ph = 4; f0 = frames;
+    if (!best) { done(false, "mech bolt: no building with wall panels within 250 m"); ph = 5; return true; }
+    const AssetDef* a = app.lib.find(best->assetId); const float R = 0.5f * glm::length(vec2(a->bmax.x - a->bmin.x, a->bmax.z - a->bmin.z));
+    vec3 u = L.feet - best->pos; u.y = 0; u = glm::length(u) > 1 ? glm::normalize(u) : vec3(0, 0, 1);
+    vec3 p = best->pos + u * (R + 25.0f); p.y = app.terrain.height(p.x, p.z);
+    id = app.tanks.spawnMech(app, p, glm::degrees(std::atan2(-u.x, -u.z)), 0);
+    wallInst = best->id; ev0 = app.rt[wallInst].wallEvents.size(); hits0 = app.energyHits; fired = false;
+    std::snprintf(b, sizeof b, "[mech] bolt: tank %llu, 25 m from %s (%zu wall events before)", (unsigned long long)id, a->name.c_str(), ev0); logf("%s", b);
+    return true;
+  }
+  if (ph == 4) {
+    if (t) {
+      t->aiSlot = -1; t->aiTank = 0; t->aiThinkT = 1e9f; t->aiThrottle = 0; t->aiGoal = t->pos;   // no target, holds still
+      const Instance* w = app.doc.find(wallInst);
+      if (w) { t->aiAim = glm::normalize(w->pos + vec3(0, 2.0f, 0) - (t->pos + vec3(0, 2.9f, 0))); t->aiAimOn = true; }
+      vec3 md; app.tanks.muzzleWorld(*t, md);
+      if (!fired && t->loaded != SHELL_NONE && glm::dot(glm::normalize(md), t->aiAim) > 0.9995f) { app.tanks.fireCannon(app, *t); fired = true; }
+    }
+    const auto& r = app.rt[wallInst];
+    int breached = 0; for (uint8_t st : r.state) breached += st == 2;
+    const bool hit = app.energyHits > hits0;
+    if ((hit && f > 60) || f > 25 * 60 || !t) {
+      if (hit && app.uiShot.empty()) app.uiShot = exeDir() / "selftest_out" / "mech_bolt.png";
+      std::snprintf(b, sizeof b, "mech bolt: %s, wall events %zu -> %zu, %d breached panels, the bolt %s", hit ? "struck" : "did NOT strike", ev0, r.wallEvents.size(), breached, fired ? "fired" : "never fired (not laid / loaded)");
+      done(hit && r.wallEvents.size() == ev0 && breached == 0, b); ph = 5;
     }
     return true;
   }

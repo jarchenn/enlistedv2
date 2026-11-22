@@ -157,6 +157,7 @@ struct Projectile {
   uint64_t towOf = 0;           // VH7: a TOW guided by this vehicle's gunner (its crosshair); 0 none
   uint32_t uid = 0;             // VH7: identity for the TOW wire trail
   bool flyby = false;           // AR1b: this arrow / bolt has played its pass-by for the listener (abilities.cpp gm2NearMisses)
+  bool energy = false; vec4 boltCol{0}; float boltLen = 0, boltW = 0;   // MT2 Mech Tank bolt: straight, drawn as a long glowing streak; on impact only a personnel blast (blastDmg / blastR) and a flash: no crater, walls, trees, props or paths
   const GpuModel* mesh = nullptr;   // XB7: drawn in flight as this mesh instead of a trail (WeaponDef::projModel)
 };
 struct Particle { vec3 p{0}, v{0}; float life = 0, maxLife = 1, size = 0.3f, grow = 0, drag = 0, lift = 0; vec4 col{1}; bool additive = false; float fade = 0;

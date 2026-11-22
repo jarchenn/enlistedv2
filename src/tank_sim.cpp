@@ -708,7 +708,20 @@ void TankSys::fireCannon(App& app, TankRT& t) {
   vec3 fireDir = glm::normalize(P + vec3(0, drop, 0) - muzzle);
   // the shell is swept from the trunnions along the bore: a wall at the muzzle stops it (no firing through cover)
   vec3 start = piv + fireDir * 0.05f;
+  if (d.bolt) {   // MT2: an energy bolt along the bore (no drop): counts as an AP shell on armour, a burst on soldiers, nothing on the world
+    app.fireProjectile(piv + dir * 0.05f, dir, d.boltVel, PROJ_HE, d.boltDmg, bodyUD(t.id), 0, "mech_bolt");
+    if (!app.projectiles.empty()) {
+      auto& pr = app.projectiles.back(); pr.at = true; pr.atKill = true; pr.energy = true; pr.gravScale = 0;
+      pr.blastDmg = d.boltBlastDmg; pr.blastR = d.boltBlastR; pr.boltCol = vec4(d.boltCol * d.boltGlow, 1); pr.boltLen = d.boltLen; pr.boltW = d.boltW;
+      if (t.aiSide >= 0) pr.owner = -2;
+    }
+    app.fx.flash(muzzle + dir * 0.4f, d.boltW * 8.0f, 0.09f, vec4(d.boltCol * d.boltGlow * 0.6f, 1));
+    app.audio.play(app.audio.hasEvent("shot_blaster_rifle") ? "shot_blaster_rifle" : "tank_fire", muzzle, 1.0f, app.audio.hasEvent("shot_blaster_rifle") ? 0.55f : 1.0f);   // a deep blaster: the rifle bolt's sound pitched down
+    t.loaded = SHELL_NONE; ++t.shots; t.recoilT = 0;
+    return;
+  }
   app.fireProjectile(start, fireDir, v, PROJ_HE, ap ? (d.autoGun ? 12.0f : 120.0f) : d.dmgHE, bodyUD(t.id), d.autoGun && (t.shots % 3) == 0 ? 2 : 0, ap ? d.ammoAP : d.ammoHE);
+  if (!app.projectiles.empty() && t.aiSide >= 0) app.projectiles.back().owner = -2;   // MT2: an AI vehicle's shell has no soldier owner
   if (!app.projectiles.empty()) {
     auto& pr = app.projectiles.back(); pr.at = ap && !d.autoGun; pr.atKill = !d.autoGun;
     if (d.autoGun) {   // VH7: a 25 mm round: small HE burst (AP: a puff), light anti-armour, every third a tracer

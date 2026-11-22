@@ -80,6 +80,9 @@ struct TankDef {
   int frontSurvive = 4, sideSurvive = 1;
   // Mech Tank (tank_mech.cpp, json "mech"): an autonomous AI vehicle, no crew. Standoff to its target, sight range, HE
   // range (m); stepHeight: low obstacles up to this height are crushed or driven over instead of blocking (tank_ram.cpp)
+  // MT2 (json "bolt"): the main gun fires an energy bolt instead of shells (colour x intensity, length / width m, speed m/s,
+  // direct-hit damage, personnel blast damage / radius): straight, no environment damage (stepProjectiles, energy)
+  bool bolt = false; vec3 boltCol{1.0f, 0.06f, 0.04f}; float boltGlow = 40, boltLen = 7, boltW = 0.45f, boltVel = 450, boltDmg = 320, boltBlastDmg = 150, boltBlastR = 4.5f;
   float animTravel = 0;   // MT1: the baked clip plays on the hull parts, one loop per this many metres driven (model.animRootTravel; 0: none)
   bool mech = false; float mechStandoff = 45, mechSight = 220, mechHeRange = 400, mechStep = 1.0f;
   int frontDamage() const { return 100 / (frontSurvive + 1); }
