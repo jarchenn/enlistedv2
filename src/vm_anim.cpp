@@ -20,7 +20,8 @@ struct AnimVM {
   std::map<std::string, int> clip;     // state name -> clip index
   float idleHold = 0;                  // the idle is this one frame of the idle clip (s), held still (MG3: every rig; < 0 plays the clip)
   vec3 hipShift{0};                    // MG3: rig offset at the hip, camera space (m), faded out in ADS (the M249 closer)
-  bool fireArms = false;              // KR1 "fireArms": the fire clip moves the arms too (a bolt rifle's cycle: the hand works the bolt)
+  bool fireArms = false;
+  bool curveRecoil = false;           // GR13 "curveRecoil": the weapon's fireCurve moves the whole rig (as viewmodel.cpp the static model): the measured ADS shot              // KR1 "fireArms": the fire clip moves the arms too (a bolt rifle's cycle: the hand works the bolt)
   bool shells = false;                 // reload_start / reload_insert (once per round) / reload_end
   float fireRate = 1, reloadRate = 1;  // MG4: clips played faster (the shotguns' pump and shell loop); the timing follows
   vec3 dot{0}; bool hasDot = false;    // red-dot sight: the dot at this rig point (the front lens centre), seen along the sight line
@@ -60,7 +61,7 @@ vec3 jv(const json& a) { return vec3(a[0].get<float>(), a[1].get<float>(), a[2].
 // the camera as it is when the frame is drawn (look, view kick and breathing are updated after the weapon step)
 mat4 camNow(const App& app) {
   vec3 e = app.eyePos(), f = App::forward(app.eyeYaw + app.viewKickYaw, app.eyePitch + app.viewKickPitch);
-  return glm::inverse(glm::lookAt(e, e + f, app.viewUp(f)));
+  return glm::inverse(glm::rotate(mat4(1), glm::radians(-app.viewKickRoll), vec3(0, 0, 1)) * glm::lookAt(e, e + f, app.viewUp(f)));   // GR13: the fire curve's camera roll (0 otherwise), as the world view
 }
 }
 
@@ -85,7 +86,7 @@ std::shared_ptr<AnimVM> animVmLoad(const fs::path& dir, const json& block, std::
   if (!a->dur.count("idle")) { err = "no idle clip"; return nullptr; }
   a->idleHold = block.value("idleHold", 0.0f);
   if (block.contains("hipShift")) a->hipShift = jv(block["hipShift"]);
-  a->shells = a->dur.count("reload_insert") > 0; a->fireArms = block.value("fireArms", false);
+  a->shells = a->dur.count("reload_insert") > 0; a->fireArms = block.value("fireArms", false); a->curveRecoil = block.value("curveRecoil", false);
   a->fireRate = std::max(0.1f, block.value("fireRate", 1.0f)); a->reloadRate = std::max(0.1f, block.value("reloadRate", 1.0f));
   for (auto& [k, len] : a->dur) len /= k == "fire" ? a->fireRate : k.rfind("reload", 0) == 0 ? a->reloadRate : 1.0f;   // the weapon's pump / reload times
   for (auto& h : block.value("hideMeshes", json::array())) a->hideMeshes.push_back(h.get<std::string>());   // AT5
@@ -206,6 +207,12 @@ void animVmStep(App& app, const WeaponDef& d, WeaponState& s, float dt) {
     float rm = app.reducedMotion ? 0.3f : 1.0f, back = std::min(s.kick * glm::mix(1.0f, 0.6f, t), glm::mix(1.0f, 0.45f * relief, t)) * rm;
     vec3 Rv = glm::mix(R, vec3(0, 0, -relief), t);
     proc = proc * glm::translate(mat4(1), vec3(0, 0, back)) * glm::translate(mat4(1), Rv) * glm::mat4_cast(glm::angleAxis(radians(s.kickP * rm), vec3(1, 0, 0))) * glm::translate(mat4(1), -Rv);
+  }
+  if (a.curveRecoil && !d.fireCurve.empty()) {   // GR13: the measured shot (KF1 / GR1 fireCurve: gun back / up / right, its roll, muzzle up / right about the rear sight), shots summed
+    float row[10], h; fireCurveSum(d, s, row, h);
+    const float rm = app.reducedMotion ? 0.3f : 1.0f; const vec3 Rv = glm::mix(R, vec3(0, 0, -relief), t);
+    const quat r = glm::angleAxis(glm::radians(-row[7] * rm), vec3(0, 1, 0)) * glm::angleAxis(glm::radians(row[6] * rm), vec3(1, 0, 0)) * glm::angleAxis(glm::radians(row[3] * rm), vec3(0, 0, 1));
+    proc = proc * glm::translate(mat4(1), vec3(row[2], row[1], row[0]) * rm) * glm::translate(mat4(1), Rv) * glm::mat4_cast(r) * glm::translate(mat4(1), -Rv);
   }
   mat4 low(1);
   if (float lw = std::max(app.mantleLower(), app.swimLower()); lw > 0) {
