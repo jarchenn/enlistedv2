@@ -615,6 +615,7 @@ def _frame(d, l):   # orthonormal columns: d, l square to d, their cross
     return [[e1[r], e2[r], e3[r]] for r in range(3)]
 def _tr(m): return [[m[c][r] for c in range(3)] for r in range(3)]
 
+KEEP_NORMALS = bool(os.environ.get('SKIN_KEEP_NORMALS'))   # FSB1: keep the normal / occlusion maps and mark the file (asset.extras.nmkNormals: the game loads them)
 def skin_onto(a_path, s_path, out_path):
     A, abin = load(a_path); S, sbin = load(s_path)
     SA, SS = _Skel(A), _Skel(S)
@@ -667,7 +668,7 @@ def skin_onto(a_path, s_path, out_path):
         while q is not None and SS.name[q] not in aidx: q = SS.par.get(q)
         jmap.append(aidx[SS.name[q]] if q is not None else aidx['Hips'])
     O = Out()
-    j = {'asset': {'version': '2.0', 'generator': 'NormandyMapmaker tools/bake_gunbody.py --skin'}, 'scene': 0, 'scenes': json.loads(json.dumps(A['scenes'])),
+    j = {'asset': {'version': '2.0', 'generator': 'NormandyMapmaker tools/bake_gunbody.py --skin', **({'extras': {'nmkNormals': True}} if KEEP_NORMALS else {})}, 'scene': 0, 'scenes': json.loads(json.dumps(A['scenes'])),
          'nodes': [dict(x) for x in A['nodes']]}
     for x in j['nodes']: x.pop('mesh', None)
     j['skins'] = []
@@ -675,9 +676,10 @@ def skin_onto(a_path, s_path, out_path):
         sk = dict(sk); sk['inverseBindMatrices'] = O.acc('a', A, abin, sk['inverseBindMatrices']); j['skins'].append(sk)
     j['materials'] = []; j['textures'] = []; j['images'] = []; j['meshes'] = []; used_t = {}
     for m in S.get('materials', []):
-        m = json.loads(json.dumps(m)); m.pop('normalTexture', None); m.pop('occlusionTexture', None)
+        m = json.loads(json.dumps(m))
+        if not KEEP_NORMALS: m.pop('normalTexture', None); m.pop('occlusionTexture', None)
         for d in (m, m.get('pbrMetallicRoughness', {})):
-            for key in ('baseColorTexture', 'metallicRoughnessTexture', 'emissiveTexture'):
+            for key in ('baseColorTexture', 'metallicRoughnessTexture', 'emissiveTexture', 'normalTexture', 'occlusionTexture'):
                 if key in d:
                     t = d[key]['index']
                     if t not in used_t:

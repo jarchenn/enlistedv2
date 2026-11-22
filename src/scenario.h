@@ -29,10 +29,10 @@ constexpr int kAiTypeCount = 26;   // WS1: 25 Allied paratroopers (soldier brain
 //   // SW1: 16 / 17 blaster troopers and robot commandos (soldier brain, kit bodies and blasters; combat.json kits)
 //   // CH3 / CH4: 13-15 the abomination, golem, boglord types (local-only: a zombie without them)
 inline const char* aiTypeName(AiType t) {
-  static const char* n[kAiTypeCount] = {"Soldiers", "Zombies", "Zombies + heavies", "Brutes", "(retired)", "Operators", "(retired)", "Spiders", "Creatures", "Knights", "(retired)", "(retired)", "(retired)", "Abominations", "Golems", "Boglords", "Blaster troopers", "Robot commandos", "(retired)", "Desert soldiers", "Delta Force", "Allied soldiers", "(retired)", "SS soldiers", "Mechs", "Allied paratroopers"};
+  static const char* n[kAiTypeCount] = {"Soldiers", "Zombies", "Zombies + heavies", "Brutes", "(retired)", "Operators", "(retired)", "Spiders", "Creatures", "Knights", "(retired)", "(retired)", "(retired)", "Abominations", "Golems", "Boglords", "Blaster troopers", "Robot commandos", "(retired)", "Desert soldiers", "FSB operator", "Allied soldiers", "(retired)", "SS soldiers", "Mechs", "Allied paratroopers"};
   return n[std::clamp((int)t, 0, kAiTypeCount - 1)];
 }
-inline int aiBit(AiType t) { return 1 << (int)t; }
+inline int aiBit(AiType t) { return 1 << (int)t; }   // FSB1: slot 20 (AiType::Delta, kit 4) is shown as "FSB operator" and wears skin_fsb (same slot / LAN bit: saves naming Delta Force load as it)
 // RM1: slots 4 and 6 were removed enemy types; kept empty so later types keep their numbers (saved setups, LAN bits).
 // Loading a setup turns them into Zombies (ScenarioRules::fromJson); menus skip them.
 // RM2 (the user, 2026-11-21): 10 animatronics (the clown), 11 aliens, 12 alien queens, 18 / 22 gas-mask soldiers 1 / 2 removed the same way;
