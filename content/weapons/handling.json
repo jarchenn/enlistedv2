@@ -45,7 +45,8 @@
   "blaster_rifle": "rifle",
   "blaster_robot": "auto",
   "m1918a2_bar": "lmg",
-  "mg42": "lmg"
+  "mg42": "lmg",
+  "vickers_k": "lmg"
  },
  "vmRecoil": {
   "kinds": {

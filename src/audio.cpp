@@ -502,7 +502,7 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/rifle_c.mp3", false, {"modern_fal"}, 3, 1, 0, 2.5f, 3.0f},
     {"guns/shotgun.mp3", false, {"modern_shotgun", "modern_shotgun2"}},
     {"guns/hmg_burst.mp3", true, {"m2hb_carry"}, -1, 1, 0, 2.5f, 3.0f},   // SND6: body (it measured 12 dB under the rifles)
-    {"guns/rifle_a.mp3", false, {"mg42"}, -1, 0.84f, 0, 2.5f, 2.2f},   // SND8: Rifle.mp3 pitched down (user request), one clean shot per round, machine-gun body
+    {"guns/rifle_a.mp3", false, {"mg42", "vickers_k"}, -1, 0.84f, 0, 2.5f, 2.2f},   // SND8: Rifle.mp3 pitched down (user request), one clean shot per round, machine-gun body
     {"guns/smg_burst.mp3", true, {"modern_uzi"}},
     // SND4: every SMG its own shot (SMG.mp3, SMG1.mp3: single shots)
     {"guns/smg_a.mp3", false, {"mp40"}, -1, 1, 0, 1.2f},   // SMG.mp3
@@ -587,7 +587,7 @@ int Audio::loadCustom(const fs::path& dir) {
     // rounds cut from one clean burst (freesound community), the M249 on 13 from its own burst ("m249 sound.mp3"; E:/nmk/snd16/prep16.py), each its round up to
     // the next and then the burst's last ring-out, so automatic fire (each body cut at the next round) varies round to round and the
     // last shot rings out; levelled on sustained fire at each gun's rate to the old sets (a lone round is drier than the old shots)
-    {"snd16/mg_shot_%d.wav", false, {"mg42"}, -1, 0.95f, 0, 0.3f, 3.0f, 1.11f, 13},   // 7.92 mm: a little lower, 1200 rpm
+    {"snd16/mg_shot_%d.wav", false, {"mg42", "vickers_k"}, -1, 0.95f, 0, 0.3f, 3.0f, 1.11f, 13},   // 7.92 mm: a little lower, 1200 rpm
     {"snd16/m249_shot_%d.wav", false, {"modern_lmg"}, -1, 1.00f, 0, 0.6f, 4.0f, 1.23f, 13},   // 800 rpm (its recording ~750); replaces SND15's Scorpion recording, the fallback
     // SND18 (user request; content/audio/custom/snd18/, supplied by the project owner, stated free to use; tools/snd18_prep.py, tools/snd18_gen.py):
     // the per-gun pack replaces every set above for the guns it covers. <gun>_single: the single shot, lead-in trimmed; a gun that
@@ -639,7 +639,7 @@ int Audio::loadCustom(const fs::path& dir) {
     {"snd18/scar_h_auto_%d.mp3", false, {"modern_scar"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.52f, 5},
     {"snd18/shotgun_remington870_single.mp3", false, {"modern_shotgun"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.03f},
     {"snd18/shotgun_spas12_single.mp3", false, {"modern_shotgun2"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.18f},
-    {"snd18/mg42_auto_%d.mp3", false, {"mg42"}, -1, 1.00f, 0, 1.6f, 0.0f, 1.44f, 5},   // SND19: re-cut, re-levelled; the fallback (snd16 below)
+    {"snd18/mg42_auto_%d.mp3", false, {"mg42", "vickers_k"}, -1, 1.00f, 0, 1.6f, 0.0f, 1.44f, 5},   // SND19: re-cut, re-levelled; the fallback (snd16 below)
     {"snd18/m249_auto_%d.mp3", false, {"modern_lmg"}, -1, 1.00f, 0, 1.6f, 0.0f, 1.50f, 5},   // SND19: re-cut, re-levelled; the fallback (snd16 below)
     {"snd18/m2_browning_single.mp3", false, {"m2hb_carry_semi"}, -1, 1.00f, 0, 1.6f, 0.0f, 2.04f},
     {"snd18/m2_browning_auto_%d.mp3", false, {"m2hb_carry"}, -1, 1.00f, 0, 1.6f, 0.0f, 2.08f, 5},
@@ -654,7 +654,7 @@ int Audio::loadCustom(const fs::path& dir) {
     // gallop), and every burst ended on a loud tail. Re-cut (the ring-out scaled by the round's attack; tools/snd18_prep.py) for the
     // five guns that had it (MG 42, M249, FG 42, BAR, 30 mm); the MG 42 and M249 go back to the user's own SND16 sets (local-only), auto
     // and semi alike (the pack singles are 10 dB hotter and another tone), the re-cut pack bursts their committed fallback
-    {"snd16/mg_shot_%d.wav", false, {"mg42"}, -1, 0.95f, 0, 0.3f, 3.0f, 1.11f, 13},
+    {"snd16/mg_shot_%d.wav", false, {"mg42", "vickers_k"}, -1, 0.95f, 0, 0.3f, 3.0f, 1.11f, 13},
     {"snd16/m249_shot_%d.wav", false, {"modern_lmg"}, -1, 1.00f, 0, 0.6f, 4.0f, 1.23f, 13},
     // SND20: the MP5 on the pack's mp40 set (an MP5 recording) 6 % higher than the MP 40; the AK-47 on its stg44 set (an AKM, 7.62x39)
     // 6 % lower than the StG 44; levelled on sustained fire (SMG -8.5, rifle -7.0 dB), no late-cut variant at 800 / 600 rpm
