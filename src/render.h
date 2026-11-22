@@ -453,6 +453,7 @@ public:
     bool charVel = true;         // charvel (AIB1): soldiers write their own TAA motion (previous model matrix + previous skinned vertex); off = depth reprojection (smeared)
     bool snowFar = true;         // snowfar (BT2): applySnow's patch noise only within 120 m and its shelter tap within 150 m; off = everywhere
     bool precip = true;          // precip (W4): falling snow, blizzard spindrift, rain streaks and splashes (one path); off = none
+    bool snowLit = false;        // snowlit (SV1 test): falling snow lit like level snow (main pass sun + sky) instead of a fixed HDR colour; off = fixed
     bool snowVar = true;         // snowvar (SV1): falling snow varied per flake (power-law size, speed by size, own drift, gust swirl and patches, near streaks, 1.5-8 px, more flakes); off = the W4 flakes
     bool snowTex = true;         // snowtex (SN2): the three snow sets (packed / trodden / thaw) on the ground within 60 m, edges by height; off = applySnow's flat snow
     bool firThin = true;         // firthin (BT2): instances marked extra.perfThin (Blackwater's far-stand saplings and thinned trees) are not drawn
@@ -476,7 +477,7 @@ public:
               // ^ characters (gameplay): append to the line above
               : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "mossfield" ? &mossField : n == "groundmoss" ? &groundMoss : n == "contactao" ? &contactAO : n == "scatter" ? &scatter : n == "pollen" ? &pollen : n == "vegdust" ? &vegDust : n == "impostors" ? &impostors : n == "impostorbc" ? &impostorBC : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
               // ^ stream A (vegetation): append to the line above
-              : n == "snowfar" ? &snowFar : n == "firthin" ? &firThin : n == "snowtex" ? &snowTex : n == "precip" ? &precip : n == "snowvar" ? &snowVar
+              : n == "snowfar" ? &snowFar : n == "firthin" ? &firThin : n == "snowtex" ? &snowTex : n == "precip" ? &precip : n == "snowvar" ? &snowVar : n == "snowlit" ? &snowLit
               // ^ stream B (Blackwater snow / far firs): append to the line above
               : n == "snow" ? &snow : n == "viscull" ? &visCull : n == "kotrees" ? &koTrees : n == "kograss" ? &koGrass : n == "kofolmodels" ? &koFolModels
               // ^ stream P (performance): append to the line above
@@ -675,6 +676,7 @@ private:
   GLuint progHalfDepth = 0, progSoftUp = 0, softCTex = 0, halfDTex = 0, softCFbo = 0, halfDFbo = 0; int softCW = 0, softCH = 0;   // BF litsmoke: half-res soft target
   GLuint progFx = 0, fxVao = 0, fxVbo = 0, softDepth = 0; int softW = 0, softH = 0;   // softDepth: W6's copy of the depth (the particles' soft fade)
   GLuint progSnowfall = 0, snowfallVao = 0;   // SF1 snowfall
+  GLuint snowStatBuf = 0;   // SV1 log: flakes drawn and their alpha (binding 14)
   // R1 terrain material cache (rendering.md 13): 2 RGBA8 layers of world-space noise over the terrain extent, mipmapped
   GLuint tcTex = 0, tcProg = 0; vec2 tcOrg{0}, tcExt{0}; int tcW = 0, tcH = 0; float tcTexel = 0.5f; double tcBakeMs = 0, tcMB = 0;
   void terrainCacheBind(const Terrain& t, GLuint prog);   // (re)bakes when the terrain extent changes; sets uTCOn
