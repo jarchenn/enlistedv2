@@ -1203,6 +1203,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--no-textures") tex::setEnabled(false);   // L4 A/B: procedural patterns only (textures.cpp)
     else if (a == "--selftest-textures") runSelf = true;   // L4 texture layer + missing-texture fallback (selftest_textures.cpp)
     else if (a == "--pack-texture" && k + 2 < argc) { fs::path s = argv[k + 1], d = argv[k + 2]; int n = k + 3 < argc ? std::atoi(argv[k + 3]) : 1024; return tex::packSet(s, d, n == 2048 ? 2048 : 1024); }   // tools/fetch_ambientcg.py
+    else if (a == "--check-rm2") { extern int rm2SelfCheck(); return rm2SelfCheck(); }   // RM2: the five removed AI types load as plain soldiers / zombies (scenario.cpp)
     else if (a == "--check-fxev") { extern int fxDataSelfCheck(); return fxDataSelfCheck(); }   // Battle Foundry 9.2 EVENTS / BRIGHTNESS / SCALE (fxdata.cpp, fx.cpp)
     else if (a == "--check-dynres") { extern int dynResSelfCheck(); return dynResSelfCheck(); }   // CP 5.1: the control law on synthetic timings
     else if (a == "--texture-placeholders" && k + 1 < argc) { std::vector<std::string> v; std::string l = argv[++k]; for (size_t b = 0, e; b <= l.size(); b = e + 1) { e = l.find(',', b); if (e == std::string::npos) e = l.size(); if (e > b) v.push_back(l.substr(b, e - b)); } return tex::writePlaceholders(k + 1 < argc ? fs::path(argv[k + 1]) : contentDir() / "textures", v); }

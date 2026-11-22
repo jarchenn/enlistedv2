@@ -38,8 +38,8 @@ bool na1Capture(App& app, float dt) {
     sc.rules.teamFaction[0] = Faction::Allies; sc.rules.teamFaction[1] = Faction::Axis;
     for (int t = 0; t < 2; ++t) { for (int& x : sc.rules.aiCount[t]) x = 0; sc.rules.teamPlayers[t] = t ? 4 : 1; }
     sc.rules.aiTypes[0] = aiBit(AiType::Soldiers);
-    sc.rules.aiTypes[1] = aiBit(AiType::Allied) | aiBit(AiType::GasMask2) | aiBit(AiType::SS) | aiBit(AiType::Mechs);
-    for (AiType t : {AiType::Allied, AiType::GasMask2, AiType::SS, AiType::Mechs}) sc.rules.aiCount[1][(int)t] = 1;
+    sc.rules.aiTypes[1] = aiBit(AiType::Allied) | aiBit(AiType::SS) | aiBit(AiType::Mechs);   // RM2: no gas-mask 2
+    for (AiType t : {AiType::Allied, AiType::SS, AiType::Mechs}) sc.rules.aiCount[1][(int)t] = 1;
     gUi.loaded = false; gUi.matchScenario = sc.toJson();
     if (!gGame) gGame = new Game(app);
     gGame->pendingStart = true;

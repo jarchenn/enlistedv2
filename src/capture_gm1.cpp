@@ -1,5 +1,5 @@
 // GM1 / GM2 --capture-gm1 (NMK_GM_KIND=gasmask|desert|german, default gasmask): a body with its gun built in, in a match. Team Deathmatch on
-// village_assault_3, the player (Allies) alone on side 0, one bot on side 1 (Axis): a gas-mask soldier (AiType::GasMask), a
+// village_assault_3, the player (Allies) alone on side 0, one bot on side 1 (Axis): (the gas-mask soldiers were removed, RM2), a
 // desert soldier (AiType::Desert) or a plain Axis soldier (the German body); variant 0 of its list. Checks: its body is a
 // <kind>_* model with clips, it holds its body's weapon, the separate gun is not drawn, its head joint at a man's height, its
 // muzzle (pose.weapon x the weapon's muzzle: the model's 'flash' joint) ahead of it. Captures (the camera off its front
@@ -28,7 +28,7 @@ bool gm1Capture(App& app, float dt) {
   if (mode < 0) {
     mode = 0;
     for (int k = 1; k < __argc; ++k) if (std::string(__argv[k]) == "--capture-gm1") mode = 1;
-    const char* e = std::getenv("NMK_GM_KIND"); kind = e && *e ? e : "gasmask";
+    const char* e = std::getenv("NMK_GM_KIND"); kind = e && *e ? e : "desert";   // RM2: the gas-mask soldiers are gone
   }
   if (mode != 1) return false;
   if (dt < 0) return true;
@@ -40,7 +40,7 @@ bool gm1Capture(App& app, float dt) {
     sc.rules.mode = GameMode::TDM; sc.rules.humanTeam = 0; sc.rules.killCap = 999;
     sc.rules.teamFaction[0] = Faction::Allies; sc.rules.teamFaction[1] = Faction::Axis;
     for (int t = 0; t < 2; ++t) { for (int& x : sc.rules.aiCount[t]) x = 0; sc.rules.teamPlayers[t] = 1; }
-    const AiType ty = kind == "desert" ? AiType::Desert : kind == "german" ? AiType::Soldiers : AiType::GasMask;
+    const AiType ty = kind == "german" ? AiType::Soldiers : AiType::Desert;
     sc.rules.aiTypes[0] = aiBit(AiType::Soldiers); sc.rules.aiTypes[1] = aiBit(ty); sc.rules.aiCount[1][(int)ty] = 1;
     gUi.loaded = false; gUi.matchScenario = sc.toJson();
     if (!gGame) gGame = new Game(app);

@@ -1,5 +1,5 @@
 // WSM2 --capture-wsm2: every human soldier type on the shared skeleton, side by side. Team Deathmatch on village_assault_3, the
-// player with one plain Allied soldier on side 0; on side 1 (Axis) one each of: plain soldier, Allied soldiers, SS, gas-mask 1 / 2,
+// player with one plain Allied soldier on side 0; on side 1 (Axis) one each of: plain soldier, Allied soldiers, SS,
 // desert, Delta Force, operators, Allied paratroopers. The AI frozen, the bots stood in a row facing the camera, then posed through
 // aim (own gun), aim with an LMG (far grip), aim with a pistol, idle, walk, run, crouch, a shot, a reload at 40 %, a throw wind-up:
 // selftest_out/wsm2_<state>.png and per-bot facts in report_wsm2.txt (model, hold body, clips, head height).
@@ -26,7 +26,7 @@ std::vector<int> row; vec3 origin(0);
 // visibility at engagement range); the close row stays where it was
 std::vector<float> extraRowDist() { static std::vector<float> v; static bool once = false; if (!once) { once = true; if (const char* e = std::getenv("NMK_WSM2_ROWS")) { std::string t = e; size_t b = 0; while (b < t.size()) { size_t c = t.find(',', b); float d = (float)std::atof(t.substr(b, c - b).c_str()); if (d > 0) v.push_back(d); if (c == std::string::npos) break; b = c + 1; } } } return v; }
 std::vector<std::vector<int>> extraRows;
-const char* kStates[] = {"aim", "aim_lmg", "aim_pistol", "idle", "walk", "run", "crouch", "shot", "reload", "throw", "death"};   // death: each killed a different way, the still mid-fall ([death] log lines name the clips)
+const char* kStates[] = {"aim", "aim_lmg", "aim_pistol", "idle", "walk", "run", "crouch", "shot", "reload", "throw"};
 }   // namespace
 
 // AIB1 NMK_WSM2=blur: one soldier standing, one walking across the view at 3, 8 and 20 m from a still camera, per configuration
@@ -493,17 +493,18 @@ bool wsm2Capture(App& app, float dt) {
     sc.rules.mode = GameMode::TDM; sc.rules.humanTeam = 0; sc.rules.killCap = 9999;
     sc.rules.teamFaction[0] = Faction::Allies; sc.rules.teamFaction[1] = Faction::Axis;
     for (int t = 0; t < 2; ++t) { for (int& x : sc.rules.aiCount[t]) x = 0; sc.rules.aiTypes[t] = 0; }
-    const AiType types[] = {AiType::Soldiers, AiType::Allied, AiType::SS, AiType::GasMask, AiType::GasMask2, AiType::Desert, AiType::Delta, AiType::Operators, AiType::AlliedPara};
+    const AiType types[] = {AiType::Soldiers, AiType::Allied, AiType::SS, AiType::Desert, AiType::Delta, AiType::Operators, AiType::AlliedPara};   // RM2: no gas-mask 1 / 2
+    const int nTypes = (int)(sizeof(types) / sizeof(types[0]));
     if (blurMode) {   // AIB1: the player and two Axis soldiers (one standing, one walking across)
       sc.rules.teamPlayers[0] = 1; sc.rules.teamPlayers[1] = 2; sc.rules.aiTypes[1] = aiBit(AiType::Soldiers); sc.rules.aiCount[1][(int)AiType::Soldiers] = 2;
     } else if (!matchMode) {
       const int kRows = 1 + (int)extraRowDist().size();   // NMK_WSM2_ROWS: one more bot of every type per extra row
       sc.rules.teamPlayers[0] = 1 + kRows; sc.rules.aiTypes[0] = aiBit(AiType::Soldiers); sc.rules.aiCount[0][(int)AiType::Soldiers] = kRows;
-      sc.rules.teamPlayers[1] = 9 * kRows; for (AiType t : types) { sc.rules.aiTypes[1] |= aiBit(t); sc.rules.aiCount[1][(int)t] = kRows; }
+      sc.rules.teamPlayers[1] = nTypes * kRows; for (AiType t : types) { sc.rules.aiTypes[1] |= aiBit(t); sc.rules.aiCount[1][(int)t] = kRows; }
     } else {   // 10 a side (the player one of side 0's): the nine types spread over both sides
       sc.rules.teamPlayers[0] = 10; sc.rules.teamPlayers[1] = 10;
       const int nb = cpabMode ? 99 : 19; if (cpabMode) sc.rules.teamPlayers[0] = sc.rules.teamPlayers[1] = 50;   // CP: 100 combatants
-      for (int i = 0; i < nb; ++i) { int side = i < nb / 2 ? 0 : 1; AiType t = types[i % 9]; sc.rules.aiTypes[side] |= aiBit(t); sc.rules.aiCount[side][(int)t] += 1; }
+      for (int i = 0; i < nb; ++i) { int side = i < nb / 2 ? 0 : 1; AiType t = types[i % nTypes]; sc.rules.aiTypes[side] |= aiBit(t); sc.rules.aiCount[side][(int)t] += 1; }
     }
     gUi.loaded = false; gUi.matchScenario = sc.toJson();
     if (!gGame) gGame = new Game(app);
@@ -588,14 +589,6 @@ bool wsm2Capture(App& app, float dt) {
     }
     if (what == "reload") { s.reloadTotal = 3.0f; s.reload = 3.0f * (1.0f - std::min(0.4f, frames / 40.0f * 0.4f)); }
     if (what == "throw" && s.throwT >= 0) s.throwT = std::min(0.42f, frames / 40.0f * 0.42f);
-    if (what == "death" && frames == 2) {   // the soldier faces +z (the camera): 0 front, 1 back, 2 his right, 3 head front, 4 head back, 5 crouched head, 6 blast, 7 behind while running, 8 his left
-      static int k = 0; const int c = (k++) % 9;
-      const vec3 dir = c == 1 || c == 4 || c == 7 ? vec3(0, 0, 1) : c == 2 ? vec3(1, 0, 0) : c == 8 ? vec3(-1, 0, 0) : vec3(0, 0, -1);
-      s.lastHow = c == 3 || c == 4 || c == 5 ? "head" : c == 6 ? "blast" : "upper torso";
-      if (c == 5) s.posture = Physics::CROUCH;
-      if (c == 7) s.speed = 4.5f;
-      s.protectUntil = -1; G.killSoldier(s.slot, -1, dir);
-    }
     if (what == "shot" && frames == 38) { s.ws.cooldown = 0; s.ws.bolt = 0; if (s.ws.loaded <= 0) s.ws.loaded = 5; G.soldierFire(s, vec3(0, -0.02f, 1)); }
   }
   {   // the camera: in front of the row's middle, far enough for all of it
