@@ -18,6 +18,7 @@
 #include <chrono>
 #include <algorithm>
 #include <set>
+#include <map>
 #include <unordered_map>
 #include <limits>
 #include <fstream>
@@ -2597,6 +2598,10 @@ static const std::string& furnContentHash() {
   return h;
 }
 static fs::path furnCacheDir() { return userCacheDir("furnish", "NMK_FURNISH_CACHE"); }
+float furnishKeepFraction() {   // FURN50: room_dressing.json "keepFraction" (NMK_FURNISH_KEEP overrides)
+  static const float k = [] { const char* e = std::getenv("NMK_FURNISH_KEEP"); return std::clamp(e ? (float)std::atof(e) : Planner::rules().value("keepFraction", 0.5f), 0.0f, 1.0f); }();
+  return k;
+}
 int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
   auto t0 = std::chrono::high_resolution_clock::now();
   Instance* h = app.doc.find(hostId); if (!h) return 0;
@@ -2731,6 +2736,50 @@ int InteriorSys::furnish(App& app, uint64_t hostId, int mode) {
     bool stocked = false; for (auto& g : gs) if (g.is_string() && (g == "goods" || g == "stock" || g == "books")) stocked = true;
     bool seat = it.asset.find("chair") != std::string::npos || it.asset.find("table") != std::string::npos || it.asset.find("stool") != std::string::npos;
     if ((stocked && h01(seed, strHash(it.slot), 9u) < 0.85f) || (seat && h01(seed, strHash(it.slot), 10u) < 0.25f)) it.broken = true;
+  }
+  {   // FURN50 (the user: "reduce furnishing in all houses by 50 %"): keep room_dressing.json "keepFraction" of each room's
+      // planned pieces (default 0.5), deterministic per building seed and slot (LAN peers and reloads agree; the plan cache
+      // keeps the full plan). Kept: lights, the first of each anchor kind (bed, table, stove, desk, hearth ...), one seat.
+      // Dropped first: things standing on / around another piece, debris and fill, non-blocking clutter, wall items past
+      // two, duplicates, then other furniture; a dropped piece takes what stands on it. NMK_FURNISH_KEEP overrides (A/B).
+    const float keepF = furnishKeepFraction();
+    if (keepF < 0.999f && !P.out.empty()) {
+      auto roomOf = [](const std::string& sl) { return sl.substr(0, sl.find('/')); };
+      auto has = [](const std::string& id, std::initializer_list<const char*> ws) { for (const char* w : ws) if (id.find(w) != std::string::npos) return true; return false; };
+      struct Cand { size_t i; int pri; uint32_t h; };
+      std::map<std::string, std::vector<Cand>> cands; std::map<std::string, int> total, walls;
+      std::map<std::string, std::set<std::string>> seen; std::set<std::string> seated;
+      for (size_t i = 0; i < P.out.size(); ++i) {
+        const PlanItem& it = P.out[i]; const std::string r = roomOf(it.slot); ++total[r];
+        const AssetDef* fa = app.lib.find(it.asset); const std::string& id = it.asset;
+        if (!fa || lightDef(fa) || has(id, {"candle", "lantern", "lamp", "fire", "sconce", "light"})) continue;   // lights stay (they light the room)
+        if (has(id, {"pew"})) continue;   // a church's rows of pews are what make it a church
+        const bool top = std::count(it.slot.begin(), it.slot.end(), '/') >= 2;
+        const bool firstOfKind = seen[r].insert(id).second;
+        if (!top && firstOfKind && has(id, {"bed", "bunk", "table", "stove", "desk", "hearth", "oven", "range", "fireplace", "counter", "bar_", "altar", "pew"})) continue;   // anchors
+        if (!top && has(id, {"chair", "stool", "bench", "sofa", "armchair", "seat", "settee"}) && seated.insert(r).second) continue;   // one seat per room
+        const PropDef* pd = prop(fa);
+        int pri = top ? 0 : (it.slot.find("deb") != std::string::npos || it.slot.find("fill") != std::string::npos) ? 1
+                : (pd && pd->wall) ? (walls[r]++ < 2 ? 3 : 1) : (pd && !pd->blocking) ? 1 : !firstOfKind ? 2 : 3;
+        cands[r].push_back({i, pri, hmix32(seed * 0x9E3779B9u ^ strHash(it.slot))});
+      }
+      std::vector<bool> drop(P.out.size(), false);
+      for (auto& [r, cs] : cands) {
+        std::sort(cs.begin(), cs.end(), [](const Cand& x, const Cand& y) { return x.pri != y.pri ? x.pri < y.pri : x.h < y.h; });
+        int need = total[r] - (int)std::lround(total[r] * keepF), dropped = 0;
+        for (const Cand& c : cs) {
+          if (dropped >= need) break;
+          if (drop[c.i]) continue;
+          const std::string pre = P.out[c.i].slot + "/";
+          drop[c.i] = true; ++dropped;
+          for (size_t j = 0; j < P.out.size(); ++j) if (!drop[j] && P.out[j].slot.rfind(pre, 0) == 0) { drop[j] = true; ++dropped; }   // what stood on it
+        }
+      }
+      size_t n0 = P.out.size(), w = 0;
+      for (size_t i = 0; i < P.out.size(); ++i) if (!drop[i]) P.out[w++] = P.out[i];
+      P.out.resize(w);
+      logf("interior: %s #%llu: kept %zu of %zu planned pieces (keepFraction %.2f)", ha->id.c_str(), (unsigned long long)hostId, w, n0, keepF);
+    }
   }
   json slots = json::array();
   int made = 0;
