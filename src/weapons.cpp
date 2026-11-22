@@ -187,7 +187,7 @@ void App::buildWeaponMeshes() {
     d->cap = j.value("cap", 1); d->loaded = j.value("loaded", 1); d->reserve = j.value("reserve", 0); d->containerSize = j.value("containerSize", 1);
     d->tracerEvery = j.value("tracerEvery", 0);
     d->defaultSight = std::clamp(j.value("defaultSight", 0), 0, 6);   // AT5
-    d->sway = j.value("sway", 1.0f); d->rpm = j.value("rpm", 60.0f); d->velocity = j.value("velocity", 800.0f); d->zero = j.value("zero", 100.0f);
+    d->sway = j.value("sway", 1.0f); d->breathe = j.value("breathe", true); d->rpm = j.value("rpm", 60.0f); d->velocity = j.value("velocity", 800.0f); d->zero = j.value("zero", 100.0f);
     if (j.contains("fireCurve") && j["fireCurve"].is_object()) {   // KF1
       const json& fc = j["fireCurve"]; d->fireCurveFps = std::max(1.0f, fc.value("fps", 30.0f));
       for (auto& r : fc.value("frames", json::array())) if (r.is_array() && r.size() >= 6) { std::array<float, 10> a{}; for (size_t k = 0; k < std::min<size_t>(10, r.size()); ++k) a[k] = r[k].get<float>(); d->fireCurve.push_back(a); d->fireCurveHandle |= a[9] != 0; }

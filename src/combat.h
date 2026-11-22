@@ -44,6 +44,7 @@ struct WeaponDef {
   bool tool = false;     // GM3 "tool": "build": the Engineer's hammer (never fires; the build tool in a match, builder.cpp)
   bool locked = false;   // GM3 "locked": fixed in its slot (never dropped, swapped at a rack or replaced by a pickup)
   float sway = 1;                       // MG6: JSON "sway": breathing sway x this while standing (crouched / prone: x1; the .50)
+  bool breathe = true;                  // GR14 JSON "breathe": false = no idle breathing sway at all (the Garand: the user's still aim; the mouse look's sway stays)
   bool modern = false;                  // MG1: JSON "modern" (side "modern"): only from the modern weapons case, never in 1944 loadouts / classes / bot pools
   bool casings = true;   // MG12: false = no case ejected per shot (revolver, break-action shotgun)
   vec3 holdOffset{0}; float holdWeld = 1; int holdKind = -1; int leftHold = 0; GripPose gripPose;   /* WS1 JSON hold.left: "magazine" = 1: the support hand grips the magazine (palm to the right, fingers forward round it) instead of lying under the handguard */   // SW2 JSON "hold": third-person hold: offset (chest frame m: x left, y up, z forward) of the shouldered / low-ready weapon, cheek-weld share, kind 0 pistol / 1 rifle / 2 launcher (-1: by the grip)

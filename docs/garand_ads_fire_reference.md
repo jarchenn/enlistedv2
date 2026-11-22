@@ -69,3 +69,11 @@ centre; ours is on the sight line), the muzzle flash and smoke.
   28 px or more under the hole's centre, as on the reference's rifle (ours covered the hole's bottom from ~13 px); the hole is clear to its own rim.
 - Still different: our rear sight block is wider for the same ring (~630 px against 467).
 - Re-import order: garand_oprod_split.py, garand_peep_thin.py, garand_front_sight.py, then garand_sight_raise.py.
+
+## The Garand's own recoil everywhere (GR14: the user)
+
+In the game the Garand felt like every other gun. Two causes:
+- The fire curve was ADS-only (`"ads": true`), so hip shots, and shots while the aim was still blending in, fell back to the recoil every rifle shares: the aim climbing 6.75 deg per shot and staying, and a 6 Hz spring jabbing the rifle back ~9 cm (`tools/gr1/recoil_compare.py`, chart: take vs game).
+- The user's build (197a687b) applies the curve to the arms rig only with `curveRecoil`, which the local file no longer has: in ADS only the camera kicked, the rifle and arms did not move. 130c293b (GR13b) applies it to any rig with a curve.
+
+Now `"ads": false`: the measured shot at the hip and in ADS alike (no random climb, no spring kick, no ADS weighting), and `"breathe": false`: no idle breathing sway in ADS (the approved take's still aim; the mouse look's sway stays).
