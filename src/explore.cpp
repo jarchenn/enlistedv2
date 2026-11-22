@@ -103,6 +103,7 @@ void App::stepLean(float dt, const ExploreInput& in, bool sprinting) {
 
 bool App::enterExplore() {
   if (mode == Mode::Explore) return true;
+  { void eggsEnd(App&); eggsEnd(*this); }   // EGG1: the spawn eggs' sandbox ends on leaving Creative
   std::unique_ptr<LoadingJob> lj;   // UI2: a match start gets the loading screen (a plain play-test is quick)
   if (gGame && gGame->pendingStart) { Scenario sc = Scenario::fromJson(gUi.matchScenario); const TemplateInfo* tp = findTemplate(doc.templateId); lj = std::make_unique<LoadingJob>(*this, doc.name, std::string(gameModeName(sc.rules.mode)), 2, tp ? tp->thumbnail : 0u, doc.templateId); }
   { LoadStep ls("enterExplore syncRuntime"); syncRuntime(); Physics::optimizeBroadPhase(); }   // bodies added since load: balanced tree for play

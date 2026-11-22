@@ -66,7 +66,7 @@ add_executable(NormandyMapmaker
   src/selftest.cpp src/selftest_blockers.cpp src/snow.cpp src/selftest_br3.cpp src/thirdparty_impl.cpp src/damage.cpp src/ground.cpp src/selftest_damage.cpp src/fx.cpp src/fxdata.cpp src/station.cpp src/weapons.cpp src/selftest_pak.cpp src/selftest_weapons.cpp src/capture.cpp src/grass.cpp src/selftest_grass.cpp src/selftest_record.cpp src/recorder.cpp src/model.cpp src/viewmodel.cpp src/fps_arms.cpp src/selftest_fps.cpp src/selftest_env.cpp src/ballistics.cpp src/foliage.cpp src/ivy.cpp src/builder.cpp src/selftest_village.cpp src/arsenal.cpp src/classes.cpp src/deploy.cpp src/selftest_arsenal.cpp src/selftest_move.cpp src/surface.cpp src/selftest_sights.cpp src/wallfield.cpp src/selftest_update.cpp src/simplify.cpp src/selftest_entities.cpp src/equipment.cpp src/paths.cpp
   src/tank.cpp src/tank_import.cpp src/tank_sim.cpp src/tank_ram.cpp src/tank_ui.cpp src/selftest_tanks.cpp src/selftest_vehicles.cpp
   src/capture_vehicle.cpp
-  src/capture_dash.cpp src/capture_props.cpp
+  src/capture_dash.cpp src/capture_props.cpp src/eggs.cpp
   src/vehicle_dash.cpp
   src/interior.cpp src/selftest_interiors.cpp src/hlod.cpp src/static_decals.cpp src/selftest_turn.cpp
   src/heli.cpp src/capture_heli.cpp src/overrides.cpp src/stat_editor.cpp src/check_ed2.cpp src/check_vh8.cpp src/capture_vh8.cpp src/check_mem.cpp src/check_rm1.cpp src/check_vm1.cpp src/user_cache.cpp src/smithy.cpp src/check_sm1.cpp src/check_sm3.cpp src/capture_shade.cpp src/capture_rc2.cpp src/check_snd10.cpp src/vspawn_gen.cpp src/capture_vh7.cpp src/capture_tk1.cpp src/capture_tk2.cpp

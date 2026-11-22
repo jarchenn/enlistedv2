@@ -306,7 +306,8 @@ void w3EditorCamera(App& app, float dt, bool uiMouse, bool uiKey) {
   double mx, my; glfwGetCursorPos(w, &mx, &my);
   // ---- right-drag: orbit about the ground under the cursor (sky: turn in place)
   bool rmb = glfwGetMouseButton(w, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
-  if (rmb && !n.orbiting && !uiMouse && !n.panning && !n.dropDrag && n.lmbGesture < 2) {
+  bool eggsTakesRmb(App&);
+  if (rmb && !n.orbiting && !uiMouse && !n.panning && !n.dropDrag && n.lmbGesture < 2 && !eggsTakesRmb(app)) {   // EGG1: an egg selected: right-click spawns (eggs.cpp)
     vec3 ro, rd, hit; rayFromCursor(app, ro, rd);
     n.pivot = groundHit(app, ro, rd, hit) && glm::length(hit - app.camPos) < 6000.0f ? hit : app.camPos;
     n.orbiting = true; n.flying = false; app.looking = true; n.lastMx = mx; n.lastMy = my;

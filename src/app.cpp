@@ -314,7 +314,7 @@ void App::syncRuntime(bool sliceOk) {
   }
   crumb("sync: done");
 }
-void App::clearRuntime() { for (auto& [id, r] : rt) destroyRT(r); rt.clear(); }
+void App::clearRuntime() { { void eggsEnd(App&); eggsEnd(*this); } for (auto& [id, r] : rt) destroyRT(r); rt.clear(); }   // EGG1: the sandbox AI go with the map
 void App::resetInteractStates() {
   for (auto& i : doc.instances) {
     auto it = rt.find(i.id); if (it == rt.end()) continue;
@@ -1220,7 +1220,8 @@ int App::run(int argc, char** argv) {
     else if (a == "--check-vehicle-ai") runSelf = true;   // selftest_vehicle_ai.cpp
     else if (a == "--tank-preview" && k + 1 < argc) tankPreviewDir = argv[++k];
     else if (a == "--capture-vehicle" && k + 1 < argc) { runSelf = true; ++k; }
-    else if (a == "--capture-props") runSelf = true;   // capture_props.cpp: close-up prop shots (PR1)
+    else if (a == "--capture-props") runSelf = true;
+    else if (a == "--selftest-eggs") runSelf = true;   // EGG1: one of each spawn egg (eggs.cpp)   // capture_props.cpp: close-up prop shots (PR1)
     else if (a == "--capture-dash") runSelf = true;   // capture_dash.cpp: driver's views (VH6)   // capture_vehicle.cpp: one frame of a placed vehicle   // tank.cpp: views of the baked tanks + rig sockets
     else if (a == "--import-vehicle-models" && k + 1 < argc) {   // tanks (tank_import.cpp): <srcDir> [content root]
       fs::path src = argv[++k], out = k + 1 < argc ? fs::path(argv[++k]) : contentDir();

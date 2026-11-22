@@ -167,6 +167,7 @@ bool holdBodySetup(Game& G, int model) {
 static bool clipKit(int kit) { return kit == 4 || kit == 6 || kit == 7 || kit == 8 || kit == 9 || kit == 10; }   // WS1: the Delta Force path (a clip body, the game's guns in its hands): 4 Delta Force, 6 desert, 7 Allied, 8 SS   // combat.json kits.<name> (SW1; DF1 4: Delta Force)
 static float bodyScale(const Soldier& s) { return s.zombie ? s.eBody : 1.0f; }   // EN1: a troll stands taller, a spider lower
 void Game::renderView(vec3& e, vec3& f) const {
+  if (app.mode == Mode::Creative) { e = app.camPos; f = App::forward(app.camYaw, app.camPitch); return; }   // EGG1: the sandbox's AI posed / culled against the editor camera
   e = app.eyePos(); f = App::forward(app.eyeYaw, app.eyePitch); float fov = 70;
   if (specCam) { e = specEye; f = specFwd; return; }   // dead: the spectate orbit renders the frame (the body watched was culled as "behind" the dead eye)
   vec3 e2 = e, f2 = f;
@@ -216,19 +217,42 @@ bool Game::begin(std::string& err) {
   if (!isClient) aiMatchBegin(*this, lo, hi);   // W6: navmesh bake (Recast/Detour) and AI setup
   // soldiers per roster slot
   sold.clear(); sold.resize(match.slots.size());
-  auto& arr = archetypes["archetypes"];
   int aiGiven[2][kAiTypeCount] = {}, kindSeen[kAiTypeCount] = {}, germanSeen = 0;   // per side / per AI type: types and model variants go round in turn (same on LAN clients)
   if (const char* at = std::getenv("NMK_AI_TYPES")) {   // SW1 dev: NMK_AI_TYPES=<side 0 type>,<side 1 type> (AiType numbers): every AI of that side that type
     int t0 = -1, t1 = -1; std::sscanf(at, "%d,%d", &t0, &t1); int ts[2] = {t0, t1};
     for (int sd = 0; sd < 2; ++sd) if (ts[sd] >= 0 && ts[sd] < kAiTypeCount) { match.rules.aiTypes[sd] = aiBit((AiType)ts[sd]); for (int k = 0; k < kAiTypeCount; ++k) match.rules.aiCount[sd][k] = 0; }
   }
   for (auto& rs : match.slots) {
+    int side = ffaMode(match.mode()) ? 0 : std::clamp(rs.team, 0, 1);
+    AiType ait = rs.human ? AiType::Soldiers : aiTypeNext(match.rules.aiCount[side], match.rules.aiTypes[side], aiGiven[side]);   // AI3: the typed counts per type
+    setupSlotSoldier(rs, ait, kindSeen[(int)ait]++, germanSeen);
+  }
+  pool.clear(); poolBuilt = false;
+  sounds.clear(); gren.clear(); grenadeReserve.clear(); smokeReserve.clear(); defSpots.clear(); defSpotsStage = -1;
+  t = 0; steps = 0; spectate = -1; specCam = false; hitMarker = killMarker = hurtFlash = 0;
+  shotsByBots = hitsOnSoldiers = kills = doorOpens = smokeThrows = fragThrows = navRebuilds = 0;
+  if (!isClient) match.start(); else { match.phase = MatchPhase::Running; for (auto& o : match.obj) o.state = ObjState::Locked; if (!match.obj.empty()) match.obj[0].state = ObjState::Active; }
+  ghosts.clear(); doorSeen.clear();
+  active = true;
+  app.refreshMatchOnly();   // BT2: play-limit blockers on (explore-only routes closed during a match)
+  deployOpenedAt = t; deployReady = app.selftest; deploySpawn = -1;   // GM1: the first spawn goes through the deploy screen too
+  // the local player waits in limbo until its first spawn
+  if (Soldier* L = local()) { vec3 p = app.exploreStartPos; Physics::setCharacterPos(vec3(p.x, p.y - kLimboDepth, p.z)); (void)L; }
+  setupError.clear();
+  lootBegin(*this);   // BR2: floor loot in the buildings
+  sdBegin(*this);     // SD1: the round controller (Search and Destroy only)
+  logf("match: %zu slots, local slot %d, nav %d floors in %.0f ms", sold.size(), localSlot, nav.usedNodes, nav.buildMs);
+  return true;
+}
+
+// EGG1: one roster slot's soldier from its AI type (Game::begin per slot; the Creative spawn eggs per egg). variant: the
+// model / kit variant in turn; etypeOverride >= 0: this enemy type for a melee type (an egg names it), else the type's own
+void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& germanSeen, int etypeOverride) {
+    auto& arr = archetypes["archetypes"];
     Soldier& s = sold[rs.id];
     s.slot = rs.id; s.inUse = true; s.alive = false; s.faction = rs.faction; s.role = rs.role; s.team = rs.team;
     s.human = rs.human; s.peer = rs.peer; s.localPlayer = rs.id == localSlot;
-    int side = ffaMode(match.mode()) ? 0 : std::clamp(rs.team, 0, 1);
-    AiType ait = rs.human ? AiType::Soldiers : aiTypeNext(match.rules.aiCount[side], match.rules.aiTypes[side], aiGiven[side]);   // AI3: the typed counts per type
-    s.zombie = ait != AiType::Soldiers && ait != AiType::Operators && ait != AiType::Troopers && ait != AiType::Robots && ait != AiType::Desert && ait != AiType::Delta && ait != AiType::Allied && ait != AiType::SS && ait != AiType::AlliedPara;   // G2 melee brain (NA1: mechs are melee)
+    s.zombie = !soldierBrain(ait);   // G2 melee brain (NA1: mechs are melee); the list: Game::soldierBrain (eggs.cpp)
     s.gmWeapon = -1;
     // GM1 / GM2: bodies with the gun built in: the gas-mask and desert types, and the Axis side's plain soldier bots (not in Battle
     // royale, where bots loot and change guns; never a human: the player's own body and first person are unchanged)
@@ -238,13 +262,13 @@ bool Game::begin(std::string& err) {
     s.gunBody = gunBodyKind != nullptr;
     s.op = ait == AiType::Operators;
     s.kit = ait == AiType::Troopers ? 2 : ait == AiType::Robots ? 3 : ait == AiType::Delta ? 4 : ait == AiType::Desert ? 6 : ait == AiType::AlliedPara || ait == AiType::Allied ? 7 : ait == AiType::SS ? 8 : s.op ? 1 : 0;   // RM2: the gas-mask kits (9 / 10) are gone   // WS1: 7 Allied paratroopers; WSM2: 7 also the Allied soldiers, 8 SS, 9 / 10 gas-mask 1 / 2   // SW1; DF1: 4 Delta Force; DSD1: 6 desert soldiers on the Delta Force path
-    s.etype = !s.zombie ? 0 : ait == AiType::ZombiesHeavies ? enemyTypePick((uint32_t)rs.id)   // EN1: the mix by weight, per slot
+    s.etype = !s.zombie ? 0 : etypeOverride >= 0 ? etypeOverride : ait == AiType::ZombiesHeavies ? enemyTypePick((uint32_t)rs.id)   // EN1: the mix by weight, per slot
             : ait == AiType::Brutes ? std::max(0, enemyTypeIndex("brute")) : ait == AiType::Spiders ? std::max(0, enemyTypeIndex("stalker"))
             : ait == AiType::Creatures ? std::max(0, enemyTypeIndex("creature"))
             : ait == AiType::Knights ? std::max(0, enemyTypeIndex("knight"))
             : ait == AiType::Abominations ? std::max(0, enemyTypeIndex("abomination")) : ait == AiType::Golems ? std::max(0, enemyTypeIndex("golem"))
             : ait == AiType::Boglords ? std::max(0, enemyTypeIndex("boglord")) : ait == AiType::Mechs ? std::max(0, enemyTypeIndex("mech")) : 0;
-    s.evariant = kindSeen[(int)ait]++;
+    s.evariant = variant;
     s.rng = 0x9E3779B9u ^ (uint32_t)(rs.id * 2654435761u);
     const json& a = arr[rs.id % arr.size()];
     Brain& b = s.br;
@@ -303,23 +327,6 @@ bool Game::begin(std::string& err) {
       if (s.gmWeapon < 0) s.gunBody = false;
     }
     s.holdBody = !rs.human && !s.zombie && holdBodySetup(*this, s.model);   // WSM2
-  }
-  pool.clear(); poolBuilt = false;
-  sounds.clear(); gren.clear(); grenadeReserve.clear(); smokeReserve.clear(); defSpots.clear(); defSpotsStage = -1;
-  t = 0; steps = 0; spectate = -1; specCam = false; hitMarker = killMarker = hurtFlash = 0;
-  shotsByBots = hitsOnSoldiers = kills = doorOpens = smokeThrows = fragThrows = navRebuilds = 0;
-  if (!isClient) match.start(); else { match.phase = MatchPhase::Running; for (auto& o : match.obj) o.state = ObjState::Locked; if (!match.obj.empty()) match.obj[0].state = ObjState::Active; }
-  ghosts.clear(); doorSeen.clear();
-  active = true;
-  app.refreshMatchOnly();   // BT2: play-limit blockers on (explore-only routes closed during a match)
-  deployOpenedAt = t; deployReady = app.selftest; deploySpawn = -1;   // GM1: the first spawn goes through the deploy screen too
-  // the local player waits in limbo until its first spawn
-  if (Soldier* L = local()) { vec3 p = app.exploreStartPos; Physics::setCharacterPos(vec3(p.x, p.y - kLimboDepth, p.z)); (void)L; }
-  setupError.clear();
-  lootBegin(*this);   // BR2: floor loot in the buildings
-  sdBegin(*this);     // SD1: the round controller (Search and Destroy only)
-  logf("match: %zu slots, local slot %d, nav %d floors in %.0f ms", sold.size(), localSlot, nav.usedNodes, nav.buildMs);
-  return true;
 }
 
 void Game::end() {
@@ -518,6 +525,32 @@ const std::vector<vec3>& Game::spawnPool() {
   return pool;
 }
 
+// EGG1: a soldier placed alive at feet facing yaw (trySpawn's success; the Creative spawn eggs): agent, class, loadout, a fresh brain
+void Game::placeSoldier(int slot, vec3 feet, float yaw) {
+  Soldier& s = sold[slot];
+  s.feet = feet; s.yaw = yaw; s.pitch = 0; s.alive = true; s.flat = false; s.hp = s.zombie ? enemyType(s.etype).hp : combat.value("health", 100.0f); s.killer = -1; s.staggerUntil = 0; s.posture = Physics::STAND;
+  s.human = match.slots[slot].human || match.slots[slot].pendingPeer >= 0; s.peer = match.slots[slot].pendingPeer >= 0 ? match.slots[slot].pendingPeer : match.slots[slot].peer;
+  ++s.lifeId;
+  aiForget(*this, slot);   // a fresh life: no stale last-known position of it anywhere
+  rulesOnSpawn(*this, s);   // W1: spawn protection starts (SPEC 2.2)
+  if (s.localPlayer) {
+    Physics::setCharacterPos(feet); app.eyeYaw = yaw; app.eyePitch = 0; app.exploreStartPos = feet; app.R.resetTemporal();
+  } else {
+    if (s.agent >= 0) Physics::destroyAgent(s.agent);
+    const EnemyType* et = s.zombie ? &enemyType(s.etype) : nullptr;   // EN2: a heavy's own capsule
+    s.agent = et && et->capsuleH > 0 ? Physics::createAgent(feet, et->capsuleH, et->capsuleR) : Physics::createAgent(feet);
+  }
+  if (match.mode() == GameMode::SearchDestroy) { s.cls = -1; sdOnSpawned(*this, slot); }   // SD1: the kept / bought gear, no classes
+  else { chooseClass(s);
+  applyLoadout(s, true); }
+  if (s.localPlayer) { app.staminaMul = s.cls >= 0 ? classDefs()[s.cls].staminaMul : 1.0f; app.stamina = app.staminaCap(); app.staminaIdle = 0; }   // GM1: full stamina on respawn
+  if (s.cls >= 0 && match.mode() != GameMode::SearchDestroy) { if (s.localPlayer) gm2ApplyClass(app, classDefs()[s.cls]); else gm2ApplyClassSoldier(app, slot, s, classDefs()[s.cls]); }   // GM2: packs, artillery
+  s.br = Brain{s.br.arch, s.br.reaction, s.br.aimTurn, s.br.sigma, s.br.sight, s.br.fov, s.br.aggression, s.br.burstMin, s.br.burstMax};
+  s.br.lane = match.slots[slot].lane; s.br.aimYaw = yaw; s.br.grenadeCD = 3.0f + rnd(s) * 3;
+  s.br.nextPerceive = (float)t + rnd(s) * 0.2f; s.br.nextTactic = (float)t + rnd(s);
+  match.onSpawned(slot);
+}
+
 bool Game::trySpawn(int slot, std::string& why) {
   Soldier& s = sold[slot];
   struct Cand { vec3 pos; float yaw; };
@@ -586,27 +619,7 @@ bool Game::trySpawn(int slot, std::string& why) {
         if (!Physics::shapeFitsAt(Physics::STAND, feet, false)) continue;                                       // never inside geometry
         if (nav.valid() && nav.nearest(feet, 1.5f) < 0) continue;                                              // navigable access
         // success
-        s.feet = feet; s.yaw = m.yaw; s.pitch = 0; s.alive = true; s.flat = false; s.hp = s.zombie ? enemyType(s.etype).hp : combat.value("health", 100.0f); s.killer = -1; s.staggerUntil = 0; s.posture = Physics::STAND;
-        s.human = match.slots[slot].human || match.slots[slot].pendingPeer >= 0; s.peer = match.slots[slot].pendingPeer >= 0 ? match.slots[slot].pendingPeer : match.slots[slot].peer;
-        ++s.lifeId;
-        aiForget(*this, slot);   // a fresh life: no stale last-known position of it anywhere
-        rulesOnSpawn(*this, s);   // W1: spawn protection starts (SPEC 2.2)
-        if (s.localPlayer) {
-          Physics::setCharacterPos(feet); app.eyeYaw = m.yaw; app.eyePitch = 0; app.exploreStartPos = feet; app.R.resetTemporal();
-        } else {
-          if (s.agent >= 0) Physics::destroyAgent(s.agent);
-          const EnemyType* et = s.zombie ? &enemyType(s.etype) : nullptr;   // EN2: a heavy's own capsule
-          s.agent = et && et->capsuleH > 0 ? Physics::createAgent(feet, et->capsuleH, et->capsuleR) : Physics::createAgent(feet);
-        }
-        if (match.mode() == GameMode::SearchDestroy) { s.cls = -1; sdOnSpawned(*this, slot); }   // SD1: the kept / bought gear, no classes
-        else { chooseClass(s);
-        applyLoadout(s, true); }
-        if (s.localPlayer) { app.staminaMul = s.cls >= 0 ? classDefs()[s.cls].staminaMul : 1.0f; app.stamina = app.staminaCap(); app.staminaIdle = 0; }   // GM1: full stamina on respawn
-        if (s.cls >= 0 && match.mode() != GameMode::SearchDestroy) { if (s.localPlayer) gm2ApplyClass(app, classDefs()[s.cls]); else gm2ApplyClassSoldier(app, slot, s, classDefs()[s.cls]); }   // GM2: packs, artillery
-        s.br = Brain{s.br.arch, s.br.reaction, s.br.aimTurn, s.br.sigma, s.br.sight, s.br.fov, s.br.aggression, s.br.burstMin, s.br.burstMax};
-        s.br.lane = match.slots[slot].lane; s.br.aimYaw = m.yaw; s.br.grenadeCD = 3.0f + rnd(s) * 3;
-        s.br.nextPerceive = (float)t + rnd(s) * 0.2f; s.br.nextTactic = (float)t + rnd(s);
-        match.onSpawned(slot);
+        placeSoldier(slot, feet, m.yaw);
         if (s.localPlayer) { spectate = -1; deployReady = app.selftest; deploySpawn = -1; }
         if (s.localPlayer && s.cls >= 0 && classDefs()[s.cls].drivesTanks) {   // GM1b: the Tanker starts inside the nearest free tank of its side
           uint64_t best = 0; float bd = 1e9f;

@@ -90,6 +90,7 @@ void App::updateCreative(float dt) {
   }
   vec3 hp = hoverGround;
   if (gridSnap) { hp.x = std::round(hp.x); hp.z = std::round(hp.z); }
+  { void eggsUpdate(App&, float); eggsUpdate(*this, dt); }   // EGG1: spawn-egg right-clicks, the sandbox AI's steps (eggs.cpp)
   if (selftest) return;  // the scripted test drives tools directly
   if (mpaiCreativeMouse(*this)) return;   // scenario panel tools and handles (mpui.cpp)
   bool lmbPress = !uiMouse && !looking && mousePressed(win, GLFW_MOUSE_BUTTON_LEFT);
@@ -202,6 +203,7 @@ void App::drawCreativeOverlay(Overlay& ov, std::vector<DrawItem>& ghosts) {
 
 // ------------------------------------------------------------------ UI
 void App::drawCreativeUI() {
+  { void eggsWindow(App&); eggsWindow(*this); }   // EGG1
   ImGuiIO& io = ImGui::GetIO();
   float menuH = 0;
   if (ImGui::BeginMainMenuBar()) {
@@ -279,7 +281,8 @@ void App::drawCreativeUI() {
   if (toolBtn("Select (Esc)", tool == Tool::Select)) { tool = Tool::Select; placing = nullptr; }
   terrainToolbar(*this);   // V8 Terrain tool button (terrain_brush.cpp)
   lassoToolbar(*this);     // Lasso tool button (lasso_ui.cpp)
-  w3Toolbar(*this); ImGui::SameLine();   // drop-in soldier: drag onto the terrain (dropin.cpp)
+  w3Toolbar(*this); ImGui::SameLine();
+  { void eggsToolbar(App&); eggsToolbar(*this); ImGui::SameLine(); }   // EGG1: the spawn eggs window   // drop-in soldier: drag onto the terrain (dropin.cpp)
   if (toolBtn(gridSnap ? "Grid snap: on (G)" : "Grid snap: off (G)", gridSnap)) gridSnap = !gridSnap;
   if (toolBtn(rotSnap ? "Rotate: 15 deg" : "Rotate: free", rotSnap)) rotSnap = !rotSnap;
   if (toolBtn("Doors & windows", editInteract)) editInteract = !editInteract;

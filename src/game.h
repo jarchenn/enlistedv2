@@ -119,6 +119,7 @@ public:
   std::vector<Soldier> sold;                 // index == roster slot
   bool active = false;                       // a match is running in this Explore session
   bool pendingStart = false;                 // Play menu asked for a match; begins on enterExplore
+  bool sandbox = false;                      // EGG1: the Creative spawn eggs' game (no objectives, no score, no human, local only)
   bool noFootLock = false;                   // AN1 step 3b: the pose harness (a bot posed in place) turns the world foot locks off
   bool isClient = false;                     // mirror only (net client): no authority
   bool paused = false;
@@ -158,6 +159,11 @@ public:
   // lifecycle
   bool begin(std::string& err);              // called by enterExplore when pendingStart
   void end();                                // exitExplore
+  bool sandboxBegin(std::string& err);       // EGG1 (eggs.cpp): a no-objective game in Creative for spawned AI
+  int sandboxAdd(AiType ait, int etype, int team, vec3 feet, float yaw);
+  static bool soldierBrain(AiType a);         // EGG1: the AI types on the soldier brain (the rest are melee: zombie.json types)   // EGG1: one AI there; its slot, -1 if not placed
+  void setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& germanSeen, int etypeOverride = -1);   // EGG1: begin's per-slot setup
+  void placeSoldier(int slot, vec3 feet, float yaw);   // EGG1: trySpawn's success (alive there, agent, loadout, brain)
   void step(float dt);                       // fixed 60 Hz, after the explore step (server)
   void clientStep(float dt);                 // LAN client: mirror, interpolation, local requests
   void posesStep(float dt);
