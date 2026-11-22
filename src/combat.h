@@ -22,6 +22,8 @@ inline vec3 blasterColour(int kind) { return kind == 4 ? vec3(1.0f, 0.05f, 0.03f
 struct WeaponDef {
   std::string id, name, side, action, feed, container, caliber, note, reticle;
   int cap = 1, loaded = 1, reserve = 0, containerSize = 1, tracerEvery = 0;
+  float hipSpreadMul = 1;   // MG13 json "hipSpreadMul": the class hip cone x this (the minigun from the hip)
+  float spinUp = 0;   // MG13 json "spinUp" (s): the barrels spin this long with the trigger held before the first round (the minigun)
   float rpm = 60, velocity = 800, zero = 100, boltTime = 0, reloadEmpty = 2.5f, reloadPartial = 2.5f, reloadRound = 0.5f;
   float rPitch = 1, rYaw = 0.4f, rRecover = 8 /*unused: recoil no longer recovers*/, rClimb = 0, rVisual = 0.05f, rSupported = 1;
   vec3 rear{0}, front{0}, muzzle{0}, scopeEye{0};
@@ -107,6 +109,7 @@ struct WeaponState {
   int att[4] = {0, 0, 0, 0};      // BR2 attachments (loot.h ATT_*): sight 1 red dot 2 ACOG 3 4x 4 10x; muzzle 1 suppressor 2 brake; mag 1 extended; stock 1 recoil pad
   int reserveMax = 0;
   float cooldown = 0, bolt = 0, reload = 0, reloadTotal = 0;
+  float spin = 0;                 // MG13: spin-up so far (s; winds down twice as fast off the trigger)
   int reloadKind = 0;             // 1 empty, 2 partial (retain), 3 single rounds
   bool triggerReleased = true, clicked = false;
   bool magOff = false;            // WP5: the magazine left the gun mid-reload (cancelled after mag-out): off until a reload completes

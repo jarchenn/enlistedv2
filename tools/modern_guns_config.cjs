@@ -10,6 +10,7 @@ const NG3 = path.resolve(process.env.NG3_SRC || "E:/nmk/incoming/ng3") + "/";
 const NG4 = path.resolve(process.env.NG4_SRC || "E:/nmk/incoming/ng4") + "/";   // NG4 sources   // NG3 sources (licences unknown: the bakes are local-only)
 const XB = path.resolve(process.env.XB_SRC || "E:/nmk/incoming_crossbow") + "/";   // XB1: crossbow animated (DJMaesen, CC-BY-4.0)
 const MP5N = path.resolve(process.env.MP5N_SRC || "E:/nmk/incoming_mp5fps") + "/";   // XB1: the user's MP5 on the fps-animated-smg rig (MP5 meshes: source unknown: local-only)
+const MG13 = path.resolve(process.env.MG13_SRC || "E:/nmk/incoming_minigun") + "/";   // MG13: minigun animated (DJMaesen, CC-BY-4.0)
 const C = {
   ak: { src: G + "fps-ak-animated/source/arms@ak.fbx", tex: "fps-ak-animated", keep: k("base", "bolt", "bullet", "mag", "release", "trigger"),
         mats: { ak74: { albedo: "ak74Color.png", normal: "ak74Normal.png", metal: "akMetallic.png", smooth: "aksmoothness.png", ao: "akAO.png" } } },
@@ -135,6 +136,8 @@ const C = {
                                      dull: { metal: [0.55, 0.7], other: [0.7, 0.85] } } } },   // NG4: its roughness map ran ~0.24 (mirror-like): parkerised steel / polymer
   // ---- XB1: the crossbow (Sketchfab GLB, its rest pose assembled with a bolt on the rail; muzzle already toward glTF +z)
   crossbow: { src: XB + "crossbow_animated.glb", tex: "", keep: { Object_61: "base", Object_63: "base", trigger_crossbow_0: "trigger", stick_crossbow_0: "base", puller_crossbow_0: "base", loader_crossbow_0: "base" } },
+  // ---- MG13: the minigun (Sketchfab GLB; muzzle already toward glTF +z; metres)
+  minigun: { src: MG13 + "minigun_animated.glb", tex: "", keep: { base_minigun_0: "base", barrels_minigun_0: "barrels", lid_minigun_0: "base", button_minigun_0: "base", mag_minigun_0: "mag", bullet_minigun_0: "mag" } },
   // ---- XB1: the user's MP5 (local-only): its meshes hang off the smg45 rig's objects (the fps-animated-smg timeline)
   mp5_local: { src: MP5N + "source/arms@mp5.fbx", tex: MP5N, keep: { mp5_body: "base", mp5_receiver_barrel: "base", mp5_handguard_grip: "base", mp5_stock: "base", mp5_attachments: "base", mp5_charginghandle: "bolt", mp5_mag: "mag" },
         mats: Object.fromEntries(["mp5_body", "mp5_receiver_barrel", "mp5_handguard_grip", "mp5_stock", "mp5_attachments"].map(m => [m, { albedo: m + "_Color.png", normal: m + "_Normal.png", metal: m + "_Metallic.png", rough: m + "_Roughness.png" }])) },

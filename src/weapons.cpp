@@ -154,7 +154,7 @@ void App::buildWeaponMeshes() {
     d->tracerEvery = j.value("tracerEvery", 0);
     d->defaultSight = std::clamp(j.value("defaultSight", 0), 0, 6);   // AT5
     d->sway = j.value("sway", 1.0f); d->rpm = j.value("rpm", 60.0f); d->velocity = j.value("velocity", 800.0f); d->zero = j.value("zero", 100.0f);
-    d->boltTime = j.value("boltTime", 0.0f);
+    d->boltTime = j.value("boltTime", 0.0f); d->spinUp = std::max(0.0f, j.value("spinUp", 0.0f)); d->hipSpreadMul = std::max(0.1f, j.value("hipSpreadMul", 1.0f));   // MG13
     d->reloadEmpty = jkey(j, "reload").value("empty", 2.5f); d->reloadPartial = jkey(j, "reload").value("partial", d->reloadEmpty); d->reloadRound = jkey(j, "reload").value("round", 0.5f);
     d->rPitch = jkey(j, "recoil").value("pitch", 1.0f); d->rYaw = jkey(j, "recoil").value("yaw", 0.4f); d->rRecover = jkey(j, "recoil").value("recover", 8.0f);
     d->rClimb = jkey(j, "recoil").value("climb", 0.0f); d->rVisual = jkey(j, "recoil").value("visual", 0.05f); d->rSupported = jkey(j, "recoil").value("supported", 1.0f);
@@ -670,6 +670,10 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   }
   // ---- fire
   bool canCycle = s.cooldown <= 0 && s.bolt <= 0 && s.reload <= 0;
+  if (d.spinUp > 0) {   // MG13: the barrels spin up before the first round (and down again off the trigger)
+    s.spin = fireHeld && s.reload <= 0 ? std::min(d.spinUp, s.spin + dt) : std::max(0.0f, s.spin - 2 * dt);
+    canCycle = canCycle && s.spin >= d.spinUp;
+  }
   bool semi = d.action != "auto" || std::string(fireModeName(d, s)) == "SEMI";   // selector SEMI: one shot per press
   if (fireHeld && canCycle && (!semi || s.triggerReleased)) {
     s.triggerReleased = false;
@@ -682,7 +686,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       vec3 eye = eyePos();
       vec3 aimDir = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch);
       // dispersion: the class's hip / ADS cone (handling.json) x the stance (prone near laser-like, mounted near none)
-      lastStance = stance; lastSpreadDeg = handling.cone(d.wclass, adsT > 0.85f, stance) * (s.att[ATT_MUZZLE] == 2 ? kBrakeSpread : 1.0f);   // BR2 muzzle brake: spread -30 %
+      lastStance = stance; lastSpreadDeg = handling.cone(d.wclass, adsT > 0.85f, stance) * (adsT > 0.85f ? 1.0f : d.hipSpreadMul) * (s.att[ATT_MUZZLE] == 2 ? kBrakeSpread : 1.0f);   // BR2 muzzle brake: spread -30 %
       float spread = radians(lastSpreadDeg);
       vec3 rt = glm::normalize(glm::cross(aimDir, vec3(0, 1, 0))), up = glm::cross(rt, aimDir);
       float a = wrand(s.seed) * 6.2831853f, r = std::sqrt(wrand(s.seed)) * std::tan(spread);

@@ -512,7 +512,7 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/smg_b.mp3", false, {"sten"}, -1, 1.04f},   // NG3: the Sten's fallback (snd14 missing)
     // SND9: gun-shot-1 (user request) for the vehicle rapid-fire guns: the Abrams roof minigun (shot_minigun: higher, short and
     // tight) and the Apache's 30 mm chain gun (shot_cannon30: lower, heavier); "rapid" below
-    {"guns/gun_shot_1.mp3", false, {"minigun"}, -1, 1.15f, 0, 0.3f, 1.5f},
+    {"guns/gun_shot_1.mp3", false, {"minigun", "modern_minigun"}, -1, 1.15f, 0, 0.3f, 1.5f},   // MG13: the hand-held minigun borrows the vehicle minigun's shot (stand-in; the performance session owns sound)
     {"guns/gun_shot_1.mp3", false, {"cannon30"}, -1, 0.85f, 0, 0.6f, 3.0f},
     // MG12 (borrowed, derived): the sawn-off on the 870's shot a little lower; the SMG-9 on the MP 40's, lower and darker
     // WP7 (user request): the .50 AE and the .357 take the shot the FN 502 Tactical had (the suppressed .22's recording, 12 % higher,
@@ -706,7 +706,7 @@ int Audio::loadCustom(const fs::path& dir) {
     for (const char* id : g.ids) {
       if (isVar && !varStarted.insert(std::to_string(isVar) + id).second) { Impl::Event& ex = p->events[std::string("shot_") + id]; ex.v.push_back(ev.v[0]); ex.st.push_back(ev.st[0]); continue; }   // SND16: another variant
       Impl::Event& e2 = p->events[std::string("shot_") + id] = ev; p->events.erase(std::string("shot_") + id + "_far");
-      const bool mini = std::string(id) == "minigun", c30 = std::string(id) == "cannon30";
+      const bool mini = std::string(id) == "minigun" || std::string(id) == "modern_minigun", c30 = std::string(id) == "cannon30";
       if (mini || c30) { e2.minGap = mini ? 0.04f : 0.045f; e2.maxVoices = mini ? 6 : 4; e2.rolloff = 0.8f; e2.gain = mini ? 0.7f : 0.85f; }   // SND9: rapid fire, carries far
       if (g.gain >= 0) e2.gain = g.gain;   // SND14: the set's own level
       else if (mixGuns.contains(id)) { const json& m = mixGuns[id]; e2.gain = std::clamp(m.is_number() ? m.get<float>() : m.is_object() ? m.value("gain", e2.gain) : e2.gain, 0.0f, 2.0f);   // SND7: per-gun trim
@@ -822,7 +822,8 @@ int Audio::loadCustom(const fs::path& dir) {
       {"reload/reload_a.mp3", {"modern_smg9"}, 1.8f, 0, 1.06f},
       {"reload/reload_a.mp3", {"modern_mp5"}, 2.4f, 0, 0.97f},   // SND20
       {"reload/shotgun_shells.mp3", {"modern_sawnoff"}, 2.9f, 0, 1.05f},
-      {"reload/reload_b.mp3", {"modern_crossbow"}, 2.5f, 0, 0.8f},   // XB1 stand-in: cocking and laying the bolt
+      {"reload/reload_b.mp3", {"modern_crossbow"}, 2.5f, 0, 0.8f},
+      {"reload/reload_a.mp3", {"modern_minigun"}, 4.3f, 0, 0.85f},   // MG13 stand-in: the box swap   // XB1 stand-in: cocking and laying the bolt
       // SW1 (borrowed, pitched apart): the energy-cell swaps on the AR magazine reload
       {"reload/reload_m4.mp3", {"blaster_carbine"}, 1.9f, 0, 1.12f},
       // MG12 batch 2 (borrowed, pitched apart): the pistol reload

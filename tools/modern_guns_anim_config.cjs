@@ -15,6 +15,7 @@ const NG4 = path.resolve(process.env.NG4_SRC || "E:/nmk/incoming/ng4") + "/";   
 const NG1 = path.resolve(process.env.NG1_SRC || "E:/nmk/incoming/ng1") + "/";   // NG1 sources (licences unknown: local-only bakes into models/<id>_local)
 const XBR = path.resolve(process.env.XB_RIG || "E:/nmk/crossbow_build/crossbow_rig.blend");   // XB1: tools/crossbow_prep.py from crossbow_animated.glb
 const MP5N = path.resolve(process.env.MP5N_SRC || "E:/nmk/incoming_mp5fps") + "/";   // XB1: the user's MP5 on the fps-animated-smg rig (local-only)
+const MG13 = path.resolve(process.env.MG13_SRC || "E:/nmk/incoming_minigun") + "/";   // MG13: minigun animated (DJMaesen, CC-BY-4.0)
 // MG2: Unreal mannequin arms (AR-15, MP7, RPG-7) and the Rigify agent's arms (Scorpion, Uzi)
 const manny = { MI_Manny_01: { albedo: "T_Manny_01_D.png", rough_f: 0.6 }, MI_Manny_02: { albedo: "T_Manny_02_D.png", rough_f: 0.6 } };
 const agent = { Gloves: { albedo: "Gloves_BaseColor.1003.png", rough: "Gloves_Roughness.1003.png", metal: "Gloves_Metallic.1003.png" }, Cloths: { albedo: "Cloths_BaseColor.1002.png", rough: "Cloths_Roughness.1002.png", metal: "Cloths_Metallic.1002.png" },
@@ -267,6 +268,12 @@ const A = {
     keep: ["Object_7", "Object_61", "Object_63", "trigger_crossbow_0", "stick_crossbow_0", "puller_crossbow_0", "loader_crossbow_0"],
     rigidify: ["Object_61", "Object_63", "trigger_crossbow_0", "stick_crossbow_0", "puller_crossbow_0", "loader_crossbow_0"], gun: "Object_61",
     clips: { fire: [0, 3], reload: [3, 62], inspect: [62, 109], idle: [109, 136] } },   // the bolt leaves at 0-3; cocked 24-35, the new bolt laid 51-60; inspect not played
+  // ---- MG13: the minigun (DJMaesen GLB, one 6 s timeline: frames 0-144 at 24 fps after import); parts baked per frame
+  modern_minigun: { abs: true, src: MG13 + "minigun_animated.glb", tex: MG13, stat: "modern_minigun", normals: true, restFrame: 0, timeline: [0, 144],
+    keep: ["Object_70", "base_minigun_0", "barrels_minigun_0", "lid_minigun_0", "button_minigun_0", "mag_minigun_0", "bullet_minigun_0"],
+    rigidify: ["base_minigun_0", "barrels_minigun_0", "lid_minigun_0", "button_minigun_0", "mag_minigun_0", "bullet_minigun_0"], gun: "base_minigun_0",
+    clips: { fire: [0, 5], idle: [5, 48], reload: [48, 100], inspect: [100, 131] },   // fire: the barrels one step (60 deg); reload: the box out and in; inspect (raised, the button) not played
+    mats: { minigun: { albedo: "img0.png", mr: "img1.png", normal: "img2.png" }, arms: { albedo: "img3.png", mr: "img4.png", normal: "img5.png", ...ng2Arms } } },
   // ---- XB1: the user's MP5 (local-only; weapon modern_mp5 through content/weapons/local/modern_mp5.json): the fps-animated-smg timeline
   modern_mp5_local: { abs: true, wid: "modern_mp5", src: MP5N + "source/arms@mp5.fbx", tex: MP5N, stat: "modern_mp5_local",
     keep: ["armmesh", "mp5_body", "mp5_receiver_barrel", "mp5_handguard_grip", "mp5_stock", "mp5_attachments", "mp5_charginghandle", "mp5_mag"],
