@@ -361,6 +361,7 @@ public:
     bool treePxLod = true;       // treepxlod (CP2): model foliage LOD and cull by projected pixels, a dithered cross-fade band, capped at the weather's cull distance
     bool impostorBC = true;      // impostorbc (CP3c): impostor atlases block-compressed on a worker (BC3 / BC5) and cached on disk; off: RGBA8, baked every load
     bool impostors = true;       // impostors (CP3): model trees under ~170 px tall drawn as octahedral impostors (12 x 12 frames)
+    bool overcastSun = true;     // overcastsun (Lighting New): Overcast / Cloudy (ids 0-1, not preset rows) dim the direct sun by 0.95 x the cloud mix (share 45 % -> ~4 %, under the 5 % gate): no sun shadows under a closed deck (it measured Clear's 45 %)
     bool dustVis = true;         // dustvis: dust presets see at least 260 m (Sandstorm was 100 m: figures dark silhouettes from 15 m, gone by 40-60 m); bots' sight follows
     bool vegDust = true;         // vegdust (WS4): grass and cut-out model plants take a dust coating under the dust presets (st.dustVisM)
     bool pollen = true;          // pollen (WS3): drifting pollen motes over grass on dry, mild days (count 0.75 x leafDriftN)
@@ -466,7 +467,7 @@ public:
               // One line per stream, each followed by a comment line, so two streams appending names no longer conflict in merges.
               : n == "tnormal" ? &terrainNormals : n == "tmorph" ? &terrainMorph : n == "tskyview" ? &terrainSkyView : n == "ttilelod" ? &terrainTileLod : n == "thorizon" ? &terrainHorizon
               // ^ stream T (terrain): append to the line above
-              : n == "contactsh" ? &contactShadow : n == "fullshadow" ? &fullShadow : n == "gtao" ? &gtao : n == "midcascade" ? &midCascade : n == "microsh" ? &microShadow : n == "foltrans" ? &folTrans : n == "agx" ? &agx : n == "histexpo" ? &histExpo : n == "skyrelit" ? &skyRelit : n == "atmo" ? &atmo : n == "reflprobe" ? &reflProbe : n == "wxexpo" ? &wxExpo : n == "nightdark" ? &nightDark : n == "roomdark" ? &roomDark : n == "dustvis" ? &dustVis
+              : n == "contactsh" ? &contactShadow : n == "fullshadow" ? &fullShadow : n == "gtao" ? &gtao : n == "midcascade" ? &midCascade : n == "microsh" ? &microShadow : n == "foltrans" ? &folTrans : n == "agx" ? &agx : n == "histexpo" ? &histExpo : n == "skyrelit" ? &skyRelit : n == "atmo" ? &atmo : n == "reflprobe" ? &reflProbe : n == "wxexpo" ? &wxExpo : n == "nightdark" ? &nightDark : n == "roomdark" ? &roomDark : n == "dustvis" ? &dustVis : n == "overcastsun" ? &overcastSun
               // ^ stream L (lighting): append to the line above
               : n == "specaa" ? &specAA : n == "texbias" ? &texBias : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps : n == "splitsum" ? &splitSum : n == "albclamp" ? &albClamp : n == "wabs" ? &wAbs : n == "wet" ? &wet : n == "microdetail" ? &microDetail : n == "wearcause" ? &wearCause : n == "steeptri" ? &steepTri : n == "absfar" ? &absFar : n == "layerblend" ? &layerBlend : n == "reach" ? &reach : n == "instvar" ? &instVar : n == "ssrclamp" ? &ssrClamp : n == "pudrelief" ? &pudRelief : n == "masklib" ? &maskLib : n == "roughvar" ? &roughVar
               // ^ stream M (materials): append to the line above

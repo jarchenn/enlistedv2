@@ -575,6 +575,7 @@ void LightingPass::uniforms(Renderer& R, GLuint p) {
   glUniform1i(U(p, "uLShadow"), 16); glBindTextureUnit(16, L.atlasTex ? L.atlasTex : L.dummyShadow);
   glUniform4f(U(p, "uLShadowTile"), (float)kTile, 6.0f * kTile, (float)std::max(1, L.atlasSlots) * kTile, 0);
   glUniform1f(U(p, "uLampUnit"), kLampUnit);
+  { static const int dbg = std::getenv("NMK_LAMP_DEBUG") ? 1 : 0; glUniform1i(U(p, "uLampDbg"), dbg); }
   bool gi = on && L.giAvail && (L.cas[0].on || L.cas[1].on);
   glUniform1i(U(p, "uGiOn"), gi ? 1 : 0);
   int nc = 0; vec4 grid[2]{}; ivec4 org[2]{}, dim[2]{};
@@ -1014,6 +1015,8 @@ void lightingTodColors(const Renderer& R, vec3& sun, vec3& sky, vec3& ground, ve
 void lightingUniforms(Renderer& R, GLuint p) { LightingPass::uniforms(R, p); }
 void lightingExposure(const Renderer& R, GLuint p) { LightingPass::exposureUniforms(R, p); }
 float lightingFixedExposure(const Renderer& R) { return LightingPass::fixedExposure(R); }
+float lightingExpoMaxNow() { return L.tod.expoMax; }   // logs: the time of day's meter ceiling in force (after nightdark)
+float lightingExpoKeyNow() { return L.tod.expoKey; }
 
 // ============================================================== presets, read-back, app hook
 float todPresetHour(TodPreset p) { return p == TodPreset::Dusk ? 18.6f : p == TodPreset::Night ? 0.0f : p == TodPreset::Dawn ? 5.0f : kDayHour; }

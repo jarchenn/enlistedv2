@@ -640,6 +640,7 @@ uniform mat4 uViewM;                   // camera view matrix
 uniform sampler2DShadow uLShadow;      // unit 16: light shadow atlas (standard Z)
 uniform vec4 uLShadowTile;             // tile px, atlas w, atlas h
 uniform float uLampUnit;               // irradiance at 1 m of intensity 1 (scene units; the Day sun is 3.3)
+uniform int uLampDbg;                  // NMK_LAMP_DEBUG=1: the headlamp's light drawn as flat green (does it reach the shader at all)
 uniform int uCapture;                  // L2 probe capture: radiance + front-facing flag, no emission (FX1: declared here for lightTerm)
 float lightFalloff(float d2, float r){ float x = d2/(r*r); float w = clamp(1.0 - x*x, 0.0, 1.0); return w*w/max(d2, 0.09); }
 float lightShadow(int slot, bool spot, vec3 w, vec3 Ng, vec3 lp, vec3 L){
@@ -674,6 +675,7 @@ void lightTerm(int i, vec3 w, vec3 N, vec3 Ng, vec3 V, float a, float rough, vec
   if (att <= 0.0) return;
   if (l.misc.y >= 0.0) att *= lightShadow(int(l.misc.y + 0.5), l.misc.z > 0.5, w, Ng, l.posR.xyz, L);
   vec3 E = l.colI.rgb*(uLampUnit*att*NdL);
+  if (uLampDbg == 1 && l.misc.w > 0.5) { dif += vec3(0.0, 50.0, 0.0)*min(att*4.0, 1.0); return; }
   dif += E;
   if (a > 0.0) {
     vec3 H = normalize(V + L); float NdV = max(dot(N, V), 1e-3), NdH = max(dot(N, H), 0.0);
@@ -5499,6 +5501,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform3fv(U(p, "uSkyZen"), 1, glm::value_ptr(zen)); glUniform3fv(U(p, "uSkyHor"), 1, glm::value_ptr(hor));
   { vec3 sk = hor / vec3(0.80f, 0.84f, 0.87f); glUniform3fv(U(p, "uSkyK"), 1, glm::value_ptr(sk)); }
   glUniform3fv(U(p, "uSkySun"), 1, glm::value_ptr(skySun)); glUniform3fv(U(p, "uSkySunCol"), 1, glm::value_ptr(skySunCol));
+  if (perf.overcastSun && q.lightNew && !q.legacy && !thumbMode && !wx.der.phys && wx.k > 0.0f) { sun *= 1.0f - 0.95f * wx.k; skySunCol *= 1.0f - 0.95f * wx.k; }   // overcastsun: Cloudy / Overcast (not preset rows) dim the direct sun, so its share falls under the cascades' gate: no sun shadows under a closed deck
   if (v.underwater && !thumbMode) { sun *= vec3(0.22f, 0.38f, 0.40f); sky *= vec3(0.45f, 0.75f, 0.80f); ground *= vec3(0.45f, 0.75f, 0.80f); }   // swim.cpp: light filtered by the water above
   glUniform3fv(U(p, "uSunCol"), 1, glm::value_ptr(sun)); if (p == progMain) { lastSunCol = sun; lastSkyCol = sky; }   // CP4 froxel inject; BF Yref
   { const vec3 lw(0.2126f, 0.7152f, 0.0722f); float d = glm::dot(sun, lw) * std::max(sunDir.y, 0.0f) / 3.14159265f, a = glm::dot(sky, lw);
@@ -7516,7 +7519,10 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     static const bool expoLog = std::getenv("NMK_EXPO_LOG") != nullptr; static double lastLog = -1;
     if ((expoLog || glProbeFrames > 0) && time - lastLog >= 1.0) {   // reads the previous frame's result (stalls: logs only)
       lastLog = time; float e[4] = {0, 0, 0, 0}; glGetTextureImage(expoTex[expoIdx], 0, GL_RGBA, GL_FLOAT, sizeof e, e);
-      logf("exposure: %.3f (metered luminance %.4f, p98 %.3f), floor %.2f, preset %d fixedMul %.2f keyMul %.2f, sun %.2f, indoor %d, enclosed %d", e[0], e[2], e[1], wxFloor, wx.der.preset, wx.der.fixedMul, wx.der.keyMul, physSunY, camIndoor ? 1 : 0, wx.enclosed ? 1 : 0);
+      const vec3 lw(0.2126f, 0.7152f, 0.0722f); extern float lightingExpoMaxNow(); extern float lightingExpoKeyNow();
+      logf("exposure: %.3f (metered luminance %.4f, p98 %.3f), floor %.2f, ceiling %.2f, key %.3f, preset %d fixedMul %.2f keyMul %.2f, sun %.2f; key light on a level surface %.4f (key height %.2f), sky %.4f, indoor %d, enclosed %d",
+           e[0], e[2], e[1], wxFloor, lightingExpoMaxNow(), lightingExpoKeyNow(), wx.der.preset, wx.der.fixedMul, wx.der.keyMul, physSunY,
+           glm::dot(lastSunCol, lw) * std::max(sunDir.y, 0.0f) / 3.14159265f, sunDir.y, glm::dot(lastSkyCol, lw), camIndoor ? 1 : 0, wx.enclosed ? 1 : 0);
     }
   }
   if (perf.fxExpo && wx.der.flash > 0.01f) expoFreezeUntil = std::max(expoFreezeUntil, time + 0.3f);   // lightning is not metered (each flash closed 3 stops/s, reopened 0.9: a storm ratcheted the scene dark)
