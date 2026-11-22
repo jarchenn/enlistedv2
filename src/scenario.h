@@ -21,8 +21,9 @@ enum class GameMode : int { Assault = 0, Solo = 1, TDM = 2, BattleRoyale = 3, Se
 inline const char* gameModeName(GameMode m) { return m == GameMode::Solo ? "Solo" : m == GameMode::TDM ? "Team Deathmatch" : m == GameMode::BattleRoyale ? "Battle royale" : m == GameMode::SearchDestroy ? "Search and Destroy" : "Assault"; }
 inline bool teamMode(GameMode m) { return m == GameMode::TDM || m == GameMode::SearchDestroy; }   // two persistent teams (Match slot.team 0 / 1)
 inline bool ffaMode(GameMode m) { return m == GameMode::Solo || m == GameMode::BattleRoyale; }   // every soldier its own team
-enum class AiType : int { Soldiers = 0, Zombies = 1, ZombiesHeavies = 2, Brutes = 3, RetiredA = 4, Operators = 5, RetiredB = 6, Spiders = 7, Creatures = 8, Knights = 9, RetiredE = 10, RetiredC = 11, RetiredD = 12, Abominations = 13, Golems = 14, Boglords = 15, Troopers = 16, Robots = 17, RetiredF = 18, Desert = 19, Delta = 20, Allied = 21, RetiredG = 22, SS = 23, Mechs = 24, AlliedPara = 25, Knights2 = 26, Knights3 = 27, Knights4 = 28, Knights5 = 29 };   // EN1: 2 mixes the enemy types by weight; 3 brutes (trolls; was "Heavies", trolls and spiders), 7 spiders (stalkers), 8 creatures; 4 retired (RM1); 5 soldiers in operator bodies; 6 retired (RM1); CH1: 9-12 the knight, animatronic, alien, alien_queen types (the last three local-only: a zombie without them)
-constexpr int kAiTypeCount = 30;   // KN4 / KN5: 28 Knight 4 (zweihander), 29 Knight 5 (battle axe): melee, zombie.json 'knight4' / 'knight5' (committed models). aiTypes is an int mask: 31 types at most
+enum class AiType : int { Soldiers = 0, Zombies = 1, ZombiesHeavies = 2, Brutes = 3, RetiredA = 4, Operators = 5, RetiredB = 6, Spiders = 7, Creatures = 8, Knights = 9, RetiredE = 10, RetiredC = 11, RetiredD = 12, Abominations = 13, Golems = 14, Boglords = 15, Troopers = 16, Robots = 17, RetiredF = 18, Desert = 19, Delta = 20, Allied = 21, RetiredG = 22, SS = 23, Mechs = 24, AlliedPara = 25, Knights2 = 26, Knights3 = 27, Knights4 = 28, Knights5 = 29, Knights6 = 30 };   // EN1: 2 mixes the enemy types by weight; 3 brutes (trolls; was "Heavies", trolls and spiders), 7 spiders (stalkers), 8 creatures; 4 retired (RM1); 5 soldiers in operator bodies; 6 retired (RM1); CH1: 9-12 the knight, animatronic, alien, alien_queen types (the last three local-only: a zombie without them)
+constexpr int kAiTypeCount = 31;   // KN6: 30 Knight 6 (sallet, breastplate, sword, Polish shield; zombie.json 'knight6', committed). The aiTypes mask is 64-bit (KN6): 63 types at most
+//   // KN4 / KN5: 28 Knight 4 (zweihander), 29 Knight 5 (battle axe): melee, zombie.json 'knight4' / 'knight5' (committed models). (KN6: the mask widened to 64 bits)
 //   // KN3: 27 Knight 3 (melee: zombie.json 'knight3', the flail / winged helm / Roman shield knight; local-only model, Knight 1 without it)
 //   // KN2: 26 Knight 2 (melee: zombie.json 'knight2', the mace / frog-helm / round-shield knight; local-only model, Knight 1 without it); 9 shown as "Knight 1"
 //   // WS1: 25 Allied paratroopers (soldier brain, the Allied clip body with the game's guns in stored per-gun holds: pose.cpp gripPose)
@@ -32,10 +33,10 @@ constexpr int kAiTypeCount = 30;   // KN4 / KN5: 28 Knight 4 (zweihander), 29 Kn
 //   // SW1: 16 / 17 blaster troopers and robot commandos (soldier brain, kit bodies and blasters; combat.json kits)
 //   // CH3 / CH4: 13-15 the abomination, golem, boglord types (local-only: a zombie without them)
 inline const char* aiTypeName(AiType t) {
-  static const char* n[kAiTypeCount] = {"Soldiers", "Zombies", "Zombies + heavies", "Brutes", "(retired)", "Operators", "(retired)", "Spiders", "Creatures", "Knight 1", "(retired)", "(retired)", "(retired)", "Abominations", "Golems", "Boglords", "Blaster troopers", "Robot commandos", "(retired)", "Desert soldiers", "FSB operator", "Allied soldiers", "(retired)", "SS soldiers", "Mechs", "Allied paratroopers", "Knight 2", "Knight 3", "Knight 4", "Knight 5"};
+  static const char* n[kAiTypeCount] = {"Soldiers", "Zombies", "Zombies + heavies", "Brutes", "(retired)", "Operators", "(retired)", "Spiders", "Creatures", "Knight 1", "(retired)", "(retired)", "(retired)", "Abominations", "Golems", "Boglords", "Blaster troopers", "Robot commandos", "(retired)", "Desert soldiers", "FSB operator", "Allied soldiers", "(retired)", "SS soldiers", "Mechs", "Allied paratroopers", "Knight 2", "Knight 3", "Knight 4", "Knight 5", "Knight 6"};
   return n[std::clamp((int)t, 0, kAiTypeCount - 1)];
 }
-inline int aiBit(AiType t) { return 1 << (int)t; }   // FSB1: slot 20 (AiType::Delta, kit 4) is shown as "FSB operator" and wears skin_fsb (same slot / LAN bit: saves naming Delta Force load as it)
+inline int64_t aiBit(AiType t) { return int64_t(1) << (int)t; }   // KN6: 64-bit (31 types and more)   // FSB1: slot 20 (AiType::Delta, kit 4) is shown as "FSB operator" and wears skin_fsb (same slot / LAN bit: saves naming Delta Force load as it)
 // RM1: slots 4 and 6 were removed enemy types; kept empty so later types keep their numbers (saved setups, LAN bits).
 // Loading a setup turns them into Zombies (ScenarioRules::fromJson); menus skip them.
 // RM2 (the user, 2026-11-21): 10 animatronics (the clown), 11 aliens, 12 alien queens, 18 / 22 gas-mask soldiers 1 / 2 removed the same way;
@@ -43,7 +44,7 @@ inline int aiBit(AiType t) { return 1 << (int)t; }   // FSB1: slot 20 (AiType::D
 inline bool aiTypeRetired(int t) { return t == (int)AiType::RetiredA || t == (int)AiType::RetiredB || t == (int)AiType::RetiredC || t == (int)AiType::RetiredD || t == (int)AiType::RetiredE || t == (int)AiType::RetiredF || t == (int)AiType::RetiredG; }
 inline AiType aiTypeRetiredTo(int t) { return t == (int)AiType::RetiredF || t == (int)AiType::RetiredG ? AiType::Soldiers : AiType::Zombies; }
 // a side's k-th AI plays the (k mod n)-th of its n ticked types (an empty mask counts as Soldiers)
-inline AiType aiTypeFor(int mask, int k) {
+inline AiType aiTypeFor(int64_t mask, int k) {
   int n = 0; for (int t = 0; t < kAiTypeCount; ++t) n += (mask >> t) & 1;
   if (!n) return AiType::Soldiers;
   k %= n; for (int t = 0; t < kAiTypeCount; ++t) if ((mask >> t) & 1 && k-- == 0) return (AiType)t;
@@ -52,7 +53,7 @@ inline AiType aiTypeFor(int mask, int k) {
 // AI3: a side's next AI with per-type counts: the type furthest behind its share, so the types come out mixed in
 // proportion (40 / 5 / 200 / 1 interleave, and more AI than counted keep the proportions). `given` counts what this side
 // has handed out so far. No counts (rules before AI3): the ticked types in turn, as aiTypeFor.
-inline AiType aiTypeNext(const int* count, int mask, int* given) {
+inline AiType aiTypeNext(const int* count, int64_t mask, int* given) {
   int sum = 0, n = 0; for (int t = 0; t < kAiTypeCount; ++t) { sum += std::max(0, count[t]); n += given[t]; }
   AiType a = aiTypeFor(mask, n);
   if (sum > 0) {
@@ -140,7 +141,7 @@ struct ScenarioRules {
   int royalePlayers = 30;         // BR1 battle royale: combatants in all (humans + AI), 10..kMaxCombatants (AI2; was 100)
   int teamPlayers[2] = {8, 8};    // TDM: combatants per team (humans + AI)
   int heavyTrollPct[2] = {35, 35};   // EN3: the troll share of the old AI type Heavies; unused since Brutes / Spiders are their own types (kept in the rules JSON)
-  int aiTypes[2] = {1, 1};        // per team, the ticked AI types (aiBit mask; Assault: [Defender], [Attacker]); Solo uses [0]
+  int64_t aiTypes[2] = {1, 1};    // per team, the ticked AI types (aiBit mask; Assault: [Defender], [Attacker]); Solo uses [0]
   // AI3: per team, how many AI of each type (the setup window's typed counts; the team / player totals above are
   // derived from them plus the humans). All 0: the pre-AI3 rules, aiTypes taken in turn (aiTypeNext)
   int aiCount[2][kAiTypeCount] = {};
