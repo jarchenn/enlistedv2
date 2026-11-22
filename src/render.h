@@ -404,7 +404,7 @@ public:
     bool midCache = true;        // midcache (CP4): High / Ultra mid cascade = a cached static layer + movers redrawn every frame (was all of it every 2nd frame)
     bool skyVisWall = true;      // skyviswall (CP4): on walls the top-down sky occlusion counts an occluder by ~2 m / its height above (no full-height stripes under dormers)
     bool nightDark = true;       // nightdark (Lighting New): at full night ceiling 10 (was 5 on a daylit night), key 0.11 -> 0.07, moonlight x0.6, sky / fill x0.8, no night gamma lift, scotopic blue-grey 0.65
-    bool roomDark = true;        // roomdark (Lighting New): indoors the meter opens to 3 by day (was 8), not past the night's ceiling by night, and aims 0.6 x the key
+    bool roomDark = true;        // roomdark (Lighting New): indoors the meter opens to 3 by day (was 8), not past the night's ceiling by night; it aims 0.2 x the key by day (0.6 at night), and by day the occluded fill floor is x0.4 (window light and lamps carry the room)
     bool indoorExpo = true;      // indoorexpo (CP4): inside a room exposure is metered and may open ~3 stops past the day range
     bool roomLights = true;      // roomlights (CP4): interior / fire lamps in big rooms reach and light x sqrt(floor area / 60 m2), 1..3
     bool cascade4 = false;       // cascade4 (CP4, default off: no visible gain in 5 test views - the band 240-600 m holds only buildings; vegetation stays in the 2 nearest cascades, terrain uses the horizon map): High / Ultra: a fourth sun cascade (the old far range) and the far one out to ~600 m

@@ -559,7 +559,7 @@ void LightingPass::exposureUniforms(const Renderer& R, GLuint p) {
   const float inMax = roomDark ? glm::mix(L.tod.expoMax, std::max(L.tod.expoMax * wxRoom, 3.0f), sunUp) : std::max(L.tod.expoMax * wxRoom, 8.0f);
   const bool inRoom = R.camIndoor && R.perf.indoorExpo && !R.thumbMode;
   glUniform1f(U(p, "uExpoMax"), inRoom ? inMax : L.tod.expoMax * wxRoom);
-  const float inKey = inRoom && roomDark ? 0.6f : 1.0f;
+  const float inKey = inRoom && roomDark ? glm::mix(0.6f, 0.2f, sunUp) : 1.0f;   // by day 0.2 (rooms measured ~60 sRGB wall to wall at 0.6), by night 0.6 as measured good
   glUniform1f(U(p, "uExpoKey"), inKey * L.tod.expoKey * (R.thumbMode || R.wx.enclosed ? 1.0f : R.wx.der.phys ? R.wx.der.keyMul : glm::mix(1.0f, R.perf.w2Expo && snowLayerOn() ? 1.2f : 0.72f, R.wx.k)));   /* WX2: Cloudy is darker (auto exposure would otherwise lift it back) */ glUniform1f(U(p, "uExpoMin"), L.tod.expoMin);
 }
 
