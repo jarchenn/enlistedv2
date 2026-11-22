@@ -10,7 +10,7 @@
 #include <cmath>
 
 namespace {
-struct FlashCfg { float inner = 22, outer = 40, intensity = 0.9f, radius = 12, up = 0.07f, fwd = 0.12f, shadowNear = 0.25f, expoHold = 30; vec3 color{0.80f, 0.86f, 0.95f}; };
+struct FlashCfg { float inner = 22, outer = 40, intensity = 0.9f, radius = 12, up = 0.07f, fwd = 0.12f, shadowNear = 0.25f, expoHold = 30, tilt = 8; vec3 color{0.80f, 0.86f, 0.95f}; };
 const FlashCfg& cfg() {
   static FlashCfg c; static bool loaded = false;
   if (loaded) return c;
@@ -19,7 +19,7 @@ const FlashCfg& cfg() {
     json j = json::parse(readTextFile(contentDir() / "settings" / "flashlight.json"));
     c.inner = j.value("innerDeg", c.inner); c.outer = std::max(j.value("outerDeg", c.outer), c.inner + 1.0f);
     c.intensity = j.value("intensity", c.intensity); c.radius = j.value("radius_m", c.radius);
-    c.up = j.value("up_m", c.up); c.fwd = j.value("forward_m", c.fwd); c.shadowNear = j.value("shadowNear_m", c.shadowNear); c.expoHold = j.value("expoHold_s", c.expoHold);
+    c.up = j.value("up_m", c.up); c.fwd = j.value("forward_m", c.fwd); c.shadowNear = j.value("shadowNear_m", c.shadowNear); c.expoHold = j.value("expoHold_s", c.expoHold); c.tilt = j.value("tiltDeg", c.tilt);
     if (j.contains("color") && j["color"].is_array() && j["color"].size() == 3) c.color = vec3(j["color"][0].get<float>(), j["color"][1].get<float>(), j["color"][2].get<float>());
   } catch (...) {}
   return c;
@@ -38,10 +38,11 @@ void flashlightAppFrame(App& app) {
   else R.flashExpoFloor *= std::exp(-app.frameDt / std::max(1.0f, c.expoHold));
   R.flashOn = true;
   const bool fp = app.mode == Mode::Explore;   // else a self-test's editor view: from its camera
-  vec3 f = fp ? App::forward(app.eyeYaw, app.eyePitch) : App::forward(app.camYaw, app.camPitch);
+  vec3 f = fp ? App::forward(app.eyeYaw, app.eyePitch) : App::forward(app.camYaw, app.camPitch);   // the view's forward: the lamp rides at the forehead
+  const vec3 aim = fp ? App::forward(app.eyeYaw, std::max(app.eyePitch - c.tilt, -89.0f)) : App::forward(app.camYaw, std::max(app.camPitch - c.tilt, -89.0f));   // the beam tilted down (a head-torch's angle): level gaze lights the ground ahead, not only the far street
   LightDesc d;
   d.pos = (fp ? app.eyePos() : app.camPos) + vec3(0, c.up, 0) + f * c.fwd;   // the forehead
-  d.dir = f; d.radius = c.radius; d.color = c.color; d.intensity = c.intensity;
+  d.dir = aim; d.radius = c.radius; d.color = c.color; d.intensity = c.intensity;
   d.cosInner = std::cos(radians(c.inner * 0.5f)); d.cosOuter = std::cos(radians(c.outer * 0.5f));
   d.shadow = 1; d.id = kFlashlightLightId;
   R.lights.push_back(d);
