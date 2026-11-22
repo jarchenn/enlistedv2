@@ -1685,7 +1685,9 @@
         1,
         1
       ],
-      "hp": 1500,
+      "hp": 600,
+    "horse_hp": 1000,
+    "horse_zones": [["BN_Pelvis_060_066", "BN_Spine_03_05_05", 0.33], ["BN_Neck_00_06_06", "BN_Neck_03_012_012", 0.17], ["BN_Head_00_016_015", "BN_Head_01_029_028", 0.14], ["BN_L_Thing_051_054", "BN_L_Calf_052_055", 0.13], ["BN_L_Calf_052_055", "BN_L_HorseLink_053_056", 0.08], ["BN_L_HorseLink_053_056", "BN_L_Foot_054_057", 0.06], ["BN_R_Thing_056_060", "BN_R_Calf_057_061", 0.13], ["BN_R_Calf_057_061", "BN_R_HorseLink_058_062", 0.08], ["BN_R_HorseLink_058_062", "BN_R_Foot_00_063", 0.06], ["BN_L_UpperArm_039_040", "BN_l_Forearm_040_041", 0.1], ["BN_l_Forearm_040_041", "BN_L_Hand_041_042", 0.06], ["BN_R_UpperArm_044_046", "BN_R_Forearm_045_047", 0.1], ["BN_R_Forearm_045_047", "BN_R_Hand_046_048", 0.06]],
       "damage": 90,
       "reach_m": 2.0,
       "lunge_m": 0,
@@ -1723,11 +1725,11 @@
         "Knight_Tpose",
         "knight_props"
       ],
-      "note": "HK2: the killing hit's kind (s.lastHow) decides: these bring the horse down (the rider's legs hang at its flanks, below the saddle), any other gun hit shoots the rider off (death clips). After horse_death the horse stays as a corpse (the rider's meshes hidden) and the slot goes on as Knight 10 on foot under foot_at (the materials session's spawn point: the rider's hips at the end, glTF), facing the same way"
+      "note": "HK3: with horse_hp the pool that runs out decides (kinds unused). HK2 (no horse_hp): the killing hit's kind (s.lastHow) decides: these bring the horse down (the rider's legs hang at its flanks, below the saddle), any other gun hit shoots the rider off (death clips). After horse_death the horse stays as a corpse (the rider's meshes hidden) and the slot goes on as Knight 10 on foot under foot_at (the materials session's spawn point: the rider's hips at the end, glTF), facing the same way"
     },
     "capsule_radius_m": 0.8,
       "block_radius": 0.4,
-      "note": "HK1: Knight 10 on the armoured horse (content/characters/knight_10_mounted.glb: the materials session's horse + rider pair merged into one skin by tools/enemies/horse_merge.py; E:/nmk/horse/export). One body for horse and rider (one hp, the rider's hit zones x1.3, a 0.8 m capsule, the player pushed out to 0.75 m). It gallops at the enemy (gallop_scan, 7 m/s within 60 m); the charge strikes ahead on the couched spear (tip sphere at frame 23 of attack_charge); the right-side thrust (attack_right, first thrust, frame 23) turns the whole horse 44 deg left of the target (face_deg) so the target is on the rider's right, where the spear goes. Not used: attack_pivot_left (the engine-side yaw curve), the second right thrust (behind-right). Death (HK1b): rider_death (the rider falls back and right off the horse, which goes on idling: its corpse stands); no hit-reaction clip: it does not flinch. The materials session's 1024-texture export (E:/nmk/horse/export, horse-knight e89032d3)",
+      "note": "HK1: Knight 10 on the armoured horse (content/characters/knight_10_mounted.glb: the materials session's horse + rider pair merged into one skin by tools/enemies/horse_merge.py; E:/nmk/horse/export). HK3: the horse and the rider have their own health (horse_hp 1000, hp 600 the rider's): a bullet hits whichever it meets first (horse_zones: capsules on the horse's joints; the rider's own zones x1.3), melee lands on the horse, a blast / shell / fire / vehicle hurts both; the horse at 0 plays horse_death and the knight goes on foot with the rider's health left, the rider at 0 plays rider_death. One movement body (a 0.8 m capsule, the player pushed out to 0.75 m). It gallops at the enemy (gallop_scan, 7 m/s within 60 m); the charge strikes ahead on the couched spear (tip sphere at frame 23 of attack_charge); the right-side thrust (attack_right, first thrust, frame 23) turns the whole horse 44 deg left of the target (face_deg) so the target is on the rider's right, where the spear goes. Not used: attack_pivot_left (the engine-side yaw curve), the second right thrust (behind-right). Death (HK1b): rider_death (the rider falls back and right off the horse, which goes on idling: its corpse stands); no hit-reaction clip: it does not flinch. The materials session's 1024-texture export (E:/nmk/horse/export, horse-knight e89032d3)",
       "clips": {
         "walk": [
           "walk"

@@ -26,6 +26,7 @@ static_assert(sizeof(kSemanticNames) / sizeof(kSemanticNames[0]) == CJ_COUNT, "t
 #include <cmath>
 #include <cstdlib>
 #include <set>
+#include <array>
 
 bool gMechRobot = true;  // mechrobot (Renderer::perf, set each frame by App): AI type Mechs spawns the KR-714 robot soldier (kit 12); off = the melee mech (zombie.json "mech")
 bool gHorseKnight = true;   // horseknight (Renderer::perf, set each frame by App): AI type Mounted Knight = Knight 10 on the horse; off = on foot
@@ -93,6 +94,8 @@ const ZombieCfg& zcfg() {
           if (h.contains("foot_at") && h["foot_at"].is_array() && h["foot_at"].size() == 3) t.footAt = vec3(h["foot_at"][0].get<float>(), h["foot_at"][1].get<float>(), h["foot_at"][2].get<float>());
           strs(h, "kinds", t.horseKinds); strs(h, "hide", t.corpseHide);
         }
+        t.horseHp = std::max(0.0f, e.value("horse_hp", 0.0f));   // HK3
+        for (auto& z : e.value("horse_zones", json::array())) if (z.is_array() && z.size() == 3) t.horseZones.push_back({z[0].get<std::string>(), z[1].get<std::string>(), z[2].get<float>()});
         t.capsuleH = e.value("capsule_height_m", t.capsuleH); t.capsuleR = e.value("capsule_radius_m", t.capsuleR);
         t.climbM = e.value("climb_m", t.climbM); t.stepGap = e.value("step_gap_m", t.stepGap);
         t.knock = e.value("knockback_mps", t.knock); t.staggerMin = e.value("stagger_min_damage", t.staggerMin); t.staggerS = e.value("stagger_s", t.staggerS);
@@ -635,6 +638,42 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
   crumb("zombie: move"); A->move(s, dt);
 }
 
+// HK3: the ray a + d t (0 <= t <= maxT) against the horse's capsules (json horse_zones, on its posed joints): the first entry t
+float aiHorseHit(const Game& G, const Soldier& s, vec3 a, vec3 d, float maxT) {
+  const EnemyType& e = typeOf(s);
+  if (e.horseZones.empty() || s.model < 0 || s.model >= (int)G.models.size() || s.pose.delta.empty()) return -1;
+  {   // coarse: a sphere round the horse
+    vec3 c = s.feet + vec3(0, 1.1f, 0), w = c - a; float tc = glm::clamp(glm::dot(w, d), 0.0f, maxT);
+    if (glm::length(a + d * tc - c) > 2.6f * s.eScale) return -1;
+  }
+  const CharModel& m = *G.models[s.model];
+  static std::map<const CharModel*, std::vector<std::array<int, 2>>> idx;   // the zones' joint indices per model
+  auto it = idx.find(&m);
+  if (it == idx.end()) {
+    std::vector<std::array<int, 2>> v;
+    auto jn = [&](const std::string& n) { for (int k = 0; k < (int)m.jointNode.size(); ++k) if (m.nodeName[m.jointNode[k]] == n) return k; return -1; };
+    for (auto& z : e.horseZones) v.push_back({jn(z.a), jn(z.b)});
+    it = idx.emplace(&m, v).first;
+  }
+  float best = -1;
+  for (size_t q = 0; q < e.horseZones.size(); ++q) {
+    const int ja = it->second[q][0], jb = it->second[q][1];
+    if (ja < 0 || jb < 0 || ja >= (int)s.pose.delta.size() || jb >= (int)s.pose.delta.size()) continue;
+    vec3 A = vec3(s.world * s.pose.delta[ja] * vec4(m.jointHead[ja], 1)), B = vec3(s.world * s.pose.delta[jb] * vec4(m.jointHead[jb], 1));
+    float r = e.horseZones[q].r * s.eScale;
+    // closest points of the ray segment and the capsule's axis
+    vec3 u = B - A, w0 = a - A; float uu = glm::dot(u, u), du = glm::dot(d, u), dw = glm::dot(d, w0), uw = glm::dot(u, w0), den = uu - du * du;
+    float t = den > 1e-8f ? (du * uw - uu * dw) / den : -dw, tc = glm::clamp(t, 0.0f, maxT);
+    float sc = uu > 1e-8f ? glm::clamp((uw + du * tc) / uu, 0.0f, 1.0f) : 0.0f;
+    tc = glm::clamp(glm::dot(A + u * sc - a, d), 0.0f, maxT);
+    float dist = glm::length(a + d * tc - (A + u * sc));
+    if (dist > r) continue;
+    float th = std::max(0.0f, tc - std::sqrt(r * r - dist * dist));   // entering the capsule (taken square to the ray)
+    if (best < 0 || th < best) best = th;
+  }
+  return best;
+}
+
 // HK2: a dead mounted knight (host). The death kind decides once: a blast, shell, flame, burn, vehicle, melee or a hit on the
 // rider's legs (they hang at the horse's flanks, below the saddle) brings the horse down (json horse_death.kinds); anything else
 // shoots the rider off (the type's death clips). At the end of the horse death the horse stays as a corpse (its skin held at the
@@ -643,7 +682,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
 void aiZombieDead(Game& G, Soldier& s) {
   const EnemyType& e = typeOf(s);
   if (e.horseDeathClip.empty() || s.model < 0 || s.model >= (int)G.models.size() || s.mountDeath >= 2) return;
-  if (s.mountDeath < 0) s.mountDeath = std::find(e.horseKinds.begin(), e.horseKinds.end(), s.lastHow) != e.horseKinds.end() ? 1 : 0;
+  if (s.mountDeath < 0) s.mountDeath = e.horseHp > 0 ? 0 : std::find(e.horseKinds.begin(), e.horseKinds.end(), s.lastHow) != e.horseKinds.end() ? 1 : 0;   // HK3: with its own horse health a death not marked by damage() is the rider's
   if (s.mountDeath != 1) return;
   const CharModel& m = *G.models[s.model]; const int k = findClip(m, e.horseDeathClip.c_str()); const int ft = enemyTypeIndex(e.footType);
   if (k < 0 || ft < 0) { s.mountDeath = 2; return; }
@@ -660,7 +699,7 @@ void aiZombieDead(Game& G, Soldier& s) {
   if (s.ciReady) s.ci.destroy(); s.ciReady = false;
   s.etype = ft; s.mountDeath = -1; aiZombieAssign(G, s);
   const EnemyType& f = enemyType(ft);
-  s.feet = at; s.alive = true; s.flat = false; s.hp = f.hp; s.killer = -1; s.staggerUntil = 0; s.posture = Physics::STAND; s.lastHow.clear();
+  s.feet = at; s.alive = true; s.flat = false; s.hp = e.horseHp > 0 && s.riderHpKeep > 0 ? std::min(f.hp, s.riderHpKeep) : f.hp; s.horseHp = 0; s.killer = -1;   // HK3: the rider's health left s.staggerUntil = 0; s.posture = Physics::STAND; s.lastHow.clear();
   s.meleeWind = -1; s.meleeReady = G.t + 0.5; s.poseFrom = -1; ++s.lifeId;
   if (s.agent >= 0) Physics::destroyAgent(s.agent);
   s.agent = f.capsuleH > 0 ? Physics::createAgent(at, f.capsuleH, f.capsuleR) : Physics::createAgent(at);
@@ -769,7 +808,8 @@ int ar1SelfCheck() {
     chk(k2 >= 0 && sh2, "archer2 (AR2) with the same longbow shot"); }
   { int km = enemyTypeIndex("knight10m"); bool side = false; if (km >= 0) for (auto& a : enemyType(km).attackSpecs) side = side || (a.clip == "attack_right" && a.faceDeg == 44 && a.hasAt);
     chk(km >= 0 && side, "knight10m (HK1): the right thrust faces 44 deg past its target, its sphere on the spear tip");
-    chk(km >= 0 && enemyType(km).horseDeathClip == "horse_death" && enemyTypeIndex(enemyType(km).footType) >= 0 && !enemyType(km).horseKinds.empty() && !enemyType(km).corpseHide.empty(), "knight10m (HK2): horse_death goes on foot as a known type"); }
+    chk(km >= 0 && enemyType(km).horseDeathClip == "horse_death" && enemyTypeIndex(enemyType(km).footType) >= 0 && !enemyType(km).horseKinds.empty() && !enemyType(km).corpseHide.empty(), "knight10m (HK2): horse_death goes on foot as a known type");
+    chk(km >= 0 && enemyType(km).horseHp > 0 && enemyType(km).horseZones.size() >= 10, "knight10m (HK3): the horse's own health and hit capsules"); }
   for (float D : {5.0f, 10.0f, 25.0f, 45.0f}) {
     vec3 from(0, 1.45f, 0), aim(0, 1.3f, -D), p = from, v = arrowAim(from, aim, 55.0f) * 55.0f; float best = 1e9f; const float h = 1.0f / 120;
     for (int i = 0; i < 600 && p.z > -D - 2; ++i) { vec3 q = p + v * h; float t = glm::clamp(glm::dot(aim - p, q - p) / std::max(1e-9f, glm::dot(q - p, q - p)), 0.0f, 1.0f); best = std::min(best, glm::length(p + (q - p) * t - aim)); p = q; v.y -= 9.81f * h; }

@@ -11,6 +11,7 @@ void aiZombieLoopsStop(class App& app);   // SND2: stop every enemy "loop" sound
 int aiZombieModel(Game& g, int type = 0, int variant = 0);  // the character of enemy type `type`, its variant-th model (EN1; -1: none)
 void aiZombieAssign(Game& g, Soldier& s);                  // EN1: model, draw scale, lean and body size for s.etype (the zombie rig when its own model is unusable)
 void aiZombiePose(Game& g, struct Soldier& s, float dt);
+float aiHorseHit(const Game& g, const Soldier& s, vec3 a, vec3 d, float maxT);   // HK3: where a ray meets the mounted knight's horse capsules (< 0: no hit)
 void aiZombieDead(Game& g, Soldier& s);   // HK2 (host): a dead mounted knight: the horse death decided, then the knight on foot at its end
 void gunBodyPose(Game& g, struct Soldier& s, float dt);
 vec3 weaponPartCentre(const struct WeaponDef& d, int role, vec3 def);   // DF1 gunbody.cpp: the centre of a gun's parts of one WPart role (weapon space; def without any)
