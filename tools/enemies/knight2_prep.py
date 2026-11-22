@@ -37,7 +37,7 @@ for an in J['animations']:
             a['min'] = [float(x) for x in V.min(0)]; a['max'] = [float(x) for x in V.max(0)]
 J['asset'].setdefault('extras', {}).update({'nmkNormals': True,
     'credits': 'Knight (Final) by Daniel Gryningstjerna (sketchfab.com/dangry), Chevalier Sword by rubenve (sketchfab.com/rubenve), '
-               'Medieval Shield by SethSantos (sketchfab.com/Seth7Santos): CC-BY-4.0; clips: Mixamo sword and shield pack; assembled by the user'})
+               'Medieval Shield by Seth Santos (sketchfab.com/Seth7Santos): CC-BY-4.0; the sword after a concept by Guillem Dauden; clips: Adobe Mixamo; assembled by the user'})
 js = json.dumps(J, separators=(',', ':')).encode(); js += b' ' * (-len(js) % 4)
 BIN += b'\0' * (-len(BIN) % 4)
 out = b'glTF' + struct.pack('<II', 2, 12 + 8 + len(js) + 8 + len(BIN)) + struct.pack('<I', len(js)) + b'JSON' + js + struct.pack('<I', len(BIN)) + b'BIN\0' + bytes(BIN)

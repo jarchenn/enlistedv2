@@ -1,5 +1,5 @@
 {
- "note": "knight2: the Knights type (AI type 9) on the user's sword-and-shield knight (content/characters/knight_ss.glb, local-only: tools/enemies/knight2_prep.py). Replaces the 'knight' entry of content/ai/zombie_local.json. 'legacy' is the Brother Knight entry as it was: perf switch knight2 off applies it (at the next table load).",
+ "note": "knight2: the Knights type (AI type 9) on the user's sword-and-shield knight (content/characters/knight_ss.glb, committed: tools/enemies/knight2_prep.py; credits in docs/credits.md). The same entry is in content/ai/zombie.json (it wins over an old 'knight' in zombie_local.json). 'legacy' is the Brother Knight entry as it was: perf switch knight2 off applies it (at the next table load).",
  "id": "knight", "name": "Knight", "model": "knight_ss", "height_m": 1.9, "scale": 1, "lean_deg": 0, "tint": [1, 1, 1],
  "hp": 600, "damage": 60, "reach_m": 2.0, "lunge_m": 1.0, "cooldown_s": 1.2, "windup_s": 0.5, "attack_rate": 1.0,
  "walk_mps": 1.5, "run_mps": 3.8, "run_within_m": 12, "weight": 0, "hit_zone_scale": 1.1, "knockback_mps": 3,

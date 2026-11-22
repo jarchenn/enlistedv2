@@ -357,6 +357,148 @@
       "fallback_scale": 1.3,
       "fallback_lean_deg": 0,
       "note": "NA1: AI type Mechs: RobotExpressive (Tomas Laulhe / Quaternius, CC0 1.0, via three.js examples) with the user's robot_animations clips retargeted (tools/bake_gunbody.py --retarget --rig robotx) and the model's own Death; content/characters/mech.glb local-only (the clips' licence not stated): without it the plain zombie at 1.3 x"
+    },
+    {
+      "note": "knight2: AI type Knights (9) on the user's sword-and-shield knight (content/characters/knight_ss.glb, tools/enemies/knight2_prep.py; credits in docs/credits.md); this entry wins over an old 'knight' in zombie_local.json. 'legacy' (perf switch knight2 off, at the next table load): the Brother Knight (content/characters/knight.glb, local-only; without it the plain zombie)",
+      "id": "knight",
+      "name": "Knight",
+      "model": "knight_ss",
+      "height_m": 1.9,
+      "scale": 1,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 600,
+      "damage": 60,
+      "reach_m": 2.0,
+      "lunge_m": 1.0,
+      "cooldown_s": 1.2,
+      "windup_s": 0.5,
+      "attack_rate": 1.0,
+      "walk_mps": 1.5,
+      "run_mps": 3.8,
+      "run_within_m": 12,
+      "weight": 0,
+      "hit_zone_scale": 1.1,
+      "knockback_mps": 3,
+      "stagger_min_damage": 120,
+      "stagger_s": 0.7,
+      "explosive_mult": 2,
+      "clips": {
+        "walk": [
+          "sword and shield walk"
+        ],
+        "run": "sword and shield run",
+        "idle": [
+          "sword and shield idle",
+          "sword and shield idle (4)"
+        ],
+        "attack": [
+          "sword and shield slash",
+          "sword and shield slash (3)",
+          "sword and shield slash (5)",
+          "sword and shield attack (4)"
+        ],
+        "damage": [
+          "sword and shield impact",
+          "sword and shield impact (2)",
+          "sword and shield impact (3)",
+          "sword and shield block"
+        ],
+        "death": [
+          "sword and shield death",
+          "sword and shield death (2)"
+        ]
+      },
+      "sounds": {
+        "attack": "knightattack",
+        "contact": "knightattackcontact",
+        "death": "knightdeath"
+      },
+      "attack_dust": false,
+      "head_mult": 4,
+      "attacks": [
+        {
+          "clip": "sword and shield slash",
+          "joint": "RightHand",
+          "extend": 0.75,
+          "radius": 0.6
+        },
+        {
+          "clip": "sword and shield slash (3)",
+          "joint": "RightHand",
+          "extend": 0.75,
+          "radius": 0.6
+        },
+        {
+          "clip": "sword and shield slash (5)",
+          "joint": "RightHand",
+          "extend": 0.75,
+          "radius": 0.6
+        },
+        {
+          "clip": "sword and shield attack (4)",
+          "joint": "RightHand",
+          "extend": 0.75,
+          "radius": 0.6
+        }
+      ],
+      "legacy": {
+        "model": "knight",
+        "height_m": 1.95,
+        "reach_m": 2.2,
+        "lunge_m": 1.5,
+        "cooldown_s": 1.4,
+        "attack_rate": 1.6,
+        "walk_mps": 1,
+        "run_mps": 1.8,
+        "clips": {
+          "walk": [
+            "walk"
+          ],
+          "run": "walk",
+          "idle": [
+            "idle"
+          ],
+          "attack": [
+            "attack_slam",
+            "attack_spin",
+            "attack_bash",
+            "attack_charge"
+          ],
+          "damage": [
+            "damage"
+          ],
+          "death": [
+            "death"
+          ]
+        },
+        "attacks": [
+          {
+            "clip": "attack_slam",
+            "joint": "RightHand",
+            "radius": 1
+          },
+          {
+            "clip": "attack_spin",
+            "joint": "RightHand",
+            "radius": 1
+          },
+          {
+            "clip": "attack_charge",
+            "joint": "RightHand",
+            "radius": 1
+          },
+          {
+            "clip": "attack_bash",
+            "joint": "LeftHand",
+            "radius": 0.9
+          }
+        ]
+      }
     }
   ]
 }
