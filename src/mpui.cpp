@@ -467,7 +467,7 @@ void MpUi::setupWindow(App& app) {
       }
       ImGui::EndTable();
     }
-    int m = 0; for (int k = 0; k < kAiTypeCount; ++k) if (c[k] > 0) m |= 1 << k;
+    int64_t m = 0; for (int k = 0; k < kAiTypeCount; ++k) if (c[k] > 0) m |= int64_t(1) << k;
     if (m) R.aiTypes[side] = m;   // the ticks follow the counts (older readers of the rules)
     ImGui::PopID();
   };

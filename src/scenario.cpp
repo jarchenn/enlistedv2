@@ -90,7 +90,7 @@ ScenarioRules ScenarioRules::fromJson(const json& j, int version) {
   if (j.contains("teamPlayers") && j["teamPlayers"].is_array() && j["teamPlayers"].size() == 2)
     for (int t = 0; t < 2; ++t) r.teamPlayers[t] = std::clamp(j["teamPlayers"][t].get<int>(), 1, kMaxCombatants / 2);
   if (j.contains("aiTypes") && j["aiTypes"].is_array() && j["aiTypes"].size() == 2)
-    for (int t = 0; t < 2; ++t) { int m = j["aiTypes"][t].get<int>() & ((1 << kAiTypeCount) - 1); r.aiTypes[t] = m ? m : 1; }
+    for (int t = 0; t < 2; ++t) { int64_t m = j["aiTypes"][t].get<int64_t>() & ((int64_t(1) << kAiTypeCount) - 1); r.aiTypes[t] = m ? m : 1; }
   else if (j.contains("aiType") && j["aiType"].is_array() && j["aiType"].size() == 2)   // before the checklist: one type per side (0..3)
     for (int t = 0; t < 2; ++t) r.aiTypes[t] = aiBit((AiType)std::clamp(j["aiType"][t].get<int>(), 0, 3));
   if (j.contains("aiCount") && j["aiCount"].is_array() && j["aiCount"].size() == 2)   // AI3 (older rules: none, the ticked types in turn)
@@ -99,7 +99,7 @@ ScenarioRules ScenarioRules::fromJson(const json& j, int version) {
   for (int t = 0; t < 2; ++t) {   // RM1 / RM2: a setup naming a removed type: its AI become plain soldiers (gas masks) or plain zombies
     for (int k = 0; k < kAiTypeCount; ++k) if (aiTypeRetired(k) && ((r.aiTypes[t] >> k & 1) || r.aiCount[t][k] > 0)) {
       const AiType to = aiTypeRetiredTo(k);
-      r.aiCount[t][(int)to] += r.aiCount[t][k]; r.aiCount[t][k] = 0; r.aiTypes[t] &= ~(1 << k); r.aiTypes[t] |= aiBit(to);
+      r.aiCount[t][(int)to] += r.aiCount[t][k]; r.aiCount[t][k] = 0; r.aiTypes[t] &= ~(int64_t(1) << k); r.aiTypes[t] |= aiBit(to);
       logf("scenario: side %d named a removed AI type (slot %d): those AI are %s", t, k, aiTypeName(to));
     }
   }
