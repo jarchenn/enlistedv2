@@ -1024,6 +1024,18 @@ The user sent three animated first-person rigs, none with a licence stated (cred
 - **Hands at the idle frame:** the Sten's and PKM's both touch the gun. The MG 42's left hand is 1.9 cm off the drum (the source's own pose).
 - **The PKM:** 7.62x54R, a 100-round box (`762r_box100`, 6 in the mixed crate), 650 rpm, 825 m/s, 9.6 g; damage a step above the M249's, the M249's handling (bipod rule), arms grip and recordings (plus a synthetic fallback `shot_pkm`). Battle Royale counts it as 7.62. Its third-person model is the rig's gun at rest (`pkm_local`, via `--import-weapon-models`). Net version 38.
 
+### KR1: the Kar98k and Kar98k ZF39 on first-person arms (local-only)
+
+The user asked for the hands from the Kar98k reload previews (`E:/nmk/boltguns/kar.blend`, `kar_s.blend`: the M24's arms carrying the Kar98k, built by `boltgun_preview.py`) to hold the rifle in the game, aimed too. Both are now animated rigs (`kar98k_rig_local`, `kar98k_zf39_rig_local`, perf `karrig`; off = the static rifles with the generated arms).
+
+- **Prep** (`E:/nmk/kf2/rig/kar_prep.py`):
+  - The rifle's fixed pieces are joined into `kar_body`. The bolt (`KF_c_low`), the top round and the props (rounds, stripper clip, cases) stay separate.
+  - The sights are measured on the rifle: the front post's tip is inside its hood. The ZF39 uses the tube's axis instead.
+  - The preview camera tilts 22 deg down in the reloads to watch the hands. That tilt goes into the rig (a root bone over the arms, an empty over the rifle and props), and the hip framing is the preview camera's (`hipRear`).
+- **Clips:** idle = frame 1 held. Fire 1-49 is the shot and the bolt cycle, with the right hand on the knob; `fireArms` lets the fire clip move the arms. Reload 62-156 loads two single rounds. The empty reload is 171-259 with a stripper clip (Kar98k) or 171-331 with five single rounds (ZF39: the scope blocks the clip guide).
+- **Bake:** `hideScale` shrinks a prop to nothing on the frames the preview hid it (it keys `hide_render`).
+- **Aimed:** `ads.eyeRelief` 0.34 (local) puts the eye behind the bolt, over the shroud, as in the user's reference clip. At 0.2 it sat inside the cocking piece.
+
 ### FR6: rig playtest fixes from the game's own checks
 
 - **"Slightly transparent" (`--check-vm1`, every rig failed the world-blacked test).** The tonemap's UI2 microcontrast scales each pixel against HDR mip 3. Those mips are built before the effects and before the first-person weapon is drawn (`fxMipDone`), so on a gun pixel the local mean is the world behind it, and the gun went lighter or darker with the background. VM2 masked only the bloom. Perf **`vmmask`** (default on) skips microcontrast where the weapon's distance mask is set; off = as before. The user's settings have microcontrast 0.23 (TAA, temporal upscaling, SSR); presets with it at 0 never showed this.

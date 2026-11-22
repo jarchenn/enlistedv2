@@ -60,10 +60,10 @@ if rig:
     if arm.animation_data is None or arm.animation_data.action is None: raise SystemExit("MG1 no armature action")
     fa, fb = cfg["timeline"]
     objs = [bpy.data.objects[n] for n in rig]
-    W, A = {o.name: {} for o in objs}, {}
+    W, A, Hd = {o.name: {} for o in objs}, {}, {o.name: {} for o in objs}
     for f in range(fa, fb + 1):
         sc.frame_set(f); A[f] = arm.matrix_world.copy()
-        for o in objs: W[o.name][f] = o.matrix_world.copy()
+        for o in objs: W[o.name][f] = o.matrix_world.copy(); Hd[o.name][f] = cfg.get("hideScale", False) and o.hide_render   # KR1: keyed visibility
     nrm = lambda m: Matrix.LocRotScale(m.to_translation(), m.to_quaternion(), None)
     bpy.context.view_layer.objects.active = arm; bpy.ops.object.mode_set(mode="EDIT")
     for o in objs:
@@ -74,6 +74,7 @@ if rig:
         pb = arm.pose.bones["gun_" + o.name]; pb.rotation_mode = "QUATERNION"
         for f in range(fa, fb + 1):
             pb.matrix = nrm(A[f].inverted() @ W[o.name][f])
+            if Hd[o.name][f]: pb.scale = (1e-4, 1e-4, 1e-4)   # KR1 "hideScale": a prop hidden at this frame (the preview keys hide_render) shrinks to nothing on its bone
             for p in ("location", "rotation_quaternion", "scale"): pb.keyframe_insert(p, frame=f)
     for o in objs:   # bind: the mesh in world space at the rest frame, weight 1 on its bone
         o.animation_data_clear()

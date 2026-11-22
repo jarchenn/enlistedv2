@@ -313,6 +313,17 @@ const A = {
   // ---- STR1: the Sten on the same fps-animated-smg rig (tools/sten_rig_prep.py: the MP5 meshes swapped for the Sten's parts; local-only, weapon sten)
   // ---- FR5: the user's Sten (a NIF/KF conversion, clips laid on one timeline by E:/nmk/fr5/sten_prep.py), MG 42 and PKM rigs (one 12.17 s take, cut by
   // the motion: E:/nmk/fr5/motion2.py, checked by eye); local-only (no licence stated); sights measured on each gun's mesh (E:/nmk/fr5/pin3.py)
+  // ---- KR1: the Kar98k and the Kar98k ZF39 on the M24's first-person arms (the user's boltgun previews: E:/nmk/boltguns/kar(_s).blend by
+  // boltgun_preview.py, prepared by E:/nmk/kf2/rig/kar_prep.py: the rifle's fixed pieces joined, the sights measured on it, the preview camera's 22 deg tilt in the reloads moved into the rig, hipRear = the preview camera's framing); the bolt cycle,
+  // the reload not empty, the reload empty (iron: a stripper clip; scoped: five single rounds); local-only (the rifle model's licence unknown)
+  kar98k_rig_local: { abs: true, maxTex: 2048, wid: "kar98k", src: path.resolve(process.env.KAR_RIG || "E:/nmk/kf2/rig/kar_prep.blend"), tex: "C:/Users/50bmg/Documents/MapMaker/incoming/modern_guns/sniper-animated",
+    srcPoints: {"rear": [-0.016627, 0.125702, 0.406185], "front": [-0.022733, 0.137966, 0.958372], "muzzle": [-0.01978, 0.119138, 0.980074], "up": [-0.025736, 0.180845, 0.40486]}, srcScale: 0.8938291, hipRear: [0.1348, 0.5286, -0.0774], glbRest: true, normals: true, hideScale: true,
+    keep: ["armmesh", "kar_body", "KF_c_low", "KF_ROUND", "round0", "round1", "round2", "round3", "round4", "STRIP", "CASES"], rigidify: ["kar_body", "KF_c_low", "KF_ROUND", "round0", "round1", "round2", "round3", "round4", "STRIP", "CASES"], gun: "kar_body", timeline: [1, 273],
+    clips: { idle: [1, 1], fire: [1, 49], reload: [62, 156], reload_empty: [171, 259] }, mats: { arms: c4dArms() } },
+  kar98k_zf39_rig_local: { abs: true,   /* rear / front: the ZF39 tube's axis (eyepiece, objective) */ maxTex: 2048, wid: "kar98k_zf39", src: path.resolve(process.env.KARS_RIG || "E:/nmk/kf2/rig/kar_s_prep.blend"), tex: "C:/Users/50bmg/Documents/MapMaker/incoming/modern_guns/sniper-animated",
+    srcPoints: {"rear": [-0.018989, 0.14824, 0.067879], "front": [-0.022373, 0.155038, 0.373929], "muzzle": [-0.01978, 0.119138, 0.980074], "up": [-0.028098, 0.203384, 0.066553]}, srcScale: 0.8938291, hipRear: [0.1368, 0.2255, -0.0659], glbRest: true, normals: true, hideScale: true,
+    keep: ["armmesh", "kar_body", "KF_c_low", "KF_ROUND", "round0", "round1", "round2", "round3", "round4"], rigidify: ["kar_body", "KF_c_low", "KF_ROUND", "round0", "round1", "round2", "round3", "round4"], gun: "kar_body", timeline: [1, 345],
+    clips: { idle: [1, 1], fire: [1, 49], reload: [62, 156], reload_empty: [171, 331] }, mats: { arms: c4dArms() } },
   sten2_rig_local: { abs: true, maxTex: 4096, wid: "sten", src: path.resolve(process.env.STEN2_RIG || "E:/nmk/fr5/out/sten_e75.glb"), tex: "E:/nmk/fr5/tex_sten",
     srcPoints: {"rear": [0.054571, -0.052215, -0.034556], "front": [0.054521, -0.052137, -0.350166], "muzzle": [0.060793, -0.082596, -0.53034], "up": [0.044019, -0.001128, -0.034541]}, srcScale: 0.9585012, glbRest: true, normals: true, hipRear: [0.124, 0.30, -0.09],
     keep: ["FPS_Arms", "Frame:0", "Trigger:0", "##PowerCellAssembly:0", "##riotMechanism:0"], rigidify: ["Frame:0", "Trigger:0", "##PowerCellAssembly:0", "##riotMechanism:0"], gun: "Frame:0", timeline: [1, 234],

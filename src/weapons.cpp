@@ -138,7 +138,7 @@ void App::buildWeaponMeshes() {
     if (f.filename() == "handling.json" || f.filename() == "overrides_user.json") continue;   // ED2: the user's overrides patch the weapons below
     json j;
     try { j = json::parse(readTextFile(f)); } catch (...) { continue; }
-    if (fs::path lp = f.parent_path() / "local" / f.filename(); fs::exists(lp) && !(f.stem() == "modern_mp5" && !R.perf.mp5New) && !(f.stem() == "sten" && !R.perf.sten2Rig) && !(f.stem() == "mg42" && !R.perf.mg42Rig) && !(f.stem() == "pkm" && !R.perf.pkmRig)) {   // FR5: sten2rig / mg42rig / pkmrig off keep the committed views   // XB1: mp5new off keeps the committed MP5   // SW1: a local-only override (git-ignored content/weapons/local/<file>): names, model, sights
+    if (fs::path lp = f.parent_path() / "local" / f.filename(); fs::exists(lp) && !(f.stem() == "modern_mp5" && !R.perf.mp5New) && !(f.stem() == "sten" && !R.perf.sten2Rig) && !(f.stem() == "mg42" && !R.perf.mg42Rig) && !(f.stem() == "pkm" && !R.perf.pkmRig) && !((f.stem() == "kar98k" || f.stem() == "kar98k_zf39") && !R.perf.karRig)) {   // KR1 karrig   // FR5: sten2rig / mg42rig / pkmrig off keep the committed views   // XB1: mp5new off keeps the committed MP5   // SW1: a local-only override (git-ignored content/weapons/local/<file>): names, model, sights
       try { j.merge_patch(json::parse(readTextFile(lp))); } catch (std::exception& e) { logf("weapons: %s: %s (ignored)", lp.string().c_str(), e.what()); }
     }
     {   // ED2: the user's stat overrides (the menu's Guns screen): the weapon keys; _damage / _handling go to their tables
