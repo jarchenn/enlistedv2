@@ -25,7 +25,8 @@ class FlameSys {
 public:
   // every frame the nozzle `key` is open (-1: the local player, else a roster slot): emits parcels for `dt`
   // bore: the gun's own bore direction in the player's view (zero for other nozzles): a flame tongue follows it for the look
-  void spray(App& app, int key, int weapon, vec3 origin, vec3 dir, float dt, bool damage, vec3 bore = vec3(0));
+  // rangeM / coneDeg > 0: instead of the weapon's flame range / cone (DR1: the dragon's breath on the M2's parcels)
+  void spray(App& app, int key, int weapon, vec3 origin, vec3 dir, float dt, bool damage, vec3 bore = vec3(0), float rangeM = 0, float coneDeg = 0);
   void step(App& app, float dt);                       // parcels, patches, particles, sound (App::stepProjectiles)
   void gatherLights(std::vector<LightDesc>& out) const; // lights.cpp lightsGather: a moving light per open nozzle
   void clear(App* app);
