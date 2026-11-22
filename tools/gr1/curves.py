@@ -2,8 +2,10 @@
 import json, math, numpy as np, sys
 R = sys.argv[1]
 T = json.load(open(R + '/track.json')); P = json.load(open(R + '/track3.json')); C = json.load(open(R + '/track2.json'))
-F_VM = 540 / math.tan(math.radians(30))   # our view-model projection at 1080p (vmFov 60)
-F_W = 540 / math.tan(math.radians(29))    # our ADS world projection (worldFov 58)
+W = json.load(open(sys.argv[2])) if len(sys.argv) > 2 else {}   # m1_garand.json: the ADS projections the curve is drawn in
+VMF = W.get('ads', {}).get('vmFov', 0) or 60; WF = W.get('ads', {}).get('worldFov', 58)
+F_VM = 540 / math.tan(math.radians(VMF / 2))   # our view-model projection at 1080p
+F_W = 540 / math.tan(math.radians(WF / 2))     # our ADS world projection
 D0, SR = 0.124, 1.0728 - 0.3712           # eye relief to the peep that gives the reference's 467 px knob-to-knob at 1080p; sight radius
 DK = D0 - 0.0102                          # the knobs' near faces (what the scale tracker follows) are 10.2 mm in front of the peep
 OFF = (-14.0, -104.0)

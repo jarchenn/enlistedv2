@@ -30,7 +30,7 @@ for p in M['parts']:
 L = (front - rear).normalized()
 q = L.rotation_difference(Vector((0, 0, 1))); Q = Quaternion((0, 1, 0), math.pi) @ q
 P0 = Vector((0, 0, -relief)) - Q @ rear
-cam = bpy.data.cameras.new('c'); cam.sensor_fit = 'VERTICAL'; cam.angle = math.radians(60); cam.clip_start = 0.01
+cam = bpy.data.cameras.new('c'); cam.sensor_fit = 'VERTICAL'; cam.angle = math.radians(W['ads'].get('vmFov') or 60); cam.clip_start = 0.01
 co = bpy.data.objects.new('c', cam); sc.collection.objects.link(co); sc.camera = co   # at the origin looking down -z, +y up: view space
 sun = bpy.data.lights.new('s', 'SUN'); sun.energy = 3.0; so = bpy.data.objects.new('s', sun); so.rotation_euler = (math.radians(50), 0, math.radians(-30)); sc.collection.objects.link(so)
 sc.world = bpy.data.worlds.new('w'); sc.world.use_nodes = True; sc.world.node_tree.nodes['Background'].inputs['Strength'].default_value = 0.6
