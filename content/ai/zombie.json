@@ -26,6 +26,8 @@
     "anim_hz_far": 7.5,
     "share_pose_m": 60
   },
+  "assorted_note": "AK1: AI type Assorted Knights: each slot one of these types by weight (archers about a quarter of the mix: 3.33 of 13.33); a type whose model file is missing (the local-only knight_v2, knight_3, archer_2) is left out. The Mounted Knight is not in the mix",
+  "assorted": [["knight", 1], ["knight2", 1], ["knight3", 1], ["knight4", 1], ["knight5", 1], ["knight6", 1], ["knight7", 1], ["knight8", 1], ["knight9", 1], ["knight10", 1], ["archer1", 1.67], ["archer2", 1.67]],
   "types": [
     {
       "id": "zombie",

@@ -36,6 +36,7 @@ float zLenXZ(vec3 v) { return glm::length(vec2(v.x, v.z)); }
 struct ZombieCfg {
   float repath = 0.5f, flinch = 0.6f;
   std::vector<EnemyType> types;   // EN1: [0] the plain zombie
+  std::vector<std::pair<std::string, float>> assorted;   // AK1 json "assorted": [[type id, weight]]: AI type Assorted Knights' mix
   // PF1 packs and LOD
   bool packs = true; int packMin = 20, packSize = 8; float join = 35, breakOff = 4, spacing = 1.6f, leaderPace = 0.9f, catchUp = 1.25f;
   float sepR = 1.3f, sepGain = 2.0f, align = 0.35f, lost = 18;
@@ -108,6 +109,7 @@ const ZombieCfg& zcfg() {
         t.runClip = cl.value("run", t.runClip); t.climbClip = cl.value("climb", t.climbClip); strs(cl, "damage", t.damageClips); strs(cl, "death", t.deathClips);
         c.types.push_back(t);
       }
+      for (auto& a : j.value("assorted", json::array())) if (a.is_array() && a.size() == 2) c.assorted.push_back({a[0].get<std::string>(), std::max(0.0f, a[1].get<float>())});   // AK1
       json p = j.value("pack", json::object());
       c.packs = p.value("on", c.packs); c.packMin = p.value("min_zombies", c.packMin); c.packSize = std::clamp(p.value("size", c.packSize), 2, 16);
       c.join = p.value("join_m", c.join); c.breakOff = p.value("break_off_m", c.breakOff); c.spacing = p.value("slot_spacing_m", c.spacing);
@@ -370,6 +372,20 @@ const std::vector<EnemyType>& enemyTypes() { return zcfg().types; }
 void zombieCfgReload() { gZLoaded = false; }   // UI3: from App::reloadGameplayDefs (the menu only, never mid-match)
 const EnemyType& enemyType(int k) { const auto& T = zcfg().types; return T[std::clamp(k, 0, (int)T.size() - 1)]; }
 int enemyTypeIndex(const std::string& id) { const auto& T = zcfg().types; for (int k = 0; k < (int)T.size(); ++k) if (T[k].id == id) return k; return -1; }
+// AK1: AI type Assorted Knights: a type from zombie.json "assorted" by weight, deterministic per slot (host and LAN clients agree);
+// a type whose model file is missing is left out of the draw
+int enemyTypeAssortedPick(uint32_t seed) {
+  std::vector<std::pair<int, float>> P; float tot = 0;
+  for (auto& [id, w] : zcfg().assorted) {
+    int k = enemyTypeIndex(id); if (k < 0 || w <= 0) continue;
+    if (!fs::exists(contentDir() / "characters" / (enemyType(k).model + ".glb"))) continue;
+    P.push_back({k, w}); tot += w;
+  }
+  if (P.empty()) return std::max(0, enemyTypeIndex("knight"));
+  float u = ((seed * 2654435761u) >> 8) / 16777216.0f * tot;
+  for (auto& [k, w] : P) { u -= w; if (u < 0) return k; }
+  return P.back().first;
+}
 int enemyTypePick(uint32_t seed) {
   const auto& T = zcfg().types;
   float tot = 0; for (auto& t : T) tot += t.weight;
@@ -810,6 +826,8 @@ int ar1SelfCheck() {
     chk(km >= 0 && side, "knight10m (HK1): the right thrust faces 44 deg past its target, its sphere on the spear tip");
     chk(km >= 0 && enemyType(km).horseDeathClip == "horse_death" && enemyTypeIndex(enemyType(km).footType) >= 0 && !enemyType(km).horseKinds.empty() && !enemyType(km).corpseHide.empty(), "knight10m (HK2): horse_death goes on foot as a known type");
     chk(km >= 0 && enemyType(km).horseHp > 0 && enemyType(km).horseZones.size() >= 10, "knight10m (HK3): the horse's own health and hit capsules"); }
+  { int kn = 0, ar = 0; for (uint32_t sd = 0; sd < 400; ++sd) { const std::string& id = enemyType(enemyTypeAssortedPick(sd)).id; kn += id.rfind("knight", 0) == 0; ar += id.rfind("archer", 0) == 0; }
+    chk(kn + ar == 400 && ar > 40 && ar < 160, "assorted (AK1): 400 slots -> " + std::to_string(kn) + " knights, " + std::to_string(ar) + " archers"); }
   for (float D : {5.0f, 10.0f, 25.0f, 45.0f}) {
     vec3 from(0, 1.45f, 0), aim(0, 1.3f, -D), p = from, v = arrowAim(from, aim, 55.0f) * 55.0f; float best = 1e9f; const float h = 1.0f / 120;
     for (int i = 0; i < 600 && p.z > -D - 2; ++i) { vec3 q = p + v * h; float t = glm::clamp(glm::dot(aim - p, q - p) / std::max(1e-9f, glm::dot(q - p, q - p)), 0.0f, 1.0f); best = std::min(best, glm::length(p + (q - p) * t - aim)); p = q; v.y -= 9.81f * h; }

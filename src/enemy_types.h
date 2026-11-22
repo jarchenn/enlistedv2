@@ -67,5 +67,6 @@ extern bool gKnight2;                                // knight2 perf switch (zom
 const std::vector<EnemyType>& enemyTypes();          // never empty (the plain zombie at least)
 const EnemyType& enemyType(int k);                   // clamped
 int enemyTypeIndex(const std::string& id);          // -1: no such type
+int enemyTypeAssortedPick(uint32_t seed);           // AK1 AI type Assorted Knights: zombie.json "assorted" by weight (types without their model file left out)
 int enemyTypePick(uint32_t seed);                    // weighted pick over the types (Zombies + heavies)
 int enemyTypeHeavyPick(uint32_t seed, float trollShare);   // EN3 AI type Heavies: "brute" with that share, else "stalker" (by weight among the heavies without those ids)
