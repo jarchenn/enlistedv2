@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include "assets.h"
 #include <deque>
 #include "model.h"
@@ -25,6 +26,11 @@ struct WeaponDef {
   float hipSpreadMul = 1;   // MG13 json "hipSpreadMul": the class hip cone x this (the minigun from the hip)
   float spinUp = 0;   // MG13 json "spinUp" (s): the barrels spin this long with the trigger held before the first round (the minigun)
   float rpm = 60, velocity = 800, zero = 100, boltTime = 0, reloadEmpty = 2.5f, reloadPartial = 2.5f, reloadRound = 0.5f;
+  // KF1 measured fire motion (json "fireCurve": rows at fps from the shot; columns back, up, right m (the gun in camera
+  // space), roll deg (+ = counter-clockwise on screen), camPitch, camYaw deg (+ = up / left)): replaces the random aim
+  // recoil and the spring kick for this weapon; the camera's last row stays in the aim. boltDelay: s the rifle stays
+  // shouldered after the shot before the bolt is worked (boltTime then runs)
+  std::vector<std::array<float, 6>> fireCurve; float fireCurveFps = 30, boltDelay = 0;
   float rPitch = 1, rYaw = 0.4f, rRecover = 8 /*unused: recoil no longer recovers*/, rClimb = 0, rVisual = 0.05f, rSupported = 1;
   vec3 rear{0}, front{0}, muzzle{0}, scopeEye{0};
   bool hasScope = false, scopeIrons = false, laterWar = false;
@@ -104,6 +110,9 @@ struct WeaponDef {
   float vmBack = 0.035f, vmPitch = 1.6f, vmYaw = 0.35f, vmOmega = 28, vmBackMax = 0.07f, flashScale = 1, yawScale = 2;   // yawScale: WP4c the aim's per-shot horizontal jerk x recoil.yaw
   bool suppressed = false;              // a built-in suppressor: a tiny flash, no light
 };
+struct WeaponDef;
+// KF1: the fire curve at t s after the shot (linear between rows); false once past its last row (out = that row)
+bool fireCurveAt(const WeaponDef& d, float t, float out[6]);
 struct WeaponState {
   int loaded = 0;                 // rounds in the weapon, chamber included
   std::vector<int> containers;    // reserve: clips / magazines / belt segments, each with its own count
@@ -117,6 +126,7 @@ struct WeaponState {
   float recoilP = 0, recoilY = 0, kick = 0;
   float kickV = 0, kickP = 0, kickPV = 0, kickY = 0, kickYV = 0;
   float boltT = -1, boltK = 0;    // fxrecoil (7.5): the bolt carrier's second impulse, due boltT s after the shot (< 0: none)   // WP4 spring: kick (back, m) and its rate, muzzle up / left (deg) and rates
+  bool curveFolded = true;       // KF1: the fire curve's final camera offset is in the aim
   float sinceShot = 99;           // s since the last shot (a burst ends, and its recoil is folded into the aim, once firing has stopped)
   int shotIdx = 0, burst = 0, clipPings = 0;
   float flameFrac = 0;            // flamethrower: fuel used since the last whole percent

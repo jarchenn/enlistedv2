@@ -94,6 +94,11 @@ mat4 App::vmLocal(const WeaponDef& d, const WeaponState& s, bool withProcedural)
     vec3 piv = p + Q * Rp + vec3(0, -0.04f, 0.16f);
     m = glm::translate(mat4(1), piv) * glm::mat4_cast(glm::angleAxis(radians(s.kickY * rm), vec3(0, 1, 0)) * glm::angleAxis(radians(s.kickP * rm), vec3(1, 0, 0))) * glm::translate(mat4(1), -piv) * m;
   }
+  if (!d.fireCurve.empty() && !s.curveFolded) {   // KF1: the measured gun motion after a shot (camera space), rolling about the rear sight
+    float row[6]; fireCurveAt(d, s.sinceShot, row);
+    const vec3 piv = p + Q * Rp;
+    m = glm::translate(mat4(1), vec3(row[2], row[1], row[0]) * rm) * glm::translate(mat4(1), piv) * glm::mat4_cast(glm::angleAxis(radians(row[3] * rm), vec3(0, 0, 1))) * glm::translate(mat4(1), -piv) * m;
+  }
   if (d.equipment() || d.tool) m = m * equipmentPose(d, s);   // GM3: the hammer's swing too   // wind-up / throw / swing (procedural: no animations supplied)
   // reload / switch dip
   if (s.reload > 0 && s.reloadKind != 3) {
