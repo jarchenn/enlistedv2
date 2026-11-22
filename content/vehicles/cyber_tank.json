@@ -116,8 +116,13 @@
     ]
    ]
   },
-  "note": "Turret_Yaw / Barrel_Pitch are the nodes the file's Turret_Traverse_360 / Barrel_Elevation clips rotate; the code drives them. 5.735 m long as supplied, scaled to 7.5 m (a heavy hull).",
-  "centreRole": "body"
+  "note": "Turret_Yaw / Barrel_Pitch are the nodes the file's Turret_Traverse_360 / Barrel_Elevation clips rotate; the code drives them. 5.735 m long as supplied, scaled to 7.5 m (a heavy hull). animRootTravel: Drive_Forward carries the whole tank 7.859 m forward over its 5 s (measured on the bake); taken out at import, so one loop of the track / wheel clip = 7.859 m driven.",
+  "centreRole": "body",
+  "animRootTravel": [
+   0,
+   0,
+   7.859
+  ]
  },
  "rig": {
   "turretPivot": [
