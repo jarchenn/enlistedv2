@@ -102,10 +102,11 @@ std::shared_ptr<AnimVM> animVmLoad(const fs::path& dir, const json& block, std::
 float animVmClipDur(const AnimVM& a, const std::string& clip) { auto it = a.dur.find(clip); return it == a.dur.end() ? -1.0f : it->second; }
 
 // the GLB on first use; false (logged once) when it cannot be used: the static weapon is drawn instead
-static bool ensureLoaded(AnimVM& a, const WeaponDef& d) {
+static bool ensureLoaded(AnimVM& a, const WeaponDef& d, bool bcBig) {
   if (a.loaded || a.failed) return a.loaded;
   std::string err;
   a.model.wantNormals = true;   // WP2: a rig exported with a normal map (the Scorpion) draws it
+  a.model.bcBig = bcBig;        // FR3 rigbc: the 4096 px FR rig sets
   if (!a.model.load(a.glb, err, 0, false)) { a.failed = true; logf("weapon %s: animated viewmodel failed to load (%s): static model", d.id.c_str(), err.c_str()); return false; }
   for (int j = 0; j < a.model.joints(); ++j) if (a.model.nodeName[a.model.jointNode[j]] == a.gunJointName) a.gunJoint = j;
   for (int j = 0; j < a.model.joints(); ++j) if (!a.slideName.empty() && a.model.nodeName[a.model.jointNode[j]] == a.slideName) a.slideJoint = j;   // PS1
@@ -122,7 +123,7 @@ std::string animVmClipNow(const WeaponDef& d, float* time) {
 
 void animVmStep(App& app, const WeaponDef& d, WeaponState& s, float dt) {
   AnimVM& a = *d.anim;
-  if (!ensureLoaded(a, d)) { animVmNotActive(); return; }
+  if (!ensureLoaded(a, d, app.R.perf.rigBC)) { animVmNotActive(); return; }
   St& st = gSt[&d];
   if (!st.inst.model && !st.inst.create(a.model)) return;
   auto clip = [&](const std::string& n) { auto it = a.clip.find(n); return it == a.clip.end() ? -1 : it->second; };
@@ -224,7 +225,9 @@ bool animVmDraw(App& app, const WeaponDef& d) {
   mat4 rig = camNow(app) * st.local;
   const bool optic = fittedSight(d, app.wstate[d.id]) != 0;
   for (size_t k = 0; k < st.inst.view.parts.size(); ++k) {
-    if (std::find(d.anim->hideMeshes.begin(), d.anim->hideMeshes.end(), st.inst.view.parts[k].name) != d.anim->hideMeshes.end()) continue;   // AT5
+    const ModelPart& pk = st.inst.view.parts[k];
+    auto hidden = [&](const std::string& n) { return std::find(d.anim->hideMeshes.begin(), d.anim->hideMeshes.end(), n) != d.anim->hideMeshes.end(); };
+    if (hidden(pk.name) || (pk.mat >= 0 && pk.mat < (int)st.inst.view.mats.size() && hidden(st.inst.view.mats[pk.mat].name))) continue;   // AT5; FR3: or its material (a part of a merged mesh: the BAR's grip rod)
     if (optic && std::find(d.anim->ironMeshes.begin(), d.anim->ironMeshes.end(), st.inst.view.parts[k].name) != d.anim->ironMeshes.end()) continue;   // AT7: folded under the optic
     if (app.wstate[d.id].att[0] && std::find(d.anim->opticMeshes.begin(), d.anim->opticMeshes.end(), st.inst.view.parts[k].name) != d.anim->opticMeshes.end()) continue;   // AT8: the factory optic off
     app.R.viewModelTex.push_back({&st.inst.view, (int)k, rig});
