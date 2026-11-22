@@ -857,7 +857,7 @@
       ]
     },
     {
-      "note": "KN6: AI type Knight 6 (30): the knight's body and 51 sword-and-shield clips with an Italian sallet, a bevor, a breastplate over the chest pulled in, a shaved head under the visor, a 0.98 m sword and a Polish shield (content/characters/knight_6.glb: tools/enemies/knight_v6_parts.py + knight_v2_merge.py; credits in docs/credits.md). Strike: about 0.87 m of blade past the guard, the sphere on RightHand 0.65 m out with radius 0.45",
+      "note": "KN6: AI type Knight 6 (30): the knight's body and 51 sword-and-shield clips with an Italian sallet, a bevor, a breastplate over the chest pulled in, a shaved head under the visor, a 0.98 m sword and a Polish shield (content/characters/knight_6.glb: tools/enemies/knight_parts.py + knight_v2_merge.py; credits in docs/credits.md). Strike: about 0.87 m of blade past the guard, the sphere on RightHand 0.65 m out with radius 0.45",
       "id": "knight6",
       "name": "Knight 6",
       "model": "knight_6",
@@ -941,6 +941,95 @@
           "clip": "sword and shield attack (4)",
           "joint": "RightHand",
           "extend": 0.65,
+          "radius": 0.45
+        }
+      ]
+    },
+    {
+      "note": "KN7: AI type Knight 7 (31): the knight's body and 51 sword-and-shield clips with an ornamented great helm over a shaved head, a cuirass over the chest pulled in, a 0.70 m viking axe and a steel-recoloured Roman scutum (content/characters/knight_7.glb: tools/enemies/knight_parts.py knight7 + knight_v2_merge.py; credits in docs/credits.md). Strike: the axe head ~0.6 m from the fist, the sphere on RightHand 0.5 m out with radius 0.45",
+      "id": "knight7",
+      "name": "Knight 7",
+      "model": "knight_7",
+      "height_m": 1.9,
+      "scale": 1,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 600,
+      "damage": 60,
+      "reach_m": 2.0,
+      "lunge_m": 1.0,
+      "cooldown_s": 1.2,
+      "windup_s": 0.5,
+      "attack_rate": 1.0,
+      "walk_mps": 1.5,
+      "run_mps": 3.8,
+      "run_within_m": 12,
+      "weight": 0,
+      "hit_zone_scale": 1.1,
+      "knockback_mps": 3,
+      "stagger_min_damage": 120,
+      "stagger_s": 0.7,
+      "explosive_mult": 2,
+      "clips": {
+        "walk": [
+          "sword and shield walk"
+        ],
+        "run": "sword and shield run",
+        "idle": [
+          "sword and shield idle",
+          "sword and shield idle (4)"
+        ],
+        "attack": [
+          "sword and shield slash",
+          "sword and shield slash (3)",
+          "sword and shield slash (5)",
+          "sword and shield attack (4)"
+        ],
+        "damage": [
+          "sword and shield impact",
+          "sword and shield impact (2)",
+          "sword and shield impact (3)",
+          "sword and shield block"
+        ],
+        "death": [
+          "sword and shield death",
+          "sword and shield death (2)"
+        ]
+      },
+      "sounds": {
+        "attack": "knightattack",
+        "contact": "knightattackcontact",
+        "death": "knightdeath"
+      },
+      "attack_dust": false,
+      "head_mult": 4,
+      "attacks": [
+        {
+          "clip": "sword and shield slash",
+          "joint": "RightHand",
+          "extend": 0.5,
+          "radius": 0.45
+        },
+        {
+          "clip": "sword and shield slash (3)",
+          "joint": "RightHand",
+          "extend": 0.5,
+          "radius": 0.45
+        },
+        {
+          "clip": "sword and shield slash (5)",
+          "joint": "RightHand",
+          "extend": 0.5,
+          "radius": 0.45
+        },
+        {
+          "clip": "sword and shield attack (4)",
+          "joint": "RightHand",
+          "extend": 0.5,
           "radius": 0.45
         }
       ]
