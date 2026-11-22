@@ -178,7 +178,7 @@ float windGust(vec2 xz, bool prev){
   return max(0.0, 1.0 + uWindP.w*(vnoise(vec3(a/L, c/(1.7*L), 0.37))*2.0 - 1.0));
 }
 
-uniform vec3 uSunDir, uSunCol, uSkyCol, uGroundCol, uCamPos, uFogCol, uFill;
+uniform vec3 uSunDir, uSunCol, uSkyCol, uGroundCol, uCamPos, uFogCol, uFill; uniform float uFillIn = 1.0;   // roomdark: the occluded fill indoors by day
 uniform sampler2D uDefTex; uniform vec4 uDefMap; uniform int uDefOn;   // VFX rev3 tdeform (terrain_deform.h): R depth (m), G disturbance
 vec2 deformAt(vec2 xz){   // 0 outside the camera window or when off
   if (uDefOn == 0) return vec2(0.0);
@@ -858,7 +858,7 @@ vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
   if (uMicroSh > 0.0) direct *= mix(1.0, clamp(NdL + 2.0*ao*ao - 1.0, 0.0, 1.0), uMicroSh);
   float sv = skyVis(w, Ng);
   float amb = mix(0.06, 1.0, sv);
-  vec3 irr = mix(uGroundCol, uSkyCol, 0.5+0.5*N.y) * amb + uFill*(1.0-sv);
+  vec3 irr = mix(uGroundCol, uSkyCol, 0.5+0.5*N.y) * amb + uFill*(1.0-sv)*uFillIn;
   if (uCloudOpenK > 0.0) irr *= 1.0 + 0.35*uCloudOpenK*max(dot(N, uCloudOpen.xyz), 0.0)*sv;   // VO L5: sky light from the opening's side
   // VO L1: Classic's 30 % shadow lift let a warm share of the sun into every shadow; New's deeper shadows keep that hue
   // (not its brightness) in the sky light of surfaces that face the sun but are shaded: forest shade stays warm
@@ -878,7 +878,7 @@ vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
   }
   vec3 R = reflect(-V, N);
   vec3 Fr = F0 + (max(vec3(1.0-rough), F0)-F0)*pow(1.0-NdV, 5.0);
-  vec3 envOcc = uFill * 2.4 + uGroundCol * 0.25;
+  vec3 envOcc = uFill * 2.4 * uFillIn + uGroundCol * 0.25;
   if (uGiOn == 1) {   // probe GI replaces the fill term where the sky is hidden (and outdoors by night): docs/lighting.md
     float k = clamp(sv*uGiOpenK, 0.0, 1.0);
     if (k < 0.98) {
@@ -5565,6 +5565,10 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform3fv(U(p, "uGroundCol"), 1, glm::value_ptr(ground));
   glUniform3fv(U(p, "uFogCol"), 1, glm::value_ptr(fog));
   glUniform3fv(U(p, "uFill"), 1, glm::value_ptr(fill));
+  {   // roomdark: inside a room by day the flat fill floor (what surfaces that see no opening get) drops to 0.4, so window light and lamps carry the room
+    const float sunUp = glm::smoothstep(0.02f, 0.12f, physSunY);
+    glUniform1f(U(p, "uFillIn"), perf.roomDark && q.lightNew && !q.legacy && !thumbMode && camIndoor ? glm::mix(1.0f, 0.4f, sunUp) : 1.0f);
+  }
   glUniform3fv(U(p, "uCamPos"), 1, glm::value_ptr(v.camPos));
   const float hazeD = thumbMode ? 0.0f : hazeSigma();   // W1: a preset's visibility replaces the map's haze
   glUniform1f(U(p, "uFogDens"), hazeD);   // BR2: a map may have no haze
