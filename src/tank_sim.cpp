@@ -114,6 +114,7 @@ static void initFromInstance(App& app, TankSys& sys, TankRT& t, const Instance& 
   n.mgLoaded = d.mgBelt; n.mgReserve = d.mgReserve;
   n.bowLoaded = d.bowOn ? d.bowBelt : 0; n.bowReserve = d.bowOn ? d.bowReserve : 0;
   n.towLeft = d.towCount;
+  n.aiSide = d.mech ? o.value("aiSide", -1) : -1;   // Mech Tank: the owning side (spawnMech)
   if (n.wrecked) { n.hp = 0; n.loaded = SHELL_NONE; n.burnT = 0; }
   if (d.heli) { n.gunAmmo = d.gun30Ammo; n.rockets = d.rocketCount; n.grounded = true; n.rpm = 0; if (n.wrecked) n.roll = 18; t = n; return; }   // VH5: sits at the instance's height (a raised pad)
   float y, p, r, s; sys.groundPose(app, d, n.pos, n.yaw, y, p, r, s, n.id);
@@ -186,10 +187,10 @@ void TankSys::stepAll(App& app, float dt, const ExploreInput& in) {
     vec3 e = app.eyePos(), f = App::forward(app.eyeYaw, app.eyePitch);
     if (Physics::castRayEx(e, f, 4.0f, h) && (h.ud & 0xFFFF) == 0) {
       auto it = tanks.find(h.ud >> 16);
-      if (it != tanks.end()) target = it->first;
+      if (it != tanks.end() && it->second.aiSide < 0) target = it->first;   // Mech Tank: crewless, no Enter prompt
     }
   }
-  for (auto& [id, t] : tanks) stepOne(app, t, dt, id == occupied ? &in : nullptr);
+  for (auto& [id, t] : tanks) { if (t.aiSide >= 0 && id != occupied && !t.wrecked) mechThink(app, t, dt); stepOne(app, t, dt, id == occupied ? &in : nullptr); }   // Mech Tank: its AI sets the controls first
   stepTows(app, dt);   // VH7
   // the occupant's body rides with the vehicle: everything that asks where the player is (the local soldier's feet, AI
   // targeting and LOD, enemies' chase) follows the vehicle instead of the spot where the player got in
@@ -350,9 +351,10 @@ void TankSys::stepOne(App& app, TankRT& t, float dt, const ExploreInput* in) {
   if (d.car) { stepCar(app, t, dt, in); return; }
   if (d.heli) { stepHeli(app, t, dt, in); return; }
   bool focused = app.selftest || glfwGetWindowAttrib(app.win, GLFW_FOCUSED);
-  t.throttleIn = in ? std::clamp(in->move.y, -1.0f, 1.0f) : 0.0f;
+  const bool ai = !in && t.aiSide >= 0;   // Mech Tank: the AI's controls (tank_mech.cpp)
+  t.throttleIn = in ? std::clamp(in->move.y, -1.0f, 1.0f) : ai ? t.aiThrottle : 0.0f;
   bool rmbFire = false;
-  t.steerIn = in ? std::clamp(in->move.x, -1.0f, 1.0f) : 0.0f;
+  t.steerIn = in ? std::clamp(in->move.x, -1.0f, 1.0f) : ai ? t.aiSteer : 0.0f;
   // ---- station: Left Ctrl toggles gunner sight <-> open hatch / roof MG once per press (edge, never crouches)
   if (in) {
     bool ctrl = in->crouch;
@@ -383,7 +385,10 @@ void TankSys::stepOne(App& app, TankRT& t, float dt, const ExploreInput* in) {
   // ---- drive (hull movement in both stations: single-player crew abstraction)
   drive(app, t, dt);
   // ---- main gun follows the desired aim from the gunner sight, and from the open hatch (the commander lays it: RMB fires)
-  aimGun(t, dt, in && ((t.station == TS_GUNNER && t.hatchT == 0) || (t.station == TS_HATCH && t.hatchT >= 1.0f)));
+  if (ai) aimGun(t, dt, t.aiAimOn, &t.aiAim);
+  else aimGun(t, dt, in && ((t.station == TS_GUNNER && t.hatchT == 0) || (t.station == TS_HATCH && t.hatchT >= 1.0f)));
+  if (ai && t.aiFire && t.loaded != SHELL_NONE) { fireCannon(app, t); ++t.aiShots; }
+  if (ai) t.aiFire = false;
   // ---- main gun: LMB in the sight (one round per click), RMB from the hatch; a fresh press after any change
   bool fireHeld = in && in->fire && focused;
   // stale input: after a pause menu / focus loss (a gap in the fixed steps) the trigger needs a fresh press
@@ -632,12 +637,12 @@ void TankSys::drive(App& app, TankRT& t, float dt) {
   t.rpm = approach(t.rpm, std::min(rpmT, 1.0f), 0.8f * dt);
 }
 
-void TankSys::aimGun(TankRT& t, float dt, bool active) {
+void TankSys::aimGun(TankRT& t, float dt, bool active, const vec3* wantDir) {
   const TankDef& d = *t.def;
   extern App* gApp;
   float dy = 0, de = 0;
-  if (active && gApp) {
-    vec3 want = App::forward(gApp->eyeYaw, gApp->eyePitch);
+  if (active && (gApp || wantDir)) {
+    vec3 want = wantDir ? *wantDir : App::forward(gApp->eyeYaw, gApp->eyePitch);
     mat4 H = hullMatrix(t);
     vec3 l = glm::inverse(glm::mat3(H)) * want;
     float ty = degrees(std::atan2(l.x, l.z)), te = degrees(std::atan2(l.y, glm::length(vec2(l.x, l.z))));

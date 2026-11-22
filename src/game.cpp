@@ -222,6 +222,11 @@ bool Game::begin(std::string& err) {
     int t0 = -1, t1 = -1; std::sscanf(at, "%d,%d", &t0, &t1); int ts[2] = {t0, t1};
     for (int sd = 0; sd < 2; ++sd) if (ts[sd] >= 0 && ts[sd] < kAiTypeCount) { match.rules.aiTypes[sd] = aiBit((AiType)ts[sd]); for (int k = 0; k < kAiTypeCount; ++k) match.rules.aiCount[sd][k] = 0; }
   }
+  int mechN[2] = {0, 0};   // MT1: Mech Tanks are vehicles, not roster soldiers: out of the slot mix, placed below (tank_mech.cpp)
+  for (int sd = 0; sd < 2; ++sd) if (match.rules.aiTypes[sd] & aiBit(AiType::MechTank)) {
+    mechN[sd] = std::max(1, match.rules.aiCount[sd][(int)AiType::MechTank]);
+    match.rules.aiTypes[sd] &= ~aiBit(AiType::MechTank); match.rules.aiCount[sd][(int)AiType::MechTank] = 0;
+  }
   for (auto& rs : match.slots) {
     int side = ffaMode(match.mode()) ? 0 : std::clamp(rs.team, 0, 1);
     AiType ait = rs.human ? AiType::Soldiers : aiTypeNext(match.rules.aiCount[side], match.rules.aiTypes[side], aiGiven[side]);   // AI3: the typed counts per type
@@ -241,6 +246,7 @@ bool Game::begin(std::string& err) {
   setupError.clear();
   lootBegin(*this);   // BR2: floor loot in the buildings
   sdBegin(*this);     // SD1: the round controller (Search and Destroy only)
+  if (!isClient) { extern void mechSpawnForMatch(App&, Game&, const int*); mechSpawnForMatch(app, *this, mechN); }   // MT1
   logf("match: %zu slots, local slot %d, nav %d floors in %.0f ms", sold.size(), localSlot, nav.usedNodes, nav.buildMs);
   return true;
 }

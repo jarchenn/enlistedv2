@@ -1206,6 +1206,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--selftest-textures") runSelf = true;   // L4 texture layer + missing-texture fallback (selftest_textures.cpp)
     else if (a == "--pack-texture" && k + 2 < argc) { fs::path s = argv[k + 1], d = argv[k + 2]; int n = k + 3 < argc ? std::atoi(argv[k + 3]) : 1024; return tex::packSet(s, d, n == 2048 ? 2048 : 1024); }   // tools/fetch_ambientcg.py
     else if (a == "--check-rm2") { extern int rm2SelfCheck(); return rm2SelfCheck(); }   // RM2: the five removed AI types load as plain soldiers / zombies (scenario.cpp)
+    else if (a == "--check-mech") { extern int mechSelfCheck(); return mechSelfCheck(); }   // MT1: the Mech Tank AI's drive / fire rule (tank_mech.cpp)
     else if (a == "--check-ar1") { extern int ar1SelfCheck(); return ar1SelfCheck(); }   // AR1: Archer 1's ranged attack data and the arrow's aim (zombie.cpp)
     else if (a == "--check-fxev") { extern int fxDataSelfCheck(); return fxDataSelfCheck(); }   // Battle Foundry 9.2 EVENTS / BRIGHTNESS / SCALE (fxdata.cpp, fx.cpp)
     else if (a == "--check-dynres") { extern int dynResSelfCheck(); return dynResSelfCheck(); }   // CP 5.1: the control law on synthetic timings

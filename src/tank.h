@@ -78,6 +78,9 @@ struct TankDef {
   float trackHalfGauge = 1.2f, trackHalfLen = 2.4f;
   // durability (user rule): survives N front hits and M side / rear hits. HP 100; front hit = 100 / (N + 1), side = 100 / (M + 1)
   int frontSurvive = 4, sideSurvive = 1;
+  // Mech Tank (tank_mech.cpp, json "mech"): an autonomous AI vehicle, no crew. Standoff to its target, sight range, HE
+  // range (m); stepHeight: low obstacles up to this height are crushed or driven over instead of blocking (tank_ram.cpp)
+  bool mech = false; float mechStandoff = 45, mechSight = 220, mechHeRange = 400, mechStep = 1.0f;
   int frontDamage() const { return 100 / (frontSurvive + 1); }
   int sideDamage() const { return 100 / (sideSurvive + 1); }
   // VH1 wheeled car ("car": true; docs/vehicles.md): bicycle-model steering on the front wheels, a driver seat with a
@@ -158,6 +161,10 @@ struct TankRT {
   // VH1 car: smoothed steering (-1..1, + = right), wheel roll angle / suspension drop, handbrake, run-over cooldowns
   float steer = 0, wheelSpin[TankDef::MAX_WHEELS] = {}, wheelSusp[TankDef::MAX_WHEELS] = {}; bool handbrake = false;
   std::map<int, double> runOverT; int runOvers = 0;
+  // Mech Tank AI (tank_mech.cpp): owning side (-1 = not an AI vehicle; persisted in extra.tank.aiSide), its controls this
+  // step, the target (a soldier slot or a vehicle id) and the unstick manoeuvre
+  int aiSide = -1; float aiThrottle = 0, aiSteer = 0; bool aiAimOn = false, aiFire = false; vec3 aiAim{0, 0, 1};
+  int aiSlot = -1; uint64_t aiTank = 0; float aiKeepT = 0, aiStuckT = 0, aiBackT = 0, aiThinkT = 0; int aiShots = 0; vec3 aiGoal{0};
   bool adopted = false;   // BR7: a parked part-built car made drivable for this session (TankSys::adoptCar)
   // VH5 helicopter: velocity, rotor speed 0..1 and blade angles, chin gun heat / ammo, rockets, the fall after a kill
   vec3 vel{0}; float rotor = 0, rotorAng = 0, tailAng = 0, gunHeat = 0, gunCool = 0, rocketCool = 0;
@@ -258,7 +265,9 @@ public:
   void drawHeli(App& app, const TankRT& t, vec4 tint, const mat4& h);
   void drawHeliUI(App& app, TankRT& t);
   void heliEffects(App& app, TankRT& t, float dt);
-  void aimGun(TankRT& t, float dt, bool active);
+  void aimGun(TankRT& t, float dt, bool active, const vec3* want = nullptr);   // want: a world direction (the Mech AI) instead of the camera
+  void mechThink(App& app, TankRT& t, float dt);                                  // Mech Tank AI: target, drive, aim, fire (tank_mech.cpp)
+  uint64_t spawnMech(App& app, vec3 near, float faceYaw, int side);               // a crewless Mech Tank for that side (0: none placed)
   void fireCannon(App& app, TankRT& t);
   void fireMg(App& app, TankRT& t);
   void fireBow(App& app, TankRT& t);
