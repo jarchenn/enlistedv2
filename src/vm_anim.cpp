@@ -20,6 +20,7 @@ struct AnimVM {
   std::map<std::string, int> clip;     // state name -> clip index
   float idleHold = 0;                  // the idle is this one frame of the idle clip (s), held still (MG3: every rig; < 0 plays the clip)
   vec3 hipShift{0};                    // MG3: rig offset at the hip, camera space (m), faded out in ADS (the M249 closer)
+  bool fireArms = false;              // KR1 "fireArms": the fire clip moves the arms too (a bolt rifle's cycle: the hand works the bolt)
   bool shells = false;                 // reload_start / reload_insert (once per round) / reload_end
   float fireRate = 1, reloadRate = 1;  // MG4: clips played faster (the shotguns' pump and shell loop); the timing follows
   vec3 dot{0}; bool hasDot = false;    // red-dot sight: the dot at this rig point (the front lens centre), seen along the sight line
@@ -84,7 +85,7 @@ std::shared_ptr<AnimVM> animVmLoad(const fs::path& dir, const json& block, std::
   if (!a->dur.count("idle")) { err = "no idle clip"; return nullptr; }
   a->idleHold = block.value("idleHold", 0.0f);
   if (block.contains("hipShift")) a->hipShift = jv(block["hipShift"]);
-  a->shells = a->dur.count("reload_insert") > 0;
+  a->shells = a->dur.count("reload_insert") > 0; a->fireArms = block.value("fireArms", false);
   a->fireRate = std::max(0.1f, block.value("fireRate", 1.0f)); a->reloadRate = std::max(0.1f, block.value("reloadRate", 1.0f));
   for (auto& [k, len] : a->dur) len /= k == "fire" ? a->fireRate : k.rfind("reload", 0) == 0 ? a->reloadRate : 1.0f;   // the weapon's pump / reload times
   for (auto& h : block.value("hideMeshes", json::array())) a->hideMeshes.push_back(h.get<std::string>());   // AT5
@@ -170,7 +171,7 @@ void animVmStep(App& app, const WeaponDef& d, WeaponState& s, float dt) {
   // WP4c: a shot's fire clip works only the parts under the gun joint (slide / bolt / mag); the gun, arms and hands keep
   // the idle pose, so the clip neither rocks the gun nor swings the arms (the straight push comes from the recoil springs)
   if (st.pl.key == K_IDLE) { st.idleL = st.pl.last; st.haveRest = true; }
-  else if (st.pl.key == K_FIRE && st.haveRest && !d.melee.on && st.idleL.R.size() == st.pl.last.R.size()) {
+  else if (st.pl.key == K_FIRE && st.haveRest && !d.melee.on && !a.fireArms && st.idleL.R.size() == st.pl.last.R.size()) {
     const int gn = a.model.jointNode[a.gunJoint];
     NodeLocals L = st.pl.last;
     for (size_t n = 0; n < L.R.size(); ++n) {
