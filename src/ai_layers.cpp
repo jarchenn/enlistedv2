@@ -7,6 +7,7 @@
 #include "sd_game.h"
 #include "sd_mode.h"
 #include "ai_core.h"
+#include "enemy_types.h"
 #include "app.h"
 #include "royale.h"
 #include "app.h"
@@ -228,6 +229,17 @@ void AiCore::think(Soldier& s) {
   float sup = b.suppressed * (1.0f - 0.6f * diff.suppressionResist);
   bool clearing = ft && ft->clearBuilding >= 0;
   auto& u = m.util; u.fill(0);
+  if (s.meleeKeep > 0 && (b.kite || G.t >= b.evadeUntil)) {   // MK2: a melee enemy (any zombie-brain type with a blow, not only arrows) inside the kit's range: back off, firing
+    const Soldier* near = nullptr; float nd = s.meleeKeep;
+    for (const Soldier& o : G.sold) {
+      if (!o.inUse || !o.alive || !o.zombie || !Game::hostile(s, o) || std::fabs(o.feet.y - s.feet.y) > 3.0f) continue;
+      const float d = lenXZ(o.feet - s.feet); if (d >= nd) continue;
+      bool melee = false; for (auto& a : enemyType(o.etype).attackSpecs) melee |= !a.shoot;
+      if (melee || enemyType(o.etype).attackSpecs.empty()) { near = &o; nd = d; }
+    }
+    if (near) { b.evadeFrom = near->feet; b.evadeUntil = G.t + 0.6; b.kite = true; }
+    else if (b.kite) { b.kite = false; b.evadeUntil = -100; }
+  }
   u[A_EVADE] = G.t < b.evadeUntil ? 1.0f : 0.0f;
   if (s.reload > 0) u[A_RELOAD] = 0.97f;
   else if (canReload && (ammo <= 0 || ammo < 0.4f)) u[A_RELOAD] = (ammo <= 0 ? 0.88f : 0.5f) * (inCover || !underFire ? 1.0f : 0.35f) * (visible && ammo > 0 ? 0.6f : 1.0f);
@@ -331,6 +343,17 @@ void AiCore::act(Soldier& s, float dt) {
   m.posture = Physics::STAND; b.crouch = false;
   switch (m.action) {
     case A_EVADE: {
+      if (b.kite) {   // MK2: step 8 m to the reachable point furthest from the melee enemy; none gains 2 m (a wall, a corner): stand and fire
+        vec3 best = s.feet; float bs = lenXZ(s.feet - b.evadeFrom) + 2.0f;
+        for (int k = 0; k < 12; ++k) {
+          float a = k * 0.5236f; vec3 q = s.feet + vec3(std::cos(a), 0, std::sin(a)) * 8.0f;
+          NavRef r; vec3 on; if (!G.nav.closest(q, 2.0f, r, on) || std::fabs(on.y - s.feet.y) > 2.5f) continue;
+          float sc = lenXZ(on - b.evadeFrom); if (sc > bs) { bs = sc; best = on; }
+        }
+        if (best != s.feet) { requestPath(s, best, 0.8f, 6.0f); m.speed = SPD_JOG; b.why = "backing away from a melee enemy"; }
+        else { m.speed = SPD_STOP; b.why = "cornered by a melee enemy: standing and firing"; }
+        b.mode = Brain::M_EVADE; break;
+      }
       vec3 best = s.feet; float bs = -1e9f;
       for (int k = 0; k < 10; ++k) {
         float a = k * 0.6283f; vec3 q = s.feet + vec3(std::cos(a), 0, std::sin(a)) * 9.0f;

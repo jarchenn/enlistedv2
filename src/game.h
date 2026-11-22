@@ -39,7 +39,7 @@ struct Brain {
   float nextPerceive = 0, nextTactic = 0, grenadeCD = 4, burstLeft = 0, burstPause = 0, suppressed = 0, stallT = 0;
   float bestObjDist = 1e9f;
   vec3 hurtFrom{0}; double hurtAt = -100;
-  vec3 evadeFrom{0}; double evadeUntil = -100;
+  vec3 evadeFrom{0}; double evadeUntil = -100; bool kite = false;   // MK2 kite: the evade is backing off a melee enemy (the kit's "melee_keep_m"), firing
   vec3 investigate{0};
   float doorWait = 0; uint64_t doorInst = 0; int doorIdx = -1;
   double coverCooldown = 0; vec3 boundFrom{0}; int routeStage = -1;
@@ -68,6 +68,7 @@ struct Soldier {
   int8_t mountDeath = -1;   // HK2: a mounted knight's death: -1 not decided, 0 the rider shot off, 1 the horse down (on foot after it), 2 done
   bool flat = false;   // crushed by a heavy's stomp (stomp_area): the body is drawn pressed flat into the ground
   float eScale = 1, eLean = 0, eBody = 1; bool eFallback = false;   // EN1 (aiZombieAssign): draw scale, lean, body size vs a 1.85 m zombie, on the zombie rig; RB6: a soldier's kit "scale" (both)
+  float meleeKeep = 0;   // MK2 kit "melee_keep_m": back away (firing) from a melee enemy closer than this
   bool standFire = false;   // RB6 kit "lmg_standing": a belt-fed gun fired standing and on the move, without the crouch or the standing spread
   float meleeWind = -1; double meleeReady = 0;   // G2: zombie strike wind-up (s, < 0 = none), next strike allowed at Game::t
   int meleeCount = 0, meleeClip = 0; AnimPlayer anim;   // G2: strikes started, attack clip of the current one; clip state (zombie.cpp)

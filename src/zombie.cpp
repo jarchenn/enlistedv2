@@ -19,6 +19,7 @@
 #include "mpai.h"
 #include "crumb.h"
 #include "enemy_types.h"
+#include "gore_api.h"
 // CH6: "attacks" joint names, in CharJoint order (as character.cpp kSemanticNames, private there)
 static const char* kSemanticNames[] = {"Hips", "Spine", "Spine1", "Spine2", "Neck", "Head", "LeftShoulder", "LeftArm", "LeftForeArm", "LeftHand", "RightShoulder", "RightArm", "RightForeArm", "RightHand",
   "LeftUpLeg", "LeftLeg", "LeftFoot", "LeftToeBase", "RightUpLeg", "RightLeg", "RightFoot", "RightToeBase"};
@@ -92,7 +93,7 @@ const ZombieCfg& zcfg() {
           if (a.contains("shoot") && a["shoot"].is_object()) { const json& sh = a["shoot"]; x.shoot = true; x.speed = std::max(5.0f, sh.value("speed", x.speed)); x.spreadDeg = std::max(0.0f, sh.value("spread_deg", x.spreadDeg)); x.ammo = sh.value("ammo", std::string("crossbow_bolt")); x.massG = sh.value("mass_g", x.massG); }   // AR1
           if (!x.clip.empty()) t.attackSpecs.push_back(x);
         }
-        t.attackDust = e.value("attack_dust", t.attackDust); t.tankDamage = e.value("tank_damage", t.hp >= 500); t.headMult = std::max(0.0f, e.value("head_mult", t.headMult));
+        t.attackDust = e.value("attack_dust", t.attackDust); t.tankDamage = e.value("tank_damage", t.hp >= 500); t.hitSparks = e.value("hit_fx", std::string()) == "sparks"; t.headMult = std::max(0.0f, e.value("head_mult", t.headMult));
         t.explosiveMult = std::max(0.0f, e.value("explosive_mult", t.explosiveMult)); t.blockR = std::clamp(e.value("block_radius", t.blockR), 0.0f, 0.5f); t.locoRate = std::clamp(e.value("walk_rate", t.locoRate), 0.25f, 4.0f); t.stompArea = std::clamp(e.value("stomp_area", t.stompArea), 0.0f, 1.0f);
         if (e.contains("horse_death") && e["horse_death"].is_object()) {   // HK2
           const json& h = e["horse_death"]; t.horseDeathClip = h.value("clip", ""); t.footType = h.value("foot_type", "");
@@ -816,6 +817,11 @@ bool Game::meleeHit(int attacker, int victim, float dmg) {
   vec3 d = v.feet - a.feet; d.y = 0; d = glm::length(d) > 1e-3f ? glm::normalize(d) : vec3(0, 0, -1);
   float hp0 = v.hp;
   damage(victim, dmg, attacker, d, "melee");
+  if (v.kitSparks && v.hp < hp0) {   // MK2: a blow on plate / a robot sparks like a bullet does (gore's helmet sparks, sent to LAN clients)
+    FleshHit fh; fh.dir = d; fh.normal = -d; fh.pos = chest(v) - d * 0.3f * v.eBody; fh.victimSlot = victim; fh.shooterSlot = attacker; fh.helmet = true;
+    fh.seed = ((uint32_t)(t * 1000.0) * 2654435761u) ^ (uint32_t)(victim * 40503u); goreFleshHit(app, fh);
+    if (glm::length(chest(v) - app.eyePos()) < 60.0f) app.audio.play("impact_metal", fh.pos, 0.6f);
+  }
   if (glm::length(chest(v) - app.eyePos()) < 60.0f) app.audio.play("knife_generic", chest(v), 0.7f);
   if (attacker == localSlot && v.hp < hp0) hitMarker = 0.25f;
   return v.hp < hp0;

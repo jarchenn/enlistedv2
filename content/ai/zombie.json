@@ -363,9 +363,10 @@
     {
       "note": "knight2: AI type Knights (9) on the user's sword-and-shield knight (content/characters/knight_ss.glb, tools/enemies/knight2_prep.py; credits in docs/credits.md); this entry wins over an old 'knight' in zombie_local.json. 'legacy' (perf switch knight2 off, at the next table load): the Brother Knight (content/characters/knight.glb, local-only; without it the plain zombie)",
       "id": "knight",
+      "hit_fx": "sparks",
       "name": "Knight 1",
       "model": "knight_ss",
-      "height_m": 1.952,
+      "height_m": 2.1472,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -375,13 +376,13 @@
       ],
       "hp": 600,
       "damage": 60,
-      "reach_m": 2.0,
-      "lunge_m": 1.0,
+      "reach_m": 2.2,
+      "lunge_m": 1.1,
       "cooldown_s": 1.2,
       "windup_s": 0.5,
       "attack_rate": 1.0,
-      "walk_mps": 1.5,
-      "run_mps": 3.8,
+      "walk_mps": 1.65,
+      "run_mps": 4.18,
       "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.1,
@@ -426,7 +427,7 @@
         {
           "clip": "sword and shield slash",
           "joint": "RightHand",
-          "radius": 0.36,
+          "radius": 0.396,
           "bone": "mixamorig:RightHand",
           "at": [
             55.2923,
@@ -437,7 +438,7 @@
         {
           "clip": "sword and shield slash (3)",
           "joint": "RightHand",
-          "radius": 0.36,
+          "radius": 0.396,
           "bone": "mixamorig:RightHand",
           "at": [
             55.2923,
@@ -448,7 +449,7 @@
         {
           "clip": "sword and shield slash (5)",
           "joint": "RightHand",
-          "radius": 0.36,
+          "radius": 0.396,
           "bone": "mixamorig:RightHand",
           "at": [
             55.2923,
@@ -459,7 +460,7 @@
         {
           "clip": "sword and shield attack (4)",
           "joint": "RightHand",
-          "radius": 0.36,
+          "radius": 0.396,
           "bone": "mixamorig:RightHand",
           "at": [
             55.2923,
@@ -470,13 +471,13 @@
       ],
       "legacy": {
         "model": "knight",
-        "height_m": 1.95,
-        "reach_m": 2.2,
-        "lunge_m": 1.5,
+        "height_m": 2.145,
+        "reach_m": 2.42,
+        "lunge_m": 1.65,
         "cooldown_s": 1.4,
         "attack_rate": 1.6,
-        "walk_mps": 1,
-        "run_mps": 1.8,
+        "walk_mps": 1.1,
+        "run_mps": 1.98,
         "clips": {
           "walk": [
             "walk"
@@ -502,22 +503,22 @@
           {
             "clip": "attack_slam",
             "joint": "RightHand",
-            "radius": 1
+            "radius": 1.1
           },
           {
             "clip": "attack_spin",
             "joint": "RightHand",
-            "radius": 1
+            "radius": 1.1
           },
           {
             "clip": "attack_charge",
             "joint": "RightHand",
-            "radius": 1
+            "radius": 1.1
           },
           {
             "clip": "attack_bash",
             "joint": "LeftHand",
-            "radius": 0.9
+            "radius": 0.99
           }
         ]
       }
@@ -525,9 +526,10 @@
     {
       "note": "KN2: AI type Knight 2 (26): the knight's body and 51 clips with a spiked mace, the frogmouth helm and a round shield (content/characters/knight_v2.glb, local-only: tools/enemies/knight_v2_parts.py + knight_v2_merge.py); without the file AI type 26 plays Knight 1 (game.cpp)",
       "id": "knight2",
+      "hit_fx": "sparks",
       "name": "Knight 2",
       "model": "knight_v2",
-      "height_m": 1.952,
+      "height_m": 2.1472,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -537,13 +539,13 @@
       ],
       "hp": 600,
       "damage": 60,
-      "reach_m": 2.0,
-      "lunge_m": 1.0,
+      "reach_m": 2.2,
+      "lunge_m": 1.1,
       "cooldown_s": 1.2,
       "windup_s": 0.5,
       "attack_rate": 1.0,
-      "walk_mps": 1.5,
-      "run_mps": 3.8,
+      "walk_mps": 1.65,
+      "run_mps": 4.18,
       "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.1,
@@ -588,7 +590,7 @@
         {
           "clip": "sword and shield slash",
           "joint": "RightHand",
-          "radius": 0.36,
+          "radius": 0.396,
           "bone": "mixamorig:RightHand",
           "at": [
             52.9367,
@@ -599,7 +601,7 @@
         {
           "clip": "sword and shield slash (3)",
           "joint": "RightHand",
-          "radius": 0.36,
+          "radius": 0.396,
           "bone": "mixamorig:RightHand",
           "at": [
             52.9367,
@@ -610,7 +612,7 @@
         {
           "clip": "sword and shield slash (5)",
           "joint": "RightHand",
-          "radius": 0.36,
+          "radius": 0.396,
           "bone": "mixamorig:RightHand",
           "at": [
             52.9367,
@@ -621,7 +623,7 @@
         {
           "clip": "sword and shield attack (4)",
           "joint": "RightHand",
-          "radius": 0.36,
+          "radius": 0.396,
           "bone": "mixamorig:RightHand",
           "at": [
             52.9367,
@@ -634,9 +636,10 @@
     {
       "note": "KN3: AI type Knight 3 (27): the knight's body and 51 clips with a winged closed helm, a Roman shield and a flail whose chain and ball ride six extra joints (flail_0..5, keyed in every clip); content/characters/knight_3.glb, local-only (the flail is CC-BY-NC-ND; tools/enemies/knight2_prep.py pins the root motion); without it AI type 27 plays Knight 1 (game.cpp). The strike sphere stays on RightHand, 0.7 m out (the ball hangs ~0.65 m from the hand at rest)",
       "id": "knight3",
+      "hit_fx": "sparks",
       "name": "Knight 3",
       "model": "knight_3",
-      "height_m": 1.996,
+      "height_m": 2.1956,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -646,13 +649,13 @@
       ],
       "hp": 600,
       "damage": 60,
-      "reach_m": 2.0,
-      "lunge_m": 1.0,
+      "reach_m": 2.2,
+      "lunge_m": 1.1,
       "cooldown_s": 1.2,
       "windup_s": 0.5,
       "attack_rate": 1.0,
-      "walk_mps": 1.5,
-      "run_mps": 3.8,
+      "walk_mps": 1.65,
+      "run_mps": 4.18,
       "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.1,
@@ -697,7 +700,7 @@
         {
           "clip": "sword and shield slash",
           "joint": "RightHand",
-          "radius": 0.315,
+          "radius": 0.3465,
           "bone": "flail_5",
           "at": [
             0,
@@ -708,7 +711,7 @@
         {
           "clip": "sword and shield slash (3)",
           "joint": "RightHand",
-          "radius": 0.315,
+          "radius": 0.3465,
           "bone": "flail_5",
           "at": [
             0,
@@ -719,7 +722,7 @@
         {
           "clip": "sword and shield slash (5)",
           "joint": "RightHand",
-          "radius": 0.315,
+          "radius": 0.3465,
           "bone": "flail_5",
           "at": [
             0,
@@ -730,7 +733,7 @@
         {
           "clip": "sword and shield attack (4)",
           "joint": "RightHand",
-          "radius": 0.315,
+          "radius": 0.3465,
           "bone": "flail_5",
           "at": [
             0,
@@ -743,9 +746,10 @@
     {
       "note": "KN4: AI type Knight 4 (28): the knight's body with a zweihander (on the extra joint mixamorig:Weapon, keyed in every clip) and a beaked-visor helm, Mixamo Great Sword Pack clips (content/characters/knight_4.glb; root motion pinned by tools/enemies/knight2_prep.py; credits in docs/credits.md). 'great sword run' plays backward: the forward run is 'great sword run (2)'. Strike: the blade runs 0.10-1.46 m from the hand, the sphere 1.0 m out with radius 0.55",
       "id": "knight4",
+      "hit_fx": "sparks",
       "name": "Knight 4",
       "model": "knight_4",
-      "height_m": 2.663,
+      "height_m": 2.9293,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -755,13 +759,13 @@
       ],
       "hp": 600,
       "damage": 60,
-      "reach_m": 2.0,
-      "lunge_m": 1.0,
+      "reach_m": 2.2,
+      "lunge_m": 1.1,
       "cooldown_s": 1.2,
       "windup_s": 0.5,
       "attack_rate": 1.0,
-      "walk_mps": 1.5,
-      "run_mps": 3.8,
+      "walk_mps": 1.65,
+      "run_mps": 4.18,
       "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.1,
@@ -806,7 +810,7 @@
         {
           "clip": "great sword slash",
           "joint": "RightHand",
-          "radius": 0.561,
+          "radius": 0.6171,
           "bone": "mixamorig:Weapon",
           "at": [
             89.8055,
@@ -817,7 +821,7 @@
         {
           "clip": "great sword attack",
           "joint": "RightHand",
-          "radius": 0.561,
+          "radius": 0.6171,
           "bone": "mixamorig:Weapon",
           "at": [
             89.8055,
@@ -828,7 +832,7 @@
         {
           "clip": "great sword slash (3)",
           "joint": "RightHand",
-          "radius": 0.561,
+          "radius": 0.6171,
           "bone": "mixamorig:Weapon",
           "at": [
             89.8055,
@@ -839,7 +843,7 @@
         {
           "clip": "great sword slash (4)",
           "joint": "RightHand",
-          "radius": 0.561,
+          "radius": 0.6171,
           "bone": "mixamorig:Weapon",
           "at": [
             89.8055,
@@ -852,9 +856,10 @@
     {
       "note": "KN5: AI type Knight 5 (29): the knight's body with a double-sided battle axe, a sallet over a shaved head, Mixamo Pro Melee Axe Pack clips plus the sword-and-shield pack's two deaths (the axe pack has none; tools/enemies/knight_add_clips.py) (content/characters/knight_5.glb; credits in docs/credits.md). Strike: the axe reaches 0.64 m from the hand, the sphere 0.55 m out with radius 0.5",
       "id": "knight5",
+      "hit_fx": "sparks",
       "name": "Knight 5",
       "model": "knight_5",
-      "height_m": 1.9,
+      "height_m": 2.09,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -864,13 +869,13 @@
       ],
       "hp": 600,
       "damage": 60,
-      "reach_m": 2.0,
-      "lunge_m": 1.0,
+      "reach_m": 2.2,
+      "lunge_m": 1.1,
       "cooldown_s": 1.2,
       "windup_s": 0.5,
       "attack_rate": 1.0,
-      "walk_mps": 1.5,
-      "run_mps": 3.8,
+      "walk_mps": 1.65,
+      "run_mps": 4.18,
       "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.1,
@@ -915,7 +920,7 @@
         {
           "clip": "standing melee attack downward",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.385,
           "bone": "mixamorig:RightHand",
           "at": [
             47.8084,
@@ -926,7 +931,7 @@
         {
           "clip": "standing melee attack horizontal",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.385,
           "bone": "mixamorig:RightHand",
           "at": [
             47.8084,
@@ -937,7 +942,7 @@
         {
           "clip": "standing melee attack backhand",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.385,
           "bone": "mixamorig:RightHand",
           "at": [
             47.8084,
@@ -948,7 +953,7 @@
         {
           "clip": "standing melee attack 360 high",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.385,
           "bone": "mixamorig:RightHand",
           "at": [
             47.8084,
@@ -961,9 +966,10 @@
     {
       "note": "KN6: AI type Knight 6 (30): the knight's body and 51 sword-and-shield clips with an Italian sallet, a bevor, a breastplate over the chest pulled in, a shaved head under the visor, a 0.98 m sword and a Polish shield (content/characters/knight_6.glb: tools/enemies/knight_parts.py + knight_v2_merge.py; credits in docs/credits.md). Strike: about 0.87 m of blade past the guard, the sphere on RightHand 0.65 m out with radius 0.45",
       "id": "knight6",
+      "hit_fx": "sparks",
       "name": "Knight 6",
       "model": "knight_6",
-      "height_m": 1.952,
+      "height_m": 2.1472,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -973,13 +979,13 @@
       ],
       "hp": 600,
       "damage": 60,
-      "reach_m": 2.0,
-      "lunge_m": 1.0,
+      "reach_m": 2.2,
+      "lunge_m": 1.1,
       "cooldown_s": 1.2,
       "windup_s": 0.5,
       "attack_rate": 1.0,
-      "walk_mps": 1.5,
-      "run_mps": 3.8,
+      "walk_mps": 1.65,
+      "run_mps": 4.18,
       "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.1,
@@ -1024,7 +1030,7 @@
         {
           "clip": "sword and shield slash",
           "joint": "RightHand",
-          "radius": 0.36,
+          "radius": 0.396,
           "bone": "mixamorig:RightHand",
           "at": [
             55.494,
@@ -1035,7 +1041,7 @@
         {
           "clip": "sword and shield slash (3)",
           "joint": "RightHand",
-          "radius": 0.36,
+          "radius": 0.396,
           "bone": "mixamorig:RightHand",
           "at": [
             55.494,
@@ -1046,7 +1052,7 @@
         {
           "clip": "sword and shield slash (5)",
           "joint": "RightHand",
-          "radius": 0.36,
+          "radius": 0.396,
           "bone": "mixamorig:RightHand",
           "at": [
             55.494,
@@ -1057,7 +1063,7 @@
         {
           "clip": "sword and shield attack (4)",
           "joint": "RightHand",
-          "radius": 0.36,
+          "radius": 0.396,
           "bone": "mixamorig:RightHand",
           "at": [
             55.494,
@@ -1070,9 +1076,10 @@
     {
       "note": "KN7: AI type Knight 7 (31): the knight's body and 51 sword-and-shield clips with an ornamented great helm over a shaved head, a cuirass over the chest pulled in, a 0.70 m viking axe and a steel-recoloured Roman scutum (content/characters/knight_7.glb: tools/enemies/knight_parts.py knight7 + knight_v2_merge.py; credits in docs/credits.md). Strike: the axe head ~0.6 m from the fist, the sphere on RightHand 0.5 m out with radius 0.45",
       "id": "knight7",
+      "hit_fx": "sparks",
       "name": "Knight 7",
       "model": "knight_7",
-      "height_m": 1.952,
+      "height_m": 2.1472,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -1082,13 +1089,13 @@
       ],
       "hp": 600,
       "damage": 60,
-      "reach_m": 2.0,
-      "lunge_m": 1.0,
+      "reach_m": 2.2,
+      "lunge_m": 1.1,
       "cooldown_s": 1.2,
       "windup_s": 0.5,
       "attack_rate": 1.0,
-      "walk_mps": 1.5,
-      "run_mps": 3.8,
+      "walk_mps": 1.65,
+      "run_mps": 4.18,
       "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.1,
@@ -1133,7 +1140,7 @@
         {
           "clip": "sword and shield slash",
           "joint": "RightHand",
-          "radius": 0.36,
+          "radius": 0.396,
           "bone": "mixamorig:RightHand",
           "at": [
             46.5089,
@@ -1144,7 +1151,7 @@
         {
           "clip": "sword and shield slash (3)",
           "joint": "RightHand",
-          "radius": 0.36,
+          "radius": 0.396,
           "bone": "mixamorig:RightHand",
           "at": [
             46.5089,
@@ -1155,7 +1162,7 @@
         {
           "clip": "sword and shield slash (5)",
           "joint": "RightHand",
-          "radius": 0.36,
+          "radius": 0.396,
           "bone": "mixamorig:RightHand",
           "at": [
             46.5089,
@@ -1166,7 +1173,7 @@
         {
           "clip": "sword and shield attack (4)",
           "joint": "RightHand",
-          "radius": 0.36,
+          "radius": 0.396,
           "bone": "mixamorig:RightHand",
           "at": [
             46.5089,
@@ -1179,9 +1186,10 @@
     {
       "note": "KN8: AI type Knight 8 (32): Knight 4 (the beaked-visor helm) with a 2.2 m halberd on the extra joint mixamorig:Weapon (keyed in every clip), the Great Sword Pack clips mapped as Knight 4 (content/characters/knight_8.glb; root motion pinned by tools/enemies/knight2_prep.py; credits in docs/credits.md). Strike: on the halberd's head (bone + at)",
       "id": "knight8",
+      "hit_fx": "sparks",
       "name": "Knight 8",
       "model": "knight_8",
-      "height_m": 2.541,
+      "height_m": 2.7951,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -1191,13 +1199,13 @@
       ],
       "hp": 600,
       "damage": 60,
-      "reach_m": 2.0,
-      "lunge_m": 1.0,
+      "reach_m": 2.2,
+      "lunge_m": 1.1,
       "cooldown_s": 1.2,
       "windup_s": 0.5,
       "attack_rate": 1.0,
-      "walk_mps": 1.5,
-      "run_mps": 3.8,
+      "walk_mps": 1.65,
+      "run_mps": 4.18,
       "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.1,
@@ -1242,7 +1250,7 @@
         {
           "clip": "great sword slash",
           "joint": "RightHand",
-          "radius": 0.535,
+          "radius": 0.5885,
           "bone": "mixamorig:Weapon",
           "at": [
             93.2268,
@@ -1253,7 +1261,7 @@
         {
           "clip": "great sword attack",
           "joint": "RightHand",
-          "radius": 0.535,
+          "radius": 0.5885,
           "bone": "mixamorig:Weapon",
           "at": [
             93.2268,
@@ -1264,7 +1272,7 @@
         {
           "clip": "great sword slash (3)",
           "joint": "RightHand",
-          "radius": 0.535,
+          "radius": 0.5885,
           "bone": "mixamorig:Weapon",
           "at": [
             93.2268,
@@ -1275,7 +1283,7 @@
         {
           "clip": "great sword slash (4)",
           "joint": "RightHand",
-          "radius": 0.535,
+          "radius": 0.5885,
           "bone": "mixamorig:Weapon",
           "at": [
             93.2268,
@@ -1288,9 +1296,10 @@
     {
       "note": "KN9: AI type Knight 9 (33): Knight 5's body with a steel-recoloured Maximilian close helmet over the shaved head and a Polish-Ottoman sabre, the Pro Melee Axe Pack clips mapped as Knight 5 plus the sword-and-shield pack's two deaths (tools/enemies/knight_add_clips.py) (content/characters/knight_9.glb; credits in docs/credits.md). Strike: on the sabre's blade (bone + at)",
       "id": "knight9",
+      "hit_fx": "sparks",
       "name": "Knight 9",
       "model": "knight_9",
-      "height_m": 1.94,
+      "height_m": 2.134,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -1300,13 +1309,13 @@
       ],
       "hp": 600,
       "damage": 60,
-      "reach_m": 2.0,
-      "lunge_m": 1.0,
+      "reach_m": 2.2,
+      "lunge_m": 1.1,
       "cooldown_s": 1.2,
       "windup_s": 0.5,
       "attack_rate": 1.0,
-      "walk_mps": 1.5,
-      "run_mps": 3.8,
+      "walk_mps": 1.65,
+      "run_mps": 4.18,
       "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.1,
@@ -1351,7 +1360,7 @@
         {
           "clip": "standing melee attack downward",
           "joint": "RightHand",
-          "radius": 0.357,
+          "radius": 0.3927,
           "bone": "mixamorig:RightHand",
           "at": [
             60.8358,
@@ -1362,7 +1371,7 @@
         {
           "clip": "standing melee attack horizontal",
           "joint": "RightHand",
-          "radius": 0.357,
+          "radius": 0.3927,
           "bone": "mixamorig:RightHand",
           "at": [
             60.8358,
@@ -1373,7 +1382,7 @@
         {
           "clip": "standing melee attack backhand",
           "joint": "RightHand",
-          "radius": 0.357,
+          "radius": 0.3927,
           "bone": "mixamorig:RightHand",
           "at": [
             60.8358,
@@ -1384,7 +1393,7 @@
         {
           "clip": "standing melee attack 360 high",
           "joint": "RightHand",
-          "radius": 0.357,
+          "radius": 0.3927,
           "bone": "mixamorig:RightHand",
           "at": [
             60.8358,
@@ -1398,7 +1407,7 @@
       "id": "archer1",
       "name": "Archer 1",
       "model": "archer_1",
-      "height_m": 1.7,
+      "height_m": 1.87,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -1408,13 +1417,13 @@
       ],
       "hp": 120,
       "damage": 25,
-      "reach_m": 1.4,
+      "reach_m": 1.54,
       "lunge_m": 0,
       "cooldown_s": 1.6,
       "windup_s": 0.5,
       "attack_rate": 1.0,
-      "walk_mps": 1.5,
-      "run_mps": 3.8,
+      "walk_mps": 1.65,
+      "run_mps": 4.18,
       "run_within_m": 12,
       "weight": 0,
       "hit_zone_scale": 1.0,
@@ -1469,13 +1478,13 @@
         },
         {
           "clip": "standing melee kick",
-          "radius": 0.35,
+          "radius": 0.385,
           "damage": 25
         },
         {
           "clip": "standing melee punch",
           "joint": "RightHand",
-          "radius": 0.3,
+          "radius": 0.33,
           "damage": 18
         }
       ]
@@ -1483,9 +1492,10 @@
     {
       "note": "K10: AI type Knight 10 (35): a copy of the winged knight (Knight 3) with the cuirass over its pulled-in chest, Silver Sword and triangular shield in its dark armour finish, and a black cloak with a cross whose physics is baked into all 51 clips on 35 cape joints (tools/enemies/knight_parts.py knight10, knight_v2_merge.py, k10_cape.py, gltf_prune.py). Stats, clips, attacks and sounds as Knight 1; the strike sphere 65 % along the new blade",
       "id": "knight10",
+      "hit_fx": "sparks",
       "name": "Knight 10",
       "model": "knight_10",
-      "height_m": 1.996,
+      "height_m": 2.1956,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -1495,13 +1505,13 @@
       ],
       "hp": 600,
       "damage": 60,
-      "reach_m": 2.0,
-      "lunge_m": 1.0,
+      "reach_m": 2.2,
+      "lunge_m": 1.1,
       "cooldown_s": 1.2,
       "windup_s": 0.5,
       "attack_rate": 1.0,
-      "walk_mps": 1.5,
-      "run_mps": 3.8,
+      "walk_mps": 1.65,
+      "run_mps": 4.18,
       "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.1,
@@ -1546,7 +1556,7 @@
         {
           "clip": "sword and shield slash",
           "joint": "RightHand",
-          "radius": 0.368,
+          "radius": 0.4048,
           "bone": "mixamorig:RightHand",
           "at": [
             55.5535,
@@ -1557,7 +1567,7 @@
         {
           "clip": "sword and shield slash (3)",
           "joint": "RightHand",
-          "radius": 0.368,
+          "radius": 0.4048,
           "bone": "mixamorig:RightHand",
           "at": [
             55.5535,
@@ -1568,7 +1578,7 @@
         {
           "clip": "sword and shield slash (5)",
           "joint": "RightHand",
-          "radius": 0.368,
+          "radius": 0.4048,
           "bone": "mixamorig:RightHand",
           "at": [
             55.5535,
@@ -1579,7 +1589,7 @@
         {
           "clip": "sword and shield attack (4)",
           "joint": "RightHand",
-          "radius": 0.368,
+          "radius": 0.4048,
           "bone": "mixamorig:RightHand",
           "at": [
             55.5535,
@@ -1593,7 +1603,7 @@
       "id": "archer2",
       "name": "Archer 2",
       "model": "archer_2",
-      "height_m": 1.7,
+      "height_m": 1.87,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -1603,13 +1613,13 @@
       ],
       "hp": 120,
       "damage": 25,
-      "reach_m": 1.4,
+      "reach_m": 1.54,
       "lunge_m": 0,
       "cooldown_s": 1.6,
       "windup_s": 0.5,
       "attack_rate": 1.0,
-      "walk_mps": 1.5,
-      "run_mps": 3.8,
+      "walk_mps": 1.65,
+      "run_mps": 4.18,
       "run_within_m": 12,
       "weight": 0,
       "hit_zone_scale": 1.0,
@@ -1664,19 +1674,20 @@
         },
         {
           "clip": "standing melee kick",
-          "radius": 0.35,
+          "radius": 0.385,
           "damage": 25
         },
         {
           "clip": "standing melee punch",
           "joint": "RightHand",
-          "radius": 0.3,
+          "radius": 0.33,
           "damage": 18
         }
       ]
     },
     {
       "id": "knight10m",
+      "hit_fx": "sparks",
       "name": "Mounted Knight",
       "model": "knight_10_mounted",
       "height_m": 2.042,
@@ -1689,7 +1700,7 @@
       ],
       "hp": 600,
     "death_side": ["rider_death", "rider_death_left"],
-    "horse_hp": 1000,
+    "horse_hp": 500,
     "horse_zones": [["BN_Pelvis_060_066", "BN_Spine_03_05_05", 0.33], ["BN_Neck_00_06_06", "BN_Neck_03_012_012", 0.17], ["BN_Head_00_016_015", "BN_Head_01_029_028", 0.14], ["BN_L_Thing_051_054", "BN_L_Calf_052_055", 0.13], ["BN_L_Calf_052_055", "BN_L_HorseLink_053_056", 0.08], ["BN_L_HorseLink_053_056", "BN_L_Foot_054_057", 0.06], ["BN_R_Thing_056_060", "BN_R_Calf_057_061", 0.13], ["BN_R_Calf_057_061", "BN_R_HorseLink_058_062", 0.08], ["BN_R_HorseLink_058_062", "BN_R_Foot_00_063", 0.06], ["BN_L_UpperArm_039_040", "BN_l_Forearm_040_041", 0.1], ["BN_l_Forearm_040_041", "BN_L_Hand_041_042", 0.06], ["BN_R_UpperArm_044_046", "BN_R_Forearm_045_047", 0.1], ["BN_R_Forearm_045_047", "BN_R_Hand_046_048", 0.06]],
       "damage": 90,
       "reach_m": 2.0,
@@ -1808,9 +1819,10 @@
     },
     {
       "id": "fallen_knight",
+      "hit_fx": "sparks",
       "name": "Fallen Knight",
       "model": "knight",
-      "height_m": 3.81,
+      "height_m": 3.048,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -1820,13 +1832,13 @@
       ],
       "hp": 3000,
       "damage": 60,
-      "reach_m": 4.298,
-      "lunge_m": 2.931,
+      "reach_m": 3.4384,
+      "lunge_m": 2.3448,
       "cooldown_s": 1.4,
       "windup_s": 0.5,
       "attack_rate": 1.6,
-      "walk_mps": 2.7,
-      "run_mps": 2.7,
+      "walk_mps": 2.16,
+      "run_mps": 2.16,
       "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.1,
@@ -1869,34 +1881,35 @@
         {
           "clip": "attack_slam",
           "joint": "RightHand",
-          "radius": 1.954
+          "radius": 1.5632
         },
         {
           "clip": "attack_spin",
           "joint": "RightHand",
-          "radius": 1.954
+          "radius": 1.5632
         },
         {
           "clip": "attack_charge",
           "joint": "RightHand",
-          "radius": 1.954
+          "radius": 1.5632
         },
         {
           "clip": "attack_bash",
           "joint": "LeftHand",
-          "radius": 1.758
+          "radius": 1.4064
         }
       ],
-      "capsule_radius_m": 0.55,
-      "capsule_height_m": 3.2,
+      "capsule_radius_m": 0.44,
+      "capsule_height_m": 2.56,
       "block_radius": 0.18,
-      "note": "FK1: AI type 39 Fallen Knight: the Brother Knight (content/characters/knight.glb, local-only; the model Knight 1 had before knight2) at twice the standardised knight body (foot to head joint 3.124 m = 2 x 1.562: height_m 3.81) with 5x a knight's health (3000; Knights 1-10 have 600). Its only locomotion clip is its walk (0.86 m/s of foot travel at its own size, 1.68 m/s at 2x): played as the run at 1.6x (2.7 m/s, no foot slide). reach, lunge, strike radii x1.954 with the body; capsule 0.55 x 3.2 m. Not in Assorted Knights. Without knight.glb AI type 39 spawns 'fallen_knight1' (Knight 1 at the same size and health)"
+      "note": "FK2 (the user): shrunk 20 %: 1.6x the knight body (height_m 3.048; reach, lunge, strike radii, capsule and walk/run x0.8 so the stride still matches). FK1: AI type 39 Fallen Knight: the Brother Knight (content/characters/knight.glb, local-only; the model Knight 1 had before knight2) at twice the standardised knight body (foot to head joint 3.124 m = 2 x 1.562: height_m 3.81) with 5x a knight's health (3000; Knights 1-10 have 600). Its only locomotion clip is its walk (0.86 m/s of foot travel at its own size, 1.68 m/s at 2x): played as the run at 1.6x (2.7 m/s, no foot slide). reach, lunge, strike radii x1.954 with the body; capsule 0.55 x 3.2 m. Not in Assorted Knights. Without knight.glb AI type 39 spawns 'fallen_knight1' (Knight 1 at the same size and health)"
     },
     {
       "id": "fallen_knight1",
+      "hit_fx": "sparks",
       "name": "Fallen Knight (Knight 1)",
       "model": "knight_ss",
-      "height_m": 3.904,
+      "height_m": 3.1232,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -1906,13 +1919,13 @@
       ],
       "hp": 3000,
       "damage": 60,
-      "reach_m": 4.0,
-      "lunge_m": 2.0,
+      "reach_m": 3.2,
+      "lunge_m": 1.6,
       "cooldown_s": 1.2,
       "windup_s": 0.5,
       "attack_rate": 1.0,
-      "walk_mps": 6.0,
-      "run_mps": 6.0,
+      "walk_mps": 4.8,
+      "run_mps": 4.8,
       "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.1,
@@ -1960,7 +1973,7 @@
         {
           "clip": "sword and shield slash",
           "joint": "RightHand",
-          "radius": 0.72,
+          "radius": 0.576,
           "bone": "mixamorig:RightHand",
           "at": [
             55.2923,
@@ -1971,7 +1984,7 @@
         {
           "clip": "sword and shield slash (3)",
           "joint": "RightHand",
-          "radius": 0.72,
+          "radius": 0.576,
           "bone": "mixamorig:RightHand",
           "at": [
             55.2923,
@@ -1982,7 +1995,7 @@
         {
           "clip": "sword and shield slash (5)",
           "joint": "RightHand",
-          "radius": 0.72,
+          "radius": 0.576,
           "bone": "mixamorig:RightHand",
           "at": [
             55.2923,
@@ -1993,7 +2006,7 @@
         {
           "clip": "sword and shield attack (4)",
           "joint": "RightHand",
-          "radius": 0.72,
+          "radius": 0.576,
           "bone": "mixamorig:RightHand",
           "at": [
             55.2923,
@@ -2002,10 +2015,10 @@
           ]
         }
       ],
-      "capsule_radius_m": 0.55,
-      "capsule_height_m": 3.2,
+      "capsule_radius_m": 0.44,
+      "capsule_height_m": 2.56,
       "block_radius": 0.18,
-      "note": "FK1: AI type 39 without the local knight.glb: Knight 1 at the Fallen Knight body size (x2: height_m 3.904) and health (3000)"
+      "note": "FK2: shrunk 20 % with the Fallen Knight (x1.6 body, all lengths and speeds x0.8). FK1: AI type 39 without the local knight.glb: Knight 1 at the Fallen Knight body size (x2: height_m 3.904) and health (3000)"
     },
     {
       "id": "dragon",

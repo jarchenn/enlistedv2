@@ -270,8 +270,8 @@ void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& 
     s.kit = ait == AiType::Mechs && !s.zombie ? 12 : ait == AiType::Troopers ? 2 : ait == AiType::Robots ? 3 : ait == AiType::Delta ? 4 : ait == AiType::Desert ? 6 : ait == AiType::AlliedPara || ait == AiType::Allied ? 7 : ait == AiType::SS ? 8 : s.op ? 1 : 0;   // RM2: the gas-mask kits (9 / 10) are gone   // WS1: 7 Allied paratroopers; WSM2: 7 also the Allied soldiers, 8 SS, 9 / 10 gas-mask 1 / 2   // SW1; DF1: 4 Delta Force; DSD1: 6 desert soldiers on the Delta Force path
     if (!s.zombie) {   // RB6: the kit's size and belt-gun stance (combat.json kits.<kit> "scale", "lmg_standing"); a zombie's come from its enemy type
       const json kj = combat.value("kits", json::object()).value(kitName(s.kit), json::object());
-      s.eScale = s.eBody = std::clamp(kj.value("scale", 1.0f), 0.5f, 3.0f); s.eLean = 0; s.standFire = kj.value("lmg_standing", false);
-    } else s.standFire = false;
+      s.eScale = s.eBody = std::clamp(kj.value("scale", 1.0f), 0.5f, 3.0f); s.eLean = 0; s.standFire = kj.value("lmg_standing", false); s.meleeKeep = std::clamp(kj.value("melee_keep_m", 0.0f), 0.0f, 40.0f);
+    } else { s.standFire = false; s.meleeKeep = 0; }
     s.etype = !s.zombie ? 0 : etypeOverride >= 0 ? etypeOverride : ait == AiType::ZombiesHeavies ? enemyTypePick((uint32_t)rs.id)   // EN1: the mix by weight, per slot
             : ait == AiType::Brutes ? std::max(0, enemyTypeIndex("brute")) : ait == AiType::Spiders ? std::max(0, enemyTypeIndex("stalker"))
             : ait == AiType::Creatures ? std::max(0, enemyTypeIndex("creature"))
@@ -313,7 +313,8 @@ void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& 
       if (s.genericHits) logf("player body %s: not a soldier rig, hits use the standard soldier volumes", id.c_str());
     }
     const json kitj = s.kit >= 2 ? combat.value("kits", json::object()).value(kitName(s.kit), json::object()) : json::object();   // SW1
-    if (s.kit >= 2) { s.kitSpeed = kitj.value("speed", 1.0f); s.kitSparks = kitj.value("sparks", false); b.aimTurn *= kitj.value("aimTurn", 1.0f); }
+    if (s.kit >= 2) { s.kitSpeed = kitj.value("speed", 1.0f); b.aimTurn *= kitj.value("aimTurn", 1.0f); }
+    s.kitSparks = s.zombie ? enemyType(s.etype).hitSparks : kitj.value("sparks", false);   // SW1 kit "sparks" / MK2 type "hit_fx": "sparks": hits throw metal sparks, no blood
     if (ait == AiType::Operators || s.kit >= 2) {   // a soldier in the faction's operator body (combat.json operator_models; SW1: the kit's models, either side; missing: the soldier body stays)
       json ol = s.kit >= 2 ? kitj.value("models", json::array()) : combat.value("operator_models", json::object()).value(fac, json::array());
       if (!ol.empty()) {
