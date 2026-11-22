@@ -403,6 +403,7 @@ public:
   void stepGrenades(float dt);
   void clearGrenades();
   void grenadeDrawItems();
+  void projectileDrawItems();   // XB7: rounds with a flying mesh (the crossbow bolt), here and as LAN ghosts
   void stepEquipment(float dt, const ExploreInput& in, const WeaponDef& d, WeaponState& s, bool fireHeld);
   void meleeSweep(const WeaponDef& d);
   mat4 equipmentPose(const WeaponDef& d, const WeaponState& s) const;

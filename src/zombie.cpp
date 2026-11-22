@@ -842,6 +842,13 @@ int ar1SelfCheck() {
     chk(km >= 0 && enemyType(km).warmup > 0 && enemyType(km).groundMps.count(enemyType(km).runClip) && enemyType(km).groundMps.count(enemyType(km).walkClips[0]), "knight10m (KG1 / KG3): a walk warm-up, the hooves' ground speed for the walk and the gallop"); }
   { int bad = 0; for (int i = 1; i <= 10; ++i) { int kk = enemyTypeIndex(i == 1 ? "knight" : "knight" + std::to_string(i)); if (kk < 0) { ++bad; continue; } const EnemyType& t = enemyType(kk); bad += t.walkClips.size() != 1 || t.walkClips[0] != t.runClip || t.runWithin < 1e4f; }
     chk(bad == 0, "Knights 1-10 (KG2): the run clip at every pace, always the run speed"); }
+  { int fk = enemyTypeIndex("fallen_knight"), f1 = enemyTypeIndex("fallen_knight1"), k1 = enemyTypeIndex("knight"); bool inMix = false;   // FK1
+    for (auto& [id, w] : zcfg().assorted) inMix = inMix || id.rfind("fallen", 0) == 0;
+    chk(fk >= 0 && f1 >= 0 && k1 >= 0 && enemyType(fk).hp == 5 * enemyType(k1).hp && enemyType(f1).hp == enemyType(fk).hp && enemyType(fk).model == "knight" && !inMix && std::string(aiTypeName(AiType::FallenKnight)) == "Fallen Knight",
+        "Fallen Knight (FK1): AI type 39, 5x a knight's health, the Brother Knight's model, a Knight 1 fallback, not in Assorted"); }
+  { json xb; try { xb = json::parse(readTextFile(contentDir() / "weapons" / "modern_crossbow.json")); } catch (...) {}   // XB7
+    std::string pd = xb.is_object() ? xb.value("projectileModel", json::object()).value("dir", std::string()) : std::string();
+    chk(!pd.empty() && fs::exists(contentDir() / "weapons" / "models" / pd / "mesh.bin"), "the crossbow's bolt mesh (XB7): models/" + pd); }
   { int kn = 0, ar = 0; for (uint32_t sd = 0; sd < 400; ++sd) { const std::string& id = enemyType(enemyTypeAssortedPick(sd)).id; kn += id.rfind("knight", 0) == 0; ar += id.rfind("archer", 0) == 0; }
     chk(kn + ar == 400 && ar > 40 && ar < 160, "assorted (AK1): 400 slots -> " + std::to_string(kn) + " knights, " + std::to_string(ar) + " archers"); }
   for (float D : {5.0f, 10.0f, 25.0f, 45.0f}) {
