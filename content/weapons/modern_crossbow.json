@@ -35,10 +35,10 @@
   ],
   "front": [
    0.0,
-   0.0742,
-   0.6965
+   0.0906,
+   0.7377
   ],
-  "note": "XB1 / XB2: rear = the hole centre of the rear sight block over the trigger (clipped rear-view render; peep r 4.4 mm); front = the tip of the black post between its ears, 5 cm behind the gold stirrup (XB1 had taken the stirrup's top: the post sat 30 mm under that line, the user: 'front sight too low'); the line falls 2.4 deg toward the muzzle against the bolt rail (the bolt is launched up for its drop); measured on the static bake"
+  "note": "XB3: rear = the hole centre of the rear sight block over the trigger (source y 10.908, a clipped rear-view render; r 4.4 mm); front = the TIP of the post inside the front globe ring (source (0, 10.912, 49.98); the ring's inner centre (0, 10.909), inner r 9.7 mm: the tip sits 0.03 mm above the ring centre, so the two circles are concentric when the tip is on the line). The line is level with the bolt rail (it runs 4.4 cm over it). XB1 took the ring's top (13 mm high: the post sat low, 'front sight too low'); XB2 took the bolt rail's front guide (the two ears, 4 cm behind the globe) - both wrong"
  },
  "muzzle": [
   0.0,
@@ -382,9 +382,9 @@
   "note": "XB1: the source's own arms and clips (models/<dir>/vm.glb, tools/modern_guns_anim.py); one 5.67 s timeline: fire, reload (cock + bolt), inspect, idle",
   "points": {
    "up": [
-    0.0417,
-    0.99913,
-    -0.00264
+    0.04132,
+    0.99914,
+    -0.00263
    ],
    "note": "XB1: the gun's vertical (bind space, vm.glb: from the bore at the muzzle square up to the rear -> front sight line), so ADS turns the sight line onto the view axis with no roll (the MG11 / CP alignment)"
   }
