@@ -336,10 +336,12 @@ void App::buildWeaponMeshes() {
       else {
         d->showArms = false;   // the rig has its own arms
         float r = animVmClipDur(*d->anim, "reload"), re = animVmClipDur(*d->anim, "reload_empty"), fd = animVmClipDur(*d->anim, "fire");
-        if (d->feed == "single") {   // one shell per insert clip; start / end around the loop when the rig has them
-          float ri = animVmClipDur(*d->anim, "reload_insert");
+        const float ri0 = animVmClipDur(*d->anim, "reload_insert");
+        if (d->feed == "single" || (d->feed == "stripper" && ri0 > 0)) {   // one shell per insert clip; start / end around the loop when the rig has them   // KR13: a stripper rifle's top-off (single rounds) too, its empty reload the clip's own length
+          float ri = ri0;
           if (ri > 0) { d->reloadRound = ri; d->reloadStart = std::max(0.0f, animVmClipDur(*d->anim, "reload_start")); d->reloadEnd = std::max(0.0f, animVmClipDur(*d->anim, "reload_end")); d->reloadInsert = ab.value("shellInsert", 0.7f); }
           else if (r > 0) d->reloadRound = r;
+          if (d->feed == "stripper" && re > 0) d->reloadEmpty = re;
         }
         else if (r > 0) { d->reloadPartial = r; d->reloadEmpty = re > 0 ? re : r; d->reloadInsert = ab.value("insert", 0.65f); }
         if (ab.value("cycleInFire", false) && fd > 0) {   // the fire clip includes the pump / bolt stroke: the next shot waits for it

@@ -144,7 +144,7 @@ void animVmStep(App& app, const WeaponDef& d, WeaponState& s, float dt) {
   // the reload clip the weapon state asks for ("" = none)
   std::string want;
   if (s.reload > 0 && s.reloadKind) {
-    if (a.shells && d.feed == "single") {
+    if (a.shells && (d.feed == "single" || (d.feed == "stripper" && s.reloadKind != 1))) {   // KR13: a stripper rifle tops off single rounds (kind 3 / 4); its empty reload (kind 1) is the stripper clip
       if (s.reloadKind == 4) want = "reload_end";
       else {
         float el = s.reloadTotal - s.reload, sd = animVmClipDur(a, "reload_start");
