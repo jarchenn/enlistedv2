@@ -148,7 +148,7 @@ for w, src in (('modern_scar', 'fg42'), ('modern_ak', 'stg44'), ('modern_m16', '
                ('modern_revolver', 'm1_carbine'), ('modern_deagle', 'm1_carbine'), ('modern_sawnoff', 'kar98k'), ('modern_smg9', 'm3_grease_gun'),
                ('modern_glock34', 'm1_carbine'), ('modern_mark23', 'm1_carbine'),
                ('modern_vsk', 'stg44'),
-               ('g43', 'm1_garand'), ('ppsh41', 'mp40')):   # MG2, MG3, MG4, MG12; FR2: the Gewehr 43 / PPSh-41 (no recordings of their own)
+               ('g43', 'm1_garand'), ('ppsh41', 'mp40'), ('pkm', 'modern_lmg')):   # MG2, MG3, MG4, MG12; FR2: the Gewehr 43 / PPSh-41 (no recordings of their own)
     for pre, suf in (('shot', ''), ('shot', '_far'), ('tail', ''), ('reload', '')):
         f = '%s_%s%s' % (pre, src, suf)
         if f not in events and pre == 'reload' and src == 'kar98k_zf39': f = 'reload_kar98k'

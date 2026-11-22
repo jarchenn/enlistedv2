@@ -260,6 +260,9 @@
    "modern_lmg": {
     "kind": "lmg"
    },
+   "pkm": {
+    "kind": "lmg"
+   },
    "m2hb_carry": {
     "kind": "lmg"
    },

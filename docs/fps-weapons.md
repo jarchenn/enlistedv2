@@ -1002,3 +1002,24 @@ Added for the user's two remaining rigs (they approved new weapons). Committed `
   - the arm is set by a two-bone solve in the old elbow's plane, the clavicle swinging forward when the grip is out of reach;
   - each finger joint curls until the finger touches the gun (BVH, inside counts as contact).
   The G43 is scaled 1.2x about the trigger finger: as sent it is the real 1.13 m, but its fore-end is only 3.2 cm wide against the 8.2 cm palm. The config points the three rigs at `E:/nmk/fr4/out/<gun>_fit.glb`, and the G43's srcPoints scale likewise. The re-export moved each gun 31.5 mm against the bake's points, so the BAR / MP40 / G43 `animated.points` are re-mapped by exact vertex fits (the G43's on the user's gun scaled 1.2x: error 4e-8). In the aimed view the left hand stays under the sight line (BAR highest -0.5 deg).
+
+### FR5: the user's Sten, MG 42 and PKM rigs (local-only)
+
+The user sent three animated first-person rigs, none with a licence stated (credits: **unknown**), so all of it is local-only (`content/weapons/local/<id>.json` + `models/<id>_rig_local`, git-ignored), each behind a perf switch that falls back to the committed view.
+
+| Gun | Perf (off =) | Source | Clips (frames on the baked timeline) |
+|---|---|---|---|
+| Sten | `sten2rig` (the STR1 rig) | `Sten.glb`, a "World War Weapons" NIF/KF conversion: 15 separate clips; `E:/nmk/fr5/sten_prep.py` lays the used ones on one timeline | idle 1-25 (2haAim, first frame held), fire 26-48 (2haAttackLoop), reload 49-109 (2haReloadD_Partial), empty 110-184 (2haReloadD); the aimed (IS), last-round, jam and equip clips are not played (the game has no aimed-idle, last-round or draw clip) |
+| MG 42 (carried) | `mg42rig` (the static view) | `mg42_animated.glb`, one 12.17 s take cut by motion (`E:/nmk/fr5/motion2.py`) and checked by eye | fire 1-8, empty reload 9-109 (bolt back, cover up, drum swapped, cover down), reload 149-249, idle 253-277; inspect / charge 113-149 and draw 277-293 not played; no bipod-deployed clip |
+| PKM (new weapon `pkm`) | `pkmrig` (the M249's model and rig) | `pkm_animated.glb`, the MG 42's take retargeted | the MG 42's cuts |
+
+- **The Sten's `##` parts are not leftovers.** `##PowerCellAssembly` is the magazine and `##riotMechanism` the cocking handle; both are animated in the reloads and drawn.
+- **Textures** are taken byte for byte from each GLB (`E:/nmk/fr5/tex_extract.py`), at `maxTex 4096`. The bakes keep the source triangle counts (Sten 13,363; MG 42 19,306; PKM 25,381), and every material is opaque. The MG 42's "checker" materials are real worn-steel textures, not placeholders.
+- **Sights** are measured on each gun's mesh (`E:/nmk/fr5/pin3.py`):
+  - Sten: the rear peep's ring centre and the front blade's tip, the level line the file's `##SightingNode` also gives;
+  - MG 42: the tangent leaf's notch shoulders and the post tip;
+  - PKM: the notch shoulders and the post tip between its ears.
+  They are mapped into each bake by an ICP vertex fit (`E:/nmk/fr5/mapbake.py`, residual < 1e-6 m) and written as `animated.points`. Sight radii: Sten 0.30 m, MG 42 0.444 m, PKM 0.645 m.
+- **Known bake issue:** the MG 42 and PKM (Sketchfab exports) bake about 34 cm low and 20 cm left of their hip framing, the whole rig with the arms. The cause in `modern_guns_anim.py` is not found yet. `animated.hipShift` puts the hip pose back, and aiming uses the measured sights.
+- **Hands at the idle frame:** the Sten's and PKM's both touch the gun. The MG 42's left hand is 1.9 cm off the drum (the source's own pose).
+- **The PKM:** 7.62x54R, a 100-round box (`762r_box100`, 6 in the mixed crate), 650 rpm, 825 m/s, 9.6 g; damage a step above the M249's, the M249's handling (bipod rule), arms grip and recordings (plus a synthetic fallback `shot_pkm`). Battle Royale counts it as 7.62. Its third-person model is the rig's gun at rest (`pkm_local`, via `--import-weapon-models`). Net version 38.
