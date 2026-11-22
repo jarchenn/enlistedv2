@@ -94,7 +94,7 @@ void AiCore::perceive(Soldier& s) {
     float d = glm::length(g.p - s.feet);
     if (d > (ours ? tj("grenade", "friendlyClear_m", 11.0f) : tj("grenade", "reactRadius_m", 8.0f))) continue;
     bool seen = ours || (glm::dot(glm::normalize(g.p - e + vec3(1e-4f)), look) > 0.3f && G.lineOfSight(e, g.p));
-    if (seen || (g.resting && d < 5.0f)) { b.evadeFrom = g.p; b.evadeUntil = G.t + g.fuse + 0.5; m.grenadeSeenAt = G.t; }
+    if (seen || (g.resting && d < 5.0f)) { b.evadeFrom = g.p; b.evadeUntil = G.t + g.fuse + 0.5; b.kite = false; m.grenadeSeenAt = G.t; }
   }
   // target: visible enemies; the fireteam's assignment, the objective and the current target preferred;
   // spawn-protected soldiers get near-zero priority
@@ -166,7 +166,7 @@ void AiCore::aim(Soldier& s, float dt) {
   bool shoot = false, suppress = false; vec3 aimPoint(0); float smokeT = 1;
   EnemyMemory* tm = nullptr; for (auto& x : b.mem) if (x.enemy == b.target) tm = &x;
   TeamBrain& tb = teams[(int)s.role];
-  bool blockedAct = m.action == A_EVADE || m.action == A_RELOAD || (m.action == A_CLEAR && m.set && b.target < 0) || m.trav.on;
+  bool blockedAct = (m.action == A_EVADE && !b.kite) || m.action == A_RELOAD || (m.action == A_CLEAR && m.set && b.target < 0) || m.trav.on;
   // AI1: smoke hides like a wall once the sight line's transmittance drops below smokeBlockT (about 1.5 m of dense
   // cloud). Perception refreshes every 0.2 s; this per-step test stops aimed fire the moment a cloud comes between.
   const float smokeBlock = tj("perception", "smokeBlockT", 0.35f);

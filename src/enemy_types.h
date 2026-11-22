@@ -44,6 +44,7 @@ struct EnemyType {
   std::vector<AttackSpec> attackSpecs;
   bool attackDust = true;                                 // CH5 json "attack_dust": false: its blows throw no dust (the area, shake and sounds stay)
   bool tankDamage = false;                                // TK1 json "tank_damage" (default: hp >= 500): its landed blows wear down a tank, 1/15 of its durability each
+  bool hitSparks = false;                                 // MK2 json "hit_fx": "sparks": plate / metal: hits throw sparks, no blood (Game kitSparks)
   float headMult = 0;                                     // CH7 json "head_mult": damage x on a head hit instead of the global head multiplier (0: the global one)
   float stompArea = 0;                                    // a strike hurts every hostile within stompArea x height x scale of where it lands
   float explosiveMult = 1;                                // EN2: blast damage x (Game::explosionDamage: grenades, rockets, shells, packs, artillery)
