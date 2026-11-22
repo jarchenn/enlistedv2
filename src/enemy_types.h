@@ -3,6 +3,7 @@
 // plain zombie; the AI type "Zombies + heavies" picks a type per slot by weight. Everything is data, the model too.
 #include "common.h"
 #include <string>
+#include <map>
 #include <vector>
 
 struct EnemyType {
@@ -19,6 +20,8 @@ struct EnemyType {
   float hp = 100, damage = 35, reach = 1.6f, lunge = 0;   // lunge: a strike starts this far out and closes the gap in the wind-up
   float cooldown = 0.9f, windup = 0.25f, attackRate = 1.4f;   // the blow lands at the attack clip's swing frame / attackRate (windup without clips)
   float walk = 4.0f, run = 4.0f, runWithin = 1e9f;        // m/s: run when the target is within runWithin, else walk
+  std::map<std::string, float> groundMps;                 // KG1 json ground_mps {clip: m/s in the GLB's own metres}: the clip's ground speed when the feet the engine measures are not the ones on the ground (the horse's hooves, not the rider's feet)
+  float warmup = 0;                                       // KG3 json warmup_s: after each standstill it walks this long before it may run (the horse's walk into the gallop)
   float weight = 1, zoneScale = 1;                        // share in a horde; hit-capsule radii x (on top of scale)
   float knock = 0;                                        // m/s shove on the player hit
   float staggerMin = 0, staggerS = 0;                     // a single hit of at least staggerMin flinches it (and stops it staggerS)

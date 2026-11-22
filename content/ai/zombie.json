@@ -365,7 +365,7 @@
       "id": "knight",
       "name": "Knight 1",
       "model": "knight_ss",
-      "height_m": 1.9,
+      "height_m": 1.952,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -382,7 +382,7 @@
       "attack_rate": 1.0,
       "walk_mps": 1.5,
       "run_mps": 3.8,
-      "run_within_m": 12,
+      "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.1,
       "knockback_mps": 3,
@@ -391,7 +391,7 @@
       "explosive_mult": 2,
       "clips": {
         "walk": [
-          "sword and shield walk"
+          "sword and shield run"
         ],
         "run": "sword and shield run",
         "idle": [
@@ -426,7 +426,7 @@
         {
           "clip": "sword and shield slash",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.36,
           "bone": "mixamorig:RightHand",
           "at": [
             55.2923,
@@ -437,7 +437,7 @@
         {
           "clip": "sword and shield slash (3)",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.36,
           "bone": "mixamorig:RightHand",
           "at": [
             55.2923,
@@ -448,7 +448,7 @@
         {
           "clip": "sword and shield slash (5)",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.36,
           "bone": "mixamorig:RightHand",
           "at": [
             55.2923,
@@ -459,7 +459,7 @@
         {
           "clip": "sword and shield attack (4)",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.36,
           "bone": "mixamorig:RightHand",
           "at": [
             55.2923,
@@ -527,7 +527,7 @@
       "id": "knight2",
       "name": "Knight 2",
       "model": "knight_v2",
-      "height_m": 1.9,
+      "height_m": 1.952,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -544,7 +544,7 @@
       "attack_rate": 1.0,
       "walk_mps": 1.5,
       "run_mps": 3.8,
-      "run_within_m": 12,
+      "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.1,
       "knockback_mps": 3,
@@ -553,7 +553,7 @@
       "explosive_mult": 2,
       "clips": {
         "walk": [
-          "sword and shield walk"
+          "sword and shield run"
         ],
         "run": "sword and shield run",
         "idle": [
@@ -588,7 +588,7 @@
         {
           "clip": "sword and shield slash",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.36,
           "bone": "mixamorig:RightHand",
           "at": [
             52.9367,
@@ -599,7 +599,7 @@
         {
           "clip": "sword and shield slash (3)",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.36,
           "bone": "mixamorig:RightHand",
           "at": [
             52.9367,
@@ -610,7 +610,7 @@
         {
           "clip": "sword and shield slash (5)",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.36,
           "bone": "mixamorig:RightHand",
           "at": [
             52.9367,
@@ -621,7 +621,7 @@
         {
           "clip": "sword and shield attack (4)",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.36,
           "bone": "mixamorig:RightHand",
           "at": [
             52.9367,
@@ -636,7 +636,7 @@
       "id": "knight3",
       "name": "Knight 3",
       "model": "knight_3",
-      "height_m": 1.9,
+      "height_m": 1.996,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -653,7 +653,7 @@
       "attack_rate": 1.0,
       "walk_mps": 1.5,
       "run_mps": 3.8,
-      "run_within_m": 12,
+      "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.1,
       "knockback_mps": 3,
@@ -662,7 +662,7 @@
       "explosive_mult": 2,
       "clips": {
         "walk": [
-          "sword and shield walk"
+          "sword and shield run"
         ],
         "run": "sword and shield run",
         "idle": [
@@ -697,7 +697,7 @@
         {
           "clip": "sword and shield slash",
           "joint": "RightHand",
-          "radius": 0.3,
+          "radius": 0.315,
           "bone": "flail_5",
           "at": [
             0,
@@ -708,7 +708,7 @@
         {
           "clip": "sword and shield slash (3)",
           "joint": "RightHand",
-          "radius": 0.3,
+          "radius": 0.315,
           "bone": "flail_5",
           "at": [
             0,
@@ -719,7 +719,7 @@
         {
           "clip": "sword and shield slash (5)",
           "joint": "RightHand",
-          "radius": 0.3,
+          "radius": 0.315,
           "bone": "flail_5",
           "at": [
             0,
@@ -730,7 +730,7 @@
         {
           "clip": "sword and shield attack (4)",
           "joint": "RightHand",
-          "radius": 0.3,
+          "radius": 0.315,
           "bone": "flail_5",
           "at": [
             0,
@@ -745,7 +745,7 @@
       "id": "knight4",
       "name": "Knight 4",
       "model": "knight_4",
-      "height_m": 1.9,
+      "height_m": 2.663,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -762,7 +762,7 @@
       "attack_rate": 1.0,
       "walk_mps": 1.5,
       "run_mps": 3.8,
-      "run_within_m": 12,
+      "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.1,
       "knockback_mps": 3,
@@ -771,7 +771,7 @@
       "explosive_mult": 2,
       "clips": {
         "walk": [
-          "great sword walk"
+          "great sword run (2)"
         ],
         "run": "great sword run (2)",
         "idle": [
@@ -806,7 +806,7 @@
         {
           "clip": "great sword slash",
           "joint": "RightHand",
-          "radius": 0.4,
+          "radius": 0.561,
           "bone": "mixamorig:Weapon",
           "at": [
             89.8055,
@@ -817,7 +817,7 @@
         {
           "clip": "great sword attack",
           "joint": "RightHand",
-          "radius": 0.4,
+          "radius": 0.561,
           "bone": "mixamorig:Weapon",
           "at": [
             89.8055,
@@ -828,7 +828,7 @@
         {
           "clip": "great sword slash (3)",
           "joint": "RightHand",
-          "radius": 0.4,
+          "radius": 0.561,
           "bone": "mixamorig:Weapon",
           "at": [
             89.8055,
@@ -839,7 +839,7 @@
         {
           "clip": "great sword slash (4)",
           "joint": "RightHand",
-          "radius": 0.4,
+          "radius": 0.561,
           "bone": "mixamorig:Weapon",
           "at": [
             89.8055,
@@ -871,7 +871,7 @@
       "attack_rate": 1.0,
       "walk_mps": 1.5,
       "run_mps": 3.8,
-      "run_within_m": 12,
+      "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.1,
       "knockback_mps": 3,
@@ -880,7 +880,7 @@
       "explosive_mult": 2,
       "clips": {
         "walk": [
-          "standing walk forward"
+          "standing run forward"
         ],
         "run": "standing run forward",
         "idle": [
@@ -963,7 +963,7 @@
       "id": "knight6",
       "name": "Knight 6",
       "model": "knight_6",
-      "height_m": 1.9,
+      "height_m": 1.952,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -980,7 +980,7 @@
       "attack_rate": 1.0,
       "walk_mps": 1.5,
       "run_mps": 3.8,
-      "run_within_m": 12,
+      "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.1,
       "knockback_mps": 3,
@@ -989,7 +989,7 @@
       "explosive_mult": 2,
       "clips": {
         "walk": [
-          "sword and shield walk"
+          "sword and shield run"
         ],
         "run": "sword and shield run",
         "idle": [
@@ -1024,7 +1024,7 @@
         {
           "clip": "sword and shield slash",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.36,
           "bone": "mixamorig:RightHand",
           "at": [
             55.494,
@@ -1035,7 +1035,7 @@
         {
           "clip": "sword and shield slash (3)",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.36,
           "bone": "mixamorig:RightHand",
           "at": [
             55.494,
@@ -1046,7 +1046,7 @@
         {
           "clip": "sword and shield slash (5)",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.36,
           "bone": "mixamorig:RightHand",
           "at": [
             55.494,
@@ -1057,7 +1057,7 @@
         {
           "clip": "sword and shield attack (4)",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.36,
           "bone": "mixamorig:RightHand",
           "at": [
             55.494,
@@ -1072,7 +1072,7 @@
       "id": "knight7",
       "name": "Knight 7",
       "model": "knight_7",
-      "height_m": 1.9,
+      "height_m": 1.952,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -1089,7 +1089,7 @@
       "attack_rate": 1.0,
       "walk_mps": 1.5,
       "run_mps": 3.8,
-      "run_within_m": 12,
+      "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.1,
       "knockback_mps": 3,
@@ -1098,7 +1098,7 @@
       "explosive_mult": 2,
       "clips": {
         "walk": [
-          "sword and shield walk"
+          "sword and shield run"
         ],
         "run": "sword and shield run",
         "idle": [
@@ -1133,7 +1133,7 @@
         {
           "clip": "sword and shield slash",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.36,
           "bone": "mixamorig:RightHand",
           "at": [
             46.5089,
@@ -1144,7 +1144,7 @@
         {
           "clip": "sword and shield slash (3)",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.36,
           "bone": "mixamorig:RightHand",
           "at": [
             46.5089,
@@ -1155,7 +1155,7 @@
         {
           "clip": "sword and shield slash (5)",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.36,
           "bone": "mixamorig:RightHand",
           "at": [
             46.5089,
@@ -1166,7 +1166,7 @@
         {
           "clip": "sword and shield attack (4)",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.36,
           "bone": "mixamorig:RightHand",
           "at": [
             46.5089,
@@ -1181,7 +1181,7 @@
       "id": "knight8",
       "name": "Knight 8",
       "model": "knight_8",
-      "height_m": 1.9,
+      "height_m": 2.541,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -1198,7 +1198,7 @@
       "attack_rate": 1.0,
       "walk_mps": 1.5,
       "run_mps": 3.8,
-      "run_within_m": 12,
+      "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.1,
       "knockback_mps": 3,
@@ -1207,7 +1207,7 @@
       "explosive_mult": 2,
       "clips": {
         "walk": [
-          "great sword walk"
+          "great sword run (2)"
         ],
         "run": "great sword run (2)",
         "idle": [
@@ -1242,7 +1242,7 @@
         {
           "clip": "great sword slash",
           "joint": "RightHand",
-          "radius": 0.4,
+          "radius": 0.535,
           "bone": "mixamorig:Weapon",
           "at": [
             93.2268,
@@ -1253,7 +1253,7 @@
         {
           "clip": "great sword attack",
           "joint": "RightHand",
-          "radius": 0.4,
+          "radius": 0.535,
           "bone": "mixamorig:Weapon",
           "at": [
             93.2268,
@@ -1264,7 +1264,7 @@
         {
           "clip": "great sword slash (3)",
           "joint": "RightHand",
-          "radius": 0.4,
+          "radius": 0.535,
           "bone": "mixamorig:Weapon",
           "at": [
             93.2268,
@@ -1275,7 +1275,7 @@
         {
           "clip": "great sword slash (4)",
           "joint": "RightHand",
-          "radius": 0.4,
+          "radius": 0.535,
           "bone": "mixamorig:Weapon",
           "at": [
             93.2268,
@@ -1290,7 +1290,7 @@
       "id": "knight9",
       "name": "Knight 9",
       "model": "knight_9",
-      "height_m": 1.9,
+      "height_m": 1.94,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -1307,7 +1307,7 @@
       "attack_rate": 1.0,
       "walk_mps": 1.5,
       "run_mps": 3.8,
-      "run_within_m": 12,
+      "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.1,
       "knockback_mps": 3,
@@ -1316,7 +1316,7 @@
       "explosive_mult": 2,
       "clips": {
         "walk": [
-          "standing walk forward"
+          "standing run forward"
         ],
         "run": "standing run forward",
         "idle": [
@@ -1351,7 +1351,7 @@
         {
           "clip": "standing melee attack downward",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.357,
           "bone": "mixamorig:RightHand",
           "at": [
             60.8358,
@@ -1362,7 +1362,7 @@
         {
           "clip": "standing melee attack horizontal",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.357,
           "bone": "mixamorig:RightHand",
           "at": [
             60.8358,
@@ -1373,7 +1373,7 @@
         {
           "clip": "standing melee attack backhand",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.357,
           "bone": "mixamorig:RightHand",
           "at": [
             60.8358,
@@ -1384,7 +1384,7 @@
         {
           "clip": "standing melee attack 360 high",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.357,
           "bone": "mixamorig:RightHand",
           "at": [
             60.8358,
@@ -1485,7 +1485,7 @@
       "id": "knight10",
       "name": "Knight 10",
       "model": "knight_10",
-      "height_m": 1.9,
+      "height_m": 1.996,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -1502,7 +1502,7 @@
       "attack_rate": 1.0,
       "walk_mps": 1.5,
       "run_mps": 3.8,
-      "run_within_m": 12,
+      "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.1,
       "knockback_mps": 3,
@@ -1511,7 +1511,7 @@
       "explosive_mult": 2,
       "clips": {
         "walk": [
-          "sword and shield walk"
+          "sword and shield run"
         ],
         "run": "sword and shield run",
         "idle": [
@@ -1546,7 +1546,7 @@
         {
           "clip": "sword and shield slash",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.368,
           "bone": "mixamorig:RightHand",
           "at": [
             55.5535,
@@ -1557,7 +1557,7 @@
         {
           "clip": "sword and shield slash (3)",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.368,
           "bone": "mixamorig:RightHand",
           "at": [
             55.5535,
@@ -1568,7 +1568,7 @@
         {
           "clip": "sword and shield slash (5)",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.368,
           "bone": "mixamorig:RightHand",
           "at": [
             55.5535,
@@ -1579,7 +1579,7 @@
         {
           "clip": "sword and shield attack (4)",
           "joint": "RightHand",
-          "radius": 0.35,
+          "radius": 0.368,
           "bone": "mixamorig:RightHand",
           "at": [
             55.5535,
@@ -1679,7 +1679,7 @@
       "id": "knight10m",
       "name": "Mounted Knight",
       "model": "knight_10_mounted",
-      "height_m": 1.882,
+      "height_m": 2.042,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -1697,9 +1697,11 @@
       "cooldown_s": 1.0,
       "windup_s": 0.9,
       "attack_rate": 1.0,
-      "walk_mps": 1.8,
-      "run_mps": 7.0,
-      "run_within_m": 60,
+      "walk_mps": 1.5,
+      "run_mps": 8.5,
+      "warmup_s": 2.5,
+      "ground_mps": {"walk": 0.85, "gallop_scan": 4.0},
+      "run_within_m": 100000,
       "weight": 0,
       "hit_zone_scale": 1.3,
       "knockback_mps": 6,
@@ -1730,9 +1732,9 @@
       ],
       "note": "HK3: with horse_hp the pool that runs out decides (kinds unused). HK2 (no horse_hp): the killing hit's kind (s.lastHow) decides: these bring the horse down (the rider's legs hang at its flanks, below the saddle), any other gun hit shoots the rider off (death clips). After horse_death the horse stays as a corpse (the rider's meshes hidden) and the slot goes on as Knight 10 on foot under foot_at (the materials session's spawn point: the rider's hips at the end, glTF), facing the same way"
     },
-    "capsule_radius_m": 0.8,
+    "capsule_radius_m": 0.868,
       "block_radius": 0.4,
-      "note": "HK1: Knight 10 on the armoured horse (content/characters/knight_10_mounted.glb: the materials session's horse + rider pair merged into one skin by tools/enemies/horse_merge.py; E:/nmk/horse/export). HK3: the horse and the rider have their own health (horse_hp 1000, hp 600 the rider's): a bullet hits whichever it meets first (horse_zones: capsules on the horse's joints; the rider's own zones x1.3), melee lands on the horse, a blast / shell / fire / vehicle hurts both; the horse at 0 plays horse_death and the knight goes on foot with the rider's health left, the rider at 0 plays rider_death. One movement body (a 0.8 m capsule, the player pushed out to 0.75 m). It gallops at the enemy (gallop_scan, 7 m/s within 60 m); the charge strikes ahead on the couched spear (tip sphere at frame 23 of attack_charge); the right-side thrust (attack_right, first thrust, frame 23) turns the whole horse 44 deg left of the target (face_deg) so the target is on the rider's right, where the spear goes. Not used: attack_pivot_left (the engine-side yaw curve), the second right thrust (behind-right). Death (HK4): the rider slumps off the side the killing hit pushed him to (death_side: rider_death off the horse's right, rider_death_left off its left; 1.4 s, ragdoll-like), the horse goes on idling (its corpse stands); no hit-reaction clip: it does not flinch. The materials session's 1024-texture export (E:/nmk/horse/export, horse-knight e89032d3)",
+      "note": "HK1: Knight 10 on the armoured horse (content/characters/knight_10_mounted.glb: the materials session's horse + rider pair merged into one skin by tools/enemies/horse_merge.py; E:/nmk/horse/export). HK3: the horse and the rider have their own health (horse_hp 1000, hp 600 the rider's): a bullet hits whichever it meets first (horse_zones: capsules on the horse's joints; the rider's own zones x1.3), melee lands on the horse, a blast / shell / fire / vehicle hurts both; the horse at 0 plays horse_death and the knight goes on foot with the rider's health left, the rider at 0 plays rider_death. One movement body (a 0.8 m capsule, the player pushed out to 0.75 m). KG3: from a standstill it walks 2.5 s (warmup_s), then gallops at the enemy at any range (gallop_scan, 8.5 m/s; KG1: the clip cut to its one 1 s stride, tools/enemies/clip_trim.py; ground_mps from the hooves); the charge strikes ahead on the couched spear (tip sphere at frame 23 of attack_charge); the right-side thrust (attack_right, first thrust, frame 23) turns the whole horse 44 deg left of the target (face_deg) so the target is on the rider's right, where the spear goes. Not used: attack_pivot_left (the engine-side yaw curve), the second right thrust (behind-right). Death (HK4): the rider slumps off the side the killing hit pushed him to (death_side: rider_death off the horse's right, rider_death_left off its left; 1.4 s, ragdoll-like), the horse goes on idling (its corpse stands); no hit-reaction clip: it does not flinch. The materials session's 1024-texture export (E:/nmk/horse/export, horse-knight e89032d3)",
       "clips": {
         "walk": [
           "walk"
@@ -1768,10 +1770,10 @@
             0.17,
             0.25
           ],
-          "radius": 0.55,
+          "radius": 0.597,
           "range": [
-            1.0,
-            2.8
+            1.085,
+            3.039
           ],
           "bone": "mixamorig:RightHand",
           "at": [
@@ -1788,10 +1790,10 @@
             0.17,
             0.13
           ],
-          "radius": 0.55,
+          "radius": 0.597,
           "range": [
-            0.8,
-            2.6
+            0.868,
+            2.822
           ],
           "face_deg": 44,
           "bone": "mixamorig:RightHand",

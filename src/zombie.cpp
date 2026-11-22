@@ -72,7 +72,8 @@ const ZombieCfg& zcfg() {
         if (e.contains("tint") && e["tint"].is_array() && e["tint"].size() == 3) t.tint = vec3(e["tint"][0].get<float>(), e["tint"][1].get<float>(), e["tint"][2].get<float>());
         t.hp = std::max(1.0f, e.value("hp", t.hp)); t.damage = e.value("damage", t.damage); t.reach = e.value("reach_m", t.reach); t.lunge = e.value("lunge_m", t.lunge);
         t.cooldown = e.value("cooldown_s", t.cooldown); t.windup = e.value("windup_s", t.windup); t.attackRate = std::clamp(e.value("attack_rate", t.attackRate), 0.25f, 4.0f);
-        t.walk = e.value("walk_mps", t.walk); t.run = e.value("run_mps", t.run); t.runWithin = e.value("run_within_m", t.runWithin);
+        t.walk = e.value("walk_mps", t.walk); t.run = e.value("run_mps", t.run); t.runWithin = e.value("run_within_m", t.runWithin); t.warmup = std::clamp(e.value("warmup_s", t.warmup), 0.0f, 30.0f);
+        if (auto g = e.find("ground_mps"); g != e.end() && g->is_object()) for (auto& [ck, cv] : g->items()) if (cv.is_number()) t.groundMps[ck] = std::max(0.2f, cv.get<float>());
         t.weight = std::max(0.0f, e.value("weight", t.weight)); t.zoneScale = std::clamp(e.value("hit_zone_scale", t.zoneScale), 0.3f, 4.0f);
         t.groundShake = std::clamp(e.value("ground_shake", t.groundShake), 0.0f, 1.0f);
         for (auto& a : e.value("attacks", json::array())) {   // CH6
@@ -498,6 +499,10 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
   // EN1: its own pace: run near the target, walk (lumber) beyond run_within_m; a stagger stops it
   m.zSpeed = L || (best && zLenXZ(best->feet - s.feet) < e.runWithin) ? e.run : e.walk;   // a pack follower keeps the pack's pace
   if (G.t < s.staggerUntil) { m.speed = SPD_STOP; b.why = "zombie: staggered"; }
+  if (e.warmup > 0) {   // KG3: from a standstill it walks warmup_s before the run (reset while it stands or barely moves)
+    if (m.warmT < 0 || m.speed == SPD_STOP || s.speed < 0.3f * e.walk) m.warmT = G.t;
+    if (G.t - m.warmT < e.warmup) m.zSpeed = std::min(m.zSpeed, e.walk);
+  }
   if (best || L) {
     vec3 d = best ? best->feet - s.feet : vec3(0);
     const bool locked = s.meleeWind >= 0 && s.meleeWind >= windupOf(G, s);   // CH6: from the blow on, the facing holds
@@ -738,7 +743,10 @@ void aiZombiePose(Game& G, Soldier& s, float dt) {
   auto pickAt = [&](const std::vector<std::string>& v, int k) { return clip(v[(size_t)std::max(0, k) % v.size()].c_str(), v[0].c_str()); };
   auto pick = [&](const std::vector<std::string>& v) { return pickAt(v, s.slot); };   // per zombie: one of the type's walk / idle clips
   int walk = pick(ce.walkClips), run = findClip(m, ce.runClip.c_str()), idle = pick(ce.idleClips);
-  auto gs = [&](int k, float def) { return (k >= 0 && m.clips[k].groundSpeed > 0.2f ? m.clips[k].groundSpeed : def) * s.eScale; };   // a bigger body takes longer strides
+  auto gs = [&](int k, float def) {   // a bigger body takes longer strides
+    auto o = k >= 0 ? ce.groundMps.find(m.clips[k].name) : ce.groundMps.end();
+    if (o != ce.groundMps.end()) return o->second * glm::length(vec3(m.rootFix[0])) * s.eScale;   // KG1: json, GLB metres x the height fit
+    return (k >= 0 && m.clips[k].groundSpeed > 0.2f ? m.clips[k].groundSpeed : def) * s.eScale; };
   float vw = gs(walk, 1.2f), vr = std::max(vw + 0.5f, gs(run, 4.0f));
   if (s.alive && s.hp < A.lastHp - 0.01f && !e.sndHurt.empty() && G.t - A.hurtSndAt > 0.25) { A.hurtSndAt = G.t; G.app.audio.play(e.sndHurt.c_str(), s.feet + vec3(0, 0.7f * e.height * e.scale, 0), 1.0f, 0.95f + 0.1f * G.rnd(s)); }   // KS1: any damage, at most every 0.25 s per body (automatic fire)
   bool hurt = s.alive && s.hp < A.lastHp - std::max(0.5f, e.staggerMin); A.lastHp = s.hp;   // EN1: a brute flinches only from heavy hits
@@ -830,7 +838,10 @@ int ar1SelfCheck() {
   { int km = enemyTypeIndex("knight10m"); bool side = false; if (km >= 0) for (auto& a : enemyType(km).attackSpecs) side = side || (a.clip == "attack_right" && a.faceDeg == 44 && a.hasAt);
     chk(km >= 0 && side, "knight10m (HK1): the right thrust faces 44 deg past its target, its sphere on the spear tip");
     chk(km >= 0 && enemyType(km).horseDeathClip == "horse_death" && enemyTypeIndex(enemyType(km).footType) >= 0 && !enemyType(km).horseKinds.empty() && !enemyType(km).corpseHide.empty(), "knight10m (HK2): horse_death goes on foot as a known type");
-    chk(km >= 0 && enemyType(km).horseHp > 0 && enemyType(km).horseZones.size() >= 10, "knight10m (HK3): the horse's own health and hit capsules"); }
+    chk(km >= 0 && enemyType(km).horseHp > 0 && enemyType(km).horseZones.size() >= 10, "knight10m (HK3): the horse's own health and hit capsules");
+    chk(km >= 0 && enemyType(km).warmup > 0 && enemyType(km).groundMps.count(enemyType(km).runClip) && enemyType(km).groundMps.count(enemyType(km).walkClips[0]), "knight10m (KG1 / KG3): a walk warm-up, the hooves' ground speed for the walk and the gallop"); }
+  { int bad = 0; for (int i = 1; i <= 10; ++i) { int kk = enemyTypeIndex(i == 1 ? "knight" : "knight" + std::to_string(i)); if (kk < 0) { ++bad; continue; } const EnemyType& t = enemyType(kk); bad += t.walkClips.size() != 1 || t.walkClips[0] != t.runClip || t.runWithin < 1e4f; }
+    chk(bad == 0, "Knights 1-10 (KG2): the run clip at every pace, always the run speed"); }
   { int kn = 0, ar = 0; for (uint32_t sd = 0; sd < 400; ++sd) { const std::string& id = enemyType(enemyTypeAssortedPick(sd)).id; kn += id.rfind("knight", 0) == 0; ar += id.rfind("archer", 0) == 0; }
     chk(kn + ar == 400 && ar > 40 && ar < 160, "assorted (AK1): 400 slots -> " + std::to_string(kn) + " knights, " + std::to_string(ar) + " archers"); }
   for (float D : {5.0f, 10.0f, 25.0f, 45.0f}) {

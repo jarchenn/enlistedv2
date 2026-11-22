@@ -156,6 +156,7 @@ struct BotMind {
   double underFireT = 0, exposedT = 0, lastAct = 0;
   // PF1 zombie packs (zombie.cpp): followers steer along the mesh to a slot by the leader instead of path queries
   int pack = -1; bool follower = false; float speedScale = 1, zSpeed = 4; vec3 flockPush{0}; double flockT = 0, ownPathT = -100;
+  double warmT = -1;   // KG3: when it last stood (warmup_s counts from here)
   double tgtT = 0, badUntil = 0; int badTarget = -1; vec3 hAnchor{0}; double hAnchorT = 0, hClimbTry = 0;   // EN4: progress, climb-out retry   // EN3 heavies (zombie.cpp heavyStep): next target choice, a target found unreachable
 };
 
