@@ -91,6 +91,7 @@ const ZombieCfg& zcfg() {
         t.knock = e.value("knockback_mps", t.knock); t.staggerMin = e.value("stagger_min_damage", t.staggerMin); t.staggerS = e.value("stagger_s", t.staggerS);
         json sd = e.value("sounds", json::object()); t.sndAttack = sd.value("attack", ""); t.sndIdle = sd.value("idle", ""); t.sndStep = sd.value("step", "");
         t.sndContact = sd.value("contact", ""); t.sndDeath = sd.value("death", ""); t.sndLoop = sd.value("loop", "");
+        t.sndMiss = sd.value("miss", ""); t.sndHurt = sd.value("hurt", ""); t.sndWeaponDrop = sd.value("weapon_drop", "");
         t.sndWindup = sd.value("windup", ""); t.voicePitch = std::clamp(e.value("voice_pitch", 1.0f), 0.5f, 2.0f);
         json cl = e.value("clips", json::object());
         strs(cl, "walk", t.walkClips); strs(cl, "idle", t.idleClips); strs(cl, "attack", t.attackClips);
@@ -575,6 +576,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
             if (e.knock > 0 && o.localPlayer) { vec3 d = o.feet - s.feet; d.y = 0; if (glm::length(d) > 1e-3f) G.app.knockVel = glm::normalize(d) * e.knock; }   // shortcut: only the local player is shoved
           }
         }
+        if (w0 < wu && s.meleeWind >= wu && hit.empty() && !e.sndMiss.empty()) G.app.audio.play(e.sndMiss.c_str(), p, 1.0f, 0.95f + 0.1f * G.rnd(s));   // KS1: nobody touched by the blow: the swing whooshes (a body it reaches after the blow still gets the contact sound). shortcut: host / single player only
       }
     }
     if (s.meleeWind >= wu + r.post) {
@@ -640,10 +642,15 @@ void aiZombiePose(Game& G, Soldier& s, float dt) {
   int walk = pick(ce.walkClips), run = findClip(m, ce.runClip.c_str()), idle = pick(ce.idleClips);
   auto gs = [&](int k, float def) { return (k >= 0 && m.clips[k].groundSpeed > 0.2f ? m.clips[k].groundSpeed : def) * s.eScale; };   // a bigger body takes longer strides
   float vw = gs(walk, 1.2f), vr = std::max(vw + 0.5f, gs(run, 4.0f));
+  if (s.alive && s.hp < A.lastHp - 0.01f && !e.sndHurt.empty() && G.t - A.hurtSndAt > 0.25) { A.hurtSndAt = G.t; G.app.audio.play(e.sndHurt.c_str(), s.feet + vec3(0, 0.7f * e.height * e.scale, 0), 1.0f, 0.95f + 0.1f * G.rnd(s)); }   // KS1: any damage, at most every 0.25 s per body (automatic fire)
   bool hurt = s.alive && s.hp < A.lastHp - std::max(0.5f, e.staggerMin); A.lastHp = s.hp;   // EN1: a brute flinches only from heavy hits
   auto playing = [&](float limit) { return A.a >= 0 && A.time < std::min(limit, m.clips[A.a].dur); };
   const BotMind* tm = nullptr; if (AiCore* Ac = aiCore()) tm = mindAt(*Ac, s.slot);
   bool climbing = s.alive && tm && tm->life == s.lifeId && tm->trav.on && tm->trav.heavy;   // EN4 (host: the traversal; clients see the walk)
+  if (!s.alive && A.key != K_DEATH && !e.sndWeaponDrop.empty()) {   // KS1: the weapon reaches the floor handFloor s into the death clip (played at rate 1)
+    int dc = pickAt(ce.deathClips, s.slot + s.lifeId);
+    if (dc >= 0 && m.clips[dc].handFloor >= 0) G.app.audio.play(e.sndWeaponDrop.c_str(), s.feet + vec3(0, 0.2f, 0), 1.0f, 0.96f + 0.08f * G.rnd(s), m.clips[dc].handFloor);
+  }
   if (!s.alive) A.play(K_DEATH, pickAt(ce.deathClips, s.slot + s.lifeId), -1, 0, 1, false);
   else if (climbing) { int cc = ce.climbClip.empty() ? -1 : findClip(m, ce.climbClip); if (cc >= 0) A.play(K_CLIMB, cc, -1, 0, m.clips[cc].dur / std::max(0.3f, tm->trav.dur), false); else A.play(K_CLIMB, walk, -1, 0, 1.4f, true); }   // holds its end pose (no ragdoll in this game)
   else if (A.strike != s.meleeCount) { A.strike = s.meleeCount; A.play(K_ATTACK, attackClip(m, ce, s.meleeClip), -1, 0, e.attackRate, false, true); }

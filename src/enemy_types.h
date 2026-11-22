@@ -8,6 +8,7 @@
 struct EnemyType {
   std::string id = "zombie", name = "Zombie";
   std::string sndAttack, sndIdle, sndStep;                // CH1 json "sounds" {attack, idle, step}: audio events for a type without built-in ones
+  std::string sndMiss, sndHurt, sndWeaponDrop;           // KS1 "miss" (a swing that hits nobody, at the blow), "hurt" (it takes damage), "weapon_drop" (at the death clip's handFloor)
   std::string sndContact, sndDeath, sndLoop;              // SND1 / SND2: "contact" (a blow lands on someone), "death", "loop" (a looping sound on each living one, nearest few)
   std::string sndWindup; float voicePitch = 1;            // SND4: "windup" (as it commits to a blow on a human player, in place of "attack", which then sounds at the blow if the wind-up is 1 s or longer); json voice_pitch: idle / attack / windup x
   std::string model = "zombie"; float height = 1.85f;    // content/characters/<model>.glb, rest pose scaled to height

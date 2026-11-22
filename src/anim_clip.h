@@ -17,6 +17,7 @@ struct AnimClip {
   int swingJoint = -1;       // CH6: the striking joint (CJ_LHAND / CJ_RHAND, or a foot for a kick) and its model-space position at the swing
   vec3 swingAt{0};
   float groundSpeed = 0;     // m/s the planted feet slide back (locomotion: playback rate = speed / groundSpeed)
+  float handFloor = -1;      // KS1 death clips ("death" in the name): s into the clip when the weapon hand first comes down to its lowest (the weapon hits the floor)
 };
 
 struct NodeLocals { std::vector<vec3> T, S; std::vector<quat> R; std::vector<char> set; };   // set: animated (else nodeLocal)
@@ -39,6 +40,7 @@ struct AnimPlayer {
   float fade = 1, fadeLen = 0.2f;
   NodeLocals last, from;
   float lastHp = 100; int strike = 0, life = -1;   // zombie.cpp: hit and attack triggers, the life they belong to
+  double hurtSndAt = -1;     // KS1: when this body last played its hurt sound
   float lodAcc = 0;                                // zombie.cpp: time not yet sampled (far zombies sample at a lower rate)
   // same key: only the blend / rate change; a new key (or restart) starts at 0 and cross-fades
   void play(int key, int clipA, int clipB, float w, float rate, bool loop, bool restart = false);

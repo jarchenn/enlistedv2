@@ -415,7 +415,7 @@
       },
       "sounds": {
         "attack": "knightattack",
-        "contact": "knightattackcontact",
+        "contact": "knight_slice", "miss": "knight_miss", "hurt": "knight_hurt", "weapon_drop": "knight_weapon_drop",
         "death": "knightdeath"
       },
       "attack_dust": false,
@@ -577,7 +577,7 @@
       },
       "sounds": {
         "attack": "knightattack",
-        "contact": "knightattackcontact",
+        "contact": "knight_slice", "miss": "knight_miss", "hurt": "knight_hurt", "weapon_drop": "knight_weapon_drop",
         "death": "knightdeath"
       },
       "attack_dust": false,
@@ -686,7 +686,7 @@
       },
       "sounds": {
         "attack": "knightattack",
-        "contact": "knightattackcontact",
+        "contact": "knight_slice", "miss": "knight_miss", "hurt": "knight_hurt", "weapon_drop": "knight_weapon_drop",
         "death": "knightdeath"
       },
       "attack_dust": false,
@@ -795,7 +795,7 @@
       },
       "sounds": {
         "attack": "knightattack",
-        "contact": "knightattackcontact",
+        "contact": "knight_slice", "miss": "knight_miss", "hurt": "knight_hurt", "weapon_drop": "knight_weapon_drop",
         "death": "knightdeath"
       },
       "attack_dust": false,
@@ -904,7 +904,7 @@
       },
       "sounds": {
         "attack": "knightattack",
-        "contact": "knightattackcontact",
+        "contact": "knight_slice", "miss": "knight_miss", "hurt": "knight_hurt", "weapon_drop": "knight_weapon_drop",
         "death": "knightdeath"
       },
       "attack_dust": false,
@@ -1013,7 +1013,7 @@
       },
       "sounds": {
         "attack": "knightattack",
-        "contact": "knightattackcontact",
+        "contact": "knight_slice", "miss": "knight_miss", "hurt": "knight_hurt", "weapon_drop": "knight_weapon_drop",
         "death": "knightdeath"
       },
       "attack_dust": false,
@@ -1122,7 +1122,7 @@
       },
       "sounds": {
         "attack": "knightattack",
-        "contact": "knightattackcontact",
+        "contact": "knight_slice", "miss": "knight_miss", "hurt": "knight_hurt", "weapon_drop": "knight_weapon_drop",
         "death": "knightdeath"
       },
       "attack_dust": false,
@@ -1231,7 +1231,7 @@
       },
       "sounds": {
         "attack": "knightattack",
-        "contact": "knightattackcontact",
+        "contact": "knight_slice", "miss": "knight_miss", "hurt": "knight_hurt", "weapon_drop": "knight_weapon_drop",
         "death": "knightdeath"
       },
       "attack_dust": false,
@@ -1340,7 +1340,7 @@
       },
       "sounds": {
         "attack": "knightattack",
-        "contact": "knightattackcontact",
+        "contact": "knight_slice", "miss": "knight_miss", "hurt": "knight_hurt", "weapon_drop": "knight_weapon_drop",
         "death": "knightdeath"
       },
       "attack_dust": false,

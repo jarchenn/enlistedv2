@@ -1030,19 +1030,36 @@ int Audio::loadCustom(const fs::path& dir) {
     for (int k = 1; k <= 8; ++k) { std::snprintf(fn, sizeof fn, "snd14/flyby_%d.wav", k); if (!decode(fn, b)) break; float pk = peakOf(b); for (float& x : b) x *= 0.8f / pk; ev.v.push_back(b); }
     if (!ev.v.empty()) { ++used; p->events["bulletwhiz"] = ev; }
   }
+  auto prepClip = [&](Buf& raw) {   // leading silence trimmed (5 ms kept), levelled to 0.8 peak, at most 6 s, a 50 ms fade-out
+    float pk = std::max(1e-6f, peakOf(raw)); size_t a = 0; while (a < raw.size() && std::fabs(raw[a]) < 0.03f * pk) ++a;
+    a = a > (size_t)(SR / 200) ? a - SR / 200 : 0;
+    Buf s(raw.begin() + a, raw.begin() + std::min(raw.size(), a + (size_t)(6 * SR))); size_t fo = std::min(s.size(), (size_t)(SR / 20));
+    for (size_t j = 0; j < s.size(); ++j) s[j] *= 0.8f / pk * (j + fo >= s.size() ? (float)(s.size() - j) / fo : 1.0f);
+    return s;
+  };
+  std::error_code ec;
+  {   // KS1 knight sounds (custom/knight/<name>[_N].mp3 -> event "knight_<name>", the _N files its variants, picked at random,
+      // never the same twice running): miss (a swing that hits nobody), slice (a blow that lands), hurt (the knight is hit),
+      // weapon_drop (its weapon reaches the floor in the death clip). Per event: gain, full volume within minDist m, then the
+      // default 1.2 roll-off; a crowd: at most one per 0.06 s per 4 m spot and maxVoices overlapping bodies (the oldest fades)
+    struct K { const char* name; float gain, minDist; int maxV; };
+    const K ks[] = {{"miss", 0.55f, 2.0f, 3}, {"slice", 0.9f, 2.0f, 3}, {"hurt", 0.7f, 2.0f, 4}, {"weapon_drop", 0.8f, 3.0f, 3}};
+    for (const K& k : ks) {
+      Impl::Event ev; ev.gain = k.gain; ev.minDist = k.minDist; ev.minGap = 0.06f; ev.maxVoices = k.maxV;
+      std::string base = std::string("knight/") + k.name;
+      if (decode((base + ".mp3").c_str(), b)) ev.v.push_back(prepClip(b));
+      for (int n = 1; n <= 8; ++n) if (decode((base + "_" + std::to_string(n) + ".mp3").c_str(), b)) ev.v.push_back(prepClip(b));
+      if (!ev.v.empty()) { ++used; p->events[std::string("knight_") + k.name] = ev; }
+    }
+  }
   // SND1: any other mp3 here plays as an event named after its file (knightattack.mp3 -> "knightattack"): leading
   // silence trimmed, levelled, at most 6 s. A type's "sounds" (content/ai/zombie*.json) name them.
-  std::error_code ec;
   for (auto& f : fs::directory_iterator(dir, ec)) {
     if (!f.is_regular_file() || f.path().extension() != ".mp3") continue;
     std::string stem = f.path().stem().string();
     if (p->events.count(stem) || p->bufs.count(stem) || stem.rfind("creature_", 0) == 0) continue;
     if (!decode(f.path().filename().string().c_str(), b)) continue;
-    float pk = peakOf(b); size_t a = 0; while (a < b.size() && std::fabs(b[a]) < 0.03f * pk) ++a;
-    a = a > (size_t)(SR / 200) ? a - SR / 200 : 0;
-    Buf s(b.begin() + a, b.begin() + std::min(b.size(), a + (size_t)(6 * SR))); size_t fo = std::min(s.size(), (size_t)(SR / 20));
-    for (size_t j = 0; j < s.size(); ++j) s[j] *= 0.8f / pk * (j + fo >= s.size() ? (float)(s.size() - j) / fo : 1.0f);
-    ++used; Impl::Event ev; ev.v.push_back(std::move(s)); p->events[stem] = ev;
+    ++used; Impl::Event ev; ev.v.push_back(prepClip(b)); p->events[stem] = ev;
   }
   return used;
 }

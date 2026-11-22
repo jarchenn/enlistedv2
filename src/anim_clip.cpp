@@ -116,6 +116,11 @@ void analyzeClips(CharModel& m) {
         for (int i = 0; i < N; ++i) { float v = glm::length(limb[h][i + 1] - limb[h][i]) / dt; if (v > best) { best = v; clip.swing = (i + 0.5f) * dt; clip.swingChest = chest[0][i + 1];
           clip.swingJoint = limb == foot ? (h ? CJ_RFOOT : CJ_LFOOT) : (h ? CJ_RHAND : CJ_LHAND); clip.swingAt = limb[h][i + 1]; } }
     }
+    if (clip.name.find("death") != std::string::npos) {   // KS1: the right (weapon) hand's first arrival within 12 cm of its lowest point
+      float lo = 1e9f; for (auto& q : hand[1]) lo = std::min(lo, q.y);
+      for (int i = 0; i <= N; ++i) if (hand[1][i].y <= lo + 0.12f) { clip.handFloor = i * dt; break; }
+      logf("anim: death clip \"%s\" (%.2f s): weapon hand on the floor at %.2f s", clip.name.c_str(), clip.dur, clip.handFloor);
+    }
     // planted foot (within 3 cm of its lowest point) slides toward -z (the model faces +z) at the ground speed
     float sum = 0; int cnt = 0;
     for (int f = 0; f < 2; ++f) {
