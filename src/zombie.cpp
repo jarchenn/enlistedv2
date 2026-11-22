@@ -75,6 +75,8 @@ const ZombieCfg& zcfg() {
         for (auto& a : e.value("attacks", json::array())) {   // CH6
           EnemyType::AttackSpec x; x.clip = a.value("clip", ""); std::string jn = a.value("joint", "");
           for (int q = 0; q < CJ_COUNT; ++q) if (jn == kSemanticNames[q]) x.joint = q;
+          x.bone = a.value("bone", std::string());   // KN8
+          if (a.contains("at") && a["at"].is_array() && a["at"].size() == 3) { x.at = vec3(a["at"][0].get<float>(), a["at"][1].get<float>(), a["at"][2].get<float>()); x.hasAt = !x.bone.empty(); }
           x.extend = a.value("extend", 0.0f); x.radius = a.value("radius", 0.0f); x.damage = a.value("damage", -1.0f); x.weight = std::max(0.0f, a.value("weight", 1.0f));
           if (a.contains("range") && a["range"].is_array() && a["range"].size() == 2) { x.rangeMin = a["range"][0]; x.rangeMax = a["range"][1]; }
           if (a.contains("window") && a["window"].is_array() && a["window"].size() == 2) { x.pre = a["window"][0]; x.post = a["window"][1]; }
@@ -131,7 +133,7 @@ float windupOf(const Game& G, const Soldier& s) {
   return k >= 0 && G.models[s.model]->clips[k].swing > 0 ? G.models[s.model]->clips[k].swing / e.attackRate : e.windup;
 }
 // CH6: an attack's strike, from the clip's analysis (the fastest hand and where it is at the swing) and the type's "attacks"
-struct Strike { int joint = CJ_RHAND; float extend = 0, radius = 0.5f, damage = 0, lo = 0, hi = 0, weight = 1, pre = 0.15f, post = 0.1f, dist = 1; bool leap = false; int victims = 0; };
+struct Strike { int bone = -1; vec3 at{0}; int joint = CJ_RHAND; float extend = 0, radius = 0.5f, damage = 0, lo = 0, hi = 0, weight = 1, pre = 0.15f, post = 0.1f, dist = 1; bool leap = false; int victims = 0; };
 Strike strikeOf(const Game& G, const Soldier& s, int i) {
   const EnemyType& e = typeOf(s); const EnemyType& ce = clipsOf(s); Strike r;
   r.radius = std::max(0.45f, 0.12f * e.height * e.scale); r.damage = e.damage; r.dist = e.reach;
@@ -142,12 +144,18 @@ Strike strikeOf(const Game& G, const Soldier& s, int i) {
     r.lo = a.rangeMin; r.hi = a.rangeMax; r.weight = a.weight; r.pre = a.pre; r.post = a.post; r.leap = a.leap; r.victims = a.victims;
     if (a.extend > 0) r.dist += a.extend;
     if (a.reach > 0) r.dist = a.reach;
+    if (a.hasAt) for (int k = 0; k < (int)m.jointNode.size(); ++k) if (m.nodeName[m.jointNode[k]] == a.bone) {   // KN8: on the weapon itself
+      r.bone = k; r.at = vec3(m.nodeWorld[m.jointNode[k]] * vec4(a.at, 1));   // the point at rest, model space
+      if (a.reach <= 0) r.dist = std::max(r.dist, glm::length(r.at - m.jointHead[m.semantic[CJ_RHAND]]) * s.eScale);   // the swing's reach: at least the weapon's
+      break;
+    }
   }
   if (r.hi <= 0) { r.lo = 0; r.hi = std::max({r.dist + r.radius + 0.3f, e.reach, e.lunge}); }   // within the swing's reach (or the type's lunge)
   return r;
 }
 // where the strike sphere is now: the joint, carried `extend` metres on along its limb (forearm -> hand, neck -> head, shin -> foot)
 vec3 strikePoint(const Soldier& s, const Strike& r) {
+  if (r.bone >= 0 && r.bone < (int)s.pose.delta.size()) return vec3(s.world * s.pose.delta[r.bone] * vec4(r.at, 1));   // KN8: posed = delta * rest
   auto W = [&](int j) { return vec3(s.world * vec4(s.pose.joint[j], 1)); };
   vec3 p = W(r.joint);
   int par = r.joint == CJ_LHAND ? CJ_LFOREARM : r.joint == CJ_RHAND ? CJ_RFOREARM : r.joint == CJ_HEAD ? CJ_NECK : r.joint == CJ_LFOOT ? CJ_LLEG : r.joint == CJ_RFOOT ? CJ_RLEG : -1;
