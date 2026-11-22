@@ -31,7 +31,7 @@ constexpr float kElbowS = 0.267f;      // the elbow's distance from the body tub
 
 struct ArmGen {
   bool tried = false, ok = false;
-  GpuModel model[2];                   // 0 Allies (olive drab), 1 Axis (charcoal): parts 0 sleeve, 1 cuff, 2 hand / wrist
+  GpuModel model[4];                   // 0 Allies (olive drab), 1 Axis (charcoal): parts 0 sleeve, 1 cuff, 2 hand / wrist; KF2: 2 / 3 the same for the right arm (its own vertex buffer)
   std::vector<uint32_t> I; size_t nV = 0;
   uint32_t partFirst[5] = {0, 0, 0, 0, 0}, partCount[5] = {0, 0, 0, 0, 0};
   vec2 handLo{0}, handHi{0}, sleeve15{0};   // the last drawn arm's framing (NDC): hand bounds, 15 cm up the sleeve past the cuff
@@ -525,8 +525,8 @@ bool armsLoad() {
   vec3 clothC[2] = {jv3(col, "allies", vec3(0.105f, 0.100f, 0.048f)), jv3(col, "axis", vec3(0.030f, 0.030f, 0.032f))};          // linear: olive drab, charcoal
   vec3 thread[2] = {jv3(col, "alliesThread", vec3(0.15f, 0.14f, 0.075f)), jv3(col, "axisThread", vec3(0.065f, 0.065f, 0.07f))};   // a little lighter than the cloth
   vec3 skin = jv3(gA.cfg, "skin", vec3(0.44f, 0.25f, 0.155f));
-  for (int f = 0; f < 2; ++f) {
-    GpuModel& g = gA.model[f];
+  for (int fi = 0; fi < 4; ++fi) {
+    const int f = fi % 2; GpuModel& g = gA.model[fi];
     glCreateVertexArrays(1, &g.vao); glCreateBuffers(1, &g.vbo); glCreateBuffers(1, &g.ebo);
     glNamedBufferStorage(g.vbo, gA.nV * sizeof(TexVertex), B.V.data(), GL_DYNAMIC_STORAGE_BIT);
     glNamedBufferStorage(g.ebo, gA.I.size() * 4, gA.I.data(), 0);
@@ -599,8 +599,8 @@ void applyProfile(const json& j, ArmGrip& g) {
 }   // namespace
 
 bool fpsArmsReady() { return armsLoad(); }
-bool fpsArmsIsModel(const GpuModel* g) { return g && (g == &gA.model[0] || g == &gA.model[1]); }   // self-tests: an arm draw
-int fpsArmsFaction(const GpuModel* g) { return g == &gA.model[0] ? 0 : g == &gA.model[1] ? 1 : -1; }   // 0 Allies, 1 Axis
+bool fpsArmsIsModel(const GpuModel* g) { return g && g >= &gA.model[0] && g <= &gA.model[3]; }   // self-tests: an arm draw
+int fpsArmsFaction(const GpuModel* g) { return fpsArmsIsModel(g) ? (int)(g - &gA.model[0]) % 2 : -1; }   // 0 Allies, 1 Axis
 // a weapon's grip profile: the measured fore-end (its bottom, the width of its lowest 4 cm, its height; the section
 // axis is the weapon's +z), then fps_arms.json "default", then fps_arms.json "weapons"."<id>" (docs/fps-arms.md)
 void fpsArmsGrip(const WeaponDef& d, ArmGrip& g) {
@@ -619,7 +619,7 @@ void fpsArmsLastJoints(vec3& shoulder, vec3& elbow, vec3& wrist, vec3& target) {
 // cam = camera-to-world. curl 1 = wrapped round the section, 0 relaxed. rightHand: the mirrored hand, its arm from the
 // lower right (knife / grenades). Out: the wrist (camera space). False: not drawn (no generated arm, or the safety hid
 // it: in the ADS sight cone / at the eye).
-bool fpsSupportHandDraw(App& app, const mat4& cam, const mat4& weaponToCam, const ArmGrip& grip, float curl, bool rightHand, bool axis, vec3* wristOut) {
+bool fpsSupportHandDraw(App& app, const mat4& cam, const mat4& weaponToCam, const ArmGrip& grip, float curl, bool rightHand, bool axis, vec3* wristOut, int slot) {
   if (!armsLoad()) return false;
   float ads = app.adsT * app.adsT * (3 - 2 * app.adsT);
   const float cone = std::tan(radians(gA.cfg.value("sightConeDeg", 6.0f))), nearZ = gA.cfg.value("nearClear", 0.12f), nearAds = gA.cfg.value("nearClearAds", 0.25f);
@@ -653,13 +653,15 @@ bool fpsSupportHandDraw(App& app, const mat4& cam, const mat4& weaponToCam, cons
     float lo = 0, hi = 0.084f; scan(hi);
     if (inCone == 0) { for (int it = 0; it < 6; ++it) { float mid = 0.5f * (lo + hi); scan(mid); if (inCone > 0) lo = mid; else hi = mid; } scan(hi); }
   }
-  gA.jS = out.shoulder; gA.jE = out.elbow; gA.jW = out.wrist; gA.jT = out.target;
+  if (slot == 0) { gA.jS = out.shoulder; gA.jE = out.elbow; gA.jW = out.wrist; gA.jT = out.target; }   // KF2: the support arm's (the self-tests read these)
   if (wristOut) *wristOut = out.wrist;
   float ty = std::tan(radians(app.vmFovNow()) * 0.5f); vec2 tanHalf(ty * app.R.width / std::max(1, app.R.height), ty);
   auto ndc = [&](vec3 q) { float z = std::max(1e-3f, -q.z); return vec2(q.x / (z * tanHalf.x), q.y / (z * tanHalf.y)); };
+  if (slot == 0) {
   gA.handLo = vec2(1e9f); gA.handHi = vec2(-1e9f);
   for (size_t v = out.handV0; v < B.V.size(); ++v) { vec2 c = ndc(B.V[v].pos); gA.handLo = glm::min(gA.handLo, c); gA.handHi = glm::max(gA.handHi, c); }
   gA.sleeve15 = ndc(out.sleeve15);
+  }
   bool bad = false;   // a non-finite vertex, or any of the hand / sleeve near the eye or behind it: not drawn (never a smear)
   for (size_t v = 0; v < B.V.size() && !bad; ++v) { const vec3& q = B.V[v].pos; bad = !std::isfinite(q.x + q.y + q.z) || (v >= out.handV0 && -q.z < 0.06f); }
   if (inCone > 0 || tooNear > 0 || bad || B.V.size() != gA.nV) {
@@ -669,7 +671,7 @@ bool fpsSupportHandDraw(App& app, const mat4& cam, const mat4& weaponToCam, cons
   }
   smoothNormals(B.V, 0, gA.sleeveI1, gA.sleeveV0, gA.sleeveV1, gA.weld);              // the folded sleeve and cuff
   smoothNormals(B.V, gA.partFirst[2], gA.handI1, gA.sleeveV1, gA.handV1, {});         // the continuous hand
-  GpuModel& g = gA.model[axis ? 1 : 0];
+  GpuModel& g = gA.model[(axis ? 1 : 0) + 2 * std::clamp(slot, 0, 1)];
   glNamedBufferSubData(g.vbo, 0, B.V.size() * sizeof(TexVertex), B.V.data());
   for (int k = 0; k < 5; ++k) app.R.viewModelTex.push_back({&g, k, cam});
   return true;

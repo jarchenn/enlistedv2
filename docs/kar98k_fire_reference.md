@@ -74,3 +74,27 @@ Source: `Video Project.mp4` (supplied by the user; 1920 x 1080, 30 fps, 118 fram
 - **The hands during the bolt cycle (frames 27-48)**: the game's Kar98k bolt is procedural (the handle lifts and draws; no arm clip on this branch). Matching the right hand's path in the clip needs an arm clip on the rig (the gameplay session's bolt / reload rigs).
 - **The rifle's cant and drop during the bolt cycle (frames 23-48)**: not measured (the receiver turns away from the template). The game keeps its own bolt motion there; the camera does follow the clip (yaw swing right and back, the dip).
 - **Field of view**: an overlay at the same framing needs the game's ADS view to match the clip's. The clip's background moves 118 px per degree (about 16 deg across 1920 px), much narrower than the game's 45 deg ADS world FOV; the gun motion is stored in metres (FOV-independent), the camera motion in degrees.
+
+## KF2: the bolt cycle and the right hand (frames 24-49)
+
+- **The bolt moves now.** The baked Kar98k was one merged mesh: the bolt never moved in game. `E:/nmk/kf2/split.py` moves the bolt (body, handle, knob: one island) into a part `Kar98k_Bolt` (role `bolt`), and the shroud / safety / cocking piece (four islands) into `Kar98k_Shroud` (role `handle`). It reorders triangles only: same vertices, same triangle count.
+  - The bolt turns about its own axis, fitted at (-0.0325, 0.0664), which is the bore: `boltPivot` [-0.0316, 0.0661].
+  - `boltLift` is -85 deg, so the handle on -x (the shooter's right) swings up, and the bolt slides back `boltTravel` 0.09 m. The shroud slides with it without turning.
+  - The knob's centre `boltKnob` is (-0.0904, 0.0337, 0.3624).
+- **`boltCurve`** (kar98k.json; WeaponDef::boltCurve, sampled by `boltCurveAt` from `s.bolt`, so it runs after kf1's 0.6 s hold over boltTime 0.83 s) holds 26 rows, frames 24-49. Columns: handle lift, bolt draw, the right hand on the knob (0 on the grip), the gun back / up / right (m) and roll (deg, camera space).
+
+| Frames | The clip | Lift / draw / hand |
+|---|---|---|
+| 24-27 | the rifle dips and cants, the hand rises | 0 / 0 / 0 -> 0.6 |
+| 28-30 | the handle lifted | 0 -> 1 / 0 / 1 |
+| 31-32 | drawn back | 1 / 0 -> 1 / 1 |
+| 33-36 | held back | 1 / 1 / 1 |
+| 37-39 | pushed home | 1 / 1 -> 0 / 1 |
+| 40 | handle down | 1 -> 0 / 0 / 1 |
+| 41-46 | the hand back to the grip | 0 / 0 / 1 -> 0 |
+| 47-49 | onto the sights | 0 / 0 / 0 |
+
+  The rifle dips about 12 mm and cants up to 5 deg CCW. That is read from the frames (the tracker lost the receiver here, except a 6 deg roll at frame 31), eased in from kf1's curve (whose gun columns are 0 from frame 23).
+- **Aim held.** With a bolt curve the rifle stays shouldered through the cycle (holdAds), as in the clip.
+- **The right hand.** The game drew no right arm in first person (FA2: one generated support arm). For a weapon with a bolt curve a second, mirrored generated arm (fps_arms model slots 2 / 3, `fpsSupportHandDraw(..., slot 1)`) holds the grip and moves to the knob, riding it through the lift, draw and push.
+- Not verified in the game. To compare with the clip: stills at 0.65, 0.75, 0.85, 1.0, 1.1, 1.25 and 1.45 s after a shot (clip frames 26, 29, 32, 36, 39, 44, 50).
