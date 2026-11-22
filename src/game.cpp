@@ -272,6 +272,7 @@ void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& 
             : ait == AiType::KnightsMounted ? std::max(0, enemyTypeIndex(gHorseKnight && fs::exists(contentDir() / "characters" / "knight_10_mounted.glb") ? "knight10m" : "knight10"))   // HK1
             : ait == AiType::KnightsAssorted ? enemyTypeAssortedPick((uint32_t)rs.id)   // AK1: a knight or an archer per slot
             : ait == AiType::FallenKnight ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "knight.glb") ? "fallen_knight" : "fallen_knight1"))   // FK1: the Brother Knight is local-only: Knight 1 at its size without it
+            : ait == AiType::Dragon ? std::max(0, enemyTypeIndex("dragon"))   // DR1: the Mountain Dragon, ground only
             : ait == AiType::Archers2 ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "archer_2.glb") ? "archer2" : "archer1"))   // AR2: its model is local-only (the tunic is CC-BY-NC-ND): Archer 1 without it
             : ait == AiType::Abominations ? std::max(0, enemyTypeIndex("abomination")) : ait == AiType::Golems ? std::max(0, enemyTypeIndex("golem"))
             : ait == AiType::Boglords ? std::max(0, enemyTypeIndex("boglord")) : ait == AiType::Mechs ? std::max(0, enemyTypeIndex("mech")) : 0;
@@ -783,7 +784,7 @@ bool Game::projectileSegment(Projectile& p, vec3 a, vec3 seg, float len, float& 
     HitZone hz;
     if (s.poseAcc > 0 && coarseHit(s, a, d)) poseNow(s);   // CP: a held (rate-LOD) pose is brought up to date before its zones are tested
     if (hitTest(s, a, d, bt, hz) && hz.t < bt) { bt = hz.t; best = (int)i; bz = hz; s.hitHorse = false; }
-    if (s.zombie && s.horseHp > 0) { float th = aiHorseHit(*this, s, a, d, bt); if (th >= 0 && th < bt) { bt = th; best = (int)i; bz = HitZone{1, th}; s.hitHorse = true; } }   // HK3: the horse met first
+    if (s.zombie) { int zn = 1; float th = aiHorseHit(*this, s, a, d, bt, &zn); if (th >= 0 && th < bt) { bt = th; best = (int)i; bz = HitZone{s.horseHp > 0 ? 1 : zn, th}; s.hitHorse = s.horseHp > 0; } }   // HK3: the horse met first; DR1: a type's own capsules (the dragon) on its one health pool
   }
   if (best >= 0) tHit = bt;
   return dmBulletHit(*this, p, best, bz, a, d, tHit, shooter);   // W1 damage model (damage_model.cpp): table, zones, helmet, protection, FleshHit

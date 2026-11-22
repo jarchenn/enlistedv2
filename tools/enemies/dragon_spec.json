@@ -1,0 +1,55 @@
+{
+ "note": "DR1: the Mountain Dragon's one 24 fps take cut into ground clips (frames from the pelvis / head / feet tracks and side-view sheets; E:/nmk/dragon); no flight frames",
+ "scale": 0.01,
+ "clips": [
+  {
+   "name": "idle",
+   "range": [
+    1737,
+    1785
+   ]
+  },
+  {
+   "name": "walk",
+   "range": [
+    64,
+    88
+   ]
+  },
+  {
+   "name": "attack_claw_l",
+   "range": [
+    1444,
+    1488
+   ]
+  },
+  {
+   "name": "attack_claw_r",
+   "range": [
+    1490,
+    1516
+   ]
+  },
+  {
+   "name": "attack_bite",
+   "range": [
+    1830,
+    1902
+   ]
+  },
+  {
+   "name": "hit",
+   "range": [
+    1110,
+    1136
+   ]
+  },
+  {
+   "name": "death",
+   "range": [
+    1156,
+    1198
+   ]
+  }
+ ]
+}
