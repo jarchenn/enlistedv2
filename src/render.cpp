@@ -5463,7 +5463,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
       if (glm::distance(sunDir, atmoNowDir) > 0.002f) { atmoNow = atmoEval(sunDir); atmoNowDir = sunDir; }
       const AtmoOut& A = atmoNow; const AtmoOut& B = atmoRefT;
       gAtmoK = lt.mapAtmo;
-      float w = glm::smoothstep(0.02f, 0.10f, sunDir.y);   // toward dusk and night the time-of-day art takes over again
+      float w = glm::smoothstep(0.02f, 0.10f, std::min(sunDir.y, physSunY));   // toward dusk and night the time-of-day art takes over again: on the true sun (sunDir is the moon at night: a risen moon got the day's sun and sky, key 0.37 / sky 0.33 at midnight)
       vec3 lumW(0.2126f, 0.7152f, 0.0722f);
       sun = glm::mix(sun, atmoRef.sun * ratioC(A.sunT, B.sunT), w); skySunCol = sun;
       sky = glm::mix(sky, atmoRef.sky * ratioC(A.amb, B.amb), w);

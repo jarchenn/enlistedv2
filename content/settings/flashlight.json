@@ -1,7 +1,7 @@
 {
  "_note": "FX1 player headlamp (src/flashlight.cpp), toggled with the 'flashlight' binding (default N). One spot light from the forehead along the view: eye + up_m up + forward_m ahead. innerDeg / outerDeg are full cone angles: a soft hotspot inside innerDeg feathering out to nothing at outerDeg (the wide feather is the faint spill). intensity in lamp units (1 = a 60 W bulb at 1 m), light reaches zero at radius_m (inverse square inside it: useful to about 6-10 m; 8 / 24 m: under nightdark the lamp leads the moonlight to ~10 m). color linear RGB, slightly cool and desaturated. Shadowed (always one spot shadow slot while on, casters nearer than shadowNear_m to the lamp ignored: the head, the gun). tiltDeg: the beam aims this far below the gaze (a head-torch: level gaze lights the ground from ~3 m to ~11 m). expoHold_s: on switch-on the exposure may not drop below its value then (no pump); that floor fades over this time.",
- "innerDeg": 26,
- "outerDeg": 46,
+ "innerDeg": 32,
+ "outerDeg": 54,
  "intensity": 8.0,
  "radius_m": 24,
  "color": [0.80, 0.86, 0.95],
