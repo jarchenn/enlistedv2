@@ -43,9 +43,6 @@ content/characters/mech.glb
 # VH2: the supplied Humvee (low-poly-humvee-vehicle.zip) carries no author or licence: its bake stays local-only;
 # clones draw the committed part-built fallback (content/vehicles/models/humvee_fallback)
 content/vehicles/models/humvee/
-# Mech Tank: the supplied cyber_tank_rigged.glb has no author or licence metadata: its bake stays local-only;
-# clones draw the committed Tiger I mesh (cyber_tank.json model.fallbackDir)
-content/vehicles/models/cyber_tank/
 
 
 # VH2: the supplied Boxer APC (boxer-apc-hmg.zip) names no author or licence: its bake stays local-only; clones draw

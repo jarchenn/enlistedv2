@@ -2,7 +2,7 @@
  "id": "cyber_tank",
  "name": "Mech Tank",
  "faction": "Axis",
- "identity": "Supplied cyber_tank_rigged.glb (licence unknown: local-only, git-ignored; clones without it draw the Tiger I mesh). An autonomous AI tank: no crew, no Enter prompt (AiType Mech Tank).",
+ "identity": "\"Cyber Tank (Futuristic/Cyberpunk)\" by kraytay (CC-BY-4.0, https://skfb.ly/oy6vE), rigged and animated in Blender; the committed bake is drawn (the Tiger I mesh stands in only if the bake is missing). An autonomous AI tank: no crew, no Enter prompt (AiType Mech Tank).",
  "model": {
   "src": "cyber_tank_rigged.glb",
   "dir": "cyber_tank",
