@@ -507,11 +507,11 @@ void LightingPass::begin(Renderer& R, const RenderView& v) {
   if (R.perf.nightDark && R.q.lightNew && !R.q.legacy) {   // nightdark: night reads as night; moonlit shapes just legible, lamps / fires / flashes are what you see by
     Tod& t = L.tod;
     const float nk = t.nightK;
-    t.expoMax = glm::mix(1.45f, 1.2f, nk);   // was 5.0 at full night: the meter no longer lifts night toward a mid-tone
+    t.expoMax = glm::mix(1.45f, 10.0f, nk);   // c600b09a removed the daylit night: the moonlit scene needs ~20x, the meter (key 0.07) pins here   // was 5.0 at full night: the meter no longer lifts night toward a mid-tone
     t.expoKey = glm::mix(0.24f, 0.07f, nk);  // was 0.11
-    t.fixedExpo = std::min(t.fixedExpo, std::max(1.0f, t.expoMax * 0.65f));   // the editor's fixed night level follows (was <= 3.25, now 1)
-    if (t.keyIsMoon) t.keyMul *= glm::mix(1.0f, 0.15f, nk);   // was 0.35 (clear night measured 42 sRGB, target 25-30; rain night has little moon key and stays)   // moonlight: shapes and the road near, the far street lost; the headlamp / lamps lead
-    const float amb = glm::mix(1.0f, 0.5f, nk);   // the night sky and its fill
+    t.fixedExpo = std::min(t.fixedExpo, std::max(1.0f, t.expoMax * 0.65f));   // the editor's fixed night level follows (<= 6.5)
+    if (t.keyIsMoon) t.keyMul *= glm::mix(1.0f, 0.6f, nk);   // was 0.35 (clear night measured 42 sRGB, target 25-30; rain night has little moon key and stays)   // moonlight: shapes and the road near, the far street lost; the headlamp / lamps lead
+    const float amb = glm::mix(1.0f, 0.8f, nk);   // the night sky and its fill
     t.skyMul *= amb; t.groundMul *= amb; t.fogMul *= amb; t.zen *= amb; t.hor *= amb; t.cloudLit *= amb;
   }
   if (!L.tod.day) R.sunDir = L.tod.key;

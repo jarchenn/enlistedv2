@@ -670,7 +670,7 @@ void lightTerm(int i, vec3 w, vec3 N, vec3 Ng, vec3 V, float a, float rough, vec
   float d = sqrt(d2); vec3 L = dl/max(d, 1e-4);
   float NdL = dot(N, L);
   if (NdL <= 0.0) return;
-  float att = lightFalloff(l.misc.w > 0.5 ? max(d2, 1.0) : d2, l.posR.w);   // FX1: the headlamp stops brightening inside 1 m (the gun at ADS, a wall at arm's length: lit, never blown out)
+  float att = lightFalloff(l.misc.w > 0.5 ? max(d2, 6.25) : d2, l.posR.w);   // FX1: the headlamp stops brightening inside 2.5 m (arm's length bright, never blown at the night exposure)   // FX1: the headlamp stops brightening inside 1 m (the gun at ADS, a wall at arm's length: lit, never blown out)
   if (l.dirC.w > -1.0) att *= smoothstep(l.dirC.w, max(l.misc.x, l.dirC.w + 1e-3), dot(-L, l.dirC.xyz));
   if (att <= 0.0) return;
   if (l.misc.y >= 0.0) att *= lightShadow(int(l.misc.y + 0.5), l.misc.z > 0.5, w, Ng, l.posR.xyz, L);
