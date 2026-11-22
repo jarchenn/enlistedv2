@@ -588,6 +588,95 @@
           "radius": 0.6
         }
       ]
+    },
+    {
+      "note": "KN3: AI type Knight 3 (27): the knight's body and 51 clips with a winged closed helm, a Roman shield and a flail whose chain and ball ride six extra joints (flail_0..5, keyed in every clip); content/characters/knight_3.glb, local-only (the flail is CC-BY-NC-ND; tools/enemies/knight2_prep.py pins the root motion); without it AI type 27 plays Knight 1 (game.cpp). The strike sphere stays on RightHand, 0.7 m out (the ball hangs ~0.65 m from the hand at rest)",
+      "id": "knight3",
+      "name": "Knight 3",
+      "model": "knight_3",
+      "height_m": 1.9,
+      "scale": 1,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 600,
+      "damage": 60,
+      "reach_m": 2.0,
+      "lunge_m": 1.0,
+      "cooldown_s": 1.2,
+      "windup_s": 0.5,
+      "attack_rate": 1.0,
+      "walk_mps": 1.5,
+      "run_mps": 3.8,
+      "run_within_m": 12,
+      "weight": 0,
+      "hit_zone_scale": 1.1,
+      "knockback_mps": 3,
+      "stagger_min_damage": 120,
+      "stagger_s": 0.7,
+      "explosive_mult": 2,
+      "clips": {
+        "walk": [
+          "sword and shield walk"
+        ],
+        "run": "sword and shield run",
+        "idle": [
+          "sword and shield idle",
+          "sword and shield idle (4)"
+        ],
+        "attack": [
+          "sword and shield slash",
+          "sword and shield slash (3)",
+          "sword and shield slash (5)",
+          "sword and shield attack (4)"
+        ],
+        "damage": [
+          "sword and shield impact",
+          "sword and shield impact (2)",
+          "sword and shield impact (3)",
+          "sword and shield block"
+        ],
+        "death": [
+          "sword and shield death",
+          "sword and shield death (2)"
+        ]
+      },
+      "sounds": {
+        "attack": "knightattack",
+        "contact": "knightattackcontact",
+        "death": "knightdeath"
+      },
+      "attack_dust": false,
+      "head_mult": 4,
+      "attacks": [
+        {
+          "clip": "sword and shield slash",
+          "joint": "RightHand",
+          "extend": 0.7,
+          "radius": 0.65
+        },
+        {
+          "clip": "sword and shield slash (3)",
+          "joint": "RightHand",
+          "extend": 0.7,
+          "radius": 0.65
+        },
+        {
+          "clip": "sword and shield slash (5)",
+          "joint": "RightHand",
+          "extend": 0.7,
+          "radius": 0.65
+        },
+        {
+          "clip": "sword and shield attack (4)",
+          "joint": "RightHand",
+          "extend": 0.7,
+          "radius": 0.65
+        }
+      ]
     }
   ]
 }
