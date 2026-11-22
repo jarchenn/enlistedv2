@@ -1052,6 +1052,24 @@ int Audio::loadCustom(const fs::path& dir) {
       if (!ev.v.empty()) { ++used; p->events[std::string("knight_") + k.name] = ev; }
     }
   }
+  {   // AR1 archer: one recording (custom/archer/bow.mp3: draw, release, flight, impact) cut into four events at the
+      // points read off its envelope (20 / 5 ms RMS): draw 0.050-1.140 s (creaks to 0.94 s, its tail silent by 1.14 s),
+      // release 1.560-1.650 s (the twang: onset 1.565, peak 1.605, -40 dB by 1.645), flight 1.645-1.815 s (the rising
+      // whoosh, cut before the impact's onset at 1.817 s), impact 1.812-2.560 s (peak 1.830 s, its decay). Each cut fades
+      // in / out (ms below) so it never clicks, then is levelled to 0.8 peak
+    struct C { const char* name; float t0, t1, fin, fout, gain, minDist; int maxV; };
+    const C cs[] = {{"draw", 0.050f, 1.140f, 0.005f, 0.060f, 0.6f, 2.0f, 3}, {"release", 1.560f, 1.650f, 0.003f, 0.015f, 0.9f, 3.0f, 4},
+                    {"flight", 1.645f, 1.815f, 0.010f, 0.020f, 0.6f, 2.0f, 4}, {"impact", 1.812f, 2.560f, 0.003f, 0.100f, 0.85f, 2.5f, 4}};
+    if (decode("archer/bow.mp3", b)) for (const C& c : cs) {
+      const size_t a0 = std::min(b.size(), (size_t)(c.t0 * SR)), a1 = std::min(b.size(), (size_t)(c.t1 * SR));
+      if (a1 <= a0) continue;
+      Buf s(b.begin() + a0, b.begin() + a1); const float pk = std::max(1e-6f, peakOf(s));
+      const size_t fi = std::max<size_t>(1, (size_t)(c.fin * SR)), fo = std::max<size_t>(1, (size_t)(c.fout * SR));
+      for (size_t j = 0; j < s.size(); ++j) s[j] *= 0.8f / pk * std::min(1.0f, std::min((float)j / fi, (float)(s.size() - j) / fo));
+      Impl::Event ev; ev.gain = c.gain; ev.minDist = c.minDist; ev.minGap = 0.05f; ev.maxVoices = c.maxV; ev.v.push_back(std::move(s));
+      ++used; p->events[std::string("archer_") + c.name] = ev;
+    }
+  }
   // SND1: any other mp3 here plays as an event named after its file (knightattack.mp3 -> "knightattack"): leading
   // silence trimmed, levelled, at most 6 s. A type's "sounds" (content/ai/zombie*.json) name them.
   for (auto& f : fs::directory_iterator(dir, ec)) {
