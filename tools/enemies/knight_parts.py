@@ -132,7 +132,7 @@ if P_['bevor']:
 bs = [o for o in imp(BREAST) if o.type == 'MESH']
 for o, M in fit(bs, P_['chest'][0], P_['chest'][1], 0.0, 0, (CH.min(0)[1] + CH.max(0)[1]) / 2, 1.0): o.matrix_world = M
 for j, o in enumerate(bs):
-    o.parent = None; o.name = 'KNB_Spine2_breast%d' % j; parts.append(o); print('CHEST part', o.name, [mt.name for mt in o.data.materials if mt])
+    mw = o.matrix_world.copy(); o.parent = None; o.matrix_world = mw; o.name = 'KNB_Spine2_breast%d' % j; parts.append(o); print('CHEST part', o.name, [mt.name for mt in o.data.materials if mt])   # keep its place (the cuirass's objects arrive parented)
     if not any(x in ''.join(mt.name for mt in o.data.materials if mt).lower() for x in ('brass', 'strap')): finish[o] = 1.2
 # ---- shield
 old = bpy.data.objects['Shield']
@@ -181,20 +181,30 @@ for o, t_ in finish.items():
         if mt and mt.users > 1: o.data.materials[i] = mt.copy()
     armour_finish(o, t_)
 sc = bpy.context.scene; sc.render.engine = 'CYCLES'; sc.cycles.samples = 1; sc.cycles.device = 'CPU'; sc.render.bake.margin = 8
-def bake(o):
+def bake(o):   # every material at once per channel: a bake writes each material's active image node (one material at a time
+    # wiped the others' source textures: Knight 7's six-material great helm came out black)
     bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active = o
+    st = []
     for mi, mt in enumerate(o.data.materials):
         if mt is None: continue
         nt = mt.node_tree; b = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED'); out = next(n for n in nt.nodes if n.type == 'OUTPUT_MATERIAL')
         src = {ch: (b.inputs[ch].links[0].from_socket if b.inputs[ch].is_linked else b.inputs[ch].default_value) for ch in ('Base Color', 'Roughness', 'Metallic')}
         nrm = b.inputs['Normal'].links[0].from_socket if b.inputs['Normal'].is_linked else None
-        em = nt.nodes.new('ShaderNodeEmission'); img = nt.nodes.new('ShaderNodeTexImage'); nt.nodes.active = img; res = {}
-        for ch in ('Base Color', 'Roughness', 'Metallic'):
-            im = bpy.data.images.new('%s_%s' % (mt.name, ch[:4]), BAKE_PX, BAKE_PX, alpha=False); im.colorspace_settings.name = 'sRGB' if ch == 'Base Color' else 'Non-Color'; img.image = im
+        em = nt.nodes.new('ShaderNodeEmission'); img = nt.nodes.new('ShaderNodeTexImage'); nt.nodes.active = img
+        st.append(dict(mi=mi, mt=mt, nt=nt, out=out, src=src, nrm=nrm, em=em, img=img, res={}))
+    for ch in ('Base Color', 'Roughness', 'Metallic'):
+        for d in st:
+            nt, em = d['nt'], d['em']
+            im = bpy.data.images.new('%s_%s' % (d['mt'].name, ch[:4]), BAKE_PX, BAKE_PX, alpha=False); im.colorspace_settings.name = 'sRGB' if ch == 'Base Color' else 'Non-Color'
+            d['img'].image = im; nt.nodes.active = d['img']; d['res'][ch] = im
             for l in list(em.inputs[0].links): nt.links.remove(l)
-            if isinstance(src[ch], bpy.types.NodeSocket): nt.links.new(src[ch], em.inputs[0])
-            else: v = src[ch]; em.inputs[0].default_value = tuple(v) if hasattr(v, '__len__') else (v, v, v, 1)
-            nt.links.new(em.outputs[0], out.inputs['Surface']); bpy.ops.object.bake(type='EMIT', use_clear=True); res[ch] = im
+            v = d['src'][ch]
+            if isinstance(v, bpy.types.NodeSocket): nt.links.new(v, em.inputs[0])
+            else: em.inputs[0].default_value = tuple(v) if hasattr(v, '__len__') else (v, v, v, 1)
+            nt.links.new(em.outputs[0], d['out'].inputs['Surface'])
+        bpy.ops.object.bake(type='EMIT', use_clear=True)
+    for d in st:
+        mi, mt, res, nrm = d['mi'], d['mt'], d['res'], d['nrm']
         pr = np.array(res['Roughness'].pixels[:]).reshape(-1, 4); pm = np.array(res['Metallic'].pixels[:]).reshape(-1, 4)
         mr = bpy.data.images.new('%s_mr' % mt.name, BAKE_PX, BAKE_PX, alpha=False); mr.colorspace_settings.name = 'Non-Color'
         px = np.ones_like(pr); px[:, 1] = pr[:, 0]; px[:, 2] = pm[:, 0]; mr.pixels[:] = px.ravel()
