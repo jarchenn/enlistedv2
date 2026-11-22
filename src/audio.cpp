@@ -579,7 +579,7 @@ int Audio::loadCustom(const fs::path& dir) {
     {"snd15/shotgun.wav", false, {"modern_sawnoff"}, -1, 0.92f, 0, 2.4f, 0.0f, 0.55f},
     {"snd15/suppressed_rifle.wav", false, {"modern_mp7"}, -1, 1.05f, 0, 1.4f, 1.0f, 0.99f},
     {"snd15/suppressed_rifle.wav", false, {"modern_vsk"}, -1, 0.92f, 0, 1.4f, 2.5f, 1.14f},
-    {"snd15/suppressed_rifle.wav", false, {"modern_crossbow"}, -1, 0.70f, -0.4f, 0.5f, 0.0f, 0.55f},   // XB1 stand-in (the performance session owns sound): the suppressed rifle much lower, darker, short and quiet: a thump
+    {"guns/crossbow_shot.mp3", false, {"modern_crossbow"}, -1, 1.00f, 0, 0.26f, 0.0f, 0.50f},   // XB2 (the user's ElevenLabs bowstring snap): the snap from its onset (0.145-0.405 s of the file; the string's lead-in and a faint -55 dB hiss tail left out), 6 dB under the rifle class; rolloff 1.6 below
     {"snd15/suppressed_rifle.wav", false, {"suppressed_rifle"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.18f},   // a fitted suppressor: 6 dB under the rifle class
     {"snd14/bolt_rifle.wav", false, {"kar98k"}, -1, 1.00f, 0, 1.8f, 4.5f, 1.23f},   // BoltActionRifle: the WW2 bolt guns (the modern snipers keep the M24 / .50)
     {"snd14/bolt_rifle.wav", false, {"kar98k_zf39"}, -1, 0.96f, 0, 1.8f, 4.0f, 1.23f},
@@ -708,6 +708,7 @@ int Audio::loadCustom(const fs::path& dir) {
       Impl::Event& e2 = p->events[std::string("shot_") + id] = ev; p->events.erase(std::string("shot_") + id + "_far");
       const bool mini = std::string(id) == "minigun" || std::string(id) == "modern_minigun", c30 = std::string(id) == "cannon30";
       if (mini || c30) { e2.minGap = mini ? 0.04f : 0.045f; e2.maxVoices = mini ? 6 : 4; e2.rolloff = 0.8f; e2.gain = mini ? 0.7f : 0.85f; }   // SND9: rapid fire, carries far
+      if (std::string(id) == "modern_crossbow") e2.rolloff = 1.6f;   // XB2: a crossbow is no gunshot: it fades faster with distance (guns 1.2)
       if (g.gain >= 0) e2.gain = g.gain;   // SND14: the set's own level
       else if (mixGuns.contains(id)) { const json& m = mixGuns[id]; e2.gain = std::clamp(m.is_number() ? m.get<float>() : m.is_object() ? m.value("gain", e2.gain) : e2.gain, 0.0f, 2.0f);   // SND7: per-gun trim
         if (m.is_object()) { e2.minGap = std::clamp(m.value("min_gap_ms", e2.minGap * 1000) / 1000.0f, 0.0f, 0.5f); e2.maxVoices = std::clamp(m.value("max_voices", e2.maxVoices), 1, 16); if (m.contains("rolloff")) e2.rolloff = std::clamp(m.value("rolloff", 1.2f), 0.1f, 2.0f); } }
