@@ -8529,6 +8529,314 @@
      "peak": 1.0
     }
    ]
+  },
+  "shot_g43": {
+   "kind": "shot",
+   "gain": 0.95,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses shot_m1_garand",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 140,
+     "name": "m1_body_1",
+     "dur": 2.68,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 545,
+     "name": "m1_body_2",
+     "dur": 2.68,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 687,
+     "name": "m1_body_3",
+     "dur": 2.821,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 533,
+     "name": "m1_body_4",
+     "dur": 2.821,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 592,
+     "name": "m1_body_5",
+     "dur": 2.552,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_g43_far": {
+   "kind": "far",
+   "gain": 0.85,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses shot_m1_garand_far",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 314,
+     "name": "shot_rifle_far_01",
+     "dur": 5.46,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 797,
+     "name": "shot_rifle_far_02",
+     "dur": 5.47,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 112,
+     "name": "shot_rifle_far_03",
+     "dur": 6.523,
+     "peak": 0.994
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 467,
+     "name": "shot_rifle_far_04",
+     "dur": 5.48,
+     "peak": 0.928
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 768,
+     "name": "shot_rifle_far_05",
+     "dur": 6.513,
+     "peak": 0.989
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 207,
+     "name": "shot_rifle_far_06",
+     "dur": 4.512,
+     "peak": 0.786
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 640,
+     "name": "shot_rifle_far_07",
+     "dur": 4.575,
+     "peak": 0.786
+    },
+    {
+     "bank": "ww2_weapon_rifle",
+     "index": 475,
+     "name": "shot_rifle_far_08",
+     "dur": 5.485,
+     "peak": 0.934
+    }
+   ]
+  },
+  "reload_g43": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses reload_m1_garand",
+   "variants": [
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 295,
+     "name": "change_ammo_m1garand_2",
+     "dur": 0.796,
+     "peak": 0.955
+    },
+    {
+     "bank": "ww2_weapon_rifle_foley",
+     "index": 192,
+     "name": "change_ammo_m1garand_3",
+     "dur": 0.419,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_ppsh41": {
+   "kind": "shot",
+   "gain": 0.9,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses shot_mp40",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 252,
+     "name": "mp40_body_1",
+     "dur": 0.959,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1398,
+     "name": "mp40_body_2",
+     "dur": 0.959,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 439,
+     "name": "mp40_body_3",
+     "dur": 0.959,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 672,
+     "name": "mp40_body_4",
+     "dur": 0.959,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1391,
+     "name": "mp40_body_5",
+     "dur": 0.959,
+     "peak": 1.0
+    }
+   ]
+  },
+  "shot_ppsh41_far": {
+   "kind": "far",
+   "gain": 0.9,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses shot_mp40_far",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1168,
+     "name": "mp40_e_far_body_1",
+     "dur": 1.315,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 174,
+     "name": "mp40_e_far_body_2",
+     "dur": 1.302,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1147,
+     "name": "mp40_e_far_body_3",
+     "dur": 1.289,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 751,
+     "name": "mp40_e_far_body_4",
+     "dur": 1.283,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 421,
+     "name": "mp40_e_far_body_5",
+     "dur": 1.277,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 358,
+     "name": "mp40_e_far_body_6",
+     "dur": 1.328,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 90,
+     "name": "mp40_e_far_body_7",
+     "dur": 1.342,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 450,
+     "name": "mp40_e_far_body_8",
+     "dur": 1.37,
+     "peak": 1.0
+    }
+   ]
+  },
+  "tail_ppsh41": {
+   "kind": "tail",
+   "gain": 0.8,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses tail_mp40",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 219,
+     "name": "mp40_tail_1",
+     "dur": 2.06,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1120,
+     "name": "mp40_tail_2",
+     "dur": 2.039,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1140,
+     "name": "mp40_tail_3",
+     "dur": 2.047,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 1388,
+     "name": "mp40_tail_4",
+     "dur": 1.44,
+     "peak": 1.0
+    },
+    {
+     "bank": "ww2_weapon_mgun",
+     "index": 337,
+     "name": "mp40_tail_5",
+     "dur": 2.047,
+     "peak": 1.0
+    }
+   ]
+  },
+  "reload_ppsh41": {
+   "kind": "foley",
+   "gain": 0.8,
+   "status": "approx",
+   "note": "MG1 modern gun: no recording of its own; reuses reload_mp40",
+   "variants": [
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 190,
+     "name": "change_ammo_mp40_1",
+     "dur": 1.27,
+     "peak": 0.906
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 199,
+     "name": "change_ammo_mp40_2",
+     "dur": 0.845,
+     "peak": 0.942
+    },
+    {
+     "bank": "ww2_weapon_mgun_foley",
+     "index": 98,
+     "name": "change_ammo_mp40_3",
+     "dur": 0.898,
+     "peak": 1.0
+    }
+   ]
   }
  }
 }

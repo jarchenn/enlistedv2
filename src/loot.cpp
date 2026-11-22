@@ -104,7 +104,7 @@ int ammoTypeOf(const WeaponDef& d) {
   if (d.action == "launcher") return AM_ROCKET;
   if (contains(c, "gauge")) return AM_12GA;
   if (contains(c, ".50 AE") || contains(c, ".357")) return AM_45;   // MG12: magnum handgun rounds go with .45 (the .50 pool is the BMG's)
-  if (contains(c, "9x18")) return AM_9MM;
+  if (contains(c, "9x18") || contains(c, "7.62x25")) return AM_9MM;   // FR2: the PPSh-41's Tokarev pistol round goes with 9 mm (before the rifle 7.62s)
   if (contains(c, "9x39")) return AM_762;   // MG12: the VSK's subsonic rifle round
   if (contains(c, ".50") || contains(c, "12.7")) return AM_50;
   if (contains(c, "9x19") || contains(c, "4.6x30") || contains(c, ".22") || contains(c, "7.65")) return AM_9MM;
