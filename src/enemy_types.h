@@ -16,6 +16,8 @@ struct EnemyType {
   std::vector<std::string> models;                        // variants (json "models"; [0] = model): Soldier::evariant picks one in turn
   int npc = 0;                                            // NPC1 json "npc": "fight" (1) / "flee" (2): a civilian (zombie.cpp npcStep / npcHurt)
   float npcWander = 12, npcWitness = 15, npcFleeM = 35, npcCalm = 20, npcFightHp = 0.5f;   // json npc_wander_m (round its spawn), npc_witness_m, npc_flee_m, npc_calm_s, npc_fight_hp (a fighter flees below this share of its health)
+  std::string sndMount;                                   // HS1 json sounds "mount": "horse": its horse snorts / neighs (alive, mounted), snorts at a charge, neighs when hit,
+                                                          // whinnies going down, and four hoof falls per walk / gallop cycle (events <mount>_snort, _neigh, _death, _step)
   bool attackAtBlow = false;                              // KS2 json sounds "attack_at": "blow": the attack sound as the weapon comes down (0.15 s before the blow), not as the wind-up starts
   bool modelsRandom = false;                              // KS json "models_pick": "random": a hash of the variant picks (the same on every peer)
   float scale = 1, lean = 0;                              // drawn (and hit) at scale x; lean: whole-body forward tilt (deg)

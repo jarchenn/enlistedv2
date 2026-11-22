@@ -7,7 +7,8 @@ void aiMatchEnd(Game& g);                                  // Game::end
 bool aiDebugCamera(Game& g, vec3& eye, vec3& fwd, float& fov);   // Game::camera: follow-cam on a bot (debug)
 void aiDrawDebug(Game& g);                                 // Game::drawDebug: AI overlays and the debug window
 void aiZombieStep(Game& g, struct Soldier& s, float dt);
-void npcHurt(Game& g, int victim, int attacker);   // NPC1 (zombie.cpp; host): a civilian hurt fights back or flees; flee-type civilians who see it flee
+void npcHurt(Game& g, int victim, int attacker);
+void aiHorseHurt(Game& g, struct Soldier& s, bool down);   // HS1 (zombie.cpp): the mount's neigh when hit (at most one per 2.5 s), its death whinny   // NPC1 (zombie.cpp; host): a civilian hurt fights back or flees; flee-type civilians who see it flee
 void aiZombieLoopsStop(class App& app);   // SND2: stop every enemy "loop" sound (Game::end)  // Game::aiStep: a zombie's whole brain (zombie.cpp)
 int aiZombieModel(Game& g, int type = 0, int variant = 0);  // the character of enemy type `type`, its variant-th model (EN1; -1: none)
 void aiZombieAssign(Game& g, Soldier& s);                  // EN1: model, draw scale, lean and body size for s.etype (the zombie rig when its own model is unusable)

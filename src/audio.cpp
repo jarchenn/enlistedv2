@@ -1046,14 +1046,18 @@ int Audio::loadCustom(const fs::path& dir) {
       // never the same twice running): attack (KS2: the knight's grunt as the weapon comes down), miss (a swing that hits nobody), slice (a blow that lands), hurt (the knight is hit),
       // weapon_drop (its weapon reaches the floor in the death clip). Per event: gain, full volume within minDist m, then the
       // default 1.2 roll-off; a crowd: at most one per 0.06 s per 4 m spot and maxVoices overlapping bodies (the oldest fades)
-    struct K { const char* name; float gain, minDist; int maxV; };
-    const K ks[] = {{"attack", 0.85f, 2.0f, 3}, {"miss", 0.55f, 2.0f, 3}, {"slice", 0.9f, 2.0f, 3}, {"hurt", 0.7f, 2.0f, 4}, {"weapon_drop", 0.8f, 3.0f, 3}};
+    struct K { const char* dir; const char* name; float gain, minDist; int maxV; };
+    // HS1 horse (custom/horse/<name>[_N].mp3 -> "horse_<name>"): snort (5 cut from one breath recording), neigh, death (the
+    // user's clipped whinny, -6 dB, tops rounded, and quieter here: levelled to the same peak it is ~7 dB louder), step (6
+    // single hoof falls cut from a walk recording)
+    const K ks[] = {{"horse", "snort", 0.6f, 3.0f, 3}, {"horse", "neigh", 0.75f, 4.0f, 2}, {"horse", "death", 0.45f, 4.0f, 2}, {"horse", "step", 0.5f, 2.0f, 8},
+                    {"knight", "attack", 0.85f, 2.0f, 3}, {"knight", "miss", 0.55f, 2.0f, 3}, {"knight", "slice", 0.9f, 2.0f, 3}, {"knight", "hurt", 0.7f, 2.0f, 4}, {"knight", "weapon_drop", 0.8f, 3.0f, 3}};
     for (const K& k : ks) {
       Impl::Event ev; ev.gain = k.gain; ev.minDist = k.minDist; ev.minGap = 0.06f; ev.maxVoices = k.maxV;
-      std::string base = std::string("knight/") + k.name;
+      std::string base = std::string(k.dir) + "/" + k.name;
       if (decode((base + ".mp3").c_str(), b)) ev.v.push_back(prepClip(b));
       for (int n = 1; n <= 8; ++n) if (decode((base + "_" + std::to_string(n) + ".mp3").c_str(), b)) ev.v.push_back(prepClip(b));
-      if (!ev.v.empty()) { ++used; p->events[std::string("knight_") + k.name] = ev; }
+      if (!ev.v.empty()) { ++used; p->events[std::string(k.dir) + "_" + k.name] = ev; }
     }
   }
   {   // AR1 archer: one recording (custom/archer/bow.mp3: draw, release, flight, impact) cut into four events at the

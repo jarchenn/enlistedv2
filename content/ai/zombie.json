@@ -2415,7 +2415,7 @@
           "rider_death_left"
         ]
       },
-      "sounds": {
+      "sounds": { "mount": "horse",
         "attack": "knight_attack", "attack_at": "blow",
         "contact": "knightattackcontact",
         "death": "knightdeath"

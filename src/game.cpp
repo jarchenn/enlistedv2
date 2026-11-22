@@ -843,6 +843,7 @@ void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
     s.hitHorse = false;
     if (toHorse) {
       s.horseHp -= dmg; s.br.hurtFrom = attacker >= 0 ? sold[attacker].feet : s.feet - dir * 10.0f; s.br.hurtAt = t;
+      aiHorseHurt(*this, s, s.horseHp <= 0);   // HS1: a neigh, or its death whinny
       if (s.horseHp <= 0) { s.mountDeath = 1; s.riderHpKeep = s.hp; s.lastHow = k; s.hp = 0; killSoldier(i, attacker, dir); return; }   // the horse down: horse_death, on foot after
       if (!area) { s.lastHow = k; return; }   // a blast reaches the rider too
     }

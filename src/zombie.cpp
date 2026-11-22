@@ -112,7 +112,7 @@ const ZombieCfg& zcfg() {
         json sd = e.value("sounds", json::object()); t.sndAttack = sd.value("attack", ""); t.sndIdle = sd.value("idle", ""); t.sndStep = sd.value("step", "");
         t.sndContact = sd.value("contact", ""); t.sndDeath = sd.value("death", ""); t.sndLoop = sd.value("loop", "");
         t.sndMiss = sd.value("miss", ""); t.sndHurt = sd.value("hurt", ""); t.sndWeaponDrop = sd.value("weapon_drop", "");
-        t.sndWindup = sd.value("windup", ""); t.attackAtBlow = sd.value("attack_at", std::string()) == "blow"; t.voicePitch = std::clamp(e.value("voice_pitch", 1.0f), 0.5f, 2.0f);
+        t.sndWindup = sd.value("windup", ""); t.attackAtBlow = sd.value("attack_at", std::string()) == "blow"; t.sndMount = sd.value("mount", ""); t.voicePitch = std::clamp(e.value("voice_pitch", 1.0f), 0.5f, 2.0f);
         json cl = e.value("clips", json::object());
         strs(cl, "walk", t.walkClips); strs(cl, "idle", t.idleClips); strs(cl, "attack", t.attackClips);
         t.runClip = cl.value("run", t.runClip); t.walkInjured = cl.value("walk_injured", t.walkInjured); t.runInjured = cl.value("run_injured", t.runInjured); t.climbClip = cl.value("climb", t.climbClip); strs(cl, "damage", t.damageClips); strs(cl, "death", t.deathClips);
@@ -391,6 +391,12 @@ int enemyTypeNpcPick(uint32_t seed) {
 // NPC1 (the user): a fighter hurt and still above npc_fight_hp of its health fights back; below it, it runs; a flee type runs at any hurt
 int npcReact(int npc, float hpAfter, float hpMax, float fightShare) { return npc == 1 ? (hpAfter > fightShare * hpMax ? 1 : 2) : npc == 2 ? 2 : 0; }
 static void npcFlee(Game& G, Soldier& o, vec3 from) { o.npcFoe = -1; o.npcCalmAt = G.t + enemyType(o.etype).npcCalm; o.npcFrom = from; o.npcNext = 0; }
+void aiHorseHurt(Game& G, Soldier& s, bool down) {
+  const EnemyType& e = enemyType(s.etype); if (e.sndMount.empty()) return;
+  static std::map<int, double> lastN; double& ln = lastN[s.slot]; if (ln > G.t) ln = 0;
+  if (down) G.app.audio.play((e.sndMount + "_death").c_str(), s.feet + vec3(0, 0.45f * e.height * e.scale, 0), 1.0f);
+  else if (G.t - ln > 2.5) { ln = G.t; G.app.audio.play((e.sndMount + "_neigh").c_str(), s.feet + vec3(0, 0.55f * e.height * e.scale, 0), 1.0f, 0.97f + 0.08f * G.rnd(s)); }
+}
 void npcHurt(Game& G, int victim, int attacker) {
   if (G.isClient || victim < 0 || victim >= (int)G.sold.size()) return;
   Soldier& v = G.sold[victim]; const bool by = attacker >= 0 && attacker < (int)G.sold.size() && attacker != victim;
@@ -587,6 +593,10 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     Soldier& lp = G.sold[G.localSlot]; float BR = e.blockR * e.height * e.scale; vec3 d = lp.feet - s.feet; float dy = d.y; d.y = 0; float L = glm::length(d);
     if (L < BR && dy > -2.0f && dy < e.height * e.scale) Physics::setCharacterPos(s.feet + (L > 1e-3f ? d / L : vec3(1, 0, 0)) * BR + vec3(0, dy, 0));
   }
+  if (!e.sndMount.empty() && s.mountDeath < 0 && glm::length(s.feet - G.app.eyePos()) < 50.0f) {   // HS1: the horse breathes: a snort (4 in 5) or a neigh every 4-9 s. shortcut: host / single player only
+    static std::map<int, double> nextH; double& nh = nextH[s.slot]; if (nh > G.t + 30.0) nh = 0;
+    if (G.t >= nh) { if (nh > 0) { if (G.rnd(s) < 0.8f) G.app.audio.play((e.sndMount + "_snort").c_str(), s.feet + vec3(0, 0.55f * e.height * e.scale, 0), 1.0f, 0.95f + 0.1f * G.rnd(s)); else G.app.audio.play((e.sndMount + "_neigh").c_str(), s.feet + vec3(0, 0.55f * e.height * e.scale, 0), 0.8f, 0.96f + 0.08f * G.rnd(s)); } nh = G.t + 4.0 + 5.0 * G.rnd(s); }
+  }
   const bool spiderT = e.id == "stalker", stepT = !e.sndStep.empty();
   if ((spiderT || stepT) && s.speed > 0.5f && glm::length(s.feet - G.app.eyePos()) < 40.0f) {   // a type's own footsteps (the spider's scuttle). shortcut: host / single player only
     static std::map<int, double> nextStep;
@@ -645,6 +655,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     else { int pick = std::min(n - 1, (int)(G.rnd(s) * n)); s.meleeClip = di >= 0 && pick >= di ? pick + 1 : pick; }
     gStruck[s.slot].clear();
     if (strikes && s.meleeClip >= 0 && strikeOf(G, s, s.meleeClip).shoot && G.app.audio.hasEvent("archer_draw")) G.app.audio.play("archer_draw", s.feet + vec3(0, 0.75f * e.height * e.scale, 0), 1.0f, 0.96f + 0.08f * G.rnd(s));   // AR1: the nock and draw, at chest height
+    if (!e.sndMount.empty() && s.mountDeath < 0 && s.meleeClip >= 0 && clipsOf(s).attackClips[(size_t)s.meleeClip % clipsOf(s).attackClips.size()].find("charge") != std::string::npos) G.app.audio.play((e.sndMount + "_snort").c_str(), s.feet + vec3(0, 0.55f * e.height * e.scale, 0), 1.0f, 0.95f + 0.1f * G.rnd(s));   // HS1: the horse snorts into a charge
     ++s.meleeCount; }
   if (s.meleeWind >= 0 && strikes && s.meleeClip != di) {   // CH6: the strike lands where the joint is, not on whoever was chosen
     float wu = windupOf(G, s); Strike r = strikeOf(G, s, s.meleeClip);
@@ -884,6 +895,13 @@ void aiZombiePose(Game& G, Soldier& s, float dt) {
     if (hz > 0 && A.lodAcc < 1.0f / hz) return;   // far: keep the last pose until its next sample
   }
   A.update(m, A.lodAcc, s.pose); A.lodAcc = 0; ++s.poseRev;
+  if (!e.sndMount.empty() && s.alive && s.mountDeath < 0 && A.key == K_LOCO && A.a >= 0 && glm::length(s.feet - G.app.eyePos()) < 60.0f) {   // HS1: four legs: four hoof falls per walk / gallop
+    // cycle, a quarter of the cycle apart, every other one softer (the recording's own alternation)
+    const float ph = A.b >= 0 ? A.time : std::fmod(A.time / std::max(0.05f, m.clips[A.a].dur), 1.0f); const int q = std::clamp((int)(ph * 4.0f), 0, 3);
+    static std::map<int, std::pair<int, int>> lastQ; auto& lq = lastQ[s.slot];
+    if (lq.first == s.lifeId && lq.second != q) G.app.audio.play((e.sndMount + "_step").c_str(), s.feet, q % 2 ? 0.55f : 1.0f, 0.94f + 0.12f * G.rnd(s));
+    lq = {s.lifeId, q};
+  }
 }
 
 bool Game::meleeHit(int attacker, int victim, float dmg) {
@@ -981,6 +999,10 @@ int ar1SelfCheck() {
       std::vector<std::string> need = t.walkClips; need.push_back(t.runClip); need.push_back(t.walkInjured); need.push_back(t.runInjured); for (auto* v : {&t.idleClips, &t.attackClips, &t.damageClips, &t.deathClips}) need.insert(need.end(), v->begin(), v->end());
       for (auto& c : need) clipsOk = clipsOk && anims.count(c); }
     chk(clipsOk && nNpc >= 7, "Civilians (NPC1/2): npc_ch31 is a fighter, AI type Civilians picks a civilian type, " + std::to_string(nNpc) + " civilian types, every clip each names is in its GLB"); }
+  {   // HS1: the Mounted Knight's horse sounds: 5 snorts, a neigh, a death whinny, 6 hoof falls (custom/horse)
+    int files = 0; for (const char* f : {"snort_1", "snort_2", "snort_3", "snort_4", "snort_5", "neigh", "death", "step_1", "step_2", "step_3", "step_4", "step_5", "step_6"}) files += fs::exists(contentDir() / "audio" / "custom" / "horse" / (std::string(f) + ".mp3"));
+    int hk = enemyTypeIndex("knight10m");
+    chk(files == 13 && hk >= 0 && enemyType(hk).sndMount == "horse", "horse sounds (HS1): " + std::to_string(files) + " of 13 files; the Mounted Knight's horse uses them"); }
   {   // KS2: the knights' attack sound: one of five grunts at random (custom/knight/attack_N.mp3, event knight_attack), as the weapon comes down
     int nk = 0, ok = 0, files = 0; for (int n = 1; n <= 5; ++n) files += fs::exists(contentDir() / "audio" / "custom" / "knight" / ("attack_" + std::to_string(n) + ".mp3"));
     for (auto& t : enemyTypes()) if (t.id.rfind("knight", 0) == 0) { ++nk; ok += t.sndAttack == "knight_attack" && t.attackAtBlow; }
