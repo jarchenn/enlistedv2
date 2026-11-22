@@ -80,6 +80,7 @@ struct TankDef {
   int frontSurvive = 4, sideSurvive = 1;
   // Mech Tank (tank_mech.cpp, json "mech"): an autonomous AI vehicle, no crew. Standoff to its target, sight range, HE
   // range (m); stepHeight: low obstacles up to this height are crushed or driven over instead of blocking (tank_ram.cpp)
+  float animTravel = 0;   // MT1: the baked clip plays on the hull parts, one loop per this many metres driven (model.animRootTravel; 0: none)
   bool mech = false; float mechStandoff = 45, mechSight = 220, mechHeRange = 400, mechStep = 1.0f;
   int frontDamage() const { return 100 / (frontSurvive + 1); }
   int sideDamage() const { return 100 / (sideSurvive + 1); }
@@ -163,6 +164,7 @@ struct TankRT {
   std::map<int, double> runOverT; int runOvers = 0;
   // Mech Tank AI (tank_mech.cpp): owning side (-1 = not an AI vehicle; persisted in extra.tank.aiSide), its controls this
   // step, the target (a soldier slot or a vehicle id) and the unstick manoeuvre
+  float clipDist = 0;   // MT1: metres driven (signed), the baked track clip's phase
   int aiSide = -1; float aiThrottle = 0, aiSteer = 0; bool aiAimOn = false, aiFire = false; vec3 aiAim{0, 0, 1};
   int aiSlot = -1; uint64_t aiTank = 0; float aiKeepT = 0, aiStuckT = 0, aiBackT = 0, aiThinkT = 0; int aiShots = 0; vec3 aiGoal{0};
   bool adopted = false;   // BR7: a parked part-built car made drivable for this session (TankSys::adoptCar)

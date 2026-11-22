@@ -47,7 +47,10 @@ void TankSys::drawItems(App& app, const Instance& i, const InstanceRT& r) {
   if (d.heli) { drawHeli(app, t, tint, h); return; }   // VH5
   bool sight = app.mode == Mode::Explore && occupied == t.id && t.hatchT < 0.5f;   // inside the optic: the own gun is not drawn
   auto put = [&](const std::vector<int>& ps, const mat4& M) { for (int k : ps) app.R.worldModels.push_back({gm, k, M, tint}); };
-  put(d.hullParts, h);
+  if (d.animTravel > 0.01f && gm) {   // MT1: the baked drive clip on the hull parts (tracks, wheels), phased by distance driven: back when reversing, still when stopped
+    const float c = t.clipDist / d.animTravel, u = c - std::floor(c);
+    for (int k : d.hullParts) app.R.worldModels.push_back({gm, k, k < (int)gm->parts.size() && !gm->parts[k].anim.empty() ? h * gm->animAt(k, u) : h, tint});
+  } else put(d.hullParts, h);
   for (int s = 0; s < 2; ++s) { put(d.trackParts[s], h); put(d.wheelParts[s], h); }
   put(d.turretParts, tu);
   put(d.hatchParts, tu);

@@ -384,6 +384,7 @@ void TankSys::stepOne(App& app, TankRT& t, float dt, const ExploreInput* in) {
   t.hatchT = approach(t.hatchT, t.station == TS_HATCH ? 1.0f : 0.0f, dt / 0.8f);
   // ---- drive (hull movement in both stations: single-player crew abstraction)
   drive(app, t, dt);
+  t.clipDist += t.speed * dt;   // MT1: the track clip's phase (tank_ui.cpp)
   // ---- main gun follows the desired aim from the gunner sight, and from the open hatch (the commander lays it: RMB fires)
   if (ai) aimGun(t, dt, t.aiAimOn, &t.aiAim);
   else aimGun(t, dt, in && ((t.station == TS_GUNNER && t.hatchT == 0) || (t.station == TS_HATCH && t.hatchT >= 1.0f)));
