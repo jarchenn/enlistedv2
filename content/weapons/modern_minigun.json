@@ -34,15 +34,15 @@
  "sights": {
   "rear": [
    -0.0012,
-   0.1989,
-   0.3842
+   0.0538,
+   0.084
   ],
   "front": [
    -0.0012,
-   0.1989,
+   0.0538,
    1.0847
   ],
-  "note": "MG13b: no sights on the model: an aim line parallel to the barrel cluster's axis, 0.29 m above it (just over the rear spade grips' tops, 0.27), from over the front of the housing (z 0.10) to over the muzzle; the eye 0.30 m behind the rear point sits ahead of the grips (MG13 put the rear point over the grips at 0.15 m relief: in ADS the eye sat among the shoulder stumps and the grip filled the view)"
+  "note": "MG13d: no sights on the model and no aiming view (ads.zoom): rear / front only give the line the hip framing is built on (as MG13: parallel to the barrel cluster's axis, 0.144 m over it, from over the rear handle to over the muzzle). MG13b's raised line (0.29 m) and relief 0.30 are gone"
  },
  "muzzle": [
   -0.0012,
@@ -352,18 +352,8 @@
   ]
  },
  "ads": {
-  "eyeRelief": 0.3,
-  "vmFov": 0,
-  "posCorrection": [
-   0,
-   0,
-   0
-  ],
-  "rotCorrection": [
-   0,
-   0,
-   0
-  ]
+  "zoom": 0.18,
+  "note": "MG13d: zoom-only aim (the user: no aiming view, it should just zoom in slightly): the hip pose stays, the world FOV narrows by 18 % (about 1.2x); the aimed cone is the class hip cone without hipSpreadMul (3 deg against 6 at the hip)"
  },
  "modes": [
   "auto"

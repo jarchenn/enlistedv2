@@ -686,7 +686,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       vec3 eye = eyePos();
       vec3 aimDir = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch);
       // dispersion: the class's hip / ADS cone (handling.json) x the stance (prone near laser-like, mounted near none)
-      lastStance = stance; lastSpreadDeg = handling.cone(d.wclass, adsT > 0.85f, stance) * (adsT > 0.85f ? 1.0f : d.hipSpreadMul) * (s.att[ATT_MUZZLE] == 2 ? kBrakeSpread : 1.0f);   // BR2 muzzle brake: spread -30 %
+      lastStance = stance; lastSpreadDeg = handling.cone(d.wclass, adsT > 0.85f && !(d.adsZoom > 0 && d.hipSpreadMul > 1), stance) * (adsT > 0.85f ? 1.0f : d.hipSpreadMul) * (s.att[ATT_MUZZLE] == 2 ? kBrakeSpread : 1.0f);   // BR2 muzzle brake: spread -30 %   // MG13d: a zoom-only gun with a wide hip cone (the minigun) aims with the plain class hip cone
       float spread = radians(lastSpreadDeg);
       vec3 rt = glm::normalize(glm::cross(aimDir, vec3(0, 1, 0))), up = glm::cross(rt, aimDir);
       float a = wrand(s.seed) * 6.2831853f, r = std::sqrt(wrand(s.seed)) * std::tan(spread);

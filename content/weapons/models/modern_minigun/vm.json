@@ -10,18 +10,18 @@
  "points": {
   "rear": [
    0.32015,
-   0.02834,
-   -1.65073
+   -0.06166,
+   -1.15073
   ],
   "front": [
    0.32015,
-   0.02834,
-   -2.35123
+   -0.06166,
+   -2.15143
   ],
   "muzzle": [
    0.32015,
-   -0.26106,
-   -2.36653
+   -0.20596,
+   -2.16673
   ]
  },
  "log": {
@@ -36,6 +36,10 @@
   ],
   "staticGunBlender": null,
   "idleFrame": 5,
+  "cutBox": {
+   "base_minigun_0": 750,
+   "button_minigun_0": 176
+  },
   "bakedMeshTransforms": [
    "base_minigun_0",
    "barrels_minigun_0",
@@ -60,5 +64,5 @@
   ],
   "glbRest": true
  },
- "tris": 19906
+ "tris": 18980
 }
