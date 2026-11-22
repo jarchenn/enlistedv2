@@ -2,7 +2,7 @@
  "animDuration": 0.0,
  "bmax": [
   0.028943434357643127,
-  0.10494482517242432,
+  0.10754482448101044,
   1.1069999933242798
  ],
  "bmin": [
@@ -28,7 +28,7 @@
    ],
    "bmax": [
     0.028943434357643127,
-    0.10494482517242432,
+    0.10754482448101044,
     1.1069999933242798
    ],
    "bmin": [
@@ -84,5 +84,6 @@
  "triangles": 10871,
  "vertices": 9764,
  "note_gr1": "operating rod split out as a handle part by tools/garand_oprod_split.py (279 triangles)",
- "gr3_front": "front sight reshaped by tools/garand_front_sight.py"
+ "gr3_front": "front sight reshaped by tools/garand_front_sight.py",
+ "gr4_raise": "sights raised 6.5 mm by tools/garand_sight_raise.py"
 }

@@ -65,5 +65,7 @@ centre; ours is on the sight line), the muzzle flash and smoke.
 - The ring thinned to the reference's hole / outside 0.69 (ours was 0.50): `tools/garand_peep_thin.py`.
 - The front sight reshaped to the reference's proportions in the ring: the wings and block 3.9 mm lower (wing tips ~5 px over the blade tip), the block
   0.78 as wide (16 px), the blade stretched down and 1.3x wider; its tip stays on the sight line: `tools/garand_front_sight.py`.
-- Still different: our rear sight block is wider for the same ring (~630 px against 467), and our barrel and handguard sit closer under the sight line,
-  so they cover the hole's bottom from ~13 px under its centre (the reference's from ~28 px): that needs taller sights on the model.
+- GR4: the peep and the front blade raised 6.5 mm (`tools/garand_sight_raise.py`; sights.rear / front moved with them) so the barrel and handguard stay
+  28 px or more under the hole's centre, as on the reference's rifle (ours covered the hole's bottom from ~13 px); the hole is clear to its own rim.
+- Still different: our rear sight block is wider for the same ring (~630 px against 467).
+- Re-import order: garand_oprod_split.py, garand_peep_thin.py, garand_front_sight.py, then garand_sight_raise.py.
