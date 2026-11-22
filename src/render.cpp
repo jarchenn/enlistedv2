@@ -4366,7 +4366,7 @@ void main(){
 static const char* kToneFS = R"GLSL(
 #version 450 core
 in vec2 vUV;
-uniform sampler2D uHdr, uExpo, uBloom, uVmDist; uniform float uFixedExpo, uBloomAmt, uEyeR, uAspect, uRectVig, uMicro; uniform int uTonemap;
+uniform int uVmMask; uniform sampler2D uHdr, uExpo, uBloom, uVmDist; uniform float uFixedExpo, uBloomAmt, uEyeR, uAspect, uRectVig, uMicro; uniform int uTonemap;
 uniform float uBloomNorm = 6.0;
 uniform int uPhysGuard;   // CP2 physguard   // BF pbloom: the chain's total weight (6 equal levels before)
 uniform float uNewExpo;   // VO L1: Lighting New's re-fit of a fixed exposure (1 in Classic)
@@ -4428,7 +4428,7 @@ void main(){
     float ys = clamp((yc + wgt*(yn.x + yn.y + yn.z + yn.w))/(1.0 + 4.0*wgt), 0.0, 0.999);
     c *= (ys/(1.0 - ys))/max(L, 1e-5);
   }
-  if (uMicro > 0.0) {   // UI2 microcontrast: an unsharp mask on luminance against the HDR mip 3 (1/8 size, ~8 px; made for the exposure anyway), before the tone curve
+  if (uMicro > 0.0 && !(uVmMask == 1 && texture(uVmDist, vUV).r > 0.0)) {   // VM3: not on the first-person weapon (its mip-3 mean is the world behind it, taken before the weapon: the gun went light or dark with the background)   // UI2 microcontrast: an unsharp mask on luminance against the HDR mip 3 (1/8 size, ~8 px; made for the exposure anyway), before the tone curve
     float L = dot(c, vec3(0.2126, 0.7152, 0.0722)), Lb = dot(textureLod(uHdr, vUV, 3.0).rgb, vec3(0.2126, 0.7152, 0.0722));
     float r = clamp((L - Lb)/(Lb + 1e-4), -0.5, 0.5);   // relative difference from the local mean, clamped: no halos round strong edges or the sky line
     float e0 = uFixedExpo > 0.0 ? uFixedExpo : texelFetch(uExpo, ivec2(0), 0).r;
@@ -7694,7 +7694,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1i(U(progTone, "uTonemap"), q.legacy ? 0 : 1);
   glBindTextureUnit(2, bloomTex[0]); glUniform1i(U(progTone, "uBloom"), 2);
   glBindTextureUnit(3, vmDistTex); glUniform1i(U(progTone, "uVmDist"), 3);   // VM2: no world bloom on the first-person weapon
-  glUniform1f(U(progTone, "uMicro"), thumbMode || q.legacy || eyepiece ? 0.0f : q.microcontrast);   // UI2 (the eyepiece view has no fresh mips)
+  glUniform1f(U(progTone, "uMicro"), thumbMode || q.legacy || eyepiece ? 0.0f : q.microcontrast);
+  glUniform1i(U(progTone, "uVmMask"), perf.vmMask ? 1 : 0);   // VM3   // UI2 (the eyepiece view has no fresh mips)
   { const bool pb = perf.pBloom && !q.legacy; float norm = 6.0f; if (pb) { norm = 0.0f; float w = 1.0f; for (int i = 0; i < kBloomLevels; ++i) { norm += w; w *= 0.62f; } }
     glUniform1f(U(progTone, "uBloomNorm"), norm);
     glUniform1f(U(progTone, "uBloomAmt"), !q.legacy && q.bloom ? std::min(1.0f, (pb ? 0.012f : q.bloomStrength) * lt.mapBloom) : 0.0f); }   // BF pbloom: ~1.2 % of the source, unthresholded   // BR3: x the map's bloom
