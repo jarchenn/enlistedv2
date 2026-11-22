@@ -592,7 +592,7 @@ bool Game::trySpawn(int slot, std::string& why) {
         if (!Physics::shapeFitsAt(Physics::STAND, feet, false)) continue;                                       // never inside geometry
         if (nav.valid() && nav.nearest(feet, 1.5f) < 0) continue;                                              // navigable access
         // success
-        s.feet = feet; s.yaw = m.yaw; s.pitch = 0; s.alive = true; s.flat = false; s.hp = s.zombie ? enemyType(s.etype).hp : combat.value("health", 100.0f); s.killer = -1; s.staggerUntil = 0; s.posture = Physics::STAND;
+        s.feet = feet; s.yaw = m.yaw; s.pitch = 0; s.alive = true; s.flat = false; s.hp = s.zombie ? enemyType(s.etype).hp : combat.value("health", 100.0f); s.horseHp = s.zombie ? enemyType(s.etype).horseHp : 0.0f; s.mountDeath = -1; s.hitHorse = false; s.killer = -1; s.staggerUntil = 0; s.posture = Physics::STAND;
         s.human = match.slots[slot].human || match.slots[slot].pendingPeer >= 0; s.peer = match.slots[slot].pendingPeer >= 0 ? match.slots[slot].pendingPeer : match.slots[slot].peer;
         ++s.lifeId;
         aiForget(*this, slot);   // a fresh life: no stale last-known position of it anywhere
@@ -767,7 +767,8 @@ bool Game::projectileSegment(Projectile& p, vec3 a, vec3 seg, float len, float& 
     if (!s.alive || (int)i == shooter) continue;
     HitZone hz;
     if (s.poseAcc > 0 && coarseHit(s, a, d)) poseNow(s);   // CP: a held (rate-LOD) pose is brought up to date before its zones are tested
-    if (hitTest(s, a, d, bt, hz) && hz.t < bt) { bt = hz.t; best = (int)i; bz = hz; }
+    if (hitTest(s, a, d, bt, hz) && hz.t < bt) { bt = hz.t; best = (int)i; bz = hz; s.hitHorse = false; }
+    if (s.zombie && s.horseHp > 0) { float th = aiHorseHit(*this, s, a, d, bt); if (th >= 0 && th < bt) { bt = th; best = (int)i; bz = HitZone{1, th}; s.hitHorse = true; } }   // HK3: the horse met first
   }
   if (best >= 0) tHit = bt;
   return dmBulletHit(*this, p, best, bz, a, d, tHit, shooter);   // W1 damage model (damage_model.cpp): table, zones, helmet, protection, FleshHit
@@ -802,6 +803,16 @@ void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
     if (dmg <= 0) { drop(6); return; }
   }
   drop(7);
+  if (s.zombie && s.horseHp > 0 && !isClient) {   // HK3: the mounted knight: the horse's own health
+    const std::string k = how ? how : "";
+    const bool area = k == "blast" || k == "shell" || k == "flame" || k == "burn" || k == "vehicle", toHorse = s.hitHorse || area || k == "melee";
+    s.hitHorse = false;
+    if (toHorse) {
+      s.horseHp -= dmg; s.br.hurtFrom = attacker >= 0 ? sold[attacker].feet : s.feet - dir * 10.0f; s.br.hurtAt = t;
+      if (s.horseHp <= 0) { s.mountDeath = 1; s.riderHpKeep = s.hp; s.lastHow = k; s.hp = 0; killSoldier(i, attacker, dir); return; }   // the horse down: horse_death, on foot after
+      if (!area) { s.lastHow = k; return; }   // a blast reaches the rider too
+    }
+  }
   s.hp -= dmg;
   if (!s.localPlayer && !s.zombie && s.hp > 0 && !isClient) {   // SND13: soldiers had no pain sound: the hurt grunt at their head, quieter, at most one per 0.6 s each
     static std::unordered_map<int, double> last; static std::mt19937 rng{1313};
