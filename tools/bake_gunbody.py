@@ -615,7 +615,8 @@ def _frame(d, l):   # orthonormal columns: d, l square to d, their cross
     return [[e1[r], e2[r], e3[r]] for r in range(3)]
 def _tr(m): return [[m[c][r] for c in range(3)] for r in range(3)]
 
-KEEP_NORMALS = bool(os.environ.get('SKIN_KEEP_NORMALS'))   # FSB1: keep the normal / occlusion maps and mark the file (asset.extras.nmkNormals: the game loads them)
+KEEP_NORMALS = bool(os.environ.get('SKIN_KEEP_NORMALS'))
+HEAD_AS_IS = bool(os.environ.get('SKIN_HEAD_AS_IS'))   # FSB1: a body whose head bone leans more than the Allied one (18 vs 11 deg): re-aiming it tipped the face up   # FSB1: keep the normal / occlusion maps and mark the file (asset.extras.nmkNormals: the game loads them)
 def skin_onto(a_path, s_path, out_path):
     A, abin = load(a_path); S, sbin = load(s_path)
     SA, SS = _Skel(A), _Skel(S)
@@ -639,6 +640,7 @@ def skin_onto(a_path, s_path, out_path):
             if ok:
                 dA, dS = _sub(apos[c], hA), _sub(spos[c], hS); la = _dot(dA, dA) ** 0.5; ls = _dot(dS, dS) ** 0.5 or 1e-6; sc = min(1.6, max(0.6, la / ls))
                 ok = ls > 0.03 and la > 0.03   # a near-zero bone (FigRig's hips under the spine root) gives no direction: no turn, no stretch
+                if HEAD_AS_IS and n in ('Neck', 'Head'): ok = False   # FSB1: the neck and head keep their own lean (the spine's turn): its face stays level
             if ok:
                 if n in SIDE and all(x in apos and x in spos for x in SIDE[n]):
                     R = _mm(_frame(dA, _sub(apos[SIDE[n][0]], apos[SIDE[n][1]])), _tr(_frame(dS, _sub(spos[SIDE[n][0]], spos[SIDE[n][1]]))))
