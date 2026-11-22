@@ -179,7 +179,7 @@ M = {
     'darksteel': material('kr_darksteel', make_set('kr_darksteel', (0.30, 0.31, 0.33), 0.2, 0.03, 1.0, streak=False)),   # the helmet: between its black and the bright steel (user)
     'rubber':   material('kr_rubber', base=(0.025, 0.025, 0.027), rough=0.8),
     'core':     material('kr_core', base=(0.05, 0.02, 0.01), rough=0.25, emission=(1.0, 0.18, 0.05), emis_strength=0.5),   # a faint red-orange glow behind the ribs (brighter read as a letter through them)
-    'eye':      material('kr_eye', base=(0.12, 0.0, 0.0), rough=0.05, emission=(1.0, 0.02, 0.01), emis_strength=2.5),   # a red lens: glows, blooms a little
+    'eye':      material('kr_eye', base=(0.95, 0.03, 0.02), rough=0.05, emission=(1.0, 0.02, 0.01), emis_strength=6.0),   # v16 (user: the eyes glow red): a vivid red lens (the game's character loader reads only baseColorFactor today) and a strong glTF emission (emissiveFactor + KHR_materials_emissive_strength) for when it reads emission
 }
 MAT_ORDER = list(M.keys())
 
