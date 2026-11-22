@@ -35,10 +35,10 @@
   ],
   "front": [
    0.0,
-   0.0985,
+   0.0966,
    0.7377
   ],
-  "note": "XB4: front y set from two in-game ADS captures (integ 4b334292), not the mesh: front y 0.1035 (XB1) showed the globe ring's centre 16 px under the rear hole, 0.0906 (XB3) 25 px over it, so 0.31 mm per px and the ring is centred at 0.0985 (z unchanged). XB3 had taken the post tip on the static bake (source (0, 10.912, 49.98); ring inner centre (0, 10.909), r 9.7 mm; rear hole y 10.908, r 4.4 mm). The rig at its idle hold does not show an 8 mm offset either (tools: E:/nmk/swat_tools/xbring.py): the cause of the difference is not found. XB1 took the ring top; XB2 the rail guide"
+  "note": "XB5: front y fitted from in-game ADS captures, not the mesh: XB3 (y 0.0906) drew the globe ring 28 px over the rear hole, XB4 (y 0.0985) 8.7 px under it (4.65 px per mm, a 0.37 m lever), so the ring is centred at y 0.0966 (z unchanged); XB1 (0.1035) was baked differently and is off that line. The rig's rest -> idle delta (2.4 deg roll, 1 cm) is real pose motion here (the posed rear lands exactly on the hip point), so it is not the cause. XB3 had taken the post tip on the static bake (source (0, 10.912, 49.98); ring inner centre (0, 10.909), r 9.7 mm; rear hole y 10.908, r 4.4 mm). The rig at its idle hold does not show an 8 mm offset either (tools: E:/nmk/swat_tools/xbring.py): the cause of the difference is not found. XB1 took the ring top; XB2 the rail guide"
  },
  "muzzle": [
   0.0,
@@ -382,9 +382,9 @@
   "note": "XB1: the source's own arms and clips (models/<dir>/vm.glb, tools/modern_guns_anim.py); one 5.67 s timeline: fire, reload (cock + bolt), inspect, idle",
   "points": {
    "up": [
-    0.04105,
+    0.04103,
     0.99915,
-    -0.0026
+    -0.00260
    ],
    "note": "XB1: the gun's vertical (bind space, vm.glb: from the bore at the muzzle square up to the rear -> front sight line), so ADS turns the sight line onto the view axis with no roll (the MG11 / CP alignment)"
   }
