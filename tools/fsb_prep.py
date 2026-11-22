@@ -10,7 +10,9 @@ import bpy, sys
 from mathutils import Vector, Matrix
 argv = sys.argv[sys.argv.index('--') + 1:]
 SRC, OUT = argv[0], argv[1]
-TARGET_TRIS = 26000
+import os
+TARGET_TRIS = int(os.environ.get('FSB_TRIS', '0'))   # 0: no decimation (the user: every detail but the rifle)
+TEX_MAX = int(os.environ.get('FSB_TEX', '2048'))       # the source maps up to this (the 4096 uniform halves; the rest stay)
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=SRC, import_shading='NORMALS', guess_original_bind_pose=True)
 arm = next(o for o in bpy.context.scene.objects if o.type == 'ARMATURE')
@@ -58,7 +60,7 @@ for o, b, local in att:
 meshes = [o for o in bpy.context.scene.objects if o.type == 'MESH']
 # 3. decimate to the budget (collapse keeps the vertex groups)
 def tris(o): return sum(len(p.vertices) - 2 for p in o.data.polygons)
-total = sum(tris(o) for o in meshes); r = min(1.0, TARGET_TRIS / max(1, total))
+total = sum(tris(o) for o in meshes); r = min(1.0, TARGET_TRIS / max(1, total)) if TARGET_TRIS > 0 else 1.0
 print('triangles %d -> ratio %.2f' % (total, r))
 for o in meshes:
     if tris(o) < 300 or r >= 0.999: continue
@@ -68,12 +70,13 @@ for o in meshes:
 print('triangles after', sum(tris(o) for o in meshes))
 # 4. textures at most 1024 px
 for im in bpy.data.images:
-    if im.size[0] > 1024 or im.size[1] > 1024:
-        k = 1024 / max(im.size); im.scale(max(1, int(im.size[0] * k)), max(1, int(im.size[1] * k)))
+    if im.size[0] > TEX_MAX or im.size[1] > TEX_MAX:
+        k = TEX_MAX / max(im.size); im.scale(max(1, int(im.size[0] * k)), max(1, int(im.size[1] * k)))
+    print('  image %-40s %dx%d' % (im.name[:40], im.size[0], im.size[1]))
 # 5. export the armature and the meshes, the bind pose as rest, no clips
 bpy.ops.object.select_all(action='DESELECT')
 arm.select_set(True)
 for o in meshes: o.select_set(True)
 bpy.context.view_layer.objects.active = arm
-bpy.ops.export_scene.gltf(filepath=OUT, export_format='GLB', use_selection=True, export_animations=False, export_skins=True, export_yup=True, export_image_format='JPEG', export_jpeg_quality=85)
+bpy.ops.export_scene.gltf(filepath=OUT, export_format='GLB', use_selection=True, export_animations=False, export_skins=True, export_yup=True, export_image_format='JPEG', export_jpeg_quality=92)
 print('wrote', OUT)
