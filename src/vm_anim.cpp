@@ -187,7 +187,7 @@ void animVmStep(App& app, const WeaponDef& d, WeaponState& s, float dt) {
   float relief = scoped ? d.scopeRelief : d.eyeRelief;
   { vec3 oR, oF; float oRel;   // BR3: a fitted optic's eye line replaces the gun's own sights
     if (!scoped && brSightLine(d, s, oR, oF, oRel)) { mat4 G = D * weaponToRig(a, d); R = vec3(G * vec4(oR, 1)); F = vec3(G * vec4(oF, 1)); relief = oRel; } }
-  float t = app.adsT * app.adsT * (3 - 2 * app.adsT);
+  float t = d.adsZoom > 0 ? 0.0f : app.adsT * app.adsT * (3 - 2 * app.adsT);   // MG13d: zoom-only aiming (the minigun): the rig keeps its hip pose
   quat q = glm::rotation(glm::normalize(F - R), vec3(0, 0, -1));
   if (a.hasUp) {   // MG11: sight line ahead and the gun's up straight up (no cant), not just the shortest turn onto the line
     vec3 f = glm::normalize(F - R), u = glm::mat3(D) * a.up; u = u - f * glm::dot(u, f);

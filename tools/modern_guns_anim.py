@@ -189,6 +189,20 @@ if cfg.get("dropLow"):
     arm.data.pose_position = "POSE"
 
 # ---------------------------------------------------------------- MG2: cut opaque optic lenses (the engine has no glass on rigs)
+# MG13d cfg "cutBox": [{"mesh": name part, "min": [x,y,z], "max": [x,y,z]}] in rig space at the hip (the camera's: x right, y up,
+# -z ahead; vm.json's coordinates before glbRest): faces of the named rigidified gun part whose vertices all lie in the box are
+# deleted (the minigun's right spade grip, 9-16 cm from the eye at the hip; the user: trim it rather than move the eye)
+if cfg.get("cutBox"):
+    import bmesh
+    for c in cfg["cutBox"]:
+        lo, hi = c["min"], c["max"]
+        inside = lambda co: all(lo[i] <= x <= hi[i] for i, x in enumerate(b2g(co)))
+        for ob in keep:
+            if ob.type != "MESH" or c["mesh"] not in ob.name: continue
+            bm = bmesh.new(); bm.from_mesh(ob.data); vin = {v.index for v in bm.verts if inside(v.co)}   # rigidified parts: data in rest world
+            cut = [f for f in bm.faces if all(v.index in vin for v in f.verts)]
+            bmesh.ops.delete(bm, geom=cut, context="FACES"); bm.to_mesh(ob.data); bm.free()
+            log.setdefault("cutBox", {})[ob.name] = len(cut)
 # cfg "cutLens": [{"a": [x,y,z], "b": [x,y,z], "r": m}] in static weapon space: gun faces whose vertices all lie within r
 # of the segment a-b (the lens discs inside the tube) are deleted; the tube walls lie outside r
 if cfg.get("cutLens"):
