@@ -44,6 +44,11 @@ struct EnemyType {
   float headMult = 0;                                     // CH7 json "head_mult": damage x on a head hit instead of the global head multiplier (0: the global one)
   float stompArea = 0;                                    // a strike hurts every hostile within stompArea x height x scale of where it lands
   float explosiveMult = 1;                                // EN2: blast damage x (Game::explosionDamage: grenades, rockets, shells, packs, artillery)
+  // HK2 json "horse_death": {"clip", "foot_type", "foot_at" [x,y,z glTF], "kinds" [s.lastHow values], "hide" [mesh node names]}: a death
+  // by one of those kinds plays that clip (the horse falls, the rider jumps clear), then the horse is left as a corpse (the mesh
+  // nodes in "hide", the rider's, not drawn on it) and the slot goes on as foot_type, standing at foot_at; any other death plays
+  // the type's death clips (the rider shot off)
+  std::string horseDeathClip, footType; vec3 footAt{0}; std::vector<std::string> horseKinds, corpseHide;
   float capsuleH = 0, capsuleR = 0;                       // EN2: physics capsule height / radius (0: the soldier's)
   float climbM = 0, stepGap = 0;                          // EN4: takes the heavies-only climb links (lips up to the nav pass's 2.2 m) / gap links; stuck in a pit, climbs a lip up to climbM
   std::string climbClip;                                  // EN4: played over a climb (empty or missing: the walk clip)

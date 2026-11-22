@@ -1701,9 +1701,33 @@
       "stagger_min_damage": 100000,
       "stagger_s": 0,
       "explosive_mult": 1.5,
-      "capsule_radius_m": 0.8,
+      "horse_death": {
+      "clip": "horse_death",
+      "foot_type": "knight10",
+      "foot_at": [
+        1.243,
+        0.846,
+        0.039
+      ],
+      "kinds": [
+        "blast",
+        "shell",
+        "flame",
+        "burn",
+        "vehicle",
+        "melee",
+        "leg",
+        "upper thigh"
+      ],
+      "hide": [
+        "Knight_Tpose",
+        "knight_props"
+      ],
+      "note": "HK2: the killing hit's kind (s.lastHow) decides: these bring the horse down (the rider's legs hang at its flanks, below the saddle), any other gun hit shoots the rider off (death clips). After horse_death the horse stays as a corpse (the rider's meshes hidden) and the slot goes on as Knight 10 on foot under foot_at (the materials session's spawn point: the rider's hips at the end, glTF), facing the same way"
+    },
+    "capsule_radius_m": 0.8,
       "block_radius": 0.4,
-      "note": "HK1: Knight 10 on the armoured horse (content/characters/knight_10_mounted.glb: the materials session's horse + rider pair merged into one skin by tools/enemies/horse_merge.py; E:/nmk/horse/export). One body for horse and rider (one hp, the rider's hit zones x1.3, a 0.8 m capsule, the player pushed out to 0.75 m). It gallops at the enemy (gallop_scan, 7 m/s within 60 m); the charge strikes ahead on the couched spear (tip sphere at frame 23 of attack_charge); the right-side thrust (attack_right, first thrust, frame 23) turns the whole horse 44 deg left of the target (face_deg) so the target is on the rider's right, where the spear goes. Not used: attack_pivot_left (the engine-side yaw curve), the second right thrust (behind-right). No hit-reaction or death clips: it does not flinch and a killed one stands (death = idle, held)",
+      "note": "HK1: Knight 10 on the armoured horse (content/characters/knight_10_mounted.glb: the materials session's horse + rider pair merged into one skin by tools/enemies/horse_merge.py; E:/nmk/horse/export). One body for horse and rider (one hp, the rider's hit zones x1.3, a 0.8 m capsule, the player pushed out to 0.75 m). It gallops at the enemy (gallop_scan, 7 m/s within 60 m); the charge strikes ahead on the couched spear (tip sphere at frame 23 of attack_charge); the right-side thrust (attack_right, first thrust, frame 23) turns the whole horse 44 deg left of the target (face_deg) so the target is on the rider's right, where the spear goes. Not used: attack_pivot_left (the engine-side yaw curve), the second right thrust (behind-right). Death (HK1b): rider_death (the rider falls back and right off the horse, which goes on idling: its corpse stands); no hit-reaction clip: it does not flinch. The materials session's 1024-texture export (E:/nmk/horse/export, horse-knight e89032d3)",
       "clips": {
         "walk": [
           "walk"
@@ -1720,7 +1744,7 @@
           "idle"
         ],
         "death": [
-          "idle"
+          "rider_death"
         ]
       },
       "sounds": {

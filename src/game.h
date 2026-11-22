@@ -64,6 +64,7 @@ struct Soldier {
   float lean = 0;                            // MV3: the player's Q / E lean (-1 .. 1; local from App::lean, LAN in the snapshot)                           // AI5: an Operator bot (AiType::Operators): modern weapons (combat.json loadouts_operator)                       // G2: the melee brain (zombie.cpp: Zombies, heavies): no weapon
   int etype = 0; double staggerUntil = 0;    // EN1: enemy type (enemy_types.h; LAN snapshot), stopped by a heavy hit until
   int evariant = 0;                          // the type's model variant (Game::begin, in turn per type; clients compute the same)
+  int8_t mountDeath = -1;   // HK2: a mounted knight's death: -1 not decided, 0 the rider shot off, 1 the horse down (on foot after it), 2 done
   bool flat = false;   // crushed by a heavy's stomp (stomp_area): the body is drawn pressed flat into the ground
   float eScale = 1, eLean = 0, eBody = 1; bool eFallback = false;   // EN1 (aiZombieAssign): draw scale, lean, body size vs a 1.85 m zombie, on the zombie rig
   float meleeWind = -1; double meleeReady = 0;   // G2: zombie strike wind-up (s, < 0 = none), next strike allowed at Game::t
@@ -117,6 +118,8 @@ public:
   Nav nav;
   Grenades gren;
   std::vector<Soldier> sold;                 // index == roster slot
+  struct HorseCorpse { CharInstance ci; mat4 world{1}; std::vector<int> parts; };   // HK2: a mounted knight's fallen horse, its skin held at the last pose
+  std::vector<std::unique_ptr<HorseCorpse>> horseCorpses;
   bool active = false;                       // a match is running in this Explore session
   bool pendingStart = false;                 // Play menu asked for a match; begins on enterExplore
   bool sandbox = false;                      // EGG1: the Creative spawn eggs' game (no objectives, no score, no human, local only)
