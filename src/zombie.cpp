@@ -73,7 +73,7 @@ const ZombieCfg& zcfg() {
         t.scale = std::clamp(e.value("scale", t.scale), 0.3f, 100.0f); t.lean = e.value("lean_deg", t.lean);   // giants are drawn many times life size
         t.fallbackScale = std::clamp(e.value("fallback_scale", t.scale), 0.3f, 100.0f); t.fallbackLean = e.value("fallback_lean_deg", t.lean);
         if (e.contains("tint") && e["tint"].is_array() && e["tint"].size() == 3) t.tint = vec3(e["tint"][0].get<float>(), e["tint"][1].get<float>(), e["tint"][2].get<float>());
-        t.hp = std::max(1.0f, e.value("hp", t.hp)); t.damage = e.value("damage", t.damage); t.reach = e.value("reach_m", t.reach); t.lunge = e.value("lunge_m", t.lunge);
+        t.hp = std::max(1.0f, e.value("hp", t.hp)); t.damage = e.value("damage", t.damage); t.reach = e.value("reach_m", t.reach); t.lunge = e.value("lunge_m", t.lunge); t.backOff = e.value("back_off", t.backOff);
         t.cooldown = e.value("cooldown_s", t.cooldown); t.windup = e.value("windup_s", t.windup); t.attackRate = std::clamp(e.value("attack_rate", t.attackRate), 0.25f, 4.0f);
         t.walk = e.value("walk_mps", t.walk); t.run = e.value("run_mps", t.run); t.runWithin = e.value("run_within_m", t.runWithin); t.warmup = std::clamp(e.value("warmup_s", t.warmup), 0.0f, 30.0f);
         if (auto g = e.find("ground_mps"); g != e.end() && g->is_object()) for (auto& [ck, cv] : g->items()) if (cv.is_number()) t.groundMps[ck] = std::max(0.2f, cv.get<float>());
@@ -554,10 +554,27 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     if (r.shoot && !G.lineOfSight(G.eye(s), G.eye(*best) - vec3(0, 0.3f, 0))) continue;   // AR1: only with a clear line to the chest
     fit.push_back(i); wsum += r.weight; shootFit = shootFit || r.shoot; } }
   if (shootFit && s.meleeWind < 0) { m.speed = SPD_STOP; vec3 d = best->feet - s.feet; if (zLenXZ(d) > 0.05f) b.aimYaw = degrees(std::atan2(-d.x, -d.z)); b.why = "archer: in range, shooting"; }
+  // DR2: a big creature whose target stands under it (well inside where its claws / jaws land, 4.6-6.2 m out on the dragon)
+  // swung at the air ahead and stood there: instead it backs off, facing the target, to where the blows land, then strikes
+  bool backing = false;
+  if (e.backOff && best && strikes && s.meleeWind < 0 && G.t >= s.staggerUntil) {
+    float land = 1e9f; for (int i = 0; i < (int)ac.size(); ++i) if (i != di) { Strike r = strikeOf(G, s, i); if (!r.leap && !r.shoot && r.breath1 <= 0) land = std::min(land, r.dist); }
+    if (land < 1e8f && dT < 0.55f * land) {
+      backing = true; fit.clear(); wsum = 0; shootFit = false;   // nothing it has lands this close
+      static std::map<int, double> backT;
+      vec3 away = s.feet - best->feet; away.y = 0;
+      if (glm::length(away) < 0.3f) away = vec3(std::sin(radians(s.yaw)), 0, std::cos(radians(s.yaw)));   // right under its middle: straight back
+      const vec3 goal = best->feet + glm::normalize(away) * (0.75f * land + gapT);
+      double& bt = backT[s.slot]; if (bt > G.t + 5.0) bt = 0;   // a new match restarts the clock
+      if (G.t >= bt) { A->requestPath(s, goal, 0.5f, 6.0f, true); bt = G.t + 0.6; }
+      b.repathT = std::max(b.repathT, (float)G.t + 0.5f);   // the pursuit's own repath (heavyStep) waits while it backs off
+      m.speed = SPD_ZOMBIE; m.zSpeed = e.walk; b.why = "heavy: target underneath, backing off";
+    }
+  }
   const bool inR = strikes ? !fit.empty() : best && inReach(G, s, *best, std::max(e.reach, e.lunge));
   if (best && strikes && s.meleeWind < 0 && di < 0) {   // CH6: hold back at the strike distance instead of walking into the target (the swing would pass over it)
     float hold = 1e9f; for (int i = 0; i < (int)ac.size(); ++i) { Strike r = strikeOf(G, s, i); if (!r.leap && !r.shoot) hold = std::min(hold, 0.8f * r.dist); }
-    if (hold < 1e8f && dT < hold) m.speed = SPD_STOP;
+    if (hold < 1e8f && dT < hold && !backing) m.speed = SPD_STOP;
   }
   bool dropOk = false;
   if (best && di >= 0) {
@@ -881,7 +898,7 @@ int ar1SelfCheck() {
       std::vector<std::string> need = t.walkClips; need.push_back(t.runClip); for (auto* v : {&t.idleClips, &t.attackClips, &t.damageClips, &t.deathClips}) need.insert(need.end(), v->begin(), v->end());
       for (auto& c : need) clipsOk = clipsOk && anims.count(c);
       for (auto& z : t.horseZones) zonesOk = zonesOk && nodes.count(z.a) && nodes.count(z.b) && z.zone >= 0 && z.zone <= 2; }
-    chk(dk >= 0 && std::string(aiTypeName(AiType::Dragon)) == "Dragon" && enemyType(dk).hp == 5000 && enemyType(dk).horseHp == 0 && enemyType(dk).staggerMin >= 10000 && enemyType(dk).attackSpecs.size() == 4 && enemyType(dk).attackSpecs[3].breath1 > enemyType(dk).attackSpecs[3].breath0 && enemyType(dk).attackSpecs[3].breathDmgK < 1,
+    chk(dk >= 0 && std::string(aiTypeName(AiType::Dragon)) == "Dragon" && enemyType(dk).backOff && enemyType(dk).hp == 5000 && enemyType(dk).horseHp == 0 && enemyType(dk).staggerMin >= 10000 && enemyType(dk).attackSpecs.size() == 4 && enemyType(dk).attackSpecs[3].breath1 > enemyType(dk).attackSpecs[3].breath0 && enemyType(dk).attackSpecs[3].breathDmgK < 1,
         "Dragon (DR1): AI type 40, 5000 health on one pool, no stagger from small arms, three ground attacks and a flame breath at reduced damage");
     chk(clipsOk && anims.size() == 8 && !anims.count("Take 001"), "Dragon (DR1): every clip it names is in dragon.glb, 8 clips, no flight take (" + std::to_string(anims.size()) + " clips)");
     chk(zonesOk && enemyType(dk).horseZones.size() >= 20, "Dragon (DR1): " + std::to_string(dk >= 0 ? enemyType(dk).horseZones.size() : 0) + " hit capsules on joints the model has (head / body / limb zones)"); }

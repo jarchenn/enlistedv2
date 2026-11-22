@@ -2022,6 +2022,7 @@
     },
     {
       "id": "dragon",
+      "back_off": true,
       "name": "Dragon",
       "model": "dragon",
       "note": "DR1: the Mountain Dragon (content/characters/dragon.glb, CC-BY-4.0, Alexey Zaika: docs/credits.md), ground only (the user: no flight for now): its one 96.8 s take cut into idle, walk (also the run), two claw slams, a bite, a hit and a death (tools/enemies/dragon_convert.py + dragon_spec.json; the frames chosen from the bone tracks and side-view sheets, E:/nmk/dragon); no flight, take-off or landing frames. Fire: attack_breath (take 13.25-17 s, the mouth open 26.7-80 %): the M2 flamethrower's parcels from ahead of the head, 12 m, a 12 deg cone, at 5-12 m. 14.7 m snout to tail tip, head 2.9 m, wing tips 6.6 m (the file's own scale). Hit capsules on its own joints (horse_zones without horse_hp: one health pool; the 4th value the zone: 0 head, 1 body, 2 limb / tail). One movement capsule (1.6 m radius): the neck and tail are not part of its movement collision",
