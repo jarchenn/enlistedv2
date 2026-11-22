@@ -274,6 +274,14 @@ const A = {
     rigidify: ["base_minigun_0", "barrels_minigun_0", "lid_minigun_0", "button_minigun_0", "mag_minigun_0", "bullet_minigun_0"], gun: "base_minigun_0",
     clips: { fire: [0, 5], idle: [5, 48], reload: [48, 100], inspect: [100, 131] },   // fire: the barrels one step (60 deg); reload: the box out and in; inspect (raised, the button) not played
     mats: { minigun: { albedo: "img0.png", mr: "img1.png", normal: "img2.png" }, arms: { albedo: "img3.png", mr: "img4.png", normal: "img5.png", ...ng2Arms } } },
+  // ---- STR1: the Sten on the same fps-animated-smg rig (tools/sten_rig_prep.py: the MP5 meshes swapped for the Sten's parts; local-only, weapon sten)
+  sten_rig_local: { abs: true, wid: "sten", src: path.resolve(process.env.STEN_RIG || "E:/nmk/sten_rig/sten_rig.blend"), tex: path.resolve(process.env.STEN_TEX || "E:/nmk/sten_rig"), stat: "modern_mp5_local",
+    pointShift: [0.0257, 0.005, 0.08], realLength: 0.7,   // the Sten's weapon space -> the MP5's (rightGrip on rightGrip; tools/sten_rig_prep.py T); the rig keeps the MP5's static mapping
+    keep: ["armmesh", "sten_base", "sten_bolt", "sten_mag", "sten_trigger"], rigidify: ["sten_base", "sten_bolt", "sten_mag", "sten_trigger"], gun: "sten_base", timeline: [1, 235],
+    clips: { fire: [1, 9], reload_empty: [9, 81], reload: [81, 130], inspect: [130, 177], idle: [177, 216] }, normals: true,
+    mats: { "mg1_Frame:0_material": { albedo: "alb_Frame_0_material.png", normal: "nrm_Frame_0_material.png", rough_f: 0.55, metal_f: 0.6 }, "mg1_##riotMechanism:0_material": { albedo: "alb_riotMechanism_0_material.png", normal: "nrm_riotMechanism_0_material.png", rough_f: 0.55, metal_f: 0.6 },
+            "mg1_##PowerCellAssembly:0_material": { albedo: "alb_PowerCellAssembly_0_material.png", normal: "nrm_PowerCellAssembly_0_material.png", rough_f: 0.55, metal_f: 0.6 }, "mg1_Trigger:0_material": { albedo: "alb_Trigger_0_material.png", normal: "nrm_Trigger_0_material.png", rough_f: 0.55, metal_f: 0.6 },
+            "arms.001": { ...c4dArms(), ...ng2Arms } } },
   // ---- XB1: the user's MP5 (local-only; weapon modern_mp5 through content/weapons/local/modern_mp5.json): the fps-animated-smg timeline
   modern_mp5_local: { abs: true, wid: "modern_mp5", src: MP5N + "source/arms@mp5.fbx", tex: MP5N, stat: "modern_mp5_local",
     keep: ["armmesh", "mp5_body", "mp5_receiver_barrel", "mp5_handguard_grip", "mp5_stock", "mp5_attachments", "mp5_charginghandle", "mp5_mag"],
@@ -300,9 +308,10 @@ for (const [id, a] of Object.entries(A)) {
   const sum = JSON.parse(fs.readFileSync(O + a.stat + "_summary.json", "utf8"));
   const parts = a.lengthPart ? sum.parts.filter(p => p.name === a.lengthPart) : sum.parts;
   const mn = [0, 1, 2].map(i => Math.min(...parts.map(p => p.gltf_min[i]))), mx = [0, 1, 2].map(i => Math.max(...parts.map(p => p.gltf_max[i])));
-  const s = w.model.realLength / (mx[2] - mn[2]);   // the static import's scale (realLength over the length parts' extent)
+  const s = (a.realLength || w.model.realLength) / (mx[2] - mn[2]);   // STR1 realLength: the static mapping of another gun's bake (the MP5's, under the Sten's rig)   // the static import's scale (realLength over the length parts' extent)
   const points = { rear: w.sights.rear, front: w.sights.front, muzzle: w.muzzle };
   if (w.scope) points.eye = w.scope.eye;
+  if (a.pointShift) for (const k of Object.keys(points)) points[k] = points[k].map((v, i) => v + a.pointShift[i]);   // STR1: another gun's weapon space (the Sten on the MP5's rig)
   const cfg = { maxTex: 2048, ...a, src: a.abs ? a.src : G + a.src,   // MG4: rig textures up to 2048 (never upscaled)
     texdir: (path.isAbsolute(a.tex) ? a.tex : G + a.tex) + "/textures", out: O + id + "_vm.glb", points,
     static: { s, o: [(mn[0] + mx[0]) / 2, (mn[1] + mx[1]) / 2, mn[2]] } };
