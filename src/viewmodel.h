@@ -51,7 +51,7 @@ void fpsArmsLastJoints(vec3& shoulder, vec3& elbow, vec3& wrist, vec3& target); 
 // FA2: draw the one support arm (fps_arms.cpp) holding grip profile g for the weapon->camera transform weaponToCam;
 // cam = camera->world. curl 1 = wrapped round the section, 0 relaxed; rightHand = the mirrored hand with its arm from
 // the lower right; axis = the Axis (charcoal) sleeve. A new weapon gets its arm from a profile in fps_arms.json alone.
-class App; bool fpsSupportHandDraw(App& app, const mat4& cam, const mat4& weaponToCam, const ArmGrip& g, float curl, bool rightHand, bool axis, vec3* wristOut = nullptr);
+class App; bool fpsSupportHandDraw(App& app, const mat4& cam, const mat4& weaponToCam, const ArmGrip& g, float curl, bool rightHand, bool axis, vec3* wristOut = nullptr, int slot = 0);   // KF2 slot 1: a second arm (the right hand) in the same frame
 
 float smoothDamp(float cur, float target, float& vel, float smoothTime, float dt);
 

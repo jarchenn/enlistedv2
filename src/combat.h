@@ -31,6 +31,10 @@ struct WeaponDef {
   // recoil and the spring kick for this weapon; the camera's last row stays in the aim. boltDelay: s the rifle stays
   // shouldered after the shot before the bolt is worked (boltTime then runs)
   std::vector<std::array<float, 6>> fireCurve; float fireCurveFps = 30, boltDelay = 0;
+  // KF2 the bolt cycle from the user's clip (json "boltCurve": rows at fps over the cycle, boltTime long; columns handle lift,
+  // bolt draw (0..1), the right hand on the knob (0 on the grip .. 1), the gun back, up, right m and roll deg in camera space);
+  // boltTravel: m the bolt slides back; boltKnob: the knob's centre (weapon space) the right hand holds
+  std::vector<std::array<float, 7>> boltCurve; float boltCurveFps = 30, boltTravel = 0.09f; vec3 boltKnob{0};
   float rPitch = 1, rYaw = 0.4f, rRecover = 8 /*unused: recoil no longer recovers*/, rClimb = 0, rVisual = 0.05f, rSupported = 1;
   vec3 rear{0}, front{0}, muzzle{0}, scopeEye{0};
   bool hasScope = false, scopeIrons = false, laterWar = false;
@@ -113,6 +117,9 @@ struct WeaponDef {
 struct WeaponDef;
 // KF1: the fire curve at t s after the shot (linear between rows); false once past its last row (out = that row)
 bool fireCurveAt(const WeaponDef& d, float t, float out[6]);
+// KF2: the bolt curve with boltLeft s of the cycle left (weapon state s.bolt); false outside the cycle (out = zeros)
+bool boltCurveAt(const WeaponDef& d, float boltLeft, float out[7]);
+mat4 kf2BoltLocal(const WeaponDef& d, float lift, float draw);
 struct WeaponState {
   int loaded = 0;                 // rounds in the weapon, chamber included
   std::vector<int> containers;    // reserve: clips / magazines / belt segments, each with its own count

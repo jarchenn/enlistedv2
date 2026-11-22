@@ -113,6 +113,21 @@ bool fireCurveAt(const WeaponDef& d, float t, float out[6]) {   // KF1
   return true;
 }
 
+mat4 kf2BoltLocal(const WeaponDef& d, float lift, float draw) {   // KF2: the bolt in weapon space: turned about the bore by lift x boltLift, then slid back draw x boltTravel
+  return glm::translate(mat4(1), vec3(0, 0, -d.boltTravel * draw)) * glm::translate(mat4(1), d.boltPivot) * glm::mat4_cast(glm::angleAxis(radians(d.boltLift * lift), vec3(0, 0, 1))) * glm::translate(mat4(1), -d.boltPivot);
+}
+
+bool boltCurveAt(const WeaponDef& d, float boltLeft, float out[7]) {   // KF2
+  for (int k = 0; k < 7; ++k) out[k] = 0;
+  const auto& c = d.boltCurve;
+  if (c.empty() || boltLeft <= 0 || boltLeft > d.boltTime) return false;
+  const float f = std::max(0.0f, d.boltTime - boltLeft) * d.boltCurveFps; const int i = (int)f;
+  if (i >= (int)c.size() - 1) { for (int k = 0; k < 7; ++k) out[k] = c.back()[k]; return true; }
+  const float u = f - (float)i;
+  for (int k = 0; k < 7; ++k) out[k] = c[i][k] + (c[i + 1][k] - c[i][k]) * u;
+  return true;
+}
+
 void App::buildWeaponMeshes() {
   weaponDefs.clear();
   fs::path dir = contentDir() / "weapons";
@@ -168,6 +183,12 @@ void App::buildWeaponMeshes() {
       for (auto& r : fc.value("frames", json::array())) if (r.is_array() && r.size() >= 6) { std::array<float, 6> a; for (int k = 0; k < 6; ++k) a[k] = r[k].get<float>(); d->fireCurve.push_back(a); }
     }
     d->boltDelay = std::max(0.0f, j.value("boltDelay", 0.0f));
+    if (j.contains("boltCurve") && j["boltCurve"].is_object()) {   // KF2
+      const json& bc = j["boltCurve"]; d->boltCurveFps = std::max(1.0f, bc.value("fps", 30.0f));
+      for (auto& r : bc.value("frames", json::array())) if (r.is_array() && r.size() >= 7) { std::array<float, 7> a; for (int k = 0; k < 7; ++k) a[k] = r[k].get<float>(); d->boltCurve.push_back(a); }
+    }
+    d->boltTravel = j.value("boltTravel", 0.09f);
+    if (j.contains("boltKnob")) d->boltKnob = vec3(j["boltKnob"][0].get<float>(), j["boltKnob"][1].get<float>(), j["boltKnob"][2].get<float>());
     d->boltTime = j.value("boltTime", 0.0f); d->spinUp = std::max(0.0f, j.value("spinUp", 0.0f)); d->hipSpreadMul = std::max(0.1f, j.value("hipSpreadMul", 1.0f));   // MG13
     d->reloadEmpty = jkey(j, "reload").value("empty", 2.5f); d->reloadPartial = jkey(j, "reload").value("partial", d->reloadEmpty); d->reloadRound = jkey(j, "reload").value("round", 0.5f);
     d->rPitch = jkey(j, "recoil").value("pitch", 1.0f); d->rYaw = jkey(j, "recoil").value("yaw", 0.4f); d->rRecover = jkey(j, "recoil").value("recover", 8.0f);
@@ -448,6 +469,11 @@ void App::weaponDrawItems(std::vector<DrawItem>& op) {
     float phase = s.bolt > 0 ? std::sin(u * 3.14159f) : 0;
     if (s.reload > 0 && s.reloadKind) phase = 1;
     mat4 b = M * glm::translate(mat4(1), d.boltPivot) * glm::mat4_cast(glm::angleAxis(radians(d.boltLift * std::min(1.0f, phase * 2)), vec3(0, 0, 1))) * glm::translate(mat4(1), vec3(-d.boltPivot.x, -d.boltPivot.y, -0.09f * phase));
+    if (!d.boltCurve.empty()) {   // KF2: the clip's lift, draw and push (the handle turns about the bore, then the bolt slides back)
+      float row[7]; boltCurveAt(d, s.bolt, row);
+      if (s.reload > 0 && s.reloadKind) { row[0] = 1; row[1] = 1; }
+      b = M * kf2BoltLocal(d, row[0], row[1]);
+    }
     add(WP_BOLT, b);
   } else {
     float cyc = std::clamp(s.cooldown * (d.rpm / 60.0f), 0.0f, 1.0f);
@@ -455,6 +481,9 @@ void App::weaponDrawItems(std::vector<DrawItem>& op) {
   }
   float hz = s.cooldown > 0 && d.action == "semi" ? 0.08f * std::sin(std::clamp(s.cooldown * (d.rpm / 60.0f), 0.0f, 1.0f) * 3.14159f) : 0;
   if (s.reload > 0 && d.feed == "enbloc" && !d.magReload) hz = 0.09f;
+  if (d.action == "bolt" && !d.boltCurve.empty()) {   // KF2: the shroud / safety rides back with the bolt (it does not turn)
+    float row[7]; boltCurveAt(d, s.bolt, row); hz = d.boltTravel * ((s.reload > 0 && s.reloadKind) ? 1.0f : row[1]);
+  }
   add(WP_HANDLE, M * glm::translate(mat4(1), vec3(0, 0, -hz)));
   // magazine: drops out and a fresh one comes up during a magazine reload
   if (d.feed == "magazine") {
@@ -586,7 +615,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   }
   // bolt actions (Kar98k, ZF39): a shot drops out of ADS (adsT = 0 at the shot); aiming waits for the bolt and the
   // cooldown, then a held aim key re-enters
-  const bool holdAds = d.boltDelay > 0 && s.bolt > d.boltTime;   // KF1: shouldered until the bolt is worked
+  const bool holdAds = (d.boltDelay > 0 && s.bolt > d.boltTime) || (!d.boltCurve.empty() && s.bolt > 0);   // KF1: shouldered until the bolt is worked; KF2: and through the cycle (the clip works the bolt on the sights)
   bool aimBlocked = d.action == "bolt" && !holdAds && (s.bolt > 0 || s.cooldown > 0);
   float adsRate = d.adsSpeed / std::max(0.05f, move.adsTime) * (s.att[ATT_STOCK] ? 1.0f / kPadAdsTime : 1.0f);   // the only writer of adsT while a weapon is out; BR2 recoil pad: ADS time -25 %
   adsT = std::clamp(adsT + (in.aim && !modal && !aimBlocked ? adsRate : -adsRate) * dt, 0.0f, 1.0f);

@@ -99,6 +99,10 @@ mat4 App::vmLocal(const WeaponDef& d, const WeaponState& s, bool withProcedural)
     const vec3 piv = p + Q * Rp;
     m = glm::translate(mat4(1), vec3(row[2], row[1], row[0]) * rm) * glm::translate(mat4(1), piv) * glm::mat4_cast(glm::angleAxis(radians(row[3] * rm), vec3(0, 0, 1))) * glm::translate(mat4(1), -piv) * m;
   }
+  if (!d.boltCurve.empty()) {   // KF2: the rifle's dip and cant while the bolt is worked (camera space), rolling about the rear sight
+    float row[7];
+    if (boltCurveAt(d, s.bolt, row)) { const vec3 piv = p + Q * Rp; m = glm::translate(mat4(1), vec3(row[5], row[4], row[3]) * rm) * glm::translate(mat4(1), piv) * glm::mat4_cast(glm::angleAxis(radians(row[6] * rm), vec3(0, 0, 1))) * glm::translate(mat4(1), -piv) * m; }
+  }
   if (d.equipment() || d.tool) m = m * equipmentPose(d, s);   // GM3: the hammer's swing too   // wind-up / throw / swing (procedural: no animations supplied)
   // reload / switch dip
   if (s.reload > 0 && s.reloadKind != 3) {
@@ -276,6 +280,14 @@ void App::armDrawItems(const mat4& weaponWorld, const WeaponDef& d, const Weapon
     lastHandL = jW; lastHandR = vec3(0); lastShoulderL = jS; lastShoulderR = SR; lastElbowL = jE; lastElbowR = SR + vec3(0, -0.1f, 0);
     lastHandErr = vec3(0, glm::length(jW - jT), 0);   // the wrist on its target: the hand reached its grip
     lastArmsShown[0] = false; lastArmsShown[1] = drawn; ++lastArmDraws;
+    if (!d.boltCurve.empty() && !oneHand) {   // KF2: the firing hand (the user's clip): on the grip, up to the bolt knob and with it through the cycle, back down
+      float row[7]; boltCurveAt(d, s.bolt, row);
+      if (s.reload > 0 && s.reloadKind) { row[0] = row[1] = 1; row[2] = 0; }
+      const vec3 knob = vec3(kf2BoltLocal(d, row[0], row[1]) * vec4(d.boltKnob, 1));
+      ArmGrip pr; pr.section = vec2(glm::mix(std::max(0.016f, d.gripRad), 0.012f, row[2]));
+      pr.grip = glm::mix(d.gripR, knob, row[2]); pr.axis = glm::normalize(glm::mix(d.gripAx, vec3(0, 0, 1), row[2]));
+      lastArmsShown[0] = fpsSupportHandDraw(*this, cam, Mv, pr, 1.0f, true, d.side == "DE", nullptr, 1);
+    }
     return;
   }
   vec3 eR, hR, eL, hL;
