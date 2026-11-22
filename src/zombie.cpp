@@ -81,6 +81,7 @@ const ZombieCfg& zcfg() {
           if (a.contains("range") && a["range"].is_array() && a["range"].size() == 2) { x.rangeMin = a["range"][0]; x.rangeMax = a["range"][1]; }
           if (a.contains("window") && a["window"].is_array() && a["window"].size() == 2) { x.pre = a["window"][0]; x.post = a["window"][1]; }
           x.reach = a.value("reach", 0.0f); x.leap = a.value("leap", false); x.victims = a.value("victims", 0); x.swing = a.value("swing", 0.0f);
+          if (a.contains("shoot") && a["shoot"].is_object()) { const json& sh = a["shoot"]; x.shoot = true; x.speed = std::max(5.0f, sh.value("speed", x.speed)); x.spreadDeg = std::max(0.0f, sh.value("spread_deg", x.spreadDeg)); x.ammo = sh.value("ammo", std::string("crossbow_bolt")); x.massG = sh.value("mass_g", x.massG); }   // AR1
           if (!x.clip.empty()) t.attackSpecs.push_back(x);
         }
         t.attackDust = e.value("attack_dust", t.attackDust); t.tankDamage = e.value("tank_damage", t.hp >= 500); t.headMult = std::max(0.0f, e.value("head_mult", t.headMult));
@@ -133,7 +134,8 @@ float windupOf(const Game& G, const Soldier& s) {
   return k >= 0 && G.models[s.model]->clips[k].swing > 0 ? G.models[s.model]->clips[k].swing / e.attackRate : e.windup;
 }
 // CH6: an attack's strike, from the clip's analysis (the fastest hand and where it is at the swing) and the type's "attacks"
-struct Strike { int bone = -1; vec3 at{0}; int joint = CJ_RHAND; float extend = 0, radius = 0.5f, damage = 0, lo = 0, hi = 0, weight = 1, pre = 0.15f, post = 0.1f, dist = 1; bool leap = false; int victims = 0; };
+struct Strike { int bone = -1; vec3 at{0}; int joint = CJ_RHAND; float extend = 0, radius = 0.5f, damage = 0, lo = 0, hi = 0, weight = 1, pre = 0.15f, post = 0.1f, dist = 1; bool leap = false; int victims = 0;
+  bool shoot = false; float speed = 55, spreadDeg = 1, massG = 60; std::string ammo; };   // AR1
 Strike strikeOf(const Game& G, const Soldier& s, int i) {
   const EnemyType& e = typeOf(s); const EnemyType& ce = clipsOf(s); Strike r;
   r.radius = std::max(0.45f, 0.12f * e.height * e.scale); r.damage = e.damage; r.dist = e.reach;
@@ -142,6 +144,7 @@ Strike strikeOf(const Game& G, const Soldier& s, int i) {
   for (auto& a : e.attackSpecs) if (a.clip == ce.attackClips[i % ce.attackClips.size()]) {
     if (a.joint >= 0) r.joint = a.joint; r.extend = a.extend; if (a.radius > 0) r.radius = a.radius; if (a.damage >= 0) r.damage = a.damage;
     r.lo = a.rangeMin; r.hi = a.rangeMax; r.weight = a.weight; r.pre = a.pre; r.post = a.post; r.leap = a.leap; r.victims = a.victims;
+    r.shoot = a.shoot; r.speed = a.speed; r.spreadDeg = a.spreadDeg; r.massG = a.massG; r.ammo = a.ammo;
     if (a.extend > 0) r.dist += a.extend;
     if (a.reach > 0) r.dist = a.reach;
     if (a.hasAt) for (int k = 0; k < (int)m.jointNode.size(); ++k) if (m.nodeName[m.jointNode[k]] == a.bone) {   // KN8: on the weapon itself
@@ -164,6 +167,21 @@ vec3 strikePoint(const Soldier& s, const Strike& r) {
 }
 // distance from a point to a soldier's body (a 0.3 m capsule from the feet to its height)
 // TK1: a target crewing an armoured tank sits inside its hull: reach and strike distances are measured to the hull side
+// AR1: a ranged attack's projectile, at the swing: from the left (bow) hand toward the target's chest, aimed over by its
+// drop at that range, a little spread; damage from the ammo's weapon row (the crossbow bolt's: DMG1), owner the shooter
+static vec3 arrowAim(vec3 from, vec3 aim, float speed) {   // over the drop at that range (flat fire: a lob's small extra time ignored)
+  float tf = glm::length(aim - from) / speed; aim.y += 0.5f * 9.81f * tf * tf; return glm::normalize(aim - from);
+}
+static void loose(Game& G, Soldier& s, const Soldier& t, const Strike& r) {
+  vec3 from = vec3(s.world * vec4(s.pose.joint[CJ_LHAND], 1)), e = G.eye(s);
+  Physics::Hit hb; if (Physics::castRayEx(e, from - e, glm::length(from - e) + 1e-3f, hb)) from = e;   // the hand in a wall: from the eye
+  vec3 d = arrowAim(from, G.eye(t) - vec3(0, 0.3f, 0), r.speed), rt = glm::normalize(glm::cross(d, vec3(0, 1, 0))), up = glm::cross(rt, d);
+  float a = G.rnd(s) * 6.2831853f, k = std::sqrt(G.rnd(s)) * std::tan(radians(r.spreadDeg));
+  d = glm::normalize(d + (rt * std::cos(a) + up * std::sin(a)) * k);
+  G.app.fireProjectile(from, d, r.speed, PROJ_BULLET, 0, ~0ull, -1, r.ammo);   // tracer kind -1: drawn as an arrow shaft (Fx::bullet)
+  Projectile& p = G.app.projectiles.back(); p.mass = r.massG * 0.001f; p.owner = s.slot;
+  if (G.app.audio.hasEvent("shot_modern_crossbow") && glm::length(from - G.app.eyePos()) < 60.0f) G.app.audio.play("shot_modern_crossbow", from, 0.7f);   // shortcut: the crossbow's thump stands in for the bow
+}
 static float armourGap(Game& G, const Soldier& o) {
   if (!o.localPlayer || !G.app.tanks.occupied) return 0;
   const TankRT* t = G.app.tanks.get(G.app.tanks.occupied);
@@ -492,10 +510,14 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
   // CH6: the attacks whose strike distance (or json range: a leap's band) fits the target's distance
   const bool strikes = s.model >= 0 && s.model < (int)G.models.size();
   std::vector<int> fit; float wsum = 0; const float gapT = best ? armourGap(G, *best) : 0.0f, dT = best ? std::max(0.0f, zLenXZ(best->feet - s.feet) - gapT) : 1e9f;
-  if (best && strikes) for (int i = 0; i < (int)ac.size(); ++i) if (i != di) { Strike r = strikeOf(G, s, i); if (dT >= r.lo && dT <= r.hi && r.weight > 0) { fit.push_back(i); wsum += r.weight; } }
+  bool shootFit = false;   // AR1: a ranged attack fits: stand, face the target
+  if (best && strikes) for (int i = 0; i < (int)ac.size(); ++i) if (i != di) { Strike r = strikeOf(G, s, i); if (dT >= r.lo && dT <= r.hi && r.weight > 0) {
+    if (r.shoot && !G.lineOfSight(G.eye(s), G.eye(*best) - vec3(0, 0.3f, 0))) continue;   // AR1: only with a clear line to the chest
+    fit.push_back(i); wsum += r.weight; shootFit = shootFit || r.shoot; } }
+  if (shootFit && s.meleeWind < 0) { m.speed = SPD_STOP; vec3 d = best->feet - s.feet; if (zLenXZ(d) > 0.05f) b.aimYaw = degrees(std::atan2(-d.x, -d.z)); b.why = "archer: in range, shooting"; }
   const bool inR = strikes ? !fit.empty() : best && inReach(G, s, *best, std::max(e.reach, e.lunge));
   if (best && strikes && s.meleeWind < 0 && di < 0) {   // CH6: hold back at the strike distance instead of walking into the target (the swing would pass over it)
-    float hold = 1e9f; for (int i = 0; i < (int)ac.size(); ++i) { Strike r = strikeOf(G, s, i); if (!r.leap) hold = std::min(hold, 0.8f * r.dist); }
+    float hold = 1e9f; for (int i = 0; i < (int)ac.size(); ++i) { Strike r = strikeOf(G, s, i); if (!r.leap && !r.shoot) hold = std::min(hold, 0.8f * r.dist); }
     if (hold < 1e8f && dT < hold) m.speed = SPD_STOP;
   }
   bool dropOk = false;
@@ -514,7 +536,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     ++s.meleeCount; }
   if (s.meleeWind >= 0 && strikes && s.meleeClip != di) {   // CH6: the strike lands where the joint is, not on whoever was chosen
     float wu = windupOf(G, s); Strike r = strikeOf(G, s, s.meleeClip);
-    if (best && s.meleeWind < wu) {   // step (a leap: dash) in to the strike distance by the blow, no closer; a target that got away is not chased mid-swing
+    if (best && s.meleeWind < wu && !r.shoot) {   // step (a leap: dash) in to the strike distance by the blow, no closer; a target that got away is not chased mid-swing
       float gap = zLenXZ(best->feet - s.feet) - armourGap(G, *best) - 0.85f * r.dist;
       if (gap > 0.15f && (r.leap ? gap < r.hi : gap < 3.0f)) { float v = gap / std::max(0.1f, wu - s.meleeWind); m.zSpeed = std::max(m.zSpeed, r.leap ? v : std::min(v, 1.5f * e.run)); m.speed = SPD_ZOMBIE; } else m.speed = SPD_STOP;
     }
@@ -522,7 +544,8 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     float w0 = s.meleeWind; s.meleeWind += dt;
     if (w0 < wu && s.meleeWind >= wu && gWindVoiced.erase(s.slot) && wu >= 1.0f && !e.sndAttack.empty()) G.app.audio.play(e.sndAttack.c_str(), s.feet + vec3(0, 0.6f * e.height * e.scale, 0), 1.0f, e.voicePitch * (0.93f + 0.14f * G.rnd(s)));   // SND4: after a windup sound, the attack sound at the blow (not if they would overlap)
     std::vector<int>& hit = gStruck[s.slot];
-    if (s.meleeWind >= wu - r.pre) {
+    if (r.shoot) { if (best && w0 < wu && s.meleeWind >= wu) loose(G, s, *best, r); }   // AR1: the arrow leaves at the release; no strike sphere
+    else if (s.meleeWind >= wu - r.pre) {
       vec3 p = strikePoint(s, r);
       { static const bool lg = std::getenv("NMK_STRIKE_LOG") != nullptr; if (lg && w0 < wu && s.meleeWind >= wu) { vec3 q = p - s.feet; logf("strike %s clip %d joint %d at feet+(%.2f %.2f %.2f) target %d body dist %.2f radius %.2f range %.1f-%.1f leap %d",
         e.id.c_str(), s.meleeClip, r.joint, q.x, q.y, q.z, best ? best->slot : -1, best ? bodyDist(*best, p) : -1.0f, r.radius, r.lo, r.hi, (int)r.leap); } }   // diagnostics
@@ -677,4 +700,25 @@ bool mpaiMeleeRay(App& app, vec3 o, vec3 d, float& t, float dmg) {
   uint64_t key = (0xEull << 60) | (uint64_t)best;   // one hit per soldier per swing
   if (app.meleeHits.insert(key).second) G->meleeHit(G->localSlot, best, dmg);
   return true;
+}
+
+// AR1 --check-ar1 (headless): Archer 1's type parses with its ranged attack, and an arrow aimed by arrowAim, flown the way
+// App::stepProjectiles flies it (Euler, 1/120 s steps, gravity only), passes within 15 cm of the chest at 5, 10, 25 and 45 m
+int ar1SelfCheck() {
+  int fails = 0; auto chk = [&](bool ok, const std::string& what) { logf("[ar1] %s: %s", ok ? "ok" : "FAIL", what.c_str()); if (!ok) ++fails; };
+  int k = enemyTypeIndex("archer1"); chk(k >= 0, "zombie.json has archer1");
+  if (k >= 0) {
+    const EnemyType& e = enemyType(k); const EnemyType::AttackSpec* sh = nullptr;
+    for (auto& a : e.attackSpecs) if (a.shoot) sh = &a;
+    chk(sh != nullptr, "a shoot attack");
+    if (sh) { chk(sh->clip == "longbow shot" && std::find(e.attackClips.begin(), e.attackClips.end(), sh->clip) != e.attackClips.end(), "on the 'longbow shot' clip, listed in clips.attack");
+      chk(sh->speed == 55 && sh->ammo == "crossbow_bolt" && sh->rangeMin == 4 && sh->rangeMax == 45 && std::fabs(sh->swing - 0.692f) < 1e-4f, "55 m/s, crossbow_bolt, 4-45 m, swing 0.692"); }
+    chk(e.model == "archer_1" && fs::exists(contentDir() / "characters" / "archer_1.glb"), "model content/characters/archer_1.glb");
+  }
+  for (float D : {5.0f, 10.0f, 25.0f, 45.0f}) {
+    vec3 from(0, 1.45f, 0), aim(0, 1.3f, -D), p = from, v = arrowAim(from, aim, 55.0f) * 55.0f; float best = 1e9f; const float h = 1.0f / 120;
+    for (int i = 0; i < 600 && p.z > -D - 2; ++i) { vec3 q = p + v * h; float t = glm::clamp(glm::dot(aim - p, q - p) / std::max(1e-9f, glm::dot(q - p, q - p)), 0.0f, 1.0f); best = std::min(best, glm::length(p + (q - p) * t - aim)); p = q; v.y -= 9.81f * h; }
+    chk(best < 0.15f, "arrow at " + std::to_string((int)D) + " m passes " + std::to_string((int)(best * 1000)) + " mm from the chest");
+  }
+  logf("[ar1] %s", fails ? "FAILED" : "all ok"); return fails ? 1 : 0;
 }
