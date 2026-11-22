@@ -169,6 +169,7 @@ void TankSys::loadDefs(App& app) {
     const json du = j.value("durability", json::object());
     d->launcherAllSides = du.value("launcherAllSides", false);
     d->frontSurvive = du.value("frontHitsSurvived", d->frontSurvive); d->sideSurvive = du.value("sideHitsSurvived", d->sideSurvive);
+    if (j.contains("model") && j["model"].contains("animRootTravel") && !fellBack) d->animTravel = glm::length(jvec3(j["model"]["animRootTravel"], vec3(0)));   // MT1: the supplied model's clip (not the stand-in's)
     if (j.contains("mech") && j["mech"].is_object()) {   // Mech Tank (tank_mech.cpp)
       const json& mc = j["mech"]; d->mech = true;
       d->mechStandoff = mc.value("standoff", d->mechStandoff); d->mechSight = mc.value("sight", d->mechSight);

@@ -110,6 +110,23 @@ bool postProcessVehicleModel(const fs::path& dir, const json& spec, std::string&
   }
   mj["bmin"] = tojson(bmin); mj["bmax"] = tojson(bmax);
   mj["vehicleOrigin"] = {{"shift", tojson(shift)}, {"note", "x/z centred on the hull, y = 0 at the running gear's lowest point"}};
+  {   // MT1: the clip's per-part deltas were made in the bake's frame: carried across the re-origin (T(shift) A T(-shift)),
+      // and a clip that drives the whole vehicle forward (spec animRootTravel, metres over the clip, linear) has that
+      // travel taken out, so the hull stays and only the tracks / wheels move relative to it
+    const vec3 travel = jvec3(spec.value("animRootTravel", json()), vec3(0));
+    const mat4 S = glm::translate(mat4(1), shift), Si = glm::translate(mat4(1), -shift);
+    for (auto& p : parts) {
+      if (!p.contains("anim")) continue;
+      json& a = p["anim"]; const size_t n = a.size();
+      for (size_t k = 0; k < n; ++k) {
+        mat4 A; for (int c = 0; c < 16; ++c) glm::value_ptr(A)[c] = a[k][c].get<float>();
+        const float f = n > 1 ? (float)k / (float)(n - 1) : 0.0f;
+        A = S * glm::translate(mat4(1), -travel * f) * A * Si;
+        json r = json::array(); for (int c = 0; c < 16; ++c) r.push_back(std::round(glm::value_ptr(A)[c] * 1e6f) / 1e6f);
+        a[k] = r;
+      }
+    }
+  }
   writeMesh(dir / "mesh.bin", m);
   { std::ofstream f(dir / "model.json"); f << mj.dump(1); }
   char b[256];
