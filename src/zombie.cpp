@@ -56,7 +56,8 @@ const ZombieCfg& zcfg() {
         if (e.contains(k) && e[k].is_string()) v = {e[k].get<std::string>()};
         else if (e.contains(k) && e[k].is_array() && !e[k].empty()) { v.clear(); for (auto& s : e[k]) v.push_back(s.get<std::string>()); } };
       for (auto& e : j.value("types", json::array())) {   // EN1 enemy types; a missing field keeps the plain zombie's value
-        if (e.value("id", std::string()).rfind("fighter", 0) == 0) { logf("enemy types: '%s' is a removed type: ignored", e.value("id", std::string()).c_str()); continue; }   // RM1: an old local file
+        { const std::string eid = e.value("id", std::string());   // RM1: the fighters; RM2: the alien, alien queen and animatronic (the clown): an old local file
+          if (eid.rfind("fighter", 0) == 0 || eid == "alien" || eid == "alien_queen" || eid == "animatronic") { logf("enemy types: '%s' is a removed type: ignored", eid.c_str()); continue; } }
         EnemyType t;
         t.id = e.value("id", t.id); t.name = e.value("name", t.id); t.model = e.value("model", t.model); t.height = e.value("height_m", t.height);
         t.models = {t.model}; strs(e, "models", t.models); t.model = t.models[0];
