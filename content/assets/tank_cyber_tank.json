@@ -3,7 +3,7 @@
  "version": 1,
  "name": "Mech Tank",
  "category": "Vehicles",
- "description": "Autonomous AI tank (no crew). Supplied cyber tank model (local-only; the Tiger I mesh stands in without it).",
+ "description": "Autonomous AI tank (no crew). \"Cyber Tank (Futuristic/Cyberpunk)\" by kraytay, CC-BY-4.0 (the Tiger I mesh stands in if the bake is missing).",
  "floors": 0,
  "enterable": false,
  "footprint": [
