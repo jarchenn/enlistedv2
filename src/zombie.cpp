@@ -27,6 +27,7 @@ static_assert(sizeof(kSemanticNames) / sizeof(kSemanticNames[0]) == CJ_COUNT, "t
 #include <cstdlib>
 #include <set>
 
+bool gMechRobot = true;  // mechrobot (Renderer::perf, set each frame by App): AI type Mechs spawns the KR-714 robot soldier (kit 12); off = the melee mech (zombie.json "mech")
 bool gKnight2 = true;    // knight2 (Renderer::perf, set each frame by App): off = each type's json "legacy" patch applies when the table loads
 namespace {
 float zLenXZ(vec3 v) { return glm::length(vec2(v.x, v.z)); }

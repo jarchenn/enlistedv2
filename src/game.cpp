@@ -133,7 +133,7 @@ void Game::syncGrenadeView() {
     gren.live.push_back(v);
   }
 }
-static const char* kitName(int kit) { return kit == 2 ? "trooper" : kit == 3 ? "robot" : kit == 6 ? "desert" : kit == 7 ? "allied" : kit == 8 ? "ss" : kit == 9 ? "gasmask" : kit == 10 ? "gasmask2" : "delta"; }
+static const char* kitName(int kit) { return kit == 2 ? "trooper" : kit == 3 ? "robot" : kit == 6 ? "desert" : kit == 7 ? "allied" : kit == 8 ? "ss" : kit == 9 ? "gasmask" : kit == 10 ? "gasmask2" : kit == 12 ? "kr714" : "delta"; }   // RB1: 12 the KR-714 robot (AI type Mechs, perf mechrobot)
 // WSM2: a soldier skin on the Allied paratrooper's skeleton (combat.json hold_bodies: skin -> the model whose clips it plays): the
 // clips are borrowed from that model by joint name (one clip file for every soldier). False: not a hold body, or no clips to play.
 static int loadCharModel(Game& G, const std::string& id) {
@@ -164,7 +164,7 @@ bool holdBodySetup(Game& G, int model) {
   }
   return !G.models[model]->clips.empty();
 }
-static bool clipKit(int kit) { return kit == 4 || kit == 6 || kit == 7 || kit == 8 || kit == 9 || kit == 10; }   // WS1: the Delta Force path (a clip body, the game's guns in its hands): 4 Delta Force, 6 desert, 7 Allied, 8 SS   // combat.json kits.<name> (SW1; DF1 4: Delta Force)
+static bool clipKit(int kit) { return kit == 4 || kit == 6 || kit == 7 || kit == 8 || kit == 9 || kit == 10 || kit == 12; }   // WS1: the Delta Force path (a clip body, the game's guns in its hands): 4 Delta Force, 6 desert, 7 Allied, 8 SS   // combat.json kits.<name> (SW1; DF1 4: Delta Force)
 static float bodyScale(const Soldier& s) { return s.zombie ? s.eBody : 1.0f; }   // EN1: a troll stands taller, a spider lower
 void Game::renderView(vec3& e, vec3& f) const {
   e = app.eyePos(); f = App::forward(app.eyeYaw, app.eyePitch); float fov = 70;
@@ -228,7 +228,7 @@ bool Game::begin(std::string& err) {
     s.human = rs.human; s.peer = rs.peer; s.localPlayer = rs.id == localSlot;
     int side = ffaMode(match.mode()) ? 0 : std::clamp(rs.team, 0, 1);
     AiType ait = rs.human ? AiType::Soldiers : aiTypeNext(match.rules.aiCount[side], match.rules.aiTypes[side], aiGiven[side]);   // AI3: the typed counts per type
-    s.zombie = ait != AiType::Soldiers && ait != AiType::Operators && ait != AiType::Troopers && ait != AiType::Robots && ait != AiType::Desert && ait != AiType::Delta && ait != AiType::Allied && ait != AiType::SS && ait != AiType::AlliedPara;   // G2 melee brain (NA1: mechs are melee)
+    s.zombie = ait != AiType::Soldiers && ait != AiType::Operators && ait != AiType::Troopers && ait != AiType::Robots && ait != AiType::Desert && ait != AiType::Delta && ait != AiType::Allied && ait != AiType::SS && ait != AiType::AlliedPara && !(ait == AiType::Mechs && gMechRobot);   // G2 melee brain (NA1: mechs are melee; RB1: with perf mechrobot the Mechs are the KR-714 robot soldier, kit 12)
     s.gmWeapon = -1;
     // GM1 / GM2: bodies with the gun built in: the gas-mask and desert types, and the Axis side's plain soldier bots (not in Battle
     // royale, where bots loot and change guns; never a human: the player's own body and first person are unchanged)
@@ -237,7 +237,7 @@ bool Game::begin(std::string& err) {
     const char* gunBodyKind = nullptr;
     s.gunBody = gunBodyKind != nullptr;
     s.op = ait == AiType::Operators;
-    s.kit = ait == AiType::Troopers ? 2 : ait == AiType::Robots ? 3 : ait == AiType::Delta ? 4 : ait == AiType::Desert ? 6 : ait == AiType::AlliedPara || ait == AiType::Allied ? 7 : ait == AiType::SS ? 8 : s.op ? 1 : 0;   // RM2: the gas-mask kits (9 / 10) are gone   // WS1: 7 Allied paratroopers; WSM2: 7 also the Allied soldiers, 8 SS, 9 / 10 gas-mask 1 / 2   // SW1; DF1: 4 Delta Force; DSD1: 6 desert soldiers on the Delta Force path
+    s.kit = ait == AiType::Mechs && !s.zombie ? 12 : ait == AiType::Troopers ? 2 : ait == AiType::Robots ? 3 : ait == AiType::Delta ? 4 : ait == AiType::Desert ? 6 : ait == AiType::AlliedPara || ait == AiType::Allied ? 7 : ait == AiType::SS ? 8 : s.op ? 1 : 0;   // RM2: the gas-mask kits (9 / 10) are gone   // WS1: 7 Allied paratroopers; WSM2: 7 also the Allied soldiers, 8 SS, 9 / 10 gas-mask 1 / 2   // SW1; DF1: 4 Delta Force; DSD1: 6 desert soldiers on the Delta Force path
     s.etype = !s.zombie ? 0 : ait == AiType::ZombiesHeavies ? enemyTypePick((uint32_t)rs.id)   // EN1: the mix by weight, per slot
             : ait == AiType::Brutes ? std::max(0, enemyTypeIndex("brute")) : ait == AiType::Spiders ? std::max(0, enemyTypeIndex("stalker"))
             : ait == AiType::Creatures ? std::max(0, enemyTypeIndex("creature"))
