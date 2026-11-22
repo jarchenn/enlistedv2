@@ -180,7 +180,7 @@ static void loose(Game& G, Soldier& s, const Soldier& t, const Strike& r) {
   d = glm::normalize(d + (rt * std::cos(a) + up * std::sin(a)) * k);
   G.app.fireProjectile(from, d, r.speed, PROJ_BULLET, 0, ~0ull, -1, r.ammo);   // tracer kind -1: drawn as an arrow shaft (Fx::bullet)
   Projectile& p = G.app.projectiles.back(); p.mass = r.massG * 0.001f; p.owner = s.slot;
-  if (G.app.audio.hasEvent("shot_modern_crossbow") && glm::length(from - G.app.eyePos()) < 60.0f) G.app.audio.play("shot_modern_crossbow", from, 0.7f);   // shortcut: the crossbow's thump stands in for the bow
+  if (G.app.audio.hasEvent("archer_release")) G.app.audio.play("archer_release", from, 1.0f, 0.96f + 0.08f * G.rnd(s));   // the twang (pf3's bow recording; its event sets range and voices)
 }
 static float armourGap(Game& G, const Soldier& o) {
   if (!o.localPlayer || !G.app.tanks.occupied) return 0;
@@ -533,6 +533,7 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     else if (strikes && !fit.empty()) { float x = G.rnd(s) * wsum; s.meleeClip = fit.back(); for (int i : fit) { x -= strikeOf(G, s, i).weight; if (x <= 0) { s.meleeClip = i; break; } } }   // CH6: by weight among those that fit
     else { int pick = std::min(n - 1, (int)(G.rnd(s) * n)); s.meleeClip = di >= 0 && pick >= di ? pick + 1 : pick; }
     gStruck[s.slot].clear();
+    if (strikes && s.meleeClip >= 0 && strikeOf(G, s, s.meleeClip).shoot && G.app.audio.hasEvent("archer_draw")) G.app.audio.play("archer_draw", s.feet + vec3(0, 0.75f * e.height * e.scale, 0), 1.0f, 0.96f + 0.08f * G.rnd(s));   // AR1: the nock and draw, at chest height
     ++s.meleeCount; }
   if (s.meleeWind >= 0 && strikes && s.meleeClip != di) {   // CH6: the strike lands where the joint is, not on whoever was chosen
     float wu = windupOf(G, s); Strike r = strikeOf(G, s, s.meleeClip);
