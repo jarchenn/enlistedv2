@@ -677,6 +677,184 @@
           "radius": 0.65
         }
       ]
+    },
+    {
+      "note": "KN4: AI type Knight 4 (28): the knight's body with a zweihander (on the extra joint mixamorig:Weapon, keyed in every clip) and a beaked-visor helm, Mixamo Great Sword Pack clips (content/characters/knight_4.glb; root motion pinned by tools/enemies/knight2_prep.py; credits in docs/credits.md). 'great sword run' plays backward: the forward run is 'great sword run (2)'. Strike: the blade runs 0.10-1.46 m from the hand, the sphere 1.0 m out with radius 0.55",
+      "id": "knight4",
+      "name": "Knight 4",
+      "model": "knight_4",
+      "height_m": 1.9,
+      "scale": 1,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 600,
+      "damage": 60,
+      "reach_m": 2.0,
+      "lunge_m": 1.0,
+      "cooldown_s": 1.2,
+      "windup_s": 0.5,
+      "attack_rate": 1.0,
+      "walk_mps": 1.5,
+      "run_mps": 3.8,
+      "run_within_m": 12,
+      "weight": 0,
+      "hit_zone_scale": 1.1,
+      "knockback_mps": 3,
+      "stagger_min_damage": 120,
+      "stagger_s": 0.7,
+      "explosive_mult": 2,
+      "clips": {
+        "walk": [
+          "great sword walk"
+        ],
+        "run": "great sword run (2)",
+        "idle": [
+          "great sword idle",
+          "great sword idle (2)"
+        ],
+        "attack": [
+          "great sword slash",
+          "great sword attack",
+          "great sword slash (3)",
+          "great sword slash (4)"
+        ],
+        "damage": [
+          "great sword impact",
+          "great sword impact (2)",
+          "great sword impact (3)",
+          "great sword blocking"
+        ],
+        "death": [
+          "two handed sword death",
+          "two handed sword death (2)"
+        ]
+      },
+      "sounds": {
+        "attack": "knightattack",
+        "contact": "knightattackcontact",
+        "death": "knightdeath"
+      },
+      "attack_dust": false,
+      "head_mult": 4,
+      "attacks": [
+        {
+          "clip": "great sword slash",
+          "joint": "RightHand",
+          "extend": 1.0,
+          "radius": 0.55
+        },
+        {
+          "clip": "great sword attack",
+          "joint": "RightHand",
+          "extend": 1.0,
+          "radius": 0.55
+        },
+        {
+          "clip": "great sword slash (3)",
+          "joint": "RightHand",
+          "extend": 1.0,
+          "radius": 0.55
+        },
+        {
+          "clip": "great sword slash (4)",
+          "joint": "RightHand",
+          "extend": 1.0,
+          "radius": 0.55
+        }
+      ]
+    },
+    {
+      "note": "KN5: AI type Knight 5 (29): the knight's body with a double-sided battle axe, a sallet over a shaved head, Mixamo Pro Melee Axe Pack clips plus the sword-and-shield pack's two deaths (the axe pack has none; tools/enemies/knight_add_clips.py) (content/characters/knight_5.glb; credits in docs/credits.md). Strike: the axe reaches 0.64 m from the hand, the sphere 0.55 m out with radius 0.5",
+      "id": "knight5",
+      "name": "Knight 5",
+      "model": "knight_5",
+      "height_m": 1.9,
+      "scale": 1,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 600,
+      "damage": 60,
+      "reach_m": 2.0,
+      "lunge_m": 1.0,
+      "cooldown_s": 1.2,
+      "windup_s": 0.5,
+      "attack_rate": 1.0,
+      "walk_mps": 1.5,
+      "run_mps": 3.8,
+      "run_within_m": 12,
+      "weight": 0,
+      "hit_zone_scale": 1.1,
+      "knockback_mps": 3,
+      "stagger_min_damage": 120,
+      "stagger_s": 0.7,
+      "explosive_mult": 2,
+      "clips": {
+        "walk": [
+          "standing walk forward"
+        ],
+        "run": "standing run forward",
+        "idle": [
+          "standing idle",
+          "standing idle looking ver. 2"
+        ],
+        "attack": [
+          "standing melee attack downward",
+          "standing melee attack horizontal",
+          "standing melee attack backhand",
+          "standing melee attack 360 high"
+        ],
+        "damage": [
+          "standing react large gut",
+          "standing react large from left",
+          "standing react large from right",
+          "standing block react large"
+        ],
+        "death": [
+          "sword and shield death",
+          "sword and shield death (2)"
+        ]
+      },
+      "sounds": {
+        "attack": "knightattack",
+        "contact": "knightattackcontact",
+        "death": "knightdeath"
+      },
+      "attack_dust": false,
+      "head_mult": 4,
+      "attacks": [
+        {
+          "clip": "standing melee attack downward",
+          "joint": "RightHand",
+          "extend": 0.55,
+          "radius": 0.5
+        },
+        {
+          "clip": "standing melee attack horizontal",
+          "joint": "RightHand",
+          "extend": 0.55,
+          "radius": 0.5
+        },
+        {
+          "clip": "standing melee attack backhand",
+          "joint": "RightHand",
+          "extend": 0.55,
+          "radius": 0.5
+        },
+        {
+          "clip": "standing melee attack 360 high",
+          "joint": "RightHand",
+          "extend": 0.55,
+          "radius": 0.5
+        }
+      ]
     }
   ]
 }
