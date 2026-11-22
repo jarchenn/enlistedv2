@@ -4563,6 +4563,7 @@ uniform vec3 uCamFwd; uniform float uPxAng;   // the eye's forward; vertical rad
 uniform int uKind; uniform vec3 uPCol;        // W4: the kind; the lit particle colour (CPU)
 uniform float uPSize;                         // W4: flake size factor (1; a blizzard's clumped flakes larger)
 uniform int uSnowVar;                         // SV1 (perf switch "snowvar"): varied, wind-driven falling snow (kind 0 only)
+uniform int uSnowLt;                          // SV1: Light snow (a snow preset below blizzard rate): 2 px floor, alpha floor 0.75, fuller patches
 uniform int uSnowStat;                        // SV1 log: count the flakes and their alpha this draw (binding 14)
 layout(std430, binding = 14) buffer NmkSnowStat { uint gSnA; uint gSnVis; uint gSnAll; };
 out vec2 vC; out float vA; flat out int vK; out vec3 vCol;
@@ -4615,18 +4616,18 @@ void main(){
     p += vec3(sin(uTime*fq + ph), 0.0, cos(uTime*fq*0.7 + ph))*mix(0.04, 0.2, 1.0 - s);  // flutter: small flakes more
     vec3 q = abs(p - cen)/(box*0.5);
     float dn = vnoise(vec3((p.xz - uSFAcc*0.9)*0.035, uTime*0.04));                      // patches that travel with the snow
-    float dens = clamp(0.62 + 0.7*(dn - 0.5) + 0.5*(g - 1.0), 0.35, 1.0)*(near ? mix(0.9, 1.0, uSF2.z) : 0.6 + 0.4*uSF2.z);   // never below 0.35 in a steady wind
+    float dens = clamp(0.62 + 0.7*(dn - 0.5) + 0.5*(g - 1.0), uSnowLt == 1 ? 0.6 : 0.35, 1.0)*(near ? mix(0.9, 1.0, uSF2.z) : 0.6 + 0.4*uSF2.z);   // never below 0.35 in a steady wind
     float a = smoothstep(hv(id, 9) - 0.08, hv(id, 9) + 0.08, dens);
-    a *= (near ? 1.0 : 0.7)*mix(0.75, 1.0, sqrt(s))*mix(0.85, 1.0, u2);               // small flakes a little fainter
+    a *= (near ? 1.0 : 0.7)*mix(uSnowLt == 1 ? 0.9 : 0.75, 1.0, sqrt(s))*mix(0.85, 1.0, u2);   // small flakes a little fainter
     a *= 1.0 - smoothstep(0.8, 1.0, max(q.x, max(q.y, q.z)));
     if (uOccOn == 1) { vec4 lp = uOccVP*vec4(p, 1.0); vec2 uv = lp.xy*0.5 + 0.5;
       if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) { float top = uOccTop - texture(uOcc, uv).r*uOccRange; a *= 1.0 - smoothstep(0.5, 1.5, top - p.y); } }
     float d = length(p - uCamPos);
     a *= smoothstep(0.3, 0.8, d)*(1.0 - uSF2.w)*exp(-wxSigma*d);                       // nothing right at the lens
     float rad = uPSize*(near ? mix(0.0018, 0.0075, s) : mix(0.006, 0.024, s));           // about half the W4 flakes on screen
-    float rmin = 0.75*uPxAng*d, rmax = 4.0*uPxAng*d;                                     // >= 1.5 px across, <= 8 px
+    float rmin = (uSnowLt == 1 ? 1.0 : 0.75)*uPxAng*d, rmax = 4.0*uPxAng*d;             // >= 1.5 px across (Light snow 2 px), <= 8 px
     rad = min(rad, rmax);
-    if (rad < rmin) { a *= max(rad/rmin, 0.45); rad = rmin; }                           // a floor flake keeps most of its opacity
+    if (rad < rmin) { a *= max(rad/rmin, uSnowLt == 1 ? 0.75 : 0.45); rad = rmin; }     // a floor flake keeps most of its opacity
     vCol *= mix(0.95, 1.05, u2);                                                         // near-white
     vec3 tv = normalize(p - uCamPos), side = normalize(cross(tv, vec3(0.0, 1.0, 0.0)) + vec3(1e-4)), up = cross(side, tv);
     // near flakes: a soft streak along their motion (a 1/200 s exposure), at most 4x long, opacity partly spread over it
@@ -7420,7 +7421,9 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
         const uint32_t z[4] = {0, 0, 0, 0}; glNamedBufferSubData(snowStatBuf, 0, 16, z); glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 14, snowStatBuf);
         glUniform1i(U(progSnowfall, "uSnowStat"), 1);
       }
-      draw(0, nN, nF, 9.0f, 42.0f, lt.mapSnowfall ? lt.sfFall : 1.0f, wSnow, accS, sc, perf.snowVar ? (wxSnow ? 1.3f : 1.0f) : blizzard ? 2.2f : 1.0f);   // SV1: the presets' flakes 1.3   // SV1: smaller blizzard flakes
+      const bool lightSnow = perf.snowVar && wxSnow && !blizzard;   // SV1: Light snow's flakes packed into a 5 m near box (distinct drifting flakes)
+      glUniform1i(U(progSnowfall, "uSnowLt"), lightSnow ? 1 : 0);
+      draw(0, nN, nF, lightSnow ? 5.0f : 9.0f, 42.0f, lt.mapSnowfall ? lt.sfFall : 1.0f, wSnow, accS, sc, perf.snowVar ? (lightSnow ? 1.6f : wxSnow ? 1.3f : 1.0f) : blizzard ? 2.2f : 1.0f);   // SV1: the presets' flakes 1.3   // SV1: smaller blizzard flakes
       if (statNow) {
         glUniform1i(U(progSnowfall, "uSnowStat"), 0); glMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
         uint32_t r[4] = {0, 0, 0, 0}; glGetNamedBufferSubData(snowStatBuf, 0, 16, r);   // one stall per logged line
@@ -7429,6 +7432,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
              wx.der.preset, wxSnow ? (blizzard ? "snow (blizzard)" : "snow") : "map snowfall", mm, nN, nF, r[2] ? r[0] / 1000.0 / r[2] : 0.0, r[1], r[2], r[1] ? r[0] / 1000.0 / r[1] : 0.0,
              perf.snowVar ? 1 : 0, perf.snowLit ? 1 : 0, glm::dot(sc, lw), 0.92f * glm::dot(eLevel, lw), glm::dot(lastSkyCol, lw), lt.mapSnowfall ? 1 : 0);
       }
+      glUniform1i(U(progSnowfall, "uSnowLt"), 0);
       if (blizzard) draw(3, (int)(3000 * qs), 0, 12.0f, 12.0f, 1.0f, wSnow, accS, sc * 0.95f, 1.6f);   // spindrift over the ground
     }
     if (wxRainy) {   // rain: streaks, and splashes on whatever top surface is under them
