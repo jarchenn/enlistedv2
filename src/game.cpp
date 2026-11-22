@@ -266,6 +266,7 @@ void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& 
             : ait == AiType::Brutes ? std::max(0, enemyTypeIndex("brute")) : ait == AiType::Spiders ? std::max(0, enemyTypeIndex("stalker"))
             : ait == AiType::Creatures ? std::max(0, enemyTypeIndex("creature"))
             : ait == AiType::Knights ? std::max(0, enemyTypeIndex("knight"))
+            : ait == AiType::Knights2 ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "knight_v2.glb") ? "knight2" : "knight"))   // KN2: its model is local-only: Knight 1 without it
             : ait == AiType::Abominations ? std::max(0, enemyTypeIndex("abomination")) : ait == AiType::Golems ? std::max(0, enemyTypeIndex("golem"))
             : ait == AiType::Boglords ? std::max(0, enemyTypeIndex("boglord")) : ait == AiType::Mechs ? std::max(0, enemyTypeIndex("mech")) : 0;
     s.evariant = variant;
