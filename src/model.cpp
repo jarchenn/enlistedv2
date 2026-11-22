@@ -679,7 +679,6 @@ static GLuint loadTexBC(const uint8_t* d, int w, int h, int kind, size_t& bytes,
 
 // FSB1: the soldier skins' maps (character.cpp): the same CPU compression and upload; 0 when it does not apply (the caller
 // uploads RGBA8). kind: 0 albedo, 1 linear data (metal-rough / AO), 2 normal
-GLuint modelUploadBC(const uint8_t* rgba, int w, int h, int kind, size_t& bytes) { return loadTexBC(rgba, w, h, kind, bytes); }
 
 // MEM3: block-compressed model maps cached per user (%LOCALAPPDATA%/BattleFoundry/texbc): a hit skips the JPEG / PNG decode
 // and the CPU compression (most of the weapons' and vehicles' startup time). Keyed by the source's path, size and time.
@@ -711,6 +710,27 @@ static GLuint texFromCache(const fs::path& f, size_t& bytes) {
   for (int L = 0, lw = w, lh = h; L < levels; ++L, lw = std::max(1, lw / 2), lh = std::max(1, lh / 2)) { glCompressedTextureSubImage2D(t, L, 0, 0, lw, lh, fmt, (GLsizei)lv[L].size(), lv[L].data()); bytes += lv[L].size(); }
   glTextureParameteri(t, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTextureParameteri(t, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTextureParameterf(t, 0x84FE /* GL_TEXTURE_MAX_ANISOTROPY */, 8.0f);
+  return t;
+}
+
+// FSB2: the skins' maps sit inside the .glb, so the cache key is the encoded image's own bytes (FNV-1a) and its kind: a hit
+// skips the decode and the CPU compression (the first-load hitch), the same "XBC1" files as MEM3
+static fs::path skinCacheFile(const uint8_t* enc, size_t len, int kind) {
+  uint64_t x = 1469598103934665603ull; for (size_t i = 0; i < len; ++i) { x ^= enc[i]; x *= 1099511628211ull; }
+  x ^= (uint64_t)len * 31 + (uint64_t)kind + 0x534b494e31ull; x *= 1099511628211ull;   // "SKIN1"
+  char nm[40]; std::snprintf(nm, sizeof nm, "s%016llx.bc", (unsigned long long)x);
+  return userCacheDir("texbc", "NMK_TEXBC_CACHE") / nm;
+}
+GLuint modelBCFromCache(const uint8_t* enc, size_t len, int kind, size_t& bytes) {
+  fs::path cf = skinCacheFile(enc, len, kind); if (cf.empty()) return 0;
+  GLuint t = texFromCache(cf, bytes); if (t) userCacheTouch(cf);
+  return t;
+}
+// kind: 0 albedo, 1 linear data (metal-rough / AO), 2 normal; 0 when it does not apply (the caller uploads RGBA8)
+GLuint modelUploadBC(const uint8_t* rgba, int w, int h, int kind, size_t& bytes, const uint8_t* enc, size_t len) {
+  std::vector<std::vector<uint8_t>> lv; GLenum fmt = 0;
+  GLuint t = loadTexBC(rgba, w, h, kind, bytes, false, &lv, &fmt);
+  if (t && !lv.empty()) writeTexCache(skinCacheFile(enc, len, kind), w, h, fmt, lv);
   return t;
 }
 

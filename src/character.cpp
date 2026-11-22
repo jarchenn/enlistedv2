@@ -5,7 +5,8 @@
 #include <cstring>
 #include <algorithm>
 #include <cmath>
-GLuint modelUploadBC(const uint8_t* rgba, int w, int h, int kind, size_t& bytes);   // model.cpp (TK2)
+GLuint modelUploadBC(const uint8_t* rgba, int w, int h, int kind, size_t& bytes, const uint8_t* enc, size_t len);   // model.cpp (TK2, FSB2 cache)
+GLuint modelBCFromCache(const uint8_t* enc, size_t len, int kind, size_t& bytes);
 
 namespace {
 struct Glb { json j; std::vector<uint8_t> bin; };
@@ -65,11 +66,13 @@ GLuint uploadImage(const Glb& g, int imageIdx, bool srgb, bool bc, int kind) {
   if (!im.contains("bufferView")) return 0;
   const json& bv = g.j["bufferViews"][im["bufferView"].get<int>()];
   size_t off = bv.value("byteOffset", (size_t)0), len = bv["byteLength"].get<size_t>();
+  const uint8_t* enc = g.bin.data() + off;
+  if (bc) { size_t bytes = 0; if (GLuint b = modelBCFromCache(enc, len, kind, bytes)) return b; }   // FSB2: compressed once, reused
   int w, h, c;
   stbi_set_flip_vertically_on_load(0);
-  stbi_uc* d = stbi_load_from_memory(g.bin.data() + off, (int)len, &w, &h, &c, 4);
+  stbi_uc* d = stbi_load_from_memory(enc, (int)len, &w, &h, &c, 4);
   if (!d) return 0;
-  if (bc) { size_t bytes = 0; if (GLuint b = modelUploadBC(d, w, h, kind, bytes)) { stbi_image_free(d); return b; } }   // FSB1: 2048 RGBA8 + mips 21 MB, BC1 2.7 MB, BC5 5.3 MB
+  if (bc) { size_t bytes = 0; if (GLuint b = modelUploadBC(d, w, h, kind, bytes, enc, len)) { stbi_image_free(d); return b; } }   // FSB1: 2048 RGBA8 + mips 21 MB, BC1 2.7 MB, BC5 5.3 MB
   GLuint t; glCreateTextures(GL_TEXTURE_2D, 1, &t);
   int levels = 1 + (int)std::floor(std::log2((float)std::max(w, h)));
   glTextureStorage2D(t, levels, srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8, w, h);
