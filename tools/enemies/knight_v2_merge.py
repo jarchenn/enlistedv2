@@ -2,7 +2,7 @@
 # clips stay byte for byte; nothing goes through a Blender round trip).
 #   python -I tools/enemies/knight_v2_merge.py <knight_ss.glb> <kn2_parts.glb> <metal_base_clean.png> <out.glb> [<body_edits.json> | - [<credits>]]
 # KN6: parts named KNB_<bone>_* hang on mixamorig:<bone>; body_edits.json {"moves": [[rest xyz, new rest xyz], ...]} (glTF
-# coordinates, tools/enemies/knight_v6_parts.py) moves the matching skinned body vertices: the new rest position is taken back
+# coordinates, tools/enemies/knight_parts.py) moves the matching skinned body vertices: the new rest position is taken back
 # through the vertex's own blended skin matrix into the mesh's bind space, so the clips deform it as before
 # - the sword and the heater shield nodes lose their meshes (the nodes stay: nothing else is renumbered)
 # - the knight's own head and helmet: the triangles touching a vertex with over 0.5 weight on mixamorig:Head + HeadTop_End
