@@ -615,7 +615,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   }
   // bolt actions (Kar98k, ZF39): a shot drops out of ADS (adsT = 0 at the shot); aiming waits for the bolt and the
   // cooldown, then a held aim key re-enters
-  const bool holdAds = (d.boltDelay > 0 && s.bolt > d.boltTime) || (!d.boltCurve.empty() && s.bolt > 0);   // KF1: shouldered until the bolt is worked; KF2: and through the cycle (the clip works the bolt on the sights)
+  const bool holdAds = (d.boltDelay > 0 && s.bolt > d.boltTime) || (!d.boltCurve.empty() && !d.anim && s.bolt > 0);   // KF1: shouldered until the bolt is worked; KF2: and through the cycle (the clip works the bolt on the sights); KR2: not on an animated rig (KR1 karrig: its hand draws the bolt to the eye; the rig comes off the sights for the cycle, as the user's clip)
   bool aimBlocked = d.action == "bolt" && !holdAds && (s.bolt > 0 || s.cooldown > 0);
   float adsRate = d.adsSpeed / std::max(0.05f, move.adsTime) * (s.att[ATT_STOCK] ? 1.0f / kPadAdsTime : 1.0f);   // the only writer of adsT while a weapon is out; BR2 recoil pad: ADS time -25 %
   adsT = std::clamp(adsT + (in.aim && !modal && !aimBlocked ? adsRate : -adsRate) * dt, 0.0f, 1.0f);
