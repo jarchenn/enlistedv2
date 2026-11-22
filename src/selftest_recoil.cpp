@@ -8,9 +8,9 @@
 
 namespace {
 int phase = 0, idx = 0, sub = 0; float t = 0; int shotFrame = -1, frame = 0; fs::path pend;
-const char* kW[] = {"m1_garand", "mp40", "m1918a2_bar", "m1_thompson", "ppsh41", "modern_m4_irons", "modern_mp7", "modern_pistol3", "modern_shotgun", "modern_ak47", "modern_scorpion", "modern_mp5", "modern_glock34", "modern_scorpion+reddot", "modern_ak47+reddot", "modern_m4_irons+reddot", "modern_mp5+reddot", "modern_crossbow", "modern_minigun", "sten", "stg44", "g43", "m3_grease_gun", "mg42", "pkm", "kar98k"};   // FR6: + the G43, M3 and the FR5 rigs (MG 42 carried, PKM)   // CP: + the ADS-lean checks (AK-47, Scorpion, MP5, Glock 34)   // WP4c: rifle, SMG, rig weapons with optics, the Glock (ADS arm), a shotgun
+const char* kW[] = {"m1_garand", "mp40", "m1918a2_bar", "m1_thompson", "ppsh41", "modern_m4_irons", "modern_mp7", "modern_pistol3", "modern_shotgun", "modern_ak47", "modern_scorpion", "modern_mp5", "modern_glock34", "modern_scorpion+reddot", "modern_ak47+reddot", "modern_m4_irons+reddot", "modern_mp5+reddot", "modern_crossbow", "modern_minigun", "sten", "stg44", "g43", "m3_grease_gun", "mg42", "pkm", "kar98k", "kar98k_zf39"};   // KR2: + the ZF39 (both on KR1 rigs: also a mid-cycle and a mid-reload still)   // FR6: + the G43, M3 and the FR5 rigs (MG 42 carried, PKM)   // CP: + the ADS-lean checks (AK-47, Scorpion, MP5, Glock 34)   // WP4c: rifle, SMG, rig weapons with optics, the Glock (ADS arm), a shotgun
 std::vector<int> all; bool table = false;   // --recoil-table: every gun, hip and ADS, logged only
-float z0 = 0, zMax = 0;
+float z0 = 0, zMax = 0, tShot = 0;
 // the rear sight in view space (+z toward the eye): what the player sees move back
 float sightZ(App& a) {
   const WeaponDef& d = *a.weaponDefs[a.activeWeapon]; vec3 w;
@@ -46,13 +46,23 @@ bool recoilCapture(App& a, float dt) {
     if (t < dt * 1.5f) { in = ExploreInput{}; shotFrame = -1; a.eyePitch = 2; WeaponState& w0 = a.wstate[a.weaponDefs[a.activeWeapon]->id]; w0.recoilP = w0.recoilY = 0; peakK = peakP = peakY = 0; }
     in.aim = ads;
     if (!table && t > 1.6f && t < 1.6f + dt * 1.5f) a.uiShot = out(name + "_0before");
-    if (t > 1.8f && shotFrame < 0) { in.fire = true; { WeaponState& w1 = a.wstate[a.weaponDefs[a.activeWeapon]->id]; w1.spin = a.weaponDefs[a.activeWeapon]->spinUp; }   /* MG13b: barrels pre-spun, so a spin-up gun (minigun) fires on this one-frame trigger */ shotFrame = frame; z0 = sightZ(a); zMax = 0; return false; }
+    if (t > 1.8f && shotFrame < 0) { in.fire = true; { WeaponState& w1 = a.wstate[a.weaponDefs[a.activeWeapon]->id]; w1.spin = a.weaponDefs[a.activeWeapon]->spinUp; }   /* MG13b: barrels pre-spun, so a spin-up gun (minigun) fires on this one-frame trigger */ shotFrame = frame; tShot = t; z0 = sightZ(a); zMax = 0; return false; }
     in.fire = false;
     const WeaponDef& d = *a.weaponDefs[a.activeWeapon]; const WeaponState& s = a.wstate[d.id];
     if (shotFrame >= 0) { zMax = std::max(zMax, sightZ(a) - z0); peakK = std::max(peakK, s.kick); peakP = std::max(peakP, s.kickP); peakY = std::max(peakY, s.kickY); }
     if (!table && shotFrame >= 0 && frame == shotFrame + 1) a.uiShot = out(name + "_1peak");          // the render after one more step: ~33 ms after the shot, at the peak
     if (!table && shotFrame >= 0 && frame == shotFrame + 9) a.uiShot = out(name + "_2recovered");     // ~165 ms
     if (shotFrame >= 0 && frame == shotFrame + 12) logf("[recoil] %s: seen back %.3f m%s (spring %.3f m), muzzle up %.2f deg, left %.2f deg (omega %.0f: peak at %.0f ms); now %.4f m / %.3f deg", name.c_str(), zMax, zMax < 0.005f ? " ZERO" : "", peakK, peakP, peakY, d.vmOmega, 1000.0f / d.vmOmega, s.kick, s.kickP);
+    // KR2: an animated bolt rifle: a still 0.85 s after the shot (mid bolt cycle) and, at the hip, the magazine emptied and a
+    // reload started 1.7 s after it, a still 1.5 s into that empty reload
+    const bool longer = d.anim && d.action == "bolt" && !table;
+    if (longer && shotFrame >= 0) {
+      const float ts = t - tShot;
+      if (ts >= 0.85f && ts < 0.85f + dt) a.uiShot = out(name + "_3cycle");
+      if (!ads && ts >= 1.7f && ts < 1.7f + dt) { a.wstate[d.id].loaded = 0; in.reload = true; } else in.reload = false;
+      if (!ads && ts >= 3.2f && ts < 3.2f + dt) a.uiShot = out(name + "_4reload_empty");
+      return ts > (ads ? 1.0f : 3.4f);
+    }
     return shotFrame >= 0 && frame > shotFrame + 14;
   };
   if (phase == 1) {
