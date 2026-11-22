@@ -1059,13 +1059,25 @@ int Audio::loadCustom(const fs::path& dir) {
       // in / out (ms below) so it never clicks, then is levelled to 0.8 peak
     struct C { const char* name; float t0, t1, fin, fout, gain, minDist; int maxV; };
     const C cs[] = {{"draw", 0.050f, 1.140f, 0.005f, 0.060f, 0.6f, 2.0f, 3}, {"release", 1.560f, 1.650f, 0.003f, 0.015f, 0.9f, 3.0f, 4},
-                    {"flight", 1.645f, 1.815f, 0.010f, 0.020f, 0.6f, 2.0f, 4}, {"impact", 1.812f, 2.560f, 0.003f, 0.100f, 0.85f, 2.5f, 4}};
+                    {"flight", 1.645f, 1.815f, 0.010f, 0.020f, 0.7f, 1.0f, 3}, {"impact", 1.812f, 2.560f, 0.003f, 0.100f, 0.85f, 2.5f, 4}};
     if (decode("archer/bow.mp3", b)) for (const C& c : cs) {
       const size_t a0 = std::min(b.size(), (size_t)(c.t0 * SR)), a1 = std::min(b.size(), (size_t)(c.t1 * SR));
       if (a1 <= a0) continue;
       Buf s(b.begin() + a0, b.begin() + a1); const float pk = std::max(1e-6f, peakOf(s));
       const size_t fi = std::max<size_t>(1, (size_t)(c.fin * SR)), fo = std::max<size_t>(1, (size_t)(c.fout * SR));
       for (size_t j = 0; j < s.size(); ++j) s[j] *= 0.8f / pk * std::min(1.0f, std::min((float)j / fi, (float)(s.size() - j) / fo));
+      if (std::string(c.name) == "flight") {   // AR1b (the user: the sound of an arrow flying by you): a pass-by, 0.64 s
+        // approach: the 170 ms whoosh stretched x2 at its pitch (30 ms Hann grains, 50 % overlap out, read at half the hop:
+        // a noise-like whoosh shows no loop); recede: the approach reversed with its pitch gliding down 20 %; peak at ~0.34 s
+        const size_t G = (size_t)(0.030f * SR), ho = G / 2, hi = ho / 2; Buf a(s.size() * 2 + G, 0.0f);
+        for (size_t j = 0; j * hi + G <= s.size(); ++j) for (size_t i = 0; i < G; ++i) a[j * ho + i] += s[j * hi + i] * (0.5f - 0.5f * std::cos(6.2831853f * i / G));
+        while (!a.empty() && std::fabs(a.back()) < 1e-9f) a.pop_back();
+        Buf o(a); const double na = (double)a.size();
+        for (double pos = 0; pos < na - 2; pos += 1.0 - 0.2 * pos / na) { size_t k = (size_t)pos; float f = (float)(pos - k); o.push_back(a[a.size() - 1 - k] * (1 - f) + a[a.size() - 2 - k] * f); }
+        const float opk = std::max(1e-6f, peakOf(o)); const size_t ofi = (size_t)(0.040f * SR), ofo = (size_t)(0.150f * SR);
+        for (size_t j = 0; j < o.size(); ++j) o[j] *= 0.8f / opk * std::min(1.0f, std::min((float)j / ofi, (float)(o.size() - j) / ofo));
+        s.swap(o);
+      }
       Impl::Event ev; ev.gain = c.gain; ev.minDist = c.minDist; ev.minGap = 0.05f; ev.maxVoices = c.maxV; ev.v.push_back(std::move(s));
       ++used; p->events[std::string("archer_") + c.name] = ev;
     }

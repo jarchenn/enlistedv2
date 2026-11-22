@@ -232,7 +232,22 @@ void gm2NearMisses(App& app, float dt) {
     };
     static int dbg = 0;   // shortcut: diagnostics for the near-miss self-test (enemy rounds within 10 m only), remove once it passes in the combined batch
     for (auto& q : app.projectiles) if (q.owner != -1 && dbg < 30 && glm::length(q.p - e) < 10.0f) { ++dbg; logf("gm2 nm: owner %d kind %d at (%.2f %.2f %.2f) v (%.0f %.0f %.0f) eye (%.2f %.2f %.2f) me %d dt %.4f", q.owner, q.kind, q.p.x, q.p.y, q.p.z, q.v.x, q.v.y, q.v.z, e.x, e.y, e.z, me, dt); }
-    for (auto& p : app.projectiles) if (p.kind == PROJ_BULLET && p.owner != -1 && p.owner != me) test(p.p, p.v);
+    for (auto& p : app.projectiles) if (p.kind == PROJ_BULLET && p.owner != -1 && p.owner != me && p.ammo != "crossbow_bolt") test(p.p, p.v);
+    // AR1b: an arrow / crossbow bolt passing the listener: archer_flight (0.64 s, its peak ~0.34 s in) starts when the bolt's
+    // closest approach is 0.34 s or less ahead, once per bolt, if it will pass within 4 m and not hit the head (> 0.35 m):
+    // full inside 0.75 m, silent at 4 m, panned to the pass side. A bolt that hits the listener plays the impact instead
+    for (auto& p : app.projectiles) {
+      if (p.kind != PROJ_BULLET || p.ammo != "crossbow_bolt" || p.flyby || p.owner == -1 || p.owner == me) continue;
+      const float v2 = glm::dot(p.v, p.v); if (v2 < 1.0f) continue;
+      const float tc = glm::dot(e - p.p, p.v) / v2; if (tc <= 0 || tc > 0.34f) continue;
+      p.flyby = true;
+      vec3 c = p.p + p.v * tc; float d = glm::length(c - e);
+      if (d < 2.5f && d > 0.05f) gm2AddNearMiss(1.0f - d / 2.5f);   // the suppression vignette, as for rounds
+      if (d > 4.0f || d < 0.35f) continue;
+      float x = std::clamp((d - 0.75f) / 3.25f, 0.0f, 1.0f), vol = 1.0f - x * x * (3 - 2 * x);
+      static uint32_t rs = 777; rs = rs * 1664525u + 1013904223u; float pitch = 0.94f + 0.12f * (rs >> 8) / 16777216.0f;
+      app.audio.play("archer_flight", e + (c - e) / d * 0.8f, vol, pitch);
+    }
     if (gGame && gGame->isClient) for (auto& g : gGame->ghosts) test(g.p, g.v);
   }
 }

@@ -155,6 +155,7 @@ struct Projectile {
   float armourMult = 1;         // VH8: launcher damage factor on armoured vehicles (the 40 mm grenade launcher 0.2)
   uint64_t towOf = 0;           // VH7: a TOW guided by this vehicle's gunner (its crosshair); 0 none
   uint32_t uid = 0;             // VH7: identity for the TOW wire trail
+  bool flyby = false;           // AR1b: this arrow / bolt has played its pass-by for the listener (abilities.cpp gm2NearMisses)
 };
 struct Particle { vec3 p{0}, v{0}; float life = 0, maxLife = 1, size = 0.3f, grow = 0, drag = 0, lift = 0; vec4 col{1}; bool additive = false; float fade = 0;
                   float flame = -1; float ret = -1; bool grain = false; };   // grain: a ballistic ejecta grain (killed where it meets the ground)   // ret >= 0: retiring (fxcap), seconds of its 0.3 s fade left   // flame >= 0 (additive): a flame sprite, id 0..255 = its rotation and noise seed; col.x = brightness, the colour follows its age (Fx::build) and the fragment shader erodes it with noise   // fade > 0: alpha x (life left)^fade (firing smoke, content/settings/fx.json)
