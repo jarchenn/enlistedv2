@@ -339,13 +339,14 @@ def shell_tube(a, b, r0, r1, arc, face, thick, bone, mat, seg=14, rings=8, bulge
     return smooth_part(finish(bm, bone, mat))
 
 
-def dome(c, radii, az0, az1, el0, el1, thick, bone, mat, saz=20, sel=8):   # a patch of an ellipsoid shell (azimuth 0 = the front, -Y)
+def dome(c, radii, az0, az1, el0, el1, thick, bone, mat, saz=20, sel=8, pw=1.0):   # a patch of an ellipsoid shell (azimuth 0 = the front, -Y); pw > 1 pulls it toward a diamond (octahedron)
     c = Vector(c); bm = bmesh.new(); outer, inner = [], []
     for i in range(sel + 1):
         el = math.radians(el0 + (el1 - el0) * i / sel); ro, ri = [], []
         for k in range(saz + 1):
             az = math.radians(az0 + (az1 - az0) * k / saz)
             d = Vector((math.sin(az) * math.cos(el), -math.cos(az) * math.cos(el), math.sin(el)))
+            d = Vector([math.copysign(abs(v) ** pw, v) for v in d])
             ro.append(bm.verts.new(c + Vector((d.x * radii[0], d.y * radii[1], d.z * radii[2]))))
             ri.append(bm.verts.new(c + Vector((d.x * (radii[0] - thick), d.y * (radii[1] - thick), d.z * (radii[2] - thick)))))
         outer.append(ro); inner.append(ri)
@@ -695,7 +696,7 @@ for S, side in (('Left', 1), ('Right', -1)):
     ua, fa, hd = J(S + 'Arm'), J(S + 'ForeArm'), J(S + 'Hand'); up = Vector((0, 0, 1)); ax = (fa - ua).normalized()
     cyl(ua - ax * 0.05, ua + ax * 0.05, 0.042, S + 'Arm', 'chrome', seg=20)                                   # the shoulder pivot cylinder
     hc_s = ua + Vector((0.035 * side, 0, 0.012))   # the housing stands off the rib cage (a gap between)
-    dome(hc_s, (0.088, 0.09, 0.08), 90 * side - 115, 90 * side + 115, -38, 90, 0.014, S + 'Arm', 'shell', saz=18, sel=9)   # crowned housing, outer edge swept down, open inside round the pivot
+    dome(hc_s, (0.088, 0.09, 0.08), 90 * side - 115, 90 * side + 115, -38, 90, 0.014, S + 'Arm', 'shell', saz=16, sel=8, pw=1.7)   # (user: more diamond than round)   # crowned housing, outer edge swept down, open inside round the pivot
     psweep([hc_s + Vector((-0.05 * side, 0.0, 0.07)), hc_s + Vector((0.01 * side, 0, 0.088)), hc_s + Vector((0.07 * side, 0, 0.05))], lambda t: 0.012, lambda t: 0.007, S + 'Arm', 'graphite', up=(0, 1, 0), out=lambda q: (0, 0, 1), seg=10)   # the raised crown ridge
     for k in range(3): box(hc_s + Vector((0.082 * side, -0.02 + 0.02 * k, 0.0)), (0.004, 0.012, 0.04), S + 'Arm', 'graphite', bevel=0.001)   # vents in the outer face
     shell_tube(ua + ax * 0.1, fa - ax * 0.035, 0.062, 0.04, 220, up, 0.01, S + 'Arm', 'shell', seg=14, rings=8, bulge=0.16)   # upper arm: tapered, full, open below
