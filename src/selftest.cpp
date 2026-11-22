@@ -152,6 +152,7 @@ void SelfTest::update(App& app, float dt) {
   { extern bool sdTimingsTest(App&, float); if (sdTimingsTest(app, dt)) return; }   // SD2 --sd-timings (selftest_sd_timings.cpp)
   { extern bool blockerScan(App&, float); if (blockerScan(app, dt)) return; }   // IW1 --blocker-scan (selftest_blockers.cpp)
   { extern bool playerDmgSelfTest(App&, float); if (playerDmgSelfTest(app, dt)) return; }   // --selftest-playerdmg (selftest_playerdmg.cpp)
+  { extern bool cq1SelfTest(App&, float); if (cq1SelfTest(app, dt)) return; }   // --selftest-cq1 (selftest_cq1.cpp): point-blank bot shots
   { extern bool proneSelfTest(App&, float); if (proneSelfTest(app, dt)) return; }   // --selftest-prone (selftest_prone.cpp)
   { extern bool sd3SelfTest(App&, float); if (sd3SelfTest(app, dt)) return; }   // --selftest-sd3 (selftest_sd3.cpp)
   { extern bool spectateSelfTest(App&, float); if (spectateSelfTest(app, dt)) return; }   // --selftest-spectate (selftest_spectate.cpp)

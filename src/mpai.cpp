@@ -162,6 +162,13 @@ bool mpaiProjectile(App& app, Projectile& p, vec3 seg, float len, float tWorld) 
   if (p.owner == -1 && p.life == 0 && gNet && gNet->role == Net::HOST && !app.occupied && !p.extraPellet)   // the host's own shots: tracers / sound on clients (a gun's: gshot)
     gNet->hostWorldEvent(json{{"t", "shot"}, {"p", tojson(p.p)}, {"d", tojson(glm::normalize(p.v))}, {"w", app.activeWeapon}, {"tr", p.tracerKind}, {"by", gGame->localSlot}});
   if (p.life == 0) rulesOnFire(*gGame, gGame->soldierOfOwner(p.owner));   // W1: firing ends spawn protection
+  if (p.life == 0 && p.kind == PROJ_BULLET) {   // CQ1: point blank: a body between the shooter's eye and the muzzle (the gun poking past it) is hit; the flight below starts at the muzzle
+    int sh = gGame->soldierOfOwner(p.owner);
+    if (sh >= 0 && sh < (int)gGame->sold.size() && gGame->sold[sh].alive) {
+      vec3 e = gGame->eye(gGame->sold[sh]), bs = p.p - e; float bl = glm::length(bs), th = bl;
+      if (bl > 0.05f && bl < 2.5f && gGame->projectileSegment(p, e, bs, bl, th)) { app.fx.bullet(p.p, e + bs / bl * th, p.tracerKind); return true; }
+    }
+  }
   float tHit = tWorld;
   vec3 a = p.p;
   if (!gGame->projectileSegment(p, a, seg, len, tHit)) return false;

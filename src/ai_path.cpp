@@ -524,7 +524,9 @@ void AiCore::move(Soldier& s, float dt) {
   if (G.t < m.departAt) { desired = vec3(0); wantsMove = false; }   // staggered departure from the spawn
   // wedged against a soldier with no room to pass (a trench, a pit, a doorway): pass through for a moment, never near a human
   auto humanNear = [&](float r) { for (int i : humans) if (G.sold[i].alive && lenXZ(G.sold[i].feet - pos) < r) return true; return false; };
-  auto ghostOn = [&](float sec) { if (humanNear(4.0f)) return; m.ghostUntil = G.t + sec; if (!m.ghost) { m.ghost = true; Physics::setAgentGhost(s.agent, true); ++metrics.ghosts; } };
+  auto hostileNear = [&](float r) { bool h = false; forNear(pos, r, [&](const Soldier& o) { if (&o != &s && o.alive && Game::hostile(s, o) && lenXZ(o.feet - pos) < r && std::fabs(o.feet.y - pos.y) < 1.5f) h = true; }); return h; };   // CQ1
+  auto ghostOn = [&](float sec) { if (humanNear(4.0f) || hostileNear(1.6f)) return; m.ghostUntil = G.t + sec; if (!m.ghost) { m.ghost = true; Physics::setAgentGhost(s.agent, true); ++metrics.ghosts; } };
+  if (m.ghost && hostileNear(1.0f)) m.ghostUntil = -10;   // CQ1: never pass through an enemy: solid again, the push-out separates the two
   if (m.ghost && G.t >= m.ghostUntil) {
     bool overlap = false; forNear(pos, 0.65f, [&](const Soldier& o) { if (&o != &s && o.alive && lenXZ(o.feet - pos) < 0.65f && std::fabs(o.feet.y - pos.y) < 1.5f) overlap = true; });
     if (overlap && G.t < m.ghostUntil + 3.0) m.ghostUntil = G.t + 0.3; else { m.ghost = false; Physics::setAgentGhost(s.agent, false); }
@@ -720,7 +722,7 @@ void AiCore::stuckLadder(Soldier& s, BotMind& m, float dt, bool wantsMove) {
       m.backTarget = res; m.backUntil = G.t + 1.0; m.replanAfterBack = true;
       { bool blocked = false, human = false; vec3 fw = glm::normalize(xz(m.moveDir) + vec3(1e-4f));
         for (auto& o : G.sold) { if (&o == &s || !o.alive) continue; vec3 d = xz(o.feet - s.feet); float L = glm::length(d);
-          if (o.human && L < 4.0f) human = true; if (L < 1.4f && glm::dot(d, fw) > 0.3f * L) blocked = true; }
+          if (o.human && L < 4.0f) human = true; if (L < 1.4f && glm::dot(d, fw) > 0.3f * L) { if (Game::hostile(s, o)) human = true; else blocked = true; } }   // CQ1: an enemy in the way never lets it ghost
         if (blocked && !human) { m.ghostUntil = G.t + tj("movement", "ghost_s", 1.5f); if (!m.ghost) { m.ghost = true; Physics::setAgentGhost(s.agent, true); ++metrics.ghosts; } }
         // nobody in the way: a snag the mesh does not see (a picket, a post, a lip). Hop over it toward the next corner
         // when a crouched body fits along the whole hop (a visible move, like a player's, not a teleport)
