@@ -472,7 +472,7 @@ public:
   bool weaponCamera(float& fov) const;
   void buildWeaponMeshes();
   void reloadGameplayDefs();   // ED2: the weapons, damage table, helicopter tuning and vehicles again (the user's overrides; no match running)
-  float viewKickYaw = 0, viewKickPitch = 0;
+  float viewKickYaw = 0, viewKickPitch = 0, viewKickRoll = 0;   // GR1 roll: deg, the picture clockwise (fireCurve column 9)
   std::vector<std::unique_ptr<WeaponDef>> weaponDefs;
   std::map<std::string, std::shared_ptr<GpuModel>> modelCache;
   bool useImportedModels = true;        // --box-weapons: draw the procedural fallback parts instead

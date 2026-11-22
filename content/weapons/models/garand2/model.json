@@ -32,16 +32,42 @@
     1.1069999933242798
    ],
    "bmin": [
-    -0.050143416970968246,
+    -0.029179677367210388,
     -0.10494481772184372,
     5.960464477539063e-08
    ],
-   "count": 32613,
+   "count": 31776,
    "first": 0,
    "mat": 0,
    "metal": 1.0,
    "name": "M1 Garand_M1 Garand_0",
    "role": "body",
+   "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    -0.011651593260467052,
+    0.07977654039859772,
+    0.7070021629333496
+   ],
+   "bmin": [
+    -0.050143416970968246,
+    0.05778051167726517,
+    0.48867249488830566
+   ],
+   "count": 837,
+   "first": 31776,
+   "mat": 0,
+   "metal": 1.0,
+   "name": "operating_rod",
+   "role": "handle",
    "rough": 1.0,
    "textured": true
   }
@@ -56,5 +82,6 @@
  "source": "m1_garand_asset.glb",
  "textures": {},
  "triangles": 10871,
- "vertices": 9764
+ "vertices": 9764,
+ "note_gr1": "operating rod split out as a handle part by tools/garand_oprod_split.py (279 triangles)"
 }

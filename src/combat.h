@@ -30,7 +30,10 @@ struct WeaponDef {
   // space), roll deg (+ = counter-clockwise on screen), camPitch, camYaw deg (+ = up / left)): replaces the random aim
   // recoil and the spring kick for this weapon; the camera's last row stays in the aim. boltDelay: s the rifle stays
   // shouldered after the shot before the bolt is worked (boltTime then runs)
-  std::vector<std::array<float, 6>> fireCurve; float fireCurveFps = 30, boltDelay = 0;
+  // GR1: optional columns 7-10: muzzle pitch (up), muzzle yaw (right) deg about the rear sight, camera roll deg (the
+  // picture clockwise), operating-rod handle m back; "ads": true = the curve is the ADS fire only (weighted by the aim
+  // blend at the shot; hip fire keeps the random recoil and the spring); overlapping shots add (WeaponState curve ring)
+  std::vector<std::array<float, 10>> fireCurve; float fireCurveFps = 30, boltDelay = 0; bool fireCurveAds = false, fireCurveHandle = false;
   float rPitch = 1, rYaw = 0.4f, rRecover = 8 /*unused: recoil no longer recovers*/, rClimb = 0, rVisual = 0.05f, rSupported = 1;
   vec3 rear{0}, front{0}, muzzle{0}, scopeEye{0};
   bool hasScope = false, scopeIrons = false, laterWar = false;
@@ -112,7 +115,10 @@ struct WeaponDef {
 };
 struct WeaponDef;
 // KF1: the fire curve at t s after the shot (linear between rows); false once past its last row (out = that row)
-bool fireCurveAt(const WeaponDef& d, float t, float out[6]);
+bool fireCurveAt(const WeaponDef& d, float t, float out[10]);
+struct WeaponState;
+// GR1: the curve summed over the shots still on it (each x its weight); handle = the furthest-back rod among them
+void fireCurveSum(const WeaponDef& d, const WeaponState& s, float out[10], float& handle);
 struct WeaponState {
   int loaded = 0;                 // rounds in the weapon, chamber included
   std::vector<int> containers;    // reserve: clips / magazines / belt segments, each with its own count
@@ -126,7 +132,8 @@ struct WeaponState {
   float recoilP = 0, recoilY = 0, kick = 0;
   float kickV = 0, kickP = 0, kickPV = 0, kickY = 0, kickYV = 0;
   float boltT = -1, boltK = 0;    // fxrecoil (7.5): the bolt carrier's second impulse, due boltT s after the shot (< 0: none)   // WP4 spring: kick (back, m) and its rate, muzzle up / left (deg) and rates
-  bool curveFolded = true;       // KF1: the fire curve's final camera offset is in the aim
+  float curveAge[4] = {99, 99, 99, 99}, curveGain[4] = {0, 0, 0, 0};   // KF1 / GR1: the last shots on the fire curve (s since each, its weight)
+  bool curveFolded[4] = {true, true, true, true}; int curveSlot = 0;     // KF1: a shot's final camera offset is in the aim
   float sinceShot = 99;           // s since the last shot (a burst ends, and its recoil is folded into the aim, once firing has stopped)
   int shotIdx = 0, burst = 0, clipPings = 0;
   float flameFrac = 0;            // flamethrower: fuel used since the last whole percent

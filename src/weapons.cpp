@@ -104,13 +104,23 @@ static void measureHold(WeaponDef& d, const std::vector<vec3>& P) {
        d.gripC.x, d.gripC.y, d.gripC.z, d.gripAx.x, d.gripAx.y, d.gripAx.z, d.gripRad, d.guardC.x, d.guardC.y, d.guardC.z, d.guardRad, d.gripR.x, d.gripR.y, d.gripR.z, d.gripL.x, d.gripL.y, d.gripL.z);
 }
 
-bool fireCurveAt(const WeaponDef& d, float t, float out[6]) {   // KF1
-  const auto& c = d.fireCurve; if (c.empty()) { for (int k = 0; k < 6; ++k) out[k] = 0; return false; }
+bool fireCurveAt(const WeaponDef& d, float t, float out[10]) {   // KF1
+  const auto& c = d.fireCurve; if (c.empty()) { for (int k = 0; k < 10; ++k) out[k] = 0; return false; }
   const float f = std::max(0.0f, t) * d.fireCurveFps; const int i = (int)f;
-  if (i >= (int)c.size() - 1) { for (int k = 0; k < 6; ++k) out[k] = c.back()[k]; return false; }
+  if (i >= (int)c.size() - 1) { for (int k = 0; k < 10; ++k) out[k] = c.back()[k]; return false; }
   const float u = f - (float)i;
-  for (int k = 0; k < 6; ++k) out[k] = c[i][k] + (c[i + 1][k] - c[i][k]) * u;
+  for (int k = 0; k < 10; ++k) out[k] = c[i][k] + (c[i + 1][k] - c[i][k]) * u;
   return true;
+}
+void fireCurveSum(const WeaponDef& d, const WeaponState& s, float out[10], float& handle) {   // GR1
+  for (int k = 0; k < 10; ++k) out[k] = 0;
+  handle = 0;
+  for (int n = 0; n < 4; ++n) {
+    if (s.curveFolded[n]) continue;
+    float row[10]; fireCurveAt(d, s.curveAge[n], row);
+    for (int k = 0; k < 10; ++k) out[k] += s.curveGain[n] * row[k];
+    handle = std::max(handle, row[9]);   // the rod cycles fully on every shot, hip or ADS
+  }
 }
 
 void App::buildWeaponMeshes() {
@@ -165,7 +175,8 @@ void App::buildWeaponMeshes() {
     d->sway = j.value("sway", 1.0f); d->rpm = j.value("rpm", 60.0f); d->velocity = j.value("velocity", 800.0f); d->zero = j.value("zero", 100.0f);
     if (j.contains("fireCurve") && j["fireCurve"].is_object()) {   // KF1
       const json& fc = j["fireCurve"]; d->fireCurveFps = std::max(1.0f, fc.value("fps", 30.0f));
-      for (auto& r : fc.value("frames", json::array())) if (r.is_array() && r.size() >= 6) { std::array<float, 6> a; for (int k = 0; k < 6; ++k) a[k] = r[k].get<float>(); d->fireCurve.push_back(a); }
+      for (auto& r : fc.value("frames", json::array())) if (r.is_array() && r.size() >= 6) { std::array<float, 10> a{}; for (size_t k = 0; k < std::min<size_t>(10, r.size()); ++k) a[k] = r[k].get<float>(); d->fireCurve.push_back(a); d->fireCurveHandle |= a[9] != 0; }
+      d->fireCurveAds = fc.value("ads", false);   // GR1
     }
     d->boltDelay = std::max(0.0f, j.value("boltDelay", 0.0f));
     d->boltTime = j.value("boltTime", 0.0f); d->spinUp = std::max(0.0f, j.value("spinUp", 0.0f)); d->hipSpreadMul = std::max(0.1f, j.value("hipSpreadMul", 1.0f));   // MG13
@@ -454,6 +465,7 @@ void App::weaponDrawItems(std::vector<DrawItem>& op) {
     add(WP_BOLT, M * glm::translate(mat4(1), vec3(0, 0, -0.05f * std::sin(cyc * 3.14159f))));
   }
   float hz = s.cooldown > 0 && d.action == "semi" ? 0.08f * std::sin(std::clamp(s.cooldown * (d.rpm / 60.0f), 0.0f, 1.0f) * 3.14159f) : 0;
+  if (d.fireCurveHandle) { float row[10]; fireCurveSum(d, s, row, hz); }   // GR1: the measured rod stroke
   if (s.reload > 0 && d.feed == "enbloc" && !d.magReload) hz = 0.09f;
   add(WP_HANDLE, M * glm::translate(mat4(1), vec3(0, 0, -hz)));
   // magazine: drops out and a fresh one comes up during a magazine reload
@@ -619,6 +631,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
   // (settleRecoil), so the view stays elevated where the pattern ended. The player's own mouse look is separate,
   // so pulling down compensates, during the burst or after it.
   s.sinceShot += dt;
+  for (float& a : s.curveAge) a += dt;   // KF1 / GR1
   float cycle = 60.0f / std::max(1.0f, d.rpm);
   if (s.sinceShot > cycle * 1.6f + 0.06f) settleRecoil(s);
   if (gFxRecoil) {   // fxrecoil (spec 7.5): the shoulder is a damped spring per weapon class; impulses add (the climb in a burst is emergent)
@@ -637,11 +650,13 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
     if (s.burst > 1 && d.action == "auto") audio.play("tail_" + d.id, weaponMuzzleWorld(d, s), 0.9f);   // recorded tail, once per release
     s.triggerReleased = true; s.burst = 0;
   }
-  float cP = 0, cY = 0;
-  if (!d.fireCurve.empty() && !s.curveFolded) {   // KF1: the camera rides the measured curve; its last row goes into the aim once
-    float row[6]; const bool more = fireCurveAt(d, s.sinceShot, row);
-    if (more) { cP = row[4]; cY = row[5]; }
-    else { s.recoilP += row[4]; s.recoilY += row[5]; s.curveFolded = true; }
+  float cP = 0, cY = 0; viewKickRoll = 0;
+  if (!d.fireCurve.empty()) {   // KF1: the camera rides the measured curve; each shot's last row goes into the aim once (GR1: shots overlap)
+    for (int n = 0; n < 4; ++n) {
+      float row[10];
+      if (!s.curveFolded[n] && !fireCurveAt(d, s.curveAge[n], row)) { s.recoilP += s.curveGain[n] * row[4]; s.recoilY += s.curveGain[n] * row[5]; s.curveFolded[n] = true; }
+    }
+    float row[10], h; fireCurveSum(d, s, row, h); cP = row[4]; cY = row[5]; viewKickRoll = row[8];
   }
   viewKickPitch = s.recoilP + cP + vm.breathPitch; viewKickYaw = s.recoilY + cY + vm.breathYaw;   // breathing moves the whole sight picture
   if (d.flame.on) { stepFlameLocal(dt, in, d, s, fireHeld); return; }   // FT1: hold to spray; fuel by the second, no reload
@@ -788,8 +803,16 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       if (s.att[ATT_MUZZLE] == 2) sc *= kBrakeRecoil;   // BR2 muzzle brake: recoil -20 %
       float yawK = moving ? 1 + handling.movingYaw : 1.0f;
       lastRecoilScale = sc;
-      if (!d.fireCurve.empty()) { s.curveFolded = false; s.sinceShot = 0; }   // KF1: the measured curve drives aim and gun; no random recoil, no spring kick
-      else {
+      // KF1: the measured curve drives aim and gun (no random recoil, no spring kick); GR1: an ADS-only curve takes the
+      // aim blend's share of the shot, the random recoil and the spring the rest
+      const float cw = d.fireCurve.empty() ? 0.0f : !d.fireCurveAds ? 1.0f : vmScoped(d) ? 0.0f : adsT * adsT * (3 - 2 * adsT);
+      if (!d.fireCurve.empty()) {
+        int& n = s.curveSlot;
+        if (!s.curveFolded[n]) { float row[10]; fireCurveAt(d, 1e9f, row); s.recoilP += s.curveGain[n] * row[4]; s.recoilY += s.curveGain[n] * row[5]; }   // a fifth shot inside the curve: the oldest folds now
+        s.curveAge[n] = 0; s.curveGain[n] = cw; s.curveFolded[n] = false; n = (n + 1) % 4; s.sinceShot = 0;
+      }
+      if (cw < 1) {
+      const float pr = s.recoilP, py = s.recoilY;
       s.recoilP += sc * (d.rPitch * (0.85f + 0.3f * wrand(s.seed)) + d.rClimb * std::min(s.burst, 12));
       s.recoilP = std::min(s.recoilP, std::max(0.0f, 85.0f - eyePitch));   // only the camera's pitch bound (look clamp 85) limits the climb
       {   // WP4c: an erratic horizontal jerk every shot (+ = left): either side (slightly more often left), a wide spread of sizes
@@ -799,6 +822,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
         if (wrand(s.seed) < 0.15f) mag *= 2.0f;
         s.recoilY = std::clamp(s.recoilY + sc * sc * yawK * d.yawScale * d.rYaw * side * mag + sc * d.rPitch * 0.04f, -8.0f, 8.0f);
       }
+      s.recoilP = pr + (s.recoilP - pr) * (1 - cw); s.recoilY = py + (s.recoilY - py) * (1 - cw);   // GR1
       s.sinceShot = 0;
       {   // WP4: a shot's impulse into the springs (peak = the per-shot value after 1 / omega); bursts blend, never restart
         float k = 2.718282f * d.vmOmega * std::sqrt(sc);
@@ -806,6 +830,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
           const vec2 fz = fxSmallArmsSpring(d); k = 6.2831853f * fz.x / fxSpringPeak(fz.y) * std::sqrt(sc);
           if (gFxTier >= 3 && d.action != "bolt" && d.action != "pump") { s.boltT = 0.008f + 0.017f * wrand(s.seed); s.boltK = (0.15f + 0.2f * wrand(s.seed)) * d.vmBack * k; }
         }
+        k *= 1 - cw;   // GR1
         s.kickV += d.vmBack * k; s.kickPV += d.vmPitch * k * (0.9f + 0.2f * wrand(s.seed)); s.kickYV += d.vmYaw * k * (0.6f + 0.8f * wrand(s.seed));
       }
       }

@@ -70,7 +70,7 @@ float App::vmFovNow() const {
 void App::fpCamera(mat4& view, float& worldFovNow) const {
   // the camera the weapon is posed against this frame (viewModelMatrix), and the world FOV that goes with it
   vec3 e = eyePos(), f = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch);
-  view = glm::lookAt(e, e + f, viewUp(f));
+  view = glm::rotate(mat4(1), radians(-viewKickRoll), vec3(0, 0, 1)) * glm::lookAt(e, e + f, viewUp(f));   // GR1: the fire curve's camera roll
   worldFovNow = settings().fov();   // the hip view (72 unless changed in Settings)
   weaponCamera(worldFovNow);
 }
@@ -94,10 +94,11 @@ mat4 App::vmLocal(const WeaponDef& d, const WeaponState& s, bool withProcedural)
     vec3 piv = p + Q * Rp + vec3(0, -0.04f, 0.16f);
     m = glm::translate(mat4(1), piv) * glm::mat4_cast(glm::angleAxis(radians(s.kickY * rm), vec3(0, 1, 0)) * glm::angleAxis(radians(s.kickP * rm), vec3(1, 0, 0))) * glm::translate(mat4(1), -piv) * m;
   }
-  if (!d.fireCurve.empty() && !s.curveFolded) {   // KF1: the measured gun motion after a shot (camera space), rolling about the rear sight
-    float row[6]; fireCurveAt(d, s.sinceShot, row);
+  if (!d.fireCurve.empty()) {   // KF1: the measured gun motion after a shot (camera space), rolling about the rear sight; GR1: muzzle up / right about it too, shots summed
+    float row[10], h; fireCurveSum(d, s, row, h);
     const vec3 piv = p + Q * Rp;
-    m = glm::translate(mat4(1), vec3(row[2], row[1], row[0]) * rm) * glm::translate(mat4(1), piv) * glm::mat4_cast(glm::angleAxis(radians(row[3] * rm), vec3(0, 0, 1))) * glm::translate(mat4(1), -piv) * m;
+    const quat r = glm::angleAxis(radians(-row[7] * rm), vec3(0, 1, 0)) * glm::angleAxis(radians(row[6] * rm), vec3(1, 0, 0)) * glm::angleAxis(radians(row[3] * rm), vec3(0, 0, 1));
+    m = glm::translate(mat4(1), vec3(row[2], row[1], row[0]) * rm) * glm::translate(mat4(1), piv) * glm::mat4_cast(r) * glm::translate(mat4(1), -piv) * m;
   }
   if (d.equipment() || d.tool) m = m * equipmentPose(d, s);   // GM3: the hammer's swing too   // wind-up / throw / swing (procedural: no animations supplied)
   // reload / switch dip
