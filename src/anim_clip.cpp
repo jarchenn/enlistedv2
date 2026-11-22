@@ -119,6 +119,7 @@ void analyzeClips(CharModel& m) {
     if (clip.name.find("death") != std::string::npos) {   // KS1: the right (weapon) hand's first arrival within 12 cm of its lowest point
       float lo = 1e9f; for (auto& q : hand[1]) lo = std::min(lo, q.y);
       for (int i = 0; i <= N; ++i) if (hand[1][i].y <= lo + 0.12f) { clip.handFloor = i * dt; break; }
+      logf("anim: death clip \"%s\" (%.2f s): weapon hand on the floor at %.2f s", clip.name.c_str(), clip.dur, clip.handFloor);
     }
     // planted foot (within 3 cm of its lowest point) slides toward -z (the model faces +z) at the ground speed
     float sum = 0; int cnt = 0;
