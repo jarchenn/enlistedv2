@@ -46,7 +46,7 @@ bool recoilCapture(App& a, float dt) {
     if (t < dt * 1.5f) { in = ExploreInput{}; shotFrame = -1; a.eyePitch = 2; WeaponState& w0 = a.wstate[a.weaponDefs[a.activeWeapon]->id]; w0.recoilP = w0.recoilY = 0; peakK = peakP = peakY = 0; }
     in.aim = ads;
     if (!table && t > 1.6f && t < 1.6f + dt * 1.5f) a.uiShot = out(name + "_0before");
-    if (t > 1.8f && shotFrame < 0) { in.fire = true; shotFrame = frame; z0 = sightZ(a); zMax = 0; return false; }
+    if (t > 1.8f && shotFrame < 0) { in.fire = true; { WeaponState& w1 = a.wstate[a.weaponDefs[a.activeWeapon]->id]; w1.spin = a.weaponDefs[a.activeWeapon]->spinUp; }   /* MG13b: barrels pre-spun, so a spin-up gun (minigun) fires on this one-frame trigger */ shotFrame = frame; z0 = sightZ(a); zMax = 0; return false; }
     in.fire = false;
     const WeaponDef& d = *a.weaponDefs[a.activeWeapon]; const WeaponState& s = a.wstate[d.id];
     if (shotFrame >= 0) { zMax = std::max(zMax, sightZ(a) - z0); peakK = std::max(peakK, s.kick); peakP = std::max(peakP, s.kickP); peakY = std::max(peakY, s.kickY); }
