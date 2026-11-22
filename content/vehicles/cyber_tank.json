@@ -256,20 +256,20 @@
   "name": "8.8 cm KwK 36 L/56",
   "rockDeg": 4.0,
   "viewKick": 2.5,
-  "traverseRate": 10,
-  "traverseAccel": 8,
-  "elevationRate": 4,
-  "elevationAccel": 12,
+  "traverseRate": 40,
+  "traverseAccel": 60,
+  "elevationRate": 15,
+  "elevationAccel": 40,
   "elevation": [
-   -8,
-   15
+   -15,
+   20
   ],
   "recoil": 0.45,
   "fov": 30,
   "fovZoom": 12,
   "zeroRange": 400,
   "reticle": "tiger",
-  "note": "rates, limits and sight field are provisional game tuning; the Sherman's faster traverse is the requested direction"
+  "note": "Mech Tank (the user: swivel too slow, needs more gun depression): traverse 40 deg/s (Tiger 10), elevation 15 deg/s, -15..+20 deg (a 2.9 m high gun reaches a man at ~10 m)"
  },
  "ammunition": {
   "reloadTime": 7.0,
