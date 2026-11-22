@@ -5,7 +5,7 @@
 # Bones renamed in the written GLB as convert_enemy_glb.py does: mapped ones to the game's semantic joint names, the rest
 # sanitized. usage: blender -b --factory-startup --python dragon_convert.py -- <in.glb> <out.glb> <dragon_map.json> <dragon_spec.json>
 import bpy, sys, json, re, os, struct
-from mathutils import Matrix
+from mathutils import Matrix, Vector
 a = sys.argv[sys.argv.index('--') + 1:]
 src, out, bmap, spec = a[0], a[1], json.load(open(a[2])), json.load(open(a[3]))
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -73,6 +73,20 @@ lo = min((o.evaluated_get(dg).matrix_world @ v.co).z for o in bpy.data.objects i
 top.matrix_world = Matrix.Translation((-pel.x, -pel.y, -lo)) @ top.matrix_world
 arm.animation_data.action = None; bpy.context.view_layer.update()
 print('RECENTRED pelvis (%.2f, %.2f) -> origin, lowest vertex z %.2f -> 0' % (pel.x, pel.y, lo))
+# paws on the ground (the user: the paws hovered): the source stands a little high in some takes (idle's paws 0.34 m over
+# its tail, the walk's 0.07). Each clip is lowered by spec "lower_m" (its lowest paw vertex over the clip, measured on the
+# exported GLB: E:/nmk/dragon/paws.py); the death keeps its fall. The game grounds the bind pose on its lowest vertex (the
+# tail tip) and draws the clips under that, so the tail tip dips up to 0.34 m into the ground in idle
+roots = [p for p in arm.pose.bones if not p.parent]
+for name, low in spec.get('lower_m', {}).items():
+    act = next(x for x in bpy.data.actions if x.name == name); use(act); n = int(act.frame_range[1])
+    d = arm.matrix_world.inverted().to_3x3() @ Vector((0, 0, -low))
+    for f in range(1, n + 1):
+        bpy.context.scene.frame_set(f)
+        for p in roots:
+            mm = p.matrix.copy(); mm.translation += d; p.matrix = mm; p.keyframe_insert('location', frame=f)
+    print('GROUNDED %s: lowered %.3f m' % (name, low))
+arm.animation_data.action = None; bpy.context.view_layer.update()
 for im in bpy.data.images:
     if im.size[0] and max(im.size) > 1024: im.scale(1024 * im.size[0] // max(im.size), 1024 * im.size[1] // max(im.size))
 print('ACTIONS', sorted((x.name, tuple(x.frame_range)) for x in bpy.data.actions))

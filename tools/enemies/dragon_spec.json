@@ -58,5 +58,14 @@
     408
    ]
   }
- ]
+ ],
+ "lower_m": {
+  "idle": 0.34,
+  "walk": 0.068,
+  "attack_claw_l": 0.055,
+  "attack_claw_r": 0.177,
+  "attack_bite": 0.34,
+  "attack_breath": 0.288,
+  "hit": 0.313
+ }
 }

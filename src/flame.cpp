@@ -60,13 +60,13 @@ float segDist(vec3 a, vec3 b, vec3 p0, vec3 p1) {   // closest distance between 
 }
 }
 
-void FlameSys::spray(App& app, int key, int weapon, vec3 origin, vec3 dir, float dt, bool damage, vec3 bore, float rangeM, float coneDeg) {
+void FlameSys::spray(App& app, int key, int weapon, vec3 origin, vec3 dir, float dt, bool damage, vec3 bore, float rangeM, float coneDeg, float dmgK, float vis) {
   if (weapon < 0 || weapon >= (int)app.weaponDefs.size() || glm::length(dir) < 0.5f) return;
   const WeaponDef& d = *app.weaponDefs[weapon];
   if (!d.flame.on) return;
   dir = glm::normalize(dir);
   FlameNozzle& n = nz_[key];
-  n.o = origin; n.d = dir; n.lastOn = t_; n.weapon = weapon; n.bore = glm::length(bore) > 0.5f ? glm::normalize(bore) : vec3(0);
+  n.o = origin; n.d = dir; n.lastOn = t_; n.weapon = weapon; n.vis = vis; n.bore = glm::length(bore) > 0.5f ? glm::normalize(bore) : vec3(0);
   int owner = key < 0 ? (gGame && gGame->active ? gGame->localSlot : -1) : key;
   n.acc += dt * d.flame.parcelsPerSec;
   float cone = glm::radians(coneDeg > 0 ? coneDeg : d.flame.coneDeg); const float range = rangeM > 0 ? rangeM : d.flame.range;
@@ -75,12 +75,12 @@ void FlameSys::spray(App& app, int key, int weapon, vec3 origin, vec3 dir, float
     FlameParcel q;
     q.v = diskDir(dir, cone, rnd() * 6.2831853f, rnd()) * (d.flame.speed * (0.94f + 0.12f * rnd()));
     q.p = q.o = origin + q.v * (rnd() * std::min(dt, 0.12f));   // spread over the frame: a continuous stream
-    q.life = range / glm::length(q.v); q.owner = owner; q.weapon = weapon; q.dmg = damage;
+    q.life = range / glm::length(q.v); q.owner = owner; q.weapon = weapon; q.dmg = damage; q.dmgK = dmgK; q.vis = vis;
     parcels_.push_back(q); ++emitted;
   }
   if (damage && gNet && gNet->role == Net::HOST) {   // the host tells the others where this nozzle points (10 Hz)
     n.netT += dt;
-    if (n.netT >= 0.1f) { gNet->hostWorldEvent(json{{"t", "flame"}, {"by", owner}, {"w", weapon}, {"p", tojson(origin)}, {"d", tojson(dir)}, {"dt", n.netT}, {"r", rangeM}, {"c", coneDeg}}); n.netT = 0; }
+    if (n.netT >= 0.1f) { gNet->hostWorldEvent(json{{"t", "flame"}, {"by", owner}, {"w", weapon}, {"p", tojson(origin)}, {"d", tojson(dir)}, {"dt", n.netT}, {"r", rangeM}, {"c", coneDeg}, {"v", vis}}); n.netT = 0; }
   }
 }
 
@@ -106,17 +106,18 @@ void FlameSys::step(App& app, float dt) {
     if (on) {   // the nozzle flame is never starved by the particle budget (ground fire and smoke filled it during long bursts)
       if (fx.parts.size() + 6 > fx.maxParts) fx.parts.erase(fx.parts.begin(), fx.parts.begin() + 12);
       float k = key < 0 ? 0.6f : 1.0f;   // the player's own nozzle is a metre from the eye: smaller sprites
+      const float V = n.vis; k *= V;   // DR1c: a creature's mouth: a bigger, longer tongue
       vec3 axis = n.d;   // the flame leaves the nozzle straight along the stream (it used to follow the raised bore and arc over to the crosshair)
-      for (int i = 0; i < 3; ++i) {   // the flame tongue billowing forward of the nozzle: hot white-yellow at the lip, orange and dark red further out
-        float t = fx.rnd() * fx.rnd() * 1.9f;   // more sprites near the nozzle
+      for (int i = 0; i < (V > 1 ? 6 : 3); ++i) {   // the flame tongue billowing forward of the nozzle: hot white-yellow at the lip, orange and dark red further out
+        float t = fx.rnd() * fx.rnd() * 1.9f * V;   // more sprites near the nozzle
         Particle q; q.p = n.o + axis * (0.05f + t) + vec3(fx.rnd() - 0.5f, fx.rnd() - 0.5f, fx.rnd() - 0.5f) * (0.008f + 0.07f * t);   // a tight jet at the lip, opening into a cone
         q.v = axis * (3.0f + 4.0f * fx.rnd()) + vec3(fx.rnd() - 0.5f, fx.rnd() - 0.5f, fx.rnd() - 0.5f) * (0.12f + 0.55f * t);
         q.size = (0.035f + 0.2f * t) * k * (0.8f + 0.5f * fx.rnd()); q.life = q.maxLife = 0.16f + 0.12f * fx.rnd() + 0.05f * t;
         q.col = vec4(3.2f, 0, 0, 1); q.additive = true; q.flame = std::floor(fx.rnd() * 255.0f); q.grow = q.size * 1.2f; q.drag = 0.6f; q.lift = 0.1f;
         fx.parts.push_back(q);
       }
-      if (fx.rnd() < 0.4f) {   // the soft outer body of the tongue: translucent orange-red
-        float t = 0.3f + 1.2f * fx.rnd();
+      if (fx.rnd() < (V > 1 ? 1.0f : 0.4f)) {   // the soft outer body of the tongue: translucent orange-red
+        float t = (0.3f + 1.2f * fx.rnd()) * V;
         Particle q; q.p = n.o + axis * t; q.v = axis * 3.0f + vec3(fx.rnd() - 0.5f, fx.rnd() - 0.5f, fx.rnd() - 0.5f) * 0.8f; q.size = (0.25f + 0.3f * t) * k; q.life = q.maxLife = 0.28f + 0.2f * fx.rnd();
         q.col = vec4(0.8f, 0.22f, 0.04f, 0.5f); q.grow = q.size * 0.8f; q.drag = 0.8f; q.lift = 0.15f; fx.parts.push_back(q);
       }
@@ -160,7 +161,7 @@ void FlameSys::step(App& app, float dt) {
         if (!s.alive || s.slot == q.owner || s.slot >= 256 || (q.seen[s.slot >> 5] >> (s.slot & 31)) & 1u) continue;
         if (segDist(q.p, end, s.feet + vec3(0, 0.1f, 0), s.feet + vec3(0, 1.65f, 0)) > rad + 0.3f) continue;
         q.seen[s.slot >> 5] |= 1u << (s.slot & 31);
-        if (G->flameHit(s.slot, q.owner, fd.parcelDamage, glm::normalize(q.v), fd.burnSeconds, fd.burnDps)) ++soldierHits;
+        if (G->flameHit(s.slot, q.owner, fd.parcelDamage * q.dmgK, glm::normalize(q.v), fd.burnSeconds, fd.burnDps * q.dmgK)) ++soldierHits;
       }
     }
     farthest = std::max(farthest, glm::length(end - q.o));
@@ -177,6 +178,26 @@ void FlameSys::step(App& app, float dt) {
       Particle f; f.p = end; f.v = q.v * 0.08f + vec3(fx.rnd() - 0.5f, fx.rnd() - 0.2f, fx.rnd() - 0.5f) * 0.7f; f.size = (0.35f + 0.7f * u) * near; f.life = f.maxLife = 0.35f + 0.3f * fx.rnd();
       f.col = vec4(0.8f, 0.24f, 0.05f, 0.4f); f.grow = f.size * 0.5f; f.drag = 0.9f; f.lift = 0.7f; fx.parts.push_back(f);
     }
+    if (q.vis > 1 && eyeD > 1.2f) {   // DR1c: a creature's breath billows: the plume swells, rises and rolls as it slows, sheds embers and
+      // dark smoke at its far end (the flamethrower keeps PERF1: no smoke)
+      const float V = q.vis;
+      if (roomForFlame && fx.rnd() < 0.5f) {   // rolling fireball sprites: hot at the mouth, swelling and turning deep orange-red downstream
+        Particle f; f.p = end + vec3(fx.rnd() - 0.5f, fx.rnd() - 0.5f, fx.rnd() - 0.5f) * (0.2f + 0.8f * u) * V; f.v = q.v * (0.15f + 0.1f * fx.rnd()) + vec3(fx.rnd() - 0.5f, fx.rnd() * 0.5f, fx.rnd() - 0.5f) * 1.6f * V;
+        f.size = (0.25f + 0.9f * u) * V * (0.8f + 0.4f * fx.rnd()); f.life = f.maxLife = 0.35f + 0.35f * fx.rnd() + 0.3f * u;
+        f.col = vec4(glm::mix(3.0f, 1.6f, u), 0, 0, 1); f.additive = true; f.flame = std::floor(fx.rnd() * 255.0f); f.grow = f.size * (0.9f + 0.6f * u); f.drag = 1.1f; f.lift = 1.8f;
+        fx.parts.push_back(f);
+      }
+      if (roomForFlame && fx.rnd() < 0.18f) {   // the dark outer skin of the plume: deep red-brown, not glowing
+        Particle f; f.p = end; f.v = q.v * 0.08f + vec3(fx.rnd() - 0.5f, 0.3f + 0.5f * fx.rnd(), fx.rnd() - 0.5f) * 1.2f; f.size = (0.5f + 1.0f * u) * V; f.life = f.maxLife = 0.5f + 0.4f * fx.rnd();
+        f.col = vec4(0.55f, 0.13f, 0.03f, 0.45f); f.grow = f.size * 0.7f; f.drag = 1.0f; f.lift = 1.2f; fx.parts.push_back(f);
+      }
+      if (roomForFlame && fx.rnd() < 0.12f) {   // embers: small bright sparks thrown off, slowing and sinking
+        Particle f; f.p = end; f.v = q.v * 0.25f + vec3(fx.rnd() - 0.5f, fx.rnd(), fx.rnd() - 0.5f) * 3.5f; f.size = 0.04f + 0.04f * fx.rnd(); f.life = f.maxLife = 0.6f + 0.6f * fx.rnd();
+        f.col = vec4(6.0f, 2.4f, 0.5f, 1); f.additive = true; f.drag = 1.4f; f.lift = -1.0f; fx.parts.push_back(f);
+      }
+      if (u > 0.55f && fx.parts.size() < fx.maxParts * 0.7f && fx.rnd() < 0.035f)   // soot rolling off the far end of the plume
+        fx.smoke(end + vec3(0, 0.4f * V, 0), q.v * 0.05f + vec3(fx.rnd() - 0.5f, 0.8f + 0.8f * fx.rnd(), fx.rnd() - 0.5f) * 1.3f, (0.6f + 0.5f * fx.rnd()) * V, 2.2f + 1.2f * fx.rnd(), vec4(0.09f, 0.085f, 0.08f, 0.5f), 1.1f, 0.9f);
+    }
     if (roomForSmoke && u > 0.3f && eyeD > 1.2f && fx.rnd() < 0.015f)   // smoke wisps curling off the stream
       fx.smoke(end, q.v * 0.06f + vec3(fx.rnd() - 0.5f, 0.5f + 0.7f * fx.rnd(), fx.rnd() - 0.5f) * 1.2f, (0.4f + 0.4f * fx.rnd()) * near, 1.6f + 0.8f * fx.rnd(), vec4(0.19f, 0.18f, 0.17f, 0.4f), 0.9f, 0.8f);
     if (stopped) {
@@ -186,13 +207,13 @@ void FlameSys::step(App& app, float dt) {
         const WeaponDef::FlameDef& fd = app.weaponDefs[q.weapon]->flame;
         if (near) near->t = std::max(near->t, fd.patchSeconds);
         else if (patches_.size() < 24) {
-          FlamePatch pt; pt.p = end + nrm * 0.05f; pt.t = fd.patchSeconds; pt.radius = fd.patchRadius; pt.dps = fd.patchDps; pt.burnSeconds = fd.burnSeconds; pt.burnDps = fd.burnDps;
+          FlamePatch pt; pt.p = end + nrm * 0.05f; pt.t = fd.patchSeconds; pt.radius = fd.patchRadius; pt.dps = fd.patchDps * q.dmgK; pt.burnSeconds = fd.burnSeconds; pt.burnDps = fd.burnDps * q.dmgK;
           pt.owner = q.owner; pt.dmg = q.dmg; patches_.push_back(pt); ++groundPatches;
         }
       }
       if (roomForFlame) for (int i = 0; i < 3; ++i) {   // a splash against what stopped it
         Particle f; f.p = end + nrm * 0.1f; f.v = glm::normalize(nrm + vec3(fx.rnd() - 0.5f, fx.rnd() - 0.5f, fx.rnd() - 0.5f)) * (1.5f + 2.0f * fx.rnd());
-        f.size = 0.5f; f.life = f.maxLife = 0.25f + 0.2f * fx.rnd(); f.col = vec4(7, 3, 0.8f, 1); f.additive = true; f.grow = -1.0f; f.drag = 1.5f;
+        f.size = 0.5f * q.vis; f.life = f.maxLife = 0.25f + 0.2f * fx.rnd(); f.col = vec4(7, 3, 0.8f, 1); f.additive = true; f.grow = -1.0f; f.drag = 1.5f;
         fx.parts.push_back(f);
       }
       dead = true;
@@ -234,7 +255,7 @@ void FlameSys::gatherLights(std::vector<LightDesc>& out) const {
   for (auto& [key, z] : nz_) {
     if (z.lastOn < t_ - 0.12 || n >= 3) continue;
     ++n;
-    LightDesc l; l.pos = z.o + z.d * 2.5f; l.radius = 14.0f; l.color = vec3(1.0f, 0.55f, 0.2f); l.intensity = 26.0f; l.flicker = 0.8f; l.id = 0xF1A00000u + (uint32_t)(key + 1);
+    LightDesc l; l.pos = z.o + z.d * 2.5f * z.vis; l.radius = 14.0f * std::sqrt(z.vis); l.color = vec3(1.0f, 0.55f, 0.2f); l.intensity = 26.0f * z.vis; l.flicker = 0.8f; l.id = 0xF1A00000u + (uint32_t)(key + 1);
     out.push_back(l);
   }
   int p = 0;
