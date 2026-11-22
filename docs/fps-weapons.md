@@ -937,7 +937,9 @@ The only optic a pistol takes, and no other gun takes it (`loot.cpp` `lootSightF
 - **Spin:** every round restarts the fire clip played at `animated.fireRate` 8.33 (its 0.21 s in one 25 ms shot interval), so each round turns the cluster one barrel: a continuous 400 rev/min at 2400 rpm (six barrels look the same after each step).
 - **New weapon fields:** `spinUp` (s; the first round waits until the barrels have spun that long with the trigger held; they wind down twice as fast off it) and `hipSpreadMul` (the class hip cone x this, not in ADS).
 - **Numbers:** 7.62x51, 500-round box (`762n_box500`, new; 4 in the mixed supply crate), 2400 rpm after 0.4 s, 850 m/s, 9.5 g, tracer every 3rd (as the MG 42), recoil pitch 1.1 / yaw 0.8 / climb 0.06, hip cone x2 (lmg 3 deg -> 6 deg), `moveSpeed` 0.72, reload 4.3 s (the clip at 0.5x). DMG1 34 / 22, class lmg. Hold and sockets: the M249's (`modern_lmg`).
-- **Sights:** none on the model: the aim line runs parallel to the barrel cluster's axis, 0.144 m above it (over the housing), with the gun's up from the rig (vertical).
+- **Sights (MG13b):** none on the model: the aim line runs parallel to the barrel cluster's axis, 0.29 m above it, from over the housing front to over the muzzles, `eyeRelief` 0.30, up vertical. MG13 put the line 0.144 m up with the rear over the rear spade grip at 0.15 m relief: in ADS the gun sat small and far with arm stumps and the wooden grip standing above the line.
+- **Hip framing (MG13b):** the rig's `hipRear` [0.12, 0.65, 0.02] (the rear aim point 0.65 m ahead of the eye): the rear spade grip sits ~0.27 m from the eye. MG13 used the default (0.15 m ahead): the grip was 0.07 m from the eye, a large dark wooden slab at the right edge.
+- **Capture:** `--capture-recoil` pre-spins the barrels (spin = `spinUp`) on its one-frame trigger, so the peak frame is a real shot (MG13: no shot, 0.000 m).
 - **Sound:** the vehicle minigun's shot (`guns/gun_shot_1.mp3`, pitch 1.15, its rapid-fire voice limits) and `reload_a` slowed, stand-ins.
 
 ### STR1: the Sten on the animated FPS arms
