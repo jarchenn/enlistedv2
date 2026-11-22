@@ -34,7 +34,9 @@ struct EnemyType {
   // AR1 json "shoot": {"speed", "spread_deg", "ammo", "mass_g"}: a ranged attack: at the swing a projectile leaves the left
   // hand toward the target's chest (aimed over for its drop; damage from the ammo's weapon row); used only with line of
   // sight; the type stands and faces the target while one fits (no strike sphere, no step-in)
-  struct AttackSpec { std::string clip, bone, ammo; vec3 at{0}; bool hasAt = false, shoot = false; float speed = 55, spreadDeg = 1, massG = 60; int joint = -1; float extend = 0, radius = 0, damage = -1, rangeMin = 0, rangeMax = 0, weight = 1, swing = 0, pre = 0.15f, post = 0.1f, reach = 0; bool leap = false; int victims = 0; };   // reach: the distance it closes to (default: the fastest hand's at the swing)
+  // HK1 json "face_deg": through the attack the body faces this far left of the target (deg; the mounted knight's right-side
+  // thrust: +44 brings the target onto the rider's right, where the spear goes)
+  struct AttackSpec { std::string clip, bone, ammo; vec3 at{0}; bool hasAt = false, shoot = false; float speed = 55, spreadDeg = 1, massG = 60, faceDeg = 0; int joint = -1; float extend = 0, radius = 0, damage = -1, rangeMin = 0, rangeMax = 0, weight = 1, swing = 0, pre = 0.15f, post = 0.1f, reach = 0; bool leap = false; int victims = 0; };   // reach: the distance it closes to (default: the fastest hand's at the swing)
   std::vector<AttackSpec> attackSpecs;
   bool attackDust = true;                                 // CH5 json "attack_dust": false: its blows throw no dust (the area, shake and sounds stay)
   bool tankDamage = false;                                // TK1 json "tank_damage" (default: hp >= 500): its landed blows wear down a tank, 1/15 of its durability each
@@ -49,6 +51,7 @@ struct EnemyType {
   std::vector<std::string> damageClips{"damage"}, deathClips{"death"};   // EN2: lists, one picked per hit / death
 };
 extern bool gMechRobot;                              // mechrobot perf switch (zombie.cpp, read as each slot spawns): AI type Mechs = the KR-714 robot soldier; off = the melee mech
+extern bool gHorseKnight;                            // horseknight perf switch (zombie.cpp, read as each slot spawns): off = AI type Mounted Knight spawns Knight 10 on foot
 extern bool gKnight2;                                // knight2 perf switch (zombie.cpp): off = the types' "legacy" patches at the next table load
 const std::vector<EnemyType>& enemyTypes();          // never empty (the plain zombie at least)
 const EnemyType& enemyType(int k);                   // clamped

@@ -28,6 +28,7 @@ static_assert(sizeof(kSemanticNames) / sizeof(kSemanticNames[0]) == CJ_COUNT, "t
 #include <set>
 
 bool gMechRobot = true;  // mechrobot (Renderer::perf, set each frame by App): AI type Mechs spawns the KR-714 robot soldier (kit 12); off = the melee mech (zombie.json "mech")
+bool gHorseKnight = true;   // horseknight (Renderer::perf, set each frame by App): AI type Mounted Knight = Knight 10 on the horse; off = on foot
 bool gKnight2 = true;    // knight2 (Renderer::perf, set each frame by App): off = each type's json "legacy" patch applies when the table loads
 namespace {
 float zLenXZ(vec3 v) { return glm::length(vec2(v.x, v.z)); }
@@ -81,6 +82,7 @@ const ZombieCfg& zcfg() {
           if (a.contains("range") && a["range"].is_array() && a["range"].size() == 2) { x.rangeMin = a["range"][0]; x.rangeMax = a["range"][1]; }
           if (a.contains("window") && a["window"].is_array() && a["window"].size() == 2) { x.pre = a["window"][0]; x.post = a["window"][1]; }
           x.reach = a.value("reach", 0.0f); x.leap = a.value("leap", false); x.victims = a.value("victims", 0); x.swing = a.value("swing", 0.0f);
+          x.faceDeg = a.value("face_deg", 0.0f);   // HK1
           if (a.contains("shoot") && a["shoot"].is_object()) { const json& sh = a["shoot"]; x.shoot = true; x.speed = std::max(5.0f, sh.value("speed", x.speed)); x.spreadDeg = std::max(0.0f, sh.value("spread_deg", x.spreadDeg)); x.ammo = sh.value("ammo", std::string("crossbow_bolt")); x.massG = sh.value("mass_g", x.massG); }   // AR1
           if (!x.clip.empty()) t.attackSpecs.push_back(x);
         }
@@ -135,7 +137,7 @@ float windupOf(const Game& G, const Soldier& s) {
 }
 // CH6: an attack's strike, from the clip's analysis (the fastest hand and where it is at the swing) and the type's "attacks"
 struct Strike { int bone = -1; vec3 at{0}; int joint = CJ_RHAND; float extend = 0, radius = 0.5f, damage = 0, lo = 0, hi = 0, weight = 1, pre = 0.15f, post = 0.1f, dist = 1; bool leap = false; int victims = 0;
-  bool shoot = false; float speed = 55, spreadDeg = 1, massG = 60; std::string ammo; };   // AR1
+  bool shoot = false; float speed = 55, spreadDeg = 1, massG = 60, faceDeg = 0; std::string ammo; };   // AR1; HK1 faceDeg
 Strike strikeOf(const Game& G, const Soldier& s, int i) {
   const EnemyType& e = typeOf(s); const EnemyType& ce = clipsOf(s); Strike r;
   r.radius = std::max(0.45f, 0.12f * e.height * e.scale); r.damage = e.damage; r.dist = e.reach;
@@ -144,7 +146,7 @@ Strike strikeOf(const Game& G, const Soldier& s, int i) {
   for (auto& a : e.attackSpecs) if (a.clip == ce.attackClips[i % ce.attackClips.size()]) {
     if (a.joint >= 0) r.joint = a.joint; r.extend = a.extend; if (a.radius > 0) r.radius = a.radius; if (a.damage >= 0) r.damage = a.damage;
     r.lo = a.rangeMin; r.hi = a.rangeMax; r.weight = a.weight; r.pre = a.pre; r.post = a.post; r.leap = a.leap; r.victims = a.victims;
-    r.shoot = a.shoot; r.speed = a.speed; r.spreadDeg = a.spreadDeg; r.massG = a.massG; r.ammo = a.ammo;
+    r.shoot = a.shoot; r.speed = a.speed; r.spreadDeg = a.spreadDeg; r.massG = a.massG; r.ammo = a.ammo; r.faceDeg = a.faceDeg;
     if (a.extend > 0) r.dist += a.extend;
     if (a.reach > 0) r.dist = a.reach;
     if (a.hasAt) for (int k = 0; k < (int)m.jointNode.size(); ++k) if (m.nodeName[m.jointNode[k]] == a.bone) {   // KN8: on the weapon itself
@@ -474,7 +476,8 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     vec3 d = best ? best->feet - s.feet : vec3(0);
     const bool locked = s.meleeWind >= 0 && s.meleeWind >= windupOf(G, s);   // CH6: from the blow on, the facing holds
     vec3 look = best && (s.meleeWind >= 0 || zLenXZ(d) < std::max(4.0f, e.reach + e.lunge + 2.0f)) ? d : m.moveDir;   // close or striking: face the victim; else the way the path goes (no sideways walk round corners)
-    if (zLenXZ(look) > 0.05f && !locked) b.aimYaw = degrees(std::atan2(-look.x, -look.z));
+    float off = best && s.meleeWind >= 0 && s.meleeClip >= 0 && s.model >= 0 && s.model < (int)G.models.size() ? strikeOf(G, s, s.meleeClip).faceDeg : 0.0f;   // HK1: a side attack faces past the target
+    if (zLenXZ(look) > 0.05f && !locked) b.aimYaw = degrees(std::atan2(-look.x, -look.z)) + off;
     b.aimPitch = 0;
   }
   {   // the plain zombie groans now and then when near the listener. shortcut: host / single player only, one voice at a time
@@ -718,6 +721,8 @@ int ar1SelfCheck() {
   }
   { int k2 = enemyTypeIndex("archer2"); bool sh2 = false; if (k2 >= 0) for (auto& a : enemyType(k2).attackSpecs) sh2 = sh2 || (a.shoot && a.clip == "longbow shot");
     chk(k2 >= 0 && sh2, "archer2 (AR2) with the same longbow shot"); }
+  { int km = enemyTypeIndex("knight10m"); bool side = false; if (km >= 0) for (auto& a : enemyType(km).attackSpecs) side = side || (a.clip == "attack_right" && a.faceDeg == 44 && a.hasAt);
+    chk(km >= 0 && side, "knight10m (HK1): the right thrust faces 44 deg past its target, its sphere on the spear tip"); }
   for (float D : {5.0f, 10.0f, 25.0f, 45.0f}) {
     vec3 from(0, 1.45f, 0), aim(0, 1.3f, -D), p = from, v = arrowAim(from, aim, 55.0f) * 55.0f; float best = 1e9f; const float h = 1.0f / 120;
     for (int i = 0; i < 600 && p.z > -D - 2; ++i) { vec3 q = p + v * h; float t = glm::clamp(glm::dot(aim - p, q - p) / std::max(1e-9f, glm::dot(q - p, q - p)), 0.0f, 1.0f); best = std::min(best, glm::length(p + (q - p) * t - aim)); p = q; v.y -= 9.81f * h; }

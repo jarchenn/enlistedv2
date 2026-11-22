@@ -1493,7 +1493,7 @@ int App::run(int argc, char** argv) {
     fx.nearFade = R.perf.fxNear; fx.wind = R.perf.wxDrift ? R.wx.der.windXZ : vec2(0);
     {   // Battle Foundry 4: the flash's Yref from this frame's light (read only), the loose ground for the dust disc
       fx.evOn = R.perf.fxEv; fx.capOn = R.perf.fxCap; fx.wxWet = R.wx.st.wet; fx.wxSnow = R.wx.st.snowDepth;
-      fx.scaleOn = R.perf.fxScale; gFxRecoil = R.perf.fxRecoil; gKnight2 = R.perf.knight2; gMechRobot = R.perf.mechRobot; gFxTier = fx.tier; fx.brightOn = R.perf.fxBright;
+      fx.scaleOn = R.perf.fxScale; gFxRecoil = R.perf.fxRecoil; gKnight2 = R.perf.knight2; gHorseKnight = R.perf.horseKnight; gMechRobot = R.perf.mechRobot; gFxTier = fx.tier; fx.brightOn = R.perf.fxBright;
       if (!gFxCapsHook) gFxCapsHook = [](App& a, const FxTierCaps& c) {   // PF3's governor / tier caps (dynres.cpp) -> Fx::setCaps
         a.fx.setCaps({c.softEffects, c.clods, c.flashLights, c.dustPerBurst, c.grainsPerBurst, c.fragments, c.groundDust, c.plumePerImpact}); };
       if (!fx.surfaceOf) fx.surfaceOf = [this](vec3 p, const std::string& fam) { return fxSurfaceAt(p, fam); };
