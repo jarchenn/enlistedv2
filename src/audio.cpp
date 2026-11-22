@@ -288,6 +288,7 @@ bool Audio::init() {
   gun("shot_g43", 4200, 70, 6.0f, 1.2f, 0.05f);   // FR2: the Garand's
   gun("shot_m1_thompson", 2400, 90, 12.0f, 0.55f, 0.07f);
   gun("shot_mg42", 5200, 85, 16.0f, 0.4f, 0.12f);
+  gun("shot_pkm", 4800, 72, 10.0f, 0.6f, 0.08f);   // FR5: the PKM's synthetic fallback (a full-power rifle round, slower than the MG 42)
   gun("shot_m2hb", 3000, 45, 7.0f, 0.9f, 0.04f);
   { Buf b = mk(0.5f); addClang(b, 0.0f, 2600, 0.6f, 0.09f, r); addClang(b, 0.18f, 2400, 0.25f, 0.06f, r); normalize(b, 0.55f); p->bufs["ping"] = b; }
   // surface damage: glass shatter (bright clinks), splintering shutter, door torn off its hinges
@@ -498,7 +499,7 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/smg_a.mp3", false, {"modern_ak"}, -1, 1.00f, 0, 2.5f, 2.5f, 1.21f},
     {"guns/smg_a.mp3", false, {"modern_ak12"}, -1, 0.98f, 0, 2.5f, 2.5f, 1.23f},
     {"guns/smg_a.mp3", false, {"stg44"}, -1, 1.03f, 0, 2.5f, 2.5f, 1.22f},
-    {"guns/smg_a.mp3", false, {"modern_lmg"}, -1, 0.96f, 0, 2.5f, 3.0f, 1.24f},   // the M249, heavier (SND16: its fallback when snd16/ is missing)
+    {"guns/smg_a.mp3", false, {"modern_lmg", "pkm"}, -1, 0.96f, 0, 2.5f, 3.0f, 1.24f},   // the M249, heavier (SND16: its fallback when snd16/ is missing)
     {"guns/rifle_c.mp3", false, {"modern_m16"}, 0, 1, 0, 2.5f, 3.0f},   // Rifle3.mp3 holds four shots: one each; SND7: thin and quiet: body (mix.json)
     {"guns/rifle_c.mp3", false, {"modern_m4_irons"}, 2, 1, 0, 2.5f, 3.0f},
     {"guns/rifle_c.mp3", false, {"modern_fal"}, 3, 1, 0, 2.5f, 3.0f},
@@ -590,7 +591,7 @@ int Audio::loadCustom(const fs::path& dir) {
     // the next and then the burst's last ring-out, so automatic fire (each body cut at the next round) varies round to round and the
     // last shot rings out; levelled on sustained fire at each gun's rate to the old sets (a lone round is drier than the old shots)
     {"snd16/mg_shot_%d.wav", false, {"mg42", "vickers_k"}, -1, 0.95f, 0, 0.3f, 3.0f, 1.11f, 13},   // 7.92 mm: a little lower, 1200 rpm
-    {"snd16/m249_shot_%d.wav", false, {"modern_lmg"}, -1, 1.00f, 0, 0.6f, 4.0f, 1.23f, 13},   // 800 rpm (its recording ~750); replaces SND15's Scorpion recording, the fallback
+    {"snd16/m249_shot_%d.wav", false, {"modern_lmg", "pkm"}, -1, 1.00f, 0, 0.6f, 4.0f, 1.23f, 13},   // 800 rpm (its recording ~750); replaces SND15's Scorpion recording, the fallback
     // SND18 (user request; content/audio/custom/snd18/, supplied by the project owner, stated free to use; tools/snd18_prep.py, tools/snd18_gen.py):
     // the per-gun pack replaces every set above for the guns it covers. <gun>_single: the single shot, lead-in trimmed; a gun that
     // fires automatic plays it as "shot_<id>_semi" in SEMI (weapons.cpp / game.cpp) and the distinct rounds of its 5-round burst
@@ -642,7 +643,7 @@ int Audio::loadCustom(const fs::path& dir) {
     {"snd18/shotgun_remington870_single.mp3", false, {"modern_shotgun"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.03f},
     {"snd18/shotgun_spas12_single.mp3", false, {"modern_shotgun2"}, -1, 1.00f, 0, 2.0f, 0.0f, 1.18f},
     {"snd18/mg42_auto_%d.mp3", false, {"mg42", "vickers_k"}, -1, 1.00f, 0, 1.6f, 0.0f, 1.44f, 5},   // SND19: re-cut, re-levelled; the fallback (snd16 below)
-    {"snd18/m249_auto_%d.mp3", false, {"modern_lmg"}, -1, 1.00f, 0, 1.6f, 0.0f, 1.50f, 5},   // SND19: re-cut, re-levelled; the fallback (snd16 below)
+    {"snd18/m249_auto_%d.mp3", false, {"modern_lmg", "pkm"}, -1, 1.00f, 0, 1.6f, 0.0f, 1.50f, 5},   // SND19: re-cut, re-levelled; the fallback (snd16 below)
     {"snd18/m2_browning_single.mp3", false, {"m2hb_carry_semi"}, -1, 1.00f, 0, 1.6f, 0.0f, 2.04f},
     {"snd18/m2_browning_auto_%d.mp3", false, {"m2hb_carry"}, -1, 1.00f, 0, 1.6f, 0.0f, 2.08f, 5},
     {"snd18/m2_browning_single.mp3", false, {"m2hb_semi"}, -1, 1.00f, 0, 1.6f, 0.0f, 2.04f},
@@ -657,7 +658,7 @@ int Audio::loadCustom(const fs::path& dir) {
     // five guns that had it (MG 42, M249, FG 42, BAR, 30 mm); the MG 42 and M249 go back to the user's own SND16 sets (local-only), auto
     // and semi alike (the pack singles are 10 dB hotter and another tone), the re-cut pack bursts their committed fallback
     {"snd16/mg_shot_%d.wav", false, {"mg42", "vickers_k"}, -1, 0.95f, 0, 0.3f, 3.0f, 1.11f, 13},
-    {"snd16/m249_shot_%d.wav", false, {"modern_lmg"}, -1, 1.00f, 0, 0.6f, 4.0f, 1.23f, 13},
+    {"snd16/m249_shot_%d.wav", false, {"modern_lmg", "pkm"}, -1, 1.00f, 0, 0.6f, 4.0f, 1.23f, 13},
     // SND20: the MP5 on the pack's mp40 set (an MP5 recording) 6 % higher than the MP 40; the AK-47 on its stg44 set (an AKM, 7.62x39)
     // 6 % lower than the StG 44; levelled on sustained fire (SMG -8.5, rifle -7.0 dB), no late-cut variant at 800 / 600 rpm
     {"snd18/mp40_single.mp3", false, {"modern_mp5_semi"}, -1, 1.06f, 0, 1.4f, 0.0f, 1.22f},
@@ -813,7 +814,7 @@ int Audio::loadCustom(const fs::path& dir) {
       {"reload/reload_m4.mp3", {"fg42"}, 2.7f},
       {"reload/reload_m4.mp3", {"m1918a2_bar"}, 3.0f},
       {"reload/reload_m4.mp3", {"m1_carbine"}, 2.0f},
-      {"reload/reload_m4.mp3", {"modern_lmg"}, 5.2f},   // the M249's box change (nothing better)
+      {"reload/reload_m4.mp3", {"modern_lmg", "pkm"}, 5.2f},   // the M249's box change (nothing better)
       {"reload/reload_sniper.mp3", {"modern_sniper_bolt", "modern_sniper_3"}, 2.8f},   // bolt magazine snipers (the user's "m24 and 50cal")
       {"reload/reload_sniper.mp3", {"modern_sniper_50"}, 4.2f},
       {"reload/reload_bolt.mp3", {"kar98k"}, 2.2f},   // the stripper-clip reload (freesound_community "rifle or shotgun reload")
@@ -840,7 +841,7 @@ int Audio::loadCustom(const fs::path& dir) {
       {"reload/reload_b.mp3", {"modern_pistol4"}, 2.0f, 0, 1.0f},
       {"reload/reload_a.mp3", {"modern_smg45"}, 2.2f, 0, 0.94f},
       {"snd14/mg_reload.wav", {"mg42"}, 4.6f},   // SND14 (user request): machinegunreload on the belt guns' box / belt change (local-only; the rifle recording without it)
-      {"snd14/mg_reload.wav", {"modern_lmg"}, 5.2f},
+      {"snd14/mg_reload.wav", {"modern_lmg", "pkm"}, 5.2f},
     };
     auto norm = [&](Buf& s, float secs) { if (s.size() > (size_t)(secs * SR)) s.resize((size_t)(secs * SR)); float pk = 1e-4f; for (float x : s) pk = std::max(pk, std::fabs(x)); size_t f = std::min(s.size(), (size_t)(0.05f * SR)); for (size_t j = 0; j < s.size(); ++j) s[j] *= 0.7f / pk * (j + f >= s.size() ? (float)(s.size() - j) / f : 1.0f); };
     // SND3: a reload longer than the weapon's reload is shortened in its quiet gaps (each kept at least 0.1 s, 20 ms equal-power

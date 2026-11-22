@@ -277,6 +277,15 @@
    "note": "MG1 modern gun",
    "class": "lmg"
   },
+  "pkm": {
+   "near": 38,
+   "far": 28,
+   "falloffStart_m": 160,
+   "falloffEnd_m": 320,
+   "rpm": 650,
+   "note": "FR5: a step above the M249 (7.62x54R)",
+   "class": "lmg"
+  },
   "modern_shotgun": {
    "near": 28,
    "far": 6,

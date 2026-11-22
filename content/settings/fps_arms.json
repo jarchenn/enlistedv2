@@ -16,7 +16,7 @@
     "modern_ak47": {"gripZ": 0.6, "shoulder": [-0.08, 0.02, -0.04]},
     "modern_m16": {"gripZ": 0.660, "shoulder": [-0.08, 0.02, -0.04]},
     "modern_scar": {"gripZ": 0.560, "shoulder": [-0.08, 0.02, -0.04]},
-    "modern_lmg": {"gripZ": 0.536, "shoulder": [-0.08, 0.02, -0.04]},
+    "modern_lmg": {"gripZ": 0.536, "shoulder": [-0.08, 0.02, -0.04]}, "pkm": {"gripZ": 0.536, "shoulder": [-0.08, 0.02, -0.04]},
     "modern_shotgun": {"gripZ": 0.618, "shoulder": [-0.08, 0.02, -0.04]},
     "modern_sniper_bolt": {"gripZ": 0.793, "shoulder": [-0.08, 0.02, -0.04]},
     "modern_sniper_semi": {"gripZ": 0.828, "shoulder": [-0.08, 0.02, -0.04]},
