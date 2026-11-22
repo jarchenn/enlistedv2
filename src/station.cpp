@@ -319,7 +319,8 @@ void App::stepProjectiles(float dt) {
         float ts = impact ? hit.t : len;
         if ((p.kind == PROJ_HE || p.kind == PROJ_ROCKET) && mpaiShellHit(*this, p, seg, len, ts)) { impact = true; hit.t = ts; hit.pos = p.p + seg / len * ts; hit.normal = -seg / len; hit.ud = 0; }
       }
-      if (mpaiProjectile(*this, p, seg, len, impact ? hit.t : len)) { projectiles.erase(projectiles.begin() + k); continue; }   // hit a soldier
+      auto arrowHit = [&](vec3 at, float vol) { if (p.tracerKind < 0 && audio.hasEvent("archer_impact")) audio.play("archer_impact", at, vol, 0.96f + 0.08f * fx.rnd()); };   // AR1: an archer's arrow (pf3's sound)
+      if (mpaiProjectile(*this, p, seg, len, impact ? hit.t : len)) { arrowHit(p.p + seg * 0.5f, 1.0f); projectiles.erase(projectiles.begin() + k); continue; }   // hit a soldier
       vec3 end = impact ? hit.pos : p.p + seg;
       // visible travel feedback along the actual path
       if (p.kind == PROJ_HE) fx.streak(p.p, end, 0.045f, 0.05f, vec4(2.2f, 1.6f, 1.0f, 1));
@@ -328,6 +329,7 @@ void App::stepProjectiles(float dt) {
         fx.bullet(glm::mix(p.p, end, u0) + p.visOff * visFade(p.visTrav + u0 * L), end + p.visOff * visFade(p.visTrav + L), p.tracerKind); } p.visTrav += L; }   // AT4: drawn from the muzzle onto the path
       if (impact && (p.kind == PROJ_HE || p.kind == PROJ_ROCKET) && shellThroughGlass(*this, p, hit.pos, hit.ud)) continue;   // T7: thin glass breaks, the shell flies on
       if (impact) {
+        arrowHit(hit.pos, hit.ud == 0 || (hit.ud >> 60) == 0xF ? 0.6f : 1.0f);   // AR1: a miss into the ground thuds quieter than a wall / wood
         // tanks (tank_sim.cpp): the damage matrix decides; small arms ricochet, a launcher on the front armour makes a
         // visible non-penetrating impact with no blast (no splash leak); counted hits detonate on the armour (no ground crater)
         TankHitResult th = tanks.projectileHit(*this, p, hit.pos, hit.normal, hit.ud);
