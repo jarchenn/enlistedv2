@@ -233,13 +233,13 @@ void gm2NearMisses(App& app, float dt) {
     static int dbg = 0;   // shortcut: diagnostics for the near-miss self-test (enemy rounds within 10 m only), remove once it passes in the combined batch
     for (auto& q : app.projectiles) if (q.owner != -1 && dbg < 30 && glm::length(q.p - e) < 10.0f) { ++dbg; logf("gm2 nm: owner %d kind %d at (%.2f %.2f %.2f) v (%.0f %.0f %.0f) eye (%.2f %.2f %.2f) me %d dt %.4f", q.owner, q.kind, q.p.x, q.p.y, q.p.z, q.v.x, q.v.y, q.v.z, e.x, e.y, e.z, me, dt); }
     for (auto& p : app.projectiles) if (p.kind == PROJ_BULLET && p.owner != -1 && p.owner != me && p.ammo != "crossbow_bolt") test(p.p, p.v);
-    // AR1b: an arrow / crossbow bolt passing the listener: archer_flight (0.64 s, its peak ~0.34 s in) starts when the bolt's
-    // closest approach is 0.34 s or less ahead, once per bolt, if it will pass within 4 m and not hit the head (> 0.35 m):
+    // AR1b / c: an arrow / crossbow bolt passing the listener: archer_flight (0.46 s, its loudest 0.435 s in) starts when the
+    // bolt's closest approach is 0.435 s or less ahead, once per bolt, if it will pass within 4 m and not hit the head (> 0.35 m):
     // full inside 0.75 m, silent at 4 m, panned to the pass side. A bolt that hits the listener plays the impact instead
     for (auto& p : app.projectiles) {
       if (p.kind != PROJ_BULLET || p.ammo != "crossbow_bolt" || p.flyby || p.owner == -1 || p.owner == me) continue;
       const float v2 = glm::dot(p.v, p.v); if (v2 < 1.0f) continue;
-      const float tc = glm::dot(e - p.p, p.v) / v2; if (tc <= 0 || tc > 0.34f) continue;
+      const float tc = glm::dot(e - p.p, p.v) / v2; if (tc <= 0 || tc > 0.435f) continue;
       p.flyby = true;
       vec3 c = p.p + p.v * tc; float d = glm::length(c - e);
       if (d < 2.5f && d > 0.05f) gm2AddNearMiss(1.0f - d / 2.5f);   // the suppression vignette, as for rounds
