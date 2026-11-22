@@ -15,6 +15,7 @@ MCP = 'ROBOT_ARGS' in globals()   # run inside a live Blender (Blender MCP): exe
 argv = ROBOT_ARGS if MCP else sys.argv[sys.argv.index('--') + 1:]
 RIG, OUT = argv[0], argv[1]
 RENDER = '--render' in argv
+HELMET = '--helmet' in argv   # a helmet over the skull: the hidden cranium is built lighter
 os.makedirs(OUT, exist_ok=True)
 P = 'mixamorig:'
 
@@ -175,6 +176,7 @@ M = {
     'gunmetal': material('kr_gunmetal', make_set('kr_gunmetal', (0.20, 0.21, 0.23), 0.46, 0.05, 1.0)),
     'paint':    material('kr_paint',    make_set('kr_paint', (0.15, 0.16, 0.12), 0.68, 0.06, 0.0, streak=False, wear=(STEEL, 0.32))),
     'unit':     material('kr_unit',     make_set('kr_unit', (0.15, 0.16, 0.12), 0.68, 0.06, 0.0, streak=False, wear=(STEEL, 0.32), stencil='KR-714')),
+    'darksteel': material('kr_darksteel', make_set('kr_darksteel', (0.30, 0.31, 0.33), 0.2, 0.03, 1.0, streak=False)),   # the helmet: between its black and the bright steel (user)
     'rubber':   material('kr_rubber', base=(0.025, 0.025, 0.027), rough=0.8),
     'core':     material('kr_core', base=(0.05, 0.02, 0.01), rough=0.25, emission=(1.0, 0.18, 0.05), emis_strength=0.5),   # a faint red-orange glow behind the ribs (brighter read as a letter through them)
     'eye':      material('kr_eye', base=(0.12, 0.0, 0.0), rough=0.05, emission=(1.0, 0.02, 0.01), emis_strength=2.5),   # a red lens: glows, blooms a little
@@ -472,23 +474,33 @@ for side in (-1, 1):   # diagonal cables inside
     sweep([Vector((0.08 * side, yc + 0.03, sp2.z + 0.02)), Vector((0.02 * side, yc + 0.04, sp1.z)), Vector((-0.04 * side, yc + 0.035, spine.z))], 0.006, 'Spine1', 'graphite' if side > 0 else 'rubber', seg=6)
 # the sternum: a broad upper bridge, a faceted lower plate with an inset panel, recesses the rib tips seat into
 ztop_st = RIBS[0][0] + 0.005; zbot_st = RIBS[5][0] - 0.03   # a shorter breastplate (it drew the eye from the ribs)
-pbox(Vector((0, front_y - 0.004, ztop_st)), (0.2, 0.034, 0.045), 'Spine2', 'chrome', bevel=0.014)                                  # upper bridge
+pbox(Vector((0, front_y - 0.004, ztop_st)), (0.2, 0.034, 0.045), 'Spine2', 'polished', bevel=0.014)                                  # upper bridge
 zmid = (ztop_st + zbot_st) / 2
-def vplate(top_c, bot_c, halfw, thick, bone, mat, bevel=0.008):   # a bevelled plate whose outline follows halfw: (half width, t down) pairs, top to tip
-    top_c, bot_c = Vector(top_c), Vector(bot_c); bm = bmesh.new()
-    prof = [(w, t) for w, t in halfw] + [(-w, t) for w, t in reversed(halfw)]
-    f = [bm.verts.new(Vector((x, top_c.y - thick / 2, top_c.z + (bot_c.z - top_c.z) * t))) for x, t in prof]
-    b = [bm.verts.new(Vector((x, top_c.y + thick / 2, top_c.z + (bot_c.z - top_c.z) * t))) for x, t in prof]
-    bm.faces.new(f); bm.faces.new(list(reversed(b)))
-    for k in range(len(prof)): bm.faces.new((f[(k + 1) % len(prof)], f[k], b[k], b[(k + 1) % len(prof)]))
-    bmesh.ops.bevel(bm, geom=bm.edges[:], offset=bevel, segments=2, affect='EDGES')
-    return finish(bm, bone, mat)
+def vplate(top_c, bot_c, halfw, thick, bone, mat, bulge=0.016, cols=6):   # a plate whose outline follows halfw: (half width, t down) pairs, top to tip; crowned
+    # across its width (user: it lacked the bones' luster - a flat sheet mirrors one even patch of sky, a crowned one carries a highlight)
+    top_c, bot_c = Vector(top_c), Vector(bot_c); bm = bmesh.new(); F, B = [], []
+    for w, t in halfw:
+        z = top_c.z + (bot_c.z - top_c.z) * t; fr, br = [], []
+        for c in range(cols + 1):
+            u = -1 + 2 * c / cols; y = top_c.y - bulge * (1 - u * u)
+            fr.append(bm.verts.new(Vector((u * w, y - thick / 2, z)))); br.append(bm.verts.new(Vector((u * w, y + thick / 2, z))))
+        F.append(fr); B.append(br)
+    for i in range(len(halfw) - 1):
+        for c in range(cols):
+            bm.faces.new((F[i][c], F[i + 1][c], F[i + 1][c + 1], F[i][c + 1])); bm.faces.new((B[i][c + 1], B[i + 1][c + 1], B[i + 1][c], B[i][c]))
+        for c in (0, cols):   # the two long edges
+            q = (F[i][c], B[i][c], B[i + 1][c], F[i + 1][c]); bm.faces.new(q if c == 0 else tuple(reversed(q)))
+    for i in (0, len(halfw) - 1):   # top and tip edges
+        for c in range(cols):
+            q = (F[i][c], F[i][c + 1], B[i][c + 1], B[i][c]); bm.faces.new(q if i == 0 else tuple(reversed(q)))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return smooth_part(finish(bm, bone, mat))
 
 
 vplate(Vector((0, front_y - 0.006, ztop_st - 0.01)), Vector((0, front_y - 0.006, zbot_st - 0.02)),
-       [(0.072, 0.0), (0.068, 0.1), (0.056, 0.3), (0.04, 0.55), (0.03, 0.78), (0.024, 0.93), (0.012, 1.0)], 0.03, 'Spine1', 'chrome')   # the breastplate: full shoulders, sides curving in, a blunt chamfered tip (user: not a perfect triangle)
-box(Vector((0, front_y - 0.022, zmid + 0.01)), (0.04, 0.006, 0.07), 'Spine1', 'graphite', bevel=0.003)                            # inset access panel
-box(Vector((0, front_y - 0.023, zmid + 0.06)), (0.046, 0.004, 0.02), 'Spine1', 'unit', bevel=0.002, uv='plate')                  # the unit tag: KR-714
+       [(0.072, 0.0), (0.068, 0.1), (0.056, 0.3), (0.04, 0.55), (0.03, 0.78), (0.024, 0.93), (0.012, 1.0)], 0.024, 'Spine1', 'chrome')   # the breastplate: full shoulders, sides curving in, a blunt chamfered tip (user: not a perfect triangle)
+box(Vector((0, front_y - 0.036, zmid + 0.01)), (0.04, 0.006, 0.07), 'Spine1', 'chrome', bevel=0.003)                              # inset access panel
+box(Vector((0, front_y - 0.037, zmid + 0.06)), (0.046, 0.004, 0.02), 'Spine1', 'unit', bevel=0.002, uv='plate')                  # the unit tag: KR-714
 for q, bn in tips: box(q + Vector((-math.copysign(0.004, q.x), -0.004, 0)), (0.022, 0.03, 0.02), bn, 'graphite', bevel=0.004)     # the recesses the tips seat into
 dome(Vector((0, sp2.y + 0.01, sp2.z + 0.035)), (0.18, 0.13, 0.11), -100, 100, 38, 70, 0.012, 'Spine2', 'shell', saz=22, sel=6)   # a yoke over the top of the chest
 cpts = [Vector((neck.x + 0.062 * math.cos(a), neck.y - 0.052 * math.sin(a) + 0.012, sp2.z + 0.112 + 0.022 * math.sin(a))) for a in [math.radians(180 - 180 * k / 12) for k in range(13)]]
@@ -574,7 +586,7 @@ bpy.ops.object.select_all(action='DESELECT'); mbo.select_set(True); bpy.context.
 bpy.ops.object.convert(target='MESH')
 sk = bpy.context.view_layer.objects.active
 apply_mod(sk, 'SMOOTH', factor=0.5, iterations=3)
-apply_mod(sk, 'DECIMATE', ratio=0.14)
+apply_mod(sk, 'DECIMATE', ratio=0.1 if HELMET else 0.14)
 # eye sockets (orbits) and the nasal opening, cut deep
 cutters = [ellipsoid(K(0.029, 0.09, 0.004), (0.0195, 0.045, 0.0175)), ellipsoid(K(-0.029, 0.09, 0.004), (0.0195, 0.045, 0.0175)),   # deep orbits
            ellipsoid(K(0, 0.095, -0.033), (0.0068, 0.04, 0.0105)), ellipsoid(K(0, 0.095, -0.024), (0.0036, 0.04, 0.007)),   # a short, tapered nasal cavity
@@ -589,9 +601,10 @@ def tube_tmp(pts, r, seg=8):   # a closed tube as a temporary cutter (a groove)
         for k in range(seg): bm.faces.new((rows[i][k], rows[i][(k + 1) % seg], rows[i + 1][(k + 1) % seg], rows[i + 1][k]))
     bm.faces.new(list(reversed(rows[0]))); bm.faces.new(rows[-1])
     return tmp_obj(bm)
-cutters.append(tube_tmp([K(0, math.sin(a) * 0.09 - 0.03, math.cos(a) * 0.072 + 0.035) for a in [-0.35 + 1.75 * k / 16 for k in range(17)][::-1]], 0.0028))   # sagittal seam (recessed)
-cutters.append(tube_tmp([K(math.sin(t) * 0.066, -0.02, 0.035 + math.cos(t) * 0.072) for t in [-1.2 + 2.4 * k / 18 for k in range(19)]], 0.0028))   # coronal seam
-for side in (-1, 1): cutters.append(tube_tmp([K(side * (0.05 + 0.012 * math.sin(t)), 0.03 - 0.05 * t, 0.045 - 0.03 * t) for t in [k / 10 for k in range(11)]], 0.0024))   # temporal seams
+if not HELMET:   # the cranial seams sit under the helmet
+    cutters.append(tube_tmp([K(0, math.sin(a) * 0.09 - 0.03, math.cos(a) * 0.072 + 0.035) for a in [-0.35 + 1.75 * k / 16 for k in range(17)][::-1]], 0.0028))   # sagittal seam (recessed)
+    cutters.append(tube_tmp([K(math.sin(t) * 0.066, -0.02, 0.035 + math.cos(t) * 0.072) for t in [-1.2 + 2.4 * k / 18 for k in range(19)]], 0.0028))   # coronal seam
+    for side in (-1, 1): cutters.append(tube_tmp([K(side * (0.05 + 0.012 * math.sin(t)), 0.03 - 0.05 * t, 0.045 - 0.03 * t) for t in [k / 10 for k in range(11)]], 0.0024))   # temporal seams
 for c in cutters:
     apply_mod(sk, 'BOOLEAN', operation='DIFFERENCE', object=c, solver='EXACT')
     bpy.data.objects.remove(c, do_unlink=True)
@@ -613,7 +626,7 @@ def teeth_row(z, ry, rx, h, bone, n=14, down=True):
         u = (k + 0.5) / n; a = math.radians(-84 + 168 * u); edge = abs(u - 0.5) * 2   # 0 at the front, 1 at the back: the rows curve back at the corners
         w = (0.0042 + 0.0032 * edge) * (0.85 + 0.3 * ((k * 7919 + int(z * 1e4)) % 97) / 97); hh = h * (1.0 - 0.25 * edge)   # varied widths
         c = K(math.sin(a) * rx, 0.05 + math.cos(a) * ry, z + (-1 if down else 1) * 0.0015 * edge)
-        ball(c, 1.0, bone, 'polished', seg=8, ring=6, scale=(w * 0.5, 0.0042 + 0.0012 * edge, hh * 0.5))
+        ball(c, 1.0, bone, 'polished', seg=6 if HELMET else 8, ring=4 if HELMET else 6, scale=(w * 0.5, 0.0042 + 0.0012 * edge, hh * 0.5))
 teeth_row(-0.0665, 0.04, 0.026, 0.014, 'Head')            # upper arch, set in the maxilla
 # the mandible: one cast jawbone (body round the arch, chin, the angles, rami up to the hinge pins), lower teeth on it
 jaw = []
@@ -689,7 +702,7 @@ for side in (-1, 1):
     base = Vector((0.12 * side, back_y + 0.03, sp2.z + 0.09)); tip = base + Vector((0.03 * side, 0.06, 0.28)) * (1.0 if side < 0 else 0.75)
     cyl(base - Vector((0, 0, 0.022)), base + Vector((0, 0, 0.012)), 0.014, 'Spine2', 'graphite', seg=12)
     cyl(base, tip, 0.0035, 'Spine2', 'chrome', seg=6)
-for side in (-1, 1): disc(K(0.064 * side, -0.005, 0.0), (1, 0, 0), 0.026, 0.005, 'Head')   # recessed temple discs, both sides
+for side in (-1, 1) if not HELMET else (): disc(K(0.064 * side, -0.005, 0.0), (1, 0, 0), 0.026, 0.005, 'Head')   # recessed temple discs, both sides
 # arms: shoulder housings round visible pivots, tapered upper-arm shells open below, elbow hinges, dorsal forearm plates
 # over parallel tendons, a palm plate
 for S, side in (('Left', 1), ('Right', -1)):
@@ -781,6 +794,39 @@ for S, side in (('Left', 1), ('Right', -1)):
     cyl(Vector((toe.x - 0.04, toe.y, 0.018)), Vector((toe.x + 0.04, toe.y, 0.018)), 0.012, S + 'ToeBase', 'chrome', seg=12)            # the toe hinge
     for d in (-1, 1):   # two toe plates, a clear split between
         pbox(Vector((toe.x + d * 0.021, (toe.y + te.y) / 2 - 0.006, 0.018)), (0.035, abs(te.y - toe.y) + 0.025, 0.03), S + 'ToeBase', 'shell', bevel=0.01)
+
+# ---- a helmet over the skull (user), from a separate glb: --helmet <file>. It keeps its own material and UVs (textures
+# downsized to 1024), is turned to face the robot's front, scaled uniformly to sit over the cranium, decimated, and rides the Head bone
+if HELMET:
+    before = set(bpy.context.scene.objects)
+    bpy.ops.import_scene.gltf(filepath=argv[argv.index('--helmet') + 1])
+    bpy.context.view_layer.update()   # the import's parent empties carry its cm->m scale: world matrices must be current
+    hobjs = [o for o in bpy.context.scene.objects if o not in before and o.type == 'MESH']
+    HELMET_FACE = Matrix.Rotation(math.radians(-90), 4, 'Z')   # the source faces +X; the robot faces -Y
+    bms = []
+    for o in hobjs:
+        bm = bmesh.new(); bm.from_mesh(o.data); bm.transform(HELMET_FACE @ o.matrix_world); bms.append((len(o.data.polygons), bm))
+    shell = max(bms, key=lambda t: t[0])[1]   # the dome: its bounds place the whole helmet
+    lo = Vector([min(v.co[i] for v in shell.verts) for i in range(3)]); hi = Vector([max(v.co[i] for v in shell.verts) for i in range(3)])
+    sc_h = 0.19 / (hi.x - lo.x)   # the dome 20 cm across (its source nodes carry an odd x100 scale, so size it by its own bounds)
+    top_k = K(0, -0.005, 0.105) + Vector((0, 0, 0.012))   # just over the cranium vault
+    off = Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, hi.z))
+    mat_src = hobjs[0].material_slots[0].material
+    for _, bm in bms:
+        bmesh.ops.transform(bm, matrix=Matrix.Translation(top_k) @ Matrix.Scale(sc_h, 4) @ Matrix.Translation(-off), verts=bm.verts)
+    glass = min(bms, key=lambda t: t[0])[1]   # the visor pane keeps the source material (its tinted glass); shell and visor frame go polished steel like the skull (user: chrome)
+    for _, bm in bms:
+        if bm is not glass: apply_mod(finish(bm, 'Head', 'darksteel'), 'DECIMATE', ratio=0.075)   # 27k -> ~2k tris
+    for o in [o for o in bpy.context.scene.objects if o not in before and o not in parts]: bpy.data.objects.remove(o, do_unlink=True)   # the import's objects and empties
+    gm = bpy.data.meshes.new('kr_helmet_glass'); glass.to_mesh(gm); glass.free()
+    go = bpy.data.objects.new('kr_helmet_glass', gm); bpy.context.scene.collection.objects.link(go)
+    gm.materials.clear(); gm.materials.append(mat_src); mat_src.name = 'kr_visor'
+    for pl in gm.polygons: pl.material_index = 0
+    gm.uv_layers[0].name = 'UVMap'
+    while len(gm.uv_layers) > 1: gm.uv_layers.remove(gm.uv_layers[1])
+    for n in mat_src.node_tree.nodes:
+        if n.type == 'TEX_IMAGE' and n.image and n.image.size[0] > 1024: n.image.scale(1024, 1024)
+    go['bone'] = P + 'Head'; parts.append(go)
 
 # ---- wiring (user: underlying wiring, more pieces overall): harnesses of parallel cables, chrome clamps along each run and a
 # connector block at each end, one bone per harness so a run never stretches; plus servo boxes, wrist rotators, junctions
