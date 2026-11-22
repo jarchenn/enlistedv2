@@ -1,4 +1,4 @@
-// GM1 / GM2: bodies with the gun built in: the gas-mask and desert soldiers (AiType::GasMask / Desert) and the Axis side's plain
+// GM1 / GM2: bodies with the gun built in: the desert soldiers (AiType::Desert; the gas-mask ones removed, RM2) and the Axis side's plain
 // soldier bots (Game::begin: combat.json gunbody_models). A soldier brain (ai_layers.cpp) in a body that carries its own clips
 // and its gun (content/characters/<kind>_<weapon>.glb, tools/bake_gunbody.py): no separate weapon model. The clips by state:
 //   dead: Death; prone: Prone (getting down, its end held); reloading: Reload / CrouchReload (stretched to the reload time);

@@ -96,12 +96,12 @@ ScenarioRules ScenarioRules::fromJson(const json& j, int version) {
   if (j.contains("aiCount") && j["aiCount"].is_array() && j["aiCount"].size() == 2)   // AI3 (older rules: none, the ticked types in turn)
     for (int t = 0; t < 2; ++t) if (j["aiCount"][t].is_array())
       for (int k = 0; k < kAiTypeCount && k < (int)j["aiCount"][t].size(); ++k) r.aiCount[t][k] = j["aiCount"][t][k].is_number_integer() ? std::clamp(j["aiCount"][t][k].get<int>(), 0, kMaxAI) : 0;
-  for (int t = 0; t < 2; ++t) {   // RM1: a setup naming a removed type: its AI become plain zombies
-    bool had = false;
+  for (int t = 0; t < 2; ++t) {   // RM1 / RM2: a setup naming a removed type: its AI become plain soldiers (gas masks) or plain zombies
     for (int k = 0; k < kAiTypeCount; ++k) if (aiTypeRetired(k) && ((r.aiTypes[t] >> k & 1) || r.aiCount[t][k] > 0)) {
-      had = true; r.aiCount[t][(int)AiType::Zombies] += r.aiCount[t][k]; r.aiCount[t][k] = 0; r.aiTypes[t] &= ~(1 << k);
+      const AiType to = aiTypeRetiredTo(k);
+      r.aiCount[t][(int)to] += r.aiCount[t][k]; r.aiCount[t][k] = 0; r.aiTypes[t] &= ~(1 << k); r.aiTypes[t] |= aiBit(to);
+      logf("scenario: side %d named a removed AI type (slot %d): those AI are %s", t, k, aiTypeName(to));
     }
-    if (had) { r.aiTypes[t] |= aiBit(AiType::Zombies); logf("scenario: side %d named a removed enemy type: those AI are plain zombies", t); }
   }
   if (j.contains("heavyTrollPct") && j["heavyTrollPct"].is_array() && j["heavyTrollPct"].size() == 2)
     for (int t = 0; t < 2; ++t) r.heavyTrollPct[t] = std::clamp(j["heavyTrollPct"][t].get<int>(), 0, 100);
@@ -396,4 +396,27 @@ std::vector<int> allocateLanes(int n, float l, float m, float r, int minMain) {
   minMain = std::min(minMain, n);
   while (out[1] < minMain) { int take = out[0] >= out[2] ? 0 : 2; if (out[take] == 0) take = 2 - take; if (out[take] == 0) break; out[take]--; out[1]++; }
   return out;
+}
+
+// RM2 --check-rm2 (headless): a saved setup naming the five removed types (animatronic / clown 10, aliens 11, alien queens 12,
+// gas-mask soldiers 18 / 22) loads: the gas-mask AI as plain soldiers, the other three as plain zombies; every slot reads "(retired)"
+int rm2SelfCheck() {
+  int fails = 0;
+  auto chk = [&](bool ok, const std::string& w) { logf("[rm2] %s %s", ok ? "PASS" : "FAIL", w.c_str()); if (!ok) ++fails; };
+  json rj = ScenarioRules{}.toJson();
+  const int gone[5] = {10, 11, 12, 18, 22}; int mask = 0; for (int k : gone) mask |= 1 << k;
+  rj["aiTypes"] = {mask, (1 << 18) | (1 << 22)};
+  std::vector<int> c(kAiTypeCount, 0); c[10] = 2; c[11] = 3; c[12] = 1; c[18] = 4; c[22] = 5;
+  std::vector<int> c1(kAiTypeCount, 0); c1[18] = 6; c1[22] = 1;
+  rj["aiCount"] = {c, c1};
+  const ScenarioRules r = ScenarioRules::fromJson(rj);
+  chk(!(r.aiTypes[0] & mask) && !(r.aiTypes[1] & mask), "no removed type survives a load");
+  chk(r.aiCount[0][(int)AiType::Soldiers] >= 9 && r.aiCount[0][(int)AiType::Zombies] >= 6 && (r.aiTypes[0] & aiBit(AiType::Soldiers)) && (r.aiTypes[0] & aiBit(AiType::Zombies)),
+      "side 0: 4 + 5 gas-mask AI -> plain soldiers (" + std::to_string(r.aiCount[0][(int)AiType::Soldiers]) + "), 2 + 3 + 1 clown / alien / queen -> plain zombies (" + std::to_string(r.aiCount[0][(int)AiType::Zombies]) + ")");
+  chk(r.aiCount[1][(int)AiType::Soldiers] >= 7 && (r.aiTypes[1] & aiBit(AiType::Soldiers)), "side 1: 6 + 1 gas-mask AI -> plain soldiers (" + std::to_string(r.aiCount[1][(int)AiType::Soldiers]) + ")");
+  for (int k : gone) chk(aiTypeRetired(k) && std::string(aiTypeName((AiType)k)) == "(retired)", "slot " + std::to_string(k) + " is retired");
+  std::string live; for (int k = 0; k < kAiTypeCount; ++k) if (!aiTypeRetired(k)) live += std::string(live.empty() ? "" : ", ") + aiTypeName((AiType)k);
+  logf("[rm2] types offered: %s", live.c_str());
+  logf("[rm2] %s (%d failed)", fails ? "FAIL" : "PASS", fails);
+  return fails ? 1 : 0;
 }
