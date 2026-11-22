@@ -5,7 +5,7 @@ from PIL import Image, ImageDraw
 R = 'E:/nmk/garand_ref'
 O = json.load(open(R + '/ours/ours.json')); CU = json.load(open(R + '/curves.json'))
 BG = np.array([120, 135, 150])
-FW = 540 / math.tan(math.radians(29))
+FW = 540 / math.tan(math.radians(json.load(open('E:/nmk/wt-cp/content/weapons/m1_garand.json'))['ads'].get('worldFov', 58) / 2))
 # curve panel base: measured (two shots averaged) vs ours, per channel
 def panel(i):
     im = Image.new('RGB', (960, 540), (20, 22, 26)); d = ImageDraw.Draw(im)

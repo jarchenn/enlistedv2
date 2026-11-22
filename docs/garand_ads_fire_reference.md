@@ -57,3 +57,13 @@ The operating rod is its own part of the baked model (`tools/garand_oprod_split.
 Not matched: the reference's rifle model itself (its peep ring is larger and its front blade wider than ours), the hands
 and sleeves (ours are the engine's generated arms), the static hold (the reference rests the post ~12 px under the peep's
 centre; ours is on the sight line), the muzzle flash and smoke.
+
+## Sight picture (GR2, GR3: the user)
+
+- Zoom: the reference's peep ring is 84 px across at 1080p, ours was 62 px; the Garand's ADS field of view is narrowed 1.355x (view model 46.2 deg, world 44.5 deg).
+  The fireCurve is converted in that projection (`curves.py` reads the weapon's ads.vmFov / worldFov), so the motion covers the same pixels as the reference's.
+- The ring thinned to the reference's hole / outside 0.69 (ours was 0.50): `tools/garand_peep_thin.py`.
+- The front sight reshaped to the reference's proportions in the ring: the wings and block 3.9 mm lower (wing tips ~5 px over the blade tip), the block
+  0.78 as wide (16 px), the blade stretched down and 1.3x wider; its tip stays on the sight line: `tools/garand_front_sight.py`.
+- Still different: our rear sight block is wider for the same ring (~630 px against 467), and our barrel and handguard sit closer under the sight line,
+  so they cover the hole's bottom from ~13 px under its centre (the reference's from ~28 px): that needs taller sights on the model.

@@ -83,5 +83,6 @@
  "textures": {},
  "triangles": 10871,
  "vertices": 9764,
- "note_gr1": "operating rod split out as a handle part by tools/garand_oprod_split.py (279 triangles)"
+ "note_gr1": "operating rod split out as a handle part by tools/garand_oprod_split.py (279 triangles)",
+ "gr3_front": "front sight reshaped by tools/garand_front_sight.py"
 }
