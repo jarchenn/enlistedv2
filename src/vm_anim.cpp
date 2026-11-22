@@ -77,7 +77,7 @@ std::shared_ptr<AnimVM> animVmLoad(const fs::path& dir, const json& block, std::
   if (P.contains("up")) { a->up = glm::normalize(jv(P["up"])); a->hasUp = true; }
   // state -> clip name (defaults: the same name). No draw clip (equip goes straight to the idle) and no movement clips.
   json map = block.value("clips", json::object()), mc = meta.value("clips", json::object());
-  for (const char* k : {"idle", "idle_empty", "fire", "reload", "reload_empty", "reload_start", "reload_insert", "reload_end"}) {
+  for (const char* k : {"idle", "idle_empty", "idle_ads", "fire", "reload", "reload_empty", "reload_start", "reload_insert", "reload_end"}) {
     std::string n = map.value(k, std::string(k));
     if (mc.contains(n)) { a->dur[k] = mc[n].get<float>(); a->clipOf[k] = n; }
   }
@@ -128,7 +128,7 @@ void animVmStep(App& app, const WeaponDef& d, WeaponState& s, float dt) {
   if (!st.inst.model && !st.inst.create(a.model)) return;
   auto clip = [&](const std::string& n) { auto it = a.clip.find(n); return it == a.clip.end() ? -1 : it->second; };
   auto idle = [&](float fade) {   // idle_empty: the launcher without its rocket
-    const char* n = s.loaded == 0 && clip("idle_empty") >= 0 ? "idle_empty" : "idle";
+    const char* n = s.loaded == 0 && clip("idle_empty") >= 0 ? "idle_empty" : app.adsT > 0.5f && clip("idle_ads") >= 0 ? "idle_ads" : "idle";   // FR9: an aimed idle (the Sten's 2haAimIS, its left arm out of the sight picture)
     st.pl.fadeLen = fade; st.pl.play(K_IDLE, clip(n), -1, 0, a.idleHold >= 0 ? 0.0f : 1.0f, true, true); st.clipName = n;
     if (a.idleHold >= 0) st.pl.time = a.idleHold;
   };
@@ -164,7 +164,7 @@ void animVmStep(App& app, const WeaponDef& d, WeaponState& s, float dt) {
   } else if (st.pl.key != K_IDLE && (st.pl.key != K_RELOAD || s.reload <= 0)) {
     const AnimClip& c = a.model.clips[st.pl.a];
     if (st.pl.time >= c.dur - 1e-3f || (st.pl.key == K_RELOAD && s.reload <= 0)) idle(0.1f);
-  }
+  } else if (st.pl.key == K_IDLE && clip("idle_ads") >= 0 && st.clipName != "idle_empty" && (app.adsT > 0.5f) != (st.clipName == "idle_ads")) idle(0.15f);   // FR9: into / out of the aimed idle
   st.lastReload = s.reload;
   st.pl.update(a.model, dt, st.pose);
   // WP4c: a shot's fire clip works only the parts under the gun joint (slide / bolt / mag); the gun, arms and hands keep

@@ -104,6 +104,7 @@ bool vm1SelfTest(App& a, float dt) {
       sum += d; mx = std::max(mx, d); ++n; uint8_t v = (uint8_t)std::min(255.0, d * 16); vis[i * 4] = vis[i * 4 + 1] = vis[i * 4 + 2] = v;
     }
     png(gun + "_hip", px[4]); png(gun + "_worldblack", px[5]); png(gun + "_leak", vis);
+    { std::vector<uint8_t> mk(px[4].size(), 0); for (int i = 0; i < W * H; ++i) { mk[i * 4] = vm[4][i] > 0 ? 255 : 0; mk[i * 4 + 1] = vm[5][i] > 0 ? 255 : 0; mk[i * 4 + 3] = 255; } png(gun + "_vmmask", mk); }   // FR9: the weapon pixels each frame counts (red: the normal frame, green: the black-world one; yellow both)
     char b[220]; std::snprintf(b, sizeof b, "%s: the world blacked out under the weapon changes its pixels by %.2f levels on average (max %.0f; held under 1)", gun.c_str(), n ? sum / n : 0.0, mx);
     chk(n > 0 && sum / std::max(1L, n) < 1.0, b);
     ++gi; step = 0; t = 0.3f; return true;
