@@ -434,7 +434,36 @@ if missed: raise SystemExit("MG1 kept meshes not selected for export: " + ", ".j
 bpy.ops.export_scene.gltf(filepath=out, export_format="GLB", use_selection=True, export_skins=True, export_animations=True,
                           export_animation_mode="NLA_TRACKS", export_force_sampling=True, export_apply=False,
                           export_cameras=False, export_lights=False, export_image_format="AUTO", export_def_bones=cfg.get("defOnly", False))   # MG2: Rigify rigs keep only their deform bones
-meta = {"gunJoint": gunBone, "clips": clips, "fps": fps, "points": {k: b2g(v) for k, v in pts.items()}, "log": log,
+# MG13c: the game poses the points with the gun joint's delta from the GLB's REST nodes to the idle (anim_clip.cpp:
+# posed world * inverse rest world). The points above are where the sights are at the idle (the hip framing). When the
+# exported rest differs from the idle (the minigun: its armature node keeps a rest translation of 1 m that every clip
+# keys back to 0), the game would push the points by that delta: they go back through its inverse. cfg "glbRest": true.
+def glbIdleDelta(path, joint):
+    import struct, numpy as np
+    b_ = open(path, "rb").read(); jl_ = struct.unpack("<I", b_[12:16])[0]; J_ = json.loads(b_[20:20 + jl_]); BIN_ = b_[28 + jl_:]
+    N_ = J_["nodes"]; par_ = {c: i for i, n in enumerate(N_) for c in n.get("children", [])}
+    def mat_(t, r, sc_):
+        x, y, z, w = r; M = np.eye(4)
+        M[:3, :3] = np.array([[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)], [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)], [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]]) * np.array(sc_); M[:3, 3] = t; return M
+    def world_(i, T):
+        M = mat_(*T[i])
+        while i in par_: i = par_[i]; M = mat_(*T[i]) @ M
+        return M
+    rest = {i: [n.get("translation", [0, 0, 0]), n.get("rotation", [0, 0, 0, 1]), n.get("scale", [1, 1, 1])] for i, n in enumerate(N_)}
+    pose = {k: list(v) for k, v in rest.items()}
+    an = next(a for a in J_["animations"] if a["name"] == "idle")
+    for c in an["channels"]:
+        a_ = J_["accessors"][an["samplers"][c["sampler"]]["output"]]; v_ = J_["bufferViews"][a_["bufferView"]]; k_ = {"VEC3": 3, "VEC4": 4}[a_["type"]]
+        pose[c["target"]["node"]][{"translation": 0, "rotation": 1, "scale": 2}[c["target"]["path"]]] = list(np.frombuffer(BIN_, np.float32, count=k_, offset=v_.get("byteOffset", 0) + a_.get("byteOffset", 0)))
+    gi_ = next(i for i, n in enumerate(N_) if n.get("name") == joint)
+    return world_(gi_, pose) @ np.linalg.inv(world_(gi_, rest))
+ptsOut = {k: b2g(v) for k, v in pts.items()}
+import numpy as np
+Dg = glbIdleDelta(out, gunBone); log["glbIdleDelta"] = [round(float(x), 4) for x in Dg[:3, :].ravel()]
+if cfg.get("glbRest"):
+    Di = np.linalg.inv(Dg); ptsOut = {k: [round(float(x), 5) for x in (Di @ np.append(v, 1))[:3]] for k, v in ptsOut.items()}
+    log["glbRest"] = True
+meta = {"gunJoint": gunBone, "clips": clips, "fps": fps, "points": ptsOut, "log": log,
         "tris": sum(len(p.vertices) - 2 for ob in keep for p in ob.data.polygons)}
 json.dump(meta, open(os.path.splitext(out)[0] + ".json", "w"), indent=1)
 print("MG1ANIM", json.dumps(meta))
