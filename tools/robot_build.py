@@ -427,7 +427,8 @@ def spine_at(z):   # the column's centre line at height z (behind the rig's join
         a, b = chain[k], chain[k + 1]
         if z <= b.z or k == len(chain) - 2:
             t = max(0.0, min(1.0, (z - a.z) / max(b.z - a.z, 1e-4)))
-            p = a.lerp(b, t); return Vector((p.x, p.y + 0.055, z)), cbones[k]
+            p = a.lerp(b, t); u = max(0.0, min(1.0, (z - sp2.z) / (neck.z - sp2.z)))   # above the shoulders the column curves forward into the neck
+            return Vector((p.x, p.y + 0.055 - 0.045 * u, z)), cbones[k]
 
 
 def bone_at(z):
@@ -511,7 +512,7 @@ blob([((0.085, hips.y + 0.015, hips.z + 0.045), (0.055, 0.03, 0.06), None), ((-0
 # from skull anatomy: cranium, brow ridge, cheekbones, maxilla fused by a voxel remesh, eye sockets and the nasal opening cut
 # by booleans, two rows of chrome teeth, a separate mandible on hinge pins (static on the head bone: the rig has no jaw), a red
 # emissive lens deep in each socket. Our own plate lines: a sagittal seam and temple bolts.
-hc = head.lerp(top, 0.42) - Vector((0, -0.06, 0.045))   # the skull's centre, seated low: the jaw just above the collar (user brief)
+hc = head.lerp(top, 0.42) - Vector((0, -0.035, 0.045))   # (user: the neck nearer the body's middle)   # the skull's centre, seated low: the jaw just above the collar (user brief)
 skull_base = hc + Vector((0, 0.0, -0.07))
 neck_y = (spine_at(neck.z - 0.02)[0].y + skull_base.y) / 2 + 0.005   # one vertical line from the top vertebra into the skull base
 for k in range(3):   # a short cervical column into the skull base
