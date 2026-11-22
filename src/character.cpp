@@ -61,17 +61,18 @@ mat4 localOf(const json& n) {
 }
 // bc: block-compress a map of 1024 px or more (kind 0 albedo BC1 / BC3, 1 data BC1, 2 normal BC5): the soldier skins; the
 // first-person rigs (seen at arm's length) keep RGBA8
-GLuint uploadImage(const Glb& g, int imageIdx, bool srgb, bool bc, int kind) {
+GLuint uploadImage(const Glb& g, int imageIdx, bool srgb, bool bc, int kind, bool bcBig = false) {
   const json& im = g.j["images"][imageIdx];
   if (!im.contains("bufferView")) return 0;
   const json& bv = g.j["bufferViews"][im["bufferView"].get<int>()];
   size_t off = bv.value("byteOffset", (size_t)0), len = bv["byteLength"].get<size_t>();
   const uint8_t* enc = g.bin.data() + off;
-  if (bc) { size_t bytes = 0; if (GLuint b = modelBCFromCache(enc, len, kind, bytes)) return b; }   // FSB2: compressed once, reused
+  if (bc || bcBig) { size_t bytes = 0; if (GLuint b = modelBCFromCache(enc, len, kind, bytes)) return b; }   // FSB2: compressed once, reused (FR3: only big rig images were ever cached)
   int w, h, c;
   stbi_set_flip_vertically_on_load(0);
   stbi_uc* d = stbi_load_from_memory(enc, (int)len, &w, &h, &c, 4);
   if (!d) return 0;
+  if (!bc && bcBig && std::max(w, h) > 2048) bc = true;   // FR3 rigbc
   if (bc) { size_t bytes = 0; if (GLuint b = modelUploadBC(d, w, h, kind, bytes, enc, len)) { stbi_image_free(d); return b; } }   // FSB1: 2048 RGBA8 + mips 21 MB, BC1 2.7 MB, BC5 5.3 MB
   GLuint t; glCreateTextures(GL_TEXTURE_2D, 1, &t);
   int levels = 1 + (int)std::floor(std::log2((float)std::max(w, h)));
@@ -187,7 +188,7 @@ bool CharModel::load(const fs::path& path, std::string& err, float height, bool 
     int key = t * 4 + kind;
     auto it = texCache.find(key); if (it != texCache.end()) return it->second;
     int src = J["textures"][t].value("source", -1);
-    return texCache[key] = src >= 0 ? uploadImage(g, src, srgb, !wantNormals, kind) : 0;   // FSB1: soldier skins block-compressed
+    return texCache[key] = src >= 0 ? uploadImage(g, src, srgb, !wantNormals, kind, bcBig) : 0;   // FSB1: soldier skins block-compressed
   };
   if (J.contains("materials")) for (auto& m : J["materials"]) {
     GpuModel::MatTex mt; mt.name = m.value("name", "");

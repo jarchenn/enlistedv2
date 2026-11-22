@@ -20,6 +20,7 @@ enum CharJoint : int {
 struct CharModel {
   std::string id;
   bool wantNormals = false;   // WP2: load the materials' normal maps (animated first-person rigs; tangents from screen derivatives)
+  bool bcBig = false;         // FR3 rigbc: images over 2048 px block-compressed (and cached) even with wantNormals (the 4096 px FR rig sets: ~11 MB each, not 89)
   // skeleton (all scene nodes on the joint paths; joints index into these)
   std::vector<std::string> nodeName;
   std::vector<int> nodeParent;
