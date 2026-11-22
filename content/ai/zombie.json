@@ -424,26 +424,46 @@
         {
           "clip": "sword and shield slash",
           "joint": "RightHand",
-          "extend": 0.75,
-          "radius": 0.6
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            55.2923,
+            9.6576,
+            6.3457
+          ]
         },
         {
           "clip": "sword and shield slash (3)",
           "joint": "RightHand",
-          "extend": 0.75,
-          "radius": 0.6
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            55.2923,
+            9.6576,
+            6.3457
+          ]
         },
         {
           "clip": "sword and shield slash (5)",
           "joint": "RightHand",
-          "extend": 0.75,
-          "radius": 0.6
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            55.2923,
+            9.6576,
+            6.3457
+          ]
         },
         {
           "clip": "sword and shield attack (4)",
           "joint": "RightHand",
-          "extend": 0.75,
-          "radius": 0.6
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            55.2923,
+            9.6576,
+            6.3457
+          ]
         }
       ],
       "legacy": {
@@ -566,26 +586,46 @@
         {
           "clip": "sword and shield slash",
           "joint": "RightHand",
-          "extend": 0.75,
-          "radius": 0.6
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            52.9367,
+            25.0519,
+            7.2991
+          ]
         },
         {
           "clip": "sword and shield slash (3)",
           "joint": "RightHand",
-          "extend": 0.75,
-          "radius": 0.6
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            52.9367,
+            25.0519,
+            7.2991
+          ]
         },
         {
           "clip": "sword and shield slash (5)",
           "joint": "RightHand",
-          "extend": 0.75,
-          "radius": 0.6
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            52.9367,
+            25.0519,
+            7.2991
+          ]
         },
         {
           "clip": "sword and shield attack (4)",
           "joint": "RightHand",
-          "extend": 0.75,
-          "radius": 0.6
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            52.9367,
+            25.0519,
+            7.2991
+          ]
         }
       ]
     },
@@ -655,26 +695,46 @@
         {
           "clip": "sword and shield slash",
           "joint": "RightHand",
-          "extend": 0.7,
-          "radius": 0.65
+          "radius": 0.3,
+          "bone": "flail_5",
+          "at": [
+            0,
+            0,
+            0
+          ]
         },
         {
           "clip": "sword and shield slash (3)",
           "joint": "RightHand",
-          "extend": 0.7,
-          "radius": 0.65
+          "radius": 0.3,
+          "bone": "flail_5",
+          "at": [
+            0,
+            0,
+            0
+          ]
         },
         {
           "clip": "sword and shield slash (5)",
           "joint": "RightHand",
-          "extend": 0.7,
-          "radius": 0.65
+          "radius": 0.3,
+          "bone": "flail_5",
+          "at": [
+            0,
+            0,
+            0
+          ]
         },
         {
           "clip": "sword and shield attack (4)",
           "joint": "RightHand",
-          "extend": 0.7,
-          "radius": 0.65
+          "radius": 0.3,
+          "bone": "flail_5",
+          "at": [
+            0,
+            0,
+            0
+          ]
         }
       ]
     },
@@ -744,26 +804,46 @@
         {
           "clip": "great sword slash",
           "joint": "RightHand",
-          "extend": 1.0,
-          "radius": 0.55
+          "radius": 0.4,
+          "bone": "mixamorig:Weapon",
+          "at": [
+            89.8055,
+            -16.9116,
+            -23.1578
+          ]
         },
         {
           "clip": "great sword attack",
           "joint": "RightHand",
-          "extend": 1.0,
-          "radius": 0.55
+          "radius": 0.4,
+          "bone": "mixamorig:Weapon",
+          "at": [
+            89.8055,
+            -16.9116,
+            -23.1578
+          ]
         },
         {
           "clip": "great sword slash (3)",
           "joint": "RightHand",
-          "extend": 1.0,
-          "radius": 0.55
+          "radius": 0.4,
+          "bone": "mixamorig:Weapon",
+          "at": [
+            89.8055,
+            -16.9116,
+            -23.1578
+          ]
         },
         {
           "clip": "great sword slash (4)",
           "joint": "RightHand",
-          "extend": 1.0,
-          "radius": 0.55
+          "radius": 0.4,
+          "bone": "mixamorig:Weapon",
+          "at": [
+            89.8055,
+            -16.9116,
+            -23.1578
+          ]
         }
       ]
     },
@@ -833,26 +913,46 @@
         {
           "clip": "standing melee attack downward",
           "joint": "RightHand",
-          "extend": 0.55,
-          "radius": 0.5
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            47.8084,
+            22.8562,
+            3.3776
+          ]
         },
         {
           "clip": "standing melee attack horizontal",
           "joint": "RightHand",
-          "extend": 0.55,
-          "radius": 0.5
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            47.8084,
+            22.8562,
+            3.3776
+          ]
         },
         {
           "clip": "standing melee attack backhand",
           "joint": "RightHand",
-          "extend": 0.55,
-          "radius": 0.5
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            47.8084,
+            22.8562,
+            3.3776
+          ]
         },
         {
           "clip": "standing melee attack 360 high",
           "joint": "RightHand",
-          "extend": 0.55,
-          "radius": 0.5
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            47.8084,
+            22.8562,
+            3.3776
+          ]
         }
       ]
     },
@@ -922,26 +1022,46 @@
         {
           "clip": "sword and shield slash",
           "joint": "RightHand",
-          "extend": 0.65,
-          "radius": 0.45
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            55.494,
+            9.6906,
+            6.3692
+          ]
         },
         {
           "clip": "sword and shield slash (3)",
           "joint": "RightHand",
-          "extend": 0.65,
-          "radius": 0.45
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            55.494,
+            9.6906,
+            6.3692
+          ]
         },
         {
           "clip": "sword and shield slash (5)",
           "joint": "RightHand",
-          "extend": 0.65,
-          "radius": 0.45
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            55.494,
+            9.6906,
+            6.3692
+          ]
         },
         {
           "clip": "sword and shield attack (4)",
           "joint": "RightHand",
-          "extend": 0.65,
-          "radius": 0.45
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            55.494,
+            9.6906,
+            6.3692
+          ]
         }
       ]
     },
@@ -1011,26 +1131,264 @@
         {
           "clip": "sword and shield slash",
           "joint": "RightHand",
-          "extend": 0.5,
-          "radius": 0.45
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            46.5089,
+            24.1693,
+            6.4159
+          ]
         },
         {
           "clip": "sword and shield slash (3)",
           "joint": "RightHand",
-          "extend": 0.5,
-          "radius": 0.45
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            46.5089,
+            24.1693,
+            6.4159
+          ]
         },
         {
           "clip": "sword and shield slash (5)",
           "joint": "RightHand",
-          "extend": 0.5,
-          "radius": 0.45
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            46.5089,
+            24.1693,
+            6.4159
+          ]
         },
         {
           "clip": "sword and shield attack (4)",
           "joint": "RightHand",
-          "extend": 0.5,
-          "radius": 0.45
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            46.5089,
+            24.1693,
+            6.4159
+          ]
+        }
+      ]
+    },
+    {
+      "note": "KN8: AI type Knight 8 (32): Knight 4 (the beaked-visor helm) with a 2.2 m halberd on the extra joint mixamorig:Weapon (keyed in every clip), the Great Sword Pack clips mapped as Knight 4 (content/characters/knight_8.glb; root motion pinned by tools/enemies/knight2_prep.py; credits in docs/credits.md). Strike: on the halberd's head (bone + at)",
+      "id": "knight8",
+      "name": "Knight 8",
+      "model": "knight_8",
+      "height_m": 1.9,
+      "scale": 1,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 600,
+      "damage": 60,
+      "reach_m": 2.0,
+      "lunge_m": 1.0,
+      "cooldown_s": 1.2,
+      "windup_s": 0.5,
+      "attack_rate": 1.0,
+      "walk_mps": 1.5,
+      "run_mps": 3.8,
+      "run_within_m": 12,
+      "weight": 0,
+      "hit_zone_scale": 1.1,
+      "knockback_mps": 3,
+      "stagger_min_damage": 120,
+      "stagger_s": 0.7,
+      "explosive_mult": 2,
+      "clips": {
+        "walk": [
+          "great sword walk"
+        ],
+        "run": "great sword run (2)",
+        "idle": [
+          "great sword idle",
+          "great sword idle (2)"
+        ],
+        "attack": [
+          "great sword slash",
+          "great sword attack",
+          "great sword slash (3)",
+          "great sword slash (4)"
+        ],
+        "damage": [
+          "great sword impact",
+          "great sword impact (2)",
+          "great sword impact (3)",
+          "great sword blocking"
+        ],
+        "death": [
+          "two handed sword death",
+          "two handed sword death (2)"
+        ]
+      },
+      "sounds": {
+        "attack": "knightattack",
+        "contact": "knightattackcontact",
+        "death": "knightdeath"
+      },
+      "attack_dust": false,
+      "head_mult": 4,
+      "attacks": [
+        {
+          "clip": "great sword slash",
+          "joint": "RightHand",
+          "radius": 0.4,
+          "bone": "mixamorig:Weapon",
+          "at": [
+            93.2268,
+            -2.005,
+            -22.663
+          ]
+        },
+        {
+          "clip": "great sword attack",
+          "joint": "RightHand",
+          "radius": 0.4,
+          "bone": "mixamorig:Weapon",
+          "at": [
+            93.2268,
+            -2.005,
+            -22.663
+          ]
+        },
+        {
+          "clip": "great sword slash (3)",
+          "joint": "RightHand",
+          "radius": 0.4,
+          "bone": "mixamorig:Weapon",
+          "at": [
+            93.2268,
+            -2.005,
+            -22.663
+          ]
+        },
+        {
+          "clip": "great sword slash (4)",
+          "joint": "RightHand",
+          "radius": 0.4,
+          "bone": "mixamorig:Weapon",
+          "at": [
+            93.2268,
+            -2.005,
+            -22.663
+          ]
+        }
+      ]
+    },
+    {
+      "note": "KN9: AI type Knight 9 (33): Knight 5's body with a steel-recoloured Maximilian close helmet over the shaved head and a Polish-Ottoman sabre, the Pro Melee Axe Pack clips mapped as Knight 5 plus the sword-and-shield pack's two deaths (tools/enemies/knight_add_clips.py) (content/characters/knight_9.glb; credits in docs/credits.md). Strike: on the sabre's blade (bone + at)",
+      "id": "knight9",
+      "name": "Knight 9",
+      "model": "knight_9",
+      "height_m": 1.9,
+      "scale": 1,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 600,
+      "damage": 60,
+      "reach_m": 2.0,
+      "lunge_m": 1.0,
+      "cooldown_s": 1.2,
+      "windup_s": 0.5,
+      "attack_rate": 1.0,
+      "walk_mps": 1.5,
+      "run_mps": 3.8,
+      "run_within_m": 12,
+      "weight": 0,
+      "hit_zone_scale": 1.1,
+      "knockback_mps": 3,
+      "stagger_min_damage": 120,
+      "stagger_s": 0.7,
+      "explosive_mult": 2,
+      "clips": {
+        "walk": [
+          "standing walk forward"
+        ],
+        "run": "standing run forward",
+        "idle": [
+          "standing idle",
+          "standing idle looking ver. 2"
+        ],
+        "attack": [
+          "standing melee attack downward",
+          "standing melee attack horizontal",
+          "standing melee attack backhand",
+          "standing melee attack 360 high"
+        ],
+        "damage": [
+          "standing react large gut",
+          "standing react large from left",
+          "standing react large from right",
+          "standing block react large"
+        ],
+        "death": [
+          "sword and shield death",
+          "sword and shield death (2)"
+        ]
+      },
+      "sounds": {
+        "attack": "knightattack",
+        "contact": "knightattackcontact",
+        "death": "knightdeath"
+      },
+      "attack_dust": false,
+      "head_mult": 4,
+      "attacks": [
+        {
+          "clip": "standing melee attack downward",
+          "joint": "RightHand",
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            60.8358,
+            7.0653,
+            2.6017
+          ]
+        },
+        {
+          "clip": "standing melee attack horizontal",
+          "joint": "RightHand",
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            60.8358,
+            7.0653,
+            2.6017
+          ]
+        },
+        {
+          "clip": "standing melee attack backhand",
+          "joint": "RightHand",
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            60.8358,
+            7.0653,
+            2.6017
+          ]
+        },
+        {
+          "clip": "standing melee attack 360 high",
+          "joint": "RightHand",
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            60.8358,
+            7.0653,
+            2.6017
+          ]
         }
       ]
     }

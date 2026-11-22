@@ -29,7 +29,9 @@ struct EnemyType {
   // past it along its limb (a mace head, a jaw); radius: the strike sphere; range: the target distances it is used at (default:
   // the joint's reach at the swing); leap: dashes in during the wind-up; victims: at most this many (0: any); swing: the
   // blow's moment as a fraction of the clip (default: the fastest hand); window: seconds the sphere is live before / after it
-  struct AttackSpec { std::string clip; int joint = -1; float extend = 0, radius = 0, damage = -1, rangeMin = 0, rangeMax = 0, weight = 1, swing = 0, pre = 0.15f, post = 0.1f, reach = 0; bool leap = false; int victims = 0; };   // reach: the distance it closes to (default: the fastest hand's at the swing)
+  // KN8 json "bone" + "at": the sphere's centre is the point `at` (glTF units, in that skin joint's own rest frame: a weapon head,
+  // the flail ball) carried by the joint's pose, so it follows the weapon through the swing; extend is then unused
+  struct AttackSpec { std::string clip, bone; vec3 at{0}; bool hasAt = false; int joint = -1; float extend = 0, radius = 0, damage = -1, rangeMin = 0, rangeMax = 0, weight = 1, swing = 0, pre = 0.15f, post = 0.1f, reach = 0; bool leap = false; int victims = 0; };   // reach: the distance it closes to (default: the fastest hand's at the swing)
   std::vector<AttackSpec> attackSpecs;
   bool attackDust = true;                                 // CH5 json "attack_dust": false: its blows throw no dust (the area, shake and sounds stay)
   bool tankDamage = false;                                // TK1 json "tank_damage" (default: hp >= 500): its landed blows wear down a tank, 1/15 of its durability each
