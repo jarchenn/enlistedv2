@@ -11,6 +11,8 @@
 // pack.break_off_m, and path on their own only when cut off. A dead leader's nearest member takes over. Pack mates
 // never pick each other (Solo too). Far zombies sample their clips at a lower rate; far followers in step with their
 // leader share its pose and skinned mesh (game.cpp drawItems).
+#include <cstring>
+#include <fstream>
 #include <map>
 #include "ai_core.h"
 #include "app.h"
@@ -98,7 +100,7 @@ const ZombieCfg& zcfg() {
         }
         t.horseHp = std::max(0.0f, e.value("horse_hp", 0.0f));   // HK3
         if (e.contains("death_side") && e["death_side"].is_array() && e["death_side"].size() == 2) { t.deathRight = e["death_side"][0].get<std::string>(); t.deathLeft = e["death_side"][1].get<std::string>(); }   // HK4
-        for (auto& z : e.value("horse_zones", json::array())) if (z.is_array() && z.size() == 3) t.horseZones.push_back({z[0].get<std::string>(), z[1].get<std::string>(), z[2].get<float>()});
+        for (auto& z : e.value("horse_zones", json::array())) if (z.is_array() && (z.size() == 3 || z.size() == 4)) t.horseZones.push_back({z[0].get<std::string>(), z[1].get<std::string>(), z[2].get<float>(), z.size() == 4 ? z[3].get<int>() : 1});
         t.capsuleH = e.value("capsule_height_m", t.capsuleH); t.capsuleR = e.value("capsule_radius_m", t.capsuleR);
         t.climbM = e.value("climb_m", t.climbM); t.stepGap = e.value("step_gap_m", t.stepGap);
         t.knock = e.value("knockback_mps", t.knock); t.staggerMin = e.value("stagger_min_damage", t.staggerMin); t.staggerS = e.value("stagger_s", t.staggerS);
@@ -661,12 +663,12 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
 }
 
 // HK3: the ray a + d t (0 <= t <= maxT) against the horse's capsules (json horse_zones, on its posed joints): the first entry t
-float aiHorseHit(const Game& G, const Soldier& s, vec3 a, vec3 d, float maxT) {
+float aiHorseHit(const Game& G, const Soldier& s, vec3 a, vec3 d, float maxT, int* zone) {
   const EnemyType& e = typeOf(s);
   if (e.horseZones.empty() || s.model < 0 || s.model >= (int)G.models.size() || s.pose.delta.empty()) return -1;
   {   // coarse: a sphere round the horse
     vec3 c = s.feet + vec3(0, 1.1f, 0), w = c - a; float tc = glm::clamp(glm::dot(w, d), 0.0f, maxT);
-    if (glm::length(a + d * tc - c) > 2.6f * s.eScale) return -1;
+    if (glm::length(a + d * tc - c) > std::max(2.6f, 1.3f * e.height) * s.eScale) return -1;   // DR1: a 14.7 m dragon (height_m 6.56) reaches 8.5 m
   }
   const CharModel& m = *G.models[s.model];
   static std::map<const CharModel*, std::vector<std::array<int, 2>>> idx;   // the zones' joint indices per model
@@ -691,7 +693,7 @@ float aiHorseHit(const Game& G, const Soldier& s, vec3 a, vec3 d, float maxT) {
     float dist = glm::length(a + d * tc - (A + u * sc));
     if (dist > r) continue;
     float th = std::max(0.0f, tc - std::sqrt(r * r - dist * dist));   // entering the capsule (taken square to the ray)
-    if (best < 0 || th < best) best = th;
+    if (best < 0 || th < best) { best = th; if (zone) *zone = e.horseZones[q].zone; }
   }
   return best;
 }
@@ -846,6 +848,21 @@ int ar1SelfCheck() {
     for (auto& [id, w] : zcfg().assorted) inMix = inMix || id.rfind("fallen", 0) == 0;
     chk(fk >= 0 && f1 >= 0 && k1 >= 0 && enemyType(fk).hp == 5 * enemyType(k1).hp && enemyType(f1).hp == enemyType(fk).hp && enemyType(fk).model == "knight" && !inMix && std::string(aiTypeName(AiType::FallenKnight)) == "Fallen Knight",
         "Fallen Knight (FK1): AI type 39, 5x a knight's health, the Brother Knight's model, a Knight 1 fallback, not in Assorted"); }
+  {   // DR1: the dragon: AI type 40, its type, and its model's clips and joints read from the GLB's JSON chunk (no GPU)
+    int dk = enemyTypeIndex("dragon"); std::set<std::string> anims, nodes;
+    { std::ifstream f(contentDir() / "characters" / "dragon.glb", std::ios::binary); std::string g((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+      if (g.size() > 20) { uint32_t n = 0; std::memcpy(&n, g.data() + 12, 4); json J; try { J = json::parse(g.substr(20, n)); } catch (...) {}
+        for (auto& x : J.value("animations", json::array())) anims.insert(x.value("name", std::string()));
+        for (auto& x : J.value("nodes", json::array())) nodes.insert(x.value("name", std::string())); } }
+    bool clipsOk = dk >= 0, zonesOk = dk >= 0;
+    if (dk >= 0) { const EnemyType& t = enemyType(dk);
+      std::vector<std::string> need = t.walkClips; need.push_back(t.runClip); for (auto* v : {&t.idleClips, &t.attackClips, &t.damageClips, &t.deathClips}) need.insert(need.end(), v->begin(), v->end());
+      for (auto& c : need) clipsOk = clipsOk && anims.count(c);
+      for (auto& z : t.horseZones) zonesOk = zonesOk && nodes.count(z.a) && nodes.count(z.b) && z.zone >= 0 && z.zone <= 2; }
+    chk(dk >= 0 && std::string(aiTypeName(AiType::Dragon)) == "Dragon" && enemyType(dk).hp == 5000 && enemyType(dk).horseHp == 0 && enemyType(dk).staggerMin >= 10000 && enemyType(dk).attackSpecs.size() == 3,
+        "Dragon (DR1): AI type 40, 5000 health on one pool, no stagger from small arms, three ground attacks");
+    chk(clipsOk && anims.size() == 7 && !anims.count("Take 001"), "Dragon (DR1): every clip it names is in dragon.glb, 7 clips, no flight take (" + std::to_string(anims.size()) + " clips)");
+    chk(zonesOk && enemyType(dk).horseZones.size() >= 20, "Dragon (DR1): " + std::to_string(dk >= 0 ? enemyType(dk).horseZones.size() : 0) + " hit capsules on joints the model has (head / body / limb zones)"); }
   { json xb; try { xb = json::parse(readTextFile(contentDir() / "weapons" / "modern_crossbow.json")); } catch (...) {}   // XB7
     std::string pd = xb.is_object() ? xb.value("projectileModel", json::object()).value("dir", std::string()) : std::string();
     chk(!pd.empty() && fs::exists(contentDir() / "weapons" / "models" / pd / "mesh.bin"), "the crossbow's bolt mesh (XB7): models/" + pd); }

@@ -2006,6 +2006,219 @@
       "capsule_height_m": 3.2,
       "block_radius": 0.18,
       "note": "FK1: AI type 39 without the local knight.glb: Knight 1 at the Fallen Knight body size (x2: height_m 3.904) and health (3000)"
+    },
+    {
+      "id": "dragon",
+      "name": "Dragon",
+      "model": "dragon",
+      "note": "DR1: the Mountain Dragon (content/characters/dragon.glb, CC-BY-4.0, Alexey Zaika: docs/credits.md), ground only (the user: no flight for now): its one 96.8 s take cut into idle, walk (also the run), two claw slams, a bite, a hit and a death (tools/enemies/dragon_convert.py + dragon_spec.json; the frames chosen from the bone tracks and side-view sheets, E:/nmk/dragon); no flight, take-off or landing frames; no fire (no clip opens the jaw). 14.7 m snout to tail tip, head 2.9 m, wing tips 6.6 m (the file's own scale). Hit capsules on its own joints (horse_zones without horse_hp: one health pool; the 4th value the zone: 0 head, 1 body, 2 limb / tail). One movement capsule (1.6 m radius): the neck and tail are not part of its movement collision",
+      "height_m": 6.56,
+      "scale": 1,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 5000,
+      "damage": 140,
+      "reach_m": 5.0,
+      "lunge_m": 0,
+      "cooldown_s": 2.2,
+      "windup_s": 1.0,
+      "attack_rate": 1,
+      "walk_mps": 3.5,
+      "run_mps": 6.8,
+      "run_within_m": 25,
+      "weight": 0,
+      "hit_zone_scale": 1,
+      "knockback_mps": 7,
+      "stagger_min_damage": 100000,
+      "stagger_s": 0,
+      "explosive_mult": 2,
+      "head_mult": 2.5,
+      "clips": {
+        "walk": [
+          "walk"
+        ],
+        "run": "walk",
+        "idle": [
+          "idle"
+        ],
+        "attack": [
+          "attack_claw_l",
+          "attack_claw_r",
+          "attack_bite"
+        ],
+        "damage": [
+          "hit"
+        ],
+        "death": [
+          "death"
+        ],
+        "unused": "the take's flight, take-off, hover and landing (17-21 s, 30-44 s), the wing-assisted bound (87-93 s), a lunge-dash (5-7.5 s), a shuffle (79-87 s): ground only for now"
+      },
+      "sounds": {
+        "attack": "monster_growl"
+      },
+      "attacks": [
+        {
+          "clip": "attack_claw_l",
+          "joint": "LeftHand",
+          "radius": 1.1,
+          "reach": 5.5,
+          "swing": 0.41
+        },
+        {
+          "clip": "attack_claw_r",
+          "joint": "RightHand",
+          "radius": 1.1,
+          "reach": 6.2,
+          "swing": 0.77,
+          "face_deg": -23
+        },
+        {
+          "clip": "attack_bite",
+          "joint": "Head",
+          "radius": 1.3,
+          "reach": 4.6,
+          "swing": 0.333,
+          "face_deg": -40,
+          "damage": 200
+        }
+      ],
+      "horse_zones": [
+        [
+          "Head",
+          "Head",
+          0.95,
+          0
+        ],
+        [
+          "Neck",
+          "Head",
+          0.6,
+          0
+        ],
+        [
+          "Spine2",
+          "Neck",
+          0.65,
+          1
+        ],
+        [
+          "Spine1",
+          "Spine2",
+          0.95,
+          1
+        ],
+        [
+          "Hips",
+          "Spine1",
+          1.15,
+          1
+        ],
+        [
+          "LeftArm",
+          "LeftForeArm",
+          0.4,
+          2
+        ],
+        [
+          "LeftForeArm",
+          "LeftHand",
+          0.3,
+          2
+        ],
+        [
+          "RightArm",
+          "RightForeArm",
+          0.4,
+          2
+        ],
+        [
+          "RightForeArm",
+          "RightHand",
+          0.3,
+          2
+        ],
+        [
+          "LeftUpLeg",
+          "LeftLeg",
+          0.55,
+          2
+        ],
+        [
+          "LeftLeg",
+          "b_MountainDragon_L_HorseLink_073_81",
+          0.35,
+          2
+        ],
+        [
+          "b_MountainDragon_L_HorseLink_073_81",
+          "LeftFoot",
+          0.28,
+          2
+        ],
+        [
+          "RightUpLeg",
+          "RightLeg",
+          0.55,
+          2
+        ],
+        [
+          "RightLeg",
+          "b_MountainDragon_R_HorseLink_061_69",
+          0.35,
+          2
+        ],
+        [
+          "b_MountainDragon_R_HorseLink_061_69",
+          "RightFoot",
+          0.28,
+          2
+        ],
+        [
+          "Hips",
+          "b_MountainDragon_Tail_083_91",
+          0.9,
+          2
+        ],
+        [
+          "b_MountainDragon_Tail_083_91",
+          "b_MountainDragon_Tail2_085_93",
+          0.7,
+          2
+        ],
+        [
+          "b_MountainDragon_Tail2_085_93",
+          "b_MountainDragon_Tail4_087_95",
+          0.55,
+          2
+        ],
+        [
+          "b_MountainDragon_Tail4_087_95",
+          "b_MountainDragon_Tail6_089_97",
+          0.42,
+          2
+        ],
+        [
+          "b_MountainDragon_Tail6_089_97",
+          "b_MountainDragon_Tail8_091_99",
+          0.32,
+          2
+        ],
+        [
+          "b_MountainDragon_Tail8_091_99",
+          "b_MountainDragon_Tail10_093_101",
+          0.22,
+          2
+        ]
+      ],
+      "capsule_radius_m": 1.6,
+      "capsule_height_m": 3.2,
+      "climb_m": 1.0,
+      "block_radius": 0.45
     }
   ]
 }
