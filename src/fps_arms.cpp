@@ -648,7 +648,7 @@ bool fpsSupportHandDraw(App& app, const mat4& cam, const mat4& weaponToCam, cons
       if (fwd < nearE && rr < fwd * 0.5f) ++tooNear;   // a sleeve end-on / a wrist at the cheek
     }
   };
-  scan(0);
+  if (slot != 1) scan(0);   // KF2b: the bolt hand works the bolt in the sight picture (the user's clip): no cone / near-clear drop
   if (inCone > 0) {
     float lo = 0, hi = 0.084f; scan(hi);
     if (inCone == 0) { for (int it = 0; it < 6; ++it) { float mid = 0.5f * (lo + hi); scan(mid); if (inCone > 0) lo = mid; else hi = mid; } scan(hi); }
@@ -663,8 +663,8 @@ bool fpsSupportHandDraw(App& app, const mat4& cam, const mat4& weaponToCam, cons
   gA.sleeve15 = ndc(out.sleeve15);
   }
   bool bad = false;   // a non-finite vertex, or any of the hand / sleeve near the eye or behind it: not drawn (never a smear)
-  for (size_t v = 0; v < B.V.size() && !bad; ++v) { const vec3& q = B.V[v].pos; bad = !std::isfinite(q.x + q.y + q.z) || (v >= out.handV0 && -q.z < 0.06f); }
-  if (inCone > 0 || tooNear > 0 || bad || B.V.size() != gA.nV) {
+  for (size_t v = 0; v < B.V.size() && !bad; ++v) { const vec3& q = B.V[v].pos; bad = !std::isfinite(q.x + q.y + q.z) || (v >= out.handV0 && -q.z < (slot == 1 ? 0.02f : 0.06f)); }
+  if ((slot != 1 && (inCone > 0 || tooNear > 0)) || bad || B.V.size() != gA.nV) {
     static int lastWhy = -1; int why = (inCone > 0) + 2 * (tooNear > 0) + 4 * bad + 8 * (B.V.size() != gA.nV);
     if (why != lastWhy) { lastWhy = why; logf("fps arms: not drawn (cone %d, near %d, bad %d, size %d) wrist (%.2f %.2f %.2f) elbow (%.2f %.2f %.2f) shoulder (%.2f %.2f %.2f)", inCone, tooNear, (int)bad, (int)(B.V.size() != gA.nV), out.wrist.x, out.wrist.y, out.wrist.z, out.elbow.x, out.elbow.y, out.elbow.z, out.shoulder.x, out.shoulder.y, out.shoulder.z); }
     return false;
