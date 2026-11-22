@@ -3,7 +3,9 @@ import json, math, glob
 import numpy as np
 from PIL import Image, ImageDraw
 R = 'E:/nmk/garand_ref'
-O = json.load(open(R + '/ours/ours.json')); CU = json.load(open(R + '/curves.json'))
+import sys
+OD, OP, OJ, OUTD = (sys.argv[1:5] + ['ours', 'o_', 'ours.json', 'cmp'][len(sys.argv) - 1:])[:4]   # ours dir, file prefix, its json, output dir (under R)
+O = json.load(open(R + '/' + OD + '/' + OJ)); CU = json.load(open(R + '/curves.json'))
 BG = np.array([120, 135, 150])
 FW = 540 / math.tan(math.radians(json.load(open('E:/nmk/wt-cp/content/weapons/m1_garand.json'))['ads'].get('worldFov', 58) / 2))
 # curve panel base: measured (two shots averaged) vs ours, per channel
@@ -24,12 +26,12 @@ def panel(i):
         d.line([X(i), y0, X(i), y0 + h], fill=(255, 255, 255))
     d.text((50, 528), 'orange: measured in the video   blue: ours (engine curve)', fill=(200, 200, 200))
     return im
-out = R + '/cmp'
+out = R + '/' + OUTD
 import os; os.makedirs(out, exist_ok=True)
 for o in O:
     i = o['frame']
     ref = Image.open(R + '/frames/f_%04d.png' % i).convert('RGB')
-    oi = Image.open(R + '/ours/o_%04d.png' % i).convert('RGBA'); bgi = Image.new('RGBA', oi.size, (120, 135, 150, 255)); bgi.alpha_composite(oi)
+    oi = Image.open(R + '/' + OD + '/' + OP + '%04d.png' % i).convert('RGBA'); bgi = Image.new('RGBA', oi.size, (120, 135, 150, 255)); bgi.alpha_composite(oi)
     ours = np.asarray(bgi.convert('RGB')).astype(np.int16)
     mask = (np.abs(ours - BG).sum(2) > 6)
     # ours over a grid that moves with our camera kick (pitch up = the scene down, roll = the picture clockwise)
@@ -48,7 +50,7 @@ for o in O:
     F.paste(ref.resize((960, 540)), (0, 0)); F.paste(oursI.resize((960, 540)), (960, 0))
     F.paste(Image.fromarray(blend).crop((480, 270, 1440, 810)), (0, 540)); F.paste(panel(i), (960, 540))
     d = ImageDraw.Draw(F)
-    for (x, y, t) in ((8, 6, 'reference video  frame %d' % i), (968, 6, 'ours: engine ADS pose + GR1 curve (grid = our camera kick)'), (8, 546, '50 %% overlay, sights at 1:1 (frame %d)' % i)):
+    for (x, y, t) in ((8, 6, 'reference video  frame %d' % i), (968, 6, 'ours: ' + ('arms rig (gar.blend) + the fireCurve' if OD != 'ours' else 'engine ADS pose + the fireCurve') + ' (grid = our camera kick)'), (8, 546, '50 %% overlay, sights at 1:1 (frame %d)' % i)):
         d.rectangle([x - 4, y - 2, x + 7 * len(t), y + 14], fill=(0, 0, 0)); d.text((x, y), t, fill=(255, 230, 120))
     F.save(out + '/c_%04d.png' % i)
 print('composed', len(O))
