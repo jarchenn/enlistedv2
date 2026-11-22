@@ -27,6 +27,7 @@ static_assert(sizeof(kSemanticNames) / sizeof(kSemanticNames[0]) == CJ_COUNT, "t
 #include <cstdlib>
 #include <set>
 
+bool gKnight2 = true;    // knight2 (Renderer::perf, set each frame by App): off = each type's json "legacy" patch applies when the table loads
 namespace {
 float zLenXZ(vec3 v) { return glm::length(vec2(v.x, v.z)); }
 struct ZombieCfg {
@@ -55,7 +56,8 @@ const ZombieCfg& zcfg() {
       auto strs = [](const json& e, const char* k, std::vector<std::string>& v) {   // a name or a list of names
         if (e.contains(k) && e[k].is_string()) v = {e[k].get<std::string>()};
         else if (e.contains(k) && e[k].is_array() && !e[k].empty()) { v.clear(); for (auto& s : e[k]) v.push_back(s.get<std::string>()); } };
-      for (auto& e : j.value("types", json::array())) {   // EN1 enemy types; a missing field keeps the plain zombie's value
+      for (auto e : j.value("types", json::array())) {   // EN1 enemy types; a missing field keeps the plain zombie's value
+        if (!gKnight2 && e.contains("legacy") && e["legacy"].is_object()) e.merge_patch(e["legacy"]);   // knight2 off: the type as it was
         { const std::string eid = e.value("id", std::string());   // RM1: the fighters; RM2: the alien, alien queen and animatronic (the clown): an old local file
           if (eid.rfind("fighter", 0) == 0 || eid == "alien" || eid == "alien_queen" || eid == "animatronic") { logf("enemy types: '%s' is a removed type: ignored", eid.c_str()); continue; } }
         EnemyType t;
