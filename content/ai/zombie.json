@@ -1477,6 +1477,115 @@
           "damage": 18
         }
       ]
+    },
+    {
+      "note": "K10: AI type Knight 10 (35): a copy of the winged knight (Knight 3) with the cuirass over its pulled-in chest, Silver Sword and triangular shield in its dark armour finish, and a black cloak with a cross whose physics is baked into all 51 clips on 35 cape joints (tools/enemies/knight_parts.py knight10, knight_v2_merge.py, k10_cape.py, gltf_prune.py). Stats, clips, attacks and sounds as Knight 1; the strike sphere 65 % along the new blade",
+      "id": "knight10",
+      "name": "Knight 10",
+      "model": "knight_10",
+      "height_m": 1.9,
+      "scale": 1,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 600,
+      "damage": 60,
+      "reach_m": 2.0,
+      "lunge_m": 1.0,
+      "cooldown_s": 1.2,
+      "windup_s": 0.5,
+      "attack_rate": 1.0,
+      "walk_mps": 1.5,
+      "run_mps": 3.8,
+      "run_within_m": 12,
+      "weight": 0,
+      "hit_zone_scale": 1.1,
+      "knockback_mps": 3,
+      "stagger_min_damage": 120,
+      "stagger_s": 0.7,
+      "explosive_mult": 2,
+      "clips": {
+        "walk": [
+          "sword and shield walk"
+        ],
+        "run": "sword and shield run",
+        "idle": [
+          "sword and shield idle",
+          "sword and shield idle (4)"
+        ],
+        "attack": [
+          "sword and shield slash",
+          "sword and shield slash (3)",
+          "sword and shield slash (5)",
+          "sword and shield attack (4)"
+        ],
+        "damage": [
+          "sword and shield impact",
+          "sword and shield impact (2)",
+          "sword and shield impact (3)",
+          "sword and shield block"
+        ],
+        "death": [
+          "sword and shield death",
+          "sword and shield death (2)"
+        ]
+      },
+      "sounds": {
+        "attack": "knightattack",
+        "contact": "knightattackcontact",
+        "death": "knightdeath"
+      },
+      "attack_dust": false,
+      "head_mult": 4,
+      "attacks": [
+        {
+          "clip": "sword and shield slash",
+          "joint": "RightHand",
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            55.5535,
+            10.9538,
+            8.0932
+          ]
+        },
+        {
+          "clip": "sword and shield slash (3)",
+          "joint": "RightHand",
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            55.5535,
+            10.9538,
+            8.0932
+          ]
+        },
+        {
+          "clip": "sword and shield slash (5)",
+          "joint": "RightHand",
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            55.5535,
+            10.9538,
+            8.0932
+          ]
+        },
+        {
+          "clip": "sword and shield attack (4)",
+          "joint": "RightHand",
+          "radius": 0.35,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            55.5535,
+            10.9538,
+            8.0932
+          ]
+        }
+      ]
     }
   ]
 }
