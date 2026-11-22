@@ -63,6 +63,8 @@ struct Soldier {
   bool gunBody = false; int gmWeapon = -1; double gmShotAt = -100; float gmFireT = 1;   // GM1 / GM2: a body with its gun built in (gas-mask / desert soldiers, the Axis bots: combat.json gunbody_models): its weapon, the clip state of its shots (gunbody.cpp)   // SW1: 2 blaster trooper, 3 robot commando (combat.json kits: body, blasters, pace, hit sparks)
   float lean = 0;                            // MV3: the player's Q / E lean (-1 .. 1; local from App::lean, LAN in the snapshot)                           // AI5: an Operator bot (AiType::Operators): modern weapons (combat.json loadouts_operator)                       // G2: the melee brain (zombie.cpp: Zombies, heavies): no weapon
   int etype = 0; double staggerUntil = 0;    // EN1: enemy type (enemy_types.h; LAN snapshot), stopped by a heavy hit until
+  int8_t npc = 0; int npcFoe = -1; int npcLife = -1; double npcCalmAt = 0, npcNext = 0; vec3 npcFrom{0}, npcHome{0};   // NPC1: a civilian (enemy type json "npc": 1 fight, 2 flee; Game::setupSlotSoldier); the one it fights back (host; -1: none),
+  // its life the home was set for, until when it flees from npcFrom, its next wander, where it wanders round (zombie.cpp npcStep)
   int evariant = 0;                          // the type's model variant (Game::begin, in turn per type; clients compute the same)
   float horseHp = 0, riderHpKeep = 0; bool hitHorse = false;   // HK3: the mounted knight's horse health, the rider's health when the horse fell, a bullet that met the horse (damage() routes it)
   int8_t mountDeath = -1;   // HK2: a mounted knight's death: -1 not decided, 0 the rider shot off, 1 the horse down (on foot after it), 2 done
@@ -211,6 +213,7 @@ public:
   int soldierOfOwner(int owner) const;
   bool sameTeam(int a, int b) const { return a >= 0 && b >= 0 && sold[a].team == sold[b].team; }
   static bool hostile(const Soldier& a, const Soldier& b) {   // G1: every enemy check; CMD2: an AI never takes the /admin (ignored) or anyone (/peace) for an enemy
+    if (a.npc || b.npc) return &a != &b && !(a.npc && b.npc) && (a.npc ? a.npcFoe == b.slot : b.npcFoe == a.slot) && !(!a.human && gAdmin.peace);   // NPC1: a civilian is nobody's enemy but the one it fights back
     return &a != &b && a.team != b.team && !(!a.human && (gAdmin.peace || (gAdmin.ignored && b.localPlayer))); }
   // perception helpers
   bool lineOfSight(vec3 a, vec3 b, float* smokeT = nullptr) const;

@@ -283,11 +283,13 @@ void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& 
             : ait == AiType::KnightsAssorted ? enemyTypeAssortedPick((uint32_t)rs.id)   // AK1: a knight or an archer per slot
             : ait == AiType::FallenKnight ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "knight.glb") ? "fallen_knight" : "fallen_knight1"))   // FK1: the Brother Knight is local-only: Knight 1 at its size without it
             : ait == AiType::Dragon ? std::max(0, enemyTypeIndex("dragon"))   // DR1: the Mountain Dragon, ground only
+            : ait == AiType::Civilians ? enemyTypeNpcPick((uint32_t)rs.id)   // NPC1: one of the civilian types per slot
             : ait == AiType::SpearKnight ? std::max(0, enemyTypeIndex("knight_spear"))   // KS: the Spear Knight (its build picked per spawn from "models")
             : ait == AiType::Archers2 ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "archer_2.glb") ? "archer2" : "archer1"))   // AR2: its model is local-only (the tunic is CC-BY-NC-ND): Archer 1 without it
             : ait == AiType::Abominations ? std::max(0, enemyTypeIndex("abomination")) : ait == AiType::Golems ? std::max(0, enemyTypeIndex("golem"))
             : ait == AiType::Boglords ? std::max(0, enemyTypeIndex("boglord")) : ait == AiType::Mechs ? std::max(0, enemyTypeIndex("mech")) : 0;
     s.evariant = variant;
+    s.npc = s.zombie ? (int8_t)enemyType(s.etype).npc : 0; s.npcFoe = -1; s.npcLife = -1; s.npcCalmAt = 0;   // NPC1
     s.rng = 0x9E3779B9u ^ (uint32_t)(rs.id * 2654435761u);
     const json& a = arr[rs.id % arr.size()];
     Brain& b = s.br;
@@ -856,6 +858,7 @@ void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
   s.br.suppressed = std::min(1.0f, s.br.suppressed + 0.5f);
   if (s.localPlayer) { hurtFlash = std::min(1.0f, hurtFlash + dmg / 60.0f); lastHurtDir = -dir; }
   s.lastHow = how ? how : "";   // the hit's zone / kind ("head", "upper torso", "blast", "melee", ...): the death pick reads it
+  if (!isClient) npcHurt(*this, i, attacker);   // NPC1: civilians fight back or flee
   if (s.hp <= 0) killSoldier(i, attacker, dir);
 }
 

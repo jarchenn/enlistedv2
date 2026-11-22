@@ -14,6 +14,8 @@ struct EnemyType {
   std::string sndWindup; float voicePitch = 1;            // SND4: "windup" (as it commits to a blow on a human player, in place of "attack", which then sounds at the blow if the wind-up is 1 s or longer); json voice_pitch: idle / attack / windup x
   std::string model = "zombie"; float height = 1.85f;    // content/characters/<model>.glb, rest pose scaled to height
   std::vector<std::string> models;                        // variants (json "models"; [0] = model): Soldier::evariant picks one in turn
+  int npc = 0;                                            // NPC1 json "npc": "fight" (1) / "flee" (2): a civilian (zombie.cpp npcStep / npcHurt)
+  float npcWander = 12, npcWitness = 15, npcFleeM = 35, npcCalm = 20, npcFightHp = 0.5f;   // json npc_wander_m (round its spawn), npc_witness_m, npc_flee_m, npc_calm_s, npc_fight_hp (a fighter flees below this share of its health)
   bool modelsRandom = false;                              // KS json "models_pick": "random": a hash of the variant picks (the same on every peer)
   float scale = 1, lean = 0;                              // drawn (and hit) at scale x; lean: whole-body forward tilt (deg)
   float fallbackScale = 1, fallbackLean = 0;              // on the plain zombie's model and clips when this model or its walk clip is missing
@@ -66,6 +68,7 @@ struct EnemyType {
   std::string climbClip;                                  // EN4: played over a climb (empty or missing: the walk clip)
   std::vector<std::string> walkClips{"walk01", "walk02"}, idleClips{"idle01", "idle02"}, attackClips{"attack01", "attack02"};
   std::string runClip = "run";
+  std::string walkInjured, runInjured;   // NPC3 json clips "walk_injured" / "run_injured": a civilian below npc_fight_hp of its health limps / runs hurt
   std::vector<std::string> damageClips{"damage"}, deathClips{"death"};   // EN2: lists, one picked per hit / death
 };
 extern bool gMechRobot;                              // mechrobot perf switch (zombie.cpp, read as each slot spawns): AI type Mechs = the KR-714 robot soldier; off = the melee mech
@@ -74,6 +77,8 @@ extern bool gKnight2;                                // knight2 perf switch (zom
 const std::vector<EnemyType>& enemyTypes();          // never empty (the plain zombie at least)
 const EnemyType& enemyType(int k);                   // clamped
 int enemyTypeIndex(const std::string& id);          // -1: no such type
+int enemyTypeNpcPick(uint32_t seed);                // NPC1 AI type Civilians: one of the types with json "npc" (fight or flee), in turn by slot
+int npcReact(int npc, float hpAfter, float hpMax, float fightShare);   // NPC1: 1 fight back, 2 flee, 0 nothing (npc 0)
 int enemyTypeAssortedPick(uint32_t seed);           // AK1 AI type Assorted Knights: zombie.json "assorted" by weight (types without their model file left out)
 int enemyTypePick(uint32_t seed);                    // weighted pick over the types (Zombies + heavies)
 int enemyTypeHeavyPick(uint32_t seed, float trollShare);   // EN3 AI type Heavies: "brute" with that share, else "stalker" (by weight among the heavies without those ids)
