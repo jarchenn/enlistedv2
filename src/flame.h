@@ -14,9 +14,10 @@ class App; struct WeaponDef; struct WeaponState;
 struct FlameParcel {
   vec3 p{0}, o{0}, v{0}; float age = 0, life = 1; int owner = -1, weapon = -1; bool dmg = false;
   uint32_t seen[8] = {0};   // soldier slots this parcel has already hit (once each)
+  float dmgK = 1, vis = 1;  // DR1c: damage factor (parcel, burn, the ground fire it starts); vis > 1: a creature's breath (bigger, billowing, embers, smoke)
 };
 struct FlamePatch { vec3 p{0}; float t = 0, radius = 1.3f, dps = 12, burnSeconds = 3, burnDps = 14, tick = 0; int owner = -1; bool dmg = false; };
-struct FlameNozzle { vec3 o{0}, d{0, 0, 1}, bore{0}; float acc = 0, netT = 0, fxT = 0; double lastOn = -1; int loop = -1, weapon = -1; };
+struct FlameNozzle { vec3 o{0}, d{0, 0, 1}, bore{0}; float acc = 0, netT = 0, fxT = 0, vis = 1; double lastOn = -1; int loop = -1, weapon = -1; };
 
 // fuel: `seconds` of firing off the weapon's tank (cap = 100 % = flame.fuelSeconds); true while any is left
 bool flameDrain(WeaponState& ws, const WeaponDef& d, float seconds);
@@ -25,8 +26,9 @@ class FlameSys {
 public:
   // every frame the nozzle `key` is open (-1: the local player, else a roster slot): emits parcels for `dt`
   // bore: the gun's own bore direction in the player's view (zero for other nozzles): a flame tongue follows it for the look
-  // rangeM / coneDeg > 0: instead of the weapon's flame range / cone (DR1: the dragon's breath on the M2's parcels)
-  void spray(App& app, int key, int weapon, vec3 origin, vec3 dir, float dt, bool damage, vec3 bore = vec3(0), float rangeM = 0, float coneDeg = 0);
+  // rangeM / coneDeg > 0: instead of the weapon's flame range / cone (DR1: the dragon's breath on the M2's parcels); dmgK: its
+  // damage factor; vis > 1: a creature's breath, drawn that much bigger, billowing, with embers and smoke (DR1c)
+  void spray(App& app, int key, int weapon, vec3 origin, vec3 dir, float dt, bool damage, vec3 bore = vec3(0), float rangeM = 0, float coneDeg = 0, float dmgK = 1, float vis = 1);
   void step(App& app, float dt);                       // parcels, patches, particles, sound (App::stepProjectiles)
   void gatherLights(std::vector<LightDesc>& out) const; // lights.cpp lightsGather: a moving light per open nozzle
   void clear(App* app);
