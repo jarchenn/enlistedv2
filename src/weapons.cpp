@@ -278,7 +278,7 @@ void App::buildWeaponMeshes() {
         }
       }
     }
-    if (j.contains("animated") && useImportedModels && !(d->id == "sten" && !R.perf.stenRig)) {   // STR1: stenrig off keeps the generated arm   // MG1: the source's own arms and clips (vm_anim.h); a failure keeps the static path
+    if (j.contains("animated") && useImportedModels && !(d->id == "sten" && !R.perf.stenRig) && !(d->id == "stg44" && !R.perf.stg44Rig)) {   // STR1: stenrig off keeps the generated arm; SG1: likewise stg44rig   // MG1: the source's own arms and clips (vm_anim.h); a failure keeps the static path
       const json& ab = j["animated"]; std::string err;
       d->anim = animVmLoad(dir / "models" / ab.value("dir", j.value("model", json::object()).value("dir", std::string())), ab, err);
       if (!d->anim) logf("weapon %s: animated viewmodel not used (%s): static model + generated arm", d->id.c_str(), err.c_str());

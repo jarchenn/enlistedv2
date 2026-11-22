@@ -92,7 +92,13 @@ else:
     gunBone = cfg.get("gunBone") or max(cnt, key=cnt.get)
 # weapon space (static bake) -> static glTF -> Blender world at rest: p_g = p_w / s + o, world = (x, -z, y)
 FR = cfg.get("frame")   # MG7 (the knife): no sights: an explicit camera frame in Blender world units at rest (eye, a point ahead, up, scale)
-if FR:
+SP = cfg.get("srcPoints")   # SG1: the sights in the source's own glTF world at rest (registered on the game's static model), metres per unit srcScale
+if SP:
+    s = cfg["srcScale"]; o_ = [0, 0, 0]
+    def w2b(p): raise SystemExit("SG1: srcPoints rigs take no weapon-space inputs (cutLens / attach)")
+    gl2b = lambda v: Vector((v[0], -v[2], v[1]))
+    pts = {k: gl2b(SP[k]) for k in ("rear", "front", "muzzle")}; pts["_up"] = gl2b(SP["up"])
+elif FR:
     s = FR["scale"]; o_ = [0, 0, 0]
     def w2b(p): return Vector(p)
     pts = {"rear": Vector(FR["rear"]), "front": Vector(FR["front"]), "muzzle": Vector(FR["front"])}
@@ -115,7 +121,7 @@ dg = bpy.context.evaluated_depsgraph_get()
 ev = gun.evaluated_get(dg); me = ev.to_mesh()
 vs = [ev.matrix_world @ v.co for v in me.vertices]; ev.to_mesh_clear()
 bb = [min(v[i] for v in vs) for i in range(3)] + [max(v[i] for v in vs) for i in range(3)]
-log["gunRestBlender"] = [round(x, 4) for x in bb]; log["staticGunBlender"] = None if FR else st.get("gunBlender")
+log["gunRestBlender"] = [round(x, 4) for x in bb]; log["staticGunBlender"] = None if (FR or SP) else st.get("gunBlender")
 arm.data.pose_position = "POSE"
 
 # ---------------------------------------------------------------- MG3: attach an accessory mesh to the gun (the red dot on the 870)
