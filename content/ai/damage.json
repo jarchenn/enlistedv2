@@ -64,6 +64,15 @@
    "rpm": 400,
    "class": "semi"
   },
+  "g43": {
+   "near": 65,
+   "far": 50,
+   "falloffStart_m": 60,
+   "falloffEnd_m": 150,
+   "rpm": 400,
+   "note": "FR2: the Garand's row (the same class of semi-automatic full-power rifle)",
+   "class": "semi"
+  },
   "m1c_garand": {
    "near": 65,
    "far": 50,
@@ -139,6 +148,15 @@
    "falloffStart_m": 15,
    "falloffEnd_m": 60,
    "rpm": 550,
+   "class": "smg"
+  },
+  "ppsh41": {
+   "near": 28,
+   "far": 17,
+   "falloffStart_m": 15,
+   "falloffEnd_m": 60,
+   "rpm": 900,
+   "note": "FR2: the MP40's row (a pistol-calibre SMG) at its own rate",
    "class": "smg"
   },
   "mg42": {

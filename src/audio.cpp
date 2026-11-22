@@ -284,6 +284,8 @@ bool Audio::init() {
   gun("shot_kar98k", 3800, 62, 5.0f, 1.4f, 0.045f);
   gun("shot_kar98k_zf39", 3800, 62, 5.0f, 1.4f, 0.045f);
   gun("shot_mp40", 3000, 110, 14.0f, 0.5f, 0.09f);
+  gun("shot_ppsh41", 3000, 110, 14.0f, 0.5f, 0.09f);   // FR2: the MP40's synthetic stand-in
+  gun("shot_g43", 4200, 70, 6.0f, 1.2f, 0.05f);   // FR2: the Garand's
   gun("shot_m1_thompson", 2400, 90, 12.0f, 0.55f, 0.07f);
   gun("shot_mg42", 5200, 85, 16.0f, 0.4f, 0.12f);
   gun("shot_m2hb", 3000, 45, 7.0f, 0.9f, 0.04f);
@@ -482,7 +484,7 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/auto_rifle_burst.mp3", true, {"modern_mp7"}},
     {"guns/carbine.mp3", false, {"m1_carbine"}},
     // SND5: the Garand recording retired (user request): its guns play Rifle.mp3, a few per cent apart in pitch, no tone change
-    {"guns/rifle_a.mp3", false, {"m1_garand"}, -1, 1.03f},
+    {"guns/rifle_a.mp3", false, {"m1_garand", "g43"}, -1, 1.03f},
     {"guns/rifle_a.mp3", false, {"m1c_garand"}, -1, 0.97f},
     {"guns/rifle_a.mp3", false, {"m1918a2_bar"}, -1, 0.96f},
     {"guns/rifle_a.mp3", false, {"fg42"}, -1, 1.04f},
@@ -505,7 +507,7 @@ int Audio::loadCustom(const fs::path& dir) {
     {"guns/rifle_a.mp3", false, {"mg42", "vickers_k"}, -1, 0.84f, 0, 2.5f, 2.2f},   // SND8: Rifle.mp3 pitched down (user request), one clean shot per round, machine-gun body
     {"guns/smg_burst.mp3", true, {"modern_uzi"}},
     // SND4: every SMG its own shot (SMG.mp3, SMG1.mp3: single shots)
-    {"guns/smg_a.mp3", false, {"mp40"}, -1, 1, 0, 1.2f},   // SMG.mp3
+    {"guns/smg_a.mp3", false, {"mp40", "ppsh41"}, -1, 1, 0, 1.2f},   // SMG.mp3
     {"guns/smg_a.mp3", false, {"modern_scorpion"}, -1, 1.12f, 0.4f, 1.0f},   // derived: the Scorpion, higher and brighter
     {"guns/smg_b.mp3", false, {"m1_thompson"}},   // SMG1.mp3
     {"guns/smg_b.mp3", false, {"m3_grease_gun"}, -1, 0.88f, -0.5f, 2.5f},   // derived: the grease gun, lower and darker
@@ -547,12 +549,12 @@ int Audio::loadCustom(const fs::path& dir) {
     {"snd14/ar15_shot.wav", false, {"modern_m16"}, -1, 0.97f, 0, 1.0f, 1.5f, 1.18f},
     {"snd14/rifle_shot_1.wav", false, {"modern_fal"}, -1, 1.00f, 0, 1.6f, 2.5f, 1.14f},   // rifleshot (the darkest): battle rifles
     {"snd14/rifle_shot_1.wav", false, {"modern_scar"}, -1, 1.05f, 0, 1.6f, 2.5f, 1.21f},
-    {"snd14/rifle_shot_2.wav", false, {"m1_garand"}, -1, 1.00f, 0, 1.6f, 3.0f, 1.19f},   // rifleshot2: the Garand family and the BAR
+    {"snd14/rifle_shot_2.wav", false, {"m1_garand", "g43"}, -1, 1.00f, 0, 1.6f, 3.0f, 1.19f},   // rifleshot2: the Garand family and the BAR
     {"snd14/rifle_shot_2.wav", false, {"m1c_garand"}, -1, 0.97f, 0, 1.6f, 3.0f, 1.19f},
     {"snd14/rifle_shot_2.wav", false, {"m1918a2_bar"}, -1, 0.94f, 0, 1.6f, 3.0f, 1.18f},
     {"snd14/rifle_shot_3.wav", false, {"modern_sniper_semi"}, -1, 1.00f, 0, 1.6f, 3.0f, 1.23f},   // rifleshot3 (the brightest): marksman / FG 42
     {"snd14/rifle_shot_3.wav", false, {"fg42"}, -1, 1.04f, 0, 1.6f, 3.5f, 1.23f},
-    {"snd14/smg_shot_1.wav", false, {"mp40"}, -1, 1.00f, 0, 1.0f, 5.5f, 1.23f},   // SMGShot
+    {"snd14/smg_shot_1.wav", false, {"mp40", "ppsh41"}, -1, 1.00f, 0, 1.0f, 5.5f, 1.23f},   // SMGShot
     {"snd14/smg_shot_1.wav", false, {"m3_grease_gun"}, -1, 0.90f, 0, 1.0f, 5.5f, 1.23f},
     {"snd14/smg_shot_1.wav", false, {"sten"}, -1, 1.06f, 0, 1.0f, 5.5f, 1.23f},   // NG3: the Sten (9 mm): the MP40's take a little higher
     {"snd14/smg_shot_2.wav", false, {"modern_uzi"}, -1, 1.00f, 0, 1.0f, 5.0f, 1.24f},   // SMGShot1 (bright, as its old burst)
@@ -605,7 +607,7 @@ int Audio::loadCustom(const fs::path& dir) {
     {"snd18/glock_single.mp3", false, {"modern_glock34"}, -1, 1.05f, 0, 1.6f, 0.0f, 1.50f},
     {"snd18/beretta_single.mp3", false, {"modern_pistol4"}, -1, 0.94f, 0, 1.6f, 0.0f, 1.50f},
     {"snd18/mp40_single.mp3", false, {"mp40_semi"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.34f},
-    {"snd18/mp40_auto_%d.mp3", false, {"mp40"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.51f, 5},
+    {"snd18/mp40_auto_%d.mp3", false, {"mp40", "ppsh41"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.51f, 5},
     {"snd18/thompson_single.mp3", false, {"m1_thompson_semi"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.52f},
     {"snd18/thompson_auto_%d.mp3", false, {"m1_thompson"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.69f, 4},
     {"snd18/m3_grease_gun_single.mp3", false, {"m3_grease_gun_semi"}, -1, 1.00f, 0, 1.4f, 0.0f, 2.00f},
@@ -621,7 +623,7 @@ int Audio::loadCustom(const fs::path& dir) {
     {"snd18/uzi_single.mp3", false, {"modern_uzi_semi"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.81f},
     {"snd18/uzi_auto_%d.mp3", false, {"modern_uzi"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.83f, 4},
     {"snd18/m1_carbine_single.mp3", false, {"m1_carbine"}, -1, 1.00f, 0, 2.0f, 0.0f, 0.97f},
-    {"snd18/m1_garand_single.mp3", false, {"m1_garand"}, -1, 1.00f, 0, 2.0f, 0.0f, 0.93f},
+    {"snd18/m1_garand_single.mp3", false, {"m1_garand", "g43"}, -1, 1.00f, 0, 2.0f, 0.0f, 0.93f},
     {"snd18/m1_garand_single.mp3", false, {"m1c_garand"}, -1, 0.97f, 0, 2.0f, 0.0f, 0.93f},
     {"snd18/kar98k_single.mp3", false, {"kar98k"}, -1, 1.00f, 0, 2.5f, 0.0f, 1.48f},
     {"snd18/kar98k_single.mp3", false, {"kar98k_zf39"}, -1, 0.96f, 0, 2.5f, 0.0f, 1.48f},
@@ -815,7 +817,7 @@ int Audio::loadCustom(const fs::path& dir) {
       {"reload/reload_sniper.mp3", {"modern_sniper_bolt", "modern_sniper_3"}, 2.8f},   // bolt magazine snipers (the user's "m24 and 50cal")
       {"reload/reload_sniper.mp3", {"modern_sniper_50"}, 4.2f},
       {"reload/reload_bolt.mp3", {"kar98k"}, 2.2f},   // the stripper-clip reload (freesound_community "rifle or shotgun reload")
-      {"reload/reload_a.mp3", {"mp40", "m1_thompson", "m3_grease_gun", "sten", "modern_uzi", "modern_mp7", "modern_scorpion", "m1_garand", "m1c_garand", "kar98k_zf39"}},
+      {"reload/reload_a.mp3", {"mp40", "m1_thompson", "m3_grease_gun", "sten", "modern_uzi", "modern_mp7", "modern_scorpion", "m1_garand", "m1c_garand", "kar98k_zf39", "g43", "ppsh41"}},
       {"reload/reload_b.mp3", {"luger", "m1911a1", "modern_pistol", "modern_pistol2", "modern_pistol3"}},
       // MG12 (borrowed, pitched apart): the Desert Eagle on the pistol reload, lower; the SMG-9 on the SMG reload, higher; the
       // sawn-off's two shells on the shell recording (the revolver loads round by round: clip_in per round)

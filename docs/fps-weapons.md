@@ -968,3 +968,22 @@ The SG1 recipe for three more of the user's rigs (MP40_fps_arms.glb, BAR_fps_arm
 - **Clips (cut by the motion, as the StG):** idle 49-76; fire 76-88 (one shot: the gun kicks 0.22 units, the bolt cycles; `fireRate` 4.58 / 4.58 / 5.83 = each round at 550 / 550 / 700 rpm); reload 101-172; reload_empty 173-281 (the handle pulled and held, the magazine, the handle released); the Thompson's 173-228 (the drum seated; the file ends there with the gun still raised, so the fade to idle does the return). `reloadRate` 1.1. Not played: the draw 1-48, a second shot 89-100.
 - **BAR:** its Slide part is a ~16 cm rod with a wooden knob sticking out right of the receiver (the real handle is a small knob on the left): hidden (`animated.hideMeshes` BAR_Slide). The MP40's and Thompson's are small knobs, kept.
 - **Not yet done:** the sights are as registered (a few mm); the SG1 per-sight measurement from the ADS eye (xbsolve / stgfit) is not done for these three. Not checked in the game.
+
+### FR2: the Gewehr 43 and PPSh-41 (new weapons)
+
+Added for the user's two remaining rigs (they approved new weapons). Committed `g43.json` / `ppsh41.json` carry the stats on stand-ins (the Garand's / the MP40's model, box parts, hold, sockets and sights), so a checkout without the local files shows a working gun; the real models, sights and first-person rigs come from the git-ignored `content/weapons/local/g43.json`, `ppsh41.json` + `models/g43_local`, `ppsh41_local` (static, third person) and `models/g43_rig_local`, `ppsh41_rig_local`. Switches `g43rig` / `ppshrig` (off: the stand-in view).
+
+| | Gewehr 43 (`g43`) | PPSh-41 (`ppsh41`) |
+|---|---|---|
+| Side | DE (rifle class: Fallschirmjäger option; Axis player list; Axis AI weight 1) | DE, as the captured "MP 717(r)" (no Soviet faction; Assaulter option; Axis player list; Axis AI weight 1) |
+| Action, feed | semi, 10-round box (`792_g43_mag10`), 10 + 60 | auto / semi, 71-round drum (`762t_drum71`), 71 + 213 |
+| Rate, velocity, bullet | 400 rpm (semi cap), 745 m/s, 12.8 g, 7.92x57 mm | 900 rpm, 490 m/s, 5.5 g, 7.62x25 mm Tokarev |
+| Recoil | the Garand's class: pitch 7.0, yaw 0.8, recover 9 | the MP40's with faster recovery: pitch 0.78, yaw 0.38, recover 14, climb 0.02 |
+| Damage (damage.json) | the Garand's row (65 / 50, 60-150 m) | the MP40's row (28 / 17, 15-60 m) at 900 rpm |
+| Reload | 2.7 / 4.1 s (the rig's clips at 1.1x) | 2.7 / 2.1 s (the rig's empty reload is the shorter: the drum seats at 228) |
+
+- **Lists:** handling `rifle` / `auto`; combat.json calibre `7.62x25 mm Tokarev` 32 (as 9x19); Battle Royale ammo: 7.62x25 counts as 9 mm (`loot.cpp ammoTypeOf`), 7.92x57 as 7.62; the mixed supply crate holds 12 G43 magazines and 6 PPSh drums; the generated arm's grip for the PPSh is the MP40's (`fps_arms.json`).
+- **Sounds:** the Garand's (G43) and the MP40's (PPSh) shots, far shots, tails and reloads (`audio.cpp` sets, `tools/audio_manifest.py` + `manifest.json` aliases); recordings wanted: a G43 single shot and far shot, a G43 magazine change and charging; a PPSh-41 auto burst (900 rpm), its far shot and tail, and the drum change.
+- **Real models:** each rig file's own gun at rest (E:/nmk/fpsrigs/static_export.py) baked by `--import-weapon-models` (G43 1.13 m, PPSh 0.843 m; magazine / drum and handle split as `mag` / `bolt`). Sights measured on those meshes (gunpts.py / sightfine.py / levels.py): G43 rear U-notch shoulders, front post tip between the hood's ears; PPSh rear notch between the leaf's two posts, front post tip inside the hood (the hood ring is 1 cm above it). Both sight lines level within 0.4 mm.
+- **Rigs:** as FR1 (`g43_rig_local`, `ppsh41_rig_local`): idle 49-76, fire 76-88 (`fireRate` 3.33 / 7.5), reload 101-172, reload_empty 173-281 / 173-228; hip from the stand-ins' `ads.hipOffset`.
+- **Not done:** third-person holds are the stand-ins' (fitted to the Garand / MP40 shapes); the PPSh's drum is not in its committed fallback; no rack display; not checked in the game.
