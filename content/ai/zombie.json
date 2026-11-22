@@ -1391,6 +1391,92 @@
           ]
         }
       ]
+    },
+    {
+      "id": "archer1",
+      "name": "Archer 1",
+      "model": "archer_1",
+      "height_m": 1.7,
+      "scale": 1,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 120,
+      "damage": 25,
+      "reach_m": 1.4,
+      "lunge_m": 0,
+      "cooldown_s": 1.6,
+      "windup_s": 0.5,
+      "attack_rate": 1.0,
+      "walk_mps": 1.5,
+      "run_mps": 3.8,
+      "run_within_m": 12,
+      "weight": 0,
+      "hit_zone_scale": 1.0,
+      "knockback_mps": 2,
+      "stagger_min_damage": 40,
+      "stagger_s": 0.5,
+      "explosive_mult": 1,
+      "note": "AR1: an English longbowman, the first ranged type. Within 4-45 m of its target with a clear line to the chest it stops, turns to face it and shoots: 'longbow shot' (tools/enemies/archer_shot.py: draw 1.03 s, the full draw held 0.4 s, the release), the arrow leaving the bow hand at recoil frame 2 (swing 0.692 = 1.50 s), 55 m/s, aimed over its drop, 1 deg spread, damage the crossbow bolt's row (85 near / 55 far, falloff 25-70 m); about 3.2 s a shot (1.5 s to the release, then cooldown 1.6 s). Out of range or without a line it walks / runs in; under 4 m it kicks and punches (the pack's melee clips).",
+      "clips": {
+        "walk": [
+          "standing walk forward"
+        ],
+        "run": "standing run forward",
+        "idle": [
+          "standing idle 01",
+          "standing idle 02 looking"
+        ],
+        "attack": [
+          "longbow shot",
+          "standing melee kick",
+          "standing melee punch"
+        ],
+        "damage": [
+          "standing react small from front",
+          "standing react small from headshot"
+        ],
+        "death": [
+          "standing death backward 01",
+          "standing death forward 01"
+        ]
+      },
+      "sounds": {
+        "attack": "knightattack",
+        "contact": "knightattackcontact",
+        "death": "knightdeath"
+      },
+      "attack_dust": false,
+      "attacks": [
+        {
+          "clip": "longbow shot",
+          "swing": 0.692,
+          "range": [
+            4,
+            45
+          ],
+          "shoot": {
+            "speed": 55,
+            "spread_deg": 1.0,
+            "ammo": "crossbow_bolt",
+            "mass_g": 60
+          }
+        },
+        {
+          "clip": "standing melee kick",
+          "radius": 0.35,
+          "damage": 25
+        },
+        {
+          "clip": "standing melee punch",
+          "joint": "RightHand",
+          "radius": 0.3,
+          "damage": 18
+        }
+      ]
     }
   ]
 }

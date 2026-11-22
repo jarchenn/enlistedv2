@@ -92,8 +92,12 @@ void Fx::streak(vec3 a, vec3 b, float width, float life, vec4 col) {
 }
 
 // a round's flight segment a -> b (one frame). Tracer kinds (tracerKindFor): 1 a bright red bolt ~6 m long at the
-// head of the segment, 2 a short white-yellow streak ~2 m; 0 the faint trail (range presentation: clearly visible).
+// head of the segment, 2 a short white-yellow streak ~2 m; 0 the faint trail (range presentation: clearly visible); < 0 an arrow (AR1).
 void Fx::bullet(vec3 a, vec3 b, int kind) {
+  if (kind < 0) {   // AR1: an arrow (Archer 1): a 0.8 m wooden shaft at the head of the segment, its pale fletching at the tail
+    vec3 dv = b - a; float len = glm::length(dv); if (len < 1e-4f) return; vec3 u = dv / len, t = b - u * 0.8f;
+    streak(t, b, 0.011f, 0.03f, vec4(0.55f, 0.42f, 0.26f, 1)); streak(t, t + u * 0.12f, 0.026f, 0.03f, vec4(0.85f, 0.82f, 0.74f, 1)); return;
+  }
   if (kind == 0) { streak(a, b, rangeMode ? 0.012f : 0.007f, rangeMode ? 0.05f : 0.025f, rangeMode ? vec4(1.6f, 1.5f, 1.3f, 1) : vec4(0.7f, 0.68f, 0.62f, 1)); return; }
   if (kind >= 3) {   // SW1 blaster bolt: a 1.4 m white-hot core in a wider coloured glow at the head, a fading coloured trail behind it, a small travelling light
     vec3 c = blasterColour(kind), dv = b - a; float len = glm::length(dv);
