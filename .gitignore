@@ -152,3 +152,5 @@ content/assets/models/fl_grass/
 content/assets/models/fl_desertshrub/
 # KN2: Knight 2 (mace: no licence information; round shield: Sketchfab Standard, usable in the game but not redistributable): local-only bake
 content/characters/knight_v2.glb
+# KN3: Knight 3 (its flail is CC-BY-NC-ND-4.0): local-only
+content/characters/knight_3.glb

@@ -7,7 +7,8 @@
 #   asset.extras. Everything else is byte for byte the file as supplied.
 import json, struct, sys
 import numpy as np
-SRC, OUT = sys.argv[1], sys.argv[2]
+SRC, OUT = sys.argv[1], sys.argv[2]   # optional 3rd argument: the credits text (KN3: Knight_3.glb)
+CREDITS = sys.argv[3] if len(sys.argv) > 3 else None
 b = open(SRC, 'rb').read()
 assert b[:4] == b'glTF'
 jl = struct.unpack('<I', b[12:16])[0]; J = json.loads(b[20:20 + jl]); bl = struct.unpack('<I', b[20 + jl:24 + jl])[0]
@@ -36,6 +37,7 @@ for an in J['animations']:
             V[:, FLOOR] = H[0]; pinned.append('%s (%.0f cm)' % (an['name'], travel))
             a['min'] = [float(x) for x in V.min(0)]; a['max'] = [float(x) for x in V.max(0)]
 J['asset'].setdefault('extras', {}).update({'nmkNormals': True,
+    'credits': CREDITS} if CREDITS else {'nmkNormals': True,
     'credits': 'Knight (Final) by Daniel Gryningstjerna (sketchfab.com/dangry), Chevalier Sword by rubenve (sketchfab.com/rubenve), '
                'Medieval Shield by Seth Santos (sketchfab.com/Seth7Santos): CC-BY-4.0; the sword after a concept by Guillem Dauden; clips: Adobe Mixamo; assembled by the user'})
 js = json.dumps(J, separators=(',', ':')).encode(); js += b' ' * (-len(js) % 4)
