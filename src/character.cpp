@@ -5,6 +5,7 @@
 #include <cstring>
 #include <algorithm>
 #include <cmath>
+GLuint modelUploadBC(const uint8_t* rgba, int w, int h, int kind, size_t& bytes);   // model.cpp (TK2)
 
 namespace {
 struct Glb { json j; std::vector<uint8_t> bin; };
@@ -57,7 +58,9 @@ mat4 localOf(const json& n) {
   if (n.contains("scale")) s = vec3(n["scale"][0], n["scale"][1], n["scale"][2]);
   return glm::translate(mat4(1), t) * glm::mat4_cast(r) * glm::scale(mat4(1), s);
 }
-GLuint uploadImage(const Glb& g, int imageIdx, bool srgb) {
+// bc: block-compress a map of 1024 px or more (kind 0 albedo BC1 / BC3, 1 data BC1, 2 normal BC5): the soldier skins; the
+// first-person rigs (seen at arm's length) keep RGBA8
+GLuint uploadImage(const Glb& g, int imageIdx, bool srgb, bool bc, int kind) {
   const json& im = g.j["images"][imageIdx];
   if (!im.contains("bufferView")) return 0;
   const json& bv = g.j["bufferViews"][im["bufferView"].get<int>()];
@@ -66,6 +69,7 @@ GLuint uploadImage(const Glb& g, int imageIdx, bool srgb) {
   stbi_set_flip_vertically_on_load(0);
   stbi_uc* d = stbi_load_from_memory(g.bin.data() + off, (int)len, &w, &h, &c, 4);
   if (!d) return 0;
+  if (bc) { size_t bytes = 0; if (GLuint b = modelUploadBC(d, w, h, kind, bytes)) { stbi_image_free(d); return b; } }   // FSB1: 2048 RGBA8 + mips 21 MB, BC1 2.7 MB, BC5 5.3 MB
   GLuint t; glCreateTextures(GL_TEXTURE_2D, 1, &t);
   int levels = 1 + (int)std::floor(std::log2((float)std::max(w, h)));
   glTextureStorage2D(t, levels, srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8, w, h);
@@ -174,19 +178,20 @@ bool CharModel::load(const fs::path& path, std::string& err, float height, bool 
   bmin = vec3(1e9f); bmax = vec3(-1e9f);
   // materials -> textures
   std::map<int, GLuint> texCache;
-  auto tex = [&](int t, bool srgb) -> GLuint {
+  auto tex = [&](int t, bool srgb, int kind = -1) -> GLuint {   // kind: 0 albedo, 1 data, 2 normal (-1: by srgb)
     if (t < 0) return 0;
-    int key = t * 2 + (srgb ? 1 : 0);
+    if (kind < 0) kind = srgb ? 0 : 1;
+    int key = t * 4 + kind;
     auto it = texCache.find(key); if (it != texCache.end()) return it->second;
     int src = J["textures"][t].value("source", -1);
-    return texCache[key] = src >= 0 ? uploadImage(g, src, srgb) : 0;
+    return texCache[key] = src >= 0 ? uploadImage(g, src, srgb, !wantNormals, kind) : 0;   // FSB1: soldier skins block-compressed
   };
   if (J.contains("materials")) for (auto& m : J["materials"]) {
     GpuModel::MatTex mt; mt.name = m.value("name", "");
     const json pbr = m.value("pbrMetallicRoughness", json::object());
     if (pbr.contains("baseColorTexture")) mt.alb = tex(pbr["baseColorTexture"]["index"].get<int>(), true);
     if (pbr.contains("metallicRoughnessTexture")) mt.mr = tex(pbr["metallicRoughnessTexture"]["index"].get<int>(), false);
-    if ((wantNormals || J.value("asset", json::object()).value("extras", json::object()).value("nmkNormals", false)) && m.contains("normalTexture")) mt.n = tex(m["normalTexture"]["index"].get<int>(), false);   // FSB1: a soldier skin baked with its normal maps (bake_gunbody.py --skin SKIN_KEEP_NORMALS)
+    if ((wantNormals || J.value("asset", json::object()).value("extras", json::object()).value("nmkNormals", false)) && m.contains("normalTexture")) mt.n = tex(m["normalTexture"]["index"].get<int>(), false, 2);   // FSB1: a soldier skin baked with its normal maps (bake_gunbody.py --skin SKIN_KEEP_NORMALS)
     gpu.mats.push_back(mt);
   }
   for (size_t ni = 0; ni < nn; ++ni) {

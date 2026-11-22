@@ -677,6 +677,10 @@ static GLuint loadTexBC(const uint8_t* d, int w, int h, int kind, size_t& bytes,
   return t;
 }
 
+// FSB1: the soldier skins' maps (character.cpp): the same CPU compression and upload; 0 when it does not apply (the caller
+// uploads RGBA8). kind: 0 albedo, 1 linear data (metal-rough / AO), 2 normal
+GLuint modelUploadBC(const uint8_t* rgba, int w, int h, int kind, size_t& bytes) { return loadTexBC(rgba, w, h, kind, bytes); }
+
 // MEM3: block-compressed model maps cached per user (%LOCALAPPDATA%/BattleFoundry/texbc): a hit skips the JPEG / PNG decode
 // and the CPU compression (most of the weapons' and vehicles' startup time). Keyed by the source's path, size and time.
 static fs::path texCacheFile(const fs::path& p, int kind) {
