@@ -269,7 +269,7 @@ const A = {
     rigidify: ["Object_61", "Object_63", "trigger_crossbow_0", "stick_crossbow_0", "puller_crossbow_0", "loader_crossbow_0"], gun: "Object_61",
     clips: { fire: [0, 3], reload: [3, 62], inspect: [62, 109], idle: [109, 136] } },   // the bolt leaves at 0-3; cocked 24-35, the new bolt laid 51-60; inspect not played
   // ---- MG13: the minigun (DJMaesen GLB, one 6 s timeline: frames 0-144 at 24 fps after import); parts baked per frame
-  modern_minigun: { abs: true, src: MG13 + "minigun_animated.glb", tex: MG13, stat: "modern_minigun", normals: true, hipRear: [0.12, 0.65, 0.02], restFrame: 0, timeline: [0, 144],   // MG13b: the rear aim point (over the housing front) 0.65 m ahead: the rear spade grip ~0.27 m from the eye (MG13: 0.07 m, a slab at the right edge)
+  modern_minigun: { abs: true, src: MG13 + "minigun_animated.glb", tex: MG13, stat: "modern_minigun", normals: true, hipRear: [0.12, 0.65, 0.02], glbRest: true, restFrame: 0, timeline: [0, 144],   // MG13b: the rear aim point (over the housing front) 0.65 m ahead: the rear spade grip ~0.27 m from the eye (MG13: 0.07 m, a slab at the right edge)
     keep: ["Object_70", "base_minigun_0", "barrels_minigun_0", "lid_minigun_0", "button_minigun_0", "mag_minigun_0", "bullet_minigun_0"],
     rigidify: ["base_minigun_0", "barrels_minigun_0", "lid_minigun_0", "button_minigun_0", "mag_minigun_0", "bullet_minigun_0"], gun: "base_minigun_0",
     clips: { fire: [0, 5], idle: [5, 48], reload: [48, 100], inspect: [100, 131] },   // fire: the barrels one step (60 deg); reload: the box out and in; inspect (raised, the button) not played
