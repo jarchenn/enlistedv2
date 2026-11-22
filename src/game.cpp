@@ -333,6 +333,7 @@ void Game::end() {
   aiZombieLoopsStop(app);   // SND2: no creature breathing on after the match
   aiMatchEnd(*this);   // W6
   for (auto& s : sold) { if (s.agent >= 0) Physics::destroyAgent(s.agent); s.agent = -1; if (s.ciReady) s.ci.destroy(); s.ciReady = false; }
+  for (auto& h : horseCorpses) h->ci.destroy(); horseCorpses.clear();   // HK2
   Physics::destroyAllAgents();
   sold.clear(); gren.clear(); sounds.clear();
   active = false; isClient = false;
@@ -1090,6 +1091,7 @@ void Game::step(float dt) {
       if (r.dir[k] != seen) { doorSeen[key] = r.dir[k]; gNet->hostWorldEvent(json{{"t", "door"}, {"i", id}, {"k", k}, {"dir", r.dir[k]}, {"p", r.progress[k]}}); }
     }
   for (auto& s : sold) {
+    if (!s.alive && s.zombie && !isClient) aiZombieDead(*this, s);   // HK2: a mounted knight's horse falls, he goes on on foot
     if (!s.alive) continue;
     crumb("game: soldier weapon"); soldierWeaponStep(s, dt);
     crumb("game: throw"); throwStep(s, dt);
@@ -1379,6 +1381,7 @@ void Game::drawItems() {
   crumb("game: draw");
   vec3 cam, fwd; renderView(cam, fwd);   // cull against the camera actually rendering (a vehicle's chase / sight camera), not the seated body
   static int frame = 0; ++frame;
+  for (auto& h : horseCorpses) for (int p : h->parts) { app.R.worldModels.push_back({&h->ci.view, p, h->world}); app.R.worldModels.back().prevM = h->world; app.R.worldModels.back().vel = 1; }   // HK2: fallen horses
   for (auto& s : sold) {
     if (!s.inUse || s.lifeId == 0) continue;
     if (!s.alive && t - s.diedAt > jkey(combat, "corpses").value("seconds", 40.0)) continue;
