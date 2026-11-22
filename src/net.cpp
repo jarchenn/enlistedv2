@@ -599,7 +599,7 @@ void netApplyEvent(App& app, const json& ev, bool replay) {
     g.gren.addCloud(c);
   } else if (t == "flame") {   // FT1: another nozzle's stream (ours is predicted locally)
     int by = ev.value("by", -1);
-    if (!replay && by >= 0 && by != g.localSlot) app.flame.spray(app, by, ev.value("w", 0), jvec3(ev["p"]), jvec3(ev["d"]), std::clamp(ev.value("dt", 0.1f), 0.0f, 0.3f), false);
+    if (!replay && by >= 0 && by != g.localSlot) app.flame.spray(app, by, ev.value("w", 0), jvec3(ev["p"]), jvec3(ev["d"]), std::clamp(ev.value("dt", 0.1f), 0.0f, 0.3f), false, vec3(0), ev.value("r", 0.0f), ev.value("c", 0.0f));
   } else if (t == "burn") {   // FT1: a soldier the host set alight (the look; the damage is the host's)
     int sl = ev.value("s", -1);
     if (!replay && sl >= 0 && sl < (int)g.sold.size()) g.sold[sl].burnT = std::max(g.sold[sl].burnT, ev.value("d", 3.0f));

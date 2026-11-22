@@ -88,6 +88,7 @@ const ZombieCfg& zcfg() {
           if (a.contains("window") && a["window"].is_array() && a["window"].size() == 2) { x.pre = a["window"][0]; x.post = a["window"][1]; }
           x.reach = a.value("reach", 0.0f); x.leap = a.value("leap", false); x.victims = a.value("victims", 0); x.swing = a.value("swing", 0.0f);
           x.faceDeg = a.value("face_deg", 0.0f);   // HK1
+          if (auto br = a.find("breath"); br != a.end() && br->is_object()) { x.breath0 = br->value("from", 0.0f); x.breath1 = br->value("to", 0.0f); x.breathRange = br->value("range_m", 12.0f); x.breathCone = br->value("cone_deg", 12.0f); }   // DR1
           if (a.contains("shoot") && a["shoot"].is_object()) { const json& sh = a["shoot"]; x.shoot = true; x.speed = std::max(5.0f, sh.value("speed", x.speed)); x.spreadDeg = std::max(0.0f, sh.value("spread_deg", x.spreadDeg)); x.ammo = sh.value("ammo", std::string("crossbow_bolt")); x.massG = sh.value("mass_g", x.massG); }   // AR1
           if (!x.clip.empty()) t.attackSpecs.push_back(x);
         }
@@ -152,7 +153,7 @@ float windupOf(const Game& G, const Soldier& s) {
 }
 // CH6: an attack's strike, from the clip's analysis (the fastest hand and where it is at the swing) and the type's "attacks"
 struct Strike { int bone = -1; vec3 at{0}; int joint = CJ_RHAND; float extend = 0, radius = 0.5f, damage = 0, lo = 0, hi = 0, weight = 1, pre = 0.15f, post = 0.1f, dist = 1; bool leap = false; int victims = 0;
-  bool shoot = false; float speed = 55, spreadDeg = 1, massG = 60, faceDeg = 0; std::string ammo; };   // AR1; HK1 faceDeg
+  bool shoot = false; float speed = 55, spreadDeg = 1, massG = 60, faceDeg = 0; std::string ammo; float breath0 = 0, breath1 = 0, breathRange = 12, breathCone = 12; };   // AR1; HK1 faceDeg; DR1 breath
 Strike strikeOf(const Game& G, const Soldier& s, int i) {
   const EnemyType& e = typeOf(s); const EnemyType& ce = clipsOf(s); Strike r;
   r.radius = std::max(0.45f, 0.12f * e.height * e.scale); r.damage = e.damage; r.dist = e.reach;
@@ -162,6 +163,7 @@ Strike strikeOf(const Game& G, const Soldier& s, int i) {
     if (a.joint >= 0) r.joint = a.joint; r.extend = a.extend; if (a.radius > 0) r.radius = a.radius; if (a.damage >= 0) r.damage = a.damage;
     r.lo = a.rangeMin; r.hi = a.rangeMax; r.weight = a.weight; r.pre = a.pre; r.post = a.post; r.leap = a.leap; r.victims = a.victims;
     r.shoot = a.shoot; r.speed = a.speed; r.spreadDeg = a.spreadDeg; r.massG = a.massG; r.ammo = a.ammo; r.faceDeg = a.faceDeg;
+    r.breath0 = a.breath0; r.breath1 = a.breath1; r.breathRange = a.breathRange; r.breathCone = a.breathCone;
     if (a.extend > 0) r.dist += a.extend;
     if (a.reach > 0) r.dist = a.reach;
     if (a.hasAt) for (int k = 0; k < (int)m.jointNode.size(); ++k) if (m.nodeName[m.jointNode[k]] == a.bone) {   // KN8: on the weapon itself
@@ -582,6 +584,20 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     if (w0 < wu && s.meleeWind >= wu && gWindVoiced.erase(s.slot) && wu >= 1.0f && !e.sndAttack.empty()) G.app.audio.play(e.sndAttack.c_str(), s.feet + vec3(0, 0.6f * e.height * e.scale, 0), 1.0f, e.voicePitch * (0.93f + 0.14f * G.rnd(s)));   // SND4: after a windup sound, the attack sound at the blow (not if they would overlap)
     std::vector<int>& hit = gStruck[s.slot];
     if (r.shoot) { if (best && w0 < wu && s.meleeWind >= wu) loose(G, s, *best, r); }   // AR1: the arrow leaves at the release; no strike sphere
+    else if (r.breath1 > 0) {   // DR1: a flame breath while the mouth is open (clip fractions breath0..breath1): the M2's burning parcels from
+      // just ahead of the head along the neck, level with the neck's heading and dipped to reach the ground ~10 m on, so
+      // the head's sweep sweeps the stream; walls stop it, the ground keeps burning. No strike sphere. shortcut: host / single player only
+      const CharModel& m = *G.models[s.model]; int k = attackClip(m, clipsOf(s), s.meleeClip);
+      const float ct = s.meleeWind * e.attackRate, dur = k >= 0 ? m.clips[k].dur : 1.0f;
+      static int fw = -2; if (fw == -2) { fw = G.app.weaponIndex("m2_flamethrower"); if (fw < 0) fw = G.app.weaponIndex("flammenwerfer41"); }
+      if (fw >= 0 && ct >= r.breath0 * dur && ct <= r.breath1 * dur) {
+        vec3 hd = vec3(s.world * vec4(s.pose.joint[CJ_HEAD], 1)), nk = vec3(s.world * vec4(s.pose.joint[CJ_NECK], 1)), ax = hd - nk; ax.y = 0;
+        if (glm::length(ax) > 1e-3f) {
+          ax = glm::normalize(ax); vec3 mouth = hd + ax * 1.2f * s.eScale; float drop = std::max(0.5f, mouth.y - G.app.terrain.height(mouth.x, mouth.z));
+          G.app.flame.spray(G.app, s.slot, fw, mouth, glm::normalize(ax * 10.0f - vec3(0, drop, 0)), dt * 2.0f, true, vec3(0), r.breathRange, r.breathCone);   // twice the M2's parcel rate: a wider cone
+        }
+      }
+    }
     else if (s.meleeWind >= wu - r.pre) {
       vec3 p = strikePoint(s, r);
       { static const bool lg = std::getenv("NMK_STRIKE_LOG") != nullptr; if (lg && w0 < wu && s.meleeWind >= wu) { vec3 q = p - s.feet; logf("strike %s clip %d joint %d at feet+(%.2f %.2f %.2f) target %d body dist %.2f radius %.2f range %.1f-%.1f leap %d",
@@ -859,9 +875,9 @@ int ar1SelfCheck() {
       std::vector<std::string> need = t.walkClips; need.push_back(t.runClip); for (auto* v : {&t.idleClips, &t.attackClips, &t.damageClips, &t.deathClips}) need.insert(need.end(), v->begin(), v->end());
       for (auto& c : need) clipsOk = clipsOk && anims.count(c);
       for (auto& z : t.horseZones) zonesOk = zonesOk && nodes.count(z.a) && nodes.count(z.b) && z.zone >= 0 && z.zone <= 2; }
-    chk(dk >= 0 && std::string(aiTypeName(AiType::Dragon)) == "Dragon" && enemyType(dk).hp == 5000 && enemyType(dk).horseHp == 0 && enemyType(dk).staggerMin >= 10000 && enemyType(dk).attackSpecs.size() == 3,
-        "Dragon (DR1): AI type 40, 5000 health on one pool, no stagger from small arms, three ground attacks");
-    chk(clipsOk && anims.size() == 7 && !anims.count("Take 001"), "Dragon (DR1): every clip it names is in dragon.glb, 7 clips, no flight take (" + std::to_string(anims.size()) + " clips)");
+    chk(dk >= 0 && std::string(aiTypeName(AiType::Dragon)) == "Dragon" && enemyType(dk).hp == 5000 && enemyType(dk).horseHp == 0 && enemyType(dk).staggerMin >= 10000 && enemyType(dk).attackSpecs.size() == 4 && enemyType(dk).attackSpecs[3].breath1 > enemyType(dk).attackSpecs[3].breath0,
+        "Dragon (DR1): AI type 40, 5000 health on one pool, no stagger from small arms, three ground attacks and a flame breath");
+    chk(clipsOk && anims.size() == 8 && !anims.count("Take 001"), "Dragon (DR1): every clip it names is in dragon.glb, 8 clips, no flight take (" + std::to_string(anims.size()) + " clips)");
     chk(zonesOk && enemyType(dk).horseZones.size() >= 20, "Dragon (DR1): " + std::to_string(dk >= 0 ? enemyType(dk).horseZones.size() : 0) + " hit capsules on joints the model has (head / body / limb zones)"); }
   { json xb; try { xb = json::parse(readTextFile(contentDir() / "weapons" / "modern_crossbow.json")); } catch (...) {}   // XB7
     std::string pd = xb.is_object() ? xb.value("projectileModel", json::object()).value("dir", std::string()) : std::string();

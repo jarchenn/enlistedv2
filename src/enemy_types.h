@@ -40,7 +40,7 @@ struct EnemyType {
   // sight; the type stands and faces the target while one fits (no strike sphere, no step-in)
   // HK1 json "face_deg": through the attack the body faces this far left of the target (deg; the mounted knight's right-side
   // thrust: +44 brings the target onto the rider's right, where the spear goes)
-  struct AttackSpec { std::string clip, bone, ammo; vec3 at{0}; bool hasAt = false, shoot = false; float speed = 55, spreadDeg = 1, massG = 60, faceDeg = 0; int joint = -1; float extend = 0, radius = 0, damage = -1, rangeMin = 0, rangeMax = 0, weight = 1, swing = 0, pre = 0.15f, post = 0.1f, reach = 0; bool leap = false; int victims = 0; };   // reach: the distance it closes to (default: the fastest hand's at the swing)
+  struct AttackSpec { std::string clip, bone, ammo; vec3 at{0}; bool hasAt = false, shoot = false; float speed = 55, spreadDeg = 1, massG = 60, faceDeg = 0; int joint = -1; float extend = 0, radius = 0, damage = -1, rangeMin = 0, rangeMax = 0, weight = 1, swing = 0, pre = 0.15f, post = 0.1f, reach = 0; bool leap = false; int victims = 0; float breath0 = 0, breath1 = 0, breathRange = 12, breathCone = 12; };   // DR1 breath0 / breath1: a flame breath over that part of the clip (fractions; json "breath"); reach: the distance it closes to (default: the fastest hand's at the swing)
   std::vector<AttackSpec> attackSpecs;
   bool attackDust = true;                                 // CH5 json "attack_dust": false: its blows throw no dust (the area, shake and sounds stay)
   bool tankDamage = false;                                // TK1 json "tank_damage" (default: hp >= 500): its landed blows wear down a tank, 1/15 of its durability each

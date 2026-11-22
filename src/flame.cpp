@@ -60,7 +60,7 @@ float segDist(vec3 a, vec3 b, vec3 p0, vec3 p1) {   // closest distance between 
 }
 }
 
-void FlameSys::spray(App& app, int key, int weapon, vec3 origin, vec3 dir, float dt, bool damage, vec3 bore) {
+void FlameSys::spray(App& app, int key, int weapon, vec3 origin, vec3 dir, float dt, bool damage, vec3 bore, float rangeM, float coneDeg) {
   if (weapon < 0 || weapon >= (int)app.weaponDefs.size() || glm::length(dir) < 0.5f) return;
   const WeaponDef& d = *app.weaponDefs[weapon];
   if (!d.flame.on) return;
@@ -69,18 +69,18 @@ void FlameSys::spray(App& app, int key, int weapon, vec3 origin, vec3 dir, float
   n.o = origin; n.d = dir; n.lastOn = t_; n.weapon = weapon; n.bore = glm::length(bore) > 0.5f ? glm::normalize(bore) : vec3(0);
   int owner = key < 0 ? (gGame && gGame->active ? gGame->localSlot : -1) : key;
   n.acc += dt * d.flame.parcelsPerSec;
-  float cone = glm::radians(d.flame.coneDeg);
+  float cone = glm::radians(coneDeg > 0 ? coneDeg : d.flame.coneDeg); const float range = rangeM > 0 ? rangeM : d.flame.range;
   while (n.acc >= 1.0f && parcels_.size() < 220) {
     n.acc -= 1.0f;
     FlameParcel q;
     q.v = diskDir(dir, cone, rnd() * 6.2831853f, rnd()) * (d.flame.speed * (0.94f + 0.12f * rnd()));
     q.p = q.o = origin + q.v * (rnd() * std::min(dt, 0.12f));   // spread over the frame: a continuous stream
-    q.life = d.flame.range / glm::length(q.v); q.owner = owner; q.weapon = weapon; q.dmg = damage;
+    q.life = range / glm::length(q.v); q.owner = owner; q.weapon = weapon; q.dmg = damage;
     parcels_.push_back(q); ++emitted;
   }
   if (damage && gNet && gNet->role == Net::HOST) {   // the host tells the others where this nozzle points (10 Hz)
     n.netT += dt;
-    if (n.netT >= 0.1f) { gNet->hostWorldEvent(json{{"t", "flame"}, {"by", owner}, {"w", weapon}, {"p", tojson(origin)}, {"d", tojson(dir)}, {"dt", n.netT}}); n.netT = 0; }
+    if (n.netT >= 0.1f) { gNet->hostWorldEvent(json{{"t", "flame"}, {"by", owner}, {"w", weapon}, {"p", tojson(origin)}, {"d", tojson(dir)}, {"dt", n.netT}, {"r", rangeM}, {"c", coneDeg}}); n.netT = 0; }
   }
 }
 
