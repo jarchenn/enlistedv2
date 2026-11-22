@@ -15,6 +15,7 @@
 #include "character.h"
 #include "grenade.h"
 #include "settings.h"
+#include "lighting.h"
 #include "editor_nav.h"
 #include <GLFW/glfw3.h>
 #include <map>
@@ -399,51 +400,79 @@ static bool costStep(App& app, Game& G, Soldier& L) {
 // looking 35 deg down: sun straight behind, sun 60 deg to the side (Haze, id 2), then no direct sun (Steady rain, id 6); per scene standing, crouched and prone
 // stills -> selftest_out/bs_<scene>_<stance>.png, each logged with Renderer::shadowModels and the cascades that drew it.
 static bool bodyStep(App& app, Game& G, Soldier& L) {
-  // presets by id: 2 Haze (a phys row with direct sun), 6 Steady rain (a phys row with none); ids 0 / 1 are not phys rows
-  struct Sc { const char* name; int wx; float side; }; static const Sc sc[] = {{"sunbehind", 2, 0.0f}, {"sunside", 2, 60.0f}, {"nosun", 6, 0.0f}};
-  static int k = -1, f0 = 0; static vec3 eye0; static bool spot = false;
+  // Dry check first (frames 2..76, logged, no stills): every preset's measured sun share on this map at the chosen hour, the
+  // key light's height for the candidate hours (lightingTod: R.sunDir is the key only inside render; between frames it is the
+  // map's Day sun), and the spot search's rejections. The scenes then use the sunniest preset (sun behind, sun to the side)
+  // and a sunless one. Pass criterion: the "bodyshadow probe" line (the near cascade's depth at the torso), not the picture.
+  static int k = -1, f0 = 0, sunId = 0, noId = 6; static vec3 eye0; static bool spot = false; static float hour = 17.0f, frac[15];
   if (k < 0) {
     k = 0; f0 = frames; eye0 = L.feet;
     if (const char* e = std::getenv("NMK_BS_POS")) { float x, z; if (std::sscanf(e, "%f,%f", &x, &z) == 2) { eye0 = vec3(x, app.terrain.height(x, z), z); spot = true; } }
     if (AiCore* A = aiCore()) A->frozen = true;
+    char b[400]; int n = 0; n += std::snprintf(b + n, sizeof b - n, "[bodyshadow] key light by hour (lightingTod):");
+    for (float h : {8.0f, 12.0f, 14.0f, 15.0f, 16.0f, 17.0f, 18.0f}) { const TodInfo t = lightingTod(h); n += std::snprintf(b + n, sizeof b - n, " %.0fh %.1f deg%s", h, glm::degrees(std::asin(glm::clamp(t.key.y, -1.0f, 1.0f))), t.keyIsMoon ? " (moon)" : ""); }
+    logf("%s", b);
+    for (float h : {18.0f, 17.0f, 16.0f, 15.0f, 14.0f}) { const TodInfo t = lightingTod(h); if (!t.keyIsMoon && glm::degrees(std::asin(t.key.y)) >= 15.0f) { hour = h; break; } }   // the latest hour with the sun >= 15 deg (a long, still sharp shadow)
+    logf("[bodyshadow] hour %.0f chosen (the latest with the sun at least 15 deg up)", hour);
   }
-  const Sc& c = sc[k];
-  app.R.q.lightNew = true; app.R.wx.target = c.wx; app.R.wx.userSet = true;
-  settings().s.hour = 18.0f; app.R.lt.hour = 18.0f; app.R.lt.userHour = true;   // Settings::apply (the governor's rungs) writes s.hour back into lt.hour
-  const int f = frames - f0;
-  if (f == 1) app.R.wx.snap();
-  if (!spot && f == 20) {   // a pale, open, sunlit spot found here (logged): gravel / concrete path, nothing within 3 m, a clear line to the sun
-    const vec3 sd = glm::normalize(app.R.sunDir); float best = 1e9f;
-    for (int r = 0; r <= 160 && best > 1e8f; r += 4) for (int a = 0; a < (r ? 24 : 1); ++a) {
-      const float an = a * 6.2831853f / 24.0f; vec3 q = L.feet + vec3(std::cos(an) * r, 0, std::sin(an) * r); q.y = app.terrain.height(q.x, q.z);
-      const std::string ps = app.pathSurfaceAt(q); if (ps != "gravel" && ps != "concrete") continue;
-      float t; uint64_t ud; if (Physics::castRay(q + vec3(0, 1.0f, 0), sd, 80.0f, t, ud)) continue;   // shaded
-      bool open = true; for (int b = 0; b < 8 && open; ++b) { const float bn = b * 0.785398f; open = !Physics::castRay(q + vec3(0, 0.5f, 0), vec3(std::cos(bn), 0, std::sin(bn)), 3.0f, t, ud); }
-      if (!open || std::fabs(app.terrain.height(q.x + 1, q.z) - q.y) > 0.15f) continue;
-      eye0 = q; best = (float)r;
+  settings().s.hour = hour; app.R.lt.hour = hour; app.R.lt.userHour = true;   // Settings::apply (the governor's rungs) writes s.hour back into lt.hour
+  app.R.q.lightNew = true; app.R.wx.userSet = true;
+  const vec3 key = glm::normalize(lightingTod(hour).key);   // toward the sun at this hour
+  const int f = frames - f0, fS = 2 + 15 * 5;
+  if (f >= 2 && f < fS) {   // survey: preset (f - 2) / 5, read after 4 rendered frames
+    const int id = (f - 2) / 5, ph = (f - 2) % 5;
+    if (ph == 0) { app.R.wx.target = id; app.R.wx.snap(); }
+    if (ph == 4) frac[id] = app.R.sunDirectFrac;
+    if (f == fS - 1) {
+      char b[600]; int n = std::snprintf(b, sizeof b, "[bodyshadow] measured sun share (sunDirectFrac) at %.0fh, ids 0-14:", hour);
+      float best = -1; for (int i = 0; i < 15; ++i) { n += std::snprintf(b + n, sizeof b - n, " %d:%.2f", i, frac[i]); if (frac[i] > best) { best = frac[i]; sunId = i; } }
+      noId = -1; for (int i : {6, 9, 7, 1, 4}) if (frac[i] < 0.05f) { noId = i; break; }
+      if (noId < 0) noId = 6;
+      logf("%s; sun scenes use id %d (%.2f), the no-sun scene id %d (%.2f); cascades draw above 0.05, full strength from 0.10", b, sunId, best, noId, frac[noId]);
     }
-    spot = true;
-    logf("[bodyshadow] spot %s: (%.1f %.1f %.1f) %s, %.0f m from the spawn", best < 1e8f ? "found" : "NOT found (staying at the spawn)", eye0.x, eye0.y, eye0.z, app.pathSurfaceAt(eye0).c_str(), best < 1e8f ? best : 0.0f);
+    return true;
   }
-  if (f == 1 || f == 21) Physics::setCharacterPos(eye0 + vec3(0, 0.9f, 0));
-  { vec3 sd = app.R.sunDir; sd.y = 0; if (glm::length(sd) > 1e-3f) { sd = glm::normalize(sd); app.eyeYaw = degrees(std::atan2(sd.x, sd.z)) + c.side; } }   // forward = -sun: the sun behind
+  struct Sc { const char* name; bool sun; float side; }; static const Sc sc[] = {{"sunbehind", true, 0.0f}, {"sunside", true, 60.0f}, {"nosun", false, 0.0f}};
+  const Sc& c = sc[k];
+  app.R.wx.target = c.sun ? sunId : noId;
+  const int g = f - fS;   // scene frames
+  if (g == 0) app.R.wx.snap();
+  if (!spot && g == 0) {   // a pale, open, sunlit spot (logged with the rejections): a path surface first, then any open ground
+    int nSurf = 0, nShade = 0, nTight = 0, nSlope = 0, tried = 0; float best = 1e9f; std::map<std::string, int> surf;
+    for (int pass = 0; pass < 2 && best > 1e8f; ++pass)
+      for (int r = 0; r <= 160 && best > 1e8f; r += 4) for (int a = 0; a < (r ? 24 : 1) && best > 1e8f; ++a) {
+        const float an = a * 6.2831853f / 24.0f; vec3 q = L.feet + vec3(std::cos(an) * r, 0, std::sin(an) * r); q.y = app.terrain.height(q.x, q.z); ++tried;
+        const std::string ps = app.pathSurfaceAt(q); if (pass == 0) ++surf[ps.empty() ? "(none)" : ps];
+        if (pass == 0 && ps != "gravel" && ps != "concrete" && ps != "dirt") { ++nSurf; continue; }
+        float t; uint64_t ud; if (Physics::castRay(q + vec3(0, 1.0f, 0), key, 80.0f, t, ud)) { ++nShade; continue; }
+        bool open = true; for (int b2 = 0; b2 < 8 && open; ++b2) { const float bn = b2 * 0.785398f; open = !Physics::castRay(q + vec3(0, 0.5f, 0), vec3(std::cos(bn), 0, std::sin(bn)), 3.0f, t, ud); }
+        if (!open) { ++nTight; continue; }
+        if (std::fabs(app.terrain.height(q.x + 1, q.z) - q.y) > 0.25f || std::fabs(app.terrain.height(q.x, q.z + 1) - q.y) > 0.25f) { ++nSlope; continue; }
+        eye0 = q; best = (float)r;
+      }
+    spot = true; std::string sl; for (auto& [kk, v] : surf) sl += " " + kk + ":" + std::to_string(v);
+    logf("[bodyshadow] spot %s (%.1f %.1f %.1f) surface '%s', %.0f m from the spawn; %d points tried, rejected: surface %d, shaded toward the sun %d, an obstacle within 3 m %d, slope %d; surfaces seen:%s",
+         best < 1e8f ? "found" : "NOT found (staying at the spawn)", eye0.x, eye0.y, eye0.z, app.pathSurfaceAt(eye0).c_str(), best < 1e8f ? best : 0.0f, tried, nSurf, nShade, nTight, nSlope, sl.c_str());
+  }
+  if (g == 0 || g == 2) Physics::setCharacterPos(eye0 + vec3(0, 0.9f, 0));
+  { vec3 sd = key; sd.y = 0; if (glm::length(sd) > 1e-3f) { sd = glm::normalize(sd); app.eyeYaw = degrees(std::atan2(sd.x, sd.z)) + c.side; } }   // forward = -sun: the sun behind
   app.eyePitch = -35;
   for (auto& s : G.sold) if (s.inUse && !s.localPlayer) s.hp = 100;
   {   // reference casters mid-frame (look-dev spheres, chart and cards 3.5-5.5 m ahead, 0.5 m up)
     extern void lookdevPlace(Renderer&, vec3, float, const std::function<float(float, float)>&, std::vector<vec3>*);
     lookdevPlace(app.R, L.feet, app.eyeYaw, [&](float x, float z) { return app.terrain.height(x, z); }, nullptr);
   }
-  ExploreInput in{}; in.crouch = f >= 100 && f < 180; in.prone = f == 180 || f == 310; app.scriptedInput = in;   // prone: one press down, one up
+  ExploreInput in{}; in.crouch = g >= 100 && g < 180; in.prone = g == 180 || g == 310; app.scriptedInput = in;   // prone: one press down, one up
   auto shot = [&](const char* st) {
     char b[200]; std::snprintf(b, sizeof b, "bs_%s_%s.png", c.name, st); app.uiShot = exeDir() / "selftest_out" / b;
     app.R.bsProbe = true;   // the near cascade read back at the body this frame (Renderer: "bodyshadow probe")
-    logf("[bodyshadow] %s %s: want %d, %zu draws pushed, cascades near %d mid %d c3 %d far %d, preset %d (target %d), sun direct %.2f shadow k %.2f, hour %.1f sun height %.2f, posture %d, feet (%.1f %.1f %.1f)", c.name, st,
-         app.R.wantBodyShadow() ? 1 : 0, app.R.shadowModels.size(), app.R.bsCasc[0], app.R.bsCasc[1], app.R.bsCasc[2], app.R.bsCasc[3], app.R.wx.want(), app.R.wx.target, app.R.sunDirectFrac, app.R.sunShK, app.R.lt.hour, app.R.sunDir.y, (int)Physics::character().posture, L.feet.x, L.feet.y, L.feet.z);
+    logf("[bodyshadow] %s %s: want %d, %zu draws pushed, cascades near %d mid %d c3 %d far %d, preset %d, sun direct %.2f shadow k %.2f, hour %.1f, true sun height %.2f (key %.2f), posture %d, feet (%.1f %.1f %.1f)", c.name, st,
+         app.R.wantBodyShadow() ? 1 : 0, app.R.shadowModels.size(), app.R.bsCasc[0], app.R.bsCasc[1], app.R.bsCasc[2], app.R.bsCasc[3], app.R.wx.want(), app.R.sunDirectFrac, app.R.sunShK, app.R.lt.hour, app.R.physSunY, key.y, (int)Physics::character().posture, L.feet.x, L.feet.y, L.feet.z);
   };
-  if (f == 90) shot("stand");
-  if (f == 170) shot("crouch");
-  if (f == 300) shot("prone");
-  if (f > 360) { f0 = frames; if (++k >= 3) { app.R.lookdev.clear(); T->check(true, "body-shadow stills written (3 scenes x stand / crouch / prone)"); if (app.mode == Mode::Explore) app.exitExplore(); app.selftest->exitCode = T->finish(); app.selftest->done = true; } }
+  if (g == 90) shot("stand");
+  if (g == 170) shot("crouch");
+  if (g == 300) shot("prone");
+  if (g > 360) { f0 = frames - fS; if (++k >= 3) { app.R.lookdev.clear(); T->check(true, "body-shadow stills written (3 scenes x stand / crouch / prone)"); if (app.mode == Mode::Explore) app.exitExplore(); app.selftest->exitCode = T->finish(); app.selftest->done = true; } }
   return true;
 }
 
