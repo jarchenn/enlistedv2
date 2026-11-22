@@ -16,6 +16,7 @@
 // and defences register), so it can never pass through anything. There is no actor health in this engine.
 #include "app.h"
 #include "mpai.h"
+#include "game.h"   // XB7: the LAN ghosts' bolts
 #include "abilities.h"
 #include "loot.h"   // BR2 Battle Royale loot
 #include <algorithm>
@@ -125,6 +126,17 @@ void App::grenadeDrawItems() {
     mat4 M = glm::translate(mat4(1), g.pos) * glm::mat4_cast(g.rot) * glm::translate(mat4(1), -c);
     for (size_t k = 0; k < d.model->parts.size(); ++k) R.worldModels.push_back({d.model.get(), (int)k, M});
   }
+}
+
+void App::projectileDrawItems() {   // XB7: the tip on the drawn path point (from the muzzle onto the true path, AT4), the shaft back along the flight
+  auto put = [&](const GpuModel* gm, vec3 tip, vec3 v) {
+    float s = glm::length(v); if (!gm || s < 1e-3f) return;
+    vec3 z = v / s, x = glm::normalize(std::fabs(z.y) < 0.99f ? glm::cross(vec3(0, 1, 0), z) : glm::cross(vec3(1, 0, 0), z)), y = glm::cross(z, x);
+    mat4 M(vec4(x, 0), vec4(y, 0), vec4(z, 0), vec4(tip - z * gm->bmax.z, 1));
+    for (size_t k = 0; k < gm->parts.size(); ++k) R.worldModels.push_back({gm, (int)k, M});
+  };
+  for (auto& p : projectiles) if (p.mesh) put(p.mesh, p.p + p.visOff * visFade(p.visTrav), p.v);
+  if (gGame) for (auto& g : gGame->ghosts) if (g.mesh) put(g.mesh, g.p + g.off * visFade(g.trav), g.v);
 }
 
 // ---------------------------------------------------------------- per-frame: grenade / melee as the active item

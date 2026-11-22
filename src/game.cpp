@@ -271,6 +271,7 @@ void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& 
             : ait == AiType::Knights4 ? std::max(0, enemyTypeIndex("knight4")) : ait == AiType::Knights5 ? std::max(0, enemyTypeIndex("knight5")) : ait == AiType::Knights6 ? std::max(0, enemyTypeIndex("knight6")) : ait == AiType::Knights7 ? std::max(0, enemyTypeIndex("knight7")) : ait == AiType::Knights8 ? std::max(0, enemyTypeIndex("knight8")) : ait == AiType::Knights9 ? std::max(0, enemyTypeIndex("knight9")) : ait == AiType::Archers1 ? std::max(0, enemyTypeIndex("archer1")) : ait == AiType::Knights10 ? std::max(0, enemyTypeIndex("knight10"))   // KN4 / KN5; AR1; K10
             : ait == AiType::KnightsMounted ? std::max(0, enemyTypeIndex(gHorseKnight && fs::exists(contentDir() / "characters" / "knight_10_mounted.glb") ? "knight10m" : "knight10"))   // HK1
             : ait == AiType::KnightsAssorted ? enemyTypeAssortedPick((uint32_t)rs.id)   // AK1: a knight or an archer per slot
+            : ait == AiType::FallenKnight ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "knight.glb") ? "fallen_knight" : "fallen_knight1"))   // FK1: the Brother Knight is local-only: Knight 1 at its size without it
             : ait == AiType::Archers2 ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "archer_2.glb") ? "archer2" : "archer1"))   // AR2: its model is local-only (the tunic is CC-BY-NC-ND): Archer 1 without it
             : ait == AiType::Abominations ? std::max(0, enemyTypeIndex("abomination")) : ait == AiType::Golems ? std::max(0, enemyTypeIndex("golem"))
             : ait == AiType::Boglords ? std::max(0, enemyTypeIndex("boglord")) : ait == AiType::Mechs ? std::max(0, enemyTypeIndex("mech")) : 0;
@@ -1066,7 +1067,7 @@ void Game::clientStep(float dt) {
     bool hit = Physics::castRayEx(g.p, seg, glm::length(seg), h);
     vec3 e = hit ? h.pos : g.p + seg;
     float gl = glm::length(e - g.p); vec3 da = g.off * visFade(g.trav), db = g.off * visFade(g.trav + gl); g.trav += gl;   // AT4: from the shooter's muzzle onto the path
-    if (g.tracer) app.fx.bullet(g.p + da, e + db, g.tracer); else app.fx.streak(g.p + da, e + db, 0.007f, 0.025f, vec4(0.7f, 0.68f, 0.62f, 1));
+    if (g.mesh) {} else if (g.tracer) app.fx.bullet(g.p + da, e + db, g.tracer); else app.fx.streak(g.p + da, e + db, 0.007f, 0.025f, vec4(0.7f, 0.68f, 0.62f, 1));
     g.p = e; g.v.y -= 9.81f * dt; g.life += dt;
     if (hit || g.life > 3) { ghosts.erase(ghosts.begin() + k); continue; }
     ++k;

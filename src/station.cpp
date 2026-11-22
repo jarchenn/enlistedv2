@@ -276,7 +276,7 @@ void App::fireRounds(const WeaponDef& d, vec3 from, vec3 dir, int tracerKind, ui
       v = glm::normalize(dir + rt * std::cos(a) * r + up * std::sin(a) * r);
     }
     fireProjectile(from, v, d.velocity, PROJ_BULLET, 0, ~0ull, k == 0 ? tracerKind : 0, d.container);
-    Projectile& p = projectiles.back(); p.mass = d.bulletMass * 0.001f; p.owner = owner; p.extraPellet = k > 0;
+    Projectile& p = projectiles.back(); p.mass = d.bulletMass * 0.001f; p.owner = owner; p.extraPellet = k > 0; p.mesh = d.projModel.get();
     if (d.blaster) { p.gravScale = 0; p.tracerKind = d.blaster; }   // SW1: a bolt flies straight, every pellet glows
   }
 }
@@ -325,6 +325,7 @@ void App::stepProjectiles(float dt) {
       // visible travel feedback along the actual path
       if (p.kind == PROJ_HE) fx.streak(p.p, end, 0.045f, 0.05f, vec4(2.2f, 1.6f, 1.0f, 1));
       else if (p.kind == PROJ_ROCKET) { fx.streak(p.p, end, 0.06f, 0.06f, vec4(6.0f, 3.0f, 1.0f, 1)); if (fx.rnd() < 0.5f) fx.smoke(p.p, vec3(0, 0.2f, 0), 0.12f, 1.4f, vec4(0.62f, 0.6f, 0.57f, 0.45f), 1.4f, 0.2f); }
+      else if (p.mesh) p.visTrav += glm::length(end - p.p);   // XB7: the bolt itself is drawn (projectileDrawItems)
       else { float L = glm::length(end - p.p); if (p.visTrav + L > p.trailSkip) { float u0 = p.visTrav < p.trailSkip && L > 0 ? (p.trailSkip - p.visTrav) / L : 0.0f;
         fx.bullet(glm::mix(p.p, end, u0) + p.visOff * visFade(p.visTrav + u0 * L), end + p.visOff * visFade(p.visTrav + L), p.tracerKind); } p.visTrav += L; }   // AT4: drawn from the muzzle onto the path
       if (impact && (p.kind == PROJ_HE || p.kind == PROJ_ROCKET) && shellThroughGlass(*this, p, hit.pos, hit.ud)) continue;   // T7: thin glass breaks, the shell flies on

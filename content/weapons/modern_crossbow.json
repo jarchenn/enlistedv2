@@ -364,6 +364,25 @@
   "semi"
  ],
  "note": "XB1: a stocked crossbow: one bolt, cocked and loaded by hand after each shot (the source's own reload clip, 2.6 s); the bolt is a slow round (95 m/s, 25 g) with the normal ballistic drop; quiet (a stand-in sound). Modern weapons case only.",
+ "projectileModel": {
+  "dir": "crossbow_bolt",
+  "note": "XB7: the bolt is drawn in flight as this mesh (tip on the round's path, no trail); 0.42 m, cut from BeerP's Arrow (Sketchfab, CC-BY-4.0) by tools/crossbow_bolt.py"
+ },
+ "models": [
+  {
+   "dir": "crossbow_bolt",
+   "bake": {
+    "src": "crossbow_bolt.glb",
+    "pivot": "weapon",
+    "scale": 0,
+    "realLength": 0.42,
+    "rot": [0, -90, 0],
+    "lod1": 0,
+    "maxTex": 512,
+    "credit": "Arrow by BeerP (https://sketchfab.com/3d-models/arrow-8a85003c1d604fc5a3b1d298e88a9d2b), CC BY 4.0 (E:/nmk/incoming_arrow; docs/credits.md)"
+   }
+  }
+ ],
  "model": {
   "src": "modern_crossbow.glb",
   "dir": "modern_crossbow",

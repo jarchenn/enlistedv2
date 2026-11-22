@@ -240,6 +240,11 @@ void App::buildWeaponMeshes() {
     if (j.contains("pivots")) { const json& pv = j["pivots"];   // MG9: the model's own hinges
       d->coverPivot = jvec3(pv.value("cover", json()), d->coverPivot); d->coverDeg = pv.value("coverDeg", d->coverDeg);
       d->bipodPivot = jvec3(pv.value("bipod", json()), d->bipodPivot); d->bipodDeg = pv.value("bipodDeg", d->bipodDeg); }
+    if (j.contains("projectileModel") && useImportedModels) {   // XB7: the round's own flying mesh
+      std::string pd = jkey(j, "projectileModel").value("dir", ""); auto it = modelCache.find(pd);
+      if (it == modelCache.end()) { auto gm = std::make_shared<GpuModel>(); std::string err; if (!gm->load(dir / "models" / pd, err)) { logf("weapon %s: projectile model '%s' not loaded (%s); a trail instead", d->id.c_str(), pd.c_str(), err.c_str()); gm.reset(); } it = modelCache.emplace(pd, gm).first; }
+      d->projModel = it->second;
+    }
     if (j.contains("model") && useImportedModels) {
       std::string dirName = jkey(j, "model").value("dir", "");
       auto it = modelCache.find(dirName);

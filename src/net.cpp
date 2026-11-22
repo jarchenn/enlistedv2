@@ -612,7 +612,7 @@ void netApplyEvent(App& app, const json& ev, bool replay) {
         if (by == g.localSlot && app.activeWeapon == w) off = app.vmApparent(app.weaponMuzzleWorld(d, app.wstate[d.id])) - p;   // our own shot echoed back: our drawn barrel
         else if (by >= 0 && by < (int)g.sold.size() && !g.sold[by].pose.delta.empty()) off = vec3(g.sold[by].world * g.sold[by].pose.weapon * vec4(d.muzzle, 1)) - p;
         if (glm::length(off) > 1.5f) off = vec3(0); }
-      g.ghosts.push_back({p, glm::normalize(dir) * d.velocity, 0, ev.value("tr", 0), off});
+      g.ghosts.push_back({p, glm::normalize(dir) * d.velocity, 0, ev.value("tr", 0), off, 0, d.projModel.get()});
       app.fx.flash(p + off + dir * 0.05f, d.action == "auto" ? 0.12f : 0.16f, 0.04f, vec4(8, 5.5f, 2.5f, 1));
       app.audio.play("shot_" + d.id, p, 1.0f);
       { int by = ev.value("by", -1); if (by >= 0 && by < (int)g.sold.size() && by != g.localSlot) app.shotCasing(d, g.sold[by].feet, by); }   // SND4; SND6: not our own shot echoed back by the host (weapons.cpp played its case)

@@ -1805,6 +1805,207 @@
           "joint": "RightHand"
         }
       ]
+    },
+    {
+      "id": "fallen_knight",
+      "name": "Fallen Knight",
+      "model": "knight",
+      "height_m": 3.81,
+      "scale": 1,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 3000,
+      "damage": 60,
+      "reach_m": 4.298,
+      "lunge_m": 2.931,
+      "cooldown_s": 1.4,
+      "windup_s": 0.5,
+      "attack_rate": 1.6,
+      "walk_mps": 2.7,
+      "run_mps": 2.7,
+      "run_within_m": 100000,
+      "weight": 0,
+      "hit_zone_scale": 1.1,
+      "knockback_mps": 6,
+      "stagger_min_damage": 600,
+      "stagger_s": 0.7,
+      "explosive_mult": 2,
+      "clips": {
+        "walk": [
+          "walk"
+        ],
+        "run": "walk",
+        "idle": [
+          "idle"
+        ],
+        "attack": [
+          "attack_slam",
+          "attack_spin",
+          "attack_bash",
+          "attack_charge"
+        ],
+        "damage": [
+          "damage"
+        ],
+        "death": [
+          "death"
+        ]
+      },
+      "sounds": {
+        "attack": "knightattack",
+        "contact": "knight_slice",
+        "miss": "knight_miss",
+        "hurt": "knight_hurt",
+        "weapon_drop": "knight_weapon_drop",
+        "death": "knightdeath"
+      },
+      "attack_dust": false,
+      "head_mult": 4,
+      "attacks": [
+        {
+          "clip": "attack_slam",
+          "joint": "RightHand",
+          "radius": 1.954
+        },
+        {
+          "clip": "attack_spin",
+          "joint": "RightHand",
+          "radius": 1.954
+        },
+        {
+          "clip": "attack_charge",
+          "joint": "RightHand",
+          "radius": 1.954
+        },
+        {
+          "clip": "attack_bash",
+          "joint": "LeftHand",
+          "radius": 1.758
+        }
+      ],
+      "capsule_radius_m": 0.55,
+      "capsule_height_m": 3.2,
+      "block_radius": 0.18,
+      "note": "FK1: AI type 39 Fallen Knight: the Brother Knight (content/characters/knight.glb, local-only; the model Knight 1 had before knight2) at twice the standardised knight body (foot to head joint 3.124 m = 2 x 1.562: height_m 3.81) with 5x a knight's health (3000; Knights 1-10 have 600). Its only locomotion clip is its walk (0.86 m/s of foot travel at its own size, 1.68 m/s at 2x): played as the run at 1.6x (2.7 m/s, no foot slide). reach, lunge, strike radii x1.954 with the body; capsule 0.55 x 3.2 m. Not in Assorted Knights. Without knight.glb AI type 39 spawns 'fallen_knight1' (Knight 1 at the same size and health)"
+    },
+    {
+      "id": "fallen_knight1",
+      "name": "Fallen Knight (Knight 1)",
+      "model": "knight_ss",
+      "height_m": 3.904,
+      "scale": 1,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 3000,
+      "damage": 60,
+      "reach_m": 4.0,
+      "lunge_m": 2.0,
+      "cooldown_s": 1.2,
+      "windup_s": 0.5,
+      "attack_rate": 1.0,
+      "walk_mps": 6.0,
+      "run_mps": 6.0,
+      "run_within_m": 100000,
+      "weight": 0,
+      "hit_zone_scale": 1.1,
+      "knockback_mps": 6,
+      "stagger_min_damage": 600,
+      "stagger_s": 0.7,
+      "explosive_mult": 2,
+      "clips": {
+        "walk": [
+          "sword and shield run"
+        ],
+        "run": "sword and shield run",
+        "idle": [
+          "sword and shield idle",
+          "sword and shield idle (4)"
+        ],
+        "attack": [
+          "sword and shield slash",
+          "sword and shield slash (3)",
+          "sword and shield slash (5)",
+          "sword and shield attack (4)"
+        ],
+        "damage": [
+          "sword and shield impact",
+          "sword and shield impact (2)",
+          "sword and shield impact (3)",
+          "sword and shield block"
+        ],
+        "death": [
+          "sword and shield death",
+          "sword and shield death (2)"
+        ]
+      },
+      "sounds": {
+        "attack": "knightattack",
+        "contact": "knight_slice",
+        "miss": "knight_miss",
+        "hurt": "knight_hurt",
+        "weapon_drop": "knight_weapon_drop",
+        "death": "knightdeath"
+      },
+      "attack_dust": false,
+      "head_mult": 4,
+      "attacks": [
+        {
+          "clip": "sword and shield slash",
+          "joint": "RightHand",
+          "radius": 0.72,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            55.2923,
+            9.6576,
+            6.3457
+          ]
+        },
+        {
+          "clip": "sword and shield slash (3)",
+          "joint": "RightHand",
+          "radius": 0.72,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            55.2923,
+            9.6576,
+            6.3457
+          ]
+        },
+        {
+          "clip": "sword and shield slash (5)",
+          "joint": "RightHand",
+          "radius": 0.72,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            55.2923,
+            9.6576,
+            6.3457
+          ]
+        },
+        {
+          "clip": "sword and shield attack (4)",
+          "joint": "RightHand",
+          "radius": 0.72,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            55.2923,
+            9.6576,
+            6.3457
+          ]
+        }
+      ],
+      "capsule_radius_m": 0.55,
+      "capsule_height_m": 3.2,
+      "block_radius": 0.18,
+      "note": "FK1: AI type 39 without the local knight.glb: Knight 1 at the Fallen Knight body size (x2: height_m 3.904) and health (3000)"
     }
   ]
 }
