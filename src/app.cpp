@@ -966,6 +966,7 @@ PlaceCheck App::checkPlacement(const AssetDef* a, vec3 pos, float yaw, uint64_t 
     if (crushBuilding(a) && crushVegetation(b)) continue;   // V6: low growth is crushed, taller growth blocked above (crushBlocked)
     if (a->defense.kind == "sandbag" && b->defense.kind == "sandbag") continue;   // sandbag runs chain end to end
     if (interior.isProp(b)) continue;   // furniture is checked by its own placement rules
+    if (b->raw.is_object() && !b->raw.value("placeBlock", true)) continue;   // BT3: an envelope whose footprint is not solid (a play limit's hidden ring, a creek's bounds)
     if (obbOverlap2D(vec2(pos.x, pos.z), hf - vec2(0.05f), radians(yaw), vec2(o.pos.x, o.pos.z), b->footprint * 0.5f - vec2(0.05f), radians(o.yaw))) {
       c.ok = false; c.reason = "Overlaps " + b->name + " #" + std::to_string(o.id) + "."; return c;
     }
