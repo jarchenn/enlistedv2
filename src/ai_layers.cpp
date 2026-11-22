@@ -371,13 +371,13 @@ void AiCore::act(Soldier& s, float dt) {
       b.mode = Brain::M_COVER; b.hasCover = coverValid; break; }
     case A_RETURN_FIRE: case A_SUPPRESS: {
       bool close = b.target >= 0 && glm::length(G.sold[b.target].feet - s.feet) < 20.0f;
-      bool mobile = (wd.action == "auto" && wd.feed != "belt") && close;   // SMGs / BAR fire on the move at close range
+      bool mobile = (wd.action == "auto" && (wd.feed != "belt" || s.standFire)) && close;   // SMGs / BAR fire on the move at close range (RB6: the robot's M249 too)
       if (!mobile) m.speed = SPD_STOP;
       else m.speed = SPD_JOG;
       if (wd.flame.on && b.target >= 0 && lenXZ(G.sold[b.target].feet - s.feet) > wd.flame.botRange * 0.8f) {   // FT1: a flame gun closes to the nozzle's reach
         requestPath(s, G.sold[b.target].feet, 1.0f, 6.0f); m.speed = SPD_JOG;
       }
-      m.posture = atCover ? Physics::STAND : (wd.feed == "belt" ? Physics::CROUCH : Physics::STAND);
+      m.posture = atCover ? Physics::STAND : (wd.feed == "belt" && !s.standFire ? Physics::CROUCH : Physics::STAND);
       if (atCover && attacker && !cover[m.cover].high) {   // low cover: peek and fire for a burst, then duck behind it (AI_SPEC 5)
         float ex = tj("combat", "peekExpose_s", 2.0f), du = tj("combat", "peekDuck_s", 1.5f) * (1.0f + b.suppressed);
         float ph = (float)std::fmod(G.t - m.setAt + s.slot * 0.37, (double)(ex + du));

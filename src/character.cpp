@@ -239,6 +239,11 @@ bool CharModel::load(const fs::path& path, std::string& err, float height, bool 
         part.metal = pbr.value("metallicFactor", 1.0f); part.rough = pbr.value("roughnessFactor", 1.0f);
         part.textured = gpu.mats[mi].alb != 0;
         if (!gpu.mats[mi].mr) { part.metal = std::min(part.metal, 0.05f); part.rough = std::max(part.rough, 0.75f); }   // cloth default
+        if (auto ef = m.find("emissiveFactor"); ef != m.end() && ef->is_array() && ef->size() == 3) {   // RB6: a glowing part (the KR-714's eyes)
+          const vec3 e((*ef)[0].get<float>(), (*ef)[1].get<float>(), (*ef)[2].get<float>());
+          float k = 1; if (m.contains("extensions") && m["extensions"].contains("KHR_materials_emissive_strength")) k = m["extensions"]["KHR_materials_emissive_strength"].value("emissiveStrength", 1.0f);
+          if (e != vec3(1)) part.emis = glm::max(e, vec3(0)) * std::clamp(k, 0.0f, 100.0f);   // an exactly white factor is an exporter's default (the guns' flash sprites, stray RootNode materials in 30+ character files): no glow
+        }
       }
       part.bmin = bmin; part.bmax = bmax;
       gpu.parts.push_back(part);

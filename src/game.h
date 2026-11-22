@@ -67,7 +67,8 @@ struct Soldier {
   float horseHp = 0, riderHpKeep = 0; bool hitHorse = false;   // HK3: the mounted knight's horse health, the rider's health when the horse fell, a bullet that met the horse (damage() routes it)
   int8_t mountDeath = -1;   // HK2: a mounted knight's death: -1 not decided, 0 the rider shot off, 1 the horse down (on foot after it), 2 done
   bool flat = false;   // crushed by a heavy's stomp (stomp_area): the body is drawn pressed flat into the ground
-  float eScale = 1, eLean = 0, eBody = 1; bool eFallback = false;   // EN1 (aiZombieAssign): draw scale, lean, body size vs a 1.85 m zombie, on the zombie rig
+  float eScale = 1, eLean = 0, eBody = 1; bool eFallback = false;   // EN1 (aiZombieAssign): draw scale, lean, body size vs a 1.85 m zombie, on the zombie rig; RB6: a soldier's kit "scale" (both)
+  bool standFire = false;   // RB6 kit "lmg_standing": a belt-fed gun fired standing and on the move, without the crouch or the standing spread
   float meleeWind = -1; double meleeReady = 0;   // G2: zombie strike wind-up (s, < 0 = none), next strike allowed at Game::t
   int meleeCount = 0, meleeClip = 0; AnimPlayer anim;   // G2: strikes started, attack clip of the current one; clip state (zombie.cpp)
   bool localPlayer = false, human = false; int peer = -1;

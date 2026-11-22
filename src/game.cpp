@@ -165,7 +165,7 @@ bool holdBodySetup(Game& G, int model) {
   return !G.models[model]->clips.empty();
 }
 static bool clipKit(int kit) { return kit == 4 || kit == 6 || kit == 7 || kit == 8 || kit == 9 || kit == 10 || kit == 12; }   // WS1: the Delta Force path (a clip body, the game's guns in its hands): 4 Delta Force, 6 desert, 7 Allied, 8 SS   // combat.json kits.<name> (SW1; DF1 4: Delta Force)
-static float bodyScale(const Soldier& s) { return s.zombie ? s.eBody : 1.0f; }   // EN1: a troll stands taller, a spider lower
+static float bodyScale(const Soldier& s) { return s.eBody; }   // EN1: a troll stands taller, a spider lower; RB6: a soldier kit's "scale" (1 otherwise)
 void Game::renderView(vec3& e, vec3& f) const {
   if (app.mode == Mode::Creative) { e = app.camPos; f = App::forward(app.camYaw, app.camPitch); return; }   // EGG1: the sandbox's AI posed / culled against the editor camera
   e = app.eyePos(); f = App::forward(app.eyeYaw, app.eyePitch); float fov = 70;
@@ -262,6 +262,10 @@ void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& 
     s.gunBody = gunBodyKind != nullptr;
     s.op = ait == AiType::Operators;
     s.kit = ait == AiType::Mechs && !s.zombie ? 12 : ait == AiType::Troopers ? 2 : ait == AiType::Robots ? 3 : ait == AiType::Delta ? 4 : ait == AiType::Desert ? 6 : ait == AiType::AlliedPara || ait == AiType::Allied ? 7 : ait == AiType::SS ? 8 : s.op ? 1 : 0;   // RM2: the gas-mask kits (9 / 10) are gone   // WS1: 7 Allied paratroopers; WSM2: 7 also the Allied soldiers, 8 SS, 9 / 10 gas-mask 1 / 2   // SW1; DF1: 4 Delta Force; DSD1: 6 desert soldiers on the Delta Force path
+    if (!s.zombie) {   // RB6: the kit's size and belt-gun stance (combat.json kits.<kit> "scale", "lmg_standing"); a zombie's come from its enemy type
+      const json kj = combat.value("kits", json::object()).value(kitName(s.kit), json::object());
+      s.eScale = s.eBody = std::clamp(kj.value("scale", 1.0f), 0.5f, 3.0f); s.eLean = 0; s.standFire = kj.value("lmg_standing", false);
+    } else s.standFire = false;
     s.etype = !s.zombie ? 0 : etypeOverride >= 0 ? etypeOverride : ait == AiType::ZombiesHeavies ? enemyTypePick((uint32_t)rs.id)   // EN1: the mix by weight, per slot
             : ait == AiType::Brutes ? std::max(0, enemyTypeIndex("brute")) : ait == AiType::Spiders ? std::max(0, enemyTypeIndex("stalker"))
             : ait == AiType::Creatures ? std::max(0, enemyTypeIndex("creature"))
@@ -402,7 +406,11 @@ void Game::applyLoadout(Soldier& s, bool newLife) {
   if (s.kit >= 2 && !s.human && !s.localPlayer) {
     const json& kj = combat.value("kits", json::object()).value(kitName(s.kit), json::object());
     std::vector<std::pair<int, int>> pool; int tot = 0;
-    for (auto& e : kj.value("ai", json::array())) { int w = app.weaponIndex(e[0].get<std::string>()); if (w >= 0) { pool.push_back({w, e[1].get<int>()}); tot += e[1].get<int>(); } }
+    const bool needModel = kj.contains("ai_fallback");   // RB6: a kit with a fallback takes its guns only with their models (the KR-714's M249 -> the BAR)
+    for (const char* key : {"ai", "ai_fallback"}) {
+      if (!pool.empty()) break;
+      for (auto& e : kj.value(key, json::array())) { int w = app.weaponIndex(e[0].get<std::string>()); if (w >= 0 && (!needModel || app.weaponDefs[w]->model)) { pool.push_back({w, e[1].get<int>()}); tot += e[1].get<int>(); } }
+    }
     if (!pool.empty()) {
       int w = pool[0].first, pick = tot > 0 ? (int)((s.slot * 7 + s.lifeId * 3) % tot) : 0;
       for (auto& [i, n] : pool) { if (pick < n) { w = i; break; } pick -= n; }
@@ -695,7 +703,7 @@ bool Game::coarseHit(const Soldier& s, vec3 a, vec3 d) const {   // CP: hitTest'
 }
 bool Game::hitTest(const Soldier& s, vec3 a, vec3 d, float maxT, HitZone& hz) const {
   // coarse sphere around the body
-  float bs = bodyScale(s), zs = s.zombie ? bs * (s.eFallback ? 1.0f : enemyType(s.etype).zoneScale) : 1.0f;   // EN1: the type's size and hit-zone scale
+  float bs = bodyScale(s), zs = s.zombie ? bs * (s.eFallback ? 1.0f : enemyType(s.etype).zoneScale) : bs;   // EN1: the type's size and hit-zone scale (RB6: a scaled soldier's limbs too)
   vec3 c = s.feet + vec3(0, 0.9f * bs, 0);
   vec3 m = a - c; float b = glm::dot(m, d), R0 = 1.3f * std::max(bs, zs), cc = glm::dot(m, m) - R0 * R0;
   if (cc > 0 && b > 0) return false;
@@ -1160,7 +1168,7 @@ void Game::posesStep(float dtFrame) {
     if (s.zombie) {   // EN1: the type's draw scale, and a forward lean about the feet (the stalker on the zombie rig)
       if (s.eLean != 0 && s.alive) s.world = glm::rotate(s.world, radians(s.eLean), vec3(1, 0, 0));
       if (s.eScale != 1) s.world = glm::scale(s.world, vec3(s.eScale));
-    }
+    } else if (s.eScale != 1) s.world = glm::scale(s.world, vec3(s.eScale));   // RB6: a soldier kit's "scale" (the KR-714): body, held gun and muzzle with it
     if (static const char* ft = std::getenv("NMK_FOOT_TRACE"); ft && !s.localPlayer && !s.zombie && s.alive && s.slot < 24 && !s.pose.delta.empty()) {   // AN1 step 3b: planted-foot slip (foottrace.csv)
       static FILE* f = nullptr; if (!f) { std::error_code ec; fs::create_directories(exeDir() / "selftest_out", ec); f = std::fopen((exeDir() / "selftest_out" / "foottrace.csv").string().c_str(), "w"); if (f) std::fprintf(f, "t,slot,model,speed,stanceL,stanceR,lx,lz,rx,rz,gapL,gapR\n"); }
       auto st = [&](int leg) { float u = (pp.walkPhase + (leg ? 3.14159265f : 0.0f)) / 6.2831853f; u -= std::floor(u); float du = std::clamp(pp.duty, 0.2f, 0.8f); return u > 0.1f * du && u < 0.9f * du ? 1 : 0; };

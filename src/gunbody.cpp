@@ -105,7 +105,7 @@ void gunBodyPose(Game& G, Soldier& s, float dt) {
   const vec3 fwd = App::forward(bodyYaw, 0), left(-std::cos(radians(bodyYaw)), 0, std::sin(radians(bodyYaw)));
   const float vf = glm::dot(s.vel, fwd), vl = glm::dot(s.vel, left);
   const float pitch = s.localPlayer ? G.app.eyePitch : s.anGunPitch;
-  auto gs = [&](int k, float def) { return k >= 0 && m.clips[k].groundSpeed > 0.2f ? m.clips[k].groundSpeed : def; };
+  auto gs = [&](int k, float def) { return (k >= 0 && m.clips[k].groundSpeed > 0.2f ? m.clips[k].groundSpeed : def) * s.eScale; };   // RB6: a scaled kit's longer stride
   const float vw = gs(r.walk, 1.4f), vr = std::max(vw + 0.5f, gs(r.run, 4.5f));
   const bool moving = s.speed > (A.key % 10 == K_LOCO ? 0.3f : 0.6f) && r.walk >= 0;   // hysteresis: no idle / walk flicker
   float hold = -1;   // >= 0: the time (s, or the phase of a blend) set rather than played
@@ -275,7 +275,7 @@ bool deltaBodyPose(Game& G, Soldier& s, float dt, PoseParams& pp) {
   const float bodyYaw = (hot && !s.localPlayer ? s.anGunYaw : s.yaw) - s.dfYawOff;   // the body as drawn: turned so the clip's gun points at the aim (game.cpp)
   const vec3 fwd = App::forward(bodyYaw, 0), left(-std::cos(radians(bodyYaw)), 0, std::sin(radians(bodyYaw)));
   const float vf = glm::dot(s.vel, fwd), vl = glm::dot(s.vel, left);
-  auto gs = [&](int k, float def) { return k >= 0 && m.clips[k].groundSpeed > 0.2f ? m.clips[k].groundSpeed : def; };
+  auto gs = [&](int k, float def) { return (k >= 0 && m.clips[k].groundSpeed > 0.2f ? m.clips[k].groundSpeed : def) * s.eScale; };   // RB6: a scaled kit's longer stride
   const bool moving = s.speed > (A.key >= K_LOCO * 10 ? 0.3f : 0.6f);
   const float yawNow = bodyYaw; float dy = std::remainder(yawNow - s.dfPrevYaw, 360.0f); s.dfPrevYaw = yawNow;
   if (dt > 0) s.dfYawRate += (std::clamp(dy / dt, -720.0f, 720.0f) - s.dfYawRate) * (1.0f - std::exp(-dt / 0.15f));

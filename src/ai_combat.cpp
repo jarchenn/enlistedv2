@@ -262,7 +262,7 @@ void AiCore::aim(Soldier& s, float dt) {
   err *= (s.speed > 0.5f ? 1.0f + s.speed / 3.0f : 1.0f) * (1.0f + b.suppressed * (1.0f - diff.suppressionResist) * 1.5f)
        * (!suppress && tgtS.speed > 1.0f ? 1.3f : 1.0f) * (s.posture == Physics::PRONE ? 0.7f : s.posture == Physics::CROUCH ? 0.85f : 1.0f)
        * (1.0f + dist / 150.0f) * (smokeT < 0.6f ? 1.5f : 1.0f) * (suppress ? 2.5f : 1.0f) * (blind ? 2.0f : 1.0f);
-  if (d.feed == "belt" && s.posture == Physics::STAND) err *= 1.8f;
+  if (d.feed == "belt" && s.posture == Physics::STAND && !s.standFire) err *= 1.8f;   // RB6: not for a kit that carries it standing
   // a slowly wandering offset (consecutive shots correlate) plus a per-shot gaussian part
   float a0 = (G.rnd(s) - 0.5f) * 0.6f, ca = std::cos(a0), sa = std::sin(a0); m.aimOff = glm::normalize(vec2(m.aimOff.x * ca - m.aimOff.y * sa, m.aimOff.x * sa + m.aimOff.y * ca) + vec2(1e-4f));
   float g1 = G.rnd(s), g2 = G.rnd(s);

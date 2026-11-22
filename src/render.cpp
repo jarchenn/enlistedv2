@@ -2349,6 +2349,7 @@ uniform vec3 uIvyStem; uniform vec2 uIvyRef;   // VR1 (src/ivy.cpp)
 uniform sampler2D uAlb, uMR, uNrm, uAO;
 uniform int uHasAlb, uHasMR, uHasNrm, uHasAO, uAOinMR; uniform float uAOWeak;   // TK3: 0 as baked (the default of an unset uniform), 1 no baked occlusion
 uniform vec4 uBase, uTint; uniform float uMetal, uRough;
+uniform vec3 uEmis; uniform float uEmissiveK;   // RB6: a part's own emission (characters' glowing parts) x the global emission multiplier
 layout(location=0) out vec4 oColor;
 layout(location=1) out float oDist;
 layout(location=2) out vec4 oAmb;
@@ -2425,6 +2426,7 @@ void main(){
     c += base.rgb*vec3(1.0, 1.05, 0.6)*uSunCol*(0.04 + 0.35*pow(VoL, 5.0))*sunShadowT(vW, N, 1.0, 1);
   }
   if (uTint.a >= 0.999) c *= uTint.rgb;   // opaque tint multiplies (white = unchanged; tank wrecks are blackened)
+  c += uEmis*uEmissiveK;   // RB6: emission into the HDR target before bloom (not into oAmb)
   c = applyFog(c, vW);
   if (uTint.a < 0.999) c = mix(c, uTint.rgb, 0.55);
   oColor = vec4(c, 1.0);
@@ -6327,8 +6329,9 @@ void Renderer::drawModels(const std::vector<ModelDraw>& items, const Frustum* fr
   const DrawLocs L = drawLocs(p);
   glUniform1i(L.alb, 2); glUniform1i(L.mr, 3); glUniform1i(L.nrm, 4); glUniform1i(L.ao, 5);
   GLint lm = L.model, lb = L.base, lme = L.metal, lr = L.rough, lt = L.tint, lth = L.thin;
-  static GLuint velProg = 0; static GLint lvel = -1, lpm = -1;   // AIB1: looked up once per program, not per draw
-  if (velProg != p) { velProg = p; lvel = U(p, "uVelMode"); lpm = U(p, "uPrevModel"); }
+  static GLuint velProg = 0; static GLint lvel = -1, lpm = -1, lemi = -1;   // AIB1: looked up once per program, not per draw
+  if (velProg != p) { velProg = p; lvel = U(p, "uVelMode"); lpm = U(p, "uPrevModel"); lemi = U(p, "uEmis"); }
+  vec3 emiSet(0); glUniform3fv(lemi, 1, glm::value_ptr(emiSet));   // RB6: no emission unless a part has its own
   const GpuModel* bound = nullptr; int boundMat = -2;
   for (auto& it : items) {
     const GpuModel* m = it.model;
@@ -6347,6 +6350,7 @@ void Renderer::drawModels(const std::vector<ModelDraw>& items, const Frustum* fr
     }
     glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(it.m));
     glUniform4fv(lb, 1, glm::value_ptr(pt.base)); glUniform1f(lme, pt.metal); glUniform1f(lr, pt.rough);
+    if (pt.emis != emiSet) { emiSet = pt.emis; glUniform3fv(lemi, 1, glm::value_ptr(emiSet)); }   // RB6
     glUniform4fv(lt, 1, glm::value_ptr(it.tint));
     glUniform1f(lth, it.thinPx * pxAngle);
     glUniform1i(U(p, "uGlass"), it.glass); glUniform1f(U(p, "uAlbFloor"), it.albFloor);

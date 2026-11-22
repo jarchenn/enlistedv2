@@ -25,6 +25,7 @@ struct ModelPart {
   int section = -1;                 // destruction section (ImportSpec sections), -1 = none
   bool glass = false;               // a window / windscreen material (name "glass"): drawn in the blended glass pass
   bool cutout = false;              // NT8: alpha-tested foliage (glTF alphaMode MASK / BLEND): needles, blades, fronds
+  vec3 emis{0};                     // RB6: emission (characters: glTF emissiveFactor x KHR_materials_emissive_strength), linear HDR, before bloom
   std::vector<mat4> anim;           // optional: weapon-space delta per animation sample (rest = identity)
 };
 
