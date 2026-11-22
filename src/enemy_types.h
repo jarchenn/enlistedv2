@@ -14,6 +14,7 @@ struct EnemyType {
   std::string sndWindup; float voicePitch = 1;            // SND4: "windup" (as it commits to a blow on a human player, in place of "attack", which then sounds at the blow if the wind-up is 1 s or longer); json voice_pitch: idle / attack / windup x
   std::string model = "zombie"; float height = 1.85f;    // content/characters/<model>.glb, rest pose scaled to height
   std::vector<std::string> models;                        // variants (json "models"; [0] = model): Soldier::evariant picks one in turn
+  bool modelsRandom = false;                              // KS json "models_pick": "random": a hash of the variant picks (the same on every peer)
   float scale = 1, lean = 0;                              // drawn (and hit) at scale x; lean: whole-body forward tilt (deg)
   float fallbackScale = 1, fallbackLean = 0;              // on the plain zombie's model and clips when this model or its walk clip is missing
   vec3 tint{1};

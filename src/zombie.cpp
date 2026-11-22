@@ -69,7 +69,7 @@ const ZombieCfg& zcfg() {
           if (eid.rfind("fighter", 0) == 0 || eid == "alien" || eid == "alien_queen" || eid == "animatronic") { logf("enemy types: '%s' is a removed type: ignored", eid.c_str()); continue; } }
         EnemyType t;
         t.id = e.value("id", t.id); t.name = e.value("name", t.id); t.model = e.value("model", t.model); t.height = e.value("height_m", t.height);
-        t.models = {t.model}; strs(e, "models", t.models); t.model = t.models[0];
+        t.models = {t.model}; strs(e, "models", t.models); t.model = t.models[0]; t.modelsRandom = e.value("models_pick", std::string()) == "random";
         t.scale = std::clamp(e.value("scale", t.scale), 0.3f, 100.0f); t.lean = e.value("lean_deg", t.lean);   // giants are drawn many times life size
         t.fallbackScale = std::clamp(e.value("fallback_scale", t.scale), 0.3f, 100.0f); t.fallbackLean = e.value("fallback_lean_deg", t.lean);
         if (e.contains("tint") && e["tint"].is_array() && e["tint"].size() == 3) t.tint = vec3(e["tint"][0].get<float>(), e["tint"][1].get<float>(), e["tint"][2].get<float>());
@@ -440,9 +440,17 @@ static void enemyLoops(Game& G) {
 }
 const std::vector<ZombieBlow>& aiZombieBlowLog() { return gBlowLog; }
 
+// KS json "models_pick": "random": each run of n spawns wears every build once, in an order shuffled per run from a hash of the
+// run's number (rotated either way: all n! orders for n <= 3); the same on every peer
+size_t modelPickRandom(int variant, int n) {
+  if (n <= 1) return 0;
+  uint32_t h = ((uint32_t)(variant / n) + 1u) * 2654435761u; h ^= h >> 15; h *= 0x2C1B3C6Du; h ^= h >> 12; const int off = (int)((h >> 16) % (uint32_t)n), k = variant % n;
+  return (size_t)((off + ((h >> 9) & 1 ? k : n - k)) % n);
+}
 int aiZombieModel(Game& G, int type, int variant) {
   const EnemyType& t = enemyType(type);
-  const std::string& model = t.models.empty() ? t.model : t.models[(size_t)std::max(0, variant) % t.models.size()];
+  const size_t vi = t.modelsRandom ? modelPickRandom(std::max(0, variant), (int)t.models.size()) : (size_t)std::max(0, variant);   // KS: random builds, the same on every peer
+  const std::string& model = t.models.empty() ? t.model : t.models[vi % t.models.size()];
   std::string key = model + "@" + std::to_string(t.height);
   auto it = G.modelIdx.find(key); if (it != G.modelIdx.end()) return it->second;
   static std::set<std::string> failed; if (failed.count(key)) return -1;
@@ -910,6 +918,22 @@ int ar1SelfCheck() {
         "Dragon (DR1): AI type 40, 5000 health on one pool, no stagger from small arms, three ground attacks and a flame breath at reduced damage");
     chk(clipsOk && anims.size() == 8 && !anims.count("Take 001"), "Dragon (DR1): every clip it names is in dragon.glb, 8 clips, no flight take (" + std::to_string(anims.size()) + " clips)");
     chk(zonesOk && enemyType(dk).horseZones.size() >= 20, "Dragon (DR1): " + std::to_string(dk >= 0 ? enemyType(dk).horseZones.size() : 0) + " hit capsules on joints the model has (head / body / limb zones)"); }
+  {   // KS: the Spear Knight: AI type 42, three builds picked at random, stab clips only, 1.3x Knight 7's reach; each build's GLB names every clip
+    int sk = enemyTypeIndex("knight_spear"), k7 = enemyTypeIndex("knight7"); bool ok = sk >= 0 && k7 >= 0, stabs = ok, files = ok; std::set<int> picks;
+    if (ok) { const EnemyType& t = enemyType(sk);
+      for (auto& c : t.attackClips) stabs = stabs && c.rfind("spear ", 0) == 0;
+      for (auto& a : t.attackSpecs) stabs = stabs && a.clip.rfind("spear ", 0) == 0 && a.hasAt && a.bone == "mixamorig:RightHand";
+      std::vector<std::string> need = t.walkClips; need.push_back(t.runClip); for (auto* v : {&t.idleClips, &t.attackClips, &t.damageClips, &t.deathClips}) need.insert(need.end(), v->begin(), v->end());
+      for (auto& m : t.models) { std::set<std::string> anims; std::ifstream f(contentDir() / "characters" / (m + ".glb"), std::ios::binary); std::string g((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        if (g.size() > 20) { uint32_t n = 0; std::memcpy(&n, g.data() + 12, 4); json J; try { J = json::parse(g.substr(20, n)); } catch (...) {} for (auto& x : J.value("animations", json::array())) anims.insert(x.value("name", std::string())); }
+        for (auto& c : need) files = files && anims.count(c); }
+      std::vector<int> seen(t.models.size()); bool runs = true;
+      for (int v = 0; v < 12; ++v) { int m = (int)modelPickRandom(v, (int)t.models.size()); picks.insert(m); seen[m]++; if (v % 3 == 2) for (int c : seen) runs = runs && c == (v + 1) / 3; }
+      stabs = stabs && runs; }
+    chk(ok && std::string(aiTypeName(AiType::SpearKnight)) == "Spear Knight" && enemyType(sk).models.size() == 3 && enemyType(sk).modelsRandom && picks.size() == 3
+        && std::fabs(enemyType(sk).reach - 1.3f * enemyType(k7).reach) < 0.01f && enemyType(sk).attackClips.size() == 5 && stabs,
+        "Spear Knight (KS): AI type 42, three builds picked at random (each run of three spawns wears all three), five stab clips only, 1.3x Knight 7's reach");
+    chk(files, "Spear Knight (KS): every clip it names is in each of its three GLBs"); }
   { json xb; try { xb = json::parse(readTextFile(contentDir() / "weapons" / "modern_crossbow.json")); } catch (...) {}   // XB7
     std::string pd = xb.is_object() ? xb.value("projectileModel", json::object()).value("dir", std::string()) : std::string();
     chk(!pd.empty() && fs::exists(contentDir() / "weapons" / "models" / pd / "mesh.bin"), "the crossbow's bolt mesh (XB7): models/" + pd); }

@@ -26,8 +26,8 @@
     "anim_hz_far": 7.5,
     "share_pose_m": 60
   },
-  "assorted_note": "AK1: AI type Assorted Knights: each slot one of these types by weight (archers about a quarter of the mix: 3.33 of 13.33); a type whose model file is missing (the local-only knight_v2, knight_3, archer_2) is left out. The Mounted Knight is not in the mix",
-  "assorted": [["knight", 1], ["knight2", 1], ["knight3", 1], ["knight4", 1], ["knight5", 1], ["knight6", 1], ["knight7", 1], ["knight8", 1], ["knight9", 1], ["knight10", 1], ["archer1", 1.67], ["archer2", 1.67]],
+  "assorted_note": "AK1: AI type Assorted Knights: each slot one of these types by weight (archers about a quarter of the mix: 3.33 of 14.33; KS: the Spear Knight one of the knights); a type whose model file is missing (the local-only knight_v2, knight_3, archer_2) is left out. The Mounted Knight is not in the mix",
+  "assorted": [["knight", 1], ["knight2", 1], ["knight3", 1], ["knight4", 1], ["knight5", 1], ["knight6", 1], ["knight7", 1], ["knight8", 1], ["knight9", 1], ["knight10", 1], ["knight_spear", 1], ["archer1", 1.67], ["archer2", 1.67]],
   "types": [
     {
       "id": "zombie",
@@ -1179,6 +1179,137 @@
             46.5089,
             24.1693,
             6.4159
+          ]
+        }
+      ]
+    },
+    {
+      "note": "KS: AI type Spear Knight (42): three builds, one picked at random per spawn (models_pick): ks1 Knight 6's sallet + bevor and breastplate, the Gilded Spear, Knight 7's scutum; ks2 the conquistador helmet, Knight 7's cuirass, the Shao Lin double moon spear, the crusader shield (its field steel, its cross in the scutum's gold); ks3 the conquistador helmet, Knight 6's breastplate, Spear2, Knight 6's Polish shield (its field steel). Every armour piece (the body's plate too, x0.875) in the knights' darker steel; spears 2.4 m gripped 38 % from the butt (content/characters/knight_spear_ks*.glb: tools/enemies/knight_parts.py spear-<helm>-<chest>-<shield>, knight_v2_merge.py, knight_stabs.py). The sword-and-shield pack's locomotion, idles, impacts and deaths; it attacks only with stabs: the pack has no thrust, so knight_stabs.py re-arms five of its lunges (legs, body and timing kept, the right arm driven point-first by IK). Reach 1.3x the other knights' 2.2 m; the strike sphere near the spear point",
+      "id": "knight_spear",
+      "hit_fx": "sparks",
+      "name": "Spear Knight",
+      "models_pick": "random",
+      "model": "knight_spear_ks1",
+      "models": [
+        "knight_spear_ks1",
+        "knight_spear_ks2",
+        "knight_spear_ks3"
+      ],
+      "height_m": 2.1472,
+      "scale": 1,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 600,
+      "damage": 60,
+      "reach_m": 2.86,
+      "lunge_m": 1.1,
+      "cooldown_s": 1.2,
+      "windup_s": 0.5,
+      "attack_rate": 1.0,
+      "walk_mps": 1.65,
+      "run_mps": 4.18,
+      "run_within_m": 100000,
+      "weight": 0,
+      "hit_zone_scale": 1.1,
+      "knockback_mps": 3,
+      "stagger_min_damage": 120,
+      "stagger_s": 0.7,
+      "explosive_mult": 2,
+      "clips": {
+        "walk": [
+          "sword and shield run"
+        ],
+        "run": "sword and shield run",
+        "idle": [
+          "sword and shield idle",
+          "sword and shield idle (4)"
+        ],
+        "attack": [
+          "spear thrust",
+          "spear thrust (2)",
+          "spear thrust (3)",
+          "spear thrust (4)",
+          "spear poke"
+        ],
+        "damage": [
+          "sword and shield impact",
+          "sword and shield impact (2)",
+          "sword and shield impact (3)",
+          "sword and shield block"
+        ],
+        "death": [
+          "sword and shield death",
+          "sword and shield death (2)"
+        ]
+      },
+      "sounds": {
+        "attack": "knightattack",
+        "contact": "knight_slice",
+        "miss": "knight_miss",
+        "hurt": "knight_hurt",
+        "weapon_drop": "knight_weapon_drop",
+        "death": "knightdeath"
+      },
+      "attack_dust": false,
+      "head_mult": 4,
+      "attacks": [
+        {
+          "clip": "spear thrust",
+          "joint": "RightHand",
+          "radius": 0.3,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            106.8134,
+            18.6684,
+            12.242
+          ]
+        },
+        {
+          "clip": "spear thrust (2)",
+          "joint": "RightHand",
+          "radius": 0.3,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            106.8134,
+            18.6684,
+            12.242
+          ]
+        },
+        {
+          "clip": "spear thrust (3)",
+          "joint": "RightHand",
+          "radius": 0.3,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            106.8134,
+            18.6684,
+            12.242
+          ]
+        },
+        {
+          "clip": "spear thrust (4)",
+          "joint": "RightHand",
+          "radius": 0.3,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            106.8134,
+            18.6684,
+            12.242
+          ]
+        },
+        {
+          "clip": "spear poke",
+          "joint": "RightHand",
+          "radius": 0.3,
+          "bone": "mixamorig:RightHand",
+          "at": [
+            106.8134,
+            18.6684,
+            12.242
           ]
         }
       ]
