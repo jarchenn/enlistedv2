@@ -1,0 +1,432 @@
+{
+ "id": "modern_crossbow",
+ "name": "Crossbow",
+ "side": "modern",
+ "modern": true,
+ "action": "semi",
+ "feed": "single",
+ "cap": 1,
+ "loaded": 1,
+ "reserve": 12,
+ "container": "crossbow_bolt",
+ "containerSize": 1,
+ "rpm": 30,
+ "velocity": 95,
+ "caliber": "crossbow bolt",
+ "bulletMass": 25.0,
+ "recoil": {
+  "pitch": 1.2,
+  "yaw": 0.3,
+  "recover": 8,
+  "visual": 0.05
+ },
+ "reload": {
+  "empty": 2.6,
+  "partial": 2.6
+ },
+ "reloadStyle": "magazine",
+ "casings": false,
+ "tracerEvery": 0,
+ "sights": {
+  "rear": [
+   0.0,
+   0.0906,
+   0.3088
+  ],
+  "front": [
+   0.0,
+   0.1035,
+   0.7385
+  ],
+  "note": "XB1: rear = the peep ring's hole centre (clipped rear-view render), front = the post tip (top profile); the sight line rises 2.8 deg over the bolt rail (the bolt drops); measured on the static bake"
+ },
+ "muzzle": [
+  0.0,
+  0.0469,
+  0.89
+ ],
+ "muzzleDir": [
+  0,
+  0,
+  1
+ ],
+ "zero": 30,
+ "hold": {
+  "pose": {
+   "r": {
+    "p": [
+     -0.0204,
+     -0.0049,
+     -0.0407
+    ],
+    "q": [
+     -0.3894,
+     0.288,
+     0.5996,
+     0.6371
+    ]
+   },
+   "l": {
+    "p": [
+     0.0479,
+     0.0038,
+     -0.0595
+    ],
+    "q": [
+     0.1031,
+     -0.0797,
+     0.9896,
+     -0.0609
+    ],
+    "anchor": "support"
+   },
+   "template": "straight",
+   "butt": [
+    0.0,
+    -0.0138
+   ],
+   "gun": [
+    0,
+    0,
+    0.04
+   ],
+   "fingers": {
+    "LeftHandThumb1": [
+     0.0,
+     0.0,
+     -0.0,
+     1.0
+    ],
+    "LeftHandThumb2": [
+     -0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "LeftHandThumb3": [
+     0.0,
+     -0.0,
+     -0.0,
+     1.0
+    ],
+    "LeftHandThumb4": [
+     -0.0,
+     0.0,
+     -0.0,
+     1.0
+    ],
+    "LeftHandIndex1": [
+     0.096,
+     -0.0245,
+     -0.4901,
+     0.866
+    ],
+    "LeftHandIndex2": [
+     -0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "LeftHandIndex3": [
+     0.0734,
+     -0.0187,
+     -0.3751,
+     0.9239
+    ],
+    "LeftHandIndex4": [
+     0.0,
+     -0.0,
+     -0.0,
+     1.0
+    ],
+    "LeftHandMiddle1": [
+     0.0811,
+     -0.0207,
+     -0.4142,
+     0.9063
+    ],
+    "LeftHandMiddle2": [
+     0.0886,
+     -0.0226,
+     -0.4526,
+     0.887
+    ],
+    "LeftHandMiddle3": [
+     0.0,
+     -0.0,
+     0.0,
+     1.0
+    ],
+    "LeftHandMiddle4": [
+     0.0,
+     0.0,
+     -0.0,
+     1.0
+    ],
+    "LeftHandRing1": [
+     0.0811,
+     -0.0207,
+     -0.4142,
+     0.9063
+    ],
+    "LeftHandRing2": [
+     0.0811,
+     -0.0207,
+     -0.4142,
+     0.9063
+    ],
+    "LeftHandRing3": [
+     0.0811,
+     -0.0207,
+     -0.4142,
+     0.9063
+    ],
+    "LeftHandRing4": [
+     -0.0,
+     -0.0,
+     -0.0,
+     1.0
+    ],
+    "LeftHandPinky1": [
+     0.0811,
+     -0.0207,
+     -0.4142,
+     0.9063
+    ],
+    "LeftHandPinky2": [
+     0.0811,
+     -0.0207,
+     -0.4142,
+     0.9063
+    ],
+    "LeftHandPinky3": [
+     0.0811,
+     -0.0207,
+     -0.4142,
+     0.9063
+    ],
+    "LeftHandPinky4": [
+     -0.0,
+     -0.0,
+     -0.0,
+     1.0
+    ],
+    "RightHandThumb1": [
+     -0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "RightHandThumb2": [
+     0.0,
+     -0.0,
+     0.0,
+     1.0
+    ],
+    "RightHandThumb3": [
+     0.0,
+     -0.0,
+     -0.0,
+     1.0
+    ],
+    "RightHandThumb4": [
+     -0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "RightHandIndex1": [
+     0.0269,
+     0.0026,
+     0.0829,
+     0.9962
+    ],
+    "RightHandIndex2": [
+     0.0799,
+     0.0079,
+     0.2461,
+     0.9659
+    ],
+    "RightHandIndex3": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "RightHandIndex4": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "RightHandMiddle1": [
+     0.1304,
+     0.0128,
+     0.4018,
+     0.9063
+    ],
+    "RightHandMiddle2": [
+     0.177,
+     0.0174,
+     0.5453,
+     0.8192
+    ],
+    "RightHandMiddle3": [
+     0.0403,
+     0.004,
+     0.1241,
+     0.9914
+    ],
+    "RightHandMiddle4": [
+     0.0,
+     0.0,
+     -0.0,
+     1.0
+    ],
+    "RightHandRing1": [
+     0.1304,
+     0.0128,
+     0.4018,
+     0.9063
+    ],
+    "RightHandRing2": [
+     0.1304,
+     0.0128,
+     0.4018,
+     0.9063
+    ],
+    "RightHandRing3": [
+     0.1425,
+     0.014,
+     0.439,
+     0.887
+    ],
+    "RightHandRing4": [
+     0.0,
+     -0.0,
+     -0.0,
+     1.0
+    ],
+    "RightHandPinky1": [
+     0.1304,
+     0.0128,
+     0.4018,
+     0.9063
+    ],
+    "RightHandPinky2": [
+     0.1304,
+     0.0128,
+     0.4018,
+     0.9063
+    ],
+    "RightHandPinky3": [
+     0.1304,
+     0.0128,
+     0.4018,
+     0.9063
+    ],
+    "RightHandPinky4": [
+     0.0,
+     0.0,
+     -0.0,
+     1.0
+    ]
+   }
+  }
+ },
+ "sockets": {
+  "rightGrip": [
+   0.0,
+   -0.0529,
+   0.265
+  ],
+  "leftSupport": [
+   0.0,
+   -0.0081,
+   0.5388
+  ]
+ },
+ "ads": {
+  "eyeRelief": 0.12,
+  "vmFov": 0,
+  "posCorrection": [
+   0,
+   0,
+   0
+  ],
+  "rotCorrection": [
+   0,
+   0,
+   0
+  ]
+ },
+ "modes": [
+  "semi"
+ ],
+ "note": "XB1: a stocked crossbow: one bolt, cocked and loaded by hand after each shot (the source's own reload clip, 2.6 s); the bolt is a slow round (95 m/s, 25 g) with the normal ballistic drop; quiet (a stand-in sound). Modern weapons case only.",
+ "model": {
+  "src": "modern_crossbow.glb",
+  "dir": "modern_crossbow",
+  "realLength": 0.89,
+  "rot": [
+   0,
+   0,
+   0
+  ],
+  "maxTex": 1024,
+  "credit": "crossbow animated by DJMaesen (https://sketchfab.com/3d-models/crossbow-animated-0716aa86b0d1433ea9e4689d06b37ae7), CC BY 4.0 (E:/nmk/incoming_crossbow; docs/credits.md)"
+ },
+ "animated": {
+  "dir": "modern_crossbow",
+  "insert": 0.85,
+  "note": "XB1: the source's own arms and clips (models/<dir>/vm.glb, tools/modern_guns_anim.py); one 5.67 s timeline: fire, reload (cock + bolt), inspect, idle",
+  "points": {
+   "up": [
+    0.04099,
+    0.99916,
+    -0.00259
+   ],
+   "note": "XB1: the gun's vertical (bind space, vm.glb: from the bore at the muzzle square up to the rear -> front sight line), so ADS turns the sight line onto the view axis with no roll (the MG11 / CP alignment)"
+  }
+ },
+ "parts": {
+  "body": [
+   {
+    "t": "b",
+    "c": [
+     0,
+     0,
+     0.445
+    ],
+    "s": [
+     0.06,
+     0.1,
+     0.89
+    ],
+    "m": "dark",
+    "k": 0
+   }
+  ],
+  "bolt": [],
+  "mag": [],
+  "cover": [],
+  "clip": [],
+  "bipod": [],
+  "scope": [],
+  "handle": []
+ },
+ "materials": [
+  {
+   "name": "dark",
+   "albedo": [
+    0.08,
+    0.08,
+    0.08
+   ],
+   "roughness": 0.5,
+   "pattern": "metal",
+   "metallic": 0.6,
+   "grain": 1
+  }
+ ]
+}

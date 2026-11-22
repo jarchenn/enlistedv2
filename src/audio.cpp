@@ -579,6 +579,7 @@ int Audio::loadCustom(const fs::path& dir) {
     {"snd15/shotgun.wav", false, {"modern_sawnoff"}, -1, 0.92f, 0, 2.4f, 0.0f, 0.55f},
     {"snd15/suppressed_rifle.wav", false, {"modern_mp7"}, -1, 1.05f, 0, 1.4f, 1.0f, 0.99f},
     {"snd15/suppressed_rifle.wav", false, {"modern_vsk"}, -1, 0.92f, 0, 1.4f, 2.5f, 1.14f},
+    {"snd15/suppressed_rifle.wav", false, {"modern_crossbow"}, -1, 0.70f, -0.4f, 0.5f, 0.0f, 0.55f},   // XB1 stand-in (the performance session owns sound): the suppressed rifle much lower, darker, short and quiet: a thump
     {"snd15/suppressed_rifle.wav", false, {"suppressed_rifle"}, -1, 1.00f, 0, 1.4f, 0.0f, 1.18f},   // a fitted suppressor: 6 dB under the rifle class
     {"snd14/bolt_rifle.wav", false, {"kar98k"}, -1, 1.00f, 0, 1.8f, 4.5f, 1.23f},   // BoltActionRifle: the WW2 bolt guns (the modern snipers keep the M24 / .50)
     {"snd14/bolt_rifle.wav", false, {"kar98k_zf39"}, -1, 0.96f, 0, 1.8f, 4.0f, 1.23f},
@@ -821,6 +822,7 @@ int Audio::loadCustom(const fs::path& dir) {
       {"reload/reload_a.mp3", {"modern_smg9"}, 1.8f, 0, 1.06f},
       {"reload/reload_a.mp3", {"modern_mp5"}, 2.4f, 0, 0.97f},   // SND20
       {"reload/shotgun_shells.mp3", {"modern_sawnoff"}, 2.9f, 0, 1.05f},
+      {"reload/reload_b.mp3", {"modern_crossbow"}, 2.5f, 0, 0.8f},   // XB1 stand-in: cocking and laying the bolt
       // SW1 (borrowed, pitched apart): the energy-cell swaps on the AR magazine reload
       {"reload/reload_m4.mp3", {"blaster_carbine"}, 1.9f, 0, 1.12f},
       // MG12 batch 2 (borrowed, pitched apart): the pistol reload

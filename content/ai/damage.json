@@ -427,6 +427,7 @@
    "note": "MG12 per pellet (9 per shell; DMG1 pellets 26-30), shorter reach than the 870",
    "class": "shotgun"
   },
+    "modern_crossbow": {"near": 85, "far": 55, "falloffStart_m": 25, "falloffEnd_m": 70, "rpm": 30, "note": "XB1 crossbow bolt (95 m/s, 25 g): one heavy hit, slow to reload", "class": "rifle"},
   "modern_smg9": {
    "near": 30,
    "far": 18,
