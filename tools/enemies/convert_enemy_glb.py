@@ -26,7 +26,7 @@
 #       the foot on the forward swing and the foot stays level
 # - <alb.png> may instead be a .json {source material name: [albedo, normal or null]} (file names in the directory given
 #   as <nrm.png>): the mesh keeps its materials
-# usage: blender -b --factory-startup --python convert_enemy_glb.py -- <fbx> <out.glb> <alb.png> <nrm.png> <keep_mesh,...> <map.json> [<death pivot bone> | -] [<spec.json>]
+# usage: blender -b --factory-startup --python convert_enemy_glb.py -- <fbx | .blend> <out.glb> <alb.png> <nrm.png> <keep_mesh,...> <map.json> [<death pivot bone> | -] [<spec.json>]
 import bpy, sys, json, re, math, os, struct
 from mathutils import Matrix, Quaternion, Vector
 a = sys.argv[sys.argv.index('--') + 1:]
@@ -34,7 +34,8 @@ src, out, alb, nrm, keep, mapf = a[0], a[1], a[2], a[3], a[4].split(','), a[5]
 spec = json.load(open(a[7])) if len(a) > 7 else {}
 bmap = json.load(open(mapf))   # semantic name -> source bone name
 bpy.ops.wm.read_factory_settings(use_empty=True)
-bpy.ops.import_scene.fbx(filepath=src)
+if src.endswith('.blend'): bpy.ops.wm.open_mainfile(filepath=src)   # NPC1: a character merged from one FBX per clip (fbx_takes_merge.py)
+else: bpy.ops.import_scene.fbx(filepath=src)
 arm = next(o for o in bpy.data.objects if o.type == 'ARMATURE')
 meshes = [o for o in bpy.data.objects if o.type == 'MESH' and o.name in keep]
 assert meshes, [o.name for o in bpy.data.objects if o.type == 'MESH']

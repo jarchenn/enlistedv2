@@ -1,0 +1,236 @@
+{
+ "note": "NPC1/NPC3: Mixamo's Ch31 (one FBX per clip, merged by fbx_takes_merge.py); each take cut whole into its clip, all but the deaths in place",
+ "jpeg": true,
+ "same_turn": true,
+ "clips": [
+  {
+   "name": "walk",
+   "take": "T_walk",
+   "range": [
+    1,
+    32
+   ],
+   "inplace": true
+  },
+  {
+   "name": "walk_standard",
+   "take": "T_walk_standard",
+   "range": [
+    1,
+    36
+   ],
+   "inplace": true
+  },
+  {
+   "name": "walk_briefcase",
+   "take": "T_walk_briefcase",
+   "range": [
+    1,
+    32
+   ],
+   "inplace": true
+  },
+  {
+   "name": "walk_turn180",
+   "take": "T_walk_turn180",
+   "range": [
+    1,
+    31
+   ],
+   "inplace": true
+  },
+  {
+   "name": "run",
+   "take": "T_run",
+   "range": [
+    1,
+    50
+   ],
+   "inplace": true
+  },
+  {
+   "name": "run_b",
+   "take": "T_run_b",
+   "range": [
+    1,
+    22
+   ],
+   "inplace": true
+  },
+  {
+   "name": "run_turn180",
+   "take": "T_run_turn180",
+   "range": [
+    1,
+    21
+   ],
+   "inplace": true
+  },
+  {
+   "name": "flee_lookback",
+   "take": "T_flee_lookback",
+   "range": [
+    1,
+    24
+   ],
+   "inplace": true
+  },
+  {
+   "name": "attack_cross",
+   "take": "T_punch_cross",
+   "range": [
+    1,
+    61
+   ],
+   "inplace": true
+  },
+  {
+   "name": "attack_jab",
+   "take": "T_punch_jab",
+   "range": [
+    1,
+    46
+   ],
+   "inplace": true
+  },
+  {
+   "name": "attack_hook",
+   "take": "T_punch_hook",
+   "range": [
+    1,
+    40
+   ],
+   "inplace": true
+  },
+  {
+   "name": "idle",
+   "take": "T_idle_breathing",
+   "range": [
+    1,
+    299
+   ],
+   "inplace": true
+  },
+  {
+   "name": "idle_talking",
+   "take": "T_idle_talking",
+   "range": [
+    1,
+    119
+   ],
+   "inplace": true
+  },
+  {
+   "name": "idle_talking_b",
+   "take": "T_idle_talking_b",
+   "range": [
+    1,
+    114
+   ],
+   "inplace": true
+  },
+  {
+   "name": "hit_head",
+   "take": "T_hit_head",
+   "range": [
+    1,
+    44
+   ],
+   "inplace": true
+  },
+  {
+   "name": "hit_head_side",
+   "take": "T_hit_head_side",
+   "range": [
+    1,
+    100
+   ],
+   "inplace": true
+  },
+  {
+   "name": "hit_back",
+   "take": "T_hit_back",
+   "range": [
+    1,
+    76
+   ],
+   "inplace": true
+  },
+  {
+   "name": "hit_back_b",
+   "take": "T_hit_back_b",
+   "range": [
+    1,
+    76
+   ],
+   "inplace": true
+  },
+  {
+   "name": "hit_body",
+   "take": "T_hit_body",
+   "range": [
+    1,
+    41
+   ],
+   "inplace": true
+  },
+  {
+   "name": "hit_stomach",
+   "take": "T_hit_stomach",
+   "range": [
+    1,
+    37
+   ],
+   "inplace": true
+  },
+  {
+   "name": "walk_injured",
+   "take": "T_injured_walk",
+   "range": [
+    1,
+    31
+   ],
+   "inplace": true
+  },
+  {
+   "name": "run_injured",
+   "take": "T_injured_run",
+   "range": [
+    1,
+    20
+   ],
+   "inplace": true
+  },
+  {
+   "name": "death_forward",
+   "take": "T_death_forward",
+   "range": [
+    1,
+    72
+   ],
+   "inplace": false
+  },
+  {
+   "name": "death_left",
+   "take": "T_death_left",
+   "range": [
+    1,
+    69
+   ],
+   "inplace": false
+  },
+  {
+   "name": "death_react",
+   "take": "T_death_react",
+   "range": [
+    1,
+    111
+   ],
+   "inplace": false
+  }
+ ],
+ "drop_takes": [
+  "T_"
+ ],
+ "forward": "-y"
+}

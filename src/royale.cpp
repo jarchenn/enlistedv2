@@ -287,7 +287,7 @@ void royaleBegin(App& app, Game& G) {
     if (body < 0) { Soldier* L = G.local(); body = L ? L->model : G.sold.empty() ? -1 : G.sold[0].model; }
     for (auto& s : G.sold) {
       if (body >= 0) s.model = body;
-      s.zombie = false; s.etype = 0; s.evariant = 0; s.eScale = 1; s.eLean = 0; s.eBody = 1; s.eFallback = false;
+      s.zombie = false; s.npc = 0; s.npcFoe = -1; s.etype = 0; s.evariant = 0; s.eScale = 1; s.eLean = 0; s.eBody = 1; s.eFallback = false;
     }
   }
   // BR1b: named districts from the map file (scenario.districts: name, pos [x, y, z], radius); absent on most maps

@@ -29,7 +29,21 @@ P_ = {'knight6': dict(head_k=0.94, head_up=-0.03, head_back=0.02, helm=(0.215, 1
       'knight7': dict(head_k=1.0, head_up=0.035, head_back=0.0, helm=(0.21, 1.819, 0.0, 180), bevor=None, chest=(0.335, 1.50), shrink=0.67,
                       wlen=0.70, grip=0.14, sword=False, sh_len=0.95, sh_sign=1.0, sh_rot=0.0, sh_along=0.14, sh_in=0.09),
       'knight10': dict(head=False, chest=(0.335, 1.50), shrink=0.67, wlen=1.0, grip=0.12, sword=True, sh_len=0.80, sh_sign=1.0, sh_rot=0.0, sh_along=0.05, sh_in=0.02,
-                       sh_up='forward', tile='tile_base.png', w_finish=2.0, sh_finish=2.5)}[PRESET]
+                       sh_up='forward', tile='tile_base.png', w_finish=2.0, sh_finish=2.5)}
+# KS spear knight: spear-<helm>-<chest>-<shield>[-long] (long: a 2.4 m spear): Knight 6's sallet + bevor, Knight 7's great helm or the conquistador helmet
+# (closed morion, faces -y); Knight 6's breastplate or Knight 7's cuirass (its brass in the armour finish too: the user, every
+# armour colour the knights' darker steel); Knight 7's scutum, the crusader heater (wide top forward, as Knight 10's) or
+# Knight 6's Polish shield; a 2.0 m spear (its head the wide end) gripped 38 % from the butt, its 4K maps cut to 1K
+_KS_HELM = {'sallet': dict(head_k=0.94, head_up=-0.03, head_back=0.02, helm=(0.215, 1.813, 0.04, 0), bevor=(0.22, 1.835, 0.022, 0)),
+            'greathelm': dict(head_k=1.0, head_up=0.035, head_back=0.0, helm=(0.21, 1.819, 0.0, 180), bevor=None),
+            'conq': dict(head_k=0.85, head_up=0.035, head_back=0.0, helm=(0.22, 1.835, 0.0, 0), bevor=None, neck_drop=0.06)}   # 21 % smaller than first fitted (the user), the head
+            # inside it too, its neck stretched 6 cm down into the collar (the user: the head floated)
+_KS_CHEST = {'metal': dict(chest=(0.38, 1.50), shrink=0.73), 'cuirass': dict(chest=(0.335, 1.50), shrink=0.67)}
+_KS_SHIELD = {'scutum': dict(sh_len=0.95, sh_sign=1.0, sh_rot=0.0, sh_along=0.14, sh_in=0.09),
+              'crusader': dict(sh_len=0.85, sh_sign=-1.0, sh_rot=0.0, sh_along=0.05, sh_in=0.02, sh_up='forward', sh_finish=2.5, sh_keep_sat=0.25, sh_paint_gold=(182, 141, 83)),
+              'polish': dict(sh_len=0.78, sh_sign=-1.0, sh_rot=90.0, sh_along=0.0, sh_in=0.0, sh_finish=2.5, sh_keep_sat=0.25)}
+P_ = (lambda k: dict(wlen=2.4 if 'long' in k else 2.0, grip=0.38, sword=False, w_px=1024, brass=True, **_KS_SHIELD[k[3] if len(k) > 3 else 'scutum'],
+                     **_KS_HELM[k[1]], **_KS_CHEST[k[2]]))(PRESET.split('-')) if PRESET.startswith('spear-') else P_[PRESET]
 HEAD, SALLET, CHAP, BREAST, SWORD, SHLD = F.get('head'), F.get('helm'), F.get('bevor'), F['chest'], F['weapon'], F['shield']
 BAKE_PX = 1024
 DZ = -0.06; SHR = P_['shrink']; MK = 0.86; NECK = 0.45; SH_ROT = P_['sh_rot']
@@ -67,6 +81,7 @@ def join(objs, name):
         if nm != keep and nm in bpy.data.objects: bpy.data.objects.remove(bpy.data.objects[nm], do_unlink=True)
     m.name = name; return m
 parts = []; finish = {}   # finish: object -> tiles
+keep_sat = {}   # KS object -> saturation: its pixels above it (a shield's paint) keep their own colour and metal-rough
 # ---- the body's chest edits (positions only; the merge applies them to the skinned mesh)
 kn = bpy.data.objects['Knight_Tpose']; W = kn.matrix_world; Wi = W.inverted()
 orig = [W @ v.co for v in kn.data.vertices]
@@ -105,6 +120,8 @@ else:   # K10 (Knight 3): the flail's handle (its vertices fully on the right ha
     if (bh_('flail_0') - bh_('mixamorig:RightHand')) @ a < 0: a = -a
     grip_s = hcen + a * float((bh_('mixamorig:RightHand') - hcen) @ a)
 m = join(imp(SWORD), 'KNB_RightHand_' + ('sword' if P_['sword'] else 'weapon')); bpy.ops.object.transform_apply(location=True, rotation=True, scale=True); bpy.context.view_layer.update()
+if P_.get('w_px'):   # the spear's 4K maps: a thin pole needs 1K
+    for im in {n.image for mt in m.data.materials if mt and mt.node_tree for n in mt.node_tree.nodes if n.type == 'TEX_IMAGE' and n.image}: im.scale(P_['w_px'], P_['w_px'])
 Pm, cm, am, tm = axis(m); L = float(tm.max() - tm.min()); perp = np.linalg.norm((Pm - cm) - np.outer(tm, am), axis=1)
 if (perp[tm < tm.min() + 0.25 * L].max() > perp[tm > tm.max() - 0.25 * L].max()) != P_['sword']: am = -am; tm = -tm   # a sword's wide end is its hilt, an axe's its head
 k = P_['wlen'] / L; grip_m = cm + am * (tm.min() + P_['grip'] * L)
@@ -127,7 +144,7 @@ if P_.get('head', True):
         for v in o.data.vertices:
             w_ = Mw @ v.co
             if w_.z < zc:
-                t_ = min(1.0, (zc - w_.z) / max(zc - fmin[2], 1e-6)); f_ = 1.0 - NECK * t_; w_.x = cx_ + (w_.x - cx_) * f_; w_.y = cy2 + 0.02 + (w_.y - cy2 - 0.02) * f_; v.co = Mi @ w_
+                t_ = min(1.0, (zc - w_.z) / max(zc - fmin[2], 1e-6)); f_ = 1.0 - NECK * t_; w_.x = cx_ + (w_.x - cx_) * f_; w_.y = cy2 + 0.02 + (w_.y - cy2 - 0.02) * f_; w_.z -= P_.get('neck_drop', 0.0) / kf * t_; v.co = Mi @ w_   # KS neck_drop: m (fitted) the neck reaches down into the collar
         o.matrix_world = Tf @ o.matrix_world
     head = join(fr, 'KNB_Head_head'); parts.append(head)
     # ---- helm (+ the chapelle's bevor under a sallet)
@@ -149,7 +166,9 @@ bs = [o for o in imp(BREAST) if o.type == 'MESH']
 for o, M in fit(bs, P_['chest'][0], P_['chest'][1], 0.0, 0, (CH.min(0)[1] + CH.max(0)[1]) / 2, 1.0): o.matrix_world = M
 for j, o in enumerate(bs):
     mw = o.matrix_world.copy(); o.parent = None; o.matrix_world = mw; o.name = 'KNB_Spine2_breast%d' % j; parts.append(o); print('CHEST part', o.name, [mt.name for mt in o.data.materials if mt])   # keep its place (the cuirass's objects arrive parented)
-    if not any(x in ''.join(mt.name for mt in o.data.materials if mt).lower() for x in ('brass', 'strap')): finish[o] = 1.2
+    mn_ = [mt.name.lower() for mt in o.data.materials if mt]
+    if P_.get('brass') and not all('strap' in x for x in mn_): finish[o] = 1.2   # KS: brass too (straps keep theirs: armour_finish skips them)
+    elif not any(x in ''.join(mn_) for x in ('brass', 'strap')): finish[o] = 1.2
 # ---- shield
 old = bpy.data.objects['Shield']
 def frame(o):
@@ -180,24 +199,46 @@ if 'shield_base' in F:   # the user's recolour (the scutum's red field to the ar
         ni = src_img(b.inputs['Roughness']); ni.image = bpy.data.images.load(F['shield_mr']); ni.image.colorspace_settings.name = 'Non-Color'
 parts.append(sh); print('SHIELD %.3f m long axis, centre %s' % (ext_ * ks, np.round(co, 3)))
 if P_.get('sh_finish'): finish[sh] = P_['sh_finish']
+if P_.get('sh_keep_sat'): keep_sat[sh] = P_['sh_keep_sat']
 # ---- the armour finish (the preview's node set), baked into each material's own UVs
 def armour_finish(o, tiles):
     cvs = np.array([v.co for v in o.data.vertices]); dim = float((cvs.max(0) - cvs.min(0)).max())
     for mt in o.data.materials:
-        if mt is None: continue
+        if mt is None or (P_.get('brass') and 'strap' in mt.name.lower()): continue
         nt = mt.node_tree; b = next((n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED'), None)
         if b is None: continue
         tc = nt.nodes.new('ShaderNodeTexCoord'); mp = nt.nodes.new('ShaderNodeMapping'); s_ = tiles / dim; mp.inputs['Scale'].default_value = (s_, s_, s_); nt.links.new(tc.outputs['Object'], mp.inputs['Vector'])
         def tile(fn, cs_):
             n = nt.nodes.new('ShaderNodeTexImage'); n.image = bpy.data.images.load(os.path.join(TEX, fn), check_existing=True); n.image.colorspace_settings.name = cs_; n.projection = 'BOX'; n.projection_blend = 0.35; nt.links.new(mp.outputs[0], n.inputs['Vector']); return n
         tb = tile(P_.get('tile', 'tile_base_clean.png'), 'sRGB'); tmr = tile('tile_mr.png', 'Non-Color')
-        ib = b.inputs['Base Color']; col = tb.outputs[0]
+        ib = b.inputs['Base Color']; col = tb.outputs[0]; orig = {k: (b.inputs[k].links[0].from_socket if b.inputs[k].is_linked else b.inputs[k].default_value) for k in ('Base Color', 'Roughness', 'Metallic')}
         if ib.is_linked:
             bw = nt.nodes.new('ShaderNodeRGBToBW'); nt.links.new(ib.links[0].from_socket, bw.inputs[0])
             ma = nt.nodes.new('ShaderNodeMath'); ma.operation = 'MULTIPLY_ADD'; ma.inputs[1].default_value = 0.7; ma.inputs[2].default_value = 0.6; nt.links.new(bw.outputs[0], ma.inputs[0])
             mx = nt.nodes.new('ShaderNodeMixRGB'); mx.blend_type = 'MULTIPLY'; mx.inputs[0].default_value = 1; nt.links.new(tb.outputs[0], mx.inputs[1]); nt.links.new(ma.outputs[0], mx.inputs[2]); col = mx.outputs[0]
-        nt.links.new(col, ib)
-        sp = nt.nodes.new('ShaderNodeSeparateColor'); nt.links.new(tmr.outputs[0], sp.inputs[0]); nt.links.new(sp.outputs[1], b.inputs['Roughness']); nt.links.new(sp.outputs[2], b.inputs['Metallic'])
+        sp = nt.nodes.new('ShaderNodeSeparateColor'); nt.links.new(tmr.outputs[0], sp.inputs[0]); rm = {'Roughness': sp.outputs[1], 'Metallic': sp.outputs[2]}
+        if o in keep_sat and ib.is_linked:   # KS: the shield's plain field (white / grey: low saturation) takes the finish; its paint keeps its own
+            hs = nt.nodes.new('ShaderNodeSeparateColor'); hs.mode = 'HSV'; nt.links.new(orig['Base Color'], hs.inputs[0])
+            mr_ = nt.nodes.new('ShaderNodeMapRange'); mr_.inputs['From Min'].default_value = keep_sat[o] - 0.05; mr_.inputs['From Max'].default_value = keep_sat[o] + 0.05
+            mr_.inputs['To Min'].default_value = 1.0; mr_.inputs['To Max'].default_value = 0.0; nt.links.new(hs.outputs[1], mr_.inputs['Value']); m_ = mr_.outputs['Result']
+            pc = orig['Base Color']
+            if P_.get('sh_paint_dark'):   # KS: the paint darker, and metal like the field (the user: the red cross)
+                dk = nt.nodes.new('ShaderNodeMixRGB'); dk.blend_type = 'MULTIPLY'; dk.inputs[0].default_value = 1; nt.links.new(pc, dk.inputs[1]); dk.inputs[2].default_value = (P_['sh_paint_dark'],) * 3 + (1,); pc = dk.outputs[0]
+            if P_.get('sh_paint_gold'):   # KS: the paint in the scutum emblem's gold (sRGB 182 141 83, its median), fully metal (the user: the cross gold like shield 1's)
+                pc = [((c / 255) ** 2.2) for c in P_['sh_paint_gold']] + [1.0]
+            mc = nt.nodes.new('ShaderNodeMixRGB'); nt.links.new(m_, mc.inputs[0]); nt.links.new(col, mc.inputs[2]); col = mc.outputs[0]
+            if isinstance(pc, list): mc.inputs[1].default_value = pc
+            else: nt.links.new(pc, mc.inputs[1])
+            if P_.get('sh_paint_gold'):
+                inv = nt.nodes.new('ShaderNodeMath'); inv.operation = 'SUBTRACT'; inv.inputs[0].default_value = 1.0; nt.links.new(m_, inv.inputs[1])   # paint weight
+                mm = nt.nodes.new('ShaderNodeMath'); mm.operation = 'MAXIMUM'; nt.links.new(rm['Metallic'], mm.inputs[0]); nt.links.new(inv.outputs[0], mm.inputs[1]); rm['Metallic'] = mm.outputs[0]
+            for k_ in (() if P_.get('sh_paint_dark') or P_.get('sh_paint_gold') else ('Roughness', 'Metallic')):
+                mf = nt.nodes.new('ShaderNodeMath'); mf.operation = 'MULTIPLY_ADD'   # orig + m * (tile - orig)
+                sub = nt.nodes.new('ShaderNodeMath'); sub.operation = 'SUBTRACT'; nt.links.new(rm[k_], sub.inputs[0])
+                if isinstance(orig[k_], bpy.types.NodeSocket): nt.links.new(orig[k_], sub.inputs[1]); nt.links.new(orig[k_], mf.inputs[2])
+                else: sub.inputs[1].default_value = orig[k_]; mf.inputs[2].default_value = orig[k_]
+                nt.links.new(m_, mf.inputs[0]); nt.links.new(sub.outputs[0], mf.inputs[1]); rm[k_] = mf.outputs[0]
+        nt.links.new(col, ib); nt.links.new(rm['Roughness'], b.inputs['Roughness']); nt.links.new(rm['Metallic'], b.inputs['Metallic'])
 for o, t_ in finish.items():
     for i, mt in enumerate(o.data.materials):   # single-user materials: the bake rewires them
         if mt and mt.users > 1: o.data.materials[i] = mt.copy()
