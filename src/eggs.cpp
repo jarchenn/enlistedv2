@@ -63,7 +63,7 @@ float yawFacing(App& app, vec3 p) { vec3 d = app.camPos - p; return glm::degrees
 
 // ---------------------------------------------------------------- Game: the sandbox
 bool Game::soldierBrain(AiType a) {
-  return a == AiType::Soldiers || a == AiType::Operators || a == AiType::Troopers || a == AiType::Robots || a == AiType::Desert ||
+  return a == AiType::Soldiers || a == AiType::Operators || a == AiType::OperatorF || a == AiType::Troopers || a == AiType::Robots || a == AiType::Desert ||
          a == AiType::Delta || a == AiType::Allied || a == AiType::SS || a == AiType::AlliedPara || (a == AiType::Mechs && gMechRobot);   // gameplay 62c4fe18: the gas-mask types retired
 }
 

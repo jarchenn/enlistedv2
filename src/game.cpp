@@ -266,11 +266,12 @@ void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& 
     // Allied paratrooper's skeleton (combat.json hold_bodies) with the game's guns in its stored per-gun holds
     const char* gunBodyKind = nullptr;
     s.gunBody = gunBodyKind != nullptr;
-    s.op = ait == AiType::Operators;
+    s.op = ait == AiType::Operators || ait == AiType::OperatorF;   // OPF1: the Giant Operator is an Operator in everything but its body and size
     s.kit = ait == AiType::Mechs && !s.zombie ? 12 : ait == AiType::Troopers ? 2 : ait == AiType::Robots ? 3 : ait == AiType::Delta ? 4 : ait == AiType::Desert ? 6 : ait == AiType::AlliedPara || ait == AiType::Allied ? 7 : ait == AiType::SS ? 8 : s.op ? 1 : 0;   // RM2: the gas-mask kits (9 / 10) are gone   // WS1: 7 Allied paratroopers; WSM2: 7 also the Allied soldiers, 8 SS, 9 / 10 gas-mask 1 / 2   // SW1; DF1: 4 Delta Force; DSD1: 6 desert soldiers on the Delta Force path
     if (!s.zombie) {   // RB6: the kit's size and belt-gun stance (combat.json kits.<kit> "scale", "lmg_standing"); a zombie's come from its enemy type
       const json kj = combat.value("kits", json::object()).value(kitName(s.kit), json::object());
       s.eScale = s.eBody = std::clamp(kj.value("scale", 1.0f), 0.5f, 3.0f); s.eLean = 0; s.standFire = kj.value("lmg_standing", false); s.meleeKeep = std::clamp(kj.value("melee_keep_m", 0.0f), 0.0f, 40.0f);
+      if (ait == AiType::OperatorF) s.eScale = s.eBody = std::clamp(combat.value("operator_f", json::object()).value("scale", 1.5f), 0.5f, 3.0f);   // OPF1: its own size (what a kit's "scale" drives)
     } else { s.standFire = false; s.meleeKeep = 0; }
     s.etype = !s.zombie ? 0 : etypeOverride >= 0 ? etypeOverride : ait == AiType::ZombiesHeavies ? enemyTypePick((uint32_t)rs.id)   // EN1: the mix by weight, per slot
             : ait == AiType::Brutes ? std::max(0, enemyTypeIndex("brute")) : ait == AiType::Spiders ? std::max(0, enemyTypeIndex("stalker"))
@@ -318,22 +319,21 @@ void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& 
     const json kitj = s.kit >= 2 ? combat.value("kits", json::object()).value(kitName(s.kit), json::object()) : json::object();   // SW1
     if (s.kit >= 2) { s.kitSpeed = kitj.value("speed", 1.0f); b.aimTurn *= kitj.value("aimTurn", 1.0f); }
     s.kitSparks = s.zombie ? enemyType(s.etype).hitSparks : kitj.value("sparks", false);   // SW1 kit "sparks" / MK2 type "hit_fx": "sparks": hits throw metal sparks, no blood
-    if (ait == AiType::Operators || s.kit >= 2) {   // a soldier in the faction's operator body (combat.json operator_models; SW1: the kit's models, either side; missing: the soldier body stays)
-      json ol = s.kit >= 2 ? kitj.value("models", json::array()) : combat.value("operator_models", json::object()).value(fac, json::array());
-      if (s.kit < 2) {   // OPF1: an operator body whose file is absent (a local-only one) is left out of the turn: the others wear the bodies that are there
+    if (s.op || s.kit >= 2) {   // a soldier in the faction's operator body (combat.json operator_models; SW1: the kit's models, either side; missing: the soldier body stays)
+      json ol = s.kit >= 2 ? kitj.value("models", json::array()) : ait == AiType::OperatorF ? combat.value("operator_f", json::object()).value("models", json::array()) : combat.value("operator_models", json::object()).value(fac, json::array());
+      if (s.kit < 2) {   // OPF1: an operator body whose file is absent (a local-only one) is left out: the Giant Operator then wears the next one in its list (the operator body)
         json have = json::array(); for (auto& x : ol) if (fs::exists(contentDir() / "characters" / (x.get<std::string>() + ".glb"))) have.push_back(x);
         if (!have.empty()) ol = have;
       }
       if (!ol.empty()) {
-        std::string id = ol[(size_t)s.evariant % ol.size()].get<std::string>();
+        std::string id = ol[ait == AiType::OperatorF ? 0 : (size_t)s.evariant % ol.size()].get<std::string>();   // OPF1: its list is a preference order, not a turn
         static std::set<std::string> failed;
         if (!modelIdx.count(id) && !failed.count(id)) {
           auto cm = std::make_unique<CharModel>(); std::string e;
           if (cm->load(contentDir() / "characters" / (id + ".glb"), e)) { modelIdx[id] = (int)models.size(); models.push_back(std::move(cm)); }
           else { failed.insert(id); logf("operators: model %s: %s (soldier body kept)", id.c_str(), e.c_str()); }
         }
-        if (modelIdx.count(id)) { s.model = modelIdx[id];
-          if (const float k = combat.value("model_scale", json::object()).value(id, 0.0f); k > 0) s.eScale = s.eBody = std::clamp(k, 0.5f, 3.0f); }   // OPF1: a body's own size (as a kit's "scale", RB6)
+        if (modelIdx.count(id)) s.model = modelIdx[id];
       }
     }
     if (s.gunBody) {   // a body per weapon, the gun in its mesh (combat.json gunbody_models.<kind>: [model, weapon], in turn). Missing: the soldier body it had

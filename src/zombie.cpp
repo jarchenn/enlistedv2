@@ -1010,11 +1010,12 @@ int ar1SelfCheck() {
         seam = std::max(seam, k == 4 ? std::min(d, e) : d); if (ai.contains("max")) dur = std::max(dur, ai["max"][0].get<float>()); found = true; } }
     chk(g.empty() || (found && seam < 1e-3f && dur >= 1.5f), g.empty() ? "Fallen Knight (FK3): idle loop not measured (knight.glb is local-only and absent here)"
         : "Fallen Knight (FK3): the idle loops without a pop (largest first-to-last key difference " + std::to_string(seam) + ", " + std::to_string(dur) + " s)"); }
-  {   // OPF1: the local-only operator body: in the Operators' turn on both sides, a hold body on the Allied skeleton, drawn at 1.5x
-    json C; try { std::ifstream f(contentDir() / "ai" / "combat.json"); C = json::parse(f); } catch (...) {} bool in = true;
-    for (const char* fac : {"Allies", "Axis"}) { const json l = C.value("operator_models", json::object()).value(fac, json::array()); in = in && l.size() == 2 && l[0] == "skin_operator" && l[1] == "skin_operator_f1"; }
-    chk(in && C.value("hold_bodies", json::object()).value("skin_operator_f1", std::string()) == "allied_body" && C.value("model_scale", json::object()).value("skin_operator_f1", 0.0f) == 1.5f && C.value("model_scale", json::object()).value("skin_operator", 0.0f) == 0.0f,
-        "Operators (OPF1): skin_operator_f1 is every second operator body where its file exists, on the Allied skeleton, at 1.5x; skin_operator stays 1x"); }
+  {   // OPF1: AI type 44 Giant Operator: the Operators' brain in a body of its own at 1.5x; the local-only model first, the operator body after it
+    json C; try { std::ifstream f(contentDir() / "ai" / "combat.json"); C = json::parse(f); } catch (...) {} const json of = C.value("operator_f", json::object()), ml = of.value("models", json::array());
+    bool plain = true; for (const char* fac : {"Allies", "Axis"}) { const json l = C.value("operator_models", json::object()).value(fac, json::array()); plain = plain && l.size() == 1 && l[0] == "skin_operator"; }
+    chk((int)AiType::OperatorF == 44 && kAiTypeCount == 45 && std::string(aiTypeName(AiType::OperatorF)) == "Giant Operator" && Game::soldierBrain(AiType::OperatorF) && plain && of.value("scale", 0.0f) == 1.5f
+        && ml.size() == 2 && ml[0] == "skin_operator_f1" && ml[1] == "skin_operator" && C.value("hold_bodies", json::object()).value("skin_operator_f1", std::string()) == "allied_body",
+        "Giant Operator (OPF1): AI type 44, a soldier brain, 1.5x; its own body first and the operator body when that file is absent; the Operators keep theirs"); }
   {   // GR1: the fire curve's overlapping shots add, each x its weight; the rod is the furthest back among them; past the end a shot is off the curve
     WeaponDef d; d.fireCurveFps = 10; d.fireCurve = {{}, {}, {}}; d.fireCurve[1][6] = 2; d.fireCurve[1][9] = 0.08f;   // muzzle up 2 deg and the rod back at 0.1 s
     WeaponState w; w.curveFolded[0] = w.curveFolded[1] = false; w.curveAge[0] = 0.1f; w.curveGain[0] = 1; w.curveAge[1] = 0.05f; w.curveGain[1] = 0.5f;

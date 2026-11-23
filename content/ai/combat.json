@@ -246,9 +246,9 @@
  "operator_models_note": "AI type Operators: soldiers (the same brain, weapons and procedural pose) wearing these bodies, one per AI in turn; a missing file leaves the faction's soldier body (tools/bake_ai_characters.py operators, docs/credits.md)",
  "gunbody_models_note": "WSM2: empty, the bodies with the gun built in (NA1 / GM1 / GM2 bakes, gunbody.cpp bi mode) are no longer used; every human type wears a hold body (hold_bodies). The old files are left in content/characters until the user has seen the result",
  "gunbody_models": {},
- "operator_models": {"Allies": ["skin_operator", "skin_operator_f1"], "Axis": ["skin_operator", "skin_operator_f1"]},
-  "model_scale_note": "OPF1: a body's own draw size by model id (what a kit's \"scale\" drives: body, held gun, hit zones, eye / chest heights, stride; the movement capsule stays the soldier's). skin_operator_f1 is a local-only operator body (git-ignored; absent: every operator wears skin_operator)",
-  "model_scale": {"skin_operator_f1": 1.5},
+ "operator_models": {"Allies": ["skin_operator"], "Axis": ["skin_operator"]},
+  "operator_f_note": "OPF1: AI type Giant Operator (44): an Operator in everything (brain, loadouts_operator guns, the Allied skeleton's clips and holds, health) but its body and size. models: a preference order, the first whose file exists (skin_operator_f1 is local-only, git-ignored; absent: the operator body at the same size). scale: what a kit's scale drives (drawn body, held gun, hit zones, eye / chest heights, stride); the movement capsule stays the soldier's",
+  "operator_f": {"models": ["skin_operator_f1", "skin_operator"], "scale": 1.5},
  "corpses": {
   "max": 12,
   "seconds": 40
