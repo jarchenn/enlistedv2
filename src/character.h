@@ -153,3 +153,4 @@ bool initSkinning(std::string& err);       // compiles the compute program (once
 struct CharGpuBytes { long long inst = 0, type = 0, tex = 0; int nInst = 0, nType = 0; };
 extern CharGpuBytes gCharBytes;
 std::string vramLine();                    // V0: NVX dedicated / available / evictions + gCharBytes, one line (check_mem.cpp)
+std::string vramInventory(int top);        // V0b: every live texture / buffer / renderbuffer by bytes, the largest `top` textures listed (check_mem.cpp)

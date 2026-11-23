@@ -388,6 +388,7 @@ bool benchViews(App& a, float dt) {
       writeRun(a, r);
       logf("[bench] %s %s %s: GPU P50 %.2f P99 %.2f P99.9 %.2f ms, CPU (no swap) P99 %.2f ms, %zu frames", r.map.c_str(), r.view.c_str(), r.preset.c_str(), pct(r.gpu, 0.5), pct(r.gpu, 0.99), pct(r.gpu, 0.999), pct(r.cpuNoSwap, 0.99), r.gpu.size());
       logf("[bench] %s %s %s: %s", r.map.c_str(), r.view.c_str(), r.preset.c_str(), vramLine().c_str());   // V0
+      logf("%s", vramInventory(20).c_str());   // V0b
       nextRun(a);
     }
     return true;

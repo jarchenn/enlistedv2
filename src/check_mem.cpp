@@ -83,6 +83,7 @@ void report(const char* stage) {
   logf("[mem] %-26s commit %6.0f MB  working set %6.0f MB  CPU %5.1f %% of one core over %.1f s (%d frames)", stage, m.PrivateBytes / 1048576.0, m.WorkingSetSize / 1048576.0,
        w > wall0 ? 100.0 * (c - cpu0) / (w - wall0) : 0.0, w - wall0, frames);
   logf("[mem]   %s", vramLine().c_str());   // V0
+  logf("%s", vramInventory(20).c_str());   // V0b
   cpu0 = c; wall0 = w; frames = 0;
 }
 }
@@ -97,6 +98,59 @@ std::string vramLine() {
   std::snprintf(b, sizeof b, "[vram] GPU %s in use %.0f of %.0f MB, evictions %d (%.0f MB); characters: %d instances %.1f MB, %d types %.1f MB geometry + %.1f MB textures",
                 ded ? "(NVX)" : "(no NVX)", (tot - avail) / 1024.0, ded / 1024.0, evN, evKB / 1024.0, gCharBytes.nInst, gCharBytes.inst / M, gCharBytes.nType, gCharBytes.type / M, gCharBytes.tex / M);
   return b;
+}
+// V0b: every live GL texture, buffer and renderbuffer (ids scanned up to NMK_VRAM_SCAN, default 300000), their bytes by
+// kind and the largest few named by size and format: which holders the next VRAM stage should go after
+static const char* fmtName(GLint f) {
+  switch (f) {
+    case GL_RGBA8: return "RGBA8"; case GL_SRGB8_ALPHA8: return "SRGB8_A8"; case GL_RGBA16F: return "RGBA16F"; case GL_RGBA32F: return "RGBA32F";
+    case GL_R11F_G11F_B10F: return "R11G11B10F"; case GL_R16F: return "R16F"; case GL_RG16F: return "RG16F"; case GL_R8: return "R8"; case GL_RG8: return "RG8";
+    case GL_DEPTH_COMPONENT32F: return "D32F"; case GL_DEPTH_COMPONENT24: return "D24"; case GL_DEPTH_COMPONENT16: return "D16"; case GL_DEPTH24_STENCIL8: return "D24S8"; case GL_DEPTH32F_STENCIL8: return "D32FS8";
+    case 0x83F1: return "BC1"; case 0x8C4D: return "BC1s"; case 0x83F3: return "BC3"; case 0x8C4F: return "BC3s"; case 0x8DBD: return "BC5"; case 0x8DBB: return "BC4"; case 0x8E8C: return "BC7";
+    case GL_RGB10_A2: return "RGB10A2"; case GL_R32F: return "R32F"; case GL_RG32F: return "RG32F"; case GL_R16: return "R16"; case GL_RGBA16: return "RGBA16";
+    default: return nullptr;
+  }
+}
+std::string vramInventory(int top) {
+  struct T { size_t b; int w, h, d, lv; GLint f, tgt; GLuint id; };
+  std::vector<T> tex; size_t tb = 0, tcomp = 0, bb = 0, rb = 0; int nb = 0, nr = 0;
+  const GLuint scan = std::getenv("NMK_VRAM_SCAN") ? (GLuint)std::atol(std::getenv("NMK_VRAM_SCAN")) : 300000u;
+  for (GLuint id = 1; id < scan; ++id) {
+    if (glIsTexture(id)) {
+      GLint tgt = 0, lv = 1, f = 0, w = 0, h = 0, d = 0, comp = 0; glGetTextureParameteriv(id, GL_TEXTURE_TARGET, &tgt); glGetTextureParameteriv(id, GL_TEXTURE_IMMUTABLE_LEVELS, &lv);
+      if (tgt == GL_TEXTURE_BUFFER) continue;   // its buffer is counted below
+      glGetTextureLevelParameteriv(id, 0, GL_TEXTURE_INTERNAL_FORMAT, &f); glGetTextureLevelParameteriv(id, 0, GL_TEXTURE_WIDTH, &w); glGetTextureLevelParameteriv(id, 0, GL_TEXTURE_HEIGHT, &h); glGetTextureLevelParameteriv(id, 0, GL_TEXTURE_DEPTH, &d);
+      size_t b = 0; const int faces = tgt == GL_TEXTURE_CUBE_MAP ? 6 : 1;
+      for (int L = 0; L < std::max(1, lv); ++L) {
+        GLint c = 0, sz = 0, lw = 0, lh = 0, ld = 0, rs = 0, gs = 0, bs = 0, as = 0, ds = 0, ss = 0, smp = 0; glGetTextureLevelParameteriv(id, L, GL_TEXTURE_COMPRESSED, &c);
+        if (c) { glGetTextureLevelParameteriv(id, L, GL_TEXTURE_COMPRESSED_IMAGE_SIZE, &sz); b += (size_t)sz * (tgt == GL_TEXTURE_CUBE_MAP ? 6 : 1); comp = 1; continue; }   // cube: one face's size
+        glGetTextureLevelParameteriv(id, L, GL_TEXTURE_WIDTH, &lw); glGetTextureLevelParameteriv(id, L, GL_TEXTURE_HEIGHT, &lh); glGetTextureLevelParameteriv(id, L, GL_TEXTURE_DEPTH, &ld);
+        glGetTextureLevelParameteriv(id, L, GL_TEXTURE_RED_SIZE, &rs); glGetTextureLevelParameteriv(id, L, GL_TEXTURE_GREEN_SIZE, &gs); glGetTextureLevelParameteriv(id, L, GL_TEXTURE_BLUE_SIZE, &bs);
+        glGetTextureLevelParameteriv(id, L, GL_TEXTURE_ALPHA_SIZE, &as); glGetTextureLevelParameteriv(id, L, GL_TEXTURE_DEPTH_SIZE, &ds); glGetTextureLevelParameteriv(id, L, GL_TEXTURE_STENCIL_SIZE, &ss); glGetTextureLevelParameteriv(id, L, GL_TEXTURE_SAMPLES, &smp);
+        const int bits = rs + gs + bs + as + ds + ss; b += (size_t)lw * std::max(1, lh) * std::max(1, ld) * faces * std::max(1, smp) * ((bits + 7) / 8);
+      }
+      tb += b; if (comp) tcomp += b; tex.push_back({b, w, h, d, lv, f, tgt, id});
+    } else if (glIsBuffer(id)) { GLint64 s = 0; glGetNamedBufferParameteri64v(id, GL_BUFFER_SIZE, &s); bb += (size_t)s; ++nb; }
+    else if (glIsRenderbuffer(id)) {
+      GLint w = 0, h = 0, smp = 0, rs = 0, gs = 0, bs = 0, as = 0, ds = 0, ss = 0;
+      glGetNamedRenderbufferParameteriv(id, GL_RENDERBUFFER_WIDTH, &w); glGetNamedRenderbufferParameteriv(id, GL_RENDERBUFFER_HEIGHT, &h); glGetNamedRenderbufferParameteriv(id, GL_RENDERBUFFER_SAMPLES, &smp);
+      glGetNamedRenderbufferParameteriv(id, GL_RENDERBUFFER_RED_SIZE, &rs); glGetNamedRenderbufferParameteriv(id, GL_RENDERBUFFER_GREEN_SIZE, &gs); glGetNamedRenderbufferParameteriv(id, GL_RENDERBUFFER_BLUE_SIZE, &bs);
+      glGetNamedRenderbufferParameteriv(id, GL_RENDERBUFFER_ALPHA_SIZE, &as); glGetNamedRenderbufferParameteriv(id, GL_RENDERBUFFER_DEPTH_SIZE, &ds); glGetNamedRenderbufferParameteriv(id, GL_RENDERBUFFER_STENCIL_SIZE, &ss);
+      rb += (size_t)w * h * std::max(1, smp) * ((rs + gs + bs + as + ds + ss + 7) / 8); ++nr;
+    }
+  }
+  while (glGetError() != GL_NO_ERROR) {}
+  std::sort(tex.begin(), tex.end(), [](const T& a, const T& b) { return a.b > b.b; });
+  const double M = 1048576.0; char b[512];
+  std::snprintf(b, sizeof b, "[vram] inventory: %zu textures %.0f MB (%.0f MB block-compressed), %d buffers %.0f MB, %d renderbuffers %.0f MB; total %.0f MB",
+                tex.size(), tb / M, tcomp / M, nb, bb / M, nr, rb / M, (tb + bb + rb) / M);
+  std::string out = b;
+  for (int k = 0; k < std::min<int>(top, (int)tex.size()); ++k) {
+    const T& t = tex[k]; const char* fn = fmtName(t.f); char fb[16]; if (!fn) { std::snprintf(fb, sizeof fb, "0x%X", (unsigned)t.f); fn = fb; }
+    std::snprintf(b, sizeof b, "\n[vram]   %2d. %7.1f MB  %dx%d%s%s %s, %d mips (id %u)", k + 1, t.b / M, t.w, t.h, t.d > 1 ? "x" : "", t.d > 1 ? std::to_string(t.d).c_str() : "", fn, t.lv, t.id);
+    out += b;
+  }
+  return out;
 }
 bool gpuVertexPackCheck(std::string& why);   // assets.cpp
 fs::path gShot;
