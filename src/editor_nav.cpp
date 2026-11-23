@@ -4,6 +4,7 @@
 #include "editor_nav.h"
 #include "app.h"
 #include "scenario.h"
+#include "game.h"
 #include "snap.h"
 #include "terrain_blend.h"
 #include <GLFW/glfw3.h>
@@ -471,7 +472,8 @@ void w3Overlay(App& app, Overlay& ov) {
       ov.line(vec3(p0.x, t.height(p0.x, p0.y) + lift, p0.y), vec3(p1.x, t.height(p1.x, p1.y) + lift, p1.y), bc);
     }
   };
-  edge({-X, -Z}, {X, -Z}); edge({X, -Z}, {X, Z}); edge({X, Z}, {-X, Z}); edge({-X, Z}, {-X, -Z});
+  const bool playing = gGame && gGame->active && gGame->sandbox;   // SG1: the spawn-egg sandbox is play (its editor camera at eye level saw the outline along the horizon as a yellow line); the editor keeps it
+  if (!playing) { edge({-X, -Z}, {X, -Z}); edge({X, -Z}, {X, Z}); edge({X, Z}, {-X, Z}); edge({-X, Z}, {-X, -Z}); }
   dropinOverlay(app, ov);
 }
 

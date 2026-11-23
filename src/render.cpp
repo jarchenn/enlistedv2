@@ -3182,7 +3182,7 @@ static const char* kTaaFS = R"GLSL(
 in vec2 vUV;
 uniform sampler2D uCur, uHist, uDepth, uVel; uniform mat4 uInvVP, uPrevVP; uniform vec2 uTexel; uniform int uValid; uniform float uSharpen;
 uniform int uUp; uniform vec2 uInTexel, uJit;
-uniform int uTaaVel, uTaaBox;   // CP1: velocity from the closest depth in 3x3 (taavel); history also clamped to the 3x3 min / max box (taabox)
+uniform int uTaaVel, uTaaBox; uniform int uSkyReact;   // SG1 skyreact   // CP1: velocity from the closest depth in 3x3 (taavel); history also clamped to the 3x3 min / max box (taabox)
 uniform int uTaaDbg;   // NMK_TAA_DEBUG: 1 uv, 2 texelFetch(uCur), 3 uInTexel x 1000 / uUp, 4 texture(uCur) (Metal shim checks)   // P1 TAAU: 1 = this pass runs at output size; the internal texel; the frame's jitter (internal px)
 layout(location=0) out vec4 oColor;
 layout(location=1) out vec4 oHist;
@@ -3271,6 +3271,7 @@ void main(){
       alpha *= 0.25 + 1.5*conf;
       if (mv.a > 0.5) alpha = max(alpha, 0.2*clamp(motion*2.0, 0.0, 1.0));   // L3: only once they really move (0.5 px+): still / far canopies keep their history
     }
+    if (uSkyReact == 1 && z <= 0.0) alpha = max(alpha, 0.25);   // SG1: the sky (nearest depth in 3x3 at the far plane: silhouettes keep their own) - drifting clouds have no motion vector
     res = mix(fromYC(h), cur, alpha);
   }
   vec3 hst = itm(res);
@@ -3308,7 +3309,9 @@ void main(){ gl_FragDepth = texelFetch(uDepth, clamp(ivec2(vUV*uInSize), ivec2(0
 // accumulated back up; the tonemap adds a small fraction. Wide and faint: a soft glow, no threshold streaks.
 static const char* kBloomDownFS = R"GLSL(
 in vec2 vUV;
-uniform sampler2D uSrc; uniform vec2 uSrcTexel; uniform int uFirst, uDown13; uniform float uBloomClamp = 64.0;   // BF pbloom: no luma weighting, clamp 60000 (a flash keeps its energy)
+uniform sampler2D uSrc; uniform vec2 uSrcTexel; uniform int uFirst, uDown13; uniform float uBloomClamp = 64.0;
+uniform sampler2D uExpo; uniform float uFixedExpo = -1.0, uBloomRel = 0.0;   // SG1 bloomrel: the first level's samples capped at uBloomRel x the display white (exposure-relative)
+vec3 srcT(vec2 uv){ vec3 c = texture(uSrc, uv).rgb; if (uFirst == 1 && uBloomRel > 0.0) { float e = uFixedExpo > 0.0 ? uFixedExpo : texelFetch(uExpo, ivec2(0), 0).r; float L = dot(c, vec3(0.2126, 0.7152, 0.0722)), cap = uBloomRel/max(e, 1e-6); if (L > cap) c *= cap/L; } return c; }   // BF pbloom: no luma weighting, clamp 60000 (a flash keeps its energy)
 out vec4 oColor;
 vec3 kw(vec3 a, vec3 b, vec3 c, vec3 d, int first){   // a 2x2 block; the first level weighs by 1 / (1 + luma) (Karis: no fireflies)
   if (first == 0 || uBloomClamp > 100.0) return (a + b + c + d)*0.25;
@@ -3319,16 +3322,16 @@ vec3 kw(vec3 a, vec3 b, vec3 c, vec3 d, int first){   // a 2x2 block; the first 
 void main(){
   if (uDown13 == 1) {   // VO L8: Jimenez 2014's 13-tap downsample (five overlapping 2x2 boxes): no aliasing / flicker in the glow
     vec2 o = uSrcTexel;
-    vec3 A = texture(uSrc, vUV + o*vec2(-2, -2)).rgb, B = texture(uSrc, vUV + o*vec2(0, -2)).rgb, C = texture(uSrc, vUV + o*vec2(2, -2)).rgb;
-    vec3 D = texture(uSrc, vUV + o*vec2(-1, -1)).rgb, E = texture(uSrc, vUV + o*vec2(1, -1)).rgb, F = texture(uSrc, vUV + o*vec2(-2, 0)).rgb;
-    vec3 G = texture(uSrc, vUV).rgb, H = texture(uSrc, vUV + o*vec2(2, 0)).rgb, I = texture(uSrc, vUV + o*vec2(-1, 1)).rgb;
-    vec3 J = texture(uSrc, vUV + o*vec2(1, 1)).rgb, K = texture(uSrc, vUV + o*vec2(-2, 2)).rgb, L = texture(uSrc, vUV + o*vec2(0, 2)).rgb, M = texture(uSrc, vUV + o*vec2(2, 2)).rgb;
+    vec3 A = srcT(vUV + o*vec2(-2, -2)), B = srcT(vUV + o*vec2(0, -2)), C = srcT(vUV + o*vec2(2, -2));
+    vec3 D = srcT(vUV + o*vec2(-1, -1)), E = srcT(vUV + o*vec2(1, -1)), F = srcT(vUV + o*vec2(-2, 0));
+    vec3 G = srcT(vUV), H = srcT(vUV + o*vec2(2, 0)), I = srcT(vUV + o*vec2(-1, 1));
+    vec3 J = srcT(vUV + o*vec2(1, 1)), K = srcT(vUV + o*vec2(-2, 2)), L = srcT(vUV + o*vec2(0, 2)), M = srcT(vUV + o*vec2(2, 2));
     vec3 c = kw(D, E, I, J, uFirst)*0.5 + (kw(A, B, F, G, uFirst) + kw(B, C, G, H, uFirst) + kw(F, G, K, L, uFirst) + kw(G, H, L, M, uFirst))*0.125;
     oColor = vec4((any(isnan(c)) || any(isinf(c))) ? vec3(0.0) : min(c, vec3(uBloomClamp)), 1.0); return;
   }
   vec3 s[4]; vec2 o = uSrcTexel;
-  s[0] = texture(uSrc, vUV + vec2(-o.x, -o.y)).rgb; s[1] = texture(uSrc, vUV + vec2(o.x, -o.y)).rgb;
-  s[2] = texture(uSrc, vUV + vec2(-o.x, o.y)).rgb;  s[3] = texture(uSrc, vUV + vec2(o.x, o.y)).rgb;
+  s[0] = srcT(vUV + vec2(-o.x, -o.y)); s[1] = srcT(vUV + vec2(o.x, -o.y));
+  s[2] = srcT(vUV + vec2(-o.x, o.y));  s[3] = srcT(vUV + vec2(o.x, o.y));
   vec3 c = vec3(0.0); float wsum = 0.0;
   for (int i = 0; i < 4; ++i) {
     float w = uFirst == 1 && uBloomClamp < 100.0 ? 1.0/(1.0 + dot(s[i], vec3(0.2126, 0.7152, 0.0722))) : 1.0;
@@ -7431,7 +7434,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     }
   }
   gpuMark(GP_Bloom);
-  if (!thumbMode && !q.legacy && q.bloom && q.bloomStrength > 0) bloomPass();
+  if (!thumbMode && !q.legacy && q.bloom && q.bloomStrength > 0) { float fe = lt.mapExposure > 0 && !thumbMode ? lightingFixedExposure(*this) * lt.mapExposure : v.autoExposure ? -1.0f : lightingFixedExposure(*this); if (camIndoor && perf.indoorExpo && !q.legacy) fe = -1.0f; bloomPass(fe); }   // SG1: the exposure the tone pass will use (its rule)
   gpuMark(GP_Fx);
   // effects: smoke (alpha) then flashes / tracers / streaks (additive), depth-tested, no depth writes
   if (!fxAlpha.empty() || (!fxAdd.empty() && !fxHdr)) {   // W6 fxlit / fxsoft state in fxState(); under fxhdr the additive ones went in before bloom
@@ -8066,7 +8069,7 @@ void Renderer::taaResolve(const mat4& vpJ, const mat4& vpU, const RenderView& v)
   glUniform2f(U(progTaa, "uTexel"), histUp ? 1.0f / up.w : 1.0f / width, histUp ? 1.0f / up.h : 1.0f / height);   // output (history) texel
   glUniform1i(U(progTaa, "uValid"), taaValid ? 1 : 0);
   glUniform1f(U(progTaa, "uSharpen"), perf.cas && !q.legacy ? 0.0f : histUp ? 0.5f * q.taaSharpen : q.taaSharpen);   // CP1 cas: the one sharpener is in the tone pass
-  glUniform1i(U(progTaa, "uTaaVel"), perf.taaVel ? 1 : 0); glUniform1i(U(progTaa, "uTaaBox"), perf.taaBox ? 1 : 0);   // TAAU: its blur reference is the coarser internal neighbourhood
+  glUniform1i(U(progTaa, "uTaaVel"), perf.taaVel ? 1 : 0); glUniform1i(U(progTaa, "uTaaBox"), perf.taaBox ? 1 : 0); glUniform1i(U(progTaa, "uSkyReact"), perf.skyReact ? 1 : 0);   // TAAU: its blur reference is the coarser internal neighbourhood
   glDrawArrays(GL_TRIANGLES, 0, 3);
   histIdx = cur; taaValid = true;
   prevVP = vpU; prevCam = v.camPos;
@@ -8075,13 +8078,15 @@ void Renderer::taaResolve(const mat4& vpJ, const mat4& vpU, const RenderView& v)
   glEnable(GL_DEPTH_TEST); glDepthMask(GL_TRUE);
 }
 
-void Renderer::bloomPass() {
+void Renderer::bloomPass(float fixedExpo) {
   glDisable(GL_DEPTH_TEST); glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE); glDisable(GL_BLEND);
   glBindVertexArray(emptyVao);
   const bool pb = perf.pBloom && !q.legacy;   // BF pbloom: 8 levels (to ~0.45 of the screen height), no luma weighting, 1/r tail
   const int nLv = pb ? kBloomLevels : 6;
   glUseProgram(progBloomDown);
   glUniform1i(U(progBloomDown, "uSrc"), 0); glUniform1f(U(progBloomDown, "uBloomClamp"), pb ? 60000.0f : 64.0f);
+  glBindTextureUnit(1, expoTex[expoIdx]); glUniform1i(U(progBloomDown, "uExpo"), 1); glUniform1f(U(progBloomDown, "uFixedExpo"), fixedExpo);
+  glUniform1f(U(progBloomDown, "uBloomRel"), pb && perf.bloomRel ? 32.0f : 0.0f);   // SG1 bloomrel: the sun disc (sky x7 of a dusk sun, clamped only at 60000) bloomed a solid copy of itself over whatever stood in front; 32 x white still glares
   for (int i = 0; i < nLv; ++i) {
     GLuint src = i == 0 ? hdrColor : bloomTex[i - 1];
     int sw = i == 0 ? width : bloomW[i - 1], sh = i == 0 ? height : bloomH[i - 1];
