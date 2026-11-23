@@ -2055,6 +2055,154 @@
       "attack_dust": false
     },
     {
+      "note": "NPC5: a civilian, flee type (the user: non-fighting): \"elegant woman\" by adri8restuz (Sketchfab, CC-BY-4.0): a Character Creator rig turned from its A-pose to Mixamo's T-pose (tools/enemies/npc_skin_prep.py, then convert_enemy_glb.py; lashes, tear lines, corneas and brow cards dropped and the hair cards cut to shape, as the game draws no alpha), with Civilian 1's clips retargeted onto it (retarget_clips.py; fingers stay at rest). Behaviour as npc_ch37. height_m is a chosen height: the source stands taller in its heels",
+      "id": "npc_elegant",
+      "name": "Civilian 11 (runs away, blue shirt and white skirt)",
+      "model": "npc_elegant",
+      "npc": "flee",
+      "height_m": 1.76,
+      "scale": 1,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 100,
+      "damage": 0,
+      "reach_m": 1.1,
+      "lunge_m": 0.4,
+      "cooldown_s": 0.15,
+      "windup_s": 0.3,
+      "attack_rate": 1.3,
+      "walk_mps": 1.35,
+      "run_mps": 5.2,
+      "run_within_m": 100000,
+      "weight": 0,
+      "hit_zone_scale": 1,
+      "knockback_mps": 0,
+      "stagger_min_damage": 8,
+      "stagger_s": 0.35,
+      "explosive_mult": 1,
+      "npc_wander_m": 12,
+      "npc_witness_m": 15,
+      "npc_flee_m": 35,
+      "npc_calm_s": 20,
+      "npc_fight_hp": 0.5,
+      "clips": {
+        "walk": [
+          "walk",
+          "walk_standard",
+          "walk_briefcase"
+        ],
+        "run": "run_b",
+        "walk_injured": "walk_injured",
+        "run_injured": "run_injured",
+        "idle": [
+          "idle",
+          "idle_talking",
+          "idle_talking_b"
+        ],
+        "attack": [
+          "attack_jab",
+          "attack_cross",
+          "attack_hook"
+        ],
+        "damage": [
+          "hit_head",
+          "hit_head_side",
+          "hit_body",
+          "hit_stomach",
+          "hit_back",
+          "hit_back_b"
+        ],
+        "death": [
+          "death_forward",
+          "death_left",
+          "death_react"
+        ],
+        "unused": "walk_turn180, run_turn180 (turns in place: the game turns the body itself), run (its take curves), flee_lookback (a second run: the type has one run clip)"
+      },
+      "sounds": {
+        "hurt": "player_hurt"
+      },
+      "attack_dust": false
+    },
+    {
+      "note": "NPC5: a civilian, flee type (the user: non-fighting): \"Woman Dress 2\" by Ali Şahan Yalçın (Sketchfab, CC-BY-4.0): an unrigged model given Mixamo Ch02's skeleton and skin weights by nearest surface (tools/enemies/npc_skin_prep.py, then convert_enemy_glb.py; lashes, tear lines, corneas and brow cards dropped and the hair cards cut to shape, as the game draws no alpha), with Civilian 1's clips retargeted onto it (retarget_clips.py; fingers stay at rest). Behaviour as npc_ch37. height_m is a chosen height: the source stands taller in its heels",
+      "id": "npc_dress",
+      "name": "Civilian 12 (runs away, sleeveless top and black skirt)",
+      "model": "npc_dress",
+      "npc": "flee",
+      "height_m": 1.72,
+      "scale": 1,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 100,
+      "damage": 0,
+      "reach_m": 1.1,
+      "lunge_m": 0.4,
+      "cooldown_s": 0.15,
+      "windup_s": 0.3,
+      "attack_rate": 1.3,
+      "walk_mps": 1.35,
+      "run_mps": 5.2,
+      "run_within_m": 100000,
+      "weight": 0,
+      "hit_zone_scale": 1,
+      "knockback_mps": 0,
+      "stagger_min_damage": 8,
+      "stagger_s": 0.35,
+      "explosive_mult": 1,
+      "npc_wander_m": 12,
+      "npc_witness_m": 15,
+      "npc_flee_m": 35,
+      "npc_calm_s": 20,
+      "npc_fight_hp": 0.5,
+      "clips": {
+        "walk": [
+          "walk",
+          "walk_standard",
+          "walk_briefcase"
+        ],
+        "run": "run_b",
+        "walk_injured": "walk_injured",
+        "run_injured": "run_injured",
+        "idle": [
+          "idle",
+          "idle_talking",
+          "idle_talking_b"
+        ],
+        "attack": [
+          "attack_jab",
+          "attack_cross",
+          "attack_hook"
+        ],
+        "damage": [
+          "hit_head",
+          "hit_head_side",
+          "hit_body",
+          "hit_stomach",
+          "hit_back",
+          "hit_back_b"
+        ],
+        "death": [
+          "death_forward",
+          "death_left",
+          "death_react"
+        ],
+        "unused": "walk_turn180, run_turn180 (turns in place: the game turns the body itself), run (its take curves), flee_lookback (a second run: the type has one run clip)"
+      },
+      "sounds": {
+        "hurt": "player_hurt"
+      },
+      "attack_dust": false
+    },
+    {
       "note": "KN8: AI type Knight 8 (32): Knight 4 (the beaked-visor helm) with a 2.2 m halberd on the extra joint mixamorig:Weapon (keyed in every clip), the Great Sword Pack clips mapped as Knight 4 (content/characters/knight_8.glb; root motion pinned by tools/enemies/knight2_prep.py; credits in docs/credits.md). Strike: on the halberd's head (bone + at)",
       "id": "knight8",
       "hit_fx": "sparks",

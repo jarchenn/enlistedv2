@@ -998,8 +998,8 @@ int ar1SelfCheck() {
       if (g.size() > 20) { uint32_t nn = 0; std::memcpy(&nn, g.data() + 12, 4); json J; try { J = json::parse(g.substr(20, nn)); } catch (...) {} for (auto& x : J.value("animations", json::array())) anims.insert(x.value("name", std::string())); }
       std::vector<std::string> need = t.walkClips; need.push_back(t.runClip); need.push_back(t.walkInjured); need.push_back(t.runInjured); for (auto* v : {&t.idleClips, &t.attackClips, &t.damageClips, &t.deathClips}) need.insert(need.end(), v->begin(), v->end());
       for (auto& c : need) clipsOk = clipsOk && anims.count(c); }
-    { bool fl = true; for (const char* id : {"npc_ch37", "npc_ch02", "npc_ch21"}) { int k = enemyTypeIndex(id); fl = fl && k >= 0 && enemyType(k).npc == 2 && enemyType(k).damage == 0 && fs::exists(contentDir() / "characters" / (enemyType(k).model + ".glb")); }
-      chk(fl, "Civilians (NPC4): npc_ch37, npc_ch02 and npc_ch21 are flee types (never take a foe), damage 0, their GLBs present"); }
+    { bool fl = true; for (const char* id : {"npc_ch37", "npc_ch02", "npc_ch21", "npc_elegant", "npc_dress"}) { int k = enemyTypeIndex(id); fl = fl && k >= 0 && enemyType(k).npc == 2 && enemyType(k).damage == 0 && fs::exists(contentDir() / "characters" / (enemyType(k).model + ".glb")); }
+      chk(fl, "Civilians (NPC4/5): npc_ch37, npc_ch02, npc_ch21, npc_elegant and npc_dress are flee types (never take a foe), damage 0, their GLBs present"); }
     chk(clipsOk && nNpc >= 7, "Civilians (NPC1/2): npc_ch31 is a fighter, AI type Civilians picks a civilian type, " + std::to_string(nNpc) + " civilian types, every clip each names is in its GLB"); }
   {   // HS1: the Mounted Knight's horse sounds: 5 snorts, a neigh, a death whinny, 6 hoof falls (custom/horse)
     int files = 0; for (const char* f : {"snort_1", "snort_2", "snort_3", "snort_4", "snort_5", "neigh", "death", "step_1", "step_2", "step_3", "step_4", "step_5", "step_6"}) files += fs::exists(contentDir() / "audio" / "custom" / "horse" / (std::string(f) + ".mp3"));
