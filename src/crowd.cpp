@@ -347,6 +347,8 @@ static void retireUnit(uint32_t i, int team, int type) {   // GC4: a promoted un
   const glm::ivec4 b(team, type, 3, -1); glNamedBufferSubData(C.sim, (GLintptr)i * sizeof(CrowdSim) + 16, 16, &b);
 }
 void crowdArmyStep(Game& g, float dt) {
+  if (const char* e = std::getenv("NMK_ARMY"); e && !C.armyInit && g.match.rules.armyUnits[0] + g.match.rules.armyUnits[1] == 0) {   // dev / bench: NMK_ARMY=<team 0>,<team 1>
+    int a = 0, b = 0; std::sscanf(e, "%d,%d", &a, &b); g.match.rules.armyUnits[0] = std::clamp(a, 0, ScenarioRules::kMaxArmy); g.match.rules.armyUnits[1] = std::clamp(b, 0, ScenarioRules::kMaxArmy - g.match.rules.armyUnits[0]); }
   const ScenarioRules& r = g.match.rules;
   const bool army = !g.isClient && r.armyUnits[0] + r.armyUnits[1] > 0 && (g.match.mode() == GameMode::Assault || g.match.mode() == GameMode::TDM) && g.app.R.perf.crowd;
   if (!army) return;
