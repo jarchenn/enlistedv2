@@ -50,6 +50,7 @@ struct WeaponDef {
   float ejectBack = -1;   // WS2 JSON "ejectPort_m": the ejection port this far behind the muzzle along the bore (default, < 0: 0.68 x the muzzle's z, the receiver of a rifle)
   bool casings = true;   // MG12: false = no case ejected per shot (revolver, break-action shotgun)
   vec3 holdOffset{0}; float holdWeld = 1; int holdKind = -1; int leftHold = 0; GripPose gripPose;   /* WS1 JSON hold.left: "magazine" = 1: the support hand grips the magazine (palm to the right, fingers forward round it) instead of lying under the handguard */   // SW2 JSON "hold": third-person hold: offset (chest frame m: x left, y up, z forward) of the shouldered / low-ready weapon, cheek-weld share, kind 0 pistol / 1 rifle / 2 launcher (-1: by the grip)
+  bool hipDot = false, hipExact = false;   // XB8 JSON "hipDot": a white centre dot at the hip (not aiming); "hipExact": no hip dispersion, the round aimed at what the view centre is on at its own range (soldiers too) and tilted for its drop there
   bool dotCrosshair = false;   // SW2 JSON "crosshair": "dot": a small white dot in a thin + (hip and zoom aim)
   int defaultSight = 0;         // AT5 JSON "defaultSight": the optic it carries with nothing fitted (5: the SMG-9's holographic sight); a fitted one replaces it
   int blaster = 0;       // SW1: a blaster: every shot a glowing bolt, tracer kind 3 blue / 4 red ("blaster": "blue" | "red"), no drop, its colour on the flash

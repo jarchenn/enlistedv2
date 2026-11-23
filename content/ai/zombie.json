@@ -362,7 +362,7 @@
     },
     {
       "note": "knight2: AI type Knights (9) on the user's sword-and-shield knight (content/characters/knight_ss.glb, tools/enemies/knight2_prep.py; credits in docs/credits.md); this entry wins over an old 'knight' in zombie_local.json. 'legacy' (perf switch knight2 off, at the next table load): the Brother Knight (content/characters/knight.glb, local-only; without it the plain zombie)",
-      "id": "knight",
+      "id": "knight", "class": "knight",
       "hit_fx": "sparks",
       "name": "Knight 1",
       "model": "knight_ss",
@@ -525,7 +525,7 @@
     },
     {
       "note": "KN2: AI type Knight 2 (26): the knight's body and 51 clips with a spiked mace, the frogmouth helm and a round shield (content/characters/knight_v2.glb, local-only: tools/enemies/knight_v2_parts.py + knight_v2_merge.py); without the file AI type 26 plays Knight 1 (game.cpp)",
-      "id": "knight2",
+      "id": "knight2", "class": "knight",
       "hit_fx": "sparks",
       "name": "Knight 2",
       "model": "knight_v2",
@@ -635,7 +635,7 @@
     },
     {
       "note": "KN3: AI type Knight 3 (27): the knight's body and 51 clips with a winged closed helm, a Roman shield and a flail whose chain and ball ride six extra joints (flail_0..5, keyed in every clip); content/characters/knight_3.glb, local-only (the flail is CC-BY-NC-ND; tools/enemies/knight2_prep.py pins the root motion); without it AI type 27 plays Knight 1 (game.cpp). The strike sphere stays on RightHand, 0.7 m out (the ball hangs ~0.65 m from the hand at rest)",
-      "id": "knight3",
+      "id": "knight3", "class": "knight",
       "hit_fx": "sparks",
       "name": "Knight 3",
       "model": "knight_3",
@@ -745,7 +745,7 @@
     },
     {
       "note": "KN4: AI type Knight 4 (28): the knight's body with a zweihander (on the extra joint mixamorig:Weapon, keyed in every clip) and a beaked-visor helm, Mixamo Great Sword Pack clips (content/characters/knight_4.glb; root motion pinned by tools/enemies/knight2_prep.py; credits in docs/credits.md). 'great sword run' plays backward: the forward run is 'great sword run (2)'. Strike: the blade runs 0.10-1.46 m from the hand, the sphere 1.0 m out with radius 0.55",
-      "id": "knight4",
+      "id": "knight4", "class": "knight",
       "hit_fx": "sparks",
       "name": "Knight 4",
       "model": "knight_4",
@@ -855,7 +855,7 @@
     },
     {
       "note": "KN5: AI type Knight 5 (29): the knight's body with a double-sided battle axe, a sallet over a shaved head, Mixamo Pro Melee Axe Pack clips plus the sword-and-shield pack's two deaths (the axe pack has none; tools/enemies/knight_add_clips.py) (content/characters/knight_5.glb; credits in docs/credits.md). Strike: the axe reaches 0.64 m from the hand, the sphere 0.55 m out with radius 0.5",
-      "id": "knight5",
+      "id": "knight5", "class": "knight",
       "hit_fx": "sparks",
       "name": "Knight 5",
       "model": "knight_5",
@@ -965,7 +965,7 @@
     },
     {
       "note": "KN6: AI type Knight 6 (30): the knight's body and 51 sword-and-shield clips with an Italian sallet, a bevor, a breastplate over the chest pulled in, a shaved head under the visor, a 0.98 m sword and a Polish shield (content/characters/knight_6.glb: tools/enemies/knight_parts.py + knight_v2_merge.py; credits in docs/credits.md). Strike: about 0.87 m of blade past the guard, the sphere on RightHand 0.65 m out with radius 0.45",
-      "id": "knight6",
+      "id": "knight6", "class": "knight",
       "hit_fx": "sparks",
       "name": "Knight 6",
       "model": "knight_6",
@@ -1075,7 +1075,7 @@
     },
     {
       "note": "KN7: AI type Knight 7 (31): the knight's body and 51 sword-and-shield clips with an ornamented great helm over a shaved head, a cuirass over the chest pulled in, a 0.70 m viking axe and a steel-recoloured Roman scutum (content/characters/knight_7.glb: tools/enemies/knight_parts.py knight7 + knight_v2_merge.py; credits in docs/credits.md). Strike: the axe head ~0.6 m from the fist, the sphere on RightHand 0.5 m out with radius 0.45",
-      "id": "knight7",
+      "id": "knight7", "class": "knight",
       "hit_fx": "sparks",
       "name": "Knight 7",
       "model": "knight_7",
@@ -1185,7 +1185,7 @@
     },
     {
       "note": "KS: AI type Spear Knight (42): three builds, one picked at random per spawn (models_pick): ks1 Knight 6's sallet + bevor and breastplate, the Gilded Spear, Knight 7's scutum; ks2 the conquistador helmet, Knight 7's cuirass, the Shao Lin double moon spear, the crusader shield (its field steel, its cross in the scutum's gold); ks3 the conquistador helmet, Knight 6's breastplate, Spear2, Knight 6's Polish shield (its field steel). Every armour piece (the body's plate too, x0.875) in the knights' darker steel; spears 2.4 m gripped 38 % from the butt (content/characters/knight_spear_ks*.glb: tools/enemies/knight_parts.py spear-<helm>-<chest>-<shield>, knight_v2_merge.py, knight_stabs.py). The sword-and-shield pack's locomotion, idles, impacts and deaths; it attacks only with stabs: the pack has no thrust, so knight_stabs.py re-arms five of its lunges (legs, body and timing kept, the right arm driven point-first by IK). Reach 1.3x the other knights' 2.2 m; the strike sphere near the spear point",
-      "id": "knight_spear",
+      "id": "knight_spear", "class": "knight",
       "hit_fx": "sparks",
       "name": "Spear Knight",
       "models_pick": "random",
@@ -2204,7 +2204,7 @@
     },
     {
       "note": "KN8: AI type Knight 8 (32): Knight 4 (the beaked-visor helm) with a 2.2 m halberd on the extra joint mixamorig:Weapon (keyed in every clip), the Great Sword Pack clips mapped as Knight 4 (content/characters/knight_8.glb; root motion pinned by tools/enemies/knight2_prep.py; credits in docs/credits.md). Strike: on the halberd's head (bone + at)",
-      "id": "knight8",
+      "id": "knight8", "class": "knight",
       "hit_fx": "sparks",
       "name": "Knight 8",
       "model": "knight_8",
@@ -2314,7 +2314,7 @@
     },
     {
       "note": "KN9: AI type Knight 9 (33): Knight 5's body with a steel-recoloured Maximilian close helmet over the shaved head and a Polish-Ottoman sabre, the Pro Melee Axe Pack clips mapped as Knight 5 plus the sword-and-shield pack's two deaths (tools/enemies/knight_add_clips.py) (content/characters/knight_9.glb; credits in docs/credits.md). Strike: on the sabre's blade (bone + at)",
-      "id": "knight9",
+      "id": "knight9", "class": "knight",
       "hit_fx": "sparks",
       "name": "Knight 9",
       "model": "knight_9",
@@ -2423,7 +2423,7 @@
       ]
     },
     {
-      "id": "archer1",
+      "id": "archer1", "class": "archer",
       "name": "Archer 1",
       "model": "archer_1",
       "height_m": 1.87,
@@ -2510,7 +2510,7 @@
     },
     {
       "note": "K10: AI type Knight 10 (35): a copy of the winged knight (Knight 3) with the cuirass over its pulled-in chest, Silver Sword and triangular shield in its dark armour finish, and a black cloak with a cross whose physics is baked into all 51 clips on 35 cape joints (tools/enemies/knight_parts.py knight10, knight_v2_merge.py, k10_cape.py, gltf_prune.py). Stats, clips, attacks and sounds as Knight 1; the strike sphere 65 % along the new blade",
-      "id": "knight10",
+      "id": "knight10", "class": "knight",
       "hit_fx": "sparks",
       "name": "Knight 10",
       "model": "knight_10",
@@ -2619,7 +2619,7 @@
       ]
     },
     {
-      "id": "archer2",
+      "id": "archer2", "class": "archer",
       "name": "Archer 2",
       "model": "archer_2",
       "height_m": 1.87,
@@ -2705,7 +2705,7 @@
       ]
     },
     {
-      "id": "knight10m",
+      "id": "knight10m", "class": "knight",
       "hit_fx": "sparks",
       "name": "Mounted Knight",
       "model": "knight_10_mounted",
@@ -2837,7 +2837,7 @@
       ]
     },
     {
-      "id": "fallen_knight",
+      "id": "fallen_knight", "class": "knight",
       "hit_fx": "sparks",
       "name": "Fallen Knight",
       "model": "knight",
@@ -2924,7 +2924,7 @@
       "note": "FK2 (the user): shrunk 20 %: 1.6x the knight body (height_m 3.048; reach, lunge, strike radii, capsule and walk/run x0.8 so the stride still matches). FK1: AI type 39 Fallen Knight: the Brother Knight (content/characters/knight.glb, local-only; the model Knight 1 had before knight2) at twice the standardised knight body (foot to head joint 3.124 m = 2 x 1.562: height_m 3.81) with 5x a knight's health (3000; Knights 1-10 have 600). Its only locomotion clip is its walk (0.86 m/s of foot travel at its own size, 1.68 m/s at 2x): played as the run at 1.6x (2.7 m/s, no foot slide). reach, lunge, strike radii x1.954 with the body; capsule 0.55 x 3.2 m. Not in Assorted Knights. Without knight.glb AI type 39 spawns 'fallen_knight1' (Knight 1 at the same size and health)"
     },
     {
-      "id": "fallen_knight1",
+      "id": "fallen_knight1", "class": "knight",
       "hit_fx": "sparks",
       "name": "Fallen Knight (Knight 1)",
       "model": "knight_ss",

@@ -16,6 +16,7 @@ struct EnemyType {
   std::vector<std::string> models;                        // variants (json "models"; [0] = model): Soldier::evariant picks one in turn
   int npc = 0;                                            // NPC1 json "npc": "fight" (1) / "flee" (2): a civilian (zombie.cpp npcStep / npcHurt)
   float npcWander = 12, npcWitness = 15, npcFleeM = 35, npcCalm = 20, npcFightHp = 0.5f;   // json npc_wander_m (round its spawn), npc_witness_m, npc_flee_m, npc_calm_s, npc_fight_hp (a fighter flees below this share of its health)
+  std::string cls;                                        // XB8 json "class": "knight" / "archer" (damage.json rows' damageVs)
   std::string sndChatter, sndReact;                       // NPC7 json sounds "chatter" (a calm civilian now and then, within earshot, one at a time), "react" (it sees someone attacked)
   std::string sndGreet, sndAlarm;                         // NPC6 json sounds "greet" (a calm civilian, the local player coming within 3 m: once per approach), "alarm" (it sees someone killed)
   std::string sndMount;                                   // HS1 json sounds "mount": "horse": its horse snorts / neighs (alive, mounted), snorts at a charge, neighs when hit,

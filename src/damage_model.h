@@ -7,6 +7,7 @@
 // (FleshHit::deflected, a "deflected" puff instead of the flesh puff; rules.cpp).
 #include "common.h"
 #include "gore_api.h"
+#include <map>
 
 class Game;
 struct Projectile;
@@ -21,6 +22,7 @@ struct WeaponDamage {
   float nearDmg = 50, farDmg = 35, falloffStart = 50, falloffEnd = 150, rpm = 0;
   std::string cls;            // DMG1: the row's class (damage.json classes): its head cap and armour penetration
   float headMax = 0;          // DMG1: head damage cap (pistols / SMGs: a headshot alone does not kill); 0 = none
+  std::map<std::string, float> vs;   // XB8 "damageVs": {"<enemy type class>": multiplier} (zombie.json "class": "knight" / "archer"); 1 for anything else
   float pen = 1;              // DMG1: armour penetration (share of the damage an armoured zone still takes at full armour)
   bool dataOnly = false;      // no model in the repo yet
 };
@@ -46,6 +48,7 @@ bool parseDamageTable(const json& j, DamageTable& out, std::string& err);
 const WeaponDamage& dmRow(const std::string& weaponId);            // the weapon's row, or the default row
 
 float dmSmoothstep(float a, float b, float x);
+float dmVsMult(const WeaponDamage& w, int etype);   // XB8: the row's damageVs for this enemy type's class (etype -1, a soldier: 1)
 float dmBaseDamage(const WeaponDamage& w, float range);            // before the zone multiplier
 float dmZoneMult(const DamageTable& t, int zone);
 float dmDamage(const WeaponDamage& w, float range, int zone);      // base x zone

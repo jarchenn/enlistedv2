@@ -34,6 +34,7 @@ bool parseRow(const json& r, const std::string& id, const DamageTable& T, const 
     w.headMax = c->second.headMax; w.pen = c->second.pen;
   }
   w.headMax = num(r, "headMax", w.headMax); w.pen = std::clamp(num(r, "pen", w.pen), 0.0f, 1.0f);
+  if (auto v = r.find("damageVs"); v != r.end() && v->is_object()) for (auto& [k, x] : v->items()) { if (!x.is_number() || x.get<float>() < 0) { err = "row " + id + ": damageVs." + k + " must be a number >= 0"; return false; } w.vs[k] = x.get<float>(); }   // XB8
   (void)decisions;
   if (r.value("profileDecision", std::string()) == "springfieldProfile" && T.springfieldProfile == "kar98k") {
     w.farDmg = w.nearDmg; w.falloffStart = w.falloffEnd = 0;   // the Kar98k's no-falloff profile
@@ -117,6 +118,10 @@ int dmShotsToKill(const WeaponDamage& w, float r, int zone) {
 
 static const char* zoneName(int z) { return z == DZ_HEAD ? "head" : z == DZ_UPPER_TORSO ? "upper torso" : z == DZ_LOWER_TORSO ? "lower torso" : z == DZ_NECK ? "neck" : z == DZ_UPPER_THIGH ? "upper thigh" : z == DZ_ARM ? "arm" : "leg"; }
 
+float dmVsMult(const WeaponDamage& W, int etype) {   // XB8: 1 unless the row names the enemy type's class (etype -1: a soldier)
+  if (etype < 0 || W.vs.empty()) return 1.0f;
+  auto it = W.vs.find(enemyType(etype).cls); return it == W.vs.end() ? 1.0f : it->second;
+}
 bool dmBulletHit(Game& g, Projectile& p, int victim, const HitZone& hz, vec3 a, vec3 d, float tHit, int shooter) {
   if (victim < 0) { p.travelled += tHit; return false; }   // no soldier on this segment: the round flew on (or struck the world)
   App& app = g.app;
@@ -163,6 +168,7 @@ bool dmBulletHit(Game& g, Projectile& p, int victim, const HitZone& hz, vec3 a, 
   }
   float dmg = dmDamage(W, range, zone);
   if (zone == DZ_HEAD && v.zombie && enemyType(v.etype).headMult > 0) dmg = dmBaseDamage(W, range) * enemyType(v.etype).headMult;   // CH7: the type's own head multiplier replaces the weapon's (no cap)
+  dmg *= dmVsMult(W, v.zombie ? v.etype : -1);   // XB8: the round against this class of enemy (the crossbow bolt and the archers' arrows: 2x on knights)
   bool prot = v.isProtected(g.t);
   ++g.hitsOnSoldiers;
   // ---- hit effect: the visuals (deflect puff, helmet sparks, blood / dust puff) are drawn by gore (gore.cpp, W7); the helmet sound stays here

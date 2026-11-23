@@ -150,6 +150,12 @@ bool mpaiShellHit(App& app, const Projectile& p, vec3 seg, float len, float& tWo
   return gGame && gGame->active && gGame->shellSegment(p, p.p, seg, len, tWorld);
 }
 
+float mpaiSoldierRay(vec3 a, vec3 dir, float maxT) {   // XB8: the distance along a ray to the first living soldier other than the local player (-1: none within maxT)
+  if (!gGame || !gGame->active) return -1;
+  float bt = maxT; bool any = false;
+  for (auto& s : gGame->sold) { if (!s.alive || s.localPlayer) continue; HitZone hz; if (gGame->coarseHit(s, a, dir) && gGame->hitTest(s, a, dir, bt, hz) && hz.t < bt) { bt = hz.t; any = true; } }
+  return any ? bt : -1;
+}
 bool mpaiProjectile(App& app, Projectile& p, vec3 seg, float len, float tWorld) {
   gProjOwner = p.owner;
   if (!gGame || !gGame->active || len <= 1e-5f) return false;
