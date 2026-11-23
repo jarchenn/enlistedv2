@@ -3,12 +3,12 @@
  "bmax": [
   3.1070806980133057,
   8.083922386169434,
-  2.083808422088623
+  1.7838090658187866
  ],
  "bmin": [
   -3.1070806980133057,
   0.0,
-  -2.083808422088623
+  -1.7838090658187866
  ],
  "materials": [
   {
@@ -16,28 +16,14 @@
    "name": "Mat_1"
   },
   {
-   "albedo": "albedo_1.jpg",
-   "name": "vh1_oak"
-  },
-  {
-   "albedo": "albedo_3.jpg",
-   "name": "vh1_roof",
-   "normal": "normal_2.jpg"
-  },
-  {
-   "albedo": "albedo_5.jpg",
+   "albedo": "albedo_2.jpg",
    "name": "pr10_floor_boards_old",
-   "normal": "normal_4.jpg"
+   "normal": "normal_1.jpg"
   },
   {
-   "albedo": "albedo_7.jpg",
+   "albedo": "albedo_4.jpg",
    "name": "pr10_beam_weathered",
-   "normal": "normal_6.jpg"
-  },
-  {
-   "albedo": "albedo_9.jpg",
-   "name": "pr10_plaster_old",
-   "normal": "normal_8.jpg"
+   "normal": "normal_3.jpg"
   }
  ],
  "parts": [
@@ -49,74 +35,22 @@
     1.0
    ],
    "bmax": [
-    3.0578441619873047,
+    3.1070806980133057,
     8.083922386169434,
     1.7838090658187866
    ],
    "bmin": [
-    -3.085059404373169,
+    -3.1070806980133057,
     0.0,
     -1.7838090658187866
    ],
-   "count": 597,
+   "count": 2313,
    "first": 0,
    "mat": 0,
    "metal": 0.0,
    "name": "maison_Mat_0.002",
    "role": "body",
    "rough": 0.9200000166893005,
-   "textured": true
-  },
-  {
-   "base": [
-    1.0,
-    1.0,
-    1.0,
-    1.0
-   ],
-   "bmax": [
-    3.1070806980133057,
-    8.083922386169434,
-    2.083808422088623
-   ],
-   "bmin": [
-    -3.1070806980133057,
-    0.0,
-    -2.083808422088623
-   ],
-   "count": 2475,
-   "first": 597,
-   "mat": 1,
-   "metal": 0.0,
-   "name": "maison_Mat_0.002",
-   "role": "body",
-   "rough": 0.9200000166893005,
-   "textured": true
-  },
-  {
-   "base": [
-    1.0,
-    1.0,
-    1.0,
-    1.0
-   ],
-   "bmax": [
-    3.1070806980133057,
-    8.083922386169434,
-    2.083808422088623
-   ],
-   "bmin": [
-    -3.1070806980133057,
-    0.48097938299179077,
-    -2.083808422088623
-   ],
-   "count": 483,
-   "first": 3072,
-   "mat": 2,
-   "metal": 0.0,
-   "name": "maison_Mat_0.002",
-   "role": "body",
-   "rough": 0.949999988079071,
    "textured": true
   },
   {
@@ -137,8 +71,8 @@
     -1.226699948310852
    ],
    "count": 36,
-   "first": 3555,
-   "mat": 3,
+   "first": 2313,
+   "mat": 1,
    "metal": 0.0,
    "name": "maison_Mat_0.002",
    "role": "body",
@@ -163,34 +97,8 @@
     -1.226699948310852
    ],
    "count": 36,
-   "first": 3591,
-   "mat": 4,
-   "metal": 0.0,
-   "name": "maison_Mat_0.002",
-   "role": "body",
-   "rough": 0.8500000238418579,
-   "textured": true
-  },
-  {
-   "base": [
-    1.0,
-    1.0,
-    1.0,
-    1.0
-   ],
-   "bmax": [
-    2.817349910736084,
-    2.49399995803833,
-    1.1788499355316162
-   ],
-   "bmin": [
-    -2.817349910736084,
-    0.028999999165534973,
-    -1.226699948310852
-   ],
-   "count": 222,
-   "first": 3627,
-   "mat": 5,
+   "first": 2349,
+   "mat": 2,
    "metal": 0.0,
    "name": "maison_Mat_0.002",
    "role": "body",
@@ -207,6 +115,6 @@
  "scale": 1.0,
  "source": "vh_townhouse.glb",
  "textures": {},
- "triangles": 1283,
- "vertices": 2057
+ "triangles": 795,
+ "vertices": 1356
 }

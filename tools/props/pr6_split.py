@@ -209,11 +209,6 @@ for P in job["pieces"]:
             bmesh.ops.bisect_plane(bm, geom=list(gs), plane_co=co, plane_no=n)
         gone = [f for f in bm.faces if all(lo[k] - 1e-4 <= f.calc_center_median()[k] <= hi[k] + 1e-4 for k in range(3))]
         bmesh.ops.delete(bm, geom=gone, context="FACES"); bm.to_mesh(ob.data); bm.free()
-    FE = {}
-    if P.get("plaster") or P.get("frame"):   # VH1d: the House Village restyle (tools/props/vh1_style.py)
-        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import vh1_style
-        if P.get("plaster"): FE = vh1_style.plaster(ob, P["plaster"], job["out"])
-        if P.get("frame"): ob, nfr = vh1_style.frame(ob, P["frame"], FE); print("PR6 frame %s: %d members" % (P["id"], nfr))
     if P.get("matte"):   # VH1c: the model's own materials dull (its roofs read as wet / reflective): no roughness / metal maps, rough, not metal
         for sl in ob.material_slots:
             m = sl.material
@@ -223,6 +218,12 @@ for P in job["pieces"]:
             for k in ("Roughness", "Metallic"):
                 for l in list(bs.inputs[k].links): m.node_tree.links.remove(l)
             bs.inputs["Roughness"].default_value = P["matte"]; bs.inputs["Metallic"].default_value = 0.0
+    if P.get("double_walls"):   # VH1e: the inside of a one-sided shell shows its own outside: its wall faces copied, flipped, this far in
+        bm = bmesh.new(); bm.from_mesh(ob.data); bm.normal_update()
+        nf = [g for g in bmesh.ops.duplicate(bm, geom=[f for f in bm.faces if abs(f.normal.z) < 0.3])["geom"] if isinstance(g, bmesh.types.BMFace)]; nset = set(nf)
+        for v in {v for f in nf for v in f.verts}:
+            n = sum((f.normal for f in v.link_faces if f in nset), Vector()); v.co -= n.normalized() * P["double_walls"] if n.length else n
+        bmesh.ops.reverse_faces(bm, faces=nf); bm.to_mesh(ob.data); bm.free()
     if P.get("roof"):   # VH1c: a one-sided roof given its thickness (the up-facing faces copied out, solidified downward with rims, joined
         # back), optionally re-textured (thatch) with UVs along the slope at real size
         RF = P["roof"]; me = ob.data
@@ -260,15 +261,10 @@ for P in job["pieces"]:
             rb = bm.copy(); rb.faces.ensure_lookup_table()
             bmesh.ops.delete(rb, geom=[f for f in rb.faces if f.index not in rs], context="FACES")
             bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.index in rs], context="FACES"); bm.to_mesh(me); bm.free()
-            if RF.get("sweep"):   # VH1d: eaves turned up
-                sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import vh1_style
-                print("PR6 roof %s: %d eave verts swept" % (P["id"], vh1_style.sweep(rb, *RF["sweep"])))
             rme = bpy.data.meshes.new("roof"); rb.to_mesh(rme); rb.free()
             for m in me.materials: rme.materials.append(m)
             ro = bpy.data.objects.new("roof", rme); bpy.context.scene.collection.objects.link(ro)
             md = ro.modifiers.new("sol", "SOLIDIFY"); md.thickness = RF["thick"]; md.offset = -1; md.use_rim = True; md.use_even_offset = True
-            if RF.get("rim_tex") and RF.get("tex"):   # VH1d: the roof's edges and underside in wood (barge boards, soffits)
-                rme.materials.append(vh1_style.material("vh1_oak", RF["rim_tex"])); md.material_offset = md.material_offset_rim = len(rme.materials) - 1 - rmi
             for o_ in bpy.context.selected_objects: o_.select_set(False)
             bpy.context.view_layer.objects.active = ro; ro.select_set(True); bpy.ops.object.modifier_apply(modifier=md.name)
             ob = join([ob, ro])

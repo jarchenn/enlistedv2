@@ -20,13 +20,10 @@ import pr8_openings
 from pr10_assets import BLENDER, HERE, ROOT, run
 
 S = 0.29   # metres per source unit
-# VH1d (the user, with medieval_house.glb, "Medieval house" by Vanuartw, CC-BY-4.0: "use this as a reference on how the upholstery
-# and framing should look and how the roofs should be done, then repeat the same onto the houses"): tools/props/vh1_style.py
-#  * the walls' stone repainted as pale plaster in their atlases (painted windows, doors, shutters kept), the inside lined
-#    with the same plaster; oak framing on the outer walls (posts, studs, rails, lintels, sills, end braces);
-#  * every roof dark wooden shingle (the reference's), 0.22 m thick, oak edges and soffits, eaves swept up; all matte.
-TEX = os.path.join(ROOT, "content", "textures")
-PLASTER, OAK, SHINGLE = os.path.join(TEX, "plaster_old"), os.path.join(TEX, "oak_aged"), os.path.join(TEX, "roofing_tiles_009")
+# VH1e (the user, after VH1b-d: "just use the original one you sent me, but with the interior also the rock of the exterior"):
+# outside, the model's own textures and roofs exactly as in VH1 (only matte: no roughness / metal maps); inside, the walls
+# are the shell's own wall faces copied, flipped, 3 cm in (pr6_split "double_walls"), so each room shows the outside's
+# rock; the lining keeps only the boarded floor and the ceiling.
 CREDIT = ("House Village", "remib74", "CC-BY-4.0", "https://sketchfab.com/3d-models/house-village-a5d6dae1ff424adca8978a143769ab2d")
 T = 0.5    # wall collider thickness inward (source units, 15 cm)
 U = 1 / S  # source units per metre
@@ -221,23 +218,11 @@ def boxes(bid):
 
 
 def lining(bid, doors, holes):
-    """Floor / plaster walls / ceiling for each room (pr10_assets.lining, the cuts through the walls deeper: a shell's
-    face can sit a long way off the room box, the long house's recessed door)."""
-    B = H[bid]; Hc = B["Hc"]; dep = B.get("cut", 1.2)
-    cuts = []
-    for b in [v[3] for v in doors.values()] + list(holes.values()):
-        lo, hi = [b[0], b[2], b[4]], [b[1], b[3], b[5]]
-        k = 0 if (b[1] - b[0]) < (b[3] - b[2]) else 1
-        lo[k] -= dep; hi[k] += dep; cuts.append((lo, hi))
-    out = []
-    for r in B["rooms"]:
-        x0, x1, y0, y1 = r; z0, z1 = 0.1, Hc; t = 0.06
-        out.append({"box": [x0, x1, y0, y1, z0, z0 + 0.05], "tex": "floor_boards_old", "tile": 6.0})
-        out.append({"box": [x0, x1, y0, y1, z1 - 0.05, z1], "tex": "beam_weathered", "tile": 6.0})
-        for w in ([x0, x1, y0, y0 + t], [x0, x1, y1 - t, y1], [x0, x0 + t, y0, y1], [x1 - t, x1, y0, y1]):
-            bx = [([w[0], w[2], z0], [w[1], w[3], z1])]
-            for c in cuts: bx = [q for b in bx for q in pr8_openings.subtract(b, c)]
-            out += [{"box": [lo[0], hi[0], lo[1], hi[1], lo[2], hi[2]], "tex": "plaster_old", "tile": 2.5 / S} for lo, hi in bx]
+    """A boarded floor and a ceiling in each room (the walls inside are the shell's own, see "double_walls")."""
+    B = H[bid]; out = []
+    for x0, x1, y0, y1 in B["rooms"]:
+        out.append({"box": [x0, x1, y0, y1, 0.1, 0.15], "tex": "floor_boards_old", "tile": 6.0})
+        out.append({"box": [x0, x1, y0, y1, B["Hc"] - 0.05, B["Hc"]], "tex": "beam_weathered", "tile": 6.0})
     return out
 
 
@@ -255,10 +240,7 @@ def convert(src_dir, glbs):
                  "add_boxes": [{**b, "tex": os.path.join(ROOT, "content", "textures", b["tex"])} for b in lining(bid, doors, holes)],
                  "scale": S, "yaw": 0}
         piece["matte"] = 0.92
-        piece["plaster"] = {"tex": PLASTER, "rep": 3, "blob": 7, "timber": OAK, "timber_tile": 1.5 / S}
-        piece["frame"] = {"outline": B["outline"], "Hc": B["Hc"], "S": S, "w": 0.2 / S, "proud": 0.06 / S, "step": 0.1 / S,
-                          "spacing": 1.6 / S, "sole": 0.35 / S, "win": (1.3 / S, 1.9 / S), "tex": OAK, "tile": 1.5 / S}
-        piece["roof"] = {"thick": 0.22 / S, "min_nz": 0.3, "min_z": 4.0, "tex": SHINGLE, "tile": 1.2 / S, "rim_tex": OAK, "sweep": (0.9 / S, 0.18 / S, 0.3 / S)}
+        piece["double_walls"] = 0.03 / S
         run({"src": os.path.join(src_dir, B["key"] + ".glb"), "out": glbs, "pieces": [piece]}, glbs, bid)
 
 
@@ -269,7 +251,7 @@ def write(src_dir, glbs):
         walls, floor, doors, cuts, holes = boxes(bid)
         credit = "%s by %s, %s (%s)" % CREDIT
         A = {"id": bid, "version": 1, "name": B["name"], "category": "Houses", "themes": ["wwii", "postapoc", "modern"],
-             "description": "%s from the House Village set: oak-framed plaster walls, shingle roof, enterable through its door (E), the ground-floor windows open; furnished. %.1f x %.1f m, %.1f m high." % (B["name"], sx * 1, sz, sy),
+             "description": "%s from the House Village set: stone walls, tiled roof, enterable through its door (E), the ground-floor windows open; furnished. %.1f x %.1f m, %.1f m high." % (B["name"], sx * 1, sz, sy),
              "footprint": [round(sx, 3), round(sz, 3)], "floors": 0, "enterable": False, "plinthDepth": 0, "noAutoPanels": True, "maxGrade": 2,
              "model": {"pivot": "ground", "scale": 1, "jpgMaps": True, "lod1": 0.3, "src": bid + ".glb", "dir": bid, "maxTex": 2048, "credit": credit, "lodDist": 40, "cullDist": 600},
              "nav": {"effect": "carve", "rooms": [], "doors": [], "entrances": [], "corners": [], "firingPoints": [], "areas": [], "cover": []},
