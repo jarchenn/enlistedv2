@@ -98,6 +98,7 @@ const ZombieCfg& zcfg() {
           if (!x.clip.empty()) t.attackSpecs.push_back(x);
         }
         t.invuln = e.value("invulnerable", t.invuln);   // BC1
+        t.egg = e.value("egg", t.egg);   // KC1
         t.attackDust = e.value("attack_dust", t.attackDust); t.tankDamage = e.value("tank_damage", t.hp >= 500); t.hitSparks = e.value("hit_fx", std::string()) == "sparks"; t.headMult = std::max(0.0f, e.value("head_mult", t.headMult));
         t.explosiveMult = std::max(0.0f, e.value("explosive_mult", t.explosiveMult)); t.blockR = std::clamp(e.value("block_radius", t.blockR), 0.0f, 0.5f); t.locoRate = std::clamp(e.value("walk_rate", t.locoRate), 0.25f, 4.0f); t.stompArea = std::clamp(e.value("stomp_area", t.stompArea), 0.0f, 1.0f);
         if (e.contains("horse_death") && e["horse_death"].is_object()) {   // HK2
@@ -1237,6 +1238,14 @@ int ar1SelfCheck() {
     chk(!pd.empty() && fs::exists(contentDir() / "weapons" / "models" / pd / "mesh.bin"), "the crossbow's bolt mesh (XB7): models/" + pd); }
   { int kn = 0, ar = 0; for (uint32_t sd = 0; sd < 400; ++sd) { const std::string& id = enemyType(enemyTypeAssortedPick(sd)).id; kn += id.rfind("knight", 0) == 0; ar += id.rfind("archer", 0) == 0; }
     chk(kn == 400 && ar == 0, "assorted (AK1 / AK2: knights only): 400 slots -> " + std::to_string(kn) + " knights, " + std::to_string(ar) + " archers"); }
+  {   // KC1 (the user): the numbered knights folded into Assorted Knights; Knight 10 is the Elite Knight
+    std::set<std::string> mix; for (auto& [id, w] : zcfg().assorted) mix.insert(id);
+    const std::set<std::string> want = {"knight", "knight2", "knight3", "knight4", "knight6", "knight7", "knight8"};
+    bool ok = mix == want && std::string(aiTypeName(AiType::Knights10)) == "Elite Knight" && !aiTypeRetired((int)AiType::Knights10) && !aiTypeRetired((int)AiType::KnightsAssorted);
+    for (AiType a : {AiType::Knights, AiType::Knights2, AiType::Knights3, AiType::Knights4, AiType::Knights6, AiType::Knights7, AiType::Knights8}) ok = ok && aiTypeRetired((int)a) && aiTypeRetiredTo((int)a) == AiType::KnightsAssorted;
+    for (const char* id : {"knight", "knight2", "knight3", "knight4", "knight5", "knight6", "knight7", "knight8", "knight9"}) { const int k = enemyTypeIndex(id); ok = ok && (k < 0 || !enemyType(k).egg); }
+    { const int k = enemyTypeIndex("knight10"); ok = ok && k >= 0 && enemyType(k).egg && enemyType(k).name == "Elite Knight"; }
+    chk(ok, "knights (KC1): Assorted Knights mixes exactly Knights 1-4 and 6-8, those are retired as types of their own (saved setups play Assorted) and have no eggs; Knight 10 is the Elite Knight"); }
   for (float D : {5.0f, 10.0f, 25.0f, 45.0f}) {
     vec3 from(0, 1.45f, 0), aim(0, 1.3f, -D), p = from, v = arrowAim(from, aim, 55.0f) * 55.0f; float best = 1e9f; const float h = 1.0f / 120;
     for (int i = 0; i < 600 && p.z > -D - 2; ++i) { vec3 q = p + v * h; float t = glm::clamp(glm::dot(aim - p, q - p) / std::max(1e-9f, glm::dot(q - p, q - p)), 0.0f, 1.0f); best = std::min(best, glm::length(p + (q - p) * t - aim)); p = q; v.y -= 9.81f * h; }

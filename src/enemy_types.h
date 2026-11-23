@@ -53,6 +53,7 @@ struct EnemyType {
   struct AttackSpec { std::string clip, bone, ammo; vec3 at{0}; bool hasAt = false, shoot = false; float speed = 55, spreadDeg = 1, massG = 60, faceDeg = 0; int joint = -1; float extend = 0, radius = 0, damage = -1, rangeMin = 0, rangeMax = 0, weight = 1, swing = 0, pre = 0.15f, post = 0.1f, reach = 0; bool leap = false; int victims = 0; float breath0 = 0, breath1 = 0, breathRange = 12, breathCone = 12, breathDmgK = 1; };   // DR1 breath0 / breath1: a flame breath over that part of the clip (fractions; json "breath"); reach: the distance it closes to (default: the fastest hand's at the swing)
   std::vector<AttackSpec> attackSpecs;
   bool attackDust = true;                                 // CH5 json "attack_dust": false: its blows throw no dust (the area, shake and sounds stay)
+  bool egg = true;                                        // KC1 json "egg": false = no spawn egg of its own (the numbered knights: only in the Assorted Knights egg)
   bool invuln = false;                                    // BC1 json "invulnerable": damage never lowers its health (it still flinches)
   bool tankDamage = false;                                // TK1 json "tank_damage" (default: hp >= 500): its landed blows wear down a tank, 1/15 of its durability each
   bool hitSparks = false;                                 // MK2 json "hit_fx": "sparks": plate / metal: hits throw sparks, no blood (Game kitSparks)

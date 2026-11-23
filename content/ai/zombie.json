@@ -26,8 +26,8 @@
     "anim_hz_far": 7.5,
     "share_pose_m": 60
   },
-  "assorted_note": "AK1: AI type Assorted Knights: each slot one of these types by weight (KS: the Spear Knight one of the knights; AK2: knights only, the archers taken out by the user; KR59: Knights 5 and 9 out too); a type whose model file is missing (the local-only knight_v2, knight_3, archer_2) is left out. The Mounted Knight is not in the mix",
-  "assorted": [["knight", 1], ["knight2", 1], ["knight3", 1], ["knight4", 1], ["knight6", 1], ["knight7", 1], ["knight8", 1], ["knight10", 1], ["knight_spear", 1]],
+  "assorted_note": "AK1: AI type Assorted Knights: each slot one of these types by weight (KS: the Spear Knight one of the knights; AK2: knights only, the archers taken out by the user; KR59: Knights 5 and 9 out too; KC1: exactly the numbered Knights 1-4 and 6-8, which are no longer AI types of their own; Knight 10 is the Elite Knight, the Spear Knight its own type, neither in the mix); a type whose model file is missing (the local-only knight_v2, knight_3, archer_2) is left out. The Mounted Knight is not in the mix",
+  "assorted": [["knight", 1], ["knight2", 1], ["knight3", 1], ["knight4", 1], ["knight6", 1], ["knight7", 1], ["knight8", 1]],
   "types": [
     {
       "id": "zombie",
@@ -362,7 +362,7 @@
     },
     {
       "note": "knight2: AI type Knights (9) on the user's sword-and-shield knight (content/characters/knight_ss.glb, tools/enemies/knight2_prep.py; credits in docs/credits.md); this entry wins over an old 'knight' in zombie_local.json. 'legacy' (perf switch knight2 off, at the next table load): the Brother Knight (content/characters/knight.glb, local-only; without it the plain zombie)",
-      "id": "knight", "class": "knight",
+      "id": "knight", "egg": false, "class": "knight",
       "hit_fx": "sparks",
       "name": "Knight 1",
       "model": "knight_ss",
@@ -525,7 +525,7 @@
     },
     {
       "note": "KN2: AI type Knight 2 (26): the knight's body and 51 clips with a spiked mace, the frogmouth helm and a round shield (content/characters/knight_v2.glb, local-only: tools/enemies/knight_v2_parts.py + knight_v2_merge.py); without the file AI type 26 plays Knight 1 (game.cpp)",
-      "id": "knight2", "class": "knight",
+      "id": "knight2", "egg": false, "class": "knight",
       "hit_fx": "sparks",
       "name": "Knight 2",
       "model": "knight_v2",
@@ -635,7 +635,7 @@
     },
     {
       "note": "KN3: AI type Knight 3 (27): the knight's body and 51 clips with a winged closed helm, a Roman shield and a flail whose chain and ball ride six extra joints (flail_0..5, keyed in every clip); content/characters/knight_3.glb, local-only (the flail is CC-BY-NC-ND; tools/enemies/knight2_prep.py pins the root motion); without it AI type 27 plays Knight 1 (game.cpp). The strike sphere stays on RightHand, 0.7 m out (the ball hangs ~0.65 m from the hand at rest)",
-      "id": "knight3", "class": "knight",
+      "id": "knight3", "egg": false, "class": "knight",
       "hit_fx": "sparks",
       "name": "Knight 3",
       "model": "knight_3",
@@ -745,7 +745,7 @@
     },
     {
       "note": "KN4: AI type Knight 4 (28): the knight's body with a zweihander (on the extra joint mixamorig:Weapon, keyed in every clip) and a beaked-visor helm, Mixamo Great Sword Pack clips (content/characters/knight_4.glb; root motion pinned by tools/enemies/knight2_prep.py; credits in docs/credits.md). 'great sword run' plays backward: the forward run is 'great sword run (2)'. Strike: the blade runs 0.10-1.46 m from the hand, the sphere 1.0 m out with radius 0.55",
-      "id": "knight4", "class": "knight",
+      "id": "knight4", "egg": false, "class": "knight",
       "hit_fx": "sparks",
       "name": "Knight 4",
       "model": "knight_4",
@@ -857,7 +857,7 @@
     {"note": "PK2 (user): Paladin 2: the 5 Piece Heavy Armor (MetaHuman-rigged; a breastplate over a padded gambeson, mail, a great helm) given the Paladin's treatment (tools/enemies/paladin): Knight 10's lustre on the steel only, the Mixamo rig in a T-pose bind (a belt end that rode on the left hand removed; the MetaHuman face under the closed helm dropped), Knight 4's 51 two-handed clips, the Guts sword (2.0 m) with the left hand on the hilt by IK. content/characters/paladin_2.glb committed (the user confirmed DevonLux's CC-BY-4.0 \"5 Piece Heavy Armor\"); AI type 52 still falls back to the Paladin if the file is missing. Drawn at x1.1929 (rest extent 2.688 m with the sword). Not in the Assorted mix.", "id": "paladin2", "class": "knight", "hit_fx": "sparks", "name": "Paladin 2", "model": "paladin_2", "height_m": 3.2066, "scale": 1, "lean_deg": 0, "tint": [1, 1, 1], "hp": 600, "damage": 60, "reach_m": 2.2, "lunge_m": 1.1, "cooldown_s": 1.2, "windup_s": 0.5, "attack_rate": 1.0, "walk_mps": 1.65, "run_mps": 4.18, "run_within_m": 100000, "weight": 0, "hit_zone_scale": 1.1, "knockback_mps": 3, "stagger_min_damage": 120, "stagger_s": 0.7, "explosive_mult": 2, "clips": {"walk": ["great sword run (2)"], "run": "great sword run (2)", "idle": ["great sword idle", "great sword idle (2)"], "attack": ["great sword slash", "great sword attack", "great sword slash (3)", "great sword slash (4)"], "damage": ["great sword impact", "great sword impact (2)", "great sword impact (3)", "great sword blocking"], "death": ["two handed sword death", "two handed sword death (2)"]}, "sounds": {"attack": "knight_attack", "attack_at": "blow", "contact": "knight_slice", "miss": "knight_miss", "hurt": "knight_hurt", "weapon_drop": "knight_weapon_drop", "death": "knightdeath"}, "attack_dust": false, "head_mult": 4, "attacks": [{"clip": "great sword slash", "joint": "RightHand", "radius": 0.65, "bone": "mixamorig:Weapon", "at": [0.2931, 0.9859, 0.4651]}, {"clip": "great sword attack", "joint": "RightHand", "radius": 0.65, "bone": "mixamorig:Weapon", "at": [0.2931, 0.9859, 0.4651]}, {"clip": "great sword slash (3)", "joint": "RightHand", "radius": 0.65, "bone": "mixamorig:Weapon", "at": [0.2931, 0.9859, 0.4651]}, {"clip": "great sword slash (4)", "joint": "RightHand", "radius": 0.65, "bone": "mixamorig:Weapon", "at": [0.2931, 0.9859, 0.4651]}]},
     {
       "note": "KN5: AI type Knight 5 (29): the knight's body with a double-sided battle axe, a sallet over a shaved head, Mixamo Pro Melee Axe Pack clips plus the sword-and-shield pack's two deaths (the axe pack has none; tools/enemies/knight_add_clips.py) (content/characters/knight_5.glb; credits in docs/credits.md). Strike: the axe reaches 0.64 m from the hand, the sphere 0.55 m out with radius 0.5",
-      "id": "knight5", "class": "knight",
+      "id": "knight5", "egg": false, "class": "knight",
       "hit_fx": "sparks",
       "name": "Knight 5",
       "model": "knight_5",
@@ -967,7 +967,7 @@
     },
     {
       "note": "KN6: AI type Knight 6 (30): the knight's body and 51 sword-and-shield clips with an Italian sallet, a bevor, a breastplate over the chest pulled in, a shaved head under the visor, a 0.98 m sword and a Polish shield (content/characters/knight_6.glb: tools/enemies/knight_parts.py + knight_v2_merge.py; credits in docs/credits.md). Strike: about 0.87 m of blade past the guard, the sphere on RightHand 0.65 m out with radius 0.45",
-      "id": "knight6", "class": "knight",
+      "id": "knight6", "egg": false, "class": "knight",
       "hit_fx": "sparks",
       "name": "Knight 6",
       "model": "knight_6",
@@ -1077,7 +1077,7 @@
     },
     {
       "note": "KN7: AI type Knight 7 (31): the knight's body and 51 sword-and-shield clips with an ornamented great helm over a shaved head, a cuirass over the chest pulled in, a 0.70 m viking axe and a steel-recoloured Roman scutum (content/characters/knight_7.glb: tools/enemies/knight_parts.py knight7 + knight_v2_merge.py; credits in docs/credits.md). Strike: the axe head ~0.6 m from the fist, the sphere on RightHand 0.5 m out with radius 0.45",
-      "id": "knight7", "class": "knight",
+      "id": "knight7", "egg": false, "class": "knight",
       "hit_fx": "sparks",
       "name": "Knight 7",
       "model": "knight_7",
@@ -2206,7 +2206,7 @@
     },
     {
       "note": "KN8: AI type Knight 8 (32): Knight 4 (the beaked-visor helm) with a 2.2 m halberd on the extra joint mixamorig:Weapon (keyed in every clip), the Great Sword Pack clips mapped as Knight 4 (content/characters/knight_8.glb; root motion pinned by tools/enemies/knight2_prep.py; credits in docs/credits.md). Strike: on the halberd's head (bone + at)",
-      "id": "knight8", "class": "knight",
+      "id": "knight8", "egg": false, "class": "knight",
       "hit_fx": "sparks",
       "name": "Knight 8",
       "model": "knight_8",
@@ -2316,7 +2316,7 @@
     },
     {
       "note": "KN9: AI type Knight 9 (33): Knight 5's body with a steel-recoloured Maximilian close helmet (KN9b: matched to his armour in colour and shine: tools/enemies/glb_match_material.py) over the shaved head and a Polish-Ottoman sabre, the Pro Melee Axe Pack clips mapped as Knight 5 plus the sword-and-shield pack's two deaths (tools/enemies/knight_add_clips.py) (content/characters/knight_9.glb; credits in docs/credits.md). Strike: on the sabre's blade (bone + at)",
-      "id": "knight9", "class": "knight",
+      "id": "knight9", "egg": false, "class": "knight",
       "hit_fx": "sparks",
       "name": "Knight 9",
       "model": "knight_9",
@@ -2513,7 +2513,7 @@
       "note": "K10: AI type Knight 10 (35): a copy of the winged knight (Knight 3) with the cuirass over its pulled-in chest, Silver Sword and triangular shield in its dark armour finish, and a black cloak with a cross whose physics is baked into all 51 clips on 35 cape joints (tools/enemies/knight_parts.py knight10, knight_v2_merge.py, k10_cape.py, gltf_prune.py). Stats, clips, attacks and sounds as Knight 1; the strike sphere 65 % along the new blade",
       "id": "knight10", "class": "knight",
       "hit_fx": "sparks",
-      "name": "Knight 10",
+      "name": "Elite Knight",
       "model": "knight_10",
       "height_m": 2.1956,
       "scale": 1,

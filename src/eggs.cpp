@@ -30,7 +30,8 @@ std::vector<Egg> eggs() {   // rebuilt each call: cheap, and always the current 
   }
   const auto& et = enemyTypes();
   v.push_back({"Mech Tank (vehicle: placed in the map, acts in Explore)", AiType::MechTank, -1, false, true});   // MT1: not a sandbox soldier
-  for (int k = 0; k < (int)et.size(); ++k) v.push_back({et[k].name.empty() ? et[k].id : et[k].name, AiType::Zombies, k, false});   // the plain melee carrier, its enemy type overridden (gameplay: ZombiesHeavies is the weighted mix)
+  v.push_back({aiTypeName(AiType::KnightsAssorted), AiType::KnightsAssorted, -1, false});   // KC1: one of the numbered knights per spawn (zombie.json "assorted")
+  for (int k = 0; k < (int)et.size(); ++k) if (et[k].egg) v.push_back({et[k].name.empty() ? et[k].id : et[k].name, AiType::Zombies, k, false});   // the plain melee carrier, its enemy type overridden (gameplay: ZombiesHeavies is the weighted mix)
   return v;
 }
 bool lanBusy() { return gNet && gNet->role != Net::NONE; }
