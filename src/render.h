@@ -32,6 +32,16 @@ struct TreeDef;
 struct FoliageDraw { const TreeDef* tree; mat4 m; uint8_t* lod = nullptr; uint8_t cur = 2; uint64_t id = 0; bool batched = false; };   // id: a standing tree copy (P2 folbatch); batched: drawn from its cell this frame
 // thinPx > 0: keep sub-pixel geometry (barbed wire) visible - vertices move out along their normals by thinPx pixels'
 // worth of angle at their distance (capped at 3 cm), so a 2 mm strand stays about a pixel wide at range
+// GC1 GPU crowd (far units, crowd.cpp): one instanced draw per type x LOD, its units' records (CrowdUnit, 48 B) in `units`
+// from `base`; the body skinned in the vertex shader from the type's baked palettes (frames x (J + 1) mat4, the last the held
+// gun), the gun (gun != null) drawn rigidly at palette J
+struct CrowdDraw {
+  const GpuModel* look = nullptr;                // materials / textures (the type's CharModel::gpu, or the gun model)
+  const std::vector<ModelPart>* parts = nullptr; // index ranges into ebo
+  GLuint vao = 0, rest = 0, pal = 0, units = 0;  // rest: NmkSkinV vertices (0 for the gun: its own vao attributes)
+  int J = 0, base = 0, count = 0; bool gun = false;
+  glm::ivec4 clips[8]{}; float fps = 15;          // per clip: first frame, frames, loop
+};
 struct ModelDraw { const GpuModel* model; int part; mat4 m; vec4 tint{1, 1, 1, 1}; float thinPx = 0; int glass = 0; float albFloor = 0; bool optic = false; mat4 prevM{1}; int vel = 0; };   // AIB1 vel: TAA motion of a moving model: 0 none (depth reprojection), 1 from prevM, 2 also the skinned previous vertex (aPrev)   // AT6 optic: a fitted sight's own part (never cut by the window clip)   // glass: 1 dusty, 2 crazed (a wreck), 3 clean; albFloor: least albedo (a car-pack cabin seen from its seat)
 struct OverlayVert { vec3 p; vec4 c; };
 struct NatPatchDraw { GLuint vbo = 0; int count = 0; vec3 mn{0}, mx{0}; float reach = 1; };   // plant patch (nature.cpp); reach x the grass radius
@@ -152,6 +162,9 @@ public:
   std::vector<ModelDraw> shadowModels;
   int bsCasc[4] = {0, 0, 0, 0}; bool bsProbe = false;   // bsProbe: read the near cascade back at the body once (captures)   // bodyshadow: shadowModels passes drawn this frame (near, mid, fourth, far), for the logs
   bool wantBodyShadow() const { return perf.bodyShadow && sunShK > 0.0f && !thumbMode; }
+  std::vector<CrowdDraw> crowdDraws;   // GC1: far units this frame (crowd.cpp crowdFrame)
+  void drawCrowd(const std::vector<CrowdDraw>& items);
+  const mat4& lastViewProj() const { return prevVP; }   // GC1: the crowd culls with last frame's view
   std::vector<ModelDraw> worldModels;   // imported models in the world (rack displays, the M2HB station)     // tree leaf cards (alpha-tested, wind sway, shadow casting)
   float wind = 1.0f;   // 0: no sway (editor View menu, --rq-off wind)
   // WS1 shared wind, read from the weather state (never written): direction and speed der.windXZ, sway amplitude from
@@ -469,6 +482,7 @@ public:
     bool fxRecoil = true;        // fxrecoil (Battle Foundry 6): tank / AT guns recoil on a constant-force brake curve (fast out, 4-7 x slower home, moving before the flash), the derived hull pitch (~0.8 deg) on a 1.2 Hz underdamped hull, towed carriage hop, dust shed, small arms on a per-class underdamped spring with the bolt's second impulse (off: the RC2 / TK1 / WP4 curves)
     bool fxCap = true;           // fxcap (Battle Foundry 4 / PF3): particle and flash-light caps refuse new spawns, a lowered cap retires the oldest over 0.3 s (off: the oldest live one is dropped)
     bool fxNear = true;          // fxnear (weather 7): alpha sprites fade near the eye, every sprite capped at half the view height on screen (off: as before)
+    bool crowd = true;           // crowd (GC1): far units drawn instanced from baked animation on simplified meshes (crowd.cpp; NMK_CROWD=n a test army); off = none drawn
     bool skinFree = true;        // skinfree (V3): a soldier not drawn for 10 s frees its skin (made again on its next draw); off = every soldier drawn once keeps its skin to the match end
     bool vsSkin = true;          // vsskin (V1): soldiers skinned in the vertex shader of each pass from their type's rest vertices and two palettes (~6 KB a soldier); off = the compute pass into each soldier's own buffer (64 B a vertex, ~3.8 MB an Allied soldier); read when a soldier is first drawn
     bool charVel = true;         // charvel (AIB1): soldiers write their own TAA motion (previous model matrix + previous skinned vertex); off = depth reprojection (smeared)
@@ -495,7 +509,7 @@ public:
               // ^ stream L (lighting): append to the line above
               : n == "specaa" ? &specAA : n == "texbias" ? &texBias : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps : n == "splitsum" ? &splitSum : n == "albclamp" ? &albClamp : n == "wabs" ? &wAbs : n == "wet" ? &wet : n == "microdetail" ? &microDetail : n == "wearcause" ? &wearCause : n == "steeptri" ? &steepTri : n == "absfar" ? &absFar : n == "layerblend" ? &layerBlend : n == "reach" ? &reach : n == "instvar" ? &instVar : n == "vmclassic" ? &vmClassic : n == "ssrclamp" ? &ssrClamp : n == "pudrelief" ? &pudRelief : n == "masklib" ? &maskLib : n == "roughvar" ? &roughVar
               // ^ stream M (materials): append to the line above
-              : n == "skinfree" ? &skinFree : n == "vsskin" ? &vsSkin : n == "charvel" ? &charVel : n == "fxev" ? &fxEv : n == "ww2smoke" ? &ww2Smoke : n == "fxscale" ? &fxScale : n == "fxrecoil" ? &fxRecoil : n == "knight2" ? &knight2 : n == "mechrobot" ? &mechRobot : n == "mp5new" ? &mp5New : n == "stenrig" ? &stenRig : n == "horseknight" ? &horseKnight : n == "stg44rig" ? &stg44Rig : n == "mp40rig" ? &mp40Rig : n == "barrig" ? &barRig : n == "thompsonrig" ? &thompsonRig : n == "g43rig" ? &g43Rig : n == "ppshrig" ? &ppshRig : n == "riglru" ? &rigLru : n == "rigbc" ? &rigBC : n == "vmmask" ? &vmMask : n == "sten2rig" ? &sten2Rig : n == "mg42rig" ? &mg42Rig : n == "pkmrig" ? &pkmRig : n == "karrig" ? &karRig : n == "garandrig" ? &garandRig : n == "fxcap" ? &fxCap : n == "fxnear" ? &fxNear : n == "wxdrift" ? &wxDrift : n == "fxlit" ? &fxLit : n == "fxsoft" ? &fxSoft : n == "poseframe" ? &poseFrame : n == "poselod" ? &poseLod : n == "posejobs" ? &poseJobs : n == "stepinterp" ? &stepInterp : n == "dtsnap" ? &dtSnap
+              : n == "crowd" ? &crowd : n == "skinfree" ? &skinFree : n == "vsskin" ? &vsSkin : n == "charvel" ? &charVel : n == "fxev" ? &fxEv : n == "ww2smoke" ? &ww2Smoke : n == "fxscale" ? &fxScale : n == "fxrecoil" ? &fxRecoil : n == "knight2" ? &knight2 : n == "mechrobot" ? &mechRobot : n == "mp5new" ? &mp5New : n == "stenrig" ? &stenRig : n == "horseknight" ? &horseKnight : n == "stg44rig" ? &stg44Rig : n == "mp40rig" ? &mp40Rig : n == "barrig" ? &barRig : n == "thompsonrig" ? &thompsonRig : n == "g43rig" ? &g43Rig : n == "ppshrig" ? &ppshRig : n == "riglru" ? &rigLru : n == "rigbc" ? &rigBC : n == "vmmask" ? &vmMask : n == "sten2rig" ? &sten2Rig : n == "mg42rig" ? &mg42Rig : n == "pkmrig" ? &pkmRig : n == "karrig" ? &karRig : n == "garandrig" ? &garandRig : n == "fxcap" ? &fxCap : n == "fxnear" ? &fxNear : n == "wxdrift" ? &wxDrift : n == "fxlit" ? &fxLit : n == "fxsoft" ? &fxSoft : n == "poseframe" ? &poseFrame : n == "poselod" ? &poseLod : n == "posejobs" ? &poseJobs : n == "stepinterp" ? &stepInterp : n == "dtsnap" ? &dtSnap
               // ^ characters (gameplay): append to the line above
               : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "mossfield" ? &mossField : n == "groundmoss" ? &groundMoss : n == "contactao" ? &contactAO : n == "scatter" ? &scatter : n == "pollen" ? &pollen : n == "vegdust" ? &vegDust : n == "impostors" ? &impostors : n == "impostorbc" ? &impostorBC : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
               // ^ stream A (vegetation): append to the line above

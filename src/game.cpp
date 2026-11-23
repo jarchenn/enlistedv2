@@ -1,4 +1,5 @@
 #include <cstring>
+#include "crowd.h"
 #include <map>
 // Match game layer: lifecycle, spawning, soldier weapons / grenades, damage, presentation. AI is in ai.cpp.
 #include "sd_game.h"
@@ -363,6 +364,7 @@ void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& 
 }
 
 void Game::end() {
+  crowdReset();   // GC1
   sdEnd();   // SD1
   gAdmin = AdminMode{};   // CMD2: /admin ends with the match
   aiZombieLoopsStop(app);   // SND2: no creature breathing on after the match
@@ -1432,7 +1434,7 @@ void Game::worldChanged(vec3 lo, vec3 hi) {
 
 // ---------------------------------------------------------------- presentation
 void Game::drawItems() {
-  app.R.smokeSigma = 0;
+  app.R.smokeSigma = 0; app.R.crowdDraws.clear();   // GC1: no crowd outside a match (its buffers go with crowdReset)
   if (!active) return;
   // V3 skinfree: a soldier not drawn for 10 s (out of range, behind, long dead) gives its skin back; it is made again on its
   // next draw from the pose it holds (8.3 KB vsskin, 1.4-3.8 MB compute): skins scale with soldiers seen, not soldiers alive
@@ -1440,6 +1442,7 @@ void Game::drawItems() {
     skinFreeAt = t + 1.0;
     for (auto& s : sold) if (s.ciReady && !s.localPlayer && t - s.ciDrawnT > 10.0) { s.ci.destroy(); s.ciReady = false; }
   }
+  crowdFrame(*this);   // GC1: the far units' draws
   app.R.smokeSigma = gren.sigmaAt(app.eyePos(), t);   // weather 7: the fog inside a smoke cloud (the near sprites fade out)
   double life = jkey(combat, "corpses").value("seconds", 40.0);
   drops.erase(std::remove_if(drops.begin(), drops.end(), [&](const Drop& d) { return t - d.t > life; }), drops.end());

@@ -2329,6 +2329,13 @@ void main(){
 
 // ---- imported textured models (first-person weapons): metal-rough PBR with normal and AO maps
 static const char* kModelVS = NMK_SKIN_GLSL R"GLSL(
+// GC1 crowd: uCrowd > 0 draws instance gl_InstanceID of the units buffer from uCrowdBase; its frame's palettes start at
+// (clip first + frame) * uCrowd (uCrowd = J + 1: the gun's rigid matrix last); uCrowdGun: the gun from its own attributes
+struct NmkCrowdU { vec4 pos; vec4 prev; vec4 anim; };   // feet xyz, yaw (rad); last frame's; clip, time (s), tint, scale
+layout(std430, binding = 17) readonly buffer NmkCrowd { NmkCrowdU gCU[]; };
+uniform int uCrowd, uCrowdBase, uCrowdGun; uniform ivec4 uCrowdClip[8]; uniform float uCrowdFps;
+mat4 nmkCrowdM(vec4 p, float s) { float c = cos(p.w + 3.14159265), n = sin(p.w + 3.14159265); return mat4(vec4(c * s, 0, -n * s, 0), vec4(0, s, 0, 0), vec4(n * s, 0, c * s, 0), vec4(p.xyz, 1)); }
+int nmkCrowdFrame(vec4 a) { ivec4 c = uCrowdClip[clamp(int(a.x), 0, 7)]; int f = int(floor(max(a.y, 0.0) * uCrowdFps)); f = c.z > 0 ? f % max(c.y, 1) : min(f, max(c.y, 1) - 1); return c.x + f; }
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec4 aTan; layout(location=3) in vec2 aUV;
 uniform mat4 uModel, uVP;
 uniform float uThin;   // radians to widen by (thin geometry), 0 = off
@@ -2339,16 +2346,24 @@ out vec3 vW, vN; out vec4 vT; out vec2 vUV; flat out vec4 vTintI; out vec4 vCC, 
 void main(){
   vTintI = vec4(0.0);
   vec3 P = aPos, Nr = aNrm, Pp = aPrev; vec4 Tn = aTan; vec2 UV = aUV;
+  mat4 Mdl = uModel, PMdl = uPrevModel;
   if (uSkinJ > 0) {   // V1: the compute pass's exact sums (kSkinCS), here per vertex
     NmkSkinV v = gSkV[gl_VertexID]; mat4 M = nmkSkinM(v, 0);
     P = (M * vec4(v.pos.xyz, 1.0)).xyz; Nr = normalize(mat3(M) * v.nrm.xyz); Tn = vec4(1.0, 0.0, 0.0, 1.0); UV = v.uv.xy;
     Pp = (nmkSkinM(v, uSkinJ) * vec4(v.pos.xyz, 1.0)).xyz;
   }
-  vec4 w = uModel*vec4(P,1.0);
-  mat3 m = mat3(uModel);
+  if (uCrowd > 0) {   // GC1
+    NmkCrowdU u = gCU[uCrowdBase + gl_InstanceID]; int o = nmkCrowdFrame(u.anim) * uCrowd;
+    Mdl = nmkCrowdM(u.pos, u.anim.w); PMdl = nmkCrowdM(u.prev, u.anim.w);
+    if (uCrowdGun > 0) { mat4 G = gSkP[o + uCrowd - 1]; Mdl = Mdl * G; PMdl = PMdl * G; Pp = aPos; }
+    else { NmkSkinV v = gSkV[gl_VertexID]; mat4 M = nmkSkinM(v, o); P = (M * vec4(v.pos.xyz, 1.0)).xyz; Nr = normalize(mat3(M) * v.nrm.xyz); Tn = vec4(1.0, 0.0, 0.0, 1.0); UV = v.uv.xy; Pp = P; }
+    vTintI = vec4(0.0);
+  }
+  vec4 w = Mdl*vec4(P,1.0);
+  mat3 m = mat3(Mdl);
   if (uThin > 0.0) { vec3 n = m*Nr; float l = length(n); if (l > 1e-6) w.xyz += n / l * min(length(w.xyz - uCamPos) * uThin, 0.03); }
   vW = w.xyz; vN = m*Nr; vT = vec4(m*Tn.xyz, Tn.w); vUV = UV;
-  vCC = uVPU*w; vPC = uPrevVP*(uPrevModel*vec4(uVelMode == 2 ? Pp : P, 1.0));
+  vCC = uVPU*w; vPC = uPrevVP*(PMdl*vec4(uVelMode == 2 || uCrowd > 0 ? Pp : P, 1.0));
   gl_Position = uVP*w;
 }
 )GLSL";
@@ -6411,6 +6426,34 @@ void Renderer::drawModels(const std::vector<ModelDraw>& items, const Frustum* fr
   if (lsk >= 0) glUniform1i(lsk, 0);
 }
 
+// GC1: the crowd's instanced draws (main pass, after drawModels; no shadow / thermal / decals yet)
+void Renderer::drawCrowd(const std::vector<CrowdDraw>& items) {
+  if (items.empty()) return;
+  GLuint p = progModel; const DrawLocs L = drawLocs(p);
+  glUniform1i(L.alb, 2); glUniform1i(L.mr, 3); glUniform1i(L.nrm, 4); glUniform1i(L.ao, 5);
+  const GLint lc = U(p, "uCrowd"), lcb = U(p, "uCrowdBase"), lcg = U(p, "uCrowdGun"), lcc = U(p, "uCrowdClip"), lcf = U(p, "uCrowdFps"), lvel = U(p, "uVelMode"), lsk = U(p, "uSkinJ");
+  glUniform1i(lsk, 0); glUniform1i(lvel, perf.charVel ? 1 : 0); glUniform1f(L.thin, 0.0f); glUniform4f(L.tint, 1, 1, 1, 1);
+  glUniform1i(U(p, "uGlass"), 0); glUniform1f(U(p, "uAlbFloor"), 0.0f); glUniform1i(U(p, "uClipMe"), 1); glUniform3f(U(p, "uEmis"), 0, 0, 0);
+  const mat4 I(1); glUniformMatrix4fv(L.model, 1, GL_FALSE, glm::value_ptr(I)); glUniformMatrix4fv(U(p, "uPrevModel"), 1, GL_FALSE, glm::value_ptr(I));
+  for (const CrowdDraw& c : items) {
+    if (!c.count || !c.vao || !c.parts || !c.look) continue;
+    glBindVertexArray(c.vao);
+    if (c.rest) glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 15, c.rest);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 16, c.pal); glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 17, c.units);
+    glUniform1i(lc, c.J + 1); glUniform1i(lcb, c.base); glUniform1i(lcg, c.gun ? 1 : 0); glUniform4iv(lcc, 8, glm::value_ptr(c.clips[0])); glUniform1f(lcf, c.fps);
+    for (const ModelPart& pt : *c.parts) {
+      const int mi = pt.mat >= 0 && pt.mat < (int)c.look->mats.size() ? pt.mat : -1;
+      GpuModel::MatTex none; const GpuModel::MatTex& t = mi >= 0 ? c.look->mats[mi] : none;
+      glBindTextureUnit(2, t.alb); glBindTextureUnit(3, t.mr); glBindTextureUnit(4, t.n); glBindTextureUnit(5, t.ao);
+      glUniform1i(L.hasAlb, t.alb ? 1 : 0); glUniform1i(L.hasMR, t.mr ? 1 : 0); glUniform1i(L.hasNrm, t.n ? 1 : 0); glUniform1i(L.hasAO, t.ao ? 1 : 0); glUniform1i(L.aoInMR, t.aoInMR ? 1 : 0);
+      glUniform4fv(L.base, 1, glm::value_ptr(pt.base)); glUniform1f(L.metal, pt.metal); glUniform1f(L.rough, pt.rough);
+      glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u), c.count);
+      stats.draws++; stats.tris += (int)pt.count / 3 * c.count;
+    }
+  }
+  glUniform1i(lc, 0); glUniform1i(lcg, 0);
+}
+
 bool Renderer::renderModelSheet(const std::vector<ModelDraw>& items, const std::vector<DrawItem>& boxes, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, std::vector<uint8_t>& rgba, bool transparent) {
   GLuint col, dep, fbo;
   glCreateTextures(GL_TEXTURE_2D, 1, &col); glTextureStorage2D(col, 1, GL_RGBA16F, w, h);
@@ -7161,6 +7204,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glUniformMatrix4fv(U(progModel, "uVPU"), 1, GL_FALSE, glm::value_ptr(vpU));   // AIB1: motion vectors (ModelDraw::vel)
     glUniformMatrix4fv(U(progModel, "uPrevVP"), 1, GL_FALSE, glm::value_ptr(taaValid ? prevVP : vpU));
     drawModels(worldModels, &frMain);
+    drawCrowd(crowdDraws);   // GC1
     glEnable(GL_CULL_FACE);
   }
   // CP1: the dithered cut-out threshold (hashalpha) in a main-view depth prepass, so it cuts exactly where the colour pass does
