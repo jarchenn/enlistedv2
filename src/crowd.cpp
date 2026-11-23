@@ -174,7 +174,9 @@ void main() { uint i = gl_GlobalInvocationID.x; if (i >= uint(uN)) return;
   float k0 = K(t, c); vec2 best = vec2(0); float bk = k0;
   for (int dz = -1; dz <= 1; ++dz) for (int dx = -1; dx <= 1; ++dx) { if (dx == 0 && dz == 0) continue; float k = K(t, c + ivec2(dx, dz)); if (k < bk) { bk = k; best = normalize(vec2(dx, dz)); } }
   vec2 want = k0 < 6.0 || bk >= k0 ? vec2(0) : best;   // at the goal (or boxed in): hold
-  int tg = s.b.w; bool engaged = tg >= 0 && length(u[tg].pos.xz - p) <= s.c.w;   // GC3: in range of its target: stand and fire
+  // GC3 / GC4c: a target in range is fired at; the unit keeps closing (firing on the move, its aim widened) until 70 m, then
+  // stands. Stopping at the range's edge (150 m, ~1.6 % a shot) stalled a battle line with only its front rank firing
+  int tg = s.b.w; float tdist = tg >= 0 ? length(u[tg].pos.xz - p) : 1e9; bool engaged = tdist <= min(s.c.w, 70.0);
   if (engaged) want = vec2(0);
   bool inB = false; for (int h = 0; h < uNH; ++h) { vec2 d = p - uHum[h].xz; if (dot(d, d) < uHum[h].w * uHum[h].w) inB = true; }   // GC4: inside a human's bubble
   if (inB) { want = vec2(0); if (uNearOn == 1) { uint k = atomicAdd(nn, 1u); if (k < 1024u) { nr[k].a = uvec4(i, uint(clamp(s.b.x, 0, 1)), uint(s.b.y), uint(max(s.a.z, 1.0))); nr[k].p = x.pos; } } }
@@ -189,7 +191,7 @@ void main() { uint i = gl_GlobalInvocationID.x; if (i >= uint(uN)) return;
   float sp = length(v); if (sp > s.a.w * 1.3) { v *= s.a.w * 1.3 / sp; sp = s.a.w * 1.3; }
   p += v * uDt; ivec2 nc = cellOf(p); if (K(t, nc) > 1e8) { p = x.pos.xz; v = vec2(0); sp = 0.0; }   // never onto an unwalkable cell
   x.pos.xz = p; x.pos.y = H(p);
-  if (engaged) { vec2 e = u[tg].pos.xz - p; float yw = atan(-e.x, -e.y); float d = yw - x.pos.w; d = mod(d + 3.14159265, 6.2831853) - 3.14159265; x.pos.w += d * clamp(uDt * 6.0, 0.0, 1.0); }
+  if (tg >= 0 && tdist <= s.c.w && (engaged || sp < 0.2)) { vec2 e = u[tg].pos.xz - p; float yw = atan(-e.x, -e.y); float d = yw - x.pos.w; d = mod(d + 3.14159265, 6.2831853) - 3.14159265; x.pos.w += d * clamp(uDt * 6.0, 0.0, 1.0); }
   else if (sp > 0.2) { float yw = atan(-v.x, -v.y); float d = yw - x.pos.w; d = mod(d + 3.14159265, 6.2831853) - 3.14159265; x.pos.w += d * clamp(uDt * 6.0, 0.0, 1.0); }
   float clip = s.c.y > 0.0 ? 5.0 : sp > 2.6 ? 2.0 : sp > 0.35 ? 1.0 : 0.0;   // GC3: the fire clip while a shot is in its window
   if (clip != x.anim.x && (x.anim.x <= 2.0 || x.anim.x == 5.0)) { if (clip == 5.0) x.anim.y = 0.0; x.anim.x = clip; }
@@ -323,52 +325,64 @@ bool crowdShadersBuild(std::string& err) {   // --check-crowd: every crowd compu
   return true;
 }
 static void uploadStaged(); static void bindAll(); static void simPasses(float dt); static void readDeaths();   // below crowdFrame
-// ---- --check-crowd: the simulation on a synthetic map (no Game): 200 x 200 cells of 2 m, flat at y 5, a wall of unwalkable
-// cells at x 0..2 m from z -200 to +80 (the way round: north of it), two armies of 2,000 facing each other 200 m apart, each sent
-// to the other's side; 30 s at 30 Hz, then every unit read back
+// ---- --check-crowd: the simulation on a synthetic map (no Game): 200 x 200 cells of 2 m, flat at y 5. Two armies of 2,000
+// (20 ranks deep along x, 100 files along z, 1.5 m apart) each sent to the other's side, every unit read back at the end.
+//  march: 200 m apart with a wall of unwalkable cells at x 0..2 m from z -200 to +80 (the way round: north of it), 30 s
+//  fight: 80 m apart, no wall, 20 s: the shared aim model at 70-110 m gives ~4-7 % a shot, ~12 shots a unit: hundreds fall
 std::vector<std::pair<bool, std::string>> crowdSimSelfTest() {
   std::vector<std::pair<bool, std::string>> r; auto chk = [&](bool ok, const std::string& w) { r.push_back({ok, w}); };
-  crowdReset();
-  Grid& G = C.g; G.cell = 2; G.nx = G.nz = 200; G.org = vec2(-200, -200); const size_t N = (size_t)G.nx * G.nz;
-  G.h.assign(N, 5.0f); G.walk.assign(N, 1); for (int z = 0; z < 140; ++z) G.walk[(size_t)z * G.nx + 100] = 0;
-  C.gridOk = true;
-  if (!ensureGpu(nullptr)) { chk(false, "sim: GPU buffers / programs"); crowdReset(); return r; }
-  const int per = 2000; std::vector<vec3> start;
-  for (int t = 0; t < 2; ++t) for (int k = 0; k < per; ++k) {
-    const float x = (t ? 100.0f : -130.0f) + (k % 20) * 1.5f, z = -60.0f + (k / 20) * 1.5f;
-    CrowdUnit u; u.pos = vec4(x, 5.0f, z, t ? 1.5708f : -1.5708f); u.prev = u.pos; u.anim = vec4(0, 0, (float)t, 1);
-    CrowdSim s; s.a = vec4(0, 0, 100, 1.4f); s.b = glm::ivec4(t, 0, 0, -1); s.c = vec4((float)(k % 97) * 0.02f, 0, glm::radians(1.1f), 150.0f);
-    if (C.stageU.empty()) C.stageFrom = 0; C.stageU.push_back(u); C.stageS.push_back(s); C.spawned[t]++; start.push_back(vec3(u.pos));
-  }
-  buildCost(0, vec3(170, 0, 0)); buildCost(1, vec3(-170, 0, 0));
-  uploadStaged(); const float dt = 1.0f / 30.0f;
-  for (int f = 0; f < 900; ++f) { bindAll(); ++C.frame; simPasses(dt); if (f % 8 == 7) readDeaths(); }
-  readDeaths(); glFinish();
-  std::vector<CrowdUnit> U(C.n); std::vector<CrowdSim> S(C.n);
-  glGetNamedBufferSubData(C.units, 0, U.size() * sizeof(CrowdUnit), U.data()); glGetNamedBufferSubData(C.sim, 0, S.size() * sizeof(CrowdSim), S.data());
-  int nan = 0, off = 0, wall = 0, tooFar = 0, st[2][4] = {}; double dx[2] = {0, 0}; int nAlive[2] = {0, 0};
-  for (int i = 0; i < C.n; ++i) {
-    const vec4 p = U[i].pos; const int t = std::clamp(S[i].b.x, 0, 1), z = std::clamp(S[i].b.z, 0, 3); ++st[t][z];
-    if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z) || !std::isfinite(p.w) || !std::isfinite(S[i].a.x) || !std::isfinite(S[i].a.z)) { ++nan; continue; }
-    if (std::fabs(p.y - 5.0f) > 0.01f) ++off;
-    const int cx = std::clamp((int)((p.x - G.org.x) / G.cell), 0, G.nx - 1), cz = std::clamp((int)((p.z - G.org.y) / G.cell), 0, G.nz - 1);
-    if (!G.walk[(size_t)cz * G.nx + cx]) ++wall;
-    if (glm::length(vec2(p.x - start[i].x, p.z - start[i].z)) > 1.4f * 1.3f * 30.0f + 3.0f) ++tooFar;   // never faster than the speed cap (+ the separation)
-    if (z == 0) { dx[t] += p.x - start[i].x; ++nAlive[t]; }
-  }
-  chk(nan == 0, "sim: no NaN (" + std::to_string(nan) + ")");
-  chk(off == 0, "sim: every unit on the ground (" + std::to_string(off) + " off)");
-  chk(wall == 0, "sim: none on an unwalkable cell (" + std::to_string(wall) + ")");
-  chk(tooFar == 0, "sim: none faster than its speed cap (" + std::to_string(tooFar) + ")");
-  for (int t = 0; t < 2; ++t) {
-    const int fallen = st[t][1] + st[t][2] + st[t][3];
-    chk(st[t][0] + fallen == per, "sim: team " + std::to_string(t) + " counted: " + std::to_string(st[t][0]) + " alive + " + std::to_string(fallen) + " fallen = " + std::to_string(per));
-    chk(fallen > 0 && fallen < per, "sim: team " + std::to_string(t) + " lost " + std::to_string(fallen) + " to the other side's fire");
-    chk(C.dead[t] == fallen, "sim: team " + std::to_string(t) + " deaths read back " + std::to_string(C.dead[t]) + " = fallen " + std::to_string(fallen));
-    const double m = nAlive[t] ? dx[t] / nAlive[t] : 0; char b[96]; std::snprintf(b, sizeof b, "sim: team %d advanced %.1f m toward the enemy", t, t ? -m : m);
-    chk((t ? -m : m) > 10.0, b);
-  }
-  crowdReset();
+  auto run = [&](const char* name, bool wall, float gap, int frames, int fallenLo, int fallenHi, float travelMin, float advanceMin) {
+    crowdReset();
+    Grid& G = C.g; G.cell = 2; G.nx = G.nz = 200; G.org = vec2(-200, -200); const size_t N = (size_t)G.nx * G.nz;
+    G.h.assign(N, 5.0f); G.walk.assign(N, 1); if (wall) for (int z = 0; z < 140; ++z) G.walk[(size_t)z * G.nx + 100] = 0;
+    C.gridOk = true;
+    const std::string nm = std::string("sim ") + name + ": ";
+    if (!ensureGpu(nullptr)) { chk(false, nm + "GPU buffers / programs"); crowdReset(); return; }
+    const int per = 2000; std::vector<vec3> start;
+    for (int t = 0; t < 2; ++t) for (int k = 0; k < per; ++k) {
+      const float rank = (float)(k % 20) * 1.5f, x = t ? gap * 0.5f + rank : -gap * 0.5f - rank, z = -60.0f + (k / 20) * 1.5f;
+      CrowdUnit u; u.pos = vec4(x, 5.0f, z, t ? 1.5708f : -1.5708f); u.prev = u.pos; u.anim = vec4(0, 0, (float)t, 1);
+      CrowdSim s; s.a = vec4(0, 0, 100, 1.4f); s.b = glm::ivec4(t, 0, 0, -1); s.c = vec4((float)(k % 97) * 0.02f, 0, glm::radians(1.1f), 150.0f);
+      if (C.stageU.empty()) C.stageFrom = 0; C.stageU.push_back(u); C.stageS.push_back(s); C.spawned[t]++; start.push_back(vec3(u.pos));
+    }
+    buildCost(0, vec3(170, 0, 0)); buildCost(1, vec3(-170, 0, 0));
+    uploadStaged(); const float dt = 1.0f / 30.0f;
+    for (int f = 0; f < frames; ++f) { bindAll(); ++C.frame; simPasses(dt); if (f % 8 == 7) readDeaths(); }
+    readDeaths(); glFinish();
+    std::vector<CrowdUnit> U(C.n); std::vector<CrowdSim> S(C.n);
+    glGetNamedBufferSubData(C.units, 0, U.size() * sizeof(CrowdUnit), U.data()); glGetNamedBufferSubData(C.sim, 0, S.size() * sizeof(CrowdSim), S.data());
+    int nan = 0, off = 0, onWall = 0, tooFar = 0, st[2][4] = {}, nAlive[2] = {0, 0}; double dx[2] = {0, 0}, trav[2] = {0, 0};
+    const float secs = frames * dt;
+    for (int i = 0; i < C.n; ++i) {
+      const vec4 p = U[i].pos; const int t = std::clamp(S[i].b.x, 0, 1), z = std::clamp(S[i].b.z, 0, 3); ++st[t][z];
+      if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z) || !std::isfinite(p.w) || !std::isfinite(S[i].a.x) || !std::isfinite(S[i].a.z)) { ++nan; continue; }
+      if (std::fabs(p.y - 5.0f) > 0.01f) ++off;
+      const int cx = std::clamp((int)((p.x - G.org.x) / G.cell), 0, G.nx - 1), cz = std::clamp((int)((p.z - G.org.y) / G.cell), 0, G.nz - 1);
+      if (!G.walk[(size_t)cz * G.nx + cx]) ++onWall;
+      const float moved = glm::length(vec2(p.x - start[i].x, p.z - start[i].z));
+      if (moved > 1.4f * 1.3f * secs + 3.0f) ++tooFar;
+      if (z == 0) { dx[t] += p.x - start[i].x; trav[t] += moved; ++nAlive[t]; }
+    }
+    chk(nan == 0, nm + "no NaN (" + std::to_string(nan) + ")");
+    chk(off == 0, nm + "every unit on the ground (" + std::to_string(off) + " off)");
+    chk(onWall == 0, nm + "none on an unwalkable cell (" + std::to_string(onWall) + ")");
+    chk(tooFar == 0, nm + "none faster than its speed cap (" + std::to_string(tooFar) + ")");
+    for (int t = 0; t < 2; ++t) {
+      const int fallen = st[t][1] + st[t][2] + st[t][3]; const std::string tn = "team " + std::to_string(t);
+      chk(st[t][0] + fallen == per, nm + tn + " counted: " + std::to_string(st[t][0]) + " alive + " + std::to_string(fallen) + " fallen = " + std::to_string(per));
+      chk(fallen >= fallenLo && fallen <= fallenHi, nm + tn + " lost " + std::to_string(fallen) + " (band " + std::to_string(fallenLo) + "-" + std::to_string(fallenHi) + ")");
+      chk(C.dead[t] == fallen, nm + tn + " deaths read back " + std::to_string(C.dead[t]) + " = fallen " + std::to_string(fallen));
+      const double m = nAlive[t] ? dx[t] / nAlive[t] : 0, tr = nAlive[t] ? trav[t] / nAlive[t] : 0; char b[160];
+      std::snprintf(b, sizeof b, "%s advanced %.1f m toward the enemy (min %.0f), travelled %.1f m (min %.0f)", tn.c_str(), t ? -m : m, advanceMin, tr, travelMin);
+      chk((t ? -m : m) >= advanceMin && tr >= travelMin, nm + b);
+    }
+    crowdReset();
+  };
+  // march: walking 1.4 m/s for ~30 s round the wall's end, closing to 70 m (a 130 m close in all): ~40 m each; the front ranks
+  // come into range (150 m) after ~25 s, so a few fall at most
+  run("march", true, 200.0f, 900, 0, 200, 30.0f, 25.0f);
+  // fight: the armies 80 m apart (every rank within 150 m from the start), close to 70 m and stand: hundreds fall a side
+  run("fight", false, 80.0f, 600, 150, 1900, 0.0f, -5.0f);
   return r;
 }
 
