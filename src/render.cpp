@@ -2328,7 +2328,7 @@ void main(){
 )GLSL";
 
 // ---- imported textured models (first-person weapons): metal-rough PBR with normal and AO maps
-static const char* kModelVS = R"GLSL(
+static const char* kModelVS = NMK_SKIN_GLSL R"GLSL(
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec4 aTan; layout(location=3) in vec2 aUV;
 uniform mat4 uModel, uVP;
 uniform float uThin;   // radians to widen by (thin geometry), 0 = off
@@ -2338,11 +2338,17 @@ layout(location=4) in vec3 aPrev; uniform int uVelMode; uniform mat4 uPrevModel,
 out vec3 vW, vN; out vec4 vT; out vec2 vUV; flat out vec4 vTintI; out vec4 vCC, vPC;
 void main(){
   vTintI = vec4(0.0);
-  vec4 w = uModel*vec4(aPos,1.0);
+  vec3 P = aPos, Nr = aNrm, Pp = aPrev; vec4 Tn = aTan; vec2 UV = aUV;
+  if (uSkinJ > 0) {   // V1: the compute pass's exact sums (kSkinCS), here per vertex
+    NmkSkinV v = gSkV[gl_VertexID]; mat4 M = nmkSkinM(v, 0);
+    P = (M * vec4(v.pos.xyz, 1.0)).xyz; Nr = normalize(mat3(M) * v.nrm.xyz); Tn = vec4(1.0, 0.0, 0.0, 1.0); UV = v.uv.xy;
+    Pp = (nmkSkinM(v, uSkinJ) * vec4(v.pos.xyz, 1.0)).xyz;
+  }
+  vec4 w = uModel*vec4(P,1.0);
   mat3 m = mat3(uModel);
-  if (uThin > 0.0) { vec3 n = m*aNrm; float l = length(n); if (l > 1e-6) w.xyz += n / l * min(length(w.xyz - uCamPos) * uThin, 0.03); }
-  vW = w.xyz; vN = m*aNrm; vT = vec4(m*aTan.xyz, aTan.w); vUV = aUV;
-  vCC = uVPU*w; vPC = uPrevVP*(uPrevModel*vec4(uVelMode == 2 ? aPrev : aPos, 1.0));
+  if (uThin > 0.0) { vec3 n = m*Nr; float l = length(n); if (l > 1e-6) w.xyz += n / l * min(length(w.xyz - uCamPos) * uThin, 0.03); }
+  vW = w.xyz; vN = m*Nr; vT = vec4(m*Tn.xyz, Tn.w); vUV = UV;
+  vCC = uVPU*w; vPC = uPrevVP*(uPrevModel*vec4(uVelMode == 2 ? Pp : P, 1.0));
   gl_Position = uVP*w;
 }
 )GLSL";
@@ -2586,9 +2592,10 @@ void main(){
 // hide them; smoke, which writes no depth, does not). The eyepiece shader maps it over a cold monochrome of the scene.
 static const char* kHeatVS = R"GLSL(
 #version 450 core
+)GLSL" NMK_SKIN_GLSL R"GLSL(
 layout(location=0) in vec3 aPos;
 uniform mat4 uVP, uModel; out vec3 vW;
-void main(){ vec4 w = uModel*vec4(aPos, 1.0); vW = w.xyz; gl_Position = uVP*w; }
+void main(){ vec4 w = uModel*vec4(uSkinJ > 0 ? nmkSkinPos(0) : aPos, 1.0); vW = w.xyz; gl_Position = uVP*w; }
 )GLSL";
 static const char* kHeatFS = R"GLSL(
 #version 450 core
@@ -3470,9 +3477,10 @@ void main(){ if (leafCut(vUV, vSeed, vLayer) < cutRef()) discard; }   // the sam
 
 static const char* kShadowVS = R"GLSL(
 #version 450 core
+)GLSL" NMK_SKIN_GLSL R"GLSL(
 layout(location=0) in vec3 aPos;
 uniform mat4 uModel, uVP;
-void main(){ gl_Position = uVP*uModel*vec4(aPos,1.0); }
+void main(){ gl_Position = uVP*uModel*vec4(uSkinJ > 0 ? nmkSkinPos(0) : aPos,1.0); }
 )GLSL";
 // P2 instdepth: kShadowVS with the model matrix per instance (VAO binding 3, attributes 12-15, divisor 1)
 static const char* kShadowIVS = R"GLSL(
@@ -4918,6 +4926,18 @@ uint64_t fnv64(uint64_t h, const char* s) { for (; s && *s; ++s) { h ^= (uint8_t
 fs::path progCachePath(uint64_t key) { static const fs::path d = userCacheDir("shaders", "NMK_SHADER_CACHE"); char b[24]; std::snprintf(b, sizeof b, "%016llx.bin", (unsigned long long)key); return d / b; }
 bool progCacheOn() { static const bool on = !std::getenv("NMK_NO_SHADER_CACHE"); return on; }
 }
+// V1 --check-vsskin: kModelVS alone (as the model program builds it), its vW / vN / vUV / vPC captured by transform feedback
+GLuint vsSkinCaptureProgram() {
+  const char* src[3] = {"#version 450 core\n#define NMK_VS 1\n", kCommon, kModelVS};
+  GLuint s = glCreateShader(GL_VERTEX_SHADER); glShaderSource(s, 3, src, nullptr); glCompileShader(s);
+  GLint ok = 0; glGetShaderiv(s, GL_COMPILE_STATUS, &ok);
+  if (!ok) { char log[4096]; glGetShaderInfoLog(s, sizeof log, nullptr, log); logf("[vsskin] model VS error:\n%s", log); glDeleteShader(s); return 0; }
+  GLuint p = glCreateProgram(); glAttachShader(p, s);
+  const char* outs[4] = {"vW", "vN", "vUV", "vPC"}; glTransformFeedbackVaryings(p, 4, outs, GL_INTERLEAVED_ATTRIBS);
+  glLinkProgram(p); glDeleteShader(s); glGetProgramiv(p, GL_LINK_STATUS, &ok);
+  if (!ok) { char log[4096]; glGetProgramInfoLog(p, sizeof log, nullptr, log); logf("[vsskin] link error:\n%s", log); glDeleteProgram(p); return 0; }
+  return p;
+}
 GLuint Renderer::compile(const char* vs, const char* fs, const char* name) {
   crumb("shader compile");   // UI5: the launch splash presents between programs
   locCache.clear();   // a new program may reuse a deleted one's id
@@ -6060,6 +6080,11 @@ void Renderer::selectLeafLods(const RenderView& v) {
 
 // Imported model parts are tested with their import bounds (model.cpp, vertex space). Parts without bounds are always
 // drawn: skinned soldiers (the skinning pass rewrites their vertex buffer every frame) and older bakes.
+// V1 vsskin: with a model's VAO, its skin buffers and uSkinJ (0 for every other model)
+static void bindSkin(GLint loc, const GpuModel* m) {
+  if (m->skinJ > 0) { glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 15, m->skinRest); glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 16, m->skinPal); }
+  if (loc >= 0) glUniform1i(loc, m->skinJ);
+}
 static bool partCulled(const Frustum* fr, const ModelPart& pt, const mat4& m) {
   if (!fr) return false;
   vec3 e = pt.bmax - pt.bmin;
@@ -6068,7 +6093,7 @@ static bool partCulled(const Frustum* fr, const ModelPart& pt, const mat4& m) {
 }
 
 void Renderer::drawModelsDepth(GLuint p, const std::vector<ModelDraw>& items, const Frustum* fr) {
-  GLint lm = drawLocs(p).model;
+  GLint lm = drawLocs(p).model, lsk = U(p, "uSkinJ");
   const GpuModel* bound = nullptr;
   for (auto& it : items) {
     const GpuModel* m = it.model;
@@ -6076,10 +6101,11 @@ void Renderer::drawModelsDepth(GLuint p, const std::vector<ModelDraw>& items, co
     const ModelPart& pt = m->parts[it.part];
     if (partCulled(fr, pt, it.m)) { stats.culled++; continue; }
     if (minCaster > 0 && pt.bmax.x >= pt.bmin.x && worldDiag(pt.bmin, pt.bmax, it.m) < minCaster) { stats.culled++; continue; }
-    if (m != bound) { bound = m; glBindVertexArray(m->vao); }
+    if (m != bound) { bound = m; glBindVertexArray(m->vao); bindSkin(lsk, m); }
     glUniformMatrix4fv(lm, 1, GL_FALSE, glm::value_ptr(it.m));
     glDrawElements(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u));
   }
+  if (lsk >= 0) glUniform1i(lsk, 0);
 }
 
 // NT8: model foliage. Instances are culled per model (bounding sphere), their matrices packed into one SSBO (binding 12),
@@ -6353,13 +6379,14 @@ void Renderer::drawModels(const std::vector<ModelDraw>& items, const Frustum* fr
   static GLuint velProg = 0; static GLint lvel = -1, lpm = -1, lemi = -1;   // AIB1: looked up once per program, not per draw
   if (velProg != p) { velProg = p; lvel = U(p, "uVelMode"); lpm = U(p, "uPrevModel"); lemi = U(p, "uEmis"); }
   vec3 emiSet(0); glUniform3fv(lemi, 1, glm::value_ptr(emiSet));   // RB6: no emission unless a part has its own
+  const GLint lsk = U(p, "uSkinJ");   // V1
   const GpuModel* bound = nullptr; int boundMat = -2;
   for (auto& it : items) {
     const GpuModel* m = it.model;
     if (!m || !m->vao || it.part < 0 || it.part >= (int)m->parts.size()) continue;
     const ModelPart& pt = m->parts[it.part];
     if (partCulled(fr, pt, it.m)) { stats.culled++; continue; }
-    if (m != bound) { bound = m; boundMat = -2; glBindVertexArray(m->vao); }
+    if (m != bound) { bound = m; boundMat = -2; glBindVertexArray(m->vao); bindSkin(lsk, m); }
     int mi = pt.mat >= 0 && pt.mat < (int)m->mats.size() ? pt.mat : -1;
     if (mi != boundMat) {
       boundMat = mi;
@@ -6381,6 +6408,7 @@ void Renderer::drawModels(const std::vector<ModelDraw>& items, const Frustum* fr
     glDrawElements(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u));
     stats.draws++; stats.tris += (int)pt.count / 3;
   }
+  if (lsk >= 0) glUniform1i(lsk, 0);
 }
 
 bool Renderer::renderModelSheet(const std::vector<ModelDraw>& items, const std::vector<DrawItem>& boxes, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, std::vector<uint8_t>& rgba, bool transparent) {
@@ -7192,14 +7220,15 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     glDepthFunc(df == GL_GREATER ? GL_GEQUAL : df == GL_LESS ? GL_LEQUAL : (GLenum)df); glDepthMask(GL_FALSE); glDisable(GL_CULL_FACE);
     glEnable(GL_BLEND); glBlendEquation(GL_MAX);
     glUseProgram(progHeat); glUniformMatrix4fv(U(progHeat, "uVP"), 1, GL_FALSE, glm::value_ptr(vp));
-    const GLint lM = U(progHeat, "uModel"), lH = U(progHeat, "uHeat"), lO = U(progHeat, "uObj");
+    const GLint lM = U(progHeat, "uModel"), lH = U(progHeat, "uHeat"), lO = U(progHeat, "uObj"), lSk = U(progHeat, "uSkinJ");
     glUniform3fv(U(progHeat, "uCam"), 1, glm::value_ptr(v.camPos));
     for (auto& h : heatDraws) {
       const GpuModel* m = h.md.model; if (!m || !m->vao || h.md.part < 0 || h.md.part >= (int)m->parts.size()) continue;
       const auto& pt = m->parts[h.md.part];
-      glBindVertexArray(m->vao); glUniformMatrix4fv(lM, 1, GL_FALSE, glm::value_ptr(h.md.m)); glUniform1f(lH, h.heat); glUniform4fv(lO, 1, glm::value_ptr(h.obj));
+      glBindVertexArray(m->vao); bindSkin(lSk, m); glUniformMatrix4fv(lM, 1, GL_FALSE, glm::value_ptr(h.md.m)); glUniform1f(lH, h.heat); glUniform4fv(lO, 1, glm::value_ptr(h.obj));
       glDrawElements(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u));
     }
+    if (lSk >= 0) glUniform1i(lSk, 0);
     glBlendEquation(GL_FUNC_ADD); glDisable(GL_BLEND); glDepthMask(GL_TRUE); glDepthFunc((GLenum)df);
     glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFbo);
   }

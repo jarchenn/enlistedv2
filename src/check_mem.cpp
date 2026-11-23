@@ -82,10 +82,22 @@ void report(const char* stage) {
   ProcMem m = processMemory(); double c = cpuSec(), w = wall();
   logf("[mem] %-26s commit %6.0f MB  working set %6.0f MB  CPU %5.1f %% of one core over %.1f s (%d frames)", stage, m.PrivateBytes / 1048576.0, m.WorkingSetSize / 1048576.0,
        w > wall0 ? 100.0 * (c - cpu0) / (w - wall0) : 0.0, w - wall0, frames);
+  logf("[mem]   %s", vramLine().c_str());   // V0
   cpu0 = c; wall0 = w; frames = 0;
 }
 }
 
+// V0: the driver's view (GL_NVX_gpu_memory_info, KB; 0 on other vendors) and the characters' own bytes (gCharBytes)
+// shortcut: NVIDIA only (AMD's GL_ATI_meminfo is unreliable on consumer cards); DXGI QueryVideoMemoryInfo when another vendor matters
+std::string vramLine() {
+  GLint ded = 0, tot = 0, avail = 0, evN = 0, evKB = 0;
+  glGetIntegerv(0x9047, &ded); glGetIntegerv(0x9048, &tot); glGetIntegerv(0x9049, &avail); glGetIntegerv(0x904A, &evN); glGetIntegerv(0x904B, &evKB);
+  while (glGetError() != GL_NO_ERROR) {}
+  const double M = 1048576.0; char b[512];
+  std::snprintf(b, sizeof b, "[vram] GPU %s in use %.0f of %.0f MB, evictions %d (%.0f MB); characters: %d instances %.1f MB, %d types %.1f MB geometry + %.1f MB textures",
+                ded ? "(NVX)" : "(no NVX)", (tot - avail) / 1024.0, ded / 1024.0, evN, evKB / 1024.0, gCharBytes.nInst, gCharBytes.inst / M, gCharBytes.nType, gCharBytes.type / M, gCharBytes.tex / M);
+  return b;
+}
 bool gpuVertexPackCheck(std::string& why);   // assets.cpp
 fs::path gShot;
 bool memProbeSelfTest(App& a, float dt) {

@@ -84,6 +84,7 @@ struct GpuModel {
   vec3 bmin{0}, bmax{0};
   size_t gpuBytes = 0;
   int tris = 0;
+  GLuint skinRest = 0, skinPal = 0; int skinJ = 0;   // V1 vsskin: a soldier skinned in the vertex shader (the type's rest SSBO + its [this | last frame] palettes); 0: attributes from vbo
   std::vector<int> opticParts;     // AT8: its factory optic (weapons.cpp factoryOptic): not drawn while another sight is fitted
   std::vector<int> ironParts;      // AT7: the gun's own sights split off (weapons.cpp splitIrons): not drawn with an optic fitted
   bool keepPos = false; std::vector<vec3> cpuPos; std::vector<uint32_t> cpuIdx;   // AT7: and the triangles (the optic seat on the receiver)   // AN1 step 2b: weapons keep their vertex positions (grip / handguard cross-sections)

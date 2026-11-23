@@ -105,8 +105,9 @@ void main(){
 
 const char* kMaskVS = R"GLSL(
 #version 450 core
+)GLSL" NMK_SKIN_GLSL R"GLSL(
 layout(location=0) in vec3 aPos; uniform mat4 uVP, uModel;
-void main(){ gl_Position = uVP*(uModel*vec4(aPos, 1.0)); }
+void main(){ gl_Position = uVP*(uModel*vec4(uSkinJ > 0 ? nmkSkinPos(0) : aPos, 1.0)); }
 )GLSL";
 const char* kMaskFS = R"GLSL(
 #version 450 core
@@ -114,6 +115,7 @@ layout(location=0) out vec4 o; void main(){ o = vec4(1.0); }
 )GLSL";
 const char* kCharVS = R"GLSL(
 #version 450 core
+)GLSL" NMK_SKIN_GLSL R"GLSL(
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm;
 struct V { vec4 pos; vec4 nrm; vec4 uv; uvec4 j; vec4 w; };
 layout(std430, binding = 0) readonly buffer Rest { V rv[]; };
@@ -122,7 +124,9 @@ out vec3 vRest, vRestN, vN, vW;
 void main(){
   V r = rv[gl_VertexID];
   vRest = r.pos.xyz; vRestN = r.nrm.xyz;
-  vec4 w = uModel*vec4(aPos, 1.0); vW = w.xyz; vN = mat3(uModel)*aNrm;
+  vec3 P = aPos, Nn = aNrm;
+  if (uSkinJ > 0) { mat4 M = nmkSkinM(gSkV[gl_VertexID], 0); P = (M * vec4(r.pos.xyz, 1.0)).xyz; Nn = normalize(mat3(M) * r.nrm.xyz); }   // V1 vsskin
+  vec4 w = uModel*vec4(P, 1.0); vW = w.xyz; vN = mat3(uModel)*Nn;
   gl_Position = uVP*w;
 }
 )GLSL";
@@ -172,6 +176,10 @@ void main(){
 )GLSL";
 
 GLuint gMaskProg = 0, gMaskTex = 0, gMaskFbo = 0;
+void vsSkinBind(GLuint prog, const GpuModel& v) {   // V1 vsskin: a soldier's skin buffers and uSkinJ (0: its own vertex buffer)
+  if (v.skinJ > 0) { glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 15, v.skinRest); glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 16, v.skinPal); }
+  glUniform1i(glGetUniformLocation(prog, "uSkinJ"), v.skinJ);
+}
 GLuint gWorldProg = 0, gCharProg = 0, gVao = 0, gVbo = 0, gSsbo = 0, gDepthCopy = 0;
 int gDepthW = 0, gDepthH = 0;
 bool gInitTried = false;
@@ -281,7 +289,7 @@ void decalsRender(Renderer& r, const RenderView& v, const mat4& vp, unsigned dep
           for (auto& d : S.world) if (glm::length(d.pos - s.feet) < d.extent + 2.2f) { near = true; break; }
           if (!near) continue;
           glUniformMatrix4fv(U(gMaskProg, "uModel"), 1, GL_FALSE, glm::value_ptr(s.world));
-          glBindVertexArray(s.ci.view.vao);
+          glBindVertexArray(s.ci.view.vao); vsSkinBind(gMaskProg, s.ci.view);
           glDrawElements(GL_TRIANGLES, (GLsizei)s.ci.model->indices.size(), GL_UNSIGNED_INT, nullptr);
         }
       glDisable(GL_POLYGON_OFFSET_FILL);
@@ -358,7 +366,7 @@ void decalsRender(Renderer& r, const RenderView& v, const mat4& vp, unsigned dep
       glUniform1i(lN, n);
       glUniform4fv(l0, n, glm::value_ptr(d0[0])); glUniform4fv(l1, n, glm::value_ptr(d1[0])); glUniform4fv(l2, n, glm::value_ptr(d2[0])); glUniform4fv(l3, n, glm::value_ptr(d3[0]));
       glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, s.ci.model->restSsbo);
-      glBindVertexArray(s.ci.view.vao);
+      glBindVertexArray(s.ci.view.vao); vsSkinBind(gCharProg, s.ci.view);
       glDrawElements(GL_TRIANGLES, (GLsizei)s.ci.model->indices.size(), GL_UNSIGNED_INT, nullptr);
       ++gStats.charsDrawn; gStats.boneDrawn += n;
     }

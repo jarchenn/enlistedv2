@@ -61,6 +61,16 @@ mat4 localOf(const json& n) {
 }
 // bc: block-compress a map of 1024 px or more (kind 0 albedo BC1 / BC3, 1 data BC1, 2 normal BC5): the soldier skins; the
 // first-person rigs (seen at arm's length) keep RGBA8
+static size_t texBytesOf(GLuint t) {   // V0: a texture's size over all its levels (compressed or not)
+  if (!t) return 0;
+  GLint levels = 1; glGetTextureParameteriv(t, GL_TEXTURE_IMMUTABLE_LEVELS, &levels); size_t b = 0;
+  for (int L = 0; L < std::max(1, levels); ++L) {
+    GLint comp = 0, sz = 0, w = 0, h = 0; glGetTextureLevelParameteriv(t, L, GL_TEXTURE_COMPRESSED, &comp);
+    if (comp) { glGetTextureLevelParameteriv(t, L, GL_TEXTURE_COMPRESSED_IMAGE_SIZE, &sz); b += (size_t)sz; }
+    else { glGetTextureLevelParameteriv(t, L, GL_TEXTURE_WIDTH, &w); glGetTextureLevelParameteriv(t, L, GL_TEXTURE_HEIGHT, &h); b += (size_t)w * h * 4; }
+  }
+  return b;
+}
 GLuint uploadImage(const Glb& g, int imageIdx, bool srgb, bool bc, int kind, bool bcBig = false) {
   const json& im = g.j["images"][imageIdx];
   if (!im.contains("bufferView")) return 0;
@@ -131,6 +141,7 @@ void main() {
 })";
 }
 
+CharGpuBytes gCharBytes;
 bool initSkinning(std::string& err) {
   if (gSkinProg) return true;
   GLuint s = glCreateShader(GL_COMPUTE_SHADER);
@@ -189,7 +200,9 @@ bool CharModel::load(const fs::path& path, std::string& err, float height, bool 
     int key = t * 4 + kind;
     auto it = texCache.find(key); if (it != texCache.end()) return it->second;
     int src = J["textures"][t].value("source", -1);
-    return texCache[key] = src >= 0 ? uploadImage(g, src, srgb, !wantNormals && !noBC, kind, bcBig && !noBC) : 0;   // FSB1: soldier skins block-compressed
+    GLuint up = src >= 0 ? uploadImage(g, src, srgb, !wantNormals && !noBC, kind, bcBig && !noBC) : 0;   // FSB1: soldier skins block-compressed
+    gpuBytesTex += texBytesOf(up);   // V0
+    return texCache[key] = up;
   };
   if (J.contains("materials")) for (auto& m : J["materials"]) {
     GpuModel::MatTex mt; mt.name = m.value("name", "");
@@ -404,6 +417,8 @@ bool CharModel::load(const fs::path& path, std::string& err, float height, bool 
   auto attr = [&](GLuint vao, int loc, int n, size_t off) { glEnableVertexArrayAttrib(vao, loc); glVertexArrayAttribFormat(vao, loc, n, GL_FLOAT, GL_FALSE, (GLuint)off); glVertexArrayAttribBinding(vao, loc, 0); };
   attr(gpu.vao, 0, 3, offsetof(TexVertex, pos)); attr(gpu.vao, 1, 3, offsetof(TexVertex, nrm)); attr(gpu.vao, 2, 4, offsetof(TexVertex, tan)); attr(gpu.vao, 3, 2, offsetof(TexVertex, uv));
   gpu.bmin = bmin; gpu.bmax = bmax; gpu.tris = (int)I.size() / 3;
+  gpuBytesType = tv.size() * sizeof(TexVertex) + I.size() * 4 + verts.size() * sizeof(SkinVert);   // V0
+  gCharBytes.type += (long long)gpuBytesType; gCharBytes.tex += (long long)gpuBytesTex; ++gCharBytes.nType;
   clipsFromGltf(J, [&](int a) { int c; return acc(g, a, c); }, clips);
   analyzeClips(*this);
   logf("character %s: %zu verts, %d tris, %d joints, %zu materials, %zu clips", id.c_str(), verts.size(), gpu.tris, nj, gpu.mats.size(), clips.size());
@@ -411,14 +426,26 @@ bool CharModel::load(const fs::path& path, std::string& err, float height, bool 
 }
 
 void CharModel::destroy() {
+  if (gpuBytesType || gpuBytesTex) { gCharBytes.type -= (long long)gpuBytesType; gCharBytes.tex -= (long long)gpuBytesTex; --gCharBytes.nType; gpuBytesType = gpuBytesTex = 0; }   // V0
   gpu.destroy();
   if (restSsbo) glDeleteBuffers(1, &restSsbo);
   restSsbo = 0; verts.clear();
 }
 
-bool CharInstance::create(const CharModel& m) {
+bool CharInstance::create(const CharModel& m, bool vsSkin) {
   model = &m;
   view.mats = m.gpu.mats; view.parts = m.gpu.parts; view.ebo = m.gpu.ebo; view.bmin = m.gpu.bmin; view.bmax = m.gpu.bmax; view.tris = m.gpu.tris;
+  vs = vsSkin && m.restSsbo && m.joints() > 0; lastFrame = -10; pal.clear();
+  if (vs) {   // V1 vsskin: the vertex shader reads the type's rest vertices by gl_VertexID; this soldier holds only its two palettes
+    glCreateVertexArrays(1, &view.vao); glVertexArrayElementBuffer(view.vao, view.ebo); glCreateBuffers(1, &jointSsbo);
+    gpuBytes = 2 * (size_t)m.joints() * sizeof(mat4);
+    glNamedBufferStorage(jointSsbo, gpuBytes, nullptr, GL_DYNAMIC_STORAGE_BIT);
+    view.skinRest = m.restSsbo; view.skinPal = jointSsbo; view.skinJ = m.joints();
+    gCharBytes.inst += (long long)gpuBytes; ++gCharBytes.nInst;
+    return true;
+  }
+  gpuBytes = m.verts.size() * (sizeof(TexVertex) + sizeof(vec4)) + std::max(1, m.joints()) * sizeof(mat4);   // V0
+  gCharBytes.inst += (long long)gpuBytes; ++gCharBytes.nInst;
   glCreateVertexArrays(1, &view.vao); glCreateBuffers(1, &view.vbo); glCreateBuffers(1, &jointSsbo); glCreateBuffers(1, &prevBuf);
   glNamedBufferStorage(view.vbo, m.verts.size() * sizeof(TexVertex), nullptr, 0);
   glNamedBufferStorage(jointSsbo, std::max(1, m.joints()) * sizeof(mat4), nullptr, GL_DYNAMIC_STORAGE_BIT);
@@ -434,6 +461,8 @@ bool CharInstance::create(const CharModel& m) {
 }
 
 void CharInstance::destroy() {
+  if (gpuBytes) { gCharBytes.inst -= (long long)gpuBytes; --gCharBytes.nInst; gpuBytes = 0; }   // V0
+  view.skinRest = view.skinPal = 0; view.skinJ = 0; vs = false; pal.clear();
   if (view.vao) glDeleteVertexArrays(1, &view.vao);
   if (view.vbo) glDeleteBuffers(1, &view.vbo);
   if (jointSsbo) glDeleteBuffers(1, &jointSsbo);
@@ -443,7 +472,18 @@ void CharInstance::destroy() {
 }
 
 void CharInstance::skin(const std::vector<mat4>& S, int frame) {
-  if (!model || !gSkinProg || S.empty()) return;
+  if (!model || S.empty()) return;
+  if (vs) {   // V1: upload [this frame | last frame]; last frame's is this one after a gap (as AIB1's prevBuf)
+    const size_t J = (size_t)model->joints(), n = std::min(S.size(), J);
+    const bool cont = frame >= 0 && lastFrame == frame - 1 && pal.size() == J;
+    std::vector<mat4> both(2 * J, mat4(1));
+    std::copy(S.begin(), S.begin() + n, both.begin());
+    if (cont) std::copy(pal.begin(), pal.end(), both.begin() + J); else std::copy(both.begin(), both.begin() + J, both.begin() + J);
+    glNamedBufferSubData(jointSsbo, 0, both.size() * sizeof(mat4), both.data());
+    pal.assign(both.begin(), both.begin() + J); prevValid = cont; lastFrame = frame;
+    return;
+  }
+  if (!gSkinProg) return;
   const size_t nb = std::min<size_t>(S.size(), model->joints()) * sizeof(mat4);
   glNamedBufferSubData(jointSsbo, 0, nb, S.data());
   // AIB1: the previous position is last frame's pose only when that was skinned the frame before; after a gap (far, skinned every

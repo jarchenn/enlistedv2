@@ -1479,7 +1479,7 @@ void Game::drawItems() {
     Soldier* src = s.poseFrom >= 0 && s.poseFrom < (int)sold.size() && sold[s.poseFrom].ciReady && sold[s.poseFrom].ci.frameSkinned >= 0 ? &sold[s.poseFrom] : &s;
     if (src != &s || (!s.alive && t - s.diedAt > (s.zombie || s.gunBody ? 3.5 : 2.0) && s.ciReady && s.ci.frameSkinned >= 0)) {}   // settled corpse: keep the last skin
     else {
-      if (!s.ciReady) { s.ci.create(*models[s.model]); s.ciReady = true; }
+      if (!s.ciReady) { s.ci.create(*models[s.model], app.R.perf.vsSkin); s.ciReady = true; }   // V1 vsskin
       int every = dist > 140 ? 6 : dist > 70 ? 3 : 1;   // far: skin less often
       bool due = s.ci.frameSkinned < 0 || (s.skinRev != s.poseRev && (frame + s.slot) % every == 0);   // and never an unchanged pose
       if (due) { s.ci.skin(s.pose.skin, frame); s.ci.frameSkinned = frame; s.skinRev = s.poseRev; }

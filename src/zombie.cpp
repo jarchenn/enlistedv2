@@ -849,7 +849,7 @@ void aiZombieDead(Game& G, Soldier& s) {
   if (k < 0 || ft < 0) { s.mountDeath = 2; G.match.onDeath(s.slot, s.killer); return; }   // HK5: no hand-over: the slot's death after all
   if (G.t - s.diedAt < m.clips[k].dur + 0.1) return;
   auto hc = std::make_unique<Game::HorseCorpse>();
-  if (hc->ci.create(m)) {
+  if (hc->ci.create(m, G.app.R.perf.vsSkin)) {   // V1 vsskin
     hc->ci.skin(s.pose.skin); hc->world = s.world;
     for (int p = 0; p < (int)hc->ci.view.parts.size(); ++p) if (std::find(e.corpseHide.begin(), e.corpseHide.end(), hc->ci.view.parts[p].name) == e.corpseHide.end()) hc->parts.push_back(p);
     G.horseCorpses.push_back(std::move(hc));

@@ -53,6 +53,7 @@ struct CharModel {
   std::vector<uint32_t> indices;            // CPU copy of the index buffer (gore: mesh ray casts for wound decals)
   GpuModel gpu;                             // shared index buffer, textures, parts (vao/vbo hold the bind pose)
   GLuint restSsbo = 0;
+  size_t gpuBytesType = 0, gpuBytesTex = 0;   // V0: rest SSBO + bind-pose VBO + indices; textures
   vec3 bmin{0}, bmax{0};
   bool load(const fs::path& glb, std::string& err, float height = 0, bool body = true);   // height > 0: scaled to it, feet at 0, centred; body false: no humanoid joints required (FA1 first-person arms)
   void destroy();
@@ -66,7 +67,9 @@ struct CharInstance {
   GLuint jointSsbo = 0;
   GLuint prevBuf = 0; int lastFrame = -10; bool prevValid = false;   // AIB1: each vertex's previous-frame position (TAA motion vectors), valid when skinned on consecutive frames
   int frameSkinned = -1;
-  bool create(const CharModel& m);
+  bool vs = false; std::vector<mat4> pal;   // V1 vsskin: no vertex buffer of its own; jointSsbo holds [this frame | last frame] (pal: this frame's, kept for the next)
+  size_t gpuBytes = 0;                      // V0: this instance's buffers
+  bool create(const CharModel& m, bool vsSkin = false);
   void destroy();
   void skin(const std::vector<mat4>& skinMats, int frame = -1);   // frame: the caller's frame counter (-1: no motion history)   // joint skinning matrices (model space delta * rest * invBind)
 };
@@ -135,4 +138,18 @@ struct PoseResult {
 
 void poseCharacter(const CharModel& m, const PoseParams& p, PoseResult& out);
 
+// V1 vsskin: a soldier skinned in the vertex shader (GpuModel::skinJ > 0): its type's rest vertex by gl_VertexID (CharModel::SkinVert,
+// 80 B) and its palettes, [0, J) this frame and [J, 2J) last frame (the previous position for TAA motion, as AIB1's prevBuf gave)
+#define NMK_SKIN_GLSL R"GLSL(
+struct NmkSkinV { vec4 pos; vec4 nrm; vec4 uv; uvec4 j; vec4 w; };
+layout(std430, binding = 15) readonly buffer NmkSkinRest { NmkSkinV gSkV[]; };
+layout(std430, binding = 16) readonly buffer NmkSkinPal { mat4 gSkP[]; };
+uniform int uSkinJ;
+mat4 nmkSkinM(NmkSkinV v, int o) { return gSkP[o + int(v.j.x)] * v.w.x + gSkP[o + int(v.j.y)] * v.w.y + gSkP[o + int(v.j.z)] * v.w.z + gSkP[o + int(v.j.w)] * v.w.w; }
+vec3 nmkSkinPos(int o) { NmkSkinV v = gSkV[gl_VertexID]; return (nmkSkinM(v, o) * vec4(v.pos.xyz, 1.0)).xyz; }
+)GLSL"
 bool initSkinning(std::string& err);       // compiles the compute program (once)
+// V0: GPU bytes held by characters: per-soldier instances, per-type geometry (rest SSBO, bind-pose VBO, indices), textures
+struct CharGpuBytes { long long inst = 0, type = 0, tex = 0; int nInst = 0, nType = 0; };
+extern CharGpuBytes gCharBytes;
+std::string vramLine();                    // V0: NVX dedicated / available / evictions + gCharBytes, one line (check_mem.cpp)
