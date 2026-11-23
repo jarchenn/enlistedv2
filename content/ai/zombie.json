@@ -1901,7 +1901,7 @@
         ],
         "unused": "walk_turn180, run_turn180 (turns in place: the game turns the body itself), run (its take curves), flee_lookback (a second run: the type has one run clip)"
       },
-      "sounds": { "greet": "npc_greet_female",
+      "sounds": { "greet": "npc_greet_female", "chatter": "npc_chatter_female", "react": "npc_what_the_hell",
         "hurt": "player_hurt"
       },
       "attack_dust": false
@@ -1975,7 +1975,7 @@
         ],
         "unused": "walk_turn180, run_turn180 (turns in place: the game turns the body itself), run (its take curves), flee_lookback (a second run: the type has one run clip)"
       },
-      "sounds": { "greet": "npc_greet_female",
+      "sounds": { "greet": "npc_greet_female", "chatter": "npc_chatter_female", "react": "npc_what_the_hell",
         "hurt": "player_hurt"
       },
       "attack_dust": false
@@ -2049,7 +2049,7 @@
         ],
         "unused": "walk_turn180, run_turn180 (turns in place: the game turns the body itself), run (its take curves), flee_lookback (a second run: the type has one run clip)"
       },
-      "sounds": { "greet": "npc_greet_female",
+      "sounds": { "greet": "npc_greet_female", "chatter": "npc_chatter_female", "react": "npc_what_the_hell",
         "hurt": "player_hurt"
       },
       "attack_dust": false
@@ -2123,7 +2123,7 @@
         ],
         "unused": "walk_turn180, run_turn180 (turns in place: the game turns the body itself), run (its take curves), flee_lookback (a second run: the type has one run clip)"
       },
-      "sounds": { "greet": "npc_greet_female",
+      "sounds": { "greet": "npc_greet_female", "chatter": "npc_chatter_female", "react": "npc_what_the_hell",
         "hurt": "player_hurt"
       },
       "attack_dust": false
@@ -2197,7 +2197,7 @@
         ],
         "unused": "walk_turn180, run_turn180 (turns in place: the game turns the body itself), run (its take curves), flee_lookback (a second run: the type has one run clip)"
       },
-      "sounds": { "greet": "npc_greet_female",
+      "sounds": { "greet": "npc_greet_female", "chatter": "npc_chatter_female", "react": "npc_what_the_hell",
         "hurt": "player_hurt"
       },
       "attack_dust": false
