@@ -431,7 +431,8 @@ public:
   void updateGrass(vec3 cam);
   void updateSurface();   // ground surface mask (routes, foundations) -> terrain shader + grass
   std::vector<Projectile> projectiles;
-  GpuMesh debrisMesh;
+  GpuMesh debrisMesh, caseMesh, clipMesh;   // WS2: caseMesh brass, clipMesh the en-bloc clip's steel
+  std::vector<std::pair<double, int>> caseDue;   // WS2: spent cases / clips due to fly (Fx::clock, kind)
   uint64_t occupied = 0, choiceFor = 0;
   std::map<uint64_t, std::map<std::string, int>> crateStock;
   std::map<uint64_t, bool> crateUnlimited;

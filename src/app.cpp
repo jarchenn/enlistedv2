@@ -1305,6 +1305,8 @@ int App::run(int argc, char** argv) {
     Material rm{"debris", vec3(0.30f, 0.27f, 0.21f), 0.95f, 0.0f, PAT_STONE, 1};
     Part p; p.center = vec3(0); p.size = vec3(1);
     MeshData m; appendPart(m, p, rm, mat4(1)); debrisMesh.upload(m);
+    { Material br{"brass", vec3(0.78f, 0.56f, 0.24f), 0.35f, 1.0f, PAT_METAL, 1}; MeshData mb; appendPart(mb, p, br, mat4(1)); caseMesh.upload(mb); }   // WS2
+    { Material st{"clip_steel", vec3(0.22f, 0.22f, 0.23f), 0.45f, 1.0f, PAT_METAL, 1}; MeshData ms; appendPart(ms, p, st, mat4(1)); clipMesh.upload(ms); }
     buildWeaponMeshes();
     makeWeaponSilhouettes();   // G4: the carried list (weapons.cpp)
     buildArmMeshes();
@@ -1423,6 +1425,7 @@ int App::run(int argc, char** argv) {
       builderGhosts(ghosts);
       crumb("view weapons");
       for (auto& d : fx.debris) op.push_back({&debrisMesh, glm::translate(mat4(1), d.p) * glm::mat4_cast(d.r) * glm::scale(mat4(1), d.size)});
+      for (auto& c : fx.cases) op.push_back({c.kind ? &clipMesh : &caseMesh, glm::translate(mat4(1), c.d.p) * glm::mat4_cast(c.d.r) * glm::scale(mat4(1), c.d.size)});   // WS2
       if (!tanks.occupied && !shotsNoViewModel) weaponDrawItems(op);
       else { R.viewModel.clear(); R.viewModelTex.clear(); }   // VH1: in a vehicle (AN1: or pose shots) no viewmodel (the lists would keep the last frame's arms / weapon)
     }

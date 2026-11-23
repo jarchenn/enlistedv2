@@ -195,6 +195,7 @@ void App::buildWeaponMeshes() {
       d->fireCurveAds = fc.value("ads", false);   // GR1
     }
     d->boltDelay = std::max(0.0f, j.value("boltDelay", 0.0f));
+    d->ejectBack = j.value("ejectPort_m", d->ejectBack);   // WS2
     if (j.contains("boltCurve") && j["boltCurve"].is_object()) {   // KF2
       const json& bc = j["boltCurve"]; d->boltCurveFps = std::max(1.0f, bc.value("fps", 30.0f));
       for (auto& r : bc.value("frames", json::array())) if (r.is_array() && r.size() >= 7) { std::array<float, 7> a; for (int k = 0; k < 7; ++k) a[k] = r[k].get<float>(); d->boltCurve.push_back(a); }
@@ -564,6 +565,21 @@ std::string App::resupplyWeapon(uint64_t crateId, const WeaponDef& d, WeaponStat
 
 void App::stepWeapons(float dt, const ExploreInput& in) {
   if (weaponDefs.empty()) return;
+  if (!caseDue.empty()) {   // WS2 (the user: a case out every time the bolt is cycled): due now: from the ejection port of the gun as it is posed now (the
+    // port: ejectPort_m behind the muzzle along the bore, a little right and down), up and to the right, a little back
+    const WeaponDef& d = *weaponDefs[activeWeapon]; const WeaponState& s = wstate[d.id];
+    for (size_t k = 0; k < caseDue.size();) {
+      if (caseDue[k].first > fx.clock) { ++k; continue; }
+      if (!occupied && !tanks.occupied && mode == Mode::Explore) {
+        vec3 Rw, Fw; sightLineWorld(d, s, Rw, Fw); vec3 bore = glm::length(Fw - Rw) > 1e-4f ? glm::normalize(Fw - Rw) : forward(eyeYaw, eyePitch);
+        const vec3 rt = glm::normalize(glm::cross(bore, vec3(0, 1, 0)) + vec3(1e-5f, 0, 0)), up = glm::cross(rt, bore);
+        const vec3 port = vmApparent(weaponMuzzleWorld(d, s) - bore * (d.ejectBack >= 0 ? d.ejectBack : 0.68f * d.muzzle.z) + rt * 0.025f - up * 0.015f);
+        const float j = fx.rnd();
+        fx.ejectCase(port, caseDue[k].second ? up * (2.6f + 0.6f * j) + rt * 0.6f - bore * 0.2f : rt * (2.0f + 0.8f * j) + up * (1.3f + 0.5f * fx.rnd()) - bore * (0.3f + 0.3f * fx.rnd()), caseDue[k].second);
+      }
+      caseDue.erase(caseDue.begin() + k);
+    }
+  }
   // G4 stack switching (arsenal.cpp): Q steps down the stack and an empty weapon slot falls to the knife; the wheel
   // steps either way over the filled rows; 1 / 2 weapon slots (empty: the knife), 3 the knife, 4 the grenades in turn
   bool pick = !(pauseMenu || showLoadout || choiceFor || rackOpen);
@@ -819,14 +835,15 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       vec3 fxm = vmApparent(muzzle);   // effects are drawn with the world projection
       {   // WP4: along the drawn bore at the viewmodel's apparent muzzle (compact in ADS), the light at the world muzzle
         mat4 VM = viewModelMatrix(d, s); vec3 bore = glm::normalize(vec3(VM * vec4(d.muzzleDir, 0)));
-        fx.muzzleFlash(fxm, bore, d.flashScale * (adsT > 0.85f ? 0.6f : 1.0f), d.suppressed || s.att[ATT_MUZZLE] == 1, muzzle, d.blaster ? blasterColour(d.blaster) : vec3(-1), d.caliber.c_str(), s.att[ATT_MUZZLE] == 2 ? "brake" : nullptr);
+        fx.muzzleFlash(fxm, bore, d.flashScale * (adsT > 0.85f ? 0.6f : 1.0f), d.suppressed || s.att[ATT_MUZZLE] == 1, muzzle, d.blaster ? blasterColour(d.blaster) : vec3(-1), d.caliber.c_str(), s.att[ATT_MUZZLE] == 2 ? "brake" : nullptr, d.smoke > 0);   // WS2: a period gun's flash always shows
+        if (!(d.suppressed || s.att[ATT_MUZZLE] == 1)) fx.gunSmoke(fxm, bore, d.smoke, -1);   // WS1 / WS2: from the barrel's end along the drawn bore
         if (R.perf.fxEv) R.exposureFreeze(0.15f);   // Battle Foundry 5.2: the own flash never moves the exposure (the lighting session's fxexpo)
       }
       fx.smoke(fxm, aimDir * 2.0f + vec3(0, 0.3f, 0), 0.05f, 0.7f + 0.5f * fx.rnd(), vec4(0.6f, 0.58f, 0.55f, 0.16f), 0.6f, 0.2f); fx.parts.back().fade = 1.6f;   // thin, short-lived, eroded wisp
-      if (!(d.suppressed || s.att[ATT_MUZZLE] == 1)) fx.gunSmoke(fxm, aimDir, d.smoke, -1);   // WS1: a WW2 gun's lingering puff (the local player: gun -1)
       audio.play(lootSuppressedShot(d, s) && audio.hasEvent("shot_suppressed_rifle") ? std::string("shot_suppressed_rifle") : "shot_" + d.id + (d.action == "auto" && semi ? "_semi" : ""), muzzle, 1.0f);   // SND15; SND18: SEMI on an automatic plays its single (else falls back to shot_<id>)
       if (d.pellets > 1 && d.feed == "single") audio.play("shotgun_pump", eyePos(), 0.8f);   // MG12: tube-fed pumps only (not the break-action sawn-off)   // the pump cycling the next shell (the recording starts 0.3 s in)
       shotCasing(d, ch.pos, -1);   // SND4
+      if (d.casings && (d.action == "bolt" || d.action == "semi" || d.action == "auto")) caseDue.push_back({fx.clock + (d.action == "bolt" ? d.boltDelay + 0.45 * d.boltTime : 0.03), 0});   // WS2: the case flies as the bolt opens (a bolt rifle partway into its cycle; self-loaders at once)
       // recoil per shot = profile x stance (handling.json: crouched 0.85, prone 0.6) x 0.85 in ADS. Mounted keeps the
       // pre-overhaul values: the old posture factor (prone 0.20, crouched 0.70) x the weapon's own bipod factor
       // (recoil.supported; MG 42 prone 0.2 x 0.35 = 0.07), handling.json mounted 0.5 only for a bipod weapon without one.
@@ -869,7 +886,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       }
       }
       if (d.action == "bolt" && d.boltDelay <= 0) adsT = 0;   // working the bolt takes the rifle off the shoulder (KF1: boltDelay keeps it there first)
-      if (d.feed == "enbloc" && s.loaded == 0) { audio.play("ping", muzzle, 0.8f); weaponMsg = "Clip ejected (ping)"; s.clipPings++; }
+      if (d.feed == "enbloc" && s.loaded == 0) { audio.play("ping", muzzle, 0.8f); weaponMsg = "Clip ejected (ping)"; s.clipPings++; caseDue.push_back({fx.clock + 0.04, 1}); }   // WS2: the empty clip is seen flying up
     }
   }
 }
