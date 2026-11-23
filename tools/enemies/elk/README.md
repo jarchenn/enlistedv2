@@ -14,3 +14,7 @@ Pipeline (paths as on the user's machine, E:/nmk/stag; the elk download unpacked
 6. `measure_elk.py`: the numbers in zombie.json (head height, strike 'at' and ranges, foot_at, ground speeds).
 
 Previews: `props_skin.py` (Blender misplaces bone-parented props), `pv_glb.py` (stills), `anim_mp4.py` (videos).
+
+K10W (user: "add wings to knight 10"): `wings_attach.py ... knight_10.glb angel-wings.glb out.glb mixamorig:Spine2 0.5 25 0.1 0.24 -0.30`,
+the wings' front 4 cm outside the cloak (its rest back -0.262), clear of the cloak in every clip Knight 10 plays (a 2 cm grid of the
+wings' front against the skinned cloak, per frame). The rest height is unchanged (1.8406), so height_m stays 2.1956.
