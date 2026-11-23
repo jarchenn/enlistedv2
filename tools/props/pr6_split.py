@@ -194,6 +194,21 @@ for P in job["pieces"]:
         mi = {i for i, sl in enumerate(ob.material_slots) if sl.material and sl.material.name.startswith(pfx)}
         gone = [f for f in bm.faces if f.material_index in mi and x0 <= f.calc_center_median().x <= x1 and y0 <= f.calc_center_median().y <= y1 and z0 <= f.calc_center_median().z <= z1]
         bmesh.ops.delete(bm, geom=gone, context="FACES"); bm.to_mesh(ob.data); bm.free()
+    for x0, x1, y0, y1, z0, z1 in P.get("cut_out", []):   # VH1: a hole through a one-sided shell where a window / door is only painted on: the faces near the box split on its four sides across the wall, the inside dropped
+        bm = bmesh.new(); bm.from_mesh(ob.data)
+        along = 0 if (x1 - x0) >= (y1 - y0) else 1
+        lo, hi = Vector((x0, y0, z0)), Vector((x1, y1, z1))
+        def near(f, m=0.05):
+            vs = [v.co for v in f.verts]
+            return all(min(v[k] for v in vs) <= hi[k] + m and max(v[k] for v in vs) >= lo[k] - m for k in range(3))
+        for co, no in ((lo, along), (hi, along), (lo, 2), (hi, 2)):
+            g = [f for f in bm.faces if near(f)]
+            if not g: continue
+            n = [0, 0, 0]; n[no] = 1
+            gs = {e for f in g for e in f.edges} | {v for f in g for v in f.verts} | set(g)
+            bmesh.ops.bisect_plane(bm, geom=list(gs), plane_co=co, plane_no=n)
+        gone = [f for f in bm.faces if all(lo[k] - 1e-4 <= f.calc_center_median()[k] <= hi[k] + 1e-4 for k in range(3))]
+        bmesh.ops.delete(bm, geom=gone, context="FACES"); bm.to_mesh(ob.data); bm.free()
     if P.get("add_boxes"):   # PR10: walls / floors / ceilings a model lacks: textured boxes (source units), UVs at world scale
         add = []
         for i, B in enumerate(P["add_boxes"]):
