@@ -41,7 +41,8 @@ struct CrowdDraw {
   GLuint vao = 0, rest = 0, pal = 0, units = 0;  // rest: NmkSkinV vertices (0 for the gun: its own vao attributes)
   int J = 0, base = 0, count = 0; bool gun = false;
   glm::ivec4 clips[8]{}; float fps = 15;          // per clip: first frame, frames, loop
-  GLuint vis = 0, cmd = 0; int cmdFirst = 0;      // GC2: units[vis[base + instance]]; the part draws' indirect commands from cmdFirst (instance counts written by the cull pass)
+  GLuint vis = 0, cmd = 0; int cmdFirst = 0;
+  bool imp = false; int impCols = 0, impRows = 0; int impTab[64]{};   // GC5: a camera-facing quad from the type's impostor atlas      // GC2: units[vis[base + instance]]; the part draws' indirect commands from cmdFirst (instance counts written by the cull pass)
 };
 struct ModelDraw { const GpuModel* model; int part; mat4 m; vec4 tint{1, 1, 1, 1}; float thinPx = 0; int glass = 0; float albFloor = 0; bool optic = false; mat4 prevM{1}; int vel = 0; };   // AIB1 vel: TAA motion of a moving model: 0 none (depth reprojection), 1 from prevM, 2 also the skinned previous vertex (aPrev)   // AT6 optic: a fitted sight's own part (never cut by the window clip)   // glass: 1 dusty, 2 crazed (a wreck), 3 clean; albFloor: least albedo (a car-pack cabin seen from its seat)
 struct OverlayVert { vec3 p; vec4 c; };

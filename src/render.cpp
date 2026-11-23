@@ -2335,6 +2335,7 @@ struct NmkCrowdU { vec4 pos; vec4 prev; vec4 anim; };   // feet xyz, yaw (rad); 
 layout(std430, binding = 17) readonly buffer NmkCrowd { NmkCrowdU gCU[]; };
 layout(std430, binding = 18) readonly buffer NmkCrowdVis { uint gCV[]; };   // GC2: the cull pass's visible units per type x LOD
 uniform int uCrowd, uCrowdBase, uCrowdGun; uniform ivec4 uCrowdClip[8]; uniform float uCrowdFps;
+uniform int uCrowdImp, uImpCols, uImpRows; uniform int uImpTab[64];   // GC5: the impostor quad (crowd.cpp bakeImpostor: 8 views, 2.4 m box 1 m up)
 mat4 nmkCrowdM(vec4 p, float s) { float c = cos(p.w + 3.14159265), n = sin(p.w + 3.14159265); return mat4(vec4(c * s, 0, -n * s, 0), vec4(0, s, 0, 0), vec4(n * s, 0, c * s, 0), vec4(p.xyz, 1)); }
 int nmkCrowdFrame(vec4 a) { ivec4 c = uCrowdClip[clamp(int(a.x), 0, 7)]; int f = int(floor(max(a.y, 0.0) * uCrowdFps)); f = c.z > 0 ? f % max(c.y, 1) : min(f, max(c.y, 1) - 1); return c.x + f; }
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm; layout(location=2) in vec4 aTan; layout(location=3) in vec2 aUV;
@@ -2353,7 +2354,16 @@ void main(){
     P = (M * vec4(v.pos.xyz, 1.0)).xyz; Nr = normalize(mat3(M) * v.nrm.xyz); Tn = vec4(1.0, 0.0, 0.0, 1.0); UV = v.uv.xy;
     Pp = (nmkSkinM(v, uSkinJ) * vec4(v.pos.xyz, 1.0)).xyz;
   }
-  if (uCrowd > 0) {   // GC1
+  if (uCrowdImp == 1) {   // GC5: a camera-facing upright quad, the cell for its frame and the side the camera sees
+    NmkCrowdU u = gCU[gCV[uCrowdBase + gl_InstanceID]]; int fi = uImpTab[clamp(nmkCrowdFrame(u.anim), 0, 63)];
+    vec3 c = u.pos.xyz + vec3(0.0, 1.0 * u.anim.w, 0.0), tc = uCamPos - c; tc.y = 0.0; if (dot(tc, tc) < 1e-6) tc = vec3(0, 0, 1); tc = normalize(tc);
+    float al = atan(tc.x, tc.z) - (u.pos.w + 3.14159265); int d = int(floor(mod(al / 0.78539816 + 0.5, 8.0)));
+    int cell = fi * 8 + d; vec2 cc = vec2(float(cell % uImpCols), float(cell / uImpCols));
+    int k = gl_VertexID; float cx = (k == 1 || k == 2) ? 1.0 : 0.0, cy = k >= 2 ? 1.0 : 0.0; float s = 2.4 * u.anim.w;
+    P = c + vec3(tc.z, 0.0, -tc.x) * (cx - 0.5) * s + vec3(0.0, 1.0, 0.0) * (cy - 0.5) * s; Pp = P;
+    UV = (cc + vec2(cx, cy)) / vec2(float(uImpCols), float(uImpRows)); Nr = normalize(tc + vec3(0.0, 0.35, 0.0)); Tn = vec4(1.0, 0.0, 0.0, 1.0);
+    Mdl = mat4(1.0); PMdl = mat4(1.0); vTintI = vec4(0.0);
+  } else if (uCrowd > 0) {   // GC1
     NmkCrowdU u = gCU[gCV[uCrowdBase + gl_InstanceID]]; int o = nmkCrowdFrame(u.anim) * uCrowd;
     Mdl = nmkCrowdM(u.pos, u.anim.w); PMdl = nmkCrowdM(u.prev, u.anim.w);
     if (uCrowdGun > 0) { mat4 G = gSkP[o + uCrowd - 1]; Mdl = Mdl * G; PMdl = PMdl * G; Pp = aPos; }
@@ -2384,6 +2394,7 @@ layout(location=3) out vec4 oNR;
 layout(location=4) out vec4 oVel; uniform float uVmVel;
 uniform float uAlbFloor;
 uniform int uCutout;   // NT8: alpha-tested foliage (needles, blades, fronds): discard under 0.5, sun through the thin side
+uniform int uCrowdImp;   // GC5: a crowd impostor: its atlas alpha is the silhouette
 uniform float uFolTrans;   // VO L4: two-sided leaf translucency on model foliage (progFolModel only; 0: the NT8 rim on cut-out plants)
 uniform float uGlassOpacity = 1.0, uGlassFilm = 1.0, uGlassRefl = 1.0;   // GL1: content/settings/glass.json "opacity", "film", "reflection" (1 = the pre-GL1 look)
 uniform int uGlass;   // 0 opaque; 1 window glass (dusty); 2 a wreck's glass (crazed, grimy); 3 clean (the car you sit in: no film to catch the cabin light at night)
@@ -2394,6 +2405,7 @@ void main(){
   vec4 base = uBase;
   if (uHasAlb == 1) base *= texture(uAlb, vUV);
   if (uCutout == 1 && base.a < cutRef()) discard;
+  if (uCrowdImp == 1 && base.a < 0.5) discard;
   if (uCutout == 1) base.rgb = mix(base.rgb, vec3(0.45, 0.37, 0.26), 0.5*uDustK);   // WS4: dust on the needles and leaves
   if (vTintI.a > 2.5) {   // FL1 greenery: this species' spring green (already / the texture's mean luminance), leaves only
     if (uCutout == 1) base.rgb = mix(base.rgb, vTintI.rgb*dot(base.rgb, vec3(0.2126, 0.7152, 0.0722)), uGreenK.w*greenMask(base.rgb));
@@ -6433,6 +6445,7 @@ void Renderer::drawCrowd(const std::vector<CrowdDraw>& items) {
   GLuint p = progModel; const DrawLocs L = drawLocs(p);
   glUniform1i(L.alb, 2); glUniform1i(L.mr, 3); glUniform1i(L.nrm, 4); glUniform1i(L.ao, 5);
   const GLint lc = U(p, "uCrowd"), lcb = U(p, "uCrowdBase"), lcg = U(p, "uCrowdGun"), lcc = U(p, "uCrowdClip"), lcf = U(p, "uCrowdFps"), lvel = U(p, "uVelMode"), lsk = U(p, "uSkinJ");
+  const GLint lci = U(p, "uCrowdImp"), lic = U(p, "uImpCols"), lir = U(p, "uImpRows"), lit = U(p, "uImpTab");   // GC5
   glUniform1i(lsk, 0); glUniform1i(lvel, perf.charVel ? 1 : 0); glUniform1f(L.thin, 0.0f); glUniform4f(L.tint, 1, 1, 1, 1);
   glUniform1i(U(p, "uGlass"), 0); glUniform1f(U(p, "uAlbFloor"), 0.0f); glUniform1i(U(p, "uClipMe"), 1); glUniform3f(U(p, "uEmis"), 0, 0, 0);
   const mat4 I(1); glUniformMatrix4fv(L.model, 1, GL_FALSE, glm::value_ptr(I)); glUniformMatrix4fv(U(p, "uPrevModel"), 1, GL_FALSE, glm::value_ptr(I));
@@ -6443,6 +6456,7 @@ void Renderer::drawCrowd(const std::vector<CrowdDraw>& items) {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 16, c.pal); glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 17, c.units); glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 18, c.vis);
     if (c.cmd) glBindBuffer(GL_DRAW_INDIRECT_BUFFER, c.cmd);
     glUniform1i(lc, c.J + 1); glUniform1i(lcb, c.base); glUniform1i(lcg, c.gun ? 1 : 0); glUniform4iv(lcc, 8, glm::value_ptr(c.clips[0])); glUniform1f(lcf, c.fps);
+    glUniform1i(lci, c.imp ? 1 : 0); if (c.imp) { glUniform1i(lic, c.impCols); glUniform1i(lir, c.impRows); glUniform1iv(lit, 64, c.impTab); }   // GC5
     for (size_t pk = 0; pk < c.parts->size(); ++pk) {
       const ModelPart& pt = (*c.parts)[pk];
       const int mi = pt.mat >= 0 && pt.mat < (int)c.look->mats.size() ? pt.mat : -1;
@@ -6456,7 +6470,7 @@ void Renderer::drawCrowd(const std::vector<CrowdDraw>& items) {
     }
   }
   glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
-  glUniform1i(lc, 0); glUniform1i(lcg, 0);
+  glUniform1i(lc, 0); glUniform1i(lcg, 0); glUniform1i(lci, 0);
 }
 
 bool Renderer::renderModelSheet(const std::vector<ModelDraw>& items, const std::vector<DrawItem>& boxes, const mat4& view, const mat4& proj, vec3 camPos, int w, int h, std::vector<uint8_t>& rgba, bool transparent) {

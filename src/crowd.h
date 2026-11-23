@@ -15,11 +15,16 @@ struct CrowdType {
   glm::ivec4 clip[8]{};          // first frame, frames, loop
   float dur[CC_COUNT] = {};      // a loop's period / a clip's length (s)
   GLuint pal = 0;                // frames x (J + 1) mat4: skin matrices, then the gun (weapon -> model)
-  struct Lod { GLuint rest = 0, ebo = 0, vao = 0; int verts = 0, tris = 0; std::vector<ModelPart> parts; } lod[2];
+  struct Lod { GLuint rest = 0, ebo = 0, vao = 0; int verts = 0, tris = 0; std::vector<ModelPart> parts; } lod[3];   // GC5: [2] the impostor quad (6 indices)
+  // GC5 impostor: kImpDirs views x the kept frames, 64 px cells of a 2.4 m box (sRGB albedo, alpha the silhouette)
+  GLuint impTex = 0; int impCols = 16, impRows = 0, impFrames = 0; int impTab[64] = {};   // palette frame -> impostor frame
+  GpuModel impLook;               // its one material (impTex), for drawCrowd
   size_t bytes = 0;
 };
 // the poses: CharModel + the held gun's sockets -> palettes; the LODs (src/simplify.cpp per part, ~3000 and ~300 triangles)
 bool crowdBake(CrowdType& t, const CharModel& m, const WeaponDef* w, std::string& err);
+constexpr int kImpDirs = 8, kImpCell = 64; constexpr float kImpBox = 2.4f, kImpMid = 1.0f;   // GC5 (shared with kModelVS's impostor path)
+float crowdImpCoverage(const CrowdType& t, int frame, int dir);   // --check-crowd: the share of a cell's pixels the bake covered
 void crowdDestroy(CrowdType& t);
 
 // GC2: the units live on the GPU (CrowdUnit + CrowdSim per unit); each frame compute passes hash them into a 2 m grid, move them

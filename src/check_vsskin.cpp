@@ -82,6 +82,9 @@ static void testCrowd(App& a, GLuint prog) {
   chk(w && w->worldModel() && w->worldModel()->vao, std::string("crowd: gun ") + gid + " loaded");
   CrowdType t;
   if (!crowdBake(t, m, w, err)) { chk(false, "crowd: bake " + err); m.destroy(); return; }
+  { float lo = 1, hi = 0; int empty = 0; for (int f = 0; f < t.impFrames; ++f) for (int d = 0; d < kImpDirs; ++d) { const float cv = crowdImpCoverage(t, f, d); lo = std::min(lo, cv); hi = std::max(hi, cv); empty += cv < 0.02f; }   // GC5
+    char b[200]; std::snprintf(b, sizeof b, "crowd: impostor %d frames x %d views, every cell drawn (silhouette %.1f-%.1f %% of a cell, %d near empty)", t.impFrames, kImpDirs, lo * 100, hi * 100, empty);
+    chk(t.impTex && t.impFrames > 20 && empty == 0 && hi < 0.6f, b); }
   int frames = 0; for (int c = 0; c < CC_COUNT; ++c) frames += t.clip[c].y;
   chk(frames == t.frames && t.clip[CC_DEAD].x + t.clip[CC_DEAD].y == t.frames, "crowd: " + std::to_string(t.frames) + " frames in " + std::to_string((int)CC_COUNT) + " clips");
   chk(t.lod[0].tris > 0 && t.lod[0].tris <= 4000 && t.lod[1].tris > 0 && t.lod[1].tris <= 600 && t.lod[1].tris < t.lod[0].tris,

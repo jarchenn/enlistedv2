@@ -15,6 +15,94 @@
 #include <queue>
 
 
+// ---- GC5 impostors: the LOD0 body and its gun rendered unlit (albedo x base colour) from kImpDirs directions around the model
+// (azimuth d * 45 deg, 10 deg above) into 64 px cells of a kImpBox m orthographic box centred kImpMid m up; kept frames: every
+// 2nd of the walk / run / crouch walk / fire, every 4th of the die, all of idle / prone / dead
+static const char* kImpBakeVS = R"(#version 450
+)" NMK_SKIN_GLSL R"(
+layout(location = 0) in vec3 aPos; layout(location = 3) in vec2 aUV;
+uniform mat4 uVP; uniform int uOff, uGunJ; out vec2 vUV;
+void main() {
+  vec3 P;
+  if (uGunJ > 0) { P = (gSkP[uOff + uGunJ] * vec4(aPos, 1.0)).xyz; vUV = aUV; }
+  else { NmkSkinV v = gSkV[gl_VertexID]; P = (nmkSkinM(v, uOff) * vec4(v.pos.xyz, 1.0)).xyz; vUV = v.uv.xy; }
+  gl_Position = uVP * vec4(P, 1.0);
+})";
+static const char* kImpBakeFS = R"(#version 450
+in vec2 vUV; uniform sampler2D uAlb; uniform int uHasAlb; uniform vec4 uBase; out vec4 o;
+void main() { vec4 c = uBase; if (uHasAlb == 1) c *= texture(uAlb, vUV); o = vec4(c.rgb, 1.0); })";
+static GLuint impProg() {
+  static GLuint p = 0; if (p) return p;
+  auto sh = [](GLenum ty, const char* s) { GLuint h = glCreateShader(ty); glShaderSource(h, 1, &s, nullptr); glCompileShader(h); GLint ok = 0; glGetShaderiv(h, GL_COMPILE_STATUS, &ok);
+                                           if (!ok) { char log[4096]; glGetShaderInfoLog(h, sizeof log, nullptr, log); logf("crowd: impostor bake shader: %s", log); } return h; };
+  GLuint v = sh(GL_VERTEX_SHADER, kImpBakeVS), f = sh(GL_FRAGMENT_SHADER, kImpBakeFS);
+  p = glCreateProgram(); glAttachShader(p, v); glAttachShader(p, f); glLinkProgram(p); glDeleteShader(v); glDeleteShader(f);
+  GLint ok = 0; glGetProgramiv(p, GL_LINK_STATUS, &ok); if (!ok) { glDeleteProgram(p); p = 0; logf("crowd: impostor bake program did not link"); }
+  return p;
+}
+static bool bakeImpostor(CrowdType& t, std::string& err) {
+  const int step[CC_COUNT] = {1, 2, 2, 2, 1, 2, 4, 1};
+  std::vector<int> keep;   // palette frames kept
+  for (int c = 0; c < CC_COUNT; ++c) for (int f = 0; f < t.clip[c].y; ++f) {
+    const int pf = t.clip[c].x + f;
+    if (f % step[c] == 0) keep.push_back(pf);
+    if (pf < 64) t.impTab[pf] = (int)keep.size() - 1;
+  }
+  t.impFrames = (int)keep.size(); const int cells = t.impFrames * kImpDirs; t.impRows = (cells + t.impCols - 1) / t.impCols;
+  const int W = t.impCols * kImpCell, Hh = t.impRows * kImpCell;
+  const GLuint prog = impProg(); if (!prog) { err = "impostor bake program"; return false; }
+  GLuint col, dep, fbo;
+  glCreateTextures(GL_TEXTURE_2D, 1, &col); const int lv = 1 + (int)std::floor(std::log2((float)kImpCell)); glTextureStorage2D(col, lv, GL_SRGB8_ALPHA8, W, Hh);
+  glCreateTextures(GL_TEXTURE_2D, 1, &dep); glTextureStorage2D(dep, 1, GL_DEPTH_COMPONENT32F, W, Hh);
+  glCreateFramebuffers(1, &fbo); glNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, col, 0); glNamedFramebufferTexture(fbo, GL_DEPTH_ATTACHMENT, dep, 0);
+  GLint prevFbo = 0, vp[4]; glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevFbo); glGetIntegerv(GL_VIEWPORT, vp);
+  const GLboolean cull = glIsEnabled(GL_CULL_FACE), blend = glIsEnabled(GL_BLEND), scis = glIsEnabled(GL_SCISSOR_TEST); GLint df = GL_LESS; glGetIntegerv(GL_DEPTH_FUNC, &df); GLdouble dr[2]; glGetDoublev(GL_DEPTH_RANGE, dr);
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo); glDisable(GL_CULL_FACE); glDisable(GL_BLEND); glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LESS); glDepthMask(GL_TRUE); glDepthRange(0, 1); glEnable(GL_FRAMEBUFFER_SRGB);
+  const float bg[4] = {0.30f, 0.29f, 0.25f, 0.0f}; const float one = 1.0f;   // a mid-brown under the silhouette: mips bleed toward it, not black
+  glClearNamedFramebufferfv(fbo, GL_COLOR, 0, bg); glClearNamedFramebufferfv(fbo, GL_DEPTH, 0, &one);
+  glUseProgram(prog); glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 15, t.lod[0].rest); glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 16, t.pal);
+  const GLint lVP = glGetUniformLocation(prog, "uVP"), lOff = glGetUniformLocation(prog, "uOff"), lGun = glGetUniformLocation(prog, "uGunJ"), lHas = glGetUniformLocation(prog, "uHasAlb"), lBase = glGetUniformLocation(prog, "uBase");
+  glUniform1i(glGetUniformLocation(prog, "uAlb"), 0);
+  const mat4 proj = glm::ortho(-kImpBox * 0.5f, kImpBox * 0.5f, -kImpBox * 0.5f, kImpBox * 0.5f, 0.1f, 20.0f); const vec3 mid(0, kImpMid, 0);
+  auto drawParts = [&](const GpuModel& look, const std::vector<ModelPart>& parts) {
+    for (const ModelPart& pt : parts) {
+      const int mi = pt.mat >= 0 && pt.mat < (int)look.mats.size() ? pt.mat : -1; const GLuint alb = mi >= 0 ? look.mats[mi].alb : 0;
+      glBindTextureUnit(0, alb); glUniform1i(lHas, alb ? 1 : 0); glUniform4fv(lBase, 1, glm::value_ptr(pt.base));
+      glDrawElements(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u));
+    }
+  };
+  glEnable(GL_SCISSOR_TEST);
+  for (int fi = 0; fi < t.impFrames; ++fi) for (int d = 0; d < kImpDirs; ++d) {
+    const int cell = fi * kImpDirs + d, cx = cell % t.impCols, cy = cell / t.impCols;
+    glViewport(cx * kImpCell, cy * kImpCell, kImpCell, kImpCell); glScissor(cx * kImpCell, cy * kImpCell, kImpCell, kImpCell);
+    const float a = d * 6.2831853f / kImpDirs; const vec3 eye = mid + glm::normalize(vec3(std::sin(a), 0.18f, std::cos(a))) * 8.0f;
+    const mat4 VP = proj * glm::lookAt(eye, mid, vec3(0, 1, 0)); glUniformMatrix4fv(lVP, 1, GL_FALSE, glm::value_ptr(VP));
+    const int off = keep[fi] * (t.J + 1); glUniform1i(lOff, off);
+    glUniform1i(lGun, 0); glBindVertexArray(t.lod[0].vao); drawParts(t.m->gpu, t.lod[0].parts);
+    if (t.gun && t.gun->vao) { glUniform1i(lGun, t.J); glBindVertexArray(t.gun->vao); drawParts(*t.gun, t.gun->parts); }
+  }
+  glDisable(GL_FRAMEBUFFER_SRGB); if (!scis) glDisable(GL_SCISSOR_TEST);
+  glBindVertexArray(0); glUseProgram(0); glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFbo); glViewport(vp[0], vp[1], vp[2], vp[3]);
+  if (cull) glEnable(GL_CULL_FACE); if (blend) glEnable(GL_BLEND); glDepthFunc((GLenum)df); glDepthRange(dr[0], dr[1]);
+  glDeleteFramebuffers(1, &fbo); glDeleteTextures(1, &dep);
+  glGenerateTextureMipmap(col); glTextureParameteri(col, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); glTextureParameteri(col, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTextureParameteri(col, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTextureParameteri(col, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  t.impTex = col; t.bytes += (size_t)W * Hh * 4 * 4 / 3;
+  // the quad and its material
+  CrowdType::Lod& q = t.lod[2]; const uint32_t qi[6] = {0, 1, 2, 0, 2, 3};
+  glCreateBuffers(1, &q.ebo); glNamedBufferStorage(q.ebo, sizeof qi, qi, 0); glCreateVertexArrays(1, &q.vao); glVertexArrayElementBuffer(q.vao, q.ebo);
+  ModelPart pt; pt.first = 0; pt.count = 6; pt.mat = 0; pt.base = vec4(1); pt.metal = 0; pt.rough = 0.9f; q.parts = {pt}; q.verts = 4; q.tris = 2;
+  GpuModel::MatTex mt; mt.alb = col; t.impLook.mats = {mt};
+  return true;
+}
+
+float crowdImpCoverage(const CrowdType& t, int frame, int dir) {
+  if (!t.impTex || frame < 0 || frame >= t.impFrames) return 0;
+  const int cell = frame * kImpDirs + dir, cx = cell % t.impCols, cy = cell / t.impCols; std::vector<uint8_t> px((size_t)kImpCell * kImpCell * 4);
+  glGetTextureSubImage(t.impTex, 0, cx * kImpCell, cy * kImpCell, 0, kImpCell, kImpCell, 1, GL_RGBA, GL_UNSIGNED_BYTE, (GLsizei)px.size(), px.data());
+  int n = 0; for (size_t k = 3; k < px.size(); k += 4) n += px[k] > 127; return (float)n / (kImpCell * kImpCell);
+}
+
 bool crowdBake(CrowdType& t, const CharModel& m, const WeaponDef* w, std::string& err) {
   t = CrowdType{}; t.m = &m; t.J = m.joints(); t.gun = w ? w->worldModel() : nullptr;
   if (t.J <= 0 || m.verts.empty() || m.indices.empty()) { err = "no skin"; return false; }
@@ -73,13 +161,16 @@ bool crowdBake(CrowdType& t, const CharModel& m, const WeaponDef* w, std::string
     glCreateVertexArrays(1, &lod.vao); glVertexArrayElementBuffer(lod.vao, lod.ebo);
     t.bytes += rv.size() * sizeof(CharModel::SkinVert) + ri.size() * 4;
   }
-  logf("crowd: %s baked: %d frames x %d joints, LOD0 %d tris / %d verts, LOD1 %d tris / %d verts, %.1f MB", m.id.c_str(), t.frames, t.J, t.lod[0].tris, t.lod[0].verts, t.lod[1].tris, t.lod[1].verts, t.bytes / 1048576.0);
+  if (!bakeImpostor(t, err)) return false;   // GC5
+  logf("crowd: %s baked: %d frames x %d joints, LOD0 %d tris / %d verts, LOD1 %d tris / %d verts, impostor %d frames x %d views in %dx%d, %.1f MB", m.id.c_str(), t.frames, t.J,
+       t.lod[0].tris, t.lod[0].verts, t.lod[1].tris, t.lod[1].verts, t.impFrames, kImpDirs, t.impCols * kImpCell, t.impRows * kImpCell, t.bytes / 1048576.0);
   return true;
 }
 
 void crowdDestroy(CrowdType& t) {
   if (t.pal) glDeleteBuffers(1, &t.pal);
   for (auto& l : t.lod) { if (l.rest) glDeleteBuffers(1, &l.rest); if (l.ebo) glDeleteBuffers(1, &l.ebo); if (l.vao) glDeleteVertexArrays(1, &l.vao); }
+  if (t.impTex) glDeleteTextures(1, &t.impTex);
   t = CrowdType{};
 }
 
@@ -205,7 +296,7 @@ void main() { uint i = gl_GlobalInvocationID.x; if (i >= uint(uN) || sm[i].b.z =
   vec3 c = u[i].pos.xyz + vec3(0, 0.9, 0);
   for (int k = 0; k < 6; ++k) if (dot(uPl[k].xyz, c) + uPl[k].w < -1.3) return;
   float px = uK * u[i].anim.w / max(0.5, length(c - uEye)); if (px < 1.5) return;
-  uint b = uint(sm[i].b.y) * 2u + (px > 40.0 ? 0u : 1u); uint k = atomicAdd(vcnt[b], 1u); if (k < uint(uCapB)) vis[b * uint(uCapB) + k] = i; })";
+  uint b = uint(sm[i].b.y) * 3u + (px > 40.0 ? 0u : px > 12.0 ? 1u : 2u);   // GC5: LOD0 over 40 px, LOD1 12-40, the impostor 1.5-12 uint k = atomicAdd(vcnt[b], 1u); if (k < uint(uCapB)) vis[b * uint(uCapB) + k] = i; })";
 const char* kCmdCS = R"(#version 450
 layout(local_size_x = 64) in;
 struct Cmd { uint count, inst, first, baseV, baseI; };
@@ -273,13 +364,13 @@ bool ensureGpu(Game* g) {   // g null: the grid is already set (the self-test)
   const size_t cells = (size_t)C.g.nx * C.g.nz;
   C.units = ssbo(kCap * sizeof(CrowdUnit)); C.sim = ssbo(kCap * sizeof(CrowdSim)); C.cnt = ssbo(cells * 4); C.idx = ssbo(cells * kSlots * 4);
   C.height = ssbo(cells * 4, C.g.h.data()); C.costBuf = ssbo(cells * 2 * 4);
-  C.vis = ssbo((size_t)kMaxTypes * 2 * kCapB * 4); C.visCnt = ssbo(kMaxTypes * 2 * 4);
+  C.vis = ssbo((size_t)kMaxTypes * 3 * kCapB * 4); C.visCnt = ssbo(kMaxTypes * 3 * 4);
   C.cx = std::max(1, (int)std::ceil(C.g.nx * C.g.cell / C.ccell)); C.cz = std::max(1, (int)std::ceil(C.g.nz * C.g.cell / C.ccell));
   C.nearBuf = ssbo(16 + 1024 * 32); { const uint32_t z = 0; glClearNamedBufferData(C.nearBuf, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &z); }
   C.pc = ssbo((size_t)2 * C.cx * C.cz * 4); C.pid = ssbo((size_t)2 * C.cx * C.cz * 4); C.dmg = ssbo(kCap * 4); C.deaths = ssbo(4 + 65536 * 8);
   { const uint32_t z = 0; glClearNamedBufferData(C.dmg, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &z); glClearNamedBufferData(C.deaths, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &z); }
   for (int t = 0; t < 2; ++t) if (C.cost[t].empty()) { C.cost[t].assign(cells, 0.0f); for (size_t c = 0; c < cells; ++c) if (!C.g.walk[c]) C.cost[t][c] = 1e9f; C.costDirty[t] = true; }   // no goal yet: stand
-  logf("crowd: GPU buffers %.1f MB for %d units", (kCap * (sizeof(CrowdUnit) + sizeof(CrowdSim)) + cells * (4 + kSlots * 4 + 4 + 8) + (size_t)kMaxTypes * 2 * kCapB * 4) / 1048576.0, kCap);
+  logf("crowd: GPU buffers %.1f MB for %d units", (kCap * (sizeof(CrowdUnit) + sizeof(CrowdSim)) + cells * (4 + kSlots * 4 + 4 + 8) + (size_t)kMaxTypes * 3 * kCapB * 4) / 1048576.0, kCap);
   return C.progHash && C.progMove && C.progCull && C.progCmd && C.progFight;
 }
 int typeIndex(Game& g, int model, int gun) {
@@ -291,12 +382,12 @@ int typeIndex(Game& g, int model, int gun) {
   C.typeKey.push_back(key);
   // indirect commands: per type x LOD, the body's parts then the gun's
   std::vector<uint32_t> cmds, cb; C.cmdFirstOf.clear(); C.nCmd = 0;
-  for (int ti = 0; ti < (int)C.typeKey.size(); ++ti) for (int L = 0; L < 2; ++L) {
-    const CrowdType& ct = C.types[C.typeKey[ti]]; const int b = ti * 2 + L;
+  for (int ti = 0; ti < (int)C.typeKey.size(); ++ti) for (int L = 0; L < 3; ++L) {
+    const CrowdType& ct = C.types[C.typeKey[ti]]; const int b = ti * 3 + L;
     C.cmdFirstOf.push_back(C.nCmd);
     for (const ModelPart& p : ct.lod[L].parts) { uint32_t c[5] = {p.count, 0, p.first, 0, 0}; cmds.insert(cmds.end(), c, c + 5); cb.push_back(b); ++C.nCmd; }
     C.cmdFirstOf.push_back(C.nCmd);
-    if (ct.gun) for (const ModelPart& p : ct.gun->parts) { uint32_t c[5] = {p.count, 0, p.first, 0, 0}; cmds.insert(cmds.end(), c, c + 5); cb.push_back(b); ++C.nCmd; }
+    if (ct.gun && L < 2) for (const ModelPart& p : ct.gun->parts) { uint32_t c[5] = {p.count, 0, p.first, 0, 0}; cmds.insert(cmds.end(), c, c + 5); cb.push_back(b); ++C.nCmd; }
   }
   if (C.cmd) { glDeleteBuffers(1, &C.cmd); glDeleteBuffers(1, &C.cmdBucket); }
   glCreateBuffers(1, &C.cmd); glNamedBufferStorage(C.cmd, std::max<size_t>(16, cmds.size() * 4), cmds.data(), 0);
@@ -572,14 +663,15 @@ void crowdFrame(Game& g) {
   glUseProgram(0);
   if (g.t >= C.nextDeaths || g.t + 1 < C.nextDeaths) { C.nextDeaths = g.t + 0.25; readDeaths(); }   // GC3: 4x a second
   { static double nextLog = 0; if (g.t >= nextLog || g.t + 10 < nextLog) { nextLog = g.t + 5;   // a status line every 5 s (a small read back)
-      std::vector<uint32_t> vc(kMaxTypes * 2); glGetNamedBufferSubData(C.visCnt, 0, vc.size() * 4, vc.data()); std::string b;
-      for (int k = 0; k < (int)C.typeKey.size() * 2; ++k) b += (k ? " " : "") + std::to_string(vc[k]);
+      std::vector<uint32_t> vc(kMaxTypes * 3); glGetNamedBufferSubData(C.visCnt, 0, vc.size() * 4, vc.data()); std::string b;
+      for (int k = 0; k < (int)C.typeKey.size() * 3; ++k) b += (k ? " " : "") + std::to_string(vc[k]);
       logf("[crowd] t %.0f s: %d units (alive %d / %d), %d types, visible per type x LOD: %s", g.t, C.n, crowdAlive(0), crowdAlive(1), (int)C.typeKey.size(), b.c_str()); } }
   // the draws: per type x LOD, the body and its gun, their instance counts the cull pass's
-  for (int ti = 0; ti < (int)C.typeKey.size(); ++ti) for (int L = 0; L < 2; ++L) {
-    const CrowdType& t = C.types[C.typeKey[ti]]; const CrowdType::Lod& l = t.lod[L]; const int b = ti * 2 + L;
+  for (int ti = 0; ti < (int)C.typeKey.size(); ++ti) for (int L = 0; L < 3; ++L) {
+    const CrowdType& t = C.types[C.typeKey[ti]]; const CrowdType::Lod& l = t.lod[L]; const int b = ti * 3 + L;
     CrowdDraw d; d.look = &t.m->gpu; d.parts = &l.parts; d.vao = l.vao; d.rest = l.rest; d.pal = t.pal; d.J = t.J; d.base = b * kCapB; d.fps = t.fps;
     d.units = C.units; d.vis = C.vis; d.cmd = C.cmd; d.cmdFirst = C.cmdFirstOf[(size_t)b * 2];
+    if (L == 2) { d.look = &t.impLook; d.rest = 0; d.imp = true; d.impCols = t.impCols; d.impRows = t.impRows; std::copy(t.impTab, t.impTab + 64, d.impTab); R.crowdDraws.push_back(d); continue; }   // GC5: the gun is in the atlas
     for (int c = 0; c < 8; ++c) d.clips[c] = t.clip[c];
     R.crowdDraws.push_back(d);
     if (t.gun && t.gun->vao) { CrowdDraw gd = d; gd.look = t.gun; gd.parts = &t.gun->parts; gd.vao = t.gun->vao; gd.rest = 0; gd.gun = true; gd.cmdFirst = C.cmdFirstOf[(size_t)b * 2 + 1]; R.crowdDraws.push_back(gd); }
