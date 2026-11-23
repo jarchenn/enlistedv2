@@ -266,7 +266,7 @@ void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& 
     // Allied paratrooper's skeleton (combat.json hold_bodies) with the game's guns in its stored per-gun holds
     const char* gunBodyKind = nullptr;
     s.gunBody = gunBodyKind != nullptr;
-    s.op = ait == AiType::Operators || ait == AiType::OperatorF;   // OPF1: the Giant Operator is an Operator in everything but its body and size
+    s.op = !s.zombie && (ait == AiType::Operators || ait == AiType::OperatorF);   // OPF1: the Giant Operator is an Operator in everything but its body and size
     s.kit = ait == AiType::Mechs && !s.zombie ? 12 : ait == AiType::Troopers ? 2 : ait == AiType::Robots ? 3 : ait == AiType::Delta ? 4 : ait == AiType::Desert ? 6 : ait == AiType::AlliedPara || ait == AiType::Allied ? 7 : ait == AiType::SS ? 8 : s.op ? 1 : 0;   // RM2: the gas-mask kits (9 / 10) are gone   // WS1: 7 Allied paratroopers; WSM2: 7 also the Allied soldiers, 8 SS, 9 / 10 gas-mask 1 / 2   // SW1; DF1: 4 Delta Force; DSD1: 6 desert soldiers on the Delta Force path
     if (!s.zombie) {   // RB6: the kit's size and belt-gun stance (combat.json kits.<kit> "scale", "lmg_standing"); a zombie's come from its enemy type
       const json kj = combat.value("kits", json::object()).value(kitName(s.kit), json::object());
@@ -284,6 +284,8 @@ void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& 
             : ait == AiType::KnightsAssorted ? enemyTypeAssortedPick((uint32_t)rs.id)   // AK1: a knight or an archer per slot
             : ait == AiType::FallenKnight2 ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "fallen_knight_2.glb") ? "fallen_knight2" : "fallen_knight1"))   // FK2: its model is local-only: Knight 1 at the Fallen Knight's size without it
             : ait == AiType::FallenKnight ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "knight.glb") ? "fallen_knight" : "fallen_knight1"))   // FK1: the Brother Knight is local-only: Knight 1 at its size without it
+            : ait == AiType::OperatorF ? std::max(0, enemyTypeIndex("operator_f_idle"))   // BC1: the Giant Operator on the melee brain only with its local idle model (Game::soldierBrain)
+            : ait == AiType::Boss ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "boss_choi.glb") ? "boss_choi" : "brute"))   // BC1: the boss is local-only: the Brute without it
             : ait == AiType::Dragon ? std::max(0, enemyTypeIndex("dragon"))   // DR1: the Mountain Dragon, ground only
             : ait == AiType::Civilians ? enemyTypeNpcPick((uint32_t)rs.id)   // NPC1: one of the civilian types per slot
             : ait == AiType::SpearKnight ? std::max(0, enemyTypeIndex("knight_spear"))   // KS: the Spear Knight (its build picked per spawn from "models")
@@ -856,7 +858,7 @@ void Game::damage(int i, float dmg, int attacker, vec3 dir, const char* how) {
       if (!area) { s.lastHow = k; return; }   // a blast reaches the rider too
     }
   }
-  s.hp -= dmg;
+  if (!(s.zombie && enemyType(s.etype).invuln)) s.hp -= dmg;   // BC1: an invulnerable type never loses health
   if (!s.localPlayer && !s.zombie && s.hp > 0 && !isClient) {   // SND13: soldiers had no pain sound: the hurt grunt at their head, quieter, at most one per 0.6 s each
     static std::unordered_map<int, double> last; static std::mt19937 rng{1313};
     double& l = last[i];
