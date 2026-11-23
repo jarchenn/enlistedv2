@@ -1,0 +1,148 @@
+{
+  "id": "vh1_village",
+  "version": 1,
+  "order": 32,
+  "name": "House Village",
+  "available": true,
+  "seed": 5101,
+  "description": "VH1: the House Village set (remib74, CC BY 4.0): eight stone and timber houses round a cobbled square as in the original scene; every door and ground-floor window opens, each house furnished.",
+  "width": 140.0,
+  "depth": 140.0,
+  "margin": 40,
+  "camera": {
+    "pos": [
+      0.0,
+      38.0,
+      58.0
+    ],
+    "yaw": -0.0,
+    "pitch": -32.0
+  },
+  "heightmap": {
+    "file": "vh1_village.height.png",
+    "nx": 76,
+    "nz": 76,
+    "min": 9,
+    "max": 11,
+    "org": [
+      -117.6471,
+      -117.6471
+    ],
+    "cell": 3.1372549019607843
+  },
+  "waterLevel": -1000.0,
+  "map": "vh1_village.nmap.json",
+  "playable": true,
+  "thumbnail": "vh1_village.thumb.png",
+  "thumbnailCamera": {
+    "pos": [
+      0.0,
+      20.0,
+      44.0
+    ],
+    "yaw": -0.0,
+    "pitch": -22.0
+  },
+  "userMap": true,
+  "selftest": "authored",
+  "views": [
+    {
+      "name": "overview",
+      "pos": [
+        0.0,
+        34.0,
+        52.0
+      ],
+      "yaw": -0.0,
+      "pitch": -30.0
+    },
+    {
+      "name": "vh_cottage_shutters",
+      "pos": [
+        12.49281,
+        11.700015259021896,
+        10.98534
+      ],
+      "yaw": 33.690067525979785,
+      "pitch": -4.0,
+      "gameplay": true
+    },
+    {
+      "name": "vh_cottage_tall",
+      "pos": [
+        17.6522,
+        11.700015259021896,
+        3.67328
+      ],
+      "yaw": 33.690067525979785,
+      "pitch": -4.0,
+      "gameplay": true
+    },
+    {
+      "name": "vh_longhouse_blue",
+      "pos": [
+        -1.5211500000000004,
+        11.700015259021896,
+        8.21294
+      ],
+      "yaw": 33.690067525979785,
+      "pitch": -4.0,
+      "gameplay": true
+    },
+    {
+      "name": "vh_manor_tower",
+      "pos": [
+        18.142879999999998,
+        11.700015259021896,
+        18.26231
+      ],
+      "yaw": 33.690067525979785,
+      "pitch": -4.0,
+      "gameplay": true
+    },
+    {
+      "name": "vh_stone_house_l",
+      "pos": [
+        20.53103,
+        11.700015259021896,
+        -7.616419999999998
+      ],
+      "yaw": 33.690067525979785,
+      "pitch": -4.0,
+      "gameplay": true
+    },
+    {
+      "name": "vh_townhouse",
+      "pos": [
+        1.3341900000000004,
+        11.700015259021896,
+        17.57994
+      ],
+      "yaw": 33.690067525979785,
+      "pitch": -4.0,
+      "gameplay": true
+    },
+    {
+      "name": "vh_timber_house",
+      "pos": [
+        -7.8156,
+        11.700015259021896,
+        -5.7958
+      ],
+      "yaw": 33.690067525979785,
+      "pitch": -4.0,
+      "gameplay": true
+    },
+    {
+      "name": "vh_barn_cottage",
+      "pos": [
+        7.82091,
+        11.700015259021896,
+        -4.068849999999998
+      ],
+      "yaw": 33.690067525979785,
+      "pitch": -4.0,
+      "gameplay": true
+    }
+  ]
+}

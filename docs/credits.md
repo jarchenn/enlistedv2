@@ -955,3 +955,18 @@ Licences read from each GLB's `asset.extras`; checksums and the shippable flag i
 | fantasy_house_with_interior.glb | reference only, not shipped (material language for the art-test house, built from original geometry) | CGMeller | CC-BY-NC-4.0 | https://sketchfab.com/3d-models/fantasy-house-with-interior-68f07f44addf4b44b137e0d2d5a9d0e4 |
 | stone_with_moss.glb | reference only, not shipped | Plutonium.software | CC-BY-NC-4.0 | https://sketchfab.com/3d-models/stone-with-moss-01fce300303645b4aa3086cce3d4250f |
 | reference-photos/*.jpg (3) | colour and coverage reference only, not shipped | unknown | no verified terms | BF rev 3 bundle |
+
+<!-- vh1_assets: written by tools/props/vh1_assets.py -->
+VH1: the user's House Village set, one asset per house.
+
+| Asset | Model | Author | Licence | Source | Changes | In the repo |
+|---|---|---|---|---|---|---|
+| `vh_cottage_shutters` | House Village | remib74 | CC-BY-4.0 | https://sketchfab.com/3d-models/house-village-a5d6dae1ff424adca8978a143769ab2d | modified: turned square, ground-floor doors and windows cut and fitted, lined inside, colliders, baked / textures resized | yes |
+| `vh_cottage_tall` | House Village | remib74 | CC-BY-4.0 | https://sketchfab.com/3d-models/house-village-a5d6dae1ff424adca8978a143769ab2d | modified: turned square, ground-floor doors and windows cut and fitted, lined inside, colliders, baked / textures resized | yes |
+| `vh_longhouse_blue` | House Village | remib74 | CC-BY-4.0 | https://sketchfab.com/3d-models/house-village-a5d6dae1ff424adca8978a143769ab2d | modified: turned square, ground-floor doors and windows cut and fitted, lined inside, colliders, baked / textures resized | yes |
+| `vh_manor_tower` | House Village | remib74 | CC-BY-4.0 | https://sketchfab.com/3d-models/house-village-a5d6dae1ff424adca8978a143769ab2d | modified: turned square, ground-floor doors and windows cut and fitted, lined inside, colliders, baked / textures resized | yes |
+| `vh_stone_house_l` | House Village | remib74 | CC-BY-4.0 | https://sketchfab.com/3d-models/house-village-a5d6dae1ff424adca8978a143769ab2d | modified: turned square, ground-floor doors and windows cut and fitted, lined inside, colliders, baked / textures resized | yes |
+| `vh_townhouse` | House Village | remib74 | CC-BY-4.0 | https://sketchfab.com/3d-models/house-village-a5d6dae1ff424adca8978a143769ab2d | modified: turned square, ground-floor doors and windows cut and fitted, lined inside, colliders, baked / textures resized | yes |
+| `vh_timber_house` | House Village | remib74 | CC-BY-4.0 | https://sketchfab.com/3d-models/house-village-a5d6dae1ff424adca8978a143769ab2d | modified: turned square, ground-floor doors and windows cut and fitted, lined inside, colliders, baked / textures resized | yes |
+| `vh_barn_cottage` | House Village | remib74 | CC-BY-4.0 | https://sketchfab.com/3d-models/house-village-a5d6dae1ff424adca8978a143769ab2d | modified: turned square, ground-floor doors and windows cut and fitted, lined inside, colliders, baked / textures resized | yes |
+<!-- /vh1_assets -->
