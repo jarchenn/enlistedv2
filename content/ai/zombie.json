@@ -1833,6 +1833,228 @@
       "attack_dust": false
     },
     {
+      "note": "NPC4: a civilian, flee type (the user: non-fighting): Mixamo's Ch37 (one T-pose FBX: fbx_takes_merge.py, convert_enemy_glb.py), with Civilian 1's clips retargeted onto it (tools/enemies/retarget_clips.py). It never takes a foe, so it never attacks: it wanders, and runs only when it is hit itself or someone within npc_witness_m in its sight is killed; damage 0. The attack clips are named only because every type names them. height_m is the model's own rest-pose height (scale 1)",
+      "id": "npc_ch37",
+      "name": "Civilian 8 (runs away, pink track jacket)",
+      "model": "npc_ch37",
+      "npc": "flee",
+      "height_m": 1.74,
+      "scale": 1,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 100,
+      "damage": 0,
+      "reach_m": 1.1,
+      "lunge_m": 0.4,
+      "cooldown_s": 0.15,
+      "windup_s": 0.3,
+      "attack_rate": 1.3,
+      "walk_mps": 1.35,
+      "run_mps": 5.2,
+      "run_within_m": 100000,
+      "weight": 0,
+      "hit_zone_scale": 1,
+      "knockback_mps": 0,
+      "stagger_min_damage": 8,
+      "stagger_s": 0.35,
+      "explosive_mult": 1,
+      "npc_wander_m": 12,
+      "npc_witness_m": 15,
+      "npc_flee_m": 35,
+      "npc_calm_s": 20,
+      "npc_fight_hp": 0.5,
+      "clips": {
+        "walk": [
+          "walk",
+          "walk_standard",
+          "walk_briefcase"
+        ],
+        "run": "run_b",
+        "walk_injured": "walk_injured",
+        "run_injured": "run_injured",
+        "idle": [
+          "idle",
+          "idle_talking",
+          "idle_talking_b"
+        ],
+        "attack": [
+          "attack_jab",
+          "attack_cross",
+          "attack_hook"
+        ],
+        "damage": [
+          "hit_head",
+          "hit_head_side",
+          "hit_body",
+          "hit_stomach",
+          "hit_back",
+          "hit_back_b"
+        ],
+        "death": [
+          "death_forward",
+          "death_left",
+          "death_react"
+        ],
+        "unused": "walk_turn180, run_turn180 (turns in place: the game turns the body itself), run (its take curves), flee_lookback (a second run: the type has one run clip)"
+      },
+      "sounds": {
+        "hurt": "player_hurt"
+      },
+      "attack_dust": false
+    },
+    {
+      "note": "NPC4: a civilian, flee type (the user: non-fighting): Mixamo's Ch02 (one T-pose FBX: fbx_takes_merge.py, convert_enemy_glb.py), with Civilian 1's clips retargeted onto it (tools/enemies/retarget_clips.py). It never takes a foe, so it never attacks: it wanders, and runs only when it is hit itself or someone within npc_witness_m in its sight is killed; damage 0. The attack clips are named only because every type names them. height_m is the model's own rest-pose height (scale 1)",
+      "id": "npc_ch02",
+      "name": "Civilian 9 (runs away, orange cat sweatshirt and shorts)",
+      "model": "npc_ch02",
+      "npc": "flee",
+      "height_m": 1.76,
+      "scale": 1,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 100,
+      "damage": 0,
+      "reach_m": 1.1,
+      "lunge_m": 0.4,
+      "cooldown_s": 0.15,
+      "windup_s": 0.3,
+      "attack_rate": 1.3,
+      "walk_mps": 1.35,
+      "run_mps": 5.2,
+      "run_within_m": 100000,
+      "weight": 0,
+      "hit_zone_scale": 1,
+      "knockback_mps": 0,
+      "stagger_min_damage": 8,
+      "stagger_s": 0.35,
+      "explosive_mult": 1,
+      "npc_wander_m": 12,
+      "npc_witness_m": 15,
+      "npc_flee_m": 35,
+      "npc_calm_s": 20,
+      "npc_fight_hp": 0.5,
+      "clips": {
+        "walk": [
+          "walk",
+          "walk_standard",
+          "walk_briefcase"
+        ],
+        "run": "run_b",
+        "walk_injured": "walk_injured",
+        "run_injured": "run_injured",
+        "idle": [
+          "idle",
+          "idle_talking",
+          "idle_talking_b"
+        ],
+        "attack": [
+          "attack_jab",
+          "attack_cross",
+          "attack_hook"
+        ],
+        "damage": [
+          "hit_head",
+          "hit_head_side",
+          "hit_body",
+          "hit_stomach",
+          "hit_back",
+          "hit_back_b"
+        ],
+        "death": [
+          "death_forward",
+          "death_left",
+          "death_react"
+        ],
+        "unused": "walk_turn180, run_turn180 (turns in place: the game turns the body itself), run (its take curves), flee_lookback (a second run: the type has one run clip)"
+      },
+      "sounds": {
+        "hurt": "player_hurt"
+      },
+      "attack_dust": false
+    },
+    {
+      "note": "NPC4: a civilian, flee type (the user: non-fighting): Mixamo's Ch21 (one T-pose FBX: fbx_takes_merge.py, convert_enemy_glb.py), with Civilian 1's clips retargeted onto it (tools/enemies/retarget_clips.py). It never takes a foe, so it never attacks: it wanders, and runs only when it is hit itself or someone within npc_witness_m in its sight is killed; damage 0. The attack clips are named only because every type names them. height_m is the model's own rest-pose height (scale 1)",
+      "id": "npc_ch21",
+      "name": "Civilian 10 (runs away, blue shirt and tan trousers)",
+      "model": "npc_ch21",
+      "npc": "flee",
+      "height_m": 1.76,
+      "scale": 1,
+      "lean_deg": 0,
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "hp": 100,
+      "damage": 0,
+      "reach_m": 1.1,
+      "lunge_m": 0.4,
+      "cooldown_s": 0.15,
+      "windup_s": 0.3,
+      "attack_rate": 1.3,
+      "walk_mps": 1.35,
+      "run_mps": 5.2,
+      "run_within_m": 100000,
+      "weight": 0,
+      "hit_zone_scale": 1,
+      "knockback_mps": 0,
+      "stagger_min_damage": 8,
+      "stagger_s": 0.35,
+      "explosive_mult": 1,
+      "npc_wander_m": 12,
+      "npc_witness_m": 15,
+      "npc_flee_m": 35,
+      "npc_calm_s": 20,
+      "npc_fight_hp": 0.5,
+      "clips": {
+        "walk": [
+          "walk",
+          "walk_standard",
+          "walk_briefcase"
+        ],
+        "run": "run_b",
+        "walk_injured": "walk_injured",
+        "run_injured": "run_injured",
+        "idle": [
+          "idle",
+          "idle_talking",
+          "idle_talking_b"
+        ],
+        "attack": [
+          "attack_jab",
+          "attack_cross",
+          "attack_hook"
+        ],
+        "damage": [
+          "hit_head",
+          "hit_head_side",
+          "hit_body",
+          "hit_stomach",
+          "hit_back",
+          "hit_back_b"
+        ],
+        "death": [
+          "death_forward",
+          "death_left",
+          "death_react"
+        ],
+        "unused": "walk_turn180, run_turn180 (turns in place: the game turns the body itself), run (its take curves), flee_lookback (a second run: the type has one run clip)"
+      },
+      "sounds": {
+        "hurt": "player_hurt"
+      },
+      "attack_dust": false
+    },
+    {
       "note": "KN8: AI type Knight 8 (32): Knight 4 (the beaked-visor helm) with a 2.2 m halberd on the extra joint mixamorig:Weapon (keyed in every clip), the Great Sword Pack clips mapped as Knight 4 (content/characters/knight_8.glb; root motion pinned by tools/enemies/knight2_prep.py; credits in docs/credits.md). Strike: on the halberd's head (bone + at)",
       "id": "knight8",
       "hit_fx": "sparks",

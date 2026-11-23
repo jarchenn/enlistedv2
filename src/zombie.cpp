@@ -405,7 +405,7 @@ void npcHurt(Game& G, int victim, int attacker) {
     const EnemyType& e = enemyType(v.etype); int r = npcReact(v.npc, v.hp, e.hp, e.npcFightHp);
     if (r == 1 && by && !G.sold[attacker].npc) { v.npcFoe = attacker; v.npcCalmAt = 0; } else if (r == 2) npcFlee(G, v, from);
   }
-  for (auto& o : G.sold)   // flee types who see someone near them hurt (within npc_witness_m, a clear line to the chest)
+  if (v.hp <= 0) for (auto& o : G.sold)   // NPC4 (the user): flee types run only once someone near them is killed (within npc_witness_m, a clear line to the chest), not at a mere hurt; npcHurt runs before killSoldier, so hp <= 0 is this death
     if (o.alive && o.npc == 2 && &o != &v && glm::length(o.feet - v.feet) < enemyType(o.etype).npcWitness && G.lineOfSight(G.eye(o), G.chest(v))) npcFlee(G, o, from);
 }
 // a civilian with no one to fight: flees from npcFrom until npcCalmAt (running, re-aimed every 2 s), then wanders round its home
@@ -998,6 +998,8 @@ int ar1SelfCheck() {
       if (g.size() > 20) { uint32_t nn = 0; std::memcpy(&nn, g.data() + 12, 4); json J; try { J = json::parse(g.substr(20, nn)); } catch (...) {} for (auto& x : J.value("animations", json::array())) anims.insert(x.value("name", std::string())); }
       std::vector<std::string> need = t.walkClips; need.push_back(t.runClip); need.push_back(t.walkInjured); need.push_back(t.runInjured); for (auto* v : {&t.idleClips, &t.attackClips, &t.damageClips, &t.deathClips}) need.insert(need.end(), v->begin(), v->end());
       for (auto& c : need) clipsOk = clipsOk && anims.count(c); }
+    { bool fl = true; for (const char* id : {"npc_ch37", "npc_ch02", "npc_ch21"}) { int k = enemyTypeIndex(id); fl = fl && k >= 0 && enemyType(k).npc == 2 && enemyType(k).damage == 0 && fs::exists(contentDir() / "characters" / (enemyType(k).model + ".glb")); }
+      chk(fl, "Civilians (NPC4): npc_ch37, npc_ch02 and npc_ch21 are flee types (never take a foe), damage 0, their GLBs present"); }
     chk(clipsOk && nNpc >= 7, "Civilians (NPC1/2): npc_ch31 is a fighter, AI type Civilians picks a civilian type, " + std::to_string(nNpc) + " civilian types, every clip each names is in its GLB"); }
   {   // HS1: the Mounted Knight's horse sounds: 5 snorts, a neigh, a death whinny, 6 hoof falls (custom/horse)
     int files = 0; for (const char* f : {"snort_1", "snort_2", "snort_3", "snort_4", "snort_5", "neigh", "death", "step_1", "step_2", "step_3", "step_4", "step_5", "step_6"}) files += fs::exists(contentDir() / "audio" / "custom" / "horse" / (std::string(f) + ".mp3"));
