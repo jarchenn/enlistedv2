@@ -147,10 +147,13 @@ struct MuzzleFx {
   float sideSize = 0.4f, sideSpeed = 4.0f, foreSize = 0.5f; vec2 foreSpeed{3, 8};
   float alpha = 0.28f; vec2 life{1.2f, 2.4f}; float grow = 2.2f, lift = 0.35f, drag = 2.2f, fadePow = 1.6f; vec3 col{0.6f, 0.58f, 0.55f};
 };
+struct SmallArmsFx {   // WS1: a WW2 small arm's firing smoke (Fx::gunSmoke); the per-gun budget caps automatic fire
+  int puffs = 3; float size = 0.13f, alpha = 0.24f; vec2 life{1.2f, 2.2f}, speed{1.2f, 3.0f}; float grow = 0.9f, lift = 0.15f, drag = 2.5f, fadePow = 1.3f, rate = 4.0f, burst = 6.0f; vec3 col{0.63f, 0.61f, 0.58f};
+};
 struct BackblastFx { int puffs = 5; float offset = 1.4f, size = 0.25f; vec2 speed{3, 5}; float alpha = 0.4f; vec2 life{1.0f, 1.5f}; float grow = 1.8f, lift = 0.3f, fadePow = 1.3f; vec3 col{0.55f, 0.53f, 0.5f}; };
 vec2 jv2(const json& j, const char* k, vec2 d) { return j.contains(k) && j[k].is_array() && j[k].size() >= 2 ? vec2(j[k][0].get<float>(), j[k][1].get<float>()) : d; }
 struct FxSettings {
-  MuzzleFx m; BackblastFx b;
+  MuzzleFx m; BackblastFx b; SmallArmsFx sa;
   FxSettings() {
     json j; try { j = json::parse(readTextFile(contentDir() / "settings" / "fx.json")); } catch (std::exception& e) { logf("fx: settings/fx.json: %s (defaults)", e.what()); return; }
     if (j.contains("muzzle")) {
@@ -162,6 +165,12 @@ struct FxSettings {
       m.foreSpeed = jv2(q, "foreSpeed", m.foreSpeed); m.alpha = q.value("alpha", m.alpha); m.life = jv2(q, "life", m.life);
       m.grow = q.value("grow", m.grow); m.lift = q.value("lift", m.lift); m.drag = q.value("drag", m.drag); m.fadePow = q.value("fadePow", m.fadePow);
       m.col = jvec3(q.value("colour", json()), m.col);
+    }
+    if (j.contains("smallArms")) {
+      const json& q = j["smallArms"];
+      sa.puffs = q.value("puffs", sa.puffs); sa.size = q.value("size", sa.size); sa.alpha = q.value("alpha", sa.alpha); sa.life = jv2(q, "life", sa.life); sa.speed = jv2(q, "speed", sa.speed);
+      sa.grow = q.value("grow", sa.grow); sa.lift = q.value("lift", sa.lift); sa.drag = q.value("drag", sa.drag); sa.fadePow = q.value("fadePow", sa.fadePow);
+      sa.rate = q.value("perGunPuffsPerSecond", sa.rate); sa.burst = q.value("perGunBurst", sa.burst); sa.col = jvec3(q.value("colour", json()), sa.col);
     }
     if (j.contains("backblast")) {
       const json& q = j["backblast"];
@@ -197,6 +206,22 @@ void Fx::muzzle(vec3 p, vec3 dir, float scale, const char* gun) {
     for (int i = 0; i < m.sidePuffs; ++i) puff(p + side * 0.3f, (side * m.sideSpeed + dir * 1.5f + vec3(0, 0.5f, 0)) * (0.6f + rnd()), m.sideSize * scale);
   }
   for (int i = 0; i < m.forePuffs; ++i) puff(p + dir * 0.6f * scale, dir * glm::mix(m.foreSpeed.x, m.foreSpeed.y, rnd()) + vec3(rnd() - 0.5f, rnd(), rnd() - 0.5f), m.foreSize * scale);
+}
+void Fx::gunSmoke(vec3 p, vec3 dir, float k, int gun) {
+  if (!ww2Smoke || k <= 0) return;
+  const SmallArmsFx& s = fxSettings().sa;
+  auto [it, fresh] = smokeBudget.try_emplace(gun, vec2(s.burst, (float)clock));
+  vec2& b = it->second; if (!fresh) b.x = std::min(s.burst, b.x + std::max(0.0f, (float)clock - b.y) * s.rate); b.y = (float)clock;   // topped up at `rate` puffs / s, at most `burst`
+  const int n = std::min((int)std::floor(b.x), (int)std::lround(s.puffs * std::min(k, 2.0f)));   // automatic fire: the budget, not the shots, sets how many
+  if (n <= 0) return;
+  b.x -= (float)n;
+  dir = glm::length(dir) > 1e-4f ? glm::normalize(dir) : vec3(0, 0, 1);
+  for (int i = 0; i < n; ++i) {
+    if (!admit()) return;
+    Particle q; q.p = p + dir * (0.04f + 0.12f * rnd()); q.v = dir * glm::mix(s.speed.x, s.speed.y, rnd()) + vec3(rnd() - 0.5f, 0.3f * rnd() + 0.1f, rnd() - 0.5f) * 0.5f;
+    q.size = s.size * (0.7f + 0.6f * rnd()) * std::sqrt(std::min(k, 2.0f)); q.life = q.maxLife = glm::mix(s.life.x, s.life.y, rnd());
+    q.col = vec4(s.col * (0.95f + 0.1f * rnd()), s.alpha); q.grow = s.grow; q.lift = s.lift; q.drag = s.drag; q.fade = s.fadePow; parts.push_back(q);
+  }
 }
 void Fx::backblast(vec3 p, vec3 back) {
   const BackblastFx& b = fxSettings().b;
@@ -659,6 +684,14 @@ int fxEventSelfCheck(int& fails) {
   std::snprintf(buf, sizeof buf, "dry sand vs shallow water (105 mm): dust %d / %d, grains %d / %d, clods %d / %d, fireball x%.2f / x%.2f",
                 sand.dust, wat.dust, sand.grains, wat.grains, sand.clods, wat.clods, sand.fireK, wat.fireK);
   check(sand.dust > 10 * std::max(1, wat.dust - 0) && wat.dust >= 1 && sand.grains > 0 && wat.grains == 0 && wat.clods == 0 && wat.fireK < sand.fireK, buf);
+  {   // WS1: the WW2 small-arms smoke: three puffs a shot, the per-gun budget (6, topped up at 4 / s) caps automatic fire, modern guns (k 0) and the switch off make none
+    Fx g; g.maxParts = 100000; g.clock = g.presentT = 5.0; auto live = [&] { return (int)g.parts.size(); };
+    g.gunSmoke(vec3(0), vec3(0, 0, 1), 1.0f, 7); const int a = live(); g.gunSmoke(vec3(0), vec3(0, 0, 1), 1.0f, 7); const int b = live(); g.gunSmoke(vec3(0), vec3(0, 0, 1), 1.0f, 7); const int c = live();
+    int mg = 0; for (int k = 0; k < 20; ++k) { g.clock += 0.05; const int n0 = live(); g.gunSmoke(vec3(0), vec3(0, 0, 1), 1.0f, 9); mg += live() - n0; }   // an MG 42 second: 20 shots
+    g.gunSmoke(vec3(0), vec3(0, 0, 1), 0.0f, 11); const int d = live(); g.ww2Smoke = false; g.gunSmoke(vec3(0), vec3(0, 0, 1), 1.0f, 12); const int e = live();
+    bool fwd = true; for (int k = 0; k < a; ++k) fwd = fwd && g.parts[k].v.z > 0.5f && g.parts[k].maxLife >= 1.0f && g.parts[k].col.a > 0.1f;
+    check(a == 3 && b == 6 && c == 6 && mg >= 6 && mg <= 10 && d == e && fwd, "WS1 WW2 small-arms smoke: 3 puffs a shot, a 4th shot at once makes none (budget 6), an MG 42 second of 20 shots makes " + std::to_string(mg) + " (6 + 4 / s), drifting forward, 1 s or longer; k 0 and the switch off make none");
+  }
   return fails;
 }
 
