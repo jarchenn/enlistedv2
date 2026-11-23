@@ -435,7 +435,7 @@ void CharModel::destroy() {
 bool CharInstance::create(const CharModel& m, bool vsSkin) {
   model = &m;
   view.mats = m.gpu.mats; view.parts = m.gpu.parts; view.ebo = m.gpu.ebo; view.bmin = m.gpu.bmin; view.bmax = m.gpu.bmax; view.tris = m.gpu.tris;
-  vs = vsSkin && m.restSsbo && m.joints() > 0; lastFrame = -10; pal.clear();
+  vs = vsSkin && m.restSsbo && m.joints() > 0; lastFrame = -10; pal.clear(); frameSkinned = -1;   // V3: a re-created instance skins on its next draw
   if (vs) {   // V1 vsskin: the vertex shader reads the type's rest vertices by gl_VertexID; this soldier holds only its two palettes
     glCreateVertexArrays(1, &view.vao); glVertexArrayElementBuffer(view.vao, view.ebo); glCreateBuffers(1, &jointSsbo);
     gpuBytes = 2 * (size_t)m.joints() * sizeof(mat4);

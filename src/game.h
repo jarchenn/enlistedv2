@@ -87,7 +87,7 @@ struct Soldier {
   int helmetLvl = 0, vestLvl = 0, backpack = 0;   // BR2 Battle Royale: worn armour levels 0-3, backpack 0 none / 1 / 2 military (BR3 draws them)
   int cls = -1, clsPick[2] = {0, 0};          // GM1: class (classes.h index, -1 = none) and its primary / secondary choice
   float throwT = -1; int throwKind = 0; vec3 throwTarget{0}; vec3 throwVel{0}; bool throwReleased = false;
-  int model = -1; CharInstance ci; bool ciReady = false; PoseResult pose; float walkPhase = 0, recoil = 0, crouchBlend = 0;
+  int model = -1; CharInstance ci; bool ciReady = false; double ciDrawnT = 0; PoseResult pose; float walkPhase = 0, recoil = 0, crouchBlend = 0;
   float anProne = 0;   // AN1 step 3: the prone blend (was a one-frame switch)
   // AN1 step 3b: foot planting: a planted foot's world anchor, the point a releasing foot blends from, lock / standing re-step flags,
   // the release blend's clock (-1 none) and length (s)
@@ -120,6 +120,7 @@ class Game {
 public:
   explicit Game(App& a) : app(a) {}
   App& app;
+  double skinFreeAt = 0;   // V3 skinfree: the next sweep for skins not drawn lately
   Match match;
   Nav nav;
   Grenades gren;

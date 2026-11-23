@@ -1434,6 +1434,12 @@ void Game::worldChanged(vec3 lo, vec3 hi) {
 void Game::drawItems() {
   app.R.smokeSigma = 0;
   if (!active) return;
+  // V3 skinfree: a soldier not drawn for 10 s (out of range, behind, long dead) gives its skin back; it is made again on its
+  // next draw from the pose it holds (8.3 KB vsskin, 1.4-3.8 MB compute): skins scale with soldiers seen, not soldiers alive
+  if (app.R.perf.skinFree && (t >= skinFreeAt || t + 2.0 < skinFreeAt)) {
+    skinFreeAt = t + 1.0;
+    for (auto& s : sold) if (s.ciReady && !s.localPlayer && t - s.ciDrawnT > 10.0) { s.ci.destroy(); s.ciReady = false; }
+  }
   app.R.smokeSigma = gren.sigmaAt(app.eyePos(), t);   // weather 7: the fog inside a smoke cloud (the near sprites fade out)
   double life = jkey(combat, "corpses").value("seconds", 40.0);
   drops.erase(std::remove_if(drops.begin(), drops.end(), [&](const Drop& d) { return t - d.t > life; }), drops.end());
@@ -1478,6 +1484,7 @@ void Game::drawItems() {
     } selfMove{app, selfShadow, app.R.worldModels.size(), app.worldBoxDraws.size(), app.R.heatDraws.size()};
     // PF1: a far pack follower in step with its leader draws the leader's skinned mesh (zombie.cpp aiZombiePose)
     Soldier* src = s.poseFrom >= 0 && s.poseFrom < (int)sold.size() && sold[s.poseFrom].ciReady && sold[s.poseFrom].ci.frameSkinned >= 0 ? &sold[s.poseFrom] : &s;
+    s.ciDrawnT = src->ciDrawnT = t;   // V3 skinfree
     if (src != &s || (!s.alive && t - s.diedAt > (s.zombie || s.gunBody ? 3.5 : 2.0) && s.ciReady && s.ci.frameSkinned >= 0)) {}   // settled corpse: keep the last skin
     else {
       if (!s.ciReady) { s.ci.create(*models[s.model], app.R.perf.vsSkin); s.ciReady = true; }   // V1 vsskin
