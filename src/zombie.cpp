@@ -842,7 +842,7 @@ void aiZombieDead(Game& G, Soldier& s) {
   if (s.mountDeath < 0) s.mountDeath = e.horseHp > 0 ? 0 : std::find(e.horseKinds.begin(), e.horseKinds.end(), s.lastHow) != e.horseKinds.end() ? 1 : 0;   // HK3: with its own horse health a death not marked by damage() is the rider's
   if (s.mountDeath != 1) return;
   const CharModel& m = *G.models[s.model]; const int k = findClip(m, e.horseDeathClip.c_str()); const int ft = enemyTypeIndex(e.footType);
-  if (k < 0 || ft < 0) { s.mountDeath = 2; return; }
+  if (k < 0 || ft < 0) { s.mountDeath = 2; G.match.onDeath(s.slot, s.killer); return; }   // HK5: no hand-over: the slot's death after all
   if (G.t - s.diedAt < m.clips[k].dur + 0.1) return;
   auto hc = std::make_unique<Game::HorseCorpse>();
   if (hc->ci.create(m)) {
@@ -987,6 +987,9 @@ int ar1SelfCheck() {
     chk(km >= 0 && side, "knight10m (HK1): the right thrust faces 44 deg past its target, its sphere on the spear tip");
     chk(km >= 0 && enemyType(km).horseDeathClip == "horse_death" && enemyTypeIndex(enemyType(km).footType) >= 0 && !enemyType(km).horseKinds.empty() && !enemyType(km).corpseHide.empty(), "knight10m (HK2): horse_death goes on foot as a known type");
     chk(km >= 0 && enemyType(km).horseHp > 0 && enemyType(km).horseZones.size() >= 10, "knight10m (HK3): the horse's own health and hit capsules");
+    { Soldier d; d.alive = false; d.mountDeath = 1; Soldier r = d; r.mountDeath = 0; Soldier n = d; n.mountDeath = -1; Soldier g = d; g.mountDeath = 2;   // HK5
+      chk(Game::rosterAlive(d) && !Game::rosterAlive(r) && !Game::rosterAlive(n) && !Game::rosterAlive(g) && km >= 0 && enemyTypeIndex(enemyType(km).footType) >= 0,
+          "knight10m (HK5): the horse going down is not the slot's death (no respawn queued during the horse death; the rider shot off still is one); its foot type exists"); }
     chk(km >= 0 && enemyType(km).warmup > 0 && enemyType(km).groundMps.count(enemyType(km).runClip) && enemyType(km).groundMps.count(enemyType(km).walkClips[0]), "knight10m (KG1 / KG3): a walk warm-up, the hooves' ground speed for the walk and the gallop"); }
   { int bad = 0; for (int i = 1; i <= 10; ++i) { int kk = enemyTypeIndex(i == 1 ? "knight" : "knight" + std::to_string(i)); if (kk < 0) { ++bad; continue; } const EnemyType& t = enemyType(kk); bad += t.walkClips.size() != 1 || t.walkClips[0] != t.runClip || t.runWithin < 1e4f; }
     chk(bad == 0, "Knights 1-10 (KG2): the run clip at every pace, always the run speed"); }
