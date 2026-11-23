@@ -211,6 +211,7 @@ public:
   bool hitTest(const Soldier& s, vec3 a, vec3 d, float maxT, HitZone& hz) const;
   bool coarseHit(const Soldier& s, vec3 a, vec3 d) const;   // CP: hitTest's bounding sphere only
   int soldierOfOwner(int owner) const;
+  static bool rosterAlive(const Soldier& s) { return s.alive || s.mountDeath == 1; }   // HK5: a mounted knight whose horse is down is not dead to the match: the same slot goes on on foot (no respawn, no death counted)
   bool sameTeam(int a, int b) const { return a >= 0 && b >= 0 && sold[a].team == sold[b].team; }
   static bool hostile(const Soldier& a, const Soldier& b) {   // G1: every enemy check; CMD2: an AI never takes the /admin (ignored) or anyone (/peace) for an enemy
     if (a.npc || b.npc) return &a != &b && !(a.npc && b.npc) && (a.npc ? a.npcFoe == b.slot : b.npcFoe == a.slot) && !(!a.human && gAdmin.peace);   // NPC1: a civilian is nobody's enemy but the one it fights back

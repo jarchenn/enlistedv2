@@ -173,6 +173,7 @@ bool eggsSelfTest(App& a, float dt) {
   if (mode != 1) return false;
   if (dt < 0) return true;
   static int stage = 0; static float t = 0; static int want = 0;
+  static bool good = false; static int hk = -1; static vec3 hk0(0), hk1(0); static size_t corp0 = 0;   // HK5
   auto finish = [&](int code) { if (!a.selftest->done) { a.selftest->exitCode = code; a.selftest->done = true; } return true; };
   t += dt;
   if (stage == 0) {
@@ -196,7 +197,36 @@ bool eggsSelfTest(App& a, float dt) {
   if (stage == 2 && t > 5.0f) {   // 5 s of the sandbox stepping (eggsUpdate via updateCreative)
     int alive = 0, finite = 0; for (auto& s : gGame->sold) { alive += s.alive; finite += std::isfinite(s.feet.x) && std::isfinite(s.feet.y) && std::isfinite(s.feet.z); }
     logf("[eggs] after 5 s: %zu soldiers, %d alive, %d finite, sandbox steps %llu", gGame->sold.size(), alive, finite, (unsigned long long)gGame->steps);
-    bool good = finite == (int)gGame->sold.size() && gGame->steps > 0;
+    good = finite == (int)gGame->sold.size() && gGame->steps > 0;
+    // HK5: the Mounted Knight's horse is brought down (the others frozen, so nothing else hurts him): the horse must stay as a
+    // corpse and the same slot go on on foot where he landed, and still be there 10 s later
+    E.frozen = true;
+    for (auto& s : gGame->sold) if (hk < 0 && s.alive && s.zombie && enemyType(s.etype).id == "knight10m") hk = s.slot;
+    if (hk >= 0) {
+      hk0 = gGame->sold[hk].feet; corp0 = gGame->horseCorpses.size(); gGame->damage(hk, 100000.0f, -1, vec3(1, 0, 0), "blast");
+      const bool down = !gGame->sold[hk].alive && gGame->sold[hk].mountDeath == 1 && gGame->match.slots[hk].alive;
+      logf("[eggs] HK5 horse down: %s (slot %d, roster %s)", down ? "ok" : "FAIL", hk, gGame->match.slots[hk].alive ? "alive" : "dead"); good = good && down;
+      stage = 3; t = 0; return true;
+    }
+    logf("[eggs] HK5 skipped: no Mounted Knight egg alive");
+    stage = 5; t = 0; return true;
+  }
+  if (stage == 3 && t > 4.5f) {   // past the 3.1 s horse death
+    const Soldier& s = gGame->sold[hk]; hk1 = s.feet;
+    const bool ok = s.alive && enemyType(s.etype).id == "knight10" && s.hp > 0 && gGame->match.slots[hk].alive && !gGame->match.slots[hk].pending
+                    && gGame->horseCorpses.size() == corp0 + 1 && !gGame->horseCorpses.back()->parts.empty() && glm::length(s.feet - hk0) < 6.0f;
+    logf("[eggs] HK5 on foot: %s (alive %d, type %s, hp %.0f, %zu horse corpses with %zu parts drawn, %.1f m from where the horse fell)", ok ? "ok" : "FAIL", (int)s.alive,
+         enemyType(s.etype).id.c_str(), s.hp, gGame->horseCorpses.size(), gGame->horseCorpses.empty() ? (size_t)0 : gGame->horseCorpses.back()->parts.size(), glm::length(s.feet - hk0));
+    good = good && ok; stage = 4; t = 0; return true;
+  }
+  if (stage == 4 && t > 10.0f) {
+    const Soldier& s = gGame->sold[hk];
+    const bool ok = s.alive && s.hp > 0 && gGame->horseCorpses.size() == corp0 + 1 && glm::length(s.feet - hk1) < 3.0f;
+    logf("[eggs] HK5 10 s later: %s (alive %d, %zu horse corpses, moved %.1f m)", ok ? "ok" : "FAIL", (int)s.alive, gGame->horseCorpses.size(), glm::length(s.feet - hk1));
+    good = good && ok; stage = 5; t = 0; return true;
+  }
+  if (stage == 5) {
+    E.frozen = false;
     eggsEnd(a);
     bool cleared = !gGame->active && gGame->sold.empty();
     logf("[eggs] clear: %s", cleared ? "ok" : "FAIL");

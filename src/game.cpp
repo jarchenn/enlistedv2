@@ -699,8 +699,10 @@ void Game::killSoldier(int i, int killer, vec3 dir) {
     if (drops.size() > 24) drops.erase(drops.begin());
   }
   if (killer == localSlot && killer != i && hostile(sold[killer], s)) killMarker = 0.6f;   // red marker: enemy down
+  if (!rosterAlive(s)) {   // HK5: not for a horse going down (the roster queued a respawn 3 s into the 3.2 s horse death: the dying pair jumped to a spawn point)
   match.onDeath(i, killer);
-  if (match.mode() == GameMode::SearchDestroy) sdOnKill(*this, i, killer, s.lastHow);   // SD1: rewards, the dropped bomb
+  if (match.mode() == GameMode::SearchDestroy) sdOnKill(*this, i, killer, s.lastHow);
+  }   // SD1: rewards, the dropped bomb
   if (killer >= 0 && killer != i) ++kills;
   for (auto& o : sold) if (o.br.target == i) o.br.target = -1;
   for (auto& d : defSpots) if (d.heldBy == i) d.heldBy = -1;
@@ -1128,7 +1130,7 @@ void Game::step(float dt) {
     L->speed = glm::length(vec2(L->vel.x, L->vel.z));
   }
   // occupancy sample at step start (capture precedence uses it)
-  for (auto& s : sold) match.reportAlive(s.slot, s.alive, s.feet);
+  for (auto& s : sold) match.reportAlive(s.slot, rosterAlive(s), s.feet);
   sdStep(*this, dt);   // SD1: rounds, the bomb, the economy (respawns at a round start go through stepRest)
   if (gPosePerStep) { crumb("game: poses"); drawAlpha = 1; posesStep(dt); }
   crumb("game: doors");
