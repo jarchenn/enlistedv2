@@ -529,7 +529,8 @@ public:
   bool ssaoFull() const { return aoDiv == 1; }
   int displayW = 0, displayH = 0;
   float smokeSigma = 0; vec3 smokeCol{0.62f, 0.62f, 0.61f};   // weather 7: smoke extinction (1/m) at the eye and its colour (uSmokeSigma / uSmokeCol, for applyFog; set each frame by the game)
-  void resetTemporal() { taaValid = false; }   // camera cut / teleport / mode switch
+  void resetTemporal() { taaValid = false; }
+  void mapOpened() { wx.strikeT = -1; wx.flashes.clear(); expoFreezeUntil = -1.0f; expoReset = 1.0f; wxPresetPrev = -99; }   // WD2: a newly opened map starts as if loaded first: exposure 1.0 (as at start-up), no lightning or exposure hold, nothing carried from the last map's light   // camera cut / teleport / mode switch
   // Mac hook (MetalFX temporal scaler, rendering.md 14.4): when set and it returns true, it replaced the GL TAAU shader
   // exposure: the engine's 1x1 R32F exposure (last frame's; the tonemap multiplies the HDR colour by it)
   struct TemporalUpscale { GLuint color, depth, motion, outColor, outDepth, exposure; int inW, inH, outW, outH; vec2 jitterPx; mat4 invVP, prevVP; bool reset; };

@@ -131,9 +131,13 @@ void weatherDerive(Renderer& R, vec3 eye) {
     const float az = 6.2831853f * rnd(), hd = std::sqrt(std::max(W.strikeDistM * W.strikeDistM - 1200.0f * 1200.0f, 0.0f));
     W.flashes.push_back({eye + vec3(std::cos(az) * hd, 1200.0f, std::sin(az) * hd), W.strikeT, W.strikeDistM});
   }
+  // WD2: the clock is the match's (gGame->t): a new match or map starts it again at 0, so a strike from the last one lay in the
+  // future. a < 0 made exp(-a / 0.05) overflow to inf: an infinite flash in the sky light, every lit pixel non-finite (black),
+  // the exposure frozen each frame (fxexpo holds through lightning), until the new clock passed the old strike (the user:
+  // Thunderstorm, then another map, all black). A strike ahead of the clock is dropped; the flash lives 0-1 s after it, finite
+  if (W.strikeT >= 0 && R.cloudClock() < W.strikeT) { W.strikeT = -1; W.flashes.clear(); }
   if (R.perf.lightning && phys && W.strikeT >= 0) {
     float a = R.cloudClock() - W.strikeT, near = 1.0f - std::min(W.strikeDistM / 8000.0f, 0.9f);
-    d.flash = near * (std::exp(-a / 0.05f) + (a > 0.12f ? 0.7f * std::exp(-(a - 0.12f) / 0.08f) : 0.0f));
-    if (a > 1.0f) d.flash = 0;
+    if (a >= 0.0f && a <= 1.0f) d.flash = std::clamp(near * (std::exp(-a / 0.05f) + (a > 0.12f ? 0.7f * std::exp(-(a - 0.12f) / 0.08f) : 0.0f)), 0.0f, 2.0f);
   }
 }

@@ -728,6 +728,7 @@ bool App::openMap(const fs::path& p) {
   LoadingJob lj(*this, title, "Loading map", 3, tp ? tp->thumbnail : 0, tp ? tp->id : std::string());   // UI2: read, build, furnish
   LoadStep lsAll("openMap");
   if (!loadMap(p, d, err)) { toast("Could not open map: " + err, 8); return false; }
+  R.mapOpened();   // WD2
   if (mode == Mode::Explore) exitExplore();
   clearRuntime();
   placing = nullptr; { double c0 = processMemory().PrivateBytes / 1048576.0; int n = lib.releaseAll(); crumb("heap trim"); if (n) trimHeap(); if (n) logf("assets: %d released with the old map (commit %.0f -> %.0f MB)", n, c0, processMemory().PrivateBytes / 1048576.0); }   // MEM2: the new map builds what it uses

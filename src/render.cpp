@@ -7637,12 +7637,12 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     float rs = 1.0f;
     if (!thumbMode) {
       const bool sw = wx.der.preset != wxPresetPrev || wx.der.phys != wxPhysPrev;
-      if (sw && perf.wxCarry && wxPresetPrev != -99 && wxLvlPrev > 1e-6f && lvl > 1e-6f) {
+      if (sw && perf.wxCarry && wxPresetPrev != -99 && wxLvlPrev > 1e-6f && lvl > 1e-6f && std::isfinite(lvl) && std::isfinite(wxLvlPrev) && wx.der.flash < 0.01f) {   // WD2: never across a non-finite or flash-lit frame
         rs = std::clamp((key / lvl) / (wxKeyPrev / wxLvlPrev), 1.0f / 64.0f, 64.0f);
         logf("wxcarry: weather %d -> %d (phys %d -> %d): level light %.4f -> %.4f, key %.3f -> %.3f: exposure x%.2f", wxPresetPrev, wx.der.preset, wxPhysPrev ? 1 : 0, wx.der.phys ? 1 : 0, wxLvlPrev, lvl, wxKeyPrev, key, rs);
       }
       wxPresetPrev = wx.der.preset; wxPhysPrev = wx.der.phys;
-      if (wx.der.flash < 0.01f || sw) { wxLvlPrev = lvl; wxKeyPrev = key; }   // a lightning flash lifts this frame's sky: not the weather's light (leaving a storm mid-flash started the next one dark)
+      if (std::isfinite(lvl) && (wx.der.flash < 0.01f || sw)) { wxLvlPrev = lvl; wxKeyPrev = key; }   // a lightning flash lifts this frame's sky: not the weather's light (leaving a storm mid-flash started the next one dark)
     }
     glUniform1f(U(progExpo, "uRescale"), rs);
   }
