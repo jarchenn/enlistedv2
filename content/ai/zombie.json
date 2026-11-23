@@ -749,7 +749,7 @@
       "hit_fx": "sparks",
       "name": "Knight 4",
       "model": "knight_4",
-      "height_m": 2.9293,
+      "height_m": 2.6364,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
@@ -2210,7 +2210,7 @@
       "hit_fx": "sparks",
       "name": "Knight 8",
       "model": "knight_8",
-      "height_m": 2.7951,
+      "height_m": 2.5156,
       "scale": 1,
       "lean_deg": 0,
       "tint": [
