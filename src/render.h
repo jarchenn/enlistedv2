@@ -371,6 +371,7 @@ public:
     bool leafDrift = true;       // leafdrift (WS2): drifting leaves near broadleaf / orchard trees (count: Quality::leafDriftN)
     bool hashAlpha = false;      // hashalpha (VO A1): cut-out leaves / grass with a dithered threshold under TAA (Medium / High), width NMK_HASH_SPREAD (0.2); off: no gain over cutoutMips (A1 sheets), kept for A/B
     bool folTrans = true;        // foltrans (VO L4): two-sided translucency on model foliage (Lighting New)
+    bool cutLamp = true;         // cutlamp (GL1): local lights on alpha-tested model foliage take roughness >= 0.6 (no headlamp glitter)
     bool agx = true;             // agx (VO L8): AgX-style curve, the grade from a LUT, 13-tap bloom downsample (Lighting New)
     bool histExpo = true;        // histexpo (VO L8): histogram auto exposure (Lighting New)
     bool skyRelit = true;        // skyrelit (VO L6): GI probes store sky visibility and are relit each frame from the sky colour (Lighting New)
@@ -485,7 +486,7 @@ public:
               // One line per stream, each followed by a comment line, so two streams appending names no longer conflict in merges.
               : n == "tnormal" ? &terrainNormals : n == "tmorph" ? &terrainMorph : n == "tskyview" ? &terrainSkyView : n == "ttilelod" ? &terrainTileLod : n == "thorizon" ? &terrainHorizon
               // ^ stream T (terrain): append to the line above
-              : n == "contactsh" ? &contactShadow : n == "fullshadow" ? &fullShadow : n == "gtao" ? &gtao : n == "midcascade" ? &midCascade : n == "microsh" ? &microShadow : n == "foltrans" ? &folTrans : n == "agx" ? &agx : n == "histexpo" ? &histExpo : n == "skyrelit" ? &skyRelit : n == "atmo" ? &atmo : n == "reflprobe" ? &reflProbe : n == "wxexpo" ? &wxExpo : n == "nightdark" ? &nightDark : n == "roomdark" ? &roomDark : n == "dustvis" ? &dustVis : n == "overcastsun" ? &overcastSun
+              : n == "contactsh" ? &contactShadow : n == "fullshadow" ? &fullShadow : n == "gtao" ? &gtao : n == "midcascade" ? &midCascade : n == "microsh" ? &microShadow : n == "foltrans" ? &folTrans : n == "agx" ? &agx : n == "histexpo" ? &histExpo : n == "skyrelit" ? &skyRelit : n == "atmo" ? &atmo : n == "reflprobe" ? &reflProbe : n == "wxexpo" ? &wxExpo : n == "nightdark" ? &nightDark : n == "roomdark" ? &roomDark : n == "dustvis" ? &dustVis : n == "overcastsun" ? &overcastSun : n == "cutlamp" ? &cutLamp
               // ^ stream L (lighting): append to the line above
               : n == "specaa" ? &specAA : n == "texbias" ? &texBias : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps : n == "splitsum" ? &splitSum : n == "albclamp" ? &albClamp : n == "wabs" ? &wAbs : n == "wet" ? &wet : n == "microdetail" ? &microDetail : n == "wearcause" ? &wearCause : n == "steeptri" ? &steepTri : n == "absfar" ? &absFar : n == "layerblend" ? &layerBlend : n == "reach" ? &reach : n == "instvar" ? &instVar : n == "vmclassic" ? &vmClassic : n == "ssrclamp" ? &ssrClamp : n == "pudrelief" ? &pudRelief : n == "masklib" ? &maskLib : n == "roughvar" ? &roughVar
               // ^ stream M (materials): append to the line above
