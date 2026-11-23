@@ -528,7 +528,7 @@ void MpUi::setupWindow(App& app) {
       ImGui::TextDisabled("wins. Four storm circles close in; outside them you lose 1 / 2 / 4 / 8 health a second.");
       aiDifficultyCombo();
     } else if (rules.mode != GameMode::Assault) {
-      ImGui::SliderInt("Kill cap (wins the match)", &rules.killCap, 5, 150);
+      ImGui::Text("Kill cap (wins the match):"); ImGui::SameLine(); intField("##killcap", rules.killCap, 1, 100000);
       ImGui::SliderFloat("Respawn delay (s)", &rules.respawnDelay, 1, 15, "%.0f");
       ImGui::SliderInt("Frag grenades per life", &rules.fragPerLife, 0, 4);
       if (rules.mode != GameMode::Solo) ImGui::Checkbox("Friendly fire (bullets and blasts hurt your own team)", &rules.friendlyFire);
@@ -564,6 +564,11 @@ void MpUi::setupWindow(App& app) {
     // ---- column 3: sides and AI
     ImGui::TableNextColumn();
     ImGui::BeginChild("##c3", ImVec2(0, colH), 0, ImGuiWindowFlags_NoBackground);
+    if (rules.mode != GameMode::BattleRoyale && ImGui::Button("Reset units to default")) {   // every AI count and type back to a new match's
+      const ScenarioRules d; std::copy(&d.aiCount[0][0], &d.aiCount[0][0] + 2 * kAiTypeCount, &rules.aiCount[0][0]);
+      for (int t = 0; t < 2; ++t) { rules.aiTypes[t] = d.aiTypes[t]; rules.teamPlayers[t] = d.teamPlayers[t]; }
+      rules.soloPlayers = d.soloPlayers; rules.defenderSlots = d.defenderSlots; rules.attackerAI = d.attackerAI;
+    }
     if (rules.mode == GameMode::BattleRoyale) {
       ImGui::SeparatorText("PLAYERS");
       ImGui::Text("%d players: you and %d AI soldiers.", rules.royalePlayers, std::max(0, rules.royalePlayers - humansHere));

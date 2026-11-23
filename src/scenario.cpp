@@ -85,7 +85,7 @@ ScenarioRules ScenarioRules::fromJson(const json& j, int version) {
   { std::string m = j.value("mode", std::string("assault")); r.mode = m == "solo" ? GameMode::Solo : m == "tdm" ? GameMode::TDM : m == "royale" ? GameMode::BattleRoyale : m == "snd" ? GameMode::SearchDestroy : GameMode::Assault; }
   r.royalePlayers = std::clamp(j.value("royalePlayers", r.royalePlayers), 10, kMaxCombatants);
   r.lootModern = j.value("lootModern", r.lootModern);
-  r.killCap = std::clamp(j.value("killCap", r.killCap), 1, 999);
+  r.killCap = std::clamp(j.value("killCap", r.killCap), 1, 100000);
   r.soloPlayers = std::clamp(j.value("soloPlayers", r.soloPlayers), 2, kMaxCombatants);
   if (j.contains("teamPlayers") && j["teamPlayers"].is_array() && j["teamPlayers"].size() == 2)
     for (int t = 0; t < 2; ++t) r.teamPlayers[t] = std::clamp(j["teamPlayers"][t].get<int>(), 1, kMaxCombatants / 2);
